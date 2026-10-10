@@ -1337,9 +1337,18 @@ html.ui-theme-old #cloudsave-region-select {
   width: 100%;
 }
 
-#friend-requests-count {
+#friend-requests-count,
+#friends-count {
   font-size: 12px;
   opacity: 0.65;
+}
+
+#friends-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
 }
 
 #friend-requests-list {
@@ -4058,7 +4067,9 @@ html.ui-theme-old #journal-panel {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 8px 12px;
+  /* Pulled up toward the panel title (2026-10-10, "move that a bit higher
+     up closer to Welcome to GayZ"). */
+  padding: 0 12px 8px;
 }
 .auth-view {
   display: flex;
@@ -4087,42 +4098,42 @@ html.ui-theme-old #journal-panel {
   gap: 16px;
   margin-bottom: 4px;
 }
-/* Sign Up / Login / the Google buttons are wooden-sign planks (2026-10-10,
-   from Gaymi's "Continue with Google" picture): light parchment with burnt
-   edges and four rivets in Old, dark with a gold rim in Golden. The plank
-   is a 9-slice border-image so the rivets stay round at any width. Hover
-   only brightens - no underline. Not all upper case. */
+/* Sign Up / Login / the Google buttons are a simple oval around the words
+   in the theme's colors (2026-10-10, "just a simple oval shape around the
+   word with the gayz style colour"): gold rim on a dark fill in Golden,
+   brown ink rim on a light paper fill in Old. Hover only brightens - no
+   underline. Not all upper case. */
 .auth-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
-  min-width: 190px;
-  padding: 2px 22px;
+  gap: 12px;
+  min-width: 170px;
+  padding: 10px 30px;
   font-family: var(--menu-display-font, 'Bebas Neue', sans-serif);
-  font-size: 22px;
+  font-size: 21px;
   font-weight: 400;
   letter-spacing: 0.5px;
   line-height: 1.2;
   text-transform: none;
   color: var(--ui-gold-bright, #f0c868);
-  background: none;
-  border: 16px solid transparent;
-  border-image: url('./menu-art/gold-plank.svg') 18 fill / 16px stretch;
-  border-radius: 0;
+  background: rgba(0, 0, 0, 0.45);
+  border: 2px solid var(--ui-gold-bright, #f0c868);
+  border-radius: 999px;
   cursor: pointer;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
   transition: filter 0.15s ease, transform 0.15s ease;
 }
-.auth-btn:hover {
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45)) brightness(1.18);
+.auth-btn:hover,
+.auth-btn:focus-visible {
+  filter: brightness(1.25);
+  outline: none;
 }
 .auth-btn:active { transform: translateY(1px); }
 .auth-buttons { gap: 18px; }
-.auth-google { min-width: min(100%, 380px); margin: 4px 0; }
+.auth-google { min-width: min(100%, 340px); margin: 4px 0; }
 .auth-google-g {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   flex: none;
   padding: 4px;
   background: #fff;
@@ -4164,7 +4175,8 @@ html.ui-theme-old .auth-back { opacity: 0.82; }
 html.ui-theme-old .auth-link { color: #5a3410 !important; font-weight: 600; }
 html.ui-theme-old .auth-btn {
   color: #3a1f0a !important;
-  border-image-source: url('./menu-art/old-plank.svg');
+  background: rgba(255, 244, 220, 0.45);
+  border-color: #5a3410;
 }
 
 /* Wraps every existing piece of profile content so it can be toggled as
@@ -7545,9 +7557,13 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.3px;
-  text-decoration: underline;
-  text-decoration-color: rgba(216, 220, 210, 0.35);
-  text-underline-offset: 3px;
+  /* No line under them, can't be selected/copied, no focus ring - just
+     words that get brighter (2026-10-10, "just make them clickable not
+     copyable ... i still see the line under them"). */
+  text-decoration: none;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
   color: #d8dcd2;
   background: none;
   border: none;
@@ -7577,7 +7593,9 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
 /* Hover only brightens - no gold line (2026-10-10, "dont make a line pop
    up only make it brighter"). */
 #menu-links-row button:hover,
-#menu-links-row a:hover {
+#menu-links-row a:hover,
+#menu-links-row button:focus-visible,
+#menu-links-row a:focus-visible {
   color: #fff;
   text-shadow: 0 0 8px rgba(255, 255, 255, 0.55);
 }
@@ -10789,6 +10807,42 @@ body.build-mode-on #chat-panel {
   pointer-events: none;
 }
 
+/* Old theme Inspect: the same torn paper as the Old panels, dark ink, the
+   ink-brown X (2026-10-10, "make it based on style for the background").
+   Golden keeps the dark/gold box above. */
+html.ui-theme-old #inspect-box {
+  padding: 5.5% 6.5% 6%;
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.6));
+  overflow: visible;
+}
+html.ui-theme-old #inspect-header {
+  background: none;
+  border-bottom: 1px solid rgba(74, 44, 16, 0.35);
+}
+html.ui-theme-old #inspect-title {
+  color: var(--old-ink, #2e1d0e);
+  font-family: 'Rye', Georgia, serif;
+  font-weight: 400;
+}
+html.ui-theme-old #inspect-close {
+  background: none;
+  color: #4a2c10;
+}
+html.ui-theme-old #inspect-stage {
+  background: radial-gradient(ellipse at center, rgba(120, 80, 40, 0.16), rgba(0, 0, 0, 0) 70%);
+}
+html.ui-theme-old #inspect-count {
+  background: rgba(74, 44, 16, 0.75);
+  color: #f3e3c2;
+}
+html.ui-theme-old #inspect-hint {
+  color: rgba(46, 29, 14, 0.7);
+}
+
 #build-mode-try-btn svg { color: #7fd88f !important; }
 
 /* Try Map's crosshair, a small + in the middle of the screen (2026-10-10,
@@ -11406,6 +11460,7 @@ html.ui-theme-old #gallery-coming-icon {
   width: 100%;
   height: 100%;
   pointer-events: none;
+  mix-blend-mode: screen;
 }
 
 /* Global panel servers (ServerBrowser.js, 2026-10-10, like Kirka's): the
@@ -11444,6 +11499,16 @@ html.ui-theme-old #server-panel-columns {
 html.ui-theme-old #server-panel-columns #server-chat-wrap {
   background: rgba(60, 40, 20, 0.08);
   border-color: rgba(90, 60, 30, 0.35);
+}
+/* The chat box ends higher than the server list - its top stays put, its
+   bottom (message box, emoji, Send) moves up (2026-10-10, "move the
+   message, emoji and send higher and the rectangle bottom part higher"). */
+#server-panel-columns #server-chat-wrap {
+  height: auto;
+  margin-bottom: 24px;
+}
+html.ui-theme-old #server-panel-columns #server-chat-wrap {
+  margin-bottom: 56px;
 }
 #server-chat-heading {
   margin: 0;
@@ -11560,4 +11625,26 @@ html.ui-theme-old .server-row {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   }
+}
+
+/* Buttons are for clicking, not for selecting their words (2026-10-10). */
+button {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Play's fade to black while Map 1 loads (Game._fadeScreen, 2026-10-10).
+   Above everything, never catches clicks. */
+#play-fade {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.45s ease;
+}
+#play-fade.on {
+  opacity: 1;
 }

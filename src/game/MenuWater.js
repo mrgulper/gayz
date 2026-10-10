@@ -1,12 +1,15 @@
 // Moving water on the homepage road (2026-10-09, Gaymi: "can we also make
 // the water on the road actually moving"). A canvas inside #menu-bg-photo
 // (so it shares the photo's slow zoom/pan and the background mood filter)
-// that redraws only the street of the photo, a thin row at a time, each
-// row nudged sideways by waves that travel down the road toward the
-// viewer - the wet cobbles and the lamp reflections ripple and flow like a
-// film of water. Clipped to the street (FLOOR in MenuRain.js, the same
-// shape the rain lands on), calm far up the road and stronger near the
-// bottom, and a little stronger while it's raining hard
+// laid over the street with `mix-blend-mode: screen`. Only the water moves,
+// never the road (2026-10-10, "the road is moving, just make the water
+// move"): the photo itself stays still, and this canvas draws a soft,
+// blurred copy of just the wet reflections (the bright sheen - the cobble
+// edges are blurred away, so no stone ever shifts), a thin row at a time,
+// each row nudged sideways and brightened by waves that travel down the
+// road toward the viewer. Clipped to the street (FLOOR in MenuRain.js, the
+// same shape the rain lands on), calm far up the road and stronger near
+// the bottom, a little stronger while it's raining hard
 // (rainState.intensity). The picture is whatever the photo's own CSS
 // background is, so it follows the theme. Same rules as the rain: only
 // draws while the homepage is on screen and the tab is visible, nothing
@@ -17,8 +20,8 @@ import { FLOOR, pictureBox, rainState } from './MenuRain.js'
 // smooth, big enough to keep the draw calls down.
 const ROW_PX = 2
 // Sideways sway (CSS px) far up the road and at the very bottom.
-const SWAY_FAR = 0.15
-const SWAY_NEAR = 2.4
+const SWAY_FAR = 0.4
+const SWAY_NEAR = 5
 // Extra sway in a downpour (times the above).
 const SWAY_RAIN = 0.6
 // How fast the waves run down the road (radians/s) and how close together
@@ -26,6 +29,14 @@ const SWAY_RAIN = 0.6
 const FLOW_SPEED = 2.4
 const WAVE_FREQ = 0.075
 const MAX_PIXEL_RATIO = 1.5
+// The reflections layer: blur (image px) that wipes out the cobble edges,
+// the brightness range that counts as wet sheen, and how strongly the
+// moving copy shows (calm / on a wave crest).
+const SHEEN_BLUR = 5
+const SHEEN_LOW = 0.3
+const SHEEN_HIGH = 0.75
+const SHEEN_ALPHA = 0.18
+const SHEEN_CREST = 0.5
 // How often to check whether the theme changed the photo.
 const SOURCE_CHECK_MS = 1000
 
@@ -53,9 +64,32 @@ export function startMenuWater(canvas) {
     if (!url) return
     const next = new Image()
     next.onload = () => {
-      if (imgUrl === url) img = next
+      if (imgUrl === url) img = makeSheen(next)
     }
     next.src = url
+  }
+
+  // A blurred copy of the photo that keeps only its bright, wet parts
+  // (alpha from brightness), so moving it moves the water's shine and
+  // nothing else.
+  function makeSheen(src) {
+    const c = document.createElement('canvas')
+    c.width = src.naturalWidth
+    c.height = src.naturalHeight
+    const g = c.getContext('2d', { willReadFrequently: true })
+    if (!g) return null
+    g.filter = `blur(${SHEEN_BLUR}px)`
+    g.drawImage(src, 0, 0)
+    g.filter = 'none'
+    const data = g.getImageData(0, 0, c.width, c.height)
+    const px = data.data
+    for (let i = 0; i < px.length; i += 4) {
+      const lum = (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255
+      const k = Math.min(1, Math.max(0, (lum - SHEEN_LOW) / (SHEEN_HIGH - SHEEN_LOW)))
+      px[i + 3] = Math.round(255 * k * k * (3 - 2 * k))
+    }
+    g.putImageData(data, 0, 0)
+    return c
   }
 
   function resize() {
@@ -81,7 +115,7 @@ export function startMenuWater(canvas) {
     const farR = box.x + FLOOR.right * box.w
     const t = now / 1000
     const rain = 1 + SWAY_RAIN * rainState.intensity
-    const scale = img.naturalHeight / box.h
+    const scale = img.height / box.h
 
     ctx.clearRect(0, 0, w, h)
     ctx.save()
@@ -102,8 +136,9 @@ export function startMenuWater(canvas) {
       const phase = (y - horizonY) * WAVE_FREQ / (0.25 + depth) - t * FLOW_SPEED
       const sway = (SWAY_FAR + (SWAY_NEAR - SWAY_FAR) * depth * depth) * rain
       const dx = sway * (Math.sin(phase) + 0.45 * Math.sin(phase * 2.3 + t * 1.3 + y * 0.013))
+      ctx.globalAlpha = SHEEN_ALPHA + (SHEEN_CREST - SHEEN_ALPHA) * (0.5 + 0.5 * Math.sin(phase)) * Math.min(1, depth * 2)
       const sy = (y - box.y) * scale
-      ctx.drawImage(img, 0, sy, img.naturalWidth, ROW_PX * scale, box.x + dx, y, box.w, ROW_PX)
+      ctx.drawImage(img, 0, sy, img.width, ROW_PX * scale, box.x + dx, y, box.w, ROW_PX)
     }
     ctx.restore()
   }

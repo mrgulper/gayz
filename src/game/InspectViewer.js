@@ -1,6 +1,7 @@
 // Inventory's Inspect window (Kirka-style): one item shown big in 3D -
-// drag to turn it any way, scroll (or pinch) to zoom, and it slowly spins
-// on its own while nobody is touching it. Its own small renderer on its
+// drag to turn it any way, scroll (or pinch) to zoom. It stays still when
+// nobody is touching it (2026-10-10, "dont make the thing they inspect spin
+// after not clicking it for a while"). Its own small renderer on its
 // own canvas, created when the window opens and fully disposed (context
 // released) when it closes, so it never holds a WebGL context or fights
 // the game's renderer while it isn't on screen.
@@ -11,7 +12,6 @@
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
-const IDLE_SPIN_SPEED = 0.45 // radians per second
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 2.2
 
@@ -45,9 +45,7 @@ export class InspectViewer {
     this._fitDistance = 5
     this._zoom = 1
     this._dragging = false
-    this._lastInput = 0
     this._raf = null
-    this._last = 0
     this._onResize = () => this._resize()
     window.addEventListener('resize', this._onResize)
     this._bindInput()
@@ -89,13 +87,11 @@ export class InspectViewer {
     const center = box.getCenter(new THREE.Vector3())
     object.position.sub(center)
     this.pivot.add(object)
-    // Framed by its height, and by its widest extent while spinning
+    // Framed by its height, and by its widest extent when turned
     // around the vertical axis (so a long gun fills the wide window).
     const size = box.getSize(new THREE.Vector3())
     this._halfY = size.y / 2
     this._radiusXZ = Math.hypot(size.x, size.z) / 2
-    // Opens at the starting angle; the idle spin waits a moment.
-    this._lastInput = performance.now()
     this._resize()
   }
 
@@ -121,7 +117,6 @@ export class InspectViewer {
       const dx = e.clientX - prev.x
       const dy = e.clientY - prev.y
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
-      this._lastInput = performance.now()
       if (pointers.size === 2) {
         const [a, b] = [...pointers.values()]
         const dist = Math.hypot(a.x - b.x, a.y - b.y)
@@ -139,7 +134,6 @@ export class InspectViewer {
     c.addEventListener('pointercancel', up)
     c.addEventListener('wheel', (e) => {
       e.preventDefault()
-      this._lastInput = performance.now()
       this._setZoom(this._zoom * Math.exp(-e.deltaY * 0.0015))
     }, { passive: false })
   }
@@ -171,16 +165,8 @@ export class InspectViewer {
 
   start() {
     if (this._raf) return
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    this._last = performance.now()
-    const loop = (now) => {
+    const loop = () => {
       this._raf = requestAnimationFrame(loop)
-      const dt = Math.min((now - this._last) / 1000, 0.1)
-      this._last = now
-      // Resumes spinning a moment after the player lets go.
-      if (!this._dragging && !reduceMotion && now - this._lastInput > 1500) {
-        this.pivot.rotation.y += IDLE_SPIN_SPEED * dt
-      }
       this.renderer.render(this.scene, this.camera)
     }
     this._raf = requestAnimationFrame(loop)

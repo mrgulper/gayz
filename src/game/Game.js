@@ -1551,6 +1551,9 @@ export function _formatRelativeTime(ms) {
 // Manually escaping quotes after the round-trip (both " and ' - some call
 // sites use single-quoted attributes) closes this for every call site at
 // once rather than patching each one.
+// How long Play's fade to and from black takes (ms) - see _fadeScreen.
+const PLAY_FADE_MS = 450
+
 export function _escapeHtml(str) {
   const div = document.createElement('div')
   div.textContent = str
@@ -4044,7 +4047,7 @@ export class Game {
         this.statusPicker.classList.remove('open')
       }
     })
-    if (this.friendsSigninBtn) this.friendsSigninBtn.addEventListener('click', () => this._handleCloudSignIn())
+    if (this.friendsSigninBtn) this.friendsSigninBtn.addEventListener('click', () => this._openProfilePanel())
     if (this.menuInventoryBtn) this.menuInventoryBtn.addEventListener('click', () => trackAndOpen(() => this._openMenuInventoryPanel()))
     if (this.serverBtn) this.serverBtn.addEventListener('click', () => trackAndOpen(() => this._openServerPanel()))
     this.achievementsBtn.addEventListener('click', () => trackAndOpen(() => this._openAchievementsPanel()))
@@ -5427,9 +5430,16 @@ export class Game {
   // a live presence status (see _fetchFriendPresences/_computeFriendStatus)
   // fetched right after the list itself renders, since the status read is
   // its own async Firestore call per friend, not part of settings.
+  // "Your Friends (#)", like Friend Requests' count (2026-10-10).
+  _renderFriendsCount() {
+    const count = document.getElementById('friends-count')
+    if (count) count.textContent = t('friendRequestsCount', { n: this.settings.savedFriends.length })
+  }
+
   _renderSavedFriends() {
     if (!this.cloudsaveSavedFriends) return
     const friends = this.settings.savedFriends
+    this._renderFriendsCount()
     this.cloudsaveSavedFriends.innerHTML = friends.map((f) => `
       <div class="saved-friend-row" data-uid="${_escapeHtml(f.uid || '')}" data-name="${_escapeHtml(f.name)}" title="Click to view profile">
         <span class="friend-status-dot" data-status="offline"></span>
@@ -5781,8 +5791,27 @@ export class Game {
       return
     }
     this._showFriendSuggestions([])
-    await CloudSync.sendFriendRequest(entry.uid, this._cloudUid, this.settings.nickname || t('cloudsaveFriendNotFound'))
-    this.cloudsaveFriendResult.textContent = t('friendRequestSent', { name: entry.name || entry.playerId || '' })
+    const name = entry.name || entry.playerId || ''
+    if (this.settings.savedFriends.some((f) => f.uid === entry.uid)) {
+      this.cloudsaveFriendResult.textContent = t('friendAlreadyFriend', { name })
+      return
+    }
+    try {
+      // The rules allow 1-16 characters (create-only, see friendRequests in
+      // FIRESTORE_SECURITY_RULES).
+      const from = String(this.settings.nickname || 'Player').slice(0, 16)
+      await CloudSync.sendFriendRequest(entry.uid, this._cloudUid, from)
+    } catch (e) {
+      // A request is create-only: sending one again while the first is
+      // still waiting is refused. Say so instead of "Cloud Save ran into a
+      // problem" (2026-10-10 report).
+      if (e?.code === 'permission-denied') {
+        this.cloudsaveFriendResult.textContent = t('friendRequestAlreadySent', { name })
+        return
+      }
+      throw e
+    }
+    this.cloudsaveFriendResult.textContent = t('friendRequestSent', { name })
   }
 
   // Players whose name starts with the typed text, shown as a pick list
@@ -6711,14 +6740,23 @@ export class Game {
     // make it loading game just load the game"): the homepage stays up
     // while the code loads (already fetched in the background, see
     // _preloadBuildMode) and is hidden in the same frame the map appears.
-    if (typeof this.buildMode.enter !== 'function') {
-      this._enteringBuildMode = true
-      try {
+    // Play fades the screen to black first and does the heavy part (the
+    // code, building Map 1) while it's dark, then fades back in on the map
+    // - a smooth fade instead of the homepage freezing for a moment
+    // (2026-10-10, "make it just slowly fade when it's loading instead of
+    // making the page lag").
+    this._enteringBuildMode = true
+    try {
+      if (play) await this._fadeScreen(1)
+      if (typeof this.buildMode.enter !== 'function') {
         const { BuildMode } = await this._preloadBuildMode()
         this.buildMode = new BuildMode(this.renderer, this)
-      } finally {
-        this._enteringBuildMode = false
       }
+    } catch (e) {
+      if (play) this._fadeScreen(0)
+      throw e
+    } finally {
+      this._enteringBuildMode = false
     }
     // Every other nav button routes through trackAndOpen/_open*Panel(),
     // which calls _closeAllMenuPanels() first (see that function's own
@@ -6806,6 +6844,7 @@ export class Game {
     this.buildMode.enter({ slot })
     if (play) this.buildMode.survival.start({ fromMenu: true, net: server ? new PlayNet(this, server) : null })
     this._applyRenderScale()
+    if (play) this._fadeScreen(0)
     // A boss bar left over from a run would otherwise sit over the editor.
     // FPS readout in the top-left corner (the save slot buttons moved into
     // the Escape menu), shown whenever the gameplay one would be.
@@ -6817,6 +6856,35 @@ export class Game {
     this._fpsLastUpdate = performance.now()
     // Opening the editor builds every chunk - don't judge fps on that.
     this._editorResHoldUntil = performance.now() + 2000
+  }
+
+  // Fades #play-fade (a black cover over everything) in (1) or out (0).
+  // Resolves once the fade has finished and the screen has painted, so
+  // work done after `await this._fadeScreen(1)` happens behind black. Fading
+  // out waits two frames first, so the map's first frame is already drawn.
+  async _fadeScreen(to) {
+    let el = document.getElementById('play-fade')
+    if (!el) {
+      el = document.createElement('div')
+      el.id = 'play-fade'
+      document.body.appendChild(el)
+    }
+    const frame = () => new Promise((r) => requestAnimationFrame(() => r()))
+    if (to) {
+      el.style.display = 'block'
+      void el.offsetWidth
+      el.classList.add('on')
+      await new Promise((r) => setTimeout(r, PLAY_FADE_MS))
+      await frame()
+      await frame()
+      return
+    }
+    await frame()
+    await frame()
+    el.classList.remove('on')
+    setTimeout(() => {
+      if (!el.classList.contains('on')) el.style.display = 'none'
+    }, PLAY_FADE_MS)
   }
 
   // The run settings for a Map 1 run from the homepage: Game Mode's
@@ -7583,10 +7651,10 @@ export class Game {
     this._updateFaviconQuestBadge()
   }
 
-  // Favicon Quest Badge - draws the real favicon.svg onto an offscreen
+  // Favicon Quest Badge - draws the real tab icon (favicon-64.png) onto an offscreen
   // canvas plus a small red count badge (capped display at "9+") when
   // quests are complete but not yet claimed, then swaps the <link
-  // rel="icon"> href to the resulting data URL. Same-origin SVG, so the
+  // rel="icon"> href to the resulting data URL. Same-origin PNG, so the
   // canvas is never tainted and toDataURL works normally. No-ops (leaves
   // the plain icon alone) if canvas/SVG loading ever fails - a badge that
   // silently doesn't appear is fine, a thrown error breaking the menu
@@ -7783,6 +7851,7 @@ export class Game {
     // though the account was still actually signed in.
     CloudSaveUI.renderCloudSaveState(this)
     this._renderFriendRequests()
+    this._renderFriendsCount()
     this._renderStatusPicker()
     if (this.friendsOwnId) this.friendsOwnId.textContent = this.settings.playerId ? `#${this.settings.playerId}` : ''
     this._markFriendAcceptedSeen()
@@ -8565,7 +8634,7 @@ export class Game {
     if (navPrivacyEl) navPrivacyEl.querySelector('span').textContent = t('creditsPrivacyLink')
     if (this.friendsBtn) this.friendsBtn.querySelector('span').textContent = t('friendsBtn')
     if (this.friendsSignedOutDesc) this.friendsSignedOutDesc.textContent = t('friendsSignedOutDesc')
-    if (this.friendsSigninBtn) this.friendsSigninBtn.textContent = t('cloudsaveSigninBtn')
+    if (this.friendsSigninBtn) this.friendsSigninBtn.textContent = t('signUpOrLoginBtn')
     if (this.menuInventoryBtn) this.menuInventoryBtn.querySelector('span').textContent = t('menuInventoryBtn')
     if (this.serverBtn) this.serverBtn.querySelector('span').textContent = t('serverBtn')
 

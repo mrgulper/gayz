@@ -128,3 +128,32 @@ test('signed-out Profile shows Sign Up or Login', async ({ page }) => {
   expect(r.signIns).toBe(2)
   expect(r.reset).toBe(true)
 })
+
+// Every "Sign Up or Login" button (Friend List, Global chat, Cloud Save)
+// opens the Welcome to GayZ page instead of Google's popup directly
+// (2026-10-10), and a friend list shows its count.
+test('sign-in buttons go to the Welcome page; friend count shows', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    let popups = 0
+    g._handleCloudSignIn = () => { popups++ }
+    const out = {}
+    for (const id of ['friends-signin-btn', 'server-chat-signin-btn', 'cloudsave-signin-btn']) {
+      document.getElementById(id).click()
+      await new Promise((res) => setTimeout(res, 50))
+      out[id] = [getComputedStyle(document.getElementById('profile-panel')).display, document.getElementById('profile-panel-title').textContent]
+      g._closeAllMenuPanels()
+    }
+    out.popups = popups
+    g.settings.savedFriends = [{ name: 'A', uid: 'a' }, { name: 'B', uid: 'b' }, { name: 'C', uid: 'c' }]
+    g._renderFriendsCount()
+    out.count = document.getElementById('friends-count').textContent
+    return out
+  })
+  for (const id of ['friends-signin-btn', 'server-chat-signin-btn', 'cloudsave-signin-btn']) {
+    expect(r[id]).toEqual(['flex', 'Welcome to GayZ'])
+  }
+  expect(r.popups).toBe(0)
+  expect(r.count).toBe('(3)')
+})

@@ -143,7 +143,7 @@ export function renderCloudSaveState(game) {
     game.cloudsaveSignedOutDesc.textContent = t('cloudsaveSignedOutDesc')
   }
   if (game.cloudsaveSigninBtn) {
-    game.cloudsaveSigninBtn.textContent = t('cloudsaveSigninBtn')
+    game.cloudsaveSigninBtn.textContent = t('signUpOrLoginBtn')
     game.cloudsaveSigninBtn.disabled = !CloudSync.isConfigured()
   }
   // Friends panel - Add Friend / Friend Requests (see Game.js's
@@ -510,7 +510,7 @@ export function bindCloudSave(game) {
       if (e.target === game.cloudsavePanel) closeCloudSavePanel(game)
     })
   }
-  if (game.cloudsaveSigninBtn) game.cloudsaveSigninBtn.addEventListener('click', () => game._handleCloudSignIn())
+  if (game.cloudsaveSigninBtn) game.cloudsaveSigninBtn.addEventListener('click', () => game._openProfilePanel())
   if (game.cloudsaveSignoutBtn) game.cloudsaveSignoutBtn.addEventListener('click', () => handleCloudSignOut(game))
   if (game.cloudsaveSyncNowBtn) game.cloudsaveSyncNowBtn.addEventListener('click', () => pushToCloud(game, true))
   if (game.cloudsaveUseCloudBtn) game.cloudsaveUseCloudBtn.addEventListener('click', () => resolveCloudConflict(game, 'cloud'))

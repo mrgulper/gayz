@@ -156,7 +156,6 @@
      is too small looks weird") - inside GayZ's panel the page is often
      under 860px wide, which used to stack them. The character stays in
      view (sticky) while the tools scroll beside it. */
-  @media (max-width: 600px) { main { flex-direction: column; } .stage { position: static; align-self: stretch; } .editor { max-width: none; } }
 
   .toolbar {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -313,6 +312,12 @@
   .export-actions { display: flex; gap: 8px; }
 
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* Stacked: the character box keeps its own height (flex: none) - with
+     flex: 1.15 in a column it got squashed shorter than its contents, so
+     the tools below ran over the 3D preview (2026-10-10 report). Kept near
+     the end of the stylesheet: above the base .stage rule it lost, the
+     preview stayed sticky and the tools scrolled over it. */
+  @media (max-width: 600px) { main { flex-direction: column; } .stage { position: static; align-self: stretch; flex: none; height: min(62vh, 520px); min-height: 300px; } .editor { flex: none; max-width: none; } }
   /* Phone-sized, e.g. GayZ's Design a Skin popup (~290px wide) - the
      editor column's 320px floor and the buttons' 120px floor pushed the
      page wider than the screen, cutting off its right side. Kept last in
