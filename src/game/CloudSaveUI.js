@@ -533,6 +533,24 @@ export function bindCloudSave(game) {
   if (game.cloudsaveFriendInput) {
     game.cloudsaveFriendInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') game._sendFriendRequestClick()
+      if (e.key === 'Escape') game._showFriendSuggestions([])
+    })
+    // Typing a name shows everyone whose name starts with it.
+    let searchTimer = null
+    game.cloudsaveFriendInput.addEventListener('input', () => {
+      clearTimeout(searchTimer)
+      searchTimer = setTimeout(() => game._searchFriendNames(game.cloudsaveFriendInput.value), 300)
+    })
+  }
+  if (game.cloudsaveFriendSuggestions) {
+    game.cloudsaveFriendSuggestions.addEventListener('click', (e) => {
+      const row = e.target.closest('.friend-suggest-row')
+      const entry = row && game._friendSuggestions?.[Number(row.dataset.index)]
+      if (!entry) return
+      game._sendFriendRequestTo(entry).catch(() => { game.cloudsaveFriendResult.textContent = t('cloudsaveError') })
+    })
+    document.addEventListener('pointerdown', (e) => {
+      if (!e.target.closest('#cloudsave-friend-row, #cloudsave-friend-suggestions')) game._showFriendSuggestions([])
     })
   }
   // Applies a chosen avatar preset immediately even if Cloud Save isn't

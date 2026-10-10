@@ -351,8 +351,9 @@ function loadSettings() {
       // already writes the new shape anyway, see _respondToFriendRequest)
       // and every mutator id ever toggled on at least once (backs the
       // "you haven't tried X yet" spotlight nudge).
+      // No limit on how many friends (2026-10-10 - it used to keep 5).
       savedFriends: Array.isArray(parsed.savedFriends)
-        ? parsed.savedFriends.slice(0, 5).map((f) => (typeof f === 'string' ? { name: f, uid: null } : f))
+        ? parsed.savedFriends.map((f) => (typeof f === 'string' ? { name: f, uid: null } : f))
         : [],
       // Presence status the player picks in the Friends panel - one of
       // 'online'/'idle'/'dnd'/'offline' (see _computeFriendStatus).
@@ -1284,7 +1285,8 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'hub-tab-parkour': 'hubTabParkour',
   'hub-parkour-soon-label': 'hubParkourSoon',
   'hub-tab-custom': 'hubTabCustom',
-  'server-tab-main': 'serverTabMain',
+  'server-tab-main': 'hubTabSurvival',
+  'server-tab-deathmatch': 'hubTabDeathmatch',
   'server-tab-parkour': 'hubTabParkour',
   'server-tab-custom': 'hubTabCustom',
   'server-create-btn': 'serverCreateBtn',
@@ -1300,6 +1302,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'quest-tab-yearly': 'questTabYearly',
   'quest-tab-lifetime': 'questTabLifetime',
   'monthly-quests-placeholder': 'monthlyQuestsPlaceholder',
+  'lifetime-quests-placeholder': 'monthlyQuestsPlaceholder',
   'yearly-quests-placeholder': 'yearlyQuestsPlaceholder',
   'share-setup-btn': 'shareSetupBtn',
   'share-profile-btn': 'shareProfileBtn',
@@ -2005,6 +2008,7 @@ export class Game {
     this.addFriendHeading = document.getElementById('add-friend-heading')
     this.cloudsaveFriendInput = document.getElementById('cloudsave-friend-input')
     this.cloudsaveFriendResult = document.getElementById('cloudsave-friend-result')
+    this.cloudsaveFriendSuggestions = document.getElementById('cloudsave-friend-suggestions')
     this.cloudsavePollTitle = document.getElementById('cloudsave-poll-title')
     this.cloudsavePollOptions = document.getElementById('cloudsave-poll-options')
     this.cloudsavePollHint = document.getElementById('cloudsave-poll-hint')
@@ -2569,6 +2573,9 @@ export class Game {
     this.inventoryTabTheme = document.getElementById('inventory-tab-theme')
     this.inventorySkinsList = document.getElementById('inventory-skins-list')
     this.invSkinSearch = document.getElementById('inv-skin-search')
+    this.invRarityFilterBtn = document.getElementById('inv-rarity-filter-btn')
+    this.invRarityFilterMenu = document.getElementById('inv-rarity-filter-menu')
+    this._invRarity = 'all'
     this.invSkinMenu = document.getElementById('inv-skin-menu')
     this.invSkinMenuEquip = document.getElementById('inv-skin-menu-equip')
     this.invSkinMenuInspect = document.getElementById('inv-skin-menu-inspect')
@@ -3267,6 +3274,20 @@ export class Game {
       document.addEventListener('click', () => this._closeInventorySkinMenu())
     }
     if (this.invSkinSearch) this.invSkinSearch.addEventListener('input', () => this._renderInventorySkins())
+    if (this.invRarityFilterBtn && this.invRarityFilterMenu) {
+      this.invRarityFilterBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        this._toggleMarketFilterMenu(this.invRarityFilterBtn, this.invRarityFilterMenu)
+      })
+      this.invRarityFilterMenu.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const opt = e.target.closest('[data-market-rarity]')
+        if (!opt) return
+        this._invRarity = opt.dataset.marketRarity
+        this._closeMarketFilterMenus()
+        this._renderInventorySkins()
+      })
+    }
     this.shopMarketGrid?.addEventListener('click', (e) => {
       const card = e.target.closest('[data-market-listing]')
       if (!card || !Array.isArray(this._marketListings)) return
@@ -5374,7 +5395,7 @@ export class Game {
     this.cloudsaveSavedFriends.innerHTML = friends.map((f) => `
       <div class="saved-friend-row" data-uid="${_escapeHtml(f.uid || '')}" data-name="${_escapeHtml(f.name)}" title="Click to view profile">
         <span class="friend-status-dot" data-status="offline"></span>
-        <span class="friend-name">${_escapeHtml(f.name)}</span>
+        <span class="friend-name">${_escapeHtml(f.name)}${f.playerId ? ` <span class="friend-id">#${_escapeHtml(f.playerId)}</span>` : ''}</span>
         <span class="friend-status-label">${t('friendStatusOffline')}</span>
         <span class="saved-friend-remove" data-remove="${_escapeHtml(f.name)}">×</span>
       </div>
@@ -5617,8 +5638,23 @@ export class Game {
     if (!CloudSync.isConfigured() || !this.cloudsaveSavedFriends) return
     const rows = this.cloudsaveSavedFriends.querySelectorAll('.saved-friend-row')
     if (!this._lastFriendStatuses) this._lastFriendStatuses = {}
+    let learnedIds = false
     await Promise.all(friends.map(async (f, i) => {
       if (!f.uid) return
+      // Friends added before IDs were shown get theirs looked up once.
+      if (!f.playerId) {
+        try {
+          const entry = await CloudSync.fetchLeaderboardEntryByUid(f.uid)
+          if (entry && typeof entry.playerId === 'string') {
+            f.playerId = entry.playerId
+            learnedIds = true
+            const nameEl = rows[i]?.querySelector('.friend-name')
+            if (nameEl) nameEl.innerHTML = `${_escapeHtml(f.name)} <span class="friend-id">#${_escapeHtml(f.playerId)}</span>`
+          }
+        } catch {
+          // Best-effort - the row just shows no ID.
+        }
+      }
       try {
         const presence = await CloudSync.fetchPresence(f.uid)
         const status = this._computeFriendStatus(presence)
@@ -5651,6 +5687,7 @@ export class Game {
         // Best-effort - stays "Offline" default on a failed read.
       }
     }))
+    if (learnedIds) saveSettings(this.settings)
   }
 
   // Online: heartbeat seen in the last 2 min. Idle: seen more than 2 but
@@ -5667,14 +5704,17 @@ export class Game {
     return elapsed < FRIEND_ONLINE_THRESHOLD_MS ? 'online' : 'idle'
   }
 
-  // Send Friend Request - looked up by the recipient's stable random
-  // playerId (see CloudSync.fetchLeaderboardEntryByPlayerId) rather than
-  // their nickname, since a nickname can change/collide and an ID can't.
-  // Requires being signed in, same gate the rest of this panel already has.
+  // Send Friend Request - by the recipient's stable random playerId (see
+  // CloudSync.fetchLeaderboardEntryByPlayerId), or by name (2026-10-10):
+  // typing shows a list of players whose name starts with it
+  // (_searchFriendNames), and Add Friend with a name sends straight away
+  // when exactly one player has that name, otherwise opens the list to pick
+  // from. Requires being signed in, same gate the rest of this panel has.
   async _sendFriendRequestClick() {
     if (!this.cloudsaveFriendInput || !this.cloudsaveFriendResult || !this._cloudUid) return
-    const id = this.cloudsaveFriendInput.value.trim().toUpperCase()
-    if (!id) return
+    const text = this.cloudsaveFriendInput.value.trim().replace(/^#/, '')
+    if (!text) return
+    const id = text.toUpperCase()
     if (id === this.settings.playerId) {
       this.cloudsaveFriendResult.textContent = t('friendRequestSelfError')
       return
@@ -5682,15 +5722,63 @@ export class Game {
     this.cloudsaveFriendResult.textContent = t('cloudsaveConnecting')
     try {
       const entry = await CloudSync.fetchLeaderboardEntryByPlayerId(id)
-      if (!entry || !entry.uid) {
-        this.cloudsaveFriendResult.textContent = t('cloudsaveFriendNotFound')
+      if (entry && entry.uid) {
+        await this._sendFriendRequestTo(entry)
         return
       }
-      await CloudSync.sendFriendRequest(entry.uid, this._cloudUid, this.settings.nickname || t('cloudsaveFriendNotFound'))
-      this.cloudsaveFriendResult.textContent = t('friendRequestSent', { name: entry.name || id })
+      const matches = await this._searchFriendNames(text)
+      const exact = matches.filter((m) => String(m.name || '').toLowerCase() === text.toLowerCase())
+      if (exact.length === 1) await this._sendFriendRequestTo(exact[0])
+      else if (matches.length) this.cloudsaveFriendResult.textContent = t('friendSearchPick')
+      else this.cloudsaveFriendResult.textContent = t('cloudsaveFriendNotFound')
     } catch {
       this.cloudsaveFriendResult.textContent = t('cloudsaveError')
     }
+  }
+
+  async _sendFriendRequestTo(entry) {
+    if (!entry?.uid || !this._cloudUid) return
+    if (entry.uid === this._cloudUid) {
+      this.cloudsaveFriendResult.textContent = t('friendRequestSelfError')
+      return
+    }
+    this._showFriendSuggestions([])
+    await CloudSync.sendFriendRequest(entry.uid, this._cloudUid, this.settings.nickname || t('cloudsaveFriendNotFound'))
+    this.cloudsaveFriendResult.textContent = t('friendRequestSent', { name: entry.name || entry.playerId || '' })
+  }
+
+  // Players whose name starts with the typed text, shown as a pick list
+  // under the box (name + #ID, yourself left out). Returns the matches.
+  async _searchFriendNames(text) {
+    const query = String(text || '').trim().replace(/^#/, '')
+    const seq = (this._friendSearchSeq = (this._friendSearchSeq || 0) + 1)
+    if (query.length < 2 || !this._cloudUid) {
+      this._showFriendSuggestions([])
+      return []
+    }
+    let matches = []
+    try {
+      matches = (await CloudSync.searchLeaderboardByName(query)).filter((m) => m.uid !== this._cloudUid && m.name)
+    } catch {
+      matches = []
+    }
+    // A newer keystroke's search wins.
+    if (seq !== this._friendSearchSeq) return matches
+    matches.sort((a, b) => String(a.name).localeCompare(String(b.name)))
+    this._showFriendSuggestions(matches)
+    return matches
+  }
+
+  _showFriendSuggestions(list) {
+    const box = this.cloudsaveFriendSuggestions
+    if (!box) return
+    this._friendSuggestions = list
+    box.innerHTML = list.map((m, i) => `
+      <button type="button" class="friend-suggest-row" data-index="${i}" role="option">
+        <span class="friend-suggest-name">${_escapeHtml(m.name)}</span>
+        ${typeof m.playerId === 'string' ? `<span class="friend-id">#${_escapeHtml(m.playerId)}</span>` : ''}
+      </button>`).join('')
+    box.classList.toggle('open', list.length > 0)
   }
 
   // Incoming Friend Requests - _incomingFriendRequests is kept live by the
@@ -5728,7 +5816,6 @@ export class Game {
   async _respondToFriendRequest(fromUid, fromNickname, accept) {
     if (!this._cloudUid) return
     if (accept && fromNickname && !this.settings.savedFriends.some((f) => f.uid === fromUid)) {
-      if (this.settings.savedFriends.length >= 5) this.settings.savedFriends.shift()
       this.settings.savedFriends.push({ name: fromNickname, uid: fromUid })
       saveSettings(this.settings)
       this._renderSavedFriends()
@@ -7322,6 +7409,12 @@ export class Game {
     this.rollingQuestsSubtitle.textContent = t('rollingQuestsSubtitle')
     if (this.monthlyQuestsPlaceholder) this.monthlyQuestsPlaceholder.textContent = t('monthlyQuestsPlaceholder')
     if (this.yearlyQuestsPlaceholder) this.yearlyQuestsPlaceholder.textContent = t('yearlyQuestsPlaceholder')
+    // Lifetime quests are Coming Soon while QUESTS is empty.
+    const lifetimeSoon = document.getElementById('lifetime-quests-placeholder')
+    if (lifetimeSoon) {
+      lifetimeSoon.textContent = t('monthlyQuestsPlaceholder')
+      lifetimeSoon.style.display = QUESTS.length ? 'none' : ''
+    }
     this._renderQuestsPanel()
     this._renderRollingQuestsPanel()
     this._markQuestsSeen()
@@ -7787,19 +7880,25 @@ export class Game {
         `<button type="button" class="market-filter-option${ticked.has(i.id) ? ' checked' : ''}" data-market-item="${_escapeHtml(i.id)}">`
         + `<span class="market-check"></span><span>${_escapeHtml(i.label)}</span></button>`).join('')
     }
+    this._renderRarityFilter(this.marketRarityFilterBtn, this.marketRarityFilterMenu, this._marketRarity)
+  }
+
+  // The All rarities dropdown - the Market's, and Inventory > Character's
+  // beside its search bar (2026-10-10).
+  _renderRarityFilter(btn, menu, current) {
     // Mythic left out - no skin uses it.
     const rarities = ['all', ...Object.keys(SKIN_RARITIES).filter((r) => r !== 'mythic')]
     const rarityLabel = (r) => (r === 'all' ? t('marketRarityAll') : t(SKIN_RARITIES[r].key))
-    if (this.marketRarityFilterBtn) this.marketRarityFilterBtn.textContent = rarityLabel(this._marketRarity)
-    if (this.marketRarityFilterMenu) {
-      this.marketRarityFilterMenu.innerHTML = rarities.map((r) =>
-        `<button type="button" class="market-filter-option${r === this._marketRarity ? ' active' : ''}" data-market-rarity="${r}"`
+    if (btn) btn.textContent = rarityLabel(current)
+    if (menu) {
+      menu.innerHTML = rarities.map((r) =>
+        `<button type="button" class="market-filter-option${r === current ? ' active' : ''}" data-market-rarity="${r}"`
         + (r === 'all' ? '' : ` style="color: ${SKIN_RARITIES[r].color}"`) + `>${_escapeHtml(rarityLabel(r))}</button>`).join('')
     }
   }
 
   _closeMarketFilterMenus() {
-    for (const [btn, menu] of [[this.marketItemFilterBtn, this.marketItemFilterMenu], [this.marketRarityFilterBtn, this.marketRarityFilterMenu]]) {
+    for (const [btn, menu] of [[this.marketItemFilterBtn, this.marketItemFilterMenu], [this.marketRarityFilterBtn, this.marketRarityFilterMenu], [this.invRarityFilterBtn, this.invRarityFilterMenu]]) {
       if (menu) menu.style.display = 'none'
       if (btn) btn.classList.remove('open')
     }
@@ -8085,7 +8184,9 @@ export class Game {
     this._closeInventorySkinMenu()
     const equippedId = this._equippedInventorySkinId()
     const query = (this.invSkinSearch?.value || '').trim().toLowerCase()
-    const entries = this._inventorySkinEntries().filter((skin) => !query || skin.name.toLowerCase().includes(query))
+    this._renderRarityFilter(this.invRarityFilterBtn, this.invRarityFilterMenu, this._invRarity)
+    const entries = this._inventorySkinEntries().filter((skin) => (!query || skin.name.toLowerCase().includes(query))
+      && (this._invRarity === 'all' || skin.rarity === this._invRarity))
     if (!entries.length) {
       this.inventorySkinsList.innerHTML = `<p class="inv-skin-empty">${_escapeHtml(t('skinNoMatch'))}</p>`
       return
@@ -8258,7 +8359,7 @@ export class Game {
         const texture = await loadSkinTexture(skin.dataUrl)
         if (this._inspectViewer !== viewer) return
         this._inspectCharacter = buildTexturedCharacter(texture)
-        viewer.setObject(this._inspectCharacter, { yaw: 0.5 })
+        viewer.setObject(this._inspectCharacter, { yaw: 0.5, lighting: 'character' })
       } catch {
         // Unreadable texture - the window just stays empty.
       }

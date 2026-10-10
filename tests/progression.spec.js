@@ -27,20 +27,33 @@ test('careerStats.totalKills persists after a completed run', async ({ page }) =
   expect(result.persisted).toBe(result.afterInMemory)
 })
 
-test('a quest can only be claimed once', async ({ page }) => {
+// Lifetime quests are Coming Soon (2026-10-10): the tab says so, and the
+// old milestones can't be claimed for coins any more.
+test('Lifetime quests are Coming Soon and the old ones pay nothing', async ({ page }) => {
   await gotoAndWaitForGame(page)
 
   const result = await page.evaluate(() => {
     const g = window.__game
-    g.careerStats.totalKills = 100 // meets the kill_100 quest's target
-    const firstClaim = g.quests.claim('kill_100', g)
-    const secondClaim = g.quests.claim('kill_100', g)
-    return { firstClaim, secondClaim, isClaimed: g.quests.isClaimed('kill_100') }
+    g.careerStats.totalKills = 100 // met the removed kill_100 quest's target
+    const coins = g.coins
+    const claimed = g.quests.claim('kill_100', g)
+    g._openQuestsPanel()
+    document.getElementById('quest-tab-lifetime').click()
+    const soon = document.getElementById('lifetime-quests-placeholder')
+    return {
+      claimed,
+      coinsSame: g.coins === coins,
+      soonShown: getComputedStyle(soon).display !== 'none' && soon.offsetParent !== null,
+      soonText: soon.textContent,
+      cards: document.querySelectorAll('#quests-options button').length,
+    }
   })
 
-  expect(result.firstClaim).toBe(true)
-  expect(result.secondClaim).toBe(false)
-  expect(result.isClaimed).toBe(true)
+  expect(result.claimed).toBe(false)
+  expect(result.coinsSame).toBe(true)
+  expect(result.soonShown).toBe(true)
+  expect(result.soonText).toBe('Coming soon.')
+  expect(result.cards).toBe(0)
 })
 
 test('a Map 1 run feeds achievements and the weekly challenge; crates stay locked', async ({ page }) => {
