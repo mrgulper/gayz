@@ -90,31 +90,6 @@ html.dyslexia-font body {
    Escape is pressed, instead of every action button sitting on screen the
    whole time you're building. Same fixed-centered-panel pattern as
    #build-picker below. */
-/* Shown for the full duration of _enterBuildMode() (Game.js) - covers the
-   canvas so the real game world (which keeps rendering underneath the
-   whole time, see that function's own comment) never flashes through
-   while Build Mode's class loads/constructs on first entry. z-index 20,
-   same level as #build-menu below - nothing else should be visible or
-   interactive during this exact moment, so there's no real stacking
-   conflict to worry about either way. */
-#build-mode-loading-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #0a0a09;
-}
-
-#build-mode-loading-overlay p {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  color: var(--menu-gold, #d9bc4a);
-}
-
 /* Map Editor pause screen (Escape) - GayZ dark/gold: title top-left, a
    preview card on the left, the action menu in the middle, Quick Info /
    Shortcuts / Tip on the right. See BuildMode._refreshMenuInfo. */
@@ -6343,7 +6318,7 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
 /* Hidden - the reference layout keeps the hero column to title/tagline/
    3-line subtitle/stats/Play only, no extra hint or ticker lines. Kept
    in the DOM (still populated by _updateTexts()) rather than deleted,
-   same reasoning as #round-mode-hint/#controls-list above. */
+   same reasoning as #round-mode-hint above. */
 .menu-subhint,
 .menu-news-ticker {
   display: none;
@@ -6355,8 +6330,7 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
    (_maybeShowTutorialHints), so it doesn't need to sit permanently under
    the Play button too. Kept in the DOM (not deleted) since _updateTexts()
    still populates them and this is reversible with one CSS change. */
-#round-mode-hint,
-#controls-list {
+#round-mode-hint {
   display: none;
 }
 
@@ -6642,14 +6616,6 @@ html.ui-theme-old #settings-btn {
   transform: rotate(25deg);
 }
 
-#controls-list {
-  list-style: none;
-  margin: 10px 0 0;
-  padding: 0;
-  font-size: 12px;
-  opacity: 0.6;
-  line-height: 1.55;
-}
 
 /* True top-left corner overlay - independent of #menu-layout's grid (was
    briefly top-right, corrected back to top-left) so it can't collide
@@ -9679,7 +9645,6 @@ html.ui-theme-old .audio-checkbox {
     width: min(90%, 380px);
   }
 
-  #controls-list,
   #round-mode-hint {
     display: none;
   }

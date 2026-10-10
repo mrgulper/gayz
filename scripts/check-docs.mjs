@@ -115,13 +115,13 @@ const TYPED_KEY_PATTERNS = [
 
 async function typedKeys() {
   const { STRINGS } = await import(pathToFileURL(`${process.cwd()}/src/game/i18n.js`).href)
-  const { ACTIONS, HOTBAR_ITEM_SLOTS, FIXED_KEYS } = await import(pathToFileURL(`${process.cwd()}/src/game/Keybinds.js`).href)
-  const knownKeys = new Set(['move', ...ACTIONS.map((a) => a.id), ...HOTBAR_ITEM_SLOTS.map((s) => s.id), ...Object.keys(FIXED_KEYS)])
+  const { ACTIONS, FIXED_KEYS } = await import(pathToFileURL(`${process.cwd()}/src/game/Keybinds.js`).href)
+  const knownKeys = new Set(['move', ...ACTIONS.map((a) => a.id), ...Object.keys(FIXED_KEYS)])
   const unknown = []
   for (const [lang, dict] of Object.entries(STRINGS)) {
     for (const [key, value] of Object.entries(dict)) {
       if (typeof value !== 'string') continue
-      for (const m of value.matchAll(/\{key:(\w+)\}/g)) if (!knownKeys.has(m[1])) unknown.push(`${lang}.${key} uses {key:${m[1]}}, which isn't an action in Keybinds.js (ACTIONS, HOTBAR_ITEM_SLOTS or FIXED_KEYS) - it would show as raw text.`)
+      for (const m of value.matchAll(/\{key:(\w+)\}/g)) if (!knownKeys.has(m[1])) unknown.push(`${lang}.${key} uses {key:${m[1]}}, which isn't an action in Keybinds.js (ACTIONS or FIXED_KEYS) - it would show as raw text.`)
     }
   }
   const found = []

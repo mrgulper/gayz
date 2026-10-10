@@ -1067,12 +1067,6 @@ const FRIEND_ONLINE_THRESHOLD_MS = 2 * 60 * 1000
 const FRIEND_OFFLINE_THRESHOLD_MS = 5 * 60 * 1000
 const FRIEND_STATUS_LABEL_KEYS = { online: 'friendStatusOnline', idle: 'friendStatusIdle', dnd: 'friendStatusDnd', offline: 'friendStatusOffline' }
 
-// Build Mode entry loading overlay (see _enterBuildMode) - a floor, not a
-// fixed delay: real loading (first visit's dynamic import) can take
-// longer and this never cuts that short, it only stretches an
-// already-fast repeat visit up to feel like a deliberate beat instead of
-// a one-frame flicker.
-const BUILD_MODE_LOADING_MIN_MS = 400
 // Reset All Progress - see _handleResetProgressClick's own comment for why
 // this is a two-click arm/confirm instead of a single button.
 const RESET_PROGRESS_CONFIRM_MS = 4000
@@ -1825,7 +1819,6 @@ export class Game {
     this._userResScale = 1
 
     this.playBtn = document.getElementById('play-btn')
-    this.buildModeLoadingOverlay = document.getElementById('build-mode-loading-overlay')
     this.statsDashboardCanvas = document.getElementById('stats-dashboard-canvas')
     this.rainOverlayEl = document.getElementById('rain-overlay')
     this.rainOverlayHardEl = document.getElementById('rain-overlay-hard')
@@ -2792,6 +2785,10 @@ export class Game {
     // Reveals the save-driven homepage values (see index.html's
     // html:not(.game-ready) rule).
     document.documentElement.classList.add('game-ready')
+    // Fetch the Map 1 / Map Editor code while the player looks at the
+    // homepage, so Play opens the map straight away.
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500))
+    idle(() => this._preloadBuildMode().catch(() => { /* tried again on Play */ }))
     // Keep the next visit's first paint in step with this one.
     this._saveMenuPaintCache()
     window.addEventListener('pagehide', () => this._saveMenuPaintCache())
@@ -4714,20 +4711,20 @@ export class Game {
     // right half of a full keyboard has more bound actions than the left
     // half has free keys to receive them, so a genuine full remap doesn't
     // fit), extra mouse buttons (4/5 - Back/Forward on most mice) trigger
-    // Interact/Reload while enabled, reusing the real bound key via a
+    // Use/Reload while walking Map 1 with it enabled, reusing the real bound key via a
     // synthetic keydown/keyup pair rather than duplicating each action's
     // own handler logic. The same hand already on the mouse can reach
     // these without ever touching the keyboard.
     window.addEventListener('mousedown', (e) => {
-      if (!this.settings.oneHandedLayout || !this.gameStarted) return
-      const action = e.button === 3 ? 'interact' : e.button === 4 ? 'reload' : null
+      if (!this.settings.oneHandedLayout || !this.buildMode?.tryMode?.active) return
+      const action = e.button === 3 ? 'use' : e.button === 4 ? 'reload' : null
       if (!action) return
       e.preventDefault()
       window.dispatchEvent(new KeyboardEvent('keydown', { code: getKeyFor(action) }))
     })
     window.addEventListener('mouseup', (e) => {
-      if (!this.settings.oneHandedLayout || !this.gameStarted) return
-      const action = e.button === 3 ? 'interact' : e.button === 4 ? 'reload' : null
+      if (!this.settings.oneHandedLayout || !this.buildMode?.tryMode?.active) return
+      const action = e.button === 3 ? 'use' : e.button === 4 ? 'reload' : null
       if (!action) return
       window.dispatchEvent(new KeyboardEvent('keyup', { code: getKeyFor(action) }))
     })
@@ -6539,6 +6536,16 @@ export class Game {
     }
   }
 
+  // The editor's code (BuildMode.js and everything it imports) - one
+  // download shared by the idle preload and _enterBuildMode.
+  _preloadBuildMode() {
+    if (!this._buildModeImport) {
+      this._buildModeImport = import('./BuildMode.js')
+      this._buildModeImport.catch(() => { this._buildModeImport = null })
+    }
+    return this._buildModeImport
+  }
+
   // Build Mode - a standalone block-placing sandbox (see BuildMode.js's own
   // comment), reachable from the homepage. Reuses this.menu's existing
   // hide/show pattern (same as starting a real run) rather than a new panel.
@@ -6549,6 +6556,21 @@ export class Game {
   // server: a server joined or made from the Global panel (ServerBrowser.js)
   // - the run is played with the others on it (PlayNet.js).
   async _enterBuildMode({ map, play = false, server = null } = {}) {
+    // A second click while the code is still downloading does nothing.
+    if (this._enteringBuildMode) return
+    // No "Loading Map Editor..." screen any more (2026-10-10, Gaymi: "dont
+    // make it loading game just load the game"): the homepage stays up
+    // while the code loads (already fetched in the background, see
+    // _preloadBuildMode) and is hidden in the same frame the map appears.
+    if (typeof this.buildMode.enter !== 'function') {
+      this._enteringBuildMode = true
+      try {
+        const { BuildMode } = await this._preloadBuildMode()
+        this.buildMode = new BuildMode(this.renderer, this)
+      } finally {
+        this._enteringBuildMode = false
+      }
+    }
     // Every other nav button routes through trackAndOpen/_open*Panel(),
     // which calls _closeAllMenuPanels() first (see that function's own
     // comment on the z-index/stacking bug this prevents). Build Mode
@@ -6561,13 +6583,6 @@ export class Game {
     // closes the gap for any future path that reaches _enterBuildMode()
     // without going through a blocked nav click first.
     this._closeAllMenuPanels()
-    // Covers the canvas for the whole function - without this, the real
-    // game world (which keeps rendering the whole time, see the dynamic-
-    // import comment below) flashes through for however long loading
-    // takes, especially noticeable on the very first visit this session.
-    if (this.buildModeLoadingOverlay) this.buildModeLoadingOverlay.style.display = 'flex'
-    const buildModeLoadStartedAt = performance.now()
-    this.menu.style.display = 'none'
     // Deferred a tick (queueMicrotask, not called inline here) - the
     // _closeAllMenuPanels() call above, when it actually closes something
     // (e.g. entering from the Map 2 tile in the Game Mode panel), flips a
@@ -6636,17 +6651,7 @@ export class Game {
     // gotten oriented. It now starts free; clicking into the viewport
     // acquires it (see BuildMode.js's _onPointerDown), and Escape releases
     // it again at any time (see _onKeyDownPicker).
-    // First visit this session - dynamically load the real class (see the
-    // top-of-file comment on why this isn't a static import) and swap it in
-    // for the placeholder. Every _tick()/keydown check in the meantime just
-    // reads active: false off the placeholder and no-ops, same as before
-    // Build Mode was ever touched at all - no race condition, just a few
-    // extra frames of the normal game rendering underneath until this
-    // resolves.
-    if (typeof this.buildMode.enter !== 'function') {
-      const { BuildMode } = await import('./BuildMode.js')
-      this.buildMode = new BuildMode(this.renderer, this)
-    }
+    this.menu.style.display = 'none'
     const current = this.buildMode.activeSlot
     const slot = map === 'map3' ? 'map3' : map === 'map2' && current === 'map3' ? 0 : undefined
     this.buildMode.enter({ slot })
@@ -6663,15 +6668,6 @@ export class Game {
     this._fpsLastUpdate = performance.now()
     // Opening the editor builds every chunk - don't judge fps on that.
     this._editorResHoldUntil = performance.now() + 2000
-    // Always shows for at least BUILD_MODE_LOADING_MIN_MS so this reads as
-    // a deliberate loading beat rather than a one-frame flicker on repeat
-    // visits, where the dynamic import above is already cached and
-    // everything in this function finishes near-instantly.
-    const buildModeLoadElapsed = performance.now() - buildModeLoadStartedAt
-    if (buildModeLoadElapsed < BUILD_MODE_LOADING_MIN_MS) {
-      await new Promise((resolve) => setTimeout(resolve, BUILD_MODE_LOADING_MIN_MS - buildModeLoadElapsed))
-    }
-    if (this.buildModeLoadingOverlay) this.buildModeLoadingOverlay.style.display = 'none'
   }
 
   // The run settings for a Map 1 run from the homepage: Game Mode's
@@ -8410,11 +8406,6 @@ export class Game {
     if (this.menuInventoryBtn) this.menuInventoryBtn.querySelector('span').textContent = t('menuInventoryBtn')
     if (this.serverBtn) this.serverBtn.querySelector('span').textContent = t('serverBtn')
 
-    document.getElementById('ctrl-line-1').innerHTML = tHtml('ctrlLine1')
-    document.getElementById('ctrl-line-2').innerHTML = tHtml('ctrlLine2')
-    document.getElementById('ctrl-line-3').innerHTML = tHtml('ctrlLine3')
-    document.getElementById('ctrl-line-4').innerHTML = tHtml('ctrlLine4')
-    document.getElementById('ctrl-line-5').innerHTML = tHtml('ctrlLine5')
 
 
     document.getElementById('settings-title').textContent = t('settingsTitle')

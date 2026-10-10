@@ -13,8 +13,9 @@
 // swim up, open doors let you through.
 //
 // The feel is bloxd.io's (asked for by name, then "exactly like" it):
-// its own speeds - walk 4 blocks/s, run 7 (Shift + W), crouch 2 (C, Ctrl,
-// Z or Caps Lock; crouching also keeps you from walking off an edge) -
+// its own speeds - walk 4 blocks/s, run 7 (Shift + W), crouch 2 (C, Ctrl
+// or Caps Lock; crouching also keeps you from walking off an edge; all
+// rebindable in Settings > Controls, see Keybinds.js) -
 // and its bunny hop: jump again right as you land and each hop in a row
 // is faster (+15%, +22.5%, +30%), lost as soon as you stay on the ground.
 // Movement starts and stops almost instantly, steers well in the air, a
@@ -30,6 +31,7 @@ import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { audioEngine } from './Audio.js'
+import { heldAction } from './Keybinds.js'
 
 const HALF_WIDTH = 0.3
 const HEIGHT = 1.8
@@ -43,7 +45,6 @@ const CROUCH = 2
 // going; each link speeds you up (bloxd.io's numbers).
 const BHOP_WINDOW = 0.12
 const BHOP_MULT = [1, 1.15, 1.225, 1.3]
-const CROUCH_KEYS = ['KeyC', 'ControlLeft', 'ControlRight', 'KeyZ', 'CapsLock']
 const GROUND_GRIP = 26 // how fast speed follows the keys on the ground
 const AIR_GRIP = 11 // ...and in the air (bloxd steers well mid-jump)
 const GRAVITY = 30
@@ -367,10 +368,15 @@ export class BuildTryMode {
     const fz = -Math.cos(yaw)
     let mx = 0
     let mz = 0
-    if (keys.has('KeyW')) { mx += fx; mz += fz }
-    if (keys.has('KeyS')) { mx -= fx; mz -= fz }
-    if (keys.has('KeyD')) { mx -= fz; mz += fx }
-    if (keys.has('KeyA')) { mx += fz; mz -= fx }
+    // Settings > Controls (Keybinds.js) - W/A/S/D by default.
+    const fwd = heldAction(keys, 'moveForward')
+    const back = heldAction(keys, 'moveBack')
+    const left = heldAction(keys, 'moveLeft')
+    const right = heldAction(keys, 'moveRight')
+    if (fwd) { mx += fx; mz += fz }
+    if (back) { mx -= fx; mz -= fz }
+    if (right) { mx -= fz; mz += fx }
+    if (left) { mx += fz; mz -= fx }
     // Phone stick (BuildTouch): the same directions, but any amount.
     const stick = this.bm._touchMove
     if (stick) {
@@ -379,17 +385,17 @@ export class BuildTryMode {
     }
     const len = Math.hypot(mx, mz)
     // A stick pushed only part way walks slower (keys are all or nothing).
-    const amount = stick && !keys.has('KeyW') && !keys.has('KeyS') && !keys.has('KeyA') && !keys.has('KeyD') ? Math.min(1, len) : 1
+    const amount = stick && !fwd && !back && !left && !right ? Math.min(1, len) : 1
     // Crouch while a crouch key is held - standing back up waits until
     // there's room overhead.
-    const crouchHeld = CROUCH_KEYS.some((k) => keys.has(k))
+    const crouchHeld = heldAction(keys, 'crouch')
     if (crouchHeld !== this._crouch && (crouchHeld || !this._hits(p.x, p.y, p.z, HEIGHT))) {
       this._crouch = crouchHeld
       this._height = crouchHeld ? CROUCH_HEIGHT : HEIGHT
     }
     const crouch = this._crouch
     // Run: Shift while walking forward (bloxd.io's Shift + W).
-    const sprint = !crouch && (((keys.has('ShiftLeft') || keys.has('ShiftRight')) && keys.has('KeyW') && !keys.has('KeyS')) || !!stick?.run)
+    const sprint = !crouch && ((heldAction(keys, 'sprint') && fwd && !back) || !!stick?.run)
     const inLiquid = this._touching(p.x, p.y, p.z, (x, y, z) => this.bm._cellIsLiquid(x, y, z))
     const onLadder = this._touching(p.x, p.y, p.z, (x, y, z) => this.bm._cellIsLadder(x, y, z))
     // Staying on the ground past the hop window ends a bunny-hop chain.
@@ -408,15 +414,15 @@ export class BuildTryMode {
 
     // Jump timing: coyote time after leaving the ground, a buffered press
     // just before landing, and holding Space hops again on every landing.
-    const spaceDown = keys.has('Space')
+    const spaceDown = heldAction(keys, 'jump')
     if (spaceDown && !this._spaceWasDown) this._jumpBuffer = JUMP_BUFFER
     this._spaceWasDown = spaceDown
     this._coyote = this.onGround ? COYOTE : Math.max(0, this._coyote - dt)
     this._jumpBuffer = Math.max(0, this._jumpBuffer - dt)
 
     if (onLadder) {
-      const up = keys.has('KeyW') || spaceDown || (stick?.y ?? 0) > 0.3
-      const down = keys.has('KeyS') || (stick?.y ?? 0) < -0.3
+      const up = fwd || spaceDown || (stick?.y ?? 0) > 0.3
+      const down = back || (stick?.y ?? 0) < -0.3
       this.vel.y = up ? CLIMB : down ? -CLIMB : -1
     } else if (inLiquid) {
       this.vel.y = spaceDown ? 3.5 : Math.max(this.vel.y - GRAVITY * 0.2 * dt, -2.5)

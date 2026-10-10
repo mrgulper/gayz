@@ -12,6 +12,8 @@
 // (BuildMode._keys, _yaw/_pitch, tryMode.fire(), survival.reload(),
 // _tryUseFromCamera(), toggleMenu()), so nothing behaves differently.
 
+import { getKeyFor } from './Keybinds.js'
+
 // The stick's reach in px, and how far out (0-1) counts as running.
 const STICK_RADIUS = 56
 const RUN_AT = 0.92
@@ -130,7 +132,7 @@ export class BuildTouch {
       if (this._fireId === id) this._fireId = null
       if (this._jumpId === id) {
         this._jumpId = null
-        this.bm._keys.delete('Space')
+        this.bm._keys.delete(getKeyFor('jump'))
       }
       this._el.querySelector(`[data-tp-id="${id}"]`)?.classList.remove('down')
     }
@@ -146,7 +148,7 @@ export class BuildTouch {
       bm.tryMode.fire()
     } else if (action === 'jump') {
       this._jumpId = id
-      bm._keys.add('Space')
+      bm._keys.add(getKeyFor('jump'))
     } else if (action === 'reload') {
       if (bm.survival.active) bm.survival.reload()
     } else if (action === 'use') {
@@ -154,8 +156,8 @@ export class BuildTouch {
     } else if (action === 'crouch') {
       this._crouch = !this._crouch
       this._crouchEl.classList.toggle('on', this._crouch)
-      if (this._crouch) bm._keys.add('KeyC')
-      else bm._keys.delete('KeyC')
+      if (this._crouch) bm._keys.add(getKeyFor('crouch'))
+      else bm._keys.delete(getKeyFor('crouch'))
     } else if (action === 'pause') {
       this._release()
       bm.toggleMenu()
@@ -177,7 +179,7 @@ export class BuildTouch {
     this._look = null
     this._fireId = null
     this._jumpId = null
-    this.bm._keys.delete('Space')
+    this.bm._keys.delete(getKeyFor('jump'))
     this.bm._touchMove = null
     if (this._el) {
       this._stickEl.classList.remove('on')
@@ -205,7 +207,7 @@ export class BuildTouch {
       if (this._el) this._el.style.display = want ? 'block' : 'none'
       if (!want && this._crouch) {
         this._crouch = false
-        bm._keys.delete('KeyC')
+        bm._keys.delete(getKeyFor('crouch'))
         this._crouchEl?.classList.remove('on')
       }
     }
