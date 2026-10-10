@@ -57,7 +57,7 @@ export const NPC_SKINS = {
   quest: '/images/npc/quest.png',
 }
 
-function nameTag(text, B) {
+export function nameTag(text, B) {
   const c = document.createElement('canvas')
   c.width = 256
   c.height = 64

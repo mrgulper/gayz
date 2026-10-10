@@ -100,9 +100,18 @@ export class BuildSurvival {
   // Those runs use the Game Mode panel's picks and the Upgrades bought
   // (Game._playConfig, PlayRules.js) and count toward stats and quests;
   // the Map Editor's own Play is a plain sandbox.
-  start({ fromMenu = false } = {}) {
+  // net: a PlayNet when playing on a server with others (PlayNet.js) -
+  // then the waves are endless Zombie Survival and only the host runs
+  // the zombies.
+  start({ fromMenu = false, net = null } = {}) {
     const bm = this.bm
     this.cfg = { ...PLAY_DEFAULTS, ...(fromMenu ? bm.game?._playConfig?.() : null) }
+    this.net = net
+    if (net) {
+      net.attach(this)
+      this.cfg.mode = 'classic'
+    }
+    this._zid = 0
     if (bm.tryMode.active) bm.toggleTryMode()
     if (bm.menuOpen) bm.toggleMenu()
     this.fromMenu = fromMenu
@@ -128,6 +137,7 @@ export class BuildSurvival {
     this._bossPending = 0
     this._ended = false
     this._won = false
+    this._lifeStartWave = 0
     this._startedAt = performance.now()
     this._hurtAt = 0
     this._coinsEarned = 0
@@ -171,6 +181,8 @@ export class BuildSurvival {
     // Leaving a run before dying still counts it (stats, quests).
     if (!this.dead) this._endRun(false)
     this.active = false
+    this.net?.leave()
+    this.net = null
     this.bm.tryMode.speedMult = 1
     this.camp?.dispose()
     this.camp = null
@@ -336,6 +348,12 @@ export class BuildSurvival {
     document.body.appendChild(over)
     this._overEl = over
     over.querySelector('#build-play-again-btn').addEventListener('click', () => {
+      // On a server: back on your feet in the same game.
+      if (this.net && !this.net.closed) {
+        this._respawn()
+        try { this.bm.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available */ }
+        return
+      }
       const fromMenu = this.fromMenu
       this.stop()
       this.start({ fromMenu })
@@ -366,7 +384,8 @@ export class BuildSurvival {
     const waveText = mode === 'zombieDefense' ? t('buildPlayWaveOf', { n: Math.max(1, this.wave), max: DEFENSE_WAVES }) : t('buildPlayWave', { n: Math.max(1, this.wave) })
     const secs = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
     const timeText = mode === 'zombieRush' ? ` · ${t('buildPlayTime', { t: `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` })}` : ''
-    set('build-play-wave', `${waveText} · ${t('buildPlayZombiesLeft', { n: alive })} · ${t('buildPlayKills', { n: this.kills })}${this.camp ? ` · ${t('campCoins', { n: this.coins })}` : ''}${timeText}`)
+    const serverText = this.net && !this.net.closed ? ` · ${t('serverHudLine', { name: this.net.name, n: this.net.players.size + 1 })}` : ''
+    set('build-play-wave', `${waveText} · ${t('buildPlayZombiesLeft', { n: alive })} · ${t('buildPlayKills', { n: this.kills })}${this.camp ? ` · ${t('campCoins', { n: this.coins })}` : ''}${timeText}${serverText}`)
     const fill = document.getElementById('build-play-health-fill')
     if (fill) fill.style.width = `${Math.max(0, Math.min(100, (this.health / (this.maxHealth || 100)) * 100))}%`
     set('build-play-health-text', `${Math.max(0, Math.ceil(this.health))}${this.armor > 0 ? ` + ${Math.ceil(this.armor)}` : ''}`)
@@ -463,7 +482,13 @@ export class BuildSurvival {
     }
     if (!hits.size) return false
     for (const [z, amount] of hits) {
-      if (this.zombies.includes(z)) this.damageZombie(z, amount, center.direction)
+      if (!this.zombies.includes(z)) continue
+      // On a server and not the host: the host's zombie takes the hit
+      // (and tells me if I killed it); here it just flashes.
+      if (this.net && !this.net.isHost) {
+        this.net.queueHit(`z${z.id}`, amount)
+        z.flash = 0.12
+      } else this.damageZombie(z, amount, center.direction)
     }
     const cross = document.getElementById('build-try-crosshair')
     if (cross) {
@@ -474,7 +499,9 @@ export class BuildSurvival {
     return true
   }
 
-  damageZombie(z, amount, dir = null) {
+  // by: on a server, the other player whose shot this was (the kill is
+  // theirs - it reaches them through PlayNet).
+  damageZombie(z, amount, dir = null, by = null) {
     z.health -= amount
     z.flash = 0.12
     if (dir) {
@@ -483,20 +510,27 @@ export class BuildSurvival {
     }
     if (z.health > 0) return
     audioEngine.playZombieDeath?.(1)
+    if (by) this.net?.queueCredit(by, z.boss)
+    else this._countKill(z.boss)
+    this._removeZombie(z)
+    this.zombies = this.zombies.filter((o) => o !== z)
+    this._renderHud()
+  }
+
+  // A kill of mine: stats, coins, the streak, achievements.
+  _countKill(boss) {
     this.kills++
     this.stats.kills++
     if (this.weaponId === 'melee') this.stats.meleeKills++
     this.streak++
     this.bestStreak = Math.max(this.bestStreak, this.streak)
     this._earn(COIN_PER_KILL)
-    if (z.boss) {
+    if (boss) {
       this.bosses++
       this._earn(BOSS_COINS)
       this._message(t('buildPlayBossDown', { n: Math.round(BOSS_COINS * (this.cfg?.coinMult ?? 1)) }))
     }
-    this._report('kill', { boss: !!z.boss, streak: this.streak, weapon: this.weaponId })
-    this._removeZombie(z)
-    this.zombies = this.zombies.filter((o) => o !== z)
+    this._report('kill', { boss: !!boss, streak: this.streak, weapon: this.weaponId })
     this._renderHud()
   }
 
@@ -615,15 +649,17 @@ export class BuildSurvival {
   // bucket queue; costs are small multiples of half a step). Done as a
   // job a slice at a time (_stepFlow); zombies keep following the last
   // finished field meanwhile. The very first one runs in one go.
-  _rebuildFlow(px, py, pz) {
-    this._startFlow(px, py, pz)
+  // sources: the cells of every player being chased (on a server, all of
+  // them - each zombie then heads for whoever is nearest).
+  _rebuildFlow(sources) {
+    this._startFlow(sources)
     this._stepFlow(Infinity)
   }
 
-  _startFlow(px, py, pz) {
+  _startFlow(sources) {
     const flow = new Map()
-    flow.set(cellKey(px, py, pz), 0)
-    this._flowJob = { flow, buckets: [[[px, py, pz]]], b: 0, i: 0, visited: 0, memo: new Map() }
+    for (const [x, y, z] of sources) flow.set(cellKey(x, y, z), 0)
+    this._flowJob = { flow, buckets: [sources.map((c) => [...c])], b: 0, i: 0, visited: 0, memo: new Map() }
   }
 
   // Works on the current job for up to budgetMs; true once it's done.
@@ -664,8 +700,7 @@ export class BuildSurvival {
     return true
   }
 
-  _playerCell() {
-    const p = this.bm.tryMode.pos
+  _playerCell(p = this.bm.tryMode.pos) {
     let x = Math.floor(p.x)
     let y = Math.floor(p.y + 0.01)
     let z = Math.floor(p.z)
@@ -711,12 +746,19 @@ export class BuildSurvival {
     const open = this.camp ? spots.filter(([sx, , sz]) => !this.camp.inside(sx + 0.5, sz + 0.5, 1)) : spots
     if (!open.length) return false
     const [x, y, z] = open[Math.floor(Math.random() * open.length)]
-    const group = new THREE.Group()
     const boss = this._bossPending > 0
     if (boss) this._bossPending--
     const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (boss ? BOSS_HEALTH_MULT : 1)
-    const zombie = { x: x + 0.5, y, z: z + 0.5, vx: 0, vy: 0, vz: 0, onGround: false, health, attackCd: 0.6, bash: 0, flash: 0, walk: Math.random() * 6, moan: 2 + Math.random() * 8, group, body: null, boss, size: boss ? BOSS_SIZE : 1 }
     if (boss) this._message(t('buildPlayBossComing'))
+    this._makeZombie(++this._zid, x + 0.5, y, z + 0.5, health, boss)
+    return true
+  }
+
+  // A zombie's body and state. id: the number the server knows it by
+  // (the host's count - other players' copies use the host's ids).
+  _makeZombie(id, x, y, z, health, boss) {
+    const group = new THREE.Group()
+    const zombie = { id, x, y, z, vx: 0, vy: 0, vz: 0, onGround: false, health, maxHealth: health, attackCd: 0.6, bash: 0, flash: 0, walk: Math.random() * 6, moan: 2 + Math.random() * 8, group, body: null, boss, size: boss ? BOSS_SIZE : 1 }
     const batch = this._zombieBatch()
     if (batch) {
       // A copy of the shared body (same geometry and material): it only
@@ -743,7 +785,7 @@ export class BuildSurvival {
     }
     this.bm.scene.add(group)
     this.zombies.push(zombie)
-    return true
+    return zombie
   }
 
   // Every zombie looks the same, so their bodies are drawn together: one
@@ -922,9 +964,14 @@ export class BuildSurvival {
     zb.attackCd -= dt
     const px = player.x - zb.x
     const pz = player.z - zb.z
-    if (Math.hypot(px, pz) < ATTACK_RANGE && Math.abs(player.y - zb.y) < 1.5 && zb.attackCd <= 0) {
+    if (!player.idle && Math.hypot(px, pz) < ATTACK_RANGE && Math.abs(player.y - zb.y) < 1.5 && zb.attackCd <= 0) {
       zb.attackCd = ATTACK_COOLDOWN
-      this._hurtPlayer(zombieDamage(this.wave) * this.cfg.zombieDamageMult * (zb.boss ? BOSS_DAMAGE_MULT : 1))
+      const bite = zombieDamage(this.wave) * this.cfg.zombieDamageMult * (zb.boss ? BOSS_DAMAGE_MULT : 1)
+      // Another player on the server: the bite travels to them (nothing
+      // reaches anyone inside the camp).
+      if (player.remote) {
+        if (!this.camp?.inside(player.x, player.z)) this.net?.queueHurt(player.remote, bite)
+      } else this._hurtPlayer(bite)
     }
 
     // Draw it: facing where it walks, legs and arms swinging.
@@ -991,7 +1038,8 @@ export class BuildSurvival {
   _endRun(won) {
     if (this._ended || !this.active) return null
     this._ended = true
-    const waves = won ? this.wave : Math.max(0, this.wave - 1)
+    // After a respawn on a server only this life's waves count.
+    const waves = Math.max(0, (won ? this.wave : this.wave - 1) - (this._lifeStartWave || 0))
     return this._report('end', {
       waves,
       kills: this.kills,
@@ -1043,10 +1091,25 @@ export class BuildSurvival {
 
   // Each frame while playing (after Try Map has moved you).
   update(dt) {
-    if (!this.active || this.dead || this.bm.menuOpen) return
+    if (!this.active) return
+    // On a server the world goes on while you're dead or in the menu.
+    const net = this.net && !this.net.closed ? this.net : null
+    if (net) net.update(Math.min(dt, 0.25))
+    if (!net && (this.dead || this.bm.menuOpen)) return
     // Nothing happens until a weapon has been picked.
-    if (this._picking) return
+    if (this._picking && !net) return
     dt = Math.min(dt, 1 / 20)
+    const playing = !this.dead && !this.bm.menuOpen && !this._picking
+    if (playing) this._updateMe(dt)
+    if (net && !net.isHost) {
+      this._updateMirroredZombies(dt)
+      return
+    }
+    this._updateWorld(dt, playing)
+  }
+
+  // My own things: firing held, the camp, healing, messages, reloading.
+  _updateMe(dt) {
     // Automatic guns keep firing while the button is held.
     if (this.bm._fireHeld && this.weapon.auto && document.pointerLockElement) this.bm.tryMode.fire()
     if (this.camp) {
@@ -1085,17 +1148,35 @@ export class BuildSurvival {
       }
       this._renderHud()
     }
+  }
+
+  // Who the zombies chase: me (unless dead) and, on a server, every other
+  // living player. Each: { x, y, z, remote } in blocks (remote = their id).
+  _targets() {
+    const out = []
+    if (!this.dead && !this._picking) {
+      const p = this.bm.tryMode.pos
+      out.push({ x: p.x, y: p.y, z: p.z, remote: null })
+    }
+    if (this.net && !this.net.closed) out.push(...this.net.targets())
+    return out
+  }
+
+  // The zombies and the waves (alone, or as a server's host).
+  _updateWorld(dt) {
+    const targets = this._targets()
     const now = performance.now() / 1000
-    const [px, py, pz] = this._playerCell()
+    const sources = targets.map((p) => this._playerCell(p))
+    const key = sources.map((c) => c.join(',')).join(';')
     if (this._flowJob) {
       this._stepFlow(FLOW_BUDGET_MS)
-    } else if (now - this._flowAt > PATH_REFRESH || this._flowKey !== `${px},${py},${pz}`) {
+    } else if (sources.length && (now - this._flowAt > PATH_REFRESH || this._flowKey !== key)) {
       this._flowAt = now
-      this._flowKey = `${px},${py},${pz}`
+      this._flowKey = key
       // The first field is needed right away (zombies spawn from it).
-      if (this._flow.size === 0) this._rebuildFlow(px, py, pz)
+      if (this._flow.size === 0) this._rebuildFlow(sources)
       else {
-        this._startFlow(px, py, pz)
+        this._startFlow(sources)
         this._stepFlow(FLOW_BUDGET_MS)
       }
     }
@@ -1103,15 +1184,7 @@ export class BuildSurvival {
     if (this._toSpawn === 0 && this.zombies.length === 0) {
       if (this._breakTimer > 0) {
         this._breakTimer -= dt
-        if (this._breakTimer <= 0) {
-          this.wave++
-          this._toSpawn = Math.max(1, Math.round(waveSize(this.wave) * this.cfg.zombieCountMult))
-          this._bossPending = this.cfg.bossEvery && this.wave % this.cfg.bossEvery === 0 ? 1 : 0
-          this._chestsUsed.clear()
-          this._message(t('buildPlayWaveStart', { n: this.wave }))
-          this._report('wave', { wave: this.wave })
-          this._renderHud()
-        }
+        if (this._breakTimer <= 0) this._startWave(this.wave + 1)
       } else {
         const rush = this.cfg.mode === 'zombieRush'
         this._breakTimer = rush ? RUSH_WAVE_BREAK : WAVE_BREAK
@@ -1126,7 +1199,7 @@ export class BuildSurvival {
         }
       }
     }
-    if (this._toSpawn > 0 && this.zombies.length < MAX_ALIVE) {
+    if (this._toSpawn > 0 && this.zombies.length < MAX_ALIVE && sources.length) {
       this._spawnTimer -= dt
       if (this._spawnTimer <= 0 && this._skin !== undefined) {
         this._spawnTimer = SPAWN_GAP * (this.cfg.mode === 'zombieRush' ? RUSH_SPAWN_GAP_MULT : 1)
@@ -1134,12 +1207,173 @@ export class BuildSurvival {
         this._renderHud()
       }
     }
-    const p = this.bm.tryMode.pos
     const speed = zombieSpeed(this.wave, this.cfg.escalation)
     for (const zb of [...this.zombies]) {
-      this._updateZombie(zb, dt, p, speed)
+      // Each zombie goes for the nearest player.
+      let target = null
+      let best = Infinity
+      for (const p of targets) {
+        const d = (p.x - zb.x) ** 2 + (p.z - zb.z) ** 2 + (p.y - zb.y) ** 2
+        if (d < best) {
+          best = d
+          target = p
+        }
+      }
+      this._updateZombie(zb, dt, target || { x: zb.x, y: zb.y, z: zb.z, idle: true }, speed)
       if (zb.health <= 0 && this.zombies.includes(zb)) this.damageZombie(zb, 0)
-      if (this.dead) return
+      if (this.dead && !this.net) return
     }
+  }
+
+  _startWave(n) {
+    this.wave = n
+    this._toSpawn = Math.max(1, Math.round(waveSize(this.wave) * this.cfg.zombieCountMult))
+    this._bossPending = this.cfg.bossEvery && this.wave % this.cfg.bossEvery === 0 ? 1 : 0
+    this._chestsUsed.clear()
+    this._message(t('buildPlayWaveStart', { n: this.wave }))
+    this._report('wave', { wave: this.wave })
+    this._renderHud()
+  }
+
+  // --- servers (PlayNet.js) ---
+
+  // What the host sends: every zombie, keyed "z<id>".
+  zombieSnapshot() {
+    const out = {}
+    for (const z of this.zombies) {
+      out[`z${z.id}`] = { x: +z.x.toFixed(2), y: +z.y.toFixed(2), z: +z.z.toFixed(2), r: +z.group.rotation.y.toFixed(2), hp: Math.round(z.health), max: Math.round(z.maxHealth || z.health), boss: !!z.boss }
+    }
+    return out
+  }
+
+  // Not the host: the host's zombies (made, moved, removed) and wave.
+  _applyZombieSnapshot(zs, wave) {
+    const seen = new Set()
+    for (const [key, d] of Object.entries(zs)) {
+      const id = Number(key.slice(1))
+      if (!Number.isFinite(id)) continue
+      seen.add(id)
+      let z = this.zombies.find((o) => o.id === id)
+      if (!z) {
+        z = this._makeZombie(id, d.x, d.y, d.z, d.hp, d.boss)
+        z.group.position.set(d.x * this.B, d.y * this.B, d.z * this.B)
+      }
+      z.tx = d.x
+      z.ty = d.y
+      z.tz = d.z
+      z.tr = d.r
+      if (d.hp < z.health) z.flash = 0.12
+      z.health = d.hp
+      z.maxHealth = d.max
+    }
+    for (const z of [...this.zombies]) {
+      if (seen.has(z.id)) continue
+      this._removeZombie(z)
+      this.zombies = this.zombies.filter((o) => o !== z)
+    }
+    if (wave !== this.wave) {
+      // The waves I've lived through pay like my own.
+      if (wave > this.wave && this.wave > 0) this._earn(COIN_PER_WAVE)
+      if (wave > 0) this._startWave(wave)
+      this._toSpawn = 0
+    }
+    this._renderHud()
+  }
+
+  // Not the host: slide the host's zombies to where they are, walking.
+  _updateMirroredZombies(dt) {
+    const k = 1 - Math.exp(-12 * dt)
+    const B = this.B
+    for (const z of this.zombies) {
+      if (z.tx === undefined) continue
+      const ox = z.x
+      const oz = z.z
+      z.x += (z.tx - z.x) * k
+      z.y += (z.ty - z.y) * k
+      z.z += (z.tz - z.z) * k
+      z.group.position.set(z.x * B, z.y * B, z.z * B)
+      let dr = (z.tr || 0) - z.group.rotation.y
+      dr = Math.atan2(Math.sin(dr), Math.cos(dr))
+      z.group.rotation.y += dr * k
+      const moveLen = dt > 0 ? Math.hypot(z.x - ox, z.z - oz) / dt : 0
+      z.walk += dt * moveLen * 3.2
+      const swing = Math.sin(z.walk) * Math.min(1, moveLen / 2) * 0.7
+      if (z.body) {
+        const lp = z.body.limbPivots
+        lp.legR.rotation.x = swing
+        lp.legL.rotation.x = -swing
+        lp.armR.rotation.x = -Math.PI / 2 + swing * 0.2
+        lp.armL.rotation.x = -Math.PI / 2 - swing * 0.2
+      }
+      if (z.flash > 0) z.flash -= dt
+      z.lastRed = z.flash > 0 ? 0.6 : 0
+    }
+  }
+
+  // The host: other players' hits on my zombies.
+  _applyRemoteHits(hits) {
+    for (const h of hits) {
+      const id = Number(String(h.id).slice(1))
+      const z = this.zombies.find((o) => o.id === id)
+      if (z) this.damageZombie(z, Number(h.dmg) || 0, null, h.by)
+    }
+  }
+
+  // I just became (or stopped being) the host.
+  _onHostChange(isHost) {
+    if (isHost) {
+      // Carry on with the zombies as they are now.
+      this._zid = Math.max(this._zid || 0, ...this.zombies.map((z) => z.id))
+      for (const z of this.zombies) {
+        if (z.tx !== undefined) {
+          z.x = z.tx
+          z.y = z.ty
+          z.z = z.tz
+        }
+        z.vx = 0
+        z.vz = 0
+        z.vy = 0
+      }
+      this._toSpawn = 0
+      this._breakTimer = this.zombies.length ? 0 : WAVE_BREAK
+      this._message(t('serverYouHost'))
+    }
+  }
+
+  // The server closed or can't be reached: carry on alone.
+  _onServerLost(text) {
+    this.net = null
+    this._message(text, 4)
+    for (const z of [...this.zombies]) this._removeZombie(z)
+    this.zombies = []
+    this._toSpawn = 0
+    this._breakTimer = WAVE_BREAK
+  }
+
+  // On a server, Play Again after dying: up again at the start, same game.
+  _respawn() {
+    const start = this._findBlocks('playerstart')[0] || this._defaultStart()
+    if (start) {
+      const [x, y, z] = start
+      this.bm.tryMode.pos.set(x + 0.5, y, z + 0.5)
+      this.bm.tryMode.vel.set(0, 0, 0)
+    }
+    this.dead = false
+    // A new life: the run already counted at death starts over from here.
+    this._ended = false
+    this._lifeStartWave = Math.max(0, this.wave - 1)
+    this._startedAt = performance.now()
+    this.kills = 0
+    this.stats = { kills: 0, chests: 0, headshots: 0, meleeKills: 0 }
+    this.bestStreak = 0
+    this.bosses = 0
+    this._coinsEarned = 0
+    this.health = this.maxHealth
+    this.mag = this.magSize()
+    this.reserve = this.weapon.reserve
+    this._reloadLeft = 0
+    this.streak = 0
+    this._overEl.style.display = 'none'
+    this._renderHud()
   }
 }

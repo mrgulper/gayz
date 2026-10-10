@@ -128,6 +128,8 @@ import * as MenuPresets from './MenuPresets.js'
 import * as CloudSync from './CloudSync.js'
 import * as CloudSaveUI from './CloudSaveUI.js'
 import * as ChatUI from './ChatUI.js'
+import * as ServerBrowser from './ServerBrowser.js'
+import { PlayNet } from './PlayNet.js'
 import { setColorblindMode } from './Accessibility.js'
 import { MARKET_SKINS, MARKET_PRICES } from './MarketSkins.js'
 import { shrinkTextures, restoreTextures } from './LiteTextures.js'
@@ -1285,6 +1287,11 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'hub-tab-parkour': 'hubTabParkour',
   'hub-parkour-soon-label': 'hubParkourSoon',
   'hub-tab-custom': 'hubTabCustom',
+  'server-tab-main': 'serverTabMain',
+  'server-tab-parkour': 'hubTabParkour',
+  'server-tab-custom': 'hubTabCustom',
+  'server-create-btn': 'serverCreateBtn',
+  'server-chat-heading': 'serverChatHeading',
   'hub-custom-soon-label': 'hubCustomSoon',
   'achievements-tab-parkour': 'achievementsTabParkour',
   'save-preset-btn': 'savePresetBtnLabel',
@@ -3082,9 +3089,9 @@ export class Game {
 
     // Hub panel tab strip (Zombie Survival/Deathmatch) - same isolated
     // class/loop pattern as the quest tabs above.
-    for (const tab of document.querySelectorAll('.hub-tab')) {
+    for (const tab of document.querySelectorAll('#hub-panel .hub-tab')) {
       tab.addEventListener('click', () => {
-        for (const tabEl of document.querySelectorAll('.hub-tab')) tabEl.classList.toggle('active', tabEl === tab)
+        for (const tabEl of document.querySelectorAll('#hub-panel .hub-tab')) tabEl.classList.toggle('active', tabEl === tab)
         for (const page of document.querySelectorAll('.hub-tab-page')) {
           page.style.display = page.id === `hub-page-${tab.dataset.hubPage}` ? 'flex' : 'none'
         }
@@ -6540,7 +6547,9 @@ export class Game {
   // leaves it for the player's own slots. Omitted keeps the last slot.
   // play: start Play (zombie waves, BuildSurvival.js) on it straight away -
   // Game Mode's Map 3 + the Play button.
-  async _enterBuildMode({ map, play = false } = {}) {
+  // server: a server joined or made from the Global panel (ServerBrowser.js)
+  // - the run is played with the others on it (PlayNet.js).
+  async _enterBuildMode({ map, play = false, server = null } = {}) {
     // Every other nav button routes through trackAndOpen/_open*Panel(),
     // which calls _closeAllMenuPanels() first (see that function's own
     // comment on the z-index/stacking bug this prevents). Build Mode
@@ -6642,7 +6651,7 @@ export class Game {
     const current = this.buildMode.activeSlot
     const slot = map === 'map3' ? 'map3' : map === 'map2' && current === 'map3' ? 0 : undefined
     this.buildMode.enter({ slot })
-    if (play) this.buildMode.survival.start({ fromMenu: true })
+    if (play) this.buildMode.survival.start({ fromMenu: true, net: server ? new PlayNet(this, server) : null })
     this._applyRenderScale()
     // A boss bar left over from a run would otherwise sit over the editor.
     // FPS readout in the top-left corner (the save slot buttons moved into
@@ -8316,6 +8325,8 @@ export class Game {
     // player briefly (or, since nothing re-checks afterward, sometimes
     // permanently until they open a different panel) sees the sign-in
     // prompt instead of the chat input.
+    // The servers beside the chat (ServerBrowser.js) need no sign-in.
+    ServerBrowser.openServerBrowser(this)
     await this._authReadyPromise
     ChatUI.renderServerChatSignInState(this)
   }
@@ -8323,6 +8334,7 @@ export class Game {
   _closeServerPanel() {
     if (this.serverPanel) this.serverPanel.style.display = 'none'
     ChatUI.unsubscribeServerChat(this)
+    ServerBrowser.closeServerBrowser(this)
   }
 
   // Re-renders every static UI string in the current language. Called once
