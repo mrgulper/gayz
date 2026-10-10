@@ -2680,7 +2680,7 @@ html.ui-theme-old .panel-box > .panel-close-btn {
    text has its own ID-level color rule; anything sitting on its own dark
    background (cards, inputs, dropdowns, dark buttons) is left out by the
    :not() list so it keeps its light text. */
-html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-level, .inv-skin-card, .crate-card, #shop-skin-buy-btn) *, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-level, .inv-skin-card, .crate-card, #shop-skin-buy-btn)) {
+html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-level, .inv-skin-card, .crate-card, #shop-skin-buy-btn, .auth-plaque) *, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-level, .inv-skin-card, .crate-card, #shop-skin-buy-btn, .auth-plaque)) {
   color: var(--old-ink) !important;
   text-shadow: none !important;
 }
@@ -4030,7 +4030,7 @@ html.ui-theme-old #journal-panel {
 
 /* Logged-out Profile gate - replaces the entire profile (stats/bio/
    highlights/etc, all normally visible even to a local guest) with a
-   plain black screen + typewriter prompt, since viewing a Profile now
+   Sign Up or Login card, since viewing a Profile now
    requires being signed in. See _openProfilePanel's early-return branch. */
 /* height:100% (was min-height:320px + its own solid #000 background) -
    now sits inside .panel-fixed-content, which is already a fixed 68vh
@@ -4038,53 +4038,133 @@ html.ui-theme-old #journal-panel {
    short min-height here left it pinned to the top of that much taller
    area with an empty void below, same issue General's placeholder had
    before .general-section-empty (see that class's comment) - height:100%
-   lets this rule's own flex centering place the typewriter text/buttons
+   lets this rule's own flex centering place the Sign Up or Login card
    in the middle of the full available height instead. */
 #profile-login-gate {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The signed-out Profile card: Sign Up or Login, then the Sign Up or Login
+   page (2026-10-10, from Gaymi's mockups). No box of its own - it sits
+   straight on the panel (paper in Old, dark in Golden). */
+.auth-card {
+  position: relative;
+  width: min(100%, 560px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 18px;
-  border-radius: 4px;
+  text-align: center;
+  padding: 8px 12px;
 }
-
-.typewriter-text {
-  overflow: hidden;
-  white-space: nowrap;
-  border-right: 2px solid var(--menu-gold);
-  margin: 0;
-  font-size: 20px;
-  letter-spacing: 1px;
-  color: #e8e8e2;
-  animation:
-    typewriterReveal 1.8s steps(30, end),
-    typewriterCursor 0.8s step-end infinite;
-}
-
-@keyframes typewriterReveal {
-  from { width: 0; }
-  to { width: 100%; }
-}
-
-@keyframes typewriterCursor {
-  from, to { border-color: transparent; }
-  50% { border-color: var(--menu-gold); }
-}
-
-#profile-login-gate-buttons {
+.auth-view {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+.auth-view[hidden] { display: none; }
+#profile-login-gate .auth-title {
+  margin: 0;
+  font-family: var(--menu-display-font, 'Bebas Neue', sans-serif);
+  font-size: clamp(28px, 3.4vw, 42px) !important;
+  text-transform: none;
+  font-weight: 400;
+  letter-spacing: 1px;
+  color: var(--ui-gold-bright, #f0c868);
+}
+.auth-sub {
+  margin: 0 0 6px;
+  font-size: 17px;
+  color: #e8e2d0;
+}
+.auth-note {
+  margin: 0;
+  max-width: 440px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(232, 226, 208, 0.75);
+}
+.auth-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+.auth-plaque {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 200px;
+  padding: 16px 34px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #e0b45c);
+  background: url('./menu-art/plate-blank.webp') center / 100% 100% no-repeat;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  transition: filter 0.2s ease, transform 0.15s ease;
+}
+.auth-plaque:hover { filter: brightness(1.18); transform: translateY(-1px); }
+.auth-plaque:active { transform: translateY(1px); }
+.auth-google { min-width: min(100%, 340px); padding: 18px 40px; margin: 4px 0; }
+.auth-google-g {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  padding: 4px;
+  background: #fff;
+  border-radius: 50%;
+  box-sizing: content-box;
+}
+.auth-back {
+  position: absolute;
+  top: -6px;
+  left: 0;
+  padding: 4px 8px;
+  font-size: 14px;
+  color: rgba(232, 226, 208, 0.75);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.auth-back:hover { color: var(--ui-gold-bright, #f0c868); }
+.auth-back[hidden] { display: none; }
+.auth-terms {
+  margin: 22px 0 0;
+  font-size: 13px;
+  color: rgba(232, 226, 208, 0.6);
+}
+.auth-link {
+  padding: 0;
+  font: inherit;
+  color: var(--ui-gold-bright, #f0c868);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .typewriter-text {
-    animation: none;
-    width: auto;
-    border-right: none;
-  }
+/* Old theme: ink on the paper, the rusty plaques with light lettering. */
+html.ui-theme-old #profile-login-gate .auth-title { color: #3a230e !important; }
+html.ui-theme-old .auth-note,
+html.ui-theme-old .auth-terms,
+html.ui-theme-old .auth-back { opacity: 0.82; }
+html.ui-theme-old .auth-link { color: #5a3410 !important; font-weight: 600; }
+html.ui-theme-old .auth-plaque {
+  color: #ecdcbc;
+  background-image: url('./menu-art/old-nav-plaque.webp');
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 /* Wraps every existing piece of profile content so it can be toggled as
