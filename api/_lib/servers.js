@@ -30,8 +30,10 @@ export const MAX_PLAYERS = 8
 // No sync for this long = gone (closed the tab, lost connection).
 export const STALE_MS = 10000
 // A new player has this long to load Map 1 before their first sync
-// (opening the map can take several seconds on a slow computer).
-export const JOIN_GRACE_MS = 30000
+// (opening the map, then drawing the weapon picker's 15 gun pictures, can
+// take well over 30s on a slow phone or a software-rendered browser -
+// 30s dropped joiners there, 2026-10-10).
+export const JOIN_GRACE_MS = 90000
 export const MODES = ['main']
 const NAME_MAX = 24
 const NICK_MAX = 20

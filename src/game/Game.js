@@ -1350,7 +1350,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'credits-body-text': 'creditsBodyText',
   'credits-contact-text': 'creditsContactText',
   'credits-weapons-title': 'creditsWeaponsTitle',
-  'credits-weapons-text': 'creditsWeaponsText',
   'credits-privacy-link': 'creditsPrivacyLink',
   'credits-terms-link': 'creditsTermsLink',
   'friends-own-id-label': 'friendsOwnIdLabel',
