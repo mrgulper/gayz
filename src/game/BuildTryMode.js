@@ -96,9 +96,9 @@ const GUN_OFFSET = new THREE.Vector3(0.26, -0.22, -0.5)
 // the angle below it). A fixed spot put every gun's back almost on the
 // camera, so it stretched from the bottom of the screen up to the crosshair.
 const AIM_OFFSET = new THREE.Vector3(0, -0.06, -0.45)
-const AIM_BACK = 0.2
-const AIM_BACK_PER_LEN = 0.12
-const AIM_DROP = 0.045
+const AIM_BACK = 0.22
+const AIM_BACK_PER_LEN = -0.3
+const AIM_DROP = 0.012
 const AIM_ZOOM = 22
 const AIM_SPEED = 14
 // Inspect Weapon (X by default): the gun turns to show its side at an

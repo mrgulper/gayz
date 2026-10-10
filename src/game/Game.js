@@ -2792,8 +2792,21 @@ export class Game {
     document.documentElement.classList.add('game-ready')
     // Fetch the Map 1 / Map Editor code while the player looks at the
     // homepage, so Play opens the map straight away.
-    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500))
-    idle(() => this._preloadBuildMode().catch(() => { /* tried again on Play */ }))
+    // With a deadline: the homepage's rain and water redraw every frame, so
+    // a busy device may never report itself idle - without one these never
+    // ran and Play did all of it at once.
+    const idle = window.requestIdleCallback ? (fn) => window.requestIdleCallback(fn, { timeout: 2500 }) : (fn) => setTimeout(fn, 1500)
+    // Then build the editor and Map 1's city ahead of time too (each its
+    // own idle slice) - the same objects an exited editor leaves behind,
+    // so nothing else changes; Play only has to show them.
+    idle(() => this._preloadBuildMode().then(({ BuildMode }) => {
+      idle(() => {
+        if (typeof this.buildMode.enter !== 'function' && !this._enteringBuildMode) this.buildMode = new BuildMode(this.renderer, this)
+        idle(() => this.buildMode._map3Base?.())
+      })
+    }).catch(() => { /* tried again on Play */ }))
+    // And the weapon pictures Play's weapon picker shows.
+    idle(() => this._weaponThumbnailsReady())
     // Keep the next visit's first paint in step with this one.
     this._saveMenuPaintCache()
     window.addEventListener('pagehide', () => this._saveMenuPaintCache())
@@ -9399,18 +9412,17 @@ export class Game {
         + '</div>'
     }).join('')
     if (!this._weaponThumbCache) {
-      // After the panel has painted, so opening Inventory never waits on it.
-      setTimeout(() => {
-        this._weaponThumbCache = this._weaponThumbnails()
+      // Never waits on them - the cards fill in once they're drawn.
+      this._weaponThumbnailsReady().then(() => {
         if (this.menuInventoryPanel?.style.display !== 'none') this._renderInventoryWeapons()
-      }, 50)
+      })
     }
   }
 
   // Side-view picture of every weapon, drawn once with a small throwaway
   // renderer (its own canvas, so the game's renderer and frame are never
-  // touched) and kept as data URLs. Hands are left out.
-  _weaponThumbnails() {
+  // touched) and kept as blob URLs. Hands are left out.
+  async _weaponThumbnails() {
     const out = {}
     let renderer
     try {
@@ -9461,9 +9473,14 @@ export class Game {
           camera.position.set(center.x + dist, center.y + dist * 0.12, center.z)
           camera.lookAt(center)
           renderer.render(scene, camera)
-          out[id] = canvas.toDataURL('image/png')
+          // A blob URL, encoded off the main thread - toDataURL's PNG
+          // encode for all 15 at once froze the page for a moment.
+          out[id] = await new Promise((resolve) => canvas.toBlob((b) => resolve(b ? URL.createObjectURL(b) : null), 'image/png'))
+          if (!out[id]) delete out[id]
         }
         scene.remove(model)
+        // One weapon per break, so the page keeps drawing in between.
+        await new Promise((resolve) => setTimeout(resolve, 0))
       }
     } catch (err) {
       console.warn('Weapon pictures failed, using icons instead', err)
@@ -9474,6 +9491,20 @@ export class Game {
       }
     }
     return out
+  }
+
+  // The weapon pictures, drawn once in the background (started at idle
+  // after boot - see the constructor) and shared by Inventory and Map 1's
+  // weapon picker. Drawing them when Play was clicked froze the game for
+  // a moment before the map appeared (2026-10-10, "it lags then loads").
+  _weaponThumbnailsReady() {
+    if (!this._weaponThumbJob) {
+      this._weaponThumbJob = this._weaponThumbnails().then((out) => {
+        this._weaponThumbCache = out
+        return out
+      })
+    }
+    return this._weaponThumbJob
   }
 
   // A weapon's viewmodel copied for showing on its own (card pictures,

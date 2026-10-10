@@ -255,7 +255,11 @@ export class BuildSurvival {
       })
     }
     const game = this.bm.game
-    if (game && !game._weaponThumbCache && game._weaponThumbnails) game._weaponThumbCache = game._weaponThumbnails()
+    // The pictures are drawn in the background after the page loads; if
+    // they aren't done yet the cards fill in when they are.
+    if (game && !game._weaponThumbCache && game._weaponThumbnailsReady) {
+      game._weaponThumbnailsReady().then(() => { if (this._picking) this._openWeaponPicker() })
+    }
     const thumbs = game?._weaponThumbCache || {}
     const ids = (game?.weapons?.getSummary?.() || []).filter((w) => PLAY_WEAPONS[w.id])
     const bar = (label, v) => `<span class="pwp-bar"><span class="pwp-bar-label">${label}</span><span class="pwp-bar-track"><span style="width:${Math.round(v * 100)}%"></span></span></span>`

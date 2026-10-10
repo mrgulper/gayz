@@ -213,36 +213,49 @@ export class BlockChunks {
 
   // Glow light [r, g, b] reaching a point (cell units) on a face with
   // normal n, or null when none does.
-  _glowAt(px, py, pz, n) {
+  // Glow sources that can reach a chunk (the 27 chunks around it, kept
+  // only if within GLOW_RADIUS of its box) - gathered once per chunk build
+  // instead of 27 map lookups for every corner of every face, which made
+  // building Map 1's chunks take seconds when Play was pressed.
+  _glowSourcesNear(cx, cy, cz) {
     if (this._glow.size === 0) return null
-    const cx = Math.floor(px / CHUNK)
-    const cy = Math.floor(py / CHUNK)
-    const cz = Math.floor(pz / CHUNK)
-    let r = 0
-    let g = 0
-    let b = 0
     const R = GLOW_RADIUS
+    const lo = [cx * CHUNK - R, cy * CHUNK - R, cz * CHUNK - R]
+    const hi = [(cx + 1) * CHUNK + R, (cy + 1) * CHUNK + R, (cz + 1) * CHUNK + R]
+    const list = []
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         for (let dz = -1; dz <= 1; dz++) {
           const set = this._glowByChunk.get(`${cx + dx},${cy + dy},${cz + dz}`)
           if (!set) continue
           for (const s of set) {
-            const lx = s.x - px
-            const ly = s.y - py
-            const lz = s.z - pz
-            const d = Math.sqrt(lx * lx + ly * ly + lz * lz)
-            if (d >= R) continue
-            const facing = d > 0 ? (n[0] * lx + n[1] * ly + n[2] * lz) / d : 1
-            if (facing <= 0) continue
-            const fall = 1 - d / R
-            const k = fall * fall * (0.35 + 0.65 * facing) * GLOW_STRENGTH
-            r += s.c[0] * k
-            g += s.c[1] * k
-            b += s.c[2] * k
+            if (s.x >= lo[0] && s.x <= hi[0] && s.y >= lo[1] && s.y <= hi[1] && s.z >= lo[2] && s.z <= hi[2]) list.push(s)
           }
         }
       }
+    }
+    return list.length ? list : null
+  }
+
+  _glowAt(px, py, pz, n, sources = this._glowSourcesNear(Math.floor(px / CHUNK), Math.floor(py / CHUNK), Math.floor(pz / CHUNK))) {
+    if (!sources) return null
+    let r = 0
+    let g = 0
+    let b = 0
+    const R = GLOW_RADIUS
+    for (const s of sources) {
+      const lx = s.x - px
+      const ly = s.y - py
+      const lz = s.z - pz
+      const d = Math.sqrt(lx * lx + ly * ly + lz * lz)
+      if (d >= R) continue
+      const facing = d > 0 ? (n[0] * lx + n[1] * ly + n[2] * lz) / d : 1
+      if (facing <= 0) continue
+      const fall = 1 - d / R
+      const k = fall * fall * (0.35 + 0.65 * facing) * GLOW_STRENGTH
+      r += s.c[0] * k
+      g += s.c[1] * k
+      b += s.c[2] * k
     }
     if (r + g + b < 0.005) return null
     return [Math.min(r, 1.5), Math.min(g, 1.5), Math.min(b, 1.5)]
@@ -345,6 +358,7 @@ export class BlockChunks {
     const by = cy * CHUNK
     const bz = cz * CHUNK
     const out = { solid: newBuffers(3), glow: newBuffers(3), cutout: newBuffers(3), clear: newBuffers(4), water: newBuffers(4), lava: newBuffers(3) }
+    const glowSources = this._glowSourcesNear(cx, cy, cz)
     for (const cell of cells) {
       const [x, y, z] = cell.split(',').map(Number)
       const type = this.getType(x, y, z)
@@ -400,7 +414,7 @@ export class BlockChunks {
           buf.nrm.push(nx, ny, nz)
           buf.uv.push(CORNER_UV[i][0] ? u1 : u0, CORNER_UV[i][1] ? v1 : v0)
           const b = AO_LEVELS[ao[i]] * face.shade * tint
-          const L = this._glowAt(x + c[0], y + c[1] * topY, z + c[2], face.n)
+          const L = glowSources && this._glowAt(x + c[0], y + c[1] * topY, z + c[2], face.n, glowSources)
           const cr = L ? b * (1 + L[0]) : b
           const cg = L ? b * (1 + L[1]) : b
           const cb = L ? b * (1 + L[2]) : b
