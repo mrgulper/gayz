@@ -28,13 +28,14 @@ export class InspectViewer {
     this._envTexture = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
     pmrem.dispose()
     this.scene.environment = this._envTexture
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a9a, 2.2))
-    const key = new THREE.DirectionalLight(0xffffff, 2.4)
-    key.position.set(3, 4, 5)
-    this.scene.add(key)
-    const rim = new THREE.DirectionalLight(0xffffff, 1)
-    rim.position.set(-3, 2, -4)
-    this.scene.add(rim)
+    this._hemi = new THREE.HemisphereLight(0xffffff, 0x8a8a9a, 2.2)
+    this.scene.add(this._hemi)
+    this._key = new THREE.DirectionalLight(0xffffff, 2.4)
+    this._key.position.set(3, 4, 5)
+    this.scene.add(this._key)
+    this._rim = new THREE.DirectionalLight(0xffffff, 1)
+    this._rim.position.set(-3, 2, -4)
+    this.scene.add(this._rim)
     this.camera = new THREE.PerspectiveCamera(32, 1, 0.01, 1000)
     // The object sits inside a pivot centred on its own bounds, so turning
     // the pivot spins it in place rather than around some far-off origin.
@@ -55,7 +56,18 @@ export class InspectViewer {
 
   // yaw: the starting turn (a gun side-on reads best, a character a
   // little off front-on).
-  setObject(object, { yaw = 0, pitch = 0 } = {}) {
+  // lighting: 'metal' (guns - bright, with reflections) or 'character'
+  // (a skin's flat colors - the gun lighting washed them out, 2026-10-10
+  // "too bright and feels not right": softer, no reflections, so the skin
+  // reads about as it does on the homepage). Only the lights' strengths
+  // change - never which lights exist (see the shader-recompile note in
+  // CLAUDE.md).
+  setObject(object, { yaw = 0, pitch = 0, lighting = 'metal' } = {}) {
+    const soft = lighting === 'character'
+    this._hemi.intensity = soft ? 1.15 : 2.2
+    this._key.intensity = soft ? 1.1 : 2.4
+    this._rim.intensity = soft ? 0.35 : 1
+    this.scene.environment = soft ? null : this._envTexture
     if (this.object) this.pivot.remove(this.object)
     this.object = object
     this.pivot.rotation.set(pitch, yaw, 0)

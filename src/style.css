@@ -1267,6 +1267,47 @@ html.ui-theme-old #cloudsave-region-select {
   flex: 1;
 }
 
+/* A friend's Player ID after their name (2026-10-10, "add (#) for your
+   friends") - also on the Add a Friend name-search list. */
+.friend-id {
+  font-size: 0.85em;
+  font-weight: 600;
+  opacity: 0.7;
+  margin-left: 4px;
+}
+
+/* Add a Friend by name: the list of matching players under the box. */
+#cloudsave-friend-suggestions {
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+  padding: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #1c1e20;
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.4);
+  border-radius: 12px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+#cloudsave-friend-suggestions.open { display: flex; }
+.friend-suggest-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 13px;
+  color: #e8e8e2;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+.friend-suggest-row:hover,
+.friend-suggest-row:focus-visible { background: rgba(var(--ui-gold-accent-rgb), 0.16); }
+.friend-suggest-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* Status dot - color keyed off data-status, set live per friend by
    _fetchFriendPresences/_computeFriendStatus in Game.js. */
 .friend-status-dot {
@@ -10137,8 +10178,16 @@ body.build-mode-on #chat-panel {
   gap: 10px;
   min-height: 0;
 }
+#inv-skin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
 #inv-skin-search {
-  width: min(320px, 100%);
+  flex: 1 1 200px;
+  width: auto;
+  max-width: 320px;
   margin: 0;
 }
 #inventory-skins-list {
@@ -10789,6 +10838,26 @@ html.ui-theme-old .market-filter-option:hover { background: rgba(122, 78, 36, 0.
 html.ui-theme-old .market-filter-option.active { background: rgba(122, 78, 36, 0.3); }
 html.ui-theme-old .market-check { border-color: #7a4e24; background: rgba(255, 255, 255, 0.35); }
 html.ui-theme-old .market-filter-option.checked .market-check { background: #7a4e24; }
+/* Old theme Status picker and Add a Friend name list (2026-10-10, "the
+   status its fully black i cant see anything"): parchment with dark ink
+   like the Market menus - the panel's dark-ink rule had turned their
+   options dark on the black list. */
+html.ui-theme-old #status-picker-toggle {
+  background: #ead6ab;
+  border-color: #7a4e24;
+  color: #2b1a0c;
+}
+html.ui-theme-old #status-picker-options,
+html.ui-theme-old #cloudsave-friend-suggestions {
+  background: #f1e0b8;
+  border: 1px solid #7a4e24;
+  box-shadow: 0 10px 24px rgba(43, 26, 12, 0.45);
+}
+html.ui-theme-old .status-pick-btn,
+html.ui-theme-old .friend-suggest-row { color: #2b1a0c; }
+html.ui-theme-old .status-pick-btn:hover,
+html.ui-theme-old .friend-suggest-row:hover { background: rgba(122, 78, 36, 0.16); }
+html.ui-theme-old .status-pick-btn.active { color: #2b1a0c; background: rgba(122, 78, 36, 0.3); }
 html.ui-theme-old .crate-card .crate-open-btn {
   background: rgba(43, 26, 12, 0.82);
   border-color: rgba(43, 26, 12, 0.9);

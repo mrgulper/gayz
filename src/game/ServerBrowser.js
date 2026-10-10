@@ -1,7 +1,8 @@
 // The Global panel's server list, Kirka-style (2026-10-10, Gaymi: "do the
 // same like Kirka, make Global have servers too"): chat on the left, the
-// servers on the right with Main / Parkour / Custom tabs (Parkour and
-// Custom are Coming Soon - those modes don't exist yet), a search box, a
+// servers on the right with Zombie Survival / Deathmatch / Parkour /
+// Custom tabs (all but Zombie Survival are Coming Soon - those modes don't
+// exist yet; the first tab's internal id is still 'main'), a search box, a
 // Create Server button and one row per server with its player count and
 // Join. Joining or creating one starts Map 1 with the other players
 // (PlayNet.js); the rules live in api/_lib/servers.js.
@@ -115,7 +116,8 @@ export function renderServerList(game) {
   if (tools) tools.style.display = soon ? 'none' : ''
   if (soon) {
     if (line) line.textContent = ''
-    list.innerHTML = `<p class="server-empty">${_escapeHtml(t(tab === 'parkour' ? 'serverParkourSoon' : 'serverCustomSoon'))}</p>`
+    const soonKey = { deathmatch: 'serverDeathmatchSoon', parkour: 'serverParkourSoon' }[tab] || 'serverCustomSoon'
+    list.innerHTML = `<p class="server-empty">${_escapeHtml(t(soonKey))}</p>`
     return
   }
   const q = (document.getElementById('server-search')?.value || '').trim().toLowerCase()

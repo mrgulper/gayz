@@ -754,6 +754,26 @@ export async function fetchLeaderboardEntryByName(name) {
   return snap.empty ? null : { ...snap.docs[0].data(), uid: snap.docs[0].id }
 }
 
+// Add a Friend by name (2026-10-10, Gaymi: "they can also use names ...
+// a list will pop up showing all the names"): players whose leaderboard
+// name starts with what was typed. Firestore has no case-insensitive
+// search and the leaderboard doc carries no lowercase copy of the name, so
+// it asks for the typed text as-is, Capitalized, lower and UPPER case and
+// merges the results - one plain range query on `name` each, no index.
+export async function searchLeaderboardByName(text, n = 8) {
+  const raw = String(text || '').trim()
+  if (!raw) return []
+  const { db, fsMod } = await ensureApp()
+  const variants = [...new Set([raw, raw[0].toUpperCase() + raw.slice(1), raw.toLowerCase(), raw.toUpperCase()])]
+  const found = new Map()
+  await Promise.all(variants.map(async (v) => {
+    const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('name', '>=', v), fsMod.where('name', '<', v + '\uf8ff'), fsMod.limit(n))
+    const snap = await fsMod.getDocs(q)
+    for (const d of snap.docs) found.set(d.id, { ...d.data(), uid: d.id })
+  }))
+  return [...found.values()].slice(0, n * 2)
+}
+
 // Add Friend by ID - same shape as fetchLeaderboardEntryByName above, just
 // keyed on the stable random playerId (see Game.js's _generatePlayerId)
 // instead of the nickname, since a nickname can change and isn't
