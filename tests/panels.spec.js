@@ -85,21 +85,29 @@ test('signed-out Profile shows Sign Up or Login', async ({ page }) => {
     const shown = (id) => !document.getElementById(id).hidden
     const out = { gate: getComputedStyle(document.getElementById('profile-login-gate')).display }
     out.choose = shown('auth-view-choose') && !shown('auth-view-signup') && !shown('auth-view-login')
-    out.title = document.getElementById('auth-choose-title').textContent
+    out.title = document.getElementById('profile-panel-title').textContent
+    out.chooseTerms = document.querySelectorAll('#auth-view-choose .auth-terms').length
     out.buttons = [document.getElementById('profile-gate-register-btn').textContent, document.getElementById('profile-gate-login-btn').textContent]
     document.getElementById('profile-gate-register-btn').click()
     out.signup = shown('auth-view-signup') && !shown('auth-view-choose') && shown('auth-back-btn')
     out.signupSub = document.getElementById('auth-signup-sub').textContent
+    out.signupTerms = document.querySelectorAll('#auth-view-signup .auth-terms .auth-link').length
     document.getElementById('auth-back-btn').click()
     out.back = shown('auth-view-choose') && !shown('auth-back-btn')
     document.getElementById('profile-gate-login-btn').click()
     out.login = shown('auth-view-login')
-    out.loginTitle = document.getElementById('auth-login-title').textContent
-    out.terms = document.querySelectorAll('#auth-terms-line .auth-link').length
+    out.loginTitle = document.getElementById('profile-panel-title').textContent
+    out.terms = document.querySelectorAll('#auth-view-login .auth-terms .auth-link').length
     document.getElementById('auth-login-google-btn').click()
     document.getElementById('profile-gate-register-btn').click()
     document.getElementById('auth-signup-google-btn').click()
     out.signIns = signIns
+    // Signed in: the title goes back to Profile.
+    Object.defineProperty(g, '_cloudUid', { get: () => 'test-uid', configurable: true })
+    await g._openProfilePanel()
+    out.signedInTitle = document.getElementById('profile-panel-title').textContent
+    delete g._cloudUid
+    g._cloudUid = null
     await g._openProfilePanel()
     out.reset = shown('auth-view-choose')
     return out
@@ -107,6 +115,9 @@ test('signed-out Profile shows Sign Up or Login', async ({ page }) => {
   expect(r.gate).toBe('flex')
   expect(r.choose).toBe(true)
   expect(r.title).toBe('Welcome to GayZ')
+  expect(r.chooseTerms).toBe(0)
+  expect(r.signupTerms).toBe(2)
+  expect(r.signedInTitle).toBe('Profile')
   expect(r.buttons).toEqual(['Sign Up', 'Login'])
   expect(r.signup).toBe(true)
   expect(r.signupSub).toBe('Sign in to avoid losing progress')
