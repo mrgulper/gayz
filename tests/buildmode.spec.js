@@ -939,3 +939,41 @@ test('right-click aims down the sights and the Inspect key turns the gun', async
   expect(r.inspectTurn).toBeGreaterThan(0.6)
   expect(Math.abs(r.inspectDone)).toBeLessThan(0.01)
 })
+
+// Settings > Controls only lists what Map 1 uses, and changing a key there
+// really changes it in the game (Try Map used to read W/A/S/D directly).
+test('Settings > Controls keys drive walking in Map 1', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const result = await page.evaluate(async () => {
+    const g = window.__game
+    g._renderControlsGrid()
+    const ids = [...g.controlsGrid.querySelectorAll('.control-key-btn')].map((b) => b.dataset.action)
+    const rebind = (action, code) => {
+      g.controlsGrid.querySelector(`[data-action="${action}"]`).click()
+      window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }))
+    }
+    rebind('moveForward', 'KeyI')
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    bm.toggleTryMode()
+    const speedWith = (code) => {
+      bm._keys.clear()
+      bm.tryMode.vel.set(0, 0, 0)
+      window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }))
+      for (let i = 0; i < 20; i++) bm.tryMode.update(0.05, bm._keys)
+      window.dispatchEvent(new KeyboardEvent('keyup', { code, bubbles: true }))
+      return Math.hypot(bm.tryMode.vel.x, bm.tryMode.vel.z)
+    }
+    const withW = speedWith('KeyW')
+    const withI = speedWith('KeyI')
+    const withArrow = speedWith('ArrowUp')
+    bm.toggleTryMode()
+    g._exitBuildMode()
+    rebind('moveForward', 'KeyW')
+    return { ids, withW, withI, withArrow }
+  })
+  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap'])
+  expect(result.withW).toBeLessThan(0.01)
+  expect(result.withI).toBeGreaterThan(2)
+  expect(result.withArrow).toBeGreaterThan(2)
+})

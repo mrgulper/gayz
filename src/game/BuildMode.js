@@ -2,7 +2,7 @@
 // zombie survival gameplay (see docs/superpowers/specs/2026-08-08-build-mode-design.md).
 // Reuses Game.js's existing renderer/canvas rather than a second WebGL
 // context - only the scene/camera passed to render() changes.
-import { FIXED_KEYS, getKeyFor, keyLabel } from './Keybinds.js'
+import { FIXED_KEYS, getKeyFor, keyLabel, keysFor } from './Keybinds.js'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
@@ -108,15 +108,18 @@ const SAVED_AT_KEY = 'buildmode-saved-at'
 // Trying the map: how far away (in blocks) a door can be opened from.
 const TRY_REACH_BLOCKS = 5
 const LIQUID_TYPES = new Set(['water', 'lava'])
-const TRY_CROUCH_KEYS = new Set(['KeyC', 'ControlLeft', 'ControlRight', 'KeyZ', 'CapsLock'])
+// Walking keys (Settings > Controls) whose browser default (scrolling the
+// page on Space/arrows) is blocked while trying the map.
+const TRY_MOVE_ACTIONS = ['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch']
 const MENU_SHORTCUTS = [
   [['T'], 'buildModeTryBtn'],
-  [['Shift', 'W'], 'buildMenuRun'],
-  [['C'], 'buildMenuCrouch'],
-  [['E'], 'buildMenuUseDoor'],
-  // Rebindable, so its key is looked up when the list is drawn.
+  // Rebindable (Settings > Controls), so their keys are looked up when the
+  // list is drawn.
+  [() => [keyLabel(getKeyFor('sprint')), keyLabel(getKeyFor('moveForward'))], 'buildMenuRun'],
+  [() => [keyLabel(getKeyFor('crouch'))], 'buildMenuCrouch'],
+  [() => [keyLabel(getKeyFor('use'))], 'buildMenuUseDoor'],
   [() => [keyLabel(getKeyFor('inspectWeapon'))], 'buildMenuInspect'],
-  [['M'], 'buildMenuMapSize'],
+  [() => [keyLabel(getKeyFor('cycleMap'))], 'buildMenuMapSize'],
   [['Ctrl', 'Z'], 'buildModeUndoBtn'],
   [['Ctrl', 'Y'], 'buildModeRedoBtn'],
   [['Ctrl', 'S'], 'buildModeSaveBtn'],
@@ -1408,11 +1411,11 @@ export class BuildMode {
       if (this.tryMode.active) {
         if (this.survival.camp?.panelOpen) return
         if (this.survival.active && !e.repeat) this.survival.onKeyDown(e.code)
-        if (e.code === FIXED_KEYS.buildUse && !e.repeat) this._tryUseFromCamera()
+        if (e.code === getKeyFor('use') && !e.repeat) this._tryUseFromCamera()
         if (e.code === getKeyFor('inspectWeapon') && !e.repeat) this.tryMode.inspect()
-        if (e.code === 'KeyM' && !e.repeat) this.tryMode.cycleMap()
+        if (e.code === getKeyFor('cycleMap') && !e.repeat) this.tryMode.cycleMap()
         this._keys.add(e.code)
-        if (MOVEMENT_KEY_CODES.has(e.code) || e.code === 'ShiftLeft' || TRY_CROUCH_KEYS.has(e.code)) e.preventDefault()
+        if (MOVEMENT_KEY_CODES.has(e.code) || TRY_MOVE_ACTIONS.some((a) => keysFor(a).includes(e.code))) e.preventDefault()
         return
       }
       // Ctrl/Cmd shortcuts (shown in the Escape menu's Shortcuts box).
