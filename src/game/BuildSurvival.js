@@ -449,9 +449,11 @@ export class BuildSurvival {
     for (let p = 0; p < pellets; p++) {
       ray.copy(center)
       if (p > 0 || pellets > 1) {
-        ray.direction.x += (Math.random() - 0.5) * 2 * (w.spread || 0)
-        ray.direction.y += (Math.random() - 0.5) * 2 * (w.spread || 0)
-        ray.direction.z += (Math.random() - 0.5) * 2 * (w.spread || 0)
+        // Aiming down the sights tightens the spread.
+        const spread = (w.spread || 0) * (1 - 0.45 * (bm.tryMode.aimAmount || 0))
+        ray.direction.x += (Math.random() - 0.5) * 2 * spread
+        ray.direction.y += (Math.random() - 0.5) * 2 * spread
+        ray.direction.z += (Math.random() - 0.5) * 2 * spread
         ray.direction.normalize()
       }
       let best = null

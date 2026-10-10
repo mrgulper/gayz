@@ -118,6 +118,7 @@ test('every Map Editor shortcut on the pause screen really works', async ({ page
       buildMenuRun: () => { setTry(true); const walk = speedWith(['KeyW']); const run = speedWith(['ShiftLeft', 'KeyW']); setTry(false); return run > walk * 1.3 },
       buildMenuCrouch: () => { setTry(true); press('KeyC'); bm.tryMode.update(0.05, bm._keys); const crouched = bm.tryMode._crouch; release('KeyC'); bm._keys.clear(); setTry(false); return crouched },
       buildMenuUseDoor: () => { setTry(true); const done = spy('_tryUseFromCamera'); press('KeyE'); const calls = done(); setTry(false); return calls === 1 },
+      buildMenuInspect: () => { setTry(true); press('KeyX'); const turning = bm.tryMode._inspectT >= 0; setTry(false); return turning },
       buildMenuMapSize: () => { setTry(true); const before = bm.tryMode._mapMode; press('KeyM'); const after = bm.tryMode._mapMode; setTry(false); return after !== before },
       buildModeUndoBtn: () => { const done = spy('undo'); press('KeyZ', { ctrlKey: true }); return done() === 1 },
       buildModeRedoBtn: () => { const done = spy('redo'); press('KeyY', { ctrlKey: true }); return done() === 1 },
@@ -135,7 +136,7 @@ test('every Map Editor shortcut on the pause screen really works', async ({ page
 
     const out = {}
     for (const [keys, labelKey] of bm.constructor.MENU_SHORTCUTS) {
-      const label = `${keys.join('+')} (${labelKey})`
+      const label = `${(typeof keys === 'function' ? keys() : keys).join('+')} (${labelKey})`
       out[label] = CHECKS[labelKey] ? CHECKS[labelKey]() : 'no check written'
     }
     g._exitBuildMode()

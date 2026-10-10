@@ -2,7 +2,7 @@
 // zombie survival gameplay (see docs/superpowers/specs/2026-08-08-build-mode-design.md).
 // Reuses Game.js's existing renderer/canvas rather than a second WebGL
 // context - only the scene/camera passed to render() changes.
-import { FIXED_KEYS } from './Keybinds.js'
+import { FIXED_KEYS, getKeyFor, keyLabel } from './Keybinds.js'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
@@ -114,6 +114,8 @@ const MENU_SHORTCUTS = [
   [['Shift', 'W'], 'buildMenuRun'],
   [['C'], 'buildMenuCrouch'],
   [['E'], 'buildMenuUseDoor'],
+  // Rebindable, so its key is looked up when the list is drawn.
+  [() => [keyLabel(getKeyFor('inspectWeapon'))], 'buildMenuInspect'],
   [['M'], 'buildMenuMapSize'],
   [['Ctrl', 'Z'], 'buildModeUndoBtn'],
   [['Ctrl', 'Y'], 'buildModeRedoBtn'],
@@ -1407,6 +1409,7 @@ export class BuildMode {
         if (this.survival.camp?.panelOpen) return
         if (this.survival.active && !e.repeat) this.survival.onKeyDown(e.code)
         if (e.code === FIXED_KEYS.buildUse && !e.repeat) this._tryUseFromCamera()
+        if (e.code === getKeyFor('inspectWeapon') && !e.repeat) this.tryMode.inspect()
         if (e.code === 'KeyM' && !e.repeat) this.tryMode.cycleMap()
         this._keys.add(e.code)
         if (MOVEMENT_KEY_CODES.has(e.code) || e.code === 'ShiftLeft' || TRY_CROUCH_KEYS.has(e.code)) e.preventDefault()
@@ -1481,7 +1484,8 @@ export class BuildMode {
     this._onMouseMove = (e) => {
       if (document.pointerLockElement !== this.renderer.domElement) return
       // Settings > Controls: Mouse Sensitivity and Invert Look.
-      const sens = LOOK_SENSITIVITY * ((this.game?.settings?.sensitivity ?? 100) / 100)
+      // Aiming down the sights turns the view slower, like zooming in.
+      const sens = LOOK_SENSITIVITY * ((this.game?.settings?.sensitivity ?? 100) / 100) * (1 - 0.45 * (this.tryMode.aimAmount || 0))
       this._yaw -= e.movementX * sens
       this._pitch -= e.movementY * sens * (this.game?.settings?.invertY ? -1 : 1)
       this._pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this._pitch))
@@ -1655,7 +1659,9 @@ export class BuildMode {
           this._fireHeld = true
           this.tryMode.fire()
         }
-        else if (e.button === 2) this._tryUseFromCamera()
+        // Held right-click aims down the sights (2026-10-10, like Kirka) -
+        // doors, chests and NPCs are on the Use key (E).
+        else if (e.button === 2) this.tryMode.setAim(true)
         return
       }
       if (e.button === 2) {
@@ -1846,7 +1852,10 @@ export class BuildMode {
     window.addEventListener('wheel', this._onWheel, { passive: true })
     this._wheelAccum = 0
     this.renderer.domElement.addEventListener('pointerdown', this._onPointerDown)
-    this._onPointerUp = (e) => { if (e.button === 0) this._fireHeld = false }
+    this._onPointerUp = (e) => {
+      if (e.button === 0) this._fireHeld = false
+      if (e.button === 2) this.tryMode.setAim(false)
+    }
     window.addEventListener('pointerup', this._onPointerUp)
     window.addEventListener('contextmenu', this._onContextMenu)
     document.addEventListener('click', this._onPickerBackdropClick)
@@ -3022,6 +3031,7 @@ export class BuildMode {
   toggleMenu() {
     this.menuOpen = !this.menuOpen
     if (this.menuOpen) {
+      this.tryMode.setAim(false)
       this._captureMenuPreview()
       this._menuTip = (this._menuTip ?? Math.floor(Math.random() * MENU_TIP_KEYS.length) - 1) + 1
       this._refreshMenuInfo()
@@ -3194,7 +3204,7 @@ export class BuildMode {
         row.className = 'build-menu-shortcut'
         const keyWrap = document.createElement('span')
         keyWrap.className = 'build-menu-keys'
-        keys.forEach((k, i) => {
+        ;(typeof keys === 'function' ? keys() : keys).forEach((k, i) => {
           if (i) keyWrap.append('+')
           const kbd = document.createElement('kbd')
           kbd.textContent = k

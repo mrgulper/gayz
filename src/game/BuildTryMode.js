@@ -85,6 +85,16 @@ const SHARDS_PER_WINDOW = 14
 const SHARD_LIFE = 1.4
 // Same spot on screen the game holds its gun (WeaponSystem's VIEWMODEL_BASE).
 const GUN_OFFSET = new THREE.Vector3(0.26, -0.22, -0.5)
+// Aiming down the sights (held right-click, 2026-10-10): the gun comes in
+// to the middle of the screen and the view zooms in by AIM_ZOOM degrees.
+const AIM_OFFSET = new THREE.Vector3(0, -0.27, -0.44)
+const AIM_ZOOM = 22
+const AIM_SPEED = 14
+// Inspect Weapon (X by default): the gun turns to show its side at an
+// angle, holds there, and turns back - seconds for each part.
+const INSPECT_IN = 0.3
+const INSPECT_HOLD = 1.3
+const INSPECT_OUT = 0.35
 
 export class BuildTryMode {
   constructor(buildMode, blockSize) {
@@ -96,6 +106,9 @@ export class BuildTryMode {
     this.onGround = false
     this._bob = 0
     this._recoil = 0
+    this.aiming = false
+    this.aimAmount = 0
+    this._inspectT = -1
     this._spawn = new THREE.Vector3()
     this._gunScene = null
     this._gunCamera = null
@@ -325,6 +338,9 @@ export class BuildTryMode {
 
   exit() {
     this.active = false
+    this.aiming = false
+    this.aimAmount = 0
+    this._inspectT = -1
     this.bm.gadgets.releasePlates()
     this._restoreWindows()
     if (this._mapEl) this._mapEl.style.display = 'none'
@@ -488,16 +504,28 @@ export class BuildTryMode {
     this._eye = THREE.MathUtils.damp(this._eye, crouch ? CROUCH_EYE : EYE, 18, dt)
     cam.position.set(p.x * B, (p.y + this._eye + bob) * B, p.z * B)
     if (this._baseFov !== null) {
-      const fov = THREE.MathUtils.damp(cam.fov, this._baseFov + (sprint ? SPRINT_FOV : 0), 10, dt)
+      const fov = THREE.MathUtils.damp(cam.fov, this._baseFov + (sprint && !this.aiming ? SPRINT_FOV : 0) - AIM_ZOOM * this.aimAmount, 10, dt)
       if (Math.abs(fov - cam.fov) > 0.01) {
         cam.fov = fov
         cam.updateProjectionMatrix()
       }
     }
     this._recoil = Math.max(0, this._recoil - dt * 6)
+    this.aimAmount = THREE.MathUtils.damp(this.aimAmount, this.aiming ? 1 : 0, AIM_SPEED, dt)
+    if (this.aimAmount < 0.001) this.aimAmount = 0
+    const inspect = this._inspectWeight(dt)
     if (this._gun) {
-      this._gun.position.set(GUN_OFFSET.x + Math.cos(this._bob * 0.5) * (moving ? 0.008 : 0), GUN_OFFSET.y + Math.abs(Math.sin(this._bob * 0.5)) * (moving ? -0.012 : 0), GUN_OFFSET.z + this._recoil * 0.05)
-      this._gun.rotation.x = this._recoil * 0.18
+      const a = this.aimAmount
+      const sway = 1 - a * 0.85
+      const base = this._aimPose || (this._aimPose = new THREE.Vector3())
+      base.copy(GUN_OFFSET).lerp(AIM_OFFSET, a)
+      this._gun.position.set(
+        base.x + Math.cos(this._bob * 0.5) * (moving ? 0.008 : 0) * sway - inspect * 0.05,
+        base.y + Math.abs(Math.sin(this._bob * 0.5)) * (moving ? -0.012 : 0) * sway + inspect * 0.05,
+        base.z + this._recoil * 0.05 * (1 - a * 0.5) + inspect * 0.03,
+      )
+      // Inspecting turns the gun's side toward you and tips it a little.
+      this._gun.rotation.set(this._recoil * 0.18 * (1 - a * 0.6) + inspect * 0.12, inspect * 0.75, inspect * 0.32)
     }
     this._updateShards(dt)
     // Pressure plates under you (and under zombies while playing).
@@ -542,9 +570,35 @@ export class BuildTryMode {
     const play = this.bm.survival
     if (play?.active && (play.dead || !play.tryFire())) return
     this._recoil = 1
+    this._inspectT = -1
     audioEngine.playShot(this._gunId)
     if (play?.active && play.shoot()) return
     this._shootWindow()
+  }
+
+  // Held right-click: aim down the sights (stops any inspect).
+  setAim(on) {
+    this.aiming = !!on && this.active
+    if (this.aiming) this._inspectT = -1
+  }
+
+  // Inspect Weapon: turn the gun to look at it (not while aiming).
+  inspect() {
+    if (!this.active || this.aiming || !this._gun?.visible) return
+    this._inspectT = 0
+  }
+
+  // 0 (held normally) .. 1 (turned to show it), eased in, held, eased out.
+  _inspectWeight(dt) {
+    if (this._inspectT < 0) return 0
+    this._inspectT += dt
+    const t = this._inspectT
+    const ease = (x) => x * x * (3 - 2 * x)
+    if (t < INSPECT_IN) return ease(t / INSPECT_IN)
+    if (t < INSPECT_IN + INSPECT_HOLD) return 1
+    if (t < INSPECT_IN + INSPECT_HOLD + INSPECT_OUT) return ease(1 - (t - INSPECT_IN - INSPECT_HOLD) / INSPECT_OUT)
+    this._inspectT = -1
+    return 0
   }
 
   // --- Windows: the first shot cracks a glass block, the second breaks it,
