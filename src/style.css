@@ -3071,6 +3071,16 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
   color: rgba(255, 255, 255, 0.75);
 }
 
+/* Weapon model credits (2026-10-10) - one line per gun. */
+#credits-weapons-list {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.75);
+}
+
 #credits-content a,
 #terms-content a,
 #privacy-content a,

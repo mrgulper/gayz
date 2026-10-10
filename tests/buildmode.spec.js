@@ -746,7 +746,7 @@ test('a Map 1 run starts with the weapon picker and uses the picked gun', async 
     s.zombies = s.zombies.filter((z) => z !== fake)
     return out
   })
-  expect(r).toEqual({ pickerShown: true, cards: 13, waitsForPick: true, spawnedWhilePicking: 0, pickerHidden: true, weapon: 'shotgun', ammo: [6, 42], gun: 'shotgun', saved: 'shotgun', shots: [true, false], damaged: true })
+  expect(r).toEqual({ pickerShown: true, cards: 15, waitsForPick: true, spawnedWhilePicking: 0, pickerHidden: true, weapon: 'shotgun', ammo: [6, 42], gun: 'shotgun', saved: 'shotgun', shots: [true, false], damaged: true })
 })
 
 test('View Distance hides far chunks and zombies are drawn in one batch', async ({ page }) => {

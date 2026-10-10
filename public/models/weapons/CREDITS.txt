@@ -1,5 +1,21 @@
-Firearm models (pistol, rifle, shotgun, awp, glock18): Quaternius, "Ultimate Guns Pack" (quaternius.com/packs/ultimategun.html)
-License: CC0 (public domain, no attribution required)
+Weapon models (public/models/weapons/*.glb), added 2026-10-10.
+All from Sketchfab, licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
+Changes made for GayZ: turned and scaled to fit the game, extra parts removed (the AK file's gold/worn
+copies, the M1911's loose magazine, the shotgun's muzzle flash and shell), textures shrunk (512px color,
+256px other maps) and compressed. The Void Ripper model was painted (it shipped without colors).
 
-Melee models (knife, bat, machete, baton): 3dmodelscc0, "Free CC0 Melee Weapons Pack" (3dmodelscc0.itch.io/free-cc0-melee-weapons-pack)
-License: CC0 (public domain, no attribution required)
+Knife: "Ka-bar Combat Knife" by Smooth3db - https://sketchfab.com/3d-models/ka-bar-combat-knife-0386906627d2497bbe9e30917c03d4c2
+Tomahawk: "Tactical Tomahawk Axe" by Onsekyl - https://sketchfab.com/3d-models/tactical-tomahawk-axe-effa3bc9faff423993e62b3463227b0d
+AK-47: "AK47 With Variants" by Kendrick Russell - https://sketchfab.com/3d-models/ak47-with-variants-16f31a06da764cf2a3e5c8660cc9a817
+M1911: "M1911 Pistol" by MaX3Dd - https://sketchfab.com/3d-models/m1911-pistol-6fd5b49b34fe4af796e930401cff15f6
+Revolver: "Revolver" by re1monsen - https://sketchfab.com/3d-models/revolver-740998352a1d4894b3c220413d98e2bd
+Minigun: "Minigun M134" by Faheem Yusuf - https://sketchfab.com/3d-models/minigun-m134-2711d7d3ff5240099b92a0e582d15956
+Shotgun: "Free animated Pump Shotgun" by Mostafa Ebrahim - https://sketchfab.com/3d-models/free-animated-pump-shotgun-fc9b14f3caf641c3a2a84b02f14b5c0f
+AWP: "Sniper Rifle" by awakov_dawid - https://sketchfab.com/3d-models/sniper-rifle-e5930a4ddbec4cae9909706e29c8d55a
+GPMG: "M60 Light Machine Gun" by Pieter Ferreira - https://sketchfab.com/3d-models/m60-light-machine-gun-cbf408387dc94a30abe11afb3698ac13
+Flamethrower: "Flame Thrower" by Pieter Ferreira - https://sketchfab.com/3d-models/flame-thrower-78ee33188c7040808d142725f05bb738
+Rocket Launcher: "RPG-7" by Willy Decarpentrie - https://sketchfab.com/3d-models/rpg-7-da0deb112e734dd5b00cbb69cfb5f271
+Crossbow: "CROSSBOW RIGGED AND ANIMATED" by Pieter Ferreira - https://sketchfab.com/3d-models/crossbow-rigged-and-animated-d480e45befc84d9bb56f52a4b516c122
+Grenade Launcher: "Game Ready PBR Grenade Launcher GL-06" by Leo_Newman - https://sketchfab.com/3d-models/game-ready-pbr-grenade-launcher-gl-06-c06031637904402c85179bfce8b73e28
+MP5-SD: "MP5SD" by ecler - https://sketchfab.com/3d-models/mp5sd-d92ca60709c04b19acbfc6e00d079ebd
+Void Ripper: "Sci-fi Rail-Gun Sniper Rifle" by S1grein - https://sketchfab.com/3d-models/sci-fi-rail-gun-sniper-rifle-4dbe3b46b3cb41ceb0642aa3286a575c

@@ -31,6 +31,7 @@ import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { audioEngine } from './Audio.js'
+import { cloneViewmodel } from './Viewmodels.js'
 import { heldAction } from './Keybinds.js'
 
 const HALF_WIDTH = 0.3
@@ -807,7 +808,7 @@ export class BuildTryMode {
     // the rifle.
     const play = this.bm.survival
     const hotbar = this.bm.game?.settings?.hotbar || []
-    const gunIds = hotbar.filter((wid) => wid && weapons.viewmodels[wid] && !/melee|knife|bat|katana|machete/i.test(wid))
+    const gunIds = hotbar.filter((wid) => wid && weapons.viewmodels[wid] && !/melee|knife|tomahawk/i.test(wid))
     const picked = play?.active && weapons.viewmodels[play.weaponId] ? play.weaponId : null
     const id = picked || gunIds[0] || (weapons.viewmodels.rifle ? 'rifle' : weapons.current?.id)
     const source = id && weapons.viewmodels[id]
@@ -816,7 +817,7 @@ export class BuildTryMode {
     if (this._gunId !== id) {
       if (this._gun) this._gunScene.remove(this._gun)
       // A copy of the game's own gun model (geometry/materials shared).
-      const gun = source.clone(true)
+      const gun = cloneViewmodel(source)
       gun.visible = true
       this._gun = new THREE.Group()
       this._gun.add(gun)
@@ -831,8 +832,7 @@ export class BuildTryMode {
 
   // Where the two hands go on this gun, in the gun group's space, from the
   // gun's own size (every gun points along -z): the right hand on the grip
-  // near the back, the left hand under the barrel halfway along. (The
-  // models' hidden grip markers sit in the wrong places for this.)
+  // near the back, the left hand under the barrel halfway along.
   _findHandSpots(gun) {
     const g = this._gun
     g.position.set(0, 0, 0)
@@ -842,7 +842,6 @@ export class BuildTryMode {
     const corner = new THREE.Vector3()
     gun.traverse((o) => {
       if (!o.isMesh) return
-      for (let q = o; q; q = q.parent) if (q.userData?.isHand) return
       o.geometry.computeBoundingBox()
       const bb = o.geometry.boundingBox
       for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) {

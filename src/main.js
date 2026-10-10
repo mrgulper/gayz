@@ -5,18 +5,7 @@ import { preBootCloudSync } from './game/CloudPreBoot.js'
 import { reloadBindings } from './game/Keybinds.js'
 import { startMenuRain } from './game/MenuRain.js'
 import { startMenuWater } from './game/MenuWater.js'
-import {
-  preloadPistolViewmodel,
-  preloadRifleViewmodel,
-  preloadShotgunViewmodel,
-  preloadAwpViewmodel,
-  preloadGlock18Viewmodel,
-  preloadSuppressedSmgViewmodel,
-  preloadGrenadeLauncherViewmodel,
-  preloadBatViewmodel,
-  preloadMacheteViewmodel,
-  preloadUvBatonViewmodel,
-} from './game/Viewmodels.js'
+import { preloadWeaponModels } from './game/Viewmodels.js'
 
 // The homepage rain and the moving water on the road start straight away -
 // they need nothing from the game.
@@ -26,18 +15,7 @@ startMenuWater(document.getElementById('menu-bg-water'))
 // Only the gun models are preloaded now (Try Map holds one, Inventory >
 // Weapons draws them) - the old Map 1 city and its models were deleted.
 Promise.all([
-  preloadPistolViewmodel(),
-  preloadRifleViewmodel(),
-  preloadShotgunViewmodel(),
-  preloadAwpViewmodel(),
-  preloadGlock18Viewmodel(),
-  preloadSuppressedSmgViewmodel(),
-  preloadGrenadeLauncherViewmodel(),
-  // No preloadKnifeViewmodel() here - USE_GLB_KNIFE is off (see
-  // Viewmodels.js), the procedural knife needs no asset fetch.
-  preloadBatViewmodel(),
-  preloadMacheteViewmodel(),
-  preloadUvBatonViewmodel(),
+  preloadWeaponModels(),
   // Pulls this account's cloud save into localStorage before anything
   // reads it, so another device's progress never needs a reload to show
   // up (see CloudPreBoot.js). Never rejects; capped at a few seconds.
