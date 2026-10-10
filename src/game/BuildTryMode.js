@@ -99,6 +99,13 @@ const AIM_OFFSET = new THREE.Vector3(0, -0.06, -0.45)
 const AIM_BACK = 0.22
 const AIM_BACK_PER_LEN = -0.3
 const AIM_DROP = 0.012
+// ...and then the whole gun a little higher, so the crosshair sits inside
+// the sights / scope instead of on their top edge (2026-10-10, "move them a
+// bit higher to fully have the gun aim").
+const AIM_SIGHT_RISE = 0.02
+// Guns with no sights to look down - the Minigun's big back housing filled
+// the screen held up to the eye - are held this far out instead.
+const AIM_BACK_FOR = { minigun: 0.28 }
 const AIM_ZOOM = 22
 const AIM_SPEED = 14
 // Inspect Weapon (X by default): the gun turns to show its side at an
@@ -866,8 +873,8 @@ export class BuildTryMode {
     // corners of a turned part's own box (above) can sit well above it.
     const exact = new THREE.Box3().setFromObject(gun, true)
     const len = exact.max.z - exact.min.z
-    const back = AIM_BACK + AIM_BACK_PER_LEN * len
-    this._aimOffset = new THREE.Vector3(-(exact.min.x + exact.max.x) / 2, -exact.max.y - (back + len) * AIM_DROP, -back - exact.max.z)
+    const back = AIM_BACK_FOR[this._gunId] ?? AIM_BACK + AIM_BACK_PER_LEN * len
+    this._aimOffset = new THREE.Vector3(-(exact.min.x + exact.max.x) / 2, -exact.max.y - (back + len) * AIM_DROP + AIM_SIGHT_RISE, -back - exact.max.z)
     return [
       { limb: 'armR', shoulder: ARM_SHOULDERS.armR, hand: grip.toArray() },
       { limb: 'armL', shoulder: ARM_SHOULDERS.armL, hand: fore.toArray() },

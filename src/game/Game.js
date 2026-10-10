@@ -2796,17 +2796,20 @@ export class Game {
     // a busy device may never report itself idle - without one these never
     // ran and Play did all of it at once.
     const idle = window.requestIdleCallback ? (fn) => window.requestIdleCallback(fn, { timeout: 2500 }) : (fn) => setTimeout(fn, 1500)
-    // Then build the editor and Map 1's city ahead of time too (each its
-    // own idle slice) - the same objects an exited editor leaves behind,
-    // so nothing else changes; Play only has to show them.
+    // Then build the editor ahead of time too (its own idle slice) - the
+    // same object an exited editor leaves behind, so nothing else changes.
+    // (Generating Map 1's city here as well was tried: on a slow device it
+    // kept the page busy long enough to drop a player who had just joined
+    // a server, so the city is still generated when Play is pressed.)
     idle(() => this._preloadBuildMode().then(({ BuildMode }) => {
       idle(() => {
         if (typeof this.buildMode.enter !== 'function' && !this._enteringBuildMode) this.buildMode = new BuildMode(this.renderer, this)
-        idle(() => this.buildMode._map3Base?.())
       })
     }).catch(() => { /* tried again on Play */ }))
-    // And the weapon pictures Play's weapon picker shows.
-    idle(() => this._weaponThumbnailsReady())
+    // (The weapon pictures aren't drawn here: drawn one per break as blob
+    // URLs they no longer freeze anything, so they start when the weapon
+    // picker or Inventory first needs them - drawing them at page load
+    // competed with a game that had just started on a slow device.)
     // Keep the next visit's first paint in step with this one.
     this._saveMenuPaintCache()
     window.addEventListener('pagehide', () => this._saveMenuPaintCache())
@@ -9479,8 +9482,12 @@ export class Game {
           if (!out[id]) delete out[id]
         }
         scene.remove(model)
-        // One weapon per break, so the page keeps drawing in between.
+        // One weapon per break, so the page keeps drawing in between - and
+        // none while a game is being played (only its weapon picker shows
+        // them), where a slow device would stutter or, on a server, miss
+        // its syncs and be dropped.
         await new Promise((resolve) => setTimeout(resolve, 0))
+        while (this.buildMode?.active && !this.buildMode.survival?._picking) await new Promise((resolve) => setTimeout(resolve, 500))
       }
     } catch (err) {
       console.warn('Weapon pictures failed, using icons instead', err)
@@ -9493,10 +9500,10 @@ export class Game {
     return out
   }
 
-  // The weapon pictures, drawn once in the background (started at idle
-  // after boot - see the constructor) and shared by Inventory and Map 1's
-  // weapon picker. Drawing them when Play was clicked froze the game for
-  // a moment before the map appeared (2026-10-10, "it lags then loads").
+  // The weapon pictures, drawn once in the background (started the first
+  // time Inventory or Map 1's weapon picker needs them) and shared by both.
+  // Drawing all 15 at once when Play was clicked froze the game for a
+  // moment before the map appeared (2026-10-10, "it lags then loads").
   _weaponThumbnailsReady() {
     if (!this._weaponThumbJob) {
       this._weaponThumbJob = this._weaponThumbnails().then((out) => {

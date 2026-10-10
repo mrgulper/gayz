@@ -10614,21 +10614,32 @@ body.build-mode-on #chat-panel {
 
 #build-mode-try-btn svg { color: #7fd88f !important; }
 
-/* Try Map's aiming dot, in the middle of the screen - same color/size
-   settings as the game's own crosshair. */
+/* Try Map's crosshair, a small + in the middle of the screen (2026-10-10,
+   was a dot) - same color/size settings as the game's own crosshair. The
+   two bars are its ::before/::after, each with a thin dark outline so it
+   shows on bright and dark blocks alike. */
 #build-try-crosshair {
   position: fixed;
   left: 50%;
   top: 50%;
   z-index: 19;
-  width: calc(6px * var(--crosshair-size, 1));
-  height: calc(6px * var(--crosshair-size, 1));
-  margin: calc(-3px * var(--crosshair-size, 1)) 0 0 calc(-3px * var(--crosshair-size, 1));
-  border-radius: 50%;
-  background: var(--crosshair-color, rgba(255, 255, 255, 0.92));
-  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55);
+  width: calc(18px * var(--crosshair-size, 1));
+  height: calc(18px * var(--crosshair-size, 1));
+  margin: calc(-9px * var(--crosshair-size, 1)) 0 0 calc(-9px * var(--crosshair-size, 1));
   pointer-events: none;
 }
+#build-try-crosshair::before,
+#build-try-crosshair::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: var(--crosshair-color, rgba(255, 255, 255, 0.92));
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
+  transform: translate(-50%, -50%);
+}
+#build-try-crosshair::before { width: 100%; height: 2px; }
+#build-try-crosshair::after { width: 2px; height: 100%; }
 
 /* Oval (pill) inputs, dropdowns and their buttons, the same shape as the
    search bars (2026-10-02): both chat boxes, Add a Friend, the Status
@@ -10833,7 +10844,10 @@ html.ui-theme-old .crate-card .crate-stock-count { color: #241507; }
 #build-play-hurt.show { animation: build-play-hurt 0.45s ease-out; }
 @keyframes build-play-hurt { from { opacity: 1; } to { opacity: 0; } }
 #build-try-crosshair.hit { animation: build-play-hitmark 0.18s ease-out; }
-@keyframes build-play-hitmark { from { background: #ff3b30; transform: scale(2.2); } }
+#build-try-crosshair.hit::before,
+#build-try-crosshair.hit::after { animation: build-play-hitmark-bar 0.18s ease-out; }
+@keyframes build-play-hitmark { from { transform: scale(1.6); } }
+@keyframes build-play-hitmark-bar { from { background: #ff3b30; } }
 #build-play-over {
   display: none; position: fixed; inset: 0; z-index: 25; align-items: center; justify-content: center;
   background: radial-gradient(ellipse at center, rgba(60, 0, 0, 0.55), rgba(5, 0, 0, 0.9));
