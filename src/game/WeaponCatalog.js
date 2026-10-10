@@ -17,8 +17,6 @@ export const WEAPON_LIST = [
   { id: 'crossbow', name: 'Crossbow' },
   { id: 'launcher', name: 'Grenade Launcher' },
   { id: 'suppressedsmg', name: 'Suppressed SMG' },
-  { id: 'nailgun', name: 'Nail Gun' },
-  { id: 'harpoon', name: 'Harpoon Gun' },
   { id: 'voidripper', name: 'Void Ripper' },
 ]
 
