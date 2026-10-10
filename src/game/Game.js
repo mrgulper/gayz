@@ -449,9 +449,12 @@ function loadSettings() {
     // weapon to an occupied slot used to just drop the previous occupant
     // instead of swapping it elsewhere). The array-shape check just above
     // only replaces the whole hotbar if it isn't a valid 3-length array,
-    // so a save with e.g. ['harpoon', null, null] passed through
+    // so a save with e.g. ['rifle', null, null] passed through
     // untouched - backfill each null slot with the first default weapon
     // not already present elsewhere on the hotbar.
+    // Guns that were removed (Nail Gun, Harpoon Gun - 2026-10-10) leave
+    // their slot empty, filled just below.
+    settings.hotbar = settings.hotbar.map((id) => (id === 'nailgun' || id === 'harpoon' ? null : id))
     if (settings.hotbar.includes(null)) {
       const fallbacks = ['rifle', 'pistol', 'melee']
       for (let i = 0; i < settings.hotbar.length; i++) {
@@ -1501,8 +1504,6 @@ const WEAPON_ICON_PATHS = {
   crossbow: '<path d="M3 4q7 8 0 16"/><line x1="3" y1="4" x2="3" y2="20"/><line x1="3" y1="12" x2="20" y2="12"/><line x1="14" y1="12" x2="14" y2="16"/>',
   launcher: '<rect x="4" y="10" width="9" height="5" rx="1"/><circle cx="16.5" cy="12.5" r="3.5"/><line x1="10" y1="15" x2="13" y2="19"/>',
   suppressedsmg: '<rect x="6" y="11" width="6" height="4"/><rect x="12" y="12" width="10" height="2" rx="1"/><line x1="3" y1="12.5" x2="6" y2="12.5"/><path d="M8 15v4h3v-4"/>',
-  nailgun: '<rect x="4" y="8" width="10" height="6" rx="1"/><path d="M7 14v5h4v-5"/><line x1="7" y1="19" x2="11" y2="19"/><line x1="14" y1="10" x2="19" y2="10"/><line x1="19" y1="8" x2="19" y2="12"/>',
-  harpoon: '<line x1="3" y1="13" x2="17" y2="13"/><polygon points="17,10 23,13 17,16" fill="currentColor" stroke="none"/><line x1="17" y1="11" x2="14" y2="9"/><line x1="17" y1="15" x2="14" y2="17"/><rect x="1" y="11" width="4" height="4" rx="0.8"/>',
   voidripper: '<polygon points="13,2 5,13 10,13 8,22 19,10 13,10 15,2" fill="currentColor" stroke="none"/>',
 }
 

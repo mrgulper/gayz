@@ -24,8 +24,6 @@ export const PLAY_WEAPONS = {
   crossbow: { damage: 120, rate: 0.9, mag: 1, reserve: 36, reload: 0.9 },
   launcher: { damage: 130, rate: 0.7, mag: 6, reserve: 24, reload: 2.6, blast: 2.5 },
   suppressedsmg: { damage: 22, rate: 0.07, auto: true, mag: 30, reserve: 180, reload: 1.5 },
-  nailgun: { damage: 21, rate: 0.09, auto: true, mag: 50, reserve: 200, reload: 1.8 },
-  harpoon: { damage: 140, rate: 1, mag: 1, reserve: 30, reload: 1.3 },
   voidripper: { damage: 48, rate: 0.16, auto: true, mag: 24, reserve: 120, reload: 1.8 },
   melee: { damage: 75, rate: 0.45, auto: true, mag: Infinity, reserve: Infinity, reload: 0, range: 2.6 },
 }

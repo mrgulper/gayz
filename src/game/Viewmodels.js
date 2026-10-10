@@ -877,12 +877,11 @@ function buildAwpProcedural() {
 }
 
 const FLAME_GLOW = flatMaterial({ color: 0x3a1a0a, emissive: 0xff7a1a, emissiveIntensity: 2.2 })
-const TOOL_ORANGE = flatMaterial({ color: 0xd8600f, roughness: 0.6 })
 const VOID_GLOW = flatMaterial({ color: 0x2a0a44, emissive: 0x9b5cff, emissiveIntensity: 2.4 })
 
 // ---- Detailed procedural guns (2026-10-01) --------------------------------
-// The 8 weapons with no real model (Rocket Launcher, Minigun, Flamethrower,
-// Crossbow, Grenade Launcher, Nail Gun, Harpoon Gun, Void Ripper) used to be
+// The weapons with no real model (Rocket Launcher, Minigun, Flamethrower,
+// Crossbow, Grenade Launcher, Void Ripper) used to be
 // a handful of plain boxes each. They're now built from real side-profile
 // cut-outs (ExtrudeGeometry with bevelled edges) plus lathed/tubed details,
 // and every part sharing a material is merged into ONE mesh (PartSet), so a
@@ -1230,75 +1229,6 @@ function buildGrenadeLauncher() {
   return g
 }
 
-// Nail Gun - framing-nailer shape: an orange body with a motor dome and
-// black rubber overmould, a long nose with the contact tip, an angled
-// strip magazine with visible nails and an air fitting.
-function buildNailgun() {
-  const g = new THREE.Group()
-  const p = new PartSet()
-  const body = TOOL_ORANGE
-  p.add(body, profileGeo([
-    [-0.06, -0.05], [-0.06, 0.04], ['q', -0.04, 0.09, 0.02, 0.09], ['q', 0.1, 0.09, 0.11, 0.03], [0.1, -0.03], [0.05, -0.04], [0.0, -0.05],
-  ], 0.07, { bevel: 0.01 }))
-  p.add(RUBBER, new THREE.BoxGeometry(0.072, 0.02, 0.1), [0, 0.07, 0.02])
-  p.add(DARK_METAL, new THREE.BoxGeometry(0.074, 0.03, 0.006), [0, 0.03, 0.106])
-  // Nose + contact tip
-  p.add(DARK_METAL, profileGeo([[-0.17, -0.07], [-0.17, -0.02], [-0.05, 0.0], [-0.05, -0.05]], 0.03, { bevel: 0.004 }))
-  p.add(STEEL, new THREE.BoxGeometry(0.02, 0.07, 0.012), [0, -0.06, -0.175])
-  p.add(RED_PAINT, cylZ(0.008, 0.008, 0.02, 10), [0.025, -0.01, -0.09])
-  // Magazine with nails
-  const mag = new PartSet()
-  mag.add(DARK_METAL, new THREE.BoxGeometry(0.024, 0.04, 0.2), [0, 0, 0])
-  for (let i = 0; i < 14; i++) mag.add(CHROME, new THREE.CylinderGeometry(0.002, 0.002, 0.03, 6), [0, 0.032, -0.09 + i * 0.013], [0.35, 0, 0])
-  mag.add(BRASS, new THREE.BoxGeometry(0.026, 0.006, 0.2), [0, 0.02, 0])
-  const magGroup = mag.build()
-  magGroup.position.set(0, -0.12, -0.01)
-  magGroup.rotation.x = 0.43
-  g.add(magGroup)
-  // Grip with overmould + air fitting
-  const grip = addPistolGrip(p, RUBBER, 0.07, -0.04, { height: 0.12, guardMat: DARK_METAL })
-  p.add(BRASS, cylZ(0.008, 0.008, 0.03, 10), [0, -0.175, 0.11], [0.3, 0, 0])
-  p.add(STEEL, cylZ(0.011, 0.011, 0.012, 12), [0, -0.163, 0.105], [0.3, 0, 0])
-  p.build(g)
-  g.add(grip)
-  attachHandToGrip(g, grip)
-  return g
-}
-
-// Harpoon Gun - a speargun: slim aluminium-and-wood barrel, a muzzle head
-// holding two thick rubber bands stretched back to the shaft notches, the
-// loaded spear with its barbed tip, and a line reel under the barrel.
-function buildHarpoonGun() {
-  const g = new THREE.Group()
-  const p = new PartSet()
-  const body = WOOD
-  p.add(body, profileGeo([[-0.34, -0.005], [-0.34, 0.03], [0.1, 0.035], [0.2, 0.02], [0.24, -0.02], [0.2, -0.04], [0.06, -0.03], [-0.34, -0.005]], 0.04, { bevel: 0.006 }))
-  p.add(STEEL, new THREE.BoxGeometry(0.012, 0.006, 0.5), [0, 0.038, -0.08])
-  // Muzzle head + band anchors
-  p.add(DARK_METAL, profileGeo([[-0.38, -0.01], [-0.38, 0.05], [-0.34, 0.05], [-0.34, -0.01]], 0.06, { bevel: 0.006 }))
-  for (const s of [-1, 1]) {
-    // Rubber band: from the muzzle head back to the shaft notch
-    p.add(RUBBER, tubeGeo([[s * 0.03, 0.025, -0.36], [s * 0.035, 0.04, -0.2], [s * 0.012, 0.055, -0.04]], 0.008, 16))
-  }
-  p.add(STEEL, tubeGeo([[-0.012, 0.055, -0.04], [0, 0.058, -0.03], [0.012, 0.055, -0.04]], 0.003, 8))
-  // Spear + barbed tip + flopper
-  p.add(CHROME, cylZ(0.004, 0.004, 0.62, 8), [0, 0.052, -0.3])
-  p.add(STEEL, cylZ(0.0, 0.008, 0.05, 8), [0, 0.052, -0.635])
-  p.add(STEEL, new THREE.BoxGeometry(0.002, 0.016, 0.03), [0, 0.06, -0.58], [0.4, 0, 0])
-  // Line reel under the barrel
-  p.add(DARK_METAL, new THREE.CylinderGeometry(0.035, 0.035, 0.03, 20), [0, -0.035, -0.12], [0, 0, Math.PI / 2])
-  p.add(BRASS, new THREE.CylinderGeometry(0.02, 0.02, 0.032, 20), [0, -0.035, -0.12], [0, 0, Math.PI / 2])
-  p.add(STEEL, new THREE.BoxGeometry(0.006, 0.02, 0.012), [0.02, -0.035, -0.12])
-  const grip = addPistolGrip(p, GRIP, 0.13, -0.03, { height: 0.12 })
-  p.build(g)
-  g.add(grip)
-  attachHandToGrip(g, grip)
-  const fore = new THREE.Object3D()
-  fore.position.set(0, -0.03, -0.1)
-  addForeHand(g, fore)
-  return g
-}
-
 // Void Ripper - Mystery Box exclusive: a sleek angular alien body with
 // glowing seams, twin forward prongs cradling a floating core inside three
 // thin rings, and a skeletal stock.
@@ -1416,8 +1346,6 @@ const BUILDERS = {
   rocket: buildRocketLauncher,
   crossbow: buildCrossbow,
   launcher: buildGrenadeLauncher,
-  nailgun: buildNailgun,
-  harpoon: buildHarpoonGun,
   voidripper: buildVoidRipper,
   suppressedsmg: buildSuppressedSmg,
 }
