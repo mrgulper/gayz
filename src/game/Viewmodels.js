@@ -28,7 +28,9 @@ const WEAPON_MODELS = {
   // Blades are tipped up (`tilt`, radians) so they read as held, not
   // poking straight away from the camera.
   melee: { rot: [H, H, 0], len: 0.34, tilt: 0.75 },
-  rifle: { rot: [0, H, 0], len: 0.95 },
+  // The AK model's barrel is turned ~7 degrees off its stock - `yaw`
+  // straightens it so it points where you aim.
+  rifle: { rot: [0, H, 0], len: 0.95, yaw: 0.12 },
   pistol: { rot: [0, Math.PI, 0], len: 0.3 },
   revolver: { rot: [H, -H, 0], len: 0.36 },
   minigun: { rot: [0, H, 0], len: 0.8 },
@@ -93,6 +95,7 @@ export function buildViewmodel(weaponId) {
     mixer.setTime(cfg.pose)
   }
   model.rotation.set(cfg.rot[0], cfg.rot[1], cfg.rot[2], cfg.order || 'YXZ')
+  if (cfg.yaw) model.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), cfg.yaw))
   model.traverse((o) => {
     if (!o.isMesh) return
     o.castShadow = false
@@ -102,7 +105,8 @@ export function buildViewmodel(weaponId) {
   const group = new THREE.Group()
   group.add(model)
   group.updateMatrixWorld(true)
-  // Turns are quarter turns, so the box around the turned model is exact.
+  // Turns are quarter turns (plus a small `yaw`), so the box around the
+  // turned model is (close to) exact.
   const box = new THREE.Box3().setFromObject(group)
   const size = box.getSize(new THREE.Vector3())
   const scale = cfg.len / Math.max(size.z, 1e-6)

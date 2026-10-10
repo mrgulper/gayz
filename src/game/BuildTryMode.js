@@ -89,7 +89,16 @@ const SHARD_LIFE = 1.4
 const GUN_OFFSET = new THREE.Vector3(0.26, -0.22, -0.5)
 // Aiming down the sights (held right-click, 2026-10-10): the gun comes in
 // to the middle of the screen and the view zooms in by AIM_ZOOM degrees.
-const AIM_OFFSET = new THREE.Vector3(0, -0.27, -0.44)
+// Like bloxd.io, the gun is lined up per model (_findHandSpots) so you look
+// along its top from behind: its back sits AIM_BACK (+ AIM_BACK_PER_LEN of
+// its length, so pistols come closer) in front of the eye, and its highest
+// point at the muzzle end sits just under the crosshair (AIM_DROP = tan of
+// the angle below it). A fixed spot put every gun's back almost on the
+// camera, so it stretched from the bottom of the screen up to the crosshair.
+const AIM_OFFSET = new THREE.Vector3(0, -0.06, -0.45)
+const AIM_BACK = 0.2
+const AIM_BACK_PER_LEN = 0.12
+const AIM_DROP = 0.045
 const AIM_ZOOM = 22
 const AIM_SPEED = 14
 // Inspect Weapon (X by default): the gun turns to show its side at an
@@ -525,7 +534,7 @@ export class BuildTryMode {
       const a = this.aimAmount
       const sway = 1 - a * 0.85
       const base = this._aimPose || (this._aimPose = new THREE.Vector3())
-      base.copy(GUN_OFFSET).lerp(AIM_OFFSET, a)
+      base.copy(GUN_OFFSET).lerp(this._aimOffset || AIM_OFFSET, a)
       this._gun.position.set(
         base.x + Math.cos(this._bob * 0.5) * (moving ? 0.008 : 0) * sway - inspect * 0.05,
         base.y + Math.abs(Math.sin(this._bob * 0.5)) * (moving ? -0.012 : 0) * sway + inspect * 0.05,
@@ -853,6 +862,12 @@ export class BuildTryMode {
     const cx = (box.min.x + box.max.x) / 2
     const grip = new THREE.Vector3(cx, box.min.y + size.y * 0.25, box.max.z - size.z * 0.12)
     const fore = new THREE.Vector3(cx, box.min.y + size.y * 0.35, box.max.z - size.z * 0.5)
+    // Aiming needs the gun's real top, measured from its vertices - the
+    // corners of a turned part's own box (above) can sit well above it.
+    const exact = new THREE.Box3().setFromObject(gun, true)
+    const len = exact.max.z - exact.min.z
+    const back = AIM_BACK + AIM_BACK_PER_LEN * len
+    this._aimOffset = new THREE.Vector3(-(exact.min.x + exact.max.x) / 2, -exact.max.y - (back + len) * AIM_DROP, -back - exact.max.z)
     return [
       { limb: 'armR', shoulder: ARM_SHOULDERS.armR, hand: grip.toArray() },
       { limb: 'armL', shoulder: ARM_SHOULDERS.armL, hand: fore.toArray() },
