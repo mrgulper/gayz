@@ -9047,43 +9047,34 @@ html.ui-theme-old #settings-panel h2 {
   accent-color: var(--ui-gold-bright);
 }
 
-/* Settings checkboxes, GayZ style (2026-10-09, "make the check mark more
-   gayz style"): a small riveted metal plate - bevelled dark metal, a rim
-   in the theme's metal color, four rivet dots - and when on, a thick
-   brushed check in the theme's bright gold with a dark outline, like the
-   lettering on the nav plaques. appearance:none so the unchecked state is
-   themed too; the check is a mask so its color can come from a variable.
-   Old theme swaps in rust/bronze below. */
+/* Settings checkboxes, GayZ style - plain color only (2026-10-10, Gaymi:
+   "make it only colour, not something in it, in GayZ style for all
+   themes"; it was a riveted metal plate with a brushed check before).
+   Off: a dim fill inside the theme's rim. On: filled solid with the
+   theme's color - nothing drawn inside either way. Golden uses gold,
+   Old the paper's brown. */
 .audio-checkbox {
   --cb-rim: var(--ui-gold-bright);
-  --cb-rim-dark: #4a3a12;
-  --cb-plate-top: #34302a;
-  --cb-plate-bottom: #121110;
-  --cb-rivet: rgba(var(--ui-gold-bright-rgb), 0.75);
-  --cb-check: #f2d36b;
+  --cb-off: rgba(0, 0, 0, 0.35);
+  --cb-on: var(--ui-gold-bright);
   appearance: none;
   -webkit-appearance: none;
   width: 22px;
   height: 22px;
   margin: 0;
   flex-shrink: 0;
-  background:
-    radial-gradient(circle at 3px 3px, var(--cb-rivet) 0 1px, transparent 1.6px),
-    radial-gradient(circle at calc(100% - 3px) 3px, var(--cb-rivet) 0 1px, transparent 1.6px),
-    radial-gradient(circle at 3px calc(100% - 3px), var(--cb-rivet) 0 1px, transparent 1.6px),
-    radial-gradient(circle at calc(100% - 3px) calc(100% - 3px), var(--cb-rivet) 0 1px, transparent 1.6px),
-    linear-gradient(160deg, var(--cb-plate-top), var(--cb-plate-bottom));
+  background: var(--cb-off);
   border: 2px solid var(--cb-rim);
-  border-radius: 4px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.6),
-    0 0 0 1px var(--cb-rim-dark),
-    0 2px 3px rgba(0, 0, 0, 0.45);
+  border-radius: 5px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   cursor: pointer;
   position: relative;
   justify-self: start;
-  transition: filter 0.15s ease, transform 0.1s ease;
+  transition: background-color 0.15s ease, filter 0.15s ease, transform 0.1s ease;
+}
+
+.audio-checkbox:checked {
+  background: var(--cb-on);
 }
 
 .audio-checkbox:hover {
@@ -9094,38 +9085,10 @@ html.ui-theme-old #settings-panel h2 {
   transform: scale(0.92);
 }
 
-/* The check: a dark outline copy first (::before), the gold stroke on
-   top (::after), both cut from the same brushed-check shape. */
-.audio-checkbox:checked::before,
-.audio-checkbox:checked::after {
-  content: '';
-  position: absolute;
-  inset: -5px -6px -2px -2px;
-  -webkit-mask: var(--cb-check-shape) center / contain no-repeat;
-  mask: var(--cb-check-shape) center / contain no-repeat;
-  pointer-events: none;
-}
-
-.audio-checkbox:checked::before {
-  background: #160d05;
-  transform: translate(1px, 1.5px);
-}
-
-.audio-checkbox:checked::after {
-  background: linear-gradient(180deg, #fff3c4, var(--cb-check) 45%, #b8862a);
-}
-
-.audio-checkbox {
-  --cb-check-shape: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2.5 13.2c1.6-1.4 3-1.9 4.2-1.2 1.1.7 2 2.1 2.8 3.4 2.9-5 6.6-9.4 11.6-12.6.6-.4 1.2.3.8.8-4.3 4.6-7.8 10-10.4 16.3-.4 1-1.7 1.1-2.2.2-1.5-2.4-3.2-4.6-5.9-5.6-.6-.2-1.2-.9-.9-1.3z'/%3E%3C/svg%3E");
-}
-
 html.ui-theme-old .audio-checkbox {
-  --cb-rim: #8a5a2b;
-  --cb-rim-dark: #2a170a;
-  --cb-plate-top: #4a3524;
-  --cb-plate-bottom: #1d140c;
-  --cb-rivet: rgba(214, 170, 110, 0.8);
-  --cb-check: #e8b85a;
+  --cb-rim: #7a4f26;
+  --cb-off: rgba(90, 58, 26, 0.12);
+  --cb-on: #8a5a2b;
 }
 
 .audio-checkbox:focus-visible {

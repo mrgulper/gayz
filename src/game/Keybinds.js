@@ -45,7 +45,9 @@ export const ACTIONS = [
   { id: 'parry', defaultKey: 'Minus', labelKey: 'actionParry' },
   { id: 'barricadeCrate', defaultKey: 'Backslash', labelKey: 'actionBarricadeCrate' },
   { id: 'medStation', defaultKey: 'Insert', labelKey: 'actionMedStation' },
-  { id: 'grapple', defaultKey: 'KeyX', labelKey: 'actionGrapple' },
+  // Turns the gun to show it off at an angle, like Kirka (2026-10-10 - took
+  // over the old Map 1's grapple, which nothing used any more).
+  { id: 'inspectWeapon', defaultKey: 'KeyX', labelKey: 'actionInspectWeapon' },
   { id: 'stealthScreen', defaultKey: 'PageUp', labelKey: 'actionStealthScreen' },
   { id: 'nightVision', defaultKey: 'PageDown', labelKey: 'actionNightVision' },
   { id: 'decoyDummy', defaultKey: 'F2', labelKey: 'actionDecoyDummy' },

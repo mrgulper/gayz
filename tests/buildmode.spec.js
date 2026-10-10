@@ -895,3 +895,47 @@ test('Zombie Extraction: the helicopter lands after its waves and holding the ri
   expect(r.title).toBe('You got out!')
   expect(r.counted).toBe(true)
 })
+
+test('right-click aims down the sights and the Inspect key turns the gun', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  const r = await page.evaluate(() => {
+    const bm = window.__game.buildMode
+    const s = bm.survival
+    s._pickWeapon('rifle')
+    const tm = bm.tryMode
+    const frames = (n) => { for (let i = 0; i < n; i++) tm.update(0.05, bm._keys) }
+    frames(10)
+    const out = { fov0: bm.camera.fov, gunX0: tm._gun.position.x }
+    tm.setAim(true)
+    frames(20)
+    out.aim = tm.aimAmount
+    out.fovAim = bm.camera.fov
+    out.gunXAim = tm._gun.position.x
+    // Right-click no longer uses things in Try Map; E still does.
+    let used = 0
+    const orig = bm._tryUseFromCamera
+    bm._tryUseFromCamera = () => { used++ }
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', bubbles: true }))
+    bm._tryUseFromCamera = orig
+    out.used = used
+    tm.setAim(false)
+    frames(20)
+    out.aimBack = tm.aimAmount
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyX', bubbles: true }))
+    frames(8)
+    out.inspectTurn = tm._gun.rotation.y
+    frames(60)
+    out.inspectDone = tm._gun.rotation.y
+    return out
+  })
+  expect(r.aim).toBeGreaterThan(0.95)
+  expect(r.fovAim).toBeLessThan(r.fov0 - 15)
+  expect(Math.abs(r.gunXAim)).toBeLessThan(0.03)
+  expect(r.gunX0).toBeGreaterThan(0.2)
+  expect(r.used).toBe(1)
+  expect(r.aimBack).toBeLessThan(0.05)
+  expect(r.inspectTurn).toBeGreaterThan(0.6)
+  expect(Math.abs(r.inspectDone)).toBeLessThan(0.01)
+})
