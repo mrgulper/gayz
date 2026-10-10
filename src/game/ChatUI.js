@@ -32,7 +32,7 @@ export function bindServerChat(game) {
   game._serverChatMutedUntil = 0
   game._serverChatMuteTimer = null
 
-  if (game.serverChatSigninBtn) game.serverChatSigninBtn.addEventListener('click', () => game._handleCloudSignIn())
+  if (game.serverChatSigninBtn) game.serverChatSigninBtn.addEventListener('click', () => game._openProfilePanel())
 
   if (game.serverChatInputRow) {
     game.serverChatInputRow.addEventListener('submit', (e) => {
@@ -288,7 +288,7 @@ export function renderServerChatSignInState(game) {
   game.serverChatSignedOut.style.display = signedIn ? 'none' : 'flex'
   if (game.serverChatInputRow) game.serverChatInputRow.style.display = signedIn ? 'flex' : 'none'
   if (game.serverChatSignedOutDesc) game.serverChatSignedOutDesc.textContent = t('chatSignInRequired')
-  if (game.serverChatSigninBtn) game.serverChatSigninBtn.textContent = t('cloudsaveSigninBtn')
+  if (game.serverChatSigninBtn) game.serverChatSigninBtn.textContent = t('signUpOrLoginBtn')
 }
 
 export async function sendServerChatMessage(game) {

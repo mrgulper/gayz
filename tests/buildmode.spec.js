@@ -572,10 +572,15 @@ test('Map 3 Play starts in a safe camp with working NPCs', async ({ page }) => {
   const r = await page.evaluate(async () => {
     const g = window.__game
     await g._enterBuildMode({ map: 'map3', play: true })
+    // Play fades to black while Map 1 loads and back in once it's drawn.
+    const fade = document.getElementById('play-fade')
+    const cleared = () => !!fade && !fade.classList.contains('on') && fade.style.display === 'none'
+    for (let i = 0; i < 100 && !cleared(); i++) await new Promise((res) => setTimeout(res, 100))
+    const faded = cleared()
     const s = g.buildMode.survival
     const c = s.camp
     const p = g.buildMode.tryMode.pos
-    const out = { camp: !!c, startsInside: !!c && c.inside(p.x, p.z), npcs: c ? c.npcs.map((n) => n.id).sort().join() : '' }
+    const out = { faded, camp: !!c, startsInside: !!c && c.inside(p.x, p.z), npcs: c ? c.npcs.map((n) => n.id).sort().join() : '' }
     // Zombies can't step into the camp, and can't hurt you there.
     out.wall = s._zombieHits(c.zone.cx + 0.5, 0, c.zone.cz + 0.5)
     const hp = s.health
@@ -606,6 +611,7 @@ test('Map 3 Play starts in a safe camp with working NPCs', async ({ page }) => {
     return out
   })
 
+  expect(r.faded).toBe(true)
   expect(r.camp).toBe(true)
   expect(r.startsInside).toBe(true)
   expect(r.npcs).toBe('ammo,quest,trader,upgrader')
