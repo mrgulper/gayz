@@ -4186,6 +4186,13 @@ export class Game {
     if (this.profileCareerPortraitBtn) this.profileCareerPortraitBtn.addEventListener('click', () => this._generateCareerPortrait())
     if (this.reportBugBtn) this.reportBugBtn.addEventListener('click', () => this._reportBug())
     this.creditsBtn.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
+    // Credits' GayZ / Weapon Models tabs (2026-10-10).
+    for (const tab of document.querySelectorAll('.credits-tab')) {
+      tab.addEventListener('click', () => {
+        for (const other of document.querySelectorAll('.credits-tab')) other.classList.toggle('active', other === tab)
+        for (const page of document.querySelectorAll('.credits-tab-page')) page.hidden = page.id !== `credits-page-${tab.dataset.creditsPage}`
+      })
+    }
     if (this.termsBtn) this.termsBtn.addEventListener('click', () => trackAndOpen(() => this._openTermsPanel()))
     const navPrivacyLink = document.getElementById('nav-privacy-link')
     if (navPrivacyLink) navPrivacyLink.addEventListener('click', () => trackAndOpen(() => this._openPrivacyPanel()))
@@ -4232,6 +4239,27 @@ export class Game {
     if (this.shareChallengeBtn) this.shareChallengeBtn.addEventListener('click', () => this._copyBeatThisLink())
     if (this.shareLoadoutBtn) this.shareLoadoutBtn.addEventListener('click', () => this._copyLoadoutCode())
     if (this.sharePageLinkBtn) this.sharePageLinkBtn.addEventListener('click', () => this._copyPageUrl())
+
+    // A click on an open panel's backdrop that lands on one of the
+    // homepage's right-side buttons (the profile card or a nav button)
+    // presses that button instead of only closing the panel (2026-10-10,
+    // "you can also click anything on the right side panel" - same as the
+    // footer links, which sit above the backdrop). The right column can't
+    // be lifted above the panels like the links: it's inside #menu-layout's
+    // own stacking layer, with the hero. Capture phase, so the backdrop's
+    // own close handler below never sees it.
+    document.addEventListener('click', (e) => {
+      const backdrop = e.target
+      if (!(backdrop instanceof HTMLElement) || !/-panel$/.test(backdrop.id) || !backdrop.querySelector(':scope > .panel-box')) return
+      const under = document.elementsFromPoint(e.clientX, e.clientY)
+        .find((el) => el.closest?.('#menu-nav-buttons button, #menu-player-badge'))
+      const button = under?.closest('#menu-nav-buttons button, #menu-player-badge')
+      if (!button || button.offsetParent === null) return
+      e.stopImmediatePropagation()
+      e.preventDefault()
+      this._closeAllMenuPanels()
+      button.click()
+    }, true)
 
     // Click anywhere outside the settings content (the backdrop itself, not
     // a descendant) to close, in addition to toggling the Settings button.
