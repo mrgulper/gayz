@@ -2665,7 +2665,9 @@ html.ui-theme-old .panel-box > .panel-close-btn {
   width: 36px;
   height: 36px;
   font-size: 28px;
-  color: #b3261e;
+  /* Old-style ink brown, not red (2026-10-10, "make the old style x the
+     old style colour") - Golden keeps its red X. */
+  color: #4a2c10;
 }
 @media (max-width: 700px) {
   html.ui-theme-old .panel-box > .panel-close-btn {
@@ -3112,23 +3114,9 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
   color: rgba(255, 255, 255, 0.75);
 }
 
-/* Credits is two sections (2026-10-10): GayZ, then Weapon Models - each
-   its own box with its heading, gold-edged in Golden and a faint ink-edged
-   box on the Old paper. */
-.credits-section {
-  width: min(620px, 100%);
-  margin: 0 auto 14px;
-  padding: 14px 18px 10px;
-  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.35);
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.25);
-  box-sizing: border-box;
-}
-#credits-content .credits-section h3 { margin: 0 0 8px; font-size: 15px; }
-html.ui-theme-old .credits-section {
-  border-color: rgba(74, 44, 16, 0.45);
-  background: rgba(122, 78, 36, 0.08);
-}
+/* Credits is two tabs (2026-10-10, Gaymi's picture of the General/Clan
+   tabs): GayZ and Weapon Models, styled like .general-tab. */
+.credits-tab-page[hidden] { display: none; }
 
 /* Weapon model credits (2026-10-10) - one line per gun. */
 #credits-weapons-list {
@@ -6554,8 +6542,9 @@ html.ui-theme-old #play-btn {
    button's own text is invisible (kept for screen readers and the paint
    cache) and the box takes the picture's shape. */
 html.ui-theme-old #gamemode-btn {
-  width: 300px;
-  max-width: 82vw;
+  /* 0.6 of its first size (2026-10-10, "make it 0.6 times smaller"). */
+  width: 180px;
+  max-width: 60vw;
   aspect-ratio: 1919 / 380;
   height: auto;
   padding: 0;
@@ -8358,14 +8347,16 @@ html.ui-theme-old #settings-panel h2 {
    as .quest-tabs/.inventory-tabs above (isolated so its click handler
    never cross-contaminates with .hub-tab, the DIFFERENT panel's own
    Zombie Survival/Deathmatch tabs). */
-.general-tabs {
+.general-tabs,
+.credits-tabs {
   display: flex;
   justify-content: center;
   gap: 8px;
   margin-bottom: 14px;
 }
 
-.general-tab {
+.general-tab,
+.credits-tab {
   padding: 7px 18px;
   font-size: 13px;
   font-weight: 600;
@@ -8377,7 +8368,8 @@ html.ui-theme-old #settings-panel h2 {
   cursor: pointer;
 }
 
-.general-tab.active {
+.general-tab.active,
+.credits-tab.active {
   color: #0c130c;
   background: var(--ui-gold-bright);
   border-color: var(--ui-gold-bright);
