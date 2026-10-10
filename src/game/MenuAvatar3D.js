@@ -446,6 +446,15 @@ export class MenuAvatar3D {
     this._lastFrameTime = 0
     this._resize()
     window.addEventListener('resize', () => this._resize())
+    // Its box also changes size without the window doing so (a panel
+    // opening, a theme switch, the stacked phone layout) - without this
+    // the picture stayed at its old shape and stretched, so the character
+    // looked fat in Inventory (2026-10-10 report). Deferred a frame, so a
+    // resize never happens inside the observer's own callback.
+    if (typeof ResizeObserver === 'function') {
+      this._resizeObserver = new ResizeObserver(() => requestAnimationFrame(() => this._resize()))
+      this._resizeObserver.observe(this.canvas)
+    }
     this._bindDrag()
   }
 

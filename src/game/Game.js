@@ -113,7 +113,7 @@ const CRATE_ICON_SVG = {
   </svg>`,
 }
 import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_POINTS_CONVERSION } from './MetaProgress.js'
-import { playConfig, UPGRADE_PLAY, POINTS_PER_KILL, POINTS_PER_WAVE, DEFENSE_WAVES, BOSS_HUNT_EVERY } from './PlayRules.js'
+import { playConfig, UPGRADE_PLAY, POINTS_PER_KILL, POINTS_PER_WAVE, DEFENSE_WAVES, BOSS_HUNT_EVERY, PLAY_GAME_MODES, EXTRACTION_WAVES, EXTRACTION_HOLD } from './PlayRules.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel, getAllBindings, setAllBindings } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
@@ -329,11 +329,10 @@ function loadSettings() {
       loadout: LOADOUT_PRESETS[parsed.loadout] ? parsed.loadout : 'balanced',
       // Game Modes grid (Choose Your Challenge) - 'classic' is plain
       // Zombie Survival, no special mutator. zombieDefense/bossHunt/
-      // zombieRush are all real, built modes; only zombieExtraction stays
-      // locked (Coming Soon) in the grid - see _bindGameModeSelect for how
-      // picking one of the 3 built modes drives its matching
-      // settings.mutators.* flag.
-      selectedGameMode: ['classic', 'zombieDefense', 'bossHunt', 'zombieRush'].includes(parsed.selectedGameMode) ? parsed.selectedGameMode : 'classic',
+      // zombieRush/zombieExtraction are all real, built modes (PlayRules.js
+      // PLAY_GAME_MODES) - see _bindGameModeSelect for how picking one
+      // drives its matching settings.mutators.* flag.
+      selectedGameMode: PLAY_GAME_MODES.includes(parsed.selectedGameMode) ? parsed.selectedGameMode : 'classic',
       // 3-slot hotbar (see Game.js's _bindHotbar) - slot 0 is whatever gun
       // was picked in the Play/Pause weapon picker, slots 1-2 are the fixed
       // M1911/Knife backup weapons every run starts with.
@@ -9685,6 +9684,8 @@ export class Game {
     return {
       goals: MAX_GOALS,
       defenseWaves: DEFENSE_WAVES,
+      extractionWaves: EXTRACTION_WAVES,
+      extractionHold: EXTRACTION_HOLD,
       bossEvery: BOSS_HUNT_EVERY,
       upgrades: PLAY_META_UPGRADES.length,
       marketFee: Math.round(MARKET_FEE_RATE * 100),

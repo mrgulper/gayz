@@ -2662,7 +2662,7 @@ html.ui-theme-old .panel-box > .panel-close-btn {
    text has its own ID-level color rule; anything sitting on its own dark
    background (cards, inputs, dropdowns, dark buttons) is left out by the
    :not() list so it keeps its light text. */
-html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview, .inv-skin-card, .crate-card, #shop-skin-buy-btn) *, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview, .inv-skin-card, .crate-card, #shop-skin-buy-btn)) {
+html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-level, .inv-skin-card, .crate-card, #shop-skin-buy-btn) *, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-level, .inv-skin-card, .crate-card, #shop-skin-buy-btn)) {
   color: var(--old-ink) !important;
   text-shadow: none !important;
 }
@@ -10152,14 +10152,15 @@ body.build-mode-on #chat-panel {
   gap: 14px;
   height: 100%;
 }
+/* No box behind the character (2026-10-10, "remove the colour rectangle
+   around the character, it looks bad") - it stands straight on the panel. */
 #inv-skin-preview {
   display: flex;
   flex-direction: column;
   align-items: center;
   min-height: 0;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  background: none;
+  border: none;
   padding: 14px 10px 10px;
 }
 #inv-skin-preview-title {
@@ -11289,6 +11290,12 @@ html.ui-theme-old #gallery-coming-icon {
 #server-panel-columns {
   padding-bottom: 10px;
   box-sizing: border-box;
+}
+/* The Old paper's bottom edge is torn and dips up into the panel - the
+   chat's message box sat right on it (2026-10-10, "move the message
+   bottom up a bit"). */
+html.ui-theme-old #server-panel-columns {
+  padding-bottom: 44px;
 }
 /* The chat sits in its own framed box beside the list, like Kirka's. */
 #server-panel-columns #server-chat-wrap {
