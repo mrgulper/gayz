@@ -1662,9 +1662,10 @@ export class BuildMode {
           this._fireHeld = true
           this.tryMode.fire()
         }
-        // Held right-click aims down the sights (2026-10-10, like Kirka) -
-        // doors, chests and NPCs are on the Use key (E).
-        else if (e.button === 2) this.tryMode.setAim(true)
+        // Right-click aims down the sights and right-click again stops
+        // (2026-10-10, Gaymi: it used to stop the moment the button was
+        // let go) - doors, chests and NPCs are on the Use key (E).
+        else if (e.button === 2) this.tryMode.setAim(!this.tryMode.aiming)
         return
       }
       if (e.button === 2) {
@@ -1857,7 +1858,6 @@ export class BuildMode {
     this.renderer.domElement.addEventListener('pointerdown', this._onPointerDown)
     this._onPointerUp = (e) => {
       if (e.button === 0) this._fireHeld = false
-      if (e.button === 2) this.tryMode.setAim(false)
     }
     window.addEventListener('pointerup', this._onPointerUp)
     window.addEventListener('contextmenu', this._onContextMenu)
