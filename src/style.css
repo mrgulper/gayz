@@ -3112,6 +3112,24 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
   color: rgba(255, 255, 255, 0.75);
 }
 
+/* Credits is two sections (2026-10-10): GayZ, then Weapon Models - each
+   its own box with its heading, gold-edged in Golden and a faint ink-edged
+   box on the Old paper. */
+.credits-section {
+  width: min(620px, 100%);
+  margin: 0 auto 14px;
+  padding: 14px 18px 10px;
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.35);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  box-sizing: border-box;
+}
+#credits-content .credits-section h3 { margin: 0 0 8px; font-size: 15px; }
+html.ui-theme-old .credits-section {
+  border-color: rgba(74, 44, 16, 0.45);
+  background: rgba(122, 78, 36, 0.08);
+}
+
 /* Weapon model credits (2026-10-10) - one line per gun. */
 #credits-weapons-list {
   margin: 0 0 12px;
@@ -4454,6 +4472,25 @@ html.ui-theme-old #share-panel-title {
   border-radius: 0 0 8px 8px;
   padding: 6px 14px 12px;
   margin-top: -8px;
+}
+
+/* Old theme Profile (2026-10-10, "make the profile less dark for the old
+   style"): the stat cards, list cards and their headings are a faint
+   brown wash on the paper with an ink edge instead of near-black boxes. */
+html.ui-theme-old .profile-stat-card,
+html.ui-theme-old #profile-content #highlight-reel-heading,
+html.ui-theme-old #profile-content #rank-roadmap-heading,
+html.ui-theme-old #profile-content #class-comparison-heading,
+html.ui-theme-old #profile-content #recent-unlocks-heading,
+html.ui-theme-old #profile-content #prestige-history-heading,
+html.ui-theme-old #highlight-reel-list,
+html.ui-theme-old #rank-roadmap-list,
+html.ui-theme-old #class-comparison-table,
+html.ui-theme-old #recent-unlocks-list,
+html.ui-theme-old #prestige-history-list,
+html.ui-theme-old #levels-roadmap-list {
+  background: rgba(122, 78, 36, 0.1);
+  border-color: rgba(74, 44, 16, 0.4);
 }
 
 /* #levels-roadmap-list is the same card as #rank-roadmap-list above, but
@@ -6512,8 +6549,20 @@ html.ui-theme-old #play-btn {
   background-image: url('./menu-art/old-play-btn.webp');
 }
 
+/* Old theme Game Mode is Gaymi's own plate picture with GAME MODE cast
+   into it (2026-10-10, "change it to the second image") - like PLAY, the
+   button's own text is invisible (kept for screen readers and the paint
+   cache) and the box takes the picture's shape. */
 html.ui-theme-old #gamemode-btn {
-  background-image: url('./menu-art/old-gamemode-plaque.webp');
+  width: 300px;
+  max-width: 82vw;
+  aspect-ratio: 1919 / 380;
+  height: auto;
+  padding: 0;
+  color: transparent;
+  text-shadow: none;
+  background-image: url('./menu-art/old-gamemode-plate.webp');
+  background-size: 100% 100%;
 }
 
 #play-btn:active {
@@ -7410,6 +7459,11 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
      of just sitting wherever the content above it happens to end. */
   margin: auto auto 4px;
   width: fit-content;
+  /* Above the open panels' backdrop (z-index 15, 2026-10-10: "you can
+     also click anything on the bottom like how to play, what's new ...
+     when in a panel") - a link opens its page in place of the open one. */
+  position: relative;
+  z-index: 16;
 }
 
 #menu-links-row button,

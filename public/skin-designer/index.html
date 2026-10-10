@@ -151,7 +151,12 @@
     flex: 1; display: flex; gap: 18px;
     padding: 18px 22px 22px; max-width: 1200px; width: 100%; margin: 0 auto;
   }
-  @media (max-width: 860px) { main { flex-direction: column; } }
+  /* The character and the tools sit side by side down to phone widths
+     (2026-10-10, "character on top and the controls under when the screen
+     is too small looks weird") - inside GayZ's panel the page is often
+     under 860px wide, which used to stack them. The character stays in
+     view (sticky) while the tools scroll beside it. */
+  @media (max-width: 600px) { main { flex-direction: column; } .stage { position: static; align-self: stretch; } .editor { max-width: none; } }
 
   .toolbar {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -205,7 +210,8 @@
   .save-indicator.show { opacity: 1; }
 
   .stage {
-    flex: 1.15; min-width: 0; height: min(74vh, 680px); background: var(--panel); border: 1px solid var(--line);
+    flex: 1.15; min-width: 0; height: min(74vh, 680px);
+    position: sticky; top: 8px; align-self: flex-start; background: var(--panel); border: 1px solid var(--line);
     border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;
   }
   .stage-top {
@@ -243,7 +249,7 @@
   @media (prefers-reduced-motion: reduce) { .stage-loading { animation: none; } }
   .stage-caption { padding: 8px 13px 11px; text-align: center; color: var(--text-dim); font-size: 0.76rem; }
 
-  .editor { flex: 1; min-width: 320px; max-width: 460px; display: flex; flex-direction: column; gap: 10px; }
+  .editor { flex: 1; min-width: 250px; max-width: 460px; display: flex; flex-direction: column; gap: 10px; }
   .atlas-panel {
     background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
     padding: 12px; display: flex; flex-direction: column; gap: 8px;
@@ -478,7 +484,7 @@
       <button class="btn" id="downloadBigBtn" title="Upscaled 512x512 version for printing or wallpaper - not usable as an actual skin.png">Download 512&times;512</button>
       <button class="btn primary" id="downloadBtn">Download skin.png</button>
     </div>
-    <p class="hint-note">Your edits auto-save in this browser, so refreshing the page won't lose your work. <b>Generate</b> isn't a real AI image model &mdash; it's a local theme-matcher that paints colors/patterns onto the one fixed body shape this character has (it can't change body shape, only color) &mdash; free, instant, no account. Whatever it makes lands right on the canvas above, so the Pencil/Fill/Eyedrop tools work on it immediately, no extra step.</p>
+    <p class="hint-note">Your edits auto-save in this browser, so refreshing the page won't lose your work. <b>Generate</b> is a local theme-matcher that paints colors/patterns onto the one fixed body shape this character has (it can't change body shape, only color) &mdash; free, instant, no account. Whatever it makes lands right on the canvas above, so the Pencil/Fill/Eyedrop tools work on it immediately, no extra step.</p>
   </div>
 </main>
 
@@ -718,7 +724,7 @@ const CLASSIC_SKIN_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEA
 const SKIN_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAC6klEQVR4AexZW47qMAxNkZBYAP9lM3c3ILEQPkaC3dzNwD8LQEKo1ycaM6nJ1EDaGwdl1IPjRxv7xKWdMHPG//b7fZcCrTzzBGgFpPqLJ2Cz2TRD0AgqngCtQM1fCdAY+nR/8R2gPSG0BSyeAK1AzZ+dgNQV1ArUrp+dAK2Aqf3mCViv147BZLAOybZ3pXkCUFjTNBA9NM2jrRfwpFIEAV3X+XL+fH05AArbME6BeQIOh4NjcKGsQ7LtXWmeABRG7/oO+LvdOgBjAL5UFEEAPcp8nSgagMI2jF+BjM1OABU0+N8c+ylxfOvdwfZUmZ0AKizrUQnISr+ByWsHGFiErCnUDshKv4HJawcYWISsKdQOyEq/gclrBxhYhKwp1A7ISv9/mFybQu0A2njo/T6vXVDGS107X/PL60ldO1/6VQLkCZ+mVwI+bUVfrQcdgE33XyH33GiCrm1bD4xj9yCdQ67+wTYZD50ie98zv9m+7RT+c9B1e3uKiAnxExkfgQDXtq0Hh0id7c/ILW1dPxNnJcYTMGYyt9vNX45Wxu/ls4QRY8gY4AsRi5nClkxAmDTGnCR3EUu2I0YCPo5jCRviIKdEMgFILkyadcgQiGEdYyDUecwy9LNtCukJOJ1ODuAJMAZYlxI+QNpD/Xg8umOA0Gdp7AmYKqHVauVW35hqjtTrjkrAcrl8yIe7YLFYPPgsGGb0zHRDkEnKWOmXOjoAtsvlAmEOo3YAV3e9Xv2QV98rRj9GJeB8Pvsy5/P5/d5HBwDeYfBjFALwRAC4PoxjkH6py3PY/4p8NXZGLxu9d2mp0z3fe0+Xfprw/pv9FGM5n9RpzsFD5i+DR+kAedGS9EpASas1Ra6xDujtDdA953a7nQfGlITfC6B3dY4jUzmH/E6IEeD3BqjAcqpKyDRKQML1iju1ElDcko2ccLQD+I2M59J0jitRRgkosZB3c64ESOboOTm4PyD98vzS9NoBpa3Y2PkW3wGphPwDAAD//xp1Y80AAAAGSURBVAMALjBT31UelyEAAAAASUVORK5CYII=';
 
 // ==== Prompt-driven skin generator ==================================
-// NOT a call to a hosted AI image model - no API, no account, no cost,
+// Runs entirely in the page - no API, no account, no cost,
 // works fully offline. Matches words in the prompt against a curated
 // theme/palette table, then paints detailed pixel art (per-pixel noise,
 // varied hairstyle/pattern/hand/shoe shapes chosen by a seed hashed from
@@ -1560,7 +1566,7 @@ function varyPalette(themeKey, base, rng) {
 // pants" or "zombie pirate girl with long hair and sunglasses": every theme
 // word counts (the first sets the look, the rest add their gear), colour
 // words colour the part named right after them (or the outfit if none),
-// and gear/hair/skin words add those details. Still fully offline - no AI
+// and gear/hair/skin words add those details. Still fully offline - no
 // service involved.
 const COLOR_WORDS = {
   red: '#c93a3a', blue: '#3a6ac9', green: '#3f8f3a', yellow: '#e0c040', orange: '#e07a28', purple: '#7a3fa8',
