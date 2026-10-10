@@ -4044,7 +4044,7 @@ html.ui-theme-old #journal-panel {
   width: 100%;
   min-height: 100%;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
 }
 
@@ -4087,32 +4087,39 @@ html.ui-theme-old #journal-panel {
   gap: 16px;
   margin-bottom: 4px;
 }
-/* Sign Up / Login / the Google buttons are plain words in the theme's
-   own lettering (2026-10-10, "just regular words but with the GayZ style",
-   not all upper case) - gold in Golden, ink brown in Old. */
+/* Sign Up / Login / the Google buttons are wooden-sign planks (2026-10-10,
+   from Gaymi's "Continue with Google" picture): light parchment with burnt
+   edges and four rivets in Old, dark with a gold rim in Golden. The plank
+   is a 9-slice border-image so the rivets stay round at any width. Hover
+   only brightens - no underline. Not all upper case. */
 .auth-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 6px 14px;
+  gap: 14px;
+  min-width: 190px;
+  padding: 2px 22px;
   font-family: var(--menu-display-font, 'Bebas Neue', sans-serif);
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 400;
   letter-spacing: 0.5px;
+  line-height: 1.2;
   text-transform: none;
   color: var(--ui-gold-bright, #f0c868);
   background: none;
-  border: none;
+  border: 16px solid transparent;
+  border-image: url('./menu-art/gold-plank.svg') 18 fill / 16px stretch;
   border-radius: 0;
   cursor: pointer;
-  transition: color 0.15s ease, transform 0.15s ease;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+  transition: filter 0.15s ease, transform 0.15s ease;
 }
-.auth-btn:hover { text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 2px; }
+.auth-btn:hover {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45)) brightness(1.18);
+}
 .auth-btn:active { transform: translateY(1px); }
-.auth-buttons .auth-btn + .auth-btn { border-left: 2px solid currentColor; border-radius: 0; padding-left: 24px; }
-.auth-buttons { gap: 10px; }
-.auth-google { margin: 2px 0; }
+.auth-buttons { gap: 18px; }
+.auth-google { min-width: min(100%, 380px); margin: 4px 0; }
 .auth-google-g {
   width: 26px;
   height: 26px;
@@ -4123,9 +4130,8 @@ html.ui-theme-old #journal-panel {
   box-sizing: content-box;
 }
 .auth-back {
-  position: absolute;
-  top: -6px;
-  left: 0;
+  order: 99;
+  margin-top: 16px;
   padding: 4px 8px;
   font-size: 14px;
   color: rgba(232, 226, 208, 0.75);
@@ -4133,7 +4139,7 @@ html.ui-theme-old #journal-panel {
   border: none;
   cursor: pointer;
 }
-.auth-back:hover { color: var(--ui-gold-bright, #f0c868); }
+.auth-back:hover { filter: brightness(1.3); }
 .auth-back[hidden] { display: none; }
 .auth-terms {
   margin: 22px 0 0;
@@ -4156,7 +4162,10 @@ html.ui-theme-old .auth-note,
 html.ui-theme-old .auth-terms,
 html.ui-theme-old .auth-back { opacity: 0.82; }
 html.ui-theme-old .auth-link { color: #5a3410 !important; font-weight: 600; }
-html.ui-theme-old .auth-btn { color: #5a3410 !important; }
+html.ui-theme-old .auth-btn {
+  color: #3a1f0a !important;
+  border-image-source: url('./menu-art/old-plank.svg');
+}
 
 /* Wraps every existing piece of profile content so it can be toggled as
    one unit against #profile-login-gate - replicates the flex-column
@@ -7565,10 +7574,12 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
   color: var(--menu-gold);
 }
 
+/* Hover only brightens - no gold line (2026-10-10, "dont make a line pop
+   up only make it brighter"). */
 #menu-links-row button:hover,
 #menu-links-row a:hover {
   color: #fff;
-  text-decoration-color: var(--menu-gold);
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.55);
 }
 
 /* What's New badge dot - purely an absolute-positioned overlay, zero
