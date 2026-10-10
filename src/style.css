@@ -11260,29 +11260,6 @@ html.ui-theme-old #gallery-coming-icon {
 #play-weapon-pick .pwp-bar-track { flex: 1; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
 #play-weapon-pick .pwp-bar-track span { display: block; height: 100%; background: linear-gradient(90deg, #a8781f, #e8c25a); }
 
-/* Old-style lettering (2026-10-09, Gaymi: "make the words on the side bar
-   GayZ style, like the old type colour ... do same for broken city,
-   scavenge supplies"): the right-side button labels and the three hero
-   lines use the theme's display font and its gold, like the tagline and
-   the Game Mode button, instead of plain grey sans-serif. --menu-display-
-   font / --menu-gold are Rye + aged tan in the Old theme, Bebas Neue +
-   gold in Golden. A label that gets too wide still shrinks through
-   fitNavLabels (index.html). */
-#menu-nav-buttons button,
-#menu-subtitle {
-  font-family: var(--menu-display-font);
-  color: var(--menu-gold);
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85), 0 0 8px rgba(0, 0, 0, 0.6);
-}
-html.ui-theme-old #menu-nav-buttons button {
-  color: var(--menu-gold);
-  font-weight: 400;
-  letter-spacing: 1px;
-}
-html.ui-theme-old #menu-subtitle {
-  letter-spacing: 0.6px;
-}
-
 /* Moving water on the road - drawn by src/game/MenuWater.js. Sits inside
    #menu-bg-photo, so it gets the photo's Ken Burns transform and mood
    filter for free and lines up with the picture exactly. */
