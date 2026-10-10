@@ -10,11 +10,20 @@
 // that list stay hidden until they get one.
 export const PLAY_MUTATORS = ['hordeRush', 'lootRush', 'healthRegen', 'glassHouse', 'ironMode', 'escalation', 'bossRush']
 
-// Game Modes with a block-city version (Zombie Extraction is still Coming Soon).
-export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush']
+// Game Modes with a block-city version.
+export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction']
 
 // Zombie Defense: hold out this many waves to win.
 export const DEFENSE_WAVES = 10
+// Zombie Extraction (2026-10-10, "make all of these game modes work"):
+// after EXTRACTION_WAVES waves a helicopter lands somewhere in the city,
+// EXTRACTION_MIN..MAX blocks of walking away; stand within EXTRACTION_RADIUS
+// of it for EXTRACTION_HOLD seconds (the waves keep coming) to win.
+export const EXTRACTION_WAVES = 5
+export const EXTRACTION_HOLD = 10
+export const EXTRACTION_RADIUS = 3
+export const EXTRACTION_MIN = 25
+export const EXTRACTION_MAX = 60
 // Boss Hunt: a boss comes with every BOSS_HUNT_EVERY-th wave (Boss Rush: every wave).
 export const BOSS_HUNT_EVERY = 3
 export const BOSS_HEALTH_MULT = 8

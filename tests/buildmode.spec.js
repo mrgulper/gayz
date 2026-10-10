@@ -841,3 +841,57 @@ test.describe('on a phone', () => {
     expect(r.noWords).toBe(true)
   })
 })
+
+test('Zombie Extraction: the helicopter lands after its waves and holding the ring wins', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    const g = window.__game
+    g.settings.guestMode = false
+    document.getElementById('game-mode-zombie-extraction').click()
+    g.playBtn.click()
+  })
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const s = g.buildMode.survival
+    s._pickWeapon('rifle')
+    const out = { mode: s.cfg.mode, unlocked: !document.getElementById('game-mode-zombie-extraction').disabled }
+    // Wave 5 just cleared: the helicopter comes down somewhere reachable.
+    const p = s.bm.tryMode.pos
+    s._rebuildFlow([s._playerCell(p)])
+    s.wave = 5
+    s._toSpawn = 0
+    for (const z of [...s.zombies]) { s._removeZombie(z); s.zombies = s.zombies.filter((o) => o !== z) }
+    s._breakTimer = 0
+    s._updateWorld(0.01)
+    const ex = s._extract
+    out.placed = !!ex
+    out.hud = document.getElementById('build-play-wave').textContent
+    // Away from it: no count. On the ring: counts, stepping off resets it.
+    s._updateExtraction(1)
+    out.awayHold = ex.hold
+    p.set(ex.x, ex.y, ex.z)
+    s._updateExtraction(4)
+    out.onHold = ex.hold
+    p.set(ex.x + 10, ex.y, ex.z)
+    s._updateExtraction(0.1)
+    out.resetHold = ex.hold
+    p.set(ex.x, ex.y, ex.z)
+    const runs0 = g.careerStats.totalRuns
+    for (let i = 0; i < 12 && !s.dead; i++) s._updateExtraction(1)
+    out.won = s._won && s.dead
+    out.title = document.getElementById('build-play-over-title').textContent
+    out.counted = g.careerStats.totalRuns === runs0 + 1
+    return out
+  })
+  expect(r.mode).toBe('zombieExtraction')
+  expect(r.unlocked).toBe(true)
+  expect(r.placed).toBe(true)
+  expect(r.hud).toContain('Helicopter')
+  expect(r.awayHold).toBe(0)
+  expect(r.onHold).toBe(4)
+  expect(r.resetHold).toBe(0)
+  expect(r.won).toBe(true)
+  expect(r.title).toBe('You got out!')
+  expect(r.counted).toBe(true)
+})

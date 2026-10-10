@@ -194,8 +194,20 @@ export class BuildTryMode {
     const cells = this._mapImage.width
     ctx.imageSmoothingEnabled = false
     ctx.drawImage(this._mapImage, 0, 0, s, s)
-    // Where you are, and which way you're looking.
     const k = s / cells
+    // Zombie Extraction's helicopter: a pulsing red ring.
+    const ex = this.bm.survival?._extract
+    if (ex) {
+      const pulse = 0.5 + 0.5 * Math.sin(now / 180)
+      ctx.beginPath()
+      ctx.arc((ex.x + cells / 2) * k, (ex.z + cells / 2) * k, Math.max(4, s / 40) * (1 + pulse * 0.5), 0, Math.PI * 2)
+      ctx.fillStyle = 'rgba(230, 60, 40, 0.85)'
+      ctx.strokeStyle = '#fff'
+      ctx.lineWidth = Math.max(1.5, s / 120)
+      ctx.fill()
+      ctx.stroke()
+    }
+    // Where you are, and which way you're looking.
     const px = (x + cells / 2) * k
     const pz = (z + cells / 2) * k
     const yaw = this.bm._yaw

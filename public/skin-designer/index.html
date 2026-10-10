@@ -94,6 +94,30 @@
   :root[data-theme="old"] .weapon-soon { color: #4a3420; }
   :root[data-theme="old"] header,
   :root[data-theme="old"] .slot-bar { border-bottom-color: rgba(43, 26, 12, 0.35); }
+  /* Old theme, no black at all (2026-10-10, Gaymi: "fully remove the
+     black on the design a skin, only for the old theme, it doesn't fit"):
+     the tool cards, buttons and boxes are just a light tint and a brown
+     edge on the paper, with the panel's dark ink for text. The pop-up
+     export card gets solid parchment (nothing to see through to). */
+  :root[data-theme="old"] {
+    --bg: rgba(255, 244, 220, 0.45);
+    --panel: rgba(90, 58, 26, 0.08);
+    --line: rgba(90, 58, 26, 0.45);
+    --text: #2b1a0c;
+    --text-dim: #5a4128;
+    --accent: #b47a3c;
+    --accent-rgb: 180, 122, 60;
+  }
+  :root[data-theme="old"] button.tbtn.active,
+  :root[data-theme="old"] button.tbtn.primary,
+  :root[data-theme="old"] .btn.primary { color: #1e1208; }
+  :root[data-theme="old"] .slot-card img,
+  :root[data-theme="old"] .atlas-scroll,
+  :root[data-theme="old"] .export-imgwrap {
+    background: repeating-conic-gradient(#e6d1a8 0% 25%, #d4b98a 0% 50%) 0 0 / 16px 16px;
+  }
+  :root[data-theme="old"] .slot-card img { background-size: 8px 8px; }
+  :root[data-theme="old"] .export-card { background: #ecd6a8; }
   @media (prefers-color-scheme: light) {
     :root:not([data-theme]) {
       --bg: #f2efe6; --panel: #ffffff; --line: #d9cdb0;

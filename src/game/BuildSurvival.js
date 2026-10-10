@@ -22,7 +22,7 @@ import { getKeyFor } from './Keybinds.js'
 import { t } from './i18n.js'
 import { BuildCamp, COIN_PER_KILL, COIN_PER_WAVE } from './BuildCamp.js'
 import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, ammoFor, weaponBars } from './PlayWeapons.js'
-import { PLAY_DEFAULTS, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND } from './PlayRules.js'
+import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND } from './PlayRules.js'
 
 export const CHEST_LOOT = { ammo: 60, health: 35 }
 const HEAD_MULT = 2.4
@@ -112,6 +112,7 @@ export class BuildSurvival {
       this.cfg.mode = 'classic'
     }
     this._zid = 0
+    this._disposeExtraction()
     if (bm.tryMode.active) bm.toggleTryMode()
     if (bm.menuOpen) bm.toggleMenu()
     this.fromMenu = fromMenu
@@ -186,6 +187,7 @@ export class BuildSurvival {
     this.bm.tryMode.speedMult = 1
     this.camp?.dispose()
     this.camp = null
+    this._disposeExtraction()
     for (const z of this.zombies) this._removeZombie(z)
     this.zombies = []
     this._disposeZombieBatch()
@@ -384,8 +386,15 @@ export class BuildSurvival {
     const waveText = mode === 'zombieDefense' ? t('buildPlayWaveOf', { n: Math.max(1, this.wave), max: DEFENSE_WAVES }) : t('buildPlayWave', { n: Math.max(1, this.wave) })
     const secs = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
     const timeText = mode === 'zombieRush' ? ` · ${t('buildPlayTime', { t: `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` })}` : ''
+    let extractText = ''
+    if (mode === 'zombieExtraction') {
+      const ex = this._extract
+      if (!ex) extractText = ` · ${t('extractionAfterWave', { n: EXTRACTION_WAVES })}`
+      else if (ex.hold > 0) extractText = ` · ${t('extractionHolding', { s: Math.ceil(EXTRACTION_HOLD - ex.hold) })}`
+      else extractText = ` · ${t('extractionDistance', { n: Math.round(ex.dist ?? 0) })}`
+    }
     const serverText = this.net && !this.net.closed ? ` · ${t('serverHudLine', { name: this.net.name, n: this.net.players.size + 1 })}` : ''
-    set('build-play-wave', `${waveText} · ${t('buildPlayZombiesLeft', { n: alive })} · ${t('buildPlayKills', { n: this.kills })}${this.camp ? ` · ${t('campCoins', { n: this.coins })}` : ''}${timeText}${serverText}`)
+    set('build-play-wave', `${waveText} · ${t('buildPlayZombiesLeft', { n: alive })} · ${t('buildPlayKills', { n: this.kills })}${this.camp ? ` · ${t('campCoins', { n: this.coins })}` : ''}${timeText}${extractText}${serverText}`)
     const fill = document.getElementById('build-play-health-fill')
     if (fill) fill.style.width = `${Math.max(0, Math.min(100, (this.health / (this.maxHealth || 100)) * 100))}%`
     set('build-play-health-text', `${Math.max(0, Math.ceil(this.health))}${this.armor > 0 ? ` + ${Math.ceil(this.armor)}` : ''}`)
@@ -1080,8 +1089,9 @@ export class BuildSurvival {
       const el = document.getElementById(id)
       if (el) el.textContent = text
     }
-    set('build-play-over-title', t(won ? 'buildPlayOverWinTitle' : 'buildPlayOverTitle'))
-    set('build-play-over-text', t(won ? 'buildPlayOverWinText' : 'buildPlayOverText', { waves, kills: this.kills }))
+    const extracted = won && this.cfg.mode === 'zombieExtraction'
+    set('build-play-over-title', t(extracted ? 'extractionWinTitle' : won ? 'buildPlayOverWinTitle' : 'buildPlayOverTitle'))
+    set('build-play-over-text', t(extracted ? 'extractionWinText' : won ? 'buildPlayOverWinText' : 'buildPlayOverText', { waves, kills: this.kills }))
     set('build-play-over-best', `${t('buildPlayOverBest', { n: best })}${reward?.legacy ? ` · ${t('buildPlayOverLegacy', { n: reward.legacy })}` : ''}`)
     set('build-play-again-btn', t('buildPlayAgainBtn'))
     set('build-play-back-btn', t(this.fromMenu ? 'buildPlayBackMenuBtn' : 'buildPlayBackBtn'))
@@ -1195,6 +1205,8 @@ export class BuildSurvival {
             this._win()
             return
           }
+          // Zombie Extraction: the helicopter comes after enough waves.
+          if (this.cfg.mode === 'zombieExtraction' && this.wave >= EXTRACTION_WAVES && !this._extract) this._placeExtraction()
           if (!rush) this._message(t('buildPlayWaveClear', { n: this.wave, s: WAVE_BREAK }))
         }
       }
@@ -1207,6 +1219,7 @@ export class BuildSurvival {
         this._renderHud()
       }
     }
+    if (this._extract && this._updateExtraction(dt)) return
     const speed = zombieSpeed(this.wave, this.cfg.escalation)
     for (const zb of [...this.zombies]) {
       // Each zombie goes for the nearest player.
@@ -1233,6 +1246,142 @@ export class BuildSurvival {
     this._message(t('buildPlayWaveStart', { n: this.wave }))
     this._report('wave', { wave: this.wave })
     this._renderHud()
+  }
+
+  // --- Zombie Extraction ---
+
+  // Where the helicopter lands: an open street cell (sky above it) that
+  // zombies can walk to, EXTRACTION_MIN..MAX blocks of walking from you,
+  // outside the camp. Falls back to the farthest reachable open cell.
+  _placeExtraction() {
+    const B = this.B
+    // Open sky over the spot and room for the helicopter around it (a
+    // 5x5 patch clear up high - it first landed in narrow alleys, half
+    // inside the walls).
+    const clear = (x, y, z, from) => {
+      for (let dy = from; dy <= 14; dy++) if (this.bm.getBlockAt(x, y + dy, z)) return false
+      return true
+    }
+    const open = (x, y, z) => {
+      if (this.camp?.inside(x + 0.5, z + 0.5, 3)) return false
+      if (!clear(x, y, z, 0)) return false
+      for (let dx = -2; dx <= 2; dx++) {
+        for (let dz = -2; dz <= 2; dz++) if (!clear(x + dx, y, z + dz, 1)) return false
+      }
+      return true
+    }
+    const good = []
+    let far = null
+    let farD = -1
+    let any = null
+    let anyD = -1
+    for (const [key, d] of this._flow) {
+      const [x, y, z] = cellOf(key)
+      // A map with no open space at all still gets its helicopter.
+      if (d > anyD && !this.camp?.inside(x + 0.5, z + 0.5, 1)) {
+        anyD = d
+        any = [x, y, z]
+      }
+      if (!open(x, y, z)) continue
+      if (d >= EXTRACTION_MIN && d <= EXTRACTION_MAX) good.push([x, y, z])
+      if (d > farD) {
+        farD = d
+        far = [x, y, z]
+      }
+    }
+    const spot = good.length ? good[Math.floor(Math.random() * good.length)] : far || any
+    if (!spot) return
+    const [x, y, z] = spot
+    const group = new THREE.Group()
+    group.position.set((x + 0.5) * B, y * B, (z + 0.5) * B)
+    // A glowing landing ring and a light beam you can see over the roofs.
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(EXTRACTION_RADIUS * B * 0.86, EXTRACTION_RADIUS * B, 40),
+      new THREE.MeshBasicMaterial({ color: 0xff4a2e, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }),
+    )
+    ring.rotation.x = -Math.PI / 2
+    ring.position.y = 0.06 * B
+    group.add(ring)
+    const beam = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.35 * B, 0.35 * B, 40 * B, 12, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0xff6a3d, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }),
+    )
+    beam.position.y = 20 * B
+    group.add(beam)
+    // The helicopter, hovering low over the ring: body, cockpit glass,
+    // tail boom and fin, skids, and a turning rotor.
+    const heli = new THREE.Group()
+    const body = new THREE.MeshLambertMaterial({ color: 0x3d4a2c })
+    const dark = new THREE.MeshLambertMaterial({ color: 0x1c1f1a })
+    const glass = new THREE.MeshLambertMaterial({ color: 0x8fb8c9, emissive: 0x22333a })
+    const box = (w, h, d, mat, px, py, pz) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w * B, h * B, d * B), mat)
+      m.position.set(px * B, py * B, pz * B)
+      heli.add(m)
+      return m
+    }
+    box(2.2, 1.4, 3.4, body, 0, 1.2, 0)
+    box(1.9, 0.9, 1.0, glass, 0, 1.45, 1.75)
+    box(0.5, 0.5, 3.6, body, 0, 1.5, -3.4)
+    box(0.15, 1.1, 0.8, body, 0, 2.0, -5.0)
+    box(0.15, 0.15, 3.6, dark, -0.9, 0.2, 0)
+    box(0.15, 0.15, 3.6, dark, 0.9, 0.2, 0)
+    box(0.15, 0.45, 0.15, dark, -0.9, 0.45, 1)
+    box(0.15, 0.45, 0.15, dark, 0.9, 0.45, 1)
+    box(0.15, 0.45, 0.15, dark, -0.9, 0.45, -1)
+    box(0.15, 0.45, 0.15, dark, 0.9, 0.45, -1)
+    box(0.3, 0.4, 0.3, dark, 0, 2.1, 0)
+    const rotor = new THREE.Group()
+    rotor.position.y = 2.35 * B
+    for (const r of [0, Math.PI / 2]) {
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(7 * B, 0.06 * B, 0.35 * B), dark)
+      blade.rotation.y = r
+      rotor.add(blade)
+    }
+    heli.add(rotor)
+    heli.position.y = 0.35 * B
+    heli.rotation.y = Math.random() * Math.PI * 2
+    group.add(heli)
+    this.bm.scene.add(group)
+    this._extract = { x: x + 0.5, y, z: z + 0.5, group, rotor, ring, hold: 0, dist: null }
+    this._message(t('extractionReady'), 4)
+    try { audioEngine.playExplosion?.() } catch { /* no audio */ }
+    this._renderHud()
+  }
+
+  // Each frame once the helicopter is down: spin the rotor, and count up
+  // while you stand on the ring (alive). Leaving it starts the count over.
+  // True once you're out (the run is won).
+  _updateExtraction(dt) {
+    const ex = this._extract
+    ex.rotor.rotation.y += dt * 14
+    ex.ring.material.opacity = 0.55 + 0.3 * Math.sin(performance.now() / 200)
+    const p = this.bm.tryMode.pos
+    const dist = Math.hypot(p.x - ex.x, p.z - ex.z)
+    const was = Math.round(ex.dist ?? -1)
+    ex.dist = dist
+    const on = !this.dead && dist <= EXTRACTION_RADIUS && Math.abs(p.y - ex.y) < 2.5
+    const before = Math.ceil(EXTRACTION_HOLD - ex.hold)
+    if (on) ex.hold += dt
+    else ex.hold = 0
+    if (ex.hold >= EXTRACTION_HOLD) {
+      this._win()
+      return true
+    }
+    if (Math.round(dist) !== was || Math.ceil(EXTRACTION_HOLD - ex.hold) !== before) this._renderHud()
+    return false
+  }
+
+  _disposeExtraction() {
+    const ex = this._extract
+    this._extract = null
+    if (!ex) return
+    this.bm.scene.remove(ex.group)
+    ex.group.traverse((o) => {
+      if (!o.isMesh) return
+      o.geometry.dispose()
+      o.material.dispose()
+    })
   }
 
   // --- servers (PlayNet.js) ---
