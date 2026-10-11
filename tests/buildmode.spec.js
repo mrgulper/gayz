@@ -675,7 +675,6 @@ test('Play starts the block city (Map 1) zombie waves', async ({ page }) => {
   await page.evaluate(() => {
     const g = window.__game
     g.settings.difficulty = 'hard'
-    g.settings.loadout = 'tank'
     g.settings.selectedGameMode = 'bossHunt'
     g.settings.mutators.glassHouse = true
     g.metaProgress.purchased.add('vitality')
@@ -690,7 +689,7 @@ test('Play starts the block city (Map 1) zombie waves', async ({ page }) => {
       slot: g.buildMode.activeSlot,
       shown: ['upgrades-btn', 'quests-btn', 'server-btn'].every((id) => getComputedStyle(document.getElementById(id)).display !== 'none'),
       maps: [...document.querySelectorAll('#map-select-grid [data-map]')].map((b) => b.dataset.map).join(),
-      // Tank: 135, + Vitality's 50.
+      // 100, + Vitality's 50.
       maxHealth: s.maxHealth,
       mode: s.cfg.mode,
       bossEvery: s.cfg.bossEvery,
@@ -706,7 +705,7 @@ test('Play starts the block city (Map 1) zombie waves', async ({ page }) => {
     out.legacy = g.metaProgress.legacyPoints - before.legacy
     return out
   })
-  expect(r).toEqual({ slot: 'map3', shown: true, maps: 'map3,map2', maxHealth: 185, mode: 'bossHunt', bossEvery: 3, glass: true, runs: 1, legacy: 40 })
+  expect(r).toEqual({ slot: 'map3', shown: true, maps: 'map3', maxHealth: 150, mode: 'bossHunt', bossEvery: 3, glass: true, runs: 1, legacy: 40 })
 })
 
 // A homepage run opens the weapon picker first (2026-10-09, "make the

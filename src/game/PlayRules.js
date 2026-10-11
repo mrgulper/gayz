@@ -39,13 +39,6 @@ export const REGEN_PER_SECOND = 3
 // Standing in Map 1's camp heals you this fast (Fortified Rest adds to it).
 export const CAMP_HEAL_PER_SECOND = 4
 
-// Choose Class (the player's build).
-export const LOADOUT_PLAY = {
-  balanced: { moveMult: 1, healthMult: 1 },
-  runner: { moveMult: 1.15, healthMult: 0.75 },
-  tank: { moveMult: 0.9, healthMult: 1.35 },
-}
-
 // Upgrades panel (MetaProgress.js's META_UPGRADES, bought with Legacy
 // Points) that do something in a Map 1 run. Only these are shown there.
 export const UPGRADE_PLAY = {
@@ -109,7 +102,7 @@ export const PLAY_DEFAULTS = {
 
 // difficulty: a DIFFICULTY_PRESETS entry (Game.js); purchased: a Set of
 // upgrade ids.
-export function playConfig({ difficulty, loadout, gameMode, mutators = {}, purchased = new Set() }) {
+export function playConfig({ difficulty, gameMode, mutators = {}, purchased = new Set() }) {
   const cfg = { ...PLAY_DEFAULTS }
   const on = PLAY_MUTATORS.filter((m) => mutators[m])
   cfg.mutators = on
@@ -119,8 +112,7 @@ export function playConfig({ difficulty, loadout, gameMode, mutators = {}, purch
     cfg.zombieDamageMult = difficulty.damageMult
     cfg.zombieCountMult = difficulty.spawnRateMult
   }
-  const build = LOADOUT_PLAY[loadout] || LOADOUT_PLAY.balanced
-  cfg.moveMult = build.moveMult
+  cfg.moveMult = 1
   let health = 0
   let damage = 0
   let reload = 0
@@ -147,7 +139,7 @@ export function playConfig({ difficulty, loadout, gameMode, mutators = {}, purch
   }
   cfg.moveMult *= 1 + speed
   cfg.coinMult += coinBonus
-  cfg.maxHealth = Math.round(PLAY_DEFAULTS.maxHealth * build.healthMult) + health
+  cfg.maxHealth = PLAY_DEFAULTS.maxHealth + health
   cfg.damageMult = 1 + damage
   cfg.reloadMult = Math.max(0.3, 1 - reload)
   cfg.campHealRate = CAMP_HEAL_PER_SECOND * (1 + campHeal)

@@ -215,3 +215,26 @@ test('Levels from a panel, nothing selectable, friend list floats', async ({ pag
   expect(moved.open).toBe(true)
   expect(moved.after).toBe(moved.before)
 })
+
+// 2026-10-11: Game Mode has no Choose Class / Save Setup / Surprise Me /
+// Keybinds / Share and no Map 2 card, and Profile > Hidden has private
+// Notes that are saved but never put on the public leaderboard entry.
+test('Game Mode is trimmed and Profile has private Notes', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const gone = ['hub-section-choose-class', 'menu-preset-row', 'save-preset-btn', 'surprise-me-btn', 'quick-keybinds-btn', 'open-share-btn', 'share-panel', 'map-select-2', 'class-comparison-table']
+      .filter((id) => document.getElementById(id))
+    g._openProfilePanel()
+    const notes = document.getElementById('profile-notes-input')
+    notes.value = 'remember: camp trader sells armor'
+    notes.dispatchEvent(new Event('input'))
+    const saved = JSON.parse(localStorage.getItem('gayz-settings')).privateNotes
+    const hover = getComputedStyle(document.querySelector('.mode-toggle')).backgroundColor
+    return { gone, saved, inHidden: !!notes.closest('#profile-page-hidden'), cfgMove: g._playConfig().moveMult, hover }
+  })
+  expect(r.gone).toEqual([])
+  expect(r.saved).toBe('remember: camp trader sells armor')
+  expect(r.inHidden).toBe(true)
+  expect(r.cfgMove).toBe(1)
+})

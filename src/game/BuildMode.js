@@ -1712,7 +1712,9 @@ export class BuildMode {
       this._pickerGridEl.className = 'build-picker-grid'
       this._pickerEl.appendChild(this._pickerGridEl)
     }
-    this._renderPicker()
+    // The grid is drawn when the picker opens (togglePicker), not here -
+    // drawing its ~400 block icons while BuildMode was being made in the
+    // background was a hitch on whatever the player clicked meanwhile.
 
     // Always-on-screen quick-select bar (Minecraft-style, Digit1-9/0) - 10
     // slots you assign yourself from the Tab picker (see
