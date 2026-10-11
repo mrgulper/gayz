@@ -4213,6 +4213,30 @@ export class Game {
       this._closeAllMenuPanels()
       button.click()
     }, true)
+    // The same for hover (2026-10-11, "when your mouse is on anything on
+    // the sidebar it doesnt go bright"): the backdrop gets the real :hover,
+    // so the button under the mouse gets .nav-hover, styled like :hover.
+    let navHovered = null
+    const setNavHover = (el) => {
+      if (el === navHovered) return
+      navHovered?.classList.remove('nav-hover')
+      navHovered = el
+      el?.classList.add('nav-hover')
+    }
+    document.addEventListener('mousemove', (e) => {
+      const backdrop = e.target
+      if (!(backdrop instanceof HTMLElement) || !/-panel$/.test(backdrop.id) || !backdrop.querySelector(':scope > .panel-box')) {
+        if (navHovered) { setNavHover(null); if (backdrop instanceof HTMLElement) backdrop.style.cursor = '' }
+        return
+      }
+      const under = document.elementsFromPoint(e.clientX, e.clientY)
+        .find((el) => el.closest?.('#menu-nav-buttons button, #menu-player-badge'))
+      const target = under?.closest('#menu-nav-buttons button, #menu-player-badge') || null
+      setNavHover(target && target.offsetParent !== null ? target : null)
+      backdrop.style.cursor = navHovered ? 'pointer' : ''
+    }, { passive: true })
+    document.addEventListener('mouseleave', () => setNavHover(null))
+    document.addEventListener('click', () => setNavHover(null))
 
     // Click anywhere outside the settings content (the backdrop itself, not
     // a descendant) to close, in addition to toggling the Settings button.
