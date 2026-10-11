@@ -238,3 +238,46 @@ test('Game Mode is trimmed and Profile has private Notes', async ({ page }) => {
   expect(r.inHidden).toBe(true)
   expect(r.cfgMove).toBe(1)
 })
+
+// 2026-10-11: an HD (128 px) skin from Design a Skin is worn like a normal
+// one, and the nameplate is the same on the homepage and in Inventory -
+// clan on top with no brackets.
+test('HD skins are worn; the nameplate matches in both places', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const c = document.createElement('canvas')
+    c.width = 128; c.height = 128
+    const ctx = c.getContext('2d')
+    ctx.fillStyle = '#3366cc'; ctx.fillRect(0, 0, 128, 128)
+    ctx.fillStyle = '#ffcc00'; ctx.fillRect(16, 16, 16, 16) // the face, in 2x pixels
+    await g._applyImportedSkin(c.toDataURL('image/png'))
+    g.settings.clanName = 'Raiders'
+    g.settings.nickname = 'Tester'
+    g._renderPlayerTag()
+    document.getElementById('menu-inventory-btn').click()
+    await new Promise((res) => setTimeout(res, 400))
+    const plate = (sel) => {
+      const el = document.querySelector(sel)
+      const part = (cls) => el.querySelector('.' + cls)
+      return {
+        text: [...el.children].filter((e) => getComputedStyle(e).display !== 'none').map((e) => e.textContent).join('|'),
+        clanAbove: part('nameplate-clan').getBoundingClientRect().bottom <= part('nameplate-name').getBoundingClientRect().top + 1,
+      }
+    }
+    return {
+      saved: g.settings.customSkinDataUrl.length > 0,
+      face: document.getElementById('menu-avatar-photo').src.startsWith('data:image/png'),
+      home: plate('#player-showcase-title'),
+      inv: plate('#inv-skin-preview-title'),
+      spins: g._invSkinAvatar3D?.noSpin !== true,
+    }
+  })
+  expect(r.saved).toBe(true)
+  expect(r.face).toBe(true)
+  expect(r.home.text).toBe(r.inv.text)
+  expect(r.home.text).toBe('1|Tester|Raiders')
+  expect(r.home.clanAbove).toBe(true)
+  expect(r.inv.clanAbove).toBe(true)
+  expect(r.spins).toBe(false)
+})

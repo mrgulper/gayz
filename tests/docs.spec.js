@@ -145,3 +145,42 @@ test('every Map Editor shortcut on the pause screen really works', async ({ page
 
   for (const [label, ok] of Object.entries(result)) expect(ok, label).toBe(true)
 })
+
+// Every "Coming Soon" thing in the game has its own GayZ Features Coming
+// Soon entry (2026-10-11, Gaymi: "the gallery and levels aren't in coming
+// soon"). A new Coming Soon spot that isn't in this map fails here - add
+// its entry to the Coming Soon section, then a line below.
+test('every Coming Soon part of the game is in GayZ Features', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(() => {
+    const MAP = [
+      [/^gallery-/, 'Gallery'],
+      [/^levels-/, 'Levels'],
+      [/^general-page-general/, 'General Tab'],
+      [/^hub-page-deathmatch$|^achievements-deathmatch/, 'Deathmatch'],
+      [/^hub-parkour/, 'Parkour'],
+      [/^hub-custom/, 'Custom Games'],
+      [/^(monthly|yearly|lifetime)-quests/, 'Monthly, Yearly & Lifetime Quests'],
+      [/^crate-monthly/, 'Monthly Chest'],
+      // The shared "this section is being reworked" pop-up, not a feature.
+      [/^coming-soon-(title|panel)$/, null],
+      // Languages not fully translated yet - the Language entry covers them.
+      [/^language-grid$/, null],
+    ]
+    const skip = (el) => el.closest('#features-panel, #changelog-list, #whatsnew-panel, #update-available-banner, #whats-new-digest')
+    const unknown = []
+    const needed = new Set()
+    for (const el of document.querySelectorAll('body *')) {
+      if (skip(el) || el.children.length || el.matches('script, style, template')) continue
+      if (!/coming soon/i.test(el.textContent)) continue
+      const id = el.id || el.closest('[id]')?.id || ''
+      const hit = MAP.find(([re]) => re.test(id))
+      if (!hit) unknown.push(id || el.textContent.trim())
+      else if (hit[1]) needed.add(hit[1])
+    }
+    const listed = [...document.querySelectorAll('#features-main .feature.coming-soon h3')].map((h) => h.textContent.trim())
+    return { unknown, missing: [...needed].filter((t) => !listed.includes(t)) }
+  })
+  expect(r.unknown).toEqual([])
+  expect(r.missing).toEqual([])
+})

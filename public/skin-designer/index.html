@@ -425,6 +425,11 @@
       <label class="small">Brush</label>
       <button class="tbtn active" id="brush1" data-size="1">1px</button>
       <button class="tbtn" id="brush3" data-size="3">3px</button>
+      <div class="sep"></div>
+      <label class="small" title="How many pixels the skin has - more pixels, more detail. Changing it keeps your skin.">Pixels</label>
+      <button class="tbtn" id="res1Btn" data-res="1" title="64x64 - classic Minecraft size">1x</button>
+      <button class="tbtn" id="res2Btn" data-res="2" title="128x128 - twice the detail">2x</button>
+      <button class="tbtn" id="res4Btn" data-res="4" title="256x256 - four times the detail">4x</button>
     </div>
 
     <div class="toolbar">
@@ -686,9 +691,15 @@ function isUsedPixel(px, py) {
 // built from, so it can never disagree with what's actually drawn.
 const MIRROR_PART = { armR: 'armL', armL: 'armR', legR: 'legL', legL: 'legR', head: 'head', torso: 'torso' };
 const MIRROR_FACE = { right: 'left', left: 'right', front: 'front', back: 'back', top: 'top', bottom: 'bottom' };
+// Face rects in atlas pixels (64-layout rects x RES - see setRes).
+function pixelFaceRects(box) {
+  const rects = partFaceRects(box.u, box.v, box.w, box.h, box.d);
+  for (const k in rects) rects[k] = rects[k].map((n) => n * RES);
+  return rects;
+}
 function findFaceAt(px, py) {
   for (const box of BOXES) {
-    const rects = partFaceRects(box.u, box.v, box.w, box.h, box.d);
+    const rects = pixelFaceRects(box);
     for (const faceName in rects) {
       const [x0, y0, x1, y1] = rects[faceName];
       if (px >= x0 && px < x1 && py >= y0 && py < y1) {
@@ -703,7 +714,7 @@ function mirrorPixel(px, py) {
   if (!f) return null;
   const targetBox = BOXES.find((b) => b.key === MIRROR_PART[f.partKey]);
   const targetFace = MIRROR_FACE[f.faceName];
-  const rects = partFaceRects(targetBox.u, targetBox.v, targetBox.w, targetBox.h, targetBox.d);
+  const rects = pixelFaceRects(targetBox);
   const [tx0, ty0] = rects[targetFace];
   const mirroredLocalX = (f.faceW - 1) - f.localX;
   const mx = tx0 + mirroredLocalX, my = ty0 + f.localY;
@@ -720,7 +731,7 @@ function mirrorPixelFrontBack(px, py) {
   const f = findFaceAt(px, py);
   if (!f) return null;
   const box = BOXES.find((b) => b.key === f.partKey);
-  const rects = partFaceRects(box.u, box.v, box.w, box.h, box.d);
+  const rects = pixelFaceRects(box);
   const targetFace = MIRROR_FACE_FB[f.faceName];
   const [tx0, ty0, tx1, ty1] = rects[targetFace];
   const faceH = ty1 - ty0;
@@ -1614,11 +1625,11 @@ function paintOuterLayer(themeKey, theme, rng, o) {
 // new skin has any, so the gear is actually visible (it's off by default
 // for painting the body).
 function revealOuterLayerIfPainted() {
-  const data = atlasCtx.getImageData(0, 0, 64, 64).data;
+  const data = mainCtx.getImageData(0, 0, SIZE, SIZE).data;
   const painted = BOXES.some((b) => {
     const [ou, ov] = OVERLAY_ORIGINS[b.key];
     const w = 2 * b.d + 2 * b.w, h = b.d + b.h;
-    for (let y = ov; y < ov + h; y++) for (let x = ou; x < ou + w; x++) if (data[(y * 64 + x) * 4 + 3] > 0) return true;
+    for (let y = ov * RES; y < (ov + h) * RES; y++) for (let x = ou * RES; x < (ou + w) * RES; x++) if (data[(y * SIZE + x) * 4 + 3] > 0) return true;
     return false;
   });
   if (!painted || showOverlayLayer) return;
@@ -2065,12 +2076,99 @@ async function generateThemedSkin(parsed, variant, randomTheme, onStage) {
     }],
     ['details', () => { detailPass(p, o, rng); richShade(rng, p.skin, o.multiHue, 1) }],
   ]
+  // Every stage paints in the 64-unit layout on genCanvas, then the
+  // picture is scaled up to the atlas; on a 2x/4x skin the last stage
+  // adds the extra detail only those finer pixels can hold (hdDetail).
+  stages.forEach(([label, paint], i) => {
+    stages[i] = [label, () => {
+      atlasCtx = genCtx
+      try { paint() } finally { atlasCtx = mainCtx }
+      mainCtx.clearRect(0, 0, SIZE, SIZE)
+      mainCtx.imageSmoothingEnabled = false
+      mainCtx.drawImage(genCanvas, 0, 0, SIZE, SIZE)
+      if (i === stages.length - 1) hdDetail(p, o, rng)
+    }]
+  })
   for (const [label, paint] of stages) {
     paint()
     onStage?.(label)
     await sleep(220)
   }
   return themeKey
+}
+
+// The extra detail a 2x/4x skin gets, so it really has more pixels, not
+// just bigger ones - and stays crisp pixel art, never blurred. The 64-unit
+// picture is doubled with Scale2x (EPX, the classic pixel-art upscaler:
+// where two neighbours of a pixel match, that corner takes their colour,
+// so diagonals and round shapes - eyes, hair edges, collars - come out
+// smooth in sharp pixels), twice for 4x. Only neighbours on the same face
+// count: faces side by side in the file aren't side by side on the body.
+// Then hair gets thin strands and each face a soft light from above.
+function faceIdMap(scale) {
+  const n = 64 * scale, map = new Int32Array(n * n)
+  let id = 0
+  for (const b of BOXES) for (const rects of [partFaceRects(b.u, b.v, b.w, b.h, b.d), ovRects(b.key)]) {
+    for (const r of Object.values(rects)) {
+      id++
+      for (let y = r[1] * scale; y < r[3] * scale; y++) for (let x = r[0] * scale; x < r[2] * scale; x++) map[y * n + x] = id
+    }
+  }
+  return map
+}
+function scale2x(src, n) {
+  const ids = faceIdMap(n / 64), m = n * 2, out = new Uint8ClampedArray(m * m * 4)
+  const same = (i, j) => Math.abs(src[i] - src[j]) + Math.abs(src[i + 1] - src[j + 1]) + Math.abs(src[i + 2] - src[j + 2]) < 36 && Math.abs(src[i + 3] - src[j + 3]) < 40
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const p = (y * n + x) * 4, id = ids[y * n + x]
+    const nb = (dx, dy) => {
+      const xx = x + dx, yy = y + dy
+      if (xx < 0 || yy < 0 || xx >= n || yy >= n || ids[yy * n + xx] !== id) return p
+      return (yy * n + xx) * 4
+    }
+    const A = nb(0, -1), B = nb(1, 0), C = nb(-1, 0), D = nb(0, 1)
+    const e = [p, p, p, p]
+    if (id) {
+      if (same(C, A) && !same(C, D) && !same(A, B)) e[0] = A
+      if (same(A, B) && !same(A, C) && !same(B, D)) e[1] = B
+      if (same(D, C) && !same(D, B) && !same(C, A)) e[2] = C
+      if (same(B, D) && !same(B, A) && !same(D, C)) e[3] = D
+    }
+    const put = (ox, oy, s) => { const o = ((y * 2 + oy) * m + x * 2 + ox) * 4; out[o] = src[s]; out[o + 1] = src[s + 1]; out[o + 2] = src[s + 2]; out[o + 3] = src[s + 3] }
+    put(0, 0, e[0]); put(1, 0, e[1]); put(0, 1, e[2]); put(1, 1, e[3])
+  }
+  return out
+}
+function hdDetail(p, o, rng) {
+  if (RES < 2) return
+  let n = 64, data = genCtx.getImageData(0, 0, 64, 64).data
+  while (n < SIZE) { data = scale2x(data, n); n *= 2 }
+  const S = SIZE
+  const hair = hexToRgb(p.hair), skin = hexToRgb(p.skin)
+  const near = (i, c, lim) => Math.abs(data[i] - c.r) + Math.abs(data[i + 1] - c.g) + Math.abs(data[i + 2] - c.b) < lim
+  const strand = Array.from({ length: S }, () => rng())
+  for (const b of BOXES) for (const rects of [partFaceRects(b.u, b.v, b.w, b.h, b.d), ovRects(b.key)]) {
+    for (const [key, r] of Object.entries(rects)) {
+      const X0 = r[0] * RES, Y0 = r[1] * RES, X1 = r[2] * RES, Y1 = r[3] * RES, fh = Y1 - Y0
+      const side = key !== 'top' && key !== 'bottom'
+      for (let y = Y0; y < Y1; y++) for (let x = X0; x < X1; x++) {
+        const i = (y * S + x) * 4
+        if (!data[i + 3]) continue
+        let f = 1
+        if (side && fh > 1) f += (0.5 - (y - Y0) / (fh - 1)) * 0.06
+        if (near(i, hair, 90) && !near(i, skin, 40)) {
+          // Thin strands: some columns darker, a few lighter.
+          const t = strand[x]
+          if (t < 0.25) f -= 0.12
+          else if (t > 0.85) f += 0.1
+        }
+        if (f !== 1) {
+          data[i] = Math.min(255, data[i] * f); data[i + 1] = Math.min(255, data[i + 1] * f); data[i + 2] = Math.min(255, data[i + 2] * f)
+        }
+      }
+    }
+  }
+  mainCtx.putImageData(new ImageData(data, S, S), 0, 0)
 }
 
 async function runGeneration(promptText, isRandom) {
@@ -2136,16 +2234,68 @@ document.getElementById('randomizeBtn').addEventListener('click', () => runGener
 // THREE.CanvasTexture wrapping this canvas, so any edit shows up
 // everywhere the instant texture.needsUpdate is set, no re-flattening or
 // mesh-rebuilding step needed. ----
+// HD skins (2026-10-11, Gaymi: "add more pixels, 2x or 4x"): the atlas is
+// SIZE = 64 x RES pixels square - the same Minecraft layout with every
+// skin pixel split into RES x RES. Editor code works in atlas pixels (SIZE);
+// layout code (BOXES, partFaceRects, the generator) stays in 64 units. The
+// generator paints into the 64x64 genCanvas (atlasCtx is swapped to it
+// while a stage paints), which is then scaled up and given real extra
+// detail by hdDetail(). The game reads any of the three sizes.
+let RES = 1, SIZE = 64;
+const RES_KEY = 'skindesigner-res-v1';
 const atlasSrc = document.createElement('canvas');
 // Read-only handle for automated checks (Playwright) - never written to.
 window.__skinAtlas = atlasSrc;
-atlasSrc.width = 64; atlasSrc.height = 64;
-const atlasCtx = atlasSrc.getContext('2d', { willReadFrequently: true });
+atlasSrc.width = SIZE; atlasSrc.height = SIZE;
+let atlasCtx = atlasSrc.getContext('2d', { willReadFrequently: true });
+const mainCtx = atlasCtx;
+const genCanvas = document.createElement('canvas');
+genCanvas.width = 64; genCanvas.height = 64;
+const genCtx = genCanvas.getContext('2d', { willReadFrequently: true });
+window.__skinRes = () => RES;
 const texture = new THREE.CanvasTexture(atlasSrc);
 texture.magFilter = THREE.NearestFilter;
 texture.minFilter = THREE.NearestFilter;
 texture.flipY = false;
 texture.colorSpace = THREE.SRGBColorSpace;
+
+// Changes the atlas to 64 x res pixels. resample keeps the picture (scaled
+// with hard pixel edges); otherwise it starts empty for the caller to fill.
+function setRes(res, resample) {
+  res = [1, 2, 4].includes(res) ? res : 1;
+  if (res !== RES) {
+    let copy = null;
+    if (resample) {
+      copy = document.createElement('canvas');
+      copy.width = SIZE; copy.height = SIZE;
+      copy.getContext('2d').drawImage(atlasSrc, 0, 0);
+    }
+    RES = res; SIZE = 64 * res;
+    atlasSrc.width = SIZE; atlasSrc.height = SIZE;
+    mainCtx.imageSmoothingEnabled = false;
+    if (copy) mainCtx.drawImage(copy, 0, 0, SIZE, SIZE);
+    // A canvas that changed size needs a fresh GPU texture.
+    texture.dispose();
+    texture.needsUpdate = true;
+    selection = null;
+    if (typeof updateSelectionActionsVisibility === 'function') updateSelectionActionsVisibility();
+  }
+  for (const n of [1, 2, 4]) document.getElementById('res' + n + 'Btn')?.classList.toggle('active', n === RES);
+  if (typeof resize2d === 'function') resize2d();
+}
+// Draws a loaded skin image into the atlas at the current resolution, or
+// the image's own if it has more pixels.
+function drawImageToAtlas(img) {
+  const imgRes = Math.max(1, Math.min(4, Math.round(img.width / 64)));
+  setRes(Math.max(RES, imgRes === 3 ? 4 : imgRes), false);
+  mainCtx.clearRect(0, 0, SIZE, SIZE);
+  mainCtx.imageSmoothingEnabled = false;
+  mainCtx.drawImage(img, 0, 0, SIZE, SIZE);
+}
+function preferredRes() {
+  try { const n = parseInt(localStorage.getItem(RES_KEY), 10); if ([1, 2, 4].includes(n)) return n; } catch (e) {}
+  return 2;
+}
 
 // Preview-only copy of the atlas for the 3D boxes, upscaled 8x with faint
 // pixel-grid lines drawn over the body - and in gold over the Outer
@@ -2191,19 +2341,19 @@ function hexToRgb(hex) {
 }
 function rgbToHex(r, g, b) { return '#' + [r,g,b].map((v) => v.toString(16).padStart(2,'0')).join(''); }
 function paintPixel(px, py, hex) {
-  if (px < 0 || py < 0 || px >= 64 || py >= 64) return;
+  if (px < 0 || py < 0 || px >= SIZE || py >= SIZE) return;
   const { r, g, b } = hexToRgb(hex);
   atlasCtx.fillStyle = `rgb(${r},${g},${b})`;
   atlasCtx.fillRect(px, py, 1, 1);
 }
 function erasePixel(px, py) {
-  if (px < 0 || py < 0 || px >= 64 || py >= 64) return;
+  if (px < 0 || py < 0 || px >= SIZE || py >= SIZE) return;
   atlasCtx.clearRect(px, py, 1, 1);
 }
 function floodFill(startX, startY, hex) {
-  const img = atlasCtx.getImageData(0, 0, 64, 64);
+  const img = atlasCtx.getImageData(0, 0, SIZE, SIZE);
   const data = img.data;
-  const idx = (x, y) => (y*64 + x) * 4;
+  const idx = (x, y) => (y*SIZE + x) * 4;
   const s = idx(startX, startY);
   const target = [data[s], data[s+1], data[s+2], data[s+3]];
   const { r, g, b } = hexToRgb(hex);
@@ -2213,12 +2363,12 @@ function floodFill(startX, startY, hex) {
     const i = idx(x, y);
     return data[i]===target[0] && data[i+1]===target[1] && data[i+2]===target[2] && data[i+3]===target[3];
   };
-  const visited = new Uint8Array(64*64);
+  const visited = new Uint8Array(SIZE*SIZE);
   const stack = [[startX, startY]];
   while (stack.length) {
     const [x, y] = stack.pop();
-    if (x < 0 || y < 0 || x >= 64 || y >= 64) continue;
-    const vi = y*64 + x;
+    if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) continue;
+    const vi = y*SIZE + x;
     if (visited[vi] || !matches(x, y)) continue;
     visited[vi] = 1;
     const i = idx(x, y);
@@ -2232,7 +2382,7 @@ function floodFill(startX, startY, hex) {
 let undoStack = [];
 let redoStack = [];
 function pushUndo() {
-  undoStack.push(atlasCtx.getImageData(0, 0, 64, 64));
+  undoStack.push(atlasCtx.getImageData(0, 0, SIZE, SIZE));
   if (undoStack.length > 25) undoStack.shift();
   redoStack = [];
   document.getElementById('undoBtn').disabled = false;
@@ -2247,7 +2397,7 @@ function syncAfterEdit() {
 
 // ---- Palette (unique colors found in the current texture) ----
 function rebuildPalette() {
-  const data = atlasCtx.getImageData(0, 0, 64, 64).data;
+  const data = atlasCtx.getImageData(0, 0, SIZE, SIZE).data;
   const counts = new Map();
   for (let i = 0; i < data.length; i += 4) {
     if (data[i+3] === 0) continue;
@@ -2342,9 +2492,7 @@ function renderSlots() {
       pushUndo();
       const img = new Image();
       img.onload = () => {
-        atlasCtx.clearRect(0, 0, 64, 64);
-        atlasCtx.imageSmoothingEnabled = false;
-        atlasCtx.drawImage(img, 0, 0);
+        drawImageToAtlas(img);
         syncAfterEdit();
         scheduleSave();
       };
@@ -2522,7 +2670,7 @@ function hslToRgb(h, s, l) {
   ];
 }
 function recolorWholeSkin(hueDeg, lightAmt) {
-  const img = atlasCtx.getImageData(0, 0, 64, 64);
+  const img = atlasCtx.getImageData(0, 0, SIZE, SIZE);
   const d = img.data;
   for (let i = 0; i < d.length; i += 4) {
     if (d[i+3] === 0) continue;
@@ -2615,7 +2763,8 @@ document.getElementById('gridBtn').addEventListener('click', () => {
 document.getElementById('undoBtn').addEventListener('click', () => {
   const prev = undoStack.pop();
   if (prev) {
-    redoStack.push(atlasCtx.getImageData(0, 0, 64, 64));
+    redoStack.push(atlasCtx.getImageData(0, 0, SIZE, SIZE));
+    if (prev.width !== SIZE) setRes(prev.width / 64, false);
     atlasCtx.putImageData(prev, 0, 0);
     syncAfterEdit();
     scheduleSave();
@@ -2626,7 +2775,8 @@ document.getElementById('undoBtn').addEventListener('click', () => {
 document.getElementById('redoBtn').addEventListener('click', () => {
   const next = redoStack.pop();
   if (next) {
-    undoStack.push(atlasCtx.getImageData(0, 0, 64, 64));
+    undoStack.push(atlasCtx.getImageData(0, 0, SIZE, SIZE));
+    if (next.width !== SIZE) setRes(next.width / 64, false);
     atlasCtx.putImageData(next, 0, 0);
     syncAfterEdit();
     scheduleSave();
@@ -2655,9 +2805,12 @@ document.addEventListener('keydown', (e) => {
 const canvas2d = document.getElementById('atlas2d');
 const ctx2d = canvas2d.getContext('2d');
 let zoomPx = 9;
+// Screen pixels per atlas pixel: the zoom slider is per 64-layout pixel,
+// so a 2x/4x skin's finer pixels are drawn smaller, not the view bigger.
+function pz() { return Math.max(2, Math.round(zoomPx / RES)); }
 function resize2d() {
-  canvas2d.width = 64 * zoomPx;
-  canvas2d.height = 64 * zoomPx;
+  canvas2d.width = SIZE * pz();
+  canvas2d.height = SIZE * pz();
   const ref = document.getElementById('referenceImg');
   ref.style.width = canvas2d.width + 'px';
   ref.style.height = canvas2d.height + 'px';
@@ -2665,24 +2818,34 @@ function resize2d() {
 function render2d() {
   ctx2d.imageSmoothingEnabled = false;
   ctx2d.clearRect(0, 0, canvas2d.width, canvas2d.height);
-  ctx2d.drawImage(atlasSrc, 0, 0, 64, 64, 0, 0, canvas2d.width, canvas2d.height);
+  const zp = pz(), unit = zp * RES;
+  ctx2d.drawImage(atlasSrc, 0, 0, SIZE, SIZE, 0, 0, canvas2d.width, canvas2d.height);
   ctx2d.fillStyle = 'rgba(0,0,0,0.55)';
-  for (let py = 0; py < 64; py++) {
-    for (let px = 0; px < 64; px++) {
-      if (!isUsedPixel(px, py)) ctx2d.fillRect(px*zoomPx, py*zoomPx, zoomPx, zoomPx);
+  for (let uy = 0; uy < 64; uy++) {
+    for (let ux = 0; ux < 64; ux++) {
+      if (!isUsedPixel(ux, uy)) ctx2d.fillRect(ux*unit, uy*unit, unit, unit);
     }
   }
-  if (gridOn && zoomPx >= 6) {
+  if (gridOn && zp >= 6) {
     ctx2d.strokeStyle = 'rgba(255,255,255,0.08)';
     ctx2d.lineWidth = 1;
+    for (let i = 0; i <= SIZE; i++) {
+      ctx2d.beginPath(); ctx2d.moveTo(i*zp+0.5, 0); ctx2d.lineTo(i*zp+0.5, canvas2d.height); ctx2d.stroke();
+      ctx2d.beginPath(); ctx2d.moveTo(0, i*zp+0.5); ctx2d.lineTo(canvas2d.width, i*zp+0.5); ctx2d.stroke();
+    }
+  }
+  // On a 2x/4x skin, a stronger line every skin-layout pixel.
+  if (gridOn && RES > 1 && unit >= 6) {
+    ctx2d.strokeStyle = 'rgba(255,255,255,0.14)';
+    ctx2d.lineWidth = 1;
     for (let i = 0; i <= 64; i++) {
-      ctx2d.beginPath(); ctx2d.moveTo(i*zoomPx+0.5, 0); ctx2d.lineTo(i*zoomPx+0.5, canvas2d.height); ctx2d.stroke();
-      ctx2d.beginPath(); ctx2d.moveTo(0, i*zoomPx+0.5); ctx2d.lineTo(canvas2d.width, i*zoomPx+0.5); ctx2d.stroke();
+      ctx2d.beginPath(); ctx2d.moveTo(i*unit+0.5, 0); ctx2d.lineTo(i*unit+0.5, canvas2d.height); ctx2d.stroke();
+      ctx2d.beginPath(); ctx2d.moveTo(0, i*unit+0.5); ctx2d.lineTo(canvas2d.width, i*unit+0.5); ctx2d.stroke();
     }
   }
   if (shapePreview) {
     ctx2d.fillStyle = 'rgba(255,255,255,0.55)';
-    for (const { x, y } of shapePixels(shapePreview)) ctx2d.fillRect(x*zoomPx, y*zoomPx, zoomPx, zoomPx);
+    for (const { x, y } of shapePixels(shapePreview)) ctx2d.fillRect(x*zp, y*zp, zp, zp);
   }
   // Selection marquee - a dashed outline, never painted into the atlas
   // itself. While a move-drag is in flight, the lifted pixels are drawn as
@@ -2695,7 +2858,7 @@ function render2d() {
     ctx2d.strokeStyle = '#ffffff';
     ctx2d.lineWidth = 1.5;
     ctx2d.setLineDash([4, 3]);
-    ctx2d.strokeRect(x0*zoomPx+0.75, y0*zoomPx+0.75, (x1-x0+1)*zoomPx-1.5, (y1-y0+1)*zoomPx-1.5);
+    ctx2d.strokeRect(x0*zp+0.75, y0*zp+0.75, (x1-x0+1)*zp-1.5, (y1-y0+1)*zp-1.5);
     ctx2d.restore();
   }
   if (selDragMode === 'move' && selMoveBuffer && selMoveDrawAt) {
@@ -2705,16 +2868,16 @@ function render2d() {
     const tmp = document.createElement('canvas');
     tmp.width = selMoveBuffer.width; tmp.height = selMoveBuffer.height;
     tmp.getContext('2d').putImageData(selMoveBuffer, 0, 0);
-    ctx2d.drawImage(tmp, selMoveDrawAt.x*zoomPx, selMoveDrawAt.y*zoomPx, selMoveBuffer.width*zoomPx, selMoveBuffer.height*zoomPx);
+    ctx2d.drawImage(tmp, selMoveDrawAt.x*zp, selMoveDrawAt.y*zp, selMoveBuffer.width*zp, selMoveBuffer.height*zp);
     ctx2d.restore();
   }
 }
 function pixelAt2D(clientX, clientY) {
   const rect = canvas2d.getBoundingClientRect();
   const scaleX = canvas2d.width / rect.width, scaleY = canvas2d.height / rect.height;
-  const x = Math.floor(((clientX-rect.left)*scaleX) / zoomPx);
-  const y = Math.floor(((clientY-rect.top)*scaleY) / zoomPx);
-  if (x < 0 || y < 0 || x >= 64 || y >= 64) return null;
+  const x = Math.floor(((clientX-rect.left)*scaleX) / pz());
+  const y = Math.floor(((clientY-rect.top)*scaleY) / pz());
+  if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return null;
   return { x, y };
 }
 document.getElementById('zoomRange').addEventListener('input', (e) => {
@@ -2771,8 +2934,8 @@ canvas2d.addEventListener('pointermove', (e) => {
     const dx = px.x - selMoveAnchor.x, dy = px.y - selMoveAnchor.y;
     const w = selMoveBuffer.width, h = selMoveBuffer.height;
     selMoveDrawAt = {
-      x: Math.max(0, Math.min(64 - w, selMoveOrigin.x0 + dx)),
-      y: Math.max(0, Math.min(64 - h, selMoveOrigin.y0 + dy)),
+      x: Math.max(0, Math.min(SIZE - w, selMoveOrigin.x0 + dx)),
+      y: Math.max(0, Math.min(SIZE - h, selMoveOrigin.y0 + dy)),
     };
     render2d();
     return;
@@ -2819,7 +2982,7 @@ document.getElementById('selCopyBtn').addEventListener('click', () => {
   if (!selection) return;
   const w = selection.x1 - selection.x0 + 1, h = selection.y1 - selection.y0 + 1;
   const buf = atlasCtx.getImageData(selection.x0, selection.y0, w, h);
-  const nx = Math.min(64 - w, selection.x0 + 2), ny = Math.min(64 - h, selection.y0 + 2);
+  const nx = Math.min(SIZE - w, selection.x0 + 2 * RES), ny = Math.min(SIZE - h, selection.y0 + 2 * RES);
   pushUndo();
   atlasCtx.putImageData(buf, nx, ny);
   selection = { x0: nx, y0: ny, x1: nx + w - 1, y1: ny + h - 1 };
@@ -3073,7 +3236,7 @@ canvas.addEventListener('pointerup', (e) => {
   // shell is hidden, so the nearest hit is always the body.
   const chosen = (showOverlayLayer && hits.find((h) => h.object.userData.isOverlay)) || hits[0];
   if (!chosen.uv) return;
-  const px = Math.floor(chosen.uv.x * 64), py = Math.floor(chosen.uv.y * 64);
+  const px = Math.floor(chosen.uv.x * SIZE), py = Math.floor(chosen.uv.y * SIZE);
   handlePixelClick(px, py);
 });
 
@@ -3089,9 +3252,7 @@ document.getElementById('importFile').addEventListener('change', (e) => {
   const img = new Image();
   img.onload = () => {
     pushUndo();
-    atlasCtx.clearRect(0, 0, 64, 64);
-    atlasCtx.imageSmoothingEnabled = false;
-    atlasCtx.drawImage(img, 0, 0, 64, 64);
+    drawImageToAtlas(img);
     syncAfterEdit();
     scheduleSave();
     URL.revokeObjectURL(url);
@@ -3115,14 +3276,12 @@ document.getElementById('importUrlBtn').addEventListener('click', () => {
   img.crossOrigin = 'anonymous';
   img.onload = () => {
     pushUndo();
-    atlasCtx.clearRect(0, 0, 64, 64);
-    atlasCtx.imageSmoothingEnabled = false;
-    atlasCtx.drawImage(img, 0, 0, 64, 64);
+    drawImageToAtlas(img);
     try {
       atlasCtx.getImageData(0, 0, 1, 1);
     } catch (e) {
       undoStack.pop();
-      atlasCtx.clearRect(0, 0, 64, 64);
+      atlasCtx.clearRect(0, 0, SIZE, SIZE);
       if (undoStack.length) atlasCtx.putImageData(undoStack[undoStack.length - 1], 0, 0);
       alert("That site doesn't allow loading its images into other pages, so this can't be edited. Try saving the image to your computer first and using Import Skin instead.");
       return;
@@ -3188,9 +3347,7 @@ function loadImageInto(dataUrl, alsoForgetAutosave) {
   if (alsoForgetAutosave) { try { localStorage.removeItem(slotStorageKey(currentSlot)); } catch (e) {} }
   const img = new Image();
   img.onload = () => {
-    atlasCtx.clearRect(0, 0, 64, 64);
-    atlasCtx.imageSmoothingEnabled = false;
-    atlasCtx.drawImage(img, 0, 0);
+    drawImageToAtlas(img);
     syncAfterEdit();
     scheduleSave();
   };
@@ -3200,7 +3357,7 @@ document.getElementById('templateClassicBtn').addEventListener('click', () => lo
 document.getElementById('resetBtn').addEventListener('click', () => loadImageInto(SKIN_DATA_URL, true));
 document.getElementById('clearBtn').addEventListener('click', () => {
   pushUndo();
-  atlasCtx.clearRect(0, 0, 64, 64);
+  atlasCtx.clearRect(0, 0, SIZE, SIZE);
   syncAfterEdit();
   scheduleSave();
 });
@@ -3277,9 +3434,7 @@ function loadInitialSkin() {
   if (hashMatch) {
     const img = new Image();
     img.onload = () => {
-      atlasCtx.clearRect(0, 0, 64, 64);
-      atlasCtx.imageSmoothingEnabled = false;
-      atlasCtx.drawImage(img, 0, 0);
+      drawImageToAtlas(img);
       syncAfterEdit();
       scheduleSave();
     };
@@ -3292,9 +3447,7 @@ function loadInitialSkin() {
   if (!saved) { syncAfterEdit(); return; }
   const img = new Image();
   img.onload = () => {
-    atlasCtx.clearRect(0, 0, 64, 64);
-    atlasCtx.imageSmoothingEnabled = false;
-    atlasCtx.drawImage(img, 0, 0);
+    drawImageToAtlas(img);
     syncAfterEdit();
   };
   img.onerror = () => syncAfterEdit();
@@ -3331,13 +3484,14 @@ function switchSlot(n) {
   renderSlotBar();
   let saved = null;
   try { saved = localStorage.getItem(slotStorageKey(n)); } catch (e) {}
-  atlasCtx.clearRect(0, 0, 64, 64);
+  // Each slot opens at the chosen resolution (or its saved skin's own).
+  setRes(preferredRes(), false);
+  atlasCtx.clearRect(0, 0, SIZE, SIZE);
   if (!saved) { syncAfterEdit(); return; }
   const img = new Image();
   img.onload = () => {
     if (currentSlot !== n) return; // switched again before this finished loading
-    atlasCtx.imageSmoothingEnabled = false;
-    atlasCtx.drawImage(img, 0, 0);
+    drawImageToAtlas(img);
     syncAfterEdit();
   };
   img.onerror = () => syncAfterEdit();
@@ -3346,6 +3500,17 @@ function switchSlot(n) {
 
 resize2d();
 renderSlotBar();
+setRes(preferredRes(), false);
+for (const n of [1, 2, 4]) {
+  document.getElementById('res' + n + 'Btn')?.addEventListener('click', () => {
+    try { localStorage.setItem(RES_KEY, String(n)); } catch (e) {}
+    if (n === RES) return;
+    pushUndo();
+    setRes(n, true);
+    syncAfterEdit();
+    scheduleSave();
+  });
+}
 loadInitialSkin();
 renderSlots();
 renderFavorites();
