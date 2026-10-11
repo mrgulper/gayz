@@ -281,3 +281,37 @@ test('HD skins are worn; the nameplate matches in both places', async ({ page })
   expect(r.inv.clanAbove).toBe(true)
   expect(r.spins).toBe(false)
 })
+
+// 2026-10-11: with a panel open, pointing at the right column's buttons or
+// profile card lights them up like real hover (the panel's backdrop sits
+// over them, so :hover alone never reached them); a Settings checkbox
+// that's on shows a check mark; the Market's filters fit their words.
+test('right column lights up over a panel; checkbox check; filters fit', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => document.getElementById('market-btn').click())
+  await page.waitForTimeout(300)
+  const at = (id) => page.evaluate((i) => { const r = document.getElementById(i).getBoundingClientRect(); return { x: r.x + r.width - 40, y: r.y + r.height / 2 } }, id)
+  const inv = await at('menu-inventory-btn')
+  await page.mouse.move(inv.x, inv.y)
+  expect(await page.evaluate(() => document.getElementById('menu-inventory-btn').classList.contains('nav-hover'))).toBe(true)
+  const badge = await at('menu-player-badge')
+  await page.mouse.move(badge.x, badge.y)
+  expect(await page.evaluate(() => [document.getElementById('menu-player-badge').classList.contains('nav-hover'), document.getElementById('menu-inventory-btn').classList.contains('nav-hover')])).toEqual([true, false])
+
+  const widths = await page.evaluate(() => ['market-item-filter-btn', 'market-rarity-filter-btn'].map((id) => document.getElementById(id).getBoundingClientRect().width))
+  for (const w of widths) expect(w).toBeLessThan(160)
+
+  await page.evaluate(() => window.__game._closeAllMenuPanels())
+  const bg = await page.evaluate(() => {
+    const cb = document.createElement('input')
+    cb.type = 'checkbox'
+    cb.className = 'audio-checkbox'
+    cb.checked = true
+    document.body.appendChild(cb)
+    const img = getComputedStyle(cb).backgroundImage
+    cb.remove()
+    return img
+  })
+  expect(bg).toContain('svg')
+})
