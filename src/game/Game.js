@@ -1726,13 +1726,16 @@ function skinFrontIconURL(dataUrl) {
   const promise = new Promise((resolve) => {
     const img = new Image()
     img.onload = () => {
-      const legacy = img.height < 64 // old 64x32 skins: left limbs mirror the right ones
+      // k = real pixels per skin pixel (HD skins are 128/256 wide).
+      const k = Math.max(1, Math.round(img.width / 64))
+      const legacy = img.height / k < 64 // old 64x32 skins: left limbs mirror the right ones
       const canvas = document.createElement('canvas')
-      canvas.width = 16
-      canvas.height = 32
+      canvas.width = 16 * k
+      canvas.height = 32 * k
       const ctx = canvas.getContext('2d', { willReadFrequently: true })
       ctx.imageSmoothingEnabled = false
       const part = (sx, sy, w, h, dx, dy, mirror = false) => {
+        ;[sx, sy, w, h, dx, dy] = [sx, sy, w, h, dx, dy].map((n) => n * k)
         if (mirror) {
           ctx.save()
           ctx.translate(dx + w, dy)
@@ -8238,6 +8241,8 @@ export class Game {
       await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)))
       if (this._invSkinAvatar3D) return this._renderInventorySkinPreview()
       this._invSkinAvatar3D = new MenuAvatar3D(this.invSkinPreviewCanvas)
+      // Stands still - only the homepage character spins on its own.
+      this._invSkinAvatar3D.noSpin = true
       this._invSkinAvatar3D.start()
     }
     const token = (this._invSkinPreviewToken = (this._invSkinPreviewToken || 0) + 1)
@@ -8797,8 +8802,9 @@ export class Game {
     if (name) name.textContent = this.settings.nickname?.trim() || this._defaultNickname()
     if (clan) {
       const clanName = (this.settings.clanName || '').trim()
-      clan.textContent = clanName ? `[${clanName}]` : ''
+      clan.textContent = clanName
       clan.style.display = clanName ? '' : 'none'
+      el.classList.toggle('has-clan', !!clanName)
     }
   }
 
@@ -10325,7 +10331,7 @@ export class Game {
       // Every real Minecraft skin is 64px wide, 64px (modern) or 32px
       // (legacy) tall - anything else almost certainly isn't a skin file
       // and would just paint garbage across the character's faces.
-      if (skin.width !== 64 || (skin.height !== 64 && skin.height !== 32)) {
+      if (skin.width !== 64 || (skin.height !== 64 && skin.height !== 32) || ![1, 2, 4].includes(skin.scale)) {
         this._showHomepageToast(t('skinUploadWrongSizeToast'))
         return
       }
@@ -10375,11 +10381,12 @@ export class Game {
     face.height = 64
     const fctx = face.getContext('2d')
     fctx.imageSmoothingEnabled = false
-    fctx.drawImage(skin.texture.image, 8, 8, 8, 8, 0, 0, 64, 64)
+    const k = skin.scale || 1
+    fctx.drawImage(skin.texture.image, 8 * k, 8 * k, 8 * k, 8 * k, 0, 0, 64, 64)
     // Hat layer on top of the face - loadSkinTexture no longer flattens the
     // overlay onto the base, so the badge composites it itself (only when
     // the 3D character actually shows a hat, see overlayParts).
-    if (skin.overlayParts && skin.overlayParts.has('head')) fctx.drawImage(skin.texture.image, 40, 8, 8, 8, 0, 0, 64, 64)
+    if (skin.overlayParts && skin.overlayParts.has('head')) fctx.drawImage(skin.texture.image, 40 * k, 8 * k, 8 * k, 8 * k, 0, 0, 64, 64)
     const dataUrl = face.toDataURL('image/png')
     this.menuAvatarPhoto.src = dataUrl
     this.menuAvatarPhoto.classList.remove('loading')
@@ -11045,7 +11052,8 @@ export class Game {
       if (!this.skindesignerFrame || event.source !== this.skindesignerFrame.contentWindow) return
       const data = event.data
       if (!data || data.type !== 'gayz-import-skin' || typeof data.dataUrl !== 'string') return
-      if (!data.dataUrl.startsWith('data:image/png;base64,') || data.dataUrl.length > 200000) return
+      // HD skins (up to 256 wide) are bigger files than 64-wide ones.
+      if (!data.dataUrl.startsWith('data:image/png;base64,') || data.dataUrl.length > 1500000) return
       this._closeSkinDesignerPanel()
       this._applyImportedSkin(data.dataUrl)
     })

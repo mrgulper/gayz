@@ -58,10 +58,12 @@ test('Design a Skin paints long hair down the back on both layers', async ({ pag
   for (let i = 0; i < 4; i++) {
     await generate(page, 'girl with long green hair and a white shirt')
     const r = await page.evaluate(() => {
-      const d = window.__skinAtlas.getContext('2d').getImageData(0, 0, 64, 64).data
+      const d = window.__skinAtlas.getContext('2d').getImageData(0, 0, window.__skinAtlas.width, window.__skinAtlas.height).data
+      const k = window.__skinRes(), S = window.__skinAtlas.width
+      // Averages over a rect given in the 64-pixel skin layout.
       const avg = (x0, y0, x1, y1) => {
         let n = 0; const c = [0, 0, 0]
-        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = (y * 64 + x) * 4; if (!d[i + 3]) continue; n++; c[0] += d[i]; c[1] += d[i + 1]; c[2] += d[i + 2] }
+        for (let y = y0 * k; y < y1 * k; y++) for (let x = x0 * k; x < x1 * k; x++) { const i = (y * S + x) * 4; if (!d[i + 3]) continue; n++; c[0] += d[i]; c[1] += d[i + 1]; c[2] += d[i + 2] }
         return n ? c.map((v) => v / n) : null
       }
       // Head back (24..32 x 8..16); torso back, top five rows, on the base
@@ -75,4 +77,28 @@ test('Design a Skin paints long hair down the back on both layers', async ({ pag
     expect(dist(r.head, r.base)).toBeLessThan(dist(r.shirt, r.base))
     expect(dist(r.head, r.outer)).toBeLessThan(dist(r.shirt, r.outer))
   }
+})
+
+// More pixels (2026-10-11, Gaymi: "add more pixels, 2x or 4x"): the
+// Pixels buttons make a 128 or 256 pixel skin, the generator fills every
+// one of them, and the game wears it.
+test('Design a Skin makes 2x and 4x skins', async ({ page }) => {
+  await openDesigner(page)
+  const sizes = {}
+  for (const n of [1, 2, 4]) {
+    await page.click(`#res${n}Btn`)
+    await generate(page, 'pirate with a hat')
+    sizes[n] = await page.evaluate(() => {
+      const c = window.__skinAtlas
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
+      // Distinct colours inside the head's front - more pixels, more detail.
+      const k = window.__skinRes(), set = new Set()
+      for (let y = 8 * k; y < 16 * k; y++) for (let x = 8 * k; x < 16 * k; x++) { const i = (y * c.width + x) * 4; set.add(d[i] + ',' + d[i + 1] + ',' + d[i + 2]) }
+      return { w: c.width, h: c.height, colours: set.size }
+    })
+  }
+  expect(sizes[1]).toMatchObject({ w: 64, h: 64 })
+  expect(sizes[2]).toMatchObject({ w: 128, h: 128 })
+  expect(sizes[4]).toMatchObject({ w: 256, h: 256 })
+  expect(sizes[4].colours).toBeGreaterThan(sizes[1].colours)
 })

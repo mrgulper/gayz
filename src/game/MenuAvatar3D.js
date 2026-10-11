@@ -180,7 +180,13 @@ export function loadSkinTexture(source) {
       if (isBlob) URL.revokeObjectURL(url)
       const w = img.naturalWidth
       const h = img.naturalHeight
-      const legacy = h <= 32
+      // HD skins (2026-10-11): 128 or 256 pixels wide instead of 64, the
+      // same layout with every pixel split in 2x2 / 4x4. Everything below
+      // (UVs, overlay checks) works in the 64-wide layout's units; only the
+      // canvas keeps the real pixels. width/height returned are those
+      // 64-unit sizes, scale says how many real pixels make one of them.
+      const scale = Math.max(1, Math.round(w / 64))
+      const legacy = h / scale <= 32
 
       const canvas = document.createElement('canvas')
       canvas.width = w
@@ -199,8 +205,8 @@ export function loadSkinTexture(source) {
         const blockW = 2 * bw + 2 * bd
         const blockH = bd + bh
         const [ou, ov] = OVERLAY_ORIGINS[part]
-        if (ou + blockW > w || ov + blockH > h) continue // overlay block falls outside the image entirely
-        const data = ctx.getImageData(ou, ov, blockW, blockH).data
+        if ((ou + blockW) * scale > w || (ov + blockH) * scale > h) continue // overlay block falls outside the image entirely
+        const data = ctx.getImageData(ou * scale, ov * scale, blockW * scale, blockH * scale).data
         let visible = 0
         let opaque = 0
         for (let i = 3; i < data.length; i += 4) {
@@ -221,7 +227,7 @@ export function loadSkinTexture(source) {
       texture.flipY = false
       texture.colorSpace = THREE.SRGBColorSpace
       texture.needsUpdate = true
-      resolve({ texture, width: w, height: h, overlayParts })
+      resolve({ texture, width: w / scale, height: h / scale, scale, overlayParts })
     }
     img.onerror = () => {
       if (isBlob) URL.revokeObjectURL(url)
@@ -564,7 +570,8 @@ export class MenuAvatar3D {
       // (see _bindDrag), and skipped entirely under prefers-reduced-motion
       // (same convention as every other ambient animation in this
       // codebase - ash/embers/rain on the homepage background, etc.).
-      if (!this._dragging && !reduceMotion) {
+      // noSpin (Inventory's preview, 2026-10-11): it only turns when dragged.
+      if (!this._dragging && !reduceMotion && !this.noSpin) {
         this.character.rotation.y += IDLE_SPIN_SPEED * dt
       }
       this.renderer.render(this.scene, this.camera)

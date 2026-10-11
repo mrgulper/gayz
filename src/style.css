@@ -11530,19 +11530,28 @@ html.ui-theme-old #cloudsave-signin-btn {
   border-color: rgba(255, 255, 255, 0.35);
 }
 
-/* The player's nameplate - level box, name, [clan] - above the homepage
-   character (#player-showcase-title) and Inventory's preview
-   (#inv-skin-preview-title), filled by Game._fillNameplate (2026-10-11).
-   One look per theme: Golden a gold box and white name, Old a bronze
-   box and parchment or ink name. Name colour/font settings still win. */
+/* The player's nameplate - the clan on its own line on top, then the
+   level box and name - above the homepage character (#player-showcase-title)
+   and Inventory's preview (#inv-skin-preview-title), filled by
+   Game._fillNameplate and always the same in both places (2026-10-11).
+   Plain sans-serif text for the name and clan in every theme ("use regular
+   text"), no brackets round the clan; the theme only colours them (Golden
+   gold box + white name, Old bronze box + parchment, or ink on paper).
+   Name colour/font settings still win. A grid, not a wrapping flex row,
+   so a long name overflows (and the homepage shrinks it to fit) instead of
+   dropping under the level box. */
 .nameplate {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: auto auto;
   justify-content: center;
-  gap: 0.4em;
+  align-items: center;
+  column-gap: 0.4em;
+  row-gap: 0.1em;
   white-space: nowrap;
   font-weight: 700;
   line-height: 1.2;
+  letter-spacing: normal;
+  text-transform: none;
 }
 .nameplate-level {
   flex: none;
@@ -11565,30 +11574,38 @@ html.ui-theme-old #cloudsave-signin-btn {
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 .nameplate-clan {
-  flex: none;
-  font-size: 0.72em;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  justify-self: center;
+  font-size: 0.62em;
+  font-weight: 600;
   letter-spacing: 0.04em;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: var(--ui-gold-bright, #f2c14e);
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
+.nameplate-level,
+.nameplate-name {
+  grid-row: 2;
+}
+.nameplate:not(.has-clan) > :is(.nameplate-level, .nameplate-name) {
+  grid-row: 1;
+}
 #player-showcase-header .nameplate {
-  font-size: 20px;
+  font-size: 22px;
+  letter-spacing: normal;
 }
 html.ui-theme-old .nameplate-level {
   background: linear-gradient(180deg, #8a5a2b, #5a3615);
   color: #f1e0b8;
-  font-family: 'Crimson Text', Georgia, serif;
   box-shadow: 0 0 0 1px #2b1a0c, 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 html.ui-theme-old .nameplate-name {
   color: #f1e0b8;
-  font-family: 'Crimson Text', Georgia, serif;
-  letter-spacing: 0.02em;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85);
 }
 html.ui-theme-old .nameplate-clan {
   color: #d9b77a;
-  font-family: 'Crimson Text', Georgia, serif;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85);
 }
 /* A name colour picked in Settings (anything but the default white,
