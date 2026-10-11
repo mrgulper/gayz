@@ -5758,6 +5758,17 @@ export class Game {
   // (_searchFriendNames), and Add Friend with a name sends straight away
   // when exactly one player has that name, otherwise opens the list to pick
   // from. Requires being signed in, same gate the rest of this panel has.
+  // The saved friend matching a player by account, #ID or (case-insensitive)
+  // name - older entries may only have a name.
+  _findSavedFriend({ uid, playerId, name } = {}) {
+    const id = playerId ? String(playerId).toUpperCase() : ''
+    const lower = name ? String(name).toLowerCase() : ''
+    return this.settings.savedFriends.find((f) =>
+      (uid && f.uid === uid) ||
+      (id && f.playerId && String(f.playerId).toUpperCase() === id) ||
+      (lower && f.name && String(f.name).toLowerCase() === lower)) || null
+  }
+
   async _sendFriendRequestClick() {
     if (!this.cloudsaveFriendInput || !this.cloudsaveFriendResult || !this._cloudUid) return
     const text = this.cloudsaveFriendInput.value.trim().replace(/^#/, '')
@@ -5765,6 +5776,13 @@ export class Game {
     const id = text.toUpperCase()
     if (id === this.settings.playerId) {
       this.cloudsaveFriendResult.textContent = t('friendRequestSelfError')
+      return
+    }
+    // Typing a friend's #ID or name says they're already your friend
+    // straight away (2026-10-10).
+    const known = this._findSavedFriend({ playerId: id, name: text })
+    if (known) {
+      this.cloudsaveFriendResult.textContent = t('friendAlreadyFriend', { name: known.name || known.playerId || text })
       return
     }
     this.cloudsaveFriendResult.textContent = t('cloudsaveConnecting')
@@ -5792,7 +5810,7 @@ export class Game {
     }
     this._showFriendSuggestions([])
     const name = entry.name || entry.playerId || ''
-    if (this.settings.savedFriends.some((f) => f.uid === entry.uid)) {
+    if (this._findSavedFriend(entry)) {
       this.cloudsaveFriendResult.textContent = t('friendAlreadyFriend', { name })
       return
     }
