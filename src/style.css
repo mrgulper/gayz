@@ -789,13 +789,13 @@ html.layout-compact .menu-panel {
   }
 }
 
-
 /* Profile bio (see Game.js's _renderProfileBio) - free text, capped at
    250 chars. */
 #profile-bio-input {
   display: block;
   width: 100%;
-  min-height: 44px;
+  /* A bit bigger by default (2026-10-11); still resizable. */
+  min-height: 240px;
   margin-top: 4px;
   padding: 8px 10px;
   font-family: inherit;
@@ -1679,7 +1679,6 @@ html.ui-theme-old {
 html.large-text-mode #menu,
 html.large-text-mode #upgrades-panel,
 html.large-text-mode #quests-panel,
-html.large-text-mode #share-panel,
 html.large-text-mode #achievements-panel,
 html.large-text-mode #profile-panel,
 html.large-text-mode #credits-panel,
@@ -2248,51 +2247,6 @@ html.ui-theme-old select {
   10% { opacity: 1; transform: translateX(0); }
   88% { opacity: 1; transform: translateX(0); }
   100% { opacity: 0; transform: translateX(20px); }
-}
-
-/* Shared Profile Link banner - shown only when arriving via a ?viewprofile=
-   link (see _checkViewProfileLink), hidden otherwise. Fixed position so it
-   never participates in #menu-layout's zero-scroll height budget - this
-   only ever appears on a deliberate share-link visit, not normal homepage
-   use. */
-#shared-profile-banner {
-  position: fixed;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 16;
-  max-width: min(520px, 90vw);
-  background: rgba(10, 8, 6, 0.92);
-  border: 2px solid var(--menu-gold, #e0c03e);
-  border-radius: 6px;
-  padding: 14px 40px 14px 18px;
-  color: #e8e0c8;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-}
-
-#shared-profile-banner h3 {
-  margin: 0 0 6px;
-  color: var(--menu-gold, #e0c03e);
-  font-size: 16px;
-}
-
-#shared-profile-banner p {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-#shared-profile-close-btn {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  background: none;
-  border: none;
-  color: #e8e0c8;
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0;
 }
 
 /* What's New digest (see _maybeShowWhatsNewDigest) - fixed, top-right so
@@ -3529,7 +3483,6 @@ section.category.hidden-search {
   gap: 18px;
 }
 
-
 @keyframes toast {
   0% { opacity: 0; transform: translate(-50%, 8px); }
   15% { opacity: 1; transform: translate(-50%, 0); }
@@ -3823,7 +3776,6 @@ section.category.hidden-search {
 #clan-panel,
 #upgrades-panel,
 #quests-panel,
-#share-panel,
 #achievements-panel,
 #profile-panel,
 #credits-panel,
@@ -4041,7 +3993,6 @@ html.ui-theme-old #coming-soon-panel,
 html.ui-theme-old #clan-panel,
 html.ui-theme-old #upgrades-panel,
 html.ui-theme-old #quests-panel,
-html.ui-theme-old #share-panel,
 html.ui-theme-old #achievements-panel,
 html.ui-theme-old #profile-panel,
 html.ui-theme-old #credits-panel,
@@ -4183,7 +4134,6 @@ html.ui-theme-old .auth-note,
 html.ui-theme-old .auth-terms,
 html.ui-theme-old .auth-back { opacity: 0.82; }
 html.ui-theme-old .auth-link { color: #5a3410 !important; font-weight: 600; }
-
 
 /* Wraps every existing piece of profile content so it can be toggled as
    one unit against #profile-login-gate - replicates the flex-column
@@ -4328,8 +4278,7 @@ html.ui-theme-old .auth-link { color: #5a3410 !important; font-weight: 600; }
 #menu-inventory-panel-title,
 #server-panel-title,
 #journal-panel-title,
-#clan-panel-title,
-#share-panel-title {
+#clan-panel-title {
   margin: 0;
   /* Doubled from 15px per request - this is the title shown right after
      opening any of these panels (Hub, Store, Achievements, etc.), not
@@ -4362,8 +4311,7 @@ html.ui-theme-old #friends-panel-title,
 html.ui-theme-old #menu-inventory-panel-title,
 html.ui-theme-old #server-panel-title,
 html.ui-theme-old #journal-panel-title,
-html.ui-theme-old #clan-panel-title,
-html.ui-theme-old #share-panel-title {
+html.ui-theme-old #clan-panel-title {
   font-family: 'Rye', Georgia, serif;
   color: #c2a06e;
   opacity: 1;
@@ -4450,17 +4398,6 @@ html.ui-theme-old #share-panel-title {
   padding: 10px 14px 12px;
 }
 
-/* Longer per-row text (full speed/health/stamina deltas) - 2 columns
-   instead of 3 so the value doesn't wrap awkwardly. */
-#class-comparison-table {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 20px;
-  row-gap: 6px;
-  max-width: 820px;
-  margin: 0 auto;
-}
-
 #profile-options .settings-section-heading {
   grid-column: 1 / -1;
   margin: 0 0 6px;
@@ -4473,7 +4410,6 @@ html.ui-theme-old #share-panel-title {
    margin rule on specificity alone, without needing !important. */
 #profile-content #highlight-reel-heading,
 #profile-content #rank-roadmap-heading,
-#profile-content #class-comparison-heading,
 #profile-content #recent-unlocks-heading,
 #profile-content #prestige-history-heading {
   background: rgba(20, 16, 10, 0.55);
@@ -4548,7 +4484,6 @@ html.ui-theme-old #share-panel-title {
    no visible seam, instead of the two pieces floating apart. */
 #highlight-reel-list,
 #rank-roadmap-list,
-#class-comparison-table,
 #recent-unlocks-list,
 #prestige-history-list {
   background: rgba(20, 16, 10, 0.55);
@@ -4565,12 +4500,10 @@ html.ui-theme-old #share-panel-title {
 html.ui-theme-old .profile-stat-card,
 html.ui-theme-old #profile-content #highlight-reel-heading,
 html.ui-theme-old #profile-content #rank-roadmap-heading,
-html.ui-theme-old #profile-content #class-comparison-heading,
 html.ui-theme-old #profile-content #recent-unlocks-heading,
 html.ui-theme-old #profile-content #prestige-history-heading,
 html.ui-theme-old #highlight-reel-list,
 html.ui-theme-old #rank-roadmap-list,
-html.ui-theme-old #class-comparison-table,
 html.ui-theme-old #recent-unlocks-list,
 html.ui-theme-old #prestige-history-list {
   background: rgba(122, 78, 36, 0.1);
@@ -4581,8 +4514,7 @@ html.ui-theme-old #prestige-history-list {
 #rank-roadmap-list .perk-option,
 #recent-unlocks-list .perk-option,
 #highlight-reel-list .perk-option,
-#prestige-history-list .perk-option,
-#class-comparison-table .perk-option {
+#prestige-history-list .perk-option {
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
@@ -4600,8 +4532,7 @@ html.ui-theme-old #prestige-history-list {
 #rank-roadmap-list .perk-option:last-child,
 #recent-unlocks-list .perk-option:last-child,
 #highlight-reel-list .perk-option:last-child,
-#prestige-history-list .perk-option:last-child,
-#class-comparison-table .perk-option:last-child {
+#prestige-history-list .perk-option:last-child {
   border-bottom: none;
 }
 
@@ -4609,8 +4540,7 @@ html.ui-theme-old #prestige-history-list {
 #rank-roadmap-list .perk-name,
 #recent-unlocks-list .perk-name,
 #highlight-reel-list .perk-name,
-#prestige-history-list .perk-name,
-#class-comparison-table .perk-name {
+#prestige-history-list .perk-name {
   font-size: 14px;
   font-weight: 400;
   /* --menu-text-dim is declared on #menu, not :root - #profile-panel is a
@@ -4626,8 +4556,7 @@ html.ui-theme-old #prestige-history-list {
 #rank-roadmap-list .perk-cost,
 #recent-unlocks-list .perk-cost,
 #highlight-reel-list .perk-cost,
-#prestige-history-list .perk-cost,
-#class-comparison-table .perk-cost {
+#prestige-history-list .perk-cost {
   font-size: 14px;
   font-weight: 700;
   color: #eee;
@@ -5103,7 +5032,6 @@ html.ui-theme-old #prestige-history-list {
 #share-setup-btn,
 #share-profile-btn,
 #share-challenge-btn,
-#share-loadout-btn,
 #share-page-link-btn,
 #profile-close-btn {
   margin-top: 6px;
@@ -5209,7 +5137,6 @@ html.ui-theme-old #prestige-history-list {
 
 /* Mastery badge (see Game.js's _updateHotbarHud) - same gold/cyan pair as
    .mastery-tag elsewhere, applied to the whole row's border. */
-
 
 /* ==========================================================================
    Main menu redesign - design tokens
@@ -5632,10 +5559,22 @@ html {
    elements at once and blew the zero-scroll budget by 13px - caught by
    the standard 4-height overflow measurement this project always
    re-checks after a size-affecting change). */
-html.text-spacing-active #menu, html.text-spacing-active .menu-panel, html.text-spacing-active #upgrades-panel,
-html.text-spacing-active #credits-panel, html.text-spacing-active #terms-panel, html.text-spacing-active #features-panel, html.text-spacing-active #privacy-panel, html.text-spacing-active #shop-panel, html.text-spacing-active #market-panel, html.text-spacing-active #whatsnew-panel, html.text-spacing-active #achievements-panel,
-html.text-spacing-active #profile-panel, html.text-spacing-active #settings-panel,
-html.text-spacing-active #quests-panel, html.text-spacing-active #share-panel, html.text-spacing-active #cloudsave-panel, html.text-spacing-active #howtoplay-panel {
+html.text-spacing-active #menu,
+html.text-spacing-active .menu-panel,
+html.text-spacing-active #upgrades-panel,
+html.text-spacing-active #credits-panel,
+html.text-spacing-active #terms-panel,
+html.text-spacing-active #features-panel,
+html.text-spacing-active #privacy-panel,
+html.text-spacing-active #shop-panel,
+html.text-spacing-active #market-panel,
+html.text-spacing-active #whatsnew-panel,
+html.text-spacing-active #achievements-panel,
+html.text-spacing-active #profile-panel,
+html.text-spacing-active #settings-panel,
+html.text-spacing-active #quests-panel,
+html.text-spacing-active #cloudsave-panel,
+html.text-spacing-active #howtoplay-panel {
   letter-spacing: calc((var(--text-spacing, 100) - 100) * 0.005px);
   line-height: calc(1.4 * var(--text-spacing, 100) / 100);
 }
@@ -5676,7 +5615,6 @@ html.reduce-transparency #achievements-panel,
 html.reduce-transparency #profile-panel,
 html.reduce-transparency #settings-panel,
 html.reduce-transparency #quests-panel,
-html.reduce-transparency #share-panel,
 html.reduce-transparency #cloudsave-panel,
 html.reduce-transparency #howtoplay-panel,
 html.reduce-transparency #hub-panel,
@@ -6100,7 +6038,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
    Shop's own buy rows. Same look as .shop-attachment-row's name+desc
    pairing (see .attachment-desc above), just without a buy button. */
 
-
 /* Locked (Coming Soon) entries - same dimmed/inert treatment as the
    Deathmatch FFA/Team toggles (.mode-toggle.locked), not a button that
    looks clickable but silently does nothing. */
@@ -6200,22 +6137,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
   border-color: var(--menu-gold);
 }
 
-.menu-preset-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-/* Auto-suggested best loadout (batch 8 feature) */
-#suggested-loadout-hint {
-  font-size: 11px;
-  color: var(--menu-gold, var(--ui-gold-bright));
-  opacity: 0.85;
-  margin-top: 4px;
-}
-
 /* Quick-compare tooltips (batch 8 feature) - anchored above the hovered
    weapon card via left/top set in JS, transform pulls it fully above and
    horizontally centered on that point rather than the tooltip's own corner. */
@@ -6231,52 +6152,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
   pointer-events: none;
   z-index: 20;
   white-space: nowrap;
-}
-
-#menu-preset-chips {
-  display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
-}
-
-.preset-chip {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 6px 4px 9px;
-  font-size: 10px;
-  color: var(--menu-text-dim);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--menu-panel-border);
-  border-radius: 3px;
-  cursor: pointer;
-}
-
-.preset-chip:hover {
-  color: #eee;
-  border-color: var(--menu-gold);
-}
-
-.preset-chip-delete {
-  color: var(--menu-red);
-  font-weight: 700;
-  padding: 0 2px;
-}
-
-.preset-pin {
-  color: rgba(255, 255, 255, 0.25);
-  cursor: pointer;
-  padding: 0 2px;
-}
-
-.preset-pin.active {
-  color: var(--menu-gold);
-}
-
-.preset-chip-dup {
-  color: var(--menu-text-dim);
-  cursor: pointer;
-  padding: 0 2px;
 }
 
 .preset-rename-input {
@@ -6781,7 +6656,6 @@ html.ui-theme-old #settings-btn {
   transform: rotate(25deg);
 }
 
-
 /* True top-left corner overlay - independent of #menu-layout's grid (was
    briefly top-right, corrected back to top-left) so it can't collide
    with or visually attach to any column content. */
@@ -7134,7 +7008,6 @@ html.ui-theme-old #homepage-greeting {
   margin-top: 4px;
   text-align: center;
 }
-
 
 #menu-player-tag:hover {
   color: var(--menu-gold);
@@ -7944,10 +7817,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
     padding: 6px 12px;
   }
 
-  .menu-preset-row {
-    display: none;
-  }
-
   .menu-hint-line {
     margin-bottom: 0;
   }
@@ -8002,22 +7871,19 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
   }
 
   #profile-options .perk-name,
-  #profile-options .perk-cost,
-  #rank-roadmap-list .perk-name,
-  #rank-roadmap-list .perk-cost,
-  #class-comparison-table .perk-name,
-  #class-comparison-table .perk-cost,
-  #recent-unlocks-list .perk-name,
-  #highlight-reel-list .perk-name,
-  #highlight-reel-list .perk-cost {
+#profile-options .perk-cost,
+#rank-roadmap-list .perk-name,
+#rank-roadmap-list .perk-cost,
+#recent-unlocks-list .perk-name,
+#highlight-reel-list .perk-name,
+#highlight-reel-list .perk-cost {
     font-size: 12px;
   }
 
   #profile-options .perk-option,
-  #rank-roadmap-list .perk-option,
-  #class-comparison-table .perk-option,
-  #recent-unlocks-list .perk-option,
-  #highlight-reel-list .perk-option {
+#rank-roadmap-list .perk-option,
+#recent-unlocks-list .perk-option,
+#highlight-reel-list .perk-option {
     padding: 1px 0;
   }
 
@@ -8153,10 +8019,8 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
   margin-left: auto;
 }
 
-.mode-toggle:hover {
-  background: rgba(var(--ui-gold-accent-rgb), 0.08);
-  color: #fff;
-}
+/* No hover highlight on the rows (2026-10-11, Gaymi: "when just mouse on
+   any challenge or mutator it will make it brighter, i dont like that"). */
 
 /* 3D Zombie Survival (always-on - just labels the mode you're already
    playing, checkbox can't be unchecked) and the PVP FFA/Team entries
@@ -9780,12 +9644,11 @@ html.ui-theme-old .audio-checkbox {
      rate") into a sub-100px sliver, wrapping across 2-3 lines. Single
      column here gives every row its full width instead. */
   #profile-options,
-  .profile-stat-card,
-  #rank-roadmap-list,
-  #class-comparison-table,
-  #recent-unlocks-list,
-  #highlight-reel-list,
-  #prestige-history-list {
+.profile-stat-card,
+#rank-roadmap-list,
+#recent-unlocks-list,
+#highlight-reel-list,
+#prestige-history-list {
     grid-template-columns: 1fr;
   }
 
@@ -9838,33 +9701,6 @@ html.ui-theme-old .audio-checkbox {
      pre-existing (desktop-only) weapon/ammo HUD panel, which itself has
      never been adapted for a narrow screen - that panel's own layout is
      a separate follow-up, not solved here. */
-}
-
-/* Landscape phones (short but wide - e.g. a phone rotated sideways to
-   actually play, which is how most real mobile shooters expect to be
-   held) don't hit the max-width breakpoint above at all, but ARE short
-   enough that the base button layout (built assuming a tall screen)
-   collided with itself - confirmed via the same real overlap checks,
-   e.g. Sprint/Interact (positioned assuming plenty of vertical room)
-   landed on top of the weapon-switch row at the top of the screen.
-   Compact 4-col x 2-row grid instead, using the width landscape has
-   plenty of, positioned clear of both the joystick and the weapon row. */
-@media (max-height: 450px) {
-
-  /* This query's own comment above used to claim the weapon-switch row
-     sits at "top:30px, never repositioned by this query" - true only when
-     the narrow-portrait breakpoint (max-width:700px) ISN'T also active. On
-     a phone that's both narrow AND this short in landscape (confirmed via
-     real getBoundingClientRect() checks at 568x320/568x350 - e.g. iPhone
-     SE/5-era landscape), that other breakpoint's own `.touch-weapon-btn
-     { top: 190px }` rule wins instead (equal specificity, later source
-     order loses to earlier here since that rule sits in the block above
-     this one) - and 190px lands the weapon row squarely on top of
-     Reload/Melee/Sprint/Crouch, which this query already moved down to
-     make room at the top of the screen. Pinning it back to 30px here -
-     the same position it already correctly has whenever only THIS query
-     is active - keeps it clear of every button this query controls,
-     regardless of whether the width breakpoint also happens to be active. */
 }
 
 /* Existing in-game HUD (weapon/ammo panel, health/status bars, the
@@ -10233,7 +10069,6 @@ body.build-mode-on #chat-panel {
   font-size: 12px;
   color: rgba(224, 228, 220, 0.55);
 }
-
 
 /* Inventory > Character, Kirka-style (2026-09-30): 3D preview on the left,
    a searchable grid of skin cards on the right. Each card's left bar is
@@ -10816,6 +10651,20 @@ html.ui-theme-old #inspect-title {
 html.ui-theme-old #inspect-close {
   background: none;
   color: #4a2c10;
+  /* In the paper's curled top-right corner, exactly where every Old panel
+     has its X (2026-10-11) - same percentages as .panel-close-btn above. */
+  position: absolute;
+  top: calc(8.7% - 18px);
+  right: calc(7.6% - 18px);
+  width: 36px;
+  height: 36px;
+  z-index: 2;
+}
+html.ui-theme-old #inspect-box {
+  position: relative;
+}
+html.ui-theme-old #inspect-header {
+  padding-right: 40px;
 }
 html.ui-theme-old #inspect-stage {
   background: radial-gradient(ellipse at center, rgba(120, 80, 40, 0.16), rgba(0, 0, 0, 0) 70%);
@@ -11264,7 +11113,6 @@ html.ui-theme-old #gallery-coming-icon,
   margin: 0;
   opacity: 0.8;
 }
-
 
 /* ================================================================
    Phones and tablets (2026-10-09, Gaymi: "everything should change as
@@ -11765,4 +11613,81 @@ html.ui-theme-old .panel-box .nameplate-clan {
 #player-showcase-header .nameplate-name {
   flex: none;
   overflow: visible;
+}
+
+/* Profile > Hidden: private Notes, only ever shown to you (2026-10-11). */
+#profile-notes-box {
+  margin: 10px auto 14px;
+  width: min(820px, 100%);
+  align-self: center;
+}
+#profile-notes-input {
+  display: block;
+  width: 100%;
+  min-height: 160px;
+  margin-top: 4px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #f4f1e6;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--menu-panel-border);
+  border-radius: 6px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+/* Pin a stat to the top: the same oval as the other dropdowns, both themes. */
+#pinned-stat-select {
+  border-radius: 999px;
+  padding: 6px 30px 6px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  color: #f4f1e6;
+  background-color: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.55);
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23e7c76a' stroke-width='2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+html.ui-theme-old #pinned-stat-select {
+  background-color: transparent !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23000' stroke-width='2'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  border: 1px solid #4a2c10;
+}
+html.ui-theme-old #pinned-stat-select option {
+  color: #000;
+  background: #f1e0b8;
+}
+
+/* Old theme Profile: every word is black and nothing has its own darker
+   box behind it - the text sits straight on the paper (2026-10-11, Gaymi:
+   "every single text in profile make black ... remove the colour behind
+   the text"). Borders stay so boxes and text fields are still visible. */
+html.ui-theme-old #profile-panel .panel-box,
+html.ui-theme-old #profile-panel .panel-box *:not(svg, svg *),
+html.ui-theme-old #profile-panel .panel-box ::placeholder {
+  color: #000 !important;
+  -webkit-text-fill-color: #000;
+}
+html.ui-theme-old #profile-panel .panel-box ::placeholder {
+  opacity: 0.55;
+}
+html.ui-theme-old #profile-panel .panel-box :is(div, section, p, h3, span, textarea, canvas, .perk-option) {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+html.ui-theme-old #profile-panel .panel-box :is(textarea, #profile-bio-column, #profile-best-run-card) {
+  border-color: rgba(43, 26, 12, 0.45) !important;
+}
+html.ui-theme-old #profile-panel .perk-option:disabled,
+html.ui-theme-old #profile-panel .panel-box * {
+  opacity: 1;
 }

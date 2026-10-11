@@ -121,7 +121,6 @@ import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
 import * as MenuEasterEggs from './MenuEasterEggs.js'
 import { MenuAvatar3D, loadSkinTexture, buildTexturedCharacter, DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW_DATA_URL } from './MenuAvatar3D.js'
 import { InspectViewer } from './InspectViewer.js'
-import * as MenuPresets from './MenuPresets.js'
 // BuildMode.js is deliberately NOT statically imported here - it's a big,
 // self-contained system most visitors never touch (a whole separate
 // scene/camera/90+ block types), so it's dynamically imported on first use
@@ -162,17 +161,9 @@ const RANDOM_NICKNAME_NOUNS = ['Wolf', 'Scav', 'Reaper', 'Nomad', 'Ghost', 'Vipe
 // bronze CSS class, not emoji medals (this codebase has a documented
 // no-emoji UI convention, see #profile-emblem-row's own comment).
 const PODIUM_MEDALS = ['1st', '2nd', '3rd']
+// Cache Storage name for the saved weapon pictures (see _loadSavedWeaponThumbs).
+const WEAPON_THUMBS_CACHE = 'gayz-weapon-thumbs-v1'
 
-const LOADOUT_PRESETS = {
-  balanced: { moveSpeedDelta: 0, maxHealthMult: 1, maxStaminaDelta: 0 },
-  runner: { moveSpeedDelta: 1.2, maxHealthMult: 0.75, maxStaminaDelta: 15 },
-  tank: { moveSpeedDelta: -0.8, maxHealthMult: 1.35, maxStaminaDelta: -10 },
-}
-
-
-// Shared with _updateTexts' loadout button labels and the Journal's World
-// State section (see _renderJournal) - one lookup instead of two copies.
-export const LOADOUT_LABEL_KEYS = { balanced: 'loadoutBalanced', runner: 'loadoutRunner', tank: 'loadoutTank' }
 // Main-menu news ticker thresholds (see _updateMenuNewsTicker) - both read
 // against bestStats.bestNight.
 const NEWS_TICKER_MID_NIGHT = 5
@@ -316,6 +307,8 @@ function loadSettings() {
       // still some sane ceiling" (2026-09-23, explicit "write as much as
       // you want" request) - was 250.
       bio: typeof parsed.bio === 'string' ? parsed.bio.slice(0, 5000) : '',
+      // Private notes (Profile > Hidden) - only ever shown to you, never published.
+      privateNotes: typeof parsed.privateNotes === 'string' ? parsed.privateNotes.slice(0, 5000) : '',
       // Streaming-safe mode (see _updateStreamSafeVisibility) - hides the
       // fps/ms/draw-calls debug overlay specifically, leaving the rest of
       // the HUD untouched.
@@ -327,7 +320,7 @@ function loadSettings() {
       // (see _recordRunEnd's own guard), so a shared/borrowed computer's
       // owner doesn't get their stats muddied by a one-off guest run.
       guestMode: parsed.guestMode ?? false,
-      loadout: LOADOUT_PRESETS[parsed.loadout] ? parsed.loadout : 'balanced',
+      loadout: 'balanced', // Choose Class was removed (2026-10-11) - every run is Balanced
       // Game Modes grid (Choose Your Challenge) - 'classic' is plain
       // Zombie Survival, no special mutator. zombieDefense/bossHunt/
       // zombieRush/zombieExtraction are all real, built modes (PlayRules.js
@@ -338,7 +331,6 @@ function loadSettings() {
       // was picked in the Play/Pause weapon picker, slots 1-2 are the fixed
       // M1911/Knife backup weapons every run starts with.
       hotbar: Array.isArray(parsed.hotbar) && parsed.hotbar.length === 3 ? parsed.hotbar : ['rifle', 'pistol', 'melee'],
-      menuPresets: Array.isArray(parsed.menuPresets) ? parsed.menuPresets.slice(0, 3) : [],
       mutedBeforeVolumes: parsed.mutedBeforeVolumes || null,
       // Second Homepage batch - the Quick Language toggle's remembered
       // "most recent non-English pick" (see #quick-language-btn's handler).
@@ -404,7 +396,6 @@ function loadSettings() {
       nicknameFont: parsed.nicknameFont || 'default',
       layoutDensity: parsed.layoutDensity || 'cozy',
       pinnedStat: parsed.pinnedStat || null,
-      pinnedPreset: Number.isInteger(parsed.pinnedPreset) ? parsed.pinnedPreset : null,
       navOrder: _loadNavOrder(parsed.navOrder),
       // Third features batch - Accessibility group.
       uiFont: parsed.uiFont || 'default',
@@ -514,7 +505,7 @@ function _loadNavOrder(saved) {
 }
 
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, pinnedPreset: null, navOrder: [...NAV_ORDER_DEFAULT], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, navOrder: [...NAV_ORDER_DEFAULT], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
 }
 
 
@@ -641,19 +632,6 @@ const SETTINGS_CODE_KEYS = [
   'grainIntensity',
   'panelFlickerEnabled',
 ]
-
-// Setup Code mutator whitelist (see _copySetupCode/_checkSetupCode) -
-// excludes dailyChallenge, same precedent MUTATOR_LABEL_KEYS below already
-// set: that's a distinct system promoted via its own daily-reset spotlight
-// mode, not a "try this mutator" pick a shared setup code should carry.
-const SETUP_CODE_MUTATOR_ELEMENT_KEYS = {
-  hordeRush: 'mutatorHordeRush',
-  lootRush: 'mutatorLootRush',
-  bossRush: 'mutatorBossRush',
-  healthRegen: 'mutatorHealthRegen',
-  ironMode: 'mutatorIronMode',
-  glassHouse: 'mutatorGlassHouse',
-}
 
 function _weeklyFeaturedMutatorKey() {
   const weekStr = _thisWeekStr()
@@ -882,8 +860,6 @@ const PLAYTIME_MILESTONES = [
 // it's simple list storage, not a system with its own logic of its own.
 const RUN_HISTORY_KEY = 'gayz-run-history'
 const RUN_HISTORY_MAX = 25
-// Auto-suggested best loadout (batch 8 feature)
-const SUGGESTED_LOADOUT_MIN_RUNS = 3
 
 function loadRunHistory() {
   try {
@@ -1293,10 +1269,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'server-chat-heading': 'serverChatHeading',
   'hub-custom-soon-label': 'hubCustomSoon',
   'achievements-tab-parkour': 'achievementsTabParkour',
-  'save-preset-btn': 'savePresetBtnLabel',
-  'surprise-me-btn': 'surpriseMeBtn',
-  'quick-keybinds-btn': 'quickKeybindsBtn',
-  'open-share-btn': 'openShareBtn',
   'quest-tab-rolling': 'questTabRolling',
   'quest-tab-monthly': 'questTabMonthly',
   'quest-tab-yearly': 'questTabYearly',
@@ -1304,11 +1276,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'monthly-quests-placeholder': 'monthlyQuestsPlaceholder',
   'lifetime-quests-placeholder': 'monthlyQuestsPlaceholder',
   'yearly-quests-placeholder': 'yearlyQuestsPlaceholder',
-  'share-setup-btn': 'shareSetupBtn',
-  'share-profile-btn': 'shareProfileBtn',
-  'share-challenge-btn': 'shareChallengeBtn',
-  'share-loadout-btn': 'shareLoadoutBtn',
-  'share-page-link-btn': 'sharePageLinkBtn',
   'achievements-tab-survival': 'achievementsTabSurvival',
   'achievements-tab-deathmatch': 'achievementsTabDeathmatch',
   'print-achievements-btn': 'printAchievementsBtnLabel',
@@ -1382,7 +1349,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'chat-tab-global': 'chatTabGlobal',
   'chat-tab-clan': 'chatTabClan',
   'hub-section-difficulty': 'hubSectionDifficulty',
-  'hub-section-choose-class': 'hubSectionChooseClass',
   'hub-section-game-modes': 'hubSectionGameModes',
   'hub-section-challenges-mutators': 'hubSectionChallengesMutators',
 }
@@ -1849,8 +1815,6 @@ export class Game {
     this.statLongestSurvival = document.querySelectorAll('[data-stat="longest-survival"]')
     this.statTotalKills = document.querySelectorAll('[data-stat="total-kills"]')
     this.statRunsPlayed = document.querySelectorAll('[data-stat="runs-played"]')
-    this.statFavoriteClass = document.querySelectorAll('[data-stat="favorite-class"]')
-    this.suggestedLoadoutHint = document.getElementById('suggested-loadout-hint')
     this.statLastRun = document.querySelectorAll('[data-stat="last-run"]')
     this.menuAvatarLevel = document.getElementById('menu-avatar-level')
     this.menuAvatarPhoto = document.getElementById('menu-avatar-photo')
@@ -1876,10 +1840,6 @@ export class Game {
     // Profile screenshot gallery. See each feature's own method for how
     // these get populated.
     this.recommendedDifficultyHint = document.getElementById('recommended-difficulty-hint')
-    this.savePresetBtn = document.getElementById('save-preset-btn')
-    this.surpriseMeBtn = document.getElementById('surprise-me-btn')
-    this.quickKeybindsBtn = document.getElementById('quick-keybinds-btn')
-    this.menuPresetChips = document.getElementById('menu-preset-chips')
     this.quickMuteBtn = document.getElementById('quick-mute-btn')
     this.quickColorblindBtn = document.getElementById('quick-colorblind-btn')
     this.howtoplayBtn = document.getElementById('howtoplay-btn')
@@ -1902,6 +1862,7 @@ export class Game {
     this.profileBioHeading = document.getElementById('profile-bio-heading')
     this.profileBioInput = document.getElementById('profile-bio-input')
     this.profileBioCounter = document.getElementById('profile-bio-counter')
+    this.profileNotesInput = document.getElementById('profile-notes-input')
     this.profileNearlyThereList = document.getElementById('profile-nearly-there-list')
     this.profileAnniversaryLine = document.getElementById('profile-anniversary-line')
     this.profileTodayLine = document.getElementById('profile-today-line')
@@ -1985,7 +1946,6 @@ export class Game {
     this.otherProfileRegionValue = document.getElementById('other-profile-region-value')
     this.otherProfileTotalKillsValue = document.getElementById('other-profile-totalkills-value')
     this.otherProfileRunsPlayedValue = document.getElementById('other-profile-runsplayed-value')
-    this.otherProfileFavoriteClassValue = document.getElementById('other-profile-favoriteclass-value')
     this.otherProfileLongestSurvivalValue = document.getElementById('other-profile-longestsurvival-value')
     this.otherProfileLastRunValue = document.getElementById('other-profile-lastrun-value')
     this.otherProfileAnniversaryLine = document.getElementById('other-profile-anniversary-line')
@@ -2051,7 +2011,6 @@ export class Game {
     this._leaderboardUnsubscribe = null
     this.difficultyBtns = document.querySelectorAll('.difficulty-btn')
     this.roleBtns = document.querySelectorAll('.role-btn')
-    this.loadoutBtns = document.querySelectorAll('.loadout-btn')
     this.gameModeSelectBtns = document.querySelectorAll('.mode-select-btn')
     this.settingsBtn = document.getElementById('settings-btn')
     this.settingsPanel = document.getElementById('settings-panel')
@@ -2251,14 +2210,6 @@ export class Game {
     this.clearLeaderboardsBtn = document.getElementById('clear-leaderboards-btn')
     this.printStatsSheet = document.getElementById('print-stats-sheet')
     this.reportBugBtn = document.getElementById('report-bug-btn')
-    this.sharePanel = document.getElementById('share-panel')
-    this.sharePanelTitle = document.getElementById('share-panel-title')
-    this.openShareBtn = document.getElementById('open-share-btn')
-    this.shareSetupBtn = document.getElementById('share-setup-btn')
-    this.shareProfileBtn = document.getElementById('share-profile-btn')
-    this.shareChallengeBtn = document.getElementById('share-challenge-btn')
-    this.shareLoadoutBtn = document.getElementById('share-loadout-btn')
-    this.sharePageLinkBtn = document.getElementById('share-page-link-btn')
     this.rebindingAction = null
     this.settingsOpen = false
     this.settings = loadSettings()
@@ -2588,8 +2539,9 @@ export class Game {
     this.tradeDialogPrice = document.getElementById('trade-dialog-price')
     this.tradeDialogFee = document.getElementById('trade-dialog-fee')
     this.tradeDialogAction = document.getElementById('trade-dialog-action')
-    // Player Market listings (CloudSync.fetchActiveMarketListings), loaded
-    // whenever the Market opens. null = not loaded yet, 'error' = failed.
+    // Player Market listings (CloudSync.fetchActiveMarketListings), fetched
+    // in the background after boot and refreshed whenever the Market opens.
+    // null = not loaded yet, 'error' = failed.
     this._marketListings = null
     this.shopMarketGrid = document.getElementById('shop-market-grid')
     this.marketPanel = document.getElementById('market-panel')
@@ -2637,10 +2589,6 @@ export class Game {
     this.profilePanel = document.getElementById('profile-panel')
     this.profilePanelTitle = document.getElementById('profile-panel-title')
     this.profileOptions = document.getElementById('profile-options')
-    this.sharedProfileBanner = document.getElementById('shared-profile-banner')
-    this.sharedProfileTitle = document.getElementById('shared-profile-title')
-    this.sharedProfileLine = document.getElementById('shared-profile-line')
-    this.sharedProfileCloseBtn = document.getElementById('shared-profile-close-btn')
     this.whatsNewDigest = document.getElementById('whats-new-digest')
     this.whatsNewDigestTitle = document.getElementById('whats-new-digest-title')
     this.whatsNewDigestList = document.getElementById('whats-new-digest-list')
@@ -2658,8 +2606,6 @@ export class Game {
     this.menuBgAsh = document.getElementById('menu-bg-ash')
     this.rankRoadmapHeading = document.getElementById('rank-roadmap-heading')
     this.rankRoadmapList = document.getElementById('rank-roadmap-list')
-    this.classComparisonHeading = document.getElementById('class-comparison-heading')
-    this.classComparisonTable = document.getElementById('class-comparison-table')
     this.goalsHeading = document.getElementById('goals-heading')
     this.goalsPicker = document.getElementById('goals-picker')
     this.goalsChecklist = document.getElementById('goals-checklist')
@@ -2757,16 +2703,7 @@ export class Game {
     this._bindGeneralSettings()
     this._bindDifficulty()
     this._bindCompanionRole()
-    this._bindLoadout()
     this._bindGameModeSelect()
-    // Must run after the three binds above - _checkSetupCode's payload
-    // apply works by calling .click() on the real difficulty/role/loadout
-    // buttons, which only does anything once their own listeners are
-    // attached. _bindSettings() (called earlier, at the top of the
-    // constructor) runs _checkBeatThisChallenge/_checkViewProfileLink at a
-    // point that predates these binds too, but neither of those touches
-    // these buttons, so only this one actually needed moving.
-    this._checkSetupCode()
     this._checkImportSkinCode()
     this._bindPanelRouting()
     this._bindControlsTab()
@@ -2812,6 +2749,8 @@ export class Game {
         if (typeof this.buildMode.enter !== 'function' && !this._enteringBuildMode) this.buildMode = new BuildMode(this.renderer, this)
       })
     }).catch(() => { /* tried again on Play */ }))
+    // The Market's listings too, so opening it shows them at once.
+    setTimeout(() => idle(() => { if (this._marketListings === null) this._loadMarketListings() }), 3000)
     // (The weapon pictures aren't drawn here: drawn one per break as blob
     // URLs they no longer freeze anything, so they start when the weapon
     // picker or Inventory first needs them - drawing them at page load
@@ -2907,7 +2846,8 @@ export class Game {
       const x = i * barW + 2
       ctx.fillStyle = run.survived ? 'rgba(78, 224, 111, 0.8)' : 'rgba(214, 69, 69, 0.8)'
       ctx.fillRect(x, h - barH - 12, barW - 4, barH)
-      ctx.fillStyle = 'rgba(232, 232, 232, 0.6)'
+      // Black on the Old theme's paper, like the rest of Profile.
+      ctx.fillStyle = document.documentElement.classList.contains('ui-theme-old') ? '#000' : 'rgba(232, 232, 232, 0.6)'
       ctx.font = '9px monospace'
       ctx.textAlign = 'center'
       ctx.fillText(String(run.kills), x + (barW - 4) / 2, h - 2)
@@ -3129,6 +3069,9 @@ export class Game {
         for (const page of document.querySelectorAll('.inventory-tab-page')) {
           page.style.display = page.id === `inventory-page-${tab.dataset.inventoryPage}` ? 'block' : 'none'
         }
+        // The weapon pictures are only drawn once the Weapons tab is
+        // actually looked at - never in the click that opens Inventory.
+        if (tab.dataset.inventoryPage === 'weapons') this._renderInventoryWeapons({ draw: true })
       })
     }
 
@@ -4165,9 +4108,6 @@ export class Game {
         if (e.key === 'Enter') this.nicknameInput.blur()
       })
     }
-    if (this.sharedProfileCloseBtn) {
-      this.sharedProfileCloseBtn.addEventListener('click', () => { this.sharedProfileBanner.style.display = 'none' })
-    }
     if (this.whatsNewDigestCloseBtn) {
       this.whatsNewDigestCloseBtn.addEventListener('click', () => {
         clearTimeout(this._whatsNewDigestFadeTimer)
@@ -4241,24 +4181,11 @@ export class Game {
     CloudSaveUI.bindCloudSave(this)
     CloudSaveUI.installChangeTracking(this)
     this._startPresenceHeartbeat()
-    this._checkBeatThisChallenge()
-    this._checkViewProfileLink()
     this._maybeShowWhatsNewDigest()
     this._checkFriendBeatNotifications()
     this._checkSettingsTabDeepLink()
     this._checkWeeklyResetImminent()
     this._checkUnclaimedQuestsReminder()
-    if (this.openShareBtn) this.openShareBtn.addEventListener('click', () => trackAndOpen(() => this._openSharePanel()))
-    if (this.sharePanel) {
-      this.sharePanel.addEventListener('click', (e) => {
-        if (e.target === this.sharePanel) this._closeSharePanel()
-      })
-    }
-    if (this.shareSetupBtn) this.shareSetupBtn.addEventListener('click', () => this._copySetupCode())
-    if (this.shareProfileBtn) this.shareProfileBtn.addEventListener('click', () => this._copyProfileLink())
-    if (this.shareChallengeBtn) this.shareChallengeBtn.addEventListener('click', () => this._copyBeatThisLink())
-    if (this.shareLoadoutBtn) this.shareLoadoutBtn.addEventListener('click', () => this._copyLoadoutCode())
-    if (this.sharePageLinkBtn) this.sharePageLinkBtn.addEventListener('click', () => this._copyPageUrl())
 
     // A click on an open panel's backdrop that lands on one of the
     // homepage's right-side buttons (the profile card or a nav button)
@@ -5581,9 +5508,6 @@ export class Game {
       const hours = (_safeStatNumber(entry.lifetimePlaytimeSeconds) / 3600).toFixed(1)
       this.otherProfileRunsPlayedValue.textContent = `${_safeStatNumber(entry.totalRuns)} · ${hours}h played`
     }
-    if (this.otherProfileFavoriteClassValue) {
-      this.otherProfileFavoriteClassValue.textContent = entry.favoriteClass ? t(LOADOUT_LABEL_KEYS[entry.favoriteClass] || entry.favoriteClass) : '--'
-    }
     if (this.otherProfileLongestSurvivalValue) {
       this.otherProfileLongestSurvivalValue.textContent = entry.longestSurvivalMs ? formatTime(_safeStatNumber(entry.longestSurvivalMs)) : '--'
     }
@@ -5627,7 +5551,6 @@ export class Game {
           kills: _safeStatNumber(entry.bestRunKills),
           coins: _safeStatNumber(entry.bestRunCoins),
           difficulty: diffBtn ? diffBtn.textContent : (entry.bestRunDifficulty || '?'),
-          loadout: entry.bestRunLoadout ? t(LOADOUT_LABEL_KEYS[entry.bestRunLoadout] || entry.bestRunLoadout) : '?',
         })
         this.otherProfileBestRunCard.style.display = ''
       } else {
@@ -6192,19 +6115,6 @@ export class Game {
     entry.lifetimePlaytimeSeconds = _safeStatNumber(this.careerStats.lifetimePlaytimeSeconds)
     entry.longestSurvivalMs = this.bestRunPace ? _safeStatNumber(this.bestRunPace.elapsedMs) : 0
     {
-      // Same tally _updateBestStatsDisplay's own Favorite Class does, not
-      // a new computation - kept in sync with that one by hand since the
-      // source data (runHistory) isn't itself synced (see its own comment
-      // in _updateBestStatsDisplay on why a lifetime array of every run
-      // isn't something to expose wholesale to the public leaderboard).
-      const loadoutTally = {}
-      for (const run of this.runHistory) {
-        if (run.loadout) loadoutTally[run.loadout] = (loadoutTally[run.loadout] || 0) + 1
-      }
-      const topLoadout = Object.keys(loadoutTally).sort((a, b) => loadoutTally[b] - loadoutTally[a])[0]
-      if (topLoadout) entry.favoriteClass = topLoadout
-    }
-    {
       const diffEntries = Object.entries(this.careerStats.difficultyStats)
       if (diffEntries.length > 0) {
         const [favoriteId] = diffEntries.reduce((best, cur) => (cur[1].runs > best[1].runs ? cur : best))
@@ -6511,20 +6421,6 @@ export class Game {
       .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
   }
 
-  // Shareable Loadout Code - encodes the current 5-slot hotbar (weapon ids
-  // only, same array shape as settings.hotbar/hotbarPresets) as a short
-  // delimited string, no new dependency needed for something this simple.
-  _copyLoadoutCode() {
-    const code = this.settings.hotbar.map((id) => id || '_').join('-')
-    if (!navigator.clipboard) {
-      this._showLoreToast(t('clipboardCopyUnsupported'))
-      return
-    }
-    navigator.clipboard.writeText(code)
-      .then(() => this._showLoreToast(t('loadoutCodeCopied')))
-      .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
-  }
-
   _renderControlsGrid() {
     this.controlsGrid.innerHTML = ACTIONS.map((a) => `
       <span class="control-label">${t(a.labelKey)}</span>
@@ -6602,19 +6498,6 @@ export class Game {
         // Matches by role, not by exact button, since the same 3 roles now
         // appear both on the main menu and inside the trader panel.
         for (const b of this.roleBtns) b.classList.toggle('active', b.dataset.role === role)
-      })
-    }
-  }
-
-  _bindLoadout() {
-    for (const btn of this.loadoutBtns) {
-      btn.classList.toggle('active', btn.dataset.loadout === this.settings.loadout)
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.loadout
-        if (!LOADOUT_PRESETS[id]) return
-        this.settings.loadout = id
-        saveSettings(this.settings)
-        for (const b of this.loadoutBtns) b.classList.toggle('active', b === btn)
       })
     }
   }
@@ -6928,12 +6811,11 @@ export class Game {
   }
 
   // The run settings for a Map 1 run from the homepage: Game Mode's
-  // Difficulty / Choose Class / Game Modes / Challenges & Mutators, plus
+  // Difficulty / Game Modes / Challenges & Mutators, plus
   // the Upgrades bought with Legacy Points (PlayRules.js).
   _playConfig() {
     return playConfig({
       difficulty: DIFFICULTY_PRESETS[this.settings.difficulty] || DIFFICULTY_PRESETS.normal,
-      loadout: this.settings.loadout,
       gameMode: this.settings.selectedGameMode,
       mutators: this.settings.mutators,
       purchased: this.metaProgress.purchased,
@@ -7426,7 +7308,6 @@ export class Game {
     if (this.marketPanel) this._closeMarketPanel()
     this._closeTradeDialog()
     if (this.whatsNewPanel) this._closeWhatsNewPanel()
-    if (this.sharePanel) this._closeSharePanel()
   }
 
   // Opened from the main menu (not gameplay) - spends persistent Legacy
@@ -7631,35 +7512,6 @@ export class Game {
 
   _closeQuestsPanel() {
     this.questsPanel.style.display = 'none'
-  }
-
-  // Share panel - single entry point consolidating what used to be 5
-  // scattered buttons (homepage row + Inventory panel + Profile panel),
-  // each already backed by its own real encode/decode function. This is a
-  // UI consolidation only - every button here calls an existing _copy*
-  // method (or, for Copy Page Link, the equally-existing inline handler
-  // now named _copyPageUrl) as-is, none of the underlying sharing logic
-  // changed.
-  _openSharePanel() {
-    if (!this.sharePanel) return
-    this._closeAllMenuPanels()
-    this.sharePanel.style.display = 'flex'
-    if (this.sharePanelTitle) this.sharePanelTitle.textContent = t('sharePanelTitle')
-    if (this.settings.shareTelemetry) CloudSync.incrementTelemetry('shareUsed').catch(() => {})
-  }
-
-  _closeSharePanel() {
-    if (this.sharePanel) this.sharePanel.style.display = 'none'
-  }
-
-  _copyPageUrl() {
-    if (!navigator.clipboard) {
-      this._showHomepageToast(t('clipboardCopyUnsupported'))
-      return
-    }
-    navigator.clipboard.writeText(location.href)
-      .then(() => this._showHomepageToast(t('pageUrlCopied')))
-      .catch(() => this._showHomepageToast(t('clipboardCopyUnsupported')))
   }
 
   _claimQuest(id) {
@@ -8000,7 +7852,11 @@ export class Game {
     }
     this._closeMarketFilterMenus()
     this._renderMarketFilters()
-    this._marketListings = null
+    // The listings fetched in the background (or on the last visit) show
+    // straight away and are refreshed underneath - no "Loading the
+    // Market..." line first (2026-10-11). A failed earlier fetch is
+    // retried instead of shown.
+    if (this._marketListings === 'error') this._marketListings = null
     this._renderShopMarket()
     this._loadMarketListings()
     this._claimMarketSales()
@@ -8071,8 +7927,12 @@ export class Game {
   // one buys it. Same card look as Inventory > Character.
   _renderShopMarket() {
     if (!this.shopMarketGrid) return
-    if (this._marketListings === null || this._marketListings === 'error') {
-      this.shopMarketGrid.innerHTML = `<p class="inv-skin-empty">${_escapeHtml(t(this._marketListings === null ? 'marketLoading' : 'marketError'))}</p>`
+    if (this._marketListings === null) {
+      this.shopMarketGrid.innerHTML = ''
+      return
+    }
+    if (this._marketListings === 'error') {
+      this.shopMarketGrid.innerHTML = `<p class="inv-skin-empty">${_escapeHtml(t('marketError'))}</p>`
       return
     }
     if (!this._marketListings.length) {
@@ -8374,6 +8234,9 @@ export class Game {
     }
     if (!this.invSkinPreviewCanvas || !skin) return
     if (!this._invSkinAvatar3D) {
+      // Its 3D view is made after the panel has drawn, not in the click.
+      await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)))
+      if (this._invSkinAvatar3D) return this._renderInventorySkinPreview()
       this._invSkinAvatar3D = new MenuAvatar3D(this.invSkinPreviewCanvas)
       this._invSkinAvatar3D.start()
     }
@@ -8725,15 +8588,6 @@ export class Game {
       if (span) span.textContent = label
       else btn.textContent = label
     }
-    // Narrative blurb (see loadoutBalancedBlurb/RunnerBlurb/TankBlurb) shown
-    // as a hover tooltip - these presets were already a pure stat tradeoff
-    // with zero flavor text, so this is purely additive over the existing
-    // selection UI rather than a second parallel picker.
-    const loadoutBlurbKeys = { balanced: 'loadoutBalancedBlurb', runner: 'loadoutRunnerBlurb', tank: 'loadoutTankBlurb' }
-    for (const btn of this.loadoutBtns) {
-      btn.querySelector('span').textContent = t(LOADOUT_LABEL_KEYS[btn.dataset.loadout])
-      btn.title = t(loadoutBlurbKeys[btn.dataset.loadout])
-    }
     document.getElementById('mutator-horde-rush-label').textContent = t('mutatorHordeRush')
     document.getElementById('mutator-loot-rush-label').textContent = t('mutatorLootRush')
     document.getElementById('mutator-boss-rush-label').textContent = t('mutatorBossRush')
@@ -8814,52 +8668,6 @@ export class Game {
     {
       const hours = (_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / 3600).toFixed(1)
       this.statRunsPlayed.forEach((el) => { el.textContent = `${_safeStatNumber(this.careerStats.totalRuns)} · ${hours}h played` })
-    }
-    {
-      // Favorite Class - purely derived from runHistory's own loadout field
-      // (already captured per run, see _recordRunEnd), same "no new tracking
-      // needed" precedent as the favorite-difficulty line elsewhere.
-      const tally = {}
-      for (const run of this.runHistory) {
-        if (run.loadout) tally[run.loadout] = (tally[run.loadout] || 0) + 1
-      }
-      const topLoadout = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0]
-      const favoriteClassText = topLoadout ? t(LOADOUT_LABEL_KEYS[topLoadout] || topLoadout) : '--'
-      this.statFavoriteClass.forEach((el) => { el.textContent = favoriteClassText })
-    }
-    if (this.suggestedLoadoutHint) {
-      // Auto-suggested best loadout (batch 8 feature) - based on this
-      // player's own past runHistory (average night reached per loadout+
-      // companion-role combo actually played), not a generic default.
-      // Requires a real sample (SUGGESTED_LOADOUT_MIN_RUNS per combo) so one
-      // lucky/unlucky early run doesn't skew the recommendation.
-      const combos = {}
-      for (const run of this.runHistory) {
-        if (!run.loadout || !run.companionRole) continue
-        const key = `${run.loadout}|${run.companionRole}`
-        if (!combos[key]) combos[key] = { totalNight: 0, count: 0 }
-        combos[key].totalNight += _safeStatNumber(run.night)
-        combos[key].count += 1
-      }
-      let best = null
-      for (const key in combos) {
-        const c = combos[key]
-        if (c.count < SUGGESTED_LOADOUT_MIN_RUNS) continue
-        const avg = c.totalNight / c.count
-        if (!best || avg > best.avg) best = { key, avg }
-      }
-      if (best) {
-        const [loadout, role] = best.key.split('|')
-        const roleLabelKeys = { ranged: 'roleRanged', melee: 'roleMelee', medic: 'roleMedic' }
-        this.suggestedLoadoutHint.textContent = t('suggestedLoadoutHint', {
-          loadout: t(LOADOUT_LABEL_KEYS[loadout] || loadout),
-          role: t(roleLabelKeys[role] || role),
-          night: best.avg.toFixed(1),
-        })
-        this.suggestedLoadoutHint.style.display = 'block'
-      } else {
-        this.suggestedLoadoutHint.style.display = 'none'
-      }
     }
     {
       const survivalText = this.bestRunPace && this.bestRunPace.elapsedMs
@@ -9262,26 +9070,7 @@ export class Game {
     if (this.updateAvailableRefreshBtn) this.updateAvailableRefreshBtn.addEventListener('click', () => window.location.reload())
     // The red X (was a Later button) - see _hideUpdateBanner.
     if (this.updateAvailableLaterBtn) this.updateAvailableLaterBtn.addEventListener('click', () => this._hideUpdateBanner())
-    if (this.savePresetBtn) this.savePresetBtn.addEventListener('click', () => MenuPresets.saveMenuPreset(this))
-    if (this.surpriseMeBtn) this.surpriseMeBtn.addEventListener('click', () => MenuPresets.surpriseMe(this))
-    if (this.quickKeybindsBtn) {
-      this.quickKeybindsBtn.addEventListener('click', () => {
-        this._toggleSettings(true)
-        document.getElementById('tab-controls')?.click()
-      })
-    }
     if (this.buildModeBtn) this.buildModeBtn.addEventListener('click', () => this._enterBuildMode())
-    // Map 2 (Game Mode panel) - there's no second playable map yet, so this
-    // opens the same Build Mode / block editor as the dedicated Map Editor
-    // nav button instead of pretending to switch to a real map. Reuses
-    // _enterBuildMode() as-is rather than a second copy - it already calls
-    // _closeAllMenuPanels() as its first step (see that function's own
-    // comment - added specifically for "any future path that reaches
-    // _enterBuildMode() without going through a blocked nav click first"),
-    // which correctly closes this very panel (#hub-panel) before Build
-    // Mode's own UI takes over.
-    const mapSelect2Btn = document.getElementById('map-select-2')
-    if (mapSelect2Btn) mapSelect2Btn.addEventListener('click', () => this._enterBuildMode({ map: 'map2' }))
     this._renderMapSelect()
     const buildExitBtn = document.getElementById('build-mode-exit-btn')
     if (buildExitBtn) buildExitBtn.addEventListener('click', () => this._exitBuildMode())
@@ -9309,7 +9098,6 @@ export class Game {
     // Share Map / Community Maps (BuildShare.js).
     document.getElementById('build-mode-publish-btn')?.addEventListener('click', () => this.buildMode.share.shareCurrent())
     document.getElementById('build-mode-browse-btn')?.addEventListener('click', () => this.buildMode.share.open())
-    MenuPresets.renderMenuPresets(this)
     MenuEasterEggs.bindAll(this)
     window.addEventListener('online', () => CloudSaveUI.updateOnlineStatus(this))
     window.addEventListener('offline', () => CloudSaveUI.updateOnlineStatus(this))
@@ -9317,6 +9105,12 @@ export class Game {
       this.shortcutCheatsheetCloseBtn.addEventListener('click', () => { this.shortcutCheatsheet.style.display = 'none' })
     }
 
+    if (this.profileNotesInput) {
+      this.profileNotesInput.addEventListener('input', () => {
+        this.settings.privateNotes = this.profileNotesInput.value.slice(0, 5000)
+        saveSettings(this.settings)
+      })
+    }
     if (this.profileBioInput) {
       this.profileBioInput.addEventListener('input', () => {
         this.settings.bio = this.profileBioInput.value.slice(0, 5000)
@@ -9654,7 +9448,7 @@ export class Game {
   // the same Kirka-style grid as Character - the old list of names with
   // mastery kill counts ("0/75") is gone from here. Pictures are rendered
   // once from each weapon's own viewmodel (_weaponThumbnails).
-  _renderInventoryWeapons() {
+  _renderInventoryWeapons({ draw = false } = {}) {
     if (!this.inventoryWeaponsList) return
     if (this._invSkinMenuKind === 'weapon') this._closeInventorySkinMenu()
     const weapons = this.weapons
@@ -9675,10 +9469,13 @@ export class Game {
         + '<span class="inv-skin-card-count">1</span>'
         + '</div>'
     }).join('')
-    if (!this._weaponThumbCache) {
-      // Never waits on them - the cards fill in once they're drawn.
-      this._weaponThumbnailsReady().then(() => {
-        if (this.menuInventoryPanel?.style.display !== 'none') this._renderInventoryWeapons()
+    // Pictures saved by an earlier visit load straight away; drawing them
+    // fresh waits for the Weapons tab (draw). Never waits on them - the
+    // cards fill in once they're ready.
+    if (!this._weaponThumbCache && (draw || this._weaponThumbsSaved !== false)) {
+      const job = draw ? this._weaponThumbnailsReady() : this._loadSavedWeaponThumbs()
+      job.then((out) => {
+        if (out && this.menuInventoryPanel?.style.display !== 'none') this._renderInventoryWeapons()
       })
     }
   }
@@ -9782,12 +9579,55 @@ export class Game {
   // moment before the map appeared (2026-10-10, "it lags then loads").
   _weaponThumbnailsReady() {
     if (!this._weaponThumbJob) {
-      this._weaponThumbJob = this._weaponThumbnails().then((out) => {
+      this._weaponThumbJob = this._loadSavedWeaponThumbs().then(async (saved) => {
+        if (saved) return saved
+        const out = await this._weaponThumbnails()
         this._weaponThumbCache = out
+        this._saveWeaponThumbs(out)
         return out
       })
     }
     return this._weaponThumbJob
+  }
+
+  // The pictures are kept in the browser's Cache Storage after the first
+  // drawing (2026-10-11, "the inventory still ticks a bit when clicking"),
+  // so later visits never draw them again. Bump WEAPON_THUMBS_CACHE when a
+  // weapon model changes. Resolves null when nothing (complete) is saved.
+  async _loadSavedWeaponThumbs() {
+    if (this._weaponThumbCache) return this._weaponThumbCache
+    try {
+      if (typeof caches === 'undefined') return null
+      const cache = await caches.open(WEAPON_THUMBS_CACHE)
+      const ids = Object.keys(this.weapons.viewmodels || {})
+      const out = {}
+      for (const id of ids) {
+        const res = await cache.match(`/weapon-thumbs/${id}.png`)
+        if (!res) { this._weaponThumbsSaved = false; return null }
+        out[id] = URL.createObjectURL(await res.blob())
+      }
+      if (!ids.length) return null
+      this._weaponThumbCache = out
+      this._weaponThumbsSaved = true
+      return out
+    } catch {
+      this._weaponThumbsSaved = false
+      return null
+    }
+  }
+
+  async _saveWeaponThumbs(out) {
+    try {
+      if (typeof caches === 'undefined') return
+      for (const name of await caches.keys()) if (name.startsWith('gayz-weapon-thumbs') && name !== WEAPON_THUMBS_CACHE) await caches.delete(name)
+      const cache = await caches.open(WEAPON_THUMBS_CACHE)
+      for (const [id, url] of Object.entries(out)) {
+        const blob = await (await fetch(url)).blob()
+        await cache.put(`/weapon-thumbs/${id}.png`, new Response(blob, { headers: { 'Content-Type': 'image/png' } }))
+      }
+    } catch {
+      // Not saved - they're just drawn again next visit.
+    }
   }
 
   // A weapon's viewmodel copied for showing on its own (card pictures,
@@ -10739,7 +10579,6 @@ export class Game {
     this._renderFavoriteDifficultyLine()
     this._renderBestRunCard()
     this._renderRankRoadmap()
-    this._renderClassComparison()
     this._renderGoalsPicker()
     this._renderGoalsChecklist()
     this._renderHighlightReel()
@@ -10879,26 +10718,6 @@ export class Game {
     if (this.rankRoadmapList) this.rankRoadmapList.innerHTML = html
   }
 
-  // Class Comparison - the real, honest per-loadout stat deltas from
-  // LOADOUT_PRESETS (moveSpeedDelta/maxHealthMult/maxStaminaDelta), the
-  // exact same numbers _applyLoadout uses, not a separately-hand-written
-  // description that could drift out of sync with what the class actually
-  // does.
-  _renderClassComparison() {
-    if (!this.classComparisonTable) return
-    if (this.classComparisonHeading) this.classComparisonHeading.textContent = t('classComparisonHeading')
-    this.classComparisonTable.innerHTML = Object.entries(LOADOUT_PRESETS).map(([id, preset]) => `
-      <button class="perk-option" disabled>
-        <span class="perk-name">${t(LOADOUT_LABEL_KEYS[id])}</span>
-        <span class="perk-cost">${t('classComparisonLine', {
-          speed: preset.moveSpeedDelta > 0 ? `+${preset.moveSpeedDelta}` : preset.moveSpeedDelta,
-          health: Math.round(preset.maxHealthMult * 100),
-          stamina: preset.maxStaminaDelta > 0 ? `+${preset.maxStaminaDelta}` : preset.maxStaminaDelta,
-        })}</span>
-      </button>
-    `).join('')
-  }
-
   // Public Profile section (see _openProfilePanel) - mirrors exactly what
   // CloudSync.pushLeaderboardEntry actually writes to the public-read
   // leaderboard/{uid} doc (name, bestNight, bestKills, bestKillStreak,
@@ -10935,6 +10754,12 @@ export class Game {
     this.profileBioInput.placeholder = t('profileBioPlaceholder')
     this.profileBioInput.value = this.settings.bio || ''
     this._renderProfileBioCounter()
+    if (this.profileNotesInput) {
+      const heading = document.getElementById('profile-notes-heading')
+      if (heading) heading.textContent = t('profileNotesHeading')
+      this.profileNotesInput.placeholder = t('profileNotesPlaceholder')
+      this.profileNotesInput.value = this.settings.privateNotes || ''
+    }
   }
 
   _renderProfileBioCounter() {
@@ -11001,7 +10826,6 @@ export class Game {
       kills: _safeStatNumber(best.kills),
       coins: _safeStatNumber(best.coins),
       difficulty: diffBtn ? diffBtn.textContent : (best.difficulty || '?'),
-      loadout: best.loadout ? t(LOADOUT_LABEL_KEYS[best.loadout] || best.loadout) : '?',
     })
     this.profileBestRunCard.style.display = ''
   }
@@ -11153,99 +10977,6 @@ export class Game {
     this._finalizeScreenshotCanvas(canvas)
   }
 
-  // Beat This challenge link - encodes just enough to render a comparison
-  // (name + bestNight + totalKills) as a base64 URL param. Deliberately
-  // NOT the same thing as the existing Challenge Code system (see
-  // _pendingChallengeCode/challengeCodeTwist) - that hashes a typed
-  // string into a gameplay difficulty twist; this only carries stats for
-  // a one-time display comparison, nothing gameplay-affecting, and
-  // there's no server round-trip since the whole payload lives in the URL.
-  _copyBeatThisLink() {
-    const payload = { n: this.settings.nickname || t('menuPlayerTagDefault'), bn: _safeStatNumber(this.bestStats.bestNight), tk: _safeStatNumber(this.careerStats.totalKills) }
-    const encoded = encodeURIComponent(btoa(JSON.stringify(payload)))
-    const url = `${location.origin}${location.pathname}?challenge=${encoded}`
-    if (!navigator.clipboard) {
-      this._showLoreToast(t('clipboardCopyUnsupported'))
-      return
-    }
-    navigator.clipboard.writeText(url)
-      .then(() => this._showLoreToast(t('beatThisLinkCopied')))
-      .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
-  }
-
-  // Reads a ?challenge=... param left by _copyBeatThisLink above (if any)
-  // and shows a one-time comparison toast. Best-effort: any malformed/
-  // tampered param (this is untrusted user input arriving via URL, same
-  // caution as _safeStatNumber's own comment on imported save data)
-  // silently no-ops rather than throwing.
-  _checkBeatThisChallenge() {
-    try {
-      const raw = new URLSearchParams(location.search).get('challenge')
-      if (!raw) return
-      const payload = JSON.parse(atob(decodeURIComponent(raw)))
-      const name = typeof payload.n === 'string' ? payload.n.slice(0, 20) : '???'
-      const theirNight = _safeStatNumber(payload.bn)
-      const theirKills = _safeStatNumber(payload.tk)
-      const myNight = _safeStatNumber(this.bestStats.bestNight)
-      this._showHomepageToast(t('beatThisComparison', { name, theirNight, myNight, theirKills, myKills: _safeStatNumber(this.careerStats.totalKills) }))
-    } catch {
-      // Malformed/tampered param - silently ignored, see comment above.
-    }
-  }
-
-  // Copy My Setup - encodes difficulty + loadout class + companion role +
-  // active mutators as a ?setup= URL param, same base64-in-a-link
-  // technique as _copyBeatThisLink above, but for "try my build" instead
-  // of a stat comparison. Distinct from _saveMenuPreset (local-only, up to
-  // 3 saved presets) and _copyLoadoutCode (weapon hotbar only).
-  _copySetupCode() {
-    const activeMutators = Object.keys(SETUP_CODE_MUTATOR_ELEMENT_KEYS).filter((k) => this.settings.mutators[k])
-    const payload = { d: this.settings.difficulty, l: this.settings.loadout, r: this.settings.companionRole, m: activeMutators }
-    const encoded = encodeURIComponent(btoa(JSON.stringify(payload)))
-    const url = `${location.origin}${location.pathname}?setup=${encoded}`
-    if (!navigator.clipboard) {
-      this._showHomepageToast(t('clipboardCopyUnsupported'))
-      return
-    }
-    navigator.clipboard.writeText(url)
-      .then(() => this._showHomepageToast(t('setupLinkCopied')))
-      .catch(() => this._showHomepageToast(t('clipboardCopyUnsupported')))
-  }
-
-  // Reads a ?setup=... param left by _copySetupCode above (if any) and
-  // clicks the real buttons to apply it (same .click()-the-real-button
-  // technique _loadMenuPreset/_surpriseMe already use, so every other
-  // listener tied to those clicks still fires normally). Best-effort, same
-  // untrusted-URL-input caution as _checkBeatThisChallenge.
-  _checkSetupCode() {
-    try {
-      const raw = new URLSearchParams(location.search).get('setup')
-      if (!raw) return
-      const payload = JSON.parse(atob(decodeURIComponent(raw)))
-      if (typeof payload.d === 'string') {
-        const diffBtn = Array.from(this.difficultyBtns).find((b) => b.dataset.difficulty === payload.d)
-        if (diffBtn && diffBtn.style.display !== 'none') diffBtn.click()
-      }
-      if (typeof payload.l === 'string') {
-        const loadoutBtn = Array.from(this.loadoutBtns).find((b) => b.dataset.loadout === payload.l)
-        if (loadoutBtn) loadoutBtn.click()
-      }
-      if (typeof payload.r === 'string') {
-        const roleBtn = Array.from(this.roleBtns).find((b) => b.dataset.role === payload.r)
-        if (roleBtn) roleBtn.click()
-      }
-      if (Array.isArray(payload.m)) {
-        for (const key of payload.m) {
-          const el = this[SETUP_CODE_MUTATOR_ELEMENT_KEYS[key]]
-          if (el && !el.checked) el.click()
-        }
-      }
-      this._showHomepageToast(t('setupLinkApplied'))
-    } catch {
-      // Malformed/tampered param - silently ignored, see comment above.
-    }
-  }
-
   // Reads a ?importskin=<base64 PNG, no data: prefix> param - the GayZ
   // Character Skin Designer tool's "Send to GayZ" button builds this link
   // so a custom skin can be applied without a manual download+upload round
@@ -11318,60 +11049,6 @@ export class Game {
       this._closeSkinDesignerPanel()
       this._applyImportedSkin(data.dataUrl)
     })
-  }
-
-  // Shareable public Profile link - same base64-in-a-URL technique as
-  // _copyBeatThisLink/_copySetupCode, but carries a wider read-only stat
-  // snapshot (not just a head-to-head comparison) for the #shared-profile-
-  // banner below to display.
-  _copyProfileLink() {
-    const payload = {
-      n: this.settings.nickname || t('menuPlayerTagDefault'),
-      tr: _safeStatNumber(this.careerStats.totalRuns),
-      tk: _safeStatNumber(this.careerStats.totalKills),
-      bn: _safeStatNumber(this.bestStats.bestNight),
-      bk: _safeStatNumber(this.bestStats.bestKills),
-      ach: this.achievements.unlocked.size,
-      achTotal: ACHIEVEMENTS.length,
-      fw: this._favoriteWeaponLabel(),
-    }
-    const encoded = encodeURIComponent(btoa(JSON.stringify(payload)))
-    const url = `${location.origin}${location.pathname}?viewprofile=${encoded}`
-    if (!navigator.clipboard) {
-      this._showLoreToast(t('clipboardCopyUnsupported'))
-      return
-    }
-    navigator.clipboard.writeText(url)
-      .then(() => this._showLoreToast(t('profileLinkCopied')))
-      .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
-  }
-
-  // Reads a ?viewprofile=... param left by _copyProfileLink above (if any)
-  // and shows the read-only #shared-profile-banner - untrusted URL input,
-  // same best-effort try/catch caution as _checkBeatThisChallenge/
-  // _checkSetupCode. Set via .textContent (not innerHTML) below, so no
-  // _escapeHtml needed - the browser never interprets this as markup.
-  _checkViewProfileLink() {
-    try {
-      const raw = new URLSearchParams(location.search).get('viewprofile')
-      if (!raw || !this.sharedProfileBanner) return
-      const p = JSON.parse(atob(decodeURIComponent(raw)))
-      const name = typeof p.n === 'string' ? p.n.slice(0, 20) : '???'
-      const weapon = typeof p.fw === 'string' ? p.fw.slice(0, 40) : '?'
-      this.sharedProfileTitle.textContent = t('sharedProfileTitle', { name })
-      this.sharedProfileLine.textContent = t('sharedProfileLine', {
-        runs: _safeStatNumber(p.tr),
-        kills: _safeStatNumber(p.tk),
-        night: _safeStatNumber(p.bn),
-        bestKills: _safeStatNumber(p.bk),
-        ach: _safeStatNumber(p.ach),
-        achTotal: _safeStatNumber(p.achTotal),
-        weapon,
-      })
-      this.sharedProfileBanner.style.display = 'block'
-    } catch {
-      // Malformed/tampered param - silently ignored, see comment above.
-    }
   }
 
   // What's New digest (see #whats-new-digest) - a fuller, more prominent
