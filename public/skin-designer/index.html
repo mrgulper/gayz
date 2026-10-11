@@ -767,6 +767,27 @@ const THEMES = {
   // Everyday clothes - the base when a prompt only describes colours/gear
   // ("red hair boy with headphones") without naming a theme.
   casual: { skin: '#c98a55', hair: '#3a2818', shirt: '#4a6a9a', pants: '#2a3a5a', shoe: '#2a2a2a', accent: '#e8e8e2', eye: '#2a4a6a' },
+  // More looks (2026-10-11, Gaymi: "make it think like a very smart AI
+  // because some common words it might not even know") - each one is also
+  // reached by many everyday words through WORD_MEANINGS below.
+  stylish: { skin: '#e0b890', hair: '#2a1a14', shirt: '#7a1a2e', pants: '#1a1a20', shoe: '#141418', accent: '#e0b040', eye: '#3a2a20' },
+  cowboy: { skin: '#c98a55', hair: '#5a3a1e', shirt: '#b0642a', pants: '#3a4e78', shoe: '#5a3818', accent: '#8a5a2a', eye: '#1a1a1a' },
+  chef: { skin: '#e0b890', hair: '#3a2818', shirt: '#f2f2ec', pants: '#2a2a2e', shoe: '#1c1c1e', accent: '#c93a3a', eye: '#1a1a1a' },
+  firefighter: { skin: '#c98a55', hair: '#3a2818', shirt: '#c8a040', pants: '#3a3428', shoe: '#1a1a1a', accent: '#e8e050', eye: '#1a1a1a' },
+  farmer: { skin: '#d0a074', hair: '#7a4a28', shirt: '#b8382a', pants: '#3a5a9a', shoe: '#4a3020', accent: '#e0c070', eye: '#1a1a1a' },
+  scientist: { skin: '#e0b890', hair: '#8a8a88', shirt: '#f0f0ea', pants: '#2a3a5a', shoe: '#2a2a2a', accent: '#4ac8e0', eye: '#2a4a6a' },
+  gamer: { skin: '#e0b890', hair: '#2a1a14', shirt: '#24242e', pants: '#1a1a22', shoe: '#e8e8e2', accent: '#4ae08a', eye: '#2a4a6a' },
+  athlete: { skin: '#b07848', hair: '#1a1414', shirt: '#c9202f', pants: '#f0f0ea', shoe: '#f2f2ec', accent: '#f2f2ec', eye: '#1a1a1a' },
+  suit: { skin: '#e0b890', hair: '#2a1a14', shirt: '#1c1c24', pants: '#1c1c24', shoe: '#0e0e10', accent: '#f2f2ec', eye: '#1a1a1a' },
+  prisoner: { skin: '#c98a55', hair: '#2a1a14', shirt: '#e0702a', pants: '#e0702a', shoe: '#e8e8e2', accent: '#1a1a1a', eye: '#1a1a1a' },
+  sailor: { skin: '#e0b890', hair: '#3a2818', shirt: '#f2f2ec', pants: '#1a2a5a', shoe: '#1c1c1e', accent: '#1a2a5a', eye: '#2a4a6a' },
+  miner: { skin: '#c98a55', hair: '#2a1a14', shirt: '#5a4a3a', pants: '#3a3a42', shoe: '#2a2018', accent: '#e0c040', eye: '#1a1a1a' },
+  clown: { skin: '#f2eee8', hair: '#e04a2a', shirt: '#e0c040', pants: '#3a6ac9', shoe: '#c93a3a', accent: '#c93a3a', eye: '#1a1a1a' },
+  superhero: { skin: '#e0b890', hair: '#1a1414', shirt: '#2a4ac9', pants: '#2a3a9a', shoe: '#c9202f', accent: '#c9202f', eye: '#2a4a6a' },
+  ghost: { skin: '#e8eef2', hair: '#dfe6ea', shirt: '#eef2f4', pants: '#d6dee2', shoe: '#c8d0d6', accent: '#b8c4cc', eye: '#2a2a3a' },
+  alien: { skin: '#7ac05a', hair: '#5aa040', shirt: '#9aa0aa', pants: '#6a707a', shoe: '#4a5058', accent: '#4ae0c8', eye: '#101010' },
+  skeleton: { skin: '#e8e4d8', hair: '#e0dccf', shirt: '#1c1c1e', pants: '#1c1c1e', shoe: '#e8e4d8', accent: '#e8e4d8', eye: '#101010' },
+  mummy: { skin: '#d8cca8', hair: '#c8bc98', shirt: '#d0c4a0', pants: '#c0b490', shoe: '#a89c78', accent: '#8a7a58', eye: '#c9a020' },
 };
 const THEME_KEYS = Object.keys(THEMES);
 const RANDOMIZABLE_THEME_KEYS = THEME_KEYS;
@@ -1494,6 +1515,24 @@ const THEME_GEAR = {
   camo: (p, rng, maybe) => { gearCap(p.shirt, p.accent, rng); gearVest(p.accent, null, rng); gearBoots(p.shoe, 8, rng); },
   rose: (p, rng, maybe) => { if (maybe(0.6)) gearHairTufts(p.accent, rng); if (maybe(0.5)) gearSleeves(p.accent, 3, rng); },
   punk: (p, rng, maybe) => { if (maybe(0.6)) gearCoat('#1a1a1a', rng); if (maybe(0.5)) gearSleeves('#1a1a1a', 8, rng); },
+  stylish: (p, rng, maybe, o = {}) => { if (maybe(0.5)) gearSash(p.accent, rng); if (!o.feminine && maybe(0.5)) gearCoat(shade(p.shirt, -16), rng) },
+  cowboy: (p, rng, maybe) => { gearCap(shade(p.accent, -8), shade(p.accent, -30), rng); gearScarf('#b8302a', rng); gearBoots(p.shoe, 7, rng) },
+  chef: (p, rng) => { gearBeanie('#f6f6f0', '#e8e8e2', rng); gearScarf(p.accent, rng) },
+  firefighter: (p, rng) => { gearHelmet('#c9202f', rng); gearCoat(p.shirt, rng, false); gearSleeves(p.shirt, 9, rng); gearGloves('#2a2a2a', rng); gearBoots('#1a1a1a', 7, rng) },
+  farmer: (p, rng, maybe) => { gearCap('#e0c070', '#c8a050', rng); gearBoots(p.shoe, 7, rng); if (maybe(0.5)) gearGloves('#8a6a40', rng) },
+  scientist: (p, rng) => { gearCoat('#f4f4ee', rng); gearSleeves('#f4f4ee', 9, rng); gearGlasses('#2a2a2a', '#a8d8f0') },
+  gamer: (p, rng) => { gearHeadphones('#2a2a30', p.accent); gearHood(p.shirt, rng) },
+  athlete: (p, rng, maybe) => { if (maybe(0.5)) gearCap(p.shirt, '#1a1a1a', rng) },
+  suit: (p, rng) => { gearCoat(p.shirt, rng); gearSleeves(p.shirt, 9, rng) },
+  prisoner: (p, rng) => { gearSash('#1a1a1a', rng) },
+  sailor: (p, rng) => { gearCap('#f6f6f0', p.accent, rng); gearScarf(p.accent, rng) },
+  miner: (p, rng) => { gearHelmet('#e0c040', rng); gearGloves('#3a3028', rng); gearBoots(p.shoe, 7, rng) },
+  clown: (p, rng) => { gearHairTufts(p.hair, rng); gearScarf('#3aa060', rng) },
+  superhero: (p, rng) => { gearCape(p.accent, rng); gearBoots(p.shoe, 7, rng); gearGloves(p.accent, rng) },
+  ghost: (p, rng) => { gearHood(p.shirt, rng) },
+  alien: (p, rng, maybe) => { if (maybe(0.5)) gearHelmetFrame('#c0c8d0', '#a8e0f0') },
+  skeleton: (p, rng, maybe) => { if (maybe(0.4)) gearHood('#1c1c1e', rng) },
+  mummy: (p, rng) => { gearMask(p.shirt, rng); gearGloves(p.shirt, rng) },
 };
 function paintOuterLayer(themeKey, theme, rng, o) {
   const gear = THEME_GEAR[themeKey];
@@ -1522,7 +1561,7 @@ function revealOuterLayerIfPainted() {
 // the same word). Clothing colors drift in hue/brightness around the
 // theme's own, human themes also get a random skin tone and sometimes a
 // different hair color; the theme's identity (its dominant colors) stays.
-const NON_HUMAN_THEMES = new Set(['zombie', 'robot', 'ice', 'shadow', 'demon', 'vampire', 'angel']);
+const NON_HUMAN_THEMES = new Set(['zombie', 'robot', 'ice', 'shadow', 'demon', 'vampire', 'angel', 'ghost', 'alien', 'skeleton', 'mummy']);
 // Spread evenly from pale to dark (it used to be 4 browns out of 6, so most
 // random skins came out brown - 2026-10-01 report).
 const SKIN_TONES = ['#f8e0cc', '#f0d0b0', '#e8c0a0', '#e0b890', '#d0a074', '#b07848', '#7a4a2a', '#5a3620'];
@@ -1579,6 +1618,12 @@ const COLOR_WORDS = {
   gold: '#d9a334', golden: '#d9a334', silver: '#c0c0c8', cyan: '#2ab0c8', teal: '#1a8a80', lime: '#8ae04a',
   navy: '#1a2a5a', maroon: '#6a1a1a', beige: '#d8c8a0', magenta: '#c040b0', violet: '#8a4ac9', crimson: '#a01a2a',
   turquoise: '#30c0b0', lavender: '#b8a0e0', mint: '#90e0b8', blonde: '#e8d070', blond: '#e8d070', ginger: '#c8602a',
+  aqua: '#3ad0d0', azure: '#3a8ae0', indigo: '#3a2a8a', scarlet: '#d0202a', ruby: '#a0102a', burgundy: '#6a1a2a',
+  coral: '#f0705a', salmon: '#f08a70', peach: '#f0b890', amber: '#e0a020', mustard: '#c8a020', bronze: '#a8702a',
+  copper: '#b8602a', cream: '#f2e8c8', ivory: '#f4f0e0', khaki: '#b8a878', charcoal: '#36363a', plum: '#6a2a5a',
+  emerald: '#1a9a5a', jade: '#3aa078', sapphire: '#1a3a9a', rose: '#e07a9a', blush: '#f0a0b0', sky: '#7ab8f0',
+  neon: '#5aff5a', forest: '#2a5a2a', mauve: '#b07aa0', lilac: '#c8a8e0', tangerine: '#f08020', lemon: '#f0e050',
+  chocolate: '#5a3418', caramel: '#b8783a', sand: '#d8c090', rust: '#a0482a', wine: '#6a1a2a', denim: '#3a5a8a',
 }
 const PART_WORDS = {
   hair: 'hair', shirt: 'shirt', top: 'shirt', hoodie: 'shirt', sweater: 'shirt', tshirt: 'shirt', dress: 'shirt',
@@ -1586,7 +1631,7 @@ const PART_WORDS = {
   shoes: 'shoe', shoe: 'shoe', boots: 'shoe', sneakers: 'shoe', eyes: 'eye', eye: 'eye', skin: 'skin',
   belt: 'accent', stripes: 'accent', trim: 'accent', fur: 'fur', furred: 'fur',
 }
-const SKIN_WORDS = { pale: 0, white: 1, fair: 1, light: 2, peach: 3, tan: 4, tanned: 4, olive: 5, brown: 6, black: 7, dark: 7 }
+const SKIN_WORDS = { pale: 0, white: 1, fair: 1, light: 2, peach: 3, tan: 4, tanned: 4, olive: 5, brown: 6, black: 7, dark: 7, caramel: 5, chocolate: 7 }
 // "white girl", "brown boy", "pale cute girl": a skin word before a person word is the skin tone.
 const PERSON_WORDS = ['girl', 'girly', 'woman', 'lady', 'female', 'queen', 'princess', 'boy', 'man', 'guy', 'male', 'king', 'prince', 'person', 'kid', 'child', 'human', 'dude']
 function personFollows(words, i) { let j = i + 1; while (CUTE_WORDS.includes(words[j]) || words[j] === 'very' || words[j] === 'little') j++; return PERSON_WORDS.includes(words[j]) }
@@ -1620,9 +1665,147 @@ function looksLikeSkin(hex, skin) {
 function pastel(hex) { const [h, s2, l] = hexToHsl(hex); return hslToHex(h, Math.min(s2, 0.6), Math.max(l, 0.74)) }
 const MASCULINE_WORDS = ['boy', 'man', 'guy', 'male', 'king', 'prince']
 
+// ---- Understanding everyday words (2026-10-11) ---------------------------
+// Before reading a prompt, every word goes through understandWords():
+//   1. a word the generator already knows stays as it is;
+//   2. WORD_MEANINGS turns everyday words into what it can draw
+//      ("cowgirl" -> cowboy girl, "sexy" -> stylish, "goggles" -> glasses);
+//   3. word endings are tried ("pirates", "ninjas", "zombified", "golden");
+//   4. a near miss is read as the closest known word ("pirte" -> pirate,
+//      "zombi" -> zombie), allowing 1 wrong letter (2 for long words).
+// Still fully offline - no service involved.
+const WORD_MEANINGS = {
+  // looks
+  sexy: 'stylish', hot: 'stylish', glam: 'stylish', glamorous: 'stylish', gorgeous: 'stylish', beautiful: 'stylish',
+  elegant: 'stylish', fancy: 'stylish', classy: 'stylish', fashionable: 'stylish', fashion: 'stylish', stylish: 'stylish',
+  model: 'stylish', chic: 'stylish', baddie: 'stylish', rich: 'stylish gold', diva: 'stylish girl', popstar: 'stylish',
+  celebrity: 'stylish', singer: 'stylish', idol: 'stylish', handsome: 'stylish boy', dapper: 'suit', formal: 'suit',
+  cool: 'sunglasses', swag: 'sunglasses cap', drip: 'stylish sunglasses', badass: 'punk', edgy: 'punk', rocker: 'punk',
+  rock: 'punk', goth: 'shadow', gothic: 'shadow', emo: 'punk', grunge: 'punk', skater: 'casual beanie',
+  hipster: 'casual glasses beanie', nerd: 'glasses casual', nerdy: 'glasses casual', geek: 'glasses casual', smart: 'glasses',
+  scary: 'zombie', creepy: 'zombie', spooky: 'ghost', horror: 'zombie', undead: 'zombie', evil: 'demon', villain: 'demon cape',
+  hell: 'demon', satan: 'demon horns', monster: 'zombie', infected: 'zombie', rotten: 'zombie', dead: 'zombie',
+  halloween: 'skeleton', cyber: 'robot', cyborg: 'robot', android: 'robot', mech: 'robot', futuristic: 'robot', tech: 'robot',
+  steampunk: 'pirate glasses', viking: 'knight beard horns', warrior: 'knight', soldier: 'camo', marine: 'camo', hunter: 'camo',
+  spy: 'suit sunglasses', agent: 'suit sunglasses', detective: 'coat hat', thief: 'ninja', robber: 'ninja mask', bandit: 'bandana',
+  royal: 'crown gold', prince: 'crown boy', emperor: 'crown gold', empress: 'crown girl', noble: 'crown',
+  holiday: 'red white', christmas: 'casual red white beanie', santa: 'casual red white beard beanie', elf: 'green', easter: 'pastel bunny',
+  summer: 'casual sunglasses', beach: 'casual sunglasses', surfer: 'casual sunglasses', tropical: 'casual',
+  baby: 'cute', tiny: 'cute', chibi: 'cute', uwu: 'cute', soft: 'pastel',
+  // people and jobs
+  cowgirl: 'cowboy girl', cowboy: 'cowboy', sheriff: 'cowboy', western: 'cowboy', rancher: 'cowboy',
+  chef: 'chef', cook: 'chef', baker: 'chef', fireman: 'firefighter', firefighter: 'firefighter', firewoman: 'firefighter girl',
+  farmer: 'farmer', gardener: 'farmer', scientist: 'scientist', professor: 'scientist', teacher: 'scientist', engineer: 'scientist',
+  chemist: 'scientist', inventor: 'scientist', gamer: 'gamer', streamer: 'gamer', youtuber: 'gamer', esports: 'gamer', pro: 'gamer',
+  athlete: 'athlete', sporty: 'athlete', football: 'athlete', soccer: 'athlete', basketball: 'athlete', baseball: 'athlete cap',
+  runner: 'athlete', footballer: 'athlete', player: 'athlete', businessman: 'suit boy', businesswoman: 'suit girl', boss: 'suit',
+  ceo: 'suit', lawyer: 'suit', president: 'suit', mafia: 'suit hat', gangster: 'suit hat', butler: 'suit', waiter: 'suit',
+  prisoner: 'prisoner', inmate: 'prisoner', criminal: 'prisoner', convict: 'prisoner', sailor: 'sailor', captain: 'sailor',
+  navy: 'sailor', miner: 'miner', builder: 'miner', worker: 'miner', construction: 'miner', clown: 'clown', jester: 'clown',
+  joker: 'clown', circus: 'clown', superhero: 'superhero', hero: 'superhero', super: 'superhero', superman: 'superhero',
+  spiderman: 'superhero red blue', batman: 'superhero black cape', ghost: 'ghost', spirit: 'ghost', phantom: 'ghost',
+  alien: 'alien', martian: 'alien', ufo: 'alien', skeleton: 'skeleton', skull: 'skeleton', bones: 'skeleton', bone: 'skeleton',
+  mummy: 'mummy', pharaoh: 'mummy gold', egyptian: 'mummy gold', nurse: 'doctor', surgeon: 'doctor', vet: 'doctor',
+  pilot: 'sailor', guard: 'police', security: 'police', sheriffs: 'cowboy', priest: 'angel', nun: 'angel girl',
+  student: 'casual backpack', schoolgirl: 'casual girl backpack', schoolboy: 'casual boy backpack', school: 'backpack',
+  kid: 'casual', teen: 'casual', teenager: 'casual', adult: 'casual', normal: 'casual', regular: 'casual', basic: 'casual',
+  default: 'casual', simple: 'casual', person: 'casual', human: 'casual', dude: 'casual boy', bro: 'casual boy',
+  gal: 'girl', chick: 'girl', mom: 'girl', mother: 'girl', sister: 'girl', aunt: 'girl', grandma: 'girl', daughter: 'girl',
+  dad: 'boy', father: 'boy', brother: 'boy', uncle: 'boy', grandpa: 'boy beard', son: 'boy', gentleman: 'suit boy',
+  old: 'beard', elder: 'beard', wise: 'wizard beard', sorcerer: 'wizard', magician: 'wizard', warlock: 'wizard', magic: 'wizard',
+  fairy: 'angel cute', mermaid: 'girl aqua', monk: 'hood', reaper: 'shadow hood', grim: 'shadow hood', death: 'shadow hood',
+  // things to wear
+  goggles: 'glasses', spectacles: 'glasses', specs: 'glasses', earphones: 'headphones', earbuds: 'headphones',
+  tophat: 'hat', fedora: 'hat', sombrero: 'hat', beret: 'beanie', toque: 'beanie', snapback: 'cap', visor: 'cap',
+  bucket: 'cap', hijab: 'hood', veil: 'hood', robe: 'coat', gown: 'dress', tuxedo: 'suit', blazer: 'coat', parka: 'coat',
+  vest: 'coat', overalls: 'farmer', apron: 'chef', uniform: 'police', jersey: 'athlete', tie: 'suit', bowtie: 'suit',
+  wings: 'cape', bag: 'backpack', rucksack: 'backpack', moustache: 'beard', mustache: 'beard', goatee: 'beard',
+  stubble: 'beard', bangs: 'bangs', braids: 'ponytail', braid: 'ponytail', pigtails: 'ponytail', bun: 'ponytail',
+  curly: 'long', afro: 'long', dreadlocks: 'long', dreads: 'long', spiky: 'mohawk', buzzcut: 'short',
+  // colour-ish words
+  dark: 'black', light: 'white', bright: 'colorful', neon: 'neon', rainbows: 'rainbow', blood: 'red', bloody: 'red zombie',
+  ocean: 'blue', sea: 'blue', water: 'blue', sky: 'sky', grass: 'green', leaf: 'green', sun: 'yellow', sunny: 'yellow',
+  night: 'navy', midnight: 'navy', fiery: 'fire', burning: 'fire', icy: 'ice', frozen: 'ice', cold: 'ice',
+  space: 'astronaut', galaxy: 'galaxy', cosmic: 'galaxy', stars: 'galaxy', star: 'gold',
+}
+// Words that never change how a skin looks - skipped, never "corrected".
+const PLAIN_WORDS = new Set(['a', 'an', 'the', 'with', 'and', 'in', 'of', 'on', 'wearing', 'wears', 'wear', 'has', 'have', 'having', 'her', 'his', 'their', 'who', 'is', 'are', 'was', 'that', 'this', 'very', 'really', 'super', 'so', 'some', 'big', 'small', 'style', 'styled', 'minecraft', 'character', 'make', 'me', 'my', 'like', 'for', 'to', 'it', 'or', 'but', 'not', 'no', 'i', 'want', 'please', 'can', 'you', 'give', 'draw', 'create', 'generate', 'design', 'one', 'kind', 'type', 'looking', 'look', 'looks', 'outfit', 'clothes', 'clothing', 'wearing', 'colored', 'coloured', 'color', 'colour', 'all', 'full', 'whole', 'just', 'also', 'from', 'as', 'at', 'by', 'be', 'into', 'out', 'up', 'new', 'nice', 'good', 'awesome', 'amazing', 'epic', 'best', 'great', 'happy', 'sad', 'angry', 'funny', 'weird', 'random', 'mixed'])
+function editDistance(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i]
+    let best = i
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+      if (cur[j] < best) best = cur[j]
+    }
+    if (best > max) return max + 1
+    prev = cur
+  }
+  return prev[b.length]
+}
+let _vocab = null
+function promptVocabulary() {
+  if (_vocab) return _vocab
+  const v = new Set([...Object.keys(THEMES), ...Object.keys(ALIASES), ...Object.keys(COLOR_WORDS), ...Object.keys(PART_WORDS),
+    ...Object.keys(SKIN_WORDS), ...Object.keys(HAIR_STYLE_WORDS), ...Object.keys(GEAR_WORDS), ...FEMININE_WORDS, ...MASCULINE_WORDS,
+    ...CUTE_WORDS, ...Object.keys(ANIMAL_WORDS), ...FUR_WORDS, ...MULTIHUE_WORDS, ...PASTEL_WORDS, ...Object.keys(WORD_MEANINGS)])
+  _vocab = [...v].filter((w) => /^[a-z]+$/.test(w))
+  return _vocab
+}
+function knownWord(w) {
+  return !!(THEMES[w] || ALIASES[w] || COLOR_WORDS[w] || PART_WORDS[w] || w in SKIN_WORDS || w in HAIR_STYLE_WORDS || GEAR_WORDS[w] ||
+    FEMININE_WORDS.includes(w) || MASCULINE_WORDS.includes(w) || CUTE_WORDS.includes(w) || ANIMAL_WORDS[w] ||
+    FUR_WORDS.includes(w) || MULTIHUE_WORDS.includes(w) || PASTEL_WORDS.includes(w))
+}
+// One word -> the words the generator reads instead (often itself).
+function meaningOf(w) {
+  if (WORD_MEANINGS[w] && !knownWord(w)) return WORD_MEANINGS[w].split(' ')
+  if (knownWord(w)) return [w]
+  if (WORD_MEANINGS[w]) return WORD_MEANINGS[w].split(' ')
+  return null
+}
+function understandWord(w) {
+  if (PLAIN_WORDS.has(w)) return { words: [] }
+  const direct = meaningOf(w)
+  if (direct) return { words: direct }
+  // Word endings: plurals, "-ed", "-ing", "-y", "-ish", "-ie", "-en".
+  const stems = []
+  if (w.endsWith('ies')) stems.push(w.slice(0, -3) + 'y')
+  if (w.endsWith('es')) stems.push(w.slice(0, -2))
+  if (w.endsWith('s')) stems.push(w.slice(0, -1))
+  for (const end of ['ed', 'ing', 'ish', 'en', 'er', 'y', 'ie', 'ey', 'ly']) if (w.endsWith(end) && w.length - end.length >= 3) { stems.push(w.slice(0, -end.length)); stems.push(w.slice(0, -end.length) + 'e') }
+  for (const st of stems) { const m = meaningOf(st); if (m) return { words: m } }
+  // Near misses (typos): the closest known word, if it's close enough.
+  if (w.length >= 4) {
+    const max = w.length >= 7 ? 2 : 1
+    let best = null, bestD = max + 1
+    for (const k of promptVocabulary()) {
+      if (k.length < 3) continue
+      const d = editDistance(w, k, max)
+      if (d < bestD || (d === bestD && best && Math.abs(k.length - w.length) < Math.abs(best.length - w.length))) { best = k; bestD = d }
+    }
+    if (best && bestD <= max) return { words: meaningOf(best) || [best], fixed: best }
+  }
+  return { words: [w], unknown: true }
+}
+// Whole prompt -> the words to read, plus typo fixes for the message.
+function understandWords(words) {
+  const out = []
+  const fixes = []
+  for (const w of words) {
+    const r = understandWord(w)
+    if (r.fixed) fixes.push([w, r.fixed])
+    out.push(...r.words)
+  }
+  return { words: out, fixes }
+}
+
 function parsePrompt(text) {
-  const words = (text || '').toLowerCase().replace(/[^a-z\s-]/g, ' ').split(/[\s-]+/).filter(Boolean)
-    .flatMap((w) => { const m = w.match(/^([a-z]+?)(girl|boy)$/); return m && ANIMAL_WORDS[m[1]] ? [m[1], m[2]] : [w] })
+  const raw = (text || '').toLowerCase().replace(/[^a-z\s-]/g, ' ').split(/[\s-]+/).filter(Boolean)
+    .flatMap((w) => { const m = w.match(/^([a-z]+?)(girl|boy|man|woman|lady|guy)$/); return m && (ANIMAL_WORDS[m[1]] || THEMES[m[1]] || WORD_MEANINGS[m[1]]) && !WORD_MEANINGS[w] ? [m[1], m[2]] : [w] })
+  const { words, fixes } = understandWords(raw)
   const themes = []
   for (const w of words) {
     const i = words.indexOf(w)
@@ -1670,9 +1853,9 @@ function parsePrompt(text) {
   // Which words were read, for the result message.
   const FILLER = new Set(['a', 'an', 'the', 'with', 'and', 'in', 'of', 'on', 'wearing', 'wears', 'has', 'have', 'her', 'his', 'their', 'who', 'is', 'are', 'that', 'very', 'really', 'some', 'big', 'small', 'little', 'skin', 'skinned', 'hair', 'style', 'minecraft', 'character', 'make', 'me', 'my', 'like', 'for', 'to', 'it', 'or'])
   const known = (w) => THEMES[w] || ALIASES[w] || COLOR_WORDS[w] || PART_WORDS[w] || w in SKIN_WORDS || w in HAIR_STYLE_WORDS || GEAR_WORDS[w] || FEMININE_WORDS.includes(w) || MASCULINE_WORDS.includes(w) || CUTE_WORDS.includes(w) || ANIMAL_WORDS[w] || FUR_WORDS.includes(w) || MULTIHUE_WORDS.includes(w) || PASTEL_WORDS.includes(w)
-  const unknown = [...new Set(words.filter((w) => !known(w) && !FILLER.has(w)))]
+  const unknown = [...new Set(words.filter((w) => !known(w) && !FILLER.has(w) && !PLAIN_WORDS.has(w)))]
   return {
-    animal, fullFur, multiHue, pastel: pastelWord, unknown,
+    animal, fullFur, multiHue, pastel: pastelWord, unknown, fixes,
     themes, colors, loose, skinTone, hairStyle, gear,
     feminine: words.some((w) => FEMININE_WORDS.includes(w)) || themes.includes('girl'),
     cute: words.some((w) => CUTE_WORDS.includes(w)),
@@ -1849,9 +2032,10 @@ async function runGeneration(promptText, isRandom) {
       // Named after what was typed ("cute girl"), not the internal style name.
       const typed = promptText.trim().replace(/[<>&"]/g, '').slice(0, 60)
       const skipped = (parsed.unknown || []).slice(0, 6).map((w) => w.replace(/[<>&"]/g, ''))
-      note.innerHTML = 'Generated a <b>"' + typed + '"</b> skin (' + THEME_LABELS[theme] + ' style' + extraText + ').' + (skipped.length ? ' Didn\'t know: ' + skipped.join(', ') + '.' : '') + ' Click Generate again for a new one.'
+      const fixed = (parsed.fixes || []).slice(0, 4).map(([a, b]) => '"' + a.replace(/[<>&"]/g, '') + '" as ' + b)
+      note.innerHTML = 'Generated a <b>"' + typed + '"</b> skin (' + THEME_LABELS[theme] + ' style' + extraText + ').' + (fixed.length ? ' Read ' + fixed.join(', ') + '.' : '') + (skipped.length ? ' Didn\'t know: ' + skipped.join(', ') + '.' : '') + ' Click Generate again for a new one.'
     }
-    else note.innerHTML = 'Didn\'t recognize "' + promptText.trim().replace(/[<>&"]/g, '') + '" - generated a random <b>' + THEME_LABELS[theme] + '</b> skin instead. Try words like pirate, zombie, girl, crown, red hair, blue pants.'
+    else note.innerHTML = 'Didn\'t recognize "' + promptText.trim().replace(/[<>&"]/g, '') + '" - generated a random <b>' + THEME_LABELS[theme] + '</b> skin instead. Try words like pirate, cowboy, chef, superhero, ghost, cat girl, crown, red hair, blue pants.'
   } finally {
     generating = false
     genBtn.disabled = randBtn.disabled = false
