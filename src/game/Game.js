@@ -9657,18 +9657,33 @@ export class Game {
   async _weaponThumbnails() {
     const out = {}
     let renderer
+    // A break before each heavy step (2026-10-10, "a tick" opening Inventory
+    // the first time): the panel paints first, then the renderer, then the
+    // reflection map - none of it in the click that opened the panel.
+    // While a game runs with its weapon picker closed nothing is drawn at
+    // all (see the per-gun break below) - a busy page there can miss its
+    // server syncs and be dropped.
+    const pause = async () => {
+      await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)))
+      while (this.buildMode?.active && !this.buildMode.survival?._picking) await new Promise((resolve) => setTimeout(resolve, 500))
+    }
     try {
+      await pause()
       const canvas = document.createElement('canvas')
       renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true })
       renderer.setPixelRatio(1)
       renderer.setSize(240, 140, false)
       renderer.setClearColor(0x000000, 0)
+      await pause()
       const scene = new THREE.Scene()
       // Most guns are fully metallic (metalness 1), which only shows what it
       // reflects - without an environment they render pure black.
       const pmrem = new THREE.PMREMGenerator(renderer)
-      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+      // 64px is plenty for 240x140 pictures - the default 256 made this the
+      // slowest step by far.
+      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04, 0.1, 100, { size: 64 }).texture
       pmrem.dispose()
+      await pause()
       // Bright, even studio light - most guns are dark metal and would
       // otherwise read as black silhouettes on the dark cards.
       scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a9a, 2.6))

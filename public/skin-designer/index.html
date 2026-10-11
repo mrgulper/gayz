@@ -78,8 +78,8 @@
      the default (Golden-equivalent) look. */
   :root[data-theme="old"] {
     --bg: #150f09; --panel: #1e160f; --line: #8f6a3e;
-    --text: #ddd0b8; --text-dim: #c2a06e; --accent: #d4a068;
-    --accent-rgb: 212, 160, 104;
+    --text: #ddd0b8; --text-dim: #c2a06e; --accent: #e1c189;
+    --accent-rgb: 225, 193, 137;
   }
   /* Old theme (2026-10-04, "remove the black behind it, it looks weird"):
      no page background at all, so the game's torn-paper panel shows
@@ -105,8 +105,11 @@
     --line: rgba(90, 58, 26, 0.45);
     --text: #2b1a0c;
     --text-dim: #5a4128;
-    --accent: #b47a3c;
-    --accent-rgb: 180, 122, 60;
+    /* Light parchment, not the old orange-brown (2026-10-10, Gaymi's
+       swatch: "fully remove that colour ... use the fourth image colour") -
+       active buttons, the selected slot and the 3D preview backdrop. */
+    --accent: #e1c189;
+    --accent-rgb: 225, 193, 137;
   }
   :root[data-theme="old"] button.tbtn.active,
   :root[data-theme="old"] button.tbtn.primary,
@@ -118,6 +121,17 @@
   }
   :root[data-theme="old"] .slot-card img { background-size: 8px 8px; }
   :root[data-theme="old"] .export-card { background: #ecd6a8; }
+  /* With the light parchment accent (2026-10-10), the selected / main
+     buttons keep a dark brown rim so they still stand out on the paper,
+     and words drawn in the accent use the ink instead. */
+  :root[data-theme="old"] button.tbtn.active,
+  :root[data-theme="old"] button.tbtn.primary,
+  :root[data-theme="old"] .btn.primary { border-color: #6a4220; box-shadow: inset 0 0 0 1px #6a4220; }
+  :root[data-theme="old"] button.tbtn:hover,
+  :root[data-theme="old"] .btn:hover { border-color: #6a4220; }
+  :root[data-theme="old"] .theme-note b,
+  :root[data-theme="old"] .save-indicator,
+  :root[data-theme="old"] .slot-card button.tbtn:hover { color: var(--text); }
   @media (prefers-color-scheme: light) {
     :root:not([data-theme]) {
       --bg: #f2efe6; --panel: #ffffff; --line: #d9cdb0;

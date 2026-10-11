@@ -63,6 +63,20 @@ export const UPGRADE_PLAY = {
   coin_health: { health: 25 },
   cache_resolve: { health: 15 },
   cache_fortune: { damage: 0.08 },
+  // More upgrades for Zombie Survival (2026-10-10, "add more upgrades you
+  // can add in gayz upgrades for zombie survival").
+  swiftfoot: { speed: 0.1 },
+  sprinter: { speed: 0.1 },
+  scavenger: { coinBonus: 0.25 },
+  treasureHunter: { coinBonus: 0.25 },
+  warChest: { coins: 60 },
+  secondWind: { regen: true },
+  ammoBelt: { ammo: 0.5 },
+  bandolier: { ammo: 0.5 },
+  headhunter: { headshot: 0.25 },
+  thickSkin: { toughness: 0.1 },
+  fieldMedic: { campHeal: 0.5 },
+  lastStand: { health: 40, armor: 20 },
 }
 
 // Legacy Points for a run: this share of its points (DEATH_POINTS_CONVERSION
@@ -88,6 +102,8 @@ export const PLAY_DEFAULTS = {
   bossEvery: 0,
   campHealRate: CAMP_HEAL_PER_SECOND,
   discount: 0,
+  ammoMult: 1,
+  headshotMult: 1,
   mutators: [],
 }
 
@@ -109,6 +125,9 @@ export function playConfig({ difficulty, loadout, gameMode, mutators = {}, purch
   let damage = 0
   let reload = 0
   let campHeal = 0
+  let speed = 0
+  let coinBonus = 0
+  let toughness = 0
   for (const id of purchased) {
     const up = UPGRADE_PLAY[id]
     if (!up) continue
@@ -119,18 +138,27 @@ export function playConfig({ difficulty, loadout, gameMode, mutators = {}, purch
     cfg.startCoins += up.coins || 0
     campHeal += up.campHeal || 0
     cfg.discount = Math.max(cfg.discount, up.discount || 0)
+    speed += up.speed || 0
+    coinBonus += up.coinBonus || 0
+    cfg.ammoMult += up.ammo || 0
+    cfg.headshotMult += up.headshot || 0
+    toughness += up.toughness || 0
+    if (up.regen) cfg.regen = true
   }
+  cfg.moveMult *= 1 + speed
+  cfg.coinMult += coinBonus
   cfg.maxHealth = Math.round(PLAY_DEFAULTS.maxHealth * build.healthMult) + health
   cfg.damageMult = 1 + damage
   cfg.reloadMult = Math.max(0.3, 1 - reload)
   cfg.campHealRate = CAMP_HEAL_PER_SECOND * (1 + campHeal)
   if (on.includes('hordeRush')) cfg.zombieCountMult *= 2
-  if (on.includes('lootRush')) cfg.coinMult = 2
+  if (on.includes('lootRush')) cfg.coinMult *= 2
   if (on.includes('healthRegen')) cfg.regen = true
   if (on.includes('glassHouse')) {
     cfg.damageMult *= 2
     cfg.zombieDamageMult *= 2
   }
+  cfg.zombieDamageMult *= Math.max(0.5, 1 - toughness)
   if (on.includes('ironMode')) cfg.ironMode = true
   if (on.includes('escalation')) cfg.escalation = true
   if (on.includes('bossRush')) cfg.bossEvery = 1

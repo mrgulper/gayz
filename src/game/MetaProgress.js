@@ -198,6 +198,22 @@ export const META_UPGRADES = [
     titleKey: 'coinShopTurretUpgrade2',
     cost: 550,
   },
+  // More Zombie Survival upgrades (2026-10-10) - effects in PlayRules.js's
+  // UPGRADE_PLAY. Chains: swiftfoot -> sprinter, scavenger -> treasureHunter,
+  // ammoBelt -> bandolier, fortune -> warChest, fortifiedRest -> fieldMedic,
+  // juggernaut -> lastStand.
+  { id: 'swiftfoot', titleKey: 'metaSwiftfoot', cost: 350 },
+  { id: 'sprinter', titleKey: 'metaSprinter', cost: 500, requires: 'swiftfoot' },
+  { id: 'scavenger', titleKey: 'metaScavenger', cost: 400 },
+  { id: 'treasureHunter', titleKey: 'metaTreasureHunter', cost: 550, requires: 'scavenger' },
+  { id: 'warChest', titleKey: 'metaWarChest', cost: 400, requires: 'fortune' },
+  { id: 'secondWind', titleKey: 'metaSecondWind', cost: 600 },
+  { id: 'ammoBelt', titleKey: 'metaAmmoBelt', cost: 350 },
+  { id: 'bandolier', titleKey: 'metaBandolier', cost: 500, requires: 'ammoBelt' },
+  { id: 'headhunter', titleKey: 'metaHeadhunter', cost: 450 },
+  { id: 'thickSkin', titleKey: 'metaThickSkin', cost: 450 },
+  { id: 'fieldMedic', titleKey: 'metaFieldMedic', cost: 400, requires: 'fortifiedRest' },
+  { id: 'lastStand', titleKey: 'metaLastStand', cost: 800, requires: 'juggernaut' },
   {
     id: 'turret_upgrade_3',
     titleKey: 'coinShopTurretUpgrade3',

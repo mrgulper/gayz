@@ -131,3 +131,34 @@ test('the 2026-10-09 achievements unlock from what a Map 1 run reports', async (
   expect(result.after).toEqual([])
   expect(result.untitled).toEqual([])
 })
+
+// The Zombie Survival upgrades added 2026-10-10 change a Map 1 run
+// (PlayRules.js's UPGRADE_PLAY -> Game._playConfig()), and each shows in
+// the Upgrades panel.
+test('new Zombie Survival upgrades change the run', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    g.settings.difficulty = 'normal'
+    g.settings.loadout = 'balanced'
+    g.settings.mutators = Object.fromEntries(Object.keys(g.settings.mutators).map((k) => [k, false]))
+    const base = g._playConfig()
+    for (const id of ['swiftfoot', 'sprinter', 'scavenger', 'treasureHunter', 'warChest', 'secondWind', 'ammoBelt', 'bandolier', 'headhunter', 'thickSkin', 'lastStand']) g.metaProgress.purchased.add(id)
+    const cfg = g._playConfig()
+    g._openUpgradesPanel()
+    const names = [...document.querySelectorAll('#upgrades-options .perk-name')].map((n) => n.textContent)
+    return {
+      speed: +(cfg.moveMult / base.moveMult).toFixed(2),
+      coins: +(cfg.coinMult - base.coinMult).toFixed(2),
+      startCoins: cfg.startCoins - base.startCoins,
+      regen: cfg.regen,
+      ammo: cfg.ammoMult,
+      headshot: cfg.headshotMult,
+      softer: +(cfg.zombieDamageMult / base.zombieDamageMult).toFixed(2),
+      health: cfg.maxHealth - base.maxHealth,
+      armor: cfg.armor - base.armor,
+      listed: ['Swift Feet', 'Second Wind', 'Last Stand', 'Field Medic'].every((w) => names.some((n) => n.startsWith(w))),
+    }
+  })
+  expect(r).toEqual({ speed: 1.2, coins: 0.5, startCoins: 60, regen: true, ammo: 2, headshot: 1.25, softer: 0.9, health: 40, armor: 20, listed: true })
+})
