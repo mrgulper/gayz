@@ -153,6 +153,10 @@
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   body { display: flex; flex-direction: column; min-height: 100vh; }
+  /* Nothing but text boxes can be selected or dragged, same as the game. */
+  *, *::before, *::after { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  input, textarea { user-select: text; -webkit-user-select: text; }
+  html { -webkit-tap-highlight-color: transparent; }
 
   header { padding: 16px 22px 12px; border-bottom: 1px solid var(--line); }
   header h1 {
@@ -1414,23 +1418,76 @@ function detailPass(p, o, rng) {
       if (isHair(hex)) set(rect[0] + x, rect[1] + y, hairTone(cols, x, key === 'top' ? h - 1 - y : y, h))
     }
   }
-  // 2. Long hair draping over the shoulders and down the back.
-  const longHair = o.feminine && !o.fullFur && o.hairStyle !== 3 && o.hairStyle !== 1 && o.hairStyle !== 0
+  // 2. Long hair falling down the back - painted on BOTH layers (the
+  // shirt never shows under it, 2026-10-11: "under the hair the hair is
+  // not generated"), plus the head's underside and the torso's top, so the
+  // hair reads as one solid piece from behind, the sides and below.
+  // A ponytail is a narrower tail down the middle instead.
+  const longHair = !o.fullFur && o.hairStyle !== 3 && o.hairStyle !== 1 && o.hairStyle !== 0 && (o.feminine || o.hairStyle === 2 || o.ponytail)
   if (longHair) {
-    const t = ovRects('torso'), len = 5 + pick(rng, 4)
-    const back = t.back, bc = strandColumns(8, rng)
-    for (let x = 0; x < 8; x++) {
-      const end = len - (x === 0 || x === 7 ? 2 : 0) + pick(rng, 2)
-      for (let y = 0; y < end; y++) if (!get(back[0] + x, back[1] + y)) set(back[0] + x, back[1] + y, hairTone(bc, x, y, end + 2))
+    const tBase = partFaceRects(BOXES[1].u, BOXES[1].v, 8, 12, 4), tOver = ovRects('torso')
+    const hBase = partFaceRects(head.u, head.v, 8, 8, 8), hOver = ovRects('head')
+    const len = o.ponytail ? 9 + pick(rng, 3) : o.hairStyle === 2 ? 8 + pick(rng, 3) : 6 + pick(rng, 3)
+    const cols = o.ponytail ? [2, 3, 4, 5] : [0, 1, 2, 3, 4, 5, 6, 7]
+    const bc = strandColumns(8, rng)
+    const ends = cols.map((x) => {
+      const edge = x === cols[0] || x === cols[cols.length - 1]
+      return len - (edge ? (o.ponytail ? 3 : 2) : 0) + pick(rng, 2)
+    })
+    // Back of the torso: base layer always, outer layer where nothing
+    // (a cape, a backpack) is already on it.
+    cols.forEach((x, i) => {
+      for (let y = 0; y < ends[i]; y++) {
+        const c = hairTone(bc, x, y, ends[i] + 2)
+        set(tBase.back[0] + x, tBase.back[1] + y, c)
+        if (!get(tOver.back[0] + x, tOver.back[1] + y)) set(tOver.back[0] + x, tOver.back[1] + y, c)
+      }
+    })
+    // Back of the head: solid hair on both layers.
+    for (const r of [hBase, hOver]) {
+      const hc = strandColumns(8, rng)
+      for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) if (r === hBase || !get(r.back[0] + x, r.back[1] + y) || isHair(get(r.back[0] + x, r.back[1] + y))) set(r.back[0] + x, r.back[1] + y, hairTone(hc, x, y, 10))
     }
-    const front = t.front, fc = strandColumns(8, rng), fl = 3 + pick(rng, 3)
-    for (const x of [0, 1, 6, 7]) {
-      const end = fl - (x === 1 || x === 6 ? 1 : 0)
-      for (let y = 0; y < end; y++) if (!get(front[0] + x, front[1] + y)) set(front[0] + x, front[1] + y, hairTone(fc, x, y, fl + 2))
+    // Underside of the head (row 7 is the back edge) and top of the torso
+    // (row 0 is the back edge): hair where it falls, skin/neck elsewhere.
+    for (const r of [hBase, hOver]) {
+      const bottom = r.bottom
+      for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+        const inTail = o.ponytail ? (y >= 6 && x >= 2 && x <= 5) : (y >= 5 || x === 0 || x === 7 || (y >= 3 && (x === 1 || x === 6)))
+        if (inTail) set(bottom[0] + x, bottom[1] + y, hairRamp[1 + pick(rng, 2)])
+      }
     }
-    for (const k of ['left', 'right']) {
-      const side = t[k], sc = strandColumns(4, rng)
-      for (let x = 0; x < 4; x++) for (let y = 0; y < len - 1; y++) if (!get(side[0] + x, side[1] + y)) set(side[0] + x, side[1] + y, hairTone(sc, x, y, len + 1))
+    for (const r of [tBase, tOver]) {
+      for (let x = 0; x < 8; x++) for (let y = 0; y < 4; y++) {
+        const onHair = o.ponytail ? (y === 0 && x >= 2 && x <= 5) : (y === 0 || (y === 1 && rng() < 0.6) || ((x <= 1 || x >= 6) && y <= 2))
+        if (onHair) set(r.top[0] + x, r.top[1] + y, hairRamp[2 + pick(rng, 3)])
+      }
+    }
+    if (!o.ponytail) {
+      // Over the shoulders at the front and down both sides.
+      const fc = strandColumns(8, rng), fl = 3 + pick(rng, 3)
+      for (const x of [0, 1, 6, 7]) {
+        const end = fl - (x === 1 || x === 6 ? 1 : 0)
+        for (let y = 0; y < end; y++) {
+          const c = hairTone(fc, x, y, fl + 2)
+          if (!get(tOver.front[0] + x, tOver.front[1] + y)) set(tOver.front[0] + x, tOver.front[1] + y, c)
+        }
+      }
+      for (const k of ['left', 'right']) {
+        const sc = strandColumns(4, rng)
+        for (let x = 0; x < 4; x++) {
+          // Only the half of each side nearest the back.
+          if (k === 'left' ? x < 1 : x > 2) continue
+          for (let y = 0; y < len - 1; y++) {
+            const c = hairTone(sc, x, y, len + 1)
+            set(tBase[k][0] + x, tBase[k][1] + y, c)
+            if (!get(tOver[k][0] + x, tOver[k][1] + y)) set(tOver[k][0] + x, tOver[k][1] + y, c)
+          }
+        }
+      }
+    } else {
+      // A hair tie where the tail starts.
+      for (const x of [3, 4]) set(hOver.back[0] + x, hOver.back[1] + 7, hexToRgb(p.accent))
     }
   }
   // 3. Clothes on the outer layer, with fabric folds.
@@ -1631,7 +1688,7 @@ const COLOR_WORDS = {
   pink: '#e08fb8', black: '#1c1c1e', white: '#ececE6', gray: '#7a7a7a', grey: '#7a7a7a', brown: '#6b4a2c',
   gold: '#d9a334', golden: '#d9a334', silver: '#c0c0c8', cyan: '#2ab0c8', teal: '#1a8a80', lime: '#8ae04a',
   navy: '#1a2a5a', maroon: '#6a1a1a', beige: '#d8c8a0', magenta: '#c040b0', violet: '#8a4ac9', crimson: '#a01a2a',
-  turquoise: '#30c0b0', lavender: '#b8a0e0', mint: '#90e0b8', blonde: '#e8d070', blond: '#e8d070', ginger: '#c8602a',
+  turquoise: '#30c0b0', lavender: '#b8a0e0', mint: '#90e0b8', blonde: '#e8d070', blond: '#e8d070', ginger: '#c8602a', brunette: '#5a3a22', redhead: '#b8401f', platinum: '#ece6d6',
   aqua: '#3ad0d0', azure: '#3a8ae0', indigo: '#3a2a8a', scarlet: '#d0202a', ruby: '#a0102a', burgundy: '#6a1a2a',
   coral: '#f0705a', salmon: '#f08a70', peach: '#f0b890', amber: '#e0a020', mustard: '#c8a020', bronze: '#a8702a',
   copper: '#b8602a', cream: '#f2e8c8', ivory: '#f4f0e0', khaki: '#b8a878', charcoal: '#36363a', plum: '#6a2a5a',
@@ -1644,7 +1701,10 @@ const PART_WORDS = {
   pants: 'pants', jeans: 'pants', trousers: 'pants', shorts: 'pants', skirt: 'skirt', legs: 'pants',
   shoes: 'shoe', shoe: 'shoe', boots: 'shoe', sneakers: 'shoe', eyes: 'eye', eye: 'eye', skin: 'skin',
   belt: 'accent', stripes: 'accent', trim: 'accent', fur: 'fur', furred: 'fur',
+  ponytail: 'hair', braid: 'hair', braids: 'hair', pigtails: 'hair', bun: 'hair', curls: 'hair', bangs: 'hair', fringe: 'hair', mohawk: 'hair',
 }
+// Colours that only ever describe hair ("blonde girl").
+const HAIR_ONLY_COLORS = new Set(['blonde', 'blond', 'ginger', 'brunette', 'redhead', 'platinum'])
 const SKIN_WORDS = { pale: 0, white: 1, fair: 1, light: 2, peach: 3, tan: 4, tanned: 4, olive: 5, brown: 6, black: 7, dark: 7, caramel: 5, chocolate: 7 }
 // "white girl", "brown boy", "pale cute girl": a skin word before a person word is the skin tone.
 const PERSON_WORDS = ['girl', 'girly', 'woman', 'lady', 'female', 'queen', 'princess', 'boy', 'man', 'guy', 'male', 'king', 'prince', 'person', 'kid', 'child', 'human', 'dude']
@@ -1836,6 +1896,7 @@ function parsePrompt(text) {
     const part = [words[i + 1], words[i + 2]].map((n) => PART_WORDS[n]).find(Boolean)
     if (part === 'skin') return // handled by SKIN_WORDS below
     if (part) colors[part] = { hex: c, name: w }
+    else if (HAIR_ONLY_COLORS.has(w) && !colors.hair) colors.hair = { hex: c, name: w }
     else loose.push({ hex: c, name: w })
   })
   // "girl"/"lady" etc. are an alias of the Rose theme - next to a real
@@ -1851,7 +1912,8 @@ function parsePrompt(text) {
   let skinTone = null
   words.forEach((w, i) => { if (w in SKIN_WORDS && (words[i + 1] === 'skin' || words[i + 1] === 'skinned' || personFollows(words, i))) skinTone = SKIN_WORDS[w] })
   let hairStyle = null
-  words.forEach((w, i) => { if (w in HAIR_STYLE_WORDS && (w === 'bald' || w === 'mohawk' || w === 'ponytail' || words[i + 1] === 'hair')) hairStyle = HAIR_STYLE_WORDS[w] })
+  words.forEach((w, i) => { if (w in HAIR_STYLE_WORDS && (w === 'bald' || w === 'mohawk' || w === 'ponytail' || words.slice(i + 1, i + 4).includes('hair'))) hairStyle = HAIR_STYLE_WORDS[w] })
+  const ponytail = words.includes('ponytail')
   const gear = [...new Set(words.map((w) => GEAR_WORDS[w]).filter(Boolean))]
   // Animals: "cat girl"/"fox ears" give a person ears + a tail; an animal
   // on its own ("wolf"), or "furry", makes a whole fur character.
@@ -1870,7 +1932,7 @@ function parsePrompt(text) {
   const unknown = [...new Set(words.filter((w) => !known(w) && !FILLER.has(w) && !PLAIN_WORDS.has(w)))]
   return {
     animal, fullFur, multiHue, pastel: pastelWord, unknown, fixes,
-    themes, colors, loose, skinTone, hairStyle, gear,
+    themes, colors, loose, skinTone, hairStyle, ponytail, gear,
     feminine: words.some((w) => FEMININE_WORDS.includes(w)) || themes.includes('girl'),
     cute: words.some((w) => CUTE_WORDS.includes(w)),
     masculine: words.some((w) => MASCULINE_WORDS.includes(w)),
@@ -1970,6 +2032,7 @@ function planSkin(parsed, rng, randomTheme) {
   }
   o.multiHue = parsed.multiHue
   if (parsed.hairStyle !== null) o.hairStyle = parsed.hairStyle
+  o.ponytail = !!parsed.ponytail
   o.feminine = (parsed.feminine || themeKey === 'girl') && !parsed.masculine
   if (parsed.gear.includes('beard') || (parsed.masculine && rng() < 0.2)) o.beard = true
   if (parsed.gear.includes('skirt') || (o.feminine && themeKey !== 'girl' && !parsed.colors.pants && rng() < 0.4)) o.skirt = o.skirt || shade(p.accent, -10)
@@ -2010,7 +2073,6 @@ async function generateThemedSkin(parsed, variant, randomTheme, onStage) {
   return themeKey
 }
 
-const THEME_LABELS = Object.fromEntries(THEME_KEYS.map((k) => [k, k.charAt(0).toUpperCase() + k.slice(1)]));
 async function runGeneration(promptText, isRandom) {
   if (generating) return
   generating = true
@@ -2023,7 +2085,7 @@ async function runGeneration(promptText, isRandom) {
   const randomTheme = RANDOMIZABLE_THEME_KEYS[Math.floor(Math.random() * RANDOMIZABLE_THEME_KEYS.length)]
   pushUndo()
   try {
-    const theme = await generateThemedSkin(parsed, Math.random().toString(36).slice(2), randomTheme, (stage) => {
+    await generateThemedSkin(parsed, Math.random().toString(36).slice(2), randomTheme, (stage) => {
       note.innerHTML = 'Generating... painting the <b>' + stage + '</b>'
       syncAfterEdit()
     })
@@ -2031,30 +2093,38 @@ async function runGeneration(promptText, isRandom) {
     scheduleSave()
     revealOuterLayerIfPainted()
     const PART_LABEL = { shirt: 'shirt', pants: 'pants', skirt: 'skirt', shoe: 'shoes', eye: 'eyes', hair: 'hair', accent: 'trim', fur: 'fur' }
+    // Describes what was made from the words typed - never a style name
+    // (2026-10-11, Gaymi: "dont make it a specific style make it based on
+    // what the player asked").
+    const HAIR_LABEL = { 0: 'short hair', 1: 'mohawk', 2: 'long hair', 3: 'bald', 4: 'bangs' }
     const extras = [
-      ...parsed.themes.slice(1).map((k) => THEME_LABELS[k] + ' gear'),
-      ...parsed.loose.slice(0, 3).map((c, i) => c.name + ' ' + ['outfit', 'trim', 'pants'][i]),
       ...Object.entries(parsed.colors).map(([k, c]) => c.name + ' ' + PART_LABEL[k]),
+      ...parsed.loose.slice(0, 3).map((c, i) => c.name + ' ' + ['outfit', 'trim', 'pants'][i]),
       ...(parsed.skinTone !== null ? ['custom skin tone'] : []),
+      ...(parsed.ponytail ? ['ponytail'] : parsed.hairStyle != null ? [HAIR_LABEL[parsed.hairStyle]] : []),
       ...parsed.gear.filter((g) => (g !== 'skirt' || !parsed.colors.skirt) && g !== 'ears' && g !== 'tail'),
       ...(parsed.animal ? [parsed.fullFur ? 'full fur (' + (parsed.animal === 'furry' ? 'random animal' : parsed.animal) + ')' : parsed.animal + ' ears and tail'] : []),
       ...(parsed.multiHue ? ['multicolour shading'] : parsed.pastel ? ['pastel colours'] : []),
-    ]
-    const extraText = extras.length ? ' with ' + extras.join(', ') : ''
-    if (isRandom) note.innerHTML = 'Randomized a <b>' + THEME_LABELS[theme] + '</b> skin. Hit Randomize again for something else.'
+    ].filter((x, i, a) => x && a.indexOf(x) === i)
+    // Only what the words were turned into - "red hair" typed as-is isn't repeated back.
+    const typedWords = new Set(promptText.toLowerCase().split(/[^a-z]+/))
+    const told = extras.filter((x) => !x.split(/[^a-z]+/).filter(Boolean).every((w) => typedWords.has(w)))
+    const extraText = told.length ? ' with ' + told.join(', ') : ''
+    if (isRandom) note.innerHTML = 'Randomized a new skin. Hit Randomize again for something else.'
     else if (parsed.themes.length || extras.length) {
-      // Named after what was typed ("cute girl"), not the internal style name.
       const typed = promptText.trim().replace(/[<>&"]/g, '').slice(0, 60)
       const skipped = (parsed.unknown || []).slice(0, 6).map((w) => w.replace(/[<>&"]/g, ''))
       const fixed = (parsed.fixes || []).slice(0, 4).map(([a, b]) => '"' + a.replace(/[<>&"]/g, '') + '" as ' + b)
-      note.innerHTML = 'Generated a <b>"' + typed + '"</b> skin (' + THEME_LABELS[theme] + ' style' + extraText + ').' + (fixed.length ? ' Read ' + fixed.join(', ') + '.' : '') + (skipped.length ? ' Didn\'t know: ' + skipped.join(', ') + '.' : '') + ' Click Generate again for a new one.'
+      note.innerHTML = 'Generated <b>"' + typed + '"</b>' + extraText + '.' + (fixed.length ? ' Read ' + fixed.join(', ') + '.' : '') + (skipped.length ? ' Didn\'t know: ' + skipped.join(', ') + '.' : '') + ' Click Generate again for a new one.'
     }
-    else note.innerHTML = 'Didn\'t recognize "' + promptText.trim().replace(/[<>&"]/g, '') + '" - generated a random <b>' + THEME_LABELS[theme] + '</b> skin instead. Try words like pirate, cowboy, chef, superhero, ghost, cat girl, crown, red hair, blue pants.'
+    else note.innerHTML = 'Didn\'t recognize "' + promptText.trim().replace(/[<>&"]/g, '') + '" - generated a random skin instead. Try words like pirate, cowboy, chef, superhero, ghost, cat girl, crown, red hair, blue pants.'
   } finally {
     generating = false
     genBtn.disabled = randBtn.disabled = false
   }
 }
+// For tests: what a prompt was read as.
+window.__parsePrompt = parsePrompt
 document.getElementById('generateBtn').addEventListener('click', () => runGeneration(document.getElementById('promptInput').value, false));
 document.getElementById('promptInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') runGeneration(document.getElementById('promptInput').value, false); });
 document.getElementById('randomizeBtn').addEventListener('click', () => runGeneration('', true));
