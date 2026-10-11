@@ -852,11 +852,15 @@ html.layout-compact .menu-panel {
   text-align: center;
 }
 
+/* The line above every Sign Up or Login button reads the same everywhere
+   (2026-10-10, "make the text the same size, style, and everything"). */
 #cloudsave-signed-out-desc,
-#friends-signed-out-desc {
+#friends-signed-out-desc,
+#server-chat-signed-out-desc {
   margin: 0;
-  font-size: 13px;
-  opacity: 0.75;
+  font-size: 15px;
+  line-height: 1.4;
+  opacity: 0.8;
 }
 
 #cloudsave-avatar {
@@ -4098,44 +4102,23 @@ html.ui-theme-old #journal-panel {
   gap: 16px;
   margin-bottom: 4px;
 }
-/* Sign Up / Login / the Google buttons are a simple oval around the words
-   in the theme's colors (2026-10-10, "just a simple oval shape around the
-   word with the gayz style colour"): gold rim on a dark fill in Golden,
-   brown ink rim on a light paper fill in Old. Hover only brightens - no
-   underline. Not all upper case. */
+/* Sign Up / Login / the Google buttons: the shared .signin-btn look at the
+   end of this file (2026-10-10). */
 .auth-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  min-width: 170px;
-  padding: 10px 30px;
-  font-family: var(--menu-display-font, 'Bebas Neue', sans-serif);
-  font-size: 21px;
-  font-weight: 400;
-  letter-spacing: 0.5px;
-  line-height: 1.2;
-  text-transform: none;
-  color: var(--ui-gold-bright, #f0c868);
-  background: rgba(0, 0, 0, 0.45);
-  border: 2px solid var(--ui-gold-bright, #f0c868);
-  border-radius: 999px;
-  cursor: pointer;
-  transition: filter 0.15s ease, transform 0.15s ease;
-}
-.auth-btn:hover,
-.auth-btn:focus-visible {
-  filter: brightness(1.25);
-  outline: none;
+  gap: 10px;
+  min-width: 150px;
 }
 .auth-btn:active { transform: translateY(1px); }
 .auth-buttons { gap: 18px; }
-.auth-google { min-width: min(100%, 340px); margin: 4px 0; }
+.auth-google { min-width: min(100%, 280px); margin: 4px 0; }
 .auth-google-g {
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
   flex: none;
-  padding: 4px;
+  padding: 3px;
   background: #fff;
   border-radius: 50%;
   box-sizing: content-box;
@@ -4173,11 +4156,7 @@ html.ui-theme-old .auth-note,
 html.ui-theme-old .auth-terms,
 html.ui-theme-old .auth-back { opacity: 0.82; }
 html.ui-theme-old .auth-link { color: #5a3410 !important; font-weight: 600; }
-html.ui-theme-old .auth-btn {
-  color: #3a1f0a !important;
-  background: rgba(255, 244, 220, 0.45);
-  border-color: #5a3410;
-}
+
 
 /* Wraps every existing piece of profile content so it can be toggled as
    one unit against #profile-login-gate - replicates the flex-column
@@ -10345,13 +10324,17 @@ body.build-mode-on #chat-panel {
   min-height: 0;
   padding-right: 4px;
 }
+/* Cards match the theme (2026-10-10, "the outside before clicking it does
+   not fit style"): dark warm brown with a thin gold rim in Golden (like the
+   Inspect window), a slightly darker patch of paper with a brown rim and
+   ink lettering in Old (below). The rarity color stays on the left edge. */
 .inv-skin-card {
   position: relative;
   display: block;
   padding: 0;
   overflow: hidden;
-  background: rgba(20, 24, 40, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(22, 17, 10, 0.82);
+  border: 1px solid rgba(201, 162, 74, 0.35);
   border-left: 5px solid var(--rarity, #9aa0a6);
   border-radius: 6px;
   cursor: pointer;
@@ -10359,8 +10342,27 @@ body.build-mode-on #chat-panel {
   transition: background 0.12s, transform 0.12s;
 }
 .inv-skin-card:hover {
-  background: rgba(40, 46, 70, 0.85);
+  background: rgba(40, 31, 18, 0.9);
   transform: translateY(-1px);
+}
+html.ui-theme-old .inv-skin-card {
+  background: rgba(120, 80, 40, 0.14);
+  border-color: rgba(74, 44, 16, 0.4);
+  border-left-color: var(--rarity, #9aa0a6);
+}
+html.ui-theme-old .inv-skin-card:hover {
+  background: rgba(120, 80, 40, 0.24);
+}
+html.ui-theme-old .inv-skin-card-name {
+  color: var(--old-ink, #2e1d0e);
+}
+html.ui-theme-old .inv-weapon-card-icon,
+html.ui-theme-old .inv-weapon-card-skin {
+  color: rgba(46, 29, 14, 0.7);
+}
+html.ui-theme-old .inv-skin-card-count {
+  background: rgba(74, 44, 16, 0.8);
+  color: #f3e3c2;
 }
 .inv-skin-card-name {
   position: absolute;
@@ -11647,4 +11649,47 @@ button {
 }
 #play-fade.on {
   opacity: 1;
+}
+
+/* Every sign-in button - Sign Up / Login / the Google buttons on the
+   Welcome to GayZ page, and the Sign Up or Login buttons on Friend List,
+   Global chat and Cloud Save - is the same oval as the panel tabs (Clan,
+   Zombie Survival...), one size everywhere (2026-10-10, Gaymi: "use the
+   second image type oval shape with the same colour ... make the text the
+   same size, style, and everything"). Faint light fill and rim; the Old
+   theme's ink rule makes the words dark brown on the paper. Hover only
+   brightens. */
+#profile-login-gate .auth-btn,
+#friends-signin-btn,
+#server-chat-signin-btn,
+#cloudsave-signin-btn {
+  margin: 0;
+  padding: 9px 24px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  box-shadow: none;
+  cursor: pointer;
+  transition: filter 0.15s ease, background 0.15s ease;
+}
+#profile-login-gate .auth-btn:hover,
+#friends-signin-btn:hover,
+#server-chat-signin-btn:hover,
+#cloudsave-signin-btn:hover {
+  filter: brightness(1.2);
+  background: rgba(255, 255, 255, 0.09);
+}
+html.ui-theme-old #profile-login-gate .auth-btn,
+html.ui-theme-old #friends-signin-btn,
+html.ui-theme-old #server-chat-signin-btn,
+html.ui-theme-old #cloudsave-signin-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.35);
 }

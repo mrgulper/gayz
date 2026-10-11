@@ -149,6 +149,16 @@ test('sign-in buttons go to the Welcome page; friend count shows', async ({ page
     g.settings.savedFriends = [{ name: 'A', uid: 'a' }, { name: 'B', uid: 'b' }, { name: 'C', uid: 'c' }]
     g._renderFriendsCount()
     out.count = document.getElementById('friends-count').textContent
+    // Picking a friend again (by ID or name) says they're already a friend.
+    g.settings.savedFriends = [{ name: 'Tazbot', uid: 'tz', playerId: 'ABC123' }]
+    Object.defineProperty(g, '_cloudUid', { get: () => 'me', configurable: true })
+    for (const typed of ['#abc123', 'tazbot']) {
+      g.cloudsaveFriendInput.value = typed
+      await g._sendFriendRequestClick()
+      out['typed:' + typed] = g.cloudsaveFriendResult.textContent
+    }
+    await g._sendFriendRequestTo({ uid: 'tz', name: 'Tazbot', playerId: 'ABC123' })
+    out.picked = g.cloudsaveFriendResult.textContent
     return out
   })
   for (const id of ['friends-signin-btn', 'server-chat-signin-btn', 'cloudsave-signin-btn']) {
@@ -156,4 +166,7 @@ test('sign-in buttons go to the Welcome page; friend count shows', async ({ page
   }
   expect(r.popups).toBe(0)
   expect(r.count).toBe('(3)')
+  expect(r['typed:#abc123']).toBe('Tazbot is already your friend.')
+  expect(r['typed:tazbot']).toBe('Tazbot is already your friend.')
+  expect(r.picked).toBe('Tazbot is already your friend.')
 })
