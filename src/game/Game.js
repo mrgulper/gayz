@@ -10355,7 +10355,7 @@ export class Game {
       // Every real Minecraft skin is 64px wide, 64px (modern) or 32px
       // (legacy) tall - anything else almost certainly isn't a skin file
       // and would just paint garbage across the character's faces.
-      if (skin.width !== 64 || (skin.height !== 64 && skin.height !== 32) || ![1, 2, 4].includes(skin.scale)) {
+      if (skin.width !== 64 || (skin.height !== 64 && skin.height !== 32) || ![1, 2, 4, 8, 16].includes(skin.scale)) {
         this._showHomepageToast(t('skinUploadWrongSizeToast'))
         return
       }
@@ -11076,7 +11076,7 @@ export class Game {
       if (!this.skindesignerFrame || event.source !== this.skindesignerFrame.contentWindow) return
       const data = event.data
       if (!data || data.type !== 'gayz-import-skin' || typeof data.dataUrl !== 'string') return
-      // HD skins (up to 256 wide) are bigger files than 64-wide ones.
+      // HD skins (up to 1024 wide, 16x) are bigger files than 64-wide ones.
       if (!data.dataUrl.startsWith('data:image/png;base64,') || data.dataUrl.length > 1500000) return
       this._closeSkinDesignerPanel()
       this._applyImportedSkin(data.dataUrl)

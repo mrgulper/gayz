@@ -45,10 +45,36 @@ export function serverApi(game) {
   }
 }
 
-function myDetails(game) {
+const SERVER_SKIN_MAX = 50000
+
+// An HD skin (8x/16x from Design a Skin) is too big to send to a server, so
+// the others get a copy with fewer pixels - the biggest of 4x/2x/1x that
+// fits - instead of the default skin.
+async function serverSkin(url) {
+  if (typeof url !== 'string') return DEFAULT_SKIN_DATA_URL
+  if (url.length < SERVER_SKIN_MAX) return url
+  try {
+    const img = new Image()
+    img.src = url
+    await img.decode()
+    for (const k of [4, 2, 1]) {
+      if (img.naturalWidth <= 64 * k) continue
+      const c = document.createElement('canvas')
+      c.width = 64 * k
+      c.height = Math.round(img.naturalHeight * (64 * k) / img.naturalWidth)
+      const ctx = c.getContext('2d')
+      ctx.imageSmoothingEnabled = false
+      ctx.drawImage(img, 0, 0, c.width, c.height)
+      const small = c.toDataURL('image/png')
+      if (small.length < SERVER_SKIN_MAX) return small
+    }
+  } catch { /* falls back to the default skin */ }
+  return DEFAULT_SKIN_DATA_URL
+}
+
+async function myDetails(game) {
   const s = game.settings || {}
-  const skin = typeof s.customSkinDataUrl === 'string' && s.customSkinDataUrl.length < 50000 ? s.customSkinDataUrl : DEFAULT_SKIN_DATA_URL
-  return { nickname: (s.nickname || '').trim() || 'Survivor', skin }
+  return { nickname: (s.nickname || '').trim() || 'Survivor', skin: await serverSkin(s.customSkinDataUrl) }
 }
 
 export function bindServerBrowser(game) {
@@ -159,7 +185,7 @@ async function createServer(game) {
   const name = (document.getElementById('server-create-name')?.value || '').trim()
   setBusy(game, true)
   try {
-    const info = await serverApi(game).create({ ...myDetails(game), name, mode: 'main' })
+    const info = await serverApi(game).create({ ...(await myDetails(game)), name, mode: 'main' })
     enterServer(game, { ...info, name: name || info.name })
   } catch {
     game._showHomepageToast(t('serverCreateFailed'))
@@ -172,7 +198,7 @@ async function joinServer(game, serverId) {
   if (game._serverBusy) return
   setBusy(game, true)
   try {
-    const info = await serverApi(game).join({ ...myDetails(game), serverId })
+    const info = await serverApi(game).join({ ...(await myDetails(game)), serverId })
     enterServer(game, info)
   } catch (err) {
     game._showHomepageToast(t(err?.code === 'full' ? 'serverFullToast' : err?.code === 'gone' ? 'serverGoneToast' : 'serverJoinFailed'))

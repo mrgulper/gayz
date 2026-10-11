@@ -430,6 +430,8 @@
       <button class="tbtn" id="res1Btn" data-res="1" title="64x64 - classic Minecraft size">1x</button>
       <button class="tbtn" id="res2Btn" data-res="2" title="128x128 - twice the detail">2x</button>
       <button class="tbtn" id="res4Btn" data-res="4" title="256x256 - four times the detail">4x</button>
+      <button class="tbtn" id="res8Btn" data-res="8" title="512x512 - eight times the detail">8x</button>
+      <button class="tbtn" id="res16Btn" data-res="16" title="1024x1024 - sixteen times the detail">16x</button>
     </div>
 
     <div class="toolbar">
@@ -470,7 +472,7 @@
     <div class="atlas-panel">
       <h2>Favorite colors &mdash; pinned by you, saved across visits</h2>
       <div class="palette" id="favoritePalette"></div>
-      <h2>Full texture (64&times;64) &mdash; dimmed areas aren&rsquo;t shown in-game yet</h2>
+      <h2>Full texture (<span id="atlasSizeLabel">64&times;64</span>) &mdash; dimmed areas aren&rsquo;t shown in-game yet</h2>
       <div class="palette" id="palette"></div>
       <div class="atlas-scroll">
         <div class="atlas-stack">
@@ -2077,7 +2079,7 @@ async function generateThemedSkin(parsed, variant, randomTheme, onStage) {
     ['details', () => { detailPass(p, o, rng); richShade(rng, p.skin, o.multiHue, 1) }],
   ]
   // Every stage paints in the 64-unit layout on genCanvas, then the
-  // picture is scaled up to the atlas; on a 2x/4x skin the last stage
+  // picture is scaled up to the atlas; on a 2x-16x skin the last stage
   // adds the extra detail only those finer pixels can hold (hdDetail).
   stages.forEach(([label, paint], i) => {
     stages[i] = [label, () => {
@@ -2097,12 +2099,12 @@ async function generateThemedSkin(parsed, variant, randomTheme, onStage) {
   return themeKey
 }
 
-// The extra detail a 2x/4x skin gets, so it really has more pixels, not
+// The extra detail a 2x-16x skin gets, so it really has more pixels, not
 // just bigger ones - and stays crisp pixel art, never blurred. The 64-unit
 // picture is doubled with Scale2x (EPX, the classic pixel-art upscaler:
 // where two neighbours of a pixel match, that corner takes their colour,
 // so diagonals and round shapes - eyes, hair edges, collars - come out
-// smooth in sharp pixels), twice for 4x. Only neighbours on the same face
+// smooth in sharp pixels), twice for 4x, up to four times for 16x. Only neighbours on the same face
 // count: faces side by side in the file aren't side by side on the body.
 // Then hair gets thin strands and each face a soft light from above.
 function faceIdMap(scale) {
@@ -2240,8 +2242,10 @@ document.getElementById('randomizeBtn').addEventListener('click', () => runGener
 // layout code (BOXES, partFaceRects, the generator) stays in 64 units. The
 // generator paints into the 64x64 genCanvas (atlasCtx is swapped to it
 // while a stage paints), which is then scaled up and given real extra
-// detail by hdDetail(). The game reads any of the three sizes.
+// detail by hdDetail(). The game reads any of the five sizes (1x-16x).
 let RES = 1, SIZE = 64;
+// 8x/16x added 2026-10-11 ("add 8x and 16x").
+const RES_LEVELS = [1, 2, 4, 8, 16];
 const RES_KEY = 'skindesigner-res-v1';
 const atlasSrc = document.createElement('canvas');
 // Read-only handle for automated checks (Playwright) - never written to.
@@ -2262,7 +2266,7 @@ texture.colorSpace = THREE.SRGBColorSpace;
 // Changes the atlas to 64 x res pixels. resample keeps the picture (scaled
 // with hard pixel edges); otherwise it starts empty for the caller to fill.
 function setRes(res, resample) {
-  res = [1, 2, 4].includes(res) ? res : 1;
+  res = RES_LEVELS.includes(res) ? res : 1;
   if (res !== RES) {
     let copy = null;
     if (resample) {
@@ -2280,20 +2284,24 @@ function setRes(res, resample) {
     selection = null;
     if (typeof updateSelectionActionsVisibility === 'function') updateSelectionActionsVisibility();
   }
-  for (const n of [1, 2, 4]) document.getElementById('res' + n + 'Btn')?.classList.toggle('active', n === RES);
+  for (const n of RES_LEVELS) document.getElementById('res' + n + 'Btn')?.classList.toggle('active', n === RES);
+  const sizeLabel = document.getElementById('atlasSizeLabel');
+  if (sizeLabel) sizeLabel.textContent = SIZE + '\u00d7' + SIZE;
   if (typeof resize2d === 'function') resize2d();
 }
 // Draws a loaded skin image into the atlas at the current resolution, or
 // the image's own if it has more pixels.
 function drawImageToAtlas(img) {
-  const imgRes = Math.max(1, Math.min(4, Math.round(img.width / 64)));
-  setRes(Math.max(RES, imgRes === 3 ? 4 : imgRes), false);
+  // The nearest level at or above the image's own (a 192-wide image is 4x).
+  const ratio = img.width / 64;
+  const imgRes = RES_LEVELS.find((n) => n >= ratio - 0.01) || RES_LEVELS[RES_LEVELS.length - 1];
+  setRes(Math.max(RES, imgRes), false);
   mainCtx.clearRect(0, 0, SIZE, SIZE);
   mainCtx.imageSmoothingEnabled = false;
   mainCtx.drawImage(img, 0, 0, SIZE, SIZE);
 }
 function preferredRes() {
-  try { const n = parseInt(localStorage.getItem(RES_KEY), 10); if ([1, 2, 4].includes(n)) return n; } catch (e) {}
+  try { const n = parseInt(localStorage.getItem(RES_KEY), 10); if (RES_LEVELS.includes(n)) return n; } catch (e) {}
   return 2;
 }
 
@@ -2305,7 +2313,11 @@ function preferredRes() {
 // downloaded or sent to GayZ - those all read atlasSrc directly. Redrawn
 // from animate() whenever gridTextureDirty is set (by syncAfterEdit and
 // the Grid button), not here, since gridOn is declared further down.
-const GRID_SCALE = 8;
+// At least as many pixels as the atlas, so an 8x/16x skin's 3D preview
+// shows all of them (gridScale() grows with RES; lines stay one per
+// skin-layout pixel).
+let GRID_SCALE = 8;
+const gridScale = () => Math.max(8, RES);
 const gridCanvas = document.createElement('canvas');
 gridCanvas.width = 64 * GRID_SCALE; gridCanvas.height = 64 * GRID_SCALE;
 const gridCtx = gridCanvas.getContext('2d');
@@ -2316,6 +2328,12 @@ gridTexture.flipY = false;
 gridTexture.colorSpace = THREE.SRGBColorSpace;
 let gridTextureDirty = true;
 function redrawGridTexture() {
+  if (gridScale() !== GRID_SCALE) {
+    GRID_SCALE = gridScale();
+    gridCanvas.width = gridCanvas.height = 64 * GRID_SCALE;
+    // A canvas that changed size needs a fresh GPU texture.
+    gridTexture.dispose();
+  }
   gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
   gridCtx.imageSmoothingEnabled = false;
   gridCtx.drawImage(atlasSrc, 0, 0, gridCanvas.width, gridCanvas.height);
@@ -2383,7 +2401,8 @@ let undoStack = [];
 let redoStack = [];
 function pushUndo() {
   undoStack.push(atlasCtx.getImageData(0, 0, SIZE, SIZE));
-  if (undoStack.length > 25) undoStack.shift();
+  // Fewer steps for 8x/16x skins - each one is a 4 MB picture at 16x.
+  while (undoStack.length > (RES >= 16 ? 8 : RES >= 8 ? 15 : 25)) undoStack.shift();
   redoStack = [];
   document.getElementById('undoBtn').disabled = false;
   document.getElementById('redoBtn').disabled = true;
@@ -2399,12 +2418,18 @@ function syncAfterEdit() {
 function rebuildPalette() {
   const data = atlasCtx.getImageData(0, 0, SIZE, SIZE).data;
   const counts = new Map();
-  for (let i = 0; i < data.length; i += 4) {
+  // Counts every pixel up to 4x; an 8x/16x skin is sampled (every 2nd/4th
+  // pixel each way) so painting stays smooth - the most-used colours
+  // come out the same.
+  const step = Math.max(1, RES / 4);
+  for (let y = 0; y < SIZE; y += step) for (let x = 0; x < SIZE; x += step) {
+    const i = (y * SIZE + x) * 4;
     if (data[i+3] === 0) continue;
-    const hex = rgbToHex(data[i], data[i+1], data[i+2]);
-    counts.set(hex, (counts.get(hex) || 0) + 1);
+    const key = (data[i] << 16) | (data[i+1] << 8) | data[i+2];
+    counts.set(key, (counts.get(key) || 0) + 1);
   }
-  const top = [...counts.entries()].sort((a,b) => b[1]-a[1]).slice(0, 16);
+  const top = [...counts.entries()].sort((a,b) => b[1]-a[1]).slice(0, 16)
+    .map(([k, c]) => [rgbToHex((k >> 16) & 255, (k >> 8) & 255, k & 255), c]);
   const el = document.getElementById('palette');
   el.innerHTML = '';
   for (const [hex] of top) {
@@ -2807,7 +2832,7 @@ const ctx2d = canvas2d.getContext('2d');
 let zoomPx = 9;
 // Screen pixels per atlas pixel: the zoom slider is per 64-layout pixel,
 // so a 2x/4x skin's finer pixels are drawn smaller, not the view bigger.
-function pz() { return Math.max(2, Math.round(zoomPx / RES)); }
+function pz() { return Math.max(RES >= 8 ? 1 : 2, Math.round(zoomPx / RES)); }
 function resize2d() {
   canvas2d.width = SIZE * pz();
   canvas2d.height = SIZE * pz();
@@ -3378,15 +3403,17 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   );
 });
 document.getElementById('downloadBigBtn').addEventListener('click', () => {
+  // At least twice the skin's own size (an 8x/16x skin is already 512/1024).
+  const n = Math.min(2048, Math.max(512, SIZE * 2));
   const big = document.createElement('canvas');
-  big.width = 512; big.height = 512;
+  big.width = n; big.height = n;
   const bctx = big.getContext('2d');
   bctx.imageSmoothingEnabled = false;
-  bctx.drawImage(atlasSrc, 0, 0, 512, 512);
+  bctx.drawImage(atlasSrc, 0, 0, n, n);
   showExportOverlay(
     big.toDataURL('image/png'),
-    'skin-512x512.png',
-    'A 512&times;512 upscaled copy for printing or wallpaper - right-click (or press and hold on mobile) below and choose <b>Save Image As&hellip;</b>. Not usable as an actual game skin.png (wrong size for that).'
+    'skin-' + n + 'x' + n + '.png',
+    'A ' + n + '&times;' + n + ' upscaled copy for printing or wallpaper - right-click (or press and hold on mobile) below and choose <b>Save Image As&hellip;</b>. For the skin itself, use Download.'
   );
 });
 document.getElementById('exportCloseBtn').addEventListener('click', () => {
@@ -3501,7 +3528,7 @@ function switchSlot(n) {
 resize2d();
 renderSlotBar();
 setRes(preferredRes(), false);
-for (const n of [1, 2, 4]) {
+for (const n of RES_LEVELS) {
   document.getElementById('res' + n + 'Btn')?.addEventListener('click', () => {
     try { localStorage.setItem(RES_KEY, String(n)); } catch (e) {}
     if (n === RES) return;
