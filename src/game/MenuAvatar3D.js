@@ -180,8 +180,8 @@ export function loadSkinTexture(source) {
       if (isBlob) URL.revokeObjectURL(url)
       const w = img.naturalWidth
       const h = img.naturalHeight
-      // HD skins (2026-10-11): 128 or 256 pixels wide instead of 64, the
-      // same layout with every pixel split in 2x2 / 4x4. Everything below
+      // HD skins (2026-10-11): 128, 256, 512 or 1024 pixels wide instead of
+      // 64, the same layout with every pixel split in 2x2 ... 16x16. Everything below
       // (UVs, overlay checks) works in the 64-wide layout's units; only the
       // canvas keeps the real pixels. width/height returned are those
       // 64-unit sizes, scale says how many real pixels make one of them.

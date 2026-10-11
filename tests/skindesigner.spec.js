@@ -102,3 +102,79 @@ test('Design a Skin makes 2x and 4x skins', async ({ page }) => {
   expect(sizes[4]).toMatchObject({ w: 256, h: 256 })
   expect(sizes[4].colours).toBeGreaterThan(sizes[1].colours)
 })
+
+// 2026-10-11, "add 8x and 16x ... make every current feature in design a
+// skin work for more pixels too": generating, painting with mirror, fill,
+// undo and the slots all work on a 1024-wide skin, and the game wears it.
+test('Design a Skin works at 8x and 16x', async ({ page }) => {
+  await openDesigner(page)
+  await page.click('#res8Btn')
+  await generate(page, 'pirate with a hat')
+  expect(await page.evaluate(() => window.__skinAtlas.width)).toBe(512)
+  await page.click('#res16Btn')
+  await generate(page, 'girl with long red hair')
+  expect(await page.evaluate(() => [window.__skinAtlas.width, document.getElementById('atlasSizeLabel').textContent])).toEqual([1024, '1024×1024'])
+
+  await page.click('#clearBtn')
+  // Scrolls the atlas pixel to the middle of the window, then returns where it is.
+  const at = (x, y) => page.evaluate(([x, y]) => {
+    const c = document.getElementById('atlas2d'), zp = c.width / window.__skinAtlas.width
+    const spot = () => { const r = c.getBoundingClientRect(); return { x: r.left + (x * zp + zp / 2) * r.width / c.width, y: r.top + (y * zp + zp / 2) * r.height / c.height } }
+    let s = spot()
+    for (let el = c.parentElement; el; el = el.parentElement) {
+      if (el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) {
+        const r = el.getBoundingClientRect()
+        el.scrollTop += s.y - (r.top + Math.min(r.height, innerHeight) / 2)
+        el.scrollLeft += s.x - (r.left + Math.min(r.width, innerWidth) / 2)
+        s = spot()
+      }
+    }
+    window.scrollBy(s.x - innerWidth / 2, s.y - innerHeight / 2)
+    return spot()
+  }, [x, y])
+  const px = (x, y) => page.evaluate(([x, y]) => Array.from(window.__skinAtlas.getContext('2d').getImageData(x, y, 1, 1).data), [x, y])
+  // Head front is 8..16 x 8..16 in skin units; 16 atlas pixels each.
+  await page.fill('#colorHex', '#ff0000')
+  await page.press('#colorHex', 'Enter')
+  await page.click('#toolPencil')
+  await page.click('#mirrorBtn')
+  const p = await at(8 * 16 + 3, 8 * 16 + 40)
+  await page.mouse.click(p.x, p.y)
+  expect(await px(8 * 16 + 3, 8 * 16 + 40)).toEqual([255, 0, 0, 255])
+  expect(await px(16 * 16 - 1 - 3, 8 * 16 + 40)).toEqual([255, 0, 0, 255])
+  await page.click('#mirrorBtn')
+
+  await page.fill('#colorHex', '#00ff00')
+  await page.press('#colorHex', 'Enter')
+  await page.click('#toolFill')
+  const f = await at(20 * 16 + 5, 20 * 16 + 5)
+  await page.mouse.click(f.x, f.y)
+  expect(await px(20 * 16 + 5, 20 * 16 + 5)).toEqual([0, 255, 0, 255])
+  await page.click('#undoBtn')
+  expect((await px(20 * 16 + 5, 20 * 16 + 5))[3]).toBe(0)
+  expect(await px(8 * 16 + 3, 8 * 16 + 40)).toEqual([255, 0, 0, 255])
+
+  // The slot keeps the 16x skin.
+  await page.click('#slotBar button:nth-of-type(2)')
+  await page.click('#slotBar button:nth-of-type(1)')
+  await page.waitForFunction(() => window.__skinAtlas.width === 1024)
+  await expect.poll(() => px(8 * 16 + 3, 8 * 16 + 40)).toEqual([255, 0, 0, 255])
+})
+
+test('the game wears a 16x skin', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForFunction(() => !!window.__game, null, { timeout: 60000 })
+  const w = await page.evaluate(async () => {
+    const c = document.createElement('canvas')
+    c.width = c.height = 1024
+    const ctx = c.getContext('2d')
+    ctx.fillStyle = '#c08040'
+    ctx.fillRect(0, 0, 1024, 1024)
+    await window.__game._applyImportedSkin(c.toDataURL('image/png'))
+    const img = new Image()
+    img.src = window.__game.settings.customSkinDataUrl
+    await img.decode()
+    return img.naturalWidth
+  })
+  expect(w).toBe(1024)
+})
