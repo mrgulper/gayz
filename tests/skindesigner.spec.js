@@ -178,3 +178,28 @@ test('the game wears a 16x skin', async ({ page }) => {
   })
   expect(w).toBe(1024)
 })
+
+// 2026-10-11: changing Pixels after Generate really adds detail (the skin is
+// drawn again at the new size), Randomize says what it made, and "no"/
+// "without" words leave things off.
+test('Pixels adds detail, Randomize describes, "without" leaves things off', async ({ page }) => {
+  await openDesigner(page)
+  await page.click('#res1Btn')
+  await generate(page, 'girl with long pink hair')
+  const colours = () => page.evaluate(() => {
+    const c = window.__skinAtlas, d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, s = new Set()
+    for (let i = 0; i < d.length; i += 4) s.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2])
+    return s.size
+  })
+  const at1 = await colours()
+  await page.click('#res16Btn')
+  await page.waitForFunction(() => window.__skinAtlas.width === 1024 && !document.getElementById('generateBtn').disabled)
+  expect(await colours()).toBeGreaterThan(at1 * 4)
+
+  const note = await (async () => { await page.click('#randomizeBtn'); await page.waitForFunction(() => !document.getElementById('generateBtn').disabled); return (await page.textContent('#themeNote')).trim() })()
+  expect(note).toMatch(/^Randomized an? .+ with .+\. Hit Randomize/)
+
+  expect(await page.evaluate(() => window.__parsePrompt('knight without a cape and no helmet').without.sort())).toEqual(['cape', 'helmet'])
+  expect(await page.evaluate(() => window.__parsePrompt('pirate with no hat').without)).toEqual(['hat'])
+  expect(await generate(page, 'pirate without a hat')).toContain('Left out: headwear')
+})

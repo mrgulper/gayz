@@ -1816,7 +1816,7 @@ const WORD_MEANINGS = {
   space: 'astronaut', galaxy: 'galaxy', cosmic: 'galaxy', stars: 'galaxy', star: 'gold',
 }
 // Words that never change how a skin looks - skipped, never "corrected".
-const PLAIN_WORDS = new Set(['a', 'an', 'the', 'with', 'and', 'in', 'of', 'on', 'wearing', 'wears', 'wear', 'has', 'have', 'having', 'her', 'his', 'their', 'who', 'is', 'are', 'was', 'that', 'this', 'very', 'really', 'super', 'so', 'some', 'big', 'small', 'style', 'styled', 'minecraft', 'character', 'make', 'me', 'my', 'like', 'for', 'to', 'it', 'or', 'but', 'not', 'no', 'i', 'want', 'please', 'can', 'you', 'give', 'draw', 'create', 'generate', 'design', 'one', 'kind', 'type', 'looking', 'look', 'looks', 'outfit', 'clothes', 'clothing', 'wearing', 'colored', 'coloured', 'color', 'colour', 'all', 'full', 'whole', 'just', 'also', 'from', 'as', 'at', 'by', 'be', 'into', 'out', 'up', 'new', 'nice', 'good', 'awesome', 'amazing', 'epic', 'best', 'great', 'happy', 'sad', 'angry', 'funny', 'weird', 'random', 'mixed'])
+const PLAIN_WORDS = new Set(['without', 'never', 'minus', 'dont', 'none', 'nothing', 'any', 'a', 'an', 'the', 'with', 'and', 'in', 'of', 'on', 'wearing', 'wears', 'wear', 'has', 'have', 'having', 'her', 'his', 'their', 'who', 'is', 'are', 'was', 'that', 'this', 'very', 'really', 'super', 'so', 'some', 'big', 'small', 'style', 'styled', 'minecraft', 'character', 'make', 'me', 'my', 'like', 'for', 'to', 'it', 'or', 'but', 'not', 'no', 'i', 'want', 'please', 'can', 'you', 'give', 'draw', 'create', 'generate', 'design', 'one', 'kind', 'type', 'looking', 'look', 'looks', 'outfit', 'clothes', 'clothing', 'wearing', 'colored', 'coloured', 'color', 'colour', 'all', 'full', 'whole', 'just', 'also', 'from', 'as', 'at', 'by', 'be', 'into', 'out', 'up', 'new', 'nice', 'good', 'awesome', 'amazing', 'epic', 'best', 'great', 'happy', 'sad', 'angry', 'funny', 'weird', 'random', 'mixed'])
 function editDistance(a, b, max) {
   if (Math.abs(a.length - b.length) > max) return max + 1
   let prev = Array.from({ length: b.length + 1 }, (_, i) => i)
@@ -1854,6 +1854,7 @@ function meaningOf(w) {
   return null
 }
 function understandWord(w) {
+  if (NEGATORS.has(w)) return { words: [w] } // read by parsePrompt's "no ..." step
   if (PLAIN_WORDS.has(w)) return { words: [] }
   const direct = meaningOf(w)
   if (direct) return { words: direct }
@@ -1889,10 +1890,42 @@ function understandWords(words) {
   return { words: out, fixes }
 }
 
+// "No"/"without" words (2026-10-11, "make it smarter"): "pirate without a
+// hat", "knight with no cape", "no beard" leave that thing off - even when
+// it's part of the look. NEGATABLE turns the word after one into what to
+// leave out; 'hat' means every kind of headwear.
+const NEGATORS = new Set(['no', 'without', 'not', 'never', 'minus', 'dont', 'none', 'nothing'])
+const NEG_SKIP = new Set(['a', 'an', 'any', 'the', 'his', 'her', 'their', 'more', 'wearing', 'wear', 'have', 'having', 'with', 'or'])
+const NEGATABLE = {
+  hat: 'hat', hats: 'hat', headwear: 'hat', cap: 'cap', beanie: 'beanie', bandana: 'bandana', helmet: 'helmet',
+  crown: 'crown', tiara: 'crown', hood: 'hood', hoodie: 'hood', mask: 'mask', horns: 'horns', cape: 'cape', cloak: 'cape',
+  wings: 'cape', scarf: 'scarf', backpack: 'backpack', bag: 'backpack', coat: 'coat', jacket: 'coat', armor: 'armor',
+  armour: 'armor', gloves: 'gloves', boots: 'boots', glasses: 'glasses', sunglasses: 'glasses', shades: 'glasses',
+  headphones: 'headphones', beard: 'beard', moustache: 'beard', mustache: 'beard', hair: 'hair', bow: 'bow',
+  ears: 'ears', tail: 'tail', sleeves: 'sleeves', gear: 'all', accessories: 'all',
+}
+const HEADWEAR = new Set(['hat', 'cap', 'beanie', 'bandana', 'helmet', 'crown', 'hood', 'horns'])
+let genWithout = new Set()
+function leftOut(key) {
+  return genWithout.has(key) || genWithout.has('all') || (genWithout.has('hat') && HEADWEAR.has(key))
+}
 function parsePrompt(text) {
   const raw = (text || '').toLowerCase().replace(/[^a-z\s-]/g, ' ').split(/[\s-]+/).filter(Boolean)
     .flatMap((w) => { const m = w.match(/^([a-z]+?)(girl|boy|man|woman|lady|guy)$/); return m && (ANIMAL_WORDS[m[1]] || THEMES[m[1]] || WORD_MEANINGS[m[1]]) && !WORD_MEANINGS[w] ? [m[1], m[2]] : [w] })
-  const { words, fixes } = understandWords(raw)
+  let { words, fixes } = understandWords(raw)
+  const without = new Set()
+  if (words.includes('sleeveless')) without.add('sleeves')
+  if (words.includes('hatless')) without.add('hat')
+  for (let i = 0; i < words.length; i++) {
+    if (!NEGATORS.has(words[i])) continue
+    for (let j = i + 1, taken = 0; j < words.length && taken < 2; j++) {
+      const w = words[j]
+      if (NEG_SKIP.has(w) || (COLOR_WORDS[w] && NEGATABLE[words[j + 1]])) continue
+      if (!NEGATABLE[w]) break
+      without.add(NEGATABLE[w]); words[j] = '~'; taken++
+    }
+  }
+  words = words.filter((w) => w !== '~' && !NEGATORS.has(w))
   const themes = []
   for (const w of words) {
     const i = words.indexOf(w)
@@ -1924,8 +1957,8 @@ function parsePrompt(text) {
   const describedSomething = Object.keys(colors).length || loose.length || words.some((w) => GEAR_WORDS[w] || w in HAIR_STYLE_WORDS || FEMININE_WORDS.includes(w) || MASCULINE_WORDS.includes(w))
   let skinTone = null
   words.forEach((w, i) => { if (w in SKIN_WORDS && (words[i + 1] === 'skin' || words[i + 1] === 'skinned' || personFollows(words, i))) skinTone = SKIN_WORDS[w] })
-  let hairStyle = null
-  words.forEach((w, i) => { if (w in HAIR_STYLE_WORDS && (w === 'bald' || w === 'mohawk' || w === 'ponytail' || words.slice(i + 1, i + 4).includes('hair'))) hairStyle = HAIR_STYLE_WORDS[w] })
+  let hairStyle = without.has('hair') ? 3 : null
+  if (!without.has('hair')) words.forEach((w, i) => { if (w in HAIR_STYLE_WORDS && (w === 'bald' || w === 'mohawk' || w === 'ponytail' || words.slice(i + 1, i + 4).includes('hair'))) hairStyle = HAIR_STYLE_WORDS[w] })
   const ponytail = words.includes('ponytail')
   const gear = [...new Set(words.map((w) => GEAR_WORDS[w]).filter(Boolean))]
   // Animals: "cat girl"/"fox ears" give a person ears + a tail; an animal
@@ -1944,7 +1977,7 @@ function parsePrompt(text) {
   const known = (w) => THEMES[w] || ALIASES[w] || COLOR_WORDS[w] || PART_WORDS[w] || w in SKIN_WORDS || w in HAIR_STYLE_WORDS || GEAR_WORDS[w] || FEMININE_WORDS.includes(w) || MASCULINE_WORDS.includes(w) || CUTE_WORDS.includes(w) || ANIMAL_WORDS[w] || FUR_WORDS.includes(w) || MULTIHUE_WORDS.includes(w) || PASTEL_WORDS.includes(w)
   const unknown = [...new Set(words.filter((w) => !known(w) && !FILLER.has(w) && !PLAIN_WORDS.has(w)))]
   return {
-    animal, fullFur, multiHue, pastel: pastelWord, unknown, fixes,
+    animal, fullFur, multiHue, pastel: pastelWord, unknown, fixes, without: [...without],
     themes, colors, loose, skinTone, hairStyle, ponytail, gear,
     feminine: words.some((w) => FEMININE_WORDS.includes(w)) || themes.includes('girl'),
     cute: words.some((w) => CUTE_WORDS.includes(w)),
@@ -1997,6 +2030,38 @@ function applyGearWord(word, p, rng) {
   }
 }
 
+// Every gear painter checks leftOut() first, so a "no ..." word works on
+// a look's own gear as well as on words.
+function skippable(key, paint) { return (...args) => { if (!leftOut(key)) paint(...args) } }
+gearHood = skippable('hood', gearHood)
+gearHelmet = skippable('helmet', gearHelmet)
+gearHelmetFrame = skippable('helmet', gearHelmetFrame)
+gearCap = skippable('cap', gearCap)
+gearBeanie = skippable('beanie', gearBeanie)
+gearBandana = skippable('bandana', gearBandana)
+gearMask = skippable('mask', gearMask)
+gearCrown = skippable('crown', gearCrown)
+gearHorns = skippable('horns', gearHorns)
+gearWizardHat = skippable('hat', gearWizardHat)
+gearCoat = skippable('coat', gearCoat)
+gearPlate = skippable('armor', gearPlate)
+gearVest = skippable('coat', gearVest)
+gearCape = skippable('cape', gearCape)
+gearScarf = skippable('scarf', gearScarf)
+gearBackpack = skippable('backpack', gearBackpack)
+gearSash = skippable('sash', gearSash)
+gearSleeves = skippable('sleeves', gearSleeves)
+gearGloves = skippable('gloves', gearGloves)
+gearBoots = skippable('boots', gearBoots)
+gearGreaves = skippable('armor', gearGreaves)
+gearBow = skippable('bow', gearBow)
+gearGlasses = skippable('glasses', gearGlasses)
+gearHeadphones = skippable('headphones', gearHeadphones)
+gearAnimalEars = skippable('ears', gearAnimalEars)
+gearAnimalTail = skippable('tail', gearAnimalTail)
+gearHairVolume = skippable('hair', gearHairVolume)
+gearHairTufts = skippable('hair', gearHairTufts)
+
 // Builds the palette + options for one generation from the prompt.
 function planSkin(parsed, rng, randomTheme) {
   const themeKey = parsed.themes[0] || randomTheme
@@ -2047,7 +2112,7 @@ function planSkin(parsed, rng, randomTheme) {
   if (parsed.hairStyle !== null) o.hairStyle = parsed.hairStyle
   o.ponytail = !!parsed.ponytail
   o.feminine = (parsed.feminine || themeKey === 'girl') && !parsed.masculine
-  if (parsed.gear.includes('beard') || (parsed.masculine && rng() < 0.2)) o.beard = true
+  if (parsed.gear.includes('beard') || (parsed.masculine && rng() < 0.2)) o.beard = !(parsed.without || []).includes('beard')
   if (parsed.gear.includes('skirt') || (o.feminine && themeKey !== 'girl' && !parsed.colors.pants && rng() < 0.4)) o.skirt = o.skirt || shade(p.accent, -10)
   if (parsed.colors.pants && themeKey === 'girl') o.skirt = null
   if (o.skirt) p.pants = o.skirt
@@ -2058,10 +2123,46 @@ function planSkin(parsed, rng, randomTheme) {
 // then calls done(). Returns false if a generation is already running.
 let generating = false
 function sleep(ms) { return new Promise((res) => setTimeout(res, ms)) }
-async function generateThemedSkin(parsed, variant, randomTheme, onStage) {
+// A quick fingerprint of the atlas, to tell whether it changed since the
+// last Generate.
+function atlasSignature() {
+  const d = mainCtx.getImageData(0, 0, SIZE, SIZE).data;
+  let h = 2166136261;
+  for (let i = 0; i < d.length; i += 4) h = Math.imul(h ^ (d[i] | (d[i + 1] << 8) | (d[i + 2] << 16) | (d[i + 3] << 24)), 16777619);
+  return SIZE + ':' + (h >>> 0);
+}
+// What the last generated skin was made of - Randomize describes it, and
+// changing Pixels redraws it at the new size (see setRes's caller).
+let lastPlan = null
+let lastGen = null
+// Words for a palette colour: the nearest of a short list of plain names.
+const PLAIN_COLOR_NAMES = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'black', 'white', 'gray', 'brown', 'gold', 'silver', 'cyan', 'teal', 'navy', 'maroon', 'beige', 'lavender', 'mint', 'crimson', 'lime']
+const HAIR_COLOR_NAMES = [...PLAIN_COLOR_NAMES, 'blonde', 'ginger', 'brunette', 'platinum']
+function colorName(hex, names = PLAIN_COLOR_NAMES) {
+  if (!hex) return ''
+  return names.reduce((a, b) => (colorDistance(COLOR_WORDS[b], hex) < colorDistance(COLOR_WORDS[a], hex) ? b : a))
+}
+const THEME_WORDS = { girl: 'girl', casual: 'casual survivor', rainbow: 'rainbow look', fire: 'fire look', ice: 'ice look', forest: 'forest ranger', gold: 'golden look', shadow: 'shadow look', rose: 'rose look', camo: 'camo soldier', stylish: 'stylish outfit', suit: 'suit', police: 'police officer', gamer: 'gamer', athlete: 'athlete' }
+function describePlan(plan) {
+  if (!plan) return ''
+  const { themeKey, p, o } = plan
+  const what = THEME_WORDS[themeKey] || themeKey
+  const article = /^[aeiou]/.test(what) ? 'an' : 'a'
+  const bits = []
+  if (p.hair && o.hairStyle !== 3) bits.push(colorName(p.hair, HAIR_COLOR_NAMES) + ' hair')
+  if (p.eye) bits.push(colorName(p.eye) + ' eyes')
+  if (p.shirt) bits.push(colorName(p.shirt) + ' top')
+  if (o.skirt) bits.push(colorName(o.skirt) + ' skirt')
+  else if (p.pants) bits.push(colorName(p.pants) + ' pants')
+  if (o.animal) bits.push(o.animal + (o.fullFur ? ' fur' : ' ears and tail'))
+  return article + ' <b>' + what + '</b>' + (bits.length ? ' with ' + bits.slice(0, -1).join(', ') + (bits.length > 1 ? ' and ' : '') + bits[bits.length - 1] : '')
+}
+async function generateThemedSkin(parsed, variant, randomTheme, onStage, fast) {
   const seed = hashString(JSON.stringify(parsed) + '|' + variant)
   const rng = mulberry32(seed)
+  genWithout = new Set(parsed.without || [])
   const { themeKey, p, o } = planSkin(parsed, rng, randomTheme)
+  lastPlan = { themeKey, p, o }
   const part = (key) => BOXES.find((b) => b.key === key)
   const stages = [
     ['head', () => { atlasCtx.clearRect(0, 0, 64, 64); paintHeadDetailed(part('head'), p, rng, o) }],
@@ -2094,7 +2195,7 @@ async function generateThemedSkin(parsed, variant, randomTheme, onStage) {
   for (const [label, paint] of stages) {
     paint()
     onStage?.(label)
-    await sleep(220)
+    if (!fast) await sleep(220)
   }
   return themeKey
 }
@@ -2106,7 +2207,10 @@ async function generateThemedSkin(parsed, variant, randomTheme, onStage) {
 // so diagonals and round shapes - eyes, hair edges, collars - come out
 // smooth in sharp pixels), twice for 4x, up to four times for 16x. Only neighbours on the same face
 // count: faces side by side in the file aren't side by side on the body.
-// Then hair gets thin strands and each face a soft light from above.
+// Then each face gets a soft light from above and a shadow where it meets
+// the next, hair thin strands and a shine, cloth a woven grain, skin a
+// little grain, and the eyes a catchlight - more of it the more pixels
+// there are (2026-10-11, "deeper and smarter, more detailed").
 function faceIdMap(scale) {
   const n = 64 * scale, map = new Int32Array(n * n)
   let id = 0
@@ -2119,10 +2223,15 @@ function faceIdMap(scale) {
   return map
 }
 function scale2x(src, n) {
-  const ids = faceIdMap(n / 64), m = n * 2, out = new Uint8ClampedArray(m * m * 4)
-  const same = (i, j) => Math.abs(src[i] - src[j]) + Math.abs(src[i + 1] - src[j + 1]) + Math.abs(src[i + 2] - src[j + 2]) < 36 && Math.abs(src[i + 3] - src[j + 3]) < 40
+  const ids = faceIdMap(n / 64), m = n * 2, out = new Uint8ClampedArray(m * m * 4), unit = n / 64
+  const diff = (i, j) => Math.abs(src[i] - src[j]) + Math.abs(src[i + 1] - src[j + 1]) + Math.abs(src[i + 2] - src[j + 2])
+  const same = (i, j) => diff(i, j) < 36 && Math.abs(src[i + 3] - src[j + 3]) < 40
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
     const p = (y * n + x) * 4, id = ids[y * n + x]
+    // The face below the hairline (eyes, nose, mouth) stays square - rounded
+    // it smudged into blobs and slanted mouths.
+    const ux = Math.floor(x / unit), uy = Math.floor(y / unit)
+    const crisp = ux >= 8 && ux < 16 && uy >= 11 && uy < 16
     const nb = (dx, dy) => {
       const xx = x + dx, yy = y + dy
       if (xx < 0 || yy < 0 || xx >= n || yy >= n || ids[yy * n + xx] !== id) return p
@@ -2130,12 +2239,14 @@ function scale2x(src, n) {
     }
     const A = nb(0, -1), B = nb(1, 0), C = nb(-1, 0), D = nb(0, 1)
     const e = [p, p, p, p]
-    if (id) {
+    if (id && !crisp) {
       if (same(C, A) && !same(C, D) && !same(A, B)) e[0] = A
       if (same(A, B) && !same(A, C) && !same(B, D)) e[1] = B
       if (same(D, C) && !same(D, B) && !same(C, A)) e[2] = C
       if (same(B, D) && !same(B, A) && !same(D, C)) e[3] = D
     }
+    // Only strong edges round off; soft shading steps stay as they are.
+    for (let k = 0; k < 4; k++) if (e[k] !== p && diff(p, e[k]) < 70) e[k] = p
     const put = (ox, oy, s) => { const o = ((y * 2 + oy) * m + x * 2 + ox) * 4; out[o] = src[s]; out[o + 1] = src[s + 1]; out[o + 2] = src[s + 2]; out[o + 3] = src[s + 3] }
     put(0, 0, e[0]); put(1, 0, e[1]); put(0, 1, e[2]); put(1, 1, e[3])
   }
@@ -2143,30 +2254,66 @@ function scale2x(src, n) {
 }
 function hdDetail(p, o, rng) {
   if (RES < 2) return
-  let n = 64, data = genCtx.getImageData(0, 0, 64, 64).data
+  const src64 = genCtx.getImageData(0, 0, 64, 64).data
+  let n = 64, data = src64
   while (n < SIZE) { data = scale2x(data, n); n *= 2 }
-  const S = SIZE
-  const hair = hexToRgb(p.hair), skin = hexToRgb(p.skin)
-  const near = (i, c, lim) => Math.abs(data[i] - c.r) + Math.abs(data[i + 1] - c.g) + Math.abs(data[i + 2] - c.b) < lim
-  const strand = Array.from({ length: S }, () => rng())
-  for (const b of BOXES) for (const rects of [partFaceRects(b.u, b.v, b.w, b.h, b.d), ovRects(b.key)]) {
+  const S = SIZE, R = RES
+  const rgb = (h) => (h ? hexToRgb(h) : null)
+  const hair = rgb(p.hair), skin = rgb(p.skin), eye = rgb(p.eye)
+  const cloth = [p.shirt, p.pants, p.accent, p.shoe, o.skirt].filter(Boolean).map(hexToRgb)
+  const near = (i, c, lim) => c && Math.abs(data[i] - c.r) + Math.abs(data[i + 1] - c.g) + Math.abs(data[i + 2] - c.b) < lim
+  const near64 = (x, y, c, lim) => { const i = (y * 64 + x) * 4; return c && src64[i + 3] > 0 && Math.abs(src64[i] - c.r) + Math.abs(src64[i + 1] - c.g) + Math.abs(src64[i + 2] - c.b) < lim }
+  // A fixed per-pixel number, so the same skin always gets the same grain.
+  const grain = (x, y) => { let h = (x * 374761393 + y * 668265263) ^ 0x5bd1e995; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296 }
+  // Hair strands: thin columns, a few finest-pixels wide, each its own shade.
+  const strandW = Math.max(1, R >> 3)
+  const strand = Array.from({ length: Math.ceil(S / strandW) }, () => rng())
+  const weave = R >= 4, finest = R >= 8
+  for (const b of BOXES) for (const [layer, rects] of [[0, partFaceRects(b.u, b.v, b.w, b.h, b.d)], [1, ovRects(b.key)]]) {
     for (const [key, r] of Object.entries(rects)) {
-      const X0 = r[0] * RES, Y0 = r[1] * RES, X1 = r[2] * RES, Y1 = r[3] * RES, fh = Y1 - Y0
+      const X0 = r[0] * R, Y0 = r[1] * R, X1 = r[2] * R, Y1 = r[3] * R, fh = Y1 - Y0
       const side = key !== 'top' && key !== 'bottom'
+      // Soft shadow where faces meet, a few finest pixels deep (steps, not blur).
+      const edge = Math.max(1, R >> 2)
       for (let y = Y0; y < Y1; y++) for (let x = X0; x < X1; x++) {
         const i = (y * S + x) * 4
         if (!data[i + 3]) continue
         let f = 1
-        if (side && fh > 1) f += (0.5 - (y - Y0) / (fh - 1)) * 0.06
-        if (near(i, hair, 90) && !near(i, skin, 40)) {
-          // Thin strands: some columns darker, a few lighter.
-          const t = strand[x]
-          if (t < 0.25) f -= 0.12
-          else if (t > 0.85) f += 0.1
+        if (side && fh > 1) f += (0.5 - (y - Y0) / (fh - 1)) * 0.07
+        if (side && y - Y0 < Math.max(1, R >> 3)) f += 0.05 // light catching the top edge
+        const d = Math.min(x - X0, X1 - 1 - x, Y1 - 1 - y)
+        if (side && layer === 0 && d < edge) f -= 0.07 * (1 - d / edge)
+        const isHair = near(i, hair, 90) && !near(i, skin, 40)
+        if (isHair) {
+          const t = strand[Math.floor(x / strandW)]
+          if (t < 0.25) f -= 0.13
+          else if (t > 0.85) f += 0.11
+          // A shine band across the top of the head.
+          if (b.key === 'head' && side && fh > 4) { const ry = (y - Y0) / fh; if (ry > 0.12 && ry < 0.22 && t > 0.4) f += 0.12 }
+        } else if (weave && (b.key !== 'head' || layer === 1) && cloth.some((c) => near(i, c, 70))) {
+          // Cloth: a fine woven grain, twill-like on longer faces.
+          if (((x >> (finest ? 1 : 0)) + (y >> (finest ? 1 : 0))) & 1) f -= 0.03
+          if (finest && (x + y) % 6 === 0) f -= 0.025
+        } else if (weave && near(i, skin, 50)) {
+          f += (grain(x, y) - 0.5) * 0.04 // skin isn't one flat colour
         }
         if (f !== 1) {
           data[i] = Math.min(255, data[i] * f); data[i + 1] = Math.min(255, data[i + 1] * f); data[i + 2] = Math.min(255, data[i + 2] * f)
         }
+      }
+    }
+  }
+  // Eyes get a small catchlight in the top corner of each eye (the leftmost
+  // eye pixel of each run on the face), so they look alive up close.
+  if (eye && R >= 4) {
+    const head = BOXES.find((b) => b.key === 'head'), fr = partFaceRects(head.u, head.v, head.w, head.h, head.d).front
+    const sz = Math.max(1, R >> 2)
+    for (let y = fr[1]; y < fr[3]; y++) for (let x = fr[0]; x < fr[2]; x++) {
+      if (!near64(x, y, eye, 60) || near64(x - 1, y, eye, 60) || near64(x, y - 1, eye, 60)) continue
+      const ax = x * R + Math.max(1, R >> 3), ay = y * R + Math.max(1, R >> 3)
+      for (let yy = ay; yy < ay + sz; yy++) for (let xx = ax; xx < ax + sz; xx++) {
+        const i = (yy * S + xx) * 4
+        data[i] = Math.round(data[i] * 0.25 + 255 * 0.75); data[i + 1] = Math.round(data[i + 1] * 0.25 + 255 * 0.75); data[i + 2] = Math.round(data[i + 2] * 0.25 + 255 * 0.75)
       }
     }
   }
@@ -2185,10 +2332,12 @@ async function runGeneration(promptText, isRandom) {
   const randomTheme = RANDOMIZABLE_THEME_KEYS[Math.floor(Math.random() * RANDOMIZABLE_THEME_KEYS.length)]
   pushUndo()
   try {
-    await generateThemedSkin(parsed, Math.random().toString(36).slice(2), randomTheme, (stage) => {
+    const variant = Math.random().toString(36).slice(2)
+    await generateThemedSkin(parsed, variant, randomTheme, (stage) => {
       note.innerHTML = 'Generating... painting the <b>' + stage + '</b>'
       syncAfterEdit()
     })
+    lastGen = { parsed, variant, randomTheme, sig: atlasSignature() }
     syncAfterEdit()
     scheduleSave()
     revealOuterLayerIfPainted()
@@ -2210,12 +2359,13 @@ async function runGeneration(promptText, isRandom) {
     const typedWords = new Set(promptText.toLowerCase().split(/[^a-z]+/))
     const told = extras.filter((x) => !x.split(/[^a-z]+/).filter(Boolean).every((w) => typedWords.has(w)))
     const extraText = told.length ? ' with ' + told.join(', ') : ''
-    if (isRandom) note.innerHTML = 'Randomized a new skin. Hit Randomize again for something else.'
+    if (isRandom) note.innerHTML = 'Randomized ' + describePlan(lastPlan) + '. Hit Randomize again for something else.'
     else if (parsed.themes.length || extras.length) {
       const typed = promptText.trim().replace(/[<>&"]/g, '').slice(0, 60)
       const skipped = (parsed.unknown || []).slice(0, 6).map((w) => w.replace(/[<>&"]/g, ''))
       const fixed = (parsed.fixes || []).slice(0, 4).map(([a, b]) => '"' + a.replace(/[<>&"]/g, '') + '" as ' + b)
-      note.innerHTML = 'Generated <b>"' + typed + '"</b>' + extraText + '.' + (fixed.length ? ' Read ' + fixed.join(', ') + '.' : '') + (skipped.length ? ' Didn\'t know: ' + skipped.join(', ') + '.' : '') + ' Click Generate again for a new one.'
+      const without = (parsed.without || []).map((w) => (w === 'all' ? 'all extra gear' : w === 'hat' ? 'headwear' : w))
+      note.innerHTML = 'Generated <b>"' + typed + '"</b>' + extraText + '.' + (without.length ? ' Left out: ' + without.join(', ') + '.' : '') + (fixed.length ? ' Read ' + fixed.join(', ') + '.' : '') + (skipped.length ? ' Didn\'t know: ' + skipped.join(', ') + '.' : '') + ' Click Generate again for a new one.'
     }
     else note.innerHTML = 'Didn\'t recognize "' + promptText.trim().replace(/[<>&"]/g, '') + '" - generated a random skin instead. Try words like pirate, cowboy, chef, superhero, ghost, cat girl, crown, red hair, blue pants.'
   } finally {
@@ -3047,7 +3197,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true 
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 300);
+const camera = new THREE.PerspectiveCamera(40, 1, 0.01, 20000);
 camera.position.set(0, 22, 58);
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.7));
@@ -3063,8 +3213,9 @@ controls.target.set(0, 14, 0);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.enablePan = false;
-controls.minDistance = 22;
-controls.maxDistance = 130;
+// Zoom as far in or out as you like (2026-10-11, "no limit").
+controls.minDistance = 0.05;
+controls.maxDistance = 6000;
 controls.minPolarAngle = 0.05;
 controls.maxPolarAngle = Math.PI - 0.05;
 controls.update();
@@ -3528,12 +3679,32 @@ function switchSlot(n) {
 resize2d();
 renderSlotBar();
 setRes(preferredRes(), false);
+// Changing Pixels really changes the detail (2026-10-11, "are you sure
+// they all work? I see no difference"): a generated skin you haven't
+// edited since is drawn again at the new size from the same plan (so 16x
+// gets the full extra detail); anything else is scaled up crisply with
+// Scale2x - rounder curves and diagonals, not just bigger squares - or
+// scaled down.
 for (const n of RES_LEVELS) {
-  document.getElementById('res' + n + 'Btn')?.addEventListener('click', () => {
+  document.getElementById('res' + n + 'Btn')?.addEventListener('click', async () => {
     try { localStorage.setItem(RES_KEY, String(n)); } catch (e) {}
-    if (n === RES) return;
+    if (n === RES || generating) return;
     pushUndo();
-    setRes(n, true);
+    if (lastGen && atlasSignature() === lastGen.sig) {
+      generating = true;
+      try {
+        setRes(n, false);
+        await generateThemedSkin(lastGen.parsed, lastGen.variant, lastGen.randomTheme, null, true);
+        lastGen.sig = atlasSignature();
+      } finally { generating = false; }
+    } else if (n > RES) {
+      let data = mainCtx.getImageData(0, 0, SIZE, SIZE).data, m = SIZE;
+      while (m < 64 * n) { data = scale2x(data, m); m *= 2; }
+      setRes(n, false);
+      mainCtx.putImageData(new ImageData(data, SIZE, SIZE), 0, 0);
+    } else {
+      setRes(n, true);
+    }
     syncAfterEdit();
     scheduleSave();
   });
