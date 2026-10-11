@@ -479,8 +479,28 @@ export function renderChatMessages(game, msgs) {
   // chat wasn't asked for yet. renderChatMessageText no-ops back to
   // plain escaped text outside 'global', same as it always rendered.
   const linkifyIds = game._chatChannel === 'global'
-  game.chatMessages.innerHTML = visible.map((m) => renderChatMessageRow(game, m, linkifyIds, muted.has(m.nickname))).join('')
+  // Game lines ("Tazbot joined the game") sit among the messages by time.
+  const rows = visible.map((m) => ({ at: m.createdAt || 0, html: renderChatMessageRow(game, m, linkifyIds, muted.has(m.nickname)) }))
+  for (const line of game._chatSystemLines || []) rows.push({ at: line.at, html: `<div class="chat-message-row chat-system-row"><span class="chat-message-text">${_escapeHtml(line.text)}</span></div>` })
+  rows.sort((a, b) => a.at - b.at)
+  game.chatMessages.innerHTML = rows.map((r) => r.html).join('')
   game.chatMessages.scrollTop = game.chatMessages.scrollHeight
+}
+
+// A line from the game itself in the in-game chat - who joined or left the
+// server you're playing on (2026-10-11, "it should say Player joined the
+// game / Player left the game in chat"). Kept only for this page's
+// session, never sent anywhere.
+export const CHAT_SYSTEM_MAX = 30
+export function addChatSystemLine(game, text) {
+  if (!game.chatMessages) return
+  game._chatSystemLines = (game._chatSystemLines || []).concat({ text, at: Date.now() }).slice(-CHAT_SYSTEM_MAX)
+  renderChatMessages(game, game._lastChatMsgs || [])
+}
+export function clearChatSystemLines(game) {
+  if (!game._chatSystemLines?.length) return
+  game._chatSystemLines = []
+  renderChatMessages(game, game._lastChatMsgs || [])
 }
 
 // Splits on a pasted Player ID (see _generatePlayerId - always exactly

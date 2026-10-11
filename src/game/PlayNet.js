@@ -12,16 +12,43 @@
 // a kill someone else's shot finished, travel back to that player through
 // the server. Coins, ammo, the camp's shop and your stats stay your own.
 //
-// The other players are drawn as their own skins with name tags, slid
-// smoothly between updates.
+// The other players are drawn as their own skins with name tags and the
+// weapon they picked in their hands, slid smoothly between updates. Who
+// joins or leaves shows as a line in the chat.
 import * as THREE from 'three'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { nameTag } from './BuildCamp.js'
 import { serverApi } from './ServerBrowser.js'
 import { t } from './i18n.js'
+import { cloneViewmodel } from './Viewmodels.js'
+import { addChatSystemLine, clearChatSystemLines } from './ChatUI.js'
 
 // Seconds between syncs.
 export const SYNC_EVERY = 0.16
+// Held weapons: character units (the body is 32 tall) per viewmodel
+// length unit, so a rifle is a little under a block long in their hands.
+const GUN_SCALE = 15
+// ...but never shorter than this many viewmodel units.
+const HELD_MIN_LEN = 0.55
+// Their weapons drawn with the world's own light (the guns' metal
+// materials render black without an environment map) - one plain
+// material per source material, shared by every player, never disposed.
+const HELD_MATERIALS = new WeakMap()
+function heldMaterial(m) {
+  let out = HELD_MATERIALS.get(m)
+  if (!out) {
+    out = new THREE.MeshLambertMaterial({ map: m.map || null, color: m.color ? m.color.clone() : 0x777777, transparent: !!m.transparent, opacity: m.opacity ?? 1 })
+    if (m.emissive) out.emissive = m.emissive.clone()
+    HELD_MATERIALS.set(m, out)
+  }
+  return out
+}
+// Turns a viewmodel (muzzle along -z, top +y) to lie along the arm: the
+// muzzle down the arm towards the hand (-y), its top facing the arm's
+// front (+z), so a raised arm points the gun where the player looks.
+const HELD_TURN = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(
+  new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0)))
+
 // No answer from the server for this long: give up and say so.
 const LOST_AFTER_S = 12
 // How quickly avatars and mirrored zombies catch up with the latest spot.
@@ -46,6 +73,7 @@ export class PlayNet {
     this._hurt = []
     this._credits = []
     this._skinAsked = new Set()
+    this._firstSync = true
     this.closed = false
     // Closing the tab mid-game leaves the server too.
     this._onPageHide = () => this.leave()
@@ -148,7 +176,8 @@ export class PlayNet {
       let mine = this.players.get(pid)
       if (!mine) {
         mine = this._addPlayer(pid, p)
-        s._message(t('serverPlayerJoined', { name: p.nick }))
+        // Not for the players already there when I joined.
+        if (!this._firstSync) addChatSystemLine(this.game, t('serverPlayerJoined', { name: p.nick || 'Survivor' }))
       }
       Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, firing: !!p.firing })
       if (!mine.seen) {
@@ -161,9 +190,10 @@ export class PlayNet {
     }
     for (const [pid, p] of this.players) {
       if (seen.has(pid)) continue
-      s._message(t('serverPlayerLeft', { name: p.nick }))
+      addChatSystemLine(this.game, t('serverPlayerLeft', { name: p.nick || 'Survivor' }))
       this._removePlayer(pid)
     }
+    this._firstSync = false
     if (seen.size !== this._lastCount) {
       this._lastCount = seen.size
       s._renderHud()
@@ -211,6 +241,8 @@ export class PlayNet {
     if (!player) return
     this.players.delete(pid)
     this.survival?.bm.scene.remove(player.group)
+    // The held weapon shares the game's own geometry - never disposed.
+    if (player.gun) player.gun.parent?.remove(player.gun)
     player.group.traverse((o) => {
       if (!o.isMesh && !o.isSprite) return
       o.geometry?.dispose?.()
@@ -244,12 +276,54 @@ export class PlayNet {
       const swing = Math.sin(p.walk) * Math.min(1, speed / 2) * 0.7
       const lp = p.body.limbPivots
       if (lp) {
+        if (p.gunId !== (p.weapon || '')) this._holdWeapon(p)
         lp.legR.rotation.x = swing
         lp.legL.rotation.x = -swing
-        lp.armR.rotation.x = p.firing ? -Math.PI / 2 : -swing
-        lp.armL.rotation.x = p.firing ? -Math.PI / 2.3 : swing
+        if (p.gun && !p.dead) {
+          // Holding a gun up in front, like the first-person view: right
+          // arm on the grip, left arm reaching in under the barrel. A
+          // blade is carried at the side and raised to strike.
+          const aim = p.firing ? 1 : 0.92
+          lp.armR.rotation.set(p.melee && !p.firing ? -swing * 0.6 : -Math.PI / 2 * aim, 0, 0)
+          lp.armL.rotation.set(p.melee ? swing : -Math.PI / 2.4 * aim, 0, p.melee ? 0 : 0.45)
+        } else {
+          lp.armR.rotation.set(p.firing ? -Math.PI / 2 : -swing, 0, 0)
+          lp.armL.rotation.set(p.firing ? -Math.PI / 2.3 : swing, 0, 0)
+        }
       }
     }
+  }
+
+  // Puts the weapon this player is holding (their weapon picker's pick,
+  // sent with every sync) in their right hand - a copy of the game's own
+  // model, swapped when they pick another.
+  _holdWeapon(p) {
+    const armR = p.body?.limbPivots?.armR
+    if (!armR) return
+    if (p.gun) armR.remove(p.gun)
+    p.gun = null
+    p.gunId = p.weapon || ''
+    const source = this.game.weapons?.viewmodels?.[p.gunId]
+    if (!source) return
+    const gun = cloneViewmodel(source)
+    gun.visible = true
+    gun.traverse((o) => {
+      if (!o.isMesh) return
+      o.material = Array.isArray(o.material) ? o.material.map(heldMaterial) : heldMaterial(o.material)
+      o.castShadow = false
+    })
+    const held = new THREE.Group()
+    held.add(gun)
+    held.quaternion.copy(HELD_TURN)
+    // Small guns get a minimum size, or a pistol hides inside the hand.
+    const len = new THREE.Box3().setFromObject(gun).getSize(new THREE.Vector3()).z || 0.5
+    held.scale.setScalar(GUN_SCALE * Math.max(1, HELD_MIN_LEN / len))
+    // In the hand at the end of the arm (the arm is 12 long).
+    held.position.set(0, -11, 0)
+    held.userData.heldWeapon = true
+    armR.add(held)
+    p.gun = held
+    p.melee = /melee|knife|tomahawk/i.test(p.gunId)
   }
 
   // Leaving (Back, closing the tab): tell the server so the others see it
@@ -266,5 +340,6 @@ export class PlayNet {
     clearInterval(this._interval)
     window.removeEventListener('pagehide', this._onPageHide)
     for (const pid of [...this.players.keys()]) this._removePlayer(pid)
+    clearChatSystemLines(this.game)
   }
 }

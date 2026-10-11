@@ -9837,6 +9837,16 @@ body.build-mode-on #chat-panel {
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.6);
 }
 
+/* A line from the game itself ("Tazbot joined the game") - no name, in
+   the theme's accent and slanted so it reads apart from what people say. */
+.chat-system-row .chat-message-text {
+  color: var(--ui-gold-bright, #f2c14e);
+  font-style: italic;
+}
+html.ui-theme-old .chat-system-row .chat-message-text {
+  color: #e1c189;
+}
+
 .chat-message-nickname {
   /* A <button>, not a <span> - reset to plain inline text so it reads
      exactly like plain text, with just a hover cue that it's clickable.

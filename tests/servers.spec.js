@@ -146,6 +146,14 @@ test('two players play Map 1 together on a server', async ({ browser }) => {
   expect(seen[0]).toEqual({ host: true, others: ['Bo'] })
   expect(seen[1]).toEqual({ host: false, others: ['Ann'] })
 
+  // Each sees the other holding the weapon they picked (2026-10-11), and
+  // the chat says who joined - but not for players already there.
+  await a.waitForFunction(() => [...window.__game.buildMode.survival.net.players.values()][0]?.gunId === 'rifle', null, { timeout: 20000 })
+  await b.waitForFunction(() => [...window.__game.buildMode.survival.net.players.values()][0]?.gunId === 'rifle', null, { timeout: 20000 })
+  expect(await a.evaluate(() => [...window.__game.buildMode.survival.net.players.values()][0].gun.parent === [...window.__game.buildMode.survival.net.players.values()][0].body.limbPivots.armR)).toBe(true)
+  await expect(a.locator('#chat-messages .chat-system-row')).toHaveText(['Bo joined the game'])
+  await expect(b.locator('#chat-messages .chat-system-row')).toHaveCount(0)
+
   // The host's zombie shows up for the guest.
   const zid = await a.evaluate(() => {
     const s = window.__game.buildMode.survival
@@ -184,6 +192,7 @@ test('two players play Map 1 together on a server', async ({ browser }) => {
   await settle().catch(() => {})
   await sync(a)
   expect(await a.evaluate(() => window.__game.buildMode.survival.net.players.size)).toBe(0)
+  await expect(a.locator('#chat-messages .chat-system-row')).toHaveText(['Bo joined the game', 'Bo left the game'])
   const list = await listServers(db)
   expect(list).toEqual([expect.objectContaining({ name: 'Night Shift', players: 1 })])
   await a.close()
