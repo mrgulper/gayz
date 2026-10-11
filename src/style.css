@@ -10576,7 +10576,9 @@ html.ui-theme-old .inv-skin-card-count {
 }
 .inv-weapon-card {
   cursor: default;
-  background: radial-gradient(ellipse at 50% 55%, rgba(120, 130, 160, 0.35), rgba(20, 24, 40, 0.8) 70%);
+  /* A soft warm glow behind the gun, in the Golden cards' brown - it was
+     navy (2026-10-10). The Old theme's paper card rule wins over this. */
+  background: radial-gradient(ellipse at 50% 55%, rgba(201, 162, 74, 0.22), rgba(22, 17, 10, 0.85) 70%);
 }
 .inv-weapon-card:hover { transform: none; }
 .inv-weapon-card-img,

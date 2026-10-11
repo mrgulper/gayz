@@ -150,7 +150,7 @@ export class BuildSurvival {
     this.weaponId = fromMenu && PLAY_WEAPONS[saved] ? saved : DEFAULT_PLAY_WEAPON
     this._nextShotAt = 0
     this.mag = this.magSize()
-    this.reserve = this.weapon.reserve
+    this.reserve = this._startReserve()
     this.wave = 0
     this.kills = 0
     this._toSpawn = 0
@@ -230,6 +230,12 @@ export class BuildSurvival {
 
   // Upgrades bought from the camp's Upgrader (BuildCamp.js): each Mag
   // level adds a third of the gun's own magazine (10 for the rifle).
+  // The spare ammo a gun starts with - more with the Ammo Belt / Bandolier
+  // upgrades (cfg.ammoMult). Melee's is Infinity, which stays Infinity.
+  _startReserve() {
+    return Math.round(this.weapon.reserve * (this.cfg?.ammoMult ?? 1))
+  }
+
   magSize() {
     const base = this.weapon.mag
     if (!Number.isFinite(base)) return Infinity
@@ -293,7 +299,7 @@ export class BuildSurvival {
     this._nextShotAt = 0
     this._reloadLeft = 0
     this.mag = this.magSize()
-    this.reserve = this.weapon.reserve
+    this.reserve = this._startReserve()
     this._closeWeaponPicker()
     this.bm.tryMode._showGun()
     this._message(t('buildPlayGetReady'))
@@ -476,7 +482,7 @@ export class BuildSurvival {
       }
       if (best) {
         if (best.head) this.stats.headshots++
-        add(best.z, damage * (best.head ? HEAD_MULT : 1))
+        add(best.z, damage * (best.head ? HEAD_MULT * (this.cfg?.headshotMult ?? 1) : 1))
         if (!impact) impact = ray.at(bestT, new THREE.Vector3())
       } else if (w.blast && !impact && Number.isFinite(reach)) {
         impact = ray.at(reach, new THREE.Vector3())
@@ -1525,7 +1531,7 @@ export class BuildSurvival {
     this._coinsEarned = 0
     this.health = this.maxHealth
     this.mag = this.magSize()
-    this.reserve = this.weapon.reserve
+    this.reserve = this._startReserve()
     this._reloadLeft = 0
     this.streak = 0
     this._overEl.style.display = 'none'
