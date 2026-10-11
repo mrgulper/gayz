@@ -1868,7 +1868,6 @@ export class Game {
     // one spinning instance now (the Player Setup panel's).
     this.menuPlayerTag = document.getElementById('menu-player-tag')
     this.playerShowcaseTitle = document.getElementById('player-showcase-title')
-    this.playerShowcaseClanName = document.getElementById('player-showcase-clan-name')
     this.menuNewsTicker = document.getElementById('menu-news-ticker')
     this.weeklyFeaturedMutatorLine = document.getElementById('weekly-featured-mutator-line')
     // Homepage batch - Continue card, Recommended Difficulty hint, Loadout
@@ -2671,8 +2670,6 @@ export class Game {
     this.levelsPanel = document.getElementById('levels-panel')
     this.galleryPanel = document.getElementById('gallery-panel')
     this.levelsPanelTitle = document.getElementById('levels-panel-title')
-    this.levelsIntroText = document.getElementById('levels-intro-text')
-    this.levelsRoadmapList = document.getElementById('levels-roadmap-list')
     this.termsBtn = document.getElementById('terms-btn')
     this.termsPanel = document.getElementById('terms-panel')
     this.termsPanelTitle = document.getElementById('terms-panel-title')
@@ -3522,10 +3519,15 @@ export class Game {
     // crosshair color above, read by the .nickname-tag class wrapped around
     // every nickname display site (Hardcore Memorial, Kill Feed).
     this.nicknameColorPicker.value = this.settings.nicknameColor
-    document.documentElement.style.setProperty('--nickname-color', this.settings.nicknameColor)
+    // The default white lets each theme colour the nameplate its own way.
+    const applyNicknameColor = () => {
+      document.documentElement.style.setProperty('--nickname-color', this.settings.nicknameColor)
+      document.documentElement.classList.toggle('custom-name-color', String(this.settings.nicknameColor).toLowerCase() !== '#ffffff')
+    }
+    applyNicknameColor()
     this.nicknameColorPicker.addEventListener('input', () => {
       this.settings.nicknameColor = this.nicknameColorPicker.value
-      document.documentElement.style.setProperty('--nickname-color', this.settings.nicknameColor)
+      applyNicknameColor()
       saveSettings(this.settings)
     })
 
@@ -3578,10 +3580,15 @@ export class Game {
 
     if (this.nicknameFontSelect) {
       this.nicknameFontSelect.value = this.settings.nicknameFont
-      document.documentElement.style.setProperty('--nickname-font', NICKNAME_FONT_STACKS[this.settings.nicknameFont] || NICKNAME_FONT_STACKS.default)
+      // Default lets each theme pick the nameplate's font (.nameplate-name).
+      const applyNicknameFont = () => {
+        document.documentElement.style.setProperty('--nickname-font', NICKNAME_FONT_STACKS[this.settings.nicknameFont] || NICKNAME_FONT_STACKS.default)
+        document.documentElement.classList.toggle('custom-name-font', !!NICKNAME_FONT_STACKS[this.settings.nicknameFont] && this.settings.nicknameFont !== 'default')
+      }
+      applyNicknameFont()
       this.nicknameFontSelect.addEventListener('change', () => {
         this.settings.nicknameFont = this.nicknameFontSelect.value
-        document.documentElement.style.setProperty('--nickname-font', NICKNAME_FONT_STACKS[this.settings.nicknameFont] || NICKNAME_FONT_STACKS.default)
+        applyNicknameFont()
         saveSettings(this.settings)
       })
     }
@@ -4264,9 +4271,12 @@ export class Game {
     document.addEventListener('click', (e) => {
       const backdrop = e.target
       if (!(backdrop instanceof HTMLElement) || !/-panel$/.test(backdrop.id) || !backdrop.querySelector(':scope > .panel-box')) return
+      // The level coin first: it sits inside the profile card but opens
+      // Levels, not Profile (it used to open Profile from a panel).
+      const TARGETS = '#menu-avatar-level, #menu-nav-buttons button, #menu-player-badge'
       const under = document.elementsFromPoint(e.clientX, e.clientY)
-        .find((el) => el.closest?.('#menu-nav-buttons button, #menu-player-badge'))
-      const button = under?.closest('#menu-nav-buttons button, #menu-player-badge')
+        .find((el) => el.closest?.(TARGETS))
+      const button = under?.closest('#menu-avatar-level') || under?.closest(TARGETS)
       if (!button || button.offsetParent === null) return
       e.stopImmediatePropagation()
       e.preventDefault()
@@ -4361,6 +4371,18 @@ export class Game {
         if (e.target === this.otherProfilePanel) this._closeOtherPlayerProfile()
       })
     }
+    if (this.friendsOwnId) {
+      this.friendsOwnId.addEventListener('click', () => {
+        if (!this.settings.playerId) return
+        navigator.clipboard.writeText(`#${this.settings.playerId}`).then(() => this._showCopiedBadge(this.friendsOwnId)).catch(() => {})
+      })
+    }
+    // Nothing outside a text box can be selected or dragged (see the
+    // user-select note at the top of style.css) - this catches what CSS
+    // alone misses (a selection or drag started some other way).
+    const editable = (t) => t instanceof Element && !!t.closest('input, textarea, [contenteditable="true"]')
+    document.addEventListener('selectstart', (e) => { if (!editable(e.target)) e.preventDefault() })
+    document.addEventListener('dragstart', (e) => { if (!editable(e.target)) e.preventDefault() })
     if (this.otherProfileId) {
       this.otherProfileId.addEventListener('click', () => {
         if (!this._otherProfileIdText) return
@@ -8343,11 +8365,9 @@ export class Game {
     const entries = this._inventorySkinEntries()
     const shownId = this._equippedInventorySkinId()
     const skin = entries.find((entry) => entry.id === shownId) || entries[0]
-    const nameEl = document.getElementById('inv-skin-preview-name')
-    const levelEl = document.getElementById('inv-skin-preview-level')
     const skinEl = document.getElementById('inv-skin-preview-skin')
-    if (levelEl) levelEl.textContent = String(this._computeAvatarLevel())
-    if (nameEl) nameEl.textContent = this.settings.nickname.trim() || this._defaultNickname()
+    const titleEl = document.getElementById('inv-skin-preview-title')
+    if (titleEl) this._fillNameplate(titleEl)
     if (skinEl && skin) {
       const rarity = SKIN_RARITIES[skin.rarity] || SKIN_RARITIES.common
       skinEl.innerHTML = `${_escapeHtml(skin.name)} <span style="color: ${rarity.color}">${_escapeHtml(t(rarity.key))}</span>`
@@ -8951,14 +8971,26 @@ export class Game {
     // settings.clanName) shows on its own line above, simple plain text
     // rather than the boxed badge/pill look from the reference image.
     if (this.playerShowcaseTitle) {
-      const level = this._computeAvatarLevel()
-      const nickname = this.settings.nickname || t('playerShowcaseTitleDefault')
-      this.playerShowcaseTitle.textContent = t('playerShowcaseLevelName', { level, name: nickname })
+      this._fillNameplate(this.playerShowcaseTitle)
       this._fitPlayerShowcaseTitle()
     }
-    if (this.playerShowcaseClanName) {
-      this.playerShowcaseClanName.textContent = this.settings.clanName || ''
-      this.playerShowcaseClanName.style.display = this.settings.clanName ? 'block' : 'none'
+  }
+
+  // The player's nameplate - level box, name, clan tag - shown the same way
+  // above the homepage character and Inventory's preview (2026-10-11,
+  // Gaymi: "copy the inventory name, level and clan to the spinning one").
+  // Each theme styles it (.nameplate in style.css).
+  _fillNameplate(el) {
+    const part = (cls) => el.querySelector(`.${cls}`)
+    const level = part('nameplate-level')
+    const name = part('nameplate-name')
+    const clan = part('nameplate-clan')
+    if (level) level.textContent = String(this._computeAvatarLevel())
+    if (name) name.textContent = this.settings.nickname?.trim() || this._defaultNickname()
+    if (clan) {
+      const clanName = (this.settings.clanName || '').trim()
+      clan.textContent = clanName ? `[${clanName}]` : ''
+      clan.style.display = clanName ? '' : 'none'
     }
   }
 
@@ -9831,16 +9863,16 @@ export class Game {
     this.creditsPanel.style.display = 'none'
   }
 
-  // Levels panel - the avatar-corner star badge used to open a "Coming
-  // Soon" placeholder; this replaces that. Content is the same Rank
-  // Roadmap list Profile already renders (_renderRankRoadmap writes to
-  // both list elements at once), just shown as its own dedicated screen.
+  // Levels panel - opened by the level coin on the profile card. Coming
+  // Soon (2026-10-11, Gaymi: "delete everything and change it to coming
+  // soon") - it used to repeat Profile's Rank Roadmap.
   _openLevelsPanel() {
     this._closeAllMenuPanels()
     this.levelsPanel.style.display = 'flex'
-    if (this.levelsPanelTitle) this.levelsPanelTitle.textContent = t('levelsPanelTitle')
-    if (this.levelsIntroText) this.levelsIntroText.textContent = t('levelsIntroText')
-    this._renderRankRoadmap()
+    const text = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = t(key) }
+    text('levels-panel-title', 'levelsPanelTitle')
+    text('levels-coming-title', 'comingSoonTitle')
+    text('levels-coming-text', 'levelsComingSoon')
   }
 
   _closeLevelsPanel() {
@@ -10831,7 +10863,7 @@ export class Game {
   // standalone Levels panel's copy - same markup, same data, so they can
   // never drift apart from each other.
   _renderRankRoadmap() {
-    if (!this.rankRoadmapList && !this.levelsRoadmapList) return
+    if (!this.rankRoadmapList) return
     if (this.rankRoadmapHeading) this.rankRoadmapHeading.textContent = t('rankRoadmapHeading')
     const kills = _safeStatNumber(this.careerStats.totalKills)
     const html = CAREER_RANK_TITLES.map((tier, i) => {
@@ -10845,7 +10877,6 @@ export class Game {
       `
     }).join('')
     if (this.rankRoadmapList) this.rankRoadmapList.innerHTML = html
-    if (this.levelsRoadmapList) this.levelsRoadmapList.innerHTML = html
   }
 
   // Class Comparison - the real, honest per-loadout stat deltas from

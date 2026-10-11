@@ -38,18 +38,38 @@ html.ui-theme-old {
   color: #ddd0b8;
 }
 
-html, body {
-  /* Text and images throughout the game are unselectable/undraggable by
-     default (can't be highlighted or dragged out) - re-enabled below for
-     the handful of elements that actually need it (real text inputs, and
-     #friends-own-id which is deliberately select-all for easy copying). */
+/* Nothing in the game can be highlighted, selected or dragged out - only
+   real text boxes (2026-10-11, Gaymi: "the profile is copied ... fix this
+   from the root cause, make everything not selectable"). Set on every
+   element rather than relying on html/body passing it down, the selection
+   colour is see-through outside text boxes, and Game.js also cancels any
+   selectstart/dragstart that doesn't begin in a text box. IDs are copied
+   by clicking them instead (#friends-own-id, #other-profile-id). */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+*, *::before, *::after {
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+::selection {
+  background: transparent;
 }
 
-input, textarea {
+input, textarea, [contenteditable="true"] {
   user-select: text;
   -webkit-user-select: text;
+  -webkit-touch-callout: default;
+}
+input::selection, textarea::selection, [contenteditable="true"] ::selection {
+  background: rgba(214, 170, 76, 0.45);
+}
+
+/* A mouse click never leaves the browser's focus ring around a clickable
+   card/button; keyboard focus (:focus-visible) still shows one. */
+:focus:not(:focus-visible) {
+  outline: none;
 }
 
 img {
@@ -1002,7 +1022,7 @@ html.ui-theme-old #cloudsave-region-select {
 #friends-own-id {
   font-weight: 700;
   color: var(--ui-gold-bright);
-  user-select: all;
+  cursor: pointer;
 }
 
 /* Player's own presence Status picker - sits between "Add a Friend" and
@@ -1137,7 +1157,6 @@ html.ui-theme-old #cloudsave-region-select {
   font-weight: 700;
   color: var(--ui-gold-bright);
   cursor: pointer;
-  user-select: all;
 }
 
 /* Same color-coding as the own-profile Your Stats panel's
@@ -1280,12 +1299,19 @@ html.ui-theme-old #cloudsave-region-select {
   margin-left: 4px;
 }
 
-/* Add a Friend by name: the list of matching players under the box. */
+/* Add a Friend by name: the list of matching players under the box. It
+   floats over what's below (2026-10-11, "dont let the background move
+   down when it pops up") - inside #cloudsave-friend-row, which is
+   position: relative. */
 #cloudsave-friend-suggestions {
   display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 5;
   flex-direction: column;
   gap: 2px;
-  margin-top: 6px;
   padding: 4px;
   max-height: 220px;
   overflow-y: auto;
@@ -1414,6 +1440,7 @@ html.ui-theme-old #cloudsave-region-select {
 }
 
 #cloudsave-friend-row {
+  position: relative;
   display: flex;
   gap: 6px;
 }
@@ -2693,7 +2720,7 @@ html.ui-theme-old .panel-box > .panel-close-btn {
    text has its own ID-level color rule; anything sitting on its own dark
    background (cards, inputs, dropdowns, dark buttons) is left out by the
    :not() list so it keeps its light text. */
-html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-level, .inv-skin-card, .crate-card, #shop-skin-buy-btn) *, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-level, .inv-skin-card, .crate-card, #shop-skin-buy-btn)) {
+html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-title, .inv-skin-card, .crate-card, #shop-skin-buy-btn) *, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-title, .inv-skin-card, .crate-card, #shop-skin-buy-btn)) {
   color: var(--old-ink) !important;
   text-shadow: none !important;
 }
@@ -4384,7 +4411,6 @@ html.ui-theme-old #share-panel-title {
      complementary rounded corners, no border where they meet), so the
      two elements read as one continuous card. */
 #rank-roadmap-list,
-#levels-roadmap-list,
 #recent-unlocks-list,
 #highlight-reel-list,
 #prestige-history-list {
@@ -4546,30 +4572,12 @@ html.ui-theme-old #highlight-reel-list,
 html.ui-theme-old #rank-roadmap-list,
 html.ui-theme-old #class-comparison-table,
 html.ui-theme-old #recent-unlocks-list,
-html.ui-theme-old #prestige-history-list,
-html.ui-theme-old #levels-roadmap-list {
+html.ui-theme-old #prestige-history-list {
   background: rgba(122, 78, 36, 0.1);
   border-color: rgba(74, 44, 16, 0.4);
 }
 
-/* #levels-roadmap-list is the same card as #rank-roadmap-list above, but
-   standalone (not immediately under a matching styled heading the way
-   Profile's own copy is - see that rule's own comment), so it gets a
-   complete border/radius on all sides instead of fusing to a heading. */
-#levels-roadmap-list {
-  background: rgba(20, 16, 10, 0.55);
-  border: 1px solid rgba(138, 109, 71, 0.4);
-  border-radius: 8px;
-  padding: 10px 14px 12px;
-  margin-top: 14px;
-}
-
-#levels-content {
-  text-align: center;
-}
-
 #profile-options .perk-option,
-#levels-roadmap-list .perk-option,
 #rank-roadmap-list .perk-option,
 #recent-unlocks-list .perk-option,
 #highlight-reel-list .perk-option,
@@ -4589,7 +4597,6 @@ html.ui-theme-old #levels-roadmap-list {
 }
 
 #profile-options .perk-option:last-child,
-#levels-roadmap-list .perk-option:last-child,
 #rank-roadmap-list .perk-option:last-child,
 #recent-unlocks-list .perk-option:last-child,
 #highlight-reel-list .perk-option:last-child,
@@ -4599,7 +4606,6 @@ html.ui-theme-old #levels-roadmap-list {
 }
 
 #profile-options .perk-name,
-#levels-roadmap-list .perk-name,
 #rank-roadmap-list .perk-name,
 #recent-unlocks-list .perk-name,
 #highlight-reel-list .perk-name,
@@ -4617,7 +4623,6 @@ html.ui-theme-old #levels-roadmap-list {
 }
 
 #profile-options .perk-cost,
-#levels-roadmap-list .perk-cost,
 #rank-roadmap-list .perk-cost,
 #recent-unlocks-list .perk-cost,
 #highlight-reel-list .perk-cost,
@@ -7230,19 +7235,6 @@ html.ui-theme-old #homepage-greeting {
      be scaled down by _fitPlayerShowcaseTitle() (Game.js) instead of
      forcing the row wider than the column and overflowing it. */
   min-width: 0;
-}
-
-/* Plain text, no pill/badge box - simplest version of "clan name above
-   player name" rather than recreating a fancier reference mockup. Only
-   shown at all while settings.clanName is set (see _renderPlayerTag). */
-#player-showcase-clan-name {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--menu-gold, #d9bc4a);
-  opacity: 0.85;
 }
 
 #player-showcase-header .menu-panel-title {
@@ -10272,18 +10264,7 @@ body.build-mode-on #chat-panel {
 }
 #inv-skin-preview-title {
   margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
   font-size: 22px;
-  font-weight: 700;
-  color: #fff;
-}
-#inv-skin-preview-level {
-  padding: 1px 7px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.45);
-  color: var(--ui-gold-bright, #f2c14e);
 }
 #inv-skin-preview-canvas {
   flex: 1;
@@ -11248,7 +11229,8 @@ body.touch-play-on #build-play-wave { top: 10px; font-size: 16px; padding: 4px 1
 
 /* Gallery panel (Coming Soon, 2026-10-09) - a centered picture-frame icon
    and two lines, in the panel's own content area. */
-#gallery-content {
+#gallery-content,
+.coming-soon-content {
   /* Fills the shared 68vh content area so the message sits in its middle. */
   min-height: 60vh;
   display: flex;
@@ -11258,23 +11240,27 @@ body.touch-play-on #build-play-wave { top: 10px; font-size: 16px; padding: 4px 1
   gap: 8px;
   text-align: center;
 }
-#gallery-coming-icon {
+#gallery-coming-icon,
+.coming-soon-icon {
   width: 72px;
   height: 72px;
   color: var(--ui-gold-bright);
   opacity: 0.85;
 }
-html.ui-theme-old #gallery-coming-icon {
+html.ui-theme-old #gallery-coming-icon,
+.coming-soon-icon {
   color: #6b4423;
 }
-#gallery-coming-title {
+#gallery-coming-title,
+.coming-soon-title {
   margin: 4px 0 0;
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
-#gallery-coming-text {
+#gallery-coming-text,
+.coming-soon-text {
   margin: 0;
   opacity: 0.8;
 }
@@ -11694,4 +11680,89 @@ html.ui-theme-old #server-chat-signin-btn,
 html.ui-theme-old #cloudsave-signin-btn {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* The player's nameplate - level box, name, [clan] - above the homepage
+   character (#player-showcase-title) and Inventory's preview
+   (#inv-skin-preview-title), filled by Game._fillNameplate (2026-10-11).
+   One look per theme: Golden a gold box and white name, Old a bronze
+   box and parchment or ink name. Name colour/font settings still win. */
+.nameplate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  white-space: nowrap;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.nameplate-level {
+  flex: none;
+  min-width: 1.3em;
+  padding: 0.05em 0.3em;
+  border-radius: 0.2em;
+  font-size: 0.85em;
+  text-align: center;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: linear-gradient(180deg, #f6d46b, #c9962d);
+  color: #1d1406;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+.nameplate-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #ffffff;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+.nameplate-clan {
+  flex: none;
+  font-size: 0.72em;
+  letter-spacing: 0.04em;
+  color: var(--ui-gold-bright, #f2c14e);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+#player-showcase-header .nameplate {
+  font-size: 20px;
+}
+html.ui-theme-old .nameplate-level {
+  background: linear-gradient(180deg, #8a5a2b, #5a3615);
+  color: #f1e0b8;
+  font-family: 'Crimson Text', Georgia, serif;
+  box-shadow: 0 0 0 1px #2b1a0c, 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+html.ui-theme-old .nameplate-name {
+  color: #f1e0b8;
+  font-family: 'Crimson Text', Georgia, serif;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85);
+}
+html.ui-theme-old .nameplate-clan {
+  color: #d9b77a;
+  font-family: 'Crimson Text', Georgia, serif;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85);
+}
+/* A name colour picked in Settings (anything but the default white,
+   html.custom-name-color) beats the theme's. */
+html.custom-name-color .nameplate-name {
+  color: var(--nickname-color);
+}
+html.custom-name-font .nameplate-name {
+  font-family: var(--nickname-font);
+}
+/* On Inventory's paper: dark ink instead of parchment. */
+html.ui-theme-old .panel-box .nameplate-name {
+  color: var(--old-ink, #2b1a0c) !important;
+  text-shadow: none;
+}
+html.ui-theme-old .panel-box .nameplate-clan {
+  color: #7a4e24 !important;
+  text-shadow: none;
+}
+/* The homepage copy shrinks its font to fit (_fitPlayerShowcaseTitle)
+   rather than cutting the name short. */
+#player-showcase-header .nameplate-name {
+  flex: none;
+  overflow: visible;
 }

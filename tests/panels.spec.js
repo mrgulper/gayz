@@ -170,3 +170,48 @@ test('sign-in buttons go to the Welcome page; friend count shows', async ({ page
   expect(r['typed:tazbot']).toBe('Tazbot is already your friend.')
   expect(r.picked).toBe('Tazbot is already your friend.')
 })
+
+// 2026-10-11 batch: the level coin opens Levels (Coming Soon) even with a
+// panel open, nothing outside a text box can be selected, and the Add a
+// Friend name list floats instead of pushing the page down.
+test('Levels from a panel, nothing selectable, friend list floats', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => document.getElementById('menu-inventory-btn').click())
+  await page.waitForTimeout(300)
+  const coin = await page.evaluate(() => { const r = document.getElementById('menu-avatar-level').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })
+  await page.mouse.click(coin.x, coin.y)
+  await page.waitForTimeout(300)
+  const levels = await page.evaluate(() => ({
+    levels: getComputedStyle(document.getElementById('levels-panel')).display,
+    profile: getComputedStyle(document.getElementById('profile-panel')).display,
+    text: document.getElementById('levels-content').textContent.replace(/\s+/g, ' ').trim(),
+  }))
+  expect(levels.levels).toBe('flex')
+  expect(levels.profile).toBe('none')
+  expect(levels.text).toBe('Coming Soon Levels are coming soon.')
+
+  await page.evaluate(() => window.__game._closeAllMenuPanels())
+  const badge = await page.evaluate(() => { const r = document.getElementById('menu-player-badge').getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height } })
+  await page.mouse.move(badge.x - 300, badge.y + 10)
+  await page.mouse.down()
+  await page.mouse.move(badge.x + badge.w - 5, badge.y + badge.h - 5, { steps: 8 })
+  await page.mouse.up()
+  await page.mouse.dblclick(badge.x + badge.w / 2, badge.y + badge.h - 15)
+  await page.keyboard.press('Control+A')
+  expect(await page.evaluate(() => getSelection().toString())).toBe('')
+
+  const moved = await page.evaluate(async () => {
+    const g = window.__game
+    g._openFriendsPanel()
+    g.friendsSignedOut.style.display = 'none'
+    g.friendsSignedIn.style.display = 'flex'
+    const status = document.getElementById('status-row-heading')
+    const before = status.getBoundingClientRect().top
+    g._showFriendSuggestions([{ name: 'Tazbot', playerId: 'ABC123' }, { name: 'Tazzy', playerId: 'XYZ999' }])
+    const after = status.getBoundingClientRect().top
+    return { before, after, open: g.cloudsaveFriendSuggestions.classList.contains('open') }
+  })
+  expect(moved.open).toBe(true)
+  expect(moved.after).toBe(moved.before)
+})
