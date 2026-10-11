@@ -12,8 +12,10 @@
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
-const MIN_ZOOM = 0.5
-const MAX_ZOOM = 2.2
+// Effectively no limit (2026-10-11, "make it no limit you can zoom or
+// scroll however you want") - just bounds that keep the numbers sane.
+const MIN_ZOOM = 0.02
+const MAX_ZOOM = 200
 
 export class InspectViewer {
   constructor(canvas) {
@@ -152,8 +154,8 @@ export class InspectViewer {
     const halfH = Math.atan(Math.tan(halfV) * this.camera.aspect)
     const r = Math.max(this._radiusXZ || 1, this._halfY || 1)
     this._fitDistance = Math.max((this._radiusXZ || 1) / Math.tan(halfH), (this._halfY || 1) / Math.tan(halfV)) * 1.18 + (this._radiusXZ || 1)
-    this.camera.near = Math.max(r / 100, 0.001)
-    this.camera.far = r * 100
+    this.camera.near = Math.max(r / 20000, 0.00001)
+    this.camera.far = r * 2000
     this.camera.updateProjectionMatrix()
     this._placeCamera()
   }
