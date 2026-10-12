@@ -11287,9 +11287,16 @@ html.ui-theme-old #gallery-coming-icon,
     padding-top: 112px;
   }
 
+  /* Also limited by the visible height (dvh - Safari's 100vh is taller
+     than what's on screen), leaving room for the name plate (two lines
+     with a clan) above it and the footer links below (2026-10-12, iPad:
+     "the spinning character was extremely big and How to Play, What's
+     New... aren't even seen"). Width follows the height. */
   #setup-avatar-wrap {
-    width: min(345px, 21vw);
-    height: min(720px, 44vw, calc(100vh - 220px));
+    width: min(345px, 21vw, calc((100vh - 340px) * 0.48));
+    height: min(720px, 44vw, calc(100vh - 340px));
+    width: min(345px, 21vw, calc((100dvh - 340px) * 0.48));
+    height: min(720px, 44vw, calc(100dvh - 340px));
   }
 
   /* The footer links sit a little up from the bottom edge here too
@@ -11335,6 +11342,14 @@ html.ui-theme-old #gallery-coming-icon,
 /* Moving water on the road - drawn by src/game/MenuWater.js. Sits inside
    #menu-bg-photo, so it gets the photo's Ken Burns transform and mood
    filter for free and lines up with the picture exactly. */
+/* Touch devices: fog and ash hold still (src/game/LiteHome.js) - a
+   blurred, animated full-screen layer and a blended one cost a tablet
+   more than everything else on the homepage. */
+html.lite-home #menu-bg-fog,
+html.lite-home #menu-bg-ash {
+  animation: none;
+}
+
 #menu-bg-water {
   position: absolute;
   inset: 0;

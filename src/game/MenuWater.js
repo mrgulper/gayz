@@ -15,10 +15,14 @@
 // draws while the homepage is on screen and the tab is visible, nothing
 // under prefers-reduced-motion.
 import { FLOOR, pictureBox, rainState } from './MenuRain.js'
+import { LITE_HOME, startWhenLight } from './LiteHome.js'
 
 // Height of each redrawn row (CSS px) - small enough that the waves look
 // smooth, big enough to keep the draw calls down.
-const ROW_PX = 2
+const ROW_PX = LITE_HOME ? 3 : 2
+// A touch device's lighter homepage (LiteHome.js) redraws the water at
+// most this often (ms).
+const LITE_FRAME_MS = 33
 // Sideways sway (CSS px) far up the road and at the very bottom.
 const SWAY_FAR = 0.4
 const SWAY_NEAR = 5
@@ -52,6 +56,7 @@ export function startMenuWater(canvas) {
   let img = null
   let imgUrl = ''
   let lastCheck = -Infinity
+  let lastDraw = -Infinity
 
   function checkSource(now) {
     if (now - lastCheck < SOURCE_CHECK_MS) return
@@ -93,7 +98,7 @@ export function startMenuWater(canvas) {
   }
 
   function resize() {
-    const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO)
+    const ratio = LITE_HOME ? 1 : Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO)
     w = canvas.clientWidth
     h = canvas.clientHeight
     canvas.width = Math.round(w * ratio)
@@ -107,6 +112,10 @@ export function startMenuWater(canvas) {
     if (canvas.clientWidth !== w || canvas.clientHeight !== h) resize()
     checkSource(now)
     if (!w || !h || !img) return
+    if (LITE_HOME) {
+      if (now - lastDraw < LITE_FRAME_MS) return
+      lastDraw = now
+    }
 
     const box = pictureBox(w, h)
     const horizonY = box.y + FLOOR.horizon * box.h
@@ -145,5 +154,5 @@ export function startMenuWater(canvas) {
 
   resize()
   window.addEventListener('resize', resize)
-  requestAnimationFrame(frame)
+  startWhenLight(() => requestAnimationFrame(frame))
 }

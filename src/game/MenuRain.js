@@ -26,6 +26,8 @@
 // under prefers-reduced-motion. Reduce Homepage Background Effects
 // (body.reduce-bg-effects) halves the drops.
 
+import { LITE_HOME, startWhenLight } from './LiteHome.js'
+
 // The street in both background photos (menu-art/old-menu-bg.webp and
 // menu-bg-city.webp share the same framing), as fractions of the picture:
 // the far end of the road at HORIZON, widening out to the bottom corners
@@ -65,6 +67,8 @@ const MAX_SPLASHES = 160
 const SPLASH_LIFE_S = 0.5
 // The canvas never draws more pixels than this per CSS pixel.
 const MAX_PIXEL_RATIO = 1.5
+// Share of the drops a touch device's lighter homepage keeps (LiteHome.js).
+const LITE_DROPS = 0.6
 
 function rand(a, b) {
   return a + Math.random() * (b - a)
@@ -103,6 +107,7 @@ function dropSprite() {
   g.fill()
   return { canvas: c, w: W, h: H }
 }
+
 
 export function startMenuRain(canvas) {
   if (!canvas || !canvas.getContext) return
@@ -165,7 +170,7 @@ export function startMenuRain(canvas) {
   }
 
   function resize() {
-    const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO)
+    const ratio = LITE_HOME ? 1 : Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO)
     w = canvas.clientWidth
     h = canvas.clientHeight
     canvas.width = Math.round(w * ratio)
@@ -173,7 +178,7 @@ export function startMenuRain(canvas) {
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
     reduced = document.body.classList.contains('reduce-bg-effects')
     mapPicture()
-    const count = Math.round(((MAX_DENSITY * w * h) / 1e6) * (reduced ? 0.5 : 1))
+    const count = Math.round(((MAX_DENSITY * w * h) / 1e6) * (reduced ? 0.5 : 1) * (LITE_HOME ? LITE_DROPS : 1))
     drops = []
     for (let i = 0; i < count; i++) drops.push(newDrop(true))
   }
@@ -303,5 +308,8 @@ export function startMenuRain(canvas) {
   new MutationObserver(() => {
     if (document.body.classList.contains('reduce-bg-effects') !== reduced) resize()
   }).observe(document.body, { attributes: true, attributeFilter: ['class'] })
-  requestAnimationFrame(frame)
+  startWhenLight(() => {
+    last = performance.now()
+    requestAnimationFrame(frame)
+  })
 }

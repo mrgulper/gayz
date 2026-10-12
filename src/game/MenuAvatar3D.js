@@ -12,6 +12,10 @@
 // left/right) rather than the old free-trackball pitch+yaw - one axis of
 // spin either way, auto or manual, not two.
 import * as THREE from 'three'
+import { LITE_HOME } from './LiteHome.js'
+
+// Lighter homepage (touch devices): at most one drawn frame per this many ms.
+const LITE_FRAME_MS = 33
 
 // Radians/second - a slow, ambient turn, not a fast spinning-coin effect.
 // A full 360 takes 2*PI / IDLE_SPIN_SPEED =~ 26 seconds.
@@ -419,7 +423,8 @@ export class MenuAvatar3D {
     this._onReveal = onReveal
     setTimeout(() => this.reveal(), 200)
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    // A touch device's lighter homepage draws it with fewer pixels (LiteHome.js).
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, LITE_HOME ? 1.25 : 2))
 
     this.scene = new THREE.Scene()
     // far=100 used to be plenty for a roughly-square box - now that
@@ -558,6 +563,9 @@ export class MenuAvatar3D {
     const loop = (now) => {
       if (!this._running) return
       this._raf = requestAnimationFrame(loop)
+      // A touch device's lighter homepage turns it at most 30 times a
+      // second while nobody's dragging it (LiteHome.js).
+      if (LITE_HOME && !this._dragging && now - this._lastFrameTime < LITE_FRAME_MS) return
       const dt = Math.min((now - this._lastFrameTime) / 1000, 0.1)
       this._lastFrameTime = now
       // Skip actual rendering while the canvas isn't visible (menu hidden
