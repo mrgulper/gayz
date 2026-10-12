@@ -12028,6 +12028,12 @@ export class Game {
     // below runs at all, not even the FPS counter.
     if (this.buildMode.active) {
       const jsStart = performance.now()
+      // The clock has to tick here too (2026-10-12, "gameplay feels very
+      // fast on iPad and phones"): without this update getDelta() kept
+      // returning the last homepage frame's step, so a laggy homepage
+      // (0.1s frames) made every game frame move 0.1s - several times
+      // real speed at 60 fps - and a smooth one happened to look right.
+      this.timer.update()
       const dt = Math.min(this.timer.getDelta(), 0.1)
       this.buildMode.update(dt)
       this.buildMode.render()

@@ -11,6 +11,11 @@
 // loading for the same few CPU cores. Computers are unchanged.
 export const LITE_HOME = typeof window !== 'undefined' && !!window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
 
+// Lite effects draw about 30 times a second: a frame is skipped until this
+// much time has passed (just under two 60 Hz frames, so timer jitter never
+// drops it to 20).
+export const LITE_FRAME_MS = 30
+
 // How long after the game is ready the homepage effects start (lite only).
 const START_AFTER_READY_MS = 600
 

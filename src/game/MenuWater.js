@@ -15,14 +15,11 @@
 // draws while the homepage is on screen and the tab is visible, nothing
 // under prefers-reduced-motion.
 import { FLOOR, pictureBox, rainState } from './MenuRain.js'
-import { LITE_HOME, startWhenLight } from './LiteHome.js'
+import { LITE_HOME, LITE_FRAME_MS, startWhenLight } from './LiteHome.js'
 
 // Height of each redrawn row (CSS px) - small enough that the waves look
 // smooth, big enough to keep the draw calls down.
 const ROW_PX = LITE_HOME ? 3 : 2
-// A touch device's lighter homepage (LiteHome.js) redraws the water at
-// most this often (ms).
-const LITE_FRAME_MS = 33
 // Sideways sway (CSS px) far up the road and at the very bottom.
 const SWAY_FAR = 0.4
 const SWAY_NEAR = 5
