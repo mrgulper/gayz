@@ -383,7 +383,7 @@
         <button class="tbtn icon-btn" id="redoBtn" disabled title="Redo (Shift+Ctrl/Cmd+Z)" aria-label="Redo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg></button>
       </span>
       <span class="ai-edit">
-        <input type="text" id="aiEditInput" class="prompt-input" maxlength="160" placeholder="Ask for a change: red shirt, add a hat, no beard..." aria-label="Tell the editor what to change">
+        <input type="text" id="aiEditInput" class="prompt-input" maxlength="160" placeholder="Ask for a change" aria-label="Tell the editor what to change">
         <button class="tbtn primary" id="aiEditBtn" title="Make the change (Undo puts it back)">Edit</button>
       </span>
       <input type="color" id="stageBgWell" class="color-well" value="#d4a068" title="Change the backdrop color behind your character" aria-label="Change stage backdrop color">
@@ -406,7 +406,7 @@
 
   <div class="editor">
     <div class="toolbar">
-      <input type="text" id="promptInput" class="prompt-input" maxlength="120" placeholder="Describe a skin: pink ninja with a crown, zombie pirate girl...">
+      <input type="text" id="promptInput" class="prompt-input" maxlength="120" placeholder="Describe a skin...">
       <button class="tbtn primary" id="generateBtn" style="flex: 0 0 auto;">Generate</button>
       <button class="tbtn" id="randomizeBtn" style="flex: 0 0 auto;" title="Skip the description - generate a fully random skin">Randomize</button>
     </div>
@@ -1594,43 +1594,43 @@ function richShade(rng, skin, multiHue, strength = 1) {
 }
 const THEME_GEAR = {
   girl: (p, rng, maybe, o = {}) => { gearHairVolume(p.hair, rng); if (maybe(0.6) && !o.animal) gearBow(bowColor(p)) },
-  pirate: (p, rng, maybe) => { gearBandana(p.accent, p.hair, rng); gearCoat(shade(p.shirt, -12), rng); gearSleeves(shade(p.shirt, -12), 8, rng); gearBoots(p.shoe, 7, rng); },
+  pirate: (p, rng, maybe) => { gearBandana(p.hat || p.accent, p.hair, rng); gearCoat(shade(p.shirt, -12), rng); gearSleeves(shade(p.shirt, -12), 8, rng); gearBoots(p.shoe, 7, rng); },
   ninja: (p, rng, maybe) => { gearMask(p.shirt, rng); gearSash(p.accent, rng); if (maybe(0.5)) gearGloves(p.shirt, rng); },
   zombie: (p, rng, maybe) => { if (maybe(0.6)) gearHairTufts(p.hair, rng); if (maybe(0.5)) gearSleeves(shade(p.shirt, -10), 5, rng); },
-  knight: (p, rng, maybe) => { gearHelmet(p.shirt, rng); gearPlate(shade(p.shirt, 10), rng); gearGloves(p.shirt, rng); gearGreaves(p.pants, rng); },
+  knight: (p, rng, maybe) => { gearHelmet(p.hat || p.shirt, rng); gearPlate(shade(p.shirt, 10), rng); gearGloves(p.shirt, rng); gearGreaves(p.pants, rng); },
   robot: (p, rng, maybe) => { gearPlate(p.shirt, rng); if (maybe(0.5)) gearGreaves(p.pants, rng); },
   fire: (p, rng, maybe) => { gearHairTufts(p.accent, rng); if (maybe(0.5)) gearSleeves(p.shirt, 4, rng); },
-  ice: (p, rng, maybe) => { gearBeanie(p.shirt, p.accent, rng); gearScarf(p.accent, rng); if (maybe(0.5)) gearGloves(p.pants, rng); },
-  forest: (p, rng, maybe) => { gearHood(p.shirt, rng); gearCape(shade(p.shirt, -10), rng); if (maybe(0.5)) gearBoots(p.shoe, 8, rng); },
+  ice: (p, rng, maybe) => { gearBeanie(p.hat || p.shirt, p.accent, rng); gearScarf(p.accent, rng); if (maybe(0.5)) gearGloves(p.pants, rng); },
+  forest: (p, rng, maybe) => { gearHood(p.hat || p.shirt, rng); gearCape(shade(p.shirt, -10), rng); if (maybe(0.5)) gearBoots(p.shoe, 8, rng); },
   gold: (p, rng, maybe) => { gearCrown(p.shirt, '#c9202f'); if (maybe(0.6)) gearCape('#8a1f1f', rng); },
-  shadow: (p, rng, maybe) => { gearHood(p.shirt, rng); gearCoat(p.shirt, rng, false); gearSleeves(p.shirt, 10, rng); },
+  shadow: (p, rng, maybe) => { gearHood(p.hat || p.shirt, rng); gearCoat(p.shirt, rng, false); gearSleeves(p.shirt, 10, rng); },
   angel: (p, rng, maybe) => { gearCrown(p.accent, p.accent); if (maybe(0.5)) gearCape(p.shirt, rng); },
   demon: (p, rng, maybe) => { gearHorns('#e0d8c8'); if (maybe(0.5)) gearCape(p.accent, rng); },
-  police: (p, rng, maybe) => { gearCap(p.shirt, '#0a0a0a', rng); gearVest(shade(p.shirt, -10), '#e0c060', rng); },
+  police: (p, rng, maybe) => { gearCap(p.hat || p.shirt, '#0a0a0a', rng); gearVest(shade(p.shirt, -10), '#e0c060', rng); },
   doctor: (p, rng, maybe) => { gearCoat(p.shirt, rng); gearSleeves(p.shirt, 9, rng); if (maybe(0.6)) gearMask('#8ac8e0', rng); },
   astronaut: (p, rng, maybe) => { gearHelmetFrame(p.shirt, p.accent); gearBackpack(p.pants, p.accent, rng); gearGloves(p.pants, rng); gearBoots(p.shoe, 8, rng); },
-  wizard: (p, rng, maybe) => { gearWizardHat(p.shirt, p.accent, rng); gearCoat(p.shirt, rng, false); gearSleeves(p.shirt, 12, rng); },
+  wizard: (p, rng, maybe) => { gearWizardHat(p.hat || p.shirt, p.accent, rng); gearCoat(p.shirt, rng, false); gearSleeves(p.shirt, 12, rng); },
   vampire: (p, rng, maybe) => { gearCape(p.accent, rng); if (maybe(0.5)) gearSleeves(p.shirt, 9, rng); },
-  camo: (p, rng, maybe) => { gearCap(p.shirt, p.accent, rng); gearVest(p.accent, null, rng); gearBoots(p.shoe, 8, rng); },
+  camo: (p, rng, maybe) => { gearCap(p.hat || p.shirt, p.accent, rng); gearVest(p.accent, null, rng); gearBoots(p.shoe, 8, rng); },
   rose: (p, rng, maybe) => { if (maybe(0.6)) gearHairTufts(p.accent, rng); if (maybe(0.5)) gearSleeves(p.accent, 3, rng); },
   punk: (p, rng, maybe) => { if (maybe(0.6)) gearCoat('#1a1a1a', rng); if (maybe(0.5)) gearSleeves('#1a1a1a', 8, rng); },
   stylish: (p, rng, maybe, o = {}) => { if (maybe(0.5)) gearSash(p.accent, rng); if (!o.feminine && maybe(0.5)) gearCoat(shade(p.shirt, -16), rng) },
-  cowboy: (p, rng, maybe) => { gearCap(shade(p.accent, -8), shade(p.accent, -30), rng); gearScarf('#b8302a', rng); gearBoots(p.shoe, 7, rng) },
-  chef: (p, rng) => { gearBeanie('#f6f6f0', '#e8e8e2', rng); gearScarf(p.accent, rng) },
-  firefighter: (p, rng) => { gearHelmet('#c9202f', rng); gearCoat(p.shirt, rng, false); gearSleeves(p.shirt, 9, rng); gearGloves('#2a2a2a', rng); gearBoots('#1a1a1a', 7, rng) },
-  farmer: (p, rng, maybe) => { gearCap('#e0c070', '#c8a050', rng); gearBoots(p.shoe, 7, rng); if (maybe(0.5)) gearGloves('#8a6a40', rng) },
+  cowboy: (p, rng, maybe) => { gearCap(p.hat || shade(p.accent, -8), shade(p.accent, -30), rng); gearScarf('#b8302a', rng); gearBoots(p.shoe, 7, rng) },
+  chef: (p, rng) => { gearBeanie(p.hat || '#f6f6f0', '#e8e8e2', rng); gearScarf(p.accent, rng) },
+  firefighter: (p, rng) => { gearHelmet(p.hat || '#c9202f', rng); gearCoat(p.shirt, rng, false); gearSleeves(p.shirt, 9, rng); gearGloves('#2a2a2a', rng); gearBoots('#1a1a1a', 7, rng) },
+  farmer: (p, rng, maybe) => { gearCap(p.hat || '#e0c070', '#c8a050', rng); gearBoots(p.shoe, 7, rng); if (maybe(0.5)) gearGloves('#8a6a40', rng) },
   scientist: (p, rng) => { gearCoat('#f4f4ee', rng); gearSleeves('#f4f4ee', 9, rng); gearGlasses('#2a2a2a', '#a8d8f0') },
-  gamer: (p, rng) => { gearHeadphones('#2a2a30', p.accent); gearHood(p.shirt, rng) },
-  athlete: (p, rng, maybe) => { if (maybe(0.5)) gearCap(p.shirt, '#1a1a1a', rng) },
+  gamer: (p, rng) => { gearHeadphones('#2a2a30', p.accent); gearHood(p.hat || p.shirt, rng) },
+  athlete: (p, rng, maybe) => { if (maybe(0.5)) gearCap(p.hat || p.shirt, '#1a1a1a', rng) },
   suit: (p, rng) => { gearCoat(p.shirt, rng); gearSleeves(p.shirt, 9, rng) },
   prisoner: (p, rng) => { gearSash('#1a1a1a', rng) },
-  sailor: (p, rng) => { gearCap('#f6f6f0', p.accent, rng); gearScarf(p.accent, rng) },
-  miner: (p, rng) => { gearHelmet('#e0c040', rng); gearGloves('#3a3028', rng); gearBoots(p.shoe, 7, rng) },
+  sailor: (p, rng) => { gearCap(p.hat || '#f6f6f0', p.accent, rng); gearScarf(p.accent, rng) },
+  miner: (p, rng) => { gearHelmet(p.hat || '#e0c040', rng); gearGloves('#3a3028', rng); gearBoots(p.shoe, 7, rng) },
   clown: (p, rng) => { gearHairTufts(p.hair, rng); gearScarf('#3aa060', rng) },
   superhero: (p, rng) => { gearCape(p.accent, rng); gearBoots(p.shoe, 7, rng); gearGloves(p.accent, rng) },
-  ghost: (p, rng) => { gearHood(p.shirt, rng) },
+  ghost: (p, rng) => { gearHood(p.hat || p.shirt, rng) },
   alien: (p, rng, maybe) => { if (maybe(0.5)) gearHelmetFrame('#c0c8d0', '#a8e0f0') },
-  skeleton: (p, rng, maybe) => { if (maybe(0.4)) gearHood('#1c1c1e', rng) },
+  skeleton: (p, rng, maybe) => { if (maybe(0.4)) gearHood(p.hat || '#1c1c1e', rng) },
   mummy: (p, rng) => { gearMask(p.shirt, rng); gearGloves(p.shirt, rng) },
 };
 function paintOuterLayer(themeKey, theme, rng, o) {
@@ -2023,17 +2023,18 @@ function gearHairVolume(hair, rng) {
 function applyGearWord(word, p, rng) {
   switch (word) {
     case 'crown': gearCrown('#e0b040', '#c9202f'); break
-    case 'hood': gearHood(p.shirt, rng); break
-    case 'helmet': gearHelmet(shade(p.shirt, 10), rng); break
+    case 'hood': gearHood(p.hat || p.shirt, rng); break
+    case 'helmet': gearHelmet(p.hat || shade(p.shirt, 10), rng); break
     case 'armor': gearPlate('#9aa0aa', rng); gearGreaves('#8a9098', rng); break
     case 'cape': gearCape(p.accent, rng); break
     case 'scarf': gearScarf(p.accent, rng); break
     case 'mask': gearMask(shade(p.shirt, -20), rng); break
     case 'horns': gearHorns('#e0d8c8'); break
-    case 'hat': gearWizardHat(shade(p.shirt, -15), p.accent, rng); break
-    case 'cap': gearCap(p.accent, '#1a1a1a', rng); break
-    case 'beanie': gearBeanie(p.accent, shade(p.accent, 30), rng); break
-    case 'bandana': gearBandana(p.accent, shade(p.accent, -30), rng); break
+    // p.hat: a colour asked for ("a black hat") - Smart Edit / overrides.
+    case 'hat': gearWizardHat(p.hat || shade(p.shirt, -15), p.hat ? shade(p.hat, p.hat === '#000000' || colorDistance(p.hat, '#000000') < 120 ? 45 : -45) : p.accent, rng); break
+    case 'cap': gearCap(p.hat || p.accent, '#1a1a1a', rng); break
+    case 'beanie': gearBeanie(p.hat || p.accent, shade(p.hat || p.accent, 30), rng); break
+    case 'bandana': gearBandana(p.hat || p.accent, shade(p.hat || p.accent, -30), rng); break
     case 'backpack': gearBackpack(shade(p.pants, -10), p.accent, rng); break
     case 'coat': gearCoat(shade(p.shirt, -18), rng); gearSleeves(shade(p.shirt, -18), 9, rng); break
     case 'hoodie': gearHood(p.shirt, rng); gearCoat(p.shirt, rng, false); gearSleeves(p.shirt, 9, rng); break
@@ -2537,7 +2538,8 @@ async function editGenerated(actions) {
   const current = (part) => parsed.overrides[part] || planned[part]
   for (const a of actions) {
     if (a.type === 'color') {
-      if (a.part === 'hat' || a.part === 'beard') after.push(a)
+      if (a.part === 'hat') parsed.overrides.hat = a.hex // every hat the generator draws takes p.hat
+      else if (a.part === 'beard') after.push(a)
       else if (a.part === 'outfit') { parsed.overrides.shirt = a.hex; parsed.overrides.pants = shade(a.hex, -38) }
       else parsed.overrides[a.part] = a.hex
     } else if (a.type === 'shade') {
@@ -2665,6 +2667,24 @@ function recolorArea(rects, from, to, tol = 85) {
   mainCtx.putImageData(d, 0, 0)
   return n
 }
+// Recolours every pixel of an area (a hat is all hat), keeping each one's
+// lightness relative to the area's average - its shading.
+function recolorWhole(rects, to) {
+  const t = hexToRgb(to)
+  const [th, ts, tl] = rgbToHsl(t.r, t.g, t.b)
+  let sum = 0, n = 0
+  eachPixel(rects, (px, i) => { if (px[i + 3] >= 20) { sum += rgbToHsl(px[i], px[i + 1], px[i + 2])[2]; n++ } })
+  if (!n) return 0
+  const mean = sum / n
+  const d = eachPixel(rects, (px, i) => {
+    if (px[i + 3] < 20) return
+    const l = rgbToHsl(px[i], px[i + 1], px[i + 2])[2]
+    const [r, g, b] = hslToRgb(th, ts, Math.max(0, Math.min(1, tl + (l - mean) * 0.6)))
+    px[i] = r; px[i + 1] = g; px[i + 2] = b
+  })
+  mainCtx.putImageData(d, 0, 0)
+  return n
+}
 function clearArea(rects, test) {
   let n = 0
   const d = eachPixel(rects, (px, i) => { if (px[i + 3] && (!test || test(px, i))) { px[i + 3] = 0; n++ } })
@@ -2703,6 +2723,7 @@ function editPainted(actions) {
         if (!from) continue
         const to = a.type === 'skinTone' ? SKIN_TONES[a.idx] : a.type === 'shade' ? shade(from, a.dir * 30) : a.part === 'outfit' && part === 'pants' ? shade(a.hex, -38) : a.hex
         const region = a.part === 'beard' ? 'lowerFace' : REGION_OF[part]
+        if (part === 'hat') { changed += recolorWhole(REGIONS.hat(), to); continue }
         changed += recolorArea(REGIONS[region](), from, to, part === 'eye' ? 50 : 85)
         // Long hair hangs down the back.
         if (part === 'hair') changed += recolorArea(rectsOf('torso', ['back'], 'outer'), from, to)
@@ -2724,6 +2745,8 @@ function editPainted(actions) {
       if (n) done.push(a)
     } else if (a.type === 'add') {
       const p = { hair: c.hair || '#3a2a1a', skin: c.skin || '#c98a55', shirt: c.shirt || '#4a6a9a', pants: c.pants || '#2a3a5a', shoe: c.shoe || '#2a2018', accent: shade(c.shirt || '#8a1f1f', -35), eye: c.eye || '#1a1a1a' }
+      const hatColor = actions.find((x) => x.type === 'color' && x.part === 'hat')
+      if (hatColor) p.hat = hatColor.hex
       if (a.what === 'beard') { fillNear(rectsOf('head', ['front'], 'base', [6, 8]), p.skin, shade(p.hair, -10), 60); done.push(a) }
       else { paintGearOn(a.what, p); done.push(a) }
     } else if (a.type === 'hair' && a.style === 3) {

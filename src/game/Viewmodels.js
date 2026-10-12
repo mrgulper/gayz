@@ -36,7 +36,12 @@ const WEAPON_MODELS = {
   minigun: { rot: [0, H, 0], len: 0.8 },
   shotgun: { rot: [0, H, 0], len: 0.95 },
   awp: { rot: [0, -H, 0], len: 1.2 },
-  flamethrower: { rot: [0, Math.PI, 0], len: 0.9 },
+  // `drop`: small loose pieces left out, by where they sit in the model's
+  // own coordinates. The flamethrower's little sight on top (a dark, shiny
+  // glass pane in a solid frame on a base) covered the crosshair when aiming
+  // (2026-10-12, "there's something on it when aiming but I really like
+  // this model") - its three pieces go, the rest of the model stays.
+  flamethrower: { rot: [0, Math.PI, 0], len: 0.9, drop: [[0, 0.294, -0.519], [0, 0.292, -0.516], [0, 0.273, -0.517]] },
   rocket: { rot: [0, -H, 0], len: 1.1 },
   // Its limbs and string are skinned to bones that only sit right once
   // its own animation has posed them (frame 0 = loaded and ready).
@@ -80,6 +85,63 @@ export function cloneViewmodel(vm) {
   return cloneSkinned(vm)
 }
 
+// Leaves out each small loose piece of a mesh (one not joined to anything
+// else, a few triangles) whose middle is at one of `points` - changes the
+// loaded model itself, so every copy of it goes without.
+const DROP_NEAR = 0.02
+const DROP_MAX_TRIANGLES = 24
+function dropPieces(geometry, points) {
+  const pos = geometry.attributes.position
+  const index = geometry.index
+  if (!pos || !index) return
+  // Triangles touching the same spot (same position) belong together.
+  const parent = new Int32Array(pos.count).map((_, i) => i)
+  const find = (a) => {
+    while (parent[a] !== a) a = parent[a] = parent[parent[a]]
+    return a
+  }
+  const at = new Map()
+  for (let i = 0; i < pos.count; i++) {
+    const k = `${pos.getX(i).toFixed(4)},${pos.getY(i).toFixed(4)},${pos.getZ(i).toFixed(4)}`
+    if (at.has(k)) parent[find(i)] = find(at.get(k))
+    else at.set(k, i)
+  }
+  for (let t = 0; t < index.count; t += 3) {
+    const a = find(index.getX(t))
+    parent[find(index.getX(t + 1))] = a
+    parent[find(index.getX(t + 2))] = a
+  }
+  const pieces = new Map()
+  for (let t = 0; t < index.count; t += 3) {
+    const root = find(index.getX(t))
+    const piece = pieces.get(root) || { tris: 0, min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] }
+    piece.tris++
+    for (let k = 0; k < 3; k++) {
+      const v = index.getX(t + k)
+      const p = [pos.getX(v), pos.getY(v), pos.getZ(v)]
+      for (let d = 0; d < 3; d++) {
+        piece.min[d] = Math.min(piece.min[d], p[d])
+        piece.max[d] = Math.max(piece.max[d], p[d])
+      }
+    }
+    pieces.set(root, piece)
+  }
+  const drop = new Set()
+  for (const [root, piece] of pieces) {
+    if (piece.tris > DROP_MAX_TRIANGLES) continue
+    const mid = piece.min.map((v, d) => (v + piece.max[d]) / 2)
+    if (points.some((p) => Math.hypot(p[0] - mid[0], p[1] - mid[1], p[2] - mid[2]) < DROP_NEAR)) drop.add(root)
+  }
+  if (!drop.size) return
+  const kept = []
+  for (let t = 0; t < index.count; t += 3) {
+    if (drop.has(find(index.getX(t)))) continue
+    kept.push(index.getX(t), index.getX(t + 1), index.getX(t + 2))
+  }
+  geometry.setIndex(kept)
+  geometry.userData.droppedPieces = drop.size
+}
+
 export function buildViewmodel(weaponId) {
   const cfg = WEAPON_MODELS[weaponId]
   const source = MODEL_CACHE[weaponId]
@@ -87,6 +149,10 @@ export function buildViewmodel(weaponId) {
   // SkeletonUtils' clone keeps skinned parts (the crossbow's limbs and
   // string) bound to their own bones - a plain clone(true) leaves them
   // floating where the bones' rest pose was.
+  if (cfg.drop && !source.dropped) {
+    source.dropped = true
+    source.scene.traverse((o) => { if (o.isMesh) dropPieces(o.geometry, cfg.drop) })
+  }
   const model = cloneSkinned(source.scene)
   if (cfg.pose !== undefined && source.animations[0]) {
     const mixer = new THREE.AnimationMixer(model)

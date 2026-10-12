@@ -3209,10 +3209,24 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
    gayz-features' own (#d9a34a/#0a0a09 -> this file's var(--ui-gold-bright)/
    rgba(8,8,7,.96) family) so it reads as part of the same UI, not a
    pasted-in foreign page. */
+/* The tagline, counts and search bar stay put; only the list below them
+   (#features-layout) scrolls (2026-10-12, "when clicking Progression & Meta
+   don't make the search bar slightly pop up" - jumping to a section used to
+   scroll the whole page and leave a sliver of the search bar at the top). */
 #features-content {
   height: 68vh;
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   text-align: left;
+}
+#features-content > * {
+  flex: none;
+}
+#features-content > #features-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .features-tagline {
@@ -3269,7 +3283,7 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
    #layout/nav#toc (grid-template-columns: 240px 1fr, sticky nav) -
    first pass used a horizontal pill row like every other in-game tab
    strip, but the request was specifically to match the original site's
-   own sidebar instead. position:sticky here anchors to #features-content
+   own sidebar instead. position:sticky here anchors to #features-layout
    (the nearest scrolling ancestor - a fixed-height overlay panel, not
    the page), same mechanism the standalone site used against its own
    natural page scroll. */
@@ -8868,7 +8882,7 @@ html.ui-theme-old #settings-panel h2 {
 #credits-content,
 #terms-content,
 #privacy-content,
-#features-content,
+#features-layout,
 #howtoplay-content,
 #whatsnew-content,
 #whats-new-digest-list,
@@ -8884,7 +8898,7 @@ html.ui-theme-old #settings-panel h2 {
 #credits-content::-webkit-scrollbar,
 #terms-content::-webkit-scrollbar,
 #privacy-content::-webkit-scrollbar,
-#features-content::-webkit-scrollbar,
+#features-layout::-webkit-scrollbar,
 #howtoplay-content::-webkit-scrollbar,
 #whatsnew-content::-webkit-scrollbar,
 #whats-new-digest-list::-webkit-scrollbar,
@@ -8899,7 +8913,7 @@ html.ui-theme-old #settings-panel h2 {
 #credits-content::-webkit-scrollbar-track,
 #terms-content::-webkit-scrollbar-track,
 #privacy-content::-webkit-scrollbar-track,
-#features-content::-webkit-scrollbar-track,
+#features-layout::-webkit-scrollbar-track,
 #howtoplay-content::-webkit-scrollbar-track,
 #whatsnew-content::-webkit-scrollbar-track,
 #whats-new-digest-list::-webkit-scrollbar-track,
@@ -8914,7 +8928,7 @@ html.ui-theme-old #settings-panel h2 {
 #credits-content::-webkit-scrollbar-thumb,
 #terms-content::-webkit-scrollbar-thumb,
 #privacy-content::-webkit-scrollbar-thumb,
-#features-content::-webkit-scrollbar-thumb,
+#features-layout::-webkit-scrollbar-thumb,
 #howtoplay-content::-webkit-scrollbar-thumb,
 #whatsnew-content::-webkit-scrollbar-thumb,
 #whats-new-digest-list::-webkit-scrollbar-thumb,
@@ -8930,7 +8944,7 @@ html.ui-theme-old #settings-panel h2 {
 #credits-content::-webkit-scrollbar-thumb:hover,
 #terms-content::-webkit-scrollbar-thumb:hover,
 #privacy-content::-webkit-scrollbar-thumb:hover,
-#features-content::-webkit-scrollbar-thumb:hover,
+#features-layout::-webkit-scrollbar-thumb:hover,
 #howtoplay-content::-webkit-scrollbar-thumb:hover,
 #whatsnew-content::-webkit-scrollbar-thumb:hover,
 #whats-new-digest-list::-webkit-scrollbar-thumb:hover,

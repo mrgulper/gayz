@@ -34,6 +34,14 @@ const DOOR_BASH_TIME = 3
 const WAVE_BREAK = 6
 const SPAWN_GAP = 1.1
 const MAX_ALIVE = 16
+// Dead zombies (2026-10-12, "make the dead body fall on the ground and
+// slowly fade gone"): they tip over away from the shot in CORPSE_FALL
+// seconds, lie still for CORPSE_LIE, then fade out over CORPSE_FADE. At most
+// MAX_CORPSES at once (the oldest goes first) - each is a few draw calls.
+const CORPSE_FALL = 0.45
+const CORPSE_LIE = 1.6
+const CORPSE_FADE = 2
+const MAX_CORPSES = 12
 const PATH_REFRESH = 0.5
 // The flow field is worked out a slice at a time, at most this many ms a
 // frame, so an old phone never freezes on it (one full pass took ~65ms
@@ -190,6 +198,7 @@ export class BuildSurvival {
     this._disposeExtraction()
     for (const z of this.zombies) this._removeZombie(z)
     this.zombies = []
+    this._clearCorpses()
     this._disposeZombieBatch()
     if (this._hud) this._hud.style.display = 'none'
     if (this._overEl) this._overEl.style.display = 'none'
@@ -533,6 +542,7 @@ export class BuildSurvival {
     audioEngine.playZombieDeath?.(1)
     if (by) this.net?.queueCredit(by, z.boss)
     else this._countKill(z.boss)
+    this._spawnCorpse(z, dir)
     this._removeZombie(z)
     this.zombies = this.zombies.filter((o) => o !== z)
     this._renderHud()
@@ -868,6 +878,83 @@ export class BuildSurvival {
     this._zBatch = null
   }
 
+  // A copy of the dead zombie's body that falls over and fades away. Its
+  // geometry is the shared zombie body's (never disposed here); the
+  // materials are its own copies, so fading one never fades another.
+  _spawnCorpse(z, dir) {
+    if (!z.body || !z.parts) return
+    const B = this.B
+    const body = z.body.clone()
+    // Its arms (held out in front while walking) drop along the body as it
+    // falls - lying on its back with arms in the air looked wrong.
+    const nodes = []
+    body.traverse((o) => nodes.push(o))
+    const pivots = this._zBatch?.pivotIndex || {}
+    const arms = ['armR', 'armL'].map((k) => nodes[pivots[k]]).filter(Boolean)
+    const materials = []
+    body.traverse((o) => {
+      if (!o.isMesh) return
+      o.visible = true
+      o.material = [].concat(o.material).map((m) => {
+        const c = m.clone()
+        c.transparent = true
+        materials.push(c)
+        return c
+      })
+      if (o.material.length === 1) o.material = o.material[0]
+    })
+    // Falls away from the shot (or from me, when the host says it died).
+    let fx = dir?.x ?? 0
+    let fz = dir?.z ?? 0
+    if (!fx && !fz) {
+      const me = this.bm.tryMode.pos
+      fx = z.x - me.x
+      fz = z.z - me.z
+    }
+    const tilt = new THREE.Group()
+    tilt.rotation.order = 'YXZ'
+    tilt.rotation.y = Math.atan2(fx, fz) || 0
+    const facing = new THREE.Group()
+    facing.rotation.y = z.group.rotation.y - tilt.rotation.y
+    facing.add(body)
+    tilt.add(facing)
+    tilt.position.copy(z.group.position)
+    this.bm.scene.add(tilt)
+    // Lying flat, the body's own thickness keeps it on top of the ground.
+    const lift = 0.13 * B * (z.size || 1)
+    this._corpses = this._corpses || []
+    this._corpses.push({ group: tilt, materials, arms, armFrom: arms.map((a) => a.rotation.x), t: 0, lift, baseY: tilt.position.y })
+    while (this._corpses.length > MAX_CORPSES) this._dropCorpse(this._corpses[0])
+  }
+
+  _updateCorpses(dt) {
+    if (!this._corpses?.length) return
+    for (const c of [...this._corpses]) {
+      c.t += dt
+      // Falls like it has weight: slow, then faster.
+      const f = Math.min(1, c.t / CORPSE_FALL)
+      c.group.rotation.x = (Math.PI / 2) * f * f
+      c.group.position.y = c.baseY + c.lift * f
+      c.arms.forEach((a, i) => { a.rotation.x = c.armFrom[i] * (1 - f) })
+      const fadeT = c.t - CORPSE_FALL - CORPSE_LIE
+      if (fadeT > 0) {
+        const o = Math.max(0, 1 - fadeT / CORPSE_FADE)
+        for (const m of c.materials) m.opacity = o
+        if (o <= 0) this._dropCorpse(c)
+      }
+    }
+  }
+
+  _dropCorpse(c) {
+    this.bm.scene.remove(c.group)
+    for (const m of c.materials) m.dispose()
+    this._corpses = this._corpses.filter((o) => o !== c)
+  }
+
+  _clearCorpses() {
+    for (const c of [...(this._corpses || [])]) this._dropCorpse(c)
+  }
+
   _removeZombie(z) {
     this.bm.scene.remove(z.group)
     // A batched body shares its geometry and material - nothing to free.
@@ -1115,6 +1202,7 @@ export class BuildSurvival {
   // Each frame while playing (after Try Map has moved you).
   update(dt) {
     if (!this.active) return
+    this._updateCorpses(Math.min(dt, 0.1))
     // On a server the world goes on while you're dead or in the menu.
     const net = this.net && !this.net.closed ? this.net : null
     if (net) net.update(Math.min(dt, 0.25))
@@ -1430,6 +1518,7 @@ export class BuildSurvival {
     }
     for (const z of [...this.zombies]) {
       if (seen.has(z.id)) continue
+      this._spawnCorpse(z, null)
       this._removeZombie(z)
       this.zombies = this.zombies.filter((o) => o !== z)
     }

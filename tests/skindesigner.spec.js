@@ -252,4 +252,18 @@ test('Smart Edit changes only what was asked', async ({ page }) => {
   })
   expect(legsGreen).toBe(true)
   await page.click('#undoBtn')
+
+  // "add a black hat" makes a black hat, not one in the shirt's colour.
+  await generate(page, 'girl in a white dress')
+  await page.fill('#aiEditInput', 'add a black hat')
+  await page.click('#aiEditBtn')
+  await page.waitForFunction(() => !document.getElementById('aiEditBtn').disabled)
+  const hatLight = await page.evaluate(() => {
+    const c = window.__skinAtlas, R = c.width / 64, d = c.getContext('2d').getImageData(40 * R, 0, 8 * R, 8 * R).data
+    let sum = 0, n = 0
+    for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 0) { sum += (d[i] + d[i + 1] + d[i + 2]) / 3; n++ }
+    return { avg: sum / Math.max(1, n), n }
+  })
+  expect(hatLight.n).toBeGreaterThan(0)
+  expect(hatLight.avg).toBeLessThan(70)
 })
