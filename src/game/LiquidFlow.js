@@ -16,13 +16,16 @@
 // falling. They're never saved (BuildMode._snapshot skips them) - the
 // sources re-flow on load - can't be aimed at, and placing a block into
 // one replaces it.
+import { WORLD_LIMIT } from './OpenWorld.js'
+
 const KINDS = {
   water: { tick: 0.25, step: 1, max: 7, reach: 4 },
   lava: { tick: 1.5, step: 2, max: 6, reach: 2 },
 }
 const FALLING = 99 // a stream pouring straight down (never a spreading level)
 const SIDES = [[1, 0], [-1, 0], [0, 1], [0, -1]]
-// Never spreads past the 128x128 ground or below the bottom of the world.
+// Never spreads past the 128x128 ground (the open world's limit on Map 1)
+// or below the bottom of the world.
 const HALF = 64
 const MIN_Y = -40
 // A hard cap on flowing cells, so a huge flood can't swamp the editor.
@@ -117,7 +120,8 @@ export class LiquidFlow {
   // Liquid can move into empty cells and into its own kind's thinner
   // flowing cells.
   _canEnter(x, y, z, kind, level) {
-    if (x < -HALF || x >= HALF || z < -HALF || z >= HALF || y < MIN_Y) return false
+    const half = this.bm.world?.active ? WORLD_LIMIT : HALF
+    if (x < -half || x >= half || z < -half || z >= half || y < MIN_Y) return false
     const type = this.bm.getBlockAt(x, y, z)
     if (!type) return true
     if (type !== kind) return false

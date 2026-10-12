@@ -11,6 +11,7 @@ import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
 import { BuildTryMode } from './BuildTryMode.js'
 import { LiquidFlow } from './LiquidFlow.js'
+import { OpenWorld } from './OpenWorld.js'
 import { BuildTools } from './BuildTools.js'
 import { BuildSky } from './BuildSky.js'
 import { BuildTouch } from './BuildTouch.js'
@@ -1266,6 +1267,11 @@ export class BuildMode {
     return BLOCK_BY_ID.get(type)?.shape
   }
 
+  // A block's map color (0xRRGGBB), for the open world's minimap.
+  static blockColor(type) {
+    return BLOCK_BY_ID.get(type)?.color
+  }
+
   // A block id a player could have placed (not a door's hidden top half).
   // Settings > Controls: Field of View (the old Map 1's setting, 75 by default).
   // The view distance in blocks right now (see VIEW_DISTANCES).
@@ -1292,7 +1298,8 @@ export class BuildMode {
   }
 
   _applyViewDistance() {
-    const blocks = this.viewDistance()
+    // The open world only grows so far: the fog ends before its edge.
+    const blocks = this.world.active ? Math.min(this.viewDistance(), this.world.radius() - 8) : this.viewDistance()
     const fog = this.scene.fog
     if (this.scene.background?.isColor) fog.color.copy(this.scene.background)
     if (Number.isFinite(blocks)) {
@@ -1615,6 +1622,7 @@ export class BuildMode {
     // Bumped on every block change, so the minimap knows to redraw.
     this._mapVersion = 0
     this.liquids = new LiquidFlow(this)
+    this.world = new OpenWorld(this)
     // Fill, Replace and the shape tools (BuildTools.js).
     this.tools = new BuildTools(this, BLOCK_SIZE)
     // Levers, pressure plates, signs, chests (BuildGadgets.js).
@@ -1973,7 +1981,19 @@ export class BuildMode {
   _buildTopDownMap() {
     const half = GROUND_SIZE / 2
     const top = new Map()
-    for (const [key, type] of this._blocks) {
+    // With the open world around Map 1 only the city's own chunks are read
+    // (the land around it is drawn from its noise, OpenWorld.mapTile).
+    const cityChunks = half / CHUNK
+    const entries = this.world.active
+      ? (function* (chunkCells, blocks) {
+        for (const [ck, cells] of chunkCells) {
+          const [cx, , cz] = ck.split(',').map(Number)
+          if (cx < -cityChunks || cx >= cityChunks || cz < -cityChunks || cz >= cityChunks) continue
+          for (const key of cells) yield [key, blocks.get(key)]
+        }
+      })(this._chunkCells, this._blocks)
+      : this._blocks
+    for (const [key, type] of entries) {
       const def = BLOCK_BY_ID.get(type)
       if (!def || def.shape === 'invisible' || def.hidden) continue
       const [x, y, z] = key.split(',').map(Number)
@@ -2262,6 +2282,7 @@ export class BuildMode {
     if (BLOCK_BY_ID.get(type)?.shape === 'door' && this.liquids?.isFlow(aboveKey)) this.removeBlock(x, y + 1, z)
     const before = this._blocks.get(key)
     this._placeBlockInner(x, y, z, type, skipBoundsUpdate, state)
+    if (this._blocks.get(key) !== before) this.world?.touched(x, y, z, key, false)
     if (this.liquids && this._blocks.get(key) !== before && (!skipBoundsUpdate || LIQUID_TYPES.has(type))) this.liquids.changed(x, y, z)
   }
 
@@ -2269,9 +2290,36 @@ export class BuildMode {
     const key = this._key(x, y, z)
     if (!this._blocks.has(key)) return
     this._mapVersion++
+    this.world?.touched(x, y, z, key, true)
     this.liquids?.levels.delete(key)
     this._removeBlockInner(x, y, z)
     this.liquids?.changed(x, y, z)
+  }
+
+  // The open world's land (OpenWorld.js): plain chunk blocks put straight
+  // in, with no undo, liquid flow, lights or ladder checks - its chunks
+  // are rebuilt a few at a time (BlockChunks.markLazy).
+  _setTerrainBlock(key, x, y, z, type) {
+    this._blocks.set(key, type)
+    const ck = this._chunkKeyOf(x, y, z)
+    let cells = this._chunkCells.get(ck)
+    if (!cells) this._chunkCells.set(ck, (cells = new Set()))
+    cells.add(key)
+  }
+
+  _dropTerrainBlock(key) {
+    if (!this._blocks.delete(key)) return
+    const [x, y, z] = key.split(',').map(Number)
+    const ck = this._chunkKeyOf(x, y, z)
+    const cells = this._chunkCells.get(ck)
+    if (!cells) return
+    cells.delete(key)
+    if (cells.size === 0) {
+      this._chunkCells.delete(ck)
+      this._chunks.dropChunk(ck)
+    } else {
+      this._chunks.markLazy(ck)
+    }
   }
 
   _placeBlockInner(x, y, z, type, skipBoundsUpdate = false, state = null) {
@@ -3397,7 +3445,8 @@ export class BuildMode {
       const shape = BLOCK_BY_ID.get(type)?.shape
       // A door's top half is rebuilt from its bottom half on load, and
       // flowing water/lava from its sources.
-      if (shape === 'doortop' || this.liquids.isFlow(key)) continue
+      // Neither is the open world's land (it grows back from its seed).
+      if (shape === 'doortop' || this.liquids.isFlow(key) || this.world.isTerrain(key)) continue
       const [x, y, z] = key.split(',').map(Number)
       const door = shape === 'door' && this._doorState.get(key)
       const faced = FACED_SHAPES.has(shape) && this._stairFacing.has(key) && this.gadgets.stateOf(key)
@@ -3456,11 +3505,15 @@ export class BuildMode {
     return { removed: [], placed: [] }
   }
 
+  // The city comes with the open world around it (OpenWorld.js); terrain
+  // broken by the player is in the same removed list.
   _applyMap3(edits) {
     const { map } = this._map3Base()
     const removed = new Set(edits.removed.filter((k) => typeof k === 'string'))
     const blocks = map.blocks.filter((b) => !removed.has(this._key(b.x, b.y, b.z)))
+    this.world.start(removed)
     this._applyParsedData({ blocks: blocks.concat(edits.placed), hotbar: edits.hotbar || map.hotbar })
+    this.world.cityLoaded()
   }
 
   // Stores how the current scene differs from the generated map: cells
@@ -3487,6 +3540,7 @@ export class BuildMode {
     for (const [k, b] of current) {
       if (sig(b) !== sig(byKey.get(k))) placed.push(b)
     }
+    removed.push(...this.world.removedKeys())
     return { removed, placed, hotbar: this.hotbar }
   }
 
@@ -3572,6 +3626,7 @@ export class BuildMode {
       this._instanceKeyByIndex[type] = []
     }
     this._blocks.clear()
+    this.world?.reset()
     this._mapVersion++
     this._invisibleKeys.clear()
     this._invisShadowDirty = true
@@ -3628,6 +3683,22 @@ export class BuildMode {
     if (groundMesh) groundMesh.computeBoundingSphere()
   }
 
+  // Grows the open world around you (or the flying camera) and every
+  // other player on a server (OpenWorld.js).
+  _updateWorld() {
+    if (!this.world.active) return
+    const points = [this.tryMode.active ? this.tryMode.pos : { x: this.camera.position.x / BLOCK_SIZE, z: this.camera.position.z / BLOCK_SIZE }]
+    const net = this.survival?.active && this.survival.net
+    if (net && !net.closed) for (const p of net.targets()) points.push(p)
+    // A bug in the land must never stop the game's frame loop.
+    try {
+      this.world.update(points)
+    } catch (err) {
+      if (!this._worldError) console.error('Open world:', err)
+      this._worldError = true
+    }
+  }
+
   update(dt) {
     // Hold-V zoom - damped toward its target the same way movement
     // velocity is below, instead of an instant snap, so both zooming in
@@ -3642,6 +3713,7 @@ export class BuildMode {
     this.camera.rotateY(this._yaw)
     this.camera.rotateX(this._pitch)
     this.liquids.update(dt)
+    this._updateWorld()
     this.sky.update(dt)
     this.together.update(dt)
     this._updateCampDisplay(dt)
@@ -3760,7 +3832,8 @@ export class BuildMode {
   render() {
     // Chunk meshes are rebuilt here, once per frame, however many blocks
     // changed since the last one (a paste or a load touches thousands).
-    if (this._chunks.flush(this._chunkCells)) this._shadowsDirty = true
+    const focus = this.tryMode.active ? this.tryMode.pos : { x: this.camera.position.x / BLOCK_SIZE, z: this.camera.position.z / BLOCK_SIZE }
+    if (this._chunks.flush(this._chunkCells, focus)) this._shadowsDirty = true
     this.tools.update()
     if (this._invisShadowDirty) this._rebuildInvisibleShadows()
     if (this._invisShadowMesh) this._invisShadowMesh.visible = !this.renderer.shadowMap.enabled

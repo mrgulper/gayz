@@ -21,6 +21,8 @@
 import * as THREE from 'three'
 
 export const CHUNK = 16
+// Time per frame spent rebuilding the open world's chunks (see flush()).
+const LAZY_BUDGET_MS = 5
 // A power-of-two SLOT with the tile repeated into half-tile padding: every
 // mipmap level (down to one texel per slot) then only ever averages a
 // block's own texture - no distant speckles bled in from the next tile.
@@ -85,6 +87,7 @@ export class BlockChunks {
     this.info = new Map()
     this.chunks = new Map() // "cx,cy,cz" -> { meshes: [] }
     this.dirty = new Set()
+    this.lazy = new Set() // chunks to rebuild a few per frame, nearest first
     this._glow = new Map() // "x,y,z" -> { x, y, z, c: [r, g, b] }
     this._glowByChunk = new Map() // "cx,cy,cz" -> Set of glow entries
 
@@ -321,19 +324,56 @@ export class BlockChunks {
     }
   }
 
+  // A chunk the open world grew or dropped land in (OpenWorld.js): rebuilt
+  // soon, a few per frame, nearest the player first - not all at once.
+  markLazy(key) {
+    if (!this.dirty.has(key)) this.lazy.add(key)
+  }
+
+  // The open world dropped every block in this chunk.
+  dropChunk(key) {
+    this._disposeChunk(key)
+    this.dirty.delete(key)
+    this.lazy.delete(key)
+  }
+
   // Rebuilds every dirty chunk. Cheap enough to run every frame: a normal
-  // click dirties 1-4 chunks, and a full load is a one-off.
+  // click dirties 1-4 chunks, and a full load is a one-off. Lazy chunks
+  // (the open world's) get LAZY_BUDGET_MS per frame, nearest `focus` (x/z
+  // in blocks) first.
   // Returns true if any chunk was rebuilt.
-  flush(blocksByChunk) {
-    if (this.dirty.size === 0) return false
-    for (const key of this.dirty) this._build(key, blocksByChunk.get(key))
-    this.dirty.clear()
-    return true
+  flush(blocksByChunk, focus = null) {
+    let built = false
+    if (this.dirty.size) {
+      for (const key of this.dirty) {
+        this._build(key, blocksByChunk.get(key))
+        this.lazy.delete(key)
+      }
+      this.dirty.clear()
+      built = true
+    }
+    if (this.lazy.size) {
+      const until = performance.now() + LAZY_BUDGET_MS
+      const fx = focus ? focus.x / CHUNK : 0
+      const fz = focus ? focus.z / CHUNK : 0
+      const order = [...this.lazy].map((key) => {
+        const [cx, , cz] = key.split(',').map(Number)
+        return [(cx + 0.5 - fx) ** 2 + (cz + 0.5 - fz) ** 2, key]
+      }).sort((a, b) => a[0] - b[0])
+      for (const [, key] of order) {
+        this._build(key, blocksByChunk.get(key))
+        this.lazy.delete(key)
+        built = true
+        if (performance.now() > until) break
+      }
+    }
+    return built
   }
 
   clear() {
     for (const key of [...this.chunks.keys()]) this._disposeChunk(key)
     this.dirty.clear()
+    this.lazy.clear()
     this._glow.clear()
     this._glowByChunk.clear()
   }

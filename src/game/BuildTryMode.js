@@ -33,8 +33,11 @@ import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from '
 import { audioEngine } from './Audio.js'
 import { cloneViewmodel } from './Viewmodels.js'
 import { heldAction } from './Keybinds.js'
+import { WORLD_LIMIT, sampleLand, biomeName, inCity } from './OpenWorld.js'
 
 const HALF_WIDTH = 0.3
+// Cells across the minimap out in Map 1's open world.
+const MAP_WORLD_SPAN = 160
 const HEIGHT = 1.8
 const EYE = 1.62
 const CROUCH_HEIGHT = 1.5
@@ -186,6 +189,20 @@ export class BuildTryMode {
     window.addEventListener('resize', () => { if (this._mapEl.style.display !== 'none') this._applyMapMode() })
   }
 
+  // Out in Map 1's open world, the biome you're in shows under the map.
+  _showBiome(x, z) {
+    if (!this._biomeEl) {
+      this._biomeEl = document.createElement('div')
+      this._biomeEl.id = 'build-try-biome'
+      this._mapEl.appendChild(this._biomeEl)
+    }
+    const cx = Math.floor(x)
+    const cz = Math.floor(z)
+    const name = x === null || inCity(cx, cz) ? '' : biomeName(sampleLand(cx, cz).biome)
+    if (this._biomeEl.textContent !== name) this._biomeEl.textContent = name
+    this._biomeEl.style.display = name ? '' : 'none'
+  }
+
   cycleMap() {
     this._mapMode = (this._mapMode + 1) % MAP_SIZES.length
     this._applyMapMode()
@@ -236,14 +253,39 @@ export class BuildTryMode {
     const s = c.width
     const cells = this._mapImage.width
     ctx.imageSmoothingEnabled = false
-    ctx.drawImage(this._mapImage, 0, 0, s, s)
-    const k = s / cells
+    // Map cell (cx, cz) -> canvas: the whole city, or - with Map 1's open
+    // world - a window of the land around you, you in the middle.
+    const world = this.bm.world?.active ? this.bm.world : null
+    const span = world ? MAP_WORLD_SPAN : cells
+    const ox = world ? x - span / 2 : -cells / 2
+    const oz = world ? z - span / 2 : -cells / 2
+    const k = s / span
+    if (world) {
+      ctx.fillStyle = '#1d2a1a'
+      ctx.fillRect(0, 0, s, s)
+      const T = 32
+      // A few new tiles per draw at most (each reads the noise 1024 times).
+      let build = 6
+      for (let tx = Math.floor(ox / T); tx <= Math.floor((ox + span) / T); tx++) {
+        for (let tz = Math.floor(oz / T); tz <= Math.floor((oz + span) / T); tz++) {
+          const tile = world.mapTile(tx, tz, build > 0)
+          if (!tile) continue
+          if (tile.fresh) build--
+          ctx.drawImage(tile.canvas, (tx * T - ox) * k, (tz * T - oz) * k, T * k + 0.5, T * k + 0.5)
+        }
+      }
+      ctx.drawImage(this._mapImage, (-cells / 2 - ox) * k, (-cells / 2 - oz) * k, cells * k, cells * k)
+      this._showBiome(x, z)
+    } else {
+      ctx.drawImage(this._mapImage, 0, 0, s, s)
+      this._showBiome(null)
+    }
     // Zombie Extraction's helicopter: a pulsing red ring.
     const ex = this.bm.survival?._extract
     if (ex) {
       const pulse = 0.5 + 0.5 * Math.sin(now / 180)
       ctx.beginPath()
-      ctx.arc((ex.x + cells / 2) * k, (ex.z + cells / 2) * k, Math.max(4, s / 40) * (1 + pulse * 0.5), 0, Math.PI * 2)
+      ctx.arc((ex.x - ox) * k, (ex.z - oz) * k, Math.max(4, s / 40) * (1 + pulse * 0.5), 0, Math.PI * 2)
       ctx.fillStyle = 'rgba(230, 60, 40, 0.85)'
       ctx.strokeStyle = '#fff'
       ctx.lineWidth = Math.max(1.5, s / 120)
@@ -251,8 +293,8 @@ export class BuildTryMode {
       ctx.stroke()
     }
     // Where you are, and which way you're looking.
-    const px = (x + cells / 2) * k
-    const pz = (z + cells / 2) * k
+    const px = (x - ox) * k
+    const pz = (z - oz) * k
     const yaw = this.bm._yaw
     const ang = Math.atan2(-Math.cos(yaw), -Math.sin(yaw))
     const r = Math.max(5, s / 34)
@@ -520,12 +562,13 @@ export class BuildTryMode {
     }
     if (hitY) this.vel.y = 0
 
-    // Never off the map: held inside the 128x128 ground, and anyone who
-    // still falls out (dug through the bottom) comes back to where they
-    // started.
-    p.x = Math.max(-64 + HALF_WIDTH, Math.min(64 - HALF_WIDTH, p.x))
-    p.z = Math.max(-64 + HALF_WIDTH, Math.min(64 - HALF_WIDTH, p.z))
-    if (p.y < -40) {
+    // Never off the map: held inside the 128x128 ground (or, on Map 1 with
+    // its open world, inside the world's far limit), and anyone who still
+    // falls out (dug through the bottom) comes back to where they started.
+    const half = this.bm.world?.active ? WORLD_LIMIT : 64
+    p.x = Math.max(-half + HALF_WIDTH, Math.min(half - HALF_WIDTH, p.x))
+    p.z = Math.max(-half + HALF_WIDTH, Math.min(half - HALF_WIDTH, p.z))
+    if (p.y < -64) {
       Object.assign(p, { x: this._spawn.x, y: this._spawn.y, z: this._spawn.z })
       this.vel.set(0, 0, 0)
     }

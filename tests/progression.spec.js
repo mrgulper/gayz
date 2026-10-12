@@ -195,3 +195,45 @@ test('the 2026-10-12 Zombie Survival achievements unlock from run reports', asyn
   expect(result.missing).toEqual([])
   expect(result.cards).toBeGreaterThanOrEqual(32)
 })
+
+// Prestige costs Points per level (100k, 200k, ...), the star at the top
+// left updates at once, and each level really adds +10% Points per run.
+test('Prestige costs more each level and the star updates at once', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    g.settings.guestMode = false
+    g.achievements.unlocked.add('survivor_10')
+    window.confirm = () => true
+    const m = g.metaProgress
+    m.prestigeLevel = 0
+    m.purchased = new Set()
+    m.legacyPoints = 99999
+    g._openUpgradesPanel?.()
+    g._renderUpgradesOptions()
+    const out = { blocked: document.getElementById('prestige-btn').disabled }
+    g._prestige()
+    out.stillLevel0 = m.prestigeLevel === 0 && m.legacyPoints === 99999
+    m.legacyPoints = 150000
+    g._renderUpgradesOptions()
+    out.star = document.getElementById('currency-points-amount').textContent
+    g._prestige()
+    out.level1 = m.prestigeLevel === 1
+    out.starAfter = document.getElementById('currency-points-amount').textContent
+    out.nextCost = g._prestigeCost()
+    out.costLine = document.getElementById('prestige-cost-line').textContent
+    // A run now pays +10%.
+    const before = m.legacyPoints
+    g._onPlayEvent('end', { waves: 0, kills: 100, bestStreak: 0, won: false, died: true, mode: 'classic', seconds: 60, coins: 0, headshots: 0, meleeKills: 0, chests: 0, upgrades: 0, bosses: 0 })
+    out.earned = m.legacyPoints - before
+    return out
+  })
+  expect(r.blocked).toBe(true)
+  expect(r.stillLevel0).toBe(true)
+  expect(r.star).toBe('150000')
+  expect(r.level1).toBe(true)
+  expect(r.starAfter).toBe('0')
+  expect(r.nextCost).toBe(200000)
+  expect(r.costLine).toContain('200,000')
+  expect(r.earned).toBe(220) // 100 kills x 10 x 0.2, +10% for level 1
+})
