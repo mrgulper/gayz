@@ -115,6 +115,7 @@ const CRATE_ICON_SVG = {
 }
 import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_POINTS_CONVERSION } from './MetaProgress.js'
 import { playConfig, UPGRADE_PLAY, POINTS_PER_KILL, POINTS_PER_WAVE, DEFENSE_WAVES, BOSS_HUNT_EVERY, PLAY_GAME_MODES, EXTRACTION_WAVES, EXTRACTION_HOLD } from './PlayRules.js'
+import { BIOMES } from './OpenWorld.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel, getAllBindings, setAllBindings } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
@@ -1543,6 +1544,10 @@ export function _formatRelativeTime(ms) {
 // once rather than patching each one.
 // How long Play's fade to and from black takes (ms) - see _fadeScreen.
 const PLAY_FADE_MS = 450
+// Points the next Prestige needs, per level: 100k for level 1, 200k for 2...
+const PRESTIGE_COST_STEP = 100000
+// Extra Points per run for each Prestige level (%).
+const PRESTIGE_BONUS_PERCENT = 10
 // Opening the Map Editor: a quick dip to black. Fading back in on the map
 // (Play or editor) is slow when the load took longer than FADE_LAG_LOAD_MS
 // or a first frame took longer than FADE_LAG_FRAME_MS, fast otherwise.
@@ -2508,6 +2513,7 @@ export class Game {
     this.upgradesOptions = document.getElementById('upgrades-options')
     this.prestigeSection = document.getElementById('prestige-section')
     this.prestigeLevelLine = document.getElementById('prestige-level-line')
+    this.prestigeCostLine = document.getElementById('prestige-cost-line')
     this.prestigeBtn = document.getElementById('prestige-btn')
     this.respecSection = document.getElementById('respec-section')
     this.respecBtn = document.getElementById('respec-btn')
@@ -6969,7 +6975,8 @@ export class Game {
     if (data.bosses >= BOSS_HUNTER_BOSSES) this.achievements.unlock('boss_hunter')
     if (data.won && data.mode === 'zombieExtraction') this.achievements.unlock('get_to_the_chopper')
     if (data.coins >= FORTUNE_HUNTER_COINS) this.achievements.unlock('fortune_hunter')
-    const legacy = Math.floor(points * DEATH_POINTS_CONVERSION)
+    // +10% per Prestige level, as the Prestige line promises.
+    const legacy = Math.floor(points * DEATH_POINTS_CONVERSION * (1 + (PRESTIGE_BONUS_PERCENT / 100) * Math.floor(_safeStatNumber(this.metaProgress.prestigeLevel))))
     this.metaProgress.legacyPoints += legacy
     saveMetaProgress(this.metaProgress)
     this._recordRunEnd(!data.died)
@@ -7426,6 +7433,9 @@ export class Game {
   }
 
   _renderUpgradesOptions() {
+    // The star at the top left is these Points - keep it in step with every
+    // buy, respec and prestige (it used to only update after a run).
+    this._renderCurrencyBar()
     this.upgradesPointsLine.textContent = t('legacyScrapLabel', { n: this.metaProgress.legacyPoints })
     this.upgradesOptions.innerHTML = ''
     for (const upgrade of PLAY_META_UPGRADES) {
@@ -7469,8 +7479,13 @@ export class Game {
     const prestigeUnlocked = this.achievements.unlocked.has(ENDGAME_ACHIEVEMENT)
     this.prestigeSection.style.display = prestigeUnlocked ? 'block' : 'none'
     if (prestigeUnlocked) {
-      this.prestigeLevelLine.textContent = t('prestigeLevelLine', { level: this.metaProgress.prestigeLevel, bonus: this.metaProgress.prestigeLevel * 10 })
+      this.prestigeLevelLine.textContent = t('prestigeLevelLine', { level: this.metaProgress.prestigeLevel, bonus: this.metaProgress.prestigeLevel * PRESTIGE_BONUS_PERCENT })
+      // Each Prestige level costs more (2026-10-12, "100k points to
+      // prestige to level 1 then 200k for level 2 and keep going").
+      const cost = this._prestigeCost()
       this.prestigeBtn.textContent = t('prestigeBtn')
+      this.prestigeBtn.disabled = this.metaProgress.legacyPoints < cost
+      if (this.prestigeCostLine) this.prestigeCostLine.textContent = t('prestigeCostLine', { level: this.metaProgress.prestigeLevel + 1, cost: cost.toLocaleString(), have: Math.floor(_safeStatNumber(this.metaProgress.legacyPoints)).toLocaleString() })
     }
 
     // Legacy Tree Respec (Long-Term Goals batch) - only worth showing once
@@ -7485,15 +7500,22 @@ export class Game {
   // Irreversible from the player's side (wipes Legacy Points and every
   // purchased Permanent Upgrade), so gated behind a real confirm dialog
   // rather than a single click, unlike everything else in this panel.
+  // Points needed for the next Prestige level: PRESTIGE_COST_STEP per level.
+  _prestigeCost() {
+    return (Math.floor(_safeStatNumber(this.metaProgress.prestigeLevel)) + 1) * PRESTIGE_COST_STEP
+  }
+
   _prestige() {
+    if (this.metaProgress.legacyPoints < this._prestigeCost()) return
     if (!window.confirm(t('prestigeConfirm'))) return
     this.metaProgress.prestigeLevel += 1
     this.metaProgress.legacyPoints = 0
     this.metaProgress.purchased = new Set()
     this.metaProgress.prestigeHistory.push({ level: this.metaProgress.prestigeLevel, ts: Date.now() })
     saveMetaProgress(this.metaProgress)
-    this._showLoreToast(t('prestigeComplete', { level: this.metaProgress.prestigeLevel, bonus: this.metaProgress.prestigeLevel * 10 }))
+    this._showLoreToast(t('prestigeComplete', { level: this.metaProgress.prestigeLevel, bonus: this.metaProgress.prestigeLevel * PRESTIGE_BONUS_PERCENT }))
     this._renderUpgradesOptions()
+    this._saveMenuPaintCache?.()
   }
 
   // Respec (Long-Term Goals batch) - refunds every purchased Permanent
@@ -9989,6 +10011,10 @@ export class Game {
       extractionHold: EXTRACTION_HOLD,
       bossEvery: BOSS_HUNT_EVERY,
       upgrades: PLAY_META_UPGRADES.length,
+      prestigeBonus: PRESTIGE_BONUS_PERCENT,
+      prestigeStep: PRESTIGE_COST_STEP.toLocaleString('en-US'),
+      prestigeStep2: (PRESTIGE_COST_STEP * 2).toLocaleString('en-US'),
+      biomes: Object.keys(BIOMES).length,
       marketFee: Math.round(MARKET_FEE_RATE * 100),
       chatMuteMinutes: ChatUI.CHAT_MUTE_MS / 60000,
       loginDays: LOGIN_CALENDAR_DAYS,

@@ -7,7 +7,8 @@
 //
 // Layout: the editor's 128x128 ground (x and z from -64 to 63, ground at
 // y=-1, buildings from y=0 up). A ring of tall buildings of uneven height
-// closes the city in along the map edge (the roads end in barricades
+// closes the city in along the map edge (the roads run out through open
+// gates into the open world, OpenWorld.js - they used to end in barricades
 // against it). Inside, the streets are NOT a grid: a winding main avenue,
 // a bending street, a diagonal, side streets of different lengths and a
 // roundabout with a fountain cut the city into blocks of different sizes
@@ -944,6 +945,8 @@ export function generateMap3() {
   // Cells already taken by an edge building - two sides' buildings used to
   // overlap at the corners, walling each other's doors in.
   const edgeTaken = new Set()
+  // The barricades' wrecked cars, cleared again at the very end (gates).
+  const gateCars = []
   const edgeLand = (x, z) => kindAt(x, z) === 'edge' && !edgeTaken.has(x * 1000 + z)
   for (const side of edgeSides) {
     let a = -HALF
@@ -994,8 +997,9 @@ export function generateMap3() {
         }
         if (carSpot) {
           const [cx, cz] = carSpot
-          if (side.alongX) car(cx, cz + inward * (inward > 0 ? 1 : 2), true, pick(CAR_COLORS))
-          else car(cx + inward * (inward > 0 ? 1 : 2), cz, false, pick(CAR_COLORS))
+          const at = side.alongX ? [cx, cz + inward * (inward > 0 ? 1 : 2), true] : [cx + inward * (inward > 0 ? 1 : 2), cz, false]
+          car(...at, pick(CAR_COLORS))
+          gateCars.push(at)
         }
       }
       a = a1 + 1
@@ -1183,6 +1187,22 @@ export function generateMap3() {
     if (inCamp) start = [inCamp[0], 0, inCamp[1]]
   }
   if (start) set(...start, 'playerstart')
+
+  // Gates out to the open world (2026-10-12, OpenWorld.js): every road's
+  // end at the edge is cleared - barricade, its wrecked car and the rock
+  // wall across it - so the roads lead out of the city. Done last, with no
+  // random numbers, so nothing else in the city moved.
+  for (const [cx, cz, alongX] of gateCars) {
+    const [lx, lz] = alongX ? [4, 1] : [1, 4]
+    for (let x = cx; x <= cx + lx; x++) for (let z = cz; z <= cz + lz; z++) for (let y = 0; y <= 1; y++) clear(x, y, z)
+  }
+  for (let x = -HALF; x < HALF; x++) {
+    for (let z = -HALF; z < HALF; z++) {
+      const d = Math.min(x + HALF, HALF - 1 - x, z + HALF, HALF - 1 - z)
+      if (d > BORDER + 1 || !isRoad(x, z)) continue
+      for (let y = 0; y <= 12; y++) clear(x, y, z)
+    }
+  }
 
   const blocks = []
   for (const [k, type] of cells) {

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { gotoAndWaitForGame } from './helpers.js'
+import { sampleLand, BIOMES } from '../src/game/OpenWorld.js'
 
 test('entering Build Mode shows a scene with a ground plane, exiting returns to the homepage', async ({ page }) => {
   await gotoAndWaitForGame(page)
@@ -1058,4 +1059,95 @@ test('windows crack and shatter in different ways', async ({ page }) => {
   expect(r.looks.map(([name]) => name).sort()).toEqual(['blast', 'burst', 'chunks', 'collapse'])
   expect(new Set(r.looks.map(([, v]) => v.n)).size).toBeGreaterThan(2)
   expect(r.looks.every(([, v]) => v.shapes >= 2)).toBe(true)
+})
+
+// Map 1's open world (OpenWorld.js): land grows around the city out of
+// seeded noise, the roads leave through open gates, only the player's
+// changes to the land are saved, and every biome is somewhere out there.
+test('Map 1 has an open world with biomes around it', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    const w = b.world
+    const out = { active: w.active, gates: w._paths.size > 0 }
+    // Grow the land just outside the east gate.
+    w.update([{ x: 90, z: 2 }])
+    out.columns = w.columns.size
+    const surface = (x, z) => {
+      for (let y = 80; y > -40; y--) if (b._blocks.has(`${x},${y},${z}`)) return [y, b._blocks.get(`${x},${y},${z}`)]
+      return null
+    }
+    out.landOutside = !!surface(90, 2)
+    out.trackOutside = ['gravel', 'coarsedirt'].includes(surface(70, 2)?.[1])
+    out.cityColumnsUntouched = [...w.columns.keys()].every((k) => { const [cx, cz] = k.split(',').map(Number); return cx >= 4 || cx < -4 || cz >= 4 || cz < -4 })
+    // The land is never saved...
+    const snap = b._snapshot().blocks
+    out.landNotSaved = !snap.some((k) => k.x > 70)
+    // ...but breaking it and building on it is.
+    const [y] = surface(90, 2)
+    b.removeBlock(90, y, 2)
+    b.placeBlock(91, y + 1, 2, 'brick')
+    const diff = b._map3Diff()
+    out.brokenSaved = diff.removed.includes(`90,${y},2`)
+    out.builtSaved = diff.placed.some((k) => k.x === 91 && k.z === 2 && k.type === 'brick')
+    // Load that diff again (clears and regrows): the hole and the brick are back, the land too.
+    b.clearAllBlocks()
+    b._applyMap3(diff)
+    w.update([{ x: 90, z: 2 }])
+    out.holeKept = !b._blocks.has(`90,${y},2`) && b._blocks.has(`89,${surface(89, 2)[0]},2`)
+    out.brickKept = b._blocks.get(`91,${y + 1},2`) === 'brick'
+    // The same seed grows the same land.
+    const again = surface(95, 5)
+    b.clearAllBlocks()
+    b._applyMap3({ removed: [], placed: [] })
+    w.update([{ x: 90, z: 2 }])
+    out.sameLand = JSON.stringify(surface(95, 5)) === JSON.stringify(again)
+    // Far columns are dropped again once you leave.
+    w.update([{ x: 1500, z: 1500 }])
+    for (let i = 0; i < 30; i++) w.update([{ x: 1500, z: 1500 }])
+    out.dropped = !w.columns.has('5,0')
+    // The biome under you shows by the minimap.
+    b.toggleTryMode()
+    b.tryMode.pos.set(1500.5, 60, 1500.5)
+    b.tryMode._mapDrawAt = 0
+    b.tryMode._drawMap(performance.now() + 1e6, 1500.5, 1500.5)
+    out.biomeShown = document.getElementById('build-try-biome')?.textContent || ''
+    // You can walk out of the old 128x128 square.
+    b.tryMode.update(0.016, new Set())
+    out.notClamped = b.tryMode.pos.x > 100
+    b.toggleTryMode()
+    g._exitBuildMode()
+    return out
+  })
+
+  expect(r.active).toBe(true)
+  expect(r.gates).toBe(true)
+  expect(r.columns).toBeGreaterThan(0)
+  expect(r.landOutside).toBe(true)
+  expect(r.trackOutside).toBe(true)
+  expect(r.cityColumnsUntouched).toBe(true)
+  expect(r.landNotSaved).toBe(true)
+  expect(r.brokenSaved).toBe(true)
+  expect(r.builtSaved).toBe(true)
+  expect(r.holeKept).toBe(true)
+  expect(r.brickKept).toBe(true)
+  expect(r.sameLand).toBe(true)
+  expect(r.dropped).toBe(true)
+  expect(r.biomeShown.length).toBeGreaterThan(0)
+  expect(r.notClamped).toBe(true)
+
+})
+
+// All 26 biomes are out there, within a long walk of the city.
+test('every open world biome is within reach of Map 1', () => {
+  const found = new Set()
+  for (let r = 80; r < 2600; r += 8) {
+    for (let a = 0; a < 360; a += 2) {
+      found.add(sampleLand(Math.round(Math.cos((a * Math.PI) / 180) * r), Math.round(Math.sin((a * Math.PI) / 180) * r)).biome)
+    }
+  }
+  expect([...found].sort()).toEqual(Object.keys(BIOMES).sort())
 })

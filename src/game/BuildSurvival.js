@@ -334,9 +334,15 @@ export class BuildSurvival {
     return this.bm.game?._onPlayEvent?.(type, data) || null
   }
 
+  // Remembered until the map changes (the open world makes the map big -
+  // reading every block for each zombie spawned showed up as a hitch).
   _findBlocks(type) {
+    const cache = this._foundBlocks || (this._foundBlocks = new Map())
+    const hit = cache.get(type)
+    if (hit && hit.version === this.bm._mapVersion) return hit.out
     const out = []
     for (const [key, t2] of this.bm._blocks) if (t2 === type) out.push(key.split(',').map(Number))
+    cache.set(type, { version: this.bm._mapVersion, out })
     return out
   }
 
