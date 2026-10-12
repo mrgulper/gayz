@@ -1073,6 +1073,7 @@ export class BuildSurvival {
       won,
       died: this.dead,
       mode: this.cfg.mode,
+      difficulty: this.cfg.difficulty || 'normal',
       seconds: (performance.now() - this._startedAt) / 1000,
       coins: this._coinsEarned,
     })
@@ -1256,7 +1257,7 @@ export class BuildSurvival {
     this._bossPending = this.cfg.bossEvery && this.wave % this.cfg.bossEvery === 0 ? 1 : 0
     this._chestsUsed.clear()
     this._message(t('buildPlayWaveStart', { n: this.wave }))
-    this._report('wave', { wave: this.wave })
+    this._report('wave', { wave: this.wave, difficulty: this.cfg.difficulty || 'normal', mutators: this.cfg.mutators || [] })
     this._renderHud()
   }
 

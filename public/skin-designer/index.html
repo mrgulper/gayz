@@ -236,6 +236,12 @@
     padding: 9px 13px; border-bottom: 1px solid var(--line); font-size: 0.8rem; color: var(--text-dim);
   }
   .view-presets { display: flex; gap: 4px; }
+  /* Smart Edit, beside undo/redo (2026-10-12). Oval like the game's other
+     text boxes; the theme's own prompt-input colours. */
+  .ai-edit { display: flex; gap: 6px; flex: 1 1 240px; min-width: 0; margin-right: auto; }
+  .ai-edit .prompt-input { flex: 1 1 auto; min-width: 0; padding: 5px 12px; font-size: 0.78rem; border-radius: 999px; }
+  .ai-edit .tbtn { padding: 4px 12px; font-size: 0.74rem; border-radius: 999px; }
+  .ai-edit-note { padding: 6px 13px; border-bottom: 1px solid var(--line); }
   .view-presets button.tbtn { padding: 4px 8px; font-size: 0.72rem; }
   /* var(--accent), not var(--panel) or plain white - the 3D preview's own
      canvas is transparent (WebGLRenderer alpha:true), so whatever this
@@ -376,6 +382,10 @@
         <button class="tbtn icon-btn" id="undoBtn" disabled title="Undo (Ctrl/Cmd+Z)" aria-label="Undo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg></button>
         <button class="tbtn icon-btn" id="redoBtn" disabled title="Redo (Shift+Ctrl/Cmd+Z)" aria-label="Redo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg></button>
       </span>
+      <span class="ai-edit">
+        <input type="text" id="aiEditInput" class="prompt-input" maxlength="160" placeholder="Ask for a change: red shirt, add a hat, no beard..." aria-label="Tell the editor what to change">
+        <button class="tbtn primary" id="aiEditBtn" title="Make the change (Undo puts it back)">Edit</button>
+      </span>
       <input type="color" id="stageBgWell" class="color-well" value="#d4a068" title="Change the backdrop color behind your character" aria-label="Change stage backdrop color">
       <span class="view-presets">
         <button class="tbtn" id="viewFrontBtn" title="Snap to a straight-on front view">Front</button>
@@ -386,6 +396,7 @@
         <button class="tbtn" id="viewBottomBtn" title="Snap to a bottom-up view">Bottom</button>
       </span>
     </div>
+    <p class="theme-note ai-edit-note" id="aiEditNote" style="display: none;"></p>
     <div class="stage-canvas-wrap">
       <canvas id="stage3d" aria-label="3D preview of the character - drag to rotate, scroll or pinch to zoom, click to paint with the current tool"></canvas>
       <div class="stage-loading" id="stageLoading">Loading 3D preview&hellip;</div>
@@ -1538,6 +1549,9 @@ function detailPass(p, o, rng) {
 function richShade(rng, skin, multiHue, strength = 1) {
   const img = atlasCtx.getImageData(0, 0, 64, 64), d = img.data
   const phase = rng() * Math.PI * 2, base = rng()
+  // Each pixel's own random numbers, from its position - so a pixel that
+  // changed or went away (a Smart Edit) doesn't reshuffle all the others.
+  const pixelSeed = Math.floor(rng() * 4294967296)
   const faces = []
   for (const b of BOXES) {
     faces.push({ part: b.key, over: false, r: partFaceRects(b.u, b.v, b.w, b.h, b.d) })
@@ -1550,6 +1564,7 @@ function richShade(rng, skin, multiHue, strength = 1) {
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const i = ((rect[1] + y) * 64 + rect[0] + x) * 4
       if (d[i + 3] === 0) continue
+      const rng = mulberry32((pixelSeed ^ Math.imul(i + 1, 2654435761)) >>> 0)
       const hex = rgbToHex(d[i], d[i + 1], d[i + 2])
       let [hh, ss, ll] = hexToHsl(hex)
       if (ss < 0.07 && (ll > 0.86 || ll < 0.14)) continue // eye whites, pupils, outlines
@@ -2116,6 +2131,14 @@ function planSkin(parsed, rng, randomTheme) {
   if (parsed.gear.includes('skirt') || (o.feminine && themeKey !== 'girl' && !parsed.colors.pants && rng() < 0.4)) o.skirt = o.skirt || shade(p.accent, -10)
   if (parsed.colors.pants && themeKey === 'girl') o.skirt = null
   if (o.skirt) p.pants = o.skirt
+  // Smart Edit's exact colours ("make the shirt red") land last and draw
+  // nothing random, so the rest of the skin comes out the same.
+  for (const [part, hex] of Object.entries(parsed.overrides || {})) {
+    if (part === 'skirt') { if (o.skirt) o.skirt = p.pants = hex }
+    else if (part === 'pants' && o.skirt) o.skirt = p.pants = hex
+    else p[part] = hex
+    if (part === 'fur' && o.fur) o.fur = hex
+  }
   return { themeKey, p, o }
 }
 
@@ -2157,9 +2180,11 @@ function describePlan(plan) {
   if (o.animal) bits.push(o.animal + (o.fullFur ? ' fur' : ' ears and tail'))
   return article + ' <b>' + what + '</b>' + (bits.length ? ' with ' + bits.slice(0, -1).join(', ') + (bits.length > 1 ? ' and ' : '') + bits[bits.length - 1] : '')
 }
-async function generateThemedSkin(parsed, variant, randomTheme, onStage, fast) {
-  const seed = hashString(JSON.stringify(parsed) + '|' + variant)
-  const rng = mulberry32(seed)
+// seedKey: the words the skin was first made from - a Smart Edit redraws
+// from the same seed, so only what it changed looks different.
+async function generateThemedSkin(parsed, variant, randomTheme, onStage, fast, seedKey) {
+  const seed = hashString((seedKey ?? JSON.stringify(parsed)) + '|' + variant)
+  let rng = mulberry32(seed)
   genWithout = new Set(parsed.without || [])
   const { themeKey, p, o } = planSkin(parsed, rng, randomTheme)
   lastPlan = { themeKey, p, o }
@@ -2177,7 +2202,7 @@ async function generateThemedSkin(parsed, variant, randomTheme, onStage, fast) {
       for (const g of parsed.gear) applyGearWord(g, p, rng)
       if (o.animal) { gearAnimalEars(o.animal, o.fur); gearAnimalTail(o.animal, o.fur) }
     }],
-    ['details', () => { detailPass(p, o, rng); richShade(rng, p.skin, o.multiHue, 1) }],
+    ['details', () => { const shadeRng = mulberry32((seed ^ 0x5bd1e995) >>> 0); detailPass(p, o, rng); richShade(shadeRng, p.skin, o.multiHue, 1) }],
   ]
   // Every stage paints in the 64-unit layout on genCanvas, then the
   // picture is scaled up to the atlas; on a 2x-16x skin the last stage
@@ -2193,6 +2218,9 @@ async function generateThemedSkin(parsed, variant, randomTheme, onStage, fast) {
     }]
   })
   for (const [label, paint] of stages) {
+    // Every stage draws from its own seed, so leaving a piece of gear off
+    // (fewer random numbers used) can't change how the later stages come out.
+    rng = mulberry32((seed ^ hashString(label)) >>> 0)
     paint()
     onStage?.(label)
     if (!fast) await sleep(220)
@@ -2337,7 +2365,7 @@ async function runGeneration(promptText, isRandom) {
       note.innerHTML = 'Generating... painting the <b>' + stage + '</b>'
       syncAfterEdit()
     })
-    lastGen = { parsed, variant, randomTheme, sig: atlasSignature() }
+    lastGen = { parsed, variant, randomTheme, seedKey: JSON.stringify(parsed), sig: atlasSignature() }
     syncAfterEdit()
     scheduleSave()
     revealOuterLayerIfPainted()
@@ -2377,6 +2405,384 @@ async function runGeneration(promptText, isRandom) {
 window.__parsePrompt = parsePrompt
 document.getElementById('generateBtn').addEventListener('click', () => runGeneration(document.getElementById('promptInput').value, false));
 document.getElementById('promptInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') runGeneration(document.getElementById('promptInput').value, false); });
+
+// ---- Smart Edit (2026-10-12, Gaymi: "add a smart AI for editing ... edit
+// whatever the player asked you to change") ----
+// Still fully offline, like the generator. The box beside undo/redo reads
+// a request - "make the shirt red", "blonde hair and a hat", "remove the
+// beard", "darker pants", "make it a pirate" - split into its parts at
+// "and" / commas / "then". On a skin the generator made (and you haven't
+// painted over since) the request changes that skin's own plan and redraws
+// it from the same seed, so only the asked-for part changes. On anything
+// else (painted, imported) it finds that part on the picture - hair, skin,
+// shirt, pants, shoes, eyes, hat - and recolours it with its shading kept,
+// clears gear off the outer layer, or paints new gear on.
+const EDIT_PARTS = {
+  ...PART_WORDS,
+  hat: 'hat', hats: 'hat', cap: 'hat', helmet: 'hat', beanie: 'hat', headwear: 'hat', crown: 'hat',
+  jacket: 'shirt', coat: 'shirt', shirts: 'shirt', sleeves: 'shirt', arms: 'shirt', clothes: 'outfit', outfit: 'outfit',
+  clothing: 'outfit', everything: 'outfit', body: 'skin', face: 'skin', boot: 'shoe', trousers: 'pants', pupils: 'eye',
+  beard: 'beard', moustache: 'beard', mustache: 'beard', fur: 'fur',
+}
+const EDIT_REMOVE = new Set(['remove', 'delete', 'erase', 'drop', 'lose', 'clear', 'strip', 'without', 'no', 'minus', 'rid', 'unequip', 'ditch', 'shave', 'nothing', 'none'])
+const EDIT_ADD = new Set(['add', 'give', 'put', 'wear', 'wearing', 'equip', 'include', 'attach', 'with'])
+const EDIT_DARKER = new Set(['darker', 'darken', 'deeper', 'dimmer', 'duller'])
+const EDIT_LIGHTER = new Set(['lighter', 'lighten', 'brighter', 'brighten', 'paler', 'lighter'])
+const EDIT_FILLER = new Set(['make', 'change', 'turn', 'paint', 'set', 'switch', 'recolor', 'recolour', 'dye', 'color', 'colour', 'the', 'a', 'an', 'my', 'his', 'her', 'their', 'its', 'it', 'to', 'into', 'be', 'is', 'are', 'please', 'can', 'you', 'i', 'want', 'and', 'of', 'on', 'in', 'take', 'off', 'get', 'some', 'more', 'bit', 'little', 'slightly', 'much', 'lot', 'so', 'too', 'very', 'instead', 'now', 'them', 'him', 'look', 'like', 'just', 'also', 'colored', 'coloured', 'shade', 'tone', 'skin'])
+const PART_LABELS = { hair: 'hair', shirt: 'shirt', pants: 'pants', skirt: 'skirt', shoe: 'shoes', eye: 'eyes', skin: 'skin', accent: 'trim', fur: 'fur', hat: 'hat', outfit: 'outfit', beard: 'beard' }
+
+function parseEdit(text) {
+  const clauses = String(text || '').toLowerCase().split(/\s*(?:,|;|\.|\bthen\b|\bplus\b|\band\b|&)\s*/).filter((c) => c.trim())
+  const actions = [], fixes = [], unknown = []
+  let lastPart = null
+  for (const clause of clauses) {
+    const raw = clause.split(/[^a-z]+/).filter(Boolean)
+    if (!raw.length) continue
+    const remove = raw.some((w) => EDIT_REMOVE.has(w)) || /\btake\b.*\boff\b/.test(clause) || /\bget rid\b/.test(clause)
+    let rel = raw.some((w) => EDIT_DARKER.has(w)) ? -1 : raw.some((w) => EDIT_LIGHTER.has(w)) ? 1 : 0
+    // "dark hair" / "light pants" (not skin): a shade of what's there.
+    if (!rel && !raw.includes('skin') && raw.some((w) => EDIT_PARTS[w] && EDIT_PARTS[w] !== 'skin')) {
+      if (raw.includes('dark') && !COLOR_WORDS.dark) rel = -1
+      else if ((raw.includes('light') || raw.includes('pale')) && !COLOR_WORDS.light) rel = 1
+    }
+    // Each word as the generator reads it (typos fixed), keeping part words
+    // ("outfit", "clothes") the generator itself skips.
+    const words = []
+    for (const w of raw) {
+      if (EDIT_REMOVE.has(w) || EDIT_ADD.has(w) || EDIT_DARKER.has(w) || EDIT_LIGHTER.has(w)) continue
+      if (EDIT_PARTS[w] || COLOR_WORDS[w] || w in SKIN_WORDS) { words.push(w); continue }
+      if (EDIT_FILLER.has(w)) continue
+      const r = understandWord(w)
+      if (r.fixed) fixes.push([w, r.fixed])
+      if (r.unknown) unknown.push(w)
+      words.push(...r.words)
+    }
+    const partAt = (i) => EDIT_PARTS[words[i]] || null
+    const before = actions.length
+    if (remove) {
+      for (const w of words) {
+        const what = NEGATABLE[w] || (GEAR_WORDS[w]) || (EDIT_PARTS[w] === 'hat' ? 'hat' : null)
+        if (what && !actions.some((a) => a.type === 'remove' && a.what === what)) actions.push({ type: 'remove', what })
+      }
+    } else {
+      const usedPart = new Set()
+      words.forEach((w, i) => {
+        const hex = COLOR_WORDS[w]
+        if (!hex) return
+        // The part after the colour ("red shirt"), else before it ("shirt
+        // to red"), else the one the last request was about.
+        let part = partAt(i + 1) || partAt(i + 2)
+        if (!part) for (let j = i - 1; j >= 0 && !part; j--) part = partAt(j)
+        if (!part && HAIR_ONLY_COLORS.has(w)) part = 'hair'
+        part = part || lastPart || 'outfit'
+        usedPart.add(part)
+        if (part === 'skin' && w in SKIN_WORDS && !['green', 'blue', 'red', 'purple', 'pink', 'gray', 'grey'].includes(w)) actions.push({ type: 'skinTone', idx: SKIN_WORDS[w], name: w })
+        else actions.push({ type: 'color', part, hex, name: w })
+        lastPart = part
+      })
+      if (rel) {
+        const part = words.map((w) => EDIT_PARTS[w]).find(Boolean) || (raw.includes('skin') ? 'skin' : lastPart || 'outfit')
+        actions.push({ type: 'shade', part, dir: rel })
+        lastPart = part
+      }
+      words.forEach((w, i) => {
+        if (w in HAIR_STYLE_WORDS && (['bald', 'mohawk', 'ponytail', 'bangs', 'fringe'].includes(w) || partAt(i + 1) === 'hair' || partAt(i + 2) === 'hair' || words.includes('hair'))) {
+          actions.push({ type: 'hair', style: HAIR_STYLE_WORDS[w], ponytail: w === 'ponytail', name: w })
+        }
+      })
+      for (const w of words) {
+        const g = GEAR_WORDS[w]
+        if (!g || g === 'skirt') continue
+        // "red boots" recolours boots; "add boots" adds them.
+        if (EDIT_PARTS[w] && usedPart.has(EDIT_PARTS[w]) && !raw.some((x) => EDIT_ADD.has(x))) continue
+        if (g === 'beard' && usedPart.has('beard')) continue
+        if (!actions.some((a) => a.type === 'add' && a.what === g)) actions.push({ type: 'add', what: g })
+      }
+      for (const w of words) {
+        const key = THEMES[w] ? w : ALIASES[w] && !COLOR_WORDS[w] ? ALIASES[w] : null
+        if (key && !actions.some((a) => a.type === 'theme')) actions.push({ type: 'theme', key, name: w })
+      }
+      if (words.some((w) => FEMININE_WORDS.includes(w)) && !actions.some((a) => a.type === 'theme' && a.key === 'girl')) actions.push({ type: 'feminine' })
+      if (words.some((w) => MASCULINE_WORDS.includes(w))) actions.push({ type: 'masculine' })
+    }
+    if (actions.length === before && unknown.length === 0) unknown.push(clause.trim())
+  }
+  return { actions, fixes, unknown: [...new Set(unknown)] }
+}
+
+function describeEdit(a) {
+  switch (a.type) {
+    case 'color': return PART_LABELS[a.part] + ' to <b>' + a.name + '</b>'
+    case 'skinTone': return 'skin to <b>' + a.name + '</b>'
+    case 'shade': return (a.dir < 0 ? 'darker ' : 'lighter ') + PART_LABELS[a.part]
+    case 'remove': return 'removed the <b>' + (a.what === 'all' ? 'gear' : a.what) + '</b>'
+    case 'add': return 'added <b>' + a.what + '</b>'
+    case 'hair': return '<b>' + a.name + '</b> hair'
+    case 'theme': return 'made it <b>' + a.name + '</b>'
+    case 'feminine': return 'more girly'
+    case 'masculine': return 'more boyish'
+  }
+  return ''
+}
+
+// --- Editing a generated skin: change its plan, redraw it the same way. ---
+async function editGenerated(actions) {
+  const parsed = JSON.parse(JSON.stringify(lastGen.parsed))
+  parsed.overrides = { ...(parsed.overrides || {}) }
+  parsed.gear = [...(parsed.gear || [])]
+  parsed.themes = [...(parsed.themes || [])]
+  let without = new Set(parsed.without || [])
+  const after = []
+  const planned = lastPlan?.p || {}
+  const current = (part) => parsed.overrides[part] || planned[part]
+  for (const a of actions) {
+    if (a.type === 'color') {
+      if (a.part === 'hat' || a.part === 'beard') after.push(a)
+      else if (a.part === 'outfit') { parsed.overrides.shirt = a.hex; parsed.overrides.pants = shade(a.hex, -38) }
+      else parsed.overrides[a.part] = a.hex
+    } else if (a.type === 'shade') {
+      const parts = a.part === 'outfit' ? ['shirt', 'pants'] : [a.part]
+      for (const part of parts) {
+        if (part === 'hat' || part === 'beard') { after.push(a); continue }
+        const base = current(part)
+        if (base) parsed.overrides[part] = shade(base, a.dir * 30)
+      }
+    } else if (a.type === 'skinTone') {
+      parsed.skinTone = a.idx; delete parsed.overrides.skin
+    } else if (a.type === 'remove') {
+      without.add(a.what)
+      if (a.what === 'hair') parsed.hairStyle = 3
+      parsed.gear = parsed.gear.filter((g) => g !== a.what && !(a.what === 'hat' && HEADWEAR.has(g)) && a.what !== 'all')
+    } else if (a.type === 'add') {
+      if (!parsed.gear.includes(a.what)) parsed.gear.push(a.what)
+      without.delete(a.what); without.delete('all')
+      if (HEADWEAR.has(a.what)) without.delete('hat')
+      if (a.what === 'glasses' || a.what === 'sunglasses') without.delete('glasses')
+    } else if (a.type === 'hair') {
+      parsed.hairStyle = a.style; parsed.ponytail = a.ponytail; without.delete('hair')
+    } else if (a.type === 'theme') {
+      parsed.themes = [a.key]
+    } else if (a.type === 'feminine') { parsed.feminine = true; parsed.masculine = false }
+    else if (a.type === 'masculine') { parsed.masculine = true; parsed.feminine = false }
+  }
+  parsed.without = [...without]
+  await generateThemedSkin(parsed, lastGen.variant, lastGen.randomTheme, null, true, lastGen.seedKey)
+  lastGen = { ...lastGen, parsed }
+  if (after.length) editPainted(after)
+  lastGen.sig = atlasSignature()
+}
+
+// --- Editing any skin: find the part on the picture and change it there. ---
+function rectsOf(key, faces, layer, rows) {
+  // rows: [from, to) counted down each side face (64-unit pixels); the
+  // top/bottom faces come along when rows start at 0 / reach the end.
+  const b = BOXES.find((x) => x.key === key)
+  const all = layer === 'outer' ? ovRects(key) : partFaceRects(b.u, b.v, b.w, b.h, b.d)
+  const out = []
+  for (const f of faces) {
+    const r = all[f]
+    if (!r) continue
+    if (rows && f !== 'top' && f !== 'bottom') out.push([r[0], r[1] + rows[0], r[2], Math.min(r[3], r[1] + rows[1])])
+    else if (!rows || (f === 'top' && rows[0] === 0) || (f === 'bottom' && rows[1] >= b.h)) out.push(r)
+  }
+  return out
+}
+const SIDE_FACES = ['front', 'back', 'left', 'right']
+const ALL_FACES = [...SIDE_FACES, 'top', 'bottom']
+const REGIONS = {
+  head: () => [...rectsOf('head', ALL_FACES, 'base'), ...rectsOf('head', ALL_FACES, 'outer')],
+  headBase: () => rectsOf('head', ALL_FACES, 'base'),
+  hat: () => [...rectsOf('head', ['top'], 'outer'), ...rectsOf('head', SIDE_FACES, 'outer', [0, 3])],
+  hatAll: () => rectsOf('head', ALL_FACES, 'outer'),
+  glasses: () => rectsOf('head', ['front', 'left', 'right'], 'outer', [3, 4]),
+  lowerFace: () => [...rectsOf('head', ['front', 'left', 'right'], 'base', [5, 8]), ...rectsOf('head', ['front', 'left', 'right'], 'outer', [5, 8])],
+  mask: () => rectsOf('head', ['front', 'left', 'right'], 'outer', [4, 8]),
+  eyes: () => rectsOf('head', ['front'], 'base', [2, 6]),
+  top: () => ['torso', 'armR', 'armL'].flatMap((k) => [...rectsOf(k, ALL_FACES, 'base'), ...rectsOf(k, ALL_FACES, 'outer')]),
+  jacket: () => ['torso', 'armR', 'armL'].flatMap((k) => rectsOf(k, ALL_FACES, 'outer')),
+  backpack: () => rectsOf('torso', ['back'], 'outer'),
+  scarf: () => rectsOf('torso', SIDE_FACES, 'outer', [0, 2]),
+  gloves: () => ['armR', 'armL'].flatMap((k) => [...rectsOf(k, SIDE_FACES, 'outer', [9, 12]), ...rectsOf(k, ['bottom'], 'outer', [0, 12])]),
+  legs: () => ['legR', 'legL'].flatMap((k) => [...rectsOf(k, ['top', ...SIDE_FACES], 'base', [0, 9]), ...rectsOf(k, ['top', ...SIDE_FACES], 'outer', [0, 9])]),
+  feet: () => ['legR', 'legL'].flatMap((k) => [...rectsOf(k, [...SIDE_FACES, 'bottom'], 'base', [9, 12]), ...rectsOf(k, [...SIDE_FACES, 'bottom'], 'outer', [9, 12])]),
+  bodyBase: () => BOXES.flatMap((b) => rectsOf(b.key, ALL_FACES, 'base')),
+}
+const SAMPLES = {
+  skin: () => rectsOf('head', ['front'], 'base', [5, 8]),
+  hair: () => [...rectsOf('head', ['top'], 'base'), ...rectsOf('head', ['top'], 'outer'), ...rectsOf('head', ['back'], 'base', [0, 4])],
+  shirt: () => [...rectsOf('torso', ['front', 'back'], 'outer'), ...rectsOf('torso', ['front', 'back'], 'base')],
+  pants: () => ['legR', 'legL'].flatMap((k) => [...rectsOf(k, ['front', 'back'], 'outer', [0, 8]), ...rectsOf(k, ['front', 'back'], 'base', [0, 8])]),
+  shoe: () => ['legR', 'legL'].flatMap((k) => [...rectsOf(k, ['front', 'back'], 'outer', [10, 12]), ...rectsOf(k, ['front', 'back'], 'base', [10, 12])]),
+  hat: () => REGIONS.hat(),
+}
+function eachPixel(rects, fn) {
+  const d = mainCtx.getImageData(0, 0, SIZE, SIZE)
+  for (const r of rects) for (let y = r[1] * RES; y < r[3] * RES; y++) for (let x = r[0] * RES; x < r[2] * RES; x++) fn(d.data, (y * SIZE + x) * 4)
+  return d
+}
+// The most common colour in an area (close shades counted together).
+function dominantColor(rects, exclude = []) {
+  const buckets = new Map()
+  eachPixel(rects, (px, i) => {
+    if (px[i + 3] < 128) return
+    const hex = rgbToHex(px[i], px[i + 1], px[i + 2])
+    if (exclude.some((e) => e && colorDistance(e, hex) < 60)) return
+    const k = (px[i] >> 5) + ',' + (px[i + 1] >> 5) + ',' + (px[i + 2] >> 5)
+    const b = buckets.get(k) || { n: 0, r: 0, g: 0, b: 0 }
+    b.n++; b.r += px[i]; b.g += px[i + 1]; b.b += px[i + 2]
+    buckets.set(k, b)
+  })
+  let best = null
+  for (const b of buckets.values()) if (!best || b.n > best.n) best = b
+  return best && best.n ? rgbToHex(Math.round(best.r / best.n), Math.round(best.g / best.n), Math.round(best.b / best.n)) : null
+}
+function detectColors() {
+  const skin = dominantColor(SAMPLES.skin())
+  const hairTop = dominantColor(SAMPLES.hair())
+  const hair = hairTop && (!skin || colorDistance(hairTop, skin) > 60) ? hairTop : null
+  const shirt = dominantColor(SAMPLES.shirt(), [skin])
+  const pants = dominantColor(SAMPLES.pants(), [skin])
+  const shoe = dominantColor(SAMPLES.shoe(), [skin])
+  const eye = dominantColor(REGIONS.eyes(), [skin, hair])
+  const hat = dominantColor(SAMPLES.hat())
+  return { skin, hair, shirt, pants, shoe, eye, hat }
+}
+// Moves every pixel near `from` to the new colour, keeping how much
+// lighter or darker than `from` each one was - the shading stays.
+function recolorArea(rects, from, to, tol = 85) {
+  if (!from || !to) return 0
+  const f = hexToRgb(from), t = hexToRgb(to)
+  const [, , fl] = rgbToHsl(f.r, f.g, f.b)
+  const [th, ts, tl] = rgbToHsl(t.r, t.g, t.b)
+  let n = 0
+  const d = eachPixel(rects, (px, i) => {
+    if (px[i + 3] < 20) return
+    if (Math.abs(px[i] - f.r) + Math.abs(px[i + 1] - f.g) + Math.abs(px[i + 2] - f.b) > tol) return
+    const [, , l] = rgbToHsl(px[i], px[i + 1], px[i + 2])
+    const [r, g, b] = hslToRgb(th, ts, Math.max(0, Math.min(1, tl + (l - fl))))
+    px[i] = r; px[i + 1] = g; px[i + 2] = b; n++
+  })
+  mainCtx.putImageData(d, 0, 0)
+  return n
+}
+function clearArea(rects, test) {
+  let n = 0
+  const d = eachPixel(rects, (px, i) => { if (px[i + 3] && (!test || test(px, i))) { px[i + 3] = 0; n++ } })
+  mainCtx.putImageData(d, 0, 0)
+  return n
+}
+function fillNear(rects, from, to, tol = 70) {
+  const t = hexToRgb(to), f = hexToRgb(from)
+  let n = 0
+  const d = eachPixel(rects, (px, i) => {
+    if (px[i + 3] < 20 || Math.abs(px[i] - f.r) + Math.abs(px[i + 1] - f.g) + Math.abs(px[i + 2] - f.b) > tol) return
+    px[i] = t.r; px[i + 1] = t.g; px[i + 2] = t.b; n++
+  })
+  mainCtx.putImageData(d, 0, 0)
+  return n
+}
+// Gear is painted in 64-unit pixels on its own sheet, then laid on top.
+function paintGearOn(word, p) {
+  genWithout = new Set()
+  genCtx.clearRect(0, 0, 64, 64)
+  atlasCtx = genCtx
+  try { applyGearWord(word, p, mulberry32(hashString(word + '|' + Date.now()))) } finally { atlasCtx = mainCtx }
+  mainCtx.imageSmoothingEnabled = false
+  mainCtx.drawImage(genCanvas, 0, 0, SIZE, SIZE)
+}
+const REGION_OF = { hair: 'head', skin: 'bodyBase', shirt: 'top', pants: 'legs', skirt: 'legs', shoe: 'feet', eye: 'eyes', hat: 'hatAll', fur: 'bodyBase', beard: 'lowerFace' }
+function editPainted(actions) {
+  let c = detectColors()
+  const done = []
+  for (const a of actions) {
+    if (a.type === 'color' || a.type === 'skinTone' || a.type === 'shade') {
+      const parts = a.part === 'outfit' ? ['shirt', 'pants'] : [a.type === 'skinTone' ? 'skin' : a.part === 'beard' ? 'hair' : a.part === 'skirt' ? 'pants' : a.part === 'fur' ? 'skin' : a.part]
+      let changed = 0
+      for (const part of parts) {
+        const from = c[part]
+        if (!from) continue
+        const to = a.type === 'skinTone' ? SKIN_TONES[a.idx] : a.type === 'shade' ? shade(from, a.dir * 30) : a.part === 'outfit' && part === 'pants' ? shade(a.hex, -38) : a.hex
+        const region = a.part === 'beard' ? 'lowerFace' : REGION_OF[part]
+        changed += recolorArea(REGIONS[region](), from, to, part === 'eye' ? 50 : 85)
+        // Long hair hangs down the back.
+        if (part === 'hair') changed += recolorArea(rectsOf('torso', ['back'], 'outer'), from, to)
+      }
+      if (changed) done.push(a)
+    } else if (a.type === 'remove') {
+      let n = 0
+      const w = a.what
+      if (HEADWEAR.has(w) || w === 'hat' || w === 'ears') n = clearArea(REGIONS.hat())
+      else if (w === 'glasses' || w === 'sunglasses') n = clearArea(REGIONS.glasses())
+      else if (w === 'mask') n = clearArea(REGIONS.mask())
+      else if (w === 'beard' && c.hair && c.skin) n = fillNear(rectsOf('head', ['front', 'left', 'right'], 'base', [5, 8]), c.hair, c.skin) + clearArea(rectsOf('head', ['front', 'left', 'right'], 'outer', [5, 8]))
+      else if (w === 'coat' || w === 'armor' || w === 'hood' || w === 'sleeves') n = clearArea(REGIONS.jacket())
+      else if (w === 'cape' || w === 'backpack') n = clearArea(REGIONS.backpack())
+      else if (w === 'scarf') n = clearArea(REGIONS.scarf())
+      else if (w === 'gloves') n = clearArea(REGIONS.gloves())
+      else if (w === 'hair' && c.hair && c.skin) n = fillNear(REGIONS.headBase(), c.hair, c.skin, 80) + clearArea(REGIONS.hatAll())
+      else if (w === 'all') n = clearArea(BOXES.flatMap((b) => rectsOf(b.key, ALL_FACES, 'outer')))
+      if (n) done.push(a)
+    } else if (a.type === 'add') {
+      const p = { hair: c.hair || '#3a2a1a', skin: c.skin || '#c98a55', shirt: c.shirt || '#4a6a9a', pants: c.pants || '#2a3a5a', shoe: c.shoe || '#2a2018', accent: shade(c.shirt || '#8a1f1f', -35), eye: c.eye || '#1a1a1a' }
+      if (a.what === 'beard') { fillNear(rectsOf('head', ['front'], 'base', [6, 8]), p.skin, shade(p.hair, -10), 60); done.push(a) }
+      else { paintGearOn(a.what, p); done.push(a) }
+    } else if (a.type === 'hair' && a.style === 3) {
+      if (c.hair && c.skin) { fillNear(REGIONS.headBase(), c.hair, c.skin, 80); clearArea(REGIONS.hatAll()); done.push(a) }
+    }
+    c = detectColors()
+  }
+  return done
+}
+
+let smartEditing = false
+async function runSmartEdit(text) {
+  const note = document.getElementById('aiEditNote')
+  const show = (html) => { note.innerHTML = html; note.style.display = 'block' }
+  if (smartEditing || generating) return
+  const ask = String(text || '').trim()
+  if (!ask) { show('Type what to change - like <b>red shirt</b>, <b>blonde hair</b>, <b>add sunglasses</b>, <b>remove the hat</b>, <b>darker pants</b> or <b>make it a pirate</b>.'); return }
+  const { actions, fixes, unknown } = parseEdit(ask)
+  if (!actions.length) {
+    show('I couldn\'t tell what to change' + (unknown.length ? ' in "' + unknown.slice(0, 3).join(', ') + '"' : '') + '. Try a part and a colour (<b>green pants</b>), gear (<b>add a hat</b>, <b>no glasses</b>), <b>darker</b>/<b>lighter</b>, or a look (<b>make it a ninja</b>).')
+    return
+  }
+  smartEditing = true
+  const btn = document.getElementById('aiEditBtn')
+  btn.disabled = true
+  pushUndo()
+  try {
+    const generated = !!lastGen && atlasSignature() === lastGen.sig
+    const needsGenerator = actions.some((a) => a.type === 'theme' || a.type === 'feminine' || a.type === 'masculine' || (a.type === 'hair' && a.style !== 3))
+    let done = actions
+    if (generated) await editGenerated(actions)
+    else if (needsGenerator) {
+      // A new look for a painted skin: generated, keeping its hair, skin and eyes.
+      const c = detectColors()
+      const theme = actions.find((a) => a.type === 'theme')
+      const parsed = parsePrompt(theme ? theme.name : '')
+      parsed.overrides = {}
+      for (const k of ['hair', 'skin', 'eye']) if (c[k]) parsed.overrides[k] = c[k]
+      const variant = Math.random().toString(36).slice(2)
+      const randomTheme = RANDOMIZABLE_THEME_KEYS[Math.floor(Math.random() * RANDOMIZABLE_THEME_KEYS.length)]
+      await generateThemedSkin(parsed, variant, randomTheme, null, true)
+      lastGen = { parsed, variant, randomTheme, seedKey: JSON.stringify(parsed), sig: atlasSignature() }
+      await editGenerated(actions.filter((a) => a.type !== 'theme'))
+    } else done = editPainted(actions)
+    syncAfterEdit()
+    scheduleSave()
+    revealOuterLayerIfPainted()
+    const parts = done.map(describeEdit).filter(Boolean)
+    const fixNote = fixes.length ? ' Read ' + fixes.map(([a, b]) => '"' + a + '" as <b>' + b + '</b>').join(', ') + '.' : ''
+    const missed = actions.length > done.length ? ' Couldn\'t find ' + actions.filter((a) => !done.includes(a)).map(describeEdit).join(', ').replace(/<\/?b>/g, '') + ' on this skin.' : ''
+    show((parts.length ? 'Changed: ' + parts.join(', ') + '.' : 'Nothing on this skin matched that.') + fixNote + missed + ' (Undo puts it back.)')
+  } finally {
+    smartEditing = false
+    btn.disabled = false
+  }
+}
+document.getElementById('aiEditBtn').addEventListener('click', () => runSmartEdit(document.getElementById('aiEditInput').value))
+document.getElementById('aiEditInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') runSmartEdit(e.target.value) })
+window.__parseEdit = parseEdit
 document.getElementById('randomizeBtn').addEventListener('click', () => runGeneration('', true));
 // ==== end prompt-driven skin generator ==============================
 
@@ -3694,7 +4100,7 @@ for (const n of RES_LEVELS) {
       generating = true;
       try {
         setRes(n, false);
-        await generateThemedSkin(lastGen.parsed, lastGen.variant, lastGen.randomTheme, null, true);
+        await generateThemedSkin(lastGen.parsed, lastGen.variant, lastGen.randomTheme, null, true, lastGen.seedKey);
         lastGen.sig = atlasSignature();
       } finally { generating = false; }
     } else if (n > RES) {

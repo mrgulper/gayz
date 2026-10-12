@@ -157,9 +157,9 @@ test('every Coming Soon part of the game is in GayZ Features', async ({ page }) 
       [/^gallery-/, 'Gallery'],
       [/^levels-/, 'Levels'],
       [/^general-page-general/, 'General Tab'],
-      [/^hub-page-deathmatch$|^achievements-deathmatch/, 'Deathmatch'],
-      [/^hub-parkour/, 'Parkour'],
-      [/^hub-custom/, 'Custom Games'],
+      [/^hub-page-deathmatch$|^achievements-deathmatch|^upgrades-deathmatch/, 'Deathmatch'],
+      [/^hub-parkour|^upgrades-parkour/, 'Parkour'],
+      [/^hub-custom|^upgrades-custom/, 'Custom Games'],
       [/^(monthly|yearly|lifetime)-quests/, 'Monthly, Yearly & Lifetime Quests'],
       [/^crate-monthly/, 'Monthly Chest'],
       // The shared "this section is being reworked" pop-up, not a feature.

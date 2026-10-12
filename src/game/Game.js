@@ -591,6 +591,18 @@ const MARATHON_SECONDS = 20 * 60
 const TREASURE_HUNTER_CHESTS = 10
 const FULLY_LOADED_UPGRADES = 5
 const DEEP_POCKETS_COINS = 1000
+// Goals for the 2026-10-12 achievements (per run unless it says career).
+const SURVIVOR_30_WAVES = 30
+const MASSACRE_KILLS = 250
+const UNTOUCHABLE_STREAK = 50
+const SHARPSHOOTER_HEADSHOTS = 75
+const BOSS_HUNTER_BOSSES = 5
+const HARDENED_WAVES = 10
+const APEX_PREDATOR_WAVES = 5
+const MUTATOR_CHALLENGE_WAVES = 10
+const EXTERMINATOR_CAREER_KILLS = 1000
+const REGULAR_CAREER_RUNS = 25
+const FORTUNE_HUNTER_COINS = 3000
 // The achievement that counts as beating the game: it unlocks Nightmare
 // difficulty, Prestige and the Career Portrait.
 const ENDGAME_ACHIEVEMENT = 'survivor_10'
@@ -1277,6 +1289,18 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'lifetime-quests-placeholder': 'monthlyQuestsPlaceholder',
   'yearly-quests-placeholder': 'yearlyQuestsPlaceholder',
   'achievements-tab-survival': 'achievementsTabSurvival',
+  // Upgrades panel: one tab per game mode (2026-10-12) - only Zombie
+  // Survival has upgrades so far.
+  'upgrades-tab-upgrades': 'achievementsTabSurvival',
+  'upgrades-tab-deathmatch': 'achievementsTabDeathmatch',
+  'upgrades-tab-parkour': 'achievementsTabParkour',
+  'upgrades-tab-custom': 'hubTabCustom',
+  'upgrades-deathmatch-title': 'comingSoonTitle',
+  'upgrades-parkour-title': 'comingSoonTitle',
+  'upgrades-custom-title': 'comingSoonTitle',
+  'upgrades-deathmatch-text': 'upgradesModeComingSoon',
+  'upgrades-parkour-text': 'upgradesModeComingSoon',
+  'upgrades-custom-text': 'upgradesModeComingSoon',
   'achievements-tab-deathmatch': 'achievementsTabDeathmatch',
   'print-achievements-btn': 'printAchievementsBtnLabel',
   'crate-monthly-coming-soon-tag': 'crateComingSoonTag',
@@ -4149,7 +4173,7 @@ export class Game {
     if (this.profileCareerPortraitBtn) this.profileCareerPortraitBtn.addEventListener('click', () => this._generateCareerPortrait())
     if (this.reportBugBtn) this.reportBugBtn.addEventListener('click', () => this._reportBug())
     this.creditsBtn.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
-    // Credits' GayZ / Weapon Models tabs (2026-10-10).
+    // Credits' GayZ / Weapon tabs (2026-10-10).
     for (const tab of document.querySelectorAll('.credits-tab')) {
       tab.addEventListener('click', () => {
         for (const other of document.querySelectorAll('.credits-tab')) other.classList.toggle('active', other === tab)
@@ -6792,6 +6816,8 @@ export class Game {
     const current = this.buildMode.activeSlot
     const slot = map === 'map3' ? 'map3' : map === 'map2' && current === 'map3' ? 0 : undefined
     this.buildMode.enter({ slot })
+    // The 3D canvas isn't resized on the homepage (_onResize) - catch up now.
+    if (this._sizeDirty) this._onResize()
     if (play) this.buildMode.survival.start({ fromMenu: true, net: server ? new PlayNet(this, server) : null })
     this._applyRenderScale()
     if (play) this._fadeScreen(0)
@@ -6841,12 +6867,16 @@ export class Game {
   // Difficulty / Game Modes / Challenges & Mutators, plus
   // the Upgrades bought with Legacy Points (PlayRules.js).
   _playConfig() {
-    return playConfig({
-      difficulty: DIFFICULTY_PRESETS[this.settings.difficulty] || DIFFICULTY_PRESETS.normal,
-      gameMode: this.settings.selectedGameMode,
-      mutators: this.settings.mutators,
-      purchased: this.metaProgress.purchased,
-    })
+    return {
+      ...playConfig({
+        difficulty: DIFFICULTY_PRESETS[this.settings.difficulty] || DIFFICULTY_PRESETS.normal,
+        gameMode: this.settings.selectedGameMode,
+        mutators: this.settings.mutators,
+        purchased: this.metaProgress.purchased,
+      }),
+      // Read by achievements (what the run was played on).
+      difficulty: this.settings.difficulty,
+    }
   }
 
   // What a homepage Map 1 run tells the game (BuildSurvival._report):
@@ -6869,6 +6899,13 @@ export class Game {
       if (wave >= 10) this.achievements.unlock('survivor_10')
       if (wave >= SURVIVOR_20_WAVES) this.achievements.unlock('survivor_20')
       if (this.settings.difficulty === 'nightmare' && wave >= 5) this.achievements.unlock('nightmare_survivor_5')
+      if (wave >= SURVIVOR_30_WAVES) this.achievements.unlock('survivor_30')
+      const hardOrHarder = ['hard', 'nightmare', 'apex'].includes(data.difficulty)
+      if (hardOrHarder && wave >= HARDENED_WAVES) this.achievements.unlock('hardened')
+      if (data.difficulty === 'apex' && wave >= APEX_PREDATOR_WAVES) this.achievements.unlock('apex_predator')
+      const mutators = Array.isArray(data.mutators) ? data.mutators : []
+      if (mutators.includes('glassHouse') && wave >= MUTATOR_CHALLENGE_WAVES) this.achievements.unlock('glass_cannon')
+      if (mutators.includes('ironMode') && wave >= MUTATOR_CHALLENGE_WAVES) this.achievements.unlock('iron_will')
       return null
     }
     if (type !== 'end') return null
@@ -6899,10 +6936,19 @@ export class Game {
     if (data.chests >= TREASURE_HUNTER_CHESTS) this.achievements.unlock('treasure_hunter')
     if (data.upgrades >= FULLY_LOADED_UPGRADES) this.achievements.unlock('fully_loaded')
     if (data.coins >= DEEP_POCKETS_COINS) this.achievements.unlock('deep_pockets')
+    if (data.kills >= MASSACRE_KILLS) this.achievements.unlock('massacre')
+    if (data.bestStreak >= UNTOUCHABLE_STREAK) this.achievements.unlock('untouchable')
+    if (data.headshots >= SHARPSHOOTER_HEADSHOTS) this.achievements.unlock('sharpshooter')
+    if (data.bosses >= BOSS_HUNTER_BOSSES) this.achievements.unlock('boss_hunter')
+    if (data.won && data.mode === 'zombieExtraction') this.achievements.unlock('get_to_the_chopper')
+    if (data.coins >= FORTUNE_HUNTER_COINS) this.achievements.unlock('fortune_hunter')
     const legacy = Math.floor(points * DEATH_POINTS_CONVERSION)
     this.metaProgress.legacyPoints += legacy
     saveMetaProgress(this.metaProgress)
     this._recordRunEnd(!data.died)
+    // Career totals (_recordRunEnd just added this run to them).
+    if (_safeStatNumber(this.careerStats.totalKills) >= EXTERMINATOR_CAREER_KILLS) this.achievements.unlock('exterminator')
+    if (_safeStatNumber(this.careerStats.totalRuns) >= REGULAR_CAREER_RUNS) this.achievements.unlock('regular')
     saveShopProgress(this)
     this._renderCurrencyBar()
     this._updateUpgradesDot()
@@ -8674,7 +8720,10 @@ export class Game {
   // than a save call/listener at each individual currency mutation site.
   _renderCurrencyBar() {
     if (this.currencyCoinsAmount) this.currencyCoinsAmount.textContent = _safeStatNumber(this.coins)
-    if (this.currencyPointsAmount) this.currencyPointsAmount.textContent = Math.round(_safeStatNumber(this.points))
+    // Points (the blue star) are what Upgrades cost - a share of every
+    // run's kills and waves (2026-10-12; they were called Legacy Points, and
+    // the star used to show only the last run's score).
+    if (this.currencyPointsAmount) this.currencyPointsAmount.textContent = Math.round(_safeStatNumber(this.metaProgress?.legacyPoints))
     if (this.currencyCashAmount) this.currencyCashAmount.textContent = _safeStatNumber(this.cash)
     if (this.currencyGemsAmount) this.currencyGemsAmount.textContent = _safeStatNumber(this.gems)
   }
@@ -8847,7 +8896,9 @@ export class Game {
     if (!title || !header || !pencil) return
     title.style.fontSize = ''
     const headerGap = parseFloat(getComputedStyle(header).columnGap || getComputedStyle(header).gap) || 0
-    const available = header.clientWidth - pencil.offsetWidth - headerGap
+    // The pencil on the right has an invisible twin on the left (style.css,
+    // #player-showcase-header::before) so the name sits in the middle.
+    const available = header.clientWidth - 2 * (pencil.offsetWidth + headerGap)
     if (available <= 0) return
     const naturalWidth = title.scrollWidth
     if (naturalWidth <= available) return
@@ -9679,13 +9730,26 @@ export class Game {
     // again - toggling browser fullscreen (or any window resize) while
     // inside Build Mode visibly stretched the view since the renderer's
     // output size changed but this camera's aspect didn't follow it.
+    //
+    // On the homepage the 3D canvas draws nothing, so it isn't resized
+    // there at all - only marked, and _tick catches up the moment the map
+    // opens (2026-10-12, "the homepage still lags crazy on mobile"): iPhone
+    // and iPad Safari fire a resize on every frame its toolbar slides while
+    // scrolling, and re-allocating this full-screen drawing buffer each
+    // time made every scroll frame a long stall.
+    this._fitPlayerShowcaseTitle()
+    if (!this.buildMode?.active && this._sizedOnce) {
+      this._sizeDirty = true
+      return
+    }
+    this._sizedOnce = true
+    this._sizeDirty = false
     if (this.buildMode?.camera) {
       this.buildMode.camera.aspect = window.innerWidth / window.innerHeight
       this.buildMode.camera.updateProjectionMatrix()
     }
     this.renderer.setSize(window.innerWidth, window.innerHeight)
     // (The homepage layout re-fits itself on resize - __menuLayout.)
-    this._fitPlayerShowcaseTitle()
   }
 
   _showAchievementToast(def) {
@@ -10525,7 +10589,7 @@ export class Game {
       ['profilePrestige', t('profilePrestige'), this.metaProgress.prestigeLevel > 0
         ? `<span class="prestige-tier-${this.metaProgress.prestigeLevel >= 6 ? 3 : this.metaProgress.prestigeLevel >= 3 ? 2 : 1}">${_safeStatNumber(this.metaProgress.prestigeLevel)}</span>`
         : _safeStatNumber(this.metaProgress.prestigeLevel)],
-      ['profileNetWorth', t('profileNetWorth'), _safeStatNumber(this.coins) + _safeStatNumber(this.points) + _safeStatNumber(this.metaProgress.legacyPoints)],
+      ['profileNetWorth', t('profileNetWorth'), _safeStatNumber(this.coins) + _safeStatNumber(this.metaProgress.legacyPoints)],
       ['profileTotalSpent', t('profileTotalSpent'), _safeStatNumber(this.totalSpent)],
       ['profilePlaytime', t('profilePlaytime'), `${Math.floor(_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / 3600)}h`],
       ['profileWinRate', t('profileWinRate'), this.runHistory.length > 0 ? `${Math.round((this.runHistory.filter((r) => r.survived).length / this.runHistory.length) * 100)}%` : '—'],
@@ -12027,6 +12091,7 @@ export class Game {
     // comment) - while active, none of the normal survival tick logic
     // below runs at all, not even the FPS counter.
     if (this.buildMode.active) {
+      if (this._sizeDirty) this._onResize()
       const jsStart = performance.now()
       // The clock has to tick here too (2026-10-12, "gameplay feels very
       // fast on iPad and phones"): without this update getDelta() kept

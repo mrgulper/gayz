@@ -40,6 +40,21 @@ export const ACHIEVEMENTS = [
   { id: 'treasure_hunter', titleKey: 'achTreasureHunter', tag: 'TH', color: '#d9bc4a', hintKey: 'achHintTreasureHunter', category: 'survival' },
   { id: 'fully_loaded', titleKey: 'achFullyLoaded', tag: 'FL', color: '#b07cc6', hintKey: 'achHintFullyLoaded', category: 'survival' },
   { id: 'deep_pockets', titleKey: 'achDeepPockets', tag: 'DP', color: '#d9bc4a', hintKey: 'achHintDeepPockets', category: 'survival' },
+  // 2026-10-12 batch ("add more achievements for Zombie Survival") - again
+  // only from what a Map 1 run reports, plus the career totals it adds to.
+  { id: 'survivor_30', titleKey: 'achSurvivor30', tag: '30W', color: '#6fa8dc', hintKey: 'achHintSurvivor30', category: 'survival' },
+  { id: 'massacre', titleKey: 'achMassacre', tag: 'MS', color: '#c9564a', hintKey: 'achHintMassacre', category: 'combat' },
+  { id: 'untouchable', titleKey: 'achUntouchable', tag: 'UT', color: '#c9564a', hintKey: 'achHintUntouchable', category: 'combat' },
+  { id: 'sharpshooter', titleKey: 'achSharpshooter', tag: 'SS', color: '#d9bc4a', hintKey: 'achHintSharpshooter', category: 'combat' },
+  { id: 'boss_hunter', titleKey: 'achBossHunter', tag: 'BH', color: '#c9564a', hintKey: 'achHintBossHunter', category: 'combat' },
+  { id: 'get_to_the_chopper', titleKey: 'achGetToTheChopper', tag: 'GC', color: '#7fb069', hintKey: 'achHintGetToTheChopper', category: 'survival' },
+  { id: 'hardened', titleKey: 'achHardened', tag: 'HD', color: '#8a6d47', hintKey: 'achHintHardened', category: 'survival' },
+  { id: 'apex_predator', titleKey: 'achApexPredator', tag: 'AP', color: '#c9564a', hintKey: 'achHintApexPredator', category: 'survival' },
+  { id: 'glass_cannon', titleKey: 'achGlassCannon', tag: 'GL', color: '#6fa8dc', hintKey: 'achHintGlassCannon', category: 'survival' },
+  { id: 'iron_will', titleKey: 'achIronWill', tag: 'IW', color: '#8a6d47', hintKey: 'achHintIronWill', category: 'survival' },
+  { id: 'exterminator', titleKey: 'achExterminator', tag: '1K', color: '#d9bc4a', hintKey: 'achHintExterminator', category: 'combat' },
+  { id: 'regular', titleKey: 'achRegular', tag: 'RG', color: '#7fb069', hintKey: 'achHintRegular', category: 'survival' },
+  { id: 'fortune_hunter', titleKey: 'achFortuneHunter', tag: 'FH', color: '#d9bc4a', hintKey: 'achHintFortuneHunter', category: 'survival' },
   // Deliberately last in the array - see unlock()'s own completionist
   // check, which excludes this id from "every OTHER achievement."
   { id: 'completionist', titleKey: 'achCompletionist', tag: '★', color: '#d9bc4a', hintKey: 'achHintCompletionist', category: 'story' },

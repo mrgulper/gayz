@@ -3109,7 +3109,8 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
 }
 
 /* Credits is two tabs (2026-10-10, Gaymi's picture of the General/Clan
-   tabs): GayZ and Weapon Models, styled like .general-tab. */
+   tabs): GayZ and Weapon (each model and its maker, plain text), styled
+   like .general-tab. */
 .credits-tab-page[hidden] { display: none; }
 
 /* Weapon model credits (2026-10-10) - one line per gun. */
@@ -7152,10 +7153,44 @@ html.ui-theme-old #homepage-greeting {
    instead of forcing a square render, and recomputes camera distance
    per-resize so the character never clips regardless of aspect ratio. */
 #setup-avatar-wrap {
-  width: 345px;
-  height: 720px;
-  margin: 10px auto 0;
+  /* Grows and shrinks with the window's height (2026-10-12, "very big when
+     I'm full screen" - it used to jump from 504px to 720px tall the moment
+     a window passed 960px, e.g. a MacBook going full screen). Width keeps
+     the character's own ~0.48 shape. */
+  height: clamp(240px, 54vh, 620px);
+  width: clamp(115px, 26vh, 298px);
+  /* No auto side margins: in the column's flex box they'd turn to 0 once
+     the character is wider than the column and pin it to the left edge. */
+  margin: 10px 0 0;
+  flex: none;
   cursor: grab;
+}
+
+/* The character and the name above it share one centre line - the
+   character is wider than the 240px column, so it's centred on the
+   column (overflowing both sides evenly) instead of hanging off its
+   right edge (2026-10-12, "the name, level and clan should always be in
+   the middle of the spinning character"). */
+#menu-col-left {
+  align-items: center;
+}
+#menu-col-left > * {
+  align-self: stretch;
+}
+#menu-col-left #player-showcase-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+#menu-col-left #player-showcase-header {
+  align-self: stretch;
+}
+/* An invisible twin of the rename pencil on the left keeps the name
+   itself - not name + pencil - in the middle. */
+#player-showcase-header::before {
+  content: '';
+  flex: none;
+  width: 18px;
 }
 
 #setup-avatar-wrap:active {
@@ -7628,10 +7663,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
      "shrink before removing" precedent as every other element in this
      tier - the further #setup-avatar-wrap reduction at the 750px tier
      below still applies underneath this one. */
-  #setup-avatar-wrap {
-    width: 242px;
-    height: 504px;
-  }
 
   /* The "everything bigger" side-panel/nav-button pass below this block
      only has real headroom on tall (>960px) screens - at this height and
@@ -7965,10 +7996,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
      fixed height on top - but its 480px base height can still exceed a
      genuinely short hero column, so it needs its own reduction at this
      tier too, not just the text above. */
-  #setup-avatar-wrap {
-    width: 135px;
-    height: 270px;
-  }
 
   #menu-nav-buttons button {
     padding: 8px 16px;
@@ -11354,6 +11381,16 @@ html.lite-home #menu-bg-ash {
    re-render everything under it each time the water moved. */
 html.lite-home #menu-bg-photo {
   animation: none;
+}
+/* The background (photo, rain and water canvases) is as tall as the
+   screen's largest visible height and never changes size while you scroll
+   (2026-10-12): Safari's toolbar sliding in and out changes the visible
+   height every frame, and with inset: 0 that re-sized - and cleared and
+   rebuilt - the rain and water canvases each time. */
+html.lite-home #menu-bg {
+  bottom: auto;
+  height: 100vh;
+  height: 100lvh;
 }
 html.lite-home #menu-bg-water {
   mix-blend-mode: normal;
