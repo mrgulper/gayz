@@ -21,6 +21,7 @@ import * as THREE from 'three'
 import * as CloudSync from './CloudSync.js'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { t } from './i18n.js'
+import { seedFromText } from './OpenWorld.js'
 
 export const SEND_DELAY_MS = 300
 export const OPS_PER_EDIT = 1500
@@ -149,6 +150,8 @@ export class BuildTogether {
   _start(code) {
     this.active = true
     this.code = code
+    // On Map 1, everyone in the room walks the same open world.
+    this.bm.world?.reseed(seedFromText(code))
     this._seen.clear()
     this._pending = []
     const uid = this._uid()

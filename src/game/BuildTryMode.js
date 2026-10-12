@@ -34,10 +34,14 @@ import { audioEngine } from './Audio.js'
 import { cloneViewmodel } from './Viewmodels.js'
 import { heldAction } from './Keybinds.js'
 import { WORLD_LIMIT, sampleLand, biomeName, inCity } from './OpenWorld.js'
+import { t } from './i18n.js'
 
 const HALF_WIDTH = 0.3
 // Cells across the minimap out in Map 1's open world.
 const MAP_WORLD_SPAN = 160
+// How far the big map zooms in and out (cells across).
+const MAP_MIN_SPAN = 48
+const MAP_MAX_SPAN = 768
 const HEIGHT = 1.8
 const EYE = 1.62
 const CROUCH_HEIGHT = 1.5
@@ -161,6 +165,8 @@ export class BuildTryMode {
     this._arms = null
     this._armsUrl = null
     this._mapMode = 0
+    this._mapPan = { x: 0, z: 0 }
+    this._mapZoom = 1
     this._mapEl = null
     this._mapCanvas = null
     this._mapImage = null
@@ -185,8 +191,63 @@ export class BuildTryMode {
     this._mapEl.style.display = 'none'
     this._mapCanvas = document.createElement('canvas')
     this._mapEl.appendChild(this._mapCanvas)
+    this._mapHintEl = document.createElement('div')
+    this._mapHintEl.id = 'build-try-map-hint'
+    this._mapEl.appendChild(this._mapHintEl)
     document.body.appendChild(this._mapEl)
     window.addEventListener('resize', () => { if (this._mapEl.style.display !== 'none') this._applyMapMode() })
+    // The big map in the middle can be moved around (2026-10-12, Gaymi:
+    // "make it moveable so you can see further"): drag to look around,
+    // scroll to zoom out and in, double-click to come back to you.
+    let drag = null
+    this._mapCanvas.addEventListener('pointerdown', (e) => {
+      if (!this._mapInteractive()) return
+      drag = { x: e.clientX, y: e.clientY }
+      this._mapCanvas.setPointerCapture?.(e.pointerId)
+      this._mapEl.classList.add('dragging')
+    })
+    this._mapCanvas.addEventListener('pointermove', (e) => {
+      if (!drag) return
+      const cellsPerPx = this._mapSpan() / this._mapCanvas.clientWidth
+      this._mapPan.x -= (e.clientX - drag.x) * cellsPerPx
+      this._mapPan.z -= (e.clientY - drag.y) * cellsPerPx
+      drag = { x: e.clientX, y: e.clientY }
+      this._mapDrawAt = 0
+    })
+    const endDrag = () => {
+      drag = null
+      this._mapEl.classList.remove('dragging')
+    }
+    this._mapCanvas.addEventListener('pointerup', endDrag)
+    this._mapCanvas.addEventListener('pointercancel', endDrag)
+    this._mapCanvas.addEventListener('dblclick', () => {
+      this._mapPan = { x: 0, z: 0 }
+      this._mapZoom = 1
+      this._mapDrawAt = 0
+    })
+    this._mapEl.addEventListener('wheel', (e) => {
+      if (!this._mapInteractive()) return
+      e.preventDefault()
+      this.zoomMap(e.deltaY > 0 ? 1.25 : 0.8)
+    }, { passive: false })
+  }
+
+  _mapInteractive() {
+    return this.active && MAP_SIZES[this._mapMode] === 'center'
+  }
+
+  // Cells across the map right now (the open world's window, or the
+  // whole 128x128 map), times the zoom.
+  _mapSpan() {
+    const base = this.bm.world?.active ? MAP_WORLD_SPAN : this._mapImage?.width || 128
+    return base * this._mapZoom
+  }
+
+  zoomMap(factor) {
+    const base = this.bm.world?.active ? MAP_WORLD_SPAN : this._mapImage?.width || 128
+    const max = this.bm.world?.active ? MAP_MAX_SPAN : base * 2
+    this._mapZoom = Math.min(max / base, Math.max(MAP_MIN_SPAN / base, this._mapZoom * factor))
+    this._mapDrawAt = 0
   }
 
   // Out in Map 1's open world, the biome you're in shows under the map.
@@ -213,6 +274,22 @@ export class BuildTryMode {
   _applyMapMode() {
     if (!this._mapEl) return
     this._mapEl.dataset.size = this.active ? MAP_SIZES[this._mapMode] : 'normal'
+    // The big map frees the mouse so it can be dragged; closing it puts
+    // the view back on you and catches the mouse again.
+    const interactive = this._mapInteractive()
+    if (interactive !== this._mapEl.classList.contains('interactive')) {
+      this._mapEl.classList.toggle('interactive', interactive)
+      this._mapPan = { x: 0, z: 0 }
+      this._mapZoom = 1
+      const canvas = this.bm.renderer.domElement
+      try {
+        if (interactive) document.exitPointerLock()
+        else if (this.active && !this.bm.menuOpen) canvas.requestPointerLock()?.catch(() => {})
+      } catch {
+        // No pointer lock here (tests).
+      }
+    }
+    this._mapHintEl.textContent = interactive ? t('mapDragHint') : ''
     // Drawn at the size it's shown, so the blocks stay crisp.
     const px = Math.max(1, Math.round(this._mapEl.clientWidth * Math.min(window.devicePixelRatio || 1, 2)))
     this._mapCanvas.width = px
@@ -256,16 +333,24 @@ export class BuildTryMode {
     // Map cell (cx, cz) -> canvas: the whole city, or - with Map 1's open
     // world - a window of the land around you, you in the middle.
     const world = this.bm.world?.active ? this.bm.world : null
-    const span = world ? MAP_WORLD_SPAN : cells
-    const ox = world ? x - span / 2 : -cells / 2
-    const oz = world ? z - span / 2 : -cells / 2
+    const moved = this._mapZoom !== 1 || this._mapPan.x || this._mapPan.z
+    const windowed = world || moved
+    const span = windowed ? this._mapSpan() : cells
+    const ox = windowed ? (world ? x : 0) + this._mapPan.x - span / 2 : -cells / 2
+    const oz = windowed ? (world ? z : 0) + this._mapPan.z - span / 2 : -cells / 2
     const k = s / span
-    if (world) {
+    if (!world && windowed) {
+      ctx.fillStyle = '#1d2a1a'
+      ctx.fillRect(0, 0, s, s)
+      ctx.drawImage(this._mapImage, (-cells / 2 - ox) * k, (-cells / 2 - oz) * k, cells * k, cells * k)
+      this._showBiome(null)
+    } else if (world) {
       ctx.fillStyle = '#1d2a1a'
       ctx.fillRect(0, 0, s, s)
       const T = 32
-      // A few new tiles per draw at most (each reads the noise 1024 times).
-      let build = 6
+      // A few new tiles per draw at most (each reads the noise 1024 times)
+      // - more on the big map, where far more of them show.
+      let build = this._mapInteractive() ? 16 : 6
       for (let tx = Math.floor(ox / T); tx <= Math.floor((ox + span) / T); tx++) {
         for (let tz = Math.floor(oz / T); tz <= Math.floor((oz + span) / T); tz++) {
           const tile = world.mapTile(tx, tz, build > 0)

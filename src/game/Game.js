@@ -115,7 +115,7 @@ const CRATE_ICON_SVG = {
 }
 import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_POINTS_CONVERSION } from './MetaProgress.js'
 import { playConfig, UPGRADE_PLAY, POINTS_PER_KILL, POINTS_PER_WAVE, DEFENSE_WAVES, BOSS_HUNT_EVERY, PLAY_GAME_MODES, EXTRACTION_WAVES, EXTRACTION_HOLD } from './PlayRules.js'
-import { BIOMES } from './OpenWorld.js'
+import { BIOMES, seedFromText } from './OpenWorld.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel, getAllBindings, setAllBindings } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
@@ -4223,6 +4223,7 @@ export class Game {
     CloudSaveUI.bindCloudSave(this)
     CloudSaveUI.installChangeTracking(this)
     this._startPresenceHeartbeat()
+    this._gateChangelog()
     this._maybeShowWhatsNewDigest()
     this._checkFriendBeatNotifications()
     this._checkSettingsTabDeepLink()
@@ -4943,6 +4944,12 @@ export class Game {
   // time, so it's the one thing the 12h/24h setting actually controls.
   _updateHomepageClock() {
     const now = new Date()
+    // The player's own clock and time zone (the device's).
+    if (!this._clockZoneShown) {
+      this._clockZoneShown = true
+      const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+      if (zone) this.homepageClockEl.title = `${this.homepageClockEl.title || 'Current time'} (${zone.replace(/_/g, ' ')})`
+    }
     if (this.settings.timeFormat === '24h') {
       this.homepageClockEl.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
     } else {
@@ -6834,6 +6841,9 @@ export class Game {
     const current = this.buildMode.activeSlot
     const slot = map === 'map3' ? 'map3' : map === 'map2' && current === 'map3' ? 0 : undefined
     this.buildMode.enter({ slot })
+    // Map 1's open world grows new land every game (OpenWorld.js) - the
+    // same land for everyone on a server, made from its id.
+    this.buildMode.world?.reseed(server?.serverId ? seedFromText(server.serverId) : undefined)
     // The 3D canvas isn't resized on the homepage (_onResize) - catch up now.
     if (this._sizeDirty) this._onResize()
     if (play) this.buildMode.survival.start({ fromMenu: true, net: server ? new PlayNet(this, server) : null })
@@ -7048,9 +7058,18 @@ export class Game {
       const freshDoc = new DOMParser().parseFromString(await pageRes.text(), 'text/html')
       const freshChangelogList = freshDoc.getElementById('changelog-list')
       if (!freshChangelogList) return
+      // What's New on this page gets the new notes too, so the card never
+      // shows a version the Patch Notes don't have yet (2026-10-12, Gaymi:
+      // the card said v0.17 while What's New still said v0.16) - and both
+      // only show entries whose day has started on the player's clock.
+      const list = document.getElementById('changelog-list')
+      if (list) {
+        list.innerHTML = freshChangelogList.innerHTML
+        this._gateChangelog()
+      }
       // Only the newest entry - the card is small; the full list is one
       // click away in What's New.
-      const entries = [...freshChangelogList.querySelectorAll('.changelog-entry')].slice(0, 1)
+      const entries = [...(list || freshChangelogList).querySelectorAll('.changelog-entry:not(.changelog-future)')].slice(0, 1)
       if (!entries.length) return
       this.updateAvailableChangelog.innerHTML = entries.map((entry) => entry.outerHTML).join('')
       this._pendingUpdateId = id
@@ -7063,6 +7082,28 @@ export class Game {
       // A failed check (offline, blocked request, etc.) just means no
       // banner this time - not a player-facing error worth surfacing.
     }
+  }
+
+  // Patch Notes go live at 12am on each player's own clock (2026-10-12,
+  // Gaymi: "each player sees a new v# at their time zone at 12am"): an
+  // entry dated later than the player's local today is hidden until their
+  // midnight, then shown without a reload.
+  _gateChangelog() {
+    const list = document.getElementById('changelog-list')
+    if (!list) return
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const now = Date.now()
+    for (const el of list.querySelectorAll('.changelog-entry')) {
+      const m = /([A-Z][a-z]{2}) (\d{1,2}), (\d{4})/.exec(el.querySelector('.changelog-date')?.textContent || '')
+      const month = m ? MONTHS.indexOf(m[1]) : -1
+      // Local midnight of the entry's date.
+      const startsAt = month >= 0 ? new Date(Number(m[3]), month, Number(m[2])).getTime() : 0
+      el.classList.toggle('changelog-future', startsAt > now)
+    }
+    clearTimeout(this._changelogMidnightTimer)
+    const next = new Date()
+    next.setHours(24, 0, 1, 0)
+    this._changelogMidnightTimer = setTimeout(() => this._gateChangelog(), next.getTime() - now)
   }
 
   // Fades the What's New card out by itself after UPDATE_BANNER_SHOW_MS if
@@ -11219,11 +11260,11 @@ export class Game {
     // reminder every time rather than only once per real update.
     let newEntries
     if (this.settings.whatsNewEveryLaunch) {
-      newEntries = Array.from(document.querySelectorAll('#changelog-list .changelog-entry')).slice(0, 3)
+      newEntries = Array.from(document.querySelectorAll('#changelog-list .changelog-entry:not(.changelog-future)')).slice(0, 3)
     } else {
       const lastViewed = Number(localStorage.getItem(CHANGELOG_LAST_VIEWED_KEY))
       if (!lastViewed) return
-      newEntries = Array.from(document.querySelectorAll('#changelog-list .changelog-entry')).filter((el) => {
+      newEntries = Array.from(document.querySelectorAll('#changelog-list .changelog-entry:not(.changelog-future)')).filter((el) => {
         const parsed = Date.parse(el.querySelector('.changelog-date')?.textContent || '')
         return !isNaN(parsed) && parsed > lastViewed
       })
