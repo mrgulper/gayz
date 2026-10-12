@@ -203,3 +203,53 @@ test('Pixels adds detail, Randomize describes, "without" leaves things off', asy
   expect(await page.evaluate(() => window.__parsePrompt('pirate with no hat').without)).toEqual(['hat'])
   expect(await generate(page, 'pirate without a hat')).toContain('Left out: headwear')
 })
+
+// Smart Edit (2026-10-12): a request beside undo/redo changes just that
+// part - on a generated skin by redrawing it from the same seed, on a
+// painted one by recolouring the part it finds.
+test('Smart Edit changes only what was asked', async ({ page }) => {
+  await openDesigner(page)
+  await page.click('#res1Btn')
+  expect(await page.evaluate(() => window.__parseEdit('make the shirt blue and remove the hat').actions.map((a) => a.type + ':' + (a.part || a.what)))).toEqual(['color:shirt', 'remove:hat'])
+  expect(await page.evaluate(() => window.__parseEdit('blonde hair, add sunglasses, darker pants').actions.map((a) => a.type + ':' + (a.part || a.what)))).toEqual(['color:hair', 'add:sunglasses', 'shade:pants'])
+  expect(await page.evaluate(() => window.__parseEdit('take off the glases').actions.map((a) => a.type + ':' + a.what))).toEqual(['remove:glasses'])
+  expect(await page.evaluate(() => window.__parseEdit('make it a pirate').actions[0].key)).toBe('pirate')
+
+  await generate(page, 'red shirt pirate with a hat')
+  // [x0, y0, x1, y1] in 64-pixel units: torso front, both legs' front, head overlay top.
+  const read = () => page.evaluate(() => {
+    const c = window.__skinAtlas, R = c.width / 64, ctx = c.getContext('2d')
+    const avg = ([x0, y0, x1, y1]) => {
+      const d = ctx.getImageData(x0 * R, y0 * R, (x1 - x0) * R, (y1 - y0) * R).data
+      let r = 0, g = 0, b = 0, a = 0, n = 0
+      for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; a += d[i + 3] > 0 ? 1 : 0; n++ }
+      return { r: r / n, g: g / n, b: b / n, opaque: a / n }
+    }
+    const legs = ctx.getImageData(4 * R, 20 * R, 4 * R, 12 * R).data
+    return { torso: avg([20, 20, 28, 32]), hatTop: avg([40, 0, 48, 8]), legs: Array.from(legs).join(',') }
+  })
+  const before = await read()
+  expect(before.torso.r).toBeGreaterThan(before.torso.b)
+  await page.fill('#aiEditInput', 'make the shirt blue and remove the hat')
+  await page.click('#aiEditBtn')
+  await page.waitForFunction(() => !document.getElementById('aiEditBtn').disabled)
+  const after = await read()
+  expect(after.torso.b).toBeGreaterThan(after.torso.r)
+  expect(after.hatTop.opaque).toBeLessThan(before.hatTop.opaque)
+  expect(after.legs).toBe(before.legs)
+  expect(await page.textContent('#aiEditNote')).toContain('Changed:')
+
+  // A painted skin: the part is found on the picture and recoloured.
+  await page.evaluate(() => { const ctx = window.__skinAtlas.getContext('2d'); ctx.fillStyle = '#ff00ff'; ctx.fillRect(0, 0, 1, 1) })
+  await page.fill('#aiEditInput', 'green pants')
+  await page.click('#aiEditBtn')
+  await page.waitForFunction(() => !document.getElementById('aiEditBtn').disabled)
+  const legsGreen = await page.evaluate(() => {
+    const c = window.__skinAtlas, R = c.width / 64, d = c.getContext('2d').getImageData(4 * R, 20 * R, 4 * R, 8 * R).data
+    let r = 0, g = 0, b = 0
+    for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2] }
+    return g > r && g > b
+  })
+  expect(legsGreen).toBe(true)
+  await page.click('#undoBtn')
+})

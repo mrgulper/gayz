@@ -162,3 +162,36 @@ test('new Zombie Survival upgrades change the run', async ({ page }) => {
   })
   expect(r).toEqual({ speed: 1.2, coins: 0.5, startCoins: 60, regen: true, ammo: 2, headshot: 1.25, softer: 0.9, health: 40, armor: 20, listed: true })
 })
+
+// 2026-10-12 batch: each one comes from a real run report - the wave
+// report carries the difficulty and mutators, the end report the run's
+// totals, and career totals add up across runs.
+test('the 2026-10-12 Zombie Survival achievements unlock from run reports', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const result = await page.evaluate(() => {
+    const g = window.__game
+    g.settings.guestMode = false
+    const ids = ['survivor_30', 'massacre', 'untouchable', 'sharpshooter', 'boss_hunter', 'get_to_the_chopper', 'hardened', 'apex_predator', 'glass_cannon', 'iron_will', 'exterminator', 'regular', 'fortune_hunter']
+    const has = (id) => g.achievements.unlocked.has(id)
+    const before = ids.filter(has)
+    // Not yet: wave 9 on Hard, wave 10 on Normal with no mutators.
+    g._onPlayEvent('wave', { wave: 9, difficulty: 'hard', mutators: ['glassHouse', 'ironMode'] })
+    g._onPlayEvent('wave', { wave: 10, difficulty: 'normal', mutators: [] })
+    const early = ids.filter(has)
+    g._onPlayEvent('wave', { wave: 30, difficulty: 'hard', mutators: ['glassHouse', 'ironMode'] })
+    g._onPlayEvent('wave', { wave: 5, difficulty: 'apex', mutators: [] })
+    g.careerStats.totalKills = 900
+    g.careerStats.totalRuns = 24
+    g._onPlayEvent('end', {
+      waves: 30, kills: 250, bestStreak: 50, won: true, died: false, mode: 'zombieExtraction', difficulty: 'hard', seconds: 600,
+      coins: 3000, headshots: 75, meleeKills: 0, chests: 0, upgrades: 0, bosses: 5,
+    })
+    g._openAchievementsPanel()
+    const cards = document.getElementById('achievements-options').children.length
+    return { before, early, missing: ids.filter((id) => !has(id)), cards }
+  })
+  expect(result.before).toEqual([])
+  expect(result.early).toEqual([])
+  expect(result.missing).toEqual([])
+  expect(result.cards).toBeGreaterThanOrEqual(32)
+})
