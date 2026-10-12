@@ -26,7 +26,7 @@
 // under prefers-reduced-motion. Reduce Homepage Background Effects
 // (body.reduce-bg-effects) halves the drops.
 
-import { LITE_HOME, startWhenLight } from './LiteHome.js'
+import { LITE_HOME, LITE_FRAME_MS, startWhenLight } from './LiteHome.js'
 
 // The street in both background photos (menu-art/old-menu-bg.webp and
 // menu-bg-city.webp share the same framing), as fractions of the picture:
@@ -223,6 +223,8 @@ export function startMenuRain(canvas) {
 
   function frame(now) {
     requestAnimationFrame(frame)
+    // Touch devices draw the rain 30 times a second (LiteHome.js).
+    if (LITE_HOME && now - last < LITE_FRAME_MS) return
     const dt = Math.min(0.05, (now - last) / 1000)
     last = now
     // Not on screen (homepage hidden, setting off) or tab hidden: skip.

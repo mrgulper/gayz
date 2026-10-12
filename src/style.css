@@ -11339,17 +11339,29 @@ html.ui-theme-old #gallery-coming-icon,
 #play-weapon-pick .pwp-bar-track { flex: 1; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
 #play-weapon-pick .pwp-bar-track span { display: block; height: 100%; background: linear-gradient(90deg, #a8781f, #e8c25a); }
 
-/* Moving water on the road - drawn by src/game/MenuWater.js. Sits inside
-   #menu-bg-photo, so it gets the photo's Ken Burns transform and mood
-   filter for free and lines up with the picture exactly. */
-/* Touch devices: fog and ash hold still (src/game/LiteHome.js) - a
+/* Touch devices: no fog or ash at all (src/game/LiteHome.js) - a
    blurred, animated full-screen layer and a blended one cost a tablet
    more than everything else on the homepage. */
 html.lite-home #menu-bg-fog,
 html.lite-home #menu-bg-ash {
+  display: none;
+}
+/* ...and nothing on a touch homepage is blended or moved by the browser
+   every frame (2026-10-12, "still lagging crazy on mobile"): the photo
+   holds still (no Ken Burns zoom - it was re-compositing the whole photo
+   and the water inside it every frame), and the road water lays its sheen
+   on normally instead of with a screen blend, which made the phone
+   re-render everything under it each time the water moved. */
+html.lite-home #menu-bg-photo {
   animation: none;
 }
+html.lite-home #menu-bg-water {
+  mix-blend-mode: normal;
+}
 
+/* Moving water on the road - drawn by src/game/MenuWater.js. Sits inside
+   #menu-bg-photo, so it gets the photo's Ken Burns transform and mood
+   filter for free and lines up with the picture exactly. */
 #menu-bg-water {
   position: absolute;
   inset: 0;

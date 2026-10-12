@@ -26,6 +26,27 @@ test('entering Build Mode shows a scene with a ground plane, exiting returns to 
   expect(result.menuVisibleAfterExit).toBe(true)
 })
 
+test('the game clock keeps ticking in the map (a slow homepage frame never sets the game speed)', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  // 2026-10-12: the clock was only updated on the homepage, so the map kept
+  // reusing the last homepage frame's step - on a laggy phone homepage
+  // (0.1s frames) the game ran several times too fast.
+  const result = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    // THREE.Timer keeps its step in ms; getDelta() returns seconds.
+    g.timer._delta = 77.7
+    const frames = []
+    for (let i = 0; i < 6; i++) {
+      await new Promise((r) => requestAnimationFrame(r))
+      frames.push(g.timer.getDelta())
+    }
+    g._exitBuildMode()
+    return frames
+  })
+  expect(result.some((d) => d !== 0.0777)).toBe(true)
+})
+
 test('free-fly movement moves the camera in Build Mode', async ({ page }) => {
   await gotoAndWaitForGame(page)
 

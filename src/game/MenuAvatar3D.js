@@ -12,10 +12,7 @@
 // left/right) rather than the old free-trackball pitch+yaw - one axis of
 // spin either way, auto or manual, not two.
 import * as THREE from 'three'
-import { LITE_HOME } from './LiteHome.js'
-
-// Lighter homepage (touch devices): at most one drawn frame per this many ms.
-const LITE_FRAME_MS = 33
+import { LITE_HOME, LITE_FRAME_MS } from './LiteHome.js'
 
 // Radians/second - a slow, ambient turn, not a fast spinning-coin effect.
 // A full 360 takes 2*PI / IDLE_SPIN_SPEED =~ 26 seconds.
