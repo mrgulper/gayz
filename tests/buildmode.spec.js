@@ -1177,3 +1177,78 @@ test('every open world biome is within reach of Map 1', () => {
   }
   expect([...found].sort()).toEqual(Object.keys(BIOMES).sort())
 })
+
+// Water you can get out of (2026-10-12): Space + walking into a ledge one
+// block above the water springs you out; a body killed in the air drops to
+// the ground.
+test('you can climb out of water onto a ledge, and bodies drop to the ground', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const b = g.buildMode
+    // A pool high in the air: stone floor, one block of water, a ledge two blocks high.
+    for (let x = 36; x <= 46; x++) for (let z = 36; z <= 44; z++) b.placeBlock(x, 29, z, 'stone')
+    for (let x = 36; x <= 41; x++) for (let z = 36; z <= 44; z++) b.placeBlock(x, 30, z, 'water')
+    for (let x = 42; x <= 46; x++) for (let z = 36; z <= 44; z++) { b.placeBlock(x, 30, z, 'stone'); b.placeBlock(x, 31, z, 'stone') }
+    b.liquids.update(0)
+    b.toggleTryMode()
+    const tm = b.tryMode
+    tm.pos.set(39.5, 30, 40.5)
+    tm.vel.set(0, 0, 0)
+    b._yaw = -Math.PI / 2
+    b._pitch = 0
+    const keys = new Set(['KeyW', 'Space'])
+    for (let i = 0; i < 100 && tm.pos.x < 43; i++) tm.update(1 / 60, keys)
+    // Let go and land on the ledge.
+    for (let i = 0; i < 60; i++) tm.update(1 / 60, new Set())
+    const out = { x: tm.pos.x, y: tm.pos.y }
+    b.toggleTryMode()
+    // A body left in the air falls onto the stone.
+    const s = b.survival
+    const B = s.B
+    const ground = s._groundUnder(44.5, 40, 40.5)
+    const fake = { group: { rotation: { x: 0 }, position: { y: 40 * B } }, materials: [], arms: [], armFrom: [], t: 0, lift: 0, baseY: 40 * B, groundY: ground * B, vy: 0 }
+    s._corpses = [fake]
+    for (let i = 0; i < 120; i++) s._updateCorpses(1 / 60)
+    out.ground = ground
+    out.bodyY = fake.group.position.y / B
+    g._exitBuildMode()
+    return out
+  })
+  expect(r.x).toBeGreaterThan(42)
+  expect(r.y).toBeGreaterThanOrEqual(31.99)
+  expect(r.ground).toBe(32)
+  expect(r.bodyY).toBeCloseTo(32, 1)
+})
+
+// One server connection per page: starting another game on a server leaves
+// the first one, so it can't keep sending your spot under an old id (a copy
+// of you following you around, 2026-10-12).
+test('a new server game closes the old connection', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const left = []
+    g.__serversBackendForTests = {
+      sync: async () => ({ host: 'a', isHost: true, wave: 1, players: {}, skins: {}, zombies: {}, hurt: [], credits: [], hits: [] }),
+      leave: async (auth) => { left.push(auth.playerId); return {} },
+    }
+    await g._enterBuildMode({ map: 'map3', play: true, server: { serverId: 'S1', playerId: 'a', token: 't', host: 'a', name: 'x' } })
+    const first = g.buildMode.survival.net
+    g._exitBuildMode()
+    await g._enterBuildMode({ map: 'map3', play: true, server: { serverId: 'S1', playerId: 'b', token: 't', host: 'b', name: 'x' } })
+    const second = g.buildMode.survival.net
+    // Even a stray second connection made while one is open closes it.
+    const Net = second.constructor
+    const third = new Net(g, { serverId: 'S1', playerId: 'c', token: 't', host: 'c', name: 'x' })
+    const out = { firstClosed: first.closed, secondClosed: second.closed, thirdOpen: !third.closed, left: left.join() }
+    third.leave()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r.firstClosed).toBe(true)
+  expect(r.secondClosed).toBe(true)
+  expect(r.thirdOpen).toBe(true)
+  expect(r.left).toBe('a,b')
+})

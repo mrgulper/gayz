@@ -41,6 +41,8 @@ const MAX_ALIVE = 16
 const CORPSE_FALL = 0.45
 const CORPSE_LIE = 1.6
 const CORPSE_FADE = 2
+// How fast a body killed in the air drops to the ground (blocks/s²).
+const CORPSE_GRAVITY = 28
 const MAX_CORPSES = 12
 const PATH_REFRESH = 0.5
 // The flow field is worked out a slice at a time, at most this many ms a
@@ -114,6 +116,9 @@ export class BuildSurvival {
   start({ fromMenu = false, net = null } = {}) {
     const bm = this.bm
     this.cfg = { ...PLAY_DEFAULTS, ...(fromMenu ? bm.game?._playConfig?.() : null) }
+    // A game still connected to a server leaves it first (see PlayNet's
+    // one-connection rule).
+    if (this.net && this.net !== net) this.net.leave()
     this.net = net
     if (net) {
       net.attach(this)
@@ -929,7 +934,10 @@ export class BuildSurvival {
     // Lying flat, the body's own thickness keeps it on top of the ground.
     const lift = 0.13 * B * (z.size || 1)
     this._corpses = this._corpses || []
-    this._corpses.push({ group: tilt, materials, arms, armFrom: arms.map((a) => a.rotation.x), t: 0, lift, baseY: tilt.position.y })
+    // Killed mid-jump, it drops to the ground under it (2026-10-12, "their
+    // dead body flows - it should always be on the ground").
+    const groundY = this._groundUnder(tilt.position.x / B, tilt.position.y / B, tilt.position.z / B) * B
+    this._corpses.push({ group: tilt, materials, arms, armFrom: arms.map((a) => a.rotation.x), t: 0, lift, baseY: tilt.position.y, groundY, vy: 0 })
     while (this._corpses.length > MAX_CORPSES) this._dropCorpse(this._corpses[0])
   }
 
@@ -940,6 +948,10 @@ export class BuildSurvival {
       // Falls like it has weight: slow, then faster.
       const f = Math.min(1, c.t / CORPSE_FALL)
       c.group.rotation.x = (Math.PI / 2) * f * f
+      if (c.baseY > c.groundY) {
+        c.vy += CORPSE_GRAVITY * this.B * dt
+        c.baseY = Math.max(c.groundY, c.baseY - c.vy * dt)
+      }
       c.group.position.y = c.baseY + c.lift * f
       c.arms.forEach((a, i) => { a.rotation.x = c.armFrom[i] * (1 - f) })
       const fadeT = c.t - CORPSE_FALL - CORPSE_LIE
@@ -949,6 +961,17 @@ export class BuildSurvival {
         if (o <= 0) this._dropCorpse(c)
       }
     }
+  }
+
+  // Top of the first solid block at or below (x, y, z), in blocks.
+  _groundUnder(x, y, z) {
+    const cx = Math.floor(x)
+    const cz = Math.floor(z)
+    for (let cy = Math.floor(y + 0.01); cy > y - 64; cy--) {
+      const top = this.bm._cellSolidTop(cx, cy, cz)
+      if (top > 0 && cy + top <= y + 0.01) return cy + top
+    }
+    return y
   }
 
   _dropCorpse(c) {
