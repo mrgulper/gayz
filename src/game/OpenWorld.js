@@ -13,10 +13,15 @@
 // down to the city's ground height (y=-1) near its edge, where the roads
 // run out of the city's gates as dirt tracks.
 //
-// Saving: generated blocks are in `terrainKeys` and left out of saves
-// (BuildMode._snapshot); a broken terrain block goes in `removed` (saved
-// in Map 1's edits with the city's own removed list) and is never grown
-// back, and a column the player touched (`edited`) is never dropped.
+// A new world every game (2026-10-12, Gaymi: "regenerate the whole biome
+// again every time a new player creates or joins the map"): `reseed()`
+// with a random seed for a solo game or the Map Editor, and one made from
+// the server's / Build Together room's id, so everyone in the same game
+// walks the same land. Generated blocks are in `terrainKeys` and left out
+// of saves (BuildMode._snapshot), and so are changes out in the land -
+// they'd land on different hills next time. A broken terrain block goes in
+// `removed` (never grown back this game) and a column the player touched
+// (`edited`) is never dropped while the game lasts.
 import { t } from './i18n.js'
 
 const CHUNK = 16
@@ -75,8 +80,26 @@ export function biomeName(id) {
 
 // --- noise ---
 
+// The current world's seed, mixed into every random number below.
+let WORLD_SALT = 0
+
+export function setWorldSeed(seed) {
+  WORLD_SALT = seed | 0
+}
+
+export function worldSeed() {
+  return WORLD_SALT
+}
+
+// A seed from any text (a server or room id), the same everywhere.
+export function seedFromText(text) {
+  let h = 0x811c9dc5
+  for (const ch of String(text)) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193)
+  return h | 0
+}
+
 function hash2(x, z, seed) {
-  let h = Math.imul(x | 0, 0x27d4eb2d) ^ Math.imul(z | 0, 0x165667b1) ^ Math.imul(seed | 0, 0x9e3779b1)
+  let h = Math.imul(x | 0, 0x27d4eb2d) ^ Math.imul(z | 0, 0x165667b1) ^ Math.imul((seed + WORLD_SALT) | 0, 0x9e3779b1)
   h = Math.imul(h ^ (h >>> 15), 0x85ebca6b)
   h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35)
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296
@@ -109,6 +132,10 @@ function fbm(x, z, scale, octaves, seed) {
     f *= 2
   }
   return sum / norm
+}
+
+function randomSeed() {
+  return (Math.random() * 2 ** 31) | 0
 }
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v)
@@ -301,19 +328,43 @@ export class OpenWorld {
     this._generating = false
   }
 
-  // Map 1 (or a map made from it) was just loaded: the world comes on.
-  // removed: saved cell keys of broken terrain blocks.
-  start(removed = []) {
+  // Map 1 (or a map made from it) was just loaded: the world comes on,
+  // with a fresh random seed unless one is given.
+  start(seed = randomSeed()) {
     // Reloaded over itself (Reset Map): the old land goes first.
-    for (const [key, col] of [...this.columns]) this._unload(key, col)
+    this._dropAll()
     this.reset()
     this.active = true
-    for (const k of removed) {
-      const [x, , z] = k.split(',').map(Number)
-      if (Number.isFinite(x) && Number.isFinite(z) && !inCity(x, z)) {
-        this.removed.add(k)
-        this.edited.add(this._colKeyOfCell(x, z))
+    setWorldSeed(seed)
+  }
+
+  // A new game on the same city: all the land goes and grows back from
+  // another seed (the city and its saved edits stay).
+  reseed(seed = randomSeed()) {
+    if (!this.active) return
+    this._dropAll()
+    this.removed.clear()
+    this.edited.clear()
+    this._tiles.clear()
+    setWorldSeed(seed)
+    this.version++
+  }
+
+  _dropAll() {
+    for (const [key, col] of [...this.columns]) this._unload(key, col)
+    // Anything built out in the land goes with it.
+    const bm = this.bm
+    const was = bm._suppressUndoRecording
+    bm._suppressUndoRecording = true
+    try {
+      for (const key of [...bm._blocks.keys()]) {
+        const [x, y, z] = key.split(',').map(Number)
+        if (inCity(x, z) || !bm._blocks.has(key)) continue
+        bm.liquids?.levels.delete(key)
+        bm._removeBlockInner(x, y, z)
       }
+    } finally {
+      bm._suppressUndoRecording = was
     }
   }
 
@@ -349,11 +400,6 @@ export class OpenWorld {
       this.terrainKeys.delete(key)
       this.removed.add(key)
     }
-  }
-
-  // Cell keys of broken terrain, for Map 1's saved edits.
-  removedKeys() {
-    return [...this.removed]
   }
 
   // How far out terrain is grown right now.
@@ -802,7 +848,7 @@ export class OpenWorld {
       }
     }
     ctx.putImageData(img, 0, 0)
-    if (this._tiles.size > 400) this._tiles.clear()
+    if (this._tiles.size > 1200) this._tiles.clear()
     const entry = { canvas: tile, fresh: true }
     this._tiles.set(key, entry)
     return entry

@@ -1062,8 +1062,9 @@ test('windows crack and shatter in different ways', async ({ page }) => {
 })
 
 // Map 1's open world (OpenWorld.js): land grows around the city out of
-// seeded noise, the roads leave through open gates, only the player's
-// changes to the land are saved, and every biome is somewhere out there.
+// seeded noise (a new seed every game, shared on a server), the roads leave
+// through open gates, nothing out there is saved, and every biome is
+// somewhere out there.
 test('Map 1 has an open world with biomes around it', async ({ page }) => {
   await gotoAndWaitForGame(page)
 
@@ -1086,25 +1087,30 @@ test('Map 1 has an open world with biomes around it', async ({ page }) => {
     // The land is never saved...
     const snap = b._snapshot().blocks
     out.landNotSaved = !snap.some((k) => k.x > 70)
-    // ...but breaking it and building on it is.
+    // ...and neither is anything changed out there (the land is new next game).
     const [y] = surface(90, 2)
     b.removeBlock(90, y, 2)
     b.placeBlock(91, y + 1, 2, 'brick')
     const diff = b._map3Diff()
-    out.brokenSaved = diff.removed.includes(`90,${y},2`)
-    out.builtSaved = diff.placed.some((k) => k.x === 91 && k.z === 2 && k.type === 'brick')
-    // Load that diff again (clears and regrows): the hole and the brick are back, the land too.
-    b.clearAllBlocks()
-    b._applyMap3(diff)
+    out.outsideNotSaved = !diff.removed.some((k) => +k.split(',')[0] > 63) && !diff.placed.some((k) => k.x > 63)
+    // The same seed grows the same land (everyone on a server), another one
+    // different land, and the brick out there is gone with the old land.
+    w.reseed(1234)
     w.update([{ x: 90, z: 2 }])
-    out.holeKept = !b._blocks.has(`90,${y},2`) && b._blocks.has(`89,${surface(89, 2)[0]},2`)
-    out.brickKept = b._blocks.get(`91,${y + 1},2`) === 'brick'
-    // The same seed grows the same land.
-    const again = surface(95, 5)
-    b.clearAllBlocks()
-    b._applyMap3({ removed: [], placed: [] })
+    const first = []
+    for (let x = 70; x < 130; x += 7) first.push(JSON.stringify(surface(x, 9)))
+    out.brickGone = b._blocks.get(`91,${y + 1},2`) !== 'brick'
+    w.reseed(1234)
     w.update([{ x: 90, z: 2 }])
-    out.sameLand = JSON.stringify(surface(95, 5)) === JSON.stringify(again)
+    const again = []
+    for (let x = 70; x < 130; x += 7) again.push(JSON.stringify(surface(x, 9)))
+    out.sameLand = first.join() === again.join()
+    w.reseed(98765)
+    w.update([{ x: 90, z: 2 }])
+    const other = []
+    for (let x = 70; x < 130; x += 7) other.push(JSON.stringify(surface(x, 9)))
+    out.newLand = other.join() !== first.join()
+    out.cityKept = !!surface(0, 0)
     // Far columns are dropped again once you leave.
     w.update([{ x: 1500, z: 1500 }])
     for (let i = 0; i < 30; i++) w.update([{ x: 1500, z: 1500 }])
@@ -1118,11 +1124,31 @@ test('Map 1 has an open world with biomes around it', async ({ page }) => {
     // You can walk out of the old 128x128 square.
     b.tryMode.update(0.016, new Set())
     out.notClamped = b.tryMode.pos.x > 100
+    // The big map in the middle frees the mouse and can be dragged and zoomed.
+    const tm = b.tryMode
+    while (tm._mapEl.dataset.size !== 'center') tm.cycleMap()
+    out.mapInteractive = tm._mapEl.classList.contains('interactive') && !!document.getElementById('build-try-map-hint').textContent
+    const c = tm._mapCanvas
+    const box = c.getBoundingClientRect()
+    c.dispatchEvent(new PointerEvent('pointerdown', { clientX: box.left + 100, clientY: box.top + 100, bubbles: true, pointerId: 1 }))
+    c.dispatchEvent(new PointerEvent('pointermove', { clientX: box.left + 160, clientY: box.top + 100, bubbles: true, pointerId: 1 }))
+    c.dispatchEvent(new PointerEvent('pointerup', { clientX: box.left + 160, clientY: box.top + 100, bubbles: true, pointerId: 1 }))
+    out.panned = tm._mapPan.x < 0
+    tm._mapEl.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true }))
+    out.zoomedOut = tm._mapZoom > 1
+    tm._mapDrawAt = 0
+    tm._drawMap(performance.now() + 2e6, 1500.5, 1500.5)
+    tm.cycleMap()
+    out.mapBack = !tm._mapEl.classList.contains('interactive') && tm._mapZoom === 1 && tm._mapPan.x === 0
     b.toggleTryMode()
     g._exitBuildMode()
     return out
   })
 
+  expect(r.mapInteractive).toBe(true)
+  expect(r.panned).toBe(true)
+  expect(r.zoomedOut).toBe(true)
+  expect(r.mapBack).toBe(true)
   expect(r.active).toBe(true)
   expect(r.gates).toBe(true)
   expect(r.columns).toBeGreaterThan(0)
@@ -1130,11 +1156,11 @@ test('Map 1 has an open world with biomes around it', async ({ page }) => {
   expect(r.trackOutside).toBe(true)
   expect(r.cityColumnsUntouched).toBe(true)
   expect(r.landNotSaved).toBe(true)
-  expect(r.brokenSaved).toBe(true)
-  expect(r.builtSaved).toBe(true)
-  expect(r.holeKept).toBe(true)
-  expect(r.brickKept).toBe(true)
+  expect(r.outsideNotSaved).toBe(true)
+  expect(r.brickGone).toBe(true)
   expect(r.sameLand).toBe(true)
+  expect(r.newLand).toBe(true)
+  expect(r.cityKept).toBe(true)
   expect(r.dropped).toBe(true)
   expect(r.biomeShown.length).toBeGreaterThan(0)
   expect(r.notClamped).toBe(true)

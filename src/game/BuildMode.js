@@ -11,7 +11,7 @@ import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
 import { BuildTryMode } from './BuildTryMode.js'
 import { LiquidFlow } from './LiquidFlow.js'
-import { OpenWorld } from './OpenWorld.js'
+import { OpenWorld, inCity as cityCell } from './OpenWorld.js'
 import { BuildTools } from './BuildTools.js'
 import { BuildSky } from './BuildSky.js'
 import { BuildTouch } from './BuildTouch.js'
@@ -1807,7 +1807,7 @@ export class BuildMode {
     this._wheelAccum = 0
     this._onWheel = (e) => {
       if (!this.active || this.pickerOpen || this.menuOpen) return
-      if (e.target?.closest?.('#build-picker, #build-menu, #community-maps-panel, #build-together-panel')) return
+      if (e.target?.closest?.('#build-picker, #build-menu, #community-maps-panel, #build-together-panel, #build-try-map')) return
       this._wheelAccum += e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY
       const steps = Math.trunc(this._wheelAccum / 60)
       if (!steps) return
@@ -3511,8 +3511,11 @@ export class BuildMode {
     const { map } = this._map3Base()
     const removed = new Set(edits.removed.filter((k) => typeof k === 'string'))
     const blocks = map.blocks.filter((b) => !removed.has(this._key(b.x, b.y, b.z)))
-    this.world.start(removed)
-    this._applyParsedData({ blocks: blocks.concat(edits.placed), hotbar: edits.hotbar || map.hotbar })
+    this.world.start()
+    // Only the city's own changes are kept - the land around it is new
+    // every game (OpenWorld.js).
+    const placed = edits.placed.filter((b) => b && cityCell(b.x, b.z))
+    this._applyParsedData({ blocks: blocks.concat(placed), hotbar: edits.hotbar || map.hotbar })
     this.world.cityLoaded()
   }
 
@@ -3531,7 +3534,7 @@ export class BuildMode {
     const { byKey } = this._map3Base()
     const sig = (b) => (b ? `${b.type}|${b.facing ?? ''}|${b.open ? 1 : 0}|${b.text ?? ''}` : '')
     const current = new Map()
-    for (const b of this._snapshot().blocks) current.set(this._key(b.x, b.y, b.z), b)
+    for (const b of this._snapshot().blocks) if (cityCell(b.x, b.z)) current.set(this._key(b.x, b.y, b.z), b)
     const removed = []
     const placed = []
     for (const [k, base] of byKey) {
@@ -3540,7 +3543,6 @@ export class BuildMode {
     for (const [k, b] of current) {
       if (sig(b) !== sig(byKey.get(k))) placed.push(b)
     }
-    removed.push(...this.world.removedKeys())
     return { removed, placed, hotbar: this.hotbar }
   }
 

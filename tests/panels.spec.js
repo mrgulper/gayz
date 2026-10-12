@@ -315,3 +315,45 @@ test('right column lights up over a panel; checkbox check; filters fit', async (
   })
   expect(bg).toContain('svg')
 })
+
+// Patch Notes go live at 12am on each player's own clock, and the What's
+// New card (top-right corner) never shows a version What's New hasn't got.
+test('Patch Notes follow the player\'s clock and the What\'s New card matches them', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const label = (d) => `${M[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
+    const today = new Date()
+    const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+    const entry = (v, d) => `<div class="changelog-entry"><span class="changelog-date">${v} · ${label(d)}</span><div class="changelog-text"><ul><li>${v} notes</li></ul></div></div>`
+    const list = document.getElementById('changelog-list')
+    const freshHtml = `<div id="changelog-list">${entry('v9.02', tomorrow)}${entry('v9.01', today)}${list.innerHTML}</div>`
+    // A newer build is out: its notes come from the fresh page.
+    const realFetch = window.fetch
+    window.fetch = async (url) => {
+      if (String(url).includes('version.json')) return new Response(JSON.stringify({ id: 'test-build' }))
+      if (String(url).includes('index.html')) return new Response(`<html><body>${freshHtml}</body></html>`)
+      return realFetch(url)
+    }
+    g.settings.lastSeenBuildId = ''
+    await g._checkForUpdate()
+    window.fetch = realFetch
+    const visible = [...list.querySelectorAll('.changelog-entry')].filter((el) => getComputedStyle(el).display !== 'none')
+    const banner = document.getElementById('update-available-banner')
+    const box = banner.getBoundingClientRect()
+    return {
+      listNewest: visible[0]?.querySelector('.changelog-date')?.textContent || '',
+      tomorrowHidden: [...list.querySelectorAll('.changelog-entry')].some((el) => el.textContent.includes('v9.02') && getComputedStyle(el).display === 'none'),
+      bannerShows: document.getElementById('update-available-changelog').textContent,
+      top: box.top,
+      rightGap: window.innerWidth - box.right,
+    }
+  })
+  expect(r.listNewest).toContain('v9.01')
+  expect(r.tomorrowHidden).toBe(true)
+  expect(r.bannerShows).toContain('v9.01')
+  expect(r.bannerShows).not.toContain('v9.02')
+  expect(r.top).toBeLessThan(30)
+  expect(r.rightGap).toBeLessThan(30)
+})
