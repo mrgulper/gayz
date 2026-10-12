@@ -57,6 +57,13 @@ const GROUND_GRIP = 26 // how fast speed follows the keys on the ground
 const AIR_GRIP = 11 // ...and in the air (bloxd steers well mid-jump)
 const GRAVITY = 30
 const JUMP = 8.8 // ~1.3 blocks high
+// Swimming: Space rises this fast, letting go sinks no faster than
+// SWIM_SINK, and pushing against a wall with your chest (SWIM_CHEST above
+// your feet) out of the water springs you out - about 1.6 blocks up.
+const SWIM_UP = 4.5
+const SWIM_SINK = 2.5
+const SWIM_CHEST = 0.9
+const SWIM_EXIT = 9.8
 const COYOTE = 0.1 // seconds after leaving a ledge you can still jump
 const JUMP_BUFFER = 0.15 // a jump pressed this early before landing counts
 const STEP_UP = 0.55
@@ -562,7 +569,7 @@ export class BuildTryMode {
     // speedMult: Map 1's Choose Class (Runner/Tank, set by BuildSurvival).
     let speed = (crouch ? CROUCH : sprint ? SPRINT : WALK) * (this.speedMult ?? 1)
     speed *= BHOP_MULT[this._hopChain]
-    if (inLiquid) speed *= 0.55
+    if (inLiquid) speed *= 0.7
     const want = len ? (speed * amount) / len : 0
     const grip = this.onGround ? GROUND_GRIP : AIR_GRIP
     this.vel.x = THREE.MathUtils.damp(this.vel.x, mx * want, grip, dt)
@@ -581,7 +588,20 @@ export class BuildTryMode {
       const down = back || (stick?.y ?? 0) < -0.3
       this.vel.y = up ? CLIMB : down ? -CLIMB : -1
     } else if (inLiquid) {
-      this.vel.y = spaceDown ? 3.5 : Math.max(this.vel.y - GRAVITY * 0.2 * dt, -2.5)
+      // Freer water (2026-10-12, Gaymi: "you can't jump in water and you're
+      // kinda trapped if there's a higher block"): Space swims up faster,
+      // jumps off the bottom, and pressed against a wall with your chest
+      // out of the water it springs you up onto a ledge as high as
+      // SWIM_EXIT_HEIGHT, like climbing out of a pool. A jump's speed eases
+      // off instead of being cut.
+      const chestOut = !this.bm._cellIsLiquid(Math.floor(p.x), Math.floor(p.y + SWIM_CHEST), Math.floor(p.z))
+      if (spaceDown && this._pushingWall && chestOut) this.vel.y = Math.max(this.vel.y, SWIM_EXIT)
+      else if (this._jumpBuffer > 0 && this.onGround) {
+        this.vel.y = JUMP
+        this._jumpBuffer = 0
+      }
+      if (spaceDown) this.vel.y = Math.max(SWIM_UP, this.vel.y - GRAVITY * 0.6 * dt)
+      else this.vel.y = Math.max(this.vel.y - GRAVITY * (this.vel.y > 0 ? 0.6 : 0.2) * dt, -SWIM_SINK)
     } else {
       // Holding Space keeps hopping: jumps again the moment you land.
       if ((this._jumpBuffer > 0 || (spaceDown && this.onGround)) && this._coyote > 0) {
@@ -601,6 +621,7 @@ export class BuildTryMode {
 
     // Horizontal moves, stepping up onto a slab (or a stair) on the way.
     const stairs = (x, y, z) => this.bm._cellIsStairs(x, y, z)
+    this._pushingWall = false
     for (const axis of ['x', 'z']) {
       const amount = this.vel[axis] * dt
       if (!amount) continue
@@ -634,7 +655,10 @@ export class BuildTryMode {
         }
         if (didStep) continue
       }
-      if (blocked) this.vel[axis] = 0
+      if (blocked) {
+        this.vel[axis] = 0
+        this._pushingWall = true
+      }
     }
     const falling = this.vel.y <= 0
     const hitY = this._moveAxis(p, 'y', this.vel.y * dt)

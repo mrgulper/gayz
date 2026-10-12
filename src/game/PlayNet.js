@@ -49,14 +49,29 @@ function heldMaterial(m) {
 const HELD_TURN = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(
   new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0)))
 
+// Other players holding a gun: arms turned in (radians, right arm in on
+// the grip, left arm across to the barrel) and lowered a little until
+// they fire.
+const HOLD_RIGHT_YAW = -0.3
+const HOLD_LEFT_YAW = 0.75
+const HOLD_LOWER = 0.12
+
 // No answer from the server for this long: give up and say so.
 const LOST_AFTER_S = 12
 // How quickly avatars and mirrored zombies catch up with the latest spot.
 const FOLLOW = 12
 
+// Only one connection per page: a second one used to leave the first
+// syncing in the background, still sending this player's own spot under
+// their old id - everyone (them included) saw a copy of them following
+// them around (2026-10-12, "something following me with my own name").
+let current = null
+
 export class PlayNet {
   // info: what create/join returned - { serverId, playerId, token, host, name }.
   constructor(game, info) {
+    if (current && !current.closed) current.leave()
+    current = this
     this.game = game
     this.api = serverApi(game)
     this.serverId = info.serverId
@@ -279,13 +294,21 @@ export class PlayNet {
         if (p.gunId !== (p.weapon || '')) this._holdWeapon(p)
         lp.legR.rotation.x = swing
         lp.legL.rotation.x = -swing
-        if (p.gun && !p.dead) {
-          // Holding a gun up in front, like the first-person view: right
-          // arm on the grip, left arm reaching in under the barrel. A
-          // blade is carried at the side and raised to strike.
-          const aim = p.firing ? 1 : 0.92
-          lp.armR.rotation.set(p.melee && !p.firing ? -swing * 0.6 : -Math.PI / 2 * aim, 0, 0)
-          lp.armL.rotation.set(p.melee ? swing : -Math.PI / 2.4 * aim, 0, p.melee ? 0 : 0.45)
+        if (p.gun && !p.dead && !p.melee) {
+          // Holding a gun up in front with both hands, Minecraft-crossbow
+          // style (2026-10-12, "the character holding gun from a third
+          // person view looks weird"): the right arm a little in on the
+          // grip, the left arm across under the barrel, the gun pointing
+          // straight ahead.
+          lp.armR.rotation.order = 'YXZ'
+          lp.armL.rotation.order = 'YXZ'
+          const raise = p.firing ? 0 : HOLD_LOWER
+          lp.armR.rotation.set(-Math.PI / 2 + raise, HOLD_RIGHT_YAW, 0)
+          lp.armL.rotation.set(-Math.PI / 2 + raise, HOLD_LEFT_YAW, 0)
+        } else if (p.gun && !p.dead) {
+          // A blade at the side, raised to strike.
+          lp.armR.rotation.set(p.firing ? -Math.PI / 2 : -swing * 0.6, 0, 0)
+          lp.armL.rotation.set(swing, 0, 0)
         } else {
           lp.armR.rotation.set(p.firing ? -Math.PI / 2 : -swing, 0, 0)
           lp.armL.rotation.set(p.firing ? -Math.PI / 2.3 : swing, 0, 0)
@@ -314,16 +337,20 @@ export class PlayNet {
     })
     const held = new THREE.Group()
     held.add(gun)
+    p.melee = /melee|knife|tomahawk/i.test(p.gunId)
+    // A gun turns back by the arm's own inward turn, so it points straight
+    // ahead (the arm's local z is the body's up once the arm is raised).
     held.quaternion.copy(HELD_TURN)
+    if (!p.melee) held.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -HOLD_RIGHT_YAW))
     // Small guns get a minimum size, or a pistol hides inside the hand.
     const len = new THREE.Box3().setFromObject(gun).getSize(new THREE.Vector3()).z || 0.5
     held.scale.setScalar(GUN_SCALE * Math.max(1, HELD_MIN_LEN / len))
-    // In the hand at the end of the arm (the arm is 12 long).
-    held.position.set(0, -11, 0)
+    // In the hand at the end of the arm (the arm is 12 long), a gun
+    // resting a little under it.
+    held.position.set(0, -11, p.melee ? 0 : -1.5)
     held.userData.heldWeapon = true
     armR.add(held)
     p.gun = held
-    p.melee = /melee|knife|tomahawk/i.test(p.gunId)
   }
 
   // Leaving (Back, closing the tab): tell the server so the others see it
