@@ -85,6 +85,18 @@ const NEAR = 0.012 // camera near plane while trying (world units; a block is 0.
 // Glass shards flying out of a broken window.
 const SHARDS_PER_WINDOW = 14
 const SHARD_LIFE = 1.4
+// Every window cracks and breaks its own way (2026-10-12, "make more looks
+// for when the glass breaks"): one of CRACK_LOOKS crack pictures, and one
+// of these ways of falling apart. count is times SHARDS_PER_WINDOW; out/up
+// are the push away from you and upward, spread the random scatter, sizes
+// how big the pieces are, spin how fast they tumble.
+const CRACK_LOOKS = 5
+const BREAK_LOOKS = [
+  { name: 'burst', count: 1, out: 2, up: 2.5, spread: 2.5, sizes: [1, 1.3], spin: 12 },
+  { name: 'collapse', count: 1.2, out: 0.5, up: 0.4, spread: 1, sizes: [0.9, 1.4], spin: 6 },
+  { name: 'blast', count: 1.8, out: 3.6, up: 2, spread: 4, sizes: [0.5, 0.8], spin: 18 },
+  { name: 'chunks', count: 0.5, out: 1.4, up: 1.6, spread: 1.6, sizes: [1.6, 2.4], spin: 5 },
+]
 // Same spot on screen the game holds its gun (WeaponSystem's VIEWMODEL_BASE).
 const GUN_OFFSET = new THREE.Vector3(0.26, -0.22, -0.5)
 // Aiming down the sights (held right-click, 2026-10-10): the gun comes in
@@ -152,10 +164,10 @@ export class BuildTryMode {
     this._mapDrawAt = 0
     this._cracked = new Map() // cell key -> { x, y, z }
     this._broken = new Map() // cell key -> { x, y, z, type }
-    this._crackMesh = null
-    this._crackMaterial = null
+    this._crackMeshes = []
+    this._crackMaterials = []
     this._shards = []
-    this._shardGeometry = null
+    this._shardGeometries = null
     this._shardMaterials = new Map()
     this._underwater = null
     this._underwaterEl = null
@@ -639,7 +651,7 @@ export class BuildTryMode {
     if (!bm._isWindowType(type)) return
     const key = bm._key(x, y, z)
     if (!this._cracked.has(key)) {
-      this._cracked.set(key, { x, y, z })
+      this._cracked.set(key, { x, y, z, look: Math.floor(Math.random() * CRACK_LOOKS) })
       this._rebuildCracks()
       audioEngine.playGlassCrack()
       return
@@ -677,37 +689,69 @@ export class BuildTryMode {
     this.forgetWindows()
   }
 
-  // A pixel-art crack, drawn once: lines running out from the middle.
-  _crackTexture() {
+  // Pixel-art cracks, drawn once each: CRACK_LOOKS different ones - an
+  // impact point somewhere near the middle, 4-7 cracks running out from
+  // it with kinks and branches, and on some a spider web of rings.
+  _crackTexture(look) {
     const c = document.createElement('canvas')
     c.width = c.height = 16
     const ctx = c.getContext('2d')
-    const paths = [
-      [[8, 8], [6, 6], [5, 3], [3, 1], [2, 0]],
-      [[8, 8], [10, 6], [12, 5], [13, 2], [15, 1]],
-      [[8, 8], [11, 9], [13, 11], [15, 12]],
-      [[8, 8], [7, 11], [5, 13], [4, 15]],
-      [[8, 8], [5, 9], [2, 8], [0, 9]],
-      [[11, 9], [11, 12], [12, 15]],
-      [[6, 6], [3, 5]],
-    ]
+    let seed = 1013 + look * 7919
+    const rand = () => {
+      seed = (seed * 16807) % 2147483647
+      return (seed - 1) / 2147483646
+    }
     const dot = (px, py, color) => {
+      if (px < 0 || py < 0 || px > 15 || py > 15) return
       ctx.fillStyle = color
       ctx.fillRect(px, py, 1, 1)
     }
-    for (const path of paths) {
-      for (let i = 1; i < path.length; i++) {
-        const [x0, y0] = path[i - 1]
-        const [x1, y1] = path[i]
-        const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))
-        for (let j = 0; j <= n; j++) {
-          const px = Math.round(x0 + ((x1 - x0) * j) / n)
-          const py = Math.round(y0 + ((y1 - y0) * j) / n)
-          if (px + 1 < 16) dot(px + 1, py, 'rgba(40,50,60,0.45)')
-          dot(px, py, 'rgba(255,255,255,0.95)')
+    const line = (x0, y0, x1, y1) => {
+      const n = Math.max(1, Math.round(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))))
+      for (let j = 0; j <= n; j++) {
+        const px = Math.round(x0 + ((x1 - x0) * j) / n)
+        const py = Math.round(y0 + ((y1 - y0) * j) / n)
+        dot(px + 1, py, 'rgba(40,50,60,0.45)')
+        dot(px, py, 'rgba(255,255,255,0.95)')
+      }
+    }
+    const cx = 5 + rand() * 6
+    const cy = 5 + rand() * 6
+    const arms = 4 + Math.floor(rand() * 4)
+    const armPoints = []
+    for (let i = 0; i < arms; i++) {
+      let ang = (i / arms) * Math.PI * 2 + (rand() - 0.5) * 0.8
+      let x = cx
+      let y = cy
+      const pts = []
+      while (x >= 0 && x <= 15 && y >= 0 && y <= 15) {
+        const step = 1.5 + rand() * 2
+        const nx = x + Math.cos(ang) * step
+        const ny = y + Math.sin(ang) * step
+        line(x, y, nx, ny)
+        pts.push([nx, ny])
+        // A side branch now and then.
+        if (rand() < 0.22) {
+          const ba = ang + (rand() < 0.5 ? -1 : 1) * (0.6 + rand() * 0.5)
+          line(nx, ny, nx + Math.cos(ba) * (2 + rand() * 2), ny + Math.sin(ba) * (2 + rand() * 2))
+        }
+        x = nx
+        y = ny
+        ang += (rand() - 0.5) * 0.6
+      }
+      armPoints.push(pts)
+    }
+    // A spider web: rings joining neighbouring cracks.
+    if (look % 2 === 1) {
+      for (const ring of [1, 2]) {
+        for (let i = 0; i < arms; i++) {
+          const p = armPoints[i][ring]
+          const q = armPoints[(i + 1) % arms][ring]
+          if (p && q && rand() < 0.8) line(p[0], p[1], q[0], q[1])
         }
       }
     }
+    dot(Math.round(cx), Math.round(cy), 'rgba(255,255,255,1)')
     const tex = new THREE.CanvasTexture(c)
     tex.magFilter = THREE.NearestFilter
     tex.minFilter = THREE.NearestFilter
@@ -719,56 +763,95 @@ export class BuildTryMode {
   // a hair bigger than the block so it shows on top).
   _rebuildCracks() {
     const bm = this.bm
-    if (this._crackMesh) {
-      bm.scene.remove(this._crackMesh)
-      this._crackMesh.geometry.dispose()
-      this._crackMesh.dispose()
-      this._crackMesh = null
+    for (const mesh of this._crackMeshes || []) {
+      bm.scene.remove(mesh)
+      mesh.geometry.dispose()
+      mesh.dispose()
     }
+    this._crackMeshes = []
     if (!this._cracked.size) return
-    if (!this._crackMaterial) {
-      this._crackMaterial = new THREE.MeshBasicMaterial({ map: this._crackTexture(), transparent: true, alphaTest: 0.1, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
-    }
+    this._crackMaterials = this._crackMaterials || []
     const B = this.B
     const size = B * 1.01
-    const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(size, size, size), this._crackMaterial, this._cracked.size)
-    const m = new THREE.Matrix4()
-    let i = 0
-    for (const { x, y, z } of this._cracked.values()) {
-      m.makeTranslation((x + 0.5) * B, (y + 0.5) * B, (z + 0.5) * B)
-      mesh.setMatrixAt(i++, m)
+    const byLook = new Map()
+    for (const c of this._cracked.values()) {
+      const look = c.look || 0
+      if (!byLook.has(look)) byLook.set(look, [])
+      byLook.get(look).push(c)
     }
-    mesh.renderOrder = 2
-    bm.scene.add(mesh)
-    this._crackMesh = mesh
+    const m = new THREE.Matrix4()
+    for (const [look, cells] of byLook) {
+      if (!this._crackMaterials[look]) {
+        this._crackMaterials[look] = new THREE.MeshBasicMaterial({ map: this._crackTexture(look), transparent: true, alphaTest: 0.1, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
+      }
+      const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(size, size, size), this._crackMaterials[look], cells.length)
+      cells.forEach(({ x, y, z }, i) => {
+        m.makeTranslation((x + 0.5) * B, (y + 0.5) * B, (z + 0.5) * B)
+        mesh.setMatrixAt(i, m)
+      })
+      mesh.renderOrder = 2
+      bm.scene.add(mesh)
+      this._crackMeshes.push(mesh)
+    }
   }
 
-  _spawnShards(x, y, z, type) {
+  // Shard shapes: a square, a thin sliver, a triangle and a small chip.
+  _shardShapes() {
+    if (this._shardGeometries) return this._shardGeometries
+    const B = this.B
+    const tri = new THREE.CylinderGeometry(B * 0.1, B * 0.1, B * 0.02, 3)
+    tri.rotateX(Math.PI / 2)
+    this._shardGeometries = [
+      new THREE.BoxGeometry(B * 0.14, B * 0.14, B * 0.02),
+      new THREE.BoxGeometry(B * 0.05, B * 0.24, B * 0.02),
+      tri,
+      new THREE.BoxGeometry(B * 0.07, B * 0.06, B * 0.02),
+    ]
+    return this._shardGeometries
+  }
+
+  // lookIndex: which BREAK_LOOKS (random when left out).
+  _spawnShards(x, y, z, type, lookIndex = null) {
     const B = this.B
     const scene = this.bm.scene
-    if (!this._shardGeometry) this._shardGeometry = new THREE.BoxGeometry(B * 0.14, B * 0.14, B * 0.02)
-    let mat = this._shardMaterials.get(type)
-    if (!mat) {
-      mat = new THREE.MeshBasicMaterial({ color: this.bm._blockColor(type), transparent: true, opacity: 0.75 })
-      this._shardMaterials.set(type, mat)
+    const shapes = this._shardShapes()
+    let mats = this._shardMaterials.get(type)
+    if (!mats) {
+      const color = this.bm._blockColor(type)
+      // The glass's own colour, plus a paler glint for a few pieces.
+      mats = [
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.75 }),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.6), transparent: true, opacity: 0.9 }),
+      ]
+      this._shardMaterials.set(type, mats)
     }
+    const look = BREAK_LOOKS[lookIndex ?? Math.floor(Math.random() * BREAK_LOOKS.length)]
+    this._lastBreakLook = look.name
     // Flying away from the shooter.
     const cam = this.bm.camera.position
     const cx = (x + 0.5) * B
     const cy = (y + 0.5) * B
     const cz = (z + 0.5) * B
     const away = new THREE.Vector3(cx - cam.x, 0, cz - cam.z).normalize()
-    for (let i = 0; i < SHARDS_PER_WINDOW; i++) {
-      const shard = new THREE.Mesh(this._shardGeometry, mat)
+    const n = Math.round(SHARDS_PER_WINDOW * look.count)
+    for (let i = 0; i < n; i++) {
+      const shard = new THREE.Mesh(shapes[Math.floor(Math.random() * shapes.length)], mats[Math.random() < 0.2 ? 1 : 0])
       shard.position.set(cx + (Math.random() - 0.5) * B * 0.8, cy + (Math.random() - 0.5) * B * 0.8, cz + (Math.random() - 0.5) * B * 0.8)
       shard.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6)
+      const size = look.sizes[0] + Math.random() * (look.sizes[1] - look.sizes[0])
       scene.add(shard)
       this._shards.push({
         mesh: shard,
-        vel: new THREE.Vector3(away.x * 2 + (Math.random() - 0.5) * 2.5, Math.random() * 2.5, away.z * 2 + (Math.random() - 0.5) * 2.5).multiplyScalar(B),
-        spin: new THREE.Vector3(Math.random() * 12, Math.random() * 12, Math.random() * 12),
+        size,
+        vel: new THREE.Vector3(
+          away.x * look.out + (Math.random() - 0.5) * look.spread,
+          Math.random() * look.up,
+          away.z * look.out + (Math.random() - 0.5) * look.spread,
+        ).multiplyScalar(B),
+        spin: new THREE.Vector3(Math.random() * look.spin, Math.random() * look.spin, Math.random() * look.spin),
         life: SHARD_LIFE * (0.7 + Math.random() * 0.3),
       })
+      shard.scale.setScalar(size)
     }
   }
 
@@ -785,7 +868,7 @@ export class BuildTryMode {
       s.mesh.position.addScaledVector(s.vel, dt)
       s.mesh.rotation.x += s.spin.x * dt
       s.mesh.rotation.y += s.spin.y * dt
-      s.mesh.scale.setScalar(Math.min(1, s.life * 3))
+      s.mesh.scale.setScalar((s.size || 1) * Math.min(1, s.life * 3))
       return true
     })
   }

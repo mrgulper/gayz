@@ -417,6 +417,17 @@ test('Play mode spawns zombie waves that reach you and can be shot', async ({ pa
     const killsBefore = s.kills
     for (let i = 0; i < 10 && s.zombies.includes(target); i++) s.damageZombie(target, 34)
     out.killed = s.kills === killsBefore + 1
+    // Its body falls over and fades away (own material copies - the live
+    // zombies' shared ones are never touched).
+    const corpse = (s._corpses || [])[0]
+    out.corpse = !!corpse && s._corpses.length === 1
+    out.ownMaterials = !!corpse && corpse.materials.length > 0 && corpse.materials.every((m) => !s._zBatch.meshes.some((mesh) => [].concat(mesh.material).includes(m)))
+    step(0.5)
+    out.fell = !!corpse && Math.abs(corpse.group.rotation.x - Math.PI / 2) < 0.01
+    step(2)
+    out.fading = !!corpse && corpse.materials[0].opacity > 0 && corpse.materials[0].opacity < 1
+    step(2.5)
+    out.corpseGone = (s._corpses || []).length === 0
     out.mag = s.mag
     out.fired = s.tryFire() && s.mag === out.mag - 1
     const reserve = s.reserve
@@ -439,6 +450,11 @@ test('Play mode spawns zombie waves that reach you and can be shot', async ({ pa
   expect(r.wentRound).toBe(true)
   expect(r.closest).toBeLessThan(2)
   expect(r.killed).toBe(true)
+  expect(r.corpse).toBe(true)
+  expect(r.ownMaterials).toBe(true)
+  expect(r.fell).toBe(true)
+  expect(r.fading).toBe(true)
+  expect(r.corpseGone).toBe(true)
   expect(r.fired).toBe(true)
   expect(r.chest).toBe(true)
   expect(r.chestOnce).toBe(true)
@@ -1002,4 +1018,44 @@ test('Settings > Controls keys drive walking in Map 1', async ({ page }) => {
   expect(result.withW).toBeLessThan(0.01)
   expect(result.withI).toBeGreaterThan(2)
   expect(result.withArrow).toBeGreaterThan(2)
+})
+
+// Windows crack and break in more than one way (2026-10-12): five crack
+// pictures, four ways of shattering, several shard shapes.
+test('windows crack and shatter in different ways', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const tm = bm.tryMode
+    // Every crack picture is its own.
+    const pics = new Set()
+    for (let look = 0; look < 5; look++) {
+      const img = tm._crackTexture(look).image
+      pics.add(img.getContext('2d').getImageData(0, 0, 16, 16).data.join(','))
+    }
+    // Cracked windows with different looks are all drawn.
+    for (let i = 0; i < 5; i++) {
+      bm.placeBlock(i, 1, 4, 'glass')
+      tm._cracked.set(bm._key(i, 1, 4), { x: i, y: 1, z: 4, look: i })
+    }
+    tm._rebuildCracks()
+    const crackMeshes = tm._crackMeshes.length
+    // Each way of shattering, by its shard count and sizes.
+    const looks = new Map()
+    for (let k = 0; k < 4; k++) {
+      tm._clearShards()
+      tm._spawnShards(0, 1, 4, 'glass', k)
+      looks.set(tm._lastBreakLook, { n: tm._shards.length, shapes: new Set(tm._shards.map((s) => s.mesh.geometry.uuid)).size })
+    }
+    tm.forgetWindows()
+    g._exitBuildMode()
+    return { pics: pics.size, crackMeshes, looks: [...looks.entries()] }
+  })
+  expect(r.pics).toBe(5)
+  expect(r.crackMeshes).toBe(5)
+  expect(r.looks.map(([name]) => name).sort()).toEqual(['blast', 'burst', 'chunks', 'collapse'])
+  expect(new Set(r.looks.map(([, v]) => v.n)).size).toBeGreaterThan(2)
+  expect(r.looks.every(([, v]) => v.shapes >= 2)).toBe(true)
 })

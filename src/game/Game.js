@@ -162,7 +162,7 @@ const RANDOM_NICKNAME_NOUNS = ['Wolf', 'Scav', 'Reaper', 'Nomad', 'Ghost', 'Vipe
 // no-emoji UI convention, see #profile-emblem-row's own comment).
 const PODIUM_MEDALS = ['1st', '2nd', '3rd']
 // Cache Storage name for the saved weapon pictures (see _loadSavedWeaponThumbs).
-const WEAPON_THUMBS_CACHE = 'gayz-weapon-thumbs-v1'
+const WEAPON_THUMBS_CACHE = 'gayz-weapon-thumbs-v2'
 
 // Main-menu news ticker thresholds (see _updateMenuNewsTicker) - both read
 // against bestStats.bestNight.
@@ -1543,6 +1543,14 @@ export function _formatRelativeTime(ms) {
 // once rather than patching each one.
 // How long Play's fade to and from black takes (ms) - see _fadeScreen.
 const PLAY_FADE_MS = 450
+// Opening the Map Editor: a quick dip to black. Fading back in on the map
+// (Play or editor) is slow when the load took longer than FADE_LAG_LOAD_MS
+// or a first frame took longer than FADE_LAG_FRAME_MS, fast otherwise.
+const EDITOR_FADE_OUT_MS = 200
+const FADE_LAG_LOAD_MS = 600
+const FADE_LAG_FRAME_MS = 40
+const FADE_IN_SLOW_MS = 900
+const FADE_IN_FAST_MS = 250
 
 export function _escapeHtml(str) {
   const div = document.createElement('div')
@@ -2653,6 +2661,7 @@ export class Game {
     this.gayzFeaturesBtn = document.getElementById('nav-gayzfeatures-link')
     this.featuresPanel = document.getElementById('features-panel')
     this.featuresContent = document.getElementById('features-content')
+    this.featuresLayout = document.getElementById('features-layout')
     this.featuresSearch = document.getElementById('features-search')
     this.featuresSearchCount = document.getElementById('features-search-count')
     this.skindesignerBtn = document.getElementById('nav-designskin-link')
@@ -6721,13 +6730,16 @@ export class Game {
     // making the page lag").
     this._enteringBuildMode = true
     try {
-      if (play) await this._fadeScreen(1)
+      // The Map Editor fades too (2026-10-12): a quick dip to black, then
+      // a fade back in whose speed follows how heavy the load was.
+      this._fadeStartedAt = performance.now()
+      await this._fadeScreen(1, play ? PLAY_FADE_MS : EDITOR_FADE_OUT_MS)
       if (typeof this.buildMode.enter !== 'function') {
         const { BuildMode } = await this._preloadBuildMode()
         this.buildMode = new BuildMode(this.renderer, this)
       }
     } catch (e) {
-      if (play) this._fadeScreen(0)
+      this._fadeScreen(0)
       throw e
     } finally {
       this._enteringBuildMode = false
@@ -6820,7 +6832,7 @@ export class Game {
     if (this._sizeDirty) this._onResize()
     if (play) this.buildMode.survival.start({ fromMenu: true, net: server ? new PlayNet(this, server) : null })
     this._applyRenderScale()
-    if (play) this._fadeScreen(0)
+    this._fadeScreen(0)
     // A boss bar left over from a run would otherwise sit over the editor.
     // FPS readout in the top-left corner (the save slot buttons moved into
     // the Escape menu), shown whenever the gameplay one would be.
@@ -6838,29 +6850,44 @@ export class Game {
   // Resolves once the fade has finished and the screen has painted, so
   // work done after `await this._fadeScreen(1)` happens behind black. Fading
   // out waits two frames first, so the map's first frame is already drawn.
-  async _fadeScreen(to) {
+  async _fadeScreen(to, ms = PLAY_FADE_MS) {
     let el = document.getElementById('play-fade')
     if (!el) {
       el = document.createElement('div')
       el.id = 'play-fade'
       document.body.appendChild(el)
     }
-    const frame = () => new Promise((r) => requestAnimationFrame(() => r()))
+    const frame = () => new Promise((r) => requestAnimationFrame((t) => r(t)))
     if (to) {
+      el.style.transitionDuration = ms + 'ms'
       el.style.display = 'block'
       void el.offsetWidth
       el.classList.add('on')
-      await new Promise((r) => setTimeout(r, PLAY_FADE_MS))
+      await new Promise((r) => setTimeout(r, ms))
       await frame()
       await frame()
       return
     }
-    await frame()
-    await frame()
+    // Fading back in: slowly if the load was heavy or the first frames on
+    // the map are still slow (it would stutter otherwise), quickly if not
+    // (2026-10-12, "make it slowly fade in if it's lagging, if not just
+    // make it fade in faster").
+    const loadMs = performance.now() - (this._fadeStartedAt || performance.now())
+    let last = await frame()
+    let slowest = 0
+    for (let i = 0; i < 4; i++) {
+      const t = await frame()
+      slowest = Math.max(slowest, t - last)
+      last = t
+    }
+    const lagging = loadMs > FADE_LAG_LOAD_MS || slowest > FADE_LAG_FRAME_MS
+    const inMs = lagging ? FADE_IN_SLOW_MS : FADE_IN_FAST_MS
+    this._lastFadeIn = { loadMs: Math.round(loadMs), slowest: Math.round(slowest), inMs }
+    el.style.transitionDuration = inMs + 'ms'
     el.classList.remove('on')
     setTimeout(() => {
       if (!el.classList.contains('on')) el.style.display = 'none'
-    }, PLAY_FADE_MS)
+    }, inMs)
   }
 
   // The run settings for a Map 1 run from the homepage: Game Mode's
@@ -10037,7 +10064,9 @@ export class Game {
         // actually running each frame, which isn't guaranteed the moment
         // right after a panel opens.
         link.addEventListener('click', () => {
-          section.scrollIntoView({ block: 'start', behavior: 'auto' })
+          // Only the list scrolls - the search bar above it stays put.
+          const box = this.featuresLayout || this.featuresContent
+          box.scrollTop += section.getBoundingClientRect().top - box.getBoundingClientRect().top
           // Immediate feedback rather than waiting on the observer below,
           // which only re-fires after the (instant, but still async)
           // scroll actually settles a frame later.
@@ -10070,7 +10099,7 @@ export class Game {
               tocLinks.forEach((l, i) => l.classList.toggle('active', i === idx))
             }
           },
-          { root: this.featuresContent, threshold: [0, 0.1, 0.25, 0.5, 0.75, 1] }
+          { root: this.featuresLayout || this.featuresContent, threshold: [0, 0.1, 0.25, 0.5, 0.75, 1] }
         )
         categories.forEach((section) => this._featuresTocObserver.observe(section))
         tocLinks[0].classList.add('active')
