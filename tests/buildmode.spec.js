@@ -1098,17 +1098,17 @@ test('Map 1 has an open world with biomes around it', async ({ page }) => {
     w.reseed(1234)
     w.update([{ x: 90, z: 2 }])
     const first = []
-    for (let x = 70; x < 130; x += 7) first.push(JSON.stringify(surface(x, 9)))
+    for (let x = 66; x < 110; x += 5) first.push(JSON.stringify(surface(x, 9)))
     out.brickGone = b._blocks.get(`91,${y + 1},2`) !== 'brick'
     w.reseed(1234)
     w.update([{ x: 90, z: 2 }])
     const again = []
-    for (let x = 70; x < 130; x += 7) again.push(JSON.stringify(surface(x, 9)))
+    for (let x = 66; x < 110; x += 5) again.push(JSON.stringify(surface(x, 9)))
     out.sameLand = first.join() === again.join()
     w.reseed(98765)
     w.update([{ x: 90, z: 2 }])
     const other = []
-    for (let x = 70; x < 130; x += 7) other.push(JSON.stringify(surface(x, 9)))
+    for (let x = 66; x < 110; x += 5) other.push(JSON.stringify(surface(x, 9)))
     out.newLand = other.join() !== first.join()
     out.cityKept = !!surface(0, 0)
     // Far columns are dropped again once you leave.
