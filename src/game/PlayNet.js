@@ -20,42 +20,11 @@ import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from '
 import { nameTag } from './BuildCamp.js'
 import { serverApi } from './ServerBrowser.js'
 import { t } from './i18n.js'
-import { cloneViewmodel } from './Viewmodels.js'
+import { holdWeapon, poseArms } from './HeldWeapon.js'
 import { addChatSystemLine, clearChatSystemLines } from './ChatUI.js'
 
 // Seconds between syncs.
 export const SYNC_EVERY = 0.16
-// Held weapons: character units (the body is 32 tall) per viewmodel
-// length unit, so a rifle is a little under a block long in their hands.
-const GUN_SCALE = 15
-// ...but never shorter than this many viewmodel units.
-const HELD_MIN_LEN = 0.55
-// Their weapons drawn with the world's own light (the guns' metal
-// materials render black without an environment map) - one plain
-// material per source material, shared by every player, never disposed.
-const HELD_MATERIALS = new WeakMap()
-function heldMaterial(m) {
-  let out = HELD_MATERIALS.get(m)
-  if (!out) {
-    out = new THREE.MeshLambertMaterial({ map: m.map || null, color: m.color ? m.color.clone() : 0x777777, transparent: !!m.transparent, opacity: m.opacity ?? 1 })
-    if (m.emissive) out.emissive = m.emissive.clone()
-    HELD_MATERIALS.set(m, out)
-  }
-  return out
-}
-// Turns a viewmodel (muzzle along -z, top +y) to lie along the arm: the
-// muzzle down the arm towards the hand (-y), its top facing the arm's
-// front (+z), so a raised arm points the gun where the player looks.
-const HELD_TURN = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(
-  new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0)))
-
-// Other players holding a gun: arms turned in (radians, right arm in on
-// the grip, left arm across to the barrel) and lowered a little until
-// they fire.
-const HOLD_RIGHT_YAW = -0.3
-const HOLD_LEFT_YAW = 0.75
-const HOLD_LOWER = 0.12
-
 // No answer from the server for this long: give up and say so.
 const LOST_AFTER_S = 12
 // How quickly avatars and mirrored zombies catch up with the latest spot.
@@ -291,66 +260,17 @@ export class PlayNet {
       const swing = Math.sin(p.walk) * Math.min(1, speed / 2) * 0.7
       const lp = p.body.limbPivots
       if (lp) {
-        if (p.gunId !== (p.weapon || '')) this._holdWeapon(p)
+        if (p.gunId !== (p.weapon || '')) {
+          const held = holdWeapon(this.game, p.body, p.weapon, p.gun)
+          p.gun = held.gun
+          p.melee = held.melee
+          p.gunId = p.weapon || ''
+        }
         lp.legR.rotation.x = swing
         lp.legL.rotation.x = -swing
-        if (p.gun && !p.dead && !p.melee) {
-          // Holding a gun up in front with both hands, Minecraft-crossbow
-          // style (2026-10-12, "the character holding gun from a third
-          // person view looks weird"): the right arm a little in on the
-          // grip, the left arm across under the barrel, the gun pointing
-          // straight ahead.
-          lp.armR.rotation.order = 'YXZ'
-          lp.armL.rotation.order = 'YXZ'
-          const raise = p.firing ? 0 : HOLD_LOWER
-          lp.armR.rotation.set(-Math.PI / 2 + raise, HOLD_RIGHT_YAW, 0)
-          lp.armL.rotation.set(-Math.PI / 2 + raise, HOLD_LEFT_YAW, 0)
-        } else if (p.gun && !p.dead) {
-          // A blade at the side, raised to strike.
-          lp.armR.rotation.set(p.firing ? -Math.PI / 2 : -swing * 0.6, 0, 0)
-          lp.armL.rotation.set(swing, 0, 0)
-        } else {
-          lp.armR.rotation.set(p.firing ? -Math.PI / 2 : -swing, 0, 0)
-          lp.armL.rotation.set(p.firing ? -Math.PI / 2.3 : swing, 0, 0)
-        }
+        poseArms(lp, { holding: !!p.gun && !p.dead, melee: p.melee, firing: p.firing, swing })
       }
     }
-  }
-
-  // Puts the weapon this player is holding (their weapon picker's pick,
-  // sent with every sync) in their right hand - a copy of the game's own
-  // model, swapped when they pick another.
-  _holdWeapon(p) {
-    const armR = p.body?.limbPivots?.armR
-    if (!armR) return
-    if (p.gun) armR.remove(p.gun)
-    p.gun = null
-    p.gunId = p.weapon || ''
-    const source = this.game.weapons?.viewmodels?.[p.gunId]
-    if (!source) return
-    const gun = cloneViewmodel(source)
-    gun.visible = true
-    gun.traverse((o) => {
-      if (!o.isMesh) return
-      o.material = Array.isArray(o.material) ? o.material.map(heldMaterial) : heldMaterial(o.material)
-      o.castShadow = false
-    })
-    const held = new THREE.Group()
-    held.add(gun)
-    p.melee = /melee|knife|tomahawk/i.test(p.gunId)
-    // A gun turns back by the arm's own inward turn, so it points straight
-    // ahead (the arm's local z is the body's up once the arm is raised).
-    held.quaternion.copy(HELD_TURN)
-    if (!p.melee) held.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -HOLD_RIGHT_YAW))
-    // Small guns get a minimum size, or a pistol hides inside the hand.
-    const len = new THREE.Box3().setFromObject(gun).getSize(new THREE.Vector3()).z || 0.5
-    held.scale.setScalar(GUN_SCALE * Math.max(1, HELD_MIN_LEN / len))
-    // In the hand at the end of the arm (the arm is 12 long), a gun
-    // resting a little under it.
-    held.position.set(0, -11, p.melee ? 0 : -1.5)
-    held.userData.heldWeapon = true
-    armR.add(held)
-    p.gun = held
   }
 
   // Leaving (Back, closing the tab): tell the server so the others see it

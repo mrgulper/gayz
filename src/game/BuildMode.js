@@ -121,6 +121,7 @@ const MENU_SHORTCUTS = [
   [() => [keyLabel(getKeyFor('use'))], 'buildMenuUseDoor'],
   [() => [keyLabel(getKeyFor('inspectWeapon'))], 'buildMenuInspect'],
   [() => [keyLabel(getKeyFor('cycleMap'))], 'buildMenuMapSize'],
+  [() => [keyLabel(getKeyFor('cameraView'))], 'buildMenuCameraView'],
   [['Ctrl', 'Z'], 'buildModeUndoBtn'],
   [['Ctrl', 'Y'], 'buildModeRedoBtn'],
   [['Ctrl', 'S'], 'buildModeSaveBtn'],
@@ -1421,6 +1422,7 @@ export class BuildMode {
         if (e.code === getKeyFor('use') && !e.repeat) this._tryUseFromCamera()
         if (e.code === getKeyFor('inspectWeapon') && !e.repeat) this.tryMode.inspect()
         if (e.code === getKeyFor('cycleMap') && !e.repeat) this.tryMode.cycleMap()
+        if (e.code === getKeyFor('cameraView') && !e.repeat) this.tryMode.cycleView()
         this._keys.add(e.code)
         if (MOVEMENT_KEY_CODES.has(e.code) || TRY_MOVE_ACTIONS.some((a) => keysFor(a).includes(e.code))) e.preventDefault()
         return
@@ -3861,7 +3863,10 @@ export class BuildMode {
       this._shadowsDirty = false
     }
     this.renderer.info.reset()
+    // Third person: the camera steps out for this drawing only.
+    const restoreView = this.tryMode.applyView()
     this.renderer.render(this.scene, this.camera)
+    restoreView?.()
     this.lastDrawCalls = this.renderer.info.render.calls
     shadowMap.autoUpdate = shadowAutoUpdate
     this.renderer.toneMapping = toneMapping

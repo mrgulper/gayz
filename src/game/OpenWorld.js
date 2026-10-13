@@ -346,6 +346,7 @@ export class OpenWorld {
     this.removed.clear()
     this.edited.clear()
     this._tiles.clear()
+    this._coarseTiles = null
     setWorldSeed(seed)
     this.version++
   }
@@ -836,14 +837,10 @@ export class OpenWorld {
         const z = tz * S + j
         const o = (j * S + i) * 4
         if (inCity(x, z)) continue
-        const s = sampleLand(x, z)
-        let color
-        if (s.h < SEA) color = s.biome === 'frozenOcean' ? 0xb5d3f0 : s.biome === 'warmOcean' ? 0x3fb6c8 : s.h < SEA - 9 ? 0x1f4f9a : 0x3368c6
-        else color = this._typeColor(this._onPath(x, z) ? 'gravel' : surface(s, x, z).top)
-        const shade = s.h < SEA ? 1 : 0.72 + 0.28 * clamp01((s.h + 6) / 40)
-        img.data[o] = ((color >> 16) & 255) * shade
-        img.data[o + 1] = ((color >> 8) & 255) * shade
-        img.data[o + 2] = (color & 255) * shade
+        const color = this._cellColor(x, z)
+        img.data[o] = (color >> 16) & 255
+        img.data[o + 1] = (color >> 8) & 255
+        img.data[o + 2] = color & 255
         img.data[o + 3] = 255
       }
     }
@@ -852,6 +849,49 @@ export class OpenWorld {
     const entry = { canvas: tile, fresh: true }
     this._tiles.set(key, entry)
     return entry
+  }
+
+  // A quick stand-in for a tile not drawn yet: one sample per 4x4 cells
+  // (64 reads instead of 1024), so the big map never shows dark gaps while
+  // it's dragged around (2026-10-13, "dont make it loading when moving it").
+  mapTileCoarse(tx, tz) {
+    const key = `${tx},${tz}`
+    let tile = this._coarseTiles?.get(key)
+    if (tile) return tile
+    if (!this._coarseTiles || this._coarseTiles.size > 6000) this._coarseTiles = new Map()
+    const S = 8
+    const step = 32 / S
+    tile = document.createElement('canvas')
+    tile.width = S
+    tile.height = S
+    const ctx = tile.getContext('2d')
+    const img = ctx.createImageData(S, S)
+    for (let i = 0; i < S; i++) {
+      for (let j = 0; j < S; j++) {
+        const x = tx * 32 + i * step + 2
+        const z = tz * 32 + j * step + 2
+        const o = (j * S + i) * 4
+        if (inCity(x, z)) continue
+        const color = this._cellColor(x, z)
+        img.data[o] = (color >> 16) & 255
+        img.data[o + 1] = (color >> 8) & 255
+        img.data[o + 2] = color & 255
+        img.data[o + 3] = 255
+      }
+    }
+    ctx.putImageData(img, 0, 0)
+    this._coarseTiles.set(key, tile)
+    return tile
+  }
+
+  // A cell's colour on the minimap, shaded by height.
+  _cellColor(x, z) {
+    const s = sampleLand(x, z)
+    let color
+    if (s.h < SEA) color = s.biome === 'frozenOcean' ? 0xb5d3f0 : s.biome === 'warmOcean' ? 0x3fb6c8 : s.h < SEA - 9 ? 0x1f4f9a : 0x3368c6
+    else color = this._typeColor(this._onPath(x, z) ? 'gravel' : surface(s, x, z).top)
+    const shade = s.h < SEA ? 1 : 0.72 + 0.28 * clamp01((s.h + 6) / 40)
+    return (Math.round(((color >> 16) & 255) * shade) << 16) | (Math.round(((color >> 8) & 255) * shade) << 8) | Math.round((color & 255) * shade)
   }
 
   _typeColor(type) {
