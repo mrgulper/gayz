@@ -1015,7 +1015,7 @@ test('Settings > Controls keys drive walking in Map 1', async ({ page }) => {
     rebind('moveForward', 'KeyW')
     return { ids, withW, withI, withArrow }
   })
-  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap'])
+  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap', 'cameraView'])
   expect(result.withW).toBeLessThan(0.01)
   expect(result.withI).toBeGreaterThan(2)
   expect(result.withArrow).toBeGreaterThan(2)
@@ -1251,4 +1251,42 @@ test('a new server game closes the old connection', async ({ page }) => {
   expect(r.secondClosed).toBe(true)
   expect(r.thirdOpen).toBe(true)
   expect(r.left).toBe('a,b')
+})
+
+// The camera key (P) cycles first person -> third person behind -> in
+// front, like bloxd.io; the camera only steps out for the drawing.
+test('the camera key switches between first and third person', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    b.toggleTryMode()
+    const tm = b.tryMode
+    for (let i = 0; i < 40 && !tm._armSkin; i++) await new Promise((res) => setTimeout(res, 100))
+    const out = { views: [] }
+    const press = (code) => document.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }))
+    for (let i = 0; i < 3; i++) {
+      press('KeyP')
+      document.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyP', bubbles: true }))
+      b.update(0.016)
+      const before = b.camera.position.clone()
+      const restore = tm.applyView()
+      const moved = b.camera.position.distanceTo(before)
+      restore?.()
+      out.views.push({ view: tm.view, bodyShown: !!tm._body?.group.visible, moved: moved > 0.05, back: b.camera.position.distanceTo(before) < 1e-6 })
+    }
+    // No aiming in third person.
+    tm.cycleView()
+    tm.setAim(true)
+    out.aimInThird = tm.aiming
+    b.toggleTryMode()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r.views.map((v) => v.view)).toEqual([1, 2, 0])
+  expect(r.views.map((v) => v.bodyShown)).toEqual([true, true, false])
+  expect(r.views.map((v) => v.moved)).toEqual([true, true, false])
+  expect(r.views.every((v) => v.back)).toBe(true)
+  expect(r.aimInThird).toBe(false)
 })

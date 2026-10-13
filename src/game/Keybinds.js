@@ -26,6 +26,8 @@ export const ACTIONS = [
   { id: 'inspectWeapon', defaultKey: 'KeyX', labelKey: 'actionInspectWeapon' },
   // Minimap size: normal -> big -> big in the middle of the screen -> normal.
   { id: 'cycleMap', defaultKey: 'KeyM', labelKey: 'actionCycleMap' },
+  // Camera: first person -> third person behind -> in front (2026-10-13).
+  { id: 'cameraView', defaultKey: 'KeyP', labelKey: 'actionCameraView' },
 ]
 
 // Extra keys that also work for an action, as long as no action is bound

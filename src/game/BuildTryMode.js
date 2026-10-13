@@ -35,11 +35,22 @@ import { cloneViewmodel } from './Viewmodels.js'
 import { heldAction } from './Keybinds.js'
 import { WORLD_LIMIT, sampleLand, biomeName, inCity } from './OpenWorld.js'
 import { t } from './i18n.js'
+import { holdWeapon, poseArms } from './HeldWeapon.js'
 
 const HALF_WIDTH = 0.3
 // Cells across the minimap out in Map 1's open world.
 const MAP_WORLD_SPAN = 160
+// Camera views (the camera key, P - like bloxd.io): first person, third
+// person from behind, third person from the front. The camera sits up to
+// VIEW_DIST blocks away, nearer when a wall is in the way.
+const VIEWS = ['first', 'back', 'front']
+const VIEW_DIST = 4
+// ...and from behind, this much higher (blocks) - over your head.
+const VIEW_RISE = 0.6
 // How far the big map zooms in and out (cells across).
+// Milliseconds per minimap draw spent on detailed open-world tiles (twice
+// that on the big map).
+const MAP_TILE_BUDGET_MS = 3
 const MAP_MIN_SPAN = 48
 const MAP_MAX_SPAN = 768
 const HEIGHT = 1.8
@@ -132,6 +143,11 @@ const AIM_SIGHT_RISE = 0.02
 // Guns with no sights to look down - the Minigun's big back housing filled
 // the screen held up to the eye - are held this far out instead.
 const AIM_BACK_FOR = { minigun: 0.28 }
+// Guns held a little lower when aiming (the M1911 sat a bit high,
+// 2026-10-13).
+const AIM_LOWER_FOR = { pistol: 0.01 }
+// The top share of a gun's height whose middle the crosshair lines up with.
+const TOP_BAND = 0.18
 const AIM_ZOOM = 22
 const AIM_SPEED = 14
 // Inspect Weapon (X by default): the gun turns to show its side at an
@@ -172,6 +188,7 @@ export class BuildTryMode {
     this._arms = null
     this._armsUrl = null
     this._mapMode = 0
+    this.view = 0
     this._mapPan = { x: 0, z: 0 }
     this._mapZoom = 1
     this._mapEl = null
@@ -241,6 +258,14 @@ export class BuildTryMode {
 
   _mapInteractive() {
     return this.active && MAP_SIZES[this._mapMode] === 'center'
+  }
+
+  // The big map always has the mouse free (2026-10-13, "when I press M the
+  // mouse should pop up") - let go of it again if anything caught it.
+  _freeMouseForMap() {
+    if (this._mapInteractive() && document.pointerLockElement) {
+      try { document.exitPointerLock() } catch { /* not available */ }
+    }
   }
 
   // Cells across the map right now (the open world's window, or the
@@ -339,6 +364,7 @@ export class BuildTryMode {
     ctx.imageSmoothingEnabled = false
     // Map cell (cx, cz) -> canvas: the whole city, or - with Map 1's open
     // world - a window of the land around you, you in the middle.
+    this._freeMouseForMap()
     const world = this.bm.world?.active ? this.bm.world : null
     const moved = this._mapZoom !== 1 || this._mapPan.x || this._mapPan.z
     const windowed = world || moved
@@ -355,17 +381,24 @@ export class BuildTryMode {
       ctx.fillStyle = '#1d2a1a'
       ctx.fillRect(0, 0, s, s)
       const T = 32
-      // A few new tiles per draw at most (each reads the noise 1024 times)
-      // - more on the big map, where far more of them show.
-      let build = this._mapInteractive() ? 16 : 6
+      // Detailed tiles (1024 noise reads each) are drawn a few milliseconds'
+      // worth per draw, nearest the middle first; until a tile's turn comes
+      // a quick coarse one stands in, so nothing shows as a dark gap.
+      const until = performance.now() + (this._mapInteractive() ? MAP_TILE_BUDGET_MS * 2 : MAP_TILE_BUDGET_MS)
+      const tiles = []
       for (let tx = Math.floor(ox / T); tx <= Math.floor((ox + span) / T); tx++) {
         for (let tz = Math.floor(oz / T); tz <= Math.floor((oz + span) / T); tz++) {
-          const tile = world.mapTile(tx, tz, build > 0)
-          if (!tile) continue
-          if (tile.fresh) build--
-          ctx.drawImage(tile.canvas, (tx * T - ox) * k, (tz * T - oz) * k, T * k + 0.5, T * k + 0.5)
+          tiles.push([((tx + 0.5) * T - ox - span / 2) ** 2 + ((tz + 0.5) * T - oz - span / 2) ** 2, tx, tz])
         }
       }
+      tiles.sort((a, b) => a[0] - b[0])
+      for (const [, tx, tz] of tiles) {
+        const tile = world.mapTile(tx, tz, performance.now() < until)
+        ctx.drawImage(tile ? tile.canvas : world.mapTileCoarse(tx, tz), (tx * T - ox) * k, (tz * T - oz) * k, T * k + 0.5, T * k + 0.5)
+      }
+      // Not all drawn yet: come back next frame instead of waiting out
+      // the usual redraw gap.
+      if (tiles.some(([, tx, tz]) => !world._tiles.has(`${tx},${tz}`))) this._mapDrawAt = 0
       ctx.drawImage(this._mapImage, (-cells / 2 - ox) * k, (-cells / 2 - oz) * k, cells * k, cells * k)
       this._showBiome(x, z)
     } else {
@@ -502,6 +535,8 @@ export class BuildTryMode {
 
   exit() {
     this.active = false
+    this.view = 0
+    if (this._body) this._body.group.visible = false
     this.aiming = false
     this.aimAmount = 0
     this._inspectT = -1
@@ -715,6 +750,7 @@ export class BuildTryMode {
       this._gun.rotation.set(this._recoil * 0.18 * (1 - a * 0.6) + inspect * 0.12, inspect * 0.75, inspect * 0.32)
     }
     this._updateShards(dt)
+    this._updateBody(dt)
     // Pressure plates under you (and under zombies while playing).
     const play = this.bm.survival
     this.bm.gadgets.updatePlates([[Math.floor(p.x), Math.floor(p.y + 0.01), Math.floor(p.z)], ...(play?.active ? play.zombieCells() : [])], dt)
@@ -763,10 +799,117 @@ export class BuildTryMode {
     this._shootWindow()
   }
 
-  // Held right-click: aim down the sights (stops any inspect).
+  // Held right-click: aim down the sights (stops any inspect) - only in
+  // first person.
   setAim(on) {
-    this.aiming = !!on && this.active
+    this.aiming = !!on && this.active && !this.view
     if (this.aiming) this._inspectT = -1
+  }
+
+  // The camera key: first person -> third person behind -> third person in
+  // front -> first person (2026-10-13, Gaymi: "like how bloxd has it").
+  cycleView() {
+    if (!this.active) return
+    this.view = ((this.view || 0) + 1) % VIEWS.length
+    if (this.view) {
+      this.aiming = false
+      this._inspectT = -1
+    }
+  }
+
+  // Your own body, seen in the third-person views: your skin, holding the
+  // gun you have, walking with you.
+  _updateBody(dt) {
+    const show = this.active && !!this.view && !!this._armSkin
+    if (show && (!this._body || this._bodySkin !== this._armSkin)) this._buildBody()
+    if (!this._body) return
+    this._body.group.visible = show
+    if (!show) return
+    const B = this.B
+    const body = this._body
+    const p = this.pos
+    body.group.position.set(p.x * B, p.y * B, p.z * B)
+    body.group.rotation.y = this.bm._yaw + Math.PI
+    // Lower while crouching.
+    body.char.position.y = body.lift - (this._crouch ? (HEIGHT - CROUCH_HEIGHT) * B * 0.5 : 0)
+    const lp = body.char.limbPivots
+    const speed = Math.hypot(this.vel.x, this.vel.z)
+    body.walk += dt * speed * 3.2
+    const swing = Math.sin(body.walk) * Math.min(1, speed / 2) * 0.7
+    if (lp) {
+      lp.legR.rotation.x = swing
+      lp.legL.rotation.x = -swing
+      const id = this._gunId || ''
+      if (body.gunId !== id) {
+        const held = holdWeapon(this.bm.game, body.char, id, body.gun)
+        body.gun = held.gun
+        body.melee = held.melee
+        body.gunId = id
+      }
+      poseArms(lp, { holding: !!body.gun, melee: body.melee, firing: this._recoil > 0.05, swing })
+    }
+  }
+
+  _buildBody() {
+    this._disposeBody()
+    const B = this.B
+    const char = buildTexturedCharacter(this._armSkin)
+    const sc = (1.8 * B) / 32
+    char.scale.setScalar(sc)
+    char.position.y = 2 * sc
+    const group = new THREE.Group()
+    group.add(char)
+    this.bm.scene.add(group)
+    this._body = { group, char, lift: 2 * sc, walk: 0, gun: null, gunId: null, melee: false }
+    this._bodySkin = this._armSkin
+  }
+
+  _disposeBody() {
+    const body = this._body
+    if (!body) return
+    this._body = null
+    // The held weapon shares the game's own geometry - never disposed.
+    body.gun?.parent?.remove(body.gun)
+    this.bm.scene.remove(body.group)
+    body.group.traverse((o) => {
+      if (!o.isMesh) return
+      o.geometry?.dispose?.()
+      for (const m of [].concat(o.material)) m?.dispose?.()
+    })
+  }
+
+  // Third person: moves the camera out to its spot for this frame's
+  // drawing only (BuildMode.render) - everything else (shooting, using
+  // doors) still works from your eyes. Returns how to put it back.
+  applyView() {
+    if (!this.active || !this.view) return null
+    const cam = this.bm.camera
+    const B = this.B
+    const eye = cam.position.clone()
+    const quat = cam.quaternion.clone()
+    const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(quat)
+    const sign = this.view === 1 ? -1 : 1
+    // Stop short of the first solid block between your head and the spot.
+    let dist = VIEW_DIST
+    for (let d = 0.3; d <= VIEW_DIST; d += 0.1) {
+      const x = eye.x / B + dir.x * d * sign
+      const y = eye.y / B + dir.y * d * sign
+      const z = eye.z / B + dir.z * d * sign
+      if (this.bm._cellSolidTop(Math.floor(x), Math.floor(y), Math.floor(z)) > 0) {
+        dist = Math.max(0.3, d - 0.3)
+        break
+      }
+    }
+    cam.position.copy(eye).addScaledVector(dir, dist * sign * B)
+    // From behind, a little higher, so you look over your own head.
+    if (this.view === 1) cam.position.addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(quat), VIEW_RISE * Math.min(1, dist / VIEW_DIST) * B)
+    if (this.view === 2) cam.lookAt(eye)
+    cam.updateMatrixWorld()
+    return () => {
+      cam.position.copy(eye)
+      cam.quaternion.copy(quat)
+      cam.updateMatrixWorld()
+    }
   }
 
   // Inspect Weapon: turn the gun to look at it (not while aiming).
@@ -1109,11 +1252,38 @@ export class BuildTryMode {
     const exact = new THREE.Box3().setFromObject(gun, true)
     const len = exact.max.z - exact.min.z
     const back = AIM_BACK_FOR[this._gunId] ?? AIM_BACK + AIM_BACK_PER_LEN * len
-    this._aimOffset = new THREE.Vector3(-(exact.min.x + exact.max.x) / 2, -exact.max.y - (back + len) * AIM_DROP + AIM_SIGHT_RISE, -back - exact.max.z)
+    // Centred on the gun's top line (its sights), not its whole box - a
+    // charging handle or a magazine sticking out to one side used to pull
+    // the AK off the middle (2026-10-13, "the aim feels wrong, not in the
+    // middle").
+    const sightX = this._topLineX(gun, exact) ?? (exact.min.x + exact.max.x) / 2
+    this._aimOffset = new THREE.Vector3(-sightX, -exact.max.y - (back + len) * AIM_DROP + AIM_SIGHT_RISE - (AIM_LOWER_FOR[this._gunId] || 0), -back - exact.max.z)
     return [
       { limb: 'armR', shoulder: ARM_SHOULDERS.armR, hand: grip.toArray() },
       { limb: 'armL', shoulder: ARM_SHOULDERS.armL, hand: fore.toArray() },
     ]
+  }
+
+  // Middle (x) of the gun's top band - the top TOP_BAND of its height,
+  // where the sights and top rib are - in the gun group's space.
+  _topLineX(gun, exact) {
+    const cut = exact.max.y - (exact.max.y - exact.min.y) * TOP_BAND
+    let lo = Infinity
+    let hi = -Infinity
+    const v = new THREE.Vector3()
+    gun.updateMatrixWorld(true)
+    gun.traverse((o) => {
+      const pos = o.isMesh && o.geometry?.attributes?.position
+      if (!pos) return
+      const step = Math.max(1, Math.floor(pos.count / 4000))
+      for (let i = 0; i < pos.count; i += step) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld)
+        if (v.y < cut) continue
+        if (v.x < lo) lo = v.x
+        if (v.x > hi) hi = v.x
+      }
+    })
+    return lo <= hi ? (lo + hi) / 2 : null
   }
 
   // Loads the equipped skin (once per skin) and builds the arms from it.
@@ -1235,7 +1405,7 @@ export class BuildTryMode {
   }
 
   drawGun(renderer) {
-    if (!this.active || !this._gun?.visible) return
+    if (!this.active || this.view || !this._gun?.visible) return
     if (this._hand) this._hand.visible = false
     this._renderOnTop(renderer)
   }

@@ -120,6 +120,7 @@ test('every Map Editor shortcut on the pause screen really works', async ({ page
       buildMenuUseDoor: () => { setTry(true); const done = spy('_tryUseFromCamera'); press('KeyE'); const calls = done(); setTry(false); return calls === 1 },
       buildMenuInspect: () => { setTry(true); press('KeyX'); const turning = bm.tryMode._inspectT >= 0; setTry(false); return turning },
       buildMenuMapSize: () => { setTry(true); const before = bm.tryMode._mapMode; press('KeyM'); const after = bm.tryMode._mapMode; setTry(false); return after !== before },
+      buildMenuCameraView: () => { setTry(true); const before = bm.tryMode.view; press('KeyP'); const after = bm.tryMode.view; setTry(false); return after !== before },
       buildModeUndoBtn: () => { const done = spy('undo'); press('KeyZ', { ctrlKey: true }); return done() === 1 },
       buildModeRedoBtn: () => { const done = spy('redo'); press('KeyY', { ctrlKey: true }); return done() === 1 },
       buildModeSaveBtn: () => { const done = spy('save'); press('KeyS', { ctrlKey: true }); return done() === 1 },
