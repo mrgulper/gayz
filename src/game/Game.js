@@ -116,6 +116,7 @@ const CRATE_ICON_SVG = {
 import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_POINTS_CONVERSION } from './MetaProgress.js'
 import { playConfig, UPGRADE_PLAY, POINTS_PER_KILL, POINTS_PER_WAVE, DEFENSE_WAVES, BOSS_HUNT_EVERY, PLAY_GAME_MODES, EXTRACTION_WAVES, EXTRACTION_HOLD } from './PlayRules.js'
 import { BIOMES, seedFromText } from './OpenWorld.js'
+import * as GalleryUI from './GalleryUI.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel, getAllBindings, setAllBindings } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
@@ -1179,6 +1180,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'build-mode-reset-btn-label': 'buildModeResetBtn',
   'build-mode-publish-btn-label': 'buildModePublishBtn',
   'build-mode-browse-btn-label': 'buildModeBrowseBtn',
+  'build-mode-gallery-btn-label': 'buildModeGalleryBtn',
   'build-mode-exit-btn-label': 'buildModeExitBtn',
   'community-maps-empty': 'shareEmpty',
   'community-maps-close-btn': 'communityBuildsCloseBtn',
@@ -1758,7 +1760,7 @@ const SKIN_RARITIES = {
 // Flat front view of a Minecraft skin (head+hat, body, arms, legs) as a
 // data URL - the card picture, like Kirka's inventory. Cached per texture.
 const _skinFrontIconCache = new Map()
-function skinFrontIconURL(dataUrl) {
+export function skinFrontIconURL(dataUrl) {
   if (_skinFrontIconCache.has(dataUrl)) return _skinFrontIconCache.get(dataUrl)
   const promise = new Promise((resolve) => {
     const img = new Image()
@@ -4043,7 +4045,8 @@ export class Game {
     if (this.menuInventoryBtn) this.menuInventoryBtn.addEventListener('click', () => trackAndOpen(() => this._openMenuInventoryPanel()))
     if (this.serverBtn) this.serverBtn.addEventListener('click', () => trackAndOpen(() => this._openServerPanel()))
     this.achievementsBtn.addEventListener('click', () => trackAndOpen(() => this._openAchievementsPanel()))
-    document.getElementById('gallery-btn')?.addEventListener('click', () => trackAndOpen(() => this._openGalleryPanel()))
+    document.getElementById('nav-gallery-link')?.addEventListener('click', () => this._openGalleryPanel())
+    GalleryUI.bindGallery(this)
     if (this.achievementsFilterInput) {
       this.achievementsFilterInput.addEventListener('click', (e) => e.stopPropagation())
       this.achievementsFilterInput.addEventListener('input', () => this._renderAchievementsPanel())
@@ -5065,8 +5068,6 @@ export class Game {
     const market = document.getElementById('market-btn')
     if (market) market.style.order = this.settings.navOrder.indexOf('coinshop-btn') * 2 + 1
     // Gallery always sits right after Achievements (same as index.html).
-    const gallery = document.getElementById('gallery-btn')
-    if (gallery) gallery.style.order = this.settings.navOrder.indexOf('achievements-btn') * 2 + 1
   }
 
   // Settings Search - filters .audio-row rows within whichever tab is
@@ -5853,12 +5854,18 @@ export class Game {
   // Players whose name starts with the typed text, shown as a pick list
   // under the box (name + #ID, yourself left out). Returns the matches.
   async _searchFriendNames(text) {
+    const matches = await this._searchPlayerNames(text, 'friend')
+    if (matches !== null) this._showFriendSuggestions(matches)
+    return matches || []
+  }
+
+  // The name search behind Add a Friend and the clan invite: [] for text
+  // too short to search, null when a newer search (same `who`) has started.
+  async _searchPlayerNames(text, who) {
     const query = String(text || '').trim().replace(/^#/, '')
-    const seq = (this._friendSearchSeq = (this._friendSearchSeq || 0) + 1)
-    if (query.length < 2 || !this._cloudUid) {
-      this._showFriendSuggestions([])
-      return []
-    }
+    const seqs = this._nameSearchSeq || (this._nameSearchSeq = {})
+    const seq = (seqs[who] = (seqs[who] || 0) + 1)
+    if (query.length < 2 || !this._cloudUid) return []
     let matches
     try {
       matches = (await CloudSync.searchLeaderboardByName(query)).filter((m) => m.uid !== this._cloudUid && m.name)
@@ -5866,10 +5873,56 @@ export class Game {
       matches = []
     }
     // A newer keystroke's search wins.
-    if (seq !== this._friendSearchSeq) return matches
+    if (seq !== seqs[who]) return null
     matches.sort((a, b) => String(a.name).localeCompare(String(b.name)))
-    this._showFriendSuggestions(matches)
     return matches
+  }
+
+  _showClanSuggestions(list) {
+    const box = document.getElementById('clan-invite-suggestions')
+    if (!box || list === null) return
+    this._clanSuggestions = list
+    box.innerHTML = list.map((m, i) => `
+      <button type="button" class="friend-suggest-row" data-index="${i}" role="option">
+        <span class="friend-suggest-name">${_escapeHtml(m.name)}</span>
+        ${typeof m.playerId === 'string' ? `<span class="friend-id">#${_escapeHtml(m.playerId)}</span>` : ''}
+      </button>`).join('')
+    box.classList.toggle('open', list.length > 0)
+  }
+
+  // Send Clan Request: a Player ID, or a name (sent straight away when
+  // exactly one player has it, otherwise the list to pick from).
+  async _sendClanInviteClick() {
+    if (!this._cloudUid || !this.settings.clanId) return
+    const raw = this.clanInviteIdInput.value.trim()
+    if (!raw) return
+    const say = (key, params) => {
+      this.clanInviteStatus.textContent = t(key, params)
+      this.clanInviteStatus.style.display = 'block'
+    }
+    const asId = raw.replace(/^#/, '').toUpperCase()
+    let target = /^[A-Z0-9]{4,10}$/.test(asId) ? await CloudSync.fetchLeaderboardEntryByPlayerId(asId).catch(() => null) : null
+    if (!target) {
+      const matches = (await this._searchPlayerNames(raw, 'clan')) || []
+      const exact = matches.filter((m) => String(m.name).toLowerCase() === raw.toLowerCase())
+      if (exact.length === 1 || matches.length === 1) target = exact[0] || matches[0]
+      else if (matches.length) {
+        this._showClanSuggestions(matches)
+        return say('clanInvitePickOne')
+      }
+    }
+    if (!target) return say('clanInvitePlayerNotFound')
+    await this._sendClanInviteTo(target)
+  }
+
+  async _sendClanInviteTo(target) {
+    this._showClanSuggestions([])
+    const clan = await CloudSync.fetchClanById(this.settings.clanId).catch(() => null)
+    if (!clan || !target?.uid) return
+    await CloudSync.sendClanInvite(this.settings.clanId, clan.name, target.uid).catch(() => {})
+    this.clanInviteStatus.textContent = t('clanInviteSent')
+    this.clanInviteStatus.style.display = 'block'
+    this.clanInviteIdInput.value = ''
   }
 
   _showFriendSuggestions(list) {
@@ -8682,10 +8735,9 @@ export class Game {
     this.upgradesBtn.querySelector('span').textContent = t('upgradesBtn')
     this.questsBtn.querySelector('span').textContent = t('questsBtn')
     this.achievementsBtn.querySelector('span').textContent = t('achievementsBtn')
-    const galleryLabel = document.getElementById('gallery-btn-label')
-    if (galleryLabel) galleryLabel.textContent = t('galleryBtn')
-    const gallerySoon = document.getElementById('gallery-soon-tag')
-    if (gallerySoon) gallerySoon.textContent = t('comingSoonTitle')
+    const galleryLink = document.getElementById('nav-gallery-link')
+    if (galleryLink) galleryLink.querySelector('span').textContent = t('galleryBtn')
+    GalleryUI.renderTexts(this)
     this.coinshopBtn.querySelector('span').textContent = t('coinshopBtn')
     if (this.marketBtn) this.marketBtn.querySelector('span').textContent = t('skinModeMarket')
     if (this.hubBtn) this.hubBtn.querySelector('span').textContent = t('hubBtn')
@@ -9269,6 +9321,7 @@ export class Game {
     // Share Map / Community Maps (BuildShare.js).
     document.getElementById('build-mode-publish-btn')?.addEventListener('click', () => this.buildMode.share.shareCurrent())
     document.getElementById('build-mode-browse-btn')?.addEventListener('click', () => this.buildMode.share.open())
+    document.getElementById('build-mode-gallery-btn')?.addEventListener('click', () => this.buildMode.share.postToGallery())
     MenuEasterEggs.bindAll(this)
     window.addEventListener('online', () => CloudSaveUI.updateOnlineStatus(this))
     window.addEventListener('offline', () => CloudSaveUI.updateOnlineStatus(this))
@@ -9905,13 +9958,9 @@ export class Game {
 
   // Gallery - its own panel since 2026-10-09 (was a toast), Coming Soon
   // until there's something to show in it.
-  _openGalleryPanel() {
-    this._closeAllMenuPanels()
-    this.galleryPanel.style.display = 'flex'
-    const text = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = t(key) }
-    text('gallery-panel-title', 'galleryBtn')
-    text('gallery-coming-title', 'comingSoonTitle')
-    text('gallery-coming-text', 'galleryComingSoon')
+  // The Gallery (2026-10-13) - GalleryUI.js.
+  _openGalleryPanel(kind) {
+    GalleryUI.openGallery(this, kind)
   }
 
   // Remembers the gun picked at the start of a Map 1 run (BuildSurvival's
@@ -11235,6 +11284,12 @@ export class Game {
       if (event.origin !== SKIN_DESIGNER_ORIGIN) return
       if (!this.skindesignerFrame || event.source !== this.skindesignerFrame.contentWindow) return
       const data = event.data
+      // Design a Skin's Post to Gallery (2026-10-13).
+      if (data && data.type === 'gayz-gallery-skin' && typeof data.dataUrl === 'string' && data.dataUrl.length <= 1500000) {
+        this._closeSkinDesignerPanel()
+        GalleryUI.startSkinPost(this, data.dataUrl, typeof data.name === 'string' ? data.name : '')
+        return
+      }
       if (!data || data.type !== 'gayz-import-skin' || typeof data.dataUrl !== 'string') return
       // HD skins (up to 1024 wide, 16x) are bigger files than 64-wide ones.
       if (!data.dataUrl.startsWith('data:image/png;base64,') || data.dataUrl.length > 1500000) return
@@ -11681,25 +11736,28 @@ export class Game {
       })
     }
 
-    // Send Clan Request (invite by Player ID) - Owner/Elder only (the
-    // section itself is hidden for a plain Member, see _refreshClanUi).
+    // Send Clan Request - Owner/Elder only (the section itself is hidden
+    // for a plain Member, see _refreshClanUi). By name or Player ID, like
+    // Add a Friend (2026-10-13): typing a name lists everyone whose name
+    // starts with it; picking one sends the request.
     if (this.clanInviteSendBtn) {
-      this.clanInviteSendBtn.addEventListener('click', async () => {
-        if (!this._cloudUid || !this.settings.clanId) return
-        const playerId = this.clanInviteIdInput.value.trim().toUpperCase()
-        if (!playerId) return
-        const target = await CloudSync.fetchLeaderboardEntryByPlayerId(playerId).catch(() => null)
-        if (!target) {
-          this.clanInviteStatus.textContent = t('clanInvitePlayerNotFound')
-          this.clanInviteStatus.style.display = 'block'
-          return
-        }
-        const clan = await CloudSync.fetchClanById(this.settings.clanId).catch(() => null)
-        if (!clan) return
-        await CloudSync.sendClanInvite(this.settings.clanId, clan.name, target.uid).catch(() => {})
-        this.clanInviteStatus.textContent = t('clanInviteSent')
-        this.clanInviteStatus.style.display = 'block'
-        this.clanInviteIdInput.value = ''
+      this.clanInviteSendBtn.addEventListener('click', () => this._sendClanInviteClick())
+      this.clanInviteIdInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') this._sendClanInviteClick()
+        if (e.key === 'Escape') this._showClanSuggestions([])
+      })
+      let clanSearchTimer = null
+      this.clanInviteIdInput.addEventListener('input', () => {
+        clearTimeout(clanSearchTimer)
+        clanSearchTimer = setTimeout(async () => this._showClanSuggestions(await this._searchPlayerNames(this.clanInviteIdInput.value, 'clan')), 300)
+      })
+      document.getElementById('clan-invite-suggestions')?.addEventListener('click', (e) => {
+        const row = e.target.closest('.friend-suggest-row')
+        const entry = row && this._clanSuggestions?.[Number(row.dataset.index)]
+        if (entry) this._sendClanInviteTo(entry)
+      })
+      document.addEventListener('pointerdown', (e) => {
+        if (!e.target.closest('#clan-invite-row')) this._showClanSuggestions([])
       })
     }
 

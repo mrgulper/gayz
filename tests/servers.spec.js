@@ -121,6 +121,10 @@ test('two players play Map 1 together on a server', async ({ browser }) => {
   await a.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
 
   const b = await open()
+  // Building the second page's game can starve the first page's timers for
+  // longer than STALE_MS in one headless browser, and the list below would
+  // then delete Ann's server as empty - sync her by hand first.
+  await a.evaluate(() => window.__game.buildMode.survival.net._sync())
   await b.evaluate(() => { window.__game.settings.nickname = 'Bo' })
   await b.evaluate(() => window.__game._openServerPanel())
   await expect(b.locator('#server-list .server-row')).toHaveCount(1)

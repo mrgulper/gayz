@@ -11,6 +11,7 @@
 // escaped before they're shown (they're untrusted).
 import * as CloudSync from './CloudSync.js'
 import { t } from './i18n.js'
+import { postToGallery } from './GalleryUI.js'
 
 export const SHARE_SORTS = ['new', 'likes', 'plays']
 const CODE_RE = /^[A-Z0-9]{6}$/
@@ -118,6 +119,62 @@ export class BuildShare {
     if (codeEl) codeEl.textContent = result.code
     if (this.banner) this.banner.style.display = 'flex'
     return result.code
+  }
+
+  // Post to Gallery (2026-10-16): shares the map under a code (so others
+  // can Play or Edit it from the Gallery) and posts a picture of it to the
+  // Gallery's Map section, where everyone can like and comment on it.
+  async postToGallery() {
+    const uid = this._uid()
+    if (!uid) {
+      this._toast(t('gallerySignIn'))
+      return null
+    }
+    const name = window.prompt(t('shareNamePrompt'), this.bm._slotName())
+    if (!name || !name.trim()) return null
+    const title = name.trim().slice(0, 30)
+    const image = this._mapPicture()
+    const { base, data, blockCount } = this.bm._shareData()
+    if (data.length > 900000) {
+      this._toast(t('shareTooLarge'))
+      return null
+    }
+    const nickname = (this.bm.game?.settings?.nickname || 'Player').slice(0, 24)
+    const result = await this.api().shareMap(uid, nickname, title, base, data, blockCount).catch(() => ({ ok: false }))
+    if (!result?.ok || !image) {
+      this._toast(t(result?.ok ? 'galleryPostFailed' : 'shareFailed'))
+      return null
+    }
+    try {
+      await postToGallery(this.bm.game, { kind: 'map', title, image, mapCode: result.code })
+    } catch {
+      this._toast(t('galleryPostFailed'))
+      return null
+    }
+    this._toast(t('galleryPosted'))
+    return result.code
+  }
+
+  // A 320x180 picture of the view, read straight after a render (without
+  // the held block).
+  _mapPicture() {
+    try {
+      this.bm._noHand = true
+      this.bm.render()
+      this.bm._noHand = false
+      const src = this.bm.renderer.domElement
+      const c = document.createElement('canvas')
+      c.width = 320
+      c.height = 180
+      const scale = Math.min(src.width / 320, src.height / 180)
+      const w = 320 * scale
+      const h = 180 * scale
+      c.getContext('2d').drawImage(src, (src.width - w) / 2, (src.height - h) / 2, w, h, 0, 0, 320, 180)
+      return c.toDataURL('image/jpeg', 0.75)
+    } catch {
+      this.bm._noHand = false
+      return ''
+    }
   }
 
   async refresh() {

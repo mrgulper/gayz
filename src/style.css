@@ -284,7 +284,8 @@ html.ui-theme-old #build-menu {
 }
 #build-menu-buttons button:disabled { opacity: 0.4; cursor: default; }
 #build-mode-exit-btn { margin-top: 6px; }
-#build-mode-try-btn, #build-mode-play-btn, #build-mode-exit-btn, #build-mode-together-btn { grid-column: span 2; }
+#build-mode-try-btn, #build-mode-play-btn, #build-mode-exit-btn { grid-column: span 2; }
+/* Post to Gallery and Build Together share a row (2026-10-16). */
 #build-menu-buttons button { gap: 10px; padding: 9px 12px; font-size: 14px; min-width: 0; }
 #build-menu-buttons button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #build-mode-exit-btn svg { color: #e06a5a; }
@@ -11903,4 +11904,272 @@ html.ui-theme-old #profile-panel .panel-box :is(div, section, p, h3, h4, span, u
 html.ui-theme-old #profile-panel .perk-option:disabled,
 html.ui-theme-old #profile-panel .panel-box * {
   opacity: 1;
+}
+
+/* ================================================================
+   Gallery (2026-10-16): Character / Weapon (Coming Soon) / Map tabs, a
+   grid of posts, a post's own page with likes and comments, and the
+   post form Design a Skin and the Map Editor open. GalleryUI.js.
+   ================================================================ */
+#gallery-content {
+  min-height: 0;
+  height: calc(68vh - 46px);
+  display: block;
+  text-align: left;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+#gallery-content > [hidden] { display: none !important; }
+#gallery-weapon-page { min-height: 100%; }
+.gallery-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.gallery-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.gallery-tab.active {
+  color: #0c130c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
+}
+.gallery-soon-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.14);
+}
+#gallery-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+#gallery-how { flex: 1; min-width: 0; margin: 0; font-size: 13px; opacity: 0.8; }
+#gallery-sort {
+  flex: none;
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 999px;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.3);
+}
+#gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.gallery-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px;
+  text-align: left;
+  color: #eee;
+  background: rgba(60, 40, 18, 0.55);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.35);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.gallery-card:hover,
+.gallery-card:focus-visible { border-color: var(--ui-gold-bright); }
+.gallery-card-pic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.gallery-pic-character { aspect-ratio: 1; }
+.gallery-card-pic img { max-width: 100%; max-height: 100%; }
+.gallery-pic-character img { height: 100%; image-rendering: pixelated; }
+.gallery-pic-map img { width: 100%; height: 100%; object-fit: cover; }
+.gallery-card-title { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gallery-card-by,
+.gallery-card-likes { font-size: 12px; opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#gallery-empty { text-align: center; opacity: 0.75; margin-top: 40px; }
+
+#gallery-post-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+}
+#gallery-post-heading { margin: 0; }
+#gallery-post-preview { max-width: min(320px, 90%); max-height: 200px; border-radius: 10px; image-rendering: pixelated; }
+#gallery-post-title { margin: 0 auto; }
+.gallery-post-btns,
+.gallery-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+#gallery-post-status { margin: 0; min-height: 1em; font-size: 13px; }
+
+#gallery-detail #gallery-back-btn { margin-bottom: 10px; }
+.gallery-detail-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.gallery-detail-pic {
+  flex: 0 1 320px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+.gallery-detail-pic img { max-width: 100%; }
+img.gallery-detail-character { height: 240px; image-rendering: pixelated; }
+.gallery-detail-info { flex: 1 1 220px; min-width: 0; }
+#gallery-detail-title { margin: 0 0 4px; overflow-wrap: anywhere; }
+#gallery-detail-by { margin: 0 0 12px; opacity: 0.8; }
+#gallery-like-btn.liked { border-color: var(--ui-gold-bright); color: var(--ui-gold-bright); }
+#gallery-comments-heading { margin: 0 0 8px; }
+#gallery-comments { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.gallery-comment {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.gallery-comment-name { font-weight: 700; flex: none; max-width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gallery-comment-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.gallery-comment-time { flex: none; font-size: 11px; opacity: 0.6; }
+.gallery-comment-delete { flex: none; background: none; border: none; color: inherit; font-size: 16px; cursor: pointer; opacity: 0.6; }
+.gallery-comment-delete:hover { opacity: 1; }
+.gallery-no-comments { opacity: 0.7; margin: 0 0 6px; }
+#gallery-comment-row { display: flex; gap: 8px; }
+#gallery-comment-input { flex: 1; min-width: 0; border-radius: 999px; padding-left: 16px; padding-right: 16px; }
+#gallery-comment-send,
+#gallery-detail .mini-action-btn,
+#gallery-post-form .mini-action-btn { border-radius: 999px; padding-left: 16px; padding-right: 16px; }
+
+html.ui-theme-old .gallery-tab {
+  color: #4a2c10;
+  background: rgba(122, 78, 36, 0.08);
+  border-color: rgba(122, 78, 36, 0.4);
+}
+html.ui-theme-old .gallery-tab.active { color: #f4e6c4; background: #6b4423; border-color: #6b4423; }
+html.ui-theme-old .gallery-tab.active * { color: #f4e6c4 !important; }
+html.ui-theme-old .gallery-soon-tag { background: rgba(122, 78, 36, 0.2); }
+html.ui-theme-old #gallery-sort {
+  color: #2b1a0c;
+  background: rgba(241, 224, 184, 0.7);
+  border-color: rgba(122, 78, 36, 0.5);
+}
+html.ui-theme-old .gallery-card {
+  background: rgba(122, 78, 36, 0.14);
+  border-color: rgba(122, 78, 36, 0.45);
+}
+html.ui-theme-old .gallery-card:hover,
+html.ui-theme-old .gallery-card:focus-visible { border-color: #6b4423; }
+html.ui-theme-old .gallery-card-pic,
+html.ui-theme-old .gallery-detail-pic { background: rgba(122, 78, 36, 0.12); }
+html.ui-theme-old .gallery-comment { background: rgba(122, 78, 36, 0.1); }
+html.ui-theme-old #gallery-like-btn.liked { border-color: #6b4423; }
+
+/* Clan invite by name (2026-10-16): the matching players pop up under the
+   box, floating over the page - the same list as Add a Friend's. */
+#clan-invite-row { position: relative; flex: 1; min-width: 0; }
+#clan-invite-row #clan-invite-id-input { width: 100%; box-sizing: border-box; }
+#clan-invite-suggestions {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #1c1e20;
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.4);
+  border-radius: 12px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+#clan-invite-suggestions.open { display: flex; }
+html.ui-theme-old #clan-invite-suggestions {
+  background: #f1e0b8;
+  border: 1px solid #7a4e24;
+  box-shadow: 0 10px 24px rgba(43, 26, 12, 0.45);
+}
+
+/* Softer text boxes and search bars (2026-10-16, "make the player id and
+   all search bars a softer and smoother colour"): a faint see-through fill
+   and a gentle rim instead of the near-black box and hard gold line, with
+   a soft glow on focus. Old theme: a light parchment tint and brown rim
+   with ink text instead of a dark box on the paper. */
+.nickname-input,
+#gallery-sort {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+.nickname-input {
+  color: #f1ece0;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.28);
+}
+.nickname-input:hover { border-color: rgba(var(--ui-gold-accent-rgb), 0.45); }
+.nickname-input:focus {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.7);
+  box-shadow: 0 0 0 3px rgba(var(--ui-gold-accent-rgb), 0.14);
+}
+.nickname-input::placeholder,
+.search-bar::placeholder { color: rgba(241, 236, 224, 0.45); }
+html.ui-theme-old .nickname-input {
+  color: #2b1a0c;
+  background: rgba(241, 224, 184, 0.55);
+  border-color: rgba(122, 78, 36, 0.4);
+}
+html.ui-theme-old .nickname-input:hover { border-color: rgba(122, 78, 36, 0.6); }
+html.ui-theme-old .nickname-input:focus {
+  background: rgba(241, 224, 184, 0.8);
+  border-color: rgba(107, 68, 35, 0.8);
+  box-shadow: 0 0 0 3px rgba(122, 78, 36, 0.14);
+}
+html.ui-theme-old .nickname-input::placeholder,
+html.ui-theme-old .search-bar::placeholder { color: rgba(43, 26, 12, 0.5); }
+/* Your Player ID (Friend List, a player's profile): a soft gold chip. */
+#friends-own-id,
+#other-profile-id {
+  display: inline-block;
+  padding: 1px 10px;
+  border-radius: 999px;
+  color: #e9d69a;
+  background: rgba(var(--ui-gold-accent-rgb), 0.12);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.25);
+  transition: background-color 0.2s ease;
+}
+#friends-own-id:hover,
+#other-profile-id:hover { background: rgba(var(--ui-gold-accent-rgb), 0.2); }
+html.ui-theme-old #friends-own-id,
+html.ui-theme-old #other-profile-id {
+  color: #4a2c10 !important;
+  background: rgba(122, 78, 36, 0.12);
+  border-color: rgba(122, 78, 36, 0.35);
 }

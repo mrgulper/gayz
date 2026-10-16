@@ -55,7 +55,7 @@ test('the homepage paints its final layout before the game has loaded', async ({
       const r = document.getElementById(id).getBoundingClientRect()
       return [Math.round(r.left), Math.round(r.top), Math.round(r.width)]
     }
-    const navTops = ['server-btn', 'friends-btn', 'quests-btn', 'menu-inventory-btn', 'achievements-btn', 'gallery-btn', 'build-mode-btn']
+    const navTops = ['server-btn', 'friends-btn', 'quests-btn', 'menu-inventory-btn', 'achievements-btn', 'build-mode-btn']
       .map((id) => Math.round(document.getElementById(id).getBoundingClientRect().top))
     return {
       zoom: document.getElementById('menu-col-right').style.zoom,
