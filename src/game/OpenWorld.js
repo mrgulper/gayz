@@ -8,10 +8,11 @@
 // generated a chunk column (16x16 cells, every height) at a time around
 // the player - or the flying editor camera - nearest first, a few
 // milliseconds per frame, and columns far away are dropped again unless
-// the player changed something in them. The city keeps its own chunks
-// (-64..63); terrain only ever goes in the columns outside it, and blends
-// down to the city's ground height (y=-1) near its edge, where the roads
-// run out of the city's gates as dirt tracks.
+// the player changed something in them. The city has an uneven outline
+// inside -64..63 (CityShape.js); terrain goes on every cell outside it -
+// also in the city's own chunk columns - and blends down to the city's
+// ground height (y=-1) near its edge, where the roads run out of the city
+// as dirt tracks.
 //
 // A new world every game (2026-10-12, Gaymi: "regenerate the whole biome
 // again every time a new player creates or joins the map"): `reseed()`
@@ -23,11 +24,22 @@
 // `removed` (never grown back this game) and a column the player touched
 // (`edited`) is never dropped while the game lasts.
 import { t } from './i18n.js'
+import { inCityShape, cityEdgeDistance } from './CityShape.js'
+import { planStructure, STRUCT_GRID, STRUCTURE_NAMES } from './WorldStructures.js'
 
 const CHUNK = 16
-// The city's cells: -CITY .. CITY-1 on x and z.
+// The city lies within -CITY .. CITY-1 on x and z (its outline: CityShape.js).
 const CITY = 64
 const CITY_CHUNKS = CITY / CHUNK
+// Chunk columns that are city all the way through (no land grows there).
+const FULL_CITY_COLUMNS = new Set()
+for (let cx = -CITY_CHUNKS; cx < CITY_CHUNKS; cx++) {
+  for (let cz = -CITY_CHUNKS; cz < CITY_CHUNKS; cz++) {
+    let full = true
+    for (let i = 0; i < CHUNK && full; i++) for (let j = 0; j < CHUNK; j++) if (!inCityShape(cx * CHUNK + i, cz * CHUNK + j)) { full = false; break }
+    if (full) FULL_CITY_COLUMNS.add(`${cx},${cz}`)
+  }
+}
 // Sea level (the city's ground is y=-1, a little above it).
 export const SEA = -4
 // "Nearly no limit": the world stops this far out on each axis.
@@ -98,7 +110,7 @@ export function seedFromText(text) {
   return h | 0
 }
 
-function hash2(x, z, seed) {
+export function hash2(x, z, seed) {
   let h = Math.imul(x | 0, 0x27d4eb2d) ^ Math.imul(z | 0, 0x165667b1) ^ Math.imul((seed + WORLD_SALT) | 0, 0x9e3779b1)
   h = Math.imul(h ^ (h >>> 15), 0x85ebca6b)
   h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35)
@@ -145,16 +157,10 @@ const smooth = (v) => {
 }
 const lerp = (a, b, k) => a + (b - a) * k
 
-// Cells outside the city's square (0 inside it or on its edge).
-export function cityDistance(x, z) {
-  const dx = x < -CITY ? -CITY - x : x >= CITY ? x - (CITY - 1) : 0
-  const dz = z < -CITY ? -CITY - z : z >= CITY ? z - (CITY - 1) : 0
-  return Math.max(dx, dz)
-}
+// How far a cell is outside the city's outline (0 inside it).
+export const cityDistance = cityEdgeDistance
 
-export function inCity(x, z) {
-  return x >= -CITY && x < CITY && z >= -CITY && z < CITY
-}
+export const inCity = inCityShape
 
 // The land at one cell: its surface height (the top block's y), biome and
 // the few numbers the surface needs. Pure - the same cell always gives the
@@ -326,6 +332,7 @@ export class OpenWorld {
     this._paths = null
     this._tiles = new Map()
     this._generating = false
+    this._plans = new Map() // "gx,gz" -> a village/castle/bridge plan or null
   }
 
   // Map 1 (or a map made from it) was just loaded: the world comes on,
@@ -335,6 +342,7 @@ export class OpenWorld {
     this._dropAll()
     this.reset()
     this.active = true
+    this._plans.clear()
     setWorldSeed(seed)
   }
 
@@ -347,6 +355,7 @@ export class OpenWorld {
     this.edited.clear()
     this._tiles.clear()
     this._coarseTiles = null
+    this._plans.clear()
     setWorldSeed(seed)
     this.version++
   }
@@ -369,9 +378,10 @@ export class OpenWorld {
     }
   }
 
-  // The city's blocks are in: find its open gates.
-  cityLoaded() {
-    this._paths = this._findPaths()
+  // The city's blocks are in. gates: where its roads leave it
+  // (Map3Generator.js) - each carries on as a dirt track.
+  cityLoaded(gates = []) {
+    this._paths = this._findPaths(gates)
     this._tiles.clear()
   }
 
@@ -424,6 +434,9 @@ export class OpenWorld {
       for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) this._ensure(pcx + dx, pcz + dz)
     }
     const until = performance.now() + GEN_BUDGET_MS
+    // Plan one place ahead per frame (a castle takes a few milliseconds),
+    // so the columns that need it later don't wait on it.
+    this._prefetchPlan(points, r + STRUCT_GRID)
     const wanted = []
     for (const p of points) {
       const pcx = Math.floor(p.x / CHUNK)
@@ -457,7 +470,7 @@ export class OpenWorld {
   }
 
   _isCityColumn(cx, cz) {
-    return cx >= -CITY_CHUNKS && cx < CITY_CHUNKS && cz >= -CITY_CHUNKS && cz < CITY_CHUNKS
+    return FULL_CITY_COLUMNS.has(`${cx},${cz}`)
   }
 
   _ensure(cx, cz) {
@@ -497,15 +510,30 @@ export class OpenWorld {
     }
     this._generating = true
     try {
+      // Villages, castles and bridges first (WorldStructures.js): the
+      // ground and water then fill in around them.
+      const pathTops = new Map()
+      for (const plan of this._plansOver(x0, z0, x0 + CHUNK - 1, z0 + CHUNK - 1)) {
+        const list = plan.byColumn.get(`${cx},${cz}`)
+        if (list) {
+          for (let i = 0; i < list.length; i += 4) {
+            if (!inCity(list[i], list[i + 2])) put(list[i], list[i + 1], list[i + 2], list[i + 3])
+          }
+        }
+        for (const [k, type] of plan.paths) pathTops.set(k, type)
+      }
       for (let i = 1; i <= CHUNK; i++) {
         for (let j = 1; j <= CHUNK; j++) {
           const s = samples[i * W + j]
+          if (s.city) continue
           const x = x0 - 1 + i
           const z = z0 - 1 + j
           const lowest = Math.min(s.h, samples[(i - 1) * W + j].h, samples[(i + 1) * W + j].h, samples[i * W + j - 1].h, samples[i * W + j + 1].h)
           const bottom = Math.min(lowest - 1, s.h - 2)
           let { top, under, deep } = surface(s, x, z)
-          if (s.h >= SEA && this._onPath(x, z)) top = hash2(x, z, 151) < 0.6 ? 'gravel' : 'coarsedirt'
+          const onTrack = this._onPath(x, z)
+          if (s.h >= SEA && onTrack) top = hash2(x, z, 151) < 0.6 ? 'gravel' : 'coarsedirt'
+          if (s.h >= SEA && pathTops.size) top = pathTops.get(`${x},${z}`) || top
           for (let y = s.h; y >= bottom; y--) {
             const layer = s.h - y
             let type = layer === 0 ? top : groundBlock(layer, y, under)
@@ -516,7 +544,9 @@ export class OpenWorld {
           if (s.h < SEA) {
             for (let y = s.h + 1; y <= SEA; y++) {
               const frozen = s.biome === 'frozenOcean' && y === SEA
-              put(x, y, z, frozen ? (hash2(x, z, 157) < 0.3 ? 'packedice' : 'ice') : 'water')
+              // A track from the city crosses water on a plank deck.
+              if (onTrack && y === SEA) put(x, y, z, 'spruceplanks')
+              else put(x, y, z, frozen ? (hash2(x, z, 157) < 0.3 ? 'packedice' : 'ice') : 'water')
             }
           }
         }
@@ -564,7 +594,7 @@ export class OpenWorld {
     const z1 = z0 + CHUNK - 1
     const inside = (x, z) => x >= x0 && x <= x1 && z >= z0 && z <= z1
     const set = (x, y, z, type) => {
-      if (inside(x, z)) put(x, y, z, type)
+      if (inside(x, z) && !inCity(x, z)) put(x, y, z, type)
     }
     const gx0 = Math.floor((x0 - FEATURE_REACH) / GRID)
     const gx1 = Math.floor((x1 + FEATURE_REACH) / GRID)
@@ -576,7 +606,7 @@ export class OpenWorld {
         const fz = gz * GRID + Math.floor(hash2(gx, gz, 223) * GRID)
         if (inCity(fx, fz)) continue
         const s = sampleLand(fx, fz)
-        if (s.d < 5) continue
+        if (s.d < 5 || this._claimed(fx, fz)) continue
         const list = FEATURES[s.biome]
         if (!list) continue
         let roll = hash2(gx, gz, 227)
@@ -781,22 +811,16 @@ export class OpenWorld {
 
   // --- the dirt tracks out of the city's gates ---
 
-  // Every road cell on the city's border whose way out is open: the road
-  // carries on straight out of it.
-  _findPaths() {
-    const bm = this.bm
-    const paths = []
-    // (the rock wall fills every other open border cell)
-    const open = (x, z) => bm._blocks.has(`${x},-1,${z}`) && !bm._blocks.has(`${x},0,${z}`) && !bm._blocks.has(`${x},1,${z}`)
-    for (let i = -CITY; i < CITY; i++) {
-      if (open(i, -CITY)) paths.push({ x: i, z: -CITY, dx: 0, dz: -1 })
-      if (open(i, CITY - 1)) paths.push({ x: i, z: CITY - 1, dx: 0, dz: 1 })
-      if (open(-CITY, i)) paths.push({ x: -CITY, z: i, dx: -1, dz: 0 })
-      if (open(CITY - 1, i)) paths.push({ x: CITY - 1, z: i, dx: 1, dz: 0 })
-    }
+  // Each gate (a road cell at the outline, and the way its road runs)
+  // carries on straight out as a track, over the land only.
+  _findPaths(gates) {
     const cells = new Set()
-    for (const p of paths) {
-      for (let s = 1; s <= PATH_LEN; s++) cells.add(`${p.x + p.dx * s},${p.z + p.dz * s}`)
+    for (const g of gates) {
+      for (let s = 1; s <= PATH_LEN; s++) {
+        const x = Math.floor(g.x + 0.5 + g.dx * s)
+        const z = Math.floor(g.z + 0.5 + g.dz * s)
+        if (!inCity(x, z)) cells.add(`${x},${z}`)
+      }
     }
     return cells
   }
@@ -809,6 +833,66 @@ export class OpenWorld {
     if (!this._paths?.size || cityDistance(x, z) > PATH_LEN + 3) return false
     for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) if (this._paths.has(`${x + dx},${z + dz}`)) return true
     return false
+  }
+
+  // --- villages, castles and bridges (WorldStructures.js) ---
+
+  _plan(gx, gz) {
+    const key = `${gx},${gz}`
+    if (this._plans.has(key)) return this._plans.get(key)
+    if (this._plans.size > 600) this._plans.clear()
+    const plan = planStructure(gx, gz, { land: sampleLand, hash: hash2, sea: SEA, cityDistance, chunk: CHUNK })
+    this._plans.set(key, plan)
+    return plan
+  }
+
+  _prefetchPlan(points, reach) {
+    for (const p of points) {
+      const gx0 = Math.floor((p.x - reach) / STRUCT_GRID)
+      const gx1 = Math.floor((p.x + reach) / STRUCT_GRID)
+      const gz0 = Math.floor((p.z - reach) / STRUCT_GRID)
+      const gz1 = Math.floor((p.z + reach) / STRUCT_GRID)
+      for (let gx = gx0; gx <= gx1; gx++) {
+        for (let gz = gz0; gz <= gz1; gz++) {
+          if (this._plans.has(`${gx},${gz}`)) continue
+          this._plan(gx, gz)
+          return
+        }
+      }
+    }
+  }
+
+  // Every plan whose blocks reach into the box (cells), `margin` wider.
+  _plansOver(x0, z0, x1, z1, margin = 0) {
+    const out = []
+    const gx0 = Math.floor((x0 - margin) / STRUCT_GRID) - 1
+    const gx1 = Math.floor((x1 + margin) / STRUCT_GRID) + 1
+    const gz0 = Math.floor((z0 - margin) / STRUCT_GRID) - 1
+    const gz1 = Math.floor((z1 + margin) / STRUCT_GRID) + 1
+    for (let gx = gx0; gx <= gx1; gx++) {
+      for (let gz = gz0; gz <= gz1; gz++) {
+        const plan = this._plan(gx, gz)
+        if (plan && plan.x1 >= x0 - margin && plan.x0 <= x1 + margin && plan.z1 >= z0 - margin && plan.z0 <= z1 + margin) out.push(plan)
+      }
+    }
+    return out
+  }
+
+  // Trees and boulders keep clear of a place (canopies reach 4 cells).
+  _claimed(x, z) {
+    return this._plansOver(x, z, x, z, 5).length > 0
+  }
+
+  // The place you stand in (its name, for the HUD), or ''.
+  placeName(x, z) {
+    if (!this.active || inCity(x, z)) return ''
+    const plan = this._plansOver(x, z, x, z)[0]
+    return plan ? t(STRUCTURE_NAMES[plan.kind]) : ''
+  }
+
+  // Every place near (x, z): { kind, x, z } (tests, the minimap).
+  placesNear(x, z, radius) {
+    return this._plansOver(x - radius, z - radius, x + radius, z + radius).map((p) => ({ kind: p.kind, x: p.cx, z: p.cz }))
   }
 
   // --- minimap ---
@@ -886,7 +970,15 @@ export class OpenWorld {
 
   // A cell's colour on the minimap, shaded by height.
   _cellColor(x, z) {
+    const plan = this._plansOver(x, z, x, z)[0]
+    const built = plan?.top.get(`${x},${z}`)
     const s = sampleLand(x, z)
+    if (built && built.type !== 'water') {
+      const c = this._typeColor(built.type)
+      const k = 0.72 + 0.28 * clamp01((built.y + 6) / 40)
+      return (Math.round(((c >> 16) & 255) * k) << 16) | (Math.round(((c >> 8) & 255) * k) << 8) | Math.round((c & 255) * k)
+    }
+    if (plan?.paths.has(`${x},${z}`) && s.h >= SEA) return this._typeColor(plan.paths.get(`${x},${z}`))
     let color
     if (s.h < SEA) color = s.biome === 'frozenOcean' ? 0xb5d3f0 : s.biome === 'warmOcean' ? 0x3fb6c8 : s.h < SEA - 9 ? 0x1f4f9a : 0x3368c6
     else color = this._typeColor(this._onPath(x, z) ? 'gravel' : surface(s, x, z).top)

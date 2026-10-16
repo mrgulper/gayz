@@ -282,7 +282,8 @@ export class BuildTryMode {
     this._mapDrawAt = 0
   }
 
-  // Out in Map 1's open world, the biome you're in shows under the map.
+  // Out in Map 1's open world, the biome you're in (and the place, in a
+  // village/castle/bridge) shows under the map.
   _showBiome(x, z) {
     if (!this._biomeEl) {
       this._biomeEl = document.createElement('div')
@@ -291,7 +292,10 @@ export class BuildTryMode {
     }
     const cx = Math.floor(x)
     const cz = Math.floor(z)
-    const name = x === null || inCity(cx, cz) ? '' : biomeName(sampleLand(cx, cz).biome)
+    const biome = x === null || inCity(cx, cz) ? '' : biomeName(sampleLand(cx, cz).biome)
+    // Inside a village, castle or bridge (WorldStructures.js) it says so too.
+    const place = biome ? this.bm.world?.placeName(cx, cz) : ''
+    const name = place ? `${place} · ${biome}` : biome
     if (this._biomeEl.textContent !== name) this._biomeEl.textContent = name
     this._biomeEl.style.display = name ? '' : 'none'
   }
