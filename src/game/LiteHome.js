@@ -33,3 +33,70 @@ export function startWhenLight(start) {
   })
   watch.observe(root, { attributes: true, attributeFilter: ['class'] })
 }
+
+// One clock for every homepage effect (2026-10-16, "the homepage lags on
+// both mobile and keyboard devices"). The rain, the road water and the
+// spinning character each ran their own requestAnimationFrame loop, so
+// their redraws landed on different frames and the browser re-blended the
+// whole stack of full-screen background layers far more often than any of
+// them changed. Now they all draw in the same frame: 30 times a second on
+// touch devices (and slow computers, below), 60 on computers.
+// A computer whose homepage still can't keep up (an old laptop, a school
+// Chromebook) switches to the same lighter homepage once the game has
+// loaded: frames slower than SLOW_FRAME_MS on average over SLOW_SAMPLE
+// frames add html.home-slow (no photo zoom, still fog/ash/embers - see
+// style.css) and the 30-a-second beat.
+const SLOW_FRAME_MS = 24
+const SLOW_SAMPLE = 90
+let homeFrameMs = LITE_HOME ? LITE_FRAME_MS : 15
+let slowChecked = LITE_HOME
+let slowStart = 0
+let slowFrames = 0
+
+const homeJobs = new Set()
+let homeLast = -Infinity
+let homeRunning = false
+
+function checkSlow(now) {
+  const root = document.documentElement
+  // Only once the game is built (loading itself makes long frames) and
+  // while the homepage is what's on screen.
+  if (!root.classList.contains('game-ready') || document.hidden || !document.getElementById('menu')?.getClientRects().length) {
+    slowFrames = 0
+    return
+  }
+  if (slowFrames === 0) slowStart = now
+  slowFrames++
+  if (slowFrames < SLOW_SAMPLE) return
+  slowChecked = true
+  if ((now - slowStart) / (slowFrames - 1) > SLOW_FRAME_MS) {
+    homeFrameMs = LITE_FRAME_MS
+    root.classList.add('home-slow')
+  }
+}
+
+function homeFrame(now) {
+  requestAnimationFrame(homeFrame)
+  if (!slowChecked) checkSlow(now)
+  const due = now - homeLast >= homeFrameMs
+  if (due) homeLast = now
+  for (const job of homeJobs) {
+    try {
+      job(now, due)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+}
+
+// Runs job(now, due) on every animation frame; `due` is true on the shared
+// beat, when the effect should redraw. Returns a function
+// that stops it.
+export function onHomeFrame(job) {
+  homeJobs.add(job)
+  if (!homeRunning) {
+    homeRunning = true
+    requestAnimationFrame(homeFrame)
+  }
+  return () => homeJobs.delete(job)
+}
