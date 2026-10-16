@@ -353,6 +353,18 @@
     .prompt-input { min-width: 0; flex-basis: 100%; }
     .view-presets { flex-wrap: wrap; justify-content: center; }
   }
+  /* Everything you click or type into is an oval (2026-10-16, "make
+     everything in design a skin the oval shape") - like the game's own
+     search bars. Boxes/cards around them keep their corners. */
+  button.tbtn, .btn, .prompt-input, .hex-input, .color-well, .slot-card,
+  .slot-bar button, .export-card .btn, select { border-radius: 999px; }
+  .palette button { border-radius: 50%; }
+  .color-well::-webkit-color-swatch-wrapper { padding: 2px; }
+  .color-well::-webkit-color-swatch { border: none; border-radius: 999px; }
+  .color-well::-moz-color-swatch { border: none; border-radius: 999px; }
+  .color-well { width: 40px; }
+  .hex-input { width: 88px; }
+  .hex-input, .prompt-input { padding-left: 12px; padding-right: 12px; }
 </style>
 </head>
 <body>
@@ -418,6 +430,7 @@
       <input type="text" id="importUrlInput" class="prompt-input" style="flex: 1 1 140px;" placeholder="Or paste an image URL&hellip;">
       <button class="tbtn" id="importUrlBtn" title="Load an image directly from a web address">Load URL</button>
       <button class="tbtn primary" id="sendToGayzBtn" title="Open GayZ with this skin already applied to your character">Send to GayZ</button>
+      <button class="tbtn" id="postToGalleryBtn" title="Share this skin in the GayZ Gallery, where everyone can see, like and comment on it">Post to Gallery</button>
     </div>
 
     <div class="toolbar">
@@ -3945,6 +3958,20 @@ document.getElementById('sendToGayzBtn').addEventListener('click', () => {
   const b64 = dataUrl.split(',')[1];
   window.open(location.origin + '/?importskin=' + encodeURIComponent(b64), '_blank');
 });
+
+// ---- Post to Gallery ----
+// Hands the skin to the game around us, which opens the Gallery's post
+// form (Game.js's 'gayz-gallery-skin' message -> GalleryUI.startSkinPost).
+// Standalone (not inside GayZ) there is no Gallery to post to, so the
+// button is hidden.
+(function () {
+  const btn = document.getElementById('postToGalleryBtn');
+  if (window.parent === window) { btn.hidden = true; return; }
+  btn.addEventListener('click', () => {
+    const name = (document.getElementById('slotName').value || '').trim();
+    window.parent.postMessage({ type: 'gayz-gallery-skin', dataUrl: atlasSrc.toDataURL('image/png'), name }, '*');
+  });
+})();
 
 // ---- Start-from templates ----
 function loadImageInto(dataUrl, alsoForgetAutosave) {

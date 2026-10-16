@@ -492,6 +492,53 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == uid;
       allow update: if false;
     }
+
+    // Gallery (2026-10-13): skins from Design a Skin and maps from the Map
+    // Editor that players post for everyone to see, like and comment on.
+    // A post's picture is a data URL (a skin is its own texture, a map a
+    // small screenshot plus its share code). Likes work like sharedMaps'
+    // (one like doc per account, the counter only +1 with it); comments
+    // can be removed by whoever wrote them or by the post's maker.
+    match /gallery/{postId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['kind', 'title', 'creatorUid', 'creatorNickname', 'image', 'mapCode', 'createdAt', 'likes'])
+        && request.resource.data.creatorUid == request.auth.uid
+        && request.resource.data.kind in ['character', 'map']
+        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 40
+        && request.resource.data.creatorNickname is string && request.resource.data.creatorNickname.size() > 0 && request.resource.data.creatorNickname.size() <= 24
+        && request.resource.data.image is string && request.resource.data.image.size() <= 400000
+        && request.resource.data.image.matches('^data:image/(png|jpeg);base64,.*')
+        && (!('mapCode' in request.resource.data) || request.resource.data.mapCode.matches('^[A-Z0-9]{6}$'))
+        && request.resource.data.createdAt is int
+        && request.resource.data.likes == 0;
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+        && request.resource.data.likes == resource.data.likes + 1
+        && !exists(/databases/$(database)/documents/gallery/$(postId)/likes/$(request.auth.uid))
+        && existsAfter(/databases/$(database)/documents/gallery/$(postId)/likes/$(request.auth.uid));
+      allow delete: if request.auth != null && request.auth.uid == resource.data.creatorUid;
+    }
+
+    match /gallery/{postId}/likes/{uid} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.likedAt is int;
+      allow update, delete: if false;
+    }
+
+    match /gallery/{postId}/comments/{commentId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['uid', 'nickname', 'text', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 24
+        && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 200
+        && request.resource.data.createdAt is int;
+      allow delete: if request.auth != null && (request.auth.uid == resource.data.uid
+        || request.auth.uid == get(/databases/$(database)/documents/gallery/$(postId)).data.creatorUid);
+      allow update: if false;
+    }
   }
 }`
 
@@ -1502,4 +1549,63 @@ export async function fetchPollResults(pollId, options) {
     counts[option] = snap.data().count
   }
   return counts
+}
+
+// --- Gallery (2026-10-13, see the gallery rules above) ---
+
+// kind: 'character' | 'map'. No orderBy (the kind filter plus an order
+// would need a composite index) - the caller sorts.
+export async function fetchGalleryPosts(kind) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'gallery'), fsMod.where('kind', '==', kind), fsMod.limit(80))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id }))
+}
+
+// post: { kind, title, creatorUid, creatorNickname, image, mapCode? } -> id
+export async function createGalleryPost(post) {
+  const { db, fsMod } = await ensureApp()
+  const data = { kind: post.kind, title: post.title, creatorUid: post.creatorUid, creatorNickname: post.creatorNickname, image: post.image, createdAt: Date.now(), likes: 0 }
+  if (post.mapCode) data.mapCode = post.mapCode
+  const ref = await fsMod.addDoc(fsMod.collection(db, 'gallery'), data)
+  return ref.id
+}
+
+export async function deleteGalleryPost(id) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'gallery', id))
+}
+
+export async function likeGalleryPost(id, uid) {
+  const { db, fsMod } = await ensureApp()
+  const likeRef = fsMod.doc(db, 'gallery', id, 'likes', uid)
+  if ((await fsMod.getDoc(likeRef)).exists()) return false
+  const batch = fsMod.writeBatch(db)
+  batch.set(likeRef, { likedAt: Date.now() })
+  batch.update(fsMod.doc(db, 'gallery', id), { likes: fsMod.increment(1) })
+  await batch.commit()
+  return true
+}
+
+export async function hasLikedGalleryPost(id, uid) {
+  const { db, fsMod } = await ensureApp()
+  return (await fsMod.getDoc(fsMod.doc(db, 'gallery', id, 'likes', uid))).exists()
+}
+
+export async function fetchGalleryComments(id) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'gallery', id, 'comments'), fsMod.orderBy('createdAt', 'asc'), fsMod.limit(100))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id }))
+}
+
+export async function addGalleryComment(id, comment) {
+  const { db, fsMod } = await ensureApp()
+  const ref = await fsMod.addDoc(fsMod.collection(db, 'gallery', id, 'comments'), { uid: comment.uid, nickname: comment.nickname, text: comment.text, createdAt: Date.now() })
+  return ref.id
+}
+
+export async function deleteGalleryComment(id, commentId) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'gallery', id, 'comments', commentId))
 }

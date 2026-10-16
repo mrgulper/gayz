@@ -155,7 +155,7 @@ test('every Coming Soon part of the game is in GayZ Features', async ({ page }) 
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(() => {
     const MAP = [
-      [/^gallery-/, 'Gallery'],
+      [/^gallery-weapon/, 'Weapon Gallery'],
       [/^levels-/, 'Levels'],
       [/^general-page-general/, 'General Tab'],
       [/^hub-page-deathmatch$|^achievements-deathmatch|^upgrades-deathmatch/, 'Deathmatch'],
