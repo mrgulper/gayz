@@ -267,3 +267,30 @@ test('Smart Edit changes only what was asked', async ({ page }) => {
   expect(hatLight.n).toBeGreaterThan(0)
   expect(hatLight.avg).toBeLessThan(70)
 })
+
+// 2026-10-16: Design a Skin loads in the background once the homepage is
+// ready, draws nothing while its panel is hidden, and is ready the moment
+// it's opened.
+test('Design a Skin is loaded ahead of time and idle while hidden', async ({ page }) => {
+  await page.route(/cdn\.jsdelivr\.net\/npm\/three@[^/]+\/(.*)$/, (route) => {
+    const rel = route.request().url().replace(/^.*three@[^/]+\//, '')
+    route.fulfill({ path: path.resolve('node_modules/three', rel), contentType: 'application/javascript' })
+  })
+  await page.goto('/')
+  await page.waitForFunction(() => !!window.__game, null, { timeout: 60000 })
+  await page.waitForFunction(() => {
+    const d = document.getElementById('skindesigner-frame').contentDocument
+    return d?.readyState === 'complete' && d.getElementById('stageLoading')?.hidden === true
+  }, null, { timeout: 60000 })
+  expect(await page.evaluate(() => document.getElementById('skindesigner-panel').style.display)).not.toBe('flex')
+  const draws = await page.evaluate(() => new Promise((resolve) => {
+    const gl = document.getElementById('skindesigner-frame').contentDocument.querySelector('canvas').getContext('webgl2')
+    let n = 0
+    const orig = gl.drawElements.bind(gl)
+    gl.drawElements = (...a) => { n++; return orig(...a) }
+    setTimeout(() => { gl.drawElements = orig; resolve(n) }, 1500)
+  }))
+  expect(draws).toBe(0)
+  await page.evaluate(() => window.__game._openSkinDesignerPanel())
+  await expect(page.frameLocator('#skindesigner-frame').locator('#generateBtn')).toBeVisible({ timeout: 3000 })
+})

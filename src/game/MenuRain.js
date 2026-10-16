@@ -26,7 +26,7 @@
 // under prefers-reduced-motion. Reduce Homepage Background Effects
 // (body.reduce-bg-effects) halves the drops.
 
-import { LITE_HOME, LITE_FRAME_MS, startWhenLight } from './LiteHome.js'
+import { LITE_HOME, startWhenLight, onHomeFrame } from './LiteHome.js'
 
 // The street in both background photos (menu-art/old-menu-bg.webp and
 // menu-bg-city.webp share the same framing), as fractions of the picture:
@@ -53,7 +53,7 @@ export function pictureBox(w, h) {
 export const rainState = { intensity: 0.5 }
 
 // Drops falling at once per 1000x1000 CSS px of window at full strength.
-const MAX_DENSITY = 420
+const MAX_DENSITY = 300
 // Strength wanders between these (0-1 of MAX_DENSITY), a new target every
 // INTENSITY_HOLD seconds, eased over INTENSITY_EASE seconds.
 const INTENSITY_MIN = 0.12
@@ -63,10 +63,11 @@ const INTENSITY_EASE = 4
 // Fall speed (CSS px/s) for a drop landing at the very bottom; farther
 // drops are slower.
 const SPEED = [1150, 1550]
-const MAX_SPLASHES = 160
+const MAX_SPLASHES = 90
 const SPLASH_LIFE_S = 0.5
-// The canvas never draws more pixels than this per CSS pixel.
-const MAX_PIXEL_RATIO = 1.5
+// The canvas never draws more pixels than this per CSS pixel - the drops
+// are soft pictures, so extra pixels only cost time (2026-10-16).
+const MAX_PIXEL_RATIO = 1
 // Share of the drops a touch device's lighter homepage keeps (LiteHome.js).
 const LITE_DROPS = 0.6
 
@@ -221,10 +222,9 @@ export function startMenuRain(canvas) {
     rainState.intensity = intensity
   }
 
-  function frame(now) {
-    requestAnimationFrame(frame)
-    // Touch devices draw the rain 30 times a second (LiteHome.js).
-    if (LITE_HOME && now - last < LITE_FRAME_MS) return
+  function frame(now, due) {
+    // Drawn on the homepage's shared beat (LiteHome.js onHomeFrame).
+    if (!due) return
     const dt = Math.min(0.05, (now - last) / 1000)
     last = now
     // Not on screen (homepage hidden, setting off) or tab hidden: skip.
@@ -312,6 +312,6 @@ export function startMenuRain(canvas) {
   }).observe(document.body, { attributes: true, attributeFilter: ['class'] })
   startWhenLight(() => {
     last = performance.now()
-    requestAnimationFrame(frame)
+    onHomeFrame(frame)
   })
 }

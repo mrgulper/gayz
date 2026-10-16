@@ -15,11 +15,12 @@
 // draws while the homepage is on screen and the tab is visible, nothing
 // under prefers-reduced-motion.
 import { FLOOR, pictureBox, rainState } from './MenuRain.js'
-import { LITE_HOME, LITE_FRAME_MS, startWhenLight } from './LiteHome.js'
+import { startWhenLight, onHomeFrame } from './LiteHome.js'
 
 // Height of each redrawn row (CSS px) - small enough that the waves look
-// smooth, big enough to keep the draw calls down.
-const ROW_PX = LITE_HOME ? 3 : 2
+// smooth, big enough to keep the draw calls down (the sheen is blurred, so
+// 4px rows look the same as 2px ones at half the draws).
+const ROW_PX = 4
 // Sideways sway (CSS px) far up the road and at the very bottom.
 const SWAY_FAR = 0.4
 const SWAY_NEAR = 5
@@ -29,7 +30,7 @@ const SWAY_RAIN = 0.6
 // they are (radians per CSS px, scaled by perspective).
 const FLOW_SPEED = 2.4
 const WAVE_FREQ = 0.075
-const MAX_PIXEL_RATIO = 1.5
+const MAX_PIXEL_RATIO = 1
 // The reflections layer: blur (image px) that wipes out the cobble edges,
 // the brightness range that counts as wet sheen, and how strongly the
 // moving copy shows (calm / on a wave crest).
@@ -53,7 +54,6 @@ export function startMenuWater(canvas) {
   let img = null
   let imgUrl = ''
   let lastCheck = -Infinity
-  let lastDraw = -Infinity
 
   function checkSource(now) {
     if (now - lastCheck < SOURCE_CHECK_MS) return
@@ -95,7 +95,7 @@ export function startMenuWater(canvas) {
   }
 
   function resize() {
-    const ratio = LITE_HOME ? 1 : Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO)
+    const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO)
     w = canvas.clientWidth
     h = canvas.clientHeight
     canvas.width = Math.round(w * ratio)
@@ -103,16 +103,13 @@ export function startMenuWater(canvas) {
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
   }
 
-  function frame(now) {
-    requestAnimationFrame(frame)
+  function frame(now, due) {
+    // Drawn on the homepage's shared beat (LiteHome.js onHomeFrame).
+    if (!due) return
     if (document.hidden || canvas.offsetParent === null) return
     if (canvas.clientWidth !== w || canvas.clientHeight !== h) resize()
     checkSource(now)
     if (!w || !h || !img) return
-    if (LITE_HOME) {
-      if (now - lastDraw < LITE_FRAME_MS) return
-      lastDraw = now
-    }
 
     const box = pictureBox(w, h)
     const horizonY = box.y + FLOOR.horizon * box.h
@@ -151,5 +148,5 @@ export function startMenuWater(canvas) {
 
   resize()
   window.addEventListener('resize', resize)
-  startWhenLight(() => requestAnimationFrame(frame))
+  startWhenLight(() => onHomeFrame(frame))
 }

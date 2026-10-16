@@ -3807,6 +3807,10 @@ document.getElementById('idleAnimBtn').addEventListener('click', () => {
 
 function animate() {
   requestAnimationFrame(animate);
+  // GayZ loads this page ahead of time in its hidden Design a Skin panel
+  // (2026-10-16): nothing is drawn while the canvas has no size (hidden)
+  // or the tab is in the background, so it costs the homepage nothing.
+  if (canvas.clientWidth === 0 || document.hidden) return;
   controls.update();
   if (gridTextureDirty) redrawGridTexture();
   if (idleAnimOn) {

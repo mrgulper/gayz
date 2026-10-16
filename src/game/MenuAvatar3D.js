@@ -12,7 +12,11 @@
 // left/right) rather than the old free-trackball pitch+yaw - one axis of
 // spin either way, auto or manual, not two.
 import * as THREE from 'three'
-import { LITE_HOME, LITE_FRAME_MS } from './LiteHome.js'
+import { LITE_HOME, onHomeFrame } from './LiteHome.js'
+
+// How often a preview that doesn't spin on its own redraws while nobody
+// drags it.
+const STILL_REDRAW_MS = 250
 
 // Radians/second - a slow, ambient turn, not a fast spinning-coin effect.
 // A full 360 takes 2*PI / IDLE_SPIN_SPEED =~ 26 seconds.
@@ -421,7 +425,7 @@ export class MenuAvatar3D {
     setTimeout(() => this.reveal(), 200)
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
     // A touch device's lighter homepage draws it with fewer pixels (LiteHome.js).
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, LITE_HOME ? 1.25 : 2))
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, LITE_HOME ? 1.25 : 1.5))
 
     this.scene = new THREE.Scene()
     // far=100 used to be plenty for a roughly-square box - now that
@@ -557,12 +561,15 @@ export class MenuAvatar3D {
     this._running = true
     this._lastFrameTime = performance.now()
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const loop = (now) => {
+    // Drawn on the homepage's shared beat with the rain and the road water
+    // (LiteHome.js onHomeFrame), or every frame while being dragged.
+    const loop = (now, due) => {
       if (!this._running) return
-      this._raf = requestAnimationFrame(loop)
-      // A touch device's lighter homepage turns it at most 30 times a
-      // second while nobody's dragging it (LiteHome.js).
-      if (LITE_HOME && !this._dragging && now - this._lastFrameTime < LITE_FRAME_MS) return
+      if (!due && !this._dragging) return
+      // A still preview (Inventory) only needs a fresh picture now and
+      // then (a new skin, a resize) unless it's being dragged.
+      if (this.noSpin && !this._dragging && now - (this._lastStillDraw || 0) < STILL_REDRAW_MS) return
+      if (this.noSpin) this._lastStillDraw = now
       const dt = Math.min((now - this._lastFrameTime) / 1000, 0.1)
       this._lastFrameTime = now
       // Skip actual rendering while the canvas isn't visible (menu hidden
@@ -581,12 +588,12 @@ export class MenuAvatar3D {
       }
       this.renderer.render(this.scene, this.camera)
     }
-    this._raf = requestAnimationFrame(loop)
+    this._stopLoop = onHomeFrame(loop)
   }
 
   stop() {
     this._running = false
-    if (this._raf) cancelAnimationFrame(this._raf)
-    this._raf = null
+    this._stopLoop?.()
+    this._stopLoop = null
   }
 }

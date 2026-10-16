@@ -5297,7 +5297,15 @@ body.reduce-bg-effects #menu-bg-rain {
    light sources) - these are small particles that visibly float upward. */
 #menu-bg-ash {
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: -50px;
+  top: 0;
+  /* One tile taller than the screen, moved with a transform (2026-10-16):
+     it used to animate background-position, which repaints the whole
+     screen every frame, and a screen blend made the browser re-blend the
+     whole background with it. A transform only moves the finished
+     picture. */
+  height: calc(100% + 280px);
   background-image:
     radial-gradient(1.6px 1.6px at 20% 30%, rgba(255, 180, 120, 0.75), transparent),
     radial-gradient(1.2px 1.2px at 60% 70%, rgba(255, 200, 140, 0.65), transparent),
@@ -5308,12 +5316,12 @@ body.reduce-bg-effects #menu-bg-rain {
   background-repeat: repeat;
   animation: menuBgAshDrift 22s linear infinite;
   opacity: 0.6;
-  mix-blend-mode: screen;
+  will-change: transform;
 }
 
 @keyframes menuBgAshDrift {
-  from { background-position: 0 280px; }
-  to { background-position: -50px 0; }
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50px, -280px, 0); }
 }
 
 /* Faint ground fog - a soft blurred haze low in frame, sways slowly side
@@ -5325,7 +5333,8 @@ body.reduce-bg-effects #menu-bg-rain {
   bottom: 0;
   height: 38%;
   background: linear-gradient(180deg, transparent 0%, rgba(180, 185, 175, 0.05) 45%, rgba(180, 185, 175, 0.1) 100%);
-  filter: blur(9px);
+  /* No blur (2026-10-16): the gradient is already soft, and blurring a
+     moving 140%-wide layer cost a full-screen blur every frame. */
   animation: menuBgFogDrift 40s ease-in-out infinite alternate;
 }
 
@@ -11441,11 +11450,14 @@ html.ui-theme-old #gallery-coming-icon,
 #play-weapon-pick .pwp-bar-track { flex: 1; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
 #play-weapon-pick .pwp-bar-track span { display: block; height: 100%; background: linear-gradient(90deg, #a8781f, #e8c25a); }
 
-/* Touch devices: no fog or ash at all (src/game/LiteHome.js) - a
+/* Touch devices, and computers whose homepage runs slow (html.home-slow,
+   set by LiteHome.js once the game has loaded): no fog or ash at all - a
    blurred, animated full-screen layer and a blended one cost a tablet
    more than everything else on the homepage. */
 html.lite-home #menu-bg-fog,
-html.lite-home #menu-bg-ash {
+html.lite-home #menu-bg-ash,
+html.home-slow #menu-bg-fog,
+html.home-slow #menu-bg-ash {
   display: none;
 }
 /* ...and nothing on a touch homepage is blended or moved by the browser
@@ -11454,7 +11466,10 @@ html.lite-home #menu-bg-ash {
    and the water inside it every frame), and the road water lays its sheen
    on normally instead of with a screen blend, which made the phone
    re-render everything under it each time the water moved. */
-html.lite-home #menu-bg-photo {
+html.lite-home #menu-bg-photo,
+html.lite-home #menu-bg-embers,
+html.home-slow #menu-bg-photo,
+html.home-slow #menu-bg-embers {
   animation: none;
 }
 /* The background (photo, rain and water canvases) is as tall as the
@@ -11467,9 +11482,6 @@ html.lite-home #menu-bg {
   height: 100vh;
   height: 100lvh;
 }
-html.lite-home #menu-bg-water {
-  mix-blend-mode: normal;
-}
 
 /* Moving water on the road - drawn by src/game/MenuWater.js. Sits inside
    #menu-bg-photo, so it gets the photo's Ken Burns transform and mood
@@ -11480,7 +11492,9 @@ html.lite-home #menu-bg-water {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  mix-blend-mode: screen;
+  /* Laid on normally, not with a screen blend (2026-10-16): a blended
+     layer inside the slowly zooming photo made the browser re-render
+     everything under it whenever the water moved - on computers too. */
 }
 
 /* Global panel servers (ServerBrowser.js, 2026-10-10, like Kirka's): the

@@ -12,6 +12,9 @@ import { RollingQuests, EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQu
 // separate gayzcharacterskindesigner.vercel.app project.
 const SKIN_DESIGNER_ORIGIN = window.location.origin
 const SKIN_DESIGNER_URL = '/skin-designer/index.html'
+// How long after the homepage is ready Design a Skin starts loading in the
+// background (and how long it waits to try again while a game runs).
+const SKIN_DESIGNER_PRELOAD_MS = 4000
 
 // Store crates (Inventory > Crates opens them). Coming Soon: they used to
 // hold the old Map 1's outfits and hats, which nothing shows any more, so
@@ -2795,6 +2798,10 @@ export class Game {
     }).catch(() => { /* tried again on Play */ }))
     // The Market's listings too, so opening it shows them at once.
     setTimeout(() => idle(() => { if (this._marketListings === null) this._loadMarketListings() }), 3000)
+    // And Design a Skin (2026-10-16, "when you reload the design a skin is
+    // already reloaded for you"): its page loads in the hidden panel, so
+    // opening it shows the finished tool at once.
+    setTimeout(() => idle(() => this._preloadSkinDesigner()), SKIN_DESIGNER_PRELOAD_MS)
     // (The weapon pictures aren't drawn here: drawn one per break as blob
     // URLs they no longer freeze anything, so they start when the weapon
     // picker or Inventory first needs them - drawing them at page load
@@ -10062,10 +10069,26 @@ export class Game {
   _openSkinDesignerPanel() {
     this._closeAllMenuPanels()
     this.skindesignerPanel.style.display = 'flex'
+    this._loadSkinDesignerFrame()
+  }
+
+  _loadSkinDesignerFrame() {
     if (this.skindesignerFrame && this.skindesignerFrame.src === 'about:blank') {
       const theme = this.settings.uiTheme === 'old' ? 'old' : 'golden'
       this.skindesignerFrame.src = `${SKIN_DESIGNER_URL}?theme=${theme}`
     }
+  }
+
+  // Loads Design a Skin in its hidden panel ahead of time (2026-10-16), on
+  // the homepage only - while a game is starting or running it waits and
+  // tries again later, so it never competes with the map. Hidden, the
+  // designer draws nothing (its canvas has no size).
+  _preloadSkinDesigner() {
+    if (this.buildMode?.active || this._enteringBuildMode || document.hidden) {
+      setTimeout(() => this._preloadSkinDesigner(), SKIN_DESIGNER_PRELOAD_MS)
+      return
+    }
+    this._loadSkinDesignerFrame()
   }
 
   _closeSkinDesignerPanel() {
