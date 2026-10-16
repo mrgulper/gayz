@@ -621,6 +621,22 @@ test('Map 3 Play starts in a safe camp with working NPCs', async ({ page }) => {
     const out = { faded, camp: !!c, startsInside: !!c && c.inside(p.x, p.z), npcs: c ? c.npcs.map((n) => n.id).sort().join() : '' }
     // Zombies can't step into the camp, and can't hurt you there.
     out.wall = s._zombieHits(c.zone.cx + 0.5, 0, c.zone.cz + 0.5)
+    // The last row along the far (+x/+z) walls is camp too - zombies used
+    // to spawn there (inside() shrank those sides when given a margin).
+    const zn = c.zone
+    out.farRows = [[zn.x1 - 0.5, zn.cz + 0.5], [zn.cx + 0.5, zn.z1 - 0.5], [zn.x1 - 0.5, zn.z1 - 0.5]]
+      .every(([x, z]) => c.inside(x, z, 1) && s._zombieHits(x, 0, z))
+    if (document.getElementById('play-weapon-pick')?.style.display !== 'none') s._pickWeapon('rifle')
+    s.wave = 6
+    s._breakTimer = 999
+    for (let i = 0; i < 60; i++) s._spawnZombie()
+    let inCamp = 0
+    for (let f = 0; f < 240; f++) {
+      s.health = 100
+      s.update(1 / 30)
+      inCamp += s.zombies.filter((z) => c.inside(z.x, z.z)).length
+    }
+    out.inCamp = inCamp
     const hp = s.health
     s._hurtPlayer(30)
     out.safe = s.health === hp
@@ -654,6 +670,8 @@ test('Map 3 Play starts in a safe camp with working NPCs', async ({ page }) => {
   expect(r.startsInside).toBe(true)
   expect(r.npcs).toBe('ammo,quest,trader,upgrader')
   expect(r.wall).toBe(true)
+  expect(r.farRows).toBe(true)
+  expect(r.inCamp).toBe(0)
   expect(r.safe).toBe(true)
   expect(r.armor).toBe(50)
   expect(r.mag).toBe(40)
@@ -1082,8 +1100,19 @@ test('Map 1 has an open world with biomes around it', async ({ page }) => {
       return null
     }
     out.landOutside = !!surface(90, 2)
-    out.trackOutside = ['gravel', 'coarsedirt'].includes(surface(70, 2)?.[1])
-    out.cityColumnsUntouched = [...w.columns.keys()].every((k) => { const [cx, cz] = k.split(',').map(Number); return cx >= 4 || cx < -4 || cz >= 4 || cz < -4 })
+    // A road leaves the city at each gate and carries on as a track.
+    const gate = b._map3Base().map.gates.find((gt) => gt.x > 40)
+    const tx = Math.floor(gate.x + 0.5 + gate.dx * 8)
+    const tz = Math.floor(gate.z + 0.5 + gate.dz * 8)
+    w.update([{ x: tx, z: tz }])
+    out.trackOutside = ['gravel', 'coarsedirt', 'spruceplanks'].includes(surface(tx, tz)?.[1])
+    // The city isn't a square any more (CityShape.js): its corners are
+    // land, grown in the city's own chunk columns, and no land is ever
+    // grown on a city cell.
+    w.update([{ x: -60, z: -60 }])
+    out.cornerIsLand = !b._map3Base().map.blocks.some((bl) => bl.x === -62 && bl.z === -62) && w.isTerrain(`-62,${surface(-62, -62)?.[0]},-62`)
+    out.noLandInCity = ![...w.terrainKeys].some((k) => { const [x, , z] = k.split(',').map(Number); return x >= -64 && x < 64 && z >= -64 && z < 64 && b._map3Base().map.blocks.some((bl) => bl.x === x && bl.z === z) })
+    out.cityIrregular = b._map3Base().map.blocks.every((bl) => bl.x > -64 && bl.x < 63 && bl.z > -64 && bl.z < 63)
     // The land is never saved...
     const snap = b._snapshot().blocks
     out.landNotSaved = !snap.some((k) => k.x > 70)
@@ -1154,7 +1183,9 @@ test('Map 1 has an open world with biomes around it', async ({ page }) => {
   expect(r.columns).toBeGreaterThan(0)
   expect(r.landOutside).toBe(true)
   expect(r.trackOutside).toBe(true)
-  expect(r.cityColumnsUntouched).toBe(true)
+  expect(r.cornerIsLand).toBe(true)
+  expect(r.noLandInCity).toBe(true)
+  expect(r.cityIrregular).toBe(true)
   expect(r.landNotSaved).toBe(true)
   expect(r.outsideNotSaved).toBe(true)
   expect(r.brickGone).toBe(true)
@@ -1165,6 +1196,42 @@ test('Map 1 has an open world with biomes around it', async ({ page }) => {
   expect(r.biomeShown.length).toBeGreaterThan(0)
   expect(r.notClamped).toBe(true)
 
+})
+
+// Villages, castles and bridges out in the land (WorldStructures.js): they
+// grow with the land around them, say their name under the minimap, and
+// trees keep clear of them.
+test('the open world has villages, castles and bridges', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    const w = b.world
+    const out = {}
+    for (let seed = 1; seed < 40 && Object.keys(out).length < 3; seed++) {
+      w.reseed(seed)
+      for (const p of w.placesNear(0, 0, 500)) {
+        if (out[p.kind]) continue
+        const plan = w._plansOver(p.x, p.z, p.x, p.z).find((q) => q.kind === p.kind)
+        w.update([{ x: p.x, z: p.z }])
+        for (let i = 0; i < 40; i++) w.update([{ x: p.x, z: p.z }])
+        // Every block of its column under the player is in the world.
+        const list = plan.byColumn.get(`${Math.floor(p.x / 16)},${Math.floor(p.z / 16)}`) || []
+        let placed = 0
+        for (let i = 0; i < list.length; i += 4) if (b._blocks.get(`${list[i]},${list[i + 1]},${list[i + 2]}`) === list[i + 3]) placed++
+        out[p.kind] = { blocks: list.length / 4, placed, name: w.placeName(p.x, p.z), tree: w._claimed(p.x, p.z) }
+      }
+    }
+    g._exitBuildMode()
+    return out
+  })
+  expect(Object.keys(r).sort()).toEqual(['bridge', 'castle', 'village'])
+  for (const [kind, v] of Object.entries(r)) {
+    expect(v.placed, kind).toBe(v.blocks)
+    expect(v.name.length, kind).toBeGreaterThan(0)
+    expect(v.tree, kind).toBe(true)
+  }
 })
 
 // All 26 biomes are out there, within a long walk of the city.

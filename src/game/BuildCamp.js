@@ -97,10 +97,14 @@ export class BuildCamp {
     this._spawnNpcs()
   }
 
-  // Strictly inside the camp's walls (cells, x/z in blocks).
+  // Strictly inside the camp's walls (x/z in blocks: the open ground runs
+  // from x0 + 1 up to x1, the wall cells' own edges). margin grows it the
+  // same amount on every side - it used to shrink the far (+x/+z) sides
+  // instead, so zombies spawned in the camp's last row along those walls
+  // (2026-10-16, "dont make these zombies etc come into safe zone").
   inside(x, z, margin = 0) {
     const zn = this.zone
-    return x > zn.x0 + 1 - margin && x < zn.x1 - margin && z > zn.z0 + 1 - margin && z < zn.z1 - margin
+    return x > zn.x0 + 1 - margin && x < zn.x1 + margin && z > zn.z0 + 1 - margin && z < zn.z1 + margin
   }
 
   _spawnNpcs() {

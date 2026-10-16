@@ -5,22 +5,28 @@
 // (see BuildMode's map3 save/load). Changing this file changes Map 3 for
 // everyone: bump MAP3_EDITS_KEY in BuildMode.js along with it.
 //
-// Layout: the editor's 128x128 ground (x and z from -64 to 63, ground at
-// y=-1, buildings from y=0 up). A ring of tall buildings of uneven height
-// closes the city in along the map edge (the roads run out through open
-// gates into the open world, OpenWorld.js - they used to end in barricades
-// against it). Inside, the streets are NOT a grid: a winding main avenue,
+// Layout: inside the editor's 128x128 ground (x and z from -64 to 63,
+// ground at y=-1, buildings from y=0 up), cut to an uneven outline
+// (CityShape.js, 2026-10-16 - it used to fill the whole square, with a ring
+// of tall buildings and rock walls along its edge, which read as a square
+// from above). Everything outside the outline is the open world's land
+// (OpenWorld.js), and the roads run straight out into it. Inside, the
+// streets are NOT a grid: a winding main avenue,
 // a bending street, a diagonal, side streets of different lengths and a
 // roundabout with a fountain cut the city into blocks of different sizes
 // and shapes. Each block holds a safe zone, a park, a gas station, a
 // parking lot, or several buildings of different shapes and heights that
 // follow the block's outline.
 
+import { inCityShape, inCampBlock } from './CityShape.js'
+
 const HALF = 64
-const BORDER = 8 // depth of the ring of edge buildings
 const ROAD_W = 3 // a cell is road when its center is within 3 of a road line
 const SIDEWALK = 2
-const INNER = HALF - BORDER // inner city: -INNER .. INNER-1
+// How deep the ring of edge buildings along the outline is.
+const EDGE_DEPTH = 8
+// The old square city's inner part (see the regions' `inner`).
+const OLD_INNER = 56
 
 function rng(seed) {
   let s = seed >>> 0
@@ -62,11 +68,13 @@ export function generateMap3() {
   const stairRand = rng(0x57a125)
   const key = (x, y, z) => `${x},${y},${z}`
   const inMap = (x, z) => x >= -HALF && x < HALF && z >= -HALF && z < HALF
+  // Nothing is ever built outside the city's outline.
+  const inCity = inCityShape
   // While a block of land is being filled in, nothing may spill outside
   // it (onto a road or a neighbor's sidewalk).
   let clipMask = null
   const set = (x, y, z, type) => {
-    if (!inMap(x, z) || y < -3) return
+    if (!inCity(x, z) || y < -3) return
     if (clipMask && !clipMask(x, z)) return
     cells.set(key(x, y, z), type)
     doors.delete(key(x, y, z))
@@ -95,7 +103,8 @@ export function generateMap3() {
 
   // --- Street plan ---
   // Every cell gets a kind: road, plaza (the roundabout's middle), side
-  // (sidewalk), edge (the outer ring) or lot (buildable land).
+  // (sidewalk), edge (the ring along the outline), lot (buildable land) or
+  // out (past the city's outline).
   const segs = []
   for (const line of roadLines()) {
     let acc = 0
@@ -108,6 +117,37 @@ export function generateMap3() {
     }
   }
   const idx = (x, z) => (x + HALF) * (HALF * 2) + (z + HALF)
+  // How many cells in from the city's outline each cell is (0 = right at
+  // the edge), for the ring of edge buildings.
+  const edgeDist = new Int16Array(HALF * 2 * HALF * 2).fill(-1)
+  {
+    const queue = []
+    for (let x = -HALF; x < HALF; x++) {
+      for (let z = -HALF; z < HALF; z++) {
+        if (!inCity(x, z)) continue
+        let edge = false
+        for (let ox = -1; ox <= 1 && !edge; ox++) for (let oz = -1; oz <= 1; oz++) if (!inCity(x + ox, z + oz)) { edge = true; break }
+        if (edge) {
+          edgeDist[idx(x, z)] = 0
+          queue.push(x, z)
+        }
+      }
+    }
+    for (let q = 0; q < queue.length; q += 2) {
+      const x = queue[q]
+      const z = queue[q + 1]
+      const d = edgeDist[idx(x, z)]
+      for (let ox = -1; ox <= 1; ox++) {
+        for (let oz = -1; oz <= 1; oz++) {
+          const nx = x + ox
+          const nz = z + oz
+          if (!inCity(nx, nz) || edgeDist[idx(nx, nz)] !== -1) continue
+          edgeDist[idx(nx, nz)] = d + 1
+          queue.push(nx, nz)
+        }
+      }
+    }
+  }
   const kind = new Array(HALF * 2 * HALF * 2)
   const lineDist = new Float32Array(kind.length)
   const lineAlong = new Float32Array(kind.length)
@@ -131,7 +171,8 @@ export function generateMap3() {
       let k = best < ROAD_W ? 'road' : 'lot'
       if (rd < 9.5 && rd >= 5) k = 'road'
       if (rd < 5) k = 'plaza'
-      if (k === 'lot' && (Math.abs(px) > INNER || Math.abs(pz) > INNER)) k = 'edge'
+      if (k === 'lot' && edgeDist[idx(x, z)] < EDGE_DEPTH && !inCampBlock(x, z)) k = 'edge'
+      if (!inCity(x, z)) k = 'out'
       kind[idx(x, z)] = k
       lineDist[idx(x, z)] = rd < 10.5 ? 99 : best
       lineAlong[idx(x, z)] = along
@@ -158,6 +199,7 @@ export function generateMap3() {
   for (let x = -HALF; x < HALF; x++) {
     for (let z = -HALF; z < HALF; z++) {
       const k = kind[idx(x, z)]
+      if (k === 'out') continue
       let type
       if (k === 'road') {
         type = rand() < 0.07 ? 'gravel' : rand() < 0.03 ? 'cobblestone' : 'asphalt'
@@ -220,11 +262,23 @@ export function generateMap3() {
         sx += cx; sz += cz
       }
       const size = cellsIn.length
+      // The same block's cells within the old square city's inner part
+      // (before the outline, a ring of edge buildings took the outer 8
+      // cells): the camp, gas station and parking lot are fitted to this,
+      // so they stayed where they were when the outline came in.
+      let ix0 = Infinity, ix1 = -Infinity, iz0 = Infinity, iz1 = -Infinity, isize = 0
+      for (const [cx, cz] of cellsIn) {
+        if (Math.abs(cx + 0.5) > OLD_INNER || Math.abs(cz + 0.5) > OLD_INNER) continue
+        ix0 = Math.min(ix0, cx); ix1 = Math.max(ix1, cx); iz0 = Math.min(iz0, cz); iz1 = Math.max(iz1, cz)
+        isize++
+      }
+      const has = (qx, qz) => inMap(qx, qz) && regionOf[idx(qx, qz)] === id
       regions.push({
         id, x0, x1, z0, z1, size,
         cx: sx / size, cz: sz / size,
         fill: size / ((x1 - x0 + 1) * (z1 - z0 + 1)),
-        has: (qx, qz) => inMap(qx, qz) && regionOf[idx(qx, qz)] === id,
+        has,
+        inner: isize ? { x0: ix0, x1: ix1, z0: iz0, z1: iz1, size: isize, fill: isize / ((ix1 - ix0 + 1) * (iz1 - iz0 + 1)), has } : null,
       })
     }
   }
@@ -468,11 +522,14 @@ export function generateMap3() {
     let dz = null
     let facing = 0
     let doorSide = facade
-    for (const side of [facade, ...Object.keys(SIDES).filter((k) => k !== facade)]) {
-      const [ox, oz, f] = SIDES[side]
+    // A door onto the city's own ground first; one out onto the open
+    // world's land (past the city's outline) only if there's no other.
+    for (const side of [0, 1].flatMap((pass) => [facade, ...Object.keys(SIDES).filter((k) => k !== facade)].map((sd) => [sd, pass]))) {
+      const [ox, oz, f] = SIDES[side[0]]
       let best = Infinity
       for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
         if (!foot(x, z) || foot(x + ox, z + oz)) continue
+        if (side[1] === 0 && !inCity(x + ox, z + oz)) continue
         if (!interior(x - ox, z - oz)) continue
         if (!foot(x + oz, z + ox) || !foot(x - oz, z - ox)) continue
         if (get(x + ox, 1, z + oz) || get(x + ox, 2, z + oz)) continue
@@ -485,7 +542,7 @@ export function generateMap3() {
       }
       if (dx !== null) {
         facing = f
-        doorSide = side
+        doorSide = side[0]
         break
       }
     }
@@ -860,12 +917,13 @@ export function generateMap3() {
     if (best) taken.add(best.id)
     return best
   }
-  const rect = (min, max) => (r) => r.fill >= 0.88 && r.size >= min && r.size <= max && r.x1 - r.x0 >= 14 && r.z1 - r.z0 >= 14
-  const safe = pickRegion(rect(300, 1200), (r) => Math.hypot(r.cx, r.cz))
+  const rect = (min, max) => ({ inner: r }) => !!r && r.fill >= 0.88 && r.size >= min && r.size <= max && r.x1 - r.x0 >= 14 && r.z1 - r.z0 >= 14
+  const innerCenter = (r) => [(r.inner.x0 + r.inner.x1) / 2, (r.inner.z0 + r.inner.z1) / 2]
+  const safe = pickRegion(rect(300, 1200), (r) => Math.hypot(...innerCenter(r)))
   if (safe) roles.set(safe.id, 'safe')
-  const gas = pickRegion(rect(250, 900), (r) => Math.hypot(r.cx - 30, r.cz + 10))
+  const gas = pickRegion(rect(250, 900), (r) => Math.hypot(innerCenter(r)[0] - 30, innerCenter(r)[1] + 10))
   if (gas) roles.set(gas.id, 'gas')
-  const lotP = pickRegion(rect(250, 900), (r) => Math.hypot(r.cx + 20, r.cz - 25))
+  const lotP = pickRegion(rect(250, 900), (r) => Math.hypot(innerCenter(r)[0] + 20, innerCenter(r)[1] - 25))
   if (lotP) roles.set(lotP.id, 'parking')
   for (let n = 0; n < 2; n++) {
     const pk = pickRegion((r) => r.size >= 200 && r.size <= 1100, (r) => r.fill)
@@ -874,10 +932,10 @@ export function generateMap3() {
   for (const region of regions) {
     clipMask = region.has
     const role = roles.get(region.id)
-    if (role === 'safe') safeZone(region)
+    if (role === 'safe') safeZone(region.inner)
     else if (role === 'park') park(region)
-    else if (role === 'gas') gasStation(region)
-    else if (role === 'parking') parking(region)
+    else if (role === 'gas') gasStation(region.inner)
+    else if (role === 'parking') parking(region.inner)
     else if (region.size >= 80) cityBlock(region)
     else {
       // A scrap of land too small to build on: grass and a tree.
@@ -890,8 +948,8 @@ export function generateMap3() {
 
   // --- Street lamps and trees along the sidewalks, spaced out unevenly ---
   const sideCells = []
-  for (let x = -INNER; x < INNER; x++) {
-    for (let z = -INNER; z < INNER; z++) {
+  for (let x = -HALF; x < HALF; x++) {
+    for (let z = -HALF; z < HALF; z++) {
       if (kindAt(x, z) !== 'side') continue
       // Right at the curb (touching the road), away from the plaza.
       if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([ox, oz]) => isRoad(x + ox, z + oz))) continue
@@ -913,8 +971,8 @@ export function generateMap3() {
 
   // --- Wrecked cars, parked along the roads ---
   for (let n = 0; n < 60 && n < 400; n++) {
-    const x = randInt(-INNER + 2, INNER - 6)
-    const z = randInt(-INNER + 2, INNER - 6)
+    const x = randInt(-HALF + 2, HALF - 6)
+    const z = randInt(-HALF + 2, HALF - 6)
     const d = lineDist[idx(x, z)]
     if (!isRoad(x, z) || d < 1 || d > 2.4) continue
     // Which way the road runs here.
@@ -930,104 +988,56 @@ export function generateMap3() {
     if (fits) car(x, z, alongX, pick(CAR_COLORS))
   }
 
-  // --- The edge: a ring of tall buildings closing the city in ---
-  // Walks the map edge in pieces of different widths and depths; each
-  // piece is its own building (different height and material), so the
-  // skyline around the city is uneven, not one flat wall. Where a road
-  // runs into the edge, a barricade of stone and a wrecked car closes it.
+  // --- The edge: a ring of tall buildings along the city's outline ---
+  // Walks once around the outline in pieces of different widths and
+  // depths; each piece is its own building (different height and
+  // material) cut to its piece of the ring, so the skyline around the city
+  // is uneven and follows the outline's bulges and bays. The roads run on
+  // out between them.
   const EDGE_WALLS = ['brick', 'terracotta', 'lightgrayconcrete', 'sandstone', 'blackstone', 'grayconcrete', 'deepslatebricks', 'whiteterracotta', 'mudbricks']
-  const edgeSides = [
-    { alongX: true, edge: -HALF },
-    { alongX: true, edge: HALF - 1 },
-    { alongX: false, edge: -HALF },
-    { alongX: false, edge: HALF - 1 },
-  ]
-  // Cells already taken by an edge building - two sides' buildings used to
-  // overlap at the corners, walling each other's doors in.
-  const edgeTaken = new Set()
-  // The barricades' wrecked cars, cleared again at the very end (gates).
-  const gateCars = []
-  const edgeLand = (x, z) => kindAt(x, z) === 'edge' && !edgeTaken.has(x * 1000 + z)
-  for (const side of edgeSides) {
-    let a = -HALF
-    while (a < HALF) {
-      const width = randInt(5, 12)
-      const a1 = Math.min(HALF - 1, a + width - 1)
-      const depth = randInt(BORDER - 3, BORDER)
-      const inward = side.edge < 0 ? 1 : -1
-      const d0 = side.edge
-      const d1 = side.edge + inward * (depth - 1)
-      const box = side.alongX
-        ? { x0: a, x1: a1, z0: Math.min(d0, d1), z1: Math.max(d0, d1) }
-        : { x0: Math.min(d0, d1), x1: Math.max(d0, d1), z0: a, z1: a1 }
-      let roadCells = 0
-      let landCells = 0
-      for (let x = box.x0; x <= box.x1; x++) for (let z = box.z0; z <= box.z1; z++) {
-        if (isRoad(x, z)) roadCells++
-        else if (edgeLand(x, z)) landCells++
-      }
-      if (landCells >= 30) {
-        const style = {
-          wall: [pick(EDGE_WALLS)],
-          trim: pick(['polishedandesite', 'smoothstone', 'grayconcrete', 'cutsandstone', 'polishedblackstone']),
-          glass: pick(['glass', 'blackstainedglass', 'lightbluestainedglass']),
-          floor: 'smoothstone',
-          roof: 'grayconcrete',
-          door: 'irondoor',
-          props: ['barrel'],
-          floors: [3, 7],
-        }
-        const facade = side.alongX ? (side.edge < 0 ? 'zmax' : 'zmin') : side.edge < 0 ? 'xmax' : 'xmin'
-        building(box, style, facade, edgeLand)
-        for (let x = box.x0; x <= box.x1; x++) for (let z = box.z0; z <= box.z1; z++) if (edgeLand(x, z)) edgeTaken.add(x * 1000 + z)
-      }
-      if (roadCells) {
-        // Barricade across the road end: a stone wall with a fence on top,
-        // and a wrecked car pushed against it on the city side.
-        let carSpot = null
-        for (let x = box.x0; x <= box.x1; x++) for (let z = box.z0; z <= box.z1; z++) {
-          if (!isRoad(x, z)) continue
-          const d = side.alongX ? Math.abs(z - side.edge) : Math.abs(x - side.edge)
-          if (d === depth - 1) {
-            set(x, 0, z, 'cobblestone')
-            set(x, 1, z, 'cobblestone')
-            set(x, 2, z, 'oakfence')
-            if (!carSpot) carSpot = [x, z]
-          }
-        }
-        if (carSpot) {
-          const [cx, cz] = carSpot
-          const at = side.alongX ? [cx, cz + inward * (inward > 0 ? 1 : 2), true] : [cx + inward * (inward > 0 ? 1 : 2), cz, false]
-          car(...at, pick(CAR_COLORS))
-          gateCars.push(at)
-        }
-      }
-      a = a1 + 1
-    }
+  const angleOf = (x, z) => {
+    const a = Math.atan2(z + 0.5, x + 0.5)
+    return a < 0 ? a + Math.PI * 2 : a
   }
-
-  // --- Rock walls along the very edge ---
-  // Anywhere the edge ring left open (a road's end, the gap between two
-  // edge buildings, a corner), a ragged wall of rock rises at the map's
-  // border - tallest at the outside, lower inward - so the map never just
-  // stops at empty sky, and nobody can walk or see out of it.
-  const ROCKS = ['stone', 'stone', 'andesite', 'cobblestone', 'mossycobblestone', 'stone', 'gravel', 'deepslate']
-  for (let x = -HALF; x < HALF; x++) {
-    for (let z = -HALF; z < HALF; z++) {
-      const d = Math.min(x + HALF, HALF - 1 - x, z + HALF, HALF - 1 - z)
-      if (d > 2) continue
-      if (get(x, 0, z)) continue
-      const noise = Math.round(1.5 + Math.sin(x * 0.7 + z * 0.3) + Math.cos(z * 0.9 - x * 0.4))
-      const h = [10, 7, 3][d] + noise
-      for (let y = 0; y < h; y++) {
-        if (!get(x, y, z)) set(x, y, z, y === h - 1 && d === 2 ? pick(['moss', 'gravel', 'stone']) : pick(ROCKS))
-      }
+  const edgeCells = []
+  for (let x = -HALF; x < HALF; x++) for (let z = -HALF; z < HALF; z++) if (kindAt(x, z) === 'edge') edgeCells.push([x, z, angleOf(x, z)])
+  edgeCells.sort((a, b) => a[2] - b[2])
+  let at = 0
+  while (at < edgeCells.length) {
+    // About width cells along the outline.
+    const width = randInt(5, 12)
+    const depth = randInt(EDGE_DEPTH - 3, EDGE_DEPTH)
+    const a0 = edgeCells[at][2]
+    const r = Math.max(20, Math.hypot(edgeCells[at][0], edgeCells[at][1]))
+    const a1 = a0 + width / r
+    const piece = new Set()
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity
+    while (at < edgeCells.length && edgeCells[at][2] < a1) {
+      const [x, z] = edgeCells[at++]
+      if (edgeDist[idx(x, z)] >= depth) continue
+      piece.add(x * 1000 + z)
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z)
     }
+    if (piece.size < 30) continue
+    const mid = (a0 + a1) / 2
+    // The side facing the middle of the city.
+    const facade = Math.abs(Math.cos(mid)) > Math.abs(Math.sin(mid)) ? (Math.cos(mid) > 0 ? 'xmin' : 'xmax') : Math.sin(mid) > 0 ? 'zmin' : 'zmax'
+    const style = {
+      wall: [pick(EDGE_WALLS)],
+      trim: pick(['polishedandesite', 'smoothstone', 'grayconcrete', 'cutsandstone', 'polishedblackstone']),
+      glass: pick(['glass', 'blackstainedglass', 'lightbluestainedglass']),
+      floor: 'smoothstone',
+      roof: 'grayconcrete',
+      door: 'irondoor',
+      props: ['barrel'],
+      floors: [3, 7],
+    }
+    building({ x0, x1, z0, z1 }, style, facade, (x, z) => piece.has(x * 1000 + z))
   }
 
   // A door that ended up facing a wall (a neighbor built right up against
-  // it later - mostly where two sides of the edge ring meet) gets a second
-  // door through that wall, so the two buildings connect instead.
+  // it later) gets a second door through that wall, so the two buildings
+  // connect instead.
   const DOOR_OUT = [[0, -1], [-1, 0], [0, 1], [1, 0]]
   for (const [k, facing] of [...doors]) {
     const [x, y, z] = k.split(',').map(Number)
@@ -1082,8 +1092,8 @@ export function generateMap3() {
   const crates = []
   const solidFloor = (t) => t && t !== 'water' && t !== 'lava' && t !== 'leaves' && t !== 'ladder' && !/slab$|stairs$|fence$|door$/.test(t)
   for (let n = 0; n < 6000 && crates.length < 60; n++) {
-    const x = Math.floor(-INNER + 2 + crateRand() * (INNER * 2 - 4))
-    const z = Math.floor(-INNER + 2 + crateRand() * (INNER * 2 - 4))
+    const x = Math.floor(-HALF + 2 + crateRand() * (HALF * 2 - 4))
+    const z = Math.floor(-HALF + 2 + crateRand() * (HALF * 2 - 4))
     const y = crateRand() < 0.7 ? 0 : 1
     if (get(x, y, z) || get(x, y + 1, z) || get(x, y + 2, z) || !solidFloor(get(x, y - 1, z))) continue
     const open = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([ox, oz]) => !get(x + ox, y, z + oz)).length
@@ -1101,7 +1111,7 @@ export function generateMap3() {
   // middle of the city, open sky above, nothing in the way around it.
   // Placed last, like the crates, so nothing else moved.
   let start = null
-  for (let r = 0; r < INNER && !start; r++) {
+  for (let r = 0; r < HALF && !start; r++) {
     for (let x = -r; x <= r && !start; x++) {
       for (const z of [-r, r]) {
         for (const [cx, cz] of [[x, z], [z, x]]) {
@@ -1188,19 +1198,36 @@ export function generateMap3() {
   }
   if (start) set(...start, 'playerstart')
 
-  // Gates out to the open world (2026-10-12, OpenWorld.js): every road's
-  // end at the edge is cleared - barricade, its wrecked car and the rock
-  // wall across it - so the roads lead out of the city. Done last, with no
-  // random numbers, so nothing else in the city moved.
-  for (const [cx, cz, alongX] of gateCars) {
-    const [lx, lz] = alongX ? [4, 1] : [1, 4]
-    for (let x = cx; x <= cx + lx; x++) for (let z = cz; z <= cz + lz; z++) for (let y = 0; y <= 1; y++) clear(x, y, z)
-  }
+  // Where the roads leave the city (OpenWorld.js carries each on as a dirt
+  // track): every road cell at the outline, with the way its road runs,
+  // pointing out of the city.
+  const gates = []
   for (let x = -HALF; x < HALF; x++) {
     for (let z = -HALF; z < HALF; z++) {
-      const d = Math.min(x + HALF, HALF - 1 - x, z + HALF, HALF - 1 - z)
-      if (d > BORDER + 1 || !isRoad(x, z)) continue
-      for (let y = 0; y <= 12; y++) clear(x, y, z)
+      if (!isRoad(x, z)) continue
+      const out = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([ox, oz]) => !inCity(x + ox, z + oz))
+      if (!out) continue
+      let best = null
+      let bestD = Infinity
+      for (const sg of segs) {
+        const dx = sg.bx - sg.ax
+        const dz = sg.bz - sg.az
+        const t = Math.max(0, Math.min(1, ((x + 0.5 - sg.ax) * dx + (z + 0.5 - sg.az) * dz) / (sg.len * sg.len)))
+        const d = Math.hypot(x + 0.5 - (sg.ax + dx * t), z + 0.5 - (sg.az + dz * t))
+        if (d < bestD) {
+          bestD = d
+          best = sg
+        }
+      }
+      let dx = (best.bx - best.ax) / best.len
+      let dz = (best.bz - best.az) / best.len
+      if (dx * out[0] + dz * out[1] < 0) {
+        dx = -dx
+        dz = -dz
+      }
+      // A road running along the outline (not out of it) has no gate here.
+      if (dx * out[0] + dz * out[1] < 0.3) continue
+      gates.push({ x, z, dx, dz })
     }
   }
 
@@ -1212,5 +1239,5 @@ export function generateMap3() {
     blocks.push(facing !== undefined ? { x, y, z, type, facing, open: false } : stairs !== undefined ? { x, y, z, type, facing: stairs } : { x, y, z, type })
   }
   const hotbar = ['brick', 'cobblestone', 'oakplanks', 'glass', 'asphalt', 'smoothstone', 'oaklog', 'leaves', 'oakdoor', 'invisible']
-  return { blocks, hotbar, safeZone: safeInfo ? { ...safeInfo, npcSpots } : null }
+  return { blocks, hotbar, gates, safeZone: safeInfo ? { ...safeInfo, npcSpots } : null }
 }

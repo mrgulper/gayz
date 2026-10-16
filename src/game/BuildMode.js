@@ -98,7 +98,7 @@ const MAP3_SLOT = 'map3'
 const SHARED_SLOT = 'shared'
 const SHARED_INFO_KEY = 'buildmode-shared-info'
 // Bumped (v2, v3) whenever the map changes - old edits wouldn't line up.
-const MAP3_EDITS_KEY = 'buildmode-map3-v7-edits'
+const MAP3_EDITS_KEY = 'buildmode-map3-v8-edits'
 // Edits are saved this long after the last change (and on leaving the
 // page), not only on Exit/Save - closing the tab used to lose the build.
 const AUTOSAVE_DELAY_MS = 1500
@@ -1987,8 +1987,9 @@ export class BuildMode {
   _buildTopDownMap() {
     const half = GROUND_SIZE / 2
     const top = new Map()
-    // With the open world around Map 1 only the city's own chunks are read
-    // (the land around it is drawn from its noise, OpenWorld.mapTile).
+    // With the open world around Map 1 only the city's own cells are read
+    // (the land around it is drawn from its noise, OpenWorld.mapTile, and
+    // shows through where this picture is left clear).
     const cityChunks = half / CHUNK
     const entries = this.world.active
       ? (function* (chunkCells, blocks) {
@@ -2004,6 +2005,7 @@ export class BuildMode {
       if (!def || def.shape === 'invisible' || def.hidden) continue
       const [x, y, z] = key.split(',').map(Number)
       if (x < -half || x >= half || z < -half || z >= half) continue
+      if (this.world.active && !cityCell(x, z)) continue
       const ck = (x + half) * GROUND_SIZE + (z + half)
       const cur = top.get(ck)
       if (!cur || y > cur.y) top.set(ck, { y, color: def.color })
@@ -2019,7 +2021,8 @@ export class BuildMode {
       const pz = i % GROUND_SIZE
       const o = (pz * GROUND_SIZE + px) * 4
       if (!cell) {
-        img.data[o + 3] = 255
+        // Past the city's outline the land's own picture shows through.
+        img.data[o + 3] = this.world.active && !cityCell(px - half, pz - half) ? 0 : 255
         continue
       }
       const shade = 0.62 + 0.38 * Math.min(1, Math.max(0, (cell.y + 1) / 16))
@@ -3559,7 +3562,7 @@ export class BuildMode {
     // every game (OpenWorld.js).
     const placed = edits.placed.filter((b) => b && cityCell(b.x, b.z))
     this._applyParsedData({ blocks: blocks.concat(placed), hotbar: edits.hotbar || map.hotbar })
-    this.world.cityLoaded()
+    this.world.cityLoaded(map.gates)
   }
 
   // Stores how the current scene differs from the generated map: cells
