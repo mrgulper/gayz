@@ -20,6 +20,10 @@ export const DEFENSE_WAVES = 10
 // EXTRACTION_MIN..MAX blocks of walking away; stand within EXTRACTION_RADIUS
 // of it for EXTRACTION_HOLD seconds (the waves keep coming) to win.
 export const EXTRACTION_WAVES = 5
+// Skeletons (real animated 3D models, SkeletonModels.js) join the waves
+// from this wave on, each spawn with SKELETON_CHANCE (BuildSurvival).
+export const SKELETON_FROM_WAVE = 3
+export const SKELETON_CHANCE = 0.3
 export const EXTRACTION_HOLD = 10
 export const EXTRACTION_RADIUS = 3
 export const EXTRACTION_MIN = 25

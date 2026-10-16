@@ -17,12 +17,13 @@
 // one step closer to you.
 import * as THREE from 'three'
 import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
+import { SKELETON_KINDS, loadSkeletons, makeSkeleton, skeletonsReady } from './SkeletonModels.js'
 import { audioEngine } from './Audio.js'
 import { getKeyFor } from './Keybinds.js'
 import { t } from './i18n.js'
 import { BuildCamp, COIN_PER_KILL, COIN_PER_WAVE } from './BuildCamp.js'
 import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, ammoFor, weaponBars } from './PlayWeapons.js'
-import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND } from './PlayRules.js'
+import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE } from './PlayRules.js'
 
 export const CHEST_LOOT = { ammo: 60, health: 35 }
 const HEAD_MULT = 2.4
@@ -34,6 +35,15 @@ const DOOR_BASH_TIME = 3
 const WAVE_BREAK = 6
 const SPAWN_GAP = 1.1
 const MAX_ALIVE = 16
+// Skeletons (2026-10-16, real animated 3D models - SkeletonModels.js) join
+// the waves from SKELETON_FROM_WAVE with SKELETON_CHANCE per spawn
+// (PlayRules.js; never a boss). They rise out of the ground (can't move or hit for
+// SKELETON_RISE seconds), walk/run, punch, and on death play their fall
+// and lie for SKELETON_LIE seconds before sinking away.
+const SKELETON_RISE = 1.6
+const SKELETON_LIE = 2.4
+const SKELETON_SINK = 1.2
+const SKELETON_KIND_IDS = Object.keys(SKELETON_KINDS)
 // Dead zombies (2026-10-12, "make the dead body fall on the ground and
 // slowly fade gone"): they tip over away from the shot in CORPSE_FALL
 // seconds, lie still for CORPSE_LIE, then fade out over CORPSE_FADE. At most
@@ -187,6 +197,7 @@ export class BuildSurvival {
     if (fromMenu) this._openWeaponPicker()
     else this._message(t('buildPlayGetReady'))
     zombieSkin().then((skin) => { this._skin = skin }).catch(() => { this._skin = null })
+    loadSkeletons()
   }
 
   // leaveTry: false when Try Map itself is being left (T / Escape menu).
@@ -545,6 +556,7 @@ export class BuildSurvival {
   damageZombie(z, amount, dir = null, by = null) {
     z.health -= amount
     z.flash = 0.12
+    if (z.skel && z.health > 0 && !z.rise && amount > 0) z.hitAnim = z.skel.play('hit', { once: true, fade: 0.05, timeScale: 1.6 })
     if (dir) {
       z.vx += dir.x * 3
       z.vz += dir.z * 3
@@ -790,19 +802,33 @@ export class BuildSurvival {
     const [x, y, z] = open[Math.floor(Math.random() * open.length)]
     const boss = this._bossPending > 0
     if (boss) this._bossPending--
-    const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (boss ? BOSS_HEALTH_MULT : 1)
+    const kind = !boss && this.wave >= SKELETON_FROM_WAVE && skeletonsReady() && Math.random() < SKELETON_CHANCE
+      ? SKELETON_KIND_IDS[Math.floor(Math.random() * SKELETON_KIND_IDS.length)] : null
+    const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (boss ? BOSS_HEALTH_MULT : 1) * (kind ? SKELETON_KINDS[kind].hp : 1)
     if (boss) this._message(t('buildPlayBossComing'))
-    this._makeZombie(++this._zid, x + 0.5, y, z + 0.5, health, boss)
+    this._makeZombie(++this._zid, x + 0.5, y, z + 0.5, health, boss, kind)
     return true
   }
 
   // A zombie's body and state. id: the number the server knows it by
   // (the host's count - other players' copies use the host's ids).
-  _makeZombie(id, x, y, z, health, boss) {
+  // kind: a skeleton kind (SKELETON_KINDS) or null for a zombie.
+  _makeZombie(id, x, y, z, health, boss, kind = null) {
     const group = new THREE.Group()
     const zombie = { id, x, y, z, vx: 0, vy: 0, vz: 0, onGround: false, health, maxHealth: health, attackCd: 0.6, bash: 0, flash: 0, walk: Math.random() * 6, moan: 2 + Math.random() * 8, group, body: null, boss, size: boss ? BOSS_SIZE : 1 }
-    const batch = this._zombieBatch()
-    if (batch) {
+    const batch = kind && skeletonsReady() ? null : this._zombieBatch()
+    if (kind && skeletonsReady()) {
+      // A real animated skeleton (SkeletonModels.js), rising out of the
+      // ground first.
+      const skel = makeSkeleton(kind, ZOMBIE_HEIGHT * this.B)
+      group.add(skel.root)
+      zombie.skel = skel
+      zombie.kind = kind
+      zombie.speedMult = SKELETON_KINDS[kind].speed
+      zombie.damageMult = SKELETON_KINDS[kind].damage
+      zombie.rise = SKELETON_RISE
+      skel.play('rise', { once: true, fade: 0, duration: SKELETON_RISE })
+    } else if (batch) {
       // A copy of the shared body (same geometry and material): it only
       // carries the moving parts' positions - drawZombies() draws every
       // zombie's parts together, one draw per part.
@@ -893,6 +919,10 @@ export class BuildSurvival {
   // geometry is the shared zombie body's (never disposed here); the
   // materials are its own copies, so fading one never fades another.
   _spawnCorpse(z, dir) {
+    if (z.skel) {
+      this._skeletonCorpse(z, dir)
+      return
+    }
     if (!z.body || !z.parts) return
     const B = this.B
     const body = z.body.clone()
@@ -941,7 +971,33 @@ export class BuildSurvival {
     while (this._corpses.length > MAX_CORPSES) this._dropCorpse(this._corpses[0])
   }
 
+  // A dead skeleton plays its own fall, lies there, then sinks into the
+  // ground and is gone - the body itself, not a copy.
+  _skeletonCorpse(z, dir) {
+    z.corpseTaken = true
+    if (dir && (dir.x || dir.z)) z.group.rotation.y = Math.atan2(-dir.x, -dir.z)
+    const fall = z.skel.play('death', { once: true, fade: 0.08 })
+    this._boneCorpses = this._boneCorpses || []
+    this._boneCorpses.push({ group: z.group, skel: z.skel, t: 0, lie: fall + SKELETON_LIE, y: z.group.position.y })
+    while (this._boneCorpses.length > MAX_CORPSES) this._dropBoneCorpse(this._boneCorpses[0])
+  }
+
+  _dropBoneCorpse(c) {
+    this.bm.scene.remove(c.group)
+    c.skel.dispose()
+    this._boneCorpses = this._boneCorpses.filter((o) => o !== c)
+  }
+
   _updateCorpses(dt) {
+    for (const c of [...(this._boneCorpses || [])]) {
+      c.t += dt
+      c.skel.update(dt)
+      const sink = c.t - c.lie
+      if (sink > 0) {
+        c.group.position.y = c.y - (sink / SKELETON_SINK) * 0.6 * this.B
+        if (sink >= SKELETON_SINK) this._dropBoneCorpse(c)
+      }
+    }
     if (!this._corpses?.length) return
     for (const c of [...this._corpses]) {
       c.t += dt
@@ -982,10 +1038,17 @@ export class BuildSurvival {
 
   _clearCorpses() {
     for (const c of [...(this._corpses || [])]) this._dropCorpse(c)
+    for (const c of [...(this._boneCorpses || [])]) this._dropBoneCorpse(c)
   }
 
   _removeZombie(z) {
+    // A dead skeleton's body is still lying there (_skeletonCorpse).
+    if (z.corpseTaken) return
     this.bm.scene.remove(z.group)
+    if (z.skel) {
+      z.skel.dispose()
+      return
+    }
     // A batched body shares its geometry and material - nothing to free.
     if (z.parts) return
     z.group.traverse((o) => {
@@ -1022,6 +1085,20 @@ export class BuildSurvival {
   }
 
   _updateZombie(zb, dt, player, speed) {
+    if (zb.skel) {
+      zb.skel.update(dt)
+      // Still climbing out of the ground: no moving or hitting yet.
+      if (zb.rise > 0) {
+        zb.rise -= dt
+        zb.group.position.set(zb.x * this.B, zb.y * this.B, zb.z * this.B)
+        if (zb.rise <= 0) {
+          zb.rise = 0
+          zb.skel.play('walk')
+        }
+        return
+      }
+      speed *= zb.speedMult || 1
+    }
     const cx = Math.floor(zb.x)
     const cy = Math.floor(zb.y + 0.01)
     const cz = Math.floor(zb.z)
@@ -1103,7 +1180,8 @@ export class BuildSurvival {
     const pz = player.z - zb.z
     if (!player.idle && Math.hypot(px, pz) < ATTACK_RANGE && Math.abs(player.y - zb.y) < 1.5 && zb.attackCd <= 0) {
       zb.attackCd = ATTACK_COOLDOWN
-      const bite = zombieDamage(this.wave) * this.cfg.zombieDamageMult * (zb.boss ? BOSS_DAMAGE_MULT : 1)
+      const bite = zombieDamage(this.wave) * this.cfg.zombieDamageMult * (zb.boss ? BOSS_DAMAGE_MULT : 1) * (zb.damageMult || 1)
+      if (zb.skel) zb.attackAnim = zb.skel.play('attack', { once: true, fade: 0.08, timeScale: 1.4 })
       // Another player on the server: the bite travels to them (nothing
       // reaches anyone inside the camp).
       if (player.remote) {
@@ -1118,6 +1196,7 @@ export class BuildSurvival {
     if (moveLen > 0.2) zb.group.rotation.y = Math.atan2(zb.vx, zb.vz)
     zb.walk += dt * moveLen * 3.2
     const swing = Math.sin(zb.walk) * Math.min(1, moveLen / 2) * 0.7
+    if (zb.skel) this._skeletonGait(zb, dt, moveLen)
     if (zb.body) {
       const lp = zb.body.limbPivots
       lp.legR.rotation.x = swing
@@ -1141,6 +1220,17 @@ export class BuildSurvival {
       zb.moan = 6 + Math.random() * 10
       if (Math.hypot(px, pz) < 14) audioEngine.playZombieMoan?.(1)
     }
+  }
+
+  // Walk or run to match its speed, once a punch or flinch has played out.
+  _skeletonGait(zb, dt, moveLen) {
+    for (const key of ['attackAnim', 'hitAnim']) {
+      if (zb[key] > 0) zb[key] -= dt
+    }
+    if (zb.attackAnim > 0 || zb.hitAnim > 0) return
+    if (moveLen < 0.15) zb.skel.play('idle')
+    else if (moveLen > 2.6) zb.skel.play('run', { timeScale: Math.min(1.4, moveLen / 3.4) })
+    else zb.skel.play('walk', { timeScale: Math.max(0.6, Math.min(1.6, moveLen / 1.6)) })
   }
 
   _doorBottomY(x, y, z) {
@@ -1520,7 +1610,7 @@ export class BuildSurvival {
   zombieSnapshot() {
     const out = {}
     for (const z of this.zombies) {
-      out[`z${z.id}`] = { x: +z.x.toFixed(2), y: +z.y.toFixed(2), z: +z.z.toFixed(2), r: +z.group.rotation.y.toFixed(2), hp: Math.round(z.health), max: Math.round(z.maxHealth || z.health), boss: !!z.boss }
+      out[`z${z.id}`] = { x: +z.x.toFixed(2), y: +z.y.toFixed(2), z: +z.z.toFixed(2), r: +z.group.rotation.y.toFixed(2), hp: Math.round(z.health), max: Math.round(z.maxHealth || z.health), boss: !!z.boss, ...(z.kind ? { k: z.kind } : {}) }
     }
     return out
   }
@@ -1534,7 +1624,7 @@ export class BuildSurvival {
       seen.add(id)
       let z = this.zombies.find((o) => o.id === id)
       if (!z) {
-        z = this._makeZombie(id, d.x, d.y, d.z, d.hp, d.boss)
+        z = this._makeZombie(id, d.x, d.y, d.z, d.hp, d.boss, SKELETON_KINDS[d.k] ? d.k : null)
         z.group.position.set(d.x * this.B, d.y * this.B, d.z * this.B)
       }
       z.tx = d.x
@@ -1576,6 +1666,13 @@ export class BuildSurvival {
       dr = Math.atan2(Math.sin(dr), Math.cos(dr))
       z.group.rotation.y += dr * k
       const moveLen = dt > 0 ? Math.hypot(z.x - ox, z.z - oz) / dt : 0
+      if (z.skel) {
+        z.skel.update(dt)
+        if (z.rise > 0) {
+          z.rise -= dt
+          if (z.rise <= 0) z.skel.play('walk')
+        } else this._skeletonGait(z, dt, moveLen)
+      }
       z.walk += dt * moveLen * 3.2
       const swing = Math.sin(z.walk) * Math.min(1, moveLen / 2) * 0.7
       if (z.body) {
@@ -1586,7 +1683,11 @@ export class BuildSurvival {
         lp.armL.rotation.x = -Math.PI / 2 - swing * 0.2
       }
       if (z.flash > 0) z.flash -= dt
-      z.lastRed = z.flash > 0 ? 0.6 : 0
+      const red = z.flash > 0 ? 0.6 : 0
+      if (z.skel && z.lastRed !== red) {
+        for (const m of z.skel.materials) m.emissive?.setRGB(red, 0, 0)
+      }
+      z.lastRed = red
     }
   }
 

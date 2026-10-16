@@ -1,5 +1,7 @@
 # GayZ — 3D Asset Overhaul: Research + Implementation Plan (Handoff)
 
+> **Status 2026-10-16:** this plan was written for the old Map 1, whose procedural zombies, companion, pickups, props and buildings were all deleted on 2026-10-06 (the block city is Map 1 now, with skin-painted blocky characters). What's been done since: the 15 weapons are real Sketchfab models (`public/models/weapons/`), skeleton enemies are KayKit's CC0 skeletons (`public/models/skeletons/`, `SkeletonModels.js`), and the block textures got a realistic HD pass (`BlockTexturesHD.js`). From the Claude sandbox only raw.githubusercontent.com is reachable among the sources below (KayKit's GitHub repos work, e.g. `.../KayKit-Character-Pack-Skeletons-1.0/main/addons/kaykit_character_pack_skeletons/Characters/gltf/*.glb`); Kenney, Quaternius, Poly Pizza, itch.io, Sketchfab and OpenGameArt are blocked, so those need the owner to download and upload.
+
 Written 2026-07-19. This is a **complete handoff**: the researcher is not continuing the work. Everything needed to execute is in this file — no outside context required.
 
 **What this is:** a fully-researched, decision-ready plan to replace the game's ~75 procedural primitive-built models with real 3D assets, at **zero cost** (hard constraint: no new paid subscriptions — free tiers, open-source, CC0 libraries only).

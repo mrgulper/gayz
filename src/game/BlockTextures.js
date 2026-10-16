@@ -1146,10 +1146,37 @@ function paint(fn) {
   return px.toCanvas()
 }
 
-const cache = new Map()
 
-// -> { top, side, bottom } 16x16 canvases for this block type.
-export function blockFaceCanvases(type) {
+function hdStyleOf(type) {
+  const id = type.id
+  if (id === 'water' || id === 'lava') return 'liquid'
+  if (id === 'glass' || GLASS_IDS.test(id) || id === 'tintedglass' || id === 'ice' || id === 'packedice' || id === 'blueice') return 'glass'
+  if (id === 'leaves' || /leaves$/.test(id)) return 'leaves'
+  if (type.emissive) return 'glow'
+  if (/wool$/.test(id) || type.pattern === 'wool') return 'cloth'
+  if (/(concrete|terracotta|quartz|smooth|polished|froglight|glazed)/.test(id)) return 'smooth'
+  if (/(^gold|^iron|^diamondblock|^emeraldblock|^lapisblock|^redstoneblock|^netherite|copper|^raw)/.test(id) || type.pattern === 'metal') return 'metal'
+  if (type.pattern === 'log' || /(log|stem|hyphae|^wood$|wood$)/.test(id)) return 'bark'
+  if (type.pattern === 'wood' || /(planks|crate|bookshelf|crafting|barrel|chest|jukebox|noteblock|composter|ladder)/.test(id)) return 'wood'
+  if (type.pattern === 'brick' || /(brick|tiles)/.test(id)) return 'brick'
+  if (/(grass|dirt|sand$|^sand|soul|mud|podzol|mycelium|clay|snow|^moss|farmland|path|coarse)/.test(id) && !/sandstone/.test(id)) return 'ground'
+  return 'stone'
+}
+
+// Base (16x16) faces per block, and the HD versions made from them.
+const cache = new Map()
+// base canvas -> HD canvas, filled once the worker is done.
+const hdOf = new Map()
+const hdFaceCache = new Map()
+let hdPromise = null
+
+// The HD version of a texture this module painted (or null) - for swapping
+// pictures already on screen once the HD textures are ready.
+export function hdCanvasFor(canvas) {
+  return hdOf.get(canvas) || null
+}
+
+function baseFaces(type) {
   const cached = cache.get(type.id)
   if (cached) return cached
   const base = hex(type.color)
@@ -1173,6 +1200,79 @@ export function blockFaceCanvases(type) {
   return faces
 }
 
+// -> { top, side, bottom } canvases for this block type: the HD ones
+// (BlockTexturesHD.js) once prepareHdTextures has finished, the 16x16
+// paintings until then.
+export function blockFaceCanvases(type) {
+  const base = baseFaces(type)
+  if (!hdOf.size) return base
+  let faces = hdFaceCache.get(type.id)
+  if (!faces) {
+    faces = {}
+    for (const [key, canvas] of Object.entries(base)) faces[key] = hdOf.get(canvas) || canvas
+    hdFaceCache.set(type.id, faces)
+  }
+  return faces
+}
+
+// Makes the HD textures for these block types (and the doors) in a Web
+// Worker, off the main thread, so the homepage and the game never freeze
+// for it. Resolves true when they're ready (blockFaceCanvases/doorCanvas
+// then hand them out and hdCanvasFor maps old pictures to new), false if
+// workers aren't available - the 16x16 textures simply stay.
+export function prepareHdTextures(types) {
+  if (hdPromise) return hdPromise
+  hdPromise = new Promise((resolve) => {
+    const jobs = []
+    const seen = new Set()
+    const add = (canvas, style, seed) => {
+      if (!canvas || seen.has(canvas)) return
+      seen.add(canvas)
+      jobs.push({ canvas, style, seed })
+    }
+    for (const t of types) {
+      if (t.shape && !t.game) continue
+      const style = hdStyleOf(t)
+      const seed = hashStr(`hd:${t.id}`)
+      for (const canvas of Object.values(baseFaces(t))) add(canvas, style, seed)
+    }
+    for (const kind of Object.keys(DOOR_STYLES)) add(baseDoorCanvas(kind), DOOR_STYLES[kind].metal ? 'metal' : 'wood', hashStr(`hd:door:${kind}`))
+    let worker
+    try {
+      worker = new Worker(new URL('./BlockTexturesHD.worker.js', import.meta.url), { type: 'module' })
+    } catch {
+      resolve(false)
+      return
+    }
+    const payload = jobs.map((j, id) => ({
+      id,
+      w: j.canvas.width,
+      h: j.canvas.height,
+      style: j.style,
+      seed: j.seed,
+      data: j.canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, j.canvas.width, j.canvas.height).data.buffer,
+    }))
+    worker.onmessage = (e) => {
+      for (const r of e.data) {
+        const c = document.createElement('canvas')
+        c.width = r.width
+        c.height = r.height
+        c.getContext('2d', { willReadFrequently: true }).putImageData(new ImageData(new Uint8ClampedArray(r.data), r.width, r.height), 0, 0)
+        hdOf.set(jobs[r.id].canvas, c)
+      }
+      iconCache.clear()
+      worker.terminate()
+      resolve(true)
+    }
+    worker.onerror = () => {
+      worker.terminate()
+      resolve(false)
+    }
+    worker.postMessage(payload, payload.map((p) => p.data))
+  })
+  return hdPromise
+}
+
 // True when the texture itself carries transparency (glass panes, leaf
 // holes, jelly blocks) - those render with the texture's own alpha rather
 // than one flat opacity for the whole block.
@@ -1193,7 +1293,6 @@ export function blockIconURL(type, size = 64, heightFrac = 1) {
   // CPU-backed canvas: toDataURL on a GPU canvas is a readback per icon -
   // ~6.5s for the picker's 121 icons in a 2026-09-29 profile.
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  ctx.imageSmoothingEnabled = false
   const pad = size * 0.06
   const w = size - pad * 2
   const half = w / 2
@@ -1205,21 +1304,24 @@ export function blockIconURL(type, size = 64, heightFrac = 1) {
   const B = [cx, pad + 2 * q + drop]
   const L = [cx - half, pad + q + drop]
   const h = half * heightFrac
+  // The faces are HD_SIZE pictures; n is whatever size they really are.
   const shaded = (src, dark) => {
+    const n = src.width
     const c = document.createElement('canvas')
-    c.width = c.height = S
+    c.width = c.height = n
     const cc = c.getContext('2d', { willReadFrequently: true })
     cc.drawImage(src, 0, 0)
     cc.globalCompositeOperation = 'source-atop'
     cc.fillStyle = `rgba(0,0,0,${dark})`
-    cc.fillRect(0, 0, S, S)
+    cc.fillRect(0, 0, n, n)
     return c
   }
   // crop: how much of the texture's height to show (the bottom part, for
   // a slab's sides).
   const face = (src, origin, xAxis, yAxis, dark, crop = 1) => {
-    ctx.setTransform(xAxis[0] / S, xAxis[1] / S, yAxis[0] / S, yAxis[1] / S, origin[0], origin[1])
-    ctx.drawImage(dark ? shaded(src, dark) : src, 0, S * (1 - crop), S, S * crop, 0, 0, S, S)
+    const n = src.width
+    ctx.setTransform(xAxis[0] / n, xAxis[1] / n, yAxis[0] / n, yAxis[1] / n, origin[0], origin[1])
+    ctx.drawImage(dark ? shaded(src, dark) : src, 0, n * (1 - crop), n, n * crop, 0, 0, n, n)
   }
   face(faces.side, L, [B[0] - L[0], B[1] - L[1]], [0, h], 0.22, heightFrac)
   face(faces.side, B, [R[0] - B[0], R[1] - B[1]], [0, h], 0.4, heightFrac)
@@ -1240,7 +1342,6 @@ export function stairsIconURL(type, size = 64) {
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = size
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  ctx.imageSmoothingEnabled = false
   const pad = size * 0.06
   const half = (size - pad * 2) / 2
   const q = half / 2
@@ -1251,20 +1352,22 @@ export function stairsIconURL(type, size = 64) {
   const sub = (a, b) => [a[0] - b[0], a[1] - b[1]]
   const shade = (src, dark) => {
     if (!dark) return src
+    const n = src.width
     const c = document.createElement('canvas')
-    c.width = c.height = S
+    c.width = c.height = n
     const cc = c.getContext('2d', { willReadFrequently: true })
     cc.drawImage(src, 0, 0)
     cc.globalCompositeOperation = 'source-atop'
     cc.fillStyle = `rgba(0,0,0,${dark})`
-    cc.fillRect(0, 0, S, S)
+    cc.fillRect(0, 0, n, n)
     return c
   }
   // A parallelogram from origin along xAxis/yAxis, showing the texture's
   // rows from v0 to v1 (0 = top of the texture).
   const face = (src, origin, xAxis, yAxis, dark, v0 = 0, v1 = 1) => {
-    ctx.setTransform(xAxis[0] / S, xAxis[1] / S, yAxis[0] / S, yAxis[1] / S, origin[0], origin[1])
-    ctx.drawImage(shade(src, dark), 0, S * v0, S, S * (v1 - v0), 0, 0, S, S)
+    const n = src.width
+    ctx.setTransform(xAxis[0] / n, xAxis[1] / n, yAxis[0] / n, yAxis[1] / n, origin[0], origin[1])
+    ctx.drawImage(shade(src, dark), 0, n * v0, n, n * (v1 - v0), 0, 0, n, n)
   }
   const box = (x0, x1, y0, y1, z0, z1) => {
     face(faces.side, at(x0, y1, z1), sub(at(x1, y1, z1), at(x0, y1, z1)), sub(at(x0, y0, z1), at(x0, y1, z1)), 0.22, 1 - y1, 1 - y0)
@@ -1292,7 +1395,13 @@ const DOOR_STYLES = {
   iron: { base: [210, 210, 206], windows: 'two', metal: true },
 }
 const doorCache = new Map()
+// The door picture: HD once prepareHdTextures is done.
 export function doorCanvas(kind) {
+  const base = baseDoorCanvas(kind)
+  return hdOf.get(base) || base
+}
+
+function baseDoorCanvas(kind) {
   if (doorCache.has(kind)) return doorCache.get(kind)
   const style = DOOR_STYLES[kind] || DOOR_STYLES.oak
   const r = rng(hashStr(`door:${kind}`))

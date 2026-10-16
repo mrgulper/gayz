@@ -1290,3 +1290,69 @@ test('the camera key switches between first and third person', async ({ page }) 
   expect(r.views.every((v) => v.back)).toBe(true)
   expect(r.aimInThird).toBe(false)
 })
+
+// 2026-10-16: realistic HD block textures are made in a worker and swapped
+// into the chunk atlas (same layout) without waiting - a tile then holds
+// far more shades than a 16x16 pixel-art texture can.
+test('block textures turn HD once the worker is done', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(async () => { await window.__game._enterBuildMode({ map: 'map2' }) })
+  await page.waitForFunction(() => (window.__game.buildMode._chunks?.atlas?.version || 0) >= 2, null, { timeout: 90000 })
+  const r = await page.evaluate(() => {
+    const chunks = window.__game.buildMode._chunks
+    const ctx = chunks.atlas.image.getContext('2d', { willReadFrequently: true })
+    let colors = 0
+    for (const slot of chunks._atlasSlots.slice(0, 50)) {
+      const d = ctx.getImageData(slot.ox, slot.oy, 64, 64).data
+      const seen = new Set()
+      for (let i = 0; i < d.length; i += 4) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2])
+      colors = Math.max(colors, seen.size)
+    }
+    return { slots: chunks._atlasSlots.length, colors, width: chunks.atlas.image.width }
+  })
+  expect(r.slots).toBeGreaterThan(250)
+  expect(r.width).toBe(4096)
+  expect(r.colors).toBeGreaterThan(300)
+})
+
+// 2026-10-16: real animated 3D skeletons (SkeletonModels.js) join the
+// waves - they rise, walk, take hits, are synced with their kind, and die
+// with their own fall before sinking away.
+test('skeletons rise, fight, sync and die', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(async () => { await window.__game._enterBuildMode({ map: 'map3', play: true }) })
+  const r = await page.evaluate(async () => {
+    const s = window.__game.buildMode.survival
+    if (document.getElementById('play-weapon-pick')?.style.display !== 'none') s._pickWeapon('rifle')
+    s._toSpawn = 0
+    s._breakTimer = 999
+    const p = window.__game.buildMode.tryMode.pos
+    let z = null
+    for (let i = 0; i < 150 && !z?.skel; i++) {
+      if (z) { s._removeZombie(z); s.zombies = s.zombies.filter((o) => o !== z) }
+      z = s._makeZombie(500 + i, p.x, p.y, p.z - 6, 200, false, 'warrior')
+      if (!z.skel) await new Promise((res) => setTimeout(res, 200))
+    }
+    const out = { skel: !!z.skel, rising: z.rise > 0, snap: s.zombieSnapshot()[`z${z.id}`] }
+    for (let i = 0; i < 80; i++) s.update(1 / 30)
+    out.risen = z.rise === 0
+    out.anim = z.skel.playing
+    s.damageZombie(z, 10)
+    out.hitAnim = z.skel.playing
+    s.damageZombie(z, 1000)
+    out.alive = s.zombies.includes(z)
+    out.corpses = s._boneCorpses?.length || 0
+    for (let i = 0; i < 300; i++) s.update(1 / 30)
+    out.corpsesAfter = s._boneCorpses?.length || 0
+    return out
+  })
+  expect(r.skel).toBe(true)
+  expect(r.rising).toBe(true)
+  expect(r.snap).toMatchObject({ k: 'warrior' })
+  expect(r.risen).toBe(true)
+  expect(['walk', 'run', 'idle', 'attack']).toContain(r.anim)
+  expect(r.hitAnim).toBe('hit')
+  expect(r.alive).toBe(false)
+  expect(r.corpses).toBe(1)
+  expect(r.corpsesAfter).toBe(0)
+})

@@ -190,6 +190,8 @@ export async function leaveServer(db, { serverId, playerId, token } = {}, now = 
   return { ok: true }
 }
 
+const SKELETON_KIND_IDS = new Set(['minion', 'rogue', 'warrior', 'mage'])
+
 function cleanZombie(z) {
   if (!z || typeof z !== 'object') return null
   return {
@@ -200,6 +202,8 @@ function cleanZombie(z) {
     hp: num(z.hp, 0, 1e6),
     max: num(z.max, 1, 1e6),
     boss: !!z.boss,
+    // A skeleton's kind (SkeletonModels.js); zombies have none.
+    ...(SKELETON_KIND_IDS.has(z.k) ? { k: z.k } : {}),
   }
 }
 
