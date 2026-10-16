@@ -1,8 +1,6 @@
 import * as THREE from 'three'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { LOW_QUALITY_MODE } from './QualitySettings.js'
 import { WeaponCatalog } from './WeaponCatalog.js'
-import { cloneViewmodel } from './Viewmodels.js'
 import { Achievements, ACHIEVEMENTS } from './Achievements.js'
 import { Quests, QUESTS } from './Quests.js'
 import { RollingQuests, EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQuests.js'
@@ -29,7 +27,7 @@ export const CRATE_TIERS = {
 // --crate-tier-color (src/style.css) - duplicated here since the
 // purchase modal sets this as an inline style (there's no per-tier class
 // on its single shared box to hang a CSS rule off instead).
-const CRATE_TIER_COLORS = { wood: '#c9915a', ice: '#8fd9f0', golden: '#f0c23e' }
+export const CRATE_TIER_COLORS = { wood: '#c9915a', ice: '#8fd9f0', golden: '#f0c23e' }
 
 // Same isometric 3-face icon markup as each .crate-card's own <svg> (see
 // index.html), duplicated here as plain strings so the purchase modal
@@ -39,7 +37,7 @@ const CRATE_TIER_COLORS = { wood: '#c9915a', ice: '#8fd9f0', golden: '#f0c23e' }
 // copies' own ids (that exact bug, and why it matters, is documented on
 // the crate-icon SVG's own commit - duplicate SVG gradient ids are
 // invalid HTML and rendered visibly wrong in one of the three places).
-const CRATE_ICON_SVG = {
+export const CRATE_ICON_SVG = {
   wood: `<svg viewBox="0 0 24 24">
     <defs>
       <linearGradient id="wood-top-modal" x1="4" y1="4" x2="20" y2="13" gradientUnits="userSpaceOnUse">
@@ -122,8 +120,7 @@ import { BIOMES, seedFromText } from './OpenWorld.js'
 import * as GalleryUI from './GalleryUI.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
 import * as MenuEasterEggs from './MenuEasterEggs.js'
-import { MenuAvatar3D, loadSkinTexture, buildTexturedCharacter, DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW_DATA_URL } from './MenuAvatar3D.js'
-import { InspectViewer } from './InspectViewer.js'
+import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW_DATA_URL } from './MenuAvatar3D.js'
 // BuildMode.js is deliberately NOT statically imported here - it's a big,
 // self-contained system most visitors never touch (a whole separate
 // scene/camera/90+ block types), so it's dynamically imported on first use
@@ -131,6 +128,10 @@ import { InspectViewer } from './InspectViewer.js'
 import * as CloudSync from './CloudSync.js'
 import * as CloudSaveUI from './CloudSaveUI.js'
 import * as ChatUI from './ChatUI.js'
+import * as InventoryUI from './InventoryUI.js'
+import * as ClanUI from './ClanUI.js'
+import * as OnlineUI from './OnlineUI.js'
+import * as FriendsUI from './FriendsUI.js'
 import * as SettingsUI from './SettingsUI.js'
 import * as ServerBrowser from './ServerBrowser.js'
 import { PlayNet } from './PlayNet.js'
@@ -164,9 +165,9 @@ export const RANDOM_NICKNAME_NOUNS = ['Wolf', 'Scav', 'Reaper', 'Nomad', 'Ghost'
 // _renderWeeklyLeaderboardList) - plain ordinal text + a gold/silver/
 // bronze CSS class, not emoji medals (this codebase has a documented
 // no-emoji UI convention, see #profile-emblem-row's own comment).
-const PODIUM_MEDALS = ['1st', '2nd', '3rd']
+export const PODIUM_MEDALS = ['1st', '2nd', '3rd']
 // Cache Storage name for the saved weapon pictures (see _loadSavedWeaponThumbs).
-const WEAPON_THUMBS_CACHE = 'gayz-weapon-thumbs-v2'
+export const WEAPON_THUMBS_CACHE = 'gayz-weapon-thumbs-v2'
 
 // Main-menu news ticker thresholds (see _updateMenuNewsTicker) - both read
 // against bestStats.bestNight.
@@ -524,7 +525,7 @@ const WEEKLY_CHALLENGES = [
   { id: 'sharpshooter', titleKey: 'weeklySharpshooter', target: 200, rewardCoins: 150 },
 ]
 
-function _thisWeekStr(date) {
+export function _thisWeekStr(date) {
   const d = date || new Date()
   const firstJan = new Date(d.getFullYear(), 0, 1)
   const week = Math.ceil(((d - firstJan) / 86400000 + firstJan.getDay() + 1) / 7)
@@ -610,7 +611,7 @@ const FORTUNE_HUNTER_COINS = 3000
 // The achievement that counts as beating the game: it unlocks Nightmare
 // difficulty, Prestige and the Career Portrait.
 const ENDGAME_ACHIEVEMENT = 'survivor_10'
-const GLOBAL_KILLS_MILESTONE_STEP = 100000
+export const GLOBAL_KILLS_MILESTONE_STEP = 100000
 // Renamed from WEEKLY_FEATURED_MUTATOR_LABEL_KEYS (Online Features batch)
 // and extended to cover every mutator with a real i18n label - the
 // Mutator Exploration spotlight nudge (see _updateMenuSpotlight mode 4)
@@ -948,7 +949,7 @@ function saveLoginStreak(state) {
   }
 }
 
-function todayDateString() {
+export function todayDateString() {
   return new Date().toISOString().slice(0, 10)
 }
 
@@ -962,7 +963,7 @@ function yesterdayDateString() {
 // above (a single best-ever record with no history). Every run that ends
 // (death or dawn-survival) adds one entry; kept sorted best-first and
 // capped at LEADERBOARD_MAX_ENTRIES so this can't grow unbounded.
-const LEADERBOARD_KEY = 'gayz-leaderboard'
+export const LEADERBOARD_KEY = 'gayz-leaderboard'
 const LEADERBOARD_MAX_ENTRIES = 10
 
 function loadLeaderboard() {
@@ -1030,7 +1031,7 @@ function loadShopProgress() {
   }
 }
 
-function saveShopProgress(game) {
+export function saveShopProgress(game) {
   try {
     const json = JSON.stringify({
       points: game.points,
@@ -1060,9 +1061,9 @@ function saveShopProgress(game) {
 // FRIEND's staleness against that same cadence with headroom for a missed
 // tick or two, not an exact 1:1 match to the interval.
 const FRIEND_HEARTBEAT_INTERVAL_MS = 60000
-const FRIEND_ONLINE_THRESHOLD_MS = 2 * 60 * 1000
-const FRIEND_OFFLINE_THRESHOLD_MS = 5 * 60 * 1000
-const FRIEND_STATUS_LABEL_KEYS = { online: 'friendStatusOnline', idle: 'friendStatusIdle', dnd: 'friendStatusDnd', offline: 'friendStatusOffline' }
+export const FRIEND_ONLINE_THRESHOLD_MS = 2 * 60 * 1000
+export const FRIEND_OFFLINE_THRESHOLD_MS = 5 * 60 * 1000
+export const FRIEND_STATUS_LABEL_KEYS = { online: 'friendStatusOnline', idle: 'friendStatusIdle', dnd: 'friendStatusDnd', offline: 'friendStatusOffline' }
 
 // Reset All Progress - see _handleResetProgressClick's own comment for why
 // this is a two-click arm/confirm instead of a single button.
@@ -1477,8 +1478,8 @@ export const LAST_LOCAL_CHANGE_KEY = 'gayz-last-local-change'
 // user-generated content, so no moderation surface beyond picking a new
 // POLL_ID + option set for the next one). Changing POLL_ID starts a fresh
 // vote count from zero rather than resetting the old one's votes.
-const POLL_ID = 'next-feature-2026'
-const POLL_OPTIONS = [
+export const POLL_ID = 'next-feature-2026'
+export const POLL_OPTIONS = [
   { id: 'more_bosses', labelKey: 'pollOptionMoreBosses' },
   { id: 'new_map_area', labelKey: 'pollOptionNewMapArea' },
   { id: 'more_weapons', labelKey: 'pollOptionMoreWeapons' },
@@ -1492,7 +1493,7 @@ const POLL_OPTIONS = [
 // _renderWeaponPickerOptions so the "Choose Your Weapon" screen shown
 // right after clicking Play has a distinct image per card instead of
 // name-only text.
-const WEAPON_ICON_PATHS = {
+export const WEAPON_ICON_PATHS = {
   rifle: '<line x1="2" y1="12" x2="22" y2="12"/><line x1="20" y1="12" x2="20" y2="9"/><line x1="2" y1="12" x2="1" y2="17"/><line x1="13" y1="12" x2="14" y2="17"/><path d="M10 12q0 6 3 7"/>',
   pistol: '<rect x="5" y="9" width="12" height="4" rx="1"/><line x1="17" y1="10.5" x2="20" y2="10.5"/><path d="M6 13v6h4v-6"/><path d="M9 13a3 3 0 0 0 3 3"/>',
   minigun: '<circle cx="9" cy="12" r="5"/><circle cx="9" cy="12" r="2.5"/><circle cx="9" cy="12" r="0.8" fill="currentColor" stroke="none"/><line x1="13.5" y1="12" x2="19" y2="12"/><line x1="16" y1="12" x2="16" y2="18"/>',
@@ -1510,7 +1511,7 @@ const WEAPON_ICON_PATHS = {
 }
 
 
-function formatTime(ms) {
+export function formatTime(ms) {
   const totalSec = Math.floor(ms / 1000)
   const mm = String(Math.floor(totalSec / 60)).padStart(2, '0')
   const ss = String(totalSec % 60).padStart(2, '0')
@@ -1727,7 +1728,7 @@ const EDITOR_MIN_PIXEL_RATIO = 0.6
 // Last visit's save-driven homepage values (see _saveMenuPaintCache).
 const MENU_PAINT_CACHE_KEY = 'menu-paint-cache'
 // How long the clan list loaded when General opens stays fresh.
-const CLAN_RANKING_CACHE_MS = 60000
+export const CLAN_RANKING_CACHE_MS = 60000
 // The What's New update card fades away by itself after this long.
 const UPDATE_BANNER_SHOW_MS = 12000
 const UPDATE_BANNER_FADE_MS = 900
@@ -1750,7 +1751,7 @@ export const INVENTORY_SKINS = [
     sell: { currency: 'coins', amount: Math.floor(MARKET_PRICES[skin.rarity] / 2) },
   })),
 ]
-const SKIN_RARITIES = {
+export const SKIN_RARITIES = {
   common: { color: '#9aa0a6', key: 'skinRarityCommon' },
   uncommon: { color: '#4caf50', key: 'skinRarityUncommon' },
   rare: { color: '#2f80ed', key: 'skinRarityRare' },
@@ -3000,1174 +3001,97 @@ export class Game {
 
   _snapshotLocalSave() { return SettingsUI._snapshotLocalSave(this) }
 
-  // Cloud Save panel open/close - a normal modal, same shared z-index/
-  // display:flex rule every other panel uses.
-  // Online Features - global leaderboard, weekly-challenge ranking, friend
-  // comparison, global kill counter, community poll. All read-only fetches
-  // here (writes happen once per run in _pushOnlineStats, not on every
-  // panel open) - best-effort, a failed fetch just leaves that section
-  // showing its previous/empty state rather than blocking the rest of the
-  // panel.
-  async _renderCloudOnlineSection() {
-    if (!this.cloudsaveOnlineSection || !CloudSync.isConfigured()) return
-    this._renderGlobalKills()
-    this._renderMyRank()
-    this._renderRival()
-    this._renderNearbyRank()
-    this._renderGlobalAverages()
-    this._subscribeLeaderboard()
-    this._renderAchievementsLeaderboard()
-    this._renderWeeklyLeaderboardList()
-    this._renderPoll()
-    this._renderSavedFriends()
-    if (this.sendFriendRequestBtn) this.sendFriendRequestBtn.textContent = t('sendFriendRequestBtn')
-    if (this.cloudsaveFriendInput) this.cloudsaveFriendInput.placeholder = t('cloudsaveFriendPlaceholder')
-    if (this.cloudsaveLeaderboardTitle) this.cloudsaveLeaderboardTitle.textContent = t('cloudsaveLeaderboardTitle')
-    if (this.cloudsaveAchievementsLeaderboardTitle) this.cloudsaveAchievementsLeaderboardTitle.textContent = t('cloudsaveAchievementsLeaderboardTitle')
-    if (this.cloudsaveFriendTitle) this.cloudsaveFriendTitle.textContent = t('cloudsaveFriendTitle')
-    if (this.addFriendHeading) this.addFriendHeading.textContent = t('addFriendHeading')
-    if (this.cloudsaveRegionSelect) this.cloudsaveRegionSelect.value = this.settings.region
-  }
+  _renderCloudOnlineSection() { return OnlineUI._renderCloudOnlineSection(this) }
 
-  // Global rank badge - also mirrored onto the homepage player tag (see
-  // _updateBestStatsDisplay) once fetched, so signing in and opening this
-  // panel is what refreshes that homepage line rather than a live
-  // subscription (a rank that's a few minutes stale is fine for this).
-  async _renderMyRank() {
-    if (!this.cloudsaveRankLine) return
-    try {
-      const newRank = await CloudSync.fetchMyGlobalRank(_safeStatNumber(this.bestStats.bestNight))
-      // Leaderboard Rank Change Alerts (General tab) - only a real
-      // improvement (lower rank number), not the first fetch this
-      // session, and not a worsening (someone else beating your old
-      // score isn't something to nag about here).
-      if (this.settings.leaderboardRankAlerts && this._cloudGlobalRank !== undefined && newRank < this._cloudGlobalRank) {
-        this._showHomepageToast(t('leaderboardRankUpToast', { rank: newRank }))
-      }
-      this._cloudGlobalRank = newRank
-      this.cloudsaveRankLine.textContent = t('cloudsaveRankLine', { rank: this._cloudGlobalRank })
-      if (this.menuPlayerTag) this._renderPlayerTag()
-    } catch {
-      this.cloudsaveRankLine.textContent = ''
-    }
-  }
+  _renderMyRank() { return OnlineUI._renderMyRank(this) }
 
-  async _renderRival() {
-    if (!this.cloudsaveRivalLine) return
-    try {
-      const rival = await CloudSync.fetchNearestRivalAbove(_safeStatNumber(this.bestStats.bestNight))
-      if (!rival) {
-        this.cloudsaveRivalLine.textContent = t('cloudsaveRivalNone')
-        return
-      }
-      const gap = _safeStatNumber(rival.bestNight) - _safeStatNumber(this.bestStats.bestNight)
-      this.cloudsaveRivalLine.textContent = t('cloudsaveRivalLine', { n: gap, name: rival.name || '???' })
-      // Urgent variant - a toast (not just the panel text above) when the
-      // gap is genuinely small, once per session per rival name so it
-      // doesn't refire every time the Cloud Save panel happens to open.
-      if (gap <= 2 && this._urgentRivalToastedFor !== rival.name) {
-        this._urgentRivalToastedFor = rival.name
-        this._showHomepageToast(t('urgentRivalToast', { name: rival.name || '???', n: gap }))
-      }
-    } catch {
-      this.cloudsaveRivalLine.textContent = ''
-    }
-  }
+  _renderRival() { return OnlineUI._renderRival(this) }
 
-  // Nearby Rank mini-leaderboard - 3 entries above you, 3 below (see
-  // CloudSync.fetchNearbyRank), reversing "above" so the combined list
-  // reads highest-to-lowest, same order as the main leaderboard.
-  async _renderNearbyRank() {
-    if (!this.cloudsaveNearbyRankList) return
-    if (this.cloudsaveNearbyRankTitle) this.cloudsaveNearbyRankTitle.textContent = t('cloudsaveNearbyRankTitle')
-    try {
-      const { above, below } = await CloudSync.fetchNearbyRank(_safeStatNumber(this.bestStats.bestNight), 3)
-      const mine = { name: this.settings.nickname || t('menuPlayerTagDefault'), bestNight: this.bestStats.bestNight, bestKills: this.careerStats.totalKills, __me: true }
-      const combined = [...above.reverse(), mine, ...below]
-      this.cloudsaveNearbyRankList.innerHTML = combined.map((r) => `
-        <div class="cloud-leaderboard-row${r.__me ? ' me' : ''}"><span>${_escapeHtml(r.name || '???')}</span><span>${t('cloudsaveLeaderboardRow', { night: _safeStatNumber(r.bestNight), kills: _safeStatNumber(r.bestKills) })}</span></div>
-      `).join('')
-    } catch {
-      this.cloudsaveNearbyRankList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`
-    }
-  }
+  _renderNearbyRank() { return OnlineUI._renderNearbyRank(this) }
 
-  // "Your Friends" list - now populated only by accepting an incoming
-  // friend request (see _respondToFriendRequest), not by manually typing a
-  // name any more (that was the removed Save/Compare flow). Each row shows
-  // a live presence status (see _fetchFriendPresences/_computeFriendStatus)
-  // fetched right after the list itself renders, since the status read is
-  // its own async Firestore call per friend, not part of settings.
-  // "Your Friends (#)", like Friend Requests' count (2026-10-10).
-  _renderFriendsCount() {
-    const count = document.getElementById('friends-count')
-    if (count) count.textContent = t('friendRequestsCount', { n: this.settings.savedFriends.length })
-  }
+  _renderFriendsCount() { return FriendsUI._renderFriendsCount(this) }
 
-  _renderSavedFriends() {
-    if (!this.cloudsaveSavedFriends) return
-    const friends = this.settings.savedFriends
-    this._renderFriendsCount()
-    this.cloudsaveSavedFriends.innerHTML = friends.map((f) => `
-      <div class="saved-friend-row" data-uid="${_escapeHtml(f.uid || '')}" data-name="${_escapeHtml(f.name)}" title="Click to view profile">
-        <span class="friend-status-dot" data-status="offline"></span>
-        <span class="friend-name">${_escapeHtml(f.name)}${f.playerId ? ` <span class="friend-id">#${_escapeHtml(f.playerId)}</span>` : ''}</span>
-        <span class="friend-status-label">${t('friendStatusOffline')}</span>
-        <span class="saved-friend-remove" data-remove="${_escapeHtml(f.name)}">×</span>
-      </div>
-    `).join('')
-    for (const btn of this.cloudsaveSavedFriends.querySelectorAll('.saved-friend-remove')) {
-      btn.addEventListener('click', () => {
-        if (this.settings.confirmRemoveFriend && !window.confirm(t('confirmRemoveFriendMessage', { name: btn.dataset.remove }))) return
-        this.settings.savedFriends = this.settings.savedFriends.filter((f) => f.name !== btn.dataset.remove)
-        saveSettings(this.settings)
-        this._renderSavedFriends()
-      })
-    }
-    this._fetchFriendPresences(friends)
-  }
+  _renderSavedFriends() { return FriendsUI._renderSavedFriends(this) }
 
-  // Viewing another player's live profile - a small public read-only panel
-  // (name/id/best stats, all already-public leaderboard fields, see
-  // CloudSync.fetchLeaderboardEntryByUid) opened by clicking a row in
-  // "Your Friends". Distinct from the existing static ?viewprofile= share
-  // link (a snapshot someone posts elsewhere) - this always reflects their
-  // CURRENT live stats since it fetches fresh on every open.
-  async _openOtherPlayerProfile(uid, fallbackName) {
-    if (!this.otherProfilePanel) return
-    this._showOtherProfileLoading(fallbackName)
-    let entry = null
-    try {
-      entry = await CloudSync.fetchLeaderboardEntryByUid(uid)
-    } catch {
-      // Best-effort - falls through to the "hasn't completed a run yet"
-      // state below, same as a genuine null result.
-    }
-    // The panel may have been closed (or reopened for someone else) while
-    // this fetch was in flight - don't clobber whatever's showing now.
-    if (this.otherProfilePanel.style.display === 'none') return
-    this._renderOtherProfileEntry(entry, fallbackName)
-  }
+  _openOtherPlayerProfile(uid, fallbackName) { return FriendsUI._openOtherPlayerProfile(this, uid, fallbackName) }
 
-  // Same panel, reached by pasting a Player ID into chat instead of
-  // clicking a Friends row (see ChatUI.bindChatContextActions/ChatUI.bindServerChat's
-  // .chat-message-id-link handler) - looked up by playerId
-  // (fetchLeaderboardEntryByPlayerId) rather than uid, everything else
-  // about opening/rendering the panel is identical.
-  async _openOtherPlayerProfileById(playerId, fallbackName) {
-    if (!this.otherProfilePanel) return
-    this._showOtherProfileLoading(fallbackName)
-    const entry = await CloudSync.fetchLeaderboardEntryByPlayerId(playerId).catch(() => null)
-    if (this.otherProfilePanel.style.display === 'none') return
-    this._renderOtherProfileEntry(entry, fallbackName)
-  }
+  _openOtherPlayerProfileById(playerId, fallbackName) { return FriendsUI._openOtherPlayerProfileById(this, playerId, fallbackName) }
 
-  _showOtherProfileLoading(fallbackName) {
-    this.otherProfilePanel.style.display = 'flex'
-    this.otherProfileName.textContent = fallbackName || '???'
-    this._otherProfileIdText = null
-    this._otherProfileCurrentPlayerId = null
-    this.otherProfileId.textContent = ''
-    this.otherProfileStats.style.display = 'none'
-    this.otherProfileNone.style.display = 'none'
-    this.otherProfileLoading.style.display = 'block'
-    // Bio/Motto/Notes column - hidden during loading/no-data states (see
-    // _renderOtherProfileEntry's own !entry branch), only shown once
-    // there's an actual entry+playerId to attach a Notes key to.
-    if (this.otherProfileBioMotto) this.otherProfileBioMotto.style.display = 'none'
-  }
+  _showOtherProfileLoading(fallbackName) { return FriendsUI._showOtherProfileLoading(this, fallbackName) }
 
-  // Same field set as the Profile panel's own "Shown to Public" tab (see
-  // _renderPublicProfileSection) minus Clan - a leaderboard entry only
-  // carries the other player's clanId, not a resolvable tag/name, and
-  // showing a raw id wouldn't mean anything to whoever's looking.
-  _renderOtherProfileEntry(entry, fallbackName) {
-    this.otherProfileLoading.style.display = 'none'
-    if (!entry) {
-      this.otherProfileNone.style.display = 'block'
-      return
-    }
-    this.otherProfileName.textContent = entry.name || fallbackName || '???'
-    // Notes needs a stable key to save under - no playerId, no Notes
-    // section (matches _showOtherProfileLoading's own default-hidden
-    // state, just never un-hidden in this rare case).
-    this._otherProfileCurrentPlayerId = entry.playerId || null
-    if (entry.playerId) {
-      this._otherProfileIdText = `#${entry.playerId}`
-      this.otherProfileId.textContent = this._otherProfileIdText
-    }
-    this.otherProfileBestNightValue.textContent = _safeStatNumber(entry.bestNight)
-    this.otherProfileBestKillsValue.textContent = _safeStatNumber(entry.bestKills)
-    this.otherProfileBestStreakValue.textContent = _safeStatNumber(entry.bestKillStreak)
-    this.otherProfileAchievementsValue.textContent = _safeStatNumber(entry.achievementCount)
-    // Same enum keys the region <select> and _renderPublicProfileSection
-    // already use - no new i18n keys needed.
-    const REGION_LABEL_KEYS = { na: 'optRegionNa', eu: 'optRegionEu', asia: 'optRegionAsia', sa: 'optRegionSa', oceania: 'optRegionOceania', africa: 'optRegionAfrica' }
-    const regionKey = REGION_LABEL_KEYS[entry.region]
-    if (this.otherProfileRegionRow) this.otherProfileRegionRow.style.display = regionKey ? 'flex' : 'none'
-    if (regionKey && this.otherProfileRegionValue) this.otherProfileRegionValue.textContent = t(regionKey)
-    this._renderOtherProfilePublicFields(entry)
-    this.otherProfileStats.style.display = 'block'
-  }
+  _renderOtherProfileEntry(entry, fallbackName) { return FriendsUI._renderOtherProfileEntry(this, entry, fallbackName) }
 
-  // The read side of moving Bio/Motto/Your Stats to Shown to Public (see
-  // _pushOnlineStats' own comment on the write side) - every field here
-  // is raw/structured (never pre-rendered text) coming off the fetched
-  // leaderboard entry, formatted/translated through the VIEWER's own t(),
-  // same as _updateBestStatsDisplay does for the profile owner's own
-  // view. Every field is optional (an old doc synced before this shipped
-  // won't have any of them) - each row/line hides itself rather than
-  // showing a misleading "0"/"--" when its source field is just absent.
-  _renderOtherProfilePublicFields(entry) {
-    if (this.otherProfileTotalKillsValue) {
-      const kd = (_safeStatNumber(entry.totalKills) / Math.max(1, _safeStatNumber(entry.totalDeaths))).toFixed(1)
-      this.otherProfileTotalKillsValue.textContent = `${_safeStatNumber(entry.totalKills)} (K/D ${kd})`
-    }
-    if (this.otherProfileRunsPlayedValue) {
-      const hours = (_safeStatNumber(entry.lifetimePlaytimeSeconds) / 3600).toFixed(1)
-      this.otherProfileRunsPlayedValue.textContent = `${_safeStatNumber(entry.totalRuns)} · ${hours}h played`
-    }
-    if (this.otherProfileLongestSurvivalValue) {
-      this.otherProfileLongestSurvivalValue.textContent = entry.longestSurvivalMs ? formatTime(_safeStatNumber(entry.longestSurvivalMs)) : '--'
-    }
-    if (this.otherProfileLastRunValue) {
-      this.otherProfileLastRunValue.textContent = ('lastRunNight' in entry)
-        ? t(entry.lastRunSurvived ? 'runHistorySurvived' : 'runHistoryDied', { night: _safeStatNumber(entry.lastRunNight), kills: _safeStatNumber(entry.lastRunKills), coins: _safeStatNumber(entry.lastRunCoins) })
-        : '--'
-    }
-    if (this.otherProfileAnniversaryLine) {
-      if (entry.firstPlayedDate) {
-        const days = Math.max(0, Math.round((new Date(todayDateString()) - new Date(entry.firstPlayedDate)) / 86400000))
-        this.otherProfileAnniversaryLine.textContent = t('otherProfileAnniversaryLine', { n: days })
-        this.otherProfileAnniversaryLine.style.display = ''
-      } else {
-        this.otherProfileAnniversaryLine.style.display = 'none'
-      }
-    }
-    if (this.otherProfileTodayLine) {
-      if ('todayKills' in entry) {
-        this.otherProfileTodayLine.textContent = t('todayLine', { kills: _safeStatNumber(entry.todayKills), minutes: _safeStatNumber(entry.todayMinutes) })
-        this.otherProfileTodayLine.style.display = ''
-      } else {
-        this.otherProfileTodayLine.style.display = 'none'
-      }
-    }
-    if (this.otherProfileFavoriteDifficultyLine) {
-      if (entry.favoriteDifficulty) {
-        const btn = Array.from(this.difficultyBtns).find((b) => b.dataset.difficulty === entry.favoriteDifficulty)
-        this.otherProfileFavoriteDifficultyLine.textContent = t('favoriteDifficultyLine', { difficulty: btn ? btn.textContent : entry.favoriteDifficulty })
-        this.otherProfileFavoriteDifficultyLine.style.display = ''
-      } else {
-        this.otherProfileFavoriteDifficultyLine.style.display = 'none'
-      }
-    }
-    if (this.otherProfileBestRunCard) {
-      if ('bestRunNight' in entry) {
-        if (this.otherProfileBestRunTitle) this.otherProfileBestRunTitle.textContent = t('profileBestRunTitle')
-        const diffBtn = Array.from(this.difficultyBtns).find((b) => b.dataset.difficulty === entry.bestRunDifficulty)
-        this.otherProfileBestRunLine.textContent = t('profileBestRunLine', {
-          night: _safeStatNumber(entry.bestRunNight),
-          kills: _safeStatNumber(entry.bestRunKills),
-          coins: _safeStatNumber(entry.bestRunCoins),
-          difficulty: diffBtn ? diffBtn.textContent : (entry.bestRunDifficulty || '?'),
-        })
-        this.otherProfileBestRunCard.style.display = ''
-      } else {
-        this.otherProfileBestRunCard.style.display = 'none'
-      }
-    }
-    if (this.otherProfileCreatedLine) {
-      if (entry.accountCreatedAt) {
-        const elapsedMs = Math.max(0, Date.now() - _safeStatNumber(entry.accountCreatedAt))
-        const totalSeconds = Math.floor(elapsedMs / 1000)
-        const days = Math.floor(totalSeconds / 86400)
-        const hours = Math.floor((totalSeconds % 86400) / 3600)
-        const minutes = Math.floor((totalSeconds % 3600) / 60)
-        const seconds = totalSeconds % 60
-        this.otherProfileCreatedLine.textContent = t('profileCreatedLine', { days, hours, minutes, seconds })
-        this.otherProfileCreatedLine.style.display = ''
-      } else {
-        this.otherProfileCreatedLine.style.display = 'none'
-      }
-    }
-    if (this.otherProfileBioMotto) {
-      // .trim() before checking .length - a whitespace-only bio (e.g. a
-      // single stray space) used to count as "has a bio" and render as an
-      // empty-looking box (real report, 2026-09-22 - same class of bug as
-      // the untrimmed-nickname fix from the same day).
-      const bioTrimmed = typeof entry.bio === 'string' ? entry.bio.trim() : ''
-      const hasBio = bioTrimmed.length > 0
-      // Bio always shows now (real text, or a "this user has no bio"
-      // fallback) instead of hiding the whole Bio/Motto/Notes column
-      // whenever neither was set - Notes below needs to be reachable
-      // even for a player with nothing else here, and an always-present
-      // Bio row reads better than the column silently vanishing.
-      if (this.otherProfileBioHeading) {
-        this.otherProfileBioHeading.textContent = t('profileBioHeading')
-        this.otherProfileBioHeading.style.display = ''
-      }
-      // .textContent, not innerHTML - bio/motto are untrusted freeform
-      // text from another player's own doc, same "every persisted stat
-      // is untrusted" rule as everywhere else in this file (see
-      // CLAUDE.md's own recurring-bug-class note on this).
-      if (this.otherProfileBioText) {
-        this.otherProfileBioText.textContent = hasBio ? bioTrimmed : t('otherProfileNoBio')
-        this.otherProfileBioText.style.display = ''
-      }
-      // Notes - private, local-only, keyed by this player's playerId (see
-      // _otherProfileCurrentPlayerId, set right before this function runs).
-      // Only shown at all when there's actually a playerId to key by.
-      const notesAvailable = !!this._otherProfileCurrentPlayerId
-      if (this.otherProfileNotesHeading) {
-        this.otherProfileNotesHeading.textContent = t('otherProfileNotesHeading')
-        this.otherProfileNotesHeading.style.display = notesAvailable ? '' : 'none'
-      }
-      if (this.otherProfileNotesHint) {
-        this.otherProfileNotesHint.textContent = t('otherProfileNotesHint')
-        this.otherProfileNotesHint.style.display = notesAvailable ? '' : 'none'
-      }
-      if (this.otherProfileNotesInput) {
-        this.otherProfileNotesInput.placeholder = t('otherProfileNotesPlaceholder')
-        this.otherProfileNotesInput.style.display = notesAvailable ? '' : 'none'
-        this.otherProfileNotesInput.value = notesAvailable ? (this.settings.playerNotes[this._otherProfileCurrentPlayerId] || '') : ''
-      }
-      this.otherProfileBioMotto.style.display = ''
-    }
-  }
+  _renderOtherProfilePublicFields(entry) { return FriendsUI._renderOtherProfilePublicFields(this, entry) }
 
-  _closeOtherPlayerProfile() {
-    if (this.otherProfilePanel) this.otherProfilePanel.style.display = 'none'
-  }
+  _closeOtherPlayerProfile() { return FriendsUI._closeOtherPlayerProfile(this) }
 
-  // Fetches each friend's live status (see _computeFriendStatus) by their
-  // stored uid - index-paired with the rows _renderSavedFriends just built
-  // rather than re-querying by a data-uid attribute selector, simplest way
-  // to avoid needing to escape uid for use in a CSS selector. A friend
-  // saved before this presence system existed has uid: null (see
-  // loadSettings' savedFriends normalizer) and is skipped, staying at the
-  // default "Offline" the row already renders.
-  async _fetchFriendPresences(friends) {
-    if (!CloudSync.isConfigured() || !this.cloudsaveSavedFriends) return
-    const rows = this.cloudsaveSavedFriends.querySelectorAll('.saved-friend-row')
-    if (!this._lastFriendStatuses) this._lastFriendStatuses = {}
-    let learnedIds = false
-    await Promise.all(friends.map(async (f, i) => {
-      if (!f.uid) return
-      // Friends added before IDs were shown get theirs looked up once.
-      if (!f.playerId) {
-        try {
-          const entry = await CloudSync.fetchLeaderboardEntryByUid(f.uid)
-          if (entry && typeof entry.playerId === 'string') {
-            f.playerId = entry.playerId
-            learnedIds = true
-            const nameEl = rows[i]?.querySelector('.friend-name')
-            if (nameEl) nameEl.innerHTML = `${_escapeHtml(f.name)} <span class="friend-id">#${_escapeHtml(f.playerId)}</span>`
-          }
-        } catch {
-          // Best-effort - the row just shows no ID.
-        }
-      }
-      try {
-        const presence = await CloudSync.fetchPresence(f.uid)
-        const status = this._computeFriendStatus(presence)
-        // Friend Online/Offline Alerts (General tab) - fires only on an
-        // actual offline->online transition (not idle/dnd shuffling, and
-        // not the very first read this session, which would otherwise
-        // fire once for every already-online friend the moment the panel
-        // opens - _lastFriendStatuses starting undefined for a uid is
-        // exactly that "first read" case).
-        const prevStatus = this._lastFriendStatuses[f.uid]
-        if (this.settings.friendPresenceNotify && prevStatus === 'offline' && status !== 'offline') {
-          this._showHomepageToast(t('friendCameOnlineToast', { name: f.name || t('friendStatusOnline') }))
-        }
-        this._lastFriendStatuses[f.uid] = status
-        const row = rows[i]
-        if (!row) return
-        row.querySelector('.friend-status-dot').dataset.status = status
-        const label = row.querySelector('.friend-status-label')
-        // Offline shows how long ago they were last seen instead of a bare
-        // "Offline" - falls back to the plain label if we never got a
-        // timestamp at all (e.g. they've never synced).
-        label.textContent = status === 'offline' && presence && presence.lastActiveAt
-          ? t('friendStatusOfflineAgo', {
-            time: this.settings.exactLastSeen
-              ? new Date(presence.lastActiveAt).toLocaleString(undefined, { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric', hour12: this.settings.timeFormat === '12h' })
-              : _formatRelativeTime(Date.now() - presence.lastActiveAt),
-          })
-          : t(FRIEND_STATUS_LABEL_KEYS[status])
-      } catch {
-        // Best-effort - stays "Offline" default on a failed read.
-      }
-    }))
-    if (learnedIds) saveSettings(this.settings)
-  }
+  _fetchFriendPresences(friends) { return FriendsUI._fetchFriendPresences(this, friends) }
 
-  // Online: heartbeat seen in the last 2 min. Idle: seen more than 2 but
-  // less than 5 min ago. Offline: no heartbeat at all, or older than 5 min
-  // (this wins over Do Not Disturb even if that flag is still set from
-  // their last active session - a friend who's actually gone offline
-  // shouldn't show as "busy," they should show as gone).
-  _computeFriendStatus(presence) {
-    if (!presence || !presence.lastActiveAt) return 'offline'
-    const elapsed = Date.now() - presence.lastActiveAt
-    if (elapsed > FRIEND_OFFLINE_THRESHOLD_MS) return 'offline'
-    if (presence.doNotDisturb) return 'dnd'
-    if (presence.manualIdle) return 'idle'
-    return elapsed < FRIEND_ONLINE_THRESHOLD_MS ? 'online' : 'idle'
-  }
+  _computeFriendStatus(presence) { return FriendsUI._computeFriendStatus(this, presence) }
 
-  // Send Friend Request - by the recipient's stable random playerId (see
-  // CloudSync.fetchLeaderboardEntryByPlayerId), or by name (2026-10-10):
-  // typing shows a list of players whose name starts with it
-  // (_searchFriendNames), and Add Friend with a name sends straight away
-  // when exactly one player has that name, otherwise opens the list to pick
-  // from. Requires being signed in, same gate the rest of this panel has.
-  // The saved friend matching a player by account, #ID or (case-insensitive)
-  // name - older entries may only have a name.
-  _findSavedFriend({ uid, playerId, name } = {}) {
-    const id = playerId ? String(playerId).toUpperCase() : ''
-    const lower = name ? String(name).toLowerCase() : ''
-    return this.settings.savedFriends.find((f) =>
-      (uid && f.uid === uid) ||
-      (id && f.playerId && String(f.playerId).toUpperCase() === id) ||
-      (lower && f.name && String(f.name).toLowerCase() === lower)) || null
-  }
+  _findSavedFriend(...args) { return FriendsUI._findSavedFriend(this, ...args) }
 
-  async _sendFriendRequestClick() {
-    if (!this.cloudsaveFriendInput || !this.cloudsaveFriendResult || !this._cloudUid) return
-    const text = this.cloudsaveFriendInput.value.trim().replace(/^#/, '')
-    if (!text) return
-    const id = text.toUpperCase()
-    if (id === this.settings.playerId) {
-      this.cloudsaveFriendResult.textContent = t('friendRequestSelfError')
-      return
-    }
-    // Typing a friend's #ID or name says they're already your friend
-    // straight away (2026-10-10).
-    const known = this._findSavedFriend({ playerId: id, name: text })
-    if (known) {
-      this.cloudsaveFriendResult.textContent = t('friendAlreadyFriend', { name: known.name || known.playerId || text })
-      return
-    }
-    this.cloudsaveFriendResult.textContent = t('cloudsaveConnecting')
-    try {
-      const entry = await CloudSync.fetchLeaderboardEntryByPlayerId(id)
-      if (entry && entry.uid) {
-        await this._sendFriendRequestTo(entry)
-        return
-      }
-      const matches = await this._searchFriendNames(text)
-      const exact = matches.filter((m) => String(m.name || '').toLowerCase() === text.toLowerCase())
-      if (exact.length === 1) await this._sendFriendRequestTo(exact[0])
-      else if (matches.length) this.cloudsaveFriendResult.textContent = t('friendSearchPick')
-      else this.cloudsaveFriendResult.textContent = t('cloudsaveFriendNotFound')
-    } catch {
-      this.cloudsaveFriendResult.textContent = t('cloudsaveError')
-    }
-  }
+  _sendFriendRequestClick() { return FriendsUI._sendFriendRequestClick(this) }
 
-  async _sendFriendRequestTo(entry) {
-    if (!entry?.uid || !this._cloudUid) return
-    if (entry.uid === this._cloudUid) {
-      this.cloudsaveFriendResult.textContent = t('friendRequestSelfError')
-      return
-    }
-    this._showFriendSuggestions([])
-    const name = entry.name || entry.playerId || ''
-    if (this._findSavedFriend(entry)) {
-      this.cloudsaveFriendResult.textContent = t('friendAlreadyFriend', { name })
-      return
-    }
-    try {
-      // The rules allow 1-16 characters (create-only, see friendRequests in
-      // FIRESTORE_SECURITY_RULES).
-      const from = String(this.settings.nickname || 'Player').slice(0, 16)
-      await CloudSync.sendFriendRequest(entry.uid, this._cloudUid, from)
-    } catch (e) {
-      // A request is create-only: sending one again while the first is
-      // still waiting is refused. Say so instead of "Cloud Save ran into a
-      // problem" (2026-10-10 report).
-      if (e?.code === 'permission-denied') {
-        this.cloudsaveFriendResult.textContent = t('friendRequestAlreadySent', { name })
-        return
-      }
-      throw e
-    }
-    this.cloudsaveFriendResult.textContent = t('friendRequestSent', { name })
-  }
+  _sendFriendRequestTo(entry) { return FriendsUI._sendFriendRequestTo(this, entry) }
 
-  // Players whose name starts with the typed text, shown as a pick list
-  // under the box (name + #ID, yourself left out). Returns the matches.
-  async _searchFriendNames(text) {
-    const matches = await this._searchPlayerNames(text, 'friend')
-    if (matches !== null) this._showFriendSuggestions(matches)
-    return matches || []
-  }
+  _searchFriendNames(text) { return FriendsUI._searchFriendNames(this, text) }
 
-  // The name search behind Add a Friend and the clan invite: [] for text
-  // too short to search, null when a newer search (same `who`) has started.
-  async _searchPlayerNames(text, who) {
-    const query = String(text || '').trim().replace(/^#/, '')
-    const seqs = this._nameSearchSeq || (this._nameSearchSeq = {})
-    const seq = (seqs[who] = (seqs[who] || 0) + 1)
-    if (query.length < 2 || !this._cloudUid) return []
-    let matches
-    try {
-      matches = (await CloudSync.searchLeaderboardByName(query)).filter((m) => m.uid !== this._cloudUid && m.name)
-    } catch {
-      matches = []
-    }
-    // A newer keystroke's search wins.
-    if (seq !== seqs[who]) return null
-    matches.sort((a, b) => String(a.name).localeCompare(String(b.name)))
-    return matches
-  }
+  _searchPlayerNames(text, who) { return FriendsUI._searchPlayerNames(this, text, who) }
 
-  _showClanSuggestions(list) {
-    const box = document.getElementById('clan-invite-suggestions')
-    if (!box || list === null) return
-    this._clanSuggestions = list
-    box.innerHTML = list.map((m, i) => `
-      <button type="button" class="friend-suggest-row" data-index="${i}" role="option">
-        <span class="friend-suggest-name">${_escapeHtml(m.name)}</span>
-        ${typeof m.playerId === 'string' ? `<span class="friend-id">#${_escapeHtml(m.playerId)}</span>` : ''}
-      </button>`).join('')
-    box.classList.toggle('open', list.length > 0)
-  }
+  _showClanSuggestions(list) { return ClanUI._showClanSuggestions(this, list) }
 
-  // Send Clan Request: a Player ID, or a name (sent straight away when
-  // exactly one player has it, otherwise the list to pick from).
-  async _sendClanInviteClick() {
-    if (!this._cloudUid || !this.settings.clanId) return
-    const raw = this.clanInviteIdInput.value.trim()
-    if (!raw) return
-    const say = (key, params) => {
-      this.clanInviteStatus.textContent = t(key, params)
-      this.clanInviteStatus.style.display = 'block'
-    }
-    const asId = raw.replace(/^#/, '').toUpperCase()
-    let target = /^[A-Z0-9]{4,10}$/.test(asId) ? await CloudSync.fetchLeaderboardEntryByPlayerId(asId).catch(() => null) : null
-    if (!target) {
-      const matches = (await this._searchPlayerNames(raw, 'clan')) || []
-      const exact = matches.filter((m) => String(m.name).toLowerCase() === raw.toLowerCase())
-      if (exact.length === 1 || matches.length === 1) target = exact[0] || matches[0]
-      else if (matches.length) {
-        this._showClanSuggestions(matches)
-        return say('clanInvitePickOne')
-      }
-    }
-    if (!target) return say('clanInvitePlayerNotFound')
-    await this._sendClanInviteTo(target)
-  }
+  _sendClanInviteClick() { return ClanUI._sendClanInviteClick(this) }
 
-  async _sendClanInviteTo(target) {
-    this._showClanSuggestions([])
-    const clan = await CloudSync.fetchClanById(this.settings.clanId).catch(() => null)
-    if (!clan || !target?.uid) return
-    await CloudSync.sendClanInvite(this.settings.clanId, clan.name, target.uid).catch(() => {})
-    this.clanInviteStatus.textContent = t('clanInviteSent')
-    this.clanInviteStatus.style.display = 'block'
-    this.clanInviteIdInput.value = ''
-  }
+  _sendClanInviteTo(target) { return ClanUI._sendClanInviteTo(this, target) }
 
-  _showFriendSuggestions(list) {
-    const box = this.cloudsaveFriendSuggestions
-    if (!box) return
-    this._friendSuggestions = list
-    box.innerHTML = list.map((m, i) => `
-      <button type="button" class="friend-suggest-row" data-index="${i}" role="option">
-        <span class="friend-suggest-name">${_escapeHtml(m.name)}</span>
-        ${typeof m.playerId === 'string' ? `<span class="friend-id">#${_escapeHtml(m.playerId)}</span>` : ''}
-      </button>`).join('')
-    box.classList.toggle('open', list.length > 0)
-  }
+  _showFriendSuggestions(list) { return FriendsUI._showFriendSuggestions(this, list) }
 
-  // Incoming Friend Requests - _incomingFriendRequests is kept live by the
-  // subscribeIncomingFriendRequests listener started in restoreCloudSession
-  // (CloudSaveUI.js), so this is just a render of already-current state,
-  // not a fetch of its own.
-  _renderFriendRequests() {
-    if (!this.friendRequestsList) return
-    if (this.friendRequestsHeading) this.friendRequestsHeading.textContent = t('friendRequestsHeading')
-    const requests = this._incomingFriendRequests
-    if (this.friendRequestsCount) this.friendRequestsCount.textContent = t('friendRequestsCount', { n: requests.length })
-    if (this.deleteAllRequestsBtn) {
-      this.deleteAllRequestsBtn.textContent = t('deleteAllRequestsBtn')
-      this.deleteAllRequestsBtn.style.display = requests.length ? '' : 'none'
-    }
-    this.friendRequestsList.innerHTML = requests.length
-      ? requests.map((r) => `
-          <div class="friend-request-row" data-from-uid="${_escapeHtml(r.fromUid)}">
-            <span>${_escapeHtml(r.fromNickname || '???')}</span>
-            <span>
-              <button class="mini-action-btn friend-request-accept" data-from-uid="${_escapeHtml(r.fromUid)}" data-from-name="${_escapeHtml(r.fromNickname || '')}" type="button">${t('friendRequestAccept')}</button>
-              <button class="mini-action-btn friend-request-decline" data-from-uid="${_escapeHtml(r.fromUid)}" type="button">${t('friendRequestDecline')}</button>
-            </span>
-          </div>
-        `).join('')
-      : `<p class="nearly-there-line">${t('friendRequestNone')}</p>`
-    for (const btn of this.friendRequestsList.querySelectorAll('.friend-request-accept')) {
-      btn.addEventListener('click', () => this._respondToFriendRequest(btn.dataset.fromUid, btn.dataset.fromName, true))
-    }
-    for (const btn of this.friendRequestsList.querySelectorAll('.friend-request-decline')) {
-      btn.addEventListener('click', () => this._respondToFriendRequest(btn.dataset.fromUid, null, false))
-    }
-  }
+  _renderFriendRequests() { return FriendsUI._renderFriendRequests(this) }
 
-  async _respondToFriendRequest(fromUid, fromNickname, accept) {
-    if (!this._cloudUid) return
-    if (accept && fromNickname && !this.settings.savedFriends.some((f) => f.uid === fromUid)) {
-      this.settings.savedFriends.push({ name: fromNickname, uid: fromUid })
-      saveSettings(this.settings)
-      this._renderSavedFriends()
-    }
-    try {
-      await CloudSync.respondToFriendRequest(this._cloudUid, fromUid)
-      // Lets the ORIGINAL SENDER find out their request was accepted even
-      // if they're not online right now (see CloudSync.notifyFriendAccepted)
-      // - only on accept, a decline stays silent same as before.
-      if (accept) await CloudSync.notifyFriendAccepted(fromUid, this._cloudUid)
-    } catch {
-      // Best-effort - the live subscription will resync the list either
-      // way the next time it fires.
-    }
-  }
+  _respondToFriendRequest(fromUid, fromNickname, accept) { return FriendsUI._respondToFriendRequest(this, fromUid, fromNickname, accept) }
 
-  async _deleteAllFriendRequests() {
-    if (!this._cloudUid || !this._incomingFriendRequests.length) return
-    try {
-      await Promise.all(this._incomingFriendRequests.map((r) => CloudSync.respondToFriendRequest(this._cloudUid, r.fromUid)))
-    } catch {
-      // Best-effort - same reasoning as _respondToFriendRequest above.
-    }
-  }
+  _deleteAllFriendRequests() { return FriendsUI._deleteAllFriendRequests(this) }
 
-  _updateFriendsDot() {
-    if (!this.friendsRequestDot) return
-    this.friendsRequestDot.style.display = this._incomingFriendRequests.length ? '' : 'none'
-  }
+  _updateFriendsDot() { return FriendsUI._updateFriendsDot(this) }
 
-  // Friends nav dot - gold, lights up if someone accepted a friend request
-  // you sent them (see CloudSync.notifyFriendAccepted/fetchAcceptedNotifications).
-  // A one-off fetch (not a live subscription like incoming requests) run
-  // alongside the other homepage nav dots, not on its own timer.
-  async _checkFriendAcceptedNotifications() {
-    if (!this._cloudUid || !CloudSync.isConfigured() || !this.friendsAcceptedDot) return
-    try {
-      this._friendAcceptedNotifications = await CloudSync.fetchAcceptedNotifications(this._cloudUid)
-    } catch {
-      return // Best-effort - leaves the dot at whatever it last showed.
-    }
-    this.friendsAcceptedDot.style.display = this._friendAcceptedNotifications.length ? '' : 'none'
-  }
+  _checkFriendAcceptedNotifications() { return FriendsUI._checkFriendAcceptedNotifications(this) }
 
-  // Clears every accepted-notification doc once the player has opened
-  // Friends to see it - mirrors the other panels' _markXSeen pattern,
-  // just against Firestore docs instead of a localStorage seen-id set.
-  async _markFriendAcceptedSeen() {
-    if (!this._cloudUid || !this._friendAcceptedNotifications.length) return
-    const notifications = this._friendAcceptedNotifications
-    this._friendAcceptedNotifications = []
-    if (this.friendsAcceptedDot) this.friendsAcceptedDot.style.display = 'none'
-    try {
-      await Promise.all(notifications.map((n) => CloudSync.clearAcceptedNotification(this._cloudUid, n.accepterUid)))
-    } catch {
-      // Best-effort - a leftover doc just gets re-fetched (and re-cleared)
-      // next time the dot check runs.
-    }
-  }
+  _markFriendAcceptedSeen() { return FriendsUI._markFriendAcceptedSeen(this) }
 
-  async _renderGlobalKills() {
-    if (!this.cloudsaveGlobalKills) return
-    try {
-      const total = await CloudSync.fetchGlobalKills()
-      this.cloudsaveGlobalKills.textContent = total === null ? '' : t('cloudsaveGlobalKillsLine', { n: total.toLocaleString() })
-      // Server-wide milestone bulletin - a one-time homepage toast the
-      // first time this session's fetch sees the global total past a
-      // round 100k mark, rather than a permanent new homepage line (this
-      // menu's own zero-scroll height budget is a real, easy thing to
-      // break - see the menu-redesign notes - so a toast is the safer
-      // way to surface this).
-      if (total !== null) {
-        const milestone = Math.floor(total / GLOBAL_KILLS_MILESTONE_STEP) * GLOBAL_KILLS_MILESTONE_STEP
-        if (milestone > 0 && this._globalKillsMilestoneToastedFor !== milestone) {
-          this._globalKillsMilestoneToastedFor = milestone
-          this._showHomepageToast(t('globalKillsMilestoneToast', { n: milestone.toLocaleString() }))
-        }
-      }
-    } catch {
-      this.cloudsaveGlobalKills.textContent = ''
-    }
-  }
+  _renderGlobalKills() { return OnlineUI._renderGlobalKills(this) }
 
-  _renderLeaderboardRows(rows) {
-    if (!this.cloudsaveLeaderboardList) return
-    // rows is `null` on a subscription error (see CloudSync.subscribeTopLeaderboard's
-    // own comment) - distinct from a real empty array, which just means no
-    // entries yet. Without this check an error left the "Connecting..."
-    // placeholder _subscribeLeaderboard sets up on open showing forever,
-    // most commonly hit by the region filter (a region + bestNight compound
-    // query needs a Firestore index this project never had created).
-    if (rows === null) {
-      this.cloudsaveLeaderboardList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`
-      return
-    }
-    // Podium styling (ranks 1-3) - PODIUM_MEDALS below, same treatment
-    // _renderWeeklyLeaderboardList uses.
-    this.cloudsaveLeaderboardList.innerHTML = rows.length
-      ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === this.settings.nickname ? ' me' : ''}${i < 3 ? ` podium-${i + 1}` : ''}"><span>${PODIUM_MEDALS[i] || `${i + 1}.`} ${_escapeHtml(r.name || '???')}</span><span>${t('cloudsaveLeaderboardRow', { night: _safeStatNumber(r.bestNight), kills: _safeStatNumber(r.bestKills) })}</span></div>`).join('')
-      : `<p class="cloud-leaderboard-empty">${t('cloudsaveLeaderboardEmpty')}</p>`
-  }
+  _renderLeaderboardRows(rows) { return OnlineUI._renderLeaderboardRows(this, rows) }
 
-  // Live-subscribed (see CloudSync.subscribeTopLeaderboard) rather than a
-  // one-shot fetch - only while this panel is actually open (subscribed
-  // here, unsubscribed in _closeCloudSavePanel/_handleCloudSignOut) so
-  // the read cost stays bounded to "panel is visible," not indefinite.
-  // Re-subscribes with the new filter whenever the region select changes.
-  _subscribeLeaderboard() {
-    if (!this.cloudsaveLeaderboardList) return
-    if (this._leaderboardUnsubscribe) this._leaderboardUnsubscribe()
-    this.cloudsaveLeaderboardList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveConnecting')}</p>`
-    this._leaderboardUnsubscribe = CloudSync.subscribeTopLeaderboard(10, this.settings.region, (rows) => this._renderLeaderboardRows(rows))
-  }
+  _subscribeLeaderboard() { return OnlineUI._subscribeLeaderboard(this) }
 
-  async _renderAchievementsLeaderboard() {
-    if (!this.cloudsaveAchievementsLeaderboardList) return
-    try {
-      const rows = await CloudSync.fetchTopByAchievements(10)
-      this.cloudsaveAchievementsLeaderboardList.innerHTML = rows.length
-        ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === this.settings.nickname ? ' me' : ''}"><span>${i + 1}. ${_escapeHtml(r.name || '???')}</span><span>${_safeStatNumber(r.achievementCount)}/${ACHIEVEMENTS.length}</span></div>`).join('')
-        : `<p class="cloud-leaderboard-empty">${t('cloudsaveLeaderboardEmpty')}</p>`
-    } catch {
-      this.cloudsaveAchievementsLeaderboardList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`
-    }
-  }
+  _renderAchievementsLeaderboard() { return OnlineUI._renderAchievementsLeaderboard(this) }
 
-  async _renderGlobalAverages() {
-    if (!this.cloudsaveAvgLine) return
-    try {
-      const { avgKills, avgNight } = await CloudSync.fetchGlobalAverages()
-      const myKills = _safeStatNumber(this.careerStats.totalKills)
-      const myNight = _safeStatNumber(this.bestStats.bestNight)
-      this.cloudsaveAvgLine.textContent = t('cloudsaveAvgLine', {
-        myKills, avgKills: Math.round(avgKills), myNight, avgNight: avgNight.toFixed(1),
-      })
-      // Bar-chart visual (see #cloudsave-avg-bars) - same numbers the text
-      // line above already computed, just also drawn as two you-vs-average
-      // bars scaled to whichever side of each pair is larger.
-      if (this.cloudsaveAvgBars) {
-        const killsMax = Math.max(myKills, avgKills, 1)
-        this.cloudsaveAvgBars.innerHTML = `
-          <div class="avg-bar-row"><span class="avg-bar-label">${t('avgBarYou')}</span><div class="mini-progress-track"><div class="mini-progress-fill" style="width: ${(myKills / killsMax) * 100}%"></div></div><span class="avg-bar-value">${myKills.toLocaleString()}</span></div>
-          <div class="avg-bar-row"><span class="avg-bar-label">${t('avgBarAverage')}</span><div class="mini-progress-track"><div class="mini-progress-fill" style="width: ${(avgKills / killsMax) * 100}%"></div></div><span class="avg-bar-value">${Math.round(avgKills).toLocaleString()}</span></div>
-        `
-      }
-    } catch {
-      this.cloudsaveAvgLine.textContent = ''
-      if (this.cloudsaveAvgBars) this.cloudsaveAvgBars.innerHTML = ''
-    }
-  }
+  _renderGlobalAverages() { return OnlineUI._renderGlobalAverages(this) }
 
-  // "Most Improved This Week" is just a badge on the #1 entry here, not a
-  // separate tracked metric - this week's weekly-challenge progress
-  // already represents "how much you've contributed this week," so the
-  // top entry IS the most-improved player by that same measure.
-  async _renderWeeklyLeaderboardList() {
-    if (!this.cloudsaveWeeklyLeaderboardList) return
-    if (this.cloudsaveWeeklyLeaderboardTitle) this.cloudsaveWeeklyLeaderboardTitle.textContent = t('cloudsaveWeeklyLeaderboardTitle')
-    try {
-      const weekStr = _thisWeekStr()
-      const rows = await CloudSync.fetchTopWeeklyLeaderboard(weekStr, 10)
-      this.cloudsaveWeeklyLeaderboardList.innerHTML = rows.length
-        ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === this.settings.nickname ? ' me' : ''}${i < 3 ? ` podium-${i + 1}` : ''}"><span>${PODIUM_MEDALS[i] || `${i + 1}.`} ${_escapeHtml(r.name || '???')}${i === 0 ? ` ${t('mostImprovedBadge')}` : ''}</span><span>${_safeStatNumber(r.progress)}</span></div>`).join('')
-        : `<p class="cloud-leaderboard-empty">${t('cloudsaveLeaderboardEmpty')}</p>`
-    } catch {
-      this.cloudsaveWeeklyLeaderboardList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`
-    }
-  }
+  _renderWeeklyLeaderboardList() { return OnlineUI._renderWeeklyLeaderboardList(this) }
 
-  // Community Poll - renders each option as a bar showing its live vote
-  // share; once this account has voted (existing vote checked on render),
-  // every option becomes non-interactive so a vote can't be changed
-  // (matches the create-only security rule, which would reject a second
-  // vote from the server side anyway - this just avoids the round trip).
-  async _renderPoll() {
-    if (!this.cloudsavePollOptions || !this._cloudUid) return
-    this.cloudsavePollTitle.textContent = t('pollQuestionNextFeature')
-    try {
-      const [myVote, counts] = await Promise.all([
-        CloudSync.fetchMyPollVote(POLL_ID, this._cloudUid),
-        CloudSync.fetchPollResults(POLL_ID, POLL_OPTIONS.map((o) => o.id)),
-      ])
-      const total = Object.values(counts).reduce((a, b) => a + b, 0)
-      this.cloudsavePollOptions.innerHTML = POLL_OPTIONS.map((o) => {
-        const n = counts[o.id] || 0
-        const pct = total > 0 ? Math.round((n / total) * 100) : 0
-        const voted = myVote === o.id
-        return `<button type="button" class="poll-option-btn${voted ? ' voted' : ''}" data-option="${o.id}" style="--poll-pct: ${myVote ? pct : 0}%">
-          <span class="poll-option-label">${voted ? '✓ ' : ''}${_escapeHtml(t(o.labelKey))}</span>
-          <span class="poll-option-pct">${myVote ? `${pct}%` : ''}</span>
-        </button>`
-      }).join('')
-      this.cloudsavePollHint.textContent = myVote ? t('pollVotedHint', { n: total }) : t('pollNotVotedHint')
-      if (!myVote) {
-        for (const btn of this.cloudsavePollOptions.querySelectorAll('.poll-option-btn')) {
-          btn.addEventListener('click', () => this._castVote(btn.dataset.option))
-        }
-      }
-    } catch {
-      this.cloudsavePollOptions.innerHTML = ''
-      this.cloudsavePollHint.textContent = t('cloudsaveError')
-    }
-  }
+  _renderPoll() { return OnlineUI._renderPoll(this) }
 
-  async _castVote(option) {
-    if (!this._cloudUid) return
-    try {
-      await CloudSync.castPollVote(POLL_ID, this._cloudUid, option)
-      this._renderPoll()
-    } catch {
-      this._showLoreToast(t('cloudsaveError'))
-    }
-  }
+  _castVote(option) { return OnlineUI._castVote(this, option) }
 
-  // Pushed once per completed run (see _recordRunEnd), alongside the save
-  // sync - separate Firestore writes (leaderboard/weekly/global-kills) so
-  // a failure in one doesn't block the others, all best-effort/silent
-  // like the save push itself.
-  async _pushOnlineStats() {
-    if (!this._cloudUid || !CloudSync.isConfigured()) return
-    // Anonymous Mode (General tab) - only swaps the displayed name; every
-    // other field (playerId, stats) still writes normally, so Friend
-    // Compare/lookup-by-ID keeps working even while anonymous on the
-    // public leaderboard itself.
-    const name = this.settings.anonymousLeaderboard ? t('anonymousLeaderboardName') : (this.settings.nickname || t('menuPlayerTagDefault'))
-    const entry = {
-      name,
-      bestNight: _safeStatNumber(this.bestStats.bestNight),
-      bestKills: _safeStatNumber(this.bestStats.bestKills),
-      bestKillStreak: _safeStatNumber(this.bestStats.bestKillStreak),
-      achievementCount: this.achievements.unlocked.size,
-      // Synced so Add Friend can look someone up by their stable random ID
-      // instead of their (changeable, non-unique) nickname - see
-      // CloudSync.fetchLeaderboardEntryByPlayerId.
-      playerId: this.settings.playerId,
-      // Career-rank source of truth (see CAREER_RANK_TITLES, Game.js ~1208)
-      // wasn't previously exposed to the public leaderboard doc at all -
-      // added so external readers (the Discord bot's rank-role feature)
-      // can compute the same Rookie/Survivor/Veteran/Elite/Legend tier the
-      // game itself shows, instead of reinventing a second rank scale.
-      // Not covered by FIRESTORE_SECURITY_RULES' explicit per-field checks
-      // yet (that rule has no `hasOnly()`, so an unlisted field isn't
-      // rejected) - fine for a read-only display number with no gameplay
-      // effect if spoofed, but add real bounds validation there too if
-      // this field ever gates something that matters.
-      totalKills: _safeStatNumber(this.careerStats.totalKills),
-    }
-    // region is omitted entirely when unset ('global' = no preference
-    // picked) rather than defaulted to some region - the security rule's
-    // own enum check only applies when the field is present at all.
-    if (this.settings.region && this.settings.region !== 'global') entry.region = this.settings.region
-    // this.settings.clanId is the local membership cache (see
-    // _refreshClanUi) - denormalized onto the player's own leaderboard doc
-    // so fetchClanCombinedStats can sum a clan's kills/night with one
-    // where('clanId', ...) query instead of a per-member fetch.
-    if (this.settings.clanId) entry.clanId = this.settings.clanId
-    // Bio/Motto/Your Stats moved from Hidden to Shown to Public
-    // (2026-09-22, explicit request) - these fields make that real rather
-    // than just relabeling a tab: raw/structured values only (never
-    // pre-rendered/translated text), same reasoning as everywhere else in
-    // this file - the VIEWING client's own t() formats it in their own
-    // language, not the profile owner's. _renderOtherProfileEntry is the
-    // read side of this same change.
-    entry.bio = (this.settings.bio || '').slice(0, 5000)
-    entry.totalDeaths = _safeStatNumber(this.careerStats.totalDeaths)
-    entry.totalRuns = _safeStatNumber(this.careerStats.totalRuns)
-    entry.lifetimePlaytimeSeconds = _safeStatNumber(this.careerStats.lifetimePlaytimeSeconds)
-    entry.longestSurvivalMs = this.bestRunPace ? _safeStatNumber(this.bestRunPace.elapsedMs) : 0
-    {
-      const diffEntries = Object.entries(this.careerStats.difficultyStats)
-      if (diffEntries.length > 0) {
-        const [favoriteId] = diffEntries.reduce((best, cur) => (cur[1].runs > best[1].runs ? cur : best))
-        entry.favoriteDifficulty = favoriteId
-      }
-    }
-    {
-      const last = this.runHistory[0]
-      if (last) {
-        entry.lastRunSurvived = !!last.survived
-        entry.lastRunNight = _safeStatNumber(last.night)
-        entry.lastRunKills = _safeStatNumber(last.kills)
-        entry.lastRunCoins = _safeStatNumber(last.coins)
-      }
-    }
-    {
-      const best = this.runHistory.find((r) => _safeStatNumber(r.night) === _safeStatNumber(this.bestStats.bestNight))
-      if (best) {
-        entry.bestRunNight = _safeStatNumber(best.night)
-        entry.bestRunKills = _safeStatNumber(best.kills)
-        entry.bestRunCoins = _safeStatNumber(best.coins)
-        if (best.difficulty) entry.bestRunDifficulty = best.difficulty
-        if (best.loadout) entry.bestRunLoadout = best.loadout
-      }
-    }
-    if (this.careerStats.firstPlayedDate) entry.firstPlayedDate = this.careerStats.firstPlayedDate
-    // Same source/priority _renderProfileCreated uses for the OWN profile's
-    // "Created" line - was wrongly hardcoded to careerStats.accountCreatedAt
-    // (this device's own first-launch timestamp) here, while the owner's own
-    // view prefers the signed-in Google account's real creation date. Real
-    // bug (2026-09-22): another player's looked-up profile showed a wildly
-    // different "Created X ago" than the owner's own Profile panel did for
-    // the exact same account.
-    entry.accountCreatedAt = _safeStatNumber((this._cloudProfile && this._cloudProfile.accountCreatedAt) || this.careerStats.accountCreatedAt)
-    // "Today" is deliberately session-local/never-persisted everywhere
-    // else in this codebase (see _renderTodayLine's own comment) - synced
-    // here anyway per explicit request despite that, so it WILL read
-    // stale (frozen at whatever it was on the last sync) until this
-    // player's next _pushOnlineStats call, unlike every other field above.
-    entry.todayKills = _safeStatNumber(this._sessionKills)
-    entry.todayMinutes = Math.round((performance.now() - this._sessionStartTime) / 60000)
-    CloudSync.pushLeaderboardEntry(this._cloudUid, entry).catch(() => {})
-    CloudSync.pushWeeklyLeaderboardEntry(_thisWeekStr(), this._cloudUid, {
-      name,
-      progress: _safeStatNumber(this.weeklyChallenge.progress),
-    }).catch(() => {})
-    CloudSync.incrementGlobalKills(_safeStatNumber(this.kills)).catch(() => {})
-  }
+  _pushOnlineStats() { return OnlineUI._pushOnlineStats(this) }
 
-  // Popup-based (see CloudSync.signIn's own comment for why the
-  // redirect version tried 2026-09-15 got reverted the same day: Chrome's
-  // bounce-tracking mitigation can silently wipe the Firebase auth
-  // handler's storage mid-redirect, with no error at all - confirmed live
-  // via a "Chrome may soon delete state for intermediate websites in a
-  // recent navigation chain" DevTools warning during the actual failure).
-  // Popup's own known risk (ad blockers/privacy extensions breaking the
-  // popup<->opener channel) at least surfaces as a real caught error code
-  // below instead of a silent no-op.
-  async _handleCloudSignIn() {
-    if (!CloudSync.isConfigured()) {
-      this._showLoreToast(t('cloudsaveNotConfigured'))
-      return
-    }
-    if (this.cloudsaveSigninBtn) this.cloudsaveSigninBtn.textContent = t('cloudsaveConnecting')
-    try {
-      const { uid, profile } = await CloudSync.signIn()
-      await this._afterCloudSignIn(uid, profile)
-    } catch (err) {
-      this._showLoreToast(err && err.code === 'auth/network-request-failed' ? t('cloudsaveNetworkError') : t('cloudsaveError'))
-      CloudSaveUI.renderCloudSaveState(this)
-    }
-  }
+  _handleCloudSignIn() { return OnlineUI._handleCloudSignIn(this) }
 
-  async _afterCloudSignIn(uid, profile) {
-    // _restoreCloudSession's onAuthChange listener will also fire from
-    // this same sign-in and set _cloudProfile/_cloudUid again - setting
-    // them here too just means the very next lines (fetchCloudSave)
-    // don't have to wait a tick for that callback to run first.
-    this._cloudProfile = profile
-    this._cloudUid = uid
-    CloudSaveUI.updateCloudQuickIcon(this, true)
-    CloudSaveUI.renderCloudSaveState(this)
-    this._renderProfileAccountRow()
-    // Signed in with Profile open on Sign Up or Login: show the profile
-    // (and its Profile title) straight away.
-    if (this.profilePanel?.style.display === 'flex' && this.profileLoginGate?.style.display !== 'none') this._openProfilePanel()
+  _afterCloudSignIn(uid, profile) { return OnlineUI._afterCloudSignIn(this, uid, profile) }
 
-    // Retry safeguard (kept from the earlier investigation, still cheap
-    // insurance regardless of the popup/redirect root cause above): a
-    // false "empty" here is destructive - falling through to pushToCloud
-    // would silently overwrite a real cloud save with this device's blank
-    // one - so don't believe "no save exists" off a single fetch.
-    //
-    // Real bug fixed 2026-09-26: fetchCloudSave itself had no try/catch
-    // anywhere in this chain, and neither did this loop - a genuine fetch
-    // failure (thrown exception - a real network hiccup, not a clean
-    // "no document") propagated straight out of this whole function,
-    // skipping BOTH the push-if-first-time branch below AND the pull/
-    // conflict branch after it. Net effect on a real device: sign-in
-    // itself succeeded (so it looked "signed in"), but the save never
-    // got pulled OR pushed - the device just silently kept its own
-    // freshly-generated playerId/nickname/zero stats, with no error
-    // shown anywhere. Now every attempt is individually caught, and a
-    // clean "no document" (worth trusting) is tracked separately from a
-    // thrown error (worth retrying, then telling the player about if it
-    // never recovers) - `!cloud` alone can no longer mean either one.
-    let cloud = null
-    let fetchFailed = false
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        cloud = await CloudSync.fetchCloudSave(uid)
-        fetchFailed = false
-        if (cloud) break
-      } catch {
-        fetchFailed = true
-      }
-      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 800))
-    }
-    if (fetchFailed) {
-      // Every attempt genuinely failed - never guess here. Falling
-      // through to pushToCloud would risk overwriting a real cloud save
-      // with this device's own (possibly blank) local state; silently
-      // doing nothing would repeat the exact silent-wrong-identity bug
-      // this replaced. Tell the player plainly instead - they're still
-      // signed in and can retry (re-open Cloud Save, or reload) once
-      // their connection is better.
-      // _showHomepageToast, not _showLoreToast - sign-in almost always
-      // happens from the homepage, before gameStarted is true, and
-      // _showLoreToast silently no-ops in that case (see its own
-      // gameStarted guard) - this message would never have shown at all.
-      this._showHomepageToast(t('cloudsaveRestoreFailed'))
-      return
-    }
-    if (!cloud) {
-      // Confirmed (not just assumed) no cloud save exists yet - first
-      // time signing in on any device.
-      await CloudSaveUI.pushToCloud(this, false)
-      return
-    }
-    // Same account should read the same everywhere, automatically -
-    // requiring a manual "cloud or local" pick on every single sign-in
-    // was exactly the confusing step this whole investigation kept
-    // running into. Auto-apply the cloud save directly UNLESS this
-    // device already has real progress of its own that a silent
-    // overwrite would actually lose - in that one case, still show the
-    // same compare-and-choose prompt as before rather than discarding a
-    // device someone's genuinely been playing on without asking.
-    if (this._hasMeaningfulLocalProgress()) {
-      this._cloudPendingConflict = cloud.data
-      CloudSaveUI.renderCloudConflict(this, cloud.data)
-    } else {
-      CloudSaveUI.applyCloudSaveData(this, cloud.data)
-    }
-  }
+  _checkForNewerCloudSave(_uid) { return OnlineUI._checkForNewerCloudSave(this, _uid) }
 
-  // Silent background counterpart to _afterCloudSignIn, called once per
-  // page load when Firebase resumes an ALREADY-signed-in session (see
-  // CloudSaveUI.restoreCloudSession) rather than a fresh Sign In click.
-  //
-  // Root problem this fixes: before this existed, a device that was
-  // already signed in never checked the cloud again after its very first
-  // sign-in - editing something that isn't tied to finishing a run (bio,
-  // nickname, anything Settings-only) never reached a second device that
-  // was never explicitly signed out and back in again. Two devices could
-  // drift apart forever, each only ever showing its own edits, with
-  // nothing ever telling either one to catch up.
-  //
-  // Deliberately much narrower than _afterCloudSignIn: no conflict
-  // prompt, no push-if-missing branch, and any failure is silent - this
-  // runs unprompted on every single load, so it must never interrupt
-  // with a popup or error toast the way an explicit Sign In click can.
-  //
-  // Real bug found 2026-09-27, same day this function shipped: comparing
-  // only the cloud's timestamp against this device's own last SYNC time
-  // (ignoring whether this device had made any edit since then) meant an
-  // edit made just before a reload - too recent for its own debounced
-  // push to have fired yet - could get silently overwritten if another
-  // device happened to push in that same narrow window. Now also tracks
-  // whether THIS device has an edit newer than its last sync
-  // (LAST_LOCAL_CHANGE_KEY, stamped by saveSettings on every call) before
-  // deciding what to do, instead of only ever considering the cloud side.
-  //
-  // Replaced 2026-09-28 by the three-way merge sync (see CloudMerge.js):
-  // the timestamp comparison here could only ever pick ONE whole side -
-  // whichever device's save "won" silently discarded everything the other
-  // device had done - and its "unpushed change" signal only covered
-  // settings, not stats/coins/purchases. uid is unused now (the sync reads
-  // this._cloudUid) but kept so the caller didn't need to change.
-  //
-  // Upload-only since the reload-loop fix (see CloudPreBoot.js): the pull
-  // half already happened before the game was built.
-  async _checkForNewerCloudSave(_uid) {
-    await CloudSaveUI.syncWithCloud(this, { allowApply: false })
-  }
+  _flushLocalSave() { return OnlineUI._flushLocalSave(this) }
 
-  // In-memory state that's normally only written on page close
-  // (beforeunload) - flushed early when the tab is hidden, so Cloud Save's
-  // on-hide sync uploads it too (see CloudSaveUI.installChangeTracking).
-  _flushLocalSave() {
-    if (this._importingSave) return
-    saveShopProgress(this)
-  }
+  _hasMeaningfulLocalProgress() { return OnlineUI._hasMeaningfulLocalProgress(this) }
 
-  // See _afterCloudSignIn's own comment - the one condition under which a
-  // fresh sign-in still asks before overwriting local with cloud. Cheap
-  // real-progress signals only (not exhaustive) - a device that's never
-  // actually been played on genuinely has nothing worth protecting.
-  _hasMeaningfulLocalProgress() {
-    return _safeStatNumber(this.careerStats.totalKills) > 0
-      || _safeStatNumber(this.bestStats.bestNight) > 0
-      || (Array.isArray(this.runHistory) && this.runHistory.length > 0)
-  }
+  _compareSaveFile(file) { return OnlineUI._compareSaveFile(this, file) }
 
-  // Shows a short side-by-side comparison (same safe-parse-untrusted-JSON
-  // pattern _compareSaveFile already uses for an uploaded file - a Drive
-  // file the player controls is no more trustworthy than one they pick
-  // from disk) so the choice isn't blind.
-  // Read-only - parses another save file WITHOUT writing anything, just to
-  // show a side-by-side stat comparison (e.g. two family members comparing
-  // progress without either one's save getting overwritten). Reads the
-  // same 3 storage keys BEST_STATS_KEY/CAREER_STATS_KEY/Achievements'
-  // STORAGE_KEY directly out of the parsed JSON rather than through
-  // loadBestStats() etc., since those functions read from the REAL
-  // localStorage, not this uploaded file.
-  async _compareSaveFile(file) {
-    if (!file || !this.compareSaveResult) return
-    let data
-    try {
-      data = JSON.parse(await file.text())
-    } catch {
-      this._showLoreToast(t('saveFileInvalid'))
-      return
-    }
-    const safeParse = (raw, fallback) => {
-      try {
-        return raw ? JSON.parse(raw) : fallback
-      } catch {
-        return fallback
-      }
-    }
-    const otherBest = safeParse(data['gayz-best-stats'], {})
-    const otherCareer = safeParse(data['gayz-career-stats'], {})
-    const otherAch = safeParse(data['gayz-achievements'], [])
-    this.compareSaveResult.style.display = 'block'
-    // _safeStatNumber on every value read from the uploaded file - this
-    // file is fully attacker-controlled (see its own doc comment).
-    this.compareSaveResult.innerHTML = [
-      t('compareSaveRow', { label: t('profileBestNight'), mine: _safeStatNumber(this.bestStats.bestNight), theirs: _safeStatNumber(otherBest.bestNight) }),
-      t('compareSaveRow', { label: t('profileTotalKills'), mine: _safeStatNumber(this.careerStats.totalKills), theirs: _safeStatNumber(otherCareer.totalKills) }),
-      t('compareSaveRow', { label: t('profileAchievements'), mine: _safeStatNumber(this.achievements.unlocked.size), theirs: _safeStatNumber(Array.isArray(otherAch) ? otherAch.length : 0) }),
-    ].join('<br>')
-  }
+  _updateStorageUsageLine() { return OnlineUI._updateStorageUsageLine(this) }
 
-  _updateStorageUsageLine() {
-    if (!this.storageUsageLine) return
-    let totalChars = 0
-    let count = 0
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      totalChars += key.length + (localStorage.getItem(key) || '').length
-      count++
-    }
-    this.storageUsageLine.textContent = t('storageUsageLine', { kb: (totalChars / 1024).toFixed(1), count })
-    // Quota warning - most browsers cap localStorage around 5MB/origin
-    // (varies, some allow more); warns approaching that rather than only
-    // failing silently later (every save() in this codebase already
-    // catches quota errors and just skips persisting, so a save actually
-    // failing has no other visible symptom without this).
-    if (this.storageQuotaWarning) {
-      this.storageQuotaWarning.style.display = totalChars > 4 * 1024 * 1024 ? '' : 'none'
-    }
-  }
-
-  // Narrower than Reset All Progress below - only the leaderboard-shaped
-  // records, leaves achievements/mastery/meta-progress/etc untouched.
-  _clearLeaderboardsOnly() {
-    if (!window.confirm(t('clearLeaderboardsConfirm'))) return
-    localStorage.removeItem(LEADERBOARD_KEY)
-    localStorage.removeItem('gayz-bossrush-leaderboard')
-    localStorage.removeItem('gayz-daily-leaderboard')
-    window.location.reload()
-  }
+  _clearLeaderboardsOnly() { return OnlineUI._clearLeaderboardsOnly(this) }
 
   // In-game bug report (batch feature) - copies a plain-text report to the
   // clipboard (same navigator.clipboard pattern _copyTextRecap already
@@ -5517,28 +4441,9 @@ export class Game {
     if (this.comingSoonPanel) this.comingSoonPanel.style.display = 'none'
   }
 
-  // The sidebar's HUB nav button opens this (see hubBtn's listener) -
-  // distinct from _openHubPanel(), an older, differently-scoped panel
-  // (Player/Difficulty/Choose Class/Game Modes/Challenges) only reachable
-  // from the homepage's "Game Mode" button, not the sidebar at all.
-  _openClanPanel() {
-    if (!this.clanPanel) return
-    this._closeAllMenuPanels()
-    this.clanPanel.style.display = 'flex'
-    if (this.clanPanelTitle) this.clanPanelTitle.textContent = t('hubBtn')
-    // Defaults to the General tab every time the panel opens, same
-    // "always reopen on the first tab" convention as Inventory's tabs.
-    for (const tabEl of document.querySelectorAll('.general-tab')) tabEl.classList.toggle('active', tabEl.dataset.generalPage === 'general')
-    for (const page of document.querySelectorAll('.general-tab-page')) page.style.display = page.id === 'general-page-general' ? 'block' : 'none'
-    this._refreshClanUi()
-    // Start loading the clan list now, so the Clan tab doesn't make you
-    // wait for it (2026-10-09, "it takes so long to load").
-    this._fetchClanRanking().catch(() => {})
-  }
+  _openClanPanel() { return ClanUI._openClanPanel(this) }
 
-  _closeClanPanel() {
-    if (this.clanPanel) this.clanPanel.style.display = 'none'
-  }
+  _closeClanPanel() { return ClanUI._closeClanPanel(this) }
 
   // Friends - the existing Compare-with-a-Friend feature (see CloudSaveUI's
   // renderCloudSaveState, which toggles friendsSignedOut/friendsSignedIn
@@ -5574,33 +4479,7 @@ export class Game {
     if (this.statusPicker) this.statusPicker.classList.remove('open')
   }
 
-  // Inventory - homepage placeholder only for now, no functionality yet
-  // (distinct from the in-game Tab inventory - #inventory-panel - which
-  // already exists and does something different: managing the run's
-  // equipped weapons/hotbar mid-game).
-  _openMenuInventoryPanel() {
-    if (!this.menuInventoryPanel) return
-    this._closeAllMenuPanels()
-    this.menuInventoryPanel.style.display = 'flex'
-    this._claimMarketSales()
-    if (this.menuInventoryPanelTitle) this.menuInventoryPanelTitle.textContent = t('menuInventoryPanelTitle')
-    if (this.inventoryTabCharacter) this.inventoryTabCharacter.textContent = t('inventorySkinsTitle')
-    if (this.inventoryTabCrates) this.inventoryTabCrates.textContent = t('inventoryCratesTitle')
-    if (this.inventoryTabWeapons) this.inventoryTabWeapons.textContent = t('inventoryWeaponsTitle')
-    if (this.inventoryTabTheme) this.inventoryTabTheme.textContent = t('tabTheme')
-    this._renderCrateTiers()
-    if (this.invSkinSearch) {
-      this.invSkinSearch.value = ''
-      this.invSkinSearch.placeholder = t('inventorySkinSearch')
-    }
-    this._renderInventorySkins()
-    this._renderInventorySkinPreview()
-    this._renderInventoryWeapons()
-    // Always reopen on the Character tab - simpler than remembering the
-    // last-used one, and matches this panel's own approved design.
-    for (const tabEl of document.querySelectorAll('.inventory-tab')) tabEl.classList.toggle('active', tabEl === this.inventoryTabCharacter)
-    for (const page of document.querySelectorAll('.inventory-tab-page')) page.style.display = page.id === 'inventory-page-character' ? 'block' : 'none'
-  }
+  _openMenuInventoryPanel() { return InventoryUI._openMenuInventoryPanel(this) }
 
   // Character tab of the Inventory panel - Kirka-style card grid (see
   // INVENTORY_SKINS): every owned skin is a card with its front-view
@@ -5641,46 +4520,9 @@ export class Game {
     return this.__marketBackendForTests || CloudSync
   }
 
-  async _loadMarketListings() {
-    if (!this.__marketBackendForTests && !CloudSync.isConfigured()) {
-      this._marketListings = 'error'
-      this._renderShopMarket()
-      return
-    }
-    try {
-      this._marketListings = await this._marketApi().fetchActiveMarketListings()
-    } catch (err) {
-      console.warn('Market listings failed to load', err)
-      this._marketListings = 'error'
-    }
-    if (this.marketPanel?.style.display !== 'none') this._renderShopMarket()
-  }
+  _loadMarketListings() { return InventoryUI._loadMarketListings(this) }
 
-  // Market panel (its own nav button, right under Store): opened like every
-  // other menu panel.
-  _openMarketPanel() {
-    this._closeAllMenuPanels()
-    if (!this.marketPanel) return
-    this.marketPanel.style.display = 'flex'
-    if (this.marketPanelTitle) this.marketPanelTitle.textContent = t('skinModeMarket')
-    this._marketQuery = ''
-    this._marketItems = null
-    this._marketRarity = 'all'
-    if (this.marketSearch) {
-      this.marketSearch.value = ''
-      this.marketSearch.placeholder = t('marketSearchPlaceholder')
-    }
-    this._closeMarketFilterMenus()
-    this._renderMarketFilters()
-    // The listings fetched in the background (or on the last visit) show
-    // straight away and are refreshed underneath - no "Loading the
-    // Market..." line first (2026-10-11). A failed earlier fetch is
-    // retried instead of shown.
-    if (this._marketListings === 'error') this._marketListings = null
-    this._renderShopMarket()
-    this._loadMarketListings()
-    this._claimMarketSales()
-  }
+  _openMarketPanel() { return InventoryUI._openMarketPanel(this) }
 
   // Items you can filter by: Character, then every weapon (Kirka's market
   // lists every weapon the same way). Market skins without a `kind` are
@@ -5692,184 +4534,41 @@ export class Game {
     return [{ id: 'character', label: t('marketItemCharacter') }, ...weapons]
   }
 
-  _renderMarketFilters() {
-    const items = this._marketItemOptions()
-    const ticked = this._marketItems || new Set(items.map((i) => i.id))
-    if (this.marketItemFilterBtn) {
-      const count = items.filter((i) => ticked.has(i.id)).length
-      this.marketItemFilterBtn.textContent = count === items.length
-        ? t('marketItemsAll')
-        : t('marketItemsCount', { n: count })
-    }
-    if (this.marketItemFilterMenu) {
-      this.marketItemFilterMenu.innerHTML = items.map((i) =>
-        `<button type="button" class="market-filter-option${ticked.has(i.id) ? ' checked' : ''}" data-market-item="${_escapeHtml(i.id)}">`
-        + `<span class="market-check"></span><span>${_escapeHtml(i.label)}</span></button>`).join('')
-    }
-    this._renderRarityFilter(this.marketRarityFilterBtn, this.marketRarityFilterMenu, this._marketRarity)
-  }
+  _renderMarketFilters() { return InventoryUI._renderMarketFilters(this) }
 
-  // The All rarities dropdown - the Market's, and Inventory > Character's
-  // beside its search bar (2026-10-10).
-  _renderRarityFilter(btn, menu, current) {
-    // Mythic left out - no skin uses it.
-    const rarities = ['all', ...Object.keys(SKIN_RARITIES).filter((r) => r !== 'mythic')]
-    const rarityLabel = (r) => (r === 'all' ? t('marketRarityAll') : t(SKIN_RARITIES[r].key))
-    if (btn) btn.textContent = rarityLabel(current)
-    if (menu) {
-      menu.innerHTML = rarities.map((r) =>
-        `<button type="button" class="market-filter-option${r === current ? ' active' : ''}" data-market-rarity="${r}"`
-        + (r === 'all' ? '' : ` style="color: ${SKIN_RARITIES[r].color}"`) + `>${_escapeHtml(rarityLabel(r))}</button>`).join('')
-    }
-  }
+  _renderRarityFilter(btn, menu, current) { return InventoryUI._renderRarityFilter(this, btn, menu, current) }
 
-  _closeMarketFilterMenus() {
-    for (const [btn, menu] of [[this.marketItemFilterBtn, this.marketItemFilterMenu], [this.marketRarityFilterBtn, this.marketRarityFilterMenu], [this.invRarityFilterBtn, this.invRarityFilterMenu]]) {
-      if (menu) menu.style.display = 'none'
-      if (btn) btn.classList.remove('open')
-    }
-  }
+  _closeMarketFilterMenus() { return InventoryUI._closeMarketFilterMenus(this) }
 
-  _toggleMarketFilterMenu(btn, menu) {
-    const opening = menu.style.display === 'none'
-    this._closeMarketFilterMenus()
-    if (opening) {
-      menu.style.display = 'block'
-      btn.classList.add('open')
-    }
-  }
+  _toggleMarketFilterMenu(btn, menu) { return InventoryUI._toggleMarketFilterMenu(this, btn, menu) }
 
-  _closeMarketPanel() {
-    if (this.marketPanel) this.marketPanel.style.display = 'none'
-  }
+  _closeMarketPanel() { return InventoryUI._closeMarketPanel(this) }
 
-  // Market panel grid: a card per skin with its price (or Owned); clicking
-  // one buys it. Same card look as Inventory > Character.
-  _renderShopMarket() {
-    if (!this.shopMarketGrid) return
-    if (this._marketListings === null) {
-      this.shopMarketGrid.innerHTML = ''
-      return
-    }
-    if (this._marketListings === 'error') {
-      this.shopMarketGrid.innerHTML = `<p class="inv-skin-empty">${_escapeHtml(t('marketError'))}</p>`
-      return
-    }
-    if (!this._marketListings.length) {
-      this.shopMarketGrid.innerHTML = `<p class="inv-skin-empty">${_escapeHtml(t('marketEmpty'))}</p>`
-      return
-    }
-    const query = this._marketQuery.trim().toLowerCase()
-    const entries = this._marketSkinEntries().filter((skin) =>
-      (!query || skin.name.toLowerCase().includes(query))
-      && (!this._marketItems || this._marketItems.has(skin.kind || 'character'))
-      && (this._marketRarity === 'all' || skin.rarity === this._marketRarity))
-    if (!entries.length) {
-      this.shopMarketGrid.innerHTML = `<p class="inv-skin-empty">${_escapeHtml(t('skinNoMatch'))}</p>`
-      return
-    }
-    // Seller names come from other players' writes - escaped like any
-    // other untrusted text.
-    this.shopMarketGrid.innerHTML = entries.map((skin) => {
-      const rarity = SKIN_RARITIES[skin.rarity] || SKIN_RARITIES.common
-      const classes = ['inv-skin-card']
-      if (skin.mine) classes.push('owned')
-      else if (this.coins < skin.price) classes.push('cant-afford')
-      const label = skin.mine ? t('marketYours') : this._formatSkinPrice('coins', skin.price)
-      const listingId = String(skin.listing.id).replace(/[^A-Za-z0-9_-]/g, '')
-      return `<button type="button" class="${classes.join(' ')}" data-market-listing="${listingId}" style="--rarity: ${rarity.color}" title="${_escapeHtml(`${skin.name} - ${t(rarity.key)}`)}">`
-        + `<span class="inv-skin-card-name">${_escapeHtml(skin.name)}</span>`
-        + '<img class="inv-skin-card-img" alt="" draggable="false" />'
-        + `<span class="market-card-seller">${_escapeHtml(t('marketSellerBy', { name: String(skin.listing.sellerName || '').slice(0, 24) }))}</span>`
-        + `<span class="inv-skin-card-price">${_escapeHtml(skin.mine ? `${label} · ${this._formatSkinPrice('coins', skin.price)}` : label)}</span>`
-        + '</button>'
-    }).join('')
-    for (const skin of entries) {
-      skinFrontIconURL(skin.dataUrl).then((url) => {
-        const listingId = String(skin.listing.id).replace(/[^A-Za-z0-9_-]/g, '')
-        const img = this.shopMarketGrid.querySelector(`[data-market-listing="${listingId}"] .inv-skin-card-img`)
-        if (img && url) img.src = url
-      })
-    }
-  }
+  _renderShopMarket() { return InventoryUI._renderShopMarket(this) }
 
-  // Takes one copy of a skin out of / puts one into this player's own save.
-  async _removeSkinFromInventory(id) {
-    if (id === this._equippedInventorySkinId()) await this._equipInventorySkin('default')
-    if (id === 'gaygarx') this.ownsShopSkin = false
-    else this.charSkins[id] = Math.max(0, (Number(this.charSkins[id]) || 0) - 1)
-  }
+  _removeSkinFromInventory(id) { return InventoryUI._removeSkinFromInventory(this, id) }
 
-  _addSkinToInventory(id) {
-    if (id === 'gaygarx') this.ownsShopSkin = true
-    else this.charSkins[id] = (Number(this.charSkins[id]) || 0) + 1
-  }
+  _addSkinToInventory(id) { return InventoryUI._addSkinToInventory(this, id) }
 
-  _afterTradeChange() {
-    saveShopProgress(this)
-    this._renderCurrencyBar()
-    if (this._renderShopSkinState) this._renderShopSkinState()
-    if (this.menuInventoryPanel?.style.display !== 'none') {
-      this._renderInventorySkins()
-      this._renderInventorySkinPreview()
-    }
-    if (this.marketPanel?.style.display !== 'none') this._renderShopMarket()
-  }
+  _afterTradeChange() { return InventoryUI._afterTradeChange(this) }
 
   // Market fee: 5% of the asking price, taken from what the seller gets.
   _marketFee(price) {
     return Math.ceil(price * MARKET_FEE_RATE)
   }
 
-  // One Kirka-style dialog for every trade action. mode: 'list' (price
-  // picker), 'sell' (sell to the game), 'buy' or 'cancel' (a listing).
-  _openTradeDialog(mode, opts) {
-    if (!this.tradeDialog) return
-    this._tradeDialogState = { mode, ...opts }
-    const priceMode = mode === 'list'
-    this.tradeDialogPriceRow.style.display = priceMode ? '' : 'none'
-    this.tradeDialogFee.style.display = priceMode ? '' : 'none'
-    this.tradeDialogAction.className = `trade-action-${mode}`
-    if (priceMode) {
-      this.tradeDialogPrice.value = String(opts.startPrice)
-      this.tradeDialogTitle.textContent = t('marketListTitle', { name: opts.name })
-      this.tradeDialogAction.textContent = t('marketAddBtn')
-      this._updateTradeDialogFee()
-    } else if (mode === 'sell') {
-      this.tradeDialogTitle.textContent = t('marketSellTitle', { name: opts.name, price: opts.priceLabel })
-      this.tradeDialogAction.textContent = t('marketSellBtn')
-    } else if (mode === 'buy') {
-      this.tradeDialogTitle.textContent = t('marketBuyTitle', { name: opts.name, seller: opts.seller, price: opts.priceLabel })
-      this.tradeDialogAction.textContent = t('marketBuyBtn')
-    } else {
-      this.tradeDialogTitle.textContent = t('marketCancelTitle', { name: opts.name })
-      this.tradeDialogAction.textContent = t('marketCancelBtn')
-    }
-    this.tradeDialogAction.disabled = false
-    this.tradeDialog.style.display = 'flex'
-  }
+  _openTradeDialog(mode, opts) { return InventoryUI._openTradeDialog(this, mode, opts) }
 
-  _closeTradeDialog() {
-    if (this.tradeDialog) this.tradeDialog.style.display = 'none'
-    this._tradeDialogState = null
-  }
+  _closeTradeDialog() { return InventoryUI._closeTradeDialog(this) }
 
   _tradeDialogPriceValue() {
     const n = Math.floor(Number(this.tradeDialogPrice.value))
     return Number.isFinite(n) ? Math.max(1, Math.min(10000000, n)) : 1
   }
 
-  _updateTradeDialogFee() {
-    const fee = this._marketFee(this._tradeDialogPriceValue())
-    this.tradeDialogFee.textContent = t('marketFee', { fee: fee.toLocaleString() })
-  }
+  _updateTradeDialogFee() { return InventoryUI._updateTradeDialogFee(this) }
 
-  _stepTradeDialogPrice(dir) {
-    const p = this._tradeDialogPriceValue()
-    const step = p >= 100000 ? 10000 : p >= 10000 ? 1000 : p >= 1000 ? 100 : 10
-    this.tradeDialogPrice.value = String(Math.max(1, Math.min(10000000, p + dir * step)))
-    this._updateTradeDialogFee()
-  }
+  _stepTradeDialogPrice(dir) { return InventoryUI._stepTradeDialogPrice(this, dir) }
 
   // Signed-in account needed for anything that touches the shared Market.
   async _marketUid() {
@@ -5881,253 +4580,32 @@ export class Game {
     return this._cloudUid
   }
 
-  async _confirmTradeDialog() {
-    const st = this._tradeDialogState
-    if (!st) return
-    this.tradeDialogAction.disabled = true
-    try {
-      if (st.mode === 'sell') await this._sellSkinToGame(st.id)
-      else if (st.mode === 'list') await this._listSkinOnMarket(st.id, this._tradeDialogPriceValue())
-      else if (st.mode === 'buy') await this._buyMarketListing(st.listing)
-      else if (st.mode === 'cancel') await this._cancelMarketListing(st.listing)
-    } finally {
-      this._closeTradeDialog()
-    }
-  }
+  _confirmTradeDialog() { return InventoryUI._confirmTradeDialog(this) }
 
-  async _listSkinOnMarket(id, price) {
-    const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
-    if (!entry?.sell || !(entry.count(this) > 0)) return
-    const uid = await this._marketUid()
-    if (!uid) return
-    const name = entry.nameKey ? t(entry.nameKey) : entry.name
-    // Out of the inventory first, so it can't be equipped/sold twice while
-    // the listing is being written; put back if the write fails.
-    await this._removeSkinFromInventory(id)
-    this._afterTradeChange()
-    try {
-      const seller = (this.settings.nickname || '').trim().slice(0, 24) || this._defaultNickname().slice(0, 24)
-      await this._marketApi().createMarketListing(uid, seller, id, price)
-      this._showHomepageToast(t('marketListedToast', { name }))
-    } catch (err) {
-      console.warn('Listing failed', err)
-      this._addSkinToInventory(id)
-      this._afterTradeChange()
-      this._showHomepageToast(t('marketError'))
-    }
-  }
+  _listSkinOnMarket(id, price) { return InventoryUI._listSkinOnMarket(this, id, price) }
 
-  async _buyMarketListing(listing) {
-    const entry = INVENTORY_SKINS.find((skin) => skin.id === listing.skinId)
-    const price = _safeStatNumber(listing.price)
-    if (!entry || !(price > 0)) return
-    if (this.coins < price) {
-      this._showHomepageToast(t('skinNeedCoins', { need: Math.ceil(price - this.coins).toLocaleString() }))
-      return
-    }
-    const uid = await this._marketUid()
-    if (!uid) return
-    let bought
-    try {
-      bought = await this._marketApi().buyMarketListing(listing.id, uid)
-    } catch (err) {
-      console.warn('Buying failed', err)
-      this._showHomepageToast(t('marketError'))
-      return
-    }
-    if (!bought) {
-      this._showHomepageToast(t('marketAlreadySold'))
-    } else {
-      this.coins -= price
-      this._addSkinToInventory(entry.id)
-      this._afterTradeChange()
-      this._showHomepageToast(t('skinBoughtToast', { name: entry.nameKey ? t(entry.nameKey) : entry.name }))
-    }
-    this._loadMarketListings()
-  }
+  _buyMarketListing(listing) { return InventoryUI._buyMarketListing(this, listing) }
 
-  async _cancelMarketListing(listing) {
-    const uid = await this._marketUid()
-    if (!uid) return
-    let cancelled
-    try {
-      cancelled = await this._marketApi().cancelMarketListing(listing.id, uid)
-    } catch (err) {
-      console.warn('Cancel failed', err)
-      this._showHomepageToast(t('marketError'))
-      return
-    }
-    const entry = INVENTORY_SKINS.find((skin) => skin.id === listing.skinId)
-    if (cancelled && entry) {
-      this._addSkinToInventory(entry.id)
-      this._afterTradeChange()
-      this._showHomepageToast(t('marketCancelledToast', { name: entry.nameKey ? t(entry.nameKey) : entry.name }))
-    } else if (!cancelled) {
-      this._showHomepageToast(t('marketAlreadySold'))
-    }
-    this._loadMarketListings()
-  }
+  _cancelMarketListing(listing) { return InventoryUI._cancelMarketListing(this, listing) }
 
-  // Pays the seller for listings other players bought while they were away
-  // - each sale is claimed in a transaction, so it pays out exactly once
-  // even with two devices open. Runs when the Market or Inventory opens.
-  async _claimMarketSales() {
-    if (this._claimingMarketSales || (!this.__marketBackendForTests && !CloudSync.isConfigured())) return
-    this._claimingMarketSales = true
-    try {
-      await this._authReadyPromise
-      const uid = this._cloudUid
-      if (!uid) return
-      const sales = await this._marketApi().fetchUnclaimedMarketSales(uid)
-      for (const sale of sales) {
-        const claimed = await this._marketApi().claimMarketSale(sale.id, uid).catch(() => null)
-        if (!claimed) continue
-        const price = _safeStatNumber(claimed.price)
-        const earned = Math.max(0, price - this._marketFee(price))
-        this.coins += earned
-        saveShopProgress(this)
-        this._renderCurrencyBar()
-        const entry = INVENTORY_SKINS.find((skin) => skin.id === claimed.skinId)
-        const name = entry ? (entry.nameKey ? t(entry.nameKey) : entry.name) : String(claimed.skinId)
-        this._showHomepageToast(t('marketSoldToast', { name, price: this._formatSkinPrice('coins', earned) }))
-      }
-    } catch (err) {
-      console.warn('Collecting Market sales failed', err)
-    } finally {
-      this._claimingMarketSales = false
-    }
-  }
+  _claimMarketSales() { return InventoryUI._claimMarketSales(this) }
 
   _formatSkinPrice(currency, amount) {
     const n = Math.floor(amount).toLocaleString()
     return currency === 'gems' ? t('skinPriceGems', { n }) : t('skinPriceCoins', { n })
   }
 
-  _equippedInventorySkinId() {
-    const custom = this.settings.customSkinDataUrl
-    if (!custom) return 'default'
-    return INVENTORY_SKINS.find((skin) => skin.dataUrl === custom)?.id || 'custom'
-  }
+  _equippedInventorySkinId() { return InventoryUI._equippedInventorySkinId(this) }
 
-  _renderInventorySkins() {
-    if (!this.inventorySkinsList) return
-    this._closeInventorySkinMenu()
-    const equippedId = this._equippedInventorySkinId()
-    const query = (this.invSkinSearch?.value || '').trim().toLowerCase()
-    this._renderRarityFilter(this.invRarityFilterBtn, this.invRarityFilterMenu, this._invRarity)
-    const entries = this._inventorySkinEntries().filter((skin) => (!query || skin.name.toLowerCase().includes(query))
-      && (this._invRarity === 'all' || skin.rarity === this._invRarity))
-    if (!entries.length) {
-      this.inventorySkinsList.innerHTML = `<p class="inv-skin-empty">${_escapeHtml(t('skinNoMatch'))}</p>`
-      return
-    }
-    this.inventorySkinsList.innerHTML = entries.map((skin) => {
-      const rarity = SKIN_RARITIES[skin.rarity] || SKIN_RARITIES.common
-      const classes = ['inv-skin-card']
-      if (skin.id === equippedId) classes.push('equipped')
-      return `<button type="button" class="${classes.join(' ')}" data-inventory-skin="${skin.id}" style="--rarity: ${rarity.color}" title="${_escapeHtml(`${skin.name} - ${t(rarity.key)}`)}">`
-        + `<span class="inv-skin-card-name">${_escapeHtml(skin.name)}</span>`
-        + '<img class="inv-skin-card-img" alt="" draggable="false" />'
-        + `<span class="inv-skin-card-count">${_safeStatNumber(skin.owned)}</span>`
-        + '</button>'
-    }).join('')
-    // Pictures fill in as they're drawn (cached after the first time).
-    for (const skin of entries) {
-      skinFrontIconURL(skin.dataUrl).then((url) => {
-        const img = this.inventorySkinsList.querySelector(`[data-inventory-skin="${skin.id}"] .inv-skin-card-img`)
-        if (img && url) img.src = url
-      })
-    }
-  }
+  _renderInventorySkins() { return InventoryUI._renderInventorySkins(this) }
 
-  // Big 3D preview on the left: the equipped skin.
-  async _renderInventorySkinPreview() {
-    const entries = this._inventorySkinEntries()
-    const shownId = this._equippedInventorySkinId()
-    const skin = entries.find((entry) => entry.id === shownId) || entries[0]
-    const skinEl = document.getElementById('inv-skin-preview-skin')
-    const titleEl = document.getElementById('inv-skin-preview-title')
-    if (titleEl) this._fillNameplate(titleEl)
-    if (skinEl && skin) {
-      const rarity = SKIN_RARITIES[skin.rarity] || SKIN_RARITIES.common
-      skinEl.innerHTML = `${_escapeHtml(skin.name)} <span style="color: ${rarity.color}">${_escapeHtml(t(rarity.key))}</span>`
-    }
-    if (!this.invSkinPreviewCanvas || !skin) return
-    if (!this._invSkinAvatar3D) {
-      // Its 3D view is made after the panel has drawn, not in the click.
-      await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)))
-      if (this._invSkinAvatar3D) return this._renderInventorySkinPreview()
-      this._invSkinAvatar3D = new MenuAvatar3D(this.invSkinPreviewCanvas)
-      // Stands still - only the homepage character spins on its own.
-      this._invSkinAvatar3D.noSpin = true
-      this._invSkinAvatar3D.start()
-    }
-    const token = (this._invSkinPreviewToken = (this._invSkinPreviewToken || 0) + 1)
-    try {
-      const texture = await loadSkinTexture(skin.dataUrl)
-      if (token === this._invSkinPreviewToken && this._invSkinAvatar3D) this._invSkinAvatar3D.setSkin(texture)
-    } catch {
-      // Unreadable texture - keep whatever the preview showed before.
-    }
-  }
+  _renderInventorySkinPreview() { return InventoryUI._renderInventorySkinPreview(this) }
 
-  // The same menu serves Character cards and Weapons cards (kind
-  // 'weapon': every weapon only has its Default skin so far - always
-  // equipped, not tradable).
-  _openInventorySkinMenu(card) {
-    if (!this.invSkinMenu) return
-    const kind = card.dataset.weaponCard ? 'weapon' : 'character'
-    const id = kind === 'weapon' ? card.dataset.weaponCard : card.dataset.inventorySkin
-    if (this._invSkinMenuFor === id && this._invSkinMenuKind === kind && this.invSkinMenu.style.display !== 'none') {
-      this._closeInventorySkinMenu()
-      return
-    }
-    this._invSkinMenuFor = id
-    this._invSkinMenuKind = kind
-    const entry = kind === 'character' ? INVENTORY_SKINS.find((skin) => skin.id === id) : null
-    const owned = entry ? entry.count(this) : 0
-    const equipped = kind === 'weapon' || id === this._equippedInventorySkinId()
-    // Market (list for other players) and Sell (to the game) only on your
-    // own tradable skins - never Default or an uploaded custom skin.
-    this.invSkinMenuEquip.textContent = equipped ? t('skinEquipped') : t('skinEquip')
-    this.invSkinMenuEquip.disabled = equipped
-    this.invSkinMenuInspect.textContent = t('skinInspect')
-    // Always all four buttons, like Kirka; on a skin that can't be traded
-    // (Default, an uploaded skin) Market/Sell are faded and say why.
-    const tradable = !!entry?.sell && owned > 0
-    for (const [btn, key] of [[this.invSkinMenuMarket, 'marketListBtn'], [this.invSkinMenuSell, 'marketSellBtn']]) {
-      if (!btn) continue
-      btn.textContent = t(key)
-      btn.classList.toggle('locked', !tradable)
-      btn.setAttribute('aria-disabled', tradable ? 'false' : 'true')
-    }
-    // Lives next to whichever grid the card is in, and always fits inside
-    // the card itself (below its name, never past its bottom edge).
-    const host = card.closest('#inv-skins-side, #inventory-page-weapons') || this.invSkinMenu.parentElement
-    if (this.invSkinMenu.parentElement !== host) host.appendChild(this.invSkinMenu)
-    const side = host.getBoundingClientRect()
-    const rect = card.getBoundingClientRect()
-    this.invSkinMenu.style.display = 'flex'
-    const menuH = this.invSkinMenu.offsetHeight
-    const top = Math.max(rect.top + 4, Math.min(rect.top + 26, rect.bottom - menuH - 6))
-    this.invSkinMenu.style.left = `${rect.left - side.left + host.scrollLeft + rect.width / 2}px`
-    this.invSkinMenu.style.top = `${top - side.top + host.scrollTop}px`
-  }
+  _openInventorySkinMenu(card) { return InventoryUI._openInventorySkinMenu(this, card) }
 
-  _closeInventorySkinMenu() {
-    if (this.invSkinMenu) this.invSkinMenu.style.display = 'none'
-    this._invSkinMenuFor = null
-    this._invSkinMenuKind = null
-  }
+  _closeInventorySkinMenu() { return InventoryUI._closeInventorySkinMenu(this) }
 
-  // Sell to the game for the fixed price (half the old shop price;
-  // GaygarX: gems) - the confirm box is the Kirka-style trade dialog.
-  _openSellDialog(id) {
-    const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
-    if (!entry?.sell || !(entry.count(this) > 0)) return
-    const name = entry.nameKey ? t(entry.nameKey) : entry.name
-    this._openTradeDialog('sell', { id, name, priceLabel: this._formatSkinPrice(entry.sell.currency, entry.sell.amount) })
-  }
+  _openSellDialog(id) { return InventoryUI._openSellDialog(this, id) }
 
   _openListDialog(id) {
     const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
@@ -6147,116 +4625,13 @@ export class Game {
     this._showHomepageToast(t('skinSoldToast', { name, price: this._formatSkinPrice(entry.sell.currency, entry.sell.amount) }))
   }
 
-  // Kirka-style Inspect window: the item big in 3D (InspectViewer.js) -
-  // drag to turn it, scroll/pinch to zoom. kind 'character' is a skin id,
-  // 'weapon' a weapon id. A fresh canvas every time, since the viewer
-  // releases its WebGL context on close and a canvas can't get one back.
-  async _openInspectDialog(kind, id) {
-    const dialog = document.getElementById('inspect-dialog')
-    const stage = document.getElementById('inspect-stage')
-    if (!dialog || !stage) return
-    this._closeInspectDialog()
-    let name
-    let rarity = SKIN_RARITIES.common
-    let owned = 1
-    if (kind === 'weapon') {
-      const w = this.weapons.getSummary().find((entry) => entry.id === id)
-      if (!w || !this.weapons.viewmodels?.[id]) return
-      name = `${t(w.nameKey)} - ${t('skinDefault')}`
-    } else {
-      const skin = this._inventorySkinEntries().find((entry) => entry.id === id)
-      if (!skin) return
-      name = skin.name
-      rarity = SKIN_RARITIES[skin.rarity] || SKIN_RARITIES.common
-      owned = skin.owned
-    }
-    document.getElementById('inspect-title').textContent = t('inspectTitle', { name })
-    const rarityEl = document.getElementById('inspect-rarity')
-    rarityEl.textContent = t(rarity.key)
-    rarityEl.style.background = rarity.color
-    document.getElementById('inspect-count').textContent = t('inspectOwned', { n: Math.floor(_safeStatNumber(owned)).toLocaleString() })
-    document.getElementById('inspect-hint').textContent = t('inspectHint')
-    const canvas = document.createElement('canvas')
-    canvas.id = 'inspect-canvas'
-    stage.appendChild(canvas)
-    dialog.style.display = 'flex'
-    const viewer = new InspectViewer(canvas)
-    this._inspectViewer = viewer
-    this._inspectCharacter = null
-    if (kind === 'weapon') {
-      // Barrel pointing left, side-on - like Kirka's.
-      viewer.setObject(this._weaponDisplayClone(this.weapons.viewmodels[id]), { yaw: Math.PI / 2, pitch: 0.12 })
-    } else {
-      const skin = this._inventorySkinEntries().find((entry) => entry.id === id)
-      try {
-        const texture = await loadSkinTexture(skin.dataUrl)
-        if (this._inspectViewer !== viewer) return
-        this._inspectCharacter = buildTexturedCharacter(texture)
-        viewer.setObject(this._inspectCharacter, { yaw: 0.5, lighting: 'character' })
-      } catch {
-        // Unreadable texture - the window just stays empty.
-      }
-    }
-    viewer.start()
-  }
+  _openInspectDialog(kind, id) { return InventoryUI._openInspectDialog(this, kind, id) }
 
-  _closeInspectDialog() {
-    const dialog = document.getElementById('inspect-dialog')
-    if (dialog) dialog.style.display = 'none'
-    if (this._inspectViewer) {
-      this._inspectViewer.dispose()
-      this._inspectViewer = null
-    }
-    // The character is built just for this window; a weapon is a clone
-    // sharing the game's own geometry/materials, so it's left alone.
-    if (this._inspectCharacter) {
-      this._inspectCharacter.traverse((obj) => {
-        if (obj.geometry) obj.geometry.dispose()
-        if (obj.material) obj.material.dispose()
-      })
-      this._inspectCharacter = null
-    }
-    document.getElementById('inspect-canvas')?.remove()
-  }
+  _closeInspectDialog() { return InventoryUI._closeInspectDialog(this) }
 
-  // Same skin-apply sequence _buyShopSkin/_bindSkinUpload's Reset button
-  // already each use on their own equip/reset paths - kept as its own
-  // separate function rather than refactoring those two (both already
-  // shipped/working, each with its own extra step around this - currency
-  // deduction + confirm dialog for buying, the default-bundled-skin
-  // re-fetch for resetting) to avoid touching either for this.
-  async _equipInventorySkin(id) {
-    if (id === 'custom') return
-    // Any INVENTORY_SKINS entry the player owns (other than Default) -
-    // no per-skin code needed for a new one.
-    const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
-    if (entry && id !== 'default') {
-      if (!(entry.count(this) > 0)) return
-      this.settings.customSkinDataUrl = entry.dataUrl
-      saveSettings(this.settings)
-      const skin = await loadSkinTexture(entry.dataUrl)
-      if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
-      this._updateMenuAvatarPhoto(skin)
-    } else {
-      this.settings.customSkinDataUrl = null
-      saveSettings(this.settings)
-      if (this._menuAvatar3D) this._menuAvatar3D.setSkin(null)
-      await this._applyDefaultBundledSkin()
-    }
-    // Profile's own Reset to Default button (see _bindSkinUpload) shows/
-    // hides based on this same customSkinDataUrl - keep it in sync too,
-    // even though it's on a different panel, since both reflect one
-    // shared piece of state.
-    const resetBtn = document.getElementById('reset-skin-btn')
-    if (resetBtn) resetBtn.style.display = this.settings.customSkinDataUrl ? '' : 'none'
-    this._renderInventorySkins()
-    this._renderInventorySkinPreview()
-  }
+  _equipInventorySkin(id) { return InventoryUI._equipInventorySkin(this, id) }
 
-  _closeMenuInventoryPanel() {
-    if (this.menuInventoryPanel) this.menuInventoryPanel.style.display = 'none'
-    this._closeInspectDialog()
-  }
+  _closeMenuInventoryPanel() { return InventoryUI._closeMenuInventoryPanel(this) }
 
   async _openServerPanel() {
     if (!this.serverPanel) return
@@ -7088,387 +5463,31 @@ export class Game {
     saveLeaderboard(this.leaderboard)
   }
 
-  // Crate tier cards - there are two copies in the DOM (Inventory's Crates
-  // tab, cost-free per the project owner's request, and the Shop panel,
-  // which shows cost - amount + coin icon, right on the button itself -
-  // since that's the actual place to buy them), both sharing the same
-  // class/data-crate-tier markup rather than each getting their own cached
-  // element set - a plain querySelectorAll here updates every copy in one
-  // pass. The two copies' buttons only differ by whether they still have
-  // the .crate-open-btn-amount child (Shop's markup) or not (Inventory's,
-  // reverted back to plain "Open" text) - that presence check is what
-  // decides which label a given button gets, so a future 3rd copy needs no
-  // changes here, just whichever markup shape it should follow.
-  _renderCrateTiers() {
-    // Tier-name labels (just "Wood"/"Ice"/...) stay unscoped - both the
-    // Shop's real crates and Inventory > Crates' cost-free display copies
-    // (see the click-binding's own comment, above where this is called
-    // from) need this same translation, and there's no price/affordability
-    // concept involved here to leak between them.
-    for (const el of document.querySelectorAll('.crate-tier-name[data-crate-tier]')) {
-      el.textContent = t(`crateTier${el.dataset.crateTier.charAt(0).toUpperCase()}${el.dataset.crateTier.slice(1)}`)
-    }
-    // Price/affordability, unlike the tier names above, is Shop-only -
-    // scoped to #shop-crate-tier-grid so Inventory's plain "Open" buttons
-    // (same classes/data-crate-tier, reused purely for visual styling)
-    // never get disabled by an affordability check they have no price to
-    // justify (real regression, caught 2026-09-21 - see the click
-    // handler's own comment for the matching fix on that side).
-    for (const btn of document.querySelectorAll('#shop-crate-tier-grid .crate-open-btn[data-crate-tier]')) {
-      const tier = CRATE_TIERS[btn.dataset.crateTier]
-      if (!tier) continue
-      btn.disabled = CRATES_COMING_SOON || this.coins < tier.cost
-      // .querySelector('span'), not btn.textContent, for the Shop's
-      // version specifically - it also has an <svg> icon child that a
-      // plain textContent set would silently wipe out (see the Menu
-      // redesign notes' own recurring gotcha on this exact pattern).
-      const amountEl = btn.querySelector('.crate-open-btn-amount')
-      if (amountEl) amountEl.textContent = tier.cost
-      else btn.textContent = t('crateOpenBtn')
-    }
-    // Inventory > Crates' own plain "Open" buttons - excluded from the
-    // Shop-scoped loop above (no price to check/show), but still need
-    // their label translated on language switch, same as everywhere else.
-    // Disabled when crateStock is 0 for that tier - nothing owned yet to
-    // open (2026-09-21, part of the buy/open split).
-    for (const btn of document.querySelectorAll('#inventory-page-crates .crate-open-btn[data-crate-tier]')) {
-      btn.textContent = t('crateOpenBtn')
-      btn.disabled = CRATES_COMING_SOON || (this.crateStock[btn.dataset.crateTier] || 0) <= 0
-    }
-    // Star-shaped stock badge on each Inventory crate card, "x3"-style
-    // text (reverted back from a plain-number-only pass per explicit
-    // request). Hidden entirely at 0 rather than shown as "x0" (see
-    // .crate-stock-count's own CSS comment).
-    for (const el of document.querySelectorAll('#inventory-page-crates .crate-stock-count[data-crate-tier]')) {
-      const count = this.crateStock[el.dataset.crateTier] || 0
-      el.textContent = `x${count}`
-      // '' (not 'block') when shown - the CSS class's own display:flex
-      // centers the number inside the star shape; an inline 'block'
-      // here would override it right back to left-aligned/uncentered.
-      el.style.display = count > 0 && !CRATES_COMING_SOON ? '' : 'none'
-    }
-    // Coming Soon tag on every crate card in both grids (the Monthly Chest
-    // has its own in the markup).
-    for (const card of document.querySelectorAll('.crate-card:not(.crate-tier-monthly)')) {
-      let tag = card.querySelector('.crate-coming-soon-tag')
-      if (CRATES_COMING_SOON && !tag) {
-        tag = document.createElement('span')
-        tag.className = 'crate-coming-soon-tag'
-        card.prepend(tag)
-      }
-      if (tag) {
-        tag.textContent = t('crateComingSoonTag')
-        tag.style.display = CRATES_COMING_SOON ? '' : 'none'
-      }
-    }
-  }
+  _renderCrateTiers() { return InventoryUI._renderCrateTiers(this) }
 
 
-  // Buys 1 crate - adds it to crateStock, unopened, rather than instantly
-  // rolling a reward (that used to happen right here; moved to
-  // _openOwnedCrate, called from Inventory > Crates' own Open button -
-  // 2026-09-21, per explicit request to separate buying from opening so
-  // Inventory can show a real "how many do I have" count). Mirrors
-  // _buyShopSkin's own afford-check/deduct/persist/toast shape.
-  _openCrate(tier) {
-    if (CRATES_COMING_SOON) return
-    const tierConfig = CRATE_TIERS[tier]
-    if (!tierConfig) return
-    if (this.coins < tierConfig.cost) {
-      this._showHomepageToast(t('crateNotEnoughCoins'))
-      return
-    }
-    this.coins -= tierConfig.cost
-    this.crateStock[tier] = (this.crateStock[tier] || 0) + 1
-    this._showHomepageToast(t('crateBought', { n: 1, name: t(`crateTier${tier.charAt(0).toUpperCase()}${tier.slice(1)}`) }))
-    saveShopProgress(this)
-    this._renderCurrencyBar()
-    this._renderCrateTiers()
-  }
+  _openCrate(tier) { return InventoryUI._openCrate(this, tier) }
 
 
-  // Bulk-purchase modal (2026-09-21) - opened by clicking a crate card
-  // anywhere other than its own Open button (see the click binding in
-  // _bindMenu). Lets a player pick a quantity and buy several crates in
-  // one confirm instead of one _openCrate() click at a time.
-  _openCratePurchaseModal(tier) {
-    const tierConfig = CRATE_TIERS[tier]
-    if (!tierConfig || !this.cratePurchaseModal) return
-    if (this.coins < tierConfig.cost) {
-      this._showHomepageToast(t('crateNotEnoughCoins'))
-      return
-    }
-    this._cratePurchaseTier = tier
-    this._cratePurchaseQty = 1
-    this.cratePurchaseIconWrap.innerHTML = CRATE_ICON_SVG[tier] || ''
-    this.cratePurchaseTierName.textContent = t(`crateTier${tier.charAt(0).toUpperCase()}${tier.slice(1)}`)
-    this.cratePurchaseBox.style.setProperty('--crate-tier-color', CRATE_TIER_COLORS[tier] || '#e3c23c')
-    this.cratePurchaseModal.style.display = 'flex'
-    this._updateCratePurchaseModal()
-  }
+  _openCratePurchaseModal(tier) { return InventoryUI._openCratePurchaseModal(this, tier) }
 
-  _closeCratePurchaseModal() {
-    if (this.cratePurchaseModal) this.cratePurchaseModal.style.display = 'none'
-  }
+  _closeCratePurchaseModal() { return InventoryUI._closeCratePurchaseModal(this) }
 
-  // Recomputes the quantity clamp (1..whatever this.coins can actually
-  // afford - no fixed upper cap anymore, per explicit request to allow
-  // buying as many as you can afford in one purchase) - re-run after
-  // every +/- click and right after opening, since "what's affordable"
-  // can only ever shrink relative to when the modal opened, never grow,
-  // but re-deriving it fresh here rather than caching it once is what
-  // makes that safe regardless of when coins last changed.
-  _updateCratePurchaseModal() {
-    const tier = this._cratePurchaseTier
-    const tierConfig = CRATE_TIERS[tier]
-    if (!tierConfig) return
-    const maxAffordable = Math.floor(this.coins / tierConfig.cost)
-    const maxQty = Math.max(1, maxAffordable)
-    this._cratePurchaseQty = Math.min(this._cratePurchaseQty, maxQty)
-    this.cratePurchaseQtyValue.value = this._cratePurchaseQty
-    this.cratePurchaseQtyValue.max = maxQty
-    this.cratePurchaseQtyMinus.disabled = this._cratePurchaseQty <= 1
-    this.cratePurchaseQtyPlus.disabled = this._cratePurchaseQty >= maxQty
-    const total = tierConfig.cost * this._cratePurchaseQty
-    this.cratePurchaseTotalAmount.textContent = total
-    this.cratePurchaseConfirmBtn.disabled = this.coins < total
-  }
+  _updateCratePurchaseModal() { return InventoryUI._updateCratePurchaseModal(this) }
 
-  // Buys the chosen quantity, adding all of it to crateStock unopened -
-  // no more per-crate reward rolling here (moved to _openOwnedCrate, see
-  // its own comment). One combined "Bought Nx Tier Crate" toast instead
-  // of the old per-reward summary, since there's no longer a reward to
-  // summarize at buy time.
-  _confirmCratePurchase() {
-    const tier = this._cratePurchaseTier
-    const tierConfig = CRATE_TIERS[tier]
-    if (!tierConfig) return
-    // Clamps this._cratePurchaseQty for real - the qty input's own
-    // 'input' listener updates it live while typing WITHOUT clamping
-    // (see its own comment), so clicking Confirm before ever blurring a
-    // just-typed out-of-range value would otherwise reach here
-    // unclamped.
-    this._updateCratePurchaseModal()
-    const qty = this._cratePurchaseQty
-    const totalCost = tierConfig.cost * qty
-    if (this.coins < totalCost) {
-      this._showHomepageToast(t('crateNotEnoughCoins'))
-      return
-    }
-    this.coins -= totalCost
-    this.crateStock[tier] = (this.crateStock[tier] || 0) + qty
-    this._showHomepageToast(t('crateBought', { n: qty, name: t(`crateTier${tier.charAt(0).toUpperCase()}${tier.slice(1)}`) }))
-    saveShopProgress(this)
-    this._renderCurrencyBar()
-    this._renderCrateTiers()
-    this._closeCratePurchaseModal()
-  }
+  _confirmCratePurchase() { return InventoryUI._confirmCratePurchase(this) }
 
-  // Inventory panel's Weapons tab - every weapon's mastery progress in one
-  // place. _refreshInventoryPanel's hotbar list (below) deliberately only
-  // shows the 3 currently-equipped weapons (see its own comment - the full
-  // roster there read as confusing next to the HUD's 3-weapon list), so
-  // there was previously no way to check mastery progress on a weapon
-  // that isn't in your hotbar right now. Read-only by design - this tab's
-  // job is showing progress, not reassigning loadouts (the Loadout panel
-  // and this same Inventory panel's hotbar-assign buttons already do that).
-  // Inventory > Weapons (2026-10-01): a card per weapon's Default skin, in
-  // the same Kirka-style grid as Character - the old list of names with
-  // mastery kill counts ("0/75") is gone from here. Pictures are rendered
-  // once from each weapon's own viewmodel (_weaponThumbnails).
-  _renderInventoryWeapons({ draw = false } = {}) {
-    if (!this.inventoryWeaponsList) return
-    if (this._invSkinMenuKind === 'weapon') this._closeInventorySkinMenu()
-    const weapons = this.weapons
-      .getSummary()
-      .sort((a, b) => t(a.nameKey).localeCompare(t(b.nameKey)))
-    const rarity = SKIN_RARITIES.common
-    const thumbs = this._weaponThumbCache || {}
-    this.inventoryWeaponsList.innerHTML = weapons.map((w) => {
-      const name = t(w.nameKey)
-      const icon = WEAPON_ICON_PATHS[w.id]
-      const picture = thumbs[w.id]
-        ? `<img class="inv-weapon-card-img" alt="" draggable="false" src="${thumbs[w.id]}" />`
-        : icon ? `<svg class="inv-weapon-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>` : ''
-      return `<div class="inv-skin-card inv-weapon-card" data-weapon-card="${w.id}" style="--rarity: ${rarity.color}" title="${_escapeHtml(`${name} - ${t('skinDefault')}`)}">`
-        + `<span class="inv-skin-card-name">${_escapeHtml(name)}</span>`
-        + picture
-        + `<span class="inv-weapon-card-skin">${_escapeHtml(t('skinDefault'))}</span>`
-        + '<span class="inv-skin-card-count">1</span>'
-        + '</div>'
-    }).join('')
-    // Pictures saved by an earlier visit load straight away; drawing them
-    // fresh waits for the Weapons tab (draw). Never waits on them - the
-    // cards fill in once they're ready.
-    if (!this._weaponThumbCache && (draw || this._weaponThumbsSaved !== false)) {
-      const job = draw ? this._weaponThumbnailsReady() : this._loadSavedWeaponThumbs()
-      job.then((out) => {
-        if (out && this.menuInventoryPanel?.style.display !== 'none') this._renderInventoryWeapons()
-      })
-    }
-  }
+  _renderInventoryWeapons(...args) { return InventoryUI._renderInventoryWeapons(this, ...args) }
 
-  // Side-view picture of every weapon, drawn once with a small throwaway
-  // renderer (its own canvas, so the game's renderer and frame are never
-  // touched) and kept as blob URLs. Hands are left out.
-  async _weaponThumbnails() {
-    const out = {}
-    let renderer
-    // A break before each heavy step (2026-10-10, "a tick" opening Inventory
-    // the first time): the panel paints first, then the renderer, then the
-    // reflection map - none of it in the click that opened the panel.
-    // While a game runs with its weapon picker closed nothing is drawn at
-    // all (see the per-gun break below) - a busy page there can miss its
-    // server syncs and be dropped.
-    const pause = async () => {
-      await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)))
-      while (this.buildMode?.active && !this.buildMode.survival?._picking) await new Promise((resolve) => setTimeout(resolve, 500))
-    }
-    try {
-      await pause()
-      const canvas = document.createElement('canvas')
-      renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true })
-      renderer.setPixelRatio(1)
-      renderer.setSize(240, 140, false)
-      renderer.setClearColor(0x000000, 0)
-      await pause()
-      const scene = new THREE.Scene()
-      // Most guns are fully metallic (metalness 1), which only shows what it
-      // reflects - without an environment they render pure black.
-      const pmrem = new THREE.PMREMGenerator(renderer)
-      // 64px is plenty for 240x140 pictures - the default 256 made this the
-      // slowest step by far.
-      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04, 0.1, 100, { size: 64 }).texture
-      pmrem.dispose()
-      await pause()
-      // Bright, even studio light - most guns are dark metal and would
-      // otherwise read as black silhouettes on the dark cards.
-      scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a9a, 2.6))
-      const key = new THREE.DirectionalLight(0xffffff, 3)
-      key.position.set(4, 3, 1)
-      scene.add(key)
-      const rim = new THREE.DirectionalLight(0xffffff, 1.2)
-      rim.position.set(-2, 2, -3)
-      scene.add(rim)
-      const camera = new THREE.PerspectiveCamera(30, 240 / 140, 0.01, 50)
-      const box = new THREE.Box3()
-      const meshBox = new THREE.Box3()
-      for (const [id, vm] of Object.entries(this.weapons.viewmodels || {})) {
-        const model = this._weaponDisplayClone(vm)
-        scene.add(model)
-        model.updateMatrixWorld(true)
-        // Bounds of what's actually visible (hidden parts like scopes or
-        // alternate melee variants would otherwise stretch the framing).
-        box.makeEmpty()
-        model.traverse((o) => {
-          if (!o.isMesh || !o.geometry) return
-          for (let p = o; p; p = p.parent) if (!p.visible) return
-          if (!o.geometry.boundingBox) o.geometry.computeBoundingBox()
-          meshBox.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld)
-          box.union(meshBox)
-        })
-        if (!box.isEmpty()) {
-          const center = box.getCenter(new THREE.Vector3())
-          const size = box.getSize(new THREE.Vector3())
-          // Guns point along -Z, so look from the side (+X) with the
-          // barrel running left-right; fit the longer of length/height.
-          const fitH = Math.max(size.y, size.z / camera.aspect) * 1.15
-          const dist = fitH / 2 / Math.tan((camera.fov * Math.PI) / 360) + size.x
-          camera.position.set(center.x + dist, center.y + dist * 0.12, center.z)
-          camera.lookAt(center)
-          renderer.render(scene, camera)
-          // A blob URL, encoded off the main thread - toDataURL's PNG
-          // encode for all 15 at once froze the page for a moment.
-          out[id] = await new Promise((resolve) => canvas.toBlob((b) => resolve(b ? URL.createObjectURL(b) : null), 'image/png'))
-          if (!out[id]) delete out[id]
-        }
-        scene.remove(model)
-        // One weapon per break, so the page keeps drawing in between - and
-        // none while a game is being played (only its weapon picker shows
-        // them), where a slow device would stutter or, on a server, miss
-        // its syncs and be dropped.
-        await new Promise((resolve) => setTimeout(resolve, 0))
-        while (this.buildMode?.active && !this.buildMode.survival?._picking) await new Promise((resolve) => setTimeout(resolve, 500))
-      }
-    } catch (err) {
-      console.warn('Weapon pictures failed, using icons instead', err)
-    } finally {
-      if (renderer) {
-        renderer.dispose()
-        renderer.forceContextLoss()
-      }
-    }
-    return out
-  }
+  _weaponThumbnails() { return InventoryUI._weaponThumbnails(this) }
 
-  // The weapon pictures, drawn once in the background (started the first
-  // time Inventory or Map 1's weapon picker needs them) and shared by both.
-  // Drawing all 15 at once when Play was clicked froze the game for a
-  // moment before the map appeared (2026-10-10, "it lags then loads").
-  _weaponThumbnailsReady() {
-    if (!this._weaponThumbJob) {
-      this._weaponThumbJob = this._loadSavedWeaponThumbs().then(async (saved) => {
-        if (saved) return saved
-        const out = await this._weaponThumbnails()
-        this._weaponThumbCache = out
-        this._saveWeaponThumbs(out)
-        return out
-      })
-    }
-    return this._weaponThumbJob
-  }
+  _weaponThumbnailsReady() { return InventoryUI._weaponThumbnailsReady(this) }
 
-  // The pictures are kept in the browser's Cache Storage after the first
-  // drawing (2026-10-11, "the inventory still ticks a bit when clicking"),
-  // so later visits never draw them again. Bump WEAPON_THUMBS_CACHE when a
-  // weapon model changes. Resolves null when nothing (complete) is saved.
-  async _loadSavedWeaponThumbs() {
-    if (this._weaponThumbCache) return this._weaponThumbCache
-    try {
-      if (typeof caches === 'undefined') return null
-      const cache = await caches.open(WEAPON_THUMBS_CACHE)
-      const ids = Object.keys(this.weapons.viewmodels || {})
-      const out = {}
-      for (const id of ids) {
-        const res = await cache.match(`/weapon-thumbs/${id}.png`)
-        if (!res) { this._weaponThumbsSaved = false; return null }
-        out[id] = URL.createObjectURL(await res.blob())
-      }
-      if (!ids.length) return null
-      this._weaponThumbCache = out
-      this._weaponThumbsSaved = true
-      return out
-    } catch {
-      this._weaponThumbsSaved = false
-      return null
-    }
-  }
+  _loadSavedWeaponThumbs() { return InventoryUI._loadSavedWeaponThumbs(this) }
 
-  async _saveWeaponThumbs(out) {
-    try {
-      if (typeof caches === 'undefined') return
-      for (const name of await caches.keys()) if (name.startsWith('gayz-weapon-thumbs') && name !== WEAPON_THUMBS_CACHE) await caches.delete(name)
-      const cache = await caches.open(WEAPON_THUMBS_CACHE)
-      for (const [id, url] of Object.entries(out)) {
-        const blob = await (await fetch(url)).blob()
-        await cache.put(`/weapon-thumbs/${id}.png`, new Response(blob, { headers: { 'Content-Type': 'image/png' } }))
-      }
-    } catch {
-      // Not saved - they're just drawn again next visit.
-    }
-  }
+  _saveWeaponThumbs(out) { return InventoryUI._saveWeaponThumbs(this, out) }
 
-  // A weapon's viewmodel copied for showing on its own (card pictures,
-  // Inspect): reset to the origin and visible. Shares the game's
-  // geometry/materials - never dispose them through this.
-  _weaponDisplayClone(vm) {
-    const model = cloneViewmodel(vm)
-    model.position.set(0, 0, 0)
-    model.rotation.set(0, 0, 0)
-    model.scale.set(1, 1, 1)
-    model.visible = true
-    return model
-  }
+  _weaponDisplayClone(vm) { return InventoryUI._weaponDisplayClone(this, vm) }
 
   _onResize() {
     // Build Mode reuses this same renderer/canvas but owns its own camera
@@ -7908,76 +5927,13 @@ export class Game {
   // persistence of any already-owned attachments from before that change.
   static SHOP_SKIN_PRICE = 10000
 
-  _openShopPanel() {
-    this._closeAllMenuPanels()
-    // Opened from the pause overlay (still on screen, unlocked) as well as
-    // the main menu now that crates are buyable mid-run - hide it
-    // explicitly rather than relying on DOM/paint order, same reasoning
-    // (and fix) as _openUpgradesPanel's own comment: #pause-overlay comes
-    // after #shop-panel in index.html and would otherwise render on top
-    // and eat every click meant for a crate underneath it.
-    this.shopPanel.style.display = 'flex'
-    this.shopPanelTitle.textContent = t('shopPanelTitle')
-    if (this.shopSkinCanvas) {
-      if (!this._shopSkinAvatar3D) {
-        this._shopSkinAvatar3D = new MenuAvatar3D(this.shopSkinCanvas)
-        loadSkinTexture(SHOP_SKIN_PREVIEW_DATA_URL).then((skin) => {
-          if (this._shopSkinAvatar3D) this._shopSkinAvatar3D.setSkin(skin)
-        }).catch(() => {
-          if (this._shopSkinAvatar3D) this._shopSkinAvatar3D.reveal()
-        })
-      }
-      this._shopSkinAvatar3D.start()
-    }
-    this._renderShopSkinState()
-    this._renderCrateTiers()
-  }
+  _openShopPanel() { return InventoryUI._openShopPanel(this) }
 
-  _renderShopSkinState() {
-    if (this.shopSkinBadge) this.shopSkinBadge.style.display = this.ownsShopSkin ? '' : 'none'
-    if (!this.shopSkinBuyBtn) return
-    if (this.ownsShopSkin) {
-      this.shopSkinBuyBtn.style.display = 'none'
-      return
-    }
-    this.shopSkinBuyBtn.style.display = ''
-    const short = this.gems < Game.SHOP_SKIN_PRICE
-    this.shopSkinBuyBtn.disabled = short
-    this.shopSkinBuyBtn.textContent = short ? t('shopSkinNeedMoreGems', { need: Game.SHOP_SKIN_PRICE - this.gems }) : t('shopSkinBuyBtn')
-  }
+  _renderShopSkinState() { return InventoryUI._renderShopSkinState(this) }
 
-  async _buyShopSkin() {
-    if (this.ownsShopSkin || this.gems < Game.SHOP_SKIN_PRICE) return
-    if (!window.confirm(t('shopSkinBuyConfirm'))) return
-    this.gems -= Game.SHOP_SKIN_PRICE
-    this.ownsShopSkin = true
-    saveShopProgress(this)
-    this._renderCurrencyBar()
-    // Equip immediately - same sequence _bindSkinUpload's own upload
-    // handler uses (settings.customSkinDataUrl + menu avatar + corner
-    // photo + third-person body), just sourced from the fixed shop skin
-    // data URL instead of an uploaded file.
-    this.settings.customSkinDataUrl = SHOP_SKIN_PREVIEW_DATA_URL
-    saveSettings(this.settings)
-    const skin = await loadSkinTexture(SHOP_SKIN_PREVIEW_DATA_URL)
-    if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
-    this._updateMenuAvatarPhoto(skin)
-    this._renderShopSkinState()
-    this._showHomepageToast(t('shopSkinBuySuccess'))
-  }
+  _buyShopSkin() { return InventoryUI._buyShopSkin(this) }
 
-  _closeShopPanel() {
-    // _closeAllMenuPanels() calls this unconditionally as blanket cleanup
-    // every time ANY panel opens mid-run (Settings, Upgrades, etc.), not
-    // just when Shop was actually the one open. Without this guard, opening
-    // Settings from the pause menu re-flexed #pause-overlay right after
-    // _toggleSettings had just hidden it - both ended up visible at the
-    // same z-index (15), and #pause-overlay (later in the DOM) silently ate
-    // every click meant for a Settings control underneath it. Only restore
-    // the pause overlay when Shop was genuinely the panel being closed.
-    this.shopPanel.style.display = 'none'
-    if (this._shopSkinAvatar3D) this._shopSkinAvatar3D.stop()
-  }
+  _closeShopPanel() { return InventoryUI._closeShopPanel(this) }
 
   // What's New panel - split out from Credits (used to be one combined
   // panel/nav entry point for both) so the changelog/build info content
@@ -9242,470 +7198,17 @@ export class Game {
     })
   }
 
-  // Clan section (Hub panel) - see docs/superpowers/specs/
-  // 2026-08-26-clan-system-design.md. Create/Join wiring here;
-  // _refreshClanUi() (below) is the single source of truth for which of
-  // the two UI states shows and what's in it.
-  _bindClanSection() {
-    // Click-outside-to-close, same pattern as #coming-soon-panel's own
-    // listener - only the backdrop itself (not any inner content) closes it.
-    if (this.clanPanel) {
-      this.clanPanel.addEventListener('click', (e) => {
-        if (e.target === this.clanPanel) this._closeClanPanel()
-      })
-    }
+  _bindClanSection() { return ClanUI._bindClanSection(this) }
 
-    if (this.clanCreateBtn) {
-      this.clanCreateBtn.addEventListener('click', async () => {
-        if (!this._cloudUid) return
-        const name = this.clanCreateNameInput.value.trim()
-        if (!name) return
-        // Keyboard-only check mirrors the security rule's own name.matches()
-        // pattern (see FIRESTORE_SECURITY_RULES) - catches it here with an
-        // immediate message instead of a generic failure after a rejected
-        // write.
-        if (!/^[ -~]+$/.test(name)) {
-          this.clanCreateTakenWarning.textContent = t('clanNameInvalidChars')
-          this.clanCreateTakenWarning.style.display = 'block'
-          return
-        }
-        const existing = await CloudSync.fetchClanByName(name).catch(() => null)
-        if (existing) {
-          this.clanCreateTakenWarning.textContent = t('clanNameTakenWarning')
-          this.clanCreateTakenWarning.style.display = 'block'
-          return
-        }
-        this.clanCreateTakenWarning.style.display = 'none'
-        const nickname = this.settings.nickname || t('playerShowcaseTitleDefault')
-        const clanId = await CloudSync.createClan(this._cloudUid, nickname, name).catch(() => null)
-        if (!clanId) return
-        this.settings.clanId = clanId
-        this._clanRankingCache = null
-        this.settings.clanName = name
-        saveSettings(this.settings)
-        this._renderPlayerTag()
-        this._refreshClanUi()
-      })
-    }
+  _updateClanMyClanTabLabel() { return ClanUI._updateClanMyClanTabLabel(this) }
 
-    // "Make Clan" toggles the create-name/tag form open/closed rather
-    // than navigating anywhere - the form and the all-clans list both
-    // live in the same browse state.
-    if (this.clanMakeBtn) {
-      this.clanMakeBtn.addEventListener('click', () => {
-        if (!this._cloudUid) return
-        this.clanMakeForm.style.display = this.clanMakeForm.style.display === 'none' ? 'block' : 'none'
-      })
-    }
+  _refreshClanUi() { return ClanUI._refreshClanUi(this) }
 
-    // Request to Join by typing a clan's name (beside Make Clan) -
-    // alternative to clicking a row in the all-clans list below, same
-    // end result (a join request).
-    if (this.clanRequestNameBtn) {
-      this.clanRequestNameBtn.addEventListener('click', async () => {
-        if (!this._cloudUid) return
-        const name = this.clanRequestNameInput.value.trim()
-        if (!name) return
-        const clan = await CloudSync.fetchClanByName(name).catch(() => null)
-        if (!clan) {
-          this.clanRequestNameStatus.textContent = t('clanNotFound')
-          this.clanRequestNameStatus.style.display = 'block'
-          return
-        }
-        const nickname = this.settings.nickname || t('playerShowcaseTitleDefault')
-        await CloudSync.sendJoinRequest(clan.clanId, this._cloudUid, nickname).catch(() => {})
-        this.clanRequestNameStatus.textContent = t('clanRequestSent')
-        this.clanRequestNameStatus.style.display = 'block'
-      })
-    }
+  _renderClanIncomingInvites() { return ClanUI._renderClanIncomingInvites(this) }
 
-    // Request to Join, from the all-clans list (event delegation - the
-    // list is re-rendered on every refresh, so per-row listeners would leak).
-    if (this.clanAllList) {
-      this.clanAllList.addEventListener('click', async (e) => {
-        const btn = e.target.closest('.clan-list-join-btn')
-        if (!btn || !this._cloudUid) return
-        const nickname = this.settings.nickname || t('playerShowcaseTitleDefault')
-        await CloudSync.sendJoinRequest(btn.dataset.clanId, this._cloudUid, nickname).catch(() => {})
-        btn.textContent = t('clanRequestSent')
-        btn.disabled = true
-      })
-    }
+  _fetchClanRanking() { return ClanUI._fetchClanRanking(this) }
 
-    // Incoming clan invites (browse state, not yet in a clan) - Accept
-    // creates your own member doc (the security rule only allows this
-    // because the invite doc exists), Decline just clears it.
-    if (this.clanIncomingInvitesList) {
-      this.clanIncomingInvitesList.addEventListener('click', async (e) => {
-        const acceptBtn = e.target.closest('.clan-invite-accept-btn')
-        const declineBtn = e.target.closest('.clan-invite-decline-btn')
-        if (!this._cloudUid) return
-        if (acceptBtn) {
-          const nickname = this.settings.nickname || t('playerShowcaseTitleDefault')
-          const result = await CloudSync.acceptClanInvite(acceptBtn.dataset.clanId, this._cloudUid, nickname).catch(() => ({ ok: false }))
-          if (!result.ok) return
-          this.settings.clanId = acceptBtn.dataset.clanId
-          this._clanRankingCache = null
-          this.settings.clanName = acceptBtn.dataset.clanName
-          saveSettings(this.settings)
-          this._renderPlayerTag()
-          this._refreshClanUi()
-        } else if (declineBtn) {
-          await CloudSync.declineClanInvite(declineBtn.dataset.clanId, this._cloudUid).catch(() => {})
-          this._refreshClanUi()
-        }
-      })
-    }
-
-    // Send Clan Request - Owner/Elder only (the section itself is hidden
-    // for a plain Member, see _refreshClanUi). By name or Player ID, like
-    // Add a Friend (2026-10-13): typing a name lists everyone whose name
-    // starts with it; picking one sends the request.
-    if (this.clanInviteSendBtn) {
-      this.clanInviteSendBtn.addEventListener('click', () => this._sendClanInviteClick())
-      this.clanInviteIdInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') this._sendClanInviteClick()
-        if (e.key === 'Escape') this._showClanSuggestions([])
-      })
-      let clanSearchTimer = null
-      this.clanInviteIdInput.addEventListener('input', () => {
-        clearTimeout(clanSearchTimer)
-        clanSearchTimer = setTimeout(async () => this._showClanSuggestions(await this._searchPlayerNames(this.clanInviteIdInput.value, 'clan')), 300)
-      })
-      document.getElementById('clan-invite-suggestions')?.addEventListener('click', (e) => {
-        const row = e.target.closest('.friend-suggest-row')
-        const entry = row && this._clanSuggestions?.[Number(row.dataset.index)]
-        if (entry) this._sendClanInviteTo(entry)
-      })
-      document.addEventListener('pointerdown', (e) => {
-        if (!e.target.closest('#clan-invite-row')) this._showClanSuggestions([])
-      })
-    }
-
-    if (this.clanLeaveBtn) {
-      this.clanLeaveBtn.addEventListener('click', async () => {
-        if (!this._cloudUid || !this.settings.clanId) return
-        // Button is disabled (unclickable) for an owner with other members
-        // still present - see _refreshClanUi - so reaching here means
-        // either a non-owner leaving, or the owner leaving as the last
-        // member (which also deletes the clan itself, not just their own
-        // membership - see deleteClan's own comment).
-        const isSoleOwner = this._clanIsOwner && !this._clanOtherMembersPresent
-        if (!window.confirm(t(isSoleOwner ? 'clanDisbandConfirm' : 'clanLeaveConfirm'))) return
-        const clanId = this.settings.clanId
-        await CloudSync.leaveClan(clanId, this._cloudUid).catch(() => {})
-        if (isSoleOwner) await CloudSync.deleteClan(clanId).catch(() => {})
-        this.settings.clanId = null
-        this._clanRankingCache = null
-        this.settings.clanName = null
-        saveSettings(this.settings)
-        this._renderPlayerTag()
-        this._refreshClanUi()
-      })
-    }
-
-    // Kick/Promote/Demote, from the member list (event delegation - the
-    // server-side rule is the real gate; buttons are also only rendered
-    // for roles allowed to use them, see _refreshClanUi).
-    if (this.clanMemberList) {
-      this.clanMemberList.addEventListener('click', async (e) => {
-        if (!this.settings.clanId) return
-        const kickBtn = e.target.closest('.clan-kick-btn')
-        const promoteBtn = e.target.closest('.clan-promote-btn')
-        const demoteBtn = e.target.closest('.clan-demote-btn')
-        const makeLeaderBtn = e.target.closest('.clan-make-leader-btn')
-        if (kickBtn) {
-          await CloudSync.kickClanMember(this.settings.clanId, kickBtn.dataset.uid).catch(() => {})
-        } else if (promoteBtn) {
-          await CloudSync.promoteToElder(this.settings.clanId, promoteBtn.dataset.uid, promoteBtn.dataset.nickname, Number(promoteBtn.dataset.joinedAt)).catch(() => {})
-        } else if (demoteBtn) {
-          await CloudSync.demoteToMember(this.settings.clanId, demoteBtn.dataset.uid, demoteBtn.dataset.nickname, Number(demoteBtn.dataset.joinedAt)).catch(() => {})
-        } else if (makeLeaderBtn) {
-          if (!window.confirm(t('clanMakeLeaderConfirm', { name: makeLeaderBtn.dataset.nickname }))) return
-          await CloudSync.transferClanLeadership(
-            this.settings.clanId,
-            makeLeaderBtn.dataset.uid, makeLeaderBtn.dataset.nickname, Number(makeLeaderBtn.dataset.joinedAt),
-            this._cloudUid, this._clanMyNickname, this._clanMyJoinedAt
-          ).catch(() => {})
-        } else {
-          return
-        }
-        this._refreshClanUi()
-      })
-    }
-
-    // Approve/Deny, from the join-requests list (Owner/Elder only - the
-    // section itself is hidden for a plain Member).
-    if (this.clanRequestsList) {
-      this.clanRequestsList.addEventListener('click', async (e) => {
-        if (!this.settings.clanId) return
-        const approveBtn = e.target.closest('.clan-request-approve-btn')
-        const denyBtn = e.target.closest('.clan-request-deny-btn')
-        if (approveBtn) {
-          await CloudSync.approveJoinRequest(this.settings.clanId, approveBtn.dataset.uid, approveBtn.dataset.nickname).catch(() => {})
-          this._refreshClanUi()
-        } else if (denyBtn) {
-          await CloudSync.denyJoinRequest(this.settings.clanId, denyBtn.dataset.uid).catch(() => {})
-          this._refreshClanUi()
-        }
-      })
-    }
-  }
-
-  // "My Clan" subtab reads "Make Clan" until settings.clanId is actually
-  // set - reuses the existing clanMakeBtn i18n string rather than a new key.
-  _updateClanMyClanTabLabel() {
-    if (this.clanSubtabMyClanBtn) this.clanSubtabMyClanBtn.textContent = this.settings.clanId ? t('clanSubtabMyClan') : t('clanMakeBtn')
-  }
-
-  // Reconciliation: settings.clanId is a local cache (see spec) - a live
-  // members-subcollection check is the actual source of truth, since it
-  // can drift (kicked while offline, left on another device). Called on
-  // Hub panel open and after every create/join/leave/kick action.
-  async _refreshClanUi() {
-    if (!this.clanSigninGate) return
-    // See _authReadyPromise's own comment (Game.js constructor) - same
-    // false-signed-out race the Profile panel had.
-    await this._authReadyPromise
-    if (!this._cloudUid || !CloudSync.isConfigured()) {
-      // Signed out: no "sign in to join/create" nag - just show nothing,
-      // same as a signed-in player who hasn't joined a clan yet.
-      this.clanBrowseState.style.display = 'none'
-      this.clanInClanState.style.display = 'none'
-      this._updateClanMyClanTabLabel()
-      return
-    }
-    this.clanSigninGate.style.display = 'none'
-
-    if (!this.settings.clanId) {
-      // Before treating this as "never joined a clan", check whether I'm
-      // actually the leader of an existing clan doc that my own browser
-      // just has no local record of any more (settings.clanId wiped by a
-      // past bug, before the members-doc self-heal below existed to catch
-      // it) - the member-doc self-heal further down only ever runs once a
-      // clanId is already known, so it can't reach this case on its own.
-      // Restore it here and fall through into the normal in-clan render
-      // path below instead of duplicating it.
-      const ledClan = await CloudSync.fetchClanILead(this._cloudUid).catch(() => null)
-      if (ledClan) {
-        this.settings.clanId = ledClan.clanId
-        this._clanRankingCache = null
-        this.settings.clanName = ledClan.name
-        saveSettings(this.settings)
-        this._renderPlayerTag()
-      } else {
-        ChatUI.updateChatTabAvailability(this)
-        await this._renderClanIncomingInvites()
-        this.clanBrowseState.style.display = 'block'
-        this.clanInClanState.style.display = 'none'
-        this._updateClanMyClanTabLabel()
-        return
-      }
-    }
-
-    let members = await CloudSync.fetchClanMembers(this.settings.clanId).catch(() => [])
-    let me = members.find((m) => m.uid === this._cloudUid)
-    if (!me) {
-      // Before concluding I've actually left/been removed, check the clan
-      // doc's own leaderId - a genuine "kicked while offline" always shows
-      // leaderId belonging to someone else, but createClan writes the clan
-      // doc and the owner's own member doc as two separate, non-atomic
-      // calls (see its own comment) - if the second one was ever
-      // interrupted, or any other past bug dropped just the member doc,
-      // the clan doc survives with leaderId still mine while my own
-      // member record is missing. Self-heal that instead of silently
-      // kicking the real owner out to the Browse screen.
-      const clan = await CloudSync.fetchClanById(this.settings.clanId).catch(() => null)
-      if (clan && clan.leaderId === this._cloudUid) {
-        const nickname = this.settings.nickname || t('playerShowcaseTitleDefault')
-        await CloudSync.restoreOwnerMembership(this.settings.clanId, this._cloudUid, nickname).catch(() => {})
-        members = await CloudSync.fetchClanMembers(this.settings.clanId).catch(() => [])
-        me = members.find((m) => m.uid === this._cloudUid)
-      }
-    }
-    if (!me) {
-      this.settings.clanId = null
-      this._clanRankingCache = null
-      this.settings.clanName = null
-      saveSettings(this.settings)
-      this._renderPlayerTag()
-      ChatUI.updateChatTabAvailability(this)
-      await this._renderClanIncomingInvites()
-      this.clanBrowseState.style.display = 'block'
-      this.clanInClanState.style.display = 'none'
-      this._updateClanMyClanTabLabel()
-      return
-    }
-
-    this.clanBrowseState.style.display = 'none'
-    this.clanInClanState.style.display = 'block'
-    this._updateClanMyClanTabLabel()
-
-    const clan = await CloudSync.fetchClanById(this.settings.clanId).catch(() => null)
-    if (!clan) return
-    // Backfill for an account whose settings.clanName wasn't cached yet
-    // (e.g. joined before this caching existed) - keeps the homepage's
-    // clan-name-above-nickname display (_renderPlayerTag) in sync without
-    // it needing its own live fetch on every page load.
-    if (this.settings.clanName !== clan.name) {
-      this.settings.clanName = clan.name
-      saveSettings(this.settings)
-      this._renderPlayerTag()
-    }
-
-    this.clanDisplayName.textContent = clan.name
-
-    const myRole = me.role || 'member'
-    const canManage = myRole === 'owner' || myRole === 'elder'
-
-    const stats = await CloudSync.fetchClanCombinedStats(this.settings.clanId).catch(() => ({ memberCount: members.length, totalKills: 0, totalBestNight: 0 }))
-    this.clanStatsMembers.textContent = t('clanStatsMembers', { n: stats.memberCount, max: CloudSync.CLAN_MEMBER_CAP })
-    this.clanStatsKills.textContent = t('clanStatsKills', { n: stats.totalKills })
-    this.clanStatsNight.textContent = t('clanStatsNight', { n: stats.totalBestNight })
-
-    // Send Clan Request (invite by Player ID) is management-only.
-    this.clanSendInviteSection.style.display = canManage ? 'block' : 'none'
-
-    const isOwner = myRole === 'owner'
-    // Owner first, then Elder, then Member - no separate "Your role: X"
-    // line any more (removed per request), so the hierarchy needs to read
-    // directly from the list's own order instead.
-    const roleOrder = { owner: 0, elder: 1, member: 2 }
-    const sortedMembers = [...members].sort((a, b) => (roleOrder[a.role || 'member'] ?? 2) - (roleOrder[b.role || 'member'] ?? 2))
-    this.clanMemberList.innerHTML = sortedMembers.map((m) => {
-      const role = m.role || 'member'
-      const canKickThis = canManage && role !== 'owner' && m.uid !== this._cloudUid
-      const canPromoteThis = isOwner && role === 'member'
-      const canDemoteThis = isOwner && role === 'elder'
-      const canMakeLeaderThis = isOwner && m.uid !== this._cloudUid
-      return `
-        <div class="clan-member-row">
-          <span class="clan-member-name-block">
-            <span class="clan-member-role">${t(`clanRole_${role}`)}</span>
-            <span class="clan-member-name">${_escapeHtml(m.nickname)}</span>
-          </span>
-          <span>
-            ${canMakeLeaderThis ? `<button type="button" class="clan-make-leader-btn" data-uid="${m.uid}" data-nickname="${_escapeHtml(m.nickname)}" data-joined-at="${m.joinedAt}">${t('clanMakeLeaderBtn')}</button>` : ''}
-            ${canPromoteThis ? `<button type="button" class="clan-promote-btn" data-uid="${m.uid}" data-nickname="${_escapeHtml(m.nickname)}" data-joined-at="${m.joinedAt}">${t('clanPromoteBtn')}</button>` : ''}
-            ${canDemoteThis ? `<button type="button" class="clan-demote-btn" data-uid="${m.uid}" data-nickname="${_escapeHtml(m.nickname)}" data-joined-at="${m.joinedAt}">${t('clanDemoteBtn')}</button>` : ''}
-            ${canKickThis ? `<button type="button" class="clan-kick-btn" data-uid="${m.uid}">${t('clanKickBtn')}</button>` : ''}
-          </span>
-        </div>
-      `
-    }).join('')
-
-    // Join Requests - only fetched/shown for Owner/Elder (a plain Member
-    // has no read permission on this subcollection anyway per the
-    // security rule, so this also avoids a doomed-to-fail request).
-    if (canManage) {
-      const requests = await CloudSync.fetchJoinRequests(this.settings.clanId).catch(() => [])
-      this.clanRequestsSection.style.display = 'block'
-      this.clanRequestsList.innerHTML = requests.length
-        ? requests.map((r) => `
-          <div class="clan-request-row">
-            <span>${_escapeHtml(r.nickname)}</span>
-            <span>
-              <button type="button" class="clan-request-approve-btn" data-uid="${r.uid}" data-nickname="${_escapeHtml(r.nickname)}">${t('clanApproveBtn')}</button>
-              <button type="button" class="clan-request-deny-btn" data-uid="${r.uid}">${t('clanDenyBtn')}</button>
-            </span>
-          </div>
-        `).join('')
-        : `<p>${t('clanRequestsEmpty')}</p>`
-    } else {
-      this.clanRequestsSection.style.display = 'none'
-    }
-
-    const otherMembersPresent = members.length > 1
-    this._clanOtherMembersPresent = otherMembersPresent
-    this._clanIsOwner = isOwner
-    this._clanMyNickname = me.nickname
-    this._clanMyJoinedAt = me.joinedAt
-    this.clanLeaveBtn.disabled = isOwner && otherMembersPresent
-    this.clanLeaveBtn.textContent = t('clanLeaveBtn')
-    this.clanLeaveDisabledHint.style.display = isOwner && otherMembersPresent ? 'block' : 'none'
-    if (this.clanLeaveDisabledHint.style.display === 'block') this.clanLeaveDisabledHint.textContent = t('clanLeaderMustTransferFirst')
-    ChatUI.updateChatTabAvailability(this)
-  }
-
-  // Invites addressed to this account, shown while browsing (not yet in
-  // a clan) - see CloudSync.fetchIncomingClanInvites.
-  async _renderClanIncomingInvites() {
-    if (!this.clanIncomingInvitesList) return
-    const invites = await CloudSync.fetchIncomingClanInvites(this._cloudUid).catch(() => [])
-    this.clanIncomingInvitesList.innerHTML = invites.map((inv) => `
-      <div class="clan-list-row">
-        <span>${t('clanInviteRowLabel', { name: _escapeHtml(inv.clanName) })}</span>
-        <span>
-          <button type="button" class="clan-invite-accept-btn" data-clan-id="${inv.clanId}" data-clan-name="${_escapeHtml(inv.clanName)}">${t('clanAcceptBtn')}</button>
-          <button type="button" class="clan-invite-decline-btn" data-clan-id="${inv.clanId}">${t('clanDeclineBtn')}</button>
-        </span>
-      </div>
-    `).join('')
-  }
-
-  // Public directory of every clan that exists (see CloudSync.fetchAllClans),
-  // ranked by total member kills (fetchClanCombinedStats - already existed,
-  // previously only ever used for your OWN clan's stats card) - this used to
-  // be an unordered join list, and one only reachable before you'd joined a
-  // clan at all (clanBrowseState, whole thing hidden the moment you had one -
-  // see _refreshClanUi). Now its own always-reachable sub-tab regardless of
-  // membership, and genuinely ranked instead of just listed.
-  // Every clan with its member count and total kills, best first. Three
-  // Firestore reads per clan, so the result is shared for
-  // CLAN_RANKING_CACHE_MS - opening General starts it, the Clan tab reuses
-  // it - and dropped whenever this player's own clan changes.
-  _fetchClanRanking() {
-    const cached = this._clanRankingCache
-    if (cached && Date.now() - cached.at < CLAN_RANKING_CACHE_MS) return cached.promise
-    const promise = (async () => {
-      const clans = await CloudSync.fetchAllClans().catch(() => [])
-      const [counts, stats] = await Promise.all([
-        Promise.all(clans.map((c) => CloudSync.fetchClanMemberCount(c.clanId).catch(() => null))),
-        Promise.all(clans.map((c) => CloudSync.fetchClanCombinedStats(c.clanId).catch(() => null))),
-      ])
-      return clans
-        .map((c, i) => ({ ...c, memberCount: counts[i], totalKills: stats[i]?.totalKills ?? 0 }))
-        .sort((a, b) => b.totalKills - a.totalKills)
-    })()
-    this._clanRankingCache = { at: Date.now(), promise }
-    // A failed or empty load isn't worth keeping - try again next time.
-    promise.then((list) => { if (!list.length && this._clanRankingCache?.promise === promise) this._clanRankingCache = null })
-    return promise
-  }
-
-  async _renderClanRanking() {
-    if (!this.clanAllList) return
-    this.clanAllList.innerHTML = ''
-    const ranked = await this._fetchClanRanking()
-    if (!ranked.length) {
-      this.clanAllList.innerHTML = `<p>${t('clanListEmpty')}</p>`
-      return
-    }
-    // Already in a clan - no server-side rule stops sending a join request to
-    // a DIFFERENT clan while still a member of your own (sendJoinRequest just
-    // writes a pending request doc), which would be a confusing way to end up
-    // half-migrated. Only show Join when there's genuinely nowhere you
-    // already belong; your own clan's row gets a plain label instead.
-    const inClan = !!this.settings.clanId
-    this.clanAllList.innerHTML = ranked.map((c, i) => {
-      const isMine = inClan && c.clanId === this.settings.clanId
-      const countLabel = c.memberCount == null ? '' : ` <span class="clan-list-count">(${c.memberCount}/${CloudSync.CLAN_MEMBER_CAP})</span>`
-      const action = isMine
-        ? `<span class="clan-list-your-clan">${t('clanRankingYourClan')}</span>`
-        : inClan
-          ? ''
-          : `<button type="button" class="clan-list-join-btn mini-action-btn" data-clan-id="${c.clanId}">${t('clanJoinBtn')}</button>`
-      return `
-        <div class="clan-list-row clan-ranking-row${isMine ? ' clan-list-row-mine' : ''}">
-          <span class="clan-list-rank">#${i + 1}</span>
-          <span class="clan-list-name">${_escapeHtml(c.name)}${countLabel}</span>
-          ${isMine ? action : ''}
-          <span class="clan-list-kills">${t('clanRankingKillsLabel', { n: c.totalKills })}</span>
-          ${isMine ? '' : action}
-        </div>
-      `
-    }).join('')
-  }
+  _renderClanRanking() { return ClanUI._renderClanRanking(this) }
 
   // Rolled once per night-round: a chance of rain OR snow for the whole
   // round (mutually exclusive - one weather state at a time), lower

@@ -76,6 +76,9 @@ while i < len(lines):
                     origin[n] = ('local', i)
     i += 1
 
+# The class itself (static values like Game.SHOP_SKIN_PRICE).
+origin['Game'] = ('local', cls_start)
+
 def strip(code):
     code = re.sub(r'//[^\n]*', '', code)
     code = re.sub(r"'(?:\\.|[^'\\\n])*'", "''", code)
