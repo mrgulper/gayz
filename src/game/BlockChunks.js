@@ -26,12 +26,11 @@ const LAZY_BUDGET_MS = 5
 // A power-of-two SLOT with the tile repeated into half-tile padding: every
 // mipmap level (down to one texel per slot) then only ever averages a
 // block's own texture - no distant speckles bled in from the next tile.
-// 32px slots holding each 16x16 pixel-art texture (BlockTextures.js)
-// scaled up 2x with no smoothing - the same crisp pixels, just with room
-// for the padding trick below.
-const TILE = 32
-const PAD = TILE / 2
-const SLOT = TILE + PAD * 2
+// Tiles hold the HD textures (BlockTextures.js HD_SIZE, 2026-10-16): 64px
+// on computers, drawn at 32px on phones/tablets (the `tile` option) to
+// keep their graphics memory where it was. ~311 textures: about 28 MB
+// with mipmaps at 64px, about 7 MB at 32px.
+const DEFAULT_TILE = 64
 
 // 6 faces: normal, 4 corners (cube-local 0/1, counter-clockwise seen from
 // outside), texture v points up (+y) on the sides, -z on top/bottom.
@@ -79,7 +78,10 @@ export class BlockChunks {
   // types: BLOCK_TYPES. faces(type) -> { top, side, bottom } canvases.
   // hasAlpha(type) -> the texture carries its own transparency. getType(x,
   // y, z) -> type id or null.
-  constructor(scene, { blockSize, types, faces, hasAlpha, getType, liquidHeight, maxAnisotropy = 4 }) {
+  constructor(scene, { blockSize, types, faces, hasAlpha, getType, liquidHeight, maxAnisotropy = 4, tile = DEFAULT_TILE }) {
+    const TILE = tile
+    const PAD = TILE / 2
+    const SLOT = TILE + PAD * 2
     this.scene = scene
     this.liquidHeight = liquidHeight || (() => LIQUIDS.water.surface)
     this.blockSize = blockSize
@@ -94,31 +96,44 @@ export class BlockChunks {
     const cube = types.filter((t) => !t.shape)
     const faceSets = cube.map((t) => faces(t))
     const unique = [...new Set(faceSets.flatMap((f) => [f.top, f.side, f.bottom]))]
-    // 2048 wide x as many rows as needed (512 for today's ~130 textures):
-    // about 5 MB of GPU memory with mipmaps.
-    const atlasW = 2048
+    // 4096 wide (2048 for small tiles) x exactly as many rows as needed -
+    // not rounded up to a power of two (WebGL2 mipmaps any size), which
+    // would nearly double the memory.
+    const atlasW = TILE >= 64 ? 4096 : 2048
     const perRow = atlasW / SLOT
-    const atlasH = THREE.MathUtils.ceilPowerOfTwo(Math.ceil(unique.length / perRow) * SLOT)
+    const atlasH = Math.ceil(unique.length / perRow) * SLOT
     const canvas = document.createElement('canvas')
     canvas.width = atlasW
     canvas.height = atlasH
     const ctx = canvas.getContext('2d')
-    ctx.imageSmoothingEnabled = false
+    ctx.imageSmoothingQuality = 'high'
     const uvOf = new Map()
+    // One slot per distinct picture; redraw() paints it (again, with the
+    // HD version, in refreshAtlas - same spot, so no UV changes).
+    const draw = (src, ox, oy) => {
+      // A small picture is scaled up crisp (pixel art), a big one down
+      // smoothly (HD textures in small tiles on phones).
+      ctx.imageSmoothingEnabled = src.width > TILE
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(ox - PAD, oy - PAD, SLOT, SLOT)
+      ctx.clip()
+      ctx.clearRect(ox - PAD, oy - PAD, SLOT, SLOT)
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) ctx.drawImage(src, ox + dx * TILE, oy + dy * TILE, TILE, TILE)
+      }
+      ctx.restore()
+    }
+    this._atlasSlots = []
+    this._atlasDraw = draw
     unique.forEach((src, i) => {
       const ox = (i % perRow) * SLOT + PAD
       const oy = Math.floor(i / perRow) * SLOT + PAD
       // Padding around each tile repeats the tile's own opposite edge, so
       // the smaller mipmap levels blend into matching colors instead of
       // bleeding a neighboring block's texture across the seam.
-      ctx.save()
-      ctx.beginPath()
-      ctx.rect(ox - PAD, oy - PAD, SLOT, SLOT)
-      ctx.clip()
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) ctx.drawImage(src, ox + dx * TILE, oy + dy * TILE, TILE, TILE)
-      }
-      ctx.restore()
+      draw(src, ox, oy)
+      this._atlasSlots.push({ src, ox, oy })
       // Canvas y runs down, texture v runs up (flipY) - v0 is the bottom.
       const u0 = ox / atlasW
       const u1 = (ox + TILE) / atlasW
@@ -147,8 +162,7 @@ export class BlockChunks {
       })
     })
     const tex = new THREE.CanvasTexture(canvas)
-    tex.magFilter = THREE.NearestFilter
-    // Crisp pixels up close (Nearest magnification), trilinear mipmaps +
+    // Smooth up close (the HD textures aren't pixel art), trilinear mipmaps +
     // full anisotropy far away so the floor doesn't shimmer toward the
     // horizon. Safe with an atlas: the padded power-of-two slots above keep
     // every mip level inside a block's own texture.
@@ -162,7 +176,6 @@ export class BlockChunks {
       if (!t) return null
       const map = new THREE.CanvasTexture(faces(t).side)
       map.wrapS = map.wrapT = THREE.RepeatWrapping
-      map.magFilter = THREE.NearestFilter
       map.minFilter = THREE.LinearMipmapLinearFilter
       map.colorSpace = THREE.SRGBColorSpace
       map.anisotropy = maxAnisotropy
@@ -178,6 +191,17 @@ export class BlockChunks {
       clear: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, alphaTest: 0.02 }),
       cutout: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, alphaTest: 0.5 }),
     }
+  }
+
+  // Repaints every atlas slot with replace(picture) - the HD textures once
+  // they're made (BlockTextures prepareHdTextures) - in the same spots, so
+  // nothing else changes; the GPU copy updates on the next frame.
+  refreshAtlas(replace) {
+    for (const slot of this._atlasSlots) {
+      const next = replace(slot.src)
+      if (next && next !== slot.src) this._atlasDraw(next, slot.ox, slot.oy)
+    }
+    this.atlas.needsUpdate = true
   }
 
   // Liquid animation - steps one texture pixel at a time (Minecraft's own

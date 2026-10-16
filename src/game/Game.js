@@ -117,7 +117,7 @@ const CRATE_ICON_SVG = {
   </svg>`,
 }
 import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_POINTS_CONVERSION } from './MetaProgress.js'
-import { playConfig, UPGRADE_PLAY, POINTS_PER_KILL, POINTS_PER_WAVE, DEFENSE_WAVES, BOSS_HUNT_EVERY, PLAY_GAME_MODES, EXTRACTION_WAVES, EXTRACTION_HOLD } from './PlayRules.js'
+import { playConfig, UPGRADE_PLAY, POINTS_PER_KILL, POINTS_PER_WAVE, DEFENSE_WAVES, BOSS_HUNT_EVERY, PLAY_GAME_MODES, EXTRACTION_WAVES, EXTRACTION_HOLD, SKELETON_FROM_WAVE } from './PlayRules.js'
 import { BIOMES, seedFromText } from './OpenWorld.js'
 import * as GalleryUI from './GalleryUI.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel, getAllBindings, setAllBindings } from './Keybinds.js'
@@ -10128,6 +10128,7 @@ export class Game {
       prestigeStep: PRESTIGE_COST_STEP.toLocaleString('en-US'),
       prestigeStep2: (PRESTIGE_COST_STEP * 2).toLocaleString('en-US'),
       biomes: Object.keys(BIOMES).length,
+      skeletonWave: SKELETON_FROM_WAVE,
       marketFee: Math.round(MARKET_FEE_RATE * 100),
       chatMuteMinutes: ChatUI.CHAT_MUTE_MS / 60000,
       loginDays: LOGIN_CALENDAR_DAYS,

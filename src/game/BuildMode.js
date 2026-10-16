@@ -6,7 +6,7 @@ import { FIXED_KEYS, getKeyFor, keyLabel, keysFor } from './Keybinds.js'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
-import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, gadgetIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
+import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, gadgetIconURL, hdCanvasFor, prepareHdTextures, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
 import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
 import { BuildTryMode } from './BuildTryMode.js'
@@ -1028,7 +1028,6 @@ function _shapedSource(bt) {
 
 function _canvasTexture(canvas) {
   const tex = new THREE.CanvasTexture(canvas)
-  tex.magFilter = THREE.NearestFilter
   tex.minFilter = THREE.LinearMipmapLinearFilter
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
@@ -1577,10 +1576,15 @@ export class BuildMode {
       // filtering is one of the slowest things for an old phone's GPU).
       maxAnisotropy: TOUCH_DEVICE ? 1 : Math.min(4, renderer.capabilities.getMaxAnisotropy()),
       faces: blockFaceCanvases,
+      // HD textures at full size on computers, half on phones/tablets.
+      tile: TOUCH_DEVICE ? 32 : 64,
       hasAlpha: textureHasAlpha,
       getType: (x, y, z) => this._blocks.get(`${x},${y},${z}`),
       liquidHeight: (x, y, z) => this.liquids.heightAt(x, y, z),
     })
+    // The realistic HD textures are made in a worker meanwhile and swapped
+    // in when they're ready (2026-10-16) - the map never waits for them.
+    prepareHdTextures(BLOCK_TYPES).then((ok) => { if (ok) this._applyHdTextures() })
     this._chunkCells = new Map() // "cx,cy,cz" -> Set of "x,y,z" cube cells in that chunk
     this._instancedMeshes = {}
     this._instanceKeyByIndex = {} // type id -> array mapping instance index -> "x,y,z" key, for swap-remove
@@ -2068,6 +2072,43 @@ export class BuildMode {
   // Geometry + material(s) for the block shown in the player's hand while
   // building (BuildTryMode.drawHand): a cube textured like the block, or a
   // shaped block's own mesh parts. Cached per type; shared, never disposed.
+  // Swaps the HD block textures in (BlockTextures prepareHdTextures): the
+  // chunk atlas is repainted in place, and every other block material
+  // (shaped blocks, liquids, doors, the held block) gets a new texture made
+  // from its HD picture - a fresh texture rather than a new image in the
+  // old one, since the GPU copy can't change size in place.
+  _applyHdTextures() {
+    this._chunks?.refreshAtlas((c) => hdCanvasFor(c) || c)
+    const swapped = new Map()
+    const upgrade = (tex) => {
+      if (!tex?.image) return tex
+      if (swapped.has(tex)) return swapped.get(tex)
+      const hd = hdCanvasFor(tex.image)
+      if (!hd) return tex
+      const next = new THREE.CanvasTexture(hd)
+      for (const key of ['wrapS', 'wrapT', 'minFilter', 'colorSpace', 'anisotropy', 'flipY']) next[key] = tex[key]
+      next.offset.copy(tex.offset)
+      next.repeat.copy(tex.repeat)
+      swapped.set(tex, next)
+      tex.dispose()
+      return next
+    }
+    const swap = (material) => {
+      for (const m of Array.isArray(material) ? material : [material]) {
+        if (!m) continue
+        if (m.map) m.map = upgrade(m.map)
+        if (m.emissiveMap) m.emissiveMap = upgrade(m.emissiveMap)
+      }
+    }
+    const visit = (root) => root?.traverse?.((o) => { if (o.material) swap(o.material) })
+    visit(this.scene)
+    visit(this.tryMode?._gunScene)
+    if (this._chunks?.materials) for (const m of Object.values(this._chunks.materials)) swap(m)
+    for (const mesh of Object.values(this._instancedMeshes)) swap(mesh.material)
+    for (const parts of this._heldParts?.values() || []) swap(parts.material)
+    this._renderHotbar()
+  }
+
   _heldBlockParts(type) {
     if (!this._heldParts) this._heldParts = new Map()
     if (this._heldParts.has(type)) return this._heldParts.get(type)
