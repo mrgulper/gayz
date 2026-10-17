@@ -576,30 +576,54 @@ test('sharing a map by code, liking it, and building together', async ({ page })
   expect(r.left).toBe(true)
 })
 
-// The editor's weather is Map 1's own overlays (BuildSky.js), shown only
-// while the editor is open.
-test('Map Editor weather uses Map 1\'s rain, snow and sandstorm', async ({ page }) => {
+// The editor's weather (BuildSky.js): rain and snow fall in the 3D world
+// (BuildWeather.js) instead of the old screen overlays - only the
+// sandstorm haze is still an overlay - the sky greys, the light dims and
+// the fog comes in, and it's all gone once the editor closes. Random is
+// the default and fits the biome (no snow in the desert).
+test('Map Editor weather falls in the world and fits the biome', async ({ page }) => {
   await gotoAndWaitForGame(page)
 
   const r = await page.evaluate(async () => {
     const g = window.__game
     await g._enterBuildMode()
     const sky = g.buildMode.sky
+    const w3 = sky.weather3d
     const shown = () => ['rain-overlay', 'rain-overlay-hard', 'snow-overlay', 'snow-overlay-hard', 'sandstorm-overlay'].filter((id) => document.getElementById(id).style.display === 'block')
-    const out = {}
+    const out = { defaultWeather: sky.weather }
     for (const w of ['clear', 'lightRain', 'hardRain', 'lightSnow', 'hardSnow', 'sandstorm']) {
       sky.weather = w
       sky._pickWeather()
       sky.apply()
-      out[w] = shown().join()
+      // Long enough for the old weather to fade out and the new one in.
+      for (let i = 0; i < 400; i++) sky.update(1 / 30)
+      out[w] = [shown().join(), w3.kind || '', w3.points.visible, sky.fogFactor < 0.99, sky._light < 0.99]
     }
-    out.particles = document.querySelectorAll('#rain-overlay-hard .rain-particle').length
     g._exitBuildMode()
-    out.afterExit = shown().join()
+    out.afterExit = [shown().join(), w3.kind || '', w3.points.visible]
+    // Snow while standing somewhere dry re-rolls to weather a dry place can have.
+    sky._climateAt = () => 'dry'
+    const rolls = new Set()
+    sky.weather = 'random'
+    for (let i = 0; i < 40; i++) {
+      sky._pickWeather()
+      rolls.add(sky._now)
+    }
+    out.dryRolls = [...rolls].every((k) => k === 'clear' || k === 'sandstorm')
     return out
   })
 
-  expect(r).toEqual({ clear: '', lightRain: 'rain-overlay', hardRain: 'rain-overlay-hard', lightSnow: 'snow-overlay', hardSnow: 'snow-overlay-hard', sandstorm: 'sandstorm-overlay', particles: 160, afterExit: '' })
+  expect(r).toEqual({
+    defaultWeather: 'random',
+    clear: ['', '', false, false, false],
+    lightRain: ['', 'lightRain', true, true, true],
+    hardRain: ['', 'hardRain', true, true, true],
+    lightSnow: ['', 'lightSnow', true, true, true],
+    hardSnow: ['', 'hardSnow', true, true, true],
+    sandstorm: ['sandstorm-overlay', '', false, true, true],
+    afterExit: ['', '', false],
+    dryRolls: true,
+  })
 })
 
 // Map 3's walled camp in Play (BuildCamp.js): a safe zone with a Trader,
@@ -1623,4 +1647,50 @@ test("Escape while playing opens the game's pause menu; saved games carry on", a
     return out
   })
   expect(b).toEqual({ wave: 3, kills: 23, coins: 77, damage: 2, weapon: 'shotgun', picking: false, home: true, counted: 1, saved: false })
+})
+
+// The gun's kick is a spring (BuildTryMode._kick/_updateKick): it eases back
+// over a few frames and glides home instead of snapping, and a shot leaves
+// a muzzle flash and smoke (GunFx.js). Zombies get brains
+// (BuildSurvival._zombieBrain): rushers, flankers that curve out to a side
+// (alternating sides), lungers that sprint when close.
+test('smooth gun kick with flash and smoke; zombies get brains', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 90000 })
+  const r = await page.evaluate(() => {
+    const bm = window.__game.buildMode
+    const s = bm.survival
+    const tm = bm.tryMode
+    if (document.getElementById('play-weapon-pick')?.style.display !== 'none') s._pickWeapon('rifle')
+    const out = {}
+    tm._recoil = 0
+    tm._kickVel = 0
+    s._nextShotAt = 0
+    tm.fire()
+    const curve = []
+    for (let i = 0; i < 30; i++) {
+      tm._updateKick(1 / 60)
+      curve.push(tm._recoil)
+    }
+    const peak = curve.indexOf(Math.max(...curve))
+    out.eases = curve[0] < curve[peak] && peak >= 2
+    out.home = Math.abs(curve[29]) < 0.05
+    out.muzzle = !!tm._muzzle && !!tm._fx && tm._fx.flash.visible
+    tm._fx.update(0.1)
+    out.smoke = tm._fx._smoke.some((p) => p.visible)
+    tm._fx.update(1)
+    out.smokeGone = tm._fx._smoke.every((p) => !p.visible) && !tm._fx.flash.visible
+    // Brains: every zombie gets a role, sides alternate, far flankers curve.
+    const player = { x: 12, y: 0, z: 0 }
+    const zombies = Array.from({ length: 30 }, () => ({ x: 0, y: 0, z: 0 }))
+    for (const zb of zombies) s._zombieBrain(zb, 0.5, player)
+    const roles = new Set(zombies.map((z) => z.role))
+    out.roles = ['rusher', 'flanker', 'lunger'].filter((k) => roles.has(k)).length >= 2
+    out.sides = new Set(zombies.map((z) => z.side)).size === 2
+    out.flankersCurve = zombies.filter((z) => z.role === 'flanker').every((z) => z.flank > 0) && roles.has('flanker')
+    out.rushersStraight = zombies.filter((z) => z.role === 'rusher').every((z) => z.flank === 0)
+    return out
+  })
+  expect(r).toEqual({ eases: true, home: true, muzzle: true, smoke: true, smokeGone: true, roles: true, sides: true, flankersCurve: true, rushersStraight: true })
 })
