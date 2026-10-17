@@ -474,6 +474,28 @@ export const BLOCK_TYPES = [
   { id: 'graystainedglass', name: 'Gray Stained Glass', color: 0x4c4c4c, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
   { id: 'lightgraystainedglass', name: 'Light Gray Stained Glass', color: 0x999999, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
   { id: 'brownstainedglass', name: 'Brown Stained Glass', color: 0x664c33, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  // Villages, castles and nature (2026-10-16) - building blocks for the
+  // open world's places, more kinds of leaves, and bamboo that's a thin
+  // stalk (`inset`: drawn narrower than its cell, BlockChunks.js) instead
+  // of a whole block. Full ones get a slab and stairs like every block;
+  // inset ones don't (they aren't full blocks).
+  { id: 'stonebricks', name: 'Stone Bricks', color: 0x8a8a86, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'sandstonebricks', name: 'Sandstone Bricks', color: 0xd8c690, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'plaster', name: 'White Plaster', color: 0xe6e0d2, pattern: 'speckle', roughness: 0.95, metalness: 0 },
+  { id: 'timberframe', name: 'Timber Frame', color: 0xe2dccb, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'thatch', name: 'Thatch', color: 0xc9a85a, pattern: 'stripe', roughness: 1, metalness: 0 },
+  { id: 'roofshingles', name: 'Red Roof Shingles', color: 0xa4473a, pattern: 'brick', roughness: 0.85, metalness: 0 },
+  { id: 'slateshingles', name: 'Slate Shingles', color: 0x56606e, pattern: 'brick', roughness: 0.85, metalness: 0 },
+  { id: 'dirtpath', name: 'Dirt Path', color: 0x947245, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'paperlantern', name: 'Paper Lantern', color: 0xf3b25a, pattern: 'speckle', roughness: 0.8, metalness: 0, emissive: 0xffa040, emissiveIntensity: 0.9 },
+  { id: 'bamboo', name: 'Bamboo', color: 0x7fa83a, pattern: 'stripe', roughness: 0.9, metalness: 0, inset: 6 / 16 },
+  { id: 'bambooleaves', name: 'Bamboo Leaves', color: 0x5f9a34, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88, inset: 4 / 16 },
+  { id: 'birchleaves', name: 'Birch Leaves', color: 0x7aa04a, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
+  { id: 'spruceleaves', name: 'Spruce Leaves', color: 0x3d5e3a, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
+  { id: 'jungleleaves', name: 'Jungle Leaves', color: 0x3f8a2a, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
+  { id: 'cherryleaves', name: 'Cherry Leaves', color: 0xe9a6c4, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
+  { id: 'mangroveleaves', name: 'Mangrove Leaves', color: 0x5a8a2c, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
+  { id: 'azalealeaves', name: 'Flowering Azalea Leaves', color: 0x5d7f2e, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
   // Shaped blocks (see CUSTOM_BLOCK_GEOMETRY) - every block above is a full
   // 1x1x1 cube; these use their own geometry instead (a stair-stepped
   // silhouette, a post-and-rail fence, a thin ladder panel). `shape` picks
@@ -533,7 +555,7 @@ export const BLOCK_TYPES = [
 // skipped here. No water/lava slabs (Minecraft has none either).
 const HAND_SLAB_SOURCES = new Set(['oakplanks', 'spruceplanks', 'birchplanks', 'darkoakplanks', 'smoothstone', 'cobblestone', 'brick', 'stone', 'sandstone', 'quartz', 'blackstone', 'prismarine'])
 for (const src of BLOCK_TYPES.slice()) {
-  if (src.shape || src.id === 'water' || src.id === 'lava' || HAND_SLAB_SOURCES.has(src.id)) continue
+  if (src.shape || src.inset || src.id === 'water' || src.id === 'lava' || HAND_SLAB_SOURCES.has(src.id)) continue
   BLOCK_TYPES.push({
     ...src,
     id: `${src.id}slab`,
@@ -548,7 +570,7 @@ for (const src of BLOCK_TYPES.slice()) {
 // which these two loops do automatically.
 const HAND_STAIRS_SOURCES = new Set(['oakplanks', 'stone', 'brick', 'cobblestone'])
 for (const src of BLOCK_TYPES.filter((b) => !b.shape)) {
-  if (src.id === 'water' || src.id === 'lava' || HAND_STAIRS_SOURCES.has(src.id)) continue
+  if (src.inset || src.id === 'water' || src.id === 'lava' || HAND_STAIRS_SOURCES.has(src.id)) continue
   BLOCK_TYPES.push({ ...src, id: `${src.id}stairs`, name: `${src.name} Stairs`, shape: 'stairs', stairsOf: src.id })
 }
 // Top halves of doors - never in the picker, only ever placed together
@@ -1101,8 +1123,9 @@ function _blockCategory(bt) {
   if (/wool$|concrete$/.test(id)) return 'color'
   if (/nether|soul|crimson|warped|basalt|blackstone|magma|endstone|purpur|obsidian|quartz|lodestone/.test(id)) return 'nether'
   if (/ore$|^raw|^(diamond|emerald|lapis|redstone|coal|copper)block$|^gold$|^iron$|^metal$|copper|netherite|debris|amethyst/.test(id)) return 'ore'
-  if (/planks|log$|stem$|^wood$|bookshelf|craftingtable|barrel|crate|noteblock|jukebox|bamboo/.test(id)) return 'wood'
-  if (/grass|dirt|mud|sand$|^sand$|gravel|clay|moss|leaves|snow|ice$|cactus|pumpkin|melon|hay|mushroom|mycelium|podzol|kelp|coral|sponge|honey|slime|sculk|dripstone|bone|nylium/.test(id)) return 'nature'
+  if (/leaves$/.test(id)) return 'nature'
+  if (/planks|log$|stem$|^wood$|bookshelf|craftingtable|barrel|crate|noteblock|jukebox|bamboo|timberframe/.test(id)) return 'wood'
+  if (/grass|dirt|mud|sand$|^sand$|gravel|clay|moss|leaves|thatch|snow|ice$|cactus|pumpkin|melon|hay|mushroom|mycelium|podzol|kelp|coral|sponge|honey|slime|sculk|dripstone|bone|nylium/.test(id)) return 'nature'
   if (/c4|target/.test(id)) return 'other'
   return 'stone'
 }
@@ -1961,6 +1984,13 @@ export class BuildMode {
   }
 
   // --- Try Map support (BuildTryMode's collision asks these) ---
+  // How far in from each side a narrow block (bamboo...) stands: 0 for any
+  // other block.
+  _cellInset(x, y, z) {
+    const type = this.getBlockAt(x, y, z)
+    return (type && BLOCK_BY_ID.get(type)?.inset) || 0
+  }
+
   // How much of a cell, from its bottom, is solid to walk into: 0 for air,
   // water/lava, ladders and open doors, half for slabs and stairs, else 1.
   _cellSolidTop(x, y, z) {

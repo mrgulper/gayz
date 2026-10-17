@@ -149,7 +149,7 @@ test('Tab opens the picker, clicking a swatch changes the selected block type', 
   })
 
   expect(result.openAfterToggle).toBe(true)
-  expect(result.swatchCount).toBe(814)
+  expect(result.swatchCount).toBe(861)
   expect(result.afterClickType).not.toBe(result.beforeType)
   expect(result.closedAfterClick).toBe(false)
 })
@@ -1105,7 +1105,8 @@ test('Map 1 has an open world with biomes around it', async ({ page }) => {
     const tx = Math.floor(gate.x + 0.5 + gate.dx * 8)
     const tz = Math.floor(gate.z + 0.5 + gate.dz * 8)
     w.update([{ x: tx, z: tz }])
-    out.trackOutside = ['gravel', 'coarsedirt', 'spruceplanks'].includes(surface(tx, tz)?.[1])
+    // A frayed edge may keep the land's own top, so look across the track.
+    out.trackOutside = [-2, -1, 0, 1, 2].some((w) => ['dirtpath', 'gravel', 'coarsedirt', 'spruceplanks'].includes(surface(tx + Math.round(gate.dz * w), tz - Math.round(gate.dx * w))?.[1]))
     // The city isn't a square any more (CityShape.js): its corners are
     // land, grown in the city's own chunk columns, and no land is ever
     // grown on a city cell.
@@ -1232,6 +1233,64 @@ test('the open world has villages, castles and bridges', async ({ page }) => {
     expect(v.name.length, kind).toBeGreaterThan(0)
     expect(v.tree, kind).toBe(true)
   }
+})
+
+// 2026-10-16 polish: bamboo is a thin stalk you can walk past, the new
+// blocks are there (with slabs and stairs, but none for the thin ones), and
+// the minimap has florr.io's three sizes with limits on dragging/zooming.
+test('thin bamboo, new blocks and the three map sizes', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    const isType = (id) => b.constructor.isBlockType(id)
+    const out = {
+      newBlocks: ['stonebricks', 'timberframe', 'thatch', 'roofshingles', 'dirtpath', 'paperlantern', 'bamboo', 'cherryleaves', 'stonebricksslab', 'thatchstairs'].every(isType),
+      noThinSlabs: !isType('bambooslab') && !isType('bambooleavesstairs'),
+    }
+    // Bamboo: drawn narrower than its cell, and only its middle blocks you.
+    b.placeBlock(0, 60, 0, 'bamboo')
+    b.render()
+    const xs = new Set()
+    for (const m of b._chunks.chunks.get(b._chunkKeyOf(0, 60, 0))?.meshes || []) {
+      const p = m.geometry.attributes.position
+      for (let i = 0; i < p.count; i++) xs.add(Math.round((p.getX(i) / 0.35) * 100) / 100)
+    }
+    out.thin = Math.min(...xs) > 0.3 && Math.max(...xs) < 0.7
+    const tm = b.tryMode
+    out.blocksMiddle = tm._hits(0.5, 60, 0.5, 1.8)
+    out.walkPastEdge = !tm._hits(0.05 - 0.3 + 0.0, 60, 0.5, 1.8)
+    // The minimap's three sizes.
+    b.toggleTryMode()
+    const spans = []
+    for (let i = 0; i < 3; i++) {
+      spans.push([tm._mapEl.dataset.size, tm._mapSpan()])
+      tm.cycleMap()
+    }
+    out.spans = spans
+    while (tm._mapEl.dataset.size !== 'center') tm.cycleMap()
+    tm._mapPan.x = 1e6
+    tm._clampMapPan()
+    out.panLimited = tm._mapPan.x <= 1200
+    for (let i = 0; i < 30; i++) tm.zoomMap(2)
+    out.zoomOutLimited = tm._mapSpan() <= 960
+    for (let i = 0; i < 30; i++) tm.zoomMap(0.5)
+    out.zoomInLimited = tm._mapSpan() >= 48
+    tm.cycleMap()
+    b.toggleTryMode()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r.newBlocks).toBe(true)
+  expect(r.noThinSlabs).toBe(true)
+  expect(r.thin).toBe(true)
+  expect(r.blocksMiddle).toBe(true)
+  expect(r.walkPastEdge).toBe(true)
+  expect(r.spans).toEqual([['normal', 96], ['big', 640], ['center', 160]])
+  expect(r.panLimited).toBe(true)
+  expect(r.zoomOutLimited).toBe(true)
+  expect(r.zoomInLimited).toBe(true)
 })
 
 // All 26 biomes are out there, within a long walk of the city.

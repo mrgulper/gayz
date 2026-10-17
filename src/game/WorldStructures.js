@@ -27,21 +27,22 @@ const CASTLE_BIOMES = new Set(['plains', 'forest', 'birchForest', 'darkForest', 
 // Names for the HUD (i18n keys).
 export const STRUCTURE_NAMES = { village: 'placeVillage', castle: 'placeCastle', bridge: 'placeBridge' }
 
-// Materials per climate.
+// Materials per climate. walls: picked per house; trim: the roof's
+// overhanging edge; shutter: window shutters; lamp: street and door lights.
 function villageStyle(biome) {
   if (biome === 'desert' || biome === 'badlands') {
-    return { wall: 'smoothsandstone', frame: 'cutsandstone', base: 'sandstone', roof: 'smoothsandstone', rim: 'cutsandstone', floor: 'sandstone', path: 'smoothsandstone', lamp: 'sealantern', fence: 'cutsandstone' }
+    return { walls: ['smoothsandstone', 'sandstonebricks', 'plaster'], frame: 'cutsandstone', base: 'sandstone', roofs: ['smoothsandstone', 'cutsandstone'], trim: 'chiseledsandstone', floor: 'sandstone', path: 'smoothsandstone', lamp: 'paperlantern', fence: 'cutsandstone', shutter: 'orangeterracotta', rug: 'redwool', timber: false }
   }
   if (biome === 'savanna') {
-    return { wall: 'acaciaplanks', frame: 'acacialog', base: 'terracotta', roof: 'acaciaplanks', rim: 'acacialog', floor: 'acaciaplanks', path: 'coarsedirt', lamp: 'shroomlight', fence: 'acacialog' }
+    return { walls: ['acaciaplanks', 'plaster', 'orangeterracotta'], frame: 'acacialog', base: 'terracotta', roofs: ['thatch', 'acaciaplanks'], trim: 'acacialog', floor: 'acaciaplanks', path: 'coarsedirt', lamp: 'paperlantern', fence: 'acacialog', shutter: 'acaciaplanks', rug: 'orangewool', timber: false }
   }
   if (biome === 'taiga' || biome === 'snowyTaiga' || biome === 'snowyPlains') {
-    return { wall: 'spruceplanks', frame: 'sprucelog', base: 'cobblestone', roof: 'darkoakplanks', rim: 'sprucelog', floor: 'spruceplanks', path: 'coarsedirt', lamp: 'shroomlight', fence: 'sprucelog' }
+    return { walls: ['spruceplanks', 'spruceplanks', 'stonebricks'], frame: 'sprucelog', base: 'cobblestone', roofs: ['slateshingles', 'darkoakplanks'], trim: 'darkoakplanks', floor: 'spruceplanks', path: 'coarsedirt', lamp: 'paperlantern', fence: 'sprucelog', shutter: 'darkoakplanks', rug: 'bluewool', timber: false }
   }
-  return { wall: 'oakplanks', frame: 'oaklog', base: 'cobblestone', roof: 'darkoakplanks', rim: 'oaklog', floor: 'spruceplanks', path: 'gravel', lamp: 'shroomlight', fence: 'oaklog' }
+  return { walls: ['timberframe', 'plaster', 'oakplanks'], frame: 'oaklog', base: 'cobblestone', roofs: ['thatch', 'roofshingles', 'roofshingles'], trim: 'darkoakplanks', floor: 'spruceplanks', path: 'gravel', lamp: 'paperlantern', fence: 'oaklog', shutter: 'spruceplanks', rug: 'redwool', timber: true }
 }
 
-const CASTLE_STONE = [[0.3, 'cobblestone'], [0.18, 'mossystonebricks'], [0.17, 'crackedstonebricks'], [0.15, 'mossycobblestone'], [0.1, 'andesite'], [0.1, 'stone']]
+const CASTLE_STONE = [[0.36, 'stonebricks'], [0.16, 'mossystonebricks'], [0.14, 'crackedstonebricks'], [0.12, 'cobblestone'], [0.1, 'mossycobblestone'], [0.07, 'andesite'], [0.05, 'stone']]
 
 // A tiny seeded generator for one plan.
 function prng(seed) {
@@ -257,7 +258,42 @@ function village({ H, rand, sea, cx, cz }, biome) {
   b.set(cx, wy, cz, 'water')
   b.set(cx, wy + 1, cz, 'water')
   for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) b.fill(cx + ox, wy + 2, cz + oz, cx + ox, wy + 3, cz + oz, st.frame)
-  b.fill(cx - 1, wy + 4, cz - 1, cx + 1, wy + 4, cz + 1, st.roof)
+  b.fill(cx - 1, wy + 4, cz - 1, cx + 1, wy + 4, cz + 1, st.roofs[0])
+  b.set(cx, wy + 5, cz, st.trim)
+
+  // Market stalls on two corners of the square: four posts, a striped
+  // canopy and a counter of goods.
+  const CANOPIES = [['redwool', 'whitewool'], ['bluewool', 'whitewool'], ['yellowwool', 'greenwool']]
+  const GOODS = ['barrel', 'crate', 'melon', 'pumpkin', 'haybale']
+  const corners = [[1, 1], [-1, 1], [1, -1], [-1, -1]].sort(() => rand() - 0.5).slice(0, 2)
+  for (const [sx, sz] of corners) {
+    const xs = [cx + sx * 3, cx + sx * 5]
+    const zs = [cz + sz * 4, cz + sz * 5]
+    const fx0 = Math.min(...xs)
+    const fz0 = Math.min(...zs)
+    let ok = true
+    let lo = Infinity
+    let hi = -Infinity
+    for (let x = fx0; x <= fx0 + 2 && ok; x++) {
+      for (let z = fz0; z <= fz0 + 1; z++) {
+        const g = H(x, z).h
+        if (isTaken(x, z) || g <= sea) { ok = false; break }
+        lo = Math.min(lo, g)
+        hi = Math.max(hi, g)
+      }
+    }
+    if (!ok || hi - lo > 1) continue
+    const colors = CANOPIES[Math.floor(rand() * CANOPIES.length)]
+    for (let x = fx0; x <= fx0 + 2; x++) {
+      for (let z = fz0; z <= fz0 + 1; z++) {
+        take(x, z)
+        const post = (x === fx0 || x === fx0 + 2)
+        if (post) for (let y = H(x, z).h + 1; y <= hi + 2; y++) b.set(x, y, z, st.fence)
+        else if (z === (sz > 0 ? fz0 : fz0 + 1)) b.set(x, H(x, z).h + 1, z, GOODS[Math.floor(rand() * GOODS.length)])
+        b.set(x, hi + 3, z, colors[(x - fx0) % 2])
+      }
+    }
+  }
 
   // Houses along the streets, on alternating sides, and one big hall.
   let hallDone = false
@@ -353,7 +389,8 @@ function village({ H, rand, sea, cx, cz }, biome) {
       if (isTaken(lx, lz) && !b.paths.has(`${lx},${lz}`)) continue
       const g = H(lx, lz).h
       if (g <= sea) continue
-      b.fill(lx, g + 1, lz, lx, g + 3, lz, st.frame)
+      b.fill(lx, g + 1, lz, lx, g + 4, lz, st.fence)
+      b.set(lx, g + 5, lz, st.trim)
       b.set(lx, g + 4, lz, st.lamp)
       b.paths.delete(`${lx},${lz}`)
     }
@@ -361,53 +398,98 @@ function village({ H, rand, sea, cx, cz }, biome) {
   return b
 }
 
-// One house: foundation, walls with a log frame and windows, a flat roof
-// with a rim (and sometimes a chimney), a few things inside, a light, an
-// open doorway facing (dx, dz) with steps down to the street.
+// One house: a stone base course, walls (timber frame, plaster, planks or
+// stone, per house) with log corners and a beam along the top, windows with
+// shutters or flowering bushes under them, log door posts and a lantern
+// over the open doorway, steps down to the street, a flat roof that
+// overhangs the walls with a darker trim edge (and sometimes a chimney),
+// a rug, a bed, furniture and a ceiling light inside, and bushes at the
+// corners outside.
 function house(b, H, st, rand, { x0, x1, z0, z1 }, [dx, dz], floorY, big) {
   const wallH = big ? 7 : 3 + Math.floor(rand() * 2)
   const top = floorY + wallH + 1
+  const wallType = st.walls[Math.floor(rand() * st.walls.length)]
+  const roofType = st.roofs[Math.floor(rand() * st.roofs.length)]
+  const shutters = rand() < 0.5
+  const midX = Math.floor((x0 + x1) / 2)
+  const midZ = Math.floor((z0 + z1) / 2)
+  const doorX = dx > 0 ? x1 : dx < 0 ? x0 : midX
+  const doorZ = dz > 0 ? z1 : dz < 0 ? z0 : midZ
+  const windows = []
   for (let x = x0; x <= x1; x++) {
     for (let z = z0; z <= z1; z++) {
       foundation(b, H, x, z, floorY, st.base)
       b.set(x, floorY, z, st.floor)
       const wall = x === x0 || x === x1 || z === z0 || z === z1
       const corner = (x === x0 || x === x1) && (z === z0 || z === z1)
-      if (wall) {
-        for (let y = floorY + 1; y < top; y++) {
-          const level = y - floorY
-          let type = corner ? st.frame : st.wall
-          if (!corner && (level === 2 || (big && level === 5)) && (x + z) % 2 === 0) type = 'glass'
-          b.set(x, y, z, type)
+      if (!wall) continue
+      // Next to a corner the window would touch the corner post.
+      const nearCorner = (x <= x0 + 1 || x >= x1 - 1) && (z <= z0 + 1 || z >= z1 - 1)
+      for (let y = floorY + 1; y < top; y++) {
+        const level = y - floorY
+        let type = corner ? st.frame : level === 1 ? st.base : level === wallH && st.timber ? st.frame : wallType
+        const windowRow = level === 2 || (big && level === 5)
+        if (!corner && !nearCorner && windowRow && (x + z) % 2 === 0) {
+          type = 'glass'
+          if (level === 2) windows.push([x, z])
         }
+        b.set(x, y, z, type)
       }
-      b.set(x, top, z, st.roof)
-      if (wall) b.set(x, top + 1, z, st.rim)
     }
   }
-  // The doorway: middle of the side facing the street, two high.
-  const midX = Math.floor((x0 + x1) / 2)
-  const midZ = Math.floor((z0 + z1) / 2)
-  const doorX = dx > 0 ? x1 : dx < 0 ? x0 : midX
-  const doorZ = dz > 0 ? z1 : dz < 0 ? z0 : midZ
+  // The roof: one block past the walls all round, trim on its edge.
+  for (let x = x0 - 1; x <= x1 + 1; x++) {
+    for (let z = z0 - 1; z <= z1 + 1; z++) {
+      const edge = x === x0 - 1 || x === x1 + 1 || z === z0 - 1 || z === z1 + 1
+      b.set(x, top, z, edge ? st.trim : roofType)
+    }
+  }
+  // Shutters beside the windows, or flowering bushes under them.
+  const outward = (x, z) => [x === x0 ? -1 : x === x1 ? 1 : 0, z === z0 ? -1 : z === z1 ? 1 : 0]
+  for (const [wx, wz] of windows) {
+    if (Math.abs(wx - doorX) + Math.abs(wz - doorZ) <= 1) continue
+    const [ox, oz] = outward(wx, wz)
+    if (shutters) {
+      const ax = oz !== 0 ? 1 : 0
+      const az = ox !== 0 ? 1 : 0
+      for (const sgn of [-1, 1]) b.set(wx + ox + ax * sgn, floorY + 2, wz + oz + az * sgn, st.shutter)
+    } else if (rand() < 0.8) {
+      const g = H(wx + ox, wz + oz).h
+      if (g >= floorY - 1) b.set(wx + ox, Math.max(g + 1, floorY), wz + oz, 'azalealeaves')
+    }
+  }
+  // The doorway: middle of the side facing the street, with log posts
+  // either side and a lantern above it.
   b.clear(doorX, floorY + 1, doorZ)
   b.clear(doorX, floorY + 2, doorZ)
   if (big) b.clear(doorX, floorY + 3, doorZ)
+  const ax = dz !== 0 ? 1 : 0
+  const az = dx !== 0 ? 1 : 0
+  for (const sgn of [-1, 1]) for (let y = floorY + 1; y <= floorY + 2; y++) b.set(doorX + ax * sgn, y, doorZ + az * sgn, st.frame)
+  b.set(doorX, floorY + (big ? 4 : 3), doorZ, st.lamp)
   stepsDown(b, H, doorX, doorZ, dx, dz, floorY, 0, st.base)
-  // Inside: against the back wall, a light in the ceiling.
+  // Something left by the door outside.
+  if (rand() < 0.6) {
+    const sx = doorX + dx + ax * 2
+    const sz = doorZ + dz + az * 2
+    const g = H(sx, sz).h
+    if (g <= floorY && g >= floorY - 2) b.set(sx, g + 1, sz, ['barrel', 'haybale', 'crate'][Math.floor(rand() * 3)])
+  }
+  // Inside: a rug in the middle, furniture along the back wall, a light.
   const inX = (x) => Math.max(x0 + 1, Math.min(x1 - 1, x))
   const inZ = (z) => Math.max(z0 + 1, Math.min(z1 - 1, z))
+  for (let x = midX - 1; x <= midX; x++) for (let z = midZ - 1; z <= midZ; z++) if (x > x0 && x < x1 && z > z0 && z < z1) b.set(x, floorY, z, st.rug)
   const backX = dx > 0 ? x0 + 1 : dx < 0 ? x1 - 1 : null
   const backZ = dz > 0 ? z0 + 1 : dz < 0 ? z1 - 1 : null
   const props = big ? ['bookshelf', 'bookshelf', 'bookshelf', 'craftingtable', 'barrel'] : ['craftingtable', 'furnace', 'barrel', 'bookshelf', 'haybale', 'crate']
-  for (let i = 0; i < (big ? 5 : 2); i++) {
+  for (let i = 0; i < (big ? 5 : 3); i++) {
     const t = props[Math.floor(rand() * props.length)]
     const px = backX !== null ? backX : inX(x0 + 1 + Math.floor(rand() * (x1 - x0 - 1)))
     const pz = backZ !== null ? backZ : inZ(z0 + 1 + Math.floor(rand() * (z1 - z0 - 1)))
     b.set(px, floorY + 1, pz, t)
   }
   // A bed: two wool blocks along a side wall.
-  if (!big && rand() < 0.7) {
+  if (!big && rand() < 0.8) {
     const color = ['redwool', 'bluewool', 'greenwool', 'yellowwool'][Math.floor(rand() * 4)]
     const sx = dx !== 0 ? inX(midX) : x0 + 1
     const sz = dz !== 0 ? inZ(midZ) : z0 + 1
@@ -416,11 +498,17 @@ function house(b, H, st, rand, { x0, x1, z0, z1 }, [dx, dz], floorY, big) {
       b.set(sx + (dz !== 0 ? 1 : 0), floorY + 1, sz + (dx !== 0 ? 1 : 0), 'whitewool')
     }
   }
-  b.set(midX, top, midZ, st.lamp)
-  if (rand() < 0.5) {
-    const chx = x0 + 1
-    const chz = z0 + 1
-    b.fill(chx, top + 1, chz, chx, top + 2, chz, 'cobblestone')
+  b.set(midX, top - 1, midZ, st.lamp)
+  if (rand() < 0.6) {
+    const chx = backX !== null ? backX : x0 + 1
+    const chz = backZ !== null ? backZ : z0 + 1
+    b.fill(chx, top + 1, chz, chx, top + 3, chz, rand() < 0.5 ? 'cobblestone' : 'brick')
+  }
+  // Bushes at the outside corners.
+  for (const [kx, kz] of [[x0 - 1, z0 - 1], [x1 + 1, z0 - 1], [x0 - 1, z1 + 1], [x1 + 1, z1 + 1]]) {
+    if (rand() > 0.45) continue
+    const g = H(kx, kz).h
+    if (g >= floorY - 2 && g <= floorY) b.set(kx, g + 1, kz, rand() < 0.5 ? 'azalealeaves' : 'leaves')
   }
   // The big hall gets a bell tower over its doorway.
   if (big) {
@@ -434,9 +522,10 @@ function house(b, H, st, rand, { x0, x1, z0, z1 }, [dx, dz], floorY, big) {
           // Open arches high up, so the bell shows.
           if (ring && (y < top + 4 || (x !== tx && z !== tz))) b.set(x, y, z, st.frame)
         }
-        b.set(x, top + 7, z, st.roof)
+        b.set(x, top + 7, z, roofType)
       }
     }
+    b.set(tx, top + 8, tz, st.trim)
     b.set(tx, top + 5, tz, 'gold')
   }
 }
@@ -479,8 +568,29 @@ function castle({ H, rand, sea, cx, cz }) {
     for (let z = cz - R; z <= cz + R; z++) {
       const ring = Math.max(Math.abs(x - cx), Math.abs(z - cz))
       if (ring < R - 1 || towerAt(x, z)) continue
-      for (let y = base + 1; y <= wallTop; y++) b.set(x, y, z, stone(x, y, z))
+      // A rougher, darker base course under the dressed stone.
+      for (let y = base + 1; y <= wallTop; y++) b.set(x, y, z, y <= base + 2 ? ((x * 7 + y + z * 3) % 3 ? 'cobblestone' : 'mossycobblestone') : stone(x, y, z))
       if (ring === R && (x + z) % 2 === 0) b.set(x, wallTop + 1, z, stone(x, wallTop + 1, z))
+    }
+  }
+  // Each side's position along the wall, and where the gate is.
+  const sides = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+  for (const [nx, nz] of sides) {
+    const gateSide = nx === gx && nz === gz
+    for (let a = -R + T + 2; a <= R - T - 2; a++) {
+      const ox = nx !== 0 ? cx + nx * R : cx + a
+      const oz = nz !== 0 ? cz + nz * R : cz + a
+      // Arrow slits: narrow gaps in the outer layer of the wall.
+      if ((a + 100) % 4 === 2 && !(gateSide && Math.abs(a) <= 4)) {
+        b.clear(ox, base + 4, oz)
+        b.clear(ox, base + 5, oz)
+      }
+      // Buttresses: a column of stone leaning on the wall every 5 cells.
+      if ((a + 100) % 5 === 0 && !(gateSide && Math.abs(a) <= 5)) {
+        const bx = ox + nx
+        const bz = oz + nz
+        for (let y = H(bx, bz).h + 1; y <= wallTop - 2; y++) b.set(bx, y, bz, stone(bx, y, bz))
+      }
     }
   }
   // Wall-walk stairs up from the courtyard: a flight of whole blocks along
@@ -543,6 +653,44 @@ function castle({ H, rand, sea, cx, cz }) {
   const kx = cx - gx * 4
   const kz = cz - gz * 4
   tower(b, stone, kx, kz, 4, base, base + 16, [gx > 0 ? kx + 4 : gx < 0 ? kx - 4 : kx, gz > 0 ? kz + 4 : gz < 0 ? kz - 4 : kz, gx, gz], [], true)
+  // Flags flying over every tower and the keep.
+  const flagColor = ['redwool', 'bluewool', 'yellowwool', 'purplewool'][Math.floor(rand() * 4)]
+  const flag = (x, z, top, size) => {
+    const poleTop = top + 4 + size
+    for (let y = top + 2; y <= poleTop; y++) b.set(x, y, z, 'sprucelog')
+    for (let k = 1; k <= size + 1; k++) for (let y = poleTop - size; y <= poleTop; y++) b.set(x + k * gz, y, z + k * gx, flagColor)
+  }
+  for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) flag(cx + sx * R, cz + sz * R, towerTop, 1)
+  flag(kx, kz, base + 16, 2)
+  // A stable along one side wall: posts, a slate roof against the wall,
+  // hay and crates inside.
+  const px = gz !== 0 ? 1 : 0 // across the gate's direction
+  const pz = gx !== 0 ? 1 : 0
+  for (let a = -2; a <= 6; a++) {
+    for (let d = R - 3; d <= R - 2; d++) {
+      const x = cx + gx * a + px * d
+      const z = cz + gz * a + pz * d
+      b.set(x, base + 4, z, 'slateshingles')
+      if (d === R - 3 && (a + 2) % 4 === 0) for (let y = base + 1; y <= base + 3; y++) b.set(x, y, z, 'sprucelog')
+      else if (d === R - 2 && rand() < 0.5) b.set(x, base + 1, z, rand() < 0.7 ? 'haybale' : 'crate')
+    }
+  }
+  // A well on the other side of the courtyard.
+  const wx = cx + gx * 2 - px * 7
+  const wz = cz + gz * 2 - pz * 7
+  for (let ox = -1; ox <= 1; ox++) {
+    for (let oz = -1; oz <= 1; oz++) {
+      const x = wx + ox
+      const z = wz + oz
+      if (ox === 0 && oz === 0) {
+        b.set(x, base, z, 'water')
+        continue
+      }
+      b.set(x, base + 1, z, 'stonebricks')
+      if (ox !== 0 && oz !== 0) for (let y = base + 2; y <= base + 3; y++) b.set(x, y, z, 'sprucelog')
+    }
+  }
+  b.fill(wx - 1, base + 4, wz - 1, wx + 1, base + 4, wz + 1, 'slateshingles')
   // Inside the courtyard: hay, barrels, a training dummy.
   const yard = [[gz !== 0 ? 6 : 0, gx !== 0 ? 6 : 0], [gz !== 0 ? -6 : 0, gx !== 0 ? -6 : 0]]
   for (const [ox, oz] of yard) {
@@ -671,8 +819,8 @@ function bridge({ H, rand, sea, cx, cz }, cityDistance) {
   const stoneBridge = rand() < 0.45
   const deck = Math.max(sea + 2, H(...at(best.a, 0)).h, H(...at(best.b, 0)).h)
   const mat = stoneBridge
-    ? { deck: 'polishedandesite', edge: 'stone', post: 'cobblestone', pillar: 'stone', lamp: 'sealantern' }
-    : { deck: 'spruceplanks', edge: 'sprucelog', post: 'oaklog', pillar: 'sprucelog', lamp: 'shroomlight' }
+    ? { deck: 'polishedandesite', edge: 'stonebricks', post: 'stonebricks', pillar: 'stonebricks', lamp: 'sealantern', cap: 'chiseledstonebricks' }
+    : { deck: 'spruceplanks', edge: 'sprucelog', post: 'oaklog', pillar: 'sprucelog', lamp: 'paperlantern', cap: 'oaklog' }
   for (let t = best.a; t <= best.b; t++) {
     for (let w = -2; w <= 2; w++) {
       const [x, z] = at(t, w)
@@ -680,15 +828,36 @@ function bridge({ H, rand, sea, cx, cz }, cityDistance) {
       // Supports under the deck down to the ground or river bed.
       const pier = (t - best.a) % 5 === 0 || t === best.b
       if (pier && Math.abs(w) >= 1) for (let y = H(x, z).h + 1; y < deck; y++) b.set(x, y, z, mat.pillar)
-      // A stone bridge's arches: the deck thickens next to each pier.
-      if (stoneBridge && !pier && ((t - best.a) % 5 === 1 || (t - best.a) % 5 === 4) && deck - 1 > H(x, z).h) b.set(x, deck - 1, z, mat.edge)
+      const span = (t - best.a) % 5
+      // A stone bridge's arches: two blocks deep beside each pier, one
+      // in the middle of the span, so each span curves.
+      if (stoneBridge && !pier) {
+        const depth = span === 1 || span === 4 ? 2 : 1
+        for (let k = 1; k <= depth; k++) if (deck - k > H(x, z).h) b.set(x, deck - k, z, mat.edge)
+      }
+      // A wooden bridge's braces: logs angling out from each pier.
+      if (!stoneBridge && !pier && Math.abs(w) === 2 && (span === 1 || span === 4) && deck - 1 > H(x, z).h) b.set(x, deck - 1, z, mat.edge)
     }
-    // Railings: a low parapet on a stone bridge, posts on a wooden one.
+    // Railings: a parapet with a capped top on a stone bridge; posts and a
+    // log top rail on a wooden one. Lamps every few cells.
     for (const w of [-2, 2]) {
       const [x, z] = at(t, w)
-      if (stoneBridge) b.set(x, deck + 1, z, mat.post)
-      else if ((t - best.a) % 2 === 0) b.set(x, deck + 1, z, mat.post)
-      if ((t - best.a) % 6 === 3) b.set(x, deck + 2, z, mat.lamp)
+      if (stoneBridge) b.set(x, deck + 1, z, (t - best.a) % 3 === 0 ? mat.cap : mat.post)
+      else {
+        if ((t - best.a) % 2 === 0) b.set(x, deck + 1, z, mat.post)
+        b.set(x, deck + 2, z, mat.edge)
+      }
+      if ((t - best.a) % 6 === 3) b.set(x, deck + (stoneBridge ? 2 : 3), z, mat.lamp)
+    }
+  }
+  // Gateposts at both ends, beside the ramps, with a lamp on each.
+  for (const t of [best.a - 1, best.b + 1]) {
+    for (const w of [-3, 3]) {
+      const [x, z] = at(t, w)
+      const g = H(x, z).h
+      if (g < sea) continue
+      for (let y = g + 1; y <= deck + 2; y++) b.set(x, y, z, mat.cap)
+      b.set(x, deck + 3, z, mat.lamp)
     }
   }
   // Ramps of whole blocks down to the banks at both ends.
