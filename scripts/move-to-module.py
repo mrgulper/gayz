@@ -98,7 +98,7 @@ for c, s, e, is_async, args, _n in found:
         sys.exit(f'super in method at {s+1}')
     body2 = [l[2:] if l.startswith('  ') else l for l in text.split('\n')]
     name = re.match(r'^  (?:static )?(?:async )?(\w+)\(', lines[s]).group(1)
-    uses_game = re.search(r'\bgame\b', strip('\n'.join(body2)))
+    uses_game = re.search(r'(?<![\w$-])game\b(?!-)', strip('\n'.join(body2)))
     params = ('game' if uses_game else '_game') + (', ' + args if args.strip() else '')
     fn = comments + [f"export {'async ' if is_async else ''}function {name}({params}) {{"] + body2 + ['}']
     out_funcs.append('\n'.join(fn))
@@ -139,6 +139,10 @@ for li in sorted(set(need_export)):
 # Drop Game.js imports nothing in it uses any more.
 code_wo_imports = strip('\n'.join(l for l in lines if not l.startswith('import ')))
 for idx, l in enumerate(lines):
+    star = re.match(r'^import \* as (\w+) from ', l)
+    if star and star.group(1) != mod_name and not re.search(r'(?<![\w$])' + star.group(1) + r'\.', code_wo_imports):
+        lines[idx] = None
+        continue
     m = re.match(r'^import \{([^}]*)\} from (.*)$', l)
     if not m:
         continue

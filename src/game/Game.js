@@ -115,11 +115,9 @@ export const CRATE_ICON_SVG = {
   </svg>`,
 }
 import { META_UPGRADES, loadMetaProgress } from './MetaProgress.js'
-import { playConfig, UPGRADE_PLAY, PLAY_GAME_MODES } from './PlayRules.js'
-import { seedFromText } from './OpenWorld.js'
+import { UPGRADE_PLAY, PLAY_GAME_MODES } from './PlayRules.js'
 import * as GalleryUI from './GalleryUI.js'
 import { setLanguage, t } from './i18n.js'
-import * as MenuEasterEggs from './MenuEasterEggs.js'
 import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW_DATA_URL } from './MenuAvatar3D.js'
 // BuildMode.js is deliberately NOT statically imported here - it's a big,
 // self-contained system most visitors never touch (a whole separate
@@ -128,6 +126,8 @@ import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW
 import * as CloudSync from './CloudSync.js'
 import * as CloudSaveUI from './CloudSaveUI.js'
 import * as ChatUI from './ChatUI.js'
+import * as HomeUI from './HomeUI.js'
+import * as PlayEntryUI from './PlayEntryUI.js'
 import * as InfoPagesUI from './InfoPagesUI.js'
 import * as ProgressUI from './ProgressUI.js'
 import * as ProfileUI from './ProfileUI.js'
@@ -137,8 +137,6 @@ import * as OnlineUI from './OnlineUI.js'
 import * as FriendsUI from './FriendsUI.js'
 import * as SettingsUI from './SettingsUI.js'
 import * as ServerBrowser from './ServerBrowser.js'
-import { PlayNet } from './PlayNet.js'
-import { setColorblindMode } from './Accessibility.js'
 import { MARKET_SKINS, MARKET_PRICES } from './MarketSkins.js'
 import { shrinkTextures, restoreTextures } from './LiteTextures.js'
 
@@ -174,13 +172,13 @@ export const WEAPON_THUMBS_CACHE = 'gayz-weapon-thumbs-v2'
 
 // Main-menu news ticker thresholds (see _updateMenuNewsTicker) - both read
 // against bestStats.bestNight.
-const NEWS_TICKER_MID_NIGHT = 5
-const NEWS_TICKER_LATE_NIGHT = 15
+export const NEWS_TICKER_MID_NIGHT = 5
+export const NEWS_TICKER_LATE_NIGHT = 15
 // The Upgrades panel lists only the upgrades that do something in a Map 1
 // run (PlayRules.js's UPGRADE_PLAY); the rest wait for a block-city version.
 export const PLAY_META_UPGRADES = META_UPGRADES.filter((u) => UPGRADE_PLAY[u.id])
 
-const DIFFICULTY_PRESETS = {
+export const DIFFICULTY_PRESETS = {
   easy: { damageMult: 0.7, spawnRateMult: 0.75, healthMult: 0.8, eliteChanceMult: 0.6, lootMult: 1.3 },
   normal: { damageMult: 1, spawnRateMult: 1, healthMult: 1, eliteChanceMult: 1, lootMult: 1 },
   hard: { damageMult: 1.4, spawnRateMult: 1.3, healthMult: 1.25, eliteChanceMult: 1.4, lootMult: 0.85 },
@@ -622,7 +620,7 @@ export const GLOBAL_KILLS_MILESTONE_STEP = 100000
 // dailyChallenge deliberately excluded - it's its own distinct system
 // already promoted separately (the daily-reset spotlight mode), not a
 // "try this mutator" flavor pick.
-const MUTATOR_LABEL_KEYS = {
+export const MUTATOR_LABEL_KEYS = {
   hordeRush: 'mutatorHordeRush',
   lootRush: 'mutatorLootRush',
   bossRush: 'mutatorBossRush',
@@ -776,7 +774,7 @@ function loadNemesis() {
 // deliberate reset-everything choice) - purely a "how much have you played,
 // ever" number, feeding both a display title and the Veteran Perks below.
 const CAREER_STATS_KEY = 'gayz-career-stats'
-const CAREER_RANK_TITLES = [
+export const CAREER_RANK_TITLES = [
   { min: 0, titleKey: 'careerRankRookie' },
   { min: 1000, titleKey: 'careerRankSurvivor' },
   { min: 5000, titleKey: 'careerRankVeteran' },
@@ -1089,7 +1087,7 @@ const LITE_TEXTURE_SWEEP_MS = 4000
 // bgMood is reused by _applyBgMood() for the "Auto (Seasonal)" background
 // mood default - same date windows as the banner itself rather than a
 // second parallel date table, so a season only ever needs updating here.
-const EVENT_BANNERS = [
+export const EVENT_BANNERS = [
   { month: 9, startDay: 20, endDay: 31, key: 'eventBannerHalloween', bgMood: 'amber' },
   { month: 11, startDay: 15, endDay: 31, key: 'eventBannerWinter', bgMood: 'foggy' },
 ]
@@ -1430,7 +1428,7 @@ const SELECT_OPTION_I18N_KEYS = {
 // list gracefully (0 lines shown, same as it already did for 0-2). Add a
 // new entry here if a future achievement gets genuinely persistent numeric
 // backing again.
-const NEARLY_THERE_CANDIDATES = []
+export const NEARLY_THERE_CANDIDATES = []
 
 // Achievement chain previews (Achievements panel) - the handful of
 // achievements that genuinely form a tiered sequence, hand-picked rather
@@ -1446,7 +1444,7 @@ export const ACHIEVEMENT_CHAINS = {
 // (not auto-surfaced achievement hints), so they don't need the same
 // "genuinely persistent, always-visible" bar - any honestly-derivable
 // lifetime metric with a sensible target qualifies. Pick any 3.
-const GOAL_CANDIDATES = [
+export const GOAL_CANDIDATES = [
   { id: 'goal_kills10k', titleKey: 'goalKills10k', current: (g) => g.careerStats.totalKills, total: () => 10000 },
   { id: 'goal_achievements50', titleKey: 'goalAchievements50', current: (g) => g.achievements.unlocked.size, total: () => ACHIEVEMENTS.length },
   { id: 'goal_rankElite', titleKey: 'goalRankElite', current: (g) => g.careerStats.totalKills, total: () => 15000 },
@@ -1551,7 +1549,7 @@ export function _formatRelativeTime(ms) {
 // sites use single-quoted attributes) closes this for every call site at
 // once rather than patching each one.
 // How long Play's fade to and from black takes (ms) - see _fadeScreen.
-const PLAY_FADE_MS = 450
+export const PLAY_FADE_MS = 450
 // Points the next Prestige needs, per level: 100k for level 1, 200k for 2...
 export const PRESTIGE_COST_STEP = 100000
 // Extra Points per run for each Prestige level (%).
@@ -1559,11 +1557,11 @@ export const PRESTIGE_BONUS_PERCENT = 10
 // Opening the Map Editor: a quick dip to black. Fading back in on the map
 // (Play or editor) is slow when the load took longer than FADE_LAG_LOAD_MS
 // or a first frame took longer than FADE_LAG_FRAME_MS, fast otherwise.
-const EDITOR_FADE_OUT_MS = 200
-const FADE_LAG_LOAD_MS = 600
-const FADE_LAG_FRAME_MS = 40
-const FADE_IN_SLOW_MS = 900
-const FADE_IN_FAST_MS = 250
+export const EDITOR_FADE_OUT_MS = 200
+export const FADE_LAG_LOAD_MS = 600
+export const FADE_LAG_FRAME_MS = 40
+export const FADE_IN_SLOW_MS = 900
+export const FADE_IN_FAST_MS = 250
 
 export function _escapeHtml(str) {
   const div = document.createElement('div')
@@ -1729,13 +1727,13 @@ export const PROFILE_GROUP_ORDER = [
 // pixels per CSS pixel - only reached on devices too slow at 1.
 const EDITOR_MIN_PIXEL_RATIO = 0.6
 // Last visit's save-driven homepage values (see _saveMenuPaintCache).
-const MENU_PAINT_CACHE_KEY = 'menu-paint-cache'
+export const MENU_PAINT_CACHE_KEY = 'menu-paint-cache'
 // How long the clan list loaded when General opens stays fresh.
 export const CLAN_RANKING_CACHE_MS = 60000
 // The What's New update card fades away by itself after this long.
 export const UPDATE_BANNER_SHOW_MS = 12000
 export const UPDATE_BANNER_FADE_MS = 900
-const MENU_PAINT_CACHE_ROOTS = ['menu-currency-bar', 'menu-player-badge', 'player-showcase-header', 'menu-hero', 'menu-nav-buttons', 'menu-links-row']
+export const MENU_PAINT_CACHE_ROOTS = ['menu-currency-bar', 'menu-player-badge', 'player-showcase-header', 'menu-hero', 'menu-nav-buttons', 'menu-links-row']
 
 // Inventory > Character skins, in grid order (Kirka-style cards). Adding a
 // skin to the game = one entry here: its 64x64 Minecraft-format texture,
@@ -2916,25 +2914,7 @@ export class Game {
     this._autoSaveTimer = setInterval(() => saveSettings(this.settings), this.settings.autoSaveFrequencySec * 1000)
   }
 
-  // Homepage clock (General tab, settings.timeFormat) - the only place
-  // in the game that shows an absolute (not relative/countdown) local
-  // time, so it's the one thing the 12h/24h setting actually controls.
-  _updateHomepageClock() {
-    const now = new Date()
-    // The player's own clock and time zone (the device's).
-    if (!this._clockZoneShown) {
-      this._clockZoneShown = true
-      const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
-      if (zone) this.homepageClockEl.title = `${this.homepageClockEl.title || 'Current time'} (${zone.replace(/_/g, ' ')})`
-    }
-    if (this.settings.timeFormat === '24h') {
-      this.homepageClockEl.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-    } else {
-      const h24 = now.getHours()
-      const h12 = h24 % 12 || 12
-      this.homepageClockEl.textContent = `${h12}:${String(now.getMinutes()).padStart(2, '0')} ${h24 < 12 ? 'AM' : 'PM'}`
-    }
-  }
+  _updateHomepageClock() { return HomeUI._updateHomepageClock(this) }
 
   _applyGrainIntensity() { return SettingsUI._applyGrainIntensity(this) }
 
@@ -3097,21 +3077,7 @@ export class Game {
 
   _startRebind(btn, action) { return SettingsUI._startRebind(this, btn, action) }
 
-  _bindDifficulty() {
-    this._updateNightmareOverlay()
-    for (const btn of this.difficultyBtns) {
-      btn.classList.toggle('active', btn.dataset.difficulty === this.settings.difficulty)
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.difficulty
-        if (!DIFFICULTY_PRESETS[id]) return
-        this.settings.difficulty = id
-        saveSettings(this.settings)
-        this.difficulty = DIFFICULTY_PRESETS[id]
-        for (const b of this.difficultyBtns) b.classList.toggle('active', b === btn)
-        this._updateNightmareOverlay()
-      })
-    }
-  }
+  _bindDifficulty() { return PlayEntryUI._bindDifficulty(this) }
 
   // Nightmare (unlocked by the true ending) gets a harsher red tint so it's
   // visually distinct, not just numerically harder.
@@ -3133,46 +3099,7 @@ export class Game {
     }
   }
 
-  // Game Modes grid (Choose Your Challenge) - single-select like Choose
-  // Class's role/loadout buttons above, not the general checkbox mutators
-  // list. Locked (Coming Soon) entries carry a real `disabled` attribute
-  // in the HTML, so they never reach this click handler at all - no extra
-  // guard needed here for those. zombieDefense/bossHunt/zombieRush each
-  // just flip the matching settings.mutators.* flag the run-start setup
-  // (see _setupGameModeRun) already reads.
-  _bindGameModeSelect() {
-    for (const btn of this.gameModeSelectBtns) {
-      btn.classList.toggle('active', btn.dataset.gameMode === this.settings.selectedGameMode)
-      btn.addEventListener('click', () => {
-        const mode = btn.dataset.gameMode
-        const wasZombieRush = this.settings.selectedGameMode === 'zombieRush'
-        const isZombieRush = mode === 'zombieRush'
-        this.settings.selectedGameMode = mode
-        this.settings.mutators.zombieDefense = mode === 'zombieDefense'
-        this.settings.mutators.bossHunt = mode === 'bossHunt'
-        this.settings.mutators.zombieRush = isZombieRush
-        // Zombie Rush's "limited resources" - reuses Iron Mode's existing
-        // no-Trader/no-Shop-spending restriction rather than a new one.
-        // Only touched on an actual enter/exit of Zombie Rush (not on
-        // every click, e.g. re-clicking the already-active tile or
-        // switching between two other modes) - forcing it on remembers
-        // whatever the player's own Iron Mode checkbox was set to first,
-        // so leaving Zombie Rush restores their real preference instead
-        // of always resetting it to off. Also re-syncs the actual
-        // checkbox in the Mutators panel, which otherwise silently
-        // disagreed with settings.mutators.ironMode.
-        if (isZombieRush && !wasZombieRush) {
-          this._ironModeBeforeZombieRush = this.settings.mutators.ironMode
-          this.settings.mutators.ironMode = true
-        } else if (!isZombieRush && wasZombieRush) {
-          this.settings.mutators.ironMode = this._ironModeBeforeZombieRush ?? false
-        }
-        if (this.mutatorIronMode) this.mutatorIronMode.checked = this.settings.mutators.ironMode
-        saveSettings(this.settings)
-        for (const b of this.gameModeSelectBtns) b.classList.toggle('active', b === btn)
-      })
-    }
-  }
+  _bindGameModeSelect() { return PlayEntryUI._bindGameModeSelect(this) }
 
   _checkLoginStreak() { return ProgressUI._checkLoginStreak(this) }
 
@@ -3221,217 +3148,13 @@ export class Game {
     }
   }
 
-  // The editor's code (BuildMode.js and everything it imports) - one
-  // download shared by the idle preload and _enterBuildMode.
-  _preloadBuildMode() {
-    if (!this._buildModeImport) {
-      this._buildModeImport = import('./BuildMode.js')
-      this._buildModeImport.catch(() => { this._buildModeImport = null })
-    }
-    return this._buildModeImport
-  }
+  _preloadBuildMode() { return PlayEntryUI._preloadBuildMode(this) }
 
-  // Build Mode - a standalone block-placing sandbox (see BuildMode.js's own
-  // comment), reachable from the homepage. Reuses this.menu's existing
-  // hide/show pattern (same as starting a real run) rather than a new panel.
-  // map: 'map3' opens the ready-made Map 3 city (Map3Generator.js); 'map2'
-  // leaves it for the player's own slots. Omitted keeps the last slot.
-  // play: start Play (zombie waves, BuildSurvival.js) on it straight away -
-  // Game Mode's Map 3 + the Play button.
-  // server: a server joined or made from the Global panel (ServerBrowser.js)
-  // - the run is played with the others on it (PlayNet.js).
-  async _enterBuildMode({ map, play = false, server = null } = {}) {
-    // A second click while the code is still downloading does nothing.
-    if (this._enteringBuildMode) return
-    // No "Loading Map Editor..." screen any more (2026-10-10, Gaymi: "dont
-    // make it loading game just load the game"): the homepage stays up
-    // while the code loads (already fetched in the background, see
-    // _preloadBuildMode) and is hidden in the same frame the map appears.
-    // Play fades the screen to black first and does the heavy part (the
-    // code, building Map 1) while it's dark, then fades back in on the map
-    // - a smooth fade instead of the homepage freezing for a moment
-    // (2026-10-10, "make it just slowly fade when it's loading instead of
-    // making the page lag").
-    this._enteringBuildMode = true
-    try {
-      // The Map Editor fades too (2026-10-12): a quick dip to black, then
-      // a fade back in whose speed follows how heavy the load was.
-      this._fadeStartedAt = performance.now()
-      await this._fadeScreen(1, play ? PLAY_FADE_MS : EDITOR_FADE_OUT_MS)
-      if (typeof this.buildMode.enter !== 'function') {
-        const { BuildMode } = await this._preloadBuildMode()
-        this.buildMode = new BuildMode(this.renderer, this)
-      }
-    } catch (e) {
-      this._fadeScreen(0)
-      throw e
-    } finally {
-      this._enteringBuildMode = false
-    }
-    // Every other nav button routes through trackAndOpen/_open*Panel(),
-    // which calls _closeAllMenuPanels() first (see that function's own
-    // comment on the z-index/stacking bug this prevents). Build Mode
-    // isn't one of those panels (it hides this.menu itself instead), but
-    // the panels themselves are siblings of #menu, not children of it -
-    // hiding #menu does NOT hide an already-open panel. Currently
-    // unreachable through a normal click (every panel sits at a higher
-    // z-index than #menu and blocks the nav button underneath), but
-    // calling it here too is a one-line no-op the rest of the time and
-    // closes the gap for any future path that reaches _enterBuildMode()
-    // without going through a blocked nav click first.
-    this._closeAllMenuPanels()
-    // Deferred a tick (queueMicrotask, not called inline here) - the
-    // _closeAllMenuPanels() call above, when it actually closes something
-    // (e.g. entering from the Map 2 tile in the Game Mode panel), flips a
-    // routable panel's display:none, which _bindPanelRouting's own
-    // MutationObserver reacts to on its OWN microtask by pushing '/' (no
-    // routable panel reads as "open" anymore - Build Mode isn't one of
-    // _routes). That observer microtask was queued first (the mutation
-    // happened above, before this line), so an inline pushState here would
-    // still lose the race and get silently overwritten back to '/' the
-    // instant the observer's callback ran. Queueing this one as its own
-    // microtask puts it strictly after the observer's in the same FIFO
-    // queue, so '/map-editor' is the last write and actually sticks -
-    // verified live (was reproducibly overwritten back to '/' without
-    // this). Harmless no-op when entered from the bare homepage nav
-    // button instead (nothing closes, no mutation, no race to lose).
-    queueMicrotask(() => {
-      if (location.pathname !== '/map-editor') history.pushState({}, '', '/map-editor')
-    })
-    // Build Mode is only ever reachable from the homepage nav (#menu is
-    // hidden the instant a real run starts, see the 'lock' handler), but
-    // force this false regardless rather than trust that precondition -
-    // the 'lock'/'unlock' handlers above both gate on it, and a stray
-    // true here would make Build Mode's own pointer-lock cycle re-trigger
-    // the entire real-run HUD on top of it.
-    this.gameStarted = false
-    // See PlayerController's own comment on why this exists - without it,
-    // Space/Ctrl/C while flying around in Build Mode silently set real
-    // jump/crouch/prone/dodge state that fires unexpectedly the moment
-    // Build Mode is exited.
-    // _maybeShowTutorialHints' own guard only stops FUTURE hints from
-    // firing once Build Mode is active - it can't stop one already
-    // mid-animation at the exact moment Build Mode is entered. Hide it
-    // directly here too, for that already-in-flight case.
-    // Same for a homepage toast still fading out (e.g. the backup
-    // reminder) - it would otherwise sit over the editor.
-    if (this.loreToast) this.loreToast.classList.remove('show')
-    // Build Mode is a standalone sandbox with its own scene/camera, but it
-    // reuses the same shared renderer/DOM as the zombie survival game (see
-    // BuildMode.js's own comment) - so any real-run HUD element that was
-    // left visible (health/armor, weather overlay, etc.) sits on top of it
-    // with nothing to cover it, since #menu is hidden here too. Every one
-    // of these is normally hidden the moment a run ends (death/extraction)
-    // or pointer lock is released, but force them off here too rather than
-    // trust that every path that can precede a Build Mode click already
-    // did - same "don't assume a shared toast/HUD is in the state you
-    // expect" lesson as the tutorial hint above.
-    // Chat stays with you in the Map Editor and Try Map (Enter to type).
-    this.chatPanel.style.display = 'flex'
-    document.body.classList.add('build-mode-on')
-    // Zombie Rush's survival timer (real report 2026-09-29: "Survival
-    // Time" showing over the map editor after a Zombie Rush run).
-    // Weather overlay isn't gated to a real run at all - _rollWeather()
-    // fires once from the constructor itself, so a fresh page load can
-    // already be sitting at rainOverlayEl display:block before the player
-    // has ever started (or finished) a real run.
-    if (this.rainOverlayEl) this.rainOverlayEl.style.display = 'none'
-    if (this.rainOverlayHardEl) this.rainOverlayHardEl.style.display = 'none'
-    if (this.snowOverlayEl) this.snowOverlayEl.style.display = 'none'
-    if (this.snowOverlayHardEl) this.snowOverlayHardEl.style.display = 'none'
-    // Exit/Save/Export/Import etc. now live inside #build-menu, which
-    // BuildMode.js's own enter()/exit() shows/hides (see toggleMenu) -
-    // same pattern already used for its hotbar/slot-picker/tool buttons,
-    // nothing left for Game.js to individually toggle here.
-    // No auto requestPointerLock() here any more - the mouse used to get
-    // captured the instant Build Mode opened, before the player had even
-    // gotten oriented. It now starts free; clicking into the viewport
-    // acquires it (see BuildMode.js's _onPointerDown), and Escape releases
-    // it again at any time (see _onKeyDownPicker).
-    this.menu.style.display = 'none'
-    const current = this.buildMode.activeSlot
-    const slot = map === 'map3' ? 'map3' : map === 'map2' && current === 'map3' ? 0 : undefined
-    this.buildMode.enter({ slot })
-    // Map 1's open world grows new land every game (OpenWorld.js) - the
-    // same land for everyone on a server, made from its id.
-    this.buildMode.world?.reseed(server?.serverId ? seedFromText(server.serverId) : undefined)
-    // The 3D canvas isn't resized on the homepage (_onResize) - catch up now.
-    if (this._sizeDirty) this._onResize()
-    if (play) this.buildMode.survival.start({ fromMenu: true, net: server ? new PlayNet(this, server) : null })
-    this._applyRenderScale()
-    this._fadeScreen(0)
-    // A boss bar left over from a run would otherwise sit over the editor.
-    // FPS readout in the top-left corner (the save slot buttons moved into
-    // the Escape menu), shown whenever the gameplay one would be.
-    this.fpsEl.style.left = '16px'
-    this.fpsEl.style.top = '16px'
-    this.fpsEl.style.transform = ''
-    this.fpsEl.style.opacity = this.settings.hudFpsCounter ? '1' : '0'
-    this._fpsFrameCount = 0
-    this._fpsLastUpdate = performance.now()
-    // Opening the editor builds every chunk - don't judge fps on that.
-    this._editorResHoldUntil = performance.now() + 2000
-  }
+  _enterBuildMode(...args) { return PlayEntryUI._enterBuildMode(this, ...args) }
 
-  // Fades #play-fade (a black cover over everything) in (1) or out (0).
-  // Resolves once the fade has finished and the screen has painted, so
-  // work done after `await this._fadeScreen(1)` happens behind black. Fading
-  // out waits two frames first, so the map's first frame is already drawn.
-  async _fadeScreen(to, ms = PLAY_FADE_MS) {
-    let el = document.getElementById('play-fade')
-    if (!el) {
-      el = document.createElement('div')
-      el.id = 'play-fade'
-      document.body.appendChild(el)
-    }
-    const frame = () => new Promise((r) => requestAnimationFrame((t) => r(t)))
-    if (to) {
-      el.style.transitionDuration = ms + 'ms'
-      el.style.display = 'block'
-      void el.offsetWidth
-      el.classList.add('on')
-      await new Promise((r) => setTimeout(r, ms))
-      await frame()
-      await frame()
-      return
-    }
-    // Fading back in: slowly if the load was heavy or the first frames on
-    // the map are still slow (it would stutter otherwise), quickly if not
-    // (2026-10-12, "make it slowly fade in if it's lagging, if not just
-    // make it fade in faster").
-    const loadMs = performance.now() - (this._fadeStartedAt || performance.now())
-    let last = await frame()
-    let slowest = 0
-    for (let i = 0; i < 4; i++) {
-      const t = await frame()
-      slowest = Math.max(slowest, t - last)
-      last = t
-    }
-    const lagging = loadMs > FADE_LAG_LOAD_MS || slowest > FADE_LAG_FRAME_MS
-    const inMs = lagging ? FADE_IN_SLOW_MS : FADE_IN_FAST_MS
-    this._lastFadeIn = { loadMs: Math.round(loadMs), slowest: Math.round(slowest), inMs }
-    el.style.transitionDuration = inMs + 'ms'
-    el.classList.remove('on')
-    setTimeout(() => {
-      if (!el.classList.contains('on')) el.style.display = 'none'
-    }, inMs)
-  }
+  _fadeScreen(to, ms) { return PlayEntryUI._fadeScreen(this, to, ms) }
 
-  // The run settings for a Map 1 run from the homepage: Game Mode's
-  // Difficulty / Game Modes / Challenges & Mutators, plus
-  // the Upgrades bought with Legacy Points (PlayRules.js).
-  _playConfig() {
-    return {
-      ...playConfig({
-        difficulty: DIFFICULTY_PRESETS[this.settings.difficulty] || DIFFICULTY_PRESETS.normal,
-        gameMode: this.settings.selectedGameMode,
-        mutators: this.settings.mutators,
-        purchased: this.metaProgress.purchased,
-      }),
-      // Read by achievements (what the run was played on).
-      difficulty: this.settings.difficulty,
-    }
-  }
+  _playConfig() { return PlayEntryUI._playConfig(this) }
 
   _onPlayEvent(type, data) { return ProgressUI._onPlayEvent(this, type, data) }
 
@@ -3477,66 +3200,9 @@ export class Game {
 
   _hideUpdateBanner() { return InfoPagesUI._hideUpdateBanner(this) }
 
-  _exitBuildMode() {
-    this.buildMode.exit()
-    this.chatPanel.style.display = 'none'
-    document.body.classList.remove('build-mode-on')
-    this._applyRenderScale()
-    this.fpsEl.style.left = '6px'
-    this.fpsEl.style.top = '6px'
-    this.fpsEl.style.transform = ''
-    this.fpsEl.style.opacity = this.settings.homepageFpsCounter ? '1' : '0'
-    document.exitPointerLock()
-    // Defensive reset, not just un-suspending - a stray real jump/fall
-    // velocity firing for real the instant _tick() resumes calling
-    // this.player.update() again would be a jarring launch off the
-    // homepage's own spawn point.
-    this.menu.style.display = ''
-    if (location.pathname === '/map-editor') history.pushState({}, '', '/')
-    // Back on the homepage - say so if a newer version was deployed.
-    this._checkForUpdate()
-  }
+  _exitBuildMode() { return PlayEntryUI._exitBuildMode(this) }
 
-  // Diffs the live settings object against the snapshot taken when the
-  // panel was opened (see _toggleSettings) - shallow key comparison, good
-  // enough since nearly every settings field is a primitive; the handful
-  // of object/array fields (mutators, navOrder, etc.) just compare by
-  // JSON string equality, which still correctly detects "did this change."
-  // lastSettingsTab is excluded on purpose - it's written on every single
-  // tab click (see the .settings-tab handler), so without this exclusion
-  // just browsing tabs (with zero real settings touched) would flag it as
-  // a "change." A REAL change (language, a slider, etc.) still legitimately
-  // shows this banner - #settings-status-row/#recently-changed-list.show
-  // (style.css) reserve fixed space for it via visibility rather than
-  // display:none, so the panel-box itself never resizes either way (it
-  // used to - a language switch, which touches settings.language/
-  // quickLanguageAlt, made the whole panel visibly grow).
-  // Returns whether anything real actually changed - saveSettings() (Game.js
-  // module scope, above the class) reuses this to decide whether its own
-  // "Saved" pulse indicator is warranted, so the two never disagree about
-  // what counts as a real change.
-  _renderRecentlyChangedList() {
-    if (!this.recentlyChangedList || !this._settingsOpenSnapshot) return false
-    const before = JSON.parse(this._settingsOpenSnapshot)
-    const changed = Object.keys(this.settings)
-      .filter((k) => k !== 'lastSettingsTab')
-      .filter((k) => JSON.stringify(this.settings[k]) !== JSON.stringify(before[k]))
-    if (!changed.length) {
-      this.recentlyChangedList.classList.remove('show')
-      return false
-    }
-    this.recentlyChangedList.classList.add('show')
-    // Raw camelCase setting keys (exactLastSeen, hudScale, ...) read as a
-    // developer's own field name, not a sentence - capitalizing just the
-    // first letter (ExactLastSeen) is a one-line, no-translation-needed
-    // way to make the list read a little more like a real label without
-    // needing a display-name lookup table kept in sync with 150+ settings
-    // keys.
-    const displayList = changed.map((k) => k.charAt(0).toUpperCase() + k.slice(1)).join(', ')
-    this.recentlyChangedList.innerHTML = `<p>${t('recentlyChangedLabel', { list: displayList })}</p><button id="undo-settings-session-btn" class="mini-action-btn" type="button">${t('undoSettingsBtn')}</button>`
-    document.getElementById('undo-settings-session-btn')?.addEventListener('click', () => this._undoSettingsSession())
-    return true
-  }
+  _renderRecentlyChangedList() { return HomeUI._renderRecentlyChangedList(this) }
 
   // Reverts every field back to the snapshot from when Settings was
   // opened, then reloads - same "resync every scattered UI control from a
@@ -3844,18 +3510,7 @@ export class Game {
     this.nicknameInput.select()
   }
 
-  // Confirms whatever's currently in the nickname box (typed or a Random
-  // preview) as the real saved nickname, then closes the editor row.
-  _confirmNicknameEdit() {
-    if (!this.nicknameRow || !this.nicknameInput) return
-    // .trim() - see the live 'input' listener's own comment on this same
-    // fix, right below #nickname-input's other binding.
-    this.settings.nickname = this.nicknameInput.value.trim()
-    saveSettings(this.settings)
-    this._renderPlayerTag()
-    this.nicknameRow.style.display = 'none'
-    this.nicknameInput.blur()
-  }
+  _confirmNicknameEdit() { return HomeUI._confirmNicknameEdit(this) }
 
   // Difficulty/Choose Class/Game Modes/Challenges & Mutators - used to be
   // spread across the homepage's left column and #menu-cards-row, moved
@@ -4272,19 +3927,7 @@ export class Game {
     this._updateBestStatsDisplay()
   }
 
-  // Homepage corner currency bar (Coins/Points/Gems) - piggybacks on the
-  // same two already-everywhere call sites _updateStatsPanel's own comment
-  // describes (in-game HUD refresh + this homepage stats refresh) rather
-  // than a save call/listener at each individual currency mutation site.
-  _renderCurrencyBar() {
-    if (this.currencyCoinsAmount) this.currencyCoinsAmount.textContent = _safeStatNumber(this.coins)
-    // Points (the blue star) are what Upgrades cost - a share of every
-    // run's kills and waves (2026-10-12; they were called Legacy Points, and
-    // the star used to show only the last run's score).
-    if (this.currencyPointsAmount) this.currencyPointsAmount.textContent = Math.round(_safeStatNumber(this.metaProgress?.legacyPoints))
-    if (this.currencyCashAmount) this.currencyCashAmount.textContent = _safeStatNumber(this.cash)
-    if (this.currencyGemsAmount) this.currencyGemsAmount.textContent = _safeStatNumber(this.gems)
-  }
+  _renderCurrencyBar() { return HomeUI._renderCurrencyBar(this) }
 
   _updateBestStatsDisplay() { return ProgressUI._updateBestStatsDisplay(this) }
 
@@ -4314,78 +3957,13 @@ export class Game {
     return level
   }
 
-  _renderPlayerTag() {
-    if (!this.menuPlayerTag) return
-    // Motto removed (2026-09-23, explicit request) - used to append
-    // `"{motto}"` after the ID here; just the ID now.
-    this.menuPlayerTag.textContent = this.settings.playerId ? `#${this.settings.playerId}` : t('menuPlayerTagDefault')
-    // The "Player" section heading above the 3D avatar - shows the
-    // player's own chosen nickname once they've set one, falls back to
-    // the generic "Player" label otherwise (same default the heading
-    // ships with in index.html). Level number goes in front of the name
-    // (reusing the same tier already shown on the avatar-corner badge,
-    // not a separate deeper level system); the clan name (if any, see
-    // settings.clanName) shows on its own line above, simple plain text
-    // rather than the boxed badge/pill look from the reference image.
-    if (this.playerShowcaseTitle) {
-      this._fillNameplate(this.playerShowcaseTitle)
-      this._fitPlayerShowcaseTitle()
-    }
-  }
+  _renderPlayerTag() { return HomeUI._renderPlayerTag(this) }
 
-  // The player's nameplate - level box, name, clan tag - shown the same way
-  // above the homepage character and Inventory's preview (2026-10-11,
-  // Gaymi: "copy the inventory name, level and clan to the spinning one").
-  // Each theme styles it (.nameplate in style.css).
-  _fillNameplate(el) {
-    const part = (cls) => el.querySelector(`.${cls}`)
-    const level = part('nameplate-level')
-    const name = part('nameplate-name')
-    const clan = part('nameplate-clan')
-    if (level) level.textContent = String(this._computeAvatarLevel())
-    if (name) name.textContent = this.settings.nickname?.trim() || this._defaultNickname()
-    if (clan) {
-      const clanName = (this.settings.clanName || '').trim()
-      clan.textContent = clanName
-      clan.style.display = clanName ? '' : 'none'
-      el.classList.toggle('has-clan', !!clanName)
-    }
-  }
+  _fillNameplate(el) { return HomeUI._fillNameplate(this, el) }
 
-  // "Lvl 1 [name]" must stay pinned to the exact same spot no matter how
-  // long the name is (#menu-col-left is bottom-anchored - see its own CSS
-  // comment - so letting this text wrap onto a 2nd line pushes everything
-  // above it, including this same title, further up the screen). Instead
-  // of wrapping or truncating, shrink the font just enough to keep it on
-  // one line - reset to the CSS default first (so it grows back once the
-  // name/level shrinks again), then scale down only if it still overflows
-  // the space actually available next to the pencil button.
-  _fitPlayerShowcaseTitle() {
-    const title = this.playerShowcaseTitle
-    const header = title?.closest('#player-showcase-header')
-    const pencil = this.playerShowcaseRenameBtn
-    if (!title || !header || !pencil) return
-    title.style.fontSize = ''
-    const headerGap = parseFloat(getComputedStyle(header).columnGap || getComputedStyle(header).gap) || 0
-    // The pencil on the right has an invisible twin on the left (style.css,
-    // #player-showcase-header::before) so the name sits in the middle.
-    const available = header.clientWidth - 2 * (pencil.offsetWidth + headerGap)
-    if (available <= 0) return
-    const naturalWidth = title.scrollWidth
-    if (naturalWidth <= available) return
-    const baseFontSize = parseFloat(getComputedStyle(title).fontSize)
-    const minFontSize = 11
-    const scaledSize = Math.floor(baseFontSize * (available / naturalWidth))
-    title.style.fontSize = `${Math.max(minFontSize, scaledSize)}px`
-  }
+  _fitPlayerShowcaseTitle() { return HomeUI._fitPlayerShowcaseTitle(this) }
 
-  _copyPlayerId() {
-    if (!this.settings.playerId || !navigator.clipboard || !navigator.clipboard.writeText) return
-    // A small oval "Copied" badge right above the ID you clicked, not the
-    // shared homepage toast - a dedicated confirmation for a copy action
-    // reads clearer than reusing the same banner used for lore/milestones.
-    navigator.clipboard.writeText(`#${this.settings.playerId}`).then(() => this._showCopiedBadge(this.menuPlayerTag)).catch(() => {})
-  }
+  _copyPlayerId() { return HomeUI._copyPlayerId(this) }
 
   // Shared "Copied" oval badge - pops up right above whichever element was
   // clicked to copy an ID, then fades on its own (CSS animation, same
@@ -4416,30 +3994,7 @@ export class Game {
     this._copiedBadgeEl.classList.add('show')
   }
 
-  // Recommended Difficulty hint - only shown once a difficulty has at
-  // least MIN_RUNS_FOR_HINT runs logged (career-wide, never resets), so
-  // it never guesses off a single unlucky/lucky run. Flags the current
-  // difficulty specifically when its own death rate is high, nudging
-  // toward Normal rather than computing a full skill rating.
-  _updateRecommendedDifficultyHint() {
-    if (!this.recommendedDifficultyHint) return
-    const MIN_RUNS_FOR_HINT = 3
-    const current = this.careerStats.difficultyStats[this.settings.difficulty]
-    if (!current || current.runs < MIN_RUNS_FOR_HINT) {
-      this.recommendedDifficultyHint.style.display = 'none'
-      return
-    }
-    const deathRate = current.deaths / current.runs
-    if (deathRate >= 0.8 && this.settings.difficulty !== 'easy') {
-      this.recommendedDifficultyHint.textContent = t('recommendedDifficultyEasier')
-      this.recommendedDifficultyHint.style.display = ''
-    } else if (deathRate <= 0.2 && this.settings.difficulty !== 'apex') {
-      this.recommendedDifficultyHint.textContent = t('recommendedDifficultyHarder')
-      this.recommendedDifficultyHint.style.display = ''
-    } else {
-      this.recommendedDifficultyHint.style.display = 'none'
-    }
-  }
+  _updateRecommendedDifficultyHint() { return PlayEntryUI._updateRecommendedDifficultyHint(this) }
 
 
   // Seasonal Event Banner - display:none year-round outside a defined date
@@ -4475,34 +4030,7 @@ export class Game {
     }
   }
 
-  // Homepage Background Mood (Settings panel) - 'auto' follows the same
-  // EVENT_BANNERS date windows as the banner above (falling back to no
-  // filter outside any window), any other settings.bgMood value is an
-  // explicit user override that always wins regardless of date. Applies
-  // via a class on <html>, matching the large-text-mode/high-contrast-mode
-  // convention, so it's a single CSS filter swap - no new DOM elements.
-  _applyBgMood() {
-    let mood = this.settings.bgMood
-    if (mood === 'auto') {
-      const now = new Date()
-      const active = EVENT_BANNERS.find((ev) => now.getMonth() === ev.month && now.getDate() >= ev.startDay && now.getDate() <= ev.endDay)
-      mood = active ? active.bgMood : 'none'
-    } else if (mood === 'timeofday') {
-      // Reuses the same 3 existing tint classes (no new art) mapped to the
-      // player's real local hour rather than a fixed/seasonal schedule -
-      // late night keeps the default night-photo look as-is since there's
-      // no separate daytime photo asset to switch to.
-      const hour = new Date().getHours()
-      if (hour >= 5 && hour < 8) mood = 'foggy'
-      else if (hour >= 8 && hour < 17) mood = 'amber'
-      else if (hour >= 17 && hour < 22) mood = 'bloodmoon'
-      else mood = 'none'
-    }
-    for (const cls of ['bg-mood-bloodmoon', 'bg-mood-foggy', 'bg-mood-amber']) {
-      document.documentElement.classList.remove(cls)
-    }
-    if (mood !== 'none') document.documentElement.classList.add(`bg-mood-${mood}`)
-  }
+  _applyBgMood() { return HomeUI._applyBgMood(this) }
 
   _updateWhatsNewDot() { return InfoPagesUI._updateWhatsNewDot(this) }
 
@@ -4524,171 +4052,10 @@ export class Game {
 
   _closeHowToPlayPanel() { return InfoPagesUI._closeHowToPlayPanel(this) }
 
-  // Homepage batch - every quick-action/one-shot listener that isn't
-  // already covered by an existing _bindX() method (difficulty/loadout/
-  // role buttons keep their own _bindDifficulty/_bindLoadout/
-  // _bindCompanionRole - Play Again/preset load click those same real
-  // buttons rather than duplicating their apply logic).
-  _bindHomepageBatch() {
-    // Reuses _generateCareerPortrait() as-is (see its own comment - it
-    // already composites a styled stat-card image, not a plain
-    // screenshot). The Profile panel's own button stays gated behind
-    // ENDGAME_ACHIEVEMENT; this homepage shortcut uses the same lower bar as
-    // Play Again/Share above it (any completed run at all), since a
-    // shareable stat card is reasonable to want well before the true
-    // ending.
-    if (this.updateAvailableRefreshBtn) this.updateAvailableRefreshBtn.addEventListener('click', () => window.location.reload())
-    // The red X (was a Later button) - see _hideUpdateBanner.
-    if (this.updateAvailableLaterBtn) this.updateAvailableLaterBtn.addEventListener('click', () => this._hideUpdateBanner())
-    if (this.buildModeBtn) this.buildModeBtn.addEventListener('click', () => this._enterBuildMode())
-    this._renderMapSelect()
-    const buildExitBtn = document.getElementById('build-mode-exit-btn')
-    if (buildExitBtn) buildExitBtn.addEventListener('click', () => this._exitBuildMode())
-    const buildSaveBtn = document.getElementById('build-mode-save-btn')
-    if (buildSaveBtn) buildSaveBtn.addEventListener('click', () => this.buildMode.save())
-    const buildExportBtn = document.getElementById('build-mode-export-btn')
-    if (buildExportBtn) buildExportBtn.addEventListener('click', () => this.buildMode.exportMap())
-    const buildImportBtn = document.getElementById('build-mode-import-btn')
-    const buildImportInput = document.getElementById('build-mode-import-input')
-    if (buildImportBtn && buildImportInput) {
-      buildImportBtn.addEventListener('click', () => buildImportInput.click())
-      buildImportInput.addEventListener('change', async () => {
-        const file = buildImportInput.files[0]
-        buildImportInput.value = ''
-        if (!file) return
-        if (!window.confirm(t('buildImportConfirm'))) return
-        const ok = await this.buildMode.importMapFile(file)
-        // _showLoreToast no-ops here - it's gated on gameStarted, which
-        // Build Mode deliberately sets false (see _enterBuildMode). This is
-        // the same "homepage-safe" ungated variant used elsewhere for
-        // toasts that genuinely belong to a pre-gameStarted context.
-        this._showHomepageToast(t(ok ? 'buildImportSuccess' : 'buildImportInvalid'))
-      })
-    }
-    // Share Map / Community Maps (BuildShare.js).
-    document.getElementById('build-mode-publish-btn')?.addEventListener('click', () => this.buildMode.share.shareCurrent())
-    document.getElementById('build-mode-browse-btn')?.addEventListener('click', () => this.buildMode.share.open())
-    document.getElementById('build-mode-gallery-btn')?.addEventListener('click', () => this.buildMode.share.postToGallery())
-    MenuEasterEggs.bindAll(this)
-    window.addEventListener('online', () => CloudSaveUI.updateOnlineStatus(this))
-    window.addEventListener('offline', () => CloudSaveUI.updateOnlineStatus(this))
-    if (this.shortcutCheatsheetCloseBtn) {
-      this.shortcutCheatsheetCloseBtn.addEventListener('click', () => { this.shortcutCheatsheet.style.display = 'none' })
-    }
-
-    if (this.profileNotesInput) {
-      this.profileNotesInput.addEventListener('input', () => {
-        this.settings.privateNotes = this.profileNotesInput.value.slice(0, 5000)
-        saveSettings(this.settings)
-      })
-    }
-    if (this.profileBioInput) {
-      this.profileBioInput.addEventListener('input', () => {
-        this.settings.bio = this.profileBioInput.value.slice(0, 5000)
-        if (this.profileBioInput.value.length > 5000) this.profileBioInput.value = this.settings.bio
-        saveSettings(this.settings)
-        this._renderProfileBioCounter()
-      })
-    }
-
-    if (this.quickMuteBtn) {
-      this.quickMuteBtn.classList.toggle('active', !!this.settings.mutedBeforeVolumes)
-      this.quickMuteBtn.addEventListener('click', () => {
-        if (this.settings.mutedBeforeVolumes) {
-          this.settings.sfxVolume = this.settings.mutedBeforeVolumes.sfx
-          this.settings.mutedBeforeVolumes = null
-        } else {
-          this.settings.mutedBeforeVolumes = { sfx: this.settings.sfxVolume }
-          this.settings.sfxVolume = 0
-        }
-        this._applyAllVolumes()
-        if (this.sfxVolumeSlider) { this.sfxVolumeSlider.value = this.settings.sfxVolume; this.sfxVolumeValue.textContent = `${this.settings.sfxVolume}%` }
-        saveSettings(this.settings)
-        this.quickMuteBtn.classList.toggle('active', !!this.settings.mutedBeforeVolumes)
-      })
-    }
-
-    if (this.quickColorblindBtn) {
-      this.quickColorblindBtn.classList.toggle('active', this.settings.colorblindMode !== 'off')
-      // Quick on/off, not a 3-way cycle - picking WHICH mode (redgreen vs
-      // blueyellow) is a one-time setup choice that belongs in the real
-      // Settings dropdown, not something to hunt for via repeated clicks on
-      // a homepage icon. Remembers whichever mode was last selected there
-      // (defaulting to redgreen, the more common form) and just flips it on/off.
-      this.quickColorblindBtn.addEventListener('click', () => {
-        if (this.settings.colorblindMode !== 'off') {
-          this._lastColorblindMode = this.settings.colorblindMode
-          this.settings.colorblindMode = 'off'
-        } else {
-          this.settings.colorblindMode = this._lastColorblindMode || 'redgreen'
-        }
-        setColorblindMode(this.settings.colorblindMode)
-        if (this.colorblindModeSelect) this.colorblindModeSelect.value = this.settings.colorblindMode
-        saveSettings(this.settings)
-        this.quickColorblindBtn.classList.toggle('active', this.settings.colorblindMode !== 'off')
-      })
-    }
-
-    if (this.quickPerformanceBtn) {
-      this.quickPerformanceBtn.classList.toggle('active', this.settings.performanceMode)
-      this.quickPerformanceBtn.addEventListener('click', () => {
-        this.settings.performanceMode = !this.settings.performanceMode
-        this._applyPerformanceMode(this.settings.performanceMode)
-        if (this.performanceToggle) this.performanceToggle.checked = this.settings.performanceMode
-        saveSettings(this.settings)
-        this.quickPerformanceBtn.classList.toggle('active', this.settings.performanceMode)
-      })
-    }
-
-    // Quick Language toggle - flips between English and settings.
-    // quickLanguageAlt (the most recent non-English language picked via
-    // the full grid in Settings, see _bindSettings' language-btn handler)
-    // rather than cycling all 20 LANGUAGES one at a time, and rather than
-    // just reopening Settings (which already defaults to the Language tab
-    // - a second icon doing the exact same thing would be a pure duplicate).
-    if (this.quickLanguageBtn) {
-      this.quickLanguageBtn.addEventListener('click', () => {
-        const next = this.settings.language === 'en' ? this.settings.quickLanguageAlt : 'en'
-        this.settings.language = next
-        saveSettings(this.settings)
-        setLanguage(next)
-        this._applyLanguage()
-        if (this.languageGrid) {
-          for (const el of this.languageGrid.querySelectorAll('.language-btn')) {
-            el.classList.toggle('active', el.dataset.lang === next)
-          }
-        }
-      })
-    }
-
-    if (this.howtoplayBtn) this.howtoplayBtn.addEventListener('click', () => this._openHowToPlayPanel())
-    if (this.howtoplayPanel) {
-      this.howtoplayPanel.addEventListener('click', (e) => {
-        if (e.target === this.howtoplayPanel) this._closeHowToPlayPanel()
-      })
-    }
-
-    this._updateEventBanner()
-  }
+  _bindHomepageBatch() { return HomeUI._bindHomepageBatch(this) }
 
 
-  // Main-menu news ticker - tied to bestStats.bestNight (already persisted,
-  // no new tracking needed), framed as the world worsening the further
-  // you've ever gotten rather than reacting to any single run's outcome.
-  _updateMenuNewsTicker() {
-    if (!this.menuNewsTicker) return
-    const n = this.bestStats.bestNight
-    const key = n >= NEWS_TICKER_LATE_NIGHT ? 'newsTickerLate' : n >= NEWS_TICKER_MID_NIGHT ? 'newsTickerMid' : 'newsTickerEarly'
-    this.menuNewsTicker.textContent = t(key)
-    if (this.weeklyFeaturedMutatorLine) {
-      const mutatorKey = _weeklyFeaturedMutatorKey()
-      this.weeklyFeaturedMutatorLine.textContent = t('weeklyFeaturedMutatorLine', {
-        mutator: t(MUTATOR_LABEL_KEYS[mutatorKey]),
-        coins: WEEKLY_FEATURED_MUTATOR_BONUS_COINS,
-      })
-    }
-    this._fitMenuLayout()
-  }
+  _updateMenuNewsTicker() { return HomeUI._updateMenuNewsTicker(this) }
 
   // The homepage's measured layout - right column zoom, Play centering,
   // footer links - lives in index.html's inline window.__menuLayout, which
@@ -4699,27 +4066,7 @@ export class Game {
     window.__menuLayout?.fit()
   }
 
-  // Remembers what the homepage shows - currencies, profile card, and every
-  // label in the player's language - so index.html can paint it on the next
-  // visit before the game has loaded (see __menuLayout there). Per root,
-  // the text and inline display of each leaf element in document order,
-  // plus their count: index.html only applies a root whose count still
-  // matches, so a changed page never gets text in the wrong places.
-  // Device-only key, never synced.
-  _saveMenuPaintCache() {
-    const roots = {}
-    for (const rootId of MENU_PAINT_CACHE_ROOTS) {
-      const root = document.getElementById(rootId)
-      if (!root) continue
-      const leaves = [...root.querySelectorAll('*')].filter((el) => !el.children.length && !el.closest('svg') && el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE')
-      const d = {}
-      leaves.forEach((el, i) => { if (el.hasAttribute('style')) d[i] = el.style.display })
-      roots[rootId] = { n: leaves.length, t: leaves.map((el) => el.textContent), d }
-    }
-    try {
-      localStorage.setItem(MENU_PAINT_CACHE_KEY, JSON.stringify({ v: 2, roots }))
-    } catch { /* storage full or blocked - next visit just waits for the game */ }
-  }
+  _saveMenuPaintCache() { return HomeUI._saveMenuPaintCache(this) }
 
   _recordLeaderboardEntry() { return ProgressUI._recordLeaderboardEntry(this) }
 
@@ -4970,118 +4317,17 @@ export class Game {
 
   _openProfilePanel() { return ProfileUI._openProfilePanel(this) }
 
-  // Recently Unlocked strip (Profile panel) - a persistent list, not just
-  // the ticker's single rotating line (mode 15 in _updateMenuSpotlight,
-  // see its own comment) - same getRecentUnlocks(n) data source, just n=5
-  // here instead of 1.
-  _renderRecentUnlocksStrip() {
-    if (!this.recentUnlocksList) return
-    if (this.recentUnlocksHeading) this.recentUnlocksHeading.textContent = t('recentUnlocksHeading')
-    const recent = this.achievements.getRecentUnlocks(5)
-    this.recentUnlocksList.innerHTML = recent.length
-      ? recent.map((ach) => `<button class="perk-option" disabled><span class="perk-name">${t(ach.titleKey)}</span></button>`).join('')
-      : `<p class="nearly-there-line">${t('recentUnlocksEmpty')}</p>`
-  }
+  _renderRecentUnlocksStrip() { return HomeUI._renderRecentUnlocksStrip(this) }
 
   _renderPrestigeHistory() { return ProgressUI._renderPrestigeHistory(this) }
 
-  // Highlight Reel - auto-picks the 3 most impressive numbers from a
-  // curated candidate list, ranked by value/benchmark ratio (not just
-  // raw magnitude, which would always favor whichever stat happens to
-  // use the smallest unit). "Benchmark" is a round, clearly-labeled
-  // reference point for each stat (not a hidden fabricated threshold),
-  // shown alongside the value so the ranking is legible, not mysterious.
-  _renderHighlightReel() {
-    if (!this.highlightReelList) return
-    if (this.highlightReelHeading) this.highlightReelHeading.textContent = t('highlightReelHeading')
-    const statsDashboardHeading = document.getElementById('stats-dashboard-heading')
-    if (statsDashboardHeading) statsDashboardHeading.textContent = t('statsDashboardHeading')
-    const candidates = [
-      { labelKey: 'profileTotalKills', value: _safeStatNumber(this.careerStats.totalKills), benchmark: 5000 },
-      { labelKey: 'profilePlaytime', value: Math.floor(_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / 3600), benchmark: 20 },
-      { labelKey: 'profileBestKillStreak', value: _safeStatNumber(this.bestStats.bestKillStreak), benchmark: 30 },
-      { labelKey: 'profileTotalRuns', value: _safeStatNumber(this.careerStats.totalRuns), benchmark: 100 },
-      { labelKey: 'profileMostProfitableRun', value: _safeStatNumber(this.careerStats.mostProfitableRun), benchmark: 5000 },
-    ]
-    const top3 = candidates
-      .filter((c) => c.value > 0)
-      .sort((a, b) => (b.value / b.benchmark) - (a.value / a.benchmark))
-      .slice(0, 3)
-    this.highlightReelList.innerHTML = top3.length
-      ? top3.map((c) => `
-          <button class="perk-option" disabled>
-            <span class="perk-name">${t(c.labelKey)}</span>
-            <span class="perk-cost">${Math.round(c.value).toLocaleString()}</span>
-          </button>
-        `).join('')
-      : `<p class="nearly-there-line">${t('highlightReelEmpty')}</p>`
-  }
+  _renderHighlightReel() { return HomeUI._renderHighlightReel(this) }
 
-  // Goals picker - toggleable chips, one per GOAL_CANDIDATES entry, capped
-  // at 3 selected (oldest bumped on a 4th pick, same "cap and shift"
-  // precedent settings.savedFriends/menuPresets already use).
-  _renderGoalsPicker() {
-    if (!this.goalsPicker) return
-    if (this.goalsHeading) this.goalsHeading.textContent = t('goalsHeading')
-    this.goalsPicker.innerHTML = GOAL_CANDIDATES.map((goal) => `
-      <button class="goal-chip${this.settings.selectedGoals.includes(goal.id) ? ' active' : ''}" data-goal="${goal.id}">${t(goal.titleKey)}</button>
-    `).join('')
-    for (const btn of this.goalsPicker.querySelectorAll('.goal-chip')) {
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.goal
-        if (this.settings.selectedGoals.includes(id)) {
-          this.settings.selectedGoals = this.settings.selectedGoals.filter((g) => g !== id)
-        } else {
-          if (this.settings.selectedGoals.length >= MAX_GOALS) this.settings.selectedGoals.shift()
-          this.settings.selectedGoals.push(id)
-        }
-        saveSettings(this.settings)
-        this._renderGoalsPicker()
-        this._renderGoalsChecklist()
-      })
-    }
-  }
+  _renderGoalsPicker() { return HomeUI._renderGoalsPicker(this) }
 
-  _renderGoalsChecklist() {
-    if (!this.goalsChecklist) return
-    this.goalsChecklist.innerHTML = this.settings.selectedGoals.map((id) => {
-      const goal = GOAL_CANDIDATES.find((g) => g.id === id)
-      if (!goal) return ''
-      const total = goal.total(this)
-      const current = Math.min(goal.current(this), total)
-      const pct = total > 0 ? Math.round((current / total) * 100) : 0
-      return `
-        <div class="nearly-there-item">
-          <p class="nearly-there-line">${_escapeHtml(t('goalProgressLine', { title: t(goal.titleKey), current: current.toLocaleString(), total: total.toLocaleString() }))}${pct >= 100 ? ` ${t('goalCompleteBadge')}` : ''}</p>
-          <div class="mini-progress-track" aria-hidden="true"><div class="mini-progress-fill" style="width: ${pct}%"></div></div>
-        </div>
-      `
-    }).join('') || `<p class="nearly-there-line">${t('goalsEmpty')}</p>`
-  }
+  _renderGoalsChecklist() { return HomeUI._renderGoalsChecklist(this) }
 
-  // Rank Roadmap - all CAREER_RANK_TITLES tiers at once (the homepage/
-  // spotlight ticker only ever shows the CURRENT tier one at a time), with
-  // the reached ones checked off and the current one highlighted, so a
-  // player can see the whole ladder rather than just where they stand
-  // right now. Written to two places - Profile's own copy and the
-  // standalone Levels panel's copy - same markup, same data, so they can
-  // never drift apart from each other.
-  _renderRankRoadmap() {
-    if (!this.rankRoadmapList) return
-    if (this.rankRoadmapHeading) this.rankRoadmapHeading.textContent = t('rankRoadmapHeading')
-    const kills = _safeStatNumber(this.careerStats.totalKills)
-    const html = CAREER_RANK_TITLES.map((tier, i) => {
-      const reached = kills >= tier.min
-      const isCurrent = reached && (i === CAREER_RANK_TITLES.length - 1 || kills < CAREER_RANK_TITLES[i + 1].min)
-      return `
-        <button class="perk-option${isCurrent ? ' active' : ''}" disabled>
-          <span class="perk-name">${reached ? '✓ ' : ''}${t(tier.titleKey)}</span>
-          <span class="perk-cost">${t('rankRoadmapThreshold', { n: tier.min.toLocaleString() })}</span>
-        </button>
-      `
-    }).join('')
-    if (this.rankRoadmapList) this.rankRoadmapList.innerHTML = html
-  }
+  _renderRankRoadmap() { return HomeUI._renderRankRoadmap(this) }
 
   _renderPublicProfileSection() { return ProfileUI._renderPublicProfileSection(this) }
 
@@ -5113,95 +4359,19 @@ export class Game {
     }
   }
 
-  _renderFavoriteDifficultyLine() {
-    if (!this.profileFavoriteDifficultyLine) return
-    const entries = Object.entries(this.careerStats.difficultyStats)
-    if (entries.length === 0) {
-      this.profileFavoriteDifficultyLine.style.display = 'none'
-      return
-    }
-    const [favoriteId] = entries.reduce((best, cur) => (cur[1].runs > best[1].runs ? cur : best))
-    const btn = Array.from(this.difficultyBtns).find((b) => b.dataset.difficulty === favoriteId)
-    this.profileFavoriteDifficultyLine.textContent = t('favoriteDifficultyLine', { difficulty: btn ? btn.textContent : favoriteId })
-    this.profileFavoriteDifficultyLine.style.display = ''
-  }
+  _renderFavoriteDifficultyLine() { return HomeUI._renderFavoriteDifficultyLine(this) }
 
-  // Best Run card - the runHistory entry matching bestStats.bestNight
-  // (the same "single best-ever run" bestStats already is the source of
-  // truth for), showing the difficulty/loadout/companion fields
-  // _recordRunEnd already captures on every entry (see CLAUDE.md's note
-  // on why those were added) rather than tracking a new "best run"
-  // snapshot separately.
-  _renderBestRunCard() {
-    if (!this.profileBestRunCard) return
-    const best = this.runHistory.find((r) => _safeStatNumber(r.night) === _safeStatNumber(this.bestStats.bestNight))
-    if (!best) {
-      this.profileBestRunCard.style.display = 'none'
-      return
-    }
-    this.profileBestRunTitle.textContent = t('profileBestRunTitle')
-    const diffBtn = Array.from(this.difficultyBtns).find((b) => b.dataset.difficulty === best.difficulty)
-    this.profileBestRunLine.textContent = t('profileBestRunLine', {
-      night: _safeStatNumber(best.night),
-      kills: _safeStatNumber(best.kills),
-      coins: _safeStatNumber(best.coins),
-      difficulty: diffBtn ? diffBtn.textContent : (best.difficulty || '?'),
-    })
-    this.profileBestRunCard.style.display = ''
-  }
+  _renderBestRunCard() { return HomeUI._renderBestRunCard(this) }
 
   _renderCompanionColorPreview() {
   }
 
 
-  // Nearly There nudge - the single closest-to-unlocking achievement among
-  // a small curated set of *persistent, numeric* achievements (most
-  // achievement conditions are per-run counters that reset, so aren't
-  // meaningful to show as a lifetime "so close" hint).
-  // Shows every currently-qualifying candidate (sorted closest-first),
-  // not a fixed "top 3" - NEARLY_THERE_CANDIDATES only has 2 entries
-  // right now (see its own comment on why most achievements can't back
-  // this honestly), so this naturally shows 0-2 lines rather than
-  // padding to a number that doesn't reflect what's actually trackable.
-  _renderNearlyThereNudge() {
-    if (!this.profileNearlyThereList) return
-    const rows = []
-    for (const c of NEARLY_THERE_CANDIDATES) {
-      if (this.achievements.unlocked.has(c.achievementId)) continue
-      const total = c.total(this)
-      if (total <= 0) continue
-      const current = Math.min(c.current(this), total)
-      rows.push({ ...c, current, total, ratio: current / total })
-    }
-    rows.sort((a, b) => b.ratio - a.ratio)
-    this.profileNearlyThereList.innerHTML = rows.map((r) => {
-      const def = ACHIEVEMENTS.find((a) => a.id === r.achievementId)
-      const pct = Math.round(r.ratio * 100)
-      return `
-        <div class="nearly-there-item">
-          <p class="nearly-there-line">${_escapeHtml(t('nearlyThereLine', { title: t(def.titleKey), current: r.current, total: r.total }))}</p>
-          <div class="mini-progress-track" aria-hidden="true"><div class="mini-progress-fill" style="width: ${pct}%"></div></div>
-        </div>
-      `
-    }).join('')
-  }
+  _renderNearlyThereNudge() { return HomeUI._renderNearlyThereNudge(this) }
 
   _renderProfileAccountRow() { return ProfileUI._renderProfileAccountRow(this) }
 
-  // "X days since your first run" - careerStats.firstPlayedDate is set
-  // once, on the very first completed run (see _recordRunEnd), never
-  // touched again. Hidden entirely before that first run exists (a
-  // brand-new save has nothing to anniversary yet).
-  _renderAnniversaryLine() {
-    if (!this.profileAnniversaryLine) return
-    if (!this.careerStats.firstPlayedDate) {
-      this.profileAnniversaryLine.style.display = 'none'
-      return
-    }
-    const days = Math.max(0, Math.round((new Date(todayDateString()) - new Date(this.careerStats.firstPlayedDate)) / 86400000))
-    this.profileAnniversaryLine.textContent = t('anniversaryLine', { n: days })
-    this.profileAnniversaryLine.style.display = ''
-  }
+  _renderAnniversaryLine() { return HomeUI._renderAnniversaryLine(this) }
 
   _renderProfileCreated() { return ProfileUI._renderProfileCreated(this) }
 
@@ -5297,16 +4467,7 @@ export class Game {
     }
   }
 
-  _renderStatusPicker() {
-    if (!this.statusPickBtns) return
-    const mode = this.settings.statusMode
-    for (const btn of this.statusPickBtns) {
-      btn.classList.toggle('active', btn.dataset.status === mode)
-    }
-    const labels = { online: t('friendStatusOnline'), idle: t('friendStatusIdle'), dnd: t('friendStatusDnd'), offline: t('friendStatusOffline') }
-    if (this.statusPickerDot) this.statusPickerDot.dataset.status = mode
-    if (this.statusPickerLabel) this.statusPickerLabel.textContent = labels[mode] || labels.online
-  }
+  _renderStatusPicker() { return HomeUI._renderStatusPicker(this) }
 
   // Friend-beats-you notification - checks each saved friend's real public
   // leaderboard entry once per page load, bounded to the capped-at-5
@@ -5351,30 +4512,7 @@ export class Game {
     saveSettings(this.settings)
   }
 
-  // Count-up animation for Profile stat numbers - only touches values
-  // that are a plain whole number (with optional thousands commas), so
-  // percentages/ratios/dates/text values are left exactly as rendered
-  // rather than mangled by a naive count-up. Skipped under reduced-motion
-  // (the real final value is already on screen from the synchronous
-  // render above, nothing more to do).
-  _animateStatCountUp() {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    for (const el of this.profileOptions.querySelectorAll('.perk-cost')) {
-      const text = el.textContent
-      if (!/^[\d,]+$/.test(text)) continue
-      const target = Number(text.replace(/,/g, ''))
-      if (!Number.isFinite(target) || target <= 0) continue
-      const duration = 500
-      const start = performance.now()
-      const step = (now) => {
-        const progress = Math.min(1, (now - start) / duration)
-        el.textContent = Math.round(target * progress).toLocaleString()
-        if (progress < 1) requestAnimationFrame(step)
-        else el.textContent = target.toLocaleString()
-      }
-      requestAnimationFrame(step)
-    }
-  }
+  _animateStatCountUp() { return HomeUI._animateStatCountUp(this) }
 
   _renderPinnedStatSelect(rows) { return ProgressUI._renderPinnedStatSelect(this, rows) }
 
@@ -5429,17 +4567,7 @@ export class Game {
     return counts[bestIndex] > 0 ? dayNames[bestIndex] : '—'
   }
 
-  // Most-used mutator helper (see _openProfilePanel) - the single highest
-  // tally in careerStats.mutatorUseCounts (see _recordRunEnd).
-  _mostUsedMutatorLabel() {
-    let bestId = null
-    let bestCount = 0
-    for (const [id, count] of Object.entries(this.careerStats.mutatorUseCounts)) {
-      if (count > bestCount) { bestCount = count; bestId = id }
-    }
-    if (!bestId) return t('profileMostUsedMutatorNone')
-    return t('profileMostUsedMutatorValue', { name: t(MUTATOR_LABEL_KEYS[bestId] || bestId), n: bestCount })
-  }
+  _mostUsedMutatorLabel() { return HomeUI._mostUsedMutatorLabel(this) }
 
   // Coins today / weekly average helpers (see _openProfilePanel) - both
   // pure-derived from runHistory's own ts/coins fields (same rolling
@@ -5464,24 +4592,7 @@ export class Game {
   }
 
 
-  // Confetti burst on a new personal best (see _recordRunEnd's
-  // _pendingConfetti flag) - a handful of plain colored divs falling and
-  // fading via CSS, no canvas/library, auto-removed after the animation
-  // ends. Skipped entirely under prefers-reduced-motion.
-  _fireConfetti() {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const colors = ['#e0c03e', '#7fd88f', '#6fa8dc', '#c9564a', '#b07cd6']
-    for (let i = 0; i < 24; i++) {
-      const piece = document.createElement('div')
-      piece.className = 'confetti-piece'
-      piece.style.left = `${Math.random() * 100}vw`
-      piece.style.background = colors[Math.floor(Math.random() * colors.length)]
-      piece.style.animationDelay = `${Math.random() * 0.3}s`
-      piece.style.animationDuration = `${1.8 + Math.random() * 0.8}s`
-      document.body.appendChild(piece)
-      piece.addEventListener('animationend', () => piece.remove())
-    }
-  }
+  _fireConfetti() { return HomeUI._fireConfetti(this) }
 
   // Prevents the sidebar nav buttons (General/Store/Upgrades/etc.) from
   // ever receiving keyboard-style focus from a mouse click at all -
@@ -5571,70 +4682,7 @@ export class Game {
   }
 
 
-  // Every render of the main scene goes through here - the per-frame one in
-  // _tick, _warmUpShaders, and the screenshot/portrait captures - so they
-  // all use the same path and therefore the same compiled shader variants
-  // (three.js compiles a separate variant of every material for rendering
-  // straight to the canvas vs. into a render target, since tone mapping/
-  // color space conversion happen in-shader only for the former; warming up
-  // one path and then playing on the other would compile every material
-  // again on the first frames of a run).
-  //
-  // The composer only earns its keep when a post effect is actually on.
-  // With bloom/AO/motion blur all off (the default - LOW_QUALITY_MODE keeps
-  // bloom off, AO and motion blur are opt-in), it still rendered the whole
-  // scene into an offscreen target and then copied that to the screen in a
-  // second fullscreen OutputPass - an extra full-resolution read+write every
-  // frame for an identical image, since rendering straight to the canvas
-  // applies the same toneMapping/outputColorSpace OutputPass exists to apply
-  // to an offscreen target.
-  // Map editor auto resolution (Auto Quality setting) - holds 60 fps by
-  // giving up high-DPI extra pixels when frames run slow, and taking them
-  // back once there's headroom. Called every ~500ms with the average frame
-  // time. Steps down fast (one slow sample), steps up slowly (after 6 good
-  // samples, never within 20s of a step down), so it settles instead of
-  // bouncing.
-  _updateEditorResScale(msPerFrame, now) {
-    if (!this.settings.autoQuality || now < (this._editorResHoldUntil || 0)) return
-    const scale = this._editorResScale ?? 1
-    // Slow = well over the frame time the player asked for (60 fps, or
-    // their FPS Cap) - a 30 cap must not read as "too slow" forever.
-    const targetMs = this.settings.fpsCap > 0 ? 1000 / this.settings.fpsCap : 1000 / 60
-    // A step that wouldn't change the real pixel ratio (already at the
-    // floor) is skipped entirely.
-    const down = Math.max(0.25, scale - 0.125)
-    const canLower = scale > 0.25 && this._editorPixelRatio(down) < this._editorPixelRatio(scale) - 1e-3
-    if (msPerFrame > targetMs * 1.11 && canLower) {
-      this._editorResScale = down
-      this._editorResGood = 0
-      this._editorResUpAfter = now + 20000
-      // Draw straight away - a resize clears the canvas, and waiting for
-      // the next frame would show one black frame.
-      if (this._applyRenderScale()) this.buildMode.render()
-    } else if (msPerFrame > targetMs * 1.11) {
-      // Already at the lowest resolution: draw less of the map instead
-      // (View Distance on Auto - see BuildMode.stepAutoView).
-      this._editorResGood = 0
-      if (this.buildMode.stepAutoView(-1)) {
-        this._editorResHoldUntil = now + 2000
-        this._editorResUpAfter = now + 20000
-      }
-    } else if (msPerFrame < targetMs * 1.05) {
-      this._editorResGood = (this._editorResGood || 0) + 1
-      if (this._editorResGood >= 6 && now > (this._editorResUpAfter || 0)) {
-        this._editorResGood = 0
-        // Give back what went last first: the view distance, then pixels.
-        if (this.buildMode.stepAutoView(1)) {
-          this._editorResUpAfter = now + 20000
-        } else if (scale < 1) {
-          this._editorResScale = Math.min(1, scale + 0.125)
-          if (this._applyRenderScale()) this.buildMode.render()
-        }
-      }
-    } else {
-      this._editorResGood = 0
-    }
-  }
+  _updateEditorResScale(msPerFrame, now) { return PlayEntryUI._updateEditorResScale(this, msPerFrame, now) }
 
   // Everything Lite Textures shrinks: the game world, the Map Editor and
   // Try Map's gun scene.
