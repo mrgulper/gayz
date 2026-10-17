@@ -21,6 +21,10 @@
 import * as THREE from 'three'
 
 export const CHUNK = 16
+// A chunk plus a one-cell ring on every side (see _build), and the mark
+// for a cell of it not looked up yet.
+const PAD = CHUNK + 2
+const UNREAD = 0
 // Time per frame spent rebuilding the open world's chunks (see flush()).
 const LAZY_BUDGET_MS = 5
 // A power-of-two SLOT with the tile repeated into half-tile padding: every
@@ -414,9 +418,28 @@ export class BlockChunks {
     const bz = cz * CHUNK
     const out = { solid: newBuffers(3), glow: newBuffers(3), cutout: newBuffers(3), clear: newBuffers(4), water: newBuffers(4), lava: newBuffers(3) }
     const glowSources = this._glowSourcesNear(cx, cy, cz)
+    // Each cell of the chunk and the one-cell ring around it is looked up
+    // at most once per build (2026-10-17 lag hunt): a visible face reads
+    // its neighbor and 12 corner cells for shading, so the same cells were
+    // fetched from the block map over and over while new land streamed in.
+    const pad = this._pad || (this._pad = new Array(PAD * PAD * PAD))
+    pad.fill(UNREAD)
+    const typeAt = (x, y, z) => {
+      const lx = x - bx + 1, ly = y - by + 1, lz = z - bz + 1
+      if (lx < 0 || ly < 0 || lz < 0 || lx >= PAD || ly >= PAD || lz >= PAD) return this.getType(x, y, z)
+      const i = (ly * PAD + lz) * PAD + lx
+      let t = pad[i]
+      if (t === UNREAD) pad[i] = t = this.getType(x, y, z) ?? null
+      return t
+    }
+    const opaqueAt = (x, y, z) => {
+      const t = typeAt(x, y, z)
+      return !!t && !!this.info.get(t)?.opaque
+    }
     for (const cell of cells) {
-      const [x, y, z] = cell.split(',').map(Number)
-      const type = this.getType(x, y, z)
+      const c1 = cell.indexOf(','), c2 = cell.indexOf(',', c1 + 1)
+      const x = +cell.slice(0, c1), y = +cell.slice(c1 + 1, c2), z = +cell.slice(c2 + 1)
+      const type = typeAt(x, y, z)
       const info = type && this.info.get(type)
       if (!info) continue
       const buf = info.liquid ? out[info.liquid] : info.solidDraw ? (info.glow ? out.glow : out.solid) : info.cutout ? out.cutout : out.clear
@@ -430,7 +453,7 @@ export class BlockChunks {
       for (let fi = 0; fi < 6; fi++) {
         const face = FACES[fi]
         const [nx, ny, nz] = face.n
-        const nType = this.getType(x + nx, y + ny, z + nz)
+        const nType = typeAt(x + nx, y + ny, z + nz)
         // A narrow block's sides stand clear of its neighbors - always drawn.
         if (nType && !(inset && ny === 0)) {
           const nInfo = this.info.get(nType)
@@ -462,16 +485,16 @@ export class BlockChunks {
           const sz = nz === 0 ? (c[2] ? 1 : -1) : 0
           let s1, s2
           if (nx !== 0) {
-            s1 = this._opaqueAt(ox, oy + sy, oz)
-            s2 = this._opaqueAt(ox, oy, oz + sz)
+            s1 = opaqueAt(ox, oy + sy, oz)
+            s2 = opaqueAt(ox, oy, oz + sz)
           } else if (ny !== 0) {
-            s1 = this._opaqueAt(ox + sx, oy, oz)
-            s2 = this._opaqueAt(ox, oy, oz + sz)
+            s1 = opaqueAt(ox + sx, oy, oz)
+            s2 = opaqueAt(ox, oy, oz + sz)
           } else {
-            s1 = this._opaqueAt(ox + sx, oy, oz)
-            s2 = this._opaqueAt(ox, oy + sy, oz)
+            s1 = opaqueAt(ox + sx, oy, oz)
+            s2 = opaqueAt(ox, oy + sy, oz)
           }
-          const corner = this._opaqueAt(ox + sx, oy + sy, oz + sz)
+          const corner = opaqueAt(ox + sx, oy + sy, oz + sz)
           ao[i] = s1 && s2 ? 3 : (s1 ? 1 : 0) + (s2 ? 1 : 0) + (corner ? 1 : 0)
         }
         const base = buf.pos.length / 3

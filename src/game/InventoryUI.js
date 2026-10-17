@@ -5,6 +5,7 @@
 // Moved out of Game.js (2026-10-16, bit by bit - see CLAUDE.md). Plain functions
 // taking `game`, all state on the Game instance; Game.js keeps a one-line
 // stand-in for each, so callers are unchanged.
+import { WEAPON_THUMB_IDS, WEAPON_THUMBS_VERSION } from './weaponThumbs.js'
 import * as CloudSync from './CloudSync.js'
 import * as THREE from 'three'
 import { Game, CRATES_COMING_SOON, CRATE_ICON_SVG, CRATE_TIERS, CRATE_TIER_COLORS, INVENTORY_SKINS, SKIN_RARITIES, WEAPON_ICON_PATHS, WEAPON_THUMBS_CACHE, _escapeHtml, _safeStatNumber, saveSettings, saveShopProgress, skinFrontIconURL } from './Game.js'
@@ -940,6 +941,19 @@ export function _weaponThumbnailsReady(game) {
 // weapon model changes. Resolves null when nothing (complete) is saved.
 export async function _loadSavedWeaponThumbs(game) {
   if (game._weaponThumbCache) return game._weaponThumbCache
+  // Ready-made pictures shipped with the game (2026-10-17 lag hunt:
+  // drawing them froze a slow device for up to a second the first time it
+  // pressed Play). Only when every weapon has one - a new weapon without a
+  // picture yet falls back to drawing them (scripts/make-weapon-thumbs.mjs
+  // makes them again).
+  const ids = Object.keys(game.weapons?.viewmodels || {})
+  if (ids.length && ids.every((id) => WEAPON_THUMB_IDS.includes(id))) {
+    const out = {}
+    for (const id of ids) out[id] = `/images/weapon-thumbs/${id}.png?v=${WEAPON_THUMBS_VERSION}`
+    game._weaponThumbCache = out
+    game._weaponThumbsSaved = true
+    return out
+  }
   try {
     if (typeof caches === 'undefined') return null
     const cache = await caches.open(WEAPON_THUMBS_CACHE)

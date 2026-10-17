@@ -613,6 +613,8 @@ export class MenuAvatar3D {
       }
       this.renderer.render(this.scene, this.camera)
     }
+    // Only the homepage character pauses while a map is open (LiteHome).
+    loop.duringPlay = this.canvas.id !== 'setup-avatar-canvas'
     this._stopLoop = onHomeFrame(loop)
   }
 

@@ -4,6 +4,7 @@
 // context - only the scene/camera passed to render() changes.
 import { FIXED_KEYS, getKeyFor, keyLabel, keysFor } from './Keybinds.js'
 import * as THREE from 'three'
+import { setHomePaused } from './LiteHome.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
 import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, gadgetIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
@@ -1296,6 +1297,53 @@ const CUSTOM_BLOCK_GEOMETRY = {
 // Shaped blocks that face a way (saved as `facing`, turned with a copy).
 const FACED_SHAPES = new Set(['stairs', 'chest', 'lever', 'sign', 'cage', 'pad'])
 
+// Every placed block, "x,y,z" -> type id - plus the same blocks under a
+// number made from x, y and z (2026-10-17 lag hunt). Looking a block up by
+// its "x,y,z" text built a new string every time, and zombie pathfinding
+// and chunk meshing do that hundreds of thousands of times a second (the
+// biggest game-code cost walking into new land or in a big wave, plus the
+// garbage it left). Use at(x, y, z) for lookups; the text keys stay for
+// everything else (saves, chunk cell sets, undo).
+const CELL_SPAN = 2 ** 21
+const CELL_HALF = 2 ** 20
+function cellNumber(x, y, z) {
+  return ((x + CELL_HALF) * CELL_SPAN + (z + CELL_HALF)) * 1024 + (y + 512)
+}
+function cellNumberOfKey(key) {
+  const a = key.indexOf(','), b = key.indexOf(',', a + 1)
+  return cellNumber(+key.slice(0, a), +key.slice(a + 1, b), +key.slice(b + 1))
+}
+export class BlockMap extends Map {
+  constructor() {
+    super()
+    this._byNumber = new Map()
+  }
+  set(key, type) {
+    super.set(key, type)
+    this._byNumber.set(cellNumberOfKey(key), type)
+    return this
+  }
+  // set() when x, y, z are already known (skips reading them back out of the key).
+  setAt(key, x, y, z, type) {
+    super.set(key, type)
+    this._byNumber.set(cellNumber(x, y, z), type)
+  }
+  delete(key) {
+    if (!super.delete(key)) return false
+    this._byNumber.delete(cellNumberOfKey(key))
+    return true
+  }
+  clear() {
+    super.clear()
+    this._byNumber.clear()
+  }
+  at(x, y, z) {
+    // Whole numbers only - anything else can't be a block cell.
+    if ((x | 0) !== x || (y | 0) !== y || (z | 0) !== z) return undefined
+    return this._byNumber.get(cellNumber(x, y, z))
+  }
+}
+
 export class BuildMode {
   // Read by tests/docs.spec.js, which presses every listed key for real.
   static MENU_SHORTCUTS = MENU_SHORTCUTS
@@ -1560,7 +1608,7 @@ export class BuildMode {
     this.hotbar = new Array(10).fill(null)
     this.activeHotbarIndex = 0
     this.selectedType = null
-    this._blocks = new Map() // "x,y,z" -> type id
+    this._blocks = new BlockMap() // "x,y,z" -> type id (see BlockMap)
     // Invisible Blocks' own shadows (see _rebuildInvisibleShadows).
     this._invisibleKeys = new Set()
     this._invisShadowDirty = false
@@ -1626,7 +1674,7 @@ export class BuildMode {
       // The 16x16 pixel textures at their own size (drawn crisp, BlockChunks).
       tile: 16,
       hasAlpha: textureHasAlpha,
-      getType: (x, y, z) => this._blocks.get(`${x},${y},${z}`),
+      getType: (x, y, z) => this._blocks.at(x, y, z),
       liquidHeight: (x, y, z) => this.liquids.heightAt(x, y, z),
     })
     this._chunkCells = new Map() // "cx,cy,cz" -> Set of "x,y,z" cube cells in that chunk
@@ -1914,6 +1962,7 @@ export class BuildMode {
       this.activeSlot = slot
     }
     this.active = true
+    setHomePaused(true)
     window.addEventListener('pagehide', this._onPageHide)
     document.addEventListener('visibilitychange', this._onPageHide)
     window.addEventListener('keydown', this._onKeyDown)
@@ -1957,6 +2006,7 @@ export class BuildMode {
     this.save()
     this._saveSlotThumb()
     this.active = false
+    setHomePaused(false)
     this.touch.update(0)
     this.tryMode.drawBuildMap(0, false)
     window.removeEventListener('pagehide', this._onPageHide)
@@ -2276,7 +2326,7 @@ export class BuildMode {
   }
 
   getBlockAt(x, y, z) {
-    return this._blocks.get(this._key(x, y, z)) ?? null
+    return this._blocks.at(x, y, z) ?? null
   }
 
   // skipBoundsUpdate lets a bulk caller (_ensureGroundLayer, the saved-
@@ -2402,7 +2452,7 @@ export class BuildMode {
   // in, with no undo, liquid flow, lights or ladder checks - its chunks
   // are rebuilt a few at a time (BlockChunks.markLazy).
   _setTerrainBlock(key, x, y, z, type) {
-    this._blocks.set(key, type)
+    this._blocks.setAt(key, x, y, z, type)
     const ck = this._chunkKeyOf(x, y, z)
     let cells = this._chunkCells.get(ck)
     if (!cells) this._chunkCells.set(ck, (cells = new Set()))
@@ -2444,7 +2494,7 @@ export class BuildMode {
     }
     if (this._chunks.isChunkType(type)) {
       if (!skipBoundsUpdate && !this._suppressUndoRecording) this._recordUndo({ action: 'place', x, y, z, type })
-      this._blocks.set(key, type)
+      this._blocks.setAt(key, x, y, z, type)
       const ck = this._chunkKeyOf(x, y, z)
       let cells = this._chunkCells.get(ck)
       if (!cells) this._chunkCells.set(ck, (cells = new Set()))
@@ -2498,7 +2548,7 @@ export class BuildMode {
     // would flicker in and out of view depending on camera angle,
     // independent of whether they're actually on-screen.
     if (!skipBoundsUpdate) mesh.computeBoundingSphere()
-    this._blocks.set(key, type)
+    this._blocks.setAt(key, x, y, z, type)
     this._instanceKeyByIndex[type][index] = key
     // A shaped block doesn't hide its neighbors' faces, but it does change
     // their corner shading lookups - cheap to refresh.
