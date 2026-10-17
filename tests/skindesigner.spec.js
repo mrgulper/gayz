@@ -48,7 +48,9 @@ test('Design a Skin understands everyday words and typos', async ({ page }) => {
   for (const note of Object.values(notes)) expect(note).not.toMatch(/style/i)
   expect(notes['pirte with a hat']).toContain('Read "pirte" as pirate')
   expect(notes['santa']).toContain('beard')
-  expect(notes['qwertyzz']).toContain("Didn't recognize")
+  // Nothing recognised: a best guess, the same one every time (2026-10-17).
+  expect(notes['qwertyzz']).toContain('best guess')
+  expect(parsed['qwertyzz'].guessed).toEqual((await page.evaluate(() => window.__parsePrompt('qwertyzz'))).guessed)
 })
 
 test('Design a Skin paints long hair down the back on both layers', async ({ page }) => {
@@ -293,4 +295,143 @@ test('Design a Skin is loaded ahead of time and idle while hidden', async ({ pag
   expect(draws).toBe(0)
   await page.evaluate(() => window.__game._openSkinDesignerPanel())
   await expect(page.frameLocator('#skindesigner-frame').locator('#generateBtn')).toBeVisible({ timeout: 3000 })
+})
+
+// 2026-10-17 ("make it when a player types any word thats an offical word
+// will work"): ~1,600 more everyday words, words run together, and edits
+// to one arm or leg.
+test('Design a Skin knows many more words', async ({ page }) => {
+  await openDesigner(page)
+  const r = await page.evaluate(() => {
+    const bad = []
+    for (const [meaning, list] of window.__moreMeanings) for (const t of meaning.split(' ')) if (!window.__knownWord(t)) bad.push(meaning + ' (' + list.split(' ')[0] + ')')
+    const p = (t) => window.__parsePrompt(t)
+    return {
+      bad,
+      banana: p('banana'), dragon: p('dragon girl'), steve: p('steve'), icequeen: p('icequeen'), zombiecat: p('zombiecat'),
+      herobrine: p('herobrine boy'), lion: p('lion'), loves: p('a tall girl who loves pizza'),
+    }
+  })
+  expect(r.bad).toEqual([])
+  expect(r.banana.unknown).toEqual([])
+  expect(r.banana.loose[0].name).toBe('yellow')
+  expect(r.dragon.themes).toContain('demon')
+  expect(r.dragon.gear).toContain('horns')
+  expect(r.icequeen.themes).toContain('ice')
+  expect(r.zombiecat.themes).toContain('zombie')
+  expect(r.zombiecat.animal).toBe('cat')
+  expect(r.zombiecat.fixes[0]).toEqual(['zombiecat', 'zombie cat'])
+  expect(r.herobrine.skinTone).toBe(null)
+  expect(r.lion.animal).toBe('cat')
+  expect(r.loves.unknown).toEqual([])
+  expect(r.loves.loose.map((c) => c.name)).toContain('brown')
+
+  const edit = await page.evaluate(() => window.__parseEdit('make the left arm blue and the right leg darker').actions.map((a) => a.type + ':' + a.part))
+  expect(edit).toEqual(['color:armL', 'shade:legR'])
+  await page.click('#res1Btn')
+  await generate(page, 'white shirt chef')
+  const armL = () => page.evaluate(() => {
+    const d = window.__skinAtlas.getContext('2d').getImageData(36, 52, 4, 12).data
+    let r = 0, b = 0
+    for (let i = 0; i < d.length; i += 4) { r += d[i]; b += d[i + 2] }
+    return { r, b }
+  })
+  const armR = () => page.evaluate(() => Array.from(window.__skinAtlas.getContext('2d').getImageData(44, 20, 4, 12).data).join(','))
+  const rightBefore = await armR()
+  await page.fill('#aiEditInput', 'make the left arm blue')
+  await page.click('#aiEditBtn')
+  await page.waitForFunction(() => !document.getElementById('aiEditBtn').disabled)
+  const left = await armL()
+  expect(left.b).toBeGreaterThan(left.r)
+  expect(await armR()).toBe(rightBefore)
+  expect(await page.textContent('#aiEditNote')).toContain('left arm')
+})
+
+// 2026-10-17: Classic (4px) / Slim (3px) arms under the character, like
+// minecraftskins.com, with Download / Upload / Reset to my skin beside them.
+test('Design a Skin switches between classic and slim arms', async ({ page }) => {
+  await openDesigner(page)
+  await page.click('#res1Btn')
+  // The buttons sit under the 3D character now.
+  for (const id of ['armClassicBtn', 'armSlimBtn', 'downloadBtn', 'importBtn', 'resetBtn']) {
+    expect(await page.evaluate((i) => !!document.querySelector('.stage .stage-actions #' + i), id)).toBe(true)
+  }
+  expect(await page.textContent('#resetBtn')).toContain('Reset to my skin')
+  await generate(page, 'red shirt pirate')
+  const strip = () => page.evaluate(() => {
+    const ctx = window.__skinAtlas.getContext('2d')
+    const alpha = (x, y, w, h) => { const d = ctx.getImageData(x, y, w, h).data; let n = 0; for (let i = 3; i < d.length; i += 4) n += d[i] > 0; return n }
+    return { armR: alpha(54, 20, 2, 12), armL: alpha(46, 52, 2, 12), armFront: alpha(44, 20, 3, 12) }
+  })
+  expect((await strip()).armR).toBeGreaterThan(0)
+  await page.click('#armSlimBtn')
+  expect(await page.evaluate(() => window.__skinSlim())).toBe(true)
+  let s = await strip()
+  expect(s.armR).toBe(0)
+  expect(s.armL).toBe(0)
+  expect(s.armFront).toBe(36)
+  // Generating while slim keeps slim arms; undo puts classic back.
+  await generate(page, 'blue ninja')
+  s = await strip()
+  expect(s.armR).toBe(0)
+  await page.click('#armClassicBtn')
+  expect((await strip()).armR).toBeGreaterThan(0)
+  await page.click('#undoBtn')
+  expect(await page.evaluate(() => window.__skinSlim())).toBe(true)
+  expect((await strip()).armR).toBe(0)
+  // A slim skin loaded from a file is recognised as slim.
+  await page.click('#armClassicBtn')
+  const slimPng = await page.evaluate(() => {
+    const c = document.createElement('canvas'); c.width = c.height = 64
+    const ctx = c.getContext('2d'); ctx.fillStyle = '#4080c0'; ctx.fillRect(0, 0, 64, 64)
+    ctx.clearRect(54, 20, 2, 12); ctx.clearRect(46, 52, 2, 12)
+    return c.toDataURL('image/png')
+  })
+  await page.setInputFiles('#importFile', { name: 'skin.png', mimeType: 'image/png', buffer: Buffer.from(slimPng.split(',')[1], 'base64') })
+  await page.waitForFunction(() => window.__skinSlim() === true)
+})
+
+test('the game wears slim arms, and Reset to my skin brings back the worn skin', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForFunction(() => !!window.__game && !!window.__game._menuAvatar3D, null, { timeout: 60000 })
+  const widths = await page.evaluate(async () => {
+    const make = (slim) => {
+      const c = document.createElement('canvas'); c.width = c.height = 64
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#30a050'; ctx.fillRect(0, 0, 64, 64)
+      if (slim) { ctx.clearRect(54, 20, 2, 12); ctx.clearRect(46, 52, 2, 12) }
+      return c.toDataURL('image/png')
+    }
+    const armWidth = () => {
+      const arm = window.__game._menuAvatar3D.character.limbPivots.armR.children[0]
+      arm.geometry.computeBoundingBox()
+      const b = arm.geometry.boundingBox
+      return Math.round((b.max.x - b.min.x) * 10) / 10
+    }
+    const out = {}
+    await window.__game._applyImportedSkin(make(true))
+    await new Promise((r) => setTimeout(r, 500))
+    out.slim = armWidth()
+    await window.__game._applyImportedSkin(make(false))
+    await new Promise((r) => setTimeout(r, 500))
+    out.classic = armWidth()
+    return out
+  })
+  expect(widths).toEqual({ slim: 3, classic: 4 })
+
+  // The designer inside the game resets to the skin the character wears.
+  await page.route(/cdn\.jsdelivr\.net\/npm\/three@[^/]+\/(.*)$/, (route) => {
+    const rel = route.request().url().replace(/^.*three@[^/]+\//, '')
+    route.fulfill({ path: path.resolve('node_modules/three', rel), contentType: 'application/javascript' })
+  })
+  const frame = page.frameLocator('#skindesigner-frame')
+  await page.evaluate(() => { const f = document.getElementById('skindesigner-frame'); if (!f.src || f.src === 'about:blank') f.src = '/skin-designer/index.html' })
+  await page.waitForFunction(() => !!document.getElementById('skindesigner-frame').contentWindow.__skinAtlas, null, { timeout: 30000 })
+  await page.evaluate(() => document.getElementById('skindesigner-frame').contentDocument.getElementById('resetBtn').click())
+  await page.waitForFunction(() => {
+    const w = document.getElementById('skindesigner-frame').contentWindow
+    const c = w.__skinAtlas, R = c.width / 64
+    const d = c.getContext('2d').getImageData(20 * R, 22 * R, 1, 1).data
+    return d[0] === 0x30 && d[1] === 0xa0 && d[2] === 0x50
+  }, null, { timeout: 15000 })
+  expect(frame).toBeTruthy()
 })

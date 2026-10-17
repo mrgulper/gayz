@@ -176,6 +176,25 @@ const BASE_ORIGINS = {
   leftLeg: [16, 48],
 }
 
+// Slim ("Alex") arms, 3 pixels wide instead of 4 (2026-10-17): the same
+// layout with each arm's front/back/top/bottom one column narrower, which
+// leaves the last 2 columns of each arm's side strip empty - the standard
+// way to tell (Design a Skin's detectSlim does the same). An arm with
+// nothing painted at all can't tell, so the other arm is tried, then classic.
+function _isSlimSkin(ctx, scale) {
+  const painted = (x, y, w, h) => {
+    const d = ctx.getImageData(x * scale, y * scale, w * scale, h * scale).data
+    let n = 0
+    for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++
+    return n
+  }
+  for (const [u, v] of [[40, 16], [32, 48]]) {
+    if (!painted(u, v + 4, 14, 12)) continue
+    return painted(u + 14, v + 4, 2, 12) === 0
+  }
+  return false
+}
+
 export function loadSkinTexture(source) {
   return new Promise((resolve, reject) => {
     const isBlob = source instanceof Blob
@@ -226,13 +245,15 @@ export function loadSkinTexture(source) {
         overlayParts.add(part)
       }
 
+      const slim = !legacy && _isSlimSkin(ctx, scale)
+
       const texture = new THREE.CanvasTexture(canvas)
       texture.magFilter = THREE.NearestFilter
       texture.minFilter = THREE.NearestFilter
       texture.flipY = false
       texture.colorSpace = THREE.SRGBColorSpace
       texture.needsUpdate = true
-      resolve({ texture, width: w / scale, height: h / scale, scale, overlayParts })
+      resolve({ texture, width: w / scale, height: h / scale, scale, overlayParts, slim })
     }
     img.onerror = () => {
       if (isBlob) URL.revokeObjectURL(url)
@@ -344,11 +365,15 @@ export function buildTexturedCharacter(skin) {
   // top edge (was position.y=16, height 12 -> spans 10 to 22); hip
   // pivot y=10 is the leg's own top edge (was position.y=4, height 12
   // -> spans -2 to 10) - see _buildLimbPivot's own comment.
-  const armR = _buildLimbPivot(4, 12, 4, 40, 16, texture, width, height, false, 6, 22, overlayFor('rightArm'), 1)
+  // Slim arms (see _isSlimSkin) are 3 wide, so they sit half a unit closer
+  // in to stay flush against the torso.
+  const armW = skin.slim ? 3 : 4
+  const armX = skin.slim ? 5.5 : 6
+  const armR = _buildLimbPivot(armW, 12, 4, 40, 16, texture, width, height, false, armX, 22, overlayFor('rightArm'), 1)
   group.add(armR)
   const armL = legacy
     ? _buildLimbPivot(4, 12, 4, 40, 16, texture, width, height, true, -6, 22)
-    : _buildLimbPivot(4, 12, 4, 32, 48, texture, width, height, false, -6, 22, overlayFor('leftArm'), 1)
+    : _buildLimbPivot(armW, 12, 4, 32, 48, texture, width, height, false, -armX, 22, overlayFor('leftArm'), 1)
   group.add(armL)
 
   const legR = _buildLimbPivot(4, 12, 4, 0, 16, texture, width, height, false, 2, 10, overlayFor('rightLeg'), 2)
