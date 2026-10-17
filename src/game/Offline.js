@@ -21,8 +21,31 @@ export const ONLINE_ONLY = [
   '#build-mode-publish-btn', '#build-mode-browse-btn', '#build-mode-gallery-btn', '#build-mode-together-btn',
 ].join(', ')
 
+// navigator.onLine alone isn't enough: on Wi-Fi with no internet (and in
+// some browsers with the network cut) it still says online. So the game
+// also asks the server for version.json now and then (the service worker
+// never answers that one from its saved copy); a request that can't reach
+// the server at all means offline. A server error (404, 500) still counts
+// as online.
+let unreachable = false
+const PROBE_TIMEOUT_MS = 8000
+const PROBE_EVERY_MS = 30000
+
 export function isOffline() {
-  return navigator.onLine === false
+  return navigator.onLine === false || unreachable
+}
+
+async function probe() {
+  const stop = new AbortController()
+  const timer = setTimeout(() => stop.abort(), PROBE_TIMEOUT_MS)
+  try {
+    await fetch('/version.json', { cache: 'no-store', signal: stop.signal })
+    return true
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 // True (and says so) when there's no internet for this.
@@ -49,15 +72,36 @@ export function installOfflineGuards(game) {
     e.stopImmediatePropagation()
     blockedOffline(game)
   }, true)
-  window.addEventListener('offline', () => {
+  // Announces only real changes (offline -> online or back).
+  let was = isOffline()
+  const changed = () => {
     mark()
-    game._showHomepageToast(t('offlineNow'))
-  })
+    const now = isOffline()
+    if (now !== was) game._showHomepageToast(t(now ? 'offlineNow' : 'backOnline'))
+    was = now
+  }
+  let checking = false
+  const check = async () => {
+    if (checking || navigator.onLine === false) return
+    checking = true
+    try {
+      unreachable = !(await probe())
+    } finally {
+      checking = false
+    }
+    changed()
+  }
+  window.addEventListener('offline', changed)
   window.addEventListener('online', () => {
-    mark()
-    game._showHomepageToast(t('backOnline'))
+    unreachable = false
+    changed()
+    check()
   })
+  window.addEventListener('focus', check)
+  // While cut off, keep checking so coming back is noticed.
+  setInterval(() => { if (unreachable) check() }, PROBE_EVERY_MS)
   if (isOffline()) game._showHomepageToast(t('offlineNow'))
+  check()
 }
 
 // Keeps the game on the device for playing offline (src/sw.js). Not in
