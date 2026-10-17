@@ -285,6 +285,7 @@ export function _playConfig(game) {
 
 export function _exitBuildMode(game) {
   game.buildMode.exit()
+  game._topBar?.hide()
   game.chatPanel.style.display = 'none'
   document.body.classList.remove('build-mode-on')
   game._applyRenderScale()

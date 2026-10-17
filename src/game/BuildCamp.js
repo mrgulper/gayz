@@ -23,6 +23,7 @@ import * as THREE from 'three'
 import { ammoFor } from './PlayWeapons.js'
 import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { t } from './i18n.js'
+import { MOB_HEIGHT } from './PlayRules.js'
 
 export const COIN_PER_KILL = 10
 export const COIN_PER_WAVE = 50
@@ -73,7 +74,7 @@ export function nameTag(text, B) {
   tex.colorSpace = THREE.SRGBColorSpace
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }))
   sprite.scale.set(1.7 * B, 0.42 * B, 1)
-  sprite.position.y = 2.2 * B
+  sprite.position.y = (MOB_HEIGHT + 0.4) * B
   return sprite
 }
 
@@ -123,7 +124,7 @@ export class BuildCamp {
       loadSkinTexture(NPC_SKINS[id]).then((skin) => {
         if (!this.npcs.includes(npc)) return
         const body = buildTexturedCharacter(skin)
-        const sc = (1.8 * this.B) / 32
+        const sc = (MOB_HEIGHT * this.B) / 32
         body.scale.setScalar(sc)
         body.position.y = 2 * sc
         group.add(body)

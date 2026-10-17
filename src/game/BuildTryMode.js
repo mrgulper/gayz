@@ -37,6 +37,8 @@ import { WORLD_LIMIT, sampleLand, biomeName, inCity } from './OpenWorld.js'
 import { t } from './i18n.js'
 import { holdWeapon, poseArms } from './HeldWeapon.js'
 import { GunFx } from './GunFx.js'
+import { MOB_HEIGHT } from './PlayRules.js'
+import { BOTTOM } from './Underground.js'
 
 const HALF_WIDTH = 0.3
 // Cells across the minimap out in Map 1's open world, per size (like
@@ -791,7 +793,7 @@ export class BuildTryMode {
     const half = this.bm.world?.active ? WORLD_LIMIT : 64
     p.x = Math.max(-half + HALF_WIDTH, Math.min(half - HALF_WIDTH, p.x))
     p.z = Math.max(-half + HALF_WIDTH, Math.min(half - HALF_WIDTH, p.z))
-    if (p.y < -64) {
+    if (p.y < BOTTOM - 16) {
       Object.assign(p, { x: this._spawn.x, y: this._spawn.y, z: this._spawn.z })
       this.vel.set(0, 0, 0)
     }
@@ -969,7 +971,7 @@ export class BuildTryMode {
     this._disposeBody()
     const B = this.B
     const char = buildTexturedCharacter(this._armSkin)
-    const sc = (1.8 * B) / 32
+    const sc = (MOB_HEIGHT * B) / 32
     char.scale.setScalar(sc)
     char.position.y = 2 * sc
     const group = new THREE.Group()

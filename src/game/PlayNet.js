@@ -22,6 +22,7 @@ import { serverApi } from './ServerBrowser.js'
 import { t } from './i18n.js'
 import { holdWeapon, poseArms } from './HeldWeapon.js'
 import { addChatSystemLine, clearChatSystemLines } from './ChatUI.js'
+import { MOB_HEIGHT } from './PlayRules.js'
 
 // Seconds between syncs.
 export const SYNC_EVERY = 0.16
@@ -212,7 +213,7 @@ export class PlayNet {
       if (this.players.get(pid) !== player || player.body) return
       const B = this.survival.B
       const body = buildTexturedCharacter(skin)
-      const sc = (1.8 * B) / 32
+      const sc = (MOB_HEIGHT * B) / 32
       body.scale.setScalar(sc)
       body.position.y = 2 * sc
       player.group.add(body)

@@ -22,6 +22,7 @@ import * as CloudSync from './CloudSync.js'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { t } from './i18n.js'
 import { seedFromText } from './OpenWorld.js'
+import { MOB_HEIGHT } from './PlayRules.js'
 
 export const SEND_DELAY_MS = 300
 export const OPS_PER_EDIT = 1500
@@ -318,14 +319,14 @@ export class BuildTogether {
     tex.colorSpace = THREE.SRGBColorSpace
     const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }))
     label.scale.set(1.6 * B, 0.4 * B, 1)
-    label.position.y = 2.15 * B
+    label.position.y = (MOB_HEIGHT + 0.35) * B
     label.renderOrder = 5
     group.add(label)
     const other = { group, label, name, target: new THREE.Vector3(), yaw: 0, at: 0, body: null }
     loadSkinTexture(DEFAULT_SKIN_DATA_URL).then((skin) => {
       if (!this._others.has(uid)) return
       const body = buildTexturedCharacter(skin)
-      const s = (1.8 * B) / 32
+      const s = (MOB_HEIGHT * B) / 32
       body.scale.setScalar(s)
       body.position.y = 2 * s
       group.add(body)

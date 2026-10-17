@@ -6,6 +6,11 @@
 // that reads it there. Runs started from the Map Editor's own Play button
 // use PLAY_DEFAULTS (a sandbox: no picks, nothing saved).
 
+// Every standing mob - zombies, skeletons, your own body, other players,
+// camp NPCs and any mob added later - is drawn exactly this many blocks
+// tall (bloxd.io's size, 2026-10-17).
+export const MOB_HEIGHT = 2
+
 // The Challenges & Mutators that have a block-city version. The others in
 // that list stay hidden until they get one.
 export const PLAY_MUTATORS = ['hordeRush', 'lootRush', 'healthRegen', 'glassHouse', 'ironMode', 'escalation', 'bossRush']

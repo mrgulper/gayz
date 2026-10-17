@@ -16,8 +16,14 @@ const HELD_MATERIALS = new WeakMap()
 function heldMaterial(m) {
   let out = HELD_MATERIALS.get(m)
   if (!out) {
-    out = new THREE.MeshLambertMaterial({ map: m.map || null, color: m.color ? m.color.clone() : 0x777777, transparent: !!m.transparent, opacity: m.opacity ?? 1 })
-    if (m.emissive) out.emissive = m.emissive.clone()
+    out = new THREE.MeshLambertMaterial({ map: m.map || null, color: m.color ? m.color.clone() : 0x777777, transparent: !!m.transparent, opacity: m.opacity ?? 1, alphaTest: m.alphaTest || 0, side: m.side ?? THREE.FrontSide, vertexColors: !!m.vertexColors })
+    // The glow keeps its own picture: a white glow colour without its
+    // map lit the whole flamethrower/crossbow pure white (2026-10-17).
+    if (m.emissive) {
+      out.emissive = m.emissive.clone()
+      out.emissiveMap = m.emissiveMap || null
+      out.emissiveIntensity = m.emissiveIntensity ?? 1
+    }
     HELD_MATERIALS.set(m, out)
   }
   return out
