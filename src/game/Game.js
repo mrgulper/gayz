@@ -2,8 +2,8 @@ import * as THREE from 'three'
 import { LOW_QUALITY_MODE } from './QualitySettings.js'
 import { WeaponCatalog } from './WeaponCatalog.js'
 import { Achievements, ACHIEVEMENTS } from './Achievements.js'
-import { Quests, QUESTS } from './Quests.js'
-import { RollingQuests, EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQuests.js'
+import { Quests } from './Quests.js'
+import { RollingQuests } from './RollingQuests.js'
 
 // The Skin Designer page, embedded in #skindesigner-frame. Served from this
 // game's own site (public/skin-designer/) since 2026-09-30 - it used to be a
@@ -114,11 +114,11 @@ export const CRATE_ICON_SVG = {
     <circle cx="19.2" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
   </svg>`,
 }
-import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_POINTS_CONVERSION } from './MetaProgress.js'
-import { playConfig, UPGRADE_PLAY, POINTS_PER_KILL, POINTS_PER_WAVE, DEFENSE_WAVES, BOSS_HUNT_EVERY, PLAY_GAME_MODES, EXTRACTION_WAVES, EXTRACTION_HOLD, SKELETON_FROM_WAVE } from './PlayRules.js'
-import { BIOMES, seedFromText } from './OpenWorld.js'
+import { META_UPGRADES, loadMetaProgress } from './MetaProgress.js'
+import { playConfig, UPGRADE_PLAY, PLAY_GAME_MODES } from './PlayRules.js'
+import { seedFromText } from './OpenWorld.js'
 import * as GalleryUI from './GalleryUI.js'
-import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
+import { setLanguage, t } from './i18n.js'
 import * as MenuEasterEggs from './MenuEasterEggs.js'
 import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW_DATA_URL } from './MenuAvatar3D.js'
 // BuildMode.js is deliberately NOT statically imported here - it's a big,
@@ -128,6 +128,9 @@ import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW
 import * as CloudSync from './CloudSync.js'
 import * as CloudSaveUI from './CloudSaveUI.js'
 import * as ChatUI from './ChatUI.js'
+import * as InfoPagesUI from './InfoPagesUI.js'
+import * as ProgressUI from './ProgressUI.js'
+import * as ProfileUI from './ProfileUI.js'
 import * as InventoryUI from './InventoryUI.js'
 import * as ClanUI from './ClanUI.js'
 import * as OnlineUI from './OnlineUI.js'
@@ -175,7 +178,7 @@ const NEWS_TICKER_MID_NIGHT = 5
 const NEWS_TICKER_LATE_NIGHT = 15
 // The Upgrades panel lists only the upgrades that do something in a Map 1
 // run (PlayRules.js's UPGRADE_PLAY); the rest wait for a block-city version.
-const PLAY_META_UPGRADES = META_UPGRADES.filter((u) => UPGRADE_PLAY[u.id])
+export const PLAY_META_UPGRADES = META_UPGRADES.filter((u) => UPGRADE_PLAY[u.id])
 
 const DIFFICULTY_PRESETS = {
   easy: { damageMult: 0.7, spawnRateMult: 0.75, healthMult: 0.8, eliteChanceMult: 0.6, lootMult: 1.3 },
@@ -581,36 +584,36 @@ function saveWeeklyChallenge(state) {
 // never forced, the player still has to check the box themselves.
 // Only mutators with a block-city version (PlayRules.js's PLAY_MUTATORS).
 const WEEKLY_FEATURED_MUTATORS = ['hordeRush', 'lootRush', 'bossRush', 'healthRegen', 'glassHouse', 'escalation']
-const WEEKLY_FEATURED_MUTATOR_BONUS_COINS = 50
+export const WEEKLY_FEATURED_MUTATOR_BONUS_COINS = 50
 // Kill streak (kills without getting hurt) that earns Meat Grinder.
-const MEAT_GRINDER_STREAK = 25
+export const MEAT_GRINDER_STREAK = 25
 // Goals for the 2026-10-09 achievements (Achievements.js), all per run
 // except ARSENAL_WEAPONS (different guns with a kill, ever - stored in
 // localStorage[ARSENAL_KEY]).
-const HEADHUNTER_HEADSHOTS = 25
-const UP_CLOSE_KNIFE_KILLS = 25
+export const HEADHUNTER_HEADSHOTS = 25
+export const UP_CLOSE_KNIFE_KILLS = 25
 const ARSENAL_WEAPONS = 5
 const ARSENAL_KEY = 'gayz-ach-weapon-kills'
-const SURVIVOR_20_WAVES = 20
-const MARATHON_SECONDS = 20 * 60
-const TREASURE_HUNTER_CHESTS = 10
-const FULLY_LOADED_UPGRADES = 5
-const DEEP_POCKETS_COINS = 1000
+export const SURVIVOR_20_WAVES = 20
+export const MARATHON_SECONDS = 20 * 60
+export const TREASURE_HUNTER_CHESTS = 10
+export const FULLY_LOADED_UPGRADES = 5
+export const DEEP_POCKETS_COINS = 1000
 // Goals for the 2026-10-12 achievements (per run unless it says career).
-const SURVIVOR_30_WAVES = 30
-const MASSACRE_KILLS = 250
-const UNTOUCHABLE_STREAK = 50
-const SHARPSHOOTER_HEADSHOTS = 75
-const BOSS_HUNTER_BOSSES = 5
-const HARDENED_WAVES = 10
-const APEX_PREDATOR_WAVES = 5
-const MUTATOR_CHALLENGE_WAVES = 10
-const EXTERMINATOR_CAREER_KILLS = 1000
-const REGULAR_CAREER_RUNS = 25
-const FORTUNE_HUNTER_COINS = 3000
+export const SURVIVOR_30_WAVES = 30
+export const MASSACRE_KILLS = 250
+export const UNTOUCHABLE_STREAK = 50
+export const SHARPSHOOTER_HEADSHOTS = 75
+export const BOSS_HUNTER_BOSSES = 5
+export const HARDENED_WAVES = 10
+export const APEX_PREDATOR_WAVES = 5
+export const MUTATOR_CHALLENGE_WAVES = 10
+export const EXTERMINATOR_CAREER_KILLS = 1000
+export const REGULAR_CAREER_RUNS = 25
+export const FORTUNE_HUNTER_COINS = 3000
 // The achievement that counts as beating the game: it unlocks Nightmare
 // difficulty, Prestige and the Career Portrait.
-const ENDGAME_ACHIEVEMENT = 'survivor_10'
+export const ENDGAME_ACHIEVEMENT = 'survivor_10'
 export const GLOBAL_KILLS_MILESTONE_STEP = 100000
 // Renamed from WEEKLY_FEATURED_MUTATOR_LABEL_KEYS (Online Features batch)
 // and extended to cover every mutator with a real i18n label - the
@@ -650,7 +653,7 @@ export const SETTINGS_CODE_KEYS = [
   'panelFlickerEnabled',
 ]
 
-function _weeklyFeaturedMutatorKey() {
+export function _weeklyFeaturedMutatorKey() {
   const weekStr = _thisWeekStr()
   // +7 offset so this doesn't land on the exact same hash bucket
   // WEEKLY_CHALLENGES' own index would for the same week string.
@@ -720,7 +723,7 @@ function loadBestStats() {
   }
 }
 
-function saveBestStats(stats) {
+export function saveBestStats(stats) {
   try {
     localStorage.setItem(BEST_STATS_KEY, JSON.stringify(stats))
   } catch {
@@ -743,7 +746,7 @@ function loadBestRunPace() {
   }
 }
 
-function saveBestRunPace(pace) {
+export function saveBestRunPace(pace) {
   try {
     localStorage.setItem(BEST_RUN_PACE_KEY, JSON.stringify(pace))
   } catch {
@@ -782,7 +785,7 @@ const CAREER_RANK_TITLES = [
 ]
 // Career rank-ups, announced once each from lifetime kills (a toast in
 // _recordRunEnd) - no bonus of their own any more.
-const VETERAN_PERKS = [
+export const VETERAN_PERKS = [
   { id: 'veteran_500', killThreshold: 500 },
   { id: 'veteran_2000', killThreshold: 2000 },
   { id: 'veteran_5000', killThreshold: 5000 },
@@ -850,7 +853,7 @@ function loadCareerStats() {
   }
 }
 
-function saveCareerStats(stats) {
+export function saveCareerStats(stats) {
   try {
     localStorage.setItem(CAREER_STATS_KEY, JSON.stringify(stats))
   } catch {
@@ -862,7 +865,7 @@ function saveCareerStats(stats) {
 // threshold once, get a one-time coin bonus, remember it happened" shape as
 // ENDLESS_MILESTONE_INTERVAL above, just on three new lifetime axes instead
 // of Endless Mode's night count.
-const PLAYTIME_MILESTONES = [
+export const PLAYTIME_MILESTONES = [
   { id: 'playtime_1h', seconds: 3600, rewardCoins: 100 },
   { id: 'playtime_5h', seconds: 18000, rewardCoins: 300 },
   { id: 'playtime_20h', seconds: 72000, rewardCoins: 800 },
@@ -876,7 +879,7 @@ const PLAYTIME_MILESTONES = [
 // dailyLeaderboard/weeklyChallenge above) rather than a dedicated file -
 // it's simple list storage, not a system with its own logic of its own.
 const RUN_HISTORY_KEY = 'gayz-run-history'
-const RUN_HISTORY_MAX = 25
+export const RUN_HISTORY_MAX = 25
 
 function loadRunHistory() {
   try {
@@ -887,7 +890,7 @@ function loadRunHistory() {
   }
 }
 
-function saveRunHistory(list) {
+export function saveRunHistory(list) {
   try {
     localStorage.setItem(RUN_HISTORY_KEY, JSON.stringify(list))
   } catch {
@@ -896,7 +899,7 @@ function saveRunHistory(list) {
 }
 
 
-function careerRankTitleKey(totalKills) {
+export function careerRankTitleKey(totalKills) {
   let key = CAREER_RANK_TITLES[0].titleKey
   for (const tier of CAREER_RANK_TITLES) {
     if (totalKills >= tier.min) key = tier.titleKey
@@ -909,9 +912,9 @@ function careerRankTitleKey(totalKills) {
 // objective) - this is purely "did you come back today," resetting to 1
 // the moment a day is skipped rather than decaying gradually.
 const LOGIN_STREAK_KEY = 'gayz-login-streak'
-const LOGIN_STREAK_COIN_PER_DAY = 15
-const LOGIN_STREAK_MAX_BONUS_DAYS = 10
-const LOGIN_STREAK_MAX_FREEZES = 3
+export const LOGIN_STREAK_COIN_PER_DAY = 15
+export const LOGIN_STREAK_MAX_BONUS_DAYS = 10
+export const LOGIN_STREAK_MAX_FREEZES = 3
 
 function loadLoginStreak() {
   try {
@@ -941,7 +944,7 @@ function loadLoginStreak() {
   }
 }
 
-function saveLoginStreak(state) {
+export function saveLoginStreak(state) {
   try {
     localStorage.setItem(LOGIN_STREAK_KEY, JSON.stringify(state))
   } catch {
@@ -953,7 +956,7 @@ export function todayDateString() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function yesterdayDateString() {
+export function yesterdayDateString() {
   const d = new Date()
   d.setDate(d.getDate() - 1)
   return d.toISOString().slice(0, 10)
@@ -964,7 +967,7 @@ function yesterdayDateString() {
 // (death or dawn-survival) adds one entry; kept sorted best-first and
 // capped at LEADERBOARD_MAX_ENTRIES so this can't grow unbounded.
 export const LEADERBOARD_KEY = 'gayz-leaderboard'
-const LEADERBOARD_MAX_ENTRIES = 10
+export const LEADERBOARD_MAX_ENTRIES = 10
 
 function loadLeaderboard() {
   try {
@@ -976,7 +979,7 @@ function loadLeaderboard() {
   }
 }
 
-function saveLeaderboard(entries) {
+export function saveLeaderboard(entries) {
   try {
     localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries))
   } catch {
@@ -1071,10 +1074,10 @@ export const RESET_PROGRESS_CONFIRM_MS = 4000
 // Achievement toast queue - slightly longer than the toast's own 3.2s CSS
 // animation (see #achievement-toast.show) so one fully fades before the
 // next begins, instead of visually cutting it off mid-animation.
-const ACHIEVEMENT_TOAST_GAP_MS = 3400
-const MAX_GOALS = 3
-const LOGIN_CALENDAR_DAYS = 7
-const MARKET_FEE_RATE = 0.05
+export const ACHIEVEMENT_TOAST_GAP_MS = 3400
+export const MAX_GOALS = 3
+export const LOGIN_CALENDAR_DAYS = 7
+export const MARKET_FEE_RATE = 0.05
 // Languages that are fully translated; the rest show "Coming soon".
 export const SUPPORTED_LANGUAGE_CODES = new Set(['en', 'zh', 'hi', 'es'])
 // How long the game waits for a lost graphics connection to come back
@@ -1090,8 +1093,8 @@ const EVENT_BANNERS = [
   { month: 9, startDay: 20, endDay: 31, key: 'eventBannerHalloween', bgMood: 'amber' },
   { month: 11, startDay: 15, endDay: 31, key: 'eventBannerWinter', bgMood: 'foggy' },
 ]
-const WHATS_NEW_VERSION = '2026-07-29-homepage'
-const WHATS_NEW_SEEN_KEY = 'gayz-whatsnew-seen'
+export const WHATS_NEW_VERSION = '2026-07-29-homepage'
+export const WHATS_NEW_SEEN_KEY = 'gayz-whatsnew-seen'
 export const CHANGELOG_LAST_VIEWED_KEY = 'gayz-changelog-last-viewed'
 // Nav badge dots (Upgrades/Achievements/Quests) - "seen ids" persistence
 // shared by each "new item added" check. First-ever check seeds the
@@ -1103,11 +1106,11 @@ export const CHANGELOG_LAST_VIEWED_KEY = 'gayz-changelog-last-viewed'
 // (The Store/Shop panel used to have one of these too - removed along with
 // its own new-item dot notification when the Store panel was cut down to
 // just the GaygarX skin purchase.)
-const UPGRADES_SEEN_IDS_KEY = 'gayz-upgrades-seen-ids'
-const ACHIEVEMENTS_SEEN_IDS_KEY = 'gayz-achievements-seen-ids'
-const QUESTS_SEEN_IDS_KEY = 'gayz-quests-seen-ids'
+export const UPGRADES_SEEN_IDS_KEY = 'gayz-upgrades-seen-ids'
+export const ACHIEVEMENTS_SEEN_IDS_KEY = 'gayz-achievements-seen-ids'
+export const QUESTS_SEEN_IDS_KEY = 'gayz-quests-seen-ids'
 
-function _loadSeenIds(key) {
+export function _loadSeenIds(key) {
   try {
     const raw = localStorage.getItem(key)
     return raw ? new Set(JSON.parse(raw)) : null
@@ -1116,7 +1119,7 @@ function _loadSeenIds(key) {
   }
 }
 
-function _saveSeenIds(key, idsIterable) {
+export function _saveSeenIds(key, idsIterable) {
   try {
     localStorage.setItem(key, JSON.stringify([...idsIterable]))
   } catch {
@@ -1140,7 +1143,7 @@ const KILL_MILESTONES_SEEN_KEY = 'gayz-kill-milestones-seen'
 // `code`: the functions/constants each step describes. When a change touches
 // one of them, scripts/check-docs.mjs asks for that step's text to be
 // re-read (edited, or confirmed with [reread: htpX] in the commit message).
-const HOWTOPLAY_STEPS = [
+export const HOWTOPLAY_STEPS = [
   { key: 'htpMove', headingKey: 'htpHeadingMovement', code: '' },
   { key: 'htpWavesShoot', headingKey: 'htpHeadingCombat', code: 'PLAY_WEAPONS' },
   { key: 'htpWavesCamp', headingKey: 'htpHeadingTrader', code: 'SHOP_ITEMS CAMP_QUESTS' },
@@ -1433,7 +1436,7 @@ const NEARLY_THERE_CANDIDATES = []
 // achievements that genuinely form a tiered sequence, hand-picked rather
 // than inferred from naming (most achievements are standalone, not a
 // series - guessing from id/title text would false-match unrelated ones).
-const ACHIEVEMENT_CHAINS = {
+export const ACHIEVEMENT_CHAINS = {
   survivor_5: 'survivor_10',
   nightmare_survivor_5: 'nightmare_conqueror',
 }
@@ -1550,9 +1553,9 @@ export function _formatRelativeTime(ms) {
 // How long Play's fade to and from black takes (ms) - see _fadeScreen.
 const PLAY_FADE_MS = 450
 // Points the next Prestige needs, per level: 100k for level 1, 200k for 2...
-const PRESTIGE_COST_STEP = 100000
+export const PRESTIGE_COST_STEP = 100000
 // Extra Points per run for each Prestige level (%).
-const PRESTIGE_BONUS_PERCENT = 10
+export const PRESTIGE_BONUS_PERCENT = 10
 // Opening the Map Editor: a quick dip to black. Fading back in on the map
 // (Play or editor) is slow when the load took longer than FADE_LAG_LOAD_MS
 // or a first frame took longer than FADE_LAG_FRAME_MS, fast otherwise.
@@ -1580,7 +1583,7 @@ export function _escapeHtml(str) {
 // Formats a whole-seconds duration as "Xh Ym" (or just "Ym"/"Ys" for
 // anything under an hour) - shared by the Profile panel's Longest Session
 // and Average Run Length rows so the two use identical formatting.
-function _formatDurationShort(totalSeconds) {
+export function _formatDurationShort(totalSeconds) {
   const hours = Math.floor(totalSeconds / 3600)
   const minutes = Math.floor((totalSeconds % 3600) / 60)
   if (hours > 0) return `${hours}h ${minutes}m`
@@ -1691,7 +1694,7 @@ export function _censorText(text) {
 // falls back to Social & Meta (the catch-all group) rather than being
 // silently dropped, so a future new row can't vanish from the panel just
 // because this table wasn't updated for it.
-const PROFILE_STAT_GROUPS = {
+export const PROFILE_STAT_GROUPS = {
   profileTotalKills: 'combat',
   profileBestKills: 'combat',
   profileBestKillStreak: 'combat',
@@ -1715,7 +1718,7 @@ const PROFILE_STAT_GROUPS = {
   profileFavoriteDayOfWeek: 'socialMeta',
   profilePlayClicks: 'socialMeta',
 }
-const PROFILE_GROUP_ORDER = [
+export const PROFILE_GROUP_ORDER = [
   ['combat', 'profileGroupCombat'],
   ['survival', 'profileGroupSurvival'],
   ['economy', 'profileGroupEconomy'],
@@ -1730,8 +1733,8 @@ const MENU_PAINT_CACHE_KEY = 'menu-paint-cache'
 // How long the clan list loaded when General opens stays fresh.
 export const CLAN_RANKING_CACHE_MS = 60000
 // The What's New update card fades away by itself after this long.
-const UPDATE_BANNER_SHOW_MS = 12000
-const UPDATE_BANNER_FADE_MS = 900
+export const UPDATE_BANNER_SHOW_MS = 12000
+export const UPDATE_BANNER_FADE_MS = 900
 const MENU_PAINT_CACHE_ROOTS = ['menu-currency-bar', 'menu-player-badge', 'player-showcase-header', 'menu-hero', 'menu-nav-buttons', 'menu-links-row']
 
 // Inventory > Character skins, in grid order (Kirka-style cards). Adding a
@@ -2877,33 +2880,7 @@ export class Game {
   // the exact nearGenerator/nearZiplineEnd "compute a flag every tick, act
   // on it from the interact-key handler" shape already established.
 
-  // Personal stats dashboard (batch feature) - a simple bar chart of kills
-  // per run from runHistory (already tracked, newest-first, see
-  // _onPlayerDeath's own unshift), most recent run on the right so reading
-  // left-to-right matches reading oldest-to-newest.
-  _drawStatsDashboard() {
-    const canvas = this.statsDashboardCanvas
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    const w = canvas.width
-    const h = canvas.height
-    ctx.clearRect(0, 0, w, h)
-    const runs = this.runHistory.slice(0, 10).reverse()
-    if (runs.length === 0) return
-    const maxKills = Math.max(1, ...runs.map((r) => r.kills))
-    const barW = w / runs.length
-    runs.forEach((run, i) => {
-      const barH = (run.kills / maxKills) * (h - 14)
-      const x = i * barW + 2
-      ctx.fillStyle = run.survived ? 'rgba(78, 224, 111, 0.8)' : 'rgba(214, 69, 69, 0.8)'
-      ctx.fillRect(x, h - barH - 12, barW - 4, barH)
-      // Black on the Old theme's paper, like the rest of Profile.
-      ctx.fillStyle = document.documentElement.classList.contains('ui-theme-old') ? '#000' : 'rgba(232, 232, 232, 0.6)'
-      ctx.font = '9px monospace'
-      ctx.textAlign = 'center'
-      ctx.fillText(String(run.kills), x + (barW - 4) / 2, h - 2)
-    })
-  }
+  _drawStatsDashboard() { return ProgressUI._drawStatsDashboard(this) }
 
   _bindEditableSliderValue(valueEl, sliderEl) { return SettingsUI._bindEditableSliderValue(this, valueEl, sliderEl) }
 
@@ -3197,54 +3174,7 @@ export class Game {
     }
   }
 
-  // Daily Login Streak - checked once per page load (not per run-restart),
-  // so playing several runs in one sitting only ever grants today's bonus
-  // the first time. today/yesterday comparison keeps it simple: any bigger
-  // gap resets to a fresh streak of 1 rather than trying to partially credit it.
-  // Online Features batch: a broken streak (gap > 1 day) now shows a
-  // "welcome back, it's been N days" toast instead of the normal streak
-  // toast - same hook, no separate tracking needed, since the gap is
-  // already implicit in wasConsecutive/previousLastDate below.
-  _checkLoginStreak() {
-    const today = todayDateString()
-    if (this.loginStreak.lastDate === today) return
-    const previousLastDate = this.loginStreak.lastDate
-    const wasConsecutive = previousLastDate === yesterdayDateString()
-    // Streak Freeze - a gap of exactly 1 missed day (2 real days since
-    // last play) spends a banked freeze to preserve the streak instead of
-    // resetting to 1. A bigger gap still resets outright - a freeze
-    // covers one missed day, not an open-ended vacation.
-    const gapDays = previousLastDate ? Math.round((new Date(today) - new Date(previousLastDate)) / 86400000) : 0
-    const usedFreeze = !wasConsecutive && gapDays === 2 && this.loginStreak.freezesAvailable > 0
-    if (usedFreeze) {
-      this.loginStreak.freezesAvailable -= 1
-      this.loginStreak.streak += 1
-    } else {
-      this.loginStreak.streak = wasConsecutive ? this.loginStreak.streak + 1 : 1
-    }
-    if (this.loginStreak.streak % 7 === 0 && this.loginStreak.freezesAvailable < LOGIN_STREAK_MAX_FREEZES) {
-      this.loginStreak.freezesAvailable += 1
-    }
-    // Kept distinct from lastDate (which this function itself immediately
-    // overwrites to today, every page load) - Profile panel's "Last
-    // Played" row needs the date BEFORE today's visit, not today's own
-    // date reflected back.
-    if (previousLastDate) this.loginStreak.previousDate = previousLastDate
-    this.loginStreak.lastDate = today
-    this.loginStreak.recentDates = [...(this.loginStreak.recentDates || []), today].slice(-LOGIN_CALENDAR_DAYS)
-    saveLoginStreak(this.loginStreak)
-    const bonusDays = Math.min(this.loginStreak.streak, LOGIN_STREAK_MAX_BONUS_DAYS)
-    const coinBonus = bonusDays * LOGIN_STREAK_COIN_PER_DAY
-    this.coins += coinBonus
-    if (usedFreeze) {
-      this._showLoreToast(t('loginStreakFreezeUsedToast', { n: this.loginStreak.streak, coins: coinBonus }))
-    } else if (!wasConsecutive && previousLastDate) {
-      const days = Math.max(1, gapDays)
-      this._showLoreToast(t('welcomeBackToast', { days, coins: coinBonus }))
-    } else {
-      this._showLoreToast(t('loginStreakToast', { n: this.loginStreak.streak, coins: coinBonus }))
-    }
-  }
+  _checkLoginStreak() { return ProgressUI._checkLoginStreak(this) }
 
   // A stable "SurvivorNNNNN" tag, generated once per browser and reused
   // every session, so players who skip the nickname field still get a
@@ -3503,83 +3433,7 @@ export class Game {
     }
   }
 
-  // What a homepage Map 1 run tells the game (BuildSurvival._report):
-  // 'kill', 'wave', and 'end' once per run. Guest Mode saves none of it.
-  // 'end' returns what the run earned, for the game-over card.
-  _onPlayEvent(type, data) {
-    if (this.settings.guestMode) return null
-    if (type === 'kill') {
-      this.rollingQuests.recordKill()
-      this._checkWeeklyChallengeProgress()
-      this.achievements.unlock('first_blood')
-      if (data.boss) this.achievements.unlock('giant_slayer')
-      if (data.weapon) this._recordArsenalKill(data.weapon)
-      return null
-    }
-    if (type === 'wave') {
-      const wave = data.wave
-      this.rollingQuests.recordNight(wave)
-      if (wave >= 5) this.achievements.unlock('survivor_5')
-      if (wave >= 10) this.achievements.unlock('survivor_10')
-      if (wave >= SURVIVOR_20_WAVES) this.achievements.unlock('survivor_20')
-      if (this.settings.difficulty === 'nightmare' && wave >= 5) this.achievements.unlock('nightmare_survivor_5')
-      if (wave >= SURVIVOR_30_WAVES) this.achievements.unlock('survivor_30')
-      const hardOrHarder = ['hard', 'nightmare', 'apex'].includes(data.difficulty)
-      if (hardOrHarder && wave >= HARDENED_WAVES) this.achievements.unlock('hardened')
-      if (data.difficulty === 'apex' && wave >= APEX_PREDATOR_WAVES) this.achievements.unlock('apex_predator')
-      const mutators = Array.isArray(data.mutators) ? data.mutators : []
-      if (mutators.includes('glassHouse') && wave >= MUTATOR_CHALLENGE_WAVES) this.achievements.unlock('glass_cannon')
-      if (mutators.includes('ironMode') && wave >= MUTATOR_CHALLENGE_WAVES) this.achievements.unlock('iron_will')
-      return null
-    }
-    if (type !== 'end') return null
-    const points = data.kills * POINTS_PER_KILL + data.waves * POINTS_PER_WAVE
-    // _recordRunEnd (the old Map 1's end-of-run bookkeeping: best stats,
-    // career totals, run history, leaderboards, gems, Cloud Save) reads
-    // these run fields.
-    this.night = data.waves
-    this.kills = data.kills
-    this.peakKillStreakThisRun = data.bestStreak
-    this.points = points
-    this.runStartedAt = performance.now() - data.seconds * 1000
-    this._runStartCoins = this.coins
-    // The camp coins earned in the run go to your real coins too, plus
-    // this week's featured mutator bonus.
-    let coins = data.coins
-    if (this.settings.mutators[_weeklyFeaturedMutatorKey()]) coins += WEEKLY_FEATURED_MUTATOR_BONUS_COINS
-    this.coins += coins
-    this.careerStats.lifetimePointsEarned = (this.careerStats.lifetimePointsEarned || 0) + points
-    if (data.died) this.achievements.unlock('first_death')
-    if (data.kills >= 100) this.achievements.unlock('centurion')
-    if (data.bestStreak >= MEAT_GRINDER_STREAK) this.achievements.unlock('meat_grinder')
-    if (data.won && this.settings.difficulty === 'nightmare') this.achievements.unlock('nightmare_conqueror')
-    if (data.won && data.mode === 'zombieDefense') this.achievements.unlock('holding_the_line')
-    if (data.headshots >= HEADHUNTER_HEADSHOTS) this.achievements.unlock('headhunter')
-    if (data.meleeKills >= UP_CLOSE_KNIFE_KILLS) this.achievements.unlock('up_close')
-    if (data.seconds >= MARATHON_SECONDS) this.achievements.unlock('marathon')
-    if (data.chests >= TREASURE_HUNTER_CHESTS) this.achievements.unlock('treasure_hunter')
-    if (data.upgrades >= FULLY_LOADED_UPGRADES) this.achievements.unlock('fully_loaded')
-    if (data.coins >= DEEP_POCKETS_COINS) this.achievements.unlock('deep_pockets')
-    if (data.kills >= MASSACRE_KILLS) this.achievements.unlock('massacre')
-    if (data.bestStreak >= UNTOUCHABLE_STREAK) this.achievements.unlock('untouchable')
-    if (data.headshots >= SHARPSHOOTER_HEADSHOTS) this.achievements.unlock('sharpshooter')
-    if (data.bosses >= BOSS_HUNTER_BOSSES) this.achievements.unlock('boss_hunter')
-    if (data.won && data.mode === 'zombieExtraction') this.achievements.unlock('get_to_the_chopper')
-    if (data.coins >= FORTUNE_HUNTER_COINS) this.achievements.unlock('fortune_hunter')
-    // +10% per Prestige level, as the Prestige line promises.
-    const legacy = Math.floor(points * DEATH_POINTS_CONVERSION * (1 + (PRESTIGE_BONUS_PERCENT / 100) * Math.floor(_safeStatNumber(this.metaProgress.prestigeLevel))))
-    this.metaProgress.legacyPoints += legacy
-    saveMetaProgress(this.metaProgress)
-    this._recordRunEnd(!data.died)
-    // Career totals (_recordRunEnd just added this run to them).
-    if (_safeStatNumber(this.careerStats.totalKills) >= EXTERMINATOR_CAREER_KILLS) this.achievements.unlock('exterminator')
-    if (_safeStatNumber(this.careerStats.totalRuns) >= REGULAR_CAREER_RUNS) this.achievements.unlock('regular')
-    saveShopProgress(this)
-    this._renderCurrencyBar()
-    this._updateUpgradesDot()
-    this._updateQuestsDot()
-    return { legacy, coins }
-  }
+  _onPlayEvent(type, data) { return ProgressUI._onPlayEvent(this, type, data) }
 
   // Arsenal: remembers every gun you've killed a zombie with (ever).
   _recordArsenalKill(weaponId) {
@@ -3615,105 +3469,13 @@ export class Game {
     document.getElementById('map-select-3')?.classList.add('active')
   }
 
-  // Update-available check - only ever called from _exitBuildMode (back
-  // at the homepage), never mid-game, so a fresh deploy
-  // while someone's playing never interrupts them; they just find out the
-  // next time they're actually looking at the main menu again. version.json
-  // carries the exact same build timestamp __BUILD_ID__ was compiled from
-  // (see vite.config.js) - if they differ, a newer build than the one
-  // currently loaded exists. Deliberately a timestamp, not the git hash
-  // __BUILD_HASH__ already carries - confirmed via a real production
-  // deploy that `vercel --prod`'s upload doesn't include .git, so the git
-  // hash is always the literal fallback string 'dev' there, useless for
-  // telling two real deploys apart. The "what changed" content isn't
-  // duplicated anywhere - it re-fetches the live index.html and reads its
-  // #changelog-list directly, so there's exactly one place (that list) to
-  // keep updated, same as today.
-  async _checkForUpdate() {
-    if (!this.updateAvailableBanner || this.updateAvailableBanner.style.display === 'flex') return
-    try {
-      const versionRes = await fetch('/version.json', { cache: 'no-store' })
-      const { id } = await versionRes.json()
-      if (!id || id === __BUILD_ID__ || id === this.settings.lastSeenBuildId) return
-      const pageRes = await fetch('/index.html', { cache: 'no-store' })
-      const freshDoc = new DOMParser().parseFromString(await pageRes.text(), 'text/html')
-      const freshChangelogList = freshDoc.getElementById('changelog-list')
-      if (!freshChangelogList) return
-      // What's New on this page gets the new notes too, so the card never
-      // shows a version the Patch Notes don't have yet (2026-10-12, Gaymi:
-      // the card said v0.17 while What's New still said v0.16) - and both
-      // only show entries whose day has started on the player's clock.
-      const list = document.getElementById('changelog-list')
-      if (list) {
-        list.innerHTML = freshChangelogList.innerHTML
-        this._gateChangelog()
-      }
-      // Only the newest entry - the card is small; the full list is one
-      // click away in What's New.
-      const entries = [...(list || freshChangelogList).querySelectorAll('.changelog-entry:not(.changelog-future)')].slice(0, 1)
-      if (!entries.length) return
-      this.updateAvailableChangelog.innerHTML = entries.map((entry) => entry.outerHTML).join('')
-      this._pendingUpdateId = id
-      if (this.updateAvailableTitleEl) this.updateAvailableTitleEl.textContent = t('navLinkWhatsNew')
-      if (this.updateAvailableRefreshBtn) this.updateAvailableRefreshBtn.textContent = t('updateAvailableRefreshBtn')
-      this.updateAvailableBanner.classList.remove('fading')
-      this.updateAvailableBanner.style.display = 'flex'
-      this._scheduleUpdateBannerFade()
-    } catch {
-      // A failed check (offline, blocked request, etc.) just means no
-      // banner this time - not a player-facing error worth surfacing.
-    }
-  }
+  _checkForUpdate() { return InfoPagesUI._checkForUpdate(this) }
 
-  // Patch Notes go live at 12am on each player's own clock (2026-10-12,
-  // Gaymi: "each player sees a new v# at their time zone at 12am"): an
-  // entry dated later than the player's local today is hidden until their
-  // midnight, then shown without a reload.
-  _gateChangelog() {
-    const list = document.getElementById('changelog-list')
-    if (!list) return
-    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    const now = Date.now()
-    for (const el of list.querySelectorAll('.changelog-entry')) {
-      const m = /([A-Z][a-z]{2}) (\d{1,2}), (\d{4})/.exec(el.querySelector('.changelog-date')?.textContent || '')
-      const month = m ? MONTHS.indexOf(m[1]) : -1
-      // Local midnight of the entry's date.
-      const startsAt = month >= 0 ? new Date(Number(m[3]), month, Number(m[2])).getTime() : 0
-      el.classList.toggle('changelog-future', startsAt > now)
-    }
-    clearTimeout(this._changelogMidnightTimer)
-    const next = new Date()
-    next.setHours(24, 0, 1, 0)
-    this._changelogMidnightTimer = setTimeout(() => this._gateChangelog(), next.getTime() - now)
-  }
+  _gateChangelog() { return InfoPagesUI._gateChangelog(this) }
 
-  // Fades the What's New card out by itself after UPDATE_BANNER_SHOW_MS if
-  // the player leaves it alone - the timer waits while the mouse is over it.
-  _scheduleUpdateBannerFade() {
-    const banner = this.updateAvailableBanner
-    clearTimeout(this._updateBannerTimer)
-    if (!banner._fadeBound) {
-      banner._fadeBound = true
-      banner.addEventListener('mouseenter', () => clearTimeout(this._updateBannerTimer))
-      banner.addEventListener('mouseleave', () => this._scheduleUpdateBannerFade())
-    }
-    this._updateBannerTimer = setTimeout(() => this._hideUpdateBanner(), UPDATE_BANNER_SHOW_MS)
-  }
+  _scheduleUpdateBannerFade() { return InfoPagesUI._scheduleUpdateBannerFade(this) }
 
-  // Closed with the X or faded away: remember this version was seen, so
-  // coming back to the homepage doesn't show the same card again (a newer
-  // deploy still gets its own).
-  _hideUpdateBanner() {
-    const banner = this.updateAvailableBanner
-    if (!banner || banner.style.display === 'none') return
-    clearTimeout(this._updateBannerTimer)
-    this.settings.lastSeenBuildId = this._pendingUpdateId
-    saveSettings(this.settings)
-    banner.classList.add('fading')
-    setTimeout(() => {
-      if (banner.classList.contains('fading')) banner.style.display = 'none'
-    }, UPDATE_BANNER_FADE_MS)
-  }
+  _hideUpdateBanner() { return InfoPagesUI._hideUpdateBanner(this) }
 
   _exitBuildMode() {
     this.buildMode.exit()
@@ -4039,362 +3801,37 @@ export class Game {
     if (this.whatsNewPanel) this._closeWhatsNewPanel()
   }
 
-  // Opened from the main menu (not gameplay) - spends persistent Legacy
-  // Points (see MetaProgress.js) on one-time permanent upgrades.
-  _openUpgradesPanel() {
-    this._closeAllMenuPanels()
-    // Opened from the pause overlay (still on screen, unlocked) as well as
-    // the main menu - hide it explicitly rather than relying on DOM/paint
-    // order, since #pause-overlay comes after #upgrades-panel in index.html
-    // and would otherwise render on top and eat every click meant for an
-    // upgrade card underneath it.
-    this.upgradesPanel.style.display = 'flex'
-    this.upgradesPanelTitle.textContent = t('upgradesPanelTitle')
-    this._renderUpgradesOptions()
-    this._markUpgradesSeen()
-  }
+  _openUpgradesPanel() { return ProgressUI._openUpgradesPanel(this) }
 
-  _renderUpgradesOptions() {
-    // The star at the top left is these Points - keep it in step with every
-    // buy, respec and prestige (it used to only update after a run).
-    this._renderCurrencyBar()
-    this.upgradesPointsLine.textContent = t('legacyScrapLabel', { n: this.metaProgress.legacyPoints })
-    this.upgradesOptions.innerHTML = ''
-    for (const upgrade of PLAY_META_UPGRADES) {
-      const owned = this.metaProgress.purchased.has(upgrade.id)
-      const locked = !!upgrade.requires && !this.metaProgress.purchased.has(upgrade.requires)
-      // Veteran's Cache pair moved here from the Coin Shop keeps its
-      // lifetime-earned-coins gate (see MetaProgress.js's own comment on
-      // requiresLifetimeCoins) - a second, different kind of lock from
-      // `requires` above, shown with the same "locked" treatment but its
-      // own distinct label (you have the Legacy Points, you just haven't
-      // played long enough yet).
-      const lifetimeLocked = !!upgrade.requiresLifetimeCoins && this.careerStats.lifetimeCoinsEarned < upgrade.requiresLifetimeCoins
-      const btn = document.createElement('button')
-      btn.className = (locked || lifetimeLocked) ? 'perk-option locked' : 'perk-option'
-      btn.disabled = owned || locked || lifetimeLocked || this.metaProgress.legacyPoints < upgrade.cost
-      const costLine = owned
-        ? t('upgradesOwned')
-        : locked
-          ? t('upgradesRequires', { name: t(META_UPGRADES.find((u) => u.id === upgrade.requires)?.titleKey) })
-          : lifetimeLocked
-            ? t('cacheLifetimeLocked', { have: _safeStatNumber(this.careerStats.lifetimeCoinsEarned), need: upgrade.requiresLifetimeCoins })
-            : t('perkCostLabel', { n: upgrade.cost })
-      btn.innerHTML = `
-        <span class="perk-name">${t(upgrade.titleKey)}</span>
-        <span class="perk-cost">${costLine}</span>
-      `
-      btn.addEventListener('click', () => {
-        if (owned || locked || lifetimeLocked || this.metaProgress.legacyPoints < upgrade.cost) return
-        this.metaProgress.legacyPoints -= upgrade.cost
-        this.metaProgress.purchased.add(upgrade.id)
-        saveMetaProgress(this.metaProgress)
-        this._renderUpgradesOptions()
-        this._updateUpgradesDot()
-      })
-      this.upgradesOptions.appendChild(btn)
-    }
+  _renderUpgradesOptions() { return ProgressUI._renderUpgradesOptions(this) }
 
-    // Gated behind the same milestone as Nightmare difficulty (see the
-    // constructor's diff-nightmare toggle) - both read as "you've actually
-    // beaten the game," which is the bar for offering a full reset+bonus.
-    const prestigeUnlocked = this.achievements.unlocked.has(ENDGAME_ACHIEVEMENT)
-    this.prestigeSection.style.display = prestigeUnlocked ? 'block' : 'none'
-    if (prestigeUnlocked) {
-      this.prestigeLevelLine.textContent = t('prestigeLevelLine', { level: this.metaProgress.prestigeLevel, bonus: this.metaProgress.prestigeLevel * PRESTIGE_BONUS_PERCENT })
-      // Each Prestige level costs more (2026-10-12, "100k points to
-      // prestige to level 1 then 200k for level 2 and keep going").
-      const cost = this._prestigeCost()
-      this.prestigeBtn.textContent = t('prestigeBtn')
-      this.prestigeBtn.disabled = this.metaProgress.legacyPoints < cost
-      if (this.prestigeCostLine) this.prestigeCostLine.textContent = t('prestigeCostLine', { level: this.metaProgress.prestigeLevel + 1, cost: cost.toLocaleString(), have: Math.floor(_safeStatNumber(this.metaProgress.legacyPoints)).toLocaleString() })
-    }
+  _prestigeCost() { return ProgressUI._prestigeCost(this) }
 
-    // Legacy Tree Respec (Long-Term Goals batch) - only worth showing once
-    // there's actually something purchased to redistribute.
-    if (this.respecSection) {
-      const canRespec = this.metaProgress.purchased.size > 0
-      this.respecSection.style.display = canRespec ? 'block' : 'none'
-      if (canRespec) this.respecBtn.textContent = t('respecBtn')
-    }
-  }
+  _prestige() { return ProgressUI._prestige(this) }
 
-  // Irreversible from the player's side (wipes Legacy Points and every
-  // purchased Permanent Upgrade), so gated behind a real confirm dialog
-  // rather than a single click, unlike everything else in this panel.
-  // Points needed for the next Prestige level: PRESTIGE_COST_STEP per level.
-  _prestigeCost() {
-    return (Math.floor(_safeStatNumber(this.metaProgress.prestigeLevel)) + 1) * PRESTIGE_COST_STEP
-  }
+  _respecMetaUpgrades() { return ProgressUI._respecMetaUpgrades(this) }
 
-  _prestige() {
-    if (this.metaProgress.legacyPoints < this._prestigeCost()) return
-    if (!window.confirm(t('prestigeConfirm'))) return
-    this.metaProgress.prestigeLevel += 1
-    this.metaProgress.legacyPoints = 0
-    this.metaProgress.purchased = new Set()
-    this.metaProgress.prestigeHistory.push({ level: this.metaProgress.prestigeLevel, ts: Date.now() })
-    saveMetaProgress(this.metaProgress)
-    this._showLoreToast(t('prestigeComplete', { level: this.metaProgress.prestigeLevel, bonus: this.metaProgress.prestigeLevel * PRESTIGE_BONUS_PERCENT }))
-    this._renderUpgradesOptions()
-    this._saveMenuPaintCache?.()
-  }
+  _closeUpgradesPanel() { return ProgressUI._closeUpgradesPanel(this) }
 
-  // Respec (Long-Term Goals batch) - refunds every purchased Permanent
-  // Upgrade's cost back into Legacy Points and clears `purchased`, same
-  // reset-then-let-the-next-run's-apply-loop-sort-it-out mechanism
-  // _prestige() above already relies on (see the constructor's own
-  // "if (this.metaProgress.purchased.has(upgrade.id)) upgrade.apply(this)"
-  // loop) - nothing needs undoing mid-run, only future runs read this set.
-  // No prestigeLevel change and no currency cost of its own, unlike
-  // Prestige - this is pure redistribution, not a fresh-start bonus.
-  _respecMetaUpgrades() {
-    if (this.metaProgress.purchased.size === 0) return
-    if (!window.confirm(t('respecConfirm'))) return
-    let refund = 0
-    for (const id of this.metaProgress.purchased) {
-      const upgrade = META_UPGRADES.find((u) => u.id === id)
-      if (upgrade) refund += upgrade.cost
-    }
-    this.metaProgress.purchased = new Set()
-    this.metaProgress.legacyPoints += refund
-    saveMetaProgress(this.metaProgress)
-    this._showLoreToast(t('respecComplete', { n: refund }))
-    this._renderUpgradesOptions()
-  }
+  _openQuestsPanel() { return ProgressUI._openQuestsPanel(this) }
 
-  _closeUpgradesPanel() {
-    this.upgradesPanel.style.display = 'none'
-  }
+  _renderQuestsPanel() { return ProgressUI._renderQuestsPanel(this) }
 
-  // Quests panel - tiered career-kill and best-killstreak goals, each a
-  // one-time coin reward (see Quests.js for the exact tiers/amounts).
-  // Uses real clickable buttons (unlike Achievements/Bestiary above,
-  // which are pure display) since completed-but-unclaimed quests need a
-  // Claim action - one delegated click listener on the container handles
-  // every quest button rather than rebinding per-button on every render.
-  _openQuestsPanel() {
-    this._closeAllMenuPanels()
-    this.questsPanel.style.display = 'flex'
-    // The X/Y claimed count used to live on the homepage nav button, then
-    // briefly moved into the panel title on open - removed per direct
-    // follow-up request, not shown anywhere any more.
-    this.questsPanelTitle.textContent = t('questsPanelTitle')
-    this.rollingQuestsSubtitle.textContent = t('rollingQuestsSubtitle')
-    if (this.monthlyQuestsPlaceholder) this.monthlyQuestsPlaceholder.textContent = t('monthlyQuestsPlaceholder')
-    if (this.yearlyQuestsPlaceholder) this.yearlyQuestsPlaceholder.textContent = t('yearlyQuestsPlaceholder')
-    // Lifetime quests are Coming Soon while QUESTS is empty.
-    const lifetimeSoon = document.getElementById('lifetime-quests-placeholder')
-    if (lifetimeSoon) {
-      lifetimeSoon.textContent = t('monthlyQuestsPlaceholder')
-      lifetimeSoon.style.display = QUESTS.length ? 'none' : ''
-    }
-    this._renderQuestsPanel()
-    this._renderRollingQuestsPanel()
-    this._markQuestsSeen()
-  }
+  _renderRollingQuestsPanel() { return ProgressUI._renderRollingQuestsPanel(this) }
 
-  _renderQuestsPanel() {
-    this.questsOptions.innerHTML = ''
-    for (const quest of QUESTS) {
-      const claimed = this.quests.isClaimed(quest.id)
-      const progress = Math.min(quest.target, this.quests.currentProgress(quest, this))
-      const complete = this.quests.isComplete(quest, this)
-      const btn = document.createElement('button')
-      btn.className = 'perk-option'
-      btn.dataset.questId = quest.id
-      btn.disabled = claimed || !complete
-      const statusText = claimed
-        ? t('questClaimed')
-        : complete
-          ? t('questClaimReward', { n: quest.rewardCoins })
-          : t('questProgress', { current: progress.toLocaleString(), target: quest.target.toLocaleString() })
-      btn.innerHTML = `
-        <span class="perk-name">${t(quest.titleKey, { n: quest.target.toLocaleString() })}</span>
-        <span class="perk-cost">${statusText}</span>
-      `
-      this.questsOptions.appendChild(btn)
-    }
-  }
+  _closeQuestsPanel() { return ProgressUI._closeQuestsPanel(this) }
 
-  // Rolling Quests - separate from the lifetime tiers above (see
-  // RollingQuests.js): a GLOBAL rotation of 5 quests every 30 minutes
-  // (all still-alive ones shown at once, each expiring 3 hours after its
-  // spawn window), computed deterministically from wall-clock time rather than
-  // per-player spawn history - every player sees the same quests at the
-  // same real-world moment, reset on schedule whether or not anyone was
-  // online to trigger it. refresh() just prunes expired local
-  // progress/claim records; it doesn't need its own always-running timer
-  // loop since the active set itself is recomputed fresh on every call.
-  _renderRollingQuestsPanel() {
-    this.rollingQuests.refresh()
-    this.rollingQuestsOptions.innerHTML = ''
-    const active = this.rollingQuests.activeQuests()
-    if (active.length === 0) {
-      this.rollingQuestsOptions.innerHTML = `<p class="menu-best-stats">${t('rollingQuestNone')}</p>`
-      return
-    }
-    const now = Date.now()
-    for (const q of active) {
-      const progress = Math.min(q.template.target, q.progress)
-      const complete = progress >= q.template.target
-      const timeLeftSeconds = Math.max(0, Math.floor((q.spawnedAt + ROLLING_QUEST_EXPIRE_MS - now) / 1000))
-      const btn = document.createElement('button')
-      btn.className = 'perk-option'
-      btn.dataset.spawnedAt = q.spawnedAt
-      btn.disabled = !complete
-      const statusText = complete
-        ? t('rollingQuestClaimReward', { coins: q.template.rewardCoins, xp: q.template.rewardXp })
-        : `${t('questProgress', { current: progress.toLocaleString(), target: q.template.target.toLocaleString() })} · ${t('rollingQuestTimeLeft', { time: _formatDurationShort(timeLeftSeconds) })}`
-      btn.innerHTML = `
-        <span class="perk-name">${t(q.template.titleKey, { n: q.template.target.toLocaleString() })}</span>
-        <span class="perk-cost">${statusText}</span>
-      `
-      this.rollingQuestsOptions.appendChild(btn)
-    }
-  }
+  _claimQuest(id) { return ProgressUI._claimQuest(this, id) }
 
-  _closeQuestsPanel() {
-    this.questsPanel.style.display = 'none'
-  }
+  _claimRollingQuest(spawnedAt) { return ProgressUI._claimRollingQuest(this, spawnedAt) }
 
-  _claimQuest(id) {
-    if (!this.quests.claim(id, this)) return
-    saveShopProgress(this)
-    this._showHomepageToast(t('questClaimedToast', { n: QUESTS.find((q) => q.id === id)?.rewardCoins || 0 }))
-    this._renderQuestsPanel()
-    this._updateQuestsDot()
-    this._updateFaviconQuestBadge()
-  }
+  _updateFaviconQuestBadge() { return ProgressUI._updateFaviconQuestBadge(this) }
 
-  _claimRollingQuest(spawnedAt) {
-    const reward = this.rollingQuests.claim(spawnedAt, this)
-    if (!reward) return
-    // RollingQuests.claim() applies the coin reward itself (mirrors
-    // Quests.claim()) but deliberately leaves XP to us - game.xp has its
-    // own HUD/level-up side effects that belong here, not duplicated in a
-    // plain data module. _checkXpLevelUp() can open the run-buff picker
-    // panel (_openXpLevelupPanel, designed for picking a passive buff
-    // mid-combat) - only run that side effect if a run is actually active;
-    // claiming from the homepage just banks the XP toward the next
-    // level-up, which gets caught for real the next time xp is gained
-    // during real play.
-    this.xp += reward.xp
-    saveShopProgress(this)
-    this._showHomepageToast(t('rollingQuestClaimedToast', { coins: reward.coins, xp: reward.xp }))
-    this._renderRollingQuestsPanel()
-    this._updateQuestsDot()
-    this._updateFaviconQuestBadge()
-  }
+  _openAchievementsPanel() { return ProgressUI._openAchievementsPanel(this) }
 
-  // Favicon Quest Badge - draws the real tab icon (favicon-64.png) onto an offscreen
-  // canvas plus a small red count badge (capped display at "9+") when
-  // quests are complete but not yet claimed, then swaps the <link
-  // rel="icon"> href to the resulting data URL. Same-origin PNG, so the
-  // canvas is never tainted and toDataURL works normally. No-ops (leaves
-  // the plain icon alone) if canvas/SVG loading ever fails - a badge that
-  // silently doesn't appear is fine, a thrown error breaking the menu
-  // refresh batch is not.
-  _updateFaviconQuestBadge() {
-    const lifetimeCount = QUESTS.filter((q) => this.quests.isComplete(q, this) && !this.quests.isClaimed(q.id)).length
-    const rollingCount = this.rollingQuests.activeQuests().filter((q) => q.progress >= q.template.target).length
-    const count = lifetimeCount + rollingCount
-    const link = document.querySelector('link[rel="icon"]')
-    if (!link) return
-    if (count <= 0) {
-      if (this._faviconBaseHref) link.href = this._faviconBaseHref
-      return
-    }
-    if (!this._faviconBaseHref) this._faviconBaseHref = link.href
-    if (!this._faviconImg) {
-      this._faviconImg = new Image()
-      this._faviconImg.onload = () => this._updateFaviconQuestBadge()
-      this._faviconImg.src = this._faviconBaseHref
-      return
-    }
-    if (!this._faviconImg.complete || this._faviconImg.naturalWidth === 0) return
-    try {
-      const canvas = document.createElement('canvas')
-      canvas.width = 32
-      canvas.height = 32
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(this._faviconImg, 0, 0, 32, 32)
-      ctx.beginPath()
-      ctx.arc(24, 8, 8, 0, Math.PI * 2)
-      ctx.fillStyle = '#d3392f'
-      ctx.fill()
-      ctx.strokeStyle = '#1a1a1a'
-      ctx.lineWidth = 1.5
-      ctx.stroke()
-      ctx.fillStyle = '#fff'
-      ctx.font = 'bold 10px sans-serif'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(count > 9 ? '9+' : String(count), 24, 9)
-      link.href = canvas.toDataURL('image/png')
-    } catch {
-      // Best-effort - leave whatever icon is currently set.
-    }
-  }
+  _renderAchievementsPanel() { return ProgressUI._renderAchievementsPanel(this) }
 
-  _openAchievementsPanel() {
-    this._closeAllMenuPanels()
-    this.achievementsPanel.style.display = 'flex'
-    // Same move as the Quests panel title above - the X/Y count used to
-    // live on the homepage nav button, now shown here instead when the
-    // panel is actually open.
-    this.achievementsPanelTitle.textContent = `${t('achievementsPanelTitle')} (${this.achievements.unlocked.size}/${ACHIEVEMENTS.length})`
-    if (this.achievementsFilterInput) this.achievementsFilterInput.placeholder = t('achievementsFilterPlaceholder')
-    this._renderAchievementsPanel()
-    this._markAchievementsSeen()
-  }
-
-  _renderAchievementsPanel() {
-    // Deathmatch and Parkour have no achievements yet - a placeholder.
-    const deathmatch = this._achievementsMode !== 'survival'
-    if (this.achievementsFilterInput) this.achievementsFilterInput.style.display = deathmatch ? 'none' : ''
-    if (this.achievementsControlsRow) this.achievementsControlsRow.style.display = deathmatch ? 'none' : ''
-    if (this.printAchievementsBtn) this.printAchievementsBtn.style.display = deathmatch ? 'none' : ''
-    this.achievementsOptions.style.display = deathmatch ? 'none' : ''
-    if (this.achievementsDeathmatchPlaceholder) {
-      this.achievementsDeathmatchPlaceholder.style.display = deathmatch ? '' : 'none'
-      this.achievementsDeathmatchPlaceholder.textContent = t('menuInventoryPlaceholder')
-    }
-    if (deathmatch) return
-
-    const filter = (this.achievementsFilterInput?.value || '').trim().toLowerCase()
-    const category = this.achievementsCategorySelect?.value || 'all'
-    const sortMode = this.achievementsSortSelect?.value || 'default'
-    let list = ACHIEVEMENTS.filter((ach) => category === 'all' || ach.category === category)
-    // Achieved/Incomplete - a straight filter on unlock state, not a sort
-    // (replaced the old Unlock Date sort per direct request).
-    if (sortMode === 'achieved') list = list.filter((ach) => this.achievements.unlocked.has(ach.id))
-    else if (sortMode === 'incomplete') list = list.filter((ach) => !this.achievements.unlocked.has(ach.id))
-    this.achievementsOptions.innerHTML = ''
-    for (const ach of list) {
-      const unlocked = this.achievements.unlocked.has(ach.id)
-      const name = unlocked ? t(ach.titleKey) : '???'
-      if (filter && !name.toLowerCase().includes(filter)) continue
-      const btn = document.createElement('button')
-      btn.className = 'perk-option'
-      btn.disabled = true
-      // Chain preview - only for an achievement that's both unlocked and
-      // has a defined next tier still locked, so it reads as "here's
-      // what's next," not a spoiler of a locked achievement's own name.
-      const nextId = ACHIEVEMENT_CHAINS[ach.id]
-      const next = nextId && unlocked && !this.achievements.unlocked.has(nextId) ? ACHIEVEMENTS.find((a) => a.id === nextId) : null
-      btn.innerHTML = `
-        <span class="perk-name">${name}</span>
-        <span class="perk-cost">${unlocked ? t('achievementUnlockedShort') : (ach.hintKey ? t(ach.hintKey) : t('achievementLocked'))}</span>
-        ${next ? `<span class="perk-lore">${_escapeHtml(t('achievementChainNext', { name: t(next.titleKey) }))}</span>` : ''}
-      `
-      this.achievementsOptions.appendChild(btn)
-    }
-  }
-
-  _closeAchievementsPanel() {
-    this.achievementsPanel.style.display = 'none'
-  }
+  _closeAchievementsPanel() { return ProgressUI._closeAchievementsPanel(this) }
 
   // Shared by both nickname pencils (corner badge + Player showcase panel)
   // - reveals the same #nickname-row (hidden by default) and focuses the
@@ -4849,94 +4286,7 @@ export class Game {
     if (this.currencyGemsAmount) this.currencyGemsAmount.textContent = _safeStatNumber(this.gems)
   }
 
-  _updateBestStatsDisplay() {
-    const { bestNight } = this.bestStats
-    this._renderCurrencyBar()
-
-    // Your Stats panel - a different stat slice than the hero pair above,
-    // matching the redesigned menu's own left-column panel. All pulled
-    // from data this game already tracks (careerStats/bestRunPace/
-    // runHistory), nothing new recorded just for this display.
-    // K/D ratio appended inline rather than as its own stat row - the
-    // Your Stats panel has no spare vertical budget for a new row (see
-    // CLAUDE.md's menu-redesign notes on the zero-scroll fight).
-    {
-      const kd = (_safeStatNumber(this.careerStats.totalKills) / Math.max(1, _safeStatNumber(this.careerStats.totalDeaths))).toFixed(1)
-      this.statTotalKills.forEach((el) => { el.textContent = `${_safeStatNumber(this.careerStats.totalKills)} (K/D ${kd})` })
-    }
-    {
-      const hours = (_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / 3600).toFixed(1)
-      this.statRunsPlayed.forEach((el) => { el.textContent = `${_safeStatNumber(this.careerStats.totalRuns)} · ${hours}h played` })
-    }
-    {
-      const survivalText = this.bestRunPace && this.bestRunPace.elapsedMs
-        ? formatTime(_safeStatNumber(this.bestRunPace.elapsedMs))
-        : '--'
-      this.statLongestSurvival.forEach((el) => { el.textContent = survivalText })
-    }
-    {
-      const last = this.runHistory[0]
-      let lastRunText = '--'
-      if (last) {
-        let line = t(last.survived ? 'runHistorySurvived' : 'runHistoryDied', { night: _safeStatNumber(last.night), kills: _safeStatNumber(last.kills), coins: _safeStatNumber(last.coins) })
-        // Personal-best delta - compares only against bestStats.bestNight
-        // (already the single source of truth for "your best run ever"),
-        // not a new "is this actually the best" computation of its own.
-        const nightDelta = _safeStatNumber(last.night) - _safeStatNumber(bestNight)
-        if (nightDelta === 0 && _safeStatNumber(last.night) > 0) line += ` — ${t('deltaNewBest')}`
-        else if (nightDelta < 0) line += ` (${t('deltaFromBest', { n: Math.abs(nightDelta) })})`
-        lastRunText = line
-      }
-      this.statLastRun.forEach((el) => { el.textContent = lastRunText })
-    }
-
-    // Avatar level badge - the same tier index careerRankTitleKey already
-    // derives from totalKills, just as a plain 1-5 number instead of a title.
-    if (this.menuAvatarLevel) {
-      const level = this._computeAvatarLevel()
-      this.menuAvatarLevel.textContent = level
-      // Rank-Up Toasts (General tab) - fires only on an actual increase,
-      // not the first read this session (_lastAvatarLevel starting
-      // undefined would otherwise fire once on page load for anyone
-      // already above level 1).
-      if (this.settings.rankUpToasts && this._lastAvatarLevel !== undefined && level > this._lastAvatarLevel) {
-        this._showHomepageToast(t('rankUpToast', { level }))
-      }
-      this._lastAvatarLevel = level
-      // Logo blood-tint intensity - same tier index, purely cosmetic (a
-      // CSS filter, not a different image asset). Doesn't touch the
-      // logo's size, only how saturated/red its existing blood-crack
-      // texture reads.
-      const logoImg = document.getElementById('menu-title-img')
-      if (logoImg) {
-        for (let i = 2; i <= 5; i++) logoImg.classList.remove(`logo-tier-${i}`)
-        if (level >= 2) logoImg.classList.add(`logo-tier-${level}`)
-      }
-    }
-    this._renderPlayerTag()
-    this._updateMenuNewsTicker()
-    this._updateRecommendedDifficultyHint()
-    this._updateWhatsNewDot()
-    this._updateUpgradesDot()
-    this._updateAchievementsDot()
-    this._updateQuestsDot()
-    this._checkFriendAcceptedNotifications()
-    this._checkKillMilestones()
-    this._updateFaviconQuestBadge()
-    this._updateLongestSession()
-    if (this._pendingConfetti && !this.gameStarted) {
-      this._pendingConfetti = false
-      this._fireConfetti()
-      this._showHomepageToast(t('newPersonalBestToast'))
-    }
-    if (this.menuAriaSummary) {
-      this.menuAriaSummary.textContent = t('menuAriaSummary', {
-        night: _safeStatNumber(this.bestStats.bestNight),
-        kills: _safeStatNumber(this.careerStats.totalKills),
-        coins: _safeStatNumber(this.coins),
-      })
-    }
-  }
+  _updateBestStatsDisplay() { return ProgressUI._updateBestStatsDisplay(this) }
 
   // Player tag - factored out of _updateBestStatsDisplay (also fired on
   // nickname edits directly) since it now also appends the cached Global
@@ -5154,107 +4504,25 @@ export class Game {
     if (mood !== 'none') document.documentElement.classList.add(`bg-mood-${mood}`)
   }
 
-  // What's New badge dot - a small red dot on the Credits nav button until
-  // the player has actually opened Credits at least once since
-  // WHATS_NEW_VERSION last changed (bump that constant on future updates).
-  _updateWhatsNewDot() {
-    if (!this.whatsNewDot) return
-    this.whatsNewDot.style.display = localStorage.getItem(WHATS_NEW_SEEN_KEY) === WHATS_NEW_VERSION ? 'none' : ''
-  }
+  _updateWhatsNewDot() { return InfoPagesUI._updateWhatsNewDot(this) }
 
-  // Upgrades nav dot - red, lights up if either (a) a new upgrade was
-  // added since this player last opened Upgrades, or (b) they can afford
-  // an upgrade they haven't bought yet right now (checked live, not
-  // persisted - this one naturally turns off the moment they buy it or
-  // spend their points elsewhere).
-  _updateUpgradesDot() {
-    if (!this.upgradesDot) return
-    let seen = _loadSeenIds(UPGRADES_SEEN_IDS_KEY)
-    if (!seen) {
-      seen = new Set(PLAY_META_UPGRADES.map((u) => u.id))
-      _saveSeenIds(UPGRADES_SEEN_IDS_KEY, seen)
-    }
-    const hasNewUpgrade = PLAY_META_UPGRADES.some((u) => !seen.has(u.id))
-    const canAffordOne = PLAY_META_UPGRADES.some((u) => {
-      if (this.metaProgress.purchased.has(u.id)) return false
-      if (u.requires && !this.metaProgress.purchased.has(u.requires)) return false
-      return this.metaProgress.legacyPoints >= u.cost
-    })
-    this.upgradesDot.style.display = (hasNewUpgrade || canAffordOne) ? '' : 'none'
-  }
+  _updateUpgradesDot() { return ProgressUI._updateUpgradesDot(this) }
 
-  _markUpgradesSeen() {
-    _saveSeenIds(UPGRADES_SEEN_IDS_KEY, PLAY_META_UPGRADES.map((u) => u.id))
-    this._updateUpgradesDot()
-  }
+  _markUpgradesSeen() { return ProgressUI._markUpgradesSeen(this) }
 
-  // Achievements nav dot - gold, lights up if an achievement unlocked
-  // since this player last opened the Achievements panel.
-  _updateAchievementsDot() {
-    if (!this.achievementsNewDot) return
-    let seen = _loadSeenIds(ACHIEVEMENTS_SEEN_IDS_KEY)
-    if (!seen) {
-      seen = new Set(this.achievements.unlocked)
-      _saveSeenIds(ACHIEVEMENTS_SEEN_IDS_KEY, seen)
-    }
-    this.achievementsNewDot.style.display = [...this.achievements.unlocked].some((id) => !seen.has(id)) ? '' : 'none'
-  }
+  _updateAchievementsDot() { return ProgressUI._updateAchievementsDot(this) }
 
-  _markAchievementsSeen() {
-    _saveSeenIds(ACHIEVEMENTS_SEEN_IDS_KEY, this.achievements.unlocked)
-    this._updateAchievementsDot()
-  }
+  _markAchievementsSeen() { return ProgressUI._markAchievementsSeen(this) }
 
-  // Quests nav dot - gold, lights up if any lifetime or rolling quest is
-  // complete and waiting to be claimed. Purely live-computed (no seen-
-  // tracking needed) since "claimable right now" already turns itself off
-  // the instant the reward is claimed.
-  _updateQuestsDot() {
-    if (!this.questsClaimDot) return
-    const lifetimeReady = QUESTS.some((q) => this.quests.isComplete(q, this) && !this.quests.isClaimed(q.id))
-    const rollingReady = this.rollingQuests.activeQuests().some((q) => q.progress >= q.template.target)
-    this.questsClaimDot.style.display = (lifetimeReady || rollingReady) ? '' : 'none'
-    this._updateQuestsNewDot()
-  }
+  _updateQuestsDot() { return ProgressUI._updateQuestsDot(this) }
 
-  // Quests nav dot - red, lights up if there's a lifetime quest (id-based)
-  // or an active rolling quest (spawnedAt-based, since rolling quests
-  // don't have a fixed id - see RollingQuests.activeQuests()) the player
-  // hasn't opened the Quests panel to see yet. Same seen-id pattern as
-  // Store/Upgrades/Achievements, just tracking two different kinds of id
-  // in one set since lifetime ids and rolling spawnedAt timestamps can
-  // never collide (one's a short string, the other's a large number).
-  _updateQuestsNewDot() {
-    if (!this.questsNewDot) return
-    let seen = _loadSeenIds(QUESTS_SEEN_IDS_KEY)
-    if (!seen) {
-      seen = new Set([...QUESTS.map((q) => q.id), ...this.rollingQuests.activeQuests().map((q) => q.spawnedAt)])
-      _saveSeenIds(QUESTS_SEEN_IDS_KEY, seen)
-    }
-    const hasNewLifetime = QUESTS.some((q) => !seen.has(q.id))
-    const hasNewRolling = this.rollingQuests.activeQuests().some((q) => !seen.has(q.spawnedAt))
-    this.questsNewDot.style.display = (hasNewLifetime || hasNewRolling) ? '' : 'none'
-  }
+  _updateQuestsNewDot() { return ProgressUI._updateQuestsNewDot(this) }
 
-  _markQuestsSeen() {
-    _saveSeenIds(QUESTS_SEEN_IDS_KEY, [...QUESTS.map((q) => q.id), ...this.rollingQuests.activeQuests().map((q) => q.spawnedAt)])
-    this._updateQuestsNewDot()
-  }
+  _markQuestsSeen() { return ProgressUI._markQuestsSeen(this) }
 
-  // How to Play - a replayable overlay, distinct from _maybeShowTutorialHints
-  // (a one-time, non-interactive toast sequence that still runs
-  // independently the first time a run starts). Renders every step as one
-  // static scrollable list rather than a Next/Back stepper.
-  _openHowToPlayPanel() {
-    this._closeAllMenuPanels()
-    this.howtoplayPanel.style.display = 'flex'
-    this.howtoplayPanelTitle.textContent = t('howtoplayPanelTitle')
-    this.howtoplayContent.innerHTML = HOWTOPLAY_STEPS.map((step) => `<h3>${t(step.headingKey)}</h3><p>${tHtml(step.key)}</p>`).join('')
-  }
+  _openHowToPlayPanel() { return InfoPagesUI._openHowToPlayPanel(this) }
 
-  _closeHowToPlayPanel() {
-    this.howtoplayPanel.style.display = 'none'
-  }
+  _closeHowToPlayPanel() { return InfoPagesUI._closeHowToPlayPanel(this) }
 
   // Homepage batch - every quick-action/one-shot listener that isn't
   // already covered by an existing _bindX() method (difficulty/loadout/
@@ -5453,15 +4721,7 @@ export class Game {
     } catch { /* storage full or blocked - next visit just waits for the game */ }
   }
 
-  // Local leaderboard - see loadLeaderboard's own doc comment for how this
-  // differs from bestStats above. Called once per run end (death or
-  // dawn-survival) from _onPlayerDeath/the survive-to-dawn path.
-  _recordLeaderboardEntry() {
-    this.leaderboard.push({ night: this.night, kills: this.kills, points: this.points, date: Date.now() })
-    this.leaderboard.sort((a, b) => (b.night - a.night) || (b.kills - a.kills) || (b.points - a.points))
-    this.leaderboard = this.leaderboard.slice(0, LEADERBOARD_MAX_ENTRIES)
-    saveLeaderboard(this.leaderboard)
-  }
+  _recordLeaderboardEntry() { return ProgressUI._recordLeaderboardEntry(this) }
 
   _renderCrateTiers() { return InventoryUI._renderCrateTiers(this) }
 
@@ -5518,66 +4778,17 @@ export class Game {
     // (The homepage layout re-fits itself on resize - __menuLayout.)
   }
 
-  _showAchievementToast(def) {
-    // State changes (skin unlock, trophy wall) happen immediately, same as
-    // before - only the visual toast display itself is queued below, so an
-    // unlock is never delayed, just its notification.
-    // The live game world (zombies, weather) keeps simulating behind the
-    // menu before Play is ever clicked (see main.js) - no gameplay toast
-    // should actually reach the screen before then, even if whatever
-    // triggered this fired anyway.
-    if (!this.gameStarted) return
-    if (!this.settings.achievementToasts) return
-    this._achievementToastQueue.push(def)
-    this._drainAchievementToastQueue()
-  }
+  _showAchievementToast(def) { return ProgressUI._showAchievementToast(this, def) }
 
-  // Achievement toast queue (see _achievementToastQueue's own comment) -
-  // shows one at a time so two simultaneous unlocks (e.g. the completionist
-  // auto-cascade) each get their own visible moment on the shared toast
-  // element instead of the first silently getting clobbered by the second.
-  _drainAchievementToastQueue() {
-    if (this._achievementToastShowing || this._achievementToastQueue.length === 0) return
-    this._achievementToastShowing = true
-    const def = this._achievementToastQueue.shift()
-    this.achievementLabel.textContent = t('achievementUnlocked')
-    this.achievementTitle.textContent = t(def.titleKey)
-    this.achievementToast.classList.remove('show')
-    void this.achievementToast.offsetWidth
-    this.achievementToast.classList.add('show')
-    setTimeout(() => {
-      this._achievementToastShowing = false
-      this._drainAchievementToastQueue()
-    }, ACHIEVEMENT_TOAST_GAP_MS)
-  }
+  _drainAchievementToastQueue() { return ProgressUI._drainAchievementToastQueue(this) }
 
-  // Credits panel - static prose (dev/asset credits only), not a
-  // data-driven list, so no render step needed beyond the title.
-  _openCreditsPanel() {
-    this._closeAllMenuPanels()
-    this.creditsPanel.style.display = 'flex'
-    this.creditsPanelTitle.textContent = t('creditsPanelTitle')
-  }
+  _openCreditsPanel() { return InfoPagesUI._openCreditsPanel(this) }
 
-  _closeCreditsPanel() {
-    this.creditsPanel.style.display = 'none'
-  }
+  _closeCreditsPanel() { return InfoPagesUI._closeCreditsPanel(this) }
 
-  // Levels panel - opened by the level coin on the profile card. Coming
-  // Soon (2026-10-11, Gaymi: "delete everything and change it to coming
-  // soon") - it used to repeat Profile's Rank Roadmap.
-  _openLevelsPanel() {
-    this._closeAllMenuPanels()
-    this.levelsPanel.style.display = 'flex'
-    const text = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = t(key) }
-    text('levels-panel-title', 'levelsPanelTitle')
-    text('levels-coming-title', 'comingSoonTitle')
-    text('levels-coming-text', 'levelsComingSoon')
-  }
+  _openLevelsPanel() { return ProfileUI._openLevelsPanel(this) }
 
-  _closeLevelsPanel() {
-    this.levelsPanel.style.display = 'none'
-  }
+  _closeLevelsPanel() { return ProfileUI._closeLevelsPanel(this) }
 
   // Gallery - its own panel since 2026-10-09 (was a toast), Coming Soon
   // until there's something to show in it.
@@ -5597,84 +4808,19 @@ export class Game {
     this.galleryPanel.style.display = 'none'
   }
 
-  // Terms of Use / Privacy Policy - used to be a plain link out to
-  // /terms.html and /privacy.html (target="_blank"); moved in-panel
-  // (same static-prose pattern as Credits above) at Gaymi's request. The
-  // standalone terms.html/privacy.html pages themselves are left as-is
-  // (still real, linkable URLs - just no longer linked to from here).
-  // The signed-out Profile card: 'choose' (Sign Up or Login), 'signup' or
-  // 'login'. Fills the words every time so a language change shows.
-  _showAuthView(view) {
-    const set = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = t(key) }
-    set('auth-choose-sub', 'authChooseSub')
-    set('auth-choose-new', 'authChooseNew')
-    set('profile-gate-register-btn', 'profileRegisterBtn')
-    set('profile-gate-login-btn', 'profileLoginBtn')
-    set('auth-signup-sub', 'authSignupSub')
-    set('auth-signup-google-label', 'authSignupGoogle')
-    set('auth-signup-note', 'authSignupNote')
-    set('auth-login-sub', 'authLoginSub')
-    set('auth-login-google-label', 'authContinueGoogle')
-    set('auth-login-note', 'authPickup')
-    set('auth-back-label', 'authBack')
-    const termsHtml = _escapeHtml(t('authTerms'))
-      .replace('{terms}', `<button type="button" class="auth-link open-terms-panel-link">${_escapeHtml(t('termsBtn'))}</button>`)
-      .replace('{privacy}', `<button type="button" class="auth-link open-privacy-panel-link">${_escapeHtml(t('creditsPrivacyLink'))}</button>`)
-    for (const id of ['auth-terms-signup', 'auth-terms-login']) {
-      const el = document.getElementById(id)
-      if (el) el.innerHTML = termsHtml
-    }
-    // The panel's own title says the welcome line while signed out; it's
-    // set back to Profile when the profile itself shows.
-    if (this.profilePanelTitle) this.profilePanelTitle.textContent = t(view === 'login' ? 'authWelcomeBack' : 'authWelcome')
-    for (const v of ['choose', 'signup', 'login']) {
-      const el = document.getElementById(`auth-view-${v}`)
-      if (el) el.hidden = v !== view
-    }
-    const back = document.getElementById('auth-back-btn')
-    if (back) back.hidden = view === 'choose'
-  }
+  _showAuthView(view) { return ProfileUI._showAuthView(this, view) }
 
-  _openTermsPanel() {
-    this._closeAllMenuPanels()
-    this.termsPanel.style.display = 'flex'
-    this.termsPanelTitle.textContent = t('termsBtn')
-  }
+  _openTermsPanel() { return InfoPagesUI._openTermsPanel(this) }
 
-  _closeTermsPanel() {
-    this.termsPanel.style.display = 'none'
-  }
+  _closeTermsPanel() { return InfoPagesUI._closeTermsPanel(this) }
 
-  _openPrivacyPanel() {
-    this._closeAllMenuPanels()
-    this.privacyPanel.style.display = 'flex'
-    this.privacyPanelTitle.textContent = t('creditsPrivacyLink')
-  }
+  _openPrivacyPanel() { return InfoPagesUI._openPrivacyPanel(this) }
 
-  _closePrivacyPanel() {
-    this.privacyPanel.style.display = 'none'
-  }
+  _closePrivacyPanel() { return InfoPagesUI._closePrivacyPanel(this) }
 
-  // GayZ Features - ported in from the standalone gayz-features.vercel.app
-  // site's own index.html/style.css/app.js (that project's own repo,
-  // updated separately after every shipped game change - see its own
-  // habit note) rather than iframed, per explicit request. "GayZ
-  // Features" (like "GayZ" itself) is treated as a proper-noun brand
-  // name, not translated - same as the standalone site itself, which has
-  // no i18n of its own either. #features-content lives as
-  // static HTML (index.html) with the styling in style.css; this only
-  // wires up the same interactive behavior app.js had: TOC nav built
-  // from the category sections, expandable multi-item cards, live/
-  // coming-soon counts and search-as-you-type filtering.
-  _openFeaturesPanel() {
-    this._closeAllMenuPanels()
-    this.featuresPanel.style.display = 'flex'
-    this._refreshFeatureValues()
-  }
+  _openFeaturesPanel() { return InfoPagesUI._openFeaturesPanel(this) }
 
-  _closeFeaturesPanel() {
-    this.featuresPanel.style.display = 'none'
-  }
+  _closeFeaturesPanel() { return InfoPagesUI._closeFeaturesPanel(this) }
 
   // Embeds the standalone Skin Designer site in an iframe rather than
   // porting its own ~2000 lines of painter/3D-preview code into this
@@ -5711,207 +4857,17 @@ export class Game {
     this.skindesignerPanel.style.display = 'none'
   }
 
-  // The lists GayZ Features builds from code. All of them (guns, zombie
-  // types, night events, items, game modes, mutators) were the old Map 1's
-  // and went with it (2026-10-05) - a new list goes here as id -> {name,
-  // about}, shown under a [data-feature-list] in index.html.
-  _featureCatalogs() {
-    return {}
-  }
+  _featureCatalogs() { return InfoPagesUI._featureCatalogs(this) }
 
-  _featureCounts() {
-    return {
-      achievements: ACHIEVEMENTS.length,
-    }
-  }
+  _featureCounts() { return InfoPagesUI._featureCounts(this) }
 
-  // The numbers (and a few name lists) inside GayZ Features descriptions,
-  // read from the constants the game itself uses. scripts/check-docs.mjs
-  // fails a commit that types a new number into that page instead of
-  // adding one here and wrapping it in <span data-feature-value="...">.
-  _featureValues() {
-    const joinAnd = (names) => names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`
-    const supported = LANGUAGES.filter((l) => SUPPORTED_LANGUAGE_CODES.has(l.code)).map((l) => l.name)
-    const coming = LANGUAGES.filter((l) => !SUPPORTED_LANGUAGE_CODES.has(l.code)).map((l) => l.name)
-    return {
-      goals: MAX_GOALS,
-      defenseWaves: DEFENSE_WAVES,
-      extractionWaves: EXTRACTION_WAVES,
-      extractionHold: EXTRACTION_HOLD,
-      bossEvery: BOSS_HUNT_EVERY,
-      upgrades: PLAY_META_UPGRADES.length,
-      prestigeBonus: PRESTIGE_BONUS_PERCENT,
-      prestigeStep: PRESTIGE_COST_STEP.toLocaleString('en-US'),
-      prestigeStep2: (PRESTIGE_COST_STEP * 2).toLocaleString('en-US'),
-      biomes: Object.keys(BIOMES).length,
-      skeletonWave: SKELETON_FROM_WAVE,
-      marketFee: Math.round(MARKET_FEE_RATE * 100),
-      chatMuteMinutes: ChatUI.CHAT_MUTE_MS / 60000,
-      loginDays: LOGIN_CALENDAR_DAYS,
-      languages: LANGUAGES.length,
-      languagesSupported: joinAnd(supported),
-      languagesComing: joinAnd(coming),
-    }
-  }
+  _featureValues() { return InfoPagesUI._featureValues(this) }
 
-  // Builds every [data-feature-list] from its catalog (hand-written
-  // data-extra items, which have no single thing in code, stay at the end),
-  // and the one-line summary above each list from the same names. An entry
-  // with no name or description is still shown, marked data-missing, so
-  // tests/docs.spec.js can name it.
-  _syncFeatureLists() {
-    const catalogs = this._featureCatalogs()
-    const pretty = (id) => id.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\b\w/g, (c) => c.toUpperCase())
-    this.featuresContent.querySelectorAll('[data-feature-list]').forEach((list) => {
-      const key = list.dataset.featureList
-      const catalog = catalogs[key]
-      if (!catalog) return
-      list.querySelectorAll('.detail-item[data-id]').forEach((el) => el.remove())
-      const firstExtra = list.querySelector('.detail-item[data-extra]')
-      for (const [id, { name, about }] of Object.entries(catalog)) {
-        const item = document.createElement('div')
-        item.className = 'detail-item'
-        item.dataset.id = id
-        if (!name || !about) item.dataset.missing = ''
-        const b = document.createElement('b')
-        b.textContent = name || pretty(id)
-        item.appendChild(b)
-        if (about) item.append(` — ${about}`)
-        list.insertBefore(item, firstExtra)
-      }
-      const line = this.featuresContent.querySelector(`[data-feature-list-line="${key}"]`)
-      if (line) {
-        line.textContent = Object.entries(catalog).map(([id, { name }]) => (name || pretty(id)).replace(/ \(boss\)$/, '')).join(', ')
-      }
-    })
-  }
+  _syncFeatureLists() { return InfoPagesUI._syncFeatureLists(this) }
 
-  // Also run on every open, so a rebound key (the grapple's) shows up.
-  _refreshFeatureValues() {
-    if (!this.featuresContent) return
-    const featureValues = this._featureValues()
-    this.featuresContent.querySelectorAll('[data-feature-value]').forEach((el) => {
-      const v = featureValues[el.dataset.featureValue]
-      // 0 means a lookup broke (nothing on that page is really zero) - keep the HTML's number.
-      if (v !== undefined && v !== null && v !== '' && v !== 0) el.textContent = String(v)
-    })
-  }
+  _refreshFeatureValues() { return InfoPagesUI._refreshFeatureValues(this) }
 
-  _bindFeaturesPanel() {
-    if (!this.featuresContent) return
-    const categories = this.featuresContent.querySelectorAll('section.category')
-
-    // TOC - one pill button per category, scrolling the internal
-    // #features-content scroll area (not the page - this panel is a
-    // fixed-size overlay, a plain <a href="#id"> anchor jump doesn't
-    // reliably target content inside one).
-    if (this.featuresToc) {
-      const tocLinks = []
-      categories.forEach((section) => {
-        const heading = section.querySelector('h2')
-        const link = document.createElement('button')
-        link.type = 'button'
-        link.className = 'features-toc-link'
-        link.textContent = heading.textContent
-        if (section.id === 'coming-soon') link.classList.add('coming-link')
-        // 'auto' (instant), not 'smooth' - every other tab/section switch
-        // in this game jumps instantly (Settings tabs, Clan tabs, etc.),
-        // and smooth scroll's animation depends on the compositor thread
-        // actually running each frame, which isn't guaranteed the moment
-        // right after a panel opens.
-        link.addEventListener('click', () => {
-          // Only the list scrolls - the search bar above it stays put.
-          const box = this.featuresLayout || this.featuresContent
-          box.scrollTop += section.getBoundingClientRect().top - box.getBoundingClientRect().top
-          // Immediate feedback rather than waiting on the observer below,
-          // which only re-fires after the (instant, but still async)
-          // scroll actually settles a frame later.
-          tocLinks.forEach((l) => l.classList.toggle('active', l === link))
-        })
-        this.featuresToc.appendChild(link)
-        tocLinks.push(link)
-      })
-
-      // Highlight whichever section is currently in view as you scroll,
-      // same "you're here" behavior as a normal page table-of-contents -
-      // previously only :hover lit a link up, so the active section had
-      // no visual indicator once you scrolled past the first one.
-      if (tocLinks.length && 'IntersectionObserver' in window) {
-        if (this._featuresTocObserver) this._featuresTocObserver.disconnect()
-        const visibleRatios = new Map()
-        this._featuresTocObserver = new IntersectionObserver(
-          (entries) => {
-            entries.forEach((entry) => {
-              visibleRatios.set(entry.target, entry.isIntersecting ? entry.intersectionRatio : 0)
-            })
-            let bestSection = null
-            let bestRatio = 0
-            categories.forEach((section) => {
-              const ratio = visibleRatios.get(section) || 0
-              if (ratio > bestRatio) { bestRatio = ratio; bestSection = section }
-            })
-            if (bestSection) {
-              const idx = [...categories].indexOf(bestSection)
-              tocLinks.forEach((l, i) => l.classList.toggle('active', i === idx))
-            }
-          },
-          { root: this.featuresLayout || this.featuresContent, threshold: [0, 0.1, 0.25, 0.5, 0.75, 1] }
-        )
-        categories.forEach((section) => this._featuresTocObserver.observe(section))
-        tocLinks[0].classList.add('active')
-      }
-    }
-
-    // Expandable cards (weapons, mutators, zombie types, etc.) - click the
-    // heading to reveal a per-item breakdown.
-    this.featuresContent.querySelectorAll('.feature.expandable > h3').forEach((h3) => {
-      h3.addEventListener('click', () => h3.closest('.feature').classList.toggle('open'))
-    })
-
-    // The expandable lists, their one-line summaries, the counts in the
-    // headings and the numbers inside descriptions all come from the game's
-    // own data, so they can't go stale the way hand-typed ones did ("15
-    // firearms", "30 zombie types", "4 bosses" naming only 3 - all wrong by
-    // 2026-10-04). The HTML keeps the descriptions and a fallback.
-    this._syncFeatureLists()
-    const featureCounts = this._featureCounts()
-    this.featuresContent.querySelectorAll('[data-feature-count]').forEach((el) => {
-      const n = featureCounts[el.dataset.featureCount]
-      if (Number.isFinite(n) && n > 0) el.textContent = String(n)
-    })
-    this._refreshFeatureValues()
-
-    if (this.featuresStatLive && this.featuresStatSoon) {
-      this.featuresStatLive.textContent = this.featuresContent.querySelectorAll('section.category:not(#coming-soon) .feature').length
-      this.featuresStatSoon.textContent = this.featuresContent.querySelectorAll('#coming-soon .feature').length
-    }
-
-    if (this.featuresSearch && this.featuresSearchCount) {
-      const allFeatures = this.featuresContent.querySelectorAll('.feature')
-      this.featuresSearch.addEventListener('input', () => {
-        const q = this.featuresSearch.value.trim().toLowerCase()
-        if (!q) {
-          allFeatures.forEach((f) => f.classList.remove('hidden-search'))
-          categories.forEach((c) => c.classList.remove('hidden-search'))
-          this.featuresSearchCount.style.display = 'none'
-          return
-        }
-        let matches = 0
-        categories.forEach((section) => {
-          let sectionHasMatch = false
-          section.querySelectorAll('.feature').forEach((f) => {
-            const hit = f.textContent.toLowerCase().includes(q)
-            f.classList.toggle('hidden-search', !hit)
-            if (hit) { sectionHasMatch = true; matches++ }
-          })
-          section.classList.toggle('hidden-search', !sectionHasMatch)
-        })
-        this.featuresSearchCount.style.display = 'block'
-        this.featuresSearchCount.textContent = `${matches} feature${matches === 1 ? '' : 's'} found`
-      })
-    }
-
-  }
+  _bindFeaturesPanel() { return InfoPagesUI._bindFeaturesPanel(this) }
 
   // Shop - was just a Crates placeholder (see this file's git history for
   // that and the even older Weapon Attachments UI before it), then a
@@ -5935,32 +4891,9 @@ export class Game {
 
   _closeShopPanel() { return InventoryUI._closeShopPanel(this) }
 
-  // What's New panel - split out from Credits (used to be one combined
-  // panel/nav entry point for both) so the changelog/build info content
-  // has its own dedicated place, distinct from the static dev-credits
-  // prose.
-  _openWhatsNewPanel() {
-    if (!this.whatsNewPanel) return
-    this._closeAllMenuPanels()
-    this.whatsNewPanel.style.display = 'flex'
-    if (this.whatsNewPanelTitle) this.whatsNewPanelTitle.textContent = t('whatsNewPanelTitle')
-    if (this.buildVersionLine) this.buildVersionLine.textContent = t('buildVersionLine')
-    // What's New badge dot - clears the moment the player actually reads
-    // this panel, not just on page load, so it stays a genuine "have you
-    // seen this" indicator rather than a permanent decoration.
-    try { localStorage.setItem(WHATS_NEW_SEEN_KEY, WHATS_NEW_VERSION) } catch { /* storage unavailable */ }
-    // Separate from WHATS_NEW_SEEN_KEY above (that's a single version
-    // string gating the nav-button dot) - this is an actual timestamp, so
-    // the homepage ticker's "X updates since your last visit" mode (see
-    // _updateMenuSpotlight) can diff real changelog entry dates against
-    // it, not just know "has the dot been cleared."
-    try { localStorage.setItem(CHANGELOG_LAST_VIEWED_KEY, String(Date.now())) } catch { /* storage unavailable */ }
-    this._updateWhatsNewDot()
-  }
+  _openWhatsNewPanel() { return InfoPagesUI._openWhatsNewPanel(this) }
 
-  _closeWhatsNewPanel() {
-    if (this.whatsNewPanel) this.whatsNewPanel.style.display = 'none'
-  }
+  _closeWhatsNewPanel() { return InfoPagesUI._closeWhatsNewPanel(this) }
 
   // Used to show only during an old Map 1 run (the old city kept running
   // behind the menu); with that gone it's the same as a homepage toast -
@@ -5987,232 +4920,11 @@ export class Game {
     this.loreToast.classList.add('show')
   }
 
-  // Shared by _onPlayerDeath and the survive-to-dawn/extraction win path -
-  // both are "a run just ended" moments that should update every persistent
-  // record (bestStats, career totals, Veteran Perks) the same way. `survived`
-  // distinguishes the two for Run History's result column (see below).
-  _recordRunEnd(survived) {
-    // Guest Mode (Local Sharing batch) - this entire method is exactly
-    // "update a persistent/lifetime record" (bestStats, careerStats,
-    // runHistory, milestones, companionLegacy, the local leaderboard), so
-    // skipping it wholesale is the correct behavior, not a shortcut - a
-    // guest run genuinely shouldn't move any of these numbers.
-    if (this.settings.guestMode) return
-    // Guest Mode already gates the whole method above (same "guest runs
-    // don't move persistent records" reasoning applies here too, since
-    // claiming a rolling quest grants real coins).
-    this.rollingQuests.recordRunComplete()
+  _recordRunEnd(survived) { return ProgressUI._recordRunEnd(this, survived) }
 
-    // Gems - earned per completed run from two independent sources, added
-    // together: 1 gem per 5 nights survived (5=1, 10=2, 15=3...) and 1 gem
-    // per 50 kills (50=1, 100=2, 150=3...). No shop use for them yet
-    // (display-only for now, per direct request), same "build the earn
-    // side now, spend side later" precedent as the empty Settings >
-    // General tab. Dying before reaching either threshold naturally earns
-    // 0 from that source (Math.floor of a value under the first tier is
-    // 0) - no separate zero-case needed. Saved explicitly here rather
-    // than relying on a later _updateStatsPanel() piggyback call, since
-    // this runs strictly before that in both the death and survive-to-
-    // dawn call sites.
-    const nightsGems = Math.floor(this.night / 5)
-    const killsGems = Math.floor(this.kills / 50)
-    const gemsEarned = nightsGems + killsGems
-    if (gemsEarned > 0) {
-      this.gems += gemsEarned
-      saveShopProgress(this)
-    }
-    let improved = false
-    if (this.night > this.bestStats.bestNight) {
-      this.bestStats.bestNight = this.night
-      improved = true
-      // Best-Run Pace Comparison baseline (see _checkBestRunPace) - only
-      // ever overwritten on an actual new record, so the projection always
-      // reflects the single best-ever run, not just the most recent one.
-      this.bestRunPace = { night: this.night, elapsedMs: performance.now() - this.runStartedAt }
-      saveBestRunPace(this.bestRunPace)
-    }
-    if (this.kills > this.bestStats.bestKills) { this.bestStats.bestKills = this.kills; improved = true }
-    if (this.peakKillStreakThisRun > this.bestStats.bestKillStreak) {
-      this.bestStats.bestKillStreak = this.peakKillStreakThisRun
-      this.bestStats.bestKillStreakDate = todayDateString()
-      improved = true
-    }
-    if (improved) {
-      saveBestStats(this.bestStats)
-      // Confetti burst - armed here, actually fired the next time
-      // _updateBestStatsDisplay runs with gameStarted false (i.e. once
-      // the menu is genuinely showing again, not this same synchronous
-      // call which still fires mid-run right as the record is set).
-      this._pendingConfetti = true
-      this._updateBestStatsDisplay()
-    }
-    this._recordLeaderboardEntry()
+  _bindSkinUpload() { return ProfileUI._bindSkinUpload(this) }
 
-    this._sessionKills += this.kills
-    this.careerStats.totalKills += this.kills
-    this.careerStats.totalRuns += 1
-    if (!this.careerStats.firstPlayedDate) this.careerStats.firstPlayedDate = todayDateString()
-    // Most-used mutator (Profile panel) - one increment per active mutator
-    // per completed run, same settings.mutators flags the Coin Shop/Play
-    // button already read, no separate tracking.
-    for (const [id, active] of Object.entries(this.settings.mutators)) {
-      if (active) this.careerStats.mutatorUseCounts[id] = (this.careerStats.mutatorUseCounts[id] || 0) + 1
-    }
-    for (const perk of VETERAN_PERKS) {
-      if (this.careerStats.totalKills >= perk.killThreshold && !this.careerStats.veteranPerksGranted.includes(perk.id)) {
-        this.careerStats.veteranPerksGranted.push(perk.id)
-        this._showLoreToast(t('veteranPerkToast', { rank: t(careerRankTitleKey(this.careerStats.totalKills)) }))
-      }
-    }
-
-    // Run History Log - one capped entry per completed run (see
-    // RUN_HISTORY_KEY's own comment). difficulty/loadout/companionRole
-    // captured alongside (Homepage batch) so a "Play Again" action can
-    // restore the exact setup this run used, not just show its stats.
-    this.runHistory.unshift({
-      night: this.night, kills: this.kills, coins: Math.max(0, this.coins - this._runStartCoins), survived: !!survived,
-      prestige: this.metaProgress.prestigeLevel, ts: Date.now(),
-      difficulty: this.settings.difficulty, loadout: this.settings.loadout,
-    })
-    this.runHistory = this.runHistory.slice(0, RUN_HISTORY_MAX)
-    saveRunHistory(this.runHistory)
-
-    // Homepage batch - lifetime deaths (K/D ratio) and per-difficulty
-    // run/death tallies (Recommended Difficulty hint). Deaths is every
-    // non-survived run; DIFFICULTY_PRESETS keys are the same ids
-    // settings.difficulty already uses everywhere else.
-    if (!survived) this.careerStats.totalDeaths += 1
-    const diffId = this.settings.difficulty
-    if (!this.careerStats.difficultyStats[diffId]) this.careerStats.difficultyStats[diffId] = { runs: 0, deaths: 0 }
-    this.careerStats.difficultyStats[diffId].runs += 1
-    if (!survived) this.careerStats.difficultyStats[diffId].deaths += 1
-
-    // Lifetime Playtime/Distance/Coins-Earned/Flawless-Runs (Long-Term Goals
-    // batch) - each a new cumulative axis on careerStats, checked against
-    // its own milestone ladder the same way Veteran Perks checks kills above.
-    this.careerStats.lifetimePlaytimeSeconds += (performance.now() - this.runStartedAt) / 1000
-    this.careerStats.lifetimeCoinsEarned += Math.max(0, this.coins - this._runStartCoins)
-    // Most Profitable Run (Profile panel) - a single-run coin delta, same
-    // Math.max(0, ...) clamp lifetimeCoinsEarned above already uses (a
-    // run that ended with fewer coins than it started, e.g. after a big
-    // Coin Shop purchase mid-run, shouldn't count as negative profit).
-    this.careerStats.mostProfitableRun = Math.max(this.careerStats.mostProfitableRun, Math.max(0, this.coins - this._runStartCoins))
-
-    for (const m of PLAYTIME_MILESTONES) {
-      if (this.careerStats.lifetimePlaytimeSeconds >= m.seconds && !this.careerStats.playtimeMilestonesGranted.includes(m.id)) {
-        this.careerStats.playtimeMilestonesGranted.push(m.id)
-        this.coins += m.rewardCoins
-        this._showLoreToast(t('playtimeMilestoneToast', { hours: Math.round(m.seconds / 3600), coins: m.rewardCoins }))
-      }
-    }
-    saveCareerStats(this.careerStats)
-
-    // Cloud Save auto-sync - best-effort, only if already signed in (never
-    // prompts here; a mid-game consent popup would be jarring). See
-    // pushToCloud's own comment on why manual=false swallows errors.
-    CloudSaveUI.pushToCloud(this, false)
-    this._pushOnlineStats()
-  }
-
-  // Real Minecraft skin upload (see MenuAvatar3D.js's UV-mapping support)
-  // - Upload Skin reads a PNG straight from the player's computer, Reset
-  // goes back to the default flat-color character. Both buttons live in
-  // the Profile panel, next to the character.
-  _bindSkinUpload() {
-    const uploadBtn = document.getElementById('upload-skin-btn')
-    const input = document.getElementById('upload-skin-input')
-    const resetBtn = document.getElementById('reset-skin-btn')
-    if (!uploadBtn || !input || !resetBtn) return
-    if (this.settings.customSkinDataUrl) resetBtn.style.display = ''
-
-    uploadBtn.addEventListener('click', () => input.click())
-
-    input.addEventListener('change', async () => {
-      const file = input.files && input.files[0]
-      input.value = '' // lets the same filename be re-selected later
-      if (!file) return
-      let skin
-      try {
-        skin = await loadSkinTexture(file)
-      } catch {
-        this._showHomepageToast(t('skinUploadFailedToast'))
-        return
-      }
-      // Every real Minecraft skin is 64px wide, 64px (modern) or 32px
-      // (legacy) tall - anything else almost certainly isn't a skin file
-      // and would just paint garbage across the character's faces.
-      if (skin.width !== 64 || (skin.height !== 64 && skin.height !== 32) || ![1, 2, 4, 8, 16].includes(skin.scale)) {
-        this._showHomepageToast(t('skinUploadWrongSizeToast'))
-        return
-      }
-      let dataUrl
-      try {
-        const buf = await file.arrayBuffer()
-        const bytes = new Uint8Array(buf)
-        let binary = ''
-        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-        dataUrl = `data:image/png;base64,${btoa(binary)}`
-      } catch {
-        this._showHomepageToast(t('skinUploadFailedToast'))
-        return
-      }
-      this.settings.customSkinDataUrl = dataUrl
-      saveSettings(this.settings)
-      if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
-      this._updateMenuAvatarPhoto(skin)
-      resetBtn.style.display = ''
-      this._showHomepageToast(t('skinUploadSuccessToast'))
-    })
-
-    resetBtn.addEventListener('click', async () => {
-      this.settings.customSkinDataUrl = null
-      saveSettings(this.settings)
-      if (this._menuAvatar3D) this._menuAvatar3D.setSkin(null)
-      resetBtn.style.display = 'none'
-      this._showHomepageToast(t('skinResetToast'))
-      // Corner photo badge has no flat-color fallback of its own (unlike
-      // the 3D avatar) - re-derive it from the bundled default skin rather
-      // than leaving the just-removed custom photo up on screen.
-      await this._applyDefaultBundledSkin()
-    })
-  }
-
-  // Crops the classic 8x8 "face" square (see MenuAvatar3D.js's
-  // _partFaceRects - always at pixel (8,8) in every skin regardless of
-  // legacy/modern format, since the overlay-compositing loop in
-  // loadSkinTexture() pastes onto that same base position) out of an
-  // already-loaded skin texture and puts it on the corner profile badge.
-  // texture.image is a plain 2D <canvas> (see loadSkinTexture), so this is
-  // a synchronous 2D crop - no extra render pass needed.
-  _updateMenuAvatarPhoto(skin) {
-    if (!this.menuAvatarPhoto) return
-    const face = document.createElement('canvas')
-    face.width = 64
-    face.height = 64
-    const fctx = face.getContext('2d')
-    fctx.imageSmoothingEnabled = false
-    const k = skin.scale || 1
-    fctx.drawImage(skin.texture.image, 8 * k, 8 * k, 8 * k, 8 * k, 0, 0, 64, 64)
-    // Hat layer on top of the face - loadSkinTexture no longer flattens the
-    // overlay onto the base, so the badge composites it itself (only when
-    // the 3D character actually shows a hat, see overlayParts).
-    if (skin.overlayParts && skin.overlayParts.has('head')) fctx.drawImage(skin.texture.image, 40 * k, 8 * k, 8 * k, 8 * k, 0, 0, 64, 64)
-    const dataUrl = face.toDataURL('image/png')
-    this.menuAvatarPhoto.src = dataUrl
-    this.menuAvatarPhoto.classList.remove('loading')
-    // Cached separately from settings.customSkinDataUrl (the full 64x64
-    // skin file) - this is just the small pre-cropped face, read by
-    // index.html's own inline anti-flash script on the very next load so
-    // the corner badge never has to show the anonymous placeholder again.
-    try {
-      localStorage.setItem('gayz-avatar-face-cache', dataUrl)
-    } catch {
-      // Deliberately swallowed: this is just a nice-to-have pre-crop cache
-      // (see comment above) - private browsing / storage-full / quota
-      // errors here shouldn't block setting the avatar photo itself.
-    }
-    this.menuAvatarPhoto.style.display = ''
-  }
+  _updateMenuAvatarPhoto(skin) { return ProfileUI._updateMenuAvatarPhoto(this, skin) }
 
   // Restores a previously-uploaded skin on page load - async (image
   // decode), so the avatar briefly shows the default character first,
@@ -6256,152 +4968,7 @@ export class Game {
     this._updateMenuAvatarPhoto(skin)
   }
 
-  // Local Profile screen - read-only aggregation of stats already
-  // persisted elsewhere (careerStats/bestStats/achievements/prestige/
-  // nemesis), no new tracking of its own besides the Nemesis record.
-  async _openProfilePanel() {
-    this._closeAllMenuPanels()
-    this.profilePanel.style.display = 'flex'
-    this.profilePanelTitle.textContent = t('profilePanelTitle')
-    // Waits for the first real auth check (see _authReadyPromise's own
-    // comment) before deciding signed-in vs signed-out - without this, a
-    // player who opens Profile quickly after the page loads could see the
-    // signed-out gate for a moment even though they're already signed in,
-    // and clicking Login there would trigger a real (unnecessary) second
-    // Google sign-in popup. Resolves instantly once the very first check
-    // of the session has already happened, so this only ever adds a real
-    // wait during that initial window.
-    await this._authReadyPromise
-    // Signed-out players get the Sign Up or Login card instead of the
-    // profile - everything below this branch (stats, bio, highlights, the
-    // 3D avatar, etc.) is real profile content that a guest doesn't see.
-    if (!this._cloudUid) {
-      if (this.profileContent) this.profileContent.style.display = 'none'
-      if (this.profileLoginGate) this.profileLoginGate.style.display = 'flex'
-      this._showAuthView('choose')
-      return
-    }
-    if (this.profileContent) this.profileContent.style.display = ''
-    if (this.profileLoginGate) this.profileLoginGate.style.display = 'none'
-    this._renderPublicProfileSection()
-    this._drawStatsDashboard()
-
-    // _safeStatNumber on every plain-numeric field, _escapeHtml on the 2
-    // computed-string ones (nemesis label, favorite weapon's unmatched-id
-    // fallback) - every field in this grid ultimately traces back to
-    // localStorage, all of which Import Save (Local Sharing batch) lets an
-    // uploaded file overwrite wholesale, so none of it can be trusted to
-    // already be the right type by the time it reaches this render.
-    // Each row now carries a stable id (the i18n key itself, language-
-    // independent) as its first element - Pin a Stat (see
-    // _renderPinnedStatSelect) needs something durable to store in
-    // settings.pinnedStat, and a translated label isn't stable across a
-    // language switch.
-    let rows = [
-      ['profileTotalRuns', t('profileTotalRuns'), _safeStatNumber(this.careerStats.totalRuns)],
-      ['profileTotalKills', t('profileTotalKills'), _safeStatNumber(this.careerStats.totalKills)],
-      ['profileBestNight', t('profileBestNight'), _safeStatNumber(this.bestStats.bestNight)],
-      ['profileBestKills', t('profileBestKills'), _safeStatNumber(this.bestStats.bestKills)],
-      ['profileBestKillStreak', t('profileBestKillStreak'), _safeStatNumber(this.bestStats.bestKillStreak)],
-      ['profileAchievements', t('profileAchievements'), `${this.achievements.unlocked.size}/${ACHIEVEMENTS.length}`],
-      // Same tier color as the homepage's #menu-prestige-badge (see
-      // _updatePrestigeBadge) - prestige only ever showed its color in that
-      // one homepage spot before; this carries the same visual identity
-      // into the Profile panel instead of a plain number.
-      ['profilePrestige', t('profilePrestige'), this.metaProgress.prestigeLevel > 0
-        ? `<span class="prestige-tier-${this.metaProgress.prestigeLevel >= 6 ? 3 : this.metaProgress.prestigeLevel >= 3 ? 2 : 1}">${_safeStatNumber(this.metaProgress.prestigeLevel)}</span>`
-        : _safeStatNumber(this.metaProgress.prestigeLevel)],
-      ['profileNetWorth', t('profileNetWorth'), _safeStatNumber(this.coins) + _safeStatNumber(this.metaProgress.legacyPoints)],
-      ['profileTotalSpent', t('profileTotalSpent'), _safeStatNumber(this.totalSpent)],
-      ['profilePlaytime', t('profilePlaytime'), `${Math.floor(_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / 3600)}h`],
-      ['profileWinRate', t('profileWinRate'), this.runHistory.length > 0 ? `${Math.round((this.runHistory.filter((r) => r.survived).length / this.runHistory.length) * 100)}%` : '—'],
-      // 100-features batch - 4 more pure-derived rows, same "zero new
-      // tracking" reasoning as completionPct/Career Almanac above.
-      ['profileKillsPerMin', t('profileKillsPerMin'), _safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) > 0
-        ? (_safeStatNumber(this.careerStats.totalKills) / (_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / 60)).toFixed(1)
-        : '—'],
-      ['profileCoinsRatio', t('profileCoinsRatio'), `${_safeStatNumber(this.careerStats.lifetimeCoinsEarned).toLocaleString()} / ${_safeStatNumber(this.totalSpent).toLocaleString()}`],
-      // More-features batch - 5 more pure-derived rows (Personal Stats),
-      // same "zero new tracking beyond what _recordRunEnd/_recordNemesis
-      // already aggregate" reasoning as every row above.
-      ['profileLongestSession', t('profileLongestSession'), _formatDurationShort(_safeStatNumber(this.careerStats.longestSessionSeconds))],
-      ['profileAvgRunLength', t('profileAvgRunLength'), _safeStatNumber(this.careerStats.totalRuns) > 0
-        ? _formatDurationShort(Math.round(_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / this.careerStats.totalRuns))
-        : '—'],
-      ['profileMostUsedMutator', t('profileMostUsedMutator'), _escapeHtml(this._mostUsedMutatorLabel())],
-      ['profileCoinsToday', t('profileCoinsToday'), `${_safeStatNumber(this._coinsToday()).toLocaleString()} (${t('profileCoinsWeeklyAvg', { n: _safeStatNumber(this._coinsWeeklyAvg()).toLocaleString() })})`],
-      // Reuses loginStreak.previousDate (see _checkLoginStreak) - the
-      // calendar date of the visit before this one, not today's own date
-      // (which lastDate always reflects by the time this panel can open).
-      ['profileLastPlayed', t('profileLastPlayed'), this.loginStreak.previousDate || t('profileLastPlayedFirstVisit')],
-      ['profileBestStreakDate', t('profileBestStreakDate'), this.bestStats.bestKillStreakDate || '—'],
-      ['profileMostProfitableRun', t('profileMostProfitableRun'), _safeStatNumber(this.careerStats.mostProfitableRun).toLocaleString()],
-      ['profileFavoriteDayOfWeek', t('profileFavoriteDayOfWeek'), this._favoriteDayOfWeekLabel()],
-      ['profilePlayClicks', t('profilePlayClicks'), _safeStatNumber(this.careerStats.playButtonClicks).toLocaleString()],
-    ]
-    this._renderPinnedStatSelect(rows)
-    // Pinned stat (if any) is pulled out and rendered first, same "always
-    // the very first thing in the panel" position it already had before
-    // grouping existed - it stays a single ungrouped row up top rather
-    // than getting its own heading or appearing a second time inside its
-    // normal category below.
-    let pinnedRow = null
-    if (this.settings.pinnedStat) {
-      const pinnedIndex = rows.findIndex((r) => r[0] === this.settings.pinnedStat)
-      if (pinnedIndex >= 0) {
-        pinnedRow = rows[pinnedIndex]
-        rows = [...rows.slice(0, pinnedIndex), ...rows.slice(pinnedIndex + 1)]
-      }
-    }
-    const rowButton = ([, label, value]) => `
-      <button class="perk-option" disabled>
-        <span class="perk-name">${label}</span>
-        <span class="perk-cost">${value}</span>
-      </button>
-    `
-    const grouped = PROFILE_GROUP_ORDER.map(([groupId, labelKey]) => [
-      labelKey,
-      rows.filter((r) => (PROFILE_STAT_GROUPS[r[0]] || 'socialMeta') === groupId),
-    ]).filter(([, groupRows]) => groupRows.length > 0)
-    // Each category renders as its own card (see .profile-stat-card in
-    // style.css) instead of a bare heading over a flat row list - the
-    // previous version packed ~40 rows into one dense 5-column grid with
-    // near-zero row spacing specifically to avoid extra scroll height, but
-    // read as cramped (this panel already scrolls, so that tradeoff no
-    // longer needs to be so extreme).
-    this.profileOptions.innerHTML =
-      (pinnedRow ? rowButton(pinnedRow) : '') +
-      grouped.map(([labelKey, groupRows]) => `
-        <div class="profile-stat-card">
-          <h3 class="settings-section-heading">${t(labelKey)}</h3>
-          ${groupRows.map(rowButton).join('')}
-        </div>
-      `).join('')
-    this._animateStatCountUp()
-
-    // Career Portrait - gated the same as Prestige (see _renderUpgradesOptions),
-    // "beaten the game" being the bar for a capstone memento worth keeping.
-    if (this.profileCareerPortraitBtn) {
-      this.profileCareerPortraitBtn.style.display = this.achievements.unlocked.has(ENDGAME_ACHIEVEMENT) ? 'block' : 'none'
-      this.profileCareerPortraitBtn.textContent = t('profileCareerPortraitBtn')
-    }
-
-    this._renderProfileBio()
-    this._renderProfileAccountRow()
-    this._updateBestStatsDisplay()
-    this._renderNearlyThereNudge()
-    this._renderAnniversaryLine()
-    this._renderProfileCreated()
-    this._renderTodayLine()
-    this._renderFavoriteDifficultyLine()
-    this._renderBestRunCard()
-    this._renderRankRoadmap()
-    this._renderGoalsPicker()
-    this._renderGoalsChecklist()
-    this._renderHighlightReel()
-    this._renderRecentUnlocksStrip()
-    this._renderPrestigeHistory()
-  }
+  _openProfilePanel() { return ProfileUI._openProfilePanel(this) }
 
   // Recently Unlocked strip (Profile panel) - a persistent list, not just
   // the ticker's single rotating line (mode 15 in _updateMenuSpotlight,
@@ -6416,26 +4983,7 @@ export class Game {
       : `<p class="nearly-there-line">${t('recentUnlocksEmpty')}</p>`
   }
 
-  // Prestige History Log (Profile panel) - forward-only, see
-  // metaProgress.prestigeHistory's own comment. Hidden entirely (not just
-  // empty) for players who have never prestiged, same show/hide pattern
-  // Weekly Recap's own title/line pair already uses.
-  _renderPrestigeHistory() {
-    if (!this.prestigeHistoryList) return
-    if (!this.metaProgress.prestigeHistory.length) {
-      if (this.prestigeHistoryHeading) this.prestigeHistoryHeading.style.display = 'none'
-      this.prestigeHistoryList.style.display = 'none'
-      return
-    }
-    if (this.prestigeHistoryHeading) {
-      this.prestigeHistoryHeading.style.display = ''
-      this.prestigeHistoryHeading.textContent = t('prestigeHistoryHeading')
-    }
-    this.prestigeHistoryList.style.display = ''
-    this.prestigeHistoryList.innerHTML = [...this.metaProgress.prestigeHistory].reverse().map((entry) => `
-      <p class="nearly-there-line">${_escapeHtml(t('prestigeHistoryLine', { level: entry.level, date: new Date(entry.ts).toLocaleDateString() }))}</p>
-    `).join('')
-  }
+  _renderPrestigeHistory() { return ProgressUI._renderPrestigeHistory(this) }
 
   // Highlight Reel - auto-picks the 3 most impressive numbers from a
   // curated candidate list, ranked by value/benchmark ratio (not just
@@ -6535,56 +5083,11 @@ export class Game {
     if (this.rankRoadmapList) this.rankRoadmapList.innerHTML = html
   }
 
-  // Public Profile section (see _openProfilePanel) - mirrors exactly what
-  // CloudSync.pushLeaderboardEntry actually writes to the public-read
-  // leaderboard/{uid} doc (name, bestNight, bestKills, bestKillStreak,
-  // achievementCount, playerId, optional region/clanId), the same fields
-  // _openOtherPlayerProfile shows a friend who looks this account up by
-  // #ID. Deliberately reads this.bestStats/this.settings directly rather
-  // than re-deriving anything, so it can never drift from what actually
-  // gets pushed - if _pushOnlineStats' own entry object ever changes,
-  // update this alongside it.
-  _renderPublicProfileSection() {
-    if (!this.profilePublicNameValue) return
-    const name = this.settings.anonymousLeaderboard ? t('anonymousLeaderboardName') : (this.settings.nickname || t('menuPlayerTagDefault'))
-    this.profilePublicNameValue.textContent = name
-    this.profilePublicIdValue.textContent = this.settings.playerId ? `#${this.settings.playerId}` : '--'
-    this.profilePublicBestnightValue.textContent = _safeStatNumber(this.bestStats.bestNight)
-    this.profilePublicBestkillsValue.textContent = _safeStatNumber(this.bestStats.bestKills)
-    this.profilePublicBeststreakValue.textContent = _safeStatNumber(this.bestStats.bestKillStreak)
-    this.profilePublicAchievementsValue.textContent = this.achievements.unlocked.size
-    // Same enum keys the region <select> already uses (see its own
-    // auto-mapping table entry) - no new i18n keys needed.
-    const REGION_LABEL_KEYS = { na: 'optRegionNa', eu: 'optRegionEu', asia: 'optRegionAsia', sa: 'optRegionSa', oceania: 'optRegionOceania', africa: 'optRegionAfrica' }
-    const regionKey = REGION_LABEL_KEYS[this.settings.region]
-    if (this.profilePublicRegionRow) this.profilePublicRegionRow.style.display = regionKey ? 'flex' : 'none'
-    if (regionKey && this.profilePublicRegionValue) this.profilePublicRegionValue.textContent = t(regionKey)
-    if (this.profilePublicClanRow) this.profilePublicClanRow.style.display = this.settings.clanTag ? 'flex' : 'none'
-    if (this.settings.clanTag && this.profilePublicClanValue) this.profilePublicClanValue.textContent = this.settings.clanTag
-  }
+  _renderPublicProfileSection() { return ProfileUI._renderPublicProfileSection(this) }
 
-  // Profile bio - free text, capped at 250 chars (enforced both by the
-  // textarea's own maxlength and here, since a paste can exceed maxlength).
-  _renderProfileBio() {
-    if (!this.profileBioInput) return
-    if (this.profileBioHeading) this.profileBioHeading.textContent = t('profileBioHeading')
-    this.profileBioInput.placeholder = t('profileBioPlaceholder')
-    this.profileBioInput.value = this.settings.bio || ''
-    this._renderProfileBioCounter()
-    if (this.profileNotesInput) {
-      const heading = document.getElementById('profile-notes-heading')
-      if (heading) heading.textContent = t('profileNotesHeading')
-      this.profileNotesInput.placeholder = t('profileNotesPlaceholder')
-      this.profileNotesInput.value = this.settings.privateNotes || ''
-    }
-  }
+  _renderProfileBio() { return ProfileUI._renderProfileBio(this) }
 
-  _renderProfileBioCounter() {
-    if (!this.profileBioCounter) return
-    // No "/250" cap shown anymore (2026-09-23, "no limit, write as much
-    // as you want") - just the running character count.
-    this.profileBioCounter.textContent = `${(this.settings.bio || '').length}`
-  }
+  _renderProfileBioCounter() { return ProfileUI._renderProfileBioCounter(this) }
 
   // "Today" session stats - _sessionKills/_sessionStartTime are
   // session-local only (see constructor), never persisted, distinct from
@@ -6683,19 +5186,7 @@ export class Game {
     }).join('')
   }
 
-  // Profile panel account row - Login/Register when signed out, Sign Out
-  // when signed in. Reuses CloudSync/_handleCloudSignIn/_handleCloudSignOut
-  // wholesale (see their own comments) rather than a second auth path -
-  // this is just a second place to trigger the exact same sign-in/out flow
-  // the Cloud Save panel already has, not a parallel system.
-  _renderProfileAccountRow() {
-    const signedIn = !!this._cloudUid
-    if (this.profileAccountSignedOut) this.profileAccountSignedOut.style.display = signedIn ? 'none' : 'flex'
-    if (this.profileAccountSignedIn) this.profileAccountSignedIn.style.display = signedIn ? 'flex' : 'none'
-    if (this.profileLoginBtn) this.profileLoginBtn.textContent = t('profileLoginBtn')
-    if (this.profileRegisterBtn) this.profileRegisterBtn.textContent = t('profileRegisterBtn')
-    if (this.profileSignoutBtn) this.profileSignoutBtn.textContent = t('profileSignoutBtn')
-  }
+  _renderProfileAccountRow() { return ProfileUI._renderProfileAccountRow(this) }
 
   // "X days since your first run" - careerStats.firstPlayedDate is set
   // once, on the very first completed run (see _recordRunEnd), never
@@ -6712,87 +5203,11 @@ export class Game {
     this.profileAnniversaryLine.style.display = ''
   }
 
-  // "Created" - replaces the old Login Streak calendar. Ticks live every
-  // second while the panel is open (see _closeProfilePanel's matching
-  // clearInterval). While signed in, uses Google's own account-creation
-  // timestamp (CloudSync's accountCreatedAt on _cloudProfile) - a real
-  // value from Google that's the same on every device and can't drift.
-  // Signed out (or never signed in), falls back to
-  // careerStats.accountCreatedAt - a real millisecond timestamp set once,
-  // the very first time the game ever constructed on THIS device (see the
-  // constructor, right after loadCareerStats()) - not firstPlayedDate
-  // above, which only covers players who've finished at least one run and
-  // has no time-of-day precision. Using the local one while signed in
-  // used to be the only option, and looked like it "reset" whenever
-  // cloud sync round-tripped through a different device/cleared storage.
-  _renderProfileCreated() {
-    if (!this.profileCreatedLine) return
-    if (this.profileCreatedTitle) this.profileCreatedTitle.textContent = t('profileCreatedTitle')
-    if (this._profileCreatedTickInterval) clearInterval(this._profileCreatedTickInterval)
-    const tick = () => {
-      const source = (this._cloudProfile && this._cloudProfile.accountCreatedAt) || this.careerStats.accountCreatedAt
-      const elapsedMs = Math.max(0, Date.now() - _safeStatNumber(source))
-      const totalSeconds = Math.floor(elapsedMs / 1000)
-      const days = Math.floor(totalSeconds / 86400)
-      const hours = Math.floor((totalSeconds % 86400) / 3600)
-      const minutes = Math.floor((totalSeconds % 3600) / 60)
-      const seconds = totalSeconds % 60
-      this.profileCreatedLine.textContent = t('profileCreatedLine', { days, hours, minutes, seconds })
-    }
-    tick()
-    this._profileCreatedTickInterval = setInterval(tick, 1000)
-  }
+  _renderProfileCreated() { return ProfileUI._renderProfileCreated(this) }
 
-  _closeProfilePanel() {
-    this.profilePanel.style.display = 'none'
-    if (this._profileCreatedTickInterval) {
-      clearInterval(this._profileCreatedTickInterval)
-      this._profileCreatedTickInterval = null
-    }
-    // Bio/Motto (now part of Shown to Public, see _pushOnlineStats) can be
-    // edited without ever finishing a run - _pushOnlineStats otherwise only
-    // fires on run-end (_recordRunEnd), which would leave a same-session
-    // bio/motto edit stuck showing the old value to other players until
-    // the player's next completed run. Firing it here too (closing the
-    // panel is the natural "done editing" moment) covers that gap without
-    // pushing on every keystroke.
-    this._pushOnlineStats()
-  }
+  _closeProfilePanel() { return ProfileUI._closeProfilePanel(this) }
 
-  // Career Portrait (Long-Term Goals batch, gated behind ENDGAME_ACHIEVEMENT - see
-  // _openProfilePanel) - draws straight from the live WebGL canvas rather
-  // than routing through screenshotCropImage's async <img> load like the
-  // manual screenshot tool does (see _buildScreenshotCanvas's own comment):
-  // that intermediate exists to support crop-selection UI, which this
-  // capstone memento doesn't need, so skipping it keeps this synchronous
-  // with no onload race. Still finishes through the shared
-  // _finalizeScreenshotCanvas so it gets the same watermark+download step.
-  _generateCareerPortrait() {
-    const canvas = document.createElement('canvas')
-    canvas.width = 1280
-    canvas.height = 720
-    const ctx = canvas.getContext('2d')
-    const bg = ctx.createLinearGradient(0, 0, 0, canvas.height)
-    bg.addColorStop(0, '#2a2418')
-    bg.addColorStop(1, '#0d0b08')
-    ctx.fillStyle = bg
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    const bannerH = Math.max(70, Math.round(canvas.height * 0.14))
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)'
-    ctx.fillRect(0, 0, canvas.width, bannerH)
-    ctx.fillStyle = '#ffffff'
-    ctx.textAlign = 'left'
-    ctx.textBaseline = 'top'
-    const titleSize = Math.max(18, Math.round(canvas.width * 0.03))
-    ctx.font = `bold ${titleSize}px sans-serif`
-    ctx.fillText(t(careerRankTitleKey(this.careerStats.totalKills)), 16, 12)
-    const lineSize = Math.max(12, Math.round(canvas.width * 0.016))
-    ctx.font = `${lineSize}px sans-serif`
-    ctx.fillText(t('careerPortraitStatsLine', { kills: this.careerStats.totalKills, prestige: this.metaProgress.prestigeLevel, runs: this.careerStats.totalRuns }), 16, titleSize + 24)
-
-    this._finalizeScreenshotCanvas(canvas)
-  }
+  _generateCareerPortrait() { return ProfileUI._generateCareerPortrait(this) }
 
   // Reads a ?importskin=<base64 PNG, no data: prefix> param - the GayZ
   // Character Skin Designer tool's "Send to GayZ" button builds this link
@@ -6821,35 +5236,7 @@ export class Game {
     })
   }
 
-  // Shared by ?importskin= above and the embedded Skin Designer's
-  // postMessage (see _bindSkinDesignerMessages).
-  _applyImportedSkin(dataUrl) {
-    return loadSkinTexture(dataUrl).then((skin) => {
-      // Real report, 2026-09-27: the ?importskin= string this decodes to
-      // was observed CORRUPTED (right length prefix/suffix, wrong overall
-      // length) roughly every other real attempt - looked exactly like a
-      // race, but never pinned to one exact line despite real effort (this
-      // account has Cloud Save on, and its own async settings
-      // pull/merge/push around this same page-load window was the leading
-      // suspect, never fully confirmed). Rather than keep chasing an
-      // intermittent race with no repro I fully control, storing
-      // skin.texture.image (the plain <canvas> loadSkinTexture() already
-      // built from the image THAT ACTUALLY, SUCCESSFULLY DECODED) instead
-      // of the original transported dataUrl sidesteps the whole class of
-      // "the string got mangled somewhere in transit" bug - whatever the
-      // real cause turns out to be, this can't inherit its corruption,
-      // since it's derived fresh from pixels the browser already proved
-      // it could read correctly.
-      const cleanDataUrl = skin.texture.image.toDataURL('image/png')
-      this.settings.customSkinDataUrl = cleanDataUrl
-      saveSettings(this.settings)
-      if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
-      this._updateMenuAvatarPhoto(skin)
-      this._showHomepageToast(t('importSkinApplied'))
-    }).catch(() => {
-      this._showHomepageToast(t('importSkinFailed'))
-    })
-  }
+  _applyImportedSkin(dataUrl) { return ProfileUI._applyImportedSkin(this, dataUrl) }
 
   // "Send to GayZ" inside the embedded Skin Designer posts the skin here
   // instead of opening a second game tab - that second tab was how skins
@@ -6875,62 +5262,9 @@ export class Game {
     })
   }
 
-  // What's New digest (see #whats-new-digest) - a fuller, more prominent
-  // one-time surfacing of the same new-entries diff the ticker's
-  // Changelog-diff mode already computes (see mode 20 in
-  // _updateMenuSpotlight), for players who might never happen to land on
-  // that ticker mode in its 27-mode rotation. Same lastViewed gate/logic,
-  // just rendered as a dismissible card instead of one rotating line.
-  // Closing it (or opening Credits, which already does this) marks it
-  // seen - reload before dismissing and it shows again, which is the
-  // correct behavior for "you still haven't caught up."
-  _maybeShowWhatsNewDigest() {
-    if (!this.whatsNewDigest) return
-    // Show What's New Every Launch (General tab) - bypasses the normal
-    // "only entries newer than my last visit" gate below and just shows
-    // the most recent entries unconditionally, for anyone who wants the
-    // reminder every time rather than only once per real update.
-    let newEntries
-    if (this.settings.whatsNewEveryLaunch) {
-      newEntries = Array.from(document.querySelectorAll('#changelog-list .changelog-entry:not(.changelog-future)')).slice(0, 3)
-    } else {
-      const lastViewed = Number(localStorage.getItem(CHANGELOG_LAST_VIEWED_KEY))
-      if (!lastViewed) return
-      newEntries = Array.from(document.querySelectorAll('#changelog-list .changelog-entry:not(.changelog-future)')).filter((el) => {
-        const parsed = Date.parse(el.querySelector('.changelog-date')?.textContent || '')
-        return !isNaN(parsed) && parsed > lastViewed
-      })
-    }
-    if (!newEntries.length) return
-    this.whatsNewDigestTitle.textContent = t('whatsNewDigestTitle', { n: newEntries.length })
-    // Our own static patch notes (index.html), never player data - the
-    // bullet lists are copied as they are.
-    this.whatsNewDigestList.innerHTML = newEntries.map((el) => `<div class="changelog-text">${el.querySelector('.changelog-text')?.innerHTML || ''}</div>`).join('')
-    this.whatsNewDigest.style.display = 'block'
-    this.whatsNewDigest.classList.remove('fading')
-    // Auto-fade after 10s if left untouched (2026-09-18) - it used to just
-    // sit open indefinitely until the player noticed the X, which meant it
-    // was still covering the corner of the screen in every homepage
-    // screenshot from an entire play session. Cleared if the player closes
-    // it manually first, and the Play button click handler below also
-    // triggers this same fade immediately, so it never carries into an
-    // actual run.
-    this._whatsNewDigestFadeTimer = setTimeout(() => this._fadeOutWhatsNewDigest(), 10000)
-  }
+  _maybeShowWhatsNewDigest() { return InfoPagesUI._maybeShowWhatsNewDigest(this) }
 
-  // Shared by the 10s idle timer above and the Play button click handler -
-  // fades instead of vanishing instantly (see .fading in style.css), then
-  // actually hides it once the transition finishes so it's not sitting
-  // there invisible-but-still-in-the-DOM. Deliberately does NOT mark the
-  // digest as seen or touch the What's New dot, unlike the explicit X
-  // close button - the player never actually read it, so it should still
-  // show again next launch, same as if they'd never seen it at all.
-  _fadeOutWhatsNewDigest() {
-    if (!this.whatsNewDigest || this.whatsNewDigest.style.display === 'none') return
-    clearTimeout(this._whatsNewDigestFadeTimer)
-    this.whatsNewDigest.classList.add('fading')
-    setTimeout(() => { this.whatsNewDigest.style.display = 'none' }, 600)
-  }
+  _fadeOutWhatsNewDigest() { return InfoPagesUI._fadeOutWhatsNewDigest(this) }
 
   // Friend presence heartbeat - runs for the whole page lifetime (not just
   // while the Friends panel is open), so a friend can see you're online
@@ -7042,24 +5376,7 @@ export class Game {
     }
   }
 
-  // Pin a Stat (see _openProfilePanel) - populates the select fresh every
-  // render (cheap, just <option> elements) but wires its change listener
-  // only once (_pinnedStatBound guard) so repeated panel opens don't stack
-  // duplicate listeners.
-  _renderPinnedStatSelect(rows) {
-    if (!this.pinnedStatSelect) return
-    const current = this.settings.pinnedStat
-    this.pinnedStatSelect.innerHTML = `<option value="">${t('pinnedStatNone')}</option>` +
-      rows.map(([id, label]) => `<option value="${id}"${id === current ? ' selected' : ''}>${label}</option>`).join('')
-    if (!this._pinnedStatBound) {
-      this._pinnedStatBound = true
-      this.pinnedStatSelect.addEventListener('change', () => {
-        this.settings.pinnedStat = this.pinnedStatSelect.value || null
-        saveSettings(this.settings)
-        this._openProfilePanel()
-      })
-    }
-  }
+  _renderPinnedStatSelect(rows) { return ProgressUI._renderPinnedStatSelect(this, rows) }
 
   // Deep-link a Settings tab (?settingstab=controls) - opens Settings and
   // clicks the real tab button (reuses its own click handler, same
@@ -7086,12 +5403,7 @@ export class Game {
     }
   }
 
-  // Unclaimed Quests reminder - a dedicated toast alongside the passive
-  // favicon badge (see _updateFaviconQuestBadge), once per page load.
-  _checkUnclaimedQuestsReminder() {
-    const count = QUESTS.filter((q) => this.quests.isComplete(q, this) && !this.quests.isClaimed(q.id)).length
-    if (count > 0) this._showHomepageToast(t('unclaimedQuestsToast', { n: count }))
-  }
+  _checkUnclaimedQuestsReminder() { return ProgressUI._checkUnclaimedQuestsReminder(this) }
 
   // Shared profile link's "Favorite weapon": the gun you carry in Map 1
   // (first hotbar slot - Try Map and Play hold it).
