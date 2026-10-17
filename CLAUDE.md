@@ -8,7 +8,7 @@ Browser Three.js block-world zombie-survival game (Vite, no framework), deployed
 |---|---|
 | Map 1 block city (`Map3Generator.js`, `CityShape.js`), Map Editor (`BuildMode.js` + `Build*.js`), open world (`OpenWorld.js`, `WorldStructures.js`), Play/zombies/skeletons, servers, weapons, aiming | `docs/notes/map-and-world.md` |
 | Homepage/menu layout, panels, themes, Inventory/Market/Inspect, Design a Skin, Gallery, Profile/Friends, Settings, i18n | `docs/notes/ui-and-menu.md` |
-| Cloud Save, Firestore rules, leaderboards, chat, untrusted save data | `docs/notes/online.md` |
+| Cloud Save, Firestore rules, leaderboards, chat, untrusted save data, playing offline (service worker) | `docs/notes/online.md` |
 | Known bug patterns, performance gotchas, Playwright quirks | `docs/notes/bugs-and-testing.md` |
 | Full wording + history of every standing rule below, incl. the 10 map-making rules | `docs/notes/rules-detail.md` |
 | Tests/CI details, the `Game.js` split convention, `3D_ASSET_OVERHAUL.md`, `docs/PERFORMANCE.md` | `docs/notes/codebase.md` |
@@ -41,6 +41,7 @@ Code comments that say "see CLAUDE.md's ... note" now mean these notes files - g
 - **Panel URLs:** `vercel.json` has one catch-all rewrite - never a per-route list.
 - **Split `Game.js` and `style.css` bit by bit (standing rule, 2026-10-16, Gaymi: "do it bit by bit").** Whenever an update works in an area of `Game.js` (Settings, Clans, Profile, Friends, Market, Upgrades...), first move that area into its own module the usual way (plain functions taking `game`, state stays on `game` - see `docs/notes/codebase.md`), as a pure move in its own commit before the feature change, checked with lint + build + the tests for that area. `python3 scripts/move-to-module.py NewModule.js "header comment" _method1 _method2 ...` does the move mechanically (one-line stand-ins stay in Game.js so callers are unchanged; imports/exports are wired up); `check-docs.mjs` recognises moved lines, so a pure move needs only `[no-notes: ...]`/`[no-features: ...]`, no `[reread: ...]`. Same for a large self-contained block of `style.css` (its own CSS file imported next to it). Never a big all-at-once split, never a move mixed into a behaviour change.
 - **Don't ship inert UI.**
+- **Everything single player works offline** (service worker `src/sw.js`, `Offline.js`): load files from the game itself, never a CDN; new online-only buttons go in `ONLINE_ONLY` (+ `offline.css`). Details in `docs/notes/online.md`.
 - **Old Map 1 is gone for good** - new Map 1 features are built for the block-city engine (`BuildSurvival`/`BuildCamp`), never by bringing back old code.
 
 ## Most common traps (details in `docs/notes/bugs-and-testing.md`)

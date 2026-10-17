@@ -95,6 +95,9 @@ export function hasStoredFirebaseSession() {
 export function preBootCloudSync() {
   const testBackend = window.__cloudPreBootBackendForTests
   if (!testBackend && !CloudSync.isConfigured()) return Promise.resolve('skipped')
+  // No internet: don't wait for a cloud that can't answer (playing offline,
+  // Offline.js) - the next sync online catches up.
+  if (!testBackend && navigator.onLine === false) return Promise.resolve('offline')
   let cancelled = false
   const work = (async () => {
     // Only devices that have synced before, or that still hold a signed-in

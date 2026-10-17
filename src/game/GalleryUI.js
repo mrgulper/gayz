@@ -9,6 +9,7 @@
 // functions and rules. Everything other players wrote (titles, names,
 // comments) is escaped before it's shown, and pictures are only ever used as
 // <img> sources after checking they're PNG/JPEG data URLs.
+import { blockedOffline } from './Offline.js'
 import * as CloudSync from './CloudSync.js'
 import { t } from './i18n.js'
 import { _escapeHtml, _censorText, _formatRelativeTime, skinFrontIconURL } from './Game.js'
@@ -79,6 +80,7 @@ export function bindGallery(game) {
 
 // Opens the Gallery on a section (the last one, by default).
 export function openGallery(game, kind = game._galleryKind || 'character') {
+  if (blockedOffline(game)) return
   game._closeAllMenuPanels()
   game.galleryPanel.style.display = 'flex'
   renderTexts(game)
@@ -338,6 +340,7 @@ function needSignIn(game) {
 
 // A skin from Design a Skin, ready to post: opens the Gallery's post form.
 export async function startSkinPost(game, dataUrl, name = '') {
+  if (blockedOffline(game)) return
   if (!game._cloudUid) {
     needSignIn(game)
     game._openProfilePanel?.()
