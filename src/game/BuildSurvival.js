@@ -227,8 +227,30 @@ export class BuildSurvival {
     if (resume) this._resumeRun(resume)
     else if (fromMenu) this._openWeaponPicker()
     else this._message(t('buildPlayGetReady'))
-    zombieSkin().then((skin) => { this._skin = skin }).catch(() => { this._skin = null })
-    loadSkeletons()
+    zombieSkin().then((skin) => { this._skin = skin; this._warmShaders() }).catch(() => { this._skin = null })
+    loadSkeletons().then((ok) => { if (ok) this._warmShaders(true) })
+  }
+
+  // Gets the graphics card ready to draw zombies (and skeletons) while the
+  // run starts, instead of on the frame the first one appears - that frame
+  // froze for a moment on slow devices (2026-10-17 lag hunt). A skeleton is
+  // only added for the moment the shaders are prepared, then removed.
+  _warmShaders(skeleton = false) {
+    const renderer = this.bm.renderer
+    if (!this.active || !renderer?.compileAsync) return
+    let skel = null
+    if (skeleton) {
+      skel = makeSkeleton(Object.keys(SKELETON_KINDS)[0], ZOMBIE_HEIGHT * this.B)
+      this.bm.scene.add(skel.root)
+    } else if (!this._zombieBatch()) return
+    renderer.compileAsync(this.bm.scene, this.bm.camera).catch(() => {}).finally(() => {
+      if (!skel) return
+      this.bm.scene.remove(skel.root)
+      // Kept (not disposed) until the run ends: disposing its materials now
+      // would throw the prepared shader away again.
+      this._warmSkel?.dispose()
+      this._warmSkel = skel
+    })
   }
 
   // leaveTry: false when Try Map itself is being left (T / Escape menu).
@@ -805,7 +827,7 @@ export class BuildSurvival {
   // Closed doors count as a way through (zombies bash them open), just a
   // longer one.
   _doorAt(x, y, z) {
-    const type = this.bm._blocks.get(this.bm._key(x, y, z))
+    const type = this.bm._blocks.at(x, y, z)
     const shape = type && this.bm.constructor.blockShape(type)
     return shape === 'door' || shape === 'doortop'
   }
@@ -1044,6 +1066,8 @@ export class BuildSurvival {
   }
 
   _disposeZombieBatch() {
+    this._warmSkel?.dispose()
+    this._warmSkel = null
     const batch = this._zBatch
     if (!batch) return
     for (const mesh of batch.meshes) {
@@ -1388,7 +1412,7 @@ export class BuildSurvival {
   }
 
   _doorBottomY(x, y, z) {
-    const type = this.bm._blocks.get(this.bm._key(x, y, z))
+    const type = this.bm._blocks.at(x, y, z)
     return this.bm.constructor.blockShape(type) === 'doortop' ? y - 1 : y
   }
 

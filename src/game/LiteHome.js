@@ -75,12 +75,24 @@ function checkSlow(now) {
   }
 }
 
+// True while a map is open (BuildMode.enter/exit, 2026-10-17 lag hunt):
+// the homepage is hidden then, so its rain, water and character skip the
+// frame here instead of each asking the page whether they're on screen -
+// that question made the browser lay the page out again every frame
+// during play. A job with duringPlay set (other previews) still runs.
+let homePaused = false
+export function setHomePaused(paused) {
+  homePaused = !!paused
+}
+
 function homeFrame(now) {
   requestAnimationFrame(homeFrame)
   if (!slowChecked) checkSlow(now)
   const due = now - homeLast >= homeFrameMs
   if (due) homeLast = now
   for (const job of homeJobs) {
+    // Other previews (Inventory, Shop) can be open over a game and keep going.
+    if (homePaused && !job.duringPlay) continue
     try {
       job(now, due)
     } catch (err) {
