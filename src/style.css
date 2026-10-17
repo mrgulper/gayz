@@ -1168,7 +1168,6 @@ html.ui-theme-old #cloudsave-region-select {
    overwrite whatever this popup just rendered for a DIFFERENT player,
    every time that own-profile update runs. */
 #other-profile-longestsurvival-value { color: var(--menu-green); font-weight: 600; }
-#other-profile-favoriteclass-value { color: var(--menu-purple); font-weight: 600; }
 #other-profile-lastrun-value { color: var(--menu-red); font-weight: 600; }
 
 /* Header (name/ID) - centered with a divider before the two columns,
@@ -1517,46 +1516,6 @@ html.ui-theme-old #cloudsave-region-select {
   width: 8px;
   height: 8px;
   background: var(--menu-green, #7fd8a0);
-}
-
-#hitmarker {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 22px;
-  height: 22px;
-  margin: -11px 0 0 -11px;
-  pointer-events: none;
-  opacity: 0;
-}
-
-#hitmarker::before,
-#hitmarker::after {
-  content: '';
-  position: absolute;
-  background: #ff3b3b;
-}
-
-#hitmarker::before {
-  left: 50%;
-  top: 0;
-  width: 2px;
-  height: 100%;
-  margin-left: -1px;
-  transform: rotate(45deg);
-}
-
-#hitmarker::after {
-  top: 50%;
-  left: 0;
-  height: 2px;
-  width: 100%;
-  margin-top: -1px;
-  transform: rotate(45deg);
-}
-
-#hitmarker.show {
-  animation: hitflash 180ms ease-out;
 }
 
 @keyframes damageNumberRise {
@@ -1935,33 +1894,6 @@ html[data-colorblind="redgreen"] #critical-blood-overlay {
   100% { opacity: 0; transform: translate(-50%, -55%); }
 }
 
-#interact-prompt {
-  position: absolute;
-  top: 58%;
-  left: 50%;
-  transform: translate(-50%, 0);
-  font-size: 15px;
-  font-weight: 600;
-  color: #f2e7b0;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  background: rgba(0, 0, 0, 0.4);
-  padding: 6px 14px;
-  border-radius: 5px;
-  display: none;
-  pointer-events: none;
-}
-
-#interact-prompt b {
-  color: #ffe88a;
-}
-
-/* Large Interact Prompt (accessibility, see body.big-interact-prompt) */
-body.big-interact-prompt #interact-prompt {
-  font-size: 22px;
-  padding: 10px 22px;
-  background: rgba(0, 0, 0, 0.65);
-  border: 1px solid rgba(255, 224, 138, 0.5);
-}
 
 /* Reduce Flashing Effects (accessibility) - dampens peak intensity (via
    filter: opacity, which multiplies on top of whatever the keyframe's own
@@ -2023,20 +1955,6 @@ body.reduce-flashing #critical-blood-overlay.show {
 .prestige-tier-1 { color: #c9b04b; font-weight: 700; }
 .prestige-tier-2 { color: #cfd6de; font-weight: 700; }
 .prestige-tier-3 { color: #ffde5c; font-weight: 700; text-shadow: 0 0 6px rgba(255, 211, 92, 0.5); }
-
-.leaderboard-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 11px;
-  color: #cfd3d8;
-  opacity: 0.85;
-}
-
-.leaderboard-row span:first-child {
-  color: #ffde5c;
-  min-width: 20px;
-}
 
 .nickname-input {
   width: 100%;
@@ -3685,7 +3603,7 @@ section.category.hidden-search {
 /* Pushed toward a reference mockup (2026-09-20, painted/glowing game-card
    art) as far as flat CSS/SVG can reasonably go - real texture/lighting
    like that reference needs actual rendered image assets (see
-   3D_ASSET_OVERHAUL.md for how this project already treats that class of
+   docs/notes/history/3D_ASSET_OVERHAUL.md for how this project already treats that class of
    work as its own separate project), not achievable in inline SVG/CSS.
    This is the vector-only approximation: a beveled metal frame (layered
    inset+outset box-shadow, corner rivets via 4 stacked radial-gradients
@@ -3865,8 +3783,7 @@ section.category.hidden-search {
 #other-profile-panel,
 #menu-inventory-panel,
 #server-panel,
-#pause-overlay,
-#journal-panel {
+#pause-overlay {
   position: absolute;
   inset: 0;
   z-index: 15;
@@ -4082,8 +3999,7 @@ html.ui-theme-old #friends-panel,
 html.ui-theme-old #other-profile-panel,
 html.ui-theme-old #menu-inventory-panel,
 html.ui-theme-old #server-panel,
-html.ui-theme-old #pause-overlay,
-html.ui-theme-old #journal-panel {
+html.ui-theme-old #pause-overlay {
   background:
     radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.6) 100%),
     var(--grain-texture),
@@ -4321,12 +4237,6 @@ html.ui-theme-old .auth-link { color: #5a3410 !important; font-weight: 600; }
    a second visual language, just neutral-toned since weapons don't carry
    a per-item accent color the way classes do. */
 
-.weapon-icon {
-  width: 30px;
-  height: 30px;
-  color: #fff;
-}
-
 #hub-panel-title,
 #coming-soon-title,
 #upgrades-panel-title,
@@ -4348,7 +4258,6 @@ html.ui-theme-old .auth-link { color: #5a3410 !important; font-weight: 600; }
 #friends-panel-title,
 #menu-inventory-panel-title,
 #server-panel-title,
-#journal-panel-title,
 #clan-panel-title {
   margin: 0;
   /* Doubled from 15px per request - this is the title shown right after
@@ -4381,7 +4290,6 @@ html.ui-theme-old #cloudsave-panel-title,
 html.ui-theme-old #friends-panel-title,
 html.ui-theme-old #menu-inventory-panel-title,
 html.ui-theme-old #server-panel-title,
-html.ui-theme-old #journal-panel-title,
 html.ui-theme-old #clan-panel-title {
   font-family: 'Rye', Georgia, serif;
   color: #c2a06e;
@@ -5085,12 +4993,7 @@ html.ui-theme-old #prestige-history-list {
 #cloudsave-signin-btn,
 #export-save-btn,
 #import-save-btn,
-#clear-leaderboards-btn,
-#share-setup-btn,
-#share-profile-btn,
-#share-challenge-btn,
-#share-page-link-btn,
-#profile-close-btn {
+#clear-leaderboards-btn {
   margin-top: 6px;
   padding: 8px 20px;
   font-size: 13px;
@@ -5234,10 +5137,6 @@ html.ui-theme-old #settings-info-text {
 }
 .audio-row:has(.settings-info-btn) label {
   padding-left: 20px;
-}
-
-#profile-close-btn:hover {
-  border-color: rgba(255, 255, 255, 0.5);
 }
 
 #ammo {
@@ -5749,8 +5648,7 @@ html.reduce-transparency #friends-panel,
 html.reduce-transparency #other-profile-panel,
 html.reduce-transparency #menu-inventory-panel,
 html.reduce-transparency #server-panel,
-html.reduce-transparency #pause-overlay,
-html.reduce-transparency #journal-panel {
+html.reduce-transparency #pause-overlay {
   background: #0a0a0a !important;
   backdrop-filter: none !important;
 }
@@ -6279,16 +6177,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
   white-space: nowrap;
 }
 
-.preset-rename-input {
-  width: 90px;
-  font-size: 10px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid var(--menu-panel-border);
-  border-radius: 2px;
-  color: #fff;
-  padding: 1px 3px;
-}
-
 /* ---- Hero (center column) ---- */
 #menu-hero {
   position: relative;
@@ -6507,20 +6395,6 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
   background: rgba(224, 138, 79, 0.12);
   border: 1px solid rgba(224, 138, 79, 0.4);
   border-radius: 3px;
-}
-
-.hero-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.hero-stat-value {
-  font-family: var(--menu-display-font);
-  font-size: 51px;
-  color: var(--menu-gold);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
 }
 
 /* Stamped-metal sign: octagonal clip-path + 4 corner "rivets" (small
@@ -7627,13 +7501,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
    before the end cap (2026-10-10: on the plaque's top edge it hung into
    the gap and onto Achievements above it on tablets). fitNavLabels
    (index.html) keeps the label clear of it. */
-#menu-nav-buttons button.nav-coming-soon {
-  filter: brightness(0.82) saturate(0.8);
-}
-#menu-nav-buttons button.nav-coming-soon:hover,
-#menu-nav-buttons button.nav-coming-soon.nav-hover {
-  filter: brightness(0.95) saturate(0.9);
-}
 .nav-soon-tag {
   position: absolute;
   right: 14%;
@@ -7742,17 +7609,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
 .menu-panel:nth-of-type(5) { animation-delay: 5.1s; }
 .menu-card:nth-of-type(2) { animation-delay: 3.4s; }
 .menu-card:nth-of-type(3) { animation-delay: 4.9s; }
-
-.menu-card-title {
-  margin: 0 0 6px;
-  font-family: var(--menu-display-font);
-  font-size: 23px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: var(--menu-gold);
-  text-transform: uppercase;
-  text-align: center;
-}
 
 /* Capped + internally scrollable rather than growing the whole page -
    Game Modes (the longest list) would otherwise dictate the height of
@@ -7886,11 +7742,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
     padding: 16px 20px;
   }
 
-  .menu-card-title {
-    margin: 0 0 6px;
-    font-size: 19px;
-  }
-
   .mode-toggle {
     gap: 9px;
   }
@@ -7915,10 +7766,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
 
   #menu-subtitle {
     font-size: 20.25px;
-  }
-
-  .hero-stat-value {
-    font-size: 47.25px;
   }
 
   #play-btn {
@@ -7994,10 +7841,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
 
   #menu-subtitle {
     font-size: 18.75px;
-  }
-
-  .hero-stat-value {
-    font-size: 43.5px;
   }
 
   #play-btn {
@@ -8081,10 +7924,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
 
   #menu-subtitle {
     font-size: 15px;
-  }
-
-  .hero-stat-value {
-    font-size: 34.5px;
   }
 
   #play-btn {
@@ -9552,12 +9391,6 @@ html.ui-theme-old .audio-checkbox {
 @keyframes nightmare-pulse {
   0%, 100% { opacity: 0.75; }
   50% { opacity: 1; }
-}
-
-#daily-best {
-  font-size: 11px;
-  color: #d8d8d0;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 /* Graphics-connection-lost panel - can appear over literally any other
@@ -11354,18 +11187,15 @@ body.touch-play-on #build-play-wave { top: 32px; left: 4px; font-size: 13px; pad
   gap: 8px;
   text-align: center;
 }
-#gallery-coming-icon,
 .coming-soon-icon {
   width: 72px;
   height: 72px;
   color: var(--ui-gold-bright);
   opacity: 0.85;
 }
-html.ui-theme-old #gallery-coming-icon,
 .coming-soon-icon {
   color: #6b4423;
 }
-#gallery-coming-title,
 .coming-soon-title {
   margin: 4px 0 0;
   font-size: 22px;
@@ -11373,7 +11203,6 @@ html.ui-theme-old #gallery-coming-icon,
   letter-spacing: 1px;
   text-transform: uppercase;
 }
-#gallery-coming-text,
 .coming-soon-text {
   margin: 0;
   opacity: 0.8;

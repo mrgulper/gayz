@@ -833,7 +833,7 @@ export function _recordRunEnd(game, survived) {
   }
 
   // Run History Log - one capped entry per completed run (see
-  // RUN_HISTORY_KEY's own comment). difficulty/loadout/companionRole
+  // RUN_HISTORY_KEY's own comment). difficulty/loadout
   // captured alongside (Homepage batch) so a "Play Again" action can
   // restore the exact setup game run used, not just show its stats.
   game.runHistory.unshift({

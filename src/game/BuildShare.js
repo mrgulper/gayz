@@ -13,7 +13,6 @@ import * as CloudSync from './CloudSync.js'
 import { t } from './i18n.js'
 import { postToGallery } from './GalleryUI.js'
 
-export const SHARE_SORTS = ['new', 'likes', 'plays']
 const CODE_RE = /^[A-Z0-9]{6}$/
 
 function esc(str) {

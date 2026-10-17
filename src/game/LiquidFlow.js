@@ -69,14 +69,6 @@ export class LiquidFlow {
     for (const [dx, dz] of SIDES) this._schedule(x + dx, y, z + dz)
   }
 
-  // After a whole map loads: every source gets a look (most are sealed in
-  // and do nothing).
-  scheduleAllSources() {
-    for (const [key, type] of this.bm._blocks) {
-      if (KINDS[type] && !this.levels.has(key)) this.pending[type].add(key)
-    }
-  }
-
   _schedule(x, y, z) {
     const type = this.bm.getBlockAt(x, y, z)
     if (KINDS[type]) this.pending[type].add(`${x},${y},${z}`)
