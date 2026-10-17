@@ -497,21 +497,28 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 
-// The 8 reorderable homepage buttons (Settings > Controls > Nav Order).
-// 2026-10-09: Friend List moved under Global, then Quests, then Inventory.
-const NAV_ORDER_DEFAULT = ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'friends-btn', 'quests-btn', 'menu-inventory-btn', 'achievements-btn']
-// The default before that - a save still holding it never reordered
-// anything, so it gets the new default instead.
-const NAV_ORDER_OLD_DEFAULT = ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn']
+// Homepage nav order (Settings > Controls > Homepage). Every button in
+// #menu-nav-buttons can be moved; an empty list means "the order the
+// buttons are written in index.html". A saved list only holds ids, and
+// any button it doesn't mention yet (one added to the game later) is
+// slotted in right after the button it follows in index.html - see
+// SettingsUI._navOrderIds and the matching inline script in index.html.
+// The two fixed 8-button lists below were the defaults before every
+// button became movable - a save still holding one never reordered
+// anything, so it follows index.html instead.
+const NAV_ORDER_OLD_DEFAULTS = [
+  ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'friends-btn', 'quests-btn', 'menu-inventory-btn', 'achievements-btn'],
+  ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'],
+]
 
 function _loadNavOrder(saved) {
-  if (!Array.isArray(saved) || saved.length !== 8) return [...NAV_ORDER_DEFAULT]
-  if (saved.join() === NAV_ORDER_OLD_DEFAULT.join()) return [...NAV_ORDER_DEFAULT]
-  return saved
+  if (!Array.isArray(saved)) return []
+  if (NAV_ORDER_OLD_DEFAULTS.some((d) => d.join() === saved.join())) return []
+  return saved.filter((id) => typeof id === 'string').slice(0, 40)
 }
 
 export function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, navOrder: [...NAV_ORDER_DEFAULT], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
 }
 
 
@@ -1267,7 +1274,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'reset-controls-defaults-btn': 'resetControlsDefaultsBtn',
   'restore-defaults-btn': 'restoreDefaultsBtnLabel',
   'storage-quota-warning': 'storageQuotaWarning',
-  'copy-save-btn': 'copySaveBtn',
   'export-settings-code-btn': 'exportSettingsCodeBtn',
   'import-settings-code-btn': 'importSettingsCodeBtn',
   'import-settings-code-apply-btn': 'importSettingsCodeApplyBtn',
@@ -1387,6 +1393,9 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'settings-section-movement-aim': 'settingsSectionMovementAim',
   'settings-section-personalization': 'settingsSectionPersonalization',
   'settings-section-theme': 'settingsSectionTheme',
+  'settings-section-save-backup': 'settingsSectionSaveBackup',
+  'settings-section-danger-zone': 'settingsSectionDangerZone',
+  'reset-general-defaults-btn': 'resetGeneralDefaultsBtn',
   'community-maps-title': 'communityBuildsTitle',
   'chat-tab-global': 'chatTabGlobal',
   'chat-tab-clan': 'chatTabClan',
@@ -1581,7 +1590,7 @@ export function _escapeHtml(str) {
 }
 
 // Coerces an untrusted value to a plain finite number before it's allowed
-// anywhere near an innerHTML template (see _compareSaveFile) - it reads
+// anywhere near an innerHTML template - it reads
 // stat-shaped fields
 // (night/kills/bestNight/totalKills) that, unlike free-form name text
 // above, are supposed to always be numbers, so coercion is both the
@@ -2181,6 +2190,7 @@ export class Game {
     this.importKeybindsApplyBtn = document.getElementById('import-keybinds-apply-btn')
     this.resetAudioDefaultsBtn = document.getElementById('reset-audio-defaults-btn')
     this.resetControlsDefaultsBtn = document.getElementById('reset-controls-defaults-btn')
+    this.resetGeneralDefaultsBtn = document.getElementById('reset-general-defaults-btn')
     this.uiFontSelect = document.getElementById('ui-font-select')
     this.textSpacingSlider = document.getElementById('text-spacing-slider')
     this.textSpacingValue = document.getElementById('text-spacing-value')
@@ -2254,12 +2264,8 @@ export class Game {
     this.exportSaveBtn = document.getElementById('export-save-btn')
     this.importSaveBtn = document.getElementById('import-save-btn')
     this.importSaveInput = document.getElementById('import-save-input')
-    this.compareSaveBtn = document.getElementById('compare-save-btn')
-    this.compareSaveInput = document.getElementById('compare-save-input')
-    this.compareSaveResult = document.getElementById('compare-save-result')
     this.storageUsageLine = document.getElementById('storage-usage-line')
     this.storageQuotaWarning = document.getElementById('storage-quota-warning')
-    this.copySaveBtn = document.getElementById('copy-save-btn')
     this.exportSettingsCodeBtn = document.getElementById('export-settings-code-btn')
     this.importSettingsCodeBtn = document.getElementById('import-settings-code-btn')
     this.importSettingsCodeInput = document.getElementById('import-settings-code-input')
@@ -2930,6 +2936,7 @@ export class Game {
   _applyGrainIntensity() { return SettingsUI._applyGrainIntensity(this) }
 
   _resetGraphicsDefaults() { return SettingsUI._resetGraphicsDefaults(this) }
+  _resetSettingsTab(page) { return SettingsUI._resetSettingsTab(this, page) }
 
   _applyGraphicsFilters() { return SettingsUI._applyGraphicsFilters(this) }
 
@@ -2953,7 +2960,6 @@ export class Game {
 
   _exportSave() { return SettingsUI._exportSave(this) }
 
-  _copySaveToClipboard() { return SettingsUI._copySaveToClipboard(this) }
 
   _exportSettingsCode() { return SettingsUI._exportSettingsCode(this) }
 
@@ -3055,7 +3061,6 @@ export class Game {
 
   _hasMeaningfulLocalProgress() { return OnlineUI._hasMeaningfulLocalProgress(this) }
 
-  _compareSaveFile(file) { return OnlineUI._compareSaveFile(this, file) }
 
   _updateStorageUsageLine() { return OnlineUI._updateStorageUsageLine(this) }
 
@@ -3858,7 +3863,6 @@ export class Game {
     // Local Sharing batch - static settings-panel labels.
     this.exportSaveBtn.textContent = t('exportSaveBtn')
     this.importSaveBtn.textContent = t('importSaveBtn')
-    this.compareSaveBtn.textContent = t('compareSaveBtn')
     this.clearLeaderboardsBtn.textContent = t('clearLeaderboardsBtn')
     document.getElementById('guest-mode-label').textContent = t('guestModeLabel')
     this._updateStorageUsageLine()

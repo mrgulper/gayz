@@ -115,3 +115,54 @@ test('graphics loss pauses quietly and recovers with Lite Textures', async ({ pa
   expect(r.fullSizeLeft).toBe(0)
   expect(r.restored).toBe(true)
 })
+
+// Settings > Controls > Homepage lists every real nav button (read from
+// #menu-nav-buttons, so new ones join on their own), and moving one moves
+// the homepage button. A save from before (8 fixed ids) keeps its order,
+// with the buttons it never knew slotted in after their HTML neighbour.
+test('nav order lists every homepage button and old saves still work', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const result = await page.evaluate(() => {
+    const g = window.__game
+    const navIds = [...document.querySelectorAll('#menu-nav-buttons > button')].map((b) => b.id)
+    g._renderNavOrderList()
+    const listed = [...document.querySelectorAll('#nav-order-list .nav-order-row')].map((r) => r.dataset.id)
+    document.querySelector('#nav-order-list .nav-order-row[data-id="build-mode-btn"] .nav-order-up').click()
+    const sidebar = [...document.querySelectorAll('#menu-nav-buttons > button')].sort((a, b) => a.style.order - b.style.order).map((b) => b.id)
+    g.settings.navOrder = ['achievements-btn', 'hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'friends-btn', 'quests-btn', 'menu-inventory-btn']
+    g._applyNavOrder()
+    const old = [...document.querySelectorAll('#menu-nav-buttons > button')].sort((a, b) => a.style.order - b.style.order).map((b) => b.id)
+    return { navIds, listed, sidebar, old }
+  })
+  expect(result.listed).toEqual(result.navIds)
+  expect(result.listed).toContain('market-btn')
+  expect(result.listed).toContain('build-mode-btn')
+  expect(result.sidebar.indexOf('build-mode-btn')).toBe(result.sidebar.indexOf('achievements-btn') - 1)
+  expect(result.old.slice(0, 2)).toEqual(['achievements-btn', 'build-mode-btn'])
+  expect(result.old.indexOf('market-btn')).toBe(result.old.indexOf('coinshop-btn') + 1)
+})
+
+// Each tab's Reset to Defaults only resets that tab's settings.
+test('a tab reset only resets that tab', async ({ page }) => {
+  test.setTimeout(240000)
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    const g = window.__game
+    g.settings.masterVolume = 30
+    g.settings.sensitivity = 40
+    g.settings.timeFormat = '24h'
+    localStorage.setItem('gayz-settings', JSON.stringify(g.settings))
+  })
+  try {
+    await page.evaluate(() => document.getElementById('reset-audio-defaults-btn').click())
+  } catch {
+    // Expected - the reset reloads the page.
+  }
+  await page.waitForTimeout(1500)
+  await waitForGame(page)
+  const after = await page.evaluate(() => {
+    const s = window.__game.settings
+    return { vol: s.masterVolume, sens: s.sensitivity, tf: s.timeFormat }
+  })
+  expect(after).toEqual({ vol: 100, sens: 40, tf: '24h' })
+})

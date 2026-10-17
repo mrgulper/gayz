@@ -159,6 +159,7 @@ export function _bindSettings(game) {
     // screen already correctly in the new one.
     setLanguage(game.settings.language)
     game._applyLanguage()
+    game._renderNavOrderList() // its labels are read from the nav buttons
     saveSettings(game.settings)
   })
 
@@ -174,6 +175,7 @@ export function _bindSettings(game) {
       // needing one more click first.
       game.settings.lastSettingsTab = tab.dataset.page
       saveSettings(game.settings)
+      if (tab.dataset.page === 'controls') game._renderNavOrderList()
     })
   }
 
@@ -2045,12 +2047,39 @@ export function _applyGrainIntensity(game) {
 // owns (not nickname/audio/controls) - reload is the same low-risk
 // pattern _restoreDefaultSettings already uses, simpler and more
 // reliable than re-applying every live graphics effect by hand.
-export function _resetGraphicsDefaults(game) {
+// "Reset <tab> to Defaults" - every tab but Language has one at its
+// bottom. Each list is the settings shown on that tab (keep it in step
+// when a setting is added to or moved between tabs). Saves then reloads,
+// same reload-to-resync reason as _restoreDefaultSettings below.
+export const TAB_RESET_KEYS = {
+  general: ['hudFpsCounter', 'friendPresenceNotify', 'achievementToasts', 'rankUpToasts', 'leaderboardRankAlerts',
+    'weeklyChallengeReminder', 'lowCurrencyReminder', 'timeFormat', 'autoSaveFrequencySec', 'backupReminder',
+    'confirmSignOut', 'stayEmbedSignedIn', 'anonymousLeaderboard', 'shareTelemetry', 'autoDeclineFriendRequests',
+    'exactLastSeen', 'rememberSettingsTab', 'confirmRemoveFriend', 'reduceBgEffects', 'homepageGreeting',
+    'oneHandedLayout', 'whatsNewEveryLaunch'],
+  audio: ['masterVolume', 'sfxVolume', 'ambientVolume', 'muteOnTabBlur', 'positionalAudio', 'mutedBeforeVolumes'],
+  graphics: ['performanceMode', 'renderResolution', 'fpsCap', 'autoQuality', 'brightness', 'contrast', 'shadowsEnabled',
+    'shadowQuality', 'viewDistance', 'grainIntensity', 'panelFlickerEnabled', 'liteTextures'],
+  controls: ['sensitivity', 'invertY', 'fov', 'invertScrollWeaponSwitch', 'crosshairColor', 'crosshairSize',
+    'hudScale', 'hudOpacity', 'bigInteractPrompt', 'colorblindMode', 'largeTextMode', 'dyslexiaFont',
+    'highContrastMode', 'focusRingMode', 'underlineLinks', 'textSpacing', 'buttonSize', 'reduceTransparency',
+    'hoverAudioCue', 'highVisCursor', 'captionBackground', 'reduceFlashing', 'streamSafeMode', 'toastDuration',
+    'uiFont', 'themePreset', 'cursorTrail', 'crtScanlines', 'nicknameColor', 'accentColor', 'playBtnColor',
+    'nicknameFont', 'layoutDensity', 'navOrder', 'bgMood', 'weatherParticles', 'homepageFpsCounter'],
+}
+
+export function _resetSettingsTab(game, page) {
+  const keys = TAB_RESET_KEYS[page]
+  if (!keys) return
   const defaults = defaultSettings()
-  const graphicsKeys = ['renderResolution', 'brightness', 'contrast', 'shadowsEnabled', 'shadowQuality', 'viewDistance', 'liteTextures', 'grainIntensity', 'panelFlickerEnabled']
-  for (const key of graphicsKeys) game.settings[key] = defaults[key]
+  for (const key of keys) game.settings[key] = defaults[key]
   saveSettings(game.settings)
+  if (page === 'controls') resetBindings()
   window.location.reload()
+}
+
+export function _resetGraphicsDefaults(game) {
+  _resetSettingsTab(game, 'graphics')
 }
 
 export function _applyGraphicsFilters(game) {
@@ -2098,19 +2127,48 @@ export function _applyShadowQuality(game) {
   }
 }
 
-// Homepage Nav Order (Controls tab) - up/down reordering of an id list,
-// applied purely via CSS `order` on the real buttons (#menu-nav-buttons
-// is already flex-column, see style.css) rather than touching the DOM
-// structure, so every button's own click listener/id/state is untouched.
+// Homepage Nav Order (Controls tab) - up/down reordering of the homepage
+// buttons, applied purely via CSS `order` on the real buttons
+// (#menu-nav-buttons is already flex-column, see style.css) rather than
+// touching the DOM structure, so every button's own click
+// listener/id/state is untouched. The list is read from the real
+// buttons every time, so a button added to index.html later shows up
+// here (and keeps its index.html spot) without anyone updating a list.
+function _navButtons() {
+  const nav = document.getElementById('menu-nav-buttons')
+  return nav ? [...nav.children].filter((el) => el.tagName === 'BUTTON' && el.id) : []
+}
+
+// The saved order (ids) merged with the buttons that really exist: ids
+// that no longer exist are dropped, and a button the save doesn't know
+// yet goes right after the button it follows in index.html. Same
+// algorithm as the inline nav anti-flash script in index.html.
+export function _navOrderIds(game) {
+  const domIds = _navButtons().map((b) => b.id)
+  const out = (game.settings.navOrder || []).filter((id, i, arr) => domIds.includes(id) && arr.indexOf(id) === i)
+  domIds.forEach((id, i) => {
+    if (out.includes(id)) return
+    let k = -1
+    for (let p = i - 1; p >= 0 && k < 0; p--) k = out.indexOf(domIds[p])
+    out.splice(k + 1, 0, id)
+  })
+  return out
+}
+
+function _navLabel(id) {
+  const span = document.querySelector(`#${id} > span:not(.nav-badge-dot):not(.coming-soon-pill)`)
+  return span ? span.textContent.trim() : id
+}
+
 export function _renderNavOrderList(game) {
   if (!game.navOrderList) return
-  const labels = { 'hub-btn': t('navOrderHub'), 'coinshop-btn': t('navOrderShop'), 'upgrades-btn': t('navOrderUpgrades'), 'server-btn': t('navOrderServer'), 'quests-btn': t('navOrderQuests'), 'friends-btn': t('navOrderFriends'), 'menu-inventory-btn': t('navOrderInventory'), 'achievements-btn': t('navOrderAchievements') }
-  game.navOrderList.innerHTML = game.settings.navOrder.map((id, i) => `
+  const ids = _navOrderIds(game)
+  game.navOrderList.innerHTML = ids.map((id, i) => `
     <div class="nav-order-row" data-id="${id}">
-      <span>${labels[id] || id}</span>
+      <span>${_escapeHtml(_navLabel(id))}</span>
       <div class="nav-order-btns">
         <button class="mini-action-btn nav-order-up" type="button" ${i === 0 ? 'disabled' : ''}>↑</button>
-        <button class="mini-action-btn nav-order-down" type="button" ${i === game.settings.navOrder.length - 1 ? 'disabled' : ''}>↓</button>
+        <button class="mini-action-btn nav-order-down" type="button" ${i === ids.length - 1 ? 'disabled' : ''}>↓</button>
       </div>
     </div>
   `).join('')
@@ -2122,25 +2180,22 @@ export function _renderNavOrderList(game) {
 }
 
 export function _moveNavOrder(game, id, delta) {
-  const i = game.settings.navOrder.indexOf(id)
+  const ids = _navOrderIds(game)
+  const i = ids.indexOf(id)
   const j = i + delta
-  if (i < 0 || j < 0 || j >= game.settings.navOrder.length) return
-  ;[game.settings.navOrder[i], game.settings.navOrder[j]] = [game.settings.navOrder[j], game.settings.navOrder[i]]
+  if (i < 0 || j < 0 || j >= ids.length) return
+  ;[ids[i], ids[j]] = [ids[j], ids[i]]
+  game.settings.navOrder = ids
   saveSettings(game.settings)
   game._renderNavOrderList()
   game._applyNavOrder()
 }
 
 export function _applyNavOrder(game) {
-  // Even slots for the 8 reorderable buttons, so Market (not reorderable)
-  // can always take the odd slot right after Store.
-  game.settings.navOrder.forEach((id, i) => {
+  _navOrderIds(game).forEach((id, i) => {
     const btn = document.getElementById(id)
-    if (btn) btn.style.order = i * 2
+    if (btn) btn.style.order = i
   })
-  const market = document.getElementById('market-btn')
-  if (market) market.style.order = game.settings.navOrder.indexOf('coinshop-btn') * 2 + 1
-  // Gallery always sits right after Achievements (same as index.html).
 }
 
 // Settings Search - filters .audio-row rows within whichever tab is
@@ -2195,37 +2250,15 @@ export function _bindControlsTab(game) {
   if (game.importKeybindsApplyBtn) {
     game.importKeybindsApplyBtn.addEventListener('click', () => game._importKeybindsCode(game.importKeybindsInput.value))
   }
-  // Per-tab resets (Audio/Controls) - same scoped-reset-then-reload
-  // pattern _resetGraphicsDefaults already established for the Graphics
-  // tab, just a different key whitelist per tab.
-  if (game.resetAudioDefaultsBtn) {
-    game.resetAudioDefaultsBtn.addEventListener('click', () => {
-      const defaults = defaultSettings()
-      for (const key of ['masterVolume', 'sfxVolume', 'ambientVolume']) game.settings[key] = defaults[key]
-      saveSettings(game.settings)
-      window.location.reload()
-    })
-  }
-  if (game.resetControlsDefaultsBtn) {
-    game.resetControlsDefaultsBtn.addEventListener('click', () => {
-      const defaults = defaultSettings()
-      const keys = ['sensitivity', 'invertY', 'fov', 'hudScale', 'hudOpacity', 'colorblindMode', 'reduceFlashing',
-        'bigInteractPrompt', 'toastDuration', 'crosshairColor', 'crosshairSize',
-        'largeTextMode', 'highContrastMode', 'dyslexiaFont', 'bgMood', 'performanceMode',
-        'streamSafeMode', 'focusRingMode', 'homepageFpsCounter', 'underlineLinks', 'nicknameFont', 'layoutDensity',
-        'invertScrollWeaponSwitch']
-      for (const key of keys) game.settings[key] = defaults[key]
-      saveSettings(game.settings)
-      window.location.reload()
-    })
-  }
+  // Per-tab resets (General/Audio/Controls; Graphics has its own button
+  // bound in the Graphics tab) - see _resetSettingsTab.
+  if (game.resetGeneralDefaultsBtn) game.resetGeneralDefaultsBtn.addEventListener('click', () => game._resetSettingsTab('general'))
+  if (game.resetAudioDefaultsBtn) game.resetAudioDefaultsBtn.addEventListener('click', () => game._resetSettingsTab('audio'))
+  if (game.resetControlsDefaultsBtn) game.resetControlsDefaultsBtn.addEventListener('click', () => game._resetSettingsTab('controls'))
   game._updateStorageUsageLine()
   game.exportSaveBtn.addEventListener('click', () => game._exportSave())
   game.importSaveBtn.addEventListener('click', () => game.importSaveInput.click())
   game.importSaveInput.addEventListener('change', () => game._importSaveFile(game.importSaveInput.files[0]))
-  game.compareSaveBtn.addEventListener('click', () => game.compareSaveInput.click())
-  game.compareSaveInput.addEventListener('change', () => game._compareSaveFile(game.compareSaveInput.files[0]))
-  if (game.copySaveBtn) game.copySaveBtn.addEventListener('click', () => game._copySaveToClipboard())
   if (game.exportSettingsCodeBtn) game.exportSettingsCodeBtn.addEventListener('click', () => game._exportSettingsCode())
   if (game.importSettingsCodeBtn) {
     game.importSettingsCodeBtn.addEventListener('click', () => {
@@ -2293,21 +2326,6 @@ export function _exportSave(game) {
   game._showLoreToast(t('saveExported'))
   game.settings.lastExportAt = Date.now()
   saveSettings(game.settings)
-}
-
-// Same snapshot _exportSave() downloads as a file, copied to the
-// clipboard as text instead - a one-click backup for anyone who'd
-// rather paste it somewhere (notes app, chat-to-self) than manage a
-// downloaded .json file.
-export function _copySaveToClipboard(game) {
-  const data = JSON.stringify(game._snapshotLocalSave())
-  if (!navigator.clipboard) {
-    game._showLoreToast(t('clipboardCopyUnsupported'))
-    return
-  }
-  navigator.clipboard.writeText(data)
-    .then(() => game._showLoreToast(t('saveCopiedToClipboard')))
-    .catch(() => game._showLoreToast(t('clipboardCopyUnsupported')))
 }
 
 // Shareable Settings Code - just the whitelisted preference fields (see
