@@ -1,0 +1,144 @@
+/* The pause screen while playing a game from the homepage (PlayPauseMenu.js)
+   - Escape opens it; the Map Editor's own pause screen (#build-menu in
+   style.css) is only for making maps. Golden theme: a dark panel with gold
+   corners and lettering. Old theme: the torn paper with dark ink and Rye. */
+#play-pause-menu {
+  --pp-gold: #e8c25a;
+  --pp-gold-rgb: 232, 194, 90;
+  --pp-text: #f1e6c8;
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  background: radial-gradient(ellipse at center, rgba(10, 8, 5, 0.5), rgba(5, 4, 2, 0.85));
+  color: var(--pp-text);
+}
+#play-pause-card {
+  position: relative;
+  box-sizing: border-box;
+  width: min(420px, 100%);
+  padding: 30px 34px 24px;
+  text-align: center;
+  background: rgba(18, 15, 10, 0.94);
+  border: 1px solid rgba(var(--pp-gold-rgb), 0.45);
+  border-radius: 10px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+/* Gold corner brackets, like the homepage panels. */
+#play-pause-card::before,
+#play-pause-card::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--pp-gold);
+  pointer-events: none;
+}
+#play-pause-card::before { top: -2px; left: -2px; border-right: none; border-bottom: none; border-top-left-radius: 10px; }
+#play-pause-card::after { bottom: -2px; right: -2px; border-left: none; border-top: none; border-bottom-right-radius: 10px; }
+#play-pause-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #e8483a;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+}
+#play-pause-title {
+  margin: 0;
+  font-family: 'Black Ops One', 'Bebas Neue', sans-serif;
+  font-size: 46px;
+  font-weight: normal;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--pp-gold);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+#play-pause-info {
+  margin: 4px 0 20px;
+  font-size: 15px;
+  opacity: 0.8;
+}
+#play-pause-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#play-pause-buttons button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 18px;
+  font: inherit;
+  font-size: 18px;
+  color: var(--pp-text);
+  background: rgba(var(--pp-gold-rgb), 0.08);
+  border: 1px solid rgba(var(--pp-gold-rgb), 0.4);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+#play-pause-buttons button svg { width: 20px; height: 20px; flex: none; color: var(--pp-gold); }
+#play-pause-buttons button:hover { background: rgba(var(--pp-gold-rgb), 0.2); border-color: var(--pp-gold); }
+#play-pause-leave-btn { margin-top: 6px; }
+#play-pause-leave-btn:hover { border-color: #e8483a !important; background: rgba(232, 72, 58, 0.18) !important; }
+#play-pause-status {
+  min-height: 1.3em;
+  margin: 14px 0 0;
+  font-size: 14px;
+  color: var(--pp-gold);
+}
+#play-pause-hint {
+  margin: 6px 0 0;
+  font-size: 13px;
+  opacity: 0.6;
+}
+
+/* Old theme: the panels' torn paper, dark ink, Rye. */
+html.ui-theme-old #play-pause-menu {
+  --pp-gold: #6b3f17;
+  --pp-gold-rgb: 107, 63, 23;
+  --pp-text: var(--old-ink, #2e1d0e);
+}
+html.ui-theme-old #play-pause-card {
+  width: min(500px, 100%);
+  padding: 58px 74px 60px;
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.65));
+}
+html.ui-theme-old #play-pause-card::before,
+html.ui-theme-old #play-pause-card::after { display: none; }
+html.ui-theme-old #play-pause-close {
+  top: calc(8.7% - 18px);
+  right: calc(7.6% - 18px);
+  color: #4a2c10;
+}
+html.ui-theme-old #play-pause-title {
+  font-family: 'Rye', Georgia, serif;
+  letter-spacing: 1px;
+  text-shadow: none;
+}
+html.ui-theme-old #play-pause-buttons button {
+  font-family: 'Rye', Georgia, serif;
+  font-size: 17px;
+  background: rgba(107, 63, 23, 0.08);
+  border-color: rgba(74, 44, 16, 0.55);
+}
+html.ui-theme-old #play-pause-buttons button:hover { background: rgba(107, 63, 23, 0.18); border-color: #4a2c10; }
+html.ui-theme-old #play-pause-info,
+html.ui-theme-old #play-pause-hint { opacity: 0.85; }
+
+@media (max-width: 520px) {
+  #play-pause-title { font-size: 36px; }
+  html.ui-theme-old #play-pause-card { padding: 44px 34px 46px; }
+}

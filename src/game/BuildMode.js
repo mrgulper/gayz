@@ -6,7 +6,7 @@ import { FIXED_KEYS, getKeyFor, keyLabel, keysFor } from './Keybinds.js'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
-import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, gadgetIconURL, hdCanvasFor, prepareHdTextures, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
+import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, gadgetIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
 import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
 import { BuildTryMode } from './BuildTryMode.js'
@@ -17,6 +17,7 @@ import { BuildSky } from './BuildSky.js'
 import { BuildTouch } from './BuildTouch.js'
 import { BuildGadgets } from './BuildGadgets.js'
 import { BuildSurvival } from './BuildSurvival.js'
+import { PlayPauseMenu } from './PlayPauseMenu.js'
 import { BuildCamp } from './BuildCamp.js'
 import { BuildShare } from './BuildShare.js'
 import { BuildTogether } from './BuildTogether.js'
@@ -1050,6 +1051,8 @@ function _shapedSource(bt) {
 
 function _canvasTexture(canvas) {
   const tex = new THREE.CanvasTexture(canvas)
+  // Crisp pixels up close, like the chunk atlas (BlockChunks).
+  tex.magFilter = THREE.NearestFilter
   tex.minFilter = THREE.LinearMipmapLinearFilter
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
@@ -1110,6 +1113,17 @@ const PICKER_CATEGORIES = [
   ['stairs', 'Stairs'],
   ['parts', 'Doors, Fences & Ladders'],
   ['other', 'Other'],
+]
+// BuildMode.breakSeconds: seconds to break a block while playing, by its
+// picker category, with a few blocks picked out by name first.
+const BREAK_SECONDS = { glass: 0.35, light: 0.5, nature: 0.6, color: 0.8, wood: 1.2, other: 1, terracotta: 1.6, stone: 2.2, nether: 2.4, ore: 3 }
+const BREAK_SECONDS_BY_ID = [
+  [/bedrock/, 10],
+  [/obsidian|debris/, 7],
+  [/leaves$|flower|fern|vine/, 0.25],
+  [/^snow|wool$/, 0.5],
+  [/concrete$/, 1.6],
+  [/^c4$|^tnt$/, 0.5],
 ]
 function _blockCategory(bt) {
   if (bt.shape === 'invisible' || bt.game) return 'special'
@@ -1432,7 +1446,12 @@ export class BuildMode {
       // existed (the picker's Tab-toggle key handling never blocked
       // movement input while open), the search box just made it obvious.
       if (this.pickerOpen) return
-      if (e.code === FIXED_KEYS.buildTry && !e.repeat && !e.ctrlKey && !e.metaKey) {
+      // Typing in a text box over the game (Settings from the pause
+      // screen) doesn't move you or press game keys.
+      if (e.target?.closest?.('input, textarea, select')) return
+      // (Not while playing a game from the homepage - that would drop you
+      // into the Map Editor.)
+      if (e.code === FIXED_KEYS.buildTry && !e.repeat && !e.ctrlKey && !e.metaKey && !this.gameMenu.forGame) {
         this.toggleTryMode()
         return
       }
@@ -1599,15 +1618,12 @@ export class BuildMode {
       // filtering is one of the slowest things for an old phone's GPU).
       maxAnisotropy: TOUCH_DEVICE ? 1 : Math.min(4, renderer.capabilities.getMaxAnisotropy()),
       faces: blockFaceCanvases,
-      // HD textures at full size on computers, half on phones/tablets.
-      tile: TOUCH_DEVICE ? 32 : 64,
+      // The 16x16 pixel textures at their own size (drawn crisp, BlockChunks).
+      tile: 16,
       hasAlpha: textureHasAlpha,
       getType: (x, y, z) => this._blocks.get(`${x},${y},${z}`),
       liquidHeight: (x, y, z) => this.liquids.heightAt(x, y, z),
     })
-    // The realistic HD textures are made in a worker meanwhile and swapped
-    // in when they're ready (2026-10-16) - the map never waits for them.
-    prepareHdTextures(BLOCK_TYPES).then((ok) => { if (ok) this._applyHdTextures() })
     this._chunkCells = new Map() // "cx,cy,cz" -> Set of "x,y,z" cube cells in that chunk
     this._instancedMeshes = {}
     this._instanceKeyByIndex = {} // type id -> array mapping instance index -> "x,y,z" key, for swap-remove
@@ -1692,17 +1708,19 @@ export class BuildMode {
         try { this.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available in this environment */ }
         return
       }
-      // Trying the map: clicks shoot, nothing gets built or broken.
+      // Trying the map: clicks shoot (and, held on a block, break it -
+      // BuildTryMode._updateDigging); nothing gets built.
       if (this.tryMode.active) {
         if (e.button === 0) {
           // Held down, an automatic gun keeps firing (BuildSurvival.update).
           this._fireHeld = true
           this.tryMode.fire()
         }
-        // Right-click aims down the sights and right-click again stops
-        // (2026-10-10, Gaymi: it used to stop the moment the button was
-        // let go) - doors, chests and NPCs are on the Use key (E).
-        else if (e.button === 2) this.tryMode.setAim(!this.tryMode.aiming)
+        // Right-click aims down the sights while it's held and stops when
+        // it's let go (2026-10-17, Gaymi: "if you stop clicking right
+        // click it stops aiming") - doors, chests and NPCs are on the Use
+        // key (E).
+        else if (e.button === 2) this.tryMode.setAim(true)
         return
       }
       if (e.button === 2) {
@@ -1814,6 +1832,8 @@ export class BuildMode {
     // toggleMenu, opened with Escape.
     this.menuOpen = false
     this._menuEl = document.getElementById('build-menu')
+    // ...and the pause screen while playing a game from the homepage.
+    this.gameMenu = new PlayPauseMenu(this)
     document.getElementById('build-mode-try-btn')?.addEventListener('click', () => this.toggleTryMode())
     document.getElementById('build-menu-close')?.addEventListener('click', () => {
       if (this.menuOpen) this.toggleMenu()
@@ -1857,6 +1877,10 @@ export class BuildMode {
         this.togglePicker()
       } else if (e.code === 'Escape' && this.pickerOpen) {
         this.togglePicker()
+      } else if (e.code === 'Escape' && this.gameMenu.settingsOpen) {
+        // Settings over the game's pause screen: back to the pause screen
+        // (unless Escape was cancelling a key change in it).
+        if (!e.defaultPrevented) this.gameMenu.closeSettings()
       } else if (e.code === 'Escape') {
         // Opens/closes the action menu (see toggleMenu) - which also
         // releases/reacquires pointer lock as part of that, so this
@@ -1897,6 +1921,7 @@ export class BuildMode {
     this.renderer.domElement.addEventListener('pointerdown', this._onPointerDown)
     this._onPointerUp = (e) => {
       if (e.button === 0) this._fireHeld = false
+      if (e.button === 2 && this.tryMode?.active) this.tryMode.setAim(false)
     }
     window.addEventListener('pointerup', this._onPointerUp)
     window.addEventListener('contextmenu', this._onContextMenu)
@@ -1910,6 +1935,7 @@ export class BuildMode {
     // screen the whole time.
     this.menuOpen = false
     if (this._menuEl) this._menuEl.style.display = 'none'
+    this.gameMenu.show(false)
     this.load()
     this._renderSlots()
     this.sky.onEnter()
@@ -1964,6 +1990,7 @@ export class BuildMode {
     this._tryCrosshairEl.style.display = 'none'
     this.menuOpen = false
     if (this._menuEl) this._menuEl.style.display = 'none'
+    this.gameMenu.show(false)
     if (this._hotbarEl) this._hotbarEl.style.visibility = ''
     if (this.game?.fpsEl) this.game.fpsEl.style.visibility = ''
   }
@@ -2095,6 +2122,37 @@ export class BuildMode {
     return !!type && this._chunks.isLiquid(type)
   }
 
+  // How many seconds holding the button on a block takes to break it while
+  // playing (2026-10-17, Gaymi: "stone should take longer to break compared
+  // to wood"), by what it's made of. Slabs, stairs, fences and doors break
+  // like the block they're cut from. The game's own blocks (Player Start,
+  // spawners, chests, levers...) and liquids don't break.
+  breakSeconds(type) {
+    let def = type && BLOCK_BY_ID.get(type)
+    if (!def || def.game || def.shape === 'invisible' || LIQUID_TYPES.has(type)) return Infinity
+    if (def.shape) {
+      const from = BLOCK_BY_ID.get(SHAPED_TEXTURE_FROM[def.id] || def.slabOf || def.stairsOf)
+      if (from) def = from
+      else if (/door|ladder|fence|trapdoor|sign/.test(def.shape + def.id)) return BREAK_SECONDS.wood
+    }
+    for (const [re, sec] of BREAK_SECONDS_BY_ID) if (re.test(def.id)) return sec
+    return BREAK_SECONDS[_blockCategory(def)] ?? BREAK_SECONDS.stone
+  }
+
+  shapeOf(type) {
+    return BLOCK_BY_ID.get(type)?.shape || null
+  }
+
+  // A block's door / facing state, so a block broken while playing comes
+  // back the same way round (BuildTryMode._restoreWindows).
+  _blockStateOf(x, y, z) {
+    const key = this._key(x, y, z)
+    const shape = BLOCK_BY_ID.get(this._blocks.get(key))?.shape
+    if (shape === 'door' && this._doorState.has(key)) return { ...this._doorState.get(key) }
+    if (FACED_SHAPES.has(shape) && this._stairFacing.has(key)) return this.gadgets.stateOf(key)
+    return null
+  }
+
   // Glass blocks (clear, stained, tinted) - the windows Try Map's shots
   // crack and break. Honey/slime look like glass but aren't windows.
   _isWindowType(type) {
@@ -2105,43 +2163,6 @@ export class BuildMode {
   // Geometry + material(s) for the block shown in the player's hand while
   // building (BuildTryMode.drawHand): a cube textured like the block, or a
   // shaped block's own mesh parts. Cached per type; shared, never disposed.
-  // Swaps the HD block textures in (BlockTextures prepareHdTextures): the
-  // chunk atlas is repainted in place, and every other block material
-  // (shaped blocks, liquids, doors, the held block) gets a new texture made
-  // from its HD picture - a fresh texture rather than a new image in the
-  // old one, since the GPU copy can't change size in place.
-  _applyHdTextures() {
-    this._chunks?.refreshAtlas((c) => hdCanvasFor(c) || c)
-    const swapped = new Map()
-    const upgrade = (tex) => {
-      if (!tex?.image) return tex
-      if (swapped.has(tex)) return swapped.get(tex)
-      const hd = hdCanvasFor(tex.image)
-      if (!hd) return tex
-      const next = new THREE.CanvasTexture(hd)
-      for (const key of ['wrapS', 'wrapT', 'minFilter', 'colorSpace', 'anisotropy', 'flipY']) next[key] = tex[key]
-      next.offset.copy(tex.offset)
-      next.repeat.copy(tex.repeat)
-      swapped.set(tex, next)
-      tex.dispose()
-      return next
-    }
-    const swap = (material) => {
-      for (const m of Array.isArray(material) ? material : [material]) {
-        if (!m) continue
-        if (m.map) m.map = upgrade(m.map)
-        if (m.emissiveMap) m.emissiveMap = upgrade(m.emissiveMap)
-      }
-    }
-    const visit = (root) => root?.traverse?.((o) => { if (o.material) swap(o.material) })
-    visit(this.scene)
-    visit(this.tryMode?._gunScene)
-    if (this._chunks?.materials) for (const m of Object.values(this._chunks.materials)) swap(m)
-    for (const mesh of Object.values(this._instancedMeshes)) swap(mesh.material)
-    for (const parts of this._heldParts?.values() || []) swap(parts.material)
-    this._renderHotbar()
-  }
-
   _heldBlockParts(type) {
     if (!this._heldParts) this._heldParts = new Map()
     if (this._heldParts.has(type)) return this._heldParts.get(type)
@@ -3157,15 +3178,22 @@ export class BuildMode {
   // Line/Copy/Paste), which sits hidden the rest of the time instead of
   // permanently on screen. Same pointer-lock release/reacquire dance as
   // togglePicker, since the menu's buttons need a real usable cursor too.
+  // Playing a game from the homepage, it's the game's own pause screen
+  // instead (PlayPauseMenu) - the Map Editor's is only for making maps.
   toggleMenu() {
     this.menuOpen = !this.menuOpen
+    const inGame = this.gameMenu.forGame
     if (this.menuOpen) {
       this.tryMode.setAim(false)
-      this._captureMenuPreview()
-      this._menuTip = (this._menuTip ?? Math.floor(Math.random() * MENU_TIP_KEYS.length) - 1) + 1
-      this._refreshMenuInfo()
+      this._fireHeld = false
+      if (!inGame) {
+        this._captureMenuPreview()
+        this._menuTip = (this._menuTip ?? Math.floor(Math.random() * MENU_TIP_KEYS.length) - 1) + 1
+        this._refreshMenuInfo()
+      }
     }
-    if (this._menuEl) this._menuEl.style.display = this.menuOpen ? 'flex' : 'none'
+    if (this._menuEl) this._menuEl.style.display = this.menuOpen && !inGame ? 'flex' : 'none'
+    this.gameMenu.show(this.menuOpen && inGame)
     // The pause screen covers the whole view: the hotbar and fps readout
     // hide behind it (the readout would sit on the title).
     if (this._hotbarEl) this._hotbarEl.style.visibility = this.menuOpen ? 'hidden' : ''
@@ -3180,6 +3208,16 @@ export class BuildMode {
         // Not available in this environment.
       }
     }
+  }
+
+  // Closes the pause screen without taking the mouse back (leaving the
+  // game from it).
+  closeMenuQuietly() {
+    this.menuOpen = false
+    if (this._menuEl) this._menuEl.style.display = 'none'
+    this.gameMenu.show(false)
+    if (this._hotbarEl) this._hotbarEl.style.visibility = ''
+    if (this.game?.fpsEl) this.game.fpsEl.style.visibility = ''
   }
 
   // A picture of the map as it is right now, for the preview card - read
@@ -3528,10 +3566,10 @@ export class BuildMode {
       const faced = FACED_SHAPES.has(shape) && this._stairFacing.has(key) && this.gadgets.stateOf(key)
       blocks.push(door ? { x, y, z, type, facing: door.facing, open: door.open } : faced && (faced.facing || faced.open || faced.text) ? { x, y, z, type, ...faced } : { x, y, z, type })
     }
-    // Windows shot out while trying the map are only gone for that try -
-    // saves and exports still have them.
+    // Windows shot out and blocks broken while trying the map are only
+    // gone for that try - saves and exports still have them.
     for (const b of this.tryMode?.brokenWindows() || []) {
-      if (!this._blocks.has(this._key(b.x, b.y, b.z))) blocks.push({ x: b.x, y: b.y, z: b.z, type: b.type })
+      if (!this._blocks.has(this._key(b.x, b.y, b.z))) blocks.push({ x: b.x, y: b.y, z: b.z, type: b.type, ...b.state })
     }
     return { blocks, hotbar: this.hotbar }
   }
@@ -3778,11 +3816,14 @@ export class BuildMode {
   }
 
   update(dt) {
+    this.gameMenu.update()
     // Hold-V zoom - damped toward its target the same way movement
     // velocity is below, instead of an instant snap, so both zooming in
     // and the release back to normal ease smoothly rather than jump-cutting.
+    // While trying/playing the map BuildTryMode.update owns the view's
+    // FOV (sprint, aiming and its own deeper zoom).
     const zoomTarget = this._keys.has(FIXED_KEYS.buildZoom) ? ZOOM_FOV : this._normalFov()
-    if (Math.abs(this.camera.fov - zoomTarget) > 0.01) {
+    if (!this.tryMode.active && Math.abs(this.camera.fov - zoomTarget) > 0.01) {
       this.camera.fov = THREE.MathUtils.damp(this.camera.fov, zoomTarget, FOV_LERP_SPEED, dt)
       this.camera.updateProjectionMatrix()
     }

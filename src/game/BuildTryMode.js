@@ -32,7 +32,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { audioEngine } from './Audio.js'
 import { cloneViewmodel } from './Viewmodels.js'
-import { heldAction } from './Keybinds.js'
+import { heldAction, FIXED_KEYS } from './Keybinds.js'
 import { WORLD_LIMIT, sampleLand, biomeName, inCity } from './OpenWorld.js'
 import { t } from './i18n.js'
 import { holdWeapon, poseArms } from './HeldWeapon.js'
@@ -125,6 +125,9 @@ const SHARD_LIFE = 1.4
 // are the push away from you and upward, spread the random scatter, sizes
 // how big the pieces are, spin how fast they tumble.
 const CRACK_LOOKS = 5
+// Breaking blocks while playing (_updateDigging): how near (blocks) a block
+// has to be.
+const DIG_REACH = 5
 const BREAK_LOOKS = [
   { name: 'burst', count: 1, out: 2, up: 2.5, spread: 2.5, sizes: [1, 1.3], spin: 12 },
   { name: 'collapse', count: 1.2, out: 0.5, up: 0.4, spread: 1, sizes: [0.9, 1.4], spin: 6 },
@@ -158,6 +161,9 @@ const AIM_LOWER_FOR = { pistol: 0.01 }
 // The top share of a gun's height whose middle the crosshair lines up with.
 const TOP_BAND = 0.18
 const AIM_ZOOM = 22
+// Held V while playing (2026-10-17, Gaymi: "make it zoom inn further"): the
+// view narrows to this many degrees - deeper than the editor's ZOOM_FOV.
+const PLAY_ZOOM_FOV = 9
 const AIM_SPEED = 14
 // Inspect Weapon (X by default): the gun turns to show its side at an
 // angle, holds there, and turns back - seconds for each part.
@@ -205,7 +211,8 @@ export class BuildTryMode {
     this._mapImage = null
     this._mapDrawAt = 0
     this._cracked = new Map() // cell key -> { x, y, z }
-    this._broken = new Map() // cell key -> { x, y, z, type }
+    this._broken = new Map() // cell key -> { x, y, z, type, state, terrain }
+    this._dig = null // the block being broken: { key, x, y, z, type, need, t }
     this._crackMeshes = []
     this._crackMaterials = []
     this._shards = []
@@ -775,13 +782,16 @@ export class BuildTryMode {
     this._eye = THREE.MathUtils.damp(this._eye, crouch ? CROUCH_EYE : EYE, 18, dt)
     cam.position.set(p.x * B, (p.y + this._eye + bob) * B, p.z * B)
     if (this._baseFov !== null) {
-      const fov = THREE.MathUtils.damp(cam.fov, this._baseFov + (sprint && !this.aiming ? SPRINT_FOV : 0) - AIM_ZOOM * this.aimAmount, 10, dt)
+      const zoom = keys?.has(FIXED_KEYS.buildZoom)
+      const target = zoom ? PLAY_ZOOM_FOV : this._baseFov + (sprint && !this.aiming ? SPRINT_FOV : 0) - AIM_ZOOM * this.aimAmount
+      const fov = THREE.MathUtils.damp(cam.fov, target, 10, dt)
       if (Math.abs(fov - cam.fov) > 0.01) {
         cam.fov = fov
         cam.updateProjectionMatrix()
       }
     }
     this._recoil = Math.max(0, this._recoil - dt * 6)
+    this._updateDigging(dt)
     this.aimAmount = THREE.MathUtils.damp(this.aimAmount, this.aiming ? 1 : 0, AIM_SPEED, dt)
     if (this.aimAmount < 0.001) this.aimAmount = 0
     const inspect = this._inspectWeight(dt)
@@ -834,8 +844,9 @@ export class BuildTryMode {
     this._underwaterEl.style.display = kind ? 'block' : 'none'
   }
 
-  // Left click while trying: the gun kicks and fires. Nothing gets built
-  // or broken - except windows (see _shootWindow).
+  // Left click while trying: the gun kicks and fires. Shots crack and
+  // break windows (see _shootWindow); holding the button on a block
+  // breaks it (_updateDigging).
   fire() {
     // Playing (BuildSurvival): the gun needs ammo, and zombies are hit
     // before windows.
@@ -1010,13 +1021,16 @@ export class BuildTryMode {
     audioEngine.playGlassBreak()
   }
 
+  // Everything broken this try except the open world's land (saves never
+  // hold that - it grows back from its seed).
   brokenWindows() {
-    return [...this._broken.values()]
+    return [...this._broken.values()].filter((b) => !b.terrain)
   }
 
   // The scene was cleared (another slot loaded, map reset): nothing to
   // put back any more.
   forgetWindows() {
+    this._stopDig()
     this._broken.clear()
     this._cracked.clear()
     this._rebuildCracks()
@@ -1026,11 +1040,97 @@ export class BuildTryMode {
   _restoreWindows() {
     const bm = this.bm
     bm._suppressUndoRecording = true
-    for (const b of this._broken.values()) {
-      if (!bm.getBlockAt(b.x, b.y, b.z)) bm.placeBlock(b.x, b.y, b.z, b.type)
+    for (const [key, b] of this._broken) {
+      if (bm.getBlockAt(b.x, b.y, b.z)) continue
+      bm.placeBlock(b.x, b.y, b.z, b.type, false, b.state)
+      // The open world's own land goes back to being land.
+      if (b.terrain && bm.world) {
+        bm.world.removed.delete(key)
+        bm.world.terrainKeys.add(key)
+      }
     }
     bm._suppressUndoRecording = false
     this.forgetWindows()
+  }
+
+  // --- Breaking blocks while playing (2026-10-17, Gaymi: "make them all
+  // breakable but with speed like how long the blocks should break like
+  // stone should take longer to break compared to wood"): hold the fire
+  // button on a block within DIG_REACH and it cracks, then breaks after
+  // BuildMode.breakSeconds of holding. Looking at another block starts
+  // over. Like the windows, only for this try: exit() puts them back. ---
+  _updateDigging(dt) {
+    const bm = this.bm
+    const play = bm.survival
+    const busy = !this.active || !bm._fireHeld || bm.menuOpen || bm.gameMenuOpen || (play?.active && (play.dead || play._picking))
+    const hit = busy ? null : this._digTarget()
+    if (!hit) {
+      this._stopDig()
+      return
+    }
+    if (this._dig?.key !== hit.key || this._dig.type !== hit.type) this._dig = { ...hit, t: 0 }
+    this._dig.t += dt
+    if (this._dig.t >= this._dig.need) {
+      this.breakBlock(hit.x, hit.y, hit.z)
+      this._stopDig()
+      return
+    }
+    this._showDigCrack(this._dig, this._dig.t / this._dig.need)
+  }
+
+  // The block under the crosshair, if it's near enough and can break.
+  _digTarget() {
+    const bm = this.bm
+    bm.camera.updateMatrixWorld()
+    bm._raycaster.setFromCamera({ x: 0, y: 0 }, bm.camera)
+    const hit = bm._raycastGridAligned()
+    if (!hit) return null
+    let [x, y, z] = hit.existingBlock
+    const B = this.B
+    const c = bm.camera.position
+    if (Math.hypot((x + 0.5) * B - c.x, (y + 0.5) * B - c.y, (z + 0.5) * B - c.z) > DIG_REACH * B) return null
+    // A door's top half breaks the whole door, from its bottom half.
+    if (bm.shapeOf(bm.getBlockAt(x, y, z)) === 'doortop') y -= 1
+    const type = bm.getBlockAt(x, y, z)
+    const need = bm.breakSeconds(type)
+    if (!Number.isFinite(need)) return null
+    return { key: bm._key(x, y, z), x, y, z, type, need }
+  }
+
+  breakBlock(x, y, z) {
+    const bm = this.bm
+    const type = bm.getBlockAt(x, y, z)
+    if (!type) return
+    const key = bm._key(x, y, z)
+    if (this._cracked.delete(key)) this._rebuildCracks()
+    this._broken.set(key, { x, y, z, type, state: bm._blockStateOf(x, y, z), terrain: !!bm.world?.isTerrain(key) })
+    bm._suppressUndoRecording = true
+    bm.removeBlock(x, y, z)
+    bm._suppressUndoRecording = false
+    const glass = bm._isWindowType(type)
+    this._spawnShards(x, y, z, type, glass ? null : BREAK_LOOKS.findIndex((l) => l.name === 'chunks'))
+    if (glass) audioEngine.playGlassBreak()
+    else audioEngine.playFootstep(false, bm.breakSeconds(type) < 1 ? 'grass' : 'default')
+  }
+
+  // The crack on the block being broken, fading in as it gets closer.
+  _showDigCrack(dig, progress) {
+    const bm = this.bm
+    const B = this.B
+    if (!this._digMesh) {
+      const mat = new THREE.MeshBasicMaterial({ map: this._crackTexture(CRACK_LOOKS - 1), transparent: true, alphaTest: 0.01, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
+      this._digMesh = new THREE.Mesh(new THREE.BoxGeometry(B * 1.01, B * 1.01, B * 1.01), mat)
+      this._digMesh.renderOrder = 2
+    }
+    if (!this._digMesh.parent) bm.scene.add(this._digMesh)
+    this._digMesh.position.set((dig.x + 0.5) * B, (dig.y + 0.5) * B, (dig.z + 0.5) * B)
+    this._digMesh.material.opacity = 0.2 + 0.8 * progress
+    this._digMesh.visible = true
+  }
+
+  _stopDig() {
+    this._dig = null
+    if (this._digMesh) this._digMesh.visible = false
   }
 
   // Pixel-art cracks, drawn once each: CRACK_LOOKS different ones - an
@@ -1162,10 +1262,15 @@ export class BuildTryMode {
     let mats = this._shardMaterials.get(type)
     if (!mats) {
       const color = this.bm._blockColor(type)
-      // The glass's own colour, plus a paler glint for a few pieces.
-      mats = [
+      // The glass's own colour, plus a paler glint for a few pieces (solid
+      // blocks broken while playing: their colour and a darker one).
+      const glass = this.bm._isWindowType(type)
+      mats = glass ? [
         new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.75 }),
         new THREE.MeshBasicMaterial({ color: new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.6), transparent: true, opacity: 0.9 }),
+      ] : [
+        new THREE.MeshBasicMaterial({ color }),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(0.7) }),
       ]
       this._shardMaterials.set(type, mats)
     }

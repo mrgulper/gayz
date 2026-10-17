@@ -200,8 +200,11 @@ export async function _enterBuildMode(game, { map, play = false, server = null }
   const slot = map === 'map3' ? 'map3' : map === 'map2' && current === 'map3' ? 0 : undefined
   game.buildMode.enter({ slot })
   // Map 1's open world grows new land every game (OpenWorld.js) - the
-  // same land for everyone on a server, made from its id.
-  game.buildMode.world?.reseed(server?.serverId ? seedFromText(server.serverId) : undefined)
+  // same land for everyone on a server, made from its id, and the same land
+  // again for a run saved from the pause menu (BuildSurvival.saveRun).
+  // (BuildSurvival through the loaded editor - BuildMode.js loads lazily.)
+  const savedSeed = play && !server ? game.buildMode.survival?.constructor.savedRun?.()?.seed : null
+  game.buildMode.world?.reseed(server?.serverId ? seedFromText(server.serverId) : savedSeed ?? undefined)
   // The 3D canvas isn't resized on the homepage (_onResize) - catch up now.
   if (game._sizeDirty) game._onResize()
   if (play) game.buildMode.survival.start({ fromMenu: true, net: server ? new PlayNet(game, server) : null })

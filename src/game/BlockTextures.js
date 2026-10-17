@@ -12,6 +12,8 @@
 // pixels - deliberately NOT THREE.Color, whose .r/.g/.b are linear values
 // (that mix-up made the old editor textures ~3x too dark).
 
+import { cleanPixels } from './PixelClean.js'
+
 const S = 16
 
 function hashStr(str) {
@@ -1241,34 +1243,14 @@ function paint(fn) {
 }
 
 
-function hdStyleOf(type) {
-  const id = type.id
-  if (id === 'water' || id === 'lava') return 'liquid'
-  if (id === 'glass' || GLASS_IDS.test(id) || id === 'tintedglass' || id === 'ice' || id === 'packedice' || id === 'blueice') return 'glass'
-  if (id === 'leaves' || /leaves$/.test(id)) return 'leaves'
-  if (type.emissive) return 'glow'
-  if (/wool$/.test(id) || type.pattern === 'wool') return 'cloth'
-  if (/(concrete|terracotta|quartz|smooth|polished|froglight|glazed)/.test(id)) return 'smooth'
-  if (/(^gold|^iron|^diamondblock|^emeraldblock|^lapisblock|^redstoneblock|^netherite|copper|^raw)/.test(id) || type.pattern === 'metal') return 'metal'
-  if (type.pattern === 'log' || /(log|stem|hyphae|^wood$|wood$)/.test(id)) return 'bark'
-  if (type.pattern === 'wood' || /(planks|crate|bookshelf|crafting|barrel|chest|jukebox|noteblock|composter|ladder)/.test(id)) return 'wood'
-  if (type.pattern === 'brick' || /(brick|tiles)/.test(id)) return 'brick'
-  if (/(grass|dirt|sand$|^sand|soul|mud|podzol|mycelium|clay|snow|^moss|farmland|path|coarse)/.test(id) && !/sandstone/.test(id)) return 'ground'
-  return 'stone'
-}
+// Clean, simple pixel art (2026-10-17, Gaymi: "make the blocks more clearer
+// instead of so burry like kirka and bloxd their blocks are simple but very
+// clean"): every painted face goes through cleanPixels (PixelClean.js) - a
+// few flat colours, no lone speckles - and is drawn crisp (nearest
+// filtering) in BlockChunks. Liquids and glass keep their painting.
 
-// Base (16x16) faces per block, and the HD versions made from them.
+// Base (16x16) faces per block.
 const cache = new Map()
-// base canvas -> HD canvas, filled once the worker is done.
-const hdOf = new Map()
-const hdFaceCache = new Map()
-let hdPromise = null
-
-// The HD version of a texture this module painted (or null) - for swapping
-// pictures already on screen once the HD textures are ready.
-export function hdCanvasFor(canvas) {
-  return hdOf.get(canvas) || null
-}
 
 function baseFaces(type) {
   const cached = cache.get(type.id)
@@ -1290,81 +1272,16 @@ function baseFaces(type) {
     const tex = paint((px) => draw(px, base, r))
     faces = { top: tex, side: tex, bottom: tex }
   }
+  if (!/^(water|lava)$/.test(type.id) && (!textureHasAlpha(type) || /leaves$/.test(type.id))) {
+    for (const canvas of new Set(Object.values(faces))) cleanPixels(canvas)
+  }
   cache.set(type.id, faces)
   return faces
 }
 
-// -> { top, side, bottom } canvases for this block type: the HD ones
-// (BlockTexturesHD.js) once prepareHdTextures has finished, the 16x16
-// paintings until then.
+// -> { top, side, bottom } 16x16 canvases for this block type.
 export function blockFaceCanvases(type) {
-  const base = baseFaces(type)
-  if (!hdOf.size) return base
-  let faces = hdFaceCache.get(type.id)
-  if (!faces) {
-    faces = {}
-    for (const [key, canvas] of Object.entries(base)) faces[key] = hdOf.get(canvas) || canvas
-    hdFaceCache.set(type.id, faces)
-  }
-  return faces
-}
-
-// Makes the HD textures for these block types (and the doors) in a Web
-// Worker, off the main thread, so the homepage and the game never freeze
-// for it. Resolves true when they're ready (blockFaceCanvases/doorCanvas
-// then hand them out and hdCanvasFor maps old pictures to new), false if
-// workers aren't available - the 16x16 textures simply stay.
-export function prepareHdTextures(types) {
-  if (hdPromise) return hdPromise
-  hdPromise = new Promise((resolve) => {
-    const jobs = []
-    const seen = new Set()
-    const add = (canvas, style, seed) => {
-      if (!canvas || seen.has(canvas)) return
-      seen.add(canvas)
-      jobs.push({ canvas, style, seed })
-    }
-    for (const t of types) {
-      if (t.shape && !t.game) continue
-      const style = hdStyleOf(t)
-      const seed = hashStr(`hd:${t.id}`)
-      for (const canvas of Object.values(baseFaces(t))) add(canvas, style, seed)
-    }
-    for (const kind of Object.keys(DOOR_STYLES)) add(baseDoorCanvas(kind), DOOR_STYLES[kind].metal ? 'metal' : 'wood', hashStr(`hd:door:${kind}`))
-    let worker
-    try {
-      worker = new Worker(new URL('./BlockTexturesHD.worker.js', import.meta.url), { type: 'module' })
-    } catch {
-      resolve(false)
-      return
-    }
-    const payload = jobs.map((j, id) => ({
-      id,
-      w: j.canvas.width,
-      h: j.canvas.height,
-      style: j.style,
-      seed: j.seed,
-      data: j.canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, j.canvas.width, j.canvas.height).data.buffer,
-    }))
-    worker.onmessage = (e) => {
-      for (const r of e.data) {
-        const c = document.createElement('canvas')
-        c.width = r.width
-        c.height = r.height
-        c.getContext('2d', { willReadFrequently: true }).putImageData(new ImageData(new Uint8ClampedArray(r.data), r.width, r.height), 0, 0)
-        hdOf.set(jobs[r.id].canvas, c)
-      }
-      iconCache.clear()
-      worker.terminate()
-      resolve(true)
-    }
-    worker.onerror = () => {
-      worker.terminate()
-      resolve(false)
-    }
-    worker.postMessage(payload, payload.map((p) => p.data))
-  })
-  return hdPromise
+  return baseFaces(type)
 }
 
 // True when the texture itself carries transparency (glass panes, leaf
@@ -1398,7 +1315,7 @@ export function blockIconURL(type, size = 64, heightFrac = 1) {
   const B = [cx, pad + 2 * q + drop]
   const L = [cx - half, pad + q + drop]
   const h = half * heightFrac
-  // The faces are HD_SIZE pictures; n is whatever size they really are.
+  // n is whatever size the faces really are.
   const shaded = (src, dark) => {
     const n = src.width
     const c = document.createElement('canvas')
@@ -1489,13 +1406,7 @@ const DOOR_STYLES = {
   iron: { base: [210, 210, 206], windows: 'two', metal: true },
 }
 const doorCache = new Map()
-// The door picture: HD once prepareHdTextures is done.
 export function doorCanvas(kind) {
-  const base = baseDoorCanvas(kind)
-  return hdOf.get(base) || base
-}
-
-function baseDoorCanvas(kind) {
   if (doorCache.has(kind)) return doorCache.get(kind)
   const style = DOOR_STYLES[kind] || DOOR_STYLES.oak
   const r = rng(hashStr(`door:${kind}`))

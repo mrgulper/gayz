@@ -26,11 +26,10 @@ const LAZY_BUDGET_MS = 5
 // A power-of-two SLOT with the tile repeated into half-tile padding: every
 // mipmap level (down to one texel per slot) then only ever averages a
 // block's own texture - no distant speckles bled in from the next tile.
-// Tiles hold the HD textures (BlockTextures.js HD_SIZE, 2026-10-16): 64px
-// on computers, drawn at 32px on phones/tablets (the `tile` option) to
-// keep their graphics memory where it was. ~311 textures: about 28 MB
-// with mipmaps at 64px, about 7 MB at 32px.
-const DEFAULT_TILE = 64
+// Tiles hold the 16x16 pixel textures at their own size (2026-10-17, clean
+// and crisp like Kirka/bloxd instead of the blurry 64px HD ones): about 2 MB
+// with mipmaps for ~311 textures.
+const DEFAULT_TILE = 16
 
 // 6 faces: normal, 4 corners (cube-local 0/1, counter-clockwise seen from
 // outside), texture v points up (+y) on the sides, -z on top/bottom.
@@ -108,11 +107,10 @@ export class BlockChunks {
     const ctx = canvas.getContext('2d')
     ctx.imageSmoothingQuality = 'high'
     const uvOf = new Map()
-    // One slot per distinct picture; redraw() paints it (again, with the
-    // HD version, in refreshAtlas - same spot, so no UV changes).
+    // One slot per distinct picture.
     const draw = (src, ox, oy) => {
       // A small picture is scaled up crisp (pixel art), a big one down
-      // smoothly (HD textures in small tiles on phones).
+      // smoothly.
       ctx.imageSmoothingEnabled = src.width > TILE
       ctx.save()
       ctx.beginPath()
@@ -124,8 +122,6 @@ export class BlockChunks {
       }
       ctx.restore()
     }
-    this._atlasSlots = []
-    this._atlasDraw = draw
     unique.forEach((src, i) => {
       const ox = (i % perRow) * SLOT + PAD
       const oy = Math.floor(i / perRow) * SLOT + PAD
@@ -133,7 +129,6 @@ export class BlockChunks {
       // the smaller mipmap levels blend into matching colors instead of
       // bleeding a neighboring block's texture across the seam.
       draw(src, ox, oy)
-      this._atlasSlots.push({ src, ox, oy })
       // Canvas y runs down, texture v runs up (flipY) - v0 is the bottom.
       const u0 = ox / atlasW
       const u1 = (ox + TILE) / atlasW
@@ -168,11 +163,11 @@ export class BlockChunks {
       })
     })
     const tex = new THREE.CanvasTexture(canvas)
-    // Smooth up close (the HD textures aren't pixel art), trilinear mipmaps +
-    // full anisotropy far away so the floor doesn't shimmer toward the
-    // horizon. Safe with an atlas: the padded power-of-two slots above keep
+    // Crisp pixels up close (nearest), trilinear mipmaps + full anisotropy
+    // far away so the floor doesn't shimmer toward the horizon. Safe with an atlas: the padded power-of-two slots above keep
     // every mip level inside a block's own texture.
     tex.minFilter = THREE.LinearMipmapLinearFilter
+    tex.magFilter = THREE.NearestFilter
     tex.colorSpace = THREE.SRGBColorSpace
     tex.anisotropy = maxAnisotropy
     this.atlas = tex
@@ -182,6 +177,7 @@ export class BlockChunks {
       if (!t) return null
       const map = new THREE.CanvasTexture(faces(t).side)
       map.wrapS = map.wrapT = THREE.RepeatWrapping
+      map.magFilter = THREE.NearestFilter
       map.minFilter = THREE.LinearMipmapLinearFilter
       map.colorSpace = THREE.SRGBColorSpace
       map.anisotropy = maxAnisotropy
@@ -197,17 +193,6 @@ export class BlockChunks {
       clear: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, alphaTest: 0.02 }),
       cutout: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, alphaTest: 0.5 }),
     }
-  }
-
-  // Repaints every atlas slot with replace(picture) - the HD textures once
-  // they're made (BlockTextures prepareHdTextures) - in the same spots, so
-  // nothing else changes; the GPU copy updates on the next frame.
-  refreshAtlas(replace) {
-    for (const slot of this._atlasSlots) {
-      const next = replace(slot.src)
-      if (next && next !== slot.src) this._atlasDraw(next, slot.ox, slot.oy)
-    }
-    this.atlas.needsUpdate = true
   }
 
   // Liquid animation - steps one texture pixel at a time (Minecraft's own
