@@ -38,8 +38,14 @@ import { t } from './i18n.js'
 import { holdWeapon, poseArms } from './HeldWeapon.js'
 
 const HALF_WIDTH = 0.3
-// Cells across the minimap out in Map 1's open world.
+// Cells across the minimap out in Map 1's open world, per size (like
+// florr.io, 2026-10-16): the corner map shows just the part around you,
+// one M press pops up a much wider view, the next one is the big map in
+// the middle you can drag and zoom (MAP_WORLD_SPAN times its zoom).
 const MAP_WORLD_SPAN = 160
+const MAP_SPAN_FOR = { normal: 96, big: 640 }
+// How far the big map can be dragged away from you (cells).
+const MAP_PAN_LIMIT = 1200
 // Camera views (the camera key, P - like bloxd.io): first person, third
 // person from behind, third person from the front. The camera sits up to
 // VIEW_DIST blocks away, nearer when a wall is in the way.
@@ -52,7 +58,10 @@ const VIEW_RISE = 0.6
 // that on the big map).
 const MAP_TILE_BUDGET_MS = 3
 const MAP_MIN_SPAN = 48
-const MAP_MAX_SPAN = 768
+const MAP_MAX_SPAN = 960
+// Time per draw for the quick stand-in tiles; past it a tile is one flat
+// colour until the next draw.
+const MAP_COARSE_BUDGET_MS = 3
 const HEIGHT = 1.8
 const EYE = 1.62
 const CROUCH_HEIGHT = 1.5
@@ -235,6 +244,7 @@ export class BuildTryMode {
       const cellsPerPx = this._mapSpan() / this._mapCanvas.clientWidth
       this._mapPan.x -= (e.clientX - drag.x) * cellsPerPx
       this._mapPan.z -= (e.clientY - drag.y) * cellsPerPx
+      this._clampMapPan()
       drag = { x: e.clientX, y: e.clientY }
       this._mapDrawAt = 0
     })
@@ -271,8 +281,11 @@ export class BuildTryMode {
   // Cells across the map right now (the open world's window, or the
   // whole 128x128 map), times the zoom.
   _mapSpan() {
-    const base = this.bm.world?.active ? MAP_WORLD_SPAN : this._mapImage?.width || 128
-    return base * this._mapZoom
+    if (this.bm.world?.active) {
+      const fixed = this.active ? MAP_SPAN_FOR[MAP_SIZES[this._mapMode]] : MAP_SPAN_FOR.normal
+      return fixed || MAP_WORLD_SPAN * this._mapZoom
+    }
+    return (this._mapImage?.width || 128) * this._mapZoom
   }
 
   zoomMap(factor) {
@@ -280,6 +293,16 @@ export class BuildTryMode {
     const max = this.bm.world?.active ? MAP_MAX_SPAN : base * 2
     this._mapZoom = Math.min(max / base, Math.max(MAP_MIN_SPAN / base, this._mapZoom * factor))
     this._mapDrawAt = 0
+    this._mapMovedAt = performance.now()
+  }
+
+  // The big map can't be dragged further than MAP_PAN_LIMIT from you.
+  _clampMapPan() {
+    const lim = this.bm.world?.active ? MAP_PAN_LIMIT : (this._mapImage?.width || 128)
+    this._mapPan.x = Math.max(-lim, Math.min(lim, this._mapPan.x))
+    this._mapPan.z = Math.max(-lim, Math.min(lim, this._mapPan.z))
+    this._mapDrawAt = 0
+    this._mapMovedAt = performance.now()
   }
 
   // Out in Map 1's open world, the biome you're in (and the place, in a
@@ -359,7 +382,10 @@ export class BuildTryMode {
   }
 
   _drawMap(now, x = this.pos.x, z = this.pos.z) {
-    if (!this._mapImage || now - this._mapDrawAt < 60) return
+    // Redrawn every frame while the big map is being dragged or zoomed (it
+    // used to keep to ~16 a second, which felt laggy), else ~16 a second.
+    const moving = this._mapInteractive() && (this._mapEl.classList.contains('dragging') || now - (this._mapMovedAt || 0) < 300)
+    if (!this._mapImage || (!moving && now - this._mapDrawAt < 60)) return
     this._mapDrawAt = now
     const c = this._mapCanvas
     const ctx = c.getContext('2d')
@@ -384,11 +410,18 @@ export class BuildTryMode {
     } else if (world) {
       ctx.fillStyle = '#1d2a1a'
       ctx.fillRect(0, 0, s, s)
-      const T = 32
+      // Tiles grow with the view (32 cells, 64, 128...), so a zoomed-out map
+      // still needs only about a hundred of them.
+      let T = 32
+      while (span / T > 10) T *= 2
       // Detailed tiles (1024 noise reads each) are drawn a few milliseconds'
       // worth per draw, nearest the middle first; until a tile's turn comes
-      // a quick coarse one stands in, so nothing shows as a dark gap.
+      // a quick coarse one stands in (made within its own small budget -
+      // past it, one flat colour), so nothing shows as a dark gap.
       const until = performance.now() + (this._mapInteractive() ? MAP_TILE_BUDGET_MS * 2 : MAP_TILE_BUDGET_MS)
+      const coarseUntil = until + MAP_COARSE_BUDGET_MS
+      // The villages/castles/bridges in view get planned, one per draw.
+      if (MAP_SIZES[this._mapMode] !== 'normal') world.prefetchPlansAround(ox + span / 2, oz + span / 2, span / 2)
       const tiles = []
       for (let tx = Math.floor(ox / T); tx <= Math.floor((ox + span) / T); tx++) {
         for (let tz = Math.floor(oz / T); tz <= Math.floor((oz + span) / T); tz++) {
@@ -396,13 +429,21 @@ export class BuildTryMode {
         }
       }
       tiles.sort((a, b) => a[0] - b[0])
+      let missing = false
       for (const [, tx, tz] of tiles) {
-        const tile = world.mapTile(tx, tz, performance.now() < until)
-        ctx.drawImage(tile ? tile.canvas : world.mapTileCoarse(tx, tz), (tx * T - ox) * k, (tz * T - oz) * k, T * k + 0.5, T * k + 0.5)
+        const tile = world.mapTile(tx, tz, performance.now() < until, T)
+        const img = tile ? tile.canvas : world.mapTileCoarse(tx, tz, T, performance.now() < coarseUntil)
+        if (!tile) missing = true
+        if (img) ctx.drawImage(img, (tx * T - ox) * k, (tz * T - oz) * k, T * k + 0.5, T * k + 0.5)
+        else {
+          const color = world._cellColor(tx * T + T / 2, tz * T + T / 2)
+          ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`
+          ctx.fillRect((tx * T - ox) * k, (tz * T - oz) * k, T * k + 0.5, T * k + 0.5)
+        }
       }
       // Not all drawn yet: come back next frame instead of waiting out
       // the usual redraw gap.
-      if (tiles.some(([, tx, tz]) => !world._tiles.has(`${tx},${tz}`))) this._mapDrawAt = 0
+      if (missing) this._mapDrawAt = 0
       ctx.drawImage(this._mapImage, (-cells / 2 - ox) * k, (-cells / 2 - oz) * k, cells * k, cells * k)
       this._showBiome(x, z)
     } else {
@@ -458,7 +499,11 @@ export class BuildTryMode {
       for (let cz = z0; cz <= z1; cz++) {
         for (let cy = y0; cy <= y1; cy++) {
           const top = this.bm._cellSolidTop(cx, cy, cz)
-          if (top > 0 && y < cy + top - 1e-4 && y + height > cy + 1e-4) return true
+          if (!(top > 0 && y < cy + top - 1e-4 && y + height > cy + 1e-4)) continue
+          // A narrow block (bamboo) only blocks its own thin middle.
+          const inset = this.bm._cellInset(cx, cy, cz)
+          if (inset && (x + HALF_WIDTH <= cx + inset || x - HALF_WIDTH >= cx + 1 - inset || z + HALF_WIDTH <= cz + inset || z - HALF_WIDTH >= cz + 1 - inset)) continue
+          return true
         }
       }
     }

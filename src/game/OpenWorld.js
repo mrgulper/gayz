@@ -532,8 +532,7 @@ export class OpenWorld {
           const bottom = Math.min(lowest - 1, s.h - 2)
           let { top, under, deep } = surface(s, x, z)
           const onTrack = this._onPath(x, z)
-          if (s.h >= SEA && onTrack) top = hash2(x, z, 151) < 0.6 ? 'gravel' : 'coarsedirt'
-          if (s.h >= SEA && pathTops.size) top = pathTops.get(`${x},${z}`) || top
+          if (s.h >= SEA) top = this._roadTop(x, z, top, pathTops)
           for (let y = s.h; y >= bottom; y--) {
             const layer = s.h - y
             let type = layer === 0 ? top : groundBlock(layer, y, under)
@@ -638,9 +637,23 @@ export class OpenWorld {
         set(cx + dx, cy, cz + dz, type)
       }
     }
-    const trunk = (h, type, w = 1) => {
-      for (let i = 0; i < h; i++) for (let a = 0; a < w; a++) for (let b = 0; b < w; b++) set(x + a, y + i, z + b, type)
+    // Down to the ground under a column (the feature's own spot is at y,
+    // but on a slope the cells beside it can be lower - a wide trunk or a
+    // root there used to hang in the air).
+    const toGround = (cx, cz, from, type) => {
+      const g = sampleLand(cx, cz).h
+      for (let k = Math.max(g + 1, from - 12); k < from; k++) set(cx, k, cz, type)
     }
+    const trunk = (h, type, w = 1) => {
+      for (let a = 0; a < w; a++) {
+        for (let b = 0; b < w; b++) {
+          toGround(x + a, z + b, y, type)
+          for (let i = 0; i < h; i++) set(x + a, y + i, z + b, type)
+        }
+      }
+    }
+    // Each tree its own kind of leaves (2026-10-16).
+    const leaf = { birch: 'birchleaves', spruce: 'spruceleaves', jungle: 'jungleleaves', jungleBig: 'jungleleaves', mangrove: 'mangroveleaves' }[kind] || 'leaves'
     switch (kind) {
       case 'oak':
       case 'birch':
@@ -648,30 +661,30 @@ export class OpenWorld {
         const h = (kind === 'birch' ? 5 : 4) + Math.floor(rnd(1) * 3)
         const log = kind === 'birch' ? 'birchlog' : 'oaklog'
         trunk(h, log)
-        disc(x, y + h - 2, z, 2, 'leaves')
-        disc(x, y + h - 1, z, 2, 'leaves')
-        disc(x, y + h, z, 1, 'leaves', false)
-        disc(x, y + h + 1, z, 1, 'leaves')
-        if (kind === 'swampOak') disc(x, y + h - 3, z, 3, 'leaves')
+        disc(x, y + h - 2, z, 2, leaf)
+        disc(x, y + h - 1, z, 2, leaf)
+        disc(x, y + h, z, 1, leaf, false)
+        disc(x, y + h + 1, z, 1, leaf)
+        if (kind === 'swampOak') disc(x, y + h - 3, z, 3, leaf)
         break
       }
       case 'spruce': {
         const h = 6 + Math.floor(rnd(1) * 5)
         trunk(h, 'sprucelog')
-        set(x, y + h, z, 'leaves')
-        set(x, y + h + 1, z, 'leaves')
+        set(x, y + h, z, leaf)
+        set(x, y + h + 1, z, leaf)
         // Tiers widening downward: 1, 1, 2, 1, 3, 2, 3, 2...
         for (let i = h - 1, n = 0; i >= 2; i--, n++) {
           const r = Math.max(1, Math.min(3, 1 + Math.floor(n / 2)) - (n % 2))
-          disc(x, y + i, z, r, 'leaves', r > 1)
+          disc(x, y + i, z, r, leaf, r > 1)
         }
         break
       }
       case 'darkOak': {
         const h = 5 + Math.floor(rnd(1) * 3)
         trunk(h, 'darkoaklog', 2)
-        for (let i = 0; i < 2; i++) disc(x, y + h - 1 + i, z, 4 - i, 'leaves')
-        disc(x + 1, y + h + 1, z + 1, 2, 'leaves')
+        for (let i = 0; i < 2; i++) disc(x, y + h - 1 + i, z, 4 - i, leaf)
+        disc(x + 1, y + h + 1, z + 1, 2, leaf)
         break
       }
       case 'cherry': {
@@ -680,7 +693,7 @@ export class OpenWorld {
         trunk(h, 'cherrylog')
         set(x + dir, y + h - 1, z, 'cherrylog')
         set(x + dir * 2, y + h, z, 'cherrylog')
-        blob(x + dir, y + h + 1, z, 3, 'pinkwool', 0.6)
+        blob(x + dir, y + h + 1, z, 3, 'cherryleaves', 0.6)
         break
       }
       case 'acacia': {
@@ -689,30 +702,30 @@ export class OpenWorld {
         trunk(3, 'acacialog')
         set(x + dx, y + 3, z + dz, 'acacialog')
         set(x + dx * 2, y + 4, z + dz * 2, 'acacialog')
-        disc(x + dx * 2, y + 5, z + dz * 2, 3, 'leaves')
-        disc(x + dx * 2, y + 6, z + dz * 2, 1, 'leaves')
+        disc(x + dx * 2, y + 5, z + dz * 2, 3, leaf)
+        disc(x + dx * 2, y + 6, z + dz * 2, 1, leaf)
         break
       }
       case 'jungle': {
         const h = 5 + Math.floor(rnd(1) * 3)
         trunk(h, 'junglelog')
-        disc(x, y + h - 1, z, 2, 'leaves')
-        disc(x, y + h, z, 2, 'leaves')
-        disc(x, y + h + 1, z, 1, 'leaves', false)
+        disc(x, y + h - 1, z, 2, leaf)
+        disc(x, y + h, z, 2, leaf)
+        disc(x, y + h + 1, z, 1, leaf, false)
         break
       }
       case 'jungleBig': {
         const h = 11 + Math.floor(rnd(1) * 7)
         trunk(h, 'junglelog', 2)
-        disc(x, y + h - 2, z, 4, 'leaves')
-        disc(x, y + h - 1, z, 4, 'leaves')
-        disc(x, y + h, z, 3, 'leaves')
-        disc(x, y + h + 1, z, 2, 'leaves')
+        disc(x, y + h - 2, z, 4, leaf)
+        disc(x, y + h - 1, z, 4, leaf)
+        disc(x, y + h, z, 3, leaf)
+        disc(x, y + h + 1, z, 2, leaf)
         // A few side branches with their own leaves.
         for (const [bx, bz, bi] of [[2, 0, 0.5], [-1, 2, 0.65]]) {
           const by = y + Math.floor(h * bi)
           set(x + bx, by, z + bz, 'junglelog')
-          disc(x + bx, by + 1, z + bz, 1, 'leaves', false)
+          disc(x + bx, by + 1, z + bz, 1, leaf, false)
         }
         break
       }
@@ -720,11 +733,14 @@ export class OpenWorld {
         const h = 6 + Math.floor(rnd(1) * 3)
         trunk(h, 'mangrovelog')
         // Roots arching up out of the mud.
-        for (const [rx, rz] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
-          set(x + rx, y, z + rz, 'mangrovelog')
+        // Roots arching out of the trunk on each side and down into the mud.
+        for (const [rx, rz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          set(x + rx, y + 2, z + rz, 'mangrovelog')
           set(x + rx, y + 1, z + rz, 'mangrovelog')
+          toGround(x + rx * 2, z + rz * 2, y + 1, 'mangrovelog')
+          set(x + rx * 2, y, z + rz * 2, 'mangrovelog')
         }
-        blob(x, y + h, z, 2, 'leaves', 0.8)
+        blob(x, y + h, z, 2, leaf, 0.8)
         break
       }
       case 'redMushroom': {
@@ -762,8 +778,10 @@ export class OpenWorld {
           const s = sampleLand(bx, bz)
           if (s.h < SEA || s.biome !== 'bambooJungle') continue
           const h = 5 + Math.floor(rnd(30 + i) * 8)
-          for (let k = 1; k <= h; k++) set(bx, s.h + k, bz, 'bambooblock')
-          set(bx, s.h + h + 1, bz, 'leaves')
+          // Thin stalks (`inset` blocks) with a tuft of thin leaves on top.
+          for (let k = 1; k <= h; k++) set(bx, s.h + k, bz, 'bamboo')
+          set(bx, s.h + h + 1, bz, 'bambooleaves')
+          set(bx, s.h + h + 2, bz, 'bambooleaves')
         }
         break
       }
@@ -825,6 +843,32 @@ export class OpenWorld {
     return cells
   }
 
+  // Roads blend into the land (2026-10-16, "make it blend naturally"): a
+  // mix of dirt path, coarse dirt and a little gravel (sand and sandstone
+  // for a desert village's streets) instead of one flat material, with a
+  // frayed edge - some edge cells keep the land's own surface, and some of
+  // the land just beside a road is worn to dirt.
+  _roadTop(x, z, natural, pathTops) {
+    const pathAt = (px, pz) => pathTops.get(`${px},${pz}`) || (this._onPath(px, pz) ? 'track' : null)
+    const here = pathAt(x, z)
+    const r = hash2(x, z, 151)
+    const r2 = hash2(x, z, 163)
+    if (here) {
+      let edge = 0
+      for (const [ox, oz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!pathAt(x + ox, z + oz)) edge++
+      if (edge && r < 0.18 + edge * 0.08) return natural
+      if (here === 'smoothsandstone') return r2 < 0.5 ? 'smoothsandstone' : r2 < 0.8 ? 'sandstone' : 'sand'
+      if (here === 'coarsedirt') return r2 < 0.5 ? 'dirtpath' : r2 < 0.9 ? 'coarsedirt' : 'gravel'
+      return r2 < 0.55 ? 'dirtpath' : r2 < 0.83 ? 'coarsedirt' : 'gravel'
+    }
+    if (r < 0.3 && (natural === 'grass' || natural === 'podzol' || natural === 'snow')) {
+      for (const [ox, oz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        if (pathAt(x + ox, z + oz)) return r2 < 0.6 ? 'coarsedirt' : 'dirtpath'
+      }
+    }
+    return natural
+  }
+
   _onPath(x, z) {
     return !!this._paths?.has(`${x},${z}`)
   }
@@ -846,6 +890,11 @@ export class OpenWorld {
     return plan
   }
 
+  // The map asks for the places in its view to be planned (one per call).
+  prefetchPlansAround(x, z, reach) {
+    this._prefetchPlan([{ x, z }], reach)
+  }
+
   _prefetchPlan(points, reach) {
     for (const p of points) {
       const gx0 = Math.floor((p.x - reach) / STRUCT_GRID)
@@ -863,7 +912,7 @@ export class OpenWorld {
   }
 
   // Every plan whose blocks reach into the box (cells), `margin` wider.
-  _plansOver(x0, z0, x1, z1, margin = 0) {
+  _plansOver(x0, z0, x1, z1, margin = 0, cachedOnly = false) {
     const out = []
     const gx0 = Math.floor((x0 - margin) / STRUCT_GRID) - 1
     const gx1 = Math.floor((x1 + margin) / STRUCT_GRID) + 1
@@ -871,7 +920,7 @@ export class OpenWorld {
     const gz1 = Math.floor((z1 + margin) / STRUCT_GRID) + 1
     for (let gx = gx0; gx <= gx1; gx++) {
       for (let gz = gz0; gz <= gz1; gz++) {
-        const plan = this._plan(gx, gz)
+        const plan = cachedOnly ? this._plans.get(`${gx},${gz}`) : this._plan(gx, gz)
         if (plan && plan.x1 >= x0 - margin && plan.x0 <= x1 + margin && plan.z1 >= z0 - margin && plan.z0 <= z1 + margin) out.push(plan)
       }
     }
@@ -897,63 +946,52 @@ export class OpenWorld {
 
   // --- minimap ---
 
-  // A 32x32 picture of the land at tile (tx, tz), drawn from the noise
+  // A 32x32 picture of the land at tile (tx, tz) of T cells a side (one
+  // sample every T / 32 cells - bigger tiles for a zoomed-out map, so a view
+  // never needs more than about a hundred of them), drawn from the noise
   // (not the blocks), cached.
   // Returns { canvas, fresh }, or null when it isn't drawn yet and `build`
   // is false.
-  mapTile(tx, tz, build = true) {
-    const key = `${tx},${tz}`
+  mapTile(tx, tz, build = true, T = 32) {
+    const key = `${T}:${tx},${tz}`
     const cached = this._tiles.get(key)
     if (cached) {
       cached.fresh = false
       return cached
     }
     if (!build) return null
-    const S = 32
-    const tile = document.createElement('canvas')
-    tile.width = S
-    tile.height = S
-    const ctx = tile.getContext('2d')
-    const img = ctx.createImageData(S, S)
-    for (let i = 0; i < S; i++) {
-      for (let j = 0; j < S; j++) {
-        const x = tx * S + i
-        const z = tz * S + j
-        const o = (j * S + i) * 4
-        if (inCity(x, z)) continue
-        const color = this._cellColor(x, z)
-        img.data[o] = (color >> 16) & 255
-        img.data[o + 1] = (color >> 8) & 255
-        img.data[o + 2] = color & 255
-        img.data[o + 3] = 255
-      }
-    }
-    ctx.putImageData(img, 0, 0)
+    const canvas = this._drawTile(tx, tz, T, 32)
     if (this._tiles.size > 1200) this._tiles.clear()
-    const entry = { canvas: tile, fresh: true }
+    const entry = { canvas, fresh: true }
     this._tiles.set(key, entry)
     return entry
   }
 
-  // A quick stand-in for a tile not drawn yet: one sample per 4x4 cells
-  // (64 reads instead of 1024), so the big map never shows dark gaps while
-  // it's dragged around (2026-10-13, "dont make it loading when moving it").
-  mapTileCoarse(tx, tz) {
-    const key = `${tx},${tz}`
+  // A quick stand-in for a tile not drawn yet: 8x8 samples (64 reads
+  // instead of 1024), so the big map never shows dark gaps while it's
+  // dragged around (2026-10-13, "dont make it loading when moving it").
+  // null when it isn't made yet and `build` is false.
+  mapTileCoarse(tx, tz, T = 32, build = true) {
+    const key = `${T}:${tx},${tz}`
     let tile = this._coarseTiles?.get(key)
-    if (tile) return tile
+    if (tile || !build) return tile || null
     if (!this._coarseTiles || this._coarseTiles.size > 6000) this._coarseTiles = new Map()
-    const S = 8
-    const step = 32 / S
-    tile = document.createElement('canvas')
-    tile.width = S
-    tile.height = S
-    const ctx = tile.getContext('2d')
+    tile = this._drawTile(tx, tz, T, 8)
+    this._coarseTiles.set(key, tile)
+    return tile
+  }
+
+  _drawTile(tx, tz, T, S) {
+    const step = T / S
+    const canvas = document.createElement('canvas')
+    canvas.width = S
+    canvas.height = S
+    const ctx = canvas.getContext('2d')
     const img = ctx.createImageData(S, S)
     for (let i = 0; i < S; i++) {
       for (let j = 0; j < S; j++) {
-        const x = tx * 32 + i * step + 2
-        const z = tz * 32 + j * step + 2
+        const x = tx * T + Math.floor(i * step + step / 2)
+        const z = tz * T + Math.floor(j * step + step / 2)
         const o = (j * S + i) * 4
         if (inCity(x, z)) continue
         const color = this._cellColor(x, z)
@@ -964,13 +1002,15 @@ export class OpenWorld {
       }
     }
     ctx.putImageData(img, 0, 0)
-    this._coarseTiles.set(key, tile)
-    return tile
+    return canvas
   }
 
   // A cell's colour on the minimap, shaded by height.
   _cellColor(x, z) {
-    const plan = this._plansOver(x, z, x, z)[0]
+    // Only places already planned - planning one here (a castle takes
+    // ~10ms) inside a tile made the map stutter; _prefetchPlan plans the
+    // ones in view one per frame.
+    const plan = this._plansOver(x, z, x, z, 0, true)[0]
     const built = plan?.top.get(`${x},${z}`)
     const s = sampleLand(x, z)
     if (built && built.type !== 'water') {
@@ -981,7 +1021,7 @@ export class OpenWorld {
     if (plan?.paths.has(`${x},${z}`) && s.h >= SEA) return this._typeColor(plan.paths.get(`${x},${z}`))
     let color
     if (s.h < SEA) color = s.biome === 'frozenOcean' ? 0xb5d3f0 : s.biome === 'warmOcean' ? 0x3fb6c8 : s.h < SEA - 9 ? 0x1f4f9a : 0x3368c6
-    else color = this._typeColor(this._onPath(x, z) ? 'gravel' : surface(s, x, z).top)
+    else color = this._typeColor(this._onPath(x, z) ? 'dirtpath' : surface(s, x, z).top)
     const shade = s.h < SEA ? 1 : 0.72 + 0.28 * clamp01((s.h + 6) / 40)
     return (Math.round(((color >> 16) & 255) * shade) << 16) | (Math.round(((color >> 8) & 255) * shade) << 8) | Math.round((color & 255) * shade)
   }

@@ -10869,9 +10869,11 @@ html.ui-theme-old #inspect-hint {
   image-rendering: pixelated;
 }
 
+/* The second size shows a much wider area around you (MAP_SPAN_FOR.big),
+   like florr.io's opened map. */
 #build-try-map[data-size='big'] {
-  width: 300px;
-  height: 300px;
+  width: min(360px, 46vmin);
+  height: min(360px, 46vmin);
 }
 
 /* The big map in the middle can be dragged and zoomed (BuildTryMode,

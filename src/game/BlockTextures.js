@@ -503,22 +503,30 @@ function bookshelfSide(px, wood, r) {
   }
 }
 
-// C4 (replaced TNT, 2026-09-30): putty-colored explosive bricks wrapped
-// in olive tape, with a detonator on top.
+// C4 (replaced TNT, 2026-09-30; redrawn 2026-10-16 - the pale block with a
+// dark band read as Minecraft's TNT): an olive-drab charge with its
+// wrapper's seams, red and blue leads, and a white label saying C4.
+const C4_LETTERS = [
+  [5, 6], [6, 6], [4, 7], [4, 8], [5, 9], [6, 9], // C
+  [8, 6], [10, 6], [8, 7], [10, 7], [8, 8], [9, 8], [10, 8], [11, 8], [10, 9], // 4
+]
 function c4Side(px, base, r) {
+  const olive = [92, 100, 58]
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
-      const seam = x === 0 || x === 8 || y === 0 || y === 15
-      px.set(x, y, mul(base, (seam ? 0.72 : 1) * (0.94 + r() * 0.1)))
+      const seam = x === 0 || x === 15 || y === 0 || y === 15 || y === 12
+      px.set(x, y, mul(olive, (seam ? 0.7 : 1) * (0.93 + r() * 0.12)))
     }
   }
-  // Olive tape band, with a black wire along it.
-  for (let y = 6; y <= 9; y++) for (let x = 0; x < S; x++) px.set(x, y, mul([88, 92, 52], 0.92 + r() * 0.12))
-  for (let x = 0; x < S; x++) px.set(x, 7 + (x % 6 < 3 ? 0 : 1), [30, 30, 28])
-  // Red and blue leads running up to the detonator.
-  for (let y = 1; y <= 5; y++) {
-    px.set(5, y, [190, 36, 30])
-    px.set(10, y, [40, 80, 190])
+  // The putty showing at the wrapper's torn bottom edge.
+  for (let x = 1; x < 15; x++) if (r() < 0.6) px.set(x, 13 + Math.floor(r() * 2), mul(base, 0.95 + r() * 0.1))
+  // White label with black C4.
+  for (let y = 5; y <= 10; y++) for (let x = 3; x <= 12; x++) px.set(x, y, mul([236, 232, 220], 0.95 + r() * 0.06))
+  for (const [x, y] of C4_LETTERS) px.set(x, y, [24, 24, 22])
+  // Red and blue leads from the detonator on top.
+  for (let y = 1; y <= 4; y++) {
+    px.set(4, y, [190, 36, 30])
+    px.set(11, y, [40, 80, 190])
   }
 }
 
@@ -948,6 +956,55 @@ const OVERRIDE = {
     const top = paint((px) => logTop(px, base, mix(base, [230, 220, 150], 0.5), r))
     return { top, side: paint((px) => pillarSide(px, base, r)), bottom: top }
   },
+  // A bamboo stalk: only the middle 4 pixels show (it's drawn inset), so
+  // the stalk's light edge, shading and growth nodes sit there.
+  bamboo: (base, r) => {
+    const side = paint((px) => {
+      for (let y = 0; y < S; y++) {
+        for (let x = 0; x < S; x++) {
+          const k = x === 6 ? 1.2 : x === 7 ? 1.06 : x === 9 ? 0.74 : 1
+          px.set(x, y, mul(base, k * (0.95 + r() * 0.08)))
+        }
+      }
+      for (const y of [3, 11]) for (let x = 6; x <= 9; x++) px.set(x, y, mul(base, 0.62))
+      for (const y of [4, 12]) for (let x = 6; x <= 9; x++) px.set(x, y, mul(base, 1.15))
+    })
+    const top = paint((px) => {
+      noise(px, mul(base, 0.75), r, 0.05)
+      for (let y = 6; y <= 9; y++) for (let x = 6; x <= 9; x++) px.set(x, y, mul([226, 220, 160], 0.95 + r() * 0.08))
+    })
+    return { top, side, bottom: top }
+  },
+  // Plaster panels between dark timber beams, with a cross brace.
+  timberframe: (base, r) => {
+    const side = paint((px) => {
+      noise(px, base, r, 0.04)
+      const wood = [86, 58, 34]
+      for (let i = 0; i < S; i++) {
+        for (const w of [0, 15]) {
+          px.set(i, w, mul(wood, 0.9 + r() * 0.15))
+          px.set(w, i, mul(wood, 0.9 + r() * 0.15))
+        }
+        px.set(i, i, mul(wood, 0.9 + r() * 0.15))
+        if (i > 0) px.set(i - 1, i, mul(wood, 0.8))
+      }
+    })
+    const top = paint((px) => planks(px, [110, 76, 44], r))
+    return { top, side, bottom: top }
+  },
+  paperlantern: (base, r) => {
+    const side = paint((px) => {
+      for (let y = 0; y < S; y++) {
+        for (let x = 0; x < S; x++) {
+          const glow = 1.15 - Math.abs(x - 7.5) / 16
+          px.set(x, y, mul(base, glow * (y % 4 === 0 ? 0.7 : 0.96 + r() * 0.06)))
+        }
+      }
+      for (let i = 0; i < S; i++) for (const y of [0, 15]) px.set(i, y, [60, 40, 26])
+    })
+    const top = paint((px) => { noise(px, [70, 48, 30], r, 0.08); for (let y = 6; y <= 9; y++) for (let x = 6; x <= 9; x++) px.set(x, y, mul(base, 1.2)) })
+    return { top, side, bottom: top }
+  },
   barrel: (base, r) => {
     const top = paint((px) => { planks(px, base, r); frame(px, mul(base, 0.6)); for (let y = 6; y < 10; y++) for (let x = 6; x < 10; x++) px.set(x, y, mul(base, 0.55)) })
     return { top, side: paint((px) => kelpSide(px, base, r)), bottom: top }
@@ -1138,6 +1195,43 @@ const BY_PATTERN = {
   log: (px, b, r) => logSide(px, b, r), spine: planks, ridged: (px, b, r) => pumpkinSide(px, b, r, false),
   stripe: boneSide, ore: (px, b, r) => ore(px, hex(0x808078), mix(b, [255, 255, 255], 0.3), r),
   crystal: amethyst, porous: sponge, ladder: planks,
+  // 2026-10-16 blocks (villages, castles, nature).
+  stonebricks: (px, b, r) => bricks(px, b, mul(b, 0.66), r, 4, 8, true),
+  sandstonebricks: (px, b, r) => bricks(px, b, mul(b, 0.74), r, 4, 8, true),
+  plaster: (px, b, r) => { noise(px, b, r, 0.035); speckle(px, mul(b, 0.92), r, 10) },
+  thatch: thatch,
+  roofshingles: shingles, slateshingles: shingles,
+  birchleaves: leaves, spruceleaves: leaves, jungleleaves: leaves, cherryleaves: leaves, mangroveleaves: leaves, bambooleaves: leaves,
+  azalealeaves: (px, b, r) => { leaves(px, b, r); for (let i = 0; i < 9; i++) { const x = Math.floor(r() * S); const y = Math.floor(r() * S); if (px.alpha(x, y)) px.set(x, y, [214, 120, 196]) } },
+  dirtpath: (px, b, r) => { dirt(px, b, r); speckle(px, mul(b, 1.18), r, 14); speckle(px, [128, 122, 112], r, 6) },
+}
+
+// Bundles of straw laid in overlapping rows.
+function thatch(px, base, r) {
+  for (let x = 0; x < S; x++) {
+    const f = 0.82 + r() * 0.3
+    for (let y = 0; y < S; y++) {
+      const row = y % 6
+      px.set(x, y, mul(base, f * (row === 5 ? 0.62 : row === 0 ? 1.12 : 0.95 + r() * 0.1)))
+    }
+  }
+}
+
+// Overlapping rounded roof tiles, each row half a tile along.
+function shingles(px, base, r) {
+  for (let y = 0; y < S; y++) {
+    const row = Math.floor(y / 4)
+    const off = row % 2 ? 2 : 0
+    for (let x = 0; x < S; x++) {
+      const lx = (x + off) % 4
+      const ly = y % 4
+      let f = 0.92 + r() * 0.12
+      if (ly === 3) f *= 0.6
+      else if (lx === 0) f *= 0.78
+      else if (ly === 0) f *= 1.1
+      px.set(x, y, mul(base, f))
+    }
+  }
 }
 
 function paint(fn) {
@@ -1277,7 +1371,7 @@ export function prepareHdTextures(types) {
 // holes, jelly blocks) - those render with the texture's own alpha rather
 // than one flat opacity for the whole block.
 export function textureHasAlpha(type) {
-  return type.id === 'glass' || GLASS_IDS.test(type.id) || type.id === 'leaves' || type.id === 'honeyblock' || type.id === 'slimeblock' || type.id === 'zombiespawner'
+  return type.id === 'glass' || GLASS_IDS.test(type.id) || /leaves$/.test(type.id) || type.id === 'honeyblock' || type.id === 'slimeblock' || type.id === 'zombiespawner'
 }
 
 // Minecraft-inventory-style isometric block icon (top + two shaded sides)

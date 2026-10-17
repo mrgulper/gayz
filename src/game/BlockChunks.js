@@ -149,15 +149,21 @@ export class BlockChunks {
         // Indexed like FACES: +x, -x, top, bottom, +z, -z.
         uvs: [uvOf.get(f.side), uvOf.get(f.side), uvOf.get(f.top), uvOf.get(f.bottom), uvOf.get(f.side), uvOf.get(f.side)],
         // Liquids never hide a neighbor's face (the lowered surface would
-        // leave a gap) and never darken its corners.
-        opaque: !t.transparent && !liquid,
+        // leave a gap) and never darken its corners. Neither does a block
+        // drawn narrower than its cell (`inset`, e.g. bamboo).
+        opaque: !t.transparent && !liquid && !t.inset,
+        // Drawn with the solid blocks (not blended) even when it doesn't
+        // hide its neighbors.
+        solidDraw: !t.transparent && !liquid,
+        // Fraction of the cell left empty on each of the 4 sides.
+        inset: t.inset || 0,
         // Glass/leaves carry their own per-pixel alpha in the texture.
         alpha: hasAlpha(t) ? 1 : (t.opacity ?? 1),
         // Leaves' holes are fully see-through or fully solid, so they're
         // drawn cut out (alpha-tested, depth-writing) rather than blended -
         // blending every leaf face over whatever is behind it was the
         // most expensive thing in a tree-filled view on a phone.
-        cutout: t.id === 'leaves',
+        cutout: /leaves$/.test(t.id),
         glow: !!t.emissive,
       })
     })
@@ -428,7 +434,8 @@ export class BlockChunks {
       const type = this.getType(x, y, z)
       const info = type && this.info.get(type)
       if (!info) continue
-      const buf = info.liquid ? out[info.liquid] : info.opaque ? (info.glow ? out.glow : out.solid) : info.cutout ? out.cutout : out.clear
+      const buf = info.liquid ? out[info.liquid] : info.solidDraw ? (info.glow ? out.glow : out.solid) : info.cutout ? out.cutout : out.clear
+      const inset = info.inset
       const tint = info.liquid ? 1 : tintAt(x, y, z)
       // Liquid surfaces slope: each top corner is the average height of
       // the (up to 4) cells of the same liquid sharing it, and a corner
@@ -439,12 +446,24 @@ export class BlockChunks {
         const face = FACES[fi]
         const [nx, ny, nz] = face.n
         const nType = this.getType(x + nx, y + ny, z + nz)
-        if (nType) {
+        // A narrow block's sides stand clear of its neighbors - always drawn.
+        if (nType && !(inset && ny === 0)) {
           const nInfo = this.info.get(nType)
           // Hidden behind a solid cube, or glass against the same glass.
           if (nInfo && (nInfo.opaque || nType === type)) continue
         }
-        const [u0, v0, u1, v1] = info.liquid ? [0, 0, 1, 1] : info.uvs[fi]
+        let [u0, v0, u1, v1] = info.liquid ? [0, 0, 1, 1] : info.uvs[fi]
+        if (inset) {
+          // The texture is cropped to the narrower face, not squeezed.
+          const du = (u1 - u0) * inset
+          u0 += du
+          u1 -= du
+          if (ny !== 0) {
+            const dv = (v1 - v0) * inset
+            v0 += dv
+            v1 -= dv
+          }
+        }
         const ao = [0, 0, 0, 0]
         for (let i = 0; i < 4; i++) {
           const c = face.c[i]
@@ -474,7 +493,9 @@ export class BlockChunks {
         for (let i = 0; i < 4; i++) {
           const c = face.c[i]
           const topY = cornerY ? cornerY[c[0] * 2 + c[2]] : 1
-          buf.pos.push((x - bx + c[0]) * this.blockSize, (y - by + (c[1] ? topY : 0)) * this.blockSize, (z - bz + c[2]) * this.blockSize)
+          const cx0 = inset ? inset + c[0] * (1 - 2 * inset) : c[0]
+          const cz0 = inset ? inset + c[2] * (1 - 2 * inset) : c[2]
+          buf.pos.push((x - bx + cx0) * this.blockSize, (y - by + (c[1] ? topY : 0)) * this.blockSize, (z - bz + cz0) * this.blockSize)
           buf.nrm.push(nx, ny, nz)
           buf.uv.push(CORNER_UV[i][0] ? u1 : u0, CORNER_UV[i][1] ? v1 : v0)
           const b = AO_LEVELS[ao[i]] * face.shade * tint
