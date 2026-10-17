@@ -383,8 +383,8 @@ export function buildTexturedCharacter(skin) {
     : _buildLimbPivot(4, 12, 4, 16, 48, texture, width, height, false, -2, 10, overlayFor('leftLeg'), 3)
   group.add(legL)
 
-  // Exposed for a caller that wants to animate a walk cycle (see
-  // MinecraftPlayerBody.js) - each is that limb's OWN pivot, so rotating
+  // Exposed for a caller that wants to animate a walk cycle (third-person
+  // bodies, other players, camp NPCs) - each is that limb's OWN pivot, so rotating
   // it directly swings the limb from its real joint. Ignored entirely by
   // a caller that doesn't touch it (the homepage preview).
   group.limbPivots = { armR, armL, legR, legL }

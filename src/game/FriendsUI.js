@@ -113,7 +113,7 @@ export function _renderOtherProfileEntry(game, entry, fallbackName) {
     game._otherProfileIdText = `#${entry.playerId}`
     game.otherProfileId.textContent = game._otherProfileIdText
   }
-  game.otherProfileBestNightValue.textContent = _safeStatNumber(entry.bestNight)
+  game.otherProfileBestWaveValue.textContent = _safeStatNumber(entry.bestNight)
   game.otherProfileBestKillsValue.textContent = _safeStatNumber(entry.bestKills)
   game.otherProfileBestStreakValue.textContent = _safeStatNumber(entry.bestKillStreak)
   game.otherProfileAchievementsValue.textContent = _safeStatNumber(entry.achievementCount)

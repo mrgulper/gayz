@@ -9,7 +9,7 @@
 import * as CloudSaveUI from './CloudSaveUI.js'
 import * as CloudSync from './CloudSync.js'
 import { ACHIEVEMENTS } from './Achievements.js'
-import { GLOBAL_KILLS_MILESTONE_STEP, LEADERBOARD_KEY, PODIUM_MEDALS, POLL_ID, POLL_OPTIONS, _escapeHtml, _safeStatNumber, _thisWeekStr, saveShopProgress } from './Game.js'
+import { GLOBAL_KILLS_MILESTONE_STEP, PODIUM_MEDALS, POLL_ID, POLL_OPTIONS, _escapeHtml, _safeStatNumber, _thisWeekStr, saveShopProgress } from './Game.js'
 import { t } from './i18n.js'
 
 // Cloud Save panel open/close - a normal modal, same shared z-index/
@@ -48,7 +48,7 @@ export async function _renderCloudOnlineSection(game) {
 export async function _renderMyRank(game) {
   if (!game.cloudsaveRankLine) return
   try {
-    const newRank = await CloudSync.fetchMyGlobalRank(_safeStatNumber(game.bestStats.bestNight))
+    const newRank = await CloudSync.fetchMyGlobalRank(_safeStatNumber(game.bestStats.bestWave))
     // Leaderboard Rank Change Alerts (General tab) - only a real
     // improvement (lower rank number), not the first fetch game
     // session, and not a worsening (someone else beating your old
@@ -67,12 +67,12 @@ export async function _renderMyRank(game) {
 export async function _renderRival(game) {
   if (!game.cloudsaveRivalLine) return
   try {
-    const rival = await CloudSync.fetchNearestRivalAbove(_safeStatNumber(game.bestStats.bestNight))
+    const rival = await CloudSync.fetchNearestRivalAbove(_safeStatNumber(game.bestStats.bestWave))
     if (!rival) {
       game.cloudsaveRivalLine.textContent = t('cloudsaveRivalNone')
       return
     }
-    const gap = _safeStatNumber(rival.bestNight) - _safeStatNumber(game.bestStats.bestNight)
+    const gap = _safeStatNumber(rival.bestNight) - _safeStatNumber(game.bestStats.bestWave)
     game.cloudsaveRivalLine.textContent = t('cloudsaveRivalLine', { n: gap, name: rival.name || '???' })
     // Urgent variant - a toast (not just the panel text above) when the
     // gap is genuinely small, once per session per rival name so it
@@ -93,8 +93,8 @@ export async function _renderNearbyRank(game) {
   if (!game.cloudsaveNearbyRankList) return
   if (game.cloudsaveNearbyRankTitle) game.cloudsaveNearbyRankTitle.textContent = t('cloudsaveNearbyRankTitle')
   try {
-    const { above, below } = await CloudSync.fetchNearbyRank(_safeStatNumber(game.bestStats.bestNight), 3)
-    const mine = { name: game.settings.nickname || t('menuPlayerTagDefault'), bestNight: game.bestStats.bestNight, bestKills: game.careerStats.totalKills, __me: true }
+    const { above, below } = await CloudSync.fetchNearbyRank(_safeStatNumber(game.bestStats.bestWave), 3)
+    const mine = { name: game.settings.nickname || t('menuPlayerTagDefault'), bestNight: game.bestStats.bestWave, bestKills: game.careerStats.totalKills, __me: true }
     const combined = [...above.reverse(), mine, ...below]
     game.cloudsaveNearbyRankList.innerHTML = combined.map((r) => `
       <div class="cloud-leaderboard-row${r.__me ? ' me' : ''}"><span>${_escapeHtml(r.name || '???')}</span><span>${t('cloudsaveLeaderboardRow', { night: _safeStatNumber(r.bestNight), kills: _safeStatNumber(r.bestKills) })}</span></div>
@@ -148,7 +148,7 @@ export function _renderLeaderboardRows(game, rows) {
 
 // Live-subscribed (see CloudSync.subscribeTopLeaderboard) rather than a
 // one-shot fetch - only while this panel is actually open (subscribed
-// here, unsubscribed in _closeCloudSavePanel/_handleCloudSignOut) so
+// here, unsubscribed when it closes or you sign out) so
 // the read cost stays bounded to "panel is visible," not indefinite.
 // Re-subscribes with the new filter whenever the region select changes.
 export function _subscribeLeaderboard(game) {
@@ -175,7 +175,7 @@ export async function _renderGlobalAverages(game) {
   try {
     const { avgKills, avgNight } = await CloudSync.fetchGlobalAverages()
     const myKills = _safeStatNumber(game.careerStats.totalKills)
-    const myNight = _safeStatNumber(game.bestStats.bestNight)
+    const myNight = _safeStatNumber(game.bestStats.bestWave)
     game.cloudsaveAvgLine.textContent = t('cloudsaveAvgLine', {
       myKills, avgKills: Math.round(avgKills), myNight, avgNight: avgNight.toFixed(1),
     })
@@ -271,7 +271,7 @@ export async function _pushOnlineStats(game) {
   const name = game.settings.anonymousLeaderboard ? t('anonymousLeaderboardName') : (game.settings.nickname || t('menuPlayerTagDefault'))
   const entry = {
     name,
-    bestNight: _safeStatNumber(game.bestStats.bestNight),
+    bestNight: _safeStatNumber(game.bestStats.bestWave),
     bestKills: _safeStatNumber(game.bestStats.bestKills),
     bestKillStreak: _safeStatNumber(game.bestStats.bestKillStreak),
     achievementCount: game.achievements.unlocked.size,
@@ -329,7 +329,7 @@ export async function _pushOnlineStats(game) {
     }
   }
   {
-    const best = game.runHistory.find((r) => _safeStatNumber(r.night) === _safeStatNumber(game.bestStats.bestNight))
+    const best = game.runHistory.find((r) => _safeStatNumber(r.night) === _safeStatNumber(game.bestStats.bestWave))
     if (best) {
       entry.bestRunNight = _safeStatNumber(best.night)
       entry.bestRunKills = _safeStatNumber(best.kills)
@@ -387,7 +387,7 @@ export async function _handleCloudSignIn(game) {
 }
 
 export async function _afterCloudSignIn(game, uid, profile) {
-  // _restoreCloudSession's onAuthChange listener will also fire from
+  // The onAuthChange listener (CloudSync.js) will also fire from
   // game same sign-in and set _cloudProfile/_cloudUid again - setting
   // them here too just means the very next lines (fetchCloudSave)
   // don't have to wait a tick for that callback to run first.
@@ -522,7 +522,7 @@ export function _flushLocalSave(game) {
 // actually been played on genuinely has nothing worth protecting.
 export function _hasMeaningfulLocalProgress(game) {
   return _safeStatNumber(game.careerStats.totalKills) > 0
-    || _safeStatNumber(game.bestStats.bestNight) > 0
+    || _safeStatNumber(game.bestStats.bestWave) > 0
     || (Array.isArray(game.runHistory) && game.runHistory.length > 0)
 }
 
@@ -544,14 +544,4 @@ export function _updateStorageUsageLine(game) {
   if (game.storageQuotaWarning) {
     game.storageQuotaWarning.style.display = totalChars > 4 * 1024 * 1024 ? '' : 'none'
   }
-}
-
-// Narrower than Reset All Progress below - only the leaderboard-shaped
-// records, leaves achievements/mastery/meta-progress/etc untouched.
-export function _clearLeaderboardsOnly(_game) {
-  if (!window.confirm(t('clearLeaderboardsConfirm'))) return
-  localStorage.removeItem(LEADERBOARD_KEY)
-  localStorage.removeItem('gayz-bossrush-leaderboard')
-  localStorage.removeItem('gayz-daily-leaderboard')
-  window.location.reload()
 }

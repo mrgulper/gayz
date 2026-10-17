@@ -139,7 +139,8 @@ test('nav order lists every homepage button and old saves still work', async ({ 
   expect(result.listed).toContain('build-mode-btn')
   expect(result.sidebar.indexOf('build-mode-btn')).toBe(result.sidebar.indexOf('achievements-btn') - 1)
   expect(result.old.slice(0, 2)).toEqual(['achievements-btn', 'build-mode-btn'])
-  expect(result.old.indexOf('market-btn')).toBe(result.old.indexOf('coinshop-btn') + 1)
+  // (A save from before the Store button's id changed still works.)
+  expect(result.old.indexOf('market-btn')).toBe(result.old.indexOf('store-btn') + 1)
 })
 
 // Each tab's Reset to Defaults only resets that tab's settings.

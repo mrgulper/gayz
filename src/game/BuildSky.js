@@ -13,7 +13,7 @@
 // the sandstorm haze, lightning with thunder in hard rain, and the real
 // rain/wind sound (Game.js's #screen-overlays, _ensureWeatherParticles,
 // #lightning-flash, audioEngine.setWeatherAudio). Random rolls them the way
-// Map 1's nights do (Game.js's _rollWeather chances), re-rolling every few
+// old Map 1's nights did, re-rolling every few
 // minutes. The game's overlays are switched on only while the editor is
 // open (onEnter/onExit).
 //

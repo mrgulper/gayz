@@ -402,8 +402,8 @@ export class BlockChunks {
     this.chunks.delete(key)
   }
 
-  // cells: Set of "x,y,z" keys inside this chunk (see BuildMode's
-  // _chunkIndex).
+  // cells: Set of "x,y,z" keys inside this chunk (BuildMode's
+  // _chunkCells).
   _build(key, cells) {
     this._disposeChunk(key)
     if (!cells || cells.size === 0) return

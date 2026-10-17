@@ -16,8 +16,7 @@ import { EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQuests.js'
 import { t } from './i18n.js'
 
 // Personal stats dashboard (batch feature) - a simple bar chart of kills
-// per run from runHistory (already tracked, newest-first, see
-// _onPlayerDeath's own unshift), most recent run on the right so reading
+// per run from runHistory (already tracked, newest-first), most recent run on the right so reading
 // left-to-right matches reading oldest-to-newest.
 export function _drawStatsDashboard(game) {
   const canvas = game.statsDashboardCanvas
@@ -108,7 +107,7 @@ export function _onPlayEvent(game, type, data) {
   }
   if (type === 'wave') {
     const wave = data.wave
-    game.rollingQuests.recordNight(wave)
+    game.rollingQuests.recordWave(wave)
     if (wave >= 5) game.achievements.unlock('survivor_5')
     if (wave >= 10) game.achievements.unlock('survivor_10')
     if (wave >= SURVIVOR_20_WAVES) game.achievements.unlock('survivor_20')
@@ -127,7 +126,7 @@ export function _onPlayEvent(game, type, data) {
   // _recordRunEnd (the old Map 1's end-of-run bookkeeping: best stats,
   // career totals, run history, leaderboards, gems, Cloud Save) reads
   // these run fields.
-  game.night = data.waves
+  game.wave = data.waves
   game.kills = data.kills
   game.peakKillStreakThisRun = data.bestStreak
   game.points = points
@@ -420,9 +419,7 @@ export function _claimRollingQuest(game, spawnedAt) {
   // RollingQuests.claim() applies the coin reward itself (mirrors
   // Quests.claim()) but deliberately leaves XP to us - game.xp has its
   // own HUD/level-up side effects that belong here, not duplicated in a
-  // plain data module. _checkXpLevelUp() can open the run-buff picker
-  // panel (_openXpLevelupPanel, designed for picking a passive buff
-  // mid-combat) - only run that side effect if a run is actually active;
+  // plain data module - only run that side effect if a run is actually active;
   // claiming from the homepage just banks the XP toward the next
   // level-up, which gets caught for real the next time xp is gained
   // during real play.
@@ -544,7 +541,7 @@ export function _closeAchievementsPanel(game) {
 }
 
 export function _updateBestStatsDisplay(game) {
-  const { bestNight } = game.bestStats
+  const { bestWave } = game.bestStats
   game._renderCurrencyBar()
 
   // Your Stats panel - a different stat slice than the hero pair above,
@@ -573,10 +570,10 @@ export function _updateBestStatsDisplay(game) {
     let lastRunText = '--'
     if (last) {
       let line = t(last.survived ? 'runHistorySurvived' : 'runHistoryDied', { night: _safeStatNumber(last.night), kills: _safeStatNumber(last.kills), coins: _safeStatNumber(last.coins) })
-      // Personal-best delta - compares only against bestStats.bestNight
+      // Personal-best delta - compares only against bestStats.bestWave
       // (already the single source of truth for "your best run ever"),
       // not a new "is game actually the best" computation of its own.
-      const nightDelta = _safeStatNumber(last.night) - _safeStatNumber(bestNight)
+      const nightDelta = _safeStatNumber(last.night) - _safeStatNumber(bestWave)
       if (nightDelta === 0 && _safeStatNumber(last.night) > 0) line += ` — ${t('deltaNewBest')}`
       else if (nightDelta < 0) line += ` (${t('deltaFromBest', { n: Math.abs(nightDelta) })})`
       lastRunText = line
@@ -625,7 +622,7 @@ export function _updateBestStatsDisplay(game) {
   }
   if (game.menuAriaSummary) {
     game.menuAriaSummary.textContent = t('menuAriaSummary', {
-      night: _safeStatNumber(game.bestStats.bestNight),
+      night: _safeStatNumber(game.bestStats.bestWave),
       kills: _safeStatNumber(game.careerStats.totalKills),
       coins: _safeStatNumber(game.coins),
     })
@@ -712,10 +709,10 @@ export function _markQuestsSeen(game) {
 }
 
 // Local leaderboard - see loadLeaderboard's own doc comment for how this
-// differs from bestStats above. Called once per run end (death or
-// dawn-survival) from _onPlayerDeath/the survive-to-dawn path.
+// differs from bestStats above. Called once per run end (Map 1's
+// _onPlayEvent 'end').
 export function _recordLeaderboardEntry(game) {
-  game.leaderboard.push({ night: game.night, kills: game.kills, points: game.points, date: Date.now() })
+  game.leaderboard.push({ night: game.wave, kills: game.kills, points: game.points, date: Date.now() })
   game.leaderboard.sort((a, b) => (b.night - a.night) || (b.kills - a.kills) || (b.points - a.points))
   game.leaderboard = game.leaderboard.slice(0, LEADERBOARD_MAX_ENTRIES)
   saveLeaderboard(game.leaderboard)
@@ -754,8 +751,7 @@ export function _drainAchievementToastQueue(game) {
   }, ACHIEVEMENT_TOAST_GAP_MS)
 }
 
-// Shared by _onPlayerDeath and the survive-to-dawn/extraction win path -
-// both are "a run just ended" moments that should update every persistent
+// Called when a Map 1 run ends (died, won or left) - updates every persistent
 // record (bestStats, career totals, Veteran Perks) the same way. `survived`
 // distinguishes the two for Run History's result column (see below).
 export function _recordRunEnd(game, survived) {
@@ -778,24 +774,22 @@ export function _recordRunEnd(game, survived) {
   // General tab. Dying before reaching either threshold naturally earns
   // 0 from that source (Math.floor of a value under the first tier is
   // 0) - no separate zero-case needed. Saved explicitly here rather
-  // than relying on a later _updateStatsPanel() piggyback call, since
-  // game runs strictly before that in both the death and survive-to-
-  // dawn call sites.
-  const nightsGems = Math.floor(game.night / 5)
+  // than relying on a later save.
+  const wavesGems = Math.floor(game.wave / 5)
   const killsGems = Math.floor(game.kills / 50)
-  const gemsEarned = nightsGems + killsGems
+  const gemsEarned = wavesGems + killsGems
   if (gemsEarned > 0) {
     game.gems += gemsEarned
     saveShopProgress(game)
   }
   let improved = false
-  if (game.night > game.bestStats.bestNight) {
-    game.bestStats.bestNight = game.night
+  if (game.wave > game.bestStats.bestWave) {
+    game.bestStats.bestWave = game.wave
     improved = true
-    // Best-Run Pace Comparison baseline (see _checkBestRunPace) - only
+    // Best-Run Pace baseline - only
     // ever overwritten on an actual new record, so the projection always
     // reflects the single best-ever run, not just the most recent one.
-    game.bestRunPace = { night: game.night, elapsedMs: performance.now() - game.runStartedAt }
+    game.bestRunPace = { night: game.wave, elapsedMs: performance.now() - game.runStartedAt }
     saveBestRunPace(game.bestRunPace)
   }
   if (game.kills > game.bestStats.bestKills) { game.bestStats.bestKills = game.kills; improved = true }
@@ -837,7 +831,7 @@ export function _recordRunEnd(game, survived) {
   // captured alongside (Homepage batch) so a "Play Again" action can
   // restore the exact setup game run used, not just show its stats.
   game.runHistory.unshift({
-    night: game.night, kills: game.kills, coins: Math.max(0, game.coins - game._runStartCoins), survived: !!survived,
+    night: game.wave, kills: game.kills, coins: Math.max(0, game.coins - game._runStartCoins), survived: !!survived,
     prestige: game.metaProgress.prestigeLevel, ts: Date.now(),
     difficulty: game.settings.difficulty, loadout: game.settings.loadout,
   })

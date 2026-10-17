@@ -395,10 +395,10 @@ export async function _refreshClanUi(game) {
   const myRole = me.role || 'member'
   const canManage = myRole === 'owner' || myRole === 'elder'
 
-  const stats = await CloudSync.fetchClanCombinedStats(game.settings.clanId).catch(() => ({ memberCount: members.length, totalKills: 0, totalBestNight: 0 }))
+  const stats = await CloudSync.fetchClanCombinedStats(game.settings.clanId).catch(() => ({ memberCount: members.length, totalKills: 0, totalBestWave: 0 }))
   game.clanStatsMembers.textContent = t('clanStatsMembers', { n: stats.memberCount, max: CloudSync.CLAN_MEMBER_CAP })
   game.clanStatsKills.textContent = t('clanStatsKills', { n: stats.totalKills })
-  game.clanStatsNight.textContent = t('clanStatsNight', { n: stats.totalBestNight })
+  game.clanStatsWave.textContent = t('clanStatsWave', { n: stats.totalBestWave })
 
   // Send Clan Request (invite by Player ID) is management-only.
   game.clanSendInviteSection.style.display = canManage ? 'block' : 'none'

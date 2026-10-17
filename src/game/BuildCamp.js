@@ -308,6 +308,12 @@ export class BuildCamp {
     // Iron Mode (a Game Mode mutator): no buying from the Trader or Upgrader.
     const iron = !!s.cfg?.ironMode && (id === 'trader' || id === 'upgrader')
     if (iron) rows.push(`<p class="play-npc-empty">${t('campIronMode')}</p>`)
+    // Settings > General > Low Coins Reminder: say so when nothing here is
+    // affordable yet.
+    if (!iron && (id === 'trader' || id === 'upgrader') && this.bm.game?.settings?.lowCurrencyReminder !== false) {
+      const costs = id === 'trader' ? SHOP_ITEMS.map((item) => this._price(item)) : UPGRADES.map((up) => up.costs[s.upgrades[up.id] || 0]).filter((c) => c !== undefined)
+      if (costs.length && s.coins < Math.min(...costs)) rows.push(`<p class="play-npc-empty">${t('campLowCoins', { n: s.coins })}</p>`)
+    }
     if (id === 'trader') {
       for (const item of SHOP_ITEMS) {
         const cost = this._price(item)

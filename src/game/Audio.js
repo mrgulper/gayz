@@ -97,8 +97,7 @@ class AudioEngine {
   // jitter so 4-13 clips per pool don't sound like an obvious loop, times an
   // optional per-type pitchMult (see _pitchForScale) so a titan doesn't
   // sound identical to a feral dog. pan (-1 left to 1 right, camera-
-  // relative - see ZombieManager's _updateAmbientMoan for how it's
-  // computed) is only actually applied when settings.positionalAudio is
+  // relative) is only actually applied when settings.positionalAudio is
   // on (see setPositionalAudio) - centered otherwise.
   _playZombieSample(pool, gain, pitchMult = 1, pan = 0) {
     const buffers = this.zombieBuffers[pool]
@@ -292,9 +291,7 @@ class AudioEngine {
     noise.stop(now + duration)
   }
 
-  // Low-health tension cue: a "lub-dub" double thump, synced to the
-  // low-health screen pulse (see Game.js's _updateHealthHud/#damage-flash's
-  // low-health CSS animation, which shares the same ~1.6s cadence).
+  // Low-health tension cue: a "lub-dub" double thump (~1.6s cadence).
   playHeartbeat() {
     if (!this.ctx) return
     const ctx = this.ctx
@@ -355,7 +352,7 @@ class AudioEngine {
     click(0.09)
   }
 
-  // Rare rain-night event (see Game.js's _triggerLightning): a bright crack
+  // Lightning in a storm (BuildWeather.js): a bright crack
   // followed by a rolling low rumble.
   playThunder() {
     if (!this.ctx) return
@@ -484,9 +481,8 @@ class AudioEngine {
     for (let i = 0; i < 7; i++) this._glassTink(2400 + Math.random() * 3000, now + 0.03 + Math.random() * 0.35, 0.06 + Math.random() * 0.06)
   }
 
-  // Vocal variety by type (see ZombieTypes.js's scale field, already used
-  // for visual size - reused here rather than authoring a second per-type
-  // number) - bigger zombies get a deeper voice, smaller ones a higher
+  // Vocal variety by size (the zombie's scale, also used for its visual
+  // size) - bigger zombies get a deeper voice, smaller ones a higher
   // one, out of the SAME sample pool (no new audio assets needed).
   // Clamped so even a titan (scale 3.4) or feral dog (scale 0.55) still
   // reads as a recognizable moan, not a chipmunk or a demon.
@@ -781,17 +777,15 @@ class AudioEngine {
     wind.connect(windFilter).connect(windGain).connect(this.ambientGain)
     wind.start(now)
 
-    // Ambient variety by zone (see updateAmbientZone, called ~10x a second
-    // from Game.js's _updateAmbientAudio with the isIndoors flag that
-    // function already has on hand - no new detection needed). Kept as
+    // Ambient variety by zone (see updateAmbientZone). Kept as
     // instance refs so that call can smoothly ramp them instead of
     // needing to rebuild the whole ambient graph per transition.
     this._windFilter = windFilter
     this._windGainNode = windGain
     this._ambientIndoorAmount = 0
 
-    // Weather-reactive audio (see setWeatherAudio, called from Game.js's
-    // _rollWeather) - real recorded rain/wind loops now (see
+    // Weather-reactive audio (see setWeatherAudio, called by the Map
+    // Editor's weather, BuildWeather.js) - real recorded rain/wind loops now (see
     // RAIN_AMBIENCE_URL/SNOW_AMBIENCE_URL's own comment for why - the
     // previous bandpassed-noise-buffer version read as too thin/quiet to
     // register as actual weather). Gain nodes are created here,
@@ -871,8 +865,7 @@ class AudioEngine {
   updateAmbientZone(indoors) {
     if (!this._windFilter) return
     const target = indoors ? 1 : 0
-    // 0.114 per call at ~10 calls/sec (Game.js's _updateAmbientAudio
-    // throttle) is the same glide speed the old 0.02 per call had at 60fps:
+    // 0.114 per call at ~10 calls/sec is the same glide speed the old 0.02 per call had at 60fps:
     // 1 - (1 - 0.02)^6 ~= 0.114.
     this._ambientIndoorAmount += (target - this._ambientIndoorAmount) * 0.114
     const freq = 450 - this._ambientIndoorAmount * 280 // 450 outdoor -> 170 indoor

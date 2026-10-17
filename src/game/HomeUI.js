@@ -62,7 +62,7 @@ export function _renderRecentlyChangedList(game) {
     return false
   }
   game.recentlyChangedList.classList.add('show')
-  // Raw camelCase setting keys (exactLastSeen, hudScale, ...) read as a
+  // Raw camelCase setting keys (exactLastSeen, toastDuration, ...) read as a
   // developer's own field name, not a sentence - capitalizing just the
   // first letter (ExactLastSeen) is a one-line, no-translation-needed
   // way to make the list read a little more like a real label without
@@ -88,8 +88,7 @@ export function _confirmNicknameEdit(game) {
 }
 
 // Homepage corner currency bar (Coins/Points/Gems) - piggybacks on the
-// same two already-everywhere call sites _updateStatsPanel's own comment
-// describes (in-game HUD refresh + this homepage stats refresh) rather
+// homepage stats refresh rather
 // than a save call/listener at each individual currency mutation site.
 export function _renderCurrencyBar(game) {
   if (game.currencyCoinsAmount) game.currencyCoinsAmount.textContent = _safeStatNumber(game.coins)
@@ -204,10 +203,9 @@ export function _applyBgMood(game) {
 }
 
 // Homepage batch - every quick-action/one-shot listener that isn't
-// already covered by an existing _bindX() method (difficulty/loadout/
-// role buttons keep their own _bindDifficulty/_bindLoadout/
-// _bindCompanionRole - Play Again/preset load click those same real
-// buttons rather than duplicating their apply logic).
+// already covered by its own bind method (the difficulty buttons keep
+// _bindDifficulty - Play Again clicks those same real buttons rather
+// than duplicating their apply logic).
 export function _bindHomepageBatch(game) {
   // Reuses _generateCareerPortrait() as-is (see its own comment - it
   // already composites a styled stat-card image, not a plain
@@ -350,12 +348,12 @@ export function _bindHomepageBatch(game) {
   game._updateEventBanner()
 }
 
-// Main-menu news ticker - tied to bestStats.bestNight (already persisted,
+// Main-menu news ticker - tied to bestStats.bestWave (already persisted,
 // no new tracking needed), framed as the world worsening the further
 // you've ever gotten rather than reacting to any single run's outcome.
 export function _updateMenuNewsTicker(game) {
   if (!game.menuNewsTicker) return
-  const n = game.bestStats.bestNight
+  const n = game.bestStats.bestWave
   const key = n >= NEWS_TICKER_LATE_NIGHT ? 'newsTickerLate' : n >= NEWS_TICKER_MID_NIGHT ? 'newsTickerMid' : 'newsTickerEarly'
   game.menuNewsTicker.textContent = t(key)
   if (game.weeklyFeaturedMutatorLine) {
@@ -391,9 +389,7 @@ export function _saveMenuPaintCache(_game) {
 }
 
 // Recently Unlocked strip (Profile panel) - a persistent list, not just
-// the ticker's single rotating line (mode 15 in _updateMenuSpotlight,
-// see its own comment) - same getRecentUnlocks(n) data source, just n=5
-// here instead of 1.
+// one line - getRecentUnlocks(n) with n=5.
 export function _renderRecentUnlocksStrip(game) {
   if (!game.recentUnlocksList) return
   if (game.recentUnlocksHeading) game.recentUnlocksHeading.textContent = t('recentUnlocksHeading')
@@ -514,7 +510,7 @@ export function _renderFavoriteDifficultyLine(game) {
   game.profileFavoriteDifficultyLine.style.display = ''
 }
 
-// Best Run card - the runHistory entry matching bestStats.bestNight
+// Best Run card - the runHistory entry matching bestStats.bestWave
 // (the same "single best-ever run" bestStats already is the source of
 // truth for), showing the difficulty/loadout/companion fields
 // _recordRunEnd already captures on every entry (see CLAUDE.md's note
@@ -522,7 +518,7 @@ export function _renderFavoriteDifficultyLine(game) {
 // snapshot separately.
 export function _renderBestRunCard(game) {
   if (!game.profileBestRunCard) return
-  const best = game.runHistory.find((r) => _safeStatNumber(r.night) === _safeStatNumber(game.bestStats.bestNight))
+  const best = game.runHistory.find((r) => _safeStatNumber(r.night) === _safeStatNumber(game.bestStats.bestWave))
   if (!best) {
     game.profileBestRunCard.style.display = 'none'
     return

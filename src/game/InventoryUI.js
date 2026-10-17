@@ -683,10 +683,8 @@ export function _renderCrateTiers(game) {
 }
 
 // Buys 1 crate - adds it to crateStock, unopened, rather than instantly
-// rolling a reward (that used to happen right here; moved to
-// _openOwnedCrate, called from Inventory > Crates' own Open button -
-// 2026-09-21, per explicit request to separate buying from opening so
-// Inventory can show a real "how many do I have" count). Mirrors
+// rolling a reward (2026-09-21, per explicit request to separate buying
+// from opening so Inventory can show a real "how many do I have" count). Mirrors
 // _buyShopSkin's own afford-check/deduct/persist/toast shape.
 export function _openCrate(game, tier) {
   if (CRATES_COMING_SOON) return
@@ -752,8 +750,7 @@ export function _updateCratePurchaseModal(game) {
 }
 
 // Buys the chosen quantity, adding all of it to crateStock unopened -
-// no more per-crate reward rolling here (moved to _openOwnedCrate, see
-// its own comment). One combined "Bought Nx Tier Crate" toast instead
+// no per-crate reward rolling here. One combined "Bought Nx Tier Crate" toast instead
 // of the old per-reward summary, since there's no longer a reward to
 // summarize at buy time.
 export function _confirmCratePurchase(game) {
@@ -782,9 +779,8 @@ export function _confirmCratePurchase(game) {
 }
 
 // Inventory panel's Weapons tab - every weapon's mastery progress in one
-// place. _refreshInventoryPanel's hotbar list (below) deliberately only
-// shows the 3 currently-equipped weapons (see its own comment - the full
-// roster there read as confusing next to the HUD's 3-weapon list), so
+// place. The hotbar only ever shows the 3 currently-equipped weapons,
+// so
 // there was previously no way to check mastery progress on a weapon
 // that isn't in your hotbar right now. Read-only by design - this tab's
 // job is showing progress, not reassigning loadouts (the Loadout panel

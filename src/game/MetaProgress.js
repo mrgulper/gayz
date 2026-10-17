@@ -1,5 +1,5 @@
 // Permanent, cross-run progression: a fraction of each run's points converts
-// to "Legacy Points" on death (see Game.js's _onPlayerDeath), spent here on
+// to "Legacy Points" when a Map 1 run ends (ProgressUI's _recordRunEnd), spent here on
 // one-time permanent upgrades applied at the start of every future run.
 const STORAGE_KEY = 'gayz-meta-progress'
 export const DEATH_POINTS_CONVERSION = 0.2
@@ -69,12 +69,12 @@ export const META_UPGRADES = [
   // Once Coin Shop perks (kept their ids so earlier purchases still count).
   {
     id: 'coin_damage',
-    titleKey: 'coinShopDamage',
+    titleKey: 'metaCoinDamage',
     cost: 500,
   },
   {
     id: 'coin_health',
-    titleKey: 'coinShopHealth',
+    titleKey: 'metaCoinHealth',
     cost: 300,
   },
   // More Zombie Survival upgrades (2026-10-10) - effects in PlayRules.js's
@@ -100,13 +100,13 @@ export const META_UPGRADES = [
   // now handled there too.
   {
     id: 'cache_resolve',
-    titleKey: 'coinShopCacheResolve',
+    titleKey: 'metaCacheResolve',
     cost: 350,
     requiresLifetimeCoins: 100000,
   },
   {
     id: 'cache_fortune',
-    titleKey: 'coinShopCacheFortune',
+    titleKey: 'metaCacheFortune',
     cost: 500,
     requiresLifetimeCoins: 250000,
   },

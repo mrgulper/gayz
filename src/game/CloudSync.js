@@ -1045,13 +1045,13 @@ export async function fetchClanCombinedStats(clanId) {
   const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('clanId', '==', clanId))
   const snap = await fsMod.getDocs(q)
   let totalKills = 0
-  let totalBestNight = 0
+  let totalBestWave = 0
   for (const d of snap.docs) {
     const data = d.data()
     totalKills += Number(data.bestKills) || 0
-    totalBestNight += Number(data.bestNight) || 0
+    totalBestWave += Number(data.bestNight) || 0
   }
-  return { memberCount: snap.size, totalKills, totalBestNight }
+  return { memberCount: snap.size, totalKills, totalBestWave }
 }
 
 // Chat - Global and Clan channels both live in Firestore (Party channel

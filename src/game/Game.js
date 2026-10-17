@@ -156,7 +156,7 @@ export const NICKNAME_FONT_STACKS = {
 }
 
 
-// Random Nickname Generator (see _generateRandomNickname) - a small
+// Random Nickname button (SettingsUI's randomNicknameBtn) - a small
 // adjective+noun word bank combined with a 2-digit suffix, plenty of
 // distinct combinations without needing a name-generation service.
 export const RANDOM_NICKNAME_ADJECTIVES = ['Rusty', 'Silent', 'Grim', 'Feral', 'Lucky', 'Rogue', 'Shady', 'Blunt', 'Sneaky', 'Iron']
@@ -172,7 +172,7 @@ export const PODIUM_MEDALS = ['1st', '2nd', '3rd']
 export const WEAPON_THUMBS_CACHE = 'gayz-weapon-thumbs-v2'
 
 // Main-menu news ticker thresholds (see _updateMenuNewsTicker) - both read
-// against bestStats.bestNight.
+// against bestStats.bestWave.
 export const NEWS_TICKER_MID_NIGHT = 5
 export const NEWS_TICKER_LATE_NIGHT = 15
 // The Upgrades panel lists only the upgrades that do something in a Map 1
@@ -229,8 +229,6 @@ function loadSettings() {
       sensitivity: parsed.sensitivity ?? 100,
       invertY: parsed.invertY ?? false,
       fov: parsed.fov ?? 75,
-      hudScale: parsed.hudScale ?? 100,
-      hudOpacity: parsed.hudOpacity ?? 100,
       // Replaced the old boolean 'colorblind' toggle with a 3-way mode
       // (off/redgreen/blueyellow) - redgreen covers protanopia/deuteranopia
       // (the old single mode, unchanged) and blueyellow is a new,
@@ -332,7 +330,7 @@ function loadSettings() {
       // PLAY_GAME_MODES) - see _bindGameModeSelect for how picking one
       // drives its matching settings.mutators.* flag.
       selectedGameMode: PLAY_GAME_MODES.includes(parsed.selectedGameMode) ? parsed.selectedGameMode : 'classic',
-      // 3-slot hotbar (see Game.js's _bindHotbar) - slot 0 is whatever gun
+      // 3-slot hotbar - slot 0 is whatever gun
       // was picked in the Play/Pause weapon picker, slots 1-2 are the fixed
       // M1911/Knife backup weapons every run starts with.
       hotbar: Array.isArray(parsed.hotbar) && parsed.hotbar.length === 3 ? parsed.hotbar : ['rifle', 'pistol', 'melee'],
@@ -429,9 +427,7 @@ function loadSettings() {
         lootRush: parsed.mutators?.lootRush ?? false,
         bossRush: parsed.mutators?.bossRush ?? false,
         // Off by default - deliberately a toggle, not a replacement for
-        // manual healing (medkits, safe-zone rest). See _updateHealthRegen's
-        // own comment for why this stays optional rather than becoming the
-        // new baseline.
+        // healing in the camp (BuildSurvival, REGEN_* in PlayRules.js).
         healthRegen: parsed.mutators?.healthRegen ?? false,
         ironMode: parsed.mutators?.ironMode ?? false,
         glassHouse: parsed.mutators?.glassHouse ?? false,
@@ -442,10 +438,9 @@ function loadSettings() {
       },
     }
     // Repairs a hotbar with empty (null) slots - a real save could have
-    // gotten into this state from _assignHotbarSlot's old overwrite bug
-    // (fixed 2026-08-20, see that function's own comment: assigning a
-    // weapon to an occupied slot used to just drop the previous occupant
-    // instead of swapping it elsewhere). The array-shape check just above
+    // gotten into this state from an old hotbar overwrite bug (fixed
+    // 2026-08-20: assigning a weapon to an occupied slot used to just drop
+    // the previous occupant instead of swapping it elsewhere). The array-shape check just above
     // only replaces the whole hotbar if it isn't a valid 3-length array,
     // so a save with e.g. ['rifle', null, null] passed through
     // untouched - backfill each null slot with the first default weapon
@@ -504,20 +499,24 @@ function loadSettings() {
 // SettingsUI._navOrderIds and the matching inline script in index.html.
 // The two fixed 8-button lists below were the defaults before every
 // button became movable - a save still holding one never reordered
-// anything, so it follows index.html instead.
+// anything, so it follows index.html instead. (They hold the Store
+// button's old id, coinshop-btn - see NAV_ID_RENAMES.)
 const NAV_ORDER_OLD_DEFAULTS = [
   ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'friends-btn', 'quests-btn', 'menu-inventory-btn', 'achievements-btn'],
   ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'],
 ]
 
+// Homepage buttons whose id changed: a saved order keeps working.
+export const NAV_ID_RENAMES = { 'coinshop-btn': 'store-btn' }
+
 function _loadNavOrder(saved) {
   if (!Array.isArray(saved)) return []
   if (NAV_ORDER_OLD_DEFAULTS.some((d) => d.join() === saved.join())) return []
-  return saved.filter((id) => typeof id === 'string').slice(0, 40)
+  return saved.filter((id) => typeof id === 'string').map((id) => NAV_ID_RENAMES[id] || id).slice(0, 40)
 }
 
 export function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
 }
 
 
@@ -624,8 +623,8 @@ export const ENDGAME_ACHIEVEMENT = 'survivor_10'
 export const GLOBAL_KILLS_MILESTONE_STEP = 100000
 // Renamed from WEEKLY_FEATURED_MUTATOR_LABEL_KEYS (Online Features batch)
 // and extended to cover every mutator with a real i18n label - the
-// Mutator Exploration spotlight nudge (see _updateMenuSpotlight mode 4)
-// needs the full set, not just the 8 WEEKLY_FEATURED_MUTATORS covers.
+// homepage's mutator lines (HomeUI.js) need the full set, not just the
+// 8 WEEKLY_FEATURED_MUTATORS covers.
 // dailyChallenge deliberately excluded - it's its own distinct system
 // already promoted separately (the daily-reset spotlight mode), not a
 // "try this mutator" flavor pick.
@@ -650,7 +649,7 @@ export const MUTATOR_LABEL_KEYS = {
 // player's identity) since this is meant to be pasted/shared with someone
 // else, unlike Export Save's full-fidelity file backup.
 export const SETTINGS_CODE_KEYS = [
-  'masterVolume', 'sfxVolume', 'ambientVolume', 'sensitivity', 'invertY', 'fov', 'hudScale', 'hudOpacity',
+  'masterVolume', 'sfxVolume', 'ambientVolume', 'sensitivity', 'invertY', 'fov',
   'colorblindMode', 'reduceFlashing', 
   'toastDuration', 'crosshairSize', 'largeTextMode',
   'highContrastMode', 'dyslexiaFont', 'focusRingMode', 
@@ -720,13 +719,15 @@ function loadBestStats() {
     const raw = localStorage.getItem(BEST_STATS_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
     return {
-      bestNight: parsed.bestNight || 0, bestKills: parsed.bestKills || 0, bestKillStreak: parsed.bestKillStreak || 0,
+      // Called bestNight until 2026-10-17 (rounds were nights on the old
+      // Map 1) - an older save (or cloud copy) has that name instead.
+      bestWave: Math.max(Number(parsed.bestWave) || 0, Number(parsed.bestNight) || 0), bestKills: parsed.bestKills || 0, bestKillStreak: parsed.bestKillStreak || 0,
       // Third features batch - the calendar date the current bestKillStreak
       // record was actually set (see _recordRunEnd), not just the number.
       bestKillStreakDate: parsed.bestKillStreakDate || null,
     }
   } catch {
-    return { bestNight: 0, bestKills: 0, bestKillStreak: 0, bestKillStreakDate: null }
+    return { bestWave: 0, bestKills: 0, bestKillStreak: 0, bestKillStreakDate: null }
   }
 }
 
@@ -738,10 +739,9 @@ export function saveBestStats(stats) {
   }
 }
 
-// Best-Run Pace Comparison (see _checkBestRunPace) - records real elapsed
-// time only when a new bestStats.bestNight record actually lands (see
-// _recordRunEnd), so a live run can be compared against a linear
-// projection of "how fast did the best-ever run reach this same night."
+// Best-Run Pace - real elapsed time, recorded only when a new
+// bestStats.bestWave record actually lands (see _recordRunEnd), shown with
+// the run history (ProgressUI.js).
 const BEST_RUN_PACE_KEY = 'gayz-best-run-pace'
 
 function loadBestRunPace() {
@@ -762,18 +762,6 @@ export function saveBestRunPace(pace) {
 }
 
 
-// Nemesis system (see _recordNemesis/_checkNemesisReturn) - remembers only
-// the single most recent death's nearest zombie type/night, not a history.
-const NEMESIS_KEY = 'gayz-nemesis'
-
-function loadNemesis() {
-  try {
-    const raw = localStorage.getItem(NEMESIS_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
-}
 
 
 
@@ -814,9 +802,8 @@ function loadCareerStats() {
       lifetimeCoinsEarned: parsed.lifetimeCoinsEarned || 0,
       // Lifetime Points quest tier (see Quests.js) - unlike this.points
       // itself (spent on perks/rerolls, goes back down), this only ever
-      // grows, same never-reset shape as lifetimeCoinsEarned above. Every
-      // points award routes through Game.js's _gainPoints so this can't
-      // drift out of sync with a scattered set of individual += sites.
+      // grows, same never-reset shape as lifetimeCoinsEarned above. Added
+      // once per run with the run's points (ProgressUI's _onPlayEvent).
       lifetimePointsEarned: parsed.lifetimePointsEarned || 0,
       playtimeMilestonesGranted: parsed.playtimeMilestonesGranted || [],
       // Homepage batch (see _recordRunEnd/_updateBestStatsDisplay) - lifetime
@@ -1060,8 +1047,8 @@ export function saveShopProgress(game) {
       crateStock: game.crateStock,
       charSkins: game.charSkins,
     })
-    // Skip identical writes - this runs from _updateStatsPanel after nearly
-    // every points/coins change, and a localStorage write is synchronous on
+    // Skip identical writes - this runs after nearly every points/coins
+    // change, and a localStorage write is synchronous on
     // the main thread. Compared against what's actually stored (not a
     // cached "last thing I wrote") so a write from elsewhere - a cloud
     // restore, an imported save - still gets overwritten exactly as it
@@ -1083,9 +1070,6 @@ export const FRIEND_ONLINE_THRESHOLD_MS = 2 * 60 * 1000
 export const FRIEND_OFFLINE_THRESHOLD_MS = 5 * 60 * 1000
 export const FRIEND_STATUS_LABEL_KEYS = { online: 'friendStatusOnline', idle: 'friendStatusIdle', dnd: 'friendStatusDnd', offline: 'friendStatusOffline' }
 
-// Reset All Progress - see _handleResetProgressClick's own comment for why
-// this is a two-click arm/confirm instead of a single button.
-export const RESET_PROGRESS_CONFIRM_MS = 4000
 // Achievement toast queue - slightly longer than the toast's own 3.2s CSS
 // animation (see #achievement-toast.show) so one fully fades before the
 // next begins, instead of visually cutting it off mid-animation.
@@ -1336,7 +1320,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   // Reusing #other-profile-panel's existing labels (already translated
   // into zh/hi/es) - same "Best Night"/"Best Kills"/"Achievements" text,
   // no reason to duplicate the key.
-  'profile-public-bestnight-label': 'otherProfileBestnightLabel',
+  'profile-public-bestwave-label': 'otherProfileBestwaveLabel',
   'profile-public-bestkills-label': 'otherProfileBestkillsLabel',
   'profile-public-achievements-label': 'otherProfileAchievementsLabel',
   'profile-public-beststreak-label': 'profilePublicBeststreakLabel',
@@ -1359,7 +1343,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'status-pick-label-offline': 'friendStatusOffline',
   'other-profile-loading': 'otherProfileLoading',
   'other-profile-none': 'otherProfileNone',
-  'other-profile-bestnight-label': 'otherProfileBestnightLabel',
+  'other-profile-bestwave-label': 'otherProfileBestwaveLabel',
   'other-profile-bestkills-label': 'otherProfileBestkillsLabel',
   'other-profile-beststreak-label': 'profilePublicBeststreakLabel',
   'other-profile-achievements-label': 'otherProfileAchievementsLabel',
@@ -1394,6 +1378,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'settings-section-theme': 'settingsSectionTheme',
   'settings-section-save-backup': 'settingsSectionSaveBackup',
   'settings-section-danger-zone': 'settingsSectionDangerZone',
+  'settings-section-danger-zone-general': 'settingsSectionDangerZone',
   'reset-general-defaults-btn': 'resetGeneralDefaultsBtn',
   'community-maps-title': 'communityBuildsTitle',
   'chat-tab-global': 'chatTabGlobal',
@@ -1467,7 +1452,7 @@ export const GOAL_CANDIDATES = [
   { id: 'goal_kills10k', titleKey: 'goalKills10k', current: (g) => g.careerStats.totalKills, total: () => 10000 },
   { id: 'goal_achievements50', titleKey: 'goalAchievements50', current: (g) => g.achievements.unlocked.size, total: () => ACHIEVEMENTS.length },
   { id: 'goal_rankElite', titleKey: 'goalRankElite', current: (g) => g.careerStats.totalKills, total: () => 15000 },
-  { id: 'goal_night10', titleKey: 'goalNight10', current: (g) => g.bestStats.bestNight, total: () => 10 },
+  { id: 'goal_night10', titleKey: 'goalWave10', current: (g) => g.bestStats.bestWave, total: () => 10 },
   { id: 'goal_coins100k', titleKey: 'goalCoins100k', current: (g) => g.careerStats.lifetimeCoinsEarned, total: () => 100000 },
   { id: 'goal_playtime10h', titleKey: 'goalPlaytime10h', current: (g) => g.careerStats.lifetimePlaytimeSeconds, total: () => 36000 },
   { id: 'goal_runs50', titleKey: 'goalRuns50', current: (g) => g.careerStats.totalRuns, total: () => 50 },
@@ -1509,10 +1494,8 @@ export const POLL_OPTIONS = [
 
 // Simple line-icon silhouette per weapon (same 24x24/stroke-only visual
 // language as every other icon in the game - .mode-icon, .class-icon -
-// not a photorealistic render, since nothing else in this UI is). Used by
-// _renderWeaponPickerOptions so the "Choose Your Weapon" screen shown
-// right after clicking Play has a distinct image per card instead of
-// name-only text.
+// not a photorealistic render, since nothing else in this UI is). The
+// Inventory's weapon cards fall back to it when a weapon has no picture.
 export const WEAPON_ICON_PATHS = {
   rifle: '<line x1="2" y1="12" x2="22" y2="12"/><line x1="20" y1="12" x2="20" y2="9"/><line x1="2" y1="12" x2="1" y2="17"/><line x1="13" y1="12" x2="14" y2="17"/><path d="M10 12q0 6 3 7"/>',
   pistol: '<rect x="5" y="9" width="12" height="4" rx="1"/><line x1="17" y1="10.5" x2="20" y2="10.5"/><path d="M6 13v6h4v-6"/><path d="M9 13a3 3 0 0 0 3 3"/>',
@@ -1856,7 +1839,7 @@ export class Game {
     // and only fires once per session.
     // Graphics tab's manual Resolution slider (50-100%) - see
     // _applyRenderScale's own comment on why this is a separate
-    // multiplier from _dynResScale above, not a revival of it. Placeholder
+    // multiplier from the removed automatic per-frame scaler. Placeholder
     // 1 here (this.settings doesn't exist yet at this point in the
     // constructor) - the real value is set from this.settings right after
     // the renderer itself is created, below.
@@ -1954,7 +1937,7 @@ export class Game {
     // instead of just being told "some stuff is public" in the abstract.
     this.profilePublicNameValue = document.getElementById('profile-public-name-value')
     this.profilePublicIdValue = document.getElementById('profile-public-id-value')
-    this.profilePublicBestnightValue = document.getElementById('profile-public-bestnight-value')
+    this.profilePublicBestwaveValue = document.getElementById('profile-public-bestwave-value')
     this.profilePublicBestkillsValue = document.getElementById('profile-public-bestkills-value')
     this.profilePublicBeststreakValue = document.getElementById('profile-public-beststreak-value')
     this.profilePublicAchievementsValue = document.getElementById('profile-public-achievements-value')
@@ -2005,7 +1988,7 @@ export class Game {
     this.otherProfileLoading = document.getElementById('other-profile-loading')
     this.otherProfileNone = document.getElementById('other-profile-none')
     this.otherProfileStats = document.getElementById('other-profile-stats')
-    this.otherProfileBestNightValue = document.getElementById('other-profile-bestnight-value')
+    this.otherProfileBestWaveValue = document.getElementById('other-profile-bestwave-value')
     this.otherProfileBestKillsValue = document.getElementById('other-profile-bestkills-value')
     this.otherProfileBestStreakValue = document.getElementById('other-profile-beststreak-value')
     this.otherProfileAchievementsValue = document.getElementById('other-profile-achievements-value')
@@ -2226,7 +2209,7 @@ export class Game {
     this.clanDisplayName = document.getElementById('clan-display-name')
     this.clanStatsMembers = document.getElementById('clan-stats-members')
     this.clanStatsKills = document.getElementById('clan-stats-kills')
-    this.clanStatsNight = document.getElementById('clan-stats-night')
+    this.clanStatsWave = document.getElementById('clan-stats-wave')
     this.clanSendInviteSection = document.getElementById('clan-send-invite-section')
     this.clanInviteIdInput = document.getElementById('clan-invite-id-input')
     this.clanInviteSendBtn = document.getElementById('clan-invite-send-btn')
@@ -2256,9 +2239,7 @@ export class Game {
     this.mutatorIronMode = document.getElementById('mutator-iron-mode')
     this.mutatorGlassHouse = document.getElementById('mutator-glass-house')
     this.controlsGrid = document.getElementById('controls-grid')
-    this.resetBindsBtn = document.getElementById('reset-binds-btn')
     this.restoreDefaultsBtn = document.getElementById('restore-defaults-btn')
-    this.resetProgressBtn = document.getElementById('reset-progress-btn')
     this._resetProgressArmed = false
     // Local Sharing batch.
     this.exportSaveBtn = document.getElementById('export-save-btn')
@@ -2270,7 +2251,6 @@ export class Game {
     this.importSettingsCodeBtn = document.getElementById('import-settings-code-btn')
     this.importSettingsCodeInput = document.getElementById('import-settings-code-input')
     this.importSettingsCodeApplyBtn = document.getElementById('import-settings-code-apply-btn')
-    this.clearLeaderboardsBtn = document.getElementById('clear-leaderboards-btn')
     this.printStatsSheet = document.getElementById('print-stats-sheet')
     this.reportBugBtn = document.getElementById('report-bug-btn')
     this.rebindingAction = null
@@ -2298,32 +2278,18 @@ export class Game {
     this.loginStreak = loadLoginStreak()
     this.leaderboard = loadLeaderboard()
     this.bestRunPace = loadBestRunPace()
-    this.nemesis = loadNemesis()
 
-    this.night = 1
+    this.wave = 1
     this.kills = 0
     // Records screen (see bestStats.bestKillStreak) - killStreak itself
     // resets to 0 on any hit taken, so this separately tracks the highest
     // it ever reached this run, checked against the persisted best at death.
     this.peakKillStreakThisRun = 0
-    // Deployable turrets (see _deployTurret) - separate from this.turret
-    // above (the single permanent Coin Shop base-defense fixture at the
-    // safe zone), these are player-placed anywhere, consumed from
-    // inventory.turretKits, capped at MAX_DEPLOYED_TURRETS alive at once.
-    // Deployable Med Stations (see _deployMedStation) - the support
-    // counterpart, same shape as deployedTurrets above just healing instead
-    // of shooting, consumed from inventory.medStationKits.
     this.totalKills = 0
     this.totalDeaths = 0
-    // Director AI signals - see _updateDirectorAI. lastHitTakenAt starts at
-    // "now" rather than 0 so a fresh run doesn't read as "25+ seconds since
-    // last hit" (i.e. immediately eligible to ramp up) before the player
-    // has even taken a first step.
     this.shopProgress = loadShopProgress()
     this.points = this.shopProgress.points
     this.xp = 0
-    this.stealthTakedowns = 0
-    this.hasNightVision = false
     this.coins = this.shopProgress.coins
     // Cash - a 4th currency alongside Coins/Points/Gems, not yet spendable
     // anywhere (same as Gems currently isn't) and with no earning mechanic
@@ -2332,9 +2298,6 @@ export class Game {
     this.gems = this.shopProgress.gems
     this.ownsShopSkin = this.shopProgress.ownsShopSkin
     this.charSkins = this.shopProgress.charSkins
-    // Landing camera dip (see _updateLandingDip) - a deliberate one-shot
-    // downward snap-then-recover on hard falls, distinct from _shakeOffset's
-    // random noise above.
     this.runStartedAt = performance.now()
     // Long-Term Goals batch (see _recordRunEnd) - per-run baselines used to
     // derive this run's contribution to the lifetime totals in careerStats.
@@ -2343,8 +2306,8 @@ export class Game {
     this._runStartCoins = this.coins
 
     // No preserveDrawingBuffer: it disables a fast path in most browsers and
-    // isn't actually needed - _takeScreenshot() renders and reads the canvas
-    // in the same synchronous call, before any buffer swap/clear can happen.
+    // isn't needed - anything that reads the canvas renders and reads it in
+    // the same synchronous call, before any buffer swap/clear can happen.
     // Antialias can only be set at renderer creation (not toggled live), so
     // this respects whatever Performance Mode was saved from last session -
     // toggling the checkbox mid-game still updates everything else in
@@ -2717,7 +2680,7 @@ export class Game {
     this.whatsNewPanel = document.getElementById('whatsnew-panel')
     this.whatsNewPanelTitle = document.getElementById('whatsnew-panel-title')
     this.buildVersionLine = document.getElementById('build-version-line')
-    this.coinshopBtn = document.getElementById('coinshop-btn')
+    this.storeBtn = document.getElementById('store-btn')
     this.gameStarted = false
     this.weapons = new WeaponCatalog()
     // Unopened crate stock (see loadShopProgress's own comment) - a plain
@@ -2728,8 +2691,8 @@ export class Game {
     this._applyAllVolumes()
 
     this._bindMenu()
-    // Safety net alongside the _updateStatsPanel save hook - catches a
-    // close/reload happening between the last stats-panel update and now.
+    // Safety net alongside the save on every points/coins change - catches
+    // a close/reload happening between the last save and now.
     // The _importingSave guard (see _applyImportedSaveData's own comment)
     // skips this specific save during a cloud/import restore's own
     // reload - this page's in-memory shopProgress/careerStats are stale
@@ -2785,11 +2748,6 @@ export class Game {
     setInterval(() => {
       if (this.settings.liteTextures && !this._glLost) shrinkTextures(this._liteTextureRoots())
     }, LITE_TEXTURE_SWEEP_MS)
-
-    // See _warmUpShaders' own comment - must run after everything above is
-    // built (weapons/zombie types/chests all need to exist) but before the
-    // player can possibly see anything (gameStarted is still false, #menu
-    // sits fully opaque over the 3D canvas the whole time this runs).
 
     // Debug/QA hook - lets Playwright (or the browser console) drive real
     // game methods directly, since this project has no test suite.
@@ -2860,12 +2818,6 @@ export class Game {
         this.settingsInfoOverlay.style.top = `${rect.bottom + 6}px`
       })
     }
-    // Save & Exit - the non-destructive alternative to Quit to Menu above:
-    // writes a full snapshot (see _captureRunSnapshot) instead of banking
-    // a legacy-points payout, so Continue Run on the homepage can put the
-    // player right back where they left off. Hardcore is excluded on
-    // purpose - its whole design is "no do-overs" (see _isForceHardcore's
-    // own callers), and letting it be saved/resumed would undermine that.
   }
 
 
@@ -2955,7 +2907,6 @@ export class Game {
 
   _restoreDefaultSettings() { return SettingsUI._restoreDefaultSettings(this) }
 
-  _handleResetProgressClick() { return SettingsUI._handleResetProgressClick(this) }
 
   _exportSave() { return SettingsUI._exportSave(this) }
 
@@ -3063,11 +3014,10 @@ export class Game {
 
   _updateStorageUsageLine() { return OnlineUI._updateStorageUsageLine(this) }
 
-  _clearLeaderboardsOnly() { return OnlineUI._clearLeaderboardsOnly(this) }
 
   // In-game bug report (batch feature) - copies a plain-text report to the
-  // clipboard (same navigator.clipboard pattern _copyTextRecap already
-  // uses) with real live state auto-attached, so a player doesn't have to
+  // clipboard (same navigator.clipboard pattern as the other Copy
+  // buttons) with real live state auto-attached, so a player doesn't have to
   // remember to describe what they were doing - reads it straight off the
   // game/kill-feed rather than needing a new "recent actions" log of its
   // own. No backend - the player pastes it into Discord themselves (see
@@ -3210,8 +3160,7 @@ export class Game {
   }
 
   // Trades visual fidelity for frame rate on weaker machines: drops the
-  // most expensive effects (shadows, bloom) and caps draw/light/shadow
-  // distance (_perfDistanceMult), rather than touching gameplay-affecting
+  // most expensive effects (shadows, bloom), rather than touching gameplay-affecting
   // settings. Resolution is no longer part of that trade - confirmed
   // (2026-07-21) that cutting render resolution all the way down didn't
   // recover any fps in a genuinely severe case, meaning pixel count isn't
@@ -3221,7 +3170,7 @@ export class Game {
   _basePixelRatio() {
     // Fixed, modest cut under LOW_QUALITY_MODE (bare-bones/minimum-
     // resource mode) - real GPU fill-rate win (fewer total shaded
-    // pixels), unlike the disabled dynamic per-frame scaler above, which
+    // pixels), unlike the removed dynamic per-frame scaler, which
     // was specifically proven not to rescue an already-catastrophic case.
     // This is a flat baseline cost reduction, not trying to "save" a bad
     // frame - a different goal, still worth doing.
@@ -3236,9 +3185,8 @@ export class Game {
 
   _applyRenderScale() {
     // _userResScale (Graphics tab's Resolution slider, 50-100%) is a
-    // separate multiplier from _dynResScale (the disabled *automatic*
-    // per-frame scaler above - see its own comment) - this is a manual,
-    // user-chosen setting, not a revival of that dormant auto-scaling.
+    // manual, user-chosen setting - not the removed automatic per-frame
+    // scaler.
     // The map editor gets the screen's full sharpness (2026-09-29 report:
     // "the texture is way too blurry") - LOW_QUALITY_MODE's 0.75 base and
     // Auto Quality's resolution cut are for the survival world's cost; the
@@ -3283,9 +3231,9 @@ export class Game {
   // open its store; this does the same, gayz.vercel.app/store etc.) A
   // single MutationObserver watches every routable panel's own display
   // toggle rather than hand-wiring history.pushState into each of the ~13
-  // individual _openXPanel functions below - _closeAllMenuPanels() (right
+  // individual _open...Panel functions below - _closeAllMenuPanels() (right
   // after this) already guarantees at most one of these is ever visible
-  // at a time, since every _openXPanel calls it first, so "which one just
+  // at a time, since every _open...Panel calls it first, so "which one just
   // became visible" is enough on its own to know which route to show.
   // This also means any future panel added to that same close-all
   // convention gets routing for free just by being added to _routes below,
@@ -3779,7 +3727,6 @@ export class Game {
       if (el.id === 'touch-more-actions-hint') return
       el.textContent = t('panelGenericCloseHint')
     })
-    if (this.resetProgressBtn) this.resetProgressBtn.textContent = t(this._resetProgressArmed ? 'resetProgressConfirm' : 'resetProgressLabel')
     this._updateClanMyClanTabLabel()
     const menuTaglineEl = document.getElementById('menu-tagline')
     if (menuTaglineEl) menuTaglineEl.textContent = t('menuTagline')
@@ -3804,7 +3751,7 @@ export class Game {
     const galleryLink = document.getElementById('nav-gallery-link')
     if (galleryLink) galleryLink.querySelector('span').textContent = t('galleryBtn')
     GalleryUI.renderTexts(this)
-    this.coinshopBtn.querySelector('span').textContent = t('coinshopBtn')
+    this.storeBtn.querySelector('span').textContent = t('storeBtn')
     if (this.marketBtn) this.marketBtn.querySelector('span').textContent = t('skinModeMarket')
     if (this.hubBtn) this.hubBtn.querySelector('span').textContent = t('hubBtn')
     if (this.howtoplayNavLink) this.howtoplayNavLink.querySelector('span').textContent = t('howtoplayPanelTitle')
@@ -3831,16 +3778,10 @@ export class Game {
     document.getElementById('tab-controls').textContent = t('tabControls')
     document.getElementById('tab-graphics').textContent = t('tabGraphics')
     if (this.buildModeBtn) this.buildModeBtn.querySelector('span').textContent = t('mapEditorBtn')
-    const fullmapTitleEl = document.getElementById('fullmap-title')
-    if (fullmapTitleEl) fullmapTitleEl.textContent = t('fullmapTitle')
-    const generalPlaceholder = document.getElementById('settings-general-placeholder')
-    if (generalPlaceholder) generalPlaceholder.textContent = t('settingsGeneralPlaceholder')
-    this.resetBindsBtn.textContent = t('resetBinds')
     this._renderControlsGrid()
     // Local Sharing batch - static settings-panel labels.
     this.exportSaveBtn.textContent = t('exportSaveBtn')
     this.importSaveBtn.textContent = t('importSaveBtn')
-    this.clearLeaderboardsBtn.textContent = t('clearLeaderboardsBtn')
     document.getElementById('guest-mode-label').textContent = t('guestModeLabel')
     this._updateStorageUsageLine()
     document.getElementById('sfx-label').textContent = t('sfxLabel')
@@ -4361,8 +4302,8 @@ export class Game {
   // so a custom skin can be applied without a manual download+upload round
   // trip. loadSkinTexture() itself is the validation step here (rejects
   // anything that isn't a real decodable image), not a hand-rolled check -
-  // same untrusted-URL-input caution as _checkBeatThisChallenge/
-  // _checkSetupCode, just async since image decoding is.
+  // same untrusted-URL-input caution as any other link parameter, just
+  // async since image decoding is.
   _checkImportSkinCode() {
     const raw = new URLSearchParams(location.search).get('importskin')
     if (!raw) return
@@ -4464,7 +4405,7 @@ export class Game {
   // ambiguity the uid field was added to avoid elsewhere.
   async _checkFriendBeatNotifications() {
     if (!CloudSync.isConfigured() || !this.settings.savedFriends.length) return
-    const myNight = _safeStatNumber(this.bestStats.bestNight)
+    const myNight = _safeStatNumber(this.bestStats.bestWave)
     const stillRelevant = []
     for (const f of this.settings.savedFriends) {
       const name = f.name
@@ -4494,8 +4435,7 @@ export class Game {
   _renderPinnedStatSelect(rows) { return ProgressUI._renderPinnedStatSelect(this, rows) }
 
   // Deep-link a Settings tab (?settingstab=controls) - opens Settings and
-  // clicks the real tab button (reuses its own click handler, same
-  // "click the real element" precedent _loadMenuPreset uses) rather than
+  // clicks the real tab button (reuses its own click handler) rather than
   // duplicating tab-switch logic here.
   _checkSettingsTabDeepLink() {
     const tab = new URLSearchParams(location.search).get('settingstab')
@@ -4539,8 +4479,7 @@ export class Game {
   _mostUsedMutatorLabel() { return HomeUI._mostUsedMutatorLabel(this) }
 
   // Coins today / weekly average helpers (see _openProfilePanel) - both
-  // pure-derived from runHistory's own ts/coins fields (same rolling
-  // window _renderWeeklyRecap already uses), no new tracking. "Today"
+  // pure-derived from runHistory's own ts/coins fields, no new tracking. "Today"
   // sums coins from runs completed since local midnight; the weekly
   // average spreads the last 7 days' total coins evenly across 7, not
   // just the days actually played, so a quiet week reads as a genuinely
@@ -4602,12 +4541,6 @@ export class Game {
 
   _renderClanRanking() { return ClanUI._renderClanRanking(this) }
 
-  // Rolled once per night-round: a chance of rain OR snow for the whole
-  // round (mutually exclusive - one weather state at a time), lower
-  // visibility (see the fog scaling in _applyFogState) plus the matching
-  // screen overlay. Snow is deliberately lighter than rain (no thunder,
-  // smaller fog reduction) so it reads as a calmer, colder night rather
-  // than reskinned rain.
   // Real falling particles (was a tiled CSS background-position shift,
   // which reads as an obviously repeating pattern rather than rain/snow
   // actually descending from the sky, per direct follow-up feedback) -

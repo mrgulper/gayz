@@ -397,6 +397,15 @@ test('Play mode spawns zombie waves that reach you and can be shot', async ({ pa
     bm.placeBlock(2, 0, 1, 'lootchest', false, { facing: 0 })
     // A wall between the spawner and you, with a gap at one end.
     for (let x = -6; x <= 4; x++) for (let y = 0; y < 3; y++) bm.placeBlock(x, y, 7, 'stone')
+    // Where each zombie appears (checked there, not after it has had time
+    // to walk off - that made the check depend on the machine's speed).
+    const spawnedAt = []
+    const make = s._makeZombie.bind(s)
+    s._makeZombie = (...args) => {
+      const z = make(...args)
+      spawnedAt.push(z.z)
+      return z
+    }
     s.start()
     // The zombie skin is painted and loaded in the background.
     for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
@@ -407,7 +416,7 @@ test('Play mode spawns zombie waves that reach you and can be shot', async ({ pa
     step(4)
     out.wave = s.wave
     out.spawned = s.zombies.length
-    out.spawnNearSpawner = s.zombies.every((z) => Math.abs(z.z - 14.5) < 2.5)
+    out.spawnNearSpawner = spawnedAt.length > 0 && spawnedAt.every((z) => Math.abs(z - 14.5) < 1.5)
     s.health = 1e9
     step(14)
     const p = bm.tryMode.pos

@@ -165,8 +165,8 @@ export function _updateMenuAvatarPhoto(game, skin) {
 }
 
 // Local Profile screen - read-only aggregation of stats already
-// persisted elsewhere (careerStats/bestStats/achievements/prestige/
-// nemesis), no new tracking of its own besides the Nemesis record.
+// persisted elsewhere (careerStats/bestStats/achievements/prestige), no
+// new tracking of its own.
 export async function _openProfilePanel(game) {
   game._closeAllMenuPanels()
   game.profilePanel.style.display = 'flex'
@@ -195,7 +195,7 @@ export async function _openProfilePanel(game) {
   game._drawStatsDashboard()
 
   // _safeStatNumber on every plain-numeric field, _escapeHtml on the 2
-  // computed-string ones (nemesis label, favorite weapon's unmatched-id
+  // computed-string ones (favorite weapon's unmatched-id
   // fallback) - every field in game grid ultimately traces back to
   // localStorage, all of which Import Save (Local Sharing batch) lets an
   // uploaded file overwrite wholesale, so none of it can be trusted to
@@ -208,14 +208,12 @@ export async function _openProfilePanel(game) {
   let rows = [
     ['profileTotalRuns', t('profileTotalRuns'), _safeStatNumber(game.careerStats.totalRuns)],
     ['profileTotalKills', t('profileTotalKills'), _safeStatNumber(game.careerStats.totalKills)],
-    ['profileBestNight', t('profileBestNight'), _safeStatNumber(game.bestStats.bestNight)],
+    // (Its id stays profileBestNight: a pinned stat is saved by id.)
+    ['profileBestNight', t('profileBestWave'), _safeStatNumber(game.bestStats.bestWave)],
     ['profileBestKills', t('profileBestKills'), _safeStatNumber(game.bestStats.bestKills)],
     ['profileBestKillStreak', t('profileBestKillStreak'), _safeStatNumber(game.bestStats.bestKillStreak)],
     ['profileAchievements', t('profileAchievements'), `${game.achievements.unlocked.size}/${ACHIEVEMENTS.length}`],
-    // Same tier color as the homepage's #menu-prestige-badge (see
-    // _updatePrestigeBadge) - prestige only ever showed its color in that
-    // one homepage spot before; game carries the same visual identity
-    // into the Profile panel instead of a plain number.
+    // The prestige tier's own colour, not a plain number.
     ['profilePrestige', t('profilePrestige'), game.metaProgress.prestigeLevel > 0
       ? `<span class="prestige-tier-${game.metaProgress.prestigeLevel >= 6 ? 3 : game.metaProgress.prestigeLevel >= 3 ? 2 : 1}">${_safeStatNumber(game.metaProgress.prestigeLevel)}</span>`
       : _safeStatNumber(game.metaProgress.prestigeLevel)],
@@ -230,8 +228,8 @@ export async function _openProfilePanel(game) {
       : '—'],
     ['profileCoinsRatio', t('profileCoinsRatio'), `${_safeStatNumber(game.careerStats.lifetimeCoinsEarned).toLocaleString()} / ${_safeStatNumber(game.totalSpent).toLocaleString()}`],
     // More-features batch - 5 more pure-derived rows (Personal Stats),
-    // same "zero new tracking beyond what _recordRunEnd/_recordNemesis
-    // already aggregate" reasoning as every row above.
+    // same "zero new tracking beyond what _recordRunEnd already
+    // aggregates" reasoning as every row above.
     ['profileLongestSession', t('profileLongestSession'), _formatDurationShort(_safeStatNumber(game.careerStats.longestSessionSeconds))],
     ['profileAvgRunLength', t('profileAvgRunLength'), _safeStatNumber(game.careerStats.totalRuns) > 0
       ? _formatDurationShort(Math.round(_safeStatNumber(game.careerStats.lifetimePlaytimeSeconds) / game.careerStats.totalRuns))
@@ -325,7 +323,7 @@ export function _renderPublicProfileSection(game) {
   const name = game.settings.anonymousLeaderboard ? t('anonymousLeaderboardName') : (game.settings.nickname || t('menuPlayerTagDefault'))
   game.profilePublicNameValue.textContent = name
   game.profilePublicIdValue.textContent = game.settings.playerId ? `#${game.settings.playerId}` : '--'
-  game.profilePublicBestnightValue.textContent = _safeStatNumber(game.bestStats.bestNight)
+  game.profilePublicBestwaveValue.textContent = _safeStatNumber(game.bestStats.bestWave)
   game.profilePublicBestkillsValue.textContent = _safeStatNumber(game.bestStats.bestKills)
   game.profilePublicBeststreakValue.textContent = _safeStatNumber(game.bestStats.bestKillStreak)
   game.profilePublicAchievementsValue.textContent = game.achievements.unlocked.size
@@ -363,8 +361,8 @@ export function _renderProfileBioCounter(game) {
 }
 
 // Profile panel account row - Login/Register when signed out, Sign Out
-// when signed in. Reuses CloudSync/_handleCloudSignIn/_handleCloudSignOut
-// wholesale (see their own comments) rather than a second auth path -
+// when signed in. Reuses the Cloud Save sign-in/out (CloudSync.js)
+// wholesale rather than a second auth path -
 // this is just a second place to trigger the exact same sign-in/out flow
 // the Cloud Save panel already has, not a parallel system.
 export function _renderProfileAccountRow(game) {
@@ -426,9 +424,8 @@ export function _closeProfilePanel(game) {
 // Career Portrait (Long-Term Goals batch, gated behind ENDGAME_ACHIEVEMENT - see
 // _openProfilePanel) - draws straight from the live WebGL canvas rather
 // than routing through screenshotCropImage's async <img> load like the
-// manual screenshot tool does (see _buildScreenshotCanvas's own comment):
-// that intermediate exists to support crop-selection UI, which this
-// capstone memento doesn't need, so skipping it keeps this synchronous
+// old screenshot tool did - that only existed for its crop selection,
+// which this capstone memento doesn't need, so skipping it keeps this synchronous
 // with no onload race. Still finishes through the shared
 // _finalizeScreenshotCanvas so it gets the same watermark+download step.
 export function _generateCareerPortrait(game) {
