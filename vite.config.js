@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { join, relative, sep } from 'node:path'
 import legacy from '@vitejs/plugin-legacy'
 
 // Build version/hash for Credits (see _buildVersionLine) - short commit
@@ -42,6 +42,57 @@ function writeVersionFilePlugin() {
   }
 }
 
+// Playing with no internet (2026-10-17): writes dist/sw.js from src/sw.js
+// with this build's id and the list of every file the game can need, so the
+// service worker can keep them all on the device after one online visit.
+// Left out: the old-browser (legacy) bundles, files nothing loads, and the
+// old Map 1's models/pictures that are still in public/ but never used.
+const SW_SKIP = [/-legacy[-.]/, /^benchmark\.html$/, /^version\.json$/, /^sw\.js$/, /\.(txt|map)$/, /(^|\/)LICENSE/, /^models\/(buildings|props|humans|titan|zombie)\//, /^textures\//]
+// Design a Skin (public/skin-designer/index.html, its own page) imports
+// three.js through an import map - from the game itself rather than a CDN,
+// so it works offline: these files are copied from node_modules into
+// dist/skin-designer/three/ (and served from there by the dev server).
+const DESIGNER_THREE = {
+  'three.module.min.js': 'node_modules/three/build/three.module.min.js',
+  'three.core.min.js': 'node_modules/three/build/three.core.min.js',
+  'OrbitControls.js': 'node_modules/three/examples/jsm/controls/OrbitControls.js',
+}
+function serviceWorkerPlugin() {
+  let outDir = 'dist'
+  return {
+    name: 'offline-service-worker',
+    configResolved(config) {
+      outDir = config.build.outDir
+    },
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const m = req.url?.match(/^\/skin-designer\/three\/([\w.]+)$/)
+        if (!m || !DESIGNER_THREE[m[1]]) return next()
+        res.setHeader('Content-Type', 'text/javascript')
+        res.end(readFileSync(DESIGNER_THREE[m[1]]))
+      })
+    },
+    closeBundle() {
+      mkdirSync(join(outDir, 'skin-designer', 'three'), { recursive: true })
+      for (const [name, from] of Object.entries(DESIGNER_THREE)) copyFileSync(from, join(outDir, 'skin-designer', 'three', name))
+      const files = []
+      const walk = (dir) => {
+        for (const name of readdirSync(dir)) {
+          const full = join(dir, name)
+          if (statSync(full).isDirectory()) walk(full)
+          else files.push(relative(outDir, full).split(sep).join('/'))
+        }
+      }
+      walk(outDir)
+      const urls = files.filter((f) => !SW_SKIP.some((re) => re.test(f))).map((f) => '/' + f)
+      urls.push('/')
+      const build = JSON.stringify({ version: String(buildId), files: urls.sort() })
+      const src = readFileSync('src/sw.js', 'utf8').replace(/\/\* build \*\/ \{[^\n]*\}/, () => build)
+      writeFileSync(join(outDir, 'sw.js'), src)
+    },
+  }
+}
+
 export default {
   // Real report (2026-09-26): on an old Chromebook/phone, the main bundle
   // (<script type="module">, plus real optional-chaining/nullish-coalescing
@@ -51,7 +102,7 @@ export default {
   // SECOND, more-compatible bundle (transpiled + polyfilled) alongside the
   // normal one, loaded via a <script nomodule> fallback the modern browser
   // ignores - doesn't touch any game logic, purely a build-output change.
-  plugins: [writeVersionFilePlugin(), legacy()],
+  plugins: [writeVersionFilePlugin(), legacy(), serviceWorkerPlugin()],
   // Every picture on the homepage's first screen (src/menu-art: the
   // background photo, logo, button plates, PLAY plate, settings gear,
   // profile plate) is inlined into the stylesheet as data, so it is

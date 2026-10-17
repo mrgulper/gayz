@@ -1,5 +1,6 @@
 import './style.css'
 import './play-pause.css'
+import './offline.css'
 import './consoleBridge.js'
 import { Game } from './game/Game.js'
 import { preBootCloudSync } from './game/CloudPreBoot.js'
@@ -7,6 +8,7 @@ import { reloadBindings } from './game/Keybinds.js'
 import { startMenuRain } from './game/MenuRain.js'
 import { startMenuWater } from './game/MenuWater.js'
 import { preloadWeaponModels } from './game/Viewmodels.js'
+import { installOfflineGuards, registerServiceWorker } from './game/Offline.js'
 
 // The homepage rain and the moving water on the road start straight away -
 // they need nothing from the game.
@@ -40,5 +42,9 @@ Promise.all([
     const settings = JSON.parse(localStorage.getItem('gayz-settings') || 'null')
     document.documentElement.classList.toggle('ui-theme-old', !(settings && settings.uiTheme === 'golden'))
   } catch { /* unreadable settings - keep the early script's choice */ }
-  new Game()
+  installOfflineGuards(new Game())
 })
+
+// Keeps the whole game on the device so it plays with no internet
+// (Offline.js, src/sw.js).
+registerServiceWorker()
