@@ -225,7 +225,7 @@
   .save-indicator.show { opacity: 1; }
 
   .stage {
-    flex: 1.15; min-width: 0; height: min(74vh, 680px);
+    flex: 1.15; min-width: 0; height: min(84vh, 780px);
     position: sticky; top: 8px; align-self: flex-start; background: var(--panel); border: 1px solid var(--line);
     border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;
   }
@@ -269,12 +269,10 @@
   @keyframes stage-loading-pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .stage-loading { animation: none; } }
   .stage-caption { padding: 8px 13px 6px; text-align: center; color: var(--text-dim); font-size: 0.76rem; }
-  .stage-actions { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 2px 13px 12px; }
-  .arm-switch { display: flex; gap: 4px; }
-  .arm-switch .tbtn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; font-size: 0.76rem; border-radius: 999px; }
-  .arm-switch svg { width: 14px; height: 17px; fill: currentColor; }
-  .stage-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: 100%; }
-  .stage-btns .btn { flex: 1 1 0; min-width: 0; padding: 8px 10px; font-size: 0.8rem; white-space: normal; }
+  .stage-actions { display: flex; justify-content: center; padding: 2px 13px 12px; }
+  .arm-switch { display: flex; gap: 6px; }
+  .arm-switch .tbtn { display: inline-flex; align-items: center; gap: 7px; padding: 7px 16px; font-size: 0.88rem; border-radius: 999px; }
+  .arm-switch svg { width: 17px; height: 21px; fill: currentColor; }
 
   .editor { flex: 1; min-width: 250px; max-width: 460px; display: flex; flex-direction: column; gap: 10px; }
   .atlas-panel {
@@ -345,7 +343,7 @@
      the tools below ran over the 3D preview (2026-10-10 report). Kept near
      the end of the stylesheet: above the base .stage rule it lost, the
      preview stayed sticky and the tools scrolled over it. */
-  @media (max-width: 600px) { main { flex-direction: column; } .stage { position: static; align-self: stretch; flex: none; height: min(62vh, 520px); min-height: 300px; } .editor { flex: none; max-width: none; } }
+  @media (max-width: 600px) { main { flex-direction: column; } .stage { position: static; align-self: stretch; flex: none; height: min(70vh, 580px); min-height: 340px; } .editor { flex: none; max-width: none; } }
   /* Phone-sized, e.g. GayZ's Design a Skin popup (~290px wide) - the
      editor column's 320px floor and the buttons' 120px floor pushed the
      page wider than the screen, cutting off its right side. Kept last in
@@ -418,18 +416,13 @@
       <div class="stage-loading" id="stageLoading">Loading 3D preview&hellip;</div>
     </div>
     <div class="stage-caption">Drag to rotate &bull; scroll or pinch to zoom &bull; click to paint with the current tool</div>
-    <!-- Under the character (2026-10-17, like minecraftskins.com): arm
-         shape, then Download / Upload / Reset. -->
+    <!-- Under the character (2026-10-17, like minecraftskins.com): the arm
+         shape. Download/Upload moved back to the bottom of the tools the
+         same day ("kinda jammed"), and Reset to my skin was removed. -->
     <div class="stage-actions">
       <div class="arm-switch" role="group" aria-label="Arm width">
         <button class="tbtn active" id="armClassicBtn" title="Classic arms, 4 pixels wide (Steve)"><svg viewBox="0 0 20 24" aria-hidden="true"><rect x="6" y="0" width="8" height="7"/><rect x="6" y="8" width="8" height="8"/><rect x="1" y="8" width="4" height="8"/><rect x="15" y="8" width="4" height="8"/><rect x="6" y="17" width="3.5" height="7"/><rect x="10.5" y="17" width="3.5" height="7"/></svg>Classic (4px)</button>
         <button class="tbtn" id="armSlimBtn" title="Slim arms, 3 pixels wide (Alex)"><svg viewBox="0 0 20 24" aria-hidden="true"><rect x="6" y="0" width="8" height="7"/><rect x="6" y="8" width="8" height="8"/><rect x="2.5" y="8" width="2.5" height="8"/><rect x="15" y="8" width="2.5" height="8"/><rect x="6" y="17" width="3.5" height="7"/><rect x="10.5" y="17" width="3.5" height="7"/></svg>Slim (3px)</button>
-      </div>
-      <div class="stage-btns">
-        <button class="btn primary" id="downloadBtn" title="Save this skin as skin.png">Download</button>
-        <button class="btn" id="importBtn" title="Load a skin.png from your computer or phone">Upload from Computer</button>
-        <input type="file" id="importFile" accept="image/png" hidden>
-        <button class="btn" id="resetBtn" title="Put back the skin your GayZ character is wearing right now">Reset to my skin</button>
       </div>
     </div>
   </div>
@@ -551,6 +544,9 @@
     <div class="actions">
       <button class="btn" id="clearBtn">Clear all</button>
       <button class="btn" id="downloadBigBtn" title="Upscaled 512x512 version for printing or wallpaper - not usable as an actual skin.png">Download 512&times;512</button>
+      <button class="btn" id="importBtn" title="Load a skin.png from your computer or phone">Upload from Computer</button>
+      <input type="file" id="importFile" accept="image/png" hidden>
+      <button class="btn primary" id="downloadBtn" title="Save this skin to your device as skin.png">Download</button>
     </div>
     <p class="hint-note">Your edits auto-save in this browser, so refreshing the page won't lose your work. <b>Generate</b> is a local theme-matcher that paints colors/patterns onto the body shape you picked under the character (Classic or Slim arms) &mdash; free, instant, no account. Whatever it makes lands right on the canvas above, so the Pencil/Fill/Eyedrop tools work on it immediately, no extra step.</p>
   </div>
@@ -1462,6 +1458,11 @@ function gearAnimalTail(kind, fur) {
   const a = ANIMALS[kind], b = ovRects('torso').back
   const c = lit(fur, 'back'), dk = shade(fur, -30), tip = a.tip || shade(fur, 25)
   const stripe = (i) => (a.stripes && i % 2 ? a.stripes : c)
+  // Long and bushy tails also hang down the back of a leg, so they read
+  // as a real tail from behind (2026-10-17).
+  const leg = ovRects('legR').back
+  if (a.tail === 'long') for (let y = 0; y < 8; y++) { px(leg, 1, y, 2, 1, y >= 6 ? (a.stripes || tip) : stripe(y)); px(leg, 3, y, 1, 1, dk) }
+  if (a.tail === 'bushy') { px(leg, 0, 0, 3, 5, c); px(leg, 1, 5, 2, 2, tip); px(leg, 0, 4, 1, 1, dk); px(leg, 2, 1, 1, 3, shade(fur, 18)) }
   if (a.tail === 'long') {
     // Two pixels wide, curling up the back, outlined on one side.
     [[3, 11], [3, 10], [2, 9], [2, 8], [3, 7], [4, 6], [4, 5], [3, 4], [2, 3]].forEach(([x, y], i) => { px(b, x, y, 2, 1, stripe(i)); px(b, x + 2, y, 1, 1, dk) })
@@ -1474,6 +1475,50 @@ function gearAnimalTail(kind, fur) {
   } else if (a.tail === 'short') {
     px(b, 3, 9, 2, 3, c); px(b, 4, 8, 1, 1, c); px(b, 3, 11, 1, 1, dk)
   }
+}
+// Paws, fur cuffs and a fur collar (2026-10-17, "for cat girl it should
+// be more detailed like cat tail, paw, fur"): fur over the hands and feet
+// with a fluffy lighter cuff above, toe lines on the front and pads
+// underneath. Widths come from each face, so slim arms work too.
+const PINK_PAD_ANIMALS = new Set(['cat', 'bunny', 'tiger', 'panda'])
+function gearAnimalPaws(kind, fur) {
+  const a = ANIMALS[kind] || ANIMALS.cat
+  const pad = PINK_PAD_ANIMALS.has(kind) ? '#f4a8b8' : '#3a2a24'
+  const cuff = a.tip || shade(fur, 28), dk = shade(fur, -38)
+  for (const key of [...LIMBS_ARM, ...LIMBS_LEG]) {
+    const r = ovRects(key)
+    for (const k of SIDES) {
+      const w = faceW(r[k])
+      px(r[k], 0, 10, w, 2, lit(fur, k))
+      for (let x = 0; x < w; x++) px(r[k], x, 9, 1, 1, lit(x % 2 ? shade(cuff, -12) : cuff, k))
+    }
+    const fw = faceW(r.front)
+    for (let x = 1; x < fw; x += 2) px(r.front, x, 11, 1, 1, dk)
+    const bw = faceW(r.bottom)
+    fillFace(r.bottom, lit(fur, 'bottom'))
+    px(r.bottom, 1, 1, Math.max(1, bw - 2), 2, pad)
+    px(r.bottom, 0, 0, 1, 1, pad); px(r.bottom, bw - 1, 0, 1, 1, pad)
+  }
+  // Collar of fluff at the neck.
+  const t = ovRects('torso')
+  for (let x = 2; x < 6; x++) { px(t.front, x, 0, 1, 1, lit(x % 2 ? cuff : shade(cuff, -12), 'front')); px(t.back, x, 0, 1, 1, lit(cuff, 'back')) }
+}
+// Face marks (2026-10-17), on the outer layer so they sit over any face.
+function gearFreckles(skin) {
+  const f = ovRects('head').front, c = shade(skin, -40)
+  for (const [x, y] of [[1, 5], [2, 6], [5, 5], [6, 6], [3, 5], [2, 5], [5, 6]]) px(f, x, y, 1, 1, c)
+}
+function gearBlush() { mpx(ovRects('head').front, 1, 5, 2, 1, '#f08a98') }
+function gearScar(skin) {
+  const f = ovRects('head').front, c = shade('#a03a3a', 0), l = shade(skin, -25)
+  px(f, 5, 2, 1, 1, c); px(f, 6, 3, 1, 1, c); px(f, 5, 4, 1, 1, l); px(f, 6, 5, 1, 1, c)
+}
+// A little animal nose, whiskers and blush on a person's face (outer layer).
+function gearAnimalFace(kind, skin, cute) {
+  const a = ANIMALS[kind] || ANIMALS.cat, f = ovRects('head').front
+  px(f, 3, 5, 2, 1, a.nose)
+  if (a.whiskers || kind === 'bunny') { const wc = shade(skin, -55); mpx(f, 1, 6, 1, 1, wc); mpx(f, 0, 5, 1, 1, wc) }
+  if (cute) mpx(f, 1, 5, 1, 1, '#f0a0a8')
 }
 // A whole animal face (full-fur characters).
 function paintAnimalHead(r, p, rng, o) {
@@ -1595,13 +1640,29 @@ function detailPass(p, o, rng) {
       }
     }
     if (!o.ponytail) {
-      // Over the shoulders at the front and down both sides.
-      const fc = strandColumns(8, rng), fl = 3 + pick(rng, 3)
+      // Long at the front too (2026-10-17, "only the back was long hair
+      // not the front"): the hair frames the face - both sides of the head
+      // are hair all the way down, the face's outer columns too - and falls
+      // over the shoulders down the front of the body, over the clothes,
+      // nearly as far as at the back.
+      for (const r of [hBase, hOver]) for (const k of ['left', 'right']) {
+        const sc = strandColumns(8, rng)
+        for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+          const hex = get(r[k][0] + x, r[k][1] + y)
+          if (r === hBase || !hex || isHair(hex)) set(r[k][0] + x, r[k][1] + y, hairTone(sc, x, y, 10))
+        }
+      }
+      for (const x of [0, 7]) for (let y = 1; y < 8; y++) {
+        set(hBase.front[0] + x, hBase.front[1] + y, hairTone(bc, x, y, 10))
+        if (!get(hOver.front[0] + x, hOver.front[1] + y)) set(hOver.front[0] + x, hOver.front[1] + y, hairTone(bc, x, y, 10))
+      }
+      const fc = strandColumns(8, rng), fl = Math.max(5, len - 2)
       for (const x of [0, 1, 6, 7]) {
-        const end = fl - (x === 1 || x === 6 ? 1 : 0)
+        const end = fl - (x === 1 || x === 6 ? 2 : 0) + pick(rng, 2)
         for (let y = 0; y < end; y++) {
           const c = hairTone(fc, x, y, fl + 2)
-          if (!get(tOver.front[0] + x, tOver.front[1] + y)) set(tOver.front[0] + x, tOver.front[1] + y, c)
+          set(tBase.front[0] + x, tBase.front[1] + y, c)
+          set(tOver.front[0] + x, tOver.front[1] + y, c)
         }
       }
       for (const k of ['left', 'right']) {
@@ -1827,7 +1888,7 @@ const COLOR_WORDS = {
   aqua: '#3ad0d0', azure: '#3a8ae0', indigo: '#3a2a8a', scarlet: '#d0202a', ruby: '#a0102a', burgundy: '#6a1a2a',
   coral: '#f0705a', salmon: '#f08a70', peach: '#f0b890', amber: '#e0a020', mustard: '#c8a020', bronze: '#a8702a',
   copper: '#b8602a', cream: '#f2e8c8', ivory: '#f4f0e0', khaki: '#b8a878', charcoal: '#36363a', plum: '#6a2a5a',
-  emerald: '#1a9a5a', jade: '#3aa078', sapphire: '#1a3a9a', rose: '#e07a9a', blush: '#f0a0b0', sky: '#7ab8f0',
+  emerald: '#1a9a5a', jade: '#3aa078', sapphire: '#1a3a9a', rose: '#e07a9a', sky: '#7ab8f0',
   neon: '#5aff5a', forest: '#2a5a2a', mauve: '#b07aa0', lilac: '#c8a8e0', tangerine: '#f08020', lemon: '#f0e050',
   chocolate: '#5a3418', caramel: '#b8783a', sand: '#d8c090', rust: '#a0482a', wine: '#6a1a2a', denim: '#3a5a8a',
 }
@@ -1844,14 +1905,15 @@ const SKIN_WORDS = { pale: 0, white: 1, fair: 1, light: 2, peach: 3, tan: 4, tan
 // "white girl", "brown boy", "pale cute girl": a skin word before a person word is the skin tone.
 const PERSON_WORDS = ['girl', 'girly', 'woman', 'lady', 'female', 'queen', 'princess', 'boy', 'man', 'guy', 'male', 'king', 'prince', 'person', 'kid', 'child', 'human', 'dude']
 function personFollows(words, i) { let j = i + 1; while (CUTE_WORDS.includes(words[j]) || words[j] === 'very' || words[j] === 'little') j++; return PERSON_WORDS.includes(words[j]) }
-const HAIR_STYLE_WORDS = { bald: 3, mohawk: 1, long: 2, ponytail: 2, short: 0, fringe: 4, bangs: 4 }
+const HAIR_STYLE_WORDS = { bald: 3, mohawk: 1, long: 2, ponytail: 2, short: 0, fringe: 4, bangs: 4, longer: 2, shorter: 0 }
 const GEAR_WORDS = {
   crown: 'crown', tiara: 'crown', hood: 'hood', hooded: 'hood', helmet: 'helmet', armor: 'armor', armour: 'armor',
   cape: 'cape', cloak: 'cape', scarf: 'scarf', mask: 'mask', horns: 'horns', hat: 'hat', cap: 'cap',
   beanie: 'beanie', bandana: 'bandana', backpack: 'backpack', coat: 'coat', jacket: 'coat', hoodie: 'hoodie',
   gloves: 'gloves', boots: 'boots', glasses: 'glasses', sunglasses: 'sunglasses', shades: 'sunglasses',
   headphones: 'headphones', headset: 'headphones', beard: 'beard', skirt: 'skirt',
-  ears: 'ears', ear: 'ears', tail: 'tail', whiskers: 'ears', paws: 'tail',
+  freckles: 'freckles', freckled: 'freckles', blush: 'blush', blushing: 'blush', rosy: 'blush', scar: 'scar', scars: 'scar', scarred: 'scar',
+  ears: 'ears', ear: 'ears', tail: 'tail', whiskers: 'whiskers', whisker: 'whiskers', paws: 'paws', paw: 'paws', claws: 'paws', claw: 'paws', pawprints: 'paws',
 }
 const FEMININE_WORDS = ['girl', 'girly', 'woman', 'lady', 'female', 'queen', 'princess', 'witch']
 const CUTE_WORDS = ['cute', 'kawaii', 'adorable', 'sweet', 'pretty', 'lovely', 'soft']
@@ -2149,6 +2211,29 @@ const PLAIN_WORDS = new Set(['without', 'never', 'minus', 'dont', 'none', 'nothi
 for (const w of ('about above after again against almost alone along already always am among another anyone anything around away back be because been before being below best better between both bring brings call called can cant come comes could day did do does doing done down during each else enough even ever every everyone exactly feel few find first get gets go goes going gone got had he her here hers herself him himself how however if into itself keep kind last least less let lets life likes liked loves loved loving lot lots made many may maybe might mine more most much must name named need needs next nobody now often only other others our ours over own part pretty probably put quite rather said same say says see seem she should show since something sometimes somewhat soon still such sure take tell than thank thanks them then there these they thing things think those though through thus till today together too toward under until upon us use used using usually want wanted wants way ways we well went were what whatever when where whether which while whom whose why will wish within would yeah yes yet you your yours yourself tall taller short shorter thin skinny fat chubby strong weak fast slow young older calm chill friendly kind mean nice shy brave bold quiet loud lazy sleepy tired hungry silly goofy crazy wild proud famous popular strange unique special rare common classic modern ancient future past real fake true fantasy story stories movie movies show tv anime cartoon game games world version edition fan fans theme themed inspired based vibe vibes aesthetic').split(' ')) {
   if (!knownWord(w) && !(w in WORD_MEANINGS)) PLAIN_WORDS.add(w)
 }
+// Two-word colours (2026-10-17): "light blue", "dark red", "hot pink",
+// "baby blue", "neon green", "navy blue" become one colour word, made on
+// the spot and added to COLOR_WORDS, before anything else reads the words.
+const COLOR_SHIFTS = {
+  light: (h) => shade(h, 40), pale: (h) => shade(h, 45), soft: (h) => pastel(h), pastel: (h) => pastel(h), baby: (h) => shade(h, 55),
+  dark: (h) => shade(h, -45), deep: (h) => shade(h, -35), dim: (h) => shade(h, -25), dull: (h) => { const [a, , l] = hexToHsl(h); return hslToHex(a, 0.2, l) },
+  bright: (h) => { const [a, , l] = hexToHsl(h); return hslToHex(a, 0.9, Math.max(0.45, l)) }, neon: (h) => { const [a] = hexToHsl(h); return hslToHex(a, 1, 0.55) },
+  vivid: (h) => { const [a, , l] = hexToHsl(h); return hslToHex(a, 0.95, l) }, hot: (h) => { const [a] = hexToHsl(h); return hslToHex(a, 0.9, 0.55) },
+  royal: (h) => shade(h, -10), blood: () => '#8a0a12', sky: (h) => shade(h, 30), forest: (h) => shade(h, -30), navy: () => '#1a2a5a',
+  lime: (h) => shade(h, 15), sea: (h) => shade(h, 5), ice: (h) => shade(h, 50), cherry: () => '#c0102a', mint: () => '#90e0b8',
+}
+function joinColorWords(words) {
+  const out = []
+  for (let i = 0; i < words.length; i++) {
+    const m = words[i], c = words[i + 1]
+    if (COLOR_SHIFTS[m] && COLOR_WORDS[c] && !HAIR_ONLY_COLORS.has(c)) {
+      const name = m + ' ' + c
+      if (!COLOR_WORDS[name]) COLOR_WORDS[name] = COLOR_SHIFTS[m](COLOR_WORDS[c])
+      out.push(name); i++
+    } else out.push(m)
+  }
+  return out
+}
 // Marks the end of a several-word meaning, so its last word can't be read
 // with the next typed word ("herobrine boy" must not make a white skin
 // tone - see the person-word rule in parsePrompt).
@@ -2245,8 +2330,9 @@ const NEGATABLE = {
   wings: 'cape', scarf: 'scarf', backpack: 'backpack', bag: 'backpack', coat: 'coat', jacket: 'coat', armor: 'armor',
   armour: 'armor', gloves: 'gloves', boots: 'boots', glasses: 'glasses', sunglasses: 'glasses', shades: 'glasses',
   headphones: 'headphones', beard: 'beard', moustache: 'beard', mustache: 'beard', hair: 'hair', bow: 'bow',
-  ears: 'ears', tail: 'tail', sleeves: 'sleeves', gear: 'all', accessories: 'all',
+  ears: 'ears', tail: 'tail', sleeves: 'sleeves', gear: 'all', accessories: 'all', paws: 'paws', paw: 'paws', claws: 'paws', whiskers: 'whiskers', freckles: 'freckles', blush: 'blush', scar: 'scar', scars: 'scar',
 }
+const ANIMAL_GEAR = new Set(['ears', 'tail', 'paws', 'whiskers'])
 const HEADWEAR = new Set(['hat', 'cap', 'beanie', 'bandana', 'helmet', 'crown', 'hood', 'horns'])
 let genWithout = new Set()
 function leftOut(key) {
@@ -2255,7 +2341,7 @@ function leftOut(key) {
 function parsePrompt(text) {
   const raw = (text || '').toLowerCase().replace(/[^a-z\s-]/g, ' ').split(/[\s-]+/).filter(Boolean)
     .flatMap((w) => { const m = w.match(/^([a-z]+?)(girl|boy|man|woman|lady|guy)$/); return m && (ANIMAL_WORDS[m[1]] || THEMES[m[1]] || WORD_MEANINGS[m[1]]) && !WORD_MEANINGS[w] ? [m[1], m[2]] : [w] })
-  let { words, fixes } = understandWords(raw)
+  let { words, fixes } = understandWords(joinColorWords(raw))
   const without = new Set()
   if (words.includes('sleeveless')) without.add('sleeves')
   if (words.includes('hatless')) without.add('hat')
@@ -2309,9 +2395,9 @@ function parsePrompt(text) {
   let animal = words.map((w) => ANIMAL_WORDS[w]).find(Boolean) || null
   const furWord = words.some((w) => FUR_WORDS.includes(w))
   if (!animal && furWord) animal = 'furry'
-  if (!animal && (gear.includes('ears') || gear.includes('tail'))) animal = 'cat'
+  if (!animal && gear.some((g) => ANIMAL_GEAR.has(g))) animal = 'cat'
   const human = words.some((w) => FEMININE_WORDS.includes(w) || MASCULINE_WORDS.includes(w))
-  const fullFur = !!animal && (furWord || (!human && !themes.length && !gear.includes('ears')))
+  const fullFur = !!animal && (furWord || (!human && !themes.length && !gear.some((g) => ANIMAL_GEAR.has(g))))
   const multiHue = words.some((w) => MULTIHUE_WORDS.includes(w))
   const pastelWord = multiHue || words.some((w) => PASTEL_WORDS.includes(w))
   if (!themes.length && (describedSomething || animal || multiHue || pastelWord)) themes.push('casual')
@@ -2382,6 +2468,15 @@ function applyGearWord(word, p, rng) {
     case 'glasses': gearGlasses('#2a2a2a', '#a8d8f0'); break
     case 'sunglasses': gearGlasses('#101010', '#202028'); break
     case 'headphones': gearHeadphones('#2a2a30', p.accent); break
+    // Animal pieces on their own ("add cat paws", "add a tail") - the
+    // animal from p.animalKind (Smart Edit), else a cat, in the hair colour.
+    case 'ears': gearAnimalEars(p.animalKind || 'cat', p.fur || p.hair); break
+    case 'tail': gearAnimalTail(p.animalKind || 'cat', p.fur || p.hair); break
+    case 'paws': gearAnimalPaws(p.animalKind || 'cat', p.fur || p.hair); break
+    case 'whiskers': gearAnimalFace(p.animalKind || 'cat', p.skin, false); break
+    case 'freckles': gearFreckles(p.skin); break
+    case 'blush': gearBlush(); break
+    case 'scar': gearScar(p.skin); break
   }
 }
 
@@ -2414,6 +2509,11 @@ gearGlasses = skippable('glasses', gearGlasses)
 gearHeadphones = skippable('headphones', gearHeadphones)
 gearAnimalEars = skippable('ears', gearAnimalEars)
 gearAnimalTail = skippable('tail', gearAnimalTail)
+gearAnimalPaws = skippable('paws', gearAnimalPaws)
+gearFreckles = skippable('freckles', gearFreckles)
+gearBlush = skippable('blush', gearBlush)
+gearScar = skippable('scar', gearScar)
+gearAnimalFace = skippable('whiskers', gearAnimalFace)
 gearHairVolume = skippable('hair', gearHairVolume)
 gearHairTufts = skippable('hair', gearHairTufts)
 
@@ -2517,7 +2617,7 @@ function describePlan(plan) {
   if (p.shirt) bits.push(colorName(p.shirt) + ' top')
   if (o.skirt) bits.push(colorName(o.skirt) + ' skirt')
   else if (p.pants) bits.push(colorName(p.pants) + ' pants')
-  if (o.animal) bits.push(o.animal + (o.fullFur ? ' fur' : ' ears and tail'))
+  if (o.animal) bits.push(o.animal + (o.fullFur ? ' fur' : ' ears, tail and paws'))
   return article + ' <b>' + what + '</b>' + (bits.length ? ' with ' + bits.slice(0, -1).join(', ') + (bits.length > 1 ? ' and ' : '') + bits[bits.length - 1] : '')
 }
 // seedKey: the words the skin was first made from - a Smart Edit redraws
@@ -2542,8 +2642,12 @@ async function generateThemedSkin(parsed, variant, randomTheme, onStage, fast, s
       for (const extra of parsed.themes.slice(1)) THEME_GEAR[extra]?.(p, rng, (c) => rng() < c)
       if (themeKey !== 'girl' && (o.hairStyle === 2 || (o.hairStyle == null && o.feminine && rng() < 0.6))) gearHairVolume(p.hair, rng)
       if (o.cute && o.feminine && !o.animal) gearBow(bowColor(p))
-      for (const g of parsed.gear) applyGearWord(g, p, rng)
-      if (o.animal) { gearAnimalEars(o.animal, o.fur); gearAnimalTail(o.animal, o.fur) }
+      p.animalKind = parsed.animalKind
+      for (const g of parsed.gear) if (!(o.animal && ANIMAL_GEAR.has(g))) applyGearWord(g, p, rng)
+      if (o.animal) {
+        gearAnimalEars(o.animal, o.fur); gearAnimalTail(o.animal, o.fur); gearAnimalPaws(o.animal, o.fur)
+        if (!o.fullFur) gearAnimalFace(o.animal, p.skin, o.cute)
+      }
     }],
     ['details', () => { const shadeRng = mulberry32((seed ^ 0x5bd1e995) >>> 0); detailPass(p, o, rng); richShade(shadeRng, p.skin, o.multiHue, 1) }],
   ]
@@ -2728,7 +2832,7 @@ async function runGeneration(promptText, isRandom) {
       ...(parsed.skinTone !== null ? ['custom skin tone'] : []),
       ...(parsed.ponytail ? ['ponytail'] : parsed.hairStyle != null ? [HAIR_LABEL[parsed.hairStyle]] : []),
       ...parsed.gear.filter((g) => (g !== 'skirt' || !parsed.colors.skirt) && g !== 'ears' && g !== 'tail'),
-      ...(parsed.animal ? [parsed.fullFur ? 'full fur (' + (parsed.animal === 'furry' ? 'random animal' : parsed.animal) + ')' : parsed.animal + ' ears and tail'] : []),
+      ...(parsed.animal ? [parsed.fullFur ? 'full fur (' + (parsed.animal === 'furry' ? 'random animal' : parsed.animal) + ')' : parsed.animal + ' ears, tail and paws'] : []),
       ...(parsed.multiHue ? ['multicolour shading'] : parsed.pastel ? ['pastel colours'] : []),
     ].filter((x, i, a) => x && a.indexOf(x) === i)
     // Only what the words were turned into - "red hair" typed as-is isn't repeated back.
@@ -2794,7 +2898,14 @@ function parseEdit(text) {
   const actions = [], fixes = [], unknown = []
   let lastPart = null
   for (const clause of clauses) {
-    const raw = clause.split(/[^a-z]+/).filter(Boolean)
+    const raw = joinColorWords(clause.split(/[^a-z]+/).filter(Boolean))
+    // "make the hair match the shirt", "pants the same colour as the shoes".
+    const match = clause.match(/\b([a-z]+)\s+(?:to\s+)?(?:match(?:es|ing)?|the\s+same\s+colou?r\s+as|same\s+as|like)\s+(?:the\s+|my\s+|his\s+|her\s+)?([a-z]+)/)
+    if (match && EDIT_PARTS[match[1]] && EDIT_PARTS[match[2]] && EDIT_PARTS[match[1]] !== EDIT_PARTS[match[2]]) {
+      actions.push({ type: 'color', part: EDIT_PARTS[match[1]], matchPart: EDIT_PARTS[match[2]], name: 'the ' + (PART_LABELS[EDIT_PARTS[match[2]]] || match[2]) + '\'s colour' })
+      lastPart = EDIT_PARTS[match[1]]
+      continue
+    }
     if (!raw.length) continue
     const remove = raw.some((w) => EDIT_REMOVE.has(w)) || /\btake\b.*\boff\b/.test(clause) || /\bget rid\b/.test(clause)
     let rel = raw.some((w) => EDIT_DARKER.has(w)) ? -1 : raw.some((w) => EDIT_LIGHTER.has(w)) ? 1 : 0
@@ -2856,6 +2967,14 @@ function parseEdit(text) {
         if (g === 'beard' && usedPart.has('beard')) continue
         if (!actions.some((a) => a.type === 'add' && a.what === g)) actions.push({ type: 'add', what: g })
       }
+      // An animal: "add cat paws" makes the paws a cat's; "make her a cat
+      // girl" / "add fox" gives ears, tail, paws and a little nose.
+      const kind = words.map((w) => ANIMAL_WORDS[w]).find(Boolean)
+      if (kind) {
+        const pieces = actions.filter((a, i) => i >= before && a.type === 'add' && ANIMAL_GEAR.has(a.what))
+        if (pieces.length) pieces.forEach((a) => { a.kind = kind })
+        else actions.push({ type: 'animal', kind })
+      }
       for (const w of words) {
         const key = THEMES[w] ? w : ALIASES[w] && !COLOR_WORDS[w] ? ALIASES[w] : null
         if (key && !actions.some((a) => a.type === 'theme')) actions.push({ type: 'theme', key, name: w })
@@ -2874,7 +2993,8 @@ function describeEdit(a) {
     case 'skinTone': return 'skin to <b>' + a.name + '</b>'
     case 'shade': return (a.dir < 0 ? 'darker ' : 'lighter ') + PART_LABELS[a.part]
     case 'remove': return 'removed the <b>' + (a.what === 'all' ? 'gear' : a.what) + '</b>'
-    case 'add': return 'added <b>' + a.what + '</b>'
+    case 'add': return 'added <b>' + (a.kind ? a.kind + ' ' : '') + a.what + '</b>'
+    case 'animal': return 'added <b>' + a.kind + '</b> ears, tail and paws'
     case 'hair': return '<b>' + a.name + '</b> hair'
     case 'theme': return 'made it <b>' + a.name + '</b>'
     case 'feminine': return 'more girly'
@@ -2893,6 +3013,8 @@ async function editGenerated(actions) {
   const after = []
   const planned = lastPlan?.p || {}
   const current = (part) => parsed.overrides[part] || planned[part]
+  for (const a of actions) if (a.matchPart) a.hex = current(a.matchPart) || detectColors()[a.matchPart]
+  actions = actions.filter((a) => !a.matchPart || a.hex)
   for (const a of actions) {
     if ((a.type === 'color' || a.type === 'shade') && LIMB_PARTS.has(a.part)) after.push(a)
     else if (a.type === 'color') {
@@ -2913,7 +3035,11 @@ async function editGenerated(actions) {
       without.add(a.what)
       if (a.what === 'hair') parsed.hairStyle = 3
       parsed.gear = parsed.gear.filter((g) => g !== a.what && !(a.what === 'hat' && HEADWEAR.has(g)) && a.what !== 'all')
+    } else if (a.type === 'animal') {
+      parsed.animal = a.kind; parsed.fullFur = false
+      for (const g of ANIMAL_GEAR) without.delete(g)
     } else if (a.type === 'add') {
+      if (a.kind) parsed.animalKind = a.kind
       if (!parsed.gear.includes(a.what)) parsed.gear.push(a.what)
       without.delete(a.what); without.delete('all')
       if (HEADWEAR.has(a.what)) without.delete('hat')
@@ -3071,6 +3197,7 @@ function paintGearOn(word, p) {
 const REGION_OF = { hair: 'head', skin: 'bodyBase', shirt: 'top', pants: 'legs', skirt: 'legs', shoe: 'feet', eye: 'eyes', hat: 'hatAll', fur: 'bodyBase', beard: 'lowerFace' }
 function editPainted(actions) {
   let c = detectColors()
+  for (const a of actions) if (a.matchPart && !a.hex) a.hex = c[a.matchPart]
   const done = []
   for (const a of actions) {
     if ((a.type === 'color' || a.type === 'shade') && LIMB_PARTS.has(a.part)) {
@@ -3109,8 +3236,13 @@ function editPainted(actions) {
       const p = { hair: c.hair || '#3a2a1a', skin: c.skin || '#c98a55', shirt: c.shirt || '#4a6a9a', pants: c.pants || '#2a3a5a', shoe: c.shoe || '#2a2018', accent: shade(c.shirt || '#8a1f1f', -35), eye: c.eye || '#1a1a1a' }
       const hatColor = actions.find((x) => x.type === 'color' && x.part === 'hat')
       if (hatColor) p.hat = hatColor.hex
+      p.animalKind = a.kind
       if (a.what === 'beard') { fillNear(rectsOf('head', ['front'], 'base', [6, 8]), p.skin, shade(p.hair, -10), 60); done.push(a) }
       else { paintGearOn(a.what, p); done.push(a) }
+    } else if (a.type === 'animal') {
+      const p = { hair: c.hair || '#3a2a1a', skin: c.skin || '#c98a55', animalKind: a.kind }
+      for (const g of ANIMAL_GEAR) paintGearOn(g, p)
+      done.push(a)
     } else if (a.type === 'hair' && a.style === 3) {
       if (c.hair && c.skin) { fillNear(REGIONS.headBase(), c.hair, c.skin, 80); clearArea(REGIONS.hatAll()); done.push(a) }
     }
@@ -4362,19 +4494,6 @@ function loadImageInto(dataUrl, alsoForgetAutosave) {
   img.src = dataUrl;
 }
 document.getElementById('templateClassicBtn').addEventListener('click', () => loadImageInto(CLASSIC_SKIN_DATA_URL));
-// "Reset to my skin" (2026-10-17 - it used to load an old built-in sample
-// skin, the grey "G" one, which looked like a bug): the skin the GayZ
-// character is wearing right now, read from the game around this page
-// (same origin); the default skin when there's no custom one, or when the
-// designer is opened on its own.
-function currentGameSkin() {
-  try {
-    const url = window.parent !== window && window.parent.__game?.settings?.customSkinDataUrl;
-    if (typeof url === 'string' && url) return url;
-  } catch (e) {}
-  return CLASSIC_SKIN_DATA_URL;
-}
-document.getElementById('resetBtn').addEventListener('click', () => loadImageInto(currentGameSkin(), true));
 document.getElementById('clearBtn').addEventListener('click', () => {
   pushUndo();
   atlasCtx.clearRect(0, 0, SIZE, SIZE);
@@ -4390,12 +4509,27 @@ function showExportOverlay(dataUrl, filename, note) {
   document.getElementById('exportNote').innerHTML = note;
   document.getElementById('exportOverlay').hidden = false;
 }
+// Straight to the device's downloads (2026-10-17, "help them download it
+// instant") - the picture-to-save popup is only the fallback now.
+function saveFile(canvas, filename, note) {
+  try {
+    canvas.toBlob((blob) => {
+      if (!blob) { showExportOverlay(canvas.toDataURL('image/png'), filename, note); return; }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    }, 'image/png');
+  } catch (e) {
+    showExportOverlay(canvas.toDataURL('image/png'), filename, note);
+  }
+}
 document.getElementById('downloadBtn').addEventListener('click', () => {
-  showExportOverlay(
-    atlasSrc.toDataURL('image/png'),
-    'skin.png',
-    'Right-click (or press and hold on mobile) the image below and choose <b>Save Image As&hellip;</b> to download it as <code>skin.png</code>.'
-  );
+  saveFile(atlasSrc, 'skin.png',
+    'Right-click (or press and hold on mobile) the image below and choose <b>Save Image As&hellip;</b> to download it as <code>skin.png</code>.');
 });
 document.getElementById('downloadBigBtn').addEventListener('click', () => {
   // At least twice the skin's own size (an 8x/16x skin is already 512/1024).
@@ -4405,8 +4539,8 @@ document.getElementById('downloadBigBtn').addEventListener('click', () => {
   const bctx = big.getContext('2d');
   bctx.imageSmoothingEnabled = false;
   bctx.drawImage(atlasSrc, 0, 0, n, n);
-  showExportOverlay(
-    big.toDataURL('image/png'),
+  saveFile(
+    big,
     'skin-' + n + 'x' + n + '.png',
     'A ' + n + '&times;' + n + ' upscaled copy for printing or wallpaper - right-click (or press and hold on mobile) below and choose <b>Save Image As&hellip;</b>. For the skin itself, use Download.'
   );

@@ -352,11 +352,15 @@ test('Design a Skin knows many more words', async ({ page }) => {
 test('Design a Skin switches between classic and slim arms', async ({ page }) => {
   await openDesigner(page)
   await page.click('#res1Btn')
-  // The buttons sit under the 3D character now.
-  for (const id of ['armClassicBtn', 'armSlimBtn', 'downloadBtn', 'importBtn', 'resetBtn']) {
-    expect(await page.evaluate((i) => !!document.querySelector('.stage .stage-actions #' + i), id)).toBe(true)
-  }
-  expect(await page.textContent('#resetBtn')).toContain('Reset to my skin')
+  // The arm switch sits under the 3D character; Download and Upload at
+  // the bottom of the tools, and Reset to my skin is gone (2026-10-17).
+  for (const id of ['armClassicBtn', 'armSlimBtn']) expect(await page.evaluate((i) => !!document.querySelector('.stage .stage-actions #' + i), id)).toBe(true)
+  for (const id of ['downloadBtn', 'importBtn']) expect(await page.evaluate((i) => !!document.querySelector('.editor .actions #' + i), id)).toBe(true)
+  expect(await page.$('#resetBtn')).toBe(null)
+  // Download saves the file straight away.
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#downloadBtn')])
+  expect(dl.suggestedFilename()).toBe('skin.png')
+  expect(await page.isVisible('#exportOverlay')).toBe(false)
   await generate(page, 'red shirt pirate')
   const strip = () => page.evaluate(() => {
     const ctx = window.__skinAtlas.getContext('2d')
@@ -391,7 +395,7 @@ test('Design a Skin switches between classic and slim arms', async ({ page }) =>
   await page.waitForFunction(() => window.__skinSlim() === true)
 })
 
-test('the game wears slim arms, and Reset to my skin brings back the worn skin', async ({ page }) => {
+test('the game wears slim arms', async ({ page }) => {
   await page.goto('/')
   await page.waitForFunction(() => !!window.__game && !!window.__game._menuAvatar3D, null, { timeout: 60000 })
   const widths = await page.evaluate(async () => {
@@ -418,20 +422,34 @@ test('the game wears slim arms, and Reset to my skin brings back the worn skin',
   })
   expect(widths).toEqual({ slim: 3, classic: 4 })
 
-  // The designer inside the game resets to the skin the character wears.
-  await page.route(/cdn\.jsdelivr\.net\/npm\/three@[^/]+\/(.*)$/, (route) => {
-    const rel = route.request().url().replace(/^.*three@[^/]+\//, '')
-    route.fulfill({ path: path.resolve('node_modules/three', rel), contentType: 'application/javascript' })
-  })
-  const frame = page.frameLocator('#skindesigner-frame')
-  await page.evaluate(() => { const f = document.getElementById('skindesigner-frame'); if (!f.src || f.src === 'about:blank') f.src = '/skin-designer/index.html' })
-  await page.waitForFunction(() => !!document.getElementById('skindesigner-frame').contentWindow.__skinAtlas, null, { timeout: 30000 })
-  await page.evaluate(() => document.getElementById('skindesigner-frame').contentDocument.getElementById('resetBtn').click())
-  await page.waitForFunction(() => {
-    const w = document.getElementById('skindesigner-frame').contentWindow
-    const c = w.__skinAtlas, R = c.width / 64
-    const d = c.getContext('2d').getImageData(20 * R, 22 * R, 1, 1).data
-    return d[0] === 0x30 && d[1] === 0xa0 && d[2] === 0x50
-  }, null, { timeout: 15000 })
-  expect(frame).toBeTruthy()
+})
+
+// 2026-10-17 second pass: long hair at the front, detailed animal looks,
+// two-word colours, "match the shirt", face marks.
+test('Design a Skin: long hair in front, cat details, smarter edits', async ({ page }) => {
+  await openDesigner(page)
+  await page.click('#res1Btn')
+  const p = (t) => page.evaluate((x) => window.__parsePrompt(x), t)
+  const e = (t) => page.evaluate((x) => window.__parseEdit(x).actions.map((a) => a.type + ':' + (a.part ?? a.what ?? a.key ?? a.kind ?? a.style) + (a.name ? ':' + a.name : '') + (a.matchPart ? '<' + a.matchPart : '') + (a.kind && a.what ? ':' + a.kind : '')), t)
+  expect((await p('girl with light blue hair')).colors.hair.name).toBe('light blue')
+  expect((await p('dark red shirt')).colors.shirt.name).toBe('dark red')
+  expect((await p('cat girl')).gear).toEqual([])
+  expect(await e('add cat paw')).toEqual(['add:paws:cat'])
+  expect(await e('make her a fox')).toEqual(['animal:fox'])
+  expect(await e('make the hair match the shirt')).toEqual(['color:hair:the shirt\'s colour<shirt'])
+  expect(await e('hot pink pants and add freckles')).toEqual(['color:pants:hot pink', 'add:freckles'])
+  expect(await e('longer hair')).toEqual(['hair:2:longer'])
+  expect(await e('give her a ponytail and turn her into a vampire')).toEqual(['hair:2:ponytail', 'theme:vampire:vampire'])
+
+  const alpha = (x, y, w, h) => page.evaluate(([x, y, w, h]) => { const d = window.__skinAtlas.getContext('2d').getImageData(x, y, w, h).data; let n = 0; for (let i = 3; i < d.length; i += 4) n += d[i] > 0; return n }, [x, y, w, h])
+  const colorAt = (x, y) => page.evaluate(([x, y]) => Array.from(window.__skinAtlas.getContext('2d').getImageData(x, y, 1, 1).data), [x, y])
+  // Long hair: the torso front's outer layer has hair down both edges.
+  await generate(page, 'girl with very long black hair and a white shirt')
+  const front = await page.evaluate(() => { const d = window.__skinAtlas.getContext('2d').getImageData(20, 36, 8, 6).data; let edge = 0; for (let y = 0; y < 6; y++) for (const x of [0, 7]) { const i = (y * 8 + x) * 4; if (d[i + 3] && d[i] + d[i + 1] + d[i + 2] < 250) edge++ } return edge })
+  expect(front).toBeGreaterThanOrEqual(10)
+  // Cat girl: paw pads under the hands and a tail down the back of a leg.
+  await generate(page, 'cute cat girl')
+  const pad = await colorAt(41 + 8 + 1, 32 + 1) // right sleeve overlay bottom face
+  expect(pad[0]).toBeGreaterThan(200)
+  expect(await alpha(12, 36, 4, 8)).toBeGreaterThan(8) // right leg overlay back
 })
