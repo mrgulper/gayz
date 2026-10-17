@@ -89,8 +89,8 @@ export class PlayNet {
     this._hurt.push({ to, amount })
   }
 
-  queueCredit(to, boss) {
-    this._credits.push({ to, boss: !!boss })
+  queueCredit(to, boss, skeleton = null) {
+    this._credits.push({ to, boss: !!boss, skeleton })
   }
 
   // Living players other than me, for the host's zombies to chase.
@@ -186,7 +186,7 @@ export class PlayNet {
     if (this.isHost) s._applyRemoteHits(res.hits || [])
     else s._applyZombieSnapshot(res.zombies || {}, this.wave)
     for (const amount of res.hurt || []) s._hurtPlayer(amount)
-    for (const c of res.credits || []) s._countKill(!!c.boss)
+    for (const c of res.credits || []) s._countKill(!!c.boss, c.skeleton || null)
   }
 
   _lost(key) {

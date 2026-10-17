@@ -276,7 +276,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     }
     for (const c of [].concat(body.credits || []).slice(0, 40)) {
       if (!c || !live.has(c.to) || c.to === playerId) continue
-      updates[`${base}/players/${c.to}/credits/${newId(8)}`] = { boss: !!c.boss }
+      updates[`${base}/players/${c.to}/credits/${newId(8)}`] = { boss: !!c.boss, ...(SKELETON_KIND_IDS.has(c.skeleton) ? { skeleton: c.skeleton } : {}) }
     }
   } else {
     out.zombies = server.zombies || {}
@@ -291,7 +291,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     updates[`${base}/players/${playerId}/hurt/${key}`] = null
   }
   for (const [key, c] of Object.entries(me.credits || {})) {
-    out.credits.push({ boss: !!c?.boss })
+    out.credits.push({ boss: !!c?.boss, ...(SKELETON_KIND_IDS.has(c?.skeleton) ? { skeleton: c.skeleton } : {}) })
     updates[`${base}/players/${playerId}/credits/${key}`] = null
   }
   for (const [pid, p] of Object.entries(server.players || {})) {

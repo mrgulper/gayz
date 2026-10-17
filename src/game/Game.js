@@ -609,6 +609,9 @@ export const MUTATOR_CHALLENGE_WAVES = 10
 export const EXTERMINATOR_CAREER_KILLS = 1000
 export const REGULAR_CAREER_RUNS = 25
 export const FORTUNE_HUNTER_COINS = 3000
+// Skeleton achievements (2026-10-16).
+export const RATTLED_SKELETONS = 25
+export const BONE_COLLECTOR_SKELETONS = 100
 // The achievement that counts as beating the game: it unlocks Nightmare
 // difficulty, Prestige and the Career Portrait.
 export const ENDGAME_ACHIEVEMENT = 'survivor_10'
@@ -837,6 +840,13 @@ function loadCareerStats() {
       mutatorUseCounts: parsed.mutatorUseCounts || {},
       mostProfitableRun: parsed.mostProfitableRun || 0,
       playButtonClicks: parsed.playButtonClicks || 0,
+      // Skeleton kills, in total and per kind (flat numbers so Cloud Save
+      // adds them up across devices like totalKills).
+      skeletonKills: parsed.skeletonKills || 0,
+      skeletonKillsMinion: parsed.skeletonKillsMinion || 0,
+      skeletonKillsRogue: parsed.skeletonKillsRogue || 0,
+      skeletonKillsWarrior: parsed.skeletonKillsWarrior || 0,
+      skeletonKillsMage: parsed.skeletonKillsMage || 0,
     }
   } catch {
     return {
@@ -847,6 +857,7 @@ function loadCareerStats() {
       longestSessionSeconds: 0, mutatorUseCounts: {},
       mostProfitableRun: 0,
       playButtonClicks: 0,
+      skeletonKills: 0, skeletonKillsMinion: 0, skeletonKillsRogue: 0, skeletonKillsWarrior: 0, skeletonKillsMage: 0,
     }
   }
 }

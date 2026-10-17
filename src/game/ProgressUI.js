@@ -8,7 +8,7 @@
 // stand-in for each, so callers are unchanged.
 import * as CloudSaveUI from './CloudSaveUI.js'
 import { ACHIEVEMENTS } from './Achievements.js'
-import { ACHIEVEMENTS_SEEN_IDS_KEY, ACHIEVEMENT_CHAINS, ACHIEVEMENT_TOAST_GAP_MS, APEX_PREDATOR_WAVES, BOSS_HUNTER_BOSSES, DEEP_POCKETS_COINS, ENDGAME_ACHIEVEMENT, EXTERMINATOR_CAREER_KILLS, FORTUNE_HUNTER_COINS, FULLY_LOADED_UPGRADES, HARDENED_WAVES, HEADHUNTER_HEADSHOTS, LEADERBOARD_MAX_ENTRIES, LOGIN_CALENDAR_DAYS, LOGIN_STREAK_COIN_PER_DAY, LOGIN_STREAK_MAX_BONUS_DAYS, LOGIN_STREAK_MAX_FREEZES, MARATHON_SECONDS, MASSACRE_KILLS, MEAT_GRINDER_STREAK, MUTATOR_CHALLENGE_WAVES, PLAYTIME_MILESTONES, PLAY_META_UPGRADES, PRESTIGE_BONUS_PERCENT, PRESTIGE_COST_STEP, QUESTS_SEEN_IDS_KEY, REGULAR_CAREER_RUNS, RUN_HISTORY_MAX, SHARPSHOOTER_HEADSHOTS, SURVIVOR_20_WAVES, SURVIVOR_30_WAVES, TREASURE_HUNTER_CHESTS, UNTOUCHABLE_STREAK, UPGRADES_SEEN_IDS_KEY, UP_CLOSE_KNIFE_KILLS, VETERAN_PERKS, WEEKLY_FEATURED_MUTATOR_BONUS_COINS, _escapeHtml, _formatDurationShort, _loadSeenIds, _safeStatNumber, _saveSeenIds, _weeklyFeaturedMutatorKey, careerRankTitleKey, formatTime, saveBestRunPace, saveBestStats, saveCareerStats, saveLeaderboard, saveLoginStreak, saveRunHistory, saveSettings, saveShopProgress, todayDateString, yesterdayDateString } from './Game.js'
+import { ACHIEVEMENTS_SEEN_IDS_KEY, ACHIEVEMENT_CHAINS, ACHIEVEMENT_TOAST_GAP_MS, APEX_PREDATOR_WAVES, BONE_COLLECTOR_SKELETONS, BOSS_HUNTER_BOSSES, DEEP_POCKETS_COINS, ENDGAME_ACHIEVEMENT, EXTERMINATOR_CAREER_KILLS, FORTUNE_HUNTER_COINS, FULLY_LOADED_UPGRADES, HARDENED_WAVES, HEADHUNTER_HEADSHOTS, LEADERBOARD_MAX_ENTRIES, LOGIN_CALENDAR_DAYS, LOGIN_STREAK_COIN_PER_DAY, LOGIN_STREAK_MAX_BONUS_DAYS, LOGIN_STREAK_MAX_FREEZES, MARATHON_SECONDS, MASSACRE_KILLS, MEAT_GRINDER_STREAK, MUTATOR_CHALLENGE_WAVES, PLAYTIME_MILESTONES, PLAY_META_UPGRADES, PRESTIGE_BONUS_PERCENT, PRESTIGE_COST_STEP, QUESTS_SEEN_IDS_KEY, RATTLED_SKELETONS, REGULAR_CAREER_RUNS, RUN_HISTORY_MAX, SHARPSHOOTER_HEADSHOTS, SURVIVOR_20_WAVES, SURVIVOR_30_WAVES, TREASURE_HUNTER_CHESTS, UNTOUCHABLE_STREAK, UPGRADES_SEEN_IDS_KEY, UP_CLOSE_KNIFE_KILLS, VETERAN_PERKS, WEEKLY_FEATURED_MUTATOR_BONUS_COINS, _escapeHtml, _formatDurationShort, _loadSeenIds, _safeStatNumber, _saveSeenIds, _weeklyFeaturedMutatorKey, careerRankTitleKey, formatTime, saveBestRunPace, saveBestStats, saveCareerStats, saveLeaderboard, saveLoginStreak, saveRunHistory, saveSettings, saveShopProgress, todayDateString, yesterdayDateString } from './Game.js'
 import { DEATH_POINTS_CONVERSION, META_UPGRADES, saveMetaProgress } from './MetaProgress.js'
 import { POINTS_PER_KILL, POINTS_PER_WAVE } from './PlayRules.js'
 import { QUESTS } from './Quests.js'
@@ -103,6 +103,7 @@ export function _onPlayEvent(game, type, data) {
     game.achievements.unlock('first_blood')
     if (data.boss) game.achievements.unlock('giant_slayer')
     if (data.weapon) game._recordArsenalKill(data.weapon)
+    if (data.skeleton) _recordSkeletonKill(game, data.skeleton)
     return null
   }
   if (type === 'wave') {
@@ -155,6 +156,7 @@ export function _onPlayEvent(game, type, data) {
   if (data.bosses >= BOSS_HUNTER_BOSSES) game.achievements.unlock('boss_hunter')
   if (data.won && data.mode === 'zombieExtraction') game.achievements.unlock('get_to_the_chopper')
   if (data.coins >= FORTUNE_HUNTER_COINS) game.achievements.unlock('fortune_hunter')
+  if (data.skeletonKills >= RATTLED_SKELETONS) game.achievements.unlock('rattled')
   // +10% per Prestige level, as the Prestige line promises.
   const legacy = Math.floor(points * DEATH_POINTS_CONVERSION * (1 + (PRESTIGE_BONUS_PERCENT / 100) * Math.floor(_safeStatNumber(game.metaProgress.prestigeLevel))))
   game.metaProgress.legacyPoints += legacy
@@ -168,6 +170,20 @@ export function _onPlayEvent(game, type, data) {
   game._updateUpgradesDot()
   game._updateQuestsDot()
   return { legacy, coins }
+}
+
+// A skeleton kill (kind: minion/rogue/warrior/mage) - career totals for
+// Bone Collector and Skeleton Key, saved straight away so a run that's
+// quit midway still counts them.
+const SKELETON_KIND_FIELDS = { minion: 'skeletonKillsMinion', rogue: 'skeletonKillsRogue', warrior: 'skeletonKillsWarrior', mage: 'skeletonKillsMage' }
+function _recordSkeletonKill(game, kind) {
+  const c = game.careerStats
+  c.skeletonKills = _safeStatNumber(c.skeletonKills) + 1
+  const field = SKELETON_KIND_FIELDS[kind]
+  if (field) c[field] = _safeStatNumber(c[field]) + 1
+  saveCareerStats(c)
+  if (c.skeletonKills >= BONE_COLLECTOR_SKELETONS) game.achievements.unlock('bone_collector')
+  if (Object.values(SKELETON_KIND_FIELDS).every((f) => _safeStatNumber(c[f]) > 0)) game.achievements.unlock('skeleton_key')
 }
 
 // Opened from the main menu (not gameplay) - spends persistent Legacy

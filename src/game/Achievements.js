@@ -55,6 +55,10 @@ export const ACHIEVEMENTS = [
   { id: 'exterminator', titleKey: 'achExterminator', tag: '1K', color: '#d9bc4a', hintKey: 'achHintExterminator', category: 'combat' },
   { id: 'regular', titleKey: 'achRegular', tag: 'RG', color: '#7fb069', hintKey: 'achHintRegular', category: 'survival' },
   { id: 'fortune_hunter', titleKey: 'achFortuneHunter', tag: 'FH', color: '#d9bc4a', hintKey: 'achHintFortuneHunter', category: 'survival' },
+  // 2026-10-16: skeletons (they join the waves from wave 3).
+  { id: 'rattled', titleKey: 'achRattled', tag: 'RT', color: '#c9c3b4', hintKey: 'achHintRattled', category: 'combat' },
+  { id: 'bone_collector', titleKey: 'achBoneCollector', tag: 'BC', color: '#c9c3b4', hintKey: 'achHintBoneCollector', category: 'combat' },
+  { id: 'skeleton_key', titleKey: 'achSkeletonKey', tag: 'SK', color: '#c9c3b4', hintKey: 'achHintSkeletonKey', category: 'combat' },
   // Deliberately last in the array - see unlock()'s own completionist
   // check, which excludes this id from "every OTHER achievement."
   { id: 'completionist', titleKey: 'achCompletionist', tag: '★', color: '#d9bc4a', hintKey: 'achHintCompletionist', category: 'story' },

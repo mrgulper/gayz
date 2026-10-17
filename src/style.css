@@ -3094,6 +3094,55 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
   justify-content: center;
 }
 
+/* Old theme: the What's New card is a small torn sheet of the same old
+   paper as the panels (2026-10-16, Gaymi picked "old paper / parchment"),
+   with dark ink and the X in the paper's curled top-right flap - same
+   size and corner as Golden's card (only the look changes). The list
+   scrolls inside the paper so the scrollbar never sits on the torn rim. */
+html.ui-theme-old #update-available-banner {
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6));
+  padding: 22px 26px 24px;
+  overflow: hidden;
+  color: var(--old-ink);
+}
+html.ui-theme-old #update-available-banner > .panel-close-btn {
+  top: calc(8.7% - 13px);
+  right: calc(7.6% - 13px);
+  color: var(--old-ink);
+}
+html.ui-theme-old #update-available-title {
+  font-family: 'Rye', Georgia, serif;
+  font-weight: 400;
+  color: var(--old-ink);
+}
+html.ui-theme-old #update-available-changelog {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(46, 29, 14, 0.45) transparent;
+}
+html.ui-theme-old #update-available-changelog .changelog-date,
+html.ui-theme-old #update-available-changelog li {
+  color: var(--old-ink);
+}
+html.ui-theme-old #update-available-changelog li::marker {
+  color: #7a5226;
+}
+html.ui-theme-old #update-available-changelog .changelog-added .changelog-group-label { color: #3f6b2a; }
+html.ui-theme-old #update-available-changelog .changelog-changed .changelog-group-label { color: #7a5226; }
+html.ui-theme-old #update-available-changelog .changelog-fixed .changelog-group-label { color: #2f5a7a; }
+html.ui-theme-old #update-available-refresh-btn {
+  color: #f3e6c8;
+  background: var(--old-ink);
+  border-color: var(--old-ink);
+  border-radius: 999px;
+}
+
 #update-available-refresh-btn {
   padding: 5px 14px;
   font-size: 12px;

@@ -20,7 +20,7 @@ test('servers: create, join, sync, host hand-over, leave', async () => {
   // The guest's shot reaches the host once.
   let rb = await syncServer(db, { ...b, state: { x: 5, y: 1, z: 6 }, hits: [{ id: 'z3', dmg: 40 }] }, t0 + 100)
   expect(rb.isHost).toBe(false)
-  let ra = await syncServer(db, { ...a, state: { x: 1, y: 1, z: 1 }, wave: 2, zombies: { z3: { x: 2, y: 1, z: 2, hp: 60, max: 100 }, z4: { x: 3, y: 1, z: 3, hp: 40, max: 40, k: 'warrior' }, z5: { x: 3, y: 1, z: 4, hp: 40, max: 40, k: '<img>' } }, hurt: [{ to: b.playerId, amount: 12 }], credits: [{ to: b.playerId, boss: true }] }, t0 + 200)
+  let ra = await syncServer(db, { ...a, state: { x: 1, y: 1, z: 1 }, wave: 2, zombies: { z3: { x: 2, y: 1, z: 2, hp: 60, max: 100 }, z4: { x: 3, y: 1, z: 3, hp: 40, max: 40, k: 'warrior' }, z5: { x: 3, y: 1, z: 4, hp: 40, max: 40, k: '<img>' } }, hurt: [{ to: b.playerId, amount: 12 }], credits: [{ to: b.playerId, boss: true }, { to: b.playerId, skeleton: 'mage' }, { to: b.playerId, skeleton: '<img>' }] }, t0 + 200)
   expect(ra.isHost).toBe(true)
   expect(ra.hits).toEqual([{ id: 'z3', dmg: 40, by: b.playerId }])
   expect(ra.players[b.playerId]).toMatchObject({ nick: 'Bo', x: 5, z: 6 })
@@ -36,7 +36,10 @@ test('servers: create, join, sync, host hand-over, leave', async () => {
   expect(rb.zombies.z5.k).toBeUndefined()
   expect(rb.zombies.z3.k).toBeUndefined()
   expect(rb.hurt).toEqual([12])
-  expect(rb.credits).toEqual([{ boss: true }])
+  // Each kill once; a skeleton kill keeps its kind (for the skeleton
+  // achievements), anything else is dropped.
+  expect(rb.credits).toHaveLength(3)
+  expect(rb.credits).toEqual(expect.arrayContaining([{ boss: true }, { boss: false, skeleton: 'mage' }, { boss: false }]))
   expect(rb.skins).toEqual({ [a.playerId]: null })
   rb = await syncServer(db, { ...b }, t0 + 500)
   expect(rb.hurt).toEqual([])

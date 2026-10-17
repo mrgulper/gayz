@@ -160,7 +160,7 @@ export class BuildSurvival {
     this.armor = this.cfg.armor
     this.coins = this.cfg.startCoins
     this.upgrades = {}
-    this.stats = { kills: 0, chests: 0, headshots: 0, meleeKills: 0 }
+    this.stats = { kills: 0, chests: 0, headshots: 0, meleeKills: 0, skeletonKills: 0 }
     this.streak = 0
     this.bestStreak = 0
     this.bosses = 0
@@ -686,8 +686,8 @@ export class BuildSurvival {
     }
     if (z.health > 0) return
     audioEngine.playZombieDeath?.(1)
-    if (by) this.net?.queueCredit(by, z.boss)
-    else this._countKill(z.boss)
+    if (by) this.net?.queueCredit(by, z.boss, z.kind)
+    else this._countKill(z.boss, z.kind)
     this._spawnCorpse(z, dir)
     this._removeZombie(z)
     this.zombies = this.zombies.filter((o) => o !== z)
@@ -695,9 +695,10 @@ export class BuildSurvival {
   }
 
   // A kill of mine: stats, coins, the streak, achievements.
-  _countKill(boss) {
+  _countKill(boss, skeleton = null) {
     this.kills++
     this.stats.kills++
+    if (skeleton) this.stats.skeletonKills = (this.stats.skeletonKills || 0) + 1
     if (this.weapon.melee) this.stats.meleeKills++
     this.streak++
     this.bestStreak = Math.max(this.bestStreak, this.streak)
@@ -707,7 +708,7 @@ export class BuildSurvival {
       this._earn(BOSS_COINS)
       this._message(t('buildPlayBossDown', { n: Math.round(BOSS_COINS * (this.cfg?.coinMult ?? 1)) }))
     }
-    this._report('kill', { boss: !!boss, streak: this.streak, weapon: this.weaponId })
+    this._report('kill', { boss: !!boss, streak: this.streak, weapon: this.weaponId, skeleton })
     this._renderHud()
   }
 
@@ -1401,6 +1402,7 @@ export class BuildSurvival {
       meleeKills: this.stats.meleeKills,
       upgrades: Object.values(this.upgrades || {}).reduce((sum, n) => sum + n, 0),
       bosses: this.bosses,
+      skeletonKills: this.stats.skeletonKills || 0,
       won,
       died: this.dead,
       mode: this.cfg.mode,
@@ -1870,7 +1872,7 @@ export class BuildSurvival {
     this._lifeStartWave = Math.max(0, this.wave - 1)
     this._startedAt = performance.now()
     this.kills = 0
-    this.stats = { kills: 0, chests: 0, headshots: 0, meleeKills: 0 }
+    this.stats = { kills: 0, chests: 0, headshots: 0, meleeKills: 0, skeletonKills: 0 }
     this.bestStreak = 0
     this.bosses = 0
     this._coinsEarned = 0
