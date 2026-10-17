@@ -319,11 +319,6 @@ export class BlockChunks {
     return this.info.has(type)
   }
 
-  _opaqueAt(x, y, z) {
-    const t = this.getType(x, y, z)
-    return !!t && !!this.info.get(t)?.opaque
-  }
-
   // Call after any block change at (x, y, z) - also marks the neighbor
   // chunk(s) when the cell sits on a chunk border, since their outer faces
   // and corner shading depend on it.

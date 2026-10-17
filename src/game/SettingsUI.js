@@ -637,8 +637,6 @@ export function _bindSettings(game) {
     saveSettings(game.settings)
   })
 
-  game._renderCompanionColorPreview()
-
   // Homepage Accent Color - overrides --menu-gold on #menu itself
   // (inline style beats the stylesheet's own #menu rule), recoloring
   // every gold highlight/border/active-state across the homepage at
@@ -752,8 +750,6 @@ export function _bindSettings(game) {
     saveSettings(game.settings)
   })
 
-
-  document.body.classList.toggle('big-interact-prompt', game.settings.bigInteractPrompt)
 
   // Click any of the four value labels above to type an exact number
   // instead of dragging the slider - the slider itself stays as the
@@ -2061,7 +2057,7 @@ export const TAB_RESET_KEYS = {
   graphics: ['performanceMode', 'renderResolution', 'fpsCap', 'autoQuality', 'brightness', 'contrast', 'shadowsEnabled',
     'shadowQuality', 'viewDistance', 'grainIntensity', 'panelFlickerEnabled', 'liteTextures'],
   controls: ['sensitivity', 'invertY', 'fov', 'invertScrollWeaponSwitch', 'crosshairColor', 'crosshairSize',
-    'hudScale', 'hudOpacity', 'bigInteractPrompt', 'colorblindMode', 'largeTextMode', 'dyslexiaFont',
+    'hudScale', 'hudOpacity', 'colorblindMode', 'largeTextMode', 'dyslexiaFont',
     'highContrastMode', 'focusRingMode', 'underlineLinks', 'textSpacing', 'buttonSize', 'reduceTransparency',
     'hoverAudioCue', 'highVisCursor', 'captionBackground', 'reduceFlashing', 'streamSafeMode', 'toastDuration',
     'uiFont', 'themePreset', 'cursorTrail', 'crtScanlines', 'nicknameColor', 'accentColor', 'playBtnColor',

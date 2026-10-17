@@ -45,9 +45,8 @@ function writeVersionFilePlugin() {
 // Playing with no internet (2026-10-17): writes dist/sw.js from src/sw.js
 // with this build's id and the list of every file the game can need, so the
 // service worker can keep them all on the device after one online visit.
-// Left out: the old-browser (legacy) bundles, files nothing loads, and the
-// old Map 1's models/pictures that are still in public/ but never used.
-const SW_SKIP = [/-legacy[-.]/, /^benchmark\.html$/, /^version\.json$/, /^sw\.js$/, /\.(txt|map)$/, /(^|\/)LICENSE/, /^models\/(buildings|props|humans|titan|zombie)\//, /^textures\//]
+// Left out: the old-browser (legacy) bundles and files nothing loads.
+const SW_SKIP = [/-legacy[-.]/, /^benchmark\.html$/, /^version\.json$/, /^sw\.js$/, /\.(txt|map)$/, /(^|\/)LICENSE/]
 // Design a Skin (public/skin-designer/index.html, its own page) imports
 // three.js through an import map - from the game itself rather than a CDN,
 // so it works offline: these files are copied from node_modules into

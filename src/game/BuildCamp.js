@@ -154,11 +154,6 @@ export class BuildCamp {
 
   // --- coins, quests ---
 
-  addCoins(n) {
-    this.s.coins += n
-    this.s._renderHud()
-  }
-
   _statValue(stat) {
     if (stat === 'wave') return this.s.wave
     return this.s.stats[stat] || 0

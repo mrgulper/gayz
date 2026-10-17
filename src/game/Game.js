@@ -245,7 +245,6 @@ function loadSettings() {
       clanId: typeof parsed.clanId === 'string' ? parsed.clanId : null,
       clanTag: typeof parsed.clanTag === 'string' ? parsed.clanTag : null,
       clanName: typeof parsed.clanName === 'string' ? parsed.clanName : null,
-      bigInteractPrompt: parsed.bigInteractPrompt ?? false,
       toastDuration: parsed.toastDuration ?? 100,
       crosshairColor: parsed.crosshairColor || '#ffffff',
       crosshairSize: parsed.crosshairSize ?? 100,
@@ -321,7 +320,6 @@ function loadSettings() {
       // the HUD untouched.
       streamSafeMode: parsed.streamSafeMode ?? false,
       defaultTag: parsed.defaultTag || null,
-      companionRole: ['melee', 'medic'].includes(parsed.companionRole) ? parsed.companionRole : 'ranged',
       // Guest Mode (Local Sharing batch) - lets someone else play a run on
       // this save without it touching bestStats/careerStats/leaderboards
       // (see _recordRunEnd's own guard), so a shared/borrowed computer's
@@ -519,7 +517,7 @@ function _loadNavOrder(saved) {
 }
 
 export function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
 }
 
 
@@ -654,7 +652,7 @@ export const MUTATOR_LABEL_KEYS = {
 export const SETTINGS_CODE_KEYS = [
   'masterVolume', 'sfxVolume', 'ambientVolume', 'sensitivity', 'invertY', 'fov', 'hudScale', 'hudOpacity',
   'colorblindMode', 'reduceFlashing', 
-  'bigInteractPrompt', 'toastDuration', 'crosshairSize', 'largeTextMode',
+  'toastDuration', 'crosshairSize', 'largeTextMode',
   'highContrastMode', 'dyslexiaFont', 'focusRingMode', 
   'performanceMode', 'bgMood', 'renderResolution', 'brightness', 'contrast', 
   'shadowsEnabled', 'shadowQuality', 'viewDistance', 'liteTextures', 
@@ -2079,7 +2077,6 @@ export class Game {
     this._chatSessionStartMs = Date.now()
     this._leaderboardUnsubscribe = null
     this.difficultyBtns = document.querySelectorAll('.difficulty-btn')
-    this.roleBtns = document.querySelectorAll('.role-btn')
     this.gameModeSelectBtns = document.querySelectorAll('.mode-select-btn')
     this.settingsBtn = document.getElementById('settings-btn')
     this.settingsPanel = document.getElementById('settings-panel')
@@ -2770,7 +2767,6 @@ export class Game {
     this._bindGraphicsSettings()
     this._bindGeneralSettings()
     this._bindDifficulty()
-    this._bindCompanionRole()
     this._bindGameModeSelect()
     this._checkImportSkinCode()
     this._bindPanelRouting()
@@ -3097,26 +3093,6 @@ export class Game {
   _startRebind(btn, action) { return SettingsUI._startRebind(this, btn, action) }
 
   _bindDifficulty() { return PlayEntryUI._bindDifficulty(this) }
-
-  // Nightmare (unlocked by the true ending) gets a harsher red tint so it's
-  // visually distinct, not just numerically harder.
-  _updateNightmareOverlay() {
-  }
-
-  _bindCompanionRole() {
-    for (const btn of this.roleBtns) {
-      btn.classList.toggle('active', btn.dataset.role === this.settings.companionRole)
-      btn.addEventListener('click', () => {
-        const role = btn.dataset.role
-        if (!['ranged', 'melee', 'medic'].includes(role)) return
-        this.settings.companionRole = role
-        saveSettings(this.settings)
-        // Matches by role, not by exact button, since the same 3 roles now
-        // appear both on the main menu and inside the trader panel.
-        for (const b of this.roleBtns) b.classList.toggle('active', b.dataset.role === role)
-      })
-    }
-  }
 
   _bindGameModeSelect() { return PlayEntryUI._bindGameModeSelect(this) }
 
@@ -3857,8 +3833,6 @@ export class Game {
     if (this.buildModeBtn) this.buildModeBtn.querySelector('span').textContent = t('mapEditorBtn')
     const fullmapTitleEl = document.getElementById('fullmap-title')
     if (fullmapTitleEl) fullmapTitleEl.textContent = t('fullmapTitle')
-    const journalPanelTitleEl = document.getElementById('journal-panel-title')
-    if (journalPanelTitleEl) journalPanelTitleEl.textContent = t('journalPanelTitle')
     const generalPlaceholder = document.getElementById('settings-general-placeholder')
     if (generalPlaceholder) generalPlaceholder.textContent = t('settingsGeneralPlaceholder')
     this.resetBindsBtn.textContent = t('resetBinds')
@@ -3883,17 +3857,6 @@ export class Game {
     document.getElementById('diff-nightmare').textContent = t('difficultyNightmare')
     document.getElementById('diff-apex').textContent = t('difficultyApex')
 
-    // this.roleBtns covers both the main-menu icon+span buttons and the
-    // plain-text trader-screen role buttons (#trader-role-ranged etc, no
-    // icon) - only the former has a <span> to target, so fall back to the
-    // button itself for the latter rather than assuming every match has one.
-    const roleLabelKeys = { ranged: 'roleRanged', melee: 'roleMelee', medic: 'roleMedic' }
-    for (const btn of this.roleBtns) {
-      const label = t(roleLabelKeys[btn.dataset.role])
-      const span = btn.querySelector('span')
-      if (span) span.textContent = label
-      else btn.textContent = label
-    }
     document.getElementById('mutator-horde-rush-label').textContent = t('mutatorHordeRush')
     document.getElementById('mutator-loot-rush-label').textContent = t('mutatorLootRush')
     document.getElementById('mutator-boss-rush-label').textContent = t('mutatorBossRush')
@@ -4381,10 +4344,6 @@ export class Game {
 
   _renderBestRunCard() { return HomeUI._renderBestRunCard(this) }
 
-  _renderCompanionColorPreview() {
-  }
-
-
   _renderNearlyThereNudge() { return HomeUI._renderNearlyThereNudge(this) }
 
   _renderProfileAccountRow() { return ProfileUI._renderProfileAccountRow(this) }
@@ -4560,14 +4519,6 @@ export class Game {
   }
 
   _checkUnclaimedQuestsReminder() { return ProgressUI._checkUnclaimedQuestsReminder(this) }
-
-  // Shared profile link's "Favorite weapon": the gun you carry in Map 1
-  // (first hotbar slot - Try Map and Play hold it).
-  _favoriteWeaponLabel() {
-    const id = this.settings.hotbar?.[0]
-    const w = this.weapons.getSummary().find((w) => w.id === id)
-    return w ? t(w.nameKey) : t('profileFavoriteWeaponNone')
-  }
 
   // Favorite day-of-week helper (see _openProfilePanel) - buckets
   // runHistory timestamps by weekday, same "recent habits, not lifetime

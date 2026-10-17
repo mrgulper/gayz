@@ -640,11 +640,6 @@ export async function fetchCloudSave(uid) {
   return { data: doc.data, modifiedTime: doc.updatedAt }
 }
 
-export async function pushCloudSave(uid, dataObj) {
-  const { db, fsMod } = await ensureApp()
-  await fsMod.setDoc(fsMod.doc(db, 'saves', uid), { data: dataObj, updatedAt: Date.now() })
-}
-
 // Compare-and-set upload (see CloudMerge.js for why): writes only if the
 // cloud save is still exactly the version this device just read
 // (expectedUpdatedAt, or no save at all when null) - if another device
@@ -1200,11 +1195,6 @@ export async function likeSharedMap(code, uid) {
   batch.update(fsMod.doc(db, 'sharedMaps', code), { likes: fsMod.increment(1) })
   await batch.commit()
   return true
-}
-
-export async function hasLikedSharedMap(code, uid) {
-  const { db, fsMod } = await ensureApp()
-  return (await fsMod.getDoc(fsMod.doc(db, 'sharedMaps', code, 'likes', uid))).exists()
 }
 
 export async function countSharedMapPlay(code) {

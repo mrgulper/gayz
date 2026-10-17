@@ -32,10 +32,9 @@ playwright-report
 .superpowers/
 
 # Raw downloaded asset packs + build output (large binaries, sourced not
-# committed - see 3D_ASSET_OVERHAUL.md Phase 0). Build scripts themselves
-# (asset-source/*.py) ARE tracked - they're small, reusable source, not
-# binaries, and the whole point of the headless-Blender pipeline is that
-# they're deterministic/repeatable.
+# committed - see docs/notes/history/3D_ASSET_OVERHAUL.md Phase 0). The old
+# Map 1 build scripts (asset-source/*.py) were removed on 2026-10-17 with the
+# models they built; they're in git history if ever needed.
 asset-source/*
 !asset-source/*.py
 

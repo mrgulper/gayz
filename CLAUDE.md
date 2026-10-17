@@ -11,7 +11,7 @@ Browser Three.js block-world zombie-survival game (Vite, no framework), deployed
 | Cloud Save, Firestore rules, leaderboards, chat, untrusted save data, playing offline (service worker) | `docs/notes/online.md` |
 | Known bug patterns, performance gotchas, Playwright quirks | `docs/notes/bugs-and-testing.md` |
 | Full wording + history of every standing rule below, incl. the 10 map-making rules | `docs/notes/rules-detail.md` |
-| Tests/CI details, the `Game.js` split convention, `3D_ASSET_OVERHAUL.md`, `docs/PERFORMANCE.md` | `docs/notes/codebase.md` |
+| Tests/CI details, the `Game.js` split convention, `docs/PERFORMANCE.md`, old plans (`docs/notes/history/`) | `docs/notes/codebase.md` |
 
 Code comments that say "see CLAUDE.md's ... note" now mean these notes files - grep `docs/notes/` for the name.
 

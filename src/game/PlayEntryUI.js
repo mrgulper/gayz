@@ -12,7 +12,6 @@ import { playConfig } from './PlayRules.js'
 import { t } from './i18n.js'
 
 export function _bindDifficulty(game) {
-  game._updateNightmareOverlay()
   for (const btn of game.difficultyBtns) {
     btn.classList.toggle('active', btn.dataset.difficulty === game.settings.difficulty)
     btn.addEventListener('click', () => {
@@ -22,7 +21,6 @@ export function _bindDifficulty(game) {
       saveSettings(game.settings)
       game.difficulty = DIFFICULTY_PRESETS[id]
       for (const b of game.difficultyBtns) b.classList.toggle('active', b === btn)
-      game._updateNightmareOverlay()
     })
   }
 }
