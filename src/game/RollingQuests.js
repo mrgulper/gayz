@@ -22,9 +22,9 @@ export const QUEST_TEMPLATES = [
   { type: 'kills', target: 11, titleKey: 'rollingQuestKills', rewardCoins: 80, rewardXp: 30 },
   { type: 'kills', target: 23, titleKey: 'rollingQuestKills', rewardCoins: 180, rewardXp: 60 },
   { type: 'kills', target: 58, titleKey: 'rollingQuestKills', rewardCoins: 350, rewardXp: 120 },
-  { type: 'night', target: 2, titleKey: 'rollingQuestNight', rewardCoins: 120, rewardXp: 40 },
-  { type: 'night', target: 4, titleKey: 'rollingQuestNight', rewardCoins: 280, rewardXp: 90 },
-  { type: 'night', target: 6, titleKey: 'rollingQuestNight', rewardCoins: 500, rewardXp: 160 },
+  { type: 'night', target: 2, titleKey: 'rollingQuestWave', rewardCoins: 120, rewardXp: 40 },
+  { type: 'night', target: 4, titleKey: 'rollingQuestWave', rewardCoins: 280, rewardXp: 90 },
+  { type: 'night', target: 6, titleKey: 'rollingQuestWave', rewardCoins: 500, rewardXp: 160 },
   { type: 'runs', target: 1, titleKey: 'rollingQuestRuns', rewardCoins: 100, rewardXp: 35 },
   { type: 'runs', target: 3, titleKey: 'rollingQuestRuns', rewardCoins: 280, rewardXp: 90 },
 ]
@@ -160,8 +160,9 @@ export class RollingQuests {
     this._recordProgress('kills', 1, true)
   }
 
-  recordNight(night) {
-    this._recordProgress('night', night, false)
+  recordWave(wave) {
+    // (Saved quests call this type 'night', from when rounds were nights.)
+    this._recordProgress('night', wave, false)
   }
 
   recordRunComplete() {

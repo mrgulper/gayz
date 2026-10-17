@@ -122,9 +122,7 @@ export function _updateWhatsNewDot(game) {
   game.whatsNewDot.style.display = localStorage.getItem(WHATS_NEW_SEEN_KEY) === WHATS_NEW_VERSION ? 'none' : ''
 }
 
-// How to Play - a replayable overlay, distinct from _maybeShowTutorialHints
-// (a one-time, non-interactive toast sequence that still runs
-// independently the first time a run starts). Renders every step as one
+// How to Play - a replayable overlay. Renders every step as one
 // static scrollable list rather than a Next/Back stepper.
 export function _openHowToPlayPanel(game) {
   game._closeAllMenuPanels()
@@ -410,9 +408,8 @@ export function _openWhatsNewPanel(game) {
   try { localStorage.setItem(WHATS_NEW_SEEN_KEY, WHATS_NEW_VERSION) } catch { /* storage unavailable */ }
   // Separate from WHATS_NEW_SEEN_KEY above (that's a single version
   // string gating the nav-button dot) - game is an actual timestamp, so
-  // the homepage ticker's "X updates since your last visit" mode (see
-  // _updateMenuSpotlight) can diff real changelog entry dates against
-  // it, not just know "has the dot been cleared."
+  // the What's New card can diff real changelog entry dates against it,
+  // not just know "has the dot been cleared."
   try { localStorage.setItem(CHANGELOG_LAST_VIEWED_KEY, String(Date.now())) } catch { /* storage unavailable */ }
   game._updateWhatsNewDot()
 }
@@ -422,11 +419,8 @@ export function _closeWhatsNewPanel(game) {
 }
 
 // What's New digest (see #whats-new-digest) - a fuller, more prominent
-// one-time surfacing of the same new-entries diff the ticker's
-// Changelog-diff mode already computes (see mode 20 in
-// _updateMenuSpotlight), for players who might never happen to land on
-// that ticker mode in its 27-mode rotation. Same lastViewed gate/logic,
-// just rendered as a dismissible card instead of one rotating line.
+// one-time, dismissible card of the changelog entries since your last
+// visit (same lastViewed gate).
 // Closing it (or opening Credits, which already does this) marks it
 // seen - reload before dismissing and it shows again, which is the
 // correct behavior for "you still haven't caught up."

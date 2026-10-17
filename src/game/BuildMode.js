@@ -40,8 +40,7 @@ const BLOCK_SIZE = 0.35
 const FLY_SPEED = 8
 // Movement used to snap straight to full speed the instant a key went down
 // and stop dead the instant it came up - velocity damps toward the target
-// speed instead (same THREE.MathUtils.damp technique WeaponSystem.js uses
-// for its own aim/sprint smoothing), giving a real accelerate-then-coast
+// speed instead (THREE.MathUtils.damp), giving a real accelerate-then-coast
 // feel rather than an on/off toggle.
 const FLY_ACCEL_LERP_SPEED = 8
 const LOOK_SENSITIVITY = 0.0022
@@ -79,7 +78,7 @@ const SAVE_KEY = 'gayz-build-mode'
 // (v1's deliberately-scoped-down "one save slot" design). SAVE_SLOTS_KEY
 // holds an array of SAVE_SLOT_COUNT entries (null = empty slot, or a
 // snapshot object); SAVE_KEY itself is kept only as a one-time migration
-// source (see _loadSlots) so a build saved before slots existed isn't lost.
+// source (see _loadActiveSlot) so a build saved before slots existed isn't lost.
 const SAVE_SLOTS_KEY = 'gayz-build-mode-slots'
 const SAVE_SLOT_COUNT = 10
 // Since 2026-10-02 each slot is its own compact entry (rows of the same

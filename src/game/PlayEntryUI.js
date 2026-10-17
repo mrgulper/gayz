@@ -30,8 +30,8 @@ export function _bindDifficulty(game) {
 // list. Locked (Coming Soon) entries carry a real `disabled` attribute
 // in the HTML, so they never reach this click handler at all - no extra
 // guard needed here for those. zombieDefense/bossHunt/zombieRush each
-// just flip the matching settings.mutators.* flag the run-start setup
-// (see _setupGameModeRun) already reads.
+// just flip the matching settings.mutators.* flag Map 1's run setup
+// (PlayRules.playConfig) reads.
 export function _bindGameModeSelect(game) {
   for (const btn of game.gameModeSelectBtns) {
     btn.classList.toggle('active', btn.dataset.gameMode === game.settings.selectedGameMode)
@@ -150,36 +150,19 @@ export async function _enterBuildMode(game, { map, play = false, server = null }
   // true here would make Build Mode's own pointer-lock cycle re-trigger
   // the entire real-run HUD on top of it.
   game.gameStarted = false
-  // See PlayerController's own comment on why game exists - without it,
-  // Space/Ctrl/C while flying around in Build Mode silently set real
-  // jump/crouch/prone/dodge state that fires unexpectedly the moment
-  // Build Mode is exited.
-  // _maybeShowTutorialHints' own guard only stops FUTURE hints from
-  // firing once Build Mode is active - it can't stop one already
-  // mid-animation at the exact moment Build Mode is entered. Hide it
-  // directly here too, for that already-in-flight case.
-  // Same for a homepage toast still fading out (e.g. the backup
-  // reminder) - it would otherwise sit over the editor.
+  // A homepage toast still fading out (e.g. the backup reminder) would
+  // otherwise sit over the editor.
   if (game.loreToast) game.loreToast.classList.remove('show')
   // Build Mode is a standalone sandbox with its own scene/camera, but it
   // reuses the same shared renderer/DOM as the zombie survival game (see
   // BuildMode.js's own comment) - so any real-run HUD element that was
   // left visible (health/armor, weather overlay, etc.) sits on top of it
-  // with nothing to cover it, since #menu is hidden here too. Every one
-  // of these is normally hidden the moment a run ends (death/extraction)
-  // or pointer lock is released, but force them off here too rather than
-  // trust that every path that can precede a Build Mode click already
-  // did - same "don't assume a shared toast/HUD is in the state you
-  // expect" lesson as the tutorial hint above.
+  // with nothing to cover it, since #menu is hidden here too.
   // Chat stays with you in the Map Editor and Try Map (Enter to type).
   game.chatPanel.style.display = 'flex'
   document.body.classList.add('build-mode-on')
-  // Zombie Rush's survival timer (real report 2026-09-29: "Survival
-  // Time" showing over the map editor after a Zombie Rush run).
-  // Weather overlay isn't gated to a real run at all - _rollWeather()
-  // fires once from the constructor itself, so a fresh page load can
-  // already be sitting at rainOverlayEl display:block before the player
-  // has ever started (or finished) a real run.
+  // The weather overlays start hidden; the Map Editor's own weather
+  // (BuildSky.js) switches them on once it's open.
   if (game.rainOverlayEl) game.rainOverlayEl.style.display = 'none'
   if (game.rainOverlayHardEl) game.rainOverlayHardEl.style.display = 'none'
   if (game.snowOverlayEl) game.snowOverlayEl.style.display = 'none'
@@ -328,7 +311,7 @@ export function _updateRecommendedDifficultyHint(game) {
 }
 
 // Every render of the main scene goes through here - the per-frame one in
-// _tick, _warmUpShaders, and the screenshot/portrait captures - so they
+// _tick and the portrait capture - so they
 // all use the same path and therefore the same compiled shader variants
 // (three.js compiles a separate variant of every material for rendering
 // straight to the canvas vs. into a render target, since tone mapping/

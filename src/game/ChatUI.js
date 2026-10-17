@@ -3,11 +3,10 @@
 // plus the shared emoji picker, Name/ID/Mute popup, and Settings > Social's
 // Muted Players list they both use. Extracted from Game.js verbatim - plain
 // exported functions taking `game` as an explicit first parameter, same
-// convention as CloudSaveUI.js/MenuPresets.js/MenuEasterEggs.js. All chat
+// convention as CloudSaveUI.js/MenuEasterEggs.js. All chat
 // state (_chatChannel, _chatUnsub, _serverChatMutedUntil, etc.) still lives
 // on the Game instance itself, exactly where it did before the move, since
-// Game.js's multiplayer sync (_syncNetworkPlayerState) and clan code read
-// and write some of it directly.
+// the clan code reads and writes some of it directly.
 
 import { t } from './i18n.js'
 import * as CloudSync from './CloudSync.js'
@@ -341,9 +340,7 @@ export function startServerChatMuteCountdown(game) {
 // Chat - Global/Clan/Party channels, always visible (see #chat-panel's
 // own CSS comment for why this isn't a click-to-open widget any more).
 // Global and Clan are live Firestore subscriptions (see CloudSync.js);
-// Party comes through the multiplayer sync poll instead (see
-// _syncNetworkPlayerState and its response handler) since a multiplayer
-// session isn't Firebase-Auth-signed-in at all. Only one channel is
+// Only one channel is
 // ever subscribed at a time (switching tabs unsubscribes the old one
 // first) to keep the read cost bounded, but - unlike the old toggle
 // version - always subscribed to SOME channel from the moment the game

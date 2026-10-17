@@ -11,7 +11,7 @@ import * as GalleryUI from './GalleryUI.js'
 import { setColorblindMode } from './Accessibility.js'
 import { ACHIEVEMENTS } from './Achievements.js'
 import { audioEngine } from './Audio.js'
-import { CHANGELOG_LAST_VIEWED_KEY, CRATES_COMING_SOON, CRATE_TIERS, INVENTORY_SKINS, NICKNAME_FONT_STACKS, RANDOM_NICKNAME_ADJECTIVES, RANDOM_NICKNAME_NOUNS, RESET_PROGRESS_CONFIRM_MS, SETTINGS_CODE_KEYS, SKIN_DESIGNER_ORIGIN, SUPPORTED_LANGUAGE_CODES, _escapeHtml, _safeStatNumber, defaultSettings, saveSettings } from './Game.js'
+import { CHANGELOG_LAST_VIEWED_KEY, NAV_ID_RENAMES, CRATES_COMING_SOON, CRATE_TIERS, INVENTORY_SKINS, NICKNAME_FONT_STACKS, RANDOM_NICKNAME_ADJECTIVES, RANDOM_NICKNAME_NOUNS, SETTINGS_CODE_KEYS, SKIN_DESIGNER_ORIGIN, SUPPORTED_LANGUAGE_CODES, _escapeHtml, _safeStatNumber, defaultSettings, saveSettings } from './Game.js'
 import { ACTIONS, getAllBindings, getKeyFor, keyLabel, resetBindings, setAllBindings, setBinding } from './Keybinds.js'
 import { LANGUAGES, setLanguage, t } from './i18n.js'
 
@@ -140,7 +140,7 @@ export function _bindSettings(game) {
     // to, so actually switching to one showed a jarring mix of real
     // translations and English fallback throughout the app while still
     // *looking* fully selected (active state, persisted to settings).
-    // A toast instead of _openComingSoonPanel() - which would close the
+    // A toast instead of a Coming Soon panel - which would close the
     // whole Settings panel via _closeAllMenuPanels() - keeps the
     // language list open so the player can keep browsing it.
     if (!SUPPORTED_LANGUAGE_CODES.has(btn.dataset.lang)) {
@@ -567,9 +567,6 @@ export function _bindSettings(game) {
   game.fovSlider.value = game.settings.fov
   game.fovValue.textContent = `${game.settings.fov}`
 
-  document.documentElement.style.setProperty('--hud-scale', game.settings.hudScale / 100)
-  document.documentElement.style.setProperty('--hud-opacity', game.settings.hudOpacity / 100)
-
   game.sensitivitySlider.addEventListener('input', () => {
     const value = Number(game.sensitivitySlider.value)
     game.sensitivityValue.textContent = `${value}%`
@@ -599,7 +596,7 @@ export function _bindSettings(game) {
 
   // On-Screen Text Duration (accessibility) - a CSS custom property the
   // toast/lore-toast animations read their duration from (see style.css),
-  // same --hud-scale-style plumbing as the sliders above.
+  // set here like the crosshair's.
   game.toastDurationSlider.value = game.settings.toastDuration
   game.toastDurationValue.textContent = `${game.settings.toastDuration}%`
   document.documentElement.style.setProperty('--toast-duration-mult', game.settings.toastDuration / 100)
@@ -1335,7 +1332,7 @@ export function _bindSettings(game) {
       if (e.target.closest('.open-privacy-panel-link')) game._openPrivacyPanel()
     })
   }
-  game.coinshopBtn.addEventListener('click', () => trackAndOpen(() => game._openShopPanel()))
+  game.storeBtn.addEventListener('click', () => trackAndOpen(() => game._openShopPanel()))
   game.marketBtn?.addEventListener('click', () => trackAndOpen(() => game._openMarketPanel()))
   game._bindHomepageBatch()
   CloudSaveUI.bindCloudSave(game)
@@ -1569,10 +1566,9 @@ export function _bindGraphicsSettings(game) {
       saveSettings(game.settings)
     })
   }
-  // Auto Quality (see AutoQuality.js) - turning it off snaps straight back
-  // to full quality (level 0's levers) rather than freezing wherever it
-  // had got to; turning it back on resumes from its current level. The
-  // light count is fixed at load, so that part follows on the next reload.
+  // Auto Quality - turning it off snaps the Map Editor / Map 1 straight
+  // back to full sharpness; on, it lowers resolution and view distance
+  // when the game is slow (Game._updateEditorResScale).
   if (game.autoQualityToggle) {
     game.autoQualityToggle.checked = game.settings.autoQuality
     game.autoQualityToggle.addEventListener('change', () => {
@@ -1647,9 +1643,7 @@ export function _bindGraphicsSettings(game) {
     })
   }
 
-  // Bullet Holes / Blood Animation - gate the existing DecalManager
-  // (see Decals.js) rather than building a second decal system; no
-  // prior toggle existed for either, both were previously always-on.
+  // Lite Textures - smaller block/model textures (Game._applyLiteTextures).
   if (game.gfxLiteTexturesToggle) {
     game.gfxLiteTexturesToggle.checked = !!game.settings.liteTextures
     game.gfxLiteTexturesToggle.addEventListener('change', () => {
@@ -2057,7 +2051,7 @@ export const TAB_RESET_KEYS = {
   graphics: ['performanceMode', 'renderResolution', 'fpsCap', 'autoQuality', 'brightness', 'contrast', 'shadowsEnabled',
     'shadowQuality', 'viewDistance', 'grainIntensity', 'panelFlickerEnabled', 'liteTextures'],
   controls: ['sensitivity', 'invertY', 'fov', 'invertScrollWeaponSwitch', 'crosshairColor', 'crosshairSize',
-    'hudScale', 'hudOpacity', 'colorblindMode', 'largeTextMode', 'dyslexiaFont',
+    'colorblindMode', 'largeTextMode', 'dyslexiaFont',
     'highContrastMode', 'focusRingMode', 'underlineLinks', 'textSpacing', 'buttonSize', 'reduceTransparency',
     'hoverAudioCue', 'highVisCursor', 'captionBackground', 'reduceFlashing', 'streamSafeMode', 'toastDuration',
     'uiFont', 'themePreset', 'cursorTrail', 'crtScanlines', 'nicknameColor', 'accentColor', 'playBtnColor',
@@ -2141,7 +2135,7 @@ function _navButtons() {
 // algorithm as the inline nav anti-flash script in index.html.
 export function _navOrderIds(game) {
   const domIds = _navButtons().map((b) => b.id)
-  const out = (game.settings.navOrder || []).filter((id, i, arr) => domIds.includes(id) && arr.indexOf(id) === i)
+  const out = (game.settings.navOrder || []).map((id) => NAV_ID_RENAMES[id] || id).filter((id, i, arr) => domIds.includes(id) && arr.indexOf(id) === i)
   domIds.forEach((id, i) => {
     if (out.includes(id)) return
     let k = -1
@@ -2225,15 +2219,24 @@ export function _bindSettingsSearch(game) {
 }
 
 export function _bindControlsTab(game) {
+  // Nothing in Settings can be selected (2026-10-17, Gaymi: "make all not
+  // be able to select the text but still clickable"): the rest of the page
+  // already can't be (style.css), and in its text boxes - codes, names,
+  // search - you can still click, type and paste, but a selection
+  // collapses straight away.
+  document.getElementById('settings-panel')?.addEventListener('select', (e) => {
+    const box = e.target
+    if (typeof box?.setSelectionRange !== 'function' || box.selectionStart === box.selectionEnd) return
+    try {
+      box.setSelectionRange(box.selectionEnd, box.selectionEnd)
+    } catch {
+      // Not a text box (number/colour inputs have no selection).
+    }
+  }, true)
   game._renderControlsGrid()
   game._renderNavOrderList()
   game._applyNavOrder()
   game._bindSettingsSearch()
-  game.resetBindsBtn.addEventListener('click', () => {
-    resetBindings()
-    game._renderControlsGrid()
-    game._applyLanguage() // text shows keys via {key:...} - refresh it
-  })
   game.restoreDefaultsBtn.addEventListener('click', () => game._restoreDefaultSettings())
   if (game.exportKeybindsBtn) game.exportKeybindsBtn.addEventListener('click', () => game._exportKeybindsCode())
   if (game.importKeybindsBtn) {
@@ -2266,8 +2269,6 @@ export function _bindControlsTab(game) {
   if (game.importSettingsCodeApplyBtn) {
     game.importSettingsCodeApplyBtn.addEventListener('click', () => game._importSettingsCode(game.importSettingsCodeInput.value))
   }
-  game.clearLeaderboardsBtn.addEventListener('click', () => game._clearLeaderboardsOnly())
-  game.resetProgressBtn.addEventListener('click', () => game._handleResetProgressClick())
 }
 
 // Restore Default Settings - a full reload after saving the defaults, so
@@ -2284,31 +2285,8 @@ export function _restoreDefaultSettings(game) {
   window.location.reload()
 }
 
-// Reset All Progress - the single most destructive action in the
-// settings panel, so it's deliberately two clicks: the first arms it and
-// shows a plain warning, the second (within RESET_PROGRESS_CONFIRM_MS)
-// actually wipes. Letting the window lapse silently disarms rather than
-// wiping on a stray click. localStorage.clear() rather than enumerating
-// every individual key this game has accumulated (bestStats, achievements,
-// nemesis, dailyLeaderboard...) since this page uses localStorage for
-// nothing else.
-export function _handleResetProgressClick(game) {
-  if (!game._resetProgressArmed) {
-    game._resetProgressArmed = true
-    game.resetProgressBtn.textContent = t('resetProgressConfirm')
-    setTimeout(() => {
-      game._resetProgressArmed = false
-      game.resetProgressBtn.textContent = t('resetProgressLabel')
-    }, RESET_PROGRESS_CONFIRM_MS)
-    return
-  }
-  localStorage.clear()
-  window.location.reload()
-}
-
 // Local Sharing batch - Save Export/Import/Compare, all built on the
-// exact same "this page uses localStorage for nothing else" fact
-// _handleResetProgressClick's own comment already documents - a full
+// fact that this page uses localStorage for nothing else - a full
 // backup is just every key/value pair, no need to enumerate every
 // individual system's own storage key.
 export function _exportSave(game) {
@@ -2387,10 +2365,9 @@ export function _importKeybindsCode(game, code) {
 
 // Overwrites every current key - same "irreversible, needs a real
 // confirm dialog" bar as Prestige/Respec, plus a full reload afterward
-// (same reasoning _handleResetProgressClick's own comment gives for
-// Reset Progress - every system reads its state fresh from localStorage
-// at construction, not via some live-refresh path). Shared with the
-// Cloud Save "Use Cloud Save" flow below (see _resolveCloudConflict) -
+// (every system reads its state fresh from localStorage at
+// construction, not via some live-refresh path). Shared with the
+// Cloud Save "Use Cloud Save" flow -
 // one path for "replace all local data with this parsed blob and
 // reload", regardless of whether the blob came from an uploaded file or
 // Google Drive.
@@ -2465,8 +2442,7 @@ export function _startRebind(game, btn, action) {
     e.preventDefault()
     window.removeEventListener('keydown', handler, true)
     game.rebindingAction = null
-    // Digit1-5 (the hotbar, see _bindHotbar) and Tab (inventory, see
-    // _bindItemKeys) are hardcoded key.code checks outside the rebindable
+    // Digit1-9/0 (the hotbar) and Tab are hardcoded key.code checks outside the rebindable
     // ACTIONS list - allowing an action to be remapped onto one of them
     // wouldn't move it there, it would just make both fire together on
     // every press (e.g. rebinding Reload to "1" would reload AND switch

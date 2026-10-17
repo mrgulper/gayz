@@ -9,7 +9,7 @@ const UNLOCK_TIMES_KEY = 'gayz-achievement-unlock-times'
 // _onPlayEvent (Map 1 runs report kills, waves and the run's end). titleKey looks up
 // the display name in i18n.js.
 // tag/color: a short 2-letter monogram + accent color, used only by the
-// homepage Achievement Showcase (see Game.js's _cycleShowcaseSlot) to
+// Achievements panel's badges to
 // render a pin-able badge. Colored-swatch-with-text, not an emoji glyph -
 // this project's established "no-emoji UI" convention.
 // hintKey (Online Features batch, round 4): a locked-state description of

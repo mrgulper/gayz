@@ -3,7 +3,7 @@
 // and kept as a data URL - multiplayer only accepts data:image/png skins,
 // so a file path here would show as the default skin to other players.
 // Prices are in coins and come from the rarity (MARKET_PRICES); selling
-// gives back half (see Game._sellInventorySkin).
+// gives back half.
 export const MARKET_PRICES = { common: 500, uncommon: 1500, rare: 4000, epic: 10000, legendary: 25000, mythic: 50000 }
 
 export const MARKET_SKINS = [

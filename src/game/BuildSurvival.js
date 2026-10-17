@@ -531,6 +531,19 @@ export class BuildSurvival {
     return out
   }
 
+  // Left (-1) to right (1) of where you look, for a sound at (x, z) -
+  // Settings > Audio > Positional Audio uses it (Audio.js, centred when
+  // that's off).
+  _panTo(x, z) {
+    const p = this.bm.tryMode.pos
+    const dx = x - p.x
+    const dz = z - p.z
+    const d = Math.hypot(dx, dz)
+    if (d < 0.5) return 0
+    const yaw = this.bm._yaw
+    return Math.max(-1, Math.min(1, (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / d))
+  }
+
   // --- HUD ---
 
   _ensureHud() {
@@ -731,7 +744,7 @@ export class BuildSurvival {
       z.vz += dir.z * 3
     }
     if (z.health > 0) return
-    audioEngine.playZombieDeath?.(1)
+    audioEngine.playZombieDeath?.(1, this._panTo(z.x, z.z))
     if (by) this.net?.queueCredit(by, z.boss, z.kind)
     else this._countKill(z.boss, z.kind)
     this._spawnCorpse(z, dir)
@@ -1401,7 +1414,7 @@ export class BuildSurvival {
     zb.moan -= dt
     if (zb.moan <= 0) {
       zb.moan = 6 + Math.random() * 10
-      if (Math.hypot(px, pz) < 14) audioEngine.playZombieMoan?.(1)
+      if (Math.hypot(px, pz) < 14) audioEngine.playZombieMoan?.(1, this._panTo(zb.x, zb.z))
     }
   }
 

@@ -194,9 +194,10 @@ export function renderCloudConflict(game, data) {
   const cloudBest = safeParse(data['gayz-best-stats'], {})
   game.cloudsaveConflictDesc.textContent = t('cloudsaveConflictDesc', {
     localKills: _safeStatNumber(game.careerStats.totalKills),
-    localNight: _safeStatNumber(game.bestStats.bestNight),
+    localNight: _safeStatNumber(game.bestStats.bestWave),
     cloudKills: _safeStatNumber(cloudCareer.totalKills),
-    cloudNight: _safeStatNumber(cloudBest.bestNight),
+    // (An older cloud copy calls it bestNight.)
+    cloudNight: Math.max(_safeStatNumber(cloudBest.bestWave), _safeStatNumber(cloudBest.bestNight)),
   })
   game.cloudsaveConflict.style.display = 'flex'
   if (game.cloudsaveUseCloudBtn) game.cloudsaveUseCloudBtn.textContent = t('cloudsaveUseCloudBtn')

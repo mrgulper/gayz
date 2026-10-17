@@ -104,7 +104,6 @@ export function bindHomepageShortcutKeys(game) {
     [game.settingsPanel, () => game._toggleSettings(false)],
     [game.cloudsavePanel, () => game._closeCloudSavePanel()],
     [game.upgradesPanel, () => game._closeUpgradesPanel()],
-    [game.coinshopPanel, () => game._closeCoinShopPanel()],
     [game.questsPanel, () => game._closeQuestsPanel()],
     [game.achievementsPanel, () => game._closeAchievementsPanel()],
     [game.hubPanel, () => game._closeHubPanel()],

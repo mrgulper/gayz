@@ -62,6 +62,9 @@ input, textarea, [contenteditable="true"] {
   -webkit-user-select: text;
   -webkit-touch-callout: default;
 }
+#settings-panel input::selection {
+  background: transparent;
+}
 input::selection, textarea::selection, [contenteditable="true"] ::selection {
   background: rgba(214, 170, 76, 0.45);
 }
@@ -674,23 +677,6 @@ html.ui-theme-old .build-share-box h2 { font-family: 'Rye', Georgia, serif; colo
   background: #7fd8a0;
 }
 
-#crosshair {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  /* Customizable Crosshair (accessibility, see settings.crosshairColor/
-     crosshairSize) - --crosshair-size/color are set from JS, same pattern
-     as --hud-scale; the pixel math below just reads through them. */
-  width: calc(6px * var(--crosshair-size, 1));
-  height: calc(6px * var(--crosshair-size, 1));
-  margin: calc(-3px * var(--crosshair-size, 1)) 0 0 calc(-3px * var(--crosshair-size, 1));
-  border-radius: 50%;
-  background: var(--crosshair-color, rgba(255, 255, 255, 0.85));
-  box-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
-  pointer-events: none;
-  display: none;
-}
-
 /* Nickname color (see settings.nicknameColor) - wraps every nickname
    display site (Hardcore Memorial, Kill Feed), same --X-color-from-JS
    pattern as --crosshair-color above. */
@@ -828,7 +814,7 @@ html.layout-compact .menu-panel {
   filter: brightness(1.15);
 }
 
-/* Cloud Save panel (see CloudSync.js + Game.js's _openCloudSavePanel) -
+/* Cloud Save panel (CloudSync.js, CloudSaveUI.js) -
    Google Sign-In state, sync status, and the cloud-vs-local conflict
    picker all live in this one modal rather than spreading across the
    homepage, matching this project's "big things go in a panel, homepage
@@ -1518,37 +1504,7 @@ html.ui-theme-old #cloudsave-region-select {
   background: var(--menu-green, #7fd8a0);
 }
 
-@keyframes damageNumberRise {
-  0% {
-    opacity: 1;
-    transform: translate(-50%, -50%);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, calc(-50% - 34px));
-  }
-}
-
-@keyframes threatPulse {
-  0% {
-    opacity: 1;
-    transform: scale(0.6);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.6);
-  }
-}
-
-@keyframes hitflash {
-  0% { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(1.6); }
-}
-
 :root {
-  --hud-scale: 1;
-  --hud-opacity: 1;
-  --damage-number-scale: 1;
   /* Reference mockup's panels/buttons read as textured stamped metal, not
      flat color - a subtle fractal-noise grain (SVG feTurbulence, alpha
      baked into the filter itself so it composites faint) approximates
@@ -1574,11 +1530,9 @@ html.ui-theme-old #cloudsave-region-select {
   --menu-blue: #6fa8dc;
   --menu-purple: #b07cd6;
   --menu-olive: #92a05e;
-  --menu-charcoal: #0a0a09;
   --menu-gunmetal: #34383c;
   --menu-gunmetal-dark: #1c1e20;
   --menu-bronze: #8a6d47;
-  --menu-orange-glow: #e6c335;
   /* Bright accent pair (2026-09-26) - a lot of shared chrome (panel-box
      border/glow, tabs, checkboxes, inputs, dropdowns) was hardcoding
      these two literal golds directly instead of reading them from a
@@ -1611,11 +1565,9 @@ html.ui-theme-old {
   --menu-blue: #6c8494;
   --menu-purple: #8a7090;
   --menu-olive: #7a7a52;
-  --menu-charcoal: #150f09;
   --menu-gunmetal: #362a1e;
   --menu-gunmetal-dark: #1e160f;
   --menu-bronze: #8f6a3e;
-  --menu-orange-glow: #d4a068;
   /* Old-theme values for the bright accent pair above - reuses this
      palette's own orange/orange-glow tones rather than inventing new
      hex codes, so the newly-themed chrome reads as part of the same
@@ -1633,7 +1585,7 @@ html.ui-theme-old {
 /* Large Text Mode - scoped to #menu + every modal panel's text (zoom,
    not a root font-size bump, since almost all sizing in this stylesheet
    is fixed px rather than rem - a root bump wouldn't cascade). Does NOT
-   touch in-game HUD text, which already has its own --hud-scale slider
+   touch in-game HUD text, which already has its own size setting
    for exactly this purpose - a second overlapping control there would
    be confusing, not helpful. */
 html.large-text-mode #menu,
@@ -1668,53 +1620,12 @@ html.high-contrast-mode #app {
    rather than one shared wrapper, since each already has its own fixed/
    absolute anchor point; transform-origin matches each one's own anchor
    corner so scaling doesn't visibly drift it away from that anchor. */
-#hud {
-  transform: scale(var(--hud-scale));
-  opacity: var(--hud-opacity);
-}
-
-#hud {
-  position: absolute;
-  right: 24px;
-  bottom: 20px;
-  text-align: right;
-  pointer-events: none;
-  display: none;
-  transform-origin: bottom right;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-}
-
-#damage-flash {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  --damage-flash-color: 200, 0, 0;
-  background: radial-gradient(ellipse at center, rgba(var(--damage-flash-color), 0) 45%, rgba(var(--damage-flash-color), 0.55) 100%);
-}
-
-#damage-flash.hit {
-  animation: dmgflash 380ms ease-out;
-}
 
 /* Blood-splatter decal layered under the existing radial flash - same
    irregular-corner-blotch technique #critical-blood-overlay already uses,
    so a hit reads as a spatter landing on screen rather than a perfectly
    smooth vignette every time. Lingers a beat longer than the flash itself
    (600ms vs 380ms) so it doesn't disappear the instant the flash fades. */
-#damage-flash.hit::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 30% 40% at 12% 82%, rgba(var(--damage-flash-color), 0.5) 0%, rgba(var(--damage-flash-color), 0) 70%),
-    radial-gradient(ellipse 22% 32% at 85% 20%, rgba(var(--damage-flash-color), 0.4) 0%, rgba(var(--damage-flash-color), 0) 70%);
-  animation: dmgdecal 600ms ease-out;
-}
-
-#damage-flash.low-health {
-  animation: lowhealth-pulse 1.6s ease-in-out infinite;
-}
 
 @keyframes dmgflash {
   0% { opacity: 1; }
@@ -1757,23 +1668,6 @@ html.high-contrast-mode #app {
    corner blotches rather than a smooth centered radial so it reads as
    "blood creeping in from the edges," not just a redder version of the
    same pulse. */
-#critical-blood-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 400ms ease-out;
-  background:
-    radial-gradient(ellipse 40% 55% at 0% 0%, rgba(120, 6, 6, 0.75) 0%, rgba(120, 6, 6, 0) 70%),
-    radial-gradient(ellipse 40% 55% at 100% 0%, rgba(120, 6, 6, 0.75) 0%, rgba(120, 6, 6, 0) 70%),
-    radial-gradient(ellipse 45% 60% at 0% 100%, rgba(120, 6, 6, 0.8) 0%, rgba(120, 6, 6, 0) 70%),
-    radial-gradient(ellipse 45% 60% at 100% 100%, rgba(120, 6, 6, 0.8) 0%, rgba(120, 6, 6, 0) 70%);
-}
-
-#critical-blood-overlay.show {
-  opacity: 1;
-  animation: critical-throb 2.2s ease-in-out infinite;
-}
 
 @keyframes critical-throb {
   0%, 100% { opacity: 0.8; }
@@ -1802,27 +1696,6 @@ html.high-contrast-mode #app {
   flex-direction: column;
   gap: 10px;
   pointer-events: none;
-}
-
-@keyframes infection-pulse {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
-}
-
-#stats-panel {
-  position: absolute;
-  top: 18px;
-  right: 20px;
-  display: none;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 110px;
-  padding: 10px 14px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
-  pointer-events: none;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 .status-row {
@@ -1863,63 +1736,14 @@ html.high-contrast-mode #app {
    applies to redgreen - see the big comment above for why blueyellow
    deliberately leaves these two at their default red. */
 
-html[data-colorblind="redgreen"] #critical-blood-overlay {
-  background:
-    radial-gradient(ellipse 40% 55% at 0% 0%, rgba(184, 122, 6, 0.75) 0%, rgba(184, 122, 6, 0) 70%),
-    radial-gradient(ellipse 40% 55% at 100% 0%, rgba(184, 122, 6, 0.75) 0%, rgba(184, 122, 6, 0) 70%),
-    radial-gradient(ellipse 45% 60% at 0% 100%, rgba(184, 122, 6, 0.8) 0%, rgba(184, 122, 6, 0) 70%),
-    radial-gradient(ellipse 45% 60% at 100% 100%, rgba(184, 122, 6, 0.8) 0%, rgba(184, 122, 6, 0) 70%);
-}
-
-@keyframes coinpopup {
-  0% { opacity: 0; transform: translateY(0); }
-  15% { opacity: 1; transform: translateY(-2px); }
-  100% { opacity: 0; transform: translateY(-22px); }
-}
-
-@keyframes combopulse {
-  0% { transform: translate(-50%, -50%) scale(1.35); }
-  100% { transform: translate(-50%, -50%) scale(1); }
-}
-
-@keyframes comboheat {
-  0%, 100% { text-shadow: 0 2px 18px rgba(255, 40, 20, 0.7); }
-  50% { text-shadow: 0 2px 26px rgba(255, 40, 20, 1); }
-}
-
-@keyframes nightbanner {
-  0% { opacity: 0; transform: translate(-50%, -40%); }
-  15% { opacity: 1; transform: translate(-50%, -50%); }
-  80% { opacity: 1; transform: translate(-50%, -50%); }
-  100% { opacity: 0; transform: translate(-50%, -55%); }
-}
-
 
 /* Reduce Flashing Effects (accessibility) - dampens peak intensity (via
    filter: opacity, which multiplies on top of whatever the keyframe's own
    opacity currently is) and slows the two infinite pulses, rather than
    removing the flashes outright (they still carry gameplay information -
    low health, taking damage). */
-body.reduce-flashing #damage-flash.hit,
 body.reduce-flashing #lightning-flash.flash {
   filter: opacity(0.4);
-}
-
-body.reduce-flashing #damage-flash.low-health {
-  animation-duration: 3.2s;
-  filter: opacity(0.6);
-}
-
-body.reduce-flashing #critical-blood-overlay.show {
-  animation-duration: 4.4s;
-  filter: opacity(0.7);
-}
-
-#minimap {
-  display: block;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.4);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
 .menu-best-stats {
@@ -1931,23 +1755,6 @@ body.reduce-flashing #critical-blood-overlay.show {
 /* Prestige cosmetic badges - escalating color per tier (see
    _updatePrestigeBadge), the same "number alone isn't a reward, color/
    presentation is" idea career rank titles already use. */
-#menu-prestige-badge {
-  font-weight: 700 !important;
-  letter-spacing: 0.4px;
-}
-
-#menu-prestige-badge.prestige-tier-1 {
-  color: #c9b04b !important;
-}
-
-#menu-prestige-badge.prestige-tier-2 {
-  color: #cfd6de !important;
-}
-
-#menu-prestige-badge.prestige-tier-3 {
-  color: #ffde5c !important;
-  text-shadow: 0 0 6px rgba(255, 211, 92, 0.5);
-}
 
 /* Same 3 tier colors, generic (not #menu-prestige-badge-scoped) - used by
    the Profile panel's Prestige stat row so the same visual identity shows
@@ -2229,7 +2036,7 @@ html.ui-theme-old select {
   padding: 0;
 }
 
-/* Keyboard shortcut cheat sheet (see _toggleShortcutCheatsheet) - same
+/* Keyboard shortcut cheat sheet - same
    fixed-card visual language as #whats-new-digest, centered instead of
    cornered since it's opened deliberately (via "?") rather than
    auto-surfaced. */
@@ -2417,56 +2224,8 @@ html.ui-theme-old select {
   100% { opacity: 0; transform: translate(-50%, -6px); }
 }
 
-@keyframes companionBark {
-  0% { opacity: 0; transform: translate(-50%, 8px); }
-  12% { opacity: 1; transform: translate(-50%, 0); }
-  80% { opacity: 1; transform: translate(-50%, 0); }
-  100% { opacity: 0; transform: translate(-50%, -6px); }
-}
-
-/* Kill Feed (see Game.js's _pushKillFeed) - a multiplayer-style stacked
-   strip, top-right so it never competes with the bottom-center toast/bark/
-   taunt lines above. Each entry plays its own fade once on creation and is
-   removed from the DOM by JS after KILL_FEED_ENTRY_MS, rather than being
-   toggled via a shared .show class like the single-element toasts above.
-   Starts below #achievement-toast's own top-right slot (found to visually
-   overlap it when both fire around the same moment, e.g. a boss kill that
-   also unlocks an achievement) rather than sharing its top:90px. */
-#kill-feed {
-  position: absolute;
-  top: 160px;
-  right: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  pointer-events: none;
-}
-
-/* Kill Feed Position (General tab, settings.killFeedPosition) - each
-   entry right-aligns its own text either way (kill-feed-entry has no
-   directional styling of its own), so swapping sides is just this one
-   position+alignment flip. */
-
-@keyframes killFeedIn {
-  0% { opacity: 0; transform: translateX(20px); }
-  100% { opacity: 1; transform: translateX(0); }
-}
-
 /* Kill-feed icon tags (batch feature) - short text tags, not emoji (see the
    no-emoji UI convention elsewhere: plain colored labels instead). */
-
-@keyframes screenFadeIn {
-  0% { opacity: 1; }
-  100% { opacity: 0; }
-}
-
-@keyframes tutorialHint {
-  0% { opacity: 0; transform: translate(-50%, 8px); }
-  10% { opacity: 1; transform: translate(-50%, 0); }
-  85% { opacity: 1; transform: translate(-50%, 0); }
-  100% { opacity: 0; transform: translate(-50%, -6px); }
-}
 
 /* Credits & What's New (see #credits-content) - static prose, scrollable
    rather than laid out as perk-option rows like the achievements/bestiary/
@@ -3492,26 +3251,6 @@ section.category.hidden-search {
   margin-bottom: 10px;
 }
 
-#inventory-panel {
-  position: absolute;
-  inset: 0;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: rgba(6, 8, 6, 0.82);
-}
-
-#inventory-panel h2 {
-  margin: 18px 0 4px;
-  font-size: 15px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--ui-gold-bright);
-  opacity: 0.85;
-}
-
 /* Inventory panel's Weapons tab (see _renderInventoryWeapons) - a plain,
    read-only list, not a clickable-card grid like .perk-option (this tab has
    no button per row, just a name + mastery badge, so .perk-option's pointer
@@ -3782,8 +3521,7 @@ section.category.hidden-search {
 #friends-panel,
 #other-profile-panel,
 #menu-inventory-panel,
-#server-panel,
-#pause-overlay {
+#server-panel {
   position: absolute;
   inset: 0;
   z-index: 15;
@@ -3998,8 +3736,7 @@ html.ui-theme-old #cloudsave-panel,
 html.ui-theme-old #friends-panel,
 html.ui-theme-old #other-profile-panel,
 html.ui-theme-old #menu-inventory-panel,
-html.ui-theme-old #server-panel,
-html.ui-theme-old #pause-overlay {
+html.ui-theme-old #server-panel {
   background:
     radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.6) 100%),
     var(--grain-texture),
@@ -4600,10 +4337,6 @@ html.ui-theme-old #prestige-history-list {
   background: rgba(255, 207, 92, 0.16);
 }
 
-/* "Best deal today" highlight (see Game.js's _renderTraderOptions) - a
-   quieter green rather than the featured item's gold, so the two don't
-   visually compete. */
-
 .perk-option:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -4624,7 +4357,7 @@ html.ui-theme-old #prestige-history-list {
   font-weight: 700;
 }
 
-/* Best Value tag (Coin Shop guns, see _renderCoinShopOptions) - a small
+/* Best Value tag - a small
    inline badge, not a separate row, so it doesn't add height to the shop
    grid. */
 
@@ -4725,8 +4458,6 @@ html.ui-theme-old #prestige-history-list {
   border-radius: 4px;
   cursor: pointer;
 }
-
-/* Coin Shop wishlist star / afford estimator (see _renderCoinShopOptions) */
 
 /* Bigger than the original 12px, plus real padding for a proper hit area -
    at 12px with no padding this was easy to miss/misclick. */
@@ -4978,6 +4709,8 @@ html.ui-theme-old #prestige-history-list {
 #clear-cache-btn,
 #export-keybinds-btn,
 #import-keybinds-btn,
+#import-keybinds-apply-btn,
+#import-settings-code-apply-btn,
 #reset-audio-defaults-btn,
 #reset-controls-defaults-btn,
 #export-settings-code-btn,
@@ -4992,8 +4725,7 @@ html.ui-theme-old #prestige-history-list {
 #friends-signin-btn,
 #cloudsave-signin-btn,
 #export-save-btn,
-#import-save-btn,
-#clear-leaderboards-btn {
+#import-save-btn {
   margin-top: 6px;
   padding: 8px 20px;
   font-size: 13px;
@@ -5138,20 +4870,6 @@ html.ui-theme-old #settings-info-text {
 .audio-row:has(.settings-info-btn) label {
   padding-left: 20px;
 }
-
-#ammo {
-  font-size: 34px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-@keyframes low-ammo-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
-}
-
-/* Mastery badge (see Game.js's _updateHotbarHud) - same gold/cyan pair as
-   .mastery-tag elsewhere, applied to the whole row's border. */
 
 /* ==========================================================================
    Main menu redesign - design tokens
@@ -5349,7 +5067,7 @@ body.reduce-bg-effects #menu-bg-rain {
   }
 }
 
-/* Konami code easter egg (see _bindKonamiCode) - a brief, purely cosmetic
+/* Konami code easter egg (MenuEasterEggs.js) - a brief, purely cosmetic
    hue-shift flourish, auto-removed after 2s. */
 #menu.konami-flourish {
   animation: konamiFlourish 2s ease-in-out;
@@ -5360,7 +5078,7 @@ body.reduce-bg-effects #menu-bg-rain {
   50% { filter: hue-rotate(180deg) saturate(1.6); }
 }
 
-/* Idle animation (see _bindIdleAnimation) - a subtle nudge on the Play
+/* Idle animation - a subtle nudge on the Play
    button after 30s of no interaction, not a new element. */
 .menu-idle #play-btn.play-btn-centered {
   animation: idlePulse 2s ease-in-out infinite;
@@ -5454,7 +5172,7 @@ html.crt-scanlines #app::after {
   100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
 }
 
-/* Hidden zombie icon easter egg (see _bindHiddenZombieIcon) - low-opacity
+/* Hidden zombie icon easter egg (MenuEasterEggs.js) - low-opacity
    until hover, tucked in a bottom corner of the background layer so it's
    genuinely easy to miss rather than an obvious button. */
 #hidden-zombie-icon {
@@ -5476,7 +5194,7 @@ html.crt-scanlines #app::after {
   color: rgba(255, 255, 255, 0.35);
 }
 
-/* April Fools (see _applyAprilFools) - date-gated, only ever applies on
+/* April Fools (MenuEasterEggs.js) - date-gated, only ever applies on
    April 1st. */
 .april-fools-flip {
   display: inline-block;
@@ -5647,8 +5365,7 @@ html.reduce-transparency #clan-panel,
 html.reduce-transparency #friends-panel,
 html.reduce-transparency #other-profile-panel,
 html.reduce-transparency #menu-inventory-panel,
-html.reduce-transparency #server-panel,
-html.reduce-transparency #pause-overlay {
+html.reduce-transparency #server-panel {
   background: #0a0a0a !important;
   backdrop-filter: none !important;
 }
@@ -9272,7 +8989,6 @@ html.ui-theme-old .audio-checkbox {
   border-color: var(--ui-gold-bright);
 }
 
-#reset-binds-btn,
 #restore-defaults-btn {
   margin-top: 16px;
   padding: 8px 20px;
@@ -9286,37 +9002,15 @@ html.ui-theme-old .audio-checkbox {
   cursor: pointer;
 }
 
-#reset-binds-btn:hover,
 #restore-defaults-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
 }
 
-/* Reset All Progress (see Game.js's _handleResetProgressClick) - visually
-   distinct red/warning styling since this is the single most destructive
-   action in the settings panel, separate from the neutral reset-bindings/
-   restore-defaults buttons above. */
+/* Red warning text (e.g. Storage is getting full). */
 .danger-text {
   color: #e07a7a;
   font-size: 12px;
   font-weight: 600;
-}
-
-.danger-btn {
-  margin-top: 8px;
-  padding: 8px 20px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  color: #d64545;
-  background: transparent;
-  border: 1px solid rgba(214, 69, 69, 0.5);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.danger-btn:hover {
-  border-color: #d64545;
-  background: rgba(214, 69, 69, 0.1);
 }
 
 #screen-overlays {
@@ -9372,7 +9066,7 @@ html.ui-theme-old .audio-checkbox {
   100% { transform: translate(0, 105vh); }
 }
 
-/* Sandstorm (see Game.js's _rollWeather) - a uniform tan haze with a slow
+/* Sandstorm (Map Editor weather, BuildSky.js) - a uniform tan haze with a slow
    pulse, deliberately simpler than rain/snow's particle patterns since a
    sandstorm reads more as an even haze than individual falling shapes. */
 #sandstorm-overlay {
@@ -9385,11 +9079,6 @@ html.ui-theme-old .audio-checkbox {
 
 @keyframes sandstorm-pulse {
   0%, 100% { opacity: 0.7; }
-  50% { opacity: 1; }
-}
-
-@keyframes nightmare-pulse {
-  0%, 100% { opacity: 0.75; }
   50% { opacity: 1; }
 }
 
@@ -9609,16 +9298,6 @@ html.ui-theme-old .audio-checkbox {
      it used to sit almost exactly under the compact grid's Fire button
      at right:20px;bottom:20px) - moved above the action-button grid
      instead of behind it. */
-  #hud {
-    right: 12px;
-    bottom: 296px;
-  }
-}
-
-@keyframes touch-rotate-icon-spin {
-  0%, 20% { transform: rotate(90deg); }
-  50%, 70% { transform: rotate(0deg); }
-  100% { transform: rotate(0deg); }
 }
 
 /* Phone/tablet portrait homepage (mobile playability, part 2 of 3 - the
@@ -9715,10 +9394,6 @@ html.ui-theme-old .audio-checkbox {
    phone cases below. */
 @media (max-width: 700px), (max-height: 450px) {
 
-  #ammo {
-    font-size: 22px;
-  }
-
   #left-hud-stack {
     gap: 5px;
   }
@@ -9726,17 +9401,6 @@ html.ui-theme-old .audio-checkbox {
   .status-row {
     font-size: 12px;
     gap: 5px;
-  }
-
-  #minimap {
-    width: 90px;
-    height: 90px;
-  }
-
-  #stats-panel {
-    padding: 6px 9px;
-    min-width: 80px;
-    font-size: 11px;
   }
 }
 
@@ -10764,11 +10428,6 @@ html.ui-theme-old #inspect-hint {
    the bottom middle, like the Map Editor's hotbar. Mouse/keyboard screens
    only - touch screens keep their own layout (weapon row, item buttons). */
 
-@keyframes hotbar-item-used {
-  0% { transform: scale(1.12); border-color: var(--ui-gold-bright); }
-  100% { transform: scale(1); }
-}
-
 /* Try Map's minimap (BuildTryMode.js): a square in the top-right corner;
    M makes it bigger, then big and see-through in the middle of the
    screen, then back. */
@@ -11026,6 +10685,20 @@ body.touch-play-on .top-bar-part { padding: 5px 7px; }
 #build-play-hurt { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(200, 0, 0, 0.55)); opacity: 0; }
 #build-play-hurt.show { animation: build-play-hurt 0.45s ease-out; }
 @keyframes build-play-hurt { from { opacity: 1; } to { opacity: 0; } }
+/* Settings that reach Map 1 (2026-10-17 settings check): Colorblind Mode
+   recolours the health bar and the hurt flash (Okabe-Ito colours), Reduce
+   Flashing softens the hurt flash and the hit mark, and Caption Background
+   puts a dark backing behind the big centre messages. */
+html[data-colorblind="redgreen"] #build-play-health-fill { background: linear-gradient(90deg, #0b5f99, #2b9be0); }
+html[data-colorblind="redgreen"] #build-play-hurt { background: radial-gradient(ellipse at center, transparent 45%, rgba(230, 159, 0, 0.6)); }
+html[data-colorblind="blueyellow"] #build-play-health-fill { background: linear-gradient(90deg, #a8306f, #d86aa6); }
+html[data-colorblind="blueyellow"] #build-play-hurt { background: radial-gradient(ellipse at center, transparent 45%, rgba(204, 121, 167, 0.6)); }
+body.reduce-flashing #build-play-hurt.show { animation-duration: 0.9s; }
+body.reduce-flashing #build-play-hurt { background: radial-gradient(ellipse at center, transparent 55%, rgba(200, 0, 0, 0.22)); }
+body.reduce-flashing #build-try-crosshair.hit,
+body.reduce-flashing #build-try-crosshair.hit::before,
+body.reduce-flashing #build-try-crosshair.hit::after { animation: none; }
+html.caption-background #build-play-msg { background: rgba(0, 0, 0, 0.6); padding: 4px 16px; border-radius: 8px; }
 #build-try-crosshair.hit { animation: build-play-hitmark 0.18s ease-out; }
 #build-try-crosshair.hit::before,
 #build-try-crosshair.hit::after { animation: build-play-hitmark-bar 0.18s ease-out; }
