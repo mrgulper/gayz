@@ -16,9 +16,22 @@
 // Map 1's nights do (Game.js's _rollWeather chances), re-rolling every few
 // minutes. The game's overlays are switched on only while the editor is
 // open (onEnter/onExit).
+//
+// Real weather (2026-10-17, Gaymi: "it should actually be raining ... the
+// sky should change too", and picked "random + fits the biome"): rain and
+// snow fall through the 3D world (BuildWeather.js) instead of the old
+// screen overlays (only the sandstorm haze is still an overlay); the sky
+// goes properly grey, the light dims and the fog closes in, all easing in
+// over a few seconds (SKY_EASE) instead of switching at once. Random is
+// the default now and follows where you are: snow only in cold biomes,
+// sandstorms only in dry ones, more rain in jungles and swamps
+// (_climateAt / CLIMATES) - walk into a biome whose climate can't have
+// the current weather and it changes.
 import * as THREE from 'three'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
+import { BuildWeather } from './BuildWeather.js'
+import { sampleLand, inCity } from './OpenWorld.js'
 
 export const SKY_TIMES = ['day', 'sunset', 'night', 'cycle']
 export const SKY_WEATHERS = ['clear', 'lightRain', 'hardRain', 'lightSnow', 'hardSnow', 'sandstorm', 'random']
@@ -29,6 +42,35 @@ const PREF_KEY = 'buildmode-sky'
 const RANDOM_REROLL_S = 240
 const LIGHTNING_MIN_S = 8
 const LIGHTNING_RANGE_S = 14
+// Bumped to switch every saved Weather choice to Random once (2026-10-17).
+const PREF_VERSION = 2
+const SKY_EASE = 0.6 // how fast the sky, light and fog follow the weather
+const CLIMATE_CHECK_S = 2
+// Which weather each climate can have, with its chance (the rest is clear).
+const CLIMATES = {
+  mild: [['lightRain', 0.28], ['hardRain', 0.12]],
+  wet: [['lightRain', 0.4], ['hardRain', 0.25]],
+  cold: [['lightSnow', 0.35], ['hardSnow', 0.2]],
+  dry: [['sandstorm', 0.3]],
+  savanna: [['lightRain', 0.15]],
+  mountain: [['lightSnow', 0.2], ['lightRain', 0.15]],
+}
+const BIOME_CLIMATE = {
+  snowyBeach: 'cold', snowyTaiga: 'cold', snowyPlains: 'cold', iceSpikes: 'cold', snowyPeaks: 'cold', frozenOcean: 'cold',
+  desert: 'dry', badlands: 'dry', savanna: 'savanna',
+  jungle: 'wet', bambooJungle: 'wet', swamp: 'wet', mangroveSwamp: 'wet',
+  mountains: 'mountain', taiga: 'mountain',
+}
+// How each weather looks: sky tint color and how far toward it, how much
+// of the daylight is left, and how much nearer the fog comes (x view).
+const WEATHER_LOOK = {
+  clear: [0x87ceeb, 0, 1, 1],
+  lightRain: [0x6a6f76, 0.65, 0.72, 0.75],
+  hardRain: [0x50545a, 0.92, 0.52, 0.5],
+  lightSnow: [0xc2c7cf, 0.55, 0.8, 0.7],
+  hardSnow: [0xd0d4da, 0.85, 0.66, 0.42],
+  sandstorm: [0xc49a5c, 0.75, 0.7, 0.35],
+}
 // [sky color, hemisphere color, hemisphere intensity, sun color, sun
 // intensity, sun height (0-1)]
 const LOOKS = {
@@ -42,13 +84,13 @@ export class BuildSky {
     this.bm = buildMode
     this.B = blockSize
     this.time = 'day'
-    this.weather = 'clear'
+    this.weather = 'random'
     this._clock = 0
     try {
       const saved = JSON.parse(localStorage.getItem(PREF_KEY) || '{}')
       if (SKY_TIMES.includes(saved.time)) this.time = saved.time
       const w = OLD_WEATHERS[saved.weather] || saved.weather
-      if (SKY_WEATHERS.includes(w)) this.weather = w
+      if (saved.v >= PREF_VERSION && SKY_WEATHERS.includes(w)) this.weather = w
     } catch {
       // Nothing saved yet.
     }
@@ -61,6 +103,21 @@ export class BuildSky {
     this._now = 'clear' // what's actually showing (Random picks one)
     this._rerollIn = 0
     this._lightningIn = 0
+    this._climate = 'mild'
+    this._climateIn = 0
+    // The sky's weather look right now, easing toward the target (apply()).
+    this._tint = new THREE.Color(0x87ceeb)
+    this._tintGoal = new THREE.Color(0x87ceeb)
+    this._mix = 0
+    this._mixGoal = 0
+    this._light = 1
+    this._lightGoal = 1
+    this.fogFactor = 1
+    this._fogGoal = 1
+    this._base = new THREE.Color()
+    this._hemiBase = 0
+    this._sunBase = 0
+    this.weather3d = new BuildWeather(buildMode, blockSize)
     document.getElementById('build-mode-time-btn')?.addEventListener('click', () => this.cycleTime())
     document.getElementById('build-mode-weather-btn')?.addEventListener('click', () => this.cycleWeather())
     this.apply()
@@ -81,19 +138,36 @@ export class BuildSky {
     this.apply()
   }
 
-  // Random: Map 1's odds - rain 30%, snow 15%, each hard 40% of the time,
-  // sandstorm 10% of what's left, else clear.
+  // Random: a roll from where you are's climate (CLIMATES).
   _pickWeather() {
     if (this.weather !== 'random') {
       this._now = this.weather
       return
     }
-    const roll = Math.random()
-    const hard = Math.random() < 0.4
-    if (roll < 0.3) this._now = hard ? 'hardRain' : 'lightRain'
-    else if (roll < 0.45) this._now = hard ? 'hardSnow' : 'lightSnow'
-    else this._now = Math.random() < 0.1 ? 'sandstorm' : 'clear'
+    this._climate = this._climateAt()
+    let roll = Math.random()
+    this._now = 'clear'
+    for (const [kind, chance] of CLIMATES[this._climate]) {
+      if (roll < chance) {
+        this._now = kind
+        break
+      }
+      roll -= chance
+    }
     this._rerollIn = RANDOM_REROLL_S
+  }
+
+  // The climate where you are: the open world's biome, or mild in the city
+  // and on maps that aren't the open world.
+  _climateAt() {
+    const bm = this.bm
+    if (!bm.world?.active) return 'mild'
+    const B = this.B
+    const p = bm.tryMode?.active ? bm.tryMode.pos : { x: bm.camera.position.x / B, z: bm.camera.position.z / B }
+    const x = Math.floor(p.x)
+    const z = Math.floor(p.z)
+    if (inCity(x, z)) return 'mild'
+    return BIOME_CLIMATE[sampleLand(x, z).biome] || 'mild'
   }
 
   // The editor opened / closed: Map 1's overlays and sound on or off.
@@ -108,6 +182,7 @@ export class BuildSky {
     this._active = false
     this._shownKind = null
     this._showOverlays('clear')
+    this.weather3d.clear()
     const game = this.bm.game
     audioEngine.setWeatherAudio(!!game?.raining && !!game?.gameStarted, !!game?.snowing && !!game?.gameStarted)
   }
@@ -118,16 +193,16 @@ export class BuildSky {
     const show = (el, on) => {
       if (el) el.style.display = on ? 'block' : 'none'
     }
-    show(game?.rainOverlayEl, kind === 'lightRain')
-    show(game?.rainOverlayHardEl, kind === 'hardRain')
-    show(game?.snowOverlayEl, kind === 'lightSnow')
-    show(game?.snowOverlayHardEl, kind === 'hardSnow')
+    // Rain and snow fall in the world now (BuildWeather) - the old screen
+    // layers stay off; only the sandstorm's haze is still one.
+    for (const el of [game?.rainOverlayEl, game?.rainOverlayHardEl, game?.snowOverlayEl, game?.snowOverlayHardEl]) show(el, false)
     show(game?.sandstormOverlayEl, kind === 'sandstorm')
+    this.weather3d.set(kind)
   }
 
   _save() {
     try {
-      localStorage.setItem(PREF_KEY, JSON.stringify({ time: this.time, weather: this.weather }))
+      localStorage.setItem(PREF_KEY, JSON.stringify({ time: this.time, weather: this.weather, v: PREF_VERSION }))
     } catch {
       // Storage full - it just won't be remembered.
     }
@@ -166,20 +241,22 @@ export class BuildSky {
     const [from, to, s] = this._lookAt(this._phase())
     const mix = (i) => from[i] + (to[i] - from[i]) * s
     const w = this._now
-    const wet = w === 'clear' ? 1 : w.startsWith('hard') ? 0.6 : 0.78
-    this._sky.setHex(from[0]).lerp(this._b.setHex(to[0]), s)
-    const tint = w.endsWith('Snow') ? 0xc8ccd4 : w === 'sandstorm' ? 0xc49a5c : 0x6c7480
-    if (w !== 'clear') this._sky.lerp(this._a.setHex(tint), (w.startsWith('hard') ? 0.6 : 0.4) * (1 - this.nightAmount() * 0.6))
+    // The weather's look is a goal the sky eases toward (_easeLook, every
+    // frame) - here only the time of day's own look is set.
+    const look = WEATHER_LOOK[w] || WEATHER_LOOK.clear
+    this._tintGoal.setHex(look[0])
+    this._mixGoal = look[1] * (1 - this.nightAmount() * 0.6)
+    this._lightGoal = look[2]
+    this._fogGoal = look[3]
+    this._base.setHex(from[0]).lerp(this._b.setHex(to[0]), s)
     bm.scene.background = this._sky
     const hemi = bm._hemiLight
     const sun = bm._sunLight
-    if (hemi) {
-      hemi.color.setHex(from[1]).lerp(this._a.setHex(to[1]), s)
-      hemi.intensity = mix(2) * wet
-    }
+    this._hemiBase = mix(2)
+    this._sunBase = mix(4)
+    if (hemi) hemi.color.setHex(from[1]).lerp(this._a.setHex(to[1]), s)
     if (sun) {
       sun.color.setHex(from[3]).lerp(this._a.setHex(to[3]), s)
-      sun.intensity = mix(4) * wet
       // Low sun at sunset; the moon sits high. Same direction otherwise.
       const h = mix(5)
       sun.position.set(20, 4 + 26 * h, 10)
@@ -195,8 +272,31 @@ export class BuildSky {
       audioEngine.setWeatherAudio(w.endsWith('Rain'), w.endsWith('Snow'))
       this._lightningIn = w === 'hardRain' ? LIGHTNING_MIN_S + Math.random() * LIGHTNING_RANGE_S : 0
     }
+    this._easeLook(0)
     bm._shadowsDirty = true
     this.refreshButtons()
+  }
+
+  // The sky color, daylight and fog follow the weather's goal look
+  // smoothly (k: 0 = jump straight there).
+  _easeLook(dt) {
+    const k = dt > 0 ? 1 - Math.exp(-SKY_EASE * dt) : 1
+    if (!this._active) {
+      // Outside the editor/Play nothing is showing - no easing needed.
+      this._tint.copy(this._tintGoal)
+      this._mix = this._mixGoal
+      this._light = this._lightGoal
+      this.fogFactor = this._fogGoal
+    } else {
+      this._tint.lerp(this._tintGoal, k)
+      this._mix += (this._mixGoal - this._mix) * k
+      this._light += (this._lightGoal - this._light) * k
+      this.fogFactor += (this._fogGoal - this.fogFactor) * k
+    }
+    this._sky.copy(this._base).lerp(this._tint, this._mix)
+    const bm = this.bm
+    if (bm._hemiLight) bm._hemiLight.intensity = this._hemiBase * this._light
+    if (bm._sunLight) bm._sunLight.intensity = this._sunBase * this._light
   }
 
   // 0 in daylight ... 1 at night.
@@ -240,8 +340,21 @@ export class BuildSky {
     }
     this._stars.position.copy(bm.camera.position)
     if (!this._active) return
+    this._easeLook(dt)
+    this.weather3d.update(dt)
     if (this.weather === 'random') {
       this._rerollIn -= dt
+      // Walked into a different climate: re-roll if what's falling can't
+      // happen here (no snow in the desert).
+      this._climateIn -= dt
+      if (this._climateIn <= 0) {
+        this._climateIn = CLIMATE_CHECK_S
+        const climate = this._climateAt()
+        if (climate !== this._climate) {
+          this._climate = climate
+          if (this._now !== 'clear' && !CLIMATES[climate].some(([kind]) => kind === this._now)) this._rerollIn = 0
+        }
+      }
       if (this._rerollIn <= 0) {
         this._pickWeather()
         this.apply()

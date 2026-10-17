@@ -36,6 +36,7 @@ import { heldAction, FIXED_KEYS } from './Keybinds.js'
 import { WORLD_LIMIT, sampleLand, biomeName, inCity } from './OpenWorld.js'
 import { t } from './i18n.js'
 import { holdWeapon, poseArms } from './HeldWeapon.js'
+import { GunFx } from './GunFx.js'
 
 const HALF_WIDTH = 0.3
 // Cells across the minimap out in Map 1's open world, per size (like
@@ -165,6 +166,22 @@ const AIM_ZOOM = 22
 // view narrows to this many degrees - deeper than the editor's ZOOM_FOV.
 const PLAY_ZOOM_FOV = 9
 const AIM_SPEED = 14
+// The gun's kick (2026-10-17, Gaymi: "make it like smoother when shooting
+// ... the gun goes back and front very fast, make it more like kirka"). It
+// used to jump straight to full kick on every shot and slide back in a
+// straight line - on a fast gun that's a jitter. Now each shot pushes a
+// spring (RECOIL_SPRING stiffness, RECOIL_DAMP damping - a little under
+// critical, so it settles with a soft ease and no wobble): the gun eases
+// back, tips up and rolls a touch, then glides home, and rapid fire just
+// holds it a little back instead of shaking. RECOIL_KICK is per gun -
+// heavy guns kick harder, bullet hoses softer per shot.
+const RECOIL_SPRING = 260
+const RECOIL_DAMP = 27
+const RECOIL_MAX = 1.4
+const RECOIL_KICK = { pistol: 26, revolver: 34, rifle: 20, suppressedsmg: 14, minigun: 11, gpmg: 13, shotgun: 38, awp: 40, rocket: 42, launcher: 38, crossbow: 22, flamethrower: 6, voidripper: 22 }
+const RECOIL_KICK_DEFAULT = 22
+// No flash or smoke from these (no gunpowder).
+const NO_MUZZLE_FX = new Set(['crossbow', 'flamethrower', 'melee', 'tomahawk'])
 // Inspect Weapon (X by default): the gun turns to show its side at an
 // angle, holds there, and turns back - seconds for each part.
 const INSPECT_IN = 0.3
@@ -181,6 +198,10 @@ export class BuildTryMode {
     this.onGround = false
     this._bob = 0
     this._recoil = 0
+    this._kickVel = 0
+    this._kickRoll = 0
+    this._muzzle = null
+    this._fx = null
     this.aiming = false
     this.aimAmount = 0
     this._inspectT = -1
@@ -610,6 +631,8 @@ export class BuildTryMode {
     this.bm.camera.updateProjectionMatrix()
     this._setUnderwater(null)
     if (this._gun) this._gun.visible = false
+    this._fx?.clear()
+    this._recoil = this._kickVel = this._kickRoll = 0
   }
 
   update(dt, keys) {
@@ -790,7 +813,8 @@ export class BuildTryMode {
         cam.updateProjectionMatrix()
       }
     }
-    this._recoil = Math.max(0, this._recoil - dt * 6)
+    this._updateKick(dt)
+    this._fx?.update(dt)
     this._updateDigging(dt)
     this.aimAmount = THREE.MathUtils.damp(this.aimAmount, this.aiming ? 1 : 0, AIM_SPEED, dt)
     if (this.aimAmount < 0.001) this.aimAmount = 0
@@ -803,10 +827,11 @@ export class BuildTryMode {
       this._gun.position.set(
         base.x + Math.cos(this._bob * 0.5) * (moving ? 0.008 : 0) * sway - inspect * 0.05,
         base.y + Math.abs(Math.sin(this._bob * 0.5)) * (moving ? -0.012 : 0) * sway + inspect * 0.05,
-        base.z + this._recoil * 0.05 * (1 - a * 0.5) + inspect * 0.03,
+        base.z + this._recoil * 0.045 * (1 - a * 0.5) + inspect * 0.03,
       )
+      this._gun.position.y += this._recoil * 0.012 * (1 - a * 0.6)
       // Inspecting turns the gun's side toward you and tips it a little.
-      this._gun.rotation.set(this._recoil * 0.18 * (1 - a * 0.6) + inspect * 0.12, inspect * 0.75, inspect * 0.32)
+      this._gun.rotation.set(this._recoil * 0.13 * (1 - a * 0.6) + inspect * 0.12, inspect * 0.75, inspect * 0.32 + this._kickRoll * (1 - a * 0.7))
     }
     this._updateShards(dt)
     this._updateBody(dt)
@@ -852,11 +877,41 @@ export class BuildTryMode {
     // before windows.
     const play = this.bm.survival
     if (play?.active && (play.dead || !play.tryFire())) return
-    this._recoil = 1
+    this._kick()
     this._inspectT = -1
     audioEngine.playShot(this._gunId)
     if (play?.active && play.shoot()) return
     this._shootWindow()
+  }
+
+  // One shot's push on the kick spring, plus the flash and smoke.
+  _kick() {
+    const id = this._gunId
+    this._kickVel += (RECOIL_KICK[id] ?? RECOIL_KICK_DEFAULT) * (0.9 + Math.random() * 0.2)
+    this._kickRoll += (Math.random() - 0.5) * 0.06
+    if (!NO_MUZZLE_FX.has(id) && this._gun?.visible && this._gunScene) {
+      if (!this._fx) this._fx = new GunFx(this._gunScene)
+      this._fx.fire(this._gun, this._muzzle, this.aimAmount > 0.5)
+    }
+  }
+
+  // The kick spring (see RECOIL_SPRING) - small fixed steps, so it stays
+  // smooth and stable at any frame rate.
+  _updateKick(dt) {
+    const steps = Math.ceil(dt / 0.008)
+    const h = dt / steps
+    for (let i = 0; i < steps; i++) {
+      this._kickVel += (-RECOIL_SPRING * this._recoil - RECOIL_DAMP * this._kickVel) * h
+      this._recoil += this._kickVel * h
+    }
+    if (this._recoil > RECOIL_MAX) {
+      this._recoil = RECOIL_MAX
+      this._kickVel = Math.min(0, this._kickVel)
+    } else if (this._recoil < -0.15) {
+      this._recoil = -0.15
+      this._kickVel = Math.max(0, this._kickVel)
+    }
+    this._kickRoll = THREE.MathUtils.damp(this._kickRoll, 0, 9, dt)
   }
 
   // Held right-click: aim down the sights (stops any inspect) - only in
@@ -1378,6 +1433,26 @@ export class BuildTryMode {
     this._loadArms()
   }
 
+  // The middle of the barrel's tip, in the gun group's space: the centre of
+  // the vertices in the front 4% of the gun (every gun points along -z).
+  _findMuzzle(gun, exact) {
+    const front = exact.min.z + (exact.max.z - exact.min.z) * 0.04
+    const tip = new THREE.Box3()
+    const v = new THREE.Vector3()
+    gun.traverse((o) => {
+      const pos = o.isMesh && o.geometry.attributes.position
+      if (!pos) return
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i)
+        if (o.isSkinnedMesh) o.applyBoneTransform(i, v)
+        v.applyMatrix4(o.matrixWorld)
+        if (v.z <= front) tip.expandByPoint(v)
+      }
+    })
+    if (tip.isEmpty()) return new THREE.Vector3((exact.min.x + exact.max.x) / 2, exact.max.y - (exact.max.y - exact.min.y) * 0.3, exact.min.z)
+    return tip.getCenter(new THREE.Vector3()).setZ(exact.min.z)
+  }
+
   // Where the two hands go on this gun, in the gun group's space, from the
   // gun's own size (every gun points along -z): the right hand on the grip
   // near the back, the left hand under the barrel halfway along.
@@ -1411,6 +1486,7 @@ export class BuildTryMode {
     // the AK off the middle (2026-10-13, "the aim feels wrong, not in the
     // middle").
     const sightX = this._topLineX(gun, exact) ?? (exact.min.x + exact.max.x) / 2
+    this._muzzle = this._findMuzzle(gun, exact)
     this._aimOffset = new THREE.Vector3(-sightX, -exact.max.y - (back + len) * AIM_DROP + AIM_SIGHT_RISE - (AIM_LOWER_FOR[this._gunId] || 0), -back - exact.max.z)
     return [
       { limb: 'armR', shoulder: ARM_SHOULDERS.armR, hand: grip.toArray() },

@@ -1339,9 +1339,14 @@ export class BuildMode {
     const blocks = this.world.active ? Math.min(this.viewDistance(), this.world.radius() - 8) : this.viewDistance()
     const fog = this.scene.fog
     if (this.scene.background?.isColor) fog.color.copy(this.scene.background)
+    // Rain, snow and sandstorms bring the fog in (BuildSky.fogFactor).
+    const weather = this.sky?.fogFactor ?? 1
     if (Number.isFinite(blocks)) {
-      fog.near = blocks * FOG_START * BLOCK_SIZE
-      fog.far = blocks * BLOCK_SIZE
+      fog.near = blocks * FOG_START * BLOCK_SIZE * weather * weather
+      fog.far = blocks * BLOCK_SIZE * weather
+    } else if (weather < 0.999) {
+      fog.near = 20 * BLOCK_SIZE * weather
+      fog.far = 140 * BLOCK_SIZE * weather
     } else {
       fog.near = 1e5
       fog.far = 1e6

@@ -44,6 +44,25 @@ const MAX_ALIVE = 16
 const SKELETON_RISE = 1.6
 const SKELETON_LIE = 2.4
 const SKELETON_SINK = 1.2
+// Zombie brains (2026-10-17, Gaymi: "make all zombies have a brain where
+// they move different directions to attack you but still stay low ms").
+// On top of the flow field (which still finds the way around walls), each
+// zombie gets a role when it first moves: rushers come straight in,
+// flankers curve out to your left or right while they're still a way off
+// (sides alternate, so a wave closes in around you instead of in a line),
+// lungers sprint at you in short bursts once close. A brain only re-thinks
+// every BRAIN_THINK seconds; bumping into a wall turns flanking off for
+// FLANK_STUCK seconds so it never fights the path. Bosses keep coming
+// straight.
+const BRAIN_THINK = 0.3
+const BRAIN_ROLES = [['rusher', 0.35], ['flanker', 0.5], ['lunger', 0.15]]
+const FLANK_FAR = 16 // blocks: full curve this far out...
+const FLANK_NEAR = 3 // ...none this close
+const FLANK_STUCK = 1.2
+const LUNGE_RANGE = 6
+const LUNGE_TIME = 0.8
+const LUNGE_EVERY = 3.5
+const LUNGE_MULT = 1.45
 const SKELETON_KIND_IDS = Object.keys(SKELETON_KINDS)
 // Dead zombies (2026-10-12, "make the dead body fall on the ground and
 // slowly fade gone"): they tip over away from the shot in CORPSE_FALL
@@ -1243,10 +1262,20 @@ export class BuildSurvival {
         }
       }
     }
-    const dx = tx - zb.x
-    const dz = tz - zb.z
+    let dx = tx - zb.x
+    let dz = tz - zb.z
+    const len = Math.hypot(dx, dz) || 1
+    // The brain bends the way (flankers) and sets the pace (lungers).
+    const pace = this._zombieBrain(zb, dt, player)
+    if (zb.flank > 0) {
+      // Forward plus a sideways part (left or right of the way in).
+      const fx = dx / len
+      const fz = dz / len
+      dx = fx - fz * zb.side * zb.flank
+      dz = fz + fx * zb.side * zb.flank
+    }
     const dist = Math.hypot(dx, dz) || 1
-    const want = speed
+    const want = speed * pace
     zb.vx = THREE.MathUtils.damp(zb.vx, (dx / dist) * want, 10, dt)
     zb.vz = THREE.MathUtils.damp(zb.vz, (dz / dist) * want, 10, dt)
     // Keep a little apart from each other.
@@ -1277,6 +1306,7 @@ export class BuildSurvival {
         } else blocked = true
       }
     }
+    if (blocked) zb.stuck = FLANK_STUCK
     // Jump up a block when it's in the way, or the path goes up.
     if (zb.onGround && (blocked || ty > zb.y + 0.6) && !onLadder) {
       zb.vy = JUMP
@@ -1505,6 +1535,47 @@ export class BuildSurvival {
       }
       this._renderHud()
     }
+  }
+
+  // A zombie's brain (see BRAIN_ROLES): picks its role once, re-thinks every
+  // BRAIN_THINK seconds, and returns its speed multiplier for this frame.
+  _zombieBrain(zb, dt, player) {
+    if (!zb.role) {
+      let roll = Math.random()
+      zb.role = 'rusher'
+      for (const [role, chance] of BRAIN_ROLES) {
+        if (roll < chance) {
+          zb.role = role
+          break
+        }
+        roll -= chance
+      }
+      if (zb.boss) zb.role = 'rusher'
+      this._brainSide = -(this._brainSide || 1)
+      zb.side = this._brainSide
+      zb.flankAmt = 0.7 + Math.random() * 0.5
+      zb.think = Math.random() * BRAIN_THINK
+      zb.flank = 0
+      zb.stuck = 0
+      zb.lunge = 0
+      zb.lungeCd = Math.random() * LUNGE_EVERY
+    }
+    zb.stuck = Math.max(0, zb.stuck - dt)
+    zb.lungeCd -= dt
+    zb.lunge = Math.max(0, zb.lunge - dt)
+    zb.think -= dt
+    if (zb.think <= 0) {
+      zb.think = BRAIN_THINK
+      const d = Math.hypot(player.x - zb.x, player.z - zb.z)
+      const far = THREE.MathUtils.clamp((d - FLANK_NEAR) / (FLANK_FAR - FLANK_NEAR), 0, 1)
+      zb.flank = zb.role === 'flanker' && !player.idle && zb.stuck <= 0 ? far * zb.flankAmt : 0
+      if (zb.role === 'lunger' && !player.idle && d < LUNGE_RANGE && zb.lungeCd <= 0) {
+        zb.lunge = LUNGE_TIME
+        zb.lungeCd = LUNGE_EVERY
+      }
+    }
+    if (zb.stuck > 0) zb.flank = 0
+    return zb.lunge > 0 ? LUNGE_MULT : 1
   }
 
   // Who the zombies chase: me (unless dead) and, on a server, every other
