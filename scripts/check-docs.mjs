@@ -175,11 +175,38 @@ function linkedTexts(indexContent, read) {
 
 // Content lines a -U0 diff adds or removes, minus comments and the link
 // declarations themselves.
+// A line that is removed in one place and added back unchanged somewhere
+// else (code moved into another file - only `this` -> `game` and the
+// indentation differ) is a move, not a change, so it's left out.
 function changedCode(diff) {
-  return diff.split('\n')
+  const lines = diff.split('\n')
     .filter((l) => /^[+-]/.test(l) && !/^(\+\+\+|---)/.test(l))
-    .map((l) => l.slice(1))
-    .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l) && !/code: '|data-code="/.test(l))
+    .filter((l) => !/^.\s*(\/\/|\*|\/\*)/.test(l) && !/code: '|data-code="/.test(l))
+  // Import lines, a declaration only gaining `export`, and a one-line
+  // stand-in that hands a method on to its new module change nothing a
+  // player sees either.
+  const lines2 = lines.filter((l) => !/^.\s*import\b/.test(l) && !/^\+\s+(async )?\w+\([^)]*\) \{ return \w+\.\w+\(this(, [^)]*)?\) \}$/.test(l))
+  lines.length = 0
+  lines.push(...lines2)
+  const moved = (l) => l.slice(1).trim().replace(/^export\s+/, '').replace(/^(async\s+)?function\s+(\w+)\(_?game(,\s*)?/, '$1$2(').replace(/\bthis\b/g, 'game')
+  const removed = new Map()
+  for (const l of lines) if (l[0] === '-') removed.set(moved(l), (removed.get(moved(l)) || 0) + 1)
+  const out = []
+  for (const l of lines) {
+    if (l[0] !== '+') continue
+    const k = moved(l)
+    if (removed.get(k)) removed.set(k, removed.get(k) - 1)
+    else out.push(l.slice(1))
+  }
+  for (const l of lines) {
+    if (l[0] !== '-') continue
+    const k = moved(l)
+    if (removed.get(k)) {
+      removed.set(k, removed.get(k) - 1)
+      out.push(l.slice(1))
+    }
+  }
+  return out
 }
 
 function linkProblems({ indexContent, indexTouched, srcDiff, i18nDiff, message, read, srcText }) {
