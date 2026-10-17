@@ -1417,28 +1417,33 @@ test('the camera key switches between first and third person', async ({ page }) 
   expect(r.aimInThird).toBe(false)
 })
 
-// 2026-10-16: realistic HD block textures are made in a worker and swapped
-// into the chunk atlas (same layout) without waiting - a tile then holds
-// far more shades than a 16x16 pixel-art texture can.
-test('block textures turn HD once the worker is done', async ({ page }) => {
+// 2026-10-17: block textures are clean, crisp pixel art like Kirka/bloxd
+// (the blurry HD pass is gone): 16px tiles drawn with nearest filtering, and
+// every painted face cut down to a few flat colours (cleanPixels).
+test('block textures are clean and crisp', async ({ page }) => {
   await gotoAndWaitForGame(page)
   await page.evaluate(async () => { await window.__game._enterBuildMode({ map: 'map2' }) })
-  await page.waitForFunction(() => (window.__game.buildMode._chunks?.atlas?.version || 0) >= 2, null, { timeout: 90000 })
   const r = await page.evaluate(() => {
     const chunks = window.__game.buildMode._chunks
-    const ctx = chunks.atlas.image.getContext('2d', { willReadFrequently: true })
-    let colors = 0
-    for (const slot of chunks._atlasSlots.slice(0, 50)) {
-      const d = ctx.getImageData(slot.ox, slot.oy, 64, 64).data
+    const img = chunks.atlas.image
+    const ctx = img.getContext('2d', { willReadFrequently: true })
+    const colors = {}
+    for (const id of ['stone', 'cobblestone', 'oakplanks', 'dirt', 'bricks', 'sand']) {
+      const uv = chunks.info.get(id)?.uvs?.[0]
+      if (!uv) continue
+      const x = Math.round(uv[0] * img.width)
+      const y = Math.round((1 - uv[3]) * img.height)
+      const d = ctx.getImageData(x, y, 16, 16).data
       const seen = new Set()
       for (let i = 0; i < d.length; i += 4) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2])
-      colors = Math.max(colors, seen.size)
+      colors[id] = seen.size
     }
-    return { slots: chunks._atlasSlots.length, colors, width: chunks.atlas.image.width }
+    return { colors, crisp: chunks.atlas.magFilter === 1003, width: img.width }
   })
-  expect(r.slots).toBeGreaterThan(250)
-  expect(r.width).toBe(4096)
-  expect(r.colors).toBeGreaterThan(300)
+  expect(r.crisp).toBe(true)
+  expect(r.width).toBe(2048)
+  expect(Object.keys(r.colors).length).toBeGreaterThanOrEqual(5)
+  for (const n of Object.values(r.colors)) expect(n).toBeLessThanOrEqual(4)
 })
 
 // 2026-10-16: real animated 3D skeletons (SkeletonModels.js) join the
@@ -1481,4 +1486,141 @@ test('skeletons rise, fight, sync and die', async ({ page }) => {
   expect(r.alive).toBe(false)
   expect(r.corpses).toBe(1)
   expect(r.corpsesAfter).toBe(0)
+})
+
+// 2026-10-17: right-click aims only while held, the zoom key zooms much
+// further while playing, and holding fire on a block breaks it after its
+// material's time (stone slower than wood); broken blocks come back.
+test('hold right-click to aim, the zoom key zooms far, blocks break by material', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(async () => { localStorage.removeItem('gayz-play-saved-run'); await window.__game._enterBuildMode({ map: 'map3', play: true }) })
+  const r = await page.evaluate(() => {
+    const bm = window.__game.buildMode
+    const tm = bm.tryMode
+    const s = bm.survival
+    if (document.getElementById('play-weapon-pick')?.style.display !== 'none') s._pickWeapon('rifle')
+    s._toSpawn = 0
+    s._breakTimer = 999
+    const out = {}
+    Object.defineProperty(document, 'pointerLockElement', { configurable: true, get: () => bm.renderer.domElement })
+    bm.renderer.domElement.dispatchEvent(new PointerEvent('pointerdown', { button: 2, bubbles: true }))
+    out.held = tm.aiming
+    window.dispatchEvent(new PointerEvent('pointerup', { button: 2, bubbles: true }))
+    out.released = tm.aiming
+    delete document.pointerLockElement
+    bm._keys.add('KeyV')
+    for (let i = 0; i < 40; i++) tm.update(0.05, bm._keys)
+    out.zoomFov = bm.camera.fov
+    bm._keys.delete('KeyV')
+    for (let i = 0; i < 40; i++) tm.update(0.05, bm._keys)
+    out.backFov = bm.camera.fov
+    out.times = Object.fromEntries(['oakplanks', 'stone', 'dirt', 'leaves', 'obsidian', 'oakslab', 'lootchest', 'water'].map((id) => [id, bm.breakSeconds(id)]))
+    // Dig a plank and a stone block placed right in front of the eye.
+    const B = tm.B
+    const px = Math.floor(tm.pos.x)
+    const py = Math.floor(tm.pos.y) + 2
+    const pz = Math.floor(tm.pos.z)
+    const dig = (type) => {
+      bm.removeBlock(px, py, pz - 2)
+      bm.placeBlock(px, py, pz - 2, type)
+      bm.camera.rotation.set(0, 0, 0)
+      bm._fireHeld = true
+      let t = 0
+      while (bm.getBlockAt(px, py, pz - 2) === type && t < 20) {
+        bm.camera.position.set((px + 0.5) * B, (py + 0.5) * B, (pz + 0.5) * B)
+        bm.camera.updateMatrixWorld()
+        tm._updateDigging(0.05)
+        t += 0.05
+      }
+      bm._fireHeld = false
+      tm._updateDigging(0.05)
+      return t
+    }
+    out.plank = dig('oakplanks')
+    out.stone = dig('stone')
+    out.brokenSaved = bm._snapshot().blocks.some((b) => b.x === px && b.y === py && b.z === pz - 2)
+    bm.toggleTryMode()
+    out.back = bm.getBlockAt(px, py, pz - 2)
+    return out
+  })
+  expect(r.held).toBe(true)
+  expect(r.released).toBe(false)
+  expect(r.zoomFov).toBeLessThan(15)
+  expect(r.backFov).toBeGreaterThan(60)
+  expect(r.times.stone).toBeGreaterThan(r.times.oakplanks)
+  expect(r.times.oakplanks).toBeGreaterThan(r.times.dirt)
+  expect(r.times.dirt).toBeGreaterThan(r.times.leaves)
+  expect(r.times.obsidian).toBeGreaterThan(r.times.stone)
+  expect(r.times.oakslab).toBe(r.times.oakplanks)
+  expect(r.times.lootchest).toBe(Infinity)
+  expect(r.times.water).toBe(Infinity)
+  expect(Math.abs(r.plank - r.times.oakplanks)).toBeLessThan(0.11)
+  expect(Math.abs(r.stone - r.times.stone)).toBeLessThan(0.11)
+  expect(r.brokenSaved).toBe(true)
+  expect(r.back).toBe('stone')
+})
+
+// 2026-10-17: Escape while playing a game from the homepage opens the
+// game's own pause menu (never the Map Editor's); Save Progress / Back to
+// Menu keep the game and the next Play carries on from it; Leave Game ends
+// it (counted) and drops the save.
+test("Escape while playing opens the game's pause menu; saved games carry on", async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => { localStorage.removeItem('gayz-play-saved-run'); window.__game.playBtn.click() })
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 90000 })
+  const a = await page.evaluate(async () => {
+    const g = window.__game
+    const bm = g.buildMode
+    const s = bm.survival
+    s._pickWeapon('shotgun')
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyT', bubbles: true }))
+    const out = { stillPlaying: s.active && bm.tryMode.active }
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', bubbles: true }))
+    out.paused = bm.menuOpen
+    out.game = getComputedStyle(document.getElementById('play-pause-menu')).display
+    out.editor = getComputedStyle(document.getElementById('build-menu')).display
+    document.getElementById('play-pause-settings-btn').click()
+    out.settings = g.settingsOpen && document.getElementById('play-pause-menu').style.display === 'none'
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', bubbles: true }))
+    out.backFromSettings = !g.settingsOpen && document.getElementById('play-pause-menu').style.display === 'flex'
+    s.wave = 4
+    s.kills = 23
+    s.coins = 77
+    s.upgrades = { damage: 2 }
+    out.runs0 = g.careerStats.totalRuns
+    document.getElementById('play-pause-save-btn').click()
+    out.saveText = document.getElementById('play-pause-status').textContent
+    document.getElementById('play-pause-back-btn').click()
+    await new Promise((res) => setTimeout(res, 300))
+    out.home = !bm.active
+    out.counted = g.careerStats.totalRuns - out.runs0
+    out.saved = !!localStorage.getItem('gayz-play-saved-run')
+    return out
+  })
+  expect(a.stillPlaying).toBe(true)
+  expect(a.paused).toBe(true)
+  expect(a.game).toBe('flex')
+  expect(a.editor).toBe('none')
+  expect(a.settings).toBe(true)
+  expect(a.backFromSettings).toBe(true)
+  expect(a.saveText.length).toBeGreaterThan(0)
+  expect(a.home).toBe(true)
+  expect(a.counted).toBe(0)
+  expect(a.saved).toBe(true)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 90000 })
+  const b = await page.evaluate(async () => {
+    const g = window.__game
+    const s = g.buildMode.survival
+    const out = { wave: s.wave, kills: s.kills, coins: s.coins, damage: s.upgrades.damage, weapon: s.weaponId, picking: !!s._picking }
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', bubbles: true }))
+    const runs0 = g.careerStats.totalRuns
+    document.getElementById('play-pause-leave-btn').click()
+    await new Promise((res) => setTimeout(res, 300))
+    out.home = !g.buildMode.active
+    out.counted = g.careerStats.totalRuns - runs0
+    out.saved = !!localStorage.getItem('gayz-play-saved-run')
+    return out
+  })
+  expect(b).toEqual({ wave: 3, kills: 23, coins: 77, damage: 2, weapon: 'shotgun', picking: false, home: true, counted: 1, saved: false })
 })

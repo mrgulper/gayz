@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { cleanPixels } from './PixelClean.js'
 
 // Every weapon's 3D model (2026-10-10, Gaymi picked each one: "for all the
 // guns can we go on sketchfab and find high quality gun models that are
@@ -57,6 +58,81 @@ const WEAPON_MODELS = {
 
 const MODEL_CACHE = {}
 
+// Clean, simple guns (2026-10-17, Gaymi: "same with the weapon can you make
+// like that low ploy but stilll clean, clear and not blurry and simple with
+// low lag"): each material's colour picture is shrunk to GUN_TEX_SIZE, cut
+// down to GUN_COLORS flat colours (PixelClean.js) and drawn crisp (nearest
+// filtering) - a 512px photo-like texture stretched over a gun filling half
+// the screen is what looked blurry. Its bump, shine and metal pictures go
+// too (flat values instead), so each gun is cheaper to draw.
+const GUN_TEX_SIZE = 128
+const GUN_COLORS = 8
+function simplifyMaterials(scene) {
+  const done = new Map()
+  const textures = new Map()
+  const draw = (img) => {
+    const c = document.createElement('canvas')
+    c.width = c.height = GUN_TEX_SIZE
+    const ctx = c.getContext('2d', { willReadFrequently: true })
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(img, 0, 0, GUN_TEX_SIZE, GUN_TEX_SIZE)
+    return c
+  }
+  // Metal was lit by reflections (a light grey colour that reads dark and
+  // shiny); without them it's darkened here instead, by how metal each
+  // pixel is (glTF keeps that in the metal/rough picture's blue channel).
+  const flat = (m) => {
+    const tex = m.map
+    if (!tex?.image) return tex
+    const key = `${tex.uuid}:${m.metalnessMap?.uuid || ''}:${m.metalness}`
+    if (textures.has(key)) return textures.get(key)
+    const c = draw(tex.image)
+    const ctx = c.getContext('2d', { willReadFrequently: true })
+    const img = ctx.getImageData(0, 0, GUN_TEX_SIZE, GUN_TEX_SIZE)
+    const metal = m.metalnessMap?.image && m.metalnessMap.channel === tex.channel ? draw(m.metalnessMap.image).getContext('2d', { willReadFrequently: true }).getImageData(0, 0, GUN_TEX_SIZE, GUN_TEX_SIZE).data : null
+    for (let i = 0; i < img.data.length; i += 4) {
+      const k = 1 - 0.55 * (metal ? metal[i + 2] / 255 : 1) * (m.metalness ?? 0)
+      img.data[i] *= k
+      img.data[i + 1] *= k
+      img.data[i + 2] *= k
+    }
+    ctx.putImageData(img, 0, 0)
+    cleanPixels(c, GUN_COLORS)
+    const next = new THREE.CanvasTexture(c)
+    for (const k of ['flipY', 'wrapS', 'wrapT', 'channel']) next[k] = tex[k]
+    next.offset.copy(tex.offset)
+    next.repeat.copy(tex.repeat)
+    next.colorSpace = THREE.SRGBColorSpace
+    next.magFilter = THREE.NearestFilter
+    next.minFilter = THREE.LinearMipmapLinearFilter
+    textures.set(key, next)
+    return next
+  }
+  const one = (m) => {
+    if (!m) return m
+    if (done.has(m)) return done.get(m)
+    const n = m.clone()
+    n.map = flat(m)
+    // A flat colour with no picture: darkened the same way.
+    if (!m.map && n.color && m.metalness) n.color.multiplyScalar(1 - 0.55 * m.metalness)
+    for (const key of ['normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'bumpMap']) if (key in n) n[key] = null
+    if ('roughness' in n) n.roughness = 0.65
+    if ('metalness' in n) n.metalness = 0.1
+    done.set(m, n)
+    return n
+  }
+  scene.traverse((o) => {
+    if (o.isMesh) o.material = Array.isArray(o.material) ? o.material.map(one) : one(o.material)
+  })
+  // The big originals are never drawn now - let their memory go.
+  for (const m of done.keys()) {
+    for (const key of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'bumpMap']) {
+      m[key]?.image?.close?.()
+      m[key]?.dispose()
+    }
+  }
+}
+
 // Loads every weapon model (main.js waits for this before building the
 // game). A model that fails to load just leaves its weapon as a plain
 // stand-in box (buildViewmodel) instead of stopping the game.
@@ -65,7 +141,9 @@ export function preloadWeaponModels() {
   loader.setMeshoptDecoder(MeshoptDecoder)
   return Promise.all(Object.keys(WEAPON_MODELS).map(async (id) => {
     try {
-      MODEL_CACHE[id] = await loader.loadAsync(`/models/weapons/${id}.glb`)
+      const gltf = await loader.loadAsync(`/models/weapons/${id}.glb`)
+      if (!WEAPON_MODELS[id].paint) simplifyMaterials(gltf.scene)
+      MODEL_CACHE[id] = gltf
     } catch (err) {
       console.warn(`Weapon model ${id} failed to load`, err)
     }

@@ -1,4 +1,5 @@
 import './style.css'
+import './play-pause.css'
 import './consoleBridge.js'
 import { Game } from './game/Game.js'
 import { preBootCloudSync } from './game/CloudPreBoot.js'

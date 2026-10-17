@@ -23,6 +23,7 @@ import { getKeyFor } from './Keybinds.js'
 import { t } from './i18n.js'
 import { BuildCamp, COIN_PER_KILL, COIN_PER_WAVE } from './BuildCamp.js'
 import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, ammoFor, weaponBars } from './PlayWeapons.js'
+import { worldSeed } from './OpenWorld.js'
 import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE } from './PlayRules.js'
 
 export const CHEST_LOOT = { ammo: 60, health: 35 }
@@ -100,6 +101,11 @@ function zombieSkin() {
   if (!_skinPromise) _skinPromise = loadSkinTexture(ZOMBIE_SKIN_URL)
   return _skinPromise
 }
+
+// A homepage run saved from the pause menu (Save Progress / Back to Menu,
+// 2026-10-17) - the next Play carries on from it (BuildSurvival.savedRun).
+export const SAVED_RUN_KEY = 'gayz-play-saved-run'
+const num = (v, lo, hi, d = lo) => (Number.isFinite(Number(v)) ? Math.min(hi, Math.max(lo, Number(v))) : d)
 
 export class BuildSurvival {
   constructor(buildMode, blockSize) {
@@ -194,17 +200,25 @@ export class BuildSurvival {
     this._overEl.style.display = 'none'
     this._renderHud()
     document.getElementById('build-mode-play-btn-label')?.replaceChildren(t('buildModePlayStopBtn'))
-    if (fromMenu) this._openWeaponPicker()
+    // A run saved from the pause menu carries on, if it was on the same
+    // Game Mode and difficulty (otherwise it's dropped).
+    const savedRun = fromMenu && !net ? BuildSurvival.savedRun() : null
+    const resume = savedRun && savedRun.mode === String(this.cfg.mode || '') && savedRun.difficulty === String(this.cfg.difficulty || 'normal') ? savedRun : null
+    if (savedRun && !resume) BuildSurvival.clearSavedRun()
+    if (resume) this._resumeRun(resume)
+    else if (fromMenu) this._openWeaponPicker()
     else this._message(t('buildPlayGetReady'))
     zombieSkin().then((skin) => { this._skin = skin }).catch(() => { this._skin = null })
     loadSkeletons()
   }
 
   // leaveTry: false when Try Map itself is being left (T / Escape menu).
-  stop({ leaveTry = true } = {}) {
+  // suspend: the run was just saved to carry on later (the pause menu's
+  // Back to Menu), so it isn't counted yet.
+  stop({ leaveTry = true, suspend = false } = {}) {
     if (!this.active) return
     // Leaving a run before dying still counts it (stats, quests).
-    if (!this.dead) this._endRun(false)
+    if (!this.dead && !suspend) this._endRun(false)
     this.active = false
     this.net?.leave()
     this.net = null
@@ -331,6 +345,115 @@ export class BuildSurvival {
     this._renderHud()
     // This click is a real user gesture, so the mouse can be captured again.
     try { this.bm.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available */ }
+  }
+
+  // --- Saved runs: the pause menu's Save Progress keeps where you are -
+  // wave, kills, coins, health, upgrades, your gun and ammo, where you
+  // stand and the land around the city - and the next Play from the
+  // homepage carries on from there (the wave you were on starts again).
+  // Never on a server. Counted (stats, quests) once, when the run ends. ---
+  saveRun() {
+    if (!this.active || !this.fromMenu || this.net || this.dead) return false
+    const tm = this.bm.tryMode
+    const run = {
+      v: 1,
+      at: Date.now(),
+      mode: String(this.cfg.mode || ''),
+      difficulty: String(this.cfg.difficulty || 'normal'),
+      wave: Math.max(1, this.wave),
+      kills: this.kills,
+      coins: this.coins,
+      coinsEarned: this._coinsEarned,
+      health: this.health,
+      armor: this.armor,
+      upgrades: { ...this.upgrades },
+      stats: { ...this.stats },
+      bestStreak: this.bestStreak,
+      bosses: this.bosses,
+      weaponId: this.weaponId,
+      mag: this.mag,
+      reserve: this.reserve,
+      seconds: (performance.now() - this._startedAt) / 1000,
+      claimed: (this.camp?.quests || []).filter((q) => q.claimed).map((q) => q.id),
+      pos: { x: tm.pos.x, y: tm.pos.y, z: tm.pos.z },
+      yaw: this.bm._yaw,
+      seed: this.bm.world?.active ? worldSeed() : null,
+    }
+    try {
+      localStorage.setItem(SAVED_RUN_KEY, JSON.stringify(run))
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // The saved run, checked over (it's from storage, so anything could be
+  // in it), or null.
+  static savedRun() {
+    let d
+    try {
+      d = JSON.parse(localStorage.getItem(SAVED_RUN_KEY) || 'null')
+    } catch {
+      return null
+    }
+    if (!d || typeof d !== 'object' || d.v !== 1) return null
+    const ints = (o) => Object.fromEntries(Object.entries(o && typeof o === 'object' ? o : {}).filter(([k]) => /^\w{1,32}$/.test(k)).map(([k, v]) => [k, Math.round(num(v, 0, 1e6))]))
+    const pos = d.pos && typeof d.pos === 'object' && [d.pos.x, d.pos.y, d.pos.z].every((v) => Number.isFinite(v) && Math.abs(v) < 1e5) ? { x: d.pos.x, y: d.pos.y, z: d.pos.z } : null
+    return {
+      mode: String(d.mode || '').slice(0, 40),
+      difficulty: String(d.difficulty || 'normal').slice(0, 20),
+      wave: Math.round(num(d.wave, 1, 9999, 1)),
+      kills: Math.round(num(d.kills, 0, 1e7)),
+      coins: Math.round(num(d.coins, 0, 1e9)),
+      coinsEarned: Math.round(num(d.coinsEarned, 0, 1e9)),
+      health: num(d.health, 1, 1e6, 100),
+      armor: num(d.armor, 0, 100),
+      upgrades: ints(d.upgrades),
+      stats: ints(d.stats),
+      bestStreak: Math.round(num(d.bestStreak, 0, 1e7)),
+      bosses: Math.round(num(d.bosses, 0, 1e6)),
+      weaponId: PLAY_WEAPONS[d.weaponId] ? d.weaponId : DEFAULT_PLAY_WEAPON,
+      mag: Math.round(num(d.mag, 0, 1e5)),
+      reserve: Math.round(num(d.reserve, 0, 1e7)),
+      seconds: num(d.seconds, 0, 1e7),
+      claimed: Array.isArray(d.claimed) ? d.claimed.filter((id) => typeof id === 'string').slice(0, 50) : [],
+      pos,
+      yaw: num(d.yaw, -1e3, 1e3, 0),
+      seed: Number.isFinite(d.seed) ? d.seed : null,
+    }
+  }
+
+  static clearSavedRun() {
+    try {
+      localStorage.removeItem(SAVED_RUN_KEY)
+    } catch {
+      // Nothing saved to clear.
+    }
+  }
+
+  _resumeRun(r) {
+    this.weaponId = r.weaponId
+    this.bm.tryMode._showGun()
+    this.wave = r.wave - 1
+    this.kills = r.kills
+    this.coins = r.coins
+    this._coinsEarned = r.coinsEarned
+    this.upgrades = r.upgrades
+    this.stats = { ...this.stats, ...r.stats }
+    this.bestStreak = r.bestStreak
+    this.bosses = r.bosses
+    this.health = Math.min(this.maxHealth, r.health)
+    this.armor = r.armor
+    this.mag = Math.min(r.mag, this.magSize())
+    this.reserve = r.reserve
+    this._startedAt = performance.now() - r.seconds * 1000
+    for (const q of this.camp?.quests || []) q.claimed = r.claimed.includes(q.id)
+    if (r.pos) {
+      this.bm.tryMode.pos.set(r.pos.x, r.pos.y, r.pos.z)
+      this.bm._yaw = r.yaw
+    }
+    this._message(t('playResumed', { n: r.wave }))
+    this._renderHud()
   }
 
   _damageMult() {
@@ -1265,6 +1388,8 @@ export class BuildSurvival {
   _endRun(won) {
     if (this._ended || !this.active) return null
     this._ended = true
+    // Counted now, so there's nothing left to carry on.
+    if (this.fromMenu && !this.net) BuildSurvival.clearSavedRun()
     // After a respawn on a server only this life's waves count.
     const waves = Math.max(0, (won ? this.wave : this.wave - 1) - (this._lifeStartWave || 0))
     return this._report('end', {
