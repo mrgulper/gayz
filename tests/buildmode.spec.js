@@ -1318,6 +1318,109 @@ test('thin bamboo, new blocks and the three map sizes', async ({ page }) => {
 })
 
 // All 26 biomes are out there, within a long walk of the city.
+test('Map 1 has 200 layers underground with ores, caves and walk-in entrances', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    const w = b.world
+    const u = w.under
+    w.reseed(4242)
+    const out = {}
+    // A shaft dug straight down always has walls (the rock appears as
+    // you dig), passes through different layers and ends on bedrock.
+    const dig = (x, z) => {
+      const types = new Set()
+      let holes = 0
+      let y = 60
+      while (y > -1 && !b._blocks.has(`${x},${y},${z}`)) y--
+      for (; y >= -205; y--) {
+        // Fallen into a cave: its walls (and floor) grow around you.
+        if (!b._blocks.has(`${x},${y},${z}`)) u._grow(Math.floor(x / 16), Math.floor(y / 16), Math.floor(z / 16))
+        const type = b._blocks.get(`${x},${y},${z}`)
+        if (!type) continue
+        types.add(type)
+        if (type === 'bedrock' && y <= -200) break
+        b.removeBlock(x, y, z)
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const k = `${x + dx},${y},${z + dz}`
+          if (!b._blocks.has(k)) holes++
+          else types.add(b._blocks.get(k))
+        }
+      }
+      return { types: [...types], holes, end: y }
+    }
+    w.update([{ x: 90, z: 2 }])
+    const land = dig(90, 2)
+    const city = dig(3, 5)
+    const all = new Set([...land.types, ...city.types])
+    out.endsOnBedrock = land.end === -200 && city.end === -200
+    out.layers = ['stone', 'tuff', 'deepslate', 'smoothbasalt', 'blackstone', 'bedrock'].filter((t) => !all.has(t))
+    out.ore = [...all].some((t) => /ore$/.test(t))
+    // (A cave crossing the shaft is a real opening, not a hole.)
+    out.fewHoles = land.holes + city.holes < 40
+    // Nothing dug or revealed there is saved with the map.
+    out.notSaved = !b._snapshot().blocks.some((bl) => bl.y < -3)
+    // Caves: walls grow around you underground.
+    for (let i = 0; i < 300; i++) w.update([{ x: 100, y: -60, z: 20 }])
+    let walls = 0
+    for (const rec of u.chunks.values()) walls += rec.keys.length
+    out.caveWalls = walls > 0
+    let open = 0
+    for (let i = 0; i < 3000; i++) {
+      const x = 80 + (i % 40)
+      const y = -30 - ((i * 7) % 120)
+      const z = (i * 13) % 60
+      if (!u.implicitSolid(x, y, z, `${x},${y},${z}`)) open++
+    }
+    out.caves = open > 30
+    // ...but never under the city's ground until well below it.
+    let cityCut = 0
+    for (let x = -30; x <= 30; x += 3) for (let z = -30; z <= 30; z += 3) for (let y = -15; y <= -2; y++) {
+      if (u.bottomAt(x, z) === -1 && !u.implicitSolid(x, y, z, `${x},${y},${z}`) && !w.removed.has(`${x},${y},${z}`) && !(x === 3 && z === 5)) cityCut++
+    }
+    out.cityCut = cityCut
+    // Entrances: a mouth open to the sky out in the land, away from the
+    // city and every village, castle and bridge, sloping down into rock.
+    const ents = []
+    for (let gx = -4; gx <= 4; gx++) for (let gz = -4; gz <= 4; gz++) { const e = u._entrance(gx, gz); if (e) ents.push(e) }
+    out.entrances = ents.length
+    const e = ents[0]
+    w.update([{ x: e.sx, z: e.sz }])
+    out.mouthOpen = !b._blocks.has(`${e.sx},${e.sy - 1},${e.sz}`)
+    out.awayFromPlaces = ents.every((en) => !w._plansOver(en.x0, en.z0, en.x1, en.z1).length && u.bottomAt(en.sx, en.sz) !== -1)
+    const mx = Math.floor(e.sx + e.dx * 0.6)
+    const my = Math.floor(e.sy + e.dy * 0.6)
+    const mz = Math.floor(e.sz + e.dz * 0.6)
+    w.update([{ x: mx, z: mz }])
+    let floor = null
+    for (let y = my; y > my - 5; y--) if (b._blocks.has(`${mx},${y},${mz}`)) { floor = y; break }
+    out.tunnelHasFloor = floor !== null
+    // The bar along the top: GayZ | mode | FPS | x y z.
+    await new Promise((res) => setTimeout(res, 400))
+    const bar = document.getElementById('top-bar')
+    out.bar = bar && getComputedStyle(bar).display !== 'none' ? bar.innerText.replace(/\s+/g, ' ') : ''
+    out.debugLineHidden = getComputedStyle(document.getElementById('fps-counter')).display === 'none'
+    return out
+  })
+  expect(r.endsOnBedrock).toBe(true)
+  expect(r.layers).toEqual([])
+  expect(r.ore).toBe(true)
+  expect(r.fewHoles).toBe(true)
+  expect(r.notSaved).toBe(true)
+  expect(r.caveWalls).toBe(true)
+  expect(r.caves).toBe(true)
+  expect(r.cityCut).toBe(0)
+  expect(r.entrances).toBeGreaterThan(0)
+  expect(r.mouthOpen).toBe(true)
+  expect(r.awayFromPlaces).toBe(true)
+  expect(r.tunnelHasFloor).toBe(true)
+  expect(r.bar).toMatch(/^GayZ Map Editor FPS \S+ -?\d+\.\d\d -?\d+\.\d\d -?\d+\.\d\d$/)
+  expect(r.debugLineHidden).toBe(true)
+})
+
 test('every open world biome is within reach of Map 1', () => {
   const found = new Set()
   for (let r = 80; r < 2600; r += 8) {

@@ -24,11 +24,15 @@ import { t } from './i18n.js'
 import { BuildCamp, COIN_PER_KILL, COIN_PER_WAVE } from './BuildCamp.js'
 import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, ammoFor, weaponBars } from './PlayWeapons.js'
 import { worldSeed } from './OpenWorld.js'
-import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE } from './PlayRules.js'
+import { BOTTOM } from './Underground.js'
+import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MOB_HEIGHT } from './PlayRules.js'
 
 export const CHEST_LOOT = { ammo: 60, health: 35 }
 const HEAD_MULT = 2.4
-const ZOMBIE_HEIGHT = 1.85
+// Drawn (and shot at) MOB_HEIGHT tall; they still walk through the 1.85
+// gap a door or a two-block hole leaves.
+const ZOMBIE_HEIGHT = MOB_HEIGHT
+const ZOMBIE_FIT_HEIGHT = 1.85
 const ZOMBIE_HALF = 0.3
 const ATTACK_RANGE = 0.95
 const ATTACK_COOLDOWN = 1
@@ -80,15 +84,16 @@ const PATH_REFRESH = 0.5
 // on a fast computer - several hundred on a phone - every half second).
 const FLOW_BUDGET_MS = 3
 
-// Cell -> one number (x/z within +-2048, y within -64..191), much
-// cheaper as a Map key than an "x,y,z" string.
+// Cell -> one number (x/z within +-2048, y within -256..255 - the
+// underground goes down to -200), much cheaper as a Map key than an
+// "x,y,z" string.
 function cellKey(x, y, z) {
-  return ((x + 2048) * 4096 + (z + 2048)) * 256 + (y + 64)
+  return ((x + 2048) * 4096 + (z + 2048)) * 512 + (y + 256)
 }
 
 function cellOf(key) {
-  const y = (key % 256) - 64
-  const xz = Math.floor(key / 256)
+  const y = (key % 512) - 256
+  const xz = Math.floor(key / 512)
   return [Math.floor(xz / 4096) - 2048, y, (xz % 4096) - 2048]
 }
 const PATH_MAX_NODES = 9000
@@ -1228,7 +1233,7 @@ export class BuildSurvival {
   _zombieHits(x, y, z) {
     // The camp counts as a wall to zombies.
     if (this.camp?.inside(x, z, ZOMBIE_HALF + 0.05)) return true
-    return this.bm.tryMode._hits(x, y, z, ZOMBIE_HEIGHT)
+    return this.bm.tryMode._hits(x, y, z, ZOMBIE_FIT_HEIGHT)
   }
 
   _moveZombieAxis(zb, axis, amount) {
@@ -1340,7 +1345,7 @@ export class BuildSurvival {
     const hitY = this._moveZombieAxis(zb, 'y', zb.vy * dt)
     zb.onGround = hitY && falling
     if (hitY) zb.vy = 0
-    if (zb.y < -40) zb.health = 0
+    if (zb.y < BOTTOM - 16) zb.health = 0
 
     // A closed door in the way gets bashed open.
     const ahead = [Math.floor(zb.x + Math.sign(dx) * 0.6), cy, Math.floor(zb.z + Math.sign(dz) * 0.6)]

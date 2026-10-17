@@ -45,6 +45,12 @@ const FLY_SPEED = 8
 // feel rather than an on/off toggle.
 const FLY_ACCEL_LERP_SPEED = 8
 const LOOK_SENSITIVITY = 0.0022
+// Underground the fog turns this colour, from the ground's bottom down to
+// CAVE_FOG_DEPTH cells below it, and comes this close (blocks).
+const CAVE_FOG_COLOR = new THREE.Color(0x1b1d22)
+const CAVE_FOG_DEPTH = 6
+const CAVE_FOG_NEAR = 6
+const CAVE_FOG_FAR = 48
 // View distance (Settings > Graphics), in blocks: chunks further away
 // than this aren't drawn and fog fades out what's left before that edge
 // (BlockChunks.cullTo). Auto starts at Max on a computer and Medium on a
@@ -1400,6 +1406,19 @@ export class BuildMode {
       fog.far = 1e6
     }
     const p = this.camera.position
+    // Down in the rock (Underground.js) the fog is dark and close, not the
+    // sky's colour - a far tunnel would read as a hole otherwise.
+    if (this.world.active) {
+      const x = Math.floor(p.x / BLOCK_SIZE)
+      const z = Math.floor(p.z / BLOCK_SIZE)
+      const depth = this.world.under.bottomAt(x, z) - p.y / BLOCK_SIZE
+      if (depth > 0) {
+        const k = Math.min(1, depth / CAVE_FOG_DEPTH)
+        fog.color.lerp(CAVE_FOG_COLOR, k)
+        fog.near += (CAVE_FOG_NEAR * BLOCK_SIZE - fog.near) * k
+        fog.far += (Math.min(fog.far, CAVE_FOG_FAR * BLOCK_SIZE) - fog.far) * k
+      }
+    }
     this._chunks.cullTo(p.x / BLOCK_SIZE, p.z / BLOCK_SIZE, blocks)
   }
 
@@ -3858,7 +3877,7 @@ export class BuildMode {
   // other player on a server (OpenWorld.js).
   _updateWorld() {
     if (!this.world.active) return
-    const points = [this.tryMode.active ? this.tryMode.pos : { x: this.camera.position.x / BLOCK_SIZE, z: this.camera.position.z / BLOCK_SIZE }]
+    const points = [this.tryMode.active ? this.tryMode.pos : { x: this.camera.position.x / BLOCK_SIZE, y: this.camera.position.y / BLOCK_SIZE, z: this.camera.position.z / BLOCK_SIZE }]
     const net = this.survival?.active && this.survival.net
     if (net && !net.closed) for (const p of net.targets()) points.push(p)
     // A bug in the land must never stop the game's frame loop.

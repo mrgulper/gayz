@@ -11142,12 +11142,36 @@ html.ui-theme-old .crate-card .crate-stock-count { color: #241507; }
 }
 #build-menu-right > .build-menu-card { flex: none; }
 
+/* The bar along the very top in the Map Editor and Map 1 (TopBar.js,
+   bloxd.io's look): GayZ | mode | FPS | x y z. It replaces the green
+   debug line there. */
+#top-bar {
+  display: none; position: fixed; top: 6px; left: 8px; z-index: 17; pointer-events: none;
+  align-items: stretch; max-width: calc(100vw - 16px); overflow: hidden;
+  background: rgba(20, 20, 24, 0.62); border-radius: 6px;
+  font: 700 17px/1 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  user-select: none; white-space: nowrap;
+}
+.top-bar-part { display: flex; align-items: center; padding: 7px 12px; }
+.top-bar-part + .top-bar-part { border-left: 2px solid rgba(255, 255, 255, 0.28); }
+.top-bar-name { color: #ffd75e; letter-spacing: 0.5px; }
+.top-bar-label { opacity: 0.75; margin-right: 6px; }
+#top-bar-xyz { font-variant-numeric: tabular-nums; white-space: pre; }
+body.build-mode-on #fps-counter { display: none !important; }
+/* Phones: left of the pause button (top middle), wrapping onto a second
+   row when narrow; the wave line goes under both in portrait. */
+body.touch-play-on #top-bar { top: 4px; left: 4px; font-size: 11px; max-width: calc(50vw - 30px); flex-wrap: wrap; }
+body.touch-play-on .top-bar-part { padding: 5px 7px; }
+@media (orientation: portrait) {
+  body.touch-play-on #build-play-hud #build-play-wave { top: 58px; }
+}
+
 /* Map Editor Play (BuildSurvival.js): wave line top-left, health bar
    above the hotbar, ammo bottom-right, a red flash when hit. */
 #build-play-hud { display: none; position: fixed; inset: 0; z-index: 16; pointer-events: none; font-family: 'Bebas Neue', sans-serif; }
 #build-play-wave {
-  position: absolute; top: 64px; left: 16px;
-  padding: 6px 14px; font-size: 22px; letter-spacing: 1px; color: #ffe9a8;
+  position: absolute; top: 44px; left: 8px;
+  padding: 4px 11px; font-size: 17px; letter-spacing: 1px; color: #ffe9a8;
   background: rgba(10, 10, 10, 0.65); border: 1px solid rgba(255, 207, 92, 0.45); border-radius: 999px;
 }
 #build-play-msg {
@@ -11315,7 +11339,7 @@ body.touch-play-on #build-try-map { top: 8px; right: max(12px, env(safe-area-ins
 /* The fps readout moves to a small line at the bottom-left corner. */
 body.touch-play-on #fps-counter { top: auto !important; bottom: 4px !important; left: 8px !important; right: auto !important; transform: none !important; max-width: 42vw; font-size: 10px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 body.touch-play-on #build-play-msg { font-size: 26px; white-space: normal; width: 80vw; }
-body.touch-play-on #build-play-wave { top: 10px; font-size: 16px; padding: 4px 10px; }
+body.touch-play-on #build-play-wave { top: 32px; left: 4px; font-size: 13px; padding: 3px 8px; }
 
 /* Gallery panel (Coming Soon, 2026-10-09) - a centered picture-frame icon
    and two lines, in the panel's own content area. */

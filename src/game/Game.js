@@ -117,6 +117,7 @@ export const CRATE_ICON_SVG = {
 import { META_UPGRADES, loadMetaProgress } from './MetaProgress.js'
 import { UPGRADE_PLAY, PLAY_GAME_MODES } from './PlayRules.js'
 import * as GalleryUI from './GalleryUI.js'
+import { TopBar } from './TopBar.js'
 import { setLanguage, t } from './i18n.js'
 import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW_DATA_URL } from './MenuAvatar3D.js'
 // BuildMode.js is deliberately NOT statically imported here - it's a big,
@@ -1844,6 +1845,8 @@ export class Game {
     this.fpsEl.style.cssText = 'position:fixed;top:6px;left:6px;background:rgba(0,0,0,0.55);color:#7fd88f;font:13px monospace;padding:3px 7px;border-radius:4px;z-index:9999;pointer-events:none;opacity:0;transition:opacity 0.8s ease;'
     this.fpsEl.textContent = '-- fps'
     document.body.appendChild(this.fpsEl)
+    // The Map Editor / Map 1 show TopBar.js's bar instead.
+    this._topBar = new TopBar(this)
     this._fpsFrameCount = 0
     this._fpsLastUpdate = performance.now()
 
@@ -4756,6 +4759,7 @@ export class Game {
       this.buildMode.update(dt)
       this.buildMode.render()
       this._editorJsMs = (this._editorJsMs || 0) + (performance.now() - jsStart)
+      this._topBar.update(performance.now())
       // Same fps / ms readout the survival game shows (2026-09-30 request),
       // with the editor's own numbers.
       this._fpsFrameCount++
@@ -4773,6 +4777,7 @@ export class Game {
         const jsMs = (this._editorJsMs / this._fpsFrameCount).toFixed(1)
         this._editorJsMs = 0
         this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / js ${jsMs} ms / ${this.buildMode.lastDrawCalls} draws / ${this.buildMode.blockCount} blocks${resTag} / ${this._gpuRendererString}`
+        this._topBar.setFps(fps, this.fpsEl.textContent)
         this._updateEditorResScale(Number(msPerFrame), nowFpsBm)
         this._fpsFrameCount = 0
         this._fpsLastUpdate = nowFpsBm

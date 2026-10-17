@@ -26,6 +26,7 @@
 import { t } from './i18n.js'
 import { inCityShape, cityEdgeDistance } from './CityShape.js'
 import { planStructure, STRUCT_GRID, STRUCTURE_NAMES } from './WorldStructures.js'
+import { Underground, rockAt, setUnderSeed } from './Underground.js'
 
 const CHUNK = 16
 // The city lies within -CITY .. CITY-1 on x and z (its outline: CityShape.js).
@@ -53,8 +54,6 @@ const UNLOAD_MARGIN = 48
 const GEN_BUDGET_MS = 4
 // How far the roads continue out of the gates as dirt tracks.
 const PATH_LEN = 64
-// The ground under the land: stone, then deepslate this deep.
-const DEEPSLATE_Y = -16
 
 // Every biome: its name (i18n key) and how it's drawn on the minimap.
 export const BIOMES = {
@@ -97,6 +96,7 @@ let WORLD_SALT = 0
 
 export function setWorldSeed(seed) {
   WORLD_SALT = seed | 0
+  setUnderSeed(WORLD_SALT)
 }
 
 export function worldSeed() {
@@ -282,12 +282,20 @@ function surface(s, x, z) {
   }
 }
 
-function groundBlock(layer, y, under) {
+function groundBlock(layer, x, y, z, under) {
   if (layer === 0) return null
   if (under === 'band') return BANDS[((y % BANDS.length) + BANDS.length) % BANDS.length]
   if (layer <= 3) return under
   if (layer <= 6 && under === 'sand') return 'sandstone'
-  return y < DEEPSLATE_Y ? 'deepslate' : 'stone'
+  // The same layers and ores as the rock under it (Underground.js).
+  return rockAt(x, y, z)
+}
+
+// y of the lowest cell a land column stores at (x, z): its own top two
+// below the surface, deeper on a slope so cliff sides stay closed. Below
+// it is the underground's rock (Underground.js).
+function bottomFrom(h, lowest) {
+  return Math.min(lowest - 1, h - 2)
 }
 
 // --- features: trees, cacti, spikes, mushrooms, coral ---
@@ -333,6 +341,8 @@ export class OpenWorld {
     this._tiles = new Map()
     this._generating = false
     this._plans = new Map() // "gx,gz" -> a village/castle/bridge plan or null
+    this.under = new Underground(this)
+    this.sea = SEA
   }
 
   // Map 1 (or a map made from it) was just loaded: the world comes on,
@@ -361,6 +371,7 @@ export class OpenWorld {
   }
 
   _dropAll() {
+    this.under.dropAll()
     for (const [key, col] of [...this.columns]) this._unload(key, col)
     // Anything built out in the land goes with it.
     const bm = this.bm
@@ -387,6 +398,8 @@ export class OpenWorld {
 
   reset() {
     this.active = false
+    this.under.chunks.clear()
+    this.under._entrances.clear()
     this.columns.clear()
     this.terrainKeys.clear()
     this.removed.clear()
@@ -403,14 +416,32 @@ export class OpenWorld {
     return this.terrainKeys.has(key)
   }
 
-  // A player change (place or break) at a cell.
+  // A player change (place or break) at a cell. Under the city too: its
+  // rock is terrain like the land's (Underground.js).
   touched(x, y, z, key, removing) {
-    if (!this.active || this._generating || inCity(x, z)) return
-    this.edited.add(this._colKeyOfCell(x, z))
-    if (removing && this.terrainKeys.has(key)) {
+    if (!this.active || this._generating) return
+    const city = inCity(x, z)
+    if (!city) this.edited.add(this._colKeyOfCell(x, z))
+    if (!removing) return
+    if (this.terrainKeys.has(key)) {
       this.terrainKeys.delete(key)
       this.removed.add(key)
     }
+    // The rock around the hole becomes real (never a see-through hole).
+    this.under.reveal(x, y, z)
+  }
+
+  // The land at a cell (null in the city).
+  landAt(x, z) {
+    return inCity(x, z) ? null : sampleLand(x, z)
+  }
+
+  // bottomFrom for one cell, worked out from the noise.
+  bottomOf(x, z) {
+    if (inCity(x, z)) return -1
+    const h = (a, b) => (inCity(a, b) ? -1 : sampleLand(a, b).h)
+    const here = h(x, z)
+    return bottomFrom(here, Math.min(here, h(x - 1, z), h(x + 1, z), h(x, z - 1), h(x, z + 1)))
   }
 
   // How far out terrain is grown right now.
@@ -458,6 +489,8 @@ export class OpenWorld {
       if (performance.now() > until) break
       this._ensure(cx, cz)
     }
+    // Cave walls around you (the first point is always you or the camera).
+    this.under.update(points[0])
     // Drop columns well past every point (the player's own changes stay).
     if ((this._unloadTick = (this._unloadTick || 0) + 1) % 30 === 0) {
       const far = r + UNLOAD_MARGIN
@@ -485,7 +518,7 @@ export class OpenWorld {
     const bm = this.bm
     const x0 = cx * CHUNK
     const z0 = cz * CHUNK
-    const col = { cx, cz, keys: [], minY: Infinity, maxY: -Infinity }
+    const col = { cx, cz, keys: [], minY: Infinity, maxY: -Infinity, bottoms: new Int16Array(CHUNK * CHUNK).fill(-1) }
     this.columns.set(`${cx},${cz}`, col)
     // Heights for the column plus a one-cell border (for cliff sides).
     const W = CHUNK + 2
@@ -498,9 +531,13 @@ export class OpenWorld {
       }
     }
     const occupied = (k) => bm._blocks.has(k)
+    // Cave entrances reaching into this column (Underground.js): their
+    // open air stays open.
+    const entrances = this.under.entrancesForColumn(cx, cz)
     const put = (x, y, z, type) => {
       const k = `${x},${y},${z}`
       if (this.removed.has(k) || occupied(k)) return false
+      if (entrances.length && this.under.entranceAir(entrances, x, y, z)) return false
       bm._setTerrainBlock(k, x, y, z, type)
       this.terrainKeys.add(k)
       col.keys.push(k)
@@ -529,13 +566,14 @@ export class OpenWorld {
           const x = x0 - 1 + i
           const z = z0 - 1 + j
           const lowest = Math.min(s.h, samples[(i - 1) * W + j].h, samples[(i + 1) * W + j].h, samples[i * W + j - 1].h, samples[i * W + j + 1].h)
-          const bottom = Math.min(lowest - 1, s.h - 2)
+          const bottom = bottomFrom(s.h, lowest)
+          col.bottoms[(i - 1) * CHUNK + (j - 1)] = bottom
           let { top, under, deep } = surface(s, x, z)
           const onTrack = this._onPath(x, z)
           if (s.h >= SEA) top = this._roadTop(x, z, top, pathTops)
           for (let y = s.h; y >= bottom; y--) {
             const layer = s.h - y
-            let type = layer === 0 ? top : groundBlock(layer, y, under)
+            let type = layer === 0 ? top : groundBlock(layer, x, y, z, under)
             if (layer > 0 && deep && layer > 2 && layer <= 6) type = deep
             put(x, y, z, type)
           }
@@ -551,6 +589,7 @@ export class OpenWorld {
         }
       }
       this._features(x0, z0, put)
+      if (entrances.length) this.under.columnGrown(cx, cz, entrances)
     } finally {
       this._generating = false
     }
@@ -571,6 +610,7 @@ export class OpenWorld {
 
   _unload(key, col) {
     const bm = this.bm
+    this.under.columnDropped(col.cx, col.cz)
     for (const k of col.keys) {
       if (!this.terrainKeys.has(k)) continue
       this.terrainKeys.delete(k)
@@ -605,7 +645,7 @@ export class OpenWorld {
         const fz = gz * GRID + Math.floor(hash2(gx, gz, 223) * GRID)
         if (inCity(fx, fz)) continue
         const s = sampleLand(fx, fz)
-        if (s.d < 5 || this._claimed(fx, fz)) continue
+        if (s.d < 5 || this._claimed(fx, fz) || this.under.nearEntrance(fx, fz)) continue
         const list = FEATURES[s.biome]
         if (!list) continue
         let roll = hash2(gx, gz, 227)
