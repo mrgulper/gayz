@@ -526,46 +526,6 @@ export function _hasMeaningfulLocalProgress(game) {
     || (Array.isArray(game.runHistory) && game.runHistory.length > 0)
 }
 
-// Shows a short side-by-side comparison (same safe-parse-untrusted-JSON
-// pattern _compareSaveFile already uses for an uploaded file - a Drive
-// file the player controls is no more trustworthy than one they pick
-// from disk) so the choice isn't blind.
-// Read-only - parses another save file WITHOUT writing anything, just to
-// show a side-by-side stat comparison (e.g. two family members comparing
-// progress without either one's save getting overwritten). Reads the
-// same 3 storage keys BEST_STATS_KEY/CAREER_STATS_KEY/Achievements'
-// STORAGE_KEY directly out of the parsed JSON rather than through
-// loadBestStats() etc., since those functions read from the REAL
-// localStorage, not this uploaded file.
-export async function _compareSaveFile(game, file) {
-  if (!file || !game.compareSaveResult) return
-  let data
-  try {
-    data = JSON.parse(await file.text())
-  } catch {
-    game._showLoreToast(t('saveFileInvalid'))
-    return
-  }
-  const safeParse = (raw, fallback) => {
-    try {
-      return raw ? JSON.parse(raw) : fallback
-    } catch {
-      return fallback
-    }
-  }
-  const otherBest = safeParse(data['gayz-best-stats'], {})
-  const otherCareer = safeParse(data['gayz-career-stats'], {})
-  const otherAch = safeParse(data['gayz-achievements'], [])
-  game.compareSaveResult.style.display = 'block'
-  // _safeStatNumber on every value read from the uploaded file - game
-  // file is fully attacker-controlled (see its own doc comment).
-  game.compareSaveResult.innerHTML = [
-    t('compareSaveRow', { label: t('profileBestNight'), mine: _safeStatNumber(game.bestStats.bestNight), theirs: _safeStatNumber(otherBest.bestNight) }),
-    t('compareSaveRow', { label: t('profileTotalKills'), mine: _safeStatNumber(game.careerStats.totalKills), theirs: _safeStatNumber(otherCareer.totalKills) }),
-    t('compareSaveRow', { label: t('profileAchievements'), mine: _safeStatNumber(game.achievements.unlocked.size), theirs: _safeStatNumber(Array.isArray(otherAch) ? otherAch.length : 0) }),
-  ].join('<br>')
-}
-
 export function _updateStorageUsageLine(game) {
   if (!game.storageUsageLine) return
   let totalChars = 0

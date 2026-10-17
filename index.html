@@ -528,17 +528,17 @@ Escape before dawn.</p>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15 15 0 0 1 0 20a15 15 0 0 1 0-20"/></svg>
                 <span>Global</span>
               </button>
-              <button id="quests-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                <span>Quests</span>
-                <span class="nav-badge-dot" id="quests-new-dot" style="display: none"></span>
-                <span class="nav-badge-dot gold" id="quests-claim-dot" style="display: none"></span>
-              </button>
               <button id="friends-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 <span>Friend List</span>
                 <span class="nav-badge-dot gold" id="friends-accepted-dot" style="display: none"></span>
                 <span class="nav-badge-dot" id="friends-request-dot" style="display: none"></span>
+              </button>
+              <button id="quests-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <span>Quests</span>
+                <span class="nav-badge-dot" id="quests-new-dot" style="display: none"></span>
+                <span class="nav-badge-dot gold" id="quests-claim-dot" style="display: none"></span>
               </button>
               <button id="menu-inventory-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8H4a1 1 0 0 0-1 1v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a1 1 0 0 0-1-1z"/><path d="M16 8V6a4 4 0 0 0-8 0v2"/></svg>
@@ -568,18 +568,27 @@ Escape before dawn.</p>
               // call is a harmless no-op re-application once it runs.
               try {
                 var __n = JSON.parse(localStorage.getItem('gayz-settings') || 'null')
-                var __default = ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'friends-btn', 'quests-btn', 'menu-inventory-btn', 'achievements-btn']
-                var __order = Array.isArray(__n && __n.navOrder) && __n.navOrder.length === 8 ? __n.navOrder : __default
-                // The old default order (before 2026-10-09) counts as "never
-                // reordered" - same rule as Game.js's settings loader.
-                if (__order.join() === ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'].join()) __order = __default
-                __order.forEach(function (id, i) {
-                  var btn = document.getElementById(id)
-                  if (btn) btn.style.order = i * 2
+                // Same merge as SettingsUI._navOrderIds: saved ids first,
+                // any button the save doesn't know goes after the button it
+                // follows in the HTML; an old fixed 8-button default counts
+                // as "never reordered" (same rule as Game.js's loader).
+                var __saved = Array.isArray(__n && __n.navOrder) ? __n.navOrder : []
+                var __olds = ['hub-btn,coinshop-btn,upgrades-btn,server-btn,friends-btn,quests-btn,menu-inventory-btn,achievements-btn', 'hub-btn,coinshop-btn,upgrades-btn,server-btn,menu-inventory-btn,quests-btn,friends-btn,achievements-btn']
+                if (__olds.indexOf(__saved.join()) >= 0) __saved = []
+                var __dom = []
+                var __kids = document.getElementById('menu-nav-buttons').children
+                for (var __i = 0; __i < __kids.length; __i++) if (__kids[__i].tagName === 'BUTTON' && __kids[__i].id) __dom.push(__kids[__i].id)
+                var __order = []
+                __saved.forEach(function (id) { if (__dom.indexOf(id) >= 0 && __order.indexOf(id) < 0) __order.push(id) })
+                __dom.forEach(function (id, i) {
+                  if (__order.indexOf(id) >= 0) return
+                  var k = -1
+                  for (var p = i - 1; p >= 0 && k < 0; p--) k = __order.indexOf(__dom[p])
+                  __order.splice(k + 1, 0, id)
                 })
-                // Market always sits right after Store (same as _applyNavOrder).
-                var __m = document.getElementById('market-btn')
-                if (__m) __m.style.order = __order.indexOf('coinshop-btn') * 2 + 1
+                __order.forEach(function (id, i) {
+                  document.getElementById(id).style.order = i
+                })
               } catch (e) {}
             </script>
 
@@ -1012,6 +1021,7 @@ Escape before dawn.</p>
             <input type="checkbox" id="whatsnew-every-launch-toggle" class="audio-checkbox" />
           </div>
 
+          <button id="reset-general-defaults-btn" class="settings-tab-reset-btn" type="button">Reset General to Defaults</button>
         </div>
 
         <div class="settings-page" id="settings-page-language" style="display: none">
@@ -1049,6 +1059,7 @@ Escape before dawn.</p>
             <label for="positional-audio-toggle" id="positional-audio-label">Positional Audio (zombie sounds pan left/right)</label>
             <input type="checkbox" id="positional-audio-toggle" class="audio-checkbox" checked />
           </div>
+          <button id="reset-audio-defaults-btn" class="settings-tab-reset-btn" type="button">Reset Audio to Defaults</button>
         </div>
 
         <div class="settings-page" id="settings-page-graphics" style="display: none">
@@ -1138,7 +1149,7 @@ Escape before dawn.</p>
 
 
 
-          <button id="reset-graphics-defaults-btn">Reset Graphics to Defaults</button>
+          <button id="reset-graphics-defaults-btn" class="settings-tab-reset-btn" type="button">Reset Graphics to Defaults</button>
         </div>
 
         <div class="settings-page" id="settings-page-controls" style="display: none">
@@ -1377,31 +1388,42 @@ Escape before dawn.</p>
           </div>
 
           <div id="controls-grid" class="controls-grid"></div>
-          <button id="reset-binds-btn">Reset to Defaults</button>
-          <button id="export-keybinds-btn">Copy Keybinds Code</button>
-          <button id="import-keybinds-btn">Paste Keybinds Code</button>
-          <input type="text" id="import-keybinds-input" class="nickname-input" placeholder="Paste keybinds code" style="display: none" />
-          <button id="import-keybinds-apply-btn" style="display: none">Apply Keybinds Code</button>
-          <button id="reset-audio-defaults-btn">Reset Audio to Defaults</button>
-          <button id="reset-controls-defaults-btn">Reset Accessibility/Controls to Defaults</button>
-          <button id="restore-defaults-btn">Restore Default Settings</button>
+          <div class="settings-btn-row">
+            <button id="reset-binds-btn" type="button">Reset Keybinds</button>
+            <button id="export-keybinds-btn" type="button">Copy Keybinds Code</button>
+            <button id="import-keybinds-btn" type="button">Paste Keybinds Code</button>
+          </div>
+          <div class="settings-btn-row">
+            <input type="text" id="import-keybinds-input" class="nickname-input" placeholder="Paste keybinds code" style="display: none" />
+            <button id="import-keybinds-apply-btn" type="button" style="display: none">Apply Keybinds Code</button>
+          </div>
+          <button id="reset-controls-defaults-btn" class="settings-tab-reset-btn" type="button">Reset Controls to Defaults</button>
+
+          <h3 class="settings-section-heading" id="settings-section-save-backup">Save &amp; Backup</h3>
           <div id="local-sharing-section">
             <p id="storage-usage-line"></p>
             <p id="storage-quota-warning" class="danger-text" style="display: none">Storage is getting full - export your save as a backup soon.</p>
-            <button id="export-save-btn">Export Save</button>
-            <button id="import-save-btn">Import Save</button>
-            <input type="file" id="import-save-input" accept="application/json" style="display: none" />
-            <button id="compare-save-btn">Compare Save</button>
-            <input type="file" id="compare-save-input" accept="application/json" style="display: none" />
-            <p id="compare-save-result" style="display: none"></p>
-            <button id="copy-save-btn">Copy Save to Clipboard</button>
-            <button id="export-settings-code-btn">Copy Settings Code</button>
-            <button id="import-settings-code-btn">Paste Settings Code</button>
-            <input type="text" id="import-settings-code-input" class="nickname-input" placeholder="Paste settings code" style="display: none" />
-            <button id="import-settings-code-apply-btn" style="display: none">Apply Settings Code</button>
-            <button id="clear-leaderboards-btn">Clear Leaderboards Only</button>
+            <div class="settings-btn-row">
+              <button id="export-save-btn" type="button">Export Save</button>
+              <button id="import-save-btn" type="button">Import Save</button>
+              <input type="file" id="import-save-input" accept="application/json" style="display: none" />
+            </div>
+            <div class="settings-btn-row">
+              <button id="export-settings-code-btn" type="button">Copy Settings Code</button>
+              <button id="import-settings-code-btn" type="button">Paste Settings Code</button>
+            </div>
+            <div class="settings-btn-row">
+              <input type="text" id="import-settings-code-input" class="nickname-input" placeholder="Paste settings code" style="display: none" />
+              <button id="import-settings-code-apply-btn" type="button" style="display: none">Apply Settings Code</button>
+            </div>
           </div>
-          <button id="reset-progress-btn" class="danger-btn">Reset All Progress</button>
+
+          <h3 class="settings-section-heading" id="settings-section-danger-zone">Danger Zone</h3>
+          <div class="settings-btn-row">
+            <button id="restore-defaults-btn" type="button">Reset All Settings</button>
+            <button id="clear-leaderboards-btn" type="button">Clear Leaderboards Only</button>
+            <button id="reset-progress-btn" class="danger-btn" type="button">Reset All Progress</button>
+          </div>
         </div>
 
         <div id="settings-status-row">
@@ -2293,7 +2315,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="homepageGreeting">
           <h3>Homepage Personalization</h3>
-          <p>Accent color, Play-button color, UI font, layout density, background mood, homepage greeting text, and a reorderable nav-button order.</p>
+          <p>Accent color, Play-button color, UI font, layout density, background mood, homepage greeting text, and the order of every homepage button (up/down arrows in Settings &gt; Controls - new buttons join the list on their own).</p>
         </div>
       </section>
 
@@ -2347,7 +2369,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="_exportSave _importSaveFile">
           <h3>Export/Import Save &amp; Settings Sharing</h3>
-          <p>Export/Import Save to a file with a Compare Save diff tool, Copy Save to Clipboard, and separate Settings/Keybind codes to transfer just preferences.</p>
+          <p>Settings &gt; Controls &gt; Save &amp; Backup: Export/Import Save to a file, plus separate Settings and Keybind codes to copy just your preferences to another device.</p>
         </div>
         <div class="feature" data-code="POLL_ID">
           <h3>Community Poll &amp; Bug Report Tool</h3>
@@ -2358,6 +2380,10 @@ Escape before dawn.</p>
       <section class="category" id="accessibility-settings">
         <h2>Accessibility &amp; Settings</h2>
 
+        <div class="feature" data-code="TAB_RESET_KEYS _resetSettingsTab">
+          <h3>Settings Help &amp; Resets</h3>
+          <p>Every setting has a "?" that explains it in a box styled like your theme. General, Audio, Controls and Graphics each have their own Reset to Defaults button that only resets that tab, and Controls ends with a Danger Zone: Reset All Settings, Clear Leaderboards Only and Reset All Progress.</p>
+        </div>
         <div class="feature" data-code="AutoQuality fpsCap">
           <h3>Auto Quality &amp; FPS Cap</h3>
           <p>Auto Quality (on by default) makes the picture a little less sharp on its own when the game slows down and sharpens it again when it can; an FPS Cap setting limits the frame rate. Both are in Settings &gt; Graphics. Behind the scenes the game is built to stay smooth on slower devices: weapon pictures come ready-made, blocks are found quickly, new land is built with little work, zombies and skeletons are prepared before they appear, and the homepage's animations rest while you play.</p>
@@ -2728,7 +2754,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
-            <div class="changelog-entry"><span class="changelog-date">v0.19 · Oct 17, 2026</span><div class="changelog-text"><div class="changelog-group changelog-added"><span class="changelog-group-label">Added</span><ul><li>Shooting leaves a bright muzzle flash at the end of the barrel and a puff of smoke that drifts up and fades, like Kirka.</li><li>Zombies have brains: some rush straight at you, some curve out to your left or right and come at you from the side, and some sprint at you in short bursts once they are close - so a wave closes in around you instead of in a line.</li><li>Design a Skin: Classic (4px) or Slim (3px) arms - pick one under the character and the 3D model changes shape, with your painted arms moved over to it. Slim skins wear slim arms everywhere in the game too, and other players see them.</li><li>Design a Skin understands about 1,600 more everyday words - foods, animals, jobs, monsters, Minecraft mobs, clothes, places and holidays ("banana", "dragon", "lumberjack", "creeper") - and two words run together ("zombiecat").</li><li>Design a Skin: words it really doesn't know still make a skin - its best guess, the same every time, and it says it guessed.</li><li>Design a Skin's edit box can change one arm or leg - "make the left arm blue", "right leg darker".</li><li>Design a Skin: cat girls and other animal looks get paws on the hands and feet (with pads underneath), fluffy fur cuffs and collar, a tail that hangs down the back of a leg, and a little nose and whiskers - and the edit box can add them ("add cat paws", "make her a fox").</li><li>Design a Skin understands two-word colours ("light blue", "dark red", "hot pink"), "longer hair" and "shorter hair", "make the hair match the shirt", and freckles, blush and scars.</li></ul></div><div class="changelog-group changelog-changed"><span class="changelog-group-label">Changed</span><ul><li>The gun's kick is smooth: it eases back, tips up a little and glides home after each shot, and fast guns stay steady while you hold the trigger instead of shaking back and forth.</li><li>Rain and snow really fall in the world around you - in front of and behind buildings, past you as you walk - and stop at roofs, so it doesn't rain indoors.</li><li>Bad weather changes the sky: it turns grey, the light dims and the fog comes in, all slowly as the weather rolls in and out.</li><li>Weather is Random by default and fits where you are: snow only in cold places, sandstorms only in dry ones, more rain in jungles and swamps - walk somewhere the weather can't happen and it changes.</li><li>Design a Skin: Download saves skin.png straight to your device in one click.</li><li>Design a Skin: Download and Upload from Computer are back at the bottom of the tools, the Classic/Slim buttons are bigger, and the 3D character has more room. Reset to my skin was removed.</li><li>Design a Skin: long hair falls down the front too - beside the face and over the shoulders - not just down the back.</li></ul></div><div class="changelog-group changelog-fixed"><span class="changelog-group-label">Fixed</span><ul><li>Design a Skin: Reset no longer loads an old grey sample skin - the button is gone.</li><li>Pressing Play no longer freezes for a moment on slower phones and computers - the weapon pictures come ready-made instead of being drawn on your device.</li><li>Smoother big zombie waves and walking into new land: the game finds blocks much faster, and new land is built with far less work.</li><li>No small hitch when the first zombie or skeleton of a run appears - they are prepared while the run starts.</li><li>The homepage's rain, water and character stop working in the background while you play.</li></ul></div></div></div>
+            <div class="changelog-entry"><span class="changelog-date">v0.19 · Oct 17, 2026</span><div class="changelog-text"><div class="changelog-group changelog-added"><span class="changelog-group-label">Added</span><ul><li>Shooting leaves a bright muzzle flash at the end of the barrel and a puff of smoke that drifts up and fades, like Kirka.</li><li>Zombies have brains: some rush straight at you, some curve out to your left or right and come at you from the side, and some sprint at you in short bursts once they are close - so a wave closes in around you instead of in a line.</li><li>Design a Skin: Classic (4px) or Slim (3px) arms - pick one under the character and the 3D model changes shape, with your painted arms moved over to it. Slim skins wear slim arms everywhere in the game too, and other players see them.</li><li>Design a Skin understands about 1,600 more everyday words - foods, animals, jobs, monsters, Minecraft mobs, clothes, places and holidays ("banana", "dragon", "lumberjack", "creeper") - and two words run together ("zombiecat").</li><li>Design a Skin: words it really doesn't know still make a skin - its best guess, the same every time, and it says it guessed.</li><li>Design a Skin's edit box can change one arm or leg - "make the left arm blue", "right leg darker".</li><li>Design a Skin: cat girls and other animal looks get paws on the hands and feet (with pads underneath), fluffy fur cuffs and collar, a tail that hangs down the back of a leg, and a little nose and whiskers - and the edit box can add them ("add cat paws", "make her a fox").</li><li>Design a Skin understands two-word colours ("light blue", "dark red", "hot pink"), "longer hair" and "shorter hair", "make the hair match the shirt", and freckles, blush and scars.</li><li>Settings: General, Audio and Controls each have a Reset to Defaults button that only resets that tab (Graphics already had one).</li></ul></div><div class="changelog-group changelog-changed"><span class="changelog-group-label">Changed</span><ul><li>The gun's kick is smooth: it eases back, tips up a little and glides home after each shot, and fast guns stay steady while you hold the trigger instead of shaking back and forth.</li><li>Rain and snow really fall in the world around you - in front of and behind buildings, past you as you walk - and stop at roofs, so it doesn't rain indoors.</li><li>Bad weather changes the sky: it turns grey, the light dims and the fog comes in, all slowly as the weather rolls in and out.</li><li>Weather is Random by default and fits where you are: snow only in cold places, sandstorms only in dry ones, more rain in jungles and swamps - walk somewhere the weather can't happen and it changes.</li><li>Design a Skin: Download saves skin.png straight to your device in one click.</li><li>Design a Skin: Download and Upload from Computer are back at the bottom of the tools, the Classic/Slim buttons are bigger, and the 3D character has more room. Reset to my skin was removed.</li><li>Design a Skin: long hair falls down the front too - beside the face and over the shoulders - not just down the back.</li><li>Settings: the "?" circles are black, and the box they open matches your theme.</li><li>Settings &gt; Controls: every homepage button can be moved with the arrows, including Market and Map Editor, and buttons added later join the list on their own.</li><li>Settings &gt; Controls: the buttons at the bottom are tidied into Save &amp; Backup and Danger Zone. Compare Save and Copy Save to Clipboard were removed (Export Save does the same job).</li></ul></div><div class="changelog-group changelog-fixed"><span class="changelog-group-label">Fixed</span><ul><li>Design a Skin: Reset no longer loads an old grey sample skin - the button is gone.</li><li>Pressing Play no longer freezes for a moment on slower phones and computers - the weapon pictures come ready-made instead of being drawn on your device.</li><li>Smoother big zombie waves and walking into new land: the game finds blocks much faster, and new land is built with far less work.</li><li>No small hitch when the first zombie or skeleton of a run appears - they are prepared while the run starts.</li><li>The homepage's rain, water and character stop working in the background while you play.</li><li>Settings no longer scrolls sideways on phones.</li></ul></div></div></div>
             <div class="changelog-entry"><span class="changelog-date">v0.18 · Oct 16, 2026</span><div class="changelog-text"><div class="changelog-group changelog-added"><span class="changelog-group-label">Added</span><ul><li>Skeletons: from wave 3 of Zombie Survival, real animated 3D skeletons join the zombies - they climb out of the ground, run, punch and fall apart. Four kinds: Minion, Rogue, Warrior and Mage.</li><li>The Gallery is open: Character and Map sections (Weapon is coming soon) with everyone's skins and maps, newest or most liked first.</li><li>Open any post to like it, comment on it, wear the skin or Play and Edit the map - and delete your own posts and the comments on them.</li><li>Design a Skin: a Post to Gallery button shares your skin in the Gallery.</li><li>Map Editor: Post to Gallery on the pause screen shares your map with a picture of it in the Gallery's Map section.</li><li>Clans: invite a player by name as well as by Player ID - matching players pop up as you type.</li><li>Three skeleton achievements: Rattled (kill 25 skeletons in one game), Bone Collector (kill 100 skeletons) and Skeleton Key (kill a Minion, a Rogue, a Warrior and a Mage). Skeletons you finish off on a server count too.</li><li>Villages, castles and bridges out in the open world. Villages have houses you can walk into, a hall with a bell tower, a well, lamp posts and fields. Castles have walls you can walk along, corner towers and a tall keep you can climb to the top. Bridges cross the rivers.</li><li>The place you're in (Village, Castle or Bridge) shows under the minimap, next to the biome.</li><li>New blocks: Stone Bricks, Sandstone Bricks, White Plaster, Timber Frame, Thatch, Red Roof Shingles, Slate Shingles, Dirt Path, Paper Lantern, Bamboo, Bamboo Leaves, and Birch, Spruce, Jungle, Cherry, Mangrove and Flowering Azalea Leaves. The full blocks come with their own slabs and stairs.</li><li>Village market stalls with striped canopies, a stable and a well inside every castle, and flags on its towers.</li><li>Break any block while playing by holding the fire button on it - stone takes longer than wood, leaves and glass go almost at once.</li><li>Save Progress on the pause menu: the next time you press Play, you carry on from that wave with your kills, coins, upgrades and gun.</li><li>Play with no internet: after you've opened GayZ online once, the whole game is kept on your device - Play, the Map Editor, Design a Skin, Inventory, Upgrades, Quests, Achievements, Settings and everything single player work offline. Online-only things (servers, chat, Friends, Clans, the Market, the Gallery, signing in and Cloud Save) are dimmed and say they need internet.</li></ul></div><div class="changelog-group changelog-changed"><span class="changelog-group-label">Changed</span><ul><li>The Gallery link sits beside Design a Skin at the bottom of the homepage instead of under Achievements.</li><li>Old theme: the What's New card in the top-right corner is a small torn sheet of old paper with dark ink, like the panels.</li><li>Design a Skin: every button, text box and colour swatch is an oval.</li><li>Search bars and text boxes have a softer, smoother colour - a light see-through fill with a gentle rim in Golden, light parchment with brown ink in Old.</li><li>Your Player ID sits on a soft chip in the Friend List and on profiles.</li><li>Design a Skin is loaded in the background while you're on the homepage, so it opens straight away.</li><li>Blocks are clean, simple and crisp like Kirka and bloxd.io: a few flat colours per block, sharp up close instead of blurry, and lighter on your frame rate.</li><li>The guns have the same clean, low-poly look - clear and sharp, never blurry.</li><li>Aiming: hold right-click to aim down the sights and let go to stop.</li><li>The zoom key zooms in much further while playing.</li><li>Escape while playing opens a new pause menu - Back to Menu, Settings, Save Progress and Leave Game - instead of the Map Editor's.</li><li>Credits: the Weapon tab is now 3D Models and also lists the skeletons' maker.</li><li>Map 1 is no longer a square: seen from above, the city has an uneven outline with bulges and bays. The ring of tall buildings follows it all the way round, and the land comes right up to it.</li><li>Where a road from the city meets water, its track crosses on a wooden deck.</li><li>Villages, castles and bridges have far more detail: houses with timber frames, thatch or shingle roofs that overhang the walls, shutters, flower bushes, door lanterns, chimneys and rugs; castle walls of stone bricks with buttresses and arrow slits; bridges with arches, top rails, braces and gateposts.</li><li>Roads and tracks blend into the land: a mix of dirt path, coarse dirt and a little gravel with frayed, grassy edges instead of one flat strip.</li><li>Bamboo is a thin stalk with thin leaves, and you can walk between the stalks.</li><li>Every tree has its own leaves (birch, spruce, jungle, mangrove, cherry blossom), and mangrove roots arch down into the mud.</li><li>The C4 block looks like C4 (an olive charge with a C4 label) instead of something like TNT.</li><li>The minimap works like florr.io: the corner map shows just the part around you, the map key opens a much wider view, and pressing it again gives the big map in the middle as before.</li><li>The big map no longer lags while you drag or zoom it, and it stops at a sensible distance from you.</li></ul></div><div class="changelog-group changelog-fixed"><span class="changelog-group-label">Fixed</span><ul><li>Zombies and skeletons could appear inside the safe camp, along its far walls. Nothing can get into the camp now.</li><li>Trees on slopes no longer float: every trunk and root reaches the ground.</li><li>Pressing the Try Map key while playing no longer drops you into the Map Editor.</li><li>The homepage no longer lags on computers, phones and tablets - the drifting ash was being repainted over the whole screen every frame, and the rain, the water on the road and your character now draw together, at most 60 times a second (30 on phones, tablets and slower computers).</li></ul></div></div></div>
             <div class="changelog-entry"><span class="changelog-date">v0.17 · Oct 12, 2026</span><div class="changelog-text"><div class="changelog-group changelog-added"><span class="changelog-group-label">Added</span><ul><li>Zombies fall over when they die - away from your shot - lie on the ground for a moment, then slowly fade away.</li><li>Windows crack and shatter in more than one way: five different crack patterns, and glass that bursts out, collapses down, blasts into tiny bits or breaks into a few big chunks - in squares, slivers, triangles and glinting chips.</li><li>Open world: Map 1's roads now run out of the city through open gates, into land that goes on and on - grown around you as you walk.</li><li>The open world has 26 biomes from all over the Earth: oceans (deep, frozen and warm with coral), beaches, rivers, plains, forests, cherry groves, taiga, snowy tundra, ice spikes, deserts, savanna, badlands, jungles, bamboo, swamps, mangroves, mushroom fields and snowy mountains.</li><li>Out in the open world the minimap follows you and names the biome you're in.</li><li>The open world grows brand-new land every time you start or join a game - everyone on the same server walks the same land.</li><li>The big map (press the map key until it's in the middle) can be dragged to look around and scrolled to zoom out and see much further; double-click brings it back to you.</li></ul></div><div class="changelog-group changelog-changed"><span class="changelog-group-label">Changed</span><ul><li>The Map Editor fades in when you open it - slowly if it's still loading, quickly if not - and Play's fade back in follows the same rule.</li><li>Design a Skin: the edit box just says "Ask for a change" and the describe box "Describe a skin...".</li><li>The flamethrower's little sight on top is gone, so aiming with it looks straight over the gun instead of into a dark glass.</li><li>Prestige costs Points now, more for each level: 100,000 for level 1, 200,000 for level 2, and so on - Upgrades shows what the next one needs.</li><li>The barricades and rock walls across Map 1's road ends are gone - they're the gates out to the open world.</li><li>The What's New card sits in the very top-right corner now.</li><li>Servers: other players hold their gun up in front with both hands, pointing where they look, instead of off to one side.</li><li>Water is easier to move in: you swim up faster, can jump off the bottom, and pushing against a ledge with Space held climbs you out - no more getting stuck in a pool.</li><li>A camera key (P, change it in Settings > Controls) switches between first person, third person from behind and third person from the front, like bloxd.io - you see your own skin holding your gun and walking.</li><li>The big map fills in straight away while you drag it around - a rougher picture shows first and sharpens a moment later - and it always frees the mouse when it opens.</li><li>Aiming the AK-47 lines up its sights with the middle of the screen, and the M1911 sits a little lower when aiming.</li><li>New Patch Notes appear at 12am on your own clock, wherever you are.</li></ul></div><div class="changelog-group changelog-fixed"><span class="changelog-group-label">Fixed</span><ul><li>Design a Skin: "add a black hat" (or any colour) makes a hat in that colour - it used to take the shirt's colour.</li><li>GayZ Features: picking a section in the list no longer scrolls the search bar half out of view - the search bar stays put and only the list scrolls.</li><li>Your Points (the blue star at the top left) change the moment you buy an upgrade, respec or prestige, instead of after your next run.</li><li>Prestige's extra Points per level are really added to what each run earns now.</li><li>The What's New card never shows a newer version than What's New itself - both update together.</li><li>Servers: no more copy of yourself following you around with your name over it - an old connection kept sending your position after you started a new game.</li><li>Zombies killed in mid-jump drop to the ground instead of lying in the air.</li></ul></div></div></div>
             <div class="changelog-entry"><span class="changelog-date">v0.16 · Oct 11, 2026</span><div class="changelog-text"><div class="changelog-group changelog-added"><span class="changelog-group-label">Added</span><ul><li>Design a Skin: a smart edit box beside undo and redo - ask for a change ("make the shirt red, add a hat and remove the beard") and only that part changes.</li><li>13 new Zombie Survival achievements: Unbreakable, Massacre, Untouchable, Sharpshooter, Boss Hunter, Get to the Chopper, Hardened, Apex Predator, Glass Cannon, Iron Will, Exterminator, Regular and Fortune Hunter.</li><li>Design a Skin: a Pixels setting - 1x, 2x or 4x - for skins with twice or four times the pixels, and generated skins use every one of them (rounder eyes and edges, thin hair strands). The game wears these HD skins too.</li><li>Design a Skin: two more Pixels sizes, 8x and 16x, for the most detailed skins yet - generating, painting, mirror, fill, undo, slots and downloads all work at every size, and the game wears them.</li><li>Design a Skin: changing Pixels now really adds detail - a generated skin is drawn again at the new size, and anything else is scaled up with smoother curves instead of just bigger squares.</li><li>Design a Skin: generated skins are more detailed the more pixels they have - catchlights in the eyes, hair strands and shine, woven cloth, a soft shadow where parts meet.</li><li>Design a Skin understands "no" and "without" - "pirate without a hat", "knight with no cape", "no beard".</li><li>Design a Skin: Randomize says what it made ("Randomized a police officer with brown hair, black eyes...").</li><li>Servers: you can see the weapon other players are holding - guns raised in their hands, blades at their side.</li><li>Servers: the chat says when someone joins or leaves the game.</li></ul></div><div class="changelog-group changelog-changed"><span class="changelog-group-label">Changed</span><ul><li>Your clan sits above your level and name again, without brackets, in plain lettering - the same on the homepage and in Inventory.</li><li>Inventory: your character stands still instead of spinning (drag it to turn it).</li><li>GayZ Features: Levels, Deathmatch and the longer quests are listed under Coming Soon, and a few out-of-date lines were fixed.</li><li>Settings checkboxes have a softer shade and show a check mark when they are on.</li><li>Market and Inventory: the All items and All rarities menus are only as wide as their words.</li><li>Old theme Profile: no lines around the stat groups, Rank Roadmap, Recently Unlocked or Bio - only the text boxes keep an edge.</li><li>iPads and phones: the links at the bottom of the homepage sit a little higher, off the very bottom edge.</li><li>Inspect and Design a Skin: zoom in and out as far as you like.</li><li>Old theme: the level box next to your name is the colour of the old paper, with the level in black.</li><li>The homepage character grows and shrinks with your window instead of jumping to full size on a big or full screen, and your name, level and clan sit right in the middle above it.</li><li>The blue star is now Points - what Upgrades cost (they were called Legacy Points, and the star only showed your last run's score).</li><li>Upgrades has a tab per game mode: Zombie Survival (every current upgrade), then Deathmatch, Parkour and Custom (coming soon).</li><li>Credits: the Weapon Models tab is just Weapon, and the makers' names are plain text instead of links.</li><li>Patch Notes start at v0.01 now - the older notes from before the numbered versions were removed.</li><li>GayZ Features: Clans has its own entry.</li></ul></div><div class="changelog-group changelog-fixed"><span class="changelog-group-label">Fixed</span><ul><li>With a panel open, the buttons and profile card on the right light up when you point at them, like they do on the homepage.</li><li>Tablets: the profile card and buttons on the right start at the top of the screen instead of under a big empty gap.</li><li>iPads and phones: the homepage no longer lags when you open GayZ - the rain, the water on the road and your character are drawn lighter on touch screens, and the rain starts once the game has loaded.</li><li>iPads: your character on the homepage fits the screen instead of being huge, so the links at the bottom (How to Play, What's New...) show again.</li><li>iPads and phones: the game no longer runs too fast - it used to play at the speed of the last homepage frame, so a laggy homepage sped everything up.</li><li>iPads and phones: the homepage is lighter again - the photo holds still, there's no fog or ash, and the rain and water are drawn 30 times a second.</li><li>iPads and phones: scrolling the homepage no longer stutters - Safari's toolbar sliding in and out used to make the game rebuild its background and hidden 3D screen on every frame.</li></ul></div></div></div>

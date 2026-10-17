@@ -4969,9 +4969,6 @@ html.ui-theme-old #prestige-history-list {
 
 /* Local Sharing batch. */
 #local-sharing-section {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
   text-align: center;
 }
 
@@ -4979,15 +4976,6 @@ html.ui-theme-old #prestige-history-list {
   margin: 0 0 6px;
   font-size: 12px;
   color: rgba(238, 238, 238, 0.6);
-}
-
-#compare-save-result {
-  margin-top: 8px;
-  padding: 8px;
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 6px;
-  font-size: 12px;
-  text-align: left;
 }
 
 #print-stats-sheet {
@@ -5084,7 +5072,6 @@ html.ui-theme-old #prestige-history-list {
 #import-keybinds-btn,
 #reset-audio-defaults-btn,
 #reset-controls-defaults-btn,
-#copy-save-btn,
 #export-settings-code-btn,
 #import-settings-code-btn,
 #reset-graphics-defaults-btn,
@@ -5098,7 +5085,6 @@ html.ui-theme-old #prestige-history-list {
 #cloudsave-signin-btn,
 #export-save-btn,
 #import-save-btn,
-#compare-save-btn,
 #clear-leaderboards-btn,
 #share-setup-btn,
 #share-profile-btn,
@@ -5163,20 +5149,79 @@ html.ui-theme-old #prestige-history-list {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 1px solid rgba(var(--ui-gold-bright-rgb), 0.5);
+  /* Black ring + black "?" in every theme (2026-10-17, Gaymi: "the
+     circle around it should be black"). */
+  border: 1.5px solid #000;
   background: transparent;
-  color: var(--menu-gold, var(--ui-gold-bright));
+  color: #000;
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
   padding: 0;
-  opacity: 0.7;
-  transition: opacity 0.15s ease, border-color 0.15s ease;
+  opacity: 0.75;
+  transition: opacity 0.15s ease;
 }
 .settings-info-btn:hover {
   opacity: 1;
-  border-color: var(--menu-gold, var(--ui-gold-bright));
+}
+/* Golden's panels are near-black, so the black ring + "?" sit on a gold
+   dot there - otherwise they'd vanish into the panel. */
+html:not(.ui-theme-old) .settings-info-btn {
+  background: var(--menu-gold, var(--ui-gold-bright));
+}
+
+/* The "?" popup follows the theme: Golden keeps the dark box + gold
+   edge above; Old is a slip of the same paper + dark ink + brown edge
+   as the Settings page around it. */
+html.ui-theme-old #settings-info-overlay {
+  background: #ead6ac;
+  border: 2px solid var(--menu-bronze);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(46, 29, 14, 0.45);
+}
+html.ui-theme-old #settings-info-text {
+  color: var(--old-ink);
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+/* Button rows at the bottom of Settings tabs (keybinds, Save & Backup,
+   Danger Zone) and each tab's "Reset <tab> to Defaults" button. */
+/* A dropdown with a long option (Colorblind Mode, Background Mood) used
+   to push the Settings page sideways on phones - let it shrink instead. */
+.settings-page .audio-row select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.settings-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.settings-btn-row > button {
+  margin: 0;
+}
+.settings-btn-row:not(:has(> :not([style*="display: none"]))) {
+  display: none;
+}
+.settings-tab-reset-btn {
+  display: block;
+  margin: 18px auto 4px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.settings-tab-reset-btn:hover {
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 /* position:relative anchors the absolutely-positioned "?" to this row
