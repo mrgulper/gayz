@@ -9,6 +9,8 @@
 // { H, cx, cz }: H(x, z).h is the ground height. pad() levels a footprint
 // on a solid base so nothing floats, and returns the first free y on top.
 
+import { earthAt } from './WorldStructures.js'
+
 export const LANDMARKS = {
   France: { kind: 'eiffel', key: 'landmarkEiffel' },
   'United States of America': { kind: 'liberty', key: 'landmarkLiberty' },
@@ -32,11 +34,13 @@ export const LANDMARKS = {
 // How far each landmark reaches from its middle (for placing it clear of you).
 export const LANDMARK_REACH = { eiffel: 16, liberty: 6, bigben: 5, colosseum: 24, greatwall: 42, tajmahal: 14, pagoda: 9, christ: 10, opera: 18, stbasil: 9, parthenon: 14, chichen: 17, giza: 34, brandenburg: 12, windmill: 11, cntower: 7, burj: 6 }
 
+// The raised ground is natural rock and earth (earthAt); only its top
+// layer is the landmark's own paving (type).
 function pad(b, H, cx, cz, rx, rz, type) {
   let top = -Infinity
   for (let x = cx - rx; x <= cx + rx; x++) for (let z = cz - rz; z <= cz + rz; z++) top = Math.max(top, H(x, z).h)
   for (let x = cx - rx; x <= cx + rx; x++) {
-    for (let z = cz - rz; z <= cz + rz; z++) for (let y = H(x, z).h + 1; y <= top; y++) b.set(x, y, z, type)
+    for (let z = cz - rz; z <= cz + rz; z++) for (let y = H(x, z).h + 1; y <= top; y++) b.set(x, y, z, y === top ? type : earthAt(x, y, z, top))
   }
   return top + 1
 }

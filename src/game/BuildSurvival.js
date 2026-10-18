@@ -26,6 +26,8 @@ import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, ammoFor, weaponBars } from './PlayWe
 import { PlayFx } from './PlayFx.js'
 import { openSpawnMap, closeSpawnMap, findSpawn } from './SpawnMap.js'
 import { LANDMARKS, LANDMARK_REACH } from './Landmarks.js'
+import { CITIES, TOWN_R } from './Towns.js'
+import { PlayInventory, ITEMS, ARMOR_SLOTS } from './PlayInventory.js'
 import { worldSeed } from './OpenWorld.js'
 import { BOTTOM } from './Underground.js'
 import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MOB_HEIGHT } from './PlayRules.js'
@@ -77,6 +79,11 @@ const WAVE_BREAK = 6
 const SPAWN_GAP = 0.7
 const MAX_ALIVE = 28
 const SPAWNER_RANGE = 48
+// Zombies further than this from every player vanish (no kill).
+const DESPAWN_DIST = 96
+// Placing blocks from the inventory: how far, and what chests can give.
+const PLACE_REACH = 6
+const CHEST_BLOCKS = ['cobblestone', 'oakplanks', 'oaklog', 'glass', 'stonebricks', 'dirt']
 // Skeletons (2026-10-16, real animated 3D models - SkeletonModels.js) join
 // the waves from SKELETON_FROM_WAVE with SKELETON_CHANCE per spawn
 // (PlayRules.js; never a boss). They rise out of the ground (can't move or hit for
@@ -252,6 +259,13 @@ export class BuildSurvival {
     // Ammo left in each gun you've switched away from (pause > Switch
     // Weapon), so switching never refills a gun.
     this._ammoByWeapon = {}
+    // The inventory (PlayInventory.js): filled when the gun is picked (or
+    // from a saved game); blocks placed this game go again when it ends.
+    if (!this.inv) this.inv = new PlayInventory(this)
+    this.inv.reset(this.weaponId)
+    this._invRestored = false
+    this.holding = null
+    this._placed = new Map()
     // Day and night, and the weather, in games from the homepage.
     if (fromMenu) bm.sky?.forGame(true)
     this._nextShotAt = 0
@@ -336,6 +350,19 @@ export class BuildSurvival {
     this._fx?.clear()
     this._fires?.clear()
     this.bm.spectate?.exit()
+    // Blocks placed this game go again (the saved map never changes).
+    if (this._placed?.size) {
+      const bm = this.bm
+      bm._suppressUndoRecording = true
+      for (const [key, type] of this._placed) {
+        const [x, y, z] = key.split(',').map(Number)
+        if (bm.getBlockAt(x, y, z) === type) bm.removeBlock(x, y, z)
+      }
+      bm._suppressUndoRecording = false
+      this._placed.clear()
+    }
+    this.inv?.show(false)
+    this.holding = null
     this.bm.sky?.forGame(false)
     this._disposeZombieBatch()
     if (this._hud) this._hud.style.display = 'none'
@@ -413,10 +440,22 @@ export class BuildSurvival {
     if (!spot) return false
     const bm = this.bm
     const tm = bm.tryMode
-    // The country's landmark, a short walk north - you face it.
-    const lm = LANDMARKS[pick.country]
+    // Near a real city: its block town, you on the main avenue facing the
+    // middle, with the city's landmark in the plaza (or just past the
+    // town for the huge ones). Elsewhere: the country's landmark, a short
+    // walk north.
+    const city = pick.city && CITIES.find((c) => c.name === pick.city)
+    const lm = city ? (city.landmark ? Object.values(LANDMARKS).find((l) => l.kind === city.landmark) : null) : LANDMARKS[pick.country]
     let landmark = null
-    if (lm) {
+    let town = null
+    if (city) {
+      const cx = spot.x
+      const cz = spot.z - 40
+      const reach = lm ? LANDMARK_REACH[lm.kind] : 0
+      const inside = lm && reach <= 20
+      if (lm && bm.world.addLandmark(lm.kind, cx, inside ? cz : cz - TOWN_R - reach - 8, lm.key)) landmark = t(lm.key)
+      if (bm.world.addTown(city.style, cx, cz, inside ? reach + 4 : 10, city.name)) town = city.name
+    } else if (lm) {
       const d = LANDMARK_REACH[lm.kind] + 24
       if (bm.world.addLandmark(lm.kind, spot.x, spot.z - d, lm.key)) landmark = t(lm.key)
     }
@@ -428,11 +467,18 @@ export class BuildSurvival {
     tm.pos.set(spot.x + 0.5, top + 1, spot.z + 0.5)
     tm.vel?.set(0, 0, 0)
     tm._spawn.copy(tm.pos)
+    // Paths and spawn spots start over from here (they were still around
+    // the camp - zombies spawned there, thousands of blocks away).
+    this._flow = new Map()
+    this._flowJob = null
+    this._flowKey = null
+    this._flowAt = 0
     this._spawnedFar = true
     const name = t(`biome${spot.biome.charAt(0).toUpperCase()}${spot.biome.slice(1)}`)
-    if (landmark) bm._yaw = 0
+    if (landmark || town) bm._yaw = 0
     const n = Math.round(Math.hypot(spot.x, spot.z))
-    this._message(landmark ? t('spawnArrivedLandmark', { biome: name, n, name: landmark }) : t('spawnArrived', { biome: name, n }), landmark ? 6 : undefined)
+    const text = town ? t('spawnArrivedCity', { city: town, n }) : landmark ? t('spawnArrivedLandmark', { biome: name, n, name: landmark }) : t('spawnArrived', { biome: name, n })
+    this._message(text, landmark || town ? 6 : undefined)
     return true
   }
 
@@ -499,13 +545,31 @@ export class BuildSurvival {
     this.mag = kept ? Math.min(kept.mag, this.magSize()) : this.magSize()
     this.reserve = kept ? kept.reserve : this._startReserve()
     this._closeWeaponPicker()
+    // The inventory: a new game's starting kit, or this gun into the hand.
+    if (!switching && !this._invRestored) this.inv?.reset(id)
+    else if (!this._fromInventory) this.inv?.bringGun(id)
+    this.holding = null
     this.bm.tryMode._showGun()
+    if (this.bm.tryMode._gun) this.bm.tryMode._gun.visible = true
     const name = t(this.bm.game?.weapons?.getSummary?.().find((w) => w.id === id)?.nameKey || 'weaponRifle')
     if (switching || !this._spawnedFar) this._message(switching ? t('playWeaponSwitched', { name }) : t('buildPlayGetReady'))
     this._spawnedFar = false
     this._renderHud()
-    // This click is a real user gesture, so the mouse can be captured again.
-    try { this.bm.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available */ }
+    // This click is a real user gesture, so the mouse can be captured again
+    // (not while the inventory is open - you're still using the mouse).
+    if (!this.bm.pickerOpen) {
+      try { this.bm.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available */ }
+    }
+  }
+
+  // A gun picked from the inventory's hotbar: switch to it (each gun
+  // keeps its own ammo).
+  _equipWeapon(id) {
+    this._switching = true
+    this._fromInventory = true
+    this._pickWeapon(id)
+    this._fromInventory = false
+    this._switching = false
   }
 
   // --- Saved runs: the pause menu's Save Progress keeps where you are -
@@ -535,6 +599,7 @@ export class BuildSurvival {
       mag: this.mag,
       reserve: this.reserve,
       ammoByWeapon: this._ammoByWeapon,
+      inv: this.inv?.serialize(),
       seconds: (performance.now() - this._startedAt) / 1000,
       claimed: (this.camp?.quests || []).filter((q) => q.claimed).map((q) => q.id),
       pos: { x: tm.pos.x, y: tm.pos.y, z: tm.pos.z },
@@ -575,6 +640,7 @@ export class BuildSurvival {
       bestStreak: Math.round(num(d.bestStreak, 0, 1e7)),
       bosses: Math.round(num(d.bosses, 0, 1e6)),
       weaponId: PLAY_WEAPONS[d.weaponId] ? d.weaponId : DEFAULT_PLAY_WEAPON,
+      inv: d.inv && typeof d.inv === 'object' ? d.inv : null,
       mag: Math.round(num(d.mag, 0, 1e5)),
       reserve: Math.round(num(d.reserve, 0, 1e7)),
       ammoByWeapon: Object.fromEntries(Object.keys(PLAY_WEAPONS).filter((id) => d.ammoByWeapon?.[id]).map((id) => [id, {
@@ -600,6 +666,11 @@ export class BuildSurvival {
   _resumeRun(r) {
     this.weaponId = r.weaponId
     this._ammoByWeapon = r.ammoByWeapon || {}
+    if (r.inv && this.inv.restore(r.inv)) {
+      this._invRestored = true
+      this.inv.apply()
+      this.inv.renderHotbar()
+    } else this.inv.reset(r.weaponId)
     this.bm.tryMode._showGun()
     this.wave = r.wave - 1
     this.kills = r.kills
@@ -739,7 +810,10 @@ export class BuildSurvival {
       else extractText = ` · ${t('extractionDistance', { n: Math.round(ex.dist ?? 0) })}`
     }
     const serverText = this.net && !this.net.closed ? ` · ${t('serverHudLine', { name: this.net.name, n: this.net.players.size + 1 })}` : ''
-    set('build-play-wave', `${waveText} · ${t('buildPlayZombiesLeft', { n: alive })} · ${t('buildPlayKills', { n: this.kills })}${this.camp ? ` · ${t('campCoins', { n: this.coins })}` : ''}${timeText}${extractText}${serverText}`)
+    // Between waves: when the next one comes, not "0 left" (that read as
+    // a wave over with nothing killed).
+    const leftText = alive === 0 && this._breakTimer > 0 ? t('buildPlayNextWaveIn', { n: Math.ceil(this._breakTimer) }) : t('buildPlayZombiesLeft', { n: alive })
+    set('build-play-wave', `${waveText} · ${leftText} · ${t('buildPlayKills', { n: this.kills })}${this.camp ? ` · ${t('campCoins', { n: this.coins })}` : ''}${timeText}${extractText}${serverText}`)
     const fill = document.getElementById('build-play-health-fill')
     if (fill) fill.style.width = `${Math.max(0, Math.min(100, (this.health / (this.maxHealth || 100)) * 100))}%`
     set('build-play-health-text', `${Math.max(0, Math.ceil(this.health))}${this.armor > 0 ? ` + ${Math.ceil(this.armor)}` : ''}`)
@@ -762,7 +836,13 @@ export class BuildSurvival {
   // false when the gun is empty or reloading (no shot happens).
   tryFire() {
     if (!this.active || this.dead) return true
-    if (this._picking || this.spectating) return false
+    if (this._picking) return false
+    // Holding a block or an item instead of a gun: no shot (a health pack
+    // or ammo box is used instead).
+    if (this.holding) {
+      if (this.holding.kind === 'item') this.inv.useHeld()
+      return false
+    }
     if (this._reloadLeft > 0) return false
     // Each gun's own fire rate.
     const now = performance.now()
@@ -998,6 +1078,13 @@ export class BuildSurvival {
       z.vz += dir.z * 3
     }
     if (z.health > 0) return
+    // Lost (fell out, or wandered far from everyone): just removed, no kill.
+    if (z.lost) {
+      this._removeZombie(z)
+      this.zombies = this.zombies.filter((o) => o !== z)
+      this._renderHud()
+      return
+    }
     // Every kill counts toward the wave's target (see SPAWN_GAP).
     if (this._toSpawn > 0) this._toSpawn--
     audioEngine.playZombieDeath?.(1, this._panTo(z.x, z.z))
@@ -1051,7 +1138,52 @@ export class BuildSurvival {
     this.reserve += ammo
     this.health = Math.min(this.maxHealth, this.health + CHEST_LOOT.health)
     this._message(t('buildPlayChestLoot', { ammo, health: CHEST_LOOT.health }))
+    // Items for the inventory too: health packs, ammo boxes, armor, blocks.
+    const got = []
+    const give = (item) => {
+      if (this.inv.add(item) < item.n) got.push(item.kind === 'block' ? this.bm.blockName(item.id) : t(ITEMS[item.id].key))
+    }
+    if (Math.random() < 0.6) give({ kind: 'item', id: 'healthpack', n: 1 })
+    if (Math.random() < 0.4) give({ kind: 'item', id: 'ammobox', n: 1 })
+    if (Math.random() < 0.25) give({ kind: 'item', id: ARMOR_SLOTS[Math.floor(Math.random() * ARMOR_SLOTS.length)], n: 1 })
+    if (Math.random() < 0.3) give({ kind: 'block', id: CHEST_BLOCKS[Math.floor(Math.random() * CHEST_BLOCKS.length)], n: 8 + Math.floor(Math.random() * 9) })
+    if (got.length) setTimeout(() => this.active && this._message(t('invChestItems', { items: got.join(', ') })), 1800)
     this._renderHud()
+    return true
+  }
+
+  // A block broken by hand in a game goes into the inventory.
+  onBlockMined(type, x, y, z) {
+    if (!this.active || !this.inv || !type) return
+    const bm = this.bm
+    // One you placed yourself: it's simply gone (not put back at the end).
+    const key = bm._key(x, y, z)
+    if (this._placed?.delete(key)) bm.tryMode._broken?.delete(key)
+    if (bm._isWindowType(type) || /door|lootchest|zombiespawner|playerstart|invisible/.test(type)) return
+    if (this.inv.add({ kind: 'block', id: type, n: 1 }) > 0) this._message(t('invFull'))
+  }
+
+  // Right-click while holding a block: put it where you're looking.
+  placeHeldBlock() {
+    const held = this.holding
+    if (!this.active || this.dead || held?.kind !== 'block') return false
+    const bm = this.bm
+    bm.camera.updateMatrixWorld()
+    bm._raycaster.setFromCamera({ x: 0, y: 0 }, bm.camera)
+    const hit = bm._raycastGridAligned()
+    if (!hit?.placeAt || hit.t > PLACE_REACH * this.B) return false
+    const [x, y, z] = hit.placeAt
+    if (bm.getBlockAt(x, y, z)) return false
+    // Not inside you or a zombie.
+    const p = bm.tryMode.pos
+    const inBox = (bx, by, bz) => Math.floor(bx) === x && Math.floor(bz) === z && y >= Math.floor(by) && y <= Math.floor(by + 1.7)
+    if (inBox(p.x, p.y, p.z) || this.zombies.some((zb) => inBox(zb.x, zb.y, zb.z))) return false
+    bm._suppressUndoRecording = true
+    bm.placeBlock(x, y, z, held.id, false)
+    bm._suppressUndoRecording = false
+    this._placed.set(bm._key(x, y, z), held.id)
+    this.inv.usedBlock()
+    audioEngine.playFootstep?.(false, 'default')
     return true
   }
 
@@ -1653,7 +1785,12 @@ export class BuildSurvival {
     const hitY = this._moveZombieAxis(zb, 'y', zb.vy * dt)
     zb.onGround = hitY && falling
     if (hitY) zb.vy = 0
-    if (zb.y < BOTTOM - 16) zb.health = 0
+    // Fell out of the world: gone, but it isn't a kill (2026-10-18 bug -
+    // falls counted as kills and finished waves on their own).
+    if (zb.y < BOTTOM - 16) {
+      zb.lost = true
+      zb.health = 0
+    }
 
     // A closed door in the way gets bashed open.
     const ahead = [Math.floor(zb.x + Math.sign(dx) * 0.6), cy, Math.floor(zb.z + Math.sign(dz) * 0.6)]
@@ -1730,7 +1867,10 @@ export class BuildSurvival {
   }
 
   _hurtPlayer(amount) {
-    if (this.dead) return
+    // Spectating: flying about, nothing can hurt you.
+    if (this.dead || this.spectating) return
+    // Worn armor (the inventory's armor slots) takes its share first.
+    amount *= 1 - (this.inv?.damageCut() || 0)
     const p = this.bm.tryMode.pos
     // Nothing reaches you inside the camp.
     if (this.camp?.inside(p.x, p.z)) return
@@ -1820,7 +1960,7 @@ export class BuildSurvival {
     // On a server the world goes on while you're dead or in the menu.
     const net = this.net && !this.net.closed ? this.net : null
     if (net) net.update(Math.min(dt, 0.25))
-    if (!net && (this.dead || this.bm.menuOpen || this.spectating)) return
+    if (!net && (this.dead || this.bm.menuOpen)) return
     // Nothing happens until a weapon has been picked.
     if (this._picking && !net) return
     dt = Math.min(dt, 1 / 20)
@@ -1950,8 +2090,10 @@ export class BuildSurvival {
     // Waves.
     if (this._toSpawn === 0) {
       if (this._breakTimer > 0) {
+        const shown = Math.ceil(this._breakTimer)
         this._breakTimer -= dt
         if (this._breakTimer <= 0) this._startWave(this.wave + 1)
+        else if (Math.ceil(this._breakTimer) !== shown) this._renderHud()
       } else {
         const rush = this.cfg.mode === 'zombieRush'
         this._breakTimer = rush ? RUSH_WAVE_BREAK : WAVE_BREAK
@@ -1989,7 +2131,12 @@ export class BuildSurvival {
           target = p
         }
       }
-      this._updateZombie(zb, dt, target || { x: zb.x, y: zb.y, z: zb.z, idle: true }, speed)
+      // Too far from every player (left behind): it goes, and a new one
+      // comes from near you instead.
+      if (targets.length && best > DESPAWN_DIST * DESPAWN_DIST) {
+        zb.lost = true
+        zb.health = 0
+      } else this._updateZombie(zb, dt, target || { x: zb.x, y: zb.y, z: zb.z, idle: true }, speed)
       if (zb.health <= 0 && this.zombies.includes(zb)) this.damageZombie(zb, 0)
       if (this.dead && !this.net) return
     }

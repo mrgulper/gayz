@@ -20,7 +20,7 @@ import { startWhenLight, onHomeFrame } from './LiteHome.js'
 // Height of each redrawn row (CSS px) - small enough that the waves look
 // smooth, big enough to keep the draw calls down (the sheen is blurred, so
 // 4px rows look the same as 2px ones at half the draws).
-const ROW_PX = 4
+const ROW_PX = 6
 // Sideways sway (CSS px) far up the road and at the very bottom.
 const SWAY_FAR = 0.4
 const SWAY_NEAR = 5

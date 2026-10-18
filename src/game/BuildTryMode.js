@@ -1132,6 +1132,8 @@ export class BuildTryMode {
     this._dig.t += dt
     if (this._dig.t >= this._dig.need) {
       this.breakBlock(hit.x, hit.y, hit.z)
+      // In a game, what you break goes into your inventory.
+      if (play?.active) play.onBlockMined(hit.type, hit.x, hit.y, hit.z)
       this._stopDig()
       return
     }

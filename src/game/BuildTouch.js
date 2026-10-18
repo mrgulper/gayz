@@ -23,6 +23,7 @@ const LOOK_PER_PX = 0.0055
 const FIRE_REPEAT_S = 0.16
 
 const ICONS = {
+  bag: '<svg viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
   fire: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>',
   jump: '<svg viewBox="0 0 24 24"><path d="M12 19V6M6 12l6-6 6 6"/></svg>',
   reload: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg>',
@@ -62,7 +63,8 @@ export class BuildTouch {
       <button type="button" class="tp-btn tp-jump" data-tp="jump" aria-label="Jump">${ICONS.jump}</button>
       <button type="button" class="tp-btn tp-reload" data-tp="reload" aria-label="Reload">${ICONS.reload}</button>
       <button type="button" class="tp-btn tp-use" data-tp="use" aria-label="Use">${ICONS.use}</button>
-      <button type="button" class="tp-btn tp-crouch" data-tp="crouch" aria-label="Crouch">${ICONS.crouch}</button>`
+      <button type="button" class="tp-btn tp-crouch" data-tp="crouch" aria-label="Crouch">${ICONS.crouch}</button>
+      <button type="button" class="tp-btn tp-bag" data-tp="bag" aria-label="Inventory">${ICONS.bag}</button>`
     document.body.appendChild(el)
     this._el = el
     this._stickEl = el.querySelector('.tp-stick')
@@ -142,7 +144,10 @@ export class BuildTouch {
     btn.classList.add('down')
     btn.dataset.tpId = id
     const bm = this.bm
-    if (action === 'fire') {
+    if (action === 'fire' && bm.survival?.holding?.kind === 'block') {
+      // Holding a block: the fire button places it.
+      bm.survival.placeHeldBlock()
+    } else if (action === 'fire') {
       this._fireId = id
       this._fireIn = FIRE_REPEAT_S
       bm.tryMode.fire()
@@ -153,6 +158,10 @@ export class BuildTouch {
       if (bm.survival.active) bm.survival.reload()
     } else if (action === 'use') {
       bm._tryUseFromCamera()
+    } else if (action === 'bag') {
+      // The game's inventory (PlayInventory.js) - phones have no Tab key.
+      this._release()
+      bm.togglePicker()
     } else if (action === 'crouch') {
       this._crouch = !this._crouch
       this._crouchEl.classList.toggle('on', this._crouch)

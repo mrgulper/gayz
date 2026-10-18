@@ -25,6 +25,7 @@ import { BIOMES, SEA, sampleLand } from './OpenWorld.js'
 import { EARTH_W, EARTH_H, EARTH_BIOMES, EARTH_RLE } from './EarthMapData.js'
 import { COUNTRY_W, COUNTRY_H, EARTH_COUNTRIES, COUNTRY_RLE } from './EarthCountries.js'
 import { LANDMARKS } from './Landmarks.js'
+import { CITIES, cityNear } from './Towns.js'
 
 const DEG = 120 // world blocks per degree for the starting guess
 const SEARCH_STEP = 48
@@ -94,7 +95,7 @@ export function randomLandPick(rand = Math.random) {
     const lat = Math.asin(rand() * 2 - 1) * (180 / Math.PI) * 0.92
     const lon = rand() * 360 - 180
     const biome = earthBiome(lat, lon)
-    if (!WATER.has(biome) && lat > -60) return { lat, lon, biome, country: earthCountry(lat, lon) }
+    if (!WATER.has(biome) && lat > -60) return { lat, lon, biome, country: earthCountry(lat, lon), city: cityNear(lat, lon)?.name || '' }
   }
   return { lat: 23, lon: 10, biome: 'desert', country: earthCountry(23, 10) }
 }
@@ -172,6 +173,15 @@ export function openSpawnMap() {
       }
     }
     ctx.putImageData(img, 0, 0)
+    // Real cities (Towns.js): a little white square with a dark edge.
+    for (const c of CITIES) {
+      const x = Math.round((c.lon + 180) * 2)
+      const y = Math.round((90 - c.lat) * 2)
+      ctx.fillStyle = '#1a1206'
+      ctx.fillRect(x - 2, y - 2, 5, 5)
+      ctx.fillStyle = '#fff6d8'
+      ctx.fillRect(x - 1, y - 1, 3, 3)
+    }
   }
   const set = (id, text) => { el.querySelector(id).textContent = text }
   set('#spawn-map-title', t('spawnMapTitle'))
@@ -195,12 +205,13 @@ export function openSpawnMap() {
       const fy = Math.min(0.9999, Math.max(0, (e.clientY - r.top) / r.height))
       const lon = fx * 360 - 180
       const lat = 90 - fy * 180
-      return { lat, lon, fx, fy, biome: earthBiome(lat, lon), country: earthCountry(lat, lon) }
+      return { lat, lon, fx, fy, biome: earthBiome(lat, lon), country: earthCountry(lat, lon), city: cityNear(lat, lon)?.name || '' }
     }
     const describe = (p) => {
       if (WATER.has(p.biome) && !p.country) return t('spawnMapSea')
       const lm = LANDMARKS[p.country]
-      return [p.country, biomeLabel(p.biome), fmt(p.lat, p.lon), lm ? t('spawnMapLandmark', { name: t(lm.key) }) : ''].filter(Boolean).join(' · ')
+      const city = p.city ? t('spawnMapCity', { name: p.city }) : ''
+      return [city, p.country, biomeLabel(p.biome), fmt(p.lat, p.lon), !city && lm ? t('spawnMapLandmark', { name: t(lm.key) }) : ''].filter(Boolean).join(' · ')
     }
     const onMove = (e) => { if (!picked) set('#spawn-map-info', describe(at(e))) }
     const onClick = (e) => {
@@ -225,7 +236,7 @@ export function openSpawnMap() {
     canvas.addEventListener('click', onClick)
     el.querySelector('#spawn-map-camp').onclick = () => done(null)
     el.querySelector('#spawn-map-random').onclick = () => done(randomLandPick())
-    go.onclick = () => { if (picked) done({ lat: picked.lat, lon: picked.lon, biome: picked.biome, country: picked.country }) }
+    go.onclick = () => { if (picked) done({ lat: picked.lat, lon: picked.lon, biome: picked.biome, country: picked.country, city: picked.city }) }
     // Something else started the game (a test, or a weapon picked some
     // other way): close as the camp.
     el._close = () => done(null)

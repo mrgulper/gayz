@@ -593,6 +593,8 @@ const PICKER_TYPES = BLOCK_TYPES.filter((b) => !b.hidden)
 const PICKER_TYPES_SORTED = [...PICKER_TYPES.filter((b) => _blockCategory(b) === 'special'), ...PICKER_TYPES.filter((b) => _blockCategory(b) !== 'special')]
 // Removed/renamed block ids -> what old saves load them as.
 const LEGACY_TYPE_IDS = { tnt: 'c4', tntslab: 'c4slab' }
+// The Map Editor Tab panel's 6 x 6 block storage (_renderPickerSide).
+const EDITOR_STORE_KEY = 'buildmode-block-store'
 const _isDoorType = (type) => { const shape = BLOCK_BY_ID.get(type)?.shape; return shape === 'door' || shape === 'doortop' }
 // Light-giving blocks (lava, glowstone, jack o'lantern...) - every block
 // type with an emissive color. They light their surroundings through
@@ -1789,8 +1791,9 @@ export class BuildMode {
       }
       // Trying the map: clicks shoot (and, held on a block, break it -
       // BuildTryMode._updateDigging); nothing gets built.
-      // Spectating: a click watches the next player (on a server).
-      if (this.spectate.active) {
+      // Spectating: on a server a click watches the next player; alone it
+      // shoots like normal.
+      if (this.spectate.active && this.spectate.hasPlayers()) {
         if (e.button === 0) this.spectate.cycle(1)
         return
       }
@@ -1804,6 +1807,8 @@ export class BuildMode {
         // it's let go (2026-10-17, Gaymi: "if you stop clicking right
         // click it stops aiming") - doors, chests and NPCs are on the Use
         // key (E).
+        // Holding a block from the inventory: right-click places it.
+        else if (e.button === 2 && this.survival?.holding?.kind === 'block') this.survival.placeHeldBlock()
         else if (e.button === 2) this.tryMode.setAim(true)
         return
       }
@@ -1931,7 +1936,8 @@ export class BuildMode {
       if (this.pickerOpen) return
       const digitIndex = DIGIT_KEY_TO_HOTBAR_INDEX[e.code]
       if (digitIndex === undefined) return
-      this._selectHotbarSlot(digitIndex)
+      if (this.survival?.active && this.survival.inv) this.survival.inv.select(digitIndex)
+      else this._selectHotbarSlot(digitIndex)
     }
 
     // Mouse wheel / trackpad scroll steps through the hotbar like
@@ -1946,6 +1952,11 @@ export class BuildMode {
       if (!steps) return
       this._wheelAccum -= steps * 60
       const dir = Math.sign(steps) * (this.game?.settings?.invertScrollWeaponSwitch ? -1 : 1)
+      if (this.survival?.active && this.survival.inv) {
+        const inv = this.survival.inv
+        inv.select((((inv.active + dir) % 10) + 10) % 10)
+        return
+      }
       const next = (((this.activeHotbarIndex + dir) % 10) + 10) % 10
       this._selectHotbarSlot(next)
     }
@@ -2221,6 +2232,21 @@ export class BuildMode {
     if (!def || def.game || def.shape === 'doortop') return false
     if (def.shape) def = BLOCK_BY_ID.get(SHAPED_TEXTURE_FROM[def.id] || def.slabOf || def.stairsOf) || def
     return ['wood', 'log', 'spine', 'leaves'].includes(def.pattern)
+  }
+
+  // For the game's inventory (PlayInventory.js): a block's picture, name,
+  // and whether an id is a real block.
+  blockIcon(id) {
+    const bt = BLOCK_BY_ID.get(id)
+    return bt ? _blockIcon(bt) : ''
+  }
+
+  blockName(id) {
+    return BLOCK_BY_ID.get(id)?.name || id
+  }
+
+  isBlockType(id) {
+    return BLOCK_BY_ID.has(id)
   }
 
   // Leaves and logs - fire races through a tree (BuildSurvival's fires).
@@ -2965,6 +2991,121 @@ export class BuildMode {
   _renderPicker() {
     if (this._pickerSearchInput) this._pickerSearchInput.value = ''
     this._renderPickerGrid()
+    this._renderPickerSide()
+  }
+
+  // Map Editor Tab panel, half and half (2026-10-18, Gaymi's picture): the
+  // blocks on the left, and on the right your hotbar plus a 6 x 6 block
+  // storage (remembered on this device, EDITOR_STORE_KEY). Drag a block
+  // from the left onto a hotbar or storage slot, drag between slots to
+  // move/swap, click a hotbar slot to make it the active one, click a
+  // stored block to put it in the active hotbar slot.
+  _renderPickerSide() {
+    const picker = this._pickerEl
+    if (!picker) return
+    if (!this._pickerSideEl) {
+      const left = document.createElement('div')
+      left.className = 'build-picker-left'
+      while (picker.firstChild) left.appendChild(picker.firstChild)
+      const right = document.createElement('div')
+      right.className = 'build-picker-right'
+      picker.append(left, right)
+      picker.classList.add('split')
+      this._pickerSideEl = right
+      try {
+        const saved = JSON.parse(localStorage.getItem(EDITOR_STORE_KEY) || '[]')
+        this._editorStore = Array.from({ length: 36 }, (_, i) => (BLOCK_BY_ID.has(saved[i]) ? saved[i] : null))
+      } catch {
+        this._editorStore = new Array(36).fill(null)
+      }
+      this._bindPickerDrag()
+    }
+    const slot = (id, where, i, active) => {
+      const bt = id && BLOCK_BY_ID.get(id)
+      const icon = bt ? ` style="background-image:url(${_blockIcon(bt)})"` : ''
+      const title = bt ? ` title="${bt.name.replace(/"/g, '&quot;')}"` : ''
+      return `<div class="bp-slot${active ? ' active' : ''}" data-where="${where}" data-i="${i}"${icon}${title}></div>`
+    }
+    this._pickerSideEl.innerHTML = `<div class="bp-title">${t('editorPickerHotbar')}</div>
+      <div class="bp-hotbar">${this.hotbar.map((id, i) => slot(id, 'hotbar', i, i === this.activeHotbarIndex)).join('')}</div>
+      <div class="bp-title">${t('editorPickerStorage')}</div>
+      <div class="bp-store">${this._editorStore.map((id, i) => slot(id, 'store', i, false)).join('')}</div>`
+  }
+
+  _saveEditorStore() {
+    try {
+      localStorage.setItem(EDITOR_STORE_KEY, JSON.stringify(this._editorStore))
+    } catch {
+      // Storage full - it just won't be remembered.
+    }
+  }
+
+  // Drag from the block grid (or a right-side slot) onto a right-side slot.
+  _bindPickerDrag() {
+    const picker = this._pickerEl
+    let drag = null
+    const listOf = (where) => (where === 'hotbar' ? this.hotbar : this._editorStore)
+    picker.addEventListener('pointerdown', (e) => {
+      const item = e.target.closest('.build-picker-item')
+      const slot = e.target.closest('.bp-slot')
+      let id = null
+      if (item) id = item.dataset.blockId
+      else if (slot) id = listOf(slot.dataset.where)[Number(slot.dataset.i)]
+      if (!id) {
+        if (slot?.dataset.where === 'hotbar') {
+          this._selectHotbarSlot(Number(slot.dataset.i))
+          this._renderPickerSide()
+        }
+        return
+      }
+      drag = { id, from: slot ? { where: slot.dataset.where, i: Number(slot.dataset.i) } : null, x: e.clientX, y: e.clientY, moved: false, ghost: null, item }
+    })
+    window.addEventListener('pointermove', (e) => {
+      if (!drag) return
+      if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6) return
+      if (!drag.moved) {
+        drag.moved = true
+        drag.ghost = document.createElement('div')
+        drag.ghost.className = 'inv-ghost'
+        drag.ghost.innerHTML = `<img src="${_blockIcon(BLOCK_BY_ID.get(drag.id))}" alt="">`
+        document.body.appendChild(drag.ghost)
+      }
+      drag.ghost.style.left = `${e.clientX}px`
+      drag.ghost.style.top = `${e.clientY}px`
+    })
+    window.addEventListener('pointerup', (e) => {
+      const d = drag
+      drag = null
+      if (!d) return
+      d.ghost?.remove()
+      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('#build-picker .bp-slot')
+      if (!d.moved) {
+        // A click: a block on the left equips it (as before); a stored
+        // block goes into the active hotbar slot; a hotbar slot is picked.
+        if (d.item) {
+          // (The block's own click listener equips it.)
+        } else if (d.from?.where === 'store') {
+          this._assignToActiveSlot(d.id)
+          this._renderPickerSide()
+        } else if (d.from?.where === 'hotbar') {
+          this._selectHotbarSlot(d.from.i)
+          this._renderPickerSide()
+        }
+        return
+      }
+      if (!target) return
+      const to = listOf(target.dataset.where)
+      const ti = Number(target.dataset.i)
+      if (d.from) {
+        const from = listOf(d.from.where)
+        ;[from[d.from.i], to[ti]] = [to[ti], from[d.from.i]]
+      } else to[ti] = d.id
+      this.selectedType = this.hotbar[this.activeHotbarIndex]
+      this._updateInvisibleGhost()
+      this._saveEditorStore()
+      this._renderHotbar()
+      this._renderPickerSide()
+    })
   }
 
   // Just the swatch grid, filtered by the search box's current value -
@@ -2991,6 +3132,9 @@ export class BuildMode {
       label.textContent = name
       item.appendChild(swatch)
       item.appendChild(label)
+      // Clicking equips it; dragging it onto a right-hand slot puts it
+      // there instead (_bindPickerDrag).
+      item.dataset.blockId = id
       item.addEventListener('click', () => {
         this._assignToActiveSlot(id)
         this.togglePicker()
@@ -3009,6 +3153,11 @@ export class BuildMode {
   // DIGIT_KEY_TO_HOTBAR_INDEX for the matching Digit1-9/0 key handling.
   _renderHotbar() {
     if (!this._hotbarEl) return
+    // A game shows the inventory's hotbar.
+    if (this.survival?.active && this.survival.inv) {
+      this.survival.inv.renderHotbar()
+      return
+    }
     this._hotbarEl.innerHTML = ''
     // Try Map shows the same hotbar with nothing in it.
     const empty = this.tryMode.active
@@ -3246,7 +3395,12 @@ export class BuildMode {
 
   togglePicker() {
     this.pickerOpen = !this.pickerOpen
-    if (this._pickerEl) this._pickerEl.style.display = this.pickerOpen ? 'flex' : 'none'
+    // In a game Tab opens the inventory (PlayInventory.js), not the blocks.
+    const game = this.survival?.active && this.survival.inv
+    if (game) {
+      this.survival.inv.show(this.pickerOpen)
+      if (this._pickerEl) this._pickerEl.style.display = 'none'
+    } else if (this._pickerEl) this._pickerEl.style.display = this.pickerOpen ? 'flex' : 'none'
     // Avoid the picker grid and the action menu both showing at once (Tab
     // while the menu's open) - closing the menu here rather than blocking
     // Tab keeps Tab's behavior consistent regardless of what else is open.
@@ -3257,11 +3411,11 @@ export class BuildMode {
       // pickerOpen, but a key pressed just before this toggle already made
       // it into the set.
       this._keys.clear()
-      this._renderPicker()
+      if (!game) this._renderPicker()
       // Real cursor isn't usable until pointer lock actually releases (see
       // the exitPointerLock() call right below) - focusing before that
       // resolves is a silent no-op in some browsers.
-      setTimeout(() => this._pickerSearchInput?.focus(), 0)
+      if (!game) setTimeout(() => this._pickerSearchInput?.focus(), 0)
     }
     if (document.pointerLockElement === this.renderer.domElement && this.pickerOpen) {
       document.exitPointerLock()
@@ -4100,7 +4254,10 @@ export class BuildMode {
     this.lastDrawCalls = this.renderer.info.render.calls
     shadowMap.autoUpdate = shadowAutoUpdate
     this.renderer.toneMapping = toneMapping
-    if (this.tryMode.active) this.tryMode.drawGun(this.renderer)
+    // A block held from the game's inventory is drawn in the hand instead.
+    const held = this.tryMode.active && this.survival?.active ? this.survival.holding : null
+    if (held?.kind === 'block') this.tryMode.drawHand(this.renderer, held.id)
+    else if (this.tryMode.active && !held) this.tryMode.drawGun(this.renderer)
     else if (!this.menuOpen && !this.pickerOpen && !this._noHand) this.tryMode.drawHand(this.renderer, this.selectedType)
     // The minimap shows while building too (Try Map draws its own).
     if (!this.tryMode.active) this.tryMode.drawBuildMap(performance.now(), this.active && !this.menuOpen && !this.pickerOpen)

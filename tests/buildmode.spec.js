@@ -1904,7 +1904,10 @@ test('Spectate, fuel, burning wood and the day-night sky', async ({ page }) => {
     bm.toggleMenu()
     document.getElementById('play-pause-spectate-btn').click()
     out.spectating = [bm.spectate.active, s.spectating, bm.menuOpen]
-    out.noShooting = s.tryFire() === false
+    // The game keeps going while spectating and nothing can hurt you.
+    const hp = s.health
+    s._hurtPlayer(50)
+    out.noHurt = s.health === hp
     bm._keys.add('KeyW')
     for (let i = 0; i < 20; i++) bm.update(1 / 30)
     bm._keys.delete('KeyW')
@@ -1929,7 +1932,7 @@ test('Spectate, fuel, burning wood and the day-night sky', async ({ page }) => {
     return out
   })
   expect(r).toEqual({
-    sky: ['cycle', 'random', true], fuel: true, spectating: [true, true, false], noShooting: true, flew: true,
+    sky: ['cycle', 'random', true], fuel: true, spectating: [true, true, false], noHurt: true, flew: true,
     back: [false, false, true, true], lit: true, stoneLit: false, burnt: true, stoneStays: true, restorable: true,
   })
 })
@@ -2049,4 +2052,89 @@ test('countries, landmarks, kill-count waves, fading bodies and fire rules', asy
     return out
   }, first)
   expect(r).toEqual({ randomBtn: true, spawned: true, landmark: true, wave: [true, true, true], corpse30: true, corpse61: true, burntBody: true, leavesLit: true, wetNotLit: true, rainedOut: true })
+})
+
+// 2026-10-18 (second batch): the game's inventory (Tab), the Map Editor's
+// half-and-half Tab panel, real-city towns, and zombies lost far away or
+// falling out of the world no longer count as kills.
+test('inventory, editor block storage, city towns and lost zombies', async ({ page }) => {
+  const { cityNear } = await import('../src/game/Towns.js')
+  expect(cityNear(48.9, 2.4)?.name).toBe('Paris')
+  expect(cityNear(0, -140)).toBe(null)
+
+  await gotoAndWaitForGame(page)
+  const editor = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    g.buildMode.togglePicker()
+    const out = { split: document.getElementById('build-picker').classList.contains('split'), store: document.querySelectorAll('#build-picker .bp-store .bp-slot').length, hotbar: document.querySelectorAll('#build-picker .bp-hotbar .bp-slot').length }
+    g.buildMode.togglePicker()
+    g._exitBuildMode()
+    return out
+  })
+  expect(editor).toEqual({ split: true, store: 36, hotbar: 10 })
+
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  const first = await page.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const out = {}
+    out.town = s._spawnAt({ lat: 40.7, lon: -74, biome: 'plains', country: 'United States of America', city: 'New York' })
+    out.townPlan = window.__game.buildMode.world._landmarks.some((p) => p.kind === 'town' && p.placeName === 'New York')
+    s._pickWeapon('rifle')
+    return out
+  })
+  await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
+  const r = await page.evaluate((out) => {
+    const bm = window.__game.buildMode
+    const s = bm.survival
+    const inv = s.inv
+    // Starting kit: the picked gun in slot 1, every other gun in the grid.
+    out.kit = [inv.hotbar[0]?.id, inv.grid.filter((it) => it?.kind === 'gun').length]
+    // Tab opens the inventory panel with 100 + 10 + 5 slots.
+    bm.togglePicker()
+    out.panel = [document.querySelectorAll('#play-inventory .inv-grid .inv-slot').length, document.querySelectorAll('#play-inventory .inv-hotbar .inv-slot').length, document.querySelectorAll('#play-inventory .inv-armor .inv-slot').length]
+    bm.togglePicker()
+    // A broken block goes in; a held block is placed and the stack drops.
+    s.onBlockMined('oakplanks', 1, 2, 3)
+    const slot = inv.hotbar.findIndex((it) => it?.id === 'oakplanks')
+    inv.select(slot)
+    out.holding = s.holding?.id
+    // Look down at the ground nearby (a few directions, in case something
+    // is in the way) and place it.
+    let placed = false
+    for (const yaw of [0, 1.6, 3.2, 4.7]) {
+      for (const pitch of [-1.3, -0.9, -0.6]) {
+        if (placed) break
+        bm._yaw = yaw
+        bm._pitch = pitch
+        for (let i = 0; i < 3; i++) bm.update(1 / 30)
+        placed = s.placeHeldBlock()
+      }
+    }
+    out.placed = placed && !inv.hotbar[slot]
+    // Armor in its slot cuts damage.
+    inv.add({ kind: 'item', id: 'chestplate', n: 1 })
+    const ci = inv.hotbar.findIndex((it) => it?.id === 'chestplate')
+    out.wrongSlot = inv.moveItem('hotbar', ci, 'armor', 0) === false
+    inv.moveItem('hotbar', ci, 'armor', 1)
+    out.cut = +inv.damageCut().toFixed(2)
+    // Saved and restored.
+    const saved = JSON.parse(JSON.stringify(inv.serialize()))
+    inv.reset('pistol')
+    inv.restore(saved)
+    out.restored = inv.armor[1]?.id
+    // A zombie that falls out of the world isn't a kill.
+    inv.select(0)
+    const kills = s.kills
+    const left = s._toSpawn = 5
+    const p = bm.tryMode.pos
+    s._makeZombie(++s._zid, p.x + 3, p.y, p.z, 100, false)
+    const z = s.zombies[s.zombies.length - 1]
+    z.lost = true
+    s.damageZombie(z, 1e9)
+    out.lost = [s.kills === kills, s._toSpawn === left, !s.zombies.includes(z)]
+    return out
+  }, first)
+  expect(r).toEqual({ town: true, townPlan: true, kit: ['rifle', 14], panel: [100, 10, 5], holding: 'oakplanks', placed: true, wrongSlot: true, cut: 0.16, restored: 'chestplate', lost: [true, true, true] })
 })
