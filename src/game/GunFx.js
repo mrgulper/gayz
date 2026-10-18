@@ -1,5 +1,5 @@
 // Muzzle flash and smoke on the gun you hold in first person (2026-10-17,
-// Gaymi: "make more like kirka with that smoke when shooting"). Lives in
+// Gaymi: "make it smoke when shooting"). Lives in
 // BuildTryMode's own gun scene (drawn on top of the world), so it costs a
 // handful of sprites and never touches the block world's lights.
 //
@@ -11,6 +11,9 @@
 //   (in the gun scene, not on the gun), so the gun kicks back out of them
 //   while they drift up, grow and fade. Fainter while aiming so they never
 //   cover the sights.
+// - Flamethrower (2026-10-17): instead of a flash, a stream of fire puffs
+//   shoots out of the nozzle, swelling and fading as they fly.
+// - Void Ripper: its flash is purple.
 import * as THREE from 'three'
 
 const FLASH_LIFE = 0.05
@@ -22,6 +25,9 @@ const SMOKE_END = 0.4
 const SMOKE_ALPHA = 0.6
 const SMOKE_ALPHA_AIMING = 0.18
 const LIGHT_POWER = 2.2
+const FLAME_MAX = 40
+const FLAME_LIFE = 0.32
+const FLAME_SPEED = 3.2
 
 function canvasTexture(draw) {
   const c = document.createElement('canvas')
@@ -48,6 +54,19 @@ function flashTexture() {
       g.ellipse(32, 32, w / 2, h / 2, 0, 0, Math.PI * 2)
       g.fill()
     }
+  })
+}
+
+// A fire puff: white-hot middle, orange, then red at the edge.
+function flameTexture() {
+  return canvasTexture((g) => {
+    const fire = g.createRadialGradient(32, 32, 0, 32, 32, 32)
+    fire.addColorStop(0, 'rgba(255,250,220,1)')
+    fire.addColorStop(0.3, 'rgba(255,196,80,0.95)')
+    fire.addColorStop(0.7, 'rgba(235,90,20,0.55)')
+    fire.addColorStop(1, 'rgba(160,30,0,0)')
+    g.fillStyle = fire
+    g.fillRect(0, 0, 64, 64)
   })
 }
 
@@ -84,12 +103,56 @@ export class GunFx {
     }
     this._next = 0
     this._world = new THREE.Vector3()
+    this._flames = null
+    this._nextFlame = 0
+    this._dir = new THREE.Vector3()
+  }
+
+  // Built the first time the Flamethrower fires.
+  _flamePool() {
+    if (this._flames) return this._flames
+    const map = flameTexture()
+    this._flames = []
+    for (let i = 0; i < FLAME_MAX; i++) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }))
+      s.visible = false
+      s.userData = { t: FLAME_LIFE, vel: new THREE.Vector3(), spin: 0 }
+      this.scene.add(s)
+      this._flames.push(s)
+    }
+    return this._flames
+  }
+
+  // One Flamethrower shot: a few fire puffs fly out of the nozzle along
+  // the barrel (the gun points down -z in its own space).
+  flame(gun, muzzle) {
+    if (!gun || !muzzle) return
+    const pool = this._flamePool()
+    gun.updateMatrixWorld(true)
+    gun.localToWorld(this._world.copy(muzzle))
+    this._dir.set(0, 0, -1).transformDirection(gun.matrixWorld)
+    for (let i = 0; i < 3; i++) {
+      const s = pool[this._nextFlame]
+      this._nextFlame = (this._nextFlame + 1) % FLAME_MAX
+      const d = s.userData
+      s.position.copy(this._world)
+      d.t = -i * 0.02
+      d.vel.copy(this._dir).multiplyScalar(FLAME_SPEED * (0.85 + Math.random() * 0.3))
+      d.vel.x += (Math.random() - 0.5) * 0.35
+      d.vel.y += (Math.random() - 0.3) * 0.35
+      d.spin = (Math.random() - 0.5) * 4
+      s.material.rotation = Math.random() * Math.PI * 2
+      s.material.opacity = 0
+      s.visible = false
+    }
   }
 
   // One shot: `gun` is the held gun's group, `muzzle` its barrel tip in
   // that group's space.
-  fire(gun, muzzle, aiming) {
+  fire(gun, muzzle, aiming, tint = null) {
     if (!gun || !muzzle) return
+    this.flash.material.color.set(tint ?? 0xffffff)
+    this.light.color.set(tint ?? 0xffb060)
     for (const o of [this.flash, this.light]) if (o.parent !== gun) gun.add(o)
     this.flash.position.copy(muzzle).z -= 0.03
     this.light.position.copy(muzzle)
@@ -116,6 +179,25 @@ export class GunFx {
   }
 
   update(dt) {
+    if (this._flames) {
+      for (const s of this._flames) {
+        const d = s.userData
+        if (d.t >= FLAME_LIFE) continue
+        d.t += dt
+        if (d.t < 0) continue
+        const k = d.t / FLAME_LIFE
+        if (k >= 1) {
+          s.visible = false
+          continue
+        }
+        s.visible = true
+        s.position.addScaledVector(d.vel, dt)
+        d.vel.y += dt * 0.8
+        s.scale.setScalar(0.06 + 0.5 * k)
+        s.material.rotation += d.spin * dt
+        s.material.opacity = Math.min(1, k * 12) * (1 - k) * 0.9
+      }
+    }
     if (this._flashT > 0) {
       this._flashT -= dt
       const on = this._flashT > 0
@@ -149,6 +231,10 @@ export class GunFx {
     this.light.intensity = 0
     for (const s of this._smoke) {
       s.userData.t = SMOKE_LIFE
+      s.visible = false
+    }
+    for (const s of this._flames || []) {
+      s.userData.t = FLAME_LIFE
       s.visible = false
     }
   }

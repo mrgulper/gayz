@@ -79,6 +79,16 @@ export const UPGRADE_PLAY = {
   thickSkin: { toughness: 0.1 },
   fieldMedic: { campHeal: 0.5 },
   lastStand: { health: 40, armor: 20 },
+  kevlar: { armor: 25 },
+  berserker: { damage: 0.15 },
+  speedLoader: { reload: 0.15 },
+  marathoner: { speed: 0.1 },
+  goldRush: { coinBonus: 0.25 },
+  bankroll: { coins: 100 },
+  ammoHoarder: { ammo: 0.5 },
+  sharpEye: { headshot: 0.25 },
+  hardenedHide: { toughness: 0.1 },
+  haggler: { discount: 0.25 },
 }
 
 // Legacy Points for a run: this share of its points (DEATH_POINTS_CONVERSION

@@ -2254,6 +2254,7 @@ export function _bindControlsTab(game) {
   if (game.resetGeneralDefaultsBtn) game.resetGeneralDefaultsBtn.addEventListener('click', () => game._resetSettingsTab('general'))
   if (game.resetAudioDefaultsBtn) game.resetAudioDefaultsBtn.addEventListener('click', () => game._resetSettingsTab('audio'))
   if (game.resetControlsDefaultsBtn) game.resetControlsDefaultsBtn.addEventListener('click', () => game._resetSettingsTab('controls'))
+  bindResetConfirms()
   game._updateStorageUsageLine()
   game.exportSaveBtn.addEventListener('click', () => game._exportSave())
   game.importSaveBtn.addEventListener('click', () => game.importSaveInput.click())
@@ -2461,4 +2462,70 @@ export function _startRebind(game, btn, action) {
     game._applyLanguage() // text shows keys via {key:...} - refresh it
   }
   window.addEventListener('keydown', handler, true)
+}
+
+// Reset warning (2026-10-17, Gaymi: "add a warning when reseting something
+// then they can reset"). A capture listener on each reset button runs
+// before its own click handler and swallows the first click, opening the
+// themed #reset-confirm-modal; Reset re-clicks the button with the flag
+// set so the button's normal handler runs untouched.
+const RESET_CONFIRMS = {
+  'reset-general-defaults-btn': 'resetConfirmGeneral',
+  'reset-audio-defaults-btn': 'resetConfirmAudio',
+  'reset-graphics-defaults-btn': 'resetConfirmGraphics',
+  'reset-controls-defaults-btn': 'resetConfirmControls',
+  'restore-defaults-btn': 'resetConfirmAll',
+  'accent-color-reset-btn': 'resetConfirmAccent',
+  'play-btn-color-reset-btn': 'resetConfirmPlayBtn',
+}
+
+let resetConfirmAction = null
+
+function closeResetConfirm() {
+  const modal = document.getElementById('reset-confirm-modal')
+  if (modal) modal.classList.remove('open')
+  resetConfirmAction = null
+}
+
+export function openResetConfirm(message, onYes) {
+  const modal = document.getElementById('reset-confirm-modal')
+  if (!modal) { onYes(); return }
+  document.getElementById('reset-confirm-title').textContent = t('resetConfirmTitle')
+  document.getElementById('reset-confirm-text').textContent = message
+  document.getElementById('reset-confirm-cancel-btn').textContent = t('resetConfirmCancel')
+  document.getElementById('reset-confirm-ok-btn').textContent = t('resetConfirmOk')
+  resetConfirmAction = onYes
+  modal.classList.add('open')
+  document.getElementById('reset-confirm-cancel-btn').focus()
+}
+
+function bindResetConfirms() {
+  const modal = document.getElementById('reset-confirm-modal')
+  if (!modal || modal.dataset.bound) return
+  modal.dataset.bound = '1'
+  document.getElementById('reset-confirm-cancel-btn').addEventListener('click', closeResetConfirm)
+  document.getElementById('reset-confirm-ok-btn').addEventListener('click', () => {
+    const action = resetConfirmAction
+    closeResetConfirm()
+    if (action) action()
+  })
+  // Clicking the dark backdrop or pressing Escape cancels. Escape is
+  // stopped here so it doesn't also close the Settings panel behind.
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeResetConfirm() })
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !modal.classList.contains('open')) return
+    e.stopImmediatePropagation()
+    e.preventDefault()
+    closeResetConfirm()
+  }, true)
+  for (const [id, key] of Object.entries(RESET_CONFIRMS)) {
+    const btn = document.getElementById(id)
+    if (!btn) continue
+    btn.addEventListener('click', (e) => {
+      if (btn.dataset.resetConfirmed) { delete btn.dataset.resetConfirmed; return }
+      e.stopImmediatePropagation()
+      e.preventDefault()
+      openResetConfirm(t(key), () => { btn.dataset.resetConfirmed = '1'; btn.click() })
+    }, true)
+  }
 }

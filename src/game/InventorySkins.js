@@ -1,16 +1,19 @@
 // Inventory > Character skins data and the flat card picture, moved out
 // of Game.js (pure move, 2026-10-17). Game.js re-exports these so every
 // existing import keeps working.
-import { DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW_DATA_URL } from './MenuAvatar3D.js'
+import { DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW_DATA_URL, ALISA_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { MARKET_SKINS, MARKET_PRICES } from './MarketSkins.js'
 
-// Inventory > Character skins, in grid order (Kirka-style cards). Adding a
-// skin to the game = one entry here: its 64x64 Minecraft-format texture,
+// Inventory > Character skins, in grid order. Adding a
+// skin to the game = one entry here: its 64x64 skin texture,
 // a rarity (colors the card's side bar) and how many the player owns
 // (0 = not shown). An uploaded custom skin gets its own card on top of
 // these while it's the one equipped (see _inventorySkinEntries).
 export const INVENTORY_SKINS = [
-  { id: 'default', nameKey: 'skinDefault', rarity: 'common', dataUrl: DEFAULT_SKIN_DATA_URL, count: () => 1 },
+  // The GayZ default skin is called Gaymi (a name, so not translated);
+  // Alisa is the free girl skin next to it (2026-10-17).
+  { id: 'default', name: 'Gaymi', rarity: 'common', dataUrl: DEFAULT_SKIN_DATA_URL, count: () => 1 },
+  { id: 'alisa', name: 'Alisa', rarity: 'common', dataUrl: ALISA_SKIN_DATA_URL, count: () => 1 },
   // Sells back for half its 10,000-gem Shop price, in gems.
   { id: 'gaygarx', name: 'GaygarX', rarity: 'legendary', dataUrl: SHOP_SKIN_PREVIEW_DATA_URL, count: (g) => (g.ownsShopSkin ? 1 : 0), sell: { currency: 'gems', amount: 5000 } },
   // Market skins (MarketSkins.js): bought with coins, sold for half.
@@ -30,8 +33,8 @@ export const SKIN_RARITIES = {
   mythic: { color: '#e5322d', key: 'skinRarityMythic' },
 }
 
-// Flat front view of a Minecraft skin (head+hat, body, arms, legs) as a
-// data URL - the card picture, like Kirka's inventory. Cached per texture.
+// Flat front view of a skin (head+hat, body, arms, legs) as a
+// data URL - the card picture. Cached per texture.
 const _skinFrontIconCache = new Map()
 export function skinFrontIconURL(dataUrl) {
   if (_skinFrontIconCache.has(dataUrl)) return _skinFrontIconCache.get(dataUrl)
@@ -59,9 +62,21 @@ export function skinFrontIconURL(dataUrl) {
       part(8, 8, 8, 8, 4, 0) // head
       part(40, 8, 8, 8, 4, 0) // hat layer
       part(20, 20, 8, 12, 4, 8) // body
-      part(44, 20, 4, 12, 0, 8) // right arm (viewer's left)
+      // Slim (3-pixel) arms: the arm's 4th front column is empty.
+      const slim = !legacy && (() => {
+        const probe = document.createElement('canvas')
+        probe.width = 2 * k
+        probe.height = 12 * k
+        const pctx = probe.getContext('2d', { willReadFrequently: true })
+        pctx.drawImage(img, 54 * k, 20 * k, 2 * k, 12 * k, 0, 0, 2 * k, 12 * k)
+        const px = pctx.getImageData(0, 0, 2 * k, 12 * k).data
+        for (let i = 3; i < px.length; i += 4) if (px[i] > 0) return false
+        return true
+      })()
+      const aw = slim ? 3 : 4
+      part(44, 20, aw, 12, 4 - aw, 8) // right arm (viewer's left)
       if (legacy) part(44, 20, 4, 12, 12, 8, true)
-      else part(36, 52, 4, 12, 12, 8) // left arm
+      else part(36, 52, aw, 12, 12, 8) // left arm
       part(4, 20, 4, 12, 4, 20) // right leg
       if (legacy) part(4, 20, 4, 12, 8, 20, true)
       else part(20, 52, 4, 12, 8, 20) // left leg

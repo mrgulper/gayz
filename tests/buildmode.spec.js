@@ -1806,3 +1806,74 @@ test('smooth gun kick with flash and smoke; zombies get brains', async ({ page }
   })
   expect(r).toEqual({ eases: true, home: true, muzzle: true, smoke: true, smokeGone: true, roles: true, sides: true, flankersCurve: true, rushersStraight: true })
 })
+
+// 2026-10-17: the pause menu's Switch Weapon (each gun keeps its own ammo)
+// and the special guns' powers - Crossbow/AWP go through zombies, the
+// Tomahawk hits several, the Flamethrower sets them burning (and burning
+// hurts), the Void Ripper slows them, and launchers explode with a
+// fireball.
+test('Switch Weapon in the pause menu and the special guns\' powers', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const bm = g.buildMode
+    const s = bm.survival
+    const out = {}
+    s.mag = 7
+    bm.toggleMenu()
+    document.getElementById('play-pause-weapon-btn').click()
+    const pick = document.getElementById('play-weapon-pick')
+    out.picker = [getComputedStyle(pick).display !== 'none', bm.menuOpen, s._picking]
+    s._pickWeapon('flamethrower')
+    out.flame = [s.weaponId, s.mag, bm.tryMode._gunId]
+    bm.toggleMenu()
+    document.getElementById('play-pause-weapon-btn').click()
+    s._pickWeapon('rifle')
+    out.rifleKept = s.mag
+    // Fake zombies in a line straight ahead.
+    const B = s.B
+    const cam = bm.camera
+    bm._pitch = 0
+    cam.updateMatrixWorld()
+    const dir = cam.getWorldDirection(cam.position.clone())
+    dir.y = 0
+    dir.normalize()
+    const mk = (dist, side = 0) => ({ x: cam.position.x / B + dir.x * dist - dir.z * side, y: cam.position.y / B - 1.4, z: cam.position.z / B + dir.z * dist + dir.x * side, size: 1, health: 100000, vx: 0, vz: 0 })
+    const shot = (weapon, fakes) => {
+      s.weaponId = weapon
+      s.mag = s.magSize()
+      s._nextShotAt = 0
+      const real = s.zombies
+      s.zombies = fakes
+      cam.updateMatrixWorld()
+      s.shoot()
+      s.zombies = real
+      return fakes.map((f) => (f.health < 100000 ? 1 : 0)).join('')
+    }
+    out.rifle = shot('rifle', [mk(3), mk(4), mk(5)])
+    out.crossbow = shot('crossbow', [mk(3), mk(4), mk(5), mk(6)])
+    out.awp = shot('awp', [mk(3), mk(4), mk(5), mk(6), mk(7)])
+    out.tomahawk = shot('tomahawk', [mk(1.5), mk(1.8, 0.6), mk(2, -0.6), mk(2.2, 0.3)])
+    const burning = mk(3)
+    shot('flamethrower', [burning])
+    out.burn = burning.burn
+    const slowed = mk(3)
+    shot('voidripper', [slowed])
+    out.slow = slowed.slow
+    const fx = () => s._fx._sprites.filter((p) => p.userData.t < p.userData.life).length
+    s._fx.clear()
+    shot('launcher', [mk(5)])
+    out.fireball = fx() > 0
+    s.weaponId = 'rifle'
+    s.mag = s.magSize()
+    return out
+  })
+  expect(r).toEqual({
+    picker: [true, false, true], flame: ['flamethrower', 100, 'flamethrower'], rifleKept: 7,
+    rifle: '100', crossbow: '1110', awp: '11110', tomahawk: '1110', burn: 3, slow: 2, fireball: true,
+  })
+})

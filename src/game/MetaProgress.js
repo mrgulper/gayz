@@ -93,6 +93,18 @@ export const META_UPGRADES = [
   { id: 'thickSkin', titleKey: 'metaThickSkin', cost: 450 },
   { id: 'fieldMedic', titleKey: 'metaFieldMedic', cost: 400, requires: 'fortifiedRest' },
   { id: 'lastStand', titleKey: 'metaLastStand', cost: 800, requires: 'juggernaut' },
+  // Third-tier Zombie Survival upgrades (2026-10-17, "add more upgrades"),
+  // each one after an existing chain - effects in PlayRules.js UPGRADE_PLAY.
+  { id: 'kevlar', titleKey: 'metaKevlar', cost: 500, requires: 'plating' },
+  { id: 'berserker', titleKey: 'metaBerserker', cost: 750, requires: 'deadeye' },
+  { id: 'speedLoader', titleKey: 'metaSpeedLoader', cost: 550, requires: 'quickhands' },
+  { id: 'marathoner', titleKey: 'metaMarathoner', cost: 650, requires: 'sprinter' },
+  { id: 'goldRush', titleKey: 'metaGoldRush', cost: 700, requires: 'treasureHunter' },
+  { id: 'bankroll', titleKey: 'metaBankroll', cost: 600, requires: 'warChest' },
+  { id: 'ammoHoarder', titleKey: 'metaAmmoHoarder', cost: 650, requires: 'bandolier' },
+  { id: 'sharpEye', titleKey: 'metaSharpEye', cost: 650, requires: 'headhunter' },
+  { id: 'hardenedHide', titleKey: 'metaHardenedHide', cost: 650, requires: 'thickSkin' },
+  { id: 'haggler', titleKey: 'metaHaggler', cost: 600, requires: 'traderDiscount' },
   // Veteran's Cache pair - kept their requiresLifetimeCoins gate (careerStats.
   // lifetimeCoinsEarned, a never-reset cumulative total) even though every
   // other field here uses `requires` (another upgrade's id) - see Game.js's

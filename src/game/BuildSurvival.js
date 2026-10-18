@@ -23,6 +23,7 @@ import { getKeyFor } from './Keybinds.js'
 import { t } from './i18n.js'
 import { BuildCamp, COIN_PER_KILL, COIN_PER_WAVE } from './BuildCamp.js'
 import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, ammoFor, weaponBars } from './PlayWeapons.js'
+import { PlayFx } from './PlayFx.js'
 import { worldSeed } from './OpenWorld.js'
 import { BOTTOM } from './Underground.js'
 import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MOB_HEIGHT } from './PlayRules.js'
@@ -34,6 +35,12 @@ const HEAD_MULT = 2.4
 const ZOMBIE_HEIGHT = MOB_HEIGHT
 const ZOMBIE_FIT_HEIGHT = 1.85
 const ZOMBIE_HALF = 0.3
+// Special guns (PlayWeapons.js): Flamethrower burn damage per second,
+// Void Ripper slow (zombies move at this share of their speed), and the
+// Tomahawk's swing width (cos of the half-angle in front of you).
+const BURN_DPS = 14
+const VOID_SLOW = 0.5
+const CLEAVE_COS = Math.cos(0.6)
 const ATTACK_RANGE = 0.95
 const ATTACK_COOLDOWN = 1
 const DOOR_BASH_TIME = 3
@@ -201,7 +208,11 @@ export class BuildSurvival {
     // uses the rifle.
     const saved = bm.game?.settings?.playWeapon
     this.weaponId = fromMenu && PLAY_WEAPONS[saved] ? saved : DEFAULT_PLAY_WEAPON
+    // Ammo left in each gun you've switched away from (pause > Switch
+    // Weapon), so switching never refills a gun.
+    this._ammoByWeapon = {}
     this._nextShotAt = 0
+    if (!this._fx) this._fx = new PlayFx(bm.scene, this.B)
     this.mag = this.magSize()
     this.reserve = this._startReserve()
     this.wave = 0
@@ -275,6 +286,7 @@ export class BuildSurvival {
     for (const z of this.zombies) this._removeZombie(z)
     this.zombies = []
     this._clearCorpses()
+    this._fx?.clear()
     this._disposeZombieBatch()
     if (this._hud) this._hud.style.display = 'none'
     if (this._overEl) this._overEl.style.display = 'none'
@@ -333,8 +345,10 @@ export class BuildSurvival {
 
   // --- weapon picker (homepage runs) ---
 
-  _openWeaponPicker() {
+  // switching: opened from the pause menu's Switch Weapon mid-run.
+  _openWeaponPicker(switching = this._switching) {
     this._picking = true
+    this._switching = !!switching
     let el = document.getElementById('play-weapon-pick')
     if (!el) {
       el = document.createElement('div')
@@ -355,8 +369,8 @@ export class BuildSurvival {
     const ids = (game?.weapons?.getSummary?.() || []).filter((w) => PLAY_WEAPONS[w.id])
     const bar = (label, v) => `<span class="pwp-bar"><span class="pwp-bar-label">${label}</span><span class="pwp-bar-track"><span style="width:${Math.round(v * 100)}%"></span></span></span>`
     el.innerHTML = `<div class="pwp-card-box">
-      <h2>${t('playPickWeaponTitle')}</h2>
-      <p class="pwp-hint">${t('playPickWeaponHint')}</p>
+      <h2>${t(this._switching ? 'playSwitchWeaponTitle' : 'playPickWeaponTitle')}</h2>
+      <p class="pwp-hint">${t(this._switching ? 'playSwitchWeaponHint' : 'playPickWeaponHint')}</p>
       <div class="pwp-grid">${ids.map((w) => {
         const b = weaponBars(w.id)
         return `<button type="button" class="pwp-weapon${w.id === this.weaponId ? ' active' : ''}" data-play-weapon="${w.id}">
@@ -373,21 +387,27 @@ export class BuildSurvival {
 
   _closeWeaponPicker() {
     this._picking = false
+    this._switching = false
     const el = document.getElementById('play-weapon-pick')
     if (el) el.style.display = 'none'
   }
 
   _pickWeapon(id) {
     if (!PLAY_WEAPONS[id] || !this.active) return
+    const switching = this._switching
+    if (switching) this._ammoByWeapon[this.weaponId] = { mag: this.mag, reserve: this.reserve }
     this.weaponId = id
     this.bm.game?._setPlayWeapon?.(id)
     this._nextShotAt = 0
     this._reloadLeft = 0
-    this.mag = this.magSize()
-    this.reserve = this._startReserve()
+    // Knives never run out, so there's nothing to keep for them.
+    const kept = switching && Number.isFinite(this.weapon.mag) ? this._ammoByWeapon[id] : null
+    this.mag = kept ? Math.min(kept.mag, this.magSize()) : this.magSize()
+    this.reserve = kept ? kept.reserve : this._startReserve()
     this._closeWeaponPicker()
     this.bm.tryMode._showGun()
-    this._message(t('buildPlayGetReady'))
+    const name = t(this.bm.game?.weapons?.getSummary?.().find((w) => w.id === id)?.nameKey || 'weaponRifle')
+    this._message(switching ? t('playWeaponSwitched', { name }) : t('buildPlayGetReady'))
     this._renderHud()
     // This click is a real user gesture, so the mouse can be captured again.
     try { this.bm.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available */ }
@@ -419,6 +439,7 @@ export class BuildSurvival {
       weaponId: this.weaponId,
       mag: this.mag,
       reserve: this.reserve,
+      ammoByWeapon: this._ammoByWeapon,
       seconds: (performance.now() - this._startedAt) / 1000,
       claimed: (this.camp?.quests || []).filter((q) => q.claimed).map((q) => q.id),
       pos: { x: tm.pos.x, y: tm.pos.y, z: tm.pos.z },
@@ -461,6 +482,10 @@ export class BuildSurvival {
       weaponId: PLAY_WEAPONS[d.weaponId] ? d.weaponId : DEFAULT_PLAY_WEAPON,
       mag: Math.round(num(d.mag, 0, 1e5)),
       reserve: Math.round(num(d.reserve, 0, 1e7)),
+      ammoByWeapon: Object.fromEntries(Object.keys(PLAY_WEAPONS).filter((id) => d.ammoByWeapon?.[id]).map((id) => [id, {
+        mag: Math.round(num(d.ammoByWeapon[id].mag, 0, 1e5)),
+        reserve: Math.round(num(d.ammoByWeapon[id].reserve, 0, 1e7)),
+      }])),
       seconds: num(d.seconds, 0, 1e7),
       claimed: Array.isArray(d.claimed) ? d.claimed.filter((id) => typeof id === 'string').slice(0, 50) : [],
       pos,
@@ -479,6 +504,7 @@ export class BuildSurvival {
 
   _resumeRun(r) {
     this.weaponId = r.weaponId
+    this._ammoByWeapon = r.ammoByWeapon || {}
     this.bm.tryMode._showGun()
     this.wave = r.wave - 1
     this.kills = r.kills
@@ -666,6 +692,13 @@ export class BuildSurvival {
     const box = new THREE.Box3()
     const hitPoint = this._v
     let impact = null
+    // The Flamethrower's fire rolls out from just in front of you (below
+    // the middle of the screen, where the nozzle is), hit or miss.
+    if (w.burn) {
+      const from = center.origin.clone().addScaledVector(center.direction, 0.9 * B)
+      from.y -= 0.35 * B
+      this._fx?.flameStream(from, center.direction, Math.min(w.range, reach / B))
+    }
     // One ray per pellet (shotgun, flamethrower), fanned out by spread.
     const pellets = w.pellets || 1
     const ray = center.clone()
@@ -679,8 +712,10 @@ export class BuildSurvival {
         ray.direction.z += (Math.random() - 0.5) * 2 * spread
         ray.direction.normalize()
       }
-      let best = null
-      let bestT = reach
+      // Every zombie on this ray before the wall, nearest first. Most
+      // guns stop at the first; the Crossbow and AWP go through
+      // (w.pierce zombies).
+      const onRay = []
       for (const z of this.zombies) {
         const half = ZOMBIE_HALF * (z.size || 1)
         const height = ZOMBIE_HEIGHT * (z.size || 1)
@@ -688,23 +723,45 @@ export class BuildSurvival {
         box.max.set((z.x + half) * B, (z.y + height) * B, (z.z + half) * B)
         if (!ray.intersectBox(box, hitPoint)) continue
         const d = hitPoint.distanceTo(ray.origin)
-        if (d < bestT) {
-          bestT = d
-          best = { z, head: hitPoint.y / B > z.y + height * 0.76 }
-        }
+        if (d < reach) onRay.push({ z, d, head: hitPoint.y / B > z.y + height * 0.76 })
       }
-      if (best) {
-        if (best.head) this.stats.headshots++
-        add(best.z, damage * (best.head ? HEAD_MULT * (this.cfg?.headshotMult ?? 1) : 1))
-        if (!impact) impact = ray.at(bestT, new THREE.Vector3())
+      onRay.sort((a, b) => a.d - b.d)
+      const struck = onRay.slice(0, w.pierce || 1)
+      for (const hit of struck) {
+        if (hit.head) this.stats.headshots++
+        add(hit.z, damage * (hit.head ? HEAD_MULT * (this.cfg?.headshotMult ?? 1) : 1))
+      }
+      if (struck.length) {
+        if (!impact) impact = ray.at(struck[0].d, new THREE.Vector3())
       } else if (w.blast && !impact && Number.isFinite(reach)) {
         impact = ray.at(reach, new THREE.Vector3())
       }
+    }
+    // Tomahawk: the swing hits up to w.cleave zombies in front of you
+    // within reach, not just the one in the middle of the screen.
+    if (w.cleave) {
+      const eye = center.origin
+      const dir = center.direction
+      const near = []
+      for (const z of this.zombies) {
+        if (hits.has(z)) continue
+        const cx = z.x * B - eye.x
+        const cy = (z.y + ZOMBIE_HEIGHT * 0.5 * (z.size || 1)) * B - eye.y
+        const cz = z.z * B - eye.z
+        const d = Math.hypot(cx, cy, cz)
+        if (d > reach + ZOMBIE_HALF * B || (cx * dir.x + cy * dir.y + cz * dir.z) / (d || 1) < CLEAVE_COS) continue
+        near.push({ z, d })
+      }
+      near.sort((a, b) => a.d - b.d)
+      for (const n of near.slice(0, Math.max(0, w.cleave - hits.size))) add(n.z, damage)
     }
     // Rockets and grenades: everything near where it lands is hurt too,
     // less the further away.
     if (w.blast && impact) {
       try { audioEngine.playExplosion?.() } catch { /* no audio */ }
+      // Pulled back towards you a little so the fireball isn't half
+      // inside the wall it hit.
+      this._fx?.explode(impact.clone().addScaledVector(center.direction, -0.8 * B), w.blast)
       const radius = w.blast * B
       for (const z of this.zombies) {
         const cx = z.x * B
@@ -715,8 +772,12 @@ export class BuildSurvival {
       }
     }
     if (!hits.size) return false
+    if (w.slow && impact) this._fx?.voidHit(impact)
     for (const [z, amount] of hits) {
       if (!this.zombies.includes(z)) continue
+      // Flamethrower sets them on fire; Void Ripper slows them.
+      if (w.burn) z.burn = w.burn
+      if (w.slow) z.slow = w.slow
       // On a server and not the host: the host's zombie takes the hit
       // (and tells me if I killed it); here it just flashes.
       if (this.net && !this.net.isHost) {
@@ -1284,6 +1345,16 @@ export class BuildSurvival {
       }
       speed *= zb.speedMult || 1
     }
+    if (zb.burn > 0) {
+      zb.burn -= dt
+      zb.health -= BURN_DPS * this._damageMult() * dt
+      zb.flash = Math.max(zb.flash || 0, 0.05)
+      this._fx?.burn(zb, ZOMBIE_HEIGHT * (zb.size || 1))
+    }
+    if (zb.slow > 0) {
+      zb.slow -= dt
+      speed *= VOID_SLOW
+    }
     const cx = Math.floor(zb.x)
     const cy = Math.floor(zb.y + 0.01)
     const cz = Math.floor(zb.z)
@@ -1521,6 +1592,7 @@ export class BuildSurvival {
   update(dt) {
     if (!this.active) return
     this._updateCorpses(Math.min(dt, 0.1))
+    this._fx?.update(Math.min(dt, 0.1))
     // On a server the world goes on while you're dead or in the menu.
     const net = this.net && !this.net.closed ? this.net : null
     if (net) net.update(Math.min(dt, 0.25))

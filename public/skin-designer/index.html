@@ -8,9 +8,19 @@
      saved skin slots are image data far too big to sync. -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Paint, import, or send a Minecraft-style skin to your GayZ character - free.">
+<meta name="description" content="Paint, import, or send a blocky skin to your GayZ character - free.">
 <title>GayZ Character Skin Designer</title>
 <link href="/fonts/fonts.css" rel="stylesheet">
+<script>
+  // No browser right-click menu anywhere on GayZ (2026-10-17, Gaymi). Text
+  // boxes keep theirs so copy/paste still works. Game code that uses
+  // right-click (aim, chat nickname popup) still gets the event.
+  document.addEventListener('contextmenu', function (e) {
+    var t = e.target
+    if (t && t.closest && t.closest('input, textarea, [contenteditable="true"]')) return
+    e.preventDefault()
+  })
+</script>
 <script>
   // Sets the GayZ theme (dark 'old'/'golden', or the light default for a
   // standalone visit) before the very first paint. This used to live inside
@@ -416,13 +426,13 @@
       <div class="stage-loading" id="stageLoading">Loading 3D preview&hellip;</div>
     </div>
     <div class="stage-caption">Drag to rotate &bull; scroll or pinch to zoom &bull; click to paint with the current tool</div>
-    <!-- Under the character (2026-10-17, like minecraftskins.com): the arm
+    <!-- Under the character (2026-10-17): the arm
          shape. Download/Upload moved back to the bottom of the tools the
          same day ("kinda jammed"), and Reset to my skin was removed. -->
     <div class="stage-actions">
       <div class="arm-switch" role="group" aria-label="Arm width">
         <button class="tbtn active" id="armClassicBtn" title="Classic arms, 4 pixels wide (Steve)"><svg viewBox="0 0 20 24" aria-hidden="true"><rect x="6" y="0" width="8" height="7"/><rect x="6" y="8" width="8" height="8"/><rect x="1" y="8" width="4" height="8"/><rect x="15" y="8" width="4" height="8"/><rect x="6" y="17" width="3.5" height="7"/><rect x="10.5" y="17" width="3.5" height="7"/></svg>Classic (4px)</button>
-        <button class="tbtn" id="armSlimBtn" title="Slim arms, 3 pixels wide (Alex)"><svg viewBox="0 0 20 24" aria-hidden="true"><rect x="6" y="0" width="8" height="7"/><rect x="6" y="8" width="8" height="8"/><rect x="2.5" y="8" width="2.5" height="8"/><rect x="15" y="8" width="2.5" height="8"/><rect x="6" y="17" width="3.5" height="7"/><rect x="10.5" y="17" width="3.5" height="7"/></svg>Slim (3px)</button>
+        <button class="tbtn" id="armSlimBtn" title="Slim arms, 3 pixels wide"><svg viewBox="0 0 20 24" aria-hidden="true"><rect x="6" y="0" width="8" height="7"/><rect x="6" y="8" width="8" height="8"/><rect x="2.5" y="8" width="2.5" height="8"/><rect x="15" y="8" width="2.5" height="8"/><rect x="6" y="17" width="3.5" height="7"/><rect x="10.5" y="17" width="3.5" height="7"/></svg>Slim (3px)</button>
       </div>
     </div>
   </div>
@@ -460,7 +470,7 @@
       <button class="tbtn" id="brush3" data-size="3">3px</button>
       <div class="sep"></div>
       <label class="small" title="How many pixels the skin has - more pixels, more detail. Changing it keeps your skin.">Pixels</label>
-      <button class="tbtn" id="res1Btn" data-res="1" title="64x64 - classic Minecraft size">1x</button>
+      <button class="tbtn" id="res1Btn" data-res="1" title="64x64 - classic size">1x</button>
       <button class="tbtn" id="res2Btn" data-res="2" title="128x128 - twice the detail">2x</button>
       <button class="tbtn" id="res4Btn" data-res="4" title="256x256 - four times the detail">4x</button>
       <button class="tbtn" id="res8Btn" data-res="8" title="512x512 - eight times the detail">8x</button>
@@ -605,10 +615,10 @@ window.addEventListener('message', (event) => {
   applyGayzTheme(event.data.theme);
 });
 
-// ---- Standard Minecraft skin box-UV-unwrap - the same fixed pixel
+// ---- Standard blocky skin box-UV-unwrap - the same fixed pixel
 // layout every real skin file (and every third-party editor export)
 // follows. u,v,w,h,d/x,y,z below match this game's own real proportions,
-// which happen to equal Minecraft's actual skin-pixel dimensions 1:1. ----
+// which happen to equal the standard skin-pixel dimensions 1:1. ----
 function partFaceRects(u, v, w, h, d) {
   return {
     top: [u + d, v, u + d + w, v + d],
@@ -634,8 +644,7 @@ const BOXES = [
 // onto the base surface.
 const OVERLAY_ORIGINS = { head: [32,0], torso: [16,32], armR: [40,32], armL: [48,48], legR: [0,32], legL: [0,48] };
 
-// ---- Slim arms (2026-10-17, Gaymi: "make the 3px how minecraftskins.com
-// does it"). Classic arms are 4 pixels wide, slim ("Alex") arms 3 - the
+// ---- Slim arms (2026-10-17, Gaymi: "make the 3px arms"). Classic arms are 4 pixels wide, slim arms 3 - the
 // same file layout, each arm's front/back/top/bottom one column narrower,
 // leaving a 2-pixel strip at the end of each arm's block empty. That strip
 // is how a slim skin is recognised (detectSlim here, loadSkinTexture in
@@ -769,7 +778,7 @@ function buildCharacter(texture) {
   for (const box of BOXES) {
     group.add(boxMesh(box.w, box.h, box.d, box.u, box.v, box.x, box.y, box.z, gridTexture, box.key, false));
     const [ou, ov] = OVERLAY_ORIGINS[box.key];
-    // Minecraft's own puff sizes, same as minecraftskins.com/namemc: the hat
+    // The standard puff sizes: the hat
     // 0.5 per side, the jacket/sleeves/pants 0.25 per side (2026-09-30 -
     // it used to be 0.5 for every part). Neighboring shells still overlap
     // a little - sleeve and jacket fronts sit at the same depth where the
@@ -2071,7 +2080,7 @@ const MORE_MEANINGS = [
   ['ice', 'snowgolem iceking icequeen elsa frozenqueen'],
   ['alien', 'aliens extraterrestrial et martians'],
   ['angel cute', 'fairies pixie pixies sprite tinkerbell'],
-  // Minecraft and games
+  // Games
   ['casual cyan', 'steve'],
   ['casual girl ginger', 'alex'],
   ['casual white', 'herobrine'],
@@ -3310,7 +3319,7 @@ document.getElementById('randomizeBtn').addEventListener('click', () => runGener
 // everywhere the instant texture.needsUpdate is set, no re-flattening or
 // mesh-rebuilding step needed. ----
 // HD skins (2026-10-11, Gaymi: "add more pixels, 2x or 4x"): the atlas is
-// SIZE = 64 x RES pixels square - the same Minecraft layout with every
+// SIZE = 64 x RES pixels square - the same standard layout with every
 // skin pixel split into RES x RES. Editor code works in atlas pixels (SIZE);
 // layout code (BOXES, partFaceRects, the generator) stays in 64 units. The
 // generator paints into the 64x64 genCanvas (atlasCtx is swapped to it

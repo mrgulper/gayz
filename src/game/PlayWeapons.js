@@ -12,23 +12,30 @@
 // pellets  rays per shot, spread = how far they fan out (radians)
 // range    blocks (Infinity = until a wall)
 // blast    blocks: everything that close to where it hits is damaged too
+//          (with a fireball - PlayFx.explode)
+// Special abilities (2026-10-17, Gaymi: "check each gun's name and give
+// the special ones its ability"):
+// burn     seconds a zombie keeps burning after the Flamethrower hits it
+// pierce   zombies one shot goes through (Crossbow bolt, AWP round)
+// slow     seconds a Void Ripper hit slows a zombie down
+// cleave   zombies one Tomahawk swing can hit at once
 export const PLAY_WEAPONS = {
   rifle: { damage: 34, rate: 0.11, auto: true, mag: 30, reserve: 150, reload: 1.6 },
   pistol: { damage: 42, rate: 0.22, mag: 8, reserve: 72, reload: 1.2 },
   revolver: { damage: 70, rate: 0.4, mag: 6, reserve: 48, reload: 2.1 },
   minigun: { damage: 20, rate: 0.05, auto: true, mag: 150, reserve: 450, reload: 3.6 },
   shotgun: { damage: 18, rate: 0.75, mag: 6, reserve: 42, reload: 2.2, pellets: 8, spread: 0.075 },
-  awp: { damage: 180, rate: 1.25, mag: 5, reserve: 30, reload: 2.6 },
-  flamethrower: { damage: 11, rate: 0.06, auto: true, mag: 100, reserve: 300, reload: 2.4, range: 7, pellets: 3, spread: 0.06 },
+  awp: { damage: 180, rate: 1.25, mag: 5, reserve: 30, reload: 2.6, pierce: 4 },
+  flamethrower: { damage: 11, rate: 0.06, auto: true, mag: 100, reserve: 300, reload: 2.4, range: 7, pellets: 3, spread: 0.06, burn: 3 },
   rocket: { damage: 200, rate: 1.4, mag: 1, reserve: 12, reload: 2.4, blast: 3 },
-  crossbow: { damage: 120, rate: 0.9, mag: 1, reserve: 36, reload: 0.9 },
+  crossbow: { damage: 120, rate: 0.9, mag: 1, reserve: 36, reload: 0.9, pierce: 3 },
   launcher: { damage: 130, rate: 0.7, mag: 6, reserve: 24, reload: 2.6, blast: 2.5 },
   suppressedsmg: { damage: 22, rate: 0.07, auto: true, mag: 30, reserve: 180, reload: 1.5 },
-  voidripper: { damage: 48, rate: 0.16, auto: true, mag: 24, reserve: 120, reload: 1.8 },
+  voidripper: { damage: 48, rate: 0.16, auto: true, mag: 24, reserve: 120, reload: 1.8, slow: 2 },
   gpmg: { damage: 30, rate: 0.085, auto: true, mag: 100, reserve: 300, reload: 3.2 },
   melee: { damage: 75, rate: 0.45, auto: true, mag: Infinity, reserve: Infinity, reload: 0, range: 2.6, melee: true },
   // Slower than the knife but hits harder and reaches a little further.
-  tomahawk: { damage: 120, rate: 0.7, auto: true, mag: Infinity, reserve: Infinity, reload: 0, range: 3, melee: true },
+  tomahawk: { damage: 120, rate: 0.7, auto: true, mag: Infinity, reserve: Infinity, reload: 0, range: 3, melee: true, cleave: 3 },
 }
 
 // Picked when nothing has been chosen yet (and for the Map Editor's own

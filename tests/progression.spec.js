@@ -237,3 +237,58 @@ test('Prestige costs more each level and the star updates at once', async ({ pag
   expect(r.costLine).toContain('200,000')
   expect(r.earned).toBe(220) // 100 kills x 10 x 0.2, +10% for level 1
 })
+
+// 2026-10-17 batch: third-tier upgrades (each after an existing one) and
+// 14 more achievements from run reports, career totals and the Upgrades
+// panel itself.
+test('the 2026-10-17 upgrades and achievements work', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    g.settings.guestMode = false
+    g.settings.difficulty = 'normal'
+    g.settings.mutators = Object.fromEntries(Object.keys(g.settings.mutators).map((k) => [k, false]))
+    const base = g._playConfig()
+    for (const id of ['kevlar', 'berserker', 'speedLoader', 'marathoner', 'goldRush', 'bankroll', 'ammoHoarder', 'sharpEye', 'hardenedHide', 'haggler']) g.metaProgress.purchased.add(id)
+    const cfg = g._playConfig()
+    const up = {
+      armor: cfg.armor - base.armor,
+      damage: +(cfg.damageMult - base.damageMult).toFixed(2),
+      startCoins: cfg.startCoins - base.startCoins,
+      discount: cfg.discount,
+      ammo: +(cfg.ammoMult - base.ammoMult).toFixed(2),
+      headshot: +(cfg.headshotMult - base.headshotMult).toFixed(2),
+    }
+    // Locked until the upgrade before it is bought.
+    g.metaProgress.purchased = new Set()
+    g._openUpgradesPanel()
+    const kevlar = [...document.querySelectorAll('#upgrades-options .perk-option')].find((b) => b.textContent.includes('Kevlar Vest'))
+    const locked = kevlar.classList.contains('locked')
+    const ids = ['survivor_40', 'survivor_50', 'endurance', 'tycoon', 'slaughterhouse', 'unstoppable', 'dead_center', 'blade_master', 'boss_slayer', 'bone_breaker', 'apocalypse', 'veteran', 'well_equipped', 'maxed_out']
+    const has = (id) => g.achievements.unlocked.has(id)
+    const before = ids.filter(has)
+    g._onPlayEvent('wave', { wave: 50, difficulty: 'normal', mutators: [] })
+    g.careerStats.totalKills = 4600
+    g.careerStats.totalRuns = 99
+    g._onPlayEvent('end', {
+      waves: 50, kills: 500, bestStreak: 100, won: false, died: true, mode: 'classic', difficulty: 'normal', seconds: 2700,
+      coins: 7500, headshots: 150, meleeKills: 75, chests: 0, upgrades: 0, bosses: 15, skeletonKills: 75,
+    })
+    const afterRun = ids.filter(has)
+    // Buying upgrades: Well Equipped at 10, Maxed Out with every one.
+    g.metaProgress.legacyPoints = 1e7
+    g.careerStats.lifetimeCoinsEarned = 1e6
+    g._renderUpgradesOptions()
+    for (let i = 0; i < 60; i++) {
+      const btn = [...document.querySelectorAll('#upgrades-options .perk-option')].find((b) => !b.disabled)
+      if (!btn) break
+      btn.click()
+    }
+    return { up, locked, before, afterRun: afterRun.length, missing: ids.filter((id) => !has(id)) }
+  })
+  expect(r.up).toEqual({ armor: 25, damage: 0.15, startCoins: 100, discount: 0.25, ammo: 0.5, headshot: 0.25 })
+  expect(r.locked).toBe(true)
+  expect(r.before).toEqual([])
+  expect(r.afterRun).toBe(12)
+  expect(r.missing).toEqual([])
+})
