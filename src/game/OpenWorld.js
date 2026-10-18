@@ -43,8 +43,9 @@ for (let cx = -CITY_CHUNKS; cx < CITY_CHUNKS; cx++) {
 }
 // Sea level (the city's ground is y=-1, a little above it).
 export const SEA = -4
-// "Nearly no limit": the world stops this far out on each axis.
-export const WORLD_LIMIT = 30000
+// No limit (2026-10-17, Gaymi: "make the map no limit"): the land goes on
+// forever in every direction. (It used to stop 30,000 blocks out.)
+export const WORLD_LIMIT = Infinity
 // Generated out to the view distance plus a margin, never past this.
 const MAX_RADIUS = 144
 const MIN_RADIUS = 64

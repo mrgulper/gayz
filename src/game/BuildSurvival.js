@@ -24,6 +24,7 @@ import { t } from './i18n.js'
 import { BuildCamp, COIN_PER_KILL, COIN_PER_WAVE } from './BuildCamp.js'
 import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, ammoFor, weaponBars } from './PlayWeapons.js'
 import { PlayFx } from './PlayFx.js'
+import { openSpawnMap, closeSpawnMap, findSpawn } from './SpawnMap.js'
 import { worldSeed } from './OpenWorld.js'
 import { BOTTOM } from './Underground.js'
 import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MOB_HEIGHT } from './PlayRules.js'
@@ -255,6 +256,9 @@ export class BuildSurvival {
     const resume = savedRun && savedRun.mode === String(this.cfg.mode || '') && savedRun.difficulty === String(this.cfg.difficulty || 'normal') ? savedRun : null
     if (savedRun && !resume) BuildSurvival.clearSavedRun()
     if (resume) this._resumeRun(resume)
+    // A fresh solo game from the homepage: pick where on Earth to start
+    // first (SpawnMap.js), then the weapon.
+    else if (fromMenu && !net && bm.world?.active) this._chooseSpawn()
     else if (fromMenu) this._openWeaponPicker()
     else this._message(t('buildPlayGetReady'))
     zombieSkin().then((skin) => { this._skin = skin; this._warmShaders() }).catch(() => { this._skin = null })
@@ -308,6 +312,7 @@ export class BuildSurvival {
     if (this._hud) this._hud.style.display = 'none'
     if (this._overEl) this._overEl.style.display = 'none'
     this._closeWeaponPicker()
+    closeSpawnMap()
     document.getElementById('build-mode-play-btn-label')?.replaceChildren(t('buildModePlayBtn'))
     if (leaveTry && this.bm.tryMode.active) this.bm.toggleTryMode()
   }
@@ -358,6 +363,39 @@ export class BuildSurvival {
 
   _reloadTime() {
     return this.weapon.reload * (1 - 0.2 * (this.upgrades?.reload || 0)) * (this.cfg?.reloadMult ?? 1)
+  }
+
+  // --- the spawn map (homepage solo games) ---
+
+  async _chooseSpawn() {
+    this._picking = true
+    this._spawnPicking = true
+    const pick = await openSpawnMap()
+    this._spawnPicking = false
+    if (!this.active) return
+    if (pick) this._spawnAt(pick)
+    // (A weapon may already have been picked while the map was open.)
+    if (this._picking) this._openWeaponPicker()
+  }
+
+  // Moves you to the nearest world spot like the picked Earth place.
+  _spawnAt(pick) {
+    const spot = findSpawn(pick.lat, pick.lon, pick.biome)
+    if (!spot) return false
+    const bm = this.bm
+    const tm = bm.tryMode
+    // Grows the land there right now (your column and its neighbours).
+    bm.world.update([{ x: spot.x + 0.5, z: spot.z + 0.5 }])
+    let top = null
+    for (let y = 160; y > BOTTOM && top === null; y--) if (bm.getBlockAt(spot.x, y, spot.z)) top = y
+    if (top === null) return false
+    tm.pos.set(spot.x + 0.5, top + 1, spot.z + 0.5)
+    tm.vel?.set(0, 0, 0)
+    tm._spawn.copy(tm.pos)
+    this._spawnedFar = true
+    const name = t(`biome${spot.biome.charAt(0).toUpperCase()}${spot.biome.slice(1)}`)
+    this._message(t('spawnArrived', { biome: name, n: Math.round(Math.hypot(spot.x, spot.z)) }))
+    return true
   }
 
   // --- weapon picker (homepage runs) ---
@@ -411,6 +449,7 @@ export class BuildSurvival {
 
   _pickWeapon(id) {
     if (!PLAY_WEAPONS[id] || !this.active) return
+    if (this._spawnPicking) closeSpawnMap()
     const switching = this._switching
     if (switching) this._ammoByWeapon[this.weaponId] = { mag: this.mag, reserve: this.reserve }
     this.weaponId = id
@@ -424,7 +463,8 @@ export class BuildSurvival {
     this._closeWeaponPicker()
     this.bm.tryMode._showGun()
     const name = t(this.bm.game?.weapons?.getSummary?.().find((w) => w.id === id)?.nameKey || 'weaponRifle')
-    this._message(switching ? t('playWeaponSwitched', { name }) : t('buildPlayGetReady'))
+    if (switching || !this._spawnedFar) this._message(switching ? t('playWeaponSwitched', { name }) : t('buildPlayGetReady'))
+    this._spawnedFar = false
     this._renderHud()
     // This click is a real user gesture, so the mouse can be captured again.
     try { this.bm.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available */ }

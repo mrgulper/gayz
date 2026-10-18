@@ -804,6 +804,8 @@ test('a Map 1 run starts with the weapon picker and uses the picked gun', async 
   await gotoAndWaitForGame(page)
   await page.evaluate(() => window.__game.playBtn.click())
   await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  // The spawn map comes first (2026-10-17): start in the camp.
+  await page.evaluate(() => document.getElementById('spawn-map-camp').click())
   const r = await page.evaluate(() => {
     const g = window.__game
     const s = g.buildMode.survival
@@ -1243,7 +1245,7 @@ test('the open world has villages, castles and bridges', async ({ page }) => {
     const b = g.buildMode
     const w = b.world
     const out = {}
-    for (let seed = 1; seed < 40 && Object.keys(out).length < 3; seed++) {
+    for (let seed = 1; seed < 40 && Object.keys(out).length < 4; seed++) {
       w.reseed(seed)
       for (const p of w.placesNear(0, 0, 500)) {
         if (out[p.kind]) continue
@@ -1260,7 +1262,7 @@ test('the open world has villages, castles and bridges', async ({ page }) => {
     g._exitBuildMode()
     return out
   })
-  expect(Object.keys(r).sort()).toEqual(['bridge', 'castle', 'village'])
+  expect(Object.keys(r).sort()).toEqual(['bridge', 'castle', 'pyramid', 'village'])
   for (const [kind, v] of Object.entries(r)) {
     expect(v.placed, kind).toBe(v.blocks)
     expect(v.name.length, kind).toBeGreaterThan(0)
@@ -1426,7 +1428,7 @@ test('Map 1 has 200 layers underground with ores, caves and walk-in entrances', 
   expect(r.mouthOpen).toBe(true)
   expect(r.awayFromPlaces).toBe(true)
   expect(r.tunnelHasFloor).toBe(true)
-  expect(r.bar).toMatch(/^GayZ Map Editor FPS \S+ -?\d+\.\d\d -?\d+\.\d\d -?\d+\.\d\d$/)
+  expect(r.bar).toMatch(/^GayZ Map Editor FPS \S+ MS \S+ .*?-?\d+\.\d\d -?\d+\.\d\d -?\d+\.\d\d$/)
   expect(r.debugLineHidden).toBe(true)
 })
 
@@ -1928,4 +1930,50 @@ test('Spectate, fuel, burning wood and the day-night sky', async ({ page }) => {
     sky: ['cycle', 'random', true], fuel: true, spectating: [true, true, false], noShooting: true, flew: true,
     back: [false, false, true, true], lit: true, stoneLit: false, burnt: true, stoneStays: true, restorable: true,
   })
+})
+
+// 2026-10-17 (third batch): the spawn map before a solo game (a real
+// Earth place picks the biome you start in), no world edge, pyramids in
+// deserts, underground cities, and ms + the graphics chip in the top bar.
+test('spawn map, endless world, pyramids, underground cities and the top bar', async ({ page }) => {
+  // The pure parts, straight from the source.
+  const { earthBiome, findSpawn } = await import('../src/game/SpawnMap.js')
+  expect([earthBiome(23, 10), earthBiome(-3, -60), earthBiome(-80, 0), earthBiome(0, -140)]).toEqual(['desert', 'jungle', 'snowyPlains', 'deepOcean'])
+  expect(['desert', 'badlands', 'savanna']).toContain(findSpawn(23, 10, 'desert')?.biome)
+  const { WORLD_LIMIT } = await import('../src/game/OpenWorld.js')
+  expect(WORLD_LIMIT).toBe(Infinity)
+  const { citiesOver, cityCell } = await import('../src/game/UnderCity.js')
+  const c = citiesOver(-2000, -2000, 2000, 2000)[0]
+  expect(!!c).toBe(true)
+  expect(cityCell(c, c.x, c.floor + 9, c.z)).toBe('sealantern')
+  expect(cityCell(c, c.x + 1, c.floor + 4, c.z + 4)).toBe(null)
+
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const bm = g.buildMode
+    const s = bm.survival
+    const out = {}
+    const map = document.getElementById('spawn-map')
+    out.mapFirst = [getComputedStyle(map).display, s._picking]
+    out.spawned = s._spawnAt({ lat: 23, lon: 10, biome: 'desert' })
+    const p = bm.tryMode.pos
+    out.standsOnLand = !!bm.getBlockAt(Math.floor(p.x), Math.round(p.y) - 1, Math.floor(p.z))
+    // Choosing the weapon closes the map (as the camp if nothing was picked).
+    s._pickWeapon('rifle')
+    out.mapClosed = getComputedStyle(map).display === 'none' && !s._picking
+    // A pyramid somewhere in the deserts.
+    let pyramid = null
+    for (let gx = -60; gx < 60 && !pyramid; gx++) for (let gz = -60; gz < 60 && !pyramid; gz++) {
+      const pl = bm.world._plan(gx, gz)
+      if (pl?.kind === 'pyramid') pyramid = pl
+    }
+    out.pyramid = !!pyramid && [...pyramid.top.values()].some((t) => t.type === 'gold')
+    out.topBar = ['top-bar-fps', 'top-bar-ms', 'top-bar-chip'].every((id) => !!document.getElementById(id))
+    out.credits = !document.getElementById('credits-weapons-list') && !document.querySelector('.credits-tab')
+    return out
+  })
+  expect(r).toEqual({ mapFirst: ['flex', true], spawned: true, standsOnLand: true, mapClosed: true, pyramid: true, topBar: true, credits: true })
 })

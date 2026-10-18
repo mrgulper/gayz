@@ -1352,7 +1352,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'other-profile-region-label': 'profilePublicRegionLabel',
   'credits-body-text': 'creditsBodyText',
   'credits-contact-text': 'creditsContactText',
-  'credits-weapons-title': 'creditsWeaponsTitle',
   'credits-privacy-link': 'creditsPrivacyLink',
   'credits-terms-link': 'creditsTermsLink',
   'friends-own-id-label': 'friendsOwnIdLabel',
@@ -4593,7 +4592,7 @@ export class Game {
         const jsMs = (this._editorJsMs / this._fpsFrameCount).toFixed(1)
         this._editorJsMs = 0
         this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / js ${jsMs} ms / ${this.buildMode.lastDrawCalls} draws / ${this.buildMode.blockCount} blocks${resTag} / ${this._gpuRendererString}`
-        this._topBar.setFps(fps, this.fpsEl.textContent)
+        this._topBar.setFps(fps, this.fpsEl.textContent, msPerFrame, this._gpuRendererString)
         this._updateEditorResScale(Number(msPerFrame), nowFpsBm)
         this._fpsFrameCount = 0
         this._fpsLastUpdate = nowFpsBm

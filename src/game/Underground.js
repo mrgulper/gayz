@@ -24,7 +24,13 @@
 // roof of CAVE_ROOF cells - the only openings to the surface are the
 // entrances, sloping tunnels from the land down into the caves, placed off
 // roads, water, the city and every place.
+//
+// Underground cities (UnderCity.js, 2026-10-17) are treated like caves:
+// their open air is carved, their buildings are kept solid (caves never
+// cut through them) and only the city blocks something can see become
+// real blocks, in the city's own materials.
 import { inCityShape, cityEdgeDistance } from './CityShape.js'
+import { cityAt, citiesOver, cityYRange, setUnderCitySeed } from './UnderCity.js'
 
 const CHUNK = 16
 // The last layer: bedrock from BOTTOM + 4 down to BOTTOM (always solid).
@@ -55,12 +61,30 @@ const UNDER_RADIUS = 2
 const UNDER_BELOW = 2
 const UNDER_ABOVE = 1
 const UNDER_BUDGET_MS = 2
+// Near an underground city (within CITY_NEAR cells) more is grown.
+const CITY_NEAR = 40
+const CITY_RADIUS = 4
+const CITY_ABOVE = 3
+const CITY_BUDGET_MS = 4
 
 // --- numbers ---
 
 let SALT = 0
 export function setUnderSeed(seed) {
   SALT = seed | 0
+  setUnderCitySeed(seed)
+}
+
+// Cities reaching into a box, and the block (or rock) at one cell.
+function citiesNear(x0, y0, z0, x1, y1, z1) {
+  return citiesOver(x0, z0, x1, z1).filter((c) => {
+    const [lo, hi] = cityYRange(c)
+    return hi >= y0 && lo <= y1
+  })
+}
+function solidAt(x, y, z) {
+  const v = cityAt(citiesNear(x, y, z, x, y, z), x, y, z)
+  return typeof v === 'string' ? v : rockAt(x, y, z)
 }
 
 function hash3(x, y, z, seed) {
@@ -360,6 +384,8 @@ export class Underground {
     const bottom = this.bottomAt(x, z)
     if (y >= bottom) return false
     if (this.world.removed.has(key)) return false
+    const city = cityAt(citiesNear(x, y, z, x, y, z), x, y, z)
+    if (city !== undefined) return city !== null
     const places = this.world._plansOver(x, z, x, z, 3, true)
     return !this._carved(x, y, z, bottom, places, this._entrancesOver(x, z, x, z))
   }
@@ -374,7 +400,7 @@ export class Underground {
       const nz = z + dz
       const key = `${nx},${ny},${nz}`
       if (bm._blocks.has(key) || !this.implicitSolid(nx, ny, nz, key)) continue
-      this._put(this._record(nx, ny, nz), key, nx, ny, nz, rockAt(nx, ny, nz))
+      this._put(this._record(nx, ny, nz), key, nx, ny, nz, solidAt(nx, ny, nz))
       bm._chunks.markDirty(nx, ny, nz)
     }
   }
@@ -436,6 +462,8 @@ export class Underground {
     for (let a = 0; a < LN; a++) for (let b = 0; b < LN; b++) for (let c = 0; c < LN; c++) latticeAt(lx0 + a, ly0 + b, lz0 + c, lat, ((a * LN + b) * LN + c) * 3)
     const open = new Uint8Array(W * W * W)
     const idx = (i, j, k) => (i * W + k) * W + j // x, y, z
+    const cities = citiesNear(x0 - 1, y0 - 1, z0 - 1, x0 + CHUNK, y0 + CHUNK, z0 + CHUNK)
+    const cityType = cities.length ? new Map() : null
     for (let i = 0; i < W; i++) {
       const x = x0 - 1 + i
       const ax = Math.floor(x / LATTICE) - lx0
@@ -448,6 +476,17 @@ export class Underground {
         const fz = (z - Math.floor(z / LATTICE) * LATTICE) / LATTICE
         for (let j = 0; j < W; j++) {
           const y = y0 - 1 + j
+          if (cityType) {
+            const v = cityAt(cities, x, y, z)
+            if (v === null) {
+              open[idx(i, j, k)] = 1
+              continue
+            }
+            if (v !== undefined) {
+              cityType.set(idx(i, j, k), v)
+              continue
+            }
+          }
           if (entrances.length && this.entranceAir(entrances, x, y, z)) {
             open[idx(i, j, k)] = 1
             continue
@@ -488,7 +527,7 @@ export class Underground {
           if (!seen && gone.size) seen = SIDES.some(([dx, dy, dz]) => gone.has(`${x + dx},${y + dy},${z + dz}`))
           if (!seen && y === bottom - 1 && !blocks.has(`${x},${bottom},${z}`)) seen = true
           if (!seen) continue
-          this._put(rec, key, x, y, z, rockAt(x, y, z))
+          this._put(rec, key, x, y, z, cityType?.get(idx(i, j, k)) ?? rockAt(x, y, z))
           put++
         }
       }
@@ -531,11 +570,16 @@ export class Underground {
     const pcx = Math.floor(p.x / CHUNK)
     const pcy = Math.floor(p.y / CHUNK)
     const pcz = Math.floor(p.z / CHUNK)
-    const until = performance.now() + UNDER_BUDGET_MS
+    // In or near an underground city its whole dome is grown, so the far
+    // walls and the roof never show gaps.
+    const nearCity = citiesNear(p.x - CITY_NEAR, p.y - CITY_NEAR, p.z - CITY_NEAR, p.x + CITY_NEAR, p.y + CITY_NEAR, p.z + CITY_NEAR).length > 0
+    const radius = nearCity ? CITY_RADIUS : UNDER_RADIUS
+    const above = nearCity ? CITY_ABOVE : UNDER_ABOVE
+    const until = performance.now() + (nearCity ? CITY_BUDGET_MS : UNDER_BUDGET_MS)
     const wanted = []
-    for (let dx = -UNDER_RADIUS; dx <= UNDER_RADIUS; dx++) {
-      for (let dz = -UNDER_RADIUS; dz <= UNDER_RADIUS; dz++) {
-        for (let dy = -UNDER_BELOW; dy <= UNDER_ABOVE; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      for (let dz = -radius; dz <= radius; dz++) {
+        for (let dy = -UNDER_BELOW; dy <= above; dy++) {
           const cy = pcy + dy
           if (cy * CHUNK + CHUNK - 1 < BOTTOM) continue
           const rec = this.chunks.get(`${pcx + dx},${cy},${pcz + dz}`)
@@ -553,7 +597,7 @@ export class Underground {
       for (const [ck, rec] of [...this.chunks]) {
         if (rec.keep) continue
         const [cx, cy, cz] = ck.split(',').map(Number)
-        if (Math.abs(cx - pcx) > UNDER_RADIUS + 2 || Math.abs(cz - pcz) > UNDER_RADIUS + 2 || cy < pcy - UNDER_BELOW - 2 || cy > pcy + UNDER_ABOVE + 2) this._dropChunk(ck)
+        if (Math.abs(cx - pcx) > radius + 2 || Math.abs(cz - pcz) > radius + 2 || cy < pcy - UNDER_BELOW - 2 || cy > pcy + above + 2) this._dropChunk(ck)
       }
     }
   }
