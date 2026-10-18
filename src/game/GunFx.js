@@ -21,10 +21,12 @@ const FLASH_SIZE = 0.16
 const SMOKE_MAX = 18
 const SMOKE_LIFE = 0.8
 const SMOKE_START = 0.05
-const SMOKE_END = 0.4
+const SMOKE_END = 0.3
 const SMOKE_ALPHA = 0.6
 const SMOKE_ALPHA_AIMING = 0.18
 const LIGHT_POWER = 2.2
+// Smoke starts this far past the barrel's tip and drifts on forward.
+const SMOKE_AHEAD = 0.07
 const FLAME_MAX = 40
 const FLAME_LIFE = 0.32
 const FLAME_SPEED = 3.2
@@ -154,21 +156,23 @@ export class GunFx {
     this.flash.material.color.set(tint ?? 0xffffff)
     this.light.color.set(tint ?? 0xffb060)
     for (const o of [this.flash, this.light]) if (o.parent !== gun) gun.add(o)
-    this.flash.position.copy(muzzle).z -= 0.03
+    // Wholly past the barrel's tip, so the flash is never drawn over the
+    // gun itself (2026-10-17, "only see it outside the gun, not in it").
+    this.flash.position.copy(muzzle).z -= FLASH_SIZE * 0.55
     this.light.position.copy(muzzle)
     this.flash.material.rotation = Math.random() * Math.PI
     this.flash.scale.setScalar(FLASH_SIZE * (0.8 + Math.random() * 0.45) * (aiming ? 0.7 : 1))
     this.flash.visible = true
     this._flashT = FLASH_LIFE
     gun.updateMatrixWorld(true)
-    gun.localToWorld(this._world.copy(muzzle))
+    gun.localToWorld(this._world.copy(muzzle).setZ(muzzle.z - SMOKE_AHEAD))
     for (let i = 0; i < 2; i++) {
       const s = this._smoke[this._next]
       this._next = (this._next + 1) % SMOKE_MAX
       const d = s.userData
       s.position.copy(this._world)
       d.t = -i * 0.04
-      d.vel.set((Math.random() - 0.5) * 0.05, 0.05 + Math.random() * 0.04, -0.03 - Math.random() * 0.04)
+      d.vel.set((Math.random() - 0.5) * 0.04, 0.05 + Math.random() * 0.04, -0.08 - Math.random() * 0.05)
       d.spin = (Math.random() - 0.5) * 1.5
       d.alpha = aiming ? SMOKE_ALPHA_AIMING : SMOKE_ALPHA
       s.material.rotation = Math.random() * Math.PI * 2
@@ -193,7 +197,7 @@ export class GunFx {
         s.visible = true
         s.position.addScaledVector(d.vel, dt)
         d.vel.y += dt * 0.8
-        s.scale.setScalar(0.06 + 0.5 * k)
+        s.scale.setScalar(0.05 + 0.28 * k)
         s.material.rotation += d.spin * dt
         s.material.opacity = Math.min(1, k * 12) * (1 - k) * 0.9
       }

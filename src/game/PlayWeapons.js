@@ -19,6 +19,7 @@
 // pierce   zombies one shot goes through (Crossbow bolt, AWP round)
 // slow     seconds a Void Ripper hit slows a zombie down
 // cleave   zombies one Tomahawk swing can hit at once
+// fuel     shows a fuel tank instead of bullets (mag = one tank)
 export const PLAY_WEAPONS = {
   rifle: { damage: 34, rate: 0.11, auto: true, mag: 30, reserve: 150, reload: 1.6 },
   pistol: { damage: 42, rate: 0.22, mag: 8, reserve: 72, reload: 1.2 },
@@ -26,7 +27,7 @@ export const PLAY_WEAPONS = {
   minigun: { damage: 20, rate: 0.05, auto: true, mag: 150, reserve: 450, reload: 3.6 },
   shotgun: { damage: 18, rate: 0.75, mag: 6, reserve: 42, reload: 2.2, pellets: 8, spread: 0.075 },
   awp: { damage: 180, rate: 1.25, mag: 5, reserve: 30, reload: 2.6, pierce: 4 },
-  flamethrower: { damage: 11, rate: 0.06, auto: true, mag: 100, reserve: 300, reload: 2.4, range: 7, pellets: 3, spread: 0.06, burn: 3 },
+  flamethrower: { damage: 11, rate: 0.06, auto: true, mag: 100, reserve: 300, reload: 2.4, range: 7, pellets: 3, spread: 0.06, burn: 3, fuel: true },
   rocket: { damage: 200, rate: 1.4, mag: 1, reserve: 12, reload: 2.4, blast: 3 },
   crossbow: { damage: 120, rate: 0.9, mag: 1, reserve: 36, reload: 0.9, pierce: 3 },
   launcher: { damage: 130, rate: 0.7, mag: 6, reserve: 24, reload: 2.6, blast: 2.5 },

@@ -91,15 +91,22 @@ function _mirrorFaceRectsH(rects, u, w, h, d) {
 // down. Verified by rendering a two-color test texture (red top half/blue
 // bottom half) onto an isolated face and reading back actual pixels
 // before/after this swap.
+const UV_INSET = 0.02
 function _applyFaceRectsToBox(geometry, faceRects, texW, texH) {
   const uvAttr = geometry.attributes.uv
   const order = [faceRects.left, faceRects.right, faceRects.top, faceRects.bottom, faceRects.front, faceRects.back]
   for (let face = 0; face < 6; face++) {
     const [u0, v0, u1, v1] = order[face]
-    const nu0 = u0 / texW
-    const nu1 = u1 / texW
-    const nv0 = v0 / texH
-    const nv1 = v1 / texH
+    // Pulled in by a hair (UV_INSET of a pixel) so nearest-pixel sampling
+    // right on a face's edge never picks the neighbouring pixel of the
+    // atlas - that drew dotted lines along the edges up close (Inspect,
+    // 2026-10-17).
+    const iu = Math.sign(u1 - u0) * UV_INSET
+    const iv = Math.sign(v1 - v0) * UV_INSET
+    const nu0 = (u0 + iu) / texW
+    const nu1 = (u1 - iu) / texW
+    const nv0 = (v0 + iv) / texH
+    const nv1 = (v1 - iv) / texH
     const base = face * 4
     uvAttr.setXY(base + 0, nu0, nv0)
     uvAttr.setXY(base + 1, nu1, nv0)

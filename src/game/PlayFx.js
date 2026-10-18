@@ -10,13 +10,20 @@
 //   burn(zombie)          Flamethrower: flames licking up a burning zombie
 //                         (called every frame while it burns).
 //   voidHit(pos)          Void Ripper: a purple implosion where it hits.
+//   burnBlock(x, y, z)    A wooden block on fire (BuildSurvival's fires).
+//
+// Realistic fire (2026-10-17, Gaymi: "make the fire more realistic"):
+// flames use a flickering tongue-of-fire picture (several, picked at
+// random) instead of a round ball, and change colour as they live -
+// white-yellow at the core, then orange, deep red and out - while they
+// rise and wobble; dark smoke curls up from the top of every fire.
 //
 // One small pool of sprites in the block world's scene, reused round-robin.
 // Sprites only - never a THREE.Light (the block world has none, see the
 // notes' traps), and nothing here touches localStorage.
 import * as THREE from 'three'
 
-const POOL = 140
+const POOL = 220
 
 function canvasTexture(draw) {
   const c = document.createElement('canvas')
@@ -36,10 +43,57 @@ function blobTexture(stops) {
   })
 }
 
+// A tongue of flame: a teardrop of soft white light (the colour comes
+// from the sprite's tint, see FLAME_RAMP) with ragged licks on top.
+// Seeded so every load draws the same few.
+function flameTexture(seed) {
+  let n = seed * 9301 + 49297
+  const rnd = () => {
+    n = (n * 9301 + 49297) % 233280
+    return n / 233280
+  }
+  return canvasTexture((g) => {
+    g.globalCompositeOperation = 'lighter'
+    for (let i = 0; i < 14; i++) {
+      const k = i / 13
+      const x = 32 + (rnd() - 0.5) * 18 * k
+      const y = 50 - k * 38 - rnd() * 6
+      const r = 15 * (1 - k * 0.75) + rnd() * 3
+      const a = 0.28 + (1 - k) * 0.3
+      const grad = g.createRadialGradient(x, y, 0, x, y, r)
+      grad.addColorStop(0, `rgba(255,255,255,${a})`)
+      grad.addColorStop(1, 'rgba(255,255,255,0)')
+      g.fillStyle = grad
+      g.fillRect(0, 0, 64, 64)
+    }
+  })
+}
+
+// Flame colour over its life (k 0-1): white-hot, yellow, orange, red.
+const FLAME_RAMP = [
+  [0, 1, 0.9, 0.6],
+  [0.2, 1, 0.82, 0.38],
+  [0.5, 1, 0.45, 0.1],
+  [0.8, 0.75, 0.15, 0.03],
+  [1, 0.35, 0.05, 0.02],
+]
+function rampColor(color, k) {
+  for (let i = 1; i < FLAME_RAMP.length; i++) {
+    const [k1, r1, g1, b1] = FLAME_RAMP[i]
+    if (k > k1) continue
+    const [k0, r0, g0, b0] = FLAME_RAMP[i - 1]
+    const f = (k - k0) / (k1 - k0 || 1)
+    color.setRGB(r0 + (r1 - r0) * f, g0 + (g1 - g0) * f, b0 + (b1 - b0) * f)
+    return
+  }
+  color.setRGB(0.35, 0.05, 0.02)
+}
+
 let textures = null
 function getTextures() {
   if (textures) return textures
   textures = {
+    flames: [1, 2, 3, 4].map(flameTexture),
     fire: blobTexture([[0, 'rgba(255,250,210,1)'], [0.3, 'rgba(255,190,70,0.95)'], [0.65, 'rgba(240,90,20,0.6)'], [1, 'rgba(180,30,0,0)']]),
     smoke: blobTexture([[0, 'rgba(70,66,62,0.75)'], [1, 'rgba(70,66,62,0)']]),
     void: blobTexture([[0, 'rgba(240,210,255,1)'], [0.35, 'rgba(170,80,255,0.85)'], [1, 'rgba(60,0,120,0)']]),
@@ -58,7 +112,7 @@ export class PlayFx {
       const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex.fire, depthWrite: false, transparent: true, opacity: 0 }))
       s.visible = false
       s.renderOrder = 5
-      s.userData = { t: 0, life: 0, from: 0, to: 0, alpha: 1, vel: new THREE.Vector3(), spin: 0 }
+      s.userData = { t: 0, life: 0, from: 0, to: 0, alpha: 1, vel: new THREE.Vector3(), spin: 0, flame: false, rise: 0, wob: 0 }
       scene.add(s)
       this._sprites.push(s)
     }
@@ -66,18 +120,27 @@ export class PlayFx {
 
   // One particle: kind picks the picture, size grows from `from` to `to`
   // (block units) over `life` seconds while it fades out.
-  _emit(kind, x, y, z, { life, from, to, alpha = 1, vel = null, delay = 0 }) {
+  // kind 'flame' is a flickering tongue of fire tinted by FLAME_RAMP; it
+  // rises by `rise` blocks a second and wobbles sideways.
+  _emit(kind, x, y, z, { life, from, to, alpha = 1, vel = null, delay = 0, rise = 0, drag = 2.2, stretch = 1.35 }) {
     const s = this._sprites[this._next]
     this._next = (this._next + 1) % POOL
     const d = s.userData
     const tex = getTextures()
     const add = kind !== 'smoke'
-    s.material.map = tex[kind]
+    d.flame = kind === 'flame'
+    d.rise = rise * this.B
+    d.wob = Math.random() * 10
+    d.drag = drag
+    d.stretch = stretch
+    s.material.map = d.flame ? tex.flames[Math.floor(Math.random() * tex.flames.length)] : tex[kind]
+    s.material.color.setRGB(1, 1, 1)
     if (s.material.blending !== (add ? THREE.AdditiveBlending : THREE.NormalBlending)) {
       s.material.blending = add ? THREE.AdditiveBlending : THREE.NormalBlending
       s.material.needsUpdate = true
     }
-    s.material.rotation = Math.random() * Math.PI * 2
+    // Flames stand upright (a little tilt), everything else spins.
+    s.material.rotation = d.flame ? (Math.random() - 0.5) * 0.5 : Math.random() * Math.PI * 2
     s.material.opacity = 0
     s.position.set(x, y, z)
     s.scale.setScalar(from * this.B)
@@ -87,7 +150,7 @@ export class PlayFx {
     d.from = from
     d.to = to
     d.alpha = alpha
-    d.spin = (Math.random() - 0.5) * 2
+    d.spin = d.flame ? 0 : (Math.random() - 0.5) * 2
     if (vel) d.vel.copy(vel)
     else d.vel.set(0, 0, 0)
   }
@@ -102,6 +165,11 @@ export class PlayFx {
         life: 0.35 + Math.random() * 0.2, from: r * 0.4, to: r * (i === 0 ? 1.6 : 1.1), delay: i * 0.015,
       })
     }
+    for (let i = 0; i < 8; i++) {
+      const a = Math.random() * Math.PI * 2
+      const v = new THREE.Vector3(Math.cos(a) * 2.5, 1.5 + Math.random() * 2, Math.sin(a) * 2.5).multiplyScalar(r * B)
+      this._emit('flame', pos.x, pos.y, pos.z, { life: 0.45 + Math.random() * 0.25, from: r * 0.5, to: r * 0.2, vel: v, rise: 1 })
+    }
     for (let i = 0; i < 6; i++) {
       const v = new THREE.Vector3((Math.random() - 0.5) * 0.8, 1 + Math.random() * 0.8, (Math.random() - 0.5) * 0.8).multiplyScalar(B)
       this._emit('smoke', pos.x + (Math.random() - 0.5) * r * B, pos.y, pos.z + (Math.random() - 0.5) * r * B, {
@@ -114,15 +182,20 @@ export class PlayFx {
   // aim); range in blocks. Called once per Flamethrower shot.
   flameStream(from, dir, range) {
     const B = this.B
-    const life = 0.4
-    for (let i = 0; i < 3; i++) {
-      const speed = (range / life) * (0.75 + Math.random() * 0.35) * B
+    const life = 0.5
+    for (let i = 0; i < 6; i++) {
+      const speed = (range / life) * (0.55 + Math.random() * 0.45) * B
       const v = new THREE.Vector3(
-        dir.x + (Math.random() - 0.5) * 0.12,
-        dir.y + (Math.random() - 0.2) * 0.12,
-        dir.z + (Math.random() - 0.5) * 0.12,
+        dir.x + (Math.random() - 0.5) * 0.14,
+        dir.y + (Math.random() - 0.3) * 0.14,
+        dir.z + (Math.random() - 0.5) * 0.14,
       ).normalize().multiplyScalar(speed)
-      this._emit('fire', from.x, from.y, from.z, { life, from: 0.25, to: 1.5, vel: v, delay: i * 0.02 })
+      this._emit('flame', from.x, from.y, from.z, { life: life * (0.7 + Math.random() * 0.4), from: 0.12, to: 0.9 + Math.random() * 0.5, vel: v, delay: i * 0.012, rise: 0.4, drag: 0.6, alpha: 0.55, stretch: 1 })
+    }
+    // Smoke rolling off the end of the stream.
+    if (Math.random() < 0.35) {
+      const end = from.clone().addScaledVector(dir, range * 0.8 * B)
+      this._emit('smoke', end.x, end.y + 0.3 * B, end.z, { life: 1.2, from: 0.6, to: 1.6, alpha: 0.35, vel: new THREE.Vector3(0, 0.9 * B, 0), delay: 0.25 })
     }
   }
 
@@ -132,10 +205,39 @@ export class PlayFx {
     for (let i = 0; i < 2; i++) {
       if (Math.random() > 0.7) continue
       const v = new THREE.Vector3((Math.random() - 0.5) * 0.4, 1.6 + Math.random(), (Math.random() - 0.5) * 0.4).multiplyScalar(B)
-      this._emit('fire', (z.x + (Math.random() - 0.5) * 0.7) * B, (z.y + 0.2 + Math.random() * height * 0.75) * B, (z.z + (Math.random() - 0.5) * 0.7) * B, {
-        life: 0.4 + Math.random() * 0.25, from: 0.75, to: 0.25, vel: v,
+      this._emit('flame', (z.x + (Math.random() - 0.5) * 0.7) * B, (z.y + 0.2 + Math.random() * height * 0.75) * B, (z.z + (Math.random() - 0.5) * 0.7) * B, {
+        life: 0.45 + Math.random() * 0.25, from: 0.8, to: 0.3, vel: v,
       })
     }
+    if (Math.random() < 0.08) this._smokeAt((z.x) * B, (z.y + height) * B, z.z * B, 0.6)
+  }
+
+  _smokeAt(x, y, z, size) {
+    const B = this.B
+    this._emit('smoke', x, y, z, {
+      life: 1.4 + Math.random() * 0.6, from: size * 0.6, to: size * 2, alpha: 0.4,
+      vel: new THREE.Vector3((Math.random() - 0.5) * 0.3 * B, (0.9 + Math.random() * 0.5) * B, (Math.random() - 0.5) * 0.3 * B),
+    })
+  }
+
+  // A burning block (block coordinates, its lowest corner). `k` 0-1 is how
+  // far it has burnt - the flames grow, then die down at the end.
+  burnBlock(x, y, z, k = 0.5) {
+    const B = this.B
+    const strength = Math.min(1, k * 4) * (k > 0.85 ? (1 - k) / 0.15 : 1)
+    for (let i = 0; i < 2; i++) {
+      if (Math.random() > 0.55 * strength + 0.1) continue
+      // Mostly on top, some licking up the sides.
+      const side = Math.random() < 0.35
+      const px = x + (side ? (Math.random() < 0.5 ? -0.05 : 1.05) : Math.random())
+      const pz = z + (side ? Math.random() : Math.random())
+      const py = y + (side ? 0.2 + Math.random() * 0.7 : 1)
+      this._emit('flame', px * B, py * B, pz * B, {
+        life: 0.5 + Math.random() * 0.35, from: 0.55 + strength * 0.4, to: 0.2, rise: 1.4,
+        vel: new THREE.Vector3((Math.random() - 0.5) * 0.2 * B, 0.4 * B, (Math.random() - 0.5) * 0.2 * B),
+      })
+    }
+    if (Math.random() < 0.06 * strength) this._smokeAt((x + 0.5) * B, (y + 1.6) * B, (z + 0.5) * B, 0.8)
   }
 
   voidHit(pos) {
@@ -157,6 +259,19 @@ export class PlayFx {
       }
       s.visible = true
       s.position.addScaledVector(d.vel, dt)
+      if (d.flame) {
+        // Rises, slows down and wobbles; tint follows FLAME_RAMP.
+        d.vel.multiplyScalar(Math.max(0, 1 - dt * d.drag))
+        s.position.y += d.rise * dt
+        d.wob += dt * 14
+        s.position.x += Math.sin(d.wob) * 0.25 * this.B * dt
+        s.position.z += Math.cos(d.wob * 0.8) * 0.25 * this.B * dt
+        rampColor(s.material.color, k)
+        const size = (d.from + (d.to - d.from) * Math.sqrt(k)) * this.B
+        s.scale.set(size * (0.8 + Math.sin(d.wob * 1.7) * 0.08), size * d.stretch, 1)
+        s.material.opacity = d.alpha * Math.min(1, k * 14) * Math.pow(1 - k, 0.8)
+        continue
+      }
       s.scale.setScalar((d.from + (d.to - d.from) * Math.sqrt(k)) * this.B)
       s.material.rotation += d.spin * dt
       s.material.opacity = d.alpha * Math.min(1, k * 10) * (1 - k)
