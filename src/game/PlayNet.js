@@ -111,7 +111,8 @@ export class PlayNet {
     const s = this.survival
     if (!s) return
     const bm = s.bm
-    const pos = bm.tryMode.pos
+    // Spectating, the others see me where I left off (BuildSurvival.bodyPos).
+    const pos = s.bodyPos?.() || bm.tryMode.pos
     const body = {
       ...this.auth,
       state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: s.weaponId, firing: !!bm._fireHeld, dead: !!s.dead, away: document.hidden },

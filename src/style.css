@@ -582,11 +582,11 @@ html.ui-theme-old .build-share-box h2 { font-family: 'Rye', Georgia, serif; colo
   display: flex;
   gap: 6px;
   padding: 6px;
-  background: rgba(10, 10, 10, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
 }
 
+/* Only the slot you're on gets the dark box (2026-10-18, Gaymi: "there
+   should not be a black around the hotbar if you're not on that hotbar
+   number"); the others are just the picture and number. */
 .build-hotbar-slot {
   position: relative;
   width: 46px;
@@ -600,6 +600,7 @@ html.ui-theme-old .build-share-box h2 { font-family: 'Rye', Georgia, serif; colo
 
 .build-hotbar-slot.selected {
   border-color: #d9bc4a;
+  background-color: rgba(10, 10, 10, 0.75);
 }
 
 .build-hotbar-slot-num {

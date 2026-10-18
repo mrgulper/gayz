@@ -29,6 +29,7 @@ import { LANDMARKS, LANDMARK_REACH } from './Landmarks.js'
 import { CITIES, TOWN_R } from './Towns.js'
 import { PlayInventory, ITEMS, ARMOR_SLOTS } from './PlayInventory.js'
 import { PlayDrops } from './PlayDrops.js'
+import { PlayThrow } from './PlayThrow.js'
 import { worldSeed } from './OpenWorld.js'
 import { BOTTOM } from './Underground.js'
 import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MOB_HEIGHT } from './PlayRules.js'
@@ -273,6 +274,8 @@ export class BuildSurvival {
     if (fromMenu) bm.sky?.forGame(true)
     this._nextShotAt = 0
     if (!this._fx) this._fx = new PlayFx(bm.scene, this.B)
+    if (!this.throws) this.throws = new PlayThrow(this)
+    this.throws.clear()
     this._fires = new Map()
     this.mag = this.magSize()
     this.reserve = this._startReserve()
@@ -355,6 +358,7 @@ export class BuildSurvival {
     this.zombies = []
     this._clearCorpses()
     this._fx?.clear()
+    this.throws?.clear()
     this._fires?.clear()
     this.bm.spectate?.exit()
     // Blocks placed this game go again (the saved map never changes).
@@ -877,6 +881,9 @@ export class BuildSurvival {
     const bm = this.bm
     const B = this.B
     const w = this.weapon
+    // Knife and Tomahawk while aiming (right-click held): thrown, not
+    // swung (PlayThrow.js).
+    if (w.melee && bm.tryMode.aiming && this.throws) return this.throws.throw()
     bm.camera.updateMatrixWorld()
     bm._raycaster.setFromCamera({ x: 0, y: 0 }, bm.camera)
     const center = bm._raycaster.ray.clone()
@@ -1000,6 +1007,25 @@ export class BuildSurvival {
       cross.classList.add('hit')
     }
     return true
+  }
+
+  // One hit from something other than shoot()'s rays (a thrown knife or
+  // tomahawk, PlayThrow.js): the same damage path, server and crosshair.
+  get zombieHalf() { return ZOMBIE_HALF }
+  get zombieHeight() { return ZOMBIE_HEIGHT }
+  hitZombieWith(z, amount, dir, head = false) {
+    if (!this.zombies.includes(z)) return
+    if (head) this.stats.headshots++
+    if (this.net && !this.net.isHost) {
+      this.net.queueHit(`z${z.id}`, amount)
+      z.flash = 0.12
+    } else this.damageZombie(z, amount, dir)
+    const cross = document.getElementById('build-try-crosshair')
+    if (cross) {
+      cross.classList.remove('hit')
+      void cross.offsetWidth
+      cross.classList.add('hit')
+    }
   }
 
   // --- Burning wood (see FIRE_BURN_S) ---
@@ -1350,7 +1376,7 @@ export class BuildSurvival {
 
   _spawnSpots() {
     const spots = []
-    const players = [this.bm.tryMode.pos, ...(this.net && !this.net.closed ? this.net.targets() : [])]
+    const players = [this.bodyPos(), ...(this.net && !this.net.closed ? this.net.targets() : [])]
     for (const [x, y, z] of this._findBlocks('zombiespawner')) {
       if (!players.some((p) => Math.hypot(p.x - x, p.z - z) < SPAWNER_RANGE)) continue
       // On top of it or right beside it.
@@ -1968,6 +1994,7 @@ export class BuildSurvival {
     if (!this.active) return
     this._updateCorpses(Math.min(dt, 0.1))
     this._fx?.update(Math.min(dt, 0.1))
+    this.throws?.update(Math.min(dt, 0.1))
     // On a server the world goes on while you're dead or in the menu.
     const net = this.net && !this.net.closed ? this.net : null
     if (net) net.update(Math.min(dt, 0.25))
@@ -2069,12 +2096,21 @@ export class BuildSurvival {
     return zb.lunge > 0 ? LUNGE_MULT : 1
   }
 
+  // Where I stand for the zombies (and the server). Spectating, it's the
+  // spot I flew off from - zombies can't see the free camera, so they
+  // stop following it around (2026-10-18, Gaymi: "in spectating mode
+  // don't make zombies be able to see you").
+  bodyPos() {
+    const saved = this.spectating && this.bm.spectate?._savedPos
+    return saved || this.bm.tryMode.pos
+  }
+
   // Who the zombies chase: me (unless dead) and, on a server, every other
   // living player. Each: { x, y, z, remote } in blocks (remote = their id).
   _targets() {
     const out = []
     if (!this.dead && !this._picking) {
-      const p = this.bm.tryMode.pos
+      const p = this.bodyPos()
       out.push({ x: p.x, y: p.y, z: p.z, remote: null })
     }
     if (this.net && !this.net.closed) out.push(...this.net.targets())

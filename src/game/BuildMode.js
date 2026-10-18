@@ -1531,10 +1531,21 @@ export class BuildMode {
       }
       // While trying the map, keys move the player (see BuildTryMode) -
       // the building tools stay off.
+      // Spectating works like playing (2026-10-18, Gaymi: "every feature
+      // that works regularly in game should work in spectating"): reload,
+      // Use (doors, chests - or the next player on a server), inspect and
+      // the map key all still work while flying.
       if (this.spectate.active) {
-        if (!e.repeat) this.spectate.onKey(e.code)
+        if (this.survival.camp?.panelOpen) return
+        if (!e.repeat) {
+          if (e.code === getKeyFor('use') && this.spectate.hasPlayers()) this.spectate.onKey(e.code)
+          else if (e.code === getKeyFor('use')) this._tryUseFromCamera()
+          if (this.survival.active) this.survival.onKeyDown(e.code)
+          if (e.code === getKeyFor('inspectWeapon')) this.tryMode.inspect()
+          if (e.code === getKeyFor('cycleMap')) this.tryMode.cycleMap()
+        }
         this._keys.add(e.code)
-        if (MOVEMENT_KEY_CODES.has(e.code)) e.preventDefault()
+        if (MOVEMENT_KEY_CODES.has(e.code) || TRY_MOVE_ACTIONS.some((a) => keysFor(a).includes(e.code))) e.preventDefault()
         return
       }
       if (this.tryMode.active) {
@@ -1793,8 +1804,8 @@ export class BuildMode {
       // BuildTryMode._updateDigging); nothing gets built.
       // Spectating: on a server a click watches the next player; alone it
       // shoots like normal.
-      if (this.spectate.active && this.spectate.hasPlayers()) {
-        if (e.button === 0) this.spectate.cycle(1)
+      if (this.spectate.active && this.spectate.hasPlayers() && e.button === 0) {
+        this.spectate.cycle(1)
         return
       }
       if (this.tryMode.active) {

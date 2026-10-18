@@ -2187,3 +2187,88 @@ test('World Map mode follows the real Earth; Classic skips the map', async ({ pa
   })
   expect(world).toEqual({ map: true, camp: false, mode: 'worldMap', notSquare: true })
 })
+
+// 2026-10-18: spectating, zombies go for where you left (not the camera),
+// game keys still work, the camera stops on a bedrock floor at the bottom;
+// the Knife thrown while aiming flies and hits; the inventory shows one
+// picture while dragging and only the chosen hotbar slot has a dark box.
+test('Spectate keeps zombies off the camera, bedrock floor, thrown knife, inventory drag', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
+  const r = await page.evaluate(() => {
+    const bm = window.__game.buildMode
+    const s = bm.survival
+    const B = s.B
+    const out = {}
+    const start = bm.tryMode.pos.clone()
+    bm.toggleMenu()
+    document.getElementById('play-pause-spectate-btn').click()
+    bm._keys.add('KeyW')
+    bm._keys.add('Space')
+    for (let i = 0; i < 30; i++) bm.update(1 / 30)
+    bm._keys.clear()
+    const me = s._targets()[0]
+    out.targetStays = Math.hypot(me.x - start.x, me.y - start.y, me.z - start.z) < 0.01
+    out.cameraMoved = bm.tryMode.pos.distanceTo(start) > 3
+    // Reload works while flying.
+    s.mag = 1
+    bm._onKeyDown({ code: 'KeyR', repeat: false, target: document.body, preventDefault() {} })
+    out.reloading = s._reloadLeft > 0
+    s._reloadLeft = 0
+    // Down to the bottom: stops on the bedrock floor.
+    bm.camera.position.y = -400 * B
+    bm.update(1 / 30)
+    const floor = bm.scene.getObjectByName('spectate-bedrock-floor')
+    out.floor = [!!floor?.visible, bm.camera.position.y / B > -200, bm.camera.position.y / B < -199]
+    bm.toggleMenu()
+    out.floorHidden = !floor.visible
+    bm.toggleMenu()
+    // Thrown knife: aim, click, it flies and hits a zombie ahead.
+    s.weaponId = 'melee'
+    s._nextShotAt = 0
+    bm._pitch = 0
+    bm.update(1 / 60)
+    const cam = bm.camera
+    cam.updateMatrixWorld()
+    const dir = cam.getWorldDirection(cam.position.clone())
+    const fake = { x: cam.position.x / B + dir.x * 4, y: cam.position.y / B - 1.4, z: cam.position.z / B + dir.z * 4, size: 1, health: 1000 }
+    const real = s.zombies
+    const realDamage = s.damageZombie
+    s.zombies = [fake]
+    s.damageZombie = (z, a) => { z.health -= a }
+    bm.tryMode.aiming = true
+    bm.tryMode.fire()
+    out.thrown = s.throws.list.length
+    out.handEmpty = bm.tryMode._gun ? !bm.tryMode._gun.visible : true
+    for (let i = 0; i < 30; i++) s.throws.update(1 / 60)
+    out.hit = fake.health < 1000
+    s.zombies = real
+    s.damageZombie = realDamage
+    bm.tryMode.aiming = false
+    // Inventory: drag hides the picture in the slot it left.
+    s.inv.hotbar[0] = { kind: 'gun', id: 'rifle', n: 1 }
+    s.inv.select(1)
+    bm.togglePicker()
+    const slot = document.querySelector('#play-inventory .inv-hotbar .inv-slot[data-i="0"]')
+    const rect = slot.getBoundingClientRect()
+    slot.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: rect.x + 5, clientY: rect.y + 5 }))
+    out.oneImage = [document.querySelectorAll('.inv-ghost').length, getComputedStyle(slot.querySelector('img')).visibility]
+    window.dispatchEvent(new PointerEvent('pointerup', { clientX: 0, clientY: 0 }))
+    const head = document.querySelector('#play-inventory .inv-head b').getBoundingClientRect()
+    const box = document.querySelector('#play-inventory .inv-box').getBoundingClientRect()
+    out.titleCentered = Math.abs(head.x + head.width / 2 - (box.x + box.width / 2)) < 4
+    bm.togglePicker()
+    const slots = [...document.querySelectorAll('#build-hotbar .build-hotbar-slot')]
+    out.hotbarBoxes = slots.map((el) => getComputedStyle(el).backgroundColor !== 'rgba(0, 0, 0, 0)' ? 1 : 0).join('')
+    out.barBg = getComputedStyle(document.getElementById('build-hotbar')).backgroundColor
+    return out
+  })
+  expect(r).toEqual({
+    targetStays: true, cameraMoved: true, reloading: true, floor: [true, true, true], floorHidden: true,
+    thrown: 1, handEmpty: true, hit: true, oneImage: [1, 'hidden'], titleCentered: true,
+    hotbarBoxes: '0100000000', barBg: 'rgba(0, 0, 0, 0)',
+  })
+})

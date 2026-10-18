@@ -352,10 +352,13 @@ html.ui-theme-old #top-bar .top-bar-name { color: #8a2d12; }
   border-radius: 12px;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
 }
-#play-inventory .inv-head { display: flex; align-items: center; gap: 14px; width: 100%; font-size: 15px; }
+/* The title sits in the middle, the armor line under it (2026-10-18,
+   Gaymi: "move the word inventory more to the middle"). */
+#play-inventory .inv-head { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; font-size: 15px; text-align: center; }
 #play-inventory .inv-head b { font-size: 20px; color: #ffd75e; }
-#play-inventory .inv-head span { flex: 1; opacity: 0.8; font-size: 13px; }
-#play-inventory .inv-close { font-size: 24px; line-height: 1; color: inherit; background: none; border: none; cursor: pointer; }
+#play-inventory .inv-head span { opacity: 0.8; font-size: 13px; }
+#play-inventory .inv-close { position: absolute; top: -4px; right: 0; font-size: 24px; line-height: 1; color: inherit; background: none; border: none; cursor: pointer; }
+#play-inventory .inv-slot.dragging img, #play-inventory .inv-slot.dragging .inv-slot-count { visibility: hidden; }
 #play-inventory .inv-armor, #play-inventory .inv-hotbar { display: flex; gap: 4px; }
 #play-inventory .inv-grid { display: grid; grid-template-columns: repeat(10, var(--inv-slot)); gap: 4px; }
 #play-inventory .inv-hotbar { margin-top: 4px; padding-top: 8px; border-top: 1px solid rgba(217, 188, 74, 0.35); }
