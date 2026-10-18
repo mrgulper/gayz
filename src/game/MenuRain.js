@@ -52,78 +52,46 @@ export function pictureBox(w, h) {
 // road (MenuWater.js).
 export const rainState = { intensity: 0.5 }
 
-// Drops falling at once per 1000x1000 CSS px of window at full strength.
-const MAX_DENSITY = 300
-// Strength wanders between these (0-1 of MAX_DENSITY), a new target every
-// INTENSITY_HOLD seconds, eased over INTENSITY_EASE seconds.
-const INTENSITY_MIN = 0.12
+// Rain redrawn (2026-10-18, Gaymi: "the rain feels cheap and kinda bad and
+// the homepage is pretty laggy"): instead of hundreds of separately drawn
+// drop pictures and splash shapes every frame, the drops are thin streaks
+// in three depth layers (far: short, faint, slow; near: long, brighter,
+// fast), each layer drawn as two batched strokes - a faint tail and a
+// brighter drop head at the bottom (still straight down and not "just
+// lines", as asked before); splashes are small ripple rings batched the
+// same way; a
+// soft mist lies over the street and thickens in heavy rain. A handful of
+// draw calls a frame instead of ~1000.
+const MAX_DENSITY = 170
+const LAYERS = [
+  { share: 0.5, len: [10, 18], width: 0.7, alpha: 0.16, speed: [700, 900] },
+  { share: 0.33, len: [18, 32], width: 1, alpha: 0.24, speed: [1000, 1250] },
+  { share: 0.17, len: [34, 60], width: 1.4, alpha: 0.32, speed: [1350, 1650] },
+]
+const INTENSITY_MIN = 0.15
 const INTENSITY_MAX = 1
 const INTENSITY_HOLD = [7, 18]
 const INTENSITY_EASE = 4
-// Fall speed (CSS px/s) for a drop landing at the very bottom; farther
-// drops are slower.
-const SPEED = [1150, 1550]
-const MAX_SPLASHES = 90
-const SPLASH_LIFE_S = 0.5
-// The canvas never draws more pixels than this per CSS pixel - the drops
-// are soft pictures, so extra pixels only cost time (2026-10-16).
+const MAX_SPLASHES = 70
+const SPLASH_LIFE_S = 0.45
 const MAX_PIXEL_RATIO = 1
-// Share of the drops a touch device's lighter homepage keeps (LiteHome.js).
-const LITE_DROPS = 0.6
+const LITE_DROPS = 0.55
 
 function rand(a, b) {
   return a + Math.random() * (b - a)
 }
-
-// One raindrop in motion, drawn once and stretched per drop: a bright round
-// head at the bottom with a highlight, and a tail that tapers and fades
-// upward (what a falling drop looks like to the eye).
-function dropSprite() {
-  const W = 12
-  const H = 96
-  const c = document.createElement('canvas')
-  c.width = W
-  c.height = H
-  const g = c.getContext('2d')
-  const headR = W * 0.32
-  const headY = H - headR - 1
-  const tail = g.createLinearGradient(0, 0, 0, headY)
-  tail.addColorStop(0, 'rgba(200, 210, 222, 0)')
-  tail.addColorStop(0.55, 'rgba(205, 214, 226, 0.22)')
-  tail.addColorStop(1, 'rgba(225, 232, 240, 0.7)')
-  g.fillStyle = tail
-  g.beginPath()
-  g.moveTo(W / 2, 0)
-  g.quadraticCurveTo(W / 2 + headR * 0.9, headY * 0.7, W / 2 + headR, headY)
-  g.arc(W / 2, headY, headR, 0, Math.PI)
-  g.quadraticCurveTo(W / 2 - headR * 0.9, headY * 0.7, W / 2, 0)
-  g.fill()
-  const head = g.createRadialGradient(W / 2 - headR * 0.3, headY - headR * 0.2, 0, W / 2, headY, headR * 1.2)
-  head.addColorStop(0, 'rgba(255, 255, 255, 0.95)')
-  head.addColorStop(0.45, 'rgba(225, 233, 242, 0.75)')
-  head.addColorStop(1, 'rgba(150, 165, 182, 0)')
-  g.fillStyle = head
-  g.beginPath()
-  g.arc(W / 2, headY, headR * 1.2, 0, Math.PI * 2)
-  g.fill()
-  return { canvas: c, w: W, h: H }
-}
-
 
 export function startMenuRain(canvas) {
   if (!canvas || !canvas.getContext) return
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
   const ctx = canvas.getContext('2d')
   if (!ctx) return
-  const sprite = dropSprite()
-
   let w = 0
   let h = 0
   let drops = []
   const splashes = []
   let reduced = false
   let last = performance.now()
-  // Floor in screen space.
   let horizonY = 0
   let edgeY = 0
   let farL = 0
@@ -133,9 +101,8 @@ export function startMenuRain(canvas) {
   let from = intensity
   let easeT = 1
   let nextChange = rand(INTENSITY_HOLD[0], INTENSITY_HOLD[1])
+  let mist = null
 
-  // Picture fraction -> screen px, like `background-size: cover;
-  // background-position: center 35%`.
   function mapPicture() {
     const box = pictureBox(w, h)
     horizonY = box.y + FLOOR.horizon * box.h
@@ -144,29 +111,26 @@ export function startMenuRain(canvas) {
     farR = box.x + FLOOR.right * box.w
   }
 
-  // Left/right edge of the floor at a given screen height.
   function floorSpan(y) {
     if (y >= edgeY) return [0, w]
     const t = (y - horizonY) / Math.max(1, edgeY - horizonY)
     return [farL * (1 - t), farR + (w - farR) * t]
   }
 
-  function newDrop(anywhere) {
-    // More drops land near the viewer than far up the street.
-    const depth = Math.sqrt(Math.random())
+  function newDrop(layer, anywhere) {
+    const L = LAYERS[layer]
+    // Near drops land low on the street, far ones high up it.
+    const depth = (layer + Math.random()) / LAYERS.length
     const landY = horizonY + 2 + depth * (h - horizonY - 2)
     const [l, r] = floorSpan(landY)
-    const s = 0.12 + 0.88 * depth
-    const len = (16 + 30 * s) * rand(0.85, 1.15)
+    const x = rand(l, r)
     return {
-      x: rand(l, r),
+      layer,
+      landX: x,
       landY,
-      s,
-      speed: rand(SPEED[0], SPEED[1]) * (0.55 + 0.45 * s),
-      // From the top edge (a new drop waits a moment above it, so they
-      // don't arrive in rows).
-      y: anywhere ? rand(-0.3 * h, landY) : -rand(0, 0.5 * h),
-      len,
+      len: rand(L.len[0], L.len[1]),
+      speed: rand(L.speed[0], L.speed[1]),
+      y: anywhere ? rand(-0.3 * h, landY) : -rand(0, 0.6 * h),
     }
   }
 
@@ -181,36 +145,26 @@ export function startMenuRain(canvas) {
     mapPicture()
     const count = Math.round(((MAX_DENSITY * w * h) / 1e6) * (reduced ? 0.5 : 1) * (LITE_HOME ? LITE_DROPS : 1))
     drops = []
-    for (let i = 0; i < count; i++) drops.push(newDrop(true))
-  }
-
-  function splash(d) {
-    if (splashes.length >= MAX_SPLASHES) return
-    const s = d.s
-    splashes.push({
-      x: d.x,
-      y: d.landY,
-      s,
-      age: 0,
-      bits: Array.from({ length: s > 0.45 ? 4 : 2 }, () => ({
-        vx: rand(-55, 55) * s,
-        vy: rand(-120, -60) * s,
-        r: rand(0.6, 1.1) * (0.5 + s),
-      })),
+    LAYERS.forEach((L, layer) => {
+      for (let i = 0; i < Math.round(count * L.share); i++) drops.push(newDrop(layer, true))
     })
+    // Drops are shuffled so the "active" share thins every layer evenly.
+    for (let i = drops.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[drops[i], drops[j]] = [drops[j], drops[i]]
+    }
+    // The street mist: a soft band over the floor, drawn once.
+    mist = ctx.createLinearGradient(0, horizonY - 0.06 * h, 0, h)
+    mist.addColorStop(0, 'rgba(190, 200, 212, 0)')
+    mist.addColorStop(0.35, 'rgba(190, 200, 212, 0.10)')
+    mist.addColorStop(1, 'rgba(170, 180, 194, 0.04)')
   }
 
   function updateIntensity(dt) {
     nextChange -= dt
     if (nextChange <= 0) {
       from = intensity
-      // Swing to the other side often, so it really goes soft <-> hard.
-      target =
-        intensity > 0.55
-          ? rand(INTENSITY_MIN, 0.45)
-          : Math.random() < 0.7
-            ? rand(0.6, INTENSITY_MAX)
-            : rand(INTENSITY_MIN, 0.5)
+      target = intensity > 0.55 ? rand(INTENSITY_MIN, 0.45) : Math.random() < 0.7 ? rand(0.6, INTENSITY_MAX) : rand(INTENSITY_MIN, 0.5)
       easeT = 0
       nextChange = rand(INTENSITY_HOLD[0], INTENSITY_HOLD[1])
     }
@@ -223,90 +177,80 @@ export function startMenuRain(canvas) {
   }
 
   function frame(now, due) {
-    // Drawn on the homepage's shared beat (LiteHome.js onHomeFrame).
     if (!due) return
     const dt = Math.min(0.05, (now - last) / 1000)
     last = now
-    // Not on screen (homepage hidden, setting off) or tab hidden: skip.
     if (document.hidden || canvas.offsetParent === null) return
     if (canvas.clientWidth !== w || canvas.clientHeight !== h) resize()
     if (!w || !h) return
     updateIntensity(dt)
-
     ctx.clearRect(0, 0, w, h)
-    // Only the first `active` drops fall; the rest wait above their spot,
-    // so the rain thins out and fills in smoothly as the strength changes.
-    const active = Math.round(drops.length * intensity)
-    // Heavy rain falls a little faster.
-    const speedMult = 0.85 + 0.3 * intensity
-    for (let i = 0; i < drops.length; i++) {
-      const d = drops[i]
-      if (i >= active && d.y < 0) continue
-      d.y += d.speed * speedMult * dt
-      if (d.y >= d.landY) {
-        splash(d)
-        Object.assign(d, newDrop(false))
-        continue
-      }
-      if (d.y < 0) continue
-      ctx.globalAlpha = 0.3 + 0.55 * d.s
-      const dw = sprite.w * (0.18 + 0.32 * d.s)
-      ctx.drawImage(sprite.canvas, d.x - dw / 2, d.y - d.len, dw, d.len)
-    }
+    // Mist over the street, thicker in a downpour.
+    ctx.globalAlpha = 0.35 + 0.65 * intensity
+    ctx.fillStyle = mist
+    ctx.fillRect(0, horizonY - 0.06 * h, w, h)
     ctx.globalAlpha = 1
-
-    // Splashes: a small crown, droplets thrown out in arcs, a ripple ring.
-    for (let i = splashes.length - 1; i >= 0; i--) {
-      const sp = splashes[i]
-      sp.age += dt
-      const t = sp.age / SPLASH_LIFE_S
-      if (t >= 1) {
-        splashes.splice(i, 1)
-        continue
+    const active = Math.round(drops.length * intensity)
+    const speedMult = 0.85 + 0.3 * intensity
+    // Two paths per depth layer: tails, then heads.
+    ctx.lineCap = 'round'
+    for (let layer = 0; layer < LAYERS.length; layer++) {
+      const L = LAYERS[layer]
+      const layerHeads = layer === 0 ? null : new Path2D()
+      ctx.beginPath()
+      for (let i = 0; i < drops.length; i++) {
+        const d = drops[i]
+        if (d.layer !== layer) continue
+        if (i >= active && d.y < 0) continue
+        d.y += d.speed * speedMult * dt
+        if (d.y >= d.landY) {
+          if (splashes.length < MAX_SPLASHES && layer > 0) splashes.push({ x: d.landX, y: d.landY, s: layer / 2, age: 0 })
+          Object.assign(d, newDrop(layer, false))
+          continue
+        }
+        if (d.y < 0) continue
+        const x = d.landX
+        ctx.moveTo(x, d.y - d.len * 0.2)
+        ctx.lineTo(x, d.y - d.len)
+        if (layerHeads) {
+          layerHeads.moveTo(x, d.y)
+          layerHeads.lineTo(x, d.y - d.len * 0.22)
+        }
       }
-      const fade = 1 - t
-      const size = 2 + 7 * sp.s
-      // Ripple: two rings, the second a little behind.
-      ctx.lineWidth = 0.5 + 0.5 * sp.s
-      for (const lag of [0, 0.35]) {
-        const rt = t - lag
-        if (rt <= 0) continue
-        ctx.strokeStyle = `rgba(214, 222, 232, ${0.4 * (1 - rt) * fade})`
-        ctx.beginPath()
-        ctx.ellipse(sp.x, sp.y, size * (0.3 + rt * 1.7), size * (0.09 + rt * 0.45), 0, 0, Math.PI * 2)
-        ctx.stroke()
+      ctx.strokeStyle = `rgba(205, 214, 226, ${L.alpha * (0.75 + 0.25 * intensity)})`
+      ctx.lineWidth = L.width
+      ctx.stroke()
+      if (layerHeads) {
+        ctx.strokeStyle = `rgba(238, 243, 250, ${Math.min(0.85, L.alpha * 2.4)})`
+        ctx.lineWidth = L.width + 0.6
+        ctx.stroke(layerHeads)
       }
-      // Crown: a quick upward flick for the first moment.
-      if (t < 0.25) {
-        const ct = t / 0.25
-        const ch = size * 0.9 * Math.sin(ct * Math.PI)
-        ctx.strokeStyle = `rgba(232, 238, 245, ${0.55 * (1 - ct)})`
-        ctx.lineWidth = 0.6 + 0.4 * sp.s
-        ctx.beginPath()
-        ctx.moveTo(sp.x - size * 0.35, sp.y)
-        ctx.quadraticCurveTo(sp.x - size * 0.45, sp.y - ch, sp.x - size * 0.6, sp.y - ch * 0.8)
-        ctx.moveTo(sp.x + size * 0.35, sp.y)
-        ctx.quadraticCurveTo(sp.x + size * 0.45, sp.y - ch, sp.x + size * 0.6, sp.y - ch * 0.8)
-        ctx.moveTo(sp.x, sp.y)
-        ctx.lineTo(sp.x, sp.y - ch * 1.1)
-        ctx.stroke()
+    }
+    // Ripples: one path for the young ones, one for the old.
+    for (const [lo, hi, a] of [[0, 0.5, 0.32], [0.5, 1, 0.14]]) {
+      ctx.beginPath()
+      for (let i = splashes.length - 1; i >= 0; i--) {
+        const sp = splashes[i]
+        if (lo === 0) sp.age += dt
+        const t = sp.age / SPLASH_LIFE_S
+        if (t >= 1) {
+          splashes.splice(i, 1)
+          continue
+        }
+        if (t < lo || t >= hi) continue
+        const size = 2.5 + 6 * sp.s
+        const rx = size * (0.3 + t * 1.6)
+        ctx.moveTo(sp.x + rx, sp.y)
+        ctx.ellipse(sp.x, sp.y, rx, rx * 0.26, 0, 0, Math.PI * 2)
       }
-      // Droplets thrown out and falling back.
-      ctx.fillStyle = `rgba(228, 234, 242, ${0.7 * fade})`
-      for (const b of sp.bits) {
-        const bx = sp.x + b.vx * sp.age
-        const by = sp.y + b.vy * sp.age + 420 * sp.s * sp.age * sp.age
-        if (by > sp.y) continue
-        ctx.beginPath()
-        ctx.arc(bx, by, b.r, 0, Math.PI * 2)
-        ctx.fill()
-      }
+      ctx.strokeStyle = `rgba(220, 228, 238, ${a})`
+      ctx.lineWidth = 0.8
+      ctx.stroke()
     }
   }
 
   resize()
   window.addEventListener('resize', resize)
-  // Reduce Homepage Background Effects can be toggled while running.
   new MutationObserver(() => {
     if (document.body.classList.contains('reduce-bg-effects') !== reduced) resize()
   }).observe(document.body, { attributes: true, attributeFilter: ['class'] })

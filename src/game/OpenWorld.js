@@ -25,7 +25,7 @@
 // (`edited`) is never dropped while the game lasts.
 import { t } from './i18n.js'
 import { inCityShape, cityEdgeDistance } from './CityShape.js'
-import { planStructure, planLandmark, STRUCT_GRID, STRUCTURE_NAMES } from './WorldStructures.js'
+import { planStructure, planLandmark, planTown, STRUCT_GRID, STRUCTURE_NAMES } from './WorldStructures.js'
 import { Underground, rockAt, setUnderSeed } from './Underground.js'
 
 const CHUNK = 16
@@ -939,7 +939,17 @@ export class OpenWorld {
   // its land has grown yet (it's stamped as the columns grow). Ordinary
   // places it overlaps give way to it. Returns the plan or null.
   addLandmark(kind, x, z, nameKey) {
-    const plan = planLandmark(kind, Math.round(x), Math.round(z), { land: sampleLand, chunk: CHUNK })
+    return this._addPlan(planLandmark(kind, Math.round(x), Math.round(z), { land: sampleLand, chunk: CHUNK }), nameKey)
+  }
+
+  // A real city's block town (Towns.js), the same way. name: shown as is.
+  addTown(style, x, z, plazaR, cityName) {
+    const plan = this._addPlan(planTown(style, Math.round(x), Math.round(z), plazaR, (Math.imul(Math.round(x), 73856093) ^ Math.round(z)) >>> 0, { land: sampleLand, chunk: CHUNK }), null)
+    if (plan) plan.placeName = cityName
+    return plan
+  }
+
+  _addPlan(plan, nameKey) {
     if (!plan) return null
     for (let cx = Math.floor(plan.x0 / CHUNK); cx <= Math.floor(plan.x1 / CHUNK); cx++) {
       for (let cz = Math.floor(plan.z0 / CHUNK); cz <= Math.floor(plan.z1 / CHUNK); cz++) if (this.columns.has(`${cx},${cz}`)) return null
@@ -998,7 +1008,7 @@ export class OpenWorld {
   placeName(x, z) {
     if (!this.active || inCity(x, z)) return ''
     const plan = this._plansOver(x, z, x, z)[0]
-    return plan ? t(plan.nameKey || STRUCTURE_NAMES[plan.kind]) : ''
+    return plan ? plan.placeName || t(plan.nameKey || STRUCTURE_NAMES[plan.kind]) : ''
   }
 
   // Every place near (x, z): { kind, x, z } (tests, the minimap).

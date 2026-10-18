@@ -2,9 +2,12 @@
 // "add a spectate feature in paused", picked "both"):
 //
 //   Free camera  - fly anywhere (WASD, Space up, Shift down, mouse to look,
-//                  through walls). Playing alone the game stays paused the
-//                  whole time (BuildSurvival.update waits while
-//                  `spectating`), so nothing can hurt you.
+//                  through walls). The game keeps going around you - waves,
+//                  zombies, the land growing where you fly (2026-10-18,
+//                  Gaymi: "it should feel like just in game but you're
+//                  flying and can't get damaged") - and nothing can hurt
+//                  you (`spectating` in BuildSurvival._hurtPlayer). You can
+//                  still shoot.
 //   Watch players - on a server, click (or press the Use key) to look
 //                  through the next player's eyes; past the last one it's
 //                  back to the free camera. The server's world keeps going,
@@ -37,6 +40,10 @@ export class PlaySpectate {
     return [...net.players.values()].filter((p) => p.seen && !p.dead)
   }
 
+  hasPlayers() {
+    return this._players().length > 0
+  }
+
   enter() {
     const bm = this.bm
     const s = bm.survival
@@ -46,9 +53,9 @@ export class PlaySpectate {
     this._vel.set(0, 0, 0)
     this._saved = { pos: bm.camera.position.clone(), yaw: bm._yaw, pitch: bm._pitch }
     s.spectating = true
+    this._savedPos = bm.tryMode.pos.clone()
     bm.closeMenuQuietly()
     bm.tryMode.setAim(false)
-    if (bm.tryMode._gun) bm.tryMode._gun.visible = false
     document.body.classList.add('play-spectating')
     this._renderBanner()
     try { bm.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available */ }
@@ -64,7 +71,11 @@ export class PlaySpectate {
       bm._yaw = this._saved.yaw
       bm._pitch = this._saved.pitch
     }
-    if (bm.tryMode._gun) bm.tryMode._gun.visible = true
+    // Back where you were when you started spectating.
+    if (this._savedPos) {
+      bm.tryMode.pos.copy(this._savedPos)
+      bm.tryMode.vel?.set(0, 0, 0)
+    }
     document.body.classList.remove('play-spectating')
     const el = document.getElementById('play-spectate-bar')
     if (el) el.style.display = 'none'
@@ -167,5 +178,10 @@ export class PlaySpectate {
     const k = 1 - Math.exp(-10 * dt)
     this._vel.lerp(dir.multiplyScalar(speed), k)
     cam.position.addScaledVector(this._vel, dt)
+    // You fly as yourself: the land grows, zombies chase and spawn, the
+    // minimap and coordinates follow - all from where the camera is.
+    const tm = bm.tryMode
+    tm.pos.set(cam.position.x / B, cam.position.y / B - EYE, cam.position.z / B)
+    tm.vel?.set(0, 0, 0)
   }
 }

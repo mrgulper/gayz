@@ -25,6 +25,7 @@ const VILLAGE_BIOMES = new Set(['plains', 'savanna', 'desert', 'taiga', 'snowyPl
 const CASTLE_BIOMES = new Set(['plains', 'forest', 'birchForest', 'darkForest', 'taiga', 'snowyTaiga', 'snowyPlains', 'mountains', 'savanna', 'cherryGrove'])
 
 import { buildLandmark } from './Landmarks.js'
+import { buildTown } from './Towns.js'
 
 // Names for the HUD (i18n keys).
 export const STRUCTURE_NAMES = { village: 'placeVillage', castle: 'placeCastle', bridge: 'placeBridge', pyramid: 'placePyramid' }
@@ -187,6 +188,21 @@ export function planLandmark(kind, cx, cz, { land, chunk }) {
   return b.finish(chunk)
 }
 
+// A real city's block town (Towns.js) centred on (cx, cz), from the spawn
+// map; plazaR cells in the middle stay open for its landmark.
+export function planTown(style, cx, cz, plazaR, seed, { land, chunk }) {
+  const heights = new Map()
+  const H = (x, z) => {
+    const k = `${x},${z}`
+    let s = heights.get(k)
+    if (!s) heights.set(k, (s = land(x, z)))
+    return s
+  }
+  const b = new Builder('town', cx, cz)
+  buildTown(b, { H, cx, cz, style, plazaR, seed, earthAt })
+  return b.finish(chunk)
+}
+
 // Highest and lowest ground over a box, and whether it's all dry land.
 function siteOf(H, sea, x0, z0, x1, z1, step = 1) {
   let lo = Infinity
@@ -203,9 +219,21 @@ function siteOf(H, sea, x0, z0, x1, z1, step = 1) {
   return { lo, hi, dry }
 }
 
-// Blocks from the ground up to (not including) y, so nothing floats.
+// Natural rock and earth (2026-10-18, Gaymi: "those mountains should not
+// use bricks, human-built things should"): what the ground under a
+// building is raised with - stone, andesite, cobblestone and moss deep
+// down, dirt near the top - so a raised site reads as a hill, not a brick
+// cliff. The building itself keeps its own materials.
+export function earthAt(x, y, z, top) {
+  if (top - y <= 1) return 'dirt'
+  const r = (Math.imul(x * 73856093 ^ y * 19349663 ^ z * 83492791, 0x9e3779b1) >>> 0) / 4294967296
+  return r < 0.55 ? 'stone' : r < 0.72 ? 'andesite' : r < 0.86 ? 'cobblestone' : r < 0.95 ? 'mossycobblestone' : 'gravel'
+}
+
+// Blocks from the ground up to (not including) y, so nothing floats: the
+// last one is the building's own base (type), everything under it natural.
 function foundation(b, H, x, z, y, type) {
-  for (let k = H(x, z).h + 1; k < y; k++) b.set(x, k, z, type)
+  for (let k = H(x, z).h + 1; k < y; k++) b.set(x, k, z, k === y - 1 ? type : earthAt(x, k, z, y - 1))
 }
 
 // Full-block steps down from a doorway at floor height `top` (the floor
@@ -623,7 +651,7 @@ function castle({ H, rand, sea, cx, cz }) {
     for (let z = cz - REACH + 1; z <= cz + REACH - 1; z++) {
       const inTower = Math.abs(Math.abs(x - cx) - R) <= T && Math.abs(Math.abs(z - cz) - R) <= T
       if (Math.max(Math.abs(x - cx), Math.abs(z - cz)) > R && !inTower) continue
-      for (let y = H(x, z).h + 1; y < base; y++) b.set(x, y, z, stone(x, y, z))
+      for (let y = H(x, z).h + 1; y < base; y++) b.set(x, y, z, y === base - 1 ? stone(x, y, z) : earthAt(x, y, z, base - 1))
       const r = (Math.imul(x * 31 + z * 17, 0x9e3779b1) >>> 0) / 4294967296
       b.set(x, base, z, r < 0.5 ? 'cobblestone' : r < 0.75 ? 'gravel' : 'coarsedirt')
     }

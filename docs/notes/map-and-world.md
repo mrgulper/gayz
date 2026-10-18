@@ -87,3 +87,12 @@ Moved out of CLAUDE.md on 2026-10-16 (word for word) so it is only read when nee
 - **Bodies:** `CORPSE_LIE` 40 + `CORPSE_FADE` 19.5 (~60 s), `SKELETON_LIE` 54; `c.burnLeft` (Flamethrower cone or a burning block) burns one away in `CORPSE_BURN_S`; wet stops it.
 - **Fire:** `_wetAt` (water in/next to the cell, or rain + open sky) blocks ignition and puts fires/burning zombies/bodies out (`FIRE_RAIN_OUT_S`). Leaves are flammable (`isFlammable`), tree blocks (`isTreeBlock`) spread to all 26 neighbours at `FIRE_TREE_SPREAD`; leaves burn in `FIRE_LEAF_BURN_S`.
 - **Theme:** `#build-picker` / `#build-try-map` themed in `play-pause.css`.
+
+## 2026-10-18 (batch 2): inventory, towns, spectate, wave fix
+
+- **Inventory** (`PlayInventory.js`, `survival.inv`): grid 100 / hotbar 10 / armor 5; items `{ kind: 'gun'|'block'|'item', id, n }`. `BuildMode.togglePicker` shows it in a game (keeps `pickerOpen` so movement/wheel guards apply); digits/wheel -> `inv.select`; `_renderHotbar` -> `inv.renderHotbar`. Holding a block: `survival.holding`, drawn with `tryMode.drawHand`, right-click (touch: fire) -> `placeHeldBlock` (`_placed`, removed at stop; mining your own placed block forgets it). Broken blocks -> `onBlockMined` (from `_updateDigging`). Chest loot adds items. `damageCut()` in `_hurtPlayer`. Saved with the run (`inv`, validated in `restore`). Gun slots switch via `_equipWeapon` (keeps ammo); the pause picker calls `inv.bringGun`.
+- **Editor Tab panel:** `_renderPickerSide` wraps the picker into left/right; 6x6 storage in `EDITOR_STORE_KEY`.
+- **Towns** (`Towns.js`): `CITIES` (lat/lon/style/landmark), `cityNear` (4 degrees), `buildTown` (streets every `BLOCK`, main avenue through the middle, lots with style buildings, plaza for the landmark). `OpenWorld.addTown` / `_addPlan`; `plan.placeName` names it on the HUD. `_spawnAt` puts you on the avenue 40 south of the middle; huge landmarks (reach > 20) go just north of the town.
+- **Spectate** now keeps the game running: `tm.pos` follows the camera (world/zombies/minimap follow), `_hurtPlayer` ignores hits; solo clicks shoot.
+- **Wave bug:** after `_spawnAt` the flow field reset (zombies were spawning at the old camp, 4000+ blocks away, and falling out = kills). `zb.lost` (fell out, or > `DESPAWN_DIST` from every player) removes without a kill. HUD shows "Next wave in Ns" during breaks.
+- **Natural ground:** `earthAt()` (WorldStructures) for raised ground under every building/landmark/town lot.

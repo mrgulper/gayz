@@ -185,11 +185,7 @@ html.ui-theme-old #play-spectate-bar {
   font-family: 'Rye', serif;
 }
 html.ui-theme-old #play-spectate-bar button { color: #2e1d0e; background: rgba(107, 63, 23, 0.12); border-color: rgba(107, 63, 23, 0.6); }
-body.play-spectating #build-try-crosshair,
-body.play-spectating #build-play-hud,
-body.play-spectating #build-play-ammo,
-body.play-spectating #build-play-health,
-body.play-spectating #build-hotbar { visibility: hidden; }
+/* (Spectating keeps the game's HUD - it should feel like playing.) */
 
 /* The spawn map (SpawnMap.js, 2026-10-17): a blocky map of Earth before a
    solo game - click a place, then Spawn Here or Start in the City Camp. */
@@ -281,3 +277,165 @@ html.ui-theme-old #build-try-map {
 }
 html.ui-theme-old #build-try-map-hint,
 html.ui-theme-old #build-try-biome { color: #f3e6c8; background: rgba(74, 44, 16, 0.9); }
+
+/* Full page (2026-10-18, Gaymi: "make it take up the whole page because
+   the background is already at the city camp"): the map screen covers
+   everything with a solid background, and the map grows as big as the
+   window allows (2:1, leaving room for the title and buttons). */
+#spawn-map { padding: 0; background: #120f0a; }
+#spawn-map .spawn-map-box {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  justify-content: center;
+  border: none;
+  border-radius: 0;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+}
+#spawn-map .spawn-map-frame { width: min(100%, calc((100dvh - 230px) * 2)); }
+html.ui-theme-old #spawn-map { background: #2a1d10; }
+html.ui-theme-old #spawn-map .spawn-map-box {
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat, #ecd6aa;
+  padding: max(40px, 6vh) max(40px, 6vw);
+}
+
+/* The top bar in the theme (2026-10-18, Gaymi: "make the text more
+   natural, it feels weird"). Golden: the HUD's Bebas Neue, gold name, a
+   dark panel with a gold edge. Old: Rye in dark ink on a paper strip with
+   a brown frame. Sizes and places stay the same in both. */
+#top-bar {
+  font: 400 19px/1 'Bebas Neue', sans-serif;
+  letter-spacing: 0.6px;
+  color: #f3e6c4;
+  background: rgba(14, 12, 8, 0.82);
+  border: 1px solid rgba(217, 188, 74, 0.55);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+#top-bar .top-bar-part + .top-bar-part { border-left-color: rgba(217, 188, 74, 0.35); }
+#top-bar .top-bar-name { color: #ffd75e; }
+html.ui-theme-old #top-bar {
+  font: 400 15px/1 'Rye', Georgia, serif;
+  letter-spacing: 0;
+  color: #2e1d0e;
+  background: rgba(236, 214, 170, 0.94);
+  border: 2px solid #6b3f17;
+  text-shadow: none;
+}
+html.ui-theme-old #top-bar .top-bar-part + .top-bar-part { border-left-color: rgba(107, 63, 23, 0.45); }
+html.ui-theme-old #top-bar .top-bar-name { color: #8a2d12; }
+
+/* The game's inventory (PlayInventory.js, 2026-10-18): armor row, a 10x10
+   grid and the hotbar, in each theme. Slots are sized from the window so
+   the whole thing always fits. */
+#play-inventory {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: rgba(6, 8, 6, 0.45);
+  --inv-slot: min(46px, calc((100vw - 90px) / 10), calc((100dvh - 230px) / 12));
+  touch-action: none;
+  user-select: none;
+}
+#play-inventory .inv-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px;
+  color: #f3e6c4;
+  background: rgba(14, 12, 8, 0.95);
+  border: 2px solid rgba(217, 188, 74, 0.7);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+}
+#play-inventory .inv-head { display: flex; align-items: center; gap: 14px; width: 100%; font-size: 15px; }
+#play-inventory .inv-head b { font-size: 20px; color: #ffd75e; }
+#play-inventory .inv-head span { flex: 1; opacity: 0.8; font-size: 13px; }
+#play-inventory .inv-close { font-size: 24px; line-height: 1; color: inherit; background: none; border: none; cursor: pointer; }
+#play-inventory .inv-armor, #play-inventory .inv-hotbar { display: flex; gap: 4px; }
+#play-inventory .inv-grid { display: grid; grid-template-columns: repeat(10, var(--inv-slot)); gap: 4px; }
+#play-inventory .inv-hotbar { margin-top: 4px; padding-top: 8px; border-top: 1px solid rgba(217, 188, 74, 0.35); }
+#play-inventory .inv-slot {
+  position: relative;
+  width: var(--inv-slot);
+  height: var(--inv-slot);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(217, 188, 74, 0.28);
+  border-radius: 5px;
+  cursor: grab;
+}
+#play-inventory .inv-slot.active { border-color: #ffd75e; box-shadow: inset 0 0 0 1px #ffd75e; }
+#play-inventory .inv-slot img { position: absolute; inset: 8%; width: 84%; height: 84%; object-fit: contain; image-rendering: pixelated; pointer-events: none; }
+#play-inventory .inv-slot.gun img { image-rendering: auto; }
+.inv-slot-count {
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  font: 700 12px/1 system-ui, sans-serif;
+  color: #fff;
+  text-shadow: 0 1px 2px #000, 0 0 2px #000;
+  pointer-events: none;
+}
+#play-inventory .inv-armor .inv-slot[class*='empty-']::after {
+  content: '';
+  position: absolute;
+  inset: 22%;
+  opacity: 0.35;
+  background: currentColor;
+  -webkit-mask: var(--inv-armor-icon) center / contain no-repeat;
+  mask: var(--inv-armor-icon) center / contain no-repeat;
+}
+#play-inventory .inv-slot.empty-helmet { --inv-armor-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 9a5 5 0 0 1 10 0v4h-3v-3H6v3H3z'/%3E%3C/svg%3E"); }
+#play-inventory .inv-slot.empty-chestplate { --inv-armor-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 3l3-1 1 2h4l1-2 3 1-1 4h-2v7H5V7H3z'/%3E%3C/svg%3E"); }
+#play-inventory .inv-slot.empty-leggings { --inv-armor-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 2h8v12H9V7H7v7H4z'/%3E%3C/svg%3E"); }
+#play-inventory .inv-slot.empty-boots { --inv-armor-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 5h3v5h2v3H2zM9 5h3v5h2v3H9z'/%3E%3C/svg%3E"); }
+#play-inventory .inv-slot.empty-shield { --inv-armor-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1l6 2v5c0 4-3 6-6 7-3-1-6-3-6-7V3z'/%3E%3C/svg%3E"); }
+#play-inventory .inv-hint { max-width: calc(var(--inv-slot) * 10 + 36px); margin: 0; font-size: 12px; opacity: 0.75; text-align: center; }
+.inv-ghost { position: fixed; z-index: 60; width: 44px; height: 44px; margin: -22px 0 0 -22px; pointer-events: none; }
+.inv-ghost img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.6)); }
+#build-hotbar .inv-slot-count { right: 4px; bottom: 2px; }
+html.ui-theme-old #play-inventory .inv-box {
+  padding: 46px 52px 48px;
+  color: #2e1d0e;
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  font-family: 'Rye', Georgia, serif;
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.65));
+}
+html.ui-theme-old #play-inventory .inv-head b { color: #6b3f17; }
+html.ui-theme-old #play-inventory .inv-slot { background: rgba(107, 63, 23, 0.12); border-color: rgba(107, 63, 23, 0.45); }
+html.ui-theme-old #play-inventory .inv-slot.active { border-color: #6b3f17; box-shadow: inset 0 0 0 1px #6b3f17; }
+html.ui-theme-old #play-inventory .inv-hotbar { border-top-color: rgba(107, 63, 23, 0.4); }
+
+/* Map Editor Tab panel, half and half (BuildMode._renderPickerSide). */
+#build-picker.split { flex-direction: row; align-items: stretch; gap: 16px; max-width: calc(100vw - 24px); }
+#build-picker .build-picker-left { display: flex; flex-direction: column; gap: 10px; min-width: 0; max-height: calc(80vh - 32px); }
+#build-picker .build-picker-left .build-picker-grid { flex: 1; min-height: 0; }
+#build-picker .build-picker-right { display: flex; flex-direction: column; gap: 6px; padding-left: 16px; border-left: 1px solid rgba(217, 188, 74, 0.35); }
+#build-picker .bp-title { font-size: 12px; letter-spacing: 0.5px; opacity: 0.8; color: #f3e6c4; }
+#build-picker .bp-hotbar { display: grid; grid-template-columns: repeat(5, 46px); gap: 4px; }
+#build-picker .bp-store { display: grid; grid-template-columns: repeat(6, 46px); gap: 4px; }
+#build-picker .bp-slot { width: 46px; height: 46px; background: rgba(255, 255, 255, 0.06) center / 80% no-repeat; border: 1px solid rgba(217, 188, 74, 0.3); border-radius: 5px; image-rendering: pixelated; cursor: grab; touch-action: none; }
+#build-picker .bp-slot.active { border-color: #ffd75e; box-shadow: inset 0 0 0 1px #ffd75e; }
+#build-picker .build-picker-item { touch-action: none; }
+html.ui-theme-old #build-picker .build-picker-right { border-left-color: rgba(107, 63, 23, 0.4); }
+html.ui-theme-old #build-picker .bp-title { color: var(--old-ink, #2e1d0e); }
+html.ui-theme-old #build-picker .bp-slot { background-color: rgba(107, 63, 23, 0.12); border-color: rgba(107, 63, 23, 0.45); }
+html.ui-theme-old #build-picker .bp-slot.active { border-color: #6b3f17; box-shadow: inset 0 0 0 1px #6b3f17; }
+@media (max-width: 760px) {
+  #build-picker.split { flex-direction: column; overflow-y: auto; }
+  #build-picker .build-picker-right { padding-left: 0; border-left: none; }
+  #build-picker .bp-store { grid-template-columns: repeat(6, 40px); }
+  #build-picker .bp-slot { width: 40px; height: 40px; }
+  #build-picker .bp-hotbar { grid-template-columns: repeat(10, 30px); }
+  #build-picker .bp-hotbar .bp-slot { width: 30px; height: 30px; }
+}
+html.ui-theme-old #play-inventory .inv-box { padding: 62px 58px 52px; }
+#spawn-map #spawn-map-hint, #spawn-map h2 { max-width: 100%; overflow-wrap: anywhere; }
+html.ui-theme-old #spawn-map .spawn-map-box { padding: max(48px, 7vh) max(56px, 8vw); }

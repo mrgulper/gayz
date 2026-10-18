@@ -10866,6 +10866,7 @@ html.caption-background #build-play-msg { background: rgba(0, 0, 0, 0.6); paddin
 #touch-play .tp-reload { right: calc(max(24px, env(safe-area-inset-right)) + 14px); bottom: 140px; width: 56px; height: 56px; }
 #touch-play .tp-use { right: calc(max(24px, env(safe-area-inset-right)) + 90px); bottom: 110px; width: 56px; height: 56px; }
 #touch-play .tp-pause { top: 10px; left: 50%; margin-left: -22px; width: 44px; height: 44px; }
+#touch-play .tp-bag { top: 10px; left: 50%; margin-left: 30px; width: 44px; height: 44px; }
 /* Keep the rest of the screen clear for thumbs while playing on a phone. */
 body.touch-play-on #build-hotbar,
 body.touch-play-on #chat-panel,
