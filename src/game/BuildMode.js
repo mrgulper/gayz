@@ -1704,10 +1704,10 @@ export class BuildMode {
     this._chunks = new BlockChunks(this.scene, {
       blockSize: BLOCK_SIZE,
       types: BLOCK_TYPES,
-      // 4x is nearly as sharp at a grazing angle as 16x and much
+      // 8x keeps far ground sharp (2026-10-18, "very blurry"); much
       // cheaper on weak GPUs - and phones/tablets skip it (anisotropic
       // filtering is one of the slowest things for an old phone's GPU).
-      maxAnisotropy: TOUCH_DEVICE ? 1 : Math.min(4, renderer.capabilities.getMaxAnisotropy()),
+      maxAnisotropy: TOUCH_DEVICE ? 1 : Math.min(8, renderer.capabilities.getMaxAnisotropy()),
       faces: blockFaceCanvases,
       // The 16x16 pixel textures at their own size (drawn crisp, BlockChunks).
       tile: 16,
@@ -2210,6 +2210,8 @@ export class BuildMode {
   _tryUseFromCamera() {
     // Playing on Map 3: talk to the camp NPC you're looking at.
     if (this.survival?.camp?.use()) return true
+    // Tame the animal you're looking at (PlayAnimals.js).
+    if (this.survival?.active && this.survival.animals?.use()) return true
     this.camera.updateMatrixWorld()
     this._raycaster.setFromCamera({ x: 0, y: 0 }, this.camera)
     const hit = this._raycastGridAligned()
@@ -2322,11 +2324,14 @@ export class BuildMode {
       if (mesh) parts = { geometry: mesh.geometry, material: mesh.material }
     } else if (bt) {
       const faces = blockFaceCanvases(bt)
+      // Leaves (and other see-through textures) keep their holes.
+      const cut = textureHasAlpha(bt)
       const make = (canvas) => new THREE.MeshLambertMaterial({
         map: _canvasTexture(canvas),
         transparent: !!bt.transparent,
         opacity: bt.opacity ?? 1,
-        alphaTest: bt.transparent ? 0.02 : 0,
+        alphaTest: bt.transparent ? 0.02 : cut ? 0.5 : 0,
+        side: cut ? THREE.DoubleSide : THREE.FrontSide,
         emissive: bt.emissive ?? 0x000000,
         emissiveIntensity: bt.emissiveIntensity ?? 0,
       })
@@ -4267,7 +4272,7 @@ export class BuildMode {
     this.renderer.toneMapping = toneMapping
     // A block held from the game's inventory is drawn in the hand instead.
     const held = this.tryMode.active && this.survival?.active ? this.survival.holding : null
-    if (held?.kind === 'block') this.tryMode.drawHand(this.renderer, held.id)
+    if (held?.kind === 'block') this.tryMode.drawHand(this.renderer, held.id, true)
     else if (this.tryMode.active && !held) this.tryMode.drawGun(this.renderer)
     else if (!this.menuOpen && !this.pickerOpen && !this._noHand) this.tryMode.drawHand(this.renderer, this.selectedType)
     // The minimap shows while building too (Try Map draws its own).

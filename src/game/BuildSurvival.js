@@ -30,6 +30,7 @@ import { CITIES, TOWN_R } from './Towns.js'
 import { PlayInventory, ITEMS, ARMOR_SLOTS } from './PlayInventory.js'
 import { PlayDrops } from './PlayDrops.js'
 import { PlayThrow } from './PlayThrow.js'
+import { PlayAnimals } from './PlayAnimals.js'
 import { worldSeed } from './OpenWorld.js'
 import { BOTTOM } from './Underground.js'
 import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MOB_HEIGHT } from './PlayRules.js'
@@ -276,6 +277,8 @@ export class BuildSurvival {
     if (!this._fx) this._fx = new PlayFx(bm.scene, this.B)
     if (!this.throws) this.throws = new PlayThrow(this)
     this.throws.clear()
+    if (!this.animals) this.animals = new PlayAnimals(this)
+    this.animals.clear()
     this._fires = new Map()
     this.mag = this.magSize()
     this.reserve = this._startReserve()
@@ -359,6 +362,7 @@ export class BuildSurvival {
     this._clearCorpses()
     this._fx?.clear()
     this.throws?.clear()
+    this.animals?.clear()
     this._fires?.clear()
     this.bm.spectate?.exit()
     // Blocks placed this game go again (the saved map never changes).
@@ -986,7 +990,8 @@ export class BuildSurvival {
         if (d < radius) add(z, damage * 0.8 * (1 - d / radius))
       }
     }
-    if (!hits.size) return false
+    // No zombie hit: maybe an animal (PlayAnimals.js).
+    if (!hits.size) return !!this.animals?.hitRay(center, reach, damage)
     if (w.slow && impact) this._fx?.voidHit(impact)
     for (const [z, amount] of hits) {
       if (!this.zombies.includes(z)) continue
@@ -2005,6 +2010,7 @@ export class BuildSurvival {
     const playing = !this.dead && !this.bm.menuOpen && !this._picking
     if (playing) this._updateMe(dt)
     if (playing) this._drops?.update(dt)
+    if (playing) this.animals?.update(dt)
     if (!this.bm.menuOpen) this._updateFires(dt)
     if (net && !net.isHost) {
       this._updateMirroredZombies(dt)

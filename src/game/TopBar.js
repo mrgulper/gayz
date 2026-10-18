@@ -1,5 +1,6 @@
 // The bar along the very top of the screen in the Map Editor and Map 1
-// (2026-10-17): GayZ | game mode | FPS | ms | x y z | chip + CPU cores
+// (2026-10-17): GayZ | game mode | FPS | ms | x y z | chip + CPU cores |
+// weather | time of day
 // (2026-10-18, "write the cpu of the device after the coordinates"). It takes
 // the place of the green debug line there - that line is still written
 // (Game.js) and shows as this bar's FPS tooltip, but is hidden in-game.
@@ -13,6 +14,9 @@ const MODE_KEYS = {
   zombieExtraction: 'topBarModeZombieExtraction',
   worldMap: 'topBarModeWorldMap',
 }
+// The weather's sign before its name (clear shows a sun, or a moon at night).
+const WEATHER_ICON = { lightRain: '☂', hardRain: '☂', lightSnow: '❄', hardSnow: '❄', sandstorm: '≋' }
+const WEATHER_KIND = { lightRain: 'rain', hardRain: 'rain', lightSnow: 'snow', hardSnow: 'snow', sandstorm: 'sand' }
 // Coordinates and the mode are refreshed this often (ms), not every frame.
 const REFRESH_MS = 100
 
@@ -47,7 +51,9 @@ export class TopBar {
       <span class="top-bar-part" id="top-bar-fps"><span class="top-bar-label">FPS</span> <span id="top-bar-fps-n">--</span></span>
       <span class="top-bar-part" id="top-bar-ms"><span class="top-bar-label">MS</span> <span id="top-bar-ms-n">--</span></span>
       <span class="top-bar-part" id="top-bar-xyz"></span>
-      <span class="top-bar-part" id="top-bar-chip"></span>`
+      <span class="top-bar-part" id="top-bar-chip"></span>
+      <span class="top-bar-part" id="top-bar-weather"></span>
+      <span class="top-bar-part" id="top-bar-time"></span>`
     document.body.appendChild(el)
     this.el = el
     this._mode = el.querySelector('#top-bar-mode')
@@ -57,8 +63,10 @@ export class TopBar {
     this._chip = el.querySelector('#top-bar-chip')
     this._chipFrom = null
     this._xyz = el.querySelector('#top-bar-xyz')
+    this._weather = el.querySelector('#top-bar-weather')
+    this._time = el.querySelector('#top-bar-time')
     this._at = 0
-    this._text = { mode: '', xyz: '' }
+    this._text = { mode: '', xyz: '', weather: '', time: '', look: '' }
   }
 
   // Every half second from Game.js's fps count: frames per second, how
@@ -106,6 +114,30 @@ export class TopBar {
     const n = (v) => (Math.round(v * 100) / 100 + 0).toFixed(2)
     const xyz = p ? `${n(p.x)}  ${n(p.y)}  ${n(p.z)}` : ''
     if (xyz !== this._text.xyz) this._xyz.textContent = this._text.xyz = xyz
+    this._updateSky(bm.sky)
+  }
+
+  // The weather and the game's time of day, and the bar's colors follow
+  // them - darker at night, greyer in rain, paler in snow, sandier in a
+  // sandstorm (2026-10-18, Gaymi: "make that thing adjust, as weather and
+  // day cycle", picked both).
+  _updateSky(sky) {
+    const look = sky?.topBarLook?.()
+    if (!look) return
+    const night = look.night > 0.5
+    const weather = `${WEATHER_ICON[look.weather] || (night ? '☾' : '☀')} ${t(`buildWeather_${look.weather}`)}`
+    if (weather !== this._text.weather) this._weather.textContent = this._text.weather = weather
+    // The game's clock, to ten minutes, in the player's own 12/24-hour style.
+    const mins = Math.floor((look.hours * 60) / 10) * 10
+    const time = new Date(2000, 0, 1, Math.floor(mins / 60), mins % 60).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    if (time !== this._text.time) this._time.textContent = this._text.time = time
+    const key = `${look.night.toFixed(2)}|${look.weather}|${look.strength}`
+    if (key === this._text.look) return
+    this._text.look = key
+    const st = this.el.style
+    st.setProperty('--tb-night', look.night.toFixed(2))
+    st.setProperty('--tb-storm', look.weather === 'clear' ? '0' : String(look.strength))
+    this.el.dataset.weather = WEATHER_KIND[look.weather] || 'clear'
   }
 
   hide() {

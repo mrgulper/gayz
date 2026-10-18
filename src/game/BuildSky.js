@@ -331,6 +331,14 @@ export class BuildSky {
     if (bm._sunLight) bm._sunLight.intensity = this._sunBase * this._light
   }
 
+  // For the top bar (TopBar.js, 2026-10-18): the weather showing now, how
+  // strong its look is (0-1), how dark it is (0-1) and the time of day as
+  // hours (0-24; noon at phase 0, midnight at 0.5).
+  topBarLook() {
+    const w = this._now || 'clear'
+    return { weather: w, strength: WEATHER_LOOK[w]?.[1] ?? 0, night: this.nightAmount(), hours: (12 + this._phase() * 24) % 24 }
+  }
+
   // 0 in daylight ... 1 at night.
   nightAmount() {
     const [from, to, s] = this._lookAt(this._phase())

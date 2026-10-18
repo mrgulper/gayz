@@ -118,6 +118,11 @@ export class PlayThrow {
         this._drop(t)
         continue
       }
+      // Or an animal (PlayAnimals.js).
+      if (s.animals?.hitRay(ray, len, t.damage)) {
+        this._drop(t)
+        continue
+      }
       // A block on the way: it sticks there for a moment.
       const n = Math.max(1, Math.ceil(len / (0.25 * B)))
       let wall = false

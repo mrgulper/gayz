@@ -343,31 +343,31 @@ export function _updateEditorResScale(game, msPerFrame, now) {
   // floor) is skipped entirely.
   const down = Math.max(0.25, scale - 0.125)
   const canLower = scale > 0.25 && game._editorPixelRatio(down) < game._editorPixelRatio(scale) - 1e-3
-  if (msPerFrame > targetMs * 1.11 && canLower) {
-    game._editorResScale = down
-    game._editorResGood = 0
-    game._editorResUpAfter = now + 20000
-    // Draw straight away - a resize clears the canvas, and waiting for
-    // the next frame would show one black frame.
-    if (game._applyRenderScale()) game.buildMode.render()
-  } else if (msPerFrame > targetMs * 1.11) {
-    // Already at the lowest resolution: draw less of the map instead
-    // (View Distance on Auto - see BuildMode.stepAutoView).
+  // Sharpness first (2026-10-18, Gaymi: "the gameplay feels very blurry"):
+  // a slow device draws less of the map before it drops any pixels, and
+  // gets its pixels back before its view distance.
+  if (msPerFrame > targetMs * 1.11) {
     game._editorResGood = 0
     if (game.buildMode.stepAutoView(-1)) {
       game._editorResHoldUntil = now + 2000
       game._editorResUpAfter = now + 20000
+    } else if (canLower) {
+      game._editorResScale = down
+      game._editorResUpAfter = now + 20000
+      // Draw straight away - a resize clears the canvas, and waiting for
+      // the next frame would show one black frame.
+      if (game._applyRenderScale()) game.buildMode.render()
     }
   } else if (msPerFrame < targetMs * 1.05) {
     game._editorResGood = (game._editorResGood || 0) + 1
     if (game._editorResGood >= 6 && now > (game._editorResUpAfter || 0)) {
       game._editorResGood = 0
-      // Give back what went last first: the view distance, then pixels.
-      if (game.buildMode.stepAutoView(1)) {
-        game._editorResUpAfter = now + 20000
-      } else if (scale < 1) {
+      if (scale < 1) {
         game._editorResScale = Math.min(1, scale + 0.125)
         if (game._applyRenderScale()) game.buildMode.render()
+        game._editorResUpAfter = now + 20000
+      } else if (game.buildMode.stepAutoView(1)) {
+        game._editorResUpAfter = now + 20000
       }
     }
   } else {
