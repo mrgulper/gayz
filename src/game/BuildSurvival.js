@@ -26,7 +26,7 @@ import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, COMING_SOON_WEAPONS, ammoFor, canPla
 import { PlayFx } from './PlayFx.js'
 import { openSpawnMap, closeSpawnMap, findSpawn } from './SpawnMap.js'
 import { LANDMARKS, LANDMARK_REACH } from './Landmarks.js'
-import { CITIES, TOWN_R } from './Towns.js'
+import { CITIES, TOWN_R, townStyleAt } from './Towns.js'
 import { PlayInventory, ITEMS, ARMOR_SLOTS } from './PlayInventory.js'
 import { PlayDrops } from './PlayDrops.js'
 import { PlayThrow } from './PlayThrow.js'
@@ -218,6 +218,7 @@ export class BuildSurvival {
     // one-connection rule).
     if (this.net && this.net !== net) this.net.leave()
     this.net = net
+    this._spawnPick = null
     if (net) {
       net.attach(this)
       this.cfg.mode = 'classic'
@@ -315,7 +316,11 @@ export class BuildSurvival {
       bm.world.setEarth(true)
       this._chooseSpawn()
     }
-    else if (fromMenu) this._openWeaponPicker()
+    else if (fromMenu) {
+      // Joined through an invite link: start where the host did.
+      if (net?.world?.pick) this._spawnAt(net.world.pick)
+      this._openWeaponPicker()
+    }
     else this._message(t('buildPlayGetReady'))
     zombieSkin().then((skin) => { this._skin = skin; this._warmShaders() }).catch(() => { this._skin = null })
     loadSkeletons().then((ok) => { if (ok) this._warmShaders(true) })
@@ -455,13 +460,17 @@ export class BuildSurvival {
   _spawnAt(pick) {
     const spot = findSpawn(pick.lat, pick.lon, pick.biome)
     if (!spot) return false
+    // Kept for Invite Friends (players joining start at the same place).
+    this._spawnPick = { lat: pick.lat, lon: pick.lon, biome: pick.biome, country: pick.country || '', city: pick.city || '' }
     const bm = this.bm
     const tm = bm.tryMode
     // Near a real city: its block town, you on the main avenue facing the
     // middle, with the city's landmark in the plaza (or just past the
     // town for the huge ones). Elsewhere: the country's landmark, a short
     // walk north.
-    const city = pick.city && CITIES.find((c) => c.name === pick.city)
+    // A city from the spawn map that isn't one of CITIES gets a town in the
+    // look of its part of the world (no landmark).
+    const city = pick.city && (CITIES.find((c) => c.name === pick.city) || { name: pick.city, lat: pick.lat, lon: pick.lon, style: townStyleAt(pick.lat, pick.lon, pick.biome) })
     const lm = city ? (city.landmark ? Object.values(LANDMARKS).find((l) => l.kind === city.landmark) : null) : LANDMARKS[pick.country]
     let landmark = null
     let town = null
@@ -522,7 +531,8 @@ export class BuildSurvival {
       game._weaponThumbnailsReady().then(() => { if (this._picking) this._openWeaponPicker() })
     }
     const thumbs = game?._weaponThumbCache || {}
-    const ids = (game?.weapons?.getSummary?.() || []).filter((w) => PLAY_WEAPONS[w.id])
+    // Coming Soon guns go last, together (2026-10-18, Gaymi).
+    const ids = (game?.weapons?.getSummary?.() || []).filter((w) => PLAY_WEAPONS[w.id]).sort((a, b) => COMING_SOON_WEAPONS.has(a.id) - COMING_SOON_WEAPONS.has(b.id))
     const bar = (label, v) => `<span class="pwp-bar"><span class="pwp-bar-label">${label}</span><span class="pwp-bar-track"><span style="width:${Math.round(v * 100)}%"></span></span></span>`
     el.innerHTML = `<div class="pwp-card-box">
       <h2>${t(this._switching ? 'playSwitchWeaponTitle' : 'playPickWeaponTitle')}</h2>

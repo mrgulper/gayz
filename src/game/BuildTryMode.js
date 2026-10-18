@@ -34,7 +34,9 @@ import { audioEngine } from './Audio.js'
 import { cloneViewmodel } from './Viewmodels.js'
 import { heldAction, FIXED_KEYS } from './Keybinds.js'
 import { WORLD_LIMIT, sampleLand, biomeName, inCity, isEarthWorld } from './OpenWorld.js'
-import { ATLAS_FROM, ATLAS_MAX_SPAN, ATLAS_OPEN_SPAN, atlasCountryAt, drawEarthAtlas } from './EarthAtlas.js'
+import { ATLAS_FROM, ATLAS_MAX_SPAN, ATLAS_OPEN_SPAN, atlasCountryAt } from './EarthAtlas.js'
+import { EarthGlobe } from './EarthGlobe.js'
+import { EARTH_DEG } from './EarthGrid.js'
 import { t } from './i18n.js'
 import { holdWeapon, poseArms } from './HeldWeapon.js'
 import { GunFx } from './GunFx.js'
@@ -335,6 +337,8 @@ export class BuildTryMode {
     const lim = this.bm.world?.active ? (isEarthWorld() ? ATLAS_MAX_SPAN / 2 : MAP_PAN_LIMIT) : (this._mapImage?.width || 128)
     this._mapPan.x = Math.max(-lim, Math.min(lim, this._mapPan.x))
     this._mapPan.z = Math.max(-lim, Math.min(lim, this._mapPan.z))
+    // The globe stops at 80 degrees north and south.
+    if (this.bm.world?.active && isEarthWorld()) this._mapPan.z = Math.max(-80 * EARTH_DEG - this.pos.z, Math.min(80 * EARTH_DEG - this.pos.z, this._mapPan.z))
     this._mapDrawAt = 0
     this._mapMovedAt = performance.now()
   }
@@ -443,7 +447,11 @@ export class BuildTryMode {
     const windowed = world || moved
     const span = windowed ? this._mapSpan() : cells
     const atlasView = !!world && isEarthWorld() && span > ATLAS_FROM
-    if (atlasView !== this._mapEl.classList.contains('atlas')) this._mapEl.classList.toggle('atlas', atlasView)
+    if (atlasView !== this._mapEl.classList.contains('atlas')) {
+      this._mapEl.classList.toggle('atlas', atlasView)
+      if (atlasView && !this._globe) this._globe = new EarthGlobe(this._mapEl)
+      this._globe?.show(atlasView)
+    }
     const ox = windowed ? (world ? x : 0) + this._mapPan.x - span / 2 : -cells / 2
     const oz = windowed ? (world ? z : 0) + this._mapPan.z - span / 2 : -cells / 2
     const k = s / span
@@ -453,8 +461,14 @@ export class BuildTryMode {
       ctx.drawImage(this._mapImage, (-cells / 2 - ox) * k, (-cells / 2 - oz) * k, cells * k, cells * k)
       this._showBiome(null)
     } else if (atlasView) {
-      drawEarthAtlas(ctx, s, ox, oz, span)
+      // The globe (EarthGlobe.js): the map's middle faces you, you're the
+      // arrow on it.
+      const cx = ox + span / 2
+      const cz = oz + span / 2
+      const yawNow = this.bm._yaw
+      this._globe.draw(s, -cz / EARTH_DEG, cx / EARTH_DEG, span / EARTH_DEG, { lat: -z / EARTH_DEG, lon: x / EARTH_DEG, ang: Math.atan2(-Math.cos(yawNow), -Math.sin(yawNow)) })
       this._showPlace(atlasCountryAt(x, z))
+      return
     } else if (world) {
       ctx.fillStyle = '#1d2a1a'
       ctx.fillRect(0, 0, s, s)

@@ -89,6 +89,15 @@
 #play-pause-buttons button:hover { background: rgba(var(--pp-gold-rgb), 0.2); border-color: var(--pp-gold); }
 #play-pause-leave-btn { margin-top: 6px; }
 #play-pause-leave-btn:hover { border-color: #e8483a !important; background: rgba(232, 72, 58, 0.18) !important; }
+/* Invite Friends' link box (PlayPauseMenu.invite). */
+#play-invite { margin-top: 12px; text-align: center; }
+#play-invite[hidden] { display: none; }
+#play-invite-hint { margin: 0 0 8px; font-size: 13px; opacity: 0.85; }
+#play-invite .play-invite-row { display: flex; gap: 8px; }
+#play-invite-link { flex: 1; min-width: 0; padding: 8px 14px; font: inherit; font-size: 13px; color: inherit; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(var(--pp-gold-rgb), 0.5); border-radius: 999px; }
+#play-invite-copy { padding: 8px 16px; font: inherit; font-size: 14px; font-weight: 700; color: #1a1206; background: var(--pp-gold); border: none; border-radius: 999px; cursor: pointer; }
+html.ui-theme-old #play-invite-link { background: rgba(255, 248, 230, 0.6); border-color: rgba(107, 63, 23, 0.6); }
+html.ui-theme-old #play-invite-copy { color: #f6e9c8; background: #6b3f17; }
 #play-pause-status {
   min-height: 1.3em;
   margin: 14px 0 0;
@@ -145,68 +154,110 @@ html.ui-theme-old #play-pause-hint { opacity: 0.85; }
 
 /* (Spectating keeps the game's HUD - it should feel like playing.) */
 
-/* The spawn map (SpawnMap.js, 2026-10-17): a blocky map of Earth before a
-   solo game - click a place, then Spawn Here or Start in the City Camp. */
+/* The spawn map (SpawnMap.js; full page 2026-10-18, Gaymi: "remove the old
+   panel behind it make the whole map take the page"): the atlas fills the
+   window; the title, Back, the city list and the buttons float on it. */
 #spawn-map {
   position: fixed;
   inset: 0;
   z-index: 70;
   display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(6, 8, 6, 0.82);
+  background: #78b0de;
+  color: #f3e6c4;
 }
-#spawn-map .spawn-map-box {
+#spawn-map canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: manipulation; }
+#spawn-map .spawn-map-top {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100% - 24px);
+  pointer-events: none;
+}
+#spawn-map .spawn-map-heading {
+  padding: 8px 18px;
+  text-align: center;
+  background: rgba(18, 15, 10, 0.82);
+  border: 1px solid rgba(217, 163, 74, 0.7);
+  border-radius: 14px;
+}
+#spawn-map h2 { margin: 0; font-size: 22px; color: #ffd75e; overflow-wrap: anywhere; }
+#spawn-map #spawn-map-hint { margin: 2px 0 0; font-size: 14px; opacity: 0.9; overflow-wrap: anywhere; }
+#spawn-map .spawn-map-bottom {
+  position: absolute;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  width: min(960px, 100%);
-  max-height: 100%;
-  overflow-y: auto;
-  padding: 20px 22px;
-  color: #f3e6c4;
-  text-align: center;
-  background: rgba(18, 15, 10, 0.96);
-  border: 2px solid rgba(217, 163, 74, 0.7);
-  border-radius: 16px;
-}
-#spawn-map h2 { margin: 0; font-size: 24px; color: #ffd75e; }
-#spawn-map #spawn-map-hint { margin: 0; font-size: 14px; opacity: 0.85; }
-#spawn-map .spawn-map-frame { position: relative; width: 100%; line-height: 0; border: 2px solid rgba(217, 163, 74, 0.6); border-radius: 8px; overflow: hidden; }
-#spawn-map canvas { width: 100%; height: auto; image-rendering: pixelated; cursor: crosshair; touch-action: manipulation; }
-#spawn-map #spawn-map-pin {
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  margin: -18px 0 0 -9px;
-  background: #e8483a;
-  border: 2px solid #fff;
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  gap: 8px;
+  max-width: calc(100% - 24px);
   pointer-events: none;
 }
-#spawn-map #spawn-map-info { min-height: 1.3em; margin: 0; font-size: 15px; }
-#spawn-map .spawn-map-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-#spawn-map .spawn-map-buttons button {
+#spawn-map #spawn-map-info {
+  min-height: 1.3em;
+  margin: 0;
+  padding: 4px 14px;
+  font-size: 15px;
+  text-align: center;
+  background: rgba(18, 15, 10, 0.78);
+  border-radius: 999px;
+}
+#spawn-map #spawn-map-info:empty { visibility: hidden; }
+#spawn-map .spawn-map-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; pointer-events: auto; }
+#spawn-map button {
   padding: 10px 22px;
   font: inherit;
   font-size: 16px;
   color: #f3e6c4;
-  background: rgba(217, 163, 74, 0.12);
-  border: 1px solid rgba(217, 163, 74, 0.6);
+  background: rgba(18, 15, 10, 0.86);
+  border: 1px solid rgba(217, 163, 74, 0.75);
   border-radius: 999px;
   cursor: pointer;
+  pointer-events: auto;
 }
 #spawn-map #spawn-map-go { color: #1a1206; background: #ffd75e; border-color: #ffd75e; font-weight: 700; }
-#spawn-map #spawn-map-go:disabled { opacity: 0.45; cursor: default; }
-html.ui-theme-old #spawn-map .spawn-map-box { color: #2e1d0e; background: #ecd6aa; border-color: rgba(107, 63, 23, 0.7); font-family: 'Rye', serif; }
+#spawn-map #spawn-map-go:disabled { opacity: 0.55; cursor: default; }
+#spawn-map #spawn-map-back[hidden] { display: none; }
+#spawn-map #spawn-map-list {
+  position: absolute;
+  top: 50%;
+  right: max(12px, env(safe-area-inset-right));
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 210px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 10px;
+  background: rgba(18, 15, 10, 0.82);
+  border: 1px solid rgba(217, 163, 74, 0.7);
+  border-radius: 14px;
+}
+#spawn-map #spawn-map-list[hidden] { display: none; }
+#spawn-map #spawn-map-list button { padding: 7px 12px; font-size: 14px; text-align: left; border-radius: 10px; }
+#spawn-map #spawn-map-list button.capital { font-weight: 700; }
+#spawn-map #spawn-map-list button.active { color: #1a1206; background: #ffd75e; border-color: #ffd75e; }
+html.ui-theme-old #spawn-map { color: #2e1d0e; font-family: 'Rye', serif; }
+html.ui-theme-old #spawn-map .spawn-map-heading,
+html.ui-theme-old #spawn-map #spawn-map-info,
+html.ui-theme-old #spawn-map #spawn-map-list { background: rgba(236, 214, 170, 0.94); border-color: rgba(107, 63, 23, 0.7); }
 html.ui-theme-old #spawn-map h2 { color: #6b3f17; }
-html.ui-theme-old #spawn-map .spawn-map-frame { border-color: rgba(107, 63, 23, 0.6); }
-html.ui-theme-old #spawn-map .spawn-map-buttons button { color: #2e1d0e; background: rgba(107, 63, 23, 0.12); border-color: rgba(107, 63, 23, 0.6); }
-html.ui-theme-old #spawn-map #spawn-map-go { color: #f6e9c8; background: #6b3f17; border-color: #6b3f17; }
+html.ui-theme-old #spawn-map button { color: #2e1d0e; background: rgba(236, 214, 170, 0.94); border-color: rgba(107, 63, 23, 0.7); }
+html.ui-theme-old #spawn-map #spawn-map-go,
+html.ui-theme-old #spawn-map #spawn-map-list button.active { color: #f6e9c8; background: #6b3f17; border-color: #6b3f17; }
+/* Phones: the city list goes along the bottom, above the buttons. */
+@media (max-width: 700px) {
+  #spawn-map .spawn-map-top { width: calc(100% - 24px); }
+  #spawn-map h2 { font-size: 17px; }
+  #spawn-map #spawn-map-hint { font-size: 12px; }
+  #spawn-map #spawn-map-list { top: auto; bottom: 130px; right: 12px; left: 12px; width: auto; max-height: 30vh; transform: none; flex-direction: row; flex-wrap: wrap; }
+}
 
 /* The block picker (Tab) and the minimap wear the theme too (2026-10-18,
    Gaymi: "make the map and when press tab panel behind the theme style").
@@ -235,27 +286,6 @@ html.ui-theme-old #build-try-map {
 }
 html.ui-theme-old #build-try-map-hint,
 html.ui-theme-old #build-try-biome { color: #f3e6c8; background: rgba(74, 44, 16, 0.9); }
-
-/* Full page (2026-10-18, Gaymi: "make it take up the whole page because
-   the background is already at the city camp"): the map screen covers
-   everything with a solid background, and the map grows as big as the
-   window allows (2:1, leaving room for the title and buttons). */
-#spawn-map { padding: 0; background: #120f0a; }
-#spawn-map .spawn-map-box {
-  width: 100%;
-  height: 100%;
-  max-height: none;
-  justify-content: center;
-  border: none;
-  border-radius: 0;
-  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
-}
-#spawn-map .spawn-map-frame { width: min(100%, calc((100dvh - 230px) * 2)); }
-html.ui-theme-old #spawn-map { background: #2a1d10; }
-html.ui-theme-old #spawn-map .spawn-map-box {
-  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat, #ecd6aa;
-  padding: max(40px, 6vh) max(40px, 6vw);
-}
 
 /* The top bar in the theme (2026-10-18, Gaymi: "make the text more
    natural, it feels weird"). Golden: the HUD's Bebas Neue, gold name, a
@@ -412,5 +442,3 @@ html.ui-theme-old #build-picker .bp-slot.active { border-color: #6b3f17; box-sha
   #build-picker .bp-hotbar .bp-slot { width: 30px; height: 30px; }
 }
 html.ui-theme-old #play-inventory .inv-box { padding: 62px 58px 52px; }
-#spawn-map #spawn-map-hint, #spawn-map h2 { max-width: 100%; overflow-wrap: anywhere; }
-html.ui-theme-old #spawn-map .spawn-map-box { padding: max(48px, 7vh) max(56px, 8vw); }

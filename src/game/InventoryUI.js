@@ -795,7 +795,7 @@ export function _renderInventoryWeapons(game, { draw = false } = {}) {
   if (game._invSkinMenuKind === 'weapon') game._closeInventorySkinMenu()
   const weapons = game.weapons
     .getSummary()
-    .sort((a, b) => t(a.nameKey).localeCompare(t(b.nameKey)))
+    .sort((a, b) => COMING_SOON_WEAPONS.has(a.id) - COMING_SOON_WEAPONS.has(b.id) || t(a.nameKey).localeCompare(t(b.nameKey)))
   const rarity = SKIN_RARITIES.common
   const thumbs = game._weaponThumbCache || {}
   game.inventoryWeaponsList.innerHTML = weapons.map((w) => {

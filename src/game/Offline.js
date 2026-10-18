@@ -19,6 +19,7 @@ export const ONLINE_ONLY = [
   '#friends-signin-btn', '#server-chat-signin-btn', '#cloudsave-signin-btn', '#cloudsave-sync-now-btn', '#quick-cloud-btn',
   '#chat-send-btn', '#server-chat-send-btn',
   '#build-mode-publish-btn', '#build-mode-browse-btn', '#build-mode-gallery-btn', '#build-mode-together-btn',
+  '#play-pause-invite-btn',
 ].join(', ')
 
 // navigator.onLine alone isn't enough: on Wi-Fi with no internet (and in

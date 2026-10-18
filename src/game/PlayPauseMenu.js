@@ -14,12 +14,16 @@
 //                    ammo (BuildSurvival._pickWeapon).
 //   Spectate       - a free camera, or other players' eyes on a server
 //                    (PlaySpectate.js, 2026-10-17); Escape comes back.
+//   Invite Friends - a link friends open to join you (2026-10-18). A solo
+//                    game becomes a server first, keeping its world
+//                    (ServerBrowser.makeGameJoinable).
 //   Save Progress  - saves the run and keeps playing.
 //   Leave Game     - ends the run for good (it's counted, nothing is kept)
 //                    and goes to the homepage.
 // On a server there's nothing to save: Save Progress is hidden and Back to
 // Menu just leaves, like Leave Game.
 import { t } from './i18n.js'
+import { inviteLink, makeGameJoinable } from './ServerBrowser.js'
 
 export class PlayPauseMenu {
   constructor(bm) {
@@ -34,6 +38,8 @@ export class PlayPauseMenu {
     on('play-pause-settings-btn', () => this.openSettings())
     on('play-pause-weapon-btn', () => this.switchWeapon())
     on('play-pause-spectate-btn', () => this.bm.spectate?.enter())
+    on('play-pause-invite-btn', () => this.invite())
+    on('play-invite-copy', () => this.copyInvite())
     on('play-pause-save-btn', () => this.saveProgress())
     on('play-pause-leave-btn', () => this._leave(false))
   }
@@ -67,12 +73,59 @@ export class PlayPauseMenu {
     set('play-pause-settings-label', t('playPauseSettings'))
     set('play-pause-weapon-label', t('playPauseWeapon'))
     set('play-pause-spectate-label', t('playPauseSpectate'))
+    set('play-pause-invite-label', t('playPauseInvite'))
+    set('play-invite-copy', t('playInviteCopy'))
+    set('play-invite-hint', t('playInviteHint'))
     set('play-pause-save-label', t('playPauseSave'))
     set('play-pause-leave-label', t('playPauseLeave'))
     set('play-pause-hint', t('playPauseHint'))
     set('play-pause-status', '')
     const save = document.getElementById('play-pause-save-btn')
     if (save) save.style.display = s.net ? 'none' : ''
+    this._showInvite()
+  }
+
+  // The link box, once this game has a server.
+  _showInvite() {
+    const s = this.bm.survival
+    const box = document.getElementById('play-invite')
+    const link = document.getElementById('play-invite-link')
+    const on = !!(s?.net && !s.net.closed)
+    if (box) box.hidden = !on
+    if (on && link) link.value = inviteLink(s.net.serverId)
+  }
+
+  async invite() {
+    const s = this.bm.survival
+    const status = document.getElementById('play-pause-status')
+    if (!s?.active || this._inviting) return
+    this._inviting = true
+    if (status && !s.net) status.textContent = t('playInviteMaking')
+    try {
+      await makeGameJoinable(this.bm.game, s)
+      if (status) status.textContent = ''
+      const save = document.getElementById('play-pause-save-btn')
+      if (save) save.style.display = 'none'
+      this._showInvite()
+      this.copyInvite()
+    } catch {
+      if (status) status.textContent = t('playInviteFailed')
+    } finally {
+      this._inviting = false
+    }
+  }
+
+  copyInvite() {
+    const link = document.getElementById('play-invite-link')
+    const status = document.getElementById('play-pause-status')
+    if (!link?.value) return
+    link.select()
+    const done = () => { if (status) status.textContent = t('playInviteCopied') }
+    try {
+      navigator.clipboard.writeText(link.value).then(done, () => { document.execCommand?.('copy'); done() })
+    } catch {
+      done()
+    }
   }
 
   saveProgress() {

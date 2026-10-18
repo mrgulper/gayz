@@ -7,7 +7,7 @@
 // Database through firebase-admin (dbAdapter in firebaseAdmin.js).
 //
 // Layout in the database:
-//   servers/{id}      { name, mode, host, createdAt, wave, zombies,
+//   servers/{id}      { name, mode, host, createdAt, wave, zombies, world,
 //                       players: { pid: { nick, x, y, z, yaw, weapon,
 //                                         firing, dead, t, hurt, credits } },
 //                       hits: { key: { id, dmg, by } } }
@@ -117,7 +117,21 @@ function newPlayer(nickname, now) {
   return { nick: cleanText(nickname, NICK_MAX) || 'Survivor', x: 0, y: 0, z: 0, yaw: 0, weapon: '', firing: false, dead: false, away: false, t: now + JOIN_GRACE_MS - STALE_MS }
 }
 
-export async function createServer(db, { name, mode, nickname, skin } = {}, now = Date.now()) {
+// A game made joinable mid-run (Invite Friends, 2026-10-18) brings its
+// world along so players joining get the same land and start where the
+// host did: the land's seed, whether it's the World Map mode's Earth, and
+// the spawn-map place picked ({ lat, lon, biome, country, city }).
+function cleanWorld(w) {
+  if (!w || typeof w !== 'object') return null
+  const out = { seed: Math.floor(num(w.seed, 0, 4294967295)), earth: w.earth === true }
+  const p = w.pick
+  if (p && typeof p === 'object') {
+    out.pick = { lat: num(p.lat, -90, 90), lon: num(p.lon, -180, 180), biome: cleanText(p.biome, 30), country: cleanText(p.country, 60), city: cleanText(p.city, 60) }
+  }
+  return out
+}
+
+export async function createServer(db, { name, mode, nickname, skin, world } = {}, now = Date.now()) {
   const m = MODES.includes(mode) ? mode : 'main'
   const id = newId(6)
   const pid = newId(10)
@@ -130,6 +144,7 @@ export async function createServer(db, { name, mode, nickname, skin } = {}, now 
       createdAt: now,
       wave: 0,
       players: { [pid]: newPlayer(nickname, now) },
+      ...(cleanWorld(world) ? { world: cleanWorld(world) } : {}),
     },
     [`serverSecrets/${id}/${pid}`]: token,
   }
@@ -158,7 +173,7 @@ export async function joinServer(db, { serverId, nickname, skin } = {}, now = Da
   const s = skinOf(skin)
   if (s) updates[`serverSkins/${serverId}/${pid}`] = s
   await db.update(updates)
-  return { serverId, playerId: pid, token, host: hostLive ? server.host : live[0][0], name: server.name, mode: server.mode }
+  return { serverId, playerId: pid, token, host: hostLive ? server.host : live[0][0], name: server.name, mode: server.mode, world: server.world || null }
 }
 
 async function checkToken(db, serverId, playerId, token) {

@@ -12,14 +12,19 @@
 import { t } from './i18n.js'
 import { _escapeHtml } from './Game.js'
 import { DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
+import { PlayNet } from './PlayNet.js'
+import { isEarthWorld, worldSeed } from './OpenWorld.js'
 
 // How often the open list refreshes itself.
 const LIST_REFRESH_MS = 5000
 
 // The calls to /api/servers/*. Tests swap in their own with
-// game.__serversBackendForTests (same five functions).
+// game.__serversBackendForTests (same five functions) - or, to be in place
+// before the game exists (an invite link joins as soon as it's loaded),
+// window.__serversBackendForTests.
 export function serverApi(game) {
   if (game?.__serversBackendForTests) return game.__serversBackendForTests
+  if (typeof window !== 'undefined' && window.__serversBackendForTests) return window.__serversBackendForTests
   const call = async (name, body) => {
     const res = await fetch(`/api/servers/${name}`, {
       method: 'POST',
@@ -72,7 +77,7 @@ async function serverSkin(url) {
   return DEFAULT_SKIN_DATA_URL
 }
 
-async function myDetails(game) {
+export async function myDetails(game) {
   const s = game.settings || {}
   return { nickname: (s.nickname || '').trim() || 'Survivor', skin: await serverSkin(s.customSkinDataUrl) }
 }
@@ -212,4 +217,41 @@ async function joinServer(game, serverId) {
 function enterServer(game, info) {
   closeServerBrowser(game)
   game._enterBuildMode({ map: 'map3', play: true, server: info })
+}
+
+// --- Invite Friends (2026-10-18, Gaymi: "when clicking escape in gameplay
+// add a invite friends where a link will pop up for you to invite your
+// friends to join you") ---
+
+// The link that joins a server.
+export function inviteLink(serverId) {
+  return `${location.origin}/?join=${encodeURIComponent(serverId)}`
+}
+
+// A solo game becomes a server, right where it is: the run keeps going,
+// now synced (PlayNet), and the server remembers this world (land seed,
+// Earth or not, the spawn-map place) so friends joining get the same land
+// and start where you did. Resolves the PlayNet, or throws.
+export async function makeGameJoinable(game, survival) {
+  if (survival.net && !survival.net.closed) return survival.net
+  const world = game.buildMode?.world?.active ? { seed: worldSeed(), earth: isEarthWorld(), pick: survival._spawnPick || null } : null
+  const info = await serverApi(game).create({ ...(await myDetails(game)), name: '', mode: 'main', world })
+  const net = new PlayNet(game, { ...info, world })
+  survival.net = net
+  net.attach(survival)
+  return net
+}
+
+// Opened with ?join=CODE (an invite link): join that server once the game
+// has loaded, and take the code out of the address bar.
+export function joinFromLink(game) {
+  let code = null
+  try { code = new URLSearchParams(location.search).get('join') } catch { /* no URL */ }
+  if (!code || !/^[A-Za-z0-9]{4,40}$/.test(code)) return
+  try {
+    const url = new URL(location.href)
+    url.searchParams.delete('join')
+    history.replaceState(history.state, '', url.pathname + url.search + url.hash)
+  } catch { /* leave the address alone */ }
+  joinServer(game, code)
 }
