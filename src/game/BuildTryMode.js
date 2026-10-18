@@ -33,7 +33,8 @@ import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from '
 import { audioEngine } from './Audio.js'
 import { cloneViewmodel } from './Viewmodels.js'
 import { heldAction, FIXED_KEYS } from './Keybinds.js'
-import { WORLD_LIMIT, sampleLand, biomeName, inCity } from './OpenWorld.js'
+import { WORLD_LIMIT, sampleLand, biomeName, inCity, isEarthWorld } from './OpenWorld.js'
+import { ATLAS_FROM, ATLAS_MAX_SPAN, ATLAS_OPEN_SPAN, atlasCountryAt, drawEarthAtlas } from './EarthAtlas.js'
 import { t } from './i18n.js'
 import { holdWeapon, poseArms } from './HeldWeapon.js'
 import { GunFx } from './GunFx.js'
@@ -322,7 +323,8 @@ export class BuildTryMode {
 
   zoomMap(factor) {
     const base = this.bm.world?.active ? MAP_WORLD_SPAN : this._mapImage?.width || 128
-    const max = this.bm.world?.active ? MAP_MAX_SPAN : base * 2
+    // The World Map mode zooms out to the whole Earth (EarthAtlas.js).
+    const max = this.bm.world?.active ? (isEarthWorld() ? ATLAS_MAX_SPAN : MAP_MAX_SPAN) : base * 2
     this._mapZoom = Math.min(max / base, Math.max(MAP_MIN_SPAN / base, this._mapZoom * factor))
     this._mapDrawAt = 0
     this._mapMovedAt = performance.now()
@@ -330,7 +332,7 @@ export class BuildTryMode {
 
   // The big map can't be dragged further than MAP_PAN_LIMIT from you.
   _clampMapPan() {
-    const lim = this.bm.world?.active ? MAP_PAN_LIMIT : (this._mapImage?.width || 128)
+    const lim = this.bm.world?.active ? (isEarthWorld() ? ATLAS_MAX_SPAN / 2 : MAP_PAN_LIMIT) : (this._mapImage?.width || 128)
     this._mapPan.x = Math.max(-lim, Math.min(lim, this._mapPan.x))
     this._mapPan.z = Math.max(-lim, Math.min(lim, this._mapPan.z))
     this._mapDrawAt = 0
@@ -355,6 +357,14 @@ export class BuildTryMode {
     this._biomeEl.style.display = name ? '' : 'none'
   }
 
+  // The atlas names the country you're in instead of the biome.
+  _showPlace(name) {
+    this._showBiome(null)
+    if (!name) return
+    this._biomeEl.textContent = name
+    this._biomeEl.style.display = ''
+  }
+
   cycleMap() {
     this._mapMode = (this._mapMode + 1) % MAP_SIZES.length
     this._applyMapMode()
@@ -371,7 +381,8 @@ export class BuildTryMode {
     if (interactive !== this._mapEl.classList.contains('interactive')) {
       this._mapEl.classList.toggle('interactive', interactive)
       this._mapPan = { x: 0, z: 0 }
-      this._mapZoom = 1
+      // The World Map mode's big map opens as a real-world atlas.
+      this._mapZoom = interactive && this.bm.world?.active && isEarthWorld() ? ATLAS_OPEN_SPAN / MAP_WORLD_SPAN : 1
       const canvas = this.bm.renderer.domElement
       try {
         if (interactive) document.exitPointerLock()
@@ -431,6 +442,8 @@ export class BuildTryMode {
     const moved = this._mapZoom !== 1 || this._mapPan.x || this._mapPan.z
     const windowed = world || moved
     const span = windowed ? this._mapSpan() : cells
+    const atlasView = !!world && isEarthWorld() && span > ATLAS_FROM
+    if (atlasView !== this._mapEl.classList.contains('atlas')) this._mapEl.classList.toggle('atlas', atlasView)
     const ox = windowed ? (world ? x : 0) + this._mapPan.x - span / 2 : -cells / 2
     const oz = windowed ? (world ? z : 0) + this._mapPan.z - span / 2 : -cells / 2
     const k = s / span
@@ -439,6 +452,9 @@ export class BuildTryMode {
       ctx.fillRect(0, 0, s, s)
       ctx.drawImage(this._mapImage, (-cells / 2 - ox) * k, (-cells / 2 - oz) * k, cells * k, cells * k)
       this._showBiome(null)
+    } else if (atlasView) {
+      drawEarthAtlas(ctx, s, ox, oz, span)
+      this._showPlace(atlasCountryAt(x, z))
     } else if (world) {
       ctx.fillStyle = '#1d2a1a'
       ctx.fillRect(0, 0, s, s)

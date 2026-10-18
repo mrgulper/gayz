@@ -120,3 +120,8 @@ Moved out of CLAUDE.md on 2026-10-16 (word for word) so it is only read when nee
 - **Public text never names other games** (Patch Notes, GayZ Features, in-game text, commit/PR titles that go to Discord).
 
 - **Inspect (2026-10-17, batch 2):** zoom in stops at `CLOSEST` x the item's bounding radius (camera never enters the model); default framing is tighter. Skin UVs are inset by `UV_INSET` of a pixel (MenuAvatar3D `_applyFaceRectsToBox`) so face edges never sample the neighbouring atlas pixel (that was the dotted lines).
+
+## Reload size jump + brighter currencies (2026-10-18)
+
+- Gaymi: the right column, coins and clock went "small to big" while reloading. Not reproducible headless (layout was stable frame to frame there), so as a safeguard `html.menu-fitting` (added in the head's fonts script) hides `#menu-col-right`, `#menu-currency-bar`, `#homepage-clock` until `__menuLayout` has fitted them with the real fonts (`document.fonts.ready`, at most `MENU_FIT_MAX_MS` 700). If it's still reported, ask which browser/window size.
+- Currency icons are gradient SVGs (ids `cur-*`), amounts coloured per currency (`#currency-*-amount`).

@@ -22,7 +22,7 @@ import { audioEngine } from './Audio.js'
 import { getKeyFor } from './Keybinds.js'
 import { t } from './i18n.js'
 import { BuildCamp, COIN_PER_KILL, COIN_PER_WAVE } from './BuildCamp.js'
-import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, ammoFor, weaponBars } from './PlayWeapons.js'
+import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, COMING_SOON_WEAPONS, ammoFor, canPlayWeapon, weaponBars } from './PlayWeapons.js'
 import { PlayFx } from './PlayFx.js'
 import { openSpawnMap, closeSpawnMap, findSpawn } from './SpawnMap.js'
 import { LANDMARKS, LANDMARK_REACH } from './Landmarks.js'
@@ -258,7 +258,7 @@ export class BuildSurvival {
     // picker open (last pick highlighted); the editor's own Play just
     // uses the rifle.
     const saved = bm.game?.settings?.playWeapon
-    this.weaponId = fromMenu && PLAY_WEAPONS[saved] ? saved : DEFAULT_PLAY_WEAPON
+    this.weaponId = fromMenu && canPlayWeapon(saved) ? saved : DEFAULT_PLAY_WEAPON
     // Ammo left in each gun you've switched away from (pause > Switch
     // Weapon), so switching never refills a gun.
     this._ammoByWeapon = {}
@@ -529,6 +529,13 @@ export class BuildSurvival {
       <p class="pwp-hint">${t(this._switching ? 'playSwitchWeaponHint' : 'playPickWeaponHint')}</p>
       <div class="pwp-grid">${ids.map((w) => {
         const b = weaponBars(w.id)
+        if (COMING_SOON_WEAPONS.has(w.id)) {
+          return `<button type="button" class="pwp-weapon pwp-soon" disabled aria-disabled="true">
+          <span class="pwp-name">${t(w.nameKey)}</span>
+          ${thumbs[w.id] ? `<img alt="" draggable="false" src="${thumbs[w.id]}" />` : '<span class="pwp-noimg"></span>'}
+          <span class="weapon-soon-tag">${t('crateComingSoonTag')}</span>
+        </button>`
+        }
         return `<button type="button" class="pwp-weapon${w.id === this.weaponId ? ' active' : ''}" data-play-weapon="${w.id}">
           <span class="pwp-name">${t(w.nameKey)}</span>
           ${thumbs[w.id] ? `<img alt="" draggable="false" src="${thumbs[w.id]}" />` : '<span class="pwp-noimg"></span>'}
@@ -549,7 +556,7 @@ export class BuildSurvival {
   }
 
   _pickWeapon(id) {
-    if (!PLAY_WEAPONS[id] || !this.active) return
+    if (!canPlayWeapon(id) || !this.active) return
     if (this._spawnPicking) closeSpawnMap()
     const switching = this._switching
     const oldId = this.weaponId
@@ -657,7 +664,7 @@ export class BuildSurvival {
       stats: ints(d.stats),
       bestStreak: Math.round(num(d.bestStreak, 0, 1e7)),
       bosses: Math.round(num(d.bosses, 0, 1e6)),
-      weaponId: PLAY_WEAPONS[d.weaponId] ? d.weaponId : DEFAULT_PLAY_WEAPON,
+      weaponId: canPlayWeapon(d.weaponId) ? d.weaponId : DEFAULT_PLAY_WEAPON,
       inv: d.inv && typeof d.inv === 'object' ? d.inv : null,
       mag: Math.round(num(d.mag, 0, 1e5)),
       reserve: Math.round(num(d.reserve, 0, 1e7)),
