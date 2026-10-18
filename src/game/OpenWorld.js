@@ -25,7 +25,7 @@
 // (`edited`) is never dropped while the game lasts.
 import { t } from './i18n.js'
 import { inCityShape, cityEdgeDistance } from './CityShape.js'
-import { planStructure, STRUCT_GRID, STRUCTURE_NAMES } from './WorldStructures.js'
+import { planStructure, planLandmark, STRUCT_GRID, STRUCTURE_NAMES } from './WorldStructures.js'
 import { Underground, rockAt, setUnderSeed } from './Underground.js'
 
 const CHUNK = 16
@@ -342,6 +342,8 @@ export class OpenWorld {
     this._tiles = new Map()
     this._generating = false
     this._plans = new Map() // "gx,gz" -> a village/castle/bridge plan or null
+    // Real-world landmarks from the spawn map (addLandmark), this game only.
+    this._landmarks = []
     this.under = new Underground(this)
     this.sea = SEA
   }
@@ -354,6 +356,7 @@ export class OpenWorld {
     this.reset()
     this.active = true
     this._plans.clear()
+    this._landmarks = []
     setWorldSeed(seed)
   }
 
@@ -367,6 +370,7 @@ export class OpenWorld {
     this._tiles.clear()
     this._coarseTiles = null
     this._plans.clear()
+    this._landmarks = []
     setWorldSeed(seed)
     this.version++
   }
@@ -931,6 +935,20 @@ export class OpenWorld {
     return plan
   }
 
+  // A real landmark (Landmarks.js) centred on (x, z) - only where none of
+  // its land has grown yet (it's stamped as the columns grow). Ordinary
+  // places it overlaps give way to it. Returns the plan or null.
+  addLandmark(kind, x, z, nameKey) {
+    const plan = planLandmark(kind, Math.round(x), Math.round(z), { land: sampleLand, chunk: CHUNK })
+    if (!plan) return null
+    for (let cx = Math.floor(plan.x0 / CHUNK); cx <= Math.floor(plan.x1 / CHUNK); cx++) {
+      for (let cz = Math.floor(plan.z0 / CHUNK); cz <= Math.floor(plan.z1 / CHUNK); cz++) if (this.columns.has(`${cx},${cz}`)) return null
+    }
+    plan.nameKey = nameKey
+    this._landmarks.push(plan)
+    return plan
+  }
+
   // The map asks for the places in its view to be planned (one per call).
   prefetchPlansAround(x, z, reach) {
     this._prefetchPlan([{ x, z }], reach)
@@ -962,9 +980,12 @@ export class OpenWorld {
     for (let gx = gx0; gx <= gx1; gx++) {
       for (let gz = gz0; gz <= gz1; gz++) {
         const plan = cachedOnly ? this._plans.get(`${gx},${gz}`) : this._plan(gx, gz)
-        if (plan && plan.x1 >= x0 - margin && plan.x0 <= x1 + margin && plan.z1 >= z0 - margin && plan.z0 <= z1 + margin) out.push(plan)
+        if (!plan || !(plan.x1 >= x0 - margin && plan.x0 <= x1 + margin && plan.z1 >= z0 - margin && plan.z0 <= z1 + margin)) continue
+        if (this._landmarks.some((l) => plan.x1 >= l.x0 - 4 && plan.x0 <= l.x1 + 4 && plan.z1 >= l.z0 - 4 && plan.z0 <= l.z1 + 4)) continue
+        out.push(plan)
       }
     }
+    for (const l of this._landmarks) if (l.x1 >= x0 - margin && l.x0 <= x1 + margin && l.z1 >= z0 - margin && l.z0 <= z1 + margin) out.push(l)
     return out
   }
 
@@ -977,7 +998,7 @@ export class OpenWorld {
   placeName(x, z) {
     if (!this.active || inCity(x, z)) return ''
     const plan = this._plansOver(x, z, x, z)[0]
-    return plan ? t(STRUCTURE_NAMES[plan.kind]) : ''
+    return plan ? t(plan.nameKey || STRUCTURE_NAMES[plan.kind]) : ''
   }
 
   // Every place near (x, z): { kind, x, z } (tests, the minimap).

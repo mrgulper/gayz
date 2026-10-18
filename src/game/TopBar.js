@@ -1,5 +1,6 @@
 // The bar along the very top of the screen in the Map Editor and Map 1
-// (2026-10-17): GayZ | game mode | FPS | ms | chip | x y z. It takes
+// (2026-10-17): GayZ | game mode | FPS | ms | x y z | chip + CPU cores
+// (2026-10-18, "write the cpu of the device after the coordinates"). It takes
 // the place of the green debug line there - that line is still written
 // (Game.js) and shows as this bar's FPS tooltip, but is hidden in-game.
 import { t } from './i18n.js'
@@ -44,8 +45,8 @@ export class TopBar {
       <span class="top-bar-part" id="top-bar-mode"></span>
       <span class="top-bar-part" id="top-bar-fps"><span class="top-bar-label">FPS</span> <span id="top-bar-fps-n">--</span></span>
       <span class="top-bar-part" id="top-bar-ms"><span class="top-bar-label">MS</span> <span id="top-bar-ms-n">--</span></span>
-      <span class="top-bar-part" id="top-bar-chip"></span>
-      <span class="top-bar-part" id="top-bar-xyz"></span>`
+      <span class="top-bar-part" id="top-bar-xyz"></span>
+      <span class="top-bar-part" id="top-bar-chip"></span>`
     document.body.appendChild(el)
     this.el = el
     this._mode = el.querySelector('#top-bar-mode')
@@ -69,11 +70,15 @@ export class TopBar {
     if (ms !== undefined) this._ms.textContent = String(ms)
     if (gpu !== this._chipFrom) {
       this._chipFrom = gpu
+      // Browsers only tell a page the graphics chip's name and how many CPU
+      // cores there are - never the CPU's own model. On Apple chips (M1-M4)
+      // the CPU and graphics are the same chip, so the name is the CPU's too.
       const name = chipName(gpu)
-      this._chip.textContent = name
-      this._chip.style.display = name ? '' : 'none'
       const cores = navigator.hardwareConcurrency
-      this._chip.title = `${gpu || ''}${cores ? ` - ${cores} CPU cores` : ''}`
+      const text = [name, cores ? t('topBarCores', { n: cores }) : ''].filter(Boolean).join(' · ')
+      this._chip.textContent = text
+      this._chip.style.display = text ? '' : 'none'
+      this._chip.title = gpu || ''
     }
   }
 

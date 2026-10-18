@@ -25,6 +25,7 @@ import { BuildCamp, COIN_PER_KILL, COIN_PER_WAVE } from './BuildCamp.js'
 import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, ammoFor, weaponBars } from './PlayWeapons.js'
 import { PlayFx } from './PlayFx.js'
 import { openSpawnMap, closeSpawnMap, findSpawn } from './SpawnMap.js'
+import { LANDMARKS, LANDMARK_REACH } from './Landmarks.js'
 import { worldSeed } from './OpenWorld.js'
 import { BOTTOM } from './Underground.js'
 import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MOB_HEIGHT } from './PlayRules.js'
@@ -49,24 +50,41 @@ const CLEAVE_COS = Math.cos(0.6)
 // breakBlock, so like every block broken while playing it comes back
 // when the game ends and the saved map is never changed. At most
 // FIRE_MAX blocks burn at once. Zombies in a burning block catch fire.
+// Fire goes out in water or rain (anything with open sky above it while
+// it rains), and races through trees: leaves burn fast and catch from
+// leaves and logs next to them, corners included (FIRE_TREE_SPREAD).
 const FIRE_BURN_S = 6
 const FIRE_SPREAD = 0.12
+const FIRE_TREE_SPREAD = 0.45
+const FIRE_LEAF_BURN_S = 2.5
+const FIRE_RAIN_OUT_S = 1.2
 const FIRE_MAX = 48
 const FIRE_NEIGHBOURS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
+const TREE_NEIGHBOURS = []
+for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) if (dx || dy || dz) TREE_NEIGHBOURS.push([dx, dy, dz])
 const ATTACK_RANGE = 0.95
 const ATTACK_COOLDOWN = 1
 const DOOR_BASH_TIME = 3
 const WAVE_BREAK = 6
-const SPAWN_GAP = 1.1
-const MAX_ALIVE = 16
+// Waves (2026-10-18, Gaymi: "more zombies spawning everywhere ... make
+// them spawn anywhere, just you need to kill a certain amount of zombies
+// for the next wave"): each wave needs waveSize() kills (_toSpawn counts
+// the kills still needed); zombies keep coming every SPAWN_GAP until it's
+// reached, up to aliveCap() at once, and ones still alive when a wave is
+// done stay for the next. Spawners in the map are used when one is within
+// SPAWNER_RANGE blocks of a player; otherwise zombies come from anywhere
+// around you (14-40 steps of walking away).
+const SPAWN_GAP = 0.7
+const MAX_ALIVE = 28
+const SPAWNER_RANGE = 48
 // Skeletons (2026-10-16, real animated 3D models - SkeletonModels.js) join
 // the waves from SKELETON_FROM_WAVE with SKELETON_CHANCE per spawn
 // (PlayRules.js; never a boss). They rise out of the ground (can't move or hit for
 // SKELETON_RISE seconds), walk/run, punch, and on death play their fall
 // and lie for SKELETON_LIE seconds before sinking away.
 const SKELETON_RISE = 1.6
-const SKELETON_LIE = 2.4
-const SKELETON_SINK = 1.2
+const SKELETON_LIE = 54
+const SKELETON_SINK = 4
 // Zombie brains (2026-10-17, Gaymi: "make all zombies have a brain where
 // they move different directions to attack you but still stay low ms").
 // On top of the flow field (which still finds the way around walls), each
@@ -92,11 +110,17 @@ const SKELETON_KIND_IDS = Object.keys(SKELETON_KINDS)
 // seconds, lie still for CORPSE_LIE, then fade out over CORPSE_FADE. At most
 // MAX_CORPSES at once (the oldest goes first) - each is a few draw calls.
 const CORPSE_FALL = 0.45
-const CORPSE_LIE = 1.6
-const CORPSE_FADE = 2
+// 2026-10-18 (Gaymi: "zombie bodies will fade naturally in 1 minute to be
+// fully gone, they can also use fire to make them fade faster"): a body
+// lies for CORPSE_LIE and fades over CORPSE_FADE - a minute in all - and
+// one the Flamethrower (or a burning block) reaches burns away in
+// CORPSE_BURN_S.
+const CORPSE_LIE = 40
+const CORPSE_FADE = 19.5
+const CORPSE_BURN_S = 3
 // How fast a body killed in the air drops to the ground (blocks/s²).
 const CORPSE_GRAVITY = 28
-const MAX_CORPSES = 12
+const MAX_CORPSES = 30
 const PATH_REFRESH = 0.5
 // The flow field is worked out a slice at a time, at most this many ms a
 // frame, so an old phone never freezes on it (one full pass took ~65ms
@@ -122,7 +146,12 @@ const CLIMB = 3
 const BEST_KEY = 'buildmode-play-best'
 
 export function waveSize(wave) {
-  return 3 + wave * 2
+  return 6 + wave * 3
+}
+
+// How many zombies may be out at once in a wave.
+export function aliveCap(wave) {
+  return Math.min(MAX_ALIVE, 8 + wave * 2)
 }
 // escalation (the mutator): no top speed, and health climbs faster.
 export function zombieSpeed(wave, escalation = false) {
@@ -384,6 +413,13 @@ export class BuildSurvival {
     if (!spot) return false
     const bm = this.bm
     const tm = bm.tryMode
+    // The country's landmark, a short walk north - you face it.
+    const lm = LANDMARKS[pick.country]
+    let landmark = null
+    if (lm) {
+      const d = LANDMARK_REACH[lm.kind] + 24
+      if (bm.world.addLandmark(lm.kind, spot.x, spot.z - d, lm.key)) landmark = t(lm.key)
+    }
     // Grows the land there right now (your column and its neighbours).
     bm.world.update([{ x: spot.x + 0.5, z: spot.z + 0.5 }])
     let top = null
@@ -394,7 +430,9 @@ export class BuildSurvival {
     tm._spawn.copy(tm.pos)
     this._spawnedFar = true
     const name = t(`biome${spot.biome.charAt(0).toUpperCase()}${spot.biome.slice(1)}`)
-    this._message(t('spawnArrived', { biome: name, n: Math.round(Math.hypot(spot.x, spot.z)) }))
+    if (landmark) bm._yaw = 0
+    const n = Math.round(Math.hypot(spot.x, spot.z))
+    this._message(landmark ? t('spawnArrivedLandmark', { biome: name, n, name: landmark }) : t('spawnArrived', { biome: name, n }), landmark ? 6 : undefined)
     return true
   }
 
@@ -687,7 +725,8 @@ export class BuildSurvival {
       const el = document.getElementById(id)
       if (el) el.textContent = text
     }
-    const alive = this.zombies.length + this._toSpawn
+    // The kills this wave still needs.
+    const alive = this._toSpawn
     const mode = this.cfg?.mode
     const waveText = mode === 'zombieDefense' ? t('buildPlayWaveOf', { n: Math.max(1, this.wave), max: DEFENSE_WAVES }) : t('buildPlayWave', { n: Math.max(1, this.wave) })
     const secs = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
@@ -770,6 +809,13 @@ export class BuildSurvival {
       this._fx?.flameStream(from, center.direction, Math.min(w.range, reach / B))
       // The wall the flames reach catches fire if it's wood.
       if (wall && wall.t <= w.range * B && wall.existingBlock) this.ignite(...wall.existingBlock)
+      // Bodies in the flames burn away.
+      const reachF = Math.min(w.range * B, reach)
+      for (const c of [...(this._corpses || []), ...(this._boneCorpses || [])]) {
+        const d = c.group.position.clone().sub(center.origin)
+        const len = d.length()
+        if (len < reachF + 0.5 * B && d.dot(center.direction) / (len || 1) > Math.cos(0.45)) c.burnLeft ??= CORPSE_BURN_S
+      }
     }
     // One ray per pellet (shotgun, flamethrower), fanned out by spread.
     const pellets = w.pellets || 1
@@ -872,9 +918,30 @@ export class BuildSurvival {
     const bm = this.bm
     if (!this._fires || this._fires.size >= FIRE_MAX) return false
     const key = bm._key(x, y, z)
-    if (this._fires.has(key) || !bm.isFlammable?.(bm.getBlockAt(x, y, z))) return false
-    this._fires.set(key, { x, y, z, t: 0, life: FIRE_BURN_S * (0.8 + Math.random() * 0.4) })
+    const type = bm.getBlockAt(x, y, z)
+    if (this._fires.has(key) || !bm.isFlammable?.(type) || this._wetAt(x, y, z)) return false
+    const leaf = bm.isTreeBlock(type) && !/log/.test(type)
+    this._fires.set(key, { x, y, z, t: 0, life: (leaf ? FIRE_LEAF_BURN_S : FIRE_BURN_S) * (0.8 + Math.random() * 0.4), tree: bm.isTreeBlock(type) })
     return true
+  }
+
+  // Raining right now (the sky's weather)?
+  _raining() {
+    return /Rain$/.test(this.bm.sky?._now || '')
+  }
+
+  // Open sky above a cell (nothing solid in the next 24 blocks up).
+  _skyAbove(x, y, z) {
+    for (let k = 1; k <= 24; k++) if (this.bm.getBlockAt(x, y + k, z)) return false
+    return true
+  }
+
+  // Water next to (or in) a cell, or rain falling on it - no fire there.
+  _wetAt(x, y, z) {
+    const bm = this.bm
+    if (bm.getBlockAt(x, y, z) === 'water') return true
+    for (const [dx, dy, dz] of FIRE_NEIGHBOURS) if (bm.getBlockAt(x + dx, y + dy, z + dz) === 'water') return true
+    return this._raining() && this._skyAbove(x, y, z)
   }
 
   _updateFires(dt) {
@@ -886,11 +953,29 @@ export class BuildSurvival {
         this._fires.delete(key)
         continue
       }
+      // Rain or water puts it out (the block stays, a little scorched).
+      f.wetCheck = (f.wetCheck || 0) - dt
+      if (f.wetCheck <= 0) {
+        f.wetCheck = 0.5
+        f.wet = this._wetAt(f.x, f.y, f.z)
+      }
+      if (f.wet) {
+        f.out = (f.out || 0) + dt
+        if (f.out >= FIRE_RAIN_OUT_S) {
+          this._fires.delete(key)
+          continue
+        }
+      }
       f.t += dt
-      this._fx?.burnBlock(f.x, f.y, f.z, f.t / f.life)
-      if (Math.random() < FIRE_SPREAD * dt * FIRE_NEIGHBOURS.length) {
-        const [dx, dy, dz] = FIRE_NEIGHBOURS[Math.floor(Math.random() * FIRE_NEIGHBOURS.length)]
+      this._fx?.burnBlock(f.x, f.y, f.z, f.wet ? Math.min(0.9, f.t / f.life) * (1 - (f.out || 0) / FIRE_RAIN_OUT_S) : f.t / f.life)
+      const near = f.tree ? TREE_NEIGHBOURS : FIRE_NEIGHBOURS
+      if (!f.wet && Math.random() < (f.tree ? FIRE_TREE_SPREAD : FIRE_SPREAD) * dt * FIRE_NEIGHBOURS.length) {
+        const [dx, dy, dz] = near[Math.floor(Math.random() * near.length)]
         this.ignite(f.x + dx, f.y + dy, f.z + dz)
+      }
+      for (const c of this._corpses || []) {
+        const p = c.group.position
+        if (Math.floor(p.x / this.B) === f.x && Math.floor(p.z / this.B) === f.z && Math.abs(p.y / this.B - f.y) < 2) c.burnLeft ??= CORPSE_BURN_S
       }
       for (const z of this.zombies) {
         if (Math.floor(z.x) === f.x && Math.floor(z.z) === f.z && Math.abs(z.y - f.y) < 1.5) z.burn = Math.max(z.burn || 0, 2)
@@ -913,6 +998,8 @@ export class BuildSurvival {
       z.vz += dir.z * 3
     }
     if (z.health > 0) return
+    // Every kill counts toward the wave's target (see SPAWN_GAP).
+    if (this._toSpawn > 0) this._toSpawn--
     audioEngine.playZombieDeath?.(1, this._panTo(z.x, z.z))
     if (by) this.net?.queueCredit(by, z.boss, z.kind)
     else this._countKill(z.boss, z.kind)
@@ -1120,7 +1207,9 @@ export class BuildSurvival {
 
   _spawnSpots() {
     const spots = []
+    const players = [this.bm.tryMode.pos, ...(this.net && !this.net.closed ? this.net.targets() : [])]
     for (const [x, y, z] of this._findBlocks('zombiespawner')) {
+      if (!players.some((p) => Math.hypot(p.x - x, p.z - z) < SPAWNER_RANGE)) continue
       // On top of it or right beside it.
       for (const [dx, dy, dz] of [[0, 1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [1, -1, 0], [-1, -1, 0], [0, -1, 1], [0, -1, -1]]) {
         if (this._standable(x + dx, y + dy, z + dz)) {
@@ -1346,6 +1435,9 @@ export class BuildSurvival {
     for (const c of [...(this._boneCorpses || [])]) {
       c.t += dt
       c.skel.update(dt)
+      // A burning skeleton sinks away fast, in flames.
+      if (c.burnLeft !== undefined && c.lie > c.t) c.lie = c.t
+      if (c.burnLeft !== undefined) this._fx?.burn({ x: c.group.position.x / this.B, y: c.group.position.y / this.B, z: c.group.position.z / this.B }, 1)
       const sink = c.t - c.lie
       if (sink > 0) {
         c.group.position.y = c.y - (sink / SKELETON_SINK) * 0.6 * this.B
@@ -1364,6 +1456,25 @@ export class BuildSurvival {
       }
       c.group.position.y = c.baseY + c.lift * f
       c.arms.forEach((a, i) => { a.rotation.x = c.armFrom[i] * (1 - f) })
+      // Burning: flames all over it and gone in CORPSE_BURN_S (rain or
+      // water puts it out - then it just fades as usual).
+      if (c.burnLeft !== undefined) {
+        const p = c.group.position
+        const cell = [Math.floor(p.x / this.B), Math.floor(p.y / this.B + 0.3), Math.floor(p.z / this.B)]
+        if ((c.wetIn = (c.wetIn || 0) - dt) <= 0) {
+          c.wetIn = 0.5
+          if (this._wetAt(...cell)) {
+            c.burnLeft = undefined
+            continue
+          }
+        }
+        c.burnLeft -= dt
+        this._fx?.burn({ x: p.x / this.B, y: p.y / this.B - 0.1, z: p.z / this.B }, 0.6)
+        const o = Math.max(0, c.burnLeft / CORPSE_BURN_S)
+        for (const m of c.materials) m.opacity = Math.min(m.opacity, o)
+        if (o <= 0) this._dropCorpse(c)
+        continue
+      }
       const fadeT = c.t - CORPSE_FALL - CORPSE_LIE
       if (fadeT > 0) {
         const o = Math.max(0, 1 - fadeT / CORPSE_FADE)
@@ -1455,6 +1566,11 @@ export class BuildSurvival {
     }
     if (zb.burn > 0) {
       zb.burn -= dt
+      // Water or rain puts a burning zombie out.
+      if ((zb._wetIn = (zb._wetIn || 0) - dt) <= 0) {
+        zb._wetIn = 0.4
+        if (this._wetAt(Math.floor(zb.x), Math.floor(zb.y), Math.floor(zb.z))) zb.burn = 0
+      }
       zb.health -= BURN_DPS * this._damageMult() * dt
       zb.flash = Math.max(zb.flash || 0, 0.05)
       this._fx?.burn(zb, ZOMBIE_HEIGHT * (zb.size || 1))
@@ -1832,7 +1948,7 @@ export class BuildSurvival {
       }
     }
     // Waves.
-    if (this._toSpawn === 0 && this.zombies.length === 0) {
+    if (this._toSpawn === 0) {
       if (this._breakTimer > 0) {
         this._breakTimer -= dt
         if (this._breakTimer <= 0) this._startWave(this.wave + 1)
@@ -1852,11 +1968,11 @@ export class BuildSurvival {
         }
       }
     }
-    if (this._toSpawn > 0 && this.zombies.length < MAX_ALIVE && sources.length) {
+    if (this._toSpawn > 0 && this.zombies.length < aliveCap(this.wave) * Math.max(1, this.cfg.zombieCountMult) && sources.length) {
       this._spawnTimer -= dt
       if (this._spawnTimer <= 0 && this._skin !== undefined) {
         this._spawnTimer = SPAWN_GAP * (this.cfg.mode === 'zombieRush' ? RUSH_SPAWN_GAP_MULT : 1)
-        if (this._spawnZombie()) this._toSpawn--
+        this._spawnZombie()
         this._renderHud()
       }
     }
