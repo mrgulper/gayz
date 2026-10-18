@@ -154,8 +154,19 @@ test('a tab reset only resets that tab', async ({ page }) => {
     g.settings.timeFormat = '24h'
     localStorage.setItem('gayz-settings', JSON.stringify(g.settings))
   })
+  // The reset asks first (themed warning box); Cancel keeps everything.
+  const asked = await page.evaluate(() => {
+    document.getElementById('reset-audio-defaults-btn').click()
+    const open = document.getElementById('reset-confirm-modal').classList.contains('open')
+    document.getElementById('reset-confirm-cancel-btn').click()
+    return { open, kept: window.__game.settings.masterVolume, closed: !document.getElementById('reset-confirm-modal').classList.contains('open') }
+  })
+  expect(asked).toEqual({ open: true, kept: 30, closed: true })
   try {
-    await page.evaluate(() => document.getElementById('reset-audio-defaults-btn').click())
+    await page.evaluate(() => {
+      document.getElementById('reset-audio-defaults-btn').click()
+      document.getElementById('reset-confirm-ok-btn').click()
+    })
   } catch {
     // Expected - the reset reloads the page.
   }

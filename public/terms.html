@@ -60,6 +60,16 @@
   }
   .back-link { display: inline-block; margin-bottom: 24px; font-size: 13px; }
 </style>
+<script>
+  // No browser right-click menu anywhere on GayZ (2026-10-17, Gaymi). Text
+  // boxes keep theirs so copy/paste still works. Game code that uses
+  // right-click (aim, chat nickname popup) still gets the event.
+  document.addEventListener('contextmenu', function (e) {
+    var t = e.target
+    if (t && t.closest && t.closest('input, textarea, [contenteditable="true"]')) return
+    e.preventDefault()
+  })
+</script>
 </head>
 <body>
 <main>

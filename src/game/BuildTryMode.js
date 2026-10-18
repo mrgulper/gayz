@@ -184,6 +184,8 @@ const RECOIL_KICK = { pistol: 26, revolver: 34, rifle: 20, suppressedsmg: 14, mi
 const RECOIL_KICK_DEFAULT = 22
 // No flash or smoke from these (no gunpowder).
 const NO_MUZZLE_FX = new Set(['crossbow', 'flamethrower', 'melee', 'tomahawk'])
+// The Void Ripper's muzzle flash is purple.
+const VOID_FLASH = 0xc58bff
 // Inspect Weapon (X by default): the gun turns to show its side at an
 // angle, holds there, and turns back - seconds for each part.
 const INSPECT_IN = 0.3
@@ -891,9 +893,10 @@ export class BuildTryMode {
     const id = this._gunId
     this._kickVel += (RECOIL_KICK[id] ?? RECOIL_KICK_DEFAULT) * (0.9 + Math.random() * 0.2)
     this._kickRoll += (Math.random() - 0.5) * 0.06
-    if (!NO_MUZZLE_FX.has(id) && this._gun?.visible && this._gunScene) {
+    if (this._gun?.visible && this._gunScene && (id === 'flamethrower' || !NO_MUZZLE_FX.has(id))) {
       if (!this._fx) this._fx = new GunFx(this._gunScene)
-      this._fx.fire(this._gun, this._muzzle, this.aimAmount > 0.5)
+      if (id === 'flamethrower') this._fx.flame(this._gun, this._muzzle)
+      else this._fx.fire(this._gun, this._muzzle, this.aimAmount > 0.5, id === 'voidripper' ? VOID_FLASH : null)
     }
   }
 

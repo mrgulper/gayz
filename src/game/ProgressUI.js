@@ -113,6 +113,8 @@ export function _onPlayEvent(game, type, data) {
     if (wave >= SURVIVOR_20_WAVES) game.achievements.unlock('survivor_20')
     if (game.settings.difficulty === 'nightmare' && wave >= 5) game.achievements.unlock('nightmare_survivor_5')
     if (wave >= SURVIVOR_30_WAVES) game.achievements.unlock('survivor_30')
+    if (wave >= SURVIVOR_40_WAVES) game.achievements.unlock('survivor_40')
+    if (wave >= SURVIVOR_50_WAVES) game.achievements.unlock('survivor_50')
     const hardOrHarder = ['hard', 'nightmare', 'apex'].includes(data.difficulty)
     if (hardOrHarder && wave >= HARDENED_WAVES) game.achievements.unlock('hardened')
     if (data.difficulty === 'apex' && wave >= APEX_PREDATOR_WAVES) game.achievements.unlock('apex_predator')
@@ -156,6 +158,14 @@ export function _onPlayEvent(game, type, data) {
   if (data.won && data.mode === 'zombieExtraction') game.achievements.unlock('get_to_the_chopper')
   if (data.coins >= FORTUNE_HUNTER_COINS) game.achievements.unlock('fortune_hunter')
   if (data.skeletonKills >= RATTLED_SKELETONS) game.achievements.unlock('rattled')
+  if (data.seconds >= ENDURANCE_SECONDS) game.achievements.unlock('endurance')
+  if (data.coins >= TYCOON_COINS) game.achievements.unlock('tycoon')
+  if (data.kills >= SLAUGHTERHOUSE_KILLS) game.achievements.unlock('slaughterhouse')
+  if (data.bestStreak >= UNSTOPPABLE_STREAK) game.achievements.unlock('unstoppable')
+  if (data.headshots >= DEAD_CENTER_HEADSHOTS) game.achievements.unlock('dead_center')
+  if (data.meleeKills >= BLADE_MASTER_KNIFE_KILLS) game.achievements.unlock('blade_master')
+  if (data.bosses >= BOSS_SLAYER_BOSSES) game.achievements.unlock('boss_slayer')
+  if (data.skeletonKills >= BONE_BREAKER_SKELETONS) game.achievements.unlock('bone_breaker')
   // +10% per Prestige level, as the Prestige line promises.
   const legacy = Math.floor(points * DEATH_POINTS_CONVERSION * (1 + (PRESTIGE_BONUS_PERCENT / 100) * Math.floor(_safeStatNumber(game.metaProgress.prestigeLevel))))
   game.metaProgress.legacyPoints += legacy
@@ -164,11 +174,35 @@ export function _onPlayEvent(game, type, data) {
   // Career totals (_recordRunEnd just added game run to them).
   if (_safeStatNumber(game.careerStats.totalKills) >= EXTERMINATOR_CAREER_KILLS) game.achievements.unlock('exterminator')
   if (_safeStatNumber(game.careerStats.totalRuns) >= REGULAR_CAREER_RUNS) game.achievements.unlock('regular')
+  if (_safeStatNumber(game.careerStats.totalKills) >= APOCALYPSE_CAREER_KILLS) game.achievements.unlock('apocalypse')
+  if (_safeStatNumber(game.careerStats.totalRuns) >= VETERAN_CAREER_RUNS) game.achievements.unlock('veteran')
   saveShopProgress(game)
   game._renderCurrencyBar()
   game._updateUpgradesDot()
   game._updateQuestsDot()
   return { legacy, coins }
+}
+
+// 2026-10-17 achievement thresholds (the older ones live in Game.js).
+const SURVIVOR_40_WAVES = 40
+const SURVIVOR_50_WAVES = 50
+const ENDURANCE_SECONDS = 45 * 60
+const TYCOON_COINS = 7500
+const SLAUGHTERHOUSE_KILLS = 500
+const UNSTOPPABLE_STREAK = 100
+const DEAD_CENTER_HEADSHOTS = 150
+const BLADE_MASTER_KNIFE_KILLS = 75
+const BOSS_SLAYER_BOSSES = 15
+const BONE_BREAKER_SKELETONS = 75
+const APOCALYPSE_CAREER_KILLS = 5000
+const VETERAN_CAREER_RUNS = 100
+const WELL_EQUIPPED_UPGRADES = 10
+
+// Well Equipped / Maxed Out: how many Zombie Survival upgrades you own.
+function _checkUpgradeAchievements(game) {
+  const owned = PLAY_META_UPGRADES.filter((u) => game.metaProgress.purchased.has(u.id)).length
+  if (owned >= WELL_EQUIPPED_UPGRADES) game.achievements.unlock('well_equipped')
+  if (owned >= PLAY_META_UPGRADES.length) game.achievements.unlock('maxed_out')
 }
 
 // A skeleton kill (kind: minion/rogue/warrior/mage) - career totals for
@@ -235,6 +269,7 @@ export function _renderUpgradesOptions(game) {
       game.metaProgress.legacyPoints -= upgrade.cost
       game.metaProgress.purchased.add(upgrade.id)
       saveMetaProgress(game.metaProgress)
+      _checkUpgradeAchievements(game)
       game._renderUpgradesOptions()
       game._updateUpgradesDot()
     })

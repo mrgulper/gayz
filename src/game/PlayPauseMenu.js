@@ -9,6 +9,9 @@
 //   Back to Menu   - saves the run (BuildSurvival.saveRun) and goes to the
 //                    homepage; the next Play carries on from it.
 //   Settings       - the Settings panel over the game, then back here.
+//   Switch Weapon  - the weapon picker (2026-10-17); picking a gun goes
+//                    straight back to the game. Each gun keeps its own
+//                    ammo (BuildSurvival._pickWeapon).
 //   Save Progress  - saves the run and keeps playing.
 //   Leave Game     - ends the run for good (it's counted, nothing is kept)
 //                    and goes to the homepage.
@@ -27,6 +30,7 @@ export class PlayPauseMenu {
     })
     on('play-pause-back-btn', () => this._leave(true))
     on('play-pause-settings-btn', () => this.openSettings())
+    on('play-pause-weapon-btn', () => this.switchWeapon())
     on('play-pause-save-btn', () => this.saveProgress())
     on('play-pause-leave-btn', () => this._leave(false))
   }
@@ -58,6 +62,7 @@ export class PlayPauseMenu {
     set('play-pause-info', t('playPauseInfo', { wave: Math.max(1, s.wave), kills: s.kills }))
     set('play-pause-back-label', t('playPauseBack'))
     set('play-pause-settings-label', t('playPauseSettings'))
+    set('play-pause-weapon-label', t('playPauseWeapon'))
     set('play-pause-save-label', t('playPauseSave'))
     set('play-pause-leave-label', t('playPauseLeave'))
     set('play-pause-hint', t('playPauseHint'))
@@ -72,6 +77,15 @@ export class PlayPauseMenu {
     const el = document.getElementById('play-pause-status')
     if (el) el.textContent = t(ok ? 'playPauseSaved' : 'playPauseSaveFailed', { n: Math.max(1, s.wave) })
     return ok
+  }
+
+  // The game stays paused while the picker is open (BuildSurvival.update
+  // waits while _picking), except on a server, where the world goes on.
+  switchWeapon() {
+    const s = this.bm.survival
+    if (!s?.active || s.dead) return
+    this.bm.closeMenuQuietly()
+    s._openWeaponPicker(true)
   }
 
   openSettings() {

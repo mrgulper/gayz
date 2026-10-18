@@ -59,6 +59,22 @@ export const ACHIEVEMENTS = [
   { id: 'rattled', titleKey: 'achRattled', tag: 'RT', color: '#c9c3b4', hintKey: 'achHintRattled', category: 'combat' },
   { id: 'bone_collector', titleKey: 'achBoneCollector', tag: 'BC', color: '#c9c3b4', hintKey: 'achHintBoneCollector', category: 'combat' },
   { id: 'skeleton_key', titleKey: 'achSkeletonKey', tag: 'SK', color: '#c9c3b4', hintKey: 'achHintSkeletonKey', category: 'combat' },
+  // 2026-10-17 batch ("add more achievements you can get in zombie
+  // survival") - run results, career totals and the Upgrades panel.
+  { id: 'survivor_40', titleKey: 'achSurvivor40', tag: '40W', color: '#6fa8dc', hintKey: 'achHintSurvivor40', category: 'survival' },
+  { id: 'survivor_50', titleKey: 'achSurvivor50', tag: '50W', color: '#6fa8dc', hintKey: 'achHintSurvivor50', category: 'survival' },
+  { id: 'endurance', titleKey: 'achEndurance', tag: 'EN', color: '#7fb069', hintKey: 'achHintEndurance', category: 'survival' },
+  { id: 'tycoon', titleKey: 'achTycoon', tag: 'TY', color: '#d9bc4a', hintKey: 'achHintTycoon', category: 'survival' },
+  { id: 'slaughterhouse', titleKey: 'achSlaughterhouse', tag: 'SH', color: '#c9564a', hintKey: 'achHintSlaughterhouse', category: 'combat' },
+  { id: 'unstoppable', titleKey: 'achUnstoppable', tag: 'US', color: '#c9564a', hintKey: 'achHintUnstoppable', category: 'combat' },
+  { id: 'dead_center', titleKey: 'achDeadCenter', tag: 'DC', color: '#d9bc4a', hintKey: 'achHintDeadCenter', category: 'combat' },
+  { id: 'blade_master', titleKey: 'achBladeMaster', tag: 'BM', color: '#8a6d47', hintKey: 'achHintBladeMaster', category: 'combat' },
+  { id: 'boss_slayer', titleKey: 'achBossSlayer', tag: 'BS', color: '#c9564a', hintKey: 'achHintBossSlayer', category: 'combat' },
+  { id: 'bone_breaker', titleKey: 'achBoneBreaker', tag: 'BB', color: '#c9c3b4', hintKey: 'achHintBoneBreaker', category: 'combat' },
+  { id: 'apocalypse', titleKey: 'achApocalypse', tag: '5K', color: '#d9bc4a', hintKey: 'achHintApocalypse', category: 'combat' },
+  { id: 'veteran', titleKey: 'achVeteran', tag: 'VT', color: '#7fb069', hintKey: 'achHintVeteran', category: 'survival' },
+  { id: 'well_equipped', titleKey: 'achWellEquipped', tag: 'WE', color: '#b07cc6', hintKey: 'achHintWellEquipped', category: 'survival' },
+  { id: 'maxed_out', titleKey: 'achMaxedOut', tag: 'MX', color: '#b07cc6', hintKey: 'achHintMaxedOut', category: 'survival' },
   // Deliberately last in the array - see unlock()'s own completionist
   // check, which excludes this id from "every OTHER achievement."
   { id: 'completionist', titleKey: 'achCompletionist', tag: '★', color: '#d9bc4a', hintKey: 'achHintCompletionist', category: 'story' },
