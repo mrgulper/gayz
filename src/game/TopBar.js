@@ -1,5 +1,5 @@
 // The bar along the very top of the screen in the Map Editor and Map 1
-// (2026-10-17, bloxd.io's look): GayZ | game mode | FPS | x y z. It takes
+// (2026-10-17): GayZ | game mode | FPS | ms | chip | x y z. It takes
 // the place of the green debug line there - that line is still written
 // (Game.js) and shows as this bar's FPS tooltip, but is hidden in-game.
 import { t } from './i18n.js'
@@ -14,6 +14,26 @@ const MODE_KEYS = {
 // Coordinates and the mode are refreshed this often (ms), not every frame.
 const REFRESH_MS = 100
 
+// A short name for the graphics chip from WebGL's renderer string, e.g.
+// "ANGLE (Apple, ANGLE Metal Renderer: Apple M2, Unspecified Version)" ->
+// "Apple M2", "ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 ...)" ->
+// "Intel UHD Graphics 620".
+export function chipName(gpu) {
+  if (!gpu || gpu === 'unknown') return ''
+  let s = String(gpu)
+  const angle = /^ANGLE \((.*)\)$/.exec(s)
+  if (angle) {
+    const parts = angle[1].split(', ')
+    s = parts[1] || parts[0]
+  }
+  s = s.replace(/^ANGLE \S+ Renderer: /, '')
+    .replace(/\((R|TM)\)/gi, '')
+    .replace(/\s+(Direct3D|D3D|vs_|ps_|OpenGL|Metal|Vulkan|\(0x).*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return s.length > 28 ? `${s.slice(0, 27)}…` : s
+}
+
 export class TopBar {
   constructor(game) {
     this.game = game
@@ -23,21 +43,38 @@ export class TopBar {
       <span class="top-bar-part top-bar-name">GayZ</span>
       <span class="top-bar-part" id="top-bar-mode"></span>
       <span class="top-bar-part" id="top-bar-fps"><span class="top-bar-label">FPS</span> <span id="top-bar-fps-n">--</span></span>
+      <span class="top-bar-part" id="top-bar-ms"><span class="top-bar-label">MS</span> <span id="top-bar-ms-n">--</span></span>
+      <span class="top-bar-part" id="top-bar-chip"></span>
       <span class="top-bar-part" id="top-bar-xyz"></span>`
     document.body.appendChild(el)
     this.el = el
     this._mode = el.querySelector('#top-bar-mode')
     this._fpsPart = el.querySelector('#top-bar-fps')
     this._fps = el.querySelector('#top-bar-fps-n')
+    this._ms = el.querySelector('#top-bar-ms-n')
+    this._chip = el.querySelector('#top-bar-chip')
+    this._chipFrom = null
     this._xyz = el.querySelector('#top-bar-xyz')
     this._at = 0
     this._text = { mode: '', xyz: '' }
   }
 
-  // Every half second from Game.js's fps count.
-  setFps(fps, detail) {
+  // Every half second from Game.js's fps count: frames per second, how
+  // long a frame takes (ms), and the device's graphics chip (2026-10-17,
+  // Gaymi: "add the ms beside the fps also the cpu the device is using
+  // like before" - the old green line showed the same chip name).
+  setFps(fps, detail, ms, gpu) {
     this._fps.textContent = String(fps)
     this._fpsPart.title = detail || ''
+    if (ms !== undefined) this._ms.textContent = String(ms)
+    if (gpu !== this._chipFrom) {
+      this._chipFrom = gpu
+      const name = chipName(gpu)
+      this._chip.textContent = name
+      this._chip.style.display = name ? '' : 'none'
+      const cores = navigator.hardwareConcurrency
+      this._chip.title = `${gpu || ''}${cores ? ` - ${cores} CPU cores` : ''}`
+    }
   }
 
   // Every frame in the Map Editor / Map 1 (cheap: only writes when a
@@ -50,7 +87,10 @@ export class TopBar {
     if (!show || now - this._at < REFRESH_MS) return
     this._at = now
     const s = game.settings || {}
-    this._fpsPart.style.display = s.hudFpsCounter === false || s.streamSafeMode ? 'none' : ''
+    const perf = s.hudFpsCounter === false || s.streamSafeMode ? 'none' : ''
+    this._fpsPart.style.display = perf
+    this._ms.parentElement.style.display = perf
+    if (this._chip.textContent) this._chip.style.display = perf
     const play = bm.survival?.active
     const mode = play ? t(MODE_KEYS[bm.survival.cfg?.mode] || 'topBarModeClassic') : bm.tryMode?.active ? t('topBarModeTry') : t('topBarModeEditor')
     if (mode !== this._text.mode) this._mode.textContent = this._text.mode = mode

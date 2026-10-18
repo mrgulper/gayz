@@ -1303,13 +1303,6 @@ export function _bindSettings(game) {
   if (game.profileCareerPortraitBtn) game.profileCareerPortraitBtn.addEventListener('click', () => game._generateCareerPortrait())
   if (game.reportBugBtn) game.reportBugBtn.addEventListener('click', () => game._reportBug())
   game.creditsBtn.addEventListener('click', () => trackAndOpen(() => game._openCreditsPanel()))
-  // Credits' GayZ / Weapon tabs (2026-10-10).
-  for (const tab of document.querySelectorAll('.credits-tab')) {
-    tab.addEventListener('click', () => {
-      for (const other of document.querySelectorAll('.credits-tab')) other.classList.toggle('active', other === tab)
-      for (const page of document.querySelectorAll('.credits-tab-page')) page.hidden = page.id !== `credits-page-${tab.dataset.creditsPage}`
-    })
-  }
   if (game.termsBtn) game.termsBtn.addEventListener('click', () => trackAndOpen(() => game._openTermsPanel()))
   const navPrivacyLink = document.getElementById('nav-privacy-link')
   if (navPrivacyLink) navPrivacyLink.addEventListener('click', () => trackAndOpen(() => game._openPrivacyPanel()))

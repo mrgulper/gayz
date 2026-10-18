@@ -25,7 +25,7 @@ const VILLAGE_BIOMES = new Set(['plains', 'savanna', 'desert', 'taiga', 'snowyPl
 const CASTLE_BIOMES = new Set(['plains', 'forest', 'birchForest', 'darkForest', 'taiga', 'snowyTaiga', 'snowyPlains', 'mountains', 'savanna', 'cherryGrove'])
 
 // Names for the HUD (i18n keys).
-export const STRUCTURE_NAMES = { village: 'placeVillage', castle: 'placeCastle', bridge: 'placeBridge' }
+export const STRUCTURE_NAMES = { village: 'placeVillage', castle: 'placeCastle', bridge: 'placeBridge', pyramid: 'placePyramid' }
 
 // Materials per climate. walls: picked per house; trim: the roof's
 // overhanging edge; shutter: window shutters; lamp: street and door lights.
@@ -131,7 +131,9 @@ function candidate(i, j, { land, hash, sea, cityDistance }) {
   const roll = hash(i, j, 421)
   const centre = land(cx, cz)
   let kind = null
-  if (centre.h > sea && VILLAGE_BIOMES.has(centre.biome) && roll < 0.45) kind = 'village'
+  // Deserts: a pyramid in some squares (2026-10-17, "add pyramids in deserts").
+  if (centre.h > sea && centre.biome === 'desert' && roll < 0.3) kind = 'pyramid'
+  else if (centre.h > sea && VILLAGE_BIOMES.has(centre.biome) && roll < 0.45) kind = 'village'
   else if (centre.h > sea && CASTLE_BIOMES.has(centre.biome) && roll < 0.75) kind = 'castle'
   else {
     for (let x = cx - 32; x <= cx + 32 && !kind; x += 8) for (let z = cz - 32; z <= cz + 32; z += 8) if (land(x, z).h < sea) { kind = 'bridge'; break }
@@ -164,7 +166,7 @@ export function planStructure(gx, gz, opts) {
   }
   const rand = prng(Math.floor(hash(gx, gz, 419) * 4294967296))
   const ctx = { H, rand, sea, cx, cz }
-  const b = me.kind === 'village' ? village(ctx, H(cx, cz).biome) : me.kind === 'castle' ? castle(ctx) : bridge(ctx, cityDistance)
+  const b = me.kind === 'village' ? village(ctx, H(cx, cz).biome) : me.kind === 'castle' ? castle(ctx) : me.kind === 'pyramid' ? pyramid(ctx) : bridge(ctx, cityDistance)
   return b ? b.finish(chunk) : null
 }
 
@@ -207,6 +209,53 @@ function stepsDown(b, H, x, z, dx, dz, top, width, type) {
     }
     if (!any) break
   }
+}
+
+// --- pyramid ---
+
+// A stepped sandstone pyramid (2026-10-17): every layer a block in from
+// the one below, a stripe of orange terracotta every few layers, gold on
+// the very top. It's hollow: a doorway and a 2-wide passage lead into a
+// tall chamber with sandstone pillars, glowing sea lanterns and a lapis
+// altar holding gold. Full blocks only (terrain), so every step outside
+// is one jump - you can climb it.
+function pyramid({ H, rand, sea, cx, cz }) {
+  const R = 15
+  const site = siteOf(H, sea, cx - R, cz - R, cx + R, cz + R, 2)
+  if (!site.dry || site.hi - site.lo > 8) return null
+  const b = new Builder('pyramid', cx, cz)
+  const base = site.hi + 1
+  const shell = (k) => (k % 4 === 2 ? 'orangeterracotta' : k % 2 ? 'smoothsandstone' : 'sandstonebricks')
+  for (let k = 0; k <= R; k++) {
+    const half = R - k
+    const y = base + k
+    for (let x = cx - half; x <= cx + half; x++) {
+      for (let z = cz - half; z <= cz + half; z++) {
+        const edge = Math.max(Math.abs(x - cx), Math.abs(z - cz))
+        // Two blocks thick, solid near the top; the floor layer is whole.
+        if (k === 0 || edge >= half - 1 || half <= 3) b.set(x, y, z, k === R ? 'gold' : k === 0 && edge < half - 1 ? 'sandstonebricks' : shell(k))
+      }
+    }
+  }
+  // Ground under the bottom layer, so it never floats.
+  for (let x = cx - R; x <= cx + R; x++) for (let z = cz - R; z <= cz + R; z++) foundation(b, H, x, z, base, 'sandstone')
+  // Doorway and passage on a random side, 2 wide and 3 tall.
+  const side = Math.floor(rand() * 4)
+  const [dx, dz] = [[1, 0], [-1, 0], [0, 1], [0, -1]][side]
+  for (let d = 0; d <= R; d++) {
+    for (let w = 0; w <= 1; w++) {
+      const x = cx + dx * d + (dz !== 0 ? w : 0)
+      const z = cz + dz * d + (dx !== 0 ? w : 0)
+      for (let y = base + 1; y <= base + 3; y++) b.clear(x, y, z)
+    }
+  }
+  // Chamber pillars, lights and the altar.
+  for (const [px, pz] of [[-5, -5], [-5, 5], [5, -5], [5, 5]]) {
+    for (let y = base + 1; y <= base + 6; y++) b.set(cx + px, y, cz + pz, y === base + 6 ? 'sealantern' : 'chiseledsandstone')
+  }
+  b.set(cx, base + 1, cz, 'lapisblock')
+  b.set(cx, base + 2, cz, 'gold')
+  return b
 }
 
 // --- village ---

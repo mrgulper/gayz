@@ -2841,20 +2841,7 @@ html.ui-theme-old #update-available-refresh-btn {
   color: rgba(255, 255, 255, 0.75);
 }
 
-/* Credits is two tabs (2026-10-10, Gaymi's picture of the General/Clan
-   tabs): GayZ and Weapon (each model and its maker, plain text), styled
-   like .general-tab. */
-.credits-tab-page[hidden] { display: none; }
 
-/* Weapon model credits (2026-10-10) - one line per gun. */
-#credits-weapons-list {
-  margin: 0 0 12px;
-  padding: 0;
-  list-style: none;
-  font-size: 13px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.75);
-}
 
 #credits-content a,
 #terms-content a,
@@ -8052,16 +8039,14 @@ html.ui-theme-old #settings-panel h2 {
    as .quest-tabs/.inventory-tabs above (isolated so its click handler
    never cross-contaminates with .hub-tab, the DIFFERENT panel's own
    Zombie Survival/Deathmatch tabs). */
-.general-tabs,
-.credits-tabs {
+.general-tabs {
   display: flex;
   justify-content: center;
   gap: 8px;
   margin-bottom: 14px;
 }
 
-.general-tab,
-.credits-tab {
+.general-tab {
   padding: 7px 18px;
   font-size: 13px;
   font-weight: 600;
@@ -8073,8 +8058,7 @@ html.ui-theme-old #settings-panel h2 {
   cursor: pointer;
 }
 
-.general-tab.active,
-.credits-tab.active {
+.general-tab.active {
   color: #0c130c;
   background: var(--ui-gold-bright);
   border-color: var(--ui-gold-bright);
