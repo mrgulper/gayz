@@ -118,3 +118,5 @@ Moved out of CLAUDE.md on 2026-10-16 (word for word) so it is only read when nee
 - **Skins:** `INVENTORY_SKINS` now lives in `InventorySkins.js` (re-exported by Game.js). The default skin is named Gaymi (`name`, not translated); `alisa` (`ALISA_SKIN_DATA_URL` in MenuAvatar3D.js) is a free slim-arm skin everyone owns. `skinFrontIconURL` draws 3-pixel arms for slim skins.
 - **Right-click:** an inline script at the top of `index.html`, `public/skin-designer/index.html`, `privacy.html` and `terms.html` calls `preventDefault()` on `contextmenu` everywhere except inputs/textareas. Game code that uses right-click still gets the event.
 - **Public text never names other games** (Patch Notes, GayZ Features, in-game text, commit/PR titles that go to Discord).
+
+- **Inspect (2026-10-17, batch 2):** zoom in stops at `CLOSEST` x the item's bounding radius (camera never enters the model); default framing is tighter. Skin UVs are inset by `UV_INSET` of a pixel (MenuAvatar3D `_applyFaceRectsToBox`) so face edges never sample the neighbouring atlas pixel (that was the dotted lines).

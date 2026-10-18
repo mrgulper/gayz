@@ -41,6 +41,17 @@ const ZOMBIE_HALF = 0.3
 const BURN_DPS = 14
 const VOID_SLOW = 0.5
 const CLEAVE_COS = Math.cos(0.6)
+// Burning wood (2026-10-17, Gaymi: "make fire able to fire up the wood",
+// picked "burns away + spreads"): a wooden block the Flamethrower reaches
+// catches fire, burns for FIRE_BURN_S, may set wooden neighbours alight
+// (FIRE_SPREAD chance per second each), then breaks - through Try Map's
+// breakBlock, so like every block broken while playing it comes back
+// when the game ends and the saved map is never changed. At most
+// FIRE_MAX blocks burn at once. Zombies in a burning block catch fire.
+const FIRE_BURN_S = 6
+const FIRE_SPREAD = 0.12
+const FIRE_MAX = 48
+const FIRE_NEIGHBOURS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
 const ATTACK_RANGE = 0.95
 const ATTACK_COOLDOWN = 1
 const DOOR_BASH_TIME = 3
@@ -211,8 +222,11 @@ export class BuildSurvival {
     // Ammo left in each gun you've switched away from (pause > Switch
     // Weapon), so switching never refills a gun.
     this._ammoByWeapon = {}
+    // Day and night, and the weather, in games from the homepage.
+    if (fromMenu) bm.sky?.forGame(true)
     this._nextShotAt = 0
     if (!this._fx) this._fx = new PlayFx(bm.scene, this.B)
+    this._fires = new Map()
     this.mag = this.magSize()
     this.reserve = this._startReserve()
     this.wave = 0
@@ -287,6 +301,9 @@ export class BuildSurvival {
     this.zombies = []
     this._clearCorpses()
     this._fx?.clear()
+    this._fires?.clear()
+    this.bm.spectate?.exit()
+    this.bm.sky?.forGame(false)
     this._disposeZombieBatch()
     if (this._hud) this._hud.style.display = 'none'
     if (this._overEl) this._overEl.style.display = 'none'
@@ -647,6 +664,16 @@ export class BuildSurvival {
     const fill = document.getElementById('build-play-health-fill')
     if (fill) fill.style.width = `${Math.max(0, Math.min(100, (this.health / (this.maxHealth || 100)) * 100))}%`
     set('build-play-health-text', `${Math.max(0, Math.ceil(this.health))}${this.armor > 0 ? ` + ${Math.ceil(this.armor)}` : ''}`)
+    // The Flamethrower burns fuel, not bullets (2026-10-17): a fuel tank
+    // bar and how many spare tanks are left instead of "99 / 300".
+    const ammoEl = document.getElementById('build-play-ammo')
+    if (this.weapon.fuel && ammoEl) {
+      const pct = Math.max(0, Math.min(100, (this.mag / (this.magSize() || 1)) * 100))
+      const tanks = Math.floor(this.reserve / (this.weapon.mag || 1))
+      const label = this._reloadLeft > 0 ? t('buildPlayRefueling') : t('buildPlayFuel')
+      ammoEl.innerHTML = `<span class="fuel-tank"><span class="fuel-label">${label}</span><span class="fuel-bar"><span style="width:${pct.toFixed(1)}%"></span></span><span class="fuel-spare">${t('buildPlayFuelSpare', { n: tanks })}</span></span>`
+      return
+    }
     const ammo = Number.isFinite(this.mag) ? `${this.mag} / ${this.reserve}` : t(this.bm.game?.weapons?.getSummary?.().find((w) => w.id === this.weaponId)?.nameKey || 'weaponMelee')
     set('build-play-ammo', this._reloadLeft > 0 ? t('buildPlayReloading') : ammo)
   }
@@ -656,7 +683,7 @@ export class BuildSurvival {
   // false when the gun is empty or reloading (no shot happens).
   tryFire() {
     if (!this.active || this.dead) return true
-    if (this._picking) return false
+    if (this._picking || this.spectating) return false
     if (this._reloadLeft > 0) return false
     // Each gun's own fire rate.
     const now = performance.now()
@@ -695,9 +722,14 @@ export class BuildSurvival {
     // The Flamethrower's fire rolls out from just in front of you (below
     // the middle of the screen, where the nozzle is), hit or miss.
     if (w.burn) {
-      const from = center.origin.clone().addScaledVector(center.direction, 0.9 * B)
-      from.y -= 0.35 * B
+      // From the nozzle's side of the screen (right and low), a block and
+      // a half out, so the nearest flames never fill the view.
+      const side = new THREE.Vector3().crossVectors(center.direction, bm.camera.up).normalize()
+      const from = center.origin.clone().addScaledVector(center.direction, 1.5 * B).addScaledVector(side, 0.3 * B)
+      from.y -= 0.4 * B
       this._fx?.flameStream(from, center.direction, Math.min(w.range, reach / B))
+      // The wall the flames reach catches fire if it's wood.
+      if (wall && wall.t <= w.range * B && wall.existingBlock) this.ignite(...wall.existingBlock)
     }
     // One ray per pellet (shotgun, flamethrower), fanned out by spread.
     const pellets = w.pellets || 1
@@ -792,6 +824,42 @@ export class BuildSurvival {
       cross.classList.add('hit')
     }
     return true
+  }
+
+  // --- Burning wood (see FIRE_BURN_S) ---
+
+  ignite(x, y, z) {
+    const bm = this.bm
+    if (!this._fires || this._fires.size >= FIRE_MAX) return false
+    const key = bm._key(x, y, z)
+    if (this._fires.has(key) || !bm.isFlammable?.(bm.getBlockAt(x, y, z))) return false
+    this._fires.set(key, { x, y, z, t: 0, life: FIRE_BURN_S * (0.8 + Math.random() * 0.4) })
+    return true
+  }
+
+  _updateFires(dt) {
+    if (!this._fires?.size) return
+    const bm = this.bm
+    for (const [key, f] of this._fires) {
+      // Put out if the block went some other way (broken, map reset).
+      if (!bm.isFlammable(bm.getBlockAt(f.x, f.y, f.z))) {
+        this._fires.delete(key)
+        continue
+      }
+      f.t += dt
+      this._fx?.burnBlock(f.x, f.y, f.z, f.t / f.life)
+      if (Math.random() < FIRE_SPREAD * dt * FIRE_NEIGHBOURS.length) {
+        const [dx, dy, dz] = FIRE_NEIGHBOURS[Math.floor(Math.random() * FIRE_NEIGHBOURS.length)]
+        this.ignite(f.x + dx, f.y + dy, f.z + dz)
+      }
+      for (const z of this.zombies) {
+        if (Math.floor(z.x) === f.x && Math.floor(z.z) === f.z && Math.abs(z.y - f.y) < 1.5) z.burn = Math.max(z.burn || 0, 2)
+      }
+      if (f.t >= f.life) {
+        this._fires.delete(key)
+        bm.tryMode.breakBlock(f.x, f.y, f.z)
+      }
+    }
   }
 
   // by: on a server, the other player whose shot this was (the kill is
@@ -1596,12 +1664,13 @@ export class BuildSurvival {
     // On a server the world goes on while you're dead or in the menu.
     const net = this.net && !this.net.closed ? this.net : null
     if (net) net.update(Math.min(dt, 0.25))
-    if (!net && (this.dead || this.bm.menuOpen)) return
+    if (!net && (this.dead || this.bm.menuOpen || this.spectating)) return
     // Nothing happens until a weapon has been picked.
     if (this._picking && !net) return
     dt = Math.min(dt, 1 / 20)
     const playing = !this.dead && !this.bm.menuOpen && !this._picking
     if (playing) this._updateMe(dt)
+    if (!this.bm.menuOpen) this._updateFires(dt)
     if (net && !net.isHost) {
       this._updateMirroredZombies(dt)
       return

@@ -14,6 +14,7 @@ import { BuildTryMode } from './BuildTryMode.js'
 import { LiquidFlow } from './LiquidFlow.js'
 import { OpenWorld, inCity as cityCell } from './OpenWorld.js'
 import { BuildTools } from './BuildTools.js'
+import { PlaySpectate } from './PlaySpectate.js'
 import { BuildSky } from './BuildSky.js'
 import { BuildTouch } from './BuildTouch.js'
 import { BuildGadgets } from './BuildGadgets.js'
@@ -1528,6 +1529,12 @@ export class BuildMode {
       }
       // While trying the map, keys move the player (see BuildTryMode) -
       // the building tools stay off.
+      if (this.spectate.active) {
+        if (!e.repeat) this.spectate.onKey(e.code)
+        this._keys.add(e.code)
+        if (MOVEMENT_KEY_CODES.has(e.code)) e.preventDefault()
+        return
+      }
       if (this.tryMode.active) {
         if (this.survival.camp?.panelOpen) return
         if (this.survival.active && !e.repeat) this.survival.onKeyDown(e.code)
@@ -1763,6 +1770,7 @@ export class BuildMode {
     })
     // Time of day and weather (BuildSky.js).
     this.sky = new BuildSky(this, BLOCK_SIZE)
+    this.spectate = new PlaySpectate(this, BLOCK_SIZE)
     // A dot in the middle of the screen to aim with while trying the map.
     this._tryCrosshairEl = document.createElement('div')
     this._tryCrosshairEl.id = 'build-try-crosshair'
@@ -1781,6 +1789,11 @@ export class BuildMode {
       }
       // Trying the map: clicks shoot (and, held on a block, break it -
       // BuildTryMode._updateDigging); nothing gets built.
+      // Spectating: a click watches the next player (on a server).
+      if (this.spectate.active) {
+        if (e.button === 0) this.spectate.cycle(1)
+        return
+      }
       if (this.tryMode.active) {
         if (e.button === 0) {
           // Held down, an automatic gun keeps firing (BuildSurvival.update).
@@ -2200,6 +2213,16 @@ export class BuildMode {
   // to wood"), by what it's made of. Slabs, stairs, fences and doors break
   // like the block they're cut from. The game's own blocks (Player Start,
   // spawners, chests, levers...) and liquids don't break.
+  // Wooden blocks (planks, logs, crates, hay, bookshelves, wooden doors,
+  // fences, slabs and stairs) catch fire from the Flamethrower and burn
+  // away (BuildSurvival's fires, 2026-10-17).
+  isFlammable(type) {
+    let def = type && BLOCK_BY_ID.get(type)
+    if (!def || def.game || def.shape === 'doortop') return false
+    if (def.shape) def = BLOCK_BY_ID.get(SHAPED_TEXTURE_FROM[def.id] || def.slabOf || def.stairsOf) || def
+    return ['wood', 'log', 'spine'].includes(def.pattern)
+  }
+
   breakSeconds(type) {
     let def = type && BLOCK_BY_ID.get(type)
     if (!def || def.game || def.shape === 'invisible' || LIQUID_TYPES.has(type)) return Infinity
@@ -3254,6 +3277,12 @@ export class BuildMode {
   // Playing a game from the homepage, it's the game's own pause screen
   // instead (PlayPauseMenu) - the Map Editor's is only for making maps.
   toggleMenu() {
+    // Spectating (PlaySpectate.js): Escape / the phone's pause button go
+    // back to the pause screen.
+    if (this.spectate?.active) {
+      this.spectate.exit()
+      this.menuOpen = false
+    }
     this.menuOpen = !this.menuOpen
     const inGame = this.gameMenu.forGame
     if (this.menuOpen) {
@@ -3910,6 +3939,13 @@ export class BuildMode {
     this.together.update(dt)
     this._updateCampDisplay(dt)
     this.touch.update(dt)
+    // Spectating from the pause screen (PlaySpectate.js): the camera is
+    // its own, the player stands still.
+    if (this.spectate.active) {
+      this.spectate.update(dt, this._keys)
+      this.survival.update(dt)
+      return
+    }
     if (this.tryMode.active) {
       this.tryMode.update(dt, this._keys)
       this.survival.update(dt)

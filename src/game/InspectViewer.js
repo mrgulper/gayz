@@ -1,4 +1,4 @@
-// Inventory's Inspect window (Kirka-style): one item shown big in 3D -
+// Inventory's Inspect window: one item shown big in 3D -
 // drag to turn it any way, scroll (or pinch) to zoom. It stays still when
 // nobody is touching it (2026-10-10, "dont make the thing they inspect spin
 // after not clicking it for a while"). Its own small renderer on its
@@ -12,10 +12,13 @@
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
-// Effectively no limit (2026-10-11, "make it no limit you can zoom or
-// scroll however you want") - just bounds that keep the numbers sane.
-const MIN_ZOOM = 0.02
-const MAX_ZOOM = 200
+// Zoom (2026-10-17, "fix some bugs when inspecting ... it just feels
+// wrong"): zooming in used to have no limit, so the camera went inside the
+// model and it filled the window with cut-open faces. Now it stops just
+// outside the item (CLOSEST x its size from the middle); zooming out still
+// goes far.
+const MIN_ZOOM = 0.15
+const CLOSEST = 1.5
 
 export class InspectViewer {
   constructor(canvas) {
@@ -140,8 +143,14 @@ export class InspectViewer {
     }, { passive: false })
   }
 
+  // The most zoom that keeps the camera outside the item.
+  _maxZoom() {
+    const r = Math.hypot(this._radiusXZ || 1, this._halfY || 1)
+    return Math.max(1, this._fitDistance / (r * CLOSEST))
+  }
+
   _setZoom(z) {
-    this._zoom = THREE.MathUtils.clamp(z, MIN_ZOOM, MAX_ZOOM)
+    this._zoom = THREE.MathUtils.clamp(z, MIN_ZOOM, this._maxZoom())
     this._placeCamera()
   }
 
@@ -153,9 +162,10 @@ export class InspectViewer {
     const halfV = THREE.MathUtils.degToRad(this.camera.fov) / 2
     const halfH = Math.atan(Math.tan(halfV) * this.camera.aspect)
     const r = Math.max(this._radiusXZ || 1, this._halfY || 1)
-    this._fitDistance = Math.max((this._radiusXZ || 1) / Math.tan(halfH), (this._halfY || 1) / Math.tan(halfV)) * 1.18 + (this._radiusXZ || 1)
-    this.camera.near = Math.max(r / 20000, 0.00001)
-    this.camera.far = r * 2000
+    this._fitDistance = Math.max((this._radiusXZ || 1) / Math.tan(halfH), (this._halfY || 1) / Math.tan(halfV)) * 1.08 + (this._radiusXZ || 1) * 0.5
+    this.camera.near = Math.max(r / 200, 0.0001)
+    this.camera.far = r * 400
+    this._zoom = Math.min(this._zoom, this._maxZoom())
     this.camera.updateProjectionMatrix()
     this._placeCamera()
   }

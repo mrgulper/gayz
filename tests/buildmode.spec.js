@@ -1877,3 +1877,55 @@ test('Switch Weapon in the pause menu and the special guns\' powers', async ({ p
     rifle: '100', crossbow: '1110', awp: '11110', tomahawk: '1110', burn: 3, slow: 2, fireball: true,
   })
 })
+
+// 2026-10-17 (second batch): Spectate from the pause screen freezes the
+// game and gives back the camera; the Flamethrower shows fuel and sets
+// wood on fire, which spreads and burns away (and comes back after the
+// game); games run the day-night cycle with sun, moon and clouds.
+test('Spectate, fuel, burning wood and the day-night sky', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('flamethrower'))
+  await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const bm = g.buildMode
+    const s = bm.survival
+    const out = {}
+    out.sky = [bm.sky.time, bm.sky.weather, bm.sky.bodies.clouds.visible]
+    out.fuel = !!document.querySelector('#build-play-ammo .fuel-bar')
+    // Spectate: frozen, camera free, Escape (toggleMenu) comes back.
+    const before = bm.camera.position.clone()
+    bm.toggleMenu()
+    document.getElementById('play-pause-spectate-btn').click()
+    out.spectating = [bm.spectate.active, s.spectating, bm.menuOpen]
+    out.noShooting = s.tryFire() === false
+    bm._keys.add('KeyW')
+    for (let i = 0; i < 20; i++) bm.update(1 / 30)
+    bm._keys.delete('KeyW')
+    out.flew = bm.camera.position.distanceTo(before) > 1
+    bm.toggleMenu()
+    out.back = [bm.spectate.active, s.spectating, bm.menuOpen, bm.camera.position.distanceTo(before) < 0.01]
+    bm.toggleMenu()
+    // Burning wood: a plank wall next to a plank, set alight, burns away.
+    const p = bm.tryMode.pos
+    const x = Math.floor(p.x) + 3
+    const y = Math.floor(p.y) + 5
+    const z = Math.floor(p.z)
+    bm.placeBlock(x, y, z, 'oakplanks', false)
+    bm.placeBlock(x + 1, y, z, 'oakplanks', false)
+    bm.placeBlock(x, y + 1, z, 'stone', false)
+    out.lit = s.ignite(x, y, z)
+    out.stoneLit = s.ignite(x, y + 1, z)
+    for (let i = 0; i < 400; i++) s._updateFires(1 / 30)
+    out.burnt = bm.getBlockAt(x, y, z) === null || bm.getBlockAt(x, y, z) === undefined
+    out.stoneStays = bm.getBlockAt(x, y + 1, z) === 'stone'
+    out.restorable = bm.tryMode.brokenWindows().some((b) => b.x === x && b.y === y && b.z === z)
+    return out
+  })
+  expect(r).toEqual({
+    sky: ['cycle', 'random', true], fuel: true, spectating: [true, true, false], noShooting: true, flew: true,
+    back: [false, false, true, true], lit: true, stoneLit: false, burnt: true, stoneStays: true, restorable: true,
+  })
+})

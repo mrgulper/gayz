@@ -27,10 +27,17 @@
 // sandstorms only in dry ones, more rain in jungles and swamps
 // (_climateAt / CLIMATES) - walk into a biome whose climate can't have
 // the current weather and it changes.
+//
+// Games from the homepage (2026-10-17, Gaymi: "not sunny all day long, add
+// nights"): forGame(true) runs the full day-night Cycle (CYCLE_SECONDS, 10
+// minutes, starting in the morning) with Random weather whatever the
+// Map Editor's buttons are set to, without touching that saved choice.
+// The sun, moon and clouds are SkyBodies.js.
 import * as THREE from 'three'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
 import { BuildWeather } from './BuildWeather.js'
+import { SkyBodies } from './SkyBodies.js'
 import { sampleLand, inCity } from './OpenWorld.js'
 
 export const SKY_TIMES = ['day', 'sunset', 'night', 'cycle']
@@ -38,6 +45,8 @@ export const SKY_WEATHERS = ['clear', 'lightRain', 'hardRain', 'lightSnow', 'har
 // Saved before Map 1's weather was used here.
 const OLD_WEATHERS = { rain: 'lightRain', snow: 'lightSnow' }
 const CYCLE_SECONDS = 600
+// Games start mid-morning: a little after sunrise (0.75) on the way to noon.
+const GAME_START_PHASE = 0.85
 const PREF_KEY = 'buildmode-sky'
 const RANDOM_REROLL_S = 240
 const LIGHTNING_MIN_S = 8
@@ -118,6 +127,8 @@ export class BuildSky {
     this._hemiBase = 0
     this._sunBase = 0
     this.weather3d = new BuildWeather(buildMode, blockSize)
+    this.bodies = new SkyBodies(buildMode.scene)
+    this._editorChoice = null
     document.getElementById('build-mode-time-btn')?.addEventListener('click', () => this.cycleTime())
     document.getElementById('build-mode-weather-btn')?.addEventListener('click', () => this.cycleWeather())
     this.apply()
@@ -170,8 +181,28 @@ export class BuildSky {
     return BIOME_CLIMATE[sampleLand(x, z).biome] || 'mild'
   }
 
+  // A game from the homepage starts / ends: the day-night cycle and
+  // random weather, then back to the editor's own choice.
+  forGame(on) {
+    if (on) {
+      if (!this._editorChoice) this._editorChoice = { time: this.time, weather: this.weather }
+      this.time = 'cycle'
+      this.weather = 'random'
+      this._clock = CYCLE_SECONDS * GAME_START_PHASE
+      this._pickWeather()
+    } else if (this._editorChoice) {
+      this.time = this._editorChoice.time
+      this.weather = this._editorChoice.weather
+      this._editorChoice = null
+      this._clock = 0
+      this._pickWeather()
+    }
+    this.apply()
+  }
+
   // The editor opened / closed: Map 1's overlays and sound on or off.
   onEnter() {
+    this.bodies.show(true)
     this._active = true
     this._shownKind = null
     this._pickWeather()
@@ -179,6 +210,7 @@ export class BuildSky {
   }
 
   onExit() {
+    this.bodies.show(false)
     this._active = false
     this._shownKind = null
     this._showOverlays('clear')
@@ -341,6 +373,7 @@ export class BuildSky {
     this._stars.position.copy(bm.camera.position)
     if (!this._active) return
     this._easeLook(dt)
+    this.bodies.update(dt, bm.camera, this._phase(), this._mix, 1 - this.nightAmount())
     this.weather3d.update(dt)
     if (this.weather === 'random') {
       this._rerollIn -= dt
