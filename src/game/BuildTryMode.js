@@ -1568,8 +1568,11 @@ export class BuildTryMode {
     this._swingT = 0
   }
 
-  drawHand(renderer, type) {
-    if (this.active) return
+  // inPlay: a block held from a game's inventory (2026-10-18, Gaymi: "I'm
+  // holding a leaf but I can't see it") - without it this returned while
+  // playing, so no held block was ever drawn.
+  drawHand(renderer, type, inPlay = false) {
+    if (this.active && !inPlay) return
     this._ensureGunScene()
     if (this._gun) this._gun.visible = false
     if (!this._hand) {

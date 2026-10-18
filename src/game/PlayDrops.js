@@ -9,6 +9,7 @@
 // never a light.
 import * as THREE from 'three'
 import { t } from './i18n.js'
+import { itemIconCanvas } from './PlayInventory.js'
 
 const DROP_SCALE = 0.36
 const DROP_LIFE_S = 300
@@ -41,6 +42,27 @@ export class PlayDrops {
     return true
   }
 
+  // An item (not a block) lying on the ground - Meat from an animal
+  // (PlayAnimals.js): its inventory picture, always facing you.
+  spawnItem(id, x, y, z) {
+    if (!this._itemMats) this._itemMats = new Map()
+    let mat = this._itemMats.get(id)
+    if (!mat) {
+      const tex = new THREE.CanvasTexture(itemIconCanvas(id))
+      tex.magFilter = THREE.NearestFilter
+      tex.colorSpace = THREE.SRGBColorSpace
+      mat = new THREE.SpriteMaterial({ map: tex, alphaTest: 0.5 })
+      this._itemMats.set(id, mat)
+    }
+    const mesh = new THREE.Sprite(mat)
+    mesh.scale.setScalar(DROP_SCALE * 1.4 * this.s.B)
+    this.bm.scene.add(mesh)
+    const a = Math.random() * Math.PI * 2
+    this.list.push({ type: id, kind: 'item', mesh, x: x + 0.5, y: y + 0.4, z: z + 0.5, vx: Math.cos(a) * 1.2, vy: 4.5, vz: Math.sin(a) * 1.2, age: 0, spin: 0, onGround: false })
+    while (this.list.length > MAX_DROPS) this._remove(this.list[0])
+    return true
+  }
+
   _remove(d) {
     this.bm.scene.remove(d.mesh)
     this.list = this.list.filter((o) => o !== d)
@@ -67,7 +89,7 @@ export class PlayDrops {
         d.y += (py - d.y) * k
         d.z += (pz - d.z) * k
         if (dist < COLLECT_R) {
-          const left = this.s.inv?.add({ kind: 'block', id: d.type, n: 1 }) ?? 1
+          const left = this.s.inv?.add({ kind: d.kind || 'block', id: d.type, n: 1 }) ?? 1
           if (left === 0) {
             this._remove(d)
             continue

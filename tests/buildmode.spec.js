@@ -2272,3 +2272,138 @@ test('Spectate keeps zombies off the camera, bedrock floor, thrown knife, invent
     hotbarBoxes: '0100000000', barBg: 'rgba(0, 0, 0, 0)',
   })
 })
+
+// 2026-10-18 (second batch): bridges stand clear of the water, so a
+// player fits under them.
+test('bridges are high enough over the water to walk under', async () => {
+  const { sampleLand, hash2, SEA, cityDistance, setWorldSeed, setEarthWorld } = await import('../src/game/OpenWorld.js')
+  const { planStructure } = await import('../src/game/WorldStructures.js')
+  setEarthWorld(false)
+  let bridges = 0
+  let low = 0
+  for (const seed of [11, 222, 3333]) {
+    setWorldSeed(seed)
+    for (let gx = -6; gx <= 6; gx++) {
+      for (let gz = -6; gz <= 6; gz++) {
+        const plan = planStructure(gx, gz, { land: sampleLand, hash: hash2, sea: SEA, cityDistance, chunk: 16 })
+        if (!plan || plan.kind !== 'bridge') continue
+        bridges++
+        // Over water, every block of the bridge is either a whole pier
+        // column (down to the bed) or 3+ blocks above the water.
+        const cols = new Map()
+        for (const list of plan.byColumn.values()) {
+          for (let i = 0; i < list.length; i += 4) {
+            const k = `${list[i]},${list[i + 2]}`
+            if (!cols.has(k)) cols.set(k, [])
+            cols.get(k).push(list[i + 1])
+          }
+        }
+        for (const [k, ys] of cols) {
+          const [x, z] = k.split(',').map(Number)
+          const bed = sampleLand(x, z).h
+          if (bed >= SEA) continue
+          const pier = ys.includes(bed + 1)
+          if (!pier && Math.min(...ys) <= SEA + 3) low++
+        }
+      }
+    }
+  }
+  expect(bridges).toBeGreaterThan(0)
+  expect(low).toBe(0)
+})
+
+// 2026-10-18 (second batch): animals wander, die to shots and drop meat
+// that heals, can be tamed with Use and then follow you; a block from the
+// inventory shows in your hand; the top bar shows the weather and time;
+// spectating has no banner; the What's New card reaches the profile card's
+// bottom and fades when you click elsewhere.
+test('animals, held blocks, sky top bar, no spectate banner, What\'s New card', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 })
+  await gotoAndWaitForGame(page)
+  const card = await page.evaluate(() => {
+    const g = window.__game
+    const banner = g.updateAvailableBanner
+    g.updateAvailableChangelog.innerHTML = document.querySelector('#changelog-list .changelog-entry').outerHTML
+    banner.classList.remove('fading')
+    banner.style.display = 'flex'
+    g._scheduleUpdateBannerFade()
+    window.dispatchEvent(new Event('resize'))
+    const b = banner.getBoundingClientRect()
+    const p = document.getElementById('menu-player-badge').getBoundingClientRect()
+    const out = { reaches: Math.abs(b.bottom - p.bottom) < 2 }
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    out.fading = banner.classList.contains('fading')
+    return out
+  })
+  expect(card).toEqual({ reaches: true, fading: true })
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
+  const r = await page.evaluate(() => {
+    const bm = window.__game.buildMode
+    const s = bm.survival
+    const B = s.B
+    const out = {}
+    const A = s.animals
+    // Natural spawning around you.
+    for (let i = 0; i < 40; i++) A.update(0.5)
+    out.spawned = A.list.length > 0
+    // One right in front of you: shot, it dies and drops meat.
+    A.clear()
+    bm._pitch = -0.25
+    bm.update(1 / 60)
+    const cam = bm.camera
+    cam.updateMatrixWorld()
+    const dir = cam.getWorldDirection(cam.position.clone())
+    const tp = bm.tryMode.pos
+    const ax = tp.x + dir.x * 3
+    const az = tp.z + dir.z * 3
+    const cow = A.spawn('cow', ax, s._groundUnder(ax, tp.y + 2, az), az)
+    const start = [cow.x, cow.z]
+    for (let i = 0; i < 60; i++) A._step(cow, 1 / 30, s.bodyPos())
+    out.stillHere = Math.hypot(cow.x - start[0], cow.z - start[1]) < 6
+    // Taming: Use on it.
+    cow.x = ax
+    cow.z = az
+    cow.group.position.set(ax * B, cow.y * B, az * B)
+    cow.group.updateMatrixWorld()
+    out.tamed = A.use() && cow.tamed && cow.collar.visible
+    // A pet isn't hurt by your shots and follows you.
+    A.damage(cow, 999)
+    out.petSafe = !cow.dying
+    cow.x += 12
+    for (let i = 0; i < 120; i++) A._step(cow, 1 / 30, s.bodyPos())
+    out.follows = Math.hypot(cow.x - s.bodyPos().x, cow.z - s.bodyPos().z) < 6
+    // A wild pig shot dies and drops meat.
+    const pig = A.spawn('pig', ax, cow.y, az)
+    const before = s._drops.list.length
+    A.damage(pig, 999)
+    out.meat = s._drops.list.filter((d) => d.kind === 'item' && d.type === 'meat').length - before >= 1
+    // Picked up and eaten: heals.
+    s.inv.add({ kind: 'item', id: 'meat', n: 1 })
+    const slot = s.inv.hotbar.findIndex((it) => it?.id === 'meat')
+    s.inv.select(slot)
+    s.health = 50
+    s.inv.useHeld()
+    out.healed = s.health === 75
+    // A block from the inventory is drawn in the hand.
+    s.inv.hotbar[5] = { kind: 'block', id: 'leaves', n: 3 }
+    s.inv.select(5)
+    bm.render()
+    out.handBlock = bm.tryMode._handType === 'leaves'
+    // The top bar: weather and time.
+    window.__game._topBar.update(performance.now() + 1000)
+    out.weather = document.getElementById('top-bar-weather').textContent.length > 2
+    out.time = /\d/.test(document.getElementById('top-bar-time').textContent)
+    out.nightVar = document.getElementById('top-bar').style.getPropertyValue('--tb-night') !== ''
+    // Spectating: no banner.
+    s.inv.select(0)
+    bm.toggleMenu()
+    document.getElementById('play-pause-spectate-btn').click()
+    out.noBanner = !document.getElementById('play-spectate-bar')
+    bm.toggleMenu()
+    return out
+  })
+  expect(r).toEqual({ spawned: true, stillHere: true, tamed: true, petSafe: true, follows: true, meat: true, healed: true, handBlock: true, weather: true, time: true, nightVar: true, noBanner: true })
+})

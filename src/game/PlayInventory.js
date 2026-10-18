@@ -30,6 +30,8 @@ const MAX_ARMOR_CUT = 0.6
 // Items that aren't guns or blocks.
 export const ITEMS = {
   healthpack: { key: 'invHealthPack', heal: 40 },
+  // From animals (PlayAnimals.js): click with it held to eat it.
+  meat: { key: 'invMeat', heal: 25 },
   ammobox: { key: 'invAmmoBox', ammo: 0.5 },
   helmet: { key: 'invHelmet', armor: 2, slot: 0 },
   chestplate: { key: 'invChestplate', armor: 4, slot: 1 },
@@ -41,6 +43,7 @@ export const ITEMS = {
 // Little pixel pictures for the items (16 x 16, drawn once).
 const ICON_PIXELS = {
   healthpack: ['................', '..############..', '.#wwwwwwwwwwww#.', '.#wwwwwrrwwwww#.', '.#wwwwwrrwwwww#.', '.#wwwrrrrrrwww#.', '.#wwwrrrrrrwww#.', '.#wwwwwrrwwwww#.', '.#wwwwwrrwwwww#.', '.#wwwwwwwwwwww#.', '..############..'],
+  meat: ['................', '..........ww....', '.........wwww...', '........wwww....', '.....mmmmww.....', '....mmmmmm......', '...mmmmmmmm.....', '...mmmmmmmm.....', '...mmmmmmmm.....', '....mmmmmm......', '.....mmmm.......'],
   ammobox: ['................', '................', '...yy.yy.yy.....', '...yy.yy.yy.....', '...yy.yy.yy.....', '.##############.', '.#gggggggggggg#.', '.#ggg######ggg#.', '.#gggggggggggg#.', '.#gggggggggggg#.', '.##############.'],
   helmet: ['................', '....########....', '...#iiiiiiii#...', '..#iiiiiiiiii#..', '..#iiiiiiiiii#..', '..#ii######ii#..', '..#i#......#i#..', '..##........##..'],
   chestplate: ['..###....###....', '.#iii#..#iii#...', '.#iiii##iiii#...', '..#iiiiiiii#....', '..#iiiiiiii#....', '..#iiiiiiii#....', '..#iiiiiiii#....', '..##########....'],
@@ -48,10 +51,17 @@ const ICON_PIXELS = {
   boots: ['................', '..###....###....', '..#i#....#i#....', '..#i#....#i#....', '..#ii##..#ii##..', '..#iiii#.#iiii#.', '..######.######.'],
   shield: ['....########....', '...#bbbbbbbb#...', '...#bbbyybbb#...', '...#byyyyyyb#...', '...#bbbyybbb#...', '....#bbyybb#....', '.....#bbbb#.....', '......####......'],
 }
-const ICON_COLORS = { '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8' }
+const ICON_COLORS = { m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8' }
 const iconCache = new Map()
 function itemIcon(id) {
   if (iconCache.has(id)) return iconCache.get(id)
+  const url = itemIconCanvas(id).toDataURL()
+  iconCache.set(id, url)
+  return url
+}
+
+// The same picture as a canvas (for an item lying on the ground, PlayDrops).
+export function itemIconCanvas(id) {
   const rows = ICON_PIXELS[id] || []
   const c = document.createElement('canvas')
   c.width = c.height = 16
@@ -62,9 +72,7 @@ function itemIcon(id) {
     g.fillStyle = ICON_COLORS[ch]
     g.fillRect(x, top + y, 1, 1)
   }))
-  const url = c.toDataURL()
-  iconCache.set(id, url)
-  return url
+  return c
 }
 
 const stackOf = (it) => (it.kind === 'block' ? BLOCK_STACK : it.kind === 'gun' || ITEMS[it.id]?.armor ? 1 : ITEM_STACK)

@@ -877,6 +877,10 @@ function tower(b, stone, x, z, half, base, top, [doorX, doorZ, dx, dz], openings
 
 // --- bridge ---
 
+// Open air kept between the water (which fills up to y = sea) and the
+// lowest block of a bridge.
+const BRIDGE_CLEARANCE = 3
+
 // A crossing over a river near the centre: the shortest run of water
 // (4..30 wide) with dry land at both ends, along x or z.
 function bridge({ H, rand, sea, cx, cz }, cityDistance) {
@@ -911,7 +915,10 @@ function bridge({ H, rand, sea, cx, cz }, cityDistance) {
   }
   const b = new Builder('bridge', ...at(Math.round((best.a + best.b) / 2), 0))
   const stoneBridge = rand() < 0.45
-  const deck = Math.max(sea + 2, H(...at(best.a, 0)).h, H(...at(best.b, 0)).h)
+  // High over the water (2026-10-18, Gaymi: "the bridge should go across
+  // the river, above it - a player could walk through under it"): the
+  // underside, arches and all, leaves room for a player above the water.
+  const deck = Math.max(sea + BRIDGE_CLEARANCE + 2, H(...at(best.a, 0)).h, H(...at(best.b, 0)).h)
   const mat = stoneBridge
     ? { deck: 'polishedandesite', edge: 'stonebricks', post: 'stonebricks', pillar: 'stonebricks', lamp: 'sealantern', cap: 'chiseledstonebricks' }
     : { deck: 'spruceplanks', edge: 'sprucelog', post: 'oaklog', pillar: 'sprucelog', lamp: 'paperlantern', cap: 'oaklog' }
@@ -927,7 +934,7 @@ function bridge({ H, rand, sea, cx, cz }, cityDistance) {
       // in the middle of the span, so each span curves.
       if (stoneBridge && !pier) {
         const depth = span === 1 || span === 4 ? 2 : 1
-        for (let k = 1; k <= depth; k++) if (deck - k > H(x, z).h) b.set(x, deck - k, z, mat.edge)
+        for (let k = 1; k <= depth; k++) if (deck - k > H(x, z).h && deck - k > sea + BRIDGE_CLEARANCE) b.set(x, deck - k, z, mat.edge)
       }
       // A wooden bridge's braces: logs angling out from each pier.
       if (!stoneBridge && !pier && Math.abs(w) === 2 && (span === 1 || span === 4) && deck - 1 > H(x, z).h) b.set(x, deck - 1, z, mat.edge)

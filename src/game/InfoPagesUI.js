@@ -12,6 +12,7 @@ import { CHANGELOG_LAST_VIEWED_KEY, HOWTOPLAY_STEPS, LOGIN_CALENDAR_DAYS, MARKET
 import { BIOMES } from './OpenWorld.js'
 import { BOSS_HUNT_EVERY, DEFENSE_WAVES, EXTRACTION_HOLD, EXTRACTION_WAVES, SKELETON_FROM_WAVE, MOB_HEIGHT } from './PlayRules.js'
 import { BOTTOM } from './Underground.js'
+import { MAX_WILD } from './PlayAnimals.js'
 import { LANGUAGES, t, tHtml } from './i18n.js'
 
 // Update-available check - only ever called from _exitBuildMode (back
@@ -57,6 +58,7 @@ export async function _checkForUpdate(game) {
     if (game.updateAvailableRefreshBtn) game.updateAvailableRefreshBtn.textContent = t('updateAvailableRefreshBtn')
     game.updateAvailableBanner.classList.remove('fading')
     game.updateAvailableBanner.style.display = 'flex'
+    _fitUpdateBanner(game)
     game._scheduleUpdateBannerFade()
   } catch {
     // A failed check (offline, blocked request, etc.) just means no
@@ -86,6 +88,25 @@ export function _gateChangelog(game) {
   game._changelogMidnightTimer = setTimeout(() => game._gateChangelog(), next.getTime() - now)
 }
 
+// The What's New card reaches down to the bottom of the profile card it
+// sits over, so that's fully covered (2026-10-18, Gaymi: "make it wider up
+// to down until it fully covers the profile" - taller, same width).
+// Without the profile card on screen (phones) it keeps its CSS size.
+export function _fitUpdateBanner(game) {
+  const banner = game.updateAvailableBanner
+  if (!banner || banner.style.display === 'none') return
+  const badge = document.getElementById('menu-player-badge')
+  const r = badge && getComputedStyle(badge).display !== 'none' ? badge.getBoundingClientRect() : null
+  if (!r?.height) {
+    banner.style.height = ''
+    banner.style.maxHeight = ''
+    return
+  }
+  const top = banner.getBoundingClientRect().top
+  banner.style.maxHeight = 'none'
+  banner.style.height = `${Math.max(120, r.bottom - top)}px`
+}
+
 // Fades the What's New card out by itself after UPDATE_BANNER_SHOW_MS if
 // the player leaves it alone - the timer waits while the mouse is over it.
 export function _scheduleUpdateBannerFade(game) {
@@ -95,6 +116,11 @@ export function _scheduleUpdateBannerFade(game) {
     banner._fadeBound = true
     banner.addEventListener('mouseenter', () => clearTimeout(game._updateBannerTimer))
     banner.addEventListener('mouseleave', () => game._scheduleUpdateBannerFade())
+    // Clicking anywhere else fades it away too (2026-10-18).
+    document.addEventListener('pointerdown', (e) => {
+      if (banner.style.display !== 'none' && !banner.contains(e.target)) game._hideUpdateBanner()
+    }, true)
+    window.addEventListener('resize', () => _fitUpdateBanner(game))
   }
   game._updateBannerTimer = setTimeout(() => game._hideUpdateBanner(), UPDATE_BANNER_SHOW_MS)
 }
@@ -223,6 +249,7 @@ export function _featureValues(_game) {
     biomes: Object.keys(BIOMES).length,
     undergroundDepth: -BOTTOM,
     mobHeight: MOB_HEIGHT,
+    maxWildAnimals: MAX_WILD,
     skeletonWave: SKELETON_FROM_WAVE,
     marketFee: Math.round(MARKET_FEE_RATE * 100),
     chatMuteMinutes: ChatUI.CHAT_MUTE_MS / 60000,

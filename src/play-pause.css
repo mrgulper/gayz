@@ -143,48 +143,6 @@ html.ui-theme-old #play-pause-hint { opacity: 0.85; }
   html.ui-theme-old #play-pause-card { padding: 44px 34px 46px; }
 }
 
-/* Spectate (PlaySpectate.js, 2026-10-17): a bar at the top saying what
-   you're watching, with Back (and Next player on a server) for phones.
-   The game's own HUD hides while you look around. */
-#play-spectate-bar {
-  position: fixed;
-  top: max(54px, env(safe-area-inset-top));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 60;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  max-width: calc(100vw - 32px);
-  padding: 10px 18px;
-  color: #f3e6c4;
-  text-align: center;
-  background: rgba(12, 10, 8, 0.72);
-  border: 1px solid rgba(217, 163, 74, 0.55);
-  border-radius: 14px;
-  pointer-events: auto;
-}
-#play-spectate-bar b { font-size: 18px; letter-spacing: 0.5px; }
-#play-spectate-bar span { font-size: 13px; opacity: 0.85; }
-#play-spectate-bar .spectate-buttons { display: flex; gap: 8px; margin-top: 4px; }
-#play-spectate-bar button {
-  padding: 6px 16px;
-  font: inherit;
-  font-size: 14px;
-  color: #f3e6c4;
-  background: rgba(217, 163, 74, 0.15);
-  border: 1px solid rgba(217, 163, 74, 0.6);
-  border-radius: 999px;
-  cursor: pointer;
-}
-html.ui-theme-old #play-spectate-bar {
-  color: #2e1d0e;
-  background: rgba(236, 214, 170, 0.92);
-  border-color: rgba(107, 63, 23, 0.6);
-  font-family: 'Rye', serif;
-}
-html.ui-theme-old #play-spectate-bar button { color: #2e1d0e; background: rgba(107, 63, 23, 0.12); border-color: rgba(107, 63, 23, 0.6); }
 /* (Spectating keeps the game's HUD - it should feel like playing.) */
 
 /* The spawn map (SpawnMap.js, 2026-10-17): a blocky map of Earth before a
@@ -323,6 +281,20 @@ html.ui-theme-old #top-bar {
 }
 html.ui-theme-old #top-bar .top-bar-part + .top-bar-part { border-left-color: rgba(107, 63, 23, 0.45); }
 html.ui-theme-old #top-bar .top-bar-name { color: #8a2d12; }
+/* ...and it follows the sky (TopBar._updateSky, 2026-10-18): darker and
+   bluer at night (--tb-night 0-1), tinted by the weather (--tb-storm 0-1):
+   grey in rain, pale in snow, sandy in a sandstorm. Only colors change. */
+#top-bar { --tb-night: 0; --tb-storm: 0; --tb-tint: #50545a; transition: background-color 2s ease, border-color 2s ease; }
+#top-bar[data-weather='snow'] { --tb-tint: #9aa3ad; }
+#top-bar[data-weather='sand'] { --tb-tint: #8a6a3a; }
+#top-bar {
+  background: color-mix(in srgb, color-mix(in srgb, rgba(14, 12, 8, 0.82), #0a1640 calc(var(--tb-night) * 55%)), var(--tb-tint) calc(var(--tb-storm) * 40%));
+  border-color: color-mix(in srgb, rgba(217, 188, 74, 0.55), #8fa6e0 calc(var(--tb-night) * 50%));
+}
+html.ui-theme-old #top-bar {
+  background: color-mix(in srgb, color-mix(in srgb, rgba(236, 214, 170, 0.94), #4a5a80 calc(var(--tb-night) * 40%)), var(--tb-tint) calc(var(--tb-storm) * 30%));
+}
+#top-bar-weather, #top-bar-time { font-variant-numeric: tabular-nums; }
 
 /* The game's inventory (PlayInventory.js, 2026-10-18): armor row, a 10x10
    grid and the hotbar, in each theme. Slots are sized from the window so

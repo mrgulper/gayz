@@ -17,7 +17,6 @@
 // were. Owned by BuildMode (`bm.spectate`), driven from its update() and
 // key/mouse handlers.
 import * as THREE from 'three'
-import { t } from './i18n.js'
 import { getKeyFor } from './Keybinds.js'
 import { BOTTOM } from './Underground.js'
 import { BLOCK_TYPES } from './BuildMode.js'
@@ -68,8 +67,9 @@ export class PlaySpectate {
     bm.closeMenuQuietly()
     bm.tryMode.setAim(false)
     this._showFloor(true)
+    // No banner over the view (2026-10-18, Gaymi: "remove the message in
+    // spectating"): Escape or the phone's pause button still goes back.
     document.body.classList.add('play-spectating')
-    this._renderBanner()
     try { bm.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available */ }
   }
 
@@ -90,8 +90,6 @@ export class PlaySpectate {
     }
     this._showFloor(false)
     document.body.classList.remove('play-spectating')
-    const el = document.getElementById('play-spectate-bar')
-    if (el) el.style.display = 'none'
   }
 
   _showFloor(on) {
@@ -121,12 +119,10 @@ export class PlaySpectate {
     const players = this._players()
     if (!players.length) {
       this._watch = -1
-      this._renderBanner()
       return
     }
     const n = players.length + 1 // the free camera is one more stop
     this._watch = ((this._watch + 1 + dir) % n + n) % n - 1
-    this._renderBanner()
   }
 
   // The Use key (E by default) watches the next player too.
@@ -134,57 +130,12 @@ export class PlaySpectate {
     if (code === getKeyFor('use')) this.cycle(1)
   }
 
-  _renderBanner() {
-    let el = document.getElementById('play-spectate-bar')
-    if (!el) {
-      el = document.createElement('div')
-      el.id = 'play-spectate-bar'
-      document.body.appendChild(el)
-    }
-    const players = this._players()
-    const p = this._watch >= 0 ? players[this._watch] : null
-    const title = p ? t('spectateWatching', { name: String(p.nick || '?').slice(0, 24) }) : t('spectateFreeCam')
-    const hint = p ? t('spectateHintWatch') : t('spectateHintFree')
-    const more = players.length ? ` ${t('spectateHintPlayers')}` : ''
-    el.replaceChildren()
-    const b = document.createElement('b')
-    b.textContent = title
-    const span = document.createElement('span')
-    span.textContent = hint + more
-    // Buttons too, for phones (no Escape key) and anyone who prefers them.
-    const row = document.createElement('div')
-    row.className = 'spectate-buttons'
-    const back = document.createElement('button')
-    back.type = 'button'
-    back.textContent = t('spectateBack')
-    back.addEventListener('click', (e) => {
-      e.stopPropagation()
-      this.bm.toggleMenu()
-    })
-    row.append(back)
-    if (players.length) {
-      const next = document.createElement('button')
-      next.type = 'button'
-      next.textContent = t('spectateNext')
-      next.addEventListener('click', (e) => {
-        e.stopPropagation()
-        this.cycle(1)
-      })
-      row.append(next)
-    }
-    el.append(b, span, row)
-    el.style.display = 'flex'
-  }
-
   update(dt, keys) {
     const bm = this.bm
     const cam = bm.camera
     const B = this.B
     const players = this._players()
-    if (this._watch >= players.length) {
-      this._watch = -1
-      this._renderBanner()
-    }
+    if (this._watch >= players.length) this._watch = -1
     const p = this._watch >= 0 ? players[this._watch] : null
     if (p) {
       // Through their eyes: where they stand, the way they face.
