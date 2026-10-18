@@ -185,7 +185,10 @@ export async function _enterBuildMode(game, { map, play = false, server = null }
   // again for a run saved from the pause menu (BuildSurvival.saveRun).
   // (BuildSurvival through the loaded editor - BuildMode.js loads lazily.)
   const savedSeed = play && !server ? game.buildMode.survival?.constructor.savedRun?.()?.seed : null
-  game.buildMode.world?.reseed(server?.serverId ? seedFromText(server.serverId) : savedSeed ?? undefined)
+  // A game made joinable with Invite Friends carries its own world (seed,
+  // and the World Map mode's Earth) - see api/_lib/servers.js cleanWorld.
+  if (server?.world?.earth) game.buildMode.world?.setEarth(true)
+  game.buildMode.world?.reseed(server?.world ? server.world.seed : server?.serverId ? seedFromText(server.serverId) : savedSeed ?? undefined)
   // The 3D canvas isn't resized on the homepage (_onResize) - catch up now.
   if (game._sizeDirty) game._onResize()
   if (play) game.buildMode.survival.start({ fromMenu: true, net: server ? new PlayNet(game, server) : null })

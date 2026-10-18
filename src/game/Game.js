@@ -2686,6 +2686,8 @@ export class Game {
     // Reveals the save-driven homepage values (see index.html's
     // html:not(.game-ready) rule).
     document.documentElement.classList.add('game-ready')
+    // Opened from an Invite Friends link: straight into that game.
+    setTimeout(() => ServerBrowser.joinFromLink(this), 0)
     // Fetch the Map 1 / Map Editor code while the player looks at the
     // homepage, so Play opens the map straight away.
     // With a deadline: the homepage's rain and water redraw every frame, so

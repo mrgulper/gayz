@@ -1995,7 +1995,7 @@ test('spawn map, endless world, pyramids, underground cities and the top bar', a
     out.credits = !document.getElementById('credits-weapons-list') && !document.querySelector('.credits-tab')
     return out
   })
-  expect(r).toEqual({ mapFirst: ['flex', true], spawned: true, standsOnLand: true, mapClosed: true, atlas: [true, true], pyramid: true, topBar: true, credits: true })
+  expect(r).toEqual({ mapFirst: ['block', true], spawned: true, standsOnLand: true, mapClosed: true, atlas: [true, true], pyramid: true, topBar: true, credits: true })
 })
 
 // 2026-10-18: countries and landmarks on the spawn map, Spawn Randomly,
@@ -2178,7 +2178,7 @@ test('World Map mode follows the real Earth; Classic skips the map', async ({ pa
     g.settings.selectedGameMode = 'classic'
     g.playBtn.click()
     for (let i = 0; i < 300 && !g.buildMode?.survival?.active; i++) await new Promise((r) => setTimeout(r, 200))
-    const out = { map: document.getElementById('spawn-map')?.style.display === 'flex', picker: document.getElementById('play-weapon-pick')?.style.display === 'flex' }
+    const out = { map: document.getElementById('spawn-map')?.style.display === 'block', picker: document.getElementById('play-weapon-pick')?.style.display === 'flex' }
     g.buildMode.survival._pickWeapon('rifle')
     g.buildMode.survival.stop()
     g._exitBuildMode()
@@ -2192,7 +2192,7 @@ test('World Map mode follows the real Earth; Classic skips the map', async ({ pa
     g.playBtn.click()
     for (let i = 0; i < 300 && !g.buildMode?.survival?.active; i++) await new Promise((r) => setTimeout(r, 200))
     const s = g.buildMode.survival
-    const out = { map: document.getElementById('spawn-map')?.style.display === 'flex', camp: !!document.getElementById('spawn-map-camp'), mode: s.cfg.mode }
+    const out = { map: document.getElementById('spawn-map')?.style.display === 'block', camp: !!document.getElementById('spawn-map-camp'), mode: s.cfg.mode }
     s._spawnAt({ lat: 48.85, lon: 2.35, biome: 'forest', country: 'France', city: 'Paris' })
     const town = g.buildMode.world._landmarks.find((p) => p.kind === 'town')
     // Not a square: the corners of its box are empty.
@@ -2421,4 +2421,34 @@ test('animals, held blocks, sky top bar, no spectate banner, What\'s New card', 
     return out
   })
   expect(r).toEqual({ spawned: true, stillHere: true, tamed: true, petSafe: true, follows: true, meat: true, healed: true, handBlock: true, weather: true, time: true, nightVar: true, noBanner: true })
+})
+
+// The spawn map's countries -> states/provinces -> cities (2026-10-18):
+// Canada shows its provinces and territories, Ontario its cities, and
+// Spawn Here starts you in the picked city's town.
+test('the spawn map goes from a country to its provinces and cities', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => { window.__game.settings.selectedGameMode = 'worldMap'; window.__game.playBtn.click() })
+  await page.waitForFunction(() => document.getElementById('spawn-map')?.style.display === 'block', null, { timeout: 60000 })
+  const clickAt = async (lat, lon) => {
+    const [x, y] = await page.evaluate(([la, lo]) => document.getElementById('spawn-map')._clientAt(la, lo), [lat, lon])
+    await page.mouse.click(x, y)
+  }
+  await clickAt(56, -100)
+  await expect(page.locator('#spawn-map-hint')).toContainText('Canada')
+  await expect(page.locator('#spawn-map-back')).toBeVisible()
+  await page.waitForTimeout(600)
+  await clickAt(50, -86)
+  await expect(page.locator('#spawn-map-hint')).toContainText('Ontario')
+  await expect(page.locator('#spawn-map-list button')).toContainText(['Ottawa', 'Toronto'])
+  await page.locator('#spawn-map-list button', { hasText: 'Toronto' }).click()
+  await expect(page.locator('#spawn-map-info')).toContainText('Toronto')
+  await page.click('#spawn-map-go')
+  await page.waitForFunction(() => document.getElementById('spawn-map').style.display === 'none', null, { timeout: 30000 })
+  const r = await page.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const p = s.bm.tryMode.pos
+    return { lat: Math.round(-p.z / 120), lon: Math.round(p.x / 120), town: !!s.bm.world._landmarks.find((l) => l.kind === 'town') }
+  })
+  expect(r).toEqual({ lat: 44, lon: -79, town: true })
 })

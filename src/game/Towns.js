@@ -60,6 +60,16 @@ export const CITIES = [
 
 // A city near a map point (within NEAR_DEG degrees), or null.
 const NEAR_DEG = 4
+// A town look for any real city (the spawn map's cities from
+// EarthProvinces, 2026-10-18): by its land and part of the world.
+export function townStyleAt(lat, lon, biome) {
+  if (biome === 'desert' || biome === 'badlands' || (lat > 12 && lat < 38 && lon > -18 && lon < 60)) return 'desert'
+  if (lon > 60 && lon < 150 && lat > -12) return 'asian'
+  if (lon > -120 && lon < -30 && lat < 32) return 'latin'
+  if (lon > -25 && lon < 45 && lat > 35) return 'european'
+  return 'modern'
+}
+
 export function cityNear(lat, lon) {
   let best = null
   let bestD = NEAR_DEG

@@ -209,3 +209,66 @@ test('two players play Map 1 together on a server', async ({ browser }) => {
   await a.close()
   await b.close()
 })
+
+// Invite Friends (2026-10-18): a solo World Map game becomes a server from
+// the pause menu, its link is shown, and a friend opening the link joins
+// the same world (same land, Earth) and starts where the host did.
+test('Invite Friends makes a solo game joinable and the link joins it', async ({ browser }) => {
+  test.setTimeout(240000)
+  const db = fakeServerDb()
+  const fns = { list: () => listServers(db), create: (b) => createServer(db, b), join: (b) => joinServer(db, b), leave: (b) => leaveServer(db, b), sync: (b) => syncServer(db, b) }
+  const open = async (path = '/') => {
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await page.exposeFunction('__srv', async (name, body) => {
+      try {
+        return { ok: await fns[name](body) }
+      } catch (err) {
+        return { err: err.code || 'server' }
+      }
+    })
+    await page.addInitScript(() => {
+      const call = async (name, body) => {
+        const r = await window.__srv(name, body)
+        if (r.err) throw Object.assign(new Error(r.err), { code: r.err })
+        return r.ok
+      }
+      window.__serversBackendForTests = { list: () => call('list'), create: (b) => call('create', b), join: (b) => call('join', b), leave: (b) => call('leave', b), sync: (b) => call('sync', b) }
+    })
+    await gotoAndWaitForGame(page, path)
+    return page
+  }
+
+  const a = await open()
+  await a.evaluate(() => { window.__game.settings.selectedGameMode = 'worldMap'; window.__game.playBtn.click() })
+  await a.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  const host = await a.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    s._spawnAt({ lat: 48.85, lon: 2.35, biome: 'plains', country: 'France', city: 'Paris' })
+    s._pickWeapon('rifle')
+    const p = s.bm.tryMode.pos
+    return { x: Math.round(p.x), y: Math.round(p.y), z: Math.round(p.z) }
+  })
+  await a.keyboard.press('Escape')
+  await a.waitForFunction(() => document.getElementById('play-pause-menu')?.style.display === 'flex', null, { timeout: 10000 })
+  await expect(a.locator('#play-pause-invite-btn')).toBeVisible()
+  await a.click('#play-pause-invite-btn')
+  await expect(a.locator('#play-invite')).toBeVisible()
+  const link = await a.inputValue('#play-invite-link')
+  expect(link).toMatch(/\/\?join=[A-Z0-9]{6}$/)
+  expect(await a.evaluate(() => !!window.__game.buildMode.survival.net?.isHost)).toBe(true)
+  await expect(a.locator('#play-pause-save-btn')).toBeHidden()
+
+  const b = await open(new URL(link).pathname + new URL(link).search)
+  await a.evaluate(() => window.__game.buildMode.survival.net._sync())
+  await b.waitForFunction(() => window.__game.buildMode?.survival?.active && window.__game.buildMode.survival.net, null, { timeout: 60000 })
+  const guest = await b.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const p = s.bm.tryMode.pos
+    return { x: Math.round(p.x), y: Math.round(p.y), z: Math.round(p.z), url: location.search, host: s.net.isHost }
+  })
+  expect(guest.host).toBe(false)
+  expect(guest.url).toBe('')
+  // Same spot on the same land (the same ground height there).
+  expect([guest.x, guest.y, guest.z]).toEqual([host.x, host.y, host.z])
+})

@@ -48,6 +48,8 @@ export class PlayNet {
     this.playerId = info.playerId
     this.token = info.token
     this.name = info.name || ''
+    // The host's world, for a game made joinable with Invite Friends.
+    this.world = info.world || null
     this.isHost = info.host === info.playerId
     this.wave = 0
     this.players = new Map()

@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { cleanPixels } from './PixelClean.js'
+import { COMING_SOON_WEAPONS } from './PlayWeapons.js'
 
 // Every weapon's 3D model (2026-10-10, Gaymi picked each one: "for all the
 // guns can we go on sketchfab and find high quality gun models that are
@@ -51,7 +52,8 @@ const WEAPON_MODELS = {
   suppressedsmg: { rot: [0, Math.PI, 0], len: 0.7 },
   // The rail-gun model ships with no colors at all (one white material) -
   // painted gunmetal with a violet glow, the Void Ripper's look.
-  voidripper: { rot: [0, 0, 0], len: 0.95, paint: { color: 0x2a2633, metalness: 0.75, roughness: 0.35, emissive: 0x5b2a99, emissiveIntensity: 0.12 } },
+  // Gunmetal like the rest (was 0x2a2633), still with its violet glow.
+  voidripper: { rot: [0, 0, 0], len: 0.95, paint: { color: 0x2f302a, metalness: 0.75, roughness: 0.35, emissive: 0x5b2a99, emissiveIntensity: 0.12 } },
   gpmg: { rot: [0, -H, 0], len: 1.1 },
   tomahawk: { rot: [-H, 0, H], order: 'ZXY', len: 0.45, tilt: 0.9 },
 }
@@ -131,7 +133,45 @@ function wearPixels(canvas, seed) {
   ctx.putImageData(img, 0, 0)
 }
 
-function simplifyMaterials(scene) {
+// Gunmetal (2026-10-18, Gaymi: "make all current weapons except the coming
+// soon ones the texture as the gpmg currently has ... same dark metal
+// colour but for the flamethrower where was red that part keep it red"):
+// every pickable gun's colours become the GPMG's dark olive-grey metal,
+// keeping only their light and shade; KEEP_RED guns keep their red parts.
+const GUNMETAL = [0.95, 1, 0.88]
+// Each picture's average brightness moves to the GPMG's (GUNMETAL_MEAN),
+// its light/shade differences kept at GUNMETAL_CONTRAST.
+const GUNMETAL_MEAN = 52
+const GUNMETAL_CONTRAST = 0.55
+const GUNMETAL_MIN = 20
+const GUNMETAL_MAX = 104
+const KEEP_RED = new Set(['flamethrower'])
+const isRed = (r, g, b) => r > 50 && r > g * 1.5 && r > b * 1.5
+const lum = (r, g, b) => r * 0.3 + g * 0.59 + b * 0.11
+function gunmetalPixels(canvas, keepRed) {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  const d = img.data
+  let sum = 0
+  let n = 0
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 128 || (keepRed && isRed(d[i], d[i + 1], d[i + 2]))) continue
+    sum += lum(d[i], d[i + 1], d[i + 2])
+    n++
+  }
+  const mean = n ? sum / n : GUNMETAL_MEAN
+  for (let i = 0; i < d.length; i += 4) {
+    if (keepRed && isRed(d[i], d[i + 1], d[i + 2])) continue
+    const l = Math.max(GUNMETAL_MIN, Math.min(GUNMETAL_MAX, GUNMETAL_MEAN + (lum(d[i], d[i + 1], d[i + 2]) - mean) * GUNMETAL_CONTRAST))
+    d[i] = l * GUNMETAL[0]
+    d[i + 1] = l * GUNMETAL[1]
+    d[i + 2] = l * GUNMETAL[2]
+  }
+  ctx.putImageData(img, 0, 0)
+}
+
+function simplifyMaterials(scene, id) {
+  const gunmetal = !COMING_SOON_WEAPONS.has(id)
   const done = new Map()
   const textures = new Map()
   const draw = (img) => {
@@ -162,6 +202,7 @@ function simplifyMaterials(scene) {
     }
     ctx.putImageData(img, 0, 0)
     cleanPixels(c, GUN_COLORS)
+    if (gunmetal) gunmetalPixels(c, KEEP_RED.has(id))
     const worn = document.createElement('canvas')
     worn.width = worn.height = WEAR_SIZE
     const wctx = worn.getContext('2d', { willReadFrequently: true })
@@ -185,6 +226,10 @@ function simplifyMaterials(scene) {
     n.map = flat(m)
     // A flat colour with no picture: darkened the same way.
     if (!m.map && n.color && m.metalness) n.color.multiplyScalar(1 - 0.55 * m.metalness)
+    if (!m.map && n.color && gunmetal && !(KEEP_RED.has(id) && isRed(n.color.r * 255, n.color.g * 255, n.color.b * 255))) {
+      const l = GUNMETAL_MEAN / 255
+      n.color.setRGB(l * GUNMETAL[0], l * GUNMETAL[1], l * GUNMETAL[2], THREE.SRGBColorSpace)
+    }
     for (const key of ['normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'bumpMap']) if (key in n) n[key] = null
     if ('roughness' in n) n.roughness = 0.65
     if ('metalness' in n) n.metalness = 0.1
@@ -212,7 +257,7 @@ export function preloadWeaponModels() {
   return Promise.all(Object.keys(WEAPON_MODELS).map(async (id) => {
     try {
       const gltf = await loader.loadAsync(`/models/weapons/${id}.glb`)
-      if (!WEAPON_MODELS[id].paint) simplifyMaterials(gltf.scene)
+      if (!WEAPON_MODELS[id].paint) simplifyMaterials(gltf.scene, id)
       MODEL_CACHE[id] = gltf
     } catch (err) {
       console.warn(`Weapon model ${id} failed to load`, err)
