@@ -2214,13 +2214,19 @@ export class BuildMode {
   // like the block they're cut from. The game's own blocks (Player Start,
   // spawners, chests, levers...) and liquids don't break.
   // Wooden blocks (planks, logs, crates, hay, bookshelves, wooden doors,
-  // fences, slabs and stairs) catch fire from the Flamethrower and burn
+  // fences, slabs and stairs) and leaves catch fire from the Flamethrower and burn
   // away (BuildSurvival's fires, 2026-10-17).
   isFlammable(type) {
     let def = type && BLOCK_BY_ID.get(type)
     if (!def || def.game || def.shape === 'doortop') return false
     if (def.shape) def = BLOCK_BY_ID.get(SHAPED_TEXTURE_FROM[def.id] || def.slabOf || def.stairsOf) || def
-    return ['wood', 'log', 'spine'].includes(def.pattern)
+    return ['wood', 'log', 'spine', 'leaves'].includes(def.pattern)
+  }
+
+  // Leaves and logs - fire races through a tree (BuildSurvival's fires).
+  isTreeBlock(type) {
+    const def = type && BLOCK_BY_ID.get(type)
+    return !!def && (def.pattern === 'leaves' || def.pattern === 'log')
   }
 
   breakSeconds(type) {

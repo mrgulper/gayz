@@ -12,9 +12,19 @@
 // and findSpawn() searches outward from there for the nearest spot of that
 // biome (then a similar one, then any dry land). Clicking the sea starts
 // you on the nearest beach.
+//
+// Countries (2026-10-18, Gaymi: "the world map with countries and make real
+// buildings that are there in the world of that country ... if you don't
+// want to pick add a spawn randomly button"): borders are drawn on the
+// map from EarthCountries.js, the country under the pointer is named, and
+// spawning in a country with a landmark (Landmarks.js - the Eiffel Tower in
+// France, Big Ben in the UK...) builds it a short walk ahead of you. Spawn
+// Randomly picks a random spot on land.
 import { t } from './i18n.js'
 import { BIOMES, SEA, sampleLand } from './OpenWorld.js'
 import { EARTH_W, EARTH_H, EARTH_BIOMES, EARTH_RLE } from './EarthMapData.js'
+import { COUNTRY_W, COUNTRY_H, EARTH_COUNTRIES, COUNTRY_RLE } from './EarthCountries.js'
+import { LANDMARKS } from './Landmarks.js'
 
 const DEG = 120 // world blocks per degree for the starting guess
 const SEARCH_STEP = 48
@@ -54,6 +64,39 @@ function cells() {
     i += n
   }
   return grid
+}
+
+let countryGrid = null
+function countryCells() {
+  if (countryGrid) return countryGrid
+  countryGrid = new Uint8Array(COUNTRY_W * COUNTRY_H)
+  let i = 0
+  for (const run of COUNTRY_RLE.split(' ')) {
+    const [n, c] = run.split('.')
+    const count = n ? parseInt(n, 16) : 1
+    countryGrid.fill(parseInt(c, 16), i, i + count)
+    i += count
+  }
+  return countryGrid
+}
+
+// The country at a latitude / longitude ('' for the sea).
+export function earthCountry(lat, lon) {
+  const i = Math.min(COUNTRY_W - 1, Math.max(0, Math.floor((lon + 180) * 2)))
+  const j = Math.min(COUNTRY_H - 1, Math.max(0, Math.floor((90 - lat) * 2)))
+  const c = countryCells()[j * COUNTRY_W + i]
+  return c ? EARTH_COUNTRIES[c - 1] : ''
+}
+
+// A random spot on land: { lat, lon, biome, country }.
+export function randomLandPick(rand = Math.random) {
+  for (let tries = 0; tries < 400; tries++) {
+    const lat = Math.asin(rand() * 2 - 1) * (180 / Math.PI) * 0.92
+    const lon = rand() * 360 - 180
+    const biome = earthBiome(lat, lon)
+    if (!WATER.has(biome) && lat > -60) return { lat, lon, biome, country: earthCountry(lat, lon) }
+  }
+  return { lat: 23, lon: 10, biome: 'desert', country: earthCountry(23, 10) }
 }
 
 // The Earth biome at a latitude / longitude.
@@ -102,21 +145,31 @@ export function openSpawnMap() {
     el.innerHTML = `<div class="spawn-map-box">
       <h2 id="spawn-map-title"></h2>
       <p id="spawn-map-hint"></p>
-      <div class="spawn-map-frame"><canvas id="spawn-map-canvas" width="${EARTH_W}" height="${EARTH_H}"></canvas><span id="spawn-map-pin" hidden></span></div>
+      <div class="spawn-map-frame"><canvas id="spawn-map-canvas" width="${COUNTRY_W}" height="${COUNTRY_H}"></canvas><span id="spawn-map-pin" hidden></span></div>
       <p id="spawn-map-info"></p>
       <div class="spawn-map-buttons">
         <button type="button" id="spawn-map-camp"></button>
+        <button type="button" id="spawn-map-random"></button>
         <button type="button" id="spawn-map-go" disabled></button>
       </div>
     </div>`
     document.body.appendChild(el)
     const canvas = el.querySelector('canvas')
     const ctx = canvas.getContext('2d')
-    const img = ctx.createImageData(EARTH_W, EARTH_H)
+    // Biomes (1 degree) drawn at the countries' half-degree size, with a
+    // dark line wherever two countries meet.
+    const img = ctx.createImageData(COUNTRY_W, COUNTRY_H)
     const g = cells()
-    for (let i = 0; i < g.length; i++) {
-      const c = COLORS[EARTH_BIOMES[g[i]]] || [0, 0, 0]
-      img.data.set([c[0], c[1], c[2], 255], i * 4)
+    const cc = countryCells()
+    for (let j = 0; j < COUNTRY_H; j++) {
+      for (let i = 0; i < COUNTRY_W; i++) {
+        const k = j * COUNTRY_W + i
+        const c = COLORS[EARTH_BIOMES[g[(j >> 1) * EARTH_W + (i >> 1)]]] || [0, 0, 0]
+        const me = cc[k]
+        const border = me && ((i + 1 < COUNTRY_W && cc[k + 1] && cc[k + 1] !== me) || (j + 1 < COUNTRY_H && cc[k + COUNTRY_W] && cc[k + COUNTRY_W] !== me))
+        const f = border ? 0.45 : 1
+        img.data.set([c[0] * f, c[1] * f, c[2] * f, 255], k * 4)
+      }
     }
     ctx.putImageData(img, 0, 0)
   }
@@ -125,6 +178,7 @@ export function openSpawnMap() {
   set('#spawn-map-hint', t('spawnMapHint'))
   set('#spawn-map-camp', t('spawnMapCamp'))
   set('#spawn-map-go', t('spawnMapGo'))
+  set('#spawn-map-random', t('spawnMapRandom'))
   set('#spawn-map-info', '')
   const canvas = el.querySelector('canvas')
   const pin = el.querySelector('#spawn-map-pin')
@@ -141,9 +195,13 @@ export function openSpawnMap() {
       const fy = Math.min(0.9999, Math.max(0, (e.clientY - r.top) / r.height))
       const lon = fx * 360 - 180
       const lat = 90 - fy * 180
-      return { lat, lon, fx, fy, biome: earthBiome(lat, lon) }
+      return { lat, lon, fx, fy, biome: earthBiome(lat, lon), country: earthCountry(lat, lon) }
     }
-    const describe = (p) => (WATER.has(p.biome) ? t('spawnMapSea') : `${biomeLabel(p.biome)} · ${fmt(p.lat, p.lon)}`)
+    const describe = (p) => {
+      if (WATER.has(p.biome) && !p.country) return t('spawnMapSea')
+      const lm = LANDMARKS[p.country]
+      return [p.country, biomeLabel(p.biome), fmt(p.lat, p.lon), lm ? t('spawnMapLandmark', { name: t(lm.key) }) : ''].filter(Boolean).join(' · ')
+    }
     const onMove = (e) => { if (!picked) set('#spawn-map-info', describe(at(e))) }
     const onClick = (e) => {
       picked = at(e)
@@ -157,6 +215,7 @@ export function openSpawnMap() {
       canvas.removeEventListener('pointermove', onMove)
       canvas.removeEventListener('click', onClick)
       el.querySelector('#spawn-map-camp').onclick = null
+      el.querySelector('#spawn-map-random').onclick = null
       go.onclick = null
       el.style.display = 'none'
       el._close = null
@@ -165,7 +224,8 @@ export function openSpawnMap() {
     canvas.addEventListener('pointermove', onMove)
     canvas.addEventListener('click', onClick)
     el.querySelector('#spawn-map-camp').onclick = () => done(null)
-    go.onclick = () => { if (picked) done({ lat: picked.lat, lon: picked.lon, biome: picked.biome }) }
+    el.querySelector('#spawn-map-random').onclick = () => done(randomLandPick())
+    go.onclick = () => { if (picked) done({ lat: picked.lat, lon: picked.lon, biome: picked.biome, country: picked.country }) }
     // Something else started the game (a test, or a weapon picked some
     // other way): close as the camp.
     el._close = () => done(null)

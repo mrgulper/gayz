@@ -434,9 +434,10 @@ test('Play mode spawns zombie waves that reach you and can be shot', async ({ pa
     out.ownMaterials = !!corpse && corpse.materials.length > 0 && corpse.materials.every((m) => !s._zBatch.meshes.some((mesh) => [].concat(mesh.material).includes(m)))
     step(0.5)
     out.fell = !!corpse && Math.abs(corpse.group.rotation.x - Math.PI / 2) < 0.01
-    step(2)
+    // Bodies lie for 40 s, then fade over the rest of a minute (2026-10-18).
+    s._updateCorpses(45)
     out.fading = !!corpse && corpse.materials[0].opacity > 0 && corpse.materials[0].opacity < 1
-    step(2.5)
+    s._updateCorpses(16)
     out.corpseGone = (s._corpses || []).length === 0
     out.mag = s.mag
     out.fired = s.tryFire() && s.mag === out.mag - 1
@@ -1428,7 +1429,7 @@ test('Map 1 has 200 layers underground with ores, caves and walk-in entrances', 
   expect(r.mouthOpen).toBe(true)
   expect(r.awayFromPlaces).toBe(true)
   expect(r.tunnelHasFloor).toBe(true)
-  expect(r.bar).toMatch(/^GayZ Map Editor FPS \S+ MS \S+ .*?-?\d+\.\d\d -?\d+\.\d\d -?\d+\.\d\d$/)
+  expect(r.bar).toMatch(/^GayZ Map Editor FPS \S+ MS \S+ -?\d+\.\d\d -?\d+\.\d\d -?\d+\.\d\d( .+)?$/)
   expect(r.debugLineHidden).toBe(true)
 })
 
@@ -1611,7 +1612,8 @@ test('skeletons rise, fight, sync and die', async ({ page }) => {
     s.damageZombie(z, 1000)
     out.alive = s.zombies.includes(z)
     out.corpses = s._boneCorpses?.length || 0
-    for (let i = 0; i < 300; i++) s.update(1 / 30)
+    // Bodies now stay up to a minute (2026-10-18).
+    for (let i = 0; i < 1900; i++) s.update(1 / 30)
     out.corpsesAfter = s._boneCorpses?.length || 0
     return out
   })
@@ -1976,4 +1978,75 @@ test('spawn map, endless world, pyramids, underground cities and the top bar', a
     return out
   })
   expect(r).toEqual({ mapFirst: ['flex', true], spawned: true, standsOnLand: true, mapClosed: true, pyramid: true, topBar: true, credits: true })
+})
+
+// 2026-10-18: countries and landmarks on the spawn map, Spawn Randomly,
+// waves that need a number of kills with zombies from anywhere, bodies
+// that fade in a minute (or burn away), and fire that goes out in water
+// and rain but races through trees.
+test('countries, landmarks, kill-count waves, fading bodies and fire rules', async ({ page }) => {
+  const { earthCountry, randomLandPick } = await import('../src/game/SpawnMap.js')
+  expect([earthCountry(48.8, 2.3), earthCountry(40.7, -100), earthCountry(-23, 135), earthCountry(0, -140)]).toEqual(['France', 'United States of America', 'Australia', ''])
+  const rp = randomLandPick()
+  expect(['ocean', 'deepOcean', 'frozenOcean', 'warmOcean']).not.toContain(rp.biome)
+
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  const first = await page.evaluate(() => {
+    const g = window.__game
+    const bm = g.buildMode
+    const s = bm.survival
+    const out = {}
+    out.randomBtn = !!document.getElementById('spawn-map-random')
+    // France: spawning builds the Eiffel Tower ahead.
+    out.spawned = s._spawnAt({ lat: 48.8, lon: 2.3, biome: 'forest', country: 'France' })
+    out.landmark = bm.world._landmarks.length === 1 && bm.world._landmarks[0].nameKey === 'landmarkEiffel'
+    s._pickWeapon('rifle')
+    return out
+  })
+  await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
+  const r = await page.evaluate((out) => {
+    const g = window.__game
+    const bm = g.buildMode
+    const s = bm.survival
+    // A wave needs kills, not an empty map: zombies stay, kills count down.
+    s._breakTimer = 0
+    s._startWave(1)
+    const need = s._toSpawn
+    const pp = bm.tryMode.pos
+    for (let i = 0; i < 5; i++) s._makeZombie(++s._zid, pp.x + 3 + i, pp.y, pp.z + 3, 100, false)
+    const z = s.zombies[0]
+    s.damageZombie(z, 1e9)
+    out.wave = [need >= 9, s._toSpawn === need - 1, s.zombies.length >= 4]
+    // Bodies: still there after 30 s, gone after a minute; burning ones go fast.
+    const c = s._corpses?.[s._corpses.length - 1]
+    s._updateCorpses(30)
+    out.corpse30 = s._corpses.includes(c)
+    s._updateCorpses(31)
+    out.corpse61 = !s._corpses.includes(c)
+    s.damageZombie(s.zombies[0], 1e9)
+    const c2 = s._corpses[s._corpses.length - 1]
+    c2.burnLeft = 3
+    s._updateCorpses(1)
+    s._updateCorpses(2.5)
+    out.burntBody = !s._corpses.includes(c2)
+    // Fire: leaves burn, water stops it, rain on open sky stops it.
+    const p = bm.tryMode.pos
+    const x = Math.floor(p.x) + 4
+    const y = Math.floor(p.y) + 8
+    const zz = Math.floor(p.z)
+    bm.placeBlock(x, y, zz, 'leaves', false)
+    bm.placeBlock(x + 3, y, zz, 'oakplanks', false)
+    bm.placeBlock(x + 4, y, zz, 'water', false)
+    bm.sky._now = 'clear'
+    out.leavesLit = s.ignite(x, y, zz)
+    out.wetNotLit = s.ignite(x + 3, y, zz) === false
+    bm.sky._now = 'hardRain'
+    for (let i = 0; i < 20; i++) s._updateFires(0.1)
+    out.rainedOut = !s._fires.has(`${x},${y},${zz}`) && bm.getBlockAt(x, y, zz) === 'leaves'
+    bm.sky._now = 'clear'
+    return out
+  }, first)
+  expect(r).toEqual({ randomBtn: true, spawned: true, landmark: true, wave: [true, true, true], corpse30: true, corpse61: true, burntBody: true, leavesLit: true, wetNotLit: true, rainedOut: true })
 })

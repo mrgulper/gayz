@@ -24,6 +24,8 @@ const CITY_GAP = 48
 const VILLAGE_BIOMES = new Set(['plains', 'savanna', 'desert', 'taiga', 'snowyPlains', 'snowyTaiga', 'forest', 'birchForest', 'cherryGrove', 'badlands'])
 const CASTLE_BIOMES = new Set(['plains', 'forest', 'birchForest', 'darkForest', 'taiga', 'snowyTaiga', 'snowyPlains', 'mountains', 'savanna', 'cherryGrove'])
 
+import { buildLandmark } from './Landmarks.js'
+
 // Names for the HUD (i18n keys).
 export const STRUCTURE_NAMES = { village: 'placeVillage', castle: 'placeCastle', bridge: 'placeBridge', pyramid: 'placePyramid' }
 
@@ -168,6 +170,21 @@ export function planStructure(gx, gz, opts) {
   const ctx = { H, rand, sea, cx, cz }
   const b = me.kind === 'village' ? village(ctx, H(cx, cz).biome) : me.kind === 'castle' ? castle(ctx) : me.kind === 'pyramid' ? pyramid(ctx) : bridge(ctx, cityDistance)
   return b ? b.finish(chunk) : null
+}
+
+// A real-world landmark (Landmarks.js) centred on (cx, cz), from the spawn
+// map. Its plan works like any other place's; plan.nameKey names it.
+export function planLandmark(kind, cx, cz, { land, chunk }) {
+  const heights = new Map()
+  const H = (x, z) => {
+    const k = `${x},${z}`
+    let s = heights.get(k)
+    if (!s) heights.set(k, (s = land(x, z)))
+    return s
+  }
+  const b = new Builder('landmark', cx, cz)
+  if (!buildLandmark(kind, b, { H, cx, cz })) return null
+  return b.finish(chunk)
 }
 
 // Highest and lowest ground over a box, and whether it's all dry land.
