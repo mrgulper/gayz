@@ -96,3 +96,13 @@ Moved out of CLAUDE.md on 2026-10-16 (word for word) so it is only read when nee
 - **Spectate** now keeps the game running: `tm.pos` follows the camera (world/zombies/minimap follow), `_hurtPlayer` ignores hits; solo clicks shoot.
 - **Wave bug:** after `_spawnAt` the flow field reset (zombies were spawning at the old camp, 4000+ blocks away, and falling out = kills). `zb.lost` (fell out, or > `DESPAWN_DIST` from every player) removes without a kill. HUD shows "Next wave in Ns" during breaks.
 - **Natural ground:** `earthAt()` (WorldStructures) for raised ground under every building/landmark/town lot.
+
+## 2026-10-18 (batch 3): World Map mode, Earth terrain, drops, AWP
+
+- **World Map game mode** (`worldMap` in `PLAY_GAME_MODES`, homepage Game Mode button): only this mode opens the spawn map (no camp button any more) and turns on Earth terrain (`world.setEarth(true)` in `start`, off in `stop`). Classic/other modes start in the camp with no map.
+- **Earth terrain** (`EarthGrid.js` shared with SpawnMap; `setEarthWorld` in OpenWorld): `sampleLand`'s continentalness `c` comes from `earthLandAmount` (bilinear over the 1-degree land mask) + coast noise; biome from `earthBiome` at a jittered lat/lon, except rivers/beaches/high mountains; sea kind by latitude. x = lon * `EARTH_DEG`, z = -lat * `EARTH_DEG`. The block city sits at 0,0 (an island in the Gulf of Guinea) in this mode.
+- **Towns** have an uneven outline (`outline(seed)` in Towns.js) and occasional parks; you spawn 30 south of the middle.
+- **Inventory** starts with only the picked gun (no health pack); `bringGun(id, oldId)` swaps the carried gun on Switch Weapon.
+- **Drops** (`PlayDrops.js`): broken blocks hop out as small block meshes (`_heldBlockParts`), collected within `PICKUP_R` after `PICKUP_DELAY_S`.
+- **Clans** rank by members' `totalKills` (career zombie kills, already on the leaderboard doc), falling back to `bestKills` for old docs.
+- **AWP**: the "Soshki" (bipod) node was removed from `awp.glb` with gltf-transform (prune, meshopt kept); `public/images/weapon-thumbs/awp.png` regenerated with `scripts/make-weapon-thumbs.mjs`.

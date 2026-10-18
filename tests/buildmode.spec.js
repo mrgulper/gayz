@@ -805,8 +805,6 @@ test('a Map 1 run starts with the weapon picker and uses the picked gun', async 
   await gotoAndWaitForGame(page)
   await page.evaluate(() => window.__game.playBtn.click())
   await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
-  // The spawn map comes first (2026-10-17): start in the camp.
-  await page.evaluate(() => document.getElementById('spawn-map-camp').click())
   const r = await page.evaluate(() => {
     const g = window.__game
     const s = g.buildMode.survival
@@ -1954,6 +1952,8 @@ test('spawn map, endless world, pyramids, underground cities and the top bar', a
   expect(cityCell(c, c.x + 1, c.floor + 4, c.z + 4)).toBe(null)
 
   await gotoAndWaitForGame(page)
+  // The spawn map is the World Map game mode's (2026-10-18).
+  await page.evaluate(() => { window.__game.settings.selectedGameMode = 'worldMap' })
   await page.evaluate(() => window.__game.playBtn.click())
   await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
   const r = await page.evaluate(() => {
@@ -1994,6 +1994,7 @@ test('countries, landmarks, kill-count waves, fading bodies and fire rules', asy
   expect(['ocean', 'deepOcean', 'frozenOcean', 'warmOcean']).not.toContain(rp.biome)
 
   await gotoAndWaitForGame(page)
+  await page.evaluate(() => { window.__game.settings.selectedGameMode = 'worldMap' })
   await page.evaluate(() => window.__game.playBtn.click())
   await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
   const first = await page.evaluate(() => {
@@ -2089,14 +2090,19 @@ test('inventory, editor block storage, city towns and lost zombies', async ({ pa
     const bm = window.__game.buildMode
     const s = bm.survival
     const inv = s.inv
-    // Starting kit: the picked gun in slot 1, every other gun in the grid.
-    out.kit = [inv.hotbar[0]?.id, inv.grid.filter((it) => it?.kind === 'gun').length]
+    // Starting kit: just the picked gun in slot 1 (no other guns, no health pack).
+    out.kit = [inv.hotbar[0]?.id, inv.grid.filter(Boolean).length + inv.hotbar.filter(Boolean).length]
     // Tab opens the inventory panel with 100 + 10 + 5 slots.
     bm.togglePicker()
     out.panel = [document.querySelectorAll('#play-inventory .inv-grid .inv-slot').length, document.querySelectorAll('#play-inventory .inv-hotbar .inv-slot').length, document.querySelectorAll('#play-inventory .inv-armor .inv-slot').length]
     bm.togglePicker()
-    // A broken block goes in; a held block is placed and the stack drops.
-    s.onBlockMined('oakplanks', 1, 2, 3)
+    // A broken block pops out and is picked up when you're near; a held
+    // block is placed and the stack drops.
+    const pp = bm.tryMode.pos
+    s.onBlockMined('oakplanks', Math.floor(pp.x), Math.floor(pp.y), Math.floor(pp.z))
+    out.dropped = s._drops.list.length === 1
+    for (let i = 0; i < 40; i++) s._drops.update(1 / 20)
+    out.pickedUp = s._drops.list.length === 0
     const slot = inv.hotbar.findIndex((it) => it?.id === 'oakplanks')
     inv.select(slot)
     out.holding = s.holding?.id
@@ -2136,5 +2142,48 @@ test('inventory, editor block storage, city towns and lost zombies', async ({ pa
     out.lost = [s.kills === kills, s._toSpawn === left, !s.zombies.includes(z)]
     return out
   }, first)
-  expect(r).toEqual({ town: true, townPlan: true, kit: ['rifle', 14], panel: [100, 10, 5], holding: 'oakplanks', placed: true, wrongSlot: true, cut: 0.16, restored: 'chestplate', lost: [true, true, true] })
+  expect(r).toEqual({ town: true, townPlan: true, kit: ['rifle', 1], panel: [100, 10, 5], dropped: true, pickedUp: true, holding: 'oakplanks', placed: true, wrongSlot: true, cut: 0.16, restored: 'chestplate', lost: [true, true, true] })
+})
+
+// 2026-10-18 (third batch): World Map is its own game mode - the land
+// follows the real Earth and the map only shows there; Classic starts in
+// the camp with no map; towns aren't square.
+test('World Map mode follows the real Earth; Classic skips the map', async ({ page }) => {
+  const { setEarthWorld, sampleLand } = await import('../src/game/OpenWorld.js')
+  setEarthWorld(true)
+  const sea = (lat, lon) => sampleLand(Math.round(lon * 120), Math.round(-lat * 120)).h < -4
+  // Mid-Atlantic and mid-Pacific are sea; inland Africa, Brazil, Siberia are land.
+  expect([sea(30, -40), sea(0, -150), sea(10, 20), sea(-10, -55), sea(62, 100)]).toEqual([true, true, false, false, false])
+  expect(['desert', 'badlands', 'savanna']).toContain(sampleLand(Math.round(25 * 120), Math.round(-23 * 120)).biome)
+  setEarthWorld(false)
+
+  await gotoAndWaitForGame(page)
+  const classic = await page.evaluate(async () => {
+    const g = window.__game
+    g.settings.selectedGameMode = 'classic'
+    g.playBtn.click()
+    for (let i = 0; i < 300 && !g.buildMode?.survival?.active; i++) await new Promise((r) => setTimeout(r, 200))
+    const out = { map: document.getElementById('spawn-map')?.style.display === 'flex', picker: document.getElementById('play-weapon-pick')?.style.display === 'flex' }
+    g.buildMode.survival._pickWeapon('rifle')
+    g.buildMode.survival.stop()
+    g._exitBuildMode()
+    return out
+  })
+  expect(classic).toEqual({ map: false, picker: true })
+  await page.waitForTimeout(1000)
+  const world = await page.evaluate(async () => {
+    const g = window.__game
+    g.settings.selectedGameMode = 'worldMap'
+    g.playBtn.click()
+    for (let i = 0; i < 300 && !g.buildMode?.survival?.active; i++) await new Promise((r) => setTimeout(r, 200))
+    const s = g.buildMode.survival
+    const out = { map: document.getElementById('spawn-map')?.style.display === 'flex', camp: !!document.getElementById('spawn-map-camp'), mode: s.cfg.mode }
+    s._spawnAt({ lat: 48.85, lon: 2.35, biome: 'forest', country: 'France', city: 'Paris' })
+    const town = g.buildMode.world._landmarks.find((p) => p.kind === 'town')
+    // Not a square: the corners of its box are empty.
+    out.notSquare = !!town && ![...town.top.keys()].some((k) => { const [x, z] = k.split(',').map(Number); return x <= town.x0 + 2 && z <= town.z0 + 2 })
+    s._pickWeapon('rifle')
+    return out
+  })
+  expect(world).toEqual({ map: true, camp: false, mode: 'worldMap', notSquare: true })
 })

@@ -5,8 +5,9 @@
 //   - 5 armor slots on top (helmet, chestplate, leggings, boots, shield):
 //     worn armor takes ARMOR_PER_POINT of every hit per point (capped);
 //   - a 10 x 10 grid, and the 10-slot hotbar under it (keys 1-0 / wheel);
-//   - every gun (the one picked at the start sits in hotbar slot 1 - picking
-//     a gun's slot switches to it, each gun keeps its own ammo);
+//   - your gun: only the one picked at the start, in hotbar slot 1 (2026-10-18,
+//     Gaymi: "only the first gun should be in your inventory, not all guns,
+//     but when you switch it will change") - Switch Weapon swaps it;
 //   - blocks you break (stacks of BLOCK_STACK) - hold one and right-click
 //     to place it; blocks placed in a game go away again when it ends,
 //     like broken ones come back;
@@ -85,16 +86,14 @@ export class PlayInventory {
     return this.s.bm
   }
 
-  // A new game: every gun, the picked one in hotbar slot 1, a health pack.
+  // A new game: just the picked gun, in hotbar slot 1 (no health pack -
+  // those come from chests).
   reset(weaponId) {
     this.grid.fill(null)
     this.hotbar.fill(null)
     this.armor.fill(null)
     this.active = 0
     this.hotbar[0] = { kind: 'gun', id: weaponId, n: 1 }
-    let g = 0
-    for (const id of Object.keys(PLAY_WEAPONS)) if (id !== weaponId) this.grid[g++] = { kind: 'gun', id, n: 1 }
-    this.add({ kind: 'item', id: 'healthpack', n: 1 })
     this.renderHotbar()
   }
 
@@ -151,15 +150,26 @@ export class PlayInventory {
     if (this.bm.tryMode._gun) this.bm.tryMode._gun.visible = !s.holding
   }
 
-  // A gun picked some other way (the weapon picker): moved into the active
-  // hotbar slot, swapping with what was there.
-  bringGun(id) {
+  // A gun picked with Switch Weapon: it takes the old gun's place (you
+  // carry one gun), and goes in your hand.
+  bringGun(id, oldId) {
+    for (const list of [this.hotbar, this.grid]) {
+      const it = list.find((x) => x?.kind === 'gun' && x.id === oldId)
+      if (it) {
+        it.id = id
+        break
+      }
+    }
     for (const [where, list] of [['hotbar', this.hotbar], ['grid', this.grid]]) {
       const i = list.findIndex((it) => it?.kind === 'gun' && it.id === id)
       if (i < 0) continue
       if (!(where === 'hotbar' && i === this.active)) this.moveItem(where, i, 'hotbar', this.active)
+      this.renderHotbar()
+      if (this.open) this.render()
       return
     }
+    // Not carrying a gun at all: it goes in.
+    this.add({ kind: 'gun', id, n: 1 })
   }
 
   // Uses one of the held item (health pack, ammo box). true if used.

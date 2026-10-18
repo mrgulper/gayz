@@ -11,6 +11,7 @@ const MODE_KEYS = {
   bossHunt: 'topBarModeBossHunt',
   zombieRush: 'topBarModeZombieRush',
   zombieExtraction: 'topBarModeZombieExtraction',
+  worldMap: 'topBarModeWorldMap',
 }
 // Coordinates and the mode are refreshed this often (ms), not every frame.
 const REFRESH_MS = 100

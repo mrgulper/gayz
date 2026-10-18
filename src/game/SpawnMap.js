@@ -3,7 +3,8 @@
 // map"). Before a solo game from the homepage (not a saved game being
 // carried on, not a server) a blocky map of Earth opens: each 1-degree cell
 // is the GayZ biome that fits that real place (EarthMapData.js). Click a
-// spot and Spawn Here, or Start in the City Camp as before.
+// spot and Spawn Here, or Spawn Randomly. (World Map mode only - the
+// other modes start in the city camp.)
 //
 // GayZ's land isn't a copy of Earth - it's its own seeded world with the
 // same biomes - so picking a place means "start in land like that": the
@@ -22,12 +23,13 @@
 // Randomly picks a random spot on land.
 import { t } from './i18n.js'
 import { BIOMES, SEA, sampleLand } from './OpenWorld.js'
-import { EARTH_W, EARTH_H, EARTH_BIOMES, EARTH_RLE } from './EarthMapData.js'
+import { EARTH_W, EARTH_BIOMES } from './EarthMapData.js'
+import { earthBiome, earthCells, EARTH_DEG } from './EarthGrid.js'
 import { COUNTRY_W, COUNTRY_H, EARTH_COUNTRIES, COUNTRY_RLE } from './EarthCountries.js'
 import { LANDMARKS } from './Landmarks.js'
 import { CITIES, cityNear } from './Towns.js'
 
-const DEG = 120 // world blocks per degree for the starting guess
+const DEG = EARTH_DEG // world blocks per degree (EarthGrid.js)
 const SEARCH_STEP = 48
 const SEARCH_MAX = 4800
 const CITY_KEEP_OUT = 200 // never "spawn" right next to the city - that's the camp button
@@ -53,19 +55,7 @@ const SIMILAR = {
   plains: ['forest', 'savanna'], beach: ['snowyBeach', 'plains'], snowyBeach: ['beach', 'snowyPlains'], mushroomFields: ['plains'],
 }
 
-let grid = null
-function cells() {
-  if (grid) return grid
-  grid = new Uint8Array(EARTH_W * EARTH_H)
-  let i = 0
-  for (const m of EARTH_RLE.matchAll(/(\d*)([a-z])/g)) {
-    const n = Number(m[1] || 1)
-    const b = m[2].charCodeAt(0) - 97
-    grid.fill(b, i, i + n)
-    i += n
-  }
-  return grid
-}
+const cells = earthCells
 
 let countryGrid = null
 function countryCells() {
@@ -101,11 +91,7 @@ export function randomLandPick(rand = Math.random) {
 }
 
 // The Earth biome at a latitude / longitude.
-export function earthBiome(lat, lon) {
-  const i = Math.min(EARTH_W - 1, Math.max(0, Math.floor(lon + 180)))
-  const j = Math.min(EARTH_H - 1, Math.max(0, Math.floor(90 - lat)))
-  return EARTH_BIOMES[cells()[j * EARTH_W + i]]
-}
+export { earthBiome }
 
 // The nearest world spot (block x, z) of the biome for a map point, or null.
 export function findSpawn(lat, lon, biome) {
@@ -149,7 +135,6 @@ export function openSpawnMap() {
       <div class="spawn-map-frame"><canvas id="spawn-map-canvas" width="${COUNTRY_W}" height="${COUNTRY_H}"></canvas><span id="spawn-map-pin" hidden></span></div>
       <p id="spawn-map-info"></p>
       <div class="spawn-map-buttons">
-        <button type="button" id="spawn-map-camp"></button>
         <button type="button" id="spawn-map-random"></button>
         <button type="button" id="spawn-map-go" disabled></button>
       </div>
@@ -186,7 +171,6 @@ export function openSpawnMap() {
   const set = (id, text) => { el.querySelector(id).textContent = text }
   set('#spawn-map-title', t('spawnMapTitle'))
   set('#spawn-map-hint', t('spawnMapHint'))
-  set('#spawn-map-camp', t('spawnMapCamp'))
   set('#spawn-map-go', t('spawnMapGo'))
   set('#spawn-map-random', t('spawnMapRandom'))
   set('#spawn-map-info', '')
@@ -225,7 +209,6 @@ export function openSpawnMap() {
     const done = (value) => {
       canvas.removeEventListener('pointermove', onMove)
       canvas.removeEventListener('click', onClick)
-      el.querySelector('#spawn-map-camp').onclick = null
       el.querySelector('#spawn-map-random').onclick = null
       go.onclick = null
       el.style.display = 'none'
@@ -234,7 +217,6 @@ export function openSpawnMap() {
     }
     canvas.addEventListener('pointermove', onMove)
     canvas.addEventListener('click', onClick)
-    el.querySelector('#spawn-map-camp').onclick = () => done(null)
     el.querySelector('#spawn-map-random').onclick = () => done(randomLandPick())
     go.onclick = () => { if (picked) done({ lat: picked.lat, lon: picked.lon, biome: picked.biome, country: picked.country, city: picked.city }) }
     // Something else started the game (a test, or a weapon picked some

@@ -26,6 +26,7 @@
 import { t } from './i18n.js'
 import { inCityShape, cityEdgeDistance } from './CityShape.js'
 import { planStructure, planLandmark, planTown, STRUCT_GRID, STRUCTURE_NAMES } from './WorldStructures.js'
+import { EARTH_DEG, earthBiome, earthLandAmount, WATER_BIOMES } from './EarthGrid.js'
 import { Underground, rockAt, setUnderSeed } from './Underground.js'
 
 const CHUNK = 16
@@ -166,9 +167,31 @@ export const inCity = inCityShape
 // The land at one cell: its surface height (the top block's y), biome and
 // the few numbers the surface needs. Pure - the same cell always gives the
 // same answer.
+// The World Map game mode (2026-10-18, Gaymi: "the map should be based on
+// the real world map after they spawn in the world"): the land follows
+// Earth (EarthGrid.js) - sea where Earth has sea, coasts where its coasts
+// are (blended between the 1-degree cells, with noise so they wiggle),
+// and each place's biome from the real spot (a little jitter so biome
+// borders aren't straight lines). Hills, mountains, rivers and beaches
+// still come from the noise below. setEarthWorld(on) switches it.
+let EARTH = false
+export function setEarthWorld(on) {
+  EARTH = !!on
+}
+export function isEarthWorld() {
+  return EARTH
+}
+
 export function sampleLand(x, z) {
   const d = cityDistance(x, z)
   let c = fbm(x, z, 1 / 420, 3, 11)
+  let earthLat = 0
+  let earthLon = 0
+  if (EARTH) {
+    earthLon = x / EARTH_DEG
+    earthLat = -z / EARTH_DEG
+    c = (earthLandAmount(earthLat, earthLon) - 0.5) * 1.3 + fbm(x, z, 1 / 160, 3, 71) * 0.28
+  }
   // Land all around the city for a good way out.
   // (a round area, so the coast never traces the city's square)
   c = lerp(0.3, c, smooth((Math.hypot(x + 0.5, z + 0.5) - 160) / 220))
@@ -209,7 +232,17 @@ export function sampleLand(x, z) {
   const w = smooth((d - 3) / 40)
   h = Math.round(lerp(-1, h, w))
   if (h < SEA) river = river && w > 0.9
-  return { h, c, T, H, m, river, d, biome: pickBiome(x, z, h, c, T, H, m, river, wet) }
+  let biome = pickBiome(x, z, h, c, T, H, m, river, wet)
+  // World Map: the real place's biome, except rivers, beaches and the
+  // high mountains the noise made; the sea's kind from where it is.
+  if (EARTH && biome !== 'river' && biome !== 'beach' && biome !== 'snowyBeach' && !(m > 0.45 && (biome === 'mountains' || biome === 'snowyPeaks'))) {
+    const jit = 0.5
+    const real = earthBiome(earthLat + fbm(x, z, 1 / 90, 2, 73) * jit, earthLon + fbm(x, z, 1 / 90, 2, 79) * jit)
+    if (h < SEA) {
+      if (WATER_BIOMES.has(biome)) biome = Math.abs(earthLat) > 62 ? 'frozenOcean' : Math.abs(earthLat) < 23 ? 'warmOcean' : c < -0.45 ? 'deepOcean' : 'ocean'
+    } else if (!WATER_BIOMES.has(real)) biome = real
+  }
+  return { h, c, T, H, m, river, d, biome }
 }
 
 function pickBiome(x, z, h, c, T, H, m, river, wet) {
@@ -362,6 +395,13 @@ export class OpenWorld {
 
   // A new game on the same city: all the land goes and grows back from
   // another seed (the city and its saved edits stay).
+  // World Map mode on/off (setEarthWorld): everything grown so far goes.
+  setEarth(on) {
+    if (isEarthWorld() === !!on) return
+    setEarthWorld(on)
+    if (this.active) this.reseed()
+  }
+
   reseed(seed = randomSeed()) {
     if (!this.active) return
     this._dropAll()
