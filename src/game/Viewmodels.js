@@ -67,6 +67,70 @@ const MODEL_CACHE = {}
 // too (flat values instead), so each gun is cheaper to draw.
 const GUN_TEX_SIZE = 128
 const GUN_COLORS = 8
+// Worn and scratched (2026-10-18, Gaymi: "make all gun default skins have a
+// old texture ... for all themes"): every gun's colour picture gets faded
+// paint, bare-metal scuffs where colours meet, short light scratches, dark
+// grime patches and a few rust specks - drawn after cleanPixels so the
+// marks stay crisp. Same seed -> same marks on every load.
+// Drawn at WEAR_SIZE (twice the colour picture), so a scratch is a thin
+// line even where one texel covers a big flat part of the gun - at 128px
+// they showed as big white blotches up close.
+const WEAR_SIZE = 256
+const WEAR = { fade: 0.18, lift: 14, edge: 0.3, edgeLift: 24, scratches: 110, scratchLift: 30, grime: 30, grimeDark: 0.8, rust: 40, rustMix: 0.55 }
+const RUST = [128, 66, 30]
+function wearPixels(canvas, seed) {
+  const W = canvas.width
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  const img = ctx.getImageData(0, 0, W, W)
+  const d = img.data
+  let r = seed * 9301 + 49297
+  const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280)
+  const solid = (x, y) => x >= 0 && y >= 0 && x < W && y < W && d[(y * W + x) * 4 + 3] >= 128
+  const tint = (x, y, f) => {
+    if (!solid(x, y)) return
+    const i = (y * W + x) * 4
+    for (let k = 0; k < 3; k++) d[i + k] = Math.max(0, Math.min(255, f(d[i + k], k)))
+  }
+  const src = new Uint8ClampedArray(d)
+  for (let y = 0; y < W; y++) {
+    for (let x = 0; x < W; x++) {
+      if (!solid(x, y)) continue
+      const i = (y * W + x) * 4
+      const g = (src[i] + src[i + 1] + src[i + 2]) / 3
+      // Faded paint: a little greyer, darkest parts lifted.
+      for (let k = 0; k < 3; k++) d[i + k] = src[i + k] + (g - src[i + k]) * WEAR.fade + WEAR.lift * (1 - src[i + k] / 255)
+      // Scuffed edges: where the colour changes, some pixels show bare metal.
+      const j = (y * W + Math.min(W - 1, x + 1)) * 4
+      const edge = Math.abs(src[i] - src[j]) + Math.abs(src[i + 1] - src[j + 1]) + Math.abs(src[i + 2] - src[j + 2]) > 60
+      if (edge && rnd() < WEAR.edge) for (let k = 0; k < 3; k++) d[i + k] += WEAR.edgeLift
+    }
+  }
+  for (let n = 0; n < WEAR.grime; n++) {
+    const cx = rnd() * W
+    const cy = rnd() * W
+    const rad = 2 + rnd() * 6
+    for (let y = Math.floor(cy - rad); y <= cy + rad; y++) {
+      for (let x = Math.floor(cx - rad); x <= cx + rad; x++) {
+        if (Math.hypot(x - cx, y - cy) < rad * (0.6 + rnd() * 0.4)) tint(x, y, (v) => v * WEAR.grimeDark)
+      }
+    }
+  }
+  for (let n = 0; n < WEAR.scratches; n++) {
+    let x = rnd() * W
+    let y = rnd() * W
+    const a = rnd() * Math.PI
+    const len = 4 + rnd() * 12
+    for (let s = 0; s < len; s++, x += Math.cos(a), y += Math.sin(a)) tint(Math.floor(x), Math.floor(y), (v) => v + WEAR.scratchLift)
+  }
+  for (let n = 0; n < WEAR.rust; n++) {
+    const x = Math.floor(rnd() * W)
+    const y = Math.floor(rnd() * W)
+    const size = 1 + Math.floor(rnd() * 2)
+    for (let dy = 0; dy < size; dy++) for (let dx = 0; dx < size; dx++) tint(x + dx, y + dy, (v, k) => v + (RUST[k] - v) * WEAR.rustMix)
+  }
+  ctx.putImageData(img, 0, 0)
+}
+
 function simplifyMaterials(scene) {
   const done = new Map()
   const textures = new Map()
@@ -98,7 +162,13 @@ function simplifyMaterials(scene) {
     }
     ctx.putImageData(img, 0, 0)
     cleanPixels(c, GUN_COLORS)
-    const next = new THREE.CanvasTexture(c)
+    const worn = document.createElement('canvas')
+    worn.width = worn.height = WEAR_SIZE
+    const wctx = worn.getContext('2d', { willReadFrequently: true })
+    wctx.imageSmoothingEnabled = false
+    wctx.drawImage(c, 0, 0, WEAR_SIZE, WEAR_SIZE)
+    wearPixels(worn, textures.size + 1)
+    const next = new THREE.CanvasTexture(worn)
     for (const k of ['flipY', 'wrapS', 'wrapT', 'channel']) next[k] = tex[k]
     next.offset.copy(tex.offset)
     next.repeat.copy(tex.repeat)

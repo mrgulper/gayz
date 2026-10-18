@@ -12,6 +12,7 @@ import { Game, CRATES_COMING_SOON, CRATE_ICON_SVG, CRATE_TIERS, CRATE_TIER_COLOR
 import { InspectViewer } from './InspectViewer.js'
 import { MenuAvatar3D, SHOP_SKIN_PREVIEW_DATA_URL, buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { cloneViewmodel } from './Viewmodels.js'
+import { COMING_SOON_WEAPONS } from './PlayWeapons.js'
 import { t } from './i18n.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
@@ -803,8 +804,11 @@ export function _renderInventoryWeapons(game, { draw = false } = {}) {
     const picture = thumbs[w.id]
       ? `<img class="inv-weapon-card-img" alt="" draggable="false" src="${thumbs[w.id]}" />`
       : icon ? `<svg class="inv-weapon-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>` : ''
-    return `<div class="inv-skin-card inv-weapon-card" data-weapon-card="${w.id}" style="--rarity: ${rarity.color}" title="${_escapeHtml(`${name} - ${t('skinDefault')}`)}">`
+    // Coming Soon guns: greyed out, tagged, and no menu on click.
+    const soon = COMING_SOON_WEAPONS.has(w.id)
+    return `<div class="inv-skin-card inv-weapon-card${soon ? ' inv-weapon-soon' : ''}" ${soon ? 'aria-disabled="true"' : `data-weapon-card="${w.id}"`} style="--rarity: ${rarity.color}" title="${_escapeHtml(`${name} - ${soon ? t('crateComingSoonTag') : t('skinDefault')}`)}">`
       + `<span class="inv-skin-card-name">${_escapeHtml(name)}</span>`
+      + (soon ? `<span class="weapon-soon-tag">${_escapeHtml(t('crateComingSoonTag'))}</span>` : '')
       + picture
       + `<span class="inv-weapon-card-skin">${_escapeHtml(t('skinDefault'))}</span>`
       + '<span class="inv-skin-card-count">1</span>'

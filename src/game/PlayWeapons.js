@@ -43,6 +43,13 @@ export const PLAY_WEAPONS = {
 // Play, which has no picker).
 export const DEFAULT_PLAY_WEAPON = 'rifle'
 
+// Guns shown as Coming Soon (2026-10-18, Gaymi: "make crossbow, grenade
+// lancher, minigun, mp5-sd and revoler as coming soon"): greyed out with a
+// Coming Soon tag in the weapon picker and Inventory > Weapons, and can't
+// be picked, switched to or brought back by a saved game.
+export const COMING_SOON_WEAPONS = new Set(['crossbow', 'launcher', 'minigun', 'suppressedsmg', 'revolver'])
+export const canPlayWeapon = (id) => !!PLAY_WEAPONS[id] && !COMING_SOON_WEAPONS.has(id)
+
 // Ammo pickups (chests, the Trader's ammo box) are written for the rifle's
 // 150 spare rounds; other guns get the same share of their own reserve.
 export function ammoFor(weaponId, rifleAmount) {

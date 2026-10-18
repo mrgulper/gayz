@@ -17,7 +17,7 @@
 // mouse or a finger, Shift-click moves an item between the hotbar and the
 // grid. Saved with the game (serialize / restore).
 import { t } from './i18n.js'
-import { PLAY_WEAPONS } from './PlayWeapons.js'
+import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, canPlayWeapon } from './PlayWeapons.js'
 
 export const GRID_SIZE = 100
 export const HOTBAR_SIZE = 10
@@ -240,7 +240,7 @@ export class PlayInventory {
       if (!Array.isArray(v)) return null
       const [kind, id, n] = v
       const count = Math.max(1, Math.min(BLOCK_STACK, Math.floor(Number(n) || 1)))
-      if (kind === 'gun' && PLAY_WEAPONS[id]) return { kind, id, n: 1 }
+      if (kind === 'gun' && PLAY_WEAPONS[id]) return { kind, id: canPlayWeapon(id) ? id : DEFAULT_PLAY_WEAPON, n: 1 }
       if (kind === 'item' && ITEMS[id]) return { kind, id, n: Math.min(count, stackOf({ kind, id })) }
       if (kind === 'block' && typeof id === 'string' && /^[a-z0-9]{1,40}$/.test(id) && this.bm.isBlockType(id)) return { kind, id, n: count }
       return null

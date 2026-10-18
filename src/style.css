@@ -6480,6 +6480,15 @@ html.ui-theme-old #settings-btn {
   height: 25.65px;
   flex-shrink: 0;
 }
+/* Brighter, more colourful currencies (2026-10-18, Gaymi: "make the
+   currency more colourful more brighter and more realistic"): each amount
+   in its own currency's colour, and the icons get a soft glow. */
+#menu-currency-bar .currency-icon { filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.18)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6)); }
+#menu-currency-bar .currency-item span { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75); }
+#currency-coins-amount { color: #ffd84a; }
+#currency-points-amount { color: #7cc8ff; }
+#currency-cash-amount { color: #5be07f; }
+#currency-gems-amount { color: #ff5c7a; }
 
 /* ---- Right column: player badge + nav + boards ---- */
 /* Gold plate frame wraps the WHOLE badge (photo + #ID text below it),
@@ -10105,6 +10114,30 @@ html.ui-theme-old .inv-skin-card-count {
   background: radial-gradient(ellipse at 50% 55%, rgba(201, 162, 74, 0.22), rgba(22, 17, 10, 0.85) 70%);
 }
 .inv-weapon-card:hover { transform: none; }
+/* Coming Soon guns (COMING_SOON_WEAPONS) - here and in the weapon picker. */
+.weapon-soon-tag {
+  position: absolute;
+  /* At the bottom, where the card's "Default" label / stat bars go - at
+     the top it covered long names. */
+  bottom: 7px;
+  left: 8px;
+  padding: 3px 7px;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #0c0a10;
+  background: #e3c23c;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+html.ui-theme-old .weapon-soon-tag { background: #b8843a; color: #f3e3c2; }
+.inv-weapon-soon .inv-weapon-card-img,
+.inv-weapon-soon .inv-weapon-card-icon { filter: grayscale(1); opacity: 0.45; }
+.inv-weapon-soon .inv-skin-card-name { opacity: 0.6; }
+.inv-weapon-soon .inv-weapon-card-skin,
+.inv-weapon-soon .inv-skin-card-count { display: none; }
 .inv-weapon-card-img,
 .inv-weapon-card-icon {
   position: absolute;
@@ -10558,6 +10591,9 @@ html.ui-theme-old #inspect-hint {
   height: 70vmin;
   opacity: 0.85;
 }
+/* The World Map mode's real-world atlas (EarthAtlas.js) is solid. */
+#build-try-map[data-size='center'].atlas { opacity: 1; }
+#build-try-map.atlas canvas { image-rendering: auto; }
 
 /* Try Map: head under water (bloxd.io-style blue) or lava. */
 #build-try-underwater {
@@ -11104,6 +11140,10 @@ body.touch-play-on #build-play-wave { top: 32px; left: 4px; font-size: 13px; pad
 #play-weapon-pick .pwp-weapon:hover { border-color: #e8c25a; transform: translateY(-2px); }
 #play-weapon-pick .pwp-weapon.active { border-color: #e8c25a; box-shadow: 0 0 0 1px #e8c25a inset, 0 0 14px rgba(232, 194, 90, 0.25); }
 #play-weapon-pick .pwp-name { font-weight: 700; font-size: 14px; }
+#play-weapon-pick .pwp-soon { position: relative; cursor: not-allowed; }
+#play-weapon-pick .pwp-soon .weapon-soon-tag { left: 50%; bottom: 18px; transform: translateX(-50%); }
+#play-weapon-pick .pwp-soon:hover { border-color: rgba(232, 194, 90, 0.25); transform: none; }
+#play-weapon-pick .pwp-soon img, #play-weapon-pick .pwp-soon .pwp-name { filter: grayscale(1); opacity: 0.45; }
 #play-weapon-pick img, #play-weapon-pick .pwp-noimg { width: 100%; aspect-ratio: 240 / 140; object-fit: contain; }
 #play-weapon-pick .pwp-bar { display: flex; align-items: center; gap: 6px; font-size: 10px; opacity: 0.85; }
 #play-weapon-pick .pwp-bar-label { flex: 0 0 52px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

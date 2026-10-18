@@ -811,12 +811,16 @@ test('a Map 1 run starts with the weapon picker and uses the picked gun', async 
     const pick = document.getElementById('play-weapon-pick')
     const out = {
       pickerShown: getComputedStyle(pick).display !== 'none',
+      // Coming Soon guns (COMING_SOON_WEAPONS) are shown but can't be picked.
       cards: pick.querySelectorAll('[data-play-weapon]').length,
+      soon: pick.querySelectorAll('.pwp-soon[disabled]').length,
       waitsForPick: s._picking === true,
     }
     // Nothing spawns while the picker is open.
     s.update(0.5)
     out.spawnedWhilePicking = s.zombies.length + s._toSpawn
+    s._pickWeapon('minigun')
+    out.soonRefused = s._picking === true
     pick.querySelector('[data-play-weapon="shotgun"]').click()
     out.pickerHidden = getComputedStyle(pick).display === 'none'
     out.weapon = s.weaponId
@@ -841,7 +845,7 @@ test('a Map 1 run starts with the weapon picker and uses the picked gun', async 
     s.zombies = s.zombies.filter((z) => z !== fake)
     return out
   })
-  expect(r).toEqual({ pickerShown: true, cards: 15, waitsForPick: true, spawnedWhilePicking: 0, pickerHidden: true, weapon: 'shotgun', ammo: [6, 42], gun: 'shotgun', saved: 'shotgun', shots: [true, false], damaged: true })
+  expect(r).toEqual({ pickerShown: true, cards: 10, soon: 5, waitsForPick: true, spawnedWhilePicking: 0, soonRefused: true, pickerHidden: true, weapon: 'shotgun', ammo: [6, 42], gun: 'shotgun', saved: 'shotgun', shots: [true, false], damaged: true })
 })
 
 test('View Distance hides far chunks and zombies are drawn in one batch', async ({ page }) => {
@@ -1969,6 +1973,17 @@ test('spawn map, endless world, pyramids, underground cities and the top bar', a
     // Choosing the weapon closes the map (as the camp if nothing was picked).
     s._pickWeapon('rifle')
     out.mapClosed = getComputedStyle(map).display === 'none' && !s._picking
+    // M twice: the big map is the real-world atlas (EarthAtlas.js), named
+    // after the country you're in; zoomed right in it's blocks again.
+    const tm = bm.tryMode
+    tm.cycleMap()
+    tm.cycleMap()
+    tm._drawMap(performance.now() + 1000)
+    const atlas = tm._mapEl.classList.contains('atlas')
+    for (let i = 0; i < 20; i++) tm.zoomMap(0.7)
+    tm._drawMap(performance.now() + 2000)
+    out.atlas = [atlas, !tm._mapEl.classList.contains('atlas')]
+    tm.cycleMap()
     // A pyramid somewhere in the deserts.
     let pyramid = null
     for (let gx = -60; gx < 60 && !pyramid; gx++) for (let gz = -60; gz < 60 && !pyramid; gz++) {
@@ -1980,7 +1995,7 @@ test('spawn map, endless world, pyramids, underground cities and the top bar', a
     out.credits = !document.getElementById('credits-weapons-list') && !document.querySelector('.credits-tab')
     return out
   })
-  expect(r).toEqual({ mapFirst: ['flex', true], spawned: true, standsOnLand: true, mapClosed: true, pyramid: true, topBar: true, credits: true })
+  expect(r).toEqual({ mapFirst: ['flex', true], spawned: true, standsOnLand: true, mapClosed: true, atlas: [true, true], pyramid: true, topBar: true, credits: true })
 })
 
 // 2026-10-18: countries and landmarks on the spawn map, Spawn Randomly,
