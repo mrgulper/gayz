@@ -16,7 +16,9 @@ export const MOB_HEIGHT = 2
 export const PLAY_MUTATORS = ['hordeRush', 'lootRush', 'healthRegen', 'glassHouse', 'ironMode', 'escalation', 'bossRush']
 
 // Game Modes with a block-city version.
-export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction']
+// worldMap (2026-10-18): pick a real place on Earth and survive in land
+// shaped like the real world (SpawnMap.js, OpenWorld's Earth mode).
+export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'worldMap']
 
 // Zombie Defense: hold out this many waves to win.
 export const DEFENSE_WAVES = 10

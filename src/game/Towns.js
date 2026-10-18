@@ -93,8 +93,23 @@ function prng(seed) {
 
 const mod = (a, n) => ((a % n) + n) % n
 
+// Not a square (2026-10-18, Gaymi: "don't make it a square shape"): the
+// town's edge wanders in and out around the middle - a few smooth bumps
+// per town, from its seed - so streets and buildings stop at an uneven
+// line, and some lots are left as small green squares.
+function outline(seed) {
+  const r = prng(seed ^ 0x51ed)
+  const waves = [1, 2, 3, 5].map((k) => ({ k, a: r() * 0.16 / Math.sqrt(k), p: r() * Math.PI * 2 }))
+  return (dx, dz) => {
+    const ang = Math.atan2(dz, dx)
+    let f = 0.78
+    for (const w of waves) f += w.a * Math.sin(ang * w.k + w.p)
+    return Math.hypot(dx, dz) <= TOWN_R * f
+  }
+}
+
 // The road and pavement at ground level, following the land.
-function streets(b, H, cx, cz, plazaR, roadType, walkType) {
+function streets(b, H, cx, cz, plazaR, roadType, walkType, inside) {
   for (let x = cx - TOWN_R; x <= cx + TOWN_R; x++) {
     for (let z = cz - TOWN_R; z <= cz + TOWN_R; z++) {
       const lx = mod(x - cx + 2, BLOCK)
@@ -102,6 +117,7 @@ function streets(b, H, cx, cz, plazaR, roadType, walkType) {
       const inPlaza = Math.max(Math.abs(x - cx), Math.abs(z - cz)) <= plazaR
       const road = lx < STREET || lz < STREET
       if (!road && !inPlaza) continue
+      if (!inPlaza && !inside(x - cx, z - cz)) continue
       const h = H(x, z).h
       if (h < -3) continue // not paving the sea
       const edge = (lx === 0 || lx === STREET - 1 || lz === 0 || lz === STREET - 1) && !inPlaza
@@ -145,6 +161,19 @@ function building(b, H, earthAt, { x0, x1, z0, z1, floors, wall, trim, glass, ro
   } else {
     for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) b.set(x, top + 1, z, roof)
     if (rand() < 0.4) for (let y = top + 2; y < top + 2 + Math.floor(rand() * 6); y++) b.set(Math.floor((x0 + x1) / 2), y, Math.floor((z0 + z1) / 2), 'iron')
+  }
+}
+
+function park(b, H, x0, z0, x1, z1, rand) {
+  for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) b.set(x, H(x, z).h, z, 'grass')
+  for (let k = 0; k < 2; k++) {
+    const tx = x0 + 3 + Math.floor(rand() * (x1 - x0 - 6))
+    const tz = z0 + 3 + Math.floor(rand() * (z1 - z0 - 6))
+    const g = H(tx, tz).h
+    for (let y = g + 1; y <= g + 4; y++) b.set(tx, y, tz, 'oaklog')
+    for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) for (let dy = 3; dy <= 5; dy++) {
+      if (Math.abs(dx) + Math.abs(dz) + Math.abs(dy - 4) <= 3 && !(dx === 0 && dz === 0 && dy <= 4)) b.set(tx + dx, g + dy, tz + dz, 'leaves')
+    }
   }
 }
 
@@ -195,7 +224,8 @@ export function buildTown(b, { H, cx, cz, style, plazaR, seed, earthAt }) {
   const make = STYLE[style] || STYLE.european
   const rand = prng(seed)
   const [road, walk] = ROADS[style] || ROADS.european
-  streets(b, H, cx, cz, plazaR, road, walk)
+  const inside = outline(seed)
+  streets(b, H, cx, cz, plazaR, road, walk, inside)
   // Lots between the streets: one or two buildings each.
   // Streets run where (x - cx + 2) mod BLOCK < STREET, so a 5-wide avenue
   // goes straight through the middle; each lot is the 17 x 17 between.
@@ -207,8 +237,14 @@ export function buildTown(b, { H, cx, cz, style, plazaR, seed, earthAt }) {
       const x1 = x0 + BLOCK - STREET - 1
       const z1 = z0 + BLOCK - STREET - 1
       if (x0 < cx - TOWN_R || z0 < cz - TOWN_R || x1 > cx + TOWN_R || z1 > cz + TOWN_R) continue
-      // Keep the plaza clear.
+      // Keep the plaza clear; lots past the town's edge stay land, and now
+      // and then one is a little park (grass with a tree or two).
       if (x0 <= cx + plazaR + 1 && x1 >= cx - plazaR - 1 && z0 <= cz + plazaR + 1 && z1 >= cz - plazaR - 1) continue
+      if (!inside((x0 + x1) / 2 - cx, (z0 + z1) / 2 - cz)) continue
+      if (rand() < 0.12) {
+        park(b, H, x0, z0, x1, z1, rand)
+        continue
+      }
       const split = rand() < 0.5
       const parts = split ? [[x0, x0 + 7], [x0 + 9, x1]] : [[x0, x1]]
       for (const [a, c] of parts) {

@@ -1048,7 +1048,10 @@ export async function fetchClanCombinedStats(clanId) {
   let totalBestWave = 0
   for (const d of snap.docs) {
     const data = d.data()
-    totalKills += Number(data.bestKills) || 0
+    // Every zombie each member has killed (2026-10-18, Gaymi: "for the clan
+    // change it to zombie kills") - it was their best single run before.
+    // Docs from before totalKills was synced fall back to the old number.
+    totalKills += Number(data.totalKills ?? data.bestKills) || 0
     totalBestWave += Number(data.bestNight) || 0
   }
   return { memberCount: snap.size, totalKills, totalBestWave }

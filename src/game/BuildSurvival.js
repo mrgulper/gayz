@@ -28,6 +28,7 @@ import { openSpawnMap, closeSpawnMap, findSpawn } from './SpawnMap.js'
 import { LANDMARKS, LANDMARK_REACH } from './Landmarks.js'
 import { CITIES, TOWN_R } from './Towns.js'
 import { PlayInventory, ITEMS, ARMOR_SLOTS } from './PlayInventory.js'
+import { PlayDrops } from './PlayDrops.js'
 import { worldSeed } from './OpenWorld.js'
 import { BOTTOM } from './Underground.js'
 import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MOB_HEIGHT } from './PlayRules.js'
@@ -266,6 +267,8 @@ export class BuildSurvival {
     this._invRestored = false
     this.holding = null
     this._placed = new Map()
+    if (!this._drops) this._drops = new PlayDrops(this)
+    this._drops.clear()
     // Day and night, and the weather, in games from the homepage.
     if (fromMenu) bm.sky?.forGame(true)
     this._nextShotAt = 0
@@ -299,9 +302,13 @@ export class BuildSurvival {
     const resume = savedRun && savedRun.mode === String(this.cfg.mode || '') && savedRun.difficulty === String(this.cfg.difficulty || 'normal') ? savedRun : null
     if (savedRun && !resume) BuildSurvival.clearSavedRun()
     if (resume) this._resumeRun(resume)
-    // A fresh solo game from the homepage: pick where on Earth to start
-    // first (SpawnMap.js), then the weapon.
-    else if (fromMenu && !net && bm.world?.active) this._chooseSpawn()
+    // World Map mode (a solo game from the homepage): the land follows the
+    // real Earth, and you pick where on it to start first (SpawnMap.js),
+    // then the weapon. The other modes start in the city camp as before.
+    else if (this.cfg.mode === 'worldMap' && fromMenu && !net && bm.world?.active) {
+      bm.world.setEarth(true)
+      this._chooseSpawn()
+    }
     else if (fromMenu) this._openWeaponPicker()
     else this._message(t('buildPlayGetReady'))
     zombieSkin().then((skin) => { this._skin = skin; this._warmShaders() }).catch(() => { this._skin = null })
@@ -362,8 +369,10 @@ export class BuildSurvival {
       this._placed.clear()
     }
     this.inv?.show(false)
+    this._drops?.clear()
     this.holding = null
     this.bm.sky?.forGame(false)
+    this.bm.world?.setEarth?.(false)
     this._disposeZombieBatch()
     if (this._hud) this._hud.style.display = 'none'
     if (this._overEl) this._overEl.style.display = 'none'
@@ -450,7 +459,7 @@ export class BuildSurvival {
     let town = null
     if (city) {
       const cx = spot.x
-      const cz = spot.z - 40
+      const cz = spot.z - 30
       const reach = lm ? LANDMARK_REACH[lm.kind] : 0
       const inside = lm && reach <= 20
       if (lm && bm.world.addLandmark(lm.kind, cx, inside ? cz : cz - TOWN_R - reach - 8, lm.key)) landmark = t(lm.key)
@@ -535,6 +544,7 @@ export class BuildSurvival {
     if (!PLAY_WEAPONS[id] || !this.active) return
     if (this._spawnPicking) closeSpawnMap()
     const switching = this._switching
+    const oldId = this.weaponId
     if (switching) this._ammoByWeapon[this.weaponId] = { mag: this.mag, reserve: this.reserve }
     this.weaponId = id
     this.bm.game?._setPlayWeapon?.(id)
@@ -547,7 +557,7 @@ export class BuildSurvival {
     this._closeWeaponPicker()
     // The inventory: a new game's starting kit, or this gun into the hand.
     if (!switching && !this._invRestored) this.inv?.reset(id)
-    else if (!this._fromInventory) this.inv?.bringGun(id)
+    else if (!this._fromInventory) this.inv?.bringGun(id, oldId)
     this.holding = null
     this.bm.tryMode._showGun()
     if (this.bm.tryMode._gun) this.bm.tryMode._gun.visible = true
@@ -1160,7 +1170,8 @@ export class BuildSurvival {
     const key = bm._key(x, y, z)
     if (this._placed?.delete(key)) bm.tryMode._broken?.delete(key)
     if (bm._isWindowType(type) || /door|lootchest|zombiespawner|playerstart|invisible/.test(type)) return
-    if (this.inv.add({ kind: 'block', id: type, n: 1 }) > 0) this._message(t('invFull'))
+    // It pops out as a little block you pick up by walking near (PlayDrops).
+    if (!this._drops.spawn(type, x, y, z) && this.inv.add({ kind: 'block', id: type, n: 1 }) > 0) this._message(t('invFull'))
   }
 
   // Right-click while holding a block: put it where you're looking.
@@ -1966,6 +1977,7 @@ export class BuildSurvival {
     dt = Math.min(dt, 1 / 20)
     const playing = !this.dead && !this.bm.menuOpen && !this._picking
     if (playing) this._updateMe(dt)
+    if (playing) this._drops?.update(dt)
     if (!this.bm.menuOpen) this._updateFires(dt)
     if (net && !net.isHost) {
       this._updateMirroredZombies(dt)
