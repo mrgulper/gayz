@@ -808,6 +808,21 @@ export class BuildTryMode {
     const bob = moving ? Math.sin(this._bob) * 0.015 : 0
     this._eye = THREE.MathUtils.damp(this._eye, crouch ? CROUCH_EYE : EYE, 18, dt)
     cam.position.set(p.x * B, (p.y + this._eye + bob) * B, p.z * B)
+    this.updateHands(dt, keys, moving, sprint)
+    // Pressure plates under you (and under zombies while playing).
+    const play = this.bm.survival
+    this.bm.gadgets.updatePlates([[Math.floor(p.x), Math.floor(p.y + 0.01), Math.floor(p.z)], ...(play?.active ? play.zombieCells() : [])], dt)
+    this._drawMap(performance.now())
+    this._setUnderwater(this._liquidAtEye(p))
+  }
+
+  // Everything after moving: zoom, the gun (aim, recoil, inspect), digging,
+  // shards and the body. Spectating (PlaySpectate.js) runs it too, so the
+  // gun, aiming and breaking blocks work while flying (2026-10-18, Gaymi:
+  // "every feature that works regularly in game should work in spectating").
+  updateHands(dt, keys, moving = false, sprint = false) {
+    dt = Math.min(dt, 1 / 30)
+    const cam = this.bm.camera
     if (this._baseFov !== null) {
       const zoom = keys?.has(FIXED_KEYS.buildZoom)
       const target = zoom ? PLAY_ZOOM_FOV : this._baseFov + (sprint && !this.aiming ? SPRINT_FOV : 0) - AIM_ZOOM * this.aimAmount
@@ -839,11 +854,6 @@ export class BuildTryMode {
     }
     this._updateShards(dt)
     this._updateBody(dt)
-    // Pressure plates under you (and under zombies while playing).
-    const play = this.bm.survival
-    this.bm.gadgets.updatePlates([[Math.floor(p.x), Math.floor(p.y + 0.01), Math.floor(p.z)], ...(play?.active ? play.zombieCells() : [])], dt)
-    this._drawMap(performance.now())
-    this._setUnderwater(this._liquidAtEye(p))
   }
 
   // Which liquid (if any) the eyes are in - below a flowing cell's surface,

@@ -106,3 +106,9 @@ Moved out of CLAUDE.md on 2026-10-16 (word for word) so it is only read when nee
 - **Drops** (`PlayDrops.js`): broken blocks hop out as small block meshes (`_heldBlockParts`), collected within `PICKUP_R` after `PICKUP_DELAY_S`.
 - **Clans** rank by members' `totalKills` (career zombie kills, already on the leaderboard doc), falling back to `bestKills` for old docs.
 - **AWP**: the "Soshki" (bipod) node was removed from `awp.glb` with gltf-transform (prune, meshopt kept); `public/images/weapon-thumbs/awp.png` regenerated with `scripts/make-weapon-thumbs.mjs`.
+
+## Spectate parity, bedrock floor, thrown melee (2026-10-18)
+
+- Spectating (PlaySpectate.js): zombies and the server use `BuildSurvival.bodyPos()` - the spot you flew off from (`spectate._savedPos`), never the camera. Game keys (reload, Use, inspect, map) go through BuildMode's spectate branch of `_onKeyDown`; `BuildTryMode.updateHands()` (zoom, gun, aim, digging, shards, body) is split out of `update()` so spectate runs it too, plus the minimap, plates under zombies and the underwater look. Clicks shoot unless there are players to watch (then left-click cycles).
+- The camera can't go below `BOTTOM + 0.4`; a 1024-block bedrock picture (`spectate-bedrock-floor`, one plane following the camera, snapped to whole blocks) sits at `BOTTOM` while spectating - the rock stays implicit.
+- PlayThrow.js: Knife/Tomahawk with `tryMode.aiming` throw instead of swinging (`shoot()` hands off). Spinning viewmodel clone, gravity, ray-vs-zombie-box per frame, sticks in blocks for STUCK_S; hand empty until THROW_BACK_S. Hits go through `BuildSurvival.hitZombieWith` (same server/crosshair path as shots).

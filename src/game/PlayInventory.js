@@ -363,7 +363,10 @@ export class PlayInventory {
     ghost.className = 'inv-ghost'
     ghost.innerHTML = `<img src="${this._icon(it)}" alt="">`
     document.body.appendChild(ghost)
-    this._drag = { where: slot.dataset.where, i, ghost }
+    // Only one picture while it moves: the slot it left shows empty
+    // (2026-10-18, Gaymi: "there should only be 1 image of the gun").
+    slot.classList.add('dragging')
+    this._drag = { where: slot.dataset.where, i, ghost, slot }
     this._place(e)
   }
 
@@ -396,6 +399,7 @@ export class PlayInventory {
 
   _endDrag() {
     this._drag?.ghost.remove()
+    this._drag?.slot?.classList.remove('dragging')
     this._drag = null
   }
 
