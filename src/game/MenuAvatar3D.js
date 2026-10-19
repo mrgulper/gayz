@@ -574,7 +574,14 @@ export class MenuAvatar3D {
   // guarantees the full character stays in frame no matter how extreme
   // the box's aspect ratio gets.
   _resize() {
-    const width = this.canvas.clientWidth || this.canvas.parentElement?.clientWidth || 112
+    // Hidden (a closed panel measures 0): keep the last real size. Falling
+    // back to 112x112 here made Inventory's character draw squashed for
+    // a moment each time it opened again (2026-10-19, "the character
+    // changes size or something").
+    const measured = this.canvas.clientWidth || this.canvas.parentElement?.clientWidth
+    if (!measured && this._sized) return
+    if (measured) this._sized = true
+    const width = measured || 112
     const height = this.canvas.clientHeight || this.canvas.parentElement?.clientHeight || width
     this.renderer.setSize(width, height, false)
     const aspect = width / height

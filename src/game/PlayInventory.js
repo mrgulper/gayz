@@ -22,8 +22,10 @@ import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, canPlayWeapon } from './PlayWeapons.
 export const GRID_SIZE = 100
 export const HOTBAR_SIZE = 10
 export const ARMOR_SLOTS = ['helmet', 'chestplate', 'leggings', 'boots', 'shield']
-const BLOCK_STACK = 64
-const ITEM_STACK = 8
+// Blocks and items stack up to 999 a slot (2026-10-19, Gaymi: "the hotbar
+// max at 999 not just 8"); guns and armour stay one each.
+const BLOCK_STACK = 999
+const ITEM_STACK = 999
 const ARMOR_PER_POINT = 0.04
 const MAX_ARMOR_CUT = 0.6
 

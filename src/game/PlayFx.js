@@ -122,7 +122,7 @@ export class PlayFx {
   // (block units) over `life` seconds while it fades out.
   // kind 'flame' is a flickering tongue of fire tinted by FLAME_RAMP; it
   // rises by `rise` blocks a second and wobbles sideways.
-  _emit(kind, x, y, z, { life, from, to, alpha = 1, vel = null, delay = 0, rise = 0, drag = 2.2, stretch = 1.35 }) {
+  _emit(kind, x, y, z, { life, from, to, alpha = 1, vel = null, delay = 0, rise = 0, drag = 2.2, stretch = 1.35, wobble = 14 }) {
     const s = this._sprites[this._next]
     this._next = (this._next + 1) % POOL
     const d = s.userData
@@ -131,6 +131,7 @@ export class PlayFx {
     d.flame = kind === 'flame'
     d.rise = rise * this.B
     d.wob = Math.random() * 10
+    d.wobble = wobble
     d.drag = drag
     d.stretch = stretch
     s.material.map = d.flame ? tex.flames[Math.floor(Math.random() * tex.flames.length)] : tex[kind]
@@ -222,22 +223,25 @@ export class PlayFx {
 
   // A burning block (block coordinates, its lowest corner). `k` 0-1 is how
   // far it has burnt - the flames grow, then die down at the end.
+  // Calm flames (2026-10-19, Gaymi: "the animation for the fire is going too
+  // fast"): each tongue lives about twice as long, rises and flickers at
+  // under half the speed, and half as many start, so it isn't busier.
   burnBlock(x, y, z, k = 0.5) {
     const B = this.B
     const strength = Math.min(1, k * 4) * (k > 0.85 ? (1 - k) / 0.15 : 1)
     for (let i = 0; i < 2; i++) {
-      if (Math.random() > 0.55 * strength + 0.1) continue
+      if (Math.random() > 0.3 * strength + 0.05) continue
       // Mostly on top, some licking up the sides.
       const side = Math.random() < 0.35
       const px = x + (side ? (Math.random() < 0.5 ? -0.05 : 1.05) : Math.random())
       const pz = z + (side ? Math.random() : Math.random())
       const py = y + (side ? 0.2 + Math.random() * 0.7 : 1)
       this._emit('flame', px * B, py * B, pz * B, {
-        life: 0.5 + Math.random() * 0.35, from: 0.55 + strength * 0.4, to: 0.2, rise: 1.4,
-        vel: new THREE.Vector3((Math.random() - 0.5) * 0.2 * B, 0.4 * B, (Math.random() - 0.5) * 0.2 * B),
+        life: 1.1 + Math.random() * 0.6, from: 0.55 + strength * 0.4, to: 0.2, rise: 0.55, wobble: 5,
+        vel: new THREE.Vector3((Math.random() - 0.5) * 0.1 * B, 0.18 * B, (Math.random() - 0.5) * 0.1 * B),
       })
     }
-    if (Math.random() < 0.06 * strength) this._smokeAt((x + 0.5) * B, (y + 1.6) * B, (z + 0.5) * B, 0.8)
+    if (Math.random() < 0.035 * strength) this._smokeAt((x + 0.5) * B, (y + 1.6) * B, (z + 0.5) * B, 0.8)
   }
 
   voidHit(pos) {
@@ -263,7 +267,7 @@ export class PlayFx {
         // Rises, slows down and wobbles; tint follows FLAME_RAMP.
         d.vel.multiplyScalar(Math.max(0, 1 - dt * d.drag))
         s.position.y += d.rise * dt
-        d.wob += dt * 14
+        d.wob += dt * d.wobble
         s.position.x += Math.sin(d.wob) * 0.25 * this.B * dt
         s.position.z += Math.cos(d.wob * 0.8) * 0.25 * this.B * dt
         rampColor(s.material.color, k)
