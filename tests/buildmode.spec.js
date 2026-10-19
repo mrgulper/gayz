@@ -2284,7 +2284,7 @@ test('Spectate keeps zombies off the camera, bedrock floor, thrown knife, invent
   expect(r).toEqual({
     targetStays: true, cameraMoved: true, reloading: true, floor: [true, true, true], floorHidden: true,
     thrown: 1, handEmpty: true, hit: true, oneImage: [1, 'hidden'], titleCentered: true,
-    hotbarBoxes: '0100000000', barBg: 'rgba(0, 0, 0, 0)',
+    hotbarBoxes: '0000000000', barBg: 'rgba(0, 0, 0, 0)',
   })
 })
 
