@@ -272,3 +272,21 @@ test('Invite Friends makes a solo game joinable and the link joins it', async ({
   // Same spot on the same land (the same ground height there).
   expect([guest.x, guest.y, guest.z]).toEqual([host.x, host.y, host.z])
 })
+
+// 2026-10-19 (Gaymi's friend was "muted for spamming" just trying to chat):
+// presses that send nothing - here, not signed in - never count as spam.
+test('chat: presses that send nothing never mute you', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const muted = await page.evaluate(async () => {
+    const g = window.__game
+    g._cloudUid = null
+    for (let i = 0; i < 12; i++) {
+      g.chatInput.value = 'hello ' + i
+      g.chatInputRow.requestSubmit()
+      await new Promise((r) => setTimeout(r, 10))
+    }
+    return { until: g._chatMutedUntil, notice: getComputedStyle(g.chatMutedNotice).display }
+  })
+  expect(muted.until).toBe(0)
+  expect(muted.notice).toBe('none')
+})

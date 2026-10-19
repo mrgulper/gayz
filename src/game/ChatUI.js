@@ -21,8 +21,27 @@ import { _escapeHtml, _censorText, saveSettings } from './Game.js'
 // gameplay-hotkey handling (this only ever opens from the homepage
 // menu, never mid-run), own rate-limit state so it doesn't share
 // counters with the in-game chat.
-// Spamming chat mutes you for this long (all three channels).
-export const CHAT_MUTE_MS = 5 * 60 * 1000
+// Spamming chat mutes you for this long (all three channels): more than
+// CHAT_SPAM_LIMIT messages actually sent inside CHAT_SPAM_WINDOW_MS.
+// 2026-10-19 (Gaymi's friend: "it says muted for spamming when they tried
+// to chat"): presses that never sent anything (not signed in, no clan, a
+// failed send) used to count too, and 6 quick messages meant 5 minutes of
+// silence - now only real sends count, the limit is higher and the mute
+// is a minute.
+export const CHAT_MUTE_MS = 60 * 1000
+const CHAT_SPAM_LIMIT = 8
+const CHAT_SPAM_WINDOW_MS = 10000
+// True (and starts the mute) when one more send would be spamming.
+function tooFast(game, stampsKey, mutedKey, now) {
+  game[stampsKey] = game[stampsKey].filter((ts) => now - ts < CHAT_SPAM_WINDOW_MS)
+  if (game[stampsKey].length < CHAT_SPAM_LIMIT) {
+    game[stampsKey].push(now)
+    return false
+  }
+  game[mutedKey] = now + CHAT_MUTE_MS
+  game[stampsKey] = []
+  return true
+}
 
 export function bindServerChat(game) {
   if (!game.serverPanel) return
@@ -296,18 +315,14 @@ export async function sendServerChatMessage(game) {
   if (!text) return
   const now = Date.now()
   if (game._serverChatMutedUntil > now) return
-  // Same 5-in-10s -> 5-minute mute as the in-game chat's own send
-  // handler, own counters though (see bindServerChat's comment).
-  game._serverChatSendTimestamps = game._serverChatSendTimestamps.filter((ts) => now - ts < 10000)
-  game._serverChatSendTimestamps.push(now)
-  if (game._serverChatSendTimestamps.length > 5) {
-    game._serverChatMutedUntil = now + CHAT_MUTE_MS
-    game._serverChatSendTimestamps = []
-    startServerChatMuteCountdown(game)
-    return
-  }
   if (!game._cloudUid) {
     game._showHomepageToast(t('chatSignInRequired'))
+    return
+  }
+  // Same spam rule as the in-game chat, own counters though (see
+  // bindServerChat's comment).
+  if (tooFast(game, '_serverChatSendTimestamps', '_serverChatMutedUntil', now)) {
+    startServerChatMuteCountdown(game)
     return
   }
   const nickname = game.settings.nickname || 'Player'
@@ -793,17 +808,15 @@ export async function sendChatMessage(game) {
   if (!text) return
   const now = Date.now()
   if (game._chatMutedUntil > now) return
-  // 5+ sends inside a 10s rolling window -> muted for 5 minutes. Client-
-  // side only - no custom backend here to enforce it server-side too
-  // (same trust model this game already accepts everywhere else, see
-  // CLAUDE.md's anti-cheat note), per the design conversation.
-  game._chatSendTimestamps = game._chatSendTimestamps.filter((t) => now - t < 10000)
-  game._chatSendTimestamps.push(now)
-  if (game._chatSendTimestamps.length > 5) {
-    game._chatMutedUntil = now + CHAT_MUTE_MS
-    game._chatSendTimestamps = []
+  // Spam rule (CHAT_SPAM_LIMIT): client-side only - no custom backend
+  // here to enforce it server-side too (same trust model this game
+  // already accepts everywhere else, see CLAUDE.md's anti-cheat note).
+  // Checked only once the message can really go (below the sign-in and
+  // clan checks), so a blocked press never counts.
+  const spamming = () => {
+    if (!tooFast(game, '_chatSendTimestamps', '_chatMutedUntil', now)) return false
     startChatMuteCountdown(game)
-    return
+    return true
   }
   const nickname = game.settings.nickname || 'Player'
   // Guard checks run BEFORE clearing the input and give a visible reason
@@ -819,6 +832,7 @@ export async function sendChatMessage(game) {
       game._showHomepageToast(t('chatSignInRequired'))
       return
     }
+    if (spamming()) return
     game.chatInput.value = ''
     const ok = await CloudSync.sendGlobalChatMessage(game._cloudUid, nickname, text).then(
       () => true,
@@ -834,6 +848,7 @@ export async function sendChatMessage(game) {
       game._showHomepageToast(t('chatNoClanRequired'))
       return
     }
+    if (spamming()) return
     game.chatInput.value = ''
     const ok = await CloudSync.sendClanChatMessage(game.settings.clanId, game._cloudUid, nickname, text).then(
       () => true,
