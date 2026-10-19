@@ -1203,7 +1203,7 @@ test('Map 1 has an open world with biomes around it', async ({ page }) => {
     c.dispatchEvent(new PointerEvent('pointerup', { clientX: box.left + 160, clientY: box.top + 100, bubbles: true, pointerId: 1 }))
     out.panned = tm._mapPan.x < 0
     tm._mapEl.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true }))
-    out.zoomedOut = tm._mapZoom > 1
+    out.zoomedOut = tm._mapZoom > tm._mapOpenZoom()
     tm._mapDrawAt = 0
     tm._drawMap(performance.now() + 2e6, 1500.5, 1500.5)
     tm.cycleMap()
@@ -1313,10 +1313,18 @@ test('thin bamboo, new blocks and the three map sizes', async ({ page }) => {
     tm._mapPan.x = 1e6
     tm._clampMapPan()
     out.panLimited = tm._mapPan.x <= 1200
+    // No zoom limit (2026-10-19): far past the old 48..960 cells.
     for (let i = 0; i < 30; i++) tm.zoomMap(2)
-    out.zoomOutLimited = tm._mapSpan() <= 960
-    for (let i = 0; i < 30; i++) tm.zoomMap(0.5)
-    out.zoomInLimited = tm._mapSpan() >= 48
+    out.zoomOutFar = tm._mapSpan() > 1e6
+    for (let i = 0; i < 60; i++) tm.zoomMap(0.5)
+    out.zoomInFar = tm._mapSpan() < 1
+    // Same size as the 2nd size, in the middle of the screen.
+    const centerBox = tm._mapEl.getBoundingClientRect()
+    tm.cycleMap()
+    tm.cycleMap()
+    const bigBox = tm._mapEl.getBoundingClientRect()
+    out.centerSameSize = Math.abs(centerBox.width - bigBox.width) < 1 && Math.abs(centerBox.left + centerBox.width / 2 - innerWidth / 2) < 2
+    while (tm._mapEl.dataset.size !== 'center') tm.cycleMap()
     tm.cycleMap()
     b.toggleTryMode()
     g._exitBuildMode()
@@ -1327,10 +1335,11 @@ test('thin bamboo, new blocks and the three map sizes', async ({ page }) => {
   expect(r.thin).toBe(true)
   expect(r.blocksMiddle).toBe(true)
   expect(r.walkPastEdge).toBe(true)
-  expect(r.spans).toEqual([['normal', 96], ['big', 640], ['center', 160]])
+  expect(r.spans).toEqual([['normal', 96], ['big', 640], ['center', 640]])
   expect(r.panLimited).toBe(true)
-  expect(r.zoomOutLimited).toBe(true)
-  expect(r.zoomInLimited).toBe(true)
+  expect(r.zoomOutFar).toBe(true)
+  expect(r.zoomInFar).toBe(true)
+  expect(r.centerSameSize).toBe(true)
 })
 
 // All 26 biomes are out there, within a long walk of the city.

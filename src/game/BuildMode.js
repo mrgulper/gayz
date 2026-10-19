@@ -4283,8 +4283,7 @@ export class BuildMode {
     this.renderer.toneMapping = toneMapping
     // A block held from the game's inventory is drawn in the hand instead.
     const held = this.tryMode.active && this.survival?.active ? this.survival.holding : null
-    if (this.tryMode.mapHeld()) this.tryMode.drawHeldMap(this.renderer)
-    else if (held?.kind === 'block') this.tryMode.drawHand(this.renderer, held.id, true)
+    if (held?.kind === 'block') this.tryMode.drawHand(this.renderer, held.id, true)
     else if (this.tryMode.active && !held) this.tryMode.drawGun(this.renderer)
     else if (!this.menuOpen && !this.pickerOpen && !this._noHand) this.tryMode.drawHand(this.renderer, this.selectedType)
     // The minimap shows while building too (Try Map draws its own).
