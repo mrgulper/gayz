@@ -68,16 +68,16 @@ const MODEL_CACHE = {}
 // the screen is what looked blurry. Its bump, shine and metal pictures go
 // too (flat values instead), so each gun is cheaper to draw.
 const GUN_TEX_SIZE = 128
-const GUN_COLORS = 8
+const GUN_COLORS = 10
 // Worn and scratched (2026-10-18, Gaymi: "make all gun default skins have a
 // old texture ... for all themes"): every gun's colour picture gets faded
 // paint, bare-metal scuffs where colours meet, short light scratches, dark
 // grime patches and a few rust specks - drawn after cleanPixels so the
 // marks stay crisp. Same seed -> same marks on every load.
-// Drawn at WEAR_SIZE (twice the colour picture), so a scratch is a thin
+// Drawn at WEAR_SIZE (3x the colour picture), so a scratch is a thin
 // line even where one texel covers a big flat part of the gun - at 128px
 // they showed as big white blotches up close.
-const WEAR_SIZE = 256
+const WEAR_SIZE = 384
 const WEAR = { fade: 0.18, lift: 14, edge: 0.3, edgeLift: 24, scratches: 110, scratchLift: 30, grime: 30, grimeDark: 0.8, rust: 40, rustMix: 0.55 }
 const RUST = [128, 66, 30]
 function wearPixels(canvas, seed) {
@@ -107,24 +107,27 @@ function wearPixels(canvas, seed) {
       if (edge && rnd() < WEAR.edge) for (let k = 0; k < 3; k++) d[i + k] += WEAR.edgeLift
     }
   }
-  for (let n = 0; n < WEAR.grime; n++) {
+  // Counts and sizes are for a 256px picture; finer pictures get more,
+  // thinner marks.
+  const f = W / 256
+  for (let n = 0; n < WEAR.grime * f * f; n++) {
     const cx = rnd() * W
     const cy = rnd() * W
-    const rad = 2 + rnd() * 6
+    const rad = (2 + rnd() * 6) * f
     for (let y = Math.floor(cy - rad); y <= cy + rad; y++) {
       for (let x = Math.floor(cx - rad); x <= cx + rad; x++) {
         if (Math.hypot(x - cx, y - cy) < rad * (0.6 + rnd() * 0.4)) tint(x, y, (v) => v * WEAR.grimeDark)
       }
     }
   }
-  for (let n = 0; n < WEAR.scratches; n++) {
+  for (let n = 0; n < WEAR.scratches * f * f; n++) {
     let x = rnd() * W
     let y = rnd() * W
     const a = rnd() * Math.PI
-    const len = 4 + rnd() * 12
+    const len = (4 + rnd() * 12) * f
     for (let s = 0; s < len; s++, x += Math.cos(a), y += Math.sin(a)) tint(Math.floor(x), Math.floor(y), (v) => v + WEAR.scratchLift)
   }
-  for (let n = 0; n < WEAR.rust; n++) {
+  for (let n = 0; n < WEAR.rust * f * f; n++) {
     const x = Math.floor(rnd() * W)
     const y = Math.floor(rnd() * W)
     const size = 1 + Math.floor(rnd() * 2)
@@ -134,44 +137,62 @@ function wearPixels(canvas, seed) {
 }
 
 // Gunmetal (2026-10-18, Gaymi: "make all current weapons except the coming
-// soon ones the texture as the gpmg currently has ... same dark metal
-// colour but for the flamethrower where was red that part keep it red"):
-// every pickable gun's colours become the GPMG's dark olive-grey metal,
-// keeping only their light and shade; KEEP_RED guns keep their red parts.
-const GUNMETAL = [0.95, 1, 0.88]
-// Each picture's average brightness moves to the GPMG's (GUNMETAL_MEAN),
-// its light/shade differences kept at GUNMETAL_CONTRAST.
-const GUNMETAL_MEAN = 52
-const GUNMETAL_CONTRAST = 0.55
-const GUNMETAL_MIN = 20
-const GUNMETAL_MAX = 104
-const KEEP_RED = new Set(['flamethrower'])
-const isRed = (r, g, b) => r > 50 && r > g * 1.5 && r > b * 1.5
+// soon ones the texture as the gpmg currently has"), then (same day, "for
+// all the weapons that got a big skin change change the part with wood or
+// anywhere that should not be metal back to what colour it was ... for
+// some the metal make it look more sharper then others with some bright
+// ness and colour change"): only the metal - the grey, colourless parts of
+// a gun's picture (METAL_SAT) - is repainted, in that gun's own FINISH;
+// wood, coloured plastic, paint (the Flamethrower's red tank, the Rocket
+// Launcher's tube) keep their own colours. A finish: tint (RGB factors),
+// mean brightness and contrast of the metal, and how shiny the gun is
+// (roughness / metalness - the shiny ones catch sharp highlights from the
+// gun view's reflections, at no extra cost per frame).
+const FINISH = {
+  gpmg: { tint: [0.95, 1, 0.88], mean: 52, contrast: 0.55, roughness: 0.65, metalness: 0.1 }, // parkerized olive
+  rifle: { tint: [0.92, 0.96, 1.06], mean: 50, contrast: 0.6, roughness: 0.45, metalness: 0.35 }, // blued steel
+  pistol: { tint: [1, 1, 1.02], mean: 122, contrast: 0.75, roughness: 0.28, metalness: 0.45 }, // polished nickel
+  shotgun: { tint: [0.9, 0.95, 1.1], mean: 46, contrast: 0.65, roughness: 0.38, metalness: 0.4 }, // deep blue-black
+  awp: { tint: [1, 1, 1], mean: 40, contrast: 0.5, roughness: 0.6, metalness: 0.2 }, // matte black
+  flamethrower: { tint: [1.02, 1, 0.96], mean: 92, contrast: 0.6, roughness: 0.4, metalness: 0.35 }, // brushed steel
+  rocket: { tint: [0.96, 1, 0.84], mean: 62, contrast: 0.55, roughness: 0.7, metalness: 0.1 }, // army olive
+  melee: { tint: [1, 1.01, 1.03], mean: 140, contrast: 0.8, roughness: 0.22, metalness: 0.5 }, // bright blade
+  tomahawk: { tint: [1.05, 1, 0.92], mean: 86, contrast: 0.65, roughness: 0.4, metalness: 0.35 }, // forged, warm
+}
+const DEFAULT_FINISH = FINISH.gpmg
+const METAL_SAT = 0.24
+const METAL_MIN = 18
+const METAL_MAX = 170
 const lum = (r, g, b) => r * 0.3 + g * 0.59 + b * 0.11
-function gunmetalPixels(canvas, keepRed) {
+const isMetal = (r, g, b) => {
+  const hi = Math.max(r, g, b)
+  return hi < 24 || (hi - Math.min(r, g, b)) / hi < METAL_SAT
+}
+function gunmetalPixels(canvas, f) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
   const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
   const d = img.data
   let sum = 0
   let n = 0
   for (let i = 0; i < d.length; i += 4) {
-    if (d[i + 3] < 128 || (keepRed && isRed(d[i], d[i + 1], d[i + 2]))) continue
+    if (d[i + 3] < 128 || !isMetal(d[i], d[i + 1], d[i + 2])) continue
     sum += lum(d[i], d[i + 1], d[i + 2])
     n++
   }
-  const mean = n ? sum / n : GUNMETAL_MEAN
+  const mean = n ? sum / n : f.mean
   for (let i = 0; i < d.length; i += 4) {
-    if (keepRed && isRed(d[i], d[i + 1], d[i + 2])) continue
-    const l = Math.max(GUNMETAL_MIN, Math.min(GUNMETAL_MAX, GUNMETAL_MEAN + (lum(d[i], d[i + 1], d[i + 2]) - mean) * GUNMETAL_CONTRAST))
-    d[i] = l * GUNMETAL[0]
-    d[i + 1] = l * GUNMETAL[1]
-    d[i + 2] = l * GUNMETAL[2]
+    if (!isMetal(d[i], d[i + 1], d[i + 2])) continue
+    const l = Math.max(METAL_MIN, Math.min(METAL_MAX, f.mean + (lum(d[i], d[i + 1], d[i + 2]) - mean) * f.contrast))
+    d[i] = l * f.tint[0]
+    d[i + 1] = l * f.tint[1]
+    d[i + 2] = l * f.tint[2]
   }
   ctx.putImageData(img, 0, 0)
 }
 
 function simplifyMaterials(scene, id) {
   const gunmetal = !COMING_SOON_WEAPONS.has(id)
+  const finish = FINISH[id] || DEFAULT_FINISH
   const done = new Map()
   const textures = new Map()
   const draw = (img) => {
@@ -202,7 +223,7 @@ function simplifyMaterials(scene, id) {
     }
     ctx.putImageData(img, 0, 0)
     cleanPixels(c, GUN_COLORS)
-    if (gunmetal) gunmetalPixels(c, KEEP_RED.has(id))
+    if (gunmetal) gunmetalPixels(c, finish)
     const worn = document.createElement('canvas')
     worn.width = worn.height = WEAR_SIZE
     const wctx = worn.getContext('2d', { willReadFrequently: true })
@@ -226,13 +247,13 @@ function simplifyMaterials(scene, id) {
     n.map = flat(m)
     // A flat colour with no picture: darkened the same way.
     if (!m.map && n.color && m.metalness) n.color.multiplyScalar(1 - 0.55 * m.metalness)
-    if (!m.map && n.color && gunmetal && !(KEEP_RED.has(id) && isRed(n.color.r * 255, n.color.g * 255, n.color.b * 255))) {
-      const l = GUNMETAL_MEAN / 255
-      n.color.setRGB(l * GUNMETAL[0], l * GUNMETAL[1], l * GUNMETAL[2], THREE.SRGBColorSpace)
+    if (!m.map && n.color && gunmetal) {
+      const [r, g, b] = n.color.clone().convertLinearToSRGB().toArray().map((v) => v * 255)
+      if (isMetal(r, g, b)) n.color.setRGB((finish.mean * finish.tint[0]) / 255, (finish.mean * finish.tint[1]) / 255, (finish.mean * finish.tint[2]) / 255, THREE.SRGBColorSpace)
     }
     for (const key of ['normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'bumpMap']) if (key in n) n[key] = null
-    if ('roughness' in n) n.roughness = 0.65
-    if ('metalness' in n) n.metalness = 0.1
+    if ('roughness' in n) n.roughness = gunmetal ? finish.roughness : 0.65
+    if ('metalness' in n) n.metalness = gunmetal ? finish.metalness : 0.1
     done.set(m, n)
     return n
   }
@@ -379,4 +400,22 @@ export function buildViewmodel(weaponId) {
     group.add(tilted)
   }
   return group
+}
+
+// The studio light every gun is shown in - the Inventory / weapon picker
+// pictures and the gun in your hands (BuildTryMode's gun view), so the gun
+// you hold looks the same as its picture (2026-10-18, Gaymi: "the new skin
+// should be useable in game too" - the hand's dimmer light made every gun
+// look much darker in game). `strength` scales it: the gun in your hands
+// is seen close up from above, where the sky light falls straight on it, so
+// it uses a little less to read the same as its side-on picture. Added
+// once per scene, never toggled.
+export function addGunLights(scene, keyAt = [4, 3, 1], rimAt = [-2, 2, -3], strength = 1) {
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a9a, 2.6 * strength))
+  const key = new THREE.DirectionalLight(0xffffff, 3 * strength)
+  key.position.set(...keyAt)
+  scene.add(key)
+  const rim = new THREE.DirectionalLight(0xffffff, 1.2 * strength)
+  rim.position.set(...rimAt)
+  scene.add(rim)
 }
