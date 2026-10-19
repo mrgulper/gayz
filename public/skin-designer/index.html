@@ -249,7 +249,31 @@
   .ai-edit { display: flex; gap: 6px; flex: 1 1 240px; min-width: 0; margin-right: auto; }
   .ai-edit .prompt-input { flex: 1 1 auto; min-width: 0; padding: 5px 12px; font-size: 0.78rem; border-radius: 999px; }
   .ai-edit .tbtn { padding: 4px 12px; font-size: 0.74rem; border-radius: 999px; }
-  .ai-edit-note { padding: 6px 13px; border-bottom: 1px solid var(--line); }
+  .ai-edit-note { padding: 6px 13px; border-bottom: 1px solid var(--line); max-height: 8.6em; overflow-y: auto; }
+  /* Smart Edit as a short chat (2026-10-18): the last few asks and
+     replies, the newest bright, plus one-tap follow-ups. */
+  .chat-turn { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 2px 0; opacity: 0.55; }
+  .chat-turn.latest { opacity: 1; }
+  .chat-you { background: rgba(var(--accent-rgb), 0.2); color: var(--text); border-radius: 999px; padding: 1px 9px; font-weight: 600; max-width: 100%; overflow-wrap: anywhere; }
+  .chat-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+  .chat-chips .tbtn { padding: 2px 10px; font-size: 0.7rem; }
+  /* Pick a part: the chip naming what you tapped, over the preview. */
+  .pick-chip { position: absolute; top: 8px; left: 8px; z-index: 2; display: flex; align-items: center; gap: 6px; max-width: calc(100% - 16px);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px 3px 3px 9px; font-size: 0.74rem; color: var(--text); }
+  .pick-chip[hidden] { display: none; }
+  .pick-chip span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pick-swatch { flex: none; width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--line); }
+  .pick-chip button { flex: none; border: 0; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 1.05rem; line-height: 1; padding: 2px 7px; border-radius: 999px; }
+  .pick-chip button:hover { color: var(--text); }
+  .stage-canvas-wrap.picking canvas { cursor: crosshair; }
+  /* Generate's 4 options (2026-10-18). */
+  .gen-options { display: flex; gap: 8px; margin: 2px 0; }
+  .gen-options[hidden] { display: none; }
+  .gen-option { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0 4px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; color: var(--text-dim); font: inherit; font-size: 0.68rem; cursor: pointer; }
+  .gen-option:hover { border-color: var(--accent); }
+  .gen-option.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--text); }
+  .gen-option canvas { width: 30px; height: 60px; image-rendering: pixelated; }
   .view-presets button.tbtn { padding: 4px 8px; font-size: 0.72rem; }
   /* var(--accent), not var(--panel) or plain white - the 3D preview's own
      canvas is transparent (WebGLRenderer alpha:true), so whatever this
@@ -406,6 +430,7 @@
         <button class="tbtn icon-btn" id="redoBtn" disabled title="Redo (Shift+Ctrl/Cmd+Z)" aria-label="Redo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg></button>
       </span>
       <span class="ai-edit">
+        <button class="tbtn icon-btn" id="aiPickBtn" type="button" aria-pressed="false" title="Pick a part: tap the character, then type what it should become" aria-label="Pick a part of the character to edit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 1h2v5h-2zM11 18h2v5h-2zM1 11h5v2H1zM18 11h5v2h-5z"/><path d="M12 6a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/><circle cx="12" cy="12" r="1.6"/></svg></button>
         <input type="text" id="aiEditInput" class="prompt-input" maxlength="160" placeholder="Ask for a change" aria-label="Tell the editor what to change">
         <button class="tbtn primary" id="aiEditBtn" title="Make the change (Undo puts it back)">Edit</button>
       </span>
@@ -419,8 +444,9 @@
         <button class="tbtn" id="viewBottomBtn" title="Snap to a bottom-up view">Bottom</button>
       </span>
     </div>
-    <p class="theme-note ai-edit-note" id="aiEditNote" style="display: none;"></p>
+    <div class="theme-note ai-edit-note" id="aiEditNote" style="display: none;" aria-live="polite"></div>
     <div class="stage-canvas-wrap">
+      <div class="pick-chip" id="aiPickChip" hidden><span class="pick-swatch" id="aiPickSwatch"></span><span id="aiPickLabel"></span><button type="button" id="aiPickClear" title="Stop editing this part" aria-label="Stop editing this part">&times;</button></div>
       <canvas id="stage3d" aria-label="3D preview of the character - drag to rotate, scroll or pinch to zoom, click to paint with the current tool"></canvas>
       <div class="stage-loading" id="stageLoading">Loading 3D preview&hellip;</div>
     </div>
@@ -443,6 +469,7 @@
       <button class="tbtn" id="randomizeBtn" style="flex: 0 0 auto;" title="Skip the description - generate a fully random skin">Randomize</button>
     </div>
     <p class="theme-note" id="themeNote" style="display: none;"></p>
+    <div class="gen-options" id="genOptions" role="group" aria-label="Pick one of the generated skins" hidden></div>
 
     <div class="toolbar">
       <input type="text" id="importUrlInput" class="prompt-input" style="flex: 1 1 140px;" placeholder="Or paste an image URL&hellip;">
@@ -651,6 +678,12 @@ const OVERLAY_ORIGINS = { head: [32,0], torso: [16,32], armR: [40,32], armL: [48
 // BOXES' arm entries are switched in place (setArmDims); the generator
 // always paints classic and converts at the end (convertArms). ----
 const ARM_SHAPE_KEY = 'skindesigner-arms-v1';
+// Smart Edit's chat memory and picked part (see runSmartEdit / pickAt) -
+// up here because switching arms or Pixels drops the pick.
+const editChat = { lastPart: null, last: null, turns: [] }
+let pickArmed = false
+let pickState = null
+let flashSaved = null, flashTimer = 0
 let SLIM = (() => { try { return localStorage.getItem(ARM_SHAPE_KEY) === 'slim'; } catch (e) { return false; } })();
 let characterGroupRef = null;
 function setArmDims(slim) {
@@ -717,6 +750,7 @@ function updateArmButtons() {
 function setArmShape(slim, convert) {
   slim = !!slim;
   if (slim !== SLIM) {
+    clearPick();
     if (convert) convertArms(mainCtx, slim);
     SLIM = slim;
     setArmDims(slim);
@@ -2216,7 +2250,7 @@ for (const [meaning, list] of MORE_MEANINGS) {
 const PLAIN_WORDS = new Set(['without', 'never', 'minus', 'dont', 'none', 'nothing', 'any', 'a', 'an', 'the', 'with', 'and', 'in', 'of', 'on', 'wearing', 'wears', 'wear', 'has', 'have', 'having', 'her', 'his', 'their', 'who', 'is', 'are', 'was', 'that', 'this', 'very', 'really', 'super', 'so', 'some', 'big', 'small', 'style', 'styled', 'minecraft', 'character', 'make', 'me', 'my', 'like', 'for', 'to', 'it', 'or', 'but', 'not', 'no', 'i', 'want', 'please', 'can', 'you', 'give', 'draw', 'create', 'generate', 'design', 'one', 'kind', 'type', 'looking', 'look', 'looks', 'outfit', 'clothes', 'clothing', 'wearing', 'colored', 'coloured', 'color', 'colour', 'all', 'full', 'whole', 'just', 'also', 'from', 'as', 'at', 'by', 'be', 'into', 'out', 'up', 'new', 'nice', 'good', 'awesome', 'amazing', 'epic', 'best', 'great', 'happy', 'sad', 'angry', 'funny', 'weird', 'random', 'mixed'])
 // Everyday words that don't describe a look (2026-10-17) - read and
 // skipped quietly instead of listed as "didn't know".
-for (const w of ('about above after again against almost alone along already always am among another anyone anything around away back be because been before being below best better between both bring brings call called can cant come comes could day did do does doing done down during each else enough even ever every everyone exactly feel few find first get gets go goes going gone got had he her here hers herself him himself how however if into itself keep kind last least less let lets life likes liked loves loved loving lot lots made many may maybe might mine more most much must name named need needs next nobody now often only other others our ours over own part pretty probably put quite rather said same say says see seem she should show since something sometimes somewhat soon still such sure take tell than thank thanks them then there these they thing things think those though through thus till today together too toward under until upon us use used using usually want wanted wants way ways we well went were what whatever when where whether which while whom whose why will wish within would yeah yes yet you your yours yourself tall taller short shorter thin skinny fat chubby strong weak fast slow young older calm chill friendly kind mean nice shy brave bold quiet loud lazy sleepy tired hungry silly goofy crazy wild proud famous popular strange unique special rare common classic modern ancient future past real fake true fantasy story stories movie movies show tv anime cartoon game games world version edition fan fans theme themed inspired based vibe vibes aesthetic').split(' ')) {
+for (const w of ('about above after again against almost alone along already always am among another anyone anything around away back be because been before being below best better between both bring brings call called can cant come comes could day did do does doing done down during each else enough even ever every everyone exactly feel few find first get gets go goes going gone got had he her here hers herself him himself how however if into itself keep kind last least less let lets life likes liked loves loved loving lot lots made many may maybe might mine more most much must name named need needs next nobody now often only other others our ours over own part pretty probably put quite rather said same say says see seem she should show since something sometimes somewhat soon still such sure take tell than thank thanks them then there these they thing things think those though through thus till today together too toward under until upon us use used using usually want wanted wants way ways we well went were what whatever when where whether which while whom whose why will wish within would yeah yes yet you your yours yourself tall taller short shorter thin skinny fat chubby strong weak fast slow young older calm chill friendly kind mean nice shy brave bold quiet loud lazy sleepy tired hungry silly goofy crazy wild proud famous popular strange unique special rare common classic modern ancient future past real fake true fantasy story stories movie movies show tv anime cartoon game games world version edition fan fans theme themed inspired based vibe vibes aesthetic costume costumes cosplay someone somebody dressed outfitted').split(' ')) {
   if (!knownWord(w) && !(w in WORD_MEANINGS)) PLAIN_WORDS.add(w)
 }
 // Two-word colours (2026-10-17): "light blue", "dark red", "hot pink",
@@ -2346,10 +2380,43 @@ let genWithout = new Set()
 function leftOut(key) {
   return genWithout.has(key) || genWithout.has('all') || (genWithout.has('hat') && HEADWEAR.has(key))
 }
+// Sentences, not just word lists (2026-10-18, "make the edit and
+// generating a skin smarter"): "hair that is red", "her eyes are green",
+// "shirt: blue" become "red hair" / "green eyes" / "blue shirt", and "red
+// and black shirt" becomes "red shirt black trim" - before any filler word
+// is dropped, since "is"/"and" are what tie a colour to its part.
+const LINK_WORDS = new Set(['is', 'are', 'was', 'were', 'be', 'being', 'been', 'that', 'which', 'should', 'must', 'will', 'all', 'in', 'colored', 'coloured', 'painted', 'dyed', 'like', 'kinda', 'mostly', 'totally', 'very', 'really', 'super'])
+const DESCRIBED_GEAR = new Set(['hat', 'cap', 'beanie', 'bandana', 'helmet', 'crown', 'hood', 'tiara'])
+function linkDescriptions(words) {
+  const out = [...words]
+  const isPart = (w) => PART_WORDS[w] || DESCRIBED_GEAR.has(w)
+  for (let i = 0; i < out.length; i++) {
+    if (!isPart(out[i])) continue
+    let j = i + 1
+    while (j < out.length && LINK_WORDS.has(out[j]) && j - i <= 4) j++
+    if (j > i + 1 && COLOR_WORDS[out[j]]) {
+      const color = out[j]
+      out.splice(i + 1, j - i) // the link words and the colour
+      out.splice(i, 0, color)
+      i++
+    }
+  }
+  // One word may sit between ("red and white striped shirt").
+  for (let i = 0; i + 3 < out.length; i++) {
+    if (!COLOR_WORDS[out[i]] || out[i + 1] !== 'and' || !COLOR_WORDS[out[i + 2]] || HAIR_ONLY_COLORS.has(out[i + 2])) continue
+    const at = isPart(out[i + 3]) ? i + 3 : !COLOR_WORDS[out[i + 3]] && isPart(out[i + 4]) ? i + 4 : -1
+    if (at < 0) continue
+    const [first, , second] = out.slice(i, i + 3)
+    // "long pink hair purple trim", "striped red shirt white trim"
+    const middle = at === i + 4 ? [out[i + 3]] : []
+    out.splice(i, at - i + 1, ...middle, first, out[at], second, 'trim')
+  }
+  return out
+}
 function parsePrompt(text) {
-  const raw = (text || '').toLowerCase().replace(/[^a-z\s-]/g, ' ').split(/[\s-]+/).filter(Boolean)
+  const raw = (text || '').toLowerCase().replace(/[:=]/g, ' is ').replace(/[^a-z\s-]/g, ' ').split(/[\s-]+/).filter(Boolean)
     .flatMap((w) => { const m = w.match(/^([a-z]+?)(girl|boy|man|woman|lady|guy)$/); return m && (ANIMAL_WORDS[m[1]] || THEMES[m[1]] || WORD_MEANINGS[m[1]]) && !WORD_MEANINGS[w] ? [m[1], m[2]] : [w] })
-  let { words, fixes } = understandWords(joinColorWords(raw))
+  let { words, fixes } = understandWords(linkDescriptions(joinColorWords(raw)))
   const without = new Set()
   if (words.includes('sleeveless')) without.add('sleeves')
   if (words.includes('hatless')) without.add('hat')
@@ -2376,7 +2443,7 @@ function parsePrompt(text) {
     const c = COLOR_WORDS[w]
     if (!c) return
     if (w in SKIN_WORDS && personFollows(words, i)) return // skin tone, below
-    const part = [words[i + 1], words[i + 2]].map((n) => PART_WORDS[n]).find(Boolean)
+    const part = [words[i + 1], words[i + 2]].map((n) => PART_WORDS[n] || (DESCRIBED_GEAR.has(n) ? 'hat' : null)).find(Boolean)
     if (part === 'skin') return // handled by SKIN_WORDS below
     if (part) colors[part] = { hex: c, name: w }
     else if (HAIR_ONLY_COLORS.has(w) && !colors.hair) colors.hair = { hex: c, name: w }
@@ -2606,6 +2673,23 @@ function atlasSignature() {
 // changing Pixels redraws it at the new size (see setRes's caller).
 let lastPlan = null
 let lastGen = null
+// Every generated skin's recipe, found again by its picture's fingerprint
+// (2026-10-18), so after Undo/Redo or picking one of the 4 options Smart
+// Edit still redraws that skin's own plan instead of guessing at pixels.
+const genMemory = []
+function rememberGen(g) {
+  g.plan = lastPlan
+  g.sig = atlasSignature()
+  lastGen = g
+  genMemory.push(g)
+  while (genMemory.length > 24) genMemory.shift()
+  return g
+}
+function currentGen() {
+  const sig = atlasSignature()
+  for (let i = genMemory.length - 1; i >= 0; i--) if (genMemory[i].sig === sig) return genMemory[i]
+  return null
+}
 // Words for a palette colour: the nearest of a short list of plain names.
 const PLAIN_COLOR_NAMES = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'black', 'white', 'gray', 'brown', 'gold', 'silver', 'cyan', 'teal', 'navy', 'maroon', 'beige', 'lavender', 'mint', 'crimson', 'lime']
 const HAIR_COLOR_NAMES = [...PLAIN_COLOR_NAMES, 'blonde', 'ginger', 'brunette', 'platinum']
@@ -2808,6 +2892,84 @@ function hdDetail(p, o, rng) {
   mainCtx.putImageData(new ImageData(data, S, S), 0, 0)
 }
 
+// ---- 4 options (2026-10-18, "4 options to pick from"): the first is the
+// skin just painted; three more are drawn quietly from other seeds (a
+// prompt with no look of its own, or Randomize, also gets other looks),
+// then the first is put back. Tap a picture to switch - Undo goes back. ----
+let genOptions = [], optionsRandom = false
+async function makeOptions(parsed, isRandom, variant, randomTheme) {
+  const first = { snap: snapshot(), gen: lastGen, plan: lastPlan }
+  genOptions = [first]
+  optionsRandom = isRandom
+  const note = document.getElementById('themeNote')
+  for (let k = 1; k < 4; k++) {
+    note.innerHTML = 'Generating... drawing option <b>' + (k + 1) + '</b> of 4'
+    await sleep(0)
+    const v = Math.random().toString(36).slice(2)
+    const theme = isRandom || !parsed.themes.length ? RANDOMIZABLE_THEME_KEYS[Math.floor(Math.random() * RANDOMIZABLE_THEME_KEYS.length)] : randomTheme
+    await generateThemedSkin(parsed, v, theme, null, true)
+    rememberGen({ parsed, variant: v, randomTheme: theme, seedKey: JSON.stringify(parsed) })
+    genOptions.push({ snap: snapshot(), gen: lastGen, plan: lastPlan })
+  }
+  restoreSnapshot(first.snap)
+  lastGen = first.gen
+  lastPlan = first.plan
+  renderOptions(0)
+}
+// A flat front view of a skin picture, 16 x 32 skin pixels.
+function optionThumb(snap) {
+  const R = snap.width / 64
+  const src = document.createElement('canvas')
+  src.width = src.height = snap.width
+  src.getContext('2d').putImageData(snap, 0, 0)
+  const t = document.createElement('canvas')
+  t.width = 16 * R; t.height = 32 * R
+  const c = t.getContext('2d')
+  c.imageSmoothingEnabled = false
+  const armW = snap.slim ? 3 : 4
+  const at = { head: [4, 0], torso: [4, 8], armR: [4 - armW, 8], armL: [12, 8], legR: [4, 20], legL: [8, 20] }
+  for (const outer of [false, true]) for (const b of BOXES) {
+    const w = b.key === 'armR' || b.key === 'armL' ? armW : b.w
+    const [u, v] = outer ? OVERLAY_ORIGINS[b.key] : [b.u, b.v]
+    const r = partFaceRects(u, v, w, b.h, b.d).front
+    const [x, y] = at[b.key]
+    c.drawImage(src, r[0] * R, r[1] * R, (r[2] - r[0]) * R, (r[3] - r[1]) * R, x * R, y * R, (r[2] - r[0]) * R, (r[3] - r[1]) * R)
+  }
+  return t
+}
+function renderOptions(active) {
+  const box = document.getElementById('genOptions')
+  box.innerHTML = ''
+  genOptions.forEach((o, i) => {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.className = 'gen-option' + (i === active ? ' active' : '')
+    b.setAttribute('aria-pressed', String(i === active))
+    b.title = 'Use option ' + (i + 1)
+    b.append(optionThumb(o.snap), document.createTextNode(String(i + 1)))
+    b.addEventListener('click', () => chooseOption(i))
+    box.append(b)
+  })
+  box.hidden = genOptions.length < 2
+}
+function hideOptions() { genOptions = []; document.getElementById('genOptions').hidden = true }
+function chooseOption(i) {
+  const o = genOptions[i]
+  if (!o || generating || smartEditing) return
+  pushUndo()
+  restoreSnapshot(o.snap)
+  lastGen = o.gen
+  lastPlan = o.plan
+  resetEditChat()
+  syncAfterEdit()
+  scheduleSave()
+  revealOuterLayerIfPainted()
+  renderOptions(i)
+  if (optionsRandom) document.getElementById('themeNote').innerHTML = 'Randomized ' + describePlan(o.plan) + '. Hit Randomize again for something else.'
+}
+window.__genOptions = () => genOptions.length
+// For tests: pick the part at an atlas pixel, as a tap there would.
+window.__pickAt = (px, py) => pickAt([{ uv: { x: (px + 0.5) / SIZE, y: (py + 0.5) / SIZE } }])
 async function runGeneration(promptText, isRandom) {
   if (generating) return
   generating = true
@@ -2825,11 +2987,13 @@ async function runGeneration(promptText, isRandom) {
       note.innerHTML = 'Generating... painting the <b>' + stage + '</b>'
       syncAfterEdit()
     })
-    lastGen = { parsed, variant, randomTheme, seedKey: JSON.stringify(parsed), sig: atlasSignature() }
+    rememberGen({ parsed, variant, randomTheme, seedKey: JSON.stringify(parsed) })
+    await makeOptions(parsed, isRandom, variant, randomTheme)
+    resetEditChat()
     syncAfterEdit()
     scheduleSave()
     revealOuterLayerIfPainted()
-    const PART_LABEL = { shirt: 'shirt', pants: 'pants', skirt: 'skirt', shoe: 'shoes', eye: 'eyes', hair: 'hair', accent: 'trim', fur: 'fur' }
+    const PART_LABEL = { shirt: 'shirt', pants: 'pants', skirt: 'skirt', shoe: 'shoes', eye: 'eyes', hair: 'hair', accent: 'trim', fur: 'fur', hat: 'hat' }
     // Describes what was made from the words typed - never a style name
     // (2026-10-11, Gaymi: "dont make it a specific style make it based on
     // what the player asked").
@@ -2853,7 +3017,7 @@ async function runGeneration(promptText, isRandom) {
       const skipped = (parsed.unknown || []).slice(0, 6).map((w) => w.replace(/[<>&"]/g, ''))
       const fixed = (parsed.fixes || []).slice(0, 4).map(([a, b]) => '"' + a.replace(/[<>&"]/g, '') + '" as ' + b)
       const without = (parsed.without || []).map((w) => (w === 'all' ? 'all extra gear' : w === 'hat' ? 'headwear' : w))
-      note.innerHTML = 'Generated <b>"' + typed + '"</b>' + extraText + '.' + (without.length ? ' Left out: ' + without.join(', ') + '.' : '') + (fixed.length ? ' Read ' + fixed.join(', ') + '.' : '') + (skipped.length ? ' Didn\'t know: ' + skipped.join(', ') + '.' : '') + ' Click Generate again for a new one.'
+      note.innerHTML = 'Generated <b>"' + typed + '"</b>' + extraText + '.' + (without.length ? ' Left out: ' + without.join(', ') + '.' : '') + (fixed.length ? ' Read ' + fixed.join(', ') + '.' : '') + (skipped.length ? ' Didn\'t know: ' + skipped.join(', ') + '.' : '') + ' Pick one of the 4 options below, or click Generate again for new ones.'
     }
     else if (parsed.guessed) {
       const typed = promptText.trim().replace(/[<>&"]/g, '').slice(0, 60)
@@ -2901,20 +3065,35 @@ const EDIT_LIGHTER = new Set(['lighter', 'lighten', 'brighter', 'brighten', 'pal
 const EDIT_FILLER = new Set(['make', 'change', 'turn', 'paint', 'set', 'switch', 'recolor', 'recolour', 'dye', 'color', 'colour', 'the', 'a', 'an', 'my', 'his', 'her', 'their', 'its', 'it', 'to', 'into', 'be', 'is', 'are', 'please', 'can', 'you', 'i', 'want', 'and', 'of', 'on', 'in', 'take', 'off', 'get', 'some', 'more', 'bit', 'little', 'slightly', 'much', 'lot', 'so', 'too', 'very', 'instead', 'now', 'them', 'him', 'look', 'like', 'just', 'also', 'colored', 'coloured', 'shade', 'tone', 'skin'])
 const PART_LABELS = { armL: 'left arm', armR: 'right arm', legL: 'left leg', legR: 'right leg', head: 'head', torso: 'body', hair: 'hair', shirt: 'shirt', pants: 'pants', skirt: 'skirt', shoe: 'shoes', eye: 'eyes', skin: 'skin', accent: 'trim', fur: 'fur', hat: 'hat', outfit: 'outfit', beard: 'beard' }
 
-function parseEdit(text) {
+// "more blue", "a bit redder", "slightly greener": mix toward the colour.
+const TINT_WORDS = new Set(['more', 'bit', 'slightly', 'tad', 'touch', 'hint', 'abit', 'somewhat', 'kinda'])
+const SLIGHT_WORDS = new Set(['slightly', 'tad', 'touch', 'hint', 'tiny'])
+const PICK_WORDS = new Set(['this', 'that', 'it', 'here'])
+function parseEdit(text, startPart) {
   const clauses = String(text || '').toLowerCase().replace(/\b(left|right)\s+(arm|leg|hand|foot|sleeve)s?\b/g, '$1$2').split(/\s*(?:,|;|\.|\bthen\b|\bplus\b|\band\b|&)\s*/).filter((c) => c.trim())
   const actions = [], fixes = [], unknown = []
-  let lastPart = null
+  let lastPart = startPart || null
   for (const clause of clauses) {
     const raw = joinColorWords(clause.split(/[^a-z]+/).filter(Boolean))
     // "make the hair match the shirt", "pants the same colour as the shoes".
     const match = clause.match(/\b([a-z]+)\s+(?:to\s+)?(?:match(?:es|ing)?|the\s+same\s+colou?r\s+as|same\s+as|like)\s+(?:the\s+|my\s+|his\s+|her\s+)?([a-z]+)/)
-    if (match && EDIT_PARTS[match[1]] && EDIT_PARTS[match[2]] && EDIT_PARTS[match[1]] !== EDIT_PARTS[match[2]]) {
-      actions.push({ type: 'color', part: EDIT_PARTS[match[1]], matchPart: EDIT_PARTS[match[2]], name: 'the ' + (PART_LABELS[EDIT_PARTS[match[2]]] || match[2]) + '\'s colour' })
-      lastPart = EDIT_PARTS[match[1]]
+    let matchFrom = match && (EDIT_PARTS[match[1]] || (startPart === 'picked' && PICK_WORDS.has(match[1]) ? 'picked' : null))
+    let matchTo = match && match[2]
+    // "match the pants" / "same colour as the shoes": the part from before.
+    const bareMatch = !matchFrom && lastPart && clause.trim().match(/^(?:make\s+(?:it|this|that)\s+)?(?:match(?:es|ing)?|the\s+same\s+colou?r\s+as|same\s+colou?r\s+as|same\s+as)\s+(?:the\s+|my\s+|his\s+|her\s+)?([a-z]+)/)
+    if (bareMatch && EDIT_PARTS[bareMatch[1]]) { matchFrom = lastPart; matchTo = bareMatch[1] }
+    if (matchFrom && EDIT_PARTS[matchTo] && matchFrom !== EDIT_PARTS[matchTo]) {
+      actions.push({ type: 'color', part: matchFrom, matchPart: EDIT_PARTS[matchTo], name: 'the ' + (PART_LABELS[EDIT_PARTS[matchTo]] || matchTo) + '\'s colour' })
+      lastPart = matchFrom
       continue
     }
     if (!raw.length) continue
+    let tint = raw.some((w) => TINT_WORDS.has(w)) ? (raw.some((w) => SLIGHT_WORDS.has(w)) ? 0.3 : 0.5) : 0
+    raw.forEach((w, k) => {
+      if (COLOR_WORDS[w] || !w.endsWith('er') || EDIT_DARKER.has(w) || EDIT_LIGHTER.has(w)) return
+      const stem = [w.slice(0, -2), w.slice(0, -2) + 'e', w.slice(0, -3)].find((x) => x.length >= 3 && COLOR_WORDS[x])
+      if (stem) { raw[k] = stem; tint = tint || 0.5 } // "bluer", "redder", "greener"
+    })
     const remove = raw.some((w) => EDIT_REMOVE.has(w)) || /\btake\b.*\boff\b/.test(clause) || /\bget rid\b/.test(clause)
     let rel = raw.some((w) => EDIT_DARKER.has(w)) ? -1 : raw.some((w) => EDIT_LIGHTER.has(w)) ? 1 : 0
     // "dark hair" / "light pants" (not skin): a shade of what's there.
@@ -2941,6 +3120,7 @@ function parseEdit(text) {
         const what = NEGATABLE[w] || (GEAR_WORDS[w]) || (EDIT_PARTS[w] === 'hat' ? 'hat' : null)
         if (what && !actions.some((a) => a.type === 'remove' && a.what === what)) actions.push({ type: 'remove', what })
       }
+      if (actions.length === before && startPart === 'picked') actions.push({ type: 'remove', what: 'picked' })
     } else {
       const usedPart = new Set()
       words.forEach((w, i) => {
@@ -2954,7 +3134,7 @@ function parseEdit(text) {
         part = part || lastPart || 'outfit'
         usedPart.add(part)
         if (part === 'skin' && w in SKIN_WORDS && !['green', 'blue', 'red', 'purple', 'pink', 'gray', 'grey'].includes(w)) actions.push({ type: 'skinTone', idx: SKIN_WORDS[w], name: w })
-        else actions.push({ type: 'color', part, hex, name: w })
+        else actions.push(tint ? { type: 'tint', part, hex, name: w, amt: tint } : { type: 'color', part, hex, name: w })
         lastPart = part
       })
       if (rel) {
@@ -2984,6 +3164,9 @@ function parseEdit(text) {
         else actions.push({ type: 'animal', kind })
       }
       for (const w of words) {
+        // A colour word already used as a colour ("make this gold", "gold
+        // shirt") isn't also a whole new look.
+        if (COLOR_WORDS[w] && actions.some((a, k) => k >= before && a.name === w)) continue
         const key = THEMES[w] ? w : ALIASES[w] && !COLOR_WORDS[w] ? ALIASES[w] : null
         if (key && !actions.some((a) => a.type === 'theme')) actions.push({ type: 'theme', key, name: w })
       }
@@ -2995,12 +3178,18 @@ function parseEdit(text) {
   return { actions, fixes, unknown: [...new Set(unknown)] }
 }
 
+// "both red" on a picked right sleeve: "both sleeves".
+function partLabel(a) {
+  const l = PART_LABELS[a.part] || a.part
+  return a.both ? 'both ' + l.replace(/^(right|left) /, '').replace(/([^s])$/, '$1s') : l
+}
 function describeEdit(a) {
   switch (a.type) {
-    case 'color': return PART_LABELS[a.part] + ' to <b>' + a.name + '</b>'
+    case 'color': return partLabel(a) + ' to <b>' + a.name + '</b>'
     case 'skinTone': return 'skin to <b>' + a.name + '</b>'
-    case 'shade': return (a.dir < 0 ? 'darker ' : 'lighter ') + PART_LABELS[a.part]
-    case 'remove': return 'removed the <b>' + (a.what === 'all' ? 'gear' : a.what) + '</b>'
+    case 'shade': return (a.dir < 0 ? 'darker ' : 'lighter ') + partLabel(a)
+    case 'tint': return partLabel(a) + ' a bit more <b>' + a.name + '</b>'
+    case 'remove': return 'removed the <b>' + (a.what === 'all' ? 'gear' : a.what === 'picked' ? partLabel({ part: 'picked', both: a.both }) : a.what) + '</b>'
     case 'add': return 'added <b>' + (a.kind ? a.kind + ' ' : '') + a.what + '</b>'
     case 'animal': return 'added <b>' + a.kind + '</b> ears, tail and paws'
     case 'hair': return '<b>' + a.name + '</b> hair'
@@ -3024,8 +3213,13 @@ async function editGenerated(actions) {
   for (const a of actions) if (a.matchPart) a.hex = current(a.matchPart) || detectColors()[a.matchPart]
   actions = actions.filter((a) => !a.matchPart || a.hex)
   for (const a of actions) {
-    if ((a.type === 'color' || a.type === 'shade') && LIMB_PARTS.has(a.part)) after.push(a)
-    else if (a.type === 'color') {
+    if ((a.type === 'color' || a.type === 'shade' || a.type === 'tint') && (LIMB_PARTS.has(a.part) || a.part === 'picked')) after.push(a)
+    else if (a.type === 'remove' && a.what === 'picked') after.push(a)
+    else if (a.type === 'tint') {
+      const parts = a.part === 'outfit' ? ['shirt', 'pants'] : [a.part]
+      if (a.part === 'hat' || a.part === 'beard') after.push(a)
+      else for (const part of parts) { const base = current(part); parsed.overrides[part] = base ? mixHex(base, a.hex, a.amt) : a.hex }
+    } else if (a.type === 'color') {
       if (a.part === 'hat') parsed.overrides.hat = a.hex // every hat the generator draws takes p.hat
       else if (a.part === 'beard') after.push(a)
       else if (a.part === 'outfit') { parsed.overrides.shirt = a.hex; parsed.overrides.pants = shade(a.hex, -38) }
@@ -3061,9 +3255,9 @@ async function editGenerated(actions) {
   }
   parsed.without = [...without]
   await generateThemedSkin(parsed, lastGen.variant, lastGen.randomTheme, null, true, lastGen.seedKey)
-  lastGen = { ...lastGen, parsed }
+  const base = lastGen
   if (after.length) editPainted(after)
-  lastGen.sig = atlasSignature()
+  rememberGen({ ...base, parsed })
 }
 
 // --- Editing any skin: find the part on the picture and change it there. ---
@@ -3208,17 +3402,20 @@ function editPainted(actions) {
   for (const a of actions) if (a.matchPart && !a.hex) a.hex = c[a.matchPart]
   const done = []
   for (const a of actions) {
-    if ((a.type === 'color' || a.type === 'shade') && LIMB_PARTS.has(a.part)) {
+    if (a.part === 'picked' || a.what === 'picked') {
+      if (editPicked(a)) done.push(a)
+    } else if ((a.type === 'color' || a.type === 'shade' || a.type === 'tint') && LIMB_PARTS.has(a.part)) {
       const rects = [...rectsOf(a.part, ALL_FACES, 'base'), ...rectsOf(a.part, ALL_FACES, 'outer')]
-      const from = a.type === 'shade' ? dominantColor(rects) : null
-      if ((a.type === 'color' ? recolorWhole(rects, a.hex) : from ? recolorWhole(rects, shade(from, a.dir * 30)) : 0)) done.push(a)
-    } else if (a.type === 'color' || a.type === 'skinTone' || a.type === 'shade') {
+      const from = a.type === 'color' ? null : dominantColor(rects)
+      const to = a.type === 'color' ? a.hex : !from ? null : a.type === 'tint' ? mixHex(from, a.hex, a.amt) : shade(from, a.dir * 30)
+      if (to && recolorWhole(rects, to)) done.push(a)
+    } else if (a.type === 'color' || a.type === 'skinTone' || a.type === 'shade' || a.type === 'tint') {
       const parts = a.part === 'outfit' ? ['shirt', 'pants'] : [a.type === 'skinTone' ? 'skin' : a.part === 'beard' ? 'hair' : a.part === 'skirt' ? 'pants' : a.part === 'fur' ? 'skin' : a.part]
       let changed = 0
       for (const part of parts) {
         const from = c[part]
         if (!from) continue
-        const to = a.type === 'skinTone' ? SKIN_TONES[a.idx] : a.type === 'shade' ? shade(from, a.dir * 30) : a.part === 'outfit' && part === 'pants' ? shade(a.hex, -38) : a.hex
+        const to = a.type === 'skinTone' ? SKIN_TONES[a.idx] : a.type === 'shade' ? shade(from, a.dir * 30) : a.type === 'tint' ? mixHex(from, a.hex, a.amt) : a.part === 'outfit' && part === 'pants' ? shade(a.hex, -38) : a.hex
         const region = a.part === 'beard' ? 'lowerFace' : REGION_OF[part]
         if (part === 'hat') { changed += recolorWhole(REGIONS.hat(), to); continue }
         changed += recolorArea(REGIONS[region](), from, to, part === 'eye' ? 50 : 85)
@@ -3259,24 +3456,103 @@ function editPainted(actions) {
   return done
 }
 
+// ---- Chat-style Smart Edit (2026-10-18, "make the edit ... smarter").
+// It remembers the conversation: a colour with no part goes on the part you
+// changed last ("red shirt", then "a bit darker" / "more purple"), "no, ..."
+// / "actually ..." swaps the last change for a new one, "undo" / "redo" /
+// "again" work as words, and the last few turns stay listed with one-tap
+// follow-ups. With a part picked on the character, words go to that part.
+const UNDO_ASK = /^(?:undo|undo (?:that|it|this|the last (?:one|change|edit))|go back|revert(?: it| that)?|never ?mind|put it back|change it back|take (?:it|that) back|back)$/
+const REDO_ASK = /^(?:redo|redo (?:that|it)|bring it back)$/
+const AGAIN_ASK = /^(?:again|more|even more|do it again|one more time|once more|repeat(?: that| it)?|keep going|still more)$/
+const CORRECTION = /^(?:no+|nope|nah|not that|not like that|actually|instead|i meant|i mean|rather)\b\s*(.*)$/
+function escapeHtml(t) { return String(t).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c]) }
+function say(ask, html, chips = []) {
+  editChat.turns.push({ ask, html, chips })
+  while (editChat.turns.length > 4) editChat.turns.shift()
+  renderEditChat()
+}
+function renderEditChat() {
+  const note = document.getElementById('aiEditNote')
+  const turns = editChat.turns
+  if (!turns.length) { note.innerHTML = ''; note.style.display = 'none'; return }
+  const last = turns[turns.length - 1]
+  note.innerHTML = turns.map((t, i) => '<div class="chat-turn' + (i === turns.length - 1 ? ' latest' : '') + '">' + (t.ask ? '<span class="chat-you">' + escapeHtml(t.ask) + '</span>' : '') + '<span class="chat-reply">' + t.html + '</span></div>').join('') +
+    (last.chips.length ? '<div class="chat-chips">' + last.chips.map((c) => '<button type="button" class="tbtn" data-ask="' + c + '">' + c + '</button>').join('') + '</div>' : '')
+  note.style.display = 'block'
+  note.scrollTop = note.scrollHeight
+}
+function resetEditChat() { editChat.lastPart = null; editChat.last = null; editChat.turns = []; renderEditChat(); clearPick() }
+document.getElementById('aiEditNote').addEventListener('click', (e) => { const b = e.target.closest('button[data-ask]'); if (b) runSmartEdit(b.dataset.ask) })
+function mixHex(a, b, t) {
+  if (!a) return b
+  const x = hexToRgb(a), y = hexToRgb(b)
+  return rgbToHex(Math.round(x.r + (y.r - x.r) * t), Math.round(x.g + (y.g - x.g) * t), Math.round(x.b + (y.b - x.b) * t))
+}
+
 let smartEditing = false
 async function runSmartEdit(text) {
-  const note = document.getElementById('aiEditNote')
-  const show = (html) => { note.innerHTML = html; note.style.display = 'block' }
   if (smartEditing || generating) return
+  cancelFlash()
   const ask = String(text || '').trim()
-  if (!ask) { show('Type what to change - like <b>red shirt</b>, <b>blonde hair</b>, <b>add sunglasses</b>, <b>remove the hat</b>, <b>darker pants</b> or <b>make it a pirate</b>.'); return }
-  const { actions, fixes, unknown } = parseEdit(ask)
-  if (!actions.length) {
-    show('I couldn\'t tell what to change' + (unknown.length ? ' in "' + unknown.slice(0, 3).join(', ') + '"' : '') + '. Try a part and a colour (<b>green pants</b>), gear (<b>add a hat</b>, <b>no glasses</b>), <b>darker</b>/<b>lighter</b>, or a look (<b>make it a ninja</b>).')
+  if (!ask) { say('', 'Type what to change - like <b>red shirt</b>, <b>blonde hair</b>, <b>add sunglasses</b>, <b>remove the hat</b>, <b>darker pants</b> or <b>make it a pirate</b>. Or tap the target button, tap a part of the character, then say what it should be.'); return }
+  const lower = ask.toLowerCase()
+  const bare = lower.replace(/[^a-z' ]+/g, ' ').replace(/\s+/g, ' ').trim()
+  const undoBtn = document.getElementById('undoBtn'), redoBtn = document.getElementById('redoBtn')
+  if (UNDO_ASK.test(bare) || REDO_ASK.test(bare)) {
+    const btn = UNDO_ASK.test(bare) ? undoBtn : redoBtn
+    const ok = !btn.disabled
+    if (ok) btn.click()
+    editChat.last = null
+    say(ask, ok ? (btn === undoBtn ? 'Undone - back to how it was.' : 'Redone.') : 'Nothing to ' + (btn === undoBtn ? 'undo' : 'redo') + ' yet.')
     return
   }
+  const startPart = pickState ? 'picked' : editChat.lastPart
+  let parsedEdit, swapped = false
+  if (AGAIN_ASK.test(bare)) {
+    const again = (editChat.last?.actions || []).filter((a) => a.type === 'shade' || a.type === 'tint')
+    if (!again.length) { say(ask, editChat.last ? 'That change doesn\'t stack - try <b>darker</b>, <b>lighter</b> or <b>more blue</b>.' : 'Nothing to repeat yet - ask for a change first.'); return }
+    parsedEdit = { actions: again.map((a) => ({ ...a })), fixes: [], unknown: [] }
+  } else {
+    parsedEdit = parseEdit(ask, startPart)
+    const m = bare.match(CORRECTION)
+    const isNo = /^no+\b/.test(bare)
+    // "no, blue" / "nope" / "actually green": take the last change back
+    // first. "no hat" stays a removal.
+    if (m && editChat.last && (!isNo || /^\s*no+\s*([,.!-]|$)/.test(lower) || !parsedEdit.actions.length)) {
+      const canTakeBack = editChat.last.sig === atlasSignature() && !undoBtn.disabled
+      if (!m[1]) {
+        if (canTakeBack) undoBtn.click()
+        say(ask, canTakeBack ? 'Took that back. What should it be instead?' : 'Okay - tell me what to change instead.')
+        editChat.last = null
+        return
+      }
+      const rest = parseEdit(m[1], pickState ? 'picked' : editChat.last.part || startPart)
+      if (rest.actions.length) {
+        if (canTakeBack) { undoBtn.click(); swapped = true }
+        parsedEdit = rest
+      }
+    }
+  }
+  // "remove it" / "take that off" right after adding something.
+  if (!parsedEdit.actions.length && /\b(remove|delete|erase|off|rid|undo)\b/.test(bare) && /\b(it|that|this|them|those)\b/.test(bare)) {
+    const added = (editChat.last?.actions || []).filter((a) => a.type === 'add' || a.type === 'animal')
+    if (added.length) parsedEdit = { actions: added.map((a) => ({ type: 'remove', what: a.type === 'animal' ? 'ears' : a.what })), fixes: [], unknown: [] }
+  }
+  const { actions, fixes, unknown } = parsedEdit
+  if (!actions.length) {
+    say(ask, 'I couldn\'t tell what to change' + (unknown.length ? ' in "' + escapeHtml(unknown.slice(0, 3).join(', ')) + '"' : '') + '. Try a part and a colour (<b>green pants</b>), gear (<b>add a hat</b>, <b>no glasses</b>), <b>darker</b>/<b>lighter</b>, <b>more blue</b>, or a look (<b>make it a ninja</b>).')
+    return
+  }
+  if (pickState && /\b(both|each|pair)\b/.test(bare)) for (const a of actions) if (a.part === 'picked' || a.what === 'picked') a.both = true
   smartEditing = true
   const btn = document.getElementById('aiEditBtn')
   btn.disabled = true
   pushUndo()
   try {
-    const generated = !!lastGen && atlasSignature() === lastGen.sig
+    const g = currentGen()
+    if (g) { lastGen = g; lastPlan = g.plan }
+    const generated = !!g
     const needsGenerator = actions.some((a) => a.type === 'theme' || a.type === 'feminine' || a.type === 'masculine' || (a.type === 'hair' && a.style !== 3))
     let done = actions
     if (generated) await editGenerated(actions)
@@ -3290,23 +3566,175 @@ async function runSmartEdit(text) {
       const variant = Math.random().toString(36).slice(2)
       const randomTheme = RANDOMIZABLE_THEME_KEYS[Math.floor(Math.random() * RANDOMIZABLE_THEME_KEYS.length)]
       await generateThemedSkin(parsed, variant, randomTheme, null, true)
-      lastGen = { parsed, variant, randomTheme, seedKey: JSON.stringify(parsed), sig: atlasSignature() }
+      rememberGen({ parsed, variant, randomTheme, seedKey: JSON.stringify(parsed) })
       await editGenerated(actions.filter((a) => a.type !== 'theme'))
     } else done = editPainted(actions)
     syncAfterEdit()
     scheduleSave()
     revealOuterLayerIfPainted()
     const parts = done.map(describeEdit).filter(Boolean)
-    const fixNote = fixes.length ? ' Read ' + fixes.map(([a, b]) => '"' + a + '" as <b>' + b + '</b>').join(', ') + '.' : ''
-    const missed = actions.length > done.length ? ' Couldn\'t find ' + actions.filter((a) => !done.includes(a)).map(describeEdit).join(', ').replace(/<\/?b>/g, '') + ' on this skin.' : ''
-    show((parts.length ? 'Changed: ' + parts.join(', ') + '.' : 'Nothing on this skin matched that.') + fixNote + missed + ' (Undo puts it back.)')
+    const fixNote = fixes.length ? ' Read ' + fixes.map(([a, b]) => '"' + escapeHtml(a) + '" as <b>' + b + '</b>').join(', ') + '.' : ''
+    const notDone = actions.filter((a) => !done.includes(a) && a.what !== 'picked')
+    const missed = notDone.length ? ' Couldn\'t find ' + notDone.map(describeEdit).join(', ').replace(/<\/?b>/g, '') + ' on this skin.' : ''
+    const picked = actions.find((a) => a.what === 'picked' && a.type === 'remove' && !done.includes(a)) ? ' That\'s part of the body, not gear - try a colour instead.' : ''
+    const lead = swapped ? 'Swapped the last change for: ' : 'Changed: '
+    say(ask, (parts.length ? lead + parts.join(', ') + '.' : 'Nothing on this skin matched that.') + fixNote + missed + picked + ' (Undo puts it back.)', done.some((a) => a.type === 'color' || a.type === 'shade' || a.type === 'tint' || a.type === 'skinTone') ? ['darker', 'lighter', 'undo'] : ['undo'])
+    const partOf = (a) => a.part || (a.type === 'skinTone' ? 'skin' : null)
+    const lastPart = [...done].reverse().map(partOf).find(Boolean)
+    if (lastPart) editChat.lastPart = lastPart
+    editChat.last = { actions: done, part: lastPart || editChat.lastPart, sig: atlasSignature() }
   } finally {
     smartEditing = false
     btn.disabled = false
   }
 }
 document.getElementById('aiEditBtn').addEventListener('click', () => runSmartEdit(document.getElementById('aiEditInput').value))
-document.getElementById('aiEditInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') runSmartEdit(e.target.value) })
+document.getElementById('aiEditInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') runSmartEdit(e.target.value); else if (e.key === 'Escape') clearPick() })
+
+// ---- Pick a part (2026-10-18, "click a part, then type"). The target
+// button arms it; the next tap on the 3D character picks the patch of
+// that colour on that body part (one layer) instead of painting, flashes
+// it, and names it in a chip. Smart Edit words with no part of their own
+// then go to just that patch - "make this gold", "darker", "remove it"
+// (outer layer only), "both" for the other arm/leg too - until the chip's
+// x, Escape, or a new skin. The patch is a list of pixels, kept, so
+// follow-ups still hit it after its colour has changed. ----
+function setPickArmed(on) {
+  pickArmed = !!on
+  const b = document.getElementById('aiPickBtn')
+  b.classList.toggle('active', pickArmed)
+  b.setAttribute('aria-pressed', String(pickArmed))
+  document.querySelector('.stage-canvas-wrap').classList.toggle('picking', pickArmed)
+}
+function clearPick() {
+  cancelFlash()
+  pickState = null
+  setPickArmed(false)
+  if (editChat.lastPart === 'picked') editChat.lastPart = null
+  document.getElementById('aiPickChip').hidden = true
+  document.getElementById('aiEditInput').placeholder = 'Ask for a change'
+}
+document.getElementById('aiPickBtn').addEventListener('click', () => {
+  if (pickArmed) { setPickArmed(false); return }
+  setPickArmed(true)
+  say('', 'Tap a part of the character - a sleeve, the hair, a shoe, the hat - then type what it should become.')
+})
+document.getElementById('aiPickClear').addEventListener('click', clearPick)
+// Atlas rects (in atlas pixels) of one body part's layer.
+function pickRects(key, outer) {
+  const b = BOXES.find((x) => x.key === key)
+  const rects = outer ? ovRects(key) : partFaceRects(b.u, b.v, b.w, b.h, b.d)
+  return Object.values(rects).map((r) => r.map((n) => n * RES))
+}
+function partAtPixel(px, py) {
+  const x = px / RES, y = py / RES
+  for (const b of BOXES) for (const outer of [false, true]) {
+    const rects = outer ? ovRects(b.key) : partFaceRects(b.u, b.v, b.w, b.h, b.d)
+    for (const [face, r] of Object.entries(rects)) if (x >= r[0] && x < r[2] && y >= r[1] && y < r[3]) return { key: b.key, outer, face, row: Math.floor(y - r[1]) }
+  }
+  return null
+}
+function patchPixels(key, outer, hex, data) {
+  const t = hexToRgb(hex), out = []
+  for (const r of pickRects(key, outer)) for (let y = r[1]; y < r[3]; y++) for (let x = r[0]; x < r[2]; x++) {
+    const i = (y * SIZE + x) * 4
+    if (data[i + 3] < 20) continue
+    if (Math.abs(data[i] - t.r) + Math.abs(data[i + 1] - t.g) + Math.abs(data[i + 2] - t.b) <= 80) out.push(i)
+  }
+  return out
+}
+function pickLabel({ key, outer, face, row }, hex) {
+  const c = detectColors()
+  const near = (k) => c[k] && colorDistance(c[k], hex) < 70
+  const side = { armR: 'right ', armL: 'left ', legR: 'right ', legL: 'left ' }[key] || ''
+  let noun
+  if (key === 'head') noun = outer ? 'hat' : near('skin') && !near('hair') ? 'face' : face === 'front' && row >= 3 && row <= 5 && !near('hair') ? 'eyes' : 'hair'
+  else if (key === 'torso') noun = near('skin') && !outer ? 'chest' : outer ? 'jacket' : 'shirt'
+  else if (key === 'armR' || key === 'armL') noun = near('skin') && !outer ? 'arm' : outer ? 'sleeve' : 'sleeve'
+  else noun = near('shoe') && !near('pants') ? 'shoe' : near('skin') && !outer ? 'leg' : 'pants leg'
+  return side + noun
+}
+function pickAt(hits) {
+  const d = mainCtx.getImageData(0, 0, SIZE, SIZE).data
+  for (const h of hits) {
+    if (!h.uv) continue
+    const px = Math.floor(h.uv.x * SIZE), py = Math.floor(h.uv.y * SIZE)
+    const i = (py * SIZE + px) * 4
+    if (d[i + 3] < 20) continue // blank outer layer: look through it
+    const where = partAtPixel(px, py)
+    if (!where) continue
+    const hex = rgbToHex(d[i], d[i + 1], d[i + 2])
+    const mirrorKey = MIRROR_PART[where.key]
+    pickState = {
+      ...where, hex,
+      mask: patchPixels(where.key, where.outer, hex, d),
+      mirror: mirrorKey !== where.key ? patchPixels(mirrorKey, where.outer, hex, d) : [],
+      label: pickLabel(where, hex),
+      res: RES,
+    }
+    PART_LABELS.picked = pickState.label
+    setPickArmed(false)
+    document.getElementById('aiPickLabel').textContent = 'Editing: ' + pickState.label
+    document.getElementById('aiPickSwatch').style.background = hex
+    document.getElementById('aiPickChip').hidden = false
+    const input = document.getElementById('aiEditInput')
+    input.placeholder = 'What should the ' + pickState.label + ' become?'
+    say('', 'Picked the <b>' + pickState.label + '</b>. Now say what it should be - <b>gold</b>, <b>darker</b>, <b>more blue</b>' + (pickState.outer ? ', <b>remove it</b>' : '') + (pickState.mirror.length ? ', or <b>both red</b> for the other side too' : '') + '.')
+    flashPixels(pickState.mask)
+    if (!matchMedia('(pointer: coarse)').matches) input.focus()
+    return true
+  }
+  say('', 'Nothing to pick there - tap right on the character.')
+  return false
+}
+// Recolours the picked patch keeping its shading, or clears it.
+function editPicked(a) {
+  const pk = pickState
+  if (!pk || pk.res !== RES) return 0
+  const mask = a.both ? [...pk.mask, ...pk.mirror] : pk.mask
+  if (!mask.length) return 0
+  const img = mainCtx.getImageData(0, 0, SIZE, SIZE), d = img.data
+  if (a.type === 'remove') {
+    if (!pk.outer) return 0
+    for (const i of mask) d[i + 3] = 0
+    mainCtx.putImageData(img, 0, 0)
+    return mask.length // the pick stays, so "no, blue" / Undo can bring it back
+  }
+  let sr = 0, sg = 0, sb = 0, sl = 0
+  for (const i of mask) { sr += d[i]; sg += d[i + 1]; sb += d[i + 2]; sl += rgbToHsl(d[i], d[i + 1], d[i + 2])[2] }
+  const n = mask.length, from = rgbToHex(Math.round(sr / n), Math.round(sg / n), Math.round(sb / n)), mean = sl / n
+  const to = a.type === 'color' ? a.hex : a.type === 'tint' ? mixHex(from, a.hex, a.amt) : a.type === 'shade' ? shade(from, a.dir * 30) : null
+  if (!to) return 0
+  const t = hexToRgb(to)
+  const [th, ts, tl] = rgbToHsl(t.r, t.g, t.b)
+  for (const i of mask) {
+    const l = rgbToHsl(d[i], d[i + 1], d[i + 2])[2]
+    const [r, g, b] = hslToRgb(th, ts, Math.max(0, Math.min(1, tl + (l - mean) * 0.8)))
+    d[i] = r; d[i + 1] = g; d[i + 2] = b
+  }
+  mainCtx.putImageData(img, 0, 0)
+  document.getElementById('aiPickSwatch').style.background = to
+  return n
+}
+// A short flash of the picked pixels. Always put back before anything
+// else touches the picture (cancelFlash runs from pushUndo and saves).
+function flashPixels(mask) {
+  cancelFlash()
+  if (!mask.length) return
+  const img = mainCtx.getImageData(0, 0, SIZE, SIZE)
+  flashSaved = new ImageData(new Uint8ClampedArray(img.data), SIZE, SIZE)
+  for (const i of mask) { img.data[i] = 255 - (255 - img.data[i]) * 0.25; img.data[i + 1] = 255 - (255 - img.data[i + 1]) * 0.25; img.data[i + 2] = 255 - (255 - img.data[i + 2]) * 0.25 }
+  mainCtx.putImageData(img, 0, 0)
+  texture.needsUpdate = true
+  flashTimer = setTimeout(cancelFlash, 420)
+}
+function cancelFlash() {
+  clearTimeout(flashTimer)
+  if (!flashSaved) return
+  const saved = flashSaved
+  flashSaved = null
+  if (saved.width === SIZE) { mainCtx.putImageData(saved, 0, 0); texture.needsUpdate = true }
+}
 window.__parseEdit = parseEdit
 document.getElementById('randomizeBtn').addEventListener('click', () => runGeneration('', true));
 // ==== end prompt-driven skin generator ==============================
@@ -3349,6 +3777,7 @@ texture.colorSpace = THREE.SRGBColorSpace;
 function setRes(res, resample) {
   res = RES_LEVELS.includes(res) ? res : 1;
   if (res !== RES) {
+    clearPick();
     let copy = null;
     if (resample) {
       copy = document.createElement('canvas');
@@ -3373,6 +3802,7 @@ function setRes(res, resample) {
 // Draws a loaded skin image into the atlas at the current resolution, or
 // the image's own if it has more pixels.
 function drawImageToAtlas(img) {
+  clearPick();
   // The nearest level at or above the image's own (a 192-wide image is 4x).
   const ratio = img.width / 64;
   const imgRes = RES_LEVELS.find((n) => n >= ratio - 0.01) || RES_LEVELS[RES_LEVELS.length - 1];
@@ -3495,6 +3925,7 @@ function restoreSnapshot(d) {
   if (d.slim !== undefined && d.slim !== SLIM) setArmShape(d.slim, false);
 }
 function pushUndo() {
+  cancelFlash();
   undoStack.push(snapshot());
   // Fewer steps for 8x/16x skins - each one is a 4 MB picture at 16x.
   while (undoStack.length > (RES >= 16 ? 8 : RES >= 8 ? 15 : 25)) undoStack.shift();
@@ -4364,6 +4795,7 @@ canvas.addEventListener('pointerup', (e) => {
   // only what Body/Outer Layer/per-part toggles currently show - matches
   // the old tool's rule that hidden geometry isn't clickable either.
   const hits = raycaster.intersectObjects(characterGroup.children.filter((m) => m.visible), false);
+  if (pickArmed) { pickAt(hits); return; }
   if (!hits.length) return;
   // Outer Layer on = you're editing the shell: paint the outer layer even
   // where it's still blank (its grid is what you're tapping). Off = the
@@ -4581,6 +5013,7 @@ function saveNow() {
 function scheduleSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
+    cancelFlash();
     try {
       localStorage.setItem(slotStorageKey(currentSlot), atlasSrc.toDataURL('image/png'));
       const el = document.getElementById('saveIndicator');
@@ -4638,6 +5071,8 @@ function renderSlotBar() {
 }
 function switchSlot(n) {
   if (n === currentSlot) return;
+  resetEditChat();
+  hideOptions();
   saveNow();
   currentSlot = n;
   try { localStorage.setItem(CURRENT_SLOT_KEY, String(n)); } catch (e) {}
@@ -4675,13 +5110,14 @@ for (const n of RES_LEVELS) {
   document.getElementById('res' + n + 'Btn')?.addEventListener('click', async () => {
     try { localStorage.setItem(RES_KEY, String(n)); } catch (e) {}
     if (n === RES || generating) return;
+    hideOptions(); // drawn at the old size
     pushUndo();
     if (lastGen && atlasSignature() === lastGen.sig) {
       generating = true;
       try {
         setRes(n, false);
         await generateThemedSkin(lastGen.parsed, lastGen.variant, lastGen.randomTheme, null, true, lastGen.seedKey);
-        lastGen.sig = atlasSignature();
+        rememberGen({ ...lastGen });
       } finally { generating = false; }
     } else if (n > RES) {
       let data = mainCtx.getImageData(0, 0, SIZE, SIZE).data, m = SIZE;
