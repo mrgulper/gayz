@@ -1289,7 +1289,9 @@ test('thin bamboo, new blocks and the three map sizes', async ({ page }) => {
     }
     // Bamboo: drawn narrower than its cell, and only its middle blocks you.
     b.placeBlock(0, 60, 0, 'bamboo')
-    b.render()
+    // Built but not drawn yet: a drawn chunk lets go of its numbers
+    // (BlockChunks dropAfterUpload).
+    b._chunks.flush(b._chunkCells)
     const xs = new Set()
     for (const m of b._chunks.chunks.get(b._chunkKeyOf(0, 60, 0))?.meshes || []) {
       const p = m.geometry.attributes.position
@@ -2468,7 +2470,9 @@ test('block chunks free their copy once drawn and come back after a lost graphic
     const frames = (n) => new Promise((done) => { let i = 0; const step = () => (++i >= n ? done() : requestAnimationFrame(step)); requestAnimationFrame(step) })
     await frames(30)
     const drawn = () => [...b._chunks.chunks.values()].flatMap((c) => c.meshes).filter((m) => m.visible && !m.geometry.attributes.position.array)
-    const out = { freed: drawn().length, homeCanvases: ['menu-bg-rain', 'menu-bg-water'].map((id) => document.getElementById(id)?.width ?? 0) }
+    // Even land behind you (never in view yet) lets go of its copy.
+    const kept = [...b._chunks.chunks.values()].flatMap((c) => c.meshes).filter((m) => m.visible && m.geometry.attributes.position.array).length
+    const out = { kept, freed: drawn().length, homeCanvases: ['menu-bg-rain', 'menu-bg-water'].map((id) => document.getElementById(id)?.width ?? 0) }
     const lose = g.renderer.getContext().getExtension('WEBGL_lose_context')
     lose.loseContext()
     await new Promise((done) => setTimeout(done, 300))
@@ -2491,6 +2495,7 @@ test('block chunks free their copy once drawn and come back after a lost graphic
     return out
   })
   expect(r.freed).toBeGreaterThan(10)
+  expect(r.kept).toBe(0)
   expect(r.homeCanvases).toEqual([0, 0])
   expect(r.rebuilt).toBeGreaterThan(10)
   expect(r.triangles).toBeGreaterThan(1000)

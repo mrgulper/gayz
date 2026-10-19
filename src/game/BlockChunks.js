@@ -35,6 +35,14 @@ const LAZY_BUDGET_MS = 5
 function dropAfterUpload() {
   this.array = null
 }
+// Only a mesh that's drawn gets uploaded, so a new chunk is drawn once
+// even when it's behind you (frustumCulled off until then) - otherwise land
+// you haven't looked at yet keeps its copy (~20 MB in a Map 1 match).
+function cullAfterUpload() {
+  this.array = null
+  this.mesh.frustumCulled = true
+  this.mesh = null
+}
 // A power-of-two SLOT with the tile repeated into half-tile padding: every
 // mipmap level (down to one texel per slot) then only ever averages a
 // block's own texture - no distant speckles bled in from the next tile.
@@ -543,9 +551,11 @@ export class BlockChunks {
       geo.setAttribute('color', new THREE.Float32BufferAttribute(buf.col, buf.stride))
       geo.setIndex(buf.pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(buf.idx, 1) : new THREE.Uint16BufferAttribute(buf.idx, 1))
       geo.computeBoundingSphere()
-      for (const attr of Object.values(geo.attributes)) attr.onUpload(dropAfterUpload)
-      geo.index.onUpload(dropAfterUpload)
       const mesh = new THREE.Mesh(geo, this.materials[kind])
+      for (const attr of Object.values(geo.attributes)) attr.onUpload(dropAfterUpload)
+      geo.index.onUpload(cullAfterUpload)
+      geo.index.mesh = mesh
+      mesh.frustumCulled = false
       mesh.position.set(bx * this.blockSize, by * this.blockSize, bz * this.blockSize)
       mesh.castShadow = kind === 'solid' || kind === 'glow' || kind === 'cutout'
       mesh.receiveShadow = true
