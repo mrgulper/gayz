@@ -10612,24 +10612,10 @@ html.ui-theme-old #inspect-hint {
   bottom: 0;
   left: 0;
   margin: auto;
-  width: 70vmin;
-  height: 70vmin;
+  /* Same size as the 2nd size (2026-10-19, Gaymi). */
+  width: min(360px, 46vmin);
+  height: min(360px, 46vmin);
   opacity: 0.85;
-}
-/* Held in your hands (the 4th M press): the map is drawn on a sheet in
-   the 3D hands (BuildTryMode.drawHeldMap) from this hidden canvas; only
-   the place name shows, under the sheet. */
-#build-try-map[data-size='held'] {
-  width: min(512px, 60vmin);
-  height: min(512px, 60vmin);
-  visibility: hidden;
-}
-#build-try-map[data-size='held'] #build-try-biome {
-  visibility: visible;
-  position: fixed;
-  top: auto;
-  bottom: 30vh;
-  max-width: 80vw;
 }
 /* The World Map mode's real-world map (EarthAtlas.js) is solid, not see-through. */
 #build-try-map[data-size='center'].atlas { opacity: 1; }
@@ -10956,7 +10942,6 @@ body.touch-play-on #build-tool-hint { display: none !important; }
 body.touch-play-on #build-play-health { bottom: 20px; width: 200px; }
 body.touch-play-on #build-play-ammo { bottom: auto; top: 112px; right: max(20px, env(safe-area-inset-right)); font-size: 26px; }
 body.touch-play-on #build-try-map { top: 8px; right: max(12px, env(safe-area-inset-right)); width: 96px; height: 96px; }
-body.touch-play-on #build-try-map[data-size='held'] { width: 60vmin; height: 60vmin; }
 /* The fps readout moves to a small line at the bottom-left corner. */
 body.touch-play-on #fps-counter { top: auto !important; bottom: 4px !important; left: 8px !important; right: auto !important; transform: none !important; max-width: 42vw; font-size: 10px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 body.touch-play-on #build-play-msg { font-size: 26px; white-space: normal; width: 80vw; }

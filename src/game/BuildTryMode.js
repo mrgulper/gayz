@@ -34,7 +34,7 @@ import { audioEngine } from './Audio.js'
 import { addGunLights, cloneViewmodel } from './Viewmodels.js'
 import { heldAction, FIXED_KEYS } from './Keybinds.js'
 import { WORLD_LIMIT, sampleLand, biomeName, inCity, isEarthWorld } from './OpenWorld.js'
-import { ATLAS_MIN_SPAN, ATLAS_MAX_SPAN, ATLAS_OPEN_SPAN, drawEarthView, drawEarthPlaces } from './EarthAtlas.js'
+import { ATLAS_MAX_SPAN, ATLAS_OPEN_SPAN, drawEarthView, drawEarthPlaces } from './EarthAtlas.js'
 import { EARTH_DEG } from './EarthGrid.js'
 import { placeNameAt } from './EarthPlaces.js'
 import { t } from './i18n.js'
@@ -52,7 +52,7 @@ const HAND_LIGHT = 0.85
 // one M press pops up a much wider view, the next one is the big map in
 // the middle you can drag and zoom (MAP_WORLD_SPAN times its zoom).
 const MAP_WORLD_SPAN = 160
-const MAP_SPAN_FOR = { normal: 96, big: 640, held: 640 }
+const MAP_SPAN_FOR = { normal: 96, big: 640 }
 // How far the big map can be dragged away from you (cells).
 const MAP_PAN_LIMIT = 1200
 // Camera views (the camera key, P - like bloxd.io): first person, third
@@ -62,12 +62,13 @@ const VIEWS = ['first', 'back', 'front']
 const VIEW_DIST = 4
 // ...and from behind, this much higher (blocks) - over your head.
 const VIEW_RISE = 0.6
-// How far the big map zooms in and out (cells across).
 // Milliseconds per minimap draw spent on detailed open-world tiles (twice
 // that on the big map).
 const MAP_TILE_BUDGET_MS = 3
-const MAP_MIN_SPAN = 48
-const MAP_MAX_SPAN = 960
+// The big map zooms in and out with no real limit (2026-10-19, Gaymi:
+// "no zoom limit you can zoom big in and out"); MAP_ZOOM_SAFE only keeps
+// the numbers from breaking (0.0001x to a million times).
+const MAP_ZOOM_SAFE = [1e-4, 1e6]
 // Time per draw for the quick stand-in tiles; past it a tile is one flat
 // colour until the next draw.
 const MAP_COARSE_BUDGET_MS = 3
@@ -122,19 +123,9 @@ const HAND_ARM = [
 ]
 const SWING_TIME = 0.25 // seconds
 // Map sizes M cycles through (Try Map's own minimap, top-right square):
-// normal, big, big in the middle of the screen.
-const MAP_SIZES = ['normal', 'big', 'center', 'held']
-// The 4th size (2026-10-19, Gaymi: "the second map mode but infront of your
-// screen in middle also yours arms should be holding the map"): the big
-// map as a sheet held in both hands in front of you, in the on-top scene
-// instead of the gun. The look stays free and shooting is off meanwhile.
-const HELD_MAP_POS = [0, -0.08, -0.56]
-const HELD_MAP_SIZE = 0.25
-const HELD_MAP_TILT = -0.25
-const HELD_MAP_ARMS = [
-  { limb: 'armR', shoulder: [0.36, -0.72, -0.3], hand: [0.12, -0.2, -0.53] },
-  { limb: 'armL', shoulder: [-0.36, -0.72, -0.3], hand: [-0.12, -0.2, -0.53] },
-]
+// normal, big, big in the middle of the screen (as big as the 2nd size).
+// The map held in both hands was taken out again (2026-10-19, Gaymi).
+const MAP_SIZES = ['normal', 'big', 'center']
 const NEAR = 0.012 // camera near plane while trying (world units; a block is 0.35)
 // Glass shards flying out of a broken window.
 const SHARDS_PER_WINDOW = 14
@@ -313,7 +304,7 @@ export class BuildTryMode {
     this._mapCanvas.addEventListener('pointercancel', endDrag)
     this._mapCanvas.addEventListener('dblclick', () => {
       this._mapPan = { x: 0, z: 0 }
-      this._mapZoom = 1
+      this._mapZoom = this._mapOpenZoom()
       this._mapDrawAt = 0
     })
     this._mapEl.addEventListener('wheel', (e) => {
@@ -321,6 +312,14 @@ export class BuildTryMode {
       e.preventDefault()
       this.zoomMap(e.deltaY > 0 ? 1.25 : 0.8)
     }, { passive: false })
+  }
+
+  // The big map in the middle opens showing as much as the 2nd size
+  // (2026-10-19, Gaymi: "should be like the second image"); the World Map
+  // mode's opens as a real-world atlas.
+  _mapOpenZoom() {
+    if (!this.bm.world?.active) return 1
+    return (isEarthWorld() ? ATLAS_OPEN_SPAN : MAP_SPAN_FOR.big) / MAP_WORLD_SPAN
   }
 
   _mapInteractive() {
@@ -346,18 +345,16 @@ export class BuildTryMode {
   }
 
   zoomMap(factor) {
-    const base = this.bm.world?.active ? MAP_WORLD_SPAN : this._mapImage?.width || 128
-    // The World Map mode zooms out to the whole Earth (EarthAtlas.js).
-    const max = this.bm.world?.active ? (isEarthWorld() ? ATLAS_MAX_SPAN : MAP_MAX_SPAN) : base * 2
-    const min = this.bm.world?.active && isEarthWorld() ? ATLAS_MIN_SPAN : MAP_MIN_SPAN
-    this._mapZoom = Math.min(max / base, Math.max(min / base, this._mapZoom * factor))
+    this._mapZoom = Math.min(MAP_ZOOM_SAFE[1], Math.max(MAP_ZOOM_SAFE[0], this._mapZoom * factor))
     this._mapDrawAt = 0
     this._mapMovedAt = performance.now()
   }
 
-  // The big map can't be dragged further than MAP_PAN_LIMIT from you.
+  // The big map can't be dragged further than MAP_PAN_LIMIT from you -
+  // or, zoomed far out, about one map's width.
   _clampMapPan() {
-    const lim = this.bm.world?.active ? (isEarthWorld() ? ATLAS_MAX_SPAN / 2 : MAP_PAN_LIMIT) : (this._mapImage?.width || 128)
+    const base = this.bm.world?.active ? (isEarthWorld() ? ATLAS_MAX_SPAN / 2 : MAP_PAN_LIMIT) : (this._mapImage?.width || 128)
+    const lim = Math.max(base, this._mapSpan())
     this._mapPan.x = Math.max(-lim, Math.min(lim, this._mapPan.x))
     this._mapPan.z = Math.max(-lim, Math.min(lim, this._mapPan.z))
     // The globe stops at 80 degrees north and south.
@@ -400,10 +397,7 @@ export class BuildTryMode {
   // there); Try Map brings back the size picked with M.
   _applyMapMode() {
     if (!this._mapEl) return
-    // Held in your hands only shows from your own eyes - third person
-    // shows the big corner map instead.
-    const size = this.active ? MAP_SIZES[this._mapMode] : 'normal'
-    this._mapEl.dataset.size = size === 'held' && this.view ? 'big' : size
+    this._mapEl.dataset.size = this.active ? MAP_SIZES[this._mapMode] : 'normal'
     // The big map frees the mouse so it can be dragged; closing it puts
     // the view back on you and catches the mouse again.
     const interactive = this._mapInteractive()
@@ -411,7 +405,7 @@ export class BuildTryMode {
       this._mapEl.classList.toggle('interactive', interactive)
       this._mapPan = { x: 0, z: 0 }
       // The World Map mode's big map opens as a real-world atlas.
-      this._mapZoom = interactive && this.bm.world?.active && isEarthWorld() ? ATLAS_OPEN_SPAN / MAP_WORLD_SPAN : 1
+      this._mapZoom = interactive ? this._mapOpenZoom() : 1
       const canvas = this.bm.renderer.domElement
       try {
         if (interactive) document.exitPointerLock()
@@ -943,7 +937,6 @@ export class BuildTryMode {
   fire() {
     // Playing (BuildSurvival): the gun needs ammo, and zombies are hit
     // before windows.
-    if (this.mapHeld()) return // both hands are on the map
     const play = this.bm.survival
     if (play?.active && (play.dead || !play.tryFire())) return
     this._kick()
@@ -1740,58 +1733,6 @@ export class BuildTryMode {
     renderer.render(this._gunScene, this._gunCamera)
     renderer.toneMapping = toneMapping
     renderer.autoClear = autoClear
-  }
-
-  mapHeld() {
-    return this.active && !this.view && MAP_SIZES[this._mapMode] === 'held' && this._mapEl?.style.display !== 'none'
-  }
-
-  // The map sheet and both arms holding it, drawn on top like the gun.
-  drawHeldMap(renderer) {
-    this._ensureGunScene()
-    if (!this._mapHold) {
-      this._mapHold = new THREE.Group()
-      this._mapHoldSheet = new THREE.Mesh(new THREE.PlaneGeometry(HELD_MAP_SIZE, HELD_MAP_SIZE), new THREE.MeshBasicMaterial({ toneMapped: false }))
-      const frame = new THREE.Mesh(new THREE.PlaneGeometry(HELD_MAP_SIZE * 1.06, HELD_MAP_SIZE * 1.06), new THREE.MeshBasicMaterial({ color: 0x3a2a18 }))
-      frame.position.z = -0.002
-      const sheet = new THREE.Group()
-      sheet.add(frame, this._mapHoldSheet)
-      sheet.position.set(...HELD_MAP_POS)
-      sheet.rotation.x = HELD_MAP_TILT
-      this._mapHold.add(sheet)
-      this._gunScene.add(this._mapHold)
-    }
-    const c = this._mapCanvas
-    if (this._mapHoldTex?.image !== c || this._mapHoldTexW !== c.width) {
-      this._mapHoldTex?.dispose()
-      this._mapHoldTex = new THREE.CanvasTexture(c)
-      this._mapHoldTex.colorSpace = THREE.SRGBColorSpace
-      this._mapHoldTexW = c.width
-      this._mapHoldSheet.material.map = this._mapHoldTex
-      this._mapHoldSheet.material.needsUpdate = true
-    }
-    if (this._mapHoldDrawn !== this._mapDrawAt) { this._mapHoldTex.needsUpdate = true; this._mapHoldDrawn = this._mapDrawAt }
-    const url = this.bm.game?.settings?.customSkinDataUrl || DEFAULT_SKIN_DATA_URL
-    if (this._mapHoldArmUrl !== url) {
-      this._mapHoldArmUrl = url
-      loadSkinTexture(url).then((skin) => {
-        if (this._mapHoldArmUrl !== url) return
-        if (this._mapHoldArms) disposeArms(this._mapHoldArms)
-        this._mapHoldArms = buildArms(skin, HELD_MAP_ARMS)
-        this._mapHold.add(this._mapHoldArms)
-      }).catch(() => {
-        // Unreadable skin - the map is shown without arms.
-      })
-    }
-    const gun = this._gun?.visible
-    const hand = this._hand?.visible
-    if (this._gun) this._gun.visible = false
-    if (this._hand) this._hand.visible = false
-    this._mapHold.visible = true
-    this._renderOnTop(renderer)
-    this._mapHold.visible = false
-    if (this._gun) this._gun.visible = gun
-    if (this._hand) this._hand.visible = hand
   }
 
   drawGun(renderer) {

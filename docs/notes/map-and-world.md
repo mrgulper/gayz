@@ -158,3 +158,6 @@ Moved out of CLAUDE.md on 2026-10-16 (word for word) so it is only read when nee
 - **Stacks:** `BLOCK_STACK`/`ITEM_STACK` 999 (PlayInventory.js).
 - **Burning wood:** `PlayFx.burnBlock` flames live ~2x longer, rise/flicker slower (`wobble` emit option), fewer start.
 - **Guns:** `simplifyMaterials` (clean 10 colours, gunmetal/FINISH, wear) removed - models use their own GLB materials; Void Ripper paint back to 0x2a2633; weapon thumbs re-made.
+
+### Try Map's minimap sizes (2026-10-19)
+M cycles normal -> big (corner) -> center (draggable, same size as big, centred, opens at big's 640-cell view via `_mapOpenZoom`) -> normal. The 4th "held in both hands" size was removed again at Gaymi's request (its 3D sheet/arms code is gone). The center map's zoom has no real limit: `zoomMap` only clamps to `MAP_ZOOM_SAFE` (1e-4..1e6 times) so the numbers don't break, and `_clampMapPan` lets you drag about one map-width when zoomed far out.
