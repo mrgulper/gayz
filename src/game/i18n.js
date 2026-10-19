@@ -769,7 +769,7 @@ const STRINGS = {
     keybindCollision: '{key} is already bound to another action',
     nicknameColorLabel: 'Nickname Color',
     // Exploration & Secrets batch.
-    actionCycleMap: 'Minimap Size (Normal / Big / Middle)',
+    actionCycleMap: 'Minimap Size (Normal / Big / Middle / In Your Hands)',
     actionCameraView: 'Camera View (First / Third Person Behind / In Front)',
     // Zombie Horde Events batch.
     // Trading & Economy batch.
@@ -2184,7 +2184,7 @@ const STRINGS = {
     restoreDefaultsBtn: '恢复默认设置',
     keybindCollision: '{key} 已绑定到另一个操作',
     nicknameColorLabel: '昵称颜色',
-    actionCycleMap: '小地图大小(普通/大/居中)',
+    actionCycleMap: '小地图大小(普通/大/居中/拿在手中)',
     actionCameraView: '视角(第一人称 / 第三人称背后 / 前方)',
     profileNetWorth: '净资产',
     profileTotalSpent: '生涯总花费',
@@ -3576,7 +3576,7 @@ const STRINGS = {
     restoreDefaultsBtn: 'डिफ़ॉल्ट सेटिंग्स बहाल करें',
     keybindCollision: '{key} पहले से ही किसी और कार्रवाई से बंधी है',
     nicknameColorLabel: 'निकनेम रंग',
-    actionCycleMap: 'मिनीमैप का आकार (सामान्य / बड़ा / बीच में)',
+    actionCycleMap: 'मिनीमैप का आकार (सामान्य / बड़ा / बीच में / हाथों में)',
     actionCameraView: 'कैमरा व्यू (फर्स्ट पर्सन / पीछे से थर्ड पर्सन / सामने से)',
     profileNetWorth: 'कुल संपत्ति',
     profileTotalSpent: 'लाइफटाइम खर्च',
@@ -4948,7 +4948,7 @@ const STRINGS = {
     restoreDefaultsBtn: 'Restaurar Ajustes Predeterminados',
     keybindCollision: '{key} ya está asignada a otra acción',
     nicknameColorLabel: 'Color del Apodo',
-    actionCycleMap: 'Tamaño del Minimapa (Normal / Grande / Centro)',
+    actionCycleMap: 'Tamaño del Minimapa (Normal / Grande / Centro / En tus manos)',
     actionCameraView: 'Vista de Cámara (Primera Persona / Tercera Persona Detrás / Delante)',
     profileNetWorth: 'Patrimonio neto',
     profileTotalSpent: 'Gasto total de por vida',

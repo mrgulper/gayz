@@ -10566,13 +10566,18 @@ html.ui-theme-old #inspect-hint {
   top: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%);
-  white-space: nowrap;
+  /* Long names ("Brazil · Rio Grande do Norte · Apodi") wrap onto the
+     next line instead of running off the screen (2026-10-19). */
+  width: max-content;
+  max-width: 100%;
+  text-align: center;
+  overflow-wrap: anywhere;
   padding: 3px 12px;
   font: 600 13px/1.3 system-ui, sans-serif;
   color: #f4ead2;
   background: rgba(8, 8, 7, 0.75);
   border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.55);
-  border-radius: 999px;
+  border-radius: 12px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
@@ -10590,6 +10595,21 @@ html.ui-theme-old #inspect-hint {
   width: 70vmin;
   height: 70vmin;
   opacity: 0.85;
+}
+/* Held in your hands (the 4th M press): the map is drawn on a sheet in
+   the 3D hands (BuildTryMode.drawHeldMap) from this hidden canvas; only
+   the place name shows, under the sheet. */
+#build-try-map[data-size='held'] {
+  width: min(512px, 60vmin);
+  height: min(512px, 60vmin);
+  visibility: hidden;
+}
+#build-try-map[data-size='held'] #build-try-biome {
+  visibility: visible;
+  position: fixed;
+  top: auto;
+  bottom: 30vh;
+  max-width: 80vw;
 }
 /* The World Map mode's real-world map (EarthAtlas.js) is solid, not see-through. */
 #build-try-map[data-size='center'].atlas { opacity: 1; }
@@ -10916,6 +10936,7 @@ body.touch-play-on #build-tool-hint { display: none !important; }
 body.touch-play-on #build-play-health { bottom: 20px; width: 200px; }
 body.touch-play-on #build-play-ammo { bottom: auto; top: 112px; right: max(20px, env(safe-area-inset-right)); font-size: 26px; }
 body.touch-play-on #build-try-map { top: 8px; right: max(12px, env(safe-area-inset-right)); width: 96px; height: 96px; }
+body.touch-play-on #build-try-map[data-size='held'] { width: 60vmin; height: 60vmin; }
 /* The fps readout moves to a small line at the bottom-left corner. */
 body.touch-play-on #fps-counter { top: auto !important; bottom: 4px !important; left: 8px !important; right: auto !important; transform: none !important; max-width: 42vw; font-size: 10px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 body.touch-play-on #build-play-msg { font-size: 26px; white-space: normal; width: 80vw; }
@@ -11868,6 +11889,38 @@ html.ui-theme-old .nickname-input:focus {
 }
 html.ui-theme-old .nickname-input::placeholder,
 html.ui-theme-old .search-bar::placeholder { color: rgba(43, 26, 12, 0.5); }
+/* Achievements' Category and Sort dropdowns wear the search bar's own soft
+   fill and border (2026-10-19, Gaymi: "same colour as the search bar ...
+   it looks softer and smoother"); only the colours - the arrow stays. */
+#achievements-category-select,
+#achievements-sort-select {
+  color: #f1ece0;
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.28);
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+#achievements-category-select:hover,
+#achievements-sort-select:hover { border-color: rgba(var(--ui-gold-accent-rgb), 0.45); }
+#achievements-category-select:focus,
+#achievements-sort-select:focus {
+  background-color: rgba(255, 255, 255, 0.09);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.7);
+  box-shadow: 0 0 0 3px rgba(var(--ui-gold-accent-rgb), 0.14);
+}
+html.ui-theme-old #achievements-category-select,
+html.ui-theme-old #achievements-sort-select {
+  color: #2b1a0c;
+  background-color: rgba(241, 224, 184, 0.55);
+  border-color: rgba(122, 78, 36, 0.4);
+}
+html.ui-theme-old #achievements-category-select:hover,
+html.ui-theme-old #achievements-sort-select:hover { border-color: rgba(122, 78, 36, 0.6); }
+html.ui-theme-old #achievements-category-select:focus,
+html.ui-theme-old #achievements-sort-select:focus {
+  background-color: rgba(241, 224, 184, 0.8);
+  border-color: rgba(107, 68, 35, 0.8);
+  box-shadow: 0 0 0 3px rgba(122, 78, 36, 0.14);
+}
 /* Your Player ID (Friend List, a player's profile): a soft gold chip. */
 #friends-own-id,
 #other-profile-id {

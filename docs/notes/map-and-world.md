@@ -152,3 +152,9 @@ Moved out of CLAUDE.md on 2026-10-16 (word for word) so it is only read when nee
 - Viewmodels.js: `gunmetalPixels(canvas, finish)` repaints only metal pixels (`isMetal`: saturation < METAL_SAT or near black) - wood/paint keep their colours. `FINISH[id]` = tint, mean, contrast, roughness, metalness per gun (DEFAULT_FINISH = GPMG). Colours GUN_COLORS 10, wear at WEAR_SIZE 384 (counts scale with size). 192px colour pictures cost ~+450ms page load - don't.
 - `addGunLights(scene, keyAt, rimAt, strength)` is the one gun light: thumbnails and the hand's gun view (HAND_LIGHT 0.85). The hand's gun view renders with NoToneMapping - the world's ACES tone mapping greyed the gun's colours versus its picture.
 - Digging: `_showDigCrack` picks one of DIG_LOOKS patterns per dig, a random quarter-turn rotation, and DIG_STAGES growth stages (`_crackTexture(look, amount, colors)` draws segments nearest the impact first; dark lines on solid blocks). Breaking picks a random BREAK_LOOKS burst.
+
+## 2026-10-19
+- **M has 4 steps:** `MAP_SIZES` = normal, big, center, held. `held` = the big map's canvas (hidden `#build-try-map[data-size='held']`, still drawn) as a `CanvasTexture` on a sheet in the on-top gun scene with both skin arms (`HELD_MAP_ARMS`), drawn by `BuildTryMode.drawHeldMap` from BuildMode's render instead of the gun/block; `mapHeld()` also blocks `fire()`. Third person shows `big` instead. Place name wraps (`#build-try-biome` max-content/max-width 100%).
+- **Stacks:** `BLOCK_STACK`/`ITEM_STACK` 999 (PlayInventory.js).
+- **Burning wood:** `PlayFx.burnBlock` flames live ~2x longer, rise/flicker slower (`wobble` emit option), fewer start.
+- **Guns:** `simplifyMaterials` (clean 10 colours, gunmetal/FINISH, wear) removed - models use their own GLB materials; Void Ripper paint back to 0x2a2633; weapon thumbs re-made.

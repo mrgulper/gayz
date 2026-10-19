@@ -52,7 +52,7 @@ const HAND_LIGHT = 0.85
 // one M press pops up a much wider view, the next one is the big map in
 // the middle you can drag and zoom (MAP_WORLD_SPAN times its zoom).
 const MAP_WORLD_SPAN = 160
-const MAP_SPAN_FOR = { normal: 96, big: 640 }
+const MAP_SPAN_FOR = { normal: 96, big: 640, held: 640 }
 // How far the big map can be dragged away from you (cells).
 const MAP_PAN_LIMIT = 1200
 // Camera views (the camera key, P - like bloxd.io): first person, third
@@ -123,7 +123,18 @@ const HAND_ARM = [
 const SWING_TIME = 0.25 // seconds
 // Map sizes M cycles through (Try Map's own minimap, top-right square):
 // normal, big, big in the middle of the screen.
-const MAP_SIZES = ['normal', 'big', 'center']
+const MAP_SIZES = ['normal', 'big', 'center', 'held']
+// The 4th size (2026-10-19, Gaymi: "the second map mode but infront of your
+// screen in middle also yours arms should be holding the map"): the big
+// map as a sheet held in both hands in front of you, in the on-top scene
+// instead of the gun. The look stays free and shooting is off meanwhile.
+const HELD_MAP_POS = [0, -0.08, -0.56]
+const HELD_MAP_SIZE = 0.25
+const HELD_MAP_TILT = -0.25
+const HELD_MAP_ARMS = [
+  { limb: 'armR', shoulder: [0.36, -0.72, -0.3], hand: [0.12, -0.2, -0.53] },
+  { limb: 'armL', shoulder: [-0.36, -0.72, -0.3], hand: [-0.12, -0.2, -0.53] },
+]
 const NEAR = 0.012 // camera near plane while trying (world units; a block is 0.35)
 // Glass shards flying out of a broken window.
 const SHARDS_PER_WINDOW = 14
@@ -389,7 +400,10 @@ export class BuildTryMode {
   // there); Try Map brings back the size picked with M.
   _applyMapMode() {
     if (!this._mapEl) return
-    this._mapEl.dataset.size = this.active ? MAP_SIZES[this._mapMode] : 'normal'
+    // Held in your hands only shows from your own eyes - third person
+    // shows the big corner map instead.
+    const size = this.active ? MAP_SIZES[this._mapMode] : 'normal'
+    this._mapEl.dataset.size = size === 'held' && this.view ? 'big' : size
     // The big map frees the mouse so it can be dragged; closing it puts
     // the view back on you and catches the mouse again.
     const interactive = this._mapInteractive()
@@ -929,6 +943,7 @@ export class BuildTryMode {
   fire() {
     // Playing (BuildSurvival): the gun needs ammo, and zombies are hit
     // before windows.
+    if (this.mapHeld()) return // both hands are on the map
     const play = this.bm.survival
     if (play?.active && (play.dead || !play.tryFire())) return
     this._kick()
@@ -981,6 +996,7 @@ export class BuildTryMode {
   cycleView() {
     if (!this.active) return
     this.view = ((this.view || 0) + 1) % VIEWS.length
+    this._applyMapMode()
     if (this.view) {
       this.aiming = false
       this._inspectT = -1
@@ -1724,6 +1740,58 @@ export class BuildTryMode {
     renderer.render(this._gunScene, this._gunCamera)
     renderer.toneMapping = toneMapping
     renderer.autoClear = autoClear
+  }
+
+  mapHeld() {
+    return this.active && !this.view && MAP_SIZES[this._mapMode] === 'held' && this._mapEl?.style.display !== 'none'
+  }
+
+  // The map sheet and both arms holding it, drawn on top like the gun.
+  drawHeldMap(renderer) {
+    this._ensureGunScene()
+    if (!this._mapHold) {
+      this._mapHold = new THREE.Group()
+      this._mapHoldSheet = new THREE.Mesh(new THREE.PlaneGeometry(HELD_MAP_SIZE, HELD_MAP_SIZE), new THREE.MeshBasicMaterial({ toneMapped: false }))
+      const frame = new THREE.Mesh(new THREE.PlaneGeometry(HELD_MAP_SIZE * 1.06, HELD_MAP_SIZE * 1.06), new THREE.MeshBasicMaterial({ color: 0x3a2a18 }))
+      frame.position.z = -0.002
+      const sheet = new THREE.Group()
+      sheet.add(frame, this._mapHoldSheet)
+      sheet.position.set(...HELD_MAP_POS)
+      sheet.rotation.x = HELD_MAP_TILT
+      this._mapHold.add(sheet)
+      this._gunScene.add(this._mapHold)
+    }
+    const c = this._mapCanvas
+    if (this._mapHoldTex?.image !== c || this._mapHoldTexW !== c.width) {
+      this._mapHoldTex?.dispose()
+      this._mapHoldTex = new THREE.CanvasTexture(c)
+      this._mapHoldTex.colorSpace = THREE.SRGBColorSpace
+      this._mapHoldTexW = c.width
+      this._mapHoldSheet.material.map = this._mapHoldTex
+      this._mapHoldSheet.material.needsUpdate = true
+    }
+    if (this._mapHoldDrawn !== this._mapDrawAt) { this._mapHoldTex.needsUpdate = true; this._mapHoldDrawn = this._mapDrawAt }
+    const url = this.bm.game?.settings?.customSkinDataUrl || DEFAULT_SKIN_DATA_URL
+    if (this._mapHoldArmUrl !== url) {
+      this._mapHoldArmUrl = url
+      loadSkinTexture(url).then((skin) => {
+        if (this._mapHoldArmUrl !== url) return
+        if (this._mapHoldArms) disposeArms(this._mapHoldArms)
+        this._mapHoldArms = buildArms(skin, HELD_MAP_ARMS)
+        this._mapHold.add(this._mapHoldArms)
+      }).catch(() => {
+        // Unreadable skin - the map is shown without arms.
+      })
+    }
+    const gun = this._gun?.visible
+    const hand = this._hand?.visible
+    if (this._gun) this._gun.visible = false
+    if (this._hand) this._hand.visible = false
+    this._mapHold.visible = true
+    this._renderOnTop(renderer)
+    this._mapHold.visible = false
+    if (this._gun) this._gun.visible = gun
+    if (this._hand) this._hand.visible = hand
   }
 
   drawGun(renderer) {
