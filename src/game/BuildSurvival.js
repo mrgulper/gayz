@@ -26,7 +26,7 @@ import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, COMING_SOON_WEAPONS, ammoFor, canPla
 import { PlayFx } from './PlayFx.js'
 import { openSpawnMap, closeSpawnMap, findSpawn } from './SpawnMap.js'
 import { LANDMARKS, LANDMARK_REACH } from './Landmarks.js'
-import { CITIES, TOWN_R, townStyleAt } from './Towns.js'
+import { CITIES, TOWN_R, TOWN_SPAWN, townStyleAt } from './Towns.js'
 import { PlayInventory, ITEMS, ARMOR_SLOTS } from './PlayInventory.js'
 import { PlayDrops } from './PlayDrops.js'
 import { PlayThrow } from './PlayThrow.js'
@@ -476,7 +476,7 @@ export class BuildSurvival {
     let town = null
     if (city) {
       const cx = spot.x
-      const cz = spot.z - 30
+      const cz = spot.z - TOWN_SPAWN
       const reach = lm ? LANDMARK_REACH[lm.kind] : 0
       const inside = lm && reach <= 20
       if (lm && bm.world.addLandmark(lm.kind, cx, inside ? cz : cz - TOWN_R - reach - 8, lm.key)) landmark = t(lm.key)

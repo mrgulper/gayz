@@ -131,9 +131,12 @@ function cleanWorld(w) {
   return out
 }
 
-export async function createServer(db, { name, mode, nickname, skin, world } = {}, now = Date.now()) {
+export async function createServer(db, { name, mode, nickname, skin, world, id: wanted } = {}, now = Date.now()) {
   const m = MODES.includes(mode) ? mode : 'main'
-  const id = newId(6)
+  // Invite Friends picks the id itself so its link shows at once; taken or
+  // malformed, a new one is made (the reply says which).
+  const okWanted = typeof wanted === 'string' && wanted.length === 6 && [...wanted].every((ch) => ID_CHARS.includes(ch)) && !(await db.get(`servers/${wanted}`))
+  const id = okWanted ? wanted : newId(6)
   const pid = newId(10)
   const token = randomUUID().replace(/-/g, '')
   const updates = {

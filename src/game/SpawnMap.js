@@ -25,7 +25,7 @@ import { t } from './i18n.js'
 import { BIOMES, SEA, sampleLand } from './OpenWorld.js'
 import { earthBiome, EARTH_DEG } from './EarthGrid.js'
 import { drawEarthView, mapText, cityDot } from './EarthAtlas.js'
-import { PROVINCE_FILES } from './EarthProvinces.js'
+import { loadProvinces, inProvince } from './EarthPlaces.js'
 import { COUNTRY_W, COUNTRY_H, EARTH_COUNTRIES, COUNTRY_RLE } from './EarthCountries.js'
 import { LANDMARKS } from './Landmarks.js'
 import { cityNear } from './Towns.js'
@@ -110,68 +110,6 @@ export function findSpawn(lat, lon, biome) {
 
 const fmt = (lat, lon) => `${Math.abs(Math.round(lat))}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(Math.round(lon))}°${lon >= 0 ? 'E' : 'W'}`
 const biomeLabel = (b) => (BIOMES[b] ? t(BIOMES[b].key) : b)
-
-// --- States/provinces and cities (scripts/make-provinces.mjs) ---
-
-const provinceCache = new Map()
-// A country's provinces and cities, or null (no file, or offline and
-// never loaded).
-async function loadProvinces(country) {
-  const code = PROVINCE_FILES[country]
-  if (!code) return null
-  if (!provinceCache.has(code)) {
-    provinceCache.set(code, fetch(`/earth/${code}.json`).then((r) => (r.ok ? r.json() : null)).then((d) => (d ? decodeProvinces(d) : null)).catch(() => null))
-  }
-  const got = await provinceCache.get(code)
-  if (!got) provinceCache.delete(code)
-  return got
-}
-
-function decodeProvinces(d) {
-  const provinces = d.p.map(([name, type, packed]) => {
-    const rings = packed.map((r) => {
-      const pts = []
-      let x = 0
-      let y = 0
-      for (let i = 0; i < r.length; i += 2) {
-        x = i ? x + r[i] : r[i]
-        y = i ? y + r[i + 1] : r[i + 1]
-        pts.push([x / 100, y / 100])
-      }
-      return pts
-    })
-    const box = boxOf(rings.flat())
-    // Label at the middle of the biggest ring.
-    const big = rings.reduce((a, b) => (b.length > a.length ? b : a), rings[0] || [])
-    const mid = big.reduce((m, p) => [m[0] + p[0] / big.length, m[1] + p[1] / big.length], [0, 0])
-    return { name, type, rings, box, mid }
-  })
-  const cities = d.c.map(([name, lat, lon, prov, cap]) => ({ name, lat: lat / 100, lon: lon / 100, prov, cap }))
-  return { provinces, cities, box: boxOf(provinces.flatMap((p) => p.rings.flat())) }
-}
-
-// [west, south, east, north] of [lon, lat] points.
-function boxOf(pts) {
-  const b = [Infinity, Infinity, -Infinity, -Infinity]
-  for (const [x, y] of pts) {
-    if (x < b[0]) b[0] = x
-    if (y < b[1]) b[1] = y
-    if (x > b[2]) b[2] = x
-    if (y > b[3]) b[3] = y
-  }
-  return b
-}
-
-function inRing(x, y, ring) {
-  let inside = false
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [xi, yi] = ring[i]
-    const [xj, yj] = ring[j]
-    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside
-  }
-  return inside
-}
-const inProvince = (p, lon, lat) => lon >= p.box[0] && lon <= p.box[2] && lat >= p.box[1] && lat <= p.box[3] && p.rings.some((r) => inRing(lon, lat, r))
 
 // Opens the map (2026-10-18 rework, Gaymi: "remove the old panel behind it
 // make the whole map take the page ... dont just make the biome big

@@ -29,7 +29,7 @@
 // the current weather and it changes.
 //
 // Games from the homepage (2026-10-17, Gaymi: "not sunny all day long, add
-// nights"): forGame(true) runs the full day-night Cycle (CYCLE_SECONDS, 10
+// nights"): forGame(true) runs the full day-night Cycle (CYCLE_SECONDS, 24
 // minutes, starting in the morning) with Random weather whatever the
 // Map Editor's buttons are set to, without touching that saved choice.
 // The sun, moon and clouds are SkyBodies.js.
@@ -44,7 +44,9 @@ export const SKY_TIMES = ['day', 'sunset', 'night', 'cycle']
 export const SKY_WEATHERS = ['clear', 'lightRain', 'hardRain', 'lightSnow', 'hardSnow', 'sandstorm', 'random']
 // Saved before Map 1's weather was used here.
 const OLD_WEATHERS = { rain: 'lightRain', snow: 'lightSnow' }
-const CYCLE_SECONDS = 600
+// A whole day: 1440 seconds, so one game minute is one real second
+// (2026-10-18, Gaymi: "make it go 1 minute but each minute=1 second").
+const CYCLE_SECONDS = 1440
 // Games start mid-morning: a little after sunrise (0.75) on the way to noon.
 const GAME_START_PHASE = 0.85
 const PREF_KEY = 'buildmode-sky'

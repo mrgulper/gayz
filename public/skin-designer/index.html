@@ -325,17 +325,16 @@
 
   .hint-note { font-size: 0.74rem; color: var(--text-dim); line-height: 1.5; margin: 0; }
 
-  /* High Contrast toggle - thicker borders + stronger focus rings on every
-     interactive control, for low-vision use. Doesn't touch the accent hue
-     itself since every tool here is text-labeled, not color-coded. */
-  body.high-contrast button.tbtn, body.high-contrast .btn, body.high-contrast .color-well, body.high-contrast .hex-input {
-    border-width: 2px;
-  }
-  body.high-contrast button.tbtn.active, body.high-contrast .btn.primary {
-    outline: 2px solid var(--text);
-  }
+  /* High Contrast toggle - stronger colours only (2026-10-18, Gaymi: "in
+     high contrast dont make the background move or change sizes only
+     change the colour"): borders and dim text take the full text colour
+     and the chosen buttons are filled in. It used to thicken borders
+     (2px), which made every button bigger and pushed the panel around. */
   body.high-contrast * { --line: currentColor; }
   body.high-contrast, body.high-contrast .toolbar, body.high-contrast .atlas-panel { --text-dim: var(--text); }
+  body.high-contrast button.tbtn, body.high-contrast .btn, body.high-contrast .color-well, body.high-contrast .hex-input { border-color: var(--text); color: var(--text); }
+  body.high-contrast button.tbtn.active, body.high-contrast .btn.primary { background: var(--text); border-color: var(--text); color: var(--panel); }
+  :root[data-theme="old"] body.high-contrast button.tbtn.active, :root[data-theme="old"] body.high-contrast button.tbtn.primary, :root[data-theme="old"] body.high-contrast .btn.primary { background: #2b1a0c; border-color: #2b1a0c; color: #f6e9c8; box-shadow: none; }
 
   .export-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50; }
   .export-overlay[hidden] { display: none; }
@@ -493,7 +492,7 @@
     <div class="toolbar">
       <button class="tbtn active" id="layerBodyBtn" title="Hide/show the base body layer in the 3D preview">Body</button>
       <button class="tbtn" id="layerOuterBtn" title="Show the Layer 2 hat/jacket shell in the 3D preview and paint on it">Outer Layer</button>
-      <button class="tbtn" id="highContrastBtn" title="Thicker borders and stronger outlines, for low-vision use">High Contrast</button>
+      <button class="tbtn" id="highContrastBtn" title="Stronger colours, for low-vision use">High Contrast</button>
     </div>
     <div class="toolbar">
       <label class="small">Recolor whole skin</label>

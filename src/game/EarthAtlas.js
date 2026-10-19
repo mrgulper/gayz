@@ -1,12 +1,13 @@
 // The real-world map on M (2026-10-18, Gaymi: "after spawning in when
-// clicking m the map should be real based on the real world map", picked
-// "a real-looking M map" - a map like an atlas, the game's own buildings
-// stay). In the World Map game mode the big map in the middle (M twice)
-// shows Earth once it's zoomed out past ATLAS_FROM blocks: real
-// coastlines, natural land colours, country borders and names, real
-// cities, and the latitude/longitude lines. Zoomed in closer it's the
-// block map as before. World block (x, z) is longitude x / EARTH_DEG,
-// latitude -z / EARTH_DEG (EarthGrid.js), so you sit where you spawned.
+// clicking m the map should be real based on the real world map"; then "dont
+// make a 3d circle actually just make a square map but you can move it ...
+// each land must be full"). In the World Map game mode the big map in the
+// middle (M twice) is this atlas at every zoom - real coastlines, natural
+// land colours, country borders and names, real cities, latitude lines,
+// and closer in the states/provinces and cities of where you are
+// (EarthPlaces.js). It never turns into the block map. World block (x, z)
+// is longitude x / EARTH_DEG, latitude -z / EARTH_DEG (EarthGrid.js), so you
+// sit where you spawned. The spawn map (SpawnMap.js) draws it too.
 //
 // Drawn from the same data as the spawn map (EarthMapData.js's biomes,
 // EarthCountries.js's half-degree countries, Towns.js's cities), once,
@@ -15,13 +16,12 @@ import { EARTH_W, EARTH_H, EARTH_BIOMES } from './EarthMapData.js'
 import { earthCells, EARTH_DEG } from './EarthGrid.js'
 import { COUNTRY_W, COUNTRY_H, EARTH_COUNTRIES, COUNTRY_RLE } from './EarthCountries.js'
 import { CITIES } from './Towns.js'
+import { countryAt, provincesNow } from './EarthPlaces.js'
 
-// Blocks across the map past which it's the atlas instead of blocks (the block map's own
-// widest zoom, MAP_MAX_SPAN in BuildTryMode.js).
-export const ATLAS_FROM = 960
-// Blocks across the map when it opens in the World Map mode: the whole
-// round globe in view (EarthGlobe.js).
-export const ATLAS_OPEN_SPAN = 90 * EARTH_DEG
+// Blocks across the map when it opens (about 30 degrees), and the closest
+// it zooms in (5 degrees - the picture has PX pixels a degree).
+export const ATLAS_OPEN_SPAN = 30 * EARTH_DEG
+export const ATLAS_MIN_SPAN = 5 * EARTH_DEG
 // The whole Earth across.
 export const ATLAS_MAX_SPAN = 360 * EARTH_DEG
 const PX = 8
@@ -224,19 +224,6 @@ function atlasCanvas() {
     d[p + 3] = 255
   }
   ctx.putImageData(big, 0, 0)
-  // Latitude / longitude lines every 15 degrees.
-  ctx.strokeStyle = 'rgba(40, 80, 130, 0.18)'
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  for (let lon = -165; lon < 180; lon += 15) {
-    ctx.moveTo((lon + 180) * PX + 0.5, 0)
-    ctx.lineTo((lon + 180) * PX + 0.5, atlas.height)
-  }
-  for (let lat = -75; lat < 90; lat += 15) {
-    ctx.moveTo(0, (90 - lat) * PX + 0.5)
-    ctx.lineTo(atlas.width, (90 - lat) * PX + 0.5)
-  }
-  ctx.stroke()
   // Country borders (dashed grey-brown), along the edges between
   // half-degree cells.
   const h = PX / 2
@@ -327,6 +314,23 @@ export function drawEarthView(ctx, w, h, west, north, dpp, { countries = true, c
   }
   const deg = w * dpp
   const at = (lat, lon) => [(lon - west) / dpp, (north - lat) / dpp]
+  // Latitude / longitude lines (every 15 degrees, every 5 closer in), drawn
+  // thin at any zoom.
+  const step = deg > 60 ? 15 : 5
+  ctx.strokeStyle = deg > 150 ? 'rgba(40, 80, 130, 0.1)' : 'rgba(40, 80, 130, 0.18)'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  for (let lon = Math.ceil(west / step) * step; lon <= west + deg; lon += step) {
+    const x = Math.round((lon - west) / dpp) + 0.5
+    ctx.moveTo(x, 0)
+    ctx.lineTo(x, h)
+  }
+  for (let lat = Math.floor(north / step) * step; lat >= north - h * dpp; lat -= step) {
+    const y = Math.round((north - lat) / dpp) + 0.5
+    ctx.moveTo(0, y)
+    ctx.lineTo(w, y)
+  }
+  ctx.stroke()
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   const base = Math.max(10, Math.min(22, Math.min(w, h) / 42))
@@ -377,14 +381,72 @@ export function cityDot(ctx, x, y, r, fill = '#ffffff') {
   ctx.stroke()
 }
 
-export { atlasCanvas as earthAtlasCanvas, countryLabels as earthCountryLabels }
+// States/provinces (dashed lines, from about 40 degrees across) and their
+// cities (from about 16) for the countries in view (looked up on a 6 x 6
+// grid of spots, plus `spots`: [lat, lon] each), on a view drawn by
+// drawEarthView with the same corner and scale.
+export function drawEarthPlaces(ctx, w, h, west, north, dpp, spots = []) {
+  const deg = w * dpp
+  if (deg > 40) return
+  spots = [...spots]
+  for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) spots.push([north - ((j + 0.5) / 6) * h * dpp, west + ((i + 0.5) / 6) * deg])
+  const at = (lon, lat) => [(lon - west) / dpp, (north - lat) / dpp]
+  const seen = new Set()
+  const taken = []
+  const base = Math.max(10, Math.min(20, Math.min(w, h) / 44))
+  for (const [lat, lon] of spots) {
+    const country = countryAt(lat, lon)
+    if (!country || seen.has(country)) continue
+    seen.add(country)
+    const d = provincesNow(country)
+    if (!d) continue
+    ctx.save()
+    ctx.setLineDash([4, 3])
+    ctx.lineWidth = 1
+    ctx.strokeStyle = 'rgba(110, 80, 70, 0.6)'
+    ctx.beginPath()
+    for (const p of d.provinces) {
+      for (const ring of p.rings) {
+        ring.forEach(([x, y], i) => {
+          const [px, py] = at(x, y)
+          if (i) ctx.lineTo(px, py)
+          else ctx.moveTo(px, py)
+        })
+        ctx.closePath()
+      }
+    }
+    ctx.stroke()
+    ctx.restore()
+    ctx.textBaseline = 'middle'
+    if (deg <= 25) {
+      ctx.textAlign = 'center'
+      for (const p of d.provinces) {
+        const [x, y] = at(p.mid[0], p.mid[1])
+        if (x < 0 || y < 0 || x > w || y > h) continue
+        ctx.font = `700 ${base * 0.85}px system-ui, sans-serif`
+        const tw = ctx.measureText(p.name).width
+        if (!fits(taken, x - tw / 2, y - base / 2, tw, base)) continue
+        mapText(ctx, p.name, x, y, base * 0.85, 'rgba(90, 60, 50, 0.85)', 700)
+      }
+    }
+    if (deg <= 16) {
+      ctx.textAlign = 'left'
+      for (const c of d.cities) {
+        const [x, y] = at(c.lon, c.lat)
+        if (x < -20 || y < -20 || x > w + 20 || y > h + 20) continue
+        const r = c.cap ? 4.5 : 3.5
+        cityDot(ctx, x, y, r)
+        const size = base * (c.cap ? 0.9 : 0.78)
+        ctx.font = `600 ${size}px system-ui, sans-serif`
+        if (fits(taken, x + r + 3, y - size / 2, ctx.measureText(c.name).width, size)) mapText(ctx, c.name, x + r + 3, y, size, '#2a1d16')
+      }
+    }
+  }
+}
 
-// The country at a world block ('' at sea).
-export function atlasCountryAt(x, z) {
-  const lon = x / EARTH_DEG
-  const lat = -z / EARTH_DEG
-  const i = Math.min(COUNTRY_W - 1, Math.max(0, Math.floor((lon + 180) * 2)))
-  const j = Math.min(COUNTRY_H - 1, Math.max(0, Math.floor((90 - lat) * 2)))
-  const c = countryCells()[j * COUNTRY_W + i]
-  return c ? EARTH_COUNTRIES[c - 1] : ''
+// Labels never cover each other: one that would is left out.
+function fits(taken, x0, y0, w, h) {
+  if (taken.some((b) => x0 < b[2] && x0 + w > b[0] && y0 < b[3] && y0 + h > b[1])) return false
+  taken.push([x0, y0, x0 + w, y0 + h])
+  return true
 }
