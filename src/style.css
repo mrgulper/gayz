@@ -2589,6 +2589,27 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
   margin-top: 0;
 }
 
+/* What's New updates are paused until the game is public. */
+#whatsnew-paused-banner {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--ui-gold-bright);
+  border: 2px solid currentColor;
+  border-radius: 8px;
+}
+
+@media (max-width: 600px) {
+  #whatsnew-paused-banner {
+    font-size: 28px;
+  }
+}
+
 #build-version-line {
   margin: 0 0 4px;
   /* Matches .changelog-date's size at the time this was set (21.6px) -
