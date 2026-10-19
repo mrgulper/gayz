@@ -50,8 +50,11 @@ export const WORLD_LIMIT = Infinity
 // Generated out to the view distance plus a margin, never past this.
 const MAX_RADIUS = 144
 const MIN_RADIUS = 64
-// Columns further than the generated radius plus this are dropped.
-const UNLOAD_MARGIN = 48
+// Columns further than the generated radius plus this are dropped. Was 48,
+// which kept about twice the land the radius needs loaded after a walk
+// (2026-10-19, memory): 16 still leaves ~20 blocks between growing a
+// column and dropping it, so walking back and forth doesn't regrow it.
+const UNLOAD_MARGIN = 16
 // Time per frame spent growing new columns.
 const GEN_BUDGET_MS = 4
 // How far the roads continue out of the gates as dirt tracks.

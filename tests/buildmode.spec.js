@@ -2454,3 +2454,46 @@ test('the spawn map goes from a country to its provinces and cities', async ({ p
   // The map's label: country · province · city (EarthPlaces.placeNameAt).
   await page.waitForFunction(() => document.getElementById('build-try-biome')?.textContent === 'Canada · Ontario · Toronto', null, { timeout: 20000 })
 })
+
+// Memory (2026-10-19): a drawn block chunk lets go of its own copy of its
+// mesh (the graphics card has one), and after a lost graphics connection
+// every chunk is made again from the blocks instead of re-sent. The
+// homepage's rain/water canvases are emptied while a map is open.
+test('block chunks free their copy once drawn and come back after a lost graphics connection', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const b = g.buildMode
+    const frames = (n) => new Promise((done) => { let i = 0; const step = () => (++i >= n ? done() : requestAnimationFrame(step)); requestAnimationFrame(step) })
+    await frames(30)
+    const drawn = () => [...b._chunks.chunks.values()].flatMap((c) => c.meshes).filter((m) => m.visible && !m.geometry.attributes.position.array)
+    const out = { freed: drawn().length, homeCanvases: ['menu-bg-rain', 'menu-bg-water'].map((id) => document.getElementById(id)?.width ?? 0) }
+    const lose = g.renderer.getContext().getExtension('WEBGL_lose_context')
+    lose.loseContext()
+    await new Promise((done) => setTimeout(done, 300))
+    lose.restoreContext()
+    await new Promise((done) => setTimeout(done, 300))
+    // three.js's own reconnect leaves one error behind before anything
+    // is drawn - cleared here, so only drawing the rebuilt chunks counts.
+    g.renderer.getContext().getError()
+    await frames(30)
+    out.rebuilt = [...b._chunks.chunks.values()].flatMap((c) => c.meshes).length
+    g.renderer.info.autoReset = false
+    g.renderer.info.reset()
+    await frames(5)
+    out.triangles = g.renderer.info.render.triangles
+    g.renderer.info.autoReset = true
+    out.glError = g.renderer.getContext().getError()
+    g._exitBuildMode()
+    await frames(20)
+    out.homeBack = ['menu-bg-rain', 'menu-bg-water'].map((id) => document.getElementById(id)?.width ?? 0)
+    return out
+  })
+  expect(r.freed).toBeGreaterThan(10)
+  expect(r.homeCanvases).toEqual([0, 0])
+  expect(r.rebuilt).toBeGreaterThan(10)
+  expect(r.triangles).toBeGreaterThan(1000)
+  expect(r.glError).toBe(0)
+  expect(r.homeBack.every((w) => w > 0)).toBe(true)
+})

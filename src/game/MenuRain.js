@@ -26,7 +26,7 @@
 // under prefers-reduced-motion. Reduce Homepage Background Effects
 // (body.reduce-bg-effects) halves the drops.
 
-import { LITE_HOME, startWhenLight, onHomeFrame } from './LiteHome.js'
+import { LITE_HOME, startWhenLight, onHomeFrame, onHomePause } from './LiteHome.js'
 
 // The street in both background photos (menu-art/old-menu-bg.webp and
 // menu-bg-city.webp share the same framing), as fractions of the picture:
@@ -251,6 +251,12 @@ export function startMenuRain(canvas) {
 
   resize()
   window.addEventListener('resize', resize)
+  // Homepage paused (a match, the Map Editor): a full-screen canvas nobody
+  // sees is ~5 MB, so it's emptied; the first frame back resizes it.
+  onHomePause(() => {
+    canvas.width = canvas.height = 0
+    w = h = -1
+  })
   new MutationObserver(() => {
     if (document.body.classList.contains('reduce-bg-effects') !== reduced) resize()
   }).observe(document.body, { attributes: true, attributeFilter: ['class'] })

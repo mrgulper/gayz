@@ -15,7 +15,7 @@
 // draws while the homepage is on screen and the tab is visible, nothing
 // under prefers-reduced-motion.
 import { FLOOR, pictureBox, rainState } from './MenuRain.js'
-import { startWhenLight, onHomeFrame } from './LiteHome.js'
+import { startWhenLight, onHomeFrame, onHomePause } from './LiteHome.js'
 
 // Height of each redrawn row (CSS px) - small enough that the waves look
 // smooth, big enough to keep the draw calls down (the sheen is blurred, so
@@ -148,5 +148,15 @@ export function startMenuWater(canvas) {
 
   resize()
   window.addEventListener('resize', resize)
+  // Homepage paused (a match, the Map Editor): the canvas and the photo's
+  // sheen copy (~9 MB together) are let go; the first frame back on the
+  // homepage sizes the canvas and makes the sheen again.
+  onHomePause(() => {
+    canvas.width = canvas.height = 0
+    w = h = -1
+    img = null
+    imgUrl = ''
+    lastCheck = -Infinity
+  })
   startWhenLight(() => onHomeFrame(frame))
 }

@@ -81,8 +81,17 @@ function checkSlow(now) {
 // that question made the browser lay the page out again every frame
 // during play. A job with duringPlay set (other previews) still runs.
 let homePaused = false
+const pauseJobs = new Set()
 export function setHomePaused(paused) {
+  const was = homePaused
   homePaused = !!paused
+  if (homePaused && !was) for (const job of pauseJobs) job()
+}
+
+// Runs job() each time the homepage is paused (a match or the Map Editor
+// starts) - for letting go of memory only the homepage uses.
+export function onHomePause(job) {
+  pauseJobs.add(job)
 }
 
 function homeFrame(now) {
