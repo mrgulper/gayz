@@ -31,7 +31,7 @@ import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { audioEngine } from './Audio.js'
-import { cloneViewmodel } from './Viewmodels.js'
+import { addGunLights, cloneViewmodel } from './Viewmodels.js'
 import { heldAction, FIXED_KEYS } from './Keybinds.js'
 import { WORLD_LIMIT, sampleLand, biomeName, inCity, isEarthWorld } from './OpenWorld.js'
 import { ATLAS_MIN_SPAN, ATLAS_MAX_SPAN, ATLAS_OPEN_SPAN, drawEarthView, drawEarthPlaces } from './EarthAtlas.js'
@@ -44,6 +44,9 @@ import { MOB_HEIGHT } from './PlayRules.js'
 import { BOTTOM } from './Underground.js'
 
 const HALF_WIDTH = 0.3
+// How bright the gun in your hands is lit, against its picture's light
+// (Viewmodels.addGunLights).
+const HAND_LIGHT = 0.85
 // Cells across the minimap out in Map 1's open world, per size (like
 // florr.io, 2026-10-16): the corner map shows just the part around you,
 // one M press pops up a much wider view, the next one is the big map in
@@ -131,6 +134,14 @@ const SHARD_LIFE = 1.4
 // are the push away from you and upward, spread the random scatter, sizes
 // how big the pieces are, spin how fast they tumble.
 const CRACK_LOOKS = 5
+// Breaking a block cracks it a different way each time (2026-10-18, Gaymi:
+// "making when breaking a block not always the same way to break like
+// windows ... the look when breaking should look different each time"):
+// one of DIG_LOOKS crack patterns, turned a random way, growing over
+// DIG_STAGES steps as it gets closer to breaking, then one of BREAK_LOOKS
+// ways of bursting apart.
+const DIG_LOOKS = 10
+const DIG_STAGES = 6
 // Breaking blocks while playing (_updateDigging): how near (blocks) a block
 // has to be.
 const DIG_REACH = 5
@@ -1209,24 +1220,46 @@ export class BuildTryMode {
     bm.removeBlock(x, y, z)
     bm._suppressUndoRecording = false
     const glass = bm._isWindowType(type)
-    this._spawnShards(x, y, z, type, glass ? null : BREAK_LOOKS.findIndex((l) => l.name === 'chunks'))
+    this._spawnShards(x, y, z, type, glass ? null : Math.floor(Math.random() * BREAK_LOOKS.length))
     if (glass) audioEngine.playGlassBreak()
     else audioEngine.playFootstep(false, bm.breakSeconds(type) < 1 ? 'grass' : 'default')
   }
 
-  // The crack on the block being broken, fading in as it gets closer.
+  // The crack on the block being broken: this dig's own pattern (picked
+  // when it starts), spreading out from its impact point as it gets closer.
   _showDigCrack(dig, progress) {
     const bm = this.bm
     const B = this.B
     if (!this._digMesh) {
-      const mat = new THREE.MeshBasicMaterial({ map: this._crackTexture(CRACK_LOOKS - 1), transparent: true, alphaTest: 0.01, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
+      const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.01, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
       this._digMesh = new THREE.Mesh(new THREE.BoxGeometry(B * 1.01, B * 1.01, B * 1.01), mat)
       this._digMesh.renderOrder = 2
     }
+    if (dig.look === undefined) {
+      dig.look = Math.floor(Math.random() * DIG_LOOKS)
+      // Turned a random way, so every face shows it differently too.
+      const q = () => Math.floor(Math.random() * 4) * (Math.PI / 2)
+      this._digMesh.rotation.set(q(), q(), q())
+    }
+    const stage = Math.min(DIG_STAGES, 1 + Math.floor(progress * DIG_STAGES))
+    const map = this._digCrackTexture(dig.look, stage, bm._isWindowType(dig.type))
+    if (this._digMesh.material.map !== map) {
+      this._digMesh.material.map = map
+      this._digMesh.material.needsUpdate = true
+    }
     if (!this._digMesh.parent) bm.scene.add(this._digMesh)
     this._digMesh.position.set((dig.x + 0.5) * B, (dig.y + 0.5) * B, (dig.z + 0.5) * B)
-    this._digMesh.material.opacity = 0.2 + 0.8 * progress
+    this._digMesh.material.opacity = 0.55 + 0.45 * progress
     this._digMesh.visible = true
+  }
+
+  // Dig cracks: look (pattern), stage (how far grown), dark lines on solid
+  // blocks or white on glass. Tiny pictures, made once each.
+  _digCrackTexture(look, stage, glass) {
+    this._digTextures = this._digTextures || new Map()
+    const key = `${look}:${stage}:${glass ? 1 : 0}`
+    if (!this._digTextures.has(key)) this._digTextures.set(key, this._crackTexture(100 + look, stage / DIG_STAGES, glass ? null : ['rgba(18,14,10,0.9)', 'rgba(255,255,255,0.18)']))
+    return this._digTextures.get(key)
   }
 
   _stopDig() {
@@ -1237,7 +1270,10 @@ export class BuildTryMode {
   // Pixel-art cracks, drawn once each: CRACK_LOOKS different ones - an
   // impact point somewhere near the middle, 4-7 cracks running out from
   // it with kinks and branches, and on some a spider web of rings.
-  _crackTexture(look) {
+  // amount (0-1): how much of it is drawn, nearest the impact point first;
+  // colors: [line, edge] (white lines with a dark edge for glass).
+  _crackTexture(look, amount = 1, colors = null) {
+    const [lineColor, edgeColor] = colors || ['rgba(255,255,255,0.95)', 'rgba(40,50,60,0.45)']
     const c = document.createElement('canvas')
     c.width = c.height = 16
     const ctx = c.getContext('2d')
@@ -1251,15 +1287,9 @@ export class BuildTryMode {
       ctx.fillStyle = color
       ctx.fillRect(px, py, 1, 1)
     }
-    const line = (x0, y0, x1, y1) => {
-      const n = Math.max(1, Math.round(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))))
-      for (let j = 0; j <= n; j++) {
-        const px = Math.round(x0 + ((x1 - x0) * j) / n)
-        const py = Math.round(y0 + ((y1 - y0) * j) / n)
-        dot(px + 1, py, 'rgba(40,50,60,0.45)')
-        dot(px, py, 'rgba(255,255,255,0.95)')
-      }
-    }
+    // Lines are collected first, then drawn nearest the impact point first.
+    const segs = []
+    const line = (x0, y0, x1, y1) => segs.push([x0, y0, x1, y1])
     const cx = 5 + rand() * 6
     const cy = 5 + rand() * 6
     const arms = 4 + Math.floor(rand() * 4)
@@ -1296,7 +1326,17 @@ export class BuildTryMode {
         }
       }
     }
-    dot(Math.round(cx), Math.round(cy), 'rgba(255,255,255,1)')
+    segs.sort((a, b) => Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy))
+    for (const [x0, y0, x1, y1] of segs.slice(0, Math.ceil(segs.length * amount))) {
+      const n = Math.max(1, Math.round(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))))
+      for (let j = 0; j <= n; j++) {
+        const px = Math.round(x0 + ((x1 - x0) * j) / n)
+        const py = Math.round(y0 + ((y1 - y0) * j) / n)
+        dot(px + 1, py, edgeColor)
+        dot(px, py, lineColor)
+      }
+    }
+    dot(Math.round(cx), Math.round(cy), lineColor)
     const tex = new THREE.CanvasTexture(c)
     tex.magFilter = THREE.NearestFilter
     tex.minFilter = THREE.NearestFilter
@@ -1442,10 +1482,8 @@ export class BuildTryMode {
     const pmrem = new THREE.PMREMGenerator(this.bm.renderer)
     this._gunScene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
     pmrem.dispose()
-    this._gunScene.add(new THREE.HemisphereLight(0xffffff, 0x666655, 1.6))
-    const key = new THREE.DirectionalLight(0xffffff, 1.8)
-    key.position.set(1, 2, 1)
-    this._gunScene.add(key)
+    // The same light as the guns' pictures (Viewmodels.addGunLights).
+    addGunLights(this._gunScene, [1, 2, 1], [-1.5, 1, -2], HAND_LIGHT)
     this._gunCamera = new THREE.PerspectiveCamera(70, 1, 0.01, 10)
   }
 
@@ -1679,7 +1717,12 @@ export class BuildTryMode {
     const autoClear = renderer.autoClear
     renderer.autoClear = false
     renderer.clearDepth()
+    // Drawn without the world's film-like tone mapping, like the gun's own
+    // picture (InventoryUI._weaponThumbnails) - ACES greyed its colours.
+    const toneMapping = renderer.toneMapping
+    renderer.toneMapping = THREE.NoToneMapping
     renderer.render(this._gunScene, this._gunCamera)
+    renderer.toneMapping = toneMapping
     renderer.autoClear = autoClear
   }
 

@@ -11,7 +11,7 @@ import * as THREE from 'three'
 import { Game, CRATES_COMING_SOON, CRATE_ICON_SVG, CRATE_TIERS, CRATE_TIER_COLORS, INVENTORY_SKINS, SKIN_RARITIES, WEAPON_ICON_PATHS, WEAPON_THUMBS_CACHE, _escapeHtml, _safeStatNumber, saveSettings, saveShopProgress, skinFrontIconURL } from './Game.js'
 import { InspectViewer } from './InspectViewer.js'
 import { MenuAvatar3D, SHOP_SKIN_PREVIEW_DATA_URL, buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
-import { cloneViewmodel } from './Viewmodels.js'
+import { addGunLights, cloneViewmodel } from './Viewmodels.js'
 import { COMING_SOON_WEAPONS } from './PlayWeapons.js'
 import { t } from './i18n.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
@@ -860,13 +860,7 @@ export async function _weaponThumbnails(game) {
     await pause()
     // Bright, even studio light - most guns are dark metal and would
     // otherwise read as black silhouettes on the dark cards.
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a9a, 2.6))
-    const key = new THREE.DirectionalLight(0xffffff, 3)
-    key.position.set(4, 3, 1)
-    scene.add(key)
-    const rim = new THREE.DirectionalLight(0xffffff, 1.2)
-    rim.position.set(-2, 2, -3)
-    scene.add(rim)
+    addGunLights(scene)
     const camera = new THREE.PerspectiveCamera(30, 240 / 140, 0.01, 50)
     const box = new THREE.Box3()
     const meshBox = new THREE.Box3()
