@@ -453,3 +453,103 @@ test('Design a Skin: long hair in front, cat details, smarter edits', async ({ p
   expect(pad[0]).toBeGreaterThan(200)
   expect(await alpha(12, 36, 4, 8)).toBeGreaterThan(8) // right leg overlay back
 })
+
+// 2026-10-18, "make the edit and generating a skin smarter": sentences tie
+// colours to parts, Generate offers 4 options, Smart Edit remembers the
+// conversation, and a part picked on the character takes the next words.
+test('Design a Skin reads whole sentences', async ({ page }) => {
+  await openDesigner(page)
+  const read = (p) => page.evaluate((t) => { const r = window.__parsePrompt(t); return Object.fromEntries(Object.entries(r.colors).map(([k, v]) => [k, v.name])) }, p)
+  expect(await read('a pirate whose hair is red')).toEqual({ hair: 'red' })
+  expect(await read('her eyes are green')).toEqual({ eye: 'green' })
+  expect(await read('red and black shirt')).toEqual({ shirt: 'red', accent: 'black' })
+  expect(await read('cat girl, hair: white, eyes: blue')).toEqual({ hair: 'white', eye: 'blue' })
+  expect(await read('a zombie wearing a red hat')).toEqual({ hat: 'red' })
+  // A colour word that is also a look ("gold") only recolours in Smart Edit.
+  const edit = await page.evaluate(() => window.__parseEdit('make the shirt gold').actions.map((a) => a.type))
+  expect(edit).toEqual(['color'])
+})
+
+test('Design a Skin offers 4 options to pick from', async ({ page }) => {
+  await openDesigner(page)
+  await page.click('#res1Btn')
+  const note = await generate(page, 'pirate')
+  expect(note).toContain('4 options')
+  expect(await page.evaluate(() => window.__genOptions())).toBe(4)
+  await expect(page.locator('#genOptions .gen-option')).toHaveCount(4)
+  await expect(page.locator('#genOptions .gen-option.active')).toHaveText('1')
+  const pic = () => page.evaluate(() => Array.from(window.__skinAtlas.getContext('2d').getImageData(0, 0, 64, 64).data).join(','))
+  const first = await pic()
+  await page.locator('#genOptions .gen-option').nth(2).click()
+  await expect(page.locator('#genOptions .gen-option.active')).toHaveText('3')
+  expect(await pic()).not.toBe(first)
+  await page.click('#undoBtn')
+  expect(await pic()).toBe(first)
+})
+
+test('Design a Skin Smart Edit remembers the conversation', async ({ page }) => {
+  await openDesigner(page)
+  await page.click('#res1Btn')
+  await generate(page, 'white shirt chef')
+  const torso = () => page.evaluate(() => {
+    const d = window.__skinAtlas.getContext('2d').getImageData(20, 20, 8, 12).data
+    let r = 0, g = 0, b = 0
+    for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2] }
+    return { r, g, b, sum: r + g + b }
+  })
+  const ask = async (t) => {
+    await page.fill('#aiEditInput', t)
+    await page.click('#aiEditBtn')
+    await page.waitForFunction(() => !document.getElementById('aiEditBtn').disabled)
+    return (await page.textContent('#aiEditNote .chat-turn.latest')).trim()
+  }
+  await ask('red shirt')
+  let t = await torso()
+  expect(t.r).toBeGreaterThan(t.b)
+  // "no, blue": the last change is swapped, on the same part.
+  expect(await ask('no, blue')).toContain('Swapped')
+  t = await torso()
+  expect(t.b).toBeGreaterThan(t.r)
+  const blue = t.sum
+  await ask('darker')
+  expect((await torso()).sum).toBeLessThan(blue)
+  await ask('undo')
+  expect((await torso()).sum).toBe(blue)
+  // Follow-up buttons and earlier turns stay listed.
+  await expect(page.locator('#aiEditNote .chat-turn')).toHaveCount(4)
+  await expect(page.locator('#aiEditNote button[data-ask="darker"]')).toHaveCount(0) // undo's reply has none
+  await ask('more green')
+  await expect(page.locator('#aiEditNote button[data-ask="darker"]')).toHaveCount(1)
+})
+
+test('Design a Skin edits a part picked on the character', async ({ page }) => {
+  await openDesigner(page)
+  await page.click('#res1Btn')
+  await generate(page, 'white shirt chef')
+  const area = (x, y, w, h) => page.evaluate(([x, y, w, h]) => {
+    const d = window.__skinAtlas.getContext('2d').getImageData(x, y, w, h).data
+    let r = 0, g = 0, b = 0
+    for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2] }
+    return { r, g, b, raw: Array.from(d).join(',') }
+  }, [x, y, w, h])
+  const leftBefore = await area(36, 52, 4, 12)
+  await page.click('#aiPickBtn')
+  expect(await page.evaluate(() => window.__pickAt(45, 22))).toBe(true) // right arm, front
+  await expect(page.locator('#aiPickChip')).toBeVisible()
+  await expect(page.locator('#aiPickLabel')).toContainText('right')
+  await page.fill('#aiEditInput', 'make this blue')
+  await page.click('#aiEditBtn')
+  await page.waitForFunction(() => !document.getElementById('aiEditBtn').disabled)
+  const right = await area(45, 22, 1, 1)
+  expect(right.b).toBeGreaterThan(right.r)
+  expect((await area(36, 52, 4, 12)).raw).toBe(leftBefore.raw)
+  // "both" reaches the other arm too.
+  await page.fill('#aiEditInput', 'both green')
+  await page.click('#aiEditBtn')
+  await page.waitForFunction(() => !document.getElementById('aiEditBtn').disabled)
+  const left = await area(36, 52, 4, 12)
+  expect(left.raw).not.toBe(leftBefore.raw)
+  expect(left.g).toBeGreaterThan(left.r)
+  await page.click('#aiPickClear')
+  await expect(page.locator('#aiPickChip')).toBeHidden()
+})
