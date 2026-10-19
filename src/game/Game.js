@@ -2611,6 +2611,7 @@ export class Game {
     this.whatsNewPanel = document.getElementById('whatsnew-panel')
     this.whatsNewPanelTitle = document.getElementById('whatsnew-panel-title')
     this.buildVersionLine = document.getElementById('build-version-line')
+    this.whatsNewPausedBanner = document.getElementById('whatsnew-paused-banner')
     this.storeBtn = document.getElementById('store-btn')
     this.gameStarted = false
     this.weapons = new WeaponCatalog()

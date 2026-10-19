@@ -428,6 +428,7 @@ export function _openWhatsNewPanel(game) {
   game._closeAllMenuPanels()
   game.whatsNewPanel.style.display = 'flex'
   if (game.whatsNewPanelTitle) game.whatsNewPanelTitle.textContent = t('whatsNewPanelTitle')
+  if (game.whatsNewPausedBanner) game.whatsNewPausedBanner.textContent = t('whatsNewPaused')
   if (game.buildVersionLine) game.buildVersionLine.textContent = t('buildVersionLine')
   // What's New badge dot - clears the moment the player actually reads
   // game panel, not just on page load, so it stays a genuine "have you
