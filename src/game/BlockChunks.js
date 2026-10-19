@@ -27,6 +27,14 @@ const PAD = CHUNK + 2
 const UNREAD = 0
 // Time per frame spent rebuilding the open world's chunks (see flush()).
 const LAZY_BUDGET_MS = 5
+// A chunk mesh's numbers are only needed until the graphics card has its
+// own copy - nothing reads them back (a change rebuilds the chunk), so the
+// copy in memory is dropped right after upload. That kept about as much
+// memory again as the meshes themselves (~45 MB in a Map 1 match). After a
+// lost graphics connection, rebuildAll() makes them again from the blocks.
+function dropAfterUpload() {
+  this.array = null
+}
 // A power-of-two SLOT with the tile repeated into half-tile padding: every
 // mipmap level (down to one texel per slot) then only ever averages a
 // block's own texture - no distant speckles bled in from the next tile.
@@ -384,6 +392,12 @@ export class BlockChunks {
     return built
   }
 
+  // Every built chunk again, on the next flush (their uploaded copies are
+  // gone after a lost graphics connection - see dropAfterUpload).
+  rebuildAll() {
+    for (const key of this.chunks.keys()) this.dirty.add(key)
+  }
+
   clear() {
     for (const key of [...this.chunks.keys()]) this._disposeChunk(key)
     this.dirty.clear()
@@ -529,6 +543,8 @@ export class BlockChunks {
       geo.setAttribute('color', new THREE.Float32BufferAttribute(buf.col, buf.stride))
       geo.setIndex(buf.pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(buf.idx, 1) : new THREE.Uint16BufferAttribute(buf.idx, 1))
       geo.computeBoundingSphere()
+      for (const attr of Object.values(geo.attributes)) attr.onUpload(dropAfterUpload)
+      geo.index.onUpload(dropAfterUpload)
       const mesh = new THREE.Mesh(geo, this.materials[kind])
       mesh.position.set(bx * this.blockSize, by * this.blockSize, bz * this.blockSize)
       mesh.castShadow = kind === 'solid' || kind === 'glow' || kind === 'cutout'

@@ -2330,6 +2330,9 @@ export class Game {
       if (note) note.style.display = 'none'
       const panel = document.getElementById('graphics-lost-panel')
       if (panel) panel.style.display = 'none'
+      // Block chunks don't keep a copy for three.js to re-send (BlockChunks
+      // dropAfterUpload) - they're made again from the blocks instead.
+      this.buildMode._chunks?.rebuildAll()
       if (!this.settings.liteTextures) {
         this.settings.liteTextures = true
         saveSettings(this.settings)
