@@ -136,3 +136,13 @@ Moved out of CLAUDE.md on 2026-10-16 (word for word) so it is only read when nee
 - **Gunmetal** (Viewmodels.js `gunmetalPixels`): every non-Coming-Soon gun's picture -> GPMG olive grey, each picture's mean moved to GUNMETAL_MEAN with GUNMETAL_CONTRAST; `KEEP_RED` (flamethrower) keeps red pixels. Void Ripper paint colour changed to match.
 - **GPMG** re-cut from the original: box/belt kept, bipod + floating bits + the side plate under the box (piece 5300, "the L") removed.
 - **Invite Friends**: `makeGameJoinable` (ServerBrowser.js) creates a server with `world` {seed, earth, pick} (api `cleanWorld`) and attaches a PlayNet to the running survival; join returns `world`; PlayEntryUI sets Earth + reseeds from it, and BuildSurvival.start spawns guests with `_spawnAt(net.world.pick)`. `?join=CODE` joins after game-ready (`joinFromLink`, removes the param). `window.__serversBackendForTests` works before the game exists. Online-only button.
+
+## Square atlas again, natural towns, biome top bar (2026-10-18, fifth batch)
+
+- The globe (EarthGlobe.js) is gone (Gaymi: "dont make a 3d circle actually just make a square map"). The World Map mode's centre map is `drawEarthView` at every zoom (never the block map), ATLAS_OPEN_SPAN 30 deg, ATLAS_MIN_SPAN 5 deg; `drawEarthPlaces` adds province lines (<= 40 deg), names (<= 25) and cities (<= 16) for countries found on a 6x6 grid in view. Lat/lon lines are drawn as vectors (baked in the picture they became blurry bands).
+- EarthPlaces.js holds the province data code (moved from SpawnMap) + `countryAt`, `provincesNow` (lazy) and `placeNameAt` ("Country · Province · City", city within 0.6 deg) used by `_showBiome` in the World Map mode.
+- Towns.js: no grid any more - `roadLines` (5-7 winding spokes, one due south, + a wobbly ring), `paveRoads`, buildings 9-17 x 9-15 set back from the roads with GAP between, never within SPAWN_CLEAR of TOWN_SPAWN (58 south of the middle, where BuildSurvival puts you), doors face the road, trees in open ground. TOWN_R 96.
+- Top bar: BiomeBar.js (in the BuildMode chunk; `bm.biomeBarLook()`) picks a block picture per biome; TopBar.js cross-fades two `.top-bar-ground` layers; same look in both themes (Gaymi: "dont make it old style"). Night/weather tint is `#top-bar::after`.
+- BuildSky CYCLE_SECONDS 1440 (one game minute per second); the clock shows every minute.
+- Invite: the client picks the server id (`newServerId`), shows the link at once, `createServer` uses a wanted id if free.
+- Clans rank by average career kills per member (ClanUI `avgKills`), one decimal.

@@ -34,9 +34,9 @@ import { audioEngine } from './Audio.js'
 import { cloneViewmodel } from './Viewmodels.js'
 import { heldAction, FIXED_KEYS } from './Keybinds.js'
 import { WORLD_LIMIT, sampleLand, biomeName, inCity, isEarthWorld } from './OpenWorld.js'
-import { ATLAS_FROM, ATLAS_MAX_SPAN, ATLAS_OPEN_SPAN, atlasCountryAt } from './EarthAtlas.js'
-import { EarthGlobe } from './EarthGlobe.js'
+import { ATLAS_MIN_SPAN, ATLAS_MAX_SPAN, ATLAS_OPEN_SPAN, drawEarthView, drawEarthPlaces } from './EarthAtlas.js'
 import { EARTH_DEG } from './EarthGrid.js'
+import { placeNameAt } from './EarthPlaces.js'
 import { t } from './i18n.js'
 import { holdWeapon, poseArms } from './HeldWeapon.js'
 import { GunFx } from './GunFx.js'
@@ -327,7 +327,8 @@ export class BuildTryMode {
     const base = this.bm.world?.active ? MAP_WORLD_SPAN : this._mapImage?.width || 128
     // The World Map mode zooms out to the whole Earth (EarthAtlas.js).
     const max = this.bm.world?.active ? (isEarthWorld() ? ATLAS_MAX_SPAN : MAP_MAX_SPAN) : base * 2
-    this._mapZoom = Math.min(max / base, Math.max(MAP_MIN_SPAN / base, this._mapZoom * factor))
+    const min = this.bm.world?.active && isEarthWorld() ? ATLAS_MIN_SPAN : MAP_MIN_SPAN
+    this._mapZoom = Math.min(max / base, Math.max(min / base, this._mapZoom * factor))
     this._mapDrawAt = 0
     this._mapMovedAt = performance.now()
   }
@@ -353,20 +354,19 @@ export class BuildTryMode {
     }
     const cx = Math.floor(x)
     const cz = Math.floor(z)
+    // The World Map mode: "Country · Province · City" (EarthPlaces.js).
+    const earth = x !== null && this.bm.world?.active && isEarthWorld() && !inCity(cx, cz) ? placeNameAt(-z / EARTH_DEG, x / EARTH_DEG) : ''
+    if (earth) {
+      if (this._biomeEl.textContent !== earth) this._biomeEl.textContent = earth
+      this._biomeEl.style.display = ''
+      return
+    }
     const biome = x === null || inCity(cx, cz) ? '' : biomeName(sampleLand(cx, cz).biome)
     // Inside a village, castle or bridge (WorldStructures.js) it says so too.
     const place = biome ? this.bm.world?.placeName(cx, cz) : ''
     const name = place ? `${place} · ${biome}` : biome
     if (this._biomeEl.textContent !== name) this._biomeEl.textContent = name
     this._biomeEl.style.display = name ? '' : 'none'
-  }
-
-  // The atlas names the country you're in instead of the biome.
-  _showPlace(name) {
-    this._showBiome(null)
-    if (!name) return
-    this._biomeEl.textContent = name
-    this._biomeEl.style.display = ''
   }
 
   cycleMap() {
@@ -446,12 +446,11 @@ export class BuildTryMode {
     const moved = this._mapZoom !== 1 || this._mapPan.x || this._mapPan.z
     const windowed = world || moved
     const span = windowed ? this._mapSpan() : cells
-    const atlasView = !!world && isEarthWorld() && span > ATLAS_FROM
-    if (atlasView !== this._mapEl.classList.contains('atlas')) {
-      this._mapEl.classList.toggle('atlas', atlasView)
-      if (atlasView && !this._globe) this._globe = new EarthGlobe(this._mapEl)
-      this._globe?.show(atlasView)
-    }
+    // The World Map mode's big map is the real-world map at every zoom
+    // (2026-10-18, Gaymi: "dont make a 3d circle actually just make a
+    // square map but you can move it ... each land must be full").
+    const atlasView = !!world && isEarthWorld() && this._mapInteractive()
+    if (atlasView !== this._mapEl.classList.contains('atlas')) this._mapEl.classList.toggle('atlas', atlasView)
     const ox = windowed ? (world ? x : 0) + this._mapPan.x - span / 2 : -cells / 2
     const oz = windowed ? (world ? z : 0) + this._mapPan.z - span / 2 : -cells / 2
     const k = s / span
@@ -461,14 +460,14 @@ export class BuildTryMode {
       ctx.drawImage(this._mapImage, (-cells / 2 - ox) * k, (-cells / 2 - oz) * k, cells * k, cells * k)
       this._showBiome(null)
     } else if (atlasView) {
-      // The globe (EarthGlobe.js): the map's middle faces you, you're the
-      // arrow on it.
-      const cx = ox + span / 2
-      const cz = oz + span / 2
-      const yawNow = this.bm._yaw
-      this._globe.draw(s, -cz / EARTH_DEG, cx / EARTH_DEG, span / EARTH_DEG, { lat: -z / EARTH_DEG, lon: x / EARTH_DEG, ang: Math.atan2(-Math.cos(yawNow), -Math.sin(yawNow)) })
-      this._showPlace(atlasCountryAt(x, z))
-      return
+      // World block x = longitude * EARTH_DEG, z = -latitude * EARTH_DEG.
+      const dpp = span / EARTH_DEG / s
+      ctx.imageSmoothingEnabled = true
+      drawEarthView(ctx, s, s, ox / EARTH_DEG, -oz / EARTH_DEG, dpp)
+      // Closer in: the states/provinces and cities of where you are and of
+      // the map's middle.
+      drawEarthPlaces(ctx, s, s, ox / EARTH_DEG, -oz / EARTH_DEG, dpp, [[-z / EARTH_DEG, x / EARTH_DEG], [-(oz + span / 2) / EARTH_DEG, (ox + span / 2) / EARTH_DEG]])
+      this._showBiome(x, z)
     } else if (world) {
       ctx.fillStyle = '#1d2a1a'
       ctx.fillRect(0, 0, s, s)

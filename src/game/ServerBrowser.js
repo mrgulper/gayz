@@ -232,10 +232,19 @@ export function inviteLink(serverId) {
 // now synced (PlayNet), and the server remembers this world (land seed,
 // Earth or not, the spawn-map place) so friends joining get the same land
 // and start where you did. Resolves the PlayNet, or throws.
-export async function makeGameJoinable(game, survival) {
+// A server id made here (same letters as api/_lib/servers.js), so the
+// invite link can show before the server exists.
+const ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+export function newServerId() {
+  const bytes = new Uint8Array(6)
+  crypto.getRandomValues(bytes)
+  return [...bytes].map((n) => ID_CHARS[n % ID_CHARS.length]).join('')
+}
+
+export async function makeGameJoinable(game, survival, id = newServerId()) {
   if (survival.net && !survival.net.closed) return survival.net
   const world = game.buildMode?.world?.active ? { seed: worldSeed(), earth: isEarthWorld(), pick: survival._spawnPick || null } : null
-  const info = await serverApi(game).create({ ...(await myDetails(game)), name: '', mode: 'main', world })
+  const info = await serverApi(game).create({ ...(await myDetails(game)), name: '', mode: 'main', world, id })
   const net = new PlayNet(game, { ...info, world })
   survival.net = net
   net.attach(survival)

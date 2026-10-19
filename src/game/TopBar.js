@@ -46,6 +46,7 @@ export class TopBar {
     const el = document.createElement('div')
     el.id = 'top-bar'
     el.innerHTML = `
+      <span class="top-bar-ground" aria-hidden="true"></span><span class="top-bar-ground" aria-hidden="true"></span>
       <span class="top-bar-part top-bar-name">GayZ</span>
       <span class="top-bar-part" id="top-bar-mode"></span>
       <span class="top-bar-part" id="top-bar-fps"><span class="top-bar-label">FPS</span> <span id="top-bar-fps-n">--</span></span>
@@ -65,6 +66,10 @@ export class TopBar {
     this._xyz = el.querySelector('#top-bar-xyz')
     this._weather = el.querySelector('#top-bar-weather')
     this._time = el.querySelector('#top-bar-time')
+    // Two layers of the biome picture; the new one fades in over the old.
+    this._grounds = [...el.querySelectorAll('.top-bar-ground')]
+    this._groundKey = ''
+    this._groundTop = 0
     this._at = 0
     this._text = { mode: '', xyz: '', weather: '', time: '', look: '' }
   }
@@ -114,6 +119,7 @@ export class TopBar {
     const n = (v) => (Math.round(v * 100) / 100 + 0).toFixed(2)
     const xyz = p ? `${n(p.x)}  ${n(p.y)}  ${n(p.z)}` : ''
     if (xyz !== this._text.xyz) this._xyz.textContent = this._text.xyz = xyz
+    this._updateGround(bm.biomeBarLook?.())
     this._updateSky(bm.sky)
   }
 
@@ -127,8 +133,10 @@ export class TopBar {
     const night = look.night > 0.5
     const weather = `${WEATHER_ICON[look.weather] || (night ? '☾' : '☀')} ${t(`buildWeather_${look.weather}`)}`
     if (weather !== this._text.weather) this._weather.textContent = this._text.weather = weather
-    // The game's clock, to ten minutes, in the player's own 12/24-hour style.
-    const mins = Math.floor((look.hours * 60) / 10) * 10
+    // The game's clock, every minute (2026-10-18, Gaymi: "dont make it go
+    // by 10 minutes make it go 1 minute"), in the player's own 12/24-hour
+    // style.
+    const mins = Math.floor(look.hours * 60)
     const time = new Date(2000, 0, 1, Math.floor(mins / 60), mins % 60).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
     if (time !== this._text.time) this._time.textContent = this._text.time = time
     const key = `${look.night.toFixed(2)}|${look.weather}|${look.strength}`
@@ -138,6 +146,22 @@ export class TopBar {
     st.setProperty('--tb-night', look.night.toFixed(2))
     st.setProperty('--tb-storm', look.weather === 'clear' ? '0' : String(look.strength))
     this.el.dataset.weather = WEATHER_KIND[look.weather] || 'clear'
+  }
+
+  // The bar is made of the biome you're in (BiomeBar.js); walking into
+  // another one fades the new picture in over a couple of seconds.
+  _updateGround(look) {
+    const key = look?.key || ''
+    if (key === this._groundKey) return
+    this._groundKey = key
+    this.el.classList.toggle('has-ground', !!look)
+    if (!look) return
+    this._groundTop = 1 - this._groundTop
+    const next = this._grounds[this._groundTop]
+    const prev = this._grounds[1 - this._groundTop]
+    next.style.backgroundImage = `url(${look.url})`
+    next.classList.add('on')
+    prev.classList.remove('on')
   }
 
   hide() {

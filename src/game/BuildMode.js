@@ -23,6 +23,7 @@ import { PlayPauseMenu } from './PlayPauseMenu.js'
 import { BuildCamp } from './BuildCamp.js'
 import { BuildShare } from './BuildShare.js'
 import { BuildTogether } from './BuildTogether.js'
+import { biomeBarLook } from './BiomeBar.js'
 
 // GROUND_SIZE is a CELL count (not world units) - bumped up from 64, then
 // 76, as BLOCK_SIZE shrank each time, so the buildable footprint's actual
@@ -2260,6 +2261,16 @@ export class BuildMode {
 
   isBlockType(id) {
     return BLOCK_BY_ID.has(id)
+  }
+
+  blockTypeOf(id) {
+    return BLOCK_BY_ID.get(id) || null
+  }
+
+  // The top bar's biome picture where you are (BiomeBar.js).
+  biomeBarLook() {
+    const p = this.tryMode?.active ? this.tryMode.pos : null
+    return p ? biomeBarLook(this, p.x, p.z) : null
   }
 
   // Leaves and logs - fire races through a tree (BuildSurvival's fires).

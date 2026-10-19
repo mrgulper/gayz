@@ -10591,16 +10591,9 @@ html.ui-theme-old #inspect-hint {
   height: 70vmin;
   opacity: 0.85;
 }
-/* The World Map mode's globe (EarthGlobe.js): no box round it - just the
-   spinning Earth, over the flat map's canvas (hidden). */
-#build-try-map[data-size='center'].atlas { opacity: 1; background: none; border-color: transparent; box-shadow: none; }
-#build-try-map.atlas > canvas:not(.earth-globe):not(.earth-globe-labels) { visibility: hidden; }
-#build-try-map .earth-globe,
-#build-try-map .earth-globe-labels { position: absolute; inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); image-rendering: auto; }
-#build-try-map .earth-globe-labels { pointer-events: none; }
-/* Always a circle, zoomed in too. */
-#build-try-map.atlas .earth-globe,
-#build-try-map.atlas .earth-globe-labels { border-radius: 50%; }
+/* The World Map mode's real-world map (EarthAtlas.js) is solid, not see-through. */
+#build-try-map[data-size='center'].atlas { opacity: 1; }
+#build-try-map.atlas canvas { image-rendering: auto; }
 
 /* Try Map: head under water (bloxd.io-style blue) or lava. */
 #build-try-underwater {

@@ -84,11 +84,16 @@ export function cityNear(lat, lon) {
   return best
 }
 
-// The town's half size (blocks), its street grid, and the plaza kept clear
-// in the middle (for the landmark).
-export const TOWN_R = 56
-const BLOCK = 22 // one street block: a 5-wide street + a 17-wide lot
-const STREET = 5
+// The town's half size (blocks) and where you start in it: this far south
+// of the middle, on the road that runs south, with open ground around you
+// (SPAWN_CLEAR) - 2026-10-18, Gaymi: "dont make the start of the spawn the
+// buildings around you just be bigger and further also not square should
+// look more naturely".
+export const TOWN_R = 96
+export const TOWN_SPAWN = 58
+const SPAWN_CLEAR = 18
+const ROAD_HALF = 2.3 // roads are about 5 wide
+const GAP = 4 // ground between neighbouring buildings
 
 function prng(seed) {
   let s = seed >>> 0
@@ -101,7 +106,6 @@ function prng(seed) {
   }
 }
 
-const mod = (a, n) => ((a % n) + n) % n
 
 // Not a square (2026-10-18, Gaymi: "don't make it a square shape"): the
 // town's edge wanders in and out around the middle - a few smooth bumps
@@ -118,27 +122,81 @@ function outline(seed) {
   }
 }
 
-// The road and pavement at ground level, following the land.
-function streets(b, H, cx, cz, plazaR, roadType, walkType, inside) {
-  for (let x = cx - TOWN_R; x <= cx + TOWN_R; x++) {
-    for (let z = cz - TOWN_R; z <= cz + TOWN_R; z++) {
-      const lx = mod(x - cx + 2, BLOCK)
-      const lz = mod(z - cz + 2, BLOCK)
-      const inPlaza = Math.max(Math.abs(x - cx), Math.abs(z - cz)) <= plazaR
-      const road = lx < STREET || lz < STREET
-      if (!road && !inPlaza) continue
-      if (!inPlaza && !inside(x - cx, z - cz)) continue
-      const h = H(x, z).h
-      if (h < -3) continue // not paving the sea
-      const edge = (lx === 0 || lx === STREET - 1 || lz === 0 || lz === STREET - 1) && !inPlaza
-      b.set(x, h, z, inPlaza ? walkType : edge ? walkType : roadType)
+// The roads, as lines of points from the middle (town coordinates): a few
+// winding roads out from the plaza in every direction (one always due
+// south, past where you start) and a wobbly ring road between them.
+function roadLines(seed, plazaR, edge) {
+  const r = prng(seed ^ 0x2c1b)
+  const lines = []
+  const n = 5 + Math.floor(r() * 3)
+  const turn = r() * Math.PI * 2
+  for (let i = 0; i < n; i++) {
+    const a0 = Math.PI / 2 + (i * Math.PI * 2) / n + (i ? (r() - 0.5) * 0.5 : 0)
+    const bend = 0.12 + r() * 0.16
+    const ph = r() * Math.PI * 2
+    const pts = []
+    for (let d = plazaR; d <= TOWN_R + 4; d += 1) {
+      const a = a0 + (i ? bend * Math.sin(d / 28 + ph) : 0)
+      const x = Math.cos(a) * d
+      const z = Math.sin(a) * d
+      if (d > plazaR + 4 && !edge(x, z, 6)) break
+      pts.push([x, z])
     }
+    lines.push(pts)
+  }
+  const ring = []
+  const rr = TOWN_R * (0.48 + r() * 0.08)
+  for (let k = 0; k <= 720; k++) {
+    const a = (k / 720) * Math.PI * 2
+    const d = rr * (1 + 0.09 * Math.sin(a * 3 + turn) + 0.05 * Math.sin(a * 5 + turn * 2))
+    ring.push([Math.cos(a) * d, Math.sin(a) * d])
+  }
+  lines.push(ring)
+  return lines
+}
+
+// Paints the roads (and the round plaza) at ground level, following the
+// land; returns the set of road cells ("x,z").
+function paveRoads(b, H, cx, cz, lines, plazaR, roadType, walkType) {
+  const cells = new Map()
+  const mark = (x, z, type) => {
+    const k = `${x},${z}`
+    if (cells.get(k) === roadType) return
+    cells.set(k, type)
+  }
+  for (let x = -plazaR; x <= plazaR; x++) for (let z = -plazaR; z <= plazaR; z++) if (Math.hypot(x, z) <= plazaR) mark(cx + x, cz + z, walkType)
+  for (const pts of lines) {
+    for (const [px, pz] of pts) {
+      for (let x = Math.floor(px - ROAD_HALF); x <= Math.ceil(px + ROAD_HALF); x++) {
+        for (let z = Math.floor(pz - ROAD_HALF); z <= Math.ceil(pz + ROAD_HALF); z++) {
+          const d = Math.hypot(x - px, z - pz)
+          if (d <= ROAD_HALF) mark(cx + x, cz + z, d <= ROAD_HALF - 1 ? roadType : walkType)
+        }
+      }
+    }
+  }
+  for (const [k, type] of cells) {
+    const [x, z] = k.split(',').map(Number)
+    const h = H(x, z).h
+    if (h < -3) continue // not paving the sea
+    b.set(x, h, z, type)
+  }
+  return cells
+}
+
+function tree(b, H, tx, tz) {
+  const g = H(tx, tz).h
+  if (g < -3) return
+  b.set(tx, g, tz, 'grass')
+  for (let y = g + 1; y <= g + 4; y++) b.set(tx, y, tz, 'oaklog')
+  for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) for (let dy = 3; dy <= 5; dy++) {
+    if (Math.abs(dx) + Math.abs(dz) + Math.abs(dy - 4) <= 3 && !(dx === 0 && dz === 0 && dy <= 4)) b.set(tx + dx, g + dy, tz + dz, 'leaves')
   }
 }
 
 // A box building on the lot (x0..x1, z0..z1): walls with windows, floors
 // every 4 blocks inside, a door on the street side, a flat or pitched roof.
-function building(b, H, earthAt, { x0, x1, z0, z1, floors, wall, trim, glass, roof, pitched, rand }) {
+function building(b, H, earthAt, { x0, x1, z0, z1, floors, wall, trim, glass, roof, pitched, rand, door = 'z0' }) {
   let base = -Infinity
   for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) base = Math.max(base, H(x, z).h)
   if (base < -3) return
@@ -160,10 +218,12 @@ function building(b, H, earthAt, { x0, x1, z0, z1, floors, wall, trim, glass, ro
       }
     }
   }
-  // Door in the middle of the front (low-z) side.
-  const dx = Math.floor((x0 + x1) / 2)
-  b.clear(dx, base + 1, z0)
-  b.clear(dx, base + 2, z0)
+  // Door in the middle of the side facing the road.
+  const mx = Math.floor((x0 + x1) / 2)
+  const mz = Math.floor((z0 + z1) / 2)
+  const [dx, dz] = door === 'z0' ? [mx, z0] : door === 'z1' ? [mx, z1] : door === 'x0' ? [x0, mz] : [x1, mz]
+  b.clear(dx, base + 1, dz)
+  b.clear(dx, base + 2, dz)
   // Roof.
   if (pitched) {
     const w = Math.floor((z1 - z0) / 2)
@@ -171,19 +231,6 @@ function building(b, H, earthAt, { x0, x1, z0, z1, floors, wall, trim, glass, ro
   } else {
     for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) b.set(x, top + 1, z, roof)
     if (rand() < 0.4) for (let y = top + 2; y < top + 2 + Math.floor(rand() * 6); y++) b.set(Math.floor((x0 + x1) / 2), y, Math.floor((z0 + z1) / 2), 'iron')
-  }
-}
-
-function park(b, H, x0, z0, x1, z1, rand) {
-  for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) b.set(x, H(x, z).h, z, 'grass')
-  for (let k = 0; k < 2; k++) {
-    const tx = x0 + 3 + Math.floor(rand() * (x1 - x0 - 6))
-    const tz = z0 + 3 + Math.floor(rand() * (z1 - z0 - 6))
-    const g = H(tx, tz).h
-    for (let y = g + 1; y <= g + 4; y++) b.set(tx, y, tz, 'oaklog')
-    for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) for (let dy = 3; dy <= 5; dy++) {
-      if (Math.abs(dx) + Math.abs(dz) + Math.abs(dy - 4) <= 3 && !(dx === 0 && dz === 0 && dy <= 4)) b.set(tx + dx, g + dy, tz + dz, 'leaves')
-    }
   }
 }
 
@@ -230,43 +277,71 @@ const ROADS = {
 
 // Builds a town of `style` centred on (cx, cz) into the Builder; the
 // plaza (plazaR cells from the middle) is left open for the landmark.
+// Buildings stand along the winding roads, set back from them with ground
+// between neighbours, never near where you start (TOWN_SPAWN south of the
+// middle), and trees fill some of the open ground.
 export function buildTown(b, { H, cx, cz, style, plazaR, seed, earthAt }) {
   const make = STYLE[style] || STYLE.european
   const rand = prng(seed)
   const [road, walk] = ROADS[style] || ROADS.european
   const inside = outline(seed)
-  streets(b, H, cx, cz, plazaR, road, walk, inside)
-  // Lots between the streets: one or two buildings each.
-  // Streets run where (x - cx + 2) mod BLOCK < STREET, so a 5-wide avenue
-  // goes straight through the middle; each lot is the 17 x 17 between.
-  const n = Math.ceil(TOWN_R / BLOCK)
-  for (let kx = -n; kx < n; kx++) {
-    for (let kz = -n; kz < n; kz++) {
-      const x0 = cx + kx * BLOCK + 3
-      const z0 = cz + kz * BLOCK + 3
-      const x1 = x0 + BLOCK - STREET - 1
-      const z1 = z0 + BLOCK - STREET - 1
-      if (x0 < cx - TOWN_R || z0 < cz - TOWN_R || x1 > cx + TOWN_R || z1 > cz + TOWN_R) continue
-      // Keep the plaza clear; lots past the town's edge stay land, and now
-      // and then one is a little park (grass with a tree or two).
-      if (x0 <= cx + plazaR + 1 && x1 >= cx - plazaR - 1 && z0 <= cz + plazaR + 1 && z1 >= cz - plazaR - 1) continue
-      if (!inside((x0 + x1) / 2 - cx, (z0 + z1) / 2 - cz)) continue
-      if (rand() < 0.12) {
-        park(b, H, x0, z0, x1, z1, rand)
-        continue
-      }
-      const split = rand() < 0.5
-      const parts = split ? [[x0, x0 + 7], [x0 + 9, x1]] : [[x0, x1]]
-      for (const [a, c] of parts) {
+  const edge = (x, z, pad = 0) => inside(x * (TOWN_R / Math.max(1, TOWN_R - pad)), z * (TOWN_R / Math.max(1, TOWN_R - pad)))
+  const lines = roadLines(seed, plazaR, edge)
+  const roads = paveRoads(b, H, cx, cz, lines, plazaR, road, walk)
+  const boxes = []
+  const free = (x0, z0, x1, z1) => {
+    for (const q of boxes) if (x0 - GAP <= q[2] && x1 + GAP >= q[0] && z0 - GAP <= q[3] && z1 + GAP >= q[1]) return false
+    for (let x = x0 - 1; x <= x1 + 1; x++) for (let z = z0 - 1; z <= z1 + 1; z++) if (roads.has(`${x},${z}`)) return false
+    for (const [x, z] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) {
+      if (!edge(x - cx, z - cz, 2)) return false
+      if (Math.hypot(x - cx, z - cz) < plazaR + 3) return false
+    }
+    // Open ground round where you start.
+    const nx = Math.max(x0, Math.min(cx, x1))
+    const nz = Math.max(z0, Math.min(cz + TOWN_SPAWN, z1))
+    return Math.hypot(nx - cx, nz - cz - TOWN_SPAWN) > SPAWN_CLEAR
+  }
+  for (const pts of lines) {
+    for (let i = 4 + Math.floor(rand() * 8); i < pts.length - 2; i += 16 + Math.floor(rand() * 10)) {
+      const [px, pz] = pts[i]
+      const [qx, qz] = pts[Math.min(pts.length - 1, i + 2)]
+      const len = Math.hypot(qx - px, qz - pz) || 1
+      const nx = -(qz - pz) / len
+      const nz = (qx - px) / len
+      for (const side of [-1, 1]) {
+        if (rand() < 0.15) continue
+        const w = 9 + Math.floor(rand() * 9)
+        const d = 9 + Math.floor(rand() * 7)
+        const back = ROAD_HALF + 2 + Math.floor(rand() * 4) + Math.max(w, d) / 2
+        const bx = Math.round(cx + px + nx * side * back)
+        const bz = Math.round(cz + pz + nz * side * back)
+        const x0 = bx - Math.floor(w / 2)
+        const z0 = bz - Math.floor(d / 2)
+        const x1 = x0 + w - 1
+        const z1 = z0 + d - 1
+        if (!free(x0, z0, x1, z1)) continue
+        boxes.push([x0, z0, x1, z1])
+        // The door faces the road.
+        const door = Math.abs(nx) > Math.abs(nz) ? (nx * side > 0 ? 'x0' : 'x1') : (nz * side > 0 ? 'z0' : 'z1')
         const spec = make(null, { rand })
-        const inset = spec.inset || 0
-        building(b, H, earthAt, { x0: a + inset, x1: c - inset, z0: z0 + inset, z1: z1 - inset, rand, ...spec })
+        // A storey taller than the old grid towns' low houses.
+        building(b, H, earthAt, { x0, x1, z0, z1, rand, door, ...spec, floors: spec.floors + (spec.floors < 6 ? 1 : 0) })
         if (spec.dome) {
           let base = -Infinity
-          for (let x = a; x <= c; x++) for (let z = z0; z <= z1; z++) base = Math.max(base, H(x, z).h)
-          dome(b, (a + c) / 2, base + spec.floors * 4 + 2, (z0 + z1) / 2, Math.min(4, (c - a) / 2 - 1), 'smoothsandstone')
+          for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) base = Math.max(base, H(x, z).h)
+          dome(b, (x0 + x1) / 2, base + spec.floors * 4 + 2, (z0 + z1) / 2, Math.min(4, Math.min(w, d) / 2 - 1), 'smoothsandstone')
         }
       }
     }
+  }
+  // Trees on open ground here and there.
+  for (let k = 0; k < 60; k++) {
+    const a = rand() * Math.PI * 2
+    const dist = plazaR + 4 + rand() * TOWN_R
+    const tx = Math.round(cx + Math.cos(a) * dist)
+    const tz = Math.round(cz + Math.sin(a) * dist)
+    if (!edge(tx - cx, tz - cz) || !free(tx - 2, tz - 2, tx + 2, tz + 2)) continue
+    boxes.push([tx - 2, tz - 2, tx + 2, tz + 2])
+    tree(b, H, tx, tz)
   }
 }

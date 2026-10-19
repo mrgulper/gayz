@@ -23,7 +23,7 @@
 // On a server there's nothing to save: Save Progress is hidden and Back to
 // Menu just leaves, like Leave Game.
 import { t } from './i18n.js'
-import { inviteLink, makeGameJoinable } from './ServerBrowser.js'
+import { inviteLink, makeGameJoinable, newServerId } from './ServerBrowser.js'
 
 export class PlayPauseMenu {
   constructor(bm) {
@@ -85,30 +85,46 @@ export class PlayPauseMenu {
     this._showInvite()
   }
 
-  // The link box, once this game has a server.
-  _showInvite() {
+  // The link box, once this game has a server (or is getting one: the
+  // link shows straight away, made from the id it will have).
+  _showInvite(id = null) {
     const s = this.bm.survival
     const box = document.getElementById('play-invite')
     const link = document.getElementById('play-invite-link')
-    const on = !!(s?.net && !s.net.closed)
-    if (box) box.hidden = !on
-    if (on && link) link.value = inviteLink(s.net.serverId)
+    const serverId = s?.net && !s.net.closed ? s.net.serverId : id
+    if (box) box.hidden = !serverId
+    if (serverId && link) link.value = inviteLink(serverId)
   }
 
+  // The link is there the moment you click (2026-10-18, Gaymi: "when
+  // clicking it it should already have the ready instead of waiting a few
+  // seconds"); the server is made in the background with that same id.
   async invite() {
     const s = this.bm.survival
     const status = document.getElementById('play-pause-status')
-    if (!s?.active || this._inviting) return
-    this._inviting = true
-    if (status && !s.net) status.textContent = t('playInviteMaking')
-    try {
-      await makeGameJoinable(this.bm.game, s)
-      if (status) status.textContent = ''
-      const save = document.getElementById('play-pause-save-btn')
-      if (save) save.style.display = 'none'
+    if (!s?.active) return
+    if (s.net && !s.net.closed) {
       this._showInvite()
       this.copyInvite()
+      return
+    }
+    if (this._inviting) return
+    this._inviting = true
+    const id = newServerId()
+    this._showInvite(id)
+    this.copyInvite()
+    const save = document.getElementById('play-pause-save-btn')
+    if (save) save.style.display = 'none'
+    try {
+      const net = await makeGameJoinable(this.bm.game, s, id)
+      // Rarely the id was taken and the server got another one.
+      if (net.serverId !== id) {
+        this._showInvite()
+        this.copyInvite()
+      }
     } catch {
+      this._showInvite(null)
+      if (save) save.style.display = ''
       if (status) status.textContent = t('playInviteFailed')
     } finally {
       this._inviting = false

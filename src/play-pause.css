@@ -287,43 +287,49 @@ html.ui-theme-old #build-try-map {
 html.ui-theme-old #build-try-map-hint,
 html.ui-theme-old #build-try-biome { color: #f3e6c8; background: rgba(74, 44, 16, 0.9); }
 
-/* The top bar in the theme (2026-10-18, Gaymi: "make the text more
-   natural, it feels weird"). Golden: the HUD's Bebas Neue, gold name, a
-   dark panel with a gold edge. Old: Rye in dark ink on a paper strip with
-   a brown frame. Sizes and places stay the same in both. */
+/* The top bar (TopBar.js), redesigned 2026-10-18 (Gaymi: "dont make it
+   old style make it more nature based on where the biome the player is in
+   ... naturely fade into the new biome"): the same in both themes - the
+   HUD's Bebas Neue in white over the ground of the biome you're in
+   (BiomeBar.js: leaves, sand, snow, water, stone...), two picture layers
+   cross-fading when the biome changes, darker at night and tinted by the
+   weather on top (TopBar._updateSky). Sizes and places don't change. */
 #top-bar {
+  --tb-night: 0;
+  --tb-storm: 0;
+  --tb-tint: #50545a;
   font: 400 19px/1 'Bebas Neue', sans-serif;
   letter-spacing: 0.6px;
-  color: #f3e6c4;
-  background: rgba(14, 12, 8, 0.82);
-  border: 1px solid rgba(217, 188, 74, 0.55);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  color: #fff;
+  background: rgba(24, 30, 20, 0.85);
+  border: 2px solid rgba(0, 0, 0, 0.45);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.6);
 }
-#top-bar .top-bar-part + .top-bar-part { border-left-color: rgba(217, 188, 74, 0.35); }
-#top-bar .top-bar-name { color: #ffd75e; }
-html.ui-theme-old #top-bar {
-  font: 400 15px/1 'Rye', Georgia, serif;
-  letter-spacing: 0;
-  color: #2e1d0e;
-  background: rgba(236, 214, 170, 0.94);
-  border: 2px solid #6b3f17;
-  text-shadow: none;
-}
-html.ui-theme-old #top-bar .top-bar-part + .top-bar-part { border-left-color: rgba(107, 63, 23, 0.45); }
-html.ui-theme-old #top-bar .top-bar-name { color: #8a2d12; }
-/* ...and it follows the sky (TopBar._updateSky, 2026-10-18): darker and
-   bluer at night (--tb-night 0-1), tinted by the weather (--tb-storm 0-1):
-   grey in rain, pale in snow, sandy in a sandstorm. Only colors change. */
-#top-bar { --tb-night: 0; --tb-storm: 0; --tb-tint: #50545a; transition: background-color 2s ease, border-color 2s ease; }
 #top-bar[data-weather='snow'] { --tb-tint: #9aa3ad; }
 #top-bar[data-weather='sand'] { --tb-tint: #8a6a3a; }
-#top-bar {
-  background: color-mix(in srgb, color-mix(in srgb, rgba(14, 12, 8, 0.82), #0a1640 calc(var(--tb-night) * 55%)), var(--tb-tint) calc(var(--tb-storm) * 40%));
-  border-color: color-mix(in srgb, rgba(217, 188, 74, 0.55), #8fa6e0 calc(var(--tb-night) * 50%));
+#top-bar .top-bar-ground {
+  position: absolute;
+  inset: 0;
+  background-size: 48px 48px;
+  image-rendering: pixelated;
+  opacity: 0;
+  transition: opacity 1.8s ease;
 }
-html.ui-theme-old #top-bar {
-  background: color-mix(in srgb, color-mix(in srgb, rgba(236, 214, 170, 0.94), #4a5a80 calc(var(--tb-night) * 40%)), var(--tb-tint) calc(var(--tb-storm) * 30%));
+#top-bar .top-bar-ground.on { opacity: 1; }
+/* Night and weather over the ground. */
+#top-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: color-mix(in srgb, rgba(8, 18, 56, calc(var(--tb-night) * 0.5)), var(--tb-tint) calc(var(--tb-storm) * 35%));
+  opacity: calc(min(1, var(--tb-night) + var(--tb-storm) * 0.6));
+  transition: opacity 2s ease;
 }
+#top-bar .top-bar-part { position: relative; z-index: 1; }
+#top-bar .top-bar-part + .top-bar-part { border-left-color: rgba(0, 0, 0, 0.4); }
+#top-bar .top-bar-name { color: #ffe38a; }
 #top-bar-weather, #top-bar-time { font-variant-numeric: tabular-nums; }
 
 /* The game's inventory (PlayInventory.js, 2026-10-18): armor row, a 10x10

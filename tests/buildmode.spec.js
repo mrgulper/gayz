@@ -1973,8 +1973,8 @@ test('spawn map, endless world, pyramids, underground cities and the top bar', a
     // Choosing the weapon closes the map (as the camp if nothing was picked).
     s._pickWeapon('rifle')
     out.mapClosed = getComputedStyle(map).display === 'none' && !s._picking
-    // M twice: the big map is the real-world atlas (EarthAtlas.js), named
-    // after the country you're in; zoomed right in it's blocks again.
+    // M twice: the big map is the real-world atlas (EarthAtlas.js) - at
+    // every zoom, even right in (2026-10-18).
     const tm = bm.tryMode
     tm.cycleMap()
     tm.cycleMap()
@@ -1982,7 +1982,7 @@ test('spawn map, endless world, pyramids, underground cities and the top bar', a
     const atlas = tm._mapEl.classList.contains('atlas')
     for (let i = 0; i < 20; i++) tm.zoomMap(0.7)
     tm._drawMap(performance.now() + 2000)
-    out.atlas = [atlas, !tm._mapEl.classList.contains('atlas')]
+    out.atlas = [atlas, tm._mapEl.classList.contains('atlas')]
     tm.cycleMap()
     // A pyramid somewhere in the deserts.
     let pyramid = null
@@ -2451,4 +2451,6 @@ test('the spawn map goes from a country to its provinces and cities', async ({ p
     return { lat: Math.round(-p.z / 120), lon: Math.round(p.x / 120), town: !!s.bm.world._landmarks.find((l) => l.kind === 'town') }
   })
   expect(r).toEqual({ lat: 44, lon: -79, town: true })
+  // The map's label: country · province · city (EarthPlaces.placeNameAt).
+  await page.waitForFunction(() => document.getElementById('build-try-biome')?.textContent === 'Canada · Ontario · Toronto', null, { timeout: 20000 })
 })
