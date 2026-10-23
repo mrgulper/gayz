@@ -392,3 +392,44 @@ test('Patch Notes follow the player\'s clock and the What\'s New card matches th
   expect(r.top).toBeLessThan(30)
   expect(r.rightGap).toBeLessThan(30)
 })
+
+// Shop (2026-10-23): GaygarX costs 500 Gems and sells back for 250, so
+// buying and selling can't make Gems; Try On dresses the homepage
+// character and Back to Shop puts the old skin back.
+test('Shop: GaygarX price, Try On, buying', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    g.ownsShopSkin = false
+    g.gems = 499
+    g._openShopPanel()
+    await wait(300)
+    const price = document.getElementById('shop-skin-price-amount').textContent
+    const shortBuy = g.shopSkinBuyBtn.disabled
+    const before = g.settings.customSkinDataUrl
+    document.getElementById('shop-skin-tryon-btn').click()
+    await wait(300)
+    const trying = g._shopTryOn && g.shopPanel.style.display === 'none' && getComputedStyle(document.getElementById('shop-tryon-bar')).display === 'flex'
+    document.getElementById('shop-tryon-back-btn').click()
+    await wait(300)
+    const back = !g._shopTryOn && g.shopPanel.style.display === 'flex' && g.settings.customSkinDataUrl === before
+    g.gems = 500
+    g._renderShopSkinState()
+    window.confirm = () => true
+    g.shopSkinBuyBtn.click()
+    await wait(100)
+    const confetti = document.querySelectorAll('.shop-confetti').length
+    return { price, shortBuy, trying, back, gems: g.gems, owns: g.ownsShopSkin, confetti, tryOnHidden: document.getElementById('shop-skin-tryon-btn').style.display === 'none' }
+  })
+  const { INVENTORY_SKINS } = await import('../src/game/InventorySkins.js')
+  expect(r.price).toBe('500')
+  expect(r.shortBuy).toBe(true)
+  expect(r.trying).toBe(true)
+  expect(r.back).toBe(true)
+  expect(r.gems).toBe(0)
+  expect(r.owns).toBe(true)
+  expect(r.confetti).toBeGreaterThan(0)
+  expect(r.tryOnHidden).toBe(true)
+  expect(INVENTORY_SKINS.find((s) => s.id === 'gaygarx').sell.amount).toBe(250)
+})

@@ -1,19 +1,100 @@
 /* Shop skin preview - same spinning-character setup as #setup-avatar-wrap
    above (MenuAvatar3D), just a second instance and a smaller size, since
    it's one item in a panel rather than the hero column's main avatar. */
+/* 2026-10-23 "make the shop more realistic and colourful": the skin sits
+   on a card that glows in its rarity colour (--rarity), with a NEW ribbon,
+   a rarity pill, a sticker price tag, a shine sweeping across on hover and
+   confetti on buying. Same sizes in every theme; only colours differ. */
 #shop-skin-item {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  margin-top: 20px;
+  width: 290px;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 20px auto 6px;
+  padding: 18px 16px 16px;
+  border: 2px solid color-mix(in srgb, var(--rarity) 80%, #fff 20%);
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--rarity) 55%, transparent), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--rarity) 35%, #1a1208), #0d0905 85%);
+  box-shadow:
+    0 0 18px color-mix(in srgb, var(--rarity) 55%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--rarity) 60%, #fff 40%),
+    0 6px 14px rgba(0, 0, 0, 0.45);
+  overflow: visible;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+#shop-skin-item:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 28px color-mix(in srgb, var(--rarity) 75%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--rarity) 60%, #fff 40%),
+    0 8px 18px rgba(0, 0, 0, 0.5);
+}
+
+/* The shine: a pale diagonal band that sweeps across once per hover. Kept
+   in its own clipped layer so the confetti can still fly outside the card. */
+#shop-skin-item::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.28) 50%, transparent 65%) no-repeat;
+  background-size: 250% 100%;
+  background-position: 150% 0;
+}
+
+#shop-skin-item:hover::after {
+  transition: background-position 0.8s ease;
+  background-position: -50% 0;
+}
+
+.shop-new-ribbon {
+  position: absolute;
+  top: 12px;
+  left: -8px;
+  padding: 3px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(180deg, #ff5c93, #e0145a);
+  border-radius: 3px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+  transform: rotate(-8deg);
+  z-index: 1;
+}
+
+.shop-rarity-pill {
+  padding: 2px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #1a1004;
+  background: color-mix(in srgb, var(--rarity) 85%, #fff 15%);
+  border-radius: 999px;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--rarity) 60%, transparent);
+}
+
+.shop-skin-actions {
+  display: flex;
+  gap: 8px;
 }
 
 #shop-skin-name {
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: var(--menu-gold, #d9bc4a);
+  color: color-mix(in srgb, var(--rarity) 45%, #fff 55%);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--rarity) 70%, transparent), 0 2px 2px rgba(0, 0, 0, 0.8);
 }
 
 #shop-skin-avatar-wrap {
@@ -32,11 +113,26 @@
   display: block;
 }
 
+/* A stuck-on price sticker: cream with a dashed edge, slightly crooked. */
 #shop-skin-price {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.02em;
-  color: #ffcf5c;
+  color: #2a1606;
+  background: #fff4d6;
+  border: 2px dashed #e0145a;
+  border-radius: 8px;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+  transform: rotate(-3deg);
+}
+
+#shop-skin-price .currency-icon {
+  width: 20px;
+  height: 20px;
 }
 
 #shop-skin-badge {
@@ -46,23 +142,266 @@
   letter-spacing: 0.06em;
 }
 
-#shop-skin-buy-btn {
-  padding: 8px 28px;
+#shop-skin-buy-btn,
+#shop-skin-tryon-btn {
+  padding: 8px 14px;
+  white-space: nowrap;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.02em;
-  color: #1a1408;
-  background: linear-gradient(180deg, #ffe08a, #d9a63c);
-  border: 1px solid #8a6a1e;
-  border-radius: 4px;
+  color: #fff;
+  border-radius: 6px;
   cursor: pointer;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
 }
 
-#shop-skin-buy-btn:hover {
-  filter: brightness(1.08);
+#shop-skin-buy-btn {
+  background: linear-gradient(180deg, #5ee86a, #1fa83a);
+  border: 1px solid #0f6b22;
+}
+
+#shop-skin-tryon-btn {
+  background: linear-gradient(180deg, #5cc8ff, #1d7fd6);
+  border: 1px solid #0f4f8a;
+}
+
+#shop-skin-buy-btn:hover,
+#shop-skin-tryon-btn:hover {
+  filter: brightness(1.1);
 }
 
 #shop-skin-buy-btn:disabled {
   cursor: not-allowed;
   filter: grayscale(0.6) brightness(0.8);
+}
+
+/* Confetti bits fly out from the card's middle (InventoryUI _shopConfetti). */
+.shop-confetti {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 2;
+  animation: shop-confetti-burst 1.2s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes shop-confetti-burst {
+  from { transform: translate(-50%, -50%) rotate(0); opacity: 1; }
+  to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy) + 60px)) rotate(var(--rot)); opacity: 0; }
+}
+
+/* Coming Soon teasers under the skin: Daily Deals, More Skins, Crate Spin. */
+#shop-soon-heading {
+  margin-top: 14px;
+}
+
+.shop-soon-grid {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 10px 0 14px;
+}
+
+.shop-soon-card {
+  --crate-tier-color: var(--soon-color);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 150px;
+  box-sizing: border-box;
+  padding: 26px 10px 14px;
+  text-align: center;
+  border: 2px dashed color-mix(in srgb, var(--soon-color) 70%, transparent);
+  border-radius: 12px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--soon-color) 18%, #15100a), #0d0905);
+  opacity: 0.85;
+}
+
+.shop-soon-icon {
+  width: 40px;
+  height: 40px;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--soon-color) 60%, transparent));
+}
+
+.shop-soon-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: color-mix(in srgb, var(--soon-color) 50%, #fff 50%);
+}
+
+.shop-soon-text {
+  font-size: 12px;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Try On: the shop closes and this bar floats over the homepage. */
+#shop-tryon-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 90px;
+  z-index: 16;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  padding: 10px 12px 10px 18px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(14, 10, 6, 0.92);
+  border: 2px solid #f2a516;
+  border-radius: 999px;
+  box-shadow: 0 0 18px rgba(242, 165, 22, 0.55), 0 6px 14px rgba(0, 0, 0, 0.5);
+  transform: translateX(-50%);
+}
+
+#shop-tryon-label {
+  white-space: nowrap;
+}
+
+/* Phones: the character sits low on the stacked homepage, so the bar
+   goes up top, under the currency row, out of its way. */
+@media (max-width: 600px) {
+  #shop-tryon-bar {
+    top: 64px;
+    bottom: auto;
+    font-size: 14px;
+  }
+}
+
+#shop-tryon-back-btn {
+  flex: none;
+  padding: 7px 16px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(180deg, #5cc8ff, #1d7fd6);
+  border: 1px solid #0f4f8a;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+/* Inventory and Market skin cards glow in their rarity colour too (weapon
+   cards stay plain - they're all Default for now). */
+.inv-skin-card:not(.inv-weapon-card) {
+  background:
+    radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--rarity, #9aa0a6) 45%, transparent), transparent 70%),
+    linear-gradient(160deg, color-mix(in srgb, var(--rarity, #9aa0a6) 25%, #16110a), #16110a);
+  border-color: color-mix(in srgb, var(--rarity, #9aa0a6) 70%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--rarity, #9aa0a6) 40%, transparent);
+}
+
+.inv-skin-card:not(.inv-weapon-card):hover {
+  background:
+    radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--rarity, #9aa0a6) 60%, transparent), transparent 75%),
+    linear-gradient(160deg, color-mix(in srgb, var(--rarity, #9aa0a6) 32%, #16110a), #16110a);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--rarity, #9aa0a6) 60%, transparent);
+}
+
+/* Old theme: the cards are filled with their colour on the paper, with
+   dark ink, the same way Old's crate cards are. */
+html.ui-theme-old #shop-skin-item {
+  background:
+    radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--rarity) 55%, #fff 45%), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--rarity) 80%, #fff 20%), color-mix(in srgb, var(--rarity) 65%, #2b1a0c 35%));
+  border-color: color-mix(in srgb, var(--rarity) 55%, #2b1a0c 45%);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--rarity) 50%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 4px 10px rgba(43, 26, 12, 0.35);
+}
+html.ui-theme-old #shop-skin-name {
+  color: #241507;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+html.ui-theme-old .shop-rarity-pill {
+  color: #fff4d6;
+  background: #2b1a0c;
+  box-shadow: none;
+}
+html.ui-theme-old #shop-skin-badge {
+  color: #241507;
+}
+html.ui-theme-old .shop-soon-card {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--soon-color) 40%, #f1e0b8), color-mix(in srgb, var(--soon-color) 20%, #ead6ab));
+  border-color: color-mix(in srgb, var(--soon-color) 60%, #4a2c10);
+}
+html.ui-theme-old .shop-soon-name { color: #241507; }
+html.ui-theme-old .shop-soon-text { color: rgba(36, 21, 7, 0.8); }
+html.ui-theme-old #shop-tryon-bar {
+  color: #241507;
+  background: #f1e0b8;
+  border-color: #7a4e24;
+  box-shadow: 0 0 16px rgba(242, 165, 22, 0.5), 0 6px 14px rgba(43, 26, 12, 0.45);
+}
+html.ui-theme-old .inv-skin-card:not(.inv-weapon-card) {
+  background:
+    radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--rarity, #9aa0a6) 70%, transparent), transparent 80%),
+    linear-gradient(160deg, color-mix(in srgb, var(--rarity, #9aa0a6) 55%, #fff4d6), color-mix(in srgb, var(--rarity, #9aa0a6) 25%, #ead6ab));
+  border-color: color-mix(in srgb, var(--rarity, #9aa0a6) 60%, #4a2c10);
+  border-left-color: var(--rarity, #9aa0a6);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--rarity, #9aa0a6) 65%, transparent);
+}
+html.ui-theme-old .inv-skin-card:not(.inv-weapon-card):hover {
+  background:
+    radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--rarity, #9aa0a6) 85%, transparent), transparent 85%),
+    linear-gradient(160deg, color-mix(in srgb, var(--rarity, #9aa0a6) 65%, #fff4d6), color-mix(in srgb, var(--rarity, #9aa0a6) 32%, #ead6ab));
+}
+
+/* Clean theme: flat, no glow - the rarity colour is a thick top edge and
+   the pill, like Clean's crate cards. Same sizes as above. */
+html.ui-theme-clean #shop-skin-item,
+html.ui-theme-clean .shop-soon-card {
+  background: var(--clean-surface);
+  border-color: var(--clean-line);
+  border-top-color: var(--rarity, var(--soon-color));
+  border-style: solid;
+  box-shadow: none;
+}
+html.ui-theme-clean #shop-skin-item:hover {
+  box-shadow: none;
+}
+html.ui-theme-clean #shop-skin-item::after,
+html.ui-theme-clean .shop-soon-icon {
+  filter: none;
+}
+html.ui-theme-clean #shop-tryon-bar {
+  box-shadow: none;
+}
+html.ui-theme-clean #shop-tryon-bar {
+  background: var(--clean-panel);
+  border-color: var(--clean-line);
+  color: var(--clean-fg);
+}
+html.ui-theme-clean .inv-skin-card:not(.inv-weapon-card),
+html.ui-theme-clean .inv-skin-card:not(.inv-weapon-card):hover {
+  background: var(--clean-surface);
+  border-color: var(--clean-line);
+  border-left-color: var(--rarity, #9aa0a6);
+  box-shadow: none;
+}
+/* Clean forces one ink on every word in a panel, so the coloured stickers
+   and buttons become flat boxes that ink reads on. */
+html.ui-theme-clean #shop-skin-price,
+html.ui-theme-clean .shop-new-ribbon,
+html.ui-theme-clean .shop-rarity-pill {
+  background: var(--clean-panel);
+  border-color: var(--clean-line);
+  box-shadow: inset 0 0 0 1px var(--clean-line);
+}
+html.ui-theme-clean #shop-skin-buy-btn,
+html.ui-theme-clean #shop-skin-tryon-btn {
+  background: var(--clean-hover);
+  border-color: var(--clean-line);
+  text-shadow: none;
+}
+html.ui-theme-clean #shop-tryon-back-btn {
+  color: var(--clean-bg);
+  background: var(--clean-fg);
+  border-color: var(--clean-fg);
 }

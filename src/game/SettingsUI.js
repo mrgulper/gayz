@@ -1484,6 +1484,8 @@ export function _bindSettings(game) {
     if (e.target === game.marketPanel) game._closeMarketPanel()
   })
   if (game.shopSkinBuyBtn) game.shopSkinBuyBtn.addEventListener('click', () => game._buyShopSkin())
+  document.getElementById('shop-skin-tryon-btn')?.addEventListener('click', () => game._startShopTryOn())
+  document.getElementById('shop-tryon-back-btn')?.addEventListener('click', () => game._endShopTryOn(true))
   if (game.otherProfilePanel) {
     game.otherProfilePanel.addEventListener('click', (e) => {
       if (e.target === game.otherProfilePanel) game._closeOtherPlayerProfile()

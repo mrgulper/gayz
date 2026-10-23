@@ -162,6 +162,10 @@ test('every Coming Soon part of the game is in GayZ Features', async ({ page }) 
       [/^hub-custom|^upgrades-custom/, 'Custom Games'],
       [/^(monthly|yearly|lifetime)-quests/, 'Monthly, Yearly & Lifetime Quests'],
       [/^crate-monthly/, 'Monthly Chest'],
+      [/^shop-soon-daily/, 'Daily Deals'],
+      [/^shop-soon-skins/, 'More Shop Skins'],
+      [/^shop-soon-spin/, 'Crate Spin'],
+      [/^shop-soon-heading$/, null],
       [/^inventory-weapons-list$|^play-weapon-pick$/, 'More Weapons'],
       // The shared "this section is being reworked" pop-up, not a feature.
       [/^coming-soon-(title|panel)$/, null],

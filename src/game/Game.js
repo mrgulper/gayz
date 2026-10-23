@@ -1319,6 +1319,21 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'print-achievements-btn': 'printAchievementsBtnLabel',
   'crate-monthly-coming-soon-tag': 'crateComingSoonTag',
   'shop-crate-section-heading': 'crateSectionHeading',
+  'shop-skin-tryon-btn': 'shopTryOnBtn',
+  'shop-tryon-label': 'shopTryOnLabel',
+  'shop-tryon-back-btn': 'shopTryOnBack',
+  'shop-skin-new-ribbon': 'shopNewRibbon',
+  'shop-skin-rarity': 'skinRarityLegendary',
+  'shop-soon-heading': 'comingSoonTitle',
+  'shop-soon-daily-name': 'shopSoonDailyDeals',
+  'shop-soon-daily-text': 'shopSoonDailyDealsText',
+  'shop-soon-daily-tag': 'crateComingSoonTag',
+  'shop-soon-skins-name': 'shopSoonNewSkins',
+  'shop-soon-skins-text': 'shopSoonNewSkinsText',
+  'shop-soon-skins-tag': 'crateComingSoonTag',
+  'shop-soon-spin-name': 'shopSoonCrateSpin',
+  'shop-soon-spin-text': 'shopSoonCrateSpinText',
+  'shop-soon-spin-tag': 'crateComingSoonTag',
   'upload-skin-btn': 'uploadSkinBtn',
   'reset-skin-btn': 'resetSkinBtn',
   'profile-tab-public': 'profilePublicHeading',
@@ -3321,6 +3336,7 @@ export class Game {
   // own close method, since those methods also re-show #pause-overlay -
   // whichever panel is actually being opened decides that for itself.
   _closeAllMenuPanels() {
+    if (this._shopTryOn) this._endShopTryOn(false)
     if (this.upgradesPanel) this.upgradesPanel.style.display = 'none'
     if (this.howtoplayPanel) this.howtoplayPanel.style.display = 'none'
     if (this.settingsPanel && this.settingsOpen) {
@@ -4085,8 +4101,8 @@ export class Game {
 
   // Shop - was just a Crates placeholder (see this file's git history for
   // that and the even older Weapon Attachments UI before it), then a
-  // preview-only skin with no purchase logic at all. Now real: 10,000
-  // Gems, tracked via this.ownsShopSkin (shopProgress, see
+  // preview-only skin with no purchase logic at all. Now real: 500
+  // Gems (10,000 until 2026-10-23), tracked via this.ownsShopSkin (shopProgress, see
   // loadShopProgress/saveShopProgress), buying immediately equips it via
   // the same settings.customSkinDataUrl path skin upload already uses -
   // there's no multi-skin wardrobe here, just this one purchasable skin,
@@ -4095,13 +4111,17 @@ export class Game {
   // attachment guide lists for what those items do, and
   // WeaponSystem.applyAttachment / saveShopProgress for the still-live
   // persistence of any already-owned attachments from before that change.
-  static SHOP_SKIN_PRICE = 10000
+  static SHOP_SKIN_PRICE = 500
 
   _openShopPanel() { return InventoryUI._openShopPanel(this) }
 
   _renderShopSkinState() { return InventoryUI._renderShopSkinState(this) }
 
   _buyShopSkin() { return InventoryUI._buyShopSkin(this) }
+
+  _startShopTryOn() { return InventoryUI._startShopTryOn(this) }
+
+  _endShopTryOn(reopenShop) { return InventoryUI._endShopTryOn(this, reopenShop) }
 
   _closeShopPanel() { return InventoryUI._closeShopPanel(this) }
 

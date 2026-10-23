@@ -2362,7 +2362,7 @@ html.ui-theme-old .panel-box > .panel-close-btn {
    text has its own ID-level color rule; anything sitting on its own dark
    background (cards, inputs, dropdowns, dark buttons) is left out by the
    :not() list so it keeps its light text. */
-html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-title, .inv-skin-card, .crate-card, #shop-skin-buy-btn) *, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-title, .inv-skin-card, .crate-card, #shop-skin-buy-btn)) {
+html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-title, .inv-skin-card, .crate-card, #shop-skin-buy-btn, #shop-skin-tryon-btn, .shop-new-ribbon, .shop-rarity-pill, #shop-skin-price, .shop-confetti, .shop-soon-card) *, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-title, .inv-skin-card, .crate-card, #shop-skin-buy-btn, #shop-skin-tryon-btn, .shop-new-ribbon, .shop-rarity-pill, #shop-skin-price, .shop-confetti, .shop-soon-card)) {
   color: var(--old-ink) !important;
   text-shadow: none !important;
 }
