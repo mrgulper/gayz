@@ -9,17 +9,28 @@ import { ACHIEVEMENTS } from './Achievements.js'
 import { ENDGAME_ACHIEVEMENT, PROFILE_GROUP_ORDER, PROFILE_STAT_GROUPS, _escapeHtml, _formatDurationShort, _safeStatNumber, careerRankTitleKey, saveSettings } from './Game.js'
 import { loadSkinTexture } from './MenuAvatar3D.js'
 import { t } from './i18n.js'
+import { levelFromXp } from './Xp.js'
 
-// Levels panel - opened by the level coin on the profile card. Coming
-// Soon (2026-10-11, Gaymi: "delete everything and change it to coming
-// soon") - it used to repeat Profile's Rank Roadmap.
+// Levels panel - opened by the level coin on the profile card: your XP
+// level, the bar to the next one and how XP is earned (Xp.js, 2026-10-23;
+// it was Coming Soon).
 export function _openLevelsPanel(game) {
   game._closeAllMenuPanels()
   game.levelsPanel.style.display = 'flex'
-  const text = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = t(key) }
-  text('levels-panel-title', 'levelsPanelTitle')
-  text('levels-coming-title', 'comingSoonTitle')
-  text('levels-coming-text', 'levelsComingSoon')
+  const text = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value }
+  const xp = _safeStatNumber(game.careerStats.xp)
+  const { level, into, need } = levelFromXp(xp)
+  const fmt = (n) => n.toLocaleString()
+  text('levels-panel-title', t('levelsPanelTitle'))
+  text('levels-level', t('levelsLevel', { n: level }))
+  text('levels-progress', t('levelsProgress', { into: fmt(into), need: fmt(need), next: level + 1 }))
+  text('levels-total', t('levelsTotalXp', { n: fmt(xp) }))
+  text('levels-how', t('levelsHow'))
+  const pct = Math.round((into / need) * 100)
+  const bar = document.getElementById('levels-bar')
+  if (bar) bar.setAttribute('aria-valuenow', String(pct))
+  const fill = document.getElementById('levels-bar-fill')
+  if (fill) fill.style.width = `${pct}%`
 }
 
 export function _closeLevelsPanel(game) {

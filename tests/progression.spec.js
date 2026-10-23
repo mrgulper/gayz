@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { gotoAndWaitForGame } from './helpers.js'
+import * as Xp from '../src/game/Xp.js'
 
 test('careerStats.totalKills persists after a completed run', async ({ page }) => {
   await gotoAndWaitForGame(page)
@@ -291,4 +292,58 @@ test('the 2026-10-17 upgrades and achievements work', async ({ page }) => {
   expect(r.before).toEqual([])
   expect(r.afterRun).toBe(12)
   expect(r.missing).toEqual([])
+})
+
+// XP (2026-10-23): every finished game earns XP (never spent, not the
+// Points currency), XP sets your endless level, and clan XP only counts
+// for the clan it was earned in, this month.
+test('a finished game earns XP, levels come from XP, clan XP is per clan and month', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    g.settings.guestMode = false
+    g.settings.difficulty = 'normal'
+    g.careerStats.xp = 0
+    const legacyBefore = g.metaProgress.legacyPoints
+    const reward = g._onPlayEvent('end', { waves: 4, kills: 20, bestStreak: 5, won: false, died: true, mode: 'zombieSurvival', difficulty: 'normal', seconds: 130, coins: 0 })
+    const xpAfterGame = g.careerStats.xp
+    g.careerStats.xp = 1300
+    g._openLevelsPanel()
+    const text = document.getElementById('levels-content').textContent.replace(/\s+/g, ' ').trim()
+    return {
+      reward: reward && reward.xp,
+      xpAfterGame,
+      pointsStillCurrency: g.metaProgress.legacyPoints >= legacyBefore,
+      level: g._computeAvatarLevel(),
+      text,
+    }
+  })
+  let rec = Xp.addClanXp(null, 'clanA', 100, '2026-10')
+  rec = Xp.addClanXp(rec, 'clanA', 50, '2026-10')
+  Object.assign(r, {
+    sameMonth: Xp.currentClanXp(rec, 'clanA', '2026-10'),
+    nextMonth: Xp.currentClanXp(rec, 'clanA', '2026-11'),
+    otherClan: Xp.currentClanXp(rec, 'clanB', '2026-10'),
+    entry: Xp.entryClanXp({ clanXp: 70, clanXpClan: 'clanA', clanXpMonth: '2026-10' }, 'clanA', '2026-10'),
+    oldEntry: Xp.entryClanXp({ clanXp: 70, clanXpClan: 'clanA', clanXpMonth: '2026-09' }, 'clanA', '2026-10'),
+    starter: Xp.starterXp(100, 4),
+    lastDayOfMonth: Xp.daysUntilClanReset(Date.UTC(2026, 9, 31, 20)),
+    laMidnightFlip: [Xp.clanMonthKey(Date.UTC(2026, 10, 1, 6)), Xp.clanMonthKey(Date.UTC(2026, 10, 1, 8))],
+  })
+  // 20 kills x10 + 4 waves x25 + 2 minutes x5 = 310
+  expect(r.reward).toBe(310)
+  expect(r.xpAfterGame).toBe(310)
+  expect(r.pointsStillCurrency).toBe(true)
+  expect(r.level).toBe(3)
+  expect(r.text).toContain('Level 3')
+  expect(r.text).toContain('50 / 1,000 XP to level 4')
+  expect(r.sameMonth).toBe(150)
+  expect(r.nextMonth).toBe(0)
+  expect(r.otherClan).toBe(0)
+  expect(r.entry).toBe(70)
+  expect(r.oldEntry).toBe(0)
+  expect(r.starter).toBe(1100)
+  expect(r.lastDayOfMonth).toBe(1)
+  // Nov 1 starts at midnight Los Angeles time (07:00 UTC in daylight time).
+  expect(r.laMidnightFlip).toEqual(['2026-10', '2026-11'])
 })

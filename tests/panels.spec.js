@@ -233,7 +233,7 @@ test('Levels from a panel, nothing selectable, friend list floats', async ({ pag
   }))
   expect(levels.levels).toBe('flex')
   expect(levels.profile).toBe('none')
-  expect(levels.text).toBe('Coming Soon Levels are coming soon.')
+  expect(levels.text).toMatch(/^Level \d+ .*XP/)
 
   await page.evaluate(() => window.__game._closeAllMenuPanels())
   const badge = await page.evaluate(() => { const r = document.getElementById('menu-player-badge').getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height } })

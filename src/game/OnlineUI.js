@@ -11,6 +11,7 @@ import * as CloudSync from './CloudSync.js'
 import { ACHIEVEMENTS } from './Achievements.js'
 import { GLOBAL_KILLS_MILESTONE_STEP, PODIUM_MEDALS, POLL_ID, POLL_OPTIONS, _escapeHtml, _safeStatNumber, _thisWeekStr, saveShopProgress } from './Game.js'
 import { t } from './i18n.js'
+import { clanMonthKey, currentClanXp } from './Xp.js'
 
 // Cloud Save panel open/close - a normal modal, same shared z-index/
 // display:flex rule every other panel uses.
@@ -300,6 +301,16 @@ export async function _pushOnlineStats(game) {
   // so fetchClanCombinedStats can sum a clan's kills/night with one
   // where('clanId', ...) query instead of a per-member fetch.
   if (game.settings.clanId) entry.clanId = game.settings.clanId
+  // This month's clan XP (Xp.js) - the clan board adds these up for the
+  // members whose clanXpClan/clanXpMonth match the clan and this month,
+  // so a new month (or a different clan) counts as 0 without deleting
+  // anything.
+  if (game.settings.clanId && game.settings.clanXp) {
+    entry.clanXp = currentClanXp(game.settings.clanXp, game.settings.clanId)
+    entry.clanXpClan = game.settings.clanId
+    entry.clanXpMonth = clanMonthKey()
+  }
+  entry.xp = _safeStatNumber(game.careerStats.xp)
   // Bio/Motto/Your Stats moved from Hidden to Shown to Public
   // (2026-09-22, explicit request) - these fields make that real rather
   // than just relabeling a tab: raw/structured values only (never

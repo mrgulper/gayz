@@ -14,6 +14,7 @@ import { POINTS_PER_KILL, POINTS_PER_WAVE } from './PlayRules.js'
 import { QUESTS } from './Quests.js'
 import { EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQuests.js'
 import { t } from './i18n.js'
+import { addClanXp, xpForGame } from './Xp.js'
 
 // Personal stats dashboard (batch feature) - a simple bar chart of kills
 // per run from runHistory (already tracked, newest-first), most recent run on the right so reading
@@ -170,6 +171,15 @@ export function _onPlayEvent(game, type, data) {
   const legacy = Math.floor(points * DEATH_POINTS_CONVERSION * (1 + (PRESTIGE_BONUS_PERCENT / 100) * Math.floor(_safeStatNumber(game.metaProgress.prestigeLevel))))
   game.metaProgress.legacyPoints += legacy
   saveMetaProgress(game.metaProgress)
+  // XP (Xp.js) - never spent; sets your level, and counts for your clan
+  // this month while you're signed in and in one. Saved by _recordRunEnd
+  // (career stats) and pushed with the online stats it sends.
+  const xp = xpForGame({ kills: data.kills, waves: data.waves, seconds: data.seconds, won: data.won, difficulty: data.difficulty })
+  game.careerStats.xp = _safeStatNumber(game.careerStats.xp) + xp
+  if (game._cloudUid && game.settings.clanId) {
+    game.settings.clanXp = addClanXp(game.settings.clanXp, game.settings.clanId, xp)
+    saveSettings(game.settings)
+  }
   game._recordRunEnd(!data.died)
   // Career totals (_recordRunEnd just added game run to them).
   if (_safeStatNumber(game.careerStats.totalKills) >= EXTERMINATOR_CAREER_KILLS) game.achievements.unlock('exterminator')
@@ -180,7 +190,7 @@ export function _onPlayEvent(game, type, data) {
   game._renderCurrencyBar()
   game._updateUpgradesDot()
   game._updateQuestsDot()
-  return { legacy, coins }
+  return { legacy, coins, xp }
 }
 
 // 2026-10-17 achievement thresholds (the older ones live in Game.js).
@@ -616,8 +626,7 @@ export function _updateBestStatsDisplay(game) {
     game.statLastRun.forEach((el) => { el.textContent = lastRunText })
   }
 
-  // Avatar level badge - the same tier index careerRankTitleKey already
-  // derives from totalKills, just as a plain 1-5 number instead of a title.
+  // Avatar level badge - your XP level (Xp.js).
   if (game.menuAvatarLevel) {
     const level = game._computeAvatarLevel()
     game.menuAvatarLevel.textContent = level
@@ -635,8 +644,9 @@ export function _updateBestStatsDisplay(game) {
     // texture reads.
     const logoImg = document.getElementById('menu-title-img')
     if (logoImg) {
+      const tier = game._computeCareerTier()
       for (let i = 2; i <= 5; i++) logoImg.classList.remove(`logo-tier-${i}`)
-      if (level >= 2) logoImg.classList.add(`logo-tier-${level}`)
+      if (tier >= 2) logoImg.classList.add(`logo-tier-${tier}`)
     }
   }
   game._renderPlayerTag()

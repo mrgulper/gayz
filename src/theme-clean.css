@@ -427,13 +427,13 @@ html.ui-theme-clean .audio-checkbox:checked {
 }
 
 /* Sign-in buttons: solid ink pills (the one thing to press there). */
-html.ui-theme-clean :is(#profile-login-gate .auth-btn, #friends-signin-btn, #server-chat-signin-btn, #cloudsave-signin-btn) {
+html.ui-theme-clean :is(#profile-login-gate .auth-btn, #friends-signin-btn, #server-chat-signin-btn, #cloudsave-signin-btn, #clan-signin-btn) {
   background: var(--clean-fg);
   border-color: var(--clean-fg);
   color: var(--clean-bg) !important;
   filter: none;
 }
-html.ui-theme-clean :is(#profile-login-gate .auth-btn, #friends-signin-btn, #server-chat-signin-btn, #cloudsave-signin-btn):hover {
+html.ui-theme-clean :is(#profile-login-gate .auth-btn, #friends-signin-btn, #server-chat-signin-btn, #cloudsave-signin-btn, #clan-signin-btn):hover {
   background: var(--clean-fg);
   opacity: 0.85;
   filter: none;
@@ -582,5 +582,14 @@ html.ui-theme-clean #play-weapon-pick .pwp-bar-track {
   background: var(--clean-line);
 }
 html.ui-theme-clean #play-weapon-pick .pwp-bar-track span {
+  background: var(--clean-fg);
+}
+
+/* Levels panel's XP bar (2026-10-23). */
+html.ui-theme-clean #levels-bar {
+  background: rgba(var(--clean-fg-rgb), 0.08);
+  border-color: var(--clean-line);
+}
+html.ui-theme-clean #levels-bar-fill {
   background: var(--clean-fg);
 }

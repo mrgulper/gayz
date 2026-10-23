@@ -490,6 +490,8 @@ export function _bindSettings(game) {
         page.style.display = page.id === `clan-subpage-${tab.dataset.clanSubpage}` ? 'block' : 'none'
       }
       if (tab.dataset.clanSubpage === 'ranking') game._renderClanRanking()
+      // My Clan reloads every time, so it's never left blank or out of date.
+      else game._refreshClanUi()
     })
   }
 

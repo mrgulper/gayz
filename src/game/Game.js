@@ -135,6 +135,7 @@ import * as ProgressUI from './ProgressUI.js'
 import * as ProfileUI from './ProfileUI.js'
 import * as InventoryUI from './InventoryUI.js'
 import * as ClanUI from './ClanUI.js'
+import { levelFromXp, starterXp } from './Xp.js'
 import * as OnlineUI from './OnlineUI.js'
 import * as FriendsUI from './FriendsUI.js'
 import * as SettingsUI from './SettingsUI.js'
@@ -841,6 +842,9 @@ function loadCareerStats() {
       skeletonKillsRogue: parsed.skeletonKillsRogue || 0,
       skeletonKillsWarrior: parsed.skeletonKillsWarrior || 0,
       skeletonKillsMage: parsed.skeletonKillsMage || 0,
+      // Lifetime XP (Xp.js) - sets your level. A save from before XP gets
+      // starter XP from its lifetime kills and games.
+      xp: typeof parsed.xp === 'number' ? parsed.xp : starterXp(parsed.totalKills, parsed.totalRuns),
     }
   } catch {
     return {
@@ -852,6 +856,7 @@ function loadCareerStats() {
       mostProfitableRun: 0,
       playButtonClicks: 0,
       skeletonKills: 0, skeletonKillsMinion: 0, skeletonKillsRogue: 0, skeletonKillsWarrior: 0, skeletonKillsMage: 0,
+      xp: 0,
     }
   }
 }
@@ -3807,15 +3812,19 @@ export class Game {
   // separately in the Cloud Save panel's own online section
   // (#cloudsave-rank-line).
   // Shared by the avatar-corner level badge (#menu-avatar-level) and the
-  // Player showcase title below - same 1-5 tier index careerRankTitleKey
-  // already derives from totalKills, just as a plain number instead of a
-  // title, computed once here rather than duplicating the lookup loop.
+  // nameplate: your XP level (Xp.js), endless, from lifetime XP.
   _computeAvatarLevel() {
-    let level = 1
+    return levelFromXp(this.careerStats.xp).level
+  }
+
+  // The 1-5 career rank tier (lifetime kills) - only the logo's blood tint
+  // still uses it, now that the level number comes from XP.
+  _computeCareerTier() {
+    let tier = 1
     for (let i = 0; i < CAREER_RANK_TITLES.length; i++) {
-      if (this.careerStats.totalKills >= CAREER_RANK_TITLES[i].min) level = i + 1
+      if (this.careerStats.totalKills >= CAREER_RANK_TITLES[i].min) tier = i + 1
     }
-    return level
+    return tier
   }
 
   _renderPlayerTag() { return HomeUI._renderPlayerTag(this) }
