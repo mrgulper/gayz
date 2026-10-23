@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { gotoAndWaitForGame } from './helpers.js'
+import { DEVICE_ONLY_KEYS } from '../src/game/CloudMerge.js'
 
 // Every menu panel, and every tab inside one, is the same height (Gaymi,
 // 2026-10-04: "dont make the panel behind change sizes" - Achievements'
@@ -71,29 +72,106 @@ test('Clean theme: Golden saves land on it; the colour picker works', async ({ p
     const out = { theme: g.settings.uiTheme, clean: root.classList.contains('ui-theme-clean'), old: root.classList.contains('ui-theme-old') }
     out.rain = getComputedStyle(document.getElementById('menu-bg-rain')).display
     out.photo = getComputedStyle(document.getElementById('menu-bg-photo')).display
-    const hex = document.getElementById('theme-clean-hex')
-    hex.value = '#1A2B3C'
-    hex.dispatchEvent(new Event('input'))
+    out.hexBox = document.querySelectorAll('#theme-clean-hex').length
+    const swatch = document.getElementById('theme-clean-color')
+    swatch.value = '#1a2b3c'
+    swatch.dispatchEvent(new Event('input'))
+    swatch.dispatchEvent(new Event('change'))
     out.bg = getComputedStyle(document.body).backgroundColor
     out.fg = getComputedStyle(root).getPropertyValue('--clean-fg').trim()
     out.saved = JSON.parse(localStorage.getItem('gayz-settings')).cleanColor
-    hex.value = 'nope'
-    hex.dispatchEvent(new Event('change'))
-    out.afterBad = g.settings.cleanColor
+    // Yellow's text is its opposite, purple (dark enough to read).
+    swatch.value = '#ffff00'
+    swatch.dispatchEvent(new Event('input'))
+    out.yellowInk = getComputedStyle(root).getPropertyValue('--clean-fg').trim()
+    swatch.value = '#1a2b3c'
+    swatch.dispatchEvent(new Event('change'))
     return out
   })
-  expect(r).toMatchObject({ theme: 'clean', clean: true, old: false, rain: 'none', photo: 'none', bg: 'rgb(26, 43, 60)', fg: 'rgb(245, 245, 247)', saved: '#1a2b3c', afterBad: '#1a2b3c' })
+  // A dark blue's opposite is a light orange.
+  expect(r).toMatchObject({ theme: 'clean', clean: true, old: false, rain: 'none', photo: 'none', hexBox: 0, bg: 'rgb(26, 43, 60)', fg: 'rgb(233, 190, 165)', saved: '#1a2b3c', yellowInk: 'rgb(95, 0, 163)' })
   await page.reload()
   await page.waitForFunction(() => window.__game)
-  const after = await page.evaluate(() => [document.documentElement.className, getComputedStyle(document.body).backgroundColor])
+  // The first paint already has the opposite-colour text (gayz-clean-vars).
+  await page.waitForFunction(() => document.documentElement.classList.contains('ui-theme-clean'))
+  const after = await page.evaluate(() => [document.documentElement.className, getComputedStyle(document.body).backgroundColor, document.documentElement.style.getPropertyValue('--clean-fg')])
   expect(after[0]).toContain('ui-theme-clean')
   expect(after[1]).toBe('rgb(26, 43, 60)')
+  expect(after[2]).toBe('rgb(233, 190, 165)')
   // Picking Old switches straight back.
   const old = await page.evaluate(() => {
     document.getElementById('theme-picker-old').click()
     return [window.__game.settings.uiTheme, document.documentElement.classList.contains('ui-theme-old'), document.documentElement.classList.contains('ui-theme-clean')]
   })
   expect(old).toEqual(['old', true, false])
+})
+
+// Clean's Upload picture: the file is cut to the screen's shape, shown
+// behind the homepage (Clean only), kept off Cloud Save, and removable.
+test('Clean theme: a homepage picture can be uploaded and removed', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 900
+    canvas.height = 900
+    canvas.getContext('2d').fillRect(0, 0, 900, 900)
+    const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'))
+    const dt = new DataTransfer()
+    dt.items.add(new File([blob], 'pic.png', { type: 'image/png' }))
+    const input = document.getElementById('theme-clean-bg-file')
+    input.files = dt.files
+    input.dispatchEvent(new Event('change'))
+    for (let i = 0; i < 40 && !localStorage.getItem('gayz-clean-bg-image'); i++) await new Promise((res) => setTimeout(res, 50))
+    const img = new Image()
+    img.src = localStorage.getItem('gayz-clean-bg-image')
+    await img.decode()
+    const out = {
+      theme: window.__game.settings.uiTheme,
+      shape: Math.abs(img.width / img.height - innerWidth / innerHeight) < 0.02,
+      shown: getComputedStyle(document.getElementById('menu-bg')).backgroundImage.startsWith('url("data:image/jpeg'),
+    }
+    document.getElementById('theme-clean-bg-clear').click()
+    out.gone = localStorage.getItem('gayz-clean-bg-image') === null && getComputedStyle(document.getElementById('menu-bg')).backgroundImage === 'none, none'
+    return out
+  })
+  expect(r).toEqual({ theme: 'clean', shape: true, shown: true, gone: true })
+  // Too big for Cloud Save: kept on this device only.
+  expect(DEVICE_ONLY_KEYS.has('gayz-clean-bg-image')).toBe(true)
+})
+
+// Bottom-link drop-downs (FooterMenus.js): pointing at a link opens its
+// sections above the links; clicking one opens that page at that section.
+test('bottom links show a drop-down of their sections', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.hover('#terms-btn')
+  const menu = page.locator('#footer-menu')
+  await expect(menu).toHaveClass(/open/)
+  await expect(menu.locator('.footer-menu-title')).toHaveText('Terms of Use')
+  await expect(menu.locator('.footer-menu-sections button')).toHaveCount(await page.locator('#terms-content h3').count())
+  await page.hover('#nav-howtoplay-link')
+  await expect(menu.locator('.footer-menu-title')).toHaveText('How to Play')
+  await page.hover('#nav-designskin-link')
+  await expect(menu).not.toHaveClass(/open/)
+  await page.hover('#terms-btn')
+  await menu.locator('.footer-menu-sections button').nth(5).click()
+  await expect(menu).not.toHaveClass(/open/)
+  await expect(page.locator('#terms-panel')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => {
+    const h = document.querySelectorAll('#terms-content h3')[5]
+    return Math.abs(h.getBoundingClientRect().top - h.closest('#terms-content').getBoundingClientRect().top)
+  })).toBeLessThan(40)
+})
+
+// The picked tab stays filled while the pointer is on it (Clean's hover
+// colour used to win and grey it out).
+test('Clean theme: the picked tab stays filled under the pointer', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('gayz-settings', JSON.stringify({ uiTheme: 'clean', cleanColor: '#f5f5f7' })))
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game._openHubPanel())
+  const tab = page.locator('#hub-panel button.active:visible').first()
+  const before = await tab.evaluate((b) => getComputedStyle(b).backgroundColor)
+  await tab.hover()
+  expect(await tab.evaluate((b) => [b.matches(':hover'), getComputedStyle(b).backgroundColor])).toEqual([true, before])
 })
 
 // The footer links stay clear of the right column's buttons at every
@@ -179,7 +257,8 @@ test('Cloud Save lives on the General tab', async ({ page }) => {
     out.inGeneral = !!section.closest('#general-page-general')
     out.generalOpen = getComputedStyle(g.clanPanel).display
     out.visible = section.offsetParent !== null
-    out.title = document.getElementById('cloudsave-panel-title').textContent
+    // No 'Cloud Save' heading or 'Sign in to sync...' line (2026-10-23).
+    out.title = document.querySelectorAll('#cloudsave-panel-title, #cloudsave-signed-out-desc').length
     out.signedOutShown = getComputedStyle(document.getElementById('cloudsave-signed-out')).display
     // Clan tab hides it; General tab shows it again.
     document.getElementById('general-tab-clan').click()
@@ -194,14 +273,14 @@ test('Cloud Save lives on the General tab', async ({ page }) => {
   expect(r.inGeneral).toBe(true)
   expect(r.generalOpen).toBe('flex')
   expect(r.visible).toBe(true)
-  expect(r.title).toBe('Cloud Save')
+  expect(r.title).toBe(0)
   expect(r.signedOutShown).toBe('flex')
   expect(r.hiddenOnClan).toBe(true)
   expect(r.backOnGeneral).toBe(true)
   expect(r.closedByEscape).toBe('none')
 })
 
-// Every "Sign up or login with..." button (Friend List, Global chat, Cloud
+// Every "Sign up or login to use..." button (Friend List, Global chat, Cloud
 // Save, Clans, Market, Gallery) opens the Welcome to GayZ page instead of a
 // sign-in popup directly (2026-10-10; Market/Gallery 2026-10-23), and a
 // friend list shows its count.
@@ -242,7 +321,7 @@ test('sign-in buttons go to the Welcome page; friend count shows', async ({ page
   for (const id of ['friends-signin-btn', 'server-chat-signin-btn', 'cloudsave-signin-btn', 'clan-signin-btn', 'market-signin-btn', 'gallery-signin-btn']) {
     expect(r[id]).toEqual(['flex', 'Welcome to GayZ'])
   }
-  expect(r.marketBar).toEqual([true, 'Sign up or login with...'])
+  expect(r.marketBar).toEqual([true, 'Sign up or login to use...'])
   expect(r.popups).toBe(0)
   expect(r.count).toBe('(3)')
   expect(r['typed:#abc123']).toBe('Tazbot is already your friend.')

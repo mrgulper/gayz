@@ -1268,6 +1268,8 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'import-settings-code-apply-btn': 'importSettingsCodeApplyBtn',
   'theme-picker-clean-label': 'optUiThemeClean',
   'theme-clean-color-label': 'themeCleanColorLabel',
+  'theme-clean-bg-btn': 'themeCleanBgUpload',
+  'theme-clean-bg-clear': 'themeCleanBgRemove',
   'theme-picker-old-label': 'optUiThemeOld',
   'coming-soon-close-btn': 'comingSoonCloseBtn',
   'general-tab-general': 'generalTabGeneral',
@@ -1352,7 +1354,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'stats-dashboard-heading': 'statsDashboardHeadingLabel',
   'pinned-stat-label': 'pinnedStatLabel',
   'cloudsave-offline-warning': 'cloudsaveOfflineWarning',
-  'cloudsave-signed-out-desc': 'cloudsaveSignedOutDescLabel',
   'cloudsave-use-cloud-btn': 'cloudsaveUseCloudBtnLabel',
   'cloudsave-use-local-btn': 'cloudsaveUseLocalBtnLabel',
   'cloudsave-sync-now-btn': 'cloudsaveSyncNowBtnLabel',
@@ -1380,7 +1381,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'clan-invite-id-label': 'clanInviteIdLabel',
   'clan-create-name-label': 'clanCreateNameLabel',
   'clan-request-name-label': 'clanRequestNameLabel',
-  'cloudsave-panel-title': 'cloudsavePanelTitle',
   'settings-section-hud': 'settingsSectionHud',
   'settings-section-hud-2': 'settingsSectionHud',
   'settings-section-notifications': 'settingsSectionNotifications',
@@ -2131,7 +2131,9 @@ export class Game {
     this.themePresetSelect = document.getElementById('theme-preset-select')
     this.themePickerClean = document.getElementById('theme-picker-clean')
     this.themeCleanColorInput = document.getElementById('theme-clean-color')
-    this.themeCleanHexInput = document.getElementById('theme-clean-hex')
+    this.themeCleanBgBtn = document.getElementById('theme-clean-bg-btn')
+    this.themeCleanBgClear = document.getElementById('theme-clean-bg-clear')
+    this.themeCleanBgFile = document.getElementById('theme-clean-bg-file')
     this.themePickerOld = document.getElementById('theme-picker-old')
     this.cursorTrailToggle = document.getElementById('cursor-trail-toggle')
     this.crtScanlinesToggle = document.getElementById('crt-scanlines-toggle')
