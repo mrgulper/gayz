@@ -176,6 +176,7 @@ export async function _enterBuildMode(game, { map, play = false, server = null }
   // gotten oriented. It now starts free; clicking into the viewport
   // acquires it (see BuildMode.js's _onPointerDown), and Escape releases
   // it again at any time (see _onKeyDownPicker).
+  if (game._shopTryOn) game._endShopTryOn(false)
   game.menu.style.display = 'none'
   const current = game.buildMode.activeSlot
   const slot = map === 'map3' ? 'map3' : map === 'map2' && current === 'map3' ? 0 : undefined

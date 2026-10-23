@@ -2395,7 +2395,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="GaygarX">
           <h3>Gems Shop Skin</h3>
-          <p>GaygarX - a purchasable character skin in the Shop, priced in Gems (earned from waves survived and kills) - buying it equips it immediately, and it's yours to switch back to any time afterward from the Inventory panel's Character tab, alongside Default.</p>
+          <p>GaygarX - a Legendary character skin in the Shop for <span data-feature-value="shopSkinPrice">500</span> Gems (earned from waves survived and kills). Its card glows in its rarity colour; drag the 3D preview to turn and tilt it, scroll or pinch to zoom, and press Try On to see your own homepage character wearing it before you buy. Buying it equips it immediately (with a burst of confetti), and it's yours to switch back to any time afterward from the Inventory panel's Character tab, alongside Default.</p>
         </div>
         <div class="feature" data-code="nicknameColor nicknameFont _fillNameplate">
           <h3>Nickname Customization</h3>
@@ -2560,6 +2560,18 @@ Escape before dawn.</p>
           <p>The Crossbow, Grenade Launcher, Minigun, MP5-SD and Revolver show as "Coming Soon", together at the end of the weapon picker and Inventory - they can't be picked yet.</p>
         </div>
         <div class="feature coming-soon">
+          <h3>Daily Deals</h3>
+          <p>A Shop section with a few skins on sale that change every day - shows as "Coming Soon" in the Shop for now.</p>
+        </div>
+        <div class="feature coming-soon">
+          <h3>More Shop Skins</h3>
+          <p>Cheaper skins to buy with Gems, so there's more to save up for than GaygarX - shows as "Coming Soon" in the Shop for now.</p>
+        </div>
+        <div class="feature coming-soon">
+          <h3>Crate Spin</h3>
+          <p>Opening a crate spins a reel that slows down and lands on your prize, coloured by its rarity - shows as "Coming Soon" in the Shop for now.</p>
+        </div>
+        <div class="feature coming-soon">
           <h3>Monthly Chest</h3>
           <p>The fourth crate in the Store - shows as "Coming soon", not buyable yet.</p>
         </div>
@@ -2669,6 +2681,11 @@ Escape before dawn.</p>
             <span id="inspect-hint"></span>
           </div>
         </div>
+      </div>
+
+      <div id="shop-tryon-bar" style="display: none">
+        <span id="shop-tryon-label">Trying on GaygarX</span>
+        <button type="button" id="shop-tryon-back-btn">Back to Shop</button>
       </div>
 
       <div id="shop-panel">
@@ -2829,14 +2846,50 @@ Escape before dawn.</p>
                 </button>
                 </div>
               </div>
-              <div id="shop-skin-item">
+              <div id="shop-skin-item" class="shop-skin-card" style="--rarity: #f2a516">
+                <span class="shop-new-ribbon" id="shop-skin-new-ribbon">New</span>
                 <div id="shop-skin-name">GaygarX</div>
+                <span class="shop-rarity-pill" id="shop-skin-rarity">Legendary</span>
                 <div id="shop-skin-avatar-wrap">
                   <canvas id="shop-skin-canvas"></canvas>
                 </div>
-                <div id="shop-skin-price">10000 Gems</div>
-                <button type="button" id="shop-skin-buy-btn">Buy</button>
+                <div id="shop-skin-price" class="shop-price-tag">
+                  <svg class="currency-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="shop-gem-body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7f97"/><stop offset="0.5" stop-color="#ff1f4b"/><stop offset="1" stop-color="#9c0326"/></linearGradient>
+                    </defs>
+                    <path d="M7 3.5h10l5 5.5-10 11.5L2 9z" fill="url(#shop-gem-body)" stroke="#6e0018" stroke-width="0.9" stroke-linejoin="round"/>
+                    <path d="M7 3.5l2.2 5.5h5.6L17 3.5z" fill="#ffb3c2" opacity="0.85"/>
+                    <path d="M9.2 9L12 20.5 14.8 9z" fill="#ff4d6d"/>
+                  </svg>
+                  <span id="shop-skin-price-amount">500</span>
+                </div>
+                <div class="shop-skin-actions">
+                  <button type="button" id="shop-skin-tryon-btn">Try On</button>
+                  <button type="button" id="shop-skin-buy-btn">Buy</button>
+                </div>
                 <div id="shop-skin-badge" style="display: none">Owned</div>
+              </div>
+              <h3 class="crate-section-heading" id="shop-soon-heading">Coming Soon</h3>
+              <div class="shop-soon-grid">
+                <div class="shop-soon-card" style="--soon-color: #ff4d8d">
+                  <span class="crate-coming-soon-tag" id="shop-soon-daily-tag">Coming Soon</span>
+                  <svg class="shop-soon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9z" fill="var(--soon-color)"/><circle cx="7.5" cy="7.5" r="1.8" fill="#fff"/></svg>
+                  <span class="shop-soon-name" id="shop-soon-daily-name">Daily Deals</span>
+                  <span class="shop-soon-text" id="shop-soon-daily-text">2-3 skins on sale, new every day.</span>
+                </div>
+                <div class="shop-soon-card" style="--soon-color: #3dc7ff">
+                  <span class="crate-coming-soon-tag" id="shop-soon-skins-tag">Coming Soon</span>
+                  <svg class="shop-soon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3l-5 3 2 5 2-1v11h10V10l2 1 2-5-5-3c-1 2-2.5 3-4 3S9 5 8 3z" fill="var(--soon-color)"/></svg>
+                  <span class="shop-soon-name" id="shop-soon-skins-name">More Skins</span>
+                  <span class="shop-soon-text" id="shop-soon-skins-text">Cheaper skins to save up for.</span>
+                </div>
+                <div class="shop-soon-card" style="--soon-color: #ffc53d">
+                  <span class="crate-coming-soon-tag" id="shop-soon-spin-tag">Coming Soon</span>
+                  <svg class="shop-soon-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="var(--soon-color)" stroke-width="2.5"/><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4" stroke="var(--soon-color)" stroke-width="1.5"/><circle cx="12" cy="12" r="2.5" fill="var(--soon-color)"/></svg>
+                  <span class="shop-soon-name" id="shop-soon-spin-name">Crate Spin</span>
+                  <span class="shop-soon-text" id="shop-soon-spin-text">Watch a reel spin to your prize.</span>
+                </div>
               </div>
             </div>
           </div>

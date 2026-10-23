@@ -558,6 +558,68 @@ export class MenuAvatar3D {
     this.canvas.addEventListener('pointerleave', stop)
   }
 
+  // Shop preview (2026-10-23): drag also tilts the view up/down and the
+  // wheel or a two-finger pinch zooms in, like Inspect. The camera orbits
+  // the character's middle rather than the character tipping over.
+  enableInspect() {
+    if (this._inspect) return
+    this._inspect = true
+    this._pitch = 0
+    this._zoom = 1
+    const pointers = new Map()
+    let lastY = 0
+    let pinchDist = 0
+    const twoFingerDist = () => {
+      const [a, b] = [...pointers.values()]
+      return Math.hypot(a.x - b.x, a.y - b.y)
+    }
+    this.canvas.addEventListener('pointerdown', (e) => {
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      lastY = e.clientY
+      if (pointers.size === 2) pinchDist = twoFingerDist()
+    })
+    this.canvas.addEventListener('pointermove', (e) => {
+      if (!pointers.has(e.pointerId)) return
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (pointers.size === 2) {
+        const d = twoFingerDist()
+        if (pinchDist) this._setZoom(this._zoom * (d / pinchDist))
+        pinchDist = d
+        return
+      }
+      const dy = e.clientY - lastY
+      lastY = e.clientY
+      this._pitch = Math.max(-0.45, Math.min(0.9, this._pitch + dy * 0.01))
+      this._placeCamera()
+    })
+    const lift = (e) => {
+      pointers.delete(e.pointerId)
+      pinchDist = 0
+    }
+    this.canvas.addEventListener('pointerup', lift)
+    this.canvas.addEventListener('pointercancel', lift)
+    this.canvas.addEventListener('wheel', (e) => {
+      e.preventDefault()
+      this._setZoom(this._zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1))
+    }, { passive: false })
+  }
+
+  _setZoom(z) {
+    this._zoom = Math.max(1, Math.min(2.5, z))
+    this._placeCamera()
+  }
+
+  // At no tilt and no zoom this is exactly the old fixed spot: (0, 20, dist)
+  // looking at (0, 16, 0).
+  _placeCamera() {
+    const dist = this._baseDist || this.camera.position.z
+    const zoom = this._zoom || 1
+    const r = Math.hypot(4, dist) / zoom
+    const a = Math.atan2(4, dist) + (this._pitch || 0)
+    this.camera.position.set(0, 16 + r * Math.sin(a), r * Math.cos(a))
+    this.camera.lookAt(0, 16, 0)
+  }
+
   // Reads real layout dimensions live (not a cached window size), so this
   // stays correct through a browser fullscreen toggle or any other resize
   // - and supports a non-square box (the showcase panel uses a tall
@@ -590,10 +652,12 @@ export class MenuAvatar3D {
     const distForHeight = (CHAR_HALF_HEIGHT / CHAR_FIT_MARGIN) / Math.tan(halfVFov)
     const distForWidth = (CHAR_HALF_WIDTH / CHAR_FIT_MARGIN) / (Math.tan(halfVFov) * aspect)
     this.camera.position.z = Math.max(distForHeight, distForWidth, 20)
+    this._baseDist = this.camera.position.z
     // Moving along z while x/y stay fixed changes the angle to the look
     // target, so the camera has to re-aim itself - lookAt isn't "sticky"
     // across a later position change, it only orients at call time.
-    this.camera.lookAt(0, 16, 0)
+    if (this._inspect) this._placeCamera()
+    else this.camera.lookAt(0, 16, 0)
     this.camera.updateProjectionMatrix()
   }
 

@@ -15,7 +15,7 @@ export const INVENTORY_SKINS = [
   { id: 'default', name: 'Gaymi', rarity: 'common', dataUrl: DEFAULT_SKIN_DATA_URL, count: () => 1 },
   { id: 'alisa', name: 'Alisa', rarity: 'common', dataUrl: ALISA_SKIN_DATA_URL, count: () => 1 },
   // Sells back for half its 10,000-gem Shop price, in gems.
-  { id: 'gaygarx', name: 'GaygarX', rarity: 'legendary', dataUrl: SHOP_SKIN_PREVIEW_DATA_URL, count: (g) => (g.ownsShopSkin ? 1 : 0), sell: { currency: 'gems', amount: 5000 } },
+  { id: 'gaygarx', name: 'GaygarX', rarity: 'legendary', dataUrl: SHOP_SKIN_PREVIEW_DATA_URL, count: (g) => (g.ownsShopSkin ? 1 : 0), sell: { currency: 'gems', amount: 250 } },
   // Market skins (MarketSkins.js): bought with coins, sold for half.
   ...MARKET_SKINS.map((skin) => ({
     ...skin,

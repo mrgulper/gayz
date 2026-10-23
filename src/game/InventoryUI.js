@@ -1008,6 +1008,8 @@ export function _openShopPanel(game) {
   if (game.shopSkinCanvas) {
     if (!game._shopSkinAvatar3D) {
       game._shopSkinAvatar3D = new MenuAvatar3D(game.shopSkinCanvas)
+      // Drag turns it both ways, wheel/pinch zooms, like Inspect.
+      game._shopSkinAvatar3D.enableInspect()
       loadSkinTexture(SHOP_SKIN_PREVIEW_DATA_URL).then((skin) => {
         if (game._shopSkinAvatar3D) game._shopSkinAvatar3D.setSkin(skin)
       }).catch(() => {
@@ -1020,8 +1022,69 @@ export function _openShopPanel(game) {
   game._renderCrateTiers()
 }
 
+// Try On (2026-10-23): the shop closes and the homepage character wears
+// GaygarX until Back to Shop (or any panel opening) puts the real skin
+// back. Only on the homepage - mid-run there's no character to show.
+function _shopTryOnAvailable(game) {
+  return !!(game._menuAvatar3D && game.setupAvatarCanvas && game.setupAvatarCanvas.offsetParent !== null)
+}
+
+export async function _startShopTryOn(game) {
+  if (game._shopTryOn || !_shopTryOnAvailable(game)) return
+  game._shopTryOn = true
+  game._closeShopPanel()
+  const bar = document.getElementById('shop-tryon-bar')
+  if (bar) bar.style.display = 'flex'
+  // On a phone the character is further down the stacked homepage.
+  game.setupAvatarCanvas.scrollIntoView({ block: 'center' })
+  try {
+    const skin = await loadSkinTexture(SHOP_SKIN_PREVIEW_DATA_URL)
+    if (game._shopTryOn && game._menuAvatar3D) game._menuAvatar3D.setSkin(skin)
+  } catch { /* keeps showing the current skin */ }
+}
+
+export async function _endShopTryOn(game, reopenShop) {
+  if (!game._shopTryOn) return
+  game._shopTryOn = false
+  const bar = document.getElementById('shop-tryon-bar')
+  if (bar) bar.style.display = 'none'
+  const url = game.settings.customSkinDataUrl
+  if (url) {
+    try {
+      const skin = await loadSkinTexture(url)
+      if (game._menuAvatar3D) game._menuAvatar3D.setSkin(skin)
+    } catch { /* leave it */ }
+  } else {
+    await game._applyDefaultBundledSkin()
+  }
+  if (reopenShop) game._openShopPanel()
+}
+
+// A short burst of coloured paper over the skin card after buying.
+function _shopConfetti() {
+  const host = document.getElementById('shop-skin-item')
+  if (!host || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  const colors = ['#ff3d6e', '#ffcf3d', '#3dd6ff', '#7dff6a', '#b57ce8', '#ff8a3d']
+  for (let i = 0; i < 28; i++) {
+    const bit = document.createElement('span')
+    bit.className = 'shop-confetti'
+    const angle = Math.random() * Math.PI * 2
+    const dist = 60 + Math.random() * 90
+    bit.style.setProperty('--dx', `${Math.cos(angle) * dist}px`)
+    bit.style.setProperty('--dy', `${Math.sin(angle) * dist - 40}px`)
+    bit.style.setProperty('--rot', `${Math.round(Math.random() * 720 - 360)}deg`)
+    bit.style.background = colors[i % colors.length]
+    host.appendChild(bit)
+    setTimeout(() => bit.remove(), 1300)
+  }
+}
+
 export function _renderShopSkinState(game) {
   if (game.shopSkinBadge) game.shopSkinBadge.style.display = game.ownsShopSkin ? '' : 'none'
+  const priceAmount = document.getElementById('shop-skin-price-amount')
+  if (priceAmount) priceAmount.textContent = Game.SHOP_SKIN_PRICE.toLocaleString()
+  const tryOn = document.getElementById('shop-skin-tryon-btn')
+  if (tryOn) tryOn.style.display = !game.ownsShopSkin && _shopTryOnAvailable(game) ? '' : 'none'
   if (!game.shopSkinBuyBtn) return
   if (game.ownsShopSkin) {
     game.shopSkinBuyBtn.style.display = 'none'
@@ -1050,6 +1113,7 @@ export async function _buyShopSkin(game) {
   if (game._menuAvatar3D) game._menuAvatar3D.setSkin(skin)
   game._updateMenuAvatarPhoto(skin)
   game._renderShopSkinState()
+  _shopConfetti()
   game._showHomepageToast(t('shopSkinBuySuccess'))
 }
 
