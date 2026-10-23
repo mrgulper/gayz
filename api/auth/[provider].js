@@ -3,7 +3,7 @@
 // second (the site sending them back) ends on a page that passes a Firebase
 // sign-in token to the game.
 import crypto from 'node:crypto'
-import { adminAuth } from '../_lib/firebaseAdmin.js'
+import { createCustomToken } from '../_lib/firebaseAdmin.js'
 import { PROVIDERS, AuthError, isCallback, missingKeys, firebaseUid, cleanProfile, sameState, resultPage } from '../_lib/oauth.js'
 
 const STATE_COOKIE = 'gayz_auth_state'
@@ -20,16 +20,6 @@ function cookie(req, name) {
     if (k === name) return v.join('=')
   }
   return null
-}
-
-async function saveUser(uid, profile) {
-  const auth = adminAuth()
-  try {
-    await auth.updateUser(uid, profile)
-  } catch (err) {
-    if (err && err.code === 'auth/user-not-found') await auth.createUser({ uid, ...profile })
-    else throw err
-  }
 }
 
 export default async function handler(req, res) {
@@ -55,9 +45,10 @@ export default async function handler(req, res) {
   try {
     const user = await PROVIDERS[provider].finish({ env, query, redirectUri, fetch })
     const uid = firebaseUid(provider, user.id)
-    await saveUser(uid, cleanProfile(user))
-    const token = await adminAuth().createCustomToken(uid, { provider })
-    return page(res, 200, { token })
+    const token = createCustomToken(uid, { provider })
+    // The game sets the name and picture on the account itself
+    // (CloudSync.signInViaServer) - no firebase-admin/auth here.
+    return page(res, 200, { token, profile: cleanProfile(user) })
   } catch (err) {
     if (!(err instanceof AuthError)) console.error(err)
     return page(res, err instanceof AuthError && err.code === 'cancelled' ? 200 : 502, { error: err instanceof AuthError ? err.code : 'failed' })

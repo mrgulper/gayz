@@ -622,9 +622,16 @@ export async function signIn(provider = 'google') {
 async function signInViaServer(provider) {
   const popup = window.open(`/api/auth/${provider}`, 'gayz-auth', 'popup,width=520,height=720')
   if (!popup) throw authError('auth/popup-blocked')
-  const token = await waitForAuthToken(popup)
+  const { token, profile } = await waitForAuthToken(popup)
   const { auth, authMod } = await ensureApp()
   const result = await authMod.signInWithCustomToken(auth, token)
+  // The site's name and picture (checked by the server, api/_lib/oauth.js
+  // cleanProfile) go on the account once, the first time.
+  if (profile && !result.user.displayName && (profile.displayName || profile.photoURL)) {
+    try {
+      await authMod.updateProfile(result.user, { displayName: profile.displayName || null, photoURL: profile.photoURL || null })
+    } catch { /* the name is only cosmetic */ }
+  }
   return { uid: result.user.uid, profile: profileOf(result.user) }
 }
 
@@ -647,7 +654,7 @@ function waitForAuthToken(popup) {
     }
     const onData = (d) => {
       if (!d || d.type !== 'gayz-auth') return
-      if (d.token && typeof d.token === 'string') finish(resolve, d.token)
+      if (d.token && typeof d.token === 'string') finish(resolve, { token: d.token, profile: d.profile && typeof d.profile === 'object' ? d.profile : null })
       else finish(reject, authError(d.error === 'cancelled' ? 'auth/popup-closed-by-user' : d.error === 'not-set-up' ? 'auth/operation-not-allowed' : 'auth/internal-error'))
     }
     const onMessage = (e) => { if (e.origin === location.origin) onData(e.data) }
