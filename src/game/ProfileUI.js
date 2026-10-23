@@ -42,21 +42,17 @@ export function _closeLevelsPanel(game) {
 // (same static-prose pattern as Credits above) at Gaymi's request. The
 // standalone terms.html/privacy.html pages themselves are left as-is
 // (still real, linkable URLs - just no longer linked to from here).
-// The signed-out Profile card: Google on its own, the other sign-ins as a
-// row of logo buttons under it. Fills the words every time so a language
-// change shows.
+// The signed-out Profile card: one "Continue with ..." button per sign-in.
+// Fills the words every time so a language change shows.
 export function _renderAuthCard(game) {
   const set = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = t(key) }
   set('auth-sub', 'authSub')
   set('auth-google-label', 'authContinueGoogle')
   set('auth-more-label', 'authMoreWays')
+  set('auth-steam-label', 'authContinueSteam')
+  set('auth-github-label', 'authContinueGithub')
+  set('auth-discord-label', 'authContinueDiscord')
   set('auth-note', 'authNote')
-  const terms = document.getElementById('auth-terms')
-  if (terms) {
-    terms.innerHTML = _escapeHtml(t('authTerms'))
-      .replace('{terms}', `<button type="button" class="auth-link open-terms-panel-link">${_escapeHtml(t('termsBtn'))}</button>`)
-      .replace('{privacy}', `<button type="button" class="auth-link open-privacy-panel-link">${_escapeHtml(t('creditsPrivacyLink'))}</button>`)
-  }
   // The panel's own title says the welcome line while signed out; it's
   // set back to Profile when the profile itself shows.
   if (game.profilePanelTitle) game.profilePanelTitle.textContent = t('authWelcome')

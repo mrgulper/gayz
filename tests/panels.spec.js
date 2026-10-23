@@ -117,8 +117,8 @@ test('the footer links never reach the right-side buttons', async ({ page }) => 
 })
 
 // Signed-out Profile (2026-10-23): no Sign Up / Login choice any more -
-// Google on its own, then a row of logo buttons for the other sign-ins,
-// each calling _handleCloudSignIn with its site.
+// one full-width "Continue with ..." button per sign-in, each calling
+// _handleCloudSignIn with its site. No terms line under them.
 test('signed-out Profile shows Google and the other sign-ins', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
@@ -128,11 +128,13 @@ test('signed-out Profile shows Google and the other sign-ins', async ({ page }) 
     await g._openProfilePanel()
     const out = { gate: getComputedStyle(document.getElementById('profile-login-gate')).display }
     out.title = document.getElementById('profile-panel-title').textContent
+    out.sub = document.getElementById('auth-sub').textContent
     out.google = document.getElementById('auth-google-label').textContent
     out.more = document.getElementById('auth-more-label').textContent
     out.oldPages = document.querySelectorAll('#auth-view-choose, #auth-view-signup, #auth-view-login, #profile-gate-login-btn').length
-    out.terms = document.querySelectorAll('#auth-terms .auth-link').length
-    out.logos = [...document.querySelectorAll('.auth-provider')].map((b) => [b.dataset.provider, b.getAttribute('aria-label'), b.getBoundingClientRect().width > 30])
+    out.terms = document.querySelectorAll('#auth-terms').length
+    const googleWidth = document.getElementById('auth-google-btn').getBoundingClientRect().width
+    out.logos = [...document.querySelectorAll('.auth-provider')].map((b) => [b.dataset.provider, b.textContent.trim(), Math.abs(b.getBoundingClientRect().width - googleWidth) < 1])
     document.getElementById('auth-google-btn').click()
     for (const b of document.querySelectorAll('.auth-provider')) b.click()
     out.picked = picked
@@ -145,16 +147,54 @@ test('signed-out Profile shows Google and the other sign-ins', async ({ page }) 
   })
   expect(r.gate).toBe('flex')
   expect(r.title).toBe('Welcome to GayZ')
+  expect(r.sub).toBe('Log in to save your progress.')
   expect(r.google).toBe('Continue with Google')
-  expect(r.more).toBe('or sign up / log in with')
+  expect(r.more).toBe('or')
   expect(r.oldPages).toBe(0)
-  expect(r.terms).toBe(2)
+  expect(r.terms).toBe(0)
   expect(r.logos).toEqual([
-    ['steam', 'Steam', true], ['github', 'GitHub', true], ['discord', 'Discord', true],
+    ['steam', 'Continue with Steam', true], ['github', 'Continue with GitHub', true], ['discord', 'Continue with Discord', true],
   ])
   expect(r.picked).toEqual(['google', 'steam', 'github', 'discord'])
   expect(r.signedInTitle).toBe('Profile')
   expect(r.signedInGate).toBe('none')
+})
+
+// Cloud Save is a section of General's General tab (2026-10-23), not its
+// own popup: the quick-cloud icon and the sign-in "which save?" question
+// both open General there, and Escape closes it.
+test('Cloud Save lives on the General tab', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = { oldPanel: document.querySelectorAll('#cloudsave-panel').length }
+    document.getElementById('quick-cloud-btn').click()
+    await g._authReadyPromise
+    await new Promise((res) => setTimeout(res, 50))
+    const section = document.getElementById('cloudsave-section')
+    out.inGeneral = !!section.closest('#general-page-general')
+    out.generalOpen = getComputedStyle(g.clanPanel).display
+    out.visible = section.offsetParent !== null
+    out.title = document.getElementById('cloudsave-panel-title').textContent
+    out.signedOutShown = getComputedStyle(document.getElementById('cloudsave-signed-out')).display
+    // Clan tab hides it; General tab shows it again.
+    document.getElementById('general-tab-clan').click()
+    out.hiddenOnClan = section.offsetParent === null
+    document.getElementById('general-tab-general').click()
+    out.backOnGeneral = section.offsetParent !== null
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' }))
+    out.closedByEscape = getComputedStyle(g.clanPanel).display
+    return out
+  })
+  expect(r.oldPanel).toBe(0)
+  expect(r.inGeneral).toBe(true)
+  expect(r.generalOpen).toBe('flex')
+  expect(r.visible).toBe(true)
+  expect(r.title).toBe('Cloud Save')
+  expect(r.signedOutShown).toBe('flex')
+  expect(r.hiddenOnClan).toBe(true)
+  expect(r.backOnGeneral).toBe(true)
+  expect(r.closedByEscape).toBe('none')
 })
 
 // Every "Sign up or login with..." button (Friend List, Global chat, Cloud

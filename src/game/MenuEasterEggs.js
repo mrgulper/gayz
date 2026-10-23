@@ -102,7 +102,7 @@ export function bindLogoClickCounter(game) {
 export function bindHomepageShortcutKeys(game) {
   const panelCloseFns = [
     [game.settingsPanel, () => game._toggleSettings(false)],
-    [game.cloudsavePanel, () => game._closeCloudSavePanel()],
+    [game.clanPanel, () => game._closeClanPanel()],
     [game.upgradesPanel, () => game._closeUpgradesPanel()],
     [game.questsPanel, () => game._closeQuestsPanel()],
     [game.achievementsPanel, () => game._closeAchievementsPanel()],

@@ -17,11 +17,16 @@ import * as ChatUI from './ChatUI.js'
 import { CLOUD_LAST_SYNC_KEY, LAST_LOCAL_CHANGE_KEY, _formatRelativeTime, _safeStatNumber, saveSettings } from './Game.js'
 import { isSyncedKey, mergeSaves, readBase, sameData, stripDeviceOnly, syncableSnapshot, writeBase } from './CloudMerge.js'
 
+// Cloud Save lives on General's General tab (2026-10-23) - "opening" it
+// opens General there and scrolls it into view.
 export function openCloudSavePanel(game) {
-  game.cloudsavePanel.style.display = 'flex'
-  game.cloudsavePanelTitle.textContent = t('cloudsavePanelTitle')
-  renderCloudSaveState(game)
-  updateOnlineStatus(game)
+  game._openClanPanel()
+  game.cloudsavePanel?.scrollIntoView({ block: 'start' })
+}
+
+// True only while General is open on its General tab.
+export function isCloudSaveVisible(game) {
+  return !!game.cloudsavePanel && game.cloudsavePanel.offsetParent !== null
 }
 
 // Online/Offline indicator (Cloud Save panel) - navigator.onLine plus the
@@ -38,8 +43,8 @@ export function updateOnlineStatus(game) {
   }
 }
 
+// Called when General closes - stops the live leaderboard updates.
 export function closeCloudSavePanel(game) {
-  game.cloudsavePanel.style.display = 'none'
   if (game._leaderboardUnsubscribe) {
     game._leaderboardUnsubscribe()
     game._leaderboardUnsubscribe = null
@@ -112,7 +117,7 @@ export function restoreCloudSession(game) {
     }
     isFirstCall = false
     renderSignInFooters(game)
-    if (game.cloudsavePanel && getComputedStyle(game.cloudsavePanel).display !== 'none') {
+    if (isCloudSaveVisible(game)) {
       renderCloudSaveState(game)
     }
   }).catch(() => {
@@ -535,11 +540,6 @@ export async function handleCloudSignOut(game) {
 
 export function bindCloudSave(game) {
   if (game.quickCloudBtn) game.quickCloudBtn.addEventListener('click', () => openCloudSavePanel(game))
-  if (game.cloudsavePanel) {
-    game.cloudsavePanel.addEventListener('click', (e) => {
-      if (e.target === game.cloudsavePanel) closeCloudSavePanel(game)
-    })
-  }
   if (game.cloudsaveSigninBtn) game.cloudsaveSigninBtn.addEventListener('click', () => game._openProfilePanel())
   for (const id of ['market-signin-btn', 'gallery-signin-btn']) {
     document.getElementById(id)?.addEventListener('click', () => game._openProfilePanel())

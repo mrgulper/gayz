@@ -1272,7 +1272,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'coming-soon-close-btn': 'comingSoonCloseBtn',
   'general-tab-general': 'generalTabGeneral',
   'general-tab-clan': 'generalTabClan',
-  'general-page-general-placeholder': 'generalPageGeneralPlaceholder',
   'clan-members-heading': 'clanMembersHeading',
   'clan-invite-send-btn': 'clanInviteSendBtn',
   'clan-requests-heading': 'clanRequestsHeading',
@@ -1898,7 +1897,8 @@ export class Game {
     // Cloud Save (Google Sign-In + Drive appDataFolder, see CloudSync.js).
     this.quickCloudBtn = document.getElementById('quick-cloud-btn')
     this.cloudSignedInDot = document.getElementById('cloud-signed-in-dot')
-    this.cloudsavePanel = document.getElementById('cloudsave-panel')
+    // Cloud Save is a section of General's General tab now, not its own panel.
+    this.cloudsavePanel = document.getElementById('cloudsave-section')
     this.cloudsavePanelTitle = document.getElementById('cloudsave-panel-title')
     this.cloudsaveSignedOut = document.getElementById('cloudsave-signed-out')
     this.cloudsaveSignedOutDesc = document.getElementById('cloudsave-signed-out-desc')
@@ -3431,9 +3431,24 @@ export class Game {
     if (this.comingSoonPanel) this.comingSoonPanel.style.display = 'none'
   }
 
-  _openClanPanel() { return ClanUI._openClanPanel(this) }
+  _openClanPanel() {
+    ClanUI._openClanPanel(this)
+    this._renderCloudSaveSection()
+  }
 
-  _closeClanPanel() { return ClanUI._closeClanPanel(this) }
+  _closeClanPanel() {
+    CloudSaveUI.closeCloudSavePanel(this)
+    return ClanUI._closeClanPanel(this)
+  }
+
+  // General's General tab holds the Cloud Save section - refreshed every
+  // time that tab shows, so it never shows a stale signed-in state.
+  async _renderCloudSaveSection() {
+    if (this.cloudsavePanelTitle) this.cloudsavePanelTitle.textContent = t('cloudsavePanelTitle')
+    CloudSaveUI.updateOnlineStatus(this)
+    await this._authReadyPromise
+    CloudSaveUI.renderCloudSaveState(this)
+  }
 
   // Friends - the existing Compare-with-a-Friend feature (see CloudSaveUI's
   // renderCloudSaveState, which toggles friendsSignedOut/friendsSignedIn
