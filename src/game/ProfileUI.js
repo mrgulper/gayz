@@ -7,6 +7,7 @@
 // stand-in for each, so callers are unchanged.
 import { ACHIEVEMENTS } from './Achievements.js'
 import { ENDGAME_ACHIEVEMENT, PROFILE_GROUP_ORDER, PROFILE_STAT_GROUPS, _escapeHtml, _formatDurationShort, _safeStatNumber, careerRankTitleKey, saveSettings } from './Game.js'
+import { LAST_SIGN_IN_KEY } from './CloudSync.js'
 import { loadSkinTexture } from './MenuAvatar3D.js'
 import { t } from './i18n.js'
 import { levelFromXp } from './Xp.js'
@@ -42,17 +43,30 @@ export function _closeLevelsPanel(game) {
 // (same static-prose pattern as Credits above) at Gaymi's request. The
 // standalone terms.html/privacy.html pages themselves are left as-is
 // (still real, linkable URLs - just no longer linked to from here).
-// The signed-out Profile card: one "Continue with ..." button per sign-in.
+// The signed-out Profile card: one "Login with ..." button per sign-in.
 // Fills the words every time so a language change shows.
 export function _renderAuthCard(game) {
   const set = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = t(key) }
   set('auth-sub', 'authSub')
   set('auth-google-label', 'authContinueGoogle')
-  set('auth-more-label', 'authMoreWays')
   set('auth-steam-label', 'authContinueSteam')
   set('auth-github-label', 'authContinueGithub')
   set('auth-discord-label', 'authContinueDiscord')
   set('auth-note', 'authNote')
+  // "Last used" on the site this browser last signed in with (saved by
+  // _handleCloudSignIn), like vercel.com's login page.
+  let last = null
+  try { last = localStorage.getItem(LAST_SIGN_IN_KEY) } catch { /* storage unavailable */ }
+  for (const btn of document.querySelectorAll('#profile-login-gate [data-provider]')) {
+    let tag = btn.querySelector('.auth-last-used')
+    if (btn.dataset.provider !== last) { tag?.remove(); continue }
+    if (!tag) {
+      tag = document.createElement('em')
+      tag.className = 'auth-last-used'
+      btn.appendChild(tag)
+    }
+    tag.textContent = t('authLastUsed')
+  }
   // The panel's own title says the welcome line while signed out; it's
   // set back to Profile when the profile itself shows.
   if (game.profilePanelTitle) game.profilePanelTitle.textContent = t('authWelcome')

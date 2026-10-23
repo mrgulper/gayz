@@ -7,6 +7,9 @@
    surface / --clean-hover (the colour nudged toward the text) and
    --clean-fg-rgb. No photos, plates, glows, rain or texture - flat
    colour, a system sans-serif, rounded boxes and pill buttons.
+   Homepage buttons are white cards (--clean-card) with a soft shadow on
+   the light grey page, and grow a little when pointed at - like
+   apple.com (2026-10-23).
    Sizes and positions stay the same as Old (theme parity rule); only
    colour, art and font change here. */
 
@@ -97,11 +100,9 @@ html.ui-theme-clean #play-btn {
 }
 html.ui-theme-clean #play-btn:hover {
   filter: none;
-  opacity: 0.88;
 }
 html.ui-theme-clean #play-btn:active {
   filter: none;
-  opacity: 0.8;
 }
 
 /* Game Mode: an outline pill, the size of Old's plate. */
@@ -117,13 +118,12 @@ html.ui-theme-clean #gamemode-btn {
   letter-spacing: 0;
   text-transform: none;
   color: var(--clean-fg);
-  background: transparent;
-  border: 1.5px solid rgba(var(--clean-fg-rgb), 0.5);
+  background: var(--clean-card);
+  border: none;
   border-radius: 999px;
 }
 html.ui-theme-clean #gamemode-btn:hover {
   filter: none;
-  background: var(--clean-surface);
 }
 
 /* Settings: the gear icon on a plain circle. */
@@ -131,13 +131,10 @@ html.ui-theme-clean #settings-btn {
   display: grid;
   place-items: center;
   padding: 0;
-  background: var(--clean-surface);
+  background: var(--clean-card);
   border-radius: 50%;
   color: var(--clean-fg);
   filter: none;
-}
-html.ui-theme-clean #settings-btn:hover {
-  background: var(--clean-hover);
 }
 html.ui-theme-clean #settings-btn svg {
   display: block;
@@ -155,10 +152,10 @@ html.ui-theme-clean #menu-player-badge {
   justify-content: center;
   gap: 12px;
   padding: 0;
-  border: 1px solid var(--clean-line);
+  border: none;
   border-image: none;
   border-radius: 22px;
-  background: var(--clean-panel);
+  background: var(--clean-card);
   filter: none;
 }
 html.ui-theme-clean #menu-avatar-icon {
@@ -175,7 +172,7 @@ html.ui-theme-clean #menu-avatar-icon {
 }
 html.ui-theme-clean #menu-player-badge:hover,
 html.ui-theme-clean #menu-player-badge.nav-hover {
-  background: var(--clean-surface);
+  background: var(--clean-card);
 }
 html.ui-theme-clean #menu-nav-buttons button {
   font-family: var(--clean-font);
@@ -183,15 +180,46 @@ html.ui-theme-clean #menu-nav-buttons button {
   letter-spacing: 0;
   text-transform: none;
   color: var(--clean-fg);
-  background: var(--clean-surface);
+  background: var(--clean-card);
   border-radius: 12px;
   filter: none;
 }
 html.ui-theme-clean #menu-nav-buttons button:hover,
 html.ui-theme-clean #menu-nav-buttons button.nav-hover {
-  background: var(--clean-hover);
+  background: var(--clean-card);
   filter: none;
+}
+
+/* White cards with a soft shadow that grow a little when pointed at
+   (apple.com's store cards). Touch screens grow while pressed. Size and
+   place at rest stay Old's (theme parity) - only the hover grows. */
+html.ui-theme-clean :is(#play-btn, #gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button) {
   transform: none;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s ease;
+}
+html.ui-theme-clean :is(#gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button, #menu-currency-bar, #homepage-clock) {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 14px rgba(0, 0, 0, 0.06) !important;
+}
+@media (hover: hover) {
+  html.ui-theme-clean :is(#play-btn, #gamemode-btn, #settings-btn, #menu-nav-buttons button):hover,
+  html.ui-theme-clean #menu-nav-buttons button.nav-hover {
+    transform: scale(1.04);
+  }
+  html.ui-theme-clean :is(#menu-player-badge:hover, #menu-player-badge.nav-hover) {
+    transform: scale(1.02);
+  }
+  html.ui-theme-clean :is(#gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button):hover,
+  html.ui-theme-clean :is(#menu-player-badge, #menu-nav-buttons button).nav-hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05), 0 12px 30px rgba(0, 0, 0, 0.1) !important;
+  }
+}
+html.ui-theme-clean :is(#play-btn, #gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button):active {
+  transform: scale(1.02);
+}
+@media (prefers-reduced-motion: reduce) {
+  html.ui-theme-clean :is(#play-btn, #gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button) {
+    transition: none;
+  }
 }
 html.ui-theme-clean #menu-nav-buttons button svg {
   color: var(--clean-fg);
@@ -315,20 +343,9 @@ html.ui-theme-clean .panel-box hr {
 .theme-clean-preview b:nth-child(1) { width: 40%; height: 14px; border-radius: 4px; }
 .theme-clean-preview b:nth-child(2) { width: 30%; height: 16px; }
 .theme-clean-preview b:nth-child(3) { width: 22%; height: 8px; opacity: 0.5; }
-#theme-clean-color-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 20px;
-  flex-wrap: wrap;
-}
-#theme-clean-color-label {
-  font-size: 15px;
-}
 #theme-clean-color {
-  width: 44px;
-  height: 44px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: 1px solid rgba(var(--ui-gold-bright-rgb), 0.4);
   border-radius: 50%;
@@ -340,7 +357,11 @@ html.ui-theme-clean .panel-box hr {
 #theme-clean-color::-webkit-color-swatch { border: none; border-radius: 50%; }
 #theme-clean-color::-moz-color-swatch { border: none; border-radius: 50%; }
 #theme-clean-hex {
-  width: 120px;
+  width: 92px;
+  height: 30px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  font-size: 13px;
   text-align: center;
   font-family: ui-monospace, Menlo, Consolas, monospace;
   text-transform: uppercase;
@@ -356,10 +377,8 @@ html.ui-theme-clean .theme-picker-card.active {
   border-color: var(--clean-fg);
   box-shadow: none;
 }
-html.ui-theme-clean .panel-box .theme-picker-card span {
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff !important;
-  font-family: var(--clean-font);
+html.ui-theme-clean .theme-picker-name {
+  font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
 }
@@ -370,18 +389,13 @@ html.ui-theme-clean #menu :not(#play-btn, #whats-new-dot, .nameplate-level) {
   font-family: var(--clean-font) !important;
 }
 html.ui-theme-clean :is(#menu-currency-bar, #homepage-clock) {
-  background: var(--clean-surface);
+  background: var(--clean-card);
   border: none;
-  box-shadow: none;
   backdrop-filter: none;
 }
 html.ui-theme-clean #menu-subtitle,
 html.ui-theme-clean #menu-player-tag {
   color: var(--clean-dim) !important;
-}
-html.ui-theme-clean #event-banner {
-  background: var(--clean-surface);
-  border-color: transparent;
 }
 html.ui-theme-clean .nameplate-level {
   background: var(--clean-fg) !important;
@@ -426,7 +440,12 @@ html.ui-theme-clean .audio-checkbox:checked {
   border-color: var(--clean-fg);
 }
 
-/* Sign-in buttons: solid ink pills (the one thing to press there). */
+/* Sign-in buttons: solid ink pills (the one thing to press there). The
+   "Last used" tag is the page colour with ink words. */
+html.ui-theme-clean #profile-login-gate .auth-btn .auth-last-used {
+  background: var(--clean-bg);
+  color: var(--clean-fg) !important;
+}
 html.ui-theme-clean #profile-login-gate .auth-btn span { color: var(--clean-bg) !important; }
 html.ui-theme-clean :is(#profile-login-gate .auth-btn, #friends-signin-btn, #server-chat-signin-btn, #cloudsave-signin-btn, #clan-signin-btn, #market-signin-btn, #gallery-signin-btn) {
   background: var(--clean-fg);

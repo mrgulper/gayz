@@ -1,15 +1,18 @@
 // The two menu themes (2026-10-23): Old (the default - rust, paper, Rye)
 // and Clean (flat and plain, one colour the player picks - Gaymi: "just
-// plain colour whatever colour they pick", white to start). Golden was
+// plain colour whatever colour they pick"; starts on apple.com's light
+// grey #f5f5f7 since 2026-10-23, was white). Golden was
 // deleted the same day; a save that still says 'golden' lands on Clean.
 //
 // Clean's whole palette comes from that one colour: the page is the
 // colour, text/buttons are near-black or near-white (whichever reads on
 // it), panels and cards are the colour nudged a few % toward the text.
+// The homepage buttons (--clean-card) are pure white on a light colour,
+// like apple.com's white cards on grey; on a dark one they're --clean-surface.
 // index.html's first inline script has a copy of uiThemeOf + cleanVars
 // so the very first paint is already right - keep the two the same.
 
-export const CLEAN_DEFAULT_COLOR = '#ffffff'
+export const CLEAN_DEFAULT_COLOR = '#f5f5f7'
 
 // '#abc', 'abc', '#AABBCC' -> '#aabbcc'; anything else -> null.
 export function normalizeHex(value) {
@@ -38,6 +41,7 @@ export function cleanVars(color) {
     '--clean-panel': mix(0.035),
     '--clean-surface': mix(0.08),
     '--clean-hover': mix(0.14),
+    '--clean-card': lum > 0.55 ? '#ffffff' : mix(0.08),
     // The tick on a checked box, in the page colour (sits on --clean-fg).
     // Not needed for the first paint, so index.html's copy skips it.
     '--clean-check': `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.2 8.4l3 3 6.6-6.8' fill='none' stroke='%23${hex.slice(1)}' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,

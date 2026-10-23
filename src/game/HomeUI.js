@@ -344,8 +344,6 @@ export function _bindHomepageBatch(game) {
       if (e.target === game.howtoplayPanel) game._closeHowToPlayPanel()
     })
   }
-
-  game._updateEventBanner()
 }
 
 // Main-menu news ticker - tied to bestStats.bestWave (already persisted,

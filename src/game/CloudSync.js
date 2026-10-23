@@ -610,6 +610,10 @@ function authError(code) {
   return err
 }
 
+// Which site this browser signed in with last ('google', 'steam'...), for
+// the "Last used" tag on the Login buttons (ProfileUI._renderAuthCard).
+export const LAST_SIGN_IN_KEY = 'gayz-last-sign-in'
+
 export async function signIn(provider = 'google') {
   if (SERVER_PROVIDERS.includes(provider)) return signInViaServer(provider)
   const { auth, authMod } = await ensureApp()
