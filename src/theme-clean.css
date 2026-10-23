@@ -1,0 +1,586 @@
+/* Clean theme (settings.uiTheme: 'clean', 2026-10-23). Gaymi: "make it
+   clean and simple ... like apple.com ... no rain and not useful things",
+   then "just plain colour whatever colour they pick" (white to start).
+   One colour the player picks (Inventory > Theme) is the whole look:
+   CleanTheme.js turns it into --clean-bg (the page), --clean-fg (near-black
+   or near-white text, whichever reads on it), --clean-panel / --clean-
+   surface / --clean-hover (the colour nudged toward the text) and
+   --clean-fg-rgb. No photos, plates, glows, rain or texture - flat
+   colour, a system sans-serif, rounded boxes and pill buttons.
+   Sizes and positions stay the same as Old (theme parity rule); only
+   colour, art and font change here. */
+
+html.ui-theme-clean {
+  --clean-line: rgba(var(--clean-fg-rgb), 0.12);
+  --clean-dim: rgba(var(--clean-fg-rgb), 0.6);
+  --clean-font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* The shared palette every button/panel/heading reads (style.css :root). */
+  --menu-gold: var(--clean-fg);
+  --menu-gunmetal: var(--clean-surface);
+  --menu-gunmetal-dark: var(--clean-panel);
+  --menu-bronze: var(--clean-line);
+  --ui-gold-bright: var(--clean-fg);
+  --ui-gold-bright-rgb: var(--clean-fg-rgb);
+  --ui-gold-accent: var(--clean-fg);
+  --ui-gold-accent-rgb: var(--clean-fg-rgb);
+  --menu-panel-bg: var(--clean-panel);
+  --menu-panel-border: var(--clean-line);
+  --menu-text-dim: var(--clean-dim);
+  --menu-display-font: var(--clean-font);
+  --grain-texture: none;
+  font-family: var(--clean-font);
+  color: var(--clean-fg);
+  background: var(--clean-bg);
+}
+html.ui-theme-clean body {
+  background: var(--clean-bg);
+  color: var(--clean-fg);
+}
+html.ui-theme-clean input::selection,
+html.ui-theme-clean textarea::selection {
+  background: rgba(var(--clean-fg-rgb), 0.2);
+}
+html.ui-theme-clean * {
+  scrollbar-color: rgba(var(--clean-fg-rgb), 0.3) transparent;
+}
+
+/* ---- Homepage: just the colour ---- */
+html.ui-theme-clean #menu-bg {
+  background: var(--clean-bg);
+}
+html.ui-theme-clean #menu-bg > * {
+  display: none !important;
+}
+html.ui-theme-clean #menu,
+html.ui-theme-clean #menu * {
+  text-shadow: none !important;
+}
+
+/* The logo picture becomes the word, big and bold, in the same box. */
+html.ui-theme-clean #menu-title-img {
+  display: grid;
+  place-items: center;
+  background: none;
+  filter: none !important;
+}
+html.ui-theme-clean #menu-title-img::after {
+  content: 'GayZ';
+  font-family: var(--clean-font);
+  font-size: clamp(56px, 11vw, 150px);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--clean-fg);
+}
+html.ui-theme-clean #menu-title::before,
+html.ui-theme-clean #menu-title::after {
+  display: none;
+}
+html.ui-theme-clean #menu-tagline,
+html.ui-theme-clean #homepage-greeting {
+  font-family: var(--clean-font);
+  color: var(--clean-dim);
+  letter-spacing: 0;
+}
+
+/* PLAY: a solid pill in the text colour (the one strong thing on the page). */
+html.ui-theme-clean #play-btn {
+  background: var(--clean-fg);
+  border-radius: 999px;
+  color: var(--clean-bg);
+  font-family: var(--clean-font);
+  font-size: clamp(26px, 3.4vw, 44px);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  filter: none;
+}
+html.ui-theme-clean #play-btn:hover {
+  filter: none;
+  opacity: 0.88;
+}
+html.ui-theme-clean #play-btn:active {
+  filter: none;
+  opacity: 0.8;
+}
+
+/* Game Mode: an outline pill, the size of Old's plate. */
+html.ui-theme-clean #gamemode-btn {
+  width: 180px;
+  max-width: 60vw;
+  aspect-ratio: 1919 / 380;
+  height: auto;
+  padding: 0;
+  font-family: var(--clean-font);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--clean-fg);
+  background: transparent;
+  border: 1.5px solid rgba(var(--clean-fg-rgb), 0.5);
+  border-radius: 999px;
+}
+html.ui-theme-clean #gamemode-btn:hover {
+  filter: none;
+  background: var(--clean-surface);
+}
+
+/* Settings: the gear icon on a plain circle. */
+html.ui-theme-clean #settings-btn {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: var(--clean-surface);
+  border-radius: 50%;
+  color: var(--clean-fg);
+  filter: none;
+}
+html.ui-theme-clean #settings-btn:hover {
+  background: var(--clean-hover);
+}
+html.ui-theme-clean #settings-btn svg {
+  display: block;
+  width: 44%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+/* Profile card and nav buttons: flat rounded boxes. */
+/* Same box as Old's profile plate (theme parity): avatar and ID centred. */
+html.ui-theme-clean #menu-player-badge {
+  width: calc(100% + 24px);
+  margin: 0 -12px -16px;
+  aspect-ratio: 1230 / 1278;
+  justify-content: center;
+  gap: 12px;
+  padding: 0;
+  border: 1px solid var(--clean-line);
+  border-image: none;
+  border-radius: 22px;
+  background: var(--clean-panel);
+  filter: none;
+}
+html.ui-theme-clean #menu-avatar-icon {
+  width: 52%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 16px;
+}
+@media (max-width: 700px), (orientation: portrait) and (max-width: 1100px), (max-height: 500px) {
+  html.ui-theme-clean #menu-player-badge {
+    width: min(240px, 70vw);
+    margin: 0 auto 4px;
+  }
+}
+html.ui-theme-clean #menu-player-badge:hover,
+html.ui-theme-clean #menu-player-badge.nav-hover {
+  background: var(--clean-surface);
+}
+html.ui-theme-clean #menu-nav-buttons button {
+  font-family: var(--clean-font);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--clean-fg);
+  background: var(--clean-surface);
+  border-radius: 12px;
+  filter: none;
+}
+html.ui-theme-clean #menu-nav-buttons button:hover,
+html.ui-theme-clean #menu-nav-buttons button.nav-hover {
+  background: var(--clean-hover);
+  filter: none;
+  transform: none;
+}
+html.ui-theme-clean #menu-nav-buttons button svg {
+  color: var(--clean-fg);
+  stroke: currentColor;
+}
+html.ui-theme-clean #menu-links-row a,
+html.ui-theme-clean #menu-links-row button {
+  color: var(--clean-dim);
+  font-family: var(--clean-font);
+}
+html.ui-theme-clean #menu-links-row a:hover,
+html.ui-theme-clean #menu-links-row button:hover {
+  color: var(--clean-fg);
+}
+
+/* ---- Panels ---- */
+html.ui-theme-clean .panel-box {
+  background: var(--clean-bg);
+  border: 1px solid var(--clean-line);
+  border-radius: 22px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.18);
+  color: var(--clean-fg);
+  filter: none;
+}
+html.ui-theme-clean .panel-box::before,
+html.ui-theme-clean .panel-box::after {
+  display: none;
+}
+/* One ink for every word on a panel (like Old's paper ink). Coloured
+   cards keep their own text. */
+html.ui-theme-clean .panel-box :not(.inv-skin-card *, .inv-skin-card, .nameplate-level) {
+  color: var(--clean-fg) !important;
+  text-shadow: none !important;
+  font-family: var(--clean-font) !important;
+}
+html.ui-theme-clean .panel-box > h2 {
+  font-weight: 600 !important;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+html.ui-theme-clean .panel-box > .panel-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--clean-surface);
+  font-size: 20px;
+  font-weight: 400;
+}
+html.ui-theme-clean .panel-box > .panel-close-btn:hover {
+  background: var(--clean-hover);
+}
+
+/* Buttons, tabs, inputs and dropdowns inside panels. */
+html.ui-theme-clean .panel-box :is(button, .mini-action-btn, .settings-reset-btn):not(.panel-close-btn, .theme-picker-card, .inv-skin-card) {
+  background: var(--clean-surface);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  box-shadow: none;
+  filter: none;
+  text-transform: none;
+  letter-spacing: 0;
+}
+html.ui-theme-clean .panel-box :is(button, .mini-action-btn, .settings-reset-btn):not(.panel-close-btn, .theme-picker-card, .inv-skin-card):hover {
+  background: var(--clean-hover);
+}
+html.ui-theme-clean .panel-box :is(button.active, .active > button, [aria-selected="true"]):not(.theme-picker-card, .inv-skin-card) {
+  background: var(--clean-fg);
+  color: var(--clean-bg) !important;
+}
+html.ui-theme-clean .panel-box :is(button.active, [aria-selected="true"]) * {
+  color: var(--clean-bg) !important;
+}
+html.ui-theme-clean :is(.nickname-input, .panel-box select, .panel-box textarea, .panel-box input[type="text"], .panel-box input[type="search"], .panel-box input[type="number"]) {
+  background: var(--clean-surface);
+  border: 1px solid var(--clean-line);
+  color: var(--clean-fg);
+  box-shadow: none;
+}
+html.ui-theme-clean :is(.nickname-input, .panel-box select, .panel-box textarea, .panel-box input):focus {
+  border-color: rgba(var(--clean-fg-rgb), 0.45);
+  outline: none;
+}
+html.ui-theme-clean .panel-box ::placeholder {
+  color: var(--clean-dim);
+}
+html.ui-theme-clean .panel-box option {
+  background: var(--clean-bg);
+  color: var(--clean-fg);
+}
+html.ui-theme-clean .panel-box input[type="range"] {
+  accent-color: var(--clean-fg);
+}
+html.ui-theme-clean .panel-box input[type="checkbox"],
+html.ui-theme-clean .panel-box input[type="radio"] {
+  accent-color: var(--clean-fg);
+}
+html.ui-theme-clean .panel-box hr {
+  border-color: var(--clean-line);
+}
+
+/* ---- Theme picker (Inventory > Theme) ---- */
+.theme-clean-preview {
+  display: none;
+}
+#theme-picker-clean .theme-clean-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  background: var(--clean-preview, #ffffff);
+}
+/* A tiny drawn homepage: a title bar, a pill, a line. */
+.theme-clean-preview b {
+  display: block;
+  border-radius: 999px;
+  background: var(--clean-preview-fg, #1d1d1f);
+}
+.theme-clean-preview b:nth-child(1) { width: 40%; height: 14px; border-radius: 4px; }
+.theme-clean-preview b:nth-child(2) { width: 30%; height: 16px; }
+.theme-clean-preview b:nth-child(3) { width: 22%; height: 8px; opacity: 0.5; }
+#theme-clean-color-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+#theme-clean-color-label {
+  font-size: 15px;
+}
+#theme-clean-color {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(var(--ui-gold-bright-rgb), 0.4);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+#theme-clean-color::-webkit-color-swatch-wrapper { padding: 0; }
+#theme-clean-color::-webkit-color-swatch { border: none; border-radius: 50%; }
+#theme-clean-color::-moz-color-swatch { border: none; border-radius: 50%; }
+#theme-clean-hex {
+  width: 120px;
+  text-align: center;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  text-transform: uppercase;
+}
+#theme-clean-hex.invalid {
+  border-color: #e05252 !important;
+}
+html.ui-theme-clean .theme-picker-card {
+  border: 2px solid var(--clean-line);
+  border-radius: 16px;
+}
+html.ui-theme-clean .theme-picker-card.active {
+  border-color: var(--clean-fg);
+  box-shadow: none;
+}
+html.ui-theme-clean .panel-box .theme-picker-card span {
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff !important;
+  font-family: var(--clean-font);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Every word on the homepage in the one ink (PLAY keeps its own). */
+html.ui-theme-clean #menu :not(#play-btn, #whats-new-dot, .nameplate-level) {
+  color: var(--clean-fg) !important;
+  font-family: var(--clean-font) !important;
+}
+html.ui-theme-clean :is(#menu-currency-bar, #homepage-clock) {
+  background: var(--clean-surface);
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+html.ui-theme-clean #menu-subtitle,
+html.ui-theme-clean #menu-player-tag {
+  color: var(--clean-dim) !important;
+}
+html.ui-theme-clean #event-banner {
+  background: var(--clean-surface);
+  border-color: transparent;
+}
+html.ui-theme-clean .nameplate-level {
+  background: var(--clean-fg) !important;
+  color: var(--clean-bg) !important;
+  border: none;
+  box-shadow: none;
+  filter: none;
+}
+html.ui-theme-clean #menu-avatar-icon {
+  background: var(--clean-surface);
+  box-shadow: none;
+}
+
+/* Tabs and small action buttons are pills, like apple.com's. */
+html.ui-theme-clean .panel-box :is(.achievements-mode-tab, .hub-tab, .settings-tab, .quest-tab, .clan-tab, .inv-tab, .gallery-tab, .mini-action-btn, .settings-reset-btn) {
+  border-radius: 999px !important;
+}
+/* Crates: flat cards, the tier colour only as a thin top edge. */
+html.ui-theme-clean .crate-card {
+  background: var(--clean-surface) !important;
+  border: 1px solid var(--clean-line) !important;
+  border-top: 3px solid var(--crate-tier-color, var(--clean-line)) !important;
+  border-radius: 16px;
+  box-shadow: none !important;
+  filter: none;
+}
+html.ui-theme-clean .crate-card * {
+  text-shadow: none !important;
+}
+
+/* Checkboxes: an outline box, filled with the ink when ticked. */
+html.ui-theme-clean .audio-checkbox,
+html.ui-theme-clean .market-check {
+  --cb-rim: rgba(var(--clean-fg-rgb), 0.4);
+  --cb-off: transparent;
+  --cb-on: var(--clean-fg);
+  --cb-on-top: var(--clean-fg);
+  --cb-check: var(--clean-check);
+  border-color: var(--cb-rim);
+}
+html.ui-theme-clean .audio-checkbox:checked {
+  border-color: var(--clean-fg);
+}
+
+/* Sign-in buttons: solid ink pills (the one thing to press there). */
+html.ui-theme-clean :is(#profile-login-gate .auth-btn, #friends-signin-btn, #server-chat-signin-btn, #cloudsave-signin-btn) {
+  background: var(--clean-fg);
+  border-color: var(--clean-fg);
+  color: var(--clean-bg) !important;
+  filter: none;
+}
+html.ui-theme-clean :is(#profile-login-gate .auth-btn, #friends-signin-btn, #server-chat-signin-btn, #cloudsave-signin-btn):hover {
+  background: var(--clean-fg);
+  opacity: 0.85;
+  filter: none;
+}
+
+/* ---- In game: pause screen, Map Editor menu, Tab panels, spawn map ----
+   The same flat card in the player's colour over a light dim. */
+html.ui-theme-clean #play-pause-menu,
+html.ui-theme-clean #build-menu {
+  --pp-gold: var(--clean-fg);
+  --pp-gold-rgb: var(--clean-fg-rgb);
+  --pp-text: var(--clean-fg);
+  --bm-gold: var(--clean-fg);
+  --bm-gold-rgb: var(--clean-fg-rgb);
+  --bm-gold-dim: var(--clean-line);
+  --bm-panel: var(--clean-bg);
+  --bm-text: var(--clean-fg);
+  --bm-title-font: var(--clean-font);
+  background: rgba(0, 0, 0, 0.35);
+  font-family: var(--clean-font);
+}
+html.ui-theme-clean :is(#play-pause-card, .build-menu-card, #build-picker, #play-inventory .inv-box) {
+  background: var(--clean-bg);
+  color: var(--clean-fg);
+  border: 1px solid var(--clean-line);
+  border-radius: 20px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.25);
+  font-family: var(--clean-font);
+}
+html.ui-theme-clean :is(#play-pause-card, .build-menu-card)::before,
+html.ui-theme-clean :is(#play-pause-card, .build-menu-card)::after {
+  display: none;
+}
+html.ui-theme-clean :is(#play-pause-menu, #build-menu, #build-picker, #play-inventory, #spawn-map) * {
+  text-shadow: none !important;
+  font-family: var(--clean-font) !important;
+}
+html.ui-theme-clean :is(#play-pause-title, #build-menu-title-main) {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+html.ui-theme-clean #play-pause-close {
+  color: var(--clean-fg);
+}
+html.ui-theme-clean :is(#play-pause-buttons button, #build-menu button:not(#build-menu-close)) {
+  color: var(--clean-fg);
+  background: var(--clean-surface);
+  border-color: transparent;
+  border-radius: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+html.ui-theme-clean :is(#play-pause-buttons button, #build-menu button:not(#build-menu-close)):hover {
+  background: var(--clean-hover);
+  border-color: transparent;
+}
+html.ui-theme-clean :is(#play-pause-buttons, #build-menu) button svg {
+  color: var(--clean-fg);
+}
+html.ui-theme-clean #play-invite-link {
+  background: var(--clean-surface);
+  border-color: var(--clean-line);
+}
+html.ui-theme-clean #play-invite-copy {
+  color: var(--clean-bg);
+  background: var(--clean-fg);
+}
+html.ui-theme-clean #play-inventory .inv-box,
+html.ui-theme-clean #build-picker :is(.bp-title, .build-picker-label, .build-picker-empty) {
+  color: var(--clean-fg);
+}
+html.ui-theme-clean #play-inventory .inv-head b {
+  color: var(--clean-fg);
+}
+html.ui-theme-clean :is(#play-inventory .inv-slot, #build-picker .bp-slot) {
+  background-color: var(--clean-surface);
+  border-color: var(--clean-line);
+}
+html.ui-theme-clean :is(#play-inventory .inv-slot, #build-picker .bp-slot).active,
+html.ui-theme-clean #build-picker .build-picker-swatch.selected {
+  border-color: var(--clean-fg);
+  box-shadow: inset 0 0 0 1px var(--clean-fg);
+}
+html.ui-theme-clean :is(#play-inventory .inv-hotbar, #build-picker .build-picker-right) {
+  border-color: var(--clean-line);
+}
+html.ui-theme-clean #spawn-map {
+  color: var(--clean-fg);
+}
+html.ui-theme-clean #spawn-map :is(.spawn-map-heading, #spawn-map-info, #spawn-map-list),
+html.ui-theme-clean #spawn-map button {
+  color: var(--clean-fg);
+  background: var(--clean-bg);
+  border-color: var(--clean-line);
+}
+html.ui-theme-clean #spawn-map h2 {
+  color: var(--clean-fg);
+}
+html.ui-theme-clean #spawn-map :is(#spawn-map-go, #spawn-map-list button.active) {
+  color: var(--clean-bg);
+  background: var(--clean-fg);
+  border-color: var(--clean-fg);
+}
+html.ui-theme-clean #build-try-map {
+  background: var(--clean-bg);
+  border: 2px solid var(--clean-fg);
+}
+html.ui-theme-clean :is(#build-try-map-hint, #build-try-biome) {
+  color: var(--clean-bg);
+  background: var(--clean-fg);
+}
+
+/* Choose Your Weapon (start of a run). */
+html.ui-theme-clean #play-weapon-pick {
+  background: rgba(0, 0, 0, 0.35);
+}
+html.ui-theme-clean #play-weapon-pick .pwp-card-box {
+  color: var(--clean-fg);
+  background: var(--clean-bg);
+  border: 1px solid var(--clean-line);
+  border-radius: 20px;
+  font-family: var(--clean-font);
+}
+html.ui-theme-clean #play-weapon-pick h2 {
+  font-family: var(--clean-font);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--clean-fg);
+}
+html.ui-theme-clean #play-weapon-pick .pwp-weapon {
+  color: var(--clean-fg);
+  background: var(--clean-surface);
+  border-color: transparent;
+  border-radius: 14px;
+}
+html.ui-theme-clean #play-weapon-pick .pwp-weapon:hover,
+html.ui-theme-clean #play-weapon-pick .pwp-weapon.active {
+  border-color: var(--clean-fg);
+  box-shadow: none;
+}
+html.ui-theme-clean #play-weapon-pick .pwp-soon:hover {
+  border-color: transparent;
+}
+html.ui-theme-clean #play-weapon-pick .pwp-bar-track {
+  background: var(--clean-line);
+}
+html.ui-theme-clean #play-weapon-pick .pwp-bar-track span {
+  background: var(--clean-fg);
+}

@@ -28,8 +28,8 @@
 
 import { LITE_HOME, startWhenLight, onHomeFrame, onHomePause } from './LiteHome.js'
 
-// The street in both background photos (menu-art/old-menu-bg.webp and
-// menu-bg-city.webp share the same framing), as fractions of the picture:
+// The street in the Old theme's background photo (menu-art/old-menu-bg.webp),
+// as fractions of the picture:
 // the far end of the road at HORIZON, widening out to the bottom corners
 // from EDGE_Y at the left/right edges.
 export const PICTURE_ASPECT = 1280 / 774

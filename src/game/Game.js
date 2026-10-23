@@ -119,6 +119,7 @@ import { UPGRADE_PLAY, PLAY_GAME_MODES } from './PlayRules.js'
 import * as GalleryUI from './GalleryUI.js'
 import { TopBar } from './TopBar.js'
 import { setLanguage, t } from './i18n.js'
+import { CLEAN_DEFAULT_COLOR, normalizeHex, uiThemeOf } from './CleanTheme.js'
 import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 // BuildMode.js is deliberately NOT statically imported here - it's a big,
 // self-contained system most visitors never touch (a whole separate
@@ -414,13 +415,11 @@ function loadSettings() {
       highVisCursor: parsed.highVisCursor ?? false,
       captionBackground: parsed.captionBackground ?? false,
       themePreset: parsed.themePreset || 'none',
-      // Default flipped 2026-09-11 (explicit request) - 'old' is now what
-      // a player with no saved preference gets. An existing player whose
-      // settings already have an explicit 'golden' saved (anyone who's
-      // loaded the game since this was the default) keeps seeing golden,
-      // not silently switched - only a genuinely fresh/never-set value
-      // falls through to the new default.
-      uiTheme: parsed.uiTheme === 'golden' ? 'golden' : 'old',
+      // Old by default; Clean when picked. Golden was deleted 2026-10-23 -
+      // a saved 'golden' becomes Clean (CleanTheme.js uiThemeOf).
+      uiTheme: uiThemeOf(parsed),
+      // Clean theme's one colour (Inventory > Theme), '#rrggbb'.
+      cleanColor: normalizeHex(parsed.cleanColor) || CLEAN_DEFAULT_COLOR,
       // The gun last picked at the start of a Map 1 run (PlayWeapons.js).
       playWeapon: typeof parsed.playWeapon === 'string' ? parsed.playWeapon : null,
       lastSeenBuildId: parsed.lastSeenBuildId || null,
@@ -518,7 +517,7 @@ function _loadNavOrder(saved) {
 }
 
 export function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', cleanColor: CLEAN_DEFAULT_COLOR, playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
 }
 
 
@@ -1262,7 +1261,8 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'export-settings-code-btn': 'exportSettingsCodeBtn',
   'import-settings-code-btn': 'importSettingsCodeBtn',
   'import-settings-code-apply-btn': 'importSettingsCodeApplyBtn',
-  'theme-picker-golden-label': 'optUiThemeGolden',
+  'theme-picker-clean-label': 'optUiThemeClean',
+  'theme-clean-color-label': 'themeCleanColorLabel',
   'theme-picker-old-label': 'optUiThemeOld',
   'coming-soon-close-btn': 'comingSoonCloseBtn',
   'general-tab-general': 'generalTabGeneral',
@@ -2115,7 +2115,9 @@ export class Game {
     this.highVisCursorToggle = document.getElementById('high-vis-cursor-toggle')
     this.captionBackgroundToggle = document.getElementById('caption-background-toggle')
     this.themePresetSelect = document.getElementById('theme-preset-select')
-    this.themePickerGolden = document.getElementById('theme-picker-golden')
+    this.themePickerClean = document.getElementById('theme-picker-clean')
+    this.themeCleanColorInput = document.getElementById('theme-clean-color')
+    this.themeCleanHexInput = document.getElementById('theme-clean-hex')
     this.themePickerOld = document.getElementById('theme-picker-old')
     this.cursorTrailToggle = document.getElementById('cursor-trail-toggle')
     this.crtScanlinesToggle = document.getElementById('crt-scanlines-toggle')
@@ -4042,8 +4044,8 @@ export class Game {
 
   _loadSkinDesignerFrame() {
     if (this.skindesignerFrame && this.skindesignerFrame.src === 'about:blank') {
-      const theme = this.settings.uiTheme === 'old' ? 'old' : 'golden'
-      this.skindesignerFrame.src = `${SKIN_DESIGNER_URL}?theme=${theme}`
+      const theme = this.settings.uiTheme === 'clean' ? 'clean' : 'old'
+      this.skindesignerFrame.src = `${SKIN_DESIGNER_URL}?theme=${theme}&color=${encodeURIComponent(this.settings.cleanColor)}`
     }
   }
 

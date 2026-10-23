@@ -22,8 +22,8 @@
   })
 </script>
 <script>
-  // Sets the GayZ theme (dark 'old'/'golden', or the light default for a
-  // standalone visit) before the very first paint. This used to live inside
+  // Sets the GayZ theme ('old' or 'clean' + its colour, or the default
+  // look for a standalone visit) before the very first paint. This used to live inside
   // the type="module" script below, AFTER its `import * as THREE ...` /
   // `import { OrbitControls } ...` lines - top-level imports in a module
   // script block every line after them until that import fully resolves,
@@ -36,9 +36,23 @@
   // classic script has no dependency on THREE at all, so it runs
   // immediately - the correct theme (and background color) is correct from
   // frame one regardless of how long the module script takes.
+  // Clean (2026-10-23): no page background (the game's panel shows
+  // through), text and buttons in near-black or near-white - whichever
+  // reads on the player's Clean colour (same rule as the game's
+  // CleanTheme.js cleanVars).
+  window.applyGayzTheme = function (theme, color) {
+    var root = document.documentElement;
+    root.dataset.theme = theme === 'old' ? 'old' : 'clean';
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(color || ''));
+    var h = m ? m[1] : 'ffffff';
+    var bg = [0, 2, 4].map(function (i) { return parseInt(h.slice(i, i + 2), 16); });
+    var fg = (0.2126 * bg[0] + 0.7152 * bg[1] + 0.0722 * bg[2]) / 255 > 0.55 ? '29, 29, 31' : '245, 245, 247';
+    root.style.setProperty('--clean-bg', '#' + h);
+    root.style.setProperty('--clean-fg-rgb', fg);
+  };
   (function () {
-    var theme = new URLSearchParams(location.search).get('theme');
-    if (theme) document.documentElement.dataset.theme = theme === 'old' ? 'old' : 'golden';
+    var q = new URLSearchParams(location.search);
+    if (q.get('theme')) window.applyGayzTheme(q.get('theme'), q.get('color'));
   })();
 </script>
 <script>
@@ -83,7 +97,7 @@
      <html> by GayZ itself (see the gayz-set-theme postMessage handler and
      the ?theme= URL param below) whenever this tool is opened from inside
      the game; a direct/standalone visit has no theme param and stays on
-     the default (Golden-equivalent) look. */
+     the default dark look. */
   :root[data-theme="old"] {
     --bg: #150f09; --panel: #1e160f; --line: #8f6a3e;
     --text: #ddd0b8; --text-dim: #c2a06e; --accent: #e1c189;
@@ -140,6 +154,22 @@
   :root[data-theme="old"] .theme-note b,
   :root[data-theme="old"] .save-indicator,
   :root[data-theme="old"] .slot-card button.tbtn:hover { color: var(--text); }
+  /* Clean theme: flat, see-through to the game's panel, one ink colour. */
+  :root[data-theme="clean"] {
+    --bg: transparent;
+    --panel: rgba(var(--clean-fg-rgb), 0.05);
+    --line: rgba(var(--clean-fg-rgb), 0.16);
+    --text: rgb(var(--clean-fg-rgb));
+    --text-dim: rgba(var(--clean-fg-rgb), 0.6);
+    --accent: rgb(var(--clean-fg-rgb));
+    --accent-rgb: var(--clean-fg-rgb);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  :root[data-theme="clean"] button.tbtn.active,
+  :root[data-theme="clean"] button.tbtn.primary,
+  :root[data-theme="clean"] .btn.primary { color: var(--clean-bg); }
+  :root[data-theme="clean"] .export-card { background: var(--clean-bg); }
+  :root[data-theme="clean"] header h1 { font-family: inherit; font-weight: 600; letter-spacing: 0; text-transform: none; }
   @media (prefers-color-scheme: light) {
     :root:not([data-theme]) {
       --bg: #f2efe6; --panel: #ffffff; --line: #d9cdb0;
@@ -201,7 +231,7 @@
   /* Themed accent ring (2px var(--accent)), not the plain 1px var(--line)
      every other input uses - a flat white swatch (its default color) read
      as too stark/bright against the panel otherwise; framing it in each
-     theme's own accent (old -> old's tan, golden -> golden's gold) makes
+     theme's own accent (old -> old's tan, clean -> its ink) makes
      it feel like part of the theme instead of a floating white square. */
   .color-well { width: 30px; height: 30px; border-radius: 6px; border: 2px solid var(--accent); padding: 0; cursor: pointer; }
   .hex-input {
@@ -256,7 +286,7 @@
      canvas is transparent (WebGLRenderer alpha:true), so whatever this
      wrapper's background is shows straight through behind the character.
      Plain white was tried first and came back "too bright"; each theme's
-     own accent (old's tan, golden's gold, the light default's amber) reads
+     own accent (old's tan, clean's ink, the light default's amber) reads
      as part of that theme instead of a flat white or a flat dark panel. */
   .stage-canvas-wrap { position: relative; flex: 1; min-height: 0; background: var(--accent); }
   canvas#stage3d { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
@@ -598,7 +628,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-// ---- GayZ Old/Golden theme sync ----
+// ---- GayZ Old/Clean theme sync ----
 // The initial ?theme= application now happens instantly in a tiny inline
 // script in <head> (see its own comment) rather than here, so it isn't
 // blocked behind the two import statements above. This listener is only
@@ -606,13 +636,10 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // Served from the game's own site now (public/skin-designer/, 2026-09-30),
 // so GayZ is this page's own origin - on production, previews and localhost.
 const GAYZ_ORIGIN = location.origin;
-function applyGayzTheme(theme) {
-  document.documentElement.dataset.theme = theme === 'old' ? 'old' : 'golden';
-}
 window.addEventListener('message', (event) => {
   if (event.origin !== GAYZ_ORIGIN) return;
   if (!event.data || event.data.type !== 'gayz-set-theme') return;
-  applyGayzTheme(event.data.theme);
+  window.applyGayzTheme(event.data.theme, event.data.color);
 });
 
 // ---- Standard blocky skin box-UV-unwrap - the same fixed pixel

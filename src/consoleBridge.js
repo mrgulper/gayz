@@ -11,6 +11,8 @@
 // linked from anywhere in this game) for the actual password-gated editor
 // UI that talks to this bridge.
 
+import { applyUiTheme } from './game/CleanTheme.js'
+
 // Only GayzConsole's real deployed origin may talk to this bridge -
 // checked on every inbound message, and used as the explicit target for
 // every outbound one (instead of '*') so selected-element data is never
@@ -488,6 +490,6 @@ window.addEventListener('message', (event) => {
       if (selectedEls.length) broadcastSelection()
     }
   } else if (msg.type === 'gzc-set-theme') {
-    document.documentElement.classList.toggle('ui-theme-old', msg.theme === 'old')
+    applyUiTheme({ uiTheme: msg.theme === 'old' ? 'old' : 'clean', cleanColor: msg.color })
   }
 })

@@ -14,6 +14,7 @@ import { audioEngine } from './Audio.js'
 import { CHANGELOG_LAST_VIEWED_KEY, NAV_ID_RENAMES, CRATES_COMING_SOON, CRATE_TIERS, INVENTORY_SKINS, NICKNAME_FONT_STACKS, RANDOM_NICKNAME_ADJECTIVES, RANDOM_NICKNAME_NOUNS, SETTINGS_CODE_KEYS, SKIN_DESIGNER_ORIGIN, SUPPORTED_LANGUAGE_CODES, _escapeHtml, _safeStatNumber, defaultSettings, saveSettings } from './Game.js'
 import { ACTIONS, getAllBindings, getKeyFor, keyLabel, resetBindings, setAllBindings, setBinding } from './Keybinds.js'
 import { LANGUAGES, setLanguage, t } from './i18n.js'
+import { applyUiTheme, cleanVars, normalizeHex } from './CleanTheme.js'
 
 // Swaps a slider's value label for a temporary <input type="number"> on
 // click, so a precise number can be typed in instead of fighting the
@@ -907,37 +908,61 @@ export function _bindSettings(game) {
       saveSettings(game.settings)
     })
   }
-  // Theme (Old/Golden) - was a plain <select>, replaced with two
-  // clickable preview-image cards per request (Inventory > Theme).
-  // Golden is the current live UI (every existing button/panel style is
-  // unscoped, i.e. Golden by default, no class needed); Old's look is
-  // driven entirely off html.ui-theme-old (see style.css's many
-  // html.ui-theme-old overrides, e.g. #menu-bg-photo, #menu-player-badge).
-  if (game.themePickerGolden && game.themePickerOld) {
-    const applyUiTheme = () => {
-      document.documentElement.classList.toggle('ui-theme-old', game.settings.uiTheme === 'old')
-      game.themePickerGolden.classList.toggle('active', game.settings.uiTheme !== 'old')
-      game.themePickerOld.classList.toggle('active', game.settings.uiTheme === 'old')
+  // Theme (Inventory > Theme): Old or Clean, as two clickable cards.
+  // Old's look is html.ui-theme-old, Clean's html.ui-theme-clean plus the
+  // colour variables CleanTheme.js puts on <html>. Clean's colour is
+  // picked with the swatch or typed as a hex code, applied live.
+  if (game.themePickerClean && game.themePickerOld) {
+    const syncUiTheme = () => {
+      applyUiTheme(game.settings)
+      const clean = game.settings.uiTheme === 'clean'
+      game.themePickerClean.classList.toggle('active', clean)
+      game.themePickerOld.classList.toggle('active', !clean)
+      game.themePickerClean.style.setProperty('--clean-preview', game.settings.cleanColor)
+      game.themePickerClean.style.setProperty('--clean-preview-fg', cleanVars(game.settings.cleanColor)['--clean-fg'])
+      if (game.themeCleanColorInput) game.themeCleanColorInput.value = game.settings.cleanColor
+      if (game.themeCleanHexInput && document.activeElement !== game.themeCleanHexInput) game.themeCleanHexInput.value = game.settings.cleanColor.toUpperCase()
       // Keep the Skin Designer panel in sync too, for the case where it's
       // already open (its iframe src is only ever set once - see
-      // _openSkinDesignerPanel - so it can't just pick up a fresh
-      // ?theme= param on its own after that).
+      // _openSkinDesignerPanel - so it can't pick up a fresh ?theme=).
       if (game.skindesignerFrame && game.skindesignerFrame.src !== 'about:blank') {
-        const theme = game.settings.uiTheme === 'old' ? 'old' : 'golden'
-        game.skindesignerFrame.contentWindow.postMessage({ type: 'gayz-set-theme', theme }, SKIN_DESIGNER_ORIGIN)
+        game.skindesignerFrame.contentWindow.postMessage({ type: 'gayz-set-theme', theme: clean ? 'clean' : 'old', color: game.settings.cleanColor }, SKIN_DESIGNER_ORIGIN)
       }
     }
-    applyUiTheme()
-    game.themePickerGolden.addEventListener('click', () => {
-      game.settings.uiTheme = 'golden'
-      applyUiTheme()
+    syncUiTheme()
+    const pick = (theme) => {
+      game.settings.uiTheme = theme
+      syncUiTheme()
       saveSettings(game.settings)
-    })
-    game.themePickerOld.addEventListener('click', () => {
-      game.settings.uiTheme = 'old'
-      applyUiTheme()
-      saveSettings(game.settings)
-    })
+    }
+    game.themePickerClean.addEventListener('click', () => pick('clean'))
+    game.themePickerOld.addEventListener('click', () => pick('old'))
+    // Picking a colour also switches to Clean - it's Clean's colour.
+    const setColor = (value, save) => {
+      const hex = normalizeHex(value)
+      if (!hex) return false
+      game.settings.cleanColor = hex
+      game.settings.uiTheme = 'clean'
+      syncUiTheme()
+      if (save) saveSettings(game.settings)
+      return true
+    }
+    game.themeCleanColorInput?.addEventListener('input', () => setColor(game.themeCleanColorInput.value, false))
+    game.themeCleanColorInput?.addEventListener('change', () => setColor(game.themeCleanColorInput.value, true))
+    const hexInput = game.themeCleanHexInput
+    if (hexInput) {
+      hexInput.addEventListener('input', () => {
+        const ok = /^#?[0-9a-f]{0,6}$/i.test(hexInput.value.trim())
+        hexInput.classList.toggle('invalid', !ok)
+        if (/^#?[0-9a-f]{6}$/i.test(hexInput.value.trim())) setColor(hexInput.value, true)
+      })
+      const commit = () => {
+        if (!setColor(hexInput.value, true)) hexInput.value = game.settings.cleanColor.toUpperCase()
+        hexInput.classList.remove('invalid')
+      }
+      hexInput.addEventListener('change', commit)
+      hexInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { commit(); hexInput.blur() } })
+    }
   }
   // Audio Cue on Hover/Focus - a single delegated listener on #menu
   // (event bubbling from focusin, which - unlike focus - does bubble)
