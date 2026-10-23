@@ -1,4 +1,5 @@
 import './style.css'
+import './shop.css'
 import './play-pause.css'
 import './theme-clean.css'
 import './offline.css'
