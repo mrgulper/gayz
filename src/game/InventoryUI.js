@@ -66,6 +66,7 @@ export function _openMarketPanel(game) {
   if (!game.marketPanel) return
   game.marketPanel.style.display = 'flex'
   if (game.marketPanelTitle) game.marketPanelTitle.textContent = t('skinModeMarket')
+  game._authReadyPromise?.then(() => game._renderSignInFooters())
   game._marketQuery = ''
   game._marketItems = null
   game._marketRarity = 'all'

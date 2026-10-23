@@ -3789,8 +3789,8 @@ html.ui-theme-old #server-panel {
   justify-content: center;
 }
 
-/* The signed-out Profile card: Sign Up or Login, then the Sign Up or Login
-   page (2026-10-10, from Gaymi's mockups). No box of its own - it sits
+/* The signed-out Profile card: Google, then the other sign-ins (2026-10-23;
+   was Sign Up or Login pages from 2026-10-10). No box of its own - it sits
    straight on the panel (paper in Old, dark in Golden). */
 .auth-card {
   position: relative;
@@ -3803,19 +3803,6 @@ html.ui-theme-old #server-panel {
      up closer to Welcome to GayZ"). */
   padding: 0 12px 8px;
 }
-.auth-view {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-}
-.auth-view[hidden] { display: none; }
-.auth-sub {
-  margin: 0 0 6px;
-  font-size: 17px;
-  color: #e8e2d0;
-}
 .auth-note {
   margin: 0;
   max-width: 440px;
@@ -3823,15 +3810,7 @@ html.ui-theme-old #server-panel {
   line-height: 1.45;
   color: rgba(232, 226, 208, 0.75);
 }
-.auth-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 16px;
-  margin-bottom: 4px;
-}
-/* Sign Up / Login / the Google buttons: the shared .signin-btn look at the
-   end of this file (2026-10-10). */
+/* The Google button: the shared sign-in look at the end of this file. */
 .auth-btn {
   display: inline-flex;
   align-items: center;
@@ -3840,7 +3819,6 @@ html.ui-theme-old #server-panel {
   min-width: 150px;
 }
 .auth-btn:active { transform: translateY(1px); }
-.auth-buttons { gap: 18px; }
 .auth-google { min-width: min(100%, 280px); margin: 4px 0; }
 .auth-google-g {
   width: 16px;
@@ -3851,18 +3829,58 @@ html.ui-theme-old #server-panel {
   border-radius: 50%;
   box-sizing: content-box;
 }
-.auth-back {
-  order: 99;
-  margin-top: 16px;
-  padding: 4px 8px;
+/* The other sign-ins (2026-10-23, Gaymi: Google on its own, "under it more
+   ways to sign up or log in"): a row of round logo buttons in each site's
+   own colour, the same in both themes. Microsoft, Facebook, LINE, Apple
+   and WeChat were dropped (each needed a phone number, a card or a
+   company). */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(100%, 360px);
+  margin: 14px 0 12px;
   font-size: 14px;
   color: rgba(232, 226, 208, 0.75);
-  background: none;
-  border: none;
-  cursor: pointer;
 }
-.auth-back:hover { filter: brightness(1.3); }
-.auth-back[hidden] { display: none; }
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.4;
+}
+.auth-providers {
+  display: grid;
+  grid-template-columns: repeat(3, 46px);
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.auth-provider {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+.auth-provider svg { width: 22px; height: 22px; }
+.auth-provider:hover { filter: brightness(1.15); }
+.auth-provider:active { transform: translateY(1px); }
+/* Both themes recolour every button and its words; the logo buttons keep
+   their own colours and white marks. */
+#profile-login-gate .auth-provider { border-radius: 50% !important; padding: 0 !important; }
+#profile-login-gate .auth-provider svg [fill="currentColor"] { fill: #fff !important; }
+#profile-login-gate .auth-provider-steam { background: #171a21 !important; }
+#profile-login-gate .auth-provider-github { background: #24292f !important; }
+#profile-login-gate .auth-provider-discord { background: #5865f2 !important; }
 .auth-terms {
   margin: 22px 0 0;
   font-size: 13px;
@@ -3882,7 +3900,7 @@ html.ui-theme-old #server-panel {
 /* Old theme: ink on the paper, the rusty plaques with light lettering. */
 html.ui-theme-old .auth-note,
 html.ui-theme-old .auth-terms,
-html.ui-theme-old .auth-back { opacity: 0.82; }
+html.ui-theme-old .auth-divider { opacity: 0.82; }
 html.ui-theme-old .auth-link { color: #5a3410 !important; font-weight: 600; }
 
 /* Wraps every existing piece of profile content so it can be toggled as
@@ -4742,8 +4760,6 @@ html.ui-theme-old #prestige-history-list {
 #prestige-btn,
 #respec-btn,
 #profile-career-portrait-btn,
-#profile-login-btn,
-#profile-register-btn,
 #profile-signout-btn,
 #friends-signin-btn,
 #cloudsave-signin-btn,
@@ -11399,9 +11415,9 @@ button {
   opacity: 1;
 }
 
-/* Every sign-in button - Sign Up / Login / the Google buttons on the
-   Welcome to GayZ page, and the Sign Up or Login buttons on Friend List,
-   Global chat and Cloud Save - is the same oval as the panel tabs (Clan,
+/* Every sign-in button - the Google button on the Welcome to GayZ page,
+   and the "Sign up or login with..." buttons at the bottom of Friend List,
+   Global chat, Clans, Cloud Save, the Market and the Gallery - is the same oval as the panel tabs (Clan,
    Zombie Survival...), one size everywhere (2026-10-10, Gaymi: "use the
    second image type oval shape with the same colour ... make the text the
    same size, style, and everything"). Faint light fill and rim; the Old
@@ -11411,7 +11427,9 @@ button {
 #friends-signin-btn,
 #server-chat-signin-btn,
 #cloudsave-signin-btn,
-#clan-signin-btn {
+#clan-signin-btn,
+#market-signin-btn,
+#gallery-signin-btn {
   margin: 0;
   padding: 9px 24px;
   font-family: inherit;
@@ -11432,7 +11450,9 @@ button {
 #friends-signin-btn:hover,
 #server-chat-signin-btn:hover,
 #cloudsave-signin-btn:hover,
-#clan-signin-btn:hover {
+#clan-signin-btn:hover,
+#market-signin-btn:hover,
+#gallery-signin-btn:hover {
   filter: brightness(1.2);
   background: rgba(255, 255, 255, 0.09);
 }
@@ -11440,7 +11460,9 @@ html.ui-theme-old #profile-login-gate .auth-btn,
 html.ui-theme-old #friends-signin-btn,
 html.ui-theme-old #server-chat-signin-btn,
 html.ui-theme-old #cloudsave-signin-btn,
-html.ui-theme-old #clan-signin-btn {
+html.ui-theme-old #clan-signin-btn,
+html.ui-theme-old #market-signin-btn,
+html.ui-theme-old #gallery-signin-btn {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.35);
 }
@@ -11991,4 +12013,29 @@ html.ui-theme-old #levels-bar-fill {
   margin: -4px 0 10px;
   font-size: 13px;
   opacity: 0.75;
+}
+
+/* "Sign up or login with..." at the bottom of the Market and the Gallery
+   while signed out (2026-10-23) - players can still look around. The
+   scroll area above gives up the footer's height so the panel stays the
+   same size as every other one. */
+.signin-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  height: 64px;
+  box-sizing: border-box;
+  padding-top: 10px;
+  text-align: center;
+}
+.signin-footer[hidden] { display: none; }
+.signin-footer p { margin: 0; font-size: 15px; }
+#market-panel:has(#market-signed-out:not([hidden])) .panel-fixed-content { height: calc(68vh - 64px); }
+#gallery-panel:has(#gallery-signed-out:not([hidden])) #gallery-content { height: calc(68vh - 46px - 64px); }
+@media (max-width: 600px) {
+  .signin-footer { height: 88px; padding-top: 8px; }
+  #market-panel:has(#market-signed-out:not([hidden])) .panel-fixed-content { height: calc(68vh - 88px); }
+  #gallery-panel:has(#gallery-signed-out:not([hidden])) #gallery-content { height: calc(68vh - 46px - 88px); }
 }

@@ -383,19 +383,32 @@ export async function _pushOnlineStats(game) {
 // Popup's own known risk (ad blockers/privacy extensions breaking the
 // popup<->opener channel) at least surfaces as a real caught error code
 // below instead of a silent no-op.
-export async function _handleCloudSignIn(game) {
+export async function _handleCloudSignIn(game, provider = 'google') {
   if (!CloudSync.isConfigured()) {
-    game._showLoreToast(t('cloudsaveNotConfigured'))
+    game._showHomepageToast(t('cloudsaveNotConfigured'))
     return
   }
   if (game.cloudsaveSigninBtn) game.cloudsaveSigninBtn.textContent = t('cloudsaveConnecting')
   try {
-    const { uid, profile } = await CloudSync.signIn()
+    const { uid, profile } = await CloudSync.signIn(provider)
     await game._afterCloudSignIn(uid, profile)
   } catch (err) {
-    game._showLoreToast(err && err.code === 'auth/network-request-failed' ? t('cloudsaveNetworkError') : t('cloudsaveError'))
+    const code = err && err.code
+    // Closing the sign-in window is a choice, not an error.
+    if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request' && code !== 'auth/user-cancelled') {
+      game._showHomepageToast(t(SIGN_IN_ERROR_KEYS[code] || 'cloudsaveError'))
+    }
     CloudSaveUI.renderCloudSaveState(game)
   }
+}
+
+const SIGN_IN_ERROR_KEYS = {
+  'auth/network-request-failed': 'cloudsaveNetworkError',
+  'auth/popup-blocked': 'authPopupBlocked',
+  // One email = one account: someone who signed up with Google and then
+  // tries GitHub with the same email lands here.
+  'auth/account-exists-with-different-credential': 'authOtherMethod',
+  'auth/operation-not-allowed': 'authNotReady',
 }
 
 export async function _afterCloudSignIn(game, uid, profile) {

@@ -427,13 +427,14 @@ html.ui-theme-clean .audio-checkbox:checked {
 }
 
 /* Sign-in buttons: solid ink pills (the one thing to press there). */
-html.ui-theme-clean :is(#profile-login-gate .auth-btn, #friends-signin-btn, #server-chat-signin-btn, #cloudsave-signin-btn, #clan-signin-btn) {
+html.ui-theme-clean #profile-login-gate .auth-btn span { color: var(--clean-bg) !important; }
+html.ui-theme-clean :is(#profile-login-gate .auth-btn, #friends-signin-btn, #server-chat-signin-btn, #cloudsave-signin-btn, #clan-signin-btn, #market-signin-btn, #gallery-signin-btn) {
   background: var(--clean-fg);
   border-color: var(--clean-fg);
   color: var(--clean-bg) !important;
   filter: none;
 }
-html.ui-theme-clean :is(#profile-login-gate .auth-btn, #friends-signin-btn, #server-chat-signin-btn, #cloudsave-signin-btn, #clan-signin-btn):hover {
+html.ui-theme-clean :is(#profile-login-gate .auth-btn, #friends-signin-btn, #server-chat-signin-btn, #cloudsave-signin-btn, #clan-signin-btn, #market-signin-btn, #gallery-signin-btn):hover {
   background: var(--clean-fg);
   opacity: 0.85;
   filter: none;

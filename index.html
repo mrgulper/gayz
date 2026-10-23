@@ -1558,7 +1558,7 @@ Escape before dawn.</p>
           <div class="clan-subtab-page" id="clan-subpage-myclan" style="display: none">
             <div id="clan-signin-gate" style="display: none">
               <p id="clan-signin-gate-text">Sign up or log in to make or join a clan.</p>
-              <button id="clan-signin-btn" type="button">Sign Up or Login</button>
+              <button id="clan-signin-btn" type="button">Sign up or login with...</button>
             </div>
             <div id="clan-in-clan-state" style="display: none">
               <h4 id="clan-display-name"></h4>
@@ -1896,34 +1896,23 @@ Escape before dawn.</p>
         <h2 id="profile-panel-title">Profile</h2>
         <div class="panel-fixed-content">
 
-        <!-- Signed-out Profile: Sign Up or Login (2026-10-10, from Gaymi's
-             mockups). One card, three views: the choice, Sign Up, Login -
-             both Google buttons run the same sign-in (a new account is
-             made automatically). Each view's "Welcome..." line is the
-             panel's own title while signed out (_showAuthView). -->
+        <!-- Signed-out Profile (2026-10-23): Google on its own, then a row
+             of logo buttons for the other sign-ins (data-provider, see
+             CloudSync.signIn). A new account is made automatically.
+             "Welcome to GayZ" is the panel's own title while signed out
+             (_renderAuthCard). -->
         <div id="profile-login-gate" style="display: none">
           <div class="auth-card">
-            <button type="button" class="auth-back" id="auth-back-btn" hidden>&larr; <span id="auth-back-label">Back</span></button>
-            <div class="auth-view" id="auth-view-choose">
-              <p class="auth-sub" id="auth-choose-sub">Login or create a new account to save your progress.</p>
-              <div class="auth-buttons">
-                <button id="profile-gate-register-btn" type="button" class="auth-btn">Sign Up</button>
-                <button id="profile-gate-login-btn" type="button" class="auth-btn">Login</button>
-              </div>
-              <p class="auth-note" id="auth-choose-new">New to GayZ? Your account will be created automatically.</p>
+            <p class="auth-sub" id="auth-sub">Sign up or log in to save your progress.</p>
+            <button id="auth-google-btn" type="button" class="auth-btn auth-google" data-provider="google"><svg class="auth-google-g" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span id="auth-google-label">Continue with Google</span></button>
+            <p class="auth-divider"><span id="auth-more-label">or sign up / log in with</span></p>
+            <div class="auth-providers">
+                <button type="button" class="auth-provider auth-provider-steam" data-provider="steam" aria-label="Steam" title="Steam"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0zM7.54 18.21l-1.473-.61c.262.543.714.999 1.314 1.25 1.297.539 2.793-.076 3.332-1.375.263-.63.264-1.319.005-1.949s-.75-1.121-1.377-1.383c-.624-.26-1.29-.249-1.878-.03l1.523.63c.956.4 1.409 1.5 1.009 2.455-.397.957-1.497 1.41-2.454 1.012H7.54zm11.415-9.303c0-1.662-1.353-3.015-3.015-3.015-1.665 0-3.015 1.353-3.015 3.015 0 1.665 1.35 3.015 3.015 3.015 1.663 0 3.015-1.35 3.015-3.015zm-5.273-.005c0-1.252 1.013-2.266 2.265-2.266 1.249 0 2.266 1.014 2.266 2.266 0 1.251-1.017 2.265-2.266 2.265-1.253 0-2.265-1.014-2.265-2.265z"/></svg></button>
+                <button type="button" class="auth-provider auth-provider-github" data-provider="github" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></button>
+                <button type="button" class="auth-provider auth-provider-discord" data-provider="discord" aria-label="Discord" title="Discord"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg></button>
             </div>
-            <div class="auth-view" id="auth-view-signup" hidden>
-              <p class="auth-sub" id="auth-signup-sub">Sign in to avoid losing progress</p>
-              <button id="auth-signup-google-btn" type="button" class="auth-btn auth-google"><svg class="auth-google-g" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span id="auth-signup-google-label">Sign up with Google</span></button>
-              <p class="auth-note" id="auth-signup-note">Your progress will be saved automatically when you sign in with Google.</p>
-              <p class="auth-terms" id="auth-terms-signup">By continuing, you agree to our <button type="button" class="auth-link open-terms-panel-link">Terms of Use</button> and <button type="button" class="auth-link open-privacy-panel-link">Privacy Policy</button>.</p>
-            </div>
-            <div class="auth-view" id="auth-view-login" hidden>
-              <p class="auth-sub" id="auth-login-sub">Login to get back to your progress</p>
-              <button id="auth-login-google-btn" type="button" class="auth-btn auth-google"><svg class="auth-google-g" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span id="auth-login-google-label">Continue with Google</span></button>
-              <p class="auth-note" id="auth-login-note">Pick up where you left off, your game progress is waiting for you.</p>
-              <p class="auth-terms" id="auth-terms-login">By continuing, you agree to our <button type="button" class="auth-link open-terms-panel-link">Terms of Use</button> and <button type="button" class="auth-link open-privacy-panel-link">Privacy Policy</button>.</p>
-            </div>
+            <p class="auth-note" id="auth-note">New to GayZ? Your account is made automatically the first time you sign in.</p>
+            <p class="auth-terms" id="auth-terms">By continuing, you agree to our <button type="button" class="auth-link open-terms-panel-link">Terms of Use</button> and <button type="button" class="auth-link open-privacy-panel-link">Privacy Policy</button>.</p>
           </div>
         </div>
 
@@ -1985,12 +1974,6 @@ Escape before dawn.</p>
             <button id="reset-skin-btn" class="mini-action-btn" type="button" style="display: none">Reset to Default</button>
           </div>
 
-          <div id="profile-account-row">
-            <div id="profile-account-signed-out">
-              <button id="profile-register-btn" type="button">Sign Up</button>
-              <button id="profile-login-btn" type="button">Login</button>
-            </div>
-          </div>
 
           <h3 id="stats-dashboard-heading">Stats Over Time</h3>
           <canvas id="stats-dashboard-canvas" width="280" height="90"></canvas>
@@ -2106,6 +2089,10 @@ Escape before dawn.</p>
               </div>
             </div>
           </div>
+          <div id="gallery-signed-out" class="signin-footer" hidden>
+            <p id="gallery-signed-out-desc">Sign in to post, like and comment.</p>
+            <button id="gallery-signin-btn" type="button">Sign up or login with...</button>
+          </div>
         </div>
       </div>
 
@@ -2134,7 +2121,7 @@ Escape before dawn.</p>
             <p>GayZ is a free browser-based zombie survival game. By accessing or playing GayZ, you agree to be bound by these Terms of Use. If you don't agree to them, don't use the game.</p>
 
             <h3>2. Eligibility</h3>
-            <p>You must be at least 13 years old (or the minimum age of digital consent where you live, if that's older than 13) to create an account or sign in with Google. If you're under that age, you can still play without signing in, but shouldn't create an account or submit a nickname, score, or any other information to shared/public features like leaderboards or friend lists.</p>
+            <p>You must be at least 13 years old (or the minimum age of digital consent where you live, if that's older than 13) to create an account or sign in. If you're under that age, you can still play without signing in, but shouldn't create an account or submit a nickname, score, or any other information to shared/public features like leaderboards or friend lists.</p>
 
             <h3>3. It's free to play</h3>
             <p>GayZ doesn't charge money. Coins, points, and any other in-game currency only work inside the game - they aren't real money, can't be bought or cashed out, and have no value outside GayZ.</p>
@@ -2142,7 +2129,7 @@ Escape before dawn.</p>
             <h3>4. Your account and save data</h3>
             <ul>
               <li>You don't need an account to play. Without one, your save lives only in your own browser.</li>
-              <li>Signing in with Google (Cloud Save) is optional, and lets your save follow you across devices. See the <button type="button" class="open-privacy-panel-link">Privacy Policy</button> for exactly what that stores.</li>
+              <li>Signing in (Cloud Save) is optional, and lets your save follow you across devices. See the <button type="button" class="open-privacy-panel-link">Privacy Policy</button> for exactly what that stores.</li>
               <li>Your save data, coins, points, and progress can be reset, wiped, or become unrecoverable - by a bug, a mistaken action, a game update, or (rarely) a support request from you. Nothing in the game is guaranteed to be permanent.</li>
               <li>You're responsible for anything that happens through your account. If you believe your account or save has been accessed without your permission, contact us using the details in Section 12.</li>
             </ul>
@@ -2203,10 +2190,10 @@ Escape before dawn.</p>
             <h3>If you don't sign in</h3>
             <p>By default, GayZ doesn't need an account. Your progress, settings, and stats are saved only in your own browser's local storage. Nothing is sent anywhere, and nobody but you can see it.</p>
 
-            <h3>If you sign in with Google (Cloud Save)</h3>
+            <h3>If you sign in (Cloud Save)</h3>
             <ul>
-              <li>Signing in uses Google's own sign-in (Firebase Authentication) - GayZ never sees or stores your Google password.</li>
-              <li>Your basic account info (name, email, profile photo) is used only to identify your save data, not for ads or marketing.</li>
+              <li>You sign in with an account you already have (Google, Steam, GitHub or Discord), through Firebase Authentication - GayZ never sees or stores your password for that site.</li>
+              <li>The basic account info that site shares (your name and profile photo, plus your email if it shares one) is used only to identify your save data, not for ads or marketing.</li>
               <li>Your save data (progress, coins, achievements, settings) is stored in Firebase (a Google-hosted database) so it can follow you across devices.</li>
             </ul>
 
@@ -2432,9 +2419,9 @@ Escape before dawn.</p>
           <p>The Global panel lists open servers beside the chat: search them, see how many are playing and which wave they're on, join one or create your own, and play Map 1 together - up to eight players see each other holding the weapon they picked (a gun up in front with both hands), fight the same zombies and waves, and every kill counts for whoever made it; the chat says when someone joins or leaves. Parkour and Custom servers are coming soon.</p>
         </div>
 
-        <div class="feature" data-code="syncWithCloud mergeSaves _showAuthView">
+        <div class="feature" data-code="syncWithCloud mergeSaves _renderAuthCard signInViaServer">
           <h3>Cloud Save</h3>
-          <p>Sign up or log in with Google (from Profile or Cloud Save) and your save syncs across devices, with a conflict resolver if local and cloud saves diverge. Totals like coins, kills and playtime from every device add up, and signing back in to your own account on a device merges both sides without asking.</p>
+          <p>Sign up or log in with Google, Steam, GitHub or Discord (Profile, or the "Sign up or login with..." button in Friend List, Global chat, Clans, Cloud Save, the Market and the Gallery) and your save syncs across devices, with a conflict resolver if local and cloud saves diverge. Totals like coins, kills and playtime from every device add up, and signing back in to your own account on a device merges both sides without asking.</p>
         </div>
         <div class="feature" data-code="fetchLeaderboardEntryByPlayerId subscribeTopLeaderboard">
           <h3>Leaderboards</h3>
@@ -2527,7 +2514,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="_openTermsPanel _openPrivacyPanel _fitMenuLayout">
           <h3>Terms of Use &amp; Privacy Policy</h3>
-          <p>Plain-language Terms of Use and Privacy Policy pages, linked side by side at the bottom of the homepage, from Credits and from the Sign Up or Login page.</p>
+          <p>Plain-language Terms of Use and Privacy Policy pages, linked side by side at the bottom of the homepage, from Credits and from the Welcome to GayZ sign-in page.</p>
         </div>
         <div class="feature" data-code="LANGUAGES SUPPORTED_LANGUAGE_CODES">
           <h3>Language</h3>
@@ -2642,6 +2629,10 @@ Escape before dawn.</p>
               </div>
             </div>
             <div id="shop-market-grid"></div>
+          </div>
+          <div id="market-signed-out" class="signin-footer" hidden>
+            <p id="market-signed-out-desc">Sign in to buy and sell on the Market.</p>
+            <button id="market-signin-btn" type="button">Sign up or login with...</button>
           </div>
         </div>
       </div>
@@ -2899,7 +2890,7 @@ Escape before dawn.</p>
         <p id="cloudsave-offline-warning" class="danger-text" style="display: none">You're offline - Cloud Save features need a connection.</p>
         <div id="cloudsave-signed-out">
           <p id="cloudsave-signed-out-desc">Sign in with Google to sync your progress across devices.</p>
-          <button id="cloudsave-signin-btn">Sign Up or Login</button>
+          <button id="cloudsave-signin-btn">Sign up or login with...</button>
         </div>
         <div id="cloudsave-signed-in" style="display: none">
           <img id="cloudsave-avatar" alt="" draggable="false" />
@@ -2960,7 +2951,7 @@ Escape before dawn.</p>
           <h2 id="friends-panel-title">Friends</h2>
           <div id="friends-signed-out">
             <p id="friends-signed-out-desc">Sign in with Google to compare stats with friends.</p>
-            <button id="friends-signin-btn">Sign Up or Login</button>
+            <button id="friends-signin-btn">Sign up or login with...</button>
           </div>
           <div id="friends-signed-in" style="display: none">
             <div id="friends-col-add">
@@ -3223,7 +3214,7 @@ Escape before dawn.</p>
               <p id="server-chat-muted-notice" style="display: none"></p>
               <div id="server-chat-signed-out">
                 <p id="server-chat-signed-out-desc"></p>
-                <button id="server-chat-signin-btn" type="button" class="mini-action-btn">Sign Up or Login</button>
+                <button id="server-chat-signin-btn" type="button" class="mini-action-btn">Sign up or login with...</button>
               </div>
               <form id="server-chat-input-row" style="display: none">
                 <input type="text" id="server-chat-input" class="nickname-input" maxlength="300" placeholder="Message..." autocomplete="off" />
