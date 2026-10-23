@@ -294,7 +294,8 @@ html.ui-theme-old #build-try-biome { color: #f3e6c8; background: rgba(74, 44, 16
    (BiomeBar.js: leaves, sand, snow, water, stone...), two picture layers
    cross-fading when the biome changes, darker at night and tinted by the
    weather on top (TopBar._updateSky). Sizes and places don't change. */
-#top-bar {
+#top-bar,
+#build-play-wave {
   --tb-night: 0;
   --tb-storm: 0;
   --tb-tint: #50545a;
@@ -306,9 +307,10 @@ html.ui-theme-old #build-try-biome { color: #f3e6c8; background: rgba(74, 44, 16
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.6);
 }
-#top-bar[data-weather='snow'] { --tb-tint: #9aa3ad; }
-#top-bar[data-weather='sand'] { --tb-tint: #8a6a3a; }
-#top-bar .top-bar-ground {
+#top-bar[data-weather='snow'], #build-play-wave[data-weather='snow'] { --tb-tint: #9aa3ad; }
+#top-bar[data-weather='sand'], #build-play-wave[data-weather='sand'] { --tb-tint: #8a6a3a; }
+#top-bar .top-bar-ground,
+#build-play-wave .top-bar-ground {
   position: absolute;
   inset: 0;
   background-size: 48px 48px;
@@ -316,9 +318,11 @@ html.ui-theme-old #build-try-biome { color: #f3e6c8; background: rgba(74, 44, 16
   opacity: 0;
   transition: opacity 1.8s ease;
 }
-#top-bar .top-bar-ground.on { opacity: 1; }
+#top-bar .top-bar-ground.on,
+#build-play-wave .top-bar-ground.on { opacity: 1; }
 /* Night and weather over the ground. */
-#top-bar::after {
+#top-bar::after,
+#build-play-wave::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -327,7 +331,15 @@ html.ui-theme-old #build-try-biome { color: #f3e6c8; background: rgba(74, 44, 16
   opacity: calc(min(1, var(--tb-night) + var(--tb-storm) * 0.6));
   transition: opacity 2s ease;
 }
-#top-bar .top-bar-part { position: relative; z-index: 1; }
+#top-bar .top-bar-part,
+#build-play-wave-text { position: relative; z-index: 1; }
+/* The wave line under the bar (BuildSurvival's HUD), in the bar's own
+   look (2026-10-19): same font, border, corners and biome picture. */
+#build-play-wave {
+  overflow: hidden;
+  padding: 7px 12px;
+  border-radius: 6px;
+}
 #top-bar .top-bar-part + .top-bar-part { border-left-color: rgba(0, 0, 0, 0.4); }
 #top-bar .top-bar-name { color: #ffe38a; }
 #top-bar-weather, #top-bar-time { font-variant-numeric: tabular-nums; }

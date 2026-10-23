@@ -778,7 +778,7 @@ export class BuildSurvival {
     const hud = document.createElement('div')
     hud.id = 'build-play-hud'
     hud.innerHTML = `
-      <div id="build-play-wave"></div>
+      <div id="build-play-wave"><span class="top-bar-ground" aria-hidden="true"></span><span class="top-bar-ground" aria-hidden="true"></span><span id="build-play-wave-text"></span></div>
       <div id="build-play-msg"></div>
       <div id="build-play-health"><div id="build-play-health-fill"></div><span id="build-play-health-text"></span></div>
       <div id="build-play-ammo"></div>
@@ -848,7 +848,7 @@ export class BuildSurvival {
     // Between waves: when the next one comes, not "0 left" (that read as
     // a wave over with nothing killed).
     const leftText = alive === 0 && this._breakTimer > 0 ? t('buildPlayNextWaveIn', { n: Math.ceil(this._breakTimer) }) : t('buildPlayZombiesLeft', { n: alive })
-    set('build-play-wave', `${waveText} · ${leftText} · ${t('buildPlayKills', { n: this.kills })}${this.camp ? ` · ${t('campCoins', { n: this.coins })}` : ''}${timeText}${extractText}${serverText}`)
+    set('build-play-wave-text', `${waveText} · ${leftText} · ${t('buildPlayKills', { n: this.kills })}${this.camp ? ` · ${t('campCoins', { n: this.coins })}` : ''}${timeText}${extractText}${serverText}`)
     const fill = document.getElementById('build-play-health-fill')
     if (fill) fill.style.width = `${Math.max(0, Math.min(100, (this.health / (this.maxHealth || 100)) * 100))}%`
     set('build-play-health-text', `${Math.max(0, Math.ceil(this.health))}${this.armor > 0 ? ` + ${Math.ceil(this.armor)}` : ''}`)

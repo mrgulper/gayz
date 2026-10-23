@@ -1312,18 +1312,19 @@ test('thin bamboo, new blocks and the three map sizes', async ({ page }) => {
     while (tm._mapEl.dataset.size !== 'center') tm.cycleMap()
     tm._mapPan.x = 1e6
     tm._clampMapPan()
-    out.panLimited = tm._mapPan.x <= 1200
+    // No dragging limit either (2026-10-19).
+    out.panFree = tm._mapPan.x === 1e6
     // No zoom limit (2026-10-19): far past the old 48..960 cells.
     for (let i = 0; i < 30; i++) tm.zoomMap(2)
     out.zoomOutFar = tm._mapSpan() > 1e6
     for (let i = 0; i < 60; i++) tm.zoomMap(0.5)
     out.zoomInFar = tm._mapSpan() < 1
-    // Same size as the 2nd size, in the middle of the screen.
+    // Bigger than the 2nd size, in the middle of the screen.
     const centerBox = tm._mapEl.getBoundingClientRect()
     tm.cycleMap()
     tm.cycleMap()
     const bigBox = tm._mapEl.getBoundingClientRect()
-    out.centerSameSize = Math.abs(centerBox.width - bigBox.width) < 1 && Math.abs(centerBox.left + centerBox.width / 2 - innerWidth / 2) < 2
+    out.centerBigger = centerBox.width > bigBox.width + 50 && Math.abs(centerBox.left + centerBox.width / 2 - innerWidth / 2) < 2
     while (tm._mapEl.dataset.size !== 'center') tm.cycleMap()
     tm.cycleMap()
     b.toggleTryMode()
@@ -1336,10 +1337,10 @@ test('thin bamboo, new blocks and the three map sizes', async ({ page }) => {
   expect(r.blocksMiddle).toBe(true)
   expect(r.walkPastEdge).toBe(true)
   expect(r.spans).toEqual([['normal', 96], ['big', 640], ['center', 640]])
-  expect(r.panLimited).toBe(true)
+  expect(r.panFree).toBe(true)
   expect(r.zoomOutFar).toBe(true)
   expect(r.zoomInFar).toBe(true)
-  expect(r.centerSameSize).toBe(true)
+  expect(r.centerBigger).toBe(true)
 })
 
 // All 26 biomes are out there, within a long walk of the city.
