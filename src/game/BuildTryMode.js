@@ -34,7 +34,7 @@ import { audioEngine } from './Audio.js'
 import { addGunLights, cloneViewmodel } from './Viewmodels.js'
 import { heldAction, FIXED_KEYS } from './Keybinds.js'
 import { WORLD_LIMIT, sampleLand, biomeName, inCity, isEarthWorld } from './OpenWorld.js'
-import { ATLAS_MAX_SPAN, ATLAS_OPEN_SPAN, drawEarthView, drawEarthPlaces } from './EarthAtlas.js'
+import { ATLAS_OPEN_SPAN, drawEarthView, drawEarthPlaces } from './EarthAtlas.js'
 import { EARTH_DEG } from './EarthGrid.js'
 import { placeNameAt } from './EarthPlaces.js'
 import { t } from './i18n.js'
@@ -53,8 +53,6 @@ const HAND_LIGHT = 0.85
 // the middle you can drag and zoom (MAP_WORLD_SPAN times its zoom).
 const MAP_WORLD_SPAN = 160
 const MAP_SPAN_FOR = { normal: 96, big: 640 }
-// How far the big map can be dragged away from you (cells).
-const MAP_PAN_LIMIT = 1200
 // Camera views (the camera key, P - like bloxd.io): first person, third
 // person from behind, third person from the front. The camera sits up to
 // VIEW_DIST blocks away, nearer when a wall is in the way.
@@ -65,6 +63,13 @@ const VIEW_RISE = 0.6
 // Milliseconds per minimap draw spent on detailed open-world tiles (twice
 // that on the big map).
 const MAP_TILE_BUDGET_MS = 3
+// ...and while the big map is being dragged or zoomed, so it never lags
+// (2026-10-19, Gaymi: "when moving the map a direction it will lag") - the
+// quick stand-in tiles fill the gaps until it stops.
+const MAP_MOVING_BUDGET_MS = 1
+// Villages/castles are only planned for the map when it shows this few
+// cells across or fewer (further out they're too small to see).
+const MAP_PLAN_MAX_SPAN = 2000
 // The big map zooms in and out with no real limit (2026-10-19, Gaymi:
 // "no zoom limit you can zoom big in and out"); MAP_ZOOM_SAFE only keeps
 // the numbers from breaking (0.0001x to a million times).
@@ -350,13 +355,9 @@ export class BuildTryMode {
     this._mapMovedAt = performance.now()
   }
 
-  // The big map can't be dragged further than MAP_PAN_LIMIT from you -
-  // or, zoomed far out, about one map's width.
+  // The big map can be dragged as far as you like (2026-10-19, Gaymi: "no
+  // moving limit").
   _clampMapPan() {
-    const base = this.bm.world?.active ? (isEarthWorld() ? ATLAS_MAX_SPAN / 2 : MAP_PAN_LIMIT) : (this._mapImage?.width || 128)
-    const lim = Math.max(base, this._mapSpan())
-    this._mapPan.x = Math.max(-lim, Math.min(lim, this._mapPan.x))
-    this._mapPan.z = Math.max(-lim, Math.min(lim, this._mapPan.z))
     // The globe stops at 80 degrees north and south.
     if (this.bm.world?.active && isEarthWorld()) this._mapPan.z = Math.max(-80 * EARTH_DEG - this.pos.z, Math.min(80 * EARTH_DEG - this.pos.z, this._mapPan.z))
     this._mapDrawAt = 0
@@ -498,10 +499,11 @@ export class BuildTryMode {
       // worth per draw, nearest the middle first; until a tile's turn comes
       // a quick coarse one stands in (made within its own small budget -
       // past it, one flat colour), so nothing shows as a dark gap.
-      const until = performance.now() + (this._mapInteractive() ? MAP_TILE_BUDGET_MS * 2 : MAP_TILE_BUDGET_MS)
+      const until = performance.now() + (moving ? MAP_MOVING_BUDGET_MS : this._mapInteractive() ? MAP_TILE_BUDGET_MS * 2 : MAP_TILE_BUDGET_MS)
       const coarseUntil = until + MAP_COARSE_BUDGET_MS
-      // The villages/castles/bridges in view get planned, one per draw.
-      if (MAP_SIZES[this._mapMode] !== 'normal') world.prefetchPlansAround(ox + span / 2, oz + span / 2, span / 2)
+      // The villages/castles/bridges in view get planned, one per draw -
+      // never mid-drag (one castle takes ~10ms) or zoomed far out.
+      if (MAP_SIZES[this._mapMode] !== 'normal' && !moving && span <= MAP_PLAN_MAX_SPAN) world.prefetchPlansAround(ox + span / 2, oz + span / 2, span / 2)
       const tiles = []
       for (let tx = Math.floor(ox / T); tx <= Math.floor((ox + span) / T); tx++) {
         for (let tz = Math.floor(oz / T); tz <= Math.floor((oz + span) / T); tz++) {

@@ -72,6 +72,9 @@ export class TopBar {
     this._groundTop = 0
     this._at = 0
     this._text = { mode: '', xyz: '', weather: '', time: '', look: '' }
+    this._lookVars = null
+    this._waveEl = null
+    this._waveKey = ''
   }
 
   // Every half second from Game.js's fps count: frames per second, how
@@ -101,7 +104,10 @@ export class TopBar {
   update(now) {
     const game = this.game
     const bm = game.buildMode
-    const show = !!bm?.active && !bm.menuOpen
+    // Still shown behind the game's pause screen (2026-10-19, Gaymi: "when
+    // clicking escape you should still see the gayz, fps, ms in the
+    // background") - only the Map Editor's own menu hides it.
+    const show = !!bm?.active && (!bm.menuOpen || !!bm.gameMenu?.forGame)
     this.el.style.display = show ? 'flex' : 'none'
     if (!show || now - this._at < REFRESH_MS) return
     this._at = now
@@ -121,6 +127,55 @@ export class TopBar {
     if (xyz !== this._text.xyz) this._xyz.textContent = this._text.xyz = xyz
     this._updateGround(bm.biomeBarLook?.())
     this._updateSky(bm.sky)
+    const bar = this.el.getBoundingClientRect()
+    this._updateWave(bar)
+    this._placeMap(bar)
+  }
+
+  // The wave line under the bar looks the same (2026-10-19, Gaymi: "make
+  // the wave same style as the gayz fps ms etc style change as biome
+  // change"): the same biome picture fading in, night and weather tint.
+  _updateWave(bar) {
+    const w = document.getElementById('build-play-wave')
+    if (w !== this._waveEl) {
+      this._waveEl = w
+      this._waveKey = ''
+      this._waveVars = null
+    }
+    if (!w) return
+    // Just under the bar, however many rows it wraps onto (on phones it
+    // used to cover the wave line).
+    const top = `${Math.round(bar.bottom + 4)}px`
+    if (bar.height && w.style.top !== top) w.style.top = top
+    if (this._waveKey !== this._groundKey) {
+      this._waveKey = this._groundKey
+      w.classList.toggle('has-ground', this.el.classList.contains('has-ground'))
+      const url = this._grounds[this._groundTop].style.backgroundImage
+      const grounds = w.querySelectorAll('.top-bar-ground')
+      if (grounds.length === 2 && url) {
+        const next = grounds[0].classList.contains('on') ? grounds[1] : grounds[0]
+        const prev = next === grounds[0] ? grounds[1] : grounds[0]
+        next.style.backgroundImage = url
+        next.classList.add('on')
+        prev.classList.remove('on')
+      }
+    }
+    if (this._waveVars !== this._lookVars && this._lookVars) {
+      this._waveVars = this._lookVars
+      w.style.setProperty('--tb-night', this._lookVars.night)
+      w.style.setProperty('--tb-storm', this._lookVars.storm)
+      w.dataset.weather = this._lookVars.weather
+    }
+  }
+
+  // The small corner map sits level with the bar (2026-10-19, Gaymi: "move
+  // the map ... a bit higher") - unless the bar is so long on a narrow
+  // window that they'd overlap; then it stays under the bar.
+  _placeMap(bar) {
+    const map = document.getElementById('build-try-map')
+    if (!map || map.style.display === 'none') return
+    const clash = bar.width > 0 && bar.right + 10 > map.getBoundingClientRect().left
+    if (clash !== map.classList.contains('below-top-bar')) map.classList.toggle('below-top-bar', clash)
   }
 
   // The weather and the game's time of day, and the bar's colors follow
@@ -143,9 +198,10 @@ export class TopBar {
     if (key === this._text.look) return
     this._text.look = key
     const st = this.el.style
-    st.setProperty('--tb-night', look.night.toFixed(2))
-    st.setProperty('--tb-storm', look.weather === 'clear' ? '0' : String(look.strength))
-    this.el.dataset.weather = WEATHER_KIND[look.weather] || 'clear'
+    this._lookVars = { night: look.night.toFixed(2), storm: look.weather === 'clear' ? '0' : String(look.strength), weather: WEATHER_KIND[look.weather] || 'clear' }
+    st.setProperty('--tb-night', this._lookVars.night)
+    st.setProperty('--tb-storm', this._lookVars.storm)
+    this.el.dataset.weather = this._lookVars.weather
   }
 
   // The bar is made of the biome you're in (BiomeBar.js); walking into

@@ -10518,8 +10518,9 @@ html.ui-theme-old #inspect-hint {
    screen, then back. */
 #build-try-map {
   position: fixed;
-  /* Below the editor's fps readout, which runs along the top. */
-  top: 52px;
+  /* Level with the top bar (2026-10-19) unless the bar would run into it
+     on a narrow window (TopBar._placeMap adds .below-top-bar). */
+  top: 6px;
   right: 16px;
   z-index: 19;
   width: 180px;
@@ -10531,6 +10532,7 @@ html.ui-theme-old #inspect-hint {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
   pointer-events: none;
 }
+#build-try-map.below-top-bar { top: 52px; }
 
 #build-try-map canvas {
   display: block;
@@ -10612,9 +10614,8 @@ html.ui-theme-old #inspect-hint {
   bottom: 0;
   left: 0;
   margin: auto;
-  /* Same size as the 2nd size (2026-10-19, Gaymi). */
-  width: min(360px, 46vmin);
-  height: min(360px, 46vmin);
+  width: 70vmin;
+  height: 70vmin;
   opacity: 0.85;
 }
 /* The World Map mode's real-world map (EarthAtlas.js) is solid, not see-through. */
@@ -10745,20 +10746,16 @@ html.ui-theme-old .crate-card .crate-stock-count { color: #241507; }
 #top-bar-xyz { font-variant-numeric: tabular-nums; white-space: pre; }
 body.build-mode-on #fps-counter { display: none !important; }
 /* Phones: left of the pause button (top middle), wrapping onto a second
-   row when narrow; the wave line goes under both in portrait. */
+   row when narrow; the wave line always sits just under it (TopBar). */
 body.touch-play-on #top-bar { top: 4px; left: 4px; font-size: 11px; max-width: calc(50vw - 30px); flex-wrap: wrap; }
 body.touch-play-on .top-bar-part { padding: 5px 7px; }
-@media (orientation: portrait) {
-  body.touch-play-on #build-play-hud #build-play-wave { top: 58px; }
-}
 
 /* Map Editor Play (BuildSurvival.js): wave line top-left, health bar
    above the hotbar, ammo bottom-right, a red flash when hit. */
 #build-play-hud { display: none; position: fixed; inset: 0; z-index: 16; pointer-events: none; font-family: 'Bebas Neue', sans-serif; }
 #build-play-wave {
+  /* Its look is the top bar's (play-pause.css). */
   position: absolute; top: 44px; left: 8px;
-  padding: 4px 11px; font-size: 17px; letter-spacing: 1px; color: #ffe9a8;
-  background: rgba(10, 10, 10, 0.65); border: 1px solid rgba(255, 207, 92, 0.45); border-radius: 999px;
 }
 #build-play-msg {
   position: absolute; top: 22%; left: 50%; transform: translateX(-50%);
@@ -10945,7 +10942,7 @@ body.touch-play-on #build-try-map { top: 8px; right: max(12px, env(safe-area-ins
 /* The fps readout moves to a small line at the bottom-left corner. */
 body.touch-play-on #fps-counter { top: auto !important; bottom: 4px !important; left: 8px !important; right: auto !important; transform: none !important; max-width: 42vw; font-size: 10px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 body.touch-play-on #build-play-msg { font-size: 26px; white-space: normal; width: 80vw; }
-body.touch-play-on #build-play-wave { top: 32px; left: 4px; font-size: 13px; padding: 3px 8px; }
+body.touch-play-on #build-play-wave { left: 4px; font-size: 13px; padding: 3px 8px; }
 
 /* Gallery panel (Coming Soon, 2026-10-09) - a centered picture-frame icon
    and two lines, in the panel's own content area. */
