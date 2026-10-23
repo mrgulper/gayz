@@ -8,6 +8,7 @@
 // stand-in for each, so callers are unchanged.
 import * as CloudSaveUI from './CloudSaveUI.js'
 import * as CloudSync from './CloudSync.js'
+import { CLOUD_BASE_UID_KEY, readBase } from './CloudMerge.js'
 import { ACHIEVEMENTS } from './Achievements.js'
 import { GLOBAL_KILLS_MILESTONE_STEP, PODIUM_MEDALS, POLL_ID, POLL_OPTIONS, _escapeHtml, _safeStatNumber, _thisWeekStr, saveShopProgress } from './Game.js'
 import { t } from './i18n.js'
@@ -434,7 +435,7 @@ export async function _afterCloudSignIn(game, uid, profile) {
   let fetchFailed = false
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      cloud = await CloudSync.fetchCloudSave(uid)
+      cloud = await (game.__cloudBackendForTests || CloudSync).fetchCloudSave(uid)
       fetchFailed = false
       if (cloud) break
     } catch {
@@ -471,9 +472,23 @@ export async function _afterCloudSignIn(game, uid, profile) {
   // overwrite would actually lose - in that one case, still show the
   // same compare-and-choose prompt as before rather than discarding a
   // device someone's genuinely been playing on without asking.
+  //
+  // Signing back in to the account this device last synced with (2026-10-23):
+  // no question - the normal merge already knows what changed on each side
+  // since then (CloudMerge.js), so progress made here while signed out and
+  // progress made on other devices both survive. Either answer to the
+  // question would have thrown one side away.
+  const { base, foreign } = readBase(localStorage, uid)
+  if (base && !foreign && localStorage.getItem(CLOUD_BASE_UID_KEY) === uid) {
+    await CloudSaveUI.syncWithCloud(game, { allowApply: true })
+    return
+  }
   if (game._hasMeaningfulLocalProgress()) {
     game._cloudPendingConflict = cloud.data
     CloudSaveUI.renderCloudConflict(game, cloud.data)
+    // The question is in the Cloud Save panel - open it so it's answered
+    // (until it is, nothing syncs).
+    CloudSaveUI.openCloudSavePanel(game)
   } else {
     CloudSaveUI.applyCloudSaveData(game, cloud.data)
   }

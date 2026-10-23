@@ -2315,7 +2315,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="TopBar MODE_KEYS MOB_HEIGHT biomeBarLook CYCLE_SECONDS">
           <h3>Top Bar &amp; Mob Size</h3>
-          <p>In Map 1 and the Map Editor a bar runs along the top of the screen: GayZ, the game mode you're playing (or Map Editor / Try Map), your FPS, MS (how long each frame takes), your coordinates, then your device's chip and how many CPU cores it has, the weather and the time of day (to the minute - a game minute goes by every second, so a whole day takes 24 minutes). It's made of the ground of the biome you're in - leaves in forests, sand in deserts, snow, water at sea, stone bricks in the city - and fades into the next one as you walk into it, darker at night and tinted by the weather. The wave, zombies left, kills and coins sit in a line just under it in the same look, changing with the biome too, and the bar stays in view behind the pause screen. Turning off Settings &gt; General &gt; Show FPS Counter During Gameplay hides the FPS, MS and chip parts. Zombies, skeletons, your own body in the third-person views, other players and the camp's traders are all <span data-feature-value="mobHeight">2</span> blocks tall.</p>
+          <p>In Map 1 and the Map Editor a bar runs along the top of the screen: GayZ, the game mode you're playing (or Map Editor / Try Map), your FPS, MS (how long each frame takes), your coordinates, then your device's chip and how many CPU cores it has, the weather and the time of day (to the minute - a game minute goes by every second, so a whole game day passes in under half an hour). It's made of the ground of the biome you're in - leaves in forests, sand in deserts, snow, water at sea, stone bricks in the city - and fades into the next one as you walk into it, darker at night and tinted by the weather. The wave, zombies left, kills and coins sit in a line just under it in the same look, changing with the biome too, and the bar stays in view behind the pause screen. Turning off Settings &gt; General &gt; Show FPS Counter During Gameplay hides the FPS, MS and chip parts. Zombies, skeletons, your own body in the third-person views, other players and the camp's traders are all <span data-feature-value="mobHeight">2</span> blocks tall.</p>
         </div>
         <div class="feature" data-code="breakSeconds BREAK_SECONDS _updateDigging DIG_LOOKS _digCrackTexture">
           <h3>Breaking Blocks</h3>
@@ -2345,7 +2345,7 @@ Escape before dawn.</p>
           <h3>Pause Menu &amp; Saved Games</h3>
           <p>Press Escape while playing to pause: Back to Menu, Settings, Switch Weapon, Spectate, Save Progress and Leave Game. Spectate flies a free camera around (on a server it can also look through other players' eyes - click or press Use to switch), with nothing over the view, and Escape comes back to where you were. Switch Weapon opens the weapon picker in the middle of a game, and each gun keeps the ammo it had left. Spectate lets you fly around as yourself while the game keeps going - the land loads where you fly, nothing can hurt you, zombies can't see the camera (they go for the spot you flew off from), the very bottom of the world is a bedrock floor you can't fly under, and everything else works like playing: reload, Use, inspect, the map key, aiming, shooting and breaking blocks. Save Progress keeps your game - the wave, kills, coins, health, upgrades, gun and ammo, where you stand and the land around the city - and the next time you press Play you carry on from that wave. Back to Menu saves it the same way before going to the homepage; Leave Game ends the game for good. On a server there's nothing to save, so both just leave. The Map Editor keeps its own pause screen for making maps.</p>
         </div>
-        <div class="feature" data-code="PLAY_WEAPONS _openWeaponPicker ammoFor FINISH addGunLights">
+        <div class="feature" data-code="PLAY_WEAPONS _openWeaponPicker ammoFor addGunLights">
           <h3>Choose Your Weapon</h3>
           <p>Every Map 1 run starts by picking the gun you take in - the Knife, Tomahawk, AK-47, M1911, Shotgun, AWP, GPMG, Flamethrower, Rocket Launcher or Void Ripper (more are Coming Soon) - each a detailed 3D model in its own original colours, and the gun in your hands looks just like its picture, with its own damage, fire rate, magazine and reload, shown as bars on its card. Automatic guns keep firing while you hold the button, holding right-click aims down the sights (zoomed in, steadier, tighter spreads) and letting go stops, every shot kicks the gun back smoothly with a muzzle flash and a puff of smoke, holding the zoom key looks far ahead, the Inspect Weapon key turns the gun so you can look at it, the Shotgun fires a spread, the Knife never runs out, the Knife and Tomahawk can be thrown while aiming (they fly spinning, hit harder than a swing and come back to your hand a second later), and the special guns have their own powers: the Flamethrower runs on fuel (a fuel tank bar, not bullets) and shoots a stream of flickering fire that sets zombies burning and wood and leaves alight - fire spreads along wood, races through trees and goes out in water or the rain, and burnt blocks fall away until the game ends, the Rocket and Grenade Launchers explode in a fireball that hurts everything near where they land, Crossbow bolts and AWP shots go through several zombies in a line, the Void Ripper slows zombies down with a purple burst, and the Tomahawk hits several zombies in one swing. Ammo from chests and the Trader comes in your gun's own amounts, and your last pick is remembered.</p>
         </div>
@@ -2361,7 +2361,7 @@ Escape before dawn.</p>
           <h3>Skeletons</h3>
           <p>From wave <span data-feature-value="skeletonWave">3</span> of Zombie Survival, real animated 3D skeletons join the zombies: they climb up out of the ground, walk, run and punch, flinch when hit and fall apart when killed before sinking away. Four kinds - quick Minions and Rogues, tough slow Warriors, and Mages in between - each with its own health, speed and hit. Everyone on a server sees the same skeletons.</p>
         </div>
-        <div class="feature" data-code="cleanPixels CLEAN_COLORS simplifyMaterials GUN_COLORS">
+        <div class="feature" data-code="cleanPixels CLEAN_COLORS simplifyMaterials">
           <h3>Clean, Crisp Blocks &amp; Guns</h3>
           <p>Every block in Map 1 and the Map Editor is simple, clean pixel art: a few flat colours per block, no speckles, drawn crisp and sharp however close you get instead of blurry. The guns have the same clean, flat look - low-poly and clear, never blurry - and both are light on your frame rate.</p>
         </div>
@@ -2392,7 +2392,7 @@ Escape before dawn.</p>
 
         <div class="feature" data-code="uiTheme">
           <h3>Old &amp; Clean Themes</h3>
-          <p>Two complete looks for the menus and pause screens, picked in Inventory &gt; Theme: Old (the default - rusty metal, torn paper panels, worn profile card, and rain falling over the homepage street with splashes on the cobbles) and Clean (flat and simple, no pictures or rain - the whole game in one plain colour you pick with the colour circle or by typing a code like #1A2B3C, with the text turning black or white to stay readable). Both rearrange themselves to fit phones and tablets.</p>
+          <p>Two complete looks for the menus and pause screens, picked in Inventory &gt; Theme: Old (the default - rusty metal, torn paper panels, worn profile card, and rain falling over the homepage street with splashes on the cobbles) and Clean (flat and simple, no pictures or rain - the whole game in one plain colour you pick with the colour circle or by typing its colour code, with the text turning black or white to stay readable). Both rearrange themselves to fit phones and tablets.</p>
         </div>
         <div class="feature" data-code="SKIN_DESIGNER_URL">
           <h3>Design a Skin</h3>
@@ -2434,7 +2434,7 @@ Escape before dawn.</p>
 
         <div class="feature" data-code="syncWithCloud mergeSaves _showAuthView">
           <h3>Cloud Save</h3>
-          <p>Sign up or log in with Google (from Profile or Cloud Save) and your save syncs across devices, with a conflict resolver if local and cloud saves diverge.</p>
+          <p>Sign up or log in with Google (from Profile or Cloud Save) and your save syncs across devices, with a conflict resolver if local and cloud saves diverge. Totals like coins, kills and playtime from every device add up, and signing back in to your own account on a device merges both sides without asking.</p>
         </div>
         <div class="feature" data-code="fetchLeaderboardEntryByPlayerId subscribeTopLeaderboard">
           <h3>Leaderboards</h3>
@@ -2450,7 +2450,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="createClan sendClanInvite fetchClanCombinedStats clanMonthKey entryClanXp">
           <h3>Clans</h3>
-          <p>Start a clan with its own name or join one from the Clan tab in General: a clan ranking by the XP the members earned for their clan this month - XP only counts for the clan you earned it in, and every clan goes back to 0 at the start of each month (the board says how many days are left) - My Clan shows your clan's XP and your own part this month (or asks you to sign in), invites you can send by Player ID or by name (matching players pop up as you type) and accept or decline, a member list where the leader can remove members or hand over leadership, and leaving or deleting a clan. Clan members get their own Clan chat tab, and your clan's name shows above your name and level.</p>
+          <p>Start a clan with its own name or join one from the Clan tab in General: a clan ranking by the XP the members earned for their clan this month - XP only counts for the clan you earned it in, and every clan starts again from nothing at the start of each month (the board says how many days are left) - My Clan shows your clan's XP and your own part this month (or asks you to sign in), invites you can send by Player ID or by name (matching players pop up as you type) and accept or decline, a member list where the leader can remove members or hand over leadership, and leaving or deleting a clan. Clan members get their own Clan chat tab, and your clan's name shows above your name and level.</p>
         </div>
         <div class="feature" data-code="createMarketListing buyMarketListing MARKET_FEE_RATE">
           <h3>Market</h3>

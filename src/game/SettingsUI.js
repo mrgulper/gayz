@@ -11,7 +11,8 @@ import * as GalleryUI from './GalleryUI.js'
 import { setColorblindMode } from './Accessibility.js'
 import { ACHIEVEMENTS } from './Achievements.js'
 import { audioEngine } from './Audio.js'
-import { CHANGELOG_LAST_VIEWED_KEY, NAV_ID_RENAMES, CRATES_COMING_SOON, CRATE_TIERS, INVENTORY_SKINS, NICKNAME_FONT_STACKS, RANDOM_NICKNAME_ADJECTIVES, RANDOM_NICKNAME_NOUNS, SETTINGS_CODE_KEYS, SKIN_DESIGNER_ORIGIN, SUPPORTED_LANGUAGE_CODES, _escapeHtml, _safeStatNumber, defaultSettings, saveSettings } from './Game.js'
+import { CHANGELOG_LAST_VIEWED_KEY, LAST_LOCAL_CHANGE_KEY, NAV_ID_RENAMES, CRATES_COMING_SOON, CRATE_TIERS, INVENTORY_SKINS, NICKNAME_FONT_STACKS, RANDOM_NICKNAME_ADJECTIVES, RANDOM_NICKNAME_NOUNS, SETTINGS_CODE_KEYS, SKIN_DESIGNER_ORIGIN, SUPPORTED_LANGUAGE_CODES, _escapeHtml, _safeStatNumber, defaultSettings, saveSettings } from './Game.js'
+import { DEVICE_ONLY_KEYS } from './CloudMerge.js'
 import { ACTIONS, getAllBindings, getKeyFor, keyLabel, resetBindings, setAllBindings, setBinding } from './Keybinds.js'
 import { LANGUAGES, setLanguage, t } from './i18n.js'
 import { applyUiTheme, cleanVars, normalizeHex } from './CleanTheme.js'
@@ -2410,8 +2411,20 @@ export function _importKeybindsCode(game, code) {
 export function _applyImportedSaveData(game, data) {
   game._importingSave = true
   if (game._autoSaveTimer) clearInterval(game._autoSaveTimer)
+  // This device's own Cloud Save bookkeeping stays (2026-10-23): a file
+  // exported elsewhere carries that device's sync state, and with it the
+  // next sync treated the imported progress as "already in the cloud" and
+  // let the cloud copy win. Kept as this device's, the import counts as a
+  // change made here now, so it's what gets uploaded.
+  const deviceOnly = {}
+  for (const key of DEVICE_ONLY_KEYS) {
+    const value = localStorage.getItem(key)
+    if (value !== null) deviceOnly[key] = value
+  }
   localStorage.clear()
-  for (const [key, value] of Object.entries(data)) localStorage.setItem(key, value)
+  for (const [key, value] of Object.entries(data)) if (!DEVICE_ONLY_KEYS.has(key)) localStorage.setItem(key, value)
+  for (const [key, value] of Object.entries(deviceOnly)) localStorage.setItem(key, value)
+  localStorage.setItem(LAST_LOCAL_CHANGE_KEY, String(Date.now()))
   window.location.reload()
 }
 
