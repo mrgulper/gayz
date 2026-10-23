@@ -1,4 +1,5 @@
-// Cloud Save - Firebase Authentication (Google Sign-In) + Firestore.
+// Cloud Save - Firebase Authentication (Google and other sign-ins, see
+// signIn) + Firestore.
 //
 // Firebase's free "Spark" plan needs no credit card and no billing account
 // at all - Authentication and Firestore both have generous free quotas
@@ -586,12 +587,83 @@ async function ensureApp() {
 // breaking the popup<->opener channel, surfaced as a real caught error
 // code (auth/popup-closed-by-user, auth/network-request-failed) rather
 // than a silent no-op - see _handleCloudSignIn's error toast in Game.js.
-export async function signIn() {
+
+// Sign-in buttons (2026-10-23): Google and GitHub are Firebase's own (each
+// one is switched on, with that site's keys, in Firebase Console ->
+// Authentication -> Sign-in method). Discord and Steam aren't, so they go through our own /api/auth/<provider> window
+// (api/_lib/oauth.js), which ends by handing back a Firebase sign-in token.
+export const SIGN_IN_PROVIDERS = ['google', 'steam', 'github', 'discord']
+const SERVER_PROVIDERS = ['discord', 'steam']
+
+function firebaseProvider(authMod, provider) {
+  if (provider === 'github') return new authMod.GithubAuthProvider()
+  return new authMod.GoogleAuthProvider()
+}
+
+function profileOf(user) {
+  return { name: user.displayName, email: user.email, picture: user.photoURL, accountCreatedAt: _parseCreationTime(user) }
+}
+
+function authError(code) {
+  const err = new Error(code)
+  err.code = code
+  return err
+}
+
+export async function signIn(provider = 'google') {
+  if (SERVER_PROVIDERS.includes(provider)) return signInViaServer(provider)
   const { auth, authMod } = await ensureApp()
-  const provider = new authMod.GoogleAuthProvider()
-  const result = await authMod.signInWithPopup(auth, provider)
-  const user = result.user
-  return { uid: user.uid, profile: { name: user.displayName, email: user.email, picture: user.photoURL, accountCreatedAt: _parseCreationTime(user) } }
+  const result = await authMod.signInWithPopup(auth, firebaseProvider(authMod, provider))
+  return { uid: result.user.uid, profile: profileOf(result.user) }
+}
+
+// The window has to open straight from the click (before any await) or
+// browsers block it.
+async function signInViaServer(provider) {
+  const popup = window.open(`/api/auth/${provider}`, 'gayz-auth', 'popup,width=520,height=720')
+  if (!popup) throw authError('auth/popup-blocked')
+  const token = await waitForAuthToken(popup)
+  const { auth, authMod } = await ensureApp()
+  const result = await authMod.signInWithCustomToken(auth, token)
+  return { uid: result.user.uid, profile: profileOf(result.user) }
+}
+
+// The sign-in page answers by postMessage and BroadcastChannel (see
+// resultPage). Some sites cut the link to the window they ran in, which
+// makes `popup.closed` read true early, so "closed" only counts once this
+// window has the focus back and nothing arrived for a few seconds.
+function waitForAuthToken(popup) {
+  return new Promise((resolve, reject) => {
+    let channel = null
+    let closedTimer = 0
+    const finish = (fn, value) => {
+      window.removeEventListener('message', onMessage)
+      window.removeEventListener('focus', onFocus)
+      clearInterval(poll)
+      clearTimeout(closedTimer)
+      clearTimeout(giveUp)
+      try { channel?.close() } catch { /* already closed */ }
+      fn(value)
+    }
+    const onData = (d) => {
+      if (!d || d.type !== 'gayz-auth') return
+      if (d.token && typeof d.token === 'string') finish(resolve, d.token)
+      else finish(reject, authError(d.error === 'cancelled' ? 'auth/popup-closed-by-user' : d.error === 'not-set-up' ? 'auth/operation-not-allowed' : 'auth/internal-error'))
+    }
+    const onMessage = (e) => { if (e.origin === location.origin) onData(e.data) }
+    const onFocus = () => {
+      if (!popup.closed || closedTimer) return
+      closedTimer = setTimeout(() => finish(reject, authError('auth/popup-closed-by-user')), 3000)
+    }
+    window.addEventListener('message', onMessage)
+    window.addEventListener('focus', onFocus)
+    try {
+      channel = new BroadcastChannel('gayz-auth')
+      channel.onmessage = (e) => onData(e.data)
+    } catch { /* old browser - postMessage still works */ }
+    const poll = setInterval(() => { if (document.hasFocus()) onFocus() }, 1000)
+    const giveUp = setTimeout(() => finish(reject, authError('auth/timeout')), 5 * 60 * 1000)
+  })
 }
 
 // Google's own account-creation timestamp (Firebase exposes it as
@@ -630,7 +702,7 @@ export async function setAuthPersistence(staySignedIn) {
 export async function onAuthChange(callback) {
   const { auth, authMod } = await ensureApp()
   return authMod.onAuthStateChanged(auth, (user) => {
-    callback(user ? { uid: user.uid, profile: { name: user.displayName, email: user.email, picture: user.photoURL, accountCreatedAt: _parseCreationTime(user) } } : null)
+    callback(user ? { uid: user.uid, profile: profileOf(user) } : null)
   })
 }
 

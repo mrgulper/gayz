@@ -111,6 +111,7 @@ export function restoreCloudSession(game) {
       game._updateFriendsDot()
     }
     isFirstCall = false
+    renderSignInFooters(game)
     if (game.cloudsavePanel && getComputedStyle(game.cloudsavePanel).display !== 'none') {
       renderCloudSaveState(game)
     }
@@ -120,6 +121,21 @@ export function restoreCloudSession(game) {
     // doesn't hang open forever (see this function's other early-return).
     game._resolveAuthReady?.()
   })
+}
+
+// The "Sign up or login with..." bar at the bottom of the Market and the
+// Gallery: shown while signed out, once the first auth check is done (so a
+// signed-in player never sees it flash).
+export function renderSignInFooters(game) {
+  for (const id of ['market', 'gallery']) {
+    const bar = document.getElementById(`${id}-signed-out`)
+    if (!bar) continue
+    bar.hidden = !!game._cloudUid || !CloudSync.isConfigured()
+    const desc = document.getElementById(`${id}-signed-out-desc`)
+    if (desc) desc.textContent = t(`${id}SignedOutDesc`)
+    const btn = document.getElementById(`${id}-signin-btn`)
+    if (btn) btn.textContent = t('signUpOrLoginBtn')
+  }
 }
 
 export function updateCloudQuickIcon(game, signedIn) {
@@ -525,6 +541,9 @@ export function bindCloudSave(game) {
     })
   }
   if (game.cloudsaveSigninBtn) game.cloudsaveSigninBtn.addEventListener('click', () => game._openProfilePanel())
+  for (const id of ['market-signin-btn', 'gallery-signin-btn']) {
+    document.getElementById(id)?.addEventListener('click', () => game._openProfilePanel())
+  }
   if (game.cloudsaveSignoutBtn) game.cloudsaveSignoutBtn.addEventListener('click', () => handleCloudSignOut(game))
   if (game.cloudsaveSyncNowBtn) game.cloudsaveSyncNowBtn.addEventListener('click', () => pushToCloud(game, true))
   if (game.cloudsaveUseCloudBtn) game.cloudsaveUseCloudBtn.addEventListener('click', () => resolveCloudConflict(game, 'cloud'))

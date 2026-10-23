@@ -1301,24 +1301,12 @@ export function _bindSettings(game) {
       game._updateWhatsNewDot()
     })
   }
-  // Login/Register both trigger the same Google sign-in flow today (see
-  // _handleCloudSignIn) - kept as two separate buttons/labels rather than
-  // one combined "Sign in with Google" button so a second sign-in method
-  // can slot in later without a UI reshuffle.
-  if (game.profileLoginBtn) game.profileLoginBtn.addEventListener('click', () => game._handleCloudSignIn())
-  if (game.profileRegisterBtn) game.profileRegisterBtn.addEventListener('click', () => game._handleCloudSignIn())
-  // Same handler as the two above - Google Sign-In is the only auth
-  // method here, so "Login" and "Register" both just trigger it.
-  // Sign Up / Login open their own page first; that page's Google
-  // button is the real sign-in (one account either way).
-  if (game.profileGateLoginBtn) game.profileGateLoginBtn.addEventListener('click', () => game._showAuthView('login'))
-  if (game.profileGateRegisterBtn) game.profileGateRegisterBtn.addEventListener('click', () => game._showAuthView('signup'))
-  document.getElementById('auth-back-btn')?.addEventListener('click', () => game._showAuthView('choose'))
-  for (const id of ['auth-signup-google-btn', 'auth-login-google-btn']) {
-    document.getElementById(id)?.addEventListener('click', () => game._handleCloudSignIn())
-  }
+  // Every sign-in button on the signed-out Profile card names its site in
+  // data-provider (see CloudSync.signIn).
   game.profileLoginGate?.addEventListener('click', (e) => {
-    if (e.target.closest('.open-terms-panel-link')) game._openTermsPanel()
+    const signIn = e.target.closest('[data-provider]')
+    if (signIn) game._handleCloudSignIn(signIn.dataset.provider)
+    else if (e.target.closest('.open-terms-panel-link')) game._openTermsPanel()
     else if (e.target.closest('.open-privacy-panel-link')) game._openPrivacyPanel()
   })
   if (game.profileSignoutBtn) {

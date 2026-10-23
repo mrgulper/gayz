@@ -1858,10 +1858,7 @@ export class Game {
     this.profileBestRunLine = document.getElementById('profile-best-run-line')
     this.profileCreatedTitle = document.getElementById('profile-created-title')
     this.profileCreatedLine = document.getElementById('profile-created-line')
-    this.profileAccountSignedOut = document.getElementById('profile-account-signed-out')
     this.profileAccountSignedIn = document.getElementById('profile-account-signed-in')
-    this.profileLoginBtn = document.getElementById('profile-login-btn')
-    this.profileRegisterBtn = document.getElementById('profile-register-btn')
     this.profileSignoutBtn = document.getElementById('profile-signout-btn')
     this.profileLoginGate = document.getElementById('profile-login-gate')
     this.profileContent = document.getElementById('profile-content')
@@ -1881,8 +1878,6 @@ export class Game {
     this.profilePublicRegionValue = document.getElementById('profile-public-region-value')
     this.profilePublicClanRow = document.getElementById('profile-public-clan-row')
     this.profilePublicClanValue = document.getElementById('profile-public-clan-value')
-    this.profileGateLoginBtn = document.getElementById('profile-gate-login-btn')
-    this.profileGateRegisterBtn = document.getElementById('profile-gate-register-btn')
     this.quickPerformanceBtn = document.getElementById('quick-performance-btn')
     this.quickLanguageBtn = document.getElementById('quick-language-btn')
     // Cloud Save (Google Sign-In + Drive appDataFolder, see CloudSync.js).
@@ -2945,7 +2940,7 @@ export class Game {
 
   _pushOnlineStats() { return OnlineUI._pushOnlineStats(this) }
 
-  _handleCloudSignIn() { return OnlineUI._handleCloudSignIn(this) }
+  _handleCloudSignIn(provider) { return OnlineUI._handleCloudSignIn(this, provider) }
 
   _afterCloudSignIn(uid, profile) { return OnlineUI._afterCloudSignIn(this, uid, profile) }
 
@@ -3503,6 +3498,8 @@ export class Game {
 
   _openMarketPanel() { return InventoryUI._openMarketPanel(this) }
 
+  _renderSignInFooters() { return CloudSaveUI.renderSignInFooters(this) }
+
   // Items you can filter by: Character, then every weapon (Kirka's market
   // lists every weapon the same way). Market skins without a `kind` are
   // character skins.
@@ -4025,7 +4022,7 @@ export class Game {
     this.galleryPanel.style.display = 'none'
   }
 
-  _showAuthView(view) { return ProfileUI._showAuthView(this, view) }
+  _renderAuthCard() { return ProfileUI._renderAuthCard(this) }
 
   _openTermsPanel() { return InfoPagesUI._openTermsPanel(this) }
 

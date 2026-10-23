@@ -42,37 +42,24 @@ export function _closeLevelsPanel(game) {
 // (same static-prose pattern as Credits above) at Gaymi's request. The
 // standalone terms.html/privacy.html pages themselves are left as-is
 // (still real, linkable URLs - just no longer linked to from here).
-// The signed-out Profile card: 'choose' (Sign Up or Login), 'signup' or
-// 'login'. Fills the words every time so a language change shows.
-export function _showAuthView(game, view) {
+// The signed-out Profile card: Google on its own, the other sign-ins as a
+// row of logo buttons under it. Fills the words every time so a language
+// change shows.
+export function _renderAuthCard(game) {
   const set = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = t(key) }
-  set('auth-choose-sub', 'authChooseSub')
-  set('auth-choose-new', 'authChooseNew')
-  set('profile-gate-register-btn', 'profileRegisterBtn')
-  set('profile-gate-login-btn', 'profileLoginBtn')
-  set('auth-signup-sub', 'authSignupSub')
-  set('auth-signup-google-label', 'authSignupGoogle')
-  set('auth-signup-note', 'authSignupNote')
-  set('auth-login-sub', 'authLoginSub')
-  set('auth-login-google-label', 'authContinueGoogle')
-  set('auth-login-note', 'authPickup')
-  set('auth-back-label', 'authBack')
-  const termsHtml = _escapeHtml(t('authTerms'))
-    .replace('{terms}', `<button type="button" class="auth-link open-terms-panel-link">${_escapeHtml(t('termsBtn'))}</button>`)
-    .replace('{privacy}', `<button type="button" class="auth-link open-privacy-panel-link">${_escapeHtml(t('creditsPrivacyLink'))}</button>`)
-  for (const id of ['auth-terms-signup', 'auth-terms-login']) {
-    const el = document.getElementById(id)
-    if (el) el.innerHTML = termsHtml
+  set('auth-sub', 'authSub')
+  set('auth-google-label', 'authContinueGoogle')
+  set('auth-more-label', 'authMoreWays')
+  set('auth-note', 'authNote')
+  const terms = document.getElementById('auth-terms')
+  if (terms) {
+    terms.innerHTML = _escapeHtml(t('authTerms'))
+      .replace('{terms}', `<button type="button" class="auth-link open-terms-panel-link">${_escapeHtml(t('termsBtn'))}</button>`)
+      .replace('{privacy}', `<button type="button" class="auth-link open-privacy-panel-link">${_escapeHtml(t('creditsPrivacyLink'))}</button>`)
   }
   // The panel's own title says the welcome line while signed out; it's
   // set back to Profile when the profile itself shows.
-  if (game.profilePanelTitle) game.profilePanelTitle.textContent = t(view === 'login' ? 'authWelcomeBack' : 'authWelcome')
-  for (const v of ['choose', 'signup', 'login']) {
-    const el = document.getElementById(`auth-view-${v}`)
-    if (el) el.hidden = v !== view
-  }
-  const back = document.getElementById('auth-back-btn')
-  if (back) back.hidden = view === 'choose'
+  if (game.profilePanelTitle) game.profilePanelTitle.textContent = t('authWelcome')
 }
 
 // Real Minecraft skin upload (see MenuAvatar3D.js's UV-mapping support)
@@ -197,7 +184,7 @@ export async function _openProfilePanel(game) {
   if (!game._cloudUid) {
     if (game.profileContent) game.profileContent.style.display = 'none'
     if (game.profileLoginGate) game.profileLoginGate.style.display = 'flex'
-    game._showAuthView('choose')
+    game._renderAuthCard()
     return
   }
   if (game.profileContent) game.profileContent.style.display = ''
@@ -371,17 +358,14 @@ export function _renderProfileBioCounter(game) {
   game.profileBioCounter.textContent = `${(game.settings.bio || '').length}`
 }
 
-// Profile panel account row - Login/Register when signed out, Sign Out
-// when signed in. Reuses the Cloud Save sign-in/out (CloudSync.js)
+// Profile panel account row - Sign Out (only shown while signed in; the
+// signed-out Profile is the sign-in card). Reuses the Cloud Save sign-in/out (CloudSync.js)
 // wholesale rather than a second auth path -
 // this is just a second place to trigger the exact same sign-in/out flow
 // the Cloud Save panel already has, not a parallel system.
 export function _renderProfileAccountRow(game) {
   const signedIn = !!game._cloudUid
-  if (game.profileAccountSignedOut) game.profileAccountSignedOut.style.display = signedIn ? 'none' : 'flex'
   if (game.profileAccountSignedIn) game.profileAccountSignedIn.style.display = signedIn ? 'flex' : 'none'
-  if (game.profileLoginBtn) game.profileLoginBtn.textContent = t('profileLoginBtn')
-  if (game.profileRegisterBtn) game.profileRegisterBtn.textContent = t('profileRegisterBtn')
   if (game.profileSignoutBtn) game.profileSignoutBtn.textContent = t('profileSignoutBtn')
 }
 

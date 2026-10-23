@@ -116,66 +116,51 @@ test('the footer links never reach the right-side buttons', async ({ page }) => 
   }
 })
 
-// Signed-out Profile is Sign Up or Login (2026-10-10): the two plaques open
-// their own pages, whose Google button is the real sign-in, and Back /
-// re-opening the panel returns to the choice.
-test('signed-out Profile shows Sign Up or Login', async ({ page }) => {
+// Signed-out Profile (2026-10-23): no Sign Up / Login choice any more -
+// Google on its own, then a row of logo buttons for the other sign-ins,
+// each calling _handleCloudSignIn with its site.
+test('signed-out Profile shows Google and the other sign-ins', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
     const g = window.__game
-    let signIns = 0
-    g._handleCloudSignIn = () => { signIns++ }
+    const picked = []
+    g._handleCloudSignIn = (provider) => { picked.push(provider) }
     await g._openProfilePanel()
-    const shown = (id) => !document.getElementById(id).hidden
     const out = { gate: getComputedStyle(document.getElementById('profile-login-gate')).display }
-    out.choose = shown('auth-view-choose') && !shown('auth-view-signup') && !shown('auth-view-login')
     out.title = document.getElementById('profile-panel-title').textContent
-    out.chooseTerms = document.querySelectorAll('#auth-view-choose .auth-terms').length
-    out.buttons = [document.getElementById('profile-gate-register-btn').textContent, document.getElementById('profile-gate-login-btn').textContent]
-    document.getElementById('profile-gate-register-btn').click()
-    out.signup = shown('auth-view-signup') && !shown('auth-view-choose') && shown('auth-back-btn')
-    out.signupSub = document.getElementById('auth-signup-sub').textContent
-    out.signupTerms = document.querySelectorAll('#auth-view-signup .auth-terms .auth-link').length
-    document.getElementById('auth-back-btn').click()
-    out.back = shown('auth-view-choose') && !shown('auth-back-btn')
-    document.getElementById('profile-gate-login-btn').click()
-    out.login = shown('auth-view-login')
-    out.loginTitle = document.getElementById('profile-panel-title').textContent
-    out.terms = document.querySelectorAll('#auth-view-login .auth-terms .auth-link').length
-    document.getElementById('auth-login-google-btn').click()
-    document.getElementById('profile-gate-register-btn').click()
-    document.getElementById('auth-signup-google-btn').click()
-    out.signIns = signIns
+    out.google = document.getElementById('auth-google-label').textContent
+    out.more = document.getElementById('auth-more-label').textContent
+    out.oldPages = document.querySelectorAll('#auth-view-choose, #auth-view-signup, #auth-view-login, #profile-gate-login-btn').length
+    out.terms = document.querySelectorAll('#auth-terms .auth-link').length
+    out.logos = [...document.querySelectorAll('.auth-provider')].map((b) => [b.dataset.provider, b.getAttribute('aria-label'), b.getBoundingClientRect().width > 30])
+    document.getElementById('auth-google-btn').click()
+    for (const b of document.querySelectorAll('.auth-provider')) b.click()
+    out.picked = picked
     // Signed in: the title goes back to Profile.
     Object.defineProperty(g, '_cloudUid', { get: () => 'test-uid', configurable: true })
     await g._openProfilePanel()
     out.signedInTitle = document.getElementById('profile-panel-title').textContent
-    delete g._cloudUid
-    g._cloudUid = null
-    await g._openProfilePanel()
-    out.reset = shown('auth-view-choose')
+    out.signedInGate = getComputedStyle(document.getElementById('profile-login-gate')).display
     return out
   })
   expect(r.gate).toBe('flex')
-  expect(r.choose).toBe(true)
   expect(r.title).toBe('Welcome to GayZ')
-  expect(r.chooseTerms).toBe(0)
-  expect(r.signupTerms).toBe(2)
-  expect(r.signedInTitle).toBe('Profile')
-  expect(r.buttons).toEqual(['Sign Up', 'Login'])
-  expect(r.signup).toBe(true)
-  expect(r.signupSub).toBe('Sign in to avoid losing progress')
-  expect(r.back).toBe(true)
-  expect(r.login).toBe(true)
-  expect(r.loginTitle).toBe('Welcome back to GayZ')
+  expect(r.google).toBe('Continue with Google')
+  expect(r.more).toBe('or sign up / log in with')
+  expect(r.oldPages).toBe(0)
   expect(r.terms).toBe(2)
-  expect(r.signIns).toBe(2)
-  expect(r.reset).toBe(true)
+  expect(r.logos).toEqual([
+    ['steam', 'Steam', true], ['github', 'GitHub', true], ['discord', 'Discord', true],
+  ])
+  expect(r.picked).toEqual(['google', 'steam', 'github', 'discord'])
+  expect(r.signedInTitle).toBe('Profile')
+  expect(r.signedInGate).toBe('none')
 })
 
-// Every "Sign Up or Login" button (Friend List, Global chat, Cloud Save)
-// opens the Welcome to GayZ page instead of Google's popup directly
-// (2026-10-10), and a friend list shows its count.
+// Every "Sign up or login with..." button (Friend List, Global chat, Cloud
+// Save, Clans, Market, Gallery) opens the Welcome to GayZ page instead of a
+// sign-in popup directly (2026-10-10; Market/Gallery 2026-10-23), and a
+// friend list shows its count.
 test('sign-in buttons go to the Welcome page; friend count shows', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
@@ -183,7 +168,12 @@ test('sign-in buttons go to the Welcome page; friend count shows', async ({ page
     let popups = 0
     g._handleCloudSignIn = () => { popups++ }
     const out = {}
-    for (const id of ['friends-signin-btn', 'server-chat-signin-btn', 'cloudsave-signin-btn']) {
+    await g._openMarketPanel()
+    await g._authReadyPromise
+    await new Promise((res) => setTimeout(res, 50))
+    out.marketBar = [!document.getElementById('market-signed-out').hidden, document.getElementById('market-signin-btn').textContent]
+    g._closeAllMenuPanels()
+    for (const id of ['friends-signin-btn', 'server-chat-signin-btn', 'cloudsave-signin-btn', 'clan-signin-btn', 'market-signin-btn', 'gallery-signin-btn']) {
       document.getElementById(id).click()
       await new Promise((res) => setTimeout(res, 50))
       out[id] = [getComputedStyle(document.getElementById('profile-panel')).display, document.getElementById('profile-panel-title').textContent]
@@ -205,9 +195,10 @@ test('sign-in buttons go to the Welcome page; friend count shows', async ({ page
     out.picked = g.cloudsaveFriendResult.textContent
     return out
   })
-  for (const id of ['friends-signin-btn', 'server-chat-signin-btn', 'cloudsave-signin-btn']) {
+  for (const id of ['friends-signin-btn', 'server-chat-signin-btn', 'cloudsave-signin-btn', 'clan-signin-btn', 'market-signin-btn', 'gallery-signin-btn']) {
     expect(r[id]).toEqual(['flex', 'Welcome to GayZ'])
   }
+  expect(r.marketBar).toEqual([true, 'Sign up or login with...'])
   expect(r.popups).toBe(0)
   expect(r.count).toBe('(3)')
   expect(r['typed:#abc123']).toBe('Tazbot is already your friend.')

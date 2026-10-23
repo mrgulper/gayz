@@ -1,8 +1,8 @@
 /* Playing with no internet (Offline.js): the online-only buttons look
    dimmed (they say they need internet when clicked). Same in both themes. */
 html.is-offline :is(#server-btn, #friends-btn, #hub-btn, #market-btn, #nav-gallery-link, #inv-skin-menu-market,
-  #profile-login-btn, #profile-gate-login-btn, #auth-login-google-btn, #auth-signup-google-btn,
-  #friends-signin-btn, #server-chat-signin-btn, #clan-signin-btn, #cloudsave-signin-btn, #cloudsave-sync-now-btn, #quick-cloud-btn,
+  #profile-login-gate [data-provider],
+  #friends-signin-btn, #server-chat-signin-btn, #clan-signin-btn, #cloudsave-signin-btn, #market-signin-btn, #gallery-signin-btn, #cloudsave-sync-now-btn, #quick-cloud-btn,
   #chat-send-btn, #server-chat-send-btn,
   #build-mode-publish-btn, #build-mode-browse-btn, #build-mode-gallery-btn, #build-mode-together-btn) {
   opacity: 0.5;

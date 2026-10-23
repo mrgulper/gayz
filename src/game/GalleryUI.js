@@ -84,6 +84,7 @@ export function openGallery(game, kind = game._galleryKind || 'character') {
   game._closeAllMenuPanels()
   game.galleryPanel.style.display = 'flex'
   renderTexts(game)
+  game._authReadyPromise?.then(() => game._renderSignInFooters())
   showKind(game, kind)
 }
 

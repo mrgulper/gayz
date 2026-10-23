@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { gotoAndWaitForGame } from './helpers.js'
 import { fakeServerDb } from './fakeServerDb.js'
+import { PROVIDERS, isCallback, missingKeys, firebaseUid, cleanProfile, sameState, resultPage } from '../api/_lib/oauth.js'
 import { createServer, joinServer, listServers, syncServer, leaveServer, MAX_PLAYERS, STALE_MS, JOIN_GRACE_MS } from '../api/_lib/servers.js'
 
 // The servers' own rules (api/_lib/servers.js), on an in-memory database.
@@ -55,6 +56,46 @@ test('servers: create, join, sync, host hand-over, leave', async () => {
   expect(list).toEqual([])
   expect(db.root.servers || {}).toEqual({})
   expect(db.root.serverSecrets || {}).toEqual({})
+})
+
+// Sign-in with Discord and Steam (api/_lib/oauth.js): only answers
+// the site itself vouches for, meant for this site, are believed.
+test('auth: Discord/Steam sign-in checks', async () => {
+  const origin = 'https://gayz.vercel.app'
+  const state = 'a'.repeat(32)
+  expect(missingKeys('discord', {})).toEqual(['DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET'])
+  expect(missingKeys('steam', {})).toEqual([])
+  expect(sameState(state, state)).toBe(true)
+  expect(sameState(state, 'b'.repeat(32))).toBe(false)
+  expect(sameState(null, null)).toBe(false)
+  expect(firebaseUid('steam', '76561198000000000')).toBe('steam76561198000000000')
+  expect(() => firebaseUid('discord', '../x')).toThrow()
+  expect(cleanProfile({ name: '  Ann\u0007 ', picture: 'javascript:alert(1)' })).toEqual({ displayName: 'Ann', photoURL: null })
+  const discordUrl = new URL(PROVIDERS.discord.startUrl({ env: { DISCORD_CLIENT_ID: 'id1' }, redirectUri: `${origin}/api/auth/discord`, state }))
+  expect(discordUrl.searchParams.get('state')).toBe(state)
+  expect(discordUrl.searchParams.get('redirect_uri')).toBe(`${origin}/api/auth/discord`)
+  expect(isCallback('discord', new URLSearchParams('code=x&state=y'))).toBe(true)
+  expect(isCallback('discord', new URLSearchParams(''))).toBe(false)
+
+  // Steam: a real-looking answer is checked with Steam before it counts.
+  const redirectUri = `${origin}/api/auth/steam`
+  const id = 'https://steamcommunity.com/openid/id/76561198000000000'
+  const answer = (over = {}) => new URLSearchParams({
+    'openid.ns': 'http://specs.openid.net/auth/2.0', 'openid.mode': 'id_res', 'openid.op_endpoint': 'https://steamcommunity.com/openid/login',
+    'openid.claimed_id': id, 'openid.identity': id, 'openid.return_to': `${redirectUri}?state=${state}`, 'openid.sig': 'sig', ...over,
+  })
+  const fakeFetch = (valid) => async (url, opts) => {
+    if (opts?.method === 'POST') return { ok: true, text: async () => `ns:http://specs.openid.net/auth/2.0\nis_valid:${valid}\n` }
+    return { ok: true, text: async () => '<profile><steamID><![CDATA[Gabe]]></steamID><avatarFull><![CDATA[https://avatars.example/a.jpg]]></avatarFull></profile>' }
+  }
+  await expect(PROVIDERS.steam.finish({ query: answer(), redirectUri, fetch: fakeFetch(true) })).resolves.toEqual({ id: '76561198000000000', name: 'Gabe', picture: 'https://avatars.example/a.jpg' })
+  await expect(PROVIDERS.steam.finish({ query: answer(), redirectUri, fetch: fakeFetch(false) })).rejects.toMatchObject({ code: 'failed' })
+  await expect(PROVIDERS.steam.finish({ query: answer({ 'openid.return_to': 'https://evil.example/api/auth/steam?state=x' }), redirectUri, fetch: fakeFetch(true) })).rejects.toMatchObject({ code: 'failed' })
+  await expect(PROVIDERS.steam.finish({ query: answer({ 'openid.op_endpoint': 'https://evil.example/openid' }), redirectUri, fetch: fakeFetch(true) })).rejects.toMatchObject({ code: 'failed' })
+  await expect(PROVIDERS.steam.finish({ query: answer({ 'openid.mode': 'cancel' }), redirectUri, fetch: fakeFetch(true) })).rejects.toMatchObject({ code: 'cancelled' })
+
+  // The page that hands the token back can't be broken out of.
+  expect(resultPage({ token: '</script><script>alert(1)</script>' })).not.toContain('</script><script>alert')
 })
 
 test('servers: a full server turns new players away', async () => {
