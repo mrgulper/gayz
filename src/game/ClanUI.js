@@ -8,6 +8,7 @@ import * as ChatUI from './ChatUI.js'
 import * as CloudSync from './CloudSync.js'
 import { CLAN_RANKING_CACHE_MS, _escapeHtml, saveSettings } from './Game.js'
 import { t } from './i18n.js'
+import { currentClanXp, daysUntilClanReset } from './Xp.js'
 
 export function _showClanSuggestions(game, list) {
   const box = document.getElementById('clan-invite-suggestions')
@@ -91,6 +92,7 @@ export function _bindClanSection(game) {
       if (e.target === game.clanPanel) game._closeClanPanel()
     })
   }
+  document.getElementById('clan-signin-btn')?.addEventListener('click', () => game._openProfilePanel())
 
   if (game.clanCreateBtn) {
     game.clanCreateBtn.addEventListener('click', async () => {
@@ -305,10 +307,18 @@ export async function _refreshClanUi(game) {
   // false-signed-out race the Profile panel had.
   await game._authReadyPromise
   if (!game._cloudUid || !CloudSync.isConfigured()) {
-    // Signed out: no "sign in to join/create" nag - just show nothing,
-    // same as a signed-in player who hasn't joined a clan yet.
+    // Signed out: My Clan says to sign in (it used to show nothing at all,
+    // 2026-10-23 "my clan is 100% empty when clicking it").
     game.clanBrowseState.style.display = 'none'
     game.clanInClanState.style.display = 'none'
+    game.clanSigninGate.style.display = 'flex'
+    const gateText = document.getElementById('clan-signin-gate-text')
+    if (gateText) gateText.textContent = t('clanSigninGateText')
+    const gateBtn = document.getElementById('clan-signin-btn')
+    if (gateBtn) {
+      gateBtn.textContent = t('signUpOrLoginBtn')
+      gateBtn.disabled = !CloudSync.isConfigured()
+    }
     game._updateClanMyClanTabLabel()
     return
   }
@@ -395,10 +405,13 @@ export async function _refreshClanUi(game) {
   const myRole = me.role || 'member'
   const canManage = myRole === 'owner' || myRole === 'elder'
 
-  const stats = await CloudSync.fetchClanCombinedStats(game.settings.clanId).catch(() => ({ memberCount: members.length, totalKills: 0, totalBestWave: 0 }))
-  game.clanStatsMembers.textContent = t('clanStatsMembers', { n: stats.memberCount, max: CloudSync.CLAN_MEMBER_CAP })
-  game.clanStatsKills.textContent = t('clanStatsKills', { n: avgKillsText(stats.totalKills, stats.memberCount) })
-  game.clanStatsWave.textContent = t('clanStatsWave', { n: stats.totalBestWave })
+  const stats = await CloudSync.fetchClanCombinedStats(game.settings.clanId).catch(() => ({ memberCount: members.length, monthXp: 0 }))
+  game.clanStatsMembers.textContent = t('clanStatsMembers', { n: members.length, max: CloudSync.CLAN_MEMBER_CAP })
+  // This month's clan XP - your own part is counted from this device too,
+  // so a game you just finished shows before the upload lands.
+  const myXp = currentClanXp(game.settings.clanXp, game.settings.clanId)
+  game.clanStatsKills.textContent = t('clanStatsMonthXp', { n: fmt(Math.max(stats.monthXp, myXp)) })
+  game.clanStatsWave.textContent = `${t('clanStatsMyXp', { n: fmt(myXp) })} · ${t('clanResetsIn', { n: daysUntilClanReset() })}`
 
   // Send Clan Request (invite by Player ID) is management-only.
   game.clanSendInviteSection.style.display = canManage ? 'block' : 'none'
@@ -501,8 +514,8 @@ export function _fetchClanRanking(game) {
       Promise.all(clans.map((c) => CloudSync.fetchClanCombinedStats(c.clanId).catch(() => null))),
     ])
     return clans
-      .map((c, i) => ({ ...c, memberCount: counts[i], totalKills: stats[i]?.totalKills ?? 0, avgKills: avgKills(stats[i]?.totalKills ?? 0, stats[i]?.memberCount) }))
-      .sort((a, b) => b.avgKills - a.avgKills)
+      .map((c, i) => ({ ...c, memberCount: counts[i], monthXp: stats[i]?.monthXp ?? 0 }))
+      .sort((a, b) => b.monthXp - a.monthXp)
   })()
   game._clanRankingCache = { at: Date.now(), promise }
   // A failed or empty load isn't worth keeping - try again next time.
@@ -510,19 +523,17 @@ export function _fetchClanRanking(game) {
   return promise
 }
 
-// Clans rank by their members' average career zombie kills (2026-10-18,
-// Gaymi: "it should be based on every members average kill so you can use
-// decimals"), shown to one decimal place.
-function avgKills(total, members) {
-  return (Number(total) || 0) / Math.max(1, Number(members) || 1)
-}
-function avgKillsText(total, members) {
-  return avgKills(total, members).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+// Clans rank by the XP their members earned for them this month (Xp.js,
+// 2026-10-23 - it was average career kills). Every clan is 0 on the 1st.
+function fmt(n) {
+  return (Number(n) || 0).toLocaleString()
 }
 
 export async function _renderClanRanking(game) {
   if (!game.clanAllList) return
   game.clanAllList.innerHTML = ''
+  const resetNote = document.getElementById('clan-reset-note')
+  if (resetNote) resetNote.textContent = t('clanResetNote', { n: daysUntilClanReset() })
   const ranked = await game._fetchClanRanking()
   if (!ranked.length) {
     game.clanAllList.innerHTML = `<p>${t('clanListEmpty')}</p>`
@@ -547,7 +558,7 @@ export async function _renderClanRanking(game) {
         <span class="clan-list-rank">#${i + 1}</span>
         <span class="clan-list-name">${_escapeHtml(c.name)}${countLabel}</span>
         ${isMine ? action : ''}
-        <span class="clan-list-kills">${t('clanRankingKillsLabel', { n: avgKillsText(c.totalKills, c.memberCount) })}</span>
+        <span class="clan-list-kills">${t('clanRankingXpLabel', { n: fmt(c.monthXp) })}</span>
         ${isMine ? '' : action}
       </div>
     `

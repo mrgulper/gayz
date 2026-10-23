@@ -28,6 +28,8 @@
 //    "which project is this," not "who's allowed in." Real security comes
 //    from the Firestore Security Rules (step 3), which is why those matter
 //    much more than keeping this object private.
+import { clanMonthKey, entryClanXp } from './Xp.js'
+
 export const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyCCA9e3NAWk6MQJS-pnl-Lzq1Yn3nCZwVY',
   authDomain: 'gayz-aa69c.firebaseapp.com',
@@ -123,6 +125,11 @@ service cloud.firestore {
         && (!('manualIdle' in request.resource.data) || request.resource.data.manualIdle is bool)
         && (!('clanId' in request.resource.data) || (request.resource.data.clanId is string && request.resource.data.clanId.size() > 0))
         && (!('clanTag' in request.resource.data) || (request.resource.data.clanTag is string && request.resource.data.clanTag.size() <= 4))
+        // XP and this month's clan XP (Xp.js, 2026-10-23).
+        && (!('xp' in request.resource.data) || (request.resource.data.xp is int && request.resource.data.xp >= 0 && request.resource.data.xp < 1000000000))
+        && (!('clanXp' in request.resource.data) || (request.resource.data.clanXp is int && request.resource.data.clanXp >= 0 && request.resource.data.clanXp < 100000000))
+        && (!('clanXpClan' in request.resource.data) || (request.resource.data.clanXpClan is string && request.resource.data.clanXpClan.size() > 0 && request.resource.data.clanXpClan.size() <= 40))
+        && (!('clanXpMonth' in request.resource.data) || (request.resource.data.clanXpMonth is string && request.resource.data.clanXpMonth.size() == 7))
         // Bio/Motto/Your Stats (2026-09-22) - moved from a Hidden-only tab
         // to Shown to Public, so these are now real public fields, not
         // just a display-only tab label. bio/motto are the only genuinely
@@ -1044,17 +1051,12 @@ export async function fetchClanCombinedStats(clanId) {
   const { db, fsMod } = await ensureApp()
   const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('clanId', '==', clanId))
   const snap = await fsMod.getDocs(q)
-  let totalKills = 0
-  let totalBestWave = 0
-  for (const d of snap.docs) {
-    const data = d.data()
-    // Every zombie each member has killed (2026-10-18, Gaymi: "for the clan
-    // change it to zombie kills") - it was their best single run before.
-    // Docs from before totalKills was synced fall back to the old number.
-    totalKills += Number(data.totalKills ?? data.bestKills) || 0
-    totalBestWave += Number(data.bestNight) || 0
-  }
-  return { memberCount: snap.size, totalKills, totalBestWave }
+  // Clans rank by the XP their members earned for them this month
+  // (2026-10-23, kirka-style) - every clan is back at 0 on the 1st.
+  const month = clanMonthKey()
+  let monthXp = 0
+  for (const d of snap.docs) monthXp += entryClanXp(d.data(), clanId, month)
+  return { memberCount: snap.size, monthXp }
 }
 
 // Chat - Global and Clan channels both live in Firestore (Party channel

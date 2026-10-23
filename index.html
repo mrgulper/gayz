@@ -1551,14 +1551,15 @@ Escape before dawn.</p>
           </div>
         </div>
         <div class="general-tab-page" id="general-page-clan" style="display: none">
-          <div id="clan-signin-gate" style="display: none">
-            <p id="clan-signin-gate-text"></p>
-          </div>
           <div class="clan-subtabs" id="clan-subtabs">
             <button class="clan-subtab active" data-clan-subpage="ranking" id="clan-subtab-ranking">Clans</button>
             <button class="clan-subtab" data-clan-subpage="myclan" id="clan-subtab-myclan">My Clan</button>
           </div>
           <div class="clan-subtab-page" id="clan-subpage-myclan" style="display: none">
+            <div id="clan-signin-gate" style="display: none">
+              <p id="clan-signin-gate-text">Sign up or log in to make or join a clan.</p>
+              <button id="clan-signin-btn" type="button">Sign Up or Login</button>
+            </div>
             <div id="clan-in-clan-state" style="display: none">
               <h4 id="clan-display-name"></h4>
               <div id="clan-in-clan-columns">
@@ -1611,6 +1612,7 @@ Escape before dawn.</p>
           </div>
           <div class="clan-subtab-page" id="clan-subpage-ranking">
             <h5 id="clan-ranking-heading">Clans</h5>
+            <p id="clan-reset-note"></p>
             <div id="clan-all-list"></div>
           </div>
         </div>
@@ -2111,10 +2113,12 @@ Escape before dawn.</p>
         <div class="panel-box">
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
           <h2 id="levels-panel-title">Levels</h2>
-          <div id="levels-content" class="coming-soon-content">
-            <svg class="coming-soon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.5 6 .9-4.35 4.25 1 6L12 16.8l-5.4 2.85 1-6L3.3 9.4l6-.9z"/></svg>
-            <p id="levels-coming-title" class="coming-soon-title">Coming Soon</p>
-            <p id="levels-coming-text" class="coming-soon-text">Levels are coming soon.</p>
+          <div id="levels-content">
+            <p id="levels-level">Level 1</p>
+            <div id="levels-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div id="levels-bar-fill"></div></div>
+            <p id="levels-progress"></p>
+            <p id="levels-total"></p>
+            <p id="levels-how"></p>
           </div>
         </div>
       </div>
@@ -2252,9 +2256,9 @@ Escape before dawn.</p>
           <h3><span data-feature-count="achievements">19</span> Achievements</h3>
           <p>Spanning combat, survival and story, each with a hint instead of a bare "???" (skeleton hunters get Rattled, Bone Collector and Skeleton Key; the toughest runs earn Half Century, Slaughterhouse and Unstoppable; buying upgrades earns Well Equipped and Maxed Out) — plus search, category filter, sort, and a Print list export in the Achievements panel.</p>
         </div>
-        <div class="feature" data-code="_xpForLevel">
-          <h3>Rank &amp; Level System</h3>
-          <p>A Rank Roadmap on the Profile panel showing every rank and the lifetime kills it takes.</p>
+        <div class="feature" data-code="xpForGame levelFromXp xpToNextLevel starterXp">
+          <h3>XP &amp; Levels</h3>
+          <p>Every game you finish earns XP - more for kills, waves survived, time alive and winning, and more on harder difficulties - shown on the game-over card. XP is never spent (it isn't a currency) and raises your level with no top level, each one taking a little more XP than the last. Your level shows next to your name, and the level badge on your profile card opens the Levels page with your XP bar. Players from before XP started with XP from their lifetime kills and games. The Profile panel's Rank Roadmap still shows every rank and the lifetime kills it takes.</p>
         </div>
         <div class="feature" data-code="careerStats privateNotes">
           <h3>Career Stats &amp; Profile</h3>
@@ -2444,9 +2448,9 @@ Escape before dawn.</p>
           <h3>Friend List</h3>
           <p>The Friend List button: add by player ID or by name (a list of matching players pops up as you type), real-time friend requests, as many friends as you like (counted next to Your Friends) with each one's #ID, live Friend Compare, and an online/idle/DND/offline status dropdown with last-seen time. Click your own ID to copy it.</p>
         </div>
-        <div class="feature" data-code="createClan sendClanInvite fetchClanCombinedStats">
+        <div class="feature" data-code="createClan sendClanInvite fetchClanCombinedStats clanMonthKey entryClanXp">
           <h3>Clans</h3>
-          <p>Start a clan with its own name or join one from the Clan tab in General: a clan ranking by the members' average zombie kills (to one decimal place), invites you can send by Player ID or by name (matching players pop up as you type) and accept or decline, a member list where the leader can remove members or hand over leadership, and leaving or deleting a clan. Clan members get their own Clan chat tab, and your clan's name shows above your name and level.</p>
+          <p>Start a clan with its own name or join one from the Clan tab in General: a clan ranking by the XP the members earned for their clan this month - XP only counts for the clan you earned it in, and every clan goes back to 0 at the start of each month (the board says how many days are left) - My Clan shows your clan's XP and your own part this month (or asks you to sign in), invites you can send by Player ID or by name (matching players pop up as you type) and accept or decline, a member list where the leader can remove members or hand over leadership, and leaving or deleting a clan. Clan members get their own Clan chat tab, and your clan's name shows above your name and level.</p>
         </div>
         <div class="feature" data-code="createMarketListing buyMarketListing MARKET_FEE_RATE">
           <h3>Market</h3>
@@ -2575,10 +2579,6 @@ Escape before dawn.</p>
         <div class="feature coming-soon">
           <h3>Deathmatch</h3>
           <p>A Deathmatch tab in Game Mode, Achievements, Upgrades and the Global server list - player-versus-player games are coming soon.</p>
-        </div>
-        <div class="feature coming-soon">
-          <h3>Levels</h3>
-          <p>The level badge on your profile card opens a Levels page - marked "Coming Soon" for now.</p>
         </div>
         <div class="feature coming-soon">
           <h3>Monthly, Yearly &amp; Lifetime Quests</h3>
