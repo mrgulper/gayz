@@ -34,6 +34,8 @@ export const DEVICE_ONLY_KEYS = new Set([
   CLOUD_BASE_UID_KEY,
   'gayz-auto-quality-level',
   'gayz-avatar-face-cache',
+  'gayz-clean-vars',
+  'gayz-clean-bg-image',
 ])
 
 // Keys whose numeric fields are running totals/balances - when both devices

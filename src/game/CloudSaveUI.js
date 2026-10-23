@@ -128,7 +128,7 @@ export function restoreCloudSession(game) {
   })
 }
 
-// The "Sign up or login with..." bar at the bottom of the Market and the
+// The "Sign up or login to use..." bar at the bottom of the Market and the
 // Gallery: shown while signed out, once the first auth check is done (so a
 // signed-in player never sees it flash).
 export function renderSignInFooters(game) {

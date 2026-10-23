@@ -15,7 +15,8 @@ import { CHANGELOG_LAST_VIEWED_KEY, LAST_LOCAL_CHANGE_KEY, NAV_ID_RENAMES, CRATE
 import { DEVICE_ONLY_KEYS } from './CloudMerge.js'
 import { ACTIONS, getAllBindings, getKeyFor, keyLabel, resetBindings, setAllBindings, setBinding } from './Keybinds.js'
 import { LANGUAGES, setLanguage, t } from './i18n.js'
-import { applyUiTheme, cleanVars, normalizeHex } from './CleanTheme.js'
+import { bindFooterMenus } from './FooterMenus.js'
+import { applyUiTheme, cleanVars, normalizeHex, rememberCleanVars, getCleanBgImage, applyCleanBgImage, cropToScreen, CLEAN_BG_IMAGE_KEY } from './CleanTheme.js'
 
 // Swaps a slider's value label for a temporary <input type="number"> on
 // click, so a precise number can be typed in instead of fighting the
@@ -915,7 +916,9 @@ export function _bindSettings(game) {
   // Theme (Inventory > Theme): Old or Clean, as two clickable cards.
   // Old's look is html.ui-theme-old, Clean's html.ui-theme-clean plus the
   // colour variables CleanTheme.js puts on <html>. Clean's colour is
-  // picked with the swatch or typed as a hex code, applied live.
+  // picked with the round swatch, applied live (the hex text box was
+  // removed 2026-10-23). Clean can also have a homepage picture from the
+  // player's computer (Upload picture), kept on this device only.
   if (game.themePickerClean && game.themePickerOld) {
     const syncUiTheme = () => {
       applyUiTheme(game.settings)
@@ -925,7 +928,7 @@ export function _bindSettings(game) {
       game.themePickerClean.style.setProperty('--clean-preview', game.settings.cleanColor)
       game.themePickerClean.style.setProperty('--clean-preview-fg', cleanVars(game.settings.cleanColor)['--clean-fg'])
       if (game.themeCleanColorInput) game.themeCleanColorInput.value = game.settings.cleanColor
-      if (game.themeCleanHexInput && document.activeElement !== game.themeCleanHexInput) game.themeCleanHexInput.value = game.settings.cleanColor.toUpperCase()
+      if (game.themeCleanBgClear) game.themeCleanBgClear.style.display = getCleanBgImage() ? '' : 'none'
       // Keep the Skin Designer panel in sync too, for the case where it's
       // already open (its iframe src is only ever set once - see
       // _openSkinDesignerPanel - so it can't pick up a fresh ?theme=).
@@ -934,6 +937,7 @@ export function _bindSettings(game) {
       }
     }
     syncUiTheme()
+    rememberCleanVars(game.settings)
     const pick = (theme) => {
       game.settings.uiTheme = theme
       syncUiTheme()
@@ -948,25 +952,33 @@ export function _bindSettings(game) {
       game.settings.cleanColor = hex
       game.settings.uiTheme = 'clean'
       syncUiTheme()
-      if (save) saveSettings(game.settings)
+      if (save) {
+        saveSettings(game.settings)
+        rememberCleanVars(game.settings)
+      }
       return true
     }
     game.themeCleanColorInput?.addEventListener('input', () => setColor(game.themeCleanColorInput.value, false))
     game.themeCleanColorInput?.addEventListener('change', () => setColor(game.themeCleanColorInput.value, true))
-    const hexInput = game.themeCleanHexInput
-    if (hexInput) {
-      hexInput.addEventListener('input', () => {
-        const ok = /^#?[0-9a-f]{0,6}$/i.test(hexInput.value.trim())
-        hexInput.classList.toggle('invalid', !ok)
-        if (/^#?[0-9a-f]{6}$/i.test(hexInput.value.trim())) setColor(hexInput.value, true)
-      })
-      const commit = () => {
-        if (!setColor(hexInput.value, true)) hexInput.value = game.settings.cleanColor.toUpperCase()
-        hexInput.classList.remove('invalid')
+    game.themeCleanBgBtn?.addEventListener('click', () => game.themeCleanBgFile?.click())
+    game.themeCleanBgFile?.addEventListener('change', async () => {
+      const file = game.themeCleanBgFile.files && game.themeCleanBgFile.files[0]
+      game.themeCleanBgFile.value = ''
+      if (!file) return
+      try {
+        localStorage.setItem(CLEAN_BG_IMAGE_KEY, await cropToScreen(file))
+      } catch {
+        game._showHomepageToast(t('themeCleanBgError'))
+        return
       }
-      hexInput.addEventListener('change', commit)
-      hexInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { commit(); hexInput.blur() } })
-    }
+      applyCleanBgImage()
+      if (game.settings.uiTheme === 'clean') syncUiTheme()
+      else pick('clean')
+    })
+    game.themeCleanBgClear?.addEventListener('click', () => {
+      try { localStorage.removeItem(CLEAN_BG_IMAGE_KEY) } catch { /* storage blocked */ }
+      syncUiTheme()
+    })
   }
   // Audio Cue on Hover/Focus - a single delegated listener on #menu
   // (event bubbling from focusin, which - unlike focus - does bubble)
@@ -1164,6 +1176,7 @@ export function _bindSettings(game) {
   if (game.comingSoonCloseBtn) game.comingSoonCloseBtn.addEventListener('click', () => game._closeComingSoonPanel())
   if (game.howtoplayNavLink) game.howtoplayNavLink.addEventListener('click', () => game._openHowToPlayPanel())
   if (game.whatsNewLink) game.whatsNewLink.addEventListener('click', () => trackAndOpen(() => game._openWhatsNewPanel()))
+  bindFooterMenus(game)
   if (game.friendsBtn) game.friendsBtn.addEventListener('click', () => trackAndOpen(() => game._openFriendsPanel()))
   if (game.statusPickerToggle) {
     game.statusPickerToggle.addEventListener('click', (e) => {
