@@ -68,14 +68,17 @@ function cloudTexture() {
     return seed / 2147483647
   }
   const on = new Uint8Array(N * N)
-  for (let i = 0; i < 26; i++) {
+  // Soft blocky clouds (2026-10-23): fewer, bigger, flatter clumps of a
+  // few overlapping rectangles each, with open sky between them.
+  for (let i = 0; i < 16; i++) {
     const cx = Math.floor(rnd() * N)
     const cy = Math.floor(rnd() * N)
-    const w = 3 + Math.floor(rnd() * 7)
-    const h = 2 + Math.floor(rnd() * 4)
-    for (let k = 0; k < 3; k++) {
-      const ox = Math.floor((rnd() - 0.5) * w)
-      const oy = Math.floor((rnd() - 0.5) * h)
+    const parts = 2 + Math.floor(rnd() * 3)
+    for (let k = 0; k < parts; k++) {
+      const w = 5 + Math.floor(rnd() * 9)
+      const h = 3 + Math.floor(rnd() * 5)
+      const ox = Math.floor((rnd() - 0.5) * 8)
+      const oy = Math.floor((rnd() - 0.5) * 4)
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) on[((cy + oy + y + N) % N) * N + ((cx + ox + x + N) % N)] = 1
     }
   }
@@ -83,7 +86,7 @@ function cloudTexture() {
     const img = g.createImageData(N, N)
     for (let i = 0; i < N * N; i++) {
       img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = 255
-      img.data[i * 4 + 3] = on[i] ? 230 : 0
+      img.data[i * 4 + 3] = on[i] ? 210 : 0
     }
     g.putImageData(img, 0, 0)
   })
@@ -166,6 +169,7 @@ export class SkyBodies {
     const grey = 1 - cover * 0.45
     const light = 0.18 + 0.82 * daylight
     this.cloudMat.uniforms.color.value.setRGB(grey * light, grey * light, grey * light * (1.02 - 0.05 * daylight))
-    this.cloudMat.uniforms.opacity.value = 0.9 + cover * 0.1
+    // Gone at night, so the night sky stays black behind the stars.
+    this.cloudMat.uniforms.opacity.value = (0.85 + cover * 0.15) * THREE.MathUtils.smoothstep(daylight, 0.15, 0.7)
   }
 }

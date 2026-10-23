@@ -59,8 +59,10 @@ const CAVE_FOG_FAR = 48
 // game is still slow at its lowest resolution (Game._updateEditorResScale).
 export const VIEW_DISTANCES = { short: 48, medium: 80, far: 128, max: Infinity }
 export const VIEW_STEPS = ['short', 'medium', 'far', 'max']
-// Fog starts this share of the way out.
-const FOG_START = 0.6
+// Fog starts this share of the way out - only the last stretch before the
+// edge, so far land stays clear (2026-10-23, Gaymi: "100% clear"; at 0.6
+// everything past the middle distance looked hazy).
+const FOG_START = 0.88
 // A phone or tablet (no mouse): starts on a shorter view distance and
 // skips anisotropic filtering.
 const TOUCH_DEVICE = typeof window !== 'undefined' && !!window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
@@ -1708,7 +1710,9 @@ export class BuildMode {
       // 8x keeps far ground sharp (2026-10-18, "very blurry"); much
       // cheaper on weak GPUs - and phones/tablets skip it (anisotropic
       // filtering is one of the slowest things for an old phone's GPU).
-      maxAnisotropy: TOUCH_DEVICE ? 1 : Math.min(8, renderer.capabilities.getMaxAnisotropy()),
+      // 16x on a computer and 2x on a phone since 2026-10-23 ("blurry the
+      // further you look").
+      maxAnisotropy: Math.min(TOUCH_DEVICE ? 2 : 16, renderer.capabilities.getMaxAnisotropy()),
       faces: blockFaceCanvases,
       // The 16x16 pixel textures at their own size (drawn crisp, BlockChunks).
       tile: 16,

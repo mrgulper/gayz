@@ -50,6 +50,17 @@ function cullAfterUpload() {
 // and crisp like Kirka/bloxd instead of the blurry 64px HD ones): about 2 MB
 // with mipmaps for ~311 textures.
 const DEFAULT_TILE = 16
+// Mip level bias for block textures: negative = sharper far away (a full
+// -1 starts to shimmer on moving ground).
+const SHARPEN = -0.6
+function sharpen(mat) {
+  mat.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `#ifdef USE_MAP
+      diffuseColor *= texture2D( map, vMapUv, ${SHARPEN.toFixed(2)} );
+    #endif`)
+  }
+  mat.customProgramCacheKey = () => 'sharpen'
+}
 
 // 6 faces: normal, 4 corners (cube-local 0/1, counter-clockwise seen from
 // outside), texture v points up (+y) on the sides, -z on top/bottom.
@@ -186,7 +197,10 @@ export class BlockChunks {
     // Crisp pixels up close (nearest), trilinear mipmaps + full anisotropy
     // far away so the floor doesn't shimmer toward the horizon. Safe with an atlas: the padded power-of-two slots above keep
     // every mip level inside a block's own texture.
-    tex.minFilter = THREE.LinearMipmapLinearFilter
+    // Since 2026-10-23 ("blurry the further you look"): each mip level is
+    // read with nearest pixels too, and one step sharper (SHARPEN), so far
+    // blocks keep their pixels instead of smudging into flat colour.
+    tex.minFilter = THREE.NearestMipmapLinearFilter
     tex.magFilter = THREE.NearestFilter
     tex.colorSpace = THREE.SRGBColorSpace
     tex.anisotropy = maxAnisotropy
@@ -213,6 +227,7 @@ export class BlockChunks {
       clear: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, alphaTest: 0.02 }),
       cutout: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, alphaTest: 0.5 }),
     }
+    for (const id of ['solid', 'glow', 'clear', 'cutout']) sharpen(this.materials[id])
   }
 
   // Liquid animation - steps one texture pixel at a time (Minecraft's own

@@ -2376,6 +2376,14 @@ test('animals, held blocks, sky top bar, no spectate banner, What\'s New card', 
     // Natural spawning around you.
     for (let i = 0; i < 40; i++) A.update(0.5)
     out.spawned = A.list.length > 0
+    // Each animal only in a biome that fits it (2026-10-23): no cows in the
+    // snow, polar bears in the snow, camels in the desert, none at sea.
+    const T = A.constructor.BIOME_ANIMALS
+    out.snow = Object.keys(T.snowyPlains).sort()
+    out.desert = Object.keys(T.desert).sort()
+    out.sea = Object.keys(T.ocean)
+    out.allBuilt = Object.values(T).every((t) => Object.keys(t).every((k) => A.constructor.KINDS[k]))
+    out.cowsOnlyWarm = Object.entries(T).filter(([, t]) => t.cow).map(([b]) => b).sort()
     // One right in front of you: shot, it dies and drops meat.
     A.clear()
     bm._pitch = -0.25
@@ -2432,7 +2440,7 @@ test('animals, held blocks, sky top bar, no spectate banner, What\'s New card', 
     bm.toggleMenu()
     return out
   })
-  expect(r).toEqual({ spawned: true, stillHere: true, tamed: true, petSafe: true, follows: true, meat: true, healed: true, handBlock: true, weather: true, time: true, nightVar: true, noBanner: true })
+  expect(r).toEqual({ spawned: true, snow: ['arcticFox', 'polarBear'], desert: ['camel', 'lizard'], sea: [], allBuilt: true, cowsOnlyWarm: ['city', 'mushroomFields', 'plains'], stillHere: true, tamed: true, petSafe: true, follows: true, meat: true, healed: true, handBlock: true, weather: true, time: true, nightVar: true, noBanner: true })
 })
 
 // The spawn map's countries -> states/provinces -> cities (2026-10-18):
