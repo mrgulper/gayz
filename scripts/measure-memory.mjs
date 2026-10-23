@@ -2,6 +2,7 @@
 // :4173, e.g. `npm run build && npm run preview -- --port 4173`).
 // `node scripts/measure-memory.mjs` prints JS heap + GPU buffer estimates
 // on the homepage, in a match, and after walking out into the open world.
+/* global window */
 import { chromium } from '@playwright/test'
 
 const URL = process.env.URL || 'http://localhost:4173/'
@@ -68,7 +69,7 @@ function procs() {
   const by = {}
   for (const l of out) {
     const rss = +l.trim().split(/\s+/)[0]
-    const type = (l.match(/--type=([a-z-]+)/) || [, 'browser'])[1]
+    const type = (l.match(/--type=([a-z-]+)/) || [null, 'browser'])[1]
     const util = (l.match(/--utility-sub-type=([\w.]+)/) || [])[1]
     const k = util ? 'util:' + util.split('.').pop() : type
     by[k] = (by[k] || 0) + Math.round(rss / 1024)

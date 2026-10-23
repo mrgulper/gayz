@@ -23,10 +23,15 @@
 // that only makes sense per device (Auto Quality's level is a measurement
 // of this device's GPU; the avatar face cache is a render of local state).
 export const CLOUD_BASE_KEY = 'gayz-cloud-base'
+// Which account the base belongs to (2026-10-23): after signing out of one
+// account and into another, the old account's base must not be used to
+// merge the new account's save (see CloudSaveUI.loadBaseFor).
+export const CLOUD_BASE_UID_KEY = 'gayz-cloud-base-uid'
 export const DEVICE_ONLY_KEYS = new Set([
   'gayz-cloud-last-sync',
   'gayz-last-local-change',
   CLOUD_BASE_KEY,
+  CLOUD_BASE_UID_KEY,
   'gayz-auto-quality-level',
   'gayz-avatar-face-cache',
 ])
@@ -49,7 +54,23 @@ const ADDITIVE_KEYS = new Set([
 // slots, nav order) where combining two versions would produce nonsense.
 const NEWEST_WINS_KEYS = new Set(['gayz-settings', 'gayz-keybinds'])
 
-const MAX_FIELD = /best|max|highest|longest|peak|record|streak|level|date|time|last|first|At$/i
+// Records, timestamps and "already granted" counters take the higher value.
+// Matched on whole camelCase words (2026-10-23): the old substring test saw
+// "time" in lifetimeCoinsEarned / lifetimePlaytimeSeconds and took the
+// higher device's total instead of adding both, and missed mostProfitableRun.
+const MAX_WORDS = new Set(['best', 'max', 'highest', 'longest', 'peak', 'record', 'streak', 'level', 'date', 'time', 'last', 'first', 'most', 'granted', 'night', 'wave'])
+export function isMaxField(field) {
+  if (/At$/.test(field)) return true
+  return String(field).split(/[^A-Za-z0-9]+|(?<=[a-z0-9])(?=[A-Z])/).some((w) => MAX_WORDS.has(w.toLowerCase()))
+}
+
+// Lists the game keeps sorted and capped: after two devices' lists are
+// combined they're re-sorted, or the other device's newest runs would sit at
+// the bottom and be the first cut when the next run is added.
+const LIST_RULES = {
+  'gayz-run-history': { sort: (a, b) => (Number(b?.ts) || 0) - (Number(a?.ts) || 0), max: 25 },
+  'gayz-leaderboard': { sort: (a, b) => ((b?.night || 0) - (a?.night || 0)) || ((b?.kills || 0) - (a?.kills || 0)) || ((b?.points || 0) - (a?.points || 0)), max: 10 },
+}
 
 // Only this game's own keys are account data. Anything else in
 // localStorage belongs to a library (Firebase Auth writes/removes a
@@ -59,6 +80,28 @@ const MAX_FIELD = /best|max|highest|longest|peak|record|streak|level|date|time|l
 // look like "progress changed" (part of the 2026-09-28 reload-loop report).
 export function isSyncedKey(key) {
   return typeof key === 'string' && key.startsWith('gayz-') && !DEVICE_ONLY_KEYS.has(key)
+}
+
+// The merge base, with the account it belongs to. `foreign` = it was saved
+// for a different account than `uid`: merging against it would mix two
+// accounts' saves, so callers don't. A base from before the account was
+// recorded counts as this account's.
+export function readBase(storage, uid) {
+  let base
+  try {
+    const raw = storage.getItem(CLOUD_BASE_KEY)
+    base = raw ? JSON.parse(raw) : null
+  } catch {
+    base = null
+  }
+  if (base !== null && (typeof base !== 'object' || Array.isArray(base))) base = null
+  const owner = storage.getItem(CLOUD_BASE_UID_KEY)
+  return { base, foreign: !!(base && owner && uid && owner !== uid) }
+}
+
+export function writeBase(storage, data, uid) {
+  storage.setItem(CLOUD_BASE_KEY, JSON.stringify(data))
+  if (uid) storage.setItem(CLOUD_BASE_UID_KEY, uid)
 }
 
 export function syncableSnapshot(storage) {
@@ -105,7 +148,7 @@ function mergeValue(b, l, r, ctx, field, hasBase) {
   // independently (a device that had synced the other's change would have
   // it as its base). Also correct when only one side changed.
   if (ctx.additive && hasBase && typeof l === 'number' && typeof r === 'number' && typeof b === 'number' &&
-      !MAX_FIELD.test(field) && l <= 1e12 && r <= 1e12) {
+      !isMaxField(field) && l <= 1e12 && r <= 1e12) {
     return b + (l - b) + (r - b)
   }
   if (deepEqual(l, r)) return l
@@ -127,7 +170,7 @@ function mergeValue(b, l, r, ctx, field, hasBase) {
   }
   if (typeof l === 'number' && typeof r === 'number') {
     if (ctx.newestWins) return ctx.preferLocal ? l : r
-    if (MAX_FIELD.test(field) || l > 1e12 || r > 1e12) return Math.max(l, r)
+    if (isMaxField(field) || l > 1e12 || r > 1e12) return Math.max(l, r)
     if (ctx.additive && hasBase && typeof b === 'number') return b + (l - b) + (r - b)
     return Math.max(l, r)
   }
@@ -195,7 +238,8 @@ export function mergeSaves(base, local, remote, preferLocal) {
       continue
     }
     const ctx = { additive: ADDITIVE_KEYS.has(key), newestWins: NEWEST_WINS_KEYS.has(key), preferLocal }
-    const merged = mergeValue(bp.value, lp.value, rp.value, ctx, key, hasBase)
+    let merged = mergeValue(bp.value, lp.value, rp.value, ctx, key, hasBase)
+    if (Array.isArray(merged) && LIST_RULES[key]) merged = [...merged].sort(LIST_RULES[key].sort).slice(0, LIST_RULES[key].max)
     if (merged !== undefined) out[key] = JSON.stringify(merged)
   }
   return out

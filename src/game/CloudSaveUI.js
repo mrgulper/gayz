@@ -15,7 +15,7 @@ import { t } from './i18n.js'
 import * as CloudSync from './CloudSync.js'
 import * as ChatUI from './ChatUI.js'
 import { CLOUD_LAST_SYNC_KEY, LAST_LOCAL_CHANGE_KEY, _formatRelativeTime, _safeStatNumber, saveSettings } from './Game.js'
-import { CLOUD_BASE_KEY, isSyncedKey, mergeSaves, sameData, stripDeviceOnly, syncableSnapshot } from './CloudMerge.js'
+import { isSyncedKey, mergeSaves, readBase, sameData, stripDeviceOnly, syncableSnapshot, writeBase } from './CloudMerge.js'
 
 export function openCloudSavePanel(game) {
   game.cloudsavePanel.style.display = 'flex'
@@ -169,9 +169,10 @@ export function renderCloudSaveState(game) {
 export function renderCloudSyncStatus(game) {
   if (!game.cloudsaveSyncStatus) return
   const last = localStorage.getItem(CLOUD_LAST_SYNC_KEY)
-  game.cloudsaveSyncStatus.textContent = last
+  game.cloudsaveSyncStatus.textContent = (last
     ? t('cloudsaveLastSynced', { time: _formatRelativeTime(Math.max(0, Date.now() - Number(last))) })
-    : t('cloudsaveNeverSynced')
+    : t('cloudsaveNeverSynced'))
+    + (game._cloudPendingConflict ? ` - ${t('cloudsaveChoosePending')}` : game._cloudSyncFailed ? ` - ${t('cloudsaveLastSyncFailed')}` : '')
   // Also on the homepage cloud icon itself (see #7 of the Online Features
   // ask - a "glance" without permanent new homepage UI).
   if (game.quickCloudBtn) {
@@ -229,7 +230,7 @@ export function applyCloudSaveData(game, data) {
   for (const [key, value] of Object.entries(synced)) localStorage.setItem(key, value)
   // The applied content now exactly matches the cloud, so it's this
   // device's merge base (see CloudMerge.js).
-  localStorage.setItem(CLOUD_BASE_KEY, JSON.stringify(synced))
+  writeBase(localStorage, synced, game._cloudUid)
   localStorage.setItem(CLOUD_LAST_SYNC_KEY, String(Date.now()))
   markSyncReload()
   window.location.reload()
@@ -261,15 +262,6 @@ function reloadedBySyncRecently() {
   }
 }
 
-function loadBase() {
-  try {
-    const raw = localStorage.getItem(CLOUD_BASE_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
-}
-
 // The one sync path (see CloudMerge.js for the bug this replaced): read the
 // cloud, three-way merge it with this device's data against the last
 // content they agreed on, upload the result only if the cloud still is
@@ -292,13 +284,26 @@ export async function syncWithCloud(game, { manual = false, allowApply = true } 
   if (game._importingSave) return 'reloading'
   if (!game._cloudUid || (!game.__cloudBackendForTests && !CloudSync.isConfigured())) return 'failed'
   if (game._cloudSyncInFlight) return game._cloudSyncInFlight
+  // The player hasn't picked "use cloud" or "keep this device" yet: nothing
+  // syncs until they do (2026-10-23 - a background sync used to merge the
+  // two saves on its own while the question was still on screen).
+  if (game._cloudPendingConflict) return 'deferred'
   if (allowApply && reloadedBySyncRecently()) allowApply = false
   game._cloudSyncInFlight = (async () => {
     try {
       for (let attempt = 0; attempt < 3; attempt++) {
-        const cloud = await backend.fetchCloudSave(game._cloudUid)
+        const uid = game._cloudUid
+        const cloud = await backend.fetchCloudSave(uid)
         const local = syncableSnapshot(localStorage)
-        const base = loadBase()
+        const { base, foreign } = readBase(localStorage, uid)
+        if (cloud && foreign) {
+          // This device last synced with another account (signed out of
+          // it and into this one): ask, like a first sign-in on a device
+          // that already has progress, instead of mixing the two saves.
+          game._cloudPendingConflict = cloud.data
+          renderCloudConflict(game, cloud.data)
+          return 'deferred'
+        }
         const remote = cloud ? stripDeviceOnly(cloud.data) : {}
         const localChangeTime = Number(localStorage.getItem(LAST_LOCAL_CHANGE_KEY)) || 0
         const merged = cloud ? mergeSaves(base, local, remote, localChangeTime >= (cloud.modifiedTime || 0)) : local
@@ -312,23 +317,24 @@ export async function syncWithCloud(game, { manual = false, allowApply = true } 
           // rest in, and any change made here meanwhile still merges on top
           // (totals included: M - L equals the other devices' deltas).
           if (remoteChanged) {
-            const result = await backend.pushCloudSaveIfUnchanged(game._cloudUid, merged, cloud ? cloud.modifiedTime ?? null : null)
+            const result = await backend.pushCloudSaveIfUnchanged(uid, merged, cloud ? cloud.modifiedTime ?? null : null)
             if (result === false) continue
             game._cloudSyncing = true
             try {
-              localStorage.setItem(CLOUD_BASE_KEY, JSON.stringify(local))
+              writeBase(localStorage, local, uid)
               localStorage.setItem(CLOUD_LAST_SYNC_KEY, String(Date.now()))
             } finally {
               game._cloudSyncing = false
             }
             game._cloudLastUpdatedAt = result
+            game._cloudSyncFailed = false
             renderCloudSyncStatus(game)
           }
           return 'deferred'
         }
         let newUpdatedAt = cloud ? cloud.modifiedTime : null
         if (remoteChanged) {
-          const result = await backend.pushCloudSaveIfUnchanged(game._cloudUid, merged, cloud ? cloud.modifiedTime ?? null : null)
+          const result = await backend.pushCloudSaveIfUnchanged(uid, merged, cloud ? cloud.modifiedTime ?? null : null)
           if (result === false) continue // another device uploaded first - re-read and re-merge
           newUpdatedAt = result
         }
@@ -338,23 +344,29 @@ export async function syncWithCloud(game, { manual = false, allowApply = true } 
         }
         game._cloudSyncing = true
         try {
-          localStorage.setItem(CLOUD_BASE_KEY, JSON.stringify(merged))
+          writeBase(localStorage, merged, uid)
           localStorage.setItem(CLOUD_LAST_SYNC_KEY, String(Date.now()))
         } finally {
           game._cloudSyncing = false
         }
         game._cloudLastUpdatedAt = newUpdatedAt
+        game._cloudSyncFailed = false
         renderCloudSyncStatus(game)
         if (manual) game._showHomepageToast(t('cloudsaveSynced'))
         return 'ok'
       }
       if (manual) game._showHomepageToast(t('cloudsaveError'))
+      game._cloudSyncFailed = true
+      renderCloudSyncStatus(game)
       return 'failed'
     } catch (err) {
-      // Kept for diagnostics (Copy Error Log / Playwright) - a failed sync
-      // is otherwise silent unless it was a manual Sync Now.
+      // Kept for diagnostics (Copy Error Log / Playwright). The status line
+      // says the last sync failed, so a sync that keeps failing in the
+      // background isn't mistaken for "all synced".
       game._lastCloudSyncError = String(err && (err.stack || err.message || err))
       if (manual) game._showHomepageToast(t('cloudsaveError'))
+      game._cloudSyncFailed = true
+      renderCloudSyncStatus(game)
       return 'failed'
     } finally {
       game._cloudSyncInFlight = null
@@ -457,7 +469,7 @@ export function resolveCloudConflict(game, choice) {
     if (game.cloudsaveConflict) game.cloudsaveConflict.style.display = 'none'
     game._cloudSyncing = true
     try {
-      localStorage.setItem(CLOUD_BASE_KEY, JSON.stringify(stripDeviceOnly(cloudData)))
+      writeBase(localStorage, stripDeviceOnly(cloudData), game._cloudUid)
     } finally {
       game._cloudSyncing = false
     }
@@ -493,6 +505,7 @@ export async function handleCloudSignOut(game) {
   game._cloudProfile = null
   game._cloudUid = null
   game._cloudPendingConflict = null
+  game._cloudSyncFailed = false
   game._cloudGlobalRank = null
   if (game._leaderboardUnsubscribe) {
     game._leaderboardUnsubscribe()

@@ -14,7 +14,7 @@
 // Only imports CloudSync/CloudMerge (never Game.js), so it can run before
 // the game module's own state is touched.
 import * as CloudSync from './CloudSync.js'
-import { CLOUD_BASE_KEY, mergeSaves, stripDeviceOnly, syncableSnapshot } from './CloudMerge.js'
+import { mergeSaves, readBase, stripDeviceOnly, syncableSnapshot, writeBase } from './CloudMerge.js'
 
 const CLOUD_LAST_SYNC_KEY = 'gayz-cloud-last-sync'
 const LAST_LOCAL_CHANGE_KEY = 'gayz-last-local-change'
@@ -22,15 +22,6 @@ const LAST_LOCAL_CHANGE_KEY = 'gayz-last-local-change'
 // just skips the pull (the upload-only syncs after boot keep this device's
 // own changes flowing, and the next load tries again).
 const PRE_BOOT_TIMEOUT_MS = 6000
-
-function loadBase() {
-  try {
-    const raw = localStorage.getItem(CLOUD_BASE_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
-}
 
 function firstAuthState() {
   return new Promise((resolve, reject) => {
@@ -109,12 +100,17 @@ export function preBootCloudSync() {
     if (!testBackend && !localStorage.getItem(CLOUD_LAST_SYNC_KEY) && !(await hasStoredFirebaseSession())) return 'skipped'
     const uid = testBackend ? await testBackend.getUid() : (await firstAuthState())?.uid
     if (!uid || cancelled) return 'signed-out'
+    // Signed in to a different account than this device last synced with
+    // (signed out and into another one): its sign-in decides what happens
+    // to this device's save (OnlineUI._afterCloudSignIn), not a silent merge.
+    const { base, foreign } = readBase(localStorage, uid)
+    if (foreign) return 'other-account'
     const cloud = await (testBackend || CloudSync).fetchCloudSave(uid)
     if (!cloud || cancelled) return 'no-cloud'
     const local = syncableSnapshot(localStorage)
     const remote = stripDeviceOnly(cloud.data)
     const localChangeTime = Number(localStorage.getItem(LAST_LOCAL_CHANGE_KEY)) || 0
-    const merged = mergeSaves(loadBase(), local, remote, localChangeTime >= (cloud.modifiedTime || 0))
+    const merged = mergeSaves(base, local, remote, localChangeTime >= (cloud.modifiedTime || 0))
     if (cancelled) return 'timeout'
     // Synchronous from here on: nothing else can run in between, so the
     // game can never start half-way through these writes.
@@ -126,7 +122,7 @@ export function preBootCloudSync() {
     // device's own not-yet-uploaded changes then still count as changes
     // made here, so the first sync after boot uploads them (and totals
     // are only added once - see CloudMerge.js).
-    localStorage.setItem(CLOUD_BASE_KEY, JSON.stringify(remote))
+    writeBase(localStorage, remote, uid)
     return 'ok'
   })().catch(() => 'failed')
   const timeout = new Promise((resolve) => setTimeout(() => {
