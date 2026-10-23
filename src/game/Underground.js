@@ -278,7 +278,7 @@ export class Underground {
     const dx = Math.cos(a)
     const dz = Math.sin(a)
     const land = world.landAt(ex, ez)
-    if (!land || land.h < world.sea + 1) return null
+    if (!land || land.h < land.w + 1) return null
     const sx = ex
     const sy = land.h + 1
     const sz = ez
@@ -293,7 +293,7 @@ export class Underground {
       const at = world.landAt(x, z)
       if (!at) return null
       const y = sy - ENTRANCE_DROP * s
-      if (at.h < world.sea + 1 && y + ENTRANCE_R + 3 > at.h - 2) return null
+      if (at.h < at.w + 1 && y + ENTRANCE_R + 3 > at.h - 2) return null
     }
     for (let s = 0; s <= 10; s++) if (world._nearPath(Math.round(sx + dx * s), Math.round(sz + dz * s))) return null
     const R = ENTRANCE_ROOM_R + 1

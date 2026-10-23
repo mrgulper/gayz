@@ -34,7 +34,8 @@ import { audioEngine } from './Audio.js'
 import { addGunLights, cloneViewmodel } from './Viewmodels.js'
 import { heldAction, FIXED_KEYS } from './Keybinds.js'
 import { WORLD_LIMIT, sampleLand, biomeName, inCity, isEarthWorld } from './OpenWorld.js'
-import { ATLAS_OPEN_SPAN, drawEarthView, drawEarthPlaces } from './EarthAtlas.js'
+import { drawEarthView, drawEarthPlaces } from './EarthAtlas.js'
+import { EarthGlobe } from './EarthGlobe.js'
 import { EARTH_DEG } from './EarthGrid.js'
 import { placeNameAt } from './EarthPlaces.js'
 import { t } from './i18n.js'
@@ -77,6 +78,15 @@ const MAP_ZOOM_SAFE = [1e-4, 1e6]
 // Time per draw for the quick stand-in tiles; past it a tile is one flat
 // colour until the next draw.
 const MAP_COARSE_BUDGET_MS = 3
+// The World Map mode's big map (2026-10-23, Gaymi: "the second time
+// clicking m it should just look like the second time ... but in the
+// middle and bigger ... when you keep zooming out until then you can see
+// the world map ... make it to a circle 3d type that you can spin"): the
+// block map, then past ATLAS_FROM blocks across the flat real-world atlas
+// (EarthAtlas.js), then past GLOBE_FROM the globe (EarthGlobe.js).
+const ATLAS_FROM = 16 * EARTH_DEG
+const GLOBE_FROM = 70 * EARTH_DEG
+const GLOBE_MOST = 200 * EARTH_DEG
 const HEIGHT = 1.8
 const EYE = 1.62
 const CROUCH_HEIGHT = 1.5
@@ -280,19 +290,49 @@ export class BuildTryMode {
     this._mapHintEl = document.createElement('div')
     this._mapHintEl.id = 'build-try-map-hint'
     this._mapEl.appendChild(this._mapHintEl)
+    // Phones have no M key (2026-10-23): tapping the corner map makes it
+    // bigger, and the middle one has a close button.
+    this._mapCloseEl = document.createElement('button')
+    this._mapCloseEl.id = 'build-try-map-close'
+    this._mapCloseEl.type = 'button'
+    this._mapCloseEl.textContent = '✕'
+    this._mapCloseEl.addEventListener('click', (e) => {
+      e.stopPropagation()
+      if (this._mapInteractive()) this.cycleMap()
+    })
+    this._mapEl.appendChild(this._mapCloseEl)
+    this._mapEl.addEventListener('click', () => {
+      if (this.active && !this._mapInteractive() && document.body.classList.contains('touch-play-on')) this.cycleMap()
+    })
     document.body.appendChild(this._mapEl)
     window.addEventListener('resize', () => { if (this._mapEl.style.display !== 'none') this._applyMapMode() })
     // The big map in the middle can be moved around (2026-10-12, Gaymi:
     // "make it moveable so you can see further"): drag to look around,
     // scroll to zoom out and in, double-click to come back to you.
+    // Two fingers pinch to zoom on a phone.
     let drag = null
+    const fingers = new Map()
+    let pinch = 0
+    const spread = () => {
+      const [a, b] = [...fingers.values()]
+      return Math.hypot(a.x - b.x, a.y - b.y)
+    }
     this._mapCanvas.addEventListener('pointerdown', (e) => {
       if (!this._mapInteractive()) return
+      fingers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (fingers.size === 2) pinch = spread()
       drag = { x: e.clientX, y: e.clientY }
       this._mapCanvas.setPointerCapture?.(e.pointerId)
       this._mapEl.classList.add('dragging')
     })
     this._mapCanvas.addEventListener('pointermove', (e) => {
+      if (fingers.has(e.pointerId)) fingers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (fingers.size >= 2) {
+        const d = spread()
+        if (pinch > 0 && d > 0) this.zoomMap(pinch / d)
+        pinch = d
+        return
+      }
       if (!drag) return
       const cellsPerPx = this._mapSpan() / this._mapCanvas.clientWidth
       this._mapPan.x -= (e.clientX - drag.x) * cellsPerPx
@@ -301,9 +341,12 @@ export class BuildTryMode {
       drag = { x: e.clientX, y: e.clientY }
       this._mapDrawAt = 0
     })
-    const endDrag = () => {
-      drag = null
-      this._mapEl.classList.remove('dragging')
+    const endDrag = (e) => {
+      fingers.delete(e.pointerId)
+      pinch = 0
+      const left = [...fingers.values()][0]
+      drag = left ? { x: left.x, y: left.y } : null
+      if (!drag) this._mapEl.classList.remove('dragging')
     }
     this._mapCanvas.addEventListener('pointerup', endDrag)
     this._mapCanvas.addEventListener('pointercancel', endDrag)
@@ -320,11 +363,11 @@ export class BuildTryMode {
   }
 
   // The big map in the middle opens showing as much as the 2nd size
-  // (2026-10-19, Gaymi: "should be like the second image"); the World Map
-  // mode's opens as a real-world atlas.
+  // (2026-10-19, Gaymi: "should be like the second image") - in the World
+  // Map mode too, zooming out from there to the atlas and the globe.
   _mapOpenZoom() {
     if (!this.bm.world?.active) return 1
-    return (isEarthWorld() ? ATLAS_OPEN_SPAN : MAP_SPAN_FOR.big) / MAP_WORLD_SPAN
+    return MAP_SPAN_FOR.big / MAP_WORLD_SPAN
   }
 
   _mapInteractive() {
@@ -350,7 +393,9 @@ export class BuildTryMode {
   }
 
   zoomMap(factor) {
-    this._mapZoom = Math.min(MAP_ZOOM_SAFE[1], Math.max(MAP_ZOOM_SAFE[0], this._mapZoom * factor))
+    // The World Map mode stops once the whole globe is in view.
+    const most = this.bm.world?.active && isEarthWorld() ? GLOBE_MOST / MAP_WORLD_SPAN : MAP_ZOOM_SAFE[1]
+    this._mapZoom = Math.min(most, Math.max(MAP_ZOOM_SAFE[0], this._mapZoom * factor))
     this._mapDrawAt = 0
     this._mapMovedAt = performance.now()
   }
@@ -415,7 +460,9 @@ export class BuildTryMode {
         // No pointer lock here (tests).
       }
     }
-    this._mapHintEl.textContent = interactive ? t('mapDragHint') : ''
+    const touch = document.body.classList.contains('touch-play-on')
+    this._mapHintEl.textContent = interactive ? t(touch ? 'mapDragHintTouch' : 'mapDragHint') : ''
+    this._mapCloseEl.setAttribute('aria-label', t('mapCloseBtn'))
     // Drawn at the size it's shown, so the blocks stay crisp.
     const px = Math.max(1, Math.round(this._mapEl.clientWidth * Math.min(window.devicePixelRatio || 1, 2)))
     this._mapCanvas.width = px
@@ -466,11 +513,17 @@ export class BuildTryMode {
     const moved = this._mapZoom !== 1 || this._mapPan.x || this._mapPan.z
     const windowed = world || moved
     const span = windowed ? this._mapSpan() : cells
-    // The World Map mode's big map is the real-world map at every zoom
-    // (2026-10-18, Gaymi: "dont make a 3d circle actually just make a
-    // square map but you can move it ... each land must be full").
-    const atlasView = !!world && isEarthWorld() && this._mapInteractive()
+    // The World Map mode's big map: blocks, then the atlas, then the globe
+    // as you zoom out (ATLAS_FROM, GLOBE_FROM).
+    const earthView = !!world && isEarthWorld() && this._mapInteractive()
+    const globeView = earthView && span > GLOBE_FROM
+    const atlasView = earthView && span > ATLAS_FROM && !globeView
     if (atlasView !== this._mapEl.classList.contains('atlas')) this._mapEl.classList.toggle('atlas', atlasView)
+    if (globeView !== this._mapEl.classList.contains('globe')) {
+      this._mapEl.classList.toggle('globe', globeView)
+      if (globeView && !this._globe) this._globe = new EarthGlobe(this._mapEl)
+      this._globe?.show(globeView)
+    }
     const ox = windowed ? (world ? x : 0) + this._mapPan.x - span / 2 : -cells / 2
     const oz = windowed ? (world ? z : 0) + this._mapPan.z - span / 2 : -cells / 2
     const k = s / span
@@ -479,6 +532,12 @@ export class BuildTryMode {
       ctx.fillRect(0, 0, s, s)
       ctx.drawImage(this._mapImage, (-cells / 2 - ox) * k, (-cells / 2 - oz) * k, cells * k, cells * k)
       this._showBiome(null)
+    } else if (globeView) {
+      // The map's middle faces you; you're the arrow on it.
+      const yawNow = this.bm._yaw
+      this._globe.draw(s, -(oz + span / 2) / EARTH_DEG, (ox + span / 2) / EARTH_DEG, span / EARTH_DEG, { lat: -z / EARTH_DEG, lon: x / EARTH_DEG, ang: Math.atan2(-Math.cos(yawNow), -Math.sin(yawNow)) })
+      this._showBiome(x, z)
+      return
     } else if (atlasView) {
       // World block x = longitude * EARTH_DEG, z = -latitude * EARTH_DEG.
       const dpp = span / EARTH_DEG / s

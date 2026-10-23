@@ -285,7 +285,8 @@ html.ui-theme-old #build-try-map {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
 }
 html.ui-theme-old #build-try-map-hint,
-html.ui-theme-old #build-try-biome { color: #f3e6c8; background: rgba(74, 44, 16, 0.9); }
+html.ui-theme-old #build-try-biome,
+html.ui-theme-old #build-try-map-close { color: #f3e6c8; background: rgba(74, 44, 16, 0.9); }
 
 /* The top bar (TopBar.js), redesigned 2026-10-18 (Gaymi: "dont make it
    old style make it more nature based on where the biome the player is in

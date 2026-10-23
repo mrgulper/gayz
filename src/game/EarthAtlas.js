@@ -290,6 +290,9 @@ function countryLabels() {
   return labels
 }
 
+// The whole picture and the country names, for the globe (EarthGlobe.js).
+export { atlasCanvas as earthAtlasCanvas, countryLabels as earthCountryLabels }
+
 // Draws the atlas onto a canvas area w x h whose top-left corner is at
 // longitude `west`, latitude `north`, `dpp` degrees per pixel. Options:
 // countries (names), cities (Towns.js's, with names once close enough).
