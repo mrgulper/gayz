@@ -27,6 +27,7 @@ import { t } from './i18n.js'
 import { inCityShape, cityEdgeDistance } from './CityShape.js'
 import { planStructure, planLandmark, planTown, STRUCT_GRID, STRUCTURE_NAMES } from './WorldStructures.js'
 import { EARTH_DEG, earthBiome, earthLandAmount, WATER_BIOMES } from './EarthGrid.js'
+import { loadEarthTerrain, earthTerrainReady, earthHeight, earthLakeAt, earthLakeNear, earthRiverNear } from './EarthTerrain.js'
 import { Underground, rockAt, setUnderSeed } from './Underground.js'
 
 const CHUNK = 16
@@ -175,8 +176,9 @@ export const inCity = inCityShape
 // Earth (EarthGrid.js) - sea where Earth has sea, coasts where its coasts
 // are (blended between the 1-degree cells, with noise so they wiggle),
 // and each place's biome from the real spot (a little jitter so biome
-// borders aren't straight lines). Hills, mountains, rivers and beaches
-// still come from the noise below. setEarthWorld(on) switches it.
+// borders aren't straight lines). Since 2026-10-23 the heights, mountains,
+// lakes and rivers are the real ones too (EarthTerrain.js, sampleEarth)
+// once their data has loaded. setEarthWorld(on) switches it.
 let EARTH = false
 export function setEarthWorld(on) {
   EARTH = !!on
@@ -187,6 +189,7 @@ export function isEarthWorld() {
 
 export function sampleLand(x, z) {
   const d = cityDistance(x, z)
+  if (EARTH && earthTerrainReady()) return sampleEarth(x, z, d)
   let c = fbm(x, z, 1 / 420, 3, 11)
   let earthLat = 0
   let earthLon = 0
@@ -245,7 +248,103 @@ export function sampleLand(x, z) {
       if (WATER_BIOMES.has(biome)) biome = Math.abs(earthLat) > 62 ? 'frozenOcean' : Math.abs(earthLat) < 23 ? 'warmOcean' : c < -0.45 ? 'deepOcean' : 'ocean'
     } else if (!WATER_BIOMES.has(real)) biome = real
   }
-  return { h, c, T, H, m, river, d, biome }
+  return { h, c, T, H, m, river, d, biome, w: SEA }
+}
+
+// --- the World Map mode's real land (EarthTerrain.js) ---
+// Real heights are squeezed to fit: sea level is SEA + 1, Everest about
+// SEA + 59. Sea depth: down to SEA - 15.
+const landBlocks = (m) => SEA + 1 + 58 * Math.pow(Math.max(0, m) / 8000, 0.6)
+const seaBlocks = (m) => SEA - 1 - 14 * Math.min(1, Math.sqrt(m / 5000))
+// Snow line (metres) by latitude - high in the tropics, sea level near
+// the poles.
+function snowLine(lat) {
+  const a = Math.abs(lat)
+  if (a < 25) return 5600
+  if (a < 60) return 5600 - ((a - 25) / 35) * 4000
+  return Math.max(0, 1600 - ((a - 60) / 15) * 1600)
+}
+// River half-widths in blocks by size (0 big .. 3 small), and how wide
+// their banks slope.
+const RIVER_HALF = [4.5, 3.2, 2.2, 1.4]
+const RIVER_BANK = 7
+const LAKE_RIM = 3
+const lakeWater = (level) => Math.max(SEA, Math.round(landBlocks(level)))
+
+function sampleEarth(x, z, d) {
+  const lon = x / EARTH_DEG
+  const lat = -z / EARTH_DEG
+  const T = fbm(x, z, 1 / 420, 2, 23) * 1.6
+  const H = fbm(x, z, 1 / 360, 2, 37) * 1.6
+  let e = earthHeight(lat, lon) + fbm(x, z, 1 / 60, 3, 71) * 30
+  // Land below sea level that is still land (the Caspian lowland, the
+  // Netherlands): the biome grid says it's well inland.
+  if (e < 0 && earthLandAmount(lat, lon) > 0.999) e = 2
+  // Land all around the city (an island in the Gulf of Guinea).
+  e = lerp(40, e, smooth((Math.hypot(x + 0.5, z + 0.5) - 160) / 220))
+  let h
+  let w = SEA
+  let m = 0
+  let river = false
+  let biome
+  if (e < 0) {
+    h = Math.round(seaBlocks(-e))
+    biome = Math.abs(lat) > 62 ? 'frozenOcean' : Math.abs(lat) < 23 ? 'warmOcean' : h < SEA - 9 ? 'deepOcean' : 'ocean'
+  } else {
+    const base = landBlocks(e)
+    // Mountains: ridges on top of the real height where it's high.
+    m = smooth((e - 900) / 1800)
+    const ridge = Math.pow(clamp01((1 - Math.abs(fbm(x, z, 1 / 120, 3, 53)) - 0.5) / 0.5), 1.5) * m
+    let hh = base + fbm(x, z, 1 / 70, 2, 41) * 3.2 * smooth(e / 60) + ridge * 16
+    const top = e + ridge * 1400
+    const lake = earthLakeNear(lat, lon) ? earthLakeAt(lat, lon) : null
+    if (lake !== null) {
+      w = lakeWater(lake)
+      hh = w - 2 - Math.floor(clamp01(fbm(x, z, 1 / 40, 2, 91) + 0.5) * 3)
+      river = true
+    } else {
+      // Just outside a lake: a rim at least as high as its water.
+      if (earthLakeNear(lat, lon)) {
+        const r = LAKE_RIM / EARTH_DEG
+        for (const [dl, dn] of [[r, 0], [-r, 0], [0, r], [0, -r]]) {
+          const near = earthLakeAt(lat + dn, lon + dl)
+          if (near !== null) hh = Math.max(hh, lakeWater(near))
+        }
+      }
+      const rv = earthRiverNear(lat, lon)
+      if (rv) {
+        const half = RIVER_HALF[rv.size]
+        const dist = rv.d * EARTH_DEG + fbm(x, z, 1 / 14, 1, 93) * 0.9
+        const wl = Math.max(SEA, Math.round(base) - 1)
+        if (dist < half) {
+          w = wl
+          hh = wl - (rv.size <= 1 ? 3 : 2)
+          river = true
+        } else if (dist < half + RIVER_BANK) {
+          hh = Math.max(wl, lerp(wl, hh, smooth((dist - half) / RIVER_BANK)))
+        }
+      }
+    }
+    h = hh
+    if (river) biome = 'river'
+    else if (top > snowLine(lat)) biome = 'snowyPeaks'
+    else if (top > 2400) biome = 'mountains'
+    else {
+      const jit = 0.5
+      biome = earthBiome(lat + fbm(x, z, 1 / 90, 2, 73) * jit, lon + fbm(x, z, 1 / 90, 2, 79) * jit)
+      // The grid's sea or mountains where the real land is low.
+      if (WATER_BIOMES.has(biome) || biome === 'mountains' || biome === 'snowyPeaks' || biome === 'beach' || biome === 'snowyBeach') {
+        const a = Math.abs(lat)
+        biome = a > 66 ? 'snowyPlains' : a > 56 ? 'taiga' : 'plains'
+      }
+      if (e < 12 && earthLandAmount(lat, lon) < 0.9) biome = Math.abs(lat) > 60 ? 'snowyBeach' : 'beach'
+    }
+  }
+  // Down to the city's ground near its edge.
+  const k = smooth((d - 3) / 40)
+  h = Math.round(lerp(-1, h, k))
+  if (k < 1) w = SEA
+  return { h, c: e < 0 ? -0.5 : 0.3, T, H, m, river, d, biome, w }
 }
 
 function pickBiome(x, z, h, c, T, H, m, river, wet) {
@@ -399,7 +498,15 @@ export class OpenWorld {
   // A new game on the same city: all the land goes and grows back from
   // another seed (the city and its saved edits stay).
   // World Map mode on/off (setEarthWorld): everything grown so far goes.
+  // The real heights/rivers load the first time (EarthTerrain.js); any
+  // land grown from the noise before they arrived grows again from them
+  // (same seed - before you're placed on the map, see BuildSurvival).
   setEarth(on) {
+    if (on) {
+      loadEarthTerrain().then((ok) => {
+        if (ok && isEarthWorld() && this.active && this.columns.size) this.reseed(worldSeed())
+      })
+    }
     if (isEarthWorld() === !!on) return
     setEarthWorld(on)
     if (this.active) this.reseed()
@@ -618,19 +725,20 @@ export class OpenWorld {
           col.bottoms[(i - 1) * CHUNK + (j - 1)] = bottom
           let { top, under, deep } = surface(s, x, z)
           const onTrack = this._onPath(x, z)
-          if (s.h >= SEA) top = this._roadTop(x, z, top, pathTops)
+          if (s.h >= s.w) top = this._roadTop(x, z, top, pathTops)
           for (let y = s.h; y >= bottom; y--) {
             const layer = s.h - y
             let type = layer === 0 ? top : groundBlock(layer, x, y, z, under)
             if (layer > 0 && deep && layer > 2 && layer <= 6) type = deep
             put(x, y, z, type)
           }
-          // Water up to sea level (frozen oceans freeze over).
-          if (s.h < SEA) {
-            for (let y = s.h + 1; y <= SEA; y++) {
-              const frozen = s.biome === 'frozenOcean' && y === SEA
+          // Water up to sea level, or a real lake's or river's level
+          // (frozen oceans freeze over).
+          if (s.h < s.w) {
+            for (let y = s.h + 1; y <= s.w; y++) {
+              const frozen = s.biome === 'frozenOcean' && y === s.w
               // A track from the city crosses water on a plank deck.
-              if (onTrack && y === SEA) put(x, y, z, 'spruceplanks')
+              if (onTrack && y === s.w) put(x, y, z, 'spruceplanks')
               else put(x, y, z, frozen ? (hash2(x, z, 157) < 0.3 ? 'packedice' : 'ice') : 'water')
             }
           }
@@ -706,7 +814,7 @@ export class OpenWorld {
           roll -= chance
         }
         if (!kind) continue
-        if (kind !== 'coral' && (s.h < SEA || this._nearPath(fx, fz))) continue
+        if (kind !== 'coral' && (s.h < s.w || this._nearPath(fx, fz))) continue
         const rnd = (n) => hash2(gx * 7 + n, gz * 13 - n, 239 + n)
         this._feature(kind, fx, s.h + 1, fz, rnd, set, inside)
       }
@@ -864,7 +972,7 @@ export class OpenWorld {
           const bx = x + Math.floor(rnd(10 + i) * 5) - 2
           const bz = z + Math.floor(rnd(20 + i) * 5) - 2
           const s = sampleLand(bx, bz)
-          if (s.h < SEA || s.biome !== 'bambooJungle') continue
+          if (s.h < s.w || s.biome !== 'bambooJungle') continue
           const h = 5 + Math.floor(rnd(30 + i) * 8)
           // Thin stalks (`inset` blocks) with a tuft of thin leaves on top.
           for (let k = 1; k <= h; k++) set(bx, s.h + k, bz, 'bamboo')
@@ -895,7 +1003,7 @@ export class OpenWorld {
           if (s.biome !== 'warmOcean') continue
           const h = 1 + Math.floor(rnd(60 + i) * 3)
           const type = CORALS[Math.floor(rnd(70 + i) * CORALS.length)]
-          for (let k = 1; k <= h && s.h + k < SEA; k++) this._replaceWater(cx, s.h + k, cz, type, set, inside)
+          for (let k = 1; k <= h && s.h + k < s.w; k++) this._replaceWater(cx, s.h + k, cz, type, set, inside)
         }
         break
       }
@@ -973,7 +1081,12 @@ export class OpenWorld {
     const key = `${gx},${gz}`
     if (this._plans.has(key)) return this._plans.get(key)
     if (this._plans.size > 600) this._plans.clear()
-    const plan = planStructure(gx, gz, { land: sampleLand, hash: hash2, sea: SEA, cityDistance, chunk: CHUNK })
+    // A real lake or river above sea level counts as water too.
+    const land = (x, z) => {
+      const s = sampleLand(x, z)
+      return s.w > SEA && s.h < s.w ? { ...s, h: SEA - 1 } : s
+    }
+    const plan = planStructure(gx, gz, { land, hash: hash2, sea: SEA, cityDistance, chunk: CHUNK })
     this._plans.set(key, plan)
     return plan
   }
@@ -1133,11 +1246,11 @@ export class OpenWorld {
       const k = 0.72 + 0.28 * clamp01((built.y + 6) / 40)
       return (Math.round(((c >> 16) & 255) * k) << 16) | (Math.round(((c >> 8) & 255) * k) << 8) | Math.round((c & 255) * k)
     }
-    if (plan?.paths.has(`${x},${z}`) && s.h >= SEA) return this._typeColor(plan.paths.get(`${x},${z}`))
+    if (plan?.paths.has(`${x},${z}`) && s.h >= s.w) return this._typeColor(plan.paths.get(`${x},${z}`))
     let color
-    if (s.h < SEA) color = s.biome === 'frozenOcean' ? 0xb5d3f0 : s.biome === 'warmOcean' ? 0x3fb6c8 : s.h < SEA - 9 ? 0x1f4f9a : 0x3368c6
+    if (s.h < s.w) color = s.biome === 'frozenOcean' ? 0xb5d3f0 : s.biome === 'warmOcean' ? 0x3fb6c8 : s.h < SEA - 9 ? 0x1f4f9a : 0x3368c6
     else color = this._typeColor(this._onPath(x, z) ? 'dirtpath' : surface(s, x, z).top)
-    const shade = s.h < SEA ? 1 : 0.72 + 0.28 * clamp01((s.h + 6) / 40)
+    const shade = s.h < s.w ? 1 : 0.72 + 0.28 * clamp01((s.h + 6) / 40)
     return (Math.round(((color >> 16) & 255) * shade) << 16) | (Math.round(((color >> 8) & 255) * shade) << 8) | Math.round((color & 255) * shade)
   }
 

@@ -562,7 +562,7 @@ html.ui-theme-clean #build-try-map {
   background: var(--clean-bg);
   border: 2px solid var(--clean-fg);
 }
-html.ui-theme-clean :is(#build-try-map-hint, #build-try-biome) {
+html.ui-theme-clean :is(#build-try-map-hint, #build-try-biome, #build-try-map-close) {
   color: var(--clean-bg);
   background: var(--clean-fg);
 }

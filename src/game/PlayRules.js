@@ -30,6 +30,9 @@ export const EXTRACTION_WAVES = 5
 // Skeletons (real animated 3D models, SkeletonModels.js) join the waves
 // from this wave on, each spawn with SKELETON_CHANCE (BuildSurvival).
 export const SKELETON_FROM_WAVE = 3
+// Zombies never appear closer than this many blocks to any player
+// (2026-10-23, Gaymi: "must be at least 20-30+ blocks apart from you").
+export const SPAWN_MIN_DIST = 30
 export const SKELETON_CHANCE = 0.3
 export const EXTRACTION_HOLD = 10
 export const EXTRACTION_RADIUS = 3

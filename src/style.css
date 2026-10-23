@@ -10518,6 +10518,28 @@ html.ui-theme-old #inspect-hint {
   display: none;
 }
 
+/* Closes the middle map on phones (no M key there). */
+#build-try-map-close {
+  display: none;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font: 700 18px/1 system-ui, sans-serif;
+  color: #f4ead2;
+  background: rgba(8, 8, 7, 0.75);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.55);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+body.touch-play-on #build-try-map[data-size='center'] #build-try-map-close {
+  display: block;
+}
+
 /* Out in Map 1's open world: the biome you're in, under the minimap
    (BuildTryMode._showBiome). */
 #build-try-biome {
@@ -10558,6 +10580,11 @@ html.ui-theme-old #inspect-hint {
 /* The World Map mode's real-world map (EarthAtlas.js) is solid, not see-through. */
 #build-try-map[data-size='center'].atlas { opacity: 1; }
 #build-try-map.atlas canvas { image-rendering: auto; }
+/* ...zoomed out further it's a globe (EarthGlobe.js): no box round it. */
+#build-try-map[data-size='center'].globe { opacity: 1; background: none; border-color: transparent; box-shadow: none; }
+#build-try-map.globe > canvas:not(.earth-globe):not(.earth-globe-labels) { opacity: 0; }
+#build-try-map .earth-globe,
+#build-try-map .earth-globe-labels { position: absolute; inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); image-rendering: auto; border-radius: 50%; pointer-events: none; }
 
 /* Try Map: head under water (bloxd.io-style blue) or lava. */
 #build-try-underwater {
@@ -10875,7 +10902,11 @@ body.touch-play-on #chat-panel,
 body.touch-play-on #build-tool-hint { display: none !important; }
 body.touch-play-on #build-play-health { bottom: 20px; width: 200px; }
 body.touch-play-on #build-play-ammo { bottom: auto; top: 112px; right: max(20px, env(safe-area-inset-right)); font-size: 26px; }
-body.touch-play-on #build-try-map { top: 8px; right: max(12px, env(safe-area-inset-right)); width: 96px; height: 96px; }
+body.touch-play-on #build-try-map { top: 8px; right: max(12px, env(safe-area-inset-right)); width: 96px; height: 96px; pointer-events: auto; }
+/* Tapping it grows it like M (BuildTryMode); the bigger sizes really are
+   bigger on a phone, and the middle one fills most of the screen. */
+body.touch-play-on #build-try-map[data-size='big'] { top: 64px; width: min(200px, 52vmin); height: min(200px, 52vmin); }
+body.touch-play-on #build-try-map[data-size='center'] { top: 0; right: 0; width: 92vmin; height: 92vmin; }
 /* The fps readout moves to a small line at the bottom-left corner. */
 body.touch-play-on #fps-counter { top: auto !important; bottom: 4px !important; left: 8px !important; right: auto !important; transform: none !important; max-width: 42vw; font-size: 10px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 body.touch-play-on #build-play-msg { font-size: 26px; white-space: normal; width: 80vw; }

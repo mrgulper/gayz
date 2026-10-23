@@ -31,9 +31,10 @@ import { PlayInventory, ITEMS, ARMOR_SLOTS } from './PlayInventory.js'
 import { PlayDrops } from './PlayDrops.js'
 import { PlayThrow } from './PlayThrow.js'
 import { PlayAnimals } from './PlayAnimals.js'
-import { worldSeed } from './OpenWorld.js'
+import { worldSeed, isEarthWorld } from './OpenWorld.js'
+import { loadEarthTerrain } from './EarthTerrain.js'
 import { BOTTOM } from './Underground.js'
-import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MOB_HEIGHT } from './PlayRules.js'
+import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 
 export const CHEST_LOOT = { ammo: 60, health: 35 }
 const HEAD_MULT = 2.4
@@ -78,8 +79,11 @@ const WAVE_BREAK = 6
 // reached, up to aliveCap() at once, and ones still alive when a wave is
 // done stay for the next. Spawners in the map are used when one is within
 // SPAWNER_RANGE blocks of a player; otherwise zombies come from anywhere
-// around you (14-40 steps of walking away).
+// around you, never closer than SPAWN_MIN_DIST blocks in a straight line
+// to any player (path distance alone let them pop up right beside you
+// round a corner; PlayRules.js).
 const SPAWN_GAP = 0.7
+const SPAWN_MAX_STEPS = 70
 const MAX_ALIVE = 28
 const SPAWNER_RANGE = 48
 // Zombies further than this from every player vanish (no kill).
@@ -137,17 +141,18 @@ const PATH_REFRESH = 0.5
 // on a fast computer - several hundred on a phone - every half second).
 const FLOW_BUDGET_MS = 3
 
-// Cell -> one number (x/z within +-2048, y within -256..255 - the
-// underground goes down to -200), much cheaper as a Map key than an
-// "x,y,z" string.
+// Cell -> one number (x/z within +-32768 - the World Map mode's Earth
+// reaches +-21600; it was +-2048, which sent zombies to the wrong spots
+// out there - y within -256..255, the underground goes down to -200),
+// much cheaper as a Map key than an "x,y,z" string.
 function cellKey(x, y, z) {
-  return ((x + 2048) * 4096 + (z + 2048)) * 512 + (y + 256)
+  return ((x + 32768) * 65536 + (z + 32768)) * 512 + (y + 256)
 }
 
 function cellOf(key) {
   const y = (key % 512) - 256
   const xz = Math.floor(key / 512)
-  return [Math.floor(xz / 4096) - 2048, y, (xz % 4096) - 2048]
+  return [Math.floor(xz / 65536) - 32768, y, (xz % 65536) - 32768]
 }
 const PATH_MAX_NODES = 9000
 const GRAVITY = 30
@@ -317,8 +322,13 @@ export class BuildSurvival {
       this._chooseSpawn()
     }
     else if (fromMenu) {
-      // Joined through an invite link: start where the host did.
-      if (net?.world?.pick) this._spawnAt(net.world.pick)
+      // Joined through an invite link: start where the host did (once
+      // a World Map game's real land has loaded).
+      if (net?.world?.pick) {
+        const pick = net.world.pick
+        if (isEarthWorld()) loadEarthTerrain().then(() => { if (this.active) this._spawnAt(pick) })
+        else this._spawnAt(pick)
+      }
       this._openWeaponPicker()
     }
     else this._message(t('buildPlayGetReady'))
@@ -448,7 +458,8 @@ export class BuildSurvival {
   async _chooseSpawn() {
     this._picking = true
     this._spawnPicking = true
-    const pick = await openSpawnMap()
+    // (The real land loads while the map is open.)
+    const [pick] = await Promise.all([openSpawnMap(), loadEarthTerrain()])
     this._spawnPicking = false
     if (!this.active) return
     if (pick) this._spawnAt(pick)
@@ -1410,20 +1421,26 @@ export class BuildSurvival {
       }
     }
     if (spots.length) return spots
-    // No spawners: somewhere a zombie can reach you from, not too close.
+    // No spawners: somewhere a zombie can reach you from, at least
+    // SPAWN_MIN_DIST from every player, preferably not a long walk away.
+    const gap = (cell) => Math.min(...players.map((p) => Math.hypot(p.x - cell[0] - 0.5, p.z - cell[2] - 0.5)))
+    const good = []
     const far = []
-    const near = []
+    let best = null
+    let bestGap = -1
     for (const [key, d] of this._flow) {
-      if (d < 14) continue
       const cell = cellOf(key)
-      if (d <= 40) far.push(cell)
-      else near.push(cell)
+      const g = gap(cell)
+      if (g >= SPAWN_MIN_DIST) (d <= SPAWN_MAX_STEPS ? good : far).push(cell)
+      else if (g > bestGap) {
+        bestGap = g
+        best = cell
+      }
     }
+    if (good.length) return good
     if (far.length) return far
-    if (near.length) return near
-    // A small space: anywhere a little way off.
-    const any = [...this._flow].filter(([, d]) => d >= 5).map(([key]) => cellOf(key))
-    return any.length ? any : [...this._flow.keys()].map((key) => cellOf(key))
+    // A small space: the furthest reachable spot.
+    return best ? [best] : []
   }
 
   _spawnZombie() {

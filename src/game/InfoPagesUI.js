@@ -10,7 +10,7 @@ import * as ChatUI from './ChatUI.js'
 import { ACHIEVEMENTS } from './Achievements.js'
 import { CHANGELOG_LAST_VIEWED_KEY, Game, HOWTOPLAY_STEPS, LOGIN_CALENDAR_DAYS, MARKET_FEE_RATE, MAX_GOALS, PLAY_META_UPGRADES, PRESTIGE_BONUS_PERCENT, PRESTIGE_COST_STEP, SUPPORTED_LANGUAGE_CODES, UPDATE_BANNER_FADE_MS, UPDATE_BANNER_SHOW_MS, WHATS_NEW_SEEN_KEY, WHATS_NEW_VERSION, saveSettings } from './Game.js'
 import { BIOMES } from './OpenWorld.js'
-import { BOSS_HUNT_EVERY, DEFENSE_WAVES, EXTRACTION_HOLD, EXTRACTION_WAVES, SKELETON_FROM_WAVE, MOB_HEIGHT } from './PlayRules.js'
+import { BOSS_HUNT_EVERY, DEFENSE_WAVES, EXTRACTION_HOLD, EXTRACTION_WAVES, SKELETON_FROM_WAVE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { BOTTOM } from './Underground.js'
 import { MAX_WILD } from './PlayAnimals.js'
 import { LANGUAGES, t, tHtml } from './i18n.js'
@@ -252,6 +252,7 @@ export function _featureValues(_game) {
     mobHeight: MOB_HEIGHT,
     maxWildAnimals: MAX_WILD,
     skeletonWave: SKELETON_FROM_WAVE,
+    spawnMinDist: SPAWN_MIN_DIST,
     marketFee: Math.round(MARKET_FEE_RATE * 100),
     chatMuteMinutes: ChatUI.CHAT_MUTE_MS / 60000,
     loginDays: LOGIN_CALENDAR_DAYS,

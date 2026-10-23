@@ -8,6 +8,7 @@
 import { DIFFICULTY_PRESETS, EDITOR_FADE_OUT_MS, FADE_IN_FAST_MS, FADE_IN_SLOW_MS, FADE_LAG_FRAME_MS, FADE_LAG_LOAD_MS, PLAY_FADE_MS, saveSettings } from './Game.js'
 import { seedFromText } from './OpenWorld.js'
 import { PlayNet } from './PlayNet.js'
+import { loadEarthTerrain } from './EarthTerrain.js'
 import { playConfig } from './PlayRules.js'
 import { t } from './i18n.js'
 
@@ -107,6 +108,10 @@ export async function _enterBuildMode(game, { map, play = false, server = null }
       const { BuildMode } = await game._preloadBuildMode()
       game.buildMode = new BuildMode(game.renderer, game)
     }
+    // The World Map mode's real land (EarthTerrain.js) loads while the
+    // screen is dark, so you (and friends joining) are never placed on
+    // land that changes once it arrives.
+    if (play && (server?.world?.earth || (!server && game._playConfig?.()?.mode === 'worldMap'))) await loadEarthTerrain()
   } catch (e) {
     game._fadeScreen(0)
     throw e

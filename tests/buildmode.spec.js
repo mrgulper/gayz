@@ -1985,8 +1985,9 @@ test('spawn map, endless world, pyramids, underground cities and the top bar', a
     // Choosing the weapon closes the map (as the camp if nothing was picked).
     s._pickWeapon('rifle')
     out.mapClosed = getComputedStyle(map).display === 'none' && !s._picking
-    // M twice: the big map is the real-world atlas (EarthAtlas.js) - at
-    // every zoom, even right in (2026-10-18).
+    // M twice: the big map in the middle opens as the block map and stays
+    // it zoomed in (2026-10-23; zooming out to the atlas and globe is in
+    // the real-land test at the end).
     const tm = bm.tryMode
     tm.cycleMap()
     tm.cycleMap()
@@ -2007,7 +2008,7 @@ test('spawn map, endless world, pyramids, underground cities and the top bar', a
     out.credits = !document.getElementById('credits-weapons-list') && !document.querySelector('.credits-tab')
     return out
   })
-  expect(r).toEqual({ mapFirst: ['block', true], spawned: true, standsOnLand: true, mapClosed: true, atlas: [true, true], pyramid: true, topBar: true, credits: true })
+  expect(r).toEqual({ mapFirst: ['block', true], spawned: true, standsOnLand: true, mapClosed: true, atlas: [false, false], pyramid: true, topBar: true, credits: true })
 })
 
 // 2026-10-18: countries and landmarks on the spawn map, Spawn Randomly,
@@ -2519,4 +2520,68 @@ test('block chunks free their copy once drawn and come back after a lost graphic
   expect(r.triangles).toBeGreaterThan(1000)
   expect(r.glError).toBe(0)
   expect(r.homeBack.every((w) => w > 0)).toBe(true)
+})
+
+// The World Map mode's real land (2026-10-23): real heights, lakes and
+// rivers (EarthTerrain.js) - no snow on Kazakhstan's steppe, snow on
+// Everest, water in Lake Balkhash and the Nile. Zombies never appear
+// closer than 30 blocks (out here too - path cells used to wrap past
+// 2048). M's middle map opens as the block map and zooms out to the
+// atlas and then the globe.
+test('the World Map mode has real land, far zombie spawns and a map that zooms out to a globe', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => { window.__game.settings.selectedGameMode = 'worldMap'; window.__game.playBtn.click() })
+  await page.waitForFunction(() => document.getElementById('spawn-map')?.style.display === 'block', null, { timeout: 60000 })
+  const clickAt = async (lat, lon) => {
+    const [x, y] = await page.evaluate(([la, lo]) => document.getElementById('spawn-map')._clientAt(la, lo), [lat, lon])
+    await page.mouse.click(x, y)
+    await page.waitForTimeout(700)
+  }
+  await clickAt(48, 68)
+  await clickAt(48.7, 71.6)
+  await page.locator('#spawn-map-list button', { hasText: 'Atasu' }).click()
+  await page.click('#spawn-map-go')
+  await page.waitForFunction(() => document.getElementById('spawn-map').style.display === 'none', null, { timeout: 30000 })
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const s = g.buildMode.survival
+    const at = (lat, lon) => g.buildMode.world.landAt(Math.round(lon * 120), Math.round(-lat * 120))
+    const steppe = at(48.68, 71.64)
+    const everest = at(27.99, 86.93)
+    const balkhash = at(46.5, 74.5)
+    const nile = at(24.09, 32.89)
+    const p = s.bodyPos()
+    s._rebuildFlow([[Math.floor(p.x), Math.floor(p.y), Math.floor(p.z)]])
+    const dists = []
+    const orig = s._makeZombie.bind(s)
+    s._makeZombie = function (id, x, y, z, ...rest) { dists.push(Math.hypot(p.x - x, p.z - z)); return orig(id, x, y, z, ...rest) }
+    for (let i = 0; i < 20; i++) s._spawnZombie()
+    s._makeZombie = orig
+    const tm = g.buildMode.tryMode
+    const el = document.getElementById('build-try-map')
+    tm.cycleMap()
+    tm.cycleMap()
+    const frame = () => new Promise((d) => requestAnimationFrame(() => requestAnimationFrame(d)))
+    await frame()
+    const views = []
+    const look = () => (el.classList.contains('globe') ? 'globe' : el.classList.contains('atlas') ? 'atlas' : 'blocks')
+    views.push(look())
+    for (let i = 0; i < 30; i++) {
+      tm.zoomMap(1.25)
+      await frame()
+      if (views.at(-1) !== look()) views.push(look())
+    }
+    return {
+      lat: Math.round(-p.z / 120),
+      steppe: steppe.biome !== 'snowyPeaks' && steppe.biome !== 'snowyPlains' && steppe.h >= steppe.w,
+      everest: everest.biome,
+      balkhash: balkhash.h < balkhash.w,
+      nile: nile.h < nile.w,
+      spawned: dists.length,
+      closest: Math.min(...dists) >= 30,
+      size: el.dataset.size,
+      views,
+    }
+  })
+  expect(r).toEqual({ lat: 49, steppe: true, everest: 'snowyPeaks', balkhash: true, nile: true, spawned: 20, closest: true, size: 'center', views: ['blocks', 'atlas', 'globe'] })
 })
