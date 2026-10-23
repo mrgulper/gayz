@@ -5,13 +5,14 @@ import { gotoAndWaitForGame } from './helpers.js'
 // 2026-10-04: "dont make the panel behind change sizes" - Achievements'
 // Deathmatch tab shrank the Old theme's paper). See --panel-chrome in
 // style.css. Checked in both themes.
-for (const theme of ['old', 'golden']) {
+for (const theme of ['old', 'clean']) {
   test(`every panel and tab is the same height and never scrolls sideways (${theme} theme)`, async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1010 })
     await gotoAndWaitForGame(page)
 
     const heights = await page.evaluate(async (theme) => {
       document.documentElement.classList.toggle('ui-theme-old', theme === 'old')
+      document.documentElement.classList.toggle('ui-theme-clean', theme === 'clean')
       const g = window.__game
       const wait = (ms) => new Promise((r) => setTimeout(r, ms))
       const out = {}
@@ -51,6 +52,49 @@ for (const theme of ['old', 'golden']) {
     expect(different, `panels whose height isn't ${expected}px`).toEqual([])
   })
 }
+
+// Golden was deleted (2026-10-23): a saved 'golden' opens on Clean, and
+// Clean's colour (Inventory > Theme) applies live from a typed hex code,
+// flips the text to white on a dark colour, is saved, and survives a reload
+// from the first paint. Clean has no rain or background photo.
+test('Clean theme: Golden saves land on it; the colour picker works', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem('seeded')) {
+      sessionStorage.setItem('seeded', '1')
+      localStorage.setItem('gayz-settings', JSON.stringify({ uiTheme: 'golden' }))
+    }
+  })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const root = document.documentElement
+    const out = { theme: g.settings.uiTheme, clean: root.classList.contains('ui-theme-clean'), old: root.classList.contains('ui-theme-old') }
+    out.rain = getComputedStyle(document.getElementById('menu-bg-rain')).display
+    out.photo = getComputedStyle(document.getElementById('menu-bg-photo')).display
+    const hex = document.getElementById('theme-clean-hex')
+    hex.value = '#1A2B3C'
+    hex.dispatchEvent(new Event('input'))
+    out.bg = getComputedStyle(document.body).backgroundColor
+    out.fg = getComputedStyle(root).getPropertyValue('--clean-fg').trim()
+    out.saved = JSON.parse(localStorage.getItem('gayz-settings')).cleanColor
+    hex.value = 'nope'
+    hex.dispatchEvent(new Event('change'))
+    out.afterBad = g.settings.cleanColor
+    return out
+  })
+  expect(r).toMatchObject({ theme: 'clean', clean: true, old: false, rain: 'none', photo: 'none', bg: 'rgb(26, 43, 60)', fg: 'rgb(245, 245, 247)', saved: '#1a2b3c', afterBad: '#1a2b3c' })
+  await page.reload()
+  await page.waitForFunction(() => window.__game)
+  const after = await page.evaluate(() => [document.documentElement.className, getComputedStyle(document.body).backgroundColor])
+  expect(after[0]).toContain('ui-theme-clean')
+  expect(after[1]).toBe('rgb(26, 43, 60)')
+  // Picking Old switches straight back.
+  const old = await page.evaluate(() => {
+    document.getElementById('theme-picker-old').click()
+    return [window.__game.settings.uiTheme, document.documentElement.classList.contains('ui-theme-old'), document.documentElement.classList.contains('ui-theme-clean')]
+  })
+  expect(old).toEqual(['old', true, false])
+})
 
 // The footer links stay clear of the right column's buttons at every
 // window size (Gaymi, 2026-10-04: "dont make it touch the right side

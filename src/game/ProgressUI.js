@@ -34,8 +34,8 @@ export function _drawStatsDashboard(game) {
     const x = i * barW + 2
     ctx.fillStyle = run.survived ? 'rgba(78, 224, 111, 0.8)' : 'rgba(214, 69, 69, 0.8)'
     ctx.fillRect(x, h - barH - 12, barW - 4, barH)
-    // Black on the Old theme's paper, like the rest of Profile.
-    ctx.fillStyle = document.documentElement.classList.contains('ui-theme-old') ? '#000' : 'rgba(232, 232, 232, 0.6)'
+    // Black on the Old theme's paper, Clean's text colour on Clean.
+    ctx.fillStyle = document.documentElement.classList.contains('ui-theme-old') ? '#000' : (getComputedStyle(document.documentElement).getPropertyValue('--clean-fg') || '#1d1d1f')
     ctx.font = '9px monospace'
     ctx.textAlign = 'center'
     ctx.fillText(String(run.kills), x + (barW - 4) / 2, h - 2)

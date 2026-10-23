@@ -1,10 +1,12 @@
 import './style.css'
 import './play-pause.css'
+import './theme-clean.css'
 import './offline.css'
 import './consoleBridge.js'
 import { Game } from './game/Game.js'
 import { preBootCloudSync } from './game/CloudPreBoot.js'
 import { reloadBindings } from './game/Keybinds.js'
+import { applyUiTheme } from './game/CleanTheme.js'
 import { startMenuRain } from './game/MenuRain.js'
 import { startMenuWater } from './game/MenuWater.js'
 import { preloadWeaponModels } from './game/Viewmodels.js'
@@ -40,7 +42,7 @@ Promise.all([
   // another device - switch before the game paints anything else.
   try {
     const settings = JSON.parse(localStorage.getItem('gayz-settings') || 'null')
-    document.documentElement.classList.toggle('ui-theme-old', !(settings && settings.uiTheme === 'golden'))
+    applyUiTheme(settings)
   } catch { /* unreadable settings - keep the early script's choice */ }
   installOfflineGuards(new Game())
 })

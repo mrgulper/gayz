@@ -24,7 +24,7 @@ Browser Three.js block-world zombie game (Vite, no framework) at gayz.vercel.app
 - `scripts/check-docs.mjs` (commit hook): player-facing changes update GayZ Features (`#features-main`, no hand-typed numbers) and Patch Notes, or say `[no-notes: why]` / `[no-features: why]`; changed `data-code` -> `[reread: <title>]`.
 - Every Coming Soon spot has a GayZ Features Coming Soon entry (+ `tests/docs.spec.js` `MAP`).
 - New i18n keys ship in `en`, `zh`, `hi`, `es` together; player text names keys as `{key:<id>}`.
-- Visible UI changes are made and screenshot-checked in both themes (Old: paper/browns/Rye; Golden: dark/gold).
+- Visible UI changes are made and screenshot-checked in both themes (Old: paper/browns/Rye; Clean: flat, one player-picked colour, `src/theme-clean.css`). Golden is deleted.
 - Search bars: `class="nickname-input search-bar"`; text boxes and dropdowns are ovals.
 - Panels: all the same height (`--panel-chrome`), no sideways scroll, join the shared selector list.
 - Homepage: first paint = final look; footer clear of right column; animations on `LiteHome.onHomeFrame` only.

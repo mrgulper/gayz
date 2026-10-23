@@ -19,24 +19,31 @@
     e.preventDefault()
   })
 </script>
-    <!-- Anti-flash: applies the Old theme's class immediately, before the
-         stylesheet ever paints - reading settings.uiTheme only inside
-         Game.js's normal startup (see its own uiThemeSelect binding) was
-         far too late, so an Old-theme player saw a flash of the Golden
-         look on every load before it switched over. Same
-         synchronous-inline-script-reading-localStorage-directly pattern
-         as the player ID/nickname/avatar anti-flash script further down
-         this file, just needs to run before any CSS applies instead of
-         before a specific element exists, hence right at the top here. -->
+    <!-- Anti-flash: applies the saved theme (Old or Clean) before the
+         stylesheet ever paints - waiting for Game.js's startup showed the
+         wrong look first on every load. Same rule and colours as
+         src/game/CleanTheme.js (uiThemeOf + cleanVars) - keep them the
+         same. Old unless Clean (or the deleted Golden) was chosen. -->
     <script>
       try {
         var __s = JSON.parse(localStorage.getItem('gayz-settings') || 'null')
-        // Old unless 'golden' was explicitly chosen - the same rule
-        // Game.js's settings loader uses. Checking for an explicit 'old'
-        // here (as this used to) showed a brand-new player, or a device
-        // whose save hadn't arrived yet, the Golden look until the game
-        // loaded and switched to Old (2026-09-30 report).
-        if (!(__s && __s.uiTheme === 'golden')) document.documentElement.classList.add('ui-theme-old')
+        var __t = __s && __s.uiTheme
+        if (__t === 'clean' || __t === 'golden') {
+          document.documentElement.classList.add('ui-theme-clean')
+          var __h = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(__s.cleanColor || '').trim())
+          __h = __h ? __h[1].toLowerCase() : 'ffffff'
+          if (__h.length === 3) __h = __h.replace(/./g, function (c) { return c + c })
+          var __bg = [0, 2, 4].map(function (i) { return parseInt(__h.slice(i, i + 2), 16) })
+          var __fg = (0.2126 * __bg[0] + 0.7152 * __bg[1] + 0.0722 * __bg[2]) / 255 > 0.55 ? [29, 29, 31] : [245, 245, 247]
+          var __mix = function (t) { return 'rgb(' + __bg.map(function (c, i) { return Math.round(c + (__fg[i] - c) * t) }).join(', ') + ')' }
+          var __r = document.documentElement.style
+          __r.setProperty('--clean-bg', '#' + __h)
+          __r.setProperty('--clean-fg', 'rgb(' + __fg.join(', ') + ')')
+          __r.setProperty('--clean-fg-rgb', __fg.join(', '))
+          __r.setProperty('--clean-panel', __mix(0.035))
+          __r.setProperty('--clean-surface', __mix(0.08))
+          __r.setProperty('--clean-hover', __mix(0.14))
+        } else document.documentElement.classList.add('ui-theme-old')
         // Touch devices get a lighter homepage (src/game/LiteHome.js).
         if (window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches) document.documentElement.classList.add('lite-home')
       } catch (e) {}
@@ -2380,8 +2387,8 @@ Escape before dawn.</p>
         <h2>Customization</h2>
 
         <div class="feature" data-code="uiTheme">
-          <h3>Old &amp; Golden Themes</h3>
-          <p>Two complete looks for the menus, picked in Inventory &gt; Theme: Old (the default - rusty metal, torn paper panels, worn profile card) and Golden (gold plates and frames). Both have rain falling over the homepage street, with splashes on the cobbles and the wet road shimmering, and the homepage rearranges itself to fit phones and tablets.</p>
+          <h3>Old &amp; Clean Themes</h3>
+          <p>Two complete looks for the menus and pause screens, picked in Inventory &gt; Theme: Old (the default - rusty metal, torn paper panels, worn profile card, and rain falling over the homepage street with splashes on the cobbles) and Clean (flat and simple, no pictures or rain - the whole game in one plain colour you pick with the colour circle or by typing a code like #1A2B3C, with the text turning black or white to stay readable). Both rearrange themselves to fit phones and tablets.</p>
         </div>
         <div class="feature" data-code="SKIN_DESIGNER_URL">
           <h3>Design a Skin</h3>
@@ -3185,15 +3192,21 @@ Escape before dawn.</p>
           <div class="inventory-tab-page" id="inventory-page-theme" style="display: none">
             <h3 class="settings-section-heading" id="settings-section-theme">Theme</h3>
             <div id="theme-picker-grid">
-              <!-- Old first: it's the default theme (2026-10-09, "make it above golden"). -->
+              <!-- Old first: it's the default theme. -->
               <button type="button" class="theme-picker-card active" id="theme-picker-old" data-theme="old">
                 <img src="/images/theme-preview-old.jpg" alt="" draggable="false" />
                 <span id="theme-picker-old-label">Old</span>
               </button>
-              <button type="button" class="theme-picker-card" id="theme-picker-golden" data-theme="golden">
-                <img src="/images/theme-preview-golden.jpg" alt="" draggable="false" />
-                <span id="theme-picker-golden-label">Golden</span>
+              <!-- Clean's preview is drawn, in the colour picked below. -->
+              <button type="button" class="theme-picker-card" id="theme-picker-clean" data-theme="clean">
+                <i class="theme-clean-preview" aria-hidden="true"><b></b><b></b><b></b></i>
+                <span id="theme-picker-clean-label">Clean</span>
               </button>
+            </div>
+            <div id="theme-clean-color-row">
+              <label for="theme-clean-hex" id="theme-clean-color-label">Clean colour</label>
+              <input type="color" id="theme-clean-color" value="#ffffff" aria-labelledby="theme-clean-color-label" />
+              <input type="text" id="theme-clean-hex" class="nickname-input" value="#FFFFFF" maxlength="7" spellcheck="false" autocomplete="off" />
             </div>
           </div>
         </div>
