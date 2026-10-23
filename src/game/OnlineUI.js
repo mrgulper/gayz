@@ -391,6 +391,7 @@ export async function _handleCloudSignIn(game, provider = 'google') {
   if (game.cloudsaveSigninBtn) game.cloudsaveSigninBtn.textContent = t('cloudsaveConnecting')
   try {
     const { uid, profile } = await CloudSync.signIn(provider)
+    try { localStorage.setItem(CloudSync.LAST_SIGN_IN_KEY, provider) } catch { /* storage unavailable */ }
     await game._afterCloudSignIn(uid, profile)
   } catch (err) {
     const code = err && err.code

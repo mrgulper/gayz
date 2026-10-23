@@ -1091,9 +1091,9 @@ const GL_LOST_PANEL_MS = 12000
 // Lite Textures: how often newly loaded models get shrunk too.
 const LITE_TEXTURE_SWEEP_MS = 4000
 
-// bgMood is reused by _applyBgMood() for the "Auto (Seasonal)" background
-// mood default - same date windows as the banner itself rather than a
-// second parallel date table, so a season only ever needs updating here.
+// The "Auto (Seasonal)" background mood's date windows (_applyBgMood).
+// Their homepage banner ("Something wicked stirs...") was removed
+// 2026-10-23 - it sat on top of the words under the logo.
 export const EVENT_BANNERS = [
   { month: 9, startDay: 20, endDay: 31, key: 'eventBannerHalloween', bgMood: 'amber' },
   { month: 11, startDay: 15, endDay: 31, key: 'eventBannerWinter', bgMood: 'foggy' },
@@ -1846,7 +1846,6 @@ export class Game {
     this.howtoplayPanel = document.getElementById('howtoplay-panel')
     this.howtoplayPanelTitle = document.getElementById('howtoplay-panel-title')
     this.howtoplayContent = document.getElementById('howtoplay-content')
-    this.eventBanner = document.getElementById('event-banner')
     this.whatsNewDot = document.getElementById('whats-new-dot')
     this.questsClaimDot = document.getElementById('quests-claim-dot')
     this.questsNewDot = document.getElementById('quests-new-dot')
@@ -3894,23 +3893,6 @@ export class Game {
 
   _updateRecommendedDifficultyHint() { return PlayEntryUI._updateRecommendedDifficultyHint(this) }
 
-
-  // Seasonal Event Banner - display:none year-round outside a defined date
-  // window (see EVENT_BANNERS), so it costs zero homepage real estate most
-  // of the year. Doesn't touch #menu-bg-photo itself (see CLAUDE.md's note
-  // on the reverted live-3D-background attempt - anything near that
-  // element needs care).
-  _updateEventBanner() {
-    if (!this.eventBanner) return
-    const now = new Date()
-    const active = EVENT_BANNERS.find((ev) => now.getMonth() === ev.month && now.getDate() >= ev.startDay && now.getDate() <= ev.endDay)
-    if (!active) {
-      this.eventBanner.style.display = 'none'
-      return
-    }
-    this.eventBanner.textContent = t(active.key)
-    this.eventBanner.style.display = ''
-  }
 
   // Kill-count milestone toast - fires once per threshold, ever, tracked
   // in localStorage so it survives across sessions but never repeats.

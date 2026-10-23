@@ -3339,19 +3339,6 @@ section.category.hidden-search {
   object-fit: cover;
 }
 
-.theme-picker-card span {
-  position: absolute;
-  inset: auto 0 0 0;
-  padding: 8px 0 6px;
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
-  color: #fff;
-  font-family: var(--menu-display-font), inherit;
-  font-size: 16px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-}
-
 .theme-picker-card:hover {
   border-color: rgba(var(--ui-gold-accent-rgb), 0.7);
 }
@@ -3361,8 +3348,35 @@ section.category.hidden-search {
   box-shadow: 0 0 0 2px rgba(var(--ui-gold-accent-rgb), 0.35), 0 0 16px rgba(var(--ui-gold-accent-rgb), 0.4);
 }
 
-.theme-picker-card.active span {
-  color: var(--ui-gold-bright);
+/* The theme's name above its card (2026-10-23, was a strip inside the
+   photo), with Clean's colour circle and hex box beside it. Same height
+   for both so the cards line up. */
+.theme-picker-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 220px;
+}
+.theme-picker-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+}
+.theme-picker-name {
+  margin-right: auto;
+  font-family: var(--menu-display-font), inherit;
+  font-size: 16px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.theme-picker-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .crate-section-heading {
@@ -3823,6 +3837,12 @@ html.ui-theme-old #server-panel {
      up closer to Welcome to GayZ"). */
   padding: 0 12px 8px;
 }
+/* Right under the title (2026-10-23, Gaymi: "theres a big gap between
+   welcome to gayz and login to save your progress") - a plain <p> had
+   16px above it on top of the title's own space. */
+.auth-sub {
+  margin: 0 0 14px;
+}
 .auth-note {
   margin: 0;
   max-width: 440px;
@@ -3849,33 +3869,17 @@ html.ui-theme-old #server-panel {
   border-radius: 50%;
   box-sizing: content-box;
 }
-/* Every sign-in is a full-width "Continue with ..." oval like Google's
+/* Every sign-in is a full-width "Login with ..." oval like Google's
    (2026-10-23, Gaymi: "like google not just icon"), each with its logo in
    a small circle of the site's own colour, the same in both themes.
    Microsoft, Facebook, LINE, Apple and WeChat were dropped (each needed a
-   phone number, a card or a company). */
-.auth-divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: min(100%, 360px);
-  margin: 10px 0 8px;
-  font-size: 14px;
-  color: rgba(232, 226, 208, 0.75);
-}
-.auth-divider::before,
-.auth-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: currentColor;
-  opacity: 0.4;
-}
+   phone number, a card or a company). No "or" line under Google. */
 .auth-providers {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  /* Room for the "Last used" tag on a button's top edge. */
+  gap: 14px;
   width: 100%;
   margin-bottom: 16px;
 }
@@ -3892,10 +3896,28 @@ html.ui-theme-old #server-panel {
 .auth-provider-steam .auth-logo { background: #171a21; }
 .auth-provider-github .auth-logo { background: #24292f; }
 .auth-provider-discord .auth-logo { background: #5865f2; }
+/* "Last used" on the site signed in with last, a small pill sitting on
+   the button's top-right edge (like vercel.com). */
+#profile-login-gate .auth-btn { position: relative; }
+.auth-last-used {
+  position: absolute;
+  right: 14px;
+  top: -9px;
+  padding: 2px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  color: #1d1d1f;
+  background: #fff;
+  border-radius: 999px;
+  pointer-events: none;
+}
 
 /* Old theme: ink on the paper, the rusty plaques with light lettering. */
-html.ui-theme-old .auth-note,
-html.ui-theme-old .auth-divider { opacity: 0.82; }
+html.ui-theme-old .auth-note { opacity: 0.82; }
 
 /* Wraps every existing piece of profile content so it can be toggled as
    one unit against #profile-login-gate - replicates the flex-column
@@ -6168,21 +6190,6 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
   letter-spacing: 0.3px;
   opacity: 0.45 !important;
   max-width: 420px;
-}
-
-/* Seasonal Event Banner - display:none year-round except inside a
-   defined date window (see EVENT_BANNERS in Game.js), so it costs zero
-   vertical space almost all the time. */
-#event-banner {
-  margin: 2px 0 0;
-  padding: 3px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  color: var(--menu-orange);
-  background: rgba(224, 138, 79, 0.12);
-  border: 1px solid rgba(224, 138, 79, 0.4);
-  border-radius: 3px;
 }
 
 /* Stamped-metal sign: octagonal clip-path + 4 corner "rivets" (small

@@ -117,9 +117,11 @@ test('the footer links never reach the right-side buttons', async ({ page }) => 
 })
 
 // Signed-out Profile (2026-10-23): no Sign Up / Login choice any more -
-// one full-width "Continue with ..." button per sign-in, each calling
-// _handleCloudSignIn with its site. No terms line under them.
+// one full-width "Login with ..." button per sign-in, each calling
+// _handleCloudSignIn with its site, the last one used tagged "Last used".
+// No "or" line or terms line.
 test('signed-out Profile shows Google and the other sign-ins', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('gayz-last-sign-in', 'github'))
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
     const g = window.__game
@@ -130,11 +132,12 @@ test('signed-out Profile shows Google and the other sign-ins', async ({ page }) 
     out.title = document.getElementById('profile-panel-title').textContent
     out.sub = document.getElementById('auth-sub').textContent
     out.google = document.getElementById('auth-google-label').textContent
-    out.more = document.getElementById('auth-more-label').textContent
+    out.more = document.querySelectorAll('#auth-more-label, .auth-divider').length
+    out.lastUsed = [...document.querySelectorAll('.auth-last-used')].map((e) => [e.closest('[data-provider]').dataset.provider, e.textContent])
     out.oldPages = document.querySelectorAll('#auth-view-choose, #auth-view-signup, #auth-view-login, #profile-gate-login-btn').length
     out.terms = document.querySelectorAll('#auth-terms').length
     const googleWidth = document.getElementById('auth-google-btn').getBoundingClientRect().width
-    out.logos = [...document.querySelectorAll('.auth-provider')].map((b) => [b.dataset.provider, b.textContent.trim(), Math.abs(b.getBoundingClientRect().width - googleWidth) < 1])
+    out.logos = [...document.querySelectorAll('.auth-provider')].map((b) => [b.dataset.provider, b.querySelector('span').textContent.trim(), Math.abs(b.getBoundingClientRect().width - googleWidth) < 1])
     document.getElementById('auth-google-btn').click()
     for (const b of document.querySelectorAll('.auth-provider')) b.click()
     out.picked = picked
@@ -147,13 +150,14 @@ test('signed-out Profile shows Google and the other sign-ins', async ({ page }) 
   })
   expect(r.gate).toBe('flex')
   expect(r.title).toBe('Welcome to GayZ')
-  expect(r.sub).toBe('Log in to save your progress.')
-  expect(r.google).toBe('Continue with Google')
-  expect(r.more).toBe('or')
+  expect(r.sub).toBe('Login to avoid losing progress')
+  expect(r.google).toBe('Login with Google')
+  expect(r.more).toBe(0)
+  expect(r.lastUsed).toEqual([['github', 'Last used']])
   expect(r.oldPages).toBe(0)
   expect(r.terms).toBe(0)
   expect(r.logos).toEqual([
-    ['steam', 'Continue with Steam', true], ['github', 'Continue with GitHub', true], ['discord', 'Continue with Discord', true],
+    ['steam', 'Login with Steam', true], ['github', 'Login with GitHub', true], ['discord', 'Login with Discord', true],
   ])
   expect(r.picked).toEqual(['google', 'steam', 'github', 'discord'])
   expect(r.signedInTitle).toBe('Profile')
