@@ -814,13 +814,36 @@ html.layout-compact .menu-panel {
   filter: brightness(1.15);
 }
 
-/* Cloud Save panel (CloudSync.js, CloudSaveUI.js) -
-   Google Sign-In state, sync status, and the cloud-vs-local conflict
-   picker all live in this one modal rather than spreading across the
-   homepage, matching this project's "big things go in a panel, homepage
-   only gets a tiny trigger icon" pattern from every prior batch. */
+/* Cloud Save (CloudSync.js, CloudSaveUI.js) - sign-in state, sync status
+   and the cloud-vs-local question. A section of General's General tab
+   since 2026-10-23 (was its own popup panel). */
+#cloudsave-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(560px, 100%);
+  margin: 0 auto;
+  padding: 8px 0 16px;
+  text-align: center;
+}
+#cloudsave-panel-title {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ui-gold-bright);
+}
+html.ui-theme-old #cloudsave-panel-title { font-family: 'Rye', Georgia, serif; color: #5a3410; }
 #cloudsave-signed-out,
-#cloudsave-signed-in,
+#cloudsave-signed-in {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
 /* height/overflow-y on both: same "match How to Play's box exactly"
    treatment as .general-tab-page (see that rule's comment) - no header
    row of its own to subtract here (h2 is the only element before these
@@ -1614,7 +1637,6 @@ html.large-text-mode #shop-panel,
 html.large-text-mode #market-panel,
 html.large-text-mode #whatsnew-panel,
 html.large-text-mode #howtoplay-panel,
-html.large-text-mode #cloudsave-panel,
 html.large-text-mode #settings-panel {
   zoom: 1.18;
 }
@@ -3543,7 +3565,6 @@ section.category.hidden-search {
 #market-panel,
 #whatsnew-panel,
 #howtoplay-panel,
-#cloudsave-panel,
 #friends-panel,
 #other-profile-panel,
 #menu-inventory-panel,
@@ -3758,7 +3779,6 @@ html.ui-theme-old #shop-panel,
 html.ui-theme-old #market-panel,
 html.ui-theme-old #whatsnew-panel,
 html.ui-theme-old #howtoplay-panel,
-html.ui-theme-old #cloudsave-panel,
 html.ui-theme-old #friends-panel,
 html.ui-theme-old #other-profile-panel,
 html.ui-theme-old #menu-inventory-panel,
@@ -3819,7 +3839,7 @@ html.ui-theme-old #server-panel {
   min-width: 150px;
 }
 .auth-btn:active { transform: translateY(1px); }
-.auth-google { min-width: min(100%, 280px); margin: 4px 0; }
+.auth-google { margin: 4px 0; }
 .auth-google-g {
   width: 16px;
   height: 16px;
@@ -3829,17 +3849,17 @@ html.ui-theme-old #server-panel {
   border-radius: 50%;
   box-sizing: content-box;
 }
-/* The other sign-ins (2026-10-23, Gaymi: Google on its own, "under it more
-   ways to sign up or log in"): a row of round logo buttons in each site's
-   own colour, the same in both themes. Microsoft, Facebook, LINE, Apple
-   and WeChat were dropped (each needed a phone number, a card or a
-   company). */
+/* Every sign-in is a full-width "Continue with ..." oval like Google's
+   (2026-10-23, Gaymi: "like google not just icon"), each with its logo in
+   a small circle of the site's own colour, the same in both themes.
+   Microsoft, Facebook, LINE, Apple and WeChat were dropped (each needed a
+   phone number, a card or a company). */
 .auth-divider {
   display: flex;
   align-items: center;
   gap: 12px;
   width: min(100%, 360px);
-  margin: 14px 0 12px;
+  margin: 10px 0 8px;
   font-size: 14px;
   color: rgba(232, 226, 208, 0.75);
 }
@@ -3852,56 +3872,30 @@ html.ui-theme-old #server-panel {
   opacity: 0.4;
 }
 .auth-providers {
-  display: grid;
-  grid-template-columns: repeat(3, 46px);
-  justify-content: center;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
   margin-bottom: 16px;
 }
-.auth-provider {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 46px;
-  padding: 0;
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+.auth-wide { width: min(100%, 280px); }
+.auth-logo {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  padding: 3px;
   border-radius: 50%;
-  cursor: pointer;
-  transition: filter 0.15s ease, transform 0.1s ease;
+  box-sizing: content-box;
 }
-.auth-provider svg { width: 22px; height: 22px; }
-.auth-provider:hover { filter: brightness(1.15); }
-.auth-provider:active { transform: translateY(1px); }
-/* Both themes recolour every button and its words; the logo buttons keep
-   their own colours and white marks. */
-#profile-login-gate .auth-provider { border-radius: 50% !important; padding: 0 !important; }
-#profile-login-gate .auth-provider svg [fill="currentColor"] { fill: #fff !important; }
-#profile-login-gate .auth-provider-steam { background: #171a21 !important; }
-#profile-login-gate .auth-provider-github { background: #24292f !important; }
-#profile-login-gate .auth-provider-discord { background: #5865f2 !important; }
-.auth-terms {
-  margin: 22px 0 0;
-  font-size: 13px;
-  color: rgba(232, 226, 208, 0.6);
-}
-.auth-link {
-  padding: 0;
-  font: inherit;
-  color: var(--ui-gold-bright, #f0c868);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  background: none;
-  border: none;
-  cursor: pointer;
-}
+.auth-logo [fill="currentColor"] { fill: #fff !important; }
+.auth-provider-steam .auth-logo { background: #171a21; }
+.auth-provider-github .auth-logo { background: #24292f; }
+.auth-provider-discord .auth-logo { background: #5865f2; }
 
 /* Old theme: ink on the paper, the rusty plaques with light lettering. */
 html.ui-theme-old .auth-note,
-html.ui-theme-old .auth-terms,
 html.ui-theme-old .auth-divider { opacity: 0.82; }
-html.ui-theme-old .auth-link { color: #5a3410 !important; font-weight: 600; }
 
 /* Wraps every existing piece of profile content so it can be toggled as
    one unit against #profile-login-gate - replicates the flex-column
@@ -4035,7 +4029,6 @@ html.ui-theme-old .auth-link { color: #5a3410 !important; font-weight: 600; }
 #market-panel-title,
 #whatsnew-panel-title,
 #howtoplay-panel-title,
-#cloudsave-panel-title,
 #friends-panel-title,
 #menu-inventory-panel-title,
 #server-panel-title,
@@ -4067,7 +4060,6 @@ html.ui-theme-old #shop-panel-title,
 html.ui-theme-old #market-panel-title,
 html.ui-theme-old #whatsnew-panel-title,
 html.ui-theme-old #howtoplay-panel-title,
-html.ui-theme-old #cloudsave-panel-title,
 html.ui-theme-old #friends-panel-title,
 html.ui-theme-old #menu-inventory-panel-title,
 html.ui-theme-old #server-panel-title,
@@ -5396,7 +5388,6 @@ html.text-spacing-active #achievements-panel,
 html.text-spacing-active #profile-panel,
 html.text-spacing-active #settings-panel,
 html.text-spacing-active #quests-panel,
-html.text-spacing-active #cloudsave-panel,
 html.text-spacing-active #howtoplay-panel {
   letter-spacing: calc((var(--text-spacing, 100) - 100) * 0.005px);
   line-height: calc(1.4 * var(--text-spacing, 100) / 100);
@@ -5438,7 +5429,6 @@ html.reduce-transparency #achievements-panel,
 html.reduce-transparency #profile-panel,
 html.reduce-transparency #settings-panel,
 html.reduce-transparency #quests-panel,
-html.reduce-transparency #cloudsave-panel,
 html.reduce-transparency #howtoplay-panel,
 html.reduce-transparency #hub-panel,
 html.reduce-transparency #coming-soon-panel,

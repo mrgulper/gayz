@@ -470,6 +470,7 @@ export function _bindSettings(game) {
       for (const page of document.querySelectorAll('.general-tab-page')) {
         page.style.display = page.id === `general-page-${tab.dataset.generalPage}` ? 'block' : 'none'
       }
+      if (tab.dataset.generalPage === 'general') game._renderCloudSaveSection()
       if (tab.dataset.generalPage === 'clan') {
         game._refreshClanUi()
         // The Clan tab always opens on Clans, not My Clan (2026-10-09).

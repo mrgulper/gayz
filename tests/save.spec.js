@@ -215,3 +215,38 @@ test('import save keeps this device\'s cloud sync state', async ({ page }) => {
   }))
   expect(r).toEqual({ coins: 50, base: '{"gayz-x":"1"}', uid: 'alice', lastSync: '123', changedRecently: true })
 })
+
+// Signing in to an account whose save differs from this device's progress
+// (2026-10-23): the "which save to keep?" question shows on General's
+// General tab (Cloud Save lives there now), nothing syncs until it's
+// answered, and "Keep This Device's Save" uploads this device's save as-is.
+test('sign-in question opens on General; keeping this device uploads it', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await installFakeCloud(page, 'bob', { 'gayz-shop-progress': JSON.stringify({ coins: 999 }) })
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    localStorage.setItem('gayz-shop-progress', JSON.stringify({ coins: 7 }))
+    g._hasMeaningfulLocalProgress = () => true
+    await g._afterCloudSignIn('bob', { name: 'Bob' })
+    await new Promise((res) => setTimeout(res, 50))
+    const conflict = document.getElementById('cloudsave-conflict')
+    out.generalOpen = getComputedStyle(g.clanPanel).display
+    out.questionShown = conflict.offsetParent !== null
+    out.inGeneral = !!conflict.closest('#general-page-general')
+    out.pushesBefore = window.__fakeCloud.pushes
+    document.getElementById('cloudsave-use-local-btn').click()
+    for (let i = 0; i < 40 && window.__fakeCloud.pushes === 0; i++) await new Promise((res) => setTimeout(res, 50))
+    out.pending = !!g._cloudPendingConflict
+    out.questionHidden = getComputedStyle(conflict).display === 'none'
+    out.cloudCoins = JSON.parse(window.__fakeCloud.cloud.data['gayz-shop-progress']).coins
+    return out
+  })
+  expect(r.generalOpen).toBe('flex')
+  expect(r.questionShown).toBe(true)
+  expect(r.inGeneral).toBe(true)
+  expect(r.pushesBefore).toBe(0)
+  expect(r.pending).toBe(false)
+  expect(r.questionHidden).toBe(true)
+  expect(r.cloudCoins).toBe(7)
+})
