@@ -202,6 +202,10 @@ function patchTexture(base, spots, seed, stripes = false) {
 }
 
 export class PlayAnimals {
+  // For tests.
+  static BIOME_ANIMALS = BIOME_ANIMALS
+  static KINDS = KINDS
+
   constructor(survival) {
     this.s = survival
     this.list = []
