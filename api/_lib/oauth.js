@@ -121,8 +121,8 @@ export function sameState(a, b) {
 // back to the game window, then closes itself. Both postMessage (to the
 // window that opened it) and a BroadcastChannel (works even when a site's
 // Cross-Origin-Opener-Policy cut the link to that window).
-export function resultPage({ token = null, error = null }) {
-  const data = JSON.stringify({ type: 'gayz-auth', token, error }).replace(/</g, '\\u003c')
+export function resultPage({ token = null, error = null, profile = null }) {
+  const data = JSON.stringify({ type: 'gayz-auth', token, error, profile }).replace(/</g, '\\u003c')
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GayZ</title></head>
 <body style="margin:0;padding:48px 16px;background:#1b1b1b;color:#eee;font:16px system-ui,sans-serif;text-align:center">
 <p id="m">${error ? 'Sign-in did not finish. You can close this window and try again.' : 'Signed in. You can close this window.'}</p>
