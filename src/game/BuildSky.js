@@ -429,7 +429,7 @@ export class BuildSky {
     }
     if (!this._active) return
     this._easeLook(dt)
-    this.bodies.update(dt, bm.camera, this._phase(), this._mix, 1 - this.nightAmount())
+    this.bodies.update(dt, bm.camera, this._phase(), this._mix, 1 - this.nightAmount(), this._sky)
     this.weather3d.update(dt)
     if (this.weather === 'random') {
       this._rerollIn -= dt

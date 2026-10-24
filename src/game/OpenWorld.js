@@ -66,6 +66,13 @@ const MAP_TILE_CACHE = 4000
 const MAP_PREWARM_R = 6
 const MAP_PREWARM_SLICE_MS = 6
 const MAP_PREWARM_GAP_MS = 30
+// The World Map mode's whole-Earth picture (earthPicture): pixels per
+// degree (4 = one pixel per 30 blocks, 1440 x 720), rows per batch and the
+// time spent per batch.
+const EARTH_PIC_RES = 4
+const EARTH_PIC_ROWS = 4
+const EARTH_PIC_SLICE_MS = 8
+const EARTH_PIC_GAP_MS = 24
 const MAP_SPAN_OPEN = 640
 // How far the roads continue out of the gates as dirt tracks.
 const PATH_LEN = 64
@@ -265,8 +272,7 @@ export function sampleLand(x, z) {
   // World Map: the real place's biome, except rivers, beaches and the
   // high mountains the noise made; the sea's kind from where it is.
   if (EARTH && biome !== 'river' && biome !== 'beach' && biome !== 'snowyBeach' && !(m > 0.45 && (biome === 'mountains' || biome === 'snowyPeaks'))) {
-    const jit = 0.5
-    const real = earthBiome(earthLat + fbm(x, z, 1 / 90, 2, 73) * jit, earthLon + fbm(x, z, 1 / 90, 2, 79) * jit)
+    const real = earthBiome(earthLat + biomeWobble(x, z, 73), earthLon + biomeWobble(x, z, 79))
     if (h < SEA) {
       if (WATER_BIOMES.has(biome)) biome = Math.abs(earthLat) > 62 ? 'frozenOcean' : Math.abs(earthLat) < 23 ? 'warmOcean' : c < -0.45 ? 'deepOcean' : 'ocean'
     } else if (!WATER_BIOMES.has(real)) biome = real
@@ -293,6 +299,11 @@ const RIVER_HALF = [4.5, 3.2, 2.2, 1.4]
 const RIVER_BANK = 7
 const LAKE_RIM = 3
 const lakeWater = (level) => Math.max(SEA, Math.round(landBlocks(level)))
+
+// How far (degrees) a spot's biome is looked up off the real spot: big
+// slow bends plus small ones, so borders between the half-degree climate
+// cells wander like real nature instead of running in straight lines.
+const biomeWobble = (x, z, seed) => fbm(x, z, 1 / 90, 2, seed) * 0.45 + fbm(x, z, 1 / 22, 2, seed + 100) * 0.12
 
 function sampleEarth(x, z, d) {
   const lon = x / EARTH_DEG
@@ -353,8 +364,7 @@ function sampleEarth(x, z, d) {
     else if (top > snowLine(lat)) biome = 'snowyPeaks'
     else if (top > 2400) biome = 'mountains'
     else {
-      const jit = 0.5
-      biome = earthBiome(lat + fbm(x, z, 1 / 90, 2, 73) * jit, lon + fbm(x, z, 1 / 90, 2, 79) * jit)
+      biome = earthBiome(lat + biomeWobble(x, z, 73), lon + biomeWobble(x, z, 79))
       // The grid's sea or mountains where the real land is low.
       if (WATER_BIOMES.has(biome) || biome === 'mountains' || biome === 'snowyPeaks' || biome === 'beach' || biome === 'snowyBeach') {
         const a = Math.abs(lat)
@@ -1232,6 +1242,66 @@ export class OpenWorld {
   _clearTiles() {
     this._tiles.clear()
     this._prewarm = null
+    this._earthPic = null
+  }
+
+  // World Map mode: the whole Earth as one picture, EARTH_PIC_RES pixels a
+  // degree, coloured like the block map (same land, minus villages and
+  // paths). Drawn a few rows at a time in the background once the real
+  // heights are in; returns { canvas, done } (null outside the World Map
+  // mode). The big map draws it under its tiles, so zooming never shows
+  // squares filling in, and it's the globe's picture (2026-10-24, Gaymi:
+  // "when scrolling out or in dont make it lag or those blocks are like
+  // generating").
+  earthPicture() {
+    if (!this.active || !EARTH || !earthTerrainReady()) return null
+    if (this._earthPic) return this._earthPic
+    const W = 360 * EARTH_PIC_RES
+    const H = 180 * EARTH_PIC_RES
+    const canvas = document.createElement('canvas')
+    canvas.width = W
+    canvas.height = H
+    const ctx = canvas.getContext('2d')
+    const pic = { canvas, done: false, version: 0 }
+    this._earthPic = pic
+    const step = EARTH_DEG / EARTH_PIC_RES
+    let row = 0
+    const work = () => {
+      if (this._earthPic !== pic || !this.active) return
+      const until = performance.now() + EARTH_PIC_SLICE_MS
+      while (row < H && performance.now() < until) {
+        const img = ctx.createImageData(W, EARTH_PIC_ROWS)
+        for (let j = 0; j < EARTH_PIC_ROWS; j++) {
+          const z = Math.floor((row + j + 0.5) * step - 90 * EARTH_DEG)
+          for (let i = 0; i < W; i++) {
+            const c = this._landColor(Math.floor((i + 0.5) * step - 180 * EARTH_DEG), z)
+            const o = (j * W + i) * 4
+            img.data[o] = (c >> 16) & 255
+            img.data[o + 1] = (c >> 8) & 255
+            img.data[o + 2] = c & 255
+            img.data[o + 3] = 255
+          }
+        }
+        ctx.putImageData(img, 0, row)
+        row += EARTH_PIC_ROWS
+      }
+      pic.version++
+      if (row < H) setTimeout(work, EARTH_PIC_GAP_MS)
+      else pic.done = true
+    }
+    setTimeout(work, EARTH_PIC_GAP_MS)
+    return pic
+  }
+
+  // A spot's colour from the land alone (no villages/paths), shaded by
+  // height like _cellColor.
+  _landColor(x, z) {
+    const s = sampleLand(x, z)
+    let color
+    if (s.h < s.w) color = s.biome === 'frozenOcean' ? 0xb5d3f0 : s.biome === 'warmOcean' ? 0x3fb6c8 : s.h < SEA - 9 ? 0x1f4f9a : 0x3368c6
+    else color = this._typeColor(surface(s, x, z).top)
+    const shade = s.h < s.w ? 1 : 0.72 + 0.28 * clamp01((s.h + 6) / 40)
+    return (Math.round(((color >> 16) & 255) * shade) << 16) | (Math.round(((color >> 8) & 255) * shade) << 8) | Math.round((color & 255) * shade)
   }
 
   // A drawn bigger tile covering tile (tx, tz) of T cells: { canvas, sx,

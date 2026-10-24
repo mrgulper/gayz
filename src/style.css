@@ -10812,6 +10812,13 @@ body.touch-play-on #build-try-map[data-size='center'] #build-try-map-close {
   height: 70vmin;
   opacity: 0.85;
 }
+/* The World Map mode's big map is solid (the world behind showed through as blocks). */
+#build-try-map[data-size='center'].earth { opacity: 1; }
+/* Zoomed far out in the World Map mode it's a globe (EarthGlobe.js): no box round it. */
+#build-try-map[data-size='center'].globe { opacity: 1; background: none; border-color: transparent; box-shadow: none; }
+#build-try-map.globe > canvas:not(.earth-globe):not(.earth-globe-labels) { opacity: 0; }
+#build-try-map .earth-globe,
+#build-try-map .earth-globe-labels { position: absolute; inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); image-rendering: auto; border-radius: 50%; pointer-events: none; }
 
 /* Try Map: head under water (bloxd.io-style blue) or lava. */
 #build-try-underwater {
@@ -12360,20 +12367,11 @@ html.ui-theme-old #trade-dialog-action.trade-action-cancel { background: #a8321f
 .editor-pick-art {
   height: 110px;
   border-radius: 8px;
-  image-rendering: pixelated;
 }
-/* Worlds: sky over a row of biomes - sea, desert, grass, forest, snow. */
-.editor-pick-art-worlds {
-  background:
-    linear-gradient(90deg, #2f7de0 0 20%, #e6d28e 20% 40%, #5fa84a 40% 60%, #2f6b2a 60% 80%, #f4f6f8 80%) bottom / 100% 52% no-repeat,
-    #6cb4f4;
-}
-/* Plain: sky over endless flat grass. */
-.editor-pick-art-plain {
-  background:
-    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.06) 0 6px, transparent 6px 12px),
-    linear-gradient(180deg, #6cb4f4 0 48%, #7cc45e 48% 52%, #5fa84a 52%);
-}
+/* Real in-game pictures of each (2026-10-24, Gaymi: "take a screenshot in
+   game for each world and plain"). */
+.editor-pick-art-worlds { background: #6cb4f4 url('/images/editor-pick-worlds.webp') center / cover no-repeat; }
+.editor-pick-art-plain { background: #6cb4f4 url('/images/editor-pick-plain.webp') center / cover no-repeat; }
 .editor-pick-name {
   font-size: 20px;
   font-weight: 700;

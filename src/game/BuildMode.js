@@ -137,7 +137,7 @@ const MENU_SHORTCUTS = [
   [['Ctrl', 'Z'], 'buildModeUndoBtn'],
   [['Ctrl', 'Y'], 'buildModeRedoBtn'],
   [['Ctrl', 'S'], 'buildModeSaveBtn'],
-  [['M'], 'buildModeMirrorBtn'],
+  [() => [keyLabel(FIXED_KEYS.buildMirror)], 'buildModeMirrorBtn'],
   [['L'], 'buildModeLineBtn'],
   [['C'], 'buildModeCopyBtn'],
   [['P'], 'buildModePasteBtn'],
@@ -1897,7 +1897,7 @@ export class BuildMode {
     this._slotsEl = document.getElementById('build-slots')
     this._renderSlots()
 
-    // Mirror toggle button (see toggleMirror) - the M key does the same
+    // Mirror toggle button (see toggleMirror) - the N key does the same
     // thing, this is just the discoverable/clickable equivalent.
     this._mirrorBtnEl = document.getElementById('build-mode-mirror-btn')
     if (this._mirrorBtnEl) this._mirrorBtnEl.addEventListener('click', () => this.toggleMirror())
@@ -3368,11 +3368,15 @@ export class BuildMode {
     }
   }
 
-  // M key or toolbar button - see mirrorMode's own comment for why x=0.
+  // N key or toolbar button - see mirrorMode's own comment for why x=0.
+  // Was M until 2026-10-24: M opens the map everywhere else, so pressing it
+  // out of habit turned on a see-through wall nobody recognised. A toast
+  // now says what happened either way.
   toggleMirror() {
     this.mirrorMode = !this.mirrorMode
     if (this._mirrorPlaneMesh) this._mirrorPlaneMesh.visible = this.mirrorMode
     if (this._mirrorBtnEl) this._mirrorBtnEl.classList.toggle('active', this.mirrorMode)
+    this.game?._showHomepageToast?.(t(this.mirrorMode ? 'buildMirrorOnToast' : 'buildMirrorOffToast'))
   }
 
   // World x cell index -> its mirrored cell index across x=0. A cell at
