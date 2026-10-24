@@ -34,8 +34,6 @@ import { audioEngine } from './Audio.js'
 import { addGunLights, cloneViewmodel } from './Viewmodels.js'
 import { heldAction, FIXED_KEYS } from './Keybinds.js'
 import { WORLD_LIMIT, sampleLand, biomeName, inCity, isEarthWorld } from './OpenWorld.js'
-import { drawEarthView, drawEarthPlaces } from './EarthAtlas.js'
-import { EarthGlobe } from './EarthGlobe.js'
 import { EARTH_DEG } from './EarthGrid.js'
 import { placeNameAt } from './EarthPlaces.js'
 import { t } from './i18n.js'
@@ -78,15 +76,15 @@ const MAP_ZOOM_SAFE = [1e-4, 1e6]
 // Time per draw for the quick stand-in tiles; past it a tile is one flat
 // colour until the next draw.
 const MAP_COARSE_BUDGET_MS = 3
-// The World Map mode's big map (2026-10-23, Gaymi: "the second time
-// clicking m it should just look like the second time ... but in the
-// middle and bigger ... when you keep zooming out until then you can see
-// the world map ... make it to a circle 3d type that you can spin"): the
-// block map, then past ATLAS_FROM blocks across the flat real-world atlas
-// (EarthAtlas.js), then past GLOBE_FROM the globe (EarthGlobe.js).
-const ATLAS_FROM = 16 * EARTH_DEG
-const GLOBE_FROM = 70 * EARTH_DEG
+// The World Map mode's big map stays the block map at every zoom
+// (2026-10-24, Gaymi: "it goes from regular to map mode dont make it go to
+// map mode") - the atlas/globe switch is gone; zoom stops at GLOBE_MOST
+// blocks across (200 degrees, the whole globe).
 const GLOBE_MOST = 200 * EARTH_DEG
+// One wheel step zooms by at most this much (2026-10-24, "when scrolling
+// goes out and in slower") - smaller trackpad steps zoom less.
+const MAP_WHEEL_MAX = 1.1
+const MAP_WHEEL_RATE = 0.001
 const HEIGHT = 1.8
 const EYE = 1.62
 const CROUCH_HEIGHT = 1.5
@@ -358,7 +356,8 @@ export class BuildTryMode {
     this._mapEl.addEventListener('wheel', (e) => {
       if (!this._mapInteractive()) return
       e.preventDefault()
-      this.zoomMap(e.deltaY > 0 ? 1.25 : 0.8)
+      const step = Math.min(Math.log(MAP_WHEEL_MAX), Math.abs(e.deltaY) * MAP_WHEEL_RATE)
+      this.zoomMap(Math.exp(e.deltaY > 0 ? step : -step))
     }, { passive: false })
   }
 
@@ -513,17 +512,6 @@ export class BuildTryMode {
     const moved = this._mapZoom !== 1 || this._mapPan.x || this._mapPan.z
     const windowed = world || moved
     const span = windowed ? this._mapSpan() : cells
-    // The World Map mode's big map: blocks, then the atlas, then the globe
-    // as you zoom out (ATLAS_FROM, GLOBE_FROM).
-    const earthView = !!world && isEarthWorld() && this._mapInteractive()
-    const globeView = earthView && span > GLOBE_FROM
-    const atlasView = earthView && span > ATLAS_FROM && !globeView
-    if (atlasView !== this._mapEl.classList.contains('atlas')) this._mapEl.classList.toggle('atlas', atlasView)
-    if (globeView !== this._mapEl.classList.contains('globe')) {
-      this._mapEl.classList.toggle('globe', globeView)
-      if (globeView && !this._globe) this._globe = new EarthGlobe(this._mapEl)
-      this._globe?.show(globeView)
-    }
     const ox = windowed ? (world ? x : 0) + this._mapPan.x - span / 2 : -cells / 2
     const oz = windowed ? (world ? z : 0) + this._mapPan.z - span / 2 : -cells / 2
     const k = s / span
@@ -532,26 +520,12 @@ export class BuildTryMode {
       ctx.fillRect(0, 0, s, s)
       ctx.drawImage(this._mapImage, (-cells / 2 - ox) * k, (-cells / 2 - oz) * k, cells * k, cells * k)
       this._showBiome(null)
-    } else if (globeView) {
-      // The map's middle faces you; you're the arrow on it.
-      const yawNow = this.bm._yaw
-      this._globe.draw(s, -(oz + span / 2) / EARTH_DEG, (ox + span / 2) / EARTH_DEG, span / EARTH_DEG, { lat: -z / EARTH_DEG, lon: x / EARTH_DEG, ang: Math.atan2(-Math.cos(yawNow), -Math.sin(yawNow)) })
-      this._showBiome(x, z)
-      return
-    } else if (atlasView) {
-      // World block x = longitude * EARTH_DEG, z = -latitude * EARTH_DEG.
-      const dpp = span / EARTH_DEG / s
-      ctx.imageSmoothingEnabled = true
-      drawEarthView(ctx, s, s, ox / EARTH_DEG, -oz / EARTH_DEG, dpp)
-      // Closer in: the states/provinces and cities of where you are and of
-      // the map's middle.
-      drawEarthPlaces(ctx, s, s, ox / EARTH_DEG, -oz / EARTH_DEG, dpp, [[-z / EARTH_DEG, x / EARTH_DEG], [-(oz + span / 2) / EARTH_DEG, (ox + span / 2) / EARTH_DEG]])
-      this._showBiome(x, z)
     } else if (world) {
       ctx.fillStyle = '#1d2a1a'
       ctx.fillRect(0, 0, s, s)
       // Tiles grow with the view (32 cells, 64, 128...), so a zoomed-out map
       // still needs only about a hundred of them.
+      world.prewarmMap(x, z, GLOBE_MOST)
       let T = 32
       while (span / T > 10) T *= 2
       // Detailed tiles (1024 noise reads each) are drawn a few milliseconds'
@@ -573,9 +547,14 @@ export class BuildTryMode {
       let missing = false
       for (const [, tx, tz] of tiles) {
         const tile = world.mapTile(tx, tz, performance.now() < until, T)
-        const img = tile ? tile.canvas : world.mapTileCoarse(tx, tz, T, performance.now() < coarseUntil)
         if (!tile) missing = true
-        if (img) ctx.drawImage(img, (tx * T - ox) * k, (tz * T - oz) * k, T * k + 0.5, T * k + 0.5)
+        // Not drawn yet: a bigger, already drawn tile's piece stands in
+        // (the map is drawn ahead at every zoom when the game starts -
+        // OpenWorld.prewarmMap), so zooming never shows it loading.
+        const part = tile ? null : world.mapTilePart(tx, tz, T)
+        const img = tile ? tile.canvas : part ? null : world.mapTileCoarse(tx, tz, T, performance.now() < coarseUntil)
+        if (part) ctx.drawImage(part.canvas, part.sx, part.sy, part.sw, part.sw, (tx * T - ox) * k, (tz * T - oz) * k, T * k + 0.5, T * k + 0.5)
+        else if (img) ctx.drawImage(img, (tx * T - ox) * k, (tz * T - oz) * k, T * k + 0.5, T * k + 0.5)
         else {
           const color = world._cellColor(tx * T + T / 2, tz * T + T / 2)
           ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`

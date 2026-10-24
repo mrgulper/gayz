@@ -186,12 +186,24 @@ export function _bindSettings(game) {
   // Quests panel tab strip - same pattern as .settings-tab above, kept as
   // a separate class/loop so quest tabs don't get swept into the
   // settings-tab handler's global .settings-tab/.settings-page queries.
-  for (const tab of document.querySelectorAll('.quest-tab')) {
+  for (const tab of document.querySelectorAll('.quest-tab[data-quest-page]')) {
     tab.addEventListener('click', () => {
-      for (const tabEl of document.querySelectorAll('.quest-tab')) tabEl.classList.toggle('active', tabEl === tab)
+      for (const tabEl of document.querySelectorAll('.quest-tab[data-quest-page]')) tabEl.classList.toggle('active', tabEl === tab)
       for (const page of document.querySelectorAll('.quest-tab-page')) {
         page.style.display = page.id === `quests-page-${tab.dataset.questPage}` ? 'flex' : 'none'
       }
+    })
+  }
+  // Quests' game mode row (Zombie Survival/World Map, 2026-10-24): World
+  // Map has no quests yet, so its tab hides Zombie Survival's quest tabs.
+  for (const tab of document.querySelectorAll('.quest-tab[data-quest-mode]')) {
+    tab.addEventListener('click', () => {
+      for (const tabEl of document.querySelectorAll('.quest-tab[data-quest-mode]')) tabEl.classList.toggle('active', tabEl === tab)
+      const survival = tab.dataset.questMode === 'survival'
+      const pageTabs = document.getElementById('quest-page-tabs')
+      if (pageTabs) pageTabs.style.display = survival ? '' : 'none'
+      if (survival) document.querySelector('.quest-tab[data-quest-page].active')?.click()
+      else for (const page of document.querySelectorAll('.quest-tab-page')) page.style.display = page.id === 'quests-page-worldmap' ? 'flex' : 'none'
     })
   }
 
@@ -464,15 +476,15 @@ export function _bindSettings(game) {
   }
   document.addEventListener('click', () => game._closeMarketFilterMenus())
 
-  // Clan panel tab strip (General/Clan/Market) - same isolated
-  // class/loop pattern as the other tab strips above.
+  // Friendship's tab strip (Friend List/Clan; it was General's General/
+  // Clan tabs until 2026-10-24) - same isolated class/loop pattern as the
+  // other tab strips above.
   for (const tab of document.querySelectorAll('.general-tab')) {
     tab.addEventListener('click', () => {
       for (const tabEl of document.querySelectorAll('.general-tab')) tabEl.classList.toggle('active', tabEl === tab)
       for (const page of document.querySelectorAll('.general-tab-page')) {
         page.style.display = page.id === `general-page-${tab.dataset.generalPage}` ? 'block' : 'none'
       }
-      if (tab.dataset.generalPage === 'general') game._renderCloudSaveSection()
       if (tab.dataset.generalPage === 'clan') {
         game._refreshClanUi()
         // The Clan tab always opens on Clans, not My Clan (2026-10-09).

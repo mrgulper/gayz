@@ -10811,14 +10811,6 @@ body.touch-play-on #build-try-map[data-size='center'] #build-try-map-close {
   height: 70vmin;
   opacity: 0.85;
 }
-/* The World Map mode's real-world map (EarthAtlas.js) is solid, not see-through. */
-#build-try-map[data-size='center'].atlas { opacity: 1; }
-#build-try-map.atlas canvas { image-rendering: auto; }
-/* ...zoomed out further it's a globe (EarthGlobe.js): no box round it. */
-#build-try-map[data-size='center'].globe { opacity: 1; background: none; border-color: transparent; box-shadow: none; }
-#build-try-map.globe > canvas:not(.earth-globe):not(.earth-globe-labels) { opacity: 0; }
-#build-try-map .earth-globe,
-#build-try-map .earth-globe-labels { position: absolute; inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); image-rendering: auto; border-radius: 50%; pointer-events: none; }
 
 /* Try Map: head under water (bloxd.io-style blue) or lava. */
 #build-try-underwater {
@@ -12231,4 +12223,30 @@ html.ui-theme-old #levels-bar-fill {
   .signin-footer { height: 88px; padding-top: 8px; }
   #market-panel:has(#market-signed-out:not([hidden])) .panel-fixed-content { height: calc(68vh - 88px); }
   #gallery-panel:has(#gallery-signed-out:not([hidden])) #gallery-content { height: calc(68vh - 46px - 88px); }
+}
+
+/* Friendship (2026-10-24): Friend List and Clan tabs. The Friend List
+   page itself doesn't scroll - its signed-in/out boxes do, 68vh minus the
+   tab strip (.general-tab-page's 45.5px), so the panel stays the same
+   height as the others. General has no tab strip any more, so its page is
+   a plain 68vh .panel-fixed-content. */
+#general-page-friends {
+  width: 100%;
+  height: auto;
+  padding: 0;
+  overflow: visible;
+}
+#friends-panel #friends-signed-in,
+#friends-panel #friends-signed-out {
+  height: calc(68vh - 45.5px);
+}
+
+/* Quests has a game mode row (Zombie Survival/World Map, 2026-10-24) above
+   its own quest tabs - both rows' footprint comes off the page's height
+   (just the one row on World Map, where the quest tabs are hidden). */
+#quests-panel .quest-tab-page {
+  height: calc(68vh - 91px);
+}
+#quests-panel:has(#quest-page-tabs[style*='none']) .quest-tab-page {
+  height: calc(68vh - 45.5px);
 }

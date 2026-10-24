@@ -452,11 +452,15 @@ html.ui-theme-clean #menu-avatar-icon {
 html.ui-theme-clean .panel-box :is(.achievements-mode-tab, .hub-tab, .settings-tab, .quest-tab, .clan-tab, .inv-tab, .gallery-tab, .mini-action-btn, .settings-reset-btn) {
   border-radius: 999px !important;
 }
-/* Crates: flat cards, the tier colour only as a thin top edge. */
+/* Shop crates, the skin card and the Coming Soon cards are filled with
+   their own colour and dark ink, the Old theme's colours (2026-10-24,
+   Gaymi: "change the crates, character and the coming soon in shop to the
+   colour the old theme has") - still flat, no rivets. */
 html.ui-theme-clean .crate-card {
-  background: var(--clean-surface) !important;
-  border: 1px solid var(--clean-line) !important;
-  border-top: 3px solid var(--crate-tier-color, var(--clean-line)) !important;
+  background:
+    radial-gradient(ellipse at 50% 20%, color-mix(in srgb, var(--crate-tier-color, #888) 70%, #fff 30%), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--crate-tier-color, #888) 85%, #fff 15%), color-mix(in srgb, var(--crate-tier-color, #888) 70%, #2b1a0c 30%)) !important;
+  border: 1px solid color-mix(in srgb, var(--crate-tier-color, #888) 60%, #2b1a0c 40%) !important;
   border-radius: 16px;
   box-shadow: none !important;
   filter: none;
@@ -464,6 +468,33 @@ html.ui-theme-clean .crate-card {
 html.ui-theme-clean .crate-card * {
   text-shadow: none !important;
 }
+html.ui-theme-clean .crate-card .crate-tier-name,
+html.ui-theme-clean .crate-card .crate-stock-count { color: #241507 !important; }
+html.ui-theme-clean .crate-card .crate-open-btn {
+  background: rgba(43, 26, 12, 0.82) !important;
+  border-color: rgba(43, 26, 12, 0.9) !important;
+  color: #f3e3c0 !important;
+}
+html.ui-theme-clean .panel-box .crate-card .crate-open-btn * { color: #f3e3c0 !important; }
+html.ui-theme-clean #shop-skin-item {
+  background:
+    radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--rarity) 55%, #fff 45%), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--rarity) 80%, #fff 20%), color-mix(in srgb, var(--rarity) 65%, #2b1a0c 35%)) !important;
+  border-color: color-mix(in srgb, var(--rarity) 55%, #2b1a0c 45%) !important;
+  box-shadow: none !important;
+}
+html.ui-theme-clean #shop-skin-name,
+html.ui-theme-clean #shop-skin-badge { color: #241507 !important; }
+html.ui-theme-clean #shop-panel .shop-rarity-pill {
+  color: #fff4d6 !important;
+  background: #2b1a0c !important;
+}
+html.ui-theme-clean .shop-soon-card {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--soon-color) 40%, #f1e0b8), color-mix(in srgb, var(--soon-color) 20%, #ead6ab)) !important;
+  border-color: color-mix(in srgb, var(--soon-color) 60%, #4a2c10) !important;
+}
+html.ui-theme-clean .shop-soon-name { color: #241507 !important; }
+html.ui-theme-clean .shop-soon-text { color: rgba(36, 21, 7, 0.8) !important; }
 
 /* Checkboxes: an outline box, filled with the ink when ticked. */
 html.ui-theme-clean .audio-checkbox,

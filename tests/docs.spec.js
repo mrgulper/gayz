@@ -161,6 +161,7 @@ test('every Coming Soon part of the game is in GayZ Features', async ({ page }) 
       [/^hub-custom|^upgrades-custom/, 'Custom Games'],
       [/^(monthly|yearly|lifetime)-quests/, 'Monthly, Yearly & Lifetime Quests'],
       [/^crate-monthly/, 'Monthly Chest'],
+      [/^upgrades-worldmap|^worldmap-quests/, 'World Map Quests & Upgrades'],
       [/^shop-soon-daily/, 'Daily Deals'],
       [/^shop-soon-skins/, 'More Shop Skins'],
       [/^shop-soon-spin/, 'Crate Spin'],

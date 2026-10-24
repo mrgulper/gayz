@@ -2526,9 +2526,9 @@ test('block chunks free their copy once drawn and come back after a lost graphic
 // rivers (EarthTerrain.js) - no snow on Kazakhstan's steppe, snow on
 // Everest, water in Lake Balkhash and the Nile. Zombies never appear
 // closer than 30 blocks (out here too - path cells used to wrap past
-// 2048). M's middle map opens as the block map and zooms out to the
-// atlas and then the globe.
-test('the World Map mode has real land, far zombie spawns and a map that zooms out to a globe', async ({ page }) => {
+// 2048). M's middle map is the block map at every zoom (2026-10-24 - no
+// switch to the atlas/globe) and is drawn ahead at every zoom.
+test('the World Map mode has real land, far zombie spawns and a block map at every zoom', async ({ page }) => {
   await gotoAndWaitForGame(page)
   await page.evaluate(() => { window.__game.settings.selectedGameMode = 'worldMap'; window.__game.playBtn.click() })
   await page.waitForFunction(() => document.getElementById('spawn-map')?.style.display === 'block', null, { timeout: 60000 })
@@ -2571,7 +2571,15 @@ test('the World Map mode has real land, far zombie spawns and a map that zooms o
       await frame()
       if (views.at(-1) !== look()) views.push(look())
     }
+    // Drawn ahead in the background: the biggest tiles around you are there.
+    const world = g.buildMode.world
+    const ahead = await new Promise((done) => {
+      const t0 = performance.now()
+      const check = () => (world._prewarm?.i > 200 || performance.now() - t0 > 20000 ? done(world._prewarm?.i > 200) : setTimeout(check, 100))
+      check()
+    })
     return {
+      ahead,
       lat: Math.round(-p.z / 120),
       steppe: steppe.biome !== 'snowyPeaks' && steppe.biome !== 'snowyPlains' && steppe.h >= steppe.w,
       everest: everest.biome,
@@ -2583,5 +2591,5 @@ test('the World Map mode has real land, far zombie spawns and a map that zooms o
       views,
     }
   })
-  expect(r).toEqual({ lat: 49, steppe: true, everest: 'snowyPeaks', balkhash: true, nile: true, spawned: 20, closest: true, size: 'center', views: ['blocks', 'atlas', 'globe'] })
+  expect(r).toEqual({ lat: 49, steppe: true, everest: 'snowyPeaks', balkhash: true, nile: true, spawned: 20, closest: true, size: 'center', views: ['blocks'], ahead: true })
 })

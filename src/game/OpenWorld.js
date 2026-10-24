@@ -58,6 +58,15 @@ const MIN_RADIUS = 64
 const UNLOAD_MARGIN = 16
 // Time per frame spent growing new columns.
 const GEN_BUDGET_MS = 4
+// The big map's tile pictures kept (32x32 each, ~4 KB), the tiles drawn
+// ahead on each side of you at every zoom (prewarmMap), the time per
+// background slice and the gap between slices, and the big map's opening
+// span (BuildTryMode's MAP_SPAN_FOR.big).
+const MAP_TILE_CACHE = 4000
+const MAP_PREWARM_R = 6
+const MAP_PREWARM_SLICE_MS = 6
+const MAP_PREWARM_GAP_MS = 30
+const MAP_SPAN_OPEN = 640
 // How far the roads continue out of the gates as dirt tracks.
 const PATH_LEN = 64
 
@@ -517,7 +526,7 @@ export class OpenWorld {
     this._dropAll()
     this.removed.clear()
     this.edited.clear()
-    this._tiles.clear()
+    this._clearTiles()
     this._coarseTiles = null
     this._plans.clear()
     this._landmarks = []
@@ -548,7 +557,7 @@ export class OpenWorld {
   // (Map3Generator.js) - each carries on as a dirt track.
   cityLoaded(gates = []) {
     this._paths = this._findPaths(gates)
-    this._tiles.clear()
+    this._clearTiles()
   }
 
   reset() {
@@ -559,7 +568,7 @@ export class OpenWorld {
     this.terrainKeys.clear()
     this.removed.clear()
     this.edited.clear()
-    this._tiles.clear()
+    this._clearTiles()
     this.version++
   }
 
@@ -1189,10 +1198,72 @@ export class OpenWorld {
     }
     if (!build) return null
     const canvas = this._drawTile(tx, tz, T, 32)
-    if (this._tiles.size > 1200) this._tiles.clear()
+    // Oldest tiles go first (they used to be dropped all at once at 1200).
+    if (this._tiles.size >= MAP_TILE_CACHE) {
+      let drop = MAP_TILE_CACHE / 10
+      for (const k of this._tiles.keys()) {
+        this._tiles.delete(k)
+        if (--drop <= 0) break
+      }
+    }
     const entry = { canvas, fresh: true }
     this._tiles.set(key, entry)
     return entry
+  }
+
+  // A new seed (or the real Earth's heights arriving) redraws the map, and
+  // its drawing ahead starts over.
+  _clearTiles() {
+    this._tiles.clear()
+    this._prewarm = null
+  }
+
+  // A drawn bigger tile covering tile (tx, tz) of T cells: { canvas, sx,
+  // sy, sw } (the piece of its 32x32 picture), or null.
+  mapTilePart(tx, tz, T) {
+    for (let up = 2; up <= 16; up *= 2) {
+      const big = this._tiles.get(`${T * up}:${Math.floor(tx / up)},${Math.floor(tz / up)}`)
+      if (!big) continue
+      const sw = 32 / up
+      return { canvas: big.canvas, sx: (tx - Math.floor(tx / up) * up) * sw, sy: (tz - Math.floor(tz / up) * up) * sw, sw }
+    }
+    return null
+  }
+
+  // Draws the big map's tiles around (x, z) at every zoom out to `most`
+  // cells across, a few milliseconds at a time in the background, once the
+  // game has started (2026-10-24, Gaymi: "make the map not load when
+  // scrolling make it fully load when youre in the game"). Biggest tiles
+  // first, so any zoom has at least a stand-in (mapTilePart) early on.
+  prewarmMap(x, z, most) {
+    if (this._prewarm) return
+    const queue = []
+    let T = 32
+    while (T * 10 < MAP_SPAN_OPEN) T *= 2
+    const levels = []
+    for (; T * 5 <= most; T *= 2) levels.push(T)
+    for (const L of levels.reverse()) {
+      const cx = Math.floor(x / L)
+      const cz = Math.floor(z / L)
+      const tiles = []
+      for (let dx = -MAP_PREWARM_R; dx <= MAP_PREWARM_R; dx++) {
+        for (let dz = -MAP_PREWARM_R; dz <= MAP_PREWARM_R; dz++) tiles.push([dx * dx + dz * dz, cx + dx, cz + dz])
+      }
+      tiles.sort((a, b) => a[0] - b[0])
+      for (const [, tx, tz] of tiles) queue.push([tx, tz, L])
+    }
+    const job = { queue, i: 0 }
+    this._prewarm = job
+    const step = () => {
+      if (this._prewarm !== job || !this.active) return
+      const until = performance.now() + MAP_PREWARM_SLICE_MS
+      while (job.i < queue.length && performance.now() < until) {
+        const [tx, tz, L] = queue[job.i++]
+        this.mapTile(tx, tz, true, L)
+      }
+      if (job.i < queue.length) setTimeout(step, MAP_PREWARM_GAP_MS)
+    }
+    setTimeout(step, MAP_PREWARM_GAP_MS)
   }
 
   // A quick stand-in for a tile not drawn yet: 8x8 samples (64 reads

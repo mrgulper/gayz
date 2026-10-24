@@ -595,7 +595,7 @@ Escape before dawn.</p>
               </button>
               <button id="friends-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                <span>Friend List</span>
+                <span>Friendship</span>
                 <span class="nav-badge-dot gold" id="friends-accepted-dot" style="display: none"></span>
                 <span class="nav-badge-dot" id="friends-request-dot" style="display: none"></span>
               </button>
@@ -1552,11 +1552,8 @@ Escape before dawn.</p>
         <div class="panel-box">
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
           <h2 id="clan-panel-title">General</h2>
-          <div class="general-tabs">
-          <button class="general-tab active" data-general-page="general" id="general-tab-general">General</button>
-          <button class="general-tab" data-general-page="clan" id="general-tab-clan">Clan</button>
-        </div>
-        <div class="general-tab-page" id="general-page-general">
+        <!-- Clan moved to Friendship (2026-10-24), so General has no tabs. -->
+        <div class="panel-fixed-content" id="general-page-general">
           <!-- Cloud Save lives here (2026-10-23) - it used to be its own
                popup panel; the quick-cloud icon and the sign-in "which
                save?" question both open General on this tab now. -->
@@ -1613,72 +1610,6 @@ Escape before dawn.</p>
             </div>
           </div>
         </div>
-        <div class="general-tab-page" id="general-page-clan" style="display: none">
-          <div class="clan-subtabs" id="clan-subtabs">
-            <button class="clan-subtab active" data-clan-subpage="ranking" id="clan-subtab-ranking">Clans</button>
-            <button class="clan-subtab" data-clan-subpage="myclan" id="clan-subtab-myclan">My Clan</button>
-          </div>
-          <div class="clan-subtab-page" id="clan-subpage-myclan" style="display: none">
-            <div id="clan-signin-gate" style="display: none">
-              <p id="clan-signin-gate-text">Sign up or login to make or join a clan.</p>
-              <button id="clan-signin-btn" type="button">Sign up or login to use clans</button>
-            </div>
-            <div id="clan-in-clan-state" style="display: none">
-              <h4 id="clan-display-name"></h4>
-              <div id="clan-in-clan-columns">
-                <div id="clan-members-column">
-                  <h5 id="clan-members-heading">Clan Members</h5>
-                  <div id="clan-member-list"></div>
-                </div>
-                <div id="clan-info-column">
-                  <div id="clan-stats-card">
-                    <p id="clan-stats-members"></p>
-                    <p id="clan-stats-kills"></p>
-                    <p id="clan-stats-wave"></p>
-                  </div>
-                  <div id="clan-send-invite-section" style="display: none">
-                    <label class="menu-field-label" for="clan-invite-id-input" id="clan-invite-id-label">Send Clan Request (invite by Player ID)</label>
-                    <div id="clan-invite-row">
-                      <input type="text" id="clan-invite-id-input" class="nickname-input" placeholder="Player's name or ID" maxlength="24" autocomplete="off" />
-                      <div id="clan-invite-suggestions" role="listbox"></div>
-                    </div>
-                    <button id="clan-invite-send-btn" type="button" class="mini-action-btn">Send</button>
-                    <p id="clan-invite-status" style="display: none"></p>
-                  </div>
-                  <div id="clan-requests-section" style="display: none">
-                    <h5 id="clan-requests-heading">Requests</h5>
-                    <div id="clan-requests-list"></div>
-                  </div>
-                </div>
-              </div>
-              <button id="clan-leave-btn" type="button" class="mini-action-btn">Leave Clan</button>
-              <p id="clan-leave-disabled-hint" style="display: none"></p>
-            </div>
-            <div id="clan-browse-state" style="display: none">
-              <button id="clan-make-btn" type="button" class="mini-action-btn">Make Clan</button>
-              <div id="clan-make-form" style="display: none">
-                <label class="menu-field-label" for="clan-create-name-input" id="clan-create-name-label">Clan Name</label>
-                <input type="text" id="clan-create-name-input" class="nickname-input" placeholder="Your clan's name" maxlength="24" />
-                <button id="clan-create-btn" type="button" class="mini-action-btn">Create Clan</button>
-                <p id="clan-create-taken-warning" style="display: none"></p>
-              </div>
-              <div id="clan-browse-columns">
-                <div id="clan-browse-join-column">
-                  <div id="clan-incoming-invites-list"></div>
-                  <label class="menu-field-label" for="clan-request-name-input" id="clan-request-name-label">Request to Join a Clan</label>
-                  <input type="text" id="clan-request-name-input" class="nickname-input" placeholder="Clan name" maxlength="24" />
-                  <button id="clan-request-name-btn" type="button" class="mini-action-btn">Request to Join</button>
-                  <p id="clan-request-name-status" style="display: none"></p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="clan-subtab-page" id="clan-subpage-ranking">
-            <h5 id="clan-ranking-heading">Clans</h5>
-            <p id="clan-reset-note"></p>
-            <div id="clan-all-list"></div>
-          </div>
-        </div>
         </div>
       </div>
 
@@ -1689,6 +1620,7 @@ Escape before dawn.</p>
         <div id="hub-content">
           <div class="hub-tabs">
             <button class="hub-tab active" data-hub-page="survival" id="hub-tab-survival">Zombie Survival</button>
+            <button class="hub-tab" data-hub-page="worldmap" id="hub-tab-worldmap">World Map</button>
             <button class="hub-tab" data-hub-page="deathmatch" id="hub-tab-deathmatch">Deathmatch</button>
             <button class="hub-tab" data-hub-page="parkour" id="hub-tab-parkour">Parkour</button>
             <button class="hub-tab" data-hub-page="custom" id="hub-tab-custom">Custom</button>
@@ -1733,10 +1665,6 @@ Escape before dawn.</p>
                 <button class="mode-select-btn class-btn" data-game-mode="zombieExtraction" id="game-mode-zombie-extraction" type="button">
                   <div class="class-icon-badge"><span class="class-icon-emoji">🚁</span></div>
                   <span>Zombie Extraction</span>
-                </button>
-                <button class="mode-select-btn class-btn" data-game-mode="worldMap" id="game-mode-world-map" type="button">
-                  <div class="class-icon-badge"><span class="class-icon-emoji">🌍</span></div>
-                  <span>World Map</span>
                 </button>
               </div>
             </div>
@@ -1802,6 +1730,23 @@ Escape before dawn.</p>
           </section>
           </div>
 
+          <!-- World Map is its own game mode tab (2026-10-24); Difficulty and
+               Challenges & Mutators from Zombie Survival still apply. -->
+          <div class="hub-tab-page" id="hub-page-worldmap" style="display: none">
+          <section class="hub-section">
+            <h3 class="hub-section-title" id="hub-section-worldmap">World Map</h3>
+            <div class="hub-section-list">
+              <p class="menu-hint-line" id="hub-worldmap-hint">Spawn anywhere on the real Earth and survive the zombie waves there.</p>
+              <div class="class-grid" id="world-map-select-grid">
+                <button class="mode-select-btn class-btn" data-game-mode="worldMap" id="game-mode-world-map" type="button">
+                  <div class="class-icon-badge"><span class="class-icon-emoji">🌍</span></div>
+                  <span>World Map</span>
+                </button>
+              </div>
+            </div>
+          </section>
+          </div>
+
           <div class="hub-tab-page" id="hub-page-deathmatch" style="display: none">
           <section class="hub-section">
             <div class="hub-section-list">
@@ -1856,6 +1801,7 @@ Escape before dawn.</p>
 
           <div class="upgrades-tabs">
             <button class="upgrades-tab active" data-upgrades-page="upgrades" id="upgrades-tab-upgrades">Zombie Survival</button>
+            <button class="upgrades-tab" data-upgrades-page="worldmap" id="upgrades-tab-worldmap">World Map</button>
             <button class="upgrades-tab" data-upgrades-page="deathmatch" id="upgrades-tab-deathmatch">Deathmatch</button>
             <button class="upgrades-tab" data-upgrades-page="parkour" id="upgrades-tab-parkour">Parkour</button>
             <button class="upgrades-tab" data-upgrades-page="custom" id="upgrades-tab-custom">Custom</button>
@@ -1873,6 +1819,11 @@ Escape before dawn.</p>
             <div id="respec-section" style="display: none">
               <button id="respec-btn">Respec Upgrades</button>
             </div>
+          </div>
+          <div class="upgrades-tab-page coming-soon-content" id="upgrades-page-worldmap" style="display: none">
+            <svg class="coming-soon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            <p id="upgrades-worldmap-title" class="coming-soon-title">Coming Soon</p>
+            <p id="upgrades-worldmap-text" class="coming-soon-text">Upgrades for this mode are coming soon.</p>
           </div>
           <div class="upgrades-tab-page coming-soon-content" id="upgrades-page-deathmatch" style="display: none">
             <svg class="coming-soon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
@@ -1897,7 +1848,13 @@ Escape before dawn.</p>
         <div class="panel-box">
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
           <h2 id="quests-panel-title">Quests</h2>
-          <div class="quest-tabs">
+          <!-- One tab per game mode (2026-10-24), then Zombie Survival's own
+               quest tabs under it. -->
+          <div class="quest-tabs quest-mode-tabs">
+            <button class="quest-tab active" data-quest-mode="survival" id="quest-mode-survival">Zombie Survival</button>
+            <button class="quest-tab" data-quest-mode="worldmap" id="quest-mode-worldmap">World Map</button>
+          </div>
+          <div class="quest-tabs" id="quest-page-tabs">
             <button class="quest-tab active" data-quest-page="rolling" id="quest-tab-rolling">Quests</button>
             <button class="quest-tab" data-quest-page="monthly" id="quest-tab-monthly">Monthly Quests</button>
             <button class="quest-tab" data-quest-page="yearly" id="quest-tab-yearly">Yearly Quest</button>
@@ -1913,6 +1870,9 @@ Escape before dawn.</p>
           <div class="quest-tab-page" id="quests-page-yearly" style="display: none">
             <p id="yearly-quests-placeholder">Coming soon.</p>
           </div>
+          <div class="quest-tab-page" id="quests-page-worldmap" style="display: none">
+            <p id="worldmap-quests-placeholder">Coming soon.</p>
+          </div>
           <div class="quest-tab-page" id="quests-page-lifetime" style="display: none">
             <p id="lifetime-quests-placeholder">Coming soon.</p>
             <div class="perk-options" id="quests-options"></div>
@@ -1926,6 +1886,7 @@ Escape before dawn.</p>
           <h2 id="achievements-panel-title">Achievements</h2>
           <div class="achievements-mode-tabs" id="achievements-mode-tabs">
             <button class="achievements-mode-tab active" data-achievements-mode="survival" id="achievements-tab-survival">Zombie Survival</button>
+            <button class="achievements-mode-tab" data-achievements-mode="worldMap" id="achievements-tab-worldmap">World Map</button>
             <button class="achievements-mode-tab" data-achievements-mode="deathmatch" id="achievements-tab-deathmatch">Deathmatch</button>
             <button class="achievements-mode-tab" data-achievements-mode="parkour" id="achievements-tab-parkour">Parkour</button>
           </div>
@@ -2397,13 +2358,13 @@ Escape before dawn.</p>
           <h3>Play Offline</h3>
           <p>No internet? No problem. After you've opened GayZ online once, the whole game is kept on your device and plays with no connection: Play (Zombie Survival and every Game Mode), the Map Editor and your maps, Design a Skin, Inventory, the Store, Upgrades, Quests, Achievements, Settings and everything else single player. Things that need other players or the cloud - servers, chat, Friends, Clans, the Market, the Gallery, signing in and Cloud Save - are dimmed while you're offline and tell you they need internet, and the game says when you go offline and when you're back - also on Wi-Fi that has no internet, which the game notices by checking for itself. When you're online again, new updates arrive by themselves.</p>
         </div>
-        <div class="feature" data-code="drawEarthView drawEarthPlaces placeNameAt ATLAS_FROM GLOBE_FROM EarthGlobe">
+        <div class="feature" data-code="placeNameAt prewarmMap mapTilePart GLOBE_MOST MAP_WHEEL_MAX">
           <h3>Real-World Map</h3>
-          <p>In the World Map mode, pressing M twice opens the block map big in the middle of the screen, which you can drag and zoom. Scroll out far enough and it turns into a real-world map with you on it as an arrow: natural-coloured land, country borders and names, real cities and latitude/longitude lines, and closer in the states, provinces or counties and their cities. Keep zooming out and it becomes a 3D globe you can drag to spin. Under the map your place is named as country · state or province · city (for example Canada · Ontario · Toronto) - a long name wraps onto a second line.</p>
+          <p>In the World Map mode, pressing M twice opens the block map big in the middle of the screen, which you can drag and zoom - it stays the block map at every zoom, from the blocks around you out to whole continents, with you on it as an arrow. Scrolling zooms in small, smooth steps, and the map is drawn ahead at every zoom in the background as soon as the game starts, so zooming out never shows it loading. Under the map your place is named as country · state or province · city (for example Canada · Ontario · Toronto) - a long name wraps onto a second line.</p>
         </div>
         <div class="feature" data-code="sampleEarth loadEarthTerrain openSpawnMap loadProvinces PROVINCE_FILES townStyleAt findSpawn earthBiome EARTH_RLE earthCountry randomLandPick LANDMARKS CITIES buildTown">
           <h3>World Map Mode: Pick Where on Earth</h3>
-          <p>In the World Map game mode the land follows the real Earth - its oceans, coastlines, biomes, mountains, lakes and rivers where they really are (the Alps, the Himalayas and the Andes rise high with snow on top, the Nile, Amazon and Danube wind through the land, and Kazakhstan's steppe is flat grassland), so walking east from Paris heads into Germany - and before the game a full-screen real-world map opens, with natural-looking land that fades from desert to forest to snow. Click a country and it zooms in to its states, provinces or regions (Canada's provinces and territories, the US states...); click one and its cities appear on the map and in a list - pick a city and Spawn Here starts you there (a country without regions lets you click any spot in it), Back goes up a level, and Spawn Randomly picks a random spot on land. The other game modes start in the city camp as before. Starting in a city builds a block town in that city's style around you - winding roads out from a plaza and a ring road, big buildings set back from them with open ground and trees between, and open space where you start - - glass skyscrapers in New York, Chicago, Dubai or Singapore, brick and plaster terraces in London, Paris or Berlin, towers and pagoda roofs in Tokyo or Seoul, sandstone and domes in Cairo or Istanbul, painted houses in Rio or Mexico City - with its landmark in the middle. Elsewhere, starting in a country with a famous landmark builds it out of blocks just ahead of you - the Eiffel Tower, Statue of Liberty, Big Ben, Colosseum, Great Wall, Taj Mahal, a pagoda, Christ the Redeemer, Sydney Opera House, St Basil's, the Parthenon, Chichén Itzá, the Pyramids of Giza, the Brandenburg Gate, a Dutch windmill, the CN Tower and the Burj Khalifa. East on the map is east in the game.</p>
+          <p>World Map is its own game mode, with its own tab next to Zombie Survival in Game Mode, Achievements, Quests and Upgrades (its achievement, Globetrotter, is on its Achievements tab; its own quests and upgrades are coming soon). In the World Map game mode the land follows the real Earth - its oceans, coastlines, biomes, mountains, lakes and rivers where they really are (the Alps, the Himalayas and the Andes rise high with snow on top, the Nile, Amazon and Danube wind through the land, and Kazakhstan's steppe is flat grassland), so walking east from Paris heads into Germany - and before the game a full-screen real-world map opens, with natural-looking land that fades from desert to forest to snow. Click a country and it zooms in to its states, provinces or regions (Canada's provinces and territories, the US states...); click one and its cities appear on the map and in a list - pick a city and Spawn Here starts you there (a country without regions lets you click any spot in it), Back goes up a level, and Spawn Randomly picks a random spot on land. The other game modes start in the city camp as before. Starting in a city builds a block town in that city's style around you - winding roads out from a plaza and a ring road, big buildings set back from them with open ground and trees between, and open space where you start - - glass skyscrapers in New York, Chicago, Dubai or Singapore, brick and plaster terraces in London, Paris or Berlin, towers and pagoda roofs in Tokyo or Seoul, sandstone and domes in Cairo or Istanbul, painted houses in Rio or Mexico City - with its landmark in the middle. Elsewhere, starting in a country with a famous landmark builds it out of blocks just ahead of you - the Eiffel Tower, Statue of Liberty, Big Ben, Colosseum, Great Wall, Taj Mahal, a pagoda, Christ the Redeemer, Sydney Opera House, St Basil's, the Parthenon, Chichén Itzá, the Pyramids of Giza, the Brandenburg Gate, a Dutch windmill, the CN Tower and the Burj Khalifa. East on the map is east in the game.</p>
         </div>
         <div class="feature" data-code="PlayInventory ITEMS ARMOR_SLOTS">
           <h3>Inventory</h3>
@@ -2510,7 +2471,7 @@ Escape before dawn.</p>
 
         <div class="feature" data-code="syncWithCloud mergeSaves _renderAuthCard signInViaServer">
           <h3>Cloud Save</h3>
-          <p>Login with Google, Steam, GitHub or Discord - one "Login with..." button each, the one you used last marked Last used (Profile, the cloud icon, or the "Sign up or login to use ..." button in Friend List, Global chat, Clans, the Market and the Gallery - each one says what it unlocks, like "Sign up or login to use chat") and your save syncs across devices, with a conflict resolver if local and cloud saves diverge. The General tab of General holds the leaderboards (and the which-save question when it comes up); Sign Out is on Profile and saves sync by themselves. Totals like coins, kills and playtime from every device add up, and signing back in to your own account on a device merges both sides without asking.</p>
+          <p>Login with Google, Steam, GitHub or Discord - one "Login with..." button each, the one you used last marked Last used (Profile, the cloud icon, or the "Sign up or login to use ..." button in Friendship, Global chat, Clans, the Market and the Gallery - each one says what it unlocks, like "Sign up or login to use chat") and your save syncs across devices, with a conflict resolver if local and cloud saves diverge. General holds the leaderboards (and the which-save question when it comes up); Sign Out is on Profile and saves sync by themselves. Totals like coins, kills and playtime from every device add up, and signing back in to your own account on a device merges both sides without asking.</p>
         </div>
         <div class="feature" data-code="fetchLeaderboardEntryByPlayerId subscribeTopLeaderboard">
           <h3>Leaderboards</h3>
@@ -2521,12 +2482,12 @@ Escape before dawn.</p>
           <p>A live, server-wide total-zombies-killed count that ticks up with everyone's runs.</p>
         </div>
         <div class="feature" data-code="savedFriends searchLeaderboardByName">
-          <h3>Friend List</h3>
-          <p>The Friend List button: add by player ID or by name (a list of matching players pops up as you type), real-time friend requests, as many friends as you like (counted next to Your Friends) with each one's #ID, live Friend Compare, and an online/idle/DND/offline status dropdown with last-seen time. Click your own ID to copy it.</p>
+          <h3>Friendship</h3>
+          <p>The Friendship button opens a panel with two tabs, Friend List and Clan. Friend List: add by player ID or by name (a list of matching players pops up as you type), real-time friend requests, as many friends as you like (counted next to Your Friends) with each one's #ID, live Friend Compare, and an online/idle/DND/offline status dropdown with last-seen time. Click your own ID to copy it.</p>
         </div>
         <div class="feature" data-code="createClan sendClanInvite fetchClanCombinedStats clanMonthKey entryClanXp">
           <h3>Clans</h3>
-          <p>Start a clan with its own name or join one from the Clan tab in General: a clan ranking by the XP the members earned for their clan this month - XP only counts for the clan you earned it in, and every clan starts again from nothing at the start of each month (the board says it resets in how many days) - the clan list loads in the background when the game starts, so it's there the moment you open Clan - My Clan shows your clan's XP and your own part this month (or asks you to sign in), invites you can send by Player ID or by name (matching players pop up as you type) and accept or decline, a member list where the leader can remove members or hand over leadership, and leaving or deleting a clan. Clan members get their own Clan chat tab, and your clan's name shows above your name and level.</p>
+          <p>Start a clan with its own name or join one from the Clan tab in Friendship: a clan ranking by the XP the members earned for their clan this month - XP only counts for the clan you earned it in, and every clan starts again from nothing at the start of each month (the board says it resets in how many days) - the clan list loads in the background when the game starts, so it's there the moment you open Clan - My Clan shows your clan's XP and your own part this month (or asks you to sign in), invites you can send by Player ID or by name (matching players pop up as you type) and accept or decline, a member list where the leader can remove members or hand over leadership, and leaving or deleting a clan. Clan members get their own Clan chat tab, and your clan's name shows above your name and level.</p>
         </div>
         <div class="feature" data-code="createMarketListing buyMarketListing MARKET_FEE_RATE">
           <h3>Market</h3>
@@ -2663,6 +2624,10 @@ Escape before dawn.</p>
         <div class="feature coming-soon">
           <h3>Monthly Chest</h3>
           <p>The fourth crate in the Store - shows as "Coming soon", not buyable yet.</p>
+        </div>
+        <div class="feature coming-soon">
+          <h3>World Map Quests &amp; Upgrades</h3>
+          <p>The World Map tabs in Quests and Upgrades - quests and upgrades of the World Map mode's own are coming soon.</p>
         </div>
         <div class="feature coming-soon">
           <h3>Deathmatch</h3>
@@ -3026,7 +2991,14 @@ Escape before dawn.</p>
       <div id="friends-panel">
         <div class="panel-box">
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
-          <h2 id="friends-panel-title">Friends</h2>
+          <h2 id="friends-panel-title">Friendship</h2>
+          <!-- Friendship (2026-10-24, Gaymi: "move the clan in general to
+               friend list"): Friend List and Clan tabs. -->
+          <div class="general-tabs">
+            <button class="general-tab active" data-general-page="friends" id="friends-tab-friends">Friend List</button>
+            <button class="general-tab" data-general-page="clan" id="friends-tab-clan">Clan</button>
+          </div>
+          <div class="general-tab-page" id="general-page-friends">
           <div id="friends-signed-out">
             <p id="friends-signed-out-desc">Sign in with Google to compare stats with friends.</p>
             <button id="friends-signin-btn">Sign up or login to use friends</button>
@@ -3078,6 +3050,74 @@ Escape before dawn.</p>
               </div>
             </div>
           </div>
+          </div>
+        <div class="general-tab-page" id="general-page-clan" style="display: none">
+          <div class="clan-subtabs" id="clan-subtabs">
+            <button class="clan-subtab active" data-clan-subpage="ranking" id="clan-subtab-ranking">Clans</button>
+            <button class="clan-subtab" data-clan-subpage="myclan" id="clan-subtab-myclan">My Clan</button>
+          </div>
+          <div class="clan-subtab-page" id="clan-subpage-myclan" style="display: none">
+            <div id="clan-signin-gate" style="display: none">
+              <p id="clan-signin-gate-text">Sign up or login to make or join a clan.</p>
+              <button id="clan-signin-btn" type="button">Sign up or login to use clans</button>
+            </div>
+            <div id="clan-in-clan-state" style="display: none">
+              <h4 id="clan-display-name"></h4>
+              <div id="clan-in-clan-columns">
+                <div id="clan-members-column">
+                  <h5 id="clan-members-heading">Clan Members</h5>
+                  <div id="clan-member-list"></div>
+                </div>
+                <div id="clan-info-column">
+                  <div id="clan-stats-card">
+                    <p id="clan-stats-members"></p>
+                    <p id="clan-stats-kills"></p>
+                    <p id="clan-stats-wave"></p>
+                  </div>
+                  <div id="clan-send-invite-section" style="display: none">
+                    <label class="menu-field-label" for="clan-invite-id-input" id="clan-invite-id-label">Send Clan Request (invite by Player ID)</label>
+                    <div id="clan-invite-row">
+                      <input type="text" id="clan-invite-id-input" class="nickname-input" placeholder="Player's name or ID" maxlength="24" autocomplete="off" />
+                      <div id="clan-invite-suggestions" role="listbox"></div>
+                    </div>
+                    <button id="clan-invite-send-btn" type="button" class="mini-action-btn">Send</button>
+                    <p id="clan-invite-status" style="display: none"></p>
+                  </div>
+                  <div id="clan-requests-section" style="display: none">
+                    <h5 id="clan-requests-heading">Requests</h5>
+                    <div id="clan-requests-list"></div>
+                  </div>
+                </div>
+              </div>
+              <button id="clan-leave-btn" type="button" class="mini-action-btn">Leave Clan</button>
+              <p id="clan-leave-disabled-hint" style="display: none"></p>
+            </div>
+            <div id="clan-browse-state" style="display: none">
+              <button id="clan-make-btn" type="button" class="mini-action-btn">Make Clan</button>
+              <div id="clan-make-form" style="display: none">
+                <label class="menu-field-label" for="clan-create-name-input" id="clan-create-name-label">Clan Name</label>
+                <input type="text" id="clan-create-name-input" class="nickname-input" placeholder="Your clan's name" maxlength="24" />
+                <button id="clan-create-btn" type="button" class="mini-action-btn">Create Clan</button>
+                <p id="clan-create-taken-warning" style="display: none"></p>
+              </div>
+              <div id="clan-browse-columns">
+                <div id="clan-browse-join-column">
+                  <div id="clan-incoming-invites-list"></div>
+                  <label class="menu-field-label" for="clan-request-name-input" id="clan-request-name-label">Request to Join a Clan</label>
+                  <input type="text" id="clan-request-name-input" class="nickname-input" placeholder="Clan name" maxlength="24" />
+                  <button id="clan-request-name-btn" type="button" class="mini-action-btn">Request to Join</button>
+                  <p id="clan-request-name-status" style="display: none"></p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="clan-subtab-page" id="clan-subpage-ranking">
+            <h5 id="clan-ranking-heading">Clans</h5>
+            <p id="clan-reset-note"></p>
+            <div id="clan-all-list"></div>
+          </div>
+        </div>
+
         </div>
       </div>
 

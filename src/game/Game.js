@@ -1265,8 +1265,9 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'theme-clean-color-label': 'themeCleanColorLabel',
   'theme-picker-old-label': 'optUiThemeOld',
   'coming-soon-close-btn': 'comingSoonCloseBtn',
-  'general-tab-general': 'generalTabGeneral',
-  'general-tab-clan': 'generalTabClan',
+  // Friendship's tabs (Clan moved there from General, 2026-10-24).
+  'friends-tab-friends': 'friendsTabList',
+  'friends-tab-clan': 'generalTabClan',
   'clan-members-heading': 'clanMembersHeading',
   'clan-invite-send-btn': 'clanInviteSendBtn',
   'clan-requests-heading': 'clanRequestsHeading',
@@ -1297,6 +1298,17 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'lifetime-quests-placeholder': 'monthlyQuestsPlaceholder',
   'yearly-quests-placeholder': 'yearlyQuestsPlaceholder',
   'achievements-tab-survival': 'achievementsTabSurvival',
+  // World Map is its own game mode tab next to Zombie Survival (2026-10-24).
+  'hub-tab-worldmap': 'topBarModeWorldMap',
+  'hub-section-worldmap': 'topBarModeWorldMap',
+  'hub-worldmap-hint': 'hubWorldMapHint',
+  'achievements-tab-worldmap': 'topBarModeWorldMap',
+  'upgrades-tab-worldmap': 'topBarModeWorldMap',
+  'upgrades-worldmap-title': 'comingSoonTitle',
+  'upgrades-worldmap-text': 'upgradesModeComingSoon',
+  'quest-mode-survival': 'achievementsTabSurvival',
+  'quest-mode-worldmap': 'topBarModeWorldMap',
+  'worldmap-quests-placeholder': 'monthlyQuestsPlaceholder',
   // Upgrades panel: one tab per game mode (2026-10-12) - only Zombie
   // Survival has upgrades so far.
   'upgrades-tab-upgrades': 'achievementsTabSurvival',
@@ -3219,10 +3231,13 @@ export class Game {
         slug: 'quests', panel: this.questsPanel, open: () => this._openQuestsPanel(),
         subTabs: this._subTabsFor('quest-tab-', ['rolling', 'monthly', 'yearly', 'lifetime']),
       },
-      { slug: 'friends', panel: this.friendsPanel, open: () => this._openFriendsPanel() },
+      {
+        slug: 'friends', panel: this.friendsPanel, open: () => this._openFriendsPanel(),
+        subTabs: this._subTabsFor('friends-tab-', ['friends', 'clan']),
+      },
       {
         slug: 'achievements', panel: this.achievementsPanel, open: () => this._openAchievementsPanel(),
-        subTabs: this._subTabsFor('achievements-tab-', ['survival', 'deathmatch', 'parkour']),
+        subTabs: this._subTabsFor('achievements-tab-', ['survival', 'worldmap', 'deathmatch', 'parkour']),
       },
       {
         slug: 'inventory', panel: this.menuInventoryPanel, open: () => this._openMenuInventoryPanel(),
@@ -3231,7 +3246,6 @@ export class Game {
       { slug: 'global', panel: this.serverPanel, open: () => this._openServerPanel() },
       {
         slug: 'general', panel: this.clanPanel, open: () => this._openClanPanel(),
-        subTabs: this._subTabsFor('general-tab-', ['general', 'clan', 'market']),
       },
       {
         slug: 'settings', panel: this.settingsPanel, open: () => this._toggleSettings(true),
@@ -3248,7 +3262,7 @@ export class Game {
       { slug: 'whats-new', panel: this.whatsNewPanel, open: () => this._openWhatsNewPanel() },
       {
         slug: 'gamemode', panel: this.hubPanel, open: () => this._openHubPanel(),
-        subTabs: this._subTabsFor('hub-tab-', ['survival', 'deathmatch', 'parkour', 'custom']),
+        subTabs: this._subTabsFor('hub-tab-', ['survival', 'worldmap', 'deathmatch', 'parkour', 'custom']),
       },
     ].filter((route) => route.panel)
 
@@ -3416,6 +3430,8 @@ export class Game {
     this._closeAllMenuPanels()
     this.hubPanel.style.display = 'flex'
     if (this.hubPanelTitle) this.hubPanelTitle.textContent = t('hubPanelTitle')
+    // Opens on the World Map tab when that's the picked mode.
+    if (this.settings.selectedGameMode === 'worldMap') document.getElementById('hub-tab-worldmap')?.click()
   }
 
   _closeHubPanel() {
@@ -3456,6 +3472,13 @@ export class Game {
     this._closeAllMenuPanels()
     this.friendsPanel.style.display = 'flex'
     if (this.friendsPanelTitle) this.friendsPanelTitle.textContent = t('friendsPanelTitle')
+    // Opens on Friend List every time, like the other panels' first tab.
+    for (const tabEl of this.friendsPanel.querySelectorAll('.general-tab')) tabEl.classList.toggle('active', tabEl.dataset.generalPage === 'friends')
+    for (const page of this.friendsPanel.querySelectorAll('.general-tab-page')) page.style.display = page.id === 'general-page-friends' ? 'block' : 'none'
+    this._refreshClanUi()
+    // Start loading the clan list now, so the Clan tab doesn't make you
+    // wait for it (2026-10-09, "it takes so long to load").
+    this._fetchClanRanking().catch(() => {})
     // See _authReadyPromise's own comment (Game.js constructor) - same
     // false-signed-out race the Profile panel had.
     await this._authReadyPromise
