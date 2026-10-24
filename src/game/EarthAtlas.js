@@ -13,17 +13,10 @@
 // EarthCountries.js's half-degree countries, Towns.js's cities), once,
 // into one picture (PX pixels a degree) that every draw crops.
 import { EARTH_W, EARTH_H, EARTH_BIOMES } from './EarthMapData.js'
-import { earthCells, EARTH_DEG } from './EarthGrid.js'
+import { earthCells } from './EarthGrid.js'
 import { COUNTRY_W, COUNTRY_H, EARTH_COUNTRIES, COUNTRY_RLE } from './EarthCountries.js'
 import { CITIES } from './Towns.js'
-import { countryAt, provincesNow } from './EarthPlaces.js'
 
-// Blocks across the map when it opens (about 30 degrees), and the closest
-// it zooms in (5 degrees - the picture has PX pixels a degree).
-export const ATLAS_OPEN_SPAN = 30 * EARTH_DEG
-export const ATLAS_MIN_SPAN = 5 * EARTH_DEG
-// The whole Earth across.
-export const ATLAS_MAX_SPAN = 360 * EARTH_DEG
 const PX = 8
 // Land colour pixels a degree, how far (degrees) biome edges wobble, and
 // the blur radius (pixels) that softens them.
@@ -290,9 +283,6 @@ function countryLabels() {
   return labels
 }
 
-// The whole picture and the country names, for the globe (EarthGlobe.js).
-export { atlasCanvas as earthAtlasCanvas, countryLabels as earthCountryLabels }
-
 // Draws the atlas onto a canvas area w x h whose top-left corner is at
 // longitude `west`, latitude `north`, `dpp` degrees per pixel. Options:
 // countries (names), cities (Towns.js's, with names once close enough).
@@ -382,74 +372,4 @@ export function cityDot(ctx, x, y, r, fill = '#ffffff') {
   ctx.lineWidth = Math.max(1.2, r / 2)
   ctx.strokeStyle = '#3a2a22'
   ctx.stroke()
-}
-
-// States/provinces (dashed lines, from about 40 degrees across) and their
-// cities (from about 16) for the countries in view (looked up on a 6 x 6
-// grid of spots, plus `spots`: [lat, lon] each), on a view drawn by
-// drawEarthView with the same corner and scale.
-export function drawEarthPlaces(ctx, w, h, west, north, dpp, spots = []) {
-  const deg = w * dpp
-  if (deg > 40) return
-  spots = [...spots]
-  for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) spots.push([north - ((j + 0.5) / 6) * h * dpp, west + ((i + 0.5) / 6) * deg])
-  const at = (lon, lat) => [(lon - west) / dpp, (north - lat) / dpp]
-  const seen = new Set()
-  const taken = []
-  const base = Math.max(10, Math.min(20, Math.min(w, h) / 44))
-  for (const [lat, lon] of spots) {
-    const country = countryAt(lat, lon)
-    if (!country || seen.has(country)) continue
-    seen.add(country)
-    const d = provincesNow(country)
-    if (!d) continue
-    ctx.save()
-    ctx.setLineDash([4, 3])
-    ctx.lineWidth = 1
-    ctx.strokeStyle = 'rgba(110, 80, 70, 0.6)'
-    ctx.beginPath()
-    for (const p of d.provinces) {
-      for (const ring of p.rings) {
-        ring.forEach(([x, y], i) => {
-          const [px, py] = at(x, y)
-          if (i) ctx.lineTo(px, py)
-          else ctx.moveTo(px, py)
-        })
-        ctx.closePath()
-      }
-    }
-    ctx.stroke()
-    ctx.restore()
-    ctx.textBaseline = 'middle'
-    if (deg <= 25) {
-      ctx.textAlign = 'center'
-      for (const p of d.provinces) {
-        const [x, y] = at(p.mid[0], p.mid[1])
-        if (x < 0 || y < 0 || x > w || y > h) continue
-        ctx.font = `700 ${base * 0.85}px system-ui, sans-serif`
-        const tw = ctx.measureText(p.name).width
-        if (!fits(taken, x - tw / 2, y - base / 2, tw, base)) continue
-        mapText(ctx, p.name, x, y, base * 0.85, 'rgba(90, 60, 50, 0.85)', 700)
-      }
-    }
-    if (deg <= 16) {
-      ctx.textAlign = 'left'
-      for (const c of d.cities) {
-        const [x, y] = at(c.lon, c.lat)
-        if (x < -20 || y < -20 || x > w + 20 || y > h + 20) continue
-        const r = c.cap ? 4.5 : 3.5
-        cityDot(ctx, x, y, r)
-        const size = base * (c.cap ? 0.9 : 0.78)
-        ctx.font = `600 ${size}px system-ui, sans-serif`
-        if (fits(taken, x + r + 3, y - size / 2, ctx.measureText(c.name).width, size)) mapText(ctx, c.name, x + r + 3, y, size, '#2a1d16')
-      }
-    }
-  }
-}
-
-// Labels never cover each other: one that would is left out.
-function fits(taken, x0, y0, w, h) {
-  if (taken.some((b) => x0 < b[2] && x0 + w > b[0] && y0 < b[3] && y0 + h > b[1])) return false
-  taken.push([x0, y0, x0 + w, y0 + h])
-  return true
 }
