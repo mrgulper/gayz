@@ -45,7 +45,8 @@
           __r.setProperty('--clean-panel', __mix(0.035))
           __r.setProperty('--clean-surface', __mix(0.08))
           __r.setProperty('--clean-hover', __mix(0.14))
-          __r.setProperty('--clean-card', __fg[0] === 29 ? '#ffffff' : __mix(0.08))
+          __r.setProperty('--clean-card', 'rgb(' + __fg.join(', ') + ')')
+          __r.setProperty('--clean-card-fg', '#' + __h)
           // The opposite-colour text CleanTheme.js worked out last time
           // (gayz-clean-vars), if it was for this same colour.
           var __cv = JSON.parse(localStorage.getItem('gayz-clean-vars') || 'null')
@@ -1559,7 +1560,7 @@ Escape before dawn.</p>
                save?" question both open General on this tab now. -->
           <div id="cloudsave-section">
             <p id="cloudsave-offline-warning" class="danger-text" style="display: none">You're offline - Cloud Save features need a connection.</p>
-            <div id="cloudsave-signed-out">
+            <div id="cloudsave-signed-out" style="display: none">
               <button id="cloudsave-signin-btn">Sign up or login to use...</button>
             </div>
             <div id="cloudsave-signed-in" style="display: none">
@@ -1623,7 +1624,7 @@ Escape before dawn.</p>
           <div class="clan-subtab-page" id="clan-subpage-myclan" style="display: none">
             <div id="clan-signin-gate" style="display: none">
               <p id="clan-signin-gate-text">Sign up or login to make or join a clan.</p>
-              <button id="clan-signin-btn" type="button">Sign up or login to use...</button>
+              <button id="clan-signin-btn" type="button">Sign up or login to use clans</button>
             </div>
             <div id="clan-in-clan-state" style="display: none">
               <h4 id="clan-display-name"></h4>
@@ -2155,7 +2156,7 @@ Escape before dawn.</p>
           </div>
           <div id="gallery-signed-out" class="signin-footer" hidden>
             <p id="gallery-signed-out-desc">Sign in to post, like and comment.</p>
-            <button id="gallery-signin-btn" type="button">Sign up or login to use...</button>
+            <button id="gallery-signin-btn" type="button">Sign up or login to use the Gallery</button>
           </div>
         </div>
       </div>
@@ -2442,12 +2443,12 @@ Escape before dawn.</p>
         <h2>Customization</h2>
 
         <div class="feature" data-code="uiTheme">
-          <h3>Old &amp; Clean Themes</h3>
-          <p>Two complete looks for the menus and pause screens, picked in Inventory &gt; Theme: Old (the default - rusty metal, torn paper panels, worn profile card, and rain falling over the homepage street with splashes on the cobbles) and Clean (flat and simple, no rain - the whole game in one plain colour you pick with the colour circle beside its name, a soft light grey to start, with the text and buttons in that colour's opposite - pick yellow and they turn purple - made dark or light enough to stay readable; Upload picture puts a picture from your computer behind the homepage, cut to fit the screen and kept on that device only; the homepage buttons are white cards that grow a little when you point at them). Both rearrange themselves to fit phones and tablets.</p>
+          <h3>Old &amp; Simple Themes</h3>
+          <p>Two complete looks for the menus and pause screens, picked in Inventory &gt; Theme: Old (the default - rusty metal, torn paper panels, worn profile card, and rain falling over the homepage street with splashes on the cobbles) and Simple (flat, no rain - the whole game in one plain colour you pick with the colour circle beside its name, a soft light grey to start, with the text in that colour's opposite - pick yellow and it turns purple - made dark or light enough to stay readable; the homepage buttons, profile card, coins bar and clock are filled with the opposite colour and grow a little when you point at them; the picture icon puts a picture from your computer behind the homepage, cut to fit the screen and kept on that device only, and the bin icon beside it removes it). Both rearrange themselves to fit phones and tablets.</p>
         </div>
-        <div class="feature" data-code="bindFooterMenus">
-          <h3>Bottom Link Menus</h3>
-          <p>Point at How to Play, What's New, GayZ Features, Terms of Use or Privacy Policy at the bottom of the homepage and a wide menu opens above the links with that page's sections (the latest updates for What's New) while the rest of the page softly blurs. Click the page's name to open it, or a section to open it right at that section. On touch screens a tap still opens the page.</p>
+        <div class="feature" data-code="bindHoverMenus">
+          <h3>Homepage Hover Menus</h3>
+          <p>Point at almost anything on the homepage and a menu of that page's tabs or sections opens: the bottom links (How to Play, What's New with the latest updates, GayZ Features, Terms of Use, Privacy Policy) get a wide menu above them (with the rest of the page softly blurred), the right-side buttons and profile card a menu to their left, and Game Mode and Settings one to their right. Click the page's name to open it, or a tab or section to open it right there. Pages without tabs or sections, and Play, open straight away. While a page is open, only the right-side button that opened it stays lit. On touch screens a tap still opens the page.</p>
         </div>
         <div class="feature" data-code="SKIN_DESIGNER_URL">
           <h3>Design a Skin</h3>
@@ -2489,7 +2490,7 @@ Escape before dawn.</p>
 
         <div class="feature" data-code="syncWithCloud mergeSaves _renderAuthCard signInViaServer">
           <h3>Cloud Save</h3>
-          <p>Login with Google, Steam, GitHub or Discord - one "Login with..." button each, the one you used last marked Last used (Profile, or the "Sign up or login to use..." button in Friend List, Global chat, Clans, Cloud Save, the Market and the Gallery) and your save syncs across devices, with a conflict resolver if local and cloud saves diverge. Cloud Save itself (sync status, Sync Now, Sign Out, the which-save question, leaderboards) sits on the General tab of General. Totals like coins, kills and playtime from every device add up, and signing back in to your own account on a device merges both sides without asking.</p>
+          <p>Login with Google, Steam, GitHub or Discord - one "Login with..." button each, the one you used last marked Last used (Profile, the cloud icon, or the "Sign up or login to use ..." button in Friend List, Global chat, Clans, the Market and the Gallery - each one says what it unlocks, like "Sign up or login to use chat") and your save syncs across devices, with a conflict resolver if local and cloud saves diverge. Cloud Save itself (sync status, Sync Now, Sign Out, the which-save question, leaderboards) sits on the General tab of General. Totals like coins, kills and playtime from every device add up, and signing back in to your own account on a device merges both sides without asking.</p>
         </div>
         <div class="feature" data-code="fetchLeaderboardEntryByPlayerId subscribeTopLeaderboard">
           <h3>Leaderboards</h3>
@@ -2708,7 +2709,7 @@ Escape before dawn.</p>
           </div>
           <div id="market-signed-out" class="signin-footer" hidden>
             <p id="market-signed-out-desc">Sign in to buy and sell on the Market.</p>
-            <button id="market-signin-btn" type="button">Sign up or login to use...</button>
+            <button id="market-signin-btn" type="button">Sign up or login to use the Market</button>
           </div>
         </div>
       </div>
@@ -3008,7 +3009,7 @@ Escape before dawn.</p>
           <h2 id="friends-panel-title">Friends</h2>
           <div id="friends-signed-out">
             <p id="friends-signed-out-desc">Sign in with Google to compare stats with friends.</p>
-            <button id="friends-signin-btn">Sign up or login to use...</button>
+            <button id="friends-signin-btn">Sign up or login to use friends</button>
           </div>
           <div id="friends-signed-in" style="display: none">
             <div id="friends-col-add">
@@ -3252,12 +3253,12 @@ Escape before dawn.</p>
               <!-- Clean's preview is drawn, in the colour picked beside it. -->
               <div class="theme-picker-item">
                 <div class="theme-picker-head" id="theme-clean-color-row">
-                  <span class="theme-picker-name" id="theme-picker-clean-label">Clean</span>
-                  <label for="theme-clean-hex" id="theme-clean-color-label" class="theme-picker-sr">Clean colour</label>
+                  <span class="theme-picker-name" id="theme-picker-clean-label">Simple</span>
+                  <label for="theme-clean-color" id="theme-clean-color-label" class="theme-picker-sr">Simple colour</label>
                   <input type="color" id="theme-clean-color" value="#f5f5f7" aria-labelledby="theme-clean-color-label" />
                   <!-- A homepage picture from the player's computer (Clean only). -->
-                  <button type="button" id="theme-clean-bg-btn" class="mini-action-btn">Upload picture</button>
-                  <button type="button" id="theme-clean-bg-clear" class="mini-action-btn" style="display: none">Remove picture</button>
+                  <button type="button" id="theme-clean-bg-btn" class="theme-icon-btn" aria-label="Upload picture" title="Upload picture"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/><path d="M17 2v6M14 5l3-3 3 3"/></svg></button>
+                  <button type="button" id="theme-clean-bg-clear" class="theme-icon-btn" aria-label="Remove picture" title="Remove picture" style="display: none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button>
                   <input type="file" id="theme-clean-bg-file" accept="image/*" hidden />
                 </div>
                 <button type="button" class="theme-picker-card" id="theme-picker-clean" data-theme="clean" aria-labelledby="theme-picker-clean-label">
@@ -3280,7 +3281,7 @@ Escape before dawn.</p>
               <p id="server-chat-muted-notice" style="display: none"></p>
               <div id="server-chat-signed-out">
                 <p id="server-chat-signed-out-desc"></p>
-                <button id="server-chat-signin-btn" type="button" class="mini-action-btn">Sign up or login to use...</button>
+                <button id="server-chat-signin-btn" type="button" class="mini-action-btn">Sign up or login to use chat</button>
               </div>
               <form id="server-chat-input-row" style="display: none">
                 <input type="text" id="server-chat-input" class="nickname-input" maxlength="300" placeholder="Message..." autocomplete="off" />

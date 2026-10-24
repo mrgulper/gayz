@@ -306,7 +306,7 @@ export function renderServerChatSignInState(game) {
   game.serverChatSignedOut.style.display = signedIn ? 'none' : 'flex'
   if (game.serverChatInputRow) game.serverChatInputRow.style.display = signedIn ? 'flex' : 'none'
   if (game.serverChatSignedOutDesc) game.serverChatSignedOutDesc.textContent = t('chatSignInRequired')
-  if (game.serverChatSigninBtn) game.serverChatSigninBtn.textContent = t('signUpOrLoginBtn')
+  if (game.serverChatSigninBtn) game.serverChatSigninBtn.textContent = t('signInToUseChat')
 }
 
 export async function sendServerChatMessage(game) {

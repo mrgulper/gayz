@@ -7211,10 +7211,12 @@ html.ui-theme-clean #menu-nav-buttons button {
   text-shadow: 0 0 8px rgba(255, 255, 255, 0.55);
 }
 
-/* Drop-down menus on the bottom links (FooterMenus.js, 2026-10-23, like
-   apple.com's): a wide card just above the links - the page's name big,
-   its sections small underneath - with the page behind softly blurred.
-   The link it belongs to stays lit while it's open. */
+/* Hover drop-down menus (HoverMenus.js, 2026-10-23, like apple.com's):
+   the page's name big, its tabs/sections small underneath, with the page
+   behind softly blurred. data-place: footer = a wide card just above the
+   bottom links; side = a narrow card left of the right column; beside =
+   right of Game Mode / Settings (only the footer one blurs the page). The
+   bottom link it belongs to stays lit while it's open. */
 #menu-links-row :is(button, a).footer-menu-on {
   color: #fff;
   text-shadow: 0 0 8px rgba(255, 255, 255, 0.55);
@@ -7288,6 +7290,33 @@ html.ui-theme-clean #menu-nav-buttons button {
   opacity: 1;
   color: #fff;
 }
+#footer-menu:is([data-place="side"], [data-place="beside"]) {
+  width: 300px;
+  max-height: calc(100vh - 16px);
+  padding: 20px 24px 22px;
+  gap: 10px;
+}
+#footer-menu:is([data-place="side"], [data-place="beside"]) {
+  left: auto;
+  transform: none;
+}
+#footer-menu:is([data-place="side"], [data-place="beside"]) .footer-menu-title {
+  font-size: 22px;
+}
+#footer-menu:is([data-place="side"], [data-place="beside"]) .footer-menu-sections {
+  columns: 1;
+}
+
+/* While a panel is open the right column sits above its backdrop; only
+   the button that opened it stays lit, the rest fade back (Gaymi,
+   2026-10-23: "only whatever they click lights up"). Pointing at one
+   still brightens it (.nav-hover). NavCurrent in SettingsUI.js sets both
+   classes. */
+html.menu-panel-open :is(#menu-nav-buttons > button, #menu-player-badge):not(.nav-current, .nav-hover) {
+  opacity: 0.45;
+  transition: opacity 0.15s;
+}
+
 html.ui-theme-old #footer-menu .footer-menu-title {
   font-family: 'Rye', Georgia, serif;
   font-weight: 400;

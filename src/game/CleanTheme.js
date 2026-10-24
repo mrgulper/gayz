@@ -11,8 +11,11 @@
 // always reads; a grey/white/black colour has no opposite, so its text
 // stays near-black or near-white. Panels and cards are the colour nudged
 // a few % toward the text.
-// The homepage buttons (--clean-card) are pure white on a light colour,
-// like apple.com's white cards on grey; on a dark one they're --clean-surface.
+// The homepage boxes (--clean-card: right-column buttons, profile card,
+// Game Mode, Settings, coins bar, clock, hover menus) are filled with the
+// opposite colour and their words are the picked colour (--clean-card-fg)
+// - Gaymi, 2026-10-23: "everything on the homepage should fit with the
+// colour they picked" (they used to be white).
 // index.html's first inline script doesn't copy cleanVars any more: it
 // reads the variables Game saved last time (CLEAN_VARS_KEY), so the very
 // first paint is already right without a second copy of the colour maths.
@@ -94,7 +97,6 @@ export function oppositeInk(bg) {
 export function cleanVars(color) {
   const hex = normalizeHex(color) || CLEAN_DEFAULT_COLOR
   const bg = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
-  const lum = (0.2126 * bg[0] + 0.7152 * bg[1] + 0.0722 * bg[2]) / 255
   const fg = oppositeInk(bg)
   const mix = (t) => `rgb(${bg.map((c, i) => Math.round(c + (fg[i] - c) * t)).join(', ')})`
   return {
@@ -104,7 +106,8 @@ export function cleanVars(color) {
     '--clean-panel': mix(0.035),
     '--clean-surface': mix(0.08),
     '--clean-hover': mix(0.14),
-    '--clean-card': lum > 0.55 ? '#ffffff' : mix(0.08),
+    '--clean-card': `rgb(${fg.join(', ')})`,
+    '--clean-card-fg': hex,
     // The tick on a checked box, in the page colour (sits on --clean-fg).
     // Not needed for the first paint, so index.html's copy skips it.
     '--clean-check': `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.2 8.4l3 3 6.6-6.8' fill='none' stroke='%23${hex.slice(1)}' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
