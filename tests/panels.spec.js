@@ -215,6 +215,18 @@ test('bottom links show a drop-down of their sections', async ({ page }) => {
     const h = document.querySelectorAll('#terms-content h3')[5]
     return Math.abs(h.getBoundingClientRect().top - h.closest('#terms-content').getBoundingClientRect().top)
   })).toBeLessThan(40)
+  // With a page open, pointing at a link does nothing (2026-10-24): no
+  // card, no dimming, the page stays; a click opens the other page.
+  await page.evaluate(() => window.__game._openQuestsPanel?.() ?? document.getElementById('quests-btn').click())
+  await expect(page.locator('#quests-panel')).toBeVisible()
+  await page.hover('#nav-privacy-link')
+  await page.waitForTimeout(250)
+  await expect(menu).not.toHaveClass(/open/)
+  await expect(page.locator('#footer-menu-scrim')).not.toHaveClass(/open/)
+  await expect(page.locator('#quests-panel')).toBeVisible()
+  await page.click('#nav-privacy-link')
+  await expect(page.locator('#privacy-panel')).toBeVisible()
+  await expect(page.locator('#quests-panel')).toBeHidden()
 })
 
 // The right column, Game Mode and Settings get the same menus (to the side),
@@ -635,9 +647,9 @@ test('Patch Notes follow the player\'s clock and the What\'s New card matches th
 })
 
 // Shop (2026-10-23): GaygarX costs 500 Gems and sells back for 250, so
-// buying and selling can't make Gems; Try On dresses the homepage
-// character and Back to Shop puts the old skin back.
-test('Shop: GaygarX price, Try On, buying', async ({ page }) => {
+// buying and selling can't make Gems. Since 2026-10-24 its button is
+// Inspect (was Try On): GaygarX big in the Inspect window, even unowned.
+test('Shop: GaygarX price, Inspect, buying', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
     const g = window.__game
@@ -648,30 +660,29 @@ test('Shop: GaygarX price, Try On, buying', async ({ page }) => {
     await wait(300)
     const price = document.getElementById('shop-skin-price-amount').textContent
     const shortBuy = g.shopSkinBuyBtn.disabled
-    const before = g.settings.customSkinDataUrl
+    const label = document.getElementById('shop-skin-tryon-btn').textContent
     document.getElementById('shop-skin-tryon-btn').click()
     await wait(300)
-    const trying = g._shopTryOn && g.shopPanel.style.display === 'none' && getComputedStyle(document.getElementById('shop-tryon-bar')).display === 'flex'
-    document.getElementById('shop-tryon-back-btn').click()
-    await wait(300)
-    const back = !g._shopTryOn && g.shopPanel.style.display === 'flex' && g.settings.customSkinDataUrl === before
+    const inspect = document.getElementById('inspect-dialog').style.display === 'flex' && document.getElementById('inspect-title').textContent.includes('GaygarX') && g.shopPanel.style.display === 'flex'
+    g._closeInspectDialog()
+    const spinning = g._shopSkinAvatar3D.spinSpeed > 0.5
     g.gems = 500
     g._renderShopSkinState()
     window.confirm = () => true
     g.shopSkinBuyBtn.click()
     await wait(100)
     const confetti = document.querySelectorAll('.shop-confetti').length
-    return { price, shortBuy, trying, back, gems: g.gems, owns: g.ownsShopSkin, confetti, tryOnHidden: document.getElementById('shop-skin-tryon-btn').style.display === 'none' }
+    return { price, shortBuy, label, inspect, spinning, gems: g.gems, owns: g.ownsShopSkin, confetti }
   })
   const { INVENTORY_SKINS } = await import('../src/game/InventorySkins.js')
   expect(r.price).toBe('500')
   expect(r.shortBuy).toBe(true)
-  expect(r.trying).toBe(true)
-  expect(r.back).toBe(true)
+  expect(r.label).toBe('Inspect')
+  expect(r.inspect).toBe(true)
+  expect(r.spinning).toBe(true)
   expect(r.gems).toBe(0)
   expect(r.owns).toBe(true)
   expect(r.confetti).toBeGreaterThan(0)
-  expect(r.tryOnHidden).toBe(true)
   expect(INVENTORY_SKINS.find((s) => s.id === 'gaygarx').sell.amount).toBe(250)
 })
 

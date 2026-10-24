@@ -502,6 +502,13 @@ export function _openSellDialog(game, id) {
 // drag to turn it, scroll/pinch to zoom. kind 'character' is a skin id,
 // 'weapon' a weapon id. A fresh canvas every time, since the viewer
 // releases its WebGL context on close and a canvas can't get one back.
+function _inspectSkin(game, id) {
+  const owned = game._inventorySkinEntries().find((entry) => entry.id === id)
+  if (owned) return owned
+  const skin = INVENTORY_SKINS.find((entry) => entry.id === id)
+  return skin && { ...skin, owned: 0 }
+}
+
 export async function _openInspectDialog(game, kind, id) {
   const dialog = document.getElementById('inspect-dialog')
   const stage = document.getElementById('inspect-stage')
@@ -515,7 +522,8 @@ export async function _openInspectDialog(game, kind, id) {
     if (!w || !game.weapons.viewmodels?.[id]) return
     name = `${t(w.nameKey)} - ${t('skinDefault')}`
   } else {
-    const skin = game._inventorySkinEntries().find((entry) => entry.id === id)
+    // A skin you don't own yet (the Shop's Inspect) comes from the full list.
+    const skin = _inspectSkin(game, id)
     if (!skin) return
     name = skin.name
     rarity = SKIN_RARITIES[skin.rarity] || SKIN_RARITIES.common
@@ -538,7 +546,7 @@ export async function _openInspectDialog(game, kind, id) {
     // Barrel pointing left, side-on - like Kirka's.
     viewer.setObject(game._weaponDisplayClone(game.weapons.viewmodels[id]), { yaw: Math.PI / 2, pitch: 0.12 })
   } else {
-    const skin = game._inventorySkinEntries().find((entry) => entry.id === id)
+    const skin = _inspectSkin(game, id)
     try {
       const texture = await loadSkinTexture(skin.dataUrl)
       if (game._inspectViewer !== viewer) return
@@ -1010,6 +1018,11 @@ export function _openShopPanel(game) {
       game._shopSkinAvatar3D = new MenuAvatar3D(game.shopSkinCanvas)
       // Drag turns it both ways, wheel/pinch zooms, like Inspect.
       game._shopSkinAvatar3D.enableInspect()
+      // Turns on its own at a clear pace (Gaymi: "just make it spinning").
+      game._shopSkinAvatar3D.spinSpeed = 1.1
+      // Lit brighter than the homepage character so GaygarX's dark skin
+      // reads on the card (2026-10-24, "make it brighter").
+      game._shopSkinAvatar3D.scene.traverse((o) => { if (o.isLight) o.intensity *= 1.6 })
       loadSkinTexture(SHOP_SKIN_PREVIEW_DATA_URL).then((skin) => {
         if (game._shopSkinAvatar3D) game._shopSkinAvatar3D.setSkin(skin)
       }).catch(() => {
@@ -1083,8 +1096,6 @@ export function _renderShopSkinState(game) {
   if (game.shopSkinBadge) game.shopSkinBadge.style.display = game.ownsShopSkin ? '' : 'none'
   const priceAmount = document.getElementById('shop-skin-price-amount')
   if (priceAmount) priceAmount.textContent = Game.SHOP_SKIN_PRICE.toLocaleString()
-  const tryOn = document.getElementById('shop-skin-tryon-btn')
-  if (tryOn) tryOn.style.display = !game.ownsShopSkin && _shopTryOnAvailable(game) ? '' : 'none'
   if (!game.shopSkinBuyBtn) return
   if (game.ownsShopSkin) {
     game.shopSkinBuyBtn.style.display = 'none'

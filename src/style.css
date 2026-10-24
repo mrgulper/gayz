@@ -10838,8 +10838,8 @@ html.ui-theme-old .crate-card {
     radial-gradient(circle at calc(100% - 14px) 14px, color-mix(in srgb, var(--crate-tier-color, #888) 45%, #000 55%) 0 3px, transparent 3.5px),
     radial-gradient(circle at 14px calc(100% - 14px), color-mix(in srgb, var(--crate-tier-color, #888) 45%, #000 55%) 0 3px, transparent 3.5px),
     radial-gradient(circle at calc(100% - 14px) calc(100% - 14px), color-mix(in srgb, var(--crate-tier-color, #888) 45%, #000 55%) 0 3px, transparent 3.5px),
-    radial-gradient(ellipse at 50% 20%, color-mix(in srgb, var(--crate-tier-color, #888) 70%, #fff 30%), transparent 70%),
-    linear-gradient(180deg, color-mix(in srgb, var(--crate-tier-color, #888) 85%, #fff 15%), color-mix(in srgb, var(--crate-tier-color, #888) 70%, #2b1a0c 30%));
+    radial-gradient(ellipse at 50% 20%, color-mix(in srgb, var(--crate-tier-color, #888) 45%, #fff 55%), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--crate-tier-color, #888) 65%, #fff 35%), color-mix(in srgb, var(--crate-tier-color, #888) 88%, #fff 12%));
   border-color: color-mix(in srgb, var(--crate-tier-color, #888) 60%, #2b1a0c 40%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
@@ -12289,3 +12289,113 @@ html.ui-theme-old #trade-dialog-action.trade-action-list,
 html.ui-theme-old #trade-dialog-action.trade-action-buy { background: #6b3f17; color: #f3e3c2; }
 html.ui-theme-old #trade-dialog-action.trade-action-sell,
 html.ui-theme-old #trade-dialog-action.trade-action-cancel { background: #a8321f; color: #f3e3c2; }
+
+/* Map Editor's Worlds / Plain choice (HomeUI.js). Same box as the trade
+   dialog; two big picture buttons side by side (stacked on a phone). */
+#editor-pick-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.45);
+}
+#editor-pick-box {
+  position: relative;
+  width: min(560px, 100%);
+  padding: 30px 24px 24px;
+  background: #2b3556;
+  border: 3px solid #141a2e;
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  text-align: center;
+  color: #fff;
+}
+#editor-pick-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 38px;
+  height: 38px;
+  border: none;
+  background: none;
+  color: inherit;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.8;
+}
+#editor-pick-close:hover { opacity: 1; }
+#editor-pick-title {
+  margin: 0 0 18px;
+  font-size: 24px;
+  font-weight: 700;
+}
+#editor-pick-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.editor-pick-option {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 10px 10px 14px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+}
+.editor-pick-option:hover,
+.editor-pick-option:focus-visible {
+  transform: translateY(-2px);
+  border-color: currentColor;
+}
+.editor-pick-art {
+  height: 110px;
+  border-radius: 8px;
+  image-rendering: pixelated;
+}
+/* Worlds: sky over a row of biomes - sea, desert, grass, forest, snow. */
+.editor-pick-art-worlds {
+  background:
+    linear-gradient(90deg, #2f7de0 0 20%, #e6d28e 20% 40%, #5fa84a 40% 60%, #2f6b2a 60% 80%, #f4f6f8 80%) bottom / 100% 52% no-repeat,
+    #6cb4f4;
+}
+/* Plain: sky over endless flat grass. */
+.editor-pick-art-plain {
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.06) 0 6px, transparent 6px 12px),
+    linear-gradient(180deg, #6cb4f4 0 48%, #7cc45e 48% 52%, #5fa84a 52%);
+}
+.editor-pick-name {
+  font-size: 20px;
+  font-weight: 700;
+}
+.editor-pick-text {
+  font-size: 14px;
+  opacity: 0.8;
+}
+@media (max-width: 480px) {
+  #editor-pick-options { grid-template-columns: 1fr; }
+  .editor-pick-art { height: 80px; }
+}
+html.ui-theme-old #editor-pick-box {
+  background: #f1e0b8;
+  border-color: #7a4e24;
+  box-shadow: 0 16px 40px rgba(43, 26, 12, 0.55);
+  color: var(--old-ink, #2e1d0e);
+}
+html.ui-theme-old #editor-pick-title { font-family: 'Rye', Georgia, serif; font-weight: 400; }
+html.ui-theme-old .editor-pick-option {
+  background: #ead6ab;
+  border-color: #b08850;
+}
+html.ui-theme-old .editor-pick-option:hover,
+html.ui-theme-old .editor-pick-option:focus-visible { border-color: #6b3f17; }

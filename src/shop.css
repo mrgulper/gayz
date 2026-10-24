@@ -310,8 +310,8 @@
    dark ink, the same way Old's crate cards are. */
 html.ui-theme-old #shop-skin-item {
   background:
-    radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--rarity) 55%, #fff 45%), transparent 70%),
-    linear-gradient(180deg, color-mix(in srgb, var(--rarity) 80%, #fff 20%), color-mix(in srgb, var(--rarity) 65%, #2b1a0c 35%));
+    radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--rarity) 35%, #fff 65%), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--rarity) 60%, #fff 40%), color-mix(in srgb, var(--rarity) 85%, #fff 15%));
   border-color: color-mix(in srgb, var(--rarity) 55%, #2b1a0c 45%);
   box-shadow: 0 0 14px color-mix(in srgb, var(--rarity) 50%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 4px 10px rgba(43, 26, 12, 0.35);
 }

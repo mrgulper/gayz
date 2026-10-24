@@ -69,6 +69,18 @@ const PANEL_MENUS = [
 const MENUS = [...FOOTER_MENUS, ...PANEL_MENUS]
 const CLOSE_DELAY_MS = 180
 
+// While a page is open (Quests, Terms of Use...) pointing at a button does
+// nothing - no card on top of the page, no dimming, the page stays open.
+// Only a click opens the other page (2026-10-24, Gaymi).
+const PAGE_PANELS = ['clan-panel', 'hub-panel', 'upgrades-panel', 'quests-panel', 'achievements-panel',
+  'profile-panel', 'credits-panel', 'gallery-panel', 'levels-panel', 'terms-panel', 'privacy-panel',
+  'features-panel', 'skindesigner-panel', 'market-panel', 'shop-panel', 'whatsnew-panel', 'howtoplay-panel',
+  'friends-panel', 'other-profile-panel', 'menu-inventory-panel', 'server-panel', 'settings-panel', 'coming-soon-panel']
+const pageOpen = () => PAGE_PANELS.some((id) => {
+  const el = document.getElementById(id)
+  return el && el.getClientRects().length > 0
+})
+
 export function bindHoverMenus(game) {
   const row = document.getElementById('menu-links-row')
   if (!row || !window.matchMedia || !matchMedia('(hover: hover) and (pointer: fine)').matches) return
@@ -169,7 +181,8 @@ export function bindHoverMenus(game) {
   document.addEventListener('mouseover', (e) => {
     if (card.contains(e.target)) { clearTimeout(closeTimer); return }
     const menu = MENUS.find((m) => m.linkEl && m.linkEl.contains(e.target))
-    if (menu) show(menu)
+    if (menu && pageOpen()) hide()
+    else if (menu) show(menu)
     else if (e.target.closest?.('#menu-links-row > *, #menu-nav-buttons > button, #play-btn')) hide()
     else if (current) scheduleHide()
   })

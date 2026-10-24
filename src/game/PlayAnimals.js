@@ -19,6 +19,7 @@
 import * as THREE from 'three'
 import { t } from './i18n.js'
 import { sampleLand, inCity } from './OpenWorld.js'
+import { MORE_KINDS, MORE_BIOME_ANIMALS } from './AnimalKinds.js'
 
 export const MAX_WILD = 12
 const SPAWN_EVERY_S = 1.5
@@ -146,6 +147,16 @@ const KINDS = {
     extras: [{ on: 'body', size: [0.55, 0.12, 0.65], at: [0, 0.48, 0], color: 0x4a6a30 }],
   },
 }
+// The rest of Gaymi's list (AnimalKinds.js), and health/meat from size
+// for the ones that don't say.
+Object.assign(KINDS, MORE_KINDS)
+for (const k of Object.values(KINDS)) {
+  const vol = k.body[0] * k.body[1] * k.body[2]
+  if (k.health === undefined) k.health = Math.max(4, Math.min(70, Math.round(vol * 40) + 6))
+  if (k.meat === undefined) k.meat = vol > 1 ? 2 : 1
+}
+// Every kind, in list order (the Map Editor's Animals list).
+export const ANIMAL_IDS = Object.keys(KINDS)
 // Which animals live in each biome, with how often each turns up
 // (2026-10-23, Gaymi: a cow in the snowy mountains is wrong). Map 1's city
 // and the plains get the farm animals; the open sea gets none.
@@ -179,7 +190,62 @@ export const BIOME_ANIMALS = {
   ocean: {},
   deepOcean: {},
 }
-const nameKey = (kind) => `animal${kind[0].toUpperCase()}${kind.slice(1)}`
+for (const [biome, ids] of Object.entries(MORE_BIOME_ANIMALS)) {
+  const table = BIOME_ANIMALS[biome] = { ...(BIOME_ANIMALS[biome] || {}) }
+  for (const id of ids) table[id] = table[id] || 1
+}
+export const animalNameKey = (kind) => `animal${kind[0].toUpperCase()}${kind.slice(1)}`
+const nameKey = animalNameKey
+// Most placed animals in one map (BuildMode.animalSpots).
+export const MAX_PLACED = 300
+
+// A small side-on picture of an animal (the Map Editor's Animals list):
+// its boxes seen from the left, drawn flat in their colours.
+const _iconCache = new Map()
+export function animalIconURL(kind) {
+  if (_iconCache.has(kind)) return _iconCache.get(kind)
+  const k = KINDS[kind]
+  const S = 64
+  const c = document.createElement('canvas')
+  c.width = c.height = S
+  const g = c.getContext('2d')
+  const [, bh, bl] = k.body
+  const [, hh, hl] = k.head
+  const [headY, headZ] = k.headAt || [k.leg + bh * 0.75, bl / 2 + hl * 0.35]
+  const boxes = [] // [zMin, zMax, yMin, yMax, color]
+  const hex = (n) => `#${n.toString(16).padStart(6, '0')}`
+  const add = (z, y, l, h, color) => boxes.push([z - l / 2, z + l / 2, y - h / 2, y + h / 2, color])
+  const legs = k.legs ?? 4
+  if (legs) {
+    const legW = k.legW || 0.1
+    const zs = legs === 2 ? [0] : legs === 4 ? [-bl / 2 + legW, bl / 2 - legW] : [-bl * 0.35, 0, bl * 0.35]
+    for (const z of zs) add(z, k.leg / 2, legW, k.leg, k.colors.leg)
+  }
+  add(0, k.leg + bh / 2, bl, bh, k.colors.body)
+  for (const e of k.extras || []) {
+    const off = e.on === 'head' ? [headZ, headY] : [0, 0]
+    add(off[0] + e.at[2], off[1] + e.at[1], e.size[2], e.size[1], e.color === 'body' ? k.colors.body : e.color)
+  }
+  add(headZ, headY, hl, hh, k.colors.head)
+  let z0 = Infinity; let z1 = -Infinity; let y0 = Infinity; let y1 = -Infinity
+  for (const b of boxes) { z0 = Math.min(z0, b[0]); z1 = Math.max(z1, b[1]); y0 = Math.min(y0, b[2]); y1 = Math.max(y1, b[3]) }
+  const scale = (S - 8) / Math.max(z1 - z0, y1 - y0)
+  const ox = (S - (z1 - z0) * scale) / 2
+  const oy = S - 4 - (S - 8 - (y1 - y0) * scale) / 2
+  for (const [a, b, lo, hi, color] of boxes) {
+    g.fillStyle = hex(color)
+    // Facing right: the head (+z) on the right.
+    g.fillRect(Math.round(ox + (a - z0) * scale), Math.round(oy - (hi - y0) * scale), Math.max(1, Math.round((b - a) * scale)), Math.max(1, Math.round((hi - lo) * scale)))
+  }
+  if (k.eyes !== false) {
+    g.fillStyle = '#161616'
+    const e = Math.max(2, Math.round(hh * scale * 0.18))
+    g.fillRect(Math.round(ox + (headZ + hl * 0.25 - z0) * scale), Math.round(oy - (headY + hh * 0.2 - y0) * scale), e, e)
+  }
+  const url = c.toDataURL()
+  _iconCache.set(kind, url)
+  return url
+}
 
 // An 8x8 pixel texture: the base color with a few patches, so the boxes
 // read as blocky fur/skin rather than flat plastic.
@@ -240,7 +306,7 @@ export class PlayAnimals {
       snoutMat: mat(k.colors.snout),
       legMat: mat(k.colors.leg),
       eyeMat: mat(0x161616),
-      eye: box(0.07, 0.07, 0.02),
+      eye: box(Math.min(0.07, hw * 0.25), Math.min(0.07, hh * 0.3), 0.02),
       collarMat: mat(0xc0282a),
       legW,
       // Extra boxes (ears, tails, necks, horns...), same order as k.extras.
@@ -271,7 +337,7 @@ export class PlayAnimals {
     const snout = new THREE.Mesh(p.snout, p.snoutMat)
     snout.position.set(0, -hh * 0.18 * B, (hl / 2 + 0.05) * B)
     head.add(snout)
-    for (const side of [-1, 1]) {
+    for (const side of k.eyes === false ? [] : [-1, 1]) {
       const eye = new THREE.Mesh(p.eye, p.eyeMat)
       eye.position.set(side * hw * 0.3 * B, hh * 0.15 * B, (hl / 2 + 0.01) * B)
       head.add(eye)
@@ -286,9 +352,13 @@ export class PlayAnimals {
       m.position.set(e.at[0] * B, e.at[1] * B, e.at[2] * B)
       ;(e.on === 'head' ? head : group).add(m)
     })
-    // Four legs (two for birds), turning at the hip.
+    // Four legs (two for birds, six or eight for bugs, none for snakes and
+    // sea animals), turning at the hip.
     const legs = []
-    const spots = k.legs === 2 ? [[-bw * 0.25, 0], [bw * 0.25, 0]] : [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => [sx * (bw / 2 - p.legW / 2), sz * (bl / 2 - p.legW)])
+    const n = k.legs ?? 4
+    const spots = n === 2 ? [[-bw * 0.25, 0], [bw * 0.25, 0]]
+      : n === 4 ? [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => [sx * (bw / 2 - p.legW / 2), sz * (bl / 2 - p.legW)])
+        : Array.from({ length: n }, (_, i) => [(i % 2 ? 1 : -1) * (bw / 2 + p.legW), (Math.floor(i / 2) / (n / 2 - 1) - 0.5) * bl * 0.8])
     for (const [lx, lz] of spots) {
       const hip = new THREE.Group()
       hip.position.set(lx * B, k.leg * B, lz * B)
@@ -303,15 +373,15 @@ export class PlayAnimals {
 
   // --- each frame ---
 
-  update(dt) {
+  // wild: false in the Map Editor - only the animals placed there move.
+  update(dt, { wild: spawnWild = true } = {}) {
     const bm = this.bm
-    if (!bm.world?.active) return
     const s = this.s
     const here = bm.tryMode.pos // spawning follows the camera too (spectating)
     const me = s.bodyPos()
     this._spawnIn -= dt
-    const wild = this.list.filter((a) => !a.tamed && !a.dying)
-    if (this._spawnIn <= 0 && wild.length < MAX_WILD) {
+    const wild = this.list.filter((a) => !a.tamed && !a.dying && !a.placed)
+    if (spawnWild && bm.world?.active && this._spawnIn <= 0 && wild.length < MAX_WILD) {
       this._spawnIn = SPAWN_EVERY_S
       this._spawnGroup(here)
     }
@@ -322,7 +392,7 @@ export class PlayAnimals {
         if (a.dieT > DIE_S) this._remove(a)
         continue
       }
-      if (!a.tamed && Math.hypot(a.x - here.x, a.z - here.z) > DESPAWN) {
+      if (!a.tamed && !a.placed && Math.hypot(a.x - here.x, a.z - here.z) > DESPAWN) {
         this._remove(a)
         continue
       }
@@ -360,13 +430,19 @@ export class PlayAnimals {
       }
       if (a.walking) speed = WALK
     }
-    speed *= KINDS[a.kind].speed || 1
+    const k = KINDS[a.kind]
+    speed *= k.speed || 1
+    if (k.swim) {
+      this._swim(a, dt, speed)
+      return
+    }
     if (speed > 0) {
       const nx = a.x + Math.sin(a.heading) * speed * dt
       const nz = a.z + Math.cos(a.heading) * speed * dt
-      const ground = s._groundUnder(nx, a.y + 1.1, nz)
+      const lift = k.fly || 0
+      const ground = s._groundUnder(nx, a.y - lift + 1.1, nz)
       const wet = this.bm._cellIsLiquid(Math.floor(nx), Math.floor(ground + 0.01), Math.floor(nz))
-      if (ground > a.y + 1.05 || ground < a.y - 3 || wet) {
+      if (ground > a.y - lift + 1.05 || (!lift && ground < a.y - 3) || (wet && !lift)) {
         // A wall, a drop or water: turn and try another way.
         a.heading += Math.PI * (0.5 + Math.random())
         a.think = Math.min(a.think, 0.5)
@@ -375,9 +451,11 @@ export class PlayAnimals {
         a.z = nz
         a.groundY = ground
       }
-    } else a.groundY = s._groundUnder(a.x, a.y + 0.5, a.z)
-    // Falls, or steps up onto the next block.
-    a.y += (a.groundY - a.y) * Math.min(1, dt * (a.groundY > a.y ? 14 : 8))
+    } else a.groundY = s._groundUnder(a.x, a.y - (k.fly || 0) + 0.5, a.z)
+    // Falls, or steps up onto the next block. Flyers hover above it,
+    // bobbing.
+    const goal = a.groundY + (k.fly ? k.fly + Math.sin(a.walk * 0.4 + a.seed) * 0.3 : 0)
+    a.y += (goal - a.y) * Math.min(1, dt * (goal > a.y ? 14 : k.fly ? 3 : 8))
     a.walk += dt * speed * 5
     const swing = speed > 0 ? Math.sin(a.walk) * 0.7 : 0
     a.legs.forEach((leg, i) => { leg.rotation.x = (i % 2 === (i < 2 ? 0 : 1) ? 1 : -1) * swing })
@@ -391,12 +469,63 @@ export class PlayAnimals {
     a.group.position.set(a.x * B, a.y * B, a.z * B)
   }
 
-  // Which kind turns up at a spot: one that lives in its biome (null on
-  // the open sea).
-  kindAt(x, z) {
+  // In water: no gravity, it only goes where there is still water (and
+  // on land - placed there in the Map Editor - it just stays put).
+  _swim(a, dt, speed) {
+    const B = this.s.B
+    const k = KINDS[a.kind]
+    const mid = a.y + k.body[1] / 2
+    if (speed > 0) {
+      const nx = a.x + Math.sin(a.heading) * speed * dt
+      const nz = a.z + Math.cos(a.heading) * speed * dt
+      if (this.bm._cellIsLiquid(Math.floor(nx), Math.floor(mid), Math.floor(nz))) {
+        a.x = nx
+        a.z = nz
+      } else {
+        a.heading += Math.PI * (0.5 + Math.random())
+        a.think = Math.min(a.think, 0.5)
+      }
+    }
+    a.walk += dt * (speed + 0.5) * 3
+    let turn = a.heading - a.group.rotation.y
+    turn = Math.atan2(Math.sin(turn), Math.cos(turn))
+    a.group.rotation.y += turn * Math.min(1, dt * 4)
+    a.hurt = Math.max(0, a.hurt - dt)
+    a.group.rotation.x = -a.hurt * 1.2
+    // A slow sway, like swimming.
+    a.group.rotation.z = Math.sin(a.walk * 0.5) * 0.08
+    a.group.position.set(a.x * B, (a.y + Math.sin(a.walk * 0.3 + a.seed) * 0.08) * B, a.z * B)
+  }
+
+  // The water at a column: { floor, top } (top = the water's surface), or
+  // null if there's none there.
+  _waterAt(x, z, fromY) {
+    const floor = this.s._groundUnder(x, fromY, z)
     const fx = Math.floor(x)
     const fz = Math.floor(z)
-    const table = BIOME_ANIMALS[inCity(fx, fz) ? 'city' : sampleLand(fx, fz).biome] || {}
+    let y = Math.floor(floor + 0.01)
+    if (!this.bm._cellIsLiquid(fx, y, fz)) return null
+    while (this.bm._cellIsLiquid(fx, y, fz) && y < floor + 64) y++
+    return { floor, top: y }
+  }
+
+  // Where a swimmer sits in some water: just under the surface, never
+  // through the bottom (null if the water's too shallow for it).
+  _swimY(kind, w) {
+    const h = KINDS[kind].body[1]
+    if (w.top - w.floor < Math.max(1, h * 0.8)) return null
+    return Math.max(w.floor + 0.05, w.top - h - 0.3)
+  }
+
+  // Which kind turns up at a spot: one that lives in its biome (null on
+  // the open sea). wet: only swimmers (the spot is water), else only the
+  // ones that live on land.
+  kindAt(x, z, wet = false) {
+    const fx = Math.floor(x)
+    const fz = Math.floor(z)
+    const all = BIOME_ANIMALS[inCity(fx, fz) ? 'city' : sampleLand(fx, fz).biome] || {}
+    const table = {}
+    for (const id in all) if (!!KINDS[id].swim === wet) table[id] = all[id]
     const ids = Object.keys(table)
     let r = Math.random() * ids.reduce((sum, id) => sum + table[id], 0)
     for (const id of ids) {
@@ -413,8 +542,24 @@ export class PlayAnimals {
     const d = SPAWN_MIN + Math.random() * (SPAWN_MAX - SPAWN_MIN)
     const cx = p.x + Math.cos(ang) * d
     const cz = p.z + Math.sin(ang) * d
-    const kind = this.kindAt(cx, cz)
+    const water = this._waterAt(cx, cz, p.y + 24)
+    const kind = this.kindAt(cx, cz, !!water)
     if (!kind) return 0
+    if (water) {
+      // Fish and whales: one to three in the water there.
+      let made = 0
+      const n = 1 + Math.floor(Math.random() * 3)
+      for (let i = 0; i < n; i++) {
+        const x = cx + (Math.random() - 0.5) * 6
+        const z = cz + (Math.random() - 0.5) * 6
+        const w = this._waterAt(x, z, p.y + 24)
+        const y = w && this._swimY(kind, w)
+        if (y === null || y === undefined) continue
+        this.spawn(kind, x, y, z)
+        made++
+      }
+      return made
+    }
     const n = 1 + Math.floor(Math.random() * 3)
     let made = 0
     for (let i = 0; i < n && this.list.length < MAX_WILD + 20; i++) {
@@ -431,13 +576,15 @@ export class PlayAnimals {
     return made
   }
 
-  spawn(kind, x, y, z) {
+  // placed: one put down in the Map Editor (BuildMode.animalSpots) - it
+  // never wanders off for good and comes back on every reset.
+  spawn(kind, x, y, z, placed = false) {
     const k = KINDS[kind]
     const built = this._build(kind)
     const a = {
       kind, x, y, z, groundY: y, heading: Math.random() * Math.PI * 2, think: Math.random() * 2,
       walking: false, walk: 0, flee: 0, hurt: 0, health: k.health, tamed: false, dying: false, dieT: 0,
-      seed: Math.random() * 6, ...built,
+      seed: Math.random() * 6, placed, ...built,
     }
     a.group.rotation.y = a.heading
     a.group.position.set(x * this.s.B, y * this.s.B, z * this.s.B)
@@ -479,6 +626,7 @@ export class PlayAnimals {
         best = a
       }
     }
+    this._rayDist = bestD
     return best
   }
 
@@ -516,8 +664,44 @@ export class PlayAnimals {
     return true
   }
 
+  // Everything goes, then the Map Editor's placed animals come back where
+  // they were put (a new game, back to editing).
   clear() {
+    this.clearAll()
+    for (const spot of this.bm.animalSpots || []) this.placeAt(spot)
+  }
+
+  clearAll() {
     for (const a of [...this.list]) this._remove(a)
     this._spawnIn = 0
+  }
+
+  // A Map Editor spot { kind, x, y, z } (y: the ground under it). A
+  // swimmer put in water goes just under the surface.
+  placeAt(spot) {
+    if (!KINDS[spot.kind]) return null
+    let y = spot.y
+    if (KINDS[spot.kind].swim) {
+      const w = this._waterAt(spot.x, spot.z, spot.y + 2)
+      const sy = w && this._swimY(spot.kind, w)
+      if (sy !== null && sy !== undefined) y = sy
+    }
+    const a = this.spawn(spot.kind, spot.x, y, spot.z, true)
+    a.spot = spot
+    return a
+  }
+
+  // The animal the camera is looking at within reach (the Map Editor's
+  // left-click takes a placed one away).
+  aimed(reach) {
+    const bm = this.bm
+    bm.camera.updateMatrixWorld()
+    bm._raycaster.setFromCamera({ x: 0, y: 0 }, bm.camera)
+    const a = this._onRay(bm._raycaster.ray, reach * this.s.B)
+    return a ? { animal: a, dist: this._rayDist } : null
+  }
+
+  remove(a) {
+    this._remove(a)
   }
 }

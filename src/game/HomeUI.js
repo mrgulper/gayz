@@ -217,7 +217,29 @@ export function _bindHomepageBatch(game) {
   if (game.updateAvailableRefreshBtn) game.updateAvailableRefreshBtn.addEventListener('click', () => window.location.reload())
   // The red X (was a Later button) - see _hideUpdateBanner.
   if (game.updateAvailableLaterBtn) game.updateAvailableLaterBtn.addEventListener('click', () => game._hideUpdateBanner())
-  if (game.buildModeBtn) game.buildModeBtn.addEventListener('click', () => game._enterBuildMode())
+  // Map Editor asks first: Worlds (Map 1 and the biomes) or Plain
+  // (endless flat grass) - 2026-10-24, Gaymi.
+  const pick = document.getElementById('editor-pick-dialog')
+  const closePick = () => { if (pick) pick.style.display = 'none' }
+  if (game.buildModeBtn) {
+    game.buildModeBtn.addEventListener('click', () => {
+      if (!pick) { game._enterBuildMode(); return }
+      document.getElementById('editor-pick-title').textContent = t('editorPickTitle')
+      for (const [id, key] of [['editor-pick-worlds-name', 'editorPickWorlds'], ['editor-pick-worlds-text', 'editorPickWorldsText'], ['editor-pick-plain-name', 'editorPickPlain'], ['editor-pick-plain-text', 'editorPickPlainText']]) {
+        document.getElementById(id).textContent = t(key)
+      }
+      pick.style.display = 'flex'
+    })
+  }
+  pick?.addEventListener('click', (e) => { if (e.target === pick) closePick() })
+  document.getElementById('editor-pick-close')?.addEventListener('click', closePick)
+  for (const btn of pick?.querySelectorAll('.editor-pick-option') || []) {
+    btn.addEventListener('click', () => {
+      closePick()
+      game._enterBuildMode({ map: btn.dataset.map })
+    })
+  }
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && pick?.style.display === 'flex') closePick() })
   game._renderMapSelect()
   const buildExitBtn = document.getElementById('build-mode-exit-btn')
   if (buildExitBtn) buildExitBtn.addEventListener('click', () => game._exitBuildMode())

@@ -689,7 +689,7 @@ export class MenuAvatar3D {
       // codebase - ash/embers/rain on the homepage background, etc.).
       // noSpin (Inventory's preview, 2026-10-11): it only turns when dragged.
       if (!this._dragging && !reduceMotion && !this.noSpin) {
-        this.character.rotation.y += IDLE_SPIN_SPEED * dt
+        this.character.rotation.y += (this.spinSpeed || IDLE_SPIN_SPEED) * dt
       }
       this.renderer.render(this.scene, this.camera)
     }

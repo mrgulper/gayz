@@ -175,7 +175,20 @@ const lerp = (a, b, k) => a + (b - a) * k
 // How far a cell is outside the city's outline (0 inside it).
 export const cityDistance = cityEdgeDistance
 
-export const inCity = inCityShape
+// A Plain map (2026-10-24, Gaymi: "plain where its all grass no void"):
+// the player's own slots get endless flat grass instead of the biomes -
+// the same growing/dropping columns, just one flat layer at the slot's
+// ground height, no trees, caves or buildings. The slot's own 128x128
+// ground (BuildMode GROUND_SIZE) is its "city": nothing grows over it.
+let FLAT = false
+const FLAT_HALF = 64
+export function setFlatWorld(on) {
+  FLAT = !!on
+}
+export function isFlatWorld() {
+  return FLAT
+}
+export const inCity = (x, z) => (FLAT ? x >= -FLAT_HALF && x < FLAT_HALF && z >= -FLAT_HALF && z < FLAT_HALF : inCityShape(x, z))
 
 // The land at one cell: its surface height (the top block's y), biome and
 // the few numbers the surface needs. Pure - the same cell always gives the
@@ -197,6 +210,7 @@ export function isEarthWorld() {
 }
 
 export function sampleLand(x, z) {
+  if (FLAT) return { h: -1, c: 0.3, T: 0, H: 0, m: 0, river: false, d: 99, biome: 'plains', w: SEA }
   const d = cityDistance(x, z)
   if (EARTH && earthTerrainReady()) return sampleEarth(x, z, d)
   let c = fbm(x, z, 1 / 420, 3, 11)
@@ -501,6 +515,7 @@ export class OpenWorld {
     this.active = true
     this._plans.clear()
     this._landmarks = []
+    this._paths = null
     setWorldSeed(seed)
   }
 
@@ -631,7 +646,7 @@ export class OpenWorld {
     const until = performance.now() + GEN_BUDGET_MS
     // Plan one place ahead per frame (a castle takes a few milliseconds),
     // so the columns that need it later don't wait on it.
-    this._prefetchPlan(points, r + STRUCT_GRID)
+    if (!FLAT) this._prefetchPlan(points, r + STRUCT_GRID)
     const wanted = []
     for (const p of points) {
       const pcx = Math.floor(p.x / CHUNK)
@@ -667,6 +682,7 @@ export class OpenWorld {
   }
 
   _isCityColumn(cx, cz) {
+    if (FLAT) return cx >= -FLAT_HALF / CHUNK && cx < FLAT_HALF / CHUNK && cz >= -FLAT_HALF / CHUNK && cz < FLAT_HALF / CHUNK
     return FULL_CITY_COLUMNS.has(`${cx},${cz}`)
   }
 
@@ -697,7 +713,7 @@ export class OpenWorld {
     const occupied = (k) => bm._blocks.has(k)
     // Cave entrances reaching into this column (Underground.js): their
     // open air stays open.
-    const entrances = this.under.entrancesForColumn(cx, cz)
+    const entrances = FLAT ? [] : this.under.entrancesForColumn(cx, cz)
     const put = (x, y, z, type) => {
       const k = `${x},${y},${z}`
       if (this.removed.has(k) || occupied(k)) return false
@@ -714,7 +730,7 @@ export class OpenWorld {
       // Villages, castles and bridges first (WorldStructures.js): the
       // ground and water then fill in around them.
       const pathTops = new Map()
-      for (const plan of this._plansOver(x0, z0, x0 + CHUNK - 1, z0 + CHUNK - 1)) {
+      for (const plan of FLAT ? [] : this._plansOver(x0, z0, x0 + CHUNK - 1, z0 + CHUNK - 1)) {
         const list = plan.byColumn.get(`${cx},${cz}`)
         if (list) {
           for (let i = 0; i < list.length; i += 4) {
@@ -730,7 +746,7 @@ export class OpenWorld {
           const x = x0 - 1 + i
           const z = z0 - 1 + j
           const lowest = Math.min(s.h, samples[(i - 1) * W + j].h, samples[(i + 1) * W + j].h, samples[i * W + j - 1].h, samples[i * W + j + 1].h)
-          const bottom = bottomFrom(s.h, lowest)
+          const bottom = FLAT ? s.h : bottomFrom(s.h, lowest)
           col.bottoms[(i - 1) * CHUNK + (j - 1)] = bottom
           let { top, under, deep } = surface(s, x, z)
           const onTrack = this._onPath(x, z)
@@ -753,7 +769,7 @@ export class OpenWorld {
           }
         }
       }
-      this._features(x0, z0, put)
+      if (!FLAT) this._features(x0, z0, put)
       if (entrances.length) this.under.columnGrown(cx, cz, entrances)
     } finally {
       this._generating = false

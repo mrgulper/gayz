@@ -1333,7 +1333,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'print-achievements-btn': 'printAchievementsBtnLabel',
   'crate-monthly-coming-soon-tag': 'crateComingSoonTag',
   'shop-crate-section-heading': 'crateSectionHeading',
-  'shop-skin-tryon-btn': 'shopTryOnBtn',
+  'shop-skin-tryon-btn': 'skinInspect',
   'shop-tryon-label': 'shopTryOnLabel',
   'shop-tryon-back-btn': 'shopTryOnBack',
   'shop-skin-new-ribbon': 'shopNewRibbon',

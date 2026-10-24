@@ -458,8 +458,8 @@ html.ui-theme-clean .panel-box :is(.achievements-mode-tab, .hub-tab, .settings-t
    colour the old theme has") - still flat, no rivets. */
 html.ui-theme-clean .crate-card {
   background:
-    radial-gradient(ellipse at 50% 20%, color-mix(in srgb, var(--crate-tier-color, #888) 70%, #fff 30%), transparent 70%),
-    linear-gradient(180deg, color-mix(in srgb, var(--crate-tier-color, #888) 85%, #fff 15%), color-mix(in srgb, var(--crate-tier-color, #888) 70%, #2b1a0c 30%)) !important;
+    radial-gradient(ellipse at 50% 20%, color-mix(in srgb, var(--crate-tier-color, #888) 45%, #fff 55%), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--crate-tier-color, #888) 65%, #fff 35%), color-mix(in srgb, var(--crate-tier-color, #888) 88%, #fff 12%)) !important;
   border: 1px solid color-mix(in srgb, var(--crate-tier-color, #888) 60%, #2b1a0c 40%) !important;
   border-radius: 16px;
   box-shadow: none !important;
@@ -478,8 +478,8 @@ html.ui-theme-clean .crate-card .crate-open-btn {
 html.ui-theme-clean .panel-box .crate-card .crate-open-btn * { color: #f3e3c0 !important; }
 html.ui-theme-clean #shop-skin-item {
   background:
-    radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--rarity) 55%, #fff 45%), transparent 70%),
-    linear-gradient(180deg, color-mix(in srgb, var(--rarity) 80%, #fff 20%), color-mix(in srgb, var(--rarity) 65%, #2b1a0c 35%)) !important;
+    radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--rarity) 35%, #fff 65%), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--rarity) 60%, #fff 40%), color-mix(in srgb, var(--rarity) 85%, #fff 15%)) !important;
   border-color: color-mix(in srgb, var(--rarity) 55%, #2b1a0c 45%) !important;
   box-shadow: none !important;
 }
@@ -959,3 +959,20 @@ html.ui-theme-clean #build-menu .build-slot-btn.has-thumb {
 html.ui-theme-clean #build-menu .build-slot-btn.has-thumb.active {
   border-color: var(--clean-fg);
 }
+
+/* Map Editor's Worlds / Plain choice - same sizes as the Old theme. */
+html.ui-theme-clean #editor-pick-dialog { background: rgba(0, 0, 0, 0.3); }
+html.ui-theme-clean #editor-pick-box {
+  background: var(--clean-bg);
+  border: 3px solid var(--clean-line);
+  border-radius: 22px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.2);
+  color: var(--clean-fg);
+  font-family: var(--clean-font);
+}
+html.ui-theme-clean .editor-pick-option {
+  background: var(--clean-surface);
+  border-color: var(--clean-line);
+}
+html.ui-theme-clean .editor-pick-option:hover,
+html.ui-theme-clean .editor-pick-option:focus-visible { border-color: var(--clean-fg); }

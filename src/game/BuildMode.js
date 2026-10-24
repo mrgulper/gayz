@@ -12,7 +12,7 @@ import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
 import { BuildTryMode } from './BuildTryMode.js'
 import { LiquidFlow } from './LiquidFlow.js'
-import { OpenWorld, inCity as cityCell } from './OpenWorld.js'
+import { OpenWorld, inCity as cityCell, setFlatWorld } from './OpenWorld.js'
 import { BuildTools } from './BuildTools.js'
 import { PlaySpectate } from './PlaySpectate.js'
 import { BuildSky } from './BuildSky.js'
@@ -24,6 +24,7 @@ import { BuildCamp } from './BuildCamp.js'
 import { BuildShare } from './BuildShare.js'
 import { BuildTogether } from './BuildTogether.js'
 import { biomeBarLook } from './BiomeBar.js'
+import { PlayAnimals, ANIMAL_IDS, MAX_PLACED, animalIconURL, animalNameKey } from './PlayAnimals.js'
 
 // GROUND_SIZE is a CELL count (not world units) - bumped up from 64, then
 // 76, as BLOCK_SIZE shrank each time, so the buildable footprint's actual
@@ -596,7 +597,9 @@ const PICKER_TYPES = BLOCK_TYPES.filter((b) => !b.hidden)
 const PICKER_TYPES_SORTED = [...PICKER_TYPES.filter((b) => _blockCategory(b) === 'special'), ...PICKER_TYPES.filter((b) => _blockCategory(b) !== 'special')]
 // Removed/renamed block ids -> what old saves load them as.
 const LEGACY_TYPE_IDS = { tnt: 'c4', tntslab: 'c4slab' }
-// The Map Editor Tab panel's 6 x 6 block storage (_renderPickerSide).
+// The Map Editor Tab panel's 10 x 10 block storage (_renderPickerSide;
+// was 6 x 6 until 2026-10-24). Older saves keep their first 36 blocks.
+const EDITOR_STORE_SIZE = 100
 const EDITOR_STORE_KEY = 'buildmode-block-store'
 const _isDoorType = (type) => { const shape = BLOCK_BY_ID.get(type)?.shape; return shape === 'door' || shape === 'doortop' }
 // Light-giving blocks (lava, glowstone, jack o'lantern...) - every block
@@ -1125,6 +1128,8 @@ const PICKER_CATEGORIES = [
   ['stairs', 'Stairs'],
   ['parts', 'Doors, Fences & Ladders'],
   ['other', 'Other'],
+  // Not blocks: animals to put down (placingAnimal, 2026-10-24).
+  ['animals', 'Animals'],
 ]
 // BuildMode.breakSeconds: seconds to break a block while playing, by its
 // picker category, with a few blocks picked out by name first.
@@ -1842,6 +1847,10 @@ export class BuildMode {
     // and never touched by innerHTML rebuilds (only the grid below it is)
     // so typing doesn't lose focus/cursor position on every keystroke.
     this.pickerOpen = false
+    // Animals put down in this map (_setAnimalSpots) and the one picked to
+    // put down next.
+    this.animalSpots = []
+    this.placingAnimal = null
     this._pickerEl = document.getElementById('build-picker')
     if (this._pickerEl) {
       this._pickerEl.innerHTML = ''
@@ -2406,6 +2415,7 @@ export class BuildMode {
   // same as picking an item up in Minecraft's creative inventory drops it
   // straight into your held hand.
   _assignToActiveSlot(id) {
+    this._stopPlacingAnimal()
     this.hotbar[this.activeHotbarIndex] = id
     this.selectedType = id
     this._updateInvisibleGhost()
@@ -2414,7 +2424,14 @@ export class BuildMode {
 
   // Hotbar slot click or Digit1-9/0 - makes that slot the active one and
   // equips whatever's in it (or nothing, if the slot is still empty).
+  _stopPlacingAnimal() {
+    if (!this.placingAnimal) return
+    this.placingAnimal = null
+    this.tools.refreshHint()
+  }
+
   _selectHotbarSlot(index) {
+    this._stopPlacingAnimal()
     this.activeHotbarIndex = index
     this.selectedType = this.hotbar[index]
     this._updateInvisibleGhost()
@@ -2924,6 +2941,10 @@ export class BuildMode {
     this._raycaster.setFromCamera({ x: 0, y: 0 }, this.camera)
     const hit = this._raycastGridAligned()
     if (!hit) return
+    if (this.placingAnimal) {
+      this._placeAnimal(hit)
+      return
+    }
     // Right-clicking a door opens/closes it instead of placing against it
     // (a lever flips, a sign asks for new words).
     if (this.toggleDoor(...hit.existingBlock)) return
@@ -2974,6 +2995,7 @@ export class BuildMode {
   _removeFromCamera() {
     this._raycaster.setFromCamera({ x: 0, y: 0 }, this.camera)
     const hit = this._raycastGridAligned()
+    if (this._removeAimedAnimal(hit)) return
     if (!hit || !hit.existingBlock) return
     const [rx, ry, rz] = hit.existingBlock
     this._undoGroupDo(() => {
@@ -3026,7 +3048,7 @@ export class BuildMode {
   }
 
   // Map Editor Tab panel, half and half (2026-10-18, Gaymi's picture): the
-  // blocks on the left, and on the right your hotbar plus a 6 x 6 block
+  // blocks on the left, and on the right your hotbar plus a 10 x 10 block
   // storage (remembered on this device, EDITOR_STORE_KEY). Drag a block
   // from the left onto a hotbar or storage slot, drag between slots to
   // move/swap, click a hotbar slot to make it the active one, click a
@@ -3045,9 +3067,9 @@ export class BuildMode {
       this._pickerSideEl = right
       try {
         const saved = JSON.parse(localStorage.getItem(EDITOR_STORE_KEY) || '[]')
-        this._editorStore = Array.from({ length: 36 }, (_, i) => (BLOCK_BY_ID.has(saved[i]) ? saved[i] : null))
+        this._editorStore = Array.from({ length: EDITOR_STORE_SIZE }, (_, i) => (BLOCK_BY_ID.has(saved[i]) ? saved[i] : null))
       } catch {
-        this._editorStore = new Array(36).fill(null)
+        this._editorStore = new Array(EDITOR_STORE_SIZE).fill(null)
       }
       this._bindPickerDrag()
     }
@@ -3147,6 +3169,10 @@ export class BuildMode {
     this._pickerGridEl.innerHTML = ''
     const query = (this._pickerSearchInput?.value || '').trim().toLowerCase()
     const category = this._pickerCategorySelect?.value || 'all'
+    if (category === 'animals') {
+      this._renderAnimalGrid(query)
+      return
+    }
     const matches = PICKER_TYPES_SORTED.filter((bt) => (category === 'all' || _blockCategory(bt) === category) && (!query || bt.name.toLowerCase().includes(query)))
     for (const { id, name } of matches) {
       const item = document.createElement('div')
@@ -3178,6 +3204,89 @@ export class BuildMode {
       empty.textContent = 'No blocks match.'
       this._pickerGridEl.appendChild(empty)
     }
+  }
+
+  // The picker's Animals list: click one, then right-click in the world to
+  // put it down (it walks about there, in the editor and in Play).
+  _renderAnimalGrid(query) {
+    const matches = ANIMAL_IDS.map((id) => ({ id, name: t(animalNameKey(id)) }))
+      .filter((a) => !query || a.name.toLowerCase().includes(query))
+    for (const { id, name } of matches) {
+      const item = document.createElement('div')
+      item.className = 'build-picker-item build-picker-animal'
+      item.title = name
+      const swatch = document.createElement('div')
+      swatch.className = 'build-picker-swatch' + (id === this.placingAnimal ? ' selected' : '')
+      swatch.style.backgroundColor = 'transparent'
+      swatch.style.backgroundImage = `url(${animalIconURL(id)})`
+      const label = document.createElement('span')
+      label.className = 'build-picker-label'
+      label.textContent = name
+      item.append(swatch, label)
+      item.dataset.animalId = id
+      item.addEventListener('click', () => {
+        this.placingAnimal = id
+        this.tools.refreshHint()
+        this.togglePicker()
+      })
+      this._pickerGridEl.appendChild(item)
+    }
+    if (!matches.length) {
+      const empty = document.createElement('p')
+      empty.className = 'build-picker-empty'
+      empty.textContent = t('editorNoAnimals')
+      this._pickerGridEl.appendChild(empty)
+    }
+  }
+
+  // The animals stepping about (BuildSurvival owns them while playing).
+  _animals() {
+    return this.survival.animals || (this.survival.animals = new PlayAnimals(this.survival))
+  }
+
+  // Map Editor animals: { kind, x, y, z } each, saved with the map. From a
+  // save, a share code or a file, so checked like any untrusted data.
+  _setAnimalSpots(list) {
+    const ok = (n) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) < 1e6
+    this.animalSpots = (Array.isArray(list) ? list : [])
+      .filter((s) => s && ANIMAL_IDS.includes(s.kind) && ok(s.x) && ok(s.y) && ok(s.z))
+      .slice(0, MAX_PLACED)
+      .map((s) => ({ kind: s.kind, x: s.x, y: s.y, z: s.z }))
+    this._animals().clear()
+  }
+
+  // Right-click with an animal picked: it's put down on the block aimed at.
+  _placeAnimal(hit) {
+    if ((this.animalSpots || []).length >= MAX_PLACED) return
+    const [px, py, pz] = hit.placeAt
+    const round = (n) => Math.round(n * 100) / 100
+    const put = (x) => {
+      const spot = { kind: this.placingAnimal, x: round(x + 0.5), y: py, z: round(pz + 0.5) }
+      this.animalSpots.push(spot)
+      this._animals().placeAt(spot)
+    }
+    if (!this.animalSpots) this.animalSpots = []
+    put(px)
+    if (this.mirrorMode) put(this._mirrorX(px))
+    this._scheduleAutosave()
+    this.tryMode.swingHand()
+  }
+
+  // Left-click on a placed animal (nearer than any block): it goes.
+  _removeAimedAnimal(hit) {
+    const aim = this._animals().aimed(40 / BLOCK_SIZE)
+    if (!aim || !aim.animal.placed) return false
+    if (hit?.existingBlock) {
+      const [x, y, z] = hit.existingBlock
+      const blockDist = this.camera.position.distanceTo(new THREE.Vector3((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE))
+      if (blockDist < aim.dist) return false
+    }
+    const i = this.animalSpots.indexOf(aim.animal.spot)
+    if (i >= 0) this.animalSpots.splice(i, 1)
+    this._animals().remove(aim.animal)
+    this._scheduleAutosave()
+    this.tryMode.swingHand()
+    return true
   }
 
   // 10 slots, empty until assigned from the picker above - see
@@ -3725,7 +3834,8 @@ export class BuildMode {
         len = 1
       }
     }
-    return JSON.stringify({ v: 2, p: palette, r: runs.join(';'), d: doors, ...(signs.length ? { s: signs } : {}), h: snapshot.hotbar })
+    const animals = (snapshot.animals || []).map((a) => [a.kind, a.x, a.y, a.z])
+    return JSON.stringify({ v: 2, p: palette, r: runs.join(';'), d: doors, ...(signs.length ? { s: signs } : {}), ...(animals.length ? { a: animals } : {}), h: snapshot.hotbar })
   }
 
   _decodeSlot(raw) {
@@ -3748,7 +3858,8 @@ export class BuildMode {
       const [x, y, z, p, facing, text] = sg
       if (data.p[p]) blocks.push({ x, y, z, type: data.p[p], facing, text: String(text ?? '') })
     }
-    return { blocks, hotbar: data.h }
+    const animals = (Array.isArray(data.a) ? data.a : []).filter(Array.isArray).map(([kind, x, y, z]) => ({ kind, x, y, z }))
+    return { blocks, hotbar: data.h, animals }
   }
 
   // Moves builds from the old storage (one array under SAVE_SLOTS_KEY, or
@@ -3864,7 +3975,7 @@ export class BuildMode {
     for (const b of this.tryMode?.brokenWindows() || []) {
       if (!this._blocks.has(this._key(b.x, b.y, b.z))) blocks.push({ x: b.x, y: b.y, z: b.z, type: b.type, ...b.state })
     }
-    return { blocks, hotbar: this.hotbar }
+    return { blocks, hotbar: this.hotbar, ...(this.animalSpots?.length ? { animals: this.animalSpots } : {}) }
   }
 
   load() {
@@ -3885,6 +3996,9 @@ export class BuildMode {
   // it at all). Refilling it on every load was what kept bringing the
   // grass back over broken or replaced ground.
   _applyBuild(parsed) {
+    // Endless flat grass around it (OpenWorld.js, setFlatWorld).
+    setFlatWorld(true)
+    this.world.start()
     this._applyParsedData(parsed)
     const blocks = Array.isArray(parsed) ? parsed : parsed?.blocks
     const hasGround = Array.isArray(blocks) && blocks.some((b) => b && b.y === GROUND_LAYER_Y)
@@ -3918,11 +4032,12 @@ export class BuildMode {
     const { map } = this._map3Base()
     const removed = new Set(edits.removed.filter((k) => typeof k === 'string'))
     const blocks = map.blocks.filter((b) => !removed.has(this._key(b.x, b.y, b.z)))
+    setFlatWorld(false)
     this.world.start()
     // Only the city's own changes are kept - the land around it is new
     // every game (OpenWorld.js).
     const placed = edits.placed.filter((b) => b && cityCell(b.x, b.z))
-    this._applyParsedData({ blocks: blocks.concat(placed), hotbar: edits.hotbar || map.hotbar })
+    this._applyParsedData({ blocks: blocks.concat(placed), hotbar: edits.hotbar || map.hotbar, animals: edits.animals })
     this.world.cityLoaded(map.gates)
   }
 
@@ -3950,7 +4065,7 @@ export class BuildMode {
     for (const [k, b] of current) {
       if (sig(b) !== sig(byKey.get(k))) placed.push(b)
     }
-    return { removed, placed, hotbar: this.hotbar }
+    return { removed, placed, hotbar: this.hotbar, ...(this.animalSpots?.length ? { animals: this.animalSpots } : {}) }
   }
 
   // Shared by load() (local storage, called on entering Build Mode with an
@@ -4000,6 +4115,8 @@ export class BuildMode {
       this._updateInvisibleGhost()
       this._renderHotbar()
     }
+    // Its animals, once the blocks (and water) they stand in are there.
+    this._setAnimalSpots(parsed.animals)
   }
 
   // Downloads the current build (same shape save() writes to localStorage)
@@ -4036,6 +4153,8 @@ export class BuildMode {
     }
     this._blocks.clear()
     this.world?.reset()
+    this.animalSpots = []
+    this.survival?.animals?.clearAll()
     this._mapVersion++
     this._invisibleKeys.clear()
     this._invisShadowDirty = true
@@ -4130,6 +4249,9 @@ export class BuildMode {
     this.together.update(dt)
     this._updateCampDisplay(dt)
     this.touch.update(dt)
+    // Animals put down in the editor walk about (in a game BuildSurvival
+    // steps them, wild ones too).
+    if (!this.survival.active) this._animals().update(dt, { wild: false })
     // Spectating from the pause screen (PlaySpectate.js): the camera is
     // its own, the player stands still.
     if (this.spectate.active) {
