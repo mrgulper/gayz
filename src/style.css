@@ -2439,6 +2439,9 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
    handler, but shares this class for the look). position:relative on
    .panel-box above is what lets this anchor to each panel's own box
    instead of the viewport. */
+.panel-close-btn:focus:not(:focus-visible) {
+  outline: none;
+}
 .panel-close-btn {
   position: absolute;
   top: 12px;
@@ -4806,6 +4809,43 @@ html.ui-theme-old #prestige-history-list {
   #print-stats-sheet .print-ach-status {
     color: #555;
   }
+  /* The game page is one screen tall with overflow hidden, which cut the
+     sheet to its first page (2026-10-24, only 8 achievements printed). */
+  html, body, #app {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    position: static !important;
+    background: #fff !important;
+  }
+  /* Achievements: all of them as 8 across x 9 down on one landscape page,
+     with a thin title line. Small page margins also leave no room for the
+     browser's own date/title/address lines. */
+  html.print-achievements #print-stats-sheet {
+    padding: 0;
+  }
+  html.print-achievements #print-stats-sheet .print-ach-section {
+    margin: 0 0 4px;
+    padding-bottom: 2px;
+    font-size: 11px;
+    border-bottom-width: 1px;
+  }
+  html.print-achievements #print-stats-sheet .print-ach-grid {
+    grid-template-columns: repeat(8, 1fr);
+    gap: 3px;
+  }
+  html.print-achievements #print-stats-sheet .print-ach-row {
+    gap: 1px;
+    height: 20.5mm;
+    padding: 3px 4px;
+    font-size: 7.5px;
+    line-height: 1.2;
+    overflow: hidden;
+  }
+}
+@page {
+  size: landscape;
+  margin: 5mm;
 }
 
 #clear-cache-btn,
@@ -7360,15 +7400,10 @@ html.ui-theme-clean #menu-nav-buttons button {
   columns: 1;
 }
 
-/* While a panel is open the right column sits above its backdrop; only
-   the button that opened it stays lit, the rest fade back (Gaymi,
-   2026-10-23: "only whatever they click lights up"). Pointing at one
-   still brightens it (.nav-hover). NavCurrent in SettingsUI.js sets both
-   classes. */
-html.menu-panel-open :is(#menu-nav-buttons > button, #menu-player-badge):not(.nav-current, .nav-hover) {
-  opacity: 0.45;
-  transition: opacity 0.15s;
-}
+/* (The right column used to fade while a panel was open, all but the
+   button that opened it - removed 2026-10-24, Gaymi: "goes darker when
+   you're on a panel, we don't want that". NavCurrent in SettingsUI.js
+   still sets html.menu-panel-open / .nav-current.) */
 
 html.ui-theme-old #footer-menu .footer-menu-title {
   font-family: 'Rye', Georgia, serif;
@@ -7410,6 +7445,13 @@ html.ui-theme-old #footer-menu .footer-menu-title {
 }
 #menu-nav-buttons .nav-badge-dot.gold {
   color: #1d1d1f;
+}
+/* Old theme: every badge in the paper ink with light words, like the
+   theme's own text, rather than red/gold (2026-10-24). */
+html.ui-theme-old #menu-nav-buttons .nav-badge-dot {
+  background: var(--old-ink);
+  color: #f3e6c8;
+  border-color: var(--menu-gold);
 }
 #menu-nav-buttons .nav-badge-dot:is(#quests-new-dot, #friends-accepted-dot) {
   right: -7px;

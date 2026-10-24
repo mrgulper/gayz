@@ -123,6 +123,18 @@ export function _onPlayEvent(game, type, data) {
     const mutators = Array.isArray(data.mutators) ? data.mutators : []
     if (mutators.includes('glassHouse') && wave >= MUTATOR_CHALLENGE_WAVES) game.achievements.unlock('glass_cannon')
     if (mutators.includes('ironMode') && wave >= MUTATOR_CHALLENGE_WAVES) game.achievements.unlock('iron_will')
+    // 2026-10-24 batch.
+    if (wave >= 60) game.achievements.unlock('survivor_60')
+    if (wave >= 75) game.achievements.unlock('survivor_75')
+    if (data.difficulty === 'easy' && wave >= 15) game.achievements.unlock('easy_rider')
+    if (hardOrHarder && wave >= 20) game.achievements.unlock('hard_knocks')
+    if (data.difficulty === 'nightmare' && wave >= 15) game.achievements.unlock('waking_nightmare')
+    if (data.difficulty === 'apex' && wave >= 15) game.achievements.unlock('food_chain')
+    if (data.mode === 'zombieRush' && wave >= 10) game.achievements.unlock('rush_hour')
+    if (data.mode === 'worldMap' && wave >= 10) game.achievements.unlock('globetrotter')
+    if (mutators.includes('hordeRush') && wave >= MUTATOR_CHALLENGE_WAVES) game.achievements.unlock('horde_breaker')
+    if (mutators.includes('escalation') && wave >= MUTATOR_CHALLENGE_WAVES) game.achievements.unlock('escalated')
+    if (mutators.includes('bossRush') && wave >= 5) game.achievements.unlock('boss_parade')
     return null
   }
   if (type !== 'end') return null
@@ -168,6 +180,20 @@ export function _onPlayEvent(game, type, data) {
   if (data.meleeKills >= BLADE_MASTER_KNIFE_KILLS) game.achievements.unlock('blade_master')
   if (data.bosses >= BOSS_SLAYER_BOSSES) game.achievements.unlock('boss_slayer')
   if (data.skeletonKills >= BONE_BREAKER_SKELETONS) game.achievements.unlock('bone_breaker')
+  // 2026-10-24 batch.
+  const nightmareOrHarder = ['nightmare', 'apex'].includes(data.difficulty)
+  const hardOrHarderEnd = ['hard', 'nightmare', 'apex'].includes(data.difficulty)
+  if (data.mode === 'bossHunt' && data.bosses >= 10) game.achievements.unlock('trophy_hunter')
+  if (data.won && data.mode === 'zombieDefense' && nightmareOrHarder) game.achievements.unlock('iron_fortress')
+  if (data.won && data.mode === 'zombieExtraction' && hardOrHarderEnd) game.achievements.unlock('hot_extraction')
+  if (data.upgrades === 0 && data.waves >= 10) game.achievements.unlock('bare_bones')
+  if (data.kills >= 100 && data.seconds <= 10 * 60) game.achievements.unlock('speed_demon')
+  if (data.kills >= 1000) game.achievements.unlock('body_count')
+  if (data.bestStreak >= 200) game.achievements.unlock('killing_spree')
+  if (data.headshots >= 300) game.achievements.unlock('eagle_eye')
+  if (data.meleeKills >= 150) game.achievements.unlock('knife_party')
+  if (data.coins >= 15000) game.achievements.unlock('jackpot')
+  if (data.seconds >= 90 * 60) game.achievements.unlock('all_nighter')
   // +10% per Prestige level, as the Prestige line promises.
   const legacy = Math.floor(points * DEATH_POINTS_CONVERSION * (1 + (PRESTIGE_BONUS_PERCENT / 100) * Math.floor(_safeStatNumber(game.metaProgress.prestigeLevel))))
   game.metaProgress.legacyPoints += legacy
@@ -187,6 +213,7 @@ export function _onPlayEvent(game, type, data) {
   if (_safeStatNumber(game.careerStats.totalRuns) >= REGULAR_CAREER_RUNS) game.achievements.unlock('regular')
   if (_safeStatNumber(game.careerStats.totalKills) >= APOCALYPSE_CAREER_KILLS) game.achievements.unlock('apocalypse')
   if (_safeStatNumber(game.careerStats.totalRuns) >= VETERAN_CAREER_RUNS) game.achievements.unlock('veteran')
+  if (_safeStatNumber(game.careerStats.totalKills) >= 25000) game.achievements.unlock('extinction')
   saveShopProgress(game)
   game._renderCurrencyBar()
   game._updateUpgradesDot()

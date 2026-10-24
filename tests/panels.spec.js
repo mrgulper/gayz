@@ -169,7 +169,8 @@ test('bottom links show a drop-down of their sections', async ({ page }) => {
 
 // The right column, Game Mode and Settings get the same menus (to the side),
 // and while a panel is open only the button that opened it stays lit.
-test('homepage buttons show their tabs; only the clicked one stays lit', async ({ page }) => {
+// Since 2026-10-24 nothing on the right column fades while a panel is open.
+test('homepage buttons show their tabs; the right column stays lit over a panel', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 })
   await gotoAndWaitForGame(page)
   const menu = page.locator('#footer-menu')
@@ -182,7 +183,8 @@ test('homepage buttons show their tabs; only the clicked one stays lit', async (
   await expect(menu).toHaveAttribute('data-place', 'side')
   await menu.locator('.footer-menu-sections button', { hasText: 'Theme' }).click()
   await expect(page).toHaveURL(/\/inventory\/theme$/)
-  await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('#menu-nav-buttons > button')].filter((b) => getComputedStyle(b).opacity === '1').map((b) => b.id))).toEqual(['menu-inventory-btn'])
+  await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('menu-panel-open'))).toBe(true)
+  expect(await page.evaluate(() => [...document.querySelectorAll('#menu-nav-buttons > button, #menu-player-badge')].filter((b) => b.offsetParent && getComputedStyle(b).opacity !== '1').map((b) => b.id))).toEqual([])
   await page.evaluate(() => window.__game._closeAllMenuPanels())
   await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('menu-panel-open'))).toBe(false)
 })

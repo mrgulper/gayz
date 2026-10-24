@@ -1228,37 +1228,26 @@ export function _bindSettings(game) {
       // buttons built for the dark in-game panel, and reusing that
       // markup for print left every field stacked on its own
       // underlined line with no sections/summary, unreadable on paper.
-      // Respects whatever filter/category/sort is currently applied,
-      // same as before - game prints what you're looking at.
-      const filter = (game.achievementsFilterInput?.value || '').trim().toLowerCase()
-      const category = game.achievementsCategorySelect?.value || 'all'
-      const sortMode = game.achievementsSortSelect?.value || 'default'
+      // Every achievement, whatever filter the panel shows (2026-10-24,
+      // Gaymi: "should have every single achievement in it"), as an 8x9
+      // grid on one landscape page.
       const buildRow = (name, unlocked, status) =>
         `<div class="print-ach-row ${unlocked ? 'unlocked' : 'locked'}"><span class="print-ach-name">${_escapeHtml(name)}</span><span class="print-ach-status">${_escapeHtml(status)}</span></div>`
-
-      let achList = ACHIEVEMENTS.filter((ach) => category === 'all' || ach.category === category)
-      if (sortMode === 'achieved') achList = achList.filter((ach) => game.achievements.unlocked.has(ach.id))
-      else if (sortMode === 'incomplete') achList = achList.filter((ach) => !game.achievements.unlocked.has(ach.id))
-      const achRows = achList
+      const achRows = ACHIEVEMENTS
         .map((ach) => {
           const unlocked = game.achievements.unlocked.has(ach.id)
           const name = unlocked ? t(ach.titleKey) : '???'
-          if (filter && !name.toLowerCase().includes(filter)) return null
           const status = unlocked ? t('achievementUnlockedShort') : (ach.hintKey ? t(ach.hintKey) : t('achievementLocked'))
           return buildRow(name, unlocked, status)
         })
-        .filter(Boolean)
         .join('')
 
-      // Counts are the true overall totals, not the filtered row
-      // count - so "0/12 unlocked" doesn't show up when you've simply
-      // filtered the list down to "Incomplete" (every row unlocked=0
-      // there by definition, which would be a meaningless count).
       const achSummary = t('printAchievementsSummary', { unlocked: game.achievements.unlocked.size, total: ACHIEVEMENTS.length })
       game.printStatsSheet.innerHTML = `
-        <h1>${t('printAchievementsTitle')}</h1>
-        ${achRows ? `<h2 class="print-ach-section">${_escapeHtml(t('printAchievementsSectionAchievements'))} — ${_escapeHtml(achSummary)}</h2><div class="print-ach-grid">${achRows}</div>` : ''}
+        <h2 class="print-ach-section">${_escapeHtml(t('printAchievementsTitle'))} — ${_escapeHtml(achSummary)}</h2><div class="print-ach-grid">${achRows}</div>
       `
+      document.documentElement.classList.add('print-achievements')
+      window.addEventListener('afterprint', () => document.documentElement.classList.remove('print-achievements'), { once: true })
       window.print()
     })
   }
