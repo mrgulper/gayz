@@ -15,7 +15,7 @@ Browser Three.js block-world zombie game (Vite, no framework) at gayz.vercel.app
 
 ## Tests and shipping
 - Always `npm run lint` + `npm run build`. Tests: `CI=1 npx playwright test <spec>` (always `CI=1`, foreground, long timeout; full suite ~12 min).
-- Small change = only its area's spec: menu/panels/themes/Inventory/Market `panels` · Settings/keys `settings` · skins `skindesigner` · Gallery `gallery` · servers/chat `servers` · saves `save` · stats/quests `progression` · Patch Notes/Features `docs` · Map 1/Editor/Play/world/weapons `buildmode` · offline `offline`. Full suite for big/shared changes (Game.js, BuildMode core, saves, build, service worker).
+- Small change = only its area's spec: menu/panels/themes/Inventory/Market `panels` · Settings/keys `settings` · skins `skindesigner` · Gallery `gallery` · servers/chat `servers` · saves `save` · stats/quests `progression` · Patch Notes/Features `docs` · Map 1/Editor/Play/world/weapons `buildmode` · offline `offline`. Full suite only for big changes to shared code (Game.js, BuildMode core, saves, build, service worker); a few-line edit in a shared file just runs the specs for the areas it touches (Gaymi, 2026-10-24).
 - Ship: branch -> commit -> push `mrgulper/gayz` -> PR -> merge once green (merge title = PR title). One PR per batch. Vercel deploys `main`. Never `--no-verify`.
 - **ON/AFTER NOV 1, 2026: tell Gaymi first thing to turn the "main needs green CI" ruleset back on** (repo Settings > Rules > Rulesets > Enforcement: Active). Off since 2026-10-05 (Actions minutes ran out). Delete this line once they confirm.
 
