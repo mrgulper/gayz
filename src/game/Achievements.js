@@ -85,7 +85,7 @@ export const ACHIEVEMENTS = [
   { id: 'waking_nightmare', titleKey: 'achWakingNightmare', tag: 'WN', color: '#c9564a', hintKey: 'achHintWakingNightmare', category: 'survival' },
   { id: 'food_chain', titleKey: 'achFoodChain', tag: 'FC', color: '#c9564a', hintKey: 'achHintFoodChain', category: 'survival' },
   { id: 'rush_hour', titleKey: 'achRushHour', tag: 'RH', color: '#7fb069', hintKey: 'achHintRushHour', category: 'survival' },
-  { id: 'globetrotter', titleKey: 'achGlobetrotter', tag: 'GT', color: '#7fb069', hintKey: 'achHintGlobetrotter', category: 'survival' },
+  { id: 'globetrotter', titleKey: 'achGlobetrotter', tag: 'GT', color: '#7fb069', hintKey: 'achHintGlobetrotter', category: 'survival', mode: 'worldMap' },
   { id: 'horde_breaker', titleKey: 'achHordeBreaker', tag: 'HB', color: '#c9564a', hintKey: 'achHintHordeBreaker', category: 'survival' },
   { id: 'escalated', titleKey: 'achEscalated', tag: 'EQ', color: '#c9564a', hintKey: 'achHintEscalated', category: 'survival' },
   { id: 'boss_parade', titleKey: 'achBossParade', tag: 'BP', color: '#c9564a', hintKey: 'achHintBossParade', category: 'combat' },

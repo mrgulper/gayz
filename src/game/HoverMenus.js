@@ -38,11 +38,11 @@ const FOOTER_MENUS = [
 // clicked after that, `headings` scrolled to.
 const PANEL_MENUS = [
   { link: 'menu-player-badge', panel: 'profile-panel', headings: 'h3' },
-  { link: 'hub-btn', panel: 'clan-panel', tabs: '.general-tab' },
+  { link: 'hub-btn', panel: 'clan-panel', headings: 'h3' },
   { link: 'store-btn', panel: 'shop-panel', headings: 'h3.crate-section-heading' },
   { link: 'upgrades-btn', panel: 'upgrades-panel', tabs: '.upgrades-tab' },
   { link: 'server-btn', panel: 'server-panel', tabs: '.server-tab' },
-  { link: 'friends-btn', panel: 'friends-panel', headings: 'h3' },
+  { link: 'friends-btn', panel: 'friends-panel', tabs: '.general-tab' },
   { link: 'quests-btn', panel: 'quests-panel', tabs: '.quest-tab' },
   { link: 'menu-inventory-btn', panel: 'menu-inventory-panel', tabs: '.inventory-tab' },
   { link: 'achievements-btn', panel: 'achievements-panel', tabs: '.achievements-mode-tab' },

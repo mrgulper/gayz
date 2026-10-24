@@ -568,7 +568,8 @@ export function _openAchievementsPanel(game) {
 
 export function _renderAchievementsPanel(game) {
   // Deathmatch and Parkour have no achievements yet - a placeholder.
-  const deathmatch = game._achievementsMode !== 'survival'
+  const mode = game._achievementsMode
+  const deathmatch = mode !== 'survival' && mode !== 'worldMap'
   if (game.achievementsFilterInput) game.achievementsFilterInput.style.display = deathmatch ? 'none' : ''
   if (game.achievementsControlsRow) game.achievementsControlsRow.style.display = deathmatch ? 'none' : ''
   if (game.printAchievementsBtn) game.printAchievementsBtn.style.display = deathmatch ? 'none' : ''
@@ -582,7 +583,8 @@ export function _renderAchievementsPanel(game) {
   const filter = (game.achievementsFilterInput?.value || '').trim().toLowerCase()
   const category = game.achievementsCategorySelect?.value || 'all'
   const sortMode = game.achievementsSortSelect?.value || 'default'
-  let list = ACHIEVEMENTS.filter((ach) => category === 'all' || ach.category === category)
+  // World Map's achievements sit on its own tab (2026-10-24).
+  let list = ACHIEVEMENTS.filter((ach) => (ach.mode || 'survival') === mode && (category === 'all' || ach.category === category))
   // Achieved/Incomplete - a straight filter on unlock state, not a sort
   // (replaced the old Unlock Date sort per direct request).
   if (sortMode === 'achieved') list = list.filter((ach) => game.achievements.unlocked.has(ach.id))

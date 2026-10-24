@@ -310,11 +310,19 @@ test('Cloud Save lives on the General tab', async ({ page }) => {
     // while signed out (2026-10-23).
     out.title = document.querySelectorAll('#cloudsave-panel-title, #cloudsave-signed-out-desc').length
     out.signedOutShown = getComputedStyle(document.getElementById('cloudsave-signed-out')).display
-    // Clan tab hides it; General tab shows it again.
-    document.getElementById('general-tab-clan').click()
-    out.hiddenOnClan = section.offsetParent === null
-    document.getElementById('general-tab-general').click()
-    out.backOnGeneral = section.offsetParent !== null
+    // Clan moved to Friendship (2026-10-24): General has no tabs, and
+    // Friendship has Friend List and Clan.
+    out.generalTabs = g.clanPanel.querySelectorAll('.general-tab').length
+    g._openFriendsPanel()
+    await new Promise((res) => setTimeout(res, 50))
+    out.friendsTitle = document.getElementById('friends-panel-title').textContent
+    out.friendsBtn = g.friendsBtn.querySelector('span').textContent
+    out.clanInFriends = !!document.getElementById('clan-subtabs').closest('#friends-panel')
+    out.friendsTabs = [...g.friendsPanel.querySelectorAll('.general-tab')].map((b) => b.id)
+    document.getElementById('friends-tab-clan').click()
+    out.clanShown = document.getElementById('clan-subtabs').offsetParent !== null
+    out.friendsHidden = document.getElementById('general-page-friends').offsetParent === null
+    g._openClanPanel()
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' }))
     out.closedByEscape = getComputedStyle(g.clanPanel).display
     return out
@@ -325,8 +333,13 @@ test('Cloud Save lives on the General tab', async ({ page }) => {
   expect(r.visible).toBe(true)
   expect(r.title).toBe(0)
   expect(r.signedOutShown).toBe('none')
-  expect(r.hiddenOnClan).toBe(true)
-  expect(r.backOnGeneral).toBe(true)
+  expect(r.generalTabs).toBe(0)
+  expect(r.friendsTitle).toBe('Friendship')
+  expect(r.friendsBtn).toBe('Friendship')
+  expect(r.clanInFriends).toBe(true)
+  expect(r.friendsTabs).toEqual(['friends-tab-friends', 'friends-tab-clan'])
+  expect(r.clanShown).toBe(true)
+  expect(r.friendsHidden).toBe(true)
   expect(r.closedByEscape).toBe('none')
 })
 

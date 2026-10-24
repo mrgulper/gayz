@@ -66,14 +66,6 @@ export function _openClanPanel(game) {
   game._closeAllMenuPanels()
   game.clanPanel.style.display = 'flex'
   if (game.clanPanelTitle) game.clanPanelTitle.textContent = t('hubBtn')
-  // Defaults to the General tab every time the panel opens, same
-  // "always reopen on the first tab" convention as Inventory's tabs.
-  for (const tabEl of document.querySelectorAll('.general-tab')) tabEl.classList.toggle('active', tabEl.dataset.generalPage === 'general')
-  for (const page of document.querySelectorAll('.general-tab-page')) page.style.display = page.id === 'general-page-general' ? 'block' : 'none'
-  game._refreshClanUi()
-  // Start loading the clan list now, so the Clan tab doesn't make you
-  // wait for it (2026-10-09, "it takes so long to load").
-  game._fetchClanRanking().catch(() => {})
 }
 
 export function _closeClanPanel(game) {
