@@ -8,7 +8,7 @@
 // Lives with the Map Editor's code (BuildMode.js loads it) since it needs
 // the block pictures; TopBar asks bm.biomeBarLook().
 import { blockFaceCanvases } from './BlockTextures.js'
-import { sampleLand, inCity } from './OpenWorld.js'
+import { sampleLand, inCity, isFlatWorld } from './OpenWorld.js'
 
 // Which block's picture each biome's bar uses.
 const BIOME_BLOCK = {
@@ -47,7 +47,7 @@ export function biomeBarLook(bm, x, z) {
   if (!bm.world?.active) return null
   const cx = Math.floor(x)
   const cz = Math.floor(z)
-  const id = inCity(cx, cz) ? CITY_BLOCK : BIOME_BLOCK[sampleLand(cx, cz).biome] || 'grass'
+  const id = inCity(cx, cz) && !isFlatWorld() ? CITY_BLOCK : BIOME_BLOCK[sampleLand(cx, cz).biome] || 'grass'
   const type = bm.blockTypeOf?.(id)
   if (!type) return null
   return { key: id, url: pictureOf(type) }

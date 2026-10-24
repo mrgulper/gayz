@@ -18,6 +18,7 @@
 // - Ball: a hollow ball around the first click, out to the second.
 import * as THREE from 'three'
 import { t } from './i18n.js'
+import { animalNameKey } from './PlayAnimals.js'
 
 export const SHAPE_TOOLS = ['wall', 'floor', 'box', 'circle', 'ball']
 export const AREA_TOOLS = ['fill', 'replace', ...SHAPE_TOOLS]
@@ -92,7 +93,8 @@ export class BuildTools {
     } else if (bm.lineToolMode) {
       text = `${t('buildModeLineBtn')}: ${t(bm._lineStart ? 'buildToolStepSecond' : 'buildToolStepFirst')}`
     } else if (bm.copyToolMode) {
-      text = `${t('buildModeCopyBtn')}: ${t(bm._copyStart ? 'buildToolStepSecond' : 'buildToolStepFirst')}`
+      text = `${t('buildModeCopyBtn')}: ${t(bm._copyStart ? 'buildToolStepSecond' : 'buildToolStepFirst')}`    } else if (bm.placingAnimal) {
+      text = t('editorAnimalHint', { name: t(animalNameKey(bm.placingAnimal)) })
     }
     el.textContent = text
     el.style.display = text && bm.active && !bm.tryMode.active ? 'block' : 'none'

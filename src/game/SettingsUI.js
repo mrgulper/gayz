@@ -1531,7 +1531,8 @@ export function _bindSettings(game) {
     if (e.target === game.marketPanel) game._closeMarketPanel()
   })
   if (game.shopSkinBuyBtn) game.shopSkinBuyBtn.addEventListener('click', () => game._buyShopSkin())
-  document.getElementById('shop-skin-tryon-btn')?.addEventListener('click', () => game._startShopTryOn())
+  // Inspect (was Try On, 2026-10-24): GaygarX big in the Inspect window.
+  document.getElementById('shop-skin-tryon-btn')?.addEventListener('click', () => game._openInspectDialog('character', 'gaygarx'))
   document.getElementById('shop-tryon-back-btn')?.addEventListener('click', () => game._endShopTryOn(true))
   if (game.otherProfilePanel) {
     game.otherProfilePanel.addEventListener('click', (e) => {

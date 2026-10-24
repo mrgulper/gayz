@@ -12,7 +12,7 @@ import { CHANGELOG_LAST_VIEWED_KEY, Game, HOWTOPLAY_STEPS, LOGIN_CALENDAR_DAYS, 
 import { BIOMES } from './OpenWorld.js'
 import { BOSS_HUNT_EVERY, DEFENSE_WAVES, EXTRACTION_HOLD, EXTRACTION_WAVES, SKELETON_FROM_WAVE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { BOTTOM } from './Underground.js'
-import { MAX_WILD } from './PlayAnimals.js'
+import { MAX_WILD, ANIMAL_IDS } from './PlayAnimals.js'
 import { LANGUAGES, t, tHtml } from './i18n.js'
 
 // Update-available check - only ever called from _exitBuildMode (back
@@ -265,6 +265,8 @@ export function _featureValues(_game) {
     undergroundDepth: -BOTTOM,
     mobHeight: MOB_HEIGHT,
     maxWildAnimals: MAX_WILD,
+    animalKinds: ANIMAL_IDS.length,
+    editorStoreSide: 10,
     skeletonWave: SKELETON_FROM_WAVE,
     spawnMinDist: SPAWN_MIN_DIST,
     marketFee: Math.round(MARKET_FEE_RATE * 100),

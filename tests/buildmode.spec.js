@@ -1150,7 +1150,9 @@ test('Map 1 has an open world with biomes around it', async ({ page }) => {
     // grown on a city cell.
     w.update([{ x: -60, z: -60 }])
     out.cornerIsLand = !b._map3Base().map.blocks.some((bl) => bl.x === -62 && bl.z === -62) && w.isTerrain(`-62,${surface(-62, -62)?.[0]},-62`)
-    out.noLandInCity = ![...w.terrainKeys].some((k) => { const [x, , z] = k.split(',').map(Number); return x >= -64 && x < 64 && z >= -64 && z < 64 && b._map3Base().map.blocks.some((bl) => bl.x === x && bl.z === z) })
+    // (Cave walls under the city are terrain too - Underground.js - so only
+    // the surface counts.)
+    out.noLandInCity = ![...w.terrainKeys].some((k) => { const [x, y, z] = k.split(',').map(Number); return y >= -1 && x >= -64 && x < 64 && z >= -64 && z < 64 && b._map3Base().map.blocks.some((bl) => bl.x === x && bl.z === z) })
     out.cityIrregular = b._map3Base().map.blocks.every((bl) => bl.x > -64 && bl.x < 63 && bl.z > -64 && bl.z < 63)
     // The land is never saved...
     const snap = b._snapshot().blocks
@@ -2101,7 +2103,7 @@ test('inventory, editor block storage, city towns and lost zombies', async ({ pa
     g._exitBuildMode()
     return out
   })
-  expect(editor).toEqual({ split: true, store: 36, hotbar: 10 })
+  expect(editor).toEqual({ split: true, store: 100, hotbar: 10 })
 
   await page.evaluate(() => window.__game.playBtn.click())
   await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
@@ -2382,7 +2384,8 @@ test('animals, held blocks, sky top bar, no spectate banner, What\'s New card', 
     const T = A.constructor.BIOME_ANIMALS
     out.snow = Object.keys(T.snowyPlains).sort()
     out.desert = Object.keys(T.desert).sort()
-    out.sea = Object.keys(T.ocean)
+    // Since 2026-10-24 the sea has its own animals, and all of them swim.
+    out.sea = Object.keys(T.ocean).length > 0 && Object.keys(T.ocean).every((k) => A.constructor.KINDS[k].swim)
     out.allBuilt = Object.values(T).every((t) => Object.keys(t).every((k) => A.constructor.KINDS[k]))
     out.cowsOnlyWarm = Object.entries(T).filter(([, t]) => t.cow).map(([b]) => b).sort()
     // One right in front of you: shot, it dies and drops meat.
@@ -2441,7 +2444,7 @@ test('animals, held blocks, sky top bar, no spectate banner, What\'s New card', 
     bm.toggleMenu()
     return out
   })
-  expect(r).toEqual({ spawned: true, snow: ['arcticFox', 'polarBear'], desert: ['camel', 'lizard'], sea: [], allBuilt: true, cowsOnlyWarm: ['city', 'mushroomFields', 'plains'], stillHere: true, tamed: true, petSafe: true, follows: true, meat: true, healed: true, handBlock: true, weather: true, time: true, nightVar: true, noBanner: true })
+  expect(r).toEqual({ spawned: true, snow: ['arcticFox', 'muskox', 'polarBear', 'reindeer', 'snowyOwl'], desert: ['armadillo', 'camel', 'coyote', 'gecko', 'lizard', 'scorpion', 'snake'], sea: true, allBuilt: true, cowsOnlyWarm: ['city', 'mushroomFields', 'plains'], stillHere: true, tamed: true, petSafe: true, follows: true, meat: true, healed: true, handBlock: true, weather: true, time: true, nightVar: true, noBanner: true })
 })
 
 // The spawn map's countries -> states/provinces -> cities (2026-10-18):
@@ -2592,4 +2595,74 @@ test('the World Map mode has real land, far zombie spawns and a block map at eve
     }
   })
   expect(r).toEqual({ lat: 49, steppe: true, everest: 'snowyPeaks', balkhash: true, nile: true, spawned: 20, closest: true, size: 'center', views: ['blocks'], ahead: true })
+})
+
+// 2026-10-24: the Map Editor button asks Worlds or Plain; Plain is endless
+// flat grass (never saved); the Tab panel's storage is 10 x 10; animals
+// from the picker's Animals list are put down with right-click, walk about,
+// come off with left-click and are saved with the map.
+test('Map Editor: Worlds/Plain choice, endless grass, 10x10 storage, placed animals', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.click('#build-mode-btn')
+  await expect(page.locator('#editor-pick-dialog')).toBeVisible()
+  await expect(page.locator('#editor-pick-worlds-name')).toHaveText('Worlds')
+  await page.click('#editor-pick-plain')
+  await page.waitForFunction(() => window.__game.buildMode?.active, null, { timeout: 60000 })
+  const r = await page.evaluate(async () => {
+    const bm = window.__game.buildMode
+    const out = {}
+    out.slot = bm.activeSlot
+    bm.camera.position.set(300 * 0.35, 4 * 0.35, 300 * 0.35)
+    for (let i = 0; i < 400; i++) bm._updateWorld()
+    // Grass far outside the slot's own 128 x 128 ground, never saved.
+    out.farGrass = bm.getBlockAt(300, -1, 300)
+    out.notSaved = !bm._snapshot().blocks.some((b) => b.x === 300 && b.z === 300)
+    bm.togglePicker()
+    out.storage = document.querySelectorAll('#build-picker .bp-store .bp-slot').length
+    bm._pickerCategorySelect.value = 'animals'
+    bm._renderPickerGrid()
+    out.animalsListed = document.querySelectorAll('#build-picker .build-picker-animal').length
+    document.querySelector('#build-picker .build-picker-animal[data-animal-id="lion"]').click()
+    out.placing = bm.placingAnimal
+    bm.camera.position.set(0, 4 * 0.35, 0)
+    bm._yaw = 0
+    bm._pitch = -0.4
+    bm.update(1 / 60)
+    bm.camera.updateMatrixWorld()
+    bm._placeFromCamera()
+    out.spots = bm.animalSpots.map((s) => s.kind)
+    const lion = bm.survival.animals.list.find((a) => a.kind === 'lion')
+    const start = [lion.x, lion.z]
+    lion.walking = true
+    lion.think = 5
+    for (let i = 0; i < 60; i++) bm.update(1 / 30)
+    out.walked = Math.hypot(lion.x - start[0], lion.z - start[1]) > 0.2
+    bm.save()
+    bm.clearAllBlocks()
+    bm.load()
+    out.reloaded = bm.animalSpots.map((s) => s.kind)
+    // Left-click on it takes it away.
+    const again = bm.survival.animals.list.find((a) => a.kind === 'lion')
+    const B = 0.35
+    const dx = again.x * B - bm.camera.position.x
+    const dz = again.z * B - bm.camera.position.z
+    const dy = (again.y + 0.8) * B - bm.camera.position.y
+    bm._yaw = Math.atan2(-dx, -dz)
+    bm._pitch = Math.atan2(dy, Math.hypot(dx, dz))
+    bm.update(1 / 60)
+    bm.camera.updateMatrixWorld()
+    bm._removeFromCamera()
+    out.removed = bm.animalSpots.length === 0 && !bm.survival.animals.list.some((a) => a.kind === 'lion')
+    return out
+  })
+  expect(r.slot).not.toBe('map3')
+  expect(r.farGrass).toBe('grass')
+  expect(r.notSaved).toBe(true)
+  expect(r.storage).toBe(100)
+  expect(r.animalsListed).toBeGreaterThan(130)
+  expect(r.placing).toBe('lion')
+  expect(r.spots).toEqual(['lion'])
+  expect(r.walked).toBe(true)
+  expect(r.reloaded).toEqual(['lion'])
+  expect(r.removed).toBe(true)
 })
