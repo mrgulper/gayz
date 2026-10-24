@@ -3355,7 +3355,7 @@ section.category.hidden-search {
    line still under this grid in index.html) - no cost/button yet, and
    deliberately no cursor:pointer/hover-highlight like .perk-option gets,
    since these aren't clickable at all yet and shouldn't look like they are. */
-/* Theme picker (Inventory > Theme) - was a plain <select>, replaced with
+/* Theme picker (General > Theme) - was a plain <select>, replaced with
    two clickable preview-photo cards per request. Same "photo card + gold
    border/glow when active" language as .crate-card below, just image-fill
    instead of an SVG icon. */
@@ -8312,7 +8312,8 @@ html.ui-theme-old #settings-panel h2 {
    General/Market tabs' placeholder text stays fine at the narrower
    shared width above. */
 #general-page-clan,
-#general-page-general {
+#general-page-general,
+#general-page-theme {
   width: min(640px, 90vw, 100%);
   max-width: 100%;
 }
@@ -12250,3 +12251,41 @@ html.ui-theme-old #levels-bar-fill {
 #quests-panel:has(#quest-page-tabs[style*='none']) .quest-tab-page {
   height: calc(68vh - 45.5px);
 }
+
+/* Old theme: the Inventory card menu (Equip/Market/Sell/Inspect) and the
+   Market price window were Kirka's blue/black in every theme (2026-10-24,
+   Gaymi: "everything should be based on theme") - here they're parchment
+   with dark ink and a brown edge like Old's Market dropdowns. */
+html.ui-theme-old #inv-skin-menu {
+  background: #f1e0b8;
+  border: 1px solid #7a4e24;
+  box-shadow: 0 10px 24px rgba(43, 26, 12, 0.45);
+}
+html.ui-theme-old #inv-skin-menu button {
+  background: #ead6ab;
+  border: 1px solid #7a4e24;
+}
+html.ui-theme-old #inv-skin-menu button:not(:disabled):hover { background: #e0c58e; filter: none; }
+html.ui-theme-old #inv-skin-menu-sell { border-color: #a8321f; }
+html.ui-theme-old #trade-dialog-box {
+  background: #f1e0b8;
+  border-color: #7a4e24;
+  box-shadow: 0 16px 40px rgba(43, 26, 12, 0.55);
+  color: var(--old-ink, #2e1d0e);
+}
+html.ui-theme-old #trade-dialog-title { font-family: 'Rye', Georgia, serif; font-weight: 400; }
+html.ui-theme-old #trade-dialog-close { background: none; color: #4a2c10; }
+html.ui-theme-old .trade-dialog-step {
+  background: #b8843a;
+  border-bottom-color: #6b3f17;
+  color: #f3e3c2;
+}
+html.ui-theme-old #trade-dialog-price {
+  background: #ead6ab;
+  border: 1px solid #7a4e24;
+  color: #2b1a0c;
+}
+html.ui-theme-old #trade-dialog-action.trade-action-list,
+html.ui-theme-old #trade-dialog-action.trade-action-buy { background: #6b3f17; color: #f3e3c2; }
+html.ui-theme-old #trade-dialog-action.trade-action-sell,
+html.ui-theme-old #trade-dialog-action.trade-action-cancel { background: #a8321f; color: #f3e3c2; }

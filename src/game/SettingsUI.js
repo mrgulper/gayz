@@ -477,12 +477,14 @@ export function _bindSettings(game) {
   document.addEventListener('click', () => game._closeMarketFilterMenus())
 
   // Friendship's tab strip (Friend List/Clan; it was General's General/
-  // Clan tabs until 2026-10-24) - same isolated class/loop pattern as the
-  // other tab strips above.
+  // Clan tabs until 2026-10-24) and General's (Leaderboard/Theme) - same
+  // isolated class/loop pattern as the other tab strips above, each strip
+  // only switching the pages in its own panel.
   for (const tab of document.querySelectorAll('.general-tab')) {
     tab.addEventListener('click', () => {
-      for (const tabEl of document.querySelectorAll('.general-tab')) tabEl.classList.toggle('active', tabEl === tab)
-      for (const page of document.querySelectorAll('.general-tab-page')) {
+      const box = tab.closest('.panel-box')
+      for (const tabEl of box.querySelectorAll('.general-tab')) tabEl.classList.toggle('active', tabEl === tab)
+      for (const page of box.querySelectorAll('.general-tab-page')) {
         page.style.display = page.id === `general-page-${tab.dataset.generalPage}` ? 'block' : 'none'
       }
       if (tab.dataset.generalPage === 'clan') {
@@ -926,7 +928,7 @@ export function _bindSettings(game) {
       saveSettings(game.settings)
     })
   }
-  // Theme (Inventory > Theme): Old or Clean, as two clickable cards.
+  // Theme (General > Theme, Inventory > Theme until 2026-10-24): Old or Clean, as two clickable cards.
   // Old's look is html.ui-theme-old, Clean's html.ui-theme-clean plus the
   // colour variables CleanTheme.js puts on <html>. Clean's colour is
   // picked with the round swatch, applied live (the hex text box was

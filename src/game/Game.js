@@ -414,7 +414,7 @@ function loadSettings() {
       // Old by default; Clean when picked. Golden was deleted 2026-10-23 -
       // a saved 'golden' becomes Clean (CleanTheme.js uiThemeOf).
       uiTheme: uiThemeOf(parsed),
-      // Clean theme's one colour (Inventory > Theme), '#rrggbb'.
+      // Clean theme's one colour (General > Theme), '#rrggbb'.
       cleanColor: normalizeHex(parsed.cleanColor) || CLEAN_DEFAULT_COLOR,
       // The gun last picked at the start of a Map 1 run (PlayWeapons.js).
       playWeapon: typeof parsed.playWeapon === 'string' ? parsed.playWeapon : null,
@@ -1268,6 +1268,14 @@ const SIMPLE_TEXT_I18N_KEYS = {
   // Friendship's tabs (Clan moved there from General, 2026-10-24).
   'friends-tab-friends': 'friendsTabList',
   'friends-tab-clan': 'generalTabClan',
+  // General's tabs: Leaderboard and Theme (Theme moved from Inventory,
+  // 2026-10-24), and Inventory's Pets tab (Coming Soon).
+  'general-tab-general': 'cloudsaveLeaderboardTitle',
+  'general-tab-theme': 'tabTheme',
+  'inventory-tab-pets': 'inventoryPetsTitle',
+  'inventory-pets-soon-title': 'inventoryPetsTitle',
+  'inventory-pets-soon-text': 'inventoryPetsSoon',
+  'inventory-pets-soon-tag': 'crateComingSoonTag',
   'clan-members-heading': 'clanMembersHeading',
   'clan-invite-send-btn': 'clanInviteSendBtn',
   'clan-requests-heading': 'clanRequestsHeading',
@@ -2504,7 +2512,7 @@ export class Game {
     this.inventoryTabCharacter = document.getElementById('inventory-tab-character')
     this.inventoryTabCrates = document.getElementById('inventory-tab-crates')
     this.inventoryTabWeapons = document.getElementById('inventory-tab-weapons')
-    this.inventoryTabTheme = document.getElementById('inventory-tab-theme')
+    this.inventoryTabPets = document.getElementById('inventory-tab-pets')
     this.inventorySkinsList = document.getElementById('inventory-skins-list')
     this.invSkinSearch = document.getElementById('inv-skin-search')
     this.invRarityFilterBtn = document.getElementById('inv-rarity-filter-btn')
@@ -3241,11 +3249,12 @@ export class Game {
       },
       {
         slug: 'inventory', panel: this.menuInventoryPanel, open: () => this._openMenuInventoryPanel(),
-        subTabs: this._subTabsFor('inventory-tab-', ['character', 'crates', 'weapons', 'theme']),
+        subTabs: this._subTabsFor('inventory-tab-', ['character', 'crates', 'weapons', 'pets']),
       },
       { slug: 'global', panel: this.serverPanel, open: () => this._openServerPanel() },
       {
         slug: 'general', panel: this.clanPanel, open: () => this._openClanPanel(),
+        subTabs: this._subTabsFor('general-tab-', ['general', 'theme']),
       },
       {
         slug: 'settings', panel: this.settingsPanel, open: () => this._toggleSettings(true),
@@ -3556,7 +3565,8 @@ export class Game {
     const weapons = this.weapons.getSummary()
       .map((w) => ({ id: w.id, label: t(w.nameKey) }))
       .sort((a, b) => a.label.localeCompare(b.label))
-    return [{ id: 'character', label: t('marketItemCharacter') }, ...weapons]
+    // Pets last, after the weapons (2026-10-24) - none to list yet.
+    return [{ id: 'character', label: t('marketItemCharacter') }, ...weapons, { id: 'pets', label: t('inventoryPetsTitle') }]
   }
 
   _renderMarketFilters() { return InventoryUI._renderMarketFilters(this) }

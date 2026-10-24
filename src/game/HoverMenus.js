@@ -38,7 +38,7 @@ const FOOTER_MENUS = [
 // clicked after that, `headings` scrolled to.
 const PANEL_MENUS = [
   { link: 'menu-player-badge', panel: 'profile-panel', headings: 'h3' },
-  { link: 'hub-btn', panel: 'clan-panel', headings: 'h3' },
+  { link: 'hub-btn', panel: 'clan-panel', tabs: '.general-tab' },
   { link: 'store-btn', panel: 'shop-panel', headings: 'h3.crate-section-heading' },
   { link: 'upgrades-btn', panel: 'upgrades-panel', tabs: '.upgrades-tab' },
   { link: 'server-btn', panel: 'server-panel', tabs: '.server-tab' },

@@ -405,3 +405,46 @@ html.ui-theme-clean #shop-tryon-back-btn {
   background: var(--clean-fg);
   border-color: var(--clean-fg);
 }
+
+/* Inventory > Pets (2026-10-24): a Coming Soon card until pets exist.
+   The same box in every theme; each theme only colours it (below and in
+   theme-clean.css). */
+#inventory-pets-soon {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: min(320px, 100%);
+  margin: 40px auto 0;
+  padding: 28px 20px 48px;
+  box-sizing: border-box;
+  text-align: center;
+  background: radial-gradient(ellipse at 50% 40%, rgba(201, 162, 74, 0.22), rgba(22, 17, 10, 0.85) 75%);
+  border: 1px solid rgba(201, 162, 74, 0.35);
+  border-radius: 12px;
+  color: #fff;
+}
+#inventory-pets-soon svg {
+  width: 64px;
+  height: 64px;
+  opacity: 0.5;
+}
+#inventory-pets-soon p { margin: 0; }
+#inventory-pets-soon-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+#inventory-pets-soon-text {
+  font-size: 14px;
+  opacity: 0.75;
+}
+#inventory-pets-soon .weapon-soon-tag {
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+}
+html.ui-theme-old #inventory-pets-soon {
+  background: rgba(120, 80, 40, 0.14);
+  border-color: rgba(74, 44, 16, 0.4);
+}
