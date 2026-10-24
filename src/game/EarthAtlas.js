@@ -12,8 +12,8 @@
 // Drawn from the same data as the spawn map (EarthMapData.js's biomes,
 // EarthCountries.js's half-degree countries, Towns.js's cities), once,
 // into one picture (PX pixels a degree) that every draw crops.
-import { EARTH_W, EARTH_H, EARTH_BIOMES } from './EarthMapData.js'
-import { earthCells } from './EarthGrid.js'
+
+import { earthBiome } from './EarthGrid.js'
 import { COUNTRY_W, COUNTRY_H, EARTH_COUNTRIES, COUNTRY_RLE } from './EarthCountries.js'
 import { CITIES } from './Towns.js'
 
@@ -81,7 +81,7 @@ let labels = null
 // The whole Earth, 360 * PX by 180 * PX pixels.
 function atlasCanvas() {
   if (atlas) return atlas
-  const g = earthCells()
+
   const cc = countryCells()
   // Land colours at a quarter degree, from the 1-degree biomes looked up a
   // little off the real spot (a smooth random wobble, up to WOBBLE
@@ -98,7 +98,7 @@ function atlasCanvas() {
   const sctx = small.getContext('2d')
   const img = sctx.createImageData(SW, SH)
   const d0 = img.data
-  const biomeAt = (lat, lon) => EARTH_BIOMES[g[Math.min(EARTH_H - 1, Math.max(0, Math.floor(90 - lat))) * EARTH_W + ((Math.floor(lon + 180) % EARTH_W) + EARTH_W) % EARTH_W]]
+  const biomeAt = earthBiome
   for (let j = 0; j < SH; j++) {
     for (let i = 0; i < SW; i++) {
       const k = j * SW + i
@@ -373,3 +373,7 @@ export function cityDot(ctx, x, y, r, fill = '#ffffff') {
   ctx.strokeStyle = '#3a2a22'
   ctx.stroke()
 }
+
+// The globe (EarthGlobe.js) wraps the atlas until the block-map picture of
+// the Earth is drawn, and writes its country names.
+export { atlasCanvas as earthAtlasCanvas, countryLabels as earthCountryLabels }

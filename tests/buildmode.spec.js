@@ -2529,8 +2529,8 @@ test('block chunks free their copy once drawn and come back after a lost graphic
 // rivers (EarthTerrain.js) - no snow on Kazakhstan's steppe, snow on
 // Everest, water in Lake Balkhash and the Nile. Zombies never appear
 // closer than 30 blocks (out here too - path cells used to wrap past
-// 2048). M's middle map is the block map at every zoom (2026-10-24 - no
-// switch to the atlas/globe) and is drawn ahead at every zoom.
+// 2048). M's middle map is the block map (never the atlas), drawn ahead,
+// and turns into the globe when zoomed far out (2026-10-24).
 test('the World Map mode has real land, far zombie spawns and a block map at every zoom', async ({ page }) => {
   await gotoAndWaitForGame(page)
   await page.evaluate(() => { window.__game.settings.selectedGameMode = 'worldMap'; window.__game.playBtn.click() })
@@ -2594,7 +2594,7 @@ test('the World Map mode has real land, far zombie spawns and a block map at eve
       views,
     }
   })
-  expect(r).toEqual({ lat: 49, steppe: true, everest: 'snowyPeaks', balkhash: true, nile: true, spawned: 20, closest: true, size: 'center', views: ['blocks'], ahead: true })
+  expect(r).toEqual({ lat: 49, steppe: true, everest: 'snowyPeaks', balkhash: true, nile: true, spawned: 20, closest: true, size: 'center', views: ['blocks', 'globe'], ahead: true })
 })
 
 // 2026-10-24: the Map Editor button asks Worlds or Plain; Plain is endless

@@ -6,6 +6,8 @@
 import { EARTH_W, EARTH_H, EARTH_BIOMES, EARTH_RLE } from './EarthMapData.js'
 
 export const EARTH_DEG = 120
+// Grid cells per degree (2: half-degree cells since 2026-10-24).
+const RES = EARTH_W / 360
 export const WATER_BIOMES = new Set(['ocean', 'deepOcean', 'frozenOcean', 'warmOcean', 'river'])
 
 let grid = null
@@ -30,14 +32,14 @@ function cellAt(i, j) {
 
 // The Earth biome at a latitude / longitude.
 export function earthBiome(lat, lon) {
-  return cellAt(Math.floor(lon + 180), Math.floor(90 - lat))
+  return cellAt(Math.floor((lon + 180) * RES), Math.floor((90 - lat) * RES))
 }
 
 // How much land is around a point, 0 (open sea) .. 1 (inland), blended
-// smoothly between the 1-degree cells so coasts aren't squares.
+// smoothly between the grid's cells so coasts aren't squares.
 export function earthLandAmount(lat, lon) {
-  const fx = lon + 180 - 0.5
-  const fy = 90 - lat - 0.5
+  const fx = (lon + 180) * RES - 0.5
+  const fy = (90 - lat) * RES - 0.5
   const i = Math.floor(fx)
   const j = Math.floor(fy)
   const tx = fx - i

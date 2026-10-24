@@ -124,7 +124,7 @@ test('every Map Editor shortcut on the pause screen really works', async ({ page
       buildModeUndoBtn: () => { const done = spy('undo'); press('KeyZ', { ctrlKey: true }); return done() === 1 },
       buildModeRedoBtn: () => { const done = spy('redo'); press('KeyY', { ctrlKey: true }); return done() === 1 },
       buildModeSaveBtn: () => { const done = spy('save'); press('KeyS', { ctrlKey: true }); return done() === 1 },
-      buildModeMirrorBtn: () => { const before = bm.mirrorMode; press('KeyM'); const after = bm.mirrorMode; if (after !== before) bm.toggleMirror(); return after !== before },
+      buildModeMirrorBtn: () => { const before = bm.mirrorMode; press('KeyN'); const after = bm.mirrorMode; if (after !== before) bm.toggleMirror(); return after !== before },
       buildModeLineBtn: () => { const before = bm.lineToolMode; press('KeyL'); const after = bm.lineToolMode; if (after !== before) bm.toggleLineTool(); return after !== before },
       buildModeCopyBtn: () => { const before = bm.copyToolMode; press('KeyC'); const after = bm.copyToolMode; if (after !== before) bm.toggleCopyTool(); return after !== before },
       buildModePasteBtn: () => { const done = spy('pasteClipboard'); press('KeyP'); return done() === 1 },

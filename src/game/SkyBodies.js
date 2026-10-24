@@ -7,7 +7,9 @@
 // - Sun and moon: two flat sprites far out (SKY_R) on opposite sides of
 //   one arc across the sky, following the camera so they never get closer.
 //   Blocks in front hide them like any object; no fog, no lights.
-// - Clouds: one big flat layer of blocky clouds high above the camera,
+// - Sky: a dome round the camera with a smooth blue fade and a glow
+//   round the sun (2026-10-24), drawn behind everything.
+// - Clouds: one big flat layer of soft clouds high above the camera,
 //   drifting with the wind. It follows the camera but the picture is
 //   anchored to the world, so walking under them looks right. Its edge
 //   fades out (shader) so you never see where it ends. In bad weather the
@@ -15,6 +17,7 @@
 import * as THREE from 'three'
 
 const SKY_R = 140 // world units: just inside the stars (150) and the camera's far plane
+const DOME_R = 120 // the sky dome (drawn first, behind everything)
 const SUN_SIZE = 30
 const MOON_SIZE = 20
 const CLOUD_HEIGHT = 24 // world units above the camera
@@ -59,41 +62,52 @@ function moonTexture() {
   return tex
 }
 
-// Blocky clouds: a seeded random grid of cells grown into clumps.
+// Soft clouds (2026-10-24, Gaymi: "dont make it blocky ... looks like
+// real"): tileable fractal noise - big puffs made of smaller ones - kept
+// as a density picture; the shader turns density into fluffy clouds with
+// soft edges and greyer, thicker middles (their shaded bellies from below).
 function cloudTexture() {
-  const N = 64
+  const N = 256
   let seed = 1234567
   const rnd = () => {
     seed = (seed * 16807) % 2147483647
     return seed / 2147483647
   }
-  const on = new Uint8Array(N * N)
-  // Soft blocky clouds (2026-10-23): fewer, bigger, flatter clumps of a
-  // few overlapping rectangles each, with open sky between them.
-  for (let i = 0; i < 16; i++) {
-    const cx = Math.floor(rnd() * N)
-    const cy = Math.floor(rnd() * N)
-    const parts = 2 + Math.floor(rnd() * 3)
-    for (let k = 0; k < parts; k++) {
-      const w = 5 + Math.floor(rnd() * 9)
-      const h = 3 + Math.floor(rnd() * 5)
-      const ox = Math.floor((rnd() - 0.5) * 8)
-      const oy = Math.floor((rnd() - 0.5) * 4)
-      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) on[((cy + oy + y + N) % N) * N + ((cx + ox + x + N) % N)] = 1
+  const density = new Float32Array(N * N)
+  let total = 0
+  // Octaves of smooth value noise that wraps at the edges, so the picture
+  // tiles across the sky with no seams.
+  for (const [cells, weight] of [[4, 1], [8, 0.55], [16, 0.3], [32, 0.16], [64, 0.08]]) {
+    const grid = new Float32Array(cells * cells)
+    for (let i = 0; i < grid.length; i++) grid[i] = rnd()
+    const at = (x, y) => grid[(y % cells) * cells + (x % cells)]
+    for (let y = 0; y < N; y++) {
+      const fy = (y / N) * cells
+      const y0 = Math.floor(fy)
+      const ty = fy - y0
+      const sy = ty * ty * (3 - 2 * ty)
+      for (let x = 0; x < N; x++) {
+        const fx = (x / N) * cells
+        const x0 = Math.floor(fx)
+        const tx = fx - x0
+        const sx = tx * tx * (3 - 2 * tx)
+        const top = at(x0, y0) + (at(x0 + 1, y0) - at(x0, y0)) * sx
+        const bottom = at(x0, y0 + 1) + (at(x0 + 1, y0 + 1) - at(x0, y0 + 1)) * sx
+        density[y * N + x] += (top + (bottom - top) * sy) * weight
+      }
     }
+    total += weight
   }
   const c = canvas(N, (g) => {
     const img = g.createImageData(N, N)
     for (let i = 0; i < N * N; i++) {
-      img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = 255
-      img.data[i * 4 + 3] = on[i] ? 210 : 0
+      const v = Math.round((density[i] / total) * 255)
+      img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v
+      img.data[i * 4 + 3] = 255
     }
     g.putImageData(img, 0, 0)
   })
   const tex = new THREE.CanvasTexture(c)
-  tex.magFilter = THREE.NearestFilter
-  tex.minFilter = THREE.NearestFilter
-  tex.generateMipmaps = false
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping
   return tex
 }
@@ -113,28 +127,69 @@ export class SkyBodies {
         offset: { value: new THREE.Vector2() },
         repeat: { value: CLOUD_REPEAT },
         color: { value: new THREE.Color(1, 1, 1) },
+        belly: { value: new THREE.Color(0.75, 0.78, 0.84) },
+        cover: { value: 0 },
         opacity: { value: 0.85 },
       },
       vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: `uniform sampler2D map; uniform vec2 offset; uniform float repeat; uniform vec3 color; uniform float opacity; varying vec2 vUv;
+      // Two layers of the same noise at different sizes, drifting apart, so
+      // the shapes keep changing; more of the sky is cloud when it's
+      // overcast (cover). Thin edges are see-through, thick middles greyer.
+      fragmentShader: `uniform sampler2D map; uniform vec2 offset; uniform float repeat; uniform vec3 color; uniform vec3 belly; uniform float cover; uniform float opacity; varying vec2 vUv;
         void main() {
-          vec4 c = texture2D(map, vUv * repeat + offset);
-          float edge = 1.0 - smoothstep(0.38, 0.5, length(vUv - 0.5));
-          float a = c.a * opacity * edge;
+          vec2 p = vUv * repeat + offset;
+          float d = texture2D(map, p).r * 0.65 + texture2D(map, p * 2.3 + vec2(0.37, 0.61) - offset * 0.4).r * 0.35;
+          float start = 0.5 - cover * 0.22;
+          float a = smoothstep(start, start + 0.16, d);
+          float thick = smoothstep(start + 0.06, start + 0.3, d);
+          float edge = 1.0 - smoothstep(0.15, 0.5, length(vUv - 0.5));
+          a *= opacity * edge;
           if (a < 0.01) discard;
-          gl_FragColor = vec4(color, a);
+          gl_FragColor = vec4(mix(color, belly, thick * 0.8), a);
           #include <colorspace_fragment>
         }`,
       transparent: true,
       depthWrite: false,
       side: THREE.DoubleSide,
     })
+    // The sky itself: a dome round the camera, deeper blue overhead,
+    // the fog's colour at the horizon (so far land fades into it) and a
+    // warm glow round the sun - instead of one flat colour.
+    this.domeMat = new THREE.ShaderMaterial({
+      uniforms: {
+        horizon: { value: new THREE.Color() },
+        zenith: { value: new THREE.Color() },
+        glow: { value: new THREE.Color(1, 0.85, 0.6) },
+        sunDir: { value: new THREE.Vector3(0, 1, 0) },
+        glowAmount: { value: 0 },
+      },
+      vertexShader: 'varying vec3 vDir; void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `uniform vec3 horizon; uniform vec3 zenith; uniform vec3 glow; uniform vec3 sunDir; uniform float glowAmount; varying vec3 vDir;
+        void main() {
+          vec3 dir = normalize(vDir);
+          float up = clamp(dir.y, 0.0, 1.0);
+          vec3 c = mix(horizon, zenith, pow(up, 0.55));
+          float s = max(dot(dir, sunDir), 0.0);
+          c += glow * glowAmount * (pow(s, 48.0) * 0.6 + pow(s, 6.0) * 0.18);
+          gl_FragColor = vec4(c, 1.0);
+          #include <colorspace_fragment>
+        }`,
+      side: THREE.BackSide,
+      depthWrite: false,
+      depthTest: false,
+      fog: false,
+      toneMapped: false,
+    })
+    this.dome = new THREE.Mesh(new THREE.SphereGeometry(DOME_R, 32, 16), this.domeMat)
+    this.dome.frustumCulled = false
+    this.dome.renderOrder = -3
+    this._zenith = new THREE.Color()
     this.clouds = new THREE.Mesh(new THREE.PlaneGeometry(CLOUD_SIZE, CLOUD_SIZE), this.cloudMat)
     this.clouds.rotation.x = -Math.PI / 2
     this.clouds.frustumCulled = false
     this.clouds.renderOrder = -1
     this._wind = 0
-    for (const o of [this.sun, this.moon, this.clouds]) {
+    for (const o of [this.dome, this.sun, this.moon, this.clouds]) {
       o.visible = false
       scene.add(o)
     }
@@ -142,11 +197,12 @@ export class SkyBodies {
   }
 
   show(on) {
-    for (const o of [this.sun, this.moon, this.clouds]) o.visible = on
+    for (const o of [this.dome, this.sun, this.moon, this.clouds]) o.visible = on
   }
 
-  // phase: time of day; cover 0-1 how overcast; daylight 0-1 (night 0).
-  update(dt, camera, phase, cover, daylight) {
+  // phase: time of day; cover 0-1 how overcast; daylight 0-1 (night 0);
+  // sky: the sky/fog colour (BuildSky), the dome's horizon.
+  update(dt, camera, phase, cover, daylight, sky) {
     if (!this.clouds.visible) return
     const cam = camera.position
     // One arc: high overhead at noon (phase 0), down in the west at
@@ -160,6 +216,17 @@ export class SkyBodies {
     const moonUp = THREE.MathUtils.smoothstep(-this._dir.y, -0.08, 0.08)
     this.sun.material.opacity = sunUp * (1 - cover * 0.85)
     this.moon.material.opacity = moonUp * (1 - cover * 0.85)
+    // The dome: the horizon is the fog's colour; overhead is a deeper,
+    // bluer version of it on a clear day, about the same when overcast.
+    if (sky) {
+      this.dome.position.copy(cam)
+      const u = this.domeMat.uniforms
+      u.horizon.value.copy(sky)
+      const deep = (1 - cover) * daylight
+      u.zenith.value.setRGB(sky.r * (1 - 0.45 * deep), sky.g * (1 - 0.3 * deep), sky.b * (1 - 0.08 * deep))
+      u.sunDir.value.copy(this._dir)
+      u.glowAmount.value = sunUp * (1 - cover) * (0.35 + 0.65 * daylight)
+    }
     // Clouds: anchored to the world, drifting with the wind.
     this._wind += dt * WIND
     this.clouds.position.set(cam.x, cam.y + CLOUD_HEIGHT, cam.z)
@@ -169,6 +236,8 @@ export class SkyBodies {
     const grey = 1 - cover * 0.45
     const light = 0.18 + 0.82 * daylight
     this.cloudMat.uniforms.color.value.setRGB(grey * light, grey * light, grey * light * (1.02 - 0.05 * daylight))
+    this.cloudMat.uniforms.belly.value.setRGB(grey * light * 0.74, grey * light * 0.77, grey * light * 0.84)
+    this.cloudMat.uniforms.cover.value = cover
     // Gone at night, so the night sky stays black behind the stars.
     this.cloudMat.uniforms.opacity.value = (0.85 + cover * 0.15) * THREE.MathUtils.smoothstep(daylight, 0.15, 0.7)
   }

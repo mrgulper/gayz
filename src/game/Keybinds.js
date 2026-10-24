@@ -46,7 +46,7 @@ const FALLBACK_KEYS = {
 export const FIXED_KEYS = {
   inventory: 'Tab',
   buildTry: 'KeyT',
-  buildMirror: 'KeyM',
+  buildMirror: 'KeyN',
   buildZoom: 'KeyV',
   buildFill: 'KeyF',
   buildReplace: 'KeyR',
