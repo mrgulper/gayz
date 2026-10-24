@@ -7,8 +7,8 @@
    surface / --clean-hover (the colour nudged toward the text) and
    --clean-fg-rgb. No photos, plates, glows, rain or texture - flat
    colour, a system sans-serif, rounded boxes and pill buttons.
-   Homepage buttons are white cards (--clean-card) with a soft shadow on
-   the light grey page, and grow a little when pointed at - like
+   Homepage buttons are cards filled with the opposite colour
+   (--clean-card, words in --clean-card-fg) with a soft shadow, and grow a little when pointed at - like
    apple.com (2026-10-23).
    Sizes and positions stay the same as Old (theme parity rule); only
    colour, art and font change here. */
@@ -234,9 +234,9 @@ html.ui-theme-clean #menu-links-row a:hover,
 html.ui-theme-clean #menu-links-row button:hover {
   color: var(--clean-fg);
 }
-/* The bottom links' drop-down: a white card on a frosted page, like
+/* The hover drop-downs: an opposite-colour card on a frosted page, like
    apple.com's. */
-html.ui-theme-clean #footer-menu {
+html.ui-theme-clean :is(#footer-menu, .hover-menu) {
   background: var(--clean-card);
   border-color: var(--clean-line);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.14);
@@ -375,17 +375,32 @@ html.ui-theme-clean .panel-box hr {
 #theme-clean-color::-webkit-color-swatch-wrapper { padding: 0; }
 #theme-clean-color::-webkit-color-swatch { border: none; border-radius: 50%; }
 #theme-clean-color::-moz-color-swatch { border: none; border-radius: 50%; }
-/* Upload + Remove picture can wrap under the name on a phone. */
+/* The picture icons can wrap under the name on a phone. */
 #theme-clean-color-row {
   flex-wrap: wrap;
   row-gap: 6px;
 }
+/* Upload / remove picture: round icon buttons the size of the colour
+   circle (2026-10-23, Gaymi: "make them as icons"). */
 #theme-clean-bg-btn,
 #theme-clean-bg-clear {
+  display: grid;
+  place-items: center;
+  width: 30px;
   height: 30px;
-  padding: 0 12px;
-  font-size: 12px;
-  white-space: nowrap;
+  padding: 0;
+  border-radius: 50% !important;
+  cursor: pointer;
+}
+#theme-clean-bg-btn svg,
+#theme-clean-bg-clear svg {
+  width: 17px;
+  height: 17px;
+}
+/* The preview card shows the uploaded picture too, so picking one
+   changes something right in front of you. */
+#theme-picker-clean .theme-clean-preview {
+  background: var(--clean-bg-image, none) center / cover no-repeat, var(--clean-preview, #ffffff);
 }
 html.ui-theme-clean .theme-picker-card {
   border: 2px solid var(--clean-line);
@@ -630,4 +645,15 @@ html.ui-theme-clean #levels-bar {
 }
 html.ui-theme-clean #levels-bar-fill {
   background: var(--clean-fg);
+}
+
+/* Words and icons on the opposite-colour homepage boxes are the picked
+   colour (2026-10-23). After the #menu ink rule above, same weight, so
+   this wins. The level star keeps its black number. */
+html.ui-theme-clean #menu :is(#gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button, #menu-currency-bar, #homepage-clock, #footer-menu, .hover-menu),
+html.ui-theme-clean #menu :is(#gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button, #menu-currency-bar, #homepage-clock, #footer-menu, .hover-menu) :not(#menu-avatar-level) {
+  color: var(--clean-card-fg) !important;
+}
+html.ui-theme-clean #menu-player-tag {
+  opacity: 0.75;
 }

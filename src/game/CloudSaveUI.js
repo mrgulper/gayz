@@ -128,7 +128,7 @@ export function restoreCloudSession(game) {
   })
 }
 
-// The "Sign up or login to use..." bar at the bottom of the Market and the
+// The "Sign up or login to use the Market/Gallery" bar at the bottom of the Market and the
 // Gallery: shown while signed out, once the first auth check is done (so a
 // signed-in player never sees it flash).
 export function renderSignInFooters(game) {
@@ -139,7 +139,7 @@ export function renderSignInFooters(game) {
     const desc = document.getElementById(`${id}-signed-out-desc`)
     if (desc) desc.textContent = t(`${id}SignedOutDesc`)
     const btn = document.getElementById(`${id}-signin-btn`)
-    if (btn) btn.textContent = t('signUpOrLoginBtn')
+    if (btn) btn.textContent = t(id === 'market' ? 'signInToUseMarket' : 'signInToUseGallery')
   }
 }
 
@@ -156,7 +156,9 @@ export function updateCloudQuickIcon(game, signedIn) {
 
 export function renderCloudSaveState(game) {
   const signedIn = !!game._cloudProfile
-  if (game.cloudsaveSignedOut) game.cloudsaveSignedOut.style.display = signedIn ? 'none' : 'flex'
+  // General has no sign-in at all (2026-10-23, Gaymi: "for general fully
+  // remove it") - signing in is on Profile and on each feature that needs it.
+  if (game.cloudsaveSignedOut) game.cloudsaveSignedOut.style.display = 'none'
   if (game.cloudsaveSignedIn) game.cloudsaveSignedIn.style.display = signedIn ? 'flex' : 'none'
   if (!CloudSync.isConfigured() && game.cloudsaveSignedOutDesc) {
     game.cloudsaveSignedOutDesc.textContent = t('cloudsaveNotConfigured')
@@ -539,7 +541,9 @@ export async function handleCloudSignOut(game) {
 }
 
 export function bindCloudSave(game) {
-  if (game.quickCloudBtn) game.quickCloudBtn.addEventListener('click', () => openCloudSavePanel(game))
+  // Signed out, General has nothing to show (no sign-in there since
+  // 2026-10-23), so the cloud icon goes to the sign-in page instead.
+  if (game.quickCloudBtn) game.quickCloudBtn.addEventListener('click', () => (game._cloudUid ? openCloudSavePanel(game) : game._openProfilePanel()))
   if (game.cloudsaveSigninBtn) game.cloudsaveSigninBtn.addEventListener('click', () => game._openProfilePanel())
   for (const id of ['market-signin-btn', 'gallery-signin-btn']) {
     document.getElementById(id)?.addEventListener('click', () => game._openProfilePanel())

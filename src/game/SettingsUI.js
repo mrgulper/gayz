@@ -15,7 +15,7 @@ import { CHANGELOG_LAST_VIEWED_KEY, LAST_LOCAL_CHANGE_KEY, NAV_ID_RENAMES, CRATE
 import { DEVICE_ONLY_KEYS } from './CloudMerge.js'
 import { ACTIONS, getAllBindings, getKeyFor, keyLabel, resetBindings, setAllBindings, setBinding } from './Keybinds.js'
 import { LANGUAGES, setLanguage, t } from './i18n.js'
-import { bindFooterMenus } from './FooterMenus.js'
+import { bindHoverMenus } from './HoverMenus.js'
 import { applyUiTheme, cleanVars, normalizeHex, rememberCleanVars, getCleanBgImage, applyCleanBgImage, cropToScreen, CLEAN_BG_IMAGE_KEY } from './CleanTheme.js'
 
 // Swaps a slider's value label for a temporary <input type="number"> on
@@ -929,6 +929,10 @@ export function _bindSettings(game) {
       game.themePickerClean.style.setProperty('--clean-preview-fg', cleanVars(game.settings.cleanColor)['--clean-fg'])
       if (game.themeCleanColorInput) game.themeCleanColorInput.value = game.settings.cleanColor
       if (game.themeCleanBgClear) game.themeCleanBgClear.style.display = getCleanBgImage() ? '' : 'none'
+      // The picture icons' names (they have no words of their own).
+      for (const [btn, key] of [[game.themeCleanBgBtn, 'themeCleanBgUpload'], [game.themeCleanBgClear, 'themeCleanBgRemove']]) {
+        if (btn) { btn.title = t(key); btn.setAttribute('aria-label', t(key)) }
+      }
       // Keep the Skin Designer panel in sync too, for the case where it's
       // already open (its iframe src is only ever set once - see
       // _openSkinDesignerPanel - so it can't pick up a fresh ?theme=).
@@ -972,6 +976,7 @@ export function _bindSettings(game) {
         return
       }
       applyCleanBgImage()
+      if (game.themeCleanBgClear) game.themeCleanBgClear.style.display = ''
       if (game.settings.uiTheme === 'clean') syncUiTheme()
       else pick('clean')
     })
@@ -1176,7 +1181,7 @@ export function _bindSettings(game) {
   if (game.comingSoonCloseBtn) game.comingSoonCloseBtn.addEventListener('click', () => game._closeComingSoonPanel())
   if (game.howtoplayNavLink) game.howtoplayNavLink.addEventListener('click', () => game._openHowToPlayPanel())
   if (game.whatsNewLink) game.whatsNewLink.addEventListener('click', () => trackAndOpen(() => game._openWhatsNewPanel()))
-  bindFooterMenus(game)
+  bindHoverMenus(game)
   if (game.friendsBtn) game.friendsBtn.addEventListener('click', () => trackAndOpen(() => game._openFriendsPanel()))
   if (game.statusPickerToggle) {
     game.statusPickerToggle.addEventListener('click', (e) => {
@@ -1415,6 +1420,30 @@ export function _bindSettings(game) {
   }, { passive: true })
   document.addEventListener('mouseleave', () => setNavHover(null))
   document.addEventListener('click', () => setNavHover(null))
+  // NavCurrent (2026-10-23): while a panel is open, only the right-column
+  // button that opened it stays lit (html.menu-panel-open in style.css).
+  // Capture phase, so the backdrop's own button.click() above counts too;
+  // a page opened any other way (Game Mode, a bottom link) lights none.
+  const NAV = '#menu-nav-buttons > button, #menu-player-badge'
+  let navCurrent = null
+  const setNavCurrent = (el) => {
+    navCurrent?.classList.remove('nav-current')
+    navCurrent = el
+    el?.classList.add('nav-current')
+  }
+  document.addEventListener('click', (e) => {
+    const nav = e.target.closest?.(NAV)
+    if (nav) setNavCurrent(nav)
+    else if (e.target.closest?.('#menu-links-row, #gamemode-btn, #settings-btn')) setNavCurrent(null)
+  }, true)
+  const menuPanels = [...document.querySelectorAll('[id$="-panel"]')].filter((p) => p.querySelector(':scope > .panel-box'))
+  const syncPanelOpen = () => {
+    const open = menuPanels.some((p) => p.style.display && p.style.display !== 'none')
+    document.documentElement.classList.toggle('menu-panel-open', open)
+    if (!open) setNavCurrent(null)
+  }
+  const panelWatch = new MutationObserver(syncPanelOpen)
+  for (const p of menuPanels) panelWatch.observe(p, { attributes: true, attributeFilter: ['style'] })
 
   // Click anywhere outside the settings content (the backdrop itself, not
   // a descendant) to close, in addition to toggling the Settings button.

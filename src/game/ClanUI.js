@@ -316,7 +316,7 @@ export async function _refreshClanUi(game) {
     if (gateText) gateText.textContent = t('clanSigninGateText')
     const gateBtn = document.getElementById('clan-signin-btn')
     if (gateBtn) {
-      gateBtn.textContent = t('signUpOrLoginBtn')
+      gateBtn.textContent = t('signInToUseClans')
       gateBtn.disabled = !CloudSync.isConfigured()
     }
     game._updateClanMyClanTabLabel()

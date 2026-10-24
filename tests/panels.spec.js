@@ -135,6 +135,10 @@ test('Clean theme: a homepage picture can be uploaded and removed', async ({ pag
     return out
   })
   expect(r).toEqual({ theme: 'clean', shape: true, shown: true, gone: true })
+  // A real file pick: the bin icon shows straight away.
+  await page.evaluate(() => { window.__game._openMenuInventoryPanel(); document.getElementById('inventory-tab-theme').click() })
+  await page.setInputFiles('#theme-clean-bg-file', { name: 'p.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64') })
+  await expect(page.locator('#theme-clean-bg-clear')).toBeVisible({ timeout: 3000 })
   // Too big for Cloud Save: kept on this device only.
   expect(DEVICE_ONLY_KEYS.has('gayz-clean-bg-image')).toBe(true)
 })
@@ -160,6 +164,42 @@ test('bottom links show a drop-down of their sections', async ({ page }) => {
     const h = document.querySelectorAll('#terms-content h3')[5]
     return Math.abs(h.getBoundingClientRect().top - h.closest('#terms-content').getBoundingClientRect().top)
   })).toBeLessThan(40)
+})
+
+// The right column, Game Mode and Settings get the same menus (to the side),
+// and while a panel is open only the button that opened it stays lit.
+test('homepage buttons show their tabs; only the clicked one stays lit', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 })
+  await gotoAndWaitForGame(page)
+  const menu = page.locator('#footer-menu')
+  await page.hover('#settings-btn')
+  await expect(menu).toHaveAttribute('data-place', 'beside')
+  await expect(menu.locator('.footer-menu-sections button')).toHaveText(['General', 'Language', 'Audio', 'Controls', 'Graphics'])
+  await page.hover('#play-btn')
+  await expect(menu).not.toHaveClass(/open/)
+  await page.hover('#menu-inventory-btn')
+  await expect(menu).toHaveAttribute('data-place', 'side')
+  await menu.locator('.footer-menu-sections button', { hasText: 'Theme' }).click()
+  await expect(page).toHaveURL(/\/inventory\/theme$/)
+  await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('#menu-nav-buttons > button')].filter((b) => getComputedStyle(b).opacity === '1').map((b) => b.id))).toEqual(['menu-inventory-btn'])
+  await page.evaluate(() => window.__game._closeAllMenuPanels())
+  await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('menu-panel-open'))).toBe(false)
+})
+
+// Simple (was Clean): every homepage box is filled with the opposite colour,
+// words in the picked colour; the picture buttons are icons.
+test('Simple theme: homepage boxes use the opposite colour', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('gayz-settings', JSON.stringify({ uiTheme: 'clean', cleanColor: '#80ab30' })))
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(() => {
+    const fg = getComputedStyle(document.documentElement).getPropertyValue('--clean-fg').trim()
+    const boxes = ['store-btn', 'gamemode-btn', 'settings-btn', 'menu-player-badge', 'menu-currency-bar', 'homepage-clock']
+      .map((id) => [getComputedStyle(document.getElementById(id)).backgroundColor === fg, getComputedStyle(document.getElementById(id)).color])
+    return { boxes, name: document.getElementById('theme-picker-clean-label').textContent, icons: ['theme-clean-bg-btn', 'theme-clean-bg-clear'].map((id) => [document.getElementById(id).textContent.trim(), !!document.querySelector(`#${id} svg`)]) }
+  })
+  for (const b of r.boxes) expect(b).toEqual([true, 'rgb(128, 171, 48)'])
+  expect(r.name).toBe('Simple')
+  expect(r.icons).toEqual([['', true], ['', true]])
 })
 
 // The picked tab stays filled while the pointer is on it (Clean's hover
@@ -250,14 +290,15 @@ test('Cloud Save lives on the General tab', async ({ page }) => {
   const r = await page.evaluate(async () => {
     const g = window.__game
     const out = { oldPanel: document.querySelectorAll('#cloudsave-panel').length }
-    document.getElementById('quick-cloud-btn').click()
+    g._openClanPanel()
     await g._authReadyPromise
     await new Promise((res) => setTimeout(res, 50))
     const section = document.getElementById('cloudsave-section')
     out.inGeneral = !!section.closest('#general-page-general')
     out.generalOpen = getComputedStyle(g.clanPanel).display
     out.visible = section.offsetParent !== null
-    // No 'Cloud Save' heading or 'Sign in to sync...' line (2026-10-23).
+    // No 'Cloud Save' heading, 'Sign in to sync...' line or sign-in button
+    // while signed out (2026-10-23).
     out.title = document.querySelectorAll('#cloudsave-panel-title, #cloudsave-signed-out-desc').length
     out.signedOutShown = getComputedStyle(document.getElementById('cloudsave-signed-out')).display
     // Clan tab hides it; General tab shows it again.
@@ -274,14 +315,14 @@ test('Cloud Save lives on the General tab', async ({ page }) => {
   expect(r.generalOpen).toBe('flex')
   expect(r.visible).toBe(true)
   expect(r.title).toBe(0)
-  expect(r.signedOutShown).toBe('flex')
+  expect(r.signedOutShown).toBe('none')
   expect(r.hiddenOnClan).toBe(true)
   expect(r.backOnGeneral).toBe(true)
   expect(r.closedByEscape).toBe('none')
 })
 
-// Every "Sign up or login to use..." button (Friend List, Global chat, Cloud
-// Save, Clans, Market, Gallery) opens the Welcome to GayZ page instead of a
+// Every "Sign up or login to use ..." button (Friend List, Global chat,
+// Clans, Market, Gallery, and the cloud icon while signed out) opens the Welcome to GayZ page instead of a
 // sign-in popup directly (2026-10-10; Market/Gallery 2026-10-23), and a
 // friend list shows its count.
 test('sign-in buttons go to the Welcome page; friend count shows', async ({ page }) => {
@@ -296,7 +337,8 @@ test('sign-in buttons go to the Welcome page; friend count shows', async ({ page
     await new Promise((res) => setTimeout(res, 50))
     out.marketBar = [!document.getElementById('market-signed-out').hidden, document.getElementById('market-signin-btn').textContent]
     g._closeAllMenuPanels()
-    for (const id of ['friends-signin-btn', 'server-chat-signin-btn', 'cloudsave-signin-btn', 'clan-signin-btn', 'market-signin-btn', 'gallery-signin-btn']) {
+    out.words = ['friends-signin-btn', 'server-chat-signin-btn', 'clan-signin-btn', 'gallery-signin-btn'].map((id) => document.getElementById(id).textContent)
+    for (const id of ['friends-signin-btn', 'server-chat-signin-btn', 'clan-signin-btn', 'market-signin-btn', 'gallery-signin-btn', 'quick-cloud-btn']) {
       document.getElementById(id).click()
       await new Promise((res) => setTimeout(res, 50))
       out[id] = [getComputedStyle(document.getElementById('profile-panel')).display, document.getElementById('profile-panel-title').textContent]
@@ -318,10 +360,13 @@ test('sign-in buttons go to the Welcome page; friend count shows', async ({ page
     out.picked = g.cloudsaveFriendResult.textContent
     return out
   })
-  for (const id of ['friends-signin-btn', 'server-chat-signin-btn', 'cloudsave-signin-btn', 'clan-signin-btn', 'market-signin-btn', 'gallery-signin-btn']) {
+  // The cloud icon too, while signed out (General has no sign-in now).
+  for (const id of ['friends-signin-btn', 'server-chat-signin-btn', 'clan-signin-btn', 'market-signin-btn', 'gallery-signin-btn', 'quick-cloud-btn']) {
     expect(r[id]).toEqual(['flex', 'Welcome to GayZ'])
   }
-  expect(r.marketBar).toEqual([true, 'Sign up or login to use...'])
+  // Each says what it's for (2026-10-23).
+  expect(r.marketBar).toEqual([true, 'Sign up or login to use the Market'])
+  expect(r.words).toEqual(['Sign up or login to use friends', 'Sign up or login to use chat', 'Sign up or login to use clans', 'Sign up or login to use the Gallery'])
   expect(r.popups).toBe(0)
   expect(r.count).toBe('(3)')
   expect(r['typed:#abc123']).toBe('Tazbot is already your friend.')

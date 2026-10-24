@@ -1268,8 +1268,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'import-settings-code-apply-btn': 'importSettingsCodeApplyBtn',
   'theme-picker-clean-label': 'optUiThemeClean',
   'theme-clean-color-label': 'themeCleanColorLabel',
-  'theme-clean-bg-btn': 'themeCleanBgUpload',
-  'theme-clean-bg-clear': 'themeCleanBgRemove',
   'theme-picker-old-label': 'optUiThemeOld',
   'coming-soon-close-btn': 'comingSoonCloseBtn',
   'general-tab-general': 'generalTabGeneral',
@@ -3738,7 +3736,7 @@ export class Game {
     if (navPrivacyEl) navPrivacyEl.querySelector('span').textContent = t('creditsPrivacyLink')
     if (this.friendsBtn) this.friendsBtn.querySelector('span').textContent = t('friendsBtn')
     if (this.friendsSignedOutDesc) this.friendsSignedOutDesc.textContent = t('friendsSignedOutDesc')
-    if (this.friendsSigninBtn) this.friendsSigninBtn.textContent = t('signUpOrLoginBtn')
+    if (this.friendsSigninBtn) this.friendsSigninBtn.textContent = t('signInToUseFriends')
     if (this.menuInventoryBtn) this.menuInventoryBtn.querySelector('span').textContent = t('menuInventoryBtn')
     if (this.serverBtn) this.serverBtn.querySelector('span').textContent = t('serverBtn')
 
