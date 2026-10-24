@@ -1552,8 +1552,13 @@ Escape before dawn.</p>
         <div class="panel-box">
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
           <h2 id="clan-panel-title">General</h2>
-        <!-- Clan moved to Friendship (2026-10-24), so General has no tabs. -->
-        <div class="panel-fixed-content" id="general-page-general">
+        <!-- Clan moved to Friendship (2026-10-24); General's tabs are
+             Leaderboard and Theme (moved here from Inventory the same day). -->
+        <div class="general-tabs">
+          <button class="general-tab active" data-general-page="general" id="general-tab-general">Leaderboard</button>
+          <button class="general-tab" data-general-page="theme" id="general-tab-theme">Theme</button>
+        </div>
+        <div class="general-tab-page" id="general-page-general">
           <!-- Cloud Save lives here (2026-10-23) - it used to be its own
                popup panel; the quick-cloud icon and the sign-in "which
                save?" question both open General on this tab now. -->
@@ -1607,6 +1612,35 @@ Escape before dawn.</p>
                 <div id="cloudsave-poll-options"></div>
                 <p id="cloudsave-poll-hint"></p>
               </div>
+            </div>
+          </div>
+        </div>
+        <div class="general-tab-page" id="general-page-theme" style="display: none">
+          <h3 class="settings-section-heading" id="settings-section-theme">Theme</h3>
+          <!-- Each theme's name sits above its card (2026-10-23); Clean's
+               colour circle and hex box sit beside its name. -->
+          <div id="theme-picker-grid">
+            <!-- Old first: it's the default theme. -->
+            <div class="theme-picker-item">
+              <div class="theme-picker-head"><span class="theme-picker-name" id="theme-picker-old-label">Old</span></div>
+              <button type="button" class="theme-picker-card active" id="theme-picker-old" data-theme="old" aria-labelledby="theme-picker-old-label">
+                <img src="/images/theme-preview-old.jpg" alt="" draggable="false" />
+              </button>
+            </div>
+            <!-- Clean's preview is drawn, in the colour picked beside it. -->
+            <div class="theme-picker-item">
+              <div class="theme-picker-head" id="theme-clean-color-row">
+                <span class="theme-picker-name" id="theme-picker-clean-label">Simple</span>
+                <label for="theme-clean-color" id="theme-clean-color-label" class="theme-picker-sr">Simple colour</label>
+                <input type="color" id="theme-clean-color" value="#f5f5f7" aria-labelledby="theme-clean-color-label" />
+                <!-- A homepage picture from the player's computer (Clean only). -->
+                <button type="button" id="theme-clean-bg-btn" class="theme-icon-btn" aria-label="Upload picture" title="Upload picture"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/><path d="M17 2v6M14 5l3-3 3 3"/></svg></button>
+                <button type="button" id="theme-clean-bg-clear" class="theme-icon-btn" aria-label="Remove picture" title="Remove picture" style="display: none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button>
+                <input type="file" id="theme-clean-bg-file" accept="image/*" hidden />
+              </div>
+              <button type="button" class="theme-picker-card" id="theme-picker-clean" data-theme="clean" aria-labelledby="theme-picker-clean-label">
+                <i class="theme-clean-preview" aria-hidden="true"><b></b><b></b><b></b></i>
+              </button>
             </div>
           </div>
         </div>
@@ -2425,7 +2459,7 @@ Escape before dawn.</p>
 
         <div class="feature" data-code="uiTheme">
           <h3>Old &amp; Simple Themes</h3>
-          <p>Two complete looks for the menus and pause screens, picked in Inventory &gt; Theme: Old (the default - rusty metal, torn paper panels, worn profile card, and rain falling over the homepage street with splashes on the cobbles) and Simple (flat, no rain - the whole game in one plain colour you pick with the colour circle beside its name, a soft light grey to start, with the text in that colour's opposite - pick yellow and it turns purple - made dark or light enough to stay readable; the homepage is a shade darker than your colour - light grey for white - with Play, Game Mode, Settings, the right-side buttons, profile card, coins bar and clock as boxes in your colour that grow a little when you point at them, and a small gap between the profile card and the buttons under it; the right-side number circles are in the text colour so they read on any colour, panels close with a plain X, and the Profile's boxes are light like the rest of the panel; the picture icon puts a picture from your computer behind the homepage, cut to fit the screen and kept on that device only, and the bin icon beside it removes it). Both rearrange themselves to fit phones and tablets.</p>
+          <p>Two complete looks for the menus and pause screens, picked in General &gt; Theme: Old (the default - rusty metal, torn paper panels, worn profile card, and rain falling over the homepage street with splashes on the cobbles) and Simple (flat, no rain - the whole game in one plain colour you pick with the colour circle beside its name, a soft light grey to start, with the text in that colour's opposite - pick yellow and it turns purple - made dark or light enough to stay readable; the homepage is a shade darker than your colour - light grey for white - with Play, Game Mode, Settings, the right-side buttons, profile card, coins bar and clock as boxes in your colour that grow a little when you point at them, and a small gap between the profile card and the buttons under it; the right-side number circles are in the text colour so they read on any colour, panels close with a plain X, and the Profile's boxes are light like the rest of the panel; the picture icon puts a picture from your computer behind the homepage, cut to fit the screen and kept on that device only, and the bin icon beside it removes it). Every screen follows the theme you pick - the panels, the Inventory and Market cards and dropdowns, the Inspect window, the Equip/Sell menu and price window, the Friendship status list and the Map Editor's pause screen. Both rearrange themselves to fit phones and tablets.</p>
         </div>
         <div class="feature" data-code="bindHoverMenus">
           <h3>Homepage Hover Menus</h3>
@@ -2437,7 +2471,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="INVENTORY_SKINS SKIN_RARITIES InspectViewer">
           <h3>Inventory Skins: Rarities, Inspect &amp; Sell</h3>
-          <p>Everyone starts with two skins, Gaymi (the default) and Alisa (slim arms). Every character skin card shows its rarity and how many you own - search them by name or pick a rarity. Click one to Equip it, put it on the Market, Sell it to the game for coins, or Inspect it in a big 3D view you can turn and zoom (zooming stops just outside the item). Inventory also has a Weapons tab with a picture of every gun, a Crates tab and the Theme picker.</p>
+          <p>Everyone starts with two skins, Gaymi (the default) and Alisa (slim arms). Every character skin card shows its rarity and how many you own - search them by name or pick a rarity. Click one to Equip it, put it on the Market, Sell it to the game for coins, or Inspect it in a big 3D view you can turn and zoom (zooming stops just outside the item). Inventory also has a Crates tab, a Weapons tab with a picture of every gun, and a Pets tab (Coming Soon).</p>
         </div>
         <div class="feature" data-code="customSkinDataUrl">
           <h3>Custom Skin Upload</h3>
@@ -2475,7 +2509,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="fetchLeaderboardEntryByPlayerId subscribeTopLeaderboard">
           <h3>Leaderboards</h3>
-          <p>Global (with a region filter), Weekly Challenge, Most Achievements, Nearby Rank, a Global Rank badge, a Nearest-Rival nudge, global average/percentile comparison, and a live-subscribed top board. Each board is a clean list: the rank in a circle (gold, silver and bronze for the top three), the name, then Wave and Kills in their own columns, with your own row highlighted - and clicking anyone's name opens their profile. Your scores, and the XP you earn for your clan, go online after every game you finish.</p>
+          <p>In the General panel's Leaderboard tab (next to Theme): Global (with a region filter), Weekly Challenge, Most Achievements, Nearby Rank, a Global Rank badge, a Nearest-Rival nudge, global average/percentile comparison, and a live-subscribed top board. Each board is a clean list: the rank in a circle (gold, silver and bronze for the top three), the name, then Wave and Kills in their own columns, with your own row highlighted - and clicking anyone's name opens their profile. Your scores, and the XP you earn for your clan, go online after every game you finish.</p>
         </div>
         <div class="feature" data-code="incrementGlobalKills">
           <h3>Global Kill Counter</h3>
@@ -2491,7 +2525,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="createMarketListing buyMarketListing MARKET_FEE_RATE">
           <h3>Market</h3>
-          <p>A player-to-player skin market: list a skin from your Inventory at your own price (<span data-feature-value="marketFee">5</span>% fee), browse and search everyone's listings by item and rarity, buy one, or take your own listing back. You're paid when you next open the Market or Inventory. Needs a Cloud Save sign-in.</p>
+          <p>A player-to-player skin market: list a skin from your Inventory at your own price (<span data-feature-value="marketFee">5</span>% fee), browse and search everyone's listings by item (character, each weapon, or pets) and rarity, buy one, or take your own listing back. You're paid when you next open the Market or Inventory. Needs a Cloud Save sign-in.</p>
         </div>
         <div class="feature" data-code="sendGlobalChatMessage CHAT_MUTE_MS">
           <h3>Chat</h3>
@@ -2644,6 +2678,10 @@ Escape before dawn.</p>
         <div class="feature coming-soon">
           <h3>Custom Games</h3>
           <p>A Custom tab in Game Mode and Upgrades, after Parkour - custom games are coming soon.</p>
+        </div>
+        <div class="feature coming-soon">
+          <h3>Pets</h3>
+          <p>A Pets tab in Inventory, after Weapons, and Pets in the Market's item list - pets to collect are coming soon.</p>
         </div>
         <div class="feature coming-soon">
           <h3>Weapon Gallery</h3>
@@ -3169,7 +3207,7 @@ Escape before dawn.</p>
             <button class="inventory-tab active" data-inventory-page="character" id="inventory-tab-character">Character</button>
             <button class="inventory-tab" data-inventory-page="crates" id="inventory-tab-crates">Crates</button>
             <button class="inventory-tab" data-inventory-page="weapons" id="inventory-tab-weapons">Weapons</button>
-            <button class="inventory-tab" data-inventory-page="theme" id="inventory-tab-theme">Theme</button>
+            <button class="inventory-tab" data-inventory-page="pets" id="inventory-tab-pets">Pets</button>
           </div>
           <!-- Character tab (2026-09-30): big 3D preview of the
                equipped (or inspected) skin on the left, a searchable grid
@@ -3298,33 +3336,14 @@ Escape before dawn.</p>
           <div class="inventory-tab-page" id="inventory-page-weapons" style="display: none">
             <div id="inventory-weapons-list"></div>
           </div>
-          <div class="inventory-tab-page" id="inventory-page-theme" style="display: none">
-            <h3 class="settings-section-heading" id="settings-section-theme">Theme</h3>
-            <!-- Each theme's name sits above its card (2026-10-23); Clean's
-                 colour circle and hex box sit beside its name. -->
-            <div id="theme-picker-grid">
-              <!-- Old first: it's the default theme. -->
-              <div class="theme-picker-item">
-                <div class="theme-picker-head"><span class="theme-picker-name" id="theme-picker-old-label">Old</span></div>
-                <button type="button" class="theme-picker-card active" id="theme-picker-old" data-theme="old" aria-labelledby="theme-picker-old-label">
-                  <img src="/images/theme-preview-old.jpg" alt="" draggable="false" />
-                </button>
-              </div>
-              <!-- Clean's preview is drawn, in the colour picked beside it. -->
-              <div class="theme-picker-item">
-                <div class="theme-picker-head" id="theme-clean-color-row">
-                  <span class="theme-picker-name" id="theme-picker-clean-label">Simple</span>
-                  <label for="theme-clean-color" id="theme-clean-color-label" class="theme-picker-sr">Simple colour</label>
-                  <input type="color" id="theme-clean-color" value="#f5f5f7" aria-labelledby="theme-clean-color-label" />
-                  <!-- A homepage picture from the player's computer (Clean only). -->
-                  <button type="button" id="theme-clean-bg-btn" class="theme-icon-btn" aria-label="Upload picture" title="Upload picture"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/><path d="M17 2v6M14 5l3-3 3 3"/></svg></button>
-                  <button type="button" id="theme-clean-bg-clear" class="theme-icon-btn" aria-label="Remove picture" title="Remove picture" style="display: none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button>
-                  <input type="file" id="theme-clean-bg-file" accept="image/*" hidden />
-                </div>
-                <button type="button" class="theme-picker-card" id="theme-picker-clean" data-theme="clean" aria-labelledby="theme-picker-clean-label">
-                  <i class="theme-clean-preview" aria-hidden="true"><b></b><b></b><b></b></i>
-                </button>
-              </div>
+          <div class="inventory-tab-page" id="inventory-page-pets" style="display: none">
+            <!-- Pets (2026-10-24): nothing to own yet - a Coming Soon card
+                 until the first pets arrive (GayZ Features > Coming Soon). -->
+            <div id="inventory-pets-soon">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="6" cy="9.5" rx="2" ry="2.6"/><ellipse cx="10" cy="5.6" rx="2" ry="2.6"/><ellipse cx="14" cy="5.6" rx="2" ry="2.6"/><ellipse cx="18" cy="9.5" rx="2" ry="2.6"/><path d="M12 11c-3 0-6.2 3.6-6.2 6.4 0 2 1.6 2.9 3.3 2.6 1-.2 1.9-.6 2.9-.6s1.9.4 2.9.6c1.7.3 3.3-.6 3.3-2.6 0-2.8-3.2-6.4-6.2-6.4z"/></svg>
+              <p id="inventory-pets-soon-title">Pets</p>
+              <p id="inventory-pets-soon-text">Pets are coming soon.</p>
+              <span class="weapon-soon-tag" id="inventory-pets-soon-tag">Coming Soon</span>
             </div>
           </div>
         </div>

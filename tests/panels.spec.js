@@ -137,11 +137,61 @@ test('Clean theme: a homepage picture can be uploaded and removed', async ({ pag
   })
   expect(r).toEqual({ theme: 'clean', shape: true, shown: true, gone: true })
   // A real file pick: the bin icon shows straight away.
-  await page.evaluate(() => { window.__game._openMenuInventoryPanel(); document.getElementById('inventory-tab-theme').click() })
+  await page.evaluate(() => { window.__game._openClanPanel(); document.getElementById('general-tab-theme').click() })
   await page.setInputFiles('#theme-clean-bg-file', { name: 'p.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64') })
   await expect(page.locator('#theme-clean-bg-clear')).toBeVisible({ timeout: 3000 })
   // Too big for Cloud Save: kept on this device only.
   expect(DEVICE_ONLY_KEYS.has('gayz-clean-bg-image')).toBe(true)
+})
+
+// Theme lives in General (next to Leaderboard) and Inventory has a Pets
+// tab after Weapons (2026-10-24). Every dark/gold box from before - the
+// weapon cards, Inspect, the Market dropdowns, the Status list - follows
+// the Simple colour.
+test('Theme is in General, Inventory has Pets, and the menus follow Simple', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    out.inventoryTabs = [...document.querySelectorAll('.inventory-tab')].map((b) => b.dataset.inventoryPage)
+    out.themeInGeneral = !!document.getElementById('theme-picker-grid').closest('#clan-panel #general-page-theme')
+    g._openClanPanel()
+    out.generalOpensOn = [...g.clanPanel.querySelectorAll('.general-tab-page')].filter((p) => p.style.display !== 'none').map((p) => p.id)
+    document.getElementById('general-tab-theme').click()
+    out.afterClick = [...g.clanPanel.querySelectorAll('.general-tab-page')].filter((p) => p.style.display !== 'none').map((p) => p.id)
+    // Switching General's tab must not touch Friendship's pages.
+    out.friendsPageKept = document.getElementById('general-page-friends').style.display !== 'none'
+    document.getElementById('theme-picker-clean').click()
+    out.marketItems = g._marketItemOptions().map((i) => i.id).slice(-1)
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--clean-bg').trim()
+    const surface = getComputedStyle(document.documentElement).getPropertyValue('--clean-surface').trim()
+    const hex = (h) => `rgb(${[1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).join(', ')})`
+    g._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-weapons').click()
+    await new Promise((res) => setTimeout(res, 300))
+    const card = document.querySelector('#inventory-weapons-list .inv-weapon-card')
+    out.cardMatches = getComputedStyle(card).backgroundImage.includes(surface)
+    out.cardName = getComputedStyle(card.querySelector('.inv-skin-card-name')).color === getComputedStyle(document.documentElement).getPropertyValue('--clean-fg').trim()
+    out.inspectBox = getComputedStyle(document.getElementById('inspect-box')).backgroundColor === hex(bg)
+    out.marketMenu = getComputedStyle(document.getElementById('market-item-filter-menu')).backgroundColor === hex(bg)
+    out.statusList = getComputedStyle(document.getElementById('status-picker-options')).backgroundColor === hex(bg)
+    out.tradeBox = getComputedStyle(document.getElementById('trade-dialog-box')).backgroundColor === hex(bg)
+    return out
+  })
+  expect(r).toEqual({
+    inventoryTabs: ['character', 'crates', 'weapons', 'pets'],
+    themeInGeneral: true,
+    generalOpensOn: ['general-page-general'],
+    afterClick: ['general-page-theme'],
+    friendsPageKept: true,
+    marketItems: ['pets'],
+    cardMatches: true,
+    cardName: true,
+    inspectBox: true,
+    marketMenu: true,
+    statusList: true,
+    tradeBox: true,
+  })
 })
 
 // Bottom-link drop-downs (FooterMenus.js): pointing at a link opens its
@@ -179,10 +229,11 @@ test('homepage buttons show their tabs; the right column stays lit over a panel'
   await expect(menu.locator('.footer-menu-sections button')).toHaveText(['General', 'Language', 'Audio', 'Controls', 'Graphics'])
   await page.hover('#play-btn')
   await expect(menu).not.toHaveClass(/open/)
-  await page.hover('#menu-inventory-btn')
+  await page.hover('#hub-btn')
   await expect(menu).toHaveAttribute('data-place', 'side')
+  await expect(menu.locator('.footer-menu-sections button')).toHaveText(['Leaderboard', 'Theme'])
   await menu.locator('.footer-menu-sections button', { hasText: 'Theme' }).click()
-  await expect(page).toHaveURL(/\/inventory\/theme$/)
+  await expect(page).toHaveURL(/\/general\/theme$/)
   await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('menu-panel-open'))).toBe(true)
   expect(await page.evaluate(() => [...document.querySelectorAll('#menu-nav-buttons > button, #menu-player-badge')].filter((b) => b.offsetParent && getComputedStyle(b).opacity !== '1').map((b) => b.id))).toEqual([])
   await page.evaluate(() => window.__game._closeAllMenuPanels())
@@ -310,9 +361,9 @@ test('Cloud Save lives on the General tab', async ({ page }) => {
     // while signed out (2026-10-23).
     out.title = document.querySelectorAll('#cloudsave-panel-title, #cloudsave-signed-out-desc').length
     out.signedOutShown = getComputedStyle(document.getElementById('cloudsave-signed-out')).display
-    // Clan moved to Friendship (2026-10-24): General has no tabs, and
-    // Friendship has Friend List and Clan.
-    out.generalTabs = g.clanPanel.querySelectorAll('.general-tab').length
+    // Clan moved to Friendship (2026-10-24): General's tabs are
+    // Leaderboard and Theme, and Friendship has Friend List and Clan.
+    out.generalTabs = [...g.clanPanel.querySelectorAll('.general-tab')].map((b) => b.id)
     g._openFriendsPanel()
     await new Promise((res) => setTimeout(res, 50))
     out.friendsTitle = document.getElementById('friends-panel-title').textContent
@@ -333,7 +384,7 @@ test('Cloud Save lives on the General tab', async ({ page }) => {
   expect(r.visible).toBe(true)
   expect(r.title).toBe(0)
   expect(r.signedOutShown).toBe('none')
-  expect(r.generalTabs).toBe(0)
+  expect(r.generalTabs).toEqual(['general-tab-general', 'general-tab-theme'])
   expect(r.friendsTitle).toBe('Friendship')
   expect(r.friendsBtn).toBe('Friendship')
   expect(r.clanInFriends).toBe(true)

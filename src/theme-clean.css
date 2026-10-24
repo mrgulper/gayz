@@ -1,7 +1,7 @@
 /* Clean theme (settings.uiTheme: 'clean', 2026-10-23). Gaymi: "make it
    clean and simple ... like apple.com ... no rain and not useful things",
    then "just plain colour whatever colour they pick" (white to start).
-   One colour the player picks (Inventory > Theme) is the whole look:
+   One colour the player picks (General > Theme) is the whole look:
    CleanTheme.js turns it into --clean-bg (the page), --clean-fg (near-black
    or near-white text, whichever reads on it), --clean-panel / --clean-
    surface / --clean-hover (the colour nudged toward the text) and
@@ -343,7 +343,7 @@ html.ui-theme-clean .panel-box hr {
   border-color: var(--clean-line);
 }
 
-/* ---- Theme picker (Inventory > Theme) ---- */
+/* ---- Theme picker (General > Theme) ---- */
 .theme-clean-preview {
   display: none;
 }
@@ -718,4 +718,244 @@ html.ui-theme-clean #profile-content :is(#highlight-reel-heading, #rank-roadmap-
 }
 html.ui-theme-clean :is(#highlight-reel-list, #rank-roadmap-list, #recent-unlocks-list, #prestige-history-list) {
   border-top: none;
+}
+
+/* ---- Everything else follows the colour too (2026-10-24, Gaymi:
+   "everything should be based on theme") ----
+   These were the dark/gold look in Simple: Inventory's weapon and skin
+   cards, the card menu, the Market price window, the All items / All
+   rarities dropdowns, Inspect, the Friendship status list and name list,
+   the Pets card and the Map Editor pause screen's side cards. Same sizes
+   as Old - only colours here. */
+html.ui-theme-clean .inv-weapon-card,
+html.ui-theme-clean .inv-weapon-card:hover {
+  background: radial-gradient(ellipse at 50% 55%, rgba(var(--clean-fg-rgb), 0.16), var(--clean-surface) 75%);
+  border-color: var(--clean-line);
+  border-left-color: var(--rarity, #9aa0a6);
+}
+html.ui-theme-clean .inv-skin-card :is(.inv-skin-card-name, .inv-weapon-card-icon) {
+  color: var(--clean-fg) !important;
+}
+html.ui-theme-clean .inv-skin-card :is(.inv-weapon-card-skin, .market-card-seller) {
+  color: var(--clean-dim) !important;
+}
+html.ui-theme-clean .inv-skin-card :is(.inv-skin-card-count, .inv-skin-card-price) {
+  background: var(--clean-fg);
+  color: var(--clean-bg) !important;
+}
+html.ui-theme-clean .panel-box :is(.weapon-soon-tag, #inventory-pets-soon-tag) {
+  background: var(--clean-fg);
+  color: var(--clean-bg) !important;
+  box-shadow: none;
+}
+html.ui-theme-clean #inventory-pets-soon {
+  background: var(--clean-surface);
+  border-color: var(--clean-line);
+}
+
+/* Equip / Market / Sell / Inspect. */
+html.ui-theme-clean #inv-skin-menu {
+  background: var(--clean-bg);
+  border: 1px solid var(--clean-line);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+html.ui-theme-clean #inv-skin-menu button {
+  background: var(--clean-surface);
+  border-radius: 8px;
+  letter-spacing: 0;
+}
+html.ui-theme-clean #inv-skin-menu button:not(:disabled):hover {
+  background: var(--clean-hover);
+  filter: none;
+}
+
+/* The Market price window (list / buy / sell / take back). */
+html.ui-theme-clean #trade-dialog {
+  background: rgba(0, 0, 0, 0.3);
+}
+html.ui-theme-clean #trade-dialog-box {
+  background: var(--clean-bg);
+  border: 1px solid var(--clean-line);
+  border-radius: 22px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.2);
+  color: var(--clean-fg);
+  font-family: var(--clean-font);
+}
+html.ui-theme-clean #trade-dialog-close {
+  top: 8px;
+  right: 8px;
+  background: none;
+  color: var(--clean-fg);
+  font-weight: 400;
+  opacity: 0.7;
+}
+html.ui-theme-clean #trade-dialog-close:hover { opacity: 1; }
+html.ui-theme-clean .trade-dialog-step {
+  background: var(--clean-surface);
+  border-bottom: none;
+  border-radius: 999px;
+  color: var(--clean-fg);
+}
+html.ui-theme-clean .trade-dialog-step:hover { background: var(--clean-hover); }
+html.ui-theme-clean #trade-dialog-price {
+  background: var(--clean-surface);
+  border: 1px solid var(--clean-line);
+  border-radius: 999px;
+  color: var(--clean-fg);
+}
+html.ui-theme-clean #trade-dialog-action {
+  border-bottom: none;
+  border-radius: 999px;
+  background: var(--clean-fg);
+  color: var(--clean-bg);
+  font-family: var(--clean-font);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* All items / All rarities (Market and Inventory > Character). The
+   rarity names keep their own colours. */
+html.ui-theme-clean .market-filter-btn {
+  background: var(--clean-surface);
+  border-color: var(--clean-line);
+}
+html.ui-theme-clean :is(.market-filter-btn:hover, .market-filter-btn.open, .market-filter-btn:focus-visible) {
+  background: var(--clean-hover);
+  border-color: rgba(var(--clean-fg-rgb), 0.45);
+}
+html.ui-theme-clean .market-filter-menu,
+html.ui-theme-clean :is(#status-picker-options, #cloudsave-friend-suggestions) {
+  background: var(--clean-bg);
+  border: 1px solid var(--clean-line);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+/* #app so these beat the general panel-button rule above. */
+html.ui-theme-clean #app .panel-box :is(.market-filter-option, .status-pick-btn, .friend-suggest-row) {
+  background: none;
+  border: none;
+  border-radius: 8px;
+}
+html.ui-theme-clean #app .panel-box :is(.market-filter-option, .status-pick-btn, .friend-suggest-row):hover,
+html.ui-theme-clean #app .panel-box :is(.market-filter-option, .status-pick-btn, .friend-suggest-row):focus-visible {
+  background: var(--clean-surface);
+}
+html.ui-theme-clean #app .panel-box :is(.market-filter-option, .status-pick-btn).active,
+html.ui-theme-clean #app .panel-box :is(.market-filter-option, .status-pick-btn).active:hover {
+  background: var(--clean-hover);
+  color: var(--clean-fg) !important;
+}
+html.ui-theme-clean .market-filter-option.checked .market-check {
+  background: var(--clean-fg) var(--clean-check) center / 18px no-repeat;
+}
+html.ui-theme-clean .market-filter-option.checked .market-check::after {
+  display: none;
+}
+
+/* Friendship's Status picker. */
+html.ui-theme-clean #status-picker-toggle {
+  background: var(--clean-surface);
+  border-color: var(--clean-line);
+}
+html.ui-theme-clean :is(#status-picker-toggle:hover, #status-picker.open #status-picker-toggle) {
+  background: var(--clean-hover);
+  border-color: rgba(var(--clean-fg-rgb), 0.45);
+}
+html.ui-theme-clean #status-picker-chevron {
+  color: var(--clean-fg);
+}
+
+/* Inspect: a panel-coloured box with a plain X, like the other panels. */
+html.ui-theme-clean #inspect-dialog {
+  background: rgba(0, 0, 0, 0.3);
+}
+html.ui-theme-clean #inspect-box {
+  background: var(--clean-bg);
+  border: 1px solid var(--clean-line);
+  border-radius: 22px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.2);
+  font-family: var(--clean-font);
+}
+html.ui-theme-clean #inspect-header {
+  background: none;
+  border-bottom-color: var(--clean-line);
+}
+html.ui-theme-clean #inspect-title {
+  color: var(--clean-fg);
+}
+html.ui-theme-clean #inspect-close {
+  background: none;
+  color: var(--clean-fg);
+  font-weight: 400;
+  opacity: 0.7;
+}
+html.ui-theme-clean #inspect-close:hover { opacity: 1; }
+html.ui-theme-clean #inspect-stage {
+  background: radial-gradient(ellipse at center, var(--clean-surface), rgba(0, 0, 0, 0) 70%);
+}
+html.ui-theme-clean #inspect-count {
+  background: var(--clean-fg);
+  color: var(--clean-bg);
+}
+html.ui-theme-clean #inspect-rarity {
+  text-shadow: none;
+}
+html.ui-theme-clean #inspect-hint {
+  color: var(--clean-dim);
+}
+
+/* Map Editor pause screen: the side cards' words were light cream on the
+   white card. */
+html.ui-theme-clean #build-menu :is(#build-menu-map-name, .build-menu-info-row b, #build-menu-tip, #build-menu-hint) {
+  color: var(--clean-fg);
+}
+html.ui-theme-clean #build-menu :is(#build-menu-map-saved, .build-menu-info-row span, .build-menu-shortcut, .build-menu-keys) {
+  color: var(--clean-dim);
+}
+html.ui-theme-clean #build-menu .build-menu-info-row {
+  border-top-color: var(--clean-line);
+}
+html.ui-theme-clean #build-menu .build-menu-keys kbd {
+  color: var(--clean-fg);
+  background: var(--clean-surface);
+  border-color: var(--clean-line);
+}
+html.ui-theme-clean #build-menu #build-menu-preview {
+  background: var(--clean-surface);
+}
+html.ui-theme-clean #build-menu #build-menu-title-main {
+  text-shadow: none;
+}
+html.ui-theme-clean #build-menu #build-menu-title svg {
+  filter: none;
+}
+html.ui-theme-clean #build-menu #build-menu-close {
+  background: var(--clean-bg);
+  border: 1px solid var(--clean-line);
+  border-radius: 999px;
+  color: var(--clean-fg);
+}
+html.ui-theme-clean #build-menu #build-menu-editing {
+  color: var(--clean-fg);
+  background: var(--clean-bg);
+  border-color: var(--clean-line);
+}
+html.ui-theme-clean #build-menu .build-slot-btn {
+  color: var(--clean-fg);
+  background-color: var(--clean-surface);
+  border-color: var(--clean-line);
+  border-radius: 12px;
+}
+html.ui-theme-clean #build-menu .build-slot-btn.active {
+  color: var(--clean-bg);
+  background-color: var(--clean-fg);
+  border-color: var(--clean-fg);
+  box-shadow: none;
+}
+html.ui-theme-clean #build-menu .build-slot-btn.has-thumb {
+  color: #fff;
+  background-color: var(--clean-surface);
+}
+html.ui-theme-clean #build-menu .build-slot-btn.has-thumb.active {
+  border-color: var(--clean-fg);
 }
