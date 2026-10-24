@@ -10,7 +10,7 @@ import * as CloudSaveUI from './CloudSaveUI.js'
 import * as CloudSync from './CloudSync.js'
 import { CLOUD_BASE_UID_KEY, readBase } from './CloudMerge.js'
 import { ACHIEVEMENTS } from './Achievements.js'
-import { GLOBAL_KILLS_MILESTONE_STEP, PODIUM_MEDALS, POLL_ID, POLL_OPTIONS, _escapeHtml, _safeStatNumber, _thisWeekStr, saveShopProgress } from './Game.js'
+import { GLOBAL_KILLS_MILESTONE_STEP, POLL_ID, POLL_OPTIONS, _escapeHtml, _safeStatNumber, _thisWeekStr, saveShopProgress } from './Game.js'
 import { t } from './i18n.js'
 import { clanMonthKey, currentClanXp } from './Xp.js'
 
@@ -96,11 +96,14 @@ export async function _renderNearbyRank(game) {
   if (game.cloudsaveNearbyRankTitle) game.cloudsaveNearbyRankTitle.textContent = t('cloudsaveNearbyRankTitle')
   try {
     const { above, below } = await CloudSync.fetchNearbyRank(_safeStatNumber(game.bestStats.bestWave), 3)
-    const mine = { name: game.settings.nickname || t('menuPlayerTagDefault'), bestNight: game.bestStats.bestWave, bestKills: game.careerStats.totalKills, __me: true }
+    const mine = { name: game.settings.nickname || t('menuPlayerTagDefault'), bestNight: game.bestStats.bestWave, bestKills: game.careerStats.totalKills, uid: game._cloudUid, __me: true }
     const combined = [...above.reverse(), mine, ...below]
-    game.cloudsaveNearbyRankList.innerHTML = combined.map((r) => `
-      <div class="cloud-leaderboard-row${r.__me ? ' me' : ''}"><span>${_escapeHtml(r.name || '???')}</span><span>${t('cloudsaveLeaderboardRow', { night: _safeStatNumber(r.bestNight), kills: _safeStatNumber(r.bestKills) })}</span></div>
-    `).join('')
+    // Rank numbers only when your own rank is known (counted from it).
+    const myRank = Number.isFinite(game._cloudGlobalRank) ? game._cloudGlobalRank : null
+    const myIndex = combined.indexOf(mine)
+    game.cloudsaveNearbyRankList.innerHTML = lbHeader([t('lbHeadWave'), t('lbHeadKills')]) + combined.map((r, i) => lbRow(game, {
+      rank: myRank ? myRank + i - myIndex : '', row: r, me: r.__me, stats: [_safeStatNumber(r.bestNight), _safeStatNumber(r.bestKills)],
+    })).join('')
   } catch {
     game.cloudsaveNearbyRankList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`
   }
@@ -129,6 +132,39 @@ export async function _renderGlobalKills(game) {
   }
 }
 
+// General's leaderboards share one row look (2026-10-24): the rank in a
+// circle (gold/silver/bronze for the top 3), the name - a button that opens
+// that player's profile (rows carry their uid) - then the numbers in their
+// own right-aligned columns. Your own row is highlighted.
+function lbHeader(stats) {
+  return `<div class="lb-row lb-head"><span class="lb-rank"></span><span class="lb-name">${_escapeHtml(t('lbHeadPlayer'))}</span>${stats.map((s) => `<span class="lb-stat">${_escapeHtml(s)}</span>`).join('')}</div>`
+}
+
+function lbRow(game, { rank, row, stats, me, tag }) {
+  const uid = typeof row.uid === 'string' ? row.uid : ''
+  const mine = me || (uid && uid === game._cloudUid) || (!uid && row.name === game.settings.nickname)
+  const podium = rank >= 1 && rank <= 3 ? ` podium-${rank}` : ''
+  const name = _escapeHtml(row.name || '???')
+  const nameEl = uid
+    ? `<button type="button" class="lb-name lb-name-link" data-uid="${_escapeHtml(uid)}" data-name="${name}" title="${_escapeHtml(t('lbViewProfile'))}">${name}</button>`
+    : `<span class="lb-name">${name}</span>`
+  return `<div class="lb-row cloud-leaderboard-row${mine ? ' me' : ''}${podium}"><span class="lb-rank">${rank === '' ? '' : _safeStatNumber(rank)}</span>${nameEl}${tag ? `<span class="lb-tag">${_escapeHtml(tag)}</span>` : ''}${stats.map((v) => `<span class="lb-stat">${_escapeHtml(String(v))}</span>`).join('')}</div>`
+}
+
+// One click handler for every leaderboard on General: a name opens that
+// player's profile (your own name opens your Profile).
+export function bindLeaderboardClicks(game) {
+  const section = game.cloudsaveOnlineSection
+  if (!section || section.dataset.lbBound) return
+  section.dataset.lbBound = '1'
+  section.addEventListener('click', (e) => {
+    const link = e.target.closest('.lb-name-link')
+    if (!link || !link.dataset.uid) return
+    if (link.dataset.uid === game._cloudUid) game._openProfilePanel()
+    else game._openOtherPlayerProfile(link.dataset.uid, link.dataset.name)
+  })
+}
+
 export function _renderLeaderboardRows(game, rows) {
   if (!game.cloudsaveLeaderboardList) return
   // rows is `null` on a subscription error (see CloudSync.subscribeTopLeaderboard's
@@ -141,10 +177,8 @@ export function _renderLeaderboardRows(game, rows) {
     game.cloudsaveLeaderboardList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`
     return
   }
-  // Podium styling (ranks 1-3) - PODIUM_MEDALS below, same treatment
-  // _renderWeeklyLeaderboardList uses.
   game.cloudsaveLeaderboardList.innerHTML = rows.length
-    ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === game.settings.nickname ? ' me' : ''}${i < 3 ? ` podium-${i + 1}` : ''}"><span>${PODIUM_MEDALS[i] || `${i + 1}.`} ${_escapeHtml(r.name || '???')}</span><span>${t('cloudsaveLeaderboardRow', { night: _safeStatNumber(r.bestNight), kills: _safeStatNumber(r.bestKills) })}</span></div>`).join('')
+    ? lbHeader([t('lbHeadWave'), t('lbHeadKills')]) + rows.map((r, i) => lbRow(game, { rank: i + 1, row: r, stats: [_safeStatNumber(r.bestNight), _safeStatNumber(r.bestKills)] })).join('')
     : `<p class="cloud-leaderboard-empty">${t('cloudsaveLeaderboardEmpty')}</p>`
 }
 
@@ -165,7 +199,7 @@ export async function _renderAchievementsLeaderboard(game) {
   try {
     const rows = await CloudSync.fetchTopByAchievements(10)
     game.cloudsaveAchievementsLeaderboardList.innerHTML = rows.length
-      ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === game.settings.nickname ? ' me' : ''}"><span>${i + 1}. ${_escapeHtml(r.name || '???')}</span><span>${_safeStatNumber(r.achievementCount)}/${ACHIEVEMENTS.length}</span></div>`).join('')
+      ? rows.map((r, i) => lbRow(game, { rank: i + 1, row: r, stats: [`${_safeStatNumber(r.achievementCount)}/${ACHIEVEMENTS.length}`] })).join('')
       : `<p class="cloud-leaderboard-empty">${t('cloudsaveLeaderboardEmpty')}</p>`
   } catch {
     game.cloudsaveAchievementsLeaderboardList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`
@@ -208,7 +242,7 @@ export async function _renderWeeklyLeaderboardList(game) {
     const weekStr = _thisWeekStr()
     const rows = await CloudSync.fetchTopWeeklyLeaderboard(weekStr, 10)
     game.cloudsaveWeeklyLeaderboardList.innerHTML = rows.length
-      ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === game.settings.nickname ? ' me' : ''}${i < 3 ? ` podium-${i + 1}` : ''}"><span>${PODIUM_MEDALS[i] || `${i + 1}.`} ${_escapeHtml(r.name || '???')}${i === 0 ? ` ${t('mostImprovedBadge')}` : ''}</span><span>${_safeStatNumber(r.progress)}</span></div>`).join('')
+      ? rows.map((r, i) => lbRow(game, { rank: i + 1, row: r, tag: i === 0 ? t('mostImprovedBadge') : '', stats: [_safeStatNumber(r.progress)] })).join('')
       : `<p class="cloud-leaderboard-empty">${t('cloudsaveLeaderboardEmpty')}</p>`
   } catch {
     game.cloudsaveWeeklyLeaderboardList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`

@@ -23,6 +23,7 @@ Browser Three.js block-world zombie game (Vite, no framework) at gayz.vercel.app
 - Public text (commit/PR titles go to public Discord): no owner name, no AI/Claude mentions. Don't undo the scrubbing in `discord-update-notify.yml`.
 - `scripts/check-docs.mjs` (commit hook): player-facing changes update GayZ Features (`#features-main`, no hand-typed numbers) and Patch Notes, or say `[no-notes: why]` / `[no-features: why]`; changed `data-code` -> `[reread: <title>]`.
 - Every Coming Soon spot has a GayZ Features Coming Soon entry (+ `tests/docs.spec.js` `MAP`).
+- New online/player-data features also get a line in Terms of Use / Privacy Policy (index.html); their "Last updated" date fills itself from `__BUILD_DATE__`.
 - New i18n keys ship in `en`, `zh`, `hi`, `es` together; player text names keys as `{key:<id>}`.
 - Visible UI changes are made and screenshot-checked in both themes (Old: paper/browns/Rye; Clean: flat, one player-picked colour, `src/theme-clean.css`). Golden is deleted.
 - Search bars: `class="nickname-input search-bar"`; text boxes and dropdowns are ovals.

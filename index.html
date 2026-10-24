@@ -45,12 +45,14 @@
           __r.setProperty('--clean-panel', __mix(0.035))
           __r.setProperty('--clean-surface', __mix(0.08))
           __r.setProperty('--clean-hover', __mix(0.14))
-          __r.setProperty('--clean-card', 'rgb(' + __fg.join(', ') + ')')
-          __r.setProperty('--clean-card-fg', '#' + __h)
+          __r.setProperty('--clean-page', __mix(0.04))
+          __r.setProperty('--clean-card', '#' + __h)
+          __r.setProperty('--clean-card-fg', 'rgb(' + __fg.join(', ') + ')')
           // The opposite-colour text CleanTheme.js worked out last time
-          // (gayz-clean-vars), if it was for this same colour.
+          // (gayz-clean-vars), if it was for this same colour. Saves from
+          // before --clean-page (opposite-colour boxes) are skipped.
           var __cv = JSON.parse(localStorage.getItem('gayz-clean-vars') || 'null')
-          if (__cv && __cv.color === '#' + __h && __cv.vars) for (var __k in __cv.vars) __r.setProperty(__k, __cv.vars[__k])
+          if (__cv && __cv.color === '#' + __h && __cv.vars && __cv.vars['--clean-page']) for (var __k in __cv.vars) __r.setProperty(__k, __cv.vars[__k])
           var __img = localStorage.getItem('gayz-clean-bg-image')
           if (__img && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(__img)) __r.setProperty('--clean-bg-image', 'url("' + __img + '")')
         } else document.documentElement.classList.add('ui-theme-old')
@@ -1563,10 +1565,10 @@ Escape before dawn.</p>
             <div id="cloudsave-signed-out" style="display: none">
               <button id="cloudsave-signin-btn">Sign up or login to use...</button>
             </div>
+            <!-- No account row, Sync Now or Sign Out here (2026-10-24, Gaymi:
+                 "just keep the leaderboard") - Profile has Sign Out and
+                 saves sync on their own. The which-save question stays. -->
             <div id="cloudsave-signed-in" style="display: none">
-              <img id="cloudsave-avatar" alt="" draggable="false" />
-              <p id="cloudsave-account-name"></p>
-              <p id="cloudsave-sync-status"></p>
               <div id="cloudsave-conflict" style="display: none">
                 <p id="cloudsave-conflict-desc"></p>
                 <div class="perk-panel-buttons">
@@ -1574,11 +1576,6 @@ Escape before dawn.</p>
                   <button id="cloudsave-use-local-btn">Keep This Device's Save</button>
                 </div>
               </div>
-              <div class="perk-panel-buttons">
-                <button id="cloudsave-sync-now-btn">Sync Now</button>
-                <button id="cloudsave-signout-btn">Sign Out</button>
-              </div>
-
               <div id="cloudsave-online-section">
                 <p id="cloudsave-global-kills"></p>
                 <p id="cloudsave-rank-line"></p>
@@ -2196,48 +2193,54 @@ Escape before dawn.</p>
               <li>You don't need an account to play. Without one, your save lives only in your own browser.</li>
               <li>Signing in (Cloud Save) is optional, and lets your save follow you across devices. See the <button type="button" class="open-privacy-panel-link">Privacy Policy</button> for exactly what that stores.</li>
               <li>Your save data, coins, points, and progress can be reset, wiped, or become unrecoverable - by a bug, a mistaken action, a game update, or (rarely) a support request from you. Nothing in the game is guaranteed to be permanent.</li>
-              <li>You're responsible for anything that happens through your account. If you believe your account or save has been accessed without your permission, contact us using the details in Section 12.</li>
+              <li>You're responsible for anything that happens through your account. If you believe your account or save has been accessed without your permission, contact us using the details in Section 14.</li>
             </ul>
 
             <h3>5. Acceptable use</h3>
-            <p>Nicknames, your bio, and any other text field shown on leaderboards, friend lists, or profile lookups (like your Player ID) are visible to other players. When using GayZ, you agree not to:</p>
+            <p>Some things you make in GayZ are seen by other players: your nickname, bio and Player ID, chat messages (Global, server and clan chat), clan names, Market listings, Gallery posts and comments, and maps you share or build together with others. When using GayZ, you agree not to:</p>
             <ul>
-              <li>Use your nickname, bio, or any other field to harass anyone, impersonate someone else, or post personal information (yours or anyone else's);</li>
+              <li>Use your nickname, bio, chat, clan name, posts, comments, shared maps or any other field to harass anyone, impersonate someone else, or post personal information (yours or anyone else's);</li>
+              <li>Post anything hateful, sexual, violent toward real people, or that you don't have the right to share (like someone else's artwork in a skin or Gallery post);</li>
               <li>Use exploits, bots, cheats, or hacked/modified clients to alter the game, gain an unfair advantage, or manipulate leaderboards;</li>
               <li>Attempt to disrupt, overload, or gain unauthorized access to the game, its accounts, or the systems behind it;</li>
               <li>Use GayZ for anything unlawful, or in a way that infringes someone else's rights.</li>
             </ul>
-            <p>If cloud saves or leaderboards can be gamed unfairly, obviously-cheated entries or accounts may be reset, hidden, or removed without notice.</p>
+            <p>If cloud saves or leaderboards can be gamed unfairly, obviously-cheated entries or accounts may be reset, hidden, or removed without notice. Chat messages, clans, Market listings, Gallery posts, comments and shared maps that break these rules may be removed the same way, and anyone can report a shared map.</p>
 
-            <h3>6. Intellectual property and copyright</h3>
+            <h3>6. Market trades</h3>
+            <p>The Market lets players trade skins with each other for in-game coins. The game itself doesn't sell skins there and takes a small fee in coins on each sale. A trade can't be undone once it's bought, and skins, like coins, have no real-money value. Buying or selling skins for real money outside the game isn't allowed.</p>
+
+            <h3>7. Clans</h3>
+            <p>A clan's leader can invite, accept, promote, remove members, or delete the clan. Clan XP and rankings reset every month. Clan names follow the same rules as everything else in Section 5.</p>
+
+            <h3>8. Intellectual property and copyright</h3>
             <p>GayZ's code, artwork, and content are the developer's own work or used under licenses that permit it. You may play the game for personal, non-commercial use; you may not copy, redistribute, or claim GayZ's own code or original assets as your own.</p>
-            <p>If you believe something in GayZ infringes your copyright, contact us using the details in Section 12 with: (a) a description of the copyrighted work, (b) where the infringing material appears in GayZ, and (c) your contact information. Valid, good-faith notices will be reviewed and acted on.</p>
+            <p>If you believe something in GayZ infringes your copyright, contact us using the details in Section 14 with: (a) a description of the copyrighted work, (b) where the infringing material appears in GayZ, and (c) your contact information. Valid, good-faith notices will be reviewed and acted on.</p>
 
-            <h3>7. Termination</h3>
-            <p>Access to online features (Cloud Save, leaderboards, friend lists, and similar) may be suspended or terminated, without notice, for violating Section 5, or for any other reason at the developer's discretion, including discontinuing the game entirely. The core offline game itself isn't something an account can be "banned" from, since it runs in your own browser.</p>
+            <h3>9. Termination</h3>
+            <p>Access to online features (Cloud Save, leaderboards, chat, friend lists, clans, the Market, the Gallery, servers, shared maps, and similar) may be suspended or terminated, without notice, for violating Section 5, or for any other reason at the developer's discretion, including discontinuing the game entirely. The core offline game itself isn't something an account can be "banned" from, since it runs in your own browser.</p>
 
-            <h3>8. No warranty, no guarantees</h3>
+            <h3>10. No warranty, no guarantees</h3>
             <p>GayZ is provided "as is" and "as available," built and maintained in spare time. It can have bugs, go down, change significantly, or be discontinued entirely, at any time, without notice. To the maximum extent permitted by law, GayZ is offered with no warranties of any kind, express or implied, including no warranty that it will be uninterrupted, error-free, or fit for any particular purpose.</p>
 
-            <h3>9. Limitation of liability</h3>
+            <h3>11. Limitation of liability</h3>
             <p>To the maximum extent permitted by law, the developer isn't liable for any indirect, incidental, special, or consequential damages, or any loss of data, progress, or goodwill, arising from your use of (or inability to use) GayZ - even if advised such loss was possible. GayZ is a free game, not a paid or relied-upon service. Nothing here limits liability where the law doesn't allow it to be limited.</p>
 
-            <h3>10. Indemnification</h3>
+            <h3>12. Indemnification</h3>
             <p>You agree to be responsible for, and to hold the developer harmless from, any claim or loss arising from your own violation of these terms or misuse of the game - for example, content you post or actions you take that break Section 5.</p>
 
-            <h3>11. Governing law and disputes</h3>
-            <p>These terms are governed by the laws of <span class="legal-placeholder">[YOUR JURISDICTION - not yet filled in]</span>, without regard to conflict-of-law rules. If a dispute comes up, the first step is reaching out informally using the contact in Section 12 - most things can be sorted out that way without anything formal.</p>
+            <h3>13. Governing law and disputes</h3>
+            <p>These terms are governed by the laws of <span class="legal-placeholder">[YOUR JURISDICTION - not yet filled in]</span>, without regard to conflict-of-law rules. If a dispute comes up, the first step is reaching out informally using the contact in Section 14 - most things can be sorted out that way without anything formal.</p>
 
-            <h3>12. Contact</h3>
+            <h3>14. Contact</h3>
             <p>Questions about these terms, copyright notices, account/data issues, or anything else: <a href="https://discord.gg/kukR72Euj6" target="_blank" rel="noopener noreferrer">discord.gg/kukR72Euj6</a></p>
 
-            <h3>13. Changes to these terms</h3>
+            <h3>15. Changes to these terms</h3>
             <p>These terms may change as the game does. Continuing to play after a change means you accept the updated terms - if you disagree with a change, the simplest option is to stop playing. Material changes will be reflected in the "Last updated" date above.</p>
 
-            <h3>14. Severability and entire agreement</h3>
+            <h3>16. Severability and entire agreement</h3>
             <p>If any part of these terms turns out to be unenforceable, the rest still applies. These terms, together with the <button type="button" class="open-privacy-panel-link">Privacy Policy</button>, are the whole agreement between you and the developer about using GayZ, and replace any earlier version of this page.</p>
 
-            <div class="legal-note">This is a plain-language Terms of Use written for a free game - not drafted or reviewed by a lawyer, and shouldn't be read as legal advice for any other project. Section 11's governing-law placeholder needs a real jurisdiction filled in before this offers meaningful legal protection.</div>
           </div>
         </div>
       </div>
@@ -2265,6 +2268,24 @@ Escape before dawn.</p>
             <h3>Nicknames, profiles, and leaderboards</h3>
             <p>Your nickname, Player ID, bio, and stats shown on your public profile (Profile panel &gt; Shown to Public) are visible to other players wherever public features (leaderboards, chat, friend lookups) show them. Please don't put personal information (real name, contact details, etc.) in any field, since a field that's private today could become visible in a future update.</p>
 
+            <h3>Chat, clans, friends and the Market</h3>
+            <ul>
+              <li>Chat messages you send (Global, server and clan chat) are stored online with your nickname so other players can read them.</li>
+              <li>Clans store their name, members and roles, and the XP members earn this month.</li>
+              <li>Friend requests, your friend list and your online status (online, in a game, or when you were last seen) are stored so your friends can see them.</li>
+              <li>Market listings store the skin, price and seller's nickname, and who bought it once it sells.</li>
+            </ul>
+
+            <h3>Gallery, shared maps and servers</h3>
+            <ul>
+              <li>Gallery posts store the picture you post, its title, your nickname, likes and comments - anyone can see them.</li>
+              <li>Maps you share get a code and are stored online so anyone can play them; Build Together rooms store the edits and each player's spot while you build.</li>
+              <li>When you play on a server, your position, skin and nickname are sent to the other players in it while you play.</li>
+            </ul>
+
+            <h3>Stored only on your device</h3>
+            <p>Your settings, keybinds, theme colour and any homepage picture you upload stay in your own browser and aren't sent anywhere unless you sign in to Cloud Save (which copies your settings, not the picture).</p>
+
             <h3>Anonymous usage counters</h3>
             <p>A few features track simple aggregate counts (like how often a setting gets opened) to understand what's actually used. These are just totals - they aren't tied to your account or identity in any readable way.</p>
 
@@ -2276,12 +2297,11 @@ Escape before dawn.</p>
             </ul>
 
             <h3>Your choices</h3>
-            <p>You can play entirely without signing in. If you have signed in and want your cloud save or account data deleted, or have any other question about your data, reach out on Discord (link below) and it'll be handled directly.</p>
+            <p>You can play entirely without signing in. You can delete your own Gallery posts, comments and shared maps, take back Market listings, and leave or delete your clan at any time. If you have signed in and want your cloud save or account data deleted, or have any other question about your data, reach out on Discord (link below) and it'll be handled directly.</p>
 
             <h3>Contact</h3>
             <p>Discord: <a href="https://discord.gg/kukR72Euj6" target="_blank" rel="noopener noreferrer">discord.gg/kukR72Euj6</a></p>
 
-            <div class="legal-note">This is a general, plain-language summary, not a formal legal document, and shouldn't be read as legal advice for any other project.</div>
           </div>
         </div>
       </div>
@@ -2326,7 +2346,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="QUESTS ROLLING_QUEST_EXPIRE_MS _onPlayEvent">
           <h3>Quests</h3>
-          <p>Rolling quests that come and go (kill zombies, reach a wave, finish runs), counted from your Map 1 runs and claimed for coins in the Quests panel.</p>
+          <p>Rolling quests that come and go (kill zombies, reach a wave, finish runs), counted from your Map 1 runs and claimed for coins in the Quests panel. A number in a circle on the Quests button says how many are finished and waiting to be claimed - the right-side buttons for Upgrades, Friend List and Achievements show a count the same way instead of a dot.</p>
         </div>
       </section>
 
@@ -2444,7 +2464,7 @@ Escape before dawn.</p>
 
         <div class="feature" data-code="uiTheme">
           <h3>Old &amp; Simple Themes</h3>
-          <p>Two complete looks for the menus and pause screens, picked in Inventory &gt; Theme: Old (the default - rusty metal, torn paper panels, worn profile card, and rain falling over the homepage street with splashes on the cobbles) and Simple (flat, no rain - the whole game in one plain colour you pick with the colour circle beside its name, a soft light grey to start, with the text in that colour's opposite - pick yellow and it turns purple - made dark or light enough to stay readable; the homepage buttons, profile card, coins bar and clock are filled with the opposite colour and grow a little when you point at them; the picture icon puts a picture from your computer behind the homepage, cut to fit the screen and kept on that device only, and the bin icon beside it removes it). Both rearrange themselves to fit phones and tablets.</p>
+          <p>Two complete looks for the menus and pause screens, picked in Inventory &gt; Theme: Old (the default - rusty metal, torn paper panels, worn profile card, and rain falling over the homepage street with splashes on the cobbles) and Simple (flat, no rain - the whole game in one plain colour you pick with the colour circle beside its name, a soft light grey to start, with the text in that colour's opposite - pick yellow and it turns purple - made dark or light enough to stay readable; the homepage is a shade darker than your colour - light grey for white - with Play, Game Mode, Settings, the right-side buttons, profile card, coins bar and clock as boxes in your colour that grow a little when you point at them, and a small gap between the profile card and the buttons under it; the picture icon puts a picture from your computer behind the homepage, cut to fit the screen and kept on that device only, and the bin icon beside it removes it). Both rearrange themselves to fit phones and tablets.</p>
         </div>
         <div class="feature" data-code="bindHoverMenus">
           <h3>Homepage Hover Menus</h3>
@@ -2490,11 +2510,11 @@ Escape before dawn.</p>
 
         <div class="feature" data-code="syncWithCloud mergeSaves _renderAuthCard signInViaServer">
           <h3>Cloud Save</h3>
-          <p>Login with Google, Steam, GitHub or Discord - one "Login with..." button each, the one you used last marked Last used (Profile, the cloud icon, or the "Sign up or login to use ..." button in Friend List, Global chat, Clans, the Market and the Gallery - each one says what it unlocks, like "Sign up or login to use chat") and your save syncs across devices, with a conflict resolver if local and cloud saves diverge. Cloud Save itself (sync status, Sync Now, Sign Out, the which-save question, leaderboards) sits on the General tab of General. Totals like coins, kills and playtime from every device add up, and signing back in to your own account on a device merges both sides without asking.</p>
+          <p>Login with Google, Steam, GitHub or Discord - one "Login with..." button each, the one you used last marked Last used (Profile, the cloud icon, or the "Sign up or login to use ..." button in Friend List, Global chat, Clans, the Market and the Gallery - each one says what it unlocks, like "Sign up or login to use chat") and your save syncs across devices, with a conflict resolver if local and cloud saves diverge. The General tab of General holds the leaderboards (and the which-save question when it comes up); Sign Out is on Profile and saves sync by themselves. Totals like coins, kills and playtime from every device add up, and signing back in to your own account on a device merges both sides without asking.</p>
         </div>
         <div class="feature" data-code="fetchLeaderboardEntryByPlayerId subscribeTopLeaderboard">
           <h3>Leaderboards</h3>
-          <p>Global (with a region filter), Weekly Challenge, Most Achievements, Nearby Rank, a Global Rank badge, a Nearest-Rival nudge, global average/percentile comparison, and a live-subscribed top board.</p>
+          <p>Global (with a region filter), Weekly Challenge, Most Achievements, Nearby Rank, a Global Rank badge, a Nearest-Rival nudge, global average/percentile comparison, and a live-subscribed top board. Each board is a clean list: the rank in a circle (gold, silver and bronze for the top three), the name, then Wave and Kills in their own columns, with your own row highlighted - and clicking anyone's name opens their profile.</p>
         </div>
         <div class="feature" data-code="incrementGlobalKills">
           <h3>Global Kill Counter</h3>
@@ -2506,7 +2526,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="createClan sendClanInvite fetchClanCombinedStats clanMonthKey entryClanXp">
           <h3>Clans</h3>
-          <p>Start a clan with its own name or join one from the Clan tab in General: a clan ranking by the XP the members earned for their clan this month - XP only counts for the clan you earned it in, and every clan starts again from nothing at the start of each month (the board says how many days are left) - My Clan shows your clan's XP and your own part this month (or asks you to sign in), invites you can send by Player ID or by name (matching players pop up as you type) and accept or decline, a member list where the leader can remove members or hand over leadership, and leaving or deleting a clan. Clan members get their own Clan chat tab, and your clan's name shows above your name and level.</p>
+          <p>Start a clan with its own name or join one from the Clan tab in General: a clan ranking by the XP the members earned for their clan this month - XP only counts for the clan you earned it in, and every clan starts again from nothing at the start of each month (the board says it resets in how many days) - the clan list loads in the background when the game starts, so it's there the moment you open Clan - My Clan shows your clan's XP and your own part this month (or asks you to sign in), invites you can send by Player ID or by name (matching players pop up as you type) and accept or decline, a member list where the leader can remove members or hand over leadership, and leaving or deleting a clan. Clan members get their own Clan chat tab, and your clan's name shows above your name and level.</p>
         </div>
         <div class="feature" data-code="createMarketListing buyMarketListing MARKET_FEE_RATE">
           <h3>Market</h3>
@@ -2583,7 +2603,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="_openTermsPanel _openPrivacyPanel _fitMenuLayout">
           <h3>Terms of Use &amp; Privacy Policy</h3>
-          <p>Plain-language Terms of Use and Privacy Policy pages, linked side by side at the bottom of the homepage, from Credits and from the Welcome to GayZ sign-in page.</p>
+          <p>Plain-language Terms of Use and Privacy Policy pages, linked side by side at the bottom of the homepage, from Credits and from the Welcome to GayZ sign-in page. They cover everything online in the game - chat, clans, friends, the Market, the Gallery, shared maps and servers - and their "Last updated" date moves with every game update.</p>
         </div>
         <div class="feature" data-code="LANGUAGES SUPPORTED_LANGUAGE_CODES">
           <h3>Language</h3>

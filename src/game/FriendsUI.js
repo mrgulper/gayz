@@ -8,6 +8,7 @@
 import * as CloudSync from './CloudSync.js'
 import { FRIEND_OFFLINE_THRESHOLD_MS, FRIEND_ONLINE_THRESHOLD_MS, FRIEND_STATUS_LABEL_KEYS, _escapeHtml, _formatRelativeTime, _safeStatNumber, formatTime, saveSettings, todayDateString } from './Game.js'
 import { t } from './i18n.js'
+import { setNavBadge } from './NavBadges.js'
 
 // "Your Friends" list - now populated only by accepting an incoming
 // friend request (see _respondToFriendRequest), not by manually typing a
@@ -514,7 +515,10 @@ export async function _deleteAllFriendRequests(game) {
 
 export function _updateFriendsDot(game) {
   if (!game.friendsRequestDot) return
-  game.friendsRequestDot.style.display = game._incomingFriendRequests.length ? '' : 'none'
+  // One circle: friend requests waiting plus your sent requests that got
+  // accepted (the gold span stays hidden).
+  setNavBadge(game.friendsRequestDot, game._incomingFriendRequests.length + (game._friendAcceptedNotifications || []).length)
+  if (game.friendsAcceptedDot) game.friendsAcceptedDot.style.display = 'none'
 }
 
 // Friends nav dot - gold, lights up if someone accepted a friend request
@@ -528,7 +532,7 @@ export async function _checkFriendAcceptedNotifications(game) {
   } catch {
     return // Best-effort - leaves the dot at whatever it last showed.
   }
-  game.friendsAcceptedDot.style.display = game._friendAcceptedNotifications.length ? '' : 'none'
+  game._updateFriendsDot()
 }
 
 // Clears every accepted-notification doc once the player has opened
@@ -538,7 +542,7 @@ export async function _markFriendAcceptedSeen(game) {
   if (!game._cloudUid || !game._friendAcceptedNotifications.length) return
   const notifications = game._friendAcceptedNotifications
   game._friendAcceptedNotifications = []
-  if (game.friendsAcceptedDot) game.friendsAcceptedDot.style.display = 'none'
+  game._updateFriendsDot()
   try {
     await Promise.all(notifications.map((n) => CloudSync.clearAcceptedNotification(game._cloudUid, n.accepterUid)))
   } catch {

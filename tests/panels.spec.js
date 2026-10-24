@@ -88,15 +88,16 @@ test('Clean theme: Golden saves land on it; the colour picker works', async ({ p
     swatch.dispatchEvent(new Event('change'))
     return out
   })
-  // A dark blue's opposite is a light orange.
-  expect(r).toMatchObject({ theme: 'clean', clean: true, old: false, rain: 'none', photo: 'none', hexBox: 0, bg: 'rgb(26, 43, 60)', fg: 'rgb(233, 190, 165)', saved: '#1a2b3c', yellowInk: 'rgb(95, 0, 163)' })
+  // A dark blue's opposite is a light orange. The page is the colour a
+  // shade toward the text (white -> light grey, like apple.com).
+  expect(r).toMatchObject({ theme: 'clean', clean: true, old: false, rain: 'none', photo: 'none', hexBox: 0, bg: 'rgb(34, 49, 64)', fg: 'rgb(233, 190, 165)', saved: '#1a2b3c', yellowInk: 'rgb(95, 0, 163)' })
   await page.reload()
   await page.waitForFunction(() => window.__game)
   // The first paint already has the opposite-colour text (gayz-clean-vars).
   await page.waitForFunction(() => document.documentElement.classList.contains('ui-theme-clean'))
   const after = await page.evaluate(() => [document.documentElement.className, getComputedStyle(document.body).backgroundColor, document.documentElement.style.getPropertyValue('--clean-fg')])
   expect(after[0]).toContain('ui-theme-clean')
-  expect(after[1]).toBe('rgb(26, 43, 60)')
+  expect(after[1]).toBe('rgb(34, 49, 64)')
   expect(after[2]).toBe('rgb(233, 190, 165)')
   // Picking Old switches straight back.
   const old = await page.evaluate(() => {
@@ -186,18 +187,24 @@ test('homepage buttons show their tabs; only the clicked one stays lit', async (
   await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('menu-panel-open'))).toBe(false)
 })
 
-// Simple (was Clean): every homepage box is filled with the opposite colour,
-// words in the picked colour; the picture buttons are icons.
-test('Simple theme: homepage boxes use the opposite colour', async ({ page }) => {
+// Simple (was Clean): every homepage box is the picked colour with the text
+// colour for words, on a page a shade darker (2026-10-24, like apple.com:
+// white boxes on light grey); the picture buttons are icons.
+test('Simple theme: homepage boxes are the picked colour on a darker page', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('gayz-settings', JSON.stringify({ uiTheme: 'clean', cleanColor: '#80ab30' })))
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(() => {
     const fg = getComputedStyle(document.documentElement).getPropertyValue('--clean-fg').trim()
-    const boxes = ['store-btn', 'gamemode-btn', 'settings-btn', 'menu-player-badge', 'menu-currency-bar', 'homepage-clock']
-      .map((id) => [getComputedStyle(document.getElementById(id)).backgroundColor === fg, getComputedStyle(document.getElementById(id)).color])
-    return { boxes, name: document.getElementById('theme-picker-clean-label').textContent, icons: ['theme-clean-bg-btn', 'theme-clean-bg-clear'].map((id) => [document.getElementById(id).textContent.trim(), !!document.querySelector(`#${id} svg`)]) }
+    const boxes = ['play-btn', 'store-btn', 'gamemode-btn', 'settings-btn', 'menu-player-badge', 'menu-currency-bar', 'homepage-clock']
+      .map((id) => [getComputedStyle(document.getElementById(id)).backgroundColor, getComputedStyle(document.getElementById(id)).color === fg])
+    const badge = document.getElementById('menu-player-badge').getBoundingClientRect()
+    const general = document.getElementById('hub-btn').getBoundingClientRect()
+    return { boxes, page: getComputedStyle(document.body).backgroundColor, gap: general.top - badge.bottom, name: document.getElementById('theme-picker-clean-label').textContent, icons: ['theme-clean-bg-btn', 'theme-clean-bg-clear'].map((id) => [document.getElementById(id).textContent.trim(), !!document.querySelector(`#${id} svg`)]) }
   })
-  for (const b of r.boxes) expect(b).toEqual([true, 'rgb(128, 171, 48)'])
+  for (const b of r.boxes) expect(b).toEqual(['rgb(128, 171, 48)', true])
+  expect(r.page).not.toBe('rgb(128, 171, 48)')
+  // The profile card no longer sits on top of General.
+  expect(r.gap).toBeGreaterThan(0)
   expect(r.name).toBe('Simple')
   expect(r.icons).toEqual([['', true], ['', true]])
 })
@@ -600,4 +607,44 @@ test('Shop: GaygarX price, Try On, buying', async ({ page }) => {
   expect(r.confetti).toBeGreaterThan(0)
   expect(r.tryOnHidden).toBe(true)
   expect(INVENTORY_SKINS.find((s) => s.id === 'gaygarx').sell.amount).toBe(250)
+})
+
+// 2026-10-24: right-column number badges, leaderboard rows that open a
+// player's profile, no account row on General, Terms/Privacy without the
+// disclaimer and with a build-dated "Last updated", the clan list preloaded.
+test('number badges, clickable leaderboard, General without account row, legal pages', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    // Two finished quests waiting to be claimed (and both unseen - the
+    // finished number wins, the new-quests circle stays hidden).
+    g.rollingQuests.activeQuests = () => [1, 2].map((spawnedAt) => ({ spawnedAt, progress: 5, template: { target: 5 } }))
+    g._updateQuestsDot()
+    const claim = document.getElementById('quests-claim-dot')
+    out.quest = [claim.style.display, claim.textContent, document.getElementById('quests-new-dot').style.display]
+    out.account = ['cloudsave-avatar', 'cloudsave-account-name', 'cloudsave-sync-now-btn', 'cloudsave-signout-btn'].map((id) => !!document.getElementById(id))
+    out.conflict = !!document.getElementById('cloudsave-conflict')
+    g._cloudUid = 'me-uid'
+    g._renderLeaderboardRows([{ uid: 'a', name: 'Tazbot', bestNight: 9, bestKills: 217 }, { uid: 'me-uid', name: 'Me', bestNight: 4, bestKills: 5 }])
+    const rows = [...document.querySelectorAll('#cloudsave-leaderboard-list .lb-row:not(.lb-head)')]
+    out.rows = rows.map((row) => [row.querySelector('.lb-rank').textContent, row.classList.contains('me'), [...row.querySelectorAll('.lb-stat')].map((s) => s.textContent)])
+    let opened = null
+    g._openOtherPlayerProfile = (uid, name) => { opened = [uid, name] }
+    rows[0].querySelector('.lb-name-link').click()
+    out.opened = opened
+    g._openTermsPanel()
+    out.notes = document.querySelectorAll('.legal-note').length
+    out.updated = document.querySelector('#terms-content .legal-updated').textContent
+    out.clanLoaded = await Promise.race([g._fetchClanRanking().then(() => true), new Promise((res) => setTimeout(() => res('slow'), 8000))])
+    return out
+  })
+  expect(r.quest).toEqual(['', '2', 'none'])
+  expect(r.account).toEqual([false, false, false, false])
+  expect(r.conflict).toBe(true)
+  expect(r.rows).toEqual([['1', false, ['9', '217']], ['2', true, ['4', '5']]])
+  expect(r.opened).toEqual(['a', 'Tazbot'])
+  expect(r.notes).toBe(0)
+  expect(r.updated).toMatch(/^Last updated: [A-Z][a-z]+ \d{1,2}, 20\d\d$/)
+  expect(r.clanLoaded).toBe(true)
 })

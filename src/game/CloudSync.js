@@ -829,6 +829,10 @@ export async function fetchTopLeaderboard(n, region) {
 // links straight to a pre-filled "create it" page), and the old bare
 // `() => {}` error handler swallowed that (or any other subscription
 // error - a network blip, quota, anything) completely silently.
+// Leaderboard and weekly docs are keyed by the player's uid; rows carry it
+// so clicking a name can open that player's profile (2026-10-24).
+const withUid = (d) => ({ ...d.data(), uid: d.id })
+
 export function subscribeTopLeaderboard(n, region, callback) {
   let unsub = () => {}
   let cancelled = false
@@ -837,7 +841,7 @@ export function subscribeTopLeaderboard(n, region, callback) {
     const constraints = [fsMod.orderBy('bestNight', 'desc'), fsMod.limit(n)]
     if (region && region !== 'global') constraints.unshift(fsMod.where('region', '==', region))
     const q = fsMod.query(fsMod.collection(db, 'leaderboard'), ...constraints)
-    unsub = fsMod.onSnapshot(q, (snap) => callback(snap.docs.map((d) => d.data())), () => callback(null))
+    unsub = fsMod.onSnapshot(q, (snap) => callback(snap.docs.map(withUid)), () => callback(null))
   })
   return () => {
     cancelled = true
@@ -852,7 +856,7 @@ export async function fetchTopByAchievements(n) {
   const { db, fsMod } = await ensureApp()
   const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('achievementCount', 'desc'), fsMod.limit(n))
   const snap = await fsMod.getDocs(q)
-  return snap.docs.map((d) => d.data())
+  return snap.docs.map(withUid)
 }
 
 // Global average comparison - a real server-side AVG aggregation (not a
@@ -1532,8 +1536,8 @@ export async function fetchNearbyRank(bestNight, n) {
     fsMod.getDocs(fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('bestNight', '<', bestNight), fsMod.orderBy('bestNight', 'desc'), fsMod.limit(n))),
   ])
   return {
-    above: aboveSnap.docs.map((d) => d.data()),
-    below: belowSnap.docs.map((d) => d.data()),
+    above: aboveSnap.docs.map(withUid),
+    below: belowSnap.docs.map(withUid),
   }
 }
 
@@ -1549,7 +1553,7 @@ export async function fetchTopWeeklyLeaderboard(weekStr, n) {
   const { db, fsMod } = await ensureApp()
   const q = fsMod.query(fsMod.collection(db, 'weeklyLeaderboard', weekStr, 'entries'), fsMod.orderBy('progress', 'desc'), fsMod.limit(n))
   const snap = await fsMod.getDocs(q)
-  return snap.docs.map((d) => d.data())
+  return snap.docs.map(withUid)
 }
 
 // Global Kill Counter - a single doc, bumped via Firestore's atomic

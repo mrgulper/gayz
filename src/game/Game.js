@@ -167,11 +167,6 @@ export const RANDOM_NICKNAME_ADJECTIVES = ['Rusty', 'Silent', 'Grim', 'Feral', '
 export const RANDOM_NICKNAME_NOUNS = ['Wolf', 'Scav', 'Reaper', 'Nomad', 'Ghost', 'Viper', 'Ranger', 'Drifter', 'Hound', 'Raven']
 
 
-// Leaderboard podium styling (ranks 1-3, see _renderLeaderboardRows/
-// _renderWeeklyLeaderboardList) - plain ordinal text + a gold/silver/
-// bronze CSS class, not emoji medals (this codebase has a documented
-// no-emoji UI convention, see #profile-emblem-row's own comment).
-export const PODIUM_MEDALS = ['1st', '2nd', '3rd']
 // Cache Storage name for the saved weapon pictures (see _loadSavedWeaponThumbs).
 export const WEAPON_THUMBS_CACHE = 'gayz-weapon-thumbs-v2'
 
@@ -1354,8 +1349,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'cloudsave-offline-warning': 'cloudsaveOfflineWarning',
   'cloudsave-use-cloud-btn': 'cloudsaveUseCloudBtnLabel',
   'cloudsave-use-local-btn': 'cloudsaveUseLocalBtnLabel',
-  'cloudsave-sync-now-btn': 'cloudsaveSyncNowBtnLabel',
-  'cloudsave-signout-btn': 'cloudsaveSignoutBtnLabel',
   'status-row-heading': 'statusRowHeading',
   'status-pick-label-online': 'friendStatusOnline',
   'status-pick-label-idle': 'friendStatusIdle',
@@ -2726,6 +2719,9 @@ export class Game {
     }).catch(() => { /* tried again on Play */ }))
     // The Market's listings too, so opening it shows them at once.
     setTimeout(() => idle(() => { if (this._marketListings === null) this._loadMarketListings() }), 3000)
+    // And the clan list, so General > Clan shows it at once (2026-10-24,
+    // "make it load already when the game loads").
+    setTimeout(() => idle(() => { if (navigator.onLine !== false) this._fetchClanRanking().catch(() => {}) }), 3000)
     // And Design a Skin (2026-10-16, "when you reload the design a skin is
     // already reloaded for you"): its page loads in the hidden panel, so
     // opening it shows the finished tool at once.

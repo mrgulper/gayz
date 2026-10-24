@@ -894,25 +894,6 @@ html.layout-compact .menu-panel {
   opacity: 0.8;
 }
 
-#cloudsave-avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: 2px solid var(--ui-gold-bright);
-}
-
-#cloudsave-account-name {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-#cloudsave-sync-status {
-  margin: 0;
-  font-size: 12px;
-  opacity: 0.65;
-}
-
 #cloudsave-conflict {
   display: flex;
   flex-direction: column;
@@ -934,13 +915,14 @@ html.layout-compact .menu-panel {
    scroll region (same max-height+overflow-y pattern #whats-new-digest-list
    already uses) rather than letting the whole modal grow past the
    viewport once leaderboard rows + poll options stack up. */
+/* Leaderboards fill General's tab now the account row is gone
+   (2026-10-24): the panel's 68vh minus the tab buttons. */
 #cloudsave-online-section {
   width: 100%;
-  max-height: 46vh;
+  max-height: calc(68vh - 60px);
   overflow-y: auto;
-  margin-top: 6px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  margin-top: 0;
+  padding-top: 4px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1420,27 +1402,98 @@ html.ui-theme-old #cloudsave-region-select {
   cursor: pointer;
 }
 
-.cloud-leaderboard-row {
+/* General's leaderboards (2026-10-24 redesign, OnlineUI lbRow): rank in a
+   circle (gold/silver/bronze for the top 3), the name (a button that opens
+   that player's profile), then right-aligned number columns under a small
+   header. Your own row is tinted. */
+.lb-row {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 3px 4px;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 6px 10px;
+  font-size: 14px;
+  border-radius: 10px;
+}
+.lb-row + .lb-row:not(.me, .lb-head) {
+  box-shadow: inset 0 1px 0 rgba(var(--ui-gold-bright-rgb), 0.1);
+}
+.lb-row.lb-head {
+  min-height: 0;
+  padding: 2px 10px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.lb-rank {
+  flex: 0 0 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
   font-size: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-/* Leaderboard podium (top 3, see PODIUM_MEDALS) */
-.cloud-leaderboard-row.podium-1 { color: #e0c040; font-weight: 700; }
-.cloud-leaderboard-row.podium-2 { color: #c8ccd4; font-weight: 700; }
-.cloud-leaderboard-row.podium-3 { color: #cdb452; font-weight: 700; }
-
-.cloud-leaderboard-row:last-child {
-  border-bottom: none;
-}
-
-.cloud-leaderboard-row.me {
-  color: #ffde5c;
   font-weight: 700;
+  background: rgba(var(--ui-gold-bright-rgb), 0.1);
+}
+.lb-rank:empty,
+.lb-head .lb-rank {
+  background: none;
+}
+.podium-1 .lb-rank { background: #f2c94c; color: #1d1d1f !important; }
+.podium-2 .lb-rank { background: #cfd4dc; color: #1d1d1f !important; }
+.podium-3 .lb-rank { background: #d9a066; color: #1d1d1f !important; }
+.lb-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-weight: 600;
+}
+#cloudsave-online-section .lb-row .lb-name-link {
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  filter: none;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+#cloudsave-online-section .lb-row .lb-name-link:hover,
+#cloudsave-online-section .lb-row .lb-name-link:focus-visible {
+  background: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.lb-tag {
+  flex: 0 0 auto;
+  font-size: 11px;
+  opacity: 0.7;
+}
+.lb-stat {
+  flex: 0 0 64px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.lb-head .lb-name {
+  font-weight: 600;
+}
+.lb-row.me {
+  background: rgba(var(--ui-gold-bright-rgb), 0.12);
+  font-weight: 700;
+}
+@media (max-width: 480px) {
+  .lb-row { gap: 8px; padding: 6px 6px; font-size: 13px; }
+  .lb-stat { flex-basis: 48px; }
 }
 
 .cloud-leaderboard-empty {
@@ -7335,6 +7388,33 @@ html.ui-theme-old #footer-menu .footer-menu-title {
   border-radius: 50%;
 }
 
+/* Right-column badges are a circle with a number (2026-10-24, NavBadges.js)
+   instead of a 7px dot. Still a zero-layout overlay on the corner. */
+#menu-nav-buttons .nav-badge-dot {
+  top: -7px;
+  right: -7px;
+  min-width: 20px;
+  height: 20px;
+  width: auto;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-width: 2px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font: 700 11px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  letter-spacing: 0;
+  color: #fff;
+  pointer-events: none;
+  z-index: 2;
+}
+#menu-nav-buttons .nav-badge-dot.gold {
+  color: #1d1d1f;
+}
+#menu-nav-buttons .nav-badge-dot:is(#quests-new-dot, #friends-accepted-dot) {
+  right: -7px;
+}
+
 /* Gallery (Coming Soon, 2026-10-09): a little dimmer than the live
    buttons, with a "Coming Soon" pill inside the plaque, on its right
    before the end cap (2026-10-10: on the plaque's top edge it hung into
@@ -8189,8 +8269,14 @@ html.ui-theme-old #settings-panel h2 {
    layout below (member list + stats/requests side by side) - the
    General/Market tabs' placeholder text stays fine at the narrower
    shared width above. */
-#general-page-clan {
-  width: min(640px, 90vw);
+#general-page-clan,
+#general-page-general {
+  width: min(640px, 90vw, 100%);
+  max-width: 100%;
+}
+/* The leaderboards' headings line up on the left like the rows (2026-10-24). */
+#cloudsave-online-section {
+  text-align: left;
 }
 
 /* General/Market are just an unstyled "Coming soon." line by default,

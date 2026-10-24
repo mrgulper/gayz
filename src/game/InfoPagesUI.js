@@ -173,8 +173,21 @@ export function _closeCreditsPanel(game) {
   game.creditsPanel.style.display = 'none'
 }
 
+// "Last updated" on Terms and Privacy is the day the live build was made,
+// so it moves with every game update (2026-10-24, Gaymi: "make terms of use
+// and privacy policy update as the game updates"). The date in index.html
+// is only the fallback. New online features also get a line in the text
+// itself (see CLAUDE.md).
+export function fillLegalUpdatedDates(root = document) {
+  const day = typeof __BUILD_DATE__ === 'string' ? new Date(`${__BUILD_DATE__}T12:00:00Z`) : null
+  if (!day || Number.isNaN(day.getTime())) return
+  const text = `Last updated: ${day.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })}`
+  for (const el of root.querySelectorAll('#terms-content .legal-updated, #privacy-content .legal-updated')) el.textContent = text
+}
+
 export function _openTermsPanel(game) {
   game._closeAllMenuPanels()
+  fillLegalUpdatedDates()
   game.termsPanel.style.display = 'flex'
   game.termsPanelTitle.textContent = t('termsBtn')
 }
@@ -185,6 +198,7 @@ export function _closeTermsPanel(game) {
 
 export function _openPrivacyPanel(game) {
   game._closeAllMenuPanels()
+  fillLegalUpdatedDates()
   game.privacyPanel.style.display = 'flex'
   game.privacyPanelTitle.textContent = t('creditsPrivacyLink')
 }
