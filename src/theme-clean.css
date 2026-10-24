@@ -278,16 +278,18 @@ html.ui-theme-clean .panel-box > h2 {
   letter-spacing: -0.01em;
   text-transform: none;
 }
+/* A plain X - no circle behind it, at rest or after a click (2026-10-24). */
 html.ui-theme-clean .panel-box > .panel-close-btn {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
-  background: var(--clean-surface);
-  font-size: 20px;
+  background: none;
+  font-size: 22px;
   font-weight: 400;
+  opacity: 0.7;
 }
 html.ui-theme-clean .panel-box > .panel-close-btn:hover {
-  background: var(--clean-hover);
+  background: none;
+  opacity: 1;
 }
 
 /* Buttons, tabs, inputs and dropdowns inside panels. */
@@ -662,15 +664,27 @@ html.ui-theme-clean #menu-player-tag {
   opacity: 0.75;
 }
 
-/* Number badges on the right column (NavBadges.js): red with white words,
-   finished ones in the ink with page-colour words. Three ids so it beats
-   the card-words rule above. */
-html.ui-theme-clean #menu #menu-nav-buttons :is(#upgrades-dot, #friends-request-dot, #quests-new-dot, #store-new-dot) {
-  color: #fff !important;
-  border-color: var(--clean-card);
-}
-html.ui-theme-clean #menu #menu-nav-buttons :is(#quests-claim-dot, #achievements-new-dot, #friends-accepted-dot) {
+/* Number badges on the right column (NavBadges.js): every one in the ink
+   with card-colour words, so the number reads on any picked colour
+   (2026-10-24, "make it theme based ... you cant really see the number in
+   red"). Three ids so it beats the card-words rule above. */
+html.ui-theme-clean #menu #menu-nav-buttons .nav-badge-dot:is(#upgrades-dot, #friends-request-dot, #quests-new-dot, #store-new-dot, #quests-claim-dot, #achievements-new-dot, #friends-accepted-dot) {
   background: var(--clean-fg);
   color: var(--clean-card) !important;
   border-color: var(--clean-card);
+}
+
+/* Profile (both tabs): the cards, notes box and chart were near-black
+   washes made for a dark panel - in Simple they're the panel's own light
+   surface with a thin line, like the other panel controls (2026-10-24,
+   "the hidden part its too dark make it lighter and based on the theme"). */
+html.ui-theme-clean :is(.profile-stat-card, #profile-content #highlight-reel-heading, #profile-content #rank-roadmap-heading, #profile-content #recent-unlocks-heading, #profile-content #prestige-history-heading, #highlight-reel-list, #rank-roadmap-list, #recent-unlocks-list, #prestige-history-list, #stats-dashboard-canvas, #profile-notes-input) {
+  background: var(--clean-surface);
+  border-color: var(--clean-line);
+}
+html.ui-theme-clean #profile-content :is(#highlight-reel-heading, #rank-roadmap-heading, #recent-unlocks-heading, #prestige-history-heading) {
+  border-bottom: none;
+}
+html.ui-theme-clean :is(#highlight-reel-list, #rank-roadmap-list, #recent-unlocks-list, #prestige-history-list) {
+  border-top: none;
 }

@@ -118,7 +118,7 @@ service cloud.firestore {
         && request.resource.data.bestNight is int && request.resource.data.bestNight >= 0 && request.resource.data.bestNight < 1000
         && request.resource.data.bestKills is int && request.resource.data.bestKills >= 0 && request.resource.data.bestKills < 1000000
         && request.resource.data.bestKillStreak is int && request.resource.data.bestKillStreak >= 0 && request.resource.data.bestKillStreak < 100000
-        && request.resource.data.achievementCount is int && request.resource.data.achievementCount >= 0 && request.resource.data.achievementCount <= 19
+        && request.resource.data.achievementCount is int && request.resource.data.achievementCount >= 0 && request.resource.data.achievementCount <= 1000
         && (!('region' in request.resource.data) || request.resource.data.region in ['na', 'eu', 'asia', 'sa', 'oceania', 'africa'])
         && (!('playerId' in request.resource.data) || (request.resource.data.playerId is string && request.resource.data.playerId.size() >= 6 && request.resource.data.playerId.size() <= 10))
         && (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is int)
@@ -753,9 +753,19 @@ export async function pushCloudSaveIfUnchanged(uid, dataObj, expectedUpdatedAt) 
 // (not appended), so a player only ever has one entry regardless of how
 // many times they've synced. entry: { name, bestNight, bestKills,
 // bestKillStreak }, validated server-side by FIRESTORE_SECURITY_RULES.
+// The rules want whole numbers (`is int`); playtime and run times are
+// measured in fractions, and one decimal made Firestore reject the whole
+// write - nobody's leaderboard doc (or clan XP) updated from ~2026-10-10
+// until this rounding (2026-10-24, "i got xp and its still 0").
+export function wholeNumbers(entry) {
+  const out = {}
+  for (const [k, v] of Object.entries(entry)) out[k] = typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : v
+  return out
+}
+
 export async function pushLeaderboardEntry(uid, entry) {
   const { db, fsMod } = await ensureApp()
-  await fsMod.setDoc(fsMod.doc(db, 'leaderboard', uid), { ...entry, updatedAt: Date.now() })
+  await fsMod.setDoc(fsMod.doc(db, 'leaderboard', uid), { ...wholeNumbers(entry), updatedAt: Date.now() })
 }
 
 // Friend presence heartbeat - a `{merge: true}` write touching only
@@ -1546,7 +1556,7 @@ export async function fetchNearbyRank(bestNight, n) {
 // weeks' rankings stay intact rather than getting overwritten every week.
 export async function pushWeeklyLeaderboardEntry(weekStr, uid, entry) {
   const { db, fsMod } = await ensureApp()
-  await fsMod.setDoc(fsMod.doc(db, 'weeklyLeaderboard', weekStr, 'entries', uid), { ...entry, updatedAt: Date.now() })
+  await fsMod.setDoc(fsMod.doc(db, 'weeklyLeaderboard', weekStr, 'entries', uid), { ...wholeNumbers(entry), updatedAt: Date.now() })
 }
 
 export async function fetchTopWeeklyLeaderboard(weekStr, n) {

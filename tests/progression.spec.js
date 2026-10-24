@@ -347,3 +347,23 @@ test('a finished game earns XP, levels come from XP, clan XP is per clan and mon
   // Nov 1 starts at midnight Los Angeles time (07:00 UTC in daylight time).
   expect(r.laMidnightFlip).toEqual(['2026-10', '2026-11'])
 })
+
+// Print Achievements List (2026-10-24): every achievement, whatever the
+// panel's filter, 8 across x 9 down on one landscape page.
+test('printing achievements puts all of them on one page', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const count = await page.evaluate(() => {
+    window.print = () => {}
+    const g = window.__game
+    if (g.achievementsSortSelect) g.achievementsSortSelect.value = 'achieved'
+    g.printAchievementsBtn.click()
+    return document.querySelectorAll('#print-stats-sheet .print-ach-row').length
+  })
+  expect(count).toBe(72)
+  await page.emulateMedia({ media: 'print' })
+  const pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true })
+  const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length
+  expect(pages).toBe(1)
+  const fs = await import('node:fs')
+  fs.writeFileSync(test.info().outputPath('achievements-print.pdf'), pdf)
+})
