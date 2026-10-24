@@ -519,7 +519,12 @@ export function _fetchClanRanking(game) {
   })()
   game._clanRankingCache = { at: Date.now(), promise }
   // A failed or empty load isn't worth keeping - try again next time.
-  promise.then((list) => { if (!list.length && game._clanRankingCache?.promise === promise) game._clanRankingCache = null })
+  // A good one is kept as _clanRankingLast, so the Clan tab can show it
+  // straight away even after the cache runs out (and update it after).
+  promise.then((list) => {
+    if (list.length) game._clanRankingLast = list
+    else if (game._clanRankingCache?.promise === promise) game._clanRankingCache = null
+  })
   return promise
 }
 
@@ -529,12 +534,21 @@ function fmt(n) {
   return (Number(n) || 0).toLocaleString()
 }
 
+// Shows the last loaded list at once (loaded when the game starts, see
+// Game's idle preloads), then the fresh one if it had to be fetched again.
 export async function _renderClanRanking(game) {
   if (!game.clanAllList) return
-  game.clanAllList.innerHTML = ''
   const resetNote = document.getElementById('clan-reset-note')
   if (resetNote) resetNote.textContent = t('clanResetNote', { n: daysUntilClanReset() })
+  const shown = game._clanRankingLast
+  if (shown) fillClanRanking(game, shown)
+  else game.clanAllList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveConnecting')}</p>`
   const ranked = await game._fetchClanRanking()
+  if (ranked === shown) return
+  fillClanRanking(game, ranked)
+}
+
+function fillClanRanking(game, ranked) {
   if (!ranked.length) {
     game.clanAllList.innerHTML = `<p>${t('clanListEmpty')}</p>`
     return

@@ -14,6 +14,7 @@ import { POINTS_PER_KILL, POINTS_PER_WAVE } from './PlayRules.js'
 import { QUESTS } from './Quests.js'
 import { EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQuests.js'
 import { t } from './i18n.js'
+import { setNavBadge } from './NavBadges.js'
 import { addClanXp, xpForGame } from './Xp.js'
 
 // Personal stats dashboard (batch feature) - a simple bar chart of kills
@@ -686,13 +687,14 @@ export function _updateUpgradesDot(game) {
     seen = new Set(PLAY_META_UPGRADES.map((u) => u.id))
     _saveSeenIds(UPGRADES_SEEN_IDS_KEY, seen)
   }
-  const hasNewUpgrade = PLAY_META_UPGRADES.some((u) => !seen.has(u.id))
-  const canAffordOne = PLAY_META_UPGRADES.some((u) => {
+  // The number is how many upgrades are new or affordable right now.
+  const count = PLAY_META_UPGRADES.filter((u) => {
+    if (!seen.has(u.id)) return true
     if (game.metaProgress.purchased.has(u.id)) return false
     if (u.requires && !game.metaProgress.purchased.has(u.requires)) return false
     return game.metaProgress.legacyPoints >= u.cost
-  })
-  game.upgradesDot.style.display = (hasNewUpgrade || canAffordOne) ? '' : 'none'
+  }).length
+  setNavBadge(game.upgradesDot, count)
 }
 
 export function _markUpgradesSeen(game) {
@@ -709,7 +711,7 @@ export function _updateAchievementsDot(game) {
     seen = new Set(game.achievements.unlocked)
     _saveSeenIds(ACHIEVEMENTS_SEEN_IDS_KEY, seen)
   }
-  game.achievementsNewDot.style.display = [...game.achievements.unlocked].some((id) => !seen.has(id)) ? '' : 'none'
+  setNavBadge(game.achievementsNewDot, [...game.achievements.unlocked].filter((id) => !seen.has(id)).length)
 }
 
 export function _markAchievementsSeen(game) {
@@ -723,9 +725,10 @@ export function _markAchievementsSeen(game) {
 // the instant the reward is claimed.
 export function _updateQuestsDot(game) {
   if (!game.questsClaimDot) return
-  const lifetimeReady = QUESTS.some((q) => game.quests.isComplete(q, game) && !game.quests.isClaimed(q.id))
-  const rollingReady = game.rollingQuests.activeQuests().some((q) => q.progress >= q.template.target)
-  game.questsClaimDot.style.display = (lifetimeReady || rollingReady) ? '' : 'none'
+  // The number is how many quests are finished and waiting to be claimed.
+  const lifetimeReady = QUESTS.filter((q) => game.quests.isComplete(q, game) && !game.quests.isClaimed(q.id)).length
+  const rollingReady = game.rollingQuests.activeQuests().filter((q) => q.progress >= q.template.target).length
+  setNavBadge(game.questsClaimDot, lifetimeReady + rollingReady)
   game._updateQuestsNewDot()
 }
 
@@ -743,9 +746,10 @@ export function _updateQuestsNewDot(game) {
     seen = new Set([...QUESTS.map((q) => q.id), ...game.rollingQuests.activeQuests().map((q) => q.spawnedAt)])
     _saveSeenIds(QUESTS_SEEN_IDS_KEY, seen)
   }
-  const hasNewLifetime = QUESTS.some((q) => !seen.has(q.id))
-  const hasNewRolling = game.rollingQuests.activeQuests().some((q) => !seen.has(q.spawnedAt))
-  game.questsNewDot.style.display = (hasNewLifetime || hasNewRolling) ? '' : 'none'
+  // One circle per button: the finished-quests number wins; otherwise this
+  // one shows how many quests are new.
+  const newCount = QUESTS.filter((q) => !seen.has(q.id)).length + game.rollingQuests.activeQuests().filter((q) => !seen.has(q.spawnedAt)).length
+  setNavBadge(game.questsNewDot, game.questsClaimDot && game.questsClaimDot.style.display !== 'none' ? 0 : newCount)
 }
 
 export function _markQuestsSeen(game) {

@@ -7,9 +7,10 @@
    surface / --clean-hover (the colour nudged toward the text) and
    --clean-fg-rgb. No photos, plates, glows, rain or texture - flat
    colour, a system sans-serif, rounded boxes and pill buttons.
-   Homepage buttons are cards filled with the opposite colour
-   (--clean-card, words in --clean-card-fg) with a soft shadow, and grow a little when pointed at - like
-   apple.com (2026-10-23).
+   The homepage page is --clean-page (the colour a shade darker: white ->
+   light grey) and its buttons are cards in the picked colour (--clean-card,
+   words in --clean-card-fg) with a soft shadow that grow a little when
+   pointed at - like apple.com (2026-10-24).
    Sizes and positions stay the same as Old (theme parity rule); only
    colour, art and font change here. */
 
@@ -33,10 +34,10 @@ html.ui-theme-clean {
   --grain-texture: none;
   font-family: var(--clean-font);
   color: var(--clean-fg);
-  background: var(--clean-bg);
+  background: var(--clean-page, var(--clean-bg));
 }
 html.ui-theme-clean body {
-  background: var(--clean-bg);
+  background: var(--clean-page, var(--clean-bg));
   color: var(--clean-fg);
 }
 html.ui-theme-clean input::selection,
@@ -49,7 +50,7 @@ html.ui-theme-clean * {
 
 /* ---- Homepage: just the colour ---- */
 html.ui-theme-clean #menu-bg {
-  background: var(--clean-bg-image, none) center / cover no-repeat, var(--clean-bg);
+  background: var(--clean-bg-image, none) center / cover no-repeat, var(--clean-page, var(--clean-bg));
 }
 html.ui-theme-clean #menu-bg > * {
   display: none !important;
@@ -86,11 +87,11 @@ html.ui-theme-clean #homepage-greeting {
   letter-spacing: 0;
 }
 
-/* PLAY: a solid pill in the text colour (the one strong thing on the page). */
+/* PLAY: a big card pill like the other boxes (2026-10-24, "all white"). */
 html.ui-theme-clean #play-btn {
-  background: var(--clean-fg);
+  background: var(--clean-card);
   border-radius: 999px;
-  color: var(--clean-bg);
+  color: var(--clean-card-fg);
   font-family: var(--clean-font);
   font-size: clamp(26px, 3.4vw, 44px);
   font-weight: 600;
@@ -145,9 +146,12 @@ html.ui-theme-clean #settings-btn svg {
 
 /* Profile card and nav buttons: flat rounded boxes. */
 /* Same box as Old's profile plate (theme parity): avatar and ID centred. */
+/* A small gap under the card, not overlapping General (2026-10-24).
+   Old's -16px moved to the top, so the column keeps Old's height and the
+   nav buttons stay where Old's are. */
 html.ui-theme-clean #menu-player-badge {
   width: calc(100% + 24px);
-  margin: 0 -12px -16px;
+  margin: -16px -12px 0;
   aspect-ratio: 1230 / 1278;
   justify-content: center;
   gap: 12px;
@@ -197,7 +201,7 @@ html.ui-theme-clean :is(#play-btn, #gamemode-btn, #settings-btn, #menu-player-ba
   transform: none;
   transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s ease;
 }
-html.ui-theme-clean :is(#gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button, #menu-currency-bar, #homepage-clock) {
+html.ui-theme-clean :is(#play-btn, #gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button, #menu-currency-bar, #homepage-clock) {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 14px rgba(0, 0, 0, 0.06) !important;
 }
 @media (hover: hover) {
@@ -208,7 +212,7 @@ html.ui-theme-clean :is(#gamemode-btn, #settings-btn, #menu-player-badge, #menu-
   html.ui-theme-clean :is(#menu-player-badge:hover, #menu-player-badge.nav-hover) {
     transform: scale(1.02);
   }
-  html.ui-theme-clean :is(#gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button):hover,
+  html.ui-theme-clean :is(#play-btn, #gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button):hover,
   html.ui-theme-clean :is(#menu-player-badge, #menu-nav-buttons button).nav-hover {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05), 0 12px 30px rgba(0, 0, 0, 0.1) !important;
   }
@@ -234,7 +238,7 @@ html.ui-theme-clean #menu-links-row a:hover,
 html.ui-theme-clean #menu-links-row button:hover {
   color: var(--clean-fg);
 }
-/* The hover drop-downs: an opposite-colour card on a frosted page, like
+/* The hover drop-downs: a card like the homepage boxes on a frosted page, like
    apple.com's. */
 html.ui-theme-clean :is(#footer-menu, .hover-menu) {
   background: var(--clean-card);
@@ -647,13 +651,26 @@ html.ui-theme-clean #levels-bar-fill {
   background: var(--clean-fg);
 }
 
-/* Words and icons on the opposite-colour homepage boxes are the picked
-   colour (2026-10-23). After the #menu ink rule above, same weight, so
+/* Words and icons on the homepage boxes are --clean-card-fg (the text
+   colour, 2026-10-24). After the #menu ink rule above, same weight, so
    this wins. The level star keeps its black number. */
-html.ui-theme-clean #menu :is(#gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button, #menu-currency-bar, #homepage-clock, #footer-menu, .hover-menu),
-html.ui-theme-clean #menu :is(#gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button, #menu-currency-bar, #homepage-clock, #footer-menu, .hover-menu) :not(#menu-avatar-level) {
+html.ui-theme-clean #menu :is(#play-btn, #gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button, #menu-currency-bar, #homepage-clock, #footer-menu, .hover-menu),
+html.ui-theme-clean #menu :is(#play-btn, #gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button, #menu-currency-bar, #homepage-clock, #footer-menu, .hover-menu) :not(#menu-avatar-level) {
   color: var(--clean-card-fg) !important;
 }
 html.ui-theme-clean #menu-player-tag {
   opacity: 0.75;
+}
+
+/* Number badges on the right column (NavBadges.js): red with white words,
+   finished ones in the ink with page-colour words. Three ids so it beats
+   the card-words rule above. */
+html.ui-theme-clean #menu #menu-nav-buttons :is(#upgrades-dot, #friends-request-dot, #quests-new-dot, #store-new-dot) {
+  color: #fff !important;
+  border-color: var(--clean-card);
+}
+html.ui-theme-clean #menu #menu-nav-buttons :is(#quests-claim-dot, #achievements-new-dot, #friends-accepted-dot) {
+  background: var(--clean-fg);
+  color: var(--clean-card) !important;
+  border-color: var(--clean-card);
 }

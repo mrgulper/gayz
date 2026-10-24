@@ -8,6 +8,7 @@
 import * as CloudSaveUI from './CloudSaveUI.js'
 import * as CloudSync from './CloudSync.js'
 import * as GalleryUI from './GalleryUI.js'
+import * as OnlineUI from './OnlineUI.js'
 import { setColorblindMode } from './Accessibility.js'
 import { ACHIEVEMENTS } from './Achievements.js'
 import { audioEngine } from './Audio.js'
@@ -1570,6 +1571,8 @@ export function _bindSettings(game) {
   // Delegated (one listener survives every _renderSavedFriends re-render,
   // rather than needing to rebind per row) - clicking a friend's row
   // opens their public profile, clicking the × still just removes them.
+  // Names on General's leaderboards open that player's profile.
+  OnlineUI.bindLeaderboardClicks(game)
   if (game.cloudsaveSavedFriends) {
     game.cloudsaveSavedFriends.addEventListener('click', (e) => {
       if (e.target.closest('.saved-friend-remove')) return
