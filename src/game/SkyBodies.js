@@ -51,6 +51,28 @@ function sunTexture() {
   return tex
 }
 
+// A solar eclipse (BuildSky's rare 'eclipse' weather): the moon's black
+// disc over the sun with the thin white corona round it.
+function eclipseTexture() {
+  const tex = new THREE.CanvasTexture(canvas(256, (g, n) => {
+    const c = n / 2
+    const r = n * 0.16
+    const corona = g.createRadialGradient(c, c, r * 0.95, c, c, c)
+    corona.addColorStop(0, 'rgba(255,255,255,0.95)')
+    corona.addColorStop(0.08, 'rgba(235,240,255,0.55)')
+    corona.addColorStop(0.35, 'rgba(200,215,255,0.12)')
+    corona.addColorStop(1, 'rgba(200,215,255,0)')
+    g.fillStyle = corona
+    g.fillRect(0, 0, n, n)
+    g.fillStyle = '#05060a'
+    g.beginPath()
+    g.arc(c, c, r, 0, Math.PI * 2)
+    g.fill()
+  }))
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
 function moonTexture() {
   const tex = new THREE.CanvasTexture(canvas(256, (g, n) => {
     const c = n / 2
@@ -144,6 +166,11 @@ export class SkyBodies {
     this.moon = new THREE.Sprite(mat(moonTexture()))
     this.moon.scale.setScalar(MOON_SIZE)
     this.sun.renderOrder = this.moon.renderOrder = -1
+    this.eclipse = new THREE.Sprite(mat(eclipseTexture()))
+    this.eclipse.scale.setScalar(SUN_SIZE * 0.75)
+    this.eclipse.renderOrder = 0
+    this.eclipse.visible = false
+    scene.add(this.eclipse)
     this.cloudMat = new THREE.ShaderMaterial({
       uniforms: {
         map: { value: cloudTexture() },
@@ -221,11 +248,13 @@ export class SkyBodies {
 
   show(on) {
     for (const o of [this.dome, this.sun, this.moon, this.clouds]) o.visible = on
+    if (!on) this.eclipse.visible = false
   }
 
   // phase: time of day; cover 0-1 how overcast; daylight 0-1 (night 0);
   // sky: the sky/fog colour (BuildSky), the dome's horizon.
-  update(dt, camera, phase, cover, daylight, sky) {
+  // eclipse: 0-1, how far a solar eclipse has come in.
+  update(dt, camera, phase, cover, daylight, sky, eclipse = 0) {
     if (!this.clouds.visible) return
     const cam = camera.position
     // One arc: high overhead at noon (phase 0), down in the west at
@@ -239,6 +268,12 @@ export class SkyBodies {
     const moonUp = THREE.MathUtils.smoothstep(-this._dir.y, -0.08, 0.08)
     this.sun.material.opacity = sunUp * (1 - cover * 0.85)
     this.moon.material.opacity = moonUp * (1 - cover * 0.85)
+    this.eclipse.visible = eclipse > 0.01 && sunUp > 0
+    if (this.eclipse.visible) {
+      this.eclipse.position.copy(cam).addScaledVector(this._dir, SKY_R - 1)
+      this.eclipse.material.opacity = eclipse * sunUp
+      this.sun.material.opacity *= 1 - eclipse * 0.7
+    }
     // The dome: the horizon is the fog's colour; overhead is a deeper,
     // bluer version of it on a clear day, about the same when overcast.
     if (sky) {
@@ -248,7 +283,7 @@ export class SkyBodies {
       const deep = (1 - cover) * daylight
       u.zenith.value.setRGB(sky.r * (1 - 0.45 * deep), sky.g * (1 - 0.3 * deep), sky.b * (1 - 0.08 * deep))
       u.sunDir.value.copy(this._dir)
-      u.glowAmount.value = sunUp * (1 - cover) * (0.35 + 0.65 * daylight)
+      u.glowAmount.value = sunUp * (1 - cover) * (0.35 + 0.65 * daylight) * (1 - eclipse)
     }
     // Clouds: anchored to the world, drifting with the wind.
     this._wind += dt * WIND

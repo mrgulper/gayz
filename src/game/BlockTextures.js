@@ -150,6 +150,20 @@ function stone(px, base, r) {
   }
 }
 
+// Natural rock for mountains, cliffs and the underground (2026-10-25,
+// Gaymi: "only use bricks in human made structures not mountains"): uneven
+// light and dark patches, a few cracks and grit - no mortar lines. Built
+// things use Stone Bricks (stonebricks) instead.
+function rock(px, base, r) {
+  stone(px, base, r)
+  const c = cells(r, 6)
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) px.scale(x, y, 0.86 + c.pts[c.at(x, y)][2] * 0.24)
+  }
+  speckle(px, mul(base, 0.7), r, 14)
+  speckle(px, mul(base, 1.18), r, 10)
+}
+
 function speckled(px, base, r, colors, count = 22) {
   noise(px, base, r, 0.08)
   colors.forEach((c) => speckle(px, c, r, count, 1))
@@ -1098,7 +1112,7 @@ function logFaces(bark, inner, r, birch = false) {
 const BY_ID = {
   concrete: concrete, asphalt: (px, b, r) => speckled(px, b, r, [mul(b, 1.5)], 10),
   dirt: dirt, sand: (px, b, r) => speckled(px, b, r, [mul(b, 0.88), mul(b, 1.08)], 30),
-  snow: (px, b, r) => noise(px, b, r, 0.03), stone: (px, b, r) => bricks(px, b, mul(b, 0.68), r, 8, 16, true),
+  snow: (px, b, r) => noise(px, b, r, 0.03), stone: rock,
   obsidian: (px, b, r) => obsidian(px, b, r, false), cryingobsidian: (px, b, r) => obsidian(px, b, r, true),
   granite: (px, b, r) => speckled(px, b, r, [[170, 110, 95], [110, 70, 60]], 26),
   marble: (px, b, r) => { polished(px, b, r); speckle(px, mul(b, 0.85), r, 8) },

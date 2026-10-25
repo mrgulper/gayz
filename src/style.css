@@ -11014,6 +11014,30 @@ html.caption-background #build-play-msg { background: rgba(0, 0, 0, 0.6); paddin
   background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(232, 194, 90, 0.5); border-radius: 999px;
 }
 .build-play-over-btns button:hover { border-color: #e8c25a; background: rgba(232, 194, 90, 0.18); }
+/* The You Died card follows the theme (2026-10-25): Old's paper and Rye
+   here, Clean's flat card in theme-clean.css. Same size in both. */
+html.ui-theme-old .build-play-over-card {
+  color: var(--old-ink, #2e1d0e); font-family: 'Rye', Georgia, serif;
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
+  border: none; border-radius: 0; filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.65));
+}
+html.ui-theme-old #build-play-over-title { font-family: 'Rye', Georgia, serif; color: #8b1a10; }
+html.ui-theme-old .build-play-over-btns button { font-family: 'Rye', Georgia, serif; color: #2e1d0e; background: rgba(107, 63, 23, 0.08); border-color: rgba(74, 44, 16, 0.55); }
+html.ui-theme-old .build-play-over-btns button:hover { background: rgba(107, 63, 23, 0.18); border-color: #4a2c10; }
+/* An open panel (Settings, Inventory...) covers the game: the health bar
+   in the middle of the screen would sit on top of it (2026-10-25). */
+html.menu-panel-open #build-play-health { display: none; }
+/* An explosion close by shakes the view (BuildSurvival shoot(), --boom =
+   how far). Off with Reduce Flashing. */
+.boom-shake { animation: boom-shake 0.45s ease-out; }
+@keyframes boom-shake {
+  0% { transform: translate(0, 0); }
+  12% { transform: translate(calc(var(--boom) * -1), var(--boom)); }
+  28% { transform: translate(var(--boom), calc(var(--boom) * -0.6)); }
+  46% { transform: translate(calc(var(--boom) * -0.5), calc(var(--boom) * -0.4)); }
+  66% { transform: translate(calc(var(--boom) * 0.3), calc(var(--boom) * 0.2)); }
+  100% { transform: translate(0, 0); }
+}
 
 /* Graphics connection lost (Game.js webglcontextlost): a small note at the
    top while the game waits for it to come back, instead of a full-screen

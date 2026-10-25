@@ -41,7 +41,11 @@ import { SkyBodies } from './SkyBodies.js'
 import { sampleLand, inCity } from './OpenWorld.js'
 
 export const SKY_TIMES = ['day', 'sunset', 'night', 'cycle']
-export const SKY_WEATHERS = ['clear', 'lightRain', 'hardRain', 'lightSnow', 'hardSnow', 'sandstorm', 'random']
+export const SKY_WEATHERS = ['clear', 'lightRain', 'hardRain', 'lightSnow', 'hardSnow', 'hail', 'fog', 'sandstorm', 'eclipse', 'random']
+// A solar eclipse (2026-10-25, Gaymi: "something rare eclipse has a 0.01
+// chance" - 0.01%): rolled first on every Random weather change, daytime
+// only. The editor's Weather button can still pick it to look at.
+const ECLIPSE_CHANCE = 0.0001
 // Saved before Map 1's weather was used here.
 const OLD_WEATHERS = { rain: 'lightRain', snow: 'lightSnow' }
 // A whole day: 1440 seconds, so one game minute is one real second
@@ -58,13 +62,16 @@ const PREF_VERSION = 2
 const SKY_EASE = 0.6 // how fast the sky, light and fog follow the weather
 const CLIMATE_CHECK_S = 2
 // Which weather each climate can have, with its chance (the rest is clear).
+// Snow, hail and fog can turn up in the city too now (2026-10-25, Gaymi:
+// "add more weathers ... snowing hard snowing light snowing and also add
+// hail") - just less often than where it's cold.
 const CLIMATES = {
-  mild: [['lightRain', 0.28], ['hardRain', 0.12]],
-  wet: [['lightRain', 0.4], ['hardRain', 0.25]],
-  cold: [['lightSnow', 0.35], ['hardSnow', 0.2]],
+  mild: [['lightRain', 0.24], ['hardRain', 0.1], ['fog', 0.08], ['lightSnow', 0.05], ['hardSnow', 0.025], ['hail', 0.03]],
+  wet: [['lightRain', 0.36], ['hardRain', 0.22], ['fog', 0.12], ['hail', 0.04]],
+  cold: [['lightSnow', 0.32], ['hardSnow', 0.2], ['fog', 0.08], ['hail', 0.04]],
   dry: [['sandstorm', 0.3]],
-  savanna: [['lightRain', 0.15]],
-  mountain: [['lightSnow', 0.2], ['lightRain', 0.15]],
+  savanna: [['lightRain', 0.15], ['fog', 0.03]],
+  mountain: [['lightSnow', 0.2], ['hardSnow', 0.06], ['lightRain', 0.12], ['fog', 0.12], ['hail', 0.05]],
 }
 const BIOME_CLIMATE = {
   snowyBeach: 'cold', snowyTaiga: 'cold', snowyPlains: 'cold', iceSpikes: 'cold', snowyPeaks: 'cold', frozenOcean: 'cold',
@@ -80,13 +87,19 @@ const STAR_COUNT = 4000
 const DEEP_STARS = 36000
 // How each weather looks: sky tint color and how far toward it, how much
 // of the daylight is left, and how much nearer the fog comes (x view).
+// Only Fog, a sandstorm and a blizzard close the view in (2026-10-25,
+// Gaymi: "it should only be foggy if its like foggy weather") - rain and
+// light snow keep it clear to the edge.
 const WEATHER_LOOK = {
   clear: [DAY_SKY, 0, 1, 1],
-  lightRain: [0x6a6f76, 0.65, 0.72, 0.75],
-  hardRain: [0x50545a, 0.92, 0.52, 0.5],
-  lightSnow: [0xc2c7cf, 0.55, 0.8, 0.7],
-  hardSnow: [0xd0d4da, 0.85, 0.66, 0.42],
+  lightRain: [0x6a6f76, 0.65, 0.72, 1],
+  hardRain: [0x50545a, 0.92, 0.52, 0.95],
+  lightSnow: [0xc2c7cf, 0.55, 0.8, 1],
+  hardSnow: [0xd0d4da, 0.85, 0.66, 0.8],
+  hail: [0x5b6068, 0.85, 0.6, 1],
+  fog: [0xb7bcc3, 0.8, 0.78, 0.22],
   sandstorm: [0xc49a5c, 0.75, 0.7, 0.35],
+  eclipse: [0x0b0d18, 0.9, 0.2, 1],
 }
 // [sky color, hemisphere color, hemisphere intensity, sun color, sun
 // intensity, sun height (0-1)]
@@ -130,6 +143,7 @@ export class BuildSky {
     this._light = 1
     this._lightGoal = 1
     this.fogFactor = 1
+    this._eclipse = 0
     this._fogGoal = 1
     this._base = new THREE.Color()
     this._hemiBase = 0
@@ -164,6 +178,11 @@ export class BuildSky {
       return
     }
     this._climate = this._climateAt()
+    this._rerollIn = RANDOM_REROLL_S
+    if (this.nightAmount() < 0.3 && Math.random() < ECLIPSE_CHANCE) {
+      this._now = 'eclipse'
+      return
+    }
     let roll = Math.random()
     this._now = 'clear'
     for (const [kind, chance] of CLIMATES[this._climate]) {
@@ -173,7 +192,6 @@ export class BuildSky {
       }
       roll -= chance
     }
-    this._rerollIn = RANDOM_REROLL_S
   }
 
   // The climate where you are: the open world's biome, or mild in the city
@@ -305,14 +323,14 @@ export class BuildSky {
     const night = this.nightAmount()
     const stars = this._stars.material.uniforms.opacity
     // Only once it's really dark - not in a morning or evening sky.
-    stars.value = THREE.MathUtils.smoothstep(night, 0.4, 0.9) * (w === 'clear' ? 1 : 0.25)
+    stars.value = w === 'eclipse' ? 0.8 : THREE.MathUtils.smoothstep(night, 0.4, 0.9) * (w === 'clear' ? 1 : 0.25)
     this._stars.visible = stars.value > 0.01
     // (apply() runs a few times a second in Cycle - only touch the
     // overlays, sound and lightning when the weather itself changes.)
     if (this._active && this._shownKind !== w) {
       this._shownKind = w
       this._showOverlays(w)
-      audioEngine.setWeatherAudio(w.endsWith('Rain'), w.endsWith('Snow'))
+      audioEngine.setWeatherAudio(w.endsWith('Rain') || w === 'hail', w.endsWith('Snow'))
       this._lightningIn = w === 'hardRain' ? LIGHTNING_MIN_S + Math.random() * LIGHTNING_RANGE_S : 0
     }
     this._easeLook(0)
@@ -457,7 +475,8 @@ export class BuildSky {
     }
     if (!this._active) return
     this._easeLook(dt)
-    this.bodies.update(dt, bm.camera, this._phase(), this._mix, 1 - this.nightAmount(), this._sky)
+    this._eclipse += ((this._now === 'eclipse' ? 1 : 0) - this._eclipse) * Math.min(1, dt * SKY_EASE)
+    this.bodies.update(dt, bm.camera, this._phase(), this._now === 'eclipse' ? 0 : this._mix, 1 - this.nightAmount(), this._sky, this._eclipse)
     this.weather3d.update(dt)
     if (this.weather === 'random') {
       this._rerollIn -= dt
@@ -469,7 +488,7 @@ export class BuildSky {
         const climate = this._climateAt()
         if (climate !== this._climate) {
           this._climate = climate
-          if (this._now !== 'clear' && !CLIMATES[climate].some(([kind]) => kind === this._now)) this._rerollIn = 0
+          if (this._now !== 'clear' && this._now !== 'eclipse' && !CLIMATES[climate].some(([kind]) => kind === this._now)) this._rerollIn = 0
         }
       }
       if (this._rerollIn <= 0) {

@@ -210,8 +210,8 @@ const BUILDERS = {
   },
 
   christ(b, { H, cx, cz }) {
-    const base = pad(b, H, cx, cz, 9, 9, 'stone')
-    for (let y = 0; y < 8; y++) disc(b, cx, cz, 9 - y, base + y, y < 5 ? 'stone' : 'mossycobblestone')
+    const base = pad(b, H, cx, cz, 9, 9, 'stonebricks')
+    for (let y = 0; y < 8; y++) disc(b, cx, cz, 9 - y, base + y, y < 5 ? 'stonebricks' : 'mossycobblestone')
     const p = base + 8
     for (let y = 0; y < 4; y++) square(b, cx, cz, 2, p + y, 'smoothstone')
     const s = p + 4

@@ -45,7 +45,7 @@ function villageStyle(biome) {
   return { walls: ['timberframe', 'plaster', 'oakplanks'], frame: 'oaklog', base: 'cobblestone', roofs: ['thatch', 'roofshingles', 'roofshingles'], trim: 'darkoakplanks', floor: 'spruceplanks', path: 'gravel', lamp: 'paperlantern', fence: 'oaklog', shutter: 'spruceplanks', rug: 'redwool', timber: true }
 }
 
-const CASTLE_STONE = [[0.36, 'stonebricks'], [0.16, 'mossystonebricks'], [0.14, 'crackedstonebricks'], [0.12, 'cobblestone'], [0.1, 'mossycobblestone'], [0.07, 'andesite'], [0.05, 'stone']]
+const CASTLE_STONE = [[0.36, 'stonebricks'], [0.16, 'mossystonebricks'], [0.14, 'crackedstonebricks'], [0.12, 'cobblestone'], [0.1, 'mossycobblestone'], [0.07, 'andesite'], [0.05, 'stonebricks']]
 
 // A tiny seeded generator for one plan.
 function prng(seed) {
@@ -639,7 +639,7 @@ function castle({ H, rand, sea, cx, cz }) {
       if (r < p) return t
       r -= p
     }
-    return 'stone'
+    return 'stonebricks'
   }
   const base = site.hi + 1 // the courtyard's floor block
   const wallTop = base + 7

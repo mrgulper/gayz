@@ -209,7 +209,7 @@ export const BLOCK_TYPES = [
   { id: 'dirt', name: 'Dirt', color: 0x6b4a30, pattern: 'speckle', roughness: 1, metalness: 0 },
   { id: 'glass', name: 'Glass', color: 0xaee0e8, pattern: 'glass', roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.55 },
   { id: 'asphalt', name: 'Asphalt', color: 0x3a3a3c, pattern: 'speckle', roughness: 0.95, metalness: 0 },
-  { id: 'stone', name: 'Stone Brick', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'stone', name: 'Stone', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0 },
   { id: 'sand', name: 'Sand', color: 0xd9c48f, pattern: 'speckle', roughness: 1, metalness: 0 },
   { id: 'snow', name: 'Snow', color: 0xf0f0f5, pattern: 'speckle', roughness: 0.95, metalness: 0 },
   { id: 'planks', name: 'Planks', color: 0xb98a52, pattern: 'wood', roughness: 0.6, metalness: 0 },
@@ -1047,8 +1047,8 @@ function _makeBlockCanvas(colorHex, pattern, size = 256) {
 // Stairs/fences wear the same pixel-art texture as the full block they're
 // made of (BlockTextures.js); the ladder keeps its own drawn pattern.
 const SHAPED_TEXTURE_FROM = {
-  oakstairs: 'oakplanks', stonestairs: 'stone', brickstairs: 'brick', cobblestonestairs: 'cobblestone',
-  oakfence: 'oakplanks', stonefence: 'stone', netherbrickfence: 'netherbrick',
+  oakstairs: 'oakplanks', stonestairs: 'stonebricks', brickstairs: 'brick', cobblestonestairs: 'cobblestone',
+  oakfence: 'oakplanks', stonefence: 'stonebricks', netherbrickfence: 'netherbrick',
   oakslab: 'oakplanks',
   spruceslab: 'spruceplanks',
   birchslab: 'birchplanks',
@@ -1056,7 +1056,7 @@ const SHAPED_TEXTURE_FROM = {
   stoneslab: 'smoothstone',
   cobblestoneslab: 'cobblestone',
   brickslab: 'brick',
-  stonebrickslab: 'stone',
+  stonebrickslab: 'stonebricks',
   sandstoneslab: 'sandstone',
   quartzslab: 'quartz',
   blackstoneslab: 'blackstone',

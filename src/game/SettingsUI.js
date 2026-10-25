@@ -2178,6 +2178,16 @@ export function _applyGraphicsLevel(game, level) {
   s.viewDistance = look.view
   s.shadowsEnabled = look.shadows
   s.shadowQuality = look.shadowQuality
+  s.renderResolution = look.res ?? 100
+  // (Not yet while the game is still being built - it reads this then.)
+  if (game.buildMode) {
+    game._userResScale = s.renderResolution / 100
+    game._applyRenderScale?.()
+  }
+  if (game.gfxResolutionSlider) {
+    game.gfxResolutionSlider.value = s.renderResolution
+    game.gfxResolutionValue.textContent = `${s.renderResolution}%`
+  }
   if (game.gfxViewDistanceSelect) game.gfxViewDistanceSelect.value = s.viewDistance
   if (game.gfxShadowsToggle) game.gfxShadowsToggle.checked = s.shadowsEnabled
   if (game.gfxShadowQualitySelect) game.gfxShadowQualitySelect.value = s.shadowQuality
