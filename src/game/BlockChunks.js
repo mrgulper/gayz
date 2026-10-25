@@ -53,14 +53,58 @@ const DEFAULT_TILE = 16
 // Mip level bias for block textures: negative = sharper far away (a full
 // -1 starts to shimmer on moving ground).
 const SHARPEN = -0.6
-function sharpen(mat, extra = null) {
+// Realistic look (uReal 0-1: Ultra half, In Real Life full - graphics
+// levels, 2026-10-25, Gaymi: "make it more realistic as if you were irl
+// playing it"): the pixel art is smoothed (four samples a pixel apart),
+// the ground's colour drifts in big soft patches across the world
+// like real grass, dirt and rock instead of one repeating tile, and the
+// light is graded a little warmer and richer. 0 = the plain look, same
+// program, just a number.
+function sharpen(mat, fx, extra = null) {
   mat.onBeforeCompile = (shader) => {
-    shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `#ifdef USE_MAP
-      diffuseColor *= texture2D( map, vMapUv, ${SHARPEN.toFixed(2)} );
+    shader.uniforms.uReal = fx.real
+    shader.uniforms.uBlock = fx.block
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;')
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+      uniform float uReal;
+      uniform float uBlock;
+      varying vec3 vWPos;
+      float realHash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+      float realNoise(vec3 p) {
+        vec3 i = floor(p);
+        vec3 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(mix(realHash(i), realHash(i + vec3(1, 0, 0)), f.x), mix(realHash(i + vec3(0, 1, 0)), realHash(i + vec3(1, 1, 0)), f.x), f.y),
+          mix(mix(realHash(i + vec3(0, 0, 1)), realHash(i + vec3(1, 0, 1)), f.x), mix(realHash(i + vec3(0, 1, 1)), realHash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+      }`)
+      .replace('#include <map_fragment>', `#ifdef USE_MAP
+      vec4 texel = texture2D( map, vMapUv, ${SHARPEN.toFixed(2)} );
+      if (uReal > 0.0) {
+        vec2 tx = 1.0 / vec2(textureSize(map, 0));
+        vec4 soft = (texture2D(map, vMapUv + vec2(-tx.x, -tx.y), ${SHARPEN.toFixed(2)}) + texture2D(map, vMapUv + vec2(tx.x, -tx.y), ${SHARPEN.toFixed(2)})
+          + texture2D(map, vMapUv + vec2(-tx.x, tx.y), ${SHARPEN.toFixed(2)}) + texture2D(map, vMapUv + vec2(tx.x, tx.y), ${SHARPEN.toFixed(2)})) * 0.25;
+        texel.rgb = mix(texel.rgb, soft.rgb, 0.85 * uReal);
+        vec3 wp = vWPos / uBlock;
+        float patches = realNoise(wp * 0.11) * 0.65 + realNoise(wp * 0.37) * 0.35;
+        texel.rgb *= 1.0 + (patches - 0.5) * 0.3 * uReal;
+      }
+      diffuseColor *= texel;
     #endif`)
+      .replace('#include <fog_fragment>', `if (uReal > 0.0) {
+        vec3 c = gl_FragColor.rgb;
+        float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+        c = mix(vec3(l), c, 1.0 + 0.18 * uReal);
+        c = mix(c, c * c * (3.0 - 2.0 * c), 0.35 * uReal);
+        c *= mix(vec3(1.0), vec3(1.04, 1.01, 0.96), uReal);
+        gl_FragColor.rgb = c;
+      }
+      #include <fog_fragment>`)
     extra?.(shader)
   }
-  mat.customProgramCacheKey = () => (extra ? 'sharpen-moving' : 'sharpen')
+  mat.customProgramCacheKey = () => (extra ? 'sharpen-moving-real' : 'sharpen-real')
 }
 
 // Moving the corners of a face (graphics levels, GraphicsLevels.js):
@@ -245,7 +289,7 @@ export class BlockChunks {
     const waterMap = liquidTex('water')
     const lavaMap = liquidTex('lava')
     // Sway and waves (moving); `shine` makes the water catch the sun.
-    this.fx = { time: { value: 0 }, sway: { value: 0 }, waves: { value: 0 } }
+    this.fx = { time: { value: 0 }, sway: { value: 0 }, waves: { value: 0 }, real: { value: 0 }, block: { value: blockSize } }
     this.materials = {
       water: new THREE.MeshPhongMaterial({ map: waterMap, vertexColors: true, transparent: true, depthWrite: false, specular: 0x000000, shininess: 70 }),
       lava: new THREE.MeshLambertMaterial({ map: lavaMap, vertexColors: true, emissive: 0xffffff, emissiveMap: lavaMap, emissiveIntensity: 0.85 }),
@@ -254,15 +298,16 @@ export class BlockChunks {
       clear: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, alphaTest: 0.02 }),
       cutout: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, alphaTest: 0.5 }),
     }
-    for (const id of ['solid', 'glow', 'clear']) sharpen(this.materials[id])
-    sharpen(this.materials.cutout, moving({ uTime: this.fx.time, uAmount: this.fx.sway }, false))
+    for (const id of ['solid', 'glow', 'clear']) sharpen(this.materials[id], this.fx)
+    sharpen(this.materials.cutout, this.fx, moving({ uTime: this.fx.time, uAmount: this.fx.sway }, false))
     this.materials.water.onBeforeCompile = moving({ uTime: this.fx.time, uAmount: this.fx.waves }, true)
     this.materials.water.customProgramCacheKey = () => 'waves'
   }
 
   // How much the leaves sway and the water rolls (world units) and how
   // much the water shines (0..1) - set from the graphics level.
-  setEffects({ sway = 0, waves = 0, shine = 0 } = {}) {
+  setEffects({ sway = 0, waves = 0, shine = 0, real = 0 } = {}) {
+    this.fx.real.value = real
     this.fx.sway.value = sway * this.blockSize
     this.fx.waves.value = waves * this.blockSize
     this.materials.water.specular.setScalar(shine * 0.55)

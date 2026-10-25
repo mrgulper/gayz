@@ -205,14 +205,25 @@ test('graphics levels: picked for the device, cards switch the look', async ({ p
     g._applyGraphicsLevel('ultra')
     await new Promise((d) => requestAnimationFrame(() => requestAnimationFrame(d)))
     const fx = g.buildMode._chunks.fx
-    return { guesses, picked, cards, simple, plain, detail: textureDetail(), sway: fx.sway.value > 0, waves: fx.waves.value > 0 }
+    const ultra = { detail: textureDetail(), sway: fx.sway.value > 0, waves: fx.waves.value > 0 }
+    // 2026-10-25: In Real Life turns the realistic shader all the way up;
+    // Potato drops the resolution.
+    g._applyGraphicsLevel('irl')
+    await new Promise((d) => requestAnimationFrame(() => requestAnimationFrame(d)))
+    const real = fx.real.value
+    g._applyGraphicsLevel('potato')
+    await new Promise((d) => requestAnimationFrame(() => requestAnimationFrame(d)))
+    const potato = { res: g.settings.renderResolution, real: fx.real.value, detail: textureDetail() }
+    return { guesses, picked, cards, simple, plain, ...ultra, real, potato }
   })
-  expect(r.guesses).toEqual(['simple', 'simple', 'balanced', 'realistic', 'ultra'])
+  expect(r.guesses).toEqual(['potato', 'simple', 'balanced', 'realistic', 'ultra'])
   expect(r.picked).toBe(true)
-  expect(r.cards).toBe(5)
+  expect(r.cards).toBe(7)
   expect(r.simple).toEqual({ view: 'short', shadows: false, select: 'short' })
   expect(r.plain).toBe(1)
   expect(r.detail).toBe(2)
   expect(r.sway).toBe(true)
   expect(r.waves).toBe(true)
+  expect(r.real).toBe(1)
+  expect(r.potato).toEqual({ res: 60, real: 0, detail: 1 })
 })

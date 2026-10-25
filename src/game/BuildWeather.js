@@ -33,6 +33,8 @@ const KINDS = {
   hardRain: { density: 1, fall: 22, wind: 3.2, size: 0.7, snow: 0 },
   lightSnow: { density: 0.45, fall: 1.6, wind: 0.5, size: 0.16, snow: 1 },
   hardSnow: { density: 1, fall: 2.6, wind: 2.2, size: 0.2, snow: 1 },
+  // Little ice balls coming down fast (2026-10-25); round like snow.
+  hail: { density: 0.75, fall: 19, wind: 1.4, size: 0.13, snow: 1, ice: true },
 }
 
 const VERT = /* glsl */ `
@@ -148,7 +150,7 @@ export class BuildWeather {
     this._scanOrigin = { x: 0, z: 0, y: 0 }
   }
 
-  // 'lightRain' | 'hardRain' | 'lightSnow' | 'hardSnow' | anything else (none).
+  // 'lightRain' | 'hardRain' | 'lightSnow' | 'hardSnow' | 'hail' | anything else (none).
   set(kind) {
     const k = KINDS[kind] ? kind : null
     if (k === this._want) return
@@ -191,7 +193,7 @@ export class BuildWeather {
     u.uWind.value = k.wind
     u.uSize.value = k.size
     u.uSnow.value = k.snow
-    u.uColor.value.setHex(k.snow ? 0xffffff : 0xaebfd4)
+    u.uColor.value.setHex(k.ice ? 0xdfeaf5 : k.snow ? 0xffffff : 0xaebfd4)
     u.uAlpha.value = k.snow ? 0.9 : 0.55
   }
 

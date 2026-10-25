@@ -553,6 +553,19 @@ html.ui-theme-clean :is(#play-pause-card, .build-menu-card, #build-picker, #play
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.25);
   font-family: var(--clean-font);
 }
+/* You Died (2026-10-25): the same flat card, title kept red. */
+html.ui-theme-clean #build-play-over { background: rgba(0, 0, 0, 0.45); }
+html.ui-theme-clean .build-play-over-card {
+  background: var(--clean-bg);
+  color: var(--clean-fg);
+  border: 1px solid var(--clean-line);
+  border-radius: 20px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.25);
+  font-family: var(--clean-font);
+}
+html.ui-theme-clean #build-play-over-title { font-family: var(--clean-font); font-weight: 700; color: #d23a2c; }
+html.ui-theme-clean .build-play-over-btns button { font-family: var(--clean-font); color: var(--clean-fg); background: var(--clean-surface); border-color: transparent; }
+html.ui-theme-clean .build-play-over-btns button:hover { background: var(--clean-hover); border-color: transparent; }
 html.ui-theme-clean :is(#play-pause-card, .build-menu-card)::before,
 html.ui-theme-clean :is(#play-pause-card, .build-menu-card)::after {
   display: none;

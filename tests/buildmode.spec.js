@@ -601,7 +601,7 @@ test('Map Editor weather falls in the world and fits the biome', async ({ page }
     const w3 = sky.weather3d
     const shown = () => ['rain-overlay', 'rain-overlay-hard', 'snow-overlay', 'snow-overlay-hard', 'sandstorm-overlay'].filter((id) => document.getElementById(id).style.display === 'block')
     const out = { defaultWeather: sky.weather }
-    for (const w of ['clear', 'lightRain', 'hardRain', 'lightSnow', 'hardSnow', 'sandstorm']) {
+    for (const w of ['clear', 'lightRain', 'hardRain', 'lightSnow', 'hardSnow', 'hail', 'fog', 'sandstorm', 'eclipse']) {
       sky.weather = w
       sky._pickWeather()
       sky.apply()
@@ -626,11 +626,15 @@ test('Map Editor weather falls in the world and fits the biome', async ({ page }
   expect(r).toEqual({
     defaultWeather: 'random',
     clear: ['', '', false, false, false],
-    lightRain: ['', 'lightRain', true, true, true],
+    // Only fog, sandstorms and hard snow close the view in (2026-10-25).
+    lightRain: ['', 'lightRain', true, false, true],
     hardRain: ['', 'hardRain', true, true, true],
-    lightSnow: ['', 'lightSnow', true, true, true],
+    lightSnow: ['', 'lightSnow', true, false, true],
     hardSnow: ['', 'hardSnow', true, true, true],
+    hail: ['', 'hail', true, false, true],
+    fog: ['', '', false, true, true],
     sandstorm: ['sandstorm-overlay', '', false, true, true],
+    eclipse: ['', '', false, false, true],
     afterExit: ['', '', false],
     dryRolls: true,
   })

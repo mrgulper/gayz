@@ -15,8 +15,8 @@ const MODE_KEYS = {
   worldMap: 'topBarModeWorldMap',
 }
 // The weather's sign before its name (clear shows a sun, or a moon at night).
-const WEATHER_ICON = { lightRain: '☂', hardRain: '☂', lightSnow: '❄', hardSnow: '❄', sandstorm: '≋' }
-const WEATHER_KIND = { lightRain: 'rain', hardRain: 'rain', lightSnow: 'snow', hardSnow: 'snow', sandstorm: 'sand' }
+const WEATHER_ICON = { lightRain: '☂', hardRain: '☂', lightSnow: '❄', hardSnow: '❄', hail: '☂', fog: '≡', sandstorm: '≋', eclipse: '◐' }
+const WEATHER_KIND = { lightRain: 'rain', hardRain: 'rain', lightSnow: 'snow', hardSnow: 'snow', hail: 'rain', fog: 'snow', sandstorm: 'sand', eclipse: 'rain' }
 // Coordinates and the mode are refreshed this often (ms), not every frame.
 const REFRESH_MS = 100
 

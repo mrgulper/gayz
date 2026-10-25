@@ -66,6 +66,14 @@ const FIRE_TREE_SPREAD = 0.45
 const FIRE_LEAF_BURN_S = 2.5
 const FIRE_RAIN_OUT_S = 1.2
 const FIRE_MAX = 48
+// Flamethrower fire on the ground (2026-10-25, Gaymi: "make the fire
+// thrower create fire ... and the fire goes [out] on rain or water"): a
+// patch of flames where the stream lands, on any surface. It burns this
+// long, sets zombies walking through it on fire, can catch wood next to
+// it, and rain or water puts it out.
+const GROUND_FIRE_S = 8
+const GROUND_FIRE_MAX = 24
+const GROUND_FIRE_CATCH = 0.15 // chance a second to light a wooden block it touches
 const FIRE_NEIGHBOURS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
 const TREE_NEIGHBOURS = []
 for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) if (dx || dy || dz) TREE_NEIGHBOURS.push([dx, dy, dz])
@@ -290,6 +298,7 @@ export class BuildSurvival {
     if (!this.animals) this.animals = new PlayAnimals(this)
     this.animals.clear()
     this._fires = new Map()
+    this._groundFires = []
     this.mag = this.magSize()
     this.reserve = this._startReserve()
     this.wave = 0
@@ -940,8 +949,12 @@ export class BuildSurvival {
       const from = center.origin.clone().addScaledVector(center.direction, 1.5 * B).addScaledVector(side, 0.3 * B)
       from.y -= 0.4 * B
       this._fx?.flameStream(from, center.direction, Math.min(w.range, reach / B))
-      // The wall the flames reach catches fire if it's wood.
-      if (wall && wall.t <= w.range * B && wall.existingBlock) this.ignite(...wall.existingBlock)
+      // The wall the flames reach catches fire if it's wood, and the
+      // flames leave a fire burning where they land.
+      if (wall && wall.t <= w.range * B && wall.existingBlock) {
+        this.ignite(...wall.existingBlock)
+        if (wall.placeAt) this.groundFire(...wall.placeAt)
+      }
       // Bodies in the flames burn away.
       const reachF = Math.min(w.range * B, reach)
       for (const c of [...(this._corpses || []), ...(this._boneCorpses || [])]) {
@@ -1013,6 +1026,15 @@ export class BuildSurvival {
       // Pulled back towards you a little so the fireball isn't half
       // inside the wall it hit.
       this._fx?.explode(impact.clone().addScaledVector(center.direction, -0.8 * B), w.blast)
+      // The screen shakes, harder the closer it went off.
+      const near = 1 - impact.distanceTo(center.origin) / (14 * B)
+      if (near > 0 && !document.body.classList.contains('reduce-flashing')) {
+        const view = bm.renderer.domElement
+        view.style.setProperty('--boom', `${(3 + near * 9).toFixed(1)}px`)
+        view.classList.remove('boom-shake')
+        void view.offsetWidth
+        view.classList.add('boom-shake')
+      }
       const radius = w.blast * B
       for (const z of this.zombies) {
         const cx = z.x * B
@@ -1078,9 +1100,9 @@ export class BuildSurvival {
     return true
   }
 
-  // Raining right now (the sky's weather)?
+  // Raining (or hailing) right now (the sky's weather)?
   _raining() {
-    return /Rain$/.test(this.bm.sky?._now || '')
+    return /Rain$|^hail$/.test(this.bm.sky?._now || '')
   }
 
   // Open sky above a cell (nothing solid in the next 24 blocks up).
@@ -1097,7 +1119,57 @@ export class BuildSurvival {
     return this._raining() && this._skyAbove(x, y, z)
   }
 
+  // A Flamethrower fire in the empty cell (x, y, z), dropped onto whatever
+  // is below it; an existing fire there just burns longer.
+  groundFire(x, y, z) {
+    const bm = this.bm
+    if (!this._groundFires) return false
+    for (let k = 0; k < 4 && !bm.getBlockAt(x, y - 1, z); k++) y--
+    if (!bm.getBlockAt(x, y - 1, z) || bm.getBlockAt(x, y, z)) return false
+    if (this._wetAt(x, y, z) || this._wetAt(x, y - 1, z)) return false
+    const old = this._groundFires.find((f) => f.x === x && f.y === y && f.z === z)
+    if (old) {
+      old.t = Math.min(old.t, 1)
+      return true
+    }
+    if (this._groundFires.length >= GROUND_FIRE_MAX) this._groundFires.shift()
+    this._groundFires.push({ x, y, z, t: 0, life: GROUND_FIRE_S * (0.85 + Math.random() * 0.3) })
+    return true
+  }
+
+  _updateGroundFires(dt) {
+    const list = this._groundFires
+    if (!list?.length) return
+    for (let i = list.length - 1; i >= 0; i--) {
+      const f = list[i]
+      f.wetCheck = (f.wetCheck || 0) - dt
+      if (f.wetCheck <= 0) {
+        f.wetCheck = 0.5
+        f.wet = this._wetAt(f.x, f.y, f.z)
+      }
+      // Rain or water: out within a second or so; otherwise it burns down.
+      f.t += f.wet ? dt * f.life / FIRE_RAIN_OUT_S : dt
+      if (f.t >= f.life || !this.bm.getBlockAt(f.x, f.y - 1, f.z)) {
+        list.splice(i, 1)
+        continue
+      }
+      this._fx?.burnBlock(f.x, f.y - 1, f.z, Math.min(0.84, 0.25 + f.t / f.life))
+      for (const z of this.zombies) {
+        if (Math.floor(z.x) === f.x && Math.floor(z.z) === f.z && Math.abs(z.y - f.y) < 1.5) z.burn = Math.max(z.burn || 0, 2)
+      }
+      for (const c of this._corpses || []) {
+        const p = c.group.position
+        if (Math.floor(p.x / this.B) === f.x && Math.floor(p.z / this.B) === f.z && Math.abs(p.y / this.B - f.y) < 2) c.burnLeft ??= CORPSE_BURN_S
+      }
+      if (!f.wet && Math.random() < GROUND_FIRE_CATCH * dt) {
+        const [dx, dy, dz] = FIRE_NEIGHBOURS[Math.floor(Math.random() * FIRE_NEIGHBOURS.length)]
+        this.ignite(f.x + dx, f.y + dy, f.z + dz)
+      }
+    }
+  }
+
   _updateFires(dt) {
+    this._updateGroundFires(dt)
     if (!this._fires?.size) return
     const bm = this.bm
     for (const [key, f] of this._fires) {
