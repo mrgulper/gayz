@@ -69,6 +69,7 @@ export const VIEW_STEPS = ['short', 'medium', 'far', 'max']
 // edge, so far land stays clear (2026-10-23, Gaymi: "100% clear"; at 0.6
 // everything past the middle distance looked hazy).
 const FOG_START = 0.88
+const FOG_CLEAR_START = 0.97
 // A phone or tablet (no mouse): starts on a shorter view distance and
 // skips anisotropic filtering.
 const TOUCH_DEVICE = typeof window !== 'undefined' && !!window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
@@ -1413,7 +1414,9 @@ export class BuildMode {
     // Rain, snow and sandstorms bring the fog in (BuildSky.fogFactor).
     const weather = this.sky?.fogFactor ?? 1
     if (Number.isFinite(blocks)) {
-      fog.near = blocks * FOG_START * BLOCK_SIZE * weather * weather
+      // On a clear day only the last few blocks before the edge fade.
+      const start = FOG_START + (FOG_CLEAR_START - FOG_START) * (this.sky?.clearness ?? 0)
+      fog.near = blocks * start * BLOCK_SIZE * weather * weather
       fog.far = blocks * BLOCK_SIZE * weather
     } else if (weather < 0.999) {
       fog.near = 20 * BLOCK_SIZE * weather
@@ -4398,7 +4401,7 @@ export class BuildMode {
       this._chunks.redrawAtlas()
       this._renderHotbar?.()
     }
-    this._chunks.setEffects(look)
+    this._chunks.setEffects(look, 1 - (this.sky?.clearness ?? 1))
     this.sky?.weather3d?.setLite(!!look.lite)
     this.grassTufts?.setAmount(look.tufts || 0)
     // Potato's few pixels stretched up as crisp squares instead of a blur.

@@ -37,11 +37,26 @@ import * as THREE from 'three'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
 import { BuildWeather } from './BuildWeather.js'
-import { SkyBodies } from './SkyBodies.js'
+import { SkyBodies, MOON_PHASES } from './SkyBodies.js'
 import { sampleLand, inCity } from './OpenWorld.js'
 
 export const SKY_TIMES = ['day', 'sunset', 'night', 'cycle']
-export const SKY_WEATHERS = ['clear', 'lightRain', 'hardRain', 'lightSnow', 'hardSnow', 'hail', 'fog', 'sandstorm', 'eclipse', 'random']
+export const SKY_WEATHERS = ['clear', 'veryLightRain', 'lightRain', 'mediumRain', 'hardRain', 'veryLightSnow', 'lightSnow', 'mediumSnow', 'hardSnow', 'hail', 'fog', 'sandstorm', 'eclipse', 'random']
+// Weather changes a step at a time (2026-10-25, Gaymi: "hard rain slightly
+// hard rain light rain very light rain the clear needs something like that
+// not just instant weather switch", picked about 1 minute a step): Random
+// walks down the old weather's ladder to clear and up the new one's,
+// STEP_S per step. A ladder's first step is the one next to clear.
+const LADDERS = {
+  rain: ['veryLightRain', 'lightRain', 'mediumRain', 'hardRain'],
+  snow: ['veryLightSnow', 'lightSnow', 'mediumSnow', 'hardSnow'],
+  hail: ['veryLightRain', 'lightRain', 'hail'],
+}
+const LADDER_OF = {
+  veryLightRain: 'rain', lightRain: 'rain', mediumRain: 'rain', hardRain: 'rain',
+  veryLightSnow: 'snow', lightSnow: 'snow', mediumSnow: 'snow', hardSnow: 'snow', hail: 'hail',
+}
+const STEP_S = 60
 // A solar eclipse (2026-10-25, Gaymi: "something rare eclipse has a 0.01
 // chance" - 0.01%): rolled first on every Random weather change, daytime
 // only. The editor's Weather button can still pick it to look at.
@@ -60,18 +75,20 @@ const LIGHTNING_RANGE_S = 14
 // Bumped to switch every saved Weather choice to Random once (2026-10-17).
 const PREF_VERSION = 2
 const SKY_EASE = 0.6 // how fast the sky, light and fog follow the weather
+// ...and in Random, where each step gets about a minute to settle in.
+const SKY_EASE_SLOW = 0.08
 const CLIMATE_CHECK_S = 2
 // Which weather each climate can have, with its chance (the rest is clear).
 // Snow, hail and fog can turn up in the city too now (2026-10-25, Gaymi:
 // "add more weathers ... snowing hard snowing light snowing and also add
 // hail") - just less often than where it's cold.
 const CLIMATES = {
-  mild: [['lightRain', 0.24], ['hardRain', 0.1], ['fog', 0.08], ['lightSnow', 0.05], ['hardSnow', 0.025], ['hail', 0.03]],
-  wet: [['lightRain', 0.36], ['hardRain', 0.22], ['fog', 0.12], ['hail', 0.04]],
-  cold: [['lightSnow', 0.32], ['hardSnow', 0.2], ['fog', 0.08], ['hail', 0.04]],
+  mild: [['veryLightRain', 0.08], ['lightRain', 0.14], ['mediumRain', 0.07], ['hardRain', 0.07], ['fog', 0.08], ['lightSnow', 0.05], ['hardSnow', 0.025], ['hail', 0.03]],
+  wet: [['veryLightRain', 0.08], ['lightRain', 0.2], ['mediumRain', 0.14], ['hardRain', 0.16], ['fog', 0.12], ['hail', 0.04]],
+  cold: [['veryLightSnow', 0.08], ['lightSnow', 0.18], ['mediumSnow', 0.12], ['hardSnow', 0.14], ['fog', 0.08], ['hail', 0.04]],
   dry: [['sandstorm', 0.3]],
-  savanna: [['lightRain', 0.15], ['fog', 0.03]],
-  mountain: [['lightSnow', 0.2], ['hardSnow', 0.06], ['lightRain', 0.12], ['fog', 0.12], ['hail', 0.05]],
+  savanna: [['veryLightRain', 0.06], ['lightRain', 0.1], ['fog', 0.03]],
+  mountain: [['veryLightSnow', 0.06], ['lightSnow', 0.14], ['mediumSnow', 0.04], ['hardSnow', 0.05], ['lightRain', 0.12], ['fog', 0.12], ['hail', 0.05]],
 }
 const BIOME_CLIMATE = {
   snowyBeach: 'cold', snowyTaiga: 'cold', snowyPlains: 'cold', iceSpikes: 'cold', snowyPeaks: 'cold', frozenOcean: 'cold',
@@ -94,9 +111,13 @@ const WEATHER_LOOK = {
   clear: [DAY_SKY, 0, 1, 1],
   // Rain darkens the sky more (2026-10-25, Gaymi: "the sky change to
   // raining too").
+  veryLightRain: [0x6e747c, 0.6, 0.8, 1],
   lightRain: [0x5c6168, 0.78, 0.66, 1],
+  mediumRain: [0x4c5057, 0.88, 0.55, 1],
   hardRain: [0x3e4248, 0.95, 0.46, 0.95],
+  veryLightSnow: [0xbcc1c9, 0.4, 0.88, 1],
   lightSnow: [0xc2c7cf, 0.55, 0.8, 1],
+  mediumSnow: [0xc9cdd4, 0.7, 0.73, 0.92],
   hardSnow: [0xd0d4da, 0.85, 0.66, 0.8],
   hail: [0x4d5259, 0.9, 0.55, 1],
   fog: [0xb7bcc3, 0.8, 0.78, 0.22],
@@ -133,6 +154,8 @@ export class BuildSky {
     this._buildStars()
     this._active = false
     this._now = 'clear' // what's actually showing (Random picks one)
+    this._goal = 'clear' // where Random is stepping to (_step)
+    this._stepIn = 0
     this._rerollIn = 0
     this._lightningIn = 0
     this._climate = 'mild'
@@ -145,6 +168,7 @@ export class BuildSky {
     this._light = 1
     this._lightGoal = 1
     this.fogFactor = 1
+    this.clearness = 1
     this._eclipse = 0
     this._fogGoal = 1
     this._base = new THREE.Color()
@@ -174,26 +198,49 @@ export class BuildSky {
   }
 
   // Random: a roll from where you are's climate (CLIMATES).
-  _pickWeather() {
+  // jump: show it straight away (a new game, the editor's own pick)
+  // instead of stepping there (_step).
+  _pickWeather(jump = true) {
     if (this.weather !== 'random') {
-      this._now = this.weather
+      this._now = this._goal = this.weather
       return
     }
     this._climate = this._climateAt()
     this._rerollIn = RANDOM_REROLL_S
-    if (this.nightAmount() < 0.3 && Math.random() < ECLIPSE_CHANCE) {
-      this._now = 'eclipse'
-      return
-    }
-    let roll = Math.random()
-    this._now = 'clear'
-    for (const [kind, chance] of CLIMATES[this._climate]) {
-      if (roll < chance) {
-        this._now = kind
-        break
+    this._stepIn = STEP_S
+    let goal = 'clear'
+    if (this.nightAmount() < 0.3 && Math.random() < ECLIPSE_CHANCE) goal = 'eclipse'
+    else {
+      let roll = Math.random()
+      for (const [kind, chance] of CLIMATES[this._climate]) {
+        if (roll < chance) {
+          goal = kind
+          break
+        }
+        roll -= chance
       }
-      roll -= chance
     }
+    this._goal = goal
+    if (jump) this._now = goal
+  }
+
+  // One step from what's showing toward the goal: along the goal's own
+  // ladder if we're on it, else down the current one toward clear, and
+  // from clear onto the goal's first step. Fog, sandstorms and eclipses
+  // have no steps - their look eases in slowly instead.
+  _step() {
+    const now = this._now
+    const goal = this._goal
+    if (now === goal) return now
+    const want = LADDERS[LADDER_OF[goal]]
+    if (want?.includes(now)) {
+      const i = want.indexOf(now)
+      return want[i + Math.sign(want.indexOf(goal) - i)]
+    }
+    const mine = LADDERS[LADDER_OF[now]]
+    if (mine) return mine[mine.indexOf(now) - 1] || 'clear'
+    if (now !== 'clear' && goal !== 'clear' && want) return 'clear'
+    return want ? want[0] : goal
   }
 
   // The climate where you are: the open world's biome, or mild in the city
@@ -344,7 +391,7 @@ export class BuildSky {
   // The sky color, daylight and fog follow the weather's goal look
   // smoothly (k: 0 = jump straight there).
   _easeLook(dt) {
-    const k = dt > 0 ? 1 - Math.exp(-SKY_EASE * dt) : 1
+    const k = dt > 0 ? 1 - Math.exp(-(this.weather === 'random' ? SKY_EASE_SLOW : SKY_EASE) * dt) : 1
     if (!this._active) {
       // Outside the editor/Play nothing is showing - no easing needed.
       this._tint.copy(this._tintGoal)
@@ -361,6 +408,12 @@ export class BuildSky {
     const bm = this.bm
     // Puddles, water and far haze mirror this colour (BlockChunks).
     bm._chunks?.fx.sky.value.copy(this._sky)
+    // Clear days are clear to the edge (2026-10-25, Gaymi: far buildings
+    // looked see-through and foggy one way, picked "clear in clear
+    // weather"): the graphics level's far haze only comes in with the
+    // weather (BuildMode._applyGraphicsLook) and the fog's last stretch
+    // shrinks (_applyViewDistance).
+    this.clearness = 1 - Math.min(1, this._mix * 1.5)
     this.bodies?.setLite(!!bm.look?.lite)
     // Realistic light (graphics levels): a stronger, warmer sun and a
     // softer, bluer sky light, so shade looks cool and sunlit faces warm,
@@ -482,10 +535,14 @@ export class BuildSky {
     if (!this._active) return
     this._easeLook(dt)
     this._eclipse += ((this._now === 'eclipse' ? 1 : 0) - this._eclipse) * Math.min(1, dt * SKY_EASE)
-    this.bodies.update(dt, bm.camera, this._phase(), this._now === 'eclipse' ? 0 : this._mix, 1 - this.nightAmount(), this._sky, this._eclipse)
+    // How overcast it is, before night dims the tint (rain clouds stay at
+    // night), and the moon's phase - a new one each game day, changing at
+    // noon while the moon is down.
+    const cover = this._now === 'eclipse' ? 0 : this._mix / Math.max(0.4, 1 - this.nightAmount() * 0.6)
+    const day = this.time === 'cycle' ? Math.floor(this._clock / CYCLE_SECONDS + 0.5) : 1
+    this.bodies.update(dt, bm.camera, this._phase(), cover, 1 - this.nightAmount(), this._sky, this._eclipse, MOON_PHASES[(day + 3) % MOON_PHASES.length])
     this.weather3d.update(dt)
     if (this.weather === 'random') {
-      this._rerollIn -= dt
       // Walked into a different climate: re-roll if what's falling can't
       // happen here (no snow in the desert).
       this._climateIn -= dt
@@ -494,13 +551,17 @@ export class BuildSky {
         const climate = this._climateAt()
         if (climate !== this._climate) {
           this._climate = climate
-          if (this._now !== 'clear' && this._now !== 'eclipse' && !CLIMATES[climate].some(([kind]) => kind === this._now)) this._rerollIn = 0
+          if (this._goal !== 'clear' && this._goal !== 'eclipse' && !CLIMATES[climate].some(([kind]) => kind === this._goal)) this._rerollIn = 0
         }
       }
-      if (this._rerollIn <= 0) {
-        this._pickWeather()
+      // The next roll only counts down once the last one has arrived.
+      if (this._now === this._goal) this._rerollIn -= dt
+      else if ((this._stepIn -= dt) <= 0) {
+        this._stepIn = STEP_S
+        this._now = this._step()
         this.apply()
       }
+      if (this._rerollIn <= 0) this._pickWeather(false)
     }
     // Hard rain: lightning and thunder now and then, like Map 1.
     if (this._now === 'hardRain' && this._lightningIn > 0) {

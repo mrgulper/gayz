@@ -309,7 +309,9 @@ test('Invite Friends makes a solo game joinable and the link joins it', async ({
     return { x: Math.round(p.x), y: Math.round(p.y), z: Math.round(p.z), url: location.search, host: s.net.isHost }
   })
   expect(guest.host).toBe(false)
-  expect(guest.url).toBe('')
+  // On the server the address bar is its invite link (not /map-editor).
+  expect(guest.url).toBe(new URL(link).search)
+  expect(await a.evaluate(() => location.pathname + location.search)).toBe(new URL(link).pathname + new URL(link).search)
   // Same spot on the same land (the same ground height there).
   expect([guest.x, guest.y, guest.z]).toEqual([host.x, host.y, host.z])
 })

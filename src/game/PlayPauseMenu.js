@@ -179,6 +179,9 @@ export class PlayPauseMenu {
   update() {
     if (!this._fromSettings || this.bm.game?.settingsOpen) return
     this._fromSettings = false
+    // Settings wrote its own address; put the server's invite link back.
+    const net = this.bm.survival?.net
+    if (net && !net.closed) net._showInAddressBar()
     if (this.bm.menuOpen) this.show(true)
   }
 

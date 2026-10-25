@@ -45,6 +45,7 @@ export class PlayNet {
     this.game = game
     this.api = serverApi(game)
     this.serverId = info.serverId
+    this._showInAddressBar()
     this.playerId = info.playerId
     this.token = info.token
     this.name = info.name || ''
@@ -76,6 +77,26 @@ export class PlayNet {
 
   attach(survival) {
     this.survival = survival
+  }
+
+  // While you're on a server the address bar is its invite link
+  // (2026-10-25, Gaymi: "make it just as https://gayz.vercel.app/?join=GANPCQ"
+  // instead of /map-editor), so copying it or reloading brings you back.
+  // A moment later, after the game's own /map-editor address is written.
+  get _joinPath() {
+    return `/?join=${encodeURIComponent(this.serverId)}`
+  }
+
+  _showInAddressBar() {
+    setTimeout(() => {
+      if (this.closed || location.pathname + location.search === this._joinPath) return
+      try { history.replaceState(history.state, '', this._joinPath) } catch { /* leave it */ }
+    }, 0)
+  }
+
+  _clearAddressBar() {
+    if (location.pathname + location.search !== this._joinPath) return
+    try { history.replaceState(history.state, '', this.game.buildMode?.active ? '/map-editor' : '/') } catch { /* leave it */ }
   }
 
   get auth() {
@@ -288,6 +309,7 @@ export class PlayNet {
 
   close() {
     this.closed = true
+    this._clearAddressBar()
     clearInterval(this._interval)
     window.removeEventListener('pagehide', this._onPageHide)
     for (const pid of [...this.players.keys()]) this._removePlayer(pid)

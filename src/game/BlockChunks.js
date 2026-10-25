@@ -404,11 +404,12 @@ export class BlockChunks {
   }
 
   // How much the leaves sway and the water rolls (world units) and how
-  // much the water shines (0..1) - set from the graphics level.
-  setEffects({ sway = 0, waves = 0, shine = 0, real = 0, bump = 0, haze = 0 } = {}) {
+  // much the water shines (0..1) - set from the graphics level. hazeScale:
+  // how much of the far haze the weather lets through (0 on a clear day).
+  setEffects({ sway = 0, waves = 0, shine = 0, real = 0, bump = 0, haze = 0 } = {}, hazeScale = 1) {
     this.fx.real.value = real
     this.fx.bump.value = bump
-    this.fx.haze.value = haze
+    this.fx.haze.value = haze * hazeScale
     this.fx.reflect.value = bump > 0 ? shine * 0.8 : 0
     this.fx.sway.value = sway * this.blockSize
     this.fx.waves.value = waves * this.blockSize
