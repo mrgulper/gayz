@@ -640,6 +640,62 @@ test('Map Editor weather falls in the world and fits the biome', async ({ page }
   })
 })
 
+// Weather on the ground (2026-10-25): rain soaks the open ground and
+// splashes, snow piles up, hail leaves ice, and it all goes again after;
+// Potato draws half the rain, no splashes, no low clouds and no grass
+// tufts; In Real Life grows grass tufts on grass blocks.
+test('weather wets and whitens the ground, Potato stays light', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g._applyGraphicsLevel('irl')
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const sky = bm.sky
+    const w3 = sky.weather3d
+    const fx = bm._chunks.fx
+    bm._applyGraphicsLook()
+    const run = (s) => { for (let i = 0; i < s * 30; i++) { sky.update(1 / 30); bm.grassTufts.update(1 / 30) } }
+    const set = (w) => { sky.weather = w; sky._pickWeather(); sky.apply() }
+    const out = {}
+    set('hardRain')
+    run(40)
+    out.rain = { wet: fx.wet.value > 0.9, splash: w3.splash.visible, low: sky.bodies.lowClouds.visible, tufts: bm.grassTufts.mesh.count > 0 }
+    set('clear')
+    run(200)
+    out.dried = fx.wet.value
+    set('hardSnow')
+    run(120)
+    out.snow = fx.snow.value > 0.9
+    set('hail')
+    run(60)
+    out.hail = fx.ice.value > 0.9
+    set('clear')
+    run(300)
+    out.melted = [fx.snow.value, fx.ice.value, fx.wet.value]
+    g._applyGraphicsLevel('potato')
+    bm._applyGraphicsLook()
+    set('hardRain')
+    run(10)
+    sky.bodies.update(0.1, bm.camera, 0, 0.95, 1, sky._sky)
+    out.potato = { drops: w3.points.geometry.drawRange.count * 2 === w3._count, splash: w3.splash.visible, low: sky.bodies.lowClouds.visible, tufts: bm.grassTufts.mesh.visible, pixels: g.renderer.domElement.style.imageRendering }
+    g._exitBuildMode()
+    out.afterExit = [fx.wet.value, w3.splash.visible]
+    return out
+  })
+
+  expect(r).toEqual({
+    rain: { wet: true, splash: true, low: true, tufts: true },
+    dried: 0,
+    snow: true,
+    hail: true,
+    melted: [0, 0, 0],
+    potato: { drops: true, splash: false, low: false, tufts: false, pixels: 'pixelated' },
+    afterExit: [0, false],
+  })
+})
+
 // Map 3's walled camp in Play (BuildCamp.js): a safe zone with a Trader,
 // Upgrader, Ammo Refill and Quest Board.
 test('Map 3 Play starts in a safe camp with working NPCs', async ({ page }) => {

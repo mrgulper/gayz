@@ -22,14 +22,24 @@ export const GRAPHICS_LEVELS = ['potato', 'simple', 'balanced', 'detailed', 'rea
 // shine: how much the water catches the sun (0..1).
 // real: the realistic look in the block shader (BlockChunks sharpen(), 0..1).
 // res: the Resolution slider (%) the level sets - Potato draws fewer pixels.
+// lite: Potato's extra savings - half the rain/snow, no splashes or low
+// rain clouds, and the few pixels shown as crisp squares, not a blur.
+// bump: blocks lit as bumpy (stone rough, bark ridged) from their own
+// pictures (0..1). haze: far land fades into the sky's colour, like real
+// air (0..1). tufts: little 3D grass plants on grass blocks near you (0..1,
+// how many) - all three 2026-10-25, Gaymi: "more shapes more everything to
+// make it look like in real life".
 export const LEVEL_LOOK = {
-  potato: { detail: 1, view: 'short', shadows: false, shadowQuality: 'low', realLight: false, sway: 0, waves: 0, shine: 0, res: 60 },
+  // Potato went from 60% to 40% of the pixels (2026-10-25, Gaymi's
+  // friends had 22 FPS on an old PC: "make the current potato graphics
+  // even lower pixels for less lag").
+  potato: { detail: 1, view: 'short', shadows: false, shadowQuality: 'low', realLight: false, sway: 0, waves: 0, shine: 0, res: 40, lite: true },
   simple: { detail: 1, view: 'short', shadows: false, shadowQuality: 'low', realLight: false, sway: 0, waves: 0, shine: 0 },
   balanced: { detail: 1, view: 'medium', shadows: false, shadowQuality: 'low', realLight: false, sway: 0, waves: 0, shine: 0 },
   detailed: { detail: 2, view: 'far', shadows: false, shadowQuality: 'medium', realLight: false, sway: 0, waves: 0, shine: 0.25 },
-  realistic: { detail: 2, view: 'far', shadows: true, shadowQuality: 'medium', realLight: true, sway: 0.04, waves: 0, shine: 0.6 },
-  ultra: { detail: 2, view: 'max', shadows: true, shadowQuality: 'high', realLight: true, sway: 0.06, waves: 0.06, shine: 1, real: 0.45 },
-  irl: { detail: 2, view: 'max', shadows: true, shadowQuality: 'high', realLight: true, sway: 0.09, waves: 0.1, shine: 1, real: 1 },
+  realistic: { detail: 2, view: 'far', shadows: true, shadowQuality: 'medium', realLight: true, sway: 0.04, waves: 0, shine: 0.6, bump: 0.4, haze: 0.3, tufts: 0.5 },
+  ultra: { detail: 2, view: 'max', shadows: true, shadowQuality: 'high', realLight: true, sway: 0.06, waves: 0.06, shine: 1, real: 0.45, bump: 0.7, haze: 0.6, tufts: 0.8 },
+  irl: { detail: 2, view: 'max', shadows: true, shadowQuality: 'high', realLight: true, sway: 0.09, waves: 0.1, shine: 1, real: 1, bump: 1, haze: 1, tufts: 1 },
 }
 
 export function graphicsLook(settings) {

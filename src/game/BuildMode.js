@@ -9,6 +9,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { BlockChunks, CHUNK } from './BlockChunks.js'
 import { setTextureDetail } from './BlockTextures.js'
 import { graphicsLook } from './GraphicsLevels.js'
+import { GrassTufts } from './GrassTufts.js'
 import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, fenceIconURL, gadgetIconURL, ladderIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
 import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
@@ -1802,6 +1803,8 @@ export class BuildMode {
     })
     // Time of day and weather (BuildSky.js).
     this.sky = new BuildSky(this, BLOCK_SIZE)
+    // 3D grass on grass blocks on the realistic levels (GrassTufts.js).
+    this.grassTufts = new GrassTufts(this, BLOCK_SIZE)
     this.spectate = new PlaySpectate(this, BLOCK_SIZE)
     // A dot in the middle of the screen to aim with while trying the map.
     this._tryCrosshairEl = document.createElement('div')
@@ -4259,6 +4262,7 @@ export class BuildMode {
     this.liquids.update(dt)
     this._updateWorld()
     this.sky.update(dt)
+    this.grassTufts.update(dt)
     this.together.update(dt)
     this._updateCampDisplay(dt)
     this.touch.update(dt)
@@ -4395,6 +4399,13 @@ export class BuildMode {
       this._renderHotbar?.()
     }
     this._chunks.setEffects(look)
+    this.sky?.weather3d?.setLite(!!look.lite)
+    this.grassTufts?.setAmount(look.tufts || 0)
+    // Potato's few pixels stretched up as crisp squares instead of a blur.
+    if (this._liteWas !== !!look.lite) {
+      this._liteWas = !!look.lite
+      this.renderer.domElement.style.imageRendering = look.lite ? 'pixelated' : ''
+    }
     // Shadows switched on or off while playing: every material is built
     // again for it - otherwise the land went missing after turning them
     // off (a level change or the Shadows checkbox).

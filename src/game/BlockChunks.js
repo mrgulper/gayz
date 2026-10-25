@@ -53,6 +53,8 @@ const DEFAULT_TILE = 16
 // Mip level bias for block textures: negative = sharper far away (a full
 // -1 starts to shimmer on moving ground).
 const SHARPEN = -0.6
+// Cells across the roof-height grid BuildWeather keeps round you (its ROOF).
+export const ROOF_GRID = 40
 // Realistic look (uReal 0-1: Ultra half, In Real Life full - graphics
 // levels, 2026-10-25, Gaymi: "make it more realistic as if you were irl
 // playing it"): the pixel art is smoothed (four samples a pixel apart),
@@ -60,18 +62,46 @@ const SHARPEN = -0.6
 // like real grass, dirt and rock instead of one repeating tile, and the
 // light is graded a little warmer and richer. 0 = the plain look, same
 // program, just a number.
+//
+// Weather on the ground (2026-10-25, Gaymi: "when it rains, snows, or
+// hails make the ground have some water and snow too"): uWet darkens
+// what's out in the open and fills dips with puddles that mirror the sky,
+// uSnow piles snow on top faces in growing patches, uIce scatters hail
+// stones - BuildWeather raises and lowers them. Under a roof stays dry:
+// the same roof-height grid that stops the rain indoors (uRoof).
+// Also by graphics level: uBump lights the block pictures as bumpy
+// (stone rough, bark ridged), uHaze fades far land into the sky's colour.
 function sharpen(mat, fx, extra = null) {
   mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uReal = fx.real
-    shader.uniforms.uBlock = fx.block
+    for (const k of ['real', 'block', 'wet', 'snow', 'ice', 'roof', 'roofOrigin', 'roofBase', 'sky', 'bump', 'haze']) {
+      shader.uniforms[`u${k[0].toUpperCase()}${k.slice(1)}`] = fx[k]
+    }
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
-      .replace('#include <project_vertex>', '#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nvarying vec3 vWNorm;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvWNorm = objectNormal;')
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
       uniform float uReal;
       uniform float uBlock;
+      uniform float uWet;
+      uniform float uSnow;
+      uniform float uIce;
+      uniform sampler2D uRoof;
+      uniform vec2 uRoofOrigin;
+      uniform float uRoofBase;
+      uniform vec3 uSky;
+      uniform float uBump;
+      uniform float uHaze;
       varying vec3 vWPos;
+      varying vec3 vWNorm;
+      // 1 = open to the sky here, 0 = under a roof (wp in blocks).
+      float openSky(vec3 wp, vec3 n) {
+        vec2 cell = floor(wp.xz + n.xz * 0.5) - uRoofOrigin;
+        if (cell.x < 0.0 || cell.y < 0.0 || cell.x >= ${ROOF_GRID.toFixed(1)} || cell.y >= ${ROOF_GRID.toFixed(1)}) return 1.0;
+        float top = texture2D(uRoof, (cell + 0.5) / ${ROOF_GRID.toFixed(1)}).r * 255.0;
+        if (top < 0.5) return 1.0;
+        return step(uRoofBase + top - 0.1, wp.y);
+      }
       float realHash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
       float realNoise(vec3 p) {
         vec3 i = floor(p);
@@ -92,7 +122,43 @@ function sharpen(mat, fx, extra = null) {
         texel.rgb *= 1.0 + (patches - 0.5) * 0.3 * uReal;
       }
       diffuseColor *= texel;
-    #endif`)
+    #endif
+      float puddle = 0.0;
+      if (uWet + uSnow + uIce > 0.0) {
+        vec3 wp = vWPos / uBlock;
+        float open = openSky(wp, vWNorm);
+        float up = step(0.5, vWNorm.y) * open;
+        float wet = uWet * open;
+        diffuseColor.rgb *= 1.0 - 0.32 * wet * (0.6 + 0.4 * up);
+        // Puddles: low, flat spots in big soft patches, growing as it rains.
+        float pn = realNoise(vec3(wp.xz * 0.45, 3.0)) * 0.7 + realNoise(vec3(wp.xz * 1.7, 9.0)) * 0.3;
+        puddle = up * smoothstep(0.78 - 0.3 * uWet, 0.86 - 0.3 * uWet, pn) * uWet;
+        diffuseColor.rgb *= 1.0 - 0.35 * puddle;
+        // Snow: patches that join up into a white blanket.
+        float sn = realNoise(vec3(wp.xz * 1.3, 1.0)) * 0.6 + realNoise(vec3(wp.xz * 4.1, 5.0)) * 0.4;
+        float cover = up * smoothstep(1.0 - uSnow * 1.15, 1.08 - uSnow * 1.15, sn);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.95, 0.99) * (0.92 + 0.08 * sn), cover);
+        // Hail: little ice stones lying about.
+        float stone = realHash(floor(wp * vec3(9.0, 1.0, 9.0)));
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.92, 0.98), up * step(1.0 - uIce * 0.22, stone) * (1.0 - cover));
+        puddle *= 1.0 - cover;
+      }`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+      #ifdef USE_MAP
+      if (uBump > 0.0) {
+        // Height = how light the picture is; up close only (far away the
+        // pixels are smaller than a screen pixel and would just shimmer).
+        float bh = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
+        float near = 1.0 - smoothstep(10.0, 28.0, length(vViewPosition) / uBlock);
+        vec2 dh = vec2(dFdx(bh), dFdy(bh)) * uBump * near * 6.0;
+        vec3 sx = normalize(dFdx(-vViewPosition));
+        vec3 sy = normalize(dFdy(-vViewPosition));
+        vec3 r1 = cross(sy, normal);
+        vec3 r2 = cross(normal, sx);
+        float det = dot(sx, r1);
+        normal = normalize(abs(det) * normal - sign(det) * (dh.x * r1 + dh.y * r2));
+      }
+      #endif`)
       .replace('#include <fog_fragment>', `if (uReal > 0.0) {
         vec3 c = gl_FragColor.rgb;
         float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -101,10 +167,20 @@ function sharpen(mat, fx, extra = null) {
         c *= mix(vec3(1.0), vec3(1.04, 1.01, 0.96), uReal);
         gl_FragColor.rgb = c;
       }
+      vec3 skyOut = sRGBTransferOETF(vec4(uSky, 1.0)).rgb;
+      if (puddle > 0.0) {
+        // Puddles mirror the sky, most when looked at low across them.
+        float fres = pow(1.0 - clamp(normalize(cameraPosition - vWPos).y, 0.0, 1.0), 2.0);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, skyOut, puddle * (0.25 + 0.55 * fres));
+      }
+      if (uHaze > 0.0) {
+        float far = length(cameraPosition - vWPos) / uBlock;
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, skyOut, uHaze * 0.5 * (1.0 - exp(-far * 0.012)));
+      }
       #include <fog_fragment>`)
     extra?.(shader)
   }
-  mat.customProgramCacheKey = () => (extra ? 'sharpen-moving-real' : 'sharpen-real')
+  mat.customProgramCacheKey = () => (extra ? 'sharpen-moving-real-wet' : 'sharpen-real-wet')
 }
 
 // Moving the corners of a face (graphics levels, GraphicsLevels.js):
@@ -289,7 +365,14 @@ export class BlockChunks {
     const waterMap = liquidTex('water')
     const lavaMap = liquidTex('lava')
     // Sway and waves (moving); `shine` makes the water catch the sun.
-    this.fx = { time: { value: 0 }, sway: { value: 0 }, waves: { value: 0 }, real: { value: 0 }, block: { value: blockSize } }
+    // wet/snow/ice and the roof grid are BuildWeather's (weather on the
+    // ground); sky is BuildSky's colour for puddles, haze and water.
+    this.fx = {
+      time: { value: 0 }, sway: { value: 0 }, waves: { value: 0 }, real: { value: 0 }, block: { value: blockSize },
+      wet: { value: 0 }, snow: { value: 0 }, ice: { value: 0 },
+      roof: { value: null }, roofOrigin: { value: new THREE.Vector2(1e6, 1e6) }, roofBase: { value: 0 },
+      sky: { value: new THREE.Color(0.6, 0.75, 0.95) }, bump: { value: 0 }, haze: { value: 0 }, reflect: { value: 0 },
+    }
     this.materials = {
       water: new THREE.MeshPhongMaterial({ map: waterMap, vertexColors: true, transparent: true, depthWrite: false, specular: 0x000000, shininess: 70 }),
       lava: new THREE.MeshLambertMaterial({ map: lavaMap, vertexColors: true, emissive: 0xffffff, emissiveMap: lavaMap, emissiveIntensity: 0.85 }),
@@ -300,14 +383,33 @@ export class BlockChunks {
     }
     for (const id of ['solid', 'glow', 'clear']) sharpen(this.materials[id], this.fx)
     sharpen(this.materials.cutout, this.fx, moving({ uTime: this.fx.time, uAmount: this.fx.sway }, false))
-    this.materials.water.onBeforeCompile = moving({ uTime: this.fx.time, uAmount: this.fx.waves }, true)
-    this.materials.water.customProgramCacheKey = () => 'waves'
+    const waves = moving({ uTime: this.fx.time, uAmount: this.fx.waves }, true)
+    // Water mirrors the sky on the realistic levels (uReflect): most when
+    // you look across it, hardly at all straight down - like a real lake.
+    this.materials.water.onBeforeCompile = (shader) => {
+      waves(shader)
+      shader.uniforms.uSky = this.fx.sky
+      shader.uniforms.uReflect = this.fx.reflect
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform vec3 uSky;\nuniform float uReflect;')
+        .replace('#include <fog_fragment>', `if (uReflect > 0.0) {
+          float fres = pow(1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0), 3.0);
+          float m = uReflect * (0.15 + 0.75 * fres);
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, sRGBTransferOETF(vec4(uSky, 1.0)).rgb, m);
+          gl_FragColor.a = mix(gl_FragColor.a, 1.0, m * 0.6);
+        }
+        #include <fog_fragment>`)
+    }
+    this.materials.water.customProgramCacheKey = () => 'waves-sky'
   }
 
   // How much the leaves sway and the water rolls (world units) and how
   // much the water shines (0..1) - set from the graphics level.
-  setEffects({ sway = 0, waves = 0, shine = 0, real = 0 } = {}) {
+  setEffects({ sway = 0, waves = 0, shine = 0, real = 0, bump = 0, haze = 0 } = {}) {
     this.fx.real.value = real
+    this.fx.bump.value = bump
+    this.fx.haze.value = haze
+    this.fx.reflect.value = bump > 0 ? shine * 0.8 : 0
     this.fx.sway.value = sway * this.blockSize
     this.fx.waves.value = waves * this.blockSize
     this.materials.water.specular.setScalar(shine * 0.55)

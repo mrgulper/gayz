@@ -369,7 +369,8 @@ function loadSettings() {
       // separate render target size - docs/PERFORMANCE.md already ruled
       // resolution out as a fix for the real (CPU-bound) stutter, so this
       // is a genuine visual/GPU-cost lever, not a performance fix.
-      renderResolution: parsed.renderResolution ?? 100,
+      // Potato players still on its old 60% move to its new 40%.
+      renderResolution: parsed.graphicsLevel === 'potato' && parsed.renderResolution === 60 ? 40 : parsed.renderResolution ?? 100,
       brightness: parsed.brightness ?? 100,
       contrast: parsed.contrast ?? 100,
       // Default false to match this build's existing out-of-box behavior

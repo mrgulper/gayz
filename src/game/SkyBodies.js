@@ -24,6 +24,11 @@ const CLOUD_HEIGHT = 24 // world units above the camera
 const CLOUD_SIZE = 420 // world units across
 const CLOUD_REPEAT = 3 // the picture repeats this many times across
 const WIND = 0.6 // world units per second
+// Low rain clouds (2026-10-25, Gaymi: "make more clouds and the sky change
+// to raining too"): a second, lower, darker layer that rolls in under the
+// main one when it's overcast and moves faster, like ragged storm cloud.
+const LOW_CLOUD_HEIGHT = 15
+const LOW_CLOUD_WIND = 2.2
 
 function canvas(size, draw) {
   const c = document.createElement('canvas')
@@ -189,7 +194,7 @@ export class SkyBodies {
         void main() {
           vec2 p = vUv * repeat + offset;
           float d = texture2D(map, p).r * 0.65 + texture2D(map, p * 2.3 + vec2(0.37, 0.61) - offset * 0.4).r * 0.35;
-          float start = 0.5 - cover * 0.22;
+          float start = 0.5 - cover * 0.4;
           float a = smoothstep(start, start + 0.16, d);
           float thick = smoothstep(start + 0.06, start + 0.3, d);
           float edge = 1.0 - smoothstep(0.15, 0.5, length(vUv - 0.5));
@@ -239,6 +244,17 @@ export class SkyBodies {
     this.clouds.frustumCulled = false
     this.clouds.renderOrder = -1
     this._wind = 0
+    this.lowCloudMat = this.cloudMat.clone()
+    this.lowCloudMat.uniforms.map.value = this.cloudMat.uniforms.map.value
+    this.lowCloudMat.uniforms.repeat.value = CLOUD_REPEAT * 1.6
+    this.lowClouds = new THREE.Mesh(this.clouds.geometry, this.lowCloudMat)
+    this.lowClouds.rotation.x = -Math.PI / 2
+    this.lowClouds.frustumCulled = false
+    this.lowClouds.renderOrder = -1
+    this.lowClouds.visible = false
+    scene.add(this.lowClouds)
+    this._lowWind = 0
+    this._lite = false
     for (const o of [this.dome, this.sun, this.moon, this.clouds]) {
       o.visible = false
       scene.add(o)
@@ -248,7 +264,15 @@ export class SkyBodies {
 
   show(on) {
     for (const o of [this.dome, this.sun, this.moon, this.clouds]) o.visible = on
-    if (!on) this.eclipse.visible = false
+    if (!on) {
+      this.eclipse.visible = false
+      this.lowClouds.visible = false
+    }
+  }
+
+  // Potato: no low rain clouds.
+  setLite(on) {
+    this._lite = on
   }
 
   // phase: time of day; cover 0-1 how overcast; daylight 0-1 (night 0);
@@ -291,12 +315,28 @@ export class SkyBodies {
     const u = (cam.x + this._wind) / CLOUD_SIZE * CLOUD_REPEAT
     const v = -cam.z / CLOUD_SIZE * CLOUD_REPEAT
     this.cloudMat.uniforms.offset.value.set(u % 1, v % 1)
-    const grey = 1 - cover * 0.45
+    const grey = 1 - cover * 0.55
     const light = 0.18 + 0.82 * daylight
     this.cloudMat.uniforms.color.value.setRGB(grey * light, grey * light, grey * light * (1.02 - 0.05 * daylight))
     this.cloudMat.uniforms.belly.value.setRGB(grey * light * 0.74, grey * light * 0.77, grey * light * 0.84)
     this.cloudMat.uniforms.cover.value = cover
     // Gone at night, so the night sky stays black behind the stars.
-    this.cloudMat.uniforms.opacity.value = (0.85 + cover * 0.15) * THREE.MathUtils.smoothstep(daylight, 0.15, 0.7)
+    const dayFade = THREE.MathUtils.smoothstep(daylight, 0.15, 0.7)
+    this.cloudMat.uniforms.opacity.value = (0.85 + cover * 0.15) * dayFade
+    // Low rain clouds: only when it's properly overcast.
+    const low = this._lite ? 0 : THREE.MathUtils.smoothstep(cover, 0.5, 0.85)
+    this.lowClouds.visible = low > 0.01
+    if (this.lowClouds.visible) {
+      this._lowWind += dt * LOW_CLOUD_WIND
+      this.lowClouds.position.set(cam.x, cam.y + LOW_CLOUD_HEIGHT, cam.z)
+      const r = CLOUD_REPEAT * 1.6
+      const lu = this.lowCloudMat.uniforms
+      lu.offset.value.set(((cam.x + this._lowWind) / CLOUD_SIZE * r + 0.5) % 1, (-cam.z / CLOUD_SIZE * r + 0.25) % 1)
+      const dark = grey * light * 0.78
+      lu.color.value.setRGB(dark, dark, dark * 1.03)
+      lu.belly.value.setRGB(dark * 0.7, dark * 0.72, dark * 0.78)
+      lu.cover.value = cover * 0.75
+      lu.opacity.value = low * 0.9 * dayFade
+    }
   }
 }
