@@ -18,8 +18,8 @@ import * as THREE from 'three'
 
 const SKY_R = 140 // world units: just inside the stars (150) and the camera's far plane
 const DOME_R = 120 // the sky dome (drawn first, behind everything)
-const SUN_SIZE = 30
-const MOON_SIZE = 20
+const SUN_SIZE = 64 // the whole glow; the bright disc is about a sixth of it
+const MOON_SIZE = 32
 const CLOUD_HEIGHT = 24 // world units above the camera
 const CLOUD_SIZE = 420 // world units across
 const CLOUD_REPEAT = 3 // the picture repeats this many times across
@@ -32,32 +32,55 @@ function canvas(size, draw) {
   return c
 }
 
+// The sun and moon are round and soft (2026-10-24, Gaymi: "everything in
+// the sky should not look blocky the sun too").
 function sunTexture() {
-  const tex = new THREE.CanvasTexture(canvas(64, (g) => {
-    const glow = g.createRadialGradient(32, 32, 6, 32, 32, 32)
-    glow.addColorStop(0, 'rgba(255,240,190,0.9)')
+  const tex = new THREE.CanvasTexture(canvas(256, (g, n) => {
+    const c = n / 2
+    // A wide faint haze, a brighter glow, then the bright disc.
+    const glow = g.createRadialGradient(c, c, 0, c, c, c)
+    glow.addColorStop(0, 'rgba(255,250,235,1)')
+    glow.addColorStop(0.16, 'rgba(255,246,220,1)')
+    glow.addColorStop(0.2, 'rgba(255,232,170,0.75)')
+    glow.addColorStop(0.42, 'rgba(255,214,140,0.22)')
     glow.addColorStop(1, 'rgba(255,200,120,0)')
     g.fillStyle = glow
-    g.fillRect(0, 0, 64, 64)
-    // A square, pixel-art sun in the middle of its glow.
-    g.fillStyle = '#fff6c8'
-    g.fillRect(20, 20, 24, 24)
-    g.fillStyle = '#ffe680'
-    g.fillRect(22, 22, 20, 20)
+    g.fillRect(0, 0, n, n)
   }))
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
 }
 
 function moonTexture() {
-  const tex = new THREE.CanvasTexture(canvas(32, (g) => {
-    g.fillStyle = '#e8ecf4'
-    g.fillRect(6, 6, 20, 20)
-    // A few darker craters.
-    g.fillStyle = '#b8c0cf'
-    for (const [x, y, w] of [[10, 10, 4], [18, 14, 5], [12, 19, 3], [20, 8, 2]]) g.fillRect(x, y, w, w)
+  const tex = new THREE.CanvasTexture(canvas(256, (g, n) => {
+    const c = n / 2
+    const r = n * 0.2
+    // Soft moonlight round it.
+    const glow = g.createRadialGradient(c, c, r * 0.9, c, c, c)
+    glow.addColorStop(0, 'rgba(210,225,255,0.35)')
+    glow.addColorStop(1, 'rgba(210,225,255,0)')
+    g.fillStyle = glow
+    g.fillRect(0, 0, n, n)
+    // The disc, a little darker towards its edge.
+    const disc = g.createRadialGradient(c - r * 0.25, c - r * 0.25, r * 0.1, c, c, r)
+    disc.addColorStop(0, '#f6f8fc')
+    disc.addColorStop(1, '#cfd6e2')
+    g.fillStyle = disc
+    g.beginPath()
+    g.arc(c, c, r, 0, Math.PI * 2)
+    g.fill()
+    // Soft grey seas and craters.
+    g.save()
+    g.clip()
+    for (const [x, y, w, a] of [[-0.3, -0.25, 0.42, 0.28], [0.2, -0.05, 0.3, 0.22], [-0.05, 0.35, 0.25, 0.2], [0.35, 0.4, 0.14, 0.25], [-0.45, 0.15, 0.16, 0.2]]) {
+      const sea = g.createRadialGradient(c + x * r, c + y * r, 0, c + x * r, c + y * r, w * r)
+      sea.addColorStop(0, `rgba(120,130,150,${a})`)
+      sea.addColorStop(1, 'rgba(120,130,150,0)')
+      g.fillStyle = sea
+      g.fillRect(0, 0, n, n)
+    }
+    g.restore()
   }))
-  tex.magFilter = THREE.NearestFilter
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
 }

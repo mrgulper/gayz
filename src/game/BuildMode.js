@@ -7,7 +7,7 @@ import * as THREE from 'three'
 import { setHomePaused } from './LiteHome.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
-import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, gadgetIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
+import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, fenceIconURL, gadgetIconURL, ladderIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
 import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
 import { BuildTryMode } from './BuildTryMode.js'
@@ -1100,7 +1100,7 @@ function _shapedBlockTextures(bt) {
 }
 
 // Picker/hotbar icon: shaped blocks show the block they're made from, a
-// slab at half height, stairs as stairs.
+// slab at half height, stairs as stairs, a fence as a fence, a ladder flat.
 function _blockIcon(bt) {
   if (bt.door) return doorIconURL(bt.door)
   if (bt.shape === 'lever' || bt.shape === 'sign') return gadgetIconURL(bt.shape)
@@ -1108,6 +1108,8 @@ function _blockIcon(bt) {
   if (bt.shape === 'invisible') return _invisibleIconURL()
   const source = _shapedSource(bt)
   if (bt.shape === 'stairs') return stairsIconURL(source || bt)
+  if (bt.shape === 'fence') return fenceIconURL(source || bt)
+  if (bt.shape === 'ladder') return ladderIconURL(BLOCK_BY_ID.get('oakplanks') || bt)
   return blockIconURL(source || bt, 64, bt.shape === 'slab' ? 0.5 : 1)
 }
 
@@ -1719,8 +1721,8 @@ export class BuildMode {
       // further you look").
       maxAnisotropy: Math.min(TOUCH_DEVICE ? 2 : 16, renderer.capabilities.getMaxAnisotropy()),
       faces: blockFaceCanvases,
-      // The 16x16 pixel textures at their own size (drawn crisp, BlockChunks).
-      tile: 16,
+      // The 32x32 block pictures at their own size (drawn crisp, BlockChunks).
+      tile: 32,
       hasAlpha: textureHasAlpha,
       getType: (x, y, z) => this._blocks.at(x, y, z),
       liquidHeight: (x, y, z) => this.liquids.heightAt(x, y, z),
