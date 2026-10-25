@@ -295,12 +295,12 @@ export class BuildSky {
     const sun = bm._sunLight
     this._hemiBase = mix(2)
     this._sunBase = mix(4)
-    if (hemi) hemi.color.setHex(from[1]).lerp(this._a.setHex(to[1]), s)
+    if (hemi) this._hemiColor = (this._hemiColor || new THREE.Color()).setHex(from[1]).lerp(this._a.setHex(to[1]), s)
     if (sun) {
-      sun.color.setHex(from[3]).lerp(this._a.setHex(to[3]), s)
+      this._sunColor = (this._sunColor || new THREE.Color()).setHex(from[3]).lerp(this._a.setHex(to[3]), s)
       // Low sun at sunset; the moon sits high. Same direction otherwise.
       const h = mix(5)
-      sun.position.set(20, 4 + 26 * h, 10)
+      bm._sunOffset = [20, 4 + 26 * h, 10]
     }
     const night = this.nightAmount()
     const stars = this._stars.material.uniforms.opacity
@@ -338,8 +338,20 @@ export class BuildSky {
     }
     this._sky.copy(this._base).lerp(this._tint, this._mix)
     const bm = this.bm
-    if (bm._hemiLight) bm._hemiLight.intensity = this._hemiBase * this._light
-    if (bm._sunLight) bm._sunLight.intensity = this._sunBase * this._light
+    // Realistic light (graphics levels): a stronger, warmer sun and a
+    // softer, bluer sky light, so shade looks cool and sunlit faces warm,
+    // like outdoors.
+    const real = bm.look?.realLight
+    if (bm._hemiLight) bm._hemiLight.intensity = this._hemiBase * this._light * (real ? 0.78 : 1)
+    if (bm._sunLight) {
+      bm._sunLight.intensity = this._sunBase * this._light * (real ? 1.35 : 1)
+      if (this._sunColor) bm._sunLight.color.copy(this._sunColor)
+      if (real) bm._sunLight.color.multiply(this._a.setRGB(1, 0.95, 0.86))
+    }
+    if (bm._hemiLight && this._hemiColor) {
+      bm._hemiLight.color.copy(this._hemiColor)
+      if (real) bm._hemiLight.color.lerp(this._a.setRGB(0.78, 0.86, 1), 0.35)
+    }
   }
 
   // For the top bar (TopBar.js, 2026-10-18): the weather showing now, how

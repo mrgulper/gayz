@@ -139,6 +139,7 @@ import { levelFromXp, starterXp } from './Xp.js'
 import * as OnlineUI from './OnlineUI.js'
 import * as FriendsUI from './FriendsUI.js'
 import * as SettingsUI from './SettingsUI.js'
+import { GRAPHICS_LEVELS, detectGraphicsLevel } from './GraphicsLevels.js'
 import * as ServerBrowser from './ServerBrowser.js'
 import { MARKET_PRICES } from './MarketSkins.js'
 import { INVENTORY_SKINS, SKIN_RARITIES, skinFrontIconURL } from './InventorySkins.js'
@@ -378,6 +379,9 @@ function loadSettings() {
       shadowQuality: parsed.shadowQuality || 'medium',
       viewDistance: ['auto', 'short', 'medium', 'far', 'max'].includes(parsed.viewDistance) ? parsed.viewDistance : 'auto',
       liteTextures: parsed.liteTextures ?? false,
+      // Settings > Graphics level; null until the game picks one for the
+      // device (Game constructor, detectGraphicsLevel).
+      graphicsLevel: GRAPHICS_LEVELS.includes(parsed.graphicsLevel) ? parsed.graphicsLevel : null,
       grainIntensity: parsed.grainIntensity ?? 100,
       panelFlickerEnabled: parsed.panelFlickerEnabled ?? true,
       // Off by default - an opt-in accessibility enhancement, not a
@@ -513,7 +517,7 @@ function _loadNavOrder(saved) {
 }
 
 export function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', cleanColor: CLEAN_DEFAULT_COLOR, playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, graphicsLevel: null, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', cleanColor: CLEAN_DEFAULT_COLOR, playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
 }
 
 
@@ -651,7 +655,7 @@ export const SETTINGS_CODE_KEYS = [
   'toastDuration', 'crosshairSize', 'largeTextMode',
   'highContrastMode', 'dyslexiaFont', 'focusRingMode', 
   'performanceMode', 'bgMood', 'renderResolution', 'brightness', 'contrast', 
-  'shadowsEnabled', 'shadowQuality', 'viewDistance', 'liteTextures', 
+  'shadowsEnabled', 'shadowQuality', 'viewDistance', 'liteTextures', 'graphicsLevel',
   'grainIntensity',
   'panelFlickerEnabled',
 ]
@@ -1217,6 +1221,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'gfx-brightness-label': 'gfxBrightnessLabel',
   'gfx-contrast-label': 'gfxContrastLabel',
   'gfx-shadows-label': 'gfxShadowsLabel',
+  'settings-section-gfx-level-text': 'settingsSectionGfxLevel',
   'gfx-shadow-quality-label': 'gfxShadowQualityLabel',
   'gfx-view-distance-label': 'gfxViewDistanceLabel',
   'gfx-grain-label': 'gfxGrainLabel',
@@ -2400,6 +2405,10 @@ export class Game {
     const _dbgGl = this.renderer.getContext()
     const _dbgExt = _dbgGl.getExtension('WEBGL_debug_renderer_info')
     this._gpuRendererString = _dbgExt ? _dbgGl.getParameter(_dbgExt.UNMASKED_RENDERER_WEBGL) : 'unknown'
+    // The graphics level that fits this device (Settings > Graphics marks
+    // it); picked for the player once, the first time (2026-10-24).
+    this._deviceGraphicsLevel = detectGraphicsLevel(this._gpuRendererString)
+    if (!this.settings.graphicsLevel) this._applyGraphicsLevel(this._deviceGraphicsLevel)
     // Lightweight placeholder until the player actually clicks Build (see
     // _enterBuildMode) - satisfies every `this.buildMode.active` check
     // scattered through the per-frame tick/keydown handlers without needing
@@ -2863,6 +2872,8 @@ export class Game {
   _resolveShadowsEnabled() { return SettingsUI._resolveShadowsEnabled(this) }
 
   _applyShadowQuality() { return SettingsUI._applyShadowQuality(this) }
+  _applyGraphicsLevel(level) { return SettingsUI._applyGraphicsLevel(this, level) }
+  _detectGraphicsLevel(gpu, env) { return detectGraphicsLevel(gpu, env) }
 
   _renderNavOrderList() { return SettingsUI._renderNavOrderList(this) }
 

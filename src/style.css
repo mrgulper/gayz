@@ -12397,3 +12397,58 @@ html.ui-theme-old .editor-pick-option {
 }
 html.ui-theme-old .editor-pick-option:hover,
 html.ui-theme-old .editor-pick-option:focus-visible { border-color: #6b3f17; }
+
+/* Settings > Graphics level cards (GraphicsLevels.js, SettingsUI
+   _renderGraphicsLevels) - a real picture of each level. */
+#gfx-level-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 6px 0 14px;
+}
+.gfx-level-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px 6px 10px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+}
+.gfx-level-card:hover,
+.gfx-level-card:focus-visible { transform: translateY(-2px); border-color: currentColor; }
+.gfx-level-card.active { border-color: #e6b422; box-shadow: 0 0 0 2px #e6b422; }
+.gfx-level-pic {
+  height: 84px;
+  border-radius: 6px;
+  background: #6cb4f4 center / cover no-repeat;
+}
+.gfx-level-name { font-size: 16px; font-weight: 700; padding: 0 2px; }
+.gfx-level-text { font-size: 12px; line-height: 1.3; opacity: 0.8; padding: 0 2px; }
+.gfx-level-tag {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #2e8b3a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+@media (max-width: 480px) {
+  #gfx-level-cards { grid-template-columns: 1fr 1fr; }
+  .gfx-level-pic { height: 64px; }
+}
+html.ui-theme-old .gfx-level-card { background: #ead6ab; border-color: #b08850; color: var(--old-ink, #2e1d0e); }
+html.ui-theme-old .gfx-level-card:hover,
+html.ui-theme-old .gfx-level-card:focus-visible { border-color: #6b3f17; }
+html.ui-theme-old .gfx-level-card.active { border-color: #6b3f17; box-shadow: 0 0 0 2px #6b3f17; }
+html.ui-theme-old .gfx-level-name { font-family: 'Rye', Georgia, serif; font-weight: 400; }

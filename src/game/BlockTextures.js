@@ -1297,8 +1297,24 @@ function baseFaces(type) {
 // - a soft lighter top-left and darker bottom-right rim makes each block
 //   read as a solid, slightly rounded cube.
 // See-through faces (glass, leaves) only get the smoothing.
-export const DETAIL = 2
+// Graphics levels (GraphicsLevels.js): Simple and Balanced keep the plain
+// 16x16 pictures (setTextureDetail(1)), the rest use the detailed ones.
+let DETAIL = 2
+export function textureDetail() {
+  return DETAIL
+}
+// Changes the detail and forgets every picture made at the old one (the
+// atlas is redrawn by BlockChunks.redrawAtlas).
+export function setTextureDetail(n) {
+  n = n === 1 ? 1 : 2
+  if (n === DETAIL) return false
+  DETAIL = n
+  cache.clear()
+  iconCache.clear()
+  return true
+}
 function detailFace(src, seed) {
+  if (DETAIL === 1) return src
   const n = src.width
   const m = n * DETAIL
   const sd = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, n, n).data
