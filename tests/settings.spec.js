@@ -225,5 +225,5 @@ test('graphics levels: picked for the device, cards switch the look', async ({ p
   expect(r.sway).toBe(true)
   expect(r.waves).toBe(true)
   expect(r.real).toBe(1)
-  expect(r.potato).toEqual({ res: 60, real: 0, detail: 1 })
+  expect(r.potato).toEqual({ res: 40, real: 0, detail: 1 })
 })

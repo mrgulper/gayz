@@ -92,11 +92,13 @@ const DEEP_STARS = 36000
 // light snow keep it clear to the edge.
 const WEATHER_LOOK = {
   clear: [DAY_SKY, 0, 1, 1],
-  lightRain: [0x6a6f76, 0.65, 0.72, 1],
-  hardRain: [0x50545a, 0.92, 0.52, 0.95],
+  // Rain darkens the sky more (2026-10-25, Gaymi: "the sky change to
+  // raining too").
+  lightRain: [0x5c6168, 0.78, 0.66, 1],
+  hardRain: [0x3e4248, 0.95, 0.46, 0.95],
   lightSnow: [0xc2c7cf, 0.55, 0.8, 1],
   hardSnow: [0xd0d4da, 0.85, 0.66, 0.8],
-  hail: [0x5b6068, 0.85, 0.6, 1],
+  hail: [0x4d5259, 0.9, 0.55, 1],
   fog: [0xb7bcc3, 0.8, 0.78, 0.22],
   sandstorm: [0xc49a5c, 0.75, 0.7, 0.35],
   eclipse: [0x0b0d18, 0.9, 0.2, 1],
@@ -241,6 +243,7 @@ export class BuildSky {
     this._shownKind = null
     this._showOverlays('clear')
     this.weather3d.clear()
+    this.bm.grassTufts?.clear()
     const game = this.bm.game
     audioEngine.setWeatherAudio(!!game?.raining && !!game?.gameStarted, !!game?.snowing && !!game?.gameStarted)
   }
@@ -356,6 +359,9 @@ export class BuildSky {
     }
     this._sky.copy(this._base).lerp(this._tint, this._mix)
     const bm = this.bm
+    // Puddles, water and far haze mirror this colour (BlockChunks).
+    bm._chunks?.fx.sky.value.copy(this._sky)
+    this.bodies?.setLite(!!bm.look?.lite)
     // Realistic light (graphics levels): a stronger, warmer sun and a
     // softer, bluer sky light, so shade looks cool and sunlit faces warm,
     // like outdoors.
