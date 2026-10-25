@@ -222,7 +222,6 @@ test('bottom links show a drop-down of their sections', async ({ page }) => {
   await page.hover('#nav-privacy-link')
   await page.waitForTimeout(250)
   await expect(menu).not.toHaveClass(/open/)
-  await expect(page.locator('#footer-menu-scrim')).not.toHaveClass(/open/)
   await expect(page.locator('#quests-panel')).toBeVisible()
   await page.click('#nav-privacy-link')
   await expect(page.locator('#privacy-panel')).toBeVisible()

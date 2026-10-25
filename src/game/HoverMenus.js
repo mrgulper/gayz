@@ -89,10 +89,7 @@ export function bindHoverMenus(game) {
   card.className = 'hover-menu'
   card.setAttribute('role', 'menu')
   card.innerHTML = '<button type="button" class="footer-menu-title"></button><div class="footer-menu-sections"></div>'
-  const scrim = document.createElement('div')
-  scrim.id = 'footer-menu-scrim'
   const host = document.getElementById('menu') || document.body
-  host.appendChild(scrim)
   host.appendChild(card)
   const titleBtn = card.querySelector('.footer-menu-title')
   const list = card.querySelector('.footer-menu-sections')
@@ -102,7 +99,6 @@ export function bindHoverMenus(game) {
   const hide = () => {
     clearTimeout(closeTimer)
     card.classList.remove('open')
-    scrim.classList.remove('open')
     current?.linkEl.classList.remove('footer-menu-on')
     current = null
   }
@@ -163,10 +159,8 @@ export function bindHoverMenus(game) {
     }))
     card.dataset.place = menu.place
     card.classList.add('open')
-    // Only the wide bottom menu blurs the page: the right column and the
-    // middle buttons sit inside layers the blur can't be kept off, so the
-    // button being pointed at would blur too.
-    scrim.classList.toggle('open', menu.place === 'footer')
+    // No menu dims or blurs the page behind it (2026-10-25, Gaymi: "just
+    // pointing it dont make it go dark").
     place(menu)
   }
 

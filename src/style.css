@@ -7170,11 +7170,15 @@ html.ui-theme-old #menu-nav-buttons button {
   padding-left: 66px;
 }
 
-/* Clean gets the same width and left clearance as Old (theme parity). */
+/* Simple's card is the size of Old's plaque as you see it: the plaque art
+   has see-through edges (30 of its 480px each side = 6.25%, ~17px), so a
+   full-width card looked much bigger when switching themes (2026-10-25).
+   The padding shrinks by the same 17px so the icon and words stay exactly
+   where Old's are. */
 html.ui-theme-clean #menu-nav-buttons button {
-  margin: 0 -12px;
-  padding: 15px 26px;
-  padding-left: 66px;
+  margin: 0 5px;
+  padding: 15px 9px;
+  padding-left: 49px;
 }
 
 #menu-nav-buttons button svg {
@@ -7305,28 +7309,14 @@ html.ui-theme-clean #menu-nav-buttons button {
 }
 
 /* Hover drop-down menus (HoverMenus.js, 2026-10-23, like apple.com's):
-   the page's name big, its tabs/sections small underneath, with the page
-   behind softly blurred. data-place: footer = a wide card just above the
-   bottom links; side = a narrow card left of the right column; beside =
-   right of Game Mode / Settings (only the footer one blurs the page). The
-   bottom link it belongs to stays lit while it's open. */
+   the page's name big, its tabs/sections small underneath; the page behind
+   is never dimmed or blurred (2026-10-25). data-place: footer = a wide card
+   just above the bottom links; side = a narrow card left of the right
+   column; beside = right of Game Mode / Settings. The bottom link it
+   belongs to stays lit while it's open. */
 #menu-links-row :is(button, a).footer-menu-on {
   color: #fff;
   text-shadow: 0 0 8px rgba(255, 255, 255, 0.55);
-}
-#footer-menu-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 15;
-  pointer-events: none;
-  opacity: 0;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  background: rgba(0, 0, 0, 0.18);
-  transition: opacity 0.15s;
-}
-#footer-menu-scrim.open {
-  opacity: 1;
 }
 #footer-menu {
   position: fixed;
