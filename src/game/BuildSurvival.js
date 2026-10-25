@@ -34,7 +34,8 @@ import { PlayAnimals } from './PlayAnimals.js'
 import { worldSeed, isEarthWorld } from './OpenWorld.js'
 import { loadEarthTerrain } from './EarthTerrain.js'
 import { BOTTOM } from './Underground.js'
-import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
+import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
+import { MONSTER_KINDS, makeMonster } from './ZombieKinds.js'
 
 export const CHEST_LOOT = { ammo: 60, health: 35 }
 const HEAD_MULT = 2.4
@@ -119,6 +120,9 @@ const LUNGE_TIME = 0.8
 const LUNGE_EVERY = 3.5
 const LUNGE_MULT = 1.45
 const SKELETON_KIND_IDS = Object.keys(SKELETON_KINDS)
+const MONSTER_KIND_IDS = Object.keys(MONSTER_KINDS)
+// Skeletons and monsters: their kind's hp/speed/damage.
+const kindOf = (kind) => SKELETON_KINDS[kind] || MONSTER_KINDS[kind] || null
 // Dead zombies (2026-10-12, "make the dead body fall on the ground and
 // slowly fade gone"): they tip over away from the shot in CORPSE_FALL
 // seconds, lie still for CORPSE_LIE, then fade out over CORPSE_FADE. At most
@@ -965,7 +969,7 @@ export class BuildSurvival {
       const onRay = []
       for (const z of this.zombies) {
         const half = ZOMBIE_HALF * (z.size || 1)
-        const height = ZOMBIE_HEIGHT * (z.size || 1)
+        const height = ZOMBIE_HEIGHT * (z.size || 1) * (z.tall || 1)
         box.min.set((z.x - half) * B, z.y * B, (z.z - half) * B)
         box.max.set((z.x + half) * B, (z.y + height) * B, (z.z + half) * B)
         if (!ray.intersectBox(box, hitPoint)) continue
@@ -993,7 +997,7 @@ export class BuildSurvival {
       for (const z of this.zombies) {
         if (hits.has(z)) continue
         const cx = z.x * B - eye.x
-        const cy = (z.y + ZOMBIE_HEIGHT * 0.5 * (z.size || 1)) * B - eye.y
+        const cy = (z.y + ZOMBIE_HEIGHT * 0.5 * (z.size || 1) * (z.tall || 1)) * B - eye.y
         const cz = z.z * B - eye.z
         const d = Math.hypot(cx, cy, cz)
         if (d > reach + ZOMBIE_HALF * B || (cx * dir.x + cy * dir.y + cz * dir.z) / (d || 1) < CLEAVE_COS) continue
@@ -1012,7 +1016,7 @@ export class BuildSurvival {
       const radius = w.blast * B
       for (const z of this.zombies) {
         const cx = z.x * B
-        const cy = (z.y + ZOMBIE_HEIGHT * 0.5 * (z.size || 1)) * B
+        const cy = (z.y + ZOMBIE_HEIGHT * 0.5 * (z.size || 1) * (z.tall || 1)) * B
         const cz = z.z * B
         const d = Math.hypot(cx - impact.x, cy - impact.y, cz - impact.z)
         if (d < radius) add(z, damage * 0.8 * (1 - d / radius))
@@ -1157,8 +1161,9 @@ export class BuildSurvival {
     // Every kill counts toward the wave's target (see SPAWN_GAP).
     if (this._toSpawn > 0) this._toSpawn--
     audioEngine.playZombieDeath?.(1, this._panTo(z.x, z.z))
-    if (by) this.net?.queueCredit(by, z.boss, z.kind)
-    else this._countKill(z.boss, z.kind)
+    const skeleton = SKELETON_KINDS[z.kind] ? z.kind : null
+    if (by) this.net?.queueCredit(by, z.boss, skeleton)
+    else this._countKill(z.boss, skeleton)
     this._spawnCorpse(z, dir)
     this._removeZombie(z)
     this.zombies = this.zombies.filter((o) => o !== z)
@@ -1451,9 +1456,10 @@ export class BuildSurvival {
     const [x, y, z] = open[Math.floor(Math.random() * open.length)]
     const boss = this._bossPending > 0
     if (boss) this._bossPending--
-    const kind = !boss && this.wave >= SKELETON_FROM_WAVE && skeletonsReady() && Math.random() < SKELETON_CHANCE
+    let kind = !boss && this.wave >= SKELETON_FROM_WAVE && skeletonsReady() && Math.random() < SKELETON_CHANCE
       ? SKELETON_KIND_IDS[Math.floor(Math.random() * SKELETON_KIND_IDS.length)] : null
-    const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (boss ? BOSS_HEALTH_MULT : 1) * (kind ? SKELETON_KINDS[kind].hp : 1)
+    if (!kind && !boss && this.wave >= MONSTER_FROM_WAVE && Math.random() < MONSTER_CHANCE) kind = MONSTER_KIND_IDS[Math.floor(Math.random() * MONSTER_KIND_IDS.length)]
+    const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (boss ? BOSS_HEALTH_MULT : 1) * (kindOf(kind)?.hp ?? 1)
     if (boss) this._message(t('buildPlayBossComing'))
     this._makeZombie(++this._zid, x + 0.5, y, z + 0.5, health, boss, kind)
     return true
@@ -1461,12 +1467,22 @@ export class BuildSurvival {
 
   // A zombie's body and state. id: the number the server knows it by
   // (the host's count - other players' copies use the host's ids).
-  // kind: a skeleton kind (SKELETON_KINDS) or null for a zombie.
+  // kind: a skeleton kind (SKELETON_KINDS), a monster kind (MONSTER_KINDS)
+  // or null for a zombie.
   _makeZombie(id, x, y, z, health, boss, kind = null) {
     const group = new THREE.Group()
     const zombie = { id, x, y, z, vx: 0, vy: 0, vz: 0, onGround: false, health, maxHealth: health, attackCd: 0.6, bash: 0, flash: 0, walk: Math.random() * 6, moan: 2 + Math.random() * 8, group, body: null, boss, size: boss ? BOSS_SIZE : 1 }
-    const batch = kind && skeletonsReady() ? null : this._zombieBatch()
-    if (kind && skeletonsReady()) {
+    const monster = MONSTER_KINDS[kind]
+    const batch = monster || (kind && skeletonsReady()) ? null : this._zombieBatch()
+    if (monster) {
+      const m = makeMonster(kind, ZOMBIE_HEIGHT * this.B)
+      group.add(m.root)
+      zombie.monster = m
+      zombie.kind = kind
+      zombie.speedMult = monster.speed
+      zombie.damageMult = monster.damage
+      zombie.tall = monster.tall
+    } else if (kind && skeletonsReady()) {
       // A real animated skeleton (SkeletonModels.js), rising out of the
       // ground first.
       const skel = makeSkeleton(kind, ZOMBIE_HEIGHT * this.B)
@@ -1574,6 +1590,10 @@ export class BuildSurvival {
       this._skeletonCorpse(z, dir)
       return
     }
+    if (z.monster) {
+      this._monsterCorpse(z, dir)
+      return
+    }
     if (!z.body || !z.parts) return
     const B = this.B
     const body = z.body.clone()
@@ -1619,6 +1639,35 @@ export class BuildSurvival {
     // dead body flows - it should always be on the ground").
     const groundY = this._groundUnder(tilt.position.x / B, tilt.position.y / B, tilt.position.z / B) * B
     this._corpses.push({ group: tilt, materials, arms, armFrom: arms.map((a) => a.rotation.x), t: 0, lift, baseY: tilt.position.y, groundY, vy: 0 })
+    while (this._corpses.length > MAX_CORPSES) this._dropCorpse(this._corpses[0])
+  }
+
+  // A dead monster (ZombieKinds.js) topples over away from the shot and
+  // fades like a zombie's body - the body itself, not a copy.
+  _monsterCorpse(z, dir) {
+    z.corpseTaken = true
+    let fx = dir?.x ?? 0
+    let fz = dir?.z ?? 0
+    if (!fx && !fz) {
+      const me = this.bm.tryMode.pos
+      fx = z.x - me.x
+      fz = z.z - me.z
+    }
+    const tilt = new THREE.Group()
+    tilt.rotation.order = 'YXZ'
+    tilt.rotation.y = Math.atan2(fx, fz) || 0
+    tilt.position.copy(z.group.position)
+    z.group.position.set(0, 0, 0)
+    z.group.rotation.y -= tilt.rotation.y
+    tilt.add(z.group)
+    this.bm.scene.add(tilt)
+    for (const m of z.monster.materials) {
+      m.transparent = true
+      m.emissive.setRGB(0, 0, 0)
+    }
+    this._corpses = this._corpses || []
+    const groundY = this._groundUnder(tilt.position.x / this.B, tilt.position.y / this.B, tilt.position.z / this.B) * this.B
+    this._corpses.push({ group: tilt, materials: z.monster.materials, arms: [], armFrom: [], t: 0, lift: 0.2 * this.B * (z.tall || 1), baseY: tilt.position.y, groundY, vy: 0 })
     while (this._corpses.length > MAX_CORPSES) this._dropCorpse(this._corpses[0])
   }
 
@@ -1722,6 +1771,11 @@ export class BuildSurvival {
       z.skel.dispose()
       return
     }
+    // A monster's geometry and pictures are shared with its kind.
+    if (z.monster) {
+      z.monster.dispose()
+      return
+    }
     // A batched body shares its geometry and material - nothing to free.
     if (z.parts) return
     z.group.traverse((o) => {
@@ -1772,6 +1826,7 @@ export class BuildSurvival {
       }
       speed *= zb.speedMult || 1
     }
+    if (zb.monster) speed *= zb.speedMult || 1
     if (zb.burn > 0) {
       zb.burn -= dt
       // Water or rain puts a burning zombie out.
@@ -1901,6 +1956,7 @@ export class BuildSurvival {
     zb.walk += dt * moveLen * 3.2
     const swing = Math.sin(zb.walk) * Math.min(1, moveLen / 2) * 0.7
     if (zb.skel) this._skeletonGait(zb, dt, moveLen)
+    zb.monster?.update(dt, moveLen)
     if (zb.body) {
       const lp = zb.body.limbPivots
       lp.legR.rotation.x = swing
@@ -2396,7 +2452,7 @@ export class BuildSurvival {
       seen.add(id)
       let z = this.zombies.find((o) => o.id === id)
       if (!z) {
-        z = this._makeZombie(id, d.x, d.y, d.z, d.hp, d.boss, SKELETON_KINDS[d.k] ? d.k : null)
+        z = this._makeZombie(id, d.x, d.y, d.z, d.hp, d.boss, kindOf(d.k) ? d.k : null)
         z.group.position.set(d.x * this.B, d.y * this.B, d.z * this.B)
       }
       z.tx = d.x
@@ -2445,6 +2501,7 @@ export class BuildSurvival {
           if (z.rise <= 0) z.skel.play('walk')
         } else this._skeletonGait(z, dt, moveLen)
       }
+      z.monster?.update(dt, moveLen)
       z.walk += dt * moveLen * 3.2
       const swing = Math.sin(z.walk) * Math.min(1, moveLen / 2) * 0.7
       if (z.body) {
@@ -2458,6 +2515,9 @@ export class BuildSurvival {
       const red = z.flash > 0 ? 0.6 : 0
       if (z.skel && z.lastRed !== red) {
         for (const m of z.skel.materials) m.emissive?.setRGB(red, 0, 0)
+      }
+      if (z.monster && z.lastRed !== red) {
+        for (const m of z.monster.materials) m.emissive.setRGB(red, 0, 0)
       }
       z.lastRed = red
     }

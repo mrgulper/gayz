@@ -73,9 +73,11 @@ const BIOME_CLIMATE = {
   mountains: 'mountain', taiga: 'mountain',
 }
 // A clean, bright, flat blue by day and near black at night (2026-10-23,
-// Gaymi's reference pictures), with crisp square stars (_buildStars).
+// Gaymi's reference pictures), with real-looking stars (_buildStars).
 const DAY_SKY = 0x6cb4f4
-const STAR_COUNT = 2200
+const STAR_COUNT = 4000
+// Extra faint stars that only come out while zoomed in (hold V).
+const DEEP_STARS = 36000
 // How each weather looks: sky tint color and how far toward it, how much
 // of the daylight is left, and how much nearer the fog comes (x view).
 const WEATHER_LOOK = {
@@ -302,7 +304,8 @@ export class BuildSky {
     }
     const night = this.nightAmount()
     const stars = this._stars.material.uniforms.opacity
-    stars.value = night * (w === 'clear' ? 1 : 0.25)
+    // Only once it's really dark - not in a morning or evening sky.
+    stars.value = THREE.MathUtils.smoothstep(night, 0.4, 0.9) * (w === 'clear' ? 1 : 0.25)
     this._stars.visible = stars.value > 0.01
     // (apply() runs a few times a second in Cycle - only touch the
     // overlays, sound and lightning when the weather itself changes.)
@@ -354,13 +357,18 @@ export class BuildSky {
     return n(from) + (n(to) - n(from)) * s
   }
 
-  // Stars: lots of crisp white squares of different sizes and brightness,
-  // some turned at an angle, a few twinkling - drawn as points by a tiny
-  // shader (round or blurry dots looked nothing like the reference).
+  // Stars like the real night sky (2026-10-24, Gaymi: "should just look
+  // like how it looks irl"): tiny round points, mostly faint, a few bright,
+  // slightly blue or warm, gently twinkling. The faintest ones only show
+  // while zoomed in (`zoom`, hold V) - like looking through binoculars - so
+  // zooming doesn't leave an empty sky.
   _buildStars() {
-    const count = STAR_COUNT
+    const count = STAR_COUNT + DEEP_STARS
     const pos = new Float32Array(count * 3)
-    const look = new Float32Array(count * 4) // size (px), brightness, angle, twinkle speed
+    const look = new Float32Array(count * 4) // size (px), brightness, tint (-1 blue .. 1 warm), twinkle speed
+    // 0 for the everyday stars; for the faint extra ones, how far zoomed in
+    // (normal FOV / FOV) they need to be to show.
+    const deep = new Float32Array(count)
     for (let i = 0; i < count; i++) {
       // Points on a big sphere, mostly above the horizon.
       const u = Math.random() * Math.PI * 2
@@ -369,34 +377,41 @@ export class BuildSky {
       pos[i * 3] = Math.cos(u) * Math.cos(v) * r
       pos[i * 3 + 1] = Math.sin(v) * r
       pos[i * 3 + 2] = Math.sin(u) * Math.cos(v) * r
-      const big = Math.random()
-      look[i * 4] = big < 0.65 ? 2 + Math.random() * 1.5 : big < 0.93 ? 3.5 + Math.random() * 3 : 7 + Math.random() * 7
-      look[i * 4 + 1] = big < 0.93 ? 0.7 + Math.random() * 0.3 : 0.2 + Math.random() * 0.35 // the big ones are faint grey
-      look[i * 4 + 2] = Math.random() < 0.35 ? Math.random() * Math.PI : 0
-      look[i * 4 + 3] = Math.random() < 0.3 ? 0.5 + Math.random() * 2 : 0
+      // Real brightness: lots of faint stars, very few bright ones.
+      const b = Math.pow(Math.random(), 3.2)
+      look[i * 4] = 2.2 + b * 3.4
+      look[i * 4 + 1] = 0.16 + b * 0.84
+      look[i * 4 + 2] = Math.random() < 0.6 ? 0 : Math.random() * 2 - 1
+      look[i * 4 + 3] = 1.5 + Math.random() * 3
+      if (i >= STAR_COUNT) {
+        deep[i] = 1.3 + Math.random() * 2.2
+        look[i * 4 + 1] = 0.3 + Math.random() * 0.4
+      }
     }
     const geo = new THREE.BufferGeometry()
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
     geo.setAttribute('look', new THREE.BufferAttribute(look, 4))
+    geo.setAttribute('deep', new THREE.BufferAttribute(deep, 1))
     const mat = new THREE.ShaderMaterial({
-      uniforms: { opacity: { value: 0 }, time: { value: 0 }, ratio: { value: 1 } },
-      vertexShader: `attribute vec4 look; uniform float time; uniform float ratio; varying float vLight; varying float vAngle;
+      uniforms: { opacity: { value: 0 }, time: { value: 0 }, ratio: { value: 1 }, zoom: { value: 1 } },
+      vertexShader: `attribute vec4 look; attribute float deep; uniform float time; uniform float ratio; uniform float zoom; varying float vLight; varying vec3 vTint;
         void main() {
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = floor(look.x * ratio + 0.5);
-          vLight = look.y * (look.w > 0.0 ? 0.65 + 0.35 * sin(time * look.w + position.x) : 1.0);
-          vAngle = look.z;
+          // Zoomed in, faint stars come out and every star looks a bit bigger.
+          float seen = deep > 0.0 ? smoothstep(deep, deep + 0.5, zoom) : smoothstep(0.1, 0.32, look.y * sqrt(zoom));
+          if (seen < 0.01) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; vLight = 0.0; vTint = vec3(0.0); return; }
+          gl_PointSize = look.x * ratio * (0.85 + 0.15 * sqrt(zoom));
+          float twinkle = 0.78 + 0.22 * sin(time * look.w + position.x * 3.1 + position.z);
+          vLight = min(1.0, look.y * 1.15) * seen * twinkle;
+          vTint = look.z > 0.0 ? mix(vec3(1.0), vec3(1.0, 0.86, 0.7), look.z) : mix(vec3(1.0), vec3(0.75, 0.85, 1.0), -look.z);
         }`,
-      fragmentShader: `uniform float opacity; varying float vLight; varying float vAngle;
+      fragmentShader: `uniform float opacity; varying float vLight; varying vec3 vTint;
         void main() {
-          vec2 p = gl_PointCoord - 0.5;
-          float c = cos(vAngle);
-          float s = sin(vAngle);
-          p = vec2(c * p.x - s * p.y, s * p.x + c * p.y);
-          // The biggest square that still fits the point when turned.
-          float fit = 0.5 / (abs(c) + abs(s));
-          if (max(abs(p.x), abs(p.y)) > fit) discard;
-          gl_FragColor = vec4(vec3(1.0), vLight * opacity);
+          // A soft round dot, brightest in the middle.
+          float d = length(gl_PointCoord - 0.5) * 2.0;
+          float a = pow(max(0.0, 1.0 - d), 1.8) * vLight * opacity;
+          if (a < 0.01) discard;
+          gl_FragColor = vec4(vTint, a);
         }`,
       transparent: true,
       depthWrite: false,
@@ -426,6 +441,7 @@ export class BuildSky {
       const u = this._stars.material.uniforms
       u.time.value += dt
       u.ratio.value = bm.renderer?.getPixelRatio?.() || 1
+      u.zoom.value = (this.bm._normalFov?.() || 75) / bm.camera.fov
     }
     if (!this._active) return
     this._easeLook(dt)

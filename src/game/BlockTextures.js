@@ -1275,11 +1275,86 @@ function baseFaces(type) {
   if (!/^(water|lava)$/.test(type.id) && (!textureHasAlpha(type) || /leaves$/.test(type.id))) {
     for (const canvas of new Set(Object.values(faces))) cleanPixels(canvas)
   }
+  if (!/^(water|lava)$/.test(type.id)) {
+    const done = new Map()
+    for (const k of Object.keys(faces)) {
+      const src = faces[k]
+      if (!done.has(src)) done.set(src, detailFace(src, hashStr(`${type.id}:${k}`)))
+      faces[k] = done.get(src)
+    }
+  }
   cache.set(type.id, faces)
   return faces
 }
 
-// -> { top, side, bottom } 16x16 canvases for this block type.
+// Twice the detail, still crisp (2026-10-24, Gaymi: "can we make the whole
+// game like not blocky texture like the sky without lagging", picked
+// "smoother, detailed textures"; on 2026-10-17 they wanted clean, not
+// blurry, so nothing here blurs): each 16x16 face becomes 32x32 -
+// - stair-stepped edges between colours are smoothed (Scale2x: a pixel's
+//   corner takes its neighbours' colour where they meet diagonally),
+// - a faint grain of lighter and darker pixels gives the surface texture,
+// - a soft lighter top-left and darker bottom-right rim makes each block
+//   read as a solid, slightly rounded cube.
+// See-through faces (glass, leaves) only get the smoothing.
+export const DETAIL = 2
+function detailFace(src, seed) {
+  const n = src.width
+  const m = n * DETAIL
+  const sd = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, n, n).data
+  const at = (x, y) => (((y + n) % n) * n + ((x + n) % n)) * 4
+  const same = (a, b) => sd[a] === sd[b] && sd[a + 1] === sd[b + 1] && sd[a + 2] === sd[b + 2] && sd[a + 3] === sd[b + 3]
+  const out = new Uint8ClampedArray(m * m * 4)
+  let opaque = true
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const P = at(x, y)
+      if (sd[P + 3] < 255) opaque = false
+      const A = at(x, y - 1)
+      const B = at(x + 1, y)
+      const C = at(x - 1, y)
+      const D = at(x, y + 1)
+      const quad = [
+        same(C, A) && !same(C, D) && !same(A, B) ? A : P,
+        same(A, B) && !same(A, C) && !same(B, D) ? B : P,
+        same(D, C) && !same(D, B) && !same(C, A) ? C : P,
+        same(B, D) && !same(B, A) && !same(D, C) ? D : P,
+      ]
+      for (let q = 0; q < 4; q++) {
+        const o = ((y * 2 + (q >> 1)) * m + x * 2 + (q & 1)) * 4
+        const i = quad[q]
+        out[o] = sd[i]
+        out[o + 1] = sd[i + 1]
+        out[o + 2] = sd[i + 2]
+        out[o + 3] = sd[i + 3]
+      }
+    }
+  }
+  if (opaque) {
+    const r = rng(seed)
+    for (let y = 0; y < m; y++) {
+      for (let x = 0; x < m; x++) {
+        let f = 1 + (r() - 0.5) * 0.07
+        // The rim: two pixels deep, the outer one stronger.
+        const lt = Math.min(x, y)
+        const rb = Math.min(m - 1 - x, m - 1 - y)
+        if (lt < 2 && lt <= rb) f *= lt === 0 ? 1.1 : 1.05
+        else if (rb < 2) f *= rb === 0 ? 0.86 : 0.93
+        const o = (y * m + x) * 4
+        out[o] *= f
+        out[o + 1] *= f
+        out[o + 2] *= f
+      }
+    }
+  }
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = m
+  canvas.getContext('2d', { willReadFrequently: true }).putImageData(new ImageData(out, m, m), 0, 0)
+  return canvas
+}
+
+// -> { top, side, bottom } 32x32 canvases (16x16 for water and lava) for
+// this block type.
 export function blockFaceCanvases(type) {
   return baseFaces(type)
 }
@@ -1347,7 +1422,53 @@ export function blockIconURL(type, size = 64, heightFrac = 1) {
 // runs toward the right corner, z toward the left, y up; only the top,
 // the z = max and the x = max faces of each box show.
 export function stairsIconURL(type, size = 64) {
-  const key = `${type.id}:${size}:stairs`
+  return boxesIconURL(type, 'stairs', [[0, 1, 0, 0.5, 0, 1], [0, 1, 0.5, 1, 0, 0.5]], size)
+}
+
+// Fences show as a fence - two posts joined by two rails - not a whole
+// block (2026-10-24, Gaymi: "when you holding a block the block in hotbar
+// should not look like a block ... its a fence but a block in the hotbar").
+export function fenceIconURL(type, size = 64) {
+  return boxesIconURL(type, 'fence', [
+    [0.05, 0.3, 0, 1, 0.375, 0.625],
+    [0.3, 0.7, 0.75, 0.9, 0.44, 0.56],
+    [0.3, 0.7, 0.4, 0.55, 0.44, 0.56],
+    [0.7, 0.95, 0, 1, 0.375, 0.625],
+  ], size)
+}
+
+// A ladder shows flat, as a ladder: two rails and rungs cut out of its
+// wood's texture, see-through between them.
+export function ladderIconURL(type, size = 64) {
+  const key = `${type.id}:${size}:ladder`
+  if (iconCache.has(key)) return iconCache.get(key)
+  const wood = blockFaceCanvases(type).side
+  const n = wood.width
+  const mask = document.createElement('canvas')
+  mask.width = mask.height = n
+  const m = mask.getContext('2d', { willReadFrequently: true })
+  const u = n / 16
+  m.fillStyle = '#000'
+  m.fillRect(2 * u, 0, 2 * u, n)
+  m.fillRect(12 * u, 0, 2 * u, n)
+  for (const y of [1, 5, 9, 13]) m.fillRect(2 * u, y * u, 12 * u, 2 * u)
+  m.globalCompositeOperation = 'source-in'
+  m.drawImage(wood, 0, 0)
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = size
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  ctx.imageSmoothingEnabled = false
+  const pad = size * 0.08
+  ctx.drawImage(mask, pad, pad, size - pad * 2, size - pad * 2)
+  const url = canvas.toDataURL()
+  iconCache.set(key, url)
+  return url
+}
+
+// Boxes [x0, x1, y0, y1, z0, z1] of a unit cube, back ones first, drawn in
+// the same isometric view as blockIconURL.
+function boxesIconURL(type, name, boxes, size) {
+  const key = `${type.id}:${size}:${name}`
   if (iconCache.has(key)) return iconCache.get(key)
   const faces = blockFaceCanvases(type)
   const canvas = document.createElement('canvas')
@@ -1385,8 +1506,7 @@ export function stairsIconURL(type, size = 64) {
     face(faces.side, at(x1, y1, z1), sub(at(x1, y1, z0), at(x1, y1, z1)), sub(at(x1, y0, z1), at(x1, y1, z1)), 0.4, 1 - y1, 1 - y0)
     face(faces.top, at(x0, y1, z0), sub(at(x1, y1, z0), at(x0, y1, z0)), sub(at(x0, y1, z1), at(x0, y1, z0)), 0)
   }
-  box(0, 1, 0, 0.5, 0, 1)
-  box(0, 1, 0.5, 1, 0, 0.5)
+  for (const b of boxes) box(...b)
   const url = canvas.toDataURL()
   iconCache.set(key, url)
   return url

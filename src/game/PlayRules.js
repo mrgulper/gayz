@@ -34,6 +34,10 @@ export const SKELETON_FROM_WAVE = 3
 // (2026-10-23, Gaymi: "must be at least 20-30+ blocks apart from you").
 export const SPAWN_MIN_DIST = 30
 export const SKELETON_CHANCE = 0.3
+// The pixel-art monster zombies (ZombieKinds.js: hunched, blob, beast)
+// join from this wave on, each spawn with MONSTER_CHANCE.
+export const MONSTER_FROM_WAVE = 2
+export const MONSTER_CHANCE = 0.3
 export const EXTRACTION_HOLD = 10
 export const EXTRACTION_RADIUS = 3
 export const EXTRACTION_MIN = 25

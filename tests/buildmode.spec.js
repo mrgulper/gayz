@@ -1572,9 +1572,9 @@ test('the camera key switches between first and third person', async ({ page }) 
   expect(r.aimInThird).toBe(false)
 })
 
-// 2026-10-17: block textures are clean, crisp pixel art like Kirka/bloxd
-// (the blurry HD pass is gone): 16px tiles drawn with nearest filtering, and
-// every painted face cut down to a few flat colours (cleanPixels).
+// 2026-10-17: block textures are clean, crisp pixel art (the blurry HD pass
+// is gone), drawn with nearest filtering. Since 2026-10-24 each face is
+// smoothed up to 32px with a fine grain and a soft rim (detailFace).
 test('block textures are clean and crisp', async ({ page }) => {
   await gotoAndWaitForGame(page)
   await page.evaluate(async () => { await window.__game._enterBuildMode({ map: 'map2' }) })
@@ -1588,17 +1588,20 @@ test('block textures are clean and crisp', async ({ page }) => {
       if (!uv) continue
       const x = Math.round(uv[0] * img.width)
       const y = Math.round((1 - uv[3]) * img.height)
-      const d = ctx.getImageData(x, y, 16, 16).data
+      const d = ctx.getImageData(x, y, 32, 32).data
       const seen = new Set()
       for (let i = 0; i < d.length; i += 4) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2])
       colors[id] = seen.size
     }
-    return { colors, crisp: chunks.atlas.magFilter === 1003, width: img.width }
+    return { colors, crisp: chunks.atlas.magFilter === 1003, width: img.width, tile: Math.round((chunks.info.get('stone').uvs[0][2] - chunks.info.get('stone').uvs[0][0]) * img.width) }
   })
+  // Crisp (never blurred), 32x32 since 2026-10-24 with a fine grain and
+  // soft rim on every block, so each picture has more than a few colours.
   expect(r.crisp).toBe(true)
   expect(r.width).toBe(2048)
+  expect(r.tile).toBe(32)
   expect(Object.keys(r.colors).length).toBeGreaterThanOrEqual(5)
-  for (const n of Object.values(r.colors)) expect(n).toBeLessThanOrEqual(4)
+  for (const n of Object.values(r.colors)) expect(n).toBeGreaterThan(4)
 })
 
 // 2026-10-16: real animated 3D skeletons (SkeletonModels.js) join the
