@@ -53,13 +53,34 @@ const DEFAULT_TILE = 16
 // Mip level bias for block textures: negative = sharper far away (a full
 // -1 starts to shimmer on moving ground).
 const SHARPEN = -0.6
-function sharpen(mat) {
+function sharpen(mat, extra = null) {
   mat.onBeforeCompile = (shader) => {
     shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `#ifdef USE_MAP
       diffuseColor *= texture2D( map, vMapUv, ${SHARPEN.toFixed(2)} );
     #endif`)
+    extra?.(shader)
   }
-  mat.customProgramCacheKey = () => 'sharpen'
+  mat.customProgramCacheKey = () => (extra ? 'sharpen-moving' : 'sharpen')
+}
+
+// Moving the corners of a face (graphics levels, GraphicsLevels.js):
+// leaves sway in the wind and water's surface rolls in waves on Ultra.
+// Every corner moves by where it is in the world, so faces that share a
+// corner stay joined. `uAmount` 0 = still (the other levels) - no extra
+// programs, just a number.
+function moving(uniforms, topOnly) {
+  return (shader) => {
+    Object.assign(shader.uniforms, uniforms)
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uAmount;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        if (uAmount > 0.0${topOnly ? ' && objectNormal.y > 0.5' : ''}) {
+          vec4 wp = modelMatrix * vec4(transformed, 1.0);
+          ${topOnly
+    ? 'transformed.y += (sin(uTime * 1.7 + wp.x * 1.3 + wp.z * 0.9) + sin(uTime * 1.1 - wp.z * 1.7)) * 0.5 * uAmount;'
+    : 'transformed.x += sin(uTime * 1.6 + wp.x * 0.9 + wp.y * 0.6 + wp.z * 0.5) * uAmount;\n          transformed.z += cos(uTime * 1.3 + wp.z * 0.8 + wp.y * 0.5) * uAmount * 0.7;'}
+        }`)
+  }
 }
 
 // 6 faces: normal, 4 corners (cube-local 0/1, counter-clockwise seen from
@@ -126,6 +147,7 @@ export class BlockChunks {
     const cube = types.filter((t) => !t.shape)
     const faceSets = cube.map((t) => faces(t))
     const unique = [...new Set(faceSets.flatMap((f) => [f.top, f.side, f.bottom]))]
+    this._atlasFrom = { cube, faces }
     // 4096 wide (2048 for small tiles) x exactly as many rows as needed -
     // not rounded up to a power of two (WebGL2 mipmaps any size), which
     // would nearly double the memory.
@@ -153,6 +175,9 @@ export class BlockChunks {
       }
       ctx.restore()
     }
+    // Every picture into its slot - again by redrawAtlas, after the
+    // texture detail changes (the same blocks give the same slots).
+    this._drawAtlas = (pictures) => pictures.forEach((src, i) => draw(src, (i % perRow) * SLOT + PAD, Math.floor(i / perRow) * SLOT + PAD))
     unique.forEach((src, i) => {
       const ox = (i % perRow) * SLOT + PAD
       const oy = Math.floor(i / perRow) * SLOT + PAD
@@ -219,20 +244,43 @@ export class BlockChunks {
     }
     const waterMap = liquidTex('water')
     const lavaMap = liquidTex('lava')
+    // Sway and waves (moving); `shine` makes the water catch the sun.
+    this.fx = { time: { value: 0 }, sway: { value: 0 }, waves: { value: 0 } }
     this.materials = {
-      water: new THREE.MeshLambertMaterial({ map: waterMap, vertexColors: true, transparent: true, depthWrite: false }),
+      water: new THREE.MeshPhongMaterial({ map: waterMap, vertexColors: true, transparent: true, depthWrite: false, specular: 0x000000, shininess: 70 }),
       lava: new THREE.MeshLambertMaterial({ map: lavaMap, vertexColors: true, emissive: 0xffffff, emissiveMap: lavaMap, emissiveIntensity: 0.85 }),
       solid: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true }),
       glow: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.55 }),
       clear: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, alphaTest: 0.02 }),
       cutout: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, alphaTest: 0.5 }),
     }
-    for (const id of ['solid', 'glow', 'clear', 'cutout']) sharpen(this.materials[id])
+    for (const id of ['solid', 'glow', 'clear']) sharpen(this.materials[id])
+    sharpen(this.materials.cutout, moving({ uTime: this.fx.time, uAmount: this.fx.sway }, false))
+    this.materials.water.onBeforeCompile = moving({ uTime: this.fx.time, uAmount: this.fx.waves }, true)
+    this.materials.water.customProgramCacheKey = () => 'waves'
+  }
+
+  // How much the leaves sway and the water rolls (world units) and how
+  // much the water shines (0..1) - set from the graphics level.
+  setEffects({ sway = 0, waves = 0, shine = 0 } = {}) {
+    this.fx.sway.value = sway * this.blockSize
+    this.fx.waves.value = waves * this.blockSize
+    this.materials.water.specular.setScalar(shine * 0.55)
+  }
+
+  // The block pictures changed (Settings > Graphics level): draw the new
+  // ones into the same slots. The liquids keep theirs.
+  redrawAtlas() {
+    const { cube, faces } = this._atlasFrom
+    const unique = [...new Set(cube.map((t) => faces(t)).flatMap((f) => [f.top, f.side, f.bottom]))]
+    this._drawAtlas(unique)
+    this.atlas.needsUpdate = true
   }
 
   // Liquid animation - steps one texture pixel at a time (Minecraft's own
   // animated textures move in whole-pixel frames, not a smooth slide).
   animate(timeSec) {
+    this.fx.time.value = timeSec
     for (const [id, { speed }] of Object.entries(LIQUIDS)) {
       const map = this.materials[id]?.map
       if (map) map.offset.y = Math.floor(timeSec * speed) / 16

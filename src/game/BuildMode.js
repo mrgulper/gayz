@@ -7,6 +7,8 @@ import * as THREE from 'three'
 import { setHomePaused } from './LiteHome.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
+import { setTextureDetail } from './BlockTextures.js'
+import { graphicsLook } from './GraphicsLevels.js'
 import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, fenceIconURL, gadgetIconURL, ladderIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
 import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
@@ -31,6 +33,8 @@ import { PlayAnimals, ANIMAL_IDS, MAX_PLACED, animalIconURL, animalNameKey } fro
 // physical size (GROUND_SIZE * BLOCK_SIZE) stays close to what it was
 // before rather than shrinking just because each cell got smaller.
 const GROUND_SIZE = 128
+// The sun's shadows follow you in steps of this many blocks (_placeSun).
+const SUN_SNAP = 16
 // Down from 1, then 0.85, then 0.5 - still read as too large up close in
 // first person even at 0.5, per direct follow-up feedback, so this went
 // smaller again rather than assuming the previous pass had already solved
@@ -1711,6 +1715,9 @@ export class BuildMode {
     // Plain cubes are drawn by chunk meshes (see BlockChunks.js) - only
     // their visible faces, one draw call per chunk. The per-type
     // InstancedMesh path below is kept just for shaped blocks.
+    // The graphics level's block pictures (plain or detailed) before the
+    // atlas is drawn; render() follows later changes (_applyGraphicsLook).
+    setTextureDetail(graphicsLook(game?.settings).detail)
     this._chunks = new BlockChunks(this.scene, {
       blockSize: BLOCK_SIZE,
       types: BLOCK_TYPES,
@@ -4376,6 +4383,50 @@ export class BuildMode {
     mesh.instanceMatrix.needsUpdate = true
   }
 
+  // Settings > Graphics level (GraphicsLevels.js), every frame - cheap
+  // unless something changed: the block pictures (atlas redrawn, icons
+  // redrawn), leaves, water and, with realistic light, the sun following
+  // you so shadows fall everywhere, not just round the city.
+  _applyGraphicsLook() {
+    const look = graphicsLook(this.game?.settings)
+    this.look = look
+    if (setTextureDetail(look.detail)) {
+      this._chunks.redrawAtlas()
+      this._renderHotbar?.()
+    }
+    this._chunks.setEffects(look)
+    // Shadows switched on or off while playing: every material is built
+    // again for it - otherwise the land went missing after turning them
+    // off (a level change or the Shadows checkbox).
+    const shadows = this.renderer.shadowMap.enabled
+    if (this._shadowsWere !== undefined && this._shadowsWere !== shadows) {
+      this.scene.traverse((o) => {
+        for (const m of [].concat(o.material || [])) m.needsUpdate = true
+      })
+      this._shadowsDirty = true
+    }
+    this._shadowsWere = shadows
+    this._placeSun()
+  }
+
+  // The sun's light sits at its offset from the spot you're near (snapped
+  // to SUN_SNAP blocks, so the shadows don't crawl as you walk) - the
+  // shadow map only covers SHADOW_SPAN around that spot.
+  _placeSun() {
+    const sun = this._sunLight
+    if (!sun) return
+    const off = this._sunOffset || [20, 30, 10]
+    const p = this.tryMode.active ? this.tryMode.pos : { x: this.camera.position.x / BLOCK_SIZE, z: this.camera.position.z / BLOCK_SIZE }
+    const cx = this.renderer.shadowMap.enabled ? Math.round(p.x / SUN_SNAP) * SUN_SNAP * BLOCK_SIZE : 0
+    const cz = this.renderer.shadowMap.enabled ? Math.round(p.z / SUN_SNAP) * SUN_SNAP * BLOCK_SIZE : 0
+    if (sun.target.position.x === cx && sun.target.position.z === cz && sun.position.y === off[1] && this._sunAt === off) return
+    this._sunAt = off
+    sun.target.position.set(cx, 0, cz)
+    sun.target.updateMatrixWorld()
+    sun.position.set(cx + off[0], off[1], cz + off[2])
+    this._shadowsDirty = true
+  }
+
   render() {
     // Chunk meshes are rebuilt here, once per frame, however many blocks
     // changed since the last one (a paste or a load touches thousands).
@@ -4384,6 +4435,7 @@ export class BuildMode {
     this.tools.update()
     if (this._invisShadowDirty) this._rebuildInvisibleShadows()
     if (this._invisShadowMesh) this._invisShadowMesh.visible = !this.renderer.shadowMap.enabled
+    this._applyGraphicsLook()
     this._chunks.animate(performance.now() / 1000)
     this._applyViewDistance()
     if (this.survival?.active) this.survival.drawZombies()

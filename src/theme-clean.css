@@ -976,3 +976,9 @@ html.ui-theme-clean .editor-pick-option {
 }
 html.ui-theme-clean .editor-pick-option:hover,
 html.ui-theme-clean .editor-pick-option:focus-visible { border-color: var(--clean-fg); }
+
+/* Settings > Graphics level cards. */
+html.ui-theme-clean .gfx-level-card { background: var(--clean-surface); border-color: var(--clean-line); color: var(--clean-fg); font-family: var(--clean-font); }
+html.ui-theme-clean .gfx-level-card:hover,
+html.ui-theme-clean .gfx-level-card:focus-visible { border-color: var(--clean-fg); }
+html.ui-theme-clean .gfx-level-card.active { border-color: var(--clean-fg); box-shadow: 0 0 0 2px var(--clean-fg); }

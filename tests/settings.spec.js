@@ -178,3 +178,41 @@ test('a tab reset only resets that tab', async ({ page }) => {
   })
   expect(after).toEqual({ vol: 100, sens: 40, tf: '24h' })
 })
+
+// 2026-10-24: Settings > Graphics level cards. The game picks a level for
+// the device once; a card sets the level and the options it owns, and the
+// Map Editor follows it (plain or detailed blocks, waves, swaying leaves).
+test('graphics levels: picked for the device, cards switch the look', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const detectGraphicsLevel = (gpu, env) => g._detectGraphicsLevel(gpu, env)
+    const textureDetail = () => g.buildMode.look?.detail
+    const guesses = [
+      detectGraphicsLevel('Google SwiftShader', { cores: 8, memory: 8, touch: false }),
+      detectGraphicsLevel('Mali-T720', { cores: 4, memory: 2, touch: true }),
+      detectGraphicsLevel('Intel(R) UHD Graphics 620', { cores: 4, memory: 8, touch: false }),
+      detectGraphicsLevel('ANGLE (Apple, ANGLE Metal Renderer: Apple M4, Unspecified Version)', { cores: 10, memory: 8, touch: false }),
+      detectGraphicsLevel('NVIDIA GeForce RTX 4070', { cores: 16, memory: 8, touch: false }),
+    ]
+    const picked = !!g.settings.graphicsLevel && g.settings.graphicsLevel === g._deviceGraphicsLevel
+    const cards = document.querySelectorAll('#gfx-level-cards .gfx-level-card').length
+    document.querySelector('.gfx-level-card[data-level="simple"]').click()
+    const simple = { view: g.settings.viewDistance, shadows: g.settings.shadowsEnabled, select: g.gfxViewDistanceSelect.value }
+    await g._enterBuildMode({ map: 'map2' })
+    await new Promise((d) => requestAnimationFrame(() => requestAnimationFrame(d)))
+    const plain = textureDetail()
+    g._applyGraphicsLevel('ultra')
+    await new Promise((d) => requestAnimationFrame(() => requestAnimationFrame(d)))
+    const fx = g.buildMode._chunks.fx
+    return { guesses, picked, cards, simple, plain, detail: textureDetail(), sway: fx.sway.value > 0, waves: fx.waves.value > 0 }
+  })
+  expect(r.guesses).toEqual(['simple', 'simple', 'balanced', 'realistic', 'ultra'])
+  expect(r.picked).toBe(true)
+  expect(r.cards).toBe(5)
+  expect(r.simple).toEqual({ view: 'short', shadows: false, select: 'short' })
+  expect(r.plain).toBe(1)
+  expect(r.detail).toBe(2)
+  expect(r.sway).toBe(true)
+  expect(r.waves).toBe(true)
+})

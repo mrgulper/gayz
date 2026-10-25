@@ -17,6 +17,7 @@ import { DEVICE_ONLY_KEYS } from './CloudMerge.js'
 import { ACTIONS, getAllBindings, getKeyFor, keyLabel, resetBindings, setAllBindings, setBinding } from './Keybinds.js'
 import { LANGUAGES, setLanguage, t } from './i18n.js'
 import { bindHoverMenus } from './HoverMenus.js'
+import { GRAPHICS_LEVELS, LEVEL_LOOK } from './GraphicsLevels.js'
 import { applyUiTheme, cleanVars, normalizeHex, rememberCleanVars, getCleanBgImage, applyCleanBgImage, cropToScreen, CLEAN_BG_IMAGE_KEY } from './CleanTheme.js'
 
 // Swaps a slider's value label for a temporary <input type="number"> on
@@ -1704,6 +1705,11 @@ export function _bindGraphicsSettings(game) {
     })
   }
 
+  // Graphics level cards (GraphicsLevels.js) - drawn again whenever the
+  // Graphics tab opens, so they're in the current language.
+  _renderGraphicsLevels(game)
+  document.getElementById('tab-graphics')?.addEventListener('click', () => _renderGraphicsLevels(game))
+
   // Lite Textures - smaller block/model textures (Game._applyLiteTextures).
   if (game.gfxLiteTexturesToggle) {
     game.gfxLiteTexturesToggle.checked = !!game.settings.liteTextures
@@ -2110,7 +2116,7 @@ export const TAB_RESET_KEYS = {
     'oneHandedLayout', 'whatsNewEveryLaunch'],
   audio: ['masterVolume', 'sfxVolume', 'ambientVolume', 'muteOnTabBlur', 'positionalAudio', 'mutedBeforeVolumes'],
   graphics: ['performanceMode', 'renderResolution', 'fpsCap', 'autoQuality', 'brightness', 'contrast', 'shadowsEnabled',
-    'shadowQuality', 'viewDistance', 'grainIntensity', 'panelFlickerEnabled', 'liteTextures'],
+    'shadowQuality', 'viewDistance', 'grainIntensity', 'panelFlickerEnabled', 'liteTextures', 'graphicsLevel'],
   controls: ['sensitivity', 'invertY', 'fov', 'invertScrollWeaponSwitch', 'crosshairColor', 'crosshairSize',
     'colorblindMode', 'largeTextMode', 'dyslexiaFont',
     'highContrastMode', 'focusRingMode', 'underlineLinks', 'textSpacing', 'buttonSize', 'reduceTransparency',
@@ -2159,6 +2165,66 @@ export function _applyGraphicsFilters(game) {
 // regardless, same precedent as before.
 export function _resolveShadowsEnabled(game) {
   return game.settings.shadowsEnabled && !game.settings.performanceMode
+}
+
+// Settings > Graphics level: the level plus the Graphics tab options it
+// sets (they stay changeable afterwards). BuildMode follows the rest
+// (graphicsLook) on its next frame.
+export function _applyGraphicsLevel(game, level) {
+  const look = LEVEL_LOOK[level]
+  if (!look) return
+  const s = game.settings
+  s.graphicsLevel = level
+  s.viewDistance = look.view
+  s.shadowsEnabled = look.shadows
+  s.shadowQuality = look.shadowQuality
+  if (game.gfxViewDistanceSelect) game.gfxViewDistanceSelect.value = s.viewDistance
+  if (game.gfxShadowsToggle) game.gfxShadowsToggle.checked = s.shadowsEnabled
+  if (game.gfxShadowQualitySelect) game.gfxShadowQualitySelect.value = s.shadowQuality
+  if (game.renderer) game.renderer.shadowMap.enabled = _resolveShadowsEnabled(game)
+  _applyShadowQuality(game)
+  if (game.buildMode) {
+    game.buildMode._autoView = null
+    game.buildMode._shadowsDirty = true
+  }
+  saveSettings(s)
+  _renderGraphicsLevels(game)
+}
+
+// One card per level: a real picture of the game at that level, its name,
+// what it adds, and a tag on the one that fits this device.
+export function _renderGraphicsLevels(game) {
+  const box = document.getElementById('gfx-level-cards')
+  if (!box) return
+  const cap = (id) => id[0].toUpperCase() + id.slice(1)
+  box.replaceChildren(...GRAPHICS_LEVELS.map((id) => {
+    const card = document.createElement('button')
+    card.type = 'button'
+    card.className = 'gfx-level-card'
+    card.dataset.level = id
+    card.setAttribute('role', 'radio')
+    const on = game.settings.graphicsLevel === id
+    card.setAttribute('aria-checked', String(on))
+    card.classList.toggle('active', on)
+    const pic = document.createElement('span')
+    pic.className = 'gfx-level-pic'
+    pic.style.backgroundImage = `url('/images/graphics-${id}.webp')`
+    const name = document.createElement('span')
+    name.className = 'gfx-level-name'
+    name.textContent = t(`gfxLevel${cap(id)}`)
+    const text = document.createElement('span')
+    text.className = 'gfx-level-text'
+    text.textContent = t(`gfxLevel${cap(id)}Text`)
+    card.append(pic, name, text)
+    if (game._deviceGraphicsLevel === id) {
+      const tag = document.createElement('span')
+      tag.className = 'gfx-level-tag'
+      tag.textContent = t('gfxLevelRecommended')
+      card.append(tag)
+    }
+    card.addEventListener('click', () => _applyGraphicsLevel(game, id))
+    return card
+  }))
 }
 
 export function _applyShadowQuality(game) {

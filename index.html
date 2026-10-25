@@ -1150,6 +1150,9 @@ Escape before dawn.</p>
         </div>
 
         <div class="settings-page" id="settings-page-graphics" style="display: none">
+          <!-- Graphics levels (GraphicsLevels.js, filled by SettingsUI.js). -->
+          <h3 class="settings-section-heading" id="settings-section-gfx-level"><span id="settings-section-gfx-level-text">Graphics Level</span></h3>
+          <div id="gfx-level-cards" role="radiogroup" aria-labelledby="settings-section-gfx-level-text"></div>
           <h3 class="settings-section-heading" id="settings-section-performance">Performance</h3>
           <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="performanceMode" aria-label="What does this do?">?</button>
@@ -2388,6 +2391,10 @@ Escape before dawn.</p>
           <h3>Breaking Blocks</h3>
           <p>While playing, hold the fire button on any block close to you and it cracks, then breaks - a different crack pattern each time, spreading as it gets closer to breaking, and the block bursts apart its own way. Each block takes its own time: leaves, glass and flowers go almost at once, dirt, sand and wool quickly, wood in about a second, stone and bricks longer, ores longer still, and obsidian and bedrock take a long time. Doors, slabs and stairs break like what they're made of. The game's own blocks (chests, spawners, the Player Start) can't be broken, and everything you break is back next game.</p>
         </div>
+        <div class="feature" data-code="GRAPHICS_LEVELS LEVEL_LOOK detectGraphicsLevel _applyGraphicsLevel _renderGraphicsLevels setTextureDetail redrawAtlas setEffects _placeSun">
+          <h3>Graphics Levels</h3>
+          <p>Settings &gt; Graphics starts with five picture cards, from light to realistic: Simple (plain blocks, short view - smoothest on weak phones), Balanced (plain blocks, medium view), Detailed (detailed blocks, far view), Realistic (real shadows that follow you everywhere, warm sunlight with cool blue shade, swaying leaves and water that catches the sun) and Ultra (all of that as far as you can see, with rolling waves on the water). The first time you play, the game looks at your device - its graphics chip, how many CPU cores and how much memory it has, and whether it's a phone - and picks the level that fits, marked "Best for your device"; after that it only changes when you pick another card. A level also sets View Distance and Shadows further down, which you can still change on their own, and it switches straight away, even in the middle of a game.</p>
+        </div>
         <div class="feature" data-code="installOfflineGuards ONLINE_ONLY registerServiceWorker">
           <h3>Play Offline</h3>
           <p>No internet? No problem. After you've opened GayZ online once, the whole game is kept on your device and plays with no connection: Play (Zombie Survival and every Game Mode), the Map Editor and your maps, Design a Skin, Inventory, the Store, Upgrades, Quests, Achievements, Settings and everything else single player. Things that need other players or the cloud - servers, chat, Friends, Clans, the Market, the Gallery, signing in and Cloud Save - are dimmed while you're offline and tell you they need internet, and the game says when you go offline and when you're back - also on Wi-Fi that has no internet, which the game notices by checking for itself. When you're online again, new updates arrive by themselves.</p>
@@ -2434,7 +2441,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="cleanPixels CLEAN_COLORS detailFace DETAIL simplifyMaterials fenceIconURL ladderIconURL">
           <h3>Clean, Crisp Blocks &amp; Guns</h3>
-          <p>Every block in Map 1 and the Map Editor is clean pixel art at twice the detail: smooth shapes instead of jagged steps, a fine grain across the surface and a soft lighter and darker rim that makes each block look solid - still drawn crisp and sharp however close you get, never blurry. In the hotbar and the block picker, fences look like fences and ladders like ladders. The guns have the same clean, flat look - low-poly and clear, never blurry - and both are light on your frame rate.</p>
+          <p>Every block in Map 1 and the Map Editor is clean pixel art - from the Detailed graphics level up at twice the detail (Simple and Balanced keep the plain pictures, lighter on weak devices): smooth shapes instead of jagged steps, a fine grain across the surface and a soft lighter and darker rim that makes each block look solid - still drawn crisp and sharp however close you get, never blurry. In the hotbar and the block picker, fences look like fences and ladders like ladders. The guns have the same clean, flat look - low-poly and clear, never blurry - and both are light on your frame rate.</p>
         </div>
         <div class="feature" data-code="BuildGadgets LINK_RANGE cleanSignText">
           <h3>Map Editor Game Blocks</h3>

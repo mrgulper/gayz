@@ -1577,7 +1577,12 @@ test('the camera key switches between first and third person', async ({ page }) 
 // smoothed up to 32px with a fine grain and a soft rim (detailFace).
 test('block textures are clean and crisp', async ({ page }) => {
   await gotoAndWaitForGame(page)
-  await page.evaluate(async () => { await window.__game._enterBuildMode({ map: 'map2' }) })
+  // The Detailed graphics level (the test browser draws in software, so
+  // it would get Simple's plain pictures).
+  await page.evaluate(async () => {
+    window.__game._applyGraphicsLevel('detailed')
+    await window.__game._enterBuildMode({ map: 'map2' })
+  })
   const r = await page.evaluate(() => {
     const chunks = window.__game.buildMode._chunks
     const img = chunks.atlas.image
