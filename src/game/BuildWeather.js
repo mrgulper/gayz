@@ -49,9 +49,13 @@ const ICE_OUT = 1 / 45
 // Per weather: how many of the particles show, how fast they fall
 // (blocks/s), wind drift (blocks/s), size (blocks) and look (0 rain, 1 snow).
 const KINDS = {
+  veryLightRain: { density: 0.18, fall: 14, wind: 0.8, size: 0.5, snow: 0 },
   lightRain: { density: 0.42, fall: 16, wind: 1.2, size: 0.6, snow: 0 },
+  mediumRain: { density: 0.7, fall: 19, wind: 2.2, size: 0.7, snow: 0 },
   hardRain: { density: 1, fall: 22, wind: 3.2, size: 0.8, snow: 0 },
+  veryLightSnow: { density: 0.2, fall: 1.4, wind: 0.4, size: 0.14, snow: 1 },
   lightSnow: { density: 0.45, fall: 1.6, wind: 0.5, size: 0.16, snow: 1 },
+  mediumSnow: { density: 0.72, fall: 2.1, wind: 1.4, size: 0.18, snow: 1 },
   hardSnow: { density: 1, fall: 2.6, wind: 2.2, size: 0.2, snow: 1 },
   // Little ice balls coming down fast (2026-10-25); round like snow.
   hail: { density: 0.75, fall: 19, wind: 1.4, size: 0.13, snow: 1, ice: true },
@@ -272,7 +276,13 @@ export class BuildWeather {
   }
 
   update(dt) {
-    // Fade the old weather out before a different one comes in.
+    // A step up or down the same weather (light rain -> slightly hard
+    // rain, BuildSky's ladders): the drops change and the amount eases
+    // over. A different weather fades the old one out first.
+    if (this._want && this.kind && this._want !== this.kind && KINDS[this._want].snow === KINDS[this.kind].snow && !KINDS[this._want].ice === !KINDS[this.kind].ice) {
+      this.kind = this._want
+      this._useKind(KINDS[this.kind])
+    }
     if (this._want !== this.kind) {
       this._density = Math.max(0, this._density - FADE_SPEED * dt * 2)
       if (this._density === 0) {

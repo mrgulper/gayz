@@ -1,0 +1,121 @@
+/* The game's screens in the biome you're standing in (2026-10-25, Gaymi:
+   "make everything based on biome in gameplay instead of theme ... make
+   the whole gameplay everything"). While a game runs, html.ui-theme-biome
+   takes the place of Old/Clean (CleanTheme.setBiomeTheme) and every game
+   screen is made of the same ground picture as the top bar (BiomeBar.js:
+   leaves, sand, snow, water, stone bricks...) under a dark wash, with
+   white text and that biome's own highlight colour. TopBar.js keeps the
+   variables up to date:
+     --biome-ground  the picture, url(...)
+     --biome-accent  the highlight colour (titles, picked slot, bars),
+                     and --biome-accent-rgb, the same as "r, g, b"
+     --biome-night   0 by day ... 1 at night (the wash gets darker)
+   Only colours, pictures and fonts change here - never sizes or places. */
+html.ui-theme-biome {
+  --biome-accent: #ffe38a;
+  --biome-night: 0;
+  --biome-wash: rgba(6, 10, 8, calc(0.5 + var(--biome-night) * 0.2));
+  --biome-surface: linear-gradient(var(--biome-wash), var(--biome-wash)), var(--biome-ground, linear-gradient(#26301f, #26301f)) 0 0 / 48px 48px;
+  --biome-edge: rgba(0, 0, 0, 0.55);
+  --biome-button: rgba(0, 0, 0, 0.38);
+  --biome-button-hover: rgba(255, 255, 255, 0.16);
+  --biome-line: rgba(255, 255, 255, 0.24);
+  /* The pause screen's and Map Editor menu's own colour slots. */
+  --pp-gold: var(--biome-accent);
+  --pp-text: #fff;
+  --biome-accent-rgb: 255, 227, 138;
+  --menu-gold: var(--biome-accent);
+  --ui-gold-bright: var(--biome-accent);
+  --ui-gold-accent: var(--biome-accent);
+  --ui-gold-bright-rgb: var(--biome-accent-rgb);
+  --ui-gold-accent-rgb: var(--biome-accent-rgb);
+  --bm-gold: var(--biome-accent);
+  --bm-gold-rgb: var(--biome-accent-rgb);
+  --pp-gold-rgb: var(--biome-accent-rgb);
+}
+
+/* The boxes: pause card, You Died, Choose Your Weapon, inventory, open
+   panels (Settings from the pause screen...), the spawn map's boxes. */
+html.ui-theme-biome :is(#play-pause-card, .build-play-over-card, #play-weapon-pick .pwp-card-box, #play-inventory .inv-box, .panel-box),
+html.ui-theme-biome #spawn-map :is(.spawn-map-heading, #spawn-map-info, #spawn-map-list) {
+  color: #fff;
+  background: var(--biome-surface);
+  border-color: var(--biome-edge);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  image-rendering: pixelated;
+}
+html.ui-theme-biome :is(#play-pause-card, .build-play-over-card, #play-weapon-pick .pwp-card-box, #play-inventory .inv-box) {
+  border-style: solid;
+  border-width: 2px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+/* No gold corner brackets: the picture is the frame. */
+html.ui-theme-biome #play-pause-card::before,
+html.ui-theme-biome #play-pause-card::after { display: none; }
+html.ui-theme-biome :is(#play-pause-menu, #play-weapon-pick, #build-play-over) {
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.6));
+}
+
+/* Titles: the HUD's Bebas Neue in the biome's colour. */
+html.ui-theme-biome .panel-box :is(h1, h2) { color: var(--biome-accent); }
+html.ui-theme-biome :is(#play-pause-title, #play-weapon-pick h2, #play-inventory .inv-head b, #spawn-map h2) {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 1px;
+  color: var(--biome-accent);
+}
+html.ui-theme-biome #build-play-over-title { font-family: 'Bebas Neue', sans-serif; letter-spacing: 1px; color: #ff6a5a; }
+html.ui-theme-biome :is(#play-pause-close, #play-pause-info, #play-pause-hint, #play-invite-hint, #play-pause-status, #play-weapon-pick .pwp-hint) { color: #fff; }
+
+/* Buttons and picks on those boxes. */
+html.ui-theme-biome :is(#play-pause-buttons button, .build-play-over-btns button, #play-weapon-pick .pwp-weapon, #spawn-map button) {
+  color: #fff;
+  background: var(--biome-button);
+  border-color: var(--biome-line);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+html.ui-theme-biome :is(#play-pause-buttons button, .build-play-over-btns button, #play-weapon-pick .pwp-weapon:not(.pwp-soon), #spawn-map button):hover,
+html.ui-theme-biome #play-weapon-pick .pwp-weapon.active {
+  background: var(--biome-button-hover);
+  border-color: var(--biome-accent);
+  box-shadow: none;
+}
+html.ui-theme-biome #play-pause-buttons button svg { color: var(--biome-accent); }
+html.ui-theme-biome #play-weapon-pick .pwp-bar-track { background: rgba(0, 0, 0, 0.45); }
+html.ui-theme-biome #play-weapon-pick .pwp-bar-track span { background: var(--biome-accent); }
+html.ui-theme-biome #spawn-map :is(#spawn-map-go, #spawn-map-list button.active) {
+  color: #111;
+  background: var(--biome-accent);
+  border-color: var(--biome-accent);
+  text-shadow: none;
+}
+html.ui-theme-biome #play-invite-link { color: #fff; background: rgba(0, 0, 0, 0.45); border-color: var(--biome-line); }
+html.ui-theme-biome #play-invite-copy { color: #111; background: var(--biome-accent); }
+
+/* Inventory slots. */
+html.ui-theme-biome #play-inventory .inv-slot { background-color: rgba(0, 0, 0, 0.4); border-color: var(--biome-line); }
+html.ui-theme-biome #play-inventory .inv-slot.active { border-color: var(--biome-accent); box-shadow: inset 0 0 0 1px var(--biome-accent); }
+html.ui-theme-biome #play-inventory .inv-hotbar { border-top-color: var(--biome-line); }
+
+/* The corner map: framed in the biome's ground, its labels too. */
+html.ui-theme-biome #build-try-map {
+  background: var(--biome-surface);
+  border: 3px solid var(--biome-edge);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+html.ui-theme-biome :is(#build-try-map-hint, #build-try-biome, #build-try-map-close) {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.6px;
+  color: #fff;
+  background: var(--biome-surface);
+  border-color: var(--biome-edge);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+/* The hotbar stays see-through; the slot you're on is the biome colour. */
+html.ui-theme-biome .build-hotbar-slot.selected { border-color: var(--biome-accent); }
+
+/* Chat stays floating text; its highlights follow the biome. */
+html.ui-theme-biome :is(.chat-tab-btn.active, #chat-send-btn, .chat-message-nickname) { color: var(--biome-accent); }
+
+/* Health bar: the biome's frame round it. */
+html.ui-theme-biome #build-play-health { border-color: var(--biome-edge); }

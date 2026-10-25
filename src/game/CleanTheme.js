@@ -118,10 +118,23 @@ export function cleanVars(color) {
   }
 }
 
+// In a game the screens follow the biome you're in instead of the theme
+// (2026-10-25, Gaymi: "make everything based on biome in gameplay instead
+// of theme", then "make the whole gameplay everything"): while a game runs
+// html.ui-theme-biome (play-biome.css) takes Old's or Clean's place, and
+// the theme comes back when the game ends. TopBar switches it.
+let biomeTheme = false
+export function setBiomeTheme(on, settings, root = document.documentElement) {
+  if (on === biomeTheme) return
+  biomeTheme = on
+  root.classList.toggle('ui-theme-biome', on)
+  applyUiTheme(settings, root)
+}
+
 export function applyUiTheme(settings, root = document.documentElement) {
   const clean = uiThemeOf(settings) === 'clean'
-  root.classList.toggle('ui-theme-old', !clean)
-  root.classList.toggle('ui-theme-clean', clean)
+  root.classList.toggle('ui-theme-old', !clean && !biomeTheme)
+  root.classList.toggle('ui-theme-clean', clean && !biomeTheme)
   const vars = cleanVars(settings && settings.cleanColor)
   for (const [k, v] of Object.entries(vars)) {
     if (clean) root.style.setProperty(k, v)

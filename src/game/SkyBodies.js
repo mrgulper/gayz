@@ -38,19 +38,74 @@ function canvas(size, draw) {
 }
 
 // The sun and moon are round and soft (2026-10-24, Gaymi: "everything in
-// the sky should not look blocky the sun too").
+// the sky should not look blocky the sun too") - but not flat, even discs
+// (2026-10-25, Gaymi: "make the moon/sun not all round ... with same
+// brightness", picked "a bit of moon phases and details and some uneven
+// surfaces"): the sun is brighter in the middle with a patchy surface and
+// an uneven glow; the moon has craters and goes through phases.
+
+// A small seeded random, so the sun and moon look the same every game.
+function seeded(seed) {
+  return () => {
+    seed = (seed * 16807) % 2147483647
+    return seed / 2147483647
+  }
+}
+
 function sunTexture() {
   const tex = new THREE.CanvasTexture(canvas(256, (g, n) => {
     const c = n / 2
-    // A wide faint haze, a brighter glow, then the bright disc.
+    const rnd = seeded(97)
+    // A wide faint haze whose edge wobbles (soft rays of different
+    // lengths), then the brighter glow.
+    g.save()
+    g.translate(c, c)
+    for (let i = 0; i < 14; i++) {
+      g.rotate((Math.PI * 2) / 14 + rnd() * 0.3)
+      const len = c * (0.6 + rnd() * 0.4)
+      const ray = g.createRadialGradient(0, 0, 0, 0, 0, len)
+      ray.addColorStop(0, 'rgba(255,226,160,0.16)')
+      ray.addColorStop(1, 'rgba(255,210,130,0)')
+      g.fillStyle = ray
+      g.beginPath()
+      g.ellipse(0, 0, len, len * (0.35 + rnd() * 0.25), 0, 0, Math.PI * 2)
+      g.fill()
+    }
+    g.restore()
     const glow = g.createRadialGradient(c, c, 0, c, c, c)
     glow.addColorStop(0, 'rgba(255,250,235,1)')
     glow.addColorStop(0.16, 'rgba(255,246,220,1)')
-    glow.addColorStop(0.2, 'rgba(255,232,170,0.75)')
-    glow.addColorStop(0.42, 'rgba(255,214,140,0.22)')
+    glow.addColorStop(0.2, 'rgba(255,232,170,0.7)')
+    glow.addColorStop(0.42, 'rgba(255,214,140,0.18)')
     glow.addColorStop(1, 'rgba(255,200,120,0)')
     g.fillStyle = glow
     g.fillRect(0, 0, n, n)
+    // The disc: white-hot middle, warmer and dimmer toward its edge, with
+    // faint brighter and darker patches.
+    const r = n * 0.17
+    const disc = g.createRadialGradient(c, c, 0, c, c, r)
+    disc.addColorStop(0, '#fffef8')
+    disc.addColorStop(0.6, '#fff6d8')
+    disc.addColorStop(0.92, '#ffd98a')
+    disc.addColorStop(1, 'rgba(255,200,110,0.6)')
+    g.fillStyle = disc
+    g.beginPath()
+    g.arc(c, c, r, 0, Math.PI * 2)
+    g.fill()
+    g.save()
+    g.clip()
+    for (let i = 0; i < 26; i++) {
+      const a = rnd() * Math.PI * 2
+      const d = Math.sqrt(rnd()) * r * 0.9
+      const s = r * (0.12 + rnd() * 0.2)
+      const spot = g.createRadialGradient(c + Math.cos(a) * d, c + Math.sin(a) * d, 0, c + Math.cos(a) * d, c + Math.sin(a) * d, s)
+      const bright = rnd() < 0.55
+      spot.addColorStop(0, bright ? 'rgba(255,255,255,0.35)' : 'rgba(240,170,70,0.22)')
+      spot.addColorStop(1, 'rgba(255,255,255,0)')
+      g.fillStyle = spot
+      g.fillRect(0, 0, n, n)
+    }
+    g.restore()
   }))
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
@@ -78,36 +133,106 @@ function eclipseTexture() {
   return tex
 }
 
-function moonTexture() {
-  const tex = new THREE.CanvasTexture(canvas(256, (g, n) => {
+// The moon's phases (one per game day, MOON_PHASES of them): 0 new,
+// 0.5 full, 1 new again. A real new moon would vanish, so the thinnest
+// shown is a crescent.
+export const MOON_PHASES = [0.12, 0.22, 0.32, 0.42, 0.5, 0.58, 0.68, 0.78, 0.88]
+
+// The moon's surface (drawn once): a grey disc with darker seas, craters
+// of all sizes with a lit rim, and a speckled, uneven grain.
+let moonSurface = null
+function moonSurfaceCanvas() {
+  if (moonSurface) return moonSurface
+  moonSurface = canvas(128, (g, n) => {
     const c = n / 2
-    const r = n * 0.2
-    // Soft moonlight round it.
-    const glow = g.createRadialGradient(c, c, r * 0.9, c, c, c)
-    glow.addColorStop(0, 'rgba(210,225,255,0.35)')
-    glow.addColorStop(1, 'rgba(210,225,255,0)')
-    g.fillStyle = glow
-    g.fillRect(0, 0, n, n)
-    // The disc, a little darker towards its edge.
-    const disc = g.createRadialGradient(c - r * 0.25, c - r * 0.25, r * 0.1, c, c, r)
-    disc.addColorStop(0, '#f6f8fc')
-    disc.addColorStop(1, '#cfd6e2')
+    const r = n / 2
+    const rnd = seeded(4242)
+    const disc = g.createRadialGradient(c - r * 0.2, c - r * 0.2, r * 0.1, c, c, r)
+    disc.addColorStop(0, '#f4f6fa')
+    disc.addColorStop(1, '#c4cad6')
     g.fillStyle = disc
     g.beginPath()
     g.arc(c, c, r, 0, Math.PI * 2)
     g.fill()
-    // Soft grey seas and craters.
     g.save()
     g.clip()
-    for (const [x, y, w, a] of [[-0.3, -0.25, 0.42, 0.28], [0.2, -0.05, 0.3, 0.22], [-0.05, 0.35, 0.25, 0.2], [0.35, 0.4, 0.14, 0.25], [-0.45, 0.15, 0.16, 0.2]]) {
+    for (const [x, y, w, a] of [[-0.3, -0.25, 0.42, 0.32], [0.2, -0.05, 0.3, 0.26], [-0.05, 0.35, 0.25, 0.22], [0.35, 0.4, 0.14, 0.28], [-0.45, 0.15, 0.16, 0.22], [0.1, -0.5, 0.2, 0.18]]) {
       const sea = g.createRadialGradient(c + x * r, c + y * r, 0, c + x * r, c + y * r, w * r)
-      sea.addColorStop(0, `rgba(120,130,150,${a})`)
-      sea.addColorStop(1, 'rgba(120,130,150,0)')
+      sea.addColorStop(0, `rgba(110,120,140,${a})`)
+      sea.addColorStop(1, 'rgba(110,120,140,0)')
       g.fillStyle = sea
       g.fillRect(0, 0, n, n)
     }
+    for (let i = 0; i < 34; i++) {
+      const a = rnd() * Math.PI * 2
+      const d = Math.sqrt(rnd()) * r * 0.92
+      const x = c + Math.cos(a) * d
+      const y = c + Math.sin(a) * d
+      const s = r * (rnd() < 0.8 ? 0.03 + rnd() * 0.06 : 0.1 + rnd() * 0.08)
+      g.fillStyle = `rgba(95,102,120,${0.25 + rnd() * 0.25})`
+      g.beginPath()
+      g.arc(x, y, s, 0, Math.PI * 2)
+      g.fill()
+      // The rim catches the light on one side.
+      g.strokeStyle = 'rgba(255,255,255,0.35)'
+      g.lineWidth = Math.max(0.6, s * 0.3)
+      g.beginPath()
+      g.arc(x, y, s, Math.PI * 0.9, Math.PI * 1.7)
+      g.stroke()
+    }
+    const img = g.getImageData(0, 0, n, n)
+    for (let i = 0; i < img.data.length; i += 4) {
+      const k = (rnd() - 0.5) * 18
+      img.data[i] += k
+      img.data[i + 1] += k
+      img.data[i + 2] += k
+    }
+    g.putImageData(img, 0, 0)
     g.restore()
-  }))
+  })
+  return moonSurface
+}
+
+// The moon at one phase: the surface, with the dark side mostly hidden
+// (a faint glow of it stays, like earthshine) and a soft terminator.
+function drawMoon(g, n, phase) {
+  const c = n / 2
+  const r = n * 0.2
+  g.clearRect(0, 0, n, n)
+  const lit = 1 - Math.abs(phase - 0.5) * 2 // 0 new ... 1 full
+  const glow = g.createRadialGradient(c, c, r * 0.9, c, c, c)
+  glow.addColorStop(0, `rgba(210,225,255,${0.12 + 0.25 * lit})`)
+  glow.addColorStop(1, 'rgba(210,225,255,0)')
+  g.fillStyle = glow
+  g.fillRect(0, 0, n, n)
+  const size = Math.round(r * 2)
+  const x0 = Math.round(c - r)
+  g.drawImage(moonSurfaceCanvas(), x0, x0, size, size)
+  const img = g.getImageData(x0, x0, size, size)
+  const k = Math.cos(phase * Math.PI * 2)
+  for (let py = 0; py < size; py++) {
+    const v = (py + 0.5) / size * 2 - 1
+    const w = Math.sqrt(Math.max(0, 1 - v * v))
+    for (let px = 0; px < size; px++) {
+      const u = (px + 0.5) / size * 2 - 1
+      if (u * u + v * v > 1) continue // the glow round it stays as it is
+      // Waxing: lit right of the terminator; waning: left of it.
+      const edge = phase < 0.5 ? u - w * k : -w * k - u
+      const light = Math.min(1, Math.max(0, edge / 0.12 + 0.5))
+      const i = (py * size + px) * 4
+      const keep = 0.1 + 0.9 * light
+      img.data[i] *= keep
+      img.data[i + 1] *= keep
+      img.data[i + 2] *= keep * 1.05
+      img.data[i + 3] *= 0.35 + 0.65 * light
+    }
+  }
+  g.putImageData(img, x0, x0)
+}
+
+function moonTexture(phase) {
+  const c = canvas(256, (g, n) => drawMoon(g, n, phase))
+  const tex = new THREE.CanvasTexture(c)
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
 }
@@ -168,7 +293,8 @@ export class SkyBodies {
     const mat = (map) => new THREE.SpriteMaterial({ map, transparent: true, depthWrite: false, fog: false })
     this.sun = new THREE.Sprite(mat(sunTexture()))
     this.sun.scale.setScalar(SUN_SIZE)
-    this.moon = new THREE.Sprite(mat(moonTexture()))
+    this._moonPhase = 0.5
+    this.moon = new THREE.Sprite(mat(moonTexture(this._moonPhase)))
     this.moon.scale.setScalar(MOON_SIZE)
     this.sun.renderOrder = this.moon.renderOrder = -1
     this.eclipse = new THREE.Sprite(mat(eclipseTexture()))
@@ -185,22 +311,29 @@ export class SkyBodies {
         belly: { value: new THREE.Color(0.75, 0.78, 0.84) },
         cover: { value: 0 },
         opacity: { value: 0.85 },
+        rim: { value: new THREE.Color(1, 1, 1) },
       },
       vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
       // Two layers of the same noise at different sizes, drifting apart, so
       // the shapes keep changing; more of the sky is cloud when it's
       // overcast (cover). Thin edges are see-through, thick middles greyer.
-      fragmentShader: `uniform sampler2D map; uniform vec2 offset; uniform float repeat; uniform vec3 color; uniform vec3 belly; uniform float cover; uniform float opacity; varying vec2 vUv;
+      fragmentShader: `uniform sampler2D map; uniform vec2 offset; uniform float repeat; uniform vec3 color; uniform vec3 belly; uniform float cover; uniform float opacity; uniform vec3 rim; varying vec2 vUv;
         void main() {
           vec2 p = vUv * repeat + offset;
           float d = texture2D(map, p).r * 0.65 + texture2D(map, p * 2.3 + vec2(0.37, 0.61) - offset * 0.4).r * 0.35;
-          float start = 0.5 - cover * 0.4;
-          float a = smoothstep(start, start + 0.16, d);
-          float thick = smoothstep(start + 0.06, start + 0.3, d);
+          // Overcast skies still keep gaps between the clouds, so rain
+          // clouds have shapes (2026-10-25, Gaymi: "make the sky have
+          // clouds shape when raining") instead of one flat grey sheet.
+          float start = 0.5 - cover * 0.2;
+          float a = smoothstep(start, start + 0.12, d);
+          float thick = smoothstep(start + 0.04, start + 0.26, d);
           float edge = 1.0 - smoothstep(0.15, 0.5, length(vUv - 0.5));
           a *= opacity * edge;
           if (a < 0.01) discard;
-          gl_FragColor = vec4(mix(color, belly, thick * 0.8), a);
+          vec3 c = mix(color, belly, thick * (0.8 + 0.2 * cover));
+          // Storm clouds: lighter, sky-lit edges round dark, heavy middles.
+          c = mix(c, rim, (1.0 - thick) * cover * 0.55);
+          gl_FragColor = vec4(c, a);
           #include <colorspace_fragment>
         }`,
       transparent: true,
@@ -246,6 +379,7 @@ export class SkyBodies {
     this._wind = 0
     this.lowCloudMat = this.cloudMat.clone()
     this.lowCloudMat.uniforms.map.value = this.cloudMat.uniforms.map.value
+    this.lowCloudMat.uniforms.rim.value = new THREE.Color(1, 1, 1)
     this.lowCloudMat.uniforms.repeat.value = CLOUD_REPEAT * 1.6
     this.lowClouds = new THREE.Mesh(this.clouds.geometry, this.lowCloudMat)
     this.lowClouds.rotation.x = -Math.PI / 2
@@ -278,8 +412,14 @@ export class SkyBodies {
   // phase: time of day; cover 0-1 how overcast; daylight 0-1 (night 0);
   // sky: the sky/fog colour (BuildSky), the dome's horizon.
   // eclipse: 0-1, how far a solar eclipse has come in.
-  update(dt, camera, phase, cover, daylight, sky, eclipse = 0) {
+  // moonPhase: one of MOON_PHASES (redrawn only when it changes).
+  update(dt, camera, phase, cover, daylight, sky, eclipse = 0, moonPhase = 0.5) {
     if (!this.clouds.visible) return
+    if (moonPhase !== this._moonPhase) {
+      this._moonPhase = moonPhase
+      drawMoon(this.moon.material.map.image.getContext('2d'), this.moon.material.map.image.width, moonPhase)
+      this.moon.material.map.needsUpdate = true
+    }
     const cam = camera.position
     // One arc: high overhead at noon (phase 0), down in the west at
     // sunset, under the ground at midnight - the moon opposite.
@@ -320,8 +460,10 @@ export class SkyBodies {
     this.cloudMat.uniforms.color.value.setRGB(grey * light, grey * light, grey * light * (1.02 - 0.05 * daylight))
     this.cloudMat.uniforms.belly.value.setRGB(grey * light * 0.74, grey * light * 0.77, grey * light * 0.84)
     this.cloudMat.uniforms.cover.value = cover
-    // Gone at night, so the night sky stays black behind the stars.
-    const dayFade = THREE.MathUtils.smoothstep(daylight, 0.15, 0.7)
+    // Gone on a clear night, so the sky stays black behind the stars - but
+    // rain and snow clouds stay, dark shapes against the night.
+    const dayFade = Math.max(THREE.MathUtils.smoothstep(daylight, 0.15, 0.7), THREE.MathUtils.smoothstep(cover, 0.3, 0.7) * 0.9)
+    if (sky) this.cloudMat.uniforms.rim.value.setRGB(Math.min(1, sky.r * 1.35 + 0.04), Math.min(1, sky.g * 1.35 + 0.04), Math.min(1, sky.b * 1.35 + 0.05))
     this.cloudMat.uniforms.opacity.value = (0.85 + cover * 0.15) * dayFade
     // Low rain clouds: only when it's properly overcast.
     const low = this._lite ? 0 : THREE.MathUtils.smoothstep(cover, 0.5, 0.85)
@@ -336,6 +478,7 @@ export class SkyBodies {
       lu.color.value.setRGB(dark, dark, dark * 1.03)
       lu.belly.value.setRGB(dark * 0.7, dark * 0.72, dark * 0.78)
       lu.cover.value = cover * 0.75
+      lu.rim.value.copy(this.cloudMat.uniforms.rim.value).multiplyScalar(0.85)
       lu.opacity.value = low * 0.9 * dayFade
     }
   }

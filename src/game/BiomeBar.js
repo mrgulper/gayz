@@ -19,6 +19,13 @@ const BIOME_BLOCK = {
   jungle: 'jungleleaves', bambooJungle: 'jungleleaves', swamp: 'mangroveleaves', mangroveSwamp: 'mangroveleaves',
 }
 const CITY_BLOCK = 'stonebricks'
+// The highlight colour that goes with each picture (titles, the picked
+// slot, bars) on the game's biome-styled screens (play-biome.css).
+const ACCENT = {
+  water: '#7fd6ff', packedice: '#bfe9ff', sand: '#ffd27a', redsand: '#ff9f5a', snow: '#e6f3ff', grass: '#b6f06a',
+  mycelium: '#d9a7ff', stone: '#d6dbe0', leaves: '#9be36b', birchleaves: '#d4f07a', spruceleaves: '#8fd9a0',
+  cherryleaves: '#ffb3d1', jungleleaves: '#7cf07a', mangroveleaves: '#b4d96b', stonebricks: '#ffe38a',
+}
 const TILE = 48
 
 const urls = new Map()
@@ -42,7 +49,7 @@ function pictureOf(type) {
   return url
 }
 
-// { key, url } for the spot (x, z), or null outside the open world.
+// { key, url, accent } for the spot (x, z), or null outside the open world.
 export function biomeBarLook(bm, x, z) {
   if (!bm.world?.active) return null
   const cx = Math.floor(x)
@@ -50,5 +57,5 @@ export function biomeBarLook(bm, x, z) {
   const id = inCity(cx, cz) && !isFlatWorld() ? CITY_BLOCK : BIOME_BLOCK[sampleLand(cx, cz).biome] || 'grass'
   const type = bm.blockTypeOf?.(id)
   if (!type) return null
-  return { key: id, url: pictureOf(type) }
+  return { key: id, url: pictureOf(type), accent: ACCENT[id] || '#ffe38a' }
 }

@@ -5,6 +5,7 @@
 // the place of the green debug line there - that line is still written
 // (Game.js) and shows as this bar's FPS tooltip, but is hidden in-game.
 import { t } from './i18n.js'
+import { setBiomeTheme } from './CleanTheme.js'
 
 const MODE_KEYS = {
   classic: 'topBarModeClassic',
@@ -15,8 +16,8 @@ const MODE_KEYS = {
   worldMap: 'topBarModeWorldMap',
 }
 // The weather's sign before its name (clear shows a sun, or a moon at night).
-const WEATHER_ICON = { lightRain: '☂', hardRain: '☂', lightSnow: '❄', hardSnow: '❄', hail: '☂', fog: '≡', sandstorm: '≋', eclipse: '◐' }
-const WEATHER_KIND = { lightRain: 'rain', hardRain: 'rain', lightSnow: 'snow', hardSnow: 'snow', hail: 'rain', fog: 'snow', sandstorm: 'sand', eclipse: 'rain' }
+const WEATHER_ICON = { veryLightRain: '☂', lightRain: '☂', mediumRain: '☂', hardRain: '☂', veryLightSnow: '❄', lightSnow: '❄', mediumSnow: '❄', hardSnow: '❄', hail: '☂', fog: '≡', sandstorm: '≋', eclipse: '◐' }
+const WEATHER_KIND = { veryLightRain: 'rain', lightRain: 'rain', mediumRain: 'rain', hardRain: 'rain', veryLightSnow: 'snow', lightSnow: 'snow', mediumSnow: 'snow', hardSnow: 'snow', hail: 'rain', fog: 'snow', sandstorm: 'sand', eclipse: 'rain' }
 // Coordinates and the mode are refreshed this often (ms), not every frame.
 const REFRESH_MS = 100
 
@@ -109,6 +110,8 @@ export class TopBar {
     // background") - only the Map Editor's own menu hides it.
     const show = !!bm?.active && (!bm.menuOpen || !!bm.gameMenu?.forGame)
     this.el.style.display = show ? 'flex' : 'none'
+    // A game's screens wear the biome too (CleanTheme.setBiomeTheme).
+    setBiomeTheme(show && !!bm.survival?.active, game.settings)
     if (!show || now - this._at < REFRESH_MS) return
     this._at = now
     const s = game.settings || {}
@@ -201,6 +204,8 @@ export class TopBar {
     this._lookVars = { night: look.night.toFixed(2), storm: look.weather === 'clear' ? '0' : String(look.strength), weather: WEATHER_KIND[look.weather] || 'clear' }
     st.setProperty('--tb-night', this._lookVars.night)
     st.setProperty('--tb-storm', this._lookVars.storm)
+    // ...and the game's biome-styled screens (play-biome.css) darken too.
+    document.documentElement.style.setProperty('--biome-night', this._lookVars.night)
     this.el.dataset.weather = this._lookVars.weather
   }
 
@@ -211,6 +216,18 @@ export class TopBar {
     if (key === this._groundKey) return
     this._groundKey = key
     this.el.classList.toggle('has-ground', !!look)
+    // The same picture and its colour for every other game screen.
+    const root = document.documentElement.style
+    if (look) {
+      root.setProperty('--biome-ground', `url(${look.url})`)
+      root.setProperty('--biome-accent', look.accent)
+      const n = parseInt(look.accent.slice(1), 16)
+      root.setProperty('--biome-accent-rgb', `${n >> 16}, ${(n >> 8) & 255}, ${n & 255}`)
+    } else {
+      root.removeProperty('--biome-ground')
+      root.removeProperty('--biome-accent')
+      root.removeProperty('--biome-accent-rgb')
+    }
     if (!look) return
     this._groundTop = 1 - this._groundTop
     const next = this._grounds[this._groundTop]

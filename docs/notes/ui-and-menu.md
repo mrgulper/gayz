@@ -171,3 +171,6 @@ Gaymi: "make the edit and generating a skin smarter" - chose to stay offline (no
 - Testing tip: with the browser pane hidden, rAF stops; drive frames with `bm.update(1/60); bm.render()` for screenshots.
 
 - **Theme-switch sizes, no hover dimming (2026-10-25).** Hover menus never dim/blur the page (`#footer-menu-scrim` deleted). Simple's nav buttons are inset to Old's *visible* plaque (`margin: 0 5px`, padding minus 17px - the plaque art's edges are see-through, 30/480px each side), and Simple's bottom links keep Old's fonts (theme-clean.css override after the `#menu` font rule), so both themes match on switch. Simple's picture row order: remove, upload, colour.
+
+## Biome look in games (2026-10-25)
+- While a game runs (TopBar.update: top bar shown + survival active), `CleanTheme.setBiomeTheme` swaps html.ui-theme-old/clean for `html.ui-theme-biome` (`src/play-biome.css`); `applyUiTheme` keeps the theme class off until the game ends. TopBar sets `--biome-ground`, `--biome-accent(-rgb)`, `--biome-night` on <html> (accent per block in BiomeBar `ACCENT`). This is Gaymi's deliberate exception to "everything follows the theme": in-game screens follow the biome, homepage follows the theme. New in-game UI: add it to play-biome.css.

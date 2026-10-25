@@ -56,6 +56,15 @@ const ENTRANCE_LEN = 46
 const ENTRANCE_DROP = 0.55 // cells down per cell along
 const ENTRANCE_R = 2.4
 const ENTRANCE_ROOM_R = 4.6
+// Every entrance leads on into a big cave (2026-10-25, Gaymi: "the holes
+// have a dead end ... we want holes to connect to a bigger cave"): from
+// the room at its end a second tunnel goes down to the nearest cave room
+// (or long tunnel) the cave noise has, searched for within LINK_REACH
+// cells; with none near, a big hall is dug at the end instead.
+const LINK_REACH = 40
+const LINK_DEEPER = 36
+const LINK_R = 2.2
+const HALL_R = 9
 // Cave chunks are grown this many chunks around you (and kept a bit past).
 const UNDER_RADIUS = 2
 const UNDER_BELOW = 2
@@ -207,6 +216,37 @@ function noiseOpen(x, y, z) {
   return v[0] * v[0] + v[1] * v[1] < TUNNEL_WIDTH || (y < ROOM_BELOW && v[2] > ROOM_LEVEL)
 }
 
+// The nearest big open spot in the cave noise below and around an
+// entrance's end (heading: the entrance's own direction, searched first):
+// a cave room, or a tunnel with open cells all round. null if none.
+function findCaveNear(end, heading) {
+  let best = null
+  let bestD = Infinity
+  for (let dy = 4; dy <= LINK_DEEPER; dy += 4) {
+    const y = Math.round(end.y - dy)
+    if (y <= CAVE_FLOOR + 3) break
+    for (let r = 4; r <= LINK_REACH; r += 6) {
+      const steps = Math.max(6, Math.round(r / 2))
+      for (let i = 0; i < steps; i++) {
+        const a = heading + (i / steps) * Math.PI * 2
+        const x = Math.round(end.x + Math.cos(a) * r)
+        const z = Math.round(end.z + Math.sin(a) * r)
+        const d = r + dy * 0.7
+        if (d >= bestD) continue
+        if (!noiseOpen(x, y, z)) continue
+        // Big enough: open a few cells away on most sides too.
+        let open = 0
+        for (const [ox, oy, oz] of [[3, 0, 0], [-3, 0, 0], [0, 0, 3], [0, 0, -3], [0, -2, 0], [0, 2, 0]]) if (noiseOpen(x + ox, y + oy, z + oz)) open++
+        if (open < 3) continue
+        best = { x: x + 0.5, y: y + 0.5, z: z + 0.5 }
+        bestD = d
+      }
+    }
+    if (best) break
+  }
+  return best
+}
+
 export class Underground {
   constructor(world) {
     this.world = world
@@ -296,26 +336,33 @@ export class Underground {
       if (at.h < at.w + 1 && y + ENTRANCE_R + 3 > at.h - 2) return null
     }
     for (let s = 0; s <= 10; s++) if (world._nearPath(Math.round(sx + dx * s), Math.round(sz + dz * s))) return null
-    const R = ENTRANCE_ROOM_R + 1
-    const x0 = Math.floor(Math.min(sx, end.x) - R)
-    const x1 = Math.ceil(Math.max(sx, end.x) + R)
-    const z0 = Math.floor(Math.min(sz, end.z) - R)
-    const z1 = Math.ceil(Math.max(sz, end.z) + R)
+    const link = findCaveNear(end, a)
+    // No cave near: a big hall at the end, low and wide.
+    const hall = link ? null : { x: end.x + dx * HALL_R * 0.6, y: end.y - 3, z: end.z + dz * HALL_R * 0.6 }
+    const far = link || hall
+    const R = Math.max(ENTRANCE_ROOM_R, hall ? HALL_R : LINK_R) + 1
+    const x0 = Math.floor(Math.min(sx, end.x, far.x) - R)
+    const x1 = Math.ceil(Math.max(sx, end.x, far.x) + R)
+    const z0 = Math.floor(Math.min(sz, end.z, far.z) - R)
+    const z1 = Math.ceil(Math.max(sz, end.z, far.z) + R)
     // Never under, through or beside a village, castle or bridge.
     if (world._plansOver(x0, z0, x1, z1, 6).length) return null
+    // The link tunnel or hall never comes up under the city.
+    if (cityEdgeDistance(Math.round(far.x), Math.round(far.z)) < 6 && far.y > CITY_CAVE_TOP - HALL_R) return null
     return {
       sx, sy, sz, dx: dx * L, dy: end.y - sy, dz: dz * L, end,
-      x0, x1, z0, z1, y0: Math.floor(end.y - R), y1: Math.ceil(sy + ENTRANCE_R + 1),
+      link: link && { lx: link.x - end.x, ly: link.y - end.y, lz: link.z - end.z }, hall,
+      x0, x1, z0, z1, y0: Math.floor(Math.min(end.y, far.y) - R), y1: Math.ceil(sy + ENTRANCE_R + 1),
     }
   }
 
   // Entrances whose box reaches into this x/z box.
   _entrancesOver(x0, z0, x1, z1) {
     const out = []
-    const gx0 = Math.floor((x0 - ENTRANCE_LEN - 8) / ENTRANCE_GRID)
-    const gx1 = Math.floor((x1 + ENTRANCE_LEN + 8) / ENTRANCE_GRID)
-    const gz0 = Math.floor((z0 - ENTRANCE_LEN - 8) / ENTRANCE_GRID)
-    const gz1 = Math.floor((z1 + ENTRANCE_LEN + 8) / ENTRANCE_GRID)
+    const gx0 = Math.floor((x0 - ENTRANCE_LEN - LINK_REACH - HALL_R - 8) / ENTRANCE_GRID)
+    const gx1 = Math.floor((x1 + ENTRANCE_LEN + LINK_REACH + HALL_R + 8) / ENTRANCE_GRID)
+    const gz0 = Math.floor((z0 - ENTRANCE_LEN - LINK_REACH - HALL_R - 8) / ENTRANCE_GRID)
+    const gz1 = Math.floor((z1 + ENTRANCE_LEN + LINK_REACH + HALL_R + 8) / ENTRANCE_GRID)
     for (let gx = gx0; gx <= gx1; gx++) {
       for (let gz = gz0; gz <= gz1; gz++) {
         const e = this._entrance(gx, gz)
@@ -340,7 +387,22 @@ export class Underground {
     const rx = x + 0.5 - e.end.x
     const ry = (y + 0.5 - e.end.y) * 1.4
     const rz = z + 0.5 - e.end.z
-    return rx * rx + ry * ry + rz * rz < ENTRANCE_ROOM_R * ENTRANCE_ROOM_R
+    if (rx * rx + ry * ry + rz * rz < ENTRANCE_ROOM_R * ENTRANCE_ROOM_R) return true
+    if (e.link) {
+      const l = e.link
+      const k2 = Math.max(0, Math.min(1, (rx * l.lx + (y + 0.5 - e.end.y) * l.ly + rz * l.lz) / (l.lx * l.lx + l.ly * l.ly + l.lz * l.lz)))
+      const ax = rx - l.lx * k2
+      const ay = (y + 0.5 - e.end.y - l.ly * k2) * 1.15
+      const az = rz - l.lz * k2
+      return ax * ax + ay * ay + az * az < LINK_R * LINK_R
+    }
+    if (e.hall) {
+      const hx = x + 0.5 - e.hall.x
+      const hy = (y + 0.5 - e.hall.y) * 2
+      const hz = z + 0.5 - e.hall.z
+      return hx * hx + hy * hy + hz * hz < HALL_R * HALL_R
+    }
+    return false
   }
 
   // For the land's own cells as a column grows: is this cell an entrance's
