@@ -232,22 +232,17 @@ html.ui-theme-clean #menu-nav-buttons button svg {
 html.ui-theme-clean #menu-links-row a,
 html.ui-theme-clean #menu-links-row button {
   color: var(--clean-dim);
-  font-family: var(--clean-font);
 }
 html.ui-theme-clean #menu-links-row a:hover,
 html.ui-theme-clean #menu-links-row button:hover {
   color: var(--clean-fg);
 }
-/* The hover drop-downs: a card like the homepage boxes on a frosted page, like
-   apple.com's. */
+/* The hover drop-downs: a card like the homepage boxes. */
 html.ui-theme-clean :is(#footer-menu, .hover-menu) {
   background: var(--clean-card);
   border-color: var(--clean-line);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.14);
   font-family: var(--clean-font);
-}
-html.ui-theme-clean #footer-menu-scrim {
-  background: rgba(var(--clean-fg-rgb), 0.06);
 }
 html.ui-theme-clean #footer-menu .footer-menu-sections button {
   font-weight: 500;
@@ -426,6 +421,19 @@ html.ui-theme-clean .theme-picker-name {
 html.ui-theme-clean #menu :not(#play-btn, #whats-new-dot, .nameplate-level, #menu-avatar-level) {
   color: var(--clean-fg) !important;
   font-family: var(--clean-font) !important;
+}
+/* ...except the bottom links, which keep Old's fonts (the body's for the
+   row and Discord, the browser's button font for the rest) so they're the
+   same size and spot in both themes (2026-10-25). */
+html.ui-theme-clean #menu #menu-links-row,
+html.ui-theme-clean #menu #menu-links-row a {
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+}
+html.ui-theme-clean #menu #menu-links-row button {
+  font-family: revert !important;
+}
+html.ui-theme-clean #menu #menu-links-row :is(a, button) * {
+  font-family: inherit !important;
 }
 html.ui-theme-clean :is(#menu-currency-bar, #homepage-clock) {
   background: var(--clean-card);
