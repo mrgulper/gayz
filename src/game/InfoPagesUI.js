@@ -15,6 +15,7 @@ import { RAINBOW_CHANCE } from './BuildSky.js'
 import { BOTTOM } from './Underground.js'
 import { MAX_WILD, ANIMAL_IDS } from './PlayAnimals.js'
 import { LANGUAGES, t, tHtml } from './i18n.js'
+import { levelUpCoins } from './Xp.js'
 
 // Update-available check - only ever called from _exitBuildMode (back
 // at the homepage), never mid-game, so a fresh deploy
@@ -267,6 +268,7 @@ export function _featureValues(_game) {
     biomes: Object.keys(BIOMES).length,
     undergroundDepth: -BOTTOM,
     mobHeight: MOB_HEIGHT,
+    levelUpCoinsPerLevel: levelUpCoins(1),
     maxWildAnimals: MAX_WILD,
     animalKinds: ANIMAL_IDS.length,
     editorStoreSide: 10,

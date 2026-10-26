@@ -388,3 +388,26 @@ test('printing achievements puts all of them on one page', async ({ page }) => {
   const fs = await import('node:fs')
   fs.writeFileSync(test.info().outputPath('achievements-print.pdf'), pdf)
 })
+
+// Level up (2026-10-26): a game that passes a level pays its coins and the
+// level number on the badge and the nameplate updates straight away.
+test('levelling up pays coins and updates the level number at once', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    g.careerStats.xp = 490
+    g._updateBestStatsDisplay()
+    g._renderPlayerTag()
+    const coins = g.coins
+    const res = g._onPlayEvent('end', { waves: 1, kills: 1, bestStreak: 1, won: false, died: true, mode: 'zombieDefense', seconds: 30, coins: 0 })
+    return {
+      before: res.levelBefore.level,
+      after: res.levelAfter.level,
+      levelCoins: res.levelCoins,
+      coinsGained: g.coins - coins,
+      badge: document.getElementById('menu-avatar-level').textContent,
+      nameplate: document.querySelector('#player-showcase-title .nameplate-level').textContent,
+    }
+  })
+  expect(r).toEqual({ before: 1, after: 2, levelCoins: Xp.levelUpCoins(2), coinsGained: Xp.levelUpCoins(2), badge: '2', nameplate: '2' })
+})

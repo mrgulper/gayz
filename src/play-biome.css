@@ -72,6 +72,11 @@ html.ui-theme-biome :is(#play-pause-title, #play-weapon-pick h2, #play-inventory
   color: var(--biome-accent);
 }
 html.ui-theme-biome #build-play-over-title { font-family: 'Bebas Neue', sans-serif; letter-spacing: 1px; color: var(--biome-ink); }
+html.ui-theme-biome .build-play-levelup-card { font-family: inherit; color: var(--biome-ink); background: var(--biome-surface); border: 2px solid var(--biome-edge); border-radius: 10px; filter: none; padding: 26px 40px 28px; }
+html.ui-theme-biome #build-play-levelup-title { font-family: 'Bebas Neue', sans-serif; color: var(--biome-accent); }
+html.ui-theme-biome #build-play-levelup-ok { font-family: inherit; color: rgb(var(--biome-bg-rgb)); background: var(--biome-accent); border: none; }
+html.ui-theme-biome .build-play-xp-track { background: rgba(var(--biome-ink-rgb), 0.18); border-color: var(--biome-line); }
+html.ui-theme-biome #build-play-xp-fill { background: var(--biome-accent); }
 html.ui-theme-biome :is(#play-pause-close, #play-pause-info, #play-pause-hint, #play-invite-hint, #play-pause-status, #play-weapon-pick .pwp-hint) { color: var(--biome-ink); }
 
 /* Buttons and picks on those boxes. */

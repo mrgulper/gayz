@@ -1284,10 +1284,10 @@ const SIMPLE_TEXT_I18N_KEYS = {
   // Friendship's tabs (Clan moved there from General, 2026-10-24).
   'friends-tab-friends': 'friendsTabList',
   'friends-tab-clan': 'generalTabClan',
-  // General's tabs: Leaderboard and Theme (Theme moved from Inventory,
-  // 2026-10-24), and Inventory's Pets tab (Coming Soon).
+  // General's Leaderboard tab, Settings' Theme tab (Theme moved there
+  // from General, 2026-10-26), and Inventory's Pets tab (Coming Soon).
   'general-tab-general': 'cloudsaveLeaderboardTitle',
-  'general-tab-theme': 'tabTheme',
+  'tab-theme': 'tabTheme',
   'inventory-tab-pets': 'inventoryPetsTitle',
   'inventory-pets-soon-title': 'inventoryPetsTitle',
   'inventory-pets-soon-text': 'inventoryPetsSoon',
@@ -3277,11 +3277,11 @@ export class Game {
       { slug: 'global', panel: this.serverPanel, open: () => this._openServerPanel() },
       {
         slug: 'general', panel: this.clanPanel, open: () => this._openClanPanel(),
-        subTabs: this._subTabsFor('general-tab-', ['general', 'theme']),
+        subTabs: this._subTabsFor('general-tab-', ['general']),
       },
       {
         slug: 'settings', panel: this.settingsPanel, open: () => this._toggleSettings(true),
-        subTabs: this._subTabsFor('tab-', ['general', 'language', 'audio', 'controls', 'graphics']),
+        subTabs: this._subTabsFor('tab-', ['general', 'language', 'audio', 'controls', 'graphics', 'theme']),
       },
       { slug: 'credits', panel: this.creditsPanel, open: () => this._openCreditsPanel() },
       { slug: 'levels', panel: this.levelsPanel, open: () => this._openLevelsPanel() },
