@@ -539,14 +539,23 @@ export class BlockChunks {
         .replace('#include <alphatest_fragment>', `#include <alphatest_fragment>
         if (vShore > 0.5) {
           // Where the shore turns a corner, the water's corner is a curve
-          // (aEdge bits: 1/2 = shore at -x/+x, 4/8 = at -z/+z).
+          // (aEdge bits: 1/2 = shore at -x/+x, 4/8 = at -z/+z). Outside the
+          // curve the water stays (cutting it out left an empty hole in
+          // the corner - 2026-10-26, Gaymi: "you cant see them in the
+          // corner") but turns shallow and sandy, with a line of foam
+          // along the curve, so the shore still looks round.
           vec2 f = fract(vCell / uBlock + 0.0001);
           float m = floor(vShore + 0.5);
           float sx = f.x < 0.5 ? step(0.5, mod(m, 2.0)) : step(0.5, mod(floor(m / 2.0), 2.0));
           float sz = f.y < 0.5 ? step(0.5, mod(floor(m / 4.0), 2.0)) : step(0.5, mod(floor(m / 8.0), 2.0));
           vec2 d = 0.5 - abs(f - 0.5);
           float r = length(max(vec2(0.5) - d, 0.0));
-          if (sx * sz > 0.5 && r > 0.5) discard;
+          float corner = sx * sz;
+          float shallow = corner * smoothstep(0.47, 0.56, r);
+          float foam = corner * (1.0 - smoothstep(0.0, 0.035, abs(r - 0.5)));
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.6, 0.48), shallow * 0.55);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.92, 0.95, 0.97), foam * 0.6);
+          diffuseColor.a = max(diffuseColor.a, shallow * 0.85);
         }`)
         .replace('#include <fog_fragment>', `if (uReflect > 0.0) {
           float fres = pow(1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0), 3.0);
@@ -780,6 +789,33 @@ export class BlockChunks {
 
   // Every built chunk again, on the next flush (their uploaded copies are
   // gone after a lost graphics connection - see dropAfterUpload).
+  // The lumpy top of block x, y, z as _lumpyTop draws it: 16 [u, v, h]
+  // points (4 x 4, row by row in z), or null if its top is flat. Used to
+  // lay the breaking crack over the lumps (BuildTryMode).
+  lumpyTopPoints(x, y, z) {
+    if (!this.shapes) return null
+    const info = this.info.get(this.getType(x, y, z))
+    if (!info || !info.opaque || info.inset || info.liquid) return null
+    const above = this.getType(x, y + 1, z)
+    if (above && this.info.get(above)?.opaque) return null
+    const N = 3
+    const pts = []
+    for (let j = 0; j <= N; j++) {
+      for (let i = 0; i <= N; i++) {
+        let u = i / N
+        let v = j / N
+        let h = 1
+        if (i > 0 && i < N && j > 0 && j < N) {
+          u += (hash01(x * N + i, y, z * N + j, 21) - 0.5) * 0.1
+          v += (hash01(x * N + i, y, z * N + j, 22) - 0.5) * 0.1
+          h += BUMP_MIN + hash01(x * N + i, y, z * N + j, 23) * BUMP_RANGE
+        }
+        pts.push([u, v, h])
+      }
+    }
+    return pts
+  }
+
   rebuildAll() {
     for (const key of this.chunks.keys()) this.dirty.add(key)
   }
@@ -923,7 +959,10 @@ export class BlockChunks {
           if (opaqueAt(x, y, z - 1)) edge |= 4
           if (opaqueAt(x, y, z + 1)) edge |= 8
         }
-        if (shapes && info.cutout && fi !== 3 && hash01(x, y, z, 2 + fi) < 0.55) this._leafTuft(out.cutout, x - bx, y - by, z - bz, face, info.uvs[fi], tint)
+        if (shapes && info.cutout) {
+          this._leafPuff(buf, x, y, z, bx, by, bz, face, [u0, v0, u1, v1], ao.map((a) => AO_LEVELS[a] * face.shade * tint))
+          continue
+        }
         if (smooth && ny === 1) {
           this._lumpyTop(buf, x, y, z, bx, by, bz, cornerH, [u0, v0, u1, v1], ao.map((a) => AO_LEVELS[a] * face.shade * tint), info.alpha, glowSources)
           continue
@@ -1141,25 +1180,53 @@ export class BlockChunks {
     }
   }
 
-  // Leaves sticking out of a leaf block's face: a smaller leafy card a
-  // little out from the face, tipped outward, drawn from both sides.
-  _leafTuft(buf, lx, ly, lz, face, uv, tint) {
+  // A leaf block's face on the rounded levels: puffed out in the middle
+  // like a pillow, with a few small lumps, so a tree looks round and bumpy
+  // from every side. (It used to get a flat leafy card held out from the
+  // face, which looked like a second flat layer from behind - 2026-10-26,
+  // Gaymi: "make the leaves slightly round and bumpy".) The edges stay on
+  // the block, so leaf blocks next to each other still meet.
+  _leafPuff(buf, x, y, z, bx, by, bz, face, [u0, v0, u1, v1], shade) {
+    const N = 3
+    const PUFF = 0.14
     const [nx, ny, nz] = face.n
-    const out = 0.22
-    const tip = 0.3
-    const corners = face.c.map(([cx, cy, cz]) => {
-      // Shrink toward the face's middle, push out along the normal, and
-      // tip the far half further out.
-      const sx = nx ? cx : 0.5 + (cx - 0.5) * 0.8
-      const sy = ny ? cy : 0.5 + (cy - 0.5) * 0.8
-      const sz = nz ? cz : 0.5 + (cz - 0.5) * 0.8
-      const far = ny ? cz : cy
-      const o = out + far * tip * (ny ? 0.5 : 1) - (ny ? 0 : tip * 0.5)
-      return [lx + sx + nx * o, ly + sy + ny * o, lz + sz + nz * o]
-    })
-    const b = 0.9 * face.shade * tint
-    pushQuad(buf, this.blockSize, corners, face.n, uv, b)
-    pushQuad(buf, this.blockSize, [corners[1], corners[0], corners[3], corners[2]], [-nx, -ny, -nz], uv, b * 0.8)
+    const [c0, c1, , c3] = face.c
+    const es = sub3(c1, c0)
+    const et = sub3(c3, c0)
+    const lerp2 = (a, b, c, d, s, t) => (a * (1 - s) + b * s) * (1 - t) + (d * (1 - s) + c * s) * t
+    const base = buf.pos.length / 3
+    for (let j = 0; j <= N; j++) {
+      for (let i = 0; i <= N; i++) {
+        const s = i / N
+        const t = j / N
+        const inside = i > 0 && i < N && j > 0 && j < N
+        const lump = inside ? (hash01(x * 7 + i + nx, y * 7 + j + ny, z * 7 + nz, 31) - 0.5) * 0.08 : 0
+        const h = PUFF * Math.sin(Math.PI * s) * Math.sin(Math.PI * t) + lump
+        const px = c0[0] + es[0] * s + et[0] * t + nx * h
+        const py = c0[1] + es[1] * s + et[1] * t + ny * h
+        const pz = c0[2] + es[2] * s + et[2] * t + nz * h
+        buf.pos.push((x - bx + px) * this.blockSize, (y - by + py) * this.blockSize, (z - bz + pz) * this.blockSize)
+        // Tipped toward the slope of the puff.
+        const ds = PUFF * Math.PI * Math.cos(Math.PI * s) * Math.sin(Math.PI * t)
+        const dt = PUFF * Math.PI * Math.sin(Math.PI * s) * Math.cos(Math.PI * t)
+        const gx = nx - es[0] * ds - et[0] * dt
+        const gy = ny - es[1] * ds - et[1] * dt
+        const gz = nz - es[2] * ds - et[2] * dt
+        const l = Math.hypot(gx, gy, gz)
+        buf.nrm.push(gx / l, gy / l, gz / l)
+        buf.edge.push(0)
+        buf.uv.push(u0 + (u1 - u0) * s, v0 + (v1 - v0) * t)
+        const b = lerp2(shade[0], shade[1], shade[2], shade[3], s, t)
+        if (buf.stride === 4) buf.col.push(b, b, b, 1)
+        else buf.col.push(b, b, b)
+      }
+    }
+    for (let j = 0; j < N; j++) {
+      for (let i = 0; i < N; i++) {
+        const a = base + j * (N + 1) + i
+        buf.idx.push(a, a + 1, a + N + 2, a, a + N + 2, a + N + 1)
+      }
+    }
   }
 
   // View distance: hides every chunk whose nearest edge is more than
@@ -1192,22 +1259,7 @@ function newBuffers(stride) {
   return { pos: [], nrm: [], uv: [], col: [], idx: [], edge: [], stride }
 }
 
-// One quad into a chunk's buffers: 4 corners [x, y, z] (blocks, chunk
-// space), counter-clockwise from outside, the normal, the picture's uv box
-// and a brightness.
+// Small 3D vector helpers (pebbles, leaf puffs).
 const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
 const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
 const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-
-function pushQuad(buf, size, corners, n, [u0, v0, u1, v1], b) {
-  const base = buf.pos.length / 3
-  corners.forEach(([x, y, z], i) => {
-    buf.pos.push(x * size, y * size, z * size)
-    buf.nrm.push(n[0], n[1], n[2])
-    buf.uv.push(CORNER_UV[i][0] ? u1 : u0, CORNER_UV[i][1] ? v1 : v0)
-    if (buf.stride === 4) buf.col.push(b, b, b, 1)
-    else buf.col.push(b, b, b)
-    buf.edge.push(0)
-  })
-  buf.idx.push(base, base + 1, base + 2, base, base + 2, base + 3)
-}

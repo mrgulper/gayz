@@ -7,17 +7,22 @@
 //
 // Cheap on purpose: one InstancedMesh (two crossed quads per tuft). The
 // grass round you is found a few rows per frame (ROWS) - each column's
-// top block, scanned down from a little above your eyes - and the tufts
+// top block, found by walking up or down from the column next to it (land
+// is mostly smooth, so that's a block or two of looking) - and the tufts
 // move over when a full pass ends, like BuildWeather's roof grid.
+// Grass reaches 100 blocks out (2026-10-26, Gaymi: it "pops up when you
+// walk there by like 10-20 blocks make it 100 blocks"): full and close
+// up to NEAR, then one bigger tuft per block further out.
 import * as THREE from 'three'
 
-const RADIUS = 14 // blocks round you that get tufts
+export const GRASS_REACH = 100
+const RADIUS = GRASS_REACH // blocks round you that get tufts
+const NEAR = 24 // closer than this: PER_BLOCK tufts a block, further: one
 const SPAN = RADIUS * 2 + 1
-const ROWS = 3 // grid rows scanned per frame
-const SCAN_UP = 6 // blocks above the eyes a grass top can be
-const SCAN_DOWN = 12
+const ROWS = 6 // grid rows scanned per frame
+const WALK = 24 // most blocks looked up or down from the last column's top
 const PER_BLOCK = 3 // most tufts on one grass block
-const MAX_TUFTS = SPAN * SPAN * PER_BLOCK
+const MAX_TUFTS = Math.ceil(Math.PI * NEAR * NEAR * PER_BLOCK + Math.PI * RADIUS * RADIUS)
 
 // A small picture of grass blades: a few thin tapering blades in greens,
 // see-through between them.
@@ -149,24 +154,41 @@ export class GrassTufts {
       this._scanned = true
     }
     const end = Math.min(SPAN, this._row + ROWS)
+    const R2 = (RADIUS + 0.5) * (RADIUS + 0.5)
     for (let r = this._row; r < end; r++) {
       const z = o.z + r
+      const dz = r - RADIUS
+      // Each row starts from your height; each column from the top found
+      // next to it.
+      let top = o.y
       for (let c = 0; c < SPAN; c++) {
+        const dx = c - RADIUS
+        if (dx * dx + dz * dz > R2) continue
         const x = o.x + c
-        for (let y = o.y + SCAN_UP; y > o.y - SCAN_DOWN; y--) {
-          const type = bm.getBlockAt(x, y, z)
-          if (!type) continue
-          if (type === 'grass') {
-            const i = this._foundCount++ * 3
-            this._found[i] = x
-            this._found[i + 1] = y + 1
-            this._found[i + 2] = z
-          }
-          break
+        const y = this._topAt(x, z, top)
+        if (y === null) continue
+        top = y
+        if (bm.getBlockAt(x, y, z) === 'grass' && this._foundCount * 3 < this._found.length) {
+          const i = this._foundCount++ * 3
+          this._found[i] = x
+          this._found[i + 1] = y + 1
+          this._found[i + 2] = z
         }
       }
     }
     this._row = end
+  }
+
+  // The top block of column x, z: from the height `from`, up while
+  // there's a block, else down to the first one (null if none near).
+  _topAt(x, z, from) {
+    const bm = this.bm
+    if (bm.getBlockAt(x, from, z)) {
+      for (let y = from + 1; y <= from + WALK; y++) if (!bm.getBlockAt(x, y, z)) return y - 1
+      return null
+    }
+    for (let y = from - 1; y >= from - WALK; y--) if (bm.getBlockAt(x, y, z)) return y
+    return null
   }
 
   // A full pass is done: put the tufts on the grass it found. Each block
@@ -181,13 +203,18 @@ export class GrassTufts {
       const x = this._found[f * 3]
       const top = this._found[f * 3 + 1]
       const z = this._found[f * 3 + 2]
-      const dist = Math.hypot(x + 0.5 - cx, z + 0.5 - cz) / RADIUS
+      const far = Math.hypot(x + 0.5 - cx, z + 0.5 - cz)
+      const dist = far / RADIUS
       if (dist > 1) continue
       // Smaller towards the edge, so the ring of grass has no hard border.
-      const edge = 1 - THREE.MathUtils.smoothstep(dist, 0.7, 1)
-      for (let i = 0; i < PER_BLOCK; i++) {
-        if (hash(x, z, i) > this.amount * 0.9) continue
-        const size = (0.7 + hash(x, z, i + 7) * 0.6) * edge
+      const edge = 1 - THREE.MathUtils.smoothstep(dist, 0.85, 1)
+      // Far away: one tuft a block, a bit bigger so the field still looks full.
+      const many = far < NEAR ? PER_BLOCK : 1
+      const grow = far < NEAR ? 1 : 1.35
+      for (let i = 0; i < many; i++) {
+        if (n >= MAX_TUFTS) break
+        if (hash(x, z, i) > this.amount * 0.9 + (many === 1 ? 0.1 : 0)) continue
+        const size = (0.7 + hash(x, z, i + 7) * 0.6) * edge * grow
         if (size < 0.05) continue
         this._p.set((x + 0.15 + hash(x, z, i + 3) * 0.7) * B, top * B, (z + 0.15 + hash(x, z, i + 5) * 0.7) * B)
         this._q.setFromAxisAngle(this._up, hash(x, z, i + 11) * Math.PI)

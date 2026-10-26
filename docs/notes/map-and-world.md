@@ -225,3 +225,11 @@ Later the same day: center went back to 70vmin (Gaymi wanted the old size) but k
 - Mouse: `BuildMode.mouseScreenOpen()` (pause, inventory, weapon pick, You Died, spawn map, trader, Share, Together, big map). A `pointerlockchange` listener lets go of the mouse if a lock lands while one is open - a requestPointerLock() made just before such a screen (Play Again calls start() then requestPointerLock()) used to land after the screen's exitPointerLock(). `_onPointerDown` won't re-lock while one is open.
 - Spiders climb only when a real block is ahead (`wall` in `_updateZombie`) - `_zombieHits` also counts the camp, which has no top, so they climbed it into the sky.
 - BuildWeather: `uIce` (hail pellets with streak + bouncing splash points via `uBounce`), snow flakes vary in size/shape and flutter in x and z, rain drops vary length/width.
+
+## 2026-10-26: far grass, leaf puffs, falling leaves, dinosaurs
+- GrassTufts: GRASS_REACH 100 blocks; full density inside NEAR (24), one bigger tuft a block beyond. Column tops found by walking up/down from the neighbour column (`_topAt`), not a fixed eye-height window.
+- Water shore corners are no longer discarded (left a see-through hole); the corner turns shallow/sandy with a foam line on the curve.
+- Dig crack is a custom 6-face mesh (`_digCrackShape`); on the bumpy levels its top follows `BlockChunks.lumpyTopPoints` (the flat box top used to sit under the lumps, so only the sides showed cracks).
+- Leaves on the rounded levels: `_leafPuff` (pillow-shaped 3x3 face grid) replaced `_leafTuft` flat cards. `FallingLeaves.js` (off on Potato). Leaf blocks drop with LEAF_DROP_CHANCE (PlayRules).
+- `DinoKinds.js`: 20 dinosaurs, DINO_CHANCE 1% of a dino biome's spawns, alone, untameable; `hunts` ones chase/bite via `PlayAnimals._hunt` (host bites remote players with queueHurt). Big ones step 2 blocks.
+- Spider: zombie spider `waves: false` (kept for old saves/servers); the animal spider is Minecraft-sized. 16 more animals in AnimalKinds.js.

@@ -41,9 +41,11 @@ export const SKELETON_FROM_WAVE = 3
 export const SPAWN_MIN_DIST = 30
 export const SKELETON_CHANCE = 0.3
 // The pixel-art monster zombies (ZombieKinds.js: hunched, blob, beast,
-// crawler, spider, brute, bloater, skinny) join from this wave on, each
+// crawler, brute, bloater, skinny - not the spider since 2026-10-26) join from this wave on, each
 // spawn with MONSTER_CHANCE. From the first wave and about half of all
 // spawns since 2026-10-26 (Gaymi: "dont make them human shape").
+// A broken leaf block drops a leaf block this often (2026-10-26, Gaymi).
+export const LEAF_DROP_CHANCE = 0.5
 export const MONSTER_FROM_WAVE = 1
 export const MONSTER_CHANCE = 0.5
 export const EXTRACTION_HOLD = 10
