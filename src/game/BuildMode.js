@@ -2351,6 +2351,11 @@ export class BuildMode {
   // Geometry + material(s) for the block shown in the player's hand while
   // building (BuildTryMode.drawHand): a cube textured like the block, or a
   // shaped block's own mesh parts. Cached per type; shared, never disposed.
+  // A real block id (a server's shared blocks are checked against this).
+  knowsBlock(type) {
+    return BLOCK_BY_ID.has(type)
+  }
+
   _heldBlockParts(type) {
     if (!this._heldParts) this._heldParts = new Map()
     if (this._heldParts.has(type)) return this._heldParts.get(type)

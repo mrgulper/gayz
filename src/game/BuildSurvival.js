@@ -36,6 +36,9 @@ import { loadEarthTerrain } from './EarthTerrain.js'
 import { BOTTOM } from './Underground.js'
 import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { MONSTER_KINDS, makeMonster } from './ZombieKinds.js'
+import { PlayDamageNumbers } from './PlayDamageNumbers.js'
+import { speechBubble, disposeBubble, BUBBLE_S } from './SpeechBubble.js'
+import { openLobby } from './ServerBrowser.js'
 
 export const CHEST_LOOT = { ammo: 60, health: 35 }
 const HEAD_MULT = 2.4
@@ -235,6 +238,13 @@ export class BuildSurvival {
     // one-connection rule).
     if (this.net && this.net !== net) this.net.leave()
     this.net = net
+    this.lobby?.leave()
+    this.lobby = null
+    // Blocks placed (id) and broken ('') this game, by cell - sent to a
+    // server made later on too (PlayNet.attach).
+    this._edits = new Map()
+    if (!this.damageNumbers) this.damageNumbers = new PlayDamageNumbers(this)
+    this.damageNumbers.clear()
     this._spawnPick = null
     if (net) {
       net.attach(this)
@@ -347,6 +357,9 @@ export class BuildSurvival {
     else this._message(t('buildPlayGetReady'))
     zombieSkin().then((skin) => { this._skin = skin; this._warmShaders() }).catch(() => { this._skin = null })
     loadSkeletons().then((ok) => { if (ok) this._warmShaders(true) })
+    // A solo game from the homepage is ready for friends straight away: its
+    // address is the invite link (PlayNet's lobby).
+    if (fromMenu && !net) openLobby(bm.game, this).catch(() => { /* offline: just solo */ })
   }
 
   // Gets the graphics card ready to draw zombies (and skeletons) while the
@@ -381,6 +394,11 @@ export class BuildSurvival {
     this.active = false
     this.net?.leave()
     this.net = null
+    this.lobby?.leave()
+    this.lobby = null
+    this.damageNumbers?.clear()
+    if (this._ownBubble) disposeBubble(this._ownBubble.sprite)
+    this._ownBubble = null
     this.bm.tryMode.speedMult = 1
     this.camp?.dispose()
     this.camp = null
@@ -1050,13 +1068,14 @@ export class BuildSurvival {
       }
     }
     // No zombie hit: maybe an animal (PlayAnimals.js).
-    if (!hits.size) return !!this.animals?.hitRay(center, reach, damage)
+    if (!hits.size) return !!this.animals?.hitRay(center, reach, damage, this.weaponId)
     if (w.slow && impact) this._fx?.voidHit(impact)
     for (const [z, amount] of hits) {
       if (!this.zombies.includes(z)) continue
       // Flamethrower sets them on fire; Void Ripper slows them.
       if (w.burn) z.burn = w.burn
       if (w.slow) z.slow = w.slow
+      this.damageNumbers?.atZombie(z, amount, this.weaponId, ZOMBIE_HEIGHT)
       // On a server and not the host: the host's zombie takes the hit
       // (and tells me if I killed it); here it just flashes.
       if (this.net && !this.net.isHost) {
@@ -1080,6 +1099,7 @@ export class BuildSurvival {
   hitZombieWith(z, amount, dir, head = false) {
     if (!this.zombies.includes(z)) return
     if (head) this.stats.headshots++
+    this.damageNumbers?.atZombie(z, amount, this.weaponId, ZOMBIE_HEIGHT)
     if (this.net && !this.net.isHost) {
       this.net.queueHit(`z${z.id}`, amount)
       z.flash = 0.12
@@ -1212,6 +1232,7 @@ export class BuildSurvival {
       }
       if (f.t >= f.life) {
         this._fires.delete(key)
+        if (bm.getBlockAt(f.x, f.y, f.z)) this._recordEdit(f.x, f.y, f.z, '')
         bm.tryMode.breakBlock(f.x, f.y, f.z)
       }
     }
@@ -1220,6 +1241,8 @@ export class BuildSurvival {
   // by: on a server, the other player whose shot this was (the kill is
   // theirs - it reaches them through PlayNet).
   damageZombie(z, amount, dir = null, by = null) {
+    // Spectating, everyone's hits show (my own show where I fire).
+    if (by && this.spectating) this.damageNumbers?.atZombie(z, amount, '', ZOMBIE_HEIGHT)
     z.health -= amount
     z.flash = 0.12
     if (z.skel && z.health > 0 && !z.rise && amount > 0) z.hitAnim = z.skel.play('hit', { once: true, fade: 0.05, timeScale: 1.6 })
@@ -1306,6 +1329,7 @@ export class BuildSurvival {
   // A block broken by hand in a game goes into the inventory.
   onBlockMined(type, x, y, z) {
     if (!this.active || !this.inv || !type) return
+    this._recordEdit(x, y, z, '')
     const bm = this.bm
     // One you placed yourself: it's simply gone (not put back at the end).
     const key = bm._key(x, y, z)
@@ -1334,6 +1358,7 @@ export class BuildSurvival {
     bm.placeBlock(x, y, z, held.id, false)
     bm._suppressUndoRecording = false
     this._placed.set(bm._key(x, y, z), held.id)
+    this._recordEdit(x, y, z, held.id)
     this.inv.usedBlock()
     audioEngine.playFootstep?.(false, 'default')
     return true
@@ -2166,6 +2191,8 @@ export class BuildSurvival {
     if (!this.active) return
     this._updateCorpses(Math.min(dt, 0.1))
     this._fx?.update(Math.min(dt, 0.1))
+    this.damageNumbers?.update(Math.min(dt, 0.1))
+    this._updateOwnBubble(Math.min(dt, 0.1))
     this.throws?.update(Math.min(dt, 0.1))
     // On a server the world goes on while you're dead or in the menu.
     const net = this.net && !this.net.closed ? this.net : null
@@ -2177,7 +2204,10 @@ export class BuildSurvival {
     const playing = !this.dead && !this.bm.menuOpen && !this._picking
     if (playing) this._updateMe(dt)
     if (playing) this._drops?.update(dt)
-    if (playing) this.animals?.update(dt)
+    // On a server the host runs the animals for everyone (even while dead
+    // or in the menu); the others mirror them.
+    if (net && !net.isHost) this.animals?.updateMirror(dt)
+    else if (playing || net) this.animals?.update(dt)
     if (!this.bm.menuOpen) this._updateFires(dt)
     if (net && !net.isHost) {
       this._updateMirroredZombies(dt)
@@ -2538,7 +2568,11 @@ export class BuildSurvival {
       z.ty = d.y
       z.tz = d.z
       z.tr = d.r
-      if (d.hp < z.health) z.flash = 0.12
+      if (d.hp < z.health) {
+        z.flash = 0.12
+        // Spectating, everyone's hits show (my own show where I fire).
+        if (this.spectating) this.damageNumbers?.atZombie(z, z.health - d.hp, '', ZOMBIE_HEIGHT)
+      }
       z.health = d.hp
       z.maxHealth = d.max
     }
@@ -2602,9 +2636,13 @@ export class BuildSurvival {
     }
   }
 
-  // The host: other players' hits on my zombies.
+  // The host: other players' hits on my zombies (and animals).
   _applyRemoteHits(hits) {
     for (const h of hits) {
+      if (String(h.id)[0] === 'a') {
+        this.animals?.remoteHit(h)
+        continue
+      }
       const id = Number(String(h.id).slice(1))
       const z = this.zombies.find((o) => o.id === id)
       if (z) this.damageZombie(z, Number(h.dmg) || 0, null, h.by)
@@ -2614,6 +2652,9 @@ export class BuildSurvival {
   // I just became (or stopped being) the host.
   _onHostChange(isHost) {
     if (isHost) {
+      // The sky and animals are mine to run now.
+      this.bm.sky?.follow?.(null)
+      this.animals?.takeOver()
       // Carry on with the zombies as they are now.
       this._zid = Math.max(this._zid || 0, ...this.zombies.map((z) => z.id))
       for (const z of this.zombies) {
@@ -2635,11 +2676,75 @@ export class BuildSurvival {
   // The server closed or can't be reached: carry on alone.
   _onServerLost(text) {
     this.net = null
+    this.bm.sky?.follow?.(null)
+    this.animals?.takeOver()
     this._message(text, 4)
     for (const z of [...this.zombies]) this._removeZombie(z)
     this.zombies = []
     this._toSpawn = 0
     this._breakTimer = WAVE_BREAK
+  }
+
+  // A block placed (b: its id) or broken (b: '') - shared on a server.
+  _recordEdit(x, y, z, b) {
+    if (!this.active || !this._edits) return
+    this._edits.set(this.bm._key(x, y, z), b || '')
+    const net = this.net && !this.net.closed ? this.net : this.lobby && !this.lobby.closed ? this.lobby : null
+    net?.queueEdit(x, y, z, b || '')
+  }
+
+  // Blocks the other players placed and broke (everything so far, the
+  // first time).
+  _applyRemoteEdits(list) {
+    const bm = this.bm
+    const tm = bm.tryMode
+    bm._suppressUndoRecording = true
+    try {
+      for (const e of list) {
+        const x = Math.round(e.x)
+        const y = Math.round(e.y)
+        const z = Math.round(e.z)
+        const key = bm._key(x, y, z)
+        const here = bm.getBlockAt(x, y, z)
+        if (e.b) {
+          if (here === e.b || !bm.knowsBlock(e.b)) continue
+          if (here) tm.breakQuietly(x, y, z)
+          bm.placeBlock(x, y, z, e.b, false)
+          // It goes again when the game ends, like my own.
+          this._placed.set(key, e.b)
+        } else if (here) {
+          if (this._placed.delete(key)) bm.removeBlock(x, y, z)
+          else tm.breakQuietly(x, y, z)
+          this._fires?.delete(key)
+        } else if (bm.world?.active) {
+          // Land that hasn't grown here yet: it never grows that cell.
+          bm.world.touched(x, y, z, key, true)
+          bm.world.removed.add(key)
+        }
+      }
+    } finally {
+      bm._suppressUndoRecording = false
+    }
+  }
+
+  // Chat: what I said shows over my own body too (seen in the
+  // third-person views) and goes to the others on a server.
+  onChatSent(text) {
+    if (!this.active || !text) return
+    const net = this.net && !this.net.closed ? this.net : this.lobby && !this.lobby.closed ? this.lobby : null
+    net?.say(text)
+    if (this._ownBubble) disposeBubble(this._ownBubble.sprite)
+    this._ownBubble = { sprite: speechBubble(text, this.B), left: BUBBLE_S }
+  }
+
+  _updateOwnBubble(dt) {
+    const b = this._ownBubble
+    if (!b) return
+    const group = this.bm.tryMode._body?.group
+    if (group && b.sprite.parent !== group) group.add(b.sprite)
+    if ((b.left -= dt) > 0) return
+    disposeBubble(b.sprite)
+    this._ownBubble = null
   }
 
   // On a server, Play Again after dying: up again at the start, same game.

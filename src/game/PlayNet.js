@@ -13,16 +13,34 @@
 // the server. Coins, ammo, the camp's shop and your stats stay your own.
 //
 // The other players are drawn as their own skins with name tags and the
-// weapon they picked in their hands, slid smoothly between updates. Who
-// joins or leaves shows as a line in the chat.
+// weapon (or block) in their hands, slid smoothly between updates. Who
+// joins or leaves shows as a line in the chat, and what they say in chat
+// pops up over their head (SpeechBubble.js).
+//
+// Everyone sees the same world (2026-10-26, Gaymi: "they didn't see the
+// same thing I had on my screen, please fix this from the root cause"):
+// besides the zombies, the host's sky (BuildSky.skyState) and animals
+// (PlayAnimals.snapshot) are mirrored, and every player's placed and
+// broken blocks are shared (queueEdit) - before, each screen rolled its
+// own weather, grew its own animals and kept its own blocks.
+//
+// A solo game from the homepage is a hidden server from the start (a
+// "lobby", ServerBrowser.openLobby, 2026-10-26: "it still says
+// gayz.vercel.app/map-editor until I click the invite link"), so the
+// address bar is its invite link right away. It syncs slowly and plays
+// exactly like a solo game until someone opens the link - then it becomes
+// a normal server game (_promote), the same as Invite Friends.
 import * as THREE from 'three'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { nameTag } from './BuildCamp.js'
 import { serverApi } from './ServerBrowser.js'
 import { t } from './i18n.js'
-import { holdWeapon, poseArms } from './HeldWeapon.js'
+import { holdWeapon, holdBlock, poseArms } from './HeldWeapon.js'
 import { addChatSystemLine, clearChatSystemLines } from './ChatUI.js'
 import { MOB_HEIGHT } from './PlayRules.js'
+import { _censorText } from './Game.js'
+import { worldSeed, isEarthWorld } from './OpenWorld.js'
+import { speechBubble, disposeBubble, BUBBLE_S } from './SpeechBubble.js'
 
 // Seconds between syncs.
 export const SYNC_EVERY = 0.16
@@ -30,6 +48,10 @@ export const SYNC_EVERY = 0.16
 const LOST_AFTER_S = 12
 // How quickly avatars and mirrored zombies catch up with the latest spot.
 const FOLLOW = 12
+// A lobby (a solo game nobody has joined yet) only checks in this often.
+const LOBBY_EVERY_MS = 4000
+// Placed/broken blocks sent per sync (the rest wait for the next one).
+const EDITS_PER_SYNC = 40
 
 // Only one connection per page: a second one used to leave the first
 // syncing in the background, still sending this player's own spot under
@@ -39,7 +61,8 @@ let current = null
 
 export class PlayNet {
   // info: what create/join returned - { serverId, playerId, token, host, name }.
-  constructor(game, info) {
+  // lobby: a solo game ready for friends (see the header).
+  constructor(game, info, { lobby = false } = {}) {
     if (current && !current.closed) current.leave()
     current = this
     this.game = game
@@ -62,6 +85,15 @@ export class PlayNet {
     this._credits = []
     this._skinAsked = new Set()
     this._firstSync = true
+    this.lobby = lobby
+    this._lastLobbySync = 0
+    // Blocks placed/broken here not sent yet, and how far into everyone
+    // else's I am.
+    this._edits = []
+    this._editSeq = 0
+    this._say = null
+    this._sayN = 0
+    this._worldSent = ''
     this.closed = false
     // Closing the tab mid-game leaves the server too.
     this._onPageHide = () => this.leave()
@@ -77,6 +109,21 @@ export class PlayNet {
 
   attach(survival) {
     this.survival = survival
+    // Blocks changed before this game had a server go out too.
+    for (const [key, b] of survival._edits || []) {
+      const [x, y, z] = key.split(',').map(Number)
+      this.queueEdit(x, y, z, b)
+    }
+  }
+
+  // Someone opened the link: from now on a normal server game.
+  _promote() {
+    const s = this.survival
+    this.lobby = false
+    if (!s) return
+    if (s.lobby === this) s.lobby = null
+    s.net = this
+    s._renderHud?.()
   }
 
   // While you're on a server the address bar is its invite link
@@ -117,6 +164,21 @@ export class PlayNet {
     this._credits.push({ to, boss: !!boss, skeleton })
   }
 
+  // A guest's shot on one of the host's animals (a<id>), or taming it.
+  queueAnimalHit(id, dmg, tame = false) {
+    this._hits.push({ id, dmg, ...(tame ? { tame: true } : {}) })
+  }
+
+  // A block I placed (b: its id) or broke (b: '').
+  queueEdit(x, y, z, b) {
+    this._edits.push({ x, y, z, b: b || '' })
+  }
+
+  // Something I said in chat - a bubble over my head for the others.
+  say(text) {
+    this._say = { n: ++this._sayN, text: String(text).slice(0, 120) }
+  }
+
   // Living players other than me, for the host's zombies to chase.
   targets() {
     const out = []
@@ -133,18 +195,40 @@ export class PlayNet {
   async _sync() {
     const s = this.survival
     if (!s) return
+    if (this.lobby) {
+      const now = performance.now()
+      if (now - this._lastLobbySync < LOBBY_EVERY_MS) return
+      this._lastLobbySync = now
+    }
     const bm = s.bm
     // Spectating, the others see me where I left off (BuildSurvival.bodyPos).
     const pos = s.bodyPos?.() || bm.tryMode.pos
+    // In my hand: the gun, or a block from the inventory (an item or an
+    // empty hand shows nothing).
+    const holding = s.holding
     const body = {
       ...this.auth,
-      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: s.weaponId, firing: !!bm._fireHeld, dead: !!s.dead, away: document.hidden },
+      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden },
+      editsAfter: this._editSeq,
     }
-    if (this.isHost) {
+    const edits = this._edits.splice(0, EDITS_PER_SYNC)
+    if (edits.length) body.edits = edits
+    const said = this._say
+    if (said) body.say = said
+    // Where the host spawned (World Map mode picks it after the game began).
+    const world = this.isHost && bm.world?.active && s._spawnPick ? { seed: worldSeed(), earth: isEarthWorld(), pick: s._spawnPick } : null
+    const worldKey = world ? JSON.stringify(world) : ''
+    if (world && worldKey !== this._worldSent) body.world = world
+    if (this.lobby) {
+      // Nobody else here yet: just stay alive (and keep the blocks).
+    } else if (this.isHost) {
       body.zombies = s.zombieSnapshot()
       body.wave = s.wave
       body.hurt = this._hurt.splice(0)
       body.credits = this._credits.splice(0)
+      const sky = bm.sky?.skyState?.()
+      if (sky) body.sky = sky
+      if (s.animals) body.animals = s.animals.snapshot()
     } else {
       body.hits = this._hits.splice(0)
     }
@@ -158,11 +242,18 @@ export class PlayNet {
       const res = await this.api.sync(body)
       if (this.closed) return
       this._lastOk = performance.now()
+      if (this._say === said) this._say = null
+      if (body.world) {
+        this._worldSent = worldKey
+        this.world = body.world
+      }
       this._apply(res)
     } catch (err) {
       if (this.closed) return
-      // Asked-for skins that never arrived get asked for again.
+      // Asked-for skins that never arrived get asked for again; unsent
+      // blocks go again.
       for (const pid of want) this._skinAsked.delete(pid)
+      this._edits.unshift(...edits)
       if (err?.code === 'gone' || err?.code === 'not-in-server') this._lost('serverClosed')
       else if (performance.now() - this._lastOk > LOST_AFTER_S * 1000) this._lost('serverLost')
     } finally {
@@ -173,6 +264,14 @@ export class PlayNet {
   _apply(res) {
     const s = this.survival
     if (!s?.active) return
+    if (this.lobby) {
+      if (!Object.keys(res.players || {}).length) {
+        this._editSeq = res.editSeq || this._editSeq
+        this._firstSync = false
+        return
+      }
+      this._promote()
+    }
     if (res.isHost !== this.isHost) {
       this.isHost = !!res.isHost
       s._onHostChange(this.isHost)
@@ -188,7 +287,12 @@ export class PlayNet {
         // Not for the players already there when I joined.
         if (!this._firstSync) addChatSystemLine(this.game, t('serverPlayerJoined', { name: p.nick || 'Survivor' }))
       }
-      Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, firing: !!p.firing })
+      Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing })
+      if (p.say && p.say.n !== mine.sayN) {
+        mine.sayN = p.say.n
+        const left = BUBBLE_S - (Number(p.say.age) || 0) / 1000
+        if (left > 0.3 && !this.game.settings?.mutedChatPlayers?.includes(p.nick)) this._setBubble(mine, _censorText(String(p.say.text || '')), left)
+      }
       if (!mine.seen) {
         mine.x = p.x
         mine.y = p.y
@@ -208,8 +312,15 @@ export class PlayNet {
       s._renderHud()
     }
     for (const [pid, url] of Object.entries(res.skins || {})) this._setSkin(pid, url || DEFAULT_SKIN_DATA_URL)
+    // Everyone's blocks (all of them the first time), then the host's world.
+    if (res.edits?.length) s._applyRemoteEdits(res.edits)
+    if (res.editSeq !== undefined) this._editSeq = res.editSeq
     if (this.isHost) s._applyRemoteHits(res.hits || [])
-    else s._applyZombieSnapshot(res.zombies || {}, this.wave)
+    else {
+      s._applyZombieSnapshot(res.zombies || {}, this.wave)
+      if (res.sky) s.bm.sky?.follow?.(res.sky)
+      s.animals?.applySnapshot(res.animals || {})
+    }
     for (const amount of res.hurt || []) s._hurtPlayer(amount)
     for (const c of res.credits || []) s._countKill(!!c.boss, c.skeleton || null)
   }
@@ -245,13 +356,23 @@ export class PlayNet {
     }).catch(() => { /* no picture: just the name tag */ })
   }
 
+  // A chat bubble over a player's head for `left` seconds.
+  _setBubble(player, text, left = BUBBLE_S) {
+    if (!text) return
+    if (player.bubble) disposeBubble(player.bubble)
+    player.bubble = speechBubble(text, this.survival.B)
+    player.bubbleLeft = left
+    player.group.add(player.bubble)
+  }
+
   _removePlayer(pid) {
     const player = this.players.get(pid)
     if (!player) return
     this.players.delete(pid)
     this.survival?.bm.scene.remove(player.group)
-    // The held weapon shares the game's own geometry - never disposed.
+    // The held weapon and block share the game's own geometry - never disposed.
     if (player.gun) player.gun.parent?.remove(player.gun)
+    if (player.block) player.block.parent?.remove(player.block)
     player.group.traverse((o) => {
       if (!o.isMesh && !o.isSprite) return
       o.geometry?.dispose?.()
@@ -277,6 +398,10 @@ export class PlayNet {
     const B = this.survival.B
     p.group.position.set(p.x * B, p.y * B, p.z * B)
     p.group.rotation.y = p.yaw + Math.PI
+    if (p.bubble && (p.bubbleLeft -= dt) <= 0) {
+      disposeBubble(p.bubble)
+      p.bubble = null
+    }
     // Lying down when dead, legs swinging when walking.
     if (p.body) {
       p.body.rotation.x = p.dead ? -Math.PI / 2 : 0
@@ -291,9 +416,13 @@ export class PlayNet {
           p.melee = held.melee
           p.gunId = p.weapon || ''
         }
+        if (p.blockId !== (p.held || '')) {
+          p.block = holdBlock(this.survival.bm, p.body, p.held, p.block, B)
+          p.blockId = p.held || ''
+        }
         lp.legR.rotation.x = swing
         lp.legL.rotation.x = -swing
-        poseArms(lp, { holding: !!p.gun && !p.dead, melee: p.melee, firing: p.firing, swing })
+        poseArms(lp, { holding: (!!p.gun || !!p.block) && !p.dead, melee: p.melee, firing: p.firing, swing })
       }
     }
   }

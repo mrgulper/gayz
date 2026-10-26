@@ -839,6 +839,9 @@ export async function sendChatMessage(game) {
       () => false
     )
     if (!ok) game._showHomepageToast(t('chatSendFailed'))
+    // In a game it also pops up over your head (SpeechBubble.js) - Global
+    // only, Clan chat stays private.
+    else game.buildMode?.survival?.onChatSent?.(text)
   } else if (game._chatChannel === 'clan') {
     if (!game._cloudUid) {
       game._showHomepageToast(t('chatSignInRequired'))

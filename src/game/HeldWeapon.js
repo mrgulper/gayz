@@ -95,3 +95,23 @@ export function poseArms(lp, { holding, melee, firing, swing }) {
     lp.armL.rotation.set(firing ? -Math.PI / 2.3 : swing, 0, 0)
   }
 }
+
+// A block from a game's inventory in the right hand instead of a gun (the
+// other players on a server see what you really hold, 2026-10-26): a small
+// cube of the block's own look (BuildMode._heldBlockParts - shared
+// geometry and materials, never disposed). Replaces `old`; null when
+// there's nothing to hold. B: the world's block size.
+const HELD_BLOCK_SIZE = 5 // character units
+export function holdBlock(bm, body, type, old = null, B = 1) {
+  const armR = body?.limbPivots?.armR
+  if (old) old.parent?.remove(old)
+  const parts = armR && type && bm?._heldBlockParts?.(type)
+  if (!parts) return null
+  const mesh = new THREE.Mesh(parts.geometry, parts.material)
+  mesh.scale.setScalar(HELD_BLOCK_SIZE / B)
+  if (parts.turn) mesh.rotation.y = parts.turn
+  mesh.position.set(0, -11, -1.5)
+  mesh.castShadow = false
+  armR.add(mesh)
+  return mesh
+}

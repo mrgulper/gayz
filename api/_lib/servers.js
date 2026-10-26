@@ -8,9 +8,12 @@
 //
 // Layout in the database:
 //   servers/{id}      { name, mode, host, createdAt, wave, zombies, world,
-//                       players: { pid: { nick, x, y, z, yaw, weapon,
-//                                         firing, dead, t, hurt, credits } },
-//                       hits: { key: { id, dmg, by } } }
+//                       hidden, sky, animals, editSeq,
+//                       players: { pid: { nick, x, y, z, yaw, weapon, held,
+//                                         firing, dead, t, hurt, credits,
+//                                         say } },
+//                       hits: { key: { id, dmg, by, tame } },
+//                       edits: { "x,y,z": { b, s, by } } }
 //   serverSecrets/{id}/{pid}  the player's token (never sent to others)
 //   serverSkins/{id}/{pid}    the player's skin picture (sent once on ask)
 //
@@ -24,6 +27,13 @@
 // landed. Zombie bites on another player and the kills another player's
 // shots finished are queued on that player and handed over (and cleared)
 // on their next sync.
+//
+// Everyone sees the same world (2026-10-26, Gaymi: "they didn't see the
+// same thing I had on my screen, please fix this from the root cause"):
+// the host's sky (time of day, weather, rainbow) and animals travel like
+// its zombies, and every player's placed and broken blocks go in `edits`
+// (one per cell, the latest wins, numbered so each player only gets the
+// ones they haven't had yet).
 import { randomUUID, randomInt } from 'node:crypto'
 
 export const MAX_PLAYERS = 8
@@ -40,6 +50,12 @@ const NICK_MAX = 20
 const MAX_ZOMBIES = 40
 const MAX_HITS_PER_SYNC = 40
 const MAX_SKIN_LENGTH = 50000
+const MAX_ANIMALS = 24
+// Placed/broken cells kept per server (the oldest stay, new cells stop
+// being shared past this).
+export const MAX_EDITS = 4000
+const MAX_EDITS_PER_SYNC = 40
+const SAY_MAX = 120
 const ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 export class ServerError extends Error {
@@ -106,6 +122,8 @@ export async function listServers(db, now = Date.now()) {
       gone[`serverSkins/${id}`] = null
       continue
     }
+    // A solo game ready for friends (PlayNet lobby): joined by its link only.
+    if (server.hidden) continue
     out.push(summary(id, server, now))
   }
   if (Object.keys(gone).length) await db.update(gone)
@@ -114,7 +132,7 @@ export async function listServers(db, now = Date.now()) {
 }
 
 function newPlayer(nickname, now) {
-  return { nick: cleanText(nickname, NICK_MAX) || 'Survivor', x: 0, y: 0, z: 0, yaw: 0, weapon: '', firing: false, dead: false, away: false, t: now + JOIN_GRACE_MS - STALE_MS }
+  return { nick: cleanText(nickname, NICK_MAX) || 'Survivor', x: 0, y: 0, z: 0, yaw: 0, weapon: '', held: '', firing: false, dead: false, away: false, t: now + JOIN_GRACE_MS - STALE_MS }
 }
 
 // A game made joinable mid-run (Invite Friends, 2026-10-18) brings its
@@ -131,7 +149,9 @@ function cleanWorld(w) {
   return out
 }
 
-export async function createServer(db, { name, mode, nickname, skin, world, id: wanted } = {}, now = Date.now()) {
+// hidden: a solo game made ready for friends the moment it starts (its
+// address is the invite link) - left out of the Global list.
+export async function createServer(db, { name, mode, nickname, skin, world, id: wanted, hidden } = {}, now = Date.now()) {
   const m = MODES.includes(mode) ? mode : 'main'
   // Invite Friends picks the id itself so its link shows at once; taken or
   // malformed, a new one is made (the reply says which).
@@ -148,6 +168,7 @@ export async function createServer(db, { name, mode, nickname, skin, world, id: 
       wave: 0,
       players: { [pid]: newPlayer(nickname, now) },
       ...(cleanWorld(world) ? { world: cleanWorld(world) } : {}),
+      ...(hidden === true ? { hidden: true } : {}),
     },
     [`serverSecrets/${id}/${pid}`]: token,
   }
@@ -209,6 +230,12 @@ export async function leaveServer(db, { serverId, playerId, token } = {}, now = 
 }
 
 const SKELETON_KIND_IDS = new Set(['minion', 'rogue', 'warrior', 'mage'])
+// A zombie's kind: a skeleton or a monster (ZombieKinds.js) - plain
+// lowercase words, checked against the real lists by the game.
+const KIND_RE = /^[a-z]{1,20}$/
+// Block, weapon and item ids.
+const ID_RE = /^[a-z0-9_]{1,40}$/
+const WEATHER_RE = /^[a-zA-Z]{1,20}$/
 
 function cleanZombie(z) {
   if (!z || typeof z !== 'object') return null
@@ -220,9 +247,49 @@ function cleanZombie(z) {
     hp: num(z.hp, 0, 1e6),
     max: num(z.max, 1, 1e6),
     boss: !!z.boss,
-    // A skeleton's kind (SkeletonModels.js); zombies have none.
-    ...(SKELETON_KIND_IDS.has(z.k) ? { k: z.k } : {}),
+    // A skeleton's or monster's kind; plain zombies have none.
+    ...(typeof z.k === 'string' && KIND_RE.test(z.k) ? { k: z.k } : {}),
   }
+}
+
+// The host's sky: the day-night clock, the weather showing and where it's
+// heading, and seconds of rainbow left (BuildSky.skyState).
+function cleanSky(v) {
+  if (!v || typeof v !== 'object') return null
+  const kind = (k) => (typeof k === 'string' && WEATHER_RE.test(k) ? k : 'clear')
+  return { c: num(v.c, 0, 1e7), n: kind(v.n), g: kind(v.g), r: num(v.r, 0, 600) }
+}
+
+// One of the host's animals (PlayAnimals.snapshot): kind, spot, heading,
+// health, who tamed it ('' wild, 'h' the host, or a player id), dying.
+function cleanAnimal(a) {
+  if (!a || typeof a !== 'object' || typeof a.k !== 'string' || !KIND_RE.test(a.k)) return null
+  return {
+    k: a.k,
+    x: num(a.x, -1e5, 1e5),
+    y: num(a.y, -100, 300),
+    z: num(a.z, -1e5, 1e5),
+    h: num(a.h, -100, 100),
+    hp: num(a.hp, 0, 1e4),
+    t: a.t === 'h' || validId(a.t) ? a.t : '',
+    d: !!a.d,
+  }
+}
+
+// A placed (b: block id) or broken (b: '') cell.
+function cleanEdit(e) {
+  if (!e || typeof e !== 'object') return null
+  const x = Math.round(num(e.x, -1e5, 1e5))
+  const y = Math.round(num(e.y, -100, 300))
+  const z = Math.round(num(e.z, -1e5, 1e5))
+  const b = typeof e.b === 'string' && ID_RE.test(e.b) ? e.b : ''
+  return { key: `${x},${y},${z}`, b }
+}
+
+function cleanSay(v) {
+  if (!v || typeof v !== 'object') return null
+  const text = cleanText(v.text, SAY_MAX)
+  return text ? { n: Math.round(num(v.n, 0, 1e9)), text } : null
 }
 
 // One round trip a few times a second: write my state, read everyone
@@ -242,6 +309,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     [`${base}/players/${playerId}/z`]: num(s.z, -1000, 1000),
     [`${base}/players/${playerId}/yaw`]: num(s.yaw, -100, 100),
     [`${base}/players/${playerId}/weapon`]: cleanText(s.weapon, 20),
+    [`${base}/players/${playerId}/held`]: typeof s.held === 'string' && ID_RE.test(s.held) ? s.held : '',
     [`${base}/players/${playerId}/firing`]: !!s.firing,
     [`${base}/players/${playerId}/dead`]: !!s.dead,
     [`${base}/players/${playerId}/away`]: !!s.away,
@@ -264,7 +332,35 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     updates[`${base}/host`] = host
   }
   const isHost = host === playerId
-  const out = { host, isHost, wave: server.wave || 0, players: {}, zombies: {}, hurt: [], credits: [], hits: [] }
+  const out = { host, isHost, wave: server.wave || 0, players: {}, zombies: {}, hurt: [], credits: [], hits: [], edits: [], editSeq: server.editSeq || 0 }
+
+  // Something I said in chat: a bubble over my head for the others.
+  const say = cleanSay(body.say)
+  if (say && say.n !== me.say?.n) updates[`${base}/players/${playerId}/say`] = { ...say, at: now }
+
+  // Blocks I placed or broke since my last sync.
+  const edits = server.edits || {}
+  let count = Object.keys(edits).length
+  let seq = server.editSeq || 0
+  for (const raw of [].concat(body.edits || []).slice(0, MAX_EDITS_PER_SYNC)) {
+    const e = cleanEdit(raw)
+    if (!e) continue
+    if (!edits[e.key]) {
+      if (count >= MAX_EDITS) continue
+      count++
+    }
+    seq++
+    updates[`${base}/edits/${e.key}`] = { b: e.b, s: seq, by: playerId }
+  }
+  if (seq !== (server.editSeq || 0)) updates[`${base}/editSeq`] = seq
+  // ...and everyone else's I haven't had yet (all of them when I've just joined).
+  const after = num(body.editsAfter, 0, 1e9)
+  for (const [key, e] of Object.entries(edits)) {
+    if (!e || e.by === playerId || !(e.s > after)) continue
+    const [x, y, z] = key.split(',').map(Number)
+    out.edits.push({ x, y, z, b: e.b || '' })
+  }
+  out.editSeq = seq
 
   if (isHost) {
     // The zombies and the wave, straight from the host's game.
@@ -282,6 +378,20 @@ export async function syncServer(db, body = {}, now = Date.now()) {
       updates[`${base}/wave`] = Math.round(num(body.wave, 0, 9999))
       out.wave = updates[`${base}/wave`]
     }
+    const sky = cleanSky(body.sky)
+    if (sky) updates[`${base}/sky`] = sky
+    if (body.animals && typeof body.animals === 'object') {
+      const as = {}
+      for (const [id, a] of Object.entries(body.animals).slice(0, MAX_ANIMALS)) {
+        if (!/^a\d{1,9}$/.test(id)) continue
+        const c = cleanAnimal(a)
+        if (c) as[id] = c
+      }
+      updates[`${base}/animals`] = as
+    }
+    // Where the host spawned can be picked after the game was made.
+    const world = body.world !== undefined ? cleanWorld(body.world) : null
+    if (world) updates[`${base}/world`] = world
     // Hits other players landed, handed over once.
     for (const [key, h] of Object.entries(server.hits || {})) {
       out.hits.push(h)
@@ -298,9 +408,12 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     }
   } else {
     out.zombies = server.zombies || {}
+    out.sky = server.sky || null
+    out.animals = server.animals || {}
+    // Shots on the host's zombies (z...) and animals (a..., or taming one).
     for (const h of [].concat(body.hits || []).slice(0, MAX_HITS_PER_SYNC)) {
-      if (!h || !/^z\d{1,9}$/.test(h.id)) continue
-      updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId }
+      if (!h || !/^[za]\d{1,9}$/.test(h.id)) continue
+      updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId, ...(h.tame === true && h.id[0] === 'a' ? { tame: true } : {}) }
     }
   }
   // What was queued for me.
@@ -314,7 +427,9 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p) continue
-    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, firing: !!p.firing, dead: !!p.dead }
+    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead }
+    // A chat bubble: its number (new one = new bubble) and how long ago.
+    if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }
   // Skins only for the players asked about (each is a few KB).
   if (Array.isArray(body.skinsFor) && body.skinsFor.length) {

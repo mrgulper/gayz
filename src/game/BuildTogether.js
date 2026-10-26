@@ -23,6 +23,7 @@ import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from '
 import { t } from './i18n.js'
 import { seedFromText } from './OpenWorld.js'
 import { MOB_HEIGHT } from './PlayRules.js'
+import { nameTag } from './BuildCamp.js'
 
 export const SEND_DELAY_MS = 300
 export const OPS_PER_EDIT = 1500
@@ -303,21 +304,9 @@ export class BuildTogether {
   _addOther(uid, name) {
     const B = this.B
     const group = new THREE.Group()
-    // Name tag above the head.
-    const c = document.createElement('canvas')
-    c.width = 256
-    c.height = 64
-    const ctx = c.getContext('2d')
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)'
-    ctx.fillRect(0, 8, 256, 48)
-    ctx.fillStyle = '#ffe9a8'
-    ctx.font = 'bold 30px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(name, 128, 32)
-    const tex = new THREE.CanvasTexture(c)
-    tex.colorSpace = THREE.SRGBColorSpace
-    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }))
+    // Name tag above the head (BuildCamp.nameTag: plain outlined words).
+    const label = nameTag(name, B)
+    label.material.depthTest = false
     label.scale.set(1.6 * B, 0.4 * B, 1)
     label.position.y = (MOB_HEIGHT + 0.35) * B
     label.renderOrder = 5
