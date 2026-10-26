@@ -2039,6 +2039,7 @@ export class BuildSurvival {
     if (onLadder && ty > zb.y - 0.2) zb.vy = CLIMB
     else zb.vy = Math.max(zb.vy - GRAVITY * dt, -40)
     let blocked = false
+    let wall = false
     for (const axis of ['x', 'z']) {
       const amount = zb[`v${axis}`] * dt
       if (this._moveZombieAxis(zb, axis, amount)) {
@@ -2049,12 +2050,19 @@ export class BuildSurvival {
           zb.y += 0.55
           zb[axis] = q[axis]
           this._moveZombieAxis(zb, 'y', -0.55)
-        } else blocked = true
+        } else {
+          blocked = true
+          // A real block in the way, not the camp's edge (that one goes
+          // up forever, so a spider climbed it into the sky - 2026-10-26).
+          const w = { x: zb.x, z: zb.z }
+          w[axis] += Math.sign(amount) * 0.05
+          if (this.bm.tryMode._hits(w.x, zb.y, w.z, ZOMBIE_FIT_HEIGHT)) wall = true
+        }
       }
     }
     if (blocked) zb.stuck = FLANK_STUCK
     // Zombie spiders walk straight up a wall in the way (ZombieKinds.js).
-    const climbing = zb.climbs && blocked
+    const climbing = zb.climbs && wall
     if (climbing) zb.vy = CLIMB * 1.3
     // Jump up a block when it's in the way, or the path goes up.
     if (zb.onGround && (blocked || ty > zb.y + 0.6) && !onLadder && !climbing) {
