@@ -617,6 +617,15 @@ html.ui-theme-clean #play-inventory .inv-box,
 html.ui-theme-clean #build-picker :is(.bp-title, .build-picker-label, .build-picker-empty) {
   color: var(--clean-fg);
 }
+html.ui-theme-clean #play-item-tip {
+  color: var(--clean-fg);
+  background: var(--clean-bg);
+  border: 1px solid var(--clean-line);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  font-family: var(--clean-font);
+}
+html.ui-theme-clean #play-item-tip b { color: var(--clean-fg); font-weight: 600; }
 html.ui-theme-clean #play-inventory .inv-head b {
   color: var(--clean-fg);
 }

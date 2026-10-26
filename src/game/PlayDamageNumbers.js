@@ -1,5 +1,5 @@
 // Damage numbers (2026-10-26, Gaymi: "when shooting or damaging anything
-// make the damage number pop up"): a bold pink number with a dark outline
+// make the damage number pop up"): a bold red number with a dark outline
 // and a little picture of the weapon pops up where your hit landed - on a
 // zombie, skeleton or animal - floats up and fades. Owned by BuildSurvival
 // (`s.damageNumbers`), stepped every frame from its update(), so it keeps

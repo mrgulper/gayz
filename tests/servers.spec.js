@@ -179,6 +179,14 @@ test('two players play Map 1 together on a server', async ({ browser }) => {
         return { err: err.code || 'server' }
       }
     })
+    // Every address the page writes, to check joining never shows /map-editor.
+    await page.addInitScript(() => {
+      window.__urls = []
+      for (const k of ['pushState', 'replaceState']) {
+        const f = history[k].bind(history)
+        history[k] = (st, ti, u) => { window.__urls.push(String(u)); return f(st, ti, u) }
+      }
+    })
     await gotoAndWaitForGame(page)
     await page.evaluate(() => {
       const call = async (name, body) => {
@@ -217,6 +225,8 @@ test('two players play Map 1 together on a server', async ({ browser }) => {
   await b.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
 
   // Syncs by hand too, so the test doesn't wait on background frames.
+  // Making and joining a server never shows /map-editor in the address bar.
+  for (const pg of [a, b]) expect(await pg.evaluate(() => window.__urls.filter((u) => u.includes('map-editor')))).toEqual([])
   const sync = (page) => page.evaluate(() => window.__game.buildMode.survival.net._sync())
   const settle = async () => {
     for (let i = 0; i < 3; i++) {
