@@ -1582,6 +1582,10 @@ Escape before dawn.</p>
                 </div>
               </div>
               <div id="cloudsave-online-section">
+                <!-- Two columns that fill General's width (2026-10-26, Gaymi:
+                     "make the leaderboard fit for the panel"); one under the
+                     other on narrow screens. -->
+                <div class="lb-column">
                 <p id="cloudsave-global-kills"></p>
                 <p id="cloudsave-rank-line"></p>
                 <p id="cloudsave-rival-line"></p>
@@ -1601,7 +1605,9 @@ Escape before dawn.</p>
                   </select>
                 </div>
                 <div id="cloudsave-leaderboard-list"></div>
+                </div>
 
+                <div class="lb-column">
                 <h3 id="cloudsave-nearby-rank-title">Your Nearby Rank</h3>
                 <div id="cloudsave-nearby-rank-list"></div>
 
@@ -1614,6 +1620,7 @@ Escape before dawn.</p>
                 <h3 id="cloudsave-poll-title"></h3>
                 <div id="cloudsave-poll-options"></div>
                 <p id="cloudsave-poll-hint"></p>
+                </div>
               </div>
             </div>
           </div>
@@ -2479,7 +2486,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="bindHoverMenus">
           <h3>Homepage Hover Menus</h3>
-          <p>Point at almost anything on the homepage and a menu of that page's tabs or sections opens: the bottom links (How to Play, What's New with the latest updates, GayZ Features, Terms of Use, Privacy Policy) get a wide menu above them (the page behind stays as it is, never darkened), the right-side buttons and profile card a menu to their left, and Game Mode and Settings one to their right. Click the page's name to open it, or a tab or section to open it right there. Pages without tabs or sections, and Play, open straight away. While a page is open, only the right-side button that opened it stays lit. On touch screens a tap still opens the page.</p>
+          <p>Point at almost anything on the homepage and a menu of that page's tabs or sections opens: the bottom links (How to Play, What's New with the latest updates, GayZ Features, Terms of Use, Privacy Policy) get a wide menu above them (the page behind stays as it is, never darkened), the right-side buttons and profile card a menu to their left, and Game Mode and Settings one to their right. In the Old theme the bottom links' menu is burnt parchment and the side menus are old note paper. Click the page's name to open it, or a tab or section to open it right there. Pages without tabs or sections, and Play, open straight away. While a page is open, only the right-side button that opened it stays lit. On touch screens a tap still opens the page.</p>
         </div>
         <div class="feature" data-code="SKIN_DESIGNER_URL">
           <h3>Design a Skin</h3>
@@ -2525,7 +2532,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="fetchLeaderboardEntryByPlayerId subscribeTopLeaderboard">
           <h3>Leaderboards</h3>
-          <p>In the General panel's Leaderboard tab (next to Theme): Global (with a region filter), Weekly Challenge, Most Achievements, Nearby Rank, a Global Rank badge, a Nearest-Rival nudge, global average/percentile comparison, and a live-subscribed top board. Each board is a clean list: the rank in a circle (gold, silver and bronze for the top three), the name, then Wave and Kills in their own columns, with your own row highlighted - and clicking anyone's name opens their profile. Your scores, and the XP you earn for your clan, go online after every game you finish.</p>
+          <p>In the General panel's Leaderboard tab (next to Theme), in two columns that fill the panel: Global (with a region filter), Weekly Challenge, Most Achievements, Nearby Rank, a Global Rank badge, a Nearest-Rival nudge, global average/percentile comparison, and a live-subscribed top board. Each board is a clean list: the rank in a circle (gold, silver and bronze for the top three), the name, then Wave and Kills in their own columns, with your own row highlighted - and clicking anyone's name opens their profile. Your scores, and the XP you earn for your clan, go online after every game you finish, and your clan XP stays saved when you reload.</p>
         </div>
         <div class="feature" data-code="incrementGlobalKills">
           <h3>Global Kill Counter</h3>

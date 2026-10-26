@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { gotoAndWaitForGame } from './helpers.js'
+import { gotoAndWaitForGame, waitForGame } from './helpers.js'
 import * as Xp from '../src/game/Xp.js'
 
 test('careerStats.totalKills persists after a completed run', async ({ page }) => {
@@ -346,6 +346,27 @@ test('a finished game earns XP, levels come from XP, clan XP is per clan and mon
   expect(r.lastDayOfMonth).toBe(1)
   // Nov 1 starts at midnight Los Angeles time (07:00 UTC in daylight time).
   expect(r.laMidnightFlip).toEqual(['2026-10', '2026-11'])
+})
+
+// Clan XP survives a reload (2026-10-26, "the clan still is 0 xp"):
+// loadSettings used to drop settings.clanXp, so it never reached the
+// leaderboard doc that clans add up.
+test('clan XP earned in a game is still there after a reload', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    const g = window.__game
+    g.settings.guestMode = false
+    g._cloudUid = 'test-uid'
+    g.settings.clanId = 'clanA'
+    g._onPlayEvent('end', { waves: 2, kills: 10, bestStreak: 3, won: false, died: true, mode: 'zombieSurvival', difficulty: 'normal', seconds: 60, coins: 0 })
+  })
+  await page.reload()
+  await waitForGame(page)
+  const r = await page.evaluate(() => ({ rec: window.__game.settings.clanXp, clanId: window.__game.settings.clanId }))
+  expect(r.clanId).toBe('clanA')
+  expect(r.rec && r.rec.clanId).toBe('clanA')
+  // 10 kills x10 + 2 waves x25 + 1 minute x5 = 155
+  expect(r.rec && r.rec.xp).toBe(155)
 })
 
 // Print Achievements List (2026-10-24): every achievement, whatever the
