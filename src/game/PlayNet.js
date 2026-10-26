@@ -40,7 +40,7 @@ import { addChatSystemLine, clearChatSystemLines } from './ChatUI.js'
 import { MOB_HEIGHT } from './PlayRules.js'
 import { _censorText } from './Game.js'
 import { worldSeed, isEarthWorld } from './OpenWorld.js'
-import { speechBubble, disposeBubble, BUBBLE_S } from './SpeechBubble.js'
+import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './SpeechBubble.js'
 
 // Seconds between syncs.
 export const SYNC_EVERY = 0.16
@@ -143,7 +143,7 @@ export class PlayNet {
 
   _clearAddressBar() {
     if (location.pathname + location.search !== this._joinPath) return
-    try { history.replaceState(history.state, '', this.game.buildMode?.active ? '/map-editor' : '/') } catch { /* leave it */ }
+    try { history.replaceState(history.state, '', this.game.buildMode?.active && !this.game.buildMode.survival?.active ? '/map-editor' : '/') } catch { /* leave it */ }
   }
 
   get auth() {
@@ -290,7 +290,7 @@ export class PlayNet {
       Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing })
       if (p.say && p.say.n !== mine.sayN) {
         mine.sayN = p.say.n
-        const left = BUBBLE_S - (Number(p.say.age) || 0) / 1000
+        const left = bubbleSeconds(p.say.text) - (Number(p.say.age) || 0) / 1000
         if (left > 0.3 && !this.game.settings?.mutedChatPlayers?.includes(p.nick)) this._setBubble(mine, _censorText(String(p.say.text || '')), left)
       }
       if (!mine.seen) {
@@ -357,7 +357,7 @@ export class PlayNet {
   }
 
   // A chat bubble over a player's head for `left` seconds.
-  _setBubble(player, text, left = BUBBLE_S) {
+  _setBubble(player, text, left = bubbleSeconds(text)) {
     if (!text) return
     if (player.bubble) disposeBubble(player.bubble)
     player.bubble = speechBubble(text, this.survival.B)
@@ -401,7 +401,7 @@ export class PlayNet {
     if (p.bubble && (p.bubbleLeft -= dt) <= 0) {
       disposeBubble(p.bubble)
       p.bubble = null
-    }
+    } else if (p.bubble) fadeBubble(p.bubble, p.bubbleLeft)
     // Lying down when dead, legs swinging when walking.
     if (p.body) {
       p.body.rotation.x = p.dead ? -Math.PI / 2 : 0

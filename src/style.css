@@ -608,8 +608,8 @@ html.ui-theme-old .build-share-box h2 { font-family: 'Rye', Georgia, serif; colo
   left: 3px;
   font-size: 11px;
   font-weight: 600;
-  color: #000;
-  text-shadow: var(--black-text-edge);
+  color: #fff;
+  text-shadow: var(--white-text-edge);
   pointer-events: none;
 }
 
@@ -9951,21 +9951,21 @@ html.ui-theme-old .chat-system-row .chat-message-text {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
-/* In-game chat and hotbar text is black in every theme and biome, with a
-   thin white edge so it still reads on dark ground and at night
-   (2026-10-26, Gaymi: "make the text black no matter what text same with
-   every text in the global/clan and the hotbar", picked "black + thin
-   white edge"). The chat box gets no blue focus ring when Enter opens it. */
+/* In-game chat and hotbar text is white in every theme and biome, with a
+   thin dark edge so it still reads on snow and bright ground
+   (2026-10-26, Gaymi: "for the all text like the message, global, clan etc
+   in gameplay change it to fully white" - was black before). The chat box
+   gets no blue focus ring when Enter opens it. */
 :root {
-  --black-text-edge: 0 0 2px rgba(255, 255, 255, 0.75), 0 0 1px rgba(255, 255, 255, 0.6);
+  --white-text-edge: 0 0 2px rgba(0, 0, 0, 0.85), 0 0 1px rgba(0, 0, 0, 0.7);
 }
 #chat-panel :is(.chat-tab-btn, .chat-tab-btn.active, .chat-message-row, .chat-message-nickname, .chat-message-text, .chat-system-row .chat-message-text, #chat-input, #chat-send-btn) {
-  color: #000 !important;
-  text-shadow: var(--black-text-edge);
+  color: #fff !important;
+  text-shadow: var(--white-text-edge);
 }
 /* The tab you're on is told apart by being solid; the other is faded. */
 #chat-panel .chat-tab-btn:not(.active) { opacity: 0.55; }
-#chat-panel #chat-input::placeholder { color: rgba(0, 0, 0, 0.6); }
+#chat-panel #chat-input::placeholder { color: rgba(255, 255, 255, 0.65); }
 #chat-panel #chat-input:focus { outline: none; box-shadow: none; }
 
 /* Emoji picker trigger - one per chat input (in-game #chat-input-row and
@@ -12596,7 +12596,7 @@ html.ui-theme-old .gfx-level-card:focus-visible { border-color: #6b3f17; }
 html.ui-theme-old .gfx-level-card.active { border-color: #6b3f17; box-shadow: 0 0 0 2px #6b3f17; }
 html.ui-theme-old .gfx-level-name { font-family: 'Rye', Georgia, serif; font-weight: 400; }
 
-/* Damage numbers over the game (PlayDamageNumbers.js): bold pink numbers
+/* Damage numbers over the game (PlayDamageNumbers.js): bold red numbers
    with a dark outline and the weapon's picture, same in every theme and
    biome (they're part of the 3D view, not a screen). */
 #play-damage-numbers {
@@ -12618,9 +12618,9 @@ html.ui-theme-old .gfx-level-name { font-family: 'Rye', Georgia, serif; font-wei
 }
 #play-damage-numbers .play-dmg span {
   font: 900 26px/1 system-ui, -apple-system, 'Segoe UI', sans-serif;
-  color: #ff3fa4;
-  -webkit-text-stroke: 1px #2a0716;
-  text-shadow: 0 0 2px #000, 2px 2px 0 #2a0716, -1px -1px 0 #2a0716, 1px -1px 0 #2a0716, -1px 1px 0 #2a0716;
+  color: #ff2a2a;
+  -webkit-text-stroke: 1px #2a0505;
+  text-shadow: 0 0 2px #000, 2px 2px 0 #2a0505, -1px -1px 0 #2a0505, 1px -1px 0 #2a0505, -1px 1px 0 #2a0505;
 }
 #play-damage-numbers .play-dmg img {
   width: 42px;

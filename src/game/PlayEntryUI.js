@@ -145,8 +145,13 @@ export async function _enterBuildMode(game, { map, play = false, server = null }
   // verified live (was reproducibly overwritten back to '/' without
   // game). Harmless no-op when entered from the bare homepage nav
   // button instead (nothing closes, no mutation, no race to lose).
+  // Playing (Play, joining or making a server) isn't the Map Editor, so
+  // the address bar never says /map-editor then (2026-10-26, Gaymi: "just
+  // make it show gayz vercel app then the join") - PlayNet adds ?join=.
   queueMicrotask(() => {
-    if (location.pathname !== '/map-editor') history.pushState({}, '', '/map-editor')
+    if (play) {
+      if (location.pathname === '/map-editor') history.replaceState({}, '', '/')
+    } else if (location.pathname !== '/map-editor') history.pushState({}, '', '/map-editor')
   })
   // Build Mode is only ever reachable from the homepage nav (#menu is
   // hidden the instant a real run starts, see the 'lock' handler), but

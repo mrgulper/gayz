@@ -16,8 +16,14 @@
 // Tab opens it (BuildMode.togglePicker); drag items between slots with the
 // mouse or a finger, Shift-click moves an item between the hotbar and the
 // grid. Saved with the game (serialize / restore).
+// Pointing at an item (in the panel or on the hotbar) shows a card with its
+// name and what it does (#play-item-tip, 2026-10-26); on phones, holding a
+// finger on it shows the card for a moment.
 import { t } from './i18n.js'
 import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, canPlayWeapon } from './PlayWeapons.js'
+
+// How long the item card stays after a finger lets go (phones).
+const TIP_TOUCH_MS = 1600
 
 export const GRID_SIZE = 100
 export const HOTBAR_SIZE = 10
@@ -272,11 +278,68 @@ export class PlayInventory {
     return t(ITEMS[it.id]?.key || it.id)
   }
 
+  // The item card's second line: what it does.
+  _about(it) {
+    if (it.kind === 'block') return t('invTipBlock')
+    if (it.kind === 'gun') {
+      const w = PLAY_WEAPONS[it.id]
+      if (!w) return ''
+      const d = Math.round(w.damage * (w.pellets || 1))
+      const r = Math.round((1 / w.rate) * 10) / 10
+      return w.melee ? t('invTipMelee', { d, r }) : t('invTipGun', { d, r, m: w.mag })
+    }
+    const item = ITEMS[it.id]
+    if (!item) return ''
+    if (item.armor) return t('invTipArmor', { n: `${Math.round(item.armor * ARMOR_PER_POINT * 100)}%` })
+    if (it.id === 'ammobox') return t('invTipAmmoBox')
+    return t(it.id === 'meat' ? 'invTipMeat' : 'invTipHealthPack', { n: item.heal })
+  }
+
+  // The item card beside the pointer (x, y), or beside a slot on phones.
+  _showTip(it, x, y) {
+    if (!it || this._drag) return this._hideTip()
+    let el = this._tip
+    if (!el?.isConnected) {
+      el = this._tip = document.createElement('div')
+      el.id = 'play-item-tip'
+      el.setAttribute('role', 'tooltip')
+      el.innerHTML = '<b></b><span></span>'
+      document.body.appendChild(el)
+    }
+    el.firstChild.textContent = this._label(it)
+    el.lastChild.textContent = this._about(it)
+    el.style.display = 'flex'
+    // Kept on screen: flips to the other side of the pointer near an edge.
+    const w = el.offsetWidth
+    const h = el.offsetHeight
+    const left = x + 16 + w > innerWidth - 8 ? x - 16 - w : x + 16
+    const top = Math.min(innerHeight - 8 - h, Math.max(8, y - h - 12))
+    el.style.left = `${Math.max(8, left)}px`
+    el.style.top = `${top}px`
+  }
+
+  _hideTip() {
+    clearTimeout(this._tipTimer)
+    if (this._tip) this._tip.style.display = 'none'
+  }
+
+  // Mouse: follows the pointer over a slot. Touch: shows for a moment.
+  _tipFor(e, it, slotEl) {
+    if (e.pointerType === 'touch') {
+      const box = slotEl.getBoundingClientRect()
+      this._showTip(it, box.left + box.width / 2, box.top)
+      clearTimeout(this._tipTimer)
+      this._tipTimer = setTimeout(() => this._hideTip(), TIP_TOUCH_MS)
+      return
+    }
+    this._showTip(it, e.clientX, e.clientY)
+  }
+
   _slotHtml(it, where, i, extra = '') {
     const icon = this._icon(it)
     const count = it && it.n > 1 ? `<span class="inv-slot-count">${it.n}</span>` : ''
     const img = icon ? `<img src="${icon}" alt="" draggable="false">` : ''
-    const title = it ? ` title="${this._label(it).replace(/"/g, '&quot;')}"` : ''
+    const title = it ? ` aria-label="${this._label(it).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}"` : ''
     return `<div class="inv-slot${it?.kind === 'gun' ? ' gun' : ''}${extra}" data-where="${where}" data-i="${i}"${title}>${img}${count}</div>`
   }
 
@@ -290,7 +353,10 @@ export class PlayInventory {
       slot.className = 'build-hotbar-slot' + (i === this.active ? ' selected' : '')
       const icon = this._icon(it)
       if (icon) slot.style.backgroundImage = `url(${icon})`
-      slot.title = this._label(it)
+      if (it) slot.setAttribute('aria-label', this._label(it))
+      slot.addEventListener('pointermove', (e) => { if (e.pointerType !== 'touch') this._tipFor(e, this.hotbar[i], slot) })
+      slot.addEventListener('pointerleave', (e) => { if (e.pointerType !== 'touch') this._hideTip() })
+      slot.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') this._tipFor(e, this.hotbar[i], slot) })
       const num = document.createElement('span')
       num.className = 'build-hotbar-slot-num'
       num.textContent = i === 9 ? '0' : String(i + 1)
@@ -312,6 +378,7 @@ export class PlayInventory {
     this.open = on
     if (!this._el) this._build()
     this._el.style.display = on ? 'flex' : 'none'
+    this._hideTip()
     if (on) this.render()
     else this._endDrag()
   }
@@ -325,6 +392,14 @@ export class PlayInventory {
     window.addEventListener('pointermove', (e) => this._move(e))
     window.addEventListener('pointerup', (e) => this._up(e))
     el.addEventListener('contextmenu', (e) => e.preventDefault())
+    // The item card while pointing at a slot (mouse); touch in _down.
+    el.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'touch') return
+      const slot = e.target.closest('.inv-slot')
+      if (!slot) return this._hideTip()
+      this._showTip(this._list(slot.dataset.where)[Number(slot.dataset.i)], e.clientX, e.clientY)
+    })
+    el.addEventListener('pointerleave', () => this._hideTip())
   }
 
   render() {
@@ -396,11 +471,16 @@ export class PlayInventory {
     const target = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('#play-inventory .inv-slot')
     this._endDrag()
     if (!target) return
-    // Let go on the same hotbar slot (a tap): pick it.
+    // Let go on the same hotbar slot (a tap): pick it. A finger's tap also
+    // shows the item card.
     if (target.dataset.where === d.where && Number(target.dataset.i) === d.i) {
       if (d.where === 'hotbar') {
         this.select(d.i)
         this.render()
+      }
+      if (e.pointerType === 'touch') {
+        const slot = this._el.querySelector(`.inv-slot[data-where="${d.where}"][data-i="${d.i}"]`)
+        if (slot) this._tipFor(e, this._list(d.where)[d.i], slot)
       }
       return
     }
@@ -408,6 +488,7 @@ export class PlayInventory {
   }
 
   _endDrag() {
+    this._hideTip()
     this._drag?.ghost.remove()
     this._drag?.slot?.classList.remove('dragging')
     this._drag = null

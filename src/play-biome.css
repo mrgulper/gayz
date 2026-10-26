@@ -100,6 +100,8 @@ html.ui-theme-biome #play-invite-link { color: var(--biome-ink); background: var
 html.ui-theme-biome #play-invite-copy { color: rgb(var(--biome-bg-rgb)); background: var(--biome-accent); }
 
 /* Inventory slots. */
+html.ui-theme-biome #play-item-tip { color: var(--biome-ink); background: var(--biome-surface); border: 2px solid var(--biome-edge); border-radius: 8px; font-family: inherit; image-rendering: pixelated; }
+html.ui-theme-biome #play-item-tip b { color: var(--biome-accent); }
 html.ui-theme-biome #play-inventory .inv-slot { background-color: rgba(var(--biome-ink-rgb), 0.1); border-color: var(--biome-line); }
 html.ui-theme-biome #play-inventory .inv-slot.active { border-color: var(--biome-accent); box-shadow: inset 0 0 0 1px var(--biome-accent); }
 html.ui-theme-biome #play-inventory .inv-hotbar { border-top-color: var(--biome-line); }

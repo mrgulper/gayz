@@ -37,7 +37,7 @@ import { BOTTOM } from './Underground.js'
 import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { MONSTER_KINDS, makeMonster } from './ZombieKinds.js'
 import { PlayDamageNumbers } from './PlayDamageNumbers.js'
-import { speechBubble, disposeBubble, BUBBLE_S } from './SpeechBubble.js'
+import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './SpeechBubble.js'
 import { openLobby } from './ServerBrowser.js'
 
 export const CHEST_LOOT = { ammo: 60, health: 35 }
@@ -2734,7 +2734,7 @@ export class BuildSurvival {
     const net = this.net && !this.net.closed ? this.net : this.lobby && !this.lobby.closed ? this.lobby : null
     net?.say(text)
     if (this._ownBubble) disposeBubble(this._ownBubble.sprite)
-    this._ownBubble = { sprite: speechBubble(text, this.B), left: BUBBLE_S }
+    this._ownBubble = { sprite: speechBubble(text, this.B), left: bubbleSeconds(text) }
   }
 
   _updateOwnBubble(dt) {
@@ -2742,7 +2742,7 @@ export class BuildSurvival {
     if (!b) return
     const group = this.bm.tryMode._body?.group
     if (group && b.sprite.parent !== group) group.add(b.sprite)
-    if ((b.left -= dt) > 0) return
+    if ((b.left -= dt) > 0) return fadeBubble(b.sprite, b.left)
     disposeBubble(b.sprite)
     this._ownBubble = null
   }
