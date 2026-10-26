@@ -1050,6 +1050,16 @@ export function _bindSettings(game) {
       if (game.settings.crtScanlines && game.settings.shareTelemetry) CloudSync.incrementTelemetry('crtEnabled').catch(() => {})
     })
   }
+  // Theme > Game Screens Follow the Biome (2026-10-26, Gaymi: "can we do
+  // both add that in settings but default is keep biome"). TopBar reads it
+  // every frame in a game, so a change shows at once.
+  if (game.playBiomeLookToggle) {
+    game.playBiomeLookToggle.checked = game.settings.playBiomeLook !== false
+    game.playBiomeLookToggle.addEventListener('change', () => {
+      game.settings.playBiomeLook = game.playBiomeLookToggle.checked
+      saveSettings(game.settings)
+    })
+  }
   if (game.weatherParticlesToggle) {
     const applyWeather = (on) => {
       if (game.menuBgRain) game.menuBgRain.style.display = on ? '' : 'none'

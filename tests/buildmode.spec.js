@@ -1785,9 +1785,9 @@ test('hold right-click to aim, the zoom key zooms far, blocks break by material'
 })
 
 // 2026-10-17: Escape while playing a game from the homepage opens the
-// game's own pause menu (never the Map Editor's); Save Progress / Back to
-// Menu keep the game and the next Play carries on from it; Leave Game ends
-// it (counted) and drops the save.
+// game's own pause menu (never the Map Editor's); Back to Game carries on
+// (2026-10-26); Save Progress keeps the game and the next Play carries on
+// from it; Leave Game ends it (counted) and drops the save.
 test("Escape while playing opens the game's pause menu; saved games carry on", async ({ page }) => {
   await gotoAndWaitForGame(page)
   await page.evaluate(() => { localStorage.removeItem('gayz-play-saved-run'); window.__game.playBtn.click() })
@@ -1814,7 +1814,13 @@ test("Escape while playing opens the game's pause menu; saved games carry on", a
     out.runs0 = g.careerStats.totalRuns
     document.getElementById('play-pause-save-btn').click()
     out.saveText = document.getElementById('play-pause-status').textContent
+    // Back to Game just closes the pause screen and carries on.
     document.getElementById('play-pause-back-btn').click()
+    out.backToGame = !bm.menuOpen && bm.active && s.active && getComputedStyle(document.getElementById('play-pause-menu')).display === 'none'
+    // A saved game is still there next time (as after closing the tab).
+    bm.closeMenuQuietly()
+    s.stop({ suspend: true })
+    g._exitBuildMode()
     await new Promise((res) => setTimeout(res, 300))
     out.home = !bm.active
     out.counted = g.careerStats.totalRuns - out.runs0
@@ -1828,6 +1834,7 @@ test("Escape while playing opens the game's pause menu; saved games carry on", a
   expect(a.settings).toBe(true)
   expect(a.backFromSettings).toBe(true)
   expect(a.saveText.length).toBeGreaterThan(0)
+  expect(a.backToGame).toBe(true)
   expect(a.home).toBe(true)
   expect(a.counted).toBe(0)
   expect(a.saved).toBe(true)
@@ -2733,4 +2740,44 @@ test('Map Editor: Worlds/Plain choice, endless grass, 10x10 storage, placed anim
   expect(r.walked).toBe(true)
   expect(r.reloaded).toEqual(['lion'])
   expect(r.removed).toBe(true)
+})
+
+// 2026-10-26: in a game the screens wear the biome (readable: the box in
+// the biome's colour, the text in the opposite colour) unless Settings >
+// Theme > Game Screens Follow the Biome is off; the homepage never does.
+test('Game screens follow the biome only in games and only when the setting is on', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => { localStorage.removeItem('gayz-play-saved-run'); window.__game.playBtn.click() })
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 90000 })
+  await page.waitForFunction(() => document.documentElement.classList.contains('ui-theme-biome'), null, { timeout: 10000 })
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const cl = document.documentElement.classList
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    const st = document.documentElement.style
+    const out = { ink: st.getPropertyValue('--biome-ink-rgb'), bg: st.getPropertyValue('--biome-bg-rgb') }
+    const tg = document.getElementById('play-biome-look-toggle')
+    tg.checked = false
+    tg.dispatchEvent(new Event('change'))
+    await wait(400)
+    out.off = cl.contains('ui-theme-biome')
+    out.themeBack = cl.contains('ui-theme-old') || cl.contains('ui-theme-clean')
+    tg.checked = true
+    tg.dispatchEvent(new Event('change'))
+    await wait(400)
+    out.onAgain = cl.contains('ui-theme-biome')
+    g.buildMode.toggleMenu()
+    document.getElementById('play-pause-leave-btn').click()
+    await wait(800)
+    out.homeBiome = cl.contains('ui-theme-biome')
+    out.homeTheme = cl.contains('ui-theme-old') || cl.contains('ui-theme-clean')
+    return out
+  })
+  expect(r.ink).toMatch(/\d+, \d+, \d+/)
+  expect(r.bg).toMatch(/\d+, \d+, \d+/)
+  expect(r.off).toBe(false)
+  expect(r.themeBack).toBe(true)
+  expect(r.onAgain).toBe(true)
+  expect(r.homeBiome).toBe(false)
+  expect(r.homeTheme).toBe(true)
 })

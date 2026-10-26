@@ -26,7 +26,7 @@ Browser Three.js block-world zombie game (Vite, no framework) at gayz.vercel.app
 - New online/player-data features also get a line in Terms of Use / Privacy Policy (index.html); their "Last updated" date fills itself from `__BUILD_DATE__`.
 - New i18n keys ship in `en`, `zh`, `hi`, `es` together; player text names keys as `{key:<id>}`.
 - Visible UI changes are made and screenshot-checked in both themes (Old: paper/browns/Rye; Clean: flat, one player-picked colour, `src/theme-clean.css`). Golden is deleted.
-- Everything follows the theme: every panel, dropdown, pop-up, card and the Map Editor menu gets Old and Simple colours - never a fixed dark/gold box (Gaymi, 2026-10-24). In a running game screens follow the biome instead (`src/play-biome.css`, 2026-10-25).
+- Everything follows the theme: every panel, dropdown, pop-up, card and the Map Editor menu gets Old and Simple colours - never a fixed dark/gold box (Gaymi, 2026-10-24). In a running game screens follow the biome instead (`src/play-biome.css`, 2026-10-25; Settings toggle `playBiomeLook`, default on; readable opposite-colour text).
 - Search bars: `class="nickname-input search-bar"`; text boxes and dropdowns are ovals.
 - Panels: all the same height (`--panel-chrome`), no sideways scroll, join the shared selector list.
 - Homepage: first paint = final look; footer clear of right column; animations on `LiteHome.onHomeFrame` only.

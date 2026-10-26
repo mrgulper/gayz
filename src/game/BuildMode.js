@@ -10,6 +10,7 @@ import { BlockChunks, CHUNK } from './BlockChunks.js'
 import { setTextureDetail } from './BlockTextures.js'
 import { graphicsLook } from './GraphicsLevels.js'
 import { GrassTufts } from './GrassTufts.js'
+import { AirMotes } from './AirMotes.js'
 import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, fenceIconURL, gadgetIconURL, ladderIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
 import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
@@ -27,6 +28,7 @@ import { BuildCamp } from './BuildCamp.js'
 import { BuildShare } from './BuildShare.js'
 import { BuildTogether } from './BuildTogether.js'
 import { biomeBarLook } from './BiomeBar.js'
+import { setBiomeTheme } from './CleanTheme.js'
 import { PlayAnimals, ANIMAL_IDS, MAX_PLACED, animalIconURL, animalNameKey } from './PlayAnimals.js'
 
 // GROUND_SIZE is a CELL count (not world units) - bumped up from 64, then
@@ -1808,6 +1810,8 @@ export class BuildMode {
     this.sky = new BuildSky(this, BLOCK_SIZE)
     // 3D grass on grass blocks on the realistic levels (GrassTufts.js).
     this.grassTufts = new GrassTufts(this, BLOCK_SIZE)
+    // Dust floating in sunlight on In Real Life (AirMotes.js).
+    this.airMotes = new AirMotes(this, BLOCK_SIZE)
     this.spectate = new PlaySpectate(this, BLOCK_SIZE)
     // A dot in the middle of the screen to aim with while trying the map.
     this._tryCrosshairEl = document.createElement('div')
@@ -2088,6 +2092,10 @@ export class BuildMode {
     this.save()
     this._saveSlotThumb()
     this.active = false
+    // The homepage always wears the theme (2026-10-26, Gaymi: "after leaving
+    // game the homepage should not change with biome"). TopBar only switches
+    // the biome look while a game is drawn, so it is switched off here.
+    setBiomeTheme(false, this.game?.settings)
     setHomePaused(false)
     this.touch.update(0)
     this.tryMode.drawBuildMap(0, false)
@@ -4266,6 +4274,7 @@ export class BuildMode {
     this._updateWorld()
     this.sky.update(dt)
     this.grassTufts.update(dt)
+    this.airMotes.update(dt)
     this.together.update(dt)
     this._updateCampDisplay(dt)
     this.touch.update(dt)
@@ -4404,6 +4413,7 @@ export class BuildMode {
     this._chunks.setEffects(look, 1 - (this.sky?.clearness ?? 1))
     this.sky?.weather3d?.setLite(!!look.lite)
     this.grassTufts?.setAmount(look.tufts || 0)
+    this.airMotes?.setAmount(look.motes || 0)
     // Potato's few pixels stretched up as crisp squares instead of a blur.
     if (this._liteWas !== !!look.lite) {
       this._liteWas = !!look.lite

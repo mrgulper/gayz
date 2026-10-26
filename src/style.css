@@ -599,7 +599,7 @@ html.ui-theme-old .build-share-box h2 { font-family: 'Rye', Georgia, serif; colo
 }
 
 .build-hotbar-slot.selected {
-  border-color: #d9bc4a;
+  border-color: #000;
 }
 
 .build-hotbar-slot-num {
@@ -608,8 +608,8 @@ html.ui-theme-old .build-share-box h2 { font-family: 'Rye', Georgia, serif; colo
   left: 3px;
   font-size: 11px;
   font-weight: 600;
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  color: #000;
+  text-shadow: var(--black-text-edge);
   pointer-events: none;
 }
 
@@ -9838,6 +9838,23 @@ html.ui-theme-old .chat-system-row .chat-message-text {
   cursor: pointer;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
+
+/* In-game chat and hotbar text is black in every theme and biome, with a
+   thin white edge so it still reads on dark ground and at night
+   (2026-10-26, Gaymi: "make the text black no matter what text same with
+   every text in the global/clan and the hotbar", picked "black + thin
+   white edge"). The chat box gets no blue focus ring when Enter opens it. */
+:root {
+  --black-text-edge: 0 0 2px rgba(255, 255, 255, 0.75), 0 0 1px rgba(255, 255, 255, 0.6);
+}
+#chat-panel :is(.chat-tab-btn, .chat-tab-btn.active, .chat-message-row, .chat-message-nickname, .chat-message-text, .chat-system-row .chat-message-text, #chat-input, #chat-send-btn) {
+  color: #000 !important;
+  text-shadow: var(--black-text-edge);
+}
+/* The tab you're on is told apart by being solid; the other is faded. */
+#chat-panel .chat-tab-btn:not(.active) { opacity: 0.55; }
+#chat-panel #chat-input::placeholder { color: rgba(0, 0, 0, 0.6); }
+#chat-panel #chat-input:focus { outline: none; box-shadow: none; }
 
 /* Emoji picker trigger - one per chat input (in-game #chat-input-row and
    the homepage Global panel's #server-chat-input-row), both opening the

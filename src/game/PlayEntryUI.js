@@ -351,7 +351,10 @@ export function _updateEditorResScale(game, msPerFrame, now) {
   // A step that wouldn't change the real pixel ratio (already at the
   // floor) is skipped entirely.
   const down = Math.max(0.25, scale - 0.125)
-  const canLower = scale > 0.25 && game._editorPixelRatio(down) < game._editorPixelRatio(scale) - 1e-3
+  // In Real Life keeps at least one pixel per screen pixel (2026-10-26,
+  // Gaymi: it "gets kinda blurry") - it only gives up Retina sharpness.
+  const floor = game.settings.graphicsLevel === 'irl' ? 1 : 0
+  const canLower = scale > 0.25 && game._editorPixelRatio(down) < game._editorPixelRatio(scale) - 1e-3 && game._editorPixelRatio(down) >= floor - 1e-3
   // Sharpness first (2026-10-18, Gaymi: "the gameplay feels very blurry"):
   // a slow device draws less of the map before it drops any pixels, and
   // gets its pixels back before its view distance.

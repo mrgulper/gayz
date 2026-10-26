@@ -110,8 +110,9 @@ export class TopBar {
     // background") - only the Map Editor's own menu hides it.
     const show = !!bm?.active && (!bm.menuOpen || !!bm.gameMenu?.forGame)
     this.el.style.display = show ? 'flex' : 'none'
-    // A game's screens wear the biome too (CleanTheme.setBiomeTheme).
-    setBiomeTheme(show && !!bm.survival?.active, game.settings)
+    // A game's screens wear the biome too (CleanTheme.setBiomeTheme),
+    // unless Settings > Theme says to keep the theme in games.
+    setBiomeTheme(show && !!bm.survival?.active && game.settings?.playBiomeLook !== false, game.settings)
     if (!show || now - this._at < REFRESH_MS) return
     this._at = now
     const s = game.settings || {}
@@ -204,8 +205,6 @@ export class TopBar {
     this._lookVars = { night: look.night.toFixed(2), storm: look.weather === 'clear' ? '0' : String(look.strength), weather: WEATHER_KIND[look.weather] || 'clear' }
     st.setProperty('--tb-night', this._lookVars.night)
     st.setProperty('--tb-storm', this._lookVars.storm)
-    // ...and the game's biome-styled screens (play-biome.css) darken too.
-    document.documentElement.style.setProperty('--biome-night', this._lookVars.night)
     this.el.dataset.weather = this._lookVars.weather
   }
 
@@ -223,10 +222,14 @@ export class TopBar {
       root.setProperty('--biome-accent', look.accent)
       const n = parseInt(look.accent.slice(1), 16)
       root.setProperty('--biome-accent-rgb', `${n >> 16}, ${(n >> 8) & 255}, ${n & 255}`)
+      root.setProperty('--biome-bg-rgb', look.bg)
+      root.setProperty('--biome-ink-rgb', look.ink)
     } else {
       root.removeProperty('--biome-ground')
       root.removeProperty('--biome-accent')
       root.removeProperty('--biome-accent-rgb')
+      root.removeProperty('--biome-bg-rgb')
+      root.removeProperty('--biome-ink-rgb')
     }
     if (!look) return
     this._groundTop = 1 - this._groundTop
