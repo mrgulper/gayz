@@ -23,6 +23,7 @@
 // each sync (snapshot); everybody else just mirrors them (applySnapshot,
 // updateMirror) and sends their shots and taming to the host (PlayNet).
 import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { t } from './i18n.js'
 import { sampleLand, inCity } from './OpenWorld.js'
 import { MORE_KINDS, MORE_BIOME_ANIMALS } from './AnimalKinds.js'
@@ -257,24 +258,114 @@ export function animalIconURL(kind) {
   return url
 }
 
-// An 8x8 pixel texture: the base color with a few patches, so the boxes
-// read as blocky fur/skin rather than flat plastic.
+// A 16x16 pixel texture: the base color with a few patches and every pixel
+// a shade lighter or darker, so the boxes read as blocky fur/skin rather
+// than flat plastic (was 8x8 and flat, 2026-10-26: "add more details").
 function patchTexture(base, spots, seed, stripes = false) {
   const c = document.createElement('canvas')
-  c.width = c.height = 8
+  c.width = c.height = 16
   const g = c.getContext('2d')
-  g.fillStyle = `#${base.toString(16).padStart(6, '0')}`
-  g.fillRect(0, 0, 8, 8)
-  g.fillStyle = `#${spots.toString(16).padStart(6, '0')}`
-  let r = seed
-  const rand = () => ((r = (r * 9301 + 49297) % 233280) / 233280)
-  if (stripes) for (let x = 0; x < 8; x += 2) g.fillRect(x, 0, 1, 8)
-  else for (let i = 0; i < 9; i++) g.fillRect(Math.floor(rand() * 8), Math.floor(rand() * 8), 1 + Math.floor(rand() * 2), 1)
+  paintFur(g, base, spots, seed, stripes)
+  return pixelTexture(c)
+}
+
+function pixelTexture(c) {
   const tex = new THREE.CanvasTexture(c)
   tex.magFilter = THREE.NearestFilter
   tex.minFilter = THREE.NearestFilter
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
+}
+
+const css = (color) => `#${new THREE.Color(color).getHexString()}`
+const shade = (color, f) => new THREE.Color(color).multiplyScalar(f)
+
+function paintFur(g, base, spots, seed, stripes) {
+  let r = seed
+  const rand = () => ((r = (r * 9301 + 49297) % 233280) / 233280)
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      g.fillStyle = css(shade(base, 0.9 + rand() * 0.18 - y * 0.006))
+      g.fillRect(x, y, 1, 1)
+    }
+  }
+  g.fillStyle = css(spots)
+  if (stripes) for (let x = 0; x < 16; x += 4) g.fillRect(x + (rand() < 0.5 ? 0 : 1), 0, 2, 16)
+  else {
+    for (let i = 0; i < 7; i++) {
+      const x = Math.floor(rand() * 15)
+      const y = Math.floor(rand() * 15)
+      g.fillRect(x, y, 2, 2)
+      if (rand() < 0.6) g.fillRect(x + 1, y + 1, 2, 1)
+    }
+  }
+}
+
+// What colour the middle of an animal's eye is: amber for hunters, cats,
+// birds of prey and goats; dark brown for the rest.
+function irisOf(kind) {
+  if (/cat|lion|tiger|leopard|cheetah|lynx|wolf|fox|owl|eagle|hawk|falcon|snake|croc|alligator|lizard|goat|frog|jaguar|panther|cougar|hyena/.test(kind)) return 0xd8a020
+  if (/husky/.test(kind)) return 0x5aa0e0
+  return 0x4a2e18
+}
+
+// The head's front: its fur with two proper eyes painted on - a white with
+// a coloured middle, a dark pupil, a shine and a brow over it (Minecraft/
+// Bloxd style), not a black dot.
+function faceTexture(kind, k, seed) {
+  const c = document.createElement('canvas')
+  c.width = c.height = 32
+  const g = c.getContext('2d')
+  g.scale(2, 2)
+  paintFur(g, k.colors.head, k.colors.spots, seed, false)
+  g.setTransform(1, 0, 0, 1, 0, 0)
+  if (k.eyes === false) return pixelTexture(c)
+  const [hw] = k.head
+  const ew = hw > 0.6 ? 4 : hw > 0.3 ? 6 : 8 // eye width in pixels (of 32)
+  const eh = Math.max(3, Math.round(ew * 0.8))
+  const iris = irisOf(kind)
+  const slit = /goat|sheep/.test(kind)
+  for (const side of [-1, 1]) {
+    const cx = Math.round(16 + side * 9.6)
+    const x = cx - ew / 2
+    const y = 8
+    g.fillStyle = css(shade(k.colors.head, 0.55)) // brow
+    g.fillRect(x - 1, y - 2, ew + 2, 1)
+    g.fillStyle = '#f2efe6' // white
+    g.fillRect(x, y, ew, eh)
+    g.fillStyle = css(iris)
+    const iw = Math.max(2, Math.round(ew * 0.6))
+    const ix = side < 0 ? x + ew - iw : x // looking forward and a little in
+    g.fillRect(ix, y, iw, eh)
+    g.fillStyle = '#111111'
+    if (slit) g.fillRect(ix, y + Math.floor(eh / 2), iw, 1)
+    else g.fillRect(ix + Math.floor(iw / 4), y + Math.floor(eh / 4), Math.max(1, Math.ceil(iw / 2)), Math.max(2, Math.ceil(eh / 2)))
+    g.fillStyle = '#ffffff' // shine
+    g.fillRect(ix + Math.floor(iw / 4), y + Math.floor(eh / 4), 1, 1)
+    g.fillStyle = css(shade(k.colors.head, 0.7)) // lower lid
+    g.fillRect(x, y + eh, ew, 1)
+  }
+  return pixelTexture(c)
+}
+
+// The snout's front: nostrils and a mouth.
+function snoutTexture(k) {
+  const c = document.createElement('canvas')
+  c.width = c.height = 16
+  const g = c.getContext('2d')
+  for (let y = 0; y < 16; y++) {
+    g.fillStyle = css(shade(k.colors.snout, 1.04 - y * 0.012))
+    g.fillRect(0, y, 16, 1)
+  }
+  const dark = css(shade(k.colors.snout, 0.35))
+  g.fillStyle = dark
+  g.fillRect(3, 3, 3, 3)
+  g.fillRect(10, 3, 3, 3)
+  g.fillRect(4, 11, 8, 1)
+  g.fillRect(3, 10, 1, 1)
+  g.fillRect(12, 10, 1, 1)
+  g.fillRect(7, 8, 2, 3)
+  return pixelTexture(c)
 }
 
 export class PlayAnimals {
@@ -299,39 +390,53 @@ export class PlayAnimals {
     return this.s.bm
   }
 
-  // Shared boxes and materials for one kind (made once).
+  // Shared boxes and materials for one kind (made once per look). On the
+  // In Real Life graphics level the boxes have rounded edges, so the
+  // animals look softer and rounder (2026-10-26, Gaymi picked "minecraft/
+  // bloxd style and rounder in real life").
   _kindParts(kind) {
-    if (this._parts[kind]) return this._parts[kind]
+    const round = this.bm?.game?.settings?.graphicsLevel === 'irl'
+    const key = round ? `${kind}:round` : kind
+    if (this._parts[key]) return this._parts[key]
     const k = KINDS[kind]
     const B = this.s.B
     const mat = (color, tex) => new THREE.MeshLambertMaterial({ color: tex ? 0xffffff : color, map: tex || null })
-    const box = (w, h, l) => new THREE.BoxGeometry(w * B, h * B, l * B)
+    const box = (w, h, l) => {
+      const r = Math.min(w, h, l) * B * 0.28
+      return round && r > 0.004 ? new RoundedBoxGeometry(w * B, h * B, l * B, 2, r) : new THREE.BoxGeometry(w * B, h * B, l * B)
+    }
     const [bw, bh, bl] = k.body
     const [hw, hh, hl] = k.head
     const legW = k.legW || Math.min(0.25, bw * 0.3)
     const bodyMat = mat(k.colors.body, patchTexture(k.colors.body, k.colors.spots, kind.length * 97, k.stripes))
+    const headMat = mat(k.colors.head, patchTexture(k.colors.head, k.colors.spots, kind.length * 131))
+    const snoutMat = mat(k.colors.snout)
     const colorMats = new Map()
+    // Hooves on long legs, paws (a darker shade of the leg) on short ones.
+    const footH = Math.min(0.1, k.leg * 0.22)
     const p = {
       body: box(bw, bh, bl),
       head: box(hw, hh, hl),
       snout: box(hw * 0.55, hh * 0.35, 0.12),
       leg: box(legW, k.leg, legW),
+      foot: box(legW * 1.12, footH, legW * 1.12),
+      footH,
       collar: box(hw * 1.08, 0.08, hl * 0.5),
       bodyMat,
-      headMat: mat(k.colors.head, patchTexture(k.colors.head, k.colors.spots, kind.length * 131)),
-      snoutMat: mat(k.colors.snout),
-      legMat: mat(k.colors.leg),
-      eyeMat: mat(0x161616),
-      eye: box(Math.min(0.07, hw * 0.25), Math.min(0.07, hh * 0.3), 0.02),
+      // Box faces: +x, -x, +y, -y, front (+z), back.
+      headMat: [headMat, headMat, headMat, headMat, mat(k.colors.head, faceTexture(kind, k, kind.length * 131)), headMat],
+      snoutMat: [snoutMat, snoutMat, snoutMat, snoutMat, mat(k.colors.snout, snoutTexture(k)), snoutMat],
+      legMat: mat(k.colors.leg, patchTexture(k.colors.leg, k.colors.leg, kind.length * 53)),
+      footMat: mat(k.leg > 0.5 ? 0x2e2620 : shade(k.colors.leg, 0.6)),
       collarMat: mat(0xc0282a),
       legW,
       // Extra boxes (ears, tails, necks, horns...), same order as k.extras.
       extras: (k.extras || []).map((e) => {
-        if (e.color !== 'body' && !colorMats.has(e.color)) colorMats.set(e.color, mat(e.color))
+        if (e.color !== 'body' && !colorMats.has(e.color)) colorMats.set(e.color, mat(e.color, patchTexture(e.color, e.color, e.size.length * 71)))
         return { geo: box(...e.size), mat: e.color === 'body' ? bodyMat : colorMats.get(e.color) }
       }),
     }
-    this._parts[kind] = p
+    this._parts[key] = p
     return p
   }
 
@@ -340,7 +445,7 @@ export class PlayAnimals {
     const p = this._kindParts(kind)
     const B = this.s.B
     const [bw, bh, bl] = k.body
-    const [hw, hh, hl] = k.head
+    const [, hh, hl] = k.head
     const group = new THREE.Group()
     const body = new THREE.Mesh(p.body, p.bodyMat)
     body.position.y = (k.leg + bh / 2) * B
@@ -353,11 +458,6 @@ export class PlayAnimals {
     const snout = new THREE.Mesh(p.snout, p.snoutMat)
     snout.position.set(0, -hh * 0.18 * B, (hl / 2 + 0.05) * B)
     head.add(snout)
-    for (const side of k.eyes === false ? [] : [-1, 1]) {
-      const eye = new THREE.Mesh(p.eye, p.eyeMat)
-      eye.position.set(side * hw * 0.3 * B, hh * 0.15 * B, (hl / 2 + 0.01) * B)
-      head.add(eye)
-    }
     const collar = new THREE.Mesh(p.collar, p.collarMat)
     collar.position.set(0, -hh * 0.5 * B, -hl * 0.15 * B)
     collar.visible = false
@@ -381,6 +481,11 @@ export class PlayAnimals {
       const leg = new THREE.Mesh(p.leg, p.legMat)
       leg.position.y = (-k.leg / 2) * B
       hip.add(leg)
+      if (k.leg > 0.05) {
+        const foot = new THREE.Mesh(p.foot, p.footMat)
+        foot.position.y = (-k.leg + p.footH / 2) * B
+        hip.add(foot)
+      }
       group.add(hip)
       legs.push(hip)
     }

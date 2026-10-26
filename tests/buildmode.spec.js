@@ -2901,3 +2901,44 @@ test('a rainbow can follow the rain', async ({ page }) => {
   })
   expect(r).toEqual({ yes: true, no: 0, shown: true, gone: true })
 })
+
+// 2026-10-26: less blocky land on Realistic/Ultra/In Real Life (smooth
+// hills, rounded edges, pebbles, leafy trees), animals with painted eyes
+// and rounder bodies on In Real Life.
+test('smooth hills and rounded edges on the top levels, animal faces', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const ch = bm._chunks
+    // A one-block step: a 3x3 grass floor with one more grass on top.
+    for (let x = 40; x < 43; x++) for (let z = 40; z < 43; z++) bm._placeBlockInner(x, 0, z, 'grass')
+    bm._placeBlockInner(41, 1, 41, 'grass')
+    const tops = () => {
+      ch.flush(bm._chunkCells)
+      const ys = new Set()
+      for (const c of ch.chunks.values()) {
+        for (const m of c.meshes) {
+          const pos = m.geometry.attributes.position
+          if (!pos?.array?.length) continue
+          for (let i = 1; i < pos.array.length; i += 3) ys.add(Math.round((pos.array[i] / bm._chunks.blockSize) * 100) / 100)
+        }
+      }
+      return [...ys].some((y) => Math.abs(y - Math.round(y)) > 0.05)
+    }
+    g._applyGraphicsLevel('irl')
+    bm._applyGraphicsLook()
+    out.irl = [ch.shapes, ch.fx.round.value, tops()]
+    g._applyGraphicsLevel('simple')
+    bm._applyGraphicsLook()
+    out.simple = [ch.shapes, ch.fx.round.value, tops()]
+    g._exitBuildMode()
+    return out
+  })
+  // Uploaded chunk geometry may drop its arrays (dropAfterUpload), so the
+  // slope check only counts when the arrays were still there.
+  expect(r.irl).toEqual([true, 1, true])
+  expect(r.simple).toEqual([false, 0, false])
+})

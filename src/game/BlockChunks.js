@@ -92,7 +92,7 @@ const NOISE_GLSL = `float realHash(vec3 p) { return fract(sin(dot(p, vec3(12.989
       }`
 function sharpen(mat, fx, extra = null) {
   mat.onBeforeCompile = (shader) => {
-    for (const k of ['real', 'block', 'wet', 'snow', 'ice', 'roof', 'roofOrigin', 'roofBase', 'sky', 'bump', 'haze', 'grade', 'ao', 'spec']) {
+    for (const k of ['real', 'block', 'wet', 'snow', 'ice', 'roof', 'roofOrigin', 'roofBase', 'sky', 'bump', 'haze', 'grade', 'ao', 'spec', 'round']) {
       shader.uniforms[`u${k[0].toUpperCase()}${k.slice(1)}`] = fx[k]
     }
     shader.vertexShader = shader.vertexShader
@@ -100,12 +100,15 @@ function sharpen(mat, fx, extra = null) {
       varying vec3 vWPos;
       varying vec3 vWNorm;
       varying float vPatch;
+      attribute float aEdge;
+      varying float vEdge;
       uniform float uReal;
       uniform float uBlock;
       ${NOISE_GLSL}`)
       .replace('#include <project_vertex>', `#include <project_vertex>
       vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
       vWNorm = objectNormal;
+      vEdge = aEdge;
       vPatch = 0.5;
       if (uReal > 0.0) {
         vec3 pw = vWPos / uBlock;
@@ -127,9 +130,16 @@ function sharpen(mat, fx, extra = null) {
       uniform float uGrade;
       uniform float uAo;
       uniform float uSpec;
+      uniform float uRound;
       varying vec3 vWPos;
       varying vec3 vWNorm;
       varying float vPatch;
+      varying float vEdge;
+      // How far (0..1) a face edge bends round, by the distance f (in
+      // blocks) to it and whether that edge is an outside corner.
+      float roundEdge(float f, float m, float bitv) {
+        return step(0.5, mod(floor(m / bitv), 2.0)) * (1.0 - smoothstep(0.0, 0.16, f));
+      }
       // 1 = open to the sky here, 0 = under a roof (wp in blocks).
       float openSky(vec3 wp, vec3 n) {
         vec2 cell = floor(wp.xz + n.xz * 0.5) - uRoofOrigin;
@@ -208,9 +218,28 @@ function sharpen(mat, fx, extra = null) {
         vec3 r1 = cross(sy, normal);
         vec3 r2 = cross(normal, sx);
         float det = dot(sx, r1);
+        // Capped so a sharp pixel edge doesn't flash as a thin white dash
+        // (2026-10-26, Gaymi's rain screenshots).
+        dh = clamp(dh, vec2(-0.12), vec2(0.12));
         normal = normalize(abs(det) * normal - sign(det) * (dh.x * r1 + dh.y * r2));
       }
-      #endif`)
+      #endif
+      if (uRound > 0.0 && vEdge > 0.5) {
+        // Rounded block edges (2026-10-26, Gaymi: "make the blocks not all
+        // so blocky"): near an outside edge the face's light bends round
+        // the corner, like a worn, rounded block. vEdge says which of the
+        // face's 4 edges are outside corners (BlockChunks._build).
+        vec3 wp = vWPos / uBlock;
+        vec3 an = abs(vWNorm);
+        vec3 ax = an.x > 0.5 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+        vec3 bx = an.z > 0.5 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0);
+        float fa = fract(dot(wp, ax));
+        float fb = fract(dot(wp, bx));
+        vec3 bend = ax * (roundEdge(1.0 - fa, vEdge, 2.0) - roundEdge(fa, vEdge, 1.0))
+          + bx * (roundEdge(1.0 - fb, vEdge, 8.0) - roundEdge(fb, vEdge, 4.0));
+        normal = normalize(normal + (viewMatrix * vec4(bend, 0.0)).xyz * uRound * 1.3);
+        diffuseColor.rgb *= 1.0 - 0.1 * uRound * length(bend);
+      }`)
       .replace('#include <fog_fragment>', `if (uGrade > 0.0) {
         vec3 c = gl_FragColor.rgb;
         float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -280,6 +309,32 @@ const LIQUIDS = {
 // Vertex brightness by how many of the 3 neighbor cells around a corner
 // are solid (0 = fully open ... 3 = tucked into a corner).
 const AO_LEVELS = [1, 0.78, 0.6, 0.45]
+
+// Less blocky land (2026-10-26, Gaymi: "make the blocks not all so blocky
+// ... make them have more possible shapes", picked rounded edges, extra
+// shapes AND smooth hills, on Realistic, Ultra and In Real Life). Only the
+// drawing changes - every block is still a full cube to walk on, dig and
+// build with, so on a slope the ground you see is at most about half a
+// block off the block underneath.
+//  - Smooth hills: the top of natural ground (NATURAL) is drawn as a
+//    smooth slope through its corners: each corner's height is the
+//    average of the 4 columns of land that share it, so one-block steps
+//    become ramps and the ground heaps up a little against walls and trees.
+//  - Rounded edges: every other block's outside edges catch the light as
+//    if rounded (the uRound shader part, aEdge says which edges).
+//  - Extra shapes: little stones lying on the ground and leaves sticking
+//    out of the sides of trees.
+const NATURAL = /^(grass|dirt|sand|snow|stone|gravel|mud|clay|moss|mycelium|podzol|coarsedirt|redsand|granite|andesite|diorite|deepslate|tuff|calcite|netherrack|endstone|soulsand|soulsoil|crimsonnylium|warpednylium|terracotta|packedmud)$/
+const PEBBLE_ON = /^(grass|dirt|sand|gravel|mud|coarsedirt|podzol|redsand|snow|moss)$/
+
+// A stable 0..1 number for a cell (and a salt), for where the extra
+// shapes go.
+function hash01(x, y, z, salt) {
+  let h = (x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (salt * 2654435761)
+  h = Math.imul(h ^ (h >>> 15), 2246822519)
+  h = Math.imul(h ^ (h >>> 13), 3266489917)
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296
+}
 
 // Glowing blocks (glowstone, lava, lanterns...) light the blocks around
 // them by brightening vertex colors when a chunk is built - Minecraft's
@@ -368,6 +423,7 @@ export class BlockChunks {
       const v0 = 1 - (oy + TILE) / atlasH
       uvOf.set(src, [u0, v0, u1, v1])
     })
+    this.shapes = false
     cube.forEach((t, i) => {
       const f = faceSets[i]
       const liquid = LIQUIDS[t.id] ? t.id : null
@@ -392,6 +448,8 @@ export class BlockChunks {
         // most expensive thing in a tree-filled view on a phone.
         cutout: /leaves$/.test(t.id),
         glow: !!t.emissive,
+        // Ground that smooths into hills (NATURAL).
+        natural: NATURAL.test(t.id) && !t.transparent && !liquid && !t.inset,
       })
     })
     const tex = new THREE.CanvasTexture(canvas)
@@ -428,7 +486,7 @@ export class BlockChunks {
       wet: { value: 0 }, snow: { value: 0 }, ice: { value: 0 },
       roof: { value: null }, roofOrigin: { value: new THREE.Vector2(1e6, 1e6) }, roofBase: { value: 0 },
       sky: { value: new THREE.Color(0.6, 0.75, 0.95) }, bump: { value: 0 }, haze: { value: 0 }, reflect: { value: 0 },
-      grade: { value: 0 }, ao: { value: 0 }, spec: { value: 0 },
+      grade: { value: 0 }, ao: { value: 0 }, spec: { value: 0 }, round: { value: 0 },
     }
     this.materials = {
       water: new THREE.MeshPhongMaterial({ map: waterMap, vertexColors: true, transparent: true, depthWrite: false, specular: 0x000000, shininess: 70 }),
@@ -463,7 +521,15 @@ export class BlockChunks {
   // How much the leaves sway and the water rolls (world units) and how
   // much the water shines (0..1) - set from the graphics level. hazeScale:
   // how much of the far haze the weather lets through (0 on a clear day).
-  setEffects({ sway = 0, waves = 0, shine = 0, real = 0, bump = 0, haze = 0, grade = 0, ao = 0, spec = 0 } = {}, hazeScale = 1) {
+  setEffects({ sway = 0, waves = 0, shine = 0, real = 0, bump = 0, haze = 0, grade = 0, ao = 0, spec = 0, round = 0 } = {}, hazeScale = 1) {
+    this.fx.round.value = round
+    // Smooth hills, pebbles and leafy edges change the chunks' shapes, so
+    // turning them on or off rebuilds every chunk once.
+    const shapes = round > 0
+    if (shapes !== this.shapes) {
+      this.shapes = shapes
+      this.rebuildAll()
+    }
     this.fx.real.value = real
     this.fx.grade.value = grade
     this.fx.ao.value = ao
@@ -724,6 +790,27 @@ export class BlockChunks {
       const t = typeAt(x, y, z)
       return !!t && !!this.info.get(t)?.opaque
     }
+    const shapes = this.shapes
+    // Smooth hills: a column's land height near level y (-2 .. 3, y's own
+    // top = 1), and a corner point's height = the average of its 4 columns.
+    const colH = (X, Z, y) => {
+      if (opaqueAt(X, y + 1, Z)) return opaqueAt(X, y + 2, Z) ? (opaqueAt(X, y + 3, Z) ? 3.5 : 3) : 2
+      if (opaqueAt(X, y, Z)) return 1
+      if (opaqueAt(X, y - 1, Z)) return 0
+      return opaqueAt(X, y - 2, Z) ? -1 : -1.5
+    }
+    const hMemo = new Map()
+    const cornerH = (X, Z, y) => {
+      const k = `${X},${Z},${y}`
+      let h = hMemo.get(k)
+      if (h === undefined) {
+        h = (colH(X - 1, Z - 1, y) + colH(X, Z - 1, y) + colH(X - 1, Z, y) + colH(X, Z, y)) / 4
+        h = Math.min(1.7, Math.max(0.3, h))
+        hMemo.set(k, h)
+      }
+      return h
+    }
+    const stoneUv = this.info.get('cobblestone')?.uvs[2] || this.info.get('stone')?.uvs[2]
     for (const cell of cells) {
       const c1 = cell.indexOf(','), c2 = cell.indexOf(',', c1 + 1)
       const x = +cell.slice(0, c1), y = +cell.slice(c1 + 1, c2), z = +cell.slice(c2 + 1)
@@ -738,6 +825,8 @@ export class BlockChunks {
       // touching liquid with more of it on top is full - so flowing water
       // runs smoothly downhill from its source, like Minecraft.
       const cornerY = info.liquid ? this._liquidCorners(x, y, z, type) : null
+      const smooth = shapes && info.natural && !opaqueAt(x, y + 1, z)
+      if (smooth && PEBBLE_ON.test(type) && hash01(x, y, z, 1) < 0.07 && stoneUv) this._pebble(out.solid, x - bx, y - by, z - bz, x, y, z, cornerH, stoneUv)
       for (let fi = 0; fi < 6; fi++) {
         const face = FACES[fi]
         const [nx, ny, nz] = face.n
@@ -785,14 +874,37 @@ export class BlockChunks {
           const corner = opaqueAt(ox + sx, oy + sy, oz + sz)
           ao[i] = s1 && s2 ? 3 : (s1 ? 1 : 0) + (s2 ? 1 : 0) + (corner ? 1 : 0)
         }
+        // Which of this face's 4 edges are outside corners (rounded): bit
+        // 1/2 = toward -/+ its first axis (y for x faces, else x), 4/8 =
+        // its second (y for z faces, else z) - see the shader's uRound.
+        let edge = 0
+        if (shapes && !smooth && !info.liquid && !inset) {
+          const A = nx !== 0 ? [0, 1, 0] : [1, 0, 0]
+          const Bv = nz !== 0 ? [0, 1, 0] : [0, 0, 1]
+          if (!opaqueAt(x - A[0], y - A[1], z - A[2])) edge |= 1
+          if (!opaqueAt(x + A[0], y + A[1], z + A[2])) edge |= 2
+          if (!opaqueAt(x - Bv[0], y - Bv[1], z - Bv[2])) edge |= 4
+          if (!opaqueAt(x + Bv[0], y + Bv[1], z + Bv[2])) edge |= 8
+        }
+        if (shapes && info.cutout && fi !== 3 && hash01(x, y, z, 2 + fi) < 0.55) this._leafTuft(out.cutout, x - bx, y - by, z - bz, face, info.uvs[fi], tint)
         const base = buf.pos.length / 3
         for (let i = 0; i < 4; i++) {
           const c = face.c[i]
-          const topY = cornerY ? cornerY[c[0] * 2 + c[2]] : 1
+          const topY = cornerY ? cornerY[c[0] * 2 + c[2]] : smooth ? cornerH(x + c[0], z + c[2], y) : 1
           const cx0 = inset ? inset + c[0] * (1 - 2 * inset) : c[0]
           const cz0 = inset ? inset + c[2] * (1 - 2 * inset) : c[2]
           buf.pos.push((x - bx + cx0) * this.blockSize, (y - by + (c[1] ? topY : 0)) * this.blockSize, (z - bz + cz0) * this.blockSize)
-          buf.nrm.push(nx, ny, nz)
+          if (smooth && ny === 1) {
+            // The slope's normal from the corners around this one, so the
+            // hills are lit smoothly instead of in facets.
+            const X = x + c[0]
+            const Z = z + c[2]
+            const gx = (cornerH(X + 1, Z, y) - cornerH(X - 1, Z, y)) / 2
+            const gz = (cornerH(X, Z + 1, y) - cornerH(X, Z - 1, y)) / 2
+            const l = Math.hypot(gx, 1, gz)
+            buf.nrm.push(-gx / l, 1 / l, -gz / l)
+          } else buf.nrm.push(nx, ny, nz)
+          buf.edge.push(edge)
           buf.uv.push(CORNER_UV[i][0] ? u1 : u0, CORNER_UV[i][1] ? v1 : v0)
           const b = AO_LEVELS[ao[i]] * face.shade * tint
           const L = glowSources && this._glowAt(x + c[0], y + c[1] * topY, z + c[2], face.n, glowSources)
@@ -820,6 +932,7 @@ export class BlockChunks {
       geo.setAttribute('normal', new THREE.Float32BufferAttribute(buf.nrm, 3))
       geo.setAttribute('uv', new THREE.Float32BufferAttribute(buf.uv, 2))
       geo.setAttribute('color', new THREE.Float32BufferAttribute(buf.col, buf.stride))
+      if (shapes) geo.setAttribute('aEdge', new THREE.Float32BufferAttribute(buf.edge, 1))
       geo.setIndex(buf.pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(buf.idx, 1) : new THREE.Uint16BufferAttribute(buf.idx, 1))
       geo.computeBoundingSphere()
       const mesh = new THREE.Mesh(geo, this.materials[kind])
@@ -839,6 +952,55 @@ export class BlockChunks {
     const chunk = { meshes, mx: bx + CHUNK / 2, mz: bz + CHUNK / 2, shown: true }
     this.chunks.set(key, chunk)
     if (this._cull) this._cullChunk(chunk)
+  }
+
+  // A little stone lying on a ground block's top (lx/ly/lz: the cell in
+  // chunk space, x/y/z: in the world), sat on the smooth slope.
+  _pebble(buf, lx, ly, lz, x, y, z, cornerH, uv) {
+    const px = 0.2 + hash01(x, y, z, 7) * 0.6
+    const pz = 0.2 + hash01(x, y, z, 8) * 0.6
+    const h00 = cornerH(x, z, y)
+    const h10 = cornerH(x + 1, z, y)
+    const h01 = cornerH(x, z + 1, y)
+    const h11 = cornerH(x + 1, z + 1, y)
+    const gy = h00 * (1 - px) * (1 - pz) + h10 * px * (1 - pz) + h01 * (1 - px) * pz + h11 * px * pz
+    const w = 0.08 + hash01(x, y, z, 9) * 0.1
+    const d = w * (0.7 + hash01(x, y, z, 10) * 0.5)
+    const h = w * 0.55
+    const x0 = lx + px - w / 2
+    const x1 = x0 + w
+    const z0 = lz + pz - d / 2
+    const z1 = z0 + d
+    const y0 = ly + gy - h * 0.4
+    const y1 = y0 + h
+    const [u0, v0, u1, v1] = uv
+    const sub = [u0, v0, u0 + (u1 - u0) * 0.3, v0 + (v1 - v0) * 0.3]
+    const b = 0.78 + hash01(x, y, z, 11) * 0.2
+    for (const f of FACES) {
+      if (f.n[1] === -1) continue
+      pushQuad(buf, this.blockSize, f.c.map(([cx, cy, cz]) => [cx ? x1 : x0, cy ? y1 : y0, cz ? z1 : z0]), f.n, sub, b * f.shade)
+    }
+  }
+
+  // Leaves sticking out of a leaf block's face: a smaller leafy card a
+  // little out from the face, tipped outward, drawn from both sides.
+  _leafTuft(buf, lx, ly, lz, face, uv, tint) {
+    const [nx, ny, nz] = face.n
+    const out = 0.22
+    const tip = 0.3
+    const corners = face.c.map(([cx, cy, cz]) => {
+      // Shrink toward the face's middle, push out along the normal, and
+      // tip the far half further out.
+      const sx = nx ? cx : 0.5 + (cx - 0.5) * 0.8
+      const sy = ny ? cy : 0.5 + (cy - 0.5) * 0.8
+      const sz = nz ? cz : 0.5 + (cz - 0.5) * 0.8
+      const far = ny ? cz : cy
+      const o = out + far * tip * (ny ? 0.5 : 1) - (ny ? 0 : tip * 0.5)
+      return [lx + sx + nx * o, ly + sy + ny * o, lz + sz + nz * o]
+    })
+    const b = 0.9 * face.shade * tint
+    pushQuad(buf, this.blockSize, corners, face.n, uv, b)
+    pushQuad(buf, this.blockSize, [corners[1], corners[0], corners[3], corners[2]], [-nx, -ny, -nz], uv, b * 0.8)
   }
 
   // View distance: hides every chunk whose nearest edge is more than
@@ -868,5 +1030,21 @@ export class BlockChunks {
 }
 
 function newBuffers(stride) {
-  return { pos: [], nrm: [], uv: [], col: [], idx: [], stride }
+  return { pos: [], nrm: [], uv: [], col: [], idx: [], edge: [], stride }
+}
+
+// One quad into a chunk's buffers: 4 corners [x, y, z] (blocks, chunk
+// space), counter-clockwise from outside, the normal, the picture's uv box
+// and a brightness.
+function pushQuad(buf, size, corners, n, [u0, v0, u1, v1], b) {
+  const base = buf.pos.length / 3
+  corners.forEach(([x, y, z], i) => {
+    buf.pos.push(x * size, y * size, z * size)
+    buf.nrm.push(n[0], n[1], n[2])
+    buf.uv.push(CORNER_UV[i][0] ? u1 : u0, CORNER_UV[i][1] ? v1 : v0)
+    if (buf.stride === 4) buf.col.push(b, b, b, 1)
+    else buf.col.push(b, b, b)
+    buf.edge.push(0)
+  })
+  buf.idx.push(base, base + 1, base + 2, base, base + 2, base + 3)
 }
