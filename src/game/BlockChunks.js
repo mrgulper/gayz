@@ -408,30 +408,53 @@ export class BlockChunks {
     const atlasW = TILE >= 64 ? 4096 : 2048
     const perRow = atlasW / SLOT
     const atlasH = Math.ceil(unique.length / perRow) * SLOT
-    const canvas = document.createElement('canvas')
-    canvas.width = atlasW
-    canvas.height = atlasH
-    const ctx = canvas.getContext('2d')
+    // The atlas at `scale` x its size (In Real Life's 64x64 pictures,
+    // 2026-10-26): same layout, so every block's texture coordinates stay
+    // the same and nothing has to be rebuilt - only the pictures redrawn.
+    const makeCanvas = (scale) => {
+      const c = document.createElement('canvas')
+      c.width = atlasW * scale
+      c.height = atlasH * scale
+      return c
+    }
+    let canvas = makeCanvas(1)
+    let ctx = canvas.getContext('2d')
     ctx.imageSmoothingQuality = 'high'
+    let scale = 1
     const uvOf = new Map()
     // One slot per distinct picture.
     const draw = (src, ox, oy) => {
+      const t = TILE * scale
+      ox *= scale
+      oy *= scale
       // A small picture is scaled up crisp (pixel art), a big one down
       // smoothly.
-      ctx.imageSmoothingEnabled = src.width > TILE
+      ctx.imageSmoothingEnabled = src.width > t
       ctx.save()
       ctx.beginPath()
-      ctx.rect(ox - PAD, oy - PAD, SLOT, SLOT)
+      ctx.rect(ox - PAD * scale, oy - PAD * scale, SLOT * scale, SLOT * scale)
       ctx.clip()
-      ctx.clearRect(ox - PAD, oy - PAD, SLOT, SLOT)
+      ctx.clearRect(ox - PAD * scale, oy - PAD * scale, SLOT * scale, SLOT * scale)
       for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) ctx.drawImage(src, ox + dx * TILE, oy + dy * TILE, TILE, TILE)
+        for (let dx = -1; dx <= 1; dx++) ctx.drawImage(src, ox + dx * t, oy + dy * t, t, t)
       }
       ctx.restore()
     }
     // Every picture into its slot - again by redrawAtlas, after the
     // texture detail changes (the same blocks give the same slots).
-    this._drawAtlas = (pictures) => pictures.forEach((src, i) => draw(src, (i % perRow) * SLOT + PAD, Math.floor(i / perRow) * SLOT + PAD))
+    this._drawAtlas = (pictures, wantScale = 1) => {
+      if (wantScale !== scale) {
+        scale = wantScale
+        canvas = makeCanvas(scale)
+        ctx = canvas.getContext('2d')
+        ctx.imageSmoothingQuality = 'high'
+        if (this.atlas) {
+          this.atlas.dispose()
+          this.atlas.image = canvas
+        }
+      }
+      pictures.forEach((src, i) => draw(src, (i % perRow) * SLOT + PAD, Math.floor(i / perRow) * SLOT + PAD))
+    }
     unique.forEach((src, i) => {
       const ox = (i % perRow) * SLOT + PAD
       const oy = Math.floor(i / perRow) * SLOT + PAD
@@ -487,6 +510,7 @@ export class BlockChunks {
     tex.colorSpace = THREE.SRGBColorSpace
     tex.anisotropy = maxAnisotropy
     this.atlas = tex
+    if (unique.some((u) => u.width >= 64)) this.redrawAtlas()
 
     const liquidTex = (id) => {
       const t = types.find((b) => b.id === id)
@@ -512,7 +536,7 @@ export class BlockChunks {
       grade: { value: 0 }, ao: { value: 0 }, spec: { value: 0 }, round: { value: 0 },
     }
     this.materials = {
-      water: new THREE.MeshPhongMaterial({ map: waterMap, vertexColors: true, transparent: true, depthWrite: false, specular: 0x000000, shininess: 70 }),
+      water: new THREE.MeshPhongMaterial({ map: waterMap, vertexColors: true, transparent: true, depthWrite: false, specular: 0x000000, shininess: 140 }),
       lava: new THREE.MeshLambertMaterial({ map: lavaMap, vertexColors: true, emissive: 0xffffff, emissiveMap: lavaMap, emissiveIntensity: 0.85 }),
       solid: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true }),
       glow: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.55 }),
@@ -530,13 +554,58 @@ export class BlockChunks {
       shader.uniforms.uReflect = this.fx.reflect
       shader.uniforms.uBlock = this.fx.block
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nattribute float aEdge;\nvarying float vShore;\nvarying vec2 vCell;')
+        .replace('#include <common>', '#include <common>\nattribute float aEdge;\nvarying float vShore;\nvarying vec2 vCell;\nvarying float vTop;')
         .replace('#include <project_vertex>', `#include <project_vertex>
         vShore = objectNormal.y > 0.5 ? aEdge : 0.0;
+        vTop = objectNormal.y > 0.5 ? 1.0 : 0.0;
         vCell = (modelMatrix * vec4(position, 1.0)).xz;`)
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nuniform vec3 uSky;\nuniform float uReflect;\nuniform float uBlock;\nvarying float vShore;\nvarying vec2 vCell;')
+        .replace('#include <common>', `#include <common>
+        uniform vec3 uSky;
+        uniform float uReflect;
+        uniform float uBlock;
+        uniform float uTime;
+        varying float vShore;
+        varying vec2 vCell;
+        varying float vTop;
+        // Real-looking water (2026-10-26, Gaymi: "make water texture more
+        // clear and clean ... looks so fake"): on Balanced and up the
+        // surface is no longer the striped block picture repeated per
+        // block - it's one smooth body of water with small rolling
+        // ripples worked out from where it is in the world (so no square
+        // seams between blocks). ripple() -> (height, slope x, slope z).
+        vec3 ripple(vec2 p, float t) {
+          vec3 r = vec3(0.0);
+          vec2 d[4];
+          d[0] = vec2(0.8, 0.6); d[1] = vec2(-0.5, 0.86); d[2] = vec2(0.96, -0.28); d[3] = vec2(-0.3, -0.95);
+          float k[4];
+          k[0] = 1.3; k[1] = 2.1; k[2] = 3.7; k[3] = 5.3;
+          for (int i = 0; i < 4; i++) {
+            float a = 0.5 / k[i];
+            float ph = dot(d[i], p) * k[i] + t * (1.0 + 0.35 * float(i));
+            r.x += sin(ph) * a;
+            r.yz += d[i] * cos(ph) * a * k[i];
+          }
+          return r;
+        }`)
+        .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        if (uReflect > 0.0 && vTop > 0.5) {
+          // Tilt the surface by the ripples' slope, so the sun glints off
+          // the wave sides and the sky mirror wobbles.
+          vec3 tilt = vec3(-wr.y, 0.0, -wr.z) * 0.16;
+          normal = normalize(normal + (viewMatrix * vec4(tilt, 0.0)).xyz);
+        }`)
         .replace('#include <alphatest_fragment>', `#include <alphatest_fragment>
+        vec3 wr = uReflect > 0.0 ? ripple(vCell / uBlock, uTime) : vec3(0.0);
+        if (uReflect > 0.0) {
+          // Clean colour: deep blue-green in the troughs, lighter on the
+          // crests, and see-through enough to make out the bottom.
+          float crest = clamp(wr.x * 0.9 + 0.5, 0.0, 1.0);
+          vec3 deep = vec3(0.0, 0.2, 0.45);
+          vec3 light = vec3(0.04, 0.48, 0.66);
+          diffuseColor.rgb = mix(deep, light, crest * vTop + (1.0 - vTop) * 0.4) * max(vColor.r, max(vColor.g, vColor.b)) * 1.15;
+          diffuseColor.a = vTop > 0.5 ? 0.7 + 0.08 * crest : 0.72;
+        }
         if (vShore > 0.5) {
           // Where the shore turns a corner, the water's corner is a curve
           // (aEdge bits: 1/2 = shore at -x/+x, 4/8 = at -z/+z). Outside the
@@ -558,14 +627,14 @@ export class BlockChunks {
           diffuseColor.a = max(diffuseColor.a, shallow * 0.85);
         }`)
         .replace('#include <fog_fragment>', `if (uReflect > 0.0) {
-          float fres = pow(1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0), 3.0);
-          float m = uReflect * (0.15 + 0.75 * fres);
+          float fres = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.0);
+          float m = uReflect * (0.05 + 0.6 * fres);
           gl_FragColor.rgb = mix(gl_FragColor.rgb, sRGBTransferOETF(vec4(uSky, 1.0)).rgb, m);
           gl_FragColor.a = mix(gl_FragColor.a, 1.0, m * 0.6);
         }
         #include <fog_fragment>`)
     }
-    this.materials.water.customProgramCacheKey = () => 'waves-sky'
+    this.materials.water.customProgramCacheKey = () => 'waves-sky-ripples'
   }
 
   // How much the leaves sway and the water rolls (world units) and how
@@ -589,7 +658,7 @@ export class BlockChunks {
     this.fx.reflect.value = shine * (0.8 + 0.2 * real)
     this.fx.sway.value = sway * this.blockSize
     this.fx.waves.value = waves * this.blockSize
-    this.materials.water.specular.setScalar(shine * 0.55)
+    this.materials.water.specular.setScalar(shine * 0.9)
   }
 
   // The block pictures changed (Settings > Graphics level): draw the new
@@ -597,7 +666,12 @@ export class BlockChunks {
   redrawAtlas() {
     const { cube, faces } = this._atlasFrom
     const unique = [...new Set(cube.map((t) => faces(t)).flatMap((f) => [f.top, f.side, f.bottom]))]
-    this._drawAtlas(unique)
+    // 64x64 pictures (In Real Life) get a double-size atlas and smooth
+    // close-up filtering, so they look like real surfaces, not pixels.
+    const big = unique.some((u) => u.width >= 64)
+    this._drawAtlas(unique, big ? 2 : 1)
+    this.atlas.magFilter = big ? THREE.LinearFilter : THREE.NearestFilter
+    this.atlas.minFilter = big ? THREE.LinearMipmapLinearFilter : THREE.NearestMipmapLinearFilter
     this.atlas.needsUpdate = true
   }
 

@@ -233,3 +233,11 @@ Later the same day: center went back to 70vmin (Gaymi wanted the old size) but k
 - Leaves on the rounded levels: `_leafPuff` (pillow-shaped 3x3 face grid) replaced `_leafTuft` flat cards. `FallingLeaves.js` (off on Potato). Leaf blocks drop with LEAF_DROP_CHANCE (PlayRules).
 - `DinoKinds.js`: 20 dinosaurs, DINO_CHANCE 1% of a dino biome's spawns, alone, untameable; `hunts` ones chase/bite via `PlayAnimals._hunt` (host bites remote players with queueHurt). Big ones step 2 blocks.
 - Spider: zombie spider `waves: false` (kept for old saves/servers); the animal spider is Minecraft-sized. 16 more animals in AnimalKinds.js.
+
+## Clean water, texture upgrade, 50 animals + rarities, smooth map (2026-10-26)
+- Water (BlockChunks water material): when `fx.reflect > 0` (Simple and up, shine > 0) the top face ignores the striped block picture - `ripple()` sums 4 world-space sines (no per-block seams), tilts `normal` (sun glints via Phong specular, shininess 140) and colours deep/light blue by crest; alpha ~0.7 (lower looked grey over sand). Potato keeps the softened 16x16 picture.
+- Textures: Simple and Balanced now detail 2. In Real Life is detail 4 = `realFace()` (32 -> 64, bilinear + light sharpen + `patchNoise`); BlockChunks.redrawAtlas switches to a 2x atlas canvas (same layout, so UVs don't change) with linear filtering. One-time switch ~0.2s on an M4, steady 60 FPS. Every opaque detailed face also gets `patchNoise` patches.
+- `round` (smooth hills, pebbles, puffy leaves) now on Balanced 0.25 and Detailed 0.35 too.
+- NewAnimalKinds.js: 50 kinds + biomes + RARITIES (6 tiers, `rarityOf`; dinos = mythic, unlisted = common). BIOME_ANIMALS weights x `RARITIES[tier].spawn`. Name tags: one Sprite per animal (`tagMaterial` cached per name+tier text), resized every frame in `_sizeTags` to stay the same on-screen size past TAG_NEAR. i18n `animal<Kind>` + `rarity<Tier>`.
+- Map tiles (OpenWorld._drawTile): (S+2)^2 samples; 3x3 colour blend within the same class (land / water / built-or-path via `_lastMapWet`) + relief shading from `_lastMapH`. BuildTryMode draws open-world tiles with smoothing (city picture stays crisp).
+- You Died buttons: Respawn / Leave Game when dead (`buildPlayRespawnBtn`, `buildPlayLeaveBtn`); a win keeps Play Again / Back to Menu.

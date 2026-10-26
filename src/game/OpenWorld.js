@@ -1373,6 +1373,11 @@ export class OpenWorld {
     return tile
   }
 
+  // Looks like a real map, not blocks (2026-10-26, Gaymi: "make it not so
+  // blocky more realistic type map"): each spot's colour is softened with
+  // its 8 neighbours (no single-block speckle), and hills are lit from the
+  // top-left like a relief map - slopes facing the light brighter, the
+  // far sides darker. The big map then draws the tiles smoothly.
   _drawTile(tx, tz, T, S) {
     const step = T / S
     const canvas = document.createElement('canvas')
@@ -1380,16 +1385,57 @@ export class OpenWorld {
     canvas.height = S
     const ctx = canvas.getContext('2d')
     const img = ctx.createImageData(S, S)
-    for (let i = 0; i < S; i++) {
-      for (let j = 0; j < S; j++) {
+    // Colours and heights one ring wider than the tile, so blending and
+    // shading match across tile edges.
+    const W = S + 2
+    const col = new Int32Array(W * W).fill(-1)
+    const hgt = new Float32Array(W * W)
+    const wet = new Uint8Array(W * W)
+    for (let i = -1; i <= S; i++) {
+      for (let j = -1; j <= S; j++) {
         const x = tx * T + Math.floor(i * step + step / 2)
         const z = tz * T + Math.floor(j * step + step / 2)
-        const o = (j * S + i) * 4
         if (inCity(x, z)) continue
-        const color = this._cellColor(x, z)
-        img.data[o] = (color >> 16) & 255
-        img.data[o + 1] = (color >> 8) & 255
-        img.data[o + 2] = color & 255
+        const g = (j + 1) * W + i + 1
+        col[g] = this._cellColor(x, z)
+        hgt[g] = this._lastMapH
+        wet[g] = this._lastMapWet
+      }
+    }
+    // Relief: height change per map pixel in blocks, scaled so a gentle
+    // hill shows and a cliff doesn't go black.
+    const relief = Math.min(1, 1.6 / step)
+    for (let i = 0; i < S; i++) {
+      for (let j = 0; j < S; j++) {
+        const g = (j + 1) * W + i + 1
+        if (col[g] < 0) continue
+        let r = 0
+        let gg = 0
+        let b = 0
+        let n = 0
+        for (let dj = -1; dj <= 1; dj++) {
+          for (let di = -1; di <= 1; di++) {
+            const q = g + dj * W + di
+            // Land, water and built things (houses, paths) aren't blended
+            // into each other: shores and roads stay clean lines.
+            if (col[q] < 0 || wet[q] !== wet[g]) continue
+            const w = di || dj ? 1 : 2
+            r += ((col[q] >> 16) & 255) * w
+            gg += ((col[q] >> 8) & 255) * w
+            b += (col[q] & 255) * w
+            n += w
+          }
+        }
+        let shade = 1
+        if (wet[g] !== 1) {
+          const dx = (hgt[g + 1] - hgt[g - 1]) * relief
+          const dz = (hgt[g + W] - hgt[g - W]) * relief
+          shade = Math.max(0.6, Math.min(1.3, 1 - (dx + dz) * 0.07))
+        }
+        const o = (j * S + i) * 4
+        img.data[o] = (r / n) * shade
+        img.data[o + 1] = (gg / n) * shade
+        img.data[o + 2] = (b / n) * shade
         img.data[o + 3] = 255
       }
     }
@@ -1405,15 +1451,23 @@ export class OpenWorld {
     const plan = this._plansOver(x, z, x, z, 0, true)[0]
     const built = plan?.top.get(`${x},${z}`)
     const s = sampleLand(x, z)
+    // For _drawTile's relief shading and shores.
+    this._lastMapH = built ? built.y : Math.max(s.h, s.w)
+    this._lastMapWet = built ? 2 : s.h < s.w ? 1 : 0
     if (built && built.type !== 'water') {
       const c = this._typeColor(built.type)
       const k = 0.72 + 0.28 * clamp01((built.y + 6) / 40)
       return (Math.round(((c >> 16) & 255) * k) << 16) | (Math.round(((c >> 8) & 255) * k) << 8) | Math.round((c & 255) * k)
     }
-    if (plan?.paths.has(`${x},${z}`) && s.h >= s.w) return this._typeColor(plan.paths.get(`${x},${z}`))
+    if (plan?.paths.has(`${x},${z}`) && s.h >= s.w) {
+      this._lastMapWet = 2
+      return this._typeColor(plan.paths.get(`${x},${z}`))
+    }
+    const onPath = s.h >= s.w && this._onPath(x, z)
+    if (onPath) this._lastMapWet = 2
     let color
     if (s.h < s.w) color = s.biome === 'frozenOcean' ? 0xb5d3f0 : s.biome === 'warmOcean' ? 0x3fb6c8 : s.h < SEA - 9 ? 0x1f4f9a : 0x3368c6
-    else color = this._typeColor(this._onPath(x, z) ? 'dirtpath' : surface(s, x, z).top)
+    else color = this._typeColor(onPath ? 'dirtpath' : surface(s, x, z).top)
     const shade = s.h < s.w ? 1 : 0.72 + 0.28 * clamp01((s.h + 6) / 40)
     return (Math.round(((color >> 16) & 255) * shade) << 16) | (Math.round(((color >> 8) & 255) * shade) << 8) | Math.round((color & 255) * shade)
   }

@@ -383,8 +383,10 @@ function leaves(px, base, r) {
 function water(px, base, r) {
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
-      const wave = (y + Math.round(Math.sin((x * Math.PI) / 4) * 1.2) + 16) % 8
-      px.set(x, y, mul(base, wave === 0 ? 1.18 : wave === 1 ? 1.08 : 1 + r() * 0.03))
+      // Softer, wider ripples and no speckle (2026-10-26, "more clear and
+      // clean") - this picture is what Potato and Simple show.
+      const wave = Math.sin(((y + Math.sin((x * Math.PI) / 8) * 1.5) * Math.PI) / 4)
+      px.set(x, y, mul(base, 1.02 + 0.06 * Math.max(0, wave) + r() * 0.008))
     }
   }
 }
@@ -1320,7 +1322,7 @@ export function textureDetail() {
 // Changes the detail and forgets every picture made at the old one (the
 // atlas is redrawn by BlockChunks.redrawAtlas).
 export function setTextureDetail(n) {
-  n = n === 1 ? 1 : 2
+  n = n === 1 ? 1 : n === 4 ? 4 : 2
   if (n === DETAIL) return false
   DETAIL = n
   cache.clear()
@@ -1329,8 +1331,85 @@ export function setTextureDetail(n) {
 }
 function detailFace(src, seed) {
   if (DETAIL === 1) return src
+  const crisp = crispFace(src, seed)
+  return DETAIL === 4 ? realFace(crisp, seed) : crisp
+}
+
+// Natural unevenness (2026-10-26, Gaymi: "all texture packs have a big
+// upgrade more realistic"): soft lighter and darker patches a few pixels
+// across, wrapping round the picture so neighbouring blocks still join.
+// -> brightness factor around 1 for pixel (x, y) of an m x m picture.
+function patchNoise(seed, m) {
+  const r = rng(seed ^ 0x5bd1)
+  const grids = [4, 8].map((g) => ({ g, v: Array.from({ length: g * g }, () => r()) }))
+  const smooth = (t) => t * t * (3 - 2 * t)
+  return (x, y) => {
+    let sum = 0
+    for (const [k, { g, v }] of grids.entries()) {
+      const fx = (x / m) * g
+      const fy = (y / m) * g
+      const x0 = Math.floor(fx)
+      const y0 = Math.floor(fy)
+      const tx = smooth(fx - x0)
+      const ty = smooth(fy - y0)
+      const at = (a, b) => v[((b + g) % g) * g + ((a + g) % g)]
+      const n = (at(x0, y0) * (1 - tx) + at(x0 + 1, y0) * tx) * (1 - ty) + (at(x0, y0 + 1) * (1 - tx) + at(x0 + 1, y0 + 1) * tx) * ty
+      sum += (n - 0.5) * (k === 0 ? 0.6 : 0.4)
+    }
+    return 1 + sum
+  }
+}
+
+// In Real Life's pictures (2026-10-26, Gaymi picked "near photo-real" on
+// the top level): the 32x32 picture doubled to 64x64 with smooth blending
+// instead of hard pixel steps, then a fine natural grain and a light
+// sharpen so it reads as a real surface (stone, bark, soil) up close.
+// See-through faces (glass, leaves) are just doubled crisp, so their holes
+// stay clean.
+function realFace(src, seed) {
   const n = src.width
-  const m = n * DETAIL
+  const m = n * 2
+  const sd = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, n, n).data
+  const out = new Uint8ClampedArray(m * m * 4)
+  let opaque = true
+  for (let i = 3; i < sd.length; i += 4) if (sd[i] < 255) opaque = false
+  const at = (x, y, c) => sd[((((y + n) % n) * n + ((x + n) % n)) * 4) + c]
+  const r = rng(seed ^ 0x9e37)
+  const patch = patchNoise(seed ^ 0x77, m)
+  for (let y = 0; y < m; y++) {
+    for (let x = 0; x < m; x++) {
+      const o = (y * m + x) * 4
+      if (!opaque) {
+        for (let c = 0; c < 4; c++) out[o + c] = at(x >> 1, y >> 1, c)
+        continue
+      }
+      // Smooth (bilinear) between the 4 nearest pixels, wrapping round.
+      const fx = (x + 0.5) / 2 - 0.5
+      const fy = (y + 0.5) / 2 - 0.5
+      const x0 = Math.floor(fx)
+      const y0 = Math.floor(fy)
+      const tx = fx - x0
+      const ty = fy - y0
+      const g = (1 + (r() - 0.5) * 0.06) * (1 + (patch(x, y) - 1) * 0.6)
+      for (let c = 0; c < 3; c++) {
+        const lin = (at(x0, y0, c) * (1 - tx) + at(x0 + 1, y0, c) * tx) * (1 - ty) + (at(x0, y0 + 1, c) * (1 - tx) + at(x0 + 1, y0 + 1, c) * tx) * ty
+        // Light sharpen: push away from the blend toward the nearest pixel.
+        const near = at(Math.round(fx), Math.round(fy), c)
+        out[o + c] = (lin * 0.7 + near * 0.3) * g
+      }
+      out[o + 3] = 255
+    }
+  }
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = m
+  canvas.getContext('2d', { willReadFrequently: true }).putImageData(new ImageData(out, m, m), 0, 0)
+  return canvas
+}
+
+// The 32x32 detailed picture (every level from Simple up).
+function crispFace(src, seed) {
+  const n = src.width
+  const m = n * 2
   const sd = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, n, n).data
   const at = (x, y) => (((y + n) % n) * n + ((x + n) % n)) * 4
   const same = (a, b) => sd[a] === sd[b] && sd[a + 1] === sd[b + 1] && sd[a + 2] === sd[b + 2] && sd[a + 3] === sd[b + 3]
@@ -1362,9 +1441,10 @@ function detailFace(src, seed) {
   }
   if (opaque) {
     const r = rng(seed)
+    const patch = patchNoise(seed, m)
     for (let y = 0; y < m; y++) {
       for (let x = 0; x < m; x++) {
-        let f = 1 + (r() - 0.5) * 0.07
+        let f = (1 + (r() - 0.5) * 0.07) * (1 + (patch(x, y) - 1) * 0.45)
         // The rim: two pixels deep, the outer one stronger.
         const lt = Math.min(x, y)
         const rb = Math.min(m - 1 - x, m - 1 - y)

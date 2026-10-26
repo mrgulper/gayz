@@ -2519,7 +2519,7 @@ test('animals, held blocks, sky top bar, no spectate banner, What\'s New card', 
     bm.toggleMenu()
     return out
   })
-  expect(r).toEqual({ spawned: true, snow: ['arcticFox', 'muskox', 'polarBear', 'reindeer', 'snowyOwl'], desert: ['armadillo', 'camel', 'coyote', 'gecko', 'lizard', 'scorpion', 'snake'], sea: true, allBuilt: true, cowsOnlyWarm: ['city', 'mushroomFields', 'plains'], stillHere: true, tamed: true, petSafe: true, follows: true, meat: true, healed: true, handBlock: true, weather: true, time: true, nightVar: true, noBanner: true })
+  expect(r).toEqual({ spawned: true, snow: ['arcticFox', 'hare', 'husky', 'muskox', 'polarBear', 'reindeer', 'snowyOwl'], desert: ['armadillo', 'camel', 'cobra', 'coyote', 'fennecFox', 'gecko', 'jackal', 'lizard', 'roadrunner', 'scorpion', 'snake', 'tortoise', 'vulture'], sea: true, allBuilt: true, cowsOnlyWarm: ['city', 'mushroomFields', 'plains'], stillHere: true, tamed: true, petSafe: true, follows: true, meat: true, healed: true, handBlock: true, weather: true, time: true, nightVar: true, noBanner: true })
 })
 
 // The spawn map's countries -> states/provinces -> cities (2026-10-18):
@@ -3235,4 +3235,61 @@ test('far grass, cracks on bumpy tops, puffy and falling leaves, dinosaurs', asy
   expect(r.rexTall).toBeGreaterThan(4)
   expect(r.rexTall).toBeLessThan(6)
   expect(r.brachioTall).toBeGreaterThan(12)
+})
+
+// 2026-10-26: 50 more animals, every animal with a rarity (6 tiers) and
+// its name over it, rarer ones turning up less.
+test('50 new animals, rarities and name tags', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    const out = {}
+    bm.placeBlock(0, 1, 0, 'playerstart', false, { facing: 0 })
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    s._toSpawn = 0
+    const A = s.animals
+    const P = A.constructor
+    const K = P.KINDS
+    const NEW_KINDS = P.NEW_KINDS
+    const rarityOf = (id) => P.rarityOf(id)
+    const STRINGS = P.STRINGS
+    const animalNameKey = (id) => `animal${id[0].toUpperCase()}${id.slice(1)}`
+    out.newCount = Object.keys(NEW_KINDS).length
+    out.allIn = Object.keys(NEW_KINDS).every((id) => K[id])
+    // Every new animal and rarity has its name in all four languages.
+    out.unnamed = []
+    for (const lang of ['en', 'zh', 'hi', 'es']) {
+      for (const id of Object.keys(NEW_KINDS)) if (!STRINGS[lang][animalNameKey(id)]) out.unnamed.push(`${lang}:${id}`)
+      for (const tier of ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic']) if (!STRINGS[lang][`rarity${tier}`]) out.unnamed.push(`${lang}:${tier}`)
+    }
+    out.tiers = [...new Set(Object.keys(K).map((id) => rarityOf(id)))].sort()
+    // Rarer animals turn up less: a legendary Black Panther far less often
+    // than an epic Gorilla in the jungle.
+    const jungle = A.constructor.BIOME_ANIMALS.jungle
+    out.pantherVsGorilla = jungle.blackPanther / jungle.gorilla
+    // Name tags: one over each animal, its name shown, readable far away.
+    A.clearAll()
+    const me = s.bodyPos()
+    const a = A.spawn('okapi', me.x + 3, me.y, me.z)
+    A.update(1 / 30, { wild: false })
+    out.hasTag = !!a.tag && a.tag.visible && a.tag.parent === a.group
+    const near = a.tag.scale.x
+    a.x = me.x + 60
+    A.update(1 / 30, { wild: false })
+    out.farBigger = a.tag.scale.x > near * 2
+    return out
+  })
+  expect(r.newCount).toBe(50)
+  expect(r.allIn).toBe(true)
+  expect(r.unnamed).toEqual([])
+  expect(r.tiers).toEqual(['common', 'epic', 'legendary', 'mythic', 'rare', 'uncommon'])
+  expect(r.pantherVsGorilla).toBeLessThan(0.5)
+  expect(r.hasTag).toBe(true)
+  expect(r.farBigger).toBe(true)
 })

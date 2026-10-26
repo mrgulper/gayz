@@ -211,16 +211,22 @@ test('graphics levels: picked for the device, cards switch the look', async ({ p
     g._applyGraphicsLevel('irl')
     await new Promise((d) => requestAnimationFrame(() => requestAnimationFrame(d)))
     const real = fx.real.value
+    const irlDetail = textureDetail()
+    const irlAtlas = g.buildMode._chunks.atlas.image.width
     g._applyGraphicsLevel('potato')
     await new Promise((d) => requestAnimationFrame(() => requestAnimationFrame(d)))
     const potato = { res: g.settings.renderResolution, real: fx.real.value, detail: textureDetail() }
-    return { guesses, picked, cards, simple, plain, ...ultra, real, potato }
+    return { guesses, picked, cards, simple, plain, ...ultra, real, irlDetail, irlAtlas, potato }
   })
   expect(r.guesses).toEqual(['potato', 'simple', 'balanced', 'realistic', 'ultra'])
   expect(r.picked).toBe(true)
   expect(r.cards).toBe(7)
   expect(r.simple).toEqual({ view: 'short', shadows: false, select: 'short' })
-  expect(r.plain).toBe(1)
+  // Simple got the detailed pictures too (2026-10-26); In Real Life the
+  // smooth 64x64 ones in a double-size atlas.
+  expect(r.plain).toBe(2)
+  expect(r.irlDetail).toBe(4)
+  expect(r.irlAtlas).toBe(4096)
   expect(r.detail).toBe(2)
   expect(r.sway).toBe(true)
   expect(r.waves).toBe(true)
