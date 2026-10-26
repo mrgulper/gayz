@@ -978,6 +978,14 @@ html.layout-compact .menu-panel {
 html.ui-theme-old #cloudsave-region-select {
   background: rgba(255, 255, 255, 0.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0L5 6L10 0Z' fill='%23c2884f'/%3E%3C/svg%3E") no-repeat right 6px center;
 }
+/* On General's paper: dark ink on a light tint (light grey text was
+   nearly invisible there, 2026-10-26). */
+html.ui-theme-old .panel-box #cloudsave-region-select {
+  color: var(--old-ink);
+  background-color: rgba(255, 248, 230, 0.55);
+  border-color: rgba(74, 44, 16, 0.45);
+  font-weight: 600;
+}
 
 /* Two-column split: left = add-friend form (+ your own ID, DND/hide
    toggles), right = your friends list with live status. Stacks to one
@@ -3297,7 +3305,7 @@ section.category#coming-soon > h2 {
 
 .feature.coming-soon h3::after {
   content: 'COMING SOON';
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.5px;
   color: var(--soon-gold);
@@ -3307,6 +3315,18 @@ section.category#coming-soon > h2 {
   padding: 2px 7px;
   margin-left: 10px;
   vertical-align: middle;
+}
+
+/* Old theme: the pale gold tag vanished on the paper (2026-10-26, Gaymi:
+   "the coming soon you cant really see it") - a solid ink-brown tag with
+   paper-coloured letters instead, and darker dashed card edges. */
+html.ui-theme-old #features-panel .feature.coming-soon h3::after {
+  color: #f6e9c8;
+  background: #5b3416;
+  border-color: #3f230c;
+}
+html.ui-theme-old #features-panel .feature.coming-soon {
+  border-color: rgba(74, 44, 16, 0.45);
 }
 
 .features-coming-soon-note {
@@ -6794,13 +6814,17 @@ html.ui-theme-old #menu-player-badge {
   background: url('./menu-art/old-profile-plate.webp') center / 100% 100% no-repeat;
   /* A little darker and harder than the raw picture (2026-10-04, "not so
      bright" - Gaymi's mockup). */
-  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6)) brightness(0.88) contrast(1.1);
+  /* Bright by default (2026-10-26, Gaymi: "make it default as the first
+     image bright") - what used to be its pointed-at look. */
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6)) brightness(1.02) contrast(1.1);
 }
 
+/* Pointing at it brightens it more, with the same glow as General,
+   Store, Market... */
 html.ui-theme-old #menu-player-badge:hover,
 html.ui-theme-old #menu-player-badge.nav-hover,
 html.ui-theme-old #menu-player-badge:focus-visible {
-  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6)) brightness(1.02) contrast(1.1);
+  filter: brightness(1.18) contrast(1.1) drop-shadow(0 0 10px rgba(var(--ui-gold-accent-rgb), 0.45));
 }
 
 html.ui-theme-old #menu-avatar-icon {
@@ -7398,6 +7422,57 @@ html.ui-theme-clean #menu-nav-buttons button {
 html.ui-theme-old #footer-menu .footer-menu-title {
   font-family: 'Rye', Georgia, serif;
   font-weight: 400;
+}
+
+/* Old theme hover cards are old paper (2026-10-26, Gaymi). The bottom
+   links' wide card uses the panels' burnt parchment (its torn edges are
+   see-through, hence the drop shadow and extra padding). The narrow
+   right-column / Game Mode / Settings cards get their own aged note
+   paper drawn in CSS - the burnt parchment squashed into a narrow card
+   didn't fit. Dark ink on both. Same sizes as Simple's cards. */
+html.ui-theme-old #footer-menu {
+  color: var(--old-ink);
+  border: none;
+  box-shadow: none;
+}
+html.ui-theme-old #footer-menu[data-place="footer"] {
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
+  border-radius: 0;
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.65));
+  padding: 40px 64px 44px;
+}
+html.ui-theme-old #footer-menu:is([data-place="side"], [data-place="beside"]) {
+  background:
+    radial-gradient(ellipse at 18% 12%, rgba(120, 72, 24, 0.16), transparent 42%),
+    radial-gradient(ellipse at 86% 78%, rgba(110, 64, 20, 0.2), transparent 38%),
+    radial-gradient(circle at 70% 22%, rgba(150, 95, 40, 0.1) 0 7%, transparent 8%),
+    radial-gradient(ellipse at center, transparent 52%, rgba(92, 52, 16, 0.42) 100%),
+    var(--grain-texture),
+    linear-gradient(172deg, #efdfb6 0%, #e4cf9c 48%, #d9c08a 100%);
+  border-radius: 3px 6px 4px 7px;
+  box-shadow:
+    inset 0 0 0 1px rgba(98, 60, 22, 0.35),
+    inset 0 0 18px rgba(98, 56, 18, 0.35),
+    0 10px 24px rgba(0, 0, 0, 0.55);
+  /* A slightly uneven, worn edge. */
+  clip-path: polygon(0 1.5%, 6% 0, 22% 0.8%, 41% 0, 63% 0.9%, 82% 0.1%, 100% 1%, 99.4% 18%, 100% 41%, 99.2% 66%, 100% 88%, 99.5% 100%, 78% 99.2%, 55% 100%, 31% 99.1%, 12% 100%, 0.4% 99.3%, 0.9% 76%, 0 52%, 0.7% 27%);
+}
+html.ui-theme-old #footer-menu .footer-menu-title {
+  color: #3a210b;
+}
+html.ui-theme-old #footer-menu .footer-menu-sections button {
+  color: var(--old-ink);
+}
+html.ui-theme-old #footer-menu:is([data-place="side"], [data-place="beside"]) .footer-menu-title {
+  padding-bottom: 6px;
+  border-bottom: 1px dashed rgba(74, 44, 16, 0.45);
+  align-self: stretch;
+}
+html.ui-theme-old #footer-menu button:hover {
+  color: #000;
+  text-decoration: underline;
+  text-decoration-color: rgba(74, 44, 16, 0.55);
+  text-underline-offset: 3px;
 }
 
 /* What's New badge dot - purely an absolute-positioned overlay, zero
@@ -8310,6 +8385,43 @@ html.ui-theme-old #settings-panel h2 {
 /* The leaderboards' headings line up on the left like the rows (2026-10-24). */
 #cloudsave-online-section {
   text-align: left;
+}
+
+/* Leaderboard fills General's whole width in two columns (2026-10-26,
+   Gaymi: "its like for a phone ... doesnt fit good"): your stats + the
+   main board on the left, Nearby Rank / Most Achievements / Weekly /
+   poll on the right. One scroll for the whole tab (the tab page's own),
+   not a second one inside it. Under 760px wide they stack. */
+#general-page-general {
+  width: 100%;
+}
+#general-page-general #cloudsave-section {
+  width: 100%;
+  padding: 4px 8px 16px;
+  box-sizing: border-box;
+}
+#cloudsave-online-section {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  column-gap: 40px;
+  row-gap: 8px;
+  max-height: none;
+  overflow: visible;
+}
+#cloudsave-online-section > .lb-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+#cloudsave-online-section > .lb-column:last-child > h3:first-child {
+  margin-top: 0;
+}
+@media (max-width: 760px) {
+  #cloudsave-online-section {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* General/Market are just an unstyled "Coming soon." line by default,

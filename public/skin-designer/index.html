@@ -405,6 +405,14 @@
   .color-well::-webkit-color-swatch { border: none; border-radius: 999px; }
   .color-well::-moz-color-swatch { border: none; border-radius: 999px; }
   .color-well { width: 40px; }
+  /* Buttons are rounded squares (2026-10-26, Gaymi: "make all the buttons
+     the square oval type buttons") - text boxes and dropdowns stay ovals
+     like the game's. */
+  button.tbtn, .btn, .slot-card, .slot-bar button, .export-card .btn,
+  .ai-edit .tbtn, .arm-switch .tbtn { border-radius: 9px; }
+  .color-well { border-radius: 9px; }
+  .color-well::-webkit-color-swatch { border-radius: 6px; }
+  .color-well::-moz-color-swatch { border-radius: 6px; }
   .hex-input { width: 88px; }
   .hex-input, .prompt-input { padding-left: 12px; padding-right: 12px; }
 </style>
