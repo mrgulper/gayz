@@ -13,6 +13,9 @@
 //   - press Use (E) while looking at one to tame it: it gets a red collar,
 //     follows you (catching up if left far behind), is never hurt by your
 //     shots and never goes away until the game ends.
+// Dinosaurs (DinoKinds.js, 2026-10-26) are rare - DINO_CHANCE of what
+// turns up in their biomes; the meat-eaters among them chase and bite you
+// (_hunt), and none can be tamed.
 // Zombies leave animals alone. Blocky models made from boxes, sizes like
 // the real animals (smaller than a player). Meshes only, never a light;
 // geometries and materials are shared per kind and never flashed.
@@ -27,6 +30,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { t } from './i18n.js'
 import { sampleLand, inCity } from './OpenWorld.js'
 import { MORE_KINDS, MORE_BIOME_ANIMALS } from './AnimalKinds.js'
+import { DINO_KINDS, DINO_BIOMES, DINO_CHANCE } from './DinoKinds.js'
 
 export const MAX_WILD = 12
 // Animals a server's sync carries at most (api/_lib/servers.js MAX_ANIMALS).
@@ -44,6 +48,13 @@ const TAME_REACH = 4.5
 const PET_NEAR = 3 // a pet stops this close to you
 const PET_TELEPORT = 30
 const DIE_S = 0.9
+// Meat-eating dinosaurs (DinoKinds.js): chase a player this close (further
+// once shot), bite when this close to their snout, this often.
+const HUNT_RANGE = 24
+const ANGRY_RANGE = 60
+const ANGRY_S = 15
+const BITE_REACH = 1.3
+const BITE_EVERY_S = 1.4
 
 // Body sizes in blocks: w (side to side), h (height), l (length), leg
 // height; head size; colors; health; meat dropped. Optional: legs (2 or
@@ -160,7 +171,7 @@ const KINDS = {
 }
 // The rest of Gaymi's list (AnimalKinds.js), and health/meat from size
 // for the ones that don't say.
-Object.assign(KINDS, MORE_KINDS)
+Object.assign(KINDS, MORE_KINDS, DINO_KINDS)
 for (const k of Object.values(KINDS)) {
   const vol = k.body[0] * k.body[1] * k.body[2]
   if (k.health === undefined) k.health = Math.max(4, Math.min(70, Math.round(vol * 40) + 6))
@@ -510,6 +521,9 @@ export class PlayAnimals {
       this._spawnIn = SPAWN_EVERY_S
       this._spawnGroup(centers[Math.floor(Math.random() * centers.length)])
     }
+    // Who the meat-eating dinosaurs can go for: me (playing, alive) and,
+    // as a server's host, the other players.
+    this._prey = s.active && !s.dead && !s.spectating ? [me, ...others] : others
     for (const a of [...this.list]) {
       if (a.dying) {
         a.dieT += dt
@@ -531,6 +545,7 @@ export class PlayAnimals {
     const s = this.s
     const B = s.B
     let speed = 0
+    let hunting
     const dx = me.x - a.x
     const dz = me.z - a.z
     const dist = Math.hypot(dx, dz)
@@ -544,6 +559,8 @@ export class PlayAnimals {
         a.heading = Math.atan2(dx, dz)
         speed = dist > 8 ? RUN : WALK * 2
       }
+    } else if (KINDS[a.kind].hunts && (hunting = this._hunt(a, dt))) {
+      speed = hunting === 'chase' ? RUN : 0
     } else if (a.flee > 0) {
       a.flee -= dt
       a.heading = Math.atan2(-dx, -dz) + Math.sin(a.flee * 3) * 0.4
@@ -569,7 +586,9 @@ export class PlayAnimals {
       const lift = k.fly || 0
       const ground = s._groundUnder(nx, a.y - lift + 1.1, nz)
       const wet = this.bm._cellIsLiquid(Math.floor(nx), Math.floor(ground + 0.01), Math.floor(nz))
-      if (ground > a.y - lift + 1.05 || (!lift && ground < a.y - 3) || (wet && !lift)) {
+      // Big dinosaurs step over a two-block wall.
+      const step = k.leg > 1.5 ? 2.05 : 1.05
+      if (ground > a.y - lift + step || (!lift && ground < a.y - 3) || (wet && !lift)) {
         // A wall, a drop or water: turn and try another way.
         a.heading += Math.PI * (0.5 + Math.random())
         a.think = Math.min(a.think, 0.5)
@@ -593,7 +612,45 @@ export class PlayAnimals {
     a.hurt = Math.max(0, a.hurt - dt)
     a.group.rotation.x = -a.hurt * 1.2
     a.head.rotation.x = speed === 0 && !a.tamed ? Math.max(0, Math.sin(a.walk * 0.1 + a.seed)) * 0.5 : 0
+    // A bite snaps the head down.
+    if (a.biteT > 0) {
+      a.biteT -= dt
+      a.head.rotation.x = Math.sin(Math.max(0, a.biteT) / 0.25 * Math.PI) * 0.5
+    }
     a.group.position.set(a.x * B, a.y * B, a.z * B)
+  }
+
+  // A meat-eating dinosaur: heads for the nearest player it can see and
+  // bites when its snout is close. 'chase', 'bite' (close: stands and
+  // snaps instead of pushing into you) or null (nobody near: it wanders).
+  _hunt(a, dt) {
+    const k = KINDS[a.kind]
+    a.biteIn = Math.max(0, (a.biteIn || 0) - dt)
+    a.angry = Math.max(0, (a.angry || 0) - dt)
+    const range = a.angry > 0 ? ANGRY_RANGE : HUNT_RANGE
+    let prey = null
+    let best = range
+    for (const p of this._prey || []) {
+      const d = Math.hypot(p.x - a.x, p.z - a.z)
+      if (d < best && Math.abs(p.y - a.y) < 10) {
+        best = d
+        prey = p
+      }
+    }
+    if (!prey) return null
+    a.heading = Math.atan2(prey.x - a.x, prey.z - a.z)
+    // Its snout: the front of its head.
+    const [headY, headZ] = k.headAt
+    const snout = headZ + k.head[2] / 2
+    if (best < snout + BITE_REACH && prey.y < a.y + headY + 1 && a.biteIn <= 0) {
+      a.biteIn = BITE_EVERY_S
+      a.biteT = 0.25
+      const s = this.s
+      if (prey.remote) {
+        if (!s.camp?.inside(prey.x, prey.z)) s.net?.queueHurt(prey.remote, k.bite)
+      } else s._hurtPlayer(k.bite)
+    }
+    return best > snout + BITE_REACH * 0.5 ? 'chase' : 'bite'
   }
 
   // In water: no gravity, it only goes where there is still water (and
@@ -650,7 +707,11 @@ export class PlayAnimals {
   kindAt(x, z, wet = false) {
     const fx = Math.floor(x)
     const fz = Math.floor(z)
-    const all = BIOME_ANIMALS[inCity(fx, fz) ? 'city' : sampleLand(fx, fz).biome] || {}
+    const biome = inCity(fx, fz) ? 'city' : sampleLand(fx, fz).biome
+    // Now and then (DINO_CHANCE) a dinosaur that lives here instead.
+    const dinos = !wet && DINO_BIOMES[biome]
+    if (dinos && Math.random() < DINO_CHANCE) return dinos[Math.floor(Math.random() * dinos.length)]
+    const all = BIOME_ANIMALS[biome] || {}
     const table = {}
     for (const id in all) if (!!KINDS[id].swim === wet) table[id] = all[id]
     const ids = Object.keys(table)
@@ -687,7 +748,8 @@ export class PlayAnimals {
       }
       return made
     }
-    const n = 1 + Math.floor(Math.random() * 3)
+    // Dinosaurs come alone.
+    const n = KINDS[kind].dino ? 1 : 1 + Math.floor(Math.random() * 3)
     let made = 0
     for (let i = 0; i < n && this.list.length < MAX_WILD + 20; i++) {
       const x = cx + (Math.random() - 0.5) * 6
@@ -781,7 +843,9 @@ export class PlayAnimals {
     if (a.dying || a.tamed) return
     a.health -= amount
     a.hurt = 0.25
-    a.flee = FLEE_S
+    // A meat-eating dinosaur gets angry instead of running.
+    if (KINDS[a.kind].hunts) a.angry = ANGRY_S
+    else a.flee = FLEE_S
     if (a.health > 0) return
     a.dying = true
     a.legs.forEach((leg) => { leg.rotation.x = 0 })
@@ -799,7 +863,8 @@ export class PlayAnimals {
     bm.camera.updateMatrixWorld()
     bm._raycaster.setFromCamera({ x: 0, y: 0 }, bm.camera)
     const a = this._onRay(bm._raycaster.ray, TAME_REACH * this.s.B, { wildOnly: true })
-    if (!a) return false
+    // Dinosaurs can't be tamed.
+    if (!a || KINDS[a.kind].dino) return false
     // On a server and not the host: the host tames it for me.
     const net = this._net
     if (net && !net.isHost) net.queueAnimalHit(a.netId, 0, true)

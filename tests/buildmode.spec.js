@@ -3085,3 +3085,154 @@ test('new zombie kinds: sizes, the bloater bursts, spiders climb', async ({ page
   expect(r.spiderTop).toBeGreaterThan(4.5)
   expect(r.campTop).toBeLessThan(3)
 })
+
+// 2026-10-26: grass 100 blocks out, crack on every face (on the lumps
+// too), puffy leaves, falling leaves and half-chance leaf drops, a
+// friendly spider out of the waves, 16 more animals and 20 rare
+// dinosaurs whose meat-eaters chase and bite.
+test('far grass, cracks on bumpy tops, puffy and falling leaves, dinosaurs', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    const B = bm._chunks.blockSize
+    const out = {}
+    g._applyGraphicsLevel('irl')
+    bm._applyGraphicsLook()
+    // A flat field of grass 60 blocks out from x=0: tufts reach it.
+    for (let x = -2; x <= 70; x++) for (let z = -2; z <= 2; z++) bm._placeBlockInner(x, 0, z, 'grass')
+    bm.camera.position.set(0.5 * B, 2.6 * B, 0.5 * B)
+    const gt = bm.grassTufts
+    gt.clear()
+    for (let i = 0; i < 200; i++) gt.update(1 / 60)
+    let far = 0
+    const m = new (bm.camera.matrix.constructor)()
+    for (let i = 0; i < gt.mesh.count; i++) {
+      gt.mesh.getMatrixAt(i, m)
+      far = Math.max(far, m.elements[12] / B)
+    }
+    out.grassFar = Math.round(far)
+    // Leaves: puffed out (points beyond the block's face), no flat cards.
+    bm._placeBlockInner(-20, 5, -20, 'leaves')
+    const ch = bm._chunks
+    ch.flush(bm._chunkCells)
+    let puff = 0
+    for (const c of ch.chunks.values()) {
+      const mesh = c.meshes.find((mm) => mm.material === ch.materials.cutout)
+      const pos = mesh?.geometry.attributes.position
+      if (!pos) continue
+      for (let i = 0; i < pos.count; i++) {
+        const x = (pos.getX(i) + mesh.position.x) / B
+        const y = (pos.getY(i) + mesh.position.y) / B
+        const z = (pos.getZ(i) + mesh.position.z) / B
+        if (x < -21 || x > -18 || z < -21 || z > -18) continue
+        puff = Math.max(puff, y - 6, -20 - x, x + 19)
+      }
+    }
+    out.leafPuff = Math.round(puff * 100) / 100
+    // Breaking crack: its top follows the bumpy top (above 1.0).
+    bm._placeBlockInner(5, 3, 5, 'stone')
+    const dig = { x: 5, y: 3, z: 5, type: 'stone' }
+    bm.tryMode._showDigCrack(dig, 0.5)
+    const pos = bm.tryMode._digMesh.geometry.attributes.position
+    let top = 0
+    for (let i = 0; i < pos.count; i++) top = Math.max(top, pos.getY(i) / B + 0.5)
+    out.crackTop = top
+    out.crackFaces = pos.count
+    // Water corners: never cut out any more.
+    out.waterCut = String(ch.materials.water.onBeforeCompile).includes('discard')
+    // Falling leaves come off the leaf block above and land.
+    const fl = bm.fallingLeaves
+    fl.clear()
+    bm.camera.position.set(-19.5 * B, 3 * B, -19.5 * B)
+    for (let x = -24; x <= -16; x++) for (let z = -24; z <= -16; z++) bm._placeBlockInner(x, 6, z, 'leaves')
+    for (let i = 0; i < 5000 && !fl.leaves.length; i++) fl._spawnTry()
+    out.leafFalls = fl.leaves.length > 0
+    const first = fl.leaves[0]
+    for (let x = -24; x <= -16; x++) for (let z = -24; z <= -16; z++) bm._placeBlockInner(x, 1, z, 'grass')
+    for (let i = 0; i < 300 && !first.down; i++) fl.update(1 / 30)
+    out.leafLanded = first.down && Math.abs(first.y - 2.02) < 0.05
+    // Start a game: animals.
+    bm.placeBlock(0, 1, 0, 'playerstart', false, { facing: 0 })
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    s._toSpawn = 0
+    const A = s.animals
+    const K = A.constructor.KINDS
+    out.dinos = Object.values(K).filter((k) => k.dino).length
+    out.newAnimals = ['bison', 'yak', 'llama', 'alpaca', 'capybara', 'sloth', 'anteater', 'redPanda', 'jaguar', 'lynx', 'snowLeopard', 'gazelle', 'wildebeest', 'boar', 'tapir', 'mouse'].every((id) => K[id])
+    // Dinosaurs are rare: about 1 in 100 picks in a dino biome.
+    let dinoPicks = 0
+    let picks = 0
+    for (let i = 0; i < 40000; i++) {
+      const id = A.kindAt((i * 137) % 6000 - 3000, Math.floor(i / 44) * 7 - 3000)
+      if (!id) continue
+      picks++
+      if (K[id].dino) dinoPicks++
+    }
+    out.dinoShare = dinoPicks / picks
+    out.dinoSeen = dinoPicks > 0
+    // Leaf blocks drop half the time.
+    s._drops.clear?.()
+    let drops = 0
+    for (let i = 0; i < 400; i++) {
+      const before = s._drops.list.length
+      s.onBlockMined('leaves', 30, 1, 30)
+      if (s._drops.list.length > before) drops++
+      s._drops.list.forEach((d) => d.mesh.removeFromParent())
+      s._drops.list.length = 0
+    }
+    out.leafDropShare = drops / 400
+    // The spider: an animal, not a wave zombie.
+    out.spiderAnimal = !!K.spider && K.spider.body[0] > 0.5
+    s.wave = 3
+    for (let i = 0; i < 200; i++) s._spawnZombie()
+    out.zombiesMade = s.zombies.length
+    out.waveSpiders = s.zombies.filter((z) => z.kind === 'spider').length
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    // A T. rex right next to you chases and bites; you can't tame it.
+    A.clearAll()
+    const me = s.bodyPos()
+    const rex = A.spawn('tRex', me.x + 12, me.y, me.z)
+    s.health = 100
+    for (let i = 0; i < 200; i++) A.update(1 / 30, { wild: false })
+    out.rexCame = Math.hypot(rex.x - me.x, rex.z - me.z) < 12
+    out.bitten = s.health < 100
+    s.health = 100
+    // Shot: angry, doesn't run.
+    A.damage(rex, 10)
+    out.rexAngry = rex.angry > 0 && rex.flee === 0
+    // A T. rex is about 5 blocks tall, a Brachiosaurus about 13.
+    const tallOf = (kind) => { const k = K[kind]; return Math.max(k.leg + k.body[1], k.headAt[0] + k.head[1] / 2) }
+    out.rexTall = tallOf('tRex')
+    out.brachioTall = tallOf('brachiosaurus')
+    return out
+  })
+  expect(r.grassFar).toBeGreaterThan(55)
+  expect(r.leafPuff).toBeGreaterThan(0.08)
+  expect(r.crackTop).toBeGreaterThan(1.02)
+  expect(r.crackFaces).toBeGreaterThan(24)
+  expect(r.waterCut).toBe(false)
+  expect(r.leafFalls).toBe(true)
+  expect(r.leafLanded).toBe(true)
+  expect(r.dinos).toBe(20)
+  expect(r.newAnimals).toBe(true)
+  expect(r.dinoSeen).toBe(true)
+  expect(r.dinoShare).toBeLessThan(0.02)
+  expect(r.zombiesMade).toBeGreaterThan(20)
+  expect(r.leafDropShare).toBeGreaterThan(0.35)
+  expect(r.leafDropShare).toBeLessThan(0.65)
+  expect(r.spiderAnimal).toBe(true)
+  expect(r.waveSpiders).toBe(0)
+  expect(r.rexCame).toBe(true)
+  expect(r.bitten).toBe(true)
+  expect(r.rexAngry).toBe(true)
+  expect(r.rexTall).toBeGreaterThan(4)
+  expect(r.rexTall).toBeLessThan(6)
+  expect(r.brachioTall).toBeGreaterThan(12)
+})

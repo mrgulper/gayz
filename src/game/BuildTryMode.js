@@ -1347,14 +1347,13 @@ export class BuildTryMode {
     const B = this.B
     if (!this._digMesh) {
       const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.01, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
-      this._digMesh = new THREE.Mesh(new THREE.BoxGeometry(B * 1.01, B * 1.01, B * 1.01), mat)
+      this._digMesh = new THREE.Mesh(new THREE.BufferGeometry(), mat)
       this._digMesh.renderOrder = 2
     }
     if (dig.look === undefined) {
       dig.look = Math.floor(Math.random() * DIG_LOOKS)
-      // Turned a random way, so every face shows it differently too.
-      const q = () => Math.floor(Math.random() * 4) * (Math.PI / 2)
-      this._digMesh.rotation.set(q(), q(), q())
+      this._digMesh.geometry.dispose()
+      this._digMesh.geometry = this._digCrackShape(dig)
     }
     const stage = Math.min(DIG_STAGES, 1 + Math.floor(progress * DIG_STAGES))
     const map = this._digCrackTexture(dig.look, stage, bm._isWindowType(dig.type))
@@ -1366,6 +1365,54 @@ export class BuildTryMode {
     this._digMesh.position.set((dig.x + 0.5) * B, (dig.y + 0.5) * B, (dig.z + 0.5) * B)
     this._digMesh.material.opacity = 0.55 + 0.45 * progress
     this._digMesh.visible = true
+  }
+
+  // The crack's shape: the block's 6 faces a hair outside it, each with
+  // the picture turned a random way. On the bumpy graphics levels the top
+  // follows the block's lumps - a flat box top sat under them, so only
+  // the sides showed the crack (2026-10-26, Gaymi: "only 1 side breaks
+  // not all sides").
+  _digCrackShape(dig) {
+    const B = this.B
+    const e = 0.006
+    const lumps = this.bm._chunks?.lumpyTopPoints?.(dig.x, dig.y, dig.z)
+    const pos = []
+    const uv = []
+    const idx = []
+    const turnUv = (u, v, t) => (t === 0 ? [u, v] : t === 1 ? [1 - v, u] : t === 2 ? [1 - u, 1 - v] : [v, 1 - u])
+    // Each face: a grid of (n+1)^2 points from point(i/n, j/n).
+    const face = (n, point) => {
+      const t = Math.floor(Math.random() * 4)
+      const base = pos.length / 3
+      for (let j = 0; j <= n; j++) {
+        for (let i = 0; i <= n; i++) {
+          const [x, y, z, u, v] = point(i, j)
+          pos.push((x - 0.5) * B, (y - 0.5) * B, (z - 0.5) * B)
+          uv.push(...turnUv(u, v, t))
+        }
+      }
+      for (let j = 0; j < n; j++) {
+        for (let i = 0; i < n; i++) {
+          const a = base + j * (n + 1) + i
+          idx.push(a, a + 1, a + n + 2, a, a + n + 2, a + n + 1)
+        }
+      }
+    }
+    const lo = -e
+    const hi = 1 + e
+    // Outward-facing winding: for each, (i, j) runs so a x b points out.
+    face(1, (i, j) => [hi, lo + j * (hi - lo), hi - i * (hi - lo), i, j]) // +x
+    face(1, (i, j) => [lo, lo + j * (hi - lo), lo + i * (hi - lo), i, j]) // -x
+    face(1, (i, j) => [lo + i * (hi - lo), lo, lo + j * (hi - lo), i, j]) // -y
+    face(1, (i, j) => [lo + i * (hi - lo), lo + j * (hi - lo), hi, i, j]) // +z
+    face(1, (i, j) => [hi - i * (hi - lo), lo + j * (hi - lo), lo, i, j]) // -z
+    if (lumps) face(3, (i, j) => { const [u, v, h] = lumps[(3 - j) * 4 + i]; return [u, h + e, v, i / 3, j / 3] }) // +y, lumpy
+    else face(1, (i, j) => [lo + i * (hi - lo), hi, hi - j * (hi - lo), i, j]) // +y
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+    geo.setIndex(idx)
+    return geo
   }
 
   // Dig cracks: look (pattern), stage (how far grown), dark lines on solid

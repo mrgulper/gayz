@@ -35,7 +35,7 @@ import { PlayAnimals } from './PlayAnimals.js'
 import { worldSeed, isEarthWorld } from './OpenWorld.js'
 import { loadEarthTerrain } from './EarthTerrain.js'
 import { BOTTOM } from './Underground.js'
-import { PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
+import { LEAF_DROP_CHANCE, PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { MONSTER_KINDS, makeMonster } from './ZombieKinds.js'
 import { PlayDamageNumbers } from './PlayDamageNumbers.js'
 import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './SpeechBubble.js'
@@ -132,7 +132,7 @@ const LUNGE_TIME = 0.8
 const LUNGE_EVERY = 3.5
 const LUNGE_MULT = 1.45
 const SKELETON_KIND_IDS = Object.keys(SKELETON_KINDS)
-const MONSTER_KIND_IDS = Object.keys(MONSTER_KINDS)
+const MONSTER_KIND_IDS = Object.keys(MONSTER_KINDS).filter((k) => MONSTER_KINDS[k].waves !== false)
 // Skeletons and monsters: their kind's hp/speed/damage.
 const kindOf = (kind) => SKELETON_KINDS[kind] || MONSTER_KINDS[kind] || null
 // Dead zombies (2026-10-12, "make the dead body fall on the ground and
@@ -1377,6 +1377,8 @@ export class BuildSurvival {
     const key = bm._key(x, y, z)
     if (this._placed?.delete(key)) bm.tryMode._broken?.delete(key)
     if (bm._isWindowType(type) || /door|lootchest|zombiespawner|playerstart|invisible/.test(type)) return
+    // Leaves only drop a leaf block half the time (2026-10-26, Gaymi).
+    if (/leaves$/.test(type) && Math.random() >= LEAF_DROP_CHANCE) return
     // It pops out as a little block you pick up by walking near (PlayDrops).
     if (!this._drops.spawn(type, x, y, z) && this.inv.add({ kind: 'block', id: type, n: 1 }) > 0) this._message(t('invFull'))
   }

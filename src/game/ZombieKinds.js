@@ -15,6 +15,8 @@
 // - crawler: no legs, drags itself along the ground on its arms. Low,
 //   so it's hard to hit; slow-ish.
 // - spider: a zombie spider on eight legs that climbs straight up walls.
+//   Out of the waves since 2026-10-26 (Gaymi: "make the spider a friendly
+//   animal instead of zombie type" - see AnimalKinds.js); waves: false.
 // - brute: a huge hunched tank with giant arms - still 2 blocks tall,
 //   but very wide. Slow, takes many shots, hits very hard.
 // - bloater: a swollen belly on stubby legs that bursts when it dies,
@@ -32,12 +34,13 @@ import { MOB_HEIGHT } from './PlayRules.js'
 // zombie's height it is (shots above it miss).
 // wide: its hit box's width, times a zombie's. climbs: goes straight up
 // walls. burst: blows up when killed, hurting things this many blocks round.
+// waves: false - never joins the waves.
 export const MONSTER_KINDS = {
   hunched: { hp: 1.3, speed: 0.9, damage: 1.35, tall: 1 },
   blob: { hp: 1.8, speed: 0.7, damage: 1.1, tall: 0.75 },
   beast: { hp: 0.65, speed: 1.55, damage: 0.8, tall: 0.6 },
   crawler: { hp: 0.8, speed: 0.75, damage: 0.9, tall: 0.35 },
-  spider: { hp: 0.9, speed: 1.2, damage: 0.9, tall: 0.45, wide: 1.6, climbs: true },
+  spider: { hp: 0.9, speed: 1.2, damage: 0.9, tall: 0.45, wide: 1.6, climbs: true, waves: false },
   brute: { hp: 3, speed: 0.6, damage: 2, tall: 1, wide: 1.7 },
   bloater: { hp: 1.2, speed: 0.75, damage: 1, tall: 1, wide: 1.4, burst: 3.5 },
   skinny: { hp: 0.6, speed: 1.45, damage: 0.85, tall: 1 },

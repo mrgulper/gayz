@@ -12,6 +12,7 @@ import { graphicsLook } from './GraphicsLevels.js'
 import { GrassTufts } from './GrassTufts.js'
 import { CastleFlags } from './CastleFlags.js'
 import { AirMotes } from './AirMotes.js'
+import { FallingLeaves } from './FallingLeaves.js'
 import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, fenceIconURL, gadgetIconURL, ladderIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
 import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
@@ -1815,6 +1816,8 @@ export class BuildMode {
     this.castleFlags = new CastleFlags(this, BLOCK_SIZE)
     // Dust floating in sunlight on In Real Life (AirMotes.js).
     this.airMotes = new AirMotes(this, BLOCK_SIZE)
+    // Leaves drifting down from trees (FallingLeaves.js).
+    this.fallingLeaves = new FallingLeaves(this, BLOCK_SIZE)
     this.spectate = new PlaySpectate(this, BLOCK_SIZE)
     // A dot in the middle of the screen to aim with while trying the map.
     this._tryCrosshairEl = document.createElement('div')
@@ -4310,6 +4313,7 @@ export class BuildMode {
     this.grassTufts.update(dt)
     this.castleFlags.update(dt)
     this.airMotes.update(dt)
+    this.fallingLeaves.update(dt)
     this.together.update(dt)
     this._updateCampDisplay(dt)
     this.touch.update(dt)
@@ -4449,6 +4453,7 @@ export class BuildMode {
     this.sky?.weather3d?.setLite(!!look.lite)
     this.grassTufts?.setAmount(look.tufts || 0)
     this.airMotes?.setAmount(look.motes || 0)
+    this.fallingLeaves?.setAmount(look.lite ? 0 : 1)
     // Softer shadow edges on the higher levels, like real sunlight
     // (just how wide the shadow map is sampled - no redraw needed).
     if (this._sunLight) this._sunLight.shadow.radius = look.soft || 1
