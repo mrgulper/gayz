@@ -930,8 +930,15 @@ export class OpenWorld {
       case 'acacia': {
         const dx = rnd(1) < 0.5 ? 1 : -1
         const dz = rnd(2) < 0.5 ? 1 : -1
-        trunk(3, 'acacialog')
+        // The leaning trunk steps over one side at a time, so every log
+        // sits face to face on the one below - nothing hangs in the air
+        // joined only by a corner (2026-10-26, Gaymi: "nothing can be
+        // floating").
+        trunk(4, 'acacialog')
+        set(x + dx, y + 3, z, 'acacialog')
         set(x + dx, y + 3, z + dz, 'acacialog')
+        set(x + dx, y + 4, z + dz, 'acacialog')
+        set(x + dx * 2, y + 4, z + dz, 'acacialog')
         set(x + dx * 2, y + 4, z + dz * 2, 'acacialog')
         disc(x + dx * 2, y + 5, z + dz * 2, 3, leaf)
         disc(x + dx * 2, y + 6, z + dz * 2, 1, leaf)

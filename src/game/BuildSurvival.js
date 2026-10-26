@@ -1020,7 +1020,7 @@ export class BuildSurvival {
       // (w.pierce zombies).
       const onRay = []
       for (const z of this.zombies) {
-        const half = ZOMBIE_HALF * (z.size || 1)
+        const half = ZOMBIE_HALF * (z.size || 1) * (z.wide || 1)
         const height = ZOMBIE_HEIGHT * (z.size || 1) * (z.tall || 1)
         box.min.set((z.x - half) * B, z.y * B, (z.z - half) * B)
         box.max.set((z.x + half) * B, (z.y + height) * B, (z.z + half) * B)
@@ -1280,10 +1280,36 @@ export class BuildSurvival {
     const skeleton = SKELETON_KINDS[z.kind] ? z.kind : null
     if (by) this.net?.queueCredit(by, z.boss, skeleton)
     else this._countKill(z.boss, skeleton)
-    this._spawnCorpse(z, dir)
+    // A bloater bursts instead of falling over.
+    if (MONSTER_KINDS[z.kind]?.burst) this._burst(z)
+    else this._spawnCorpse(z, dir)
     this._removeZombie(z)
     this.zombies = this.zombies.filter((o) => o !== z)
     this._renderHud()
+  }
+
+  // A bloater (ZombieKinds.js) bursts where it died: players and other
+  // zombies close by are hurt, less the further away.
+  _burst(z) {
+    const r = MONSTER_KINDS[z.kind].burst
+    const B = this.B
+    const mid = z.y + ZOMBIE_HEIGHT * 0.5
+    try { audioEngine.playExplosion?.() } catch { /* no audio */ }
+    this._fx?.explode(new THREE.Vector3(z.x * B, mid * B, z.z * B), r * 0.6)
+    const hit = zombieDamage(this.wave) * this.cfg.zombieDamageMult * 1.6
+    for (const p of this._targets()) {
+      const d = Math.hypot(p.x - z.x, p.y + 1 - mid, p.z - z.z)
+      if (d >= r) continue
+      const amount = hit * (1 - d / r)
+      if (p.remote) {
+        if (!this.camp?.inside(p.x, p.z)) this.net?.queueHurt(p.remote, amount)
+      } else this._hurtPlayer(amount)
+    }
+    for (const o of [...this.zombies]) {
+      if (o === z || o.health <= 0 || !this.zombies.includes(o)) continue
+      const d = Math.hypot(o.x - z.x, o.y - z.y, o.z - z.z)
+      if (d < r) this.damageZombie(o, hit * 2 * (1 - d / r))
+    }
   }
 
   // A kill of mine: stats, coins, the streak, achievements.
@@ -1600,6 +1626,8 @@ export class BuildSurvival {
       zombie.speedMult = monster.speed
       zombie.damageMult = monster.damage
       zombie.tall = monster.tall
+      zombie.wide = monster.wide || 1
+      zombie.climbs = !!monster.climbs
     } else if (kind && skeletonsReady()) {
       // A real animated skeleton (SkeletonModels.js), rising out of the
       // ground first.
@@ -2025,8 +2053,11 @@ export class BuildSurvival {
       }
     }
     if (blocked) zb.stuck = FLANK_STUCK
+    // Zombie spiders walk straight up a wall in the way (ZombieKinds.js).
+    const climbing = zb.climbs && blocked
+    if (climbing) zb.vy = CLIMB * 1.3
     // Jump up a block when it's in the way, or the path goes up.
-    if (zb.onGround && (blocked || ty > zb.y + 0.6) && !onLadder) {
+    if (zb.onGround && (blocked || ty > zb.y + 0.6) && !onLadder && !climbing) {
       zb.vy = JUMP
       zb.onGround = false
     }

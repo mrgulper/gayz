@@ -2905,7 +2905,7 @@ test('a rainbow can follow the rain', async ({ page }) => {
 // 2026-10-26: less blocky land on Realistic/Ultra/In Real Life (smooth
 // hills, rounded edges, pebbles, leafy trees), animals with painted eyes
 // and rounder bodies on In Real Life.
-test('smooth hills and rounded edges on the top levels, animal faces', async ({ page }) => {
+test('bumpy block tops and rounded edges on the top levels', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
     const g = window.__game
@@ -2913,32 +2913,159 @@ test('smooth hills and rounded edges on the top levels, animal faces', async ({ 
     await g._enterBuildMode()
     const bm = g.buildMode
     const ch = bm._chunks
-    // A one-block step: a 3x3 grass floor with one more grass on top.
-    for (let x = 40; x < 43; x++) for (let z = 40; z < 43; z++) bm._placeBlockInner(x, 0, z, 'grass')
-    bm._placeBlockInner(41, 1, 41, 'grass')
-    const tops = () => {
+    // A one-block step: a 3x3 stone floor with one more stone on top
+    // (stone, so no little rocks lie on it).
+    for (let x = 40; x < 43; x++) for (let z = 40; z < 43; z++) bm._placeBlockInner(x, 0, z, 'stone')
+    bm._placeBlockInner(41, 1, 41, 'stone')
+    // Every vertex height's part above the whole block under it.
+    const fracs = () => {
       ch.flush(bm._chunkCells)
-      const ys = new Set()
+      const f = []
       for (const c of ch.chunks.values()) {
         for (const m of c.meshes) {
           const pos = m.geometry.attributes.position
           if (!pos?.array?.length) continue
-          for (let i = 1; i < pos.array.length; i += 3) ys.add(Math.round((pos.array[i] / bm._chunks.blockSize) * 100) / 100)
+          for (let i = 1; i < pos.array.length; i += 3) {
+            const S = bm._chunks.blockSize
+            const x = (pos.array[i - 1] + m.position.x) / S
+            const z = (pos.array[i + 1] + m.position.z) / S
+            // Only the test blocks (the ground round them has rocks on it).
+            if (x < 40 || x > 43 || z < 40 || z > 43) continue
+            const y = (pos.array[i] + m.position.y) / S
+            f.push(Math.round((y - Math.floor(y + 0.001)) * 1000) / 1000)
+          }
         }
       }
-      return [...ys].some((y) => Math.abs(y - Math.round(y)) > 0.05)
+      return f
     }
     g._applyGraphicsLevel('irl')
     bm._applyGraphicsLook()
-    out.irl = [ch.shapes, ch.fx.round.value, tops()]
+    const irl = fracs()
+    // Bumps rise a little (0.02..0.1 of a block) above flat tops; nothing
+    // dips below a block's top, so every step stays a clean one-block step.
+    out.irl = [ch.shapes, ch.fx.round.value, irl.length === 0 || irl.some((f) => f > 0.015), irl.every((f) => f < 0.105 || f > 0.99)]
+    out.bad = [...new Set(irl.filter((f) => !(f < 0.105 || f > 0.99)))].slice(0, 20)
     g._applyGraphicsLevel('simple')
     bm._applyGraphicsLook()
-    out.simple = [ch.shapes, ch.fx.round.value, tops()]
+    const simple = fracs()
+    out.simple = [ch.shapes, ch.fx.round.value, simple.some((f) => f > 0.015 && f < 0.99)]
     g._exitBuildMode()
     return out
   })
   // Uploaded chunk geometry may drop its arrays (dropAfterUpload), so the
-  // slope check only counts when the arrays were still there.
-  expect(r.irl).toEqual([true, 1, true])
+  // bump check only counts when the arrays were still there.
+  expect(r.irl, JSON.stringify(r.bad)).toEqual([true, 1, true, true])
   expect(r.simple).toEqual([false, 0, false])
+})
+
+test('castles fly cloth flags on poles, acacia trees stand on their trunks', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    const w = b.world
+    const out = {}
+    for (let seed = 1; seed < 40 && !out.castle; seed++) {
+      w.reseed(seed)
+      const p = w.placesNear(0, 0, 600).find((q) => q.kind === 'castle')
+      if (!p) continue
+      for (let i = 0; i < 40; i++) w.update([{ x: p.x, z: p.z }])
+      const plan = w._plansOver(p.x, p.z, p.x, p.z).find((q) => q.kind === 'castle')
+      // No block flags (wool) left, five cloth flags, drawn near you.
+      // The old block flags (a log pole) are gone from the tower tops.
+      let wool = 0
+      for (const f of plan.flags) for (let y = f.y; y < f.y + 6; y++) if (b._blocks.get(`${f.x},${y},${f.z}`)) wool++
+      b.camera.position.set(p.x * b._chunks.blockSize, 40, p.z * b._chunks.blockSize)
+      b.castleFlags._wait = 0
+      b.castleFlags.update(0.1)
+      const group = b.castleFlags.shown.get(plan)
+      out.castle = { wool, flags: plan.flags.length, design: plan.flagDesign, drawn: !!group, visible: group ? group.userData.parts.filter((q) => q.meshes[0].visible).length : 0 }
+    }
+    // Acacia trunks: every log touches another log or the ground face to face.
+    const logs = [...b._blocks.entries()].filter(([, t]) => t === 'acacialog').map(([k]) => k.split(',').map(Number))
+    const has = (x, y, z) => b._blocks.has(`${x},${y},${z}`)
+    out.acaciaLoose = logs.filter(([x, y, z]) => ![[0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]].some(([dx, dy, dz]) => has(x + dx, y + dy, z + dz))).length
+    g._exitBuildMode()
+    out.cleared = b.castleFlags.shown.size
+    return out
+  })
+  expect(r.castle).toMatchObject({ wool: 0, flags: 5, drawn: true, visible: 5 })
+  expect(['logo', 'banner', 'skull']).toContain(r.castle.design)
+  expect(r.acaciaLoose).toBe(0)
+  expect(r.cleared).toBe(0)
+})
+
+test('new zombie kinds: sizes, the bloater bursts, spiders climb', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    const B = bm._chunks.blockSize
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 30, 'zombiespawner')
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    s._toSpawn = 0
+    const out = { heights: {} }
+    // Height of a model in blocks (from its meshes' boxes).
+    const heightOf = (group) => {
+      group.updateMatrixWorld(true)
+      let lo = Infinity
+      let hi = -Infinity
+      group.traverse((o) => {
+        if (!o.isMesh) return
+        o.geometry.computeBoundingBox()
+        const bb = o.geometry.boundingBox
+        for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) {
+          const v = o.localToWorld(bb.min.clone().set(x, y, z))
+          lo = Math.min(lo, v.y)
+          hi = Math.max(hi, v.y)
+        }
+      })
+      return Math.round(((hi - lo) / B) * 100) / 100
+    }
+    for (const k of ['crawler', 'spider', 'brute', 'bloater', 'skinny']) {
+      const z = s._makeZombie(900 + Object.keys(out.heights).length, 0.5, 1, 20.5, 100, false, k)
+      z.monster.update(0, 0)
+      out.heights[k] = heightOf(z.group)
+      s._removeZombie(z)
+    }
+    // A bloater bursting right next to you hurts you and the zombie beside it.
+    const p = bm.tryMode.pos
+    s.health = 100
+    const bl = s._makeZombie(990, p.x + 1, p.y, p.z, 10, false, 'bloater')
+    const other = s._makeZombie(991, p.x + 1.5, p.y, p.z + 0.5, 1000, false, null)
+    s.zombies.push(bl, other)
+    const before = other.health
+    s.damageZombie(bl, 50)
+    out.burst = { hurtMe: s.health < 100, hurtOther: other.health < before, gone: !s.zombies.includes(bl) }
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    // A spider walks up a 4-high wall in its way.
+    for (let y = 1; y < 5; y++) for (let x = -3; x <= 3; x++) bm.placeBlock(x, y, 10, 'stone')
+    const sp = s._makeZombie(992, 0.5, 1, 14.5, 1000, false, 'spider')
+    s.zombies.push(sp)
+    s.health = 1e9
+    let top = sp.y
+    for (let i = 0; i < 200; i++) {
+      bm.tryMode.update(0.05, new Set())
+      s.update(0.05)
+      top = Math.max(top, sp.y)
+    }
+    out.spiderTop = top
+    s.stop()
+    g._exitBuildMode()
+    return out
+  })
+  // Standing ones are 2 blocks tall; the crawler and spider are low.
+  for (const k of ['brute', 'bloater', 'skinny']) expect(Math.abs(r.heights[k] - 2), `${k} ${JSON.stringify(r.heights)}`).toBeLessThan(0.12)
+  expect(r.heights.crawler).toBeLessThan(1)
+  expect(r.heights.spider).toBeLessThan(1.2)
+  expect(r.burst).toEqual({ hurtMe: true, hurtOther: true, gone: true })
+  expect(r.spiderTop).toBeGreaterThan(4.5)
 })

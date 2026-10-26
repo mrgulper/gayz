@@ -13,6 +13,7 @@ import { BIOMES } from './OpenWorld.js'
 import { BOSS_HUNT_EVERY, DEFENSE_WAVES, EXTRACTION_HOLD, EXTRACTION_WAVES, GLOBETROTTER_SECONDS, SKELETON_FROM_WAVE, MONSTER_FROM_WAVE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { RAINBOW_CHANCE } from './BuildSky.js'
 import { BOTTOM } from './Underground.js'
+import { BUMP_MAX_DEGREES } from './BlockChunks.js'
 import { MAX_WILD, ANIMAL_IDS } from './PlayAnimals.js'
 import { LANGUAGES, t, tHtml } from './i18n.js'
 import { levelUpCoins } from './Xp.js'
@@ -268,6 +269,7 @@ export function _featureValues(_game) {
     biomes: Object.keys(BIOMES).length,
     undergroundDepth: -BOTTOM,
     mobHeight: MOB_HEIGHT,
+    bumpDegrees: BUMP_MAX_DEGREES,
     levelUpCoinsPerLevel: levelUpCoins(1),
     maxWildAnimals: MAX_WILD,
     animalKinds: ANIMAL_IDS.length,
