@@ -10,6 +10,7 @@ import { BlockChunks, CHUNK } from './BlockChunks.js'
 import { setTextureDetail } from './BlockTextures.js'
 import { graphicsLook } from './GraphicsLevels.js'
 import { GrassTufts } from './GrassTufts.js'
+import { CastleFlags } from './CastleFlags.js'
 import { AirMotes } from './AirMotes.js'
 import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, fenceIconURL, gadgetIconURL, ladderIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
 import { t } from './i18n.js'
@@ -1810,6 +1811,8 @@ export class BuildMode {
     this.sky = new BuildSky(this, BLOCK_SIZE)
     // 3D grass on grass blocks on the realistic levels (GrassTufts.js).
     this.grassTufts = new GrassTufts(this, BLOCK_SIZE)
+    // Cloth flags over the open world's castles (CastleFlags.js).
+    this.castleFlags = new CastleFlags(this, BLOCK_SIZE)
     // Dust floating in sunlight on In Real Life (AirMotes.js).
     this.airMotes = new AirMotes(this, BLOCK_SIZE)
     this.spectate = new PlaySpectate(this, BLOCK_SIZE)
@@ -2087,6 +2090,7 @@ export class BuildMode {
     this.sky.onExit()
     this._campDisplay?.dispose()
     this._campDisplay = null
+    this.castleFlags.clear()
     this.share.close()
     this.together.closePanel()
     this.save()
@@ -4279,6 +4283,7 @@ export class BuildMode {
     this._updateWorld()
     this.sky.update(dt)
     this.grassTufts.update(dt)
+    this.castleFlags.update(dt)
     this.airMotes.update(dt)
     this.together.update(dt)
     this._updateCampDisplay(dt)

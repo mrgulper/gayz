@@ -26,6 +26,7 @@ const CASTLE_BIOMES = new Set(['plains', 'forest', 'birchForest', 'darkForest', 
 
 import { buildLandmark } from './Landmarks.js'
 import { buildTown } from './Towns.js'
+import { FLAG_DESIGNS } from './CastleFlags.js'
 
 // Names for the HUD (i18n keys).
 export const STRUCTURE_NAMES = { village: 'placeVillage', castle: 'placeCastle', bridge: 'placeBridge', pyramid: 'placePyramid' }
@@ -68,6 +69,8 @@ class Builder {
     this.cz = cz
     this.cells = new Map()
     this.paths = new Map()
+    // Cloth flags on poles (CastleFlags.js): { x, y, z, dx, dz, size, height }.
+    this.flags = []
   }
 
   set(x, y, z, type) {
@@ -120,7 +123,7 @@ class Builder {
       if (z < z0) z0 = z
       if (z > z1) z1 = z
     }
-    return { kind: this.kind, cx: this.cx, cz: this.cz, x0, x1, z0, z1, byColumn, top, paths: this.paths }
+    return { kind: this.kind, cx: this.cx, cz: this.cz, x0, x1, z0, z1, byColumn, top, paths: this.paths, flags: this.flags, flagDesign: this.flagDesign, flagColor: this.flagColor }
   }
 }
 
@@ -620,7 +623,8 @@ function house(b, H, st, rand, { x0, x1, z0, z1 }, [dx, dz], floorY, big) {
       }
     }
     b.set(tx, top + 8, tz, st.trim)
-    b.set(tx, top + 5, tz, 'gold')
+    // The bell hangs right under the roof, not in the air below it.
+    b.set(tx, top + 6, tz, 'gold')
   }
 }
 
@@ -747,13 +751,11 @@ function castle({ H, rand, sea, cx, cz }) {
   const kx = cx - gx * 4
   const kz = cz - gz * 4
   tower(b, stone, kx, kz, 4, base, base + 16, [gx > 0 ? kx + 4 : gx < 0 ? kx - 4 : kx, gz > 0 ? kz + 4 : gz < 0 ? kz - 4 : kz, gx, gz], [], true)
-  // Flags flying over every tower and the keep.
-  const flagColor = ['redwool', 'bluewool', 'yellowwool', 'purplewool'][Math.floor(rand() * 4)]
-  const flag = (x, z, top, size) => {
-    const poleTop = top + 4 + size
-    for (let y = top + 2; y <= poleTop; y++) b.set(x, y, z, 'sprucelog')
-    for (let k = 1; k <= size + 1; k++) for (let y = poleTop - size; y <= poleTop; y++) b.set(x + k * gz, y, z + k * gx, flagColor)
-  }
+  // Flags flying over every tower and the keep: thin cloth on a slim pole
+  // (CastleFlags.js draws them), one design and colour per castle.
+  b.flagDesign = FLAG_DESIGNS[Math.floor(rand() * FLAG_DESIGNS.length)]
+  b.flagColor = Math.floor(rand() * 6)
+  const flag = (x, z, top, size) => b.flags.push({ x, y: top + 2, z, dx: gz, dz: gx, size, height: 3.5 + size })
   for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) flag(cx + sx * R, cz + sz * R, towerTop, 1)
   flag(kx, kz, base + 16, 2)
   // A stable along one side wall: posts, a slate roof against the wall,

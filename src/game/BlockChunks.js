@@ -311,20 +311,27 @@ const LIQUIDS = {
 const AO_LEVELS = [1, 0.78, 0.6, 0.45]
 
 // Less blocky land (2026-10-26, Gaymi: "make the blocks not all so blocky
-// ... make them have more possible shapes", picked rounded edges, extra
-// shapes AND smooth hills, on Realistic, Ultra and In Real Life). Only the
-// drawing changes - every block is still a full cube to walk on, dig and
-// build with, so on a slope the ground you see is at most about half a
-// block off the block underneath.
-//  - Smooth hills: the top of natural ground (NATURAL) is drawn as a
-//    smooth slope through its corners: each corner's height is the
-//    average of the 4 columns of land that share it, so one-block steps
-//    become ramps and the ground heaps up a little against walls and trees.
-//  - Rounded edges: every other block's outside edges catch the light as
-//    if rounded (the uRound shader part, aEdge says which edges).
+// ... make them have more possible shapes", on Realistic, Ultra and In
+// Real Life). Only the drawing changes - every block is still a full cube
+// to walk on, dig and build with.
+//  - Bumpy tops: the top of every solid block is a gently lumpy 3x3 patch
+//    whose edges stay at the block's own height, so you can always tell
+//    one block from the next and see where to jump or dig. (Smooth hills
+//    that ran blocks together into ramps were dropped the same day -
+//    Gaymi: "you cant really tell what block it is".)
+//  - Rounded edges: outside edges catch the light as if rounded (the
+//    uRound shader part, aEdge says which edges).
 //  - Extra shapes: little stones lying on the ground and leaves sticking
 //    out of the sides of trees.
 const NATURAL = /^(grass|dirt|sand|snow|stone|gravel|mud|clay|moss|mycelium|podzol|coarsedirt|redsand|granite|andesite|diorite|deepslate|tuff|calcite|netherrack|endstone|soulsand|soulsoil|crimsonnylium|warpednylium|terracotta|packedmud)$/
+// How high the lumps inside a bumpy top rise above its edges (blocks).
+// Inside points sit at least ~0.23 from each other and ~0.28 from the
+// edge, so the steepest bit stays under 20 degrees (tan 20 = 0.36):
+// 0.08 / 0.23 and 0.1 / 0.28 are both about 0.35.
+// The steepest a bump gets (degrees) - GayZ Features shows it.
+export const BUMP_MAX_DEGREES = 20
+const BUMP_MIN = 0.02
+const BUMP_RANGE = 0.08
 const PEBBLE_ON = /^(grass|dirt|sand|gravel|mud|coarsedirt|podzol|redsand|snow|moss)$/
 
 // A stable 0..1 number for a cell (and a salt), for where the extra
@@ -791,39 +798,12 @@ export class BlockChunks {
       return !!t && !!this.info.get(t)?.opaque
     }
     const shapes = this.shapes
-    // Smooth hills: a column's land height near level y (-2 .. 3, y's own
-    // top = 1), and a corner point's height = the average of its 4 columns.
-    const colH = (X, Z, y) => {
-      if (opaqueAt(X, y + 1, Z)) return opaqueAt(X, y + 2, Z) ? (opaqueAt(X, y + 3, Z) ? 3.5 : 3) : 2
-      if (opaqueAt(X, y, Z)) return 1
-      if (opaqueAt(X, y - 1, Z)) return 0
-      return opaqueAt(X, y - 2, Z) ? -1 : -1.5
-    }
-    const hMemo = new Map()
-    // A block at level y that keeps its flat top (a road, planks, a wall)
-    // has its side toward the smooth ground hidden, so a slope that dipped
-    // or rose beside it would leave a see-through gap (2026-10-26,
-    // Gaymi: "dont make them see thought able"). Corners touching one stay
-    // at its top height (1), or at least 1 beside a wall.
-    const keepsTop = (X, Z, y) => {
-      if (!opaqueAt(X, y, Z)) return 0
-      const covered = opaqueAt(X, y + 1, Z)
-      if (!covered && this.info.get(typeAt(X, y, Z))?.natural) return 0
-      return covered ? 1 : 2
-    }
-    const cornerH = (X, Z, y) => {
-      const k = `${X},${Z},${y}`
-      let h = hMemo.get(k)
-      if (h === undefined) {
-        h = (colH(X - 1, Z - 1, y) + colH(X, Z - 1, y) + colH(X - 1, Z, y) + colH(X, Z, y)) / 4
-        h = Math.min(1.7, Math.max(0.3, h))
-        const keep = Math.max(keepsTop(X - 1, Z - 1, y), keepsTop(X, Z - 1, y), keepsTop(X - 1, Z, y), keepsTop(X, Z, y))
-        if (keep === 2) h = 1
-        else if (keep === 1) h = Math.max(1, h)
-        hMemo.set(k, h)
-      }
-      return h
-    }
+    // Bumpy blocks (2026-10-26, Gaymi: "you cant really tell what block
+    // it is ... make them slightly bumpy ... no more then 20 degrees"):
+    // every natural top keeps its edges at the block's own height, so each
+    // block and every one-block step stays easy to see; only the inside
+    // of the top rises in gentle lumps (see _lumpyTop).
+    const cornerH = () => 1
     const stoneUv = this.info.get('cobblestone')?.uvs[2] || this.info.get('stone')?.uvs[2]
     for (const cell of cells) {
       const c1 = cell.indexOf(','), c2 = cell.indexOf(',', c1 + 1)
@@ -839,8 +819,8 @@ export class BlockChunks {
       // touching liquid with more of it on top is full - so flowing water
       // runs smoothly downhill from its source, like Minecraft.
       const cornerY = info.liquid ? this._liquidCorners(x, y, z, type) : null
-      const smooth = shapes && info.natural && !opaqueAt(x, y + 1, z)
-      if (smooth && PEBBLE_ON.test(type) && hash01(x, y, z, 1) < 0.07 && stoneUv) this._pebble(out.solid, x - bx, y - by, z - bz, x, y, z, cornerH, stoneUv)
+      const smooth = shapes && info.opaque && !inset && !info.liquid && !opaqueAt(x, y + 1, z)
+      if (smooth && info.natural && PEBBLE_ON.test(type) && hash01(x, y, z, 1) < 0.07 && stoneUv) this._pebble(out.solid, x - bx, y - by, z - bz, x, y, z, cornerH, stoneUv)
       for (let fi = 0; fi < 6; fi++) {
         const face = FACES[fi]
         const [nx, ny, nz] = face.n
@@ -892,7 +872,7 @@ export class BlockChunks {
         // 1/2 = toward -/+ its first axis (y for x faces, else x), 4/8 =
         // its second (y for z faces, else z) - see the shader's uRound.
         let edge = 0
-        if (shapes && !smooth && !info.liquid && !inset) {
+        if (shapes && !(smooth && ny === 1) && !info.liquid && !inset) {
           const A = nx !== 0 ? [0, 1, 0] : [1, 0, 0]
           const Bv = nz !== 0 ? [0, 1, 0] : [0, 0, 1]
           if (!opaqueAt(x - A[0], y - A[1], z - A[2])) edge |= 1
@@ -908,7 +888,7 @@ export class BlockChunks {
         const base = buf.pos.length / 3
         for (let i = 0; i < 4; i++) {
           const c = face.c[i]
-          const topY = cornerY ? cornerY[c[0] * 2 + c[2]] : smooth ? cornerH(x + c[0], z + c[2], y) : 1
+          const topY = cornerY ? cornerY[c[0] * 2 + c[2]] : 1
           const cx0 = inset ? inset + c[0] * (1 - 2 * inset) : c[0]
           const cz0 = inset ? inset + c[2] * (1 - 2 * inset) : c[2]
           buf.pos.push((x - bx + cx0) * this.blockSize, (y - by + (c[1] ? topY : 0)) * this.blockSize, (z - bz + cz0) * this.blockSize)
@@ -1003,9 +983,9 @@ export class BlockChunks {
         const inside = i > 0 && i < N && j > 0 && j < N
         let bump = 0
         if (inside) {
-          u += (hash01(x * N + i, y, z * N + j, 21) - 0.5) * 0.22
-          v += (hash01(x * N + i, y, z * N + j, 22) - 0.5) * 0.22
-          bump = (hash01(x * N + i, y, z * N + j, 23) - 0.5) * 0.34
+          u += (hash01(x * N + i, y, z * N + j, 21) - 0.5) * 0.1
+          v += (hash01(x * N + i, y, z * N + j, 22) - 0.5) * 0.1
+          bump = BUMP_MIN + hash01(x * N + i, y, z * N + j, 23) * BUMP_RANGE
         }
         const h = lerp2(h00, h10, h01, h11, u, v) + bump
         H.push(h)
