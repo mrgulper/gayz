@@ -15,7 +15,7 @@ import { QUESTS } from './Quests.js'
 import { EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQuests.js'
 import { t } from './i18n.js'
 import { setNavBadge } from './NavBadges.js'
-import { addClanXp, xpForGame } from './Xp.js'
+import { addClanXp, levelFromXp, levelUpCoins, xpForGame } from './Xp.js'
 
 // Personal stats dashboard (batch feature) - a simple bar chart of kills
 // per run from runHistory (already tracked, newest-first), most recent run on the right so reading
@@ -203,12 +203,23 @@ export function _onPlayEvent(game, type, data) {
   // this month while you're signed in and in one. Saved by _recordRunEnd
   // (career stats) and pushed with the online stats it sends.
   const xp = xpForGame({ kills: data.kills, waves: data.waves, seconds: data.seconds, won: data.won, difficulty: data.difficulty })
-  game.careerStats.xp = _safeStatNumber(game.careerStats.xp) + xp
+  const xpBefore = _safeStatNumber(game.careerStats.xp)
+  game.careerStats.xp = xpBefore + xp
+  // Level up (2026-10-26, Gaymi: like kirka.io): every level reached in
+  // this game pays levelUpCoins; the You Died card shows the XP bar
+  // filling and a LEVEL UP card (BuildSurvival._showXpBar).
+  const before = levelFromXp(xpBefore)
+  const after = levelFromXp(game.careerStats.xp)
+  let levelCoins = 0
+  for (let lv = before.level + 1; lv <= after.level; lv++) levelCoins += levelUpCoins(lv)
   if (game._cloudUid && game.settings.clanId) {
     game.settings.clanXp = addClanXp(game.settings.clanXp, game.settings.clanId, xp)
     saveSettings(game.settings)
   }
   game._recordRunEnd(!data.died)
+  // Added after the run is recorded, so the run's own coins stay just
+  // what it earned.
+  game.coins += levelCoins
   // Career totals (_recordRunEnd just added game run to them).
   if (_safeStatNumber(game.careerStats.totalKills) >= EXTERMINATOR_CAREER_KILLS) game.achievements.unlock('exterminator')
   if (_safeStatNumber(game.careerStats.totalRuns) >= REGULAR_CAREER_RUNS) game.achievements.unlock('regular')
@@ -217,9 +228,14 @@ export function _onPlayEvent(game, type, data) {
   if (_safeStatNumber(game.careerStats.totalKills) >= 25000) game.achievements.unlock('extinction')
   saveShopProgress(game)
   game._renderCurrencyBar()
+  // The level number on the avatar badge and the nameplate update now,
+  // not only the next time something else redraws them (2026-10-26,
+  // Gaymi: "if i dont click it wont level up").
+  game._updateBestStatsDisplay()
+  game._renderPlayerTag()
   game._updateUpgradesDot()
   game._updateQuestsDot()
-  return { legacy, coins, xp }
+  return { legacy, coins, xp, levelBefore: before, levelAfter: after, levelCoins }
 }
 
 // 2026-10-17 achievement thresholds (the older ones live in Game.js).

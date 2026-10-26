@@ -954,6 +954,7 @@ Escape before dawn.</p>
           <button class="settings-tab" data-page="audio" id="tab-audio">Audio</button>
           <button class="settings-tab" data-page="controls" id="tab-controls">Controls</button>
           <button class="settings-tab" data-page="graphics" id="tab-graphics">Graphics</button>
+          <button class="settings-tab" data-page="theme" id="tab-theme">Theme</button>
         </div>
 
         <div class="settings-page" id="settings-page-general">
@@ -1240,6 +1241,43 @@ Escape before dawn.</p>
 
 
           <button id="reset-graphics-defaults-btn" class="settings-reset-btn" type="button">Reset Graphics to Defaults</button>
+        </div>
+
+        <!-- Theme: its own Settings tab after Graphics (2026-10-26, Gaymi;
+             it was a General tab). -->
+        <div class="settings-page" id="settings-page-theme" style="display: none">
+          <h3 class="settings-section-heading" id="settings-section-theme">Theme</h3>
+          <!-- Each theme's name sits above its card (2026-10-23); Clean's
+               colour circle and hex box sit beside its name. -->
+          <div id="theme-picker-grid">
+            <!-- Old first: it's the default theme. -->
+            <div class="theme-picker-item">
+              <div class="theme-picker-head"><span class="theme-picker-name" id="theme-picker-old-label">Old</span></div>
+              <button type="button" class="theme-picker-card active" id="theme-picker-old" data-theme="old" aria-labelledby="theme-picker-old-label">
+                <img src="/images/theme-preview-old.jpg" alt="" draggable="false" />
+              </button>
+            </div>
+            <!-- Clean's preview is drawn, in the colour picked beside it. -->
+            <div class="theme-picker-item">
+              <div class="theme-picker-head" id="theme-clean-color-row">
+                <span class="theme-picker-name" id="theme-picker-clean-label">Simple</span>
+                <label for="theme-clean-color" id="theme-clean-color-label" class="theme-picker-sr">Simple colour</label>
+                <!-- A homepage picture from the player's computer (Clean only). Order: remove, upload, colour. -->
+                <button type="button" id="theme-clean-bg-clear" class="theme-icon-btn" aria-label="Remove picture" title="Remove picture" style="display: none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button>
+                <button type="button" id="theme-clean-bg-btn" class="theme-icon-btn" aria-label="Upload picture" title="Upload picture"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/><path d="M17 2v6M14 5l3-3 3 3"/></svg></button>
+                <input type="color" id="theme-clean-color" value="#f5f5f7" aria-labelledby="theme-clean-color-label" />
+                <input type="file" id="theme-clean-bg-file" accept="image/*" hidden />
+              </div>
+              <button type="button" class="theme-picker-card" id="theme-picker-clean" data-theme="clean" aria-labelledby="theme-picker-clean-label">
+                <i class="theme-clean-preview" aria-hidden="true"><b></b><b></b><b></b></i>
+              </button>
+            </div>
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="playBiomeLook" aria-label="What does this do?">?</button>
+            <label for="play-biome-look-toggle" id="play-biome-look-label">Game Screens Follow the Biome</label>
+            <input type="checkbox" id="play-biome-look-toggle" class="audio-checkbox" checked />
+          </div>
         </div>
 
         <div class="settings-page" id="settings-page-controls" style="display: none">
@@ -1555,11 +1593,10 @@ Escape before dawn.</p>
         <div class="panel-box">
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
           <h2 id="clan-panel-title">General</h2>
-        <!-- Clan moved to Friendship (2026-10-24); General's tabs are
-             Leaderboard and Theme (moved here from Inventory the same day). -->
+        <!-- Clan moved to Friendship (2026-10-24); Theme moved on to its
+             own Settings tab (2026-10-26), leaving Leaderboard. -->
         <div class="general-tabs">
           <button class="general-tab active" data-general-page="general" id="general-tab-general">Leaderboard</button>
-          <button class="general-tab" data-general-page="theme" id="general-tab-theme">Theme</button>
         </div>
         <div class="general-tab-page" id="general-page-general">
           <!-- Cloud Save lives here (2026-10-23) - it used to be its own
@@ -1623,40 +1660,6 @@ Escape before dawn.</p>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-        <div class="general-tab-page" id="general-page-theme" style="display: none">
-          <h3 class="settings-section-heading" id="settings-section-theme">Theme</h3>
-          <!-- Each theme's name sits above its card (2026-10-23); Clean's
-               colour circle and hex box sit beside its name. -->
-          <div id="theme-picker-grid">
-            <!-- Old first: it's the default theme. -->
-            <div class="theme-picker-item">
-              <div class="theme-picker-head"><span class="theme-picker-name" id="theme-picker-old-label">Old</span></div>
-              <button type="button" class="theme-picker-card active" id="theme-picker-old" data-theme="old" aria-labelledby="theme-picker-old-label">
-                <img src="/images/theme-preview-old.jpg" alt="" draggable="false" />
-              </button>
-            </div>
-            <!-- Clean's preview is drawn, in the colour picked beside it. -->
-            <div class="theme-picker-item">
-              <div class="theme-picker-head" id="theme-clean-color-row">
-                <span class="theme-picker-name" id="theme-picker-clean-label">Simple</span>
-                <label for="theme-clean-color" id="theme-clean-color-label" class="theme-picker-sr">Simple colour</label>
-                <!-- A homepage picture from the player's computer (Clean only). Order: remove, upload, colour. -->
-                <button type="button" id="theme-clean-bg-clear" class="theme-icon-btn" aria-label="Remove picture" title="Remove picture" style="display: none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button>
-                <button type="button" id="theme-clean-bg-btn" class="theme-icon-btn" aria-label="Upload picture" title="Upload picture"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/><path d="M17 2v6M14 5l3-3 3 3"/></svg></button>
-                <input type="color" id="theme-clean-color" value="#f5f5f7" aria-labelledby="theme-clean-color-label" />
-                <input type="file" id="theme-clean-bg-file" accept="image/*" hidden />
-              </div>
-              <button type="button" class="theme-picker-card" id="theme-picker-clean" data-theme="clean" aria-labelledby="theme-picker-clean-label">
-                <i class="theme-clean-preview" aria-hidden="true"><b></b><b></b><b></b></i>
-              </button>
-            </div>
-          </div>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="playBiomeLook" aria-label="What does this do?">?</button>
-            <label for="play-biome-look-toggle" id="play-biome-look-label">Game Screens Follow the Biome</label>
-            <input type="checkbox" id="play-biome-look-toggle" class="audio-checkbox" checked />
           </div>
         </div>
         </div>
@@ -2340,7 +2343,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="xpForGame levelFromXp xpToNextLevel starterXp">
           <h3>XP &amp; Levels</h3>
-          <p>Every game you finish earns XP - more for kills, waves survived, time alive and winning, and more on harder difficulties - shown on the game-over card. XP is never spent (it isn't a currency) and raises your level with no top level, each one taking a little more XP than the last. Your level shows next to your name, and the level badge on your profile card opens the Levels page with your XP bar. Players from before XP started with XP from their lifetime kills and games. The Profile panel's Rank Roadmap still shows every rank and the lifetime kills it takes.</p>
+          <p>Every game you finish earns XP - more for kills, waves survived, time alive and winning, and more on harder difficulties - shown on the game-over card, where an XP bar fills up from where your level was to where it is now; when it passes a level a LEVEL UP card pops up with a short fanfare, your new level in a gold coin and the coins it gave you (<span data-feature-value="levelUpCoinsPerLevel">50</span> coins times the new level's number). Your level number on the profile card and next to your name changes straight away. XP is never spent (it isn't a currency) and raises your level with no top level, each one taking a little more XP than the last. Your level shows next to your name, and the level badge on your profile card opens the Levels page with your XP bar. Players from before XP started with XP from their lifetime kills and games. The Profile panel's Rank Roadmap still shows every rank and the lifetime kills it takes.</p>
         </div>
         <div class="feature" data-code="careerStats privateNotes">
           <h3>Career Stats &amp; Profile</h3>
@@ -2397,7 +2400,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="TopBar MODE_KEYS MOB_HEIGHT biomeBarLook CYCLE_SECONDS setBiomeTheme">
           <h3>Top Bar &amp; Mob Size</h3>
-          <p>In Map 1 and the Map Editor a bar runs along the top of the screen: GayZ, the game mode you're playing (or Map Editor / Try Map), your FPS, MS (how long each frame takes), your coordinates, then your device's chip and how many CPU cores it has, the weather and the time of day (to the minute - a game minute goes by every second, so a whole game day passes in under half an hour). It's made of the ground of the biome you're in - leaves in forests, sand in deserts, snow, water at sea, stone bricks in the city - and fades into the next one as you walk into it, darker at night and tinted by the weather. The wave, zombies left, kills and coins sit in a line just under it in the same look, changing with the biome too, and the bar stays in view behind the pause screen. While you play, every other game screen wears the biome too, instead of your menu theme - the pause screen, Choose Your Weapon, the inventory, You Died, Settings opened from the pause screen, the corner map and its biome name and the spawn map - filled with that biome's own colour and written in the opposite colour so it's always easy to read (dark boxes with light writing, or light boxes with dark writing); the homepage always keeps your theme. General &gt; Theme &gt; Game Screens Follow the Biome turns this off, and then games keep your theme too. Turning off Settings &gt; General &gt; Show FPS Counter During Gameplay hides the FPS, MS and chip parts. Zombies, skeletons, hunched ghouls, your own body in the third-person views, other players and the camp's traders are all <span data-feature-value="mobHeight">2</span> blocks tall (slime blobs and zombie dogs don't stand up, so they're lower).</p>
+          <p>In Map 1 and the Map Editor a bar runs along the top of the screen: GayZ, the game mode you're playing (or Map Editor / Try Map), your FPS, MS (how long each frame takes), your coordinates, then your device's chip and how many CPU cores it has, the weather and the time of day (to the minute - a game minute goes by every second, so a whole game day passes in under half an hour). It's made of the ground of the biome you're in - leaves in forests, sand in deserts, snow, water at sea, stone bricks in the city - and fades into the next one as you walk into it, darker at night and tinted by the weather. The wave, zombies left, kills and coins sit in a line just under it in the same look, changing with the biome too, and the bar stays in view behind the pause screen. While you play, every other game screen wears the biome too, instead of your menu theme - the pause screen, Choose Your Weapon, the inventory, You Died, Settings opened from the pause screen, the corner map and its biome name and the spawn map - filled with that biome's own colour and written in the opposite colour so it's always easy to read (dark boxes with light writing, or light boxes with dark writing); the homepage always keeps your theme. Settings &gt; Theme &gt; Game Screens Follow the Biome turns this off, and then games keep your theme too. Turning off Settings &gt; General &gt; Show FPS Counter During Gameplay hides the FPS, MS and chip parts. Zombies, skeletons, hunched ghouls, your own body in the third-person views, other players and the camp's traders are all <span data-feature-value="mobHeight">2</span> blocks tall (slime blobs and zombie dogs don't stand up, so they're lower).</p>
         </div>
         <div class="feature" data-code="breakSeconds BREAK_SECONDS _updateDigging DIG_LOOKS _digCrackTexture">
           <h3>Breaking Blocks</h3>
@@ -2405,7 +2408,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="GRAPHICS_LEVELS LEVEL_LOOK detectGraphicsLevel _applyGraphicsLevel _renderGraphicsLevels setTextureDetail redrawAtlas setEffects _placeSun GrassTufts">
           <h3>Graphics Levels</h3>
-          <p>Settings &gt; Graphics starts with seven picture cards, from light to realistic: Potato (the lightest of all - plain blocks, short view, far fewer pixels shown as crisp squares, and half the rain and snow, for very old or weak devices), Simple (plain blocks, short view, with richer colour and soft shade in corners - smoothest on weak phones), Balanced (plain blocks, medium view, leaves swaying in the wind and water that mirrors the sky), Detailed (detailed, bumpy blocks - brick gaps, rough stone - far view, shadows and little 3D grass plants), Realistic (soft shadows that follow you everywhere, warm sunlight with cool blue shade, natural-looking textures, the sun glinting off stone and off wet ground and puddles after rain, gentle waves, more grass plants, and far land fading into the sky like real air when the weather turns - clear days stay sharp), Ultra (all of that as far as you can see, with softer shadows, deeper corners, stronger glints, rolling waves on the water and dust in the sunlight) and In Real Life (as real as it gets: sharp natural textures with a fine grain up close - never blurry - the softest shadows, the deepest shade in corners and under overhangs, the ground's colour changing in soft patches like real grass, dirt and rock, camera-like light and colour where bright spots roll off softly instead of turning flat white, shining puddles after rain, water that mirrors the sky most, bigger waves, trees swaying more and the most dust floating in the sunlight on clear days; when the game slows down it never draws fewer pixels than your screen has - for strong devices, and never picked for you). On Realistic, Ultra and In Real Life the land is less blocky too: hills are drawn as smooth slopes instead of one-block steps, the ground heaps up a little against walls and trees, block edges look rounded, little stones lie about on the ground and leaves stick out of the trees - you still walk, dig and build on whole blocks. Each level up adds something you can see, and the realistic look is worked out in a lighter way than before, so the top levels run a little smoother. The first time you play, the game looks at your device - its graphics chip, how many CPU cores and how much memory it has, and whether it's a phone - and picks the level that fits, marked "Best for your device"; after that it only changes when you pick another card. A level also sets View Distance and Shadows further down, which you can still change on their own, and it switches straight away, even in the middle of a game.</p>
+          <p>Settings &gt; Graphics starts with seven picture cards, from light to realistic: Potato (the lightest of all - plain blocks, short view, far fewer pixels shown as crisp squares, and half the rain and snow, for very old or weak devices), Simple (plain blocks, short view, with richer colour and soft shade in corners - smoothest on weak phones), Balanced (plain blocks, medium view, leaves swaying in the wind and water that mirrors the sky), Detailed (detailed, bumpy blocks - brick gaps, rough stone - far view, shadows and little 3D grass plants), Realistic (soft shadows that follow you everywhere, warm sunlight with cool blue shade, natural-looking textures, the sun glinting off stone and off wet ground and puddles after rain, gentle waves, more grass plants, and far land fading into the sky like real air when the weather turns - clear days stay sharp), Ultra (all of that as far as you can see, with softer shadows, deeper corners, stronger glints, rolling waves on the water and dust in the sunlight) and In Real Life (as real as it gets: sharp natural textures with a fine grain up close - never blurry - the softest shadows, the deepest shade in corners and under overhangs, the ground's colour changing in soft patches like real grass, dirt and rock, camera-like light and colour where bright spots roll off softly instead of turning flat white, shining puddles after rain, water that mirrors the sky most, bigger waves, trees swaying more and the most dust floating in the sunlight on clear days; when the game slows down it never draws fewer pixels than your screen has - for strong devices, and never picked for you). On Realistic, Ultra and In Real Life the land is less blocky too: hills are drawn as smooth, lumpy slopes instead of one-block steps (uneven bumps and dips, not flat triangles, and never with see-through gaps beside roads, floors or walls), the ground heaps up a little against walls, block edges look rounded, little lumpy rocks lie about on the ground and leaves stick out of the trees - you still walk, dig and build on whole blocks. Each level up adds something you can see, and the realistic look is worked out in a lighter way than before, so the top levels run a little smoother. The first time you play, the game looks at your device - its graphics chip, how many CPU cores and how much memory it has, and whether it's a phone - and picks the level that fits, marked "Best for your device"; after that it only changes when you pick another card. A level also sets View Distance and Shadows further down, which you can still change on their own, and it switches straight away, even in the middle of a game.</p>
         </div>
         <div class="feature" data-code="installOfflineGuards ONLINE_ONLY registerServiceWorker">
           <h3>Play Offline</h3>
@@ -2482,7 +2485,7 @@ Escape before dawn.</p>
 
         <div class="feature" data-code="uiTheme">
           <h3>Old &amp; Simple Themes</h3>
-          <p>Two complete looks for the menus and pause screens, picked in General &gt; Theme: Old (the default - rusty metal, torn paper panels, worn profile card, and rain falling over the homepage street with splashes on the cobbles) and Simple (flat, no rain - the whole game in one plain colour you pick with the colour circle beside its name, a soft light grey to start, with the text in that colour's opposite - pick yellow and it turns purple - made dark or light enough to stay readable; the homepage is a shade darker than your colour - light grey for white - with Play, Game Mode, Settings, the right-side buttons, profile card, coins bar and clock as boxes in your colour that grow a little when you point at them, and a small gap between the profile card and the buttons under it; the right-side number circles are in the text colour so they read on any colour, panels close with a plain X, and the Profile's boxes are light like the rest of the panel; the picture icon puts a picture from your computer behind the homepage, cut to fit the screen and kept on that device only, and the bin icon beside it removes it). Every screen follows the theme you pick - the panels, the Inventory and Market cards and dropdowns, the Inspect window, the Equip/Sell menu and price window, the Friendship status list and the Map Editor's pause screen. Both rearrange themselves to fit phones and tablets.</p>
+          <p>Two complete looks for the menus and pause screens, picked in Settings &gt; Theme (its own tab after Graphics): Old (the default - rusty metal, torn paper panels, worn profile card, and rain falling over the homepage street with splashes on the cobbles) and Simple (flat, no rain - the whole game in one plain colour you pick with the colour circle beside its name, a soft light grey to start, with the text in that colour's opposite - pick yellow and it turns purple - made dark or light enough to stay readable; the homepage is a shade darker than your colour - light grey for white - with Play, Game Mode, Settings, the right-side buttons, profile card, coins bar and clock as boxes in your colour that grow a little when you point at them, and a small gap between the profile card and the buttons under it; the right-side number circles are in the text colour so they read on any colour, panels close with a plain X, and the Profile's boxes are light like the rest of the panel; the picture icon puts a picture from your computer behind the homepage, cut to fit the screen and kept on that device only, and the bin icon beside it removes it). Every screen follows the theme you pick - the panels, the Inventory and Market cards and dropdowns, the Inspect window, the Equip/Sell menu and price window, the Friendship status list and the Map Editor's pause screen. Both rearrange themselves to fit phones and tablets.</p>
         </div>
         <div class="feature" data-code="bindHoverMenus">
           <h3>Homepage Hover Menus</h3>
@@ -2536,7 +2539,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="fetchLeaderboardEntryByPlayerId subscribeTopLeaderboard">
           <h3>Leaderboards</h3>
-          <p>In the General panel's Leaderboard tab (next to Theme), in two columns that fill the panel: Global (with a region filter), Weekly Challenge, Most Achievements, Nearby Rank, a Global Rank badge, a Nearest-Rival nudge, global average/percentile comparison, and a live-subscribed top board. Each board is a clean list: the rank in a circle (gold, silver and bronze for the top three), the name, then Wave and Kills in their own columns, with your own row highlighted - and clicking anyone's name opens their profile. Your scores, and the XP you earn for your clan, go online after every game you finish, and your clan XP stays saved when you reload.</p>
+          <p>In the General panel's Leaderboard tab, in two columns that fill the panel: Global (with a region filter), Weekly Challenge, Most Achievements, Nearby Rank, a Global Rank badge, a Nearest-Rival nudge, global average/percentile comparison, and a live-subscribed top board. Each board is a clean list: the rank in a circle (gold, silver and bronze for the top three), the name, then Wave and Kills in their own columns, with your own row highlighted - and clicking anyone's name opens their profile. Your scores, and the XP you earn for your clan, go online after every game you finish, and your clan XP stays saved when you reload.</p>
         </div>
         <div class="feature" data-code="incrementGlobalKills">
           <h3>Global Kill Counter</h3>

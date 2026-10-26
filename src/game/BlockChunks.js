@@ -800,12 +800,26 @@ export class BlockChunks {
       return opaqueAt(X, y - 2, Z) ? -1 : -1.5
     }
     const hMemo = new Map()
+    // A block at level y that keeps its flat top (a road, planks, a wall)
+    // has its side toward the smooth ground hidden, so a slope that dipped
+    // or rose beside it would leave a see-through gap (2026-10-26,
+    // Gaymi: "dont make them see thought able"). Corners touching one stay
+    // at its top height (1), or at least 1 beside a wall.
+    const keepsTop = (X, Z, y) => {
+      if (!opaqueAt(X, y, Z)) return 0
+      const covered = opaqueAt(X, y + 1, Z)
+      if (!covered && this.info.get(typeAt(X, y, Z))?.natural) return 0
+      return covered ? 1 : 2
+    }
     const cornerH = (X, Z, y) => {
       const k = `${X},${Z},${y}`
       let h = hMemo.get(k)
       if (h === undefined) {
         h = (colH(X - 1, Z - 1, y) + colH(X, Z - 1, y) + colH(X - 1, Z, y) + colH(X, Z, y)) / 4
         h = Math.min(1.7, Math.max(0.3, h))
+        const keep = Math.max(keepsTop(X - 1, Z - 1, y), keepsTop(X, Z - 1, y), keepsTop(X - 1, Z, y), keepsTop(X, Z, y))
+        if (keep === 2) h = 1
+        else if (keep === 1) h = Math.max(1, h)
         hMemo.set(k, h)
       }
       return h
@@ -887,6 +901,10 @@ export class BlockChunks {
           if (!opaqueAt(x + Bv[0], y + Bv[1], z + Bv[2])) edge |= 8
         }
         if (shapes && info.cutout && fi !== 3 && hash01(x, y, z, 2 + fi) < 0.55) this._leafTuft(out.cutout, x - bx, y - by, z - bz, face, info.uvs[fi], tint)
+        if (smooth && ny === 1) {
+          this._lumpyTop(buf, x, y, z, bx, by, bz, cornerH, [u0, v0, u1, v1], ao.map((a) => AO_LEVELS[a] * face.shade * tint), info.alpha, glowSources)
+          continue
+        }
         const base = buf.pos.length / 3
         for (let i = 0; i < 4; i++) {
           const c = face.c[i]
@@ -894,16 +912,7 @@ export class BlockChunks {
           const cx0 = inset ? inset + c[0] * (1 - 2 * inset) : c[0]
           const cz0 = inset ? inset + c[2] * (1 - 2 * inset) : c[2]
           buf.pos.push((x - bx + cx0) * this.blockSize, (y - by + (c[1] ? topY : 0)) * this.blockSize, (z - bz + cz0) * this.blockSize)
-          if (smooth && ny === 1) {
-            // The slope's normal from the corners around this one, so the
-            // hills are lit smoothly instead of in facets.
-            const X = x + c[0]
-            const Z = z + c[2]
-            const gx = (cornerH(X + 1, Z, y) - cornerH(X - 1, Z, y)) / 2
-            const gz = (cornerH(X, Z + 1, y) - cornerH(X, Z - 1, y)) / 2
-            const l = Math.hypot(gx, 1, gz)
-            buf.nrm.push(-gx / l, 1 / l, -gz / l)
-          } else buf.nrm.push(nx, ny, nz)
+          buf.nrm.push(nx, ny, nz)
           buf.edge.push(edge)
           buf.uv.push(CORNER_UV[i][0] ? u1 : u0, CORNER_UV[i][1] ? v1 : v0)
           const b = AO_LEVELS[ao[i]] * face.shade * tint
@@ -954,8 +963,97 @@ export class BlockChunks {
     if (this._cull) this._cullChunk(chunk)
   }
 
-  // A little stone lying on a ground block's top (lx/ly/lz: the cell in
-  // chunk space, x/y/z: in the world), sat on the smooth slope.
+  // The top of smooth ground as a lumpy 3x3 patch instead of one flat
+  // quad (2026-10-26, Gaymi: "dont just use simple triangles use more
+  // irregular shapes"). The edges run straight between the corners, so
+  // they meet the next block's patch and side faces exactly; only the
+  // inside points move - up/down and a little sideways - by a fixed
+  // random amount per cell. Light (ao: the 4 corners' shade) and the
+  // slope's normal blend across the patch.
+  _lumpyTop(buf, x, y, z, bx, by, bz, cornerH, [u0, v0, u1, v1], shade, alpha, glowSources) {
+    const N = 3
+    const h00 = cornerH(x, z, y)
+    const h10 = cornerH(x + 1, z, y)
+    const h01 = cornerH(x, z + 1, y)
+    const h11 = cornerH(x + 1, z + 1, y)
+    // Slope normal at a corner, from the corners around it.
+    const cn = (X, Z) => [(cornerH(X - 1, Z, y) - cornerH(X + 1, Z, y)) / 2, (cornerH(X, Z - 1, y) - cornerH(X, Z + 1, y)) / 2]
+    const n00 = cn(x, z)
+    const n10 = cn(x + 1, z)
+    const n01 = cn(x, z + 1)
+    const n11 = cn(x + 1, z + 1)
+    // shade[] follows FACES[2].c: (0,1), (1,1), (1,0), (0,0) in (x, z).
+    const s00 = shade[3]
+    const s10 = shade[2]
+    const s01 = shade[0]
+    const s11 = shade[1]
+    const lerp2 = (a, b, c, d, u, v) => (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v
+    // Block light from lanterns etc. at each corner (as on flat faces).
+    const glow = (cx, cz, h) => (glowSources && this._glowAt(x + cx, y + h, z + cz, [0, 1, 0], glowSources)) || [0, 0, 0]
+    const g00 = glow(0, 0, h00)
+    const g10 = glow(1, 0, h10)
+    const g01 = glow(0, 1, h01)
+    const g11 = glow(1, 1, h11)
+    const H = []
+    const base = buf.pos.length / 3
+    for (let j = 0; j <= N; j++) {
+      for (let i = 0; i <= N; i++) {
+        let u = i / N
+        let v = j / N
+        const inside = i > 0 && i < N && j > 0 && j < N
+        let bump = 0
+        if (inside) {
+          u += (hash01(x * N + i, y, z * N + j, 21) - 0.5) * 0.22
+          v += (hash01(x * N + i, y, z * N + j, 22) - 0.5) * 0.22
+          bump = (hash01(x * N + i, y, z * N + j, 23) - 0.5) * 0.34
+        }
+        const h = lerp2(h00, h10, h01, h11, u, v) + bump
+        H.push(h)
+        buf.pos.push((x - bx + u) * this.blockSize, (y - by + h) * this.blockSize, (z - bz + v) * this.blockSize)
+        buf.uv.push(u0 + (u1 - u0) * u, v1 - (v1 - v0) * v)
+        buf.edge.push(0)
+        const b = lerp2(s00, s10, s01, s11, u, v)
+        const L = (k) => b * (1 + lerp2(g00[k], g10[k], g01[k], g11[k], u, v))
+        if (buf.stride === 4) buf.col.push(L(0), L(1), L(2), alpha)
+        else buf.col.push(L(0), L(1), L(2))
+      }
+    }
+    // Normals: the slope's, tipped by the lumps around each point.
+    for (let j = 0; j <= N; j++) {
+      for (let i = 0; i <= N; i++) {
+        const u = i / N
+        const v = j / N
+        let gx = lerp2(n00[0], n10[0], n01[0], n11[0], u, v)
+        let gz = lerp2(n00[1], n10[1], n01[1], n11[1], u, v)
+        if (i > 0 && i < N && j > 0 && j < N) {
+          const flat = (ii, jj) => lerp2(h00, h10, h01, h11, ii / N, jj / N)
+          const at = (ii, jj) => H[jj * (N + 1) + ii] - flat(ii, jj)
+          gx -= (at(i + 1, j) - at(i - 1, j)) * N / 2
+          gz -= (at(i, j + 1) - at(i, j - 1)) * N / 2
+        }
+        const l = Math.hypot(gx, 1, gz)
+        buf.nrm.push(gx / l, 1 / l, gz / l)
+      }
+    }
+    for (let j = 0; j < N; j++) {
+      for (let i = 0; i < N; i++) {
+        const a = base + j * (N + 1) + i
+        const b = a + 1
+        const c = a + N + 1
+        const d = c + 1
+        // Up-facing winding (x right, z toward you); the diagonal flips
+        // from square to square so no straight crease runs across.
+        if ((i + j) % 2) buf.idx.push(a, c, d, a, d, b)
+        else buf.idx.push(a, c, b, b, c, d)
+      }
+    }
+  }
+
+  // A little lumpy stone lying on a ground block's top (lx/ly/lz: the
+  // cell in chunk space, x/y/z: in the world), sat on the smooth slope:
+  // a ring of 6 points on the ground, a smaller turned ring above and a
+  // peak, each pushed about at random, drawn with flat facets
+  // (2026-10-26, Gaymi: lumpy pebbles instead of little boxes).
   _pebble(buf, lx, ly, lz, x, y, z, cornerH, uv) {
     const px = 0.2 + hash01(x, y, z, 7) * 0.6
     const pz = 0.2 + hash01(x, y, z, 8) * 0.6
@@ -964,21 +1062,59 @@ export class BlockChunks {
     const h01 = cornerH(x, z + 1, y)
     const h11 = cornerH(x + 1, z + 1, y)
     const gy = h00 * (1 - px) * (1 - pz) + h10 * px * (1 - pz) + h01 * (1 - px) * pz + h11 * px * pz
-    const w = 0.08 + hash01(x, y, z, 9) * 0.1
-    const d = w * (0.7 + hash01(x, y, z, 10) * 0.5)
-    const h = w * 0.55
-    const x0 = lx + px - w / 2
-    const x1 = x0 + w
-    const z0 = lz + pz - d / 2
-    const z1 = z0 + d
-    const y0 = ly + gy - h * 0.4
-    const y1 = y0 + h
+    const r = 0.05 + hash01(x, y, z, 9) * 0.06
+    const stretch = 0.7 + hash01(x, y, z, 10) * 0.6
+    const h = r * (0.9 + hash01(x, y, z, 12) * 0.6)
+    const cx = lx + px
+    const cz = lz + pz
+    const y0 = ly + gy - h * 0.25
+    const turn = hash01(x, y, z, 13) * Math.PI * 2
+    const SIDES = 6
+    const ring = (k, rad, yy, twist) => {
+      const pts = []
+      for (let i = 0; i < SIDES; i++) {
+        const a = turn + twist + (i / SIDES) * Math.PI * 2
+        const rr = rad * (0.75 + hash01(x * 7 + i, y + k, z, 14) * 0.5)
+        pts.push([cx + Math.cos(a) * rr * stretch, yy + (hash01(x, y + k, z * 7 + i, 15) - 0.5) * h * 0.25, cz + Math.sin(a) * rr])
+      }
+      return pts
+    }
+    const low = ring(0, r, y0, 0)
+    const mid = ring(1, r * 0.72, y0 + h * 0.65, Math.PI / SIDES)
+    const peak = [cx + (hash01(x, y, z, 16) - 0.5) * r * 0.5, y0 + h, cz + (hash01(x, y, z, 17) - 0.5) * r * 0.5]
+    const centre = [cx, y0 + h * 0.4, cz]
     const [u0, v0, u1, v1] = uv
-    const sub = [u0, v0, u0 + (u1 - u0) * 0.3, v0 + (v1 - v0) * 0.3]
+    const du = (u1 - u0) * 0.3
+    const dv = (v1 - v0) * 0.3
     const b = 0.78 + hash01(x, y, z, 11) * 0.2
-    for (const f of FACES) {
-      if (f.n[1] === -1) continue
-      pushQuad(buf, this.blockSize, f.c.map(([cx, cy, cz]) => [cx ? x1 : x0, cy ? y1 : y0, cz ? z1 : z0]), f.n, sub, b * f.shade)
+    const tri = (A, B, C) => {
+      let n = cross3(sub3(B, A), sub3(C, A))
+      // Point it outward (away from the stone's middle).
+      const mid3 = [(A[0] + B[0] + C[0]) / 3, (A[1] + B[1] + C[1]) / 3, (A[2] + B[2] + C[2]) / 3]
+      if (dot3(n, sub3(mid3, centre)) < 0) {
+        const t = B
+        B = C
+        C = t
+        n = [-n[0], -n[1], -n[2]]
+      }
+      const l = Math.hypot(n[0], n[1], n[2]) || 1
+      const base = buf.pos.length / 3
+      for (const [P, uu, vv] of [[A, 0, 0], [B, 1, 0], [C, 0.5, 1]]) {
+        buf.pos.push(P[0] * this.blockSize, P[1] * this.blockSize, P[2] * this.blockSize)
+        buf.nrm.push(n[0] / l, n[1] / l, n[2] / l)
+        buf.uv.push(u0 + du * uu, v0 + dv * vv)
+        const s = b * (0.75 + 0.25 * Math.max(0, n[1] / l))
+        if (buf.stride === 4) buf.col.push(s, s, s, 1)
+        else buf.col.push(s, s, s)
+        buf.edge.push(0)
+      }
+      buf.idx.push(base, base + 1, base + 2)
+    }
+    for (let i = 0; i < SIDES; i++) {
+      const i2 = (i + 1) % SIDES
+      tri(low[i], low[i2], mid[i])
+      tri(mid[i], low[i2], mid[i2])
+      tri(mid[i], mid[i2], peak)
     }
   }
 
@@ -1036,6 +1172,10 @@ function newBuffers(stride) {
 // One quad into a chunk's buffers: 4 corners [x, y, z] (blocks, chunk
 // space), counter-clockwise from outside, the normal, the picture's uv box
 // and a brightness.
+const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
 function pushQuad(buf, size, corners, n, [u0, v0, u1, v1], b) {
   const base = buf.pos.length / 3
   corners.forEach(([x, y, z], i) => {

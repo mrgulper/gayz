@@ -44,6 +44,12 @@ export function levelFromXp(xp) {
   return { level, into: left, need: xpToNextLevel(level) }
 }
 
+// Coins for reaching a level (2026-10-26, Gaymi: a Kirka-style level-up
+// popup with a reward): 50 per level number, so level 12 gives 600.
+export function levelUpCoins(level) {
+  return 50 * Math.max(1, Math.floor(level))
+}
+
 // Clan months follow the game owner's clock (Los Angeles), so the board
 // goes back to 0 at midnight on the 1st there. '2026-10'.
 const CLAN_TZ = 'America/Los_Angeles'

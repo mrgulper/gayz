@@ -7425,11 +7425,9 @@ html.ui-theme-old #footer-menu .footer-menu-title {
 }
 
 /* Old theme hover cards are old paper (2026-10-26, Gaymi). The bottom
-   links' wide card uses the panels' burnt parchment (its torn edges are
-   see-through, hence the drop shadow and extra padding). The narrow
-   right-column / Game Mode / Settings cards get their own aged note
-   paper drawn in CSS - the burnt parchment squashed into a narrow card
-   didn't fit. Dark ink on both. Same sizes as Simple's cards. */
+   links' wide card and the narrow right-column / Game Mode / Settings
+   cards all use the panels' burnt parchment (its torn edges are
+   see-through, hence the drop shadow and extra padding). Dark ink. */
 html.ui-theme-old #footer-menu {
   color: var(--old-ink);
   border: none;
@@ -7442,20 +7440,13 @@ html.ui-theme-old #footer-menu[data-place="footer"] {
   padding: 40px 64px 44px;
 }
 html.ui-theme-old #footer-menu:is([data-place="side"], [data-place="beside"]) {
-  background:
-    radial-gradient(ellipse at 18% 12%, rgba(120, 72, 24, 0.16), transparent 42%),
-    radial-gradient(ellipse at 86% 78%, rgba(110, 64, 20, 0.2), transparent 38%),
-    radial-gradient(circle at 70% 22%, rgba(150, 95, 40, 0.1) 0 7%, transparent 8%),
-    radial-gradient(ellipse at center, transparent 52%, rgba(92, 52, 16, 0.42) 100%),
-    var(--grain-texture),
-    linear-gradient(172deg, #efdfb6 0%, #e4cf9c 48%, #d9c08a 100%);
-  border-radius: 3px 6px 4px 7px;
-  box-shadow:
-    inset 0 0 0 1px rgba(98, 60, 22, 0.35),
-    inset 0 0 18px rgba(98, 56, 18, 0.35),
-    0 10px 24px rgba(0, 0, 0, 0.55);
-  /* A slightly uneven, worn edge. */
-  clip-path: polygon(0 1.5%, 6% 0, 22% 0.8%, 41% 0, 63% 0.9%, 82% 0.1%, 100% 1%, 99.4% 18%, 100% 41%, 99.2% 66%, 100% 88%, 99.5% 100%, 78% 99.2%, 55% 100%, 31% 99.1%, 12% 100%, 0.4% 99.3%, 0.9% 76%, 0 52%, 0.7% 27%);
+  /* The panels' own old paper too (2026-10-26, Gaymi: "use the old panel
+     for the old theme") instead of the CSS-drawn note paper. Wider
+     padding keeps the words off its burnt, see-through edges. */
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
+  border-radius: 0;
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.65));
+  padding: 30px 38px 34px;
 }
 html.ui-theme-old #footer-menu .footer-menu-title {
   color: #3a210b;
@@ -8377,8 +8368,7 @@ html.ui-theme-old #settings-panel h2 {
    General/Market tabs' placeholder text stays fine at the narrower
    shared width above. */
 #general-page-clan,
-#general-page-general,
-#general-page-theme {
+#general-page-general {
   width: min(640px, 90vw, 100%);
   max-width: 100%;
 }
@@ -11133,6 +11123,45 @@ html.caption-background #build-play-msg { background: rgba(0, 0, 0, 0.6); paddin
   background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(232, 194, 90, 0.5); border-radius: 999px;
 }
 .build-play-over-btns button:hover { border-color: #e8c25a; background: rgba(232, 194, 90, 0.18); }
+/* XP bar and LEVEL UP card on the You Died screen (2026-10-26, Gaymi:
+   like kirka.io). Colours follow the card's theme below. */
+#build-play-xp { margin: 14px auto 0; width: min(340px, 100%); text-align: left; }
+.build-play-xp-row { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 6px; font-size: 14px; }
+.build-play-xp-track { height: 14px; border-radius: 999px; overflow: hidden; background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(232, 194, 90, 0.5); }
+#build-play-xp-fill { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #c98a2b, #f2cf5b); }
+#build-play-levelup {
+  position: absolute; inset: 0; z-index: 2; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+.build-play-levelup-card {
+  min-width: 280px; padding: 26px 40px 28px; text-align: center; color: #f1e6c8;
+  background: rgba(18, 15, 10, 0.95); border: 2px solid #e8c25a; border-radius: 12px;
+  animation: build-play-levelup-pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+@keyframes build-play-levelup-pop { from { transform: scale(0.4); opacity: 0; } }
+#build-play-levelup-title { margin: 0; font-family: 'Black Ops One', 'Bebas Neue', sans-serif; font-size: 34px; letter-spacing: 1px; color: #f2cf5b; }
+#build-play-levelup-num {
+  margin: 8px auto; width: 96px; height: 96px; line-height: 96px; border-radius: 50%;
+  font-family: 'Black Ops One', 'Bebas Neue', sans-serif; font-size: 52px; color: #1b1206;
+  background: radial-gradient(circle at 35% 30%, #fff2b0, #e8b93c 55%, #a8701a);
+  box-shadow: 0 0 0 4px rgba(232, 194, 90, 0.35), 0 0 30px rgba(242, 207, 91, 0.6);
+}
+#build-play-levelup-reward { margin: 6px 0 16px; font-size: 18px; font-weight: 700; }
+#build-play-levelup-ok {
+  padding: 10px 26px; font-size: 16px; font-weight: 700; color: #1b1206; cursor: pointer;
+  background: #f2cf5b; border: none; border-radius: 999px;
+}
+#build-play-levelup-ok:hover { background: #ffe07a; }
+html.ui-theme-old .build-play-levelup-card {
+  color: var(--old-ink, #2e1d0e); font-family: 'Rye', Georgia, serif;
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
+  border: none; border-radius: 0; filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.65)); padding: 40px 60px 44px;
+}
+html.ui-theme-old #build-play-levelup-title { font-family: 'Rye', Georgia, serif; color: #8b1a10; }
+html.ui-theme-old #build-play-levelup-ok { font-family: 'Rye', Georgia, serif; color: #2e1d0e; background: rgba(107, 63, 23, 0.12); border: 1px solid rgba(74, 44, 16, 0.55); }
+html.ui-theme-old #build-play-levelup-ok:hover { background: rgba(107, 63, 23, 0.24); }
+html.ui-theme-old .build-play-xp-track { background: rgba(74, 44, 16, 0.15); border-color: rgba(74, 44, 16, 0.55); }
+html.ui-theme-old #build-play-xp-fill { background: linear-gradient(90deg, #6b3f17, #a8701a); }
 /* The You Died card follows the theme (2026-10-25): Old's paper and Rye
    here, Clean's flat card in theme-clean.css. Same size in both. */
 html.ui-theme-old .build-play-over-card {

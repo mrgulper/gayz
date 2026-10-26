@@ -19,6 +19,7 @@ import * as THREE from 'three'
 import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { SKELETON_KINDS, loadSkeletons, makeSkeleton, skeletonsReady } from './SkeletonModels.js'
 import { audioEngine } from './Audio.js'
+import { xpToNextLevel } from './Xp.js'
 import { getKeyFor } from './Keybinds.js'
 import { t } from './i18n.js'
 import { BuildCamp, COIN_PER_KILL, COIN_PER_WAVE } from './BuildCamp.js'
@@ -834,13 +835,28 @@ export class BuildSurvival {
         <h2 id="build-play-over-title"></h2>
         <p id="build-play-over-text"></p>
         <p id="build-play-over-best"></p>
+        <div id="build-play-xp" style="display: none">
+          <div class="build-play-xp-row"><b id="build-play-xp-level"></b><span id="build-play-xp-num"></span></div>
+          <div class="build-play-xp-track"><i id="build-play-xp-fill"></i></div>
+        </div>
         <div class="build-play-over-btns">
           <button type="button" id="build-play-again-btn"></button>
           <button type="button" id="build-play-back-btn"></button>
         </div>
+      </div>
+      <div id="build-play-levelup" role="dialog" aria-modal="true" style="display: none">
+        <div class="build-play-levelup-card">
+          <p id="build-play-levelup-title"></p>
+          <div id="build-play-levelup-num"></div>
+          <p id="build-play-levelup-reward"></p>
+          <button type="button" id="build-play-levelup-ok"></button>
+        </div>
       </div>`
     document.body.appendChild(over)
     this._overEl = over
+    over.querySelector('#build-play-levelup-ok').addEventListener('click', () => {
+      over.querySelector('#build-play-levelup').style.display = 'none'
+    })
     over.querySelector('#build-play-again-btn').addEventListener('click', () => {
       // On a server: back on your feet in the same game.
       if (this.net && !this.net.closed) {
@@ -2184,6 +2200,66 @@ export class BuildSurvival {
     set('build-play-back-btn', t(this.fromMenu ? 'buildPlayBackMenuBtn' : 'buildPlayBackBtn'))
     this._overEl.style.display = 'flex'
     if (document.pointerLockElement) document.exitPointerLock()
+    this._showXpBar(reward)
+  }
+
+  // Kirka-style XP bar on the You Died card (2026-10-26, Gaymi): it fills
+  // from where your level was to where it is now; each time it reaches
+  // the end it starts again, and once it's done a LEVEL UP card pops up
+  // with the new level and the coins it gave (ProgressUI 'end').
+  _showXpBar(reward) {
+    const box = document.getElementById('build-play-xp')
+    if (!box) return
+    cancelAnimationFrame(this._xpAnim || 0)
+    document.getElementById('build-play-levelup').style.display = 'none'
+    const from = reward?.levelBefore
+    const to = reward?.levelAfter
+    if (!from || !to || !reward.xp) { box.style.display = 'none'; return }
+    box.style.display = ''
+    const levelEl = document.getElementById('build-play-xp-level')
+    const numEl = document.getElementById('build-play-xp-num')
+    const fill = document.getElementById('build-play-xp-fill')
+    const fmt = (n) => Math.round(n).toLocaleString()
+    // One stretch per level the bar passes through: from a to b XP into it.
+    const legs = []
+    for (let lv = from.level; lv <= to.level; lv++) {
+      legs.push({ lv, a: lv === from.level ? from.into : 0, b: lv === to.level ? to.into : xpToNextLevel(lv) })
+    }
+    const draw = (lv, into) => {
+      const need = xpToNextLevel(lv)
+      levelEl.textContent = t('levelsLevel', { n: lv })
+      numEl.textContent = t('levelsProgress', { into: fmt(into), need: fmt(need), next: lv + 1 })
+      fill.style.width = `${Math.min(100, (into / need) * 100)}%`
+    }
+    let leg = 0
+    let start = performance.now()
+    const LEG_MS = 900
+    const step = (now) => {
+      const L = legs[leg]
+      const k = Math.min(1, (now - start) / LEG_MS)
+      draw(L.lv, L.a + (L.b - L.a) * (1 - (1 - k) * (1 - k)))
+      if (k < 1) { this._xpAnim = requestAnimationFrame(step); return }
+      if (leg < legs.length - 1) {
+        leg++
+        start = now
+        this._xpAnim = requestAnimationFrame(step)
+        return
+      }
+      if (to.level > from.level) this._showLevelUp(to.level, reward.levelCoins)
+    }
+    draw(from.level, from.into)
+    this._xpAnim = requestAnimationFrame(step)
+  }
+
+  _showLevelUp(level, coins) {
+    const pop = document.getElementById('build-play-levelup')
+    if (!pop) return
+    document.getElementById('build-play-levelup-title').textContent = t('levelUpTitle')
+    document.getElementById('build-play-levelup-num').textContent = String(level)
+    document.getElementById('build-play-levelup-reward').textContent = coins ? t('levelUpReward', { n: coins.toLocaleString() }) : ''
+    document.getElementById('build-play-levelup-ok').textContent = t('levelUpOk')
+    pop.style.display = 'flex'
+    try { audioEngine.playLevelUp?.() } catch { /* no audio */ }
   }
 
   // Each frame while playing (after Try Map has moved you).

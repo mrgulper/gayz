@@ -574,6 +574,11 @@ html.ui-theme-clean .build-play-over-card {
 html.ui-theme-clean #build-play-over-title { font-family: var(--clean-font); font-weight: 700; color: #d23a2c; }
 html.ui-theme-clean .build-play-over-btns button { font-family: var(--clean-font); color: var(--clean-fg); background: var(--clean-surface); border-color: transparent; }
 html.ui-theme-clean .build-play-over-btns button:hover { background: var(--clean-hover); border-color: transparent; }
+html.ui-theme-clean .build-play-levelup-card { font-family: var(--clean-font); color: var(--clean-fg); background: var(--clean-bg); border: none; border-radius: 18px; }
+html.ui-theme-clean #build-play-levelup-title { font-family: var(--clean-font); font-weight: 800; color: var(--clean-fg); }
+html.ui-theme-clean #build-play-levelup-ok { font-family: var(--clean-font); color: var(--clean-fg); background: var(--clean-surface); }
+html.ui-theme-clean #build-play-levelup-ok:hover { background: var(--clean-hover); }
+html.ui-theme-clean .build-play-xp-track { background: var(--clean-surface); border-color: transparent; }
 html.ui-theme-clean :is(#play-pause-card, .build-menu-card)::before,
 html.ui-theme-clean :is(#play-pause-card, .build-menu-card)::after {
   display: none;

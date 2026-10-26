@@ -940,6 +940,25 @@ class AudioEngine {
   // Homepage Audio Cue on Hover/Focus (Controls tab) - a short, quiet
   // synthesized blip, same "no external file needed" approach as every
   // other sound here rather than a new audio asset.
+  // Level up (2026-10-26): a short rising four-note fanfare.
+  playLevelUp() {
+    if (!this.ctx) return
+    const now = this.ctx.currentTime
+    ;[523, 659, 784, 1047].forEach((freq, i) => {
+      const at = now + i * 0.11
+      const osc = this.ctx.createOscillator()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(freq, at)
+      const g = this.ctx.createGain()
+      g.gain.setValueAtTime(0.0001, at)
+      g.gain.exponentialRampToValueAtTime(0.22, at + 0.02)
+      g.gain.exponentialRampToValueAtTime(0.001, at + (i === 3 ? 0.6 : 0.18))
+      osc.connect(g).connect(this.sfxGain)
+      osc.start(at)
+      osc.stop(at + 0.62)
+    })
+  }
+
   playUiHover() {
     if (!this.ctx) return
     const ctx = this.ctx

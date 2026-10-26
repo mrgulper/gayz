@@ -137,29 +137,30 @@ test('Clean theme: a homepage picture can be uploaded and removed', async ({ pag
   })
   expect(r).toEqual({ theme: 'clean', shape: true, shown: true, gone: true })
   // A real file pick: the bin icon shows straight away.
-  await page.evaluate(() => { window.__game._openClanPanel(); document.getElementById('general-tab-theme').click() })
+  await page.evaluate(() => { window.__game._toggleSettings(true); document.getElementById('tab-theme').click() })
   await page.setInputFiles('#theme-clean-bg-file', { name: 'p.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64') })
   await expect(page.locator('#theme-clean-bg-clear')).toBeVisible({ timeout: 3000 })
   // Too big for Cloud Save: kept on this device only.
   expect(DEVICE_ONLY_KEYS.has('gayz-clean-bg-image')).toBe(true)
 })
 
-// Theme lives in General (next to Leaderboard) and Inventory has a Pets
-// tab after Weapons (2026-10-24). Every dark/gold box from before - the
+// Theme is its own Settings tab after Graphics (2026-10-26; it was in
+// General) and Inventory has a Pets tab after Weapons (2026-10-24). Every dark/gold box from before - the
 // weapon cards, Inspect, the Market dropdowns, the Status list - follows
 // the Simple colour.
-test('Theme is in General, Inventory has Pets, and the menus follow Simple', async ({ page }) => {
+test('Theme is a Settings tab, Inventory has Pets, and the menus follow Simple', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
     const g = window.__game
     const out = {}
     out.inventoryTabs = [...document.querySelectorAll('.inventory-tab')].map((b) => b.dataset.inventoryPage)
-    out.themeInGeneral = !!document.getElementById('theme-picker-grid').closest('#clan-panel #general-page-theme')
+    out.themeInSettings = !!document.getElementById('theme-picker-grid').closest('#settings-panel #settings-page-theme')
+    out.settingsTabs = [...document.querySelectorAll('.settings-tab')].map((b) => b.dataset.page)
     g._openClanPanel()
     out.generalOpensOn = [...g.clanPanel.querySelectorAll('.general-tab-page')].filter((p) => p.style.display !== 'none').map((p) => p.id)
-    document.getElementById('general-tab-theme').click()
-    out.afterClick = [...g.clanPanel.querySelectorAll('.general-tab-page')].filter((p) => p.style.display !== 'none').map((p) => p.id)
-    // Switching General's tab must not touch Friendship's pages.
+    g._toggleSettings(true)
+    document.getElementById('tab-theme').click()
+    out.afterClick = [...document.querySelectorAll('.settings-page')].filter((p) => p.style.display !== 'none').map((p) => p.id)
     out.friendsPageKept = document.getElementById('general-page-friends').style.display !== 'none'
     document.getElementById('theme-picker-clean').click()
     out.marketItems = g._marketItemOptions().map((i) => i.id).slice(-1)
@@ -180,9 +181,10 @@ test('Theme is in General, Inventory has Pets, and the menus follow Simple', asy
   })
   expect(r).toEqual({
     inventoryTabs: ['character', 'crates', 'weapons', 'pets'],
-    themeInGeneral: true,
+    themeInSettings: true,
+    settingsTabs: ['general', 'language', 'audio', 'controls', 'graphics', 'theme'],
     generalOpensOn: ['general-page-general'],
-    afterClick: ['general-page-theme'],
+    afterClick: ['settings-page-theme'],
     friendsPageKept: true,
     marketItems: ['pets'],
     cardMatches: true,
@@ -237,14 +239,15 @@ test('homepage buttons show their tabs; the right column stays lit over a panel'
   const menu = page.locator('#footer-menu')
   await page.hover('#settings-btn')
   await expect(menu).toHaveAttribute('data-place', 'beside')
-  await expect(menu.locator('.footer-menu-sections button')).toHaveText(['General', 'Language', 'Audio', 'Controls', 'Graphics'])
+  await expect(menu.locator('.footer-menu-sections button')).toHaveText(['General', 'Language', 'Audio', 'Controls', 'Graphics', 'Theme'])
   await page.hover('#play-btn')
   await expect(menu).not.toHaveClass(/open/)
   await page.hover('#hub-btn')
   await expect(menu).toHaveAttribute('data-place', 'side')
-  await expect(menu.locator('.footer-menu-sections button')).toHaveText(['Leaderboard', 'Theme'])
+  await expect(menu.locator('.footer-menu-sections button')).toHaveText(['Leaderboard'])
+  await page.hover('#settings-btn')
   await menu.locator('.footer-menu-sections button', { hasText: 'Theme' }).click()
-  await expect(page).toHaveURL(/\/general\/theme$/)
+  await expect(page).toHaveURL(/\/settings\/theme$/)
   await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('menu-panel-open'))).toBe(true)
   expect(await page.evaluate(() => [...document.querySelectorAll('#menu-nav-buttons > button, #menu-player-badge')].filter((b) => b.offsetParent && getComputedStyle(b).opacity !== '1').map((b) => b.id))).toEqual([])
   await page.evaluate(() => window.__game._closeAllMenuPanels())
@@ -395,7 +398,7 @@ test('Cloud Save lives on the General tab', async ({ page }) => {
   expect(r.visible).toBe(true)
   expect(r.title).toBe(0)
   expect(r.signedOutShown).toBe('none')
-  expect(r.generalTabs).toEqual(['general-tab-general', 'general-tab-theme'])
+  expect(r.generalTabs).toEqual(['general-tab-general'])
   expect(r.friendsTitle).toBe('Friendship')
   expect(r.friendsBtn).toBe('Friendship')
   expect(r.clanInFriends).toBe(true)
