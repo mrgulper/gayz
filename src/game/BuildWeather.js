@@ -24,6 +24,13 @@
 // snowy or covered in hail stones for a while after (`ground`, read by the
 // block shader - BlockChunks.js). Potato (setLite) draws half the drops and
 // no splashes.
+//
+// More real snow and hail (2026-10-26, Gaymi: "make the hail weather the
+// snow look more realistic"): flakes come in different sizes, soft and
+// fluffy with a brighter middle, drifting and fluttering both ways; hail
+// is small hard ice pellets with a short streak behind them that bounce
+// off the ground (the splash points jump instead of ringing), and lie
+// about as little round stones (BlockChunks).
 import * as THREE from 'three'
 import { ROOF_GRID } from './BlockChunks.js'
 
@@ -68,6 +75,7 @@ uniform float uFall;
 uniform float uWind;
 uniform float uSize;
 uniform float uSnow;
+uniform float uIce;
 uniform float uScale;
 uniform float uB;
 uniform vec3 uCam;
@@ -77,6 +85,7 @@ uniform float uRoofBase;
 attribute vec4 seed;
 varying float vAlpha;
 varying float vStrength;
+varying float vSeed;
 const float BOX = ${BOX.toFixed(1)};
 const float DOWN = ${BOX_DOWN.toFixed(1)};
 const float H = ${(BOX_DOWN + BOX_UP).toFixed(1)};
@@ -85,11 +94,15 @@ void main() {
   vAlpha = 0.0;
   if (seed.w > uDensity) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
   vec3 cam = uCam / uB; // in blocks
-  float sway = uSnow * sin(uTime * (0.6 + seed.w) + seed.x * 40.0) * 0.6;
-  float fall = uTime * uFall * (0.85 + seed.w * 0.3);
+  // Snowflakes flutter both ways as they drift (hail drops straight);
+  // big flakes fall a little faster than small ones.
+  float flutter = uSnow * (1.0 - uIce);
+  float sway = flutter * (sin(uTime * (0.6 + seed.w) + seed.x * 40.0) * 0.6 + sin(uTime * (1.9 + seed.y * 1.3) + seed.z * 25.0) * 0.18);
+  float swayZ = flutter * cos(uTime * (0.5 + seed.y * 0.8) + seed.z * 31.0) * 0.45;
+  float fall = uTime * uFall * (0.85 + seed.w * 0.3) * (1.0 + flutter * (seed.z - 0.5) * 0.5);
   vec3 p;
   p.x = cam.x + (fract(seed.x - (cam.x - uTime * uWind - sway) / BOX) - 0.5) * BOX;
-  p.z = cam.z + (fract(seed.z - cam.z / BOX) - 0.5) * BOX;
+  p.z = cam.z + (fract(seed.z - (cam.z - swayZ) / BOX) - 0.5) * BOX;
   p.y = cam.y - DOWN + fract(seed.y - (cam.y + fall) / H) * H;
   // Under a roof: hidden.
   vec2 cell = floor(p.xz) - uRoofOrigin;
@@ -99,8 +112,11 @@ void main() {
   }
   vec4 mv = modelViewMatrix * vec4(p * uB, 1.0);
   gl_Position = projectionMatrix * mv;
-  gl_PointSize = min(uSize * uB * uScale / -mv.z, uSnow > 0.5 ? 22.0 : 160.0);
+  // Flakes come in all sizes; hail pellets need room for their streak.
+  float size = uSize * (1.0 + flutter * (seed.z * 1.1 - 0.45)) * (1.0 + uIce * 1.6);
+  gl_PointSize = min(size * uB * uScale / -mv.z, uIce > 0.5 ? 34.0 : uSnow > 0.5 ? 18.0 : 160.0);
   vStrength = 0.55 + seed.x * 0.45;
+  vSeed = seed.y;
   // Fade at the box's edges so it has no hard border, and very close up.
   vec3 d = abs(p - cam) / vec3(BOX * 0.5, H * 0.5, BOX * 0.5);
   float edge = 1.0 - smoothstep(0.7, 1.0, max(d.x, d.z));
@@ -110,26 +126,45 @@ void main() {
 
 const FRAG = /* glsl */ `
 uniform float uSnow;
+uniform float uIce;
 uniform vec3 uColor;
 uniform float uAlpha;
 uniform float uLean;
 varying float vAlpha;
 varying float vStrength;
+varying float vSeed;
 void main() {
   vec2 c = gl_PointCoord - 0.5;
   float a;
-  if (uSnow > 0.5) {
-    a = 1.0 - smoothstep(0.25, 0.5, length(c));
+  vec3 col = uColor;
+  if (uIce > 0.5) {
+    // A hard little ice pellet at the bottom with a faint streak above it
+    // (it's falling fast), a bright glint on its top-left.
+    vec2 h = c - vec2(c.y * uLean, 0.0) - vec2(0.0, 0.32);
+    float head = 1.0 - smoothstep(0.07, 0.11, length(h));
+    float tail = (1.0 - smoothstep(0.015, 0.05, abs(h.x))) * smoothstep(-0.5, 0.3, c.y) * step(c.y, 0.32) * 0.3;
+    a = max(head, tail);
+    col = mix(uColor * 0.85, vec3(1.0), (1.0 - smoothstep(0.0, 0.06, length(h + vec2(0.03, 0.03)))) * head);
+  } else if (uSnow > 0.5) {
+    // A soft fluffy flake: brighter in the middle, feathered edge, a bit
+    // uneven so they don't all look like the same dot.
+    float r = length(c * vec2(1.0 + (vSeed - 0.5) * 0.35, 1.0));
+    float wob = 0.04 * sin(atan(c.y, c.x) * 5.0 + vSeed * 30.0);
+    a = pow(1.0 - smoothstep(0.0, 0.47 + wob, r), 1.6);
+    a = min(1.0, a * 1.25);
   } else {
     // A thin streak leaning with the wind: brightest at the falling head
     // (bottom), fading up its tail.
+    // Each drop its own length and thickness, like real rain.
     float x = c.x + c.y * uLean;
-    a = (1.0 - smoothstep(0.012, 0.04, abs(x))) * (1.0 - smoothstep(0.32, 0.5, abs(c.y)));
+    float w = 0.009 + 0.008 * vSeed;
+    float len = 0.22 + 0.2 * vSeed;
+    a = (1.0 - smoothstep(w, w * 3.2, abs(x))) * (1.0 - smoothstep(len, len + 0.12, abs(c.y)));
     a *= 0.35 + 0.65 * smoothstep(-0.5, 0.45, c.y);
   }
   a *= vAlpha * uAlpha * vStrength;
   if (a < 0.01) discard;
-  gl_FragColor = vec4(uColor, a);
+  gl_FragColor = vec4(col, a);
 }
 `
 
@@ -170,12 +205,22 @@ void main() {
 `
 const SPLASH_FRAG = /* glsl */ `
 uniform vec3 uColor;
+uniform float uBounce;
 varying float vLife;
 varying float vAlpha;
 void main() {
+  vec2 c = gl_PointCoord - 0.5;
+  if (uBounce > 0.5) {
+    // Hail: a pellet bouncing back up off the ground and dropping again.
+    float hop = 4.0 * vLife * (1.0 - vLife);
+    float b = 1.0 - smoothstep(0.05, 0.09, length(c - vec2(0.0, 0.42 - hop * 0.55)));
+    float ba = b * vAlpha * 0.85 * step(vLife, 0.95);
+    if (ba < 0.01) discard;
+    gl_FragColor = vec4(uColor, ba);
+    return;
+  }
   // A flat ring (squashed, as if lying on the ground) and, at first, a
   // little jump of water in the middle.
-  vec2 c = gl_PointCoord - 0.5;
   float d = length(vec2(c.x, c.y * 2.6));
   float ring = 1.0 - smoothstep(0.0, 0.05, abs(d - vLife * 0.45));
   float drop = (1.0 - smoothstep(0.0, 0.08, length(c - vec2(0.0, -0.08 - vLife * 0.25)))) * step(vLife, 0.35);
@@ -219,6 +264,7 @@ export class BuildWeather {
       uWind: { value: 1 },
       uSize: { value: 0.5 },
       uSnow: { value: 0 },
+      uIce: { value: 0 },
       uScale: { value: 800 },
       uB: { value: blockSize },
       uCam: { value: new THREE.Vector3() },
@@ -248,6 +294,7 @@ export class BuildWeather {
         uTime: u.uTime, uDensity: u.uDensity, uScale: u.uScale, uB: u.uB, uCam: u.uCam,
         uRoof: u.uRoof, uRoofOrigin: u.uRoofOrigin, uRoofBase: u.uRoofBase,
         uColor: { value: new THREE.Color(0xc8d6e6) },
+        uBounce: { value: 0 },
       },
       vertexShader: SPLASH_VERT, fragmentShader: SPLASH_FRAG,
       transparent: true, depthWrite: false, fog: false,
@@ -295,7 +342,7 @@ export class BuildWeather {
     }
     const on = !!this.kind && this._density > 0.002
     this.points.visible = on
-    this.splash.visible = on && !this._lite && this.kind.endsWith('Rain')
+    this.splash.visible = on && !this._lite && (this.kind.endsWith('Rain') || this.kind === 'hail')
     const groundLeft = this._updateGround(dt)
     if (!on && !groundLeft) {
       this._scanRow = ROOF
@@ -345,8 +392,12 @@ export class BuildWeather {
     u.uWind.value = k.wind
     u.uSize.value = k.size
     u.uSnow.value = k.snow
-    u.uColor.value.setHex(k.ice ? 0xdfeaf5 : k.snow ? 0xffffff : 0xaebfd4)
-    u.uAlpha.value = k.snow ? 0.9 : 0.6
+    u.uIce.value = k.ice ? 1 : 0
+    u.uColor.value.setHex(k.ice ? 0xd4e3f2 : k.snow ? 0xf7faff : 0xaebfd4)
+    u.uAlpha.value = k.ice ? 0.95 : k.snow ? 0.85 : 0.6
+    const sp = this.splash.material.uniforms
+    sp.uBounce.value = k.ice ? 1 : 0
+    sp.uColor.value.setHex(k.ice ? 0xe4eef8 : 0xc8d6e6)
     // Rain leans with the wind (-: the head trails the tail sideways).
     u.uLean.value = k.snow ? 0 : -Math.min(0.5, k.wind / k.fall * 2)
   }

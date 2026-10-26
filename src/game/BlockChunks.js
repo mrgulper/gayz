@@ -141,12 +141,22 @@ function sharpen(mat, fx, extra = null) {
         return step(0.5, mod(floor(m / bitv), 2.0)) * (1.0 - smoothstep(0.0, 0.16, f));
       }
       // 1 = open to the sky here, 0 = under a roof (wp in blocks).
-      float openSky(vec3 wp, vec3 n) {
-        vec2 cell = floor(wp.xz + n.xz * 0.5) - uRoofOrigin;
+      float openCell(vec2 cell, float y) {
+        cell -= uRoofOrigin;
         if (cell.x < 0.0 || cell.y < 0.0 || cell.x >= ${ROOF_GRID.toFixed(1)} || cell.y >= ${ROOF_GRID.toFixed(1)}) return 1.0;
         float top = texture2D(uRoof, (cell + 0.5) / ${ROOF_GRID.toFixed(1)}).r * 255.0;
         if (top < 0.5) return 1.0;
-        return step(uRoofBase + top - 0.1, wp.y);
+        return step(uRoofBase + top - 0.1, y);
+      }
+      // Blended over the 4 nearest cells, so wet ground and puddles end in
+      // soft rounded shapes, not square block corners (2026-10-26, Gaymi).
+      float openSky(vec3 wp, vec3 n) {
+        vec2 p = wp.xz + n.xz * 0.5 - 0.5;
+        vec2 c = floor(p);
+        vec2 f = smoothstep(0.0, 1.0, fract(p));
+        float o = mix(mix(openCell(c, wp.y), openCell(c + vec2(1.0, 0.0), wp.y), f.x),
+          mix(openCell(c + vec2(0.0, 1.0), wp.y), openCell(c + vec2(1.0), wp.y), f.x), f.y);
+        return smoothstep(0.3, 0.7, o);
       }
       ${NOISE_GLSL}`)
       .replace('#include <map_fragment>', `#ifdef USE_MAP
@@ -188,9 +198,15 @@ function sharpen(mat, fx, extra = null) {
         float sn = realNoise(vec3(wp.xz * 1.3, 1.0)) * 0.6 + realNoise(vec3(wp.xz * 4.1, 5.0)) * 0.4;
         float cover = up * smoothstep(1.0 - uSnow * 1.15, 1.08 - uSnow * 1.15, sn);
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.95, 0.99) * (0.92 + 0.08 * sn), cover);
-        // Hail: little ice stones lying about.
-        float stone = realHash(floor(wp * vec3(9.0, 1.0, 9.0)));
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.92, 0.98), up * step(1.0 - uIce * 0.22, stone) * (1.0 - cover));
+        // Hail: little round ice stones lying about, each a different
+        // size, with a lighter top.
+        vec2 hc = wp.xz * 9.0;
+        vec3 hcell = vec3(floor(hc), floor(wp.y));
+        float stone = realHash(hcell);
+        vec2 hat = vec2(realHash(hcell + 7.0), realHash(hcell + 13.0)) * 0.5 + 0.25;
+        float hd = length(fract(hc) - hat) / (0.16 + 0.18 * realHash(hcell + 3.0));
+        float pellet = up * step(1.0 - uIce * 0.22, stone) * (1.0 - smoothstep(0.75, 1.0, hd)) * (1.0 - cover);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.84, 0.9, 0.97) + 0.08 * (1.0 - hd), pellet);
         puddle *= 1.0 - cover;
         wetNow *= 1.0 - cover;
       }`)
@@ -512,8 +528,26 @@ export class BlockChunks {
       waves(shader)
       shader.uniforms.uSky = this.fx.sky
       shader.uniforms.uReflect = this.fx.reflect
+      shader.uniforms.uBlock = this.fx.block
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nattribute float aEdge;\nvarying float vShore;\nvarying vec2 vCell;')
+        .replace('#include <project_vertex>', `#include <project_vertex>
+        vShore = objectNormal.y > 0.5 ? aEdge : 0.0;
+        vCell = (modelMatrix * vec4(position, 1.0)).xz;`)
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nuniform vec3 uSky;\nuniform float uReflect;')
+        .replace('#include <common>', '#include <common>\nuniform vec3 uSky;\nuniform float uReflect;\nuniform float uBlock;\nvarying float vShore;\nvarying vec2 vCell;')
+        .replace('#include <alphatest_fragment>', `#include <alphatest_fragment>
+        if (vShore > 0.5) {
+          // Where the shore turns a corner, the water's corner is a curve
+          // (aEdge bits: 1/2 = shore at -x/+x, 4/8 = at -z/+z).
+          vec2 f = fract(vCell / uBlock + 0.0001);
+          float m = floor(vShore + 0.5);
+          float sx = f.x < 0.5 ? step(0.5, mod(m, 2.0)) : step(0.5, mod(floor(m / 2.0), 2.0));
+          float sz = f.y < 0.5 ? step(0.5, mod(floor(m / 4.0), 2.0)) : step(0.5, mod(floor(m / 8.0), 2.0));
+          vec2 d = 0.5 - abs(f - 0.5);
+          float r = length(max(vec2(0.5) - d, 0.0));
+          if (sx * sz > 0.5 && r > 0.5) discard;
+        }`)
         .replace('#include <fog_fragment>', `if (uReflect > 0.0) {
           float fres = pow(1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0), 3.0);
           float m = uReflect * (0.15 + 0.75 * fres);
@@ -880,6 +914,15 @@ export class BlockChunks {
           if (!opaqueAt(x - Bv[0], y - Bv[1], z - Bv[2])) edge |= 4
           if (!opaqueAt(x + Bv[0], y + Bv[1], z + Bv[2])) edge |= 8
         }
+        // Water's top rounds off where the shore turns a corner (2026-10-26,
+        // Gaymi: "never make the water square") - same bits, the water
+        // shader cuts the corner into a curve.
+        if (info.liquid === 'water' && ny === 1) {
+          if (opaqueAt(x - 1, y, z)) edge |= 1
+          if (opaqueAt(x + 1, y, z)) edge |= 2
+          if (opaqueAt(x, y, z - 1)) edge |= 4
+          if (opaqueAt(x, y, z + 1)) edge |= 8
+        }
         if (shapes && info.cutout && fi !== 3 && hash01(x, y, z, 2 + fi) < 0.55) this._leafTuft(out.cutout, x - bx, y - by, z - bz, face, info.uvs[fi], tint)
         if (smooth && ny === 1) {
           this._lumpyTop(buf, x, y, z, bx, by, bz, cornerH, [u0, v0, u1, v1], ao.map((a) => AO_LEVELS[a] * face.shade * tint), info.alpha, glowSources)
@@ -921,7 +964,7 @@ export class BlockChunks {
       geo.setAttribute('normal', new THREE.Float32BufferAttribute(buf.nrm, 3))
       geo.setAttribute('uv', new THREE.Float32BufferAttribute(buf.uv, 2))
       geo.setAttribute('color', new THREE.Float32BufferAttribute(buf.col, buf.stride))
-      if (shapes) geo.setAttribute('aEdge', new THREE.Float32BufferAttribute(buf.edge, 1))
+      if (shapes || kind === 'water') geo.setAttribute('aEdge', new THREE.Float32BufferAttribute(buf.edge, 1))
       geo.setIndex(buf.pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(buf.idx, 1) : new THREE.Uint16BufferAttribute(buf.idx, 1))
       geo.computeBoundingSphere()
       const mesh = new THREE.Mesh(geo, this.materials[kind])

@@ -3058,6 +3058,21 @@ test('new zombie kinds: sizes, the bloater bursts, spiders climb', async ({ page
       top = Math.max(top, sp.y)
     }
     out.spiderTop = top
+    // ...but the camp's edge isn't a wall to climb (it used to carry a
+    // spider up into the sky, 2026-10-26).
+    s._removeZombie(sp)
+    const realCamp = s.camp
+    s.camp = { inside: (x, z, m = 0) => z < -20 + m, update() {}, checkQuests() {}, dispose() {}, quests: [], panelOpen: false }
+    const sp2 = s._makeZombie(993, 0.5, 1, -17.5, 1000, false, 'spider')
+    s.zombies = [sp2]
+    bm.tryMode.pos.set(0.5, 1, -40.5)
+    let top2 = sp2.y
+    for (let i = 0; i < 200; i++) {
+      s.update(0.05)
+      top2 = Math.max(top2, sp2.y)
+    }
+    out.campTop = top2
+    s.camp = realCamp
     s.stop()
     g._exitBuildMode()
     return out
@@ -3068,4 +3083,5 @@ test('new zombie kinds: sizes, the bloater bursts, spiders climb', async ({ page
   expect(r.heights.spider).toBeLessThan(1.2)
   expect(r.burst).toEqual({ hurtMe: true, hurtOther: true, gone: true })
   expect(r.spiderTop).toBeGreaterThan(4.5)
+  expect(r.campTop).toBeLessThan(3)
 })

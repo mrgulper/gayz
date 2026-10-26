@@ -1823,6 +1823,7 @@ export class BuildMode {
     document.body.appendChild(this._tryCrosshairEl)
     this._onPointerDown = (e) => {
       if (document.pointerLockElement !== this.renderer.domElement) {
+        if (this.mouseScreenOpen()) return
         // Cursor is free (Build Mode no longer auto-locks the instant you
         // enter, see Game.js's _enterBuildMode - it was disorienting to
         // have the mouse captured before you'd even gotten oriented).
@@ -2062,6 +2063,17 @@ export class BuildMode {
     window.addEventListener('wheel', this._onWheel, { passive: true })
     this._wheelAccum = 0
     this.renderer.domElement.addEventListener('pointerdown', this._onPointerDown)
+    // A screen you click on (Choose Your Weapon, You Died...) never keeps
+    // the mouse captured (2026-10-26, Gaymi: "i cant actually move my mouse
+    // to pick"). A capture asked for just before the screen opened (Play
+    // Again, a click into the view) only lands after its exitPointerLock()
+    // already ran, so whenever the mouse gets caught, check again here.
+    this._onLockChange = () => {
+      if (document.pointerLockElement === this.renderer.domElement && this.mouseScreenOpen()) {
+        try { document.exitPointerLock() } catch { /* not available */ }
+      }
+    }
+    document.addEventListener('pointerlockchange', this._onLockChange)
     this._onPointerUp = (e) => {
       if (e.button === 0) this._fireHeld = false
       if (e.button === 2 && this.tryMode?.active) this.tryMode.setAim(false)
@@ -2128,6 +2140,7 @@ export class BuildMode {
     window.removeEventListener('keydown', this._onKeyDownHotbar)
     window.removeEventListener('wheel', this._onWheel)
     this.renderer.domElement.removeEventListener('pointerdown', this._onPointerDown)
+    document.removeEventListener('pointerlockchange', this._onLockChange)
     window.removeEventListener('pointerup', this._onPointerUp)
     this._fireHeld = false
     window.removeEventListener('contextmenu', this._onContextMenu)
@@ -3604,6 +3617,18 @@ export class BuildMode {
         // Not available in this environment.
       }
     }
+  }
+
+  // True while a screen that needs the real mouse is up: the pause menu,
+  // the inventory, Choose Your Weapon, You Died, the spawn map, a trader,
+  // Share or Play Together, or the big map.
+  mouseScreenOpen() {
+    if (this.menuOpen || this.pickerOpen || this.share?.isOpen || this.together?.isOpen) return true
+    if (this.survival?.camp?.panelOpen || this.tryMode?._mapInteractive?.()) return true
+    return ['play-weapon-pick', 'build-play-over', 'spawn-map'].some((id) => {
+      const el = document.getElementById(id)
+      return !!el && el.style.display !== 'none' && el.style.display !== ''
+    })
   }
 
   // Escape - opens/closes the action menu (Exit/Save/Export/Import/Mirror/
