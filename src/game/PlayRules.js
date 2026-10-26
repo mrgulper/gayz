@@ -19,6 +19,12 @@ export const PLAY_MUTATORS = ['hordeRush', 'lootRush', 'healthRegen', 'glassHous
 // worldMap (2026-10-18): pick a real place on Earth and survive in land
 // shaped like the real world (SpawnMap.js, OpenWorld's Earth mode).
 export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'worldMap']
+// Game Modes with no zombies at all (2026-10-26, Gaymi: "make world map
+// not spawn zombies ... make world map just a gamemode with the world
+// map"): you just explore the real Earth.
+export const NO_ZOMBIE_MODES = ['worldMap']
+// Its achievement, Globetrotter: a World Map run this long (seconds).
+export const GLOBETROTTER_SECONDS = 600
 
 // Zombie Defense: hold out this many waves to win.
 export const DEFENSE_WAVES = 10
@@ -135,6 +141,7 @@ export function playConfig({ difficulty, gameMode, mutators = {}, purchased = ne
   const on = PLAY_MUTATORS.filter((m) => mutators[m])
   cfg.mutators = on
   cfg.mode = PLAY_GAME_MODES.includes(gameMode) ? gameMode : 'classic'
+  cfg.noZombies = NO_ZOMBIE_MODES.includes(cfg.mode)
   if (difficulty) {
     cfg.zombieHealthMult = difficulty.healthMult
     cfg.zombieDamageMult = difficulty.damageMult

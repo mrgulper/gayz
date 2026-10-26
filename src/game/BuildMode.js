@@ -4414,6 +4414,9 @@ export class BuildMode {
     this.sky?.weather3d?.setLite(!!look.lite)
     this.grassTufts?.setAmount(look.tufts || 0)
     this.airMotes?.setAmount(look.motes || 0)
+    // Softer shadow edges on the higher levels, like real sunlight
+    // (just how wide the shadow map is sampled - no redraw needed).
+    if (this._sunLight) this._sunLight.shadow.radius = look.soft || 1
     // Potato's few pixels stretched up as crisp squares instead of a blur.
     if (this._liteWas !== !!look.lite) {
       this._liteWas = !!look.lite

@@ -2606,7 +2606,8 @@ test('block chunks free their copy once drawn and come back after a lost graphic
 // closer than 30 blocks (out here too - path cells used to wrap past
 // 2048). M's middle map is the block map (never the atlas), drawn ahead,
 // and turns into the globe when zoomed far out (2026-10-24).
-test('the World Map mode has real land, far zombie spawns and a block map at every zoom', async ({ page }) => {
+// No zombies in World Map since 2026-10-26 (just exploring).
+test('the World Map mode has real land, no zombies and a block map at every zoom', async ({ page }) => {
   await gotoAndWaitForGame(page)
   await page.evaluate(() => { window.__game.settings.selectedGameMode = 'worldMap'; window.__game.playBtn.click() })
   await page.waitForFunction(() => document.getElementById('spawn-map')?.style.display === 'block', null, { timeout: 60000 })
@@ -2620,6 +2621,8 @@ test('the World Map mode has real land, far zombie spawns and a block map at eve
   await page.locator('#spawn-map-list button', { hasText: 'Atasu' }).click()
   await page.click('#spawn-map-go')
   await page.waitForFunction(() => document.getElementById('spawn-map').style.display === 'none', null, { timeout: 30000 })
+  // Past the first wave's countdown: still nobody coming.
+  await page.waitForTimeout(5000)
   const r = await page.evaluate(async () => {
     const g = window.__game
     const s = g.buildMode.survival
@@ -2629,12 +2632,8 @@ test('the World Map mode has real land, far zombie spawns and a block map at eve
     const balkhash = at(46.5, 74.5)
     const nile = at(24.09, 32.89)
     const p = s.bodyPos()
-    s._rebuildFlow([[Math.floor(p.x), Math.floor(p.y), Math.floor(p.z)]])
-    const dists = []
-    const orig = s._makeZombie.bind(s)
-    s._makeZombie = function (id, x, y, z, ...rest) { dists.push(Math.hypot(p.x - x, p.z - z)); return orig(id, x, y, z, ...rest) }
-    for (let i = 0; i < 20; i++) s._spawnZombie()
-    s._makeZombie = orig
+    const noZombies = s.zombies.length === 0 && s.wave === 0 && s._toSpawn === 0
+    const hud = document.getElementById('build-play-wave-text').textContent
     const tm = g.buildMode.tryMode
     const el = document.getElementById('build-try-map')
     tm.cycleMap()
@@ -2663,13 +2662,13 @@ test('the World Map mode has real land, far zombie spawns and a block map at eve
       everest: everest.biome,
       balkhash: balkhash.h < balkhash.w,
       nile: nile.h < nile.w,
-      spawned: dists.length,
-      closest: Math.min(...dists) >= 30,
+      noZombies,
+      hud: /^World Map · /.test(hud),
       size: el.dataset.size,
       views,
     }
   })
-  expect(r).toEqual({ lat: 49, steppe: true, everest: 'snowyPeaks', balkhash: true, nile: true, spawned: 20, closest: true, size: 'center', views: ['blocks', 'globe'], ahead: true })
+  expect(r).toEqual({ lat: 49, steppe: true, everest: 'snowyPeaks', balkhash: true, nile: true, noZombies: true, hud: true, size: 'center', views: ['blocks', 'globe'], ahead: true })
 })
 
 // 2026-10-24: the Map Editor button asks Worlds or Plain; Plain is endless
@@ -2780,4 +2779,125 @@ test('Game screens follow the biome only in games and only when the setting is o
   expect(r.onAgain).toBe(true)
   expect(r.homeBiome).toBe(false)
   expect(r.homeTheme).toBe(true)
+})
+
+// 2026-10-26 (Gaymi: "check all the gamemodes do they work for zombie
+// survival"): each of the 5 zombie modes started from the homepage like a
+// player would - zombies really come, the wave clears and the next one
+// starts, and each mode's own rule works (Defense's last wave wins, Boss
+// Hunt's 3rd wave has a boss, Rush's short break and timer, Extraction's
+// helicopter has its own test above); dying ends the run with its screen.
+for (const [mode, button] of [['classic', 'game-mode-classic'], ['zombieDefense', 'game-mode-zombie-defense'], ['bossHunt', 'game-mode-boss-hunt'], ['zombieRush', 'game-mode-zombie-rush'], ['zombieExtraction', 'game-mode-zombie-extraction']]) {
+  test(`${mode}: starts, spawns zombies, clears waves and ends`, async ({ page }) => {
+    await gotoAndWaitForGame(page)
+    const unlocked = await page.evaluate((id) => {
+      const g = window.__game
+      g.settings.guestMode = false
+      const btn = document.getElementById(id)
+      btn.click()
+      g.playBtn.click()
+      return !btn.disabled
+    }, button)
+    expect(unlocked).toBe(true)
+    await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+    await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+    // Real play: the first wave starts and zombies walk in on their own.
+    await page.waitForFunction(() => window.__game.buildMode.survival.zombies.length > 0, null, { timeout: 30000 })
+    const r = await page.evaluate(async (m) => {
+      const s = window.__game.buildMode.survival
+      const out = { mode: s.cfg.mode, wave1: s.wave, hud: document.getElementById('build-play-wave-text').textContent }
+      // Every zombie in wave 1 shot down.
+      const killAll = () => {
+        s._toSpawn = 0
+        for (const z of [...s.zombies]) s.damageZombie(z, 1e6)
+      }
+      killAll()
+      out.killsAfter = s.kills
+      // The break, then wave 2 by itself.
+      const t0 = performance.now()
+      await new Promise((done) => {
+        const check = () => (s.wave >= 2 || performance.now() - t0 > 15000 ? done() : setTimeout(check, 100))
+        check()
+      })
+      out.wave2 = s.wave
+      out.breakSecs = Math.round((performance.now() - t0) / 1000)
+      if (m === 'bossHunt') {
+        s._startWave(3)
+        s._spawnZombie()
+        out.boss = s.zombies.some((z) => z.boss)
+      }
+      if (m === 'zombieDefense') {
+        killAll()
+        s.wave = 10
+        s._breakTimer = 0
+        s._updateWorld(0.01)
+        out.won = !!s._won && s.dead
+        out.title = document.getElementById('build-play-over-title').textContent
+        return out
+      }
+      if (m === 'zombieRush') out.timer = /Time|\d+:\d\d/.test(document.getElementById('build-play-wave-text').textContent)
+      // Dying ends the run.
+      const runs0 = window.__game.careerStats.totalRuns
+      s.health = 1
+      s.armor = 0
+      s._hurtPlayer(1000)
+      if (!s.dead) s._die()
+      out.dead = s.dead
+      out.title = document.getElementById('build-play-over-title').textContent
+      out.overShown = s._overEl.style.display !== 'none'
+      out.counted = window.__game.careerStats.totalRuns === runs0 + 1
+      return out
+    }, mode)
+    console.log(mode, JSON.stringify(r))
+    expect(r.mode).toBe(mode)
+    expect(r.wave1).toBe(1)
+    expect(r.killsAfter).toBeGreaterThan(0)
+    expect(r.wave2).toBe(2)
+    if (mode === 'zombieRush') {
+      expect(r.breakSecs).toBeLessThanOrEqual(3)
+      expect(r.timer).toBe(true)
+    }
+    if (mode === 'bossHunt') expect(r.boss).toBe(true)
+    if (mode === 'zombieDefense') {
+      expect(r.won).toBe(true)
+      expect(r.title).toBe('You held the city!')
+    } else {
+      expect(r.dead).toBe(true)
+      expect(r.overShown).toBe(true)
+      expect(r.counted).toBe(true)
+    }
+  })
+}
+
+// 2026-10-26: a 1 in 10 rainbow when rain clears in the daytime.
+test('a rainbow can follow the rain', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  const r = await page.evaluate(() => {
+    const sky = window.__game.buildMode.sky
+    const orig = Math.random
+    const rolls = { yes: 0, no: 0 }
+    // The last rain step clears: a roll under 0.1 brings a rainbow.
+    for (const [roll, key] of [[0.05, 'yes'], [0.5, 'no']]) {
+      sky._clock = 1440 * 0.1
+      sky._rainbowIn = 0
+      sky._now = 'veryLightRain'
+      sky._goal = 'clear'
+      sky._stepIn = 0
+      Math.random = () => roll
+      sky.update(0.01)
+      Math.random = orig
+      rolls[key] = sky._rainbowIn
+    }
+    sky.showRainbow()
+    for (let i = 0; i < 200; i++) sky.update(0.1)
+    const shown = sky.bodies.rainbow.visible
+    // Rain again: it fades away.
+    sky._now = sky._goal = 'lightRain'
+    sky.apply()
+    for (let i = 0; i < 300; i++) sky.update(0.1)
+    return { yes: rolls.yes > 0, no: rolls.no, shown, gone: !sky.bodies.rainbow.visible }
+  })
+  expect(r).toEqual({ yes: true, no: 0, shown: true, gone: true })
 })

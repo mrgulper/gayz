@@ -29,6 +29,14 @@ const WIND = 0.6 // world units per second
 // main one when it's overcast and moves faster, like ragged storm cloud.
 const LOW_CLOUD_HEIGHT = 15
 const LOW_CLOUD_WIND = 2.2
+// A rainbow after the rain (2026-10-26, Gaymi: "make a 10% chance of
+// seeing a rainbow after raining"; the roll is BuildSky's). A real one
+// sits round the point straight opposite the sun: the bright bow 42
+// degrees out (red outside, violet inside), a fainter second bow at about
+// 51 with its colours flipped, and the sky a touch lighter inside. Drawn
+// on one flat card facing you, RAINBOW_D away so near hills hide its feet.
+const RAINBOW_D = 110
+const RAINBOW_HALF = RAINBOW_D * 1.4
 
 function canvas(size, draw) {
   const c = document.createElement('canvas')
@@ -388,6 +396,45 @@ export class SkyBodies {
     this.lowClouds.visible = false
     scene.add(this.lowClouds)
     this._lowWind = 0
+    this.rainbowMat = new THREE.ShaderMaterial({
+      uniforms: { opacity: { value: 0 }, camY: { value: 0 } },
+      vertexShader: 'varying vec2 vUv; varying float vY; void main() { vUv = uv; vY = (modelMatrix * vec4(position, 1.0)).y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `uniform float opacity; uniform float camY; varying vec2 vUv; varying float vY;
+        // 0 = red ... 1 = violet.
+        vec3 spectrum(float t) {
+          float h = clamp(t, 0.0, 1.0) * 0.8;
+          return clamp(vec3(abs(h * 6.0 - 3.0) - 1.0, 2.0 - abs(h * 6.0 - 2.0), 2.0 - abs(h * 6.0 - 4.0)), 0.0, 1.0);
+        }
+        float band(float t) { return smoothstep(-0.2, 0.15, t) * (1.0 - smoothstep(0.85, 1.2, t)); }
+        void main() {
+          vec2 p = (vUv - 0.5) * ${(RAINBOW_HALF * 2).toFixed(1)};
+          float ang = degrees(atan(length(p), ${RAINBOW_D.toFixed(1)}));
+          float t1 = (42.4 - ang) / 2.0;
+          float t2 = (ang - 50.4) / 2.8;
+          vec3 c = spectrum(t1) * band(t1) + spectrum(t2) * band(t2) * 0.32;
+          // Softer, paler colours than pure ones, like through damp air.
+          c = mix(c, vec3(dot(c, vec3(0.33))), 0.25);
+          c += vec3(0.07) * (1.0 - smoothstep(36.0, 41.0, ang));
+          // Its feet fade into the horizon.
+          float above = smoothstep(-0.01, 0.1, (vY - camY) / ${RAINBOW_D.toFixed(1)});
+          float a = opacity * above;
+          if (a < 0.003) discard;
+          gl_FragColor = vec4(c * 0.6, a);
+          #include <colorspace_fragment>
+        }`,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      fog: false,
+      toneMapped: false,
+    })
+    this.rainbow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.rainbowMat)
+    this.rainbow.scale.setScalar(RAINBOW_HALF * 2)
+    this.rainbow.frustumCulled = false
+    this.rainbow.renderOrder = 0
+    this.rainbow.visible = false
+    scene.add(this.rainbow)
+    this._bowDir = new THREE.Vector3()
     this._lite = false
     for (const o of [this.dome, this.sun, this.moon, this.clouds]) {
       o.visible = false
@@ -401,6 +448,7 @@ export class SkyBodies {
     if (!on) {
       this.eclipse.visible = false
       this.lowClouds.visible = false
+      this.rainbow.visible = false
     }
   }
 
@@ -413,8 +461,12 @@ export class SkyBodies {
   // sky: the sky/fog colour (BuildSky), the dome's horizon.
   // eclipse: 0-1, how far a solar eclipse has come in.
   // moonPhase: one of MOON_PHASES (redrawn only when it changes).
-  update(dt, camera, phase, cover, daylight, sky, eclipse = 0, moonPhase = 0.5) {
-    if (!this.clouds.visible) return
+  // rainbow: how much of a rainbow is showing (0..1, BuildSky).
+  update(dt, camera, phase, cover, daylight, sky, eclipse = 0, moonPhase = 0.5, rainbow = 0) {
+    if (!this.clouds.visible) {
+      this.rainbow.visible = false
+      return
+    }
     if (moonPhase !== this._moonPhase) {
       this._moonPhase = moonPhase
       drawMoon(this.moon.material.map.image.getContext('2d'), this.moon.material.map.image.width, moonPhase)
@@ -437,6 +489,18 @@ export class SkyBodies {
       this.eclipse.position.copy(cam).addScaledVector(this._dir, SKY_R - 1)
       this.eclipse.material.opacity = eclipse * sunUp
       this.sun.material.opacity *= 1 - eclipse * 0.7
+    }
+    // The rainbow: round the point opposite the sun. With the sun high a
+    // real one would be under the horizon, so the middle never sinks lower
+    // than ~24 degrees down - you still get to see the arc.
+    const bow = rainbow * sunUp * daylight * THREE.MathUtils.clamp(1.25 - cover * 1.6, 0, 1) * (1 - eclipse)
+    this.rainbow.visible = bow > 0.005
+    if (this.rainbow.visible) {
+      this._bowDir.set(-this._dir.x, -THREE.MathUtils.clamp(this._dir.y, 0.05, 0.4), -this._dir.z).normalize()
+      this.rainbow.position.copy(cam).addScaledVector(this._bowDir, RAINBOW_D)
+      this.rainbow.lookAt(cam)
+      this.rainbowMat.uniforms.opacity.value = bow
+      this.rainbowMat.uniforms.camY.value = cam.y
     }
     // The dome: the horizon is the fog's colour; overhead is a deeper,
     // bluer version of it on a clear day, about the same when overcast.

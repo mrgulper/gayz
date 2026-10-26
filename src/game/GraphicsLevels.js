@@ -32,17 +32,26 @@ export const GRAPHICS_LEVELS = ['potato', 'simple', 'balanced', 'detailed', 'rea
 // round you (AirMotes.js, 0..1, 2026-10-26). In Real Life also never drops
 // below one pixel per screen pixel when it gets slow (PlayEntryUI
 // _updateEditorResScale) - Gaymi found it blurry.
+// Every level upgraded and pulled further apart (2026-10-26, Gaymi:
+// "make them all have a big upgrade make them good fps and higher quality
+// ... make the real life even better", and "bigger gap so they dont look
+// like the same thing"). Each step up now adds something you can see:
+// grade: the finishing colour (richer, a soft film curve) - cheap, so even
+// Simple gets a little. ao: how deep the shade in corners and under
+// overhangs goes. spec: the sun glinting off blocks - strongest on wet
+// ground and puddles after rain. soft: how soft shadow edges are (the
+// shadow map's blur radius, in its pixels).
 export const LEVEL_LOOK = {
   // Potato went from 60% to 40% of the pixels (2026-10-25, Gaymi's
   // friends had 22 FPS on an old PC: "make the current potato graphics
   // even lower pixels for less lag").
   potato: { detail: 1, view: 'short', shadows: false, shadowQuality: 'low', realLight: false, sway: 0, waves: 0, shine: 0, res: 40, lite: true },
-  simple: { detail: 1, view: 'short', shadows: false, shadowQuality: 'low', realLight: false, sway: 0, waves: 0, shine: 0 },
-  balanced: { detail: 1, view: 'medium', shadows: false, shadowQuality: 'low', realLight: false, sway: 0, waves: 0, shine: 0 },
-  detailed: { detail: 2, view: 'far', shadows: false, shadowQuality: 'medium', realLight: false, sway: 0, waves: 0, shine: 0.25 },
-  realistic: { detail: 2, view: 'far', shadows: true, shadowQuality: 'medium', realLight: true, sway: 0.04, waves: 0, shine: 0.6, bump: 0.4, haze: 0.3, tufts: 0.5 },
-  ultra: { detail: 2, view: 'max', shadows: true, shadowQuality: 'high', realLight: true, sway: 0.06, waves: 0.06, shine: 1, real: 0.45, bump: 0.7, haze: 0.6, tufts: 0.8 },
-  irl: { detail: 2, view: 'max', shadows: true, shadowQuality: 'high', realLight: true, sway: 0.09, waves: 0.1, shine: 1, real: 1, bump: 1, haze: 1, tufts: 1, motes: 1 },
+  simple: { detail: 1, view: 'short', shadows: false, shadowQuality: 'low', realLight: false, sway: 0, waves: 0, shine: 0, grade: 0.25, ao: 0.15 },
+  balanced: { detail: 1, view: 'medium', shadows: false, shadowQuality: 'low', realLight: false, sway: 0.03, waves: 0, shine: 0.2, grade: 0.4, ao: 0.25 },
+  detailed: { detail: 2, view: 'far', shadows: true, shadowQuality: 'low', realLight: false, sway: 0.04, waves: 0, shine: 0.4, bump: 0.25, tufts: 0.25, grade: 0.55, ao: 0.35, soft: 1 },
+  realistic: { detail: 2, view: 'far', shadows: true, shadowQuality: 'medium', realLight: true, sway: 0.05, waves: 0.03, shine: 0.7, real: 0.3, bump: 0.5, haze: 0.3, tufts: 0.5, grade: 0.7, ao: 0.45, spec: 0.35, soft: 1.5 },
+  ultra: { detail: 2, view: 'max', shadows: true, shadowQuality: 'high', realLight: true, sway: 0.07, waves: 0.06, shine: 1, real: 0.6, bump: 0.75, haze: 0.6, tufts: 0.8, motes: 0.4, grade: 0.85, ao: 0.55, spec: 0.6, soft: 2 },
+  irl: { detail: 2, view: 'max', shadows: true, shadowQuality: 'high', realLight: true, sway: 0.09, waves: 0.1, shine: 1, real: 1, bump: 1, haze: 1, tufts: 1, motes: 1, grade: 1, ao: 0.75, spec: 1, soft: 3 },
 }
 
 export function graphicsLook(settings) {

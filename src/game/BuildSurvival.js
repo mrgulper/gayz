@@ -858,6 +858,11 @@ export class BuildSurvival {
     // The kills this wave still needs.
     const alive = this._toSpawn
     const mode = this.cfg?.mode
+    // World Map: no waves - where you are and how long you've explored.
+    if (this.cfg?.noZombies) {
+      const s = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
+      set('build-play-wave-text', `${t('topBarModeWorldMap')} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}`)
+    }
     const waveText = mode === 'zombieDefense' ? t('buildPlayWaveOf', { n: Math.max(1, this.wave), max: DEFENSE_WAVES }) : t('buildPlayWave', { n: Math.max(1, this.wave) })
     const secs = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
     const timeText = mode === 'zombieRush' ? ` · ${t('buildPlayTime', { t: `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` })}` : ''
@@ -872,7 +877,7 @@ export class BuildSurvival {
     // Between waves: when the next one comes, not "0 left" (that read as
     // a wave over with nothing killed).
     const leftText = alive === 0 && this._breakTimer > 0 ? t('buildPlayNextWaveIn', { n: Math.ceil(this._breakTimer) }) : t('buildPlayZombiesLeft', { n: alive })
-    set('build-play-wave-text', `${waveText} · ${leftText} · ${t('buildPlayKills', { n: this.kills })}${this.camp ? ` · ${t('campCoins', { n: this.coins })}` : ''}${timeText}${extractText}${serverText}`)
+    if (!this.cfg?.noZombies) set('build-play-wave-text', `${waveText} · ${leftText} · ${t('buildPlayKills', { n: this.kills })}${this.camp ? ` · ${t('campCoins', { n: this.coins })}` : ''}${timeText}${extractText}${serverText}`)
     const fill = document.getElementById('build-play-health-fill')
     if (fill) fill.style.width = `${Math.max(0, Math.min(100, (this.health / (this.maxHealth || 100)) * 100))}%`
     set('build-play-health-text', `${Math.max(0, Math.ceil(this.health))}${this.armor > 0 ? ` + ${Math.ceil(this.armor)}` : ''}`)
@@ -2201,7 +2206,7 @@ export class BuildSurvival {
         this._renderHud()
       }
     }
-    if (this.cfg.mode === 'zombieRush' && Math.floor(nowMs / 1000) !== this._lastSecond) {
+    if ((this.cfg.mode === 'zombieRush' || this.cfg.noZombies) && Math.floor(nowMs / 1000) !== this._lastSecond) {
       this._lastSecond = Math.floor(nowMs / 1000)
       this._renderHud()
     }
@@ -2303,8 +2308,10 @@ export class BuildSurvival {
         this._stepFlow(FLOW_BUDGET_MS)
       }
     }
-    // Waves.
-    if (this._toSpawn === 0) {
+    // Waves (none in World Map - just exploring, NO_ZOMBIE_MODES).
+    if (this.cfg.noZombies) {
+      // Nothing to count down or spawn.
+    } else if (this._toSpawn === 0) {
       if (this._breakTimer > 0) {
         const shown = Math.ceil(this._breakTimer)
         this._breakTimer -= dt
