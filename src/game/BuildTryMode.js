@@ -123,11 +123,17 @@ const SPRINT_FOV = 8 // degrees added while sprinting
 // spot on the gun (_findHandSpots; positions relative to GUN_OFFSET).
 // ARM_PX is the size of one skin pixel across the arm (made wider
 // 2026-10-03 - "looks too skinny").
+// Shoulders moved in front of the eye and the arms made a little slimmer
+// (2026-10-26, Gaymi: "dont just use simple dots ... idk what it is but make
+// it more detailed") - starting behind the eye, each arm was cut by the
+// near edge of the view into a big flat yellow-green wedge at the bottom
+// of the screen. Now you see forearms coming up from below, with a fist
+// and a sleeve cuff (buildArms).
 const ARM_SHOULDERS = {
-  armR: [0.16, -0.53, 0.4],
-  armL: [-0.46, -0.58, 0.25],
+  armR: [0.12, -0.42, 0.16],
+  armL: [-0.4, -0.46, 0.1],
 }
-const ARM_PX = 0.036
+const ARM_PX = 0.03
 // Building: both arms (from the skin, as wide as Try Map's) reaching up
 // from the bottom of the screen to hold the selected block between them,
 // a little right of the middle (camera space). The hands sit right on the
@@ -1863,15 +1869,55 @@ function buildArms(skin, list) {
     arm.scale.set(ARM_PX, dir.length() / 12, ARM_PX)
     arm.add(pivot)
     arms.add(arm)
+    arms.add(armDetails(skin, limb, from, dir))
   }
   arms.traverse((o) => {
-    if (!o.isMesh) return
+    if (!o.isMesh || o.userData.armDetail) return
     o.frustumCulled = false
     const old = o.material
-    o.material = new THREE.MeshLambertMaterial({ map: old.map, color: 0x8a8a8a, alphaTest: old.alphaTest, transparent: old.transparent, side: old.side })
+    o.material = new THREE.MeshLambertMaterial({ map: old.map, color: 0x747474, alphaTest: old.alphaTest, transparent: old.transparent, side: old.side })
     old.dispose()
   })
   return arms
+}
+
+// One skin pixel's colour (64-wide layout units), or null.
+function skinPixel(skin, u, v) {
+  try {
+    const img = skin.texture.image
+    const k = skin.scale || 1
+    const d = img.getContext('2d', { willReadFrequently: true }).getImageData(Math.floor((u + 0.5) * k), Math.floor((v + 0.5) * k), 1, 1).data
+    return d[3] > 20 ? new THREE.Color(`rgb(${d[0]}, ${d[1]}, ${d[2]})`) : null
+  } catch {
+    return null
+  }
+}
+
+// A fist round the grip and a sleeve cuff a third of the way up, coloured
+// from the skin's own hand (the arm's bottom face) and sleeve, with
+// knuckles - the arm used to just end flat at the gun.
+function armDetails(skin, limb, from, dir) {
+  const left = limb === 'armL' && skin.height > 32
+  const hand = skinPixel(skin, left ? 41 : 49, left ? 49 : 17) || new THREE.Color(0xc89a74)
+  const sleeve = skinPixel(skin, left ? 37 : 45, left ? 53 : 21) || hand.clone()
+  const g = new THREE.Group()
+  g.position.copy(from)
+  g.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), dir.clone().normalize())
+  const w = ARM_PX * 4
+  const len = dir.length()
+  const part = (size, y, color) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(...size), new THREE.MeshLambertMaterial({ color: color.clone().multiplyScalar(0.5) }))
+    m.position.y = y
+    m.frustumCulled = false
+    m.userData.armDetail = true
+    g.add(m)
+    return m
+  }
+  part([w * 1.22, w * 0.95, w * 1.22], -len + w * 0.35, hand)
+  // Knuckles: a darker ridge across the front of the fist.
+  part([w * 1.26, w * 0.22, w * 0.3], -len + w * 0.55, hand.clone().multiplyScalar(0.8)).position.z = w * 0.5
+  part([w * 1.12, w * 0.32, w * 1.12], -len * 0.62, sleeve.clone().multiplyScalar(0.85))
+  return g
 }
 
 function disposeArms(arms) {
