@@ -57,8 +57,11 @@ const SHARPEN = -0.6
 export const ROOF_GRID = 40
 // Realistic look (uReal 0-1: Ultra half, In Real Life full - graphics
 // levels, 2026-10-25, Gaymi: "make it more realistic as if you were irl
-// playing it"): the pixel art is smoothed (four samples a pixel apart),
-// the ground's colour drifts in big soft patches across the world
+// playing it"): the pixels stay sharp but get a fine grain inside them up
+// close, like real stone, dirt and wood (2026-10-26, Gaymi: "the texture
+// got better but it gets kinda blurry" - they used to be smoothed by
+// averaging four samples a pixel apart), the corners where blocks meet
+// shade deeper, the ground's colour drifts in big soft patches across the world
 // like real grass, dirt and rock instead of one repeating tile, and the
 // light is graded a little warmer and richer. 0 = the plain look, same
 // program, just a number.
@@ -113,16 +116,24 @@ function sharpen(mat, fx, extra = null) {
       .replace('#include <map_fragment>', `#ifdef USE_MAP
       vec4 texel = texture2D( map, vMapUv, ${SHARPEN.toFixed(2)} );
       if (uReal > 0.0) {
-        vec2 tx = 1.0 / vec2(textureSize(map, 0));
-        vec4 soft = (texture2D(map, vMapUv + vec2(-tx.x, -tx.y), ${SHARPEN.toFixed(2)}) + texture2D(map, vMapUv + vec2(tx.x, -tx.y), ${SHARPEN.toFixed(2)})
-          + texture2D(map, vMapUv + vec2(-tx.x, tx.y), ${SHARPEN.toFixed(2)}) + texture2D(map, vMapUv + vec2(tx.x, tx.y), ${SHARPEN.toFixed(2)})) * 0.25;
-        texel.rgb = mix(texel.rgb, soft.rgb, 0.85 * uReal);
         vec3 wp = vWPos / uBlock;
+        // Grain finer than a pixel, up close only (far off it would shimmer).
+        float grainNear = 1.0 - smoothstep(6.0, 22.0, length(vViewPosition) / uBlock);
+        float grain = realNoise(wp * 47.0) * 0.6 + realNoise(wp * 13.0) * 0.4;
+        texel.rgb *= 1.0 + (grain - 0.5) * 0.2 * uReal * grainNear;
         float patches = realNoise(wp * 0.11) * 0.65 + realNoise(wp * 0.37) * 0.35;
         texel.rgb *= 1.0 + (patches - 0.5) * 0.3 * uReal;
       }
       diffuseColor *= texel;
     #endif
+      #if defined(USE_COLOR) || defined(USE_COLOR_ALPHA)
+      if (uReal > 0.0) {
+        // Deeper shade in corners and under overhangs (the corner shading
+        // the mesher puts in the vertex colours, taken further).
+        float shadeV = clamp(max(vColor.r, max(vColor.g, vColor.b)), 0.0, 1.0);
+        diffuseColor.rgb *= mix(1.0, shadeV, 0.55 * uReal);
+      }
+      #endif
       float puddle = 0.0;
       if (uWet + uSnow + uIce > 0.0) {
         vec3 wp = vWPos / uBlock;
@@ -410,7 +421,7 @@ export class BlockChunks {
     this.fx.real.value = real
     this.fx.bump.value = bump
     this.fx.haze.value = haze * hazeScale
-    this.fx.reflect.value = bump > 0 ? shine * 0.8 : 0
+    this.fx.reflect.value = bump > 0 ? shine * (0.8 + 0.2 * real) : 0
     this.fx.sway.value = sway * this.blockSize
     this.fx.waves.value = waves * this.blockSize
     this.materials.water.specular.setScalar(shine * 0.55)

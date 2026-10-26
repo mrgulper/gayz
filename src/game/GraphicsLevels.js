@@ -28,7 +28,10 @@ export const GRAPHICS_LEVELS = ['potato', 'simple', 'balanced', 'detailed', 'rea
 // pictures (0..1). haze: far land fades into the sky's colour, like real
 // air (0..1). tufts: little 3D grass plants on grass blocks near you (0..1,
 // how many) - all three 2026-10-25, Gaymi: "more shapes more everything to
-// make it look like in real life".
+// make it look like in real life". motes: dust floating in the sunlight
+// round you (AirMotes.js, 0..1, 2026-10-26). In Real Life also never drops
+// below one pixel per screen pixel when it gets slow (PlayEntryUI
+// _updateEditorResScale) - Gaymi found it blurry.
 export const LEVEL_LOOK = {
   // Potato went from 60% to 40% of the pixels (2026-10-25, Gaymi's
   // friends had 22 FPS on an old PC: "make the current potato graphics
@@ -39,7 +42,7 @@ export const LEVEL_LOOK = {
   detailed: { detail: 2, view: 'far', shadows: false, shadowQuality: 'medium', realLight: false, sway: 0, waves: 0, shine: 0.25 },
   realistic: { detail: 2, view: 'far', shadows: true, shadowQuality: 'medium', realLight: true, sway: 0.04, waves: 0, shine: 0.6, bump: 0.4, haze: 0.3, tufts: 0.5 },
   ultra: { detail: 2, view: 'max', shadows: true, shadowQuality: 'high', realLight: true, sway: 0.06, waves: 0.06, shine: 1, real: 0.45, bump: 0.7, haze: 0.6, tufts: 0.8 },
-  irl: { detail: 2, view: 'max', shadows: true, shadowQuality: 'high', realLight: true, sway: 0.09, waves: 0.1, shine: 1, real: 1, bump: 1, haze: 1, tufts: 1 },
+  irl: { detail: 2, view: 'max', shadows: true, shadowQuality: 'high', realLight: true, sway: 0.09, waves: 0.1, shine: 1, real: 1, bump: 1, haze: 1, tufts: 1, motes: 1 },
 }
 
 export function graphicsLook(settings) {

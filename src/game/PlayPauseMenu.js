@@ -6,8 +6,10 @@
 // before; the Map Editor's own pause screen (#build-menu) is only for
 // making maps (and the editor's own Try Map / Play).
 //
-//   Back to Menu   - saves the run (BuildSurvival.saveRun) and goes to the
-//                    homepage; the next Play carries on from it.
+//   Back to Game   - closes the pause screen and carries on playing
+//                    (2026-10-26, Gaymi: "change the back to menu to back
+//                    to game just goes back to game because back to menu is
+//                    same as leave game"; it used to save and go home).
 //   Settings       - the Settings panel over the game, then back here.
 //   Switch Weapon  - the weapon picker (2026-10-17); picking a gun goes
 //                    straight back to the game. Each gun keeps its own
@@ -20,8 +22,7 @@
 //   Save Progress  - saves the run and keeps playing.
 //   Leave Game     - ends the run for good (it's counted, nothing is kept)
 //                    and goes to the homepage.
-// On a server there's nothing to save: Save Progress is hidden and Back to
-// Menu just leaves, like Leave Game.
+// On a server there's nothing to save: Save Progress is hidden.
 import { t } from './i18n.js'
 import { inviteLink, makeGameJoinable, newServerId } from './ServerBrowser.js'
 
@@ -34,14 +35,16 @@ export class PlayPauseMenu {
     on('play-pause-close', () => {
       if (bm.menuOpen) bm.toggleMenu()
     })
-    on('play-pause-back-btn', () => this._leave(true))
+    on('play-pause-back-btn', () => {
+      if (bm.menuOpen) bm.toggleMenu()
+    })
     on('play-pause-settings-btn', () => this.openSettings())
     on('play-pause-weapon-btn', () => this.switchWeapon())
     on('play-pause-spectate-btn', () => this.bm.spectate?.enter())
     on('play-pause-invite-btn', () => this.invite())
     on('play-invite-copy', () => this.copyInvite())
     on('play-pause-save-btn', () => this.saveProgress())
-    on('play-pause-leave-btn', () => this._leave(false))
+    on('play-pause-leave-btn', () => this._leave())
   }
 
   // A game from the homepage is being played, so Escape opens this
@@ -185,12 +188,10 @@ export class PlayPauseMenu {
     if (this.bm.menuOpen) this.show(true)
   }
 
-  _leave(keep) {
+  _leave() {
     const bm = this.bm
-    const s = bm.survival
-    const saved = keep && s.saveRun()
     bm.closeMenuQuietly()
-    s.stop({ suspend: saved })
+    bm.survival.stop()
     bm.game?._exitBuildMode?.()
   }
 }

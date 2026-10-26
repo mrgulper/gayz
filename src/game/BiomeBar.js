@@ -9,6 +9,7 @@
 // the block pictures; TopBar asks bm.biomeBarLook().
 import { blockFaceCanvases } from './BlockTextures.js'
 import { sampleLand, inCity, isFlatWorld } from './OpenWorld.js'
+import { oppositeInk } from './CleanTheme.js'
 
 // Which block's picture each biome's bar uses.
 const BIOME_BLOCK = {
@@ -29,6 +30,7 @@ const ACCENT = {
 const TILE = 48
 
 const urls = new Map()
+const colours = new Map()
 // The picture as a data URL: the block's top face, scaled up crisp, with a
 // faint dark wash so the bar's white text stays easy to read.
 function pictureOf(type) {
@@ -49,7 +51,36 @@ function pictureOf(type) {
   return url
 }
 
-// { key, url, accent } for the spot (x, z), or null outside the open world.
+// The picture's own colour (its average) and the opposite text colour that
+// reads on it, the way the Simple theme picks its ink (2026-10-26, Gaymi:
+// "use opposite colours like the simple theme because you cant really see
+// in some colours for the biome"). Game screens are filled with the
+// colour, the picture only faintly showing through.
+function coloursOf(type) {
+  if (colours.has(type.id)) return colours.get(type.id)
+  const face = blockFaceCanvases(type).top
+  const c = document.createElement('canvas')
+  c.width = c.height = 8
+  const ctx = c.getContext('2d')
+  ctx.fillStyle = '#1d2418'
+  ctx.fillRect(0, 0, 8, 8)
+  ctx.drawImage(face, 0, 0, 8, 8)
+  const px = ctx.getImageData(0, 0, 8, 8).data
+  const avg = [0, 0, 0]
+  for (let i = 0; i < px.length; i += 4) for (let k = 0; k < 3; k++) avg[k] += px[i + k]
+  const mid = avg.map((v) => v / 64)
+  const ink = oppositeInk(mid.map(Math.round))
+  // Mid-tone colours (badlands orange) read badly either way, so the box
+  // is pushed away from its ink: darker under light text, lighter under
+  // dark text.
+  const lightInk = ink[0] + ink[1] + ink[2] > 382
+  const bg = mid.map((v) => Math.round(lightInk ? v * 0.55 : v + (255 - v) * 0.45))
+  const out = { bg: bg.join(', '), ink: ink.join(', ') }
+  colours.set(type.id, out)
+  return out
+}
+
+// { key, url, accent, bg, ink } for the spot (x, z), or null outside the open world.
 export function biomeBarLook(bm, x, z) {
   if (!bm.world?.active) return null
   const cx = Math.floor(x)
@@ -57,5 +88,5 @@ export function biomeBarLook(bm, x, z) {
   const id = inCity(cx, cz) && !isFlatWorld() ? CITY_BLOCK : BIOME_BLOCK[sampleLand(cx, cz).biome] || 'grass'
   const type = bm.blockTypeOf?.(id)
   if (!type) return null
-  return { key: id, url: pictureOf(type), accent: ACCENT[id] || '#ffe38a' }
+  return { key: id, url: pictureOf(type), accent: ACCENT[id] || '#ffe38a', ...coloursOf(type) }
 }
