@@ -592,6 +592,9 @@ export class BuildTryMode {
       }
       tiles.sort((a, b) => a[0] - b[0])
       let missing = false
+      // Land drawn smooth, like a real map (OpenWorld._drawTile).
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = 'high'
       for (const [, tx, tz] of tiles) {
         const tile = world.mapTile(tx, tz, performance.now() < until, T)
         if (!tile) missing = true
@@ -613,6 +616,7 @@ export class BuildTryMode {
       // Not all drawn yet: come back next frame instead of waiting out
       // the usual redraw gap.
       if (missing) this._mapDrawAt = 0
+      ctx.imageSmoothingEnabled = false
       ctx.drawImage(this._mapImage, (-cells / 2 - ox) * k, (-cells / 2 - oz) * k, cells * k, cells * k)
       this._showBiome(x, z)
     } else {

@@ -27,10 +27,11 @@
 // updateMirror) and sends their shots and taming to the host (PlayNet).
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
-import { t } from './i18n.js'
+import { t, STRINGS } from './i18n.js'
 import { sampleLand, inCity } from './OpenWorld.js'
 import { MORE_KINDS, MORE_BIOME_ANIMALS } from './AnimalKinds.js'
 import { DINO_KINDS, DINO_BIOMES, DINO_CHANCE } from './DinoKinds.js'
+import { NEW_KINDS, NEW_BIOME_ANIMALS, RARITIES, rarityOf } from './NewAnimalKinds.js'
 
 export const MAX_WILD = 12
 // Animals a server's sync carries at most (api/_lib/servers.js MAX_ANIMALS).
@@ -171,7 +172,7 @@ const KINDS = {
 }
 // The rest of Gaymi's list (AnimalKinds.js), and health/meat from size
 // for the ones that don't say.
-Object.assign(KINDS, MORE_KINDS, DINO_KINDS)
+Object.assign(KINDS, MORE_KINDS, NEW_KINDS, DINO_KINDS)
 for (const k of Object.values(KINDS)) {
   const vol = k.body[0] * k.body[1] * k.body[2]
   if (k.health === undefined) k.health = Math.max(4, Math.min(70, Math.round(vol * 40) + 6))
@@ -212,10 +213,15 @@ export const BIOME_ANIMALS = {
   ocean: {},
   deepOcean: {},
 }
-for (const [biome, ids] of Object.entries(MORE_BIOME_ANIMALS)) {
+for (const [biome, ids] of [...Object.entries(MORE_BIOME_ANIMALS), ...Object.entries(NEW_BIOME_ANIMALS)]) {
   const table = BIOME_ANIMALS[biome] = { ...(BIOME_ANIMALS[biome] || {}) }
   for (const id of ids) table[id] = table[id] || 1
 }
+// Rarer animals turn up less often (NewAnimalKinds.js RARITIES).
+for (const table of Object.values(BIOME_ANIMALS)) {
+  for (const id in table) table[id] *= RARITIES[rarityOf(id, KINDS[id])].spawn
+}
+export const animalRarity = (kind) => rarityOf(kind, KINDS[kind])
 export const animalNameKey = (kind) => `animal${kind[0].toUpperCase()}${kind.slice(1)}`
 const nameKey = animalNameKey
 // Most placed animals in one map (BuildMode.animalSpots).
@@ -379,10 +385,58 @@ function snoutTexture(k) {
   return pixelTexture(c)
 }
 
+// The name over every animal (2026-10-26, Gaymi: "add the animal's name
+// above them", picked "always"): its name in white and its rarity under
+// it in the rarity's colour, on a soft dark plate. One picture per name
+// (and language), shared by every animal of that kind.
+const TAG_W = 256
+const TAG_H = 80
+const _tagCache = new Map()
+function tagMaterial(kind) {
+  const name = t(nameKey(kind))
+  const tier = animalRarity(kind)
+  const label = t(`rarity${tier[0].toUpperCase()}${tier.slice(1)}`)
+  const key = `${name}|${label}|${tier}`
+  if (_tagCache.has(key)) return _tagCache.get(key)
+  const c = document.createElement('canvas')
+  c.width = TAG_W
+  c.height = TAG_H
+  const g = c.getContext('2d')
+  g.textAlign = 'center'
+  g.textBaseline = 'middle'
+  g.font = 'bold 34px sans-serif'
+  const w = Math.min(TAG_W - 4, Math.max(g.measureText(name).width, 90) + 28)
+  g.fillStyle = 'rgba(0, 0, 0, 0.45)'
+  g.beginPath()
+  g.roundRect((TAG_W - w) / 2, 2, w, TAG_H - 4, 16)
+  g.fill()
+  g.lineWidth = 5
+  g.strokeStyle = 'rgba(0, 0, 0, 0.8)'
+  g.fillStyle = '#ffffff'
+  g.strokeText(name, TAG_W / 2, 27, TAG_W - 12)
+  g.fillText(name, TAG_W / 2, 27, TAG_W - 12)
+  g.font = 'bold 28px sans-serif'
+  g.fillStyle = RARITIES[tier].color
+  g.strokeText(label, TAG_W / 2, 60, TAG_W - 12)
+  g.fillText(label, TAG_W / 2, 60, TAG_W - 12)
+  const tex = new THREE.CanvasTexture(c)
+  tex.colorSpace = THREE.SRGBColorSpace
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false })
+  _tagCache.set(key, mat)
+  return mat
+}
+// Tag size in blocks up close; further than TAG_NEAR it grows with the
+// distance so it stays the same size on screen and readable.
+const TAG_SIZE = 1.7
+const TAG_NEAR = 10
+
 export class PlayAnimals {
   // For tests.
   static BIOME_ANIMALS = BIOME_ANIMALS
   static KINDS = KINDS
+  static NEW_KINDS = NEW_KINDS
+  static rarityOf = animalRarity
+  static STRINGS = STRINGS
 
   constructor(survival) {
     this.s = survival
@@ -500,7 +554,30 @@ export class PlayAnimals {
       group.add(hip)
       legs.push(hip)
     }
-    return { group, head, legs, collar }
+    // The name tag, just over the highest part.
+    let top = Math.max(k.leg + bh, headY + hh / 2)
+    for (const e of k.extras || []) top = Math.max(top, (e.on === 'head' ? headY : 0) + e.at[1] + e.size[1] / 2)
+    const tag = new THREE.Sprite(tagMaterial(kind))
+    tag.center.set(0.5, 0)
+    tag.position.y = (top + 0.25) * B
+    tag.renderOrder = 5
+    group.add(tag)
+    return { group, head, legs, collar, tag }
+  }
+
+  // Keeps every name tag readable: same size on screen beyond TAG_NEAR,
+  // and gone while the animal falls over.
+  _sizeTags() {
+    const cam = this.bm.camera?.position
+    if (!cam) return
+    const B = this.s.B
+    for (const a of this.list) {
+      if (!a.tag) continue
+      a.tag.visible = !a.dying
+      const d = Math.hypot(a.x * B - cam.x, a.y * B - cam.y, a.z * B - cam.z) / B
+      const w = TAG_SIZE * Math.max(1, d / TAG_NEAR) * B
+      a.tag.scale.set(w, w * (TAG_H / TAG_W), 1)
+    }
   }
 
   // --- each frame ---
@@ -539,6 +616,7 @@ export class PlayAnimals {
       const owner = a.owner && this._net?.players.get(a.owner)
       this._step(a, dt, owner?.seen ? owner : me)
     }
+    this._sizeTags()
   }
 
   _step(a, dt, me) {
@@ -1014,6 +1092,7 @@ export class PlayAnimals {
       a.group.rotation.x = -a.hurt * 1.2
       a.group.position.set(a.x * B, a.y * B, a.z * B)
     }
+    this._sizeTags()
   }
 
   // I just became the host: the animals I was mirroring are mine to run.

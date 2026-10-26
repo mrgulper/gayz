@@ -16,7 +16,10 @@
 // simple"). In Real Life is never picked automatically.
 export const GRAPHICS_LEVELS = ['potato', 'simple', 'balanced', 'detailed', 'realistic', 'ultra', 'irl']
 
-// detail: 1 = the plain 16x16 block pictures, 2 = the detailed 32x32 ones.
+// detail: 1 = the plain 16x16 block pictures, 2 = the detailed 32x32 ones,
+// 4 = In Real Life's smooth 64x64 ones (2026-10-26). Simple and Balanced
+// moved up to 2 the same day ("all graphics do a big upgrade") - it only
+// costs a moment of drawing at load, the atlas is the same size.
 // realLight: warm sunlight, cool bluish shade and shadows that follow you.
 // sway / waves: how far (blocks) leaves and the water's surface move.
 // shine: how much the water catches the sun (0..1).
@@ -41,7 +44,8 @@ export const GRAPHICS_LEVELS = ['potato', 'simple', 'balanced', 'detailed', 'rea
 // overhangs goes. spec: the sun glinting off blocks - strongest on wet
 // ground and puddles after rain. soft: how soft shadow edges are (the
 // shadow map's blur radius, in its pixels).
-// round: less blocky land on the top three levels (2026-10-26, Gaymi: "make
+// round: less blocky land on Balanced and up (Balanced and Detailed added
+// 2026-10-26: "make the map not so blocky") (2026-10-26, Gaymi: "make
 // the blocks not all so blocky"): smooth hills, rounded block edges,
 // pebbles and leaves sticking out of trees (BlockChunks NATURAL); the
 // number is how round the edges look (0..1).
@@ -50,12 +54,12 @@ export const LEVEL_LOOK = {
   // friends had 22 FPS on an old PC: "make the current potato graphics
   // even lower pixels for less lag").
   potato: { detail: 1, view: 'short', shadows: false, shadowQuality: 'low', realLight: false, sway: 0, waves: 0, shine: 0, res: 40, lite: true },
-  simple: { detail: 1, view: 'short', shadows: false, shadowQuality: 'low', realLight: false, sway: 0, waves: 0, shine: 0, grade: 0.25, ao: 0.15 },
-  balanced: { detail: 1, view: 'medium', shadows: false, shadowQuality: 'low', realLight: false, sway: 0.03, waves: 0, shine: 0.2, grade: 0.4, ao: 0.25 },
-  detailed: { detail: 2, view: 'far', shadows: true, shadowQuality: 'low', realLight: false, sway: 0.04, waves: 0, shine: 0.4, bump: 0.25, tufts: 0.25, grade: 0.55, ao: 0.35, soft: 1 },
+  simple: { detail: 2, view: 'short', shadows: false, shadowQuality: 'low', realLight: false, sway: 0, waves: 0, shine: 0.12, grade: 0.25, ao: 0.15 },
+  balanced: { detail: 2, view: 'medium', shadows: false, shadowQuality: 'low', realLight: false, sway: 0.03, waves: 0, shine: 0.2, grade: 0.4, ao: 0.25, round: 0.25 },
+  detailed: { detail: 2, view: 'far', shadows: true, shadowQuality: 'low', realLight: false, sway: 0.04, waves: 0, shine: 0.4, bump: 0.25, tufts: 0.25, grade: 0.55, ao: 0.35, soft: 1, round: 0.35 },
   realistic: { detail: 2, view: 'far', shadows: true, shadowQuality: 'medium', realLight: true, sway: 0.05, waves: 0.03, shine: 0.7, real: 0.3, bump: 0.5, haze: 0.3, tufts: 0.5, grade: 0.7, ao: 0.45, spec: 0.35, soft: 1.5, round: 0.5 },
   ultra: { detail: 2, view: 'max', shadows: true, shadowQuality: 'high', realLight: true, sway: 0.07, waves: 0.06, shine: 1, real: 0.6, bump: 0.75, haze: 0.6, tufts: 0.8, motes: 0.4, grade: 0.85, ao: 0.55, spec: 0.6, soft: 2, round: 0.75 },
-  irl: { detail: 2, view: 'max', shadows: true, shadowQuality: 'high', realLight: true, sway: 0.09, waves: 0.1, shine: 1, real: 1, bump: 1, haze: 1, tufts: 1, motes: 1, grade: 1, ao: 0.75, spec: 1, soft: 3, round: 1 },
+  irl: { detail: 4, view: 'max', shadows: true, shadowQuality: 'high', realLight: true, sway: 0.09, waves: 0.1, shine: 1, real: 1, bump: 1, haze: 1, tufts: 1, motes: 1, grade: 1, ao: 0.75, spec: 1, soft: 3, round: 1 },
 }
 
 export function graphicsLook(settings) {

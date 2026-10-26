@@ -2237,8 +2237,9 @@ export class BuildSurvival {
     set('build-play-over-title', t(extracted ? 'extractionWinTitle' : won ? 'buildPlayOverWinTitle' : 'buildPlayOverTitle'))
     set('build-play-over-text', t(extracted ? 'extractionWinText' : won ? 'buildPlayOverWinText' : 'buildPlayOverText', { waves, kills: this.kills }))
     set('build-play-over-best', `${t('buildPlayOverBest', { n: best })}${reward?.legacy ? ` · ${t('buildPlayOverLegacy', { n: reward.legacy })}` : ''}${reward?.xp ? ` · ${t('buildPlayOverXp', { n: reward.xp })}` : ''}`)
-    set('build-play-again-btn', t('buildPlayAgainBtn'))
-    set('build-play-back-btn', t(this.fromMenu ? 'buildPlayBackMenuBtn' : 'buildPlayBackBtn'))
+    // Dying: the run goes on from a fresh spawn or you leave, so say that
+    set('build-play-again-btn', t(won ? 'buildPlayAgainBtn' : 'buildPlayRespawnBtn'))
+    set('build-play-back-btn', t(!this.fromMenu ? 'buildPlayBackBtn' : won ? 'buildPlayBackMenuBtn' : 'buildPlayLeaveBtn'))
     this._overEl.style.display = 'flex'
     if (document.pointerLockElement) document.exitPointerLock()
     this._showXpBar(reward)
