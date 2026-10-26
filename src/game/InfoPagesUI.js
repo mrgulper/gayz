@@ -10,7 +10,8 @@ import * as ChatUI from './ChatUI.js'
 import { ACHIEVEMENTS } from './Achievements.js'
 import { CHANGELOG_LAST_VIEWED_KEY, Game, HOWTOPLAY_STEPS, LOGIN_CALENDAR_DAYS, MARKET_FEE_RATE, MAX_GOALS, PLAY_META_UPGRADES, PRESTIGE_BONUS_PERCENT, PRESTIGE_COST_STEP, SUPPORTED_LANGUAGE_CODES, UPDATE_BANNER_FADE_MS, UPDATE_BANNER_SHOW_MS, WHATS_NEW_SEEN_KEY, WHATS_NEW_VERSION, saveSettings } from './Game.js'
 import { BIOMES } from './OpenWorld.js'
-import { BOSS_HUNT_EVERY, DEFENSE_WAVES, EXTRACTION_HOLD, EXTRACTION_WAVES, SKELETON_FROM_WAVE, MONSTER_FROM_WAVE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
+import { BOSS_HUNT_EVERY, DEFENSE_WAVES, EXTRACTION_HOLD, EXTRACTION_WAVES, GLOBETROTTER_SECONDS, SKELETON_FROM_WAVE, MONSTER_FROM_WAVE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
+import { RAINBOW_CHANCE } from './BuildSky.js'
 import { BOTTOM } from './Underground.js'
 import { MAX_WILD, ANIMAL_IDS } from './PlayAnimals.js'
 import { LANGUAGES, t, tHtml } from './i18n.js'
@@ -257,6 +258,8 @@ export function _featureValues(_game) {
     extractionWaves: EXTRACTION_WAVES,
     extractionHold: EXTRACTION_HOLD,
     bossEvery: BOSS_HUNT_EVERY,
+    rainbowOdds: Math.round(1 / RAINBOW_CHANCE),
+    globetrotterMinutes: GLOBETROTTER_SECONDS / 60,
     upgrades: PLAY_META_UPGRADES.length,
     prestigeBonus: PRESTIGE_BONUS_PERCENT,
     prestigeStep: PRESTIGE_COST_STEP.toLocaleString('en-US'),

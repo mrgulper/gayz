@@ -10,7 +10,7 @@ import * as CloudSaveUI from './CloudSaveUI.js'
 import { ACHIEVEMENTS } from './Achievements.js'
 import { ACHIEVEMENTS_SEEN_IDS_KEY, ACHIEVEMENT_CHAINS, ACHIEVEMENT_TOAST_GAP_MS, APEX_PREDATOR_WAVES, BONE_COLLECTOR_SKELETONS, BOSS_HUNTER_BOSSES, DEEP_POCKETS_COINS, ENDGAME_ACHIEVEMENT, EXTERMINATOR_CAREER_KILLS, FORTUNE_HUNTER_COINS, FULLY_LOADED_UPGRADES, HARDENED_WAVES, HEADHUNTER_HEADSHOTS, LEADERBOARD_MAX_ENTRIES, LOGIN_CALENDAR_DAYS, LOGIN_STREAK_COIN_PER_DAY, LOGIN_STREAK_MAX_BONUS_DAYS, LOGIN_STREAK_MAX_FREEZES, MARATHON_SECONDS, MASSACRE_KILLS, MEAT_GRINDER_STREAK, MUTATOR_CHALLENGE_WAVES, PLAYTIME_MILESTONES, PLAY_META_UPGRADES, PRESTIGE_BONUS_PERCENT, PRESTIGE_COST_STEP, QUESTS_SEEN_IDS_KEY, RATTLED_SKELETONS, REGULAR_CAREER_RUNS, RUN_HISTORY_MAX, SHARPSHOOTER_HEADSHOTS, SURVIVOR_20_WAVES, SURVIVOR_30_WAVES, TREASURE_HUNTER_CHESTS, UNTOUCHABLE_STREAK, UPGRADES_SEEN_IDS_KEY, UP_CLOSE_KNIFE_KILLS, VETERAN_PERKS, WEEKLY_FEATURED_MUTATOR_BONUS_COINS, _escapeHtml, _formatDurationShort, _loadSeenIds, _safeStatNumber, _saveSeenIds, _weeklyFeaturedMutatorKey, careerRankTitleKey, formatTime, saveBestRunPace, saveBestStats, saveCareerStats, saveLeaderboard, saveLoginStreak, saveRunHistory, saveSettings, saveShopProgress, todayDateString, yesterdayDateString } from './Game.js'
 import { DEATH_POINTS_CONVERSION, META_UPGRADES, saveMetaProgress } from './MetaProgress.js'
-import { POINTS_PER_KILL, POINTS_PER_WAVE } from './PlayRules.js'
+import { GLOBETROTTER_SECONDS, POINTS_PER_KILL, POINTS_PER_WAVE } from './PlayRules.js'
 import { QUESTS } from './Quests.js'
 import { EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQuests.js'
 import { t } from './i18n.js'
@@ -131,13 +131,14 @@ export function _onPlayEvent(game, type, data) {
     if (data.difficulty === 'nightmare' && wave >= 15) game.achievements.unlock('waking_nightmare')
     if (data.difficulty === 'apex' && wave >= 15) game.achievements.unlock('food_chain')
     if (data.mode === 'zombieRush' && wave >= 10) game.achievements.unlock('rush_hour')
-    if (data.mode === 'worldMap' && wave >= 10) game.achievements.unlock('globetrotter')
     if (mutators.includes('hordeRush') && wave >= MUTATOR_CHALLENGE_WAVES) game.achievements.unlock('horde_breaker')
     if (mutators.includes('escalation') && wave >= MUTATOR_CHALLENGE_WAVES) game.achievements.unlock('escalated')
     if (mutators.includes('bossRush') && wave >= 5) game.achievements.unlock('boss_parade')
     return null
   }
   if (type !== 'end') return null
+  // World Map has no zombies or waves (2026-10-26): 10 minutes exploring.
+  if (data.mode === 'worldMap' && data.seconds >= GLOBETROTTER_SECONDS) game.achievements.unlock('globetrotter')
   const points = data.kills * POINTS_PER_KILL + data.waves * POINTS_PER_WAVE
   // _recordRunEnd (the old Map 1's end-of-run bookkeeping: best stats,
   // career totals, run history, leaderboards, gems, Cloud Save) reads

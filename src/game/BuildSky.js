@@ -61,6 +61,13 @@ const STEP_S = 60
 // chance" - 0.01%): rolled first on every Random weather change, daytime
 // only. The editor's Weather button can still pick it to look at.
 const ECLIPSE_CHANCE = 0.0001
+// A rainbow (2026-10-26, Gaymi: "make a 10% chance of seeing a rainbow
+// after raining"): when rain or hail clears in the daytime, this chance
+// of one in the sky opposite the sun (SkyBodies) for RAINBOW_S seconds,
+// fading in and out over a few seconds.
+export const RAINBOW_CHANCE = 0.1
+const RAINBOW_S = 150
+const RAINBOW_FADE = 0.25
 // Saved before Map 1's weather was used here.
 const OLD_WEATHERS = { rain: 'lightRain', snow: 'lightSnow' }
 // A whole day: 1440 seconds, so one game minute is one real second
@@ -170,6 +177,8 @@ export class BuildSky {
     this.fogFactor = 1
     this.clearness = 1
     this._eclipse = 0
+    this._rainbowIn = 0 // seconds of rainbow left
+    this.rainbow = 0 // how much is showing (0..1)
     this._fogGoal = 1
     this._base = new THREE.Color()
     this._hemiBase = 0
@@ -431,6 +440,11 @@ export class BuildSky {
     }
   }
 
+  // A rainbow in the sky now (the after-rain roll; also handy for tests).
+  showRainbow() {
+    if (this.nightAmount() < 0.35) this._rainbowIn = RAINBOW_S
+  }
+
   // For the top bar (TopBar.js, 2026-10-18): the weather showing now, how
   // strong its look is (0-1), how dark it is (0-1) and the time of day as
   // hours (0-24; noon at phase 0, midnight at 0.5).
@@ -540,7 +554,11 @@ export class BuildSky {
     // noon while the moon is down.
     const cover = this._now === 'eclipse' ? 0 : this._mix / Math.max(0.4, 1 - this.nightAmount() * 0.6)
     const day = this.time === 'cycle' ? Math.floor(this._clock / CYCLE_SECONDS + 0.5) : 1
-    this.bodies.update(dt, bm.camera, this._phase(), cover, 1 - this.nightAmount(), this._sky, this._eclipse, MOON_PHASES[(day + 3) % MOON_PHASES.length])
+    // The rainbow lasts while it stays clear; new rain or nightfall ends it.
+    this._rainbowIn = this._now === 'clear' && this.nightAmount() < 0.35 ? this._rainbowIn - dt : 0
+    this.rainbow += ((this._rainbowIn > 0 ? 1 : 0) - this.rainbow) * Math.min(1, dt * RAINBOW_FADE)
+    if (this.rainbow < 0.001 && this._rainbowIn <= 0) this.rainbow = 0
+    this.bodies.update(dt, bm.camera, this._phase(), cover, 1 - this.nightAmount(), this._sky, this._eclipse, MOON_PHASES[(day + 3) % MOON_PHASES.length], this.rainbow)
     this.weather3d.update(dt)
     if (this.weather === 'random') {
       // Walked into a different climate: re-roll if what's falling can't
@@ -558,7 +576,9 @@ export class BuildSky {
       if (this._now === this._goal) this._rerollIn -= dt
       else if ((this._stepIn -= dt) <= 0) {
         this._stepIn = STEP_S
+        const was = this._now
         this._now = this._step()
+        if (this._now === 'clear' && (LADDER_OF[was] === 'rain' || LADDER_OF[was] === 'hail') && Math.random() < RAINBOW_CHANCE) this.showRainbow()
         this.apply()
       }
       if (this._rerollIn <= 0) this._pickWeather(false)

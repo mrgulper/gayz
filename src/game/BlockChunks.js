@@ -74,14 +74,43 @@ export const ROOF_GRID = 40
 // the same roof-height grid that stops the rain indoors (uRoof).
 // Also by graphics level: uBump lights the block pictures as bumpy
 // (stone rough, bark ridged), uHaze fades far land into the sky's colour.
+// uGrade (the finishing colour) and uAo (corner shade) used to be part of
+// uReal; split out 2026-10-26 so the cheaper levels get some of them too.
+// uSpec: the sun glinting off blocks, mostly off wet ground and puddles -
+// added straight to the sun's light after its shadow, so shaded spots
+// never glint.
+// Faster too (same day): the big soft colour patches are worked out per
+// corner (vPatch) instead of per pixel - they're far bigger than a block -
+// and the fine grain is skipped beyond where you could see it.
+const NOISE_GLSL = `float realHash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+      float realNoise(vec3 p) {
+        vec3 i = floor(p);
+        vec3 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(mix(realHash(i), realHash(i + vec3(1, 0, 0)), f.x), mix(realHash(i + vec3(0, 1, 0)), realHash(i + vec3(1, 1, 0)), f.x), f.y),
+          mix(mix(realHash(i + vec3(0, 0, 1)), realHash(i + vec3(1, 0, 1)), f.x), mix(realHash(i + vec3(0, 1, 1)), realHash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+      }`
 function sharpen(mat, fx, extra = null) {
   mat.onBeforeCompile = (shader) => {
-    for (const k of ['real', 'block', 'wet', 'snow', 'ice', 'roof', 'roofOrigin', 'roofBase', 'sky', 'bump', 'haze']) {
+    for (const k of ['real', 'block', 'wet', 'snow', 'ice', 'roof', 'roofOrigin', 'roofBase', 'sky', 'bump', 'haze', 'grade', 'ao', 'spec']) {
       shader.uniforms[`u${k[0].toUpperCase()}${k.slice(1)}`] = fx[k]
     }
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nvarying vec3 vWNorm;')
-      .replace('#include <project_vertex>', '#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvWNorm = objectNormal;')
+      .replace('#include <common>', `#include <common>
+      varying vec3 vWPos;
+      varying vec3 vWNorm;
+      varying float vPatch;
+      uniform float uReal;
+      uniform float uBlock;
+      ${NOISE_GLSL}`)
+      .replace('#include <project_vertex>', `#include <project_vertex>
+      vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+      vWNorm = objectNormal;
+      vPatch = 0.5;
+      if (uReal > 0.0) {
+        vec3 pw = vWPos / uBlock;
+        vPatch = realNoise(pw * 0.11) * 0.65 + realNoise(pw * 0.37) * 0.35;
+      }`)
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
       uniform float uReal;
@@ -95,8 +124,12 @@ function sharpen(mat, fx, extra = null) {
       uniform vec3 uSky;
       uniform float uBump;
       uniform float uHaze;
+      uniform float uGrade;
+      uniform float uAo;
+      uniform float uSpec;
       varying vec3 vWPos;
       varying vec3 vWNorm;
+      varying float vPatch;
       // 1 = open to the sky here, 0 = under a roof (wp in blocks).
       float openSky(vec3 wp, vec3 n) {
         vec2 cell = floor(wp.xz + n.xz * 0.5) - uRoofOrigin;
@@ -105,41 +138,37 @@ function sharpen(mat, fx, extra = null) {
         if (top < 0.5) return 1.0;
         return step(uRoofBase + top - 0.1, wp.y);
       }
-      float realHash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
-      float realNoise(vec3 p) {
-        vec3 i = floor(p);
-        vec3 f = fract(p);
-        f = f * f * (3.0 - 2.0 * f);
-        return mix(mix(mix(realHash(i), realHash(i + vec3(1, 0, 0)), f.x), mix(realHash(i + vec3(0, 1, 0)), realHash(i + vec3(1, 1, 0)), f.x), f.y),
-          mix(mix(realHash(i + vec3(0, 0, 1)), realHash(i + vec3(1, 0, 1)), f.x), mix(realHash(i + vec3(0, 1, 1)), realHash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
-      }`)
+      ${NOISE_GLSL}`)
       .replace('#include <map_fragment>', `#ifdef USE_MAP
       vec4 texel = texture2D( map, vMapUv, ${SHARPEN.toFixed(2)} );
       if (uReal > 0.0) {
         vec3 wp = vWPos / uBlock;
         // Grain finer than a pixel, up close only (far off it would shimmer).
         float grainNear = 1.0 - smoothstep(6.0, 22.0, length(vViewPosition) / uBlock);
-        float grain = realNoise(wp * 47.0) * 0.6 + realNoise(wp * 13.0) * 0.4;
-        texel.rgb *= 1.0 + (grain - 0.5) * 0.2 * uReal * grainNear;
-        float patches = realNoise(wp * 0.11) * 0.65 + realNoise(wp * 0.37) * 0.35;
-        texel.rgb *= 1.0 + (patches - 0.5) * 0.3 * uReal;
+        if (grainNear > 0.0) {
+          float grain = realNoise(wp * 47.0) * 0.6 + realNoise(wp * 13.0) * 0.4;
+          texel.rgb *= 1.0 + (grain - 0.5) * 0.2 * uReal * grainNear;
+        }
+        texel.rgb *= 1.0 + (vPatch - 0.5) * 0.3 * uReal;
       }
       diffuseColor *= texel;
     #endif
       #if defined(USE_COLOR) || defined(USE_COLOR_ALPHA)
-      if (uReal > 0.0) {
+      if (uAo > 0.0) {
         // Deeper shade in corners and under overhangs (the corner shading
         // the mesher puts in the vertex colours, taken further).
         float shadeV = clamp(max(vColor.r, max(vColor.g, vColor.b)), 0.0, 1.0);
-        diffuseColor.rgb *= mix(1.0, shadeV, 0.55 * uReal);
+        diffuseColor.rgb *= mix(1.0, shadeV, uAo);
       }
       #endif
       float puddle = 0.0;
+      float wetNow = 0.0;
       if (uWet + uSnow + uIce > 0.0) {
         vec3 wp = vWPos / uBlock;
         float open = openSky(wp, vWNorm);
         float up = step(0.5, vWNorm.y) * open;
         float wet = uWet * open;
+        wetNow = wet;
         diffuseColor.rgb *= 1.0 - 0.32 * wet * (0.6 + 0.4 * up);
         // Puddles: low, flat spots in big soft patches, growing as it rains.
         float pn = realNoise(vec3(wp.xz * 0.45, 3.0)) * 0.7 + realNoise(vec3(wp.xz * 1.7, 9.0)) * 0.3;
@@ -153,7 +182,19 @@ function sharpen(mat, fx, extra = null) {
         float stone = realHash(floor(wp * vec3(9.0, 1.0, 9.0)));
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.92, 0.98), up * step(1.0 - uIce * 0.22, stone) * (1.0 - cover));
         puddle *= 1.0 - cover;
+        wetNow *= 1.0 - cover;
       }`)
+      .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+      #if NUM_DIR_LIGHTS > 0
+      if (uSpec > 0.0) {
+        // directLight is the sun here, already dimmed by its shadow.
+        vec3 hv = normalize(directLight.direction + geometryViewDir);
+        float nh = max(dot(geometryNormal, hv), 0.0);
+        float glossy = clamp(wetNow * 0.7 + puddle, 0.0, 1.0);
+        float sp = pow(nh, mix(20.0, 160.0, glossy)) * mix(0.07, 1.5, glossy);
+        reflectedLight.directDiffuse += directLight.color * sp * uSpec * step(0.0, dot(geometryNormal, directLight.direction));
+      }
+      #endif`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
       #ifdef USE_MAP
       if (uBump > 0.0) {
@@ -170,12 +211,16 @@ function sharpen(mat, fx, extra = null) {
         normal = normalize(abs(det) * normal - sign(det) * (dh.x * r1 + dh.y * r2));
       }
       #endif`)
-      .replace('#include <fog_fragment>', `if (uReal > 0.0) {
+      .replace('#include <fog_fragment>', `if (uGrade > 0.0) {
         vec3 c = gl_FragColor.rgb;
         float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-        c = mix(vec3(l), c, 1.0 + 0.18 * uReal);
-        c = mix(c, c * c * (3.0 - 2.0 * c), 0.35 * uReal);
-        c *= mix(vec3(1.0), vec3(1.04, 1.01, 0.96), uReal);
+        c = mix(vec3(l), c, 1.0 + 0.18 * uGrade);
+        c = mix(c, c * c * (3.0 - 2.0 * c), 0.35 * uGrade);
+        c *= mix(vec3(1.0), vec3(1.04, 1.01, 0.96), uGrade);
+        // Bright spots roll off softly instead of clipping flat white
+        // (sun glints, snow), like a camera - the top levels only.
+        float over = max(0.0, uGrade - 0.6) * 2.5;
+        c = mix(c, c / (1.0 + max(c - 0.8, 0.0) * 1.5), over);
         gl_FragColor.rgb = c;
       }
       vec3 skyOut = sRGBTransferOETF(vec4(uSky, 1.0)).rgb;
@@ -383,6 +428,7 @@ export class BlockChunks {
       wet: { value: 0 }, snow: { value: 0 }, ice: { value: 0 },
       roof: { value: null }, roofOrigin: { value: new THREE.Vector2(1e6, 1e6) }, roofBase: { value: 0 },
       sky: { value: new THREE.Color(0.6, 0.75, 0.95) }, bump: { value: 0 }, haze: { value: 0 }, reflect: { value: 0 },
+      grade: { value: 0 }, ao: { value: 0 }, spec: { value: 0 },
     }
     this.materials = {
       water: new THREE.MeshPhongMaterial({ map: waterMap, vertexColors: true, transparent: true, depthWrite: false, specular: 0x000000, shininess: 70 }),
@@ -417,11 +463,14 @@ export class BlockChunks {
   // How much the leaves sway and the water rolls (world units) and how
   // much the water shines (0..1) - set from the graphics level. hazeScale:
   // how much of the far haze the weather lets through (0 on a clear day).
-  setEffects({ sway = 0, waves = 0, shine = 0, real = 0, bump = 0, haze = 0 } = {}, hazeScale = 1) {
+  setEffects({ sway = 0, waves = 0, shine = 0, real = 0, bump = 0, haze = 0, grade = 0, ao = 0, spec = 0 } = {}, hazeScale = 1) {
     this.fx.real.value = real
+    this.fx.grade.value = grade
+    this.fx.ao.value = ao
+    this.fx.spec.value = spec
     this.fx.bump.value = bump
     this.fx.haze.value = haze * hazeScale
-    this.fx.reflect.value = bump > 0 ? shine * (0.8 + 0.2 * real) : 0
+    this.fx.reflect.value = shine * (0.8 + 0.2 * real)
     this.fx.sway.value = sway * this.blockSize
     this.fx.waves.value = waves * this.blockSize
     this.materials.water.specular.setScalar(shine * 0.55)
