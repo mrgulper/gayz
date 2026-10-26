@@ -94,7 +94,8 @@ export class PlayPauseMenu {
     const s = this.bm.survival
     const box = document.getElementById('play-invite')
     const link = document.getElementById('play-invite-link')
-    const serverId = s?.net && !s.net.closed ? s.net.serverId : id
+    const net = s?.net && !s.net.closed ? s.net : s?.lobby && !s.lobby.closed ? s.lobby : null
+    const serverId = net ? net.serverId : id
     if (box) box.hidden = !serverId
     if (serverId && link) link.value = inviteLink(serverId)
   }
@@ -107,6 +108,15 @@ export class PlayPauseMenu {
     const status = document.getElementById('play-pause-status')
     if (!s?.active) return
     if (s.net && !s.net.closed) {
+      this._showInvite()
+      this.copyInvite()
+      return
+    }
+    // Ready for friends since it started: the same link, now a server game.
+    if (s.lobby && !s.lobby.closed) {
+      await makeGameJoinable(this.bm.game, s)
+      const save = document.getElementById('play-pause-save-btn')
+      if (save) save.style.display = 'none'
       this._showInvite()
       this.copyInvite()
       return
@@ -183,7 +193,8 @@ export class PlayPauseMenu {
     if (!this._fromSettings || this.bm.game?.settingsOpen) return
     this._fromSettings = false
     // Settings wrote its own address; put the server's invite link back.
-    const net = this.bm.survival?.net
+    const s = this.bm.survival
+    const net = s?.net && !s.net.closed ? s.net : s?.lobby
     if (net && !net.closed) net._showInAddressBar()
     if (this.bm.menuOpen) this.show(true)
   }

@@ -119,7 +119,7 @@ export class PlayThrow {
         continue
       }
       // Or an animal (PlayAnimals.js).
-      if (s.animals?.hitRay(ray, len, t.damage)) {
+      if (s.animals?.hitRay(ray, len, t.damage, s.weaponId)) {
         this._drop(t)
         continue
       }

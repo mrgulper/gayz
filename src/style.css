@@ -12595,3 +12595,40 @@ html.ui-theme-old .gfx-level-card:hover,
 html.ui-theme-old .gfx-level-card:focus-visible { border-color: #6b3f17; }
 html.ui-theme-old .gfx-level-card.active { border-color: #6b3f17; box-shadow: 0 0 0 2px #6b3f17; }
 html.ui-theme-old .gfx-level-name { font-family: 'Rye', Georgia, serif; font-weight: 400; }
+
+/* Damage numbers over the game (PlayDamageNumbers.js): bold pink numbers
+   with a dark outline and the weapon's picture, same in every theme and
+   biome (they're part of the 3D view, not a screen). */
+#play-damage-numbers {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 40;
+}
+#play-damage-numbers .play-dmg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  will-change: transform, opacity;
+}
+#play-damage-numbers .play-dmg span {
+  font: 900 26px/1 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: #ff3fa4;
+  -webkit-text-stroke: 1px #2a0716;
+  text-shadow: 0 0 2px #000, 2px 2px 0 #2a0716, -1px -1px 0 #2a0716, 1px -1px 0 #2a0716, -1px 1px 0 #2a0716;
+}
+#play-damage-numbers .play-dmg img {
+  width: 42px;
+  height: 30px;
+  object-fit: contain;
+  filter: drop-shadow(1px 1px 0 #000);
+}
+@media (max-width: 700px), (pointer: coarse) {
+  #play-damage-numbers .play-dmg span { font-size: 21px; }
+  #play-damage-numbers .play-dmg img { width: 34px; height: 24px; }
+}

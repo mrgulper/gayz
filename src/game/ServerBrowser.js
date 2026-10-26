@@ -243,10 +243,37 @@ export function newServerId() {
 
 export async function makeGameJoinable(game, survival, id = newServerId()) {
   if (survival.net && !survival.net.closed) return survival.net
+  // Already ready for friends (a lobby): it just becomes a server game now.
+  if (survival.lobby && !survival.lobby.closed) {
+    const lobby = survival.lobby
+    lobby._promote()
+    return lobby
+  }
   const world = game.buildMode?.world?.active ? { seed: worldSeed(), earth: isEarthWorld(), pick: survival._spawnPick || null } : null
   const info = await serverApi(game).create({ ...(await myDetails(game)), name: '', mode: 'main', world, id })
   const net = new PlayNet(game, { ...info, world })
   survival.net = net
+  net.attach(survival)
+  return net
+}
+
+// A solo game from the homepage is a hidden server from the start, so the
+// address bar is its invite link right away (2026-10-26, Gaymi: "it still
+// says gayz.vercel.app (map editor) until I click the invite link") - see
+// PlayNet's header. Offline, or if it can't be made, the game stays solo.
+export async function openLobby(game, survival) {
+  if (survival.net || survival.lobby || (typeof navigator !== 'undefined' && navigator.onLine === false)) return null
+  const world = game.buildMode?.world?.active ? { seed: worldSeed(), earth: isEarthWorld(), pick: survival._spawnPick || null } : null
+  const api = serverApi(game)
+  const info = await api.create({ ...(await myDetails(game)), name: '', mode: 'main', world, id: newServerId(), hidden: true })
+  if (!info?.serverId || !info.token) return null
+  // The game ended (or got a server another way) while this was made.
+  if (!survival.active || survival.net || survival.lobby) {
+    api.leave({ serverId: info.serverId, playerId: info.playerId, token: info.token }).catch(() => { /* times out */ })
+    return null
+  }
+  const net = new PlayNet(game, { ...info, world }, { lobby: true })
+  survival.lobby = net
   net.attach(survival)
   return net
 }

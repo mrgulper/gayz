@@ -16,12 +16,22 @@
 // Zombies leave animals alone. Blocky models made from boxes, sizes like
 // the real animals (smaller than a player). Meshes only, never a light;
 // geometries and materials are shared per kind and never flashed.
+//
+// On a server (2026-10-26, "they didn't see the same thing I had on my
+// screen") the host runs the animals for everyone - spawning them around
+// every player, a pet following whoever tamed it - and sends them with
+// each sync (snapshot); everybody else just mirrors them (applySnapshot,
+// updateMirror) and sends their shots and taming to the host (PlayNet).
 import * as THREE from 'three'
 import { t } from './i18n.js'
 import { sampleLand, inCity } from './OpenWorld.js'
 import { MORE_KINDS, MORE_BIOME_ANIMALS } from './AnimalKinds.js'
 
 export const MAX_WILD = 12
+// Animals a server's sync carries at most (api/_lib/servers.js MAX_ANIMALS).
+export const MAX_SHARED = 24
+// A kill whose last shot was mine this recently gives me the meat.
+const MY_KILL_MS = 3000
 const SPAWN_EVERY_S = 1.5
 const SPAWN_MIN = 24 // blocks from you
 const SPAWN_MAX = 56
@@ -277,6 +287,12 @@ export class PlayAnimals {
     this.list = []
     this._spawnIn = 0
     this._parts = {}
+    this._aid = 0
+  }
+
+  get _net() {
+    const net = this.s.net
+    return net && !net.closed ? net : null
   }
 
   get bm() {
@@ -379,11 +395,15 @@ export class PlayAnimals {
     const s = this.s
     const here = bm.tryMode.pos // spawning follows the camera too (spectating)
     const me = s.bodyPos()
+    // On a server (as the host): around everyone, not just me.
+    const others = this._net?.targets() || []
+    const centers = [here, ...others]
     this._spawnIn -= dt
     const wild = this.list.filter((a) => !a.tamed && !a.dying && !a.placed)
-    if (spawnWild && bm.world?.active && this._spawnIn <= 0 && wild.length < MAX_WILD) {
+    const most = others.length ? Math.min(MAX_SHARED - 4, MAX_WILD + others.length * 4) : MAX_WILD
+    if (spawnWild && bm.world?.active && this._spawnIn <= 0 && wild.length < most) {
       this._spawnIn = SPAWN_EVERY_S
-      this._spawnGroup(here)
+      this._spawnGroup(centers[Math.floor(Math.random() * centers.length)])
     }
     for (const a of [...this.list]) {
       if (a.dying) {
@@ -392,11 +412,13 @@ export class PlayAnimals {
         if (a.dieT > DIE_S) this._remove(a)
         continue
       }
-      if (!a.tamed && !a.placed && Math.hypot(a.x - here.x, a.z - here.z) > DESPAWN) {
+      if (!a.tamed && !a.placed && centers.every((c) => Math.hypot(a.x - c.x, a.z - c.z) > DESPAWN)) {
         this._remove(a)
         continue
       }
-      this._step(a, dt, me)
+      // Another player's pet follows them.
+      const owner = a.owner && this._net?.players.get(a.owner)
+      this._step(a, dt, owner?.seen ? owner : me)
     }
   }
 
@@ -584,7 +606,7 @@ export class PlayAnimals {
     const a = {
       kind, x, y, z, groundY: y, heading: Math.random() * Math.PI * 2, think: Math.random() * 2,
       walking: false, walk: 0, flee: 0, hurt: 0, health: k.health, tamed: false, dying: false, dieT: 0,
-      seed: Math.random() * 6, placed, ...built,
+      seed: Math.random() * 6, placed, netId: `a${++this._aid}`, owner: null, ...built,
     }
     a.group.rotation.y = a.heading
     a.group.position.set(x * this.s.B, y * this.s.B, z * this.s.B)
@@ -631,14 +653,26 @@ export class PlayAnimals {
   }
 
   // A shot or a thrown knife: true if it hit an animal (pets are never hurt).
-  hitRay(ray, maxDist, damage) {
+  // weaponId: the picture beside the damage number.
+  hitRay(ray, maxDist, damage, weaponId = '') {
     const a = this._onRay(ray, maxDist, { wildOnly: true })
     if (!a) return false
+    const k = KINDS[a.kind]
+    this.s.damageNumbers?.show(a.x, a.y + k.leg + k.body[1], a.z, damage, weaponId)
+    const net = this._net
+    if (net && !net.isHost) {
+      // The host's animal: it takes the hit there (and tells everyone).
+      net.queueAnimalHit(a.netId, damage)
+      a.hurt = 0.25
+      a.myHitAt = performance.now()
+      return true
+    }
     this.damage(a, damage)
     return true
   }
 
-  damage(a, amount) {
+  // by: on a server, the other player whose shot this was (they get the meat).
+  damage(a, amount, by = null) {
     if (a.dying || a.tamed) return
     a.health -= amount
     a.hurt = 0.25
@@ -647,6 +681,10 @@ export class PlayAnimals {
     a.dying = true
     a.legs.forEach((leg) => { leg.rotation.x = 0 })
     // Meat pops out where it fell.
+    if (!by) this._dropMeat(a)
+  }
+
+  _dropMeat(a) {
     for (let i = 0; i < KINDS[a.kind].meat; i++) this.s._drops?.spawnItem('meat', Math.floor(a.x), a.y, Math.floor(a.z))
   }
 
@@ -657,6 +695,9 @@ export class PlayAnimals {
     bm._raycaster.setFromCamera({ x: 0, y: 0 }, bm.camera)
     const a = this._onRay(bm._raycaster.ray, TAME_REACH * this.s.B, { wildOnly: true })
     if (!a) return false
+    // On a server and not the host: the host tames it for me.
+    const net = this._net
+    if (net && !net.isHost) net.queueAnimalHit(a.netId, 0, true)
     a.tamed = true
     a.flee = 0
     a.collar.visible = true
@@ -703,5 +744,120 @@ export class PlayAnimals {
 
   remove(a) {
     this._remove(a)
+  }
+
+  // --- servers (PlayNet.js) ---
+
+  // The host: every animal, keyed by its id (pets and nearest first).
+  snapshot() {
+    const me = this.s.bodyPos()
+    const order = [...this.list].sort((a, b) => (b.tamed - a.tamed) || (Math.hypot(a.x - me.x, a.z - me.z) - Math.hypot(b.x - me.x, b.z - me.z)))
+    const out = {}
+    for (const a of order.slice(0, MAX_SHARED)) {
+      out[a.netId] = { k: a.kind, x: +a.x.toFixed(2), y: +a.y.toFixed(2), z: +a.z.toFixed(2), h: +a.group.rotation.y.toFixed(2), hp: Math.round(a.health), t: a.tamed ? a.owner || 'h' : '', d: a.dying }
+    }
+    return out
+  }
+
+  // The host: another player's shot on (or taming of) one of my animals.
+  remoteHit(h) {
+    const a = this.list.find((o) => o.netId === h.id)
+    if (!a || a.dying) return
+    if (h.tame) {
+      if (a.tamed) return
+      a.tamed = true
+      a.owner = h.by
+      a.flee = 0
+      a.collar.visible = true
+      return
+    }
+    this.damage(a, Number(h.dmg) || 0, h.by)
+  }
+
+  // Not the host: the host's animals (made, moved, removed).
+  applySnapshot(map) {
+    const seen = new Set()
+    for (const [id, d] of Object.entries(map)) {
+      if (!KINDS[d.k]) continue
+      seen.add(id)
+      let a = this.list.find((o) => o.netId === id)
+      if (a && a.kind !== d.k) {
+        this._remove(a)
+        a = null
+      }
+      if (!a) {
+        a = this.spawn(d.k, d.x, d.y, d.z)
+        a.netId = id
+        a.group.rotation.y = d.h
+      }
+      a.mirror = true
+      a.tx = d.x
+      a.ty = d.y
+      a.tz = d.z
+      a.th = d.h
+      if (d.hp < a.health) a.hurt = 0.25
+      a.health = d.hp
+      a.tamed = !!d.t
+      a.collar.visible = !!d.t
+      if (d.d && !a.dying) this._mirrorDies(a)
+    }
+    for (const a of [...this.list]) {
+      if (seen.has(a.netId) || a.dying) continue
+      // Gone from the host's list: died unseen (a kill of mine still gives
+      // me the meat) or wandered off.
+      if (a.myHitAt && performance.now() - a.myHitAt < MY_KILL_MS) this._dropMeat(a)
+      this._remove(a)
+    }
+  }
+
+  _mirrorDies(a) {
+    a.dying = true
+    a.legs.forEach((leg) => { leg.rotation.x = 0 })
+    if (a.myHitAt && performance.now() - a.myHitAt < MY_KILL_MS) this._dropMeat(a)
+  }
+
+  // Not the host, each frame: slide the host's animals to where they are.
+  updateMirror(dt) {
+    const B = this.s.B
+    const k = 1 - Math.exp(-10 * dt)
+    for (const a of [...this.list]) {
+      if (a.dying) {
+        a.dieT += dt
+        a.group.rotation.z = Math.min(1, a.dieT / 0.35) * (Math.PI / 2)
+        if (a.dieT > DIE_S) this._remove(a)
+        continue
+      }
+      if (a.tx === undefined) continue
+      const ox = a.x
+      const oz = a.z
+      a.x += (a.tx - a.x) * k
+      a.y += (a.ty - a.y) * k
+      a.z += (a.tz - a.z) * k
+      const speed = dt > 0 ? Math.hypot(a.x - ox, a.z - oz) / dt : 0
+      a.walk += dt * speed * 5
+      const swing = speed > 0.2 ? Math.sin(a.walk) * 0.7 : 0
+      a.legs.forEach((leg, i) => { leg.rotation.x = (i % 2 === (i < 2 ? 0 : 1) ? 1 : -1) * swing })
+      let turn = (a.th || 0) - a.group.rotation.y
+      turn = Math.atan2(Math.sin(turn), Math.cos(turn))
+      a.group.rotation.y += turn * k
+      a.hurt = Math.max(0, a.hurt - dt)
+      a.group.rotation.x = -a.hurt * 1.2
+      a.group.position.set(a.x * B, a.y * B, a.z * B)
+    }
+  }
+
+  // I just became the host: the animals I was mirroring are mine to run.
+  takeOver() {
+    for (const a of this.list) {
+      a.mirror = false
+      if (a.tx !== undefined) {
+        a.x = a.tx
+        a.y = a.ty
+        a.z = a.tz
+        a.groundY = a.ty
+      }
+      a.heading = a.group.rotation.y
+      this._aid = Math.max(this._aid, Number(String(a.netId).slice(1)) || 0)
+    }
   }
 }

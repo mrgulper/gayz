@@ -58,17 +58,23 @@ export const NPC_SKINS = {
   quest: '/images/npc/quest.png',
 }
 
+// A name over someone's head: just the words, with a dark outline so they
+// read on any sky (2026-10-26, Gaymi: "just write the name above the
+// player, don't add the colour rectangle behind it"). Used for the camp's
+// people, the players on a server (PlayNet) and in Build Together.
 export function nameTag(text, B) {
   const c = document.createElement('canvas')
   c.width = 256
   c.height = 64
   const ctx = c.getContext('2d')
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.55)'
-  ctx.fillRect(0, 8, 256, 48)
-  ctx.fillStyle = '#ffe9a8'
   ctx.font = 'bold 28px sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
+  ctx.lineJoin = 'round'
+  ctx.lineWidth = 6
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)'
+  ctx.strokeText(text, 128, 32)
+  ctx.fillStyle = '#ffffff'
   ctx.fillText(text, 128, 32)
   const tex = new THREE.CanvasTexture(c)
   tex.colorSpace = THREE.SRGBColorSpace

@@ -179,6 +179,9 @@ export class BuildSky {
     this._eclipse = 0
     this._rainbowIn = 0 // seconds of rainbow left
     this.rainbow = 0 // how much is showing (0..1)
+    // On a server and not the host: the host's sky is shown (follow) and
+    // nothing is rolled here.
+    this._following = false
     this._fogGoal = 1
     this._base = new THREE.Color()
     this._hemiBase = 0
@@ -265,9 +268,35 @@ export class BuildSky {
     return BIOME_CLIMATE[sampleLand(x, z).biome] || 'mild'
   }
 
+  // On a server everyone sees the host's sky (2026-10-26, Gaymi: "they
+  // didn't see the same thing I had on my screen"): the host sends this
+  // with each sync (PlayNet) and the others follow() it.
+  skyState() {
+    return { c: +this._clock.toFixed(1), n: this._now, g: this._goal, r: +Math.max(0, this._rainbowIn).toFixed(1) }
+  }
+
+  // The host's sky (null: back to rolling our own, e.g. we became the host).
+  follow(state) {
+    if (!state) {
+      this._following = false
+      return
+    }
+    const ok = (k) => k === 'clear' || k === 'eclipse' || (SKY_WEATHERS.includes(k) && k !== 'random')
+    this._following = true
+    // The clock runs here between syncs; only a real gap jumps it.
+    if (this.time === 'cycle' && Number.isFinite(state.c) && Math.abs(state.c - this._clock) > 3) this._clock = state.c
+    if (ok(state.g)) this._goal = state.g
+    this._rainbowIn = Number(state.r) || 0
+    if (ok(state.n) && state.n !== this._now) {
+      this._now = state.n
+      this.apply()
+    }
+  }
+
   // A game from the homepage starts / ends: the day-night cycle and
   // random weather, then back to the editor's own choice.
   forGame(on) {
+    this._following = false
     if (on) {
       if (!this._editorChoice) this._editorChoice = { time: this.time, weather: this.weather }
       this.time = 'cycle'
@@ -556,6 +585,15 @@ export class BuildSky {
     const day = this.time === 'cycle' ? Math.floor(this._clock / CYCLE_SECONDS + 0.5) : 1
     // The rainbow lasts while it stays clear; new rain or nightfall ends it.
     this._rainbowIn = this._now === 'clear' && this.nightAmount() < 0.35 ? this._rainbowIn - dt : 0
+    // Following the host: its weather comes with each sync, nothing rolls here.
+    if (this._following) {
+      this.rainbow += ((this._rainbowIn > 0 ? 1 : 0) - this.rainbow) * Math.min(1, dt * RAINBOW_FADE)
+      if (this.rainbow < 0.001 && this._rainbowIn <= 0) this.rainbow = 0
+      this.bodies.update(dt, bm.camera, this._phase(), cover, 1 - this.nightAmount(), this._sky, this._eclipse, MOON_PHASES[(day + 3) % MOON_PHASES.length], this.rainbow)
+      this.weather3d.update(dt)
+      this._lightning(dt)
+      return
+    }
     this.rainbow += ((this._rainbowIn > 0 ? 1 : 0) - this.rainbow) * Math.min(1, dt * RAINBOW_FADE)
     if (this.rainbow < 0.001 && this._rainbowIn <= 0) this.rainbow = 0
     this.bodies.update(dt, bm.camera, this._phase(), cover, 1 - this.nightAmount(), this._sky, this._eclipse, MOON_PHASES[(day + 3) % MOON_PHASES.length], this.rainbow)
@@ -583,7 +621,11 @@ export class BuildSky {
       }
       if (this._rerollIn <= 0) this._pickWeather(false)
     }
-    // Hard rain: lightning and thunder now and then, like Map 1.
+    this._lightning(dt)
+  }
+
+  // Hard rain: lightning and thunder now and then, like Map 1.
+  _lightning(dt) {
     if (this._now === 'hardRain' && this._lightningIn > 0) {
       this._lightningIn -= dt
       if (this._lightningIn <= 0) {

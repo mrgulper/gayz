@@ -98,6 +98,40 @@ test('auth: Discord/Steam sign-in checks', async () => {
   expect(resultPage({ token: '</script><script>alert(1)</script>' })).not.toContain('</script><script>alert')
 })
 
+// 2026-10-26 ("they didn't see the same thing I had on my screen"): the
+// host's sky and animals, everyone's blocks and chat bubbles are shared; a
+// solo game ready for friends is a hidden server (joined by its link only).
+test('servers: the same world for everyone - sky, animals, blocks, bubbles', async () => {
+  const db = fakeServerDb()
+  const t0 = 2_000_000
+  const a = await createServer(db, { nickname: 'Ann', hidden: true }, t0)
+  // Hidden: not in the list, but its link still joins it.
+  expect(await listServers(db, t0)).toEqual([])
+  const b = await joinServer(db, { serverId: a.serverId, nickname: 'Bo' }, t0 + 10)
+
+  // The host's blocks from before Bo joined, then its sky, animals and a
+  // monster zombie (kept, not turned into a plain zombie).
+  await syncServer(db, { ...a, edits: [{ x: 1, y: 2, z: 3, b: 'oakplanks' }, { x: 4, y: 5, z: 6, b: '' }, { x: 7, y: 8, z: 9, b: '<img>' }] }, t0 + 20)
+  await syncServer(db, { ...a, sky: { c: 512.5, n: 'hardRain', g: 'clear', r: 0 }, animals: { a1: { k: 'cow', x: 3, y: 1, z: 4, h: 1, hp: 50, t: '', d: false }, bad: { k: 'cow' }, a2: { k: '<b>' } }, zombies: { z1: { x: 1, y: 1, z: 1, hp: 10, max: 10, k: 'blob' } }, say: { n: 1, text: 'hi <there>' } }, t0 + 30)
+  let rb = await syncServer(db, { ...b, editsAfter: 0 }, t0 + 40)
+  expect(rb.edits).toEqual(expect.arrayContaining([{ x: 1, y: 2, z: 3, b: 'oakplanks' }, { x: 4, y: 5, z: 6, b: '' }, { x: 7, y: 8, z: 9, b: '' }]))
+  expect(rb.edits).toHaveLength(3)
+  expect(rb.sky).toEqual({ c: 512.5, n: 'hardRain', g: 'clear', r: 0 })
+  expect(Object.keys(rb.animals)).toEqual(['a1'])
+  expect(rb.animals.a1).toMatchObject({ k: 'cow', hp: 50 })
+  expect(rb.zombies.z1.k).toBe('blob')
+  expect(rb.players[a.playerId].say).toEqual({ n: 1, text: 'hi there', age: 10 })
+
+  // Only new edits next time; mine never come back to me; the latest wins.
+  rb = await syncServer(db, { ...b, editsAfter: rb.editSeq, edits: [{ x: 1, y: 2, z: 3, b: '' }], hits: [{ id: 'a1', dmg: 20 }, { id: 'a1', dmg: 0, tame: true }, { id: 'q1', dmg: 5 }] }, t0 + 50)
+  expect(rb.edits).toEqual([])
+  const ra = await syncServer(db, { ...a, editsAfter: 3 }, t0 + 60)
+  expect(ra.edits).toEqual([{ x: 1, y: 2, z: 3, b: '' }])
+  // Bo's shot and taming reach the host's animal.
+  expect(ra.hits).toEqual(expect.arrayContaining([{ id: 'a1', dmg: 20, by: b.playerId }, { id: 'a1', dmg: 0, by: b.playerId, tame: true }]))
+  expect(ra.hits).toHaveLength(2)
+})
+
 test('servers: a full server turns new players away', async () => {
   const db = fakeServerDb()
   const a = await createServer(db, { nickname: 'Ann' }, 0)
@@ -228,6 +262,84 @@ test('two players play Map 1 together on a server', async ({ browser }) => {
   expect(afterKill[0]).toEqual({ zombies: 0, kills: 0 })
   expect(afterKill[1]).toEqual({ zombies: 0, kills: 1 })
 
+  // Both see the same world (2026-10-26): the host's sky and a monster
+  // zombie's kind...
+  const zid2 = await a.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const sky = s.bm.sky
+    sky._now = sky._goal = 'hardRain'
+    sky._clock = 777
+    sky.apply()
+    const p = s.bm.tryMode.pos
+    return s._makeZombie(++s._zid, p.x + 4, p.y, p.z + 4, 100, false, 'blob').id
+  })
+  await settle()
+  const guestSky = await b.evaluate((id) => {
+    const s = window.__game.buildMode.survival
+    return { now: s.bm.sky._now, clock: Math.round(s.bm.sky._clock), kind: s.zombies.find((z) => z.id === id)?.kind }
+  }, zid2)
+  expect(guestSky.now).toBe('hardRain')
+  expect(Math.abs(guestSky.clock - 777)).toBeLessThan(5)
+  expect(guestSky.kind).toBe('blob')
+  // ...the guest's hit shows a damage number where it landed...
+  const dmgShown = await b.evaluate((id) => {
+    const s = window.__game.buildMode.survival
+    s.hitZombieWith(s.zombies.find((z) => z.id === id), 37, null)
+    return [...document.querySelectorAll('#play-damage-numbers .play-dmg span')].map((el) => el.textContent)
+  }, zid2)
+  expect(dmgShown).toContain('37')
+  // ...blocks placed and broken by either of them...
+  const spot = await a.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const p = s.bm.tryMode.pos
+    const x = Math.floor(p.x) + 2
+    const z = Math.floor(p.z) + 2
+    let y = Math.floor(p.y) + 3
+    while (s.bm.getBlockAt(x, y, z)) y++
+    s.bm.placeBlock(x, y, z, 'oakplanks', false)
+    s._placed.set(s.bm._key(x, y, z), 'oakplanks')
+    s._recordEdit(x, y, z, 'oakplanks')
+    return { x, y, z }
+  })
+  await settle()
+  expect(await b.evaluate(({ x, y, z }) => window.__game.buildMode.getBlockAt(x, y, z), spot)).toBe('oakplanks')
+  await b.evaluate(({ x, y, z }) => {
+    const s = window.__game.buildMode.survival
+    s.bm.tryMode.breakBlock(x, y, z)
+    s.onBlockMined('oakplanks', x, y, z)
+  }, spot)
+  await settle()
+  expect(await a.evaluate(({ x, y, z }) => window.__game.buildMode.getBlockAt(x, y, z) || '', spot)).toBe('')
+  // ...the host's animals, which the guest can hit...
+  const cowId = await a.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const p = s.bm.tryMode.pos
+    return s.animals.spawn('cow', p.x + 5, p.y, p.z + 5).netId
+  })
+  await settle()
+  expect(await b.evaluate((id) => window.__game.buildMode.survival.animals.list.find((an) => an.netId === id)?.kind, cowId)).toBe('cow')
+  await b.evaluate((id) => window.__game.buildMode.survival.net.queueAnimalHit(id, 999), cowId)
+  await settle()
+  // Dying, or already gone once it fell over.
+  expect(await a.evaluate((id) => {
+    const an = window.__game.buildMode.survival.animals.list.find((o) => o.netId === id)
+    return !an || an.dying
+  }, cowId)).toBe(true)
+  // ...a block in the guest's hand, and what the guest says in chat over
+  // their head (and over their own body).
+  await b.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    s.holding = { kind: 'block', id: 'oakplanks' }
+    s.onChatSent('hello there')
+  })
+  await settle()
+  await a.waitForFunction(() => {
+    const p = [...window.__game.buildMode.survival.net.players.values()][0]
+    return p?.blockId === 'oakplanks' && !!p.bubble && !p.gun
+  }, null, { timeout: 20000 })
+  expect(await b.evaluate(() => !!window.__game.buildMode.survival._ownBubble)).toBe(true)
+  await b.evaluate(() => { window.__game.buildMode.survival.holding = null })
+
   // A bite on the guest reaches the guest.
   await b.evaluate(() => {
     const s = window.__game.buildMode.survival
@@ -290,13 +402,21 @@ test('Invite Friends makes a solo game joinable and the link joins it', async ({
     const p = s.bm.tryMode.pos
     return { x: Math.round(p.x), y: Math.round(p.y), z: Math.round(p.z) }
   })
+  await a.waitForFunction(() => window.__game.buildMode.survival.lobby && location.search.startsWith('?join='), null, { timeout: 20000 })
+  const lobbySearch = await a.evaluate(() => location.search)
+  expect(await a.evaluate(() => !window.__game.buildMode.survival.net)).toBe(true)
   await a.keyboard.press('Escape')
   await a.waitForFunction(() => document.getElementById('play-pause-menu')?.style.display === 'flex', null, { timeout: 10000 })
   await expect(a.locator('#play-pause-invite-btn')).toBeVisible()
+  // Still the link with the pause menu open.
+  expect(await a.evaluate(() => location.search)).toBe(lobbySearch)
   await a.click('#play-pause-invite-btn')
   await expect(a.locator('#play-invite')).toBeVisible()
   const link = await a.inputValue('#play-invite-link')
   expect(link).toMatch(/\/\?join=[A-Z0-9]{6}$/)
+  // The address bar was already the invite link before Invite Friends was
+  // clicked (the game is a hidden server from the start, 2026-10-26).
+  expect(new URL(link).search).toBe(lobbySearch)
   expect(await a.evaluate(() => !!window.__game.buildMode.survival.net?.isHost)).toBe(true)
   await expect(a.locator('#play-pause-save-btn')).toBeHidden()
 

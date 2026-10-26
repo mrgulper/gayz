@@ -1221,6 +1221,8 @@ export class BuildTryMode {
     bm._suppressUndoRecording = false
     this._spawnShards(x, y, z, type)
     audioEngine.playGlassBreak()
+    // On a server the others see it broken too.
+    if (bm.survival?.active) bm.survival._recordEdit(x, y, z, '')
   }
 
   // Everything broken this try except the open world's land (saves never
@@ -1315,6 +1317,21 @@ export class BuildTryMode {
     this._spawnShards(x, y, z, type, glass ? null : Math.floor(Math.random() * BREAK_LOOKS.length))
     if (glass) audioEngine.playGlassBreak()
     else audioEngine.playFootstep(false, bm.breakSeconds(type) < 1 ? 'grass' : 'default')
+  }
+
+  // Another player broke it (a server's shared blocks): gone here too, and
+  // put back at the end like my own - no sound or bits flying.
+  breakQuietly(x, y, z) {
+    const bm = this.bm
+    const type = bm.getBlockAt(x, y, z)
+    if (!type) return
+    const key = bm._key(x, y, z)
+    if (this._cracked.delete(key)) this._rebuildCracks()
+    if (!this._broken.has(key)) this._broken.set(key, { x, y, z, type, state: bm._blockStateOf(x, y, z), terrain: !!bm.world?.isTerrain(key) })
+    const was = bm._suppressUndoRecording
+    bm._suppressUndoRecording = true
+    bm.removeBlock(x, y, z)
+    bm._suppressUndoRecording = was
   }
 
   // The crack on the block being broken: this dig's own pattern (picked
