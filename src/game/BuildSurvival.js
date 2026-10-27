@@ -40,6 +40,7 @@ import { LEAF_DROP_CHANCE, PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXT
 import { MONSTER_KINDS, makeMonster } from './ZombieKinds.js'
 import { PlayDamageNumbers } from './PlayDamageNumbers.js'
 import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './SpeechBubble.js'
+import { SHOOT_THROUGH } from './SpecialBlocks.js'
 import { openLobby } from './ServerBrowser.js'
 
 export const CHEST_LOOT = { ammo: 60, health: 35 }
@@ -978,7 +979,7 @@ export class BuildSurvival {
     bm.camera.updateMatrixWorld()
     bm._raycaster.setFromCamera({ x: 0, y: 0 }, bm.camera)
     const center = bm._raycaster.ray.clone()
-    const wall = bm._raycastGridAligned()
+    const wall = bm._raycastGridAligned(SHOOT_THROUGH)
     const reach = Math.min(wall ? wall.t : Infinity, Number.isFinite(w.range) ? w.range * B : Infinity)
     const damage = w.damage * this._damageMult()
     const hits = new Map()
@@ -2239,8 +2240,9 @@ export class BuildSurvival {
   _hurtPlayer(amount) {
     // Spectating: flying about, nothing can hurt you.
     if (this.dead || this.spectating) return
-    // Protected by an Infection Cleanser (BuildSpecials.js).
+    // Protected by an Infection Cleanser; less behind sandbags (BuildSpecials.js).
     if (this.bm.specials.shielded()) return
+    amount *= this.bm.specials.hurtMult()
     // Worn armor (the inventory's armor slots) takes its share first.
     amount *= 1 - (this.inv?.damageCut() || 0)
     const p = this.bm.tryMode.pos

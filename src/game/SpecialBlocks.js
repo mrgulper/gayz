@@ -260,6 +260,70 @@ export const SPECIAL_BLOCKS = [
     look: { base: 'metal', color: 0x4a3a34, glyph: 'grate', glyphColor: 0xff8a30 },
     fx: { kind: 'flamejet', every: 3, on: 1, burn: 5, pdps: 6 },
   },
+
+  // ---- Batch 5: defence ----
+  {
+    ...D, id: 'smokebomb', name: 'Smoke Bomb Block', color: 0x7a7a80,
+    desc: 'Use it for a cloud of smoke 5 blocks wide for 10 seconds: zombies outside it can\'t see you inside it. Recharges in 30 seconds.',
+    look: { base: 'metal', color: 0x4a4a50, glyph: 'cloud', glyphColor: 0xc8c8d0 },
+    fx: { kind: 'smoke', r: 5, time: 10, cd: 30 },
+  },
+  {
+    ...D, id: 'soundtrap', name: 'Sound Trap', color: 0x8a6a3a,
+    desc: 'Makes noises that pull zombies within 16 blocks to it - the first to reach it is caged for 4 seconds.',
+    look: { base: 'wood', color: 0x6a4a2a, glyph: 'waves', glyphColor: 0xf0c060 },
+    fx: { kind: 'lure', on: 'always', r: 16, trap: true, hold: 4, cd: 6 },
+  },
+  {
+    ...D, id: 'shieldgen', name: 'Shield Generator', color: 0x3a8ad0, emissive: 0x60b8ff, emissiveIntensity: 0.2,
+    desc: 'Use it for a bubble 4 blocks wide that zombies can\'t get into for 12 seconds. Recharges in 60 seconds.',
+    look: { base: 'glow', color: 0x24466a, glyph: 'shield', glyphColor: 0x80d0ff },
+    fx: { kind: 'shieldgen', r: 4, time: 12, cd: 60 },
+  },
+  {
+    ...D, id: 'barbedwire', name: 'Barbed Wire', color: 0x8a8a8a,
+    desc: 'Zombies pushing past it slow down and lose 5 health a second.',
+    look: { base: 'wood', color: 0x5a4a3a, glyph: 'wire', glyphColor: 0xb0b0b8 },
+    fx: { kind: 'wire', zspeed: 0.6, zdps: 5 },
+  },
+  {
+    ...D, id: 'sandbag', name: 'Sandbag', color: 0xc8b080,
+    desc: 'Crouch right next to it and zombies\' hits do 40% less damage to you.',
+    look: { base: 'stone', color: 0xb8a070, glyph: 'sacks', glyphColor: 0x5a4424 },
+    fx: { kind: 'sandbag', r: 1.6, mult: 0.6 },
+  },
+  {
+    ...D, id: 'watchtower', name: 'Watchtower Base', color: 0x8a6a48,
+    desc: 'Stack blocks on top of it, then use it to climb straight up to the top of the stack.',
+    look: { base: 'wood', color: 0x7a5a38, glyph: 'arrowup', glyphColor: 0xf0d8a0 },
+    fx: { kind: 'watchtower', cd: 1 },
+  },
+  {
+    ...D, id: 'oilpot', name: 'Boiling Oil Pot', color: 0x3a3a3a,
+    desc: 'Use it to tip boiling oil: zombies within 4 blocks at or below it take 60 damage and catch fire. Refills in 20 seconds.',
+    look: { base: 'metal', color: 0x2e2e32, glyph: 'pot', glyphColor: 0xe0a030 },
+    fx: { kind: 'oilpot', r: 4, dmg: 60, burn: 4, cd: 20 },
+  },
+  {
+    ...D, id: 'cannonblock', name: 'Cannon', color: 0x3a3a40,
+    desc: 'Stand behind it and use it: it fires away from you, hitting every zombie along 24 blocks for 100 damage. Reloads in 8 seconds.',
+    look: { base: 'metal', color: 0x3a3a40, glyph: 'cannon', glyphColor: 0x9a9aa2 },
+    fx: { kind: 'cannon', range: 24, width: 1.2, dmg: 100, cd: 8 },
+  },
+  {
+    ...D, id: 'catapult', name: 'Catapult', color: 0x8a6a40,
+    desc: 'Stand behind it and use it: it throws a boulder 20 blocks away that hits zombies within 3 blocks of where it lands for 80 damage. Reloads in 12 seconds.',
+    look: { base: 'wood', color: 0x8a6a40, glyph: 'boulder', glyphColor: 0x8a8a8a },
+    fx: { kind: 'catapult', range: 20, blast: 3, dmg: 80, cd: 12 },
+  },
+  {
+    ...D, id: 'murderhole', name: 'Murder Hole', color: 0x6a6a6a,
+    desc: 'A wall with a slit: zombies can\'t get through it, but your bullets fly straight through.',
+    look: { base: 'stone', color: 0x707070, glyph: 'slit', glyphColor: 0x1a1a1a },
+    fx: { kind: 'murderhole', shootThrough: true },
+  },
 ]
 
 export const SPECIAL_BY_ID = new Map(SPECIAL_BLOCKS.map((b) => [b.id, b]))
+// Blocks your bullets fly through (BuildSurvival.shoot).
+export const SHOOT_THROUGH = new Set(SPECIAL_BLOCKS.filter((b) => b.fx.shootThrough).map((b) => b.id))

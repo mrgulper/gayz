@@ -416,3 +416,90 @@ test('special blocks batch 4: bear trap, trapdoor pit, fire trap, sticky floor, 
     iceZombie: true, iceYou: true, stickyYou: true, crumbled: true, crumbleBack: true, flamejet: true, restoredOnStop: true,
   })
 })
+
+test('special blocks batch 5: smoke, sound trap, shield, barbed wire, sandbag, watchtower, oil pot, cannon, catapult, murder hole', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 90, 'zombiespawner')
+    const out = {}
+    const ids = ['smokebomb', 'soundtrap', 'shieldgen', 'barbedwire', 'sandbag', 'watchtower', 'oilpot', 'cannonblock', 'catapult', 'murderhole']
+    out.inPicker = ids.every((id) => bm.isBlockType(id) && bm.blockTypeOf(id).desc && bm.blockIcon(id).startsWith('data:'))
+    const at = { smokebomb: [-40, -40], soundtrap: [-40, 40], shieldgen: [40, 40], barbedwire: [10, 10], sandbag: [2, 0], watchtower: [-5, -5], oilpot: [40, -40], cannonblock: [20, 0], catapult: [0, -20], murderhole: [0, 5] }
+    for (const [id, [x, z]] of Object.entries(at)) bm.placeBlock(x, 0, z, id)
+    for (let y = 1; y <= 4; y++) bm.placeBlock(-5, y, -5, 'stone')
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    s._toSpawn = 0
+    s._breakTimer = 999
+    const sp = bm.specials
+    const zombie = (x, z, y = 0) => s._makeZombie(`t${Math.random()}`, x, y, z, 1000, false)
+    const tm = bm.tryMode
+    // A trap ignores the Use key (its timer isn't touched).
+    out.trapIgnoresUse = sp.use(-40, 0, 40) === false
+    // Smoke: you inside the cloud, a zombie outside loses you.
+    sp.use(-40, 0, -40)
+    const inSmoke = { x: -39.5, y: 0, z: -38 }
+    const zo = zombie(-20, -40)
+    out.smoke = sp.zombieTarget(zo, inSmoke)?.x === zo.x
+    // Sound Trap: pulls zombies in and cages the first.
+    const zt = zombie(-40.5, 30)
+    out.soundLure = sp.zombieTarget(zt, { x: 0, y: 0, z: 0 })?.z === 40.5
+    const zt2 = zombie(-39.5, 41.3)
+    sp.zombieTick(zt2, 0.05)
+    out.soundCage = zt2._held > 3
+    // Shield Generator: a zombie inside the bubble is pushed out.
+    sp.use(40, 0, 40)
+    const zsh = zombie(41.5, 40.5)
+    for (let i = 0; i < 40; i++) sp.zombieTick(zsh, 0.05)
+    out.shield = Math.hypot(zsh.x - 40.5, zsh.z - 40.5) >= 3.9
+    // Barbed wire slows and hurts.
+    const zw = zombie(10.5, 11.3)
+    out.wireSlow = sp.zombieTick(zw, 1) === 0.6 && zw.health <= 995.01
+    // Sandbag: crouching by it takes less damage.
+    tm.pos.set(3.5, 0, 0.5)
+    tm._crouch = true
+    s.health = 100
+    s._hurtPlayer(10)
+    out.sandbag = Math.abs(s.health - 94) < 0.01
+    tm._crouch = false
+    // Watchtower: up to the top of the stack.
+    sp.use(-5, 0, -5)
+    out.watchtower = Math.floor(tm.pos.y) === 5 && Math.floor(tm.pos.x) === -5
+    // Oil pot: zombies below/around it burn.
+    const zoil = zombie(42, -40)
+    sp.use(40, 0, -40)
+    out.oil = zoil.health === 940 && zoil.burn > 0
+    // Cannon: fires away from you along a line.
+    tm.pos.set(18.5, 0, 0.5)
+    const zc1 = zombie(30.5, 0.5)
+    const zc2 = zombie(30.5, 6)
+    sp.use(20, 0, 0)
+    out.cannon = zc1.health === 900 && zc2.health === 1000
+    // Catapult: the boulder lands 20 blocks out.
+    tm.pos.set(0.5, 0, -18.5)
+    const zk = zombie(0.5, -39.5)
+    sp.use(0, 0, -20)
+    out.catapult = zk.health === 920
+    // Murder Hole: bullets fly through it.
+    const B = bm._chunks.blockSize
+    bm.camera.position.set(0.5 * B, 0.5 * B, 8 * B)
+    bm.camera.lookAt(0.5 * B, 0.5 * B, 0)
+    bm.camera.updateMatrixWorld()
+    bm._raycaster.setFromCamera({ x: 0, y: 0 }, bm.camera)
+    const plain = bm._raycastGridAligned()
+    const shot = bm._raycastGridAligned(new Set(['murderhole']))
+    out.murderHole = plain?.existingBlock[2] === 5 && (!shot || shot.existingBlock[2] !== 5)
+    s.stop()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({
+    inPicker: true, trapIgnoresUse: true, smoke: true, soundLure: true, soundCage: true, shield: true, wireSlow: true, sandbag: true,
+    watchtower: true, oil: true, cannon: true, catapult: true, murderHole: true,
+  })
+})
