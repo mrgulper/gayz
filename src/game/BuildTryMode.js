@@ -838,11 +838,12 @@ export class BuildTryMode {
       if (this._groundTime > BHOP_WINDOW) this._hopChain = 0
     }
     // speedMult: Map 1's Choose Class (Runner/Tank, set by BuildSurvival).
-    let speed = (crouch ? CROUCH : sprint ? SPRINT : WALK) * (this.speedMult ?? 1)
+    // Special blocks underfoot (sticky floor, speed pads...) change it too.
+    let speed = (crouch ? CROUCH : sprint ? SPRINT : WALK) * (this.speedMult ?? 1) * this.bm.specials.speedMult
     speed *= BHOP_MULT[this._hopChain]
     if (inLiquid) speed *= 0.7
     const want = len ? (speed * amount) / len : 0
-    const grip = this.onGround ? GROUND_GRIP : AIR_GRIP
+    const grip = (this.onGround ? GROUND_GRIP : AIR_GRIP) * this.bm.specials.gripMult
     this.vel.x = THREE.MathUtils.damp(this.vel.x, mx * want, grip, dt)
     this.vel.z = THREE.MathUtils.damp(this.vel.z, mz * want, grip, dt)
 

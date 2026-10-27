@@ -198,6 +198,68 @@ export const SPECIAL_BLOCKS = [
     look: { base: 'glow', color: 0x2a3a6a, glyph: 'clock', glyphColor: 0x9ac0ff },
     fx: { kind: 'zaura', r: 7, slow: 0.4, tint: 0x9ac0ff },
   },
+
+  // ---- Batch 4: traps ----
+  {
+    ...D, id: 'beartrap', name: 'Bear Trap', color: 0x6a6a72, shape: 'pad',
+    desc: 'A zombie that steps on it takes 20 damage and is held for 5 seconds. Resets after 8 seconds.',
+    look: { base: 'metal', color: 0x5a5a62, glyph: 'jaws', glyphColor: 0xc8c8d0 },
+    fx: { kind: 'trap', hold: 5, dmg: 20, cd: 8 },
+  },
+  {
+    ...D, id: 'trapdoorpit', name: 'Trapdoor Pit', color: 0x7a5a38,
+    desc: 'A zombie that walks onto it drops into the spikes underneath: 60 damage. Resets after 6 seconds.',
+    look: { base: 'wood', color: 0x7a5a38, glyph: 'hatch', glyphColor: 0x4a3a2a },
+    fx: { kind: 'trap', hold: 1.5, dmg: 60, cd: 6, sound: 'thud' },
+  },
+  {
+    ...D, id: 'firetrap', name: 'Fire Trap', color: 0xc85a2a,
+    desc: 'Sets any zombie that touches it on fire. Recharges in 4 seconds.',
+    look: { base: 'stone', color: 0x5a4a44, glyph: 'flame', glyphColor: 0xff6a20 },
+    fx: { kind: 'trap', burn: 6, cd: 4, sound: 'whoosh' },
+  },
+  {
+    ...D, id: 'stickyfloor', name: 'Sticky Floor', color: 0xb0d040,
+    desc: 'Zombies on or against it crawl at a third of their speed. You walk at half speed on it too.',
+    look: { base: 'stone', color: 0x8aa83a, glyph: 'drip', glyphColor: 0xd8f070 },
+    fx: { kind: 'sticky', zspeed: 0.3, pspeed: 0.5 },
+  },
+  {
+    ...D, id: 'swingingblade', name: 'Swinging Blade', color: 0x9a9aa2,
+    desc: 'A blade spins over it, hitting every zombie within 2 blocks for 30 damage once a second.',
+    look: { base: 'metal', color: 0x4a4a52, glyph: 'blade', glyphColor: 0xd8dce4 },
+    fx: { kind: 'blade', r: 2, dmg: 30, every: 1 },
+  },
+  {
+    ...D, id: 'landmine', name: 'Mine', color: 0x4a5a3a, shape: 'pad',
+    desc: 'Blows up when a zombie steps on it: 80 damage to every zombie within 3 blocks. Re-arms after 15 seconds.',
+    look: { base: 'metal', color: 0x4a5a3a, glyph: 'mine', glyphColor: 0xd04030 },
+    fx: { kind: 'trap', blast: 3, dmg: 80, cd: 15 },
+  },
+  {
+    ...D, id: 'netlauncher', name: 'Net Launcher', color: 0xb0a070,
+    desc: 'Fires a net at the nearest zombie within 8 blocks, holding it for 3 seconds. Reloads in 8 seconds.',
+    look: { base: 'wood', color: 0x6b4a30, glyph: 'net', glyphColor: 0xe0d8b0 },
+    fx: { kind: 'net', r: 8, hold: 3, cd: 8 },
+  },
+  {
+    ...D, id: 'crumbleblock', name: 'Crumble Block', color: 0xa89878,
+    desc: 'Falls away a moment after you stand on it, and comes back 5 seconds later.',
+    look: { base: 'stone', color: 0xa89878, glyph: 'cracks', glyphColor: 0x6a5a44 },
+    fx: { kind: 'crumble', after: 0.8, back: 5 },
+  },
+  {
+    ...D, id: 'iceslick', name: 'Ice Slick', color: 0xb0e0ff,
+    desc: 'Zombies on or against it slip and fall over every few seconds. It\'s slippery for you too.',
+    look: { base: 'glow', color: 0x9ad0f0, glyph: null },
+    fx: { kind: 'ice', every: 4, fall: 1.5, pgrip: 0.12 },
+  },
+  {
+    ...D, id: 'flamejet', name: 'Flame Jet Floor', color: 0x8a4a2a,
+    desc: 'Shoots flames for 1 second out of every 3: zombies on or against it catch fire, and standing on it then hurts you.',
+    look: { base: 'metal', color: 0x4a3a34, glyph: 'grate', glyphColor: 0xff8a30 },
+    fx: { kind: 'flamejet', every: 3, on: 1, burn: 5, pdps: 6 },
+  },
 ]
 
 export const SPECIAL_BY_ID = new Map(SPECIAL_BLOCKS.map((b) => [b.id, b]))
