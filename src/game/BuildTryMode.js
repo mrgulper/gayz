@@ -596,11 +596,19 @@ export class BuildTryMode {
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
       for (const [, tx, tz] of tiles) {
-        const tile = world.mapTile(tx, tz, performance.now() < until, T)
+        // A sharp tile is up to 128x128 samples (~15 ms), so none is drawn
+        // mid-drag/zoom - the stand-ins below are already sharp enough.
+        const tile = world.mapTile(tx, tz, performance.now() < until && (!moving || T <= 64), T)
         if (!tile) missing = true
-        // Not drawn yet: a bigger, already drawn tile's piece stands in
-        // (the map is drawn ahead at every zoom when the game starts -
-        // OpenWorld.prewarmMap), so zooming never shows it loading.
+        // Not drawn yet: the smaller tiles inside it (zooming out), else a
+        // bigger, already drawn tile's piece (zooming in - the map is drawn
+        // ahead at every zoom when the game starts, OpenWorld.prewarmMap),
+        // so zooming never shows it loading.
+        const kids = tile ? null : world.mapTileChildren(tx, tz, T)
+        if (kids) {
+          for (const [cv, fx, fz, f] of kids) ctx.drawImage(cv, (tx * T + fx * T - ox) * k, (tz * T + fz * T - oz) * k, f * T * k + 0.5, f * T * k + 0.5)
+          continue
+        }
         const part = tile ? null : world.mapTilePart(tx, tz, T)
         // The Earth picture underneath is already as sharp as a stand-in.
         if (!tile && !part && pic) continue
@@ -1005,6 +1013,8 @@ export class BuildTryMode {
     const cy = Math.floor(ey)
     const cz = Math.floor(p.z)
     const type = this.bm.getBlockAt(cx, cy, cz)
+    // Coral and seagrass grow in sea water.
+    if (this.bm.isPlantBlock(type)) return 'water'
     if (type !== 'water' && type !== 'lava') return null
     const full = this.bm.getBlockAt(cx, cy + 1, cz) === type
     return full || ey - cy < this.bm.liquids.heightAt(cx, cy, cz) ? type : null

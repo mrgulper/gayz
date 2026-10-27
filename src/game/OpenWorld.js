@@ -63,7 +63,17 @@ const GEN_BUDGET_MS = 4
 // background slice and the gap between slices, and the big map's opening
 // span (BuildTryMode's MAP_SPAN_FOR.big).
 const MAP_TILE_CACHE = 4000
-const MAP_PREWARM_R = 6
+// Sharp map (2026-10-26, Gaymi: "the map its a bit too blurry fix that from
+// the root cause"): a tile of T cells used to be 32x32 samples whatever its
+// size, so the big map (~1400 canvas pixels across, 5-10 tiles) stretched
+// each sample over 4-5 pixels and smoothed it into a blur. Now a tile has
+// one sample per block up to MAP_TILE_SAMPLES, i.e. about one sample per
+// canvas pixel. Cached tiles are held to MAP_TILE_PIXELS samples in all
+// (~26 MB), the oldest dropped first.
+const MAP_TILE_SAMPLES = 128
+const MAP_TILE_PIXELS = 6.5e6
+const mapTileSamples = (T) => Math.min(T, MAP_TILE_SAMPLES)
+const MAP_PREWARM_R = 5
 const MAP_PREWARM_SLICE_MS = 6
 const MAP_PREWARM_GAP_MS = 30
 // The World Map mode's whole-Earth picture (earthPicture): pixels per
@@ -495,7 +505,10 @@ const FEATURES = {
   warmOcean: [[0.65, 'coral']],
 }
 
-const CORALS = ['tubecoralblock', 'braincoralblock', 'bubblecoralblock', 'firecoralblock', 'horncoralblock']
+// Thin coral plants and seagrass (BuildMode `plant` blocks, 2026-10-26:
+// whole coral blocks looked too chunky); seagrass listed twice so it's
+// the commonest.
+const CORALS = ['tubecoral', 'braincoral', 'bubblecoral', 'firecoral', 'horncoral', 'seagrass', 'seagrass']
 
 export class OpenWorld {
   constructor(bm) {
@@ -1038,13 +1051,13 @@ export class OpenWorld {
         break
       case 'coral': {
         // On the sea floor (y is one above it), never up out of the water.
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 8; i++) {
           const cx = x + Math.floor(rnd(40 + i) * 5) - 2
           const cz = z + Math.floor(rnd(50 + i) * 5) - 2
           const s = sampleLand(cx, cz)
           if (s.biome !== 'warmOcean') continue
-          const h = 1 + Math.floor(rnd(60 + i) * 3)
           const type = CORALS[Math.floor(rnd(70 + i) * CORALS.length)]
+          const h = type === 'seagrass' ? 1 : 1 + Math.floor(rnd(60 + i) * 2)
           for (let k = 1; k <= h && s.h + k < s.w; k++) this._replaceWater(cx, s.h + k, cz, type, set, inside)
         }
         break
@@ -1230,12 +1243,14 @@ export class OpenWorld {
       return cached
     }
     if (!build) return null
-    const canvas = this._drawTile(tx, tz, T, 32)
+    const canvas = this._drawTile(tx, tz, T, mapTileSamples(T))
     // Oldest tiles go first (they used to be dropped all at once at 1200).
-    if (this._tiles.size >= MAP_TILE_CACHE) {
-      let drop = MAP_TILE_CACHE / 10
-      for (const k of this._tiles.keys()) {
+    this._tilePixels = (this._tilePixels || 0) + canvas.width * canvas.height
+    if (this._tiles.size >= MAP_TILE_CACHE || this._tilePixels > MAP_TILE_PIXELS) {
+      let drop = Math.ceil(this._tiles.size / 10)
+      for (const [k, old] of this._tiles) {
         this._tiles.delete(k)
+        this._tilePixels -= old.canvas.width * old.canvas.height
         if (--drop <= 0) break
       }
     }
@@ -1244,10 +1259,31 @@ export class OpenWorld {
     return entry
   }
 
+  // Tile (tx, tz) of T cells made of the 4 (or 16) smaller tiles already
+  // drawn inside it - zooming out shows them shrunk, as sharp as before,
+  // instead of a blurry stand-in while the bigger tile is drawn. Returns
+  // [[canvas, fx, fz, f], ...] (f = fraction of the tile each covers) or
+  // null when any is missing.
+  mapTileChildren(tx, tz, T) {
+    for (let n = 2; n <= 4 && T / n >= 32; n *= 2) {
+      const out = []
+      for (let q = 0; q < n * n; q++) {
+        const i = q % n
+        const j = Math.floor(q / n)
+        const c = this._tiles.get(`${T / n}:${tx * n + i},${tz * n + j}`)
+        if (!c) break
+        out.push([c.canvas, i / n, j / n, 1 / n])
+      }
+      if (out.length === n * n) return out
+    }
+    return null
+  }
+
   // A new seed (or the real Earth's heights arriving) redraws the map, and
   // its drawing ahead starts over.
   _clearTiles() {
     this._tiles.clear()
+    this._tilePixels = 0
     this._prewarm = null
     this._earthPic = null
   }
@@ -1312,12 +1348,12 @@ export class OpenWorld {
   }
 
   // A drawn bigger tile covering tile (tx, tz) of T cells: { canvas, sx,
-  // sy, sw } (the piece of its 32x32 picture), or null.
+  // sy, sw } (the piece of its picture), or null.
   mapTilePart(tx, tz, T) {
     for (let up = 2; up <= 16; up *= 2) {
       const big = this._tiles.get(`${T * up}:${Math.floor(tx / up)},${Math.floor(tz / up)}`)
       if (!big) continue
-      const sw = 32 / up
+      const sw = big.canvas.width / up
       return { canvas: big.canvas, sx: (tx - Math.floor(tx / up) * up) * sw, sy: (tz - Math.floor(tz / up) * up) * sw, sw }
     }
     return null
@@ -1359,8 +1395,8 @@ export class OpenWorld {
     setTimeout(step, MAP_PREWARM_GAP_MS)
   }
 
-  // A quick stand-in for a tile not drawn yet: 8x8 samples (64 reads
-  // instead of 1024), so the big map never shows dark gaps while it's
+  // A quick stand-in for a tile not drawn yet: 16x16 samples (256 reads
+  // instead of up to 16384; 8x8 was a blur, 2026-10-26), so the big map never shows dark gaps while it's
   // dragged around (2026-10-13, "dont make it loading when moving it").
   // null when it isn't made yet and `build` is false.
   mapTileCoarse(tx, tz, T = 32, build = true) {
@@ -1368,7 +1404,7 @@ export class OpenWorld {
     let tile = this._coarseTiles?.get(key)
     if (tile || !build) return tile || null
     if (!this._coarseTiles || this._coarseTiles.size > 6000) this._coarseTiles = new Map()
-    tile = this._drawTile(tx, tz, T, 8)
+    tile = this._drawTile(tx, tz, T, 16)
     this._coarseTiles.set(key, tile)
     return tile
   }
@@ -1419,7 +1455,8 @@ export class OpenWorld {
             // Land, water and built things (houses, paths) aren't blended
             // into each other: shores and roads stay clean lines.
             if (col[q] < 0 || wet[q] !== wet[g]) continue
-            const w = di || dj ? 1 : 2
+            // The spot itself counts most, so the map stays sharp.
+            const w = di || dj ? 1 : 6
             r += ((col[q] >> 16) & 255) * w
             gg += ((col[q] >> 8) & 255) * w
             b += (col[q] & 255) * w
