@@ -149,7 +149,7 @@ test('Tab opens the picker, clicking a swatch changes the selected block type', 
   })
 
   expect(result.openAfterToggle).toBe(true)
-  expect(result.swatchCount).toBe(861)
+  expect(result.swatchCount).toBe(867)
   expect(result.afterClickType).not.toBe(result.beforeType)
   expect(result.closedAfterClick).toBe(false)
 })
@@ -2519,7 +2519,7 @@ test('animals, held blocks, sky top bar, no spectate banner, What\'s New card', 
     bm.toggleMenu()
     return out
   })
-  expect(r).toEqual({ spawned: true, snow: ['arcticFox', 'hare', 'husky', 'muskox', 'polarBear', 'reindeer', 'snowyOwl'], desert: ['armadillo', 'camel', 'cobra', 'coyote', 'fennecFox', 'gecko', 'jackal', 'lizard', 'roadrunner', 'scorpion', 'snake', 'tortoise', 'vulture'], sea: true, allBuilt: true, cowsOnlyWarm: ['city', 'mushroomFields', 'plains'], stillHere: true, tamed: true, petSafe: true, follows: true, meat: true, healed: true, handBlock: true, weather: true, time: true, nightVar: true, noBanner: true })
+  expect(r).toEqual({ spawned: true, snow: ['arcticFox', 'hare', 'husky', 'lemming', 'muskox', 'polarBear', 'ptarmigan', 'reindeer', 'saiga', 'snowyOwl'], desert: ['armadillo', 'camel', 'caracal', 'cobra', 'coyote', 'fennecFox', 'gecko', 'gerbil', 'gilaMonster', 'hyrax', 'jackal', 'jerboa', 'lizard', 'oryx', 'rattlesnake', 'roadrunner', 'sandCat', 'scorpion', 'snake', 'tarantula', 'tortoise', 'vulture'], sea: true, allBuilt: true, cowsOnlyWarm: ['city', 'mushroomFields', 'plains'], stillHere: true, tamed: true, petSafe: true, follows: true, meat: true, healed: true, handBlock: true, weather: true, time: true, nightVar: true, noBanner: true })
 })
 
 // The spawn map's countries -> states/provinces -> cities (2026-10-18):
@@ -3292,4 +3292,63 @@ test('50 new animals, rarities and name tags', async ({ page }) => {
   expect(r.pantherVsGorilla).toBeLessThan(0.5)
   expect(r.hasTag).toBe(true)
   expect(r.farBigger).toBe(true)
+})
+
+test('thin coral, sharp map tiles, free mouse on any panel, zombie names and 170 more animals', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    const out = {}
+    // Coral plants: swum through, count as water, drawn as crossed pictures.
+    bm.placeBlock(3, 1, 3, 'tubecoral', false)
+    out.coralSolid = bm._cellSolidTop(3, 1, 3)
+    out.coralWet = bm._cellIsLiquid(3, 1, 3)
+    out.coralPlant = !!bm._chunks.info.get('tubecoral')?.plant
+    bm.placeBlock(0, 1, 0, 'playerstart', false, { facing: 0 })
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    s._toSpawn = 0
+    // Every zombie gets a name and a rarity; rarer ones are tougher and
+    // the server snapshot carries both.
+    const z = s._makeZombie(77, 5, 1, 5, 100, false, null, { tier: 'legendary', name: 3 })
+    out.zTag = !!z.tag && z.tier === 'legendary' && z.nameIdx === 3
+    out.zFaster = z.speedMult > 1 && z.damageMult > 1
+    const snap = s.zombieSnapshot().z77
+    out.snap = [snap.rt, snap.nm]
+    const before = s.coins
+    s._countKill(false, null, 'legendary')
+    out.legendaryCoins = s.coins - before
+    // 170 more animals, all named in every language; wolves bite now.
+    const P = s.animals.constructor
+    out.wild = Object.keys(P.WILD_KINDS).length
+    out.wildIn = Object.keys(P.WILD_KINDS).every((id) => P.KINDS[id])
+    out.unnamed = []
+    for (const lang of ['en', 'zh', 'hi', 'es']) for (const id of Object.keys(P.WILD_KINDS)) if (!P.STRINGS[lang][`animal${id[0].toUpperCase()}${id.slice(1)}`]) out.unnamed.push(`${lang}:${id}`)
+    out.wolfHunts = !!P.KINDS.wolf.hunts
+    // Any panel (Settings here) needs the mouse.
+    out.noPanel = bm._anyClickScreenShown()
+    g._toggleSettings(true)
+    out.settingsNeedsMouse = bm.mouseScreenOpen()
+    g._toggleSettings(false)
+    s.stop()
+    return out
+  })
+  expect(r.coralSolid).toBe(0)
+  expect(r.coralWet).toBe(true)
+  expect(r.coralPlant).toBe(true)
+  expect(r.zTag).toBe(true)
+  expect(r.zFaster).toBe(true)
+  expect(r.snap).toEqual(['legendary', 3])
+  expect(r.legendaryCoins).toBeGreaterThan(10)
+  expect(r.wild).toBeGreaterThanOrEqual(100)
+  expect(r.wildIn).toBe(true)
+  expect(r.unnamed).toEqual([])
+  expect(r.wolfHunts).toBe(true)
+  expect(r.noPanel).toBe(false)
+  expect(r.settingsNeedsMouse).toBe(true)
 })

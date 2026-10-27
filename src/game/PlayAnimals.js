@@ -32,6 +32,7 @@ import { sampleLand, inCity } from './OpenWorld.js'
 import { MORE_KINDS, MORE_BIOME_ANIMALS } from './AnimalKinds.js'
 import { DINO_KINDS, DINO_BIOMES, DINO_CHANCE } from './DinoKinds.js'
 import { NEW_KINDS, NEW_BIOME_ANIMALS, RARITIES, rarityOf } from './NewAnimalKinds.js'
+import { WILD_KINDS, WILD_BIOME_ANIMALS, WILD_TIERS, HUNTERS } from './WildAnimalKinds.js'
 
 export const MAX_WILD = 12
 // Animals a server's sync carries at most (api/_lib/servers.js MAX_ANIMALS).
@@ -172,7 +173,9 @@ const KINDS = {
 }
 // The rest of Gaymi's list (AnimalKinds.js), and health/meat from size
 // for the ones that don't say.
-Object.assign(KINDS, MORE_KINDS, NEW_KINDS, DINO_KINDS)
+Object.assign(KINDS, MORE_KINDS, NEW_KINDS, WILD_KINDS, DINO_KINDS)
+// Wolves and bears bite now (WildAnimalKinds.js).
+for (const [id, h] of Object.entries(HUNTERS)) if (KINDS[id]) Object.assign(KINDS[id], { hunts: true }, h)
 for (const k of Object.values(KINDS)) {
   const vol = k.body[0] * k.body[1] * k.body[2]
   if (k.health === undefined) k.health = Math.max(4, Math.min(70, Math.round(vol * 40) + 6))
@@ -213,15 +216,18 @@ export const BIOME_ANIMALS = {
   ocean: {},
   deepOcean: {},
 }
-for (const [biome, ids] of [...Object.entries(MORE_BIOME_ANIMALS), ...Object.entries(NEW_BIOME_ANIMALS)]) {
+for (const [biome, ids] of [...Object.entries(MORE_BIOME_ANIMALS), ...Object.entries(NEW_BIOME_ANIMALS), ...Object.entries(WILD_BIOME_ANIMALS)]) {
   const table = BIOME_ANIMALS[biome] = { ...(BIOME_ANIMALS[biome] || {}) }
   for (const id of ids) table[id] = table[id] || 1
 }
+// The 170 newest animals' tiers (WildAnimalKinds.js).
+const WILD_TIER_OF = {}
+for (const [tier, ids] of Object.entries(WILD_TIERS)) for (const id of ids.split(' ')) WILD_TIER_OF[id] = tier
+export const animalRarity = (kind) => WILD_TIER_OF[kind] || rarityOf(kind, KINDS[kind])
 // Rarer animals turn up less often (NewAnimalKinds.js RARITIES).
 for (const table of Object.values(BIOME_ANIMALS)) {
-  for (const id in table) table[id] *= RARITIES[rarityOf(id, KINDS[id])].spawn
+  for (const id in table) table[id] *= RARITIES[animalRarity(id)].spawn
 }
-export const animalRarity = (kind) => rarityOf(kind, KINDS[kind])
 export const animalNameKey = (kind) => `animal${kind[0].toUpperCase()}${kind.slice(1)}`
 const nameKey = animalNameKey
 // Most placed animals in one map (BuildMode.animalSpots).
@@ -435,6 +441,8 @@ export class PlayAnimals {
   static BIOME_ANIMALS = BIOME_ANIMALS
   static KINDS = KINDS
   static NEW_KINDS = NEW_KINDS
+  static WILD_KINDS = WILD_KINDS
+  static HUNTERS = HUNTERS
   static rarityOf = animalRarity
   static STRINGS = STRINGS
 
@@ -705,7 +713,7 @@ export class PlayAnimals {
     const k = KINDS[a.kind]
     a.biteIn = Math.max(0, (a.biteIn || 0) - dt)
     a.angry = Math.max(0, (a.angry || 0) - dt)
-    const range = a.angry > 0 ? ANGRY_RANGE : HUNT_RANGE
+    const range = a.angry > 0 ? ANGRY_RANGE : (k.huntRange ?? HUNT_RANGE)
     let prey = null
     let best = range
     for (const p of this._prey || []) {
@@ -718,7 +726,7 @@ export class PlayAnimals {
     if (!prey) return null
     a.heading = Math.atan2(prey.x - a.x, prey.z - a.z)
     // Its snout: the front of its head.
-    const [headY, headZ] = k.headAt
+    const [headY, headZ] = k.headAt || [k.leg + k.body[1] * 0.75, k.body[2] / 2 + k.head[2] * 0.35]
     const snout = headZ + k.head[2] / 2
     if (best < snout + BITE_REACH && prey.y < a.y + headY + 1 && a.biteIn <= 0) {
       a.biteIn = BITE_EVERY_S

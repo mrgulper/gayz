@@ -35,6 +35,7 @@ import { PlayAnimals } from './PlayAnimals.js'
 import { worldSeed, isEarthWorld } from './OpenWorld.js'
 import { loadEarthTerrain } from './EarthTerrain.js'
 import { BOTTOM } from './Underground.js'
+import { ZOMBIE_TIERS, NAME_COUNT, TAG_W, TAG_H, rollZombieTier, rollZombieName, zombieTagMaterial, zombieGlow, pulseZombieGlows } from './ZombieNames.js'
 import { LEAF_DROP_CHANCE, PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { MONSTER_KINDS, makeMonster } from './ZombieKinds.js'
 import { PlayDamageNumbers } from './PlayDamageNumbers.js'
@@ -42,6 +43,10 @@ import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './Speech
 import { openLobby } from './ServerBrowser.js'
 
 export const CHEST_LOOT = { ammo: 60, health: 35 }
+// A zombie's name tag: blocks wide up close, then the same size on screen
+// past ZOMBIE_TAG_NEAR blocks.
+const ZOMBIE_TAG_SIZE = 1.5
+const ZOMBIE_TAG_NEAR = 10
 const HEAD_MULT = 2.4
 // Drawn (and shot at) MOB_HEIGHT tall; they still walk through the 1.85
 // gap a door or a two-block hole leaves.
@@ -1279,7 +1284,7 @@ export class BuildSurvival {
     audioEngine.playZombieDeath?.(1, this._panTo(z.x, z.z))
     const skeleton = SKELETON_KINDS[z.kind] ? z.kind : null
     if (by) this.net?.queueCredit(by, z.boss, skeleton)
-    else this._countKill(z.boss, skeleton)
+    else this._countKill(z.boss, skeleton, z.tier)
     // A bloater bursts instead of falling over.
     if (MONSTER_KINDS[z.kind]?.burst) this._burst(z)
     else this._spawnCorpse(z, dir)
@@ -1313,14 +1318,15 @@ export class BuildSurvival {
   }
 
   // A kill of mine: stats, coins, the streak, achievements.
-  _countKill(boss, skeleton = null) {
+  // tier: its rarity (ZombieNames.js) - rarer ones pay more coins.
+  _countKill(boss, skeleton = null, tier = 'common') {
     this.kills++
     this.stats.kills++
     if (skeleton) this.stats.skeletonKills = (this.stats.skeletonKills || 0) + 1
     if (this.weapon.melee) this.stats.meleeKills++
     this.streak++
     this.bestStreak = Math.max(this.bestStreak, this.streak)
-    this._earn(COIN_PER_KILL)
+    this._earn(Math.round(COIN_PER_KILL * (ZOMBIE_TIERS[tier]?.coins ?? 1)))
     if (boss) {
       this.bosses++
       this._earn(BOSS_COINS)
@@ -1605,17 +1611,20 @@ export class BuildSurvival {
     let kind = !boss && this.wave >= SKELETON_FROM_WAVE && skeletonsReady() && Math.random() < SKELETON_CHANCE
       ? SKELETON_KIND_IDS[Math.floor(Math.random() * SKELETON_KIND_IDS.length)] : null
     if (!kind && !boss && this.wave >= MONSTER_FROM_WAVE && Math.random() < MONSTER_CHANCE) kind = MONSTER_KIND_IDS[Math.floor(Math.random() * MONSTER_KIND_IDS.length)]
-    const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (boss ? BOSS_HEALTH_MULT : 1) * (kindOf(kind)?.hp ?? 1)
+    // Its rarity and silly name (ZombieNames.js): rarer = tougher.
+    const tier = rollZombieTier(boss)
+    const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (boss ? BOSS_HEALTH_MULT : 1) * (kindOf(kind)?.hp ?? 1) * ZOMBIE_TIERS[tier].hp
     if (boss) this._message(t('buildPlayBossComing'))
-    this._makeZombie(++this._zid, x + 0.5, y, z + 0.5, health, boss, kind)
+    this._makeZombie(++this._zid, x + 0.5, y, z + 0.5, health, boss, kind, { tier, name: rollZombieName() })
     return true
   }
 
   // A zombie's body and state. id: the number the server knows it by
   // (the host's count - other players' copies use the host's ids).
   // kind: a skeleton kind (SKELETON_KINDS), a monster kind (MONSTER_KINDS)
-  // or null for a zombie.
-  _makeZombie(id, x, y, z, health, boss, kind = null) {
+  // or null for a zombie. look: { tier, name } (ZombieNames.js) - a common
+  // one with a random name when missing.
+  _makeZombie(id, x, y, z, health, boss, kind = null, look = null) {
     const group = new THREE.Group()
     const zombie = { id, x, y, z, vx: 0, vy: 0, vz: 0, onGround: false, health, maxHealth: health, attackCd: 0.6, bash: 0, flash: 0, walk: Math.random() * 6, moan: 2 + Math.random() * 8, group, body: null, boss, size: boss ? BOSS_SIZE : 1 }
     const monster = MONSTER_KINDS[kind]
@@ -1664,9 +1673,42 @@ export class BuildSurvival {
       mesh.position.y = (ZOMBIE_HEIGHT * this.B) / 2
       group.add(mesh)
     }
+    const tier = ZOMBIE_TIERS[look?.tier] ? look.tier : 'common'
+    zombie.tier = tier
+    zombie.nameIdx = Number.isInteger(look?.name) && look.name >= 0 && look.name < NAME_COUNT ? look.name : rollZombieName()
+    zombie.speedMult = (zombie.speedMult || 1) * ZOMBIE_TIERS[tier].speed
+    zombie.damageMult = (zombie.damageMult || 1) * ZOMBIE_TIERS[tier].damage
+    // Name tag just over its head, and a glow round rare and rarer ones.
+    const tag = new THREE.Sprite(zombieTagMaterial(zombie.nameIdx, tier))
+    tag.center.set(0.5, 0)
+    tag.position.y = (ZOMBIE_HEIGHT * zombie.size * (zombie.tall || 1) + 0.3) * this.B
+    tag.renderOrder = 5
+    group.add(tag)
+    zombie.tag = tag
+    const glow = zombieGlow(tier, 1.8 * zombie.size * (zombie.wide || 1) * this.B)
+    if (glow) {
+      glow.position.y = 0.04 * this.B
+      group.add(glow)
+    }
     this.bm.scene.add(group)
     this.zombies.push(zombie)
     return zombie
+  }
+
+  // Name tags stay readable: the same size on screen past ZOMBIE_TAG_NEAR
+  // (like the animals'), hidden while the zombie rises from the ground.
+  _sizeZombieTags() {
+    const cam = this.bm.camera?.position
+    if (!cam) return
+    const B = this.B
+    for (const z of this.zombies) {
+      if (!z.tag) continue
+      z.tag.visible = !z.rise
+      const d = Math.hypot(z.x * B - cam.x, z.y * B - cam.y, z.z * B - cam.z) / B
+      const w = ZOMBIE_TAG_SIZE * Math.max(1, d / ZOMBIE_TAG_NEAR) * B
+      z.tag.scale.set(w, w * (TAG_H / TAG_W), 1)
+    }
+    pulseZombieGlows(performance.now() / 1000)
   }
 
   // Every zombie looks the same, so their bodies are drawn together: one
@@ -1697,6 +1739,7 @@ export class BuildSurvival {
 
   // Called by BuildMode.render() just before drawing.
   drawZombies() {
+    this._sizeZombieTags()
     const batch = this._zBatch
     if (!batch) return
     const list = this.zombies.filter((z) => z.parts)
@@ -1927,7 +1970,7 @@ export class BuildSurvival {
     // A batched body shares its geometry and material - nothing to free.
     if (z.parts) return
     z.group.traverse((o) => {
-      if (!o.isMesh) return
+      if (!o.isMesh || o.userData.shared) return
       o.geometry.dispose()
       for (const m of [].concat(o.material)) m.dispose()
     })
@@ -2665,7 +2708,7 @@ export class BuildSurvival {
   zombieSnapshot() {
     const out = {}
     for (const z of this.zombies) {
-      out[`z${z.id}`] = { x: +z.x.toFixed(2), y: +z.y.toFixed(2), z: +z.z.toFixed(2), r: +z.group.rotation.y.toFixed(2), hp: Math.round(z.health), max: Math.round(z.maxHealth || z.health), boss: !!z.boss, ...(z.kind ? { k: z.kind } : {}) }
+      out[`z${z.id}`] = { x: +z.x.toFixed(2), y: +z.y.toFixed(2), z: +z.z.toFixed(2), r: +z.group.rotation.y.toFixed(2), hp: Math.round(z.health), max: Math.round(z.maxHealth || z.health), boss: !!z.boss, ...(z.kind ? { k: z.kind } : {}), rt: z.tier || 'common', nm: z.nameIdx ?? 0 }
     }
     return out
   }
@@ -2679,7 +2722,7 @@ export class BuildSurvival {
       seen.add(id)
       let z = this.zombies.find((o) => o.id === id)
       if (!z) {
-        z = this._makeZombie(id, d.x, d.y, d.z, d.hp, d.boss, kindOf(d.k) ? d.k : null)
+        z = this._makeZombie(id, d.x, d.y, d.z, d.hp, d.boss, kindOf(d.k) ? d.k : null, { tier: d.rt, name: d.nm })
         z.group.position.set(d.x * this.B, d.y * this.B, d.z * this.B)
       }
       z.tx = d.x

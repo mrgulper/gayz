@@ -233,6 +233,9 @@ const SKELETON_KIND_IDS = new Set(['minion', 'rogue', 'warrior', 'mage'])
 // A zombie's kind: a skeleton or a monster (ZombieKinds.js) - plain
 // lowercase words, checked against the real lists by the game.
 const KIND_RE = /^[a-z]{1,20}$/
+// Animal kinds are camelCase ("polarBear") - KIND_RE dropped every one of
+// those from the host's animal list, so other players never saw them.
+const ANIMAL_RE = /^[a-zA-Z]{1,24}$/
 // Block, weapon and item ids.
 const ID_RE = /^[a-z0-9_]{1,40}$/
 const WEATHER_RE = /^[a-zA-Z]{1,20}$/
@@ -249,6 +252,10 @@ function cleanZombie(z) {
     boss: !!z.boss,
     // A skeleton's or monster's kind; plain zombies have none.
     ...(typeof z.k === 'string' && KIND_RE.test(z.k) ? { k: z.k } : {}),
+    // Its rarity and name number (ZombieNames.js), so everyone sees the
+    // same "Grumpy Gary".
+    ...(typeof z.rt === 'string' && KIND_RE.test(z.rt) ? { rt: z.rt } : {}),
+    ...(Number.isInteger(z.nm) && z.nm >= 0 && z.nm < 10000 ? { nm: z.nm } : {}),
   }
 }
 
@@ -263,7 +270,7 @@ function cleanSky(v) {
 // One of the host's animals (PlayAnimals.snapshot): kind, spot, heading,
 // health, who tamed it ('' wild, 'h' the host, or a player id), dying.
 function cleanAnimal(a) {
-  if (!a || typeof a !== 'object' || typeof a.k !== 'string' || !KIND_RE.test(a.k)) return null
+  if (!a || typeof a !== 'object' || typeof a.k !== 'string' || !ANIMAL_RE.test(a.k)) return null
   return {
     k: a.k,
     x: num(a.x, -1e5, 1e5),

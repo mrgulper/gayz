@@ -492,7 +492,9 @@ export class BlockChunks {
         // drawn cut out (alpha-tested, depth-writing) rather than blended -
         // blending every leaf face over whatever is behind it was the
         // most expensive thing in a tree-filled view on a phone.
-        cutout: /leaves$/.test(t.id),
+        cutout: /leaves$/.test(t.id) || !!t.plant,
+        // Coral/seagrass: two crossed pictures, not a cube (_plant).
+        plant: !!t.plant,
         glow: !!t.emissive,
         // Ground that smooths into hills (NATURAL).
         natural: NATURAL.test(t.id) && !t.transparent && !liquid && !t.inset,
@@ -956,6 +958,10 @@ export class BlockChunks {
       const info = type && this.info.get(type)
       if (!info) continue
       const buf = info.liquid ? out[info.liquid] : info.solidDraw ? (info.glow ? out.glow : out.solid) : info.cutout ? out.cutout : out.clear
+      if (info.plant) {
+        this._plant(buf, x, y, z, bx, by, bz, info.uvs[0], tintAt(x, y, z), glowSources)
+        continue
+      }
       const inset = info.inset
       const tint = info.liquid ? 1 : tintAt(x, y, z)
       // Liquid surfaces slope: each top corner is the average height of
@@ -974,6 +980,8 @@ export class BlockChunks {
           const nInfo = this.info.get(nType)
           // Hidden behind a solid cube, or glass against the same glass.
           if (nInfo && (nInfo.opaque || nType === type)) continue
+          // Coral/seagrass stand in sea water: no water wall round them.
+          if (info.liquid === 'water' && nInfo?.plant) continue
         }
         let [u0, v0, u1, v1] = info.liquid ? [0, 0, 1, 1] : info.uvs[fi]
         if (inset) {
@@ -1254,6 +1262,39 @@ export class BlockChunks {
     }
   }
 
+  // A plant (coral, seagrass): two pictures crossed corner to corner
+  // through the cell, each drawn from both sides, a little off-centre and
+  // turned per cell so a patch doesn't look stamped out.
+  _plant(buf, x, y, z, bx, by, bz, uv, tint, glowSources) {
+    const [u0, v0, u1, v1] = uv
+    const s = this.blockSize
+    const ox = (hash01(x, y, z, 3) - 0.5) * 0.3
+    const oz = (hash01(x, y, z, 4) - 0.5) * 0.3
+    const turn = hash01(x, y, z, 5) * Math.PI * 0.5
+    const L = glowSources && this._glowAt(x + 0.5, y + 0.5, z + 0.5, [0, 1, 0], glowSources)
+    const b = tint * 0.95
+    const col = L ? [b * (1 + L[0]), b * (1 + L[1]), b * (1 + L[2])] : [b, b, b]
+    for (let k = 0; k < 2; k++) {
+      const a = turn + Math.PI / 4 + k * Math.PI / 2
+      const dx = Math.cos(a) * 0.5, dz = Math.sin(a) * 0.5
+      const nx = -dz * 2, nz = dx * 2
+      for (const side of [1, -1]) {
+        const base = buf.pos.length / 3
+        const ends = side === 1 ? [[-1, 0], [1, 0], [1, 1], [-1, 1]] : [[1, 0], [-1, 0], [-1, 1], [1, 1]]
+        for (let i = 0; i < 4; i++) {
+          const [e, up] = ends[i]
+          buf.pos.push((x - bx + 0.5 + ox + dx * e) * s, (y - by + up) * s, (z - bz + 0.5 + oz + dz * e) * s)
+          // Lit from above more than from the side, like leaves.
+          buf.nrm.push(nx * side * 0.5, 0.85, nz * side * 0.5)
+          buf.edge.push(0)
+          buf.uv.push(e * side > 0 ? u1 : u0, up ? v1 : v0)
+          if (buf.stride === 4) buf.col.push(col[0], col[1], col[2], 1)
+          else buf.col.push(col[0], col[1], col[2])
+        }
+        buf.idx.push(base, base + 1, base + 2, base, base + 2, base + 3)
+      }
+    }
+  }
   // A leaf block's face on the rounded levels: puffed out in the middle
   // like a pillow, with a few small lumps, so a tree looks round and bumpy
   // from every side. (It used to get a flat leafy card held out from the

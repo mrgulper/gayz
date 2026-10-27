@@ -13,7 +13,7 @@ import { GrassTufts } from './GrassTufts.js'
 import { CastleFlags } from './CastleFlags.js'
 import { AirMotes } from './AirMotes.js'
 import { FallingLeaves } from './FallingLeaves.js'
-import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, fenceIconURL, gadgetIconURL, ladderIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
+import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, fenceIconURL, gadgetIconURL, ladderIconURL, plantIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
 import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
 import { BuildTryMode } from './BuildTryMode.js'
@@ -120,6 +120,10 @@ const MAP3_SLOT = 'map3'
 const SHARED_SLOT = 'shared'
 const SHARED_INFO_KEY = 'buildmode-shared-info'
 // Bumped (v2, v3) whenever the map changes - old edits wouldn't line up.
+// Anything that needs the real mouse while playing (_anyClickScreenShown):
+// every panel, any pop-up dialog. Looked for every SCREEN_CHECK_MS.
+const CLICK_SCREEN_SELECTOR = '.panel-box, dialog[open], [role="dialog"], [aria-modal="true"]'
+const SCREEN_CHECK_MS = 150
 const MAP3_EDITS_KEY = 'buildmode-map3-v8-edits'
 // Edits are saved this long after the last change (and on leaving the
 // page), not only on Exit/Save - closing the tab used to lose the build.
@@ -512,6 +516,17 @@ export const BLOCK_TYPES = [
   { id: 'paperlantern', name: 'Paper Lantern', color: 0xf3b25a, pattern: 'speckle', roughness: 0.8, metalness: 0, emissive: 0xffa040, emissiveIntensity: 0.9 },
   { id: 'bamboo', name: 'Bamboo', color: 0x7fa83a, pattern: 'stripe', roughness: 0.9, metalness: 0, inset: 6 / 16 },
   { id: 'bambooleaves', name: 'Bamboo Leaves', color: 0x5f9a34, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88, inset: 4 / 16 },
+  // Coral that grows like a plant (2026-10-26, Gaymi: "the coral and
+  // stuff in the sea make it more skinnier"): two crossed see-through
+  // pictures (`plant`, BlockChunks.js) you can swim through, instead of
+  // whole blocks. The warm ocean grows these; the Coral Blocks stay for
+  // building. Not full blocks, so no slab/stairs.
+  { id: 'tubecoral', name: 'Tube Coral', color: 0x3157cf, pattern: 'coral', roughness: 1, metalness: 0, transparent: true, plant: 'tube' },
+  { id: 'braincoral', name: 'Brain Coral', color: 0xcf5b9f, pattern: 'coral', roughness: 1, metalness: 0, transparent: true, plant: 'branch' },
+  { id: 'bubblecoral', name: 'Bubble Coral', color: 0xa318a0, pattern: 'coral', roughness: 1, metalness: 0, transparent: true, plant: 'bubble' },
+  { id: 'firecoral', name: 'Fire Coral', color: 0xc22a35, pattern: 'coral', roughness: 1, metalness: 0, transparent: true, plant: 'branch' },
+  { id: 'horncoral', name: 'Horn Coral', color: 0xd8c742, pattern: 'coral', roughness: 1, metalness: 0, transparent: true, plant: 'fan' },
+  { id: 'seagrass', name: 'Seagrass', color: 0x3f9a4a, pattern: 'coral', roughness: 1, metalness: 0, transparent: true, plant: 'grass' },
   { id: 'birchleaves', name: 'Birch Leaves', color: 0x7aa04a, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
   { id: 'spruceleaves', name: 'Spruce Leaves', color: 0x3d5e3a, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
   { id: 'jungleleaves', name: 'Jungle Leaves', color: 0x3f8a2a, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
@@ -577,7 +592,7 @@ export const BLOCK_TYPES = [
 // skipped here. No water/lava slabs (Minecraft has none either).
 const HAND_SLAB_SOURCES = new Set(['oakplanks', 'spruceplanks', 'birchplanks', 'darkoakplanks', 'smoothstone', 'cobblestone', 'brick', 'stone', 'sandstone', 'quartz', 'blackstone', 'prismarine'])
 for (const src of BLOCK_TYPES.slice()) {
-  if (src.shape || src.inset || src.id === 'water' || src.id === 'lava' || HAND_SLAB_SOURCES.has(src.id)) continue
+  if (src.shape || src.inset || src.plant || src.id === 'water' || src.id === 'lava' || HAND_SLAB_SOURCES.has(src.id)) continue
   BLOCK_TYPES.push({
     ...src,
     id: `${src.id}slab`,
@@ -592,7 +607,7 @@ for (const src of BLOCK_TYPES.slice()) {
 // which these two loops do automatically.
 const HAND_STAIRS_SOURCES = new Set(['oakplanks', 'stone', 'brick', 'cobblestone'])
 for (const src of BLOCK_TYPES.filter((b) => !b.shape)) {
-  if (src.inset || src.id === 'water' || src.id === 'lava' || HAND_STAIRS_SOURCES.has(src.id)) continue
+  if (src.inset || src.plant || src.id === 'water' || src.id === 'lava' || HAND_STAIRS_SOURCES.has(src.id)) continue
   BLOCK_TYPES.push({ ...src, id: `${src.id}stairs`, name: `${src.name} Stairs`, shape: 'stairs', stairsOf: src.id })
 }
 // Top halves of doors - never in the picker, only ever placed together
@@ -1112,6 +1127,7 @@ function _shapedBlockTextures(bt) {
 // Picker/hotbar icon: shaped blocks show the block they're made from, a
 // slab at half height, stairs as stairs, a fence as a fence, a ladder flat.
 function _blockIcon(bt) {
+  if (bt.plant) return plantIconURL(bt)
   if (bt.door) return doorIconURL(bt.door)
   if (bt.shape === 'lever' || bt.shape === 'sign') return gadgetIconURL(bt.shape)
   if (bt.game) return blockIconURL(bt, 64, bt.shape === 'pad' ? 0.25 : bt.shape === 'chest' ? 0.85 : 1)
@@ -2077,6 +2093,14 @@ export class BuildMode {
       }
     }
     document.addEventListener('pointerlockchange', this._onLockChange)
+    this._onScreenClick = () => {
+      if (!this._mouseFreedForScreen) return
+      if (!this.tryMode?.active || this.mouseScreenOpen() || this.spectate?.active) return
+      this._mouseFreedForScreen = false
+      if (document.pointerLockElement === this.renderer.domElement) return
+      try { this.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available in this environment */ }
+    }
+    document.addEventListener('click', this._onScreenClick)
     this._onPointerUp = (e) => {
       if (e.button === 0) this._fireHeld = false
       if (e.button === 2 && this.tryMode?.active) this.tryMode.setAim(false)
@@ -2144,6 +2168,7 @@ export class BuildMode {
     window.removeEventListener('wheel', this._onWheel)
     this.renderer.domElement.removeEventListener('pointerdown', this._onPointerDown)
     document.removeEventListener('pointerlockchange', this._onLockChange)
+    document.removeEventListener('click', this._onScreenClick)
     window.removeEventListener('pointerup', this._onPointerUp)
     this._fireHeld = false
     window.removeEventListener('contextmenu', this._onContextMenu)
@@ -2191,6 +2216,8 @@ export class BuildMode {
     if (this._chunks.isLiquid(type)) return 0
     const shape = BLOCK_BY_ID.get(type)?.shape
     if (shape === 'ladder') return 0
+    // Coral and seagrass: swum through.
+    if (BLOCK_BY_ID.get(type)?.plant) return 0
     if (shape === 'door' || shape === 'doortop') {
       const bottomY = shape === 'doortop' ? y - 1 : y
       return this.isDoorOpenAt(x, bottomY, z) ? 0 : 1
@@ -2286,7 +2313,13 @@ export class BuildMode {
 
   _cellIsLiquid(x, y, z) {
     const type = this.getBlockAt(x, y, z)
-    return !!type && this._chunks.isLiquid(type)
+    // Coral and seagrass stand in sea water, so you swim through them.
+    return !!type && (this._chunks.isLiquid(type) || !!BLOCK_BY_ID.get(type)?.plant)
+  }
+
+  // Coral/seagrass (`plant` blocks): see-through, swum through.
+  isPlantBlock(type) {
+    return !!type && !!BLOCK_BY_ID.get(type)?.plant
   }
 
   // How many seconds holding the button on a block takes to break it while
@@ -3628,10 +3661,37 @@ export class BuildMode {
   mouseScreenOpen() {
     if (this.menuOpen || this.pickerOpen || this.share?.isOpen || this.together?.isOpen) return true
     if (this.survival?.camp?.panelOpen || this.tryMode?._mapInteractive?.()) return true
-    return ['play-weapon-pick', 'build-play-over', 'spawn-map'].some((id) => {
+    if (['play-weapon-pick', 'build-play-over', 'spawn-map'].some((id) => {
       const el = document.getElementById(id)
       return !!el && el.style.display !== 'none' && el.style.display !== ''
-    })
+    })) return true
+    return this._anyClickScreenShown()
+  }
+
+  // Any panel or pop-up on screen at all (2026-10-26, Gaymi: "fixing the
+  // mouse disappear in gameplay for somethings that need mouse ... from
+  // the root cause"). The list above only knew the screens it was told
+  // about, so a new one - Settings opened over a game - kept the mouse
+  // hidden. Every panel in the game is a `.panel-box`, and pop-ups are
+  // dialogs, so whatever opens next is caught too.
+  _anyClickScreenShown() {
+    for (const el of document.querySelectorAll(CLICK_SCREEN_SELECTOR)) {
+      if (el.checkVisibility ? el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) : el.offsetParent !== null) return true
+    }
+    return false
+  }
+
+  // Called every frame while playing: a screen that needs the mouse lets
+  // it go (checked a few times a second - it reads the page), and once
+  // every such screen is closed again the next click catches it back
+  // (_onScreenClick), so aiming carries on without an extra click.
+  _freeMouseForScreens(now) {
+    if (now - (this._screenCheckAt || 0) < SCREEN_CHECK_MS) return
+    this._screenCheckAt = now
+    if (document.pointerLockElement !== this.renderer.domElement || !this.mouseScreenOpen()) return
+    this._fireHeld = false
+    this._mouseFreedForScreen = true
+    try { document.exitPointerLock() } catch { /* not available */ }
   }
 
   // Escape - opens/closes the action menu (Exit/Save/Export/Import/Mirror/
@@ -4293,6 +4353,7 @@ export class BuildMode {
 
   update(dt) {
     this.gameMenu.update()
+    if (this.tryMode.active) this._freeMouseForScreens(performance.now())
     // Hold-V zoom - damped toward its target the same way movement
     // velocity is below, instead of an instant snap, so both zooming in
     // and the release back to normal ease smoothly rather than jump-cutting.

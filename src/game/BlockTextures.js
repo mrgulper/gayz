@@ -378,6 +378,58 @@ function leaves(px, base, r) {
   }
 }
 
+// Coral and seagrass that grow like plants (BuildMode `plant`): a
+// see-through picture standing on its bottom edge - tubes, branches, a
+// fan, bubbles on stalks or grass blades - lighter at the tips.
+function coralPlant(px, base, r, style) {
+  const dark = mul(base, 0.7)
+  const tip = mul(base, 1.35)
+  const dot = (x, y, c) => { if (x >= 0 && x < S && y >= 0 && y < S) px.set(x, y, c) }
+  if (style === 'tube') {
+    for (const x0 of [2, 5, 8, 11, 13]) {
+      const top = 3 + Math.floor(r() * 7)
+      const x = x0 + Math.floor(r() * 2)
+      for (let y = S - 1; y >= top; y--) { dot(x, y, y < top + 2 ? tip : base); dot(x + 1, y, dark) }
+    }
+  } else if (style === 'grass') {
+    for (let b = 0; b < 6; b++) {
+      let x = 1 + r() * 13
+      const lean = (r() - 0.5) * 0.5
+      const top = 1 + Math.floor(r() * 7)
+      for (let y = S - 1; y >= top; y--) { dot(Math.round(x), y, y < top + 3 ? tip : r() < 0.3 ? dark : base); x += lean }
+    }
+  } else if (style === 'fan') {
+    // A fan spreading from one stalk, with darker veins.
+    for (let y = 2; y < S - 3; y++) {
+      const half = Math.round(6 * Math.sin(((y - 1) / (S - 4)) * Math.PI))
+      for (let x = 8 - half; x <= 7 + half; x++) dot(x, y, (x + y) % 3 === 0 ? dark : y < 5 ? tip : base)
+    }
+    for (let y = S - 4; y < S; y++) { dot(7, y, dark); dot(8, y, base) }
+  } else {
+    // Branches: a stalk that forks as it climbs (bubble coral ends each
+    // branch in a round blob).
+    const grow = (x, y, dx, len, depth) => {
+      for (let i = 0; i < len; i++) {
+        dot(Math.round(x), y, depth > 1 ? base : dark)
+        if (style === 'branch') dot(Math.round(x) + 1, y, dark)
+        y--
+        x += dx
+        if (y < 1) break
+      }
+      if (depth < 3 && y > 2) {
+        grow(x, y, dx - 0.35 - r() * 0.3, 2 + Math.floor(r() * 3), depth + 1)
+        grow(x, y, dx + 0.35 + r() * 0.3, 2 + Math.floor(r() * 3), depth + 1)
+      } else if (style === 'bubble') {
+        const cx = Math.round(x)
+        for (const [ox, oy] of [[0, 0], [1, 0], [0, -1], [1, -1], [-1, 0], [0, 1]]) dot(cx + ox, y + oy, tip)
+      } else {
+        dot(Math.round(x), y, tip)
+      }
+    }
+    grow(7, S - 1, 0, 4 + Math.floor(r() * 2), 1)
+  }
+}
+
 // Clear, light blue water with soft ripples (bloxd.io's look) rather than
 // Minecraft's darker streaks.
 function water(px, base, r) {
@@ -1203,6 +1255,12 @@ const BY_ID = {
   bubblecoralblock: (px, b, r) => speckled(px, b, r, [mul(b, 0.72), mul(b, 1.22)], 34),
   firecoralblock: (px, b, r) => speckled(px, b, r, [mul(b, 0.72), mul(b, 1.22)], 34),
   horncoralblock: (px, b, r) => speckled(px, b, r, [mul(b, 0.72), mul(b, 1.22)], 34),
+  tubecoral: (px, b, r) => coralPlant(px, b, r, 'tube'),
+  braincoral: (px, b, r) => coralPlant(px, b, r, 'branch'),
+  firecoral: (px, b, r) => coralPlant(px, b, r, 'branch'),
+  bubblecoral: (px, b, r) => coralPlant(px, b, r, 'bubble'),
+  horncoral: (px, b, r) => coralPlant(px, b, r, 'fan'),
+  seagrass: (px, b, r) => coralPlant(px, b, r, 'grass'),
   rooteddirt: (px, b, r) => { dirt(px, b, r); speckle(px, [200, 160, 110], r, 12) },
   chiseledcopper: chiseled,
   reinforceddeepslate: (px, b, r) => { bricks(px, b, mul(b, 0.6), r, 8, 8, true); frame(px, [200, 190, 160]) },
@@ -1473,7 +1531,7 @@ export function blockFaceCanvases(type) {
 // holes, jelly blocks) - those render with the texture's own alpha rather
 // than one flat opacity for the whole block.
 export function textureHasAlpha(type) {
-  return type.id === 'glass' || GLASS_IDS.test(type.id) || /leaves$/.test(type.id) || type.id === 'honeyblock' || type.id === 'slimeblock' || type.id === 'zombiespawner'
+  return !!type.plant || type.id === 'glass' || GLASS_IDS.test(type.id) || /leaves$/.test(type.id) || type.id === 'honeyblock' || type.id === 'slimeblock' || type.id === 'zombiespawner'
 }
 
 // Minecraft-inventory-style isometric block icon (top + two shaded sides)
@@ -1522,6 +1580,22 @@ export function blockIconURL(type, size = 64, heightFrac = 1) {
   face(faces.side, L, [B[0] - L[0], B[1] - L[1]], [0, h], 0.22, heightFrac)
   face(faces.side, B, [R[0] - B[0], R[1] - B[1]], [0, h], 0.4, heightFrac)
   face(faces.top, T, [R[0] - T[0], R[1] - T[1]], [L[0] - T[0], L[1] - T[1]], 0)
+  const url = canvas.toDataURL()
+  iconCache.set(key, url)
+  return url
+}
+
+// A plant's (coral, seagrass) icon: its picture standing flat, like
+// Minecraft's flowers in the inventory.
+export function plantIconURL(type, size = 64) {
+  const key = `plant:${type.id}:${size}`
+  if (iconCache.has(key)) return iconCache.get(key)
+  const src = blockFaceCanvases(type).side
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = size
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  ctx.imageSmoothingEnabled = false
+  ctx.drawImage(src, size * 0.08, size * 0.08, size * 0.84, size * 0.84)
   const url = canvas.toDataURL()
   iconCache.set(key, url)
   return url

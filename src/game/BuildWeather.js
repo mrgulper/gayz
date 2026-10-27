@@ -86,6 +86,7 @@ attribute vec4 seed;
 varying float vAlpha;
 varying float vStrength;
 varying float vSeed;
+varying float vPx;
 const float BOX = ${BOX.toFixed(1)};
 const float DOWN = ${BOX_DOWN.toFixed(1)};
 const float H = ${(BOX_DOWN + BOX_UP).toFixed(1)};
@@ -114,7 +115,8 @@ void main() {
   gl_Position = projectionMatrix * mv;
   // Flakes come in all sizes; hail pellets need room for their streak.
   float size = uSize * (1.0 + flutter * (seed.z * 1.1 - 0.45)) * (1.0 + uIce * 1.6);
-  gl_PointSize = min(size * uB * uScale / -mv.z, uIce > 0.5 ? 34.0 : uSnow > 0.5 ? 18.0 : 160.0);
+  gl_PointSize = min(size * uB * uScale / -mv.z, uIce > 0.5 ? 34.0 : uSnow > 0.5 ? 40.0 : 160.0);
+  vPx = gl_PointSize;
   vStrength = 0.55 + seed.x * 0.45;
   vSeed = seed.y;
   // Fade at the box's edges so it has no hard border, and very close up.
@@ -125,6 +127,7 @@ void main() {
 `
 
 const FRAG = /* glsl */ `
+uniform float uTime;
 uniform float uSnow;
 uniform float uIce;
 uniform vec3 uColor;
@@ -133,6 +136,33 @@ uniform float uLean;
 varying float vAlpha;
 varying float vStrength;
 varying float vSeed;
+varying float vPx;
+// A real six-armed snowflake (2026-10-26, Gaymi: "make real tiny snow
+// flake shape snow"): the picture is folded into one 60 degree slice, so
+// one arm with two pairs of side branches makes all six; each flake turns
+// slowly its own way and has its own branch spacing.
+float flake(vec2 c, float seed) {
+  float ang = seed * 6.2832 + uTime * (0.4 + seed * 0.8) * (seed > 0.5 ? 1.0 : -1.0);
+  vec2 p = mat2(cos(ang), -sin(ang), sin(ang), cos(ang)) * c;
+  float r = length(p);
+  float sec = 1.0472;
+  float th = mod(atan(p.y, p.x) + sec * 0.5, sec) - sec * 0.5;
+  vec2 q = vec2(cos(th), abs(sin(th))) * r;
+  float arm = (1.0 - smoothstep(0.016, 0.036, q.y)) * (1.0 - smoothstep(0.42, 0.46, q.x));
+  float br = 0.0;
+  for (int i = 0; i < 2; i++) {
+    float at = 0.17 + float(i) * 0.12 + seed * 0.04;
+    float len = 0.13 - float(i) * 0.04;
+    vec2 d = q - vec2(at, 0.0);
+    float along = dot(d, vec2(0.5, 0.866));
+    float off = abs(d.x * 0.866 - d.y * 0.5);
+    br = max(br, (1.0 - smoothstep(0.012, 0.03, off)) * step(0.0, along) * (1.0 - smoothstep(len - 0.02, len, along)));
+  }
+  float core = 1.0 - smoothstep(0.045, 0.075, r);
+  // Tiny ice-crystal tips at the arm ends.
+  float tip = 1.0 - smoothstep(0.02, 0.04, length(q - vec2(0.42, 0.0)));
+  return max(max(arm, br), max(core, tip));
+}
 void main() {
   vec2 c = gl_PointCoord - 0.5;
   float a;
@@ -150,8 +180,12 @@ void main() {
     // uneven so they don't all look like the same dot.
     float r = length(c * vec2(1.0 + (vSeed - 0.5) * 0.35, 1.0));
     float wob = 0.04 * sin(atan(c.y, c.x) * 5.0 + vSeed * 30.0);
-    a = pow(1.0 - smoothstep(0.0, 0.47 + wob, r), 1.6);
-    a = min(1.0, a * 1.25);
+    float soft = min(1.0, pow(1.0 - smoothstep(0.0, 0.47 + wob, r), 1.6) * 1.25);
+    // Far flakes are a few pixels - a soft dot; close ones show their
+    // six arms with a faint glow round them.
+    float shape = max(flake(c, vSeed), soft * 0.22);
+    a = mix(soft, shape, smoothstep(7.0, 15.0, vPx));
+    col = mix(uColor, vec3(1.0), 0.25 * shape);
   } else {
     // A thin streak leaning with the wind: brightest at the falling head
     // (bottom), fading up its tail.
@@ -161,6 +195,24 @@ void main() {
     float len = 0.22 + 0.2 * vSeed;
     a = (1.0 - smoothstep(w, w * 3.2, abs(x))) * (1.0 - smoothstep(len, len + 0.12, abs(c.y)));
     a *= 0.35 + 0.65 * smoothstep(-0.5, 0.45, c.y);
+    // Close drops (2026-10-26, Gaymi: "make it water drops way more
+    // detailed"): a clear teardrop at the falling end - round at the
+    // bottom, pointed on top - with a dark rim, a bright see-through
+    // middle and a glint, trailing a fainter streak.
+    float near = smoothstep(16.0, 40.0, vPx);
+    if (near > 0.0) {
+      float rr = 0.034 + 0.02 * vSeed;
+      vec2 d = vec2(x, c.y - (len - rr));
+      d.y *= d.y < 0.0 ? 0.45 : 1.0;
+      float dist = length(d);
+      float drop = 1.0 - smoothstep(rr * 0.75, rr, dist);
+      float rim = smoothstep(rr * 0.35, rr * 0.85, dist);
+      float glint = 1.0 - smoothstep(0.0, rr * 0.35, length(d + vec2(rr * 0.35, rr * 0.3)));
+      vec3 dropCol = mix(mix(vec3(0.85, 0.93, 1.0), uColor * 0.55, rim), vec3(1.0), glint);
+      float tail = a * mix(1.0, 0.45, near);
+      a = max(tail, drop * near * 0.95);
+      col = mix(uColor, dropCol, drop * near);
+    }
   }
   a *= vAlpha * uAlpha * vStrength;
   if (a < 0.01) discard;
