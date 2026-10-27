@@ -115,6 +115,7 @@ export class BuildSpecials {
     this._bed = null
     this._bedUsed = false
     this._gates = [] // gates standing open: { cells, anchor, byPower, closeAt }
+    this._temp = [] // blocks grown this try (trees): { x, y, z, type }
     this._on = new Set() // power: keys of blocks giving power right now
     this._powerAt = -1
   }
@@ -123,6 +124,7 @@ export class BuildSpecials {
     if (!this.active) return
     this._restoreCrumbled(true)
     this._closeGates(true)
+    this._clearTemp()
     this.active = false
     this.speedMult = 1
     this.gripMult = 1
@@ -162,7 +164,7 @@ export class BuildSpecials {
     dt = Math.min(dt, 0.1)
     this._time += dt
     if (me && !this.bm.survival?.spectating) this._updateMe(dt, me)
-    this._tickBlocks(me || this._camFeet())
+    this._tickBlocks(me || this._camFeet(), dt)
     this._fxTimer -= dt
     if (this._fxTimer <= 0) {
       this._fxTimer = 0.12
@@ -179,10 +181,35 @@ export class BuildSpecials {
   }
 
   // Blocks that do things over time, near you.
-  _tickBlocks(me) {
+  _tickBlocks(me, dt = 0) {
     const s = this.bm.survival
     const zombies = s?.active ? s.zombies : []
     const now = this._time
+    // Crops grow (faster by sprinklers and under greenhouse glass).
+    for (const e of this.kind('crop')) {
+      const st = this._st.get(e.key)
+      if (st?.planted && st.grown < e.def.fx.grow) st.grown += dt * this._growRate(e)
+    }
+    // Saplings grow into trees while you play.
+    for (const e of this.kind('sapling')) {
+      const st = this._state(e)
+      if (st.grownTree || !s?.active) continue
+      st.age = (st.age || 0) + dt
+      if (st.age >= e.def.fx.grow) {
+        st.grownTree = true
+        this._growTree(e)
+      }
+    }
+    // Rain Collectors fill while it rains on them.
+    for (const e of this.kind('rain')) {
+      const st = this._state(e)
+      if ((st.level || 0) >= e.def.fx.max || !this._rainingOn(e)) continue
+      st.fill = (st.fill || 0) + dt
+      if (st.fill >= e.def.fx.every) {
+        st.fill = 0
+        st.level = (st.level || 0) + 1
+      }
+    }
     if (now - this._powerAt >= POWER_STEP) {
       const elapsed = this._powerAt < 0 ? POWER_STEP : now - this._powerAt
       this._powerAt = now
@@ -640,6 +667,72 @@ export class BuildSpecials {
     }
     if (fx.kind === 'piano') {
       this._playKey(entry)
+      return true
+    }
+    if (fx.kind === 'producer') {
+      // Makes something every fx.every seconds; use it to collect.
+      if (st.readyAt === undefined) st.readyAt = this._time + fx.every
+      if (fx.water && !this._nearWater(entry)) {
+        this._msg(t('specialNeedWater'))
+        return true
+      }
+      if (st.readyAt > this._time) {
+        this._msg(t('specialNotReady', { s: Math.ceil(st.readyAt - this._time) }))
+        return true
+      }
+      st.readyAt = this._time + fx.every
+      const s = this._play()
+      if (fx.heal) {
+        if (s) {
+          s.health = Math.min(s.maxHealth, s.health + fx.heal)
+          s._renderHud()
+        }
+        this._msg(t('invHealed', { n: fx.heal }))
+      } else if (s?.inv) {
+        s.inv.add({ kind: 'item', id: fx.give, n: fx.n })
+        this._msg(t('specialGot', { item: t(ITEMS[fx.give].key), n: fx.n }))
+      } else this._msg(t('specialPlayOnly'))
+      this._sound('pop')
+      this._burst(entry, 0xffe080, 8)
+      return true
+    }
+    if (fx.kind === 'compost') {
+      let n = 0
+      for (const c of this.kind('crop')) {
+        const cst = this._st.get(c.key)
+        if (cst?.planted && dist3(c, x, y, z) <= fx.r) {
+          cst.grown = c.def.fx.grow
+          n++
+        }
+      }
+      if (!n) {
+        st.cdUntil = 0
+        this._msg(t('specialNoCrops'))
+        return true
+      }
+      this._sound('pop')
+      this._msg(t('specialCompost', { n }))
+      return true
+    }
+    if (fx.kind === 'flowerpot') {
+      st.flower = ((st.flower || 0) + 1) % FLOWER_COLORS.length
+      this._sound('pop')
+      this._overlaysDirty = true
+      return true
+    }
+    if (fx.kind === 'rain') {
+      if (!st.level) {
+        this._msg(t('specialRainEmpty'))
+        return true
+      }
+      st.level--
+      const s = this._play()
+      if (s) {
+        s.health = Math.min(s.maxHealth, s.health + fx.heal)
+        s._renderHud()
+      }
+      this._msg(t('invHealed', { n: fx.heal }))
+      this._sound('pop')
       return true
     }
     if (['cook', 'armor', 'trash', 'shop', 'gamble', 'slots', 'clone'].includes(fx.kind)) {
@@ -1210,6 +1303,58 @@ export class BuildSpecials {
     }
   }
 
+  // Water touching this block (a Fish Trap).
+  _nearWater(e) {
+    for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+      if (this.bm._cellIsLiquid(e.x + dx, e.y + dy, e.z + dz) && this.bm.getBlockAt(e.x + dx, e.y + dy, e.z + dz) !== 'lava') return true
+    }
+    return false
+  }
+
+  // Raining, with open sky over this block.
+  _rainingOn(e) {
+    const s = this.bm.survival
+    if (!s?._raining?.()) return false
+    for (let y = e.y + 1; y < e.y + 24; y++) if (this.bm.getBlockAt(e.x, y, e.z)) return false
+    return true
+  }
+
+  // A Tree Sapling's tree: a trunk on top of it and a ball of leaves, only
+  // in empty cells; taken away again when the try ends (_temp).
+  _growTree(e) {
+    const bm = this.bm
+    const fx = e.def.fx
+    const put = (x, y, z, type) => {
+      if (bm.getBlockAt(x, y, z)) return
+      bm._suppressUndoRecording = true
+      bm.placeBlock(x, y, z, type)
+      bm._suppressUndoRecording = false
+      this._temp.push({ x, y, z, type })
+    }
+    const top = e.y + fx.trunk
+    for (let y = e.y + 1; y <= top; y++) put(e.x, y, e.z, fx.log)
+    for (let dy = -1; dy <= 1; dy++) {
+      const r = dy === 1 ? 1 : 2
+      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) if (Math.abs(dx) + Math.abs(dz) <= r + 1) put(e.x + dx, top + dy, e.z + dz, fx.leaves)
+    }
+    put(e.x, top + 2, e.z, fx.leaves)
+    this._sound('pop')
+    this._burst({ x: e.x, y: top, z: e.z }, 0x60c040, 14)
+  }
+
+  // Blocks this try put into the world (trees) come out again; one you
+  // broke meanwhile isn't put back by Try Map either.
+  _clearTemp() {
+    const bm = this.bm
+    bm._suppressUndoRecording = true
+    for (const c of this._temp || []) {
+      bm.tryMode._broken?.delete(`${c.x},${c.y},${c.z}`)
+      if (bm.getBlockAt(c.x, c.y, c.z) === c.type) bm.removeBlock(c.x, c.y, c.z)
+    }
+    bm._suppressUndoRecording = false
+    this._temp = []
+  }
+
   // A shot was fired (BuildSurvival.shoot): Echo Stones near you repeat
   // it a moment later and pull zombies to themselves for a moment.
   onShot(pos) {
@@ -1222,21 +1367,36 @@ export class BuildSpecials {
     }
   }
 
+  // How fast a crop grows: x2 for each Sprinkler / Greenhouse Glass near it.
+  _growRate(e) {
+    let rate = 1
+    for (const kind of ['sprinkler', 'greenhouse']) {
+      for (const g of this.kind(kind)) {
+        if (dist3(g, e.x, e.y, e.z) <= g.def.fx.r) {
+          rate *= g.def.fx.mult
+          break
+        }
+      }
+    }
+    return rate
+  }
+
   _useCrop(entry, st) {
     const fx = entry.def.fx
-    if (st.plantedAt === undefined) {
-      st.plantedAt = this._time
+    if (!st.planted) {
+      st.planted = true
+      st.grown = 0
       this._sound('pop')
-      this._msg(t('specialCropPlanted', { s: fx.grow }))
+      this._msg(t('specialCropPlanted', { s: Math.ceil(fx.grow / this._growRate(entry)) }))
       this._overlaysDirty = true
       return true
     }
-    const left = st.plantedAt + fx.grow - this._time
+    const left = (fx.grow - st.grown) / this._growRate(entry)
     if (left > 0) {
       this._msg(t('specialCropGrowing', { s: Math.ceil(left) }))
       return true
     }
-    st.plantedAt = undefined
+    st.planted = false
     const play = this._play()
     const kept = play?.inv ? fx.n - play.inv.add({ kind: 'item', id: fx.give, n: fx.n }) : 0
     this._sound('pop')
@@ -1697,6 +1857,15 @@ export class BuildSpecials {
       if (!near(e)) continue
       this._effects().flame((e.x + 0.3 + Math.random() * 0.4) * B, (e.y + 1.05) * B, (e.z + 0.3 + Math.random() * 0.4) * B)
     }
+    for (const e of this.kind('sprinkler')) {
+      if (!near(e) || Math.random() < 0.4) continue
+      const a = Math.random() * Math.PI * 2
+      this._effects().spark((e.x + 0.5) * B, (e.y + 1.1) * B, (e.z + 0.5) * B, { color: 0x80c8ff, life: 0.7, from: 0.15, to: 0.05, vel: new THREE.Vector3(Math.cos(a) * 3 * B, 2 * B, Math.sin(a) * 3 * B) })
+    }
+    for (const e of this.kind('producer')) {
+      if (!near(e) || e.def.fx.give !== undefined || Math.random() < 0.8) continue
+      this._effects().spark((e.x + Math.random()) * B, (e.y + 1 + Math.random() * 0.6) * B, (e.z + Math.random()) * B, { color: 0xf0c020, life: 0.8, from: 0.1, to: 0.06, vel: new THREE.Vector3((Math.random() - 0.5) * B, 0, (Math.random() - 0.5) * B) })
+    }
     for (const e of this.kind('sauna')) {
       if (!near(e) || Math.random() < 0.5) continue
       this._effects().spark((e.x + Math.random()) * B, (e.y + 1) * B, (e.z + Math.random()) * B, { color: 0xf0f0f0, life: 1.2, from: 0.3, to: 0.6, vel: new THREE.Vector3(0, 0.8 * B, 0), alpha: 0.5 })
@@ -1737,7 +1906,7 @@ export class BuildSpecials {
   // the nearest MAX_OVERLAYS within OVERLAY_RANGE.
   _pickOverlays(me) {
     const want = []
-    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter', 'blade', 'power', 'turret', 'searchlight', 'slots']) {
+    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter', 'blade', 'power', 'turret', 'searchlight', 'slots', 'flowerpot', 'rain']) {
       for (const e of this.kind(kind)) {
         if (kind === 'lure' && !e.def.fx.label) continue
         const d = (e.x - me.x) ** 2 + (e.y - me.y) ** 2 + (e.z - me.z) ** 2
@@ -1758,6 +1927,18 @@ export class BuildSpecials {
       obj = new THREE.Mesh(sharedBox(), new THREE.MeshBasicMaterial({ color: kind === 'power' ? 0xffe040 : 0xffffff, transparent: true, opacity: kind === 'power' ? 0.3 : 0.4, depthWrite: false }))
       obj.scale.setScalar(1.02 * B)
       obj.position.set((e.x + 0.5) * B, (e.y + 0.5) * B, (e.z + 0.5) * B)
+    } else if (kind === 'flowerpot') {
+      // A stem with a flower head on top.
+      obj = new THREE.Group()
+      const stem = new THREE.Mesh(sharedBox(), new THREE.MeshLambertMaterial({ color: 0x4a9a3a }))
+      stem.scale.set(0.08 * B, 0.5 * B, 0.08 * B)
+      stem.position.y = 0.25 * B
+      const head = new THREE.Mesh(sharedBox(), new THREE.MeshLambertMaterial({ color: FLOWER_COLORS[0] }))
+      head.scale.setScalar(0.28 * B)
+      head.position.y = 0.6 * B
+      obj.add(stem, head)
+      obj.userData.head = head
+      obj.position.set((e.x + 0.5) * B, (e.y + 1) * B, (e.z + 0.5) * B)
     } else if (kind === 'blade') {
       // A long steel bar spinning over the block.
       obj = new THREE.Mesh(sharedBox(), new THREE.MeshLambertMaterial({ color: 0xc8ccd4 }))
@@ -1782,7 +1963,7 @@ export class BuildSpecials {
       obj = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xfff6c0, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }))
       obj.scale.set(e.def.fx.r * B, 2 * B, 2 * B)
       obj.position.set((e.x + 0.5) * B, (e.y + 1.1) * B, (e.z + 0.5) * B)
-    } else if (kind === 'score' || kind === 'radio' || kind === 'counter' || kind === 'turret' || kind === 'slots' || e.def.fx.label) {
+    } else if (kind === 'score' || kind === 'radio' || kind === 'counter' || kind === 'turret' || kind === 'slots' || kind === 'rain' || e.def.fx.label) {
       obj = textSprite()
       obj.position.set((e.x + 0.5) * B, (e.y + 1.7) * B, (e.z + 0.5) * B)
       obj.scale.set(3 * B, 0.75 * B, 1)
@@ -1818,6 +1999,10 @@ export class BuildSpecials {
       } else if (kind === 'searchlight') {
         obj.visible = this.powered(e)
         obj.rotation.y = this._time * 0.8
+      } else if (kind === 'flowerpot') {
+        obj.userData.head.material.color.setHex(FLOWER_COLORS[this._st.get(e.key)?.flower || 0])
+      } else if (kind === 'rain') {
+        setSpriteText(obj, t('specialRainLevel', { n: this._st.get(e.key)?.level || 0, max: e.def.fx.max }))
       } else if (kind === 'slots') {
         const st = this._st.get(e.key)
         obj.visible = st?.until > this._time
@@ -1830,7 +2015,7 @@ export class BuildSpecials {
         obj.material.color.setHSL((this._time * 0.35 + (e.x + e.z) * 0.07) % 1, 0.9, 0.55)
       } else if (kind === 'crop') {
         const st = this._st.get(e.key)
-        const k = st?.plantedAt === undefined ? 0 : Math.min(1, (this._time - st.plantedAt) / e.def.fx.grow)
+        const k = !st?.planted ? 0 : Math.min(1, st.grown / e.def.fx.grow)
         obj.visible = k > 0
         obj.scale.setScalar(0.25 + k * 0.75)
         obj.userData.mat.color.setHex(k >= 1 ? 0xd8c040 : 0x5aa83a)
@@ -1868,13 +2053,14 @@ export class BuildSpecials {
 
 const EMPTY = new Set()
 const SEARCHLIGHT_MULT = 1.25
+const FLOWER_COLORS = [0xf04060, 0xf0d040, 0x6080f0, 0xf080d0, 0xffffff, 0xf08030]
 const MAIL_KEY = 'gayz-mailbox' // + map slot + block spot (Mailbox)
 const SLOT_SYMBOLS = ['7', '$', '*', '@']
 const BENCH_STEP = 0.1 // damage added per Workbench Upgrade
 const POWER_STEP = 0.1 // seconds between power updates
 const GATE_MODES = ['AND', 'OR', 'NOT']
 // Kinds that do something when used (plus lures with on: 'use').
-const USE_KINDS = new Set(['cook', 'armor', 'trash', 'shop', 'gamble', 'slots', 'clone', 'checkpoint', 'store', 'weaponrack', 'ammo', 'bench', 'recycler', 'boat', 'elevator', 'zipline', 'rope', 'launcher', 'heal', 'give', 'buff', 'bed', 'turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
+const USE_KINDS = new Set(['producer', 'compost', 'flowerpot', 'rain', 'cook', 'armor', 'trash', 'shop', 'gamble', 'slots', 'clone', 'checkpoint', 'store', 'weaponrack', 'ammo', 'bench', 'recycler', 'boat', 'elevator', 'zipline', 'rope', 'launcher', 'heal', 'give', 'buff', 'bed', 'turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
 // Piano Block notes: a major scale from middle C.
 const SCALE = [262, 294, 330, 349, 392, 440, 494, 523]
 

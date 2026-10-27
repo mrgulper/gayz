@@ -697,6 +697,68 @@ export const SPECIAL_BLOCKS = [
     look: { base: 'glow', color: 0x2a6a6a, glyph: 'copy', glyphColor: 0x90f0f0 },
     fx: { kind: 'clone', n: 8, cd: 30 },
   },
+
+  // ---- Batch 12: farming ----
+  {
+    ...D, id: 'sprinkler', name: 'Sprinkler', color: 0x5a8ac0,
+    desc: 'Crop Plots within 4 blocks of it grow twice as fast.',
+    look: { base: 'metal', color: 0x4a5a6a, glyph: 'drop', glyphColor: 0x80c8ff },
+    fx: { kind: 'sprinkler', r: 4, mult: 2 },
+  },
+  {
+    ...D, id: 'beehive', name: 'Beehive', color: 0xe0b040,
+    desc: 'Makes honey every 60 seconds: use it then to eat the honey and heal 30.',
+    look: { base: 'wood', color: 0xc89a3a, glyph: 'honey', glyphColor: 0x6a4a1a },
+    fx: { kind: 'producer', every: 60, heal: 30 },
+  },
+  {
+    ...D, id: 'compostbin', name: 'Compost Bin', color: 0x5a4a2a,
+    desc: 'Use it to make every planted Crop Plot within 6 blocks ready to harvest right away. Every 2 minutes.',
+    look: { base: 'wood', color: 0x4a3a22, glyph: 'leaf', glyphColor: 0x8ac050 },
+    fx: { kind: 'compost', r: 6, cd: 120 },
+  },
+  {
+    ...D, id: 'treesapling', name: 'Tree Sapling', color: 0x5a9a3a,
+    desc: 'While you play, a tree grows on top of it after 40 seconds (gone again when the game ends).',
+    look: { base: 'soil', color: 0x5a3c26, glyph: 'leaf', glyphColor: 0x6ac040 },
+    fx: { kind: 'sapling', grow: 40, trunk: 4, log: 'oaklog', leaves: 'leaves' },
+  },
+  {
+    ...D, id: 'mushroomlog', name: 'Mushroom Log', color: 0x7a5a38,
+    desc: 'Grows mushrooms: use it every 45 seconds to pick one (counts as Vegetables).',
+    look: { base: 'wood', color: 0x6b4a30, glyph: 'mushroom', glyphColor: 0xd04030 },
+    fx: { kind: 'producer', every: 45, give: 'veggies', n: 1 },
+  },
+  {
+    ...D, id: 'fishtrap', name: 'Fish Trap', color: 0x8a7a5a,
+    desc: 'Put it in or next to water: it catches a fish every 60 seconds (use it to take it - it counts as Meat).',
+    look: { base: 'wood', color: 0x7a6a4a, glyph: 'fish', glyphColor: 0x80b0d0 },
+    fx: { kind: 'producer', every: 60, give: 'meat', n: 1, water: true },
+  },
+  {
+    ...D, id: 'chickencoop', name: 'Chicken Coop', color: 0xc8a070,
+    desc: 'The hens lay: use it every 90 seconds for 2 Meat.',
+    look: { base: 'wood', color: 0xb08a58, glyph: 'egg', glyphColor: 0xf8f0e0 },
+    fx: { kind: 'producer', every: 90, give: 'meat', n: 2 },
+  },
+  {
+    ...D, id: 'flowerpot', name: 'Flower Pot', color: 0xb05a3a,
+    desc: 'Grows a flower on top. Use it to change the flower\'s colour.',
+    look: { base: 'stone', color: 0xa04a2e, glyph: null, topBase: 'soil', topColor: 0x5a3c26, top: null },
+    fx: { kind: 'flowerpot' },
+  },
+  {
+    ...D, id: 'raincollector', name: 'Rain Collector', color: 0x6a8aa8,
+    desc: 'Fills up when it rains on it (up to 3 drinks). Use it to drink one and heal 15.',
+    look: { base: 'wood', color: 0x5a6a7a, glyph: 'drop', glyphColor: 0x9ad0ff },
+    fx: { kind: 'rain', every: 10, max: 3, heal: 15 },
+  },
+  {
+    ...D, id: 'greenhouseglass', name: 'Greenhouse Glass', color: 0xc8f0d0,
+    desc: 'Pale green glass panels. Crop Plots within 4 blocks of it grow twice as fast (with a Sprinkler too, four times).',
+    look: { base: 'glow', color: 0xb8e8c8, glyph: 'grid', glyphColor: 0x8ac0a0 },
+    fx: { kind: 'greenhouse', r: 4, mult: 2 },
+  },
 ]
 
 export const SPECIAL_BY_ID = new Map(SPECIAL_BLOCKS.map((b) => [b.id, b]))
