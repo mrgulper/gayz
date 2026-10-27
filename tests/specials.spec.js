@@ -1158,3 +1158,64 @@ test('special blocks batch 12: sprinkler, beehive, compost, sapling, mushrooms, 
     flower: true, rain: true, tree: true, treeGone: true,
   })
 })
+
+test('special blocks batch 13: scarecrow, colour lamp, torch, flicker, fireworks, fog, snow, bubbles, confetti, hologram', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 90, 'zombiespawner')
+    const out = {}
+    const ids = ['scarecrow', 'colorlamp', 'torchpost', 'flickerlight', 'fireworklauncher', 'fogmachine', 'snowmachine', 'bubbleblock', 'confetticannon', 'hologram']
+    out.inPicker = ids.every((id) => bm.isBlockType(id) && bm.blockTypeOf(id).desc && bm.blockIcon(id).startsWith('data:'))
+    out.lights = ['colorlamp', 'torchpost', 'flickerlight'].every((id) => bm.blockTypeOf(id).emissive)
+    ids.forEach((id, i) => bm.placeBlock(-9 + i * 2, 0, -4, id))
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    s._toSpawn = 0
+    s._breakTimer = 999
+    const sp = bm.specials
+    const me = { x: 0, y: 0, z: 0 }
+    const pos = (id) => [-9 + ids.indexOf(id) * 2, 0, -4]
+    out.scarecrow = sp.zombieTick(s._makeZombie('sc', -8, 0, -1, 100, false), 0.05) === 0.75
+    sp._overlaysDirty = true
+    sp.update(0.05, me)
+    const ov = (id) => sp._overlays.get(pos(id).join(','))
+    const lamp = ov('colorlamp')
+    const c0 = lamp?.material.color.getHex()
+    sp.use(...pos('colorlamp'))
+    sp.update(0.05, me)
+    out.lamp = !!lamp && lamp.material.color.getHex() !== c0
+    // Flicker: its brightness keeps changing.
+    const seen = new Set()
+    for (let i = 0; i < 40; i++) { sp._time += 0.3; sp.update(0.01, me); seen.add(ov('flickerlight')?.material.opacity.toFixed(2)) }
+    out.flicker = seen.size > 3
+    // Fireworks and confetti fill the air with sparks.
+    const live = () => sp._effects()._sprites.filter((x) => x.userData.t < x.userData.life).length
+    sp._effects().clear()
+    sp.use(...pos('fireworklauncher'))
+    const fw = live()
+    sp.use(...pos('confetticannon'))
+    out.party = fw >= 40 && live() >= fw + 40 && sp._lastSound === 'pop'
+    // Fog and snow machines switch on.
+    sp.use(...pos('fogmachine'))
+    sp.use(...pos('snowmachine'))
+    out.machines = sp._st.get(pos('fogmachine').join(',')).on && sp._st.get(pos('snowmachine').join(',')).on
+    // Hologram: a spinning block that changes when used.
+    const holo = ov('hologram')
+    sp.update(0.05, me)
+    const h0 = holo?.material.color.getHex()
+    const r0 = holo?.rotation.y
+    sp.use(...pos('hologram'))
+    sp._time += 0.5
+    sp.update(0.05, me)
+    out.hologram = !!holo && holo.material.color.getHex() !== h0 && holo.rotation.y !== r0
+    s.stop()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({ inPicker: true, lights: true, scarecrow: true, lamp: true, flicker: true, party: true, machines: true, hologram: true })
+})
