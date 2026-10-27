@@ -779,7 +779,8 @@ export class BuildSurvival {
   }
 
   _damageMult() {
-    return (1 + 0.25 * (this.upgrades?.damage || 0)) * (this.cfg?.damageMult ?? 1)
+    // x a Strength Totem's boost (BuildSpecials.js).
+    return (1 + 0.25 * (this.upgrades?.damage || 0)) * (this.cfg?.damageMult ?? 1) * this.bm.specials.damageMult()
   }
 
   // Coins come in through here, so Loot Rush doubles them all.
@@ -2302,6 +2303,8 @@ export class BuildSurvival {
   }
 
   _die(won = false) {
+    // A Bed you slept in brings you back once (BuildSpecials.js).
+    if (!won && this.bm.specials.tryRevive(this)) return
     this.dead = true
     const reward = this._endRun(won)
     const waves = won ? this.wave : Math.max(0, this.wave - 1)

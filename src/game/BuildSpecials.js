@@ -108,6 +108,9 @@ export class BuildSpecials {
     this._shieldUntil = 0
     this._standT = 0
     this._crumbled = []
+    this._buffs = {}
+    this._bed = null
+    this._bedUsed = false
     this._gates = [] // gates standing open: { cells, anchor, byPower, closeAt }
     this._on = new Set() // power: keys of blocks giving power right now
     this._powerAt = -1
@@ -375,9 +378,9 @@ export class BuildSpecials {
       this._standT = 0
       if (under) this._stepOn(under, me)
     }
-    // Walking on it: sticky, slippery...
+    // Walking on it: sticky, slippery... (and a speed boost on top).
     const ufx = (under || pad)?.def.fx
-    this.speedMult = ufx?.pspeed ?? 1
+    this.speedMult = (ufx?.pspeed ?? 1) * (this._buff('speed') || 1)
     this.gripMult = ufx?.pgrip ?? 1
     // A conveyor belt carries you along (not into walls).
     if (pad?.def.fx.kind === 'conveyor') {
@@ -398,6 +401,15 @@ export class BuildSpecials {
       if (this._jetHurt >= HURT_EVERY) {
         this._jetHurt = 0
         play._hurtPlayer(ufx.pdps * HURT_EVERY)
+      }
+    }
+    // Sauna Stones build up armor while you sit by them.
+    if (play) {
+      for (const e of this.kind('sauna')) {
+        if (dist3(me, e.x + 0.5, e.y, e.z + 0.5) > e.def.fx.r || (play.armor || 0) >= e.def.fx.max) continue
+        play.armor = Math.min(e.def.fx.max, (play.armor || 0) + e.def.fx.rate * dt)
+        play._renderHud()
+        break
       }
     }
     // Healing near campfires.
@@ -427,6 +439,18 @@ export class BuildSpecials {
 
   // Your feet just went into a pad's cell.
   _stepOn(entry, me) {
+    const sfx = entry.def.fx
+    if (sfx.kind === 'boost') {
+      if (sfx.speed) this._setBuff('speed', sfx.speed, sfx.time)
+      if (sfx.jump) {
+        const tm = this.bm.tryMode
+        tm.vel.y = sfx.jump
+        tm.onGround = false
+      }
+      this._sound('whoosh')
+      this._burst(entry, sfx.speed ? 0x60f0ff : 0x90ff60, 8)
+      return
+    }
     if (entry.def.fx.kind === 'piano') {
       this._playKey(entry)
       return
@@ -552,6 +576,43 @@ export class BuildSpecials {
     }
     if (fx.kind === 'piano') {
       this._playKey(entry)
+      return true
+    }
+    if (fx.kind === 'heal') {
+      const s = this._play()
+      if (s) {
+        s.health = fx.full ? s.maxHealth : Math.min(s.maxHealth, s.health + fx.heal)
+        s._renderHud()
+      }
+      this._sound('chime')
+      this._msg(fx.full ? t('specialHealedFull') : t('invHealed', { n: fx.heal }))
+      this._burst(entry, 0xff8080, 10)
+      return true
+    }
+    if (fx.kind === 'give') {
+      const s = this._play()
+      const left = s?.inv ? s.inv.add({ kind: 'item', id: fx.id, n: fx.n }) : fx.n
+      if (s && left >= fx.n) {
+        st.cdUntil = 0
+        this._msg(t('invFull'))
+        return true
+      }
+      this._sound('pop')
+      this._msg(t('specialGot', { item: t(fx.key), n: fx.n }))
+      return true
+    }
+    if (fx.kind === 'buff') {
+      this._setBuff(fx.buff, fx.mult, fx.time)
+      this._sound(fx.buff === 'damage' ? 'hum' : 'pop')
+      this._msg(t(fx.buff === 'damage' ? 'specialStronger' : 'specialFaster', { s: fx.time }))
+      this._burst(entry, fx.buff === 'damage' ? 0xff6040 : 0x60f0ff, 10)
+      return true
+    }
+    if (fx.kind === 'bed') {
+      this._bed = { x, y, z }
+      this._bedUsed = false
+      this._sound('chime')
+      this._msg(t('specialBedSet'))
       return true
     }
     if (fx.kind === 'turret') {
@@ -687,6 +748,39 @@ export class BuildSpecials {
     this._burst(entry, 0xfff4c0, 3)
   }
 
+  // ---- buffs (Speed Pad, Strength Totem, Coffee Machine) ----
+
+  _setBuff(name, mult, time) {
+    this._buffs[name] = { mult, until: this._time + time }
+  }
+
+  // The buff's multiplier while it lasts, else 0.
+  _buff(name) {
+    const b = this._buffs?.[name]
+    return this.active && b && b.until > this._time ? b.mult : 0
+  }
+
+  // Your damage multiplier (BuildSurvival._damageMult).
+  damageMult() {
+    return this._buff('damage') || 1
+  }
+
+  // Dying (BuildSurvival._die): a Bed you used brings you back there once
+  // per game, with half your health. True if it did.
+  tryRevive(s) {
+    const bed = this._bed
+    if (!this.active || !bed || this._bedUsed || !this.bm.getBlockAt(bed.x, bed.y, bed.z)) return false
+    this._bedUsed = true
+    s.health = Math.ceil(s.maxHealth / 2)
+    const tm = this.bm.tryMode
+    tm.pos.set(bed.x + 0.5, bed.y + 1, bed.z + 0.5)
+    tm.vel.set(0, 0, 0)
+    s._renderHud()
+    this._msg(t('specialRevived'))
+    this._sound('chime')
+    return true
+  }
+
   // Protected from every hit right now (Infection Cleanser).
   shielded() {
     return this.active && this._shieldUntil > this._time
@@ -694,8 +788,16 @@ export class BuildSpecials {
 
   // A zombie died (BuildSurvival.damageZombie): cursed ones pay extra.
   onKill(zb) {
-    if (!this.active || !zb.cursed) return
-    this.bm.survival?._earn?.(zb.cursed)
+    if (!this.active) return
+    const s = this.bm.survival
+    if (zb.cursed) s?._earn?.(zb.cursed)
+    // Lucky Clover near you: bonus coins.
+    const p = this.bm.tryMode.pos
+    for (const e of this.kind('clover')) {
+      if (dist3(p, e.x + 0.5, e.y, e.z + 0.5) > e.def.fx.r) continue
+      s?._earn?.(e.def.fx.coins)
+      break
+    }
   }
 
   // A shot was fired (BuildSurvival.shoot): Echo Stones near you repeat
@@ -1185,6 +1287,10 @@ export class BuildSpecials {
       if (!near(e)) continue
       this._effects().flame((e.x + 0.3 + Math.random() * 0.4) * B, (e.y + 1.05) * B, (e.z + 0.3 + Math.random() * 0.4) * B)
     }
+    for (const e of this.kind('sauna')) {
+      if (!near(e) || Math.random() < 0.5) continue
+      this._effects().spark((e.x + Math.random()) * B, (e.y + 1) * B, (e.z + Math.random()) * B, { color: 0xf0f0f0, life: 1.2, from: 0.3, to: 0.6, vel: new THREE.Vector3(0, 0.8 * B, 0), alpha: 0.5 })
+    }
     for (const e of this.kind('smoke')) {
       if (!(this._st.get(e.key)?.until > this._time) || !near(e)) continue
       const r = e.def.fx.r
@@ -1351,7 +1457,7 @@ const SEARCHLIGHT_MULT = 1.25
 const POWER_STEP = 0.1 // seconds between power updates
 const GATE_MODES = ['AND', 'OR', 'NOT']
 // Kinds that do something when used (plus lures with on: 'use').
-const USE_KINDS = new Set(['turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
+const USE_KINDS = new Set(['heal', 'give', 'buff', 'bed', 'turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
 // Piano Block notes: a major scale from middle C.
 const SCALE = [262, 294, 330, 349, 392, 440, 494, 523]
 
