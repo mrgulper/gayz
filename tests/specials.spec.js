@@ -962,3 +962,99 @@ test('special blocks batch 10: boat, checkpoint, portal, locker, shared chest, w
     bench: true, benchMax: true, recycle: true, fridge: true,
   })
 })
+
+test('special blocks batch 11: cooking pot, anvil, trash, vending, mailbox, safe, mystery box, slots, wishing well, clone', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 90, 'zombiespawner')
+    const out = {}
+    const ids = ['cookingpot', 'anvilblock', 'trashcan', 'vendingmachine', 'mailbox', 'safeblock', 'mysterybox', 'slotmachine', 'wishingwell', 'cloneblock']
+    out.inPicker = ids.every((id) => bm.isBlockType(id) && bm.blockTypeOf(id).desc && bm.blockIcon(id).startsWith('data:'))
+    const at = { cookingpot: [3, 0], anvilblock: [-3, 0], trashcan: [0, 3], vendingmachine: [0, -3], mailbox: [3, 3], safeblock: [-3, 3], mysterybox: [3, -3], slotmachine: [-3, -3], wishingwell: [6, 0], cloneblock: [-6, 0] }
+    for (const [id, [x, z]] of Object.entries(at)) bm.placeBlock(x, 0, z, id)
+    bm.placeBlock(-6, 1, 0, 'oakplanks')
+    try { localStorage.removeItem(`gayz-mailbox:${bm.activeSlot}:3,0,3`) } catch { /* fine */ }
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    s._toSpawn = 0
+    s._breakTimer = 999
+    const sp = bm.specials
+    const inv = s.inv
+    const count = (id) => [...inv.hotbar, ...inv.grid].filter((it) => it?.id === id).reduce((n, it) => n + it.n, 0)
+    const hold = (it) => { inv.hotbar[inv.active] = it }
+    // Cooking pot: meat heals double.
+    hold({ kind: 'item', id: 'meat', n: 2 })
+    s.health = 10
+    sp.use(3, 0, 0)
+    out.cook = s.health === 60 && inv.selected()?.n === 1
+    // Anvil: armor.
+    s.armor = 0
+    sp.use(-3, 0, 0)
+    out.anvil = s.armor === 5
+    // Trash can: gone.
+    hold({ kind: 'block', id: 'dirt', n: 30 })
+    sp.use(0, 3, 0) // nothing there
+    sp.use(0, 0, 3)
+    out.trash = inv.selected() === null
+    // Vending: 15 coins for a health pack.
+    s.coins = 100
+    const hp = count('healthpack')
+    sp.use(0, 0, -3)
+    out.vending = s.coins === 85 && count('healthpack') === hp + 1
+    // Mailbox: kept on the device.
+    hold({ kind: 'block', id: 'stone', n: 7 })
+    sp.use(3, 0, 3)
+    const saved = JSON.parse(localStorage.getItem(`gayz-mailbox:${bm.activeSlot}:3,0,3`) || '[]')
+    out.mailbox = saved.length === 1 && saved[0].id === 'stone' && saved[0].n === 7
+    // A fresh game reads it back (bad entries dropped).
+    localStorage.setItem(`gayz-mailbox:${bm.activeSlot}:3,0,3`, JSON.stringify([{ kind: 'block', id: 'stone', n: 7 }, { kind: 'item', id: 'nope', n: 1 }, { kind: 'block', id: 'dirt', n: 1e9 }]))
+    sp._st.get('3,0,3').items = undefined
+    hold(null)
+    sp.use(3, 0, 3)
+    out.mailboxBack = count('stone') >= 7 && sp._st.get('3,0,3').items.length === 0
+    // Safe: set a code, wrong code stays shut, right code opens.
+    const answers = ['1234', '0000', '1234']
+    const realPrompt = window.prompt
+    window.prompt = () => answers.shift()
+    sp.use(-3, 0, 3)
+    hold({ kind: 'block', id: 'oakplanks', n: 5 })
+    sp.use(-3, 0, 3)
+    const shut = inv.selected()?.n === 5
+    sp.use(-3, 0, 3)
+    window.prompt = realPrompt
+    out.safe = shut && inv.selected() === null && sp._st.get('-3,0,3').items.length === 1
+    // Mystery box and wishing well take coins and give something (or nothing).
+    s.coins = 100
+    sp.use(3, 0, -3)
+    out.mystery = s.coins === 80 || s.coins === 120
+    s.coins = 100
+    sp.use(6, 0, 0)
+    out.well = s.coins === 90 || s.coins === 120
+    // Slots: 5 coins a spin, shows the symbols.
+    s.coins = 100
+    sp.use(-3, 0, -3)
+    out.slots = [95, 103, 135].includes(s.coins) && /^. . .$/.test(sp._st.get('-3,0,-3').show)
+    // Clone: 8 of the block on top.
+    const planks = count('oakplanks')
+    sp.use(-6, 0, 0)
+    out.clone = count('oakplanks') === planks + 8
+    // Not enough coins: nothing happens.
+    s.coins = 0
+    const hp2 = count('healthpack')
+    sp._st.get('0,0,-3').cdUntil = 0
+    sp.use(0, 0, -3)
+    out.broke = count('healthpack') === hp2
+    s.stop()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({
+    inPicker: true, cook: true, anvil: true, trash: true, vending: true, mailbox: true, mailboxBack: true, safe: true,
+    mystery: true, well: true, slots: true, clone: true, broke: true,
+  })
+})

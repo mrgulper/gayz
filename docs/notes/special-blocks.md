@@ -42,4 +42,5 @@ Ideas that would need a whole new system get a smaller real effect instead; each
 - Batch 8 shipped 2026-10-27: buffs (`_setBuff/_buff`, `damageMult()` in `_damageMult`, speed buff in `speedMult`); `tryRevive` at the top of `_die` (not for wins); pad `boost` kind for speed/jump pads.
 - Batch 9 shipped 2026-10-27: zipline ride (`_ride`) takes over `_updateMe`; launch sets `_launched` so `gripMult` stays tiny until you land (else AIR_GRIP kills the throw); rails are `conveyor` with `noZombies`.
 - Batch 10 shipped 2026-10-27: storage `_useStore` (per-run `st.items`, guns never stored); Workbench `_bench` in `damageMult()`; boat buff read in BuildTryMode's water speed; checkpoint sets `tryMode._spawn`.
+- Batch 11 shipped 2026-10-27: Play-only use kinds share one branch in `use()`; `_pay`/`_prize` (weighted tables); Mailbox in localStorage `gayz-mailbox:<slot>:<x,y,z>`, read back as untrusted (`_loadMail`); Safe uses `window.prompt` for its code (per run).
 - Known flaky (also on main before this work): buildmode "new zombie kinds ... spiders climb" fails ~1 run in 5 (`spiderTop` 1); "Play mode spawns zombie waves" fails ~1 in 5 (`killed`/`corpse`).

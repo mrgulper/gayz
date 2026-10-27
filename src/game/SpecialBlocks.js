@@ -635,6 +635,68 @@ export const SPECIAL_BLOCKS = [
     look: { base: 'metal', color: 0xe0e6ea, glyph: 'fridge', glyphColor: 0x8a9aa8 },
     fx: { kind: 'give', id: 'meat', key: 'invMeat', n: 1, cd: 90 },
   },
+
+  // ---- Batch 11: shops, luck and handy blocks (while playing) ----
+  {
+    ...D, id: 'cookingpot', name: 'Cooking Pot', color: 0x3a3a3e,
+    desc: 'Use it while holding Meat to cook and eat it: heals 50 instead of 25.',
+    look: { base: 'metal', color: 0x2e2e32, glyph: 'pot', glyphColor: 0xc8a070 },
+    fx: { kind: 'cook', item: 'meat', heal: 50 },
+  },
+  {
+    ...D, id: 'anvilblock', name: 'Anvil', color: 0x4a4a52,
+    desc: 'Use it to hammer out 5 points of armor (up to 20). Once a minute.',
+    look: { base: 'metal', color: 0x3a3a42, glyph: 'anvil', glyphColor: 0x9a9aa8 },
+    fx: { kind: 'armor', add: 5, max: 20, cd: 60 },
+  },
+  {
+    ...D, id: 'trashcan', name: 'Trash Can', color: 0x6a7a6a,
+    desc: 'Use it to throw away the stack you\'re holding (never your gun).',
+    look: { base: 'metal', color: 0x5a6a5a, glyph: 'bin', glyphColor: 0xc8d8c8 },
+    fx: { kind: 'trash' },
+  },
+  {
+    ...D, id: 'vendingmachine', name: 'Vending Machine', color: 0xc03a3a,
+    desc: 'Use it to buy a Health Pack for 15 coins.',
+    look: { base: 'metal', color: 0xa02a2a, glyph: 'cup', glyphColor: 0xf0f0f0 },
+    fx: { kind: 'shop', cost: 15, table: [[1, { item: 'healthpack' }]] },
+  },
+  {
+    ...D, id: 'mailbox', name: 'Mailbox', color: 0x3a5aa0,
+    desc: 'Like a Locker for 3 stacks, but what you leave stays in it on this device for your next game on this map.',
+    look: { base: 'metal', color: 0x2a4a8a, glyph: 'letter', glyphColor: 0xf0f0f0 },
+    fx: { kind: 'store', slots: 3, keep: true },
+  },
+  {
+    ...D, id: 'safeblock', name: 'Safe', color: 0x4a4a4a,
+    desc: 'A Locker with a number code: the first use sets the code, then it only opens with it. Holds 1 stack for this game.',
+    look: { base: 'metal', color: 0x3a3a3a, glyph: 'dial', glyphColor: 0xd0d0d8 },
+    fx: { kind: 'store', slots: 1, code: true },
+  },
+  {
+    ...D, id: 'mysterybox', name: 'Mystery Box', color: 0x8a4ac0,
+    desc: 'Use it to spend 20 coins on a surprise: a Health Pack, an Ammo Box, armor, blocks, 40 coins - or nothing.',
+    look: { base: 'wood', color: 0x6a3a9a, glyph: 'question', glyphColor: 0xffe060 },
+    fx: { kind: 'gamble', cost: 20, table: [[3, { item: 'healthpack' }], [3, { item: 'ammobox' }], [2, { item: 'armor' }], [2, { block: 'stonebricks', n: 16 }], [1, { coins: 40 }], [1, {}]] },
+  },
+  {
+    ...D, id: 'slotmachine', name: 'Slot Machine', color: 0xd0a030,
+    desc: 'Use it for a 5-coin spin: three the same wins 40 coins, two the same wins 8. Just for fun - game coins only.',
+    look: { base: 'metal', color: 0x8a6a20, glyph: 'seven', glyphColor: 0xff4040 },
+    fx: { kind: 'slots', cost: 5, three: 40, two: 8 },
+  },
+  {
+    ...D, id: 'wishingwell', name: 'Wishing Well', color: 0x6a7a9a,
+    desc: 'Throw in 10 coins and make a wish: full health, extra ammo, 30 coins back - or nothing at all.',
+    look: { base: 'stone', color: 0x7a7a82, glyph: 'star', glyphColor: 0xffe060, topBase: 'glow', topColor: 0x2a5a9a, top: 'star' },
+    fx: { kind: 'gamble', cost: 10, table: [[2, { heal: true }], [2, { mags: 1 }], [1, { coins: 30 }], [3, {}]] },
+  },
+  {
+    ...D, id: 'cloneblock', name: 'Clone Block', color: 0x50c0c0, emissive: 0x60e0e0, emissiveIntensity: 0.15,
+    desc: 'Put a block on top of it and use it: you get 8 of that block. Every 30 seconds.',
+    look: { base: 'glow', color: 0x2a6a6a, glyph: 'copy', glyphColor: 0x90f0f0 },
+    fx: { kind: 'clone', n: 8, cd: 30 },
+  },
 ]
 
 export const SPECIAL_BY_ID = new Map(SPECIAL_BLOCKS.map((b) => [b.id, b]))
