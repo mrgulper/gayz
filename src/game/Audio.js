@@ -51,6 +51,7 @@ const SPECIAL_SOUNDS = {
   twang: { notes: [[700, 0, 0.12, 'triangle', 0.15, 250]], noise: [0.08, 3000, 1200, 0.12] },
   zap: { noise: [0.2, 5000, 1500, 0.25], notes: [[90, 0, 0.2, 'sawtooth', 0.15, 60]] },
   turret: { noise: [0.06, 2500, 800, 0.25] },
+  firework: { notes: [[300, 0, 0.5, 'sine', 0.06, 1200]], noise: [0.9, 2000, 300, 0.3] },
   honk: { notes: [[220, 0, 0.3, 'sawtooth', 0.15], [277, 0, 0.3, 'sawtooth', 0.12], [220, 0.35, 0.45, 'sawtooth', 0.15], [277, 0.35, 0.45, 'sawtooth', 0.12]] },
 }
 

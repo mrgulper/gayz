@@ -759,6 +759,68 @@ export const SPECIAL_BLOCKS = [
     look: { base: 'glow', color: 0xb8e8c8, glyph: 'grid', glyphColor: 0x8ac0a0 },
     fx: { kind: 'greenhouse', r: 4, mult: 2 },
   },
+
+  // ---- Batch 13: lights and effects ----
+  {
+    ...D, id: 'scarecrow', name: 'Scarecrow', color: 0xc8a050,
+    desc: 'Spooks zombies within 6 blocks of it, so they slow down a little.',
+    look: { base: 'wood', color: 0xb08a48, glyph: 'person', glyphColor: 0xe8c860 },
+    fx: { kind: 'zaura', r: 6, slow: 0.75, tint: 0xe8c860 },
+  },
+  {
+    ...D, id: 'colorlamp', name: 'Colour Lamp', color: 0xf0f0f0, emissive: 0xffffff, emissiveIntensity: 0.4,
+    desc: 'A lamp that lights up the area. Use it to change its colour (8 colours).',
+    look: { base: 'glow', color: 0xe8e8e8, glyph: null },
+    fx: { kind: 'lamp' },
+  },
+  {
+    ...D, id: 'torchpost', name: 'Torch Post', color: 0x8a6a40, emissive: 0xffa040, emissiveIntensity: 0.4,
+    desc: 'A post with a flame burning on top that lights up the area.',
+    look: { base: 'wood', color: 0x7a5a38, glyph: 'flame', glyphColor: 0xffa030 },
+    fx: { kind: 'torch' },
+  },
+  {
+    ...D, id: 'flickerlight', name: 'Flicker Light', color: 0xd8d0b0, emissive: 0xfff0c0, emissiveIntensity: 0.3,
+    desc: 'A spooky light that flickers on and off.',
+    look: { base: 'glow', color: 0xc8c0a0, glyph: 'bulb', glyphColor: 0xfff8d0 },
+    fx: { kind: 'flicker' },
+  },
+  {
+    ...D, id: 'fireworklauncher', name: 'Firework Launcher', color: 0xc04060,
+    desc: 'Use it to shoot a firework that bursts high in the sky.',
+    look: { base: 'metal', color: 0x4a2a3a, glyph: 'rocket', glyphColor: 0xff6080 },
+    fx: { kind: 'firework', cd: 1.5 },
+  },
+  {
+    ...D, id: 'fogmachine', name: 'Fog Machine', color: 0x8a8a90,
+    desc: 'Use it to switch it on or off: it fills the area around it with drifting fog.',
+    look: { base: 'metal', color: 0x5a5a62, glyph: 'cloud', glyphColor: 0xd8d8e0 },
+    fx: { kind: 'machine', make: 'fog', r: 4 },
+  },
+  {
+    ...D, id: 'snowmachine', name: 'Snow Machine', color: 0xe0f0ff,
+    desc: 'Use it to switch it on or off: snow falls all around it.',
+    look: { base: 'metal', color: 0x8aa0b8, glyph: 'snowflake', glyphColor: 0xffffff },
+    fx: { kind: 'machine', make: 'snow', r: 4 },
+  },
+  {
+    ...D, id: 'bubbleblock', name: 'Bubble Block', color: 0x60b0e0,
+    desc: 'Bubbles keep floating up out of it.',
+    look: { base: 'glow', color: 0x2a6a9a, glyph: 'bubbles', glyphColor: 0xc0f0ff },
+    fx: { kind: 'bubbles' },
+  },
+  {
+    ...D, id: 'confetticannon', name: 'Confetti Cannon', color: 0xf0c040,
+    desc: 'Use it for a burst of party confetti.',
+    look: { base: 'metal', color: 0x6a5a2a, glyph: 'star', glyphColor: 0xff70c0 },
+    fx: { kind: 'confetti', cd: 1 },
+  },
+  {
+    ...D, id: 'hologram', name: 'Hologram Block', color: 0x60d0f0, emissive: 0x60e0ff, emissiveIntensity: 0.2,
+    desc: 'Shows a small glowing block spinning over it. Use it to change which block it shows.',
+    look: { base: 'glow', color: 0x1a3a4a, glyph: 'cube', glyphColor: 0x80f0ff },
+    fx: { kind: 'hologram' },
+  },
 ]
 
 export const SPECIAL_BY_ID = new Map(SPECIAL_BLOCKS.map((b) => [b.id, b]))

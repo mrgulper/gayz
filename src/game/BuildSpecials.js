@@ -669,6 +669,25 @@ export class BuildSpecials {
       this._playKey(entry)
       return true
     }
+    if (fx.kind === 'lamp') {
+      st.color = ((st.color || 0) + 1) % LAMP_COLORS.length
+      this._sound('pop')
+      return true
+    }
+    if (fx.kind === 'machine') {
+      st.on = !st.on
+      this._sound(st.on ? 'hum' : 'pop')
+      return true
+    }
+    if (fx.kind === 'firework' || fx.kind === 'confetti') {
+      this._celebrate(entry, fx.kind)
+      return true
+    }
+    if (fx.kind === 'hologram') {
+      st.pick = ((st.pick ?? 0) + 1) % HOLO_BLOCKS.length
+      this._sound('pop')
+      return true
+    }
     if (fx.kind === 'producer') {
       // Makes something every fx.every seconds; use it to collect.
       if (st.readyAt === undefined) st.readyAt = this._time + fx.every
@@ -1311,6 +1330,33 @@ export class BuildSpecials {
     return false
   }
 
+  // A firework (a rocket of sparks that bursts high up) or a confetti pop.
+  _celebrate(e, kind) {
+    const fx = this._effects()
+    const B = this.B
+    const cx = (e.x + 0.5) * B
+    const cz = (e.z + 0.5) * B
+    const colors = [0xff4060, 0xffd040, 0x40e080, 0x40a0ff, 0xd060ff, 0xffffff]
+    if (kind === 'firework') {
+      const top = (e.y + 12) * B
+      for (let i = 0; i < 10; i++) fx.spark(cx, (e.y + 1 + i * 1.1) * B, cz, { color: 0xffe0a0, life: 0.3, from: 0.2, to: 0.05, delay: i * 0.05 })
+      const c = colors[Math.floor(Math.random() * colors.length)]
+      for (let i = 0; i < 40; i++) {
+        const a = Math.random() * Math.PI * 2
+        const b = Math.acos(Math.random() * 2 - 1)
+        const v = new THREE.Vector3(Math.sin(b) * Math.cos(a), Math.cos(b), Math.sin(b) * Math.sin(a)).multiplyScalar(6 * B)
+        fx.spark(cx, top, cz, { color: i % 3 ? c : 0xffffff, life: 1.2, from: 0.35, to: 0.05, vel: v, delay: 0.55 })
+      }
+      this._sound('firework')
+    } else {
+      for (let i = 0; i < 50; i++) {
+        const v = new THREE.Vector3((Math.random() - 0.5) * 5, 4 + Math.random() * 5, (Math.random() - 0.5) * 5).multiplyScalar(B)
+        fx.spark(cx, (e.y + 1) * B, cz, { color: colors[i % colors.length], life: 1.5, from: 0.18, to: 0.12, vel: v, drag: 1.5 })
+      }
+      this._sound('pop')
+    }
+  }
+
   // Raining, with open sky over this block.
   _rainingOn(e) {
     const s = this.bm.survival
@@ -1857,6 +1903,21 @@ export class BuildSpecials {
       if (!near(e)) continue
       this._effects().flame((e.x + 0.3 + Math.random() * 0.4) * B, (e.y + 1.05) * B, (e.z + 0.3 + Math.random() * 0.4) * B)
     }
+    for (const e of this.kind('torch')) {
+      if (near(e) && Math.random() < 0.6) this._effects().flame((e.x + 0.4 + Math.random() * 0.2) * B, (e.y + 1.02) * B, (e.z + 0.4 + Math.random() * 0.2) * B)
+    }
+    for (const e of this.kind('machine')) {
+      if (!near(e) || !this._st.get(e.key)?.on) continue
+      const r = e.def.fx.r
+      const px = (e.x + 0.5 + (Math.random() - 0.5) * r * 2) * B
+      const pz = (e.z + 0.5 + (Math.random() - 0.5) * r * 2) * B
+      if (e.def.fx.make === 'fog') this._effects().smoke(px, (e.y + 0.5 + Math.random()) * B, pz)
+      else for (let i = 0; i < 3; i++) this._effects().spark((e.x + 0.5 + (Math.random() - 0.5) * r * 2) * B, (e.y + 5) * B, (e.z + 0.5 + (Math.random() - 0.5) * r * 2) * B, { color: 0xffffff, life: 2.5, from: 0.14, to: 0.1, vel: new THREE.Vector3(0, -2 * B, 0), drag: 0 })
+    }
+    for (const e of this.kind('bubbles')) {
+      if (!near(e) || Math.random() < 0.4) continue
+      this._effects().spark((e.x + 0.2 + Math.random() * 0.6) * B, (e.y + 1) * B, (e.z + 0.2 + Math.random() * 0.6) * B, { color: 0xa0e0ff, life: 2, from: 0.12, to: 0.25, vel: new THREE.Vector3(0, 1.5 * B, 0), drag: 0, alpha: 0.7 })
+    }
     for (const e of this.kind('sprinkler')) {
       if (!near(e) || Math.random() < 0.4) continue
       const a = Math.random() * Math.PI * 2
@@ -1906,7 +1967,7 @@ export class BuildSpecials {
   // the nearest MAX_OVERLAYS within OVERLAY_RANGE.
   _pickOverlays(me) {
     const want = []
-    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter', 'blade', 'power', 'turret', 'searchlight', 'slots', 'flowerpot', 'rain']) {
+    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter', 'blade', 'power', 'turret', 'searchlight', 'slots', 'flowerpot', 'rain', 'lamp', 'flicker', 'hologram']) {
       for (const e of this.kind(kind)) {
         if (kind === 'lure' && !e.def.fx.label) continue
         const d = (e.x - me.x) ** 2 + (e.y - me.y) ** 2 + (e.z - me.z) ** 2
@@ -1923,10 +1984,15 @@ export class BuildSpecials {
     const B = this.B
     const kind = e.def.fx.kind
     let obj = null
-    if (kind === 'disco' || kind === 'power') {
-      obj = new THREE.Mesh(sharedBox(), new THREE.MeshBasicMaterial({ color: kind === 'power' ? 0xffe040 : 0xffffff, transparent: true, opacity: kind === 'power' ? 0.3 : 0.4, depthWrite: false }))
+    if (kind === 'disco' || kind === 'power' || kind === 'lamp' || kind === 'flicker') {
+      obj = new THREE.Mesh(sharedBox(), new THREE.MeshBasicMaterial({ color: kind === 'power' ? 0xffe040 : kind === 'flicker' ? 0xfff0c0 : 0xffffff, transparent: true, opacity: kind === 'power' ? 0.3 : 0.4, depthWrite: false }))
       obj.scale.setScalar(1.02 * B)
       obj.position.set((e.x + 0.5) * B, (e.y + 0.5) * B, (e.z + 0.5) * B)
+    } else if (kind === 'hologram') {
+      // A small see-through block spinning over it.
+      obj = new THREE.Mesh(sharedBox(), new THREE.MeshBasicMaterial({ color: 0x80e0ff, transparent: true, opacity: 0.55, depthWrite: false }))
+      obj.scale.setScalar(0.5 * B)
+      obj.position.set((e.x + 0.5) * B, (e.y + 1.6) * B, (e.z + 0.5) * B)
     } else if (kind === 'flowerpot') {
       // A stem with a flower head on top.
       obj = new THREE.Group()
@@ -1994,7 +2060,23 @@ export class BuildSpecials {
     for (const obj of this._overlays.values()) {
       const e = obj.userData.entry
       const kind = e.def.fx.kind
-      if (kind === 'power') {
+      if (kind === 'lamp') {
+        obj.material.color.setHex(LAMP_COLORS[this._st.get(e.key)?.color || 0])
+      } else if (kind === 'flicker') {
+        // Mostly on, with quick random dips.
+        const st = this._state(e)
+        if (!(st.next > this._time)) {
+          st.next = this._time + 0.05 + Math.random() * 0.25
+          st.level = Math.random() < 0.25 ? Math.random() * 0.1 : 0.35 + Math.random() * 0.15
+        }
+        obj.material.opacity = st.level
+      } else if (kind === 'hologram') {
+        const type = HOLO_BLOCKS[this._st.get(e.key)?.pick || 0]
+        obj.material.color.setHex(this.bm.constructor.blockColor(type) ?? 0x80e0ff)
+        obj.rotation.y = this._time * 1.5
+        obj.rotation.x = 0.4
+        obj.position.y = (e.y + 1.6 + Math.sin(this._time * 2) * 0.1) * this.B
+      } else if (kind === 'power') {
         obj.visible = this._on.has(e.key)
       } else if (kind === 'searchlight') {
         obj.visible = this.powered(e)
@@ -2053,6 +2135,8 @@ export class BuildSpecials {
 
 const EMPTY = new Set()
 const SEARCHLIGHT_MULT = 1.25
+const LAMP_COLORS = [0xffffff, 0xff4040, 0xffa030, 0xffe040, 0x50e060, 0x40c0ff, 0x7060ff, 0xff60d0]
+const HOLO_BLOCKS = ['diamondblock', 'gold', 'emeraldblock', 'grass', 'stone', 'oaklog', 'amethystblock', 'c4']
 const FLOWER_COLORS = [0xf04060, 0xf0d040, 0x6080f0, 0xf080d0, 0xffffff, 0xf08030]
 const MAIL_KEY = 'gayz-mailbox' // + map slot + block spot (Mailbox)
 const SLOT_SYMBOLS = ['7', '$', '*', '@']
@@ -2060,7 +2144,7 @@ const BENCH_STEP = 0.1 // damage added per Workbench Upgrade
 const POWER_STEP = 0.1 // seconds between power updates
 const GATE_MODES = ['AND', 'OR', 'NOT']
 // Kinds that do something when used (plus lures with on: 'use').
-const USE_KINDS = new Set(['producer', 'compost', 'flowerpot', 'rain', 'cook', 'armor', 'trash', 'shop', 'gamble', 'slots', 'clone', 'checkpoint', 'store', 'weaponrack', 'ammo', 'bench', 'recycler', 'boat', 'elevator', 'zipline', 'rope', 'launcher', 'heal', 'give', 'buff', 'bed', 'turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
+const USE_KINDS = new Set(['lamp', 'machine', 'firework', 'confetti', 'hologram', 'producer', 'compost', 'flowerpot', 'rain', 'cook', 'armor', 'trash', 'shop', 'gamble', 'slots', 'clone', 'checkpoint', 'store', 'weaponrack', 'ammo', 'bench', 'recycler', 'boat', 'elevator', 'zipline', 'rope', 'launcher', 'heal', 'give', 'buff', 'bed', 'turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
 // Piano Block notes: a major scale from middle C.
 const SCALE = [262, 294, 330, 349, 392, 440, 494, 523]
 
