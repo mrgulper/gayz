@@ -387,6 +387,68 @@ export const SPECIAL_BLOCKS = [
     look: { base: 'stone', color: 0x6a645a, glyph: 'arrow', glyphColor: 0xd8c890 },
     fx: { kind: 'arrows', r: 12, every: 1, dmg: 15 },
   },
+
+  // ---- Batch 7: machines ----
+  {
+    ...D, id: 'electricfence', name: 'Electric Fence', color: 0x5a7aa0,
+    desc: 'Needs power: zombies that touch it take 20 damage and are thrown 2 blocks back (once a second each).',
+    look: { base: 'metal', color: 0x3a4a5a, glyph: 'bolt', glyphColor: 0x80c8ff },
+    fx: { kind: 'efence', dmg: 20, push: 2, every: 1 },
+  },
+  {
+    ...D, id: 'autoturret', name: 'Auto Turret', color: 0x4a4a52,
+    desc: 'Shoots the nearest zombie it can see within 14 blocks twice a second (12 damage). Starts with 20 shots; use it to load 30 more from your ammo.',
+    look: { base: 'metal', color: 0x3a3a42, glyph: 'crosshair', glyphColor: 0xffd060 },
+    fx: { kind: 'turret', r: 14, every: 0.5, dmg: 12, start: 20, load: 30 },
+  },
+  {
+    ...D, id: 'searchlight', name: 'Searchlight', color: 0xf0e8a0, emissive: 0xfff0b0, emissiveIntensity: 0.3,
+    desc: 'Needs power: a beam sweeps round it, and zombies within 16 blocks take 25% more damage.',
+    look: { base: 'metal', color: 0x5a5a62, glyph: 'sun', glyphColor: 0xfff0a0 },
+    fx: { kind: 'searchlight', r: 16 },
+  },
+  {
+    ...D, id: 'repairstation', name: 'Repair Station', color: 0x4a8a4a,
+    desc: 'Puts back blocks broken within 8 blocks of it, one every 2 seconds, while you try or play the map.',
+    look: { base: 'metal', color: 0x2e4a2e, glyph: 'wrench', glyphColor: 0x90f090 },
+    fx: { kind: 'repair', r: 8, every: 2 },
+  },
+  {
+    ...D, id: 'gateblock', name: 'Gate', color: 0x6a5a48,
+    desc: 'Use it to open the whole gate (all the Gate blocks joined to it) for 5 seconds - or power it to keep it open.',
+    look: { base: 'wood', color: 0x5a4632, glyph: 'bars', glyphColor: 0x8a8a92 },
+    fx: { kind: 'gate', open: 5 },
+  },
+  {
+    ...D, id: 'piston', name: 'Piston', color: 0x9a8a6a,
+    desc: 'When its power comes on, it kicks zombies within 3 blocks 4 blocks away (and bumps you, if you\'re right next to it).',
+    look: { base: 'wood', color: 0x8a7650, glyph: 'arrowup', glyphColor: 0x9a9aa2, topBase: 'metal', topColor: 0x8a8a92, top: null },
+    fx: { kind: 'piston', r: 3, push: 4 },
+  },
+  {
+    ...D, id: 'stickypiston', name: 'Sticky Piston', color: 0x7a9a5a,
+    desc: 'When its power comes on, it yanks zombies within 6 blocks in toward it.',
+    look: { base: 'wood', color: 0x8a7650, glyph: 'arrowup', glyphColor: 0x9ad070, topBase: 'jelly', topColor: 0x7ac050, top: null },
+    fx: { kind: 'piston', r: 6, push: 6, pull: true },
+  },
+  {
+    ...D, id: 'conveyorbelt', name: 'Conveyor Belt', color: 0x3a3a3a, shape: 'pad',
+    desc: 'Carries you and zombies standing on it along the way it faces (the way you face when you place it).',
+    look: { base: 'metal', color: 0x2a2a2e, glyph: 'chevron', glyphColor: 0xe0c040 },
+    fx: { kind: 'conveyor', speed: 3 },
+  },
+  {
+    ...D, id: 'fanpusher', name: 'Fan Pusher', color: 0x7a8a9a,
+    desc: 'Needs power: blows zombies away until they\'re 6 blocks from it.',
+    look: { base: 'metal', color: 0x4a5462, glyph: 'fan', glyphColor: 0xd0e0f0 },
+    fx: { kind: 'fan', r: 6, push: 6, power: true },
+  },
+  {
+    ...D, id: 'magnetblock', name: 'Magnet', color: 0xc03a3a,
+    desc: 'Stand next to it and dropped items within 16 blocks of it fly to you.',
+    look: { base: 'metal', color: 0x5a5a62, glyph: 'magnet', glyphColor: 0xd04040 },
+    fx: { kind: 'magnet', r: 16, near: 3 },
+  },
 ]
 
 export const SPECIAL_BY_ID = new Map(SPECIAL_BLOCKS.map((b) => [b.id, b]))

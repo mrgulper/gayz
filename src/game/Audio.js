@@ -49,6 +49,8 @@ const SPECIAL_SOUNDS = {
   thud: { noise: [0.2, 300, 80, 0.35], notes: [[90, 0, 0.25, 'sine', 0.3, 45]] },
   hum: { notes: [[60, 0, 0.8, 'sawtooth', 0.1, 120], [120, 0.1, 0.7, 'square', 0.04]] },
   twang: { notes: [[700, 0, 0.12, 'triangle', 0.15, 250]], noise: [0.08, 3000, 1200, 0.12] },
+  zap: { noise: [0.2, 5000, 1500, 0.25], notes: [[90, 0, 0.2, 'sawtooth', 0.15, 60]] },
+  turret: { noise: [0.06, 2500, 800, 0.25] },
   honk: { notes: [[220, 0, 0.3, 'sawtooth', 0.15], [277, 0, 0.3, 'sawtooth', 0.12], [220, 0.35, 0.45, 'sawtooth', 0.15], [277, 0.35, 0.45, 'sawtooth', 0.12]] },
 }
 

@@ -1272,6 +1272,8 @@ export class BuildSurvival {
       const hurtBy = z.hurtBy || (z.hurtBy = new Map())
       hurtBy.set(by || '', (hurtBy.get(by || '') || 0) + Math.min(amount, z.health))
     }
+    // Lit by a Searchlight: hit harder (BuildSpecials.js).
+    if (amount > 0) amount *= this.bm.specials.zombieHurtMult(z)
     z.health -= amount
     z.flash = 0.12
     if (z.skel && z.health > 0 && !z.rise && amount > 0) z.hitAnim = z.skel.play('hit', { once: true, fade: 0.05, timeScale: 1.6 })

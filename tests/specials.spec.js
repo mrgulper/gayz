@@ -607,3 +607,109 @@ test('special blocks batch 6: generator, solar, wire, battery, button, timer, mo
     button: true, batteryHolds: true, batteryEmpty: true, timer: true, motion: true, night: true, day: true, gateNot: true, gateAnd: true,
   })
 })
+
+test('special blocks batch 7: electric fence, turret, searchlight, repair, gate, pistons, conveyor, fan, magnet', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 90, 'zombiespawner')
+    const out = {}
+    const ids = ['electricfence', 'autoturret', 'searchlight', 'repairstation', 'gateblock', 'piston', 'stickypiston', 'conveyorbelt', 'fanpusher', 'magnetblock']
+    out.inPicker = ids.every((id) => bm.isBlockType(id) && bm.blockTypeOf(id).desc && bm.blockIcon(id).startsWith('data:'))
+    // One powered corner: a generator with a fence, searchlight and fan pusher near it.
+    bm.placeBlock(40, 0, 0, 'generator')
+    bm.placeBlock(43, 0, 0, 'electricfence')
+    bm.placeBlock(40, 0, 4, 'searchlight')
+    bm.placeBlock(36, 0, 0, 'fanpusher')
+    bm.placeBlock(-40, 0, 0, 'autoturret')
+    bm.placeBlock(20, 0, 20, 'repairstation')
+    for (let y = 0; y < 2; y++) for (let x = -2; x <= 2; x++) bm.placeBlock(x, y, -20, 'gateblock')
+    bm.placeBlock(-20, 0, 20, 'piston')
+    bm.placeBlock(-20, 0, 30, 'stickypiston')
+    bm.placeBlock(-22, 0, 20, 'buttonblock')
+    bm.placeBlock(-22, 0, 30, 'buttonblock')
+    bm.placeBlock(10, 0, -5, 'conveyorbelt', false, { facing: 0 })
+    bm.placeBlock(-30, 0, -30, 'magnetblock')
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    s._toSpawn = 0
+    s._breakTimer = 999
+    const sp = bm.specials
+    const zombie = (x, z) => s._makeZombie(`t${Math.random()}`, x, 0, z, 1000, false)
+    const me = { x: 0, y: 0, z: 0 }
+    const tick = (secs = 0.15, at = me) => { sp._time += secs; sp.update(0.01, at) }
+    // Unpowered: the fence does nothing.
+    tick()
+    const zf = zombie(43.5, 1.3)
+    sp.zombieTick(zf, 0.05)
+    out.fenceOff = zf.health === 1000
+    sp.use(40, 0, 0)
+    tick()
+    zf._zapCd = 0
+    sp.zombieTick(zf, 0.05)
+    out.fenceZaps = zf.health === 980 && zf._knock > 0
+    // Searchlight: zombies near it take more damage while powered.
+    const zl = zombie(40.5, 8)
+    tick()
+    s.damageZombie(zl, 40)
+    out.searchlight = zl.health === 950
+    // Fan pusher: blows zombies out to 6 blocks.
+    const zfan = zombie(36.5, 2.5)
+    for (let i = 0; i < 60; i++) sp.zombieTick(zfan, 0.05)
+    out.fan = Math.hypot(zfan.x - 36.5, zfan.z - 0.5) >= 5.9
+    // Turret: shoots and loads ammo.
+    s.zombies.length = 0
+    const zt = zombie(-35, 0.5)
+    tick()
+    out.turret = zt.health === 988 && sp._st.get('-40,0,0').ammo === 19
+    const reserve = s.reserve
+    sp.use(-40, 0, 0)
+    out.turretLoad = sp._st.get('-40,0,0').ammo === 19 + Math.min(30, reserve) && s.reserve === reserve - Math.min(30, reserve)
+    s.zombies.length = 0
+    // Repair: a block broken near it comes back.
+    bm.placeBlock(22, 0, 20, 'stone')
+    bm.tryMode.breakBlock(22, 0, 20)
+    const gone = bm.getBlockAt(22, 0, 20) === null
+    sp._state(sp.entryAt(20, 0, 20)).next = 0
+    tick()
+    out.repair = gone && bm.getBlockAt(22, 0, 20) === 'stone'
+    // Gate: the whole gate opens, then shuts after 5 s.
+    sp.use(0, 0, -20)
+    out.gateOpen = [-2, -1, 0, 1, 2].every((x) => bm.getBlockAt(x, 0, -20) === null && bm.getBlockAt(x, 1, -20) === null)
+    tick(6)
+    out.gateShut = [-2, -1, 0, 1, 2].every((x) => bm.getBlockAt(x, 0, -20) === 'gateblock' && bm.getBlockAt(x, 1, -20) === 'gateblock')
+    // Pistons: kick out / pull in when their button powers them.
+    const zp = zombie(-18.5, 20.5)
+    const zs = zombie(-15, 30.5)
+    sp.use(-22, 0, 20)
+    sp.use(-22, 0, 30)
+    tick()
+    for (let i = 0; i < 10; i++) { sp.zombieTick(zp, 0.05); sp.zombieTick(zs, 0.05) }
+    out.piston = zp.x > -16
+    out.sticky = zs.x < -17
+    // Conveyor: carries a zombie along the way it faces (-z for facing 0).
+    const zc = zombie(10.5, -4.5)
+    zc.y = 0.07 // standing on the belt's top
+    const z0 = zc.z
+    for (let i = 0; i < 10; i++) sp.zombieTick(zc, 0.05)
+    out.conveyor = zc.z < z0 - 0.8 // carried off its one-block belt
+    // Magnet: drops near it come to you when you stand by it.
+    s._drops.spawn('stone', -25, 0, -30)
+    const d = s._drops.list[s._drops.list.length - 1]
+    const before = Math.hypot(d.x + 29, d.z + 29)
+    tick(0.15, { x: -29, y: 0, z: -29 })
+    out.magnet = Math.hypot(d.x + 29, d.z + 29) < before
+    s.stop()
+    out.gatesBackOnStop = bm.getBlockAt(0, 0, -20) === 'gateblock'
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({
+    inPicker: true, fenceOff: true, fenceZaps: true, searchlight: true, fan: true, turret: true, turretLoad: true,
+    repair: true, gateOpen: true, gateShut: true, piston: true, sticky: true, conveyor: true, magnet: true, gatesBackOnStop: true,
+  })
+})

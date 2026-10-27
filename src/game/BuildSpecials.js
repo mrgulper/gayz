@@ -108,6 +108,7 @@ export class BuildSpecials {
     this._shieldUntil = 0
     this._standT = 0
     this._crumbled = []
+    this._gates = [] // gates standing open: { cells, anchor, byPower, closeAt }
     this._on = new Set() // power: keys of blocks giving power right now
     this._powerAt = -1
   }
@@ -115,6 +116,7 @@ export class BuildSpecials {
   stop() {
     if (!this.active) return
     this._restoreCrumbled(true)
+    this._closeGates(true)
     this.active = false
     this.speedMult = 1
     this.gripMult = 1
@@ -200,6 +202,64 @@ export class BuildSpecials {
       best.flash = 0.12
       this._sound('twang')
       this._trail(e, best, 0xe0c890)
+    }
+    // Auto Turrets shoot while they have ammo (no power needed).
+    for (const e of this.kind('turret')) {
+      const st = this._state(e)
+      if (st.ammo === undefined) st.ammo = e.def.fx.start
+      if (st.next > now || st.ammo <= 0) continue
+      const fx = e.def.fx
+      let best = null
+      let bestD = fx.r
+      for (const zb of zombies) {
+        const d = dist3(zb, e.x + 0.5, e.y, e.z + 0.5)
+        if (d < bestD && this._clearLine(e, zb)) {
+          best = zb
+          bestD = d
+        }
+      }
+      if (!best) continue
+      st.next = now + fx.every
+      st.ammo--
+      best.health -= fx.dmg
+      best.flash = 0.12
+      this._sound('turret')
+      this._trail(e, best, 0xffe080)
+    }
+    // Searchlights mark zombies in their light (they take more damage).
+    for (const e of this.kind('searchlight')) {
+      if (!this.powered(e)) continue
+      for (const zb of zombies) if (dist3(zb, e.x + 0.5, e.y, e.z + 0.5) <= e.def.fx.r) zb._litUntil = now + 0.5
+    }
+    // Repair Stations put back blocks broken near them, one at a time.
+    for (const e of this.kind('repair')) {
+      const st = this._state(e)
+      if (st.next > now) continue
+      st.next = now + e.def.fx.every
+      this._repairNear(e)
+    }
+    // Gates: open while powered; a used gate closes again by itself.
+    for (const e of this.kind('gate')) if (this.powered(e)) this._openGate(e, true)
+    this._closeGates()
+    // Pistons kick when their power comes on.
+    for (const e of this.kind('piston')) {
+      const st = this._state(e)
+      const p = this.powered(e)
+      if (p && !st.was) this._pistonKick(e, me)
+      st.was = p
+    }
+    // Magnets: stand by one and loose drops around it come to you.
+    const drops = s?._drops?.list || []
+    if (me && drops.length) {
+      for (const e of this.kind('magnet')) {
+        if (dist3(me, e.x + 0.5, e.y, e.z + 0.5) > e.def.fx.near) continue
+        for (const d of drops) {
+          if (Math.hypot(d.x - e.x - 0.5, d.z - e.z - 0.5) > e.def.fx.r) continue
+          d.x += (me.x - d.x) * 0.2
+          d.z += (me.z - d.z) * 0.2
+          d.y = Math.max(d.y, me.y + 0.4)
+        }
+      }
     }
     for (const e of this.kind('tripwire')) {
       const st = this._state(e)
@@ -319,6 +379,14 @@ export class BuildSpecials {
     const ufx = (under || pad)?.def.fx
     this.speedMult = ufx?.pspeed ?? 1
     this.gripMult = ufx?.pgrip ?? 1
+    // A conveyor belt carries you along (not into walls).
+    if (pad?.def.fx.kind === 'conveyor') {
+      const tm = this.bm.tryMode
+      const [cx, cz] = this._facingDir(pad)
+      const nx = tm.pos.x + cx * pad.def.fx.speed * dt
+      const nz = tm.pos.z + cz * pad.def.fx.speed * dt
+      if (!tm._hits(nx, tm.pos.y, nz)) tm.pos.set(nx, tm.pos.y, nz)
+    }
     // A Crumble Block gives way a moment after you stand on it.
     if (under?.def.fx.kind === 'crumble') {
       this._standT += dt
@@ -484,6 +552,20 @@ export class BuildSpecials {
     }
     if (fx.kind === 'piano') {
       this._playKey(entry)
+      return true
+    }
+    if (fx.kind === 'turret') {
+      const s = this._play()
+      const take = s ? Math.min(fx.load, s.reserve || 0) : fx.load
+      if (s) s.reserve -= take
+      st.ammo = (st.ammo ?? fx.start) + take
+      s?._renderHud()
+      this._sound('pop')
+      this._msg(t('specialTurretAmmo', { n: st.ammo }))
+      return true
+    }
+    if (fx.kind === 'gate') {
+      this._openGate(entry)
       return true
     }
     if (fx.kind === 'power') {
@@ -716,8 +798,7 @@ export class BuildSpecials {
     if (zb._knock > 0) {
       const k = Math.min(dt, zb._knock)
       zb._knock -= dt
-      zb.x += zb._kx * k
-      zb.z += zb._kz * k
+      this._push(zb, zb._kx * k, zb._kz * k)
       speed = 0
     }
     this._touching(zb, ZOMBIE_HEIGHT * (zb.size || 1), (e, dx, dz) => {
@@ -728,6 +809,21 @@ export class BuildSpecials {
       }
       if (fx.kind === 'campfire' && !(zb.burn > 0)) zb.burn = 4
       if (fx.zspeed) speed = Math.min(speed, fx.zspeed)
+      if (fx.kind === 'efence' && !(zb._zapCd > 0) && this.powered(e)) {
+        zb._zapCd = fx.every
+        zb.health -= fx.dmg
+        zb.flash = 0.12
+        const len = Math.hypot(dx, dz) || 1
+        zb._knock = 0.25
+        zb._kx = (dx / len) * (fx.push / 0.25)
+        zb._kz = (dz / len) * (fx.push / 0.25)
+        this._sound('zap')
+        this._burst(e, 0x80c0ff, 5)
+      }
+      if (fx.kind === 'conveyor' && Math.floor(zb.y + 0.01) === e.y) {
+        const [cx, cz] = this._facingDir(e)
+        this._push(zb, cx * fx.speed * dt, cz * fx.speed * dt)
+      }
       if (fx.kind === 'ice' && !(zb._slipCd > 0)) {
         zb._slipCd = fx.every
         zb._held = fx.fall
@@ -749,8 +845,7 @@ export class BuildSpecials {
       if (fx.kind === 'shove') {
         // Back the way it came, away from the block's middle.
         const len = Math.hypot(dx, dz) || 1
-        zb.x += (dx / len) * fx.push * dt
-        zb.z += (dz / len) * fx.push * dt
+        this._push(zb, (dx / len) * fx.push * dt, (dz / len) * fx.push * dt)
         speed = Math.min(speed, 0.3)
       }
     })
@@ -770,6 +865,7 @@ export class BuildSpecials {
       }
     }
     if (zb._slipCd > 0) zb._slipCd -= dt
+    if (zb._zapCd > 0) zb._zapCd -= dt
     // Held in place (Cage).
     if (zb._held > 0) {
       zb._held -= dt
@@ -782,9 +878,8 @@ export class BuildSpecials {
       const d = Math.hypot(zb.x - cx, zb.z - cz)
       const r = e.def.fx.r
       if (d < r && Math.abs(zb.y - e.y) < 6) {
-        const push = Math.min(r - d, 4 * dt)
-        zb.x += ((zb.x - cx) / (d || 1)) * push
-        zb.z += ((zb.z - cz) / (d || 1)) * push
+        const push = Math.min(r - d, (e.def.fx.push || 4) * dt)
+        this._push(zb, ((zb.x - cx) / (d || 1)) * push, ((zb.z - cz) / (d || 1)) * push)
       }
     }
     return speed
@@ -913,10 +1008,124 @@ export class BuildSpecials {
     }
   }
 
+  // ---- machines (batch 7) ----
+
+  // Extra damage a zombie takes (lit by a Searchlight).
+  zombieHurtMult(zb) {
+    return this.active && zb._litUntil > this._time ? SEARCHLIGHT_MULT : 1
+  }
+
+  // Puts back one block broken during this try within reach of a Repair
+  // Station (not the open world's own land, not where you stand).
+  _repairNear(e) {
+    const bm = this.bm
+    const tm = bm.tryMode
+    const p = tm.pos
+    for (const [key, b] of tm._broken || []) {
+      if (b.terrain || dist3(b, e.x, e.y, e.z) > e.def.fx.r || bm.getBlockAt(b.x, b.y, b.z)) continue
+      if (Math.floor(p.x) === b.x && Math.floor(p.z) === b.z && b.y >= Math.floor(p.y) && b.y <= Math.floor(p.y + 1.7)) continue
+      bm._suppressUndoRecording = true
+      bm.placeBlock(b.x, b.y, b.z, b.type, false, b.state)
+      bm._suppressUndoRecording = false
+      tm._broken.delete(key)
+      this._burst({ x: b.x, y: b.y - 0.5, z: b.z }, 0x80ff90, 6)
+      this._sound('pop')
+      return true
+    }
+    return false
+  }
+
+  // Opens a gate: it and every gate block joined to it go away (powered:
+  // until the power stops; used: for fx.open seconds).
+  _openGate(e, byPower = false) {
+    const bm = this.bm
+    const group = []
+    const seen = new Set([e.key])
+    const todo = [e]
+    while (todo.length && group.length < 64) {
+      const g = todo.pop()
+      group.push(g)
+      for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+        const n = this.entryAt(g.x + dx, g.y + dy, g.z + dz)
+        if (n && n.type === e.type && !seen.has(n.key)) {
+          seen.add(n.key)
+          todo.push(n)
+        }
+      }
+    }
+    const cells = group.map(({ x, y, z, type }) => ({ x, y, z, type }))
+    bm._suppressUndoRecording = true
+    for (const c of cells) bm.removeBlock(c.x, c.y, c.z)
+    bm._suppressUndoRecording = false
+    this._gates.push({ cells, anchor: { x: e.x, y: e.y, z: e.z, key: e.key }, byPower, closeAt: this._time + e.def.fx.open })
+    this._sound('clank')
+  }
+
+  _closeGates(all = false) {
+    if (!this._gates?.length) return
+    const bm = this.bm
+    const p = bm.tryMode.pos
+    this._gates = this._gates.filter((g) => {
+      if (!all && (g.byPower ? this.powered(g.anchor) : g.closeAt > this._time)) return true
+      const blocked = g.cells.some((c) => Math.floor(p.x) === c.x && Math.floor(p.z) === c.z && c.y >= Math.floor(p.y) && c.y <= Math.floor(p.y + 1.7))
+      if (blocked && !all) return true
+      bm._suppressUndoRecording = true
+      for (const c of g.cells) if (!bm.getBlockAt(c.x, c.y, c.z)) bm.placeBlock(c.x, c.y, c.z, c.type)
+      bm._suppressUndoRecording = false
+      return false
+    })
+  }
+
+  // A piston's kick: pushes (or, sticky, pulls) zombies - and you - near it.
+  _pistonKick(e, me) {
+    const fx = e.def.fx
+    const s = this.bm.survival
+    const sign = fx.pull ? -1 : 1
+    for (const zb of s?.active ? s.zombies : []) {
+      const dx = zb.x - e.x - 0.5
+      const dz = zb.z - e.z - 0.5
+      const d = Math.hypot(dx, dz)
+      if (d > fx.r || Math.abs(zb.y - e.y) > 2) continue
+      zb._knock = 0.3
+      zb._kx = sign * (dx / (d || 1)) * (Math.min(fx.push, fx.pull ? d - 1 : fx.push) / 0.3)
+      zb._kz = sign * (dz / (d || 1)) * (Math.min(fx.push, fx.pull ? d - 1 : fx.push) / 0.3)
+    }
+    if (me && !fx.pull && Math.hypot(me.x - e.x - 0.5, me.z - e.z - 0.5) <= fx.r * 0.6) {
+      const tm = this.bm.tryMode
+      const dx = me.x - e.x - 0.5
+      const dz = me.z - e.z - 0.5
+      const d = Math.hypot(dx, dz) || 1
+      tm.vel.x += (dx / d) * 12
+      tm.vel.z += (dz / d) * 12
+      tm.vel.y = Math.max(tm.vel.y, 5)
+    }
+    this._sound('thud')
+    this._burst(e, 0xc0c0c0, 6)
+  }
+
+  // Moves a zombie sideways, stopping at walls.
+  _push(zb, dx, dz) {
+    const s = this.bm.survival
+    if (s?._moveZombieAxis) {
+      s._moveZombieAxis(zb, 'x', dx)
+      s._moveZombieAxis(zb, 'z', dz)
+    } else {
+      zb.x += dx
+      zb.z += dz
+    }
+  }
+
+  // Which way a faced block (a conveyor) points: [dx, dz].
+  _facingDir(e) {
+    const a = (this.bm._stairFacing.get(e.key) || 0) * (Math.PI / 2)
+    return [-Math.round(Math.sin(a)), -Math.round(Math.cos(a))]
+  }
+
   // Repellers, plus Shield Generators while their bubble is up.
   _repellers() {
     const out = [...this.kind('repel')]
     for (const e of this.kind('shieldgen')) if (this._st.get(e.key)?.until > this._time) out.push(e)
+    for (const e of this.kind('fan')) if (!e.def.fx.power || this.powered(e)) out.push(e)
     return out
   }
 
@@ -1012,7 +1221,7 @@ export class BuildSpecials {
   // the nearest MAX_OVERLAYS within OVERLAY_RANGE.
   _pickOverlays(me) {
     const want = []
-    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter', 'blade', 'power']) {
+    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter', 'blade', 'power', 'turret', 'searchlight']) {
       for (const e of this.kind(kind)) {
         if (kind === 'lure' && !e.def.fx.label) continue
         const d = (e.x - me.x) ** 2 + (e.y - me.y) ** 2 + (e.z - me.z) ** 2
@@ -1049,7 +1258,15 @@ export class BuildSpecials {
       }
       obj.position.set((e.x + 0.5) * B, (e.y + 1) * B, (e.z + 0.5) * B)
       obj.userData.mat = mat
-    } else if (kind === 'score' || kind === 'radio' || kind === 'counter' || e.def.fx.label) {
+    } else if (kind === 'searchlight') {
+      // A pale beam sweeping round.
+      const geo = new THREE.CylinderGeometry(0.05, 1, 1, 10, 1, true)
+      geo.rotateZ(Math.PI / 2)
+      geo.translate(0.5, 0, 0)
+      obj = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xfff6c0, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }))
+      obj.scale.set(e.def.fx.r * B, 2 * B, 2 * B)
+      obj.position.set((e.x + 0.5) * B, (e.y + 1.1) * B, (e.z + 0.5) * B)
+    } else if (kind === 'score' || kind === 'radio' || kind === 'counter' || kind === 'turret' || e.def.fx.label) {
       obj = textSprite()
       obj.position.set((e.x + 0.5) * B, (e.y + 1.7) * B, (e.z + 0.5) * B)
       obj.scale.set(3 * B, 0.75 * B, 1)
@@ -1082,6 +1299,11 @@ export class BuildSpecials {
       const kind = e.def.fx.kind
       if (kind === 'power') {
         obj.visible = this._on.has(e.key)
+      } else if (kind === 'searchlight') {
+        obj.visible = this.powered(e)
+        obj.rotation.y = this._time * 0.8
+      } else if (kind === 'turret') {
+        setSpriteText(obj, t('specialTurretAmmo', { n: this._st.get(e.key)?.ammo ?? e.def.fx.start }))
       } else if (kind === 'blade') {
         obj.rotation.y = this._time * Math.PI * 2 / e.def.fx.every
       } else if (kind === 'disco') {
@@ -1125,10 +1347,11 @@ export class BuildSpecials {
 }
 
 const EMPTY = new Set()
+const SEARCHLIGHT_MULT = 1.25
 const POWER_STEP = 0.1 // seconds between power updates
 const GATE_MODES = ['AND', 'OR', 'NOT']
 // Kinds that do something when used (plus lures with on: 'use').
-const USE_KINDS = new Set(['power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
+const USE_KINDS = new Set(['turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
 // Piano Block notes: a major scale from middle C.
 const SCALE = [262, 294, 330, 349, 392, 440, 494, 523]
 
