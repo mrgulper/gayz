@@ -154,8 +154,10 @@ function cleanWorld(w) {
 export async function createServer(db, { name, mode, nickname, skin, world, id: wanted, hidden } = {}, now = Date.now()) {
   const m = MODES.includes(mode) ? mode : 'main'
   // Invite Friends picks the id itself so its link shows at once; taken or
-  // malformed, a new one is made (the reply says which).
-  const okWanted = typeof wanted === 'string' && wanted.length === 6 && [...wanted].every((ch) => ID_CHARS.includes(ch)) && !(await db.get(`servers/${wanted}`))
+  // malformed, a new one is made (the reply says which). A server nobody is
+  // left in can be opened again under its old id - a dropped player
+  // getting back in (PlayNet._rejoin) keeps the same invite link.
+  const okWanted = typeof wanted === 'string' && wanted.length === 6 && [...wanted].every((ch) => ID_CHARS.includes(ch)) && !livePlayers(await db.get(`servers/${wanted}`), now).length
   const id = okWanted ? wanted : newId(6)
   const pid = newId(10)
   const token = randomUUID().replace(/-/g, '')
@@ -170,10 +172,11 @@ export async function createServer(db, { name, mode, nickname, skin, world, id: 
       ...(cleanWorld(world) ? { world: cleanWorld(world) } : {}),
       ...(hidden === true ? { hidden: true } : {}),
     },
-    [`serverSecrets/${id}/${pid}`]: token,
+    // Whole, so an old server's players and skins under this id go too.
+    [`serverSecrets/${id}`]: { [pid]: token },
   }
   const s = skinOf(skin)
-  if (s) updates[`serverSkins/${id}/${pid}`] = s
+  updates[`serverSkins/${id}`] = s ? { [pid]: s } : null
   await db.update(updates)
   return { serverId: id, playerId: pid, token, host: pid }
 }

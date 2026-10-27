@@ -142,6 +142,23 @@ test('servers: a full server turns new players away', async () => {
   await expect(joinServer(db, { serverId: 'NOPE42', nickname: 'X' }, 50)).rejects.toMatchObject({ status: 404 })
 })
 
+test('servers: a server everyone dropped out of opens again under its id', async () => {
+  const db = fakeServerDb()
+  const a = await createServer(db, { nickname: 'Ann', skin: 'data:image/png;base64,AAAA' }, 0)
+  // Someone still in it: the id is taken.
+  const taken = await createServer(db, { nickname: 'Bo', id: a.serverId }, 10)
+  expect(taken.serverId).not.toBe(a.serverId)
+  // Nobody left: the dropped player opens it again, and joining works.
+  const later = JOIN_GRACE_MS + STALE_MS
+  await expect(joinServer(db, { serverId: a.serverId, nickname: 'Bo' }, later)).rejects.toMatchObject({ code: 'gone' })
+  const again = await createServer(db, { nickname: 'Ann', id: a.serverId }, later)
+  expect(again.serverId).toBe(a.serverId)
+  expect(Object.keys(db.root.serverSecrets[a.serverId])).toEqual([again.playerId])
+  expect(db.root.serverSkins?.[a.serverId]).toBeUndefined()
+  const b = await joinServer(db, { serverId: a.serverId, nickname: 'Bo' }, later + 10)
+  expect(Object.keys((await syncServer(db, { ...again }, later + 20)).players)).toEqual([b.playerId])
+})
+
 test('servers: a host in a hidden tab hands the zombies to someone playing', async () => {
   const db = fakeServerDb()
   const a = await createServer(db, { nickname: 'Ann' }, 0)
@@ -162,6 +179,8 @@ test('servers: a player still loading the map is not dropped', async () => {
   // Past it: gone.
   expect((await syncServer(db, { ...a }, JOIN_GRACE_MS + 1000)).players).toEqual({})
 })
+
+const serverIdOf = (db) => Object.keys(db.root.servers)[0]
 
 // Two real games on one server: the list, joining, seeing each other, the
 // host's zombie mirrored to the guest, the guest's shot killing it (and
@@ -363,12 +382,28 @@ test('two players play Map 1 together on a server', async ({ browser }) => {
   await settle()
   expect(await b.evaluate(() => window.__bites)).toEqual([9])
 
+  // The guest gets dropped (a few seconds of lag and the host's syncs
+  // count them as gone, 2026-10-26): they get back into the same server
+  // on their own instead of carrying on alone.
+  delete db.root.servers[serverIdOf(db)].players[bPid]
+  delete db.root.serverSecrets[serverIdOf(db)][bPid]
+  await b.waitForFunction((old) => window.__game.buildMode.survival.net?.playerId !== old, bPid, { timeout: 20000 })
+  await settle()
+  expect(await b.evaluate(() => window.__game.buildMode.survival.net.serverId)).toBe(serverIdOf(db))
+  expect(await a.evaluate(() => [...window.__game.buildMode.survival.net.players.values()].map((p) => p.nick))).toEqual(['Bo'])
+  expect(await b.evaluate(() => [...window.__game.buildMode.survival.net.players.values()].map((p) => p.nick))).toEqual(['Ann'])
+  await expect(b.locator('#chat-messages .chat-system-row')).toHaveText(['Reconnected to the server.'])
+
   // The guest leaves: gone from the host's game and the list.
   await b.evaluate(() => window.__game.buildMode.survival.stop())
   await settle().catch(() => {})
   await sync(a)
   expect(await a.evaluate(() => window.__game.buildMode.survival.net.players.size)).toBe(0)
-  await expect(a.locator('#chat-messages .chat-system-row')).toHaveText(['Bo joined the game', 'Bo left the game'])
+  // (Seen leaving and coming back when dropped, in either order.)
+  const rows = a.locator('#chat-messages .chat-system-row')
+  await expect(rows).toHaveCount(4)
+  await expect(rows.first()).toHaveText('Bo joined the game')
+  await expect(rows.last()).toHaveText('Bo left the game')
   const list = await listServers(db)
   expect(list).toEqual([expect.objectContaining({ name: 'Night Shift', players: 1 })])
   await a.close()
