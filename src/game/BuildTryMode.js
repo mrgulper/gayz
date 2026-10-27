@@ -841,7 +841,8 @@ export class BuildTryMode {
     // Special blocks underfoot (sticky floor, speed pads...) change it too.
     let speed = (crouch ? CROUCH : sprint ? SPRINT : WALK) * (this.speedMult ?? 1) * this.bm.specials.speedMult
     speed *= BHOP_MULT[this._hopChain]
-    if (inLiquid) speed *= 0.7
+    // Slower in water - unless you took a boat from a Boat Dock.
+    if (inLiquid) speed *= 0.7 * (this.bm.specials._buff('boat') || 1)
     const want = len ? (speed * amount) / len : 0
     const grip = (this.onGround ? GROUND_GRIP : AIR_GRIP) * this.bm.specials.gripMult
     this.vel.x = THREE.MathUtils.damp(this.vel.x, mx * want, grip, dt)

@@ -882,3 +882,83 @@ test('special blocks batch 9: fan, elevator, zipline, bounce, slide, rope, rails
     inPicker: true, fan: true, elevator: true, zipline: true, bounce: true, slide: true, rope: true, rails: true, launch: true, launchFar: true, tunnel: true,
   })
 })
+
+test('special blocks batch 10: boat, checkpoint, portal, locker, shared chest, weapon rack, ammo, workbench, recycler, fridge', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 90, 'zombiespawner')
+    const out = {}
+    const ids = ['boatdock', 'checkpointflag', 'portalblock', 'lockerblock', 'sharedchest', 'weaponrack', 'ammobox', 'workbenchupgrade', 'recycler', 'fridgeblock']
+    out.inPicker = ids.every((id) => bm.isBlockType(id) && bm.blockTypeOf(id).desc && bm.blockIcon(id).startsWith('data:'))
+    const at = { boatdock: [3, 0], checkpointflag: [20, 20], portalblock: [-20, 20], lockerblock: [0, 3], sharedchest: [-3, 0], weaponrack: [0, -3], ammobox: [3, 3], workbenchupgrade: [-3, 3], recycler: [3, -3], fridgeblock: [-3, -3] }
+    for (const [id, [x, z]] of Object.entries(at)) bm.placeBlock(x, 0, z, id)
+    bm.placeBlock(-40, 0, -40, 'portalblock')
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    s._toSpawn = 0
+    s._breakTimer = 999
+    const sp = bm.specials
+    const tm = bm.tryMode
+    sp.use(3, 0, 0)
+    out.boat = sp._buff('boat') > 2
+    // Checkpoint: standing on it moves your respawn there.
+    tm.onGround = true
+    sp.update(0.05, { x: 20.5, y: 1, z: 20.5 })
+    out.checkpoint = tm._spawn.x === 20.5 && tm._spawn.y === 1 && tm._spawn.z === 20.5
+    // Portal: off to the other one.
+    sp._onUnderKey = null
+    tm.pos.set(-19.5, 1, 20.5)
+    sp.update(0.05, tm.pos)
+    out.portal = Math.floor(tm.pos.x) === -40 && Math.floor(tm.pos.z) === -40
+    // Locker: put the held stack in, take it back out.
+    const inv = s.inv
+    inv.hotbar[inv.active] = { kind: 'block', id: 'stone', n: 12 }
+    sp.use(0, 0, 3)
+    const stored = inv.selected() === null && sp._st.get('0,0,3').items.length === 1
+    sp.use(0, 0, 3)
+    out.locker = stored && [...inv.hotbar, ...inv.grid].some((it) => it?.id === 'stone' && it.n === 12)
+    // Shared chest: room for 5.
+    for (let i = 0; i < 6; i++) { inv.hotbar[inv.active] = { kind: 'block', id: 'dirt', n: 1 }; sp.use(-3, 0, 0) }
+    out.chest5 = sp._st.get('-3,0,0').items.length === 5
+    // Weapon rack opens the gun picker.
+    let picked = false
+    const open = s._openWeaponPicker.bind(s)
+    s._openWeaponPicker = (...a) => { picked = true; return open(...a) }
+    sp.use(0, 0, -3)
+    s._openWeaponPicker = open
+    out.rack = picked
+    s._closeWeaponPicker?.()
+    // Ammo box: a magazine's worth.
+    const res = s.reserve
+    sp.use(3, 0, 3)
+    out.ammo = s.reserve === res + s.magSize()
+    // Workbench: costs coins, adds damage, max 3.
+    s.coins = 100
+    const d0 = s._damageMult()
+    sp.use(-3, 0, 3)
+    out.bench = s.coins === 75 && Math.abs(s._damageMult() - d0 * 1.1) < 1e-9
+    sp.use(-3, 0, 3); sp.use(-3, 0, 3); sp.use(-3, 0, 3)
+    out.benchMax = s.coins === 25
+    // Recycler: 9 blocks -> 2 coins, 1 block left.
+    inv.hotbar[inv.active] = { kind: 'block', id: 'stone', n: 9 }
+    sp.use(3, 0, -3)
+    out.recycle = s.coins === 27 && inv.selected()?.n === 1
+    // Fridge: a piece of meat.
+    const meat = () => [...inv.hotbar, ...inv.grid].filter((it) => it?.id === 'meat').reduce((n, it) => n + it.n, 0)
+    const m0 = meat()
+    sp.use(-3, 0, -3)
+    out.fridge = meat() === m0 + 1
+    s.stop()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({
+    inPicker: true, boat: true, checkpoint: true, portal: true, locker: true, chest5: true, rack: true, ammo: true,
+    bench: true, benchMax: true, recycle: true, fridge: true,
+  })
+})

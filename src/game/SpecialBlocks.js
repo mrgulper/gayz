@@ -573,6 +573,68 @@ export const SPECIAL_BLOCKS = [
     look: { base: 'metal', color: 0x4a4038, glyph: 'rails', glyphColor: 0xf0c040 },
     fx: { kind: 'conveyor', speed: 10, noZombies: true },
   },
+
+  // ---- Batch 10: travel extras and storage ----
+  {
+    ...D, id: 'boatdock', name: 'Boat Dock', color: 0x8a6a48,
+    desc: 'Use it to take a boat: for 60 seconds you move through water twice as fast.',
+    look: { base: 'wood', color: 0x7a5a38, glyph: 'boat', glyphColor: 0xe0d0b0 },
+    fx: { kind: 'boat', mult: 2.9, time: 60, cd: 5 },
+  },
+  {
+    ...D, id: 'checkpointflag', name: 'Checkpoint Flag', color: 0xe0c040,
+    desc: 'Step on it (or use it): if you fall off the map, you come back here instead of at the start. Great for parkour.',
+    look: { base: 'stone', color: 0x8a8a8a, glyph: 'flag', glyphColor: 0xe8c040 },
+    fx: { kind: 'checkpoint' },
+  },
+  {
+    ...D, id: 'portalblock', name: 'Portal', color: 0x30c0a0, emissive: 0x40ffd0, emissiveIntensity: 0.3,
+    desc: 'Step on it to be sent to a random other Portal on this map.',
+    look: { base: 'glow', color: 0x1a4a40, glyph: 'portal', glyphColor: 0x60f0c0 },
+    fx: { kind: 'portal', cd: 2 },
+  },
+  {
+    ...D, id: 'lockerblock', name: 'Locker', color: 0x6a7a8a,
+    desc: 'Use it holding an item or blocks to put them away; use it with empty hands (or a gun) to take them back. Holds 1 stack for this game.',
+    look: { base: 'metal', color: 0x5a6a7a, glyph: 'lock', glyphColor: 0xe0c040 },
+    fx: { kind: 'store', slots: 1 },
+  },
+  {
+    ...D, id: 'sharedchest', name: 'Shared Chest', color: 0x9a7040,
+    desc: 'Like a Locker but holds 5 stacks; with empty hands you take out the last one put in.',
+    look: { base: 'wood', color: 0x9a7040, glyph: 'chest', glyphColor: 0x5a3a20 },
+    fx: { kind: 'store', slots: 5 },
+  },
+  {
+    ...D, id: 'weaponrack', name: 'Weapon Rack', color: 0x6a4a30,
+    desc: 'Use it while playing to swap to a different gun.',
+    look: { base: 'wood', color: 0x5a4028, glyph: 'gun', glyphColor: 0x9a9aa2 },
+    fx: { kind: 'weaponrack' },
+  },
+  {
+    ...D, id: 'ammobox', name: 'Ammo Box', color: 0x5d6b3a,
+    desc: 'Use it for a full magazine of extra ammo. Refills every 30 seconds.',
+    look: { base: 'metal', color: 0x4d5b2a, glyph: 'bullets', glyphColor: 0xe8c14a },
+    fx: { kind: 'ammo', mags: 1, cd: 30 },
+  },
+  {
+    ...D, id: 'workbenchupgrade', name: 'Workbench Upgrade', color: 0x9a7a50,
+    desc: 'Use it to spend 25 coins on 10% more damage for this game (up to 3 times).',
+    look: { base: 'wood', color: 0x8a6a40, glyph: 'wrench', glyphColor: 0xe0e0e8 },
+    fx: { kind: 'bench', cost: 25, max: 3 },
+  },
+  {
+    ...D, id: 'recycler', name: 'Recycler', color: 0x4a8a5a,
+    desc: 'Use it while holding blocks to turn them into coins: 1 coin for every 4 blocks.',
+    look: { base: 'metal', color: 0x3a6a4a, glyph: 'recycle', glyphColor: 0x90f0a0 },
+    fx: { kind: 'recycler', per: 4 },
+  },
+  {
+    ...D, id: 'fridgeblock', name: 'Fridge', color: 0xe8eef0,
+    desc: 'Use it to take out a piece of Meat. Restocks every 90 seconds.',
+    look: { base: 'metal', color: 0xe0e6ea, glyph: 'fridge', glyphColor: 0x8a9aa8 },
+    fx: { kind: 'give', id: 'meat', key: 'invMeat', n: 1, cd: 90 },
+  },
 ]
 
 export const SPECIAL_BY_ID = new Map(SPECIAL_BLOCKS.map((b) => [b.id, b]))
