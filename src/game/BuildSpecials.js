@@ -18,6 +18,7 @@ import { audioEngine } from './Audio.js'
 import { PlayFx } from './PlayFx.js'
 import { SPECIAL_BY_ID } from './SpecialBlocks.js'
 import { LINK_RANGE } from './BuildGadgets.js'
+import { ITEMS, ARMOR_SLOTS } from './PlayInventory.js'
 
 const OVERLAY_RANGE = 48 // blocks: look effects (disco, crops, text) only this near you
 const OVERLAY_REFRESH = 2 // seconds between re-picking which blocks get them
@@ -641,6 +642,75 @@ export class BuildSpecials {
       this._playKey(entry)
       return true
     }
+    if (['cook', 'armor', 'trash', 'shop', 'gamble', 'slots', 'clone'].includes(fx.kind)) {
+      const s = this._play()
+      if (!s?.inv) {
+        st.cdUntil = 0
+        this._msg(t('specialPlayOnly'))
+        return true
+      }
+      const inv = s.inv
+      const held = inv.selected()
+      if (fx.kind === 'cook') {
+        if (held?.id !== fx.item) {
+          this._msg(t('specialHoldMeat'))
+          return true
+        }
+        inv._take(inv.hotbar, inv.active, 1)
+        s.health = Math.min(s.maxHealth, s.health + fx.heal)
+        this._msg(t('invHealed', { n: fx.heal }))
+        this._sound('pop')
+      } else if (fx.kind === 'armor') {
+        if ((s.armor || 0) >= fx.max) {
+          st.cdUntil = 0
+          this._msg(t('specialBenchMax'))
+          return true
+        }
+        s.armor = Math.min(fx.max, (s.armor || 0) + fx.add)
+        this._msg(t('specialArmor', { n: Math.ceil(s.armor) }))
+        this._sound('clank')
+      } else if (fx.kind === 'trash') {
+        if (!held || held.kind === 'gun') {
+          this._msg(t('specialHoldItem'))
+          return true
+        }
+        inv._take(inv.hotbar, inv.active, held.n)
+        this._msg(t('specialTrashed'))
+        this._sound('crumble')
+      } else if (fx.kind === 'shop' || fx.kind === 'gamble') {
+        if (!this._pay(s, fx.cost)) {
+          st.cdUntil = 0
+          return true
+        }
+        this._msg(this._prize(s, fx.table))
+        this._sound('pop')
+      } else if (fx.kind === 'slots') {
+        if (!this._pay(s, fx.cost)) return true
+        const roll = [0, 1, 2].map(() => SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)])
+        st.show = roll.join(' ')
+        st.until = this._time + 4
+        const same = new Set(roll).size
+        const win = same === 1 ? fx.three : same === 2 ? fx.two : 0
+        if (win) s.coins = (s.coins || 0) + win
+        this._msg(win ? `${st.show} - ${t('specialWonCoins', { n: win })}` : `${st.show} - ${t('specialNothing')}`)
+        this._sound(win ? 'chime' : 'pop')
+        this._overlaysDirty = true
+      } else if (fx.kind === 'clone') {
+        const top = this.bm.getBlockAt(x, y + 1, z)
+        const def = top && this.bm.blockTypeOf(top)
+        if (!def || def.game || def.hidden || def.shape === 'doortop') {
+          st.cdUntil = 0
+          this._msg(t('specialCloneNeedTop'))
+          return true
+        }
+        inv.add({ kind: 'block', id: top, n: fx.n })
+        this._msg(t('specialGot', { item: this.bm.blockName(top), n: fx.n }))
+        this._sound('pop')
+      }
+      s._renderHud()
+      this._burst(entry, 0xffe080, 6)
+      return true
+    }
     if (fx.kind === 'checkpoint') {
       this._setCheckpoint(entry)
       return true
@@ -973,11 +1043,30 @@ export class BuildSpecials {
       return true
     }
     const inv = s.inv
+    const fx = entry.def.fx
+    // A Safe asks for its code (set the first time).
+    if (fx.code) {
+      if (!st.code) {
+        const code = String(window.prompt(t('specialSafeSet')) ?? '').replace(/\D/g, '').slice(0, 8)
+        if (!code) return true
+        st.code = code
+        this._msg(t('specialSafeLocked'))
+        return true
+      }
+      const tried = String(window.prompt(t('specialSafeAsk')) ?? '').replace(/\D/g, '')
+      if (tried !== st.code) {
+        if (tried) this._msg(t('specialSafeWrong'))
+        return true
+      }
+    }
+    // A Mailbox keeps its stacks on this device between games.
+    if (fx.keep && !st.items) st.items = this._loadMail(entry)
     st.items = st.items || []
     const held = inv.selected()
     if (held && held.kind !== 'gun' && st.items.length < entry.def.fx.slots) {
       st.items.push({ ...held })
       inv._take(inv.hotbar, inv.active, held.n)
+      if (fx.keep) this._saveMail(entry, st.items)
       this._sound('pop')
       this._msg(t('specialStored', { n: st.items.length, max: entry.def.fx.slots }))
       return true
@@ -993,9 +1082,80 @@ export class BuildSpecials {
     const it = st.items.pop()
     const left = inv.add(it)
     if (left > 0) st.items.push({ ...it, n: left })
+    if (fx.keep) this._saveMail(entry, st.items)
     this._sound('pop')
     this._msg(t('specialTookOut'))
     return true
+  }
+
+  // Mailbox contents, per map slot and spot, on this device. Read back
+  // as untrusted: only real items and blocks, sensible amounts.
+  _mailKey(e) {
+    return `${MAIL_KEY}:${this.bm.activeSlot}:${e.key}`
+  }
+
+  _loadMail(e) {
+    try {
+      const raw = JSON.parse(localStorage.getItem(this._mailKey(e)) || '[]')
+      if (!Array.isArray(raw)) return []
+      return raw.filter((it) => it && (it.kind === 'item' ? !!ITEMS[it.id] : it.kind === 'block' && this.bm.isBlockType(it.id)) && Number.isInteger(it.n) && it.n > 0 && it.n <= 999)
+        .slice(0, e.def.fx.slots).map((it) => ({ kind: it.kind, id: it.id, n: it.n }))
+    } catch {
+      return []
+    }
+  }
+
+  _saveMail(e, items) {
+    try {
+      localStorage.setItem(this._mailKey(e), JSON.stringify(items.map(({ kind, id, n }) => ({ kind, id, n }))))
+    } catch {
+      // Storage full or blocked: it just isn't kept.
+    }
+  }
+
+  // Pays `cost` coins from this game's coins; false (and says so) if short.
+  _pay(s, cost) {
+    if ((s.coins || 0) < cost) {
+      this._msg(t('specialNeedCoins', { n: cost }))
+      return false
+    }
+    s.coins -= cost
+    s._renderHud()
+    return true
+  }
+
+  // Gives a random prize from a table of [weight, prize]; returns its text.
+  _prize(s, table) {
+    let roll = Math.random() * table.reduce((n, [w]) => n + w, 0)
+    let prize = table[table.length - 1][1]
+    for (const [w, p] of table) {
+      if ((roll -= w) < 0) {
+        prize = p
+        break
+      }
+    }
+    if (prize.item) {
+      const id = prize.item === 'armor' ? ARMOR_SLOTS[Math.floor(Math.random() * ARMOR_SLOTS.length)] : prize.item
+      s.inv.add({ kind: 'item', id, n: prize.n || 1 })
+      return t('specialGot', { item: t(ITEMS[id].key), n: prize.n || 1 })
+    }
+    if (prize.block) {
+      s.inv.add({ kind: 'block', id: prize.block, n: prize.n })
+      return t('specialGot', { item: this.bm.blockName(prize.block), n: prize.n })
+    }
+    if (prize.coins) {
+      s.coins = (s.coins || 0) + prize.coins
+      return t('specialWonCoins', { n: prize.coins })
+    }
+    if (prize.heal) {
+      s.health = s.maxHealth
+      return t('specialHealedFull')
+    }
+    if (prize.mags) {
+      s.reserve += s.magSize() * prize.mags
+      return t('specialAmmo', { n: s.magSize() * prize.mags })
+    }
+    return t('specialNothing')
   }
 
   // ---- buffs (Speed Pad, Strength Totem, Coffee Machine) ----
@@ -1577,7 +1737,7 @@ export class BuildSpecials {
   // the nearest MAX_OVERLAYS within OVERLAY_RANGE.
   _pickOverlays(me) {
     const want = []
-    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter', 'blade', 'power', 'turret', 'searchlight']) {
+    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter', 'blade', 'power', 'turret', 'searchlight', 'slots']) {
       for (const e of this.kind(kind)) {
         if (kind === 'lure' && !e.def.fx.label) continue
         const d = (e.x - me.x) ** 2 + (e.y - me.y) ** 2 + (e.z - me.z) ** 2
@@ -1622,7 +1782,7 @@ export class BuildSpecials {
       obj = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xfff6c0, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }))
       obj.scale.set(e.def.fx.r * B, 2 * B, 2 * B)
       obj.position.set((e.x + 0.5) * B, (e.y + 1.1) * B, (e.z + 0.5) * B)
-    } else if (kind === 'score' || kind === 'radio' || kind === 'counter' || kind === 'turret' || e.def.fx.label) {
+    } else if (kind === 'score' || kind === 'radio' || kind === 'counter' || kind === 'turret' || kind === 'slots' || e.def.fx.label) {
       obj = textSprite()
       obj.position.set((e.x + 0.5) * B, (e.y + 1.7) * B, (e.z + 0.5) * B)
       obj.scale.set(3 * B, 0.75 * B, 1)
@@ -1658,6 +1818,10 @@ export class BuildSpecials {
       } else if (kind === 'searchlight') {
         obj.visible = this.powered(e)
         obj.rotation.y = this._time * 0.8
+      } else if (kind === 'slots') {
+        const st = this._st.get(e.key)
+        obj.visible = st?.until > this._time
+        if (obj.visible) setSpriteText(obj, st.show)
       } else if (kind === 'turret') {
         setSpriteText(obj, t('specialTurretAmmo', { n: this._st.get(e.key)?.ammo ?? e.def.fx.start }))
       } else if (kind === 'blade') {
@@ -1704,11 +1868,13 @@ export class BuildSpecials {
 
 const EMPTY = new Set()
 const SEARCHLIGHT_MULT = 1.25
+const MAIL_KEY = 'gayz-mailbox' // + map slot + block spot (Mailbox)
+const SLOT_SYMBOLS = ['7', '$', '*', '@']
 const BENCH_STEP = 0.1 // damage added per Workbench Upgrade
 const POWER_STEP = 0.1 // seconds between power updates
 const GATE_MODES = ['AND', 'OR', 'NOT']
 // Kinds that do something when used (plus lures with on: 'use').
-const USE_KINDS = new Set(['checkpoint', 'store', 'weaponrack', 'ammo', 'bench', 'recycler', 'boat', 'elevator', 'zipline', 'rope', 'launcher', 'heal', 'give', 'buff', 'bed', 'turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
+const USE_KINDS = new Set(['cook', 'armor', 'trash', 'shop', 'gamble', 'slots', 'clone', 'checkpoint', 'store', 'weaponrack', 'ammo', 'bench', 'recycler', 'boat', 'elevator', 'zipline', 'rope', 'launcher', 'heal', 'give', 'buff', 'bed', 'turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
 // Piano Block notes: a major scale from middle C.
 const SCALE = [262, 294, 330, 349, 392, 440, 494, 523]
 
