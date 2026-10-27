@@ -322,6 +322,71 @@ export const SPECIAL_BLOCKS = [
     look: { base: 'stone', color: 0x707070, glyph: 'slit', glyphColor: 0x1a1a1a },
     fx: { kind: 'murderhole', shootThrough: true },
   },
+
+  // ---- Batch 6: power ----
+  // Power reaches blocks within 8 blocks of anything that's on (a lever
+  // that's on and a pressed plate count too); doors near a power block
+  // open while it's on.
+  {
+    ...D, id: 'generator', name: 'Generator', color: 0x5a6a3a,
+    desc: 'Use it to switch it on or off. While on it powers machines within 8 blocks and opens the doors near it.',
+    look: { base: 'metal', color: 0x4a5a32, glyph: 'bolt', glyphColor: 0xffe040 },
+    fx: { kind: 'power', src: 'generator' },
+  },
+  {
+    ...D, id: 'solarpanel', name: 'Solar Panel', color: 0x2a4a8a,
+    desc: 'Gives power during the day (not at night).',
+    look: { base: 'metal', color: 0x8a8a92, glyph: null, topBase: 'glow', topColor: 0x24448a, top: 'grid' , glyphColor: 0x8ab0ff },
+    fx: { kind: 'power', src: 'solar' },
+  },
+  {
+    ...D, id: 'wireblock', name: 'Wire', color: 0xc85a2a,
+    desc: 'Carries power: a wire touching power (or a powered wire) is powered too. Lay a line of them to reach far machines.',
+    look: { base: 'stone', color: 0x4a4a4a, glyph: 'wireline', glyphColor: 0xe07030 },
+    fx: { kind: 'power', src: 'wire' },
+  },
+  {
+    ...D, id: 'battery', name: 'Battery', color: 0x3a8a4a,
+    desc: 'Charges from power near it and keeps giving power for 30 seconds after that power goes off.',
+    look: { base: 'metal', color: 0x2a2a30, glyph: 'battery', glyphColor: 0x60d070 },
+    fx: { kind: 'power', src: 'battery', hold: 30 },
+  },
+  {
+    ...D, id: 'buttonblock', name: 'Button', color: 0xb03a3a,
+    desc: 'Use it for a 1.5-second burst of power (opens nearby doors for a moment).',
+    look: { base: 'stone', color: 0x8a8a8a, glyph: 'button', glyphColor: 0xd04040 },
+    fx: { kind: 'power', src: 'button', pulse: 1.5 },
+  },
+  {
+    ...D, id: 'timerblock', name: 'Timer', color: 0x8a7a3a,
+    desc: 'Gives a 1-second burst of power every 5 seconds, on its own.',
+    look: { base: 'metal', color: 0x5a5244, glyph: 'clock', glyphColor: 0xf0d070 },
+    fx: { kind: 'power', src: 'timer', every: 5, pulse: 1 },
+  },
+  {
+    ...D, id: 'motionsensor', name: 'Motion Sensor', color: 0x3a3a4a,
+    desc: 'Gives power while you or a zombie are within 5 blocks of it.',
+    look: { base: 'metal', color: 0x34343e, glyph: 'eye', glyphColor: 0xff5050 },
+    fx: { kind: 'power', src: 'motion', r: 5 },
+  },
+  {
+    ...D, id: 'lightsensor', name: 'Light Sensor', color: 0x6a5a9a,
+    desc: 'Gives power at night (great for lights and night traps).',
+    look: { base: 'metal', color: 0x3a3450, glyph: 'moon', glyphColor: 0xe8e0a0 },
+    fx: { kind: 'power', src: 'light' },
+  },
+  {
+    ...D, id: 'logicgate', name: 'Logic Gate', color: 0x2a5a5a,
+    desc: 'Use it to switch between AND (on when 2+ power sources are near), OR (on with any) and NOT (on when none are).',
+    look: { base: 'metal', color: 0x24444a, glyph: 'gate', glyphColor: 0x70e0d0 },
+    fx: { kind: 'power', src: 'gate' },
+  },
+  {
+    ...D, id: 'arrowshooter', name: 'Arrow Shooter', color: 0x7a6a50,
+    desc: 'Needs power: shoots the nearest zombie it can see within 12 blocks once a second, for 15 damage.',
+    look: { base: 'stone', color: 0x6a645a, glyph: 'arrow', glyphColor: 0xd8c890 },
+    fx: { kind: 'arrows', r: 12, every: 1, dmg: 15 },
+  },
 ]
 
 export const SPECIAL_BY_ID = new Map(SPECIAL_BLOCKS.map((b) => [b.id, b]))

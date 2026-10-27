@@ -503,3 +503,107 @@ test('special blocks batch 5: smoke, sound trap, shield, barbed wire, sandbag, w
     watchtower: true, oil: true, cannon: true, catapult: true, murderHole: true,
   })
 })
+
+test('special blocks batch 6: generator, solar, wire, battery, button, timer, motion, light sensor, logic gate, arrow shooter', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 90, 'zombiespawner')
+    const out = {}
+    const ids = ['generator', 'solarpanel', 'wireblock', 'battery', 'buttonblock', 'timerblock', 'motionsensor', 'lightsensor', 'logicgate', 'arrowshooter']
+    out.inPicker = ids.every((id) => bm.isBlockType(id) && bm.blockTypeOf(id).desc && bm.blockIcon(id).startsWith('data:'))
+    // A generator, a line of 12 wires and an arrow shooter at the far end.
+    bm.placeBlock(40, 0, 0, 'generator')
+    for (let i = 1; i <= 12; i++) bm.placeBlock(40 + i, 0, 0, 'wireblock')
+    bm.placeBlock(60, 0, 0, 'arrowshooter')
+    bm.placeBlock(40, 0, 3, 'oakdoor')
+    bm.placeBlock(-40, 0, 0, 'battery')
+    bm.placeBlock(-42, 0, 0, 'buttonblock')
+    bm.placeBlock(0, 0, 40, 'timerblock')
+    bm.placeBlock(0, 0, -40, 'motionsensor')
+    bm.placeBlock(-40, 0, 40, 'lightsensor')
+    bm.placeBlock(40, 0, 40, 'solarpanel')
+    bm.placeBlock(-40, 0, -40, 'logicgate')
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    s._toSpawn = 0
+    s._breakTimer = 999
+    const sp = bm.specials
+    const zombie = (x, z) => s._makeZombie(`t${Math.random()}`, x, 0, z, 1000, false)
+    const me = { x: 0, y: 0, z: 0 }
+    const tick = (secs = 0.15) => { sp._time += secs; sp.update(0.01, me) }
+    const on = (x, y, z) => sp._on.has(`${x},${y},${z}`)
+    // Generator: off until used; on, it powers the wire line to the shooter and opens the door.
+    tick()
+    const shooter = sp.entryAt(60, 0, 0)
+    out.offAtFirst = !on(40, 0, 0) && !sp.powered(shooter)
+    sp.use(40, 0, 0)
+    tick()
+    out.genOn = on(40, 0, 0) && on(52, 0, 0) && sp.powered(shooter)
+    out.doorOpened = bm._doorState.get('40,0,3')?.open === true
+    // The shooter hits a zombie it can see.
+    const za = zombie(66.5, 0.5)
+    sp._state(shooter).next = 0
+    tick()
+    out.shot = za.health === 985 && sp._lastSound === 'twang'
+    // ...but not one behind a wall.
+    for (let y = 0; y < 3; y++) for (let z = -2; z <= 2; z++) bm.placeBlock(63, y, z, 'stone')
+    za.health = 1000
+    sp._state(shooter).next = 0
+    tick()
+    out.wallBlocks = za.health === 1000
+    sp.use(40, 0, 0)
+    tick()
+    out.genOff = !on(40, 0, 0) && !on(45, 0, 0)
+    // Button: a short burst that charges the battery, which then holds.
+    sp.use(-42, 0, 0)
+    tick()
+    out.button = on(-42, 0, 0) && on(-40, 0, 0)
+    tick(2)
+    out.batteryHolds = !on(-42, 0, 0) && on(-40, 0, 0)
+    tick(31)
+    tick(0.15)
+    out.batteryEmpty = !on(-40, 0, 0)
+    // Timer pulses on its own.
+    let pulses = 0
+    let was = false
+    for (let i = 0; i < 80; i++) { tick(0.15); const now = on(0, 0, 40); if (now && !was) pulses++; was = now }
+    out.timer = pulses >= 2
+    // Motion sensor: on with you near it.
+    sp._time += 0.2
+    sp.update(0.01, { x: 0.5, y: 0, z: -38 })
+    out.motion = on(0, 0, -40)
+    // Light sensor / solar panel: night vs day.
+    bm.sky.nightAmount = () => 1
+    tick()
+    out.night = on(-40, 0, 40) && !on(40, 0, 40)
+    bm.sky.nightAmount = () => 0
+    tick()
+    out.day = !on(-40, 0, 40) && on(40, 0, 40)
+    // Logic gate: NOT is on with nothing near; AND needs two.
+    sp.use(-40, 0, -40) // OR
+    sp.use(-40, 0, -40) // NOT
+    tick()
+    out.gateNot = on(-40, 0, -40)
+    sp.use(-40, 0, -40) // AND
+    bm.placeBlock(-38, 0, -40, 'generator')
+    bm.placeBlock(-42, 0, -40, 'generator')
+    sp.use(-38, 0, -40)
+    tick()
+    const one = on(-40, 0, -40)
+    sp.use(-42, 0, -40)
+    tick()
+    out.gateAnd = !one && on(-40, 0, -40)
+    s.stop()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({
+    inPicker: true, offAtFirst: true, genOn: true, doorOpened: true, shot: true, wallBlocks: true, genOff: true,
+    button: true, batteryHolds: true, batteryEmpty: true, timer: true, motion: true, night: true, day: true, gateNot: true, gateAnd: true,
+  })
+})
