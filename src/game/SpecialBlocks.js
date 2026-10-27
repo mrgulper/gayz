@@ -511,6 +511,68 @@ export const SPECIAL_BLOCKS = [
     look: { base: 'stone', color: 0x2e6a34, glyph: 'clover', glyphColor: 0x70e070 },
     fx: { kind: 'clover', r: 8, coins: 2 },
   },
+
+  // ---- Batch 9: getting around ----
+  {
+    ...D, id: 'fanblock', name: 'Fan Block', color: 0x9ab0c0,
+    desc: 'Blows you and zombies away from it, out to 4 blocks. No power needed.',
+    look: { base: 'metal', color: 0x6a7a88, glyph: 'fan', glyphColor: 0xf0f8ff },
+    fx: { kind: 'fan', r: 4, push: 3, you: true },
+  },
+  {
+    ...D, id: 'elevatorblock', name: 'Elevator', color: 0x8a8a96,
+    desc: 'Use it to go up to the next Elevator straight above it (or down, if there\'s none above).',
+    look: { base: 'metal', color: 0x5a5a66, glyph: 'updown', glyphColor: 0xf0e060 },
+    fx: { kind: 'elevator' },
+  },
+  {
+    ...D, id: 'ziplinepost', name: 'Zipline Post', color: 0x8a6a48,
+    desc: 'Use it to slide along a line to the nearest other Zipline Post within 40 blocks.',
+    look: { base: 'wood', color: 0x7a5a38, glyph: 'zipline', glyphColor: 0xc8c8d0 },
+    fx: { kind: 'zipline', r: 40, speed: 14 },
+  },
+  {
+    ...D, id: 'bounceblock', name: 'Bounce Block', color: 0x70d0a0,
+    desc: 'Bounces you back up when you land on it - the higher you fall from, the higher you go.',
+    look: { base: 'jelly', color: 0x4ab080, glyph: 'arrowup', glyphColor: 0xc0ffe0 },
+    fx: { kind: 'bounce', min: 11, keep: 0.9 },
+  },
+  {
+    ...D, id: 'slideblock', name: 'Slide Block', color: 0xa0c8f0,
+    desc: 'Super slippery and fast to run on.',
+    look: { base: 'glow', color: 0x7aa8d8, glyph: 'chevron', glyphColor: 0xe0f0ff },
+    fx: { kind: 'slide', pspeed: 1.4, pgrip: 0.15 },
+  },
+  {
+    ...D, id: 'ropeanchor', name: 'Rope Anchor', color: 0xb08a50,
+    desc: 'Put it at a ledge and use it to climb down the rope to the ground below.',
+    look: { base: 'stone', color: 0x7a7a7a, glyph: 'rope', glyphColor: 0xd8b070 },
+    fx: { kind: 'rope' },
+  },
+  {
+    ...D, id: 'railtrack', name: 'Rail Track', color: 0x7a6a5a, shape: 'pad',
+    desc: 'Carries you along at a run, the way it faces. Lay a line of them (turn them to make corners).',
+    look: { base: 'wood', color: 0x5a4632, glyph: 'rails', glyphColor: 0xa0a0a8 },
+    fx: { kind: 'conveyor', speed: 6, noZombies: true },
+  },
+  {
+    ...D, id: 'launchcannon', name: 'Launch Cannon', color: 0xd06030,
+    desc: 'Use it to be fired through the air the way you\'re looking.',
+    look: { base: 'metal', color: 0x6a3a2a, glyph: 'cannon', glyphColor: 0xffb060 },
+    fx: { kind: 'launcher', speed: 18, up: 13 },
+  },
+  {
+    ...D, id: 'windtunnel', name: 'Wind Tunnel', color: 0xc0e0f0,
+    desc: 'Floats you up the 8 blocks above it. Step off the side to come down.',
+    look: { base: 'metal', color: 0x8aa0b0, glyph: 'grate', glyphColor: 0xe8f8ff, top: 'fan' },
+    fx: { kind: 'tunnel', h: 8, lift: 6 },
+  },
+  {
+    ...D, id: 'speedrail', name: 'Speed Rail', color: 0xd0a030, shape: 'pad',
+    desc: 'A fast Rail Track: carries you along at nearly twice its speed.',
+    look: { base: 'metal', color: 0x4a4038, glyph: 'rails', glyphColor: 0xf0c040 },
+    fx: { kind: 'conveyor', speed: 10, noZombies: true },
+  },
 ]
 
 export const SPECIAL_BY_ID = new Map(SPECIAL_BLOCKS.map((b) => [b.id, b]))
