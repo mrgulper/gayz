@@ -230,6 +230,19 @@ export async function leaveServer(db, { serverId, playerId, token } = {}, now = 
 }
 
 const SKELETON_KIND_IDS = new Set(['minion', 'rogue', 'warrior', 'mage'])
+// A zombie's rarity (ZombieNames.js ZOMBIE_TIERS) - a kill credit carries it
+// so the player paid gets that rarity's coins.
+const ZOMBIE_TIER_IDS = new Set(['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'])
+
+// A kill (or assist) credit for another player: { boss, skeleton?, tier?, assist? }.
+function cleanCredit(c) {
+  return {
+    boss: !!c?.boss,
+    ...(SKELETON_KIND_IDS.has(c?.skeleton) ? { skeleton: c.skeleton } : {}),
+    ...(ZOMBIE_TIER_IDS.has(c?.tier) ? { tier: c.tier } : {}),
+    ...(c?.assist ? { assist: true } : {}),
+  }
+}
 // A zombie's kind: a skeleton or a monster (ZombieKinds.js) - plain
 // lowercase words, checked against the real lists by the game.
 const KIND_RE = /^[a-z]{1,20}$/
@@ -411,7 +424,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     }
     for (const c of [].concat(body.credits || []).slice(0, 40)) {
       if (!c || !live.has(c.to) || c.to === playerId) continue
-      updates[`${base}/players/${c.to}/credits/${newId(8)}`] = { boss: !!c.boss, ...(SKELETON_KIND_IDS.has(c.skeleton) ? { skeleton: c.skeleton } : {}) }
+      updates[`${base}/players/${c.to}/credits/${newId(8)}`] = cleanCredit(c)
     }
   } else {
     out.zombies = server.zombies || {}
@@ -429,7 +442,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     updates[`${base}/players/${playerId}/hurt/${key}`] = null
   }
   for (const [key, c] of Object.entries(me.credits || {})) {
-    out.credits.push({ boss: !!c?.boss, ...(SKELETON_KIND_IDS.has(c?.skeleton) ? { skeleton: c.skeleton } : {}) })
+    out.credits.push(cleanCredit(c))
     updates[`${base}/players/${playerId}/credits/${key}`] = null
   }
   for (const [pid, p] of Object.entries(server.players || {})) {

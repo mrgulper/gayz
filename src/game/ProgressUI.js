@@ -107,6 +107,12 @@ export function _onPlayEvent(game, type, data) {
     if (data.skeleton) _recordSkeletonKill(game, data.skeleton)
     return null
   }
+  // An assist on a server: the career total, saved straight away.
+  if (type === 'assist') {
+    game.careerStats.totalAssists = _safeStatNumber(game.careerStats.totalAssists) + 1
+    saveCareerStats(game.careerStats)
+    return null
+  }
   if (type === 'wave') {
     const wave = data.wave
     game.rollingQuests.recordWave(wave)

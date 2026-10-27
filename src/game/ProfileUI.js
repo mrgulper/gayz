@@ -216,6 +216,7 @@ export async function _openProfilePanel(game) {
   let rows = [
     ['profileTotalRuns', t('profileTotalRuns'), _safeStatNumber(game.careerStats.totalRuns)],
     ['profileTotalKills', t('profileTotalKills'), _safeStatNumber(game.careerStats.totalKills)],
+    ['profileTotalAssists', t('profileTotalAssists'), _safeStatNumber(game.careerStats.totalAssists)],
     // (Its id stays profileBestNight: a pinned stat is saved by id.)
     ['profileBestNight', t('profileBestWave'), _safeStatNumber(game.bestStats.bestWave)],
     ['profileBestKills', t('profileBestKills'), _safeStatNumber(game.bestStats.bestKills)],

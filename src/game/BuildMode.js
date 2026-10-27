@@ -1401,6 +1401,13 @@ export class BuildMode {
     return BLOCK_BY_ID.get(type)?.color
   }
 
+  // Every block's colour, { id: colour } (the map's tile worker, OpenWorld).
+  static blockColorTable() {
+    const out = {}
+    for (const [id, b] of BLOCK_BY_ID) if (b.color !== undefined) out[id] = b.color
+    return out
+  }
+
   // A block id a player could have placed (not a door's hidden top half).
   // Settings > Controls: Field of View (the old Map 1's setting, 75 by default).
   // The view distance in blocks right now (see VIEW_DISTANCES).

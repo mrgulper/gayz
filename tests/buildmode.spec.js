@@ -3352,3 +3352,79 @@ test('thin coral, sharp map tiles, free mouse on any panel, zombie names and 170
   expect(r.noPanel).toBe(false)
   expect(r.settingsNeedsMouse).toBe(true)
 })
+
+// 2026-10-26: on a server the killing shot gets its rarity's coins and
+// everyone else who did 10%+ of its health an assist (25%); the big map's
+// sharp tiles are drawn by workers, the same picture as before.
+test('kill + assist coins on servers, map tiles drawn off the main thread', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    const out = {}
+    bm.placeBlock(0, 1, 0, 'playerstart', false, { facing: 0 })
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    s._toSpawn = 0
+    // As the host: A did 30%, me 5%, B 15%, C finished it.
+    const credits = []
+    s.net = { isHost: true, players: new Map(), queueCredit: (to, boss, skeleton, tier, assist) => credits.push([to, tier, !!assist]), queueHurt() {}, targets: () => [] }
+    const z1 = s._makeZombie(901, 5, 1, 5, 1000, false, null, { tier: 'epic', name: 1 })
+    s.damageZombie(z1, 300, null, 'A')
+    s.damageZombie(z1, 50)
+    s.damageZombie(z1, 150, null, 'B')
+    s.damageZombie(z1, 9999, null, 'C')
+    out.credits = credits.splice(0)
+    // My 20% of a boss someone else finished: a quarter of its coins.
+    const before = s.coins
+    const z2 = s._makeZombie(902, 6, 1, 6, 1000, true, null, { tier: 'legendary', name: 2 })
+    s.damageZombie(z2, 200)
+    s.damageZombie(z2, 9999, null, 'A')
+    out.assistCoins = s.coins - before
+    out.assists = s.stats.assists
+    out.msg = document.getElementById('build-play-msg').textContent
+    // As a guest: an assist credit for a rare one pays a quarter of its coins.
+    s.net = null
+    const c0 = s.coins
+    s._countAssist(false, 'rare')
+    out.guestAssist = s.coins - c0
+    s.net = null
+    s.stop()
+    return out
+  })
+  // The map: a worker's tile is the same picture as one drawn here.
+  await page.evaluate(() => { window.__game.settings.selectedGameMode = 'worldMap' })
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active && window.__game.buildMode.world.active, null, { timeout: 60000 })
+  const m = await page.evaluate(async () => {
+    const bm = window.__game.buildMode
+    bm.survival._spawnAt({ lat: 46, lon: 7, biome: 'mountains' })
+    const w = bm.world
+    const p = bm.tryMode.pos
+    const out = []
+    for (const T of [32, 128, 1024]) {
+      const tx = Math.floor(p.x / T)
+      const tz = Math.floor(p.z / T)
+      // Asked again each time, as the map does each draw (a tile drawn for
+      // land that changed meanwhile - the real heights arriving - is dropped).
+      let tile = null
+      for (let i = 0; i < 400 && !(tile = w.mapTile(tx, tz, true, T)); i++) await new Promise((res) => setTimeout(res, 25))
+      const S = tile.canvas.width
+      const a = tile.canvas.getContext('2d').getImageData(0, 0, S, S).data
+      const b = w._drawTile(tx, tz, T, S).getContext('2d').getImageData(0, 0, S, S).data
+      out.push(a.every((v, i) => v === b[i]))
+    }
+    return { worker: !!w._tileWorkers, same: out }
+  })
+  expect(r.credits).toEqual([['C', 'epic', false], ['A', 'epic', true], ['B', 'epic', true]])
+  expect(r.assistCoins).toBe(43)
+  expect(r.assists).toBe(1)
+  expect(r.msg).toContain('43')
+  expect(r.guestAssist).toBe(6)
+  expect(m).toEqual({ worker: true, same: [true, true, true] })
+})
+

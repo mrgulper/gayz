@@ -73,6 +73,12 @@ const MAP_TILE_CACHE = 4000
 const MAP_TILE_SAMPLES = 128
 const MAP_TILE_PIXELS = 6.5e6
 const mapTileSamples = (T) => Math.min(T, MAP_TILE_SAMPLES)
+// Sharp tiles are drawn by MAP_TILE_WORKERS Web Workers (MapTileWorker.js),
+// MAP_TILE_JOBS at a time each, so drawing never slows the game
+// (2026-10-26: a 128x128 tile took ~15 ms on the main thread, and zoomed
+// out the edges stayed blurry for seconds).
+const MAP_TILE_WORKERS = 2
+const MAP_TILE_JOBS = 2
 const MAP_PREWARM_R = 5
 const MAP_PREWARM_SLICE_MS = 6
 const MAP_PREWARM_GAP_MS = 30
@@ -426,7 +432,7 @@ function pickBiome(x, z, h, c, T, H, m, river, wet) {
 // The top block of a cell, and what's under it.
 const BANDS = ['orangeterracotta', 'terracotta', 'yellowterracotta', 'terracotta', 'brownterracotta', 'redterracotta', 'orangeterracotta', 'whiteterracotta', 'lightgrayterracotta', 'terracotta']
 
-function surface(s, x, z) {
+export function surface(s, x, z) {
   const r = hash2(x, z, 131)
   const y = s.h
   switch (s.biome) {
@@ -509,6 +515,89 @@ const FEATURES = {
 // whole coral blocks looked too chunky); seagrass listed twice so it's
 // the commonest.
 const CORALS = ['tubecoral', 'braincoral', 'bubblecoral', 'firecoral', 'horncoral', 'seagrass', 'seagrass']
+
+// --- the big map's tile pictures (shared with MapTileWorker.js) ---
+
+const shadeColor = (c, k) => (Math.round(((c >> 16) & 255) * k) << 16) | (Math.round(((c >> 8) & 255) * k) << 8) | Math.round((c & 255) * k)
+
+// A spot's colour from its land (s = sampleLand): water by its sea, land by
+// its top block (a dirt track's when onPath), shaded by height.
+export function groundColor(s, x, z, onPath, typeColor) {
+  if (s.h < s.w) return s.biome === 'frozenOcean' ? 0xb5d3f0 : s.biome === 'warmOcean' ? 0x3fb6c8 : s.h < SEA - 9 ? 0x1f4f9a : 0x3368c6
+  return shadeColor(typeColor(onPath ? 'dirtpath' : surface(s, x, z).top), 0.72 + 0.28 * clamp01((s.h + 6) / 40))
+}
+
+// A built thing's colour (a house's roof...), shaded by its height.
+export const builtColor = (c, y) => shadeColor(c, 0.72 + 0.28 * clamp01((y + 6) / 40))
+
+// The pixels (RGBA, S x S) of tile (tx, tz) of T cells. cell(x, z, out)
+// fills out.c (colour, -1 = city: left see-through), out.h (height) and
+// out.wet (0 land, 1 water, 2 built/path).
+// Looks like a real map, not blocks (2026-10-26, Gaymi: "make it not so
+// blocky more realistic type map"): each spot's colour is softened with
+// its 8 neighbours (no single-block speckle), and hills are lit from the
+// top-left like a relief map - slopes facing the light brighter, the
+// far sides darker. The big map then draws the tiles smoothly.
+export function tilePixels(tx, tz, T, S, cell) {
+  const step = T / S
+  const px = new Uint8ClampedArray(S * S * 4)
+  // Colours and heights one ring wider than the tile, so blending and
+  // shading match across tile edges.
+  const W = S + 2
+  const col = new Int32Array(W * W).fill(-1)
+  const hgt = new Float32Array(W * W)
+  const wet = new Uint8Array(W * W)
+  const out = { c: -1, h: 0, wet: 0 }
+  for (let i = -1; i <= S; i++) {
+    for (let j = -1; j <= S; j++) {
+      cell(tx * T + Math.floor(i * step + step / 2), tz * T + Math.floor(j * step + step / 2), out)
+      if (out.c < 0) continue
+      const g = (j + 1) * W + i + 1
+      col[g] = out.c
+      hgt[g] = out.h
+      wet[g] = out.wet
+    }
+  }
+  // Relief: height change per map pixel in blocks, scaled so a gentle
+  // hill shows and a cliff doesn't go black.
+  const relief = Math.min(1, 1.6 / step)
+  for (let i = 0; i < S; i++) {
+    for (let j = 0; j < S; j++) {
+      const g = (j + 1) * W + i + 1
+      if (col[g] < 0) continue
+      let r = 0
+      let gg = 0
+      let b = 0
+      let n = 0
+      for (let dj = -1; dj <= 1; dj++) {
+        for (let di = -1; di <= 1; di++) {
+          const q = g + dj * W + di
+          // Land, water and built things (houses, paths) aren't blended
+          // into each other: shores and roads stay clean lines.
+          if (col[q] < 0 || wet[q] !== wet[g]) continue
+          // The spot itself counts most, so the map stays sharp.
+          const w = di || dj ? 1 : 6
+          r += ((col[q] >> 16) & 255) * w
+          gg += ((col[q] >> 8) & 255) * w
+          b += (col[q] & 255) * w
+          n += w
+        }
+      }
+      let shade = 1
+      if (wet[g] !== 1) {
+        const dx = (hgt[g + 1] - hgt[g - 1]) * relief
+        const dz = (hgt[g + W] - hgt[g - W]) * relief
+        shade = Math.max(0.6, Math.min(1.3, 1 - (dx + dz) * 0.07))
+      }
+      const o = (j * S + i) * 4
+      px[o] = (r / n) * shade
+      px[o + 1] = (gg / n) * shade
+      px[o + 2] = (b / n) * shade
+      px[o + 3] = 255
+    }
+  }
+  return px
+}
 
 export class OpenWorld {
   constructor(bm) {
@@ -1243,7 +1332,16 @@ export class OpenWorld {
       return cached
     }
     if (!build) return null
-    const canvas = this._drawTile(tx, tz, T, mapTileSamples(T))
+    // Drawn in a worker: here once it's back (the map keeps redrawing
+    // while a tile is missing).
+    if (this._tileWorkersUp()) {
+      this._requestTile(tx, tz, T)
+      return null
+    }
+    return this._storeTile(key, this._drawTile(tx, tz, T, mapTileSamples(T)))
+  }
+
+  _storeTile(key, canvas) {
     // Oldest tiles go first (they used to be dropped all at once at 1200).
     this._tilePixels = (this._tilePixels || 0) + canvas.width * canvas.height
     if (this._tiles.size >= MAP_TILE_CACHE || this._tilePixels > MAP_TILE_PIXELS) {
@@ -1282,6 +1380,10 @@ export class OpenWorld {
   // A new seed (or the real Earth's heights arriving) redraws the map, and
   // its drawing ahead starts over.
   _clearTiles() {
+    // Tiles still being drawn are for the old land: dropped when they come.
+    this._tileGen = (this._tileGen || 0) + 1
+    this._tileJobs?.clear()
+    for (const w of this._tileWorkers || []) w.busy = 0
     this._tiles.clear()
     this._tilePixels = 0
     this._prewarm = null
@@ -1386,13 +1488,145 @@ export class OpenWorld {
     const step = () => {
       if (this._prewarm !== job || !this.active) return
       const until = performance.now() + MAP_PREWARM_SLICE_MS
+      const off = this._tileWorkersUp()
       while (job.i < queue.length && performance.now() < until) {
-        const [tx, tz, L] = queue[job.i++]
-        this.mapTile(tx, tz, true, L)
+        const [tx, tz, L] = queue[job.i]
+        // With workers: one job per worker at most, the rest left for the
+        // tiles in view (BuildTryMode asks for those every draw).
+        if (off) {
+          if (!this._tiles.has(`${L}:${tx},${tz}`) && (this._tileJobs.size >= this._tileWorkers.length || !this._requestTile(tx, tz, L))) break
+          job.i++
+        } else {
+          job.i++
+          this.mapTile(tx, tz, true, L)
+        }
       }
       if (job.i < queue.length) setTimeout(step, MAP_PREWARM_GAP_MS)
     }
     setTimeout(step, MAP_PREWARM_GAP_MS)
+  }
+
+  // The tile workers, started the first time a sharp tile is wanted; false
+  // when there are none (no Worker support, or one failed) - tiles are
+  // then drawn here, a few milliseconds' worth at a time, as before.
+  _tileWorkersUp() {
+    if (this._tileWorkers !== undefined) return !!this._tileWorkers
+    this._tileWorkers = false
+    if (typeof Worker === 'undefined' || typeof ImageData === 'undefined') return false
+    try {
+      const colors = this.bm.constructor.blockColorTable?.() || {}
+      const workers = []
+      for (let n = 0; n < MAP_TILE_WORKERS; n++) {
+        const w = new Worker(new URL('./MapTileWorker.js', import.meta.url), { type: 'module' })
+        w.busy = 0
+        w.onmessage = (e) => this._tileDone(w, e.data)
+        w.onerror = () => this._tileWorkersFailed()
+        w.postMessage({ type: 'init', colors })
+        workers.push(w)
+      }
+      this._tileWorkers = workers
+      this._tileJobs = new Map() // tile key -> its job id
+      this._tileJobId = 0
+    } catch {
+      this._tileWorkers = false
+    }
+    return !!this._tileWorkers
+  }
+
+  // Sharp tiles drawn in workers (BuildTryMode asks for them while moving).
+  tilesOffThread() {
+    return this._tileWorkersUp()
+  }
+
+  _tileWorkersFailed() {
+    for (const w of this._tileWorkers || []) w.terminate()
+    this._tileWorkers = false
+    this._tileJobs = null
+  }
+
+  // Hands tile (tx, tz) of T cells to the least busy worker. False when
+  // they're all full (asked again on a later draw); true once it's on its
+  // way (or already was).
+  _requestTile(tx, tz, T) {
+    const key = `${T}:${tx},${tz}`
+    if (this._tileJobs.has(key)) return true
+    let w = null
+    for (const o of this._tileWorkers) if (o.busy < MAP_TILE_JOBS && (!w || o.busy < w.busy)) w = o
+    if (!w) return false
+    const id = ++this._tileJobId
+    this._tileJobs.set(key, id)
+    w.busy++
+    const S = mapTileSamples(T)
+    const { built, paths, track } = this._tileOverlay(tx, tz, T, S)
+    w.postMessage(
+      { type: 'draw', id, gen: this._tileGen || 0, key, tx, tz, T, S, seed: worldSeed(), flat: isFlatWorld(), earth: isEarthWorld(), earthReady: isEarthWorld() && earthTerrainReady(), built, paths, track },
+      [built.buffer, paths.buffer, track.buffer],
+    )
+    return true
+  }
+
+  _tileDone(w, d) {
+    w.busy = Math.max(0, w.busy - 1)
+    if (d.gen !== (this._tileGen || 0) || !this._tileJobs || this._tileJobs.get(d.key) !== d.id) return
+    this._tileJobs.delete(d.key)
+    // The worker couldn't draw this land (the real Earth's heights didn't
+    // load there): this tile and the rest are drawn here instead.
+    if (!d.pixels) {
+      this._tileWorkersFailed()
+      return
+    }
+    const canvas = document.createElement('canvas')
+    canvas.width = d.S
+    canvas.height = d.S
+    canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(d.pixels), d.S, d.S), 0, 0)
+    this._storeTile(d.key, canvas)
+  }
+
+  // What the worker can't work out from the noise: the planned villages',
+  // castles' and landmarks' blocks and paths, and the city's dirt tracks,
+  // at the tile's sample spots (one sample every T / S cells, and the ring
+  // just outside it that tilePixels blends with), as flat
+  // lists - built [x, z, y, colour (-1 water)], paths [x, z, colour],
+  // track [x, z].
+  _tileOverlay(tx, tz, T, S) {
+    const step = T / S
+    const x0 = tx * T
+    const z0 = tz * T
+    const built = []
+    const paths = []
+    const track = []
+    const taken = new Set()
+    // The sample spots' indexes around cell offset v (-1 .. S).
+    const first = (v) => Math.max(-1, Math.ceil((v - step / 2) / step))
+    const last = (v) => Math.min(S, Math.floor((v - step / 2) / step))
+    for (const plan of this._plansOver(x0 - step, z0 - step, x0 + T + step, z0 + T + step, 0, true)) {
+      for (let i = first(plan.x0 - x0 - 1); i <= last(plan.x1 - x0 + 1); i++) {
+        const x = x0 + Math.floor(i * step + step / 2)
+        if (x < plan.x0 || x > plan.x1) continue
+        for (let j = first(plan.z0 - z0 - 1); j <= last(plan.z1 - z0 + 1); j++) {
+          const z = z0 + Math.floor(j * step + step / 2)
+          if (z < plan.z0 || z > plan.z1) continue
+          const k = `${x},${z}`
+          // The first plan over a spot is the one drawn (as _cellColor).
+          if (taken.has(k)) continue
+          taken.add(k)
+          const b = plan.top?.get(k)
+          if (b) built.push(x, z, b.y, b.type === 'water' ? -1 : this._typeColor(b.type))
+          const p = plan.paths?.get(k)
+          if (p) paths.push(x, z, this._typeColor(p))
+        }
+      }
+    }
+    if (this._paths?.size) {
+      if (this._trackCells?.from !== this._paths) this._trackCells = { from: this._paths, cells: [...this._paths].map((k) => k.split(',').map(Number)) }
+      for (const [x, z] of this._trackCells.cells) {
+        const i = Math.round((x - x0 - step / 2) / step)
+        const j = Math.round((z - z0 - step / 2) / step)
+        if (i < -1 || j < -1 || i > S || j > S) continue
+        if (x - x0 === Math.floor(i * step + step / 2) && z - z0 === Math.floor(j * step + step / 2)) track.push(x, z)
+      }
+    }
+    return { built: new Int32Array(built), paths: new Int32Array(paths), track: new Int32Array(track) }
   }
 
   // A quick stand-in for a tile not drawn yet: 16x16 samples (256 reads
@@ -1409,74 +1643,22 @@ export class OpenWorld {
     return tile
   }
 
-  // Looks like a real map, not blocks (2026-10-26, Gaymi: "make it not so
-  // blocky more realistic type map"): each spot's colour is softened with
-  // its 8 neighbours (no single-block speckle), and hills are lit from the
-  // top-left like a relief map - slopes facing the light brighter, the
-  // far sides darker. The big map then draws the tiles smoothly.
+  // A tile's picture drawn here on the main thread (the quick stand-ins,
+  // and the sharp ones when there's no worker - _requestTile).
   _drawTile(tx, tz, T, S) {
-    const step = T / S
     const canvas = document.createElement('canvas')
     canvas.width = S
     canvas.height = S
-    const ctx = canvas.getContext('2d')
-    const img = ctx.createImageData(S, S)
-    // Colours and heights one ring wider than the tile, so blending and
-    // shading match across tile edges.
-    const W = S + 2
-    const col = new Int32Array(W * W).fill(-1)
-    const hgt = new Float32Array(W * W)
-    const wet = new Uint8Array(W * W)
-    for (let i = -1; i <= S; i++) {
-      for (let j = -1; j <= S; j++) {
-        const x = tx * T + Math.floor(i * step + step / 2)
-        const z = tz * T + Math.floor(j * step + step / 2)
-        if (inCity(x, z)) continue
-        const g = (j + 1) * W + i + 1
-        col[g] = this._cellColor(x, z)
-        hgt[g] = this._lastMapH
-        wet[g] = this._lastMapWet
+    const px = tilePixels(tx, tz, T, S, (x, z, out) => {
+      if (inCity(x, z)) {
+        out.c = -1
+        return
       }
-    }
-    // Relief: height change per map pixel in blocks, scaled so a gentle
-    // hill shows and a cliff doesn't go black.
-    const relief = Math.min(1, 1.6 / step)
-    for (let i = 0; i < S; i++) {
-      for (let j = 0; j < S; j++) {
-        const g = (j + 1) * W + i + 1
-        if (col[g] < 0) continue
-        let r = 0
-        let gg = 0
-        let b = 0
-        let n = 0
-        for (let dj = -1; dj <= 1; dj++) {
-          for (let di = -1; di <= 1; di++) {
-            const q = g + dj * W + di
-            // Land, water and built things (houses, paths) aren't blended
-            // into each other: shores and roads stay clean lines.
-            if (col[q] < 0 || wet[q] !== wet[g]) continue
-            // The spot itself counts most, so the map stays sharp.
-            const w = di || dj ? 1 : 6
-            r += ((col[q] >> 16) & 255) * w
-            gg += ((col[q] >> 8) & 255) * w
-            b += (col[q] & 255) * w
-            n += w
-          }
-        }
-        let shade = 1
-        if (wet[g] !== 1) {
-          const dx = (hgt[g + 1] - hgt[g - 1]) * relief
-          const dz = (hgt[g + W] - hgt[g - W]) * relief
-          shade = Math.max(0.6, Math.min(1.3, 1 - (dx + dz) * 0.07))
-        }
-        const o = (j * S + i) * 4
-        img.data[o] = (r / n) * shade
-        img.data[o + 1] = (gg / n) * shade
-        img.data[o + 2] = (b / n) * shade
-        img.data[o + 3] = 255
-      }
-    }
-    ctx.putImageData(img, 0, 0)
+      out.c = this._cellColor(x, z)
+      out.h = this._lastMapH
+      out.wet = this._lastMapWet
+    })
+    canvas.getContext('2d').putImageData(new ImageData(px, S, S), 0, 0)
     return canvas
   }
 
@@ -1491,22 +1673,14 @@ export class OpenWorld {
     // For _drawTile's relief shading and shores.
     this._lastMapH = built ? built.y : Math.max(s.h, s.w)
     this._lastMapWet = built ? 2 : s.h < s.w ? 1 : 0
-    if (built && built.type !== 'water') {
-      const c = this._typeColor(built.type)
-      const k = 0.72 + 0.28 * clamp01((built.y + 6) / 40)
-      return (Math.round(((c >> 16) & 255) * k) << 16) | (Math.round(((c >> 8) & 255) * k) << 8) | Math.round((c & 255) * k)
-    }
+    if (built && built.type !== 'water') return builtColor(this._typeColor(built.type), built.y)
     if (plan?.paths.has(`${x},${z}`) && s.h >= s.w) {
       this._lastMapWet = 2
       return this._typeColor(plan.paths.get(`${x},${z}`))
     }
     const onPath = s.h >= s.w && this._onPath(x, z)
     if (onPath) this._lastMapWet = 2
-    let color
-    if (s.h < s.w) color = s.biome === 'frozenOcean' ? 0xb5d3f0 : s.biome === 'warmOcean' ? 0x3fb6c8 : s.h < SEA - 9 ? 0x1f4f9a : 0x3368c6
-    else color = this._typeColor(onPath ? 'dirtpath' : surface(s, x, z).top)
-    const shade = s.h < s.w ? 1 : 0.72 + 0.28 * clamp01((s.h + 6) / 40)
-    return (Math.round(((color >> 16) & 255) * shade) << 16) | (Math.round(((color >> 8) & 255) * shade) << 8) | Math.round((color & 255) * shade)
+    return groundColor(s, x, z, onPath, (type) => this._typeColor(type))
   }
 
   _typeColor(type) {
