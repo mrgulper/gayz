@@ -13,6 +13,7 @@
 // (that mix-up made the old editor textures ~3x too dark).
 
 import { cleanPixels } from './PixelClean.js'
+import { specialFaces } from './SpecialGlyphs.js'
 
 const S = 16
 
@@ -1332,7 +1333,10 @@ function baseFaces(type) {
   const base = hex(type.color)
   const r = rng(hashStr(type.id))
   let faces
-  if (OVERRIDE[type.id]) {
+  if (type.look) {
+    // Special blocks: a base with a symbol (SpecialGlyphs.js).
+    faces = specialFaces(type)
+  } else if (OVERRIDE[type.id]) {
     faces = OVERRIDE[type.id](base, r)
   } else {
     const draw = BY_ID[type.id] ? BY_ID[type.id]

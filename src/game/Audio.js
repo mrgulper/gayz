@@ -30,6 +30,13 @@ const ZOMBIE_SOUND_FILES = {
 const RAIN_AMBIENCE_URL = '/audio/weather/rain-ambience.mp3'
 const SNOW_AMBIENCE_URL = '/audio/weather/snow-wind-ambience.ogg'
 
+// playSpecial's recipes (see there).
+const SPECIAL_SOUNDS = {
+  bell: { notes: [[523, 0, 2.4, 'sine', 0.3], [1046, 0, 1.8, 'sine', 0.12], [1569, 0, 1.2, 'sine', 0.07], [523, 0.9, 2.2, 'sine', 0.22], [1046, 0.9, 1.5, 'sine', 0.08]] },
+  whoosh: { noise: [0.45, 300, 3200, 0.3], notes: [[220, 0, 0.4, 'sine', 0.1, 880]] },
+  pop: { notes: [[660, 0, 0.09, 'triangle', 0.25, 990], [990, 0.07, 0.1, 'triangle', 0.18, 1320]] },
+}
+
 class AudioEngine {
   constructor() {
     this.ctx = null
@@ -957,6 +964,47 @@ class AudioEngine {
       osc.start(at)
       osc.stop(at + 0.62)
     })
+  }
+
+  // The special blocks' sounds (SpecialBlocks.js): each a few synth
+  // notes - [hz, start s, length s, wave, loudness, end hz] - and/or a
+  // puff of filtered noise. No sound files, so nothing extra to load.
+  playSpecial(kind) {
+    if (!this.ctx) return
+    const recipe = SPECIAL_SOUNDS[kind]
+    if (!recipe) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    for (const [hz, at, len, type = 'sine', gain = 0.2, endHz = hz] of recipe.notes || []) {
+      const osc = ctx.createOscillator()
+      osc.type = type
+      osc.frequency.setValueAtTime(hz, now + at)
+      if (endHz !== hz) osc.frequency.exponentialRampToValueAtTime(endHz, now + at + len)
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(0.0001, now + at)
+      g.gain.exponentialRampToValueAtTime(gain, now + at + 0.01)
+      g.gain.exponentialRampToValueAtTime(0.0001, now + at + len)
+      osc.connect(g).connect(this.sfxGain)
+      osc.start(now + at)
+      osc.stop(now + at + len + 0.02)
+    }
+    if (recipe.noise) {
+      const [len, from, to, gain = 0.25] = recipe.noise
+      const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate)
+      const data = buf.getChannelData(0)
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+      const src = ctx.createBufferSource()
+      src.buffer = buf
+      const band = ctx.createBiquadFilter()
+      band.type = 'bandpass'
+      band.frequency.setValueAtTime(from, now)
+      band.frequency.exponentialRampToValueAtTime(to, now + len)
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(gain, now)
+      g.gain.exponentialRampToValueAtTime(0.0001, now + len)
+      src.connect(band).connect(g).connect(this.sfxGain)
+      src.start(now)
+    }
   }
 
   playUiHover() {

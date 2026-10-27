@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { gotoAndWaitForGame } from './helpers.js'
 import { sampleLand, BIOMES } from '../src/game/OpenWorld.js'
+import { SPECIAL_BLOCKS } from '../src/game/SpecialBlocks.js'
 
 test('entering Build Mode shows a scene with a ground plane, exiting returns to the homepage', async ({ page }) => {
   await gotoAndWaitForGame(page)
@@ -149,7 +150,8 @@ test('Tab opens the picker, clicking a swatch changes the selected block type', 
   })
 
   expect(result.openAfterToggle).toBe(true)
-  expect(result.swatchCount).toBe(867)
+  // + the special blocks, which grow batch by batch (SpecialBlocks.js).
+  expect(result.swatchCount).toBe(867 + SPECIAL_BLOCKS.length)
   expect(result.afterClickType).not.toBe(result.beforeType)
   expect(result.closedAfterClick).toBe(false)
 })

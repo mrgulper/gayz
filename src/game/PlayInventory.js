@@ -40,6 +40,8 @@ export const ITEMS = {
   healthpack: { key: 'invHealthPack', heal: 40 },
   // From animals (PlayAnimals.js): click with it held to eat it.
   meat: { key: 'invMeat', heal: 25 },
+  // From a Crop Plot (SpecialBlocks.js).
+  veggies: { key: 'invVeggies', heal: 15 },
   ammobox: { key: 'invAmmoBox', ammo: 0.5 },
   helmet: { key: 'invHelmet', armor: 2, slot: 0 },
   chestplate: { key: 'invChestplate', armor: 4, slot: 1 },
@@ -51,6 +53,7 @@ export const ITEMS = {
 // Little pixel pictures for the items (16 x 16, drawn once).
 const ICON_PIXELS = {
   healthpack: ['................', '..############..', '.#wwwwwwwwwwww#.', '.#wwwwwrrwwwww#.', '.#wwwwwrrwwwww#.', '.#wwwrrrrrrwww#.', '.#wwwrrrrrrwww#.', '.#wwwwwrrwwwww#.', '.#wwwwwrrwwwww#.', '.#wwwwwwwwwwww#.', '..############..'],
+  veggies: ['................', '.......gg.g.....', '......gggg......', '.......gg.......', '......oooo......', '.....oooooo.....', '.....oooooo.....', '......oooo......', '......oooo......', '.......oo.......', '.......oo.......'],
   meat: ['................', '..........ww....', '.........wwww...', '........wwww....', '.....mmmmww.....', '....mmmmmm......', '...mmmmmmmm.....', '...mmmmmmmm.....', '...mmmmmmmm.....', '....mmmmmm......', '.....mmmm.......'],
   ammobox: ['................', '................', '...yy.yy.yy.....', '...yy.yy.yy.....', '...yy.yy.yy.....', '.##############.', '.#gggggggggggg#.', '.#ggg######ggg#.', '.#gggggggggggg#.', '.#gggggggggggg#.', '.##############.'],
   helmet: ['................', '....########....', '...#iiiiiiii#...', '..#iiiiiiiiii#..', '..#iiiiiiiiii#..', '..#ii######ii#..', '..#i#......#i#..', '..##........##..'],
@@ -59,7 +62,7 @@ const ICON_PIXELS = {
   boots: ['................', '..###....###....', '..#i#....#i#....', '..#i#....#i#....', '..#ii##..#ii##..', '..#iiii#.#iiii#.', '..######.######.'],
   shield: ['....########....', '...#bbbbbbbb#...', '...#bbbyybbb#...', '...#byyyyyyb#...', '...#bbbyybbb#...', '....#bbyybb#....', '.....#bbbb#.....', '......####......'],
 }
-const ICON_COLORS = { m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8' }
+const ICON_COLORS = { o: '#e8862a', m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8' }
 const iconCache = new Map()
 function itemIcon(id) {
   if (iconCache.has(id)) return iconCache.get(id)
@@ -292,7 +295,7 @@ export class PlayInventory {
     if (!item) return ''
     if (item.armor) return t('invTipArmor', { n: `${Math.round(item.armor * ARMOR_PER_POINT * 100)}%` })
     if (it.id === 'ammobox') return t('invTipAmmoBox')
-    return t(it.id === 'meat' ? 'invTipMeat' : 'invTipHealthPack', { n: item.heal })
+    return t(it.id === 'meat' || it.id === 'veggies' ? 'invTipMeat' : 'invTipHealthPack', { n: item.heal })
   }
 
   // The item card beside the pointer (x, y), or beside a slot on phones.

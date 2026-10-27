@@ -97,6 +97,8 @@ function getTextures() {
     fire: blobTexture([[0, 'rgba(255,250,210,1)'], [0.3, 'rgba(255,190,70,0.95)'], [0.65, 'rgba(240,90,20,0.6)'], [1, 'rgba(180,30,0,0)']]),
     smoke: blobTexture([[0, 'rgba(70,66,62,0.75)'], [1, 'rgba(70,66,62,0)']]),
     void: blobTexture([[0, 'rgba(240,210,255,1)'], [0.35, 'rgba(170,80,255,0.85)'], [1, 'rgba(60,0,120,0)']]),
+    // White, tinted per particle (the special blocks' sparkles, SpecialBlocks.js).
+    dot: blobTexture([[0, 'rgba(255,255,255,1)'], [0.4, 'rgba(255,255,255,0.7)'], [1, 'rgba(255,255,255,0)']]),
     // Explosions (2026-10-25): the first blinding flash, the shock wave's
     // ring and bits of dirt and rubble thrown out.
     flash: blobTexture([[0, 'rgba(255,255,255,1)'], [0.25, 'rgba(255,245,200,0.9)'], [1, 'rgba(255,200,120,0)']]),
@@ -133,7 +135,7 @@ export class PlayFx {
   // kind 'flame' is a flickering tongue of fire tinted by FLAME_RAMP; it
   // rises by `rise` blocks a second and wobbles sideways.
   // `gravity` (blocks/s²) pulls non-flame particles down (debris).
-  _emit(kind, x, y, z, { life, from, to, alpha = 1, vel = null, delay = 0, rise = 0, drag = 2.2, stretch = 1.35, wobble = 14, gravity = 0 }) {
+  _emit(kind, x, y, z, { life, from, to, alpha = 1, vel = null, delay = 0, rise = 0, drag = 2.2, stretch = 1.35, wobble = 14, gravity = 0, color = null }) {
     const s = this._sprites[this._next]
     this._next = (this._next + 1) % POOL
     const d = s.userData
@@ -148,7 +150,8 @@ export class PlayFx {
     d.drag = drag
     d.stretch = stretch
     s.material.map = d.flame ? tex.flames[Math.floor(Math.random() * tex.flames.length)] : tex[kind]
-    s.material.color.setRGB(1, 1, 1)
+    if (color != null) s.material.color.setHex(color)
+    else s.material.color.setRGB(1, 1, 1)
     if (s.material.blending !== (add ? THREE.AdditiveBlending : THREE.NormalBlending)) {
       s.material.blending = add ? THREE.AdditiveBlending : THREE.NormalBlending
       s.material.needsUpdate = true
@@ -270,6 +273,16 @@ export class PlayFx {
       })
     }
     if (Math.random() < 0.035 * strength) this._smokeAt((x + 0.5) * B, (y + 1.6) * B, (z + 0.5) * B, 0.8)
+  }
+
+  // A tinted sparkle (x, y, z in world units) - opts as _emit's, plus color.
+  spark(x, y, z, opts) {
+    this._emit('dot', x, y, z, opts)
+  }
+
+  // One lick of flame rising from a spot (campfires).
+  flame(x, y, z) {
+    this._emit('flame', x, y, z, { life: 0.5 + Math.random() * 0.3, from: 0.35, to: 0.12, rise: 1.2, alpha: 0.9 })
   }
 
   voidHit(pos) {

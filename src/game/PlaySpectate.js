@@ -183,6 +183,7 @@ export class PlaySpectate {
     tm.updateHands(dt, keys)
     const s = bm.survival
     if (s?.active) bm.gadgets.updatePlates(s.zombieCells(), dt)
+    bm.specials.update(dt, null)
     tm._drawMap(performance.now())
     tm._setUnderwater(tm._liquidAtEye(tm.pos))
   }
