@@ -109,6 +109,7 @@ export class BuildSpecials {
     this._standT = 0
     this._crumbled = []
     this._buffs = {}
+    this._bench = 0
     this._ride = null
     this._bed = null
     this._bedUsed = false
@@ -478,6 +479,23 @@ export class BuildSpecials {
   // Your feet just went into a pad's cell.
   _stepOn(entry, me) {
     const sfx = entry.def.fx
+    if (sfx.kind === 'checkpoint') {
+      this._setCheckpoint(entry)
+      return
+    }
+    if (sfx.kind === 'portal' && !(this._portalCd > this._time)) {
+      const others = [...this.kind('portal')].filter((e) => e !== entry)
+      if (!others.length) return
+      const dest = others[Math.floor(Math.random() * others.length)]
+      const tm = this.bm.tryMode
+      tm.pos.set(dest.x + 0.5, dest.y + 1, dest.z + 0.5)
+      tm.vel.set(0, 0, 0)
+      this._onUnderKey = dest.key
+      this._portalCd = this._time + sfx.cd
+      this._sound('whoosh')
+      this._burst(dest, 0x60f0c0, 14)
+      return
+    }
     if (sfx.kind === 'bounce') {
       const tm = this.bm.tryMode
       tm.vel.y = Math.max(sfx.min, -(this._prevVy || 0) * sfx.keep)
@@ -621,6 +639,80 @@ export class BuildSpecials {
     }
     if (fx.kind === 'piano') {
       this._playKey(entry)
+      return true
+    }
+    if (fx.kind === 'checkpoint') {
+      this._setCheckpoint(entry)
+      return true
+    }
+    if (fx.kind === 'store') return this._useStore(entry, st)
+    if (fx.kind === 'weaponrack') {
+      const s = this._play()
+      if (!s) {
+        this._msg(t('specialPlayOnly'))
+        return true
+      }
+      s._openWeaponPicker?.(true)
+      return true
+    }
+    if (fx.kind === 'ammo') {
+      const s = this._play()
+      if (!s) {
+        st.cdUntil = 0
+        this._msg(t('specialPlayOnly'))
+        return true
+      }
+      const n = Math.round(s.magSize() * fx.mags)
+      s.reserve += n
+      s._renderHud()
+      this._sound('pop')
+      this._msg(t('specialAmmo', { n }))
+      return true
+    }
+    if (fx.kind === 'bench') {
+      const s = this._play()
+      if (!s) {
+        this._msg(t('specialPlayOnly'))
+        return true
+      }
+      if (this._bench >= fx.max) {
+        this._msg(t('specialBenchMax'))
+        return true
+      }
+      if ((s.coins || 0) < fx.cost) {
+        this._msg(t('specialNeedCoins', { n: fx.cost }))
+        return true
+      }
+      s.coins -= fx.cost
+      this._bench++
+      s._renderHud()
+      this._sound('hum')
+      this._msg(t('specialBench', { n: Math.round(this._bench * BENCH_STEP * 100) }))
+      return true
+    }
+    if (fx.kind === 'recycler') {
+      const s = this._play()
+      const held = s?.inv?.selected()
+      if (!held || held.kind !== 'block') {
+        this._msg(t('specialHoldBlocks'))
+        return true
+      }
+      const coins = Math.floor(held.n / fx.per)
+      if (!coins) {
+        this._msg(t('specialHoldBlocks'))
+        return true
+      }
+      s.inv._take(s.inv.hotbar, s.inv.active, coins * fx.per)
+      s.coins = (s.coins || 0) + coins
+      s._renderHud()
+      this._sound('pop')
+      this._msg(t('specialRecycled', { n: coins }))
+      return true
+    }
+    if (fx.kind === 'boat') {
+      this._setBuff('boat', fx.mult, fx.time)
+      this._sound('pop')
+      this._msg(t('specialBoat', { s: fx.time }))
       return true
     }
     if (fx.kind === 'elevator') {
@@ -860,6 +952,52 @@ export class BuildSpecials {
     this._burst(entry, 0xfff4c0, 3)
   }
 
+  // Where you come back if you fall off the map.
+  _setCheckpoint(e) {
+    const tm = this.bm.tryMode
+    if (tm._spawn.x === e.x + 0.5 && tm._spawn.z === e.z + 0.5 && tm._spawn.y === e.y + 1) return
+    tm._spawn.set(e.x + 0.5, e.y + 1, e.z + 0.5)
+    this._sound('chime')
+    this._msg(t('specialCheckpoint'))
+    this._burst(e, 0xf0e060, 10)
+  }
+
+  // ---- storing things (Locker, Shared Chest) ----
+
+  // Use with something held: puts the held stack in (if there's room);
+  // with nothing held (or a gun): takes the last stack out.
+  _useStore(entry, st) {
+    const s = this._play()
+    if (!s?.inv) {
+      this._msg(t('specialPlayOnly'))
+      return true
+    }
+    const inv = s.inv
+    st.items = st.items || []
+    const held = inv.selected()
+    if (held && held.kind !== 'gun' && st.items.length < entry.def.fx.slots) {
+      st.items.push({ ...held })
+      inv._take(inv.hotbar, inv.active, held.n)
+      this._sound('pop')
+      this._msg(t('specialStored', { n: st.items.length, max: entry.def.fx.slots }))
+      return true
+    }
+    if (held && held.kind !== 'gun') {
+      this._msg(t('specialStoreFull'))
+      return true
+    }
+    if (!st.items.length) {
+      this._msg(t('specialStoreEmpty'))
+      return true
+    }
+    const it = st.items.pop()
+    const left = inv.add(it)
+    if (left > 0) st.items.push({ ...it, n: left })
+    this._sound('pop')
+    this._msg(t('specialTookOut'))
+    return true
+  }
+
   // ---- buffs (Speed Pad, Strength Totem, Coffee Machine) ----
 
   _setBuff(name, mult, time) {
@@ -874,7 +1012,7 @@ export class BuildSpecials {
 
   // Your damage multiplier (BuildSurvival._damageMult).
   damageMult() {
-    return this._buff('damage') || 1
+    return (this._buff('damage') || 1) * (1 + (this._bench || 0) * BENCH_STEP)
   }
 
   // Dying (BuildSurvival._die): a Bed you used brings you back there once
@@ -1566,10 +1704,11 @@ export class BuildSpecials {
 
 const EMPTY = new Set()
 const SEARCHLIGHT_MULT = 1.25
+const BENCH_STEP = 0.1 // damage added per Workbench Upgrade
 const POWER_STEP = 0.1 // seconds between power updates
 const GATE_MODES = ['AND', 'OR', 'NOT']
 // Kinds that do something when used (plus lures with on: 'use').
-const USE_KINDS = new Set(['elevator', 'zipline', 'rope', 'launcher', 'heal', 'give', 'buff', 'bed', 'turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
+const USE_KINDS = new Set(['checkpoint', 'store', 'weaponrack', 'ammo', 'bench', 'recycler', 'boat', 'elevator', 'zipline', 'rope', 'launcher', 'heal', 'give', 'buff', 'bed', 'turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
 // Piano Block notes: a major scale from middle C.
 const SCALE = [262, 294, 330, 349, 392, 440, 494, 523]
 
