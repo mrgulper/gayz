@@ -245,3 +245,87 @@ test('special blocks batch 2: siren, tripwire, wind chime, doorbell, megaphone, 
     silenceFar: true, silenceNear: true, horn: true, piano: true,
   })
 })
+
+test('special blocks batch 3: garlic, holy lantern, cage, counter, fake player, grave, cleanser, wave bell, cursed, time slow', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 90, 'zombiespawner')
+    const out = {}
+    const ids = ['garlicblock', 'holylantern', 'cageblock', 'zombiecounter', 'fakeplayer', 'graveblock', 'infectioncleanser', 'wavebell', 'cursedblock', 'timeslow']
+    out.inPicker = ids.every((id) => bm.isBlockType(id) && bm.blockTypeOf(id).desc && bm.blockIcon(id).startsWith('data:'))
+    const at = { garlicblock: [20, 0], holylantern: [-20, 0], cageblock: [0, 20], zombiecounter: [3, 3], fakeplayer: [0, -40], graveblock: [-30, -30], infectioncleanser: [2, -2], wavebell: [-2, 2], cursedblock: [30, 30], timeslow: [-30, 30] }
+    for (const [id, [x, z]] of Object.entries(at)) bm.placeBlock(x, 0, z, id)
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    s._toSpawn = 0
+    s._breakTimer = 999
+    const sp = bm.specials
+    const zombie = (x, z) => s._makeZombie(`t${Math.random()}`, x, 0, z, 1000, false)
+    const me = { x: 0, y: 0, z: 0 }
+    const near = (id, dx = 1.5, dz = 0.5) => zombie(at[id][0] + dx, at[id][1] + dz)
+
+    out.garlic = sp.zombieTick(near('garlicblock'), 0.05) === 0.5
+    const zl = near('holylantern')
+    sp.zombieTick(zl, 1)
+    out.lantern = zl.health <= 994.01
+    // Cage: holds the first zombie, then resets.
+    const zc = zombie(0.5, 21.3)
+    sp.zombieTick(zc, 0.05)
+    out.caged = zc._held > 5 && sp.zombieTick(zc, 0.05) === 0
+    const zc2 = zombie(0.5, 21.3)
+    sp.zombieTick(zc2, 0.05)
+    out.cageResets = !(zc2._held > 0)
+    // Counter: says how many zombies are near it.
+    s.zombies.length = 0
+    zombie(5, 5); zombie(6, 6)
+    sp._overlaysDirty = true
+    sp.update(0.05, me)
+    out.counter = /2/.test(sp._overlays.get('3,0,3')?.userData.text || '')
+    s.zombies.length = 0
+    // Fake Player lures.
+    out.fake = sp.zombieTarget(zombie(0, -30), me)?.z === -39.5
+    // Grave: at night a zombie climbs out on top of it.
+    s.zombies.length = 0
+    bm.sky.nightAmount = () => 1
+    sp._state(sp.entryAt(-30, 0, -30)).next = 0
+    sp.update(0.05, me)
+    out.grave = s.zombies.some((zb) => Math.floor(zb.x) === -30 && Math.floor(zb.z) === -30 && zb.y >= 1)
+    s.zombies.length = 0
+    // Cleanser: no damage while protected.
+    s.health = 50
+    sp.use(2, 0, -2)
+    s._hurtPlayer(20)
+    out.shielded = s.health === 50
+    sp._time += 9
+    s._hurtPlayer(20)
+    out.shieldEnds = s.health < 50
+    // Wave Bell: only between waves; starts the next one early with coins.
+    s._toSpawn = 3
+    sp.use(-2, 0, 2)
+    out.waveBusy = s._toSpawn === 3
+    s._toSpawn = 0
+    s._breakTimer = 5
+    const coins = s.coins ?? s.runCoins ?? 0
+    sp.use(-2, 0, 2)
+    out.waveEarly = s._breakTimer < 0.1
+    // Cursed: tougher zombies that pay extra.
+    const zx = near('cursedblock')
+    sp.zombieTick(zx, 0.05)
+    out.cursed = zx.cursed === 2 && zx.health === 1500
+    // Time Slow.
+    out.timeSlow = sp.zombieTick(near('timeslow'), 0.05) === 0.4
+    void coins
+    s.stop()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({
+    inPicker: true, garlic: true, lantern: true, caged: true, cageResets: true, counter: true, fake: true,
+    grave: true, shielded: true, shieldEnds: true, waveBusy: true, waveEarly: true, cursed: true, timeSlow: true,
+  })
+})

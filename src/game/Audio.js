@@ -44,6 +44,7 @@ const SPECIAL_SOUNDS = {
   radio2: { notes: [[392, 0, 0.4, 'triangle', 0.1], [440, 0.45, 0.4, 'triangle', 0.1], [494, 0.9, 0.4, 'triangle', 0.1], [587, 1.35, 0.8, 'triangle', 0.1]] },
   radio3: { notes: [[110, 0, 0.2, 'sawtooth', 0.08], [110, 0.5, 0.2, 'sawtooth', 0.08], [147, 1, 0.2, 'sawtooth', 0.08], [131, 1.5, 0.3, 'sawtooth', 0.08]], noise: [0.1, 4000, 6000, 0.08] },
   echo: { noise: [0.3, 900, 300, 0.12] },
+  clank: { noise: [0.15, 2500, 900, 0.3], notes: [[180, 0, 0.12, 'square', 0.12, 90]] },
   honk: { notes: [[220, 0, 0.3, 'sawtooth', 0.15], [277, 0, 0.3, 'sawtooth', 0.12], [220, 0.35, 0.45, 'sawtooth', 0.15], [277, 0.35, 0.45, 'sawtooth', 0.12]] },
 }
 
