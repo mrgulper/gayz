@@ -1219,3 +1219,94 @@ test('special blocks batch 13: scarecrow, colour lamp, torch, flicker, fireworks
   })
   expect(r).toEqual({ inPicker: true, lights: true, scarecrow: true, lamp: true, flicker: true, party: true, machines: true, hologram: true })
 })
+
+test('special blocks batch 14: glow paint, black light, dice, trophy, arcade, drum, countdown, start/finish, hoop, photo booth', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 90, 'zombiespawner')
+    const out = {}
+    const ids = ['glowpaint', 'blacklight', 'diceblock', 'trophyblock', 'arcademachine', 'drumblock', 'countdownsign', 'startfinish', 'basketballhoop', 'photobooth']
+    out.inPicker = ids.every((id) => bm.isBlockType(id) && bm.blockTypeOf(id).desc && bm.blockIcon(id).startsWith('data:'))
+    ids.forEach((id, i) => bm.placeBlock(-9 + i * 2, 0, -4, id, false, { facing: 0 }))
+    bm.placeBlock(20, 0, 20, 'startfinish', false, { facing: 0 })
+    bm.placeBlock(-6, 2, -8, 'invisible')
+    bm.placeBlock(-7, 3, -8, 'invisible')
+    try { localStorage.removeItem('gayz-race-best') } catch { /* fine */ }
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    s._toSpawn = 0
+    s._breakTimer = 999
+    const sp = bm.specials
+    const me = { x: 0, y: 0, z: 0 }
+    const pos = (id) => [-9 + ids.indexOf(id) * 2, 0, -4]
+    const key = (id) => pos(id).join(',')
+    sp._overlaysDirty = true
+    sp.update(0.05, me)
+    out.glow = !!sp._overlays.get(key('glowpaint'))
+    // Black light shows the invisible blocks near it.
+    sp.use(...pos('blacklight'))
+    out.blacklight = sp._st.get(key('blacklight')).outlines?.children.length === 2
+    sp.use(...pos('blacklight'))
+    out.blacklightOff = !sp._st.get(key('blacklight')).outlines
+    // Dice: 1 to 6, shown above it.
+    sp.use(...pos('diceblock'))
+    sp.update(0.05, me)
+    out.dice = /^[1-6]$/.test(sp._st.get(key('diceblock')).show) && sp._overlays.get(key('diceblock'))?.visible
+    out.trophy = /\d/.test(sp._overlays.get(key('trophyblock'))?.userData.text || '')
+    // Arcade: too soon, then a fast press after NOW! wins coins.
+    s.coins = 0
+    sp.use(...pos('arcademachine'))
+    sp.use(...pos('arcademachine'))
+    const early = sp._st.get(key('arcademachine')).phase === 'done' && s.coins === 0
+    sp.use(...pos('arcademachine'))
+    sp._time = sp._st.get(key('arcademachine')).goAt + 0.01
+    sp.update(0.01, me)
+    const now = sp._st.get(key('arcademachine')).phase === 'now'
+    sp.use(...pos('arcademachine'))
+    out.arcade = early && now && s.coins === 3
+    // Drum.
+    sp.use(...pos('drumblock'))
+    out.drum = sp._lastSound === 'drum'
+    // Countdown: 10 ... GO!
+    sp.use(...pos('countdownsign'))
+    sp._time += 0.5
+    sp.update(0.01, me)
+    const ten = sp._st.get(key('countdownsign')).show === '10'
+    sp._time += 10
+    sp.update(0.01, me)
+    out.countdown = ten && sp._st.get(key('countdownsign')).show !== '10' && sp._lastSound === 'bell'
+    // Start/finish: across two lines.
+    const line = pos('startfinish')
+    sp._onPadKey = null
+    sp.update(0.05, { x: line[0] + 0.5, y: 0.07, z: line[2] + 0.5 })
+    const started = !!sp._race
+    sp._time += 7.25
+    sp.update(0.05, { x: 20.5, y: 0.07, z: 20.5 })
+    const best = JSON.parse(localStorage.getItem('gayz-race-best') || '{}')
+    out.race = started && !sp._race && Math.abs(sp._lastRace - 7.3) < 0.11 && Math.abs(best[String(bm.activeSlot)] - sp._lastRace) < 1e-9
+    // Hoop: too close says step back; from 3 blocks it counts shots.
+    const hoop = pos('basketballhoop')
+    bm.tryMode.pos.set(hoop[0] + 0.5, 0, hoop[2] + 1.5)
+    sp.use(...hoop)
+    const close = sp._st.get(key('basketballhoop'))?.score === undefined
+    bm.tryMode.pos.set(hoop[0] + 0.5, 0, hoop[2] + 3.5)
+    for (let i = 0; i < 20; i++) sp.use(...hoop)
+    const score = sp._st.get(key('basketballhoop')).score
+    out.hoop = close && score > 5 && score < 20
+    // Photo booth: a picture is made.
+    sp.use(...pos('photobooth'))
+    out.photo = sp._lastPhoto > 1000
+    s.stop()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({
+    inPicker: true, glow: true, blacklight: true, blacklightOff: true, dice: true, trophy: true, arcade: true,
+    drum: true, countdown: true, race: true, hoop: true, photo: true,
+  })
+})

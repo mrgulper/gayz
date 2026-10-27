@@ -125,6 +125,8 @@ export class BuildSpecials {
     this._restoreCrumbled(true)
     this._closeGates(true)
     this._clearTemp()
+    for (const e of this.kind('blacklight')) this._showHidden(e, false)
+    this._race = null
     this.active = false
     this.speedMult = 1
     this.gripMult = 1
@@ -185,6 +187,24 @@ export class BuildSpecials {
     const s = this.bm.survival
     const zombies = s?.active ? s.zombies : []
     const now = this._time
+    for (const e of this.kind('arcade')) {
+      const st = this._st.get(e.key)
+      if (st?.phase === 'wait' && st.goAt <= now) {
+        st.phase = 'now'
+        st.show = t('specialArcadeNow')
+        this._sound('chime')
+      }
+    }
+    for (const e of this.kind('countdown')) {
+      const st = this._st.get(e.key)
+      if (!st?.goAt || st.until < now) continue
+      const left = Math.ceil(st.goAt - now)
+      st.show = left > 0 ? String(left) : t('specialGo')
+      if (left < st.beeped) {
+        st.beeped = left
+        this._sound(left > 0 ? 'pop' : 'bell')
+      }
+    }
     // Crops grow (faster by sprinklers and under greenhouse glass).
     for (const e of this.kind('crop')) {
       const st = this._st.get(e.key)
@@ -507,6 +527,15 @@ export class BuildSpecials {
   // Your feet just went into a pad's cell.
   _stepOn(entry, me) {
     const sfx = entry.def.fx
+    if (sfx.kind === 'drum') {
+      this._sound('drum')
+      this._burst(entry, 0xffd080, 3)
+      return
+    }
+    if (sfx.kind === 'race') {
+      this._raceLine(entry)
+      return
+    }
     if (sfx.kind === 'checkpoint') {
       this._setCheckpoint(entry)
       return
@@ -667,6 +696,79 @@ export class BuildSpecials {
     }
     if (fx.kind === 'piano') {
       this._playKey(entry)
+      return true
+    }
+    if (fx.kind === 'drum') {
+      this._sound('drum')
+      return true
+    }
+    if (fx.kind === 'dice') {
+      st.show = String(1 + Math.floor(Math.random() * 6))
+      st.until = this._time + 4
+      this._sound('pop')
+      this._msg(t('specialDice', { n: st.show }))
+      return true
+    }
+    if (fx.kind === 'blacklight') {
+      st.on = !st.on
+      this._showHidden(entry, st.on)
+      this._sound(st.on ? 'hum' : 'pop')
+      return true
+    }
+    if (fx.kind === 'countdown') {
+      st.goAt = this._time + fx.from
+      st.until = st.goAt + 1.5
+      st.beeped = fx.from + 1
+      return true
+    }
+    if (fx.kind === 'arcade') {
+      const s = this._play()
+      if (st.phase === 'wait') {
+        // Pressed before NOW!
+        st.phase = 'done'
+        st.show = t('specialArcadeEarly')
+        st.until = this._time + 2
+        this._sound('warn')
+        return true
+      }
+      if (st.phase === 'now') {
+        const late = this._time - st.goAt > fx.window
+        st.phase = 'done'
+        st.show = late ? t('specialArcadeSlow') : t('specialArcadeWin', { n: fx.coins })
+        st.until = this._time + 2.5
+        if (!late && s) {
+          s.coins = (s.coins || 0) + fx.coins
+          s._renderHud()
+        }
+        this._sound(late ? 'pop' : 'chime')
+        return true
+      }
+      st.phase = 'wait'
+      st.goAt = this._time + 1 + Math.random() * 2.5
+      st.show = t('specialArcadeWait')
+      st.until = st.goAt + 5
+      this._sound('pop')
+      return true
+    }
+    if (fx.kind === 'hoop') {
+      const p = this.bm.tryMode.pos
+      const d = Math.hypot(p.x - x - 0.5, p.z - z - 0.5)
+      if (d < fx.min) {
+        this._msg(t('specialHoopBack'))
+        return true
+      }
+      const scored = Math.random() < Math.max(0.2, Math.min(0.9, 1.4 - d * 0.2))
+      st.score = (st.score || 0) + (scored ? 1 : 0)
+      st.until = this._time + 999
+      this._sound(scored ? 'chime' : 'thud')
+      this._msg(scored ? t('specialHoopIn', { n: st.score }) : t('specialHoopMiss'))
+      return true
+    }
+    if (fx.kind === 'photo') {
+      if (this._photo()) {
+        this._sound('pop')
+        this._msg(t('specialPhoto'))
+      }
       return true
     }
     if (fx.kind === 'lamp') {
@@ -1357,6 +1459,86 @@ export class BuildSpecials {
     }
   }
 
+  // A Start/Finish Line: the first one you cross starts the clock, any
+  // other one stops it (your best time on this map is kept on this device).
+  _raceLine(e) {
+    const r = this._race
+    if (!r) {
+      this._race = { from: e.key, start: this._time }
+      this._sound('chime')
+      this._msg(t('specialRaceGo'))
+      return
+    }
+    if (r.from === e.key) return
+    const secs = Math.round((this._time - r.start) * 10) / 10
+    this._race = null
+    let best = secs
+    try {
+      const all = JSON.parse(localStorage.getItem(RACE_KEY) || '{}')
+      const slot = String(this.bm.activeSlot)
+      const old = Number(all[slot])
+      if (Number.isFinite(old) && old > 0 && old < secs) best = old
+      all[slot] = best
+      localStorage.setItem(RACE_KEY, JSON.stringify(all))
+    } catch {
+      // Not kept - still shown.
+    }
+    this._lastRace = secs
+    this._sound('bell')
+    this._msg(t('specialRaceTime', { s: secs.toFixed(1), best: best.toFixed(1) }))
+  }
+
+  // Black Light: outlines of Invisible Blocks around it, while it's on.
+  _showHidden(e, on) {
+    const st = this._state(e)
+    if (st.outlines) {
+      this._group?.remove(st.outlines)
+      st.outlines.traverse((o) => o.material?.dispose())
+      st.outlines = null
+    }
+    if (!on || !this._group) return
+    const B = this.B
+    const r = e.def.fx.r
+    const group = new THREE.Group()
+    const mat = new THREE.LineBasicMaterial({ color: 0xc060ff })
+    const edges = sharedEdges()
+    for (let x = e.x - r; x <= e.x + r && group.children.length < 200; x++) {
+      for (let y = e.y - r; y <= e.y + r; y++) {
+        for (let z = e.z - r; z <= e.z + r; z++) {
+          if (this.bm._blocks.at(x, y, z) !== 'invisible') continue
+          const line = new THREE.LineSegments(edges, mat)
+          line.scale.setScalar(B * 1.01)
+          line.position.set((x + 0.5) * B, (y + 0.5) * B, (z + 0.5) * B)
+          group.add(line)
+        }
+      }
+    }
+    group.userData.mat = mat
+    this._group.add(group)
+    st.outlines = group
+  }
+
+  // Photo Booth: saves a picture of what you see.
+  _photo() {
+    const bm = this.bm
+    const r = bm.renderer
+    if (!r) return false
+    try {
+      r.render(bm.scene, bm.camera)
+      const url = r.domElement.toDataURL('image/png')
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `gayz-photo-${Date.now()}.png`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      this._lastPhoto = url.length
+    } catch {
+      return false
+    }
+    return true
+  }
+
   // Raining, with open sky over this block.
   _rainingOn(e) {
     const s = this.bm.survival
@@ -1903,6 +2085,9 @@ export class BuildSpecials {
       if (!near(e)) continue
       this._effects().flame((e.x + 0.3 + Math.random() * 0.4) * B, (e.y + 1.05) * B, (e.z + 0.3 + Math.random() * 0.4) * B)
     }
+    for (const e of this.kind('trophy')) {
+      if (near(e) && Math.random() < 0.3) this._effects().spark((e.x + Math.random()) * B, (e.y + 1 + Math.random() * 0.5) * B, (e.z + Math.random()) * B, { color: 0xffe060, life: 0.6, from: 0.12, to: 0.02 })
+    }
     for (const e of this.kind('torch')) {
       if (near(e) && Math.random() < 0.6) this._effects().flame((e.x + 0.4 + Math.random() * 0.2) * B, (e.y + 1.02) * B, (e.z + 0.4 + Math.random() * 0.2) * B)
     }
@@ -1967,7 +2152,7 @@ export class BuildSpecials {
   // the nearest MAX_OVERLAYS within OVERLAY_RANGE.
   _pickOverlays(me) {
     const want = []
-    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter', 'blade', 'power', 'turret', 'searchlight', 'slots', 'flowerpot', 'rain', 'lamp', 'flicker', 'hologram']) {
+    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter', 'blade', 'power', 'turret', 'searchlight', 'slots', 'flowerpot', 'rain', 'lamp', 'flicker', 'hologram', 'dice', 'arcade', 'countdown', 'hoop', 'trophy', 'race', 'pulse']) {
       for (const e of this.kind(kind)) {
         if (kind === 'lure' && !e.def.fx.label) continue
         const d = (e.x - me.x) ** 2 + (e.y - me.y) ** 2 + (e.z - me.z) ** 2
@@ -1984,7 +2169,7 @@ export class BuildSpecials {
     const B = this.B
     const kind = e.def.fx.kind
     let obj = null
-    if (kind === 'disco' || kind === 'power' || kind === 'lamp' || kind === 'flicker') {
+    if (kind === 'disco' || kind === 'power' || kind === 'lamp' || kind === 'flicker' || kind === 'pulse') {
       obj = new THREE.Mesh(sharedBox(), new THREE.MeshBasicMaterial({ color: kind === 'power' ? 0xffe040 : kind === 'flicker' ? 0xfff0c0 : 0xffffff, transparent: true, opacity: kind === 'power' ? 0.3 : 0.4, depthWrite: false }))
       obj.scale.setScalar(1.02 * B)
       obj.position.set((e.x + 0.5) * B, (e.y + 0.5) * B, (e.z + 0.5) * B)
@@ -2029,7 +2214,7 @@ export class BuildSpecials {
       obj = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xfff6c0, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }))
       obj.scale.set(e.def.fx.r * B, 2 * B, 2 * B)
       obj.position.set((e.x + 0.5) * B, (e.y + 1.1) * B, (e.z + 0.5) * B)
-    } else if (kind === 'score' || kind === 'radio' || kind === 'counter' || kind === 'turret' || kind === 'slots' || kind === 'rain' || e.def.fx.label) {
+    } else if (kind === 'score' || kind === 'radio' || kind === 'counter' || kind === 'turret' || kind === 'slots' || kind === 'rain' || LABEL_KINDS.has(kind) || e.def.fx.label) {
       obj = textSprite()
       obj.position.set((e.x + 0.5) * B, (e.y + 1.7) * B, (e.z + 0.5) * B)
       obj.scale.set(3 * B, 0.75 * B, 1)
@@ -2085,6 +2270,23 @@ export class BuildSpecials {
         obj.userData.head.material.color.setHex(FLOWER_COLORS[this._st.get(e.key)?.flower || 0])
       } else if (kind === 'rain') {
         setSpriteText(obj, t('specialRainLevel', { n: this._st.get(e.key)?.level || 0, max: e.def.fx.max }))
+      } else if (kind === 'pulse') {
+        obj.material.color.setHex(e.def.fx.tint)
+        obj.material.opacity = 0.25 + Math.sin(this._time * 2 + e.x) * 0.2
+      } else if (kind === 'trophy') {
+        setSpriteText(obj, t('specialScoreBest', { n: this._bestWave() }))
+      } else if (kind === 'race') {
+        const r = this._race
+        obj.visible = !!r || this._lastRace !== undefined
+        if (obj.visible) setSpriteText(obj, r ? `${(this._time - r.start).toFixed(1)}s` : t('specialRaceLast', { s: this._lastRace.toFixed(1) }))
+      } else if (kind === 'hoop') {
+        const n = this._st.get(e.key)?.score
+        obj.visible = n !== undefined
+        if (obj.visible) setSpriteText(obj, t('specialHoopScore', { n }))
+      } else if (kind === 'dice' || kind === 'arcade' || kind === 'countdown') {
+        const st = this._st.get(e.key)
+        obj.visible = st?.until > this._time && !!st.show
+        if (obj.visible) setSpriteText(obj, st.show)
       } else if (kind === 'slots') {
         const st = this._st.get(e.key)
         obj.visible = st?.until > this._time
@@ -2134,22 +2336,30 @@ export class BuildSpecials {
 }
 
 const EMPTY = new Set()
+// Kinds that show a floating label (besides score/radio/counter...).
+const LABEL_KINDS = new Set(['dice', 'arcade', 'countdown', 'hoop', 'trophy', 'race'])
 const SEARCHLIGHT_MULT = 1.25
 const LAMP_COLORS = [0xffffff, 0xff4040, 0xffa030, 0xffe040, 0x50e060, 0x40c0ff, 0x7060ff, 0xff60d0]
 const HOLO_BLOCKS = ['diamondblock', 'gold', 'emeraldblock', 'grass', 'stone', 'oaklog', 'amethystblock', 'c4']
 const FLOWER_COLORS = [0xf04060, 0xf0d040, 0x6080f0, 0xf080d0, 0xffffff, 0xf08030]
+const RACE_KEY = 'gayz-race-best' // best Start/Finish time per map slot
 const MAIL_KEY = 'gayz-mailbox' // + map slot + block spot (Mailbox)
 const SLOT_SYMBOLS = ['7', '$', '*', '@']
 const BENCH_STEP = 0.1 // damage added per Workbench Upgrade
 const POWER_STEP = 0.1 // seconds between power updates
 const GATE_MODES = ['AND', 'OR', 'NOT']
 // Kinds that do something when used (plus lures with on: 'use').
-const USE_KINDS = new Set(['lamp', 'machine', 'firework', 'confetti', 'hologram', 'producer', 'compost', 'flowerpot', 'rain', 'cook', 'armor', 'trash', 'shop', 'gamble', 'slots', 'clone', 'checkpoint', 'store', 'weaponrack', 'ammo', 'bench', 'recycler', 'boat', 'elevator', 'zipline', 'rope', 'launcher', 'heal', 'give', 'buff', 'bed', 'turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
+const USE_KINDS = new Set(['drum', 'dice', 'blacklight', 'countdown', 'arcade', 'hoop', 'photo', 'lamp', 'machine', 'firework', 'confetti', 'hologram', 'producer', 'compost', 'flowerpot', 'rain', 'cook', 'armor', 'trash', 'shop', 'gamble', 'slots', 'clone', 'checkpoint', 'store', 'weaponrack', 'ammo', 'bench', 'recycler', 'boat', 'elevator', 'zipline', 'rope', 'launcher', 'heal', 'give', 'buff', 'bed', 'turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
 // Piano Block notes: a major scale from middle C.
 const SCALE = [262, 294, 330, 349, 392, 440, 494, 523]
 
 function dist3(p, x, y, z) {
   return Math.hypot(p.x - x, p.y - y, p.z - z)
+}
+
+let _edges = null
+function sharedEdges() {
+  return _edges || (_edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)))
 }
 
 let _box = null

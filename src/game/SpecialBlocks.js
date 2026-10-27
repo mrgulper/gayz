@@ -821,6 +821,68 @@ export const SPECIAL_BLOCKS = [
     look: { base: 'glow', color: 0x1a3a4a, glyph: 'cube', glyphColor: 0x80f0ff },
     fx: { kind: 'hologram' },
   },
+
+  // ---- Batch 14: fun and games ----
+  {
+    ...D, id: 'glowpaint', name: 'Glow Paint Block', color: 0x60ff90, emissive: 0x60ff90, emissiveIntensity: 0.6,
+    desc: 'Glows in the dark all by itself, gently pulsing.',
+    look: { base: 'glow', color: 0x50e080, glyph: null },
+    fx: { kind: 'pulse', tint: 0x80ffb0 },
+  },
+  {
+    ...D, id: 'blacklight', name: 'Black Light', color: 0x6a30a0, emissive: 0x9040ff, emissiveIntensity: 0.25,
+    desc: 'Use it to switch it on: every Invisible Block within 8 blocks shows up as a purple outline.',
+    look: { base: 'glow', color: 0x3a1a5a, glyph: 'bulb', glyphColor: 0xc070ff },
+    fx: { kind: 'blacklight', r: 8 },
+  },
+  {
+    ...D, id: 'diceblock', name: 'Dice', color: 0xf0f0f0,
+    desc: 'Use it to roll a number from 1 to 6 (it floats above the dice).',
+    look: { base: 'glow', color: 0xf0f0ea, glyph: 'dice', glyphColor: 0x2a2a2a },
+    fx: { kind: 'dice' },
+  },
+  {
+    ...D, id: 'trophyblock', name: 'Trophy', color: 0xe0b030,
+    desc: 'Shows your best wave on this map above it, with a golden sparkle.',
+    look: { base: 'wood', color: 0x5a4028, glyph: 'trophy', glyphColor: 0xf0c040 },
+    fx: { kind: 'trophy' },
+  },
+  {
+    ...D, id: 'arcademachine', name: 'Arcade Machine', color: 0x3a2a6a,
+    desc: 'A reaction game: use it, wait for NOW!, then use it again fast (within 0.7 seconds) to win 3 coins.',
+    look: { base: 'metal', color: 0x2a1a4a, glyph: 'joystick', glyphColor: 0xff60a0 },
+    fx: { kind: 'arcade', window: 0.7, coins: 3 },
+  },
+  {
+    ...D, id: 'drumblock', name: 'Drum', color: 0xc04030,
+    desc: 'BOOM! Use it or jump on it to play a drum beat.',
+    look: { base: 'wood', color: 0xb03a2a, glyph: null, topBase: 'glow', topColor: 0xe8dcc8, top: null },
+    fx: { kind: 'drum' },
+  },
+  {
+    ...D, id: 'countdownsign', name: 'Countdown Sign', color: 0x2a2a2a,
+    desc: 'Use it to count down from 10 to GO! above it, with a beep each second - for races and games.',
+    look: { base: 'metal', color: 0x222226, glyph: 'clock', glyphColor: 0xff6040 },
+    fx: { kind: 'countdown', from: 10 },
+  },
+  {
+    ...D, id: 'startfinish', name: 'Start/Finish Line', color: 0xe8e8e8, shape: 'pad',
+    desc: 'Step on one to start a timer, then on another one to stop it. Your best time on this map is kept.',
+    look: { base: 'checker', color: 0xf0f0f0, glyph: null },
+    fx: { kind: 'race' },
+  },
+  {
+    ...D, id: 'basketballhoop', name: 'Basketball Hoop', color: 0xe07030,
+    desc: 'Stand back a few blocks and use it to shoot a ball - the closer you are, the easier it goes in. It keeps score.',
+    look: { base: 'metal', color: 0xe8e8e8, glyph: 'hoop', glyphColor: 0xe06020 },
+    fx: { kind: 'hoop', min: 2.5 },
+  },
+  {
+    ...D, id: 'photobooth', name: 'Photo Booth', color: 0x8a3a5a,
+    desc: 'Use it to save a picture of what you see right now (it downloads as a PNG).',
+    look: { base: 'metal', color: 0x5a2a3a, glyph: 'camera', glyphColor: 0xf0f0f0 },
+    fx: { kind: 'photo', cd: 2 },
+  },
 ]
 
 export const SPECIAL_BY_ID = new Map(SPECIAL_BLOCKS.map((b) => [b.id, b]))
