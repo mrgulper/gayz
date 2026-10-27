@@ -763,6 +763,7 @@ export class BuildTryMode {
     this._mapBuiltAt = performance.now()
     this._mapEl.style.display = 'block'
     this._applyMapMode()
+    this.bm.specials.start()
   }
 
   exit() {
@@ -773,6 +774,7 @@ export class BuildTryMode {
     this.aimAmount = 0
     this._inspectT = -1
     this.bm.gadgets.releasePlates()
+    this.bm.specials.stop()
     this._restoreWindows()
     if (this._mapEl) this._mapEl.style.display = 'none'
     if (this._baseFov !== null) {
@@ -963,6 +965,8 @@ export class BuildTryMode {
     // Pressure plates under you (and under zombies while playing).
     const play = this.bm.survival
     this.bm.gadgets.updatePlates([[Math.floor(p.x), Math.floor(p.y + 0.01), Math.floor(p.z)], ...(play?.active ? play.zombieCells() : [])], dt)
+    // Special blocks you stand on, near or touch (BuildSpecials.js).
+    this.bm.specials.update(dt, p)
     this._drawMap(performance.now())
     this._setUnderwater(this._liquidAtEye(p))
   }

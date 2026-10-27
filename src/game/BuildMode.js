@@ -24,6 +24,8 @@ import { PlaySpectate } from './PlaySpectate.js'
 import { BuildSky } from './BuildSky.js'
 import { BuildTouch } from './BuildTouch.js'
 import { BuildGadgets } from './BuildGadgets.js'
+import { BuildSpecials } from './BuildSpecials.js'
+import { SPECIAL_BLOCKS } from './SpecialBlocks.js'
 import { BuildSurvival } from './BuildSurvival.js'
 import { PlayPauseMenu } from './PlayPauseMenu.js'
 import { BuildCamp } from './BuildCamp.js'
@@ -555,6 +557,8 @@ export const BLOCK_TYPES = [
   { id: 'lever', name: 'Lever', color: 0x7d7d7d, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'lever', game: true },
   { id: 'pressureplate', name: 'Pressure Plate', color: 0xa8a8a0, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'pad', game: true },
   { id: 'sign', name: 'Glowing Sign', color: 0x5a3f28, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'sign', game: true, emissive: 0xffd890, emissiveIntensity: 0.12 },
+  // Working special blocks (bell, teleporter, traps...) - SpecialBlocks.js.
+  ...SPECIAL_BLOCKS,
   { id: 'ladder', name: 'Ladder', color: 0x8a6239, pattern: 'ladder', roughness: 0.7, metalness: 0, shape: 'ladder' },
   { id: 'oakstairs', name: 'Oak Stairs', color: 0xb4864a, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'stairs' },
   { id: 'stonestairs', name: 'Stone Stairs', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'stairs' },
@@ -592,7 +596,7 @@ export const BLOCK_TYPES = [
 // skipped here. No water/lava slabs (Minecraft has none either).
 const HAND_SLAB_SOURCES = new Set(['oakplanks', 'spruceplanks', 'birchplanks', 'darkoakplanks', 'smoothstone', 'cobblestone', 'brick', 'stone', 'sandstone', 'quartz', 'blackstone', 'prismarine'])
 for (const src of BLOCK_TYPES.slice()) {
-  if (src.shape || src.inset || src.plant || src.id === 'water' || src.id === 'lava' || HAND_SLAB_SOURCES.has(src.id)) continue
+  if (src.shape || src.game || src.inset || src.plant || src.id === 'water' || src.id === 'lava' || HAND_SLAB_SOURCES.has(src.id)) continue
   BLOCK_TYPES.push({
     ...src,
     id: `${src.id}slab`,
@@ -607,7 +611,7 @@ for (const src of BLOCK_TYPES.slice()) {
 // which these two loops do automatically.
 const HAND_STAIRS_SOURCES = new Set(['oakplanks', 'stone', 'brick', 'cobblestone'])
 for (const src of BLOCK_TYPES.filter((b) => !b.shape)) {
-  if (src.inset || src.plant || src.id === 'water' || src.id === 'lava' || HAND_STAIRS_SOURCES.has(src.id)) continue
+  if (src.game || src.inset || src.plant || src.id === 'water' || src.id === 'lava' || HAND_STAIRS_SOURCES.has(src.id)) continue
   BLOCK_TYPES.push({ ...src, id: `${src.id}stairs`, name: `${src.name} Stairs`, shape: 'stairs', stairsOf: src.id })
 }
 // Top halves of doors - never in the picker, only ever placed together
@@ -1813,6 +1817,7 @@ export class BuildMode {
     this.tools = new BuildTools(this, BLOCK_SIZE)
     // Levers, pressure plates, signs, chests (BuildGadgets.js).
     this.gadgets = new BuildGadgets(this, BLOCK_SIZE)
+    this.specials = new BuildSpecials(this, BLOCK_SIZE)
     // Play: zombie waves on your own map (BuildSurvival.js).
     this.survival = new BuildSurvival(this, BLOCK_SIZE)
     // Touch controls for walking/playing on a phone (BuildTouch.js).
@@ -2312,6 +2317,7 @@ export class BuildMode {
     const reach = TRY_REACH_BLOCKS * BLOCK_SIZE
     if (Math.hypot((x + 0.5) * BLOCK_SIZE - c.x, (y + 0.5) * BLOCK_SIZE - c.y, (z + 0.5) * BLOCK_SIZE - c.z) > reach) return false
     if (this.gadgets.use(x, y, z, true)) return true
+    if (this.specials.use(x, y, z)) return true
     if (this.survival?.useChest(x, y, z)) return true
     if (!this.toggleDoor(x, y, z)) return false
     if (this.tryMode.overlapsSolid()) this.toggleDoor(x, y, z)
@@ -2504,6 +2510,9 @@ export class BuildMode {
   // straight into your held hand.
   _assignToActiveSlot(id) {
     this._stopPlacingAnimal()
+    // A special block says what it does (phones have no hover tooltip).
+    const desc = BLOCK_BY_ID.get(id)?.desc
+    if (desc) this.game?._showHomepageToast?.(`${BLOCK_BY_ID.get(id).name}: ${desc}`)
     this.hotbar[this.activeHotbarIndex] = id
     this.selectedType = id
     this._updateInvisibleGhost()
@@ -2643,6 +2652,7 @@ export class BuildMode {
     if (BLOCK_BY_ID.get(type)?.shape === 'door' && this.liquids?.isFlow(aboveKey)) this.removeBlock(x, y + 1, z)
     const before = this._blocks.get(key)
     this._placeBlockInner(x, y, z, type, skipBoundsUpdate, state)
+    this.specials.onPlace(key, x, y, z, this._blocks.get(key))
     if (this._blocks.get(key) !== before) this.world?.touched(x, y, z, key, false)
     if (this.liquids && this._blocks.get(key) !== before && (!skipBoundsUpdate || LIQUID_TYPES.has(type))) this.liquids.changed(x, y, z)
   }
@@ -2894,6 +2904,7 @@ export class BuildMode {
     if (shape === 'door' || shape === 'doortop') this._doorState.delete(key)
     this._stairFacing.delete(key)
     this.gadgets.onRemove(key)
+    this.specials.onRemove(key)
     if (shape === 'door' && this._blocks.get(this._key(x, y + 1, z)) === `${type}top`) {
       this._removingDoorTop = true
       this.removeBlock(x, y + 1, z)
@@ -3262,10 +3273,11 @@ export class BuildMode {
       return
     }
     const matches = PICKER_TYPES_SORTED.filter((bt) => (category === 'all' || _blockCategory(bt) === category) && (!query || bt.name.toLowerCase().includes(query)))
-    for (const { id, name } of matches) {
+    for (const { id, name, desc } of matches) {
       const item = document.createElement('div')
       item.className = 'build-picker-item'
-      item.title = name
+      // Special blocks say what they do.
+      item.title = desc ? `${name} - ${desc}` : name
       const swatch = document.createElement('div')
       swatch.className = 'build-picker-swatch' + (id === this.selectedType ? ' selected' : '')
       // Minecraft-inventory-style 3D block icon (BlockTextures.js), with
@@ -4292,6 +4304,7 @@ export class BuildMode {
     this._doorState.clear()
     this._stairFacing.clear()
     this.gadgets.clear()
+    this.specials.clear()
     this._chunkCells.clear()
     this._chunks.clear()
     this._shadowsDirty = true

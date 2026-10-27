@@ -2063,6 +2063,8 @@ export class BuildSurvival {
       zb.slow -= dt
       speed *= VOID_SLOW
     }
+    // Special blocks it touches (spikes, a barricade...), BuildSpecials.js.
+    speed *= this.bm.specials.zombieTick(zb, dt)
     const cx = Math.floor(zb.x)
     const cy = Math.floor(zb.y + 0.01)
     const cz = Math.floor(zb.z)
@@ -2070,7 +2072,8 @@ export class BuildSurvival {
     let tx = player.x
     let tz = player.z
     let ty = player.y
-    const here = this._flow.get(cellKey(cx, cy, cz))
+    // Lured to a block (a bell, bait...): straight there, not by your path.
+    const here = player.lure ? undefined : this._flow.get(cellKey(cx, cy, cz))
     if (here !== undefined) {
       let bestD = here
       for (const [nx, ny, nz] of this._neighbors(cx, cy, cz, this._nb || (this._nb = []))) {
@@ -2581,7 +2584,7 @@ export class BuildSurvival {
       if (targets.length && best > DESPAWN_DIST * DESPAWN_DIST) {
         zb.lost = true
         zb.health = 0
-      } else this._updateZombie(zb, dt, target || { x: zb.x, y: zb.y, z: zb.z, idle: true }, speed)
+      } else this._updateZombie(zb, dt, this.bm.specials.zombieTarget(zb, target) || target || { x: zb.x, y: zb.y, z: zb.z, idle: true }, speed)
       if (zb.health <= 0 && this.zombies.includes(zb)) this.damageZombie(zb, 0)
       if (this.dead && !this.net) return
     }

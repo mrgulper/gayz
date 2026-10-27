@@ -1,0 +1,241 @@
+// Pictures for the special blocks (SpecialBlocks.js, 2026-10-27): a base
+// material (metal plates, planks, stone...) with a small symbol on it, so
+// every working block reads at a glance - a bell on the Alarm Bell, a
+// shield on the Zombie Repeller. 16x16 pixel art like BlockTextures.js;
+// cleanPixels runs over them there afterwards.
+//
+// A block's `look` is { base, color, glyph, glyphColor, top, topGlyph }:
+// base = one of BASES, color = its main colour (0xRRGGBB), glyph = a key
+// of GLYPHS drawn on the sides (and the top unless `top` says otherwise).
+
+const S = 16
+
+function rng(seed) {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function hashStr(str) {
+  let h = 2166136261
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+const hex = (h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255]
+const mul = (c, f) => [c[0] * f, c[1] * f, c[2] * f]
+
+function canvasOf(d) {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = S
+  canvas.getContext('2d', { willReadFrequently: true }).putImageData(new ImageData(d, S, S), 0, 0)
+  return canvas
+}
+
+function pixels() {
+  const d = new Uint8ClampedArray(S * S * 4)
+  const set = (x, y, c, a = 255) => {
+    if (x < 0 || y < 0 || x >= S || y >= S) return
+    const i = (y * S + x) * 4
+    d[i] = c[0]
+    d[i + 1] = c[1]
+    d[i + 2] = c[2]
+    d[i + 3] = a
+  }
+  return { d, set }
+}
+
+// ---- base materials ---------------------------------------------------------
+const BASES = {
+  // Riveted metal plate.
+  metal(set, c, r) {
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) set(x, y, mul(c, 0.92 + r() * 0.1))
+    for (let i = 0; i < S; i++) {
+      set(i, 0, mul(c, 1.25)); set(0, i, mul(c, 1.2)); set(i, 15, mul(c, 0.6)); set(15, i, mul(c, 0.65))
+    }
+    for (const [x, y] of [[2, 2], [13, 2], [2, 13], [13, 13]]) set(x, y, mul(c, 1.45))
+  },
+  // Wooden planks, three boards.
+  wood(set, c, r) {
+    for (let y = 0; y < S; y++) {
+      const board = Math.floor(y / 5.34)
+      for (let x = 0; x < S; x++) {
+        const seam = y % 5 === 4 || (x === (board * 7 + 5) % 16)
+        set(x, y, mul(c, seam ? 0.62 : 0.9 + r() * 0.14))
+      }
+    }
+  },
+  // Rough stone.
+  stone(set, c, r) {
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) set(x, y, mul(c, 0.82 + r() * 0.26))
+    for (let i = 0; i < S; i++) { set(i, 15, mul(c, 0.62)); set(15, i, mul(c, 0.66)) }
+  },
+  // Tilled soil in furrows (the Crop Plot's top).
+  soil(set, c, r) {
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) set(x, y, mul(c, (y % 4 === 3 ? 0.6 : 0.9) + r() * 0.12))
+  },
+  // Smooth glowing panel.
+  glow(set, c, r) {
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const edge = Math.min(x, y, 15 - x, 15 - y)
+      set(x, y, mul(c, (edge === 0 ? 0.7 : edge === 1 ? 0.9 : 1.05) + r() * 0.06))
+    }
+  },
+  // Party tiles: a 4x4 grid of bright colours.
+  disco(set, c, r) {
+    const tiles = [[240, 70, 90], [250, 200, 60], [80, 200, 120], [70, 140, 240], [190, 90, 230], [250, 140, 50]]
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const t = tiles[(Math.floor(x / 4) + Math.floor(y / 4) * 3) % tiles.length]
+      const line = x % 4 === 3 || y % 4 === 3
+      set(x, y, line ? [30, 26, 34] : mul(t, 0.92 + r() * 0.12))
+    }
+  },
+  // Raw meat with fat streaks (the Bait Block).
+  meat(set, c, r) {
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const fat = (x + y * 2) % 9 === 0 || (x * 3 + y) % 13 === 0
+      set(x, y, fat ? [236, 214, 200] : mul(c, 0.85 + r() * 0.25))
+    }
+  },
+}
+
+// ---- symbols ----------------------------------------------------------------
+// '#' = the glyph colour, 'd' = a darker shade of it, 'w' = near white.
+const GLYPHS = {
+  bell: [
+    '....##....',
+    '...####...',
+    '..##ww##..',
+    '..#w####..',
+    '..######..',
+    '.########.',
+    '##########',
+    '.dddddddd.',
+    '....##....',
+  ],
+  shield: [
+    '.########.',
+    '.#wwdddd#.',
+    '.#w####d#.',
+    '.#d####d#.',
+    '.#d####d#.',
+    '..#d##d#..',
+    '..#d##d#..',
+    '...#dd#...',
+    '....##....',
+  ],
+  meat: [
+    '......ww..',
+    '.....wwww.',
+    '....wwww..',
+    '..####w...',
+    '.##w###...',
+    '#w######..',
+    '########..',
+    '.######...',
+    '..####....',
+  ],
+  spikes: [
+    '..#...#...#..',
+    '.#w#.#w#.#w#.',
+    '#####d##d####',
+    '..#...#...#..',
+    '.#w#.#w#.#w#.',
+    '#############',
+  ],
+  cross: [
+    '##......##',
+    '###....###',
+    '.###..###.',
+    '..######..',
+    '...####...',
+    '...####...',
+    '..######..',
+    '.###..###.',
+    '###....###',
+    '##......##',
+  ],
+  flame: [
+    '....#.....',
+    '...##.....',
+    '...###..#.',
+    '..####.##.',
+    '..#######.',
+    '.##ww####.',
+    '.#wwww###.',
+    '.#wwww##..',
+    '..#ww##...',
+    '...###....',
+  ],
+  portal: [
+    '...####...',
+    '..#dddd#..',
+    '.#d.##.d#.',
+    '.#.#ww#.#.',
+    '.#.#ww#.#.',
+    '.#d.##.d#.',
+    '..#dddd#..',
+    '...####...',
+  ],
+  board: [
+    '############',
+    '#dddddddddd#',
+    '#d##dd##d#d#',
+    '#dd#ddd#d#d#',
+    '#d##dd##d#d#',
+    '#d#ddd#dd#d#',
+    '#d##dd##ddd#',
+    '#dddddddddd#',
+    '############',
+  ],
+  star: [
+    '....##....',
+    '....##....',
+    '.########.',
+    '..######..',
+    '...####...',
+    '..##..##..',
+    '.##....##.',
+  ],
+}
+
+function drawGlyph(set, name, color, top = 0) {
+  const rows = GLYPHS[name]
+  if (!rows) return
+  const w = Math.max(...rows.map((row) => row.length))
+  const ox = Math.floor((S - w) / 2)
+  const oy = Math.floor((S - rows.length) / 2) + top
+  const dark = mul(color, 0.6)
+  const white = [250, 248, 240]
+  rows.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (ch === '#') set(ox + x, oy + y, color)
+    else if (ch === 'd') set(ox + x, oy + y, dark)
+    else if (ch === 'w') set(ox + x, oy + y, white)
+  }))
+}
+
+function face(type, part) {
+  const look = type.look
+  const r = rng(hashStr(`${type.id}:${part}`))
+  const { d, set } = pixels()
+  const base = part === 'top' && look.topBase ? look.topBase : look.base
+  const color = hex(part === 'top' && look.topColor != null ? look.topColor : look.color)
+  ;(BASES[base] || BASES.metal)(set, color, r)
+  const glyph = part === 'top' ? (look.top === undefined ? look.glyph : look.top) : look.glyph
+  if (glyph) drawGlyph(set, glyph, hex(look.glyphColor ?? 0xf2f0ea))
+  return canvasOf(d)
+}
+
+// -> { top, side, bottom } canvases for a special block.
+export function specialFaces(type) {
+  const side = face(type, 'side')
+  const top = type.look.top === undefined && !type.look.topBase && type.look.topColor == null ? side : face(type, 'top')
+  return { top, side, bottom: top }
+}

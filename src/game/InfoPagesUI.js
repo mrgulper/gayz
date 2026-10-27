@@ -19,6 +19,7 @@ import { DINO_KINDS, DINO_CHANCE } from './DinoKinds.js'
 import { RARITIES } from './NewAnimalKinds.js'
 import { GRASS_REACH } from './GrassTufts.js'
 import { LANGUAGES, t, tHtml } from './i18n.js'
+import { SPECIAL_BLOCKS } from './SpecialBlocks.js'
 import { levelUpCoins } from './Xp.js'
 
 // Update-available check - only ever called from _exitBuildMode (back
@@ -282,6 +283,7 @@ export function _featureValues(_game) {
     grassReach: GRASS_REACH,
     leafDropPercent: Math.round(LEAF_DROP_CHANCE * 100),
     editorStoreSide: 10,
+    specialBlocks: SPECIAL_BLOCKS.length,
     skeletonWave: SKELETON_FROM_WAVE,
     monsterWave: MONSTER_FROM_WAVE,
     spawnMinDist: SPAWN_MIN_DIST,
