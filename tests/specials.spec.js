@@ -95,8 +95,8 @@ test('special blocks batch 1: bell, repeller, bait, spikes, barricade, campfire,
     out.noBounce = Math.floor(tm.pos.x) === -5
 
     // Crop Plot: plant, wait, harvest vegetables.
-    out.planted = sp.use(2, 0, -3) && sp._st.get('2,0,-3').plantedAt !== undefined
-    sp._time += 46
+    out.planted = sp.use(2, 0, -3) && sp._st.get('2,0,-3').planted === true
+    sp._st.get('2,0,-3').grown = 46
     const veggies = () => [...s.inv.hotbar, ...s.inv.grid].filter((it) => it?.id === 'veggies').reduce((n, it) => n + it.n, 0)
     const before2 = veggies()
     sp.use(2, 0, -3)
@@ -1056,5 +1056,105 @@ test('special blocks batch 11: cooking pot, anvil, trash, vending, mailbox, safe
   expect(r).toEqual({
     inPicker: true, cook: true, anvil: true, trash: true, vending: true, mailbox: true, mailboxBack: true, safe: true,
     mystery: true, well: true, slots: true, clone: true, broke: true,
+  })
+})
+
+test('special blocks batch 12: sprinkler, beehive, compost, sapling, mushrooms, fish trap, coop, flower pot, rain collector, greenhouse', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 90, 'zombiespawner')
+    const out = {}
+    const ids = ['sprinkler', 'beehive', 'compostbin', 'treesapling', 'mushroomlog', 'fishtrap', 'chickencoop', 'flowerpot', 'raincollector', 'greenhouseglass']
+    out.inPicker = ids.every((id) => bm.isBlockType(id) && bm.blockTypeOf(id).desc && bm.blockIcon(id).startsWith('data:'))
+    // Three crops: plain, by a sprinkler, by a sprinkler and greenhouse glass.
+    bm.placeBlock(-30, 0, 0, 'cropplot')
+    bm.placeBlock(30, 0, 0, 'cropplot')
+    bm.placeBlock(32, 0, 0, 'sprinkler')
+    bm.placeBlock(30, 0, 30, 'cropplot')
+    bm.placeBlock(32, 0, 30, 'sprinkler')
+    bm.placeBlock(28, 0, 30, 'greenhouseglass')
+    bm.placeBlock(-30, 0, 4, 'compostbin')
+    bm.placeBlock(3, 0, 0, 'beehive')
+    bm.placeBlock(20, 0, -20, 'treesapling')
+    bm.placeBlock(-3, 0, 0, 'mushroomlog')
+    bm.placeBlock(0, 0, 3, 'fishtrap')
+    bm.placeBlock(10, 0, 10, 'fishtrap')
+    bm.placeBlock(11, 0, 10, 'water')
+    bm.placeBlock(0, 0, -3, 'chickencoop')
+    bm.placeBlock(3, 0, 3, 'flowerpot')
+    bm.placeBlock(-20, 0, -20, 'raincollector')
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    s._toSpawn = 0
+    s._breakTimer = 999
+    const sp = bm.specials
+    const inv = s.inv
+    const count = (id) => [...inv.hotbar, ...inv.grid].filter((it) => it?.id === id).reduce((n, it) => n + it.n, 0)
+    const me = { x: 0, y: 0, z: 0 }
+    // Growth speed: x1, x2, x4.
+    for (const [x, z] of [[-30, 0], [30, 0], [30, 30]]) sp.use(x, 0, z)
+    sp.update(1, me) // dt is capped to 0.1 per frame
+    const grown = (x, z) => sp._st.get(`${x},0,${z}`).grown
+    out.growth = Math.abs(grown(-30, 0) - 0.1) < 1e-9 && Math.abs(grown(30, 0) - 0.2) < 1e-9 && Math.abs(grown(30, 30) - 0.4) < 1e-9
+    // Compost: the crop near it is ready at once.
+    sp.use(-30, 0, 4)
+    out.compost = grown(-30, 0) >= 45
+    // Producers: not ready at first, then give their thing.
+    const veg0 = count('veggies')
+    sp.use(-3, 0, 0)
+    const notYet = count('veggies') === veg0
+    sp._time += 46
+    sp.use(-3, 0, 0)
+    out.mushroom = notYet && count('veggies') === veg0 + 1
+    s.health = 10
+    sp.use(3, 0, 0)
+    sp._time += 61
+    sp.use(3, 0, 0)
+    out.honey = s.health === 40
+    const meat0 = count('meat')
+    sp.use(0, 0, -3)
+    sp._time += 91
+    sp.use(0, 0, -3)
+    out.coop = count('meat') === meat0 + 2
+    // Fish trap needs water beside it.
+    sp.use(0, 0, 3)
+    sp._time += 61
+    const meat1 = count('meat')
+    sp.use(0, 0, 3)
+    const dry = count('meat') === meat1
+    sp.use(10, 0, 10)
+    sp._time += 61
+    sp.use(10, 0, 10)
+    out.fish = dry && count('meat') === meat1 + 1
+    // Flower pot: the flower changes colour.
+    sp._overlaysDirty = true
+    sp.update(0.05, me)
+    const head = sp._overlays.get('3,0,3')?.userData.head
+    const c0 = head?.material.color.getHex()
+    sp.use(3, 0, 3)
+    sp.update(0.05, me)
+    out.flower = !!head && head.material.color.getHex() !== c0
+    // Rain collector: fills in the rain, then a drink heals.
+    s._raining = () => true
+    for (let i = 0; i < 120; i++) sp.update(0.1, me)
+    s.health = 10
+    sp.use(-20, 0, -20)
+    out.rain = sp._st.get('-20,0,-20').level === 0 && s.health === 25
+    // Sapling: a tree after 40 s; gone when the game ends.
+    for (let i = 0; i < 300; i++) sp.update(0.1, me)
+    out.tree = bm.getBlockAt(20, 1, -20) === 'oaklog' && bm.getBlockAt(20, 4, -20) === 'oaklog' && !!bm.getBlockAt(21, 4, -20)
+    s.stop()
+    out.treeGone = bm.getBlockAt(20, 1, -20) === null && bm.getBlockAt(21, 4, -20) === null && bm.getBlockAt(20, 0, -20) === 'treesapling'
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({
+    inPicker: true, growth: true, compost: true, mushroom: true, honey: true, coop: true, fish: true,
+    flower: true, rain: true, tree: true, treeGone: true,
   })
 })
