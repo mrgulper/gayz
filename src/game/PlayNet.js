@@ -33,7 +33,7 @@
 import * as THREE from 'three'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { nameTag } from './BuildCamp.js'
-import { serverApi } from './ServerBrowser.js'
+import { serverApi, myDetails } from './ServerBrowser.js'
 import { t } from './i18n.js'
 import { holdWeapon, holdBlock, poseArms } from './HeldWeapon.js'
 import { addChatSystemLine, clearChatSystemLines } from './ChatUI.js'
@@ -44,8 +44,9 @@ import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './Speech
 
 // Seconds between syncs.
 export const SYNC_EVERY = 0.16
-// No answer from the server for this long: give up and say so.
-const LOST_AFTER_S = 12
+// No answer from the server for this long: give up and say so (until
+// then it keeps trying, and a drop is put right by _rejoin).
+const LOST_AFTER_S = 60
 // How quickly avatars and mirrored zombies catch up with the latest spot.
 const FOLLOW = 12
 // A lobby (a solo game nobody has joined yet) only checks in this often.
@@ -110,7 +111,11 @@ export class PlayNet {
   attach(survival) {
     this.survival = survival
     // Blocks changed before this game had a server go out too.
-    for (const [key, b] of survival._edits || []) {
+    this._queueMyEdits()
+  }
+
+  _queueMyEdits() {
+    for (const [key, b] of this.survival?._edits || []) {
       const [x, y, z] = key.split(',').map(Number)
       this.queueEdit(x, y, z, b)
     }
@@ -256,8 +261,8 @@ export class PlayNet {
       // blocks go again.
       for (const pid of want) this._skinAsked.delete(pid)
       this._edits.unshift(...edits)
-      if (err?.code === 'gone' || err?.code === 'not-in-server') this._lost('serverClosed')
-      else if (performance.now() - this._lastOk > LOST_AFTER_S * 1000) this._lost('serverLost')
+      if (err?.code === 'gone' || err?.code === 'not-in-server') await this._rejoin().catch(() => this._giveUpIfLong())
+      else this._giveUpIfLong()
     } finally {
       this._busy = false
     }
@@ -330,9 +335,57 @@ export class PlayNet {
     }
   }
 
+  _giveUpIfLong() {
+    if (!this.closed && performance.now() - this._lastOk > LOST_AFTER_S * 1000) this._lost('serverLost')
+  }
+
+  // Dropped from the server - a few seconds of lag (or a hidden tab) and
+  // the others' syncs count you as gone, or everyone was and the server was
+  // cleared away. Get back into the same one under a new id instead of
+  // carrying on alone in a look-alike world (2026-10-26, Gaymi: "it said
+  // new server or something and then I can't see my friend").
+  async _rejoin() {
+    const me = await myDetails(this.game)
+    let info
+    let reopened = false
+    try {
+      info = await this.api.join({ ...me, serverId: this.serverId })
+    } catch (err) {
+      if (err?.code === 'full') return this._lost('serverFullToast')
+      if (err?.code !== 'gone') throw err
+      // Nobody left in it: open it again under the same id, so the invite
+      // link still works and the others get back into it too.
+      info = await this.api.create({ ...me, name: this.name, mode: 'main', world: this.world, id: this.serverId, ...(this.lobby ? { hidden: true } : {}) })
+      reopened = true
+      if (info.serverId !== this.serverId) {
+        // Someone else opened it again first: into theirs.
+        this.api.leave(info).catch(() => { /* it'll time out on its own */ })
+        info = await this.api.join({ ...me, serverId: this.serverId })
+        reopened = false
+      }
+    }
+    if (this.closed) {
+      this.api.leave(info).catch(() => { /* it'll time out on its own */ })
+      return
+    }
+    this.playerId = info.playerId
+    this.token = info.token
+    this._lastOk = performance.now()
+    // Everyone's blocks again from the start; a reopened server has none
+    // yet, so mine go again too.
+    this._editSeq = 0
+    if (reopened) this._queueMyEdits()
+    if (!this.lobby) addChatSystemLine(this.game, t('serverReconnected'))
+  }
+
   _lost(key) {
     const s = this.survival
     this.close()
+    // A lobby is a solo game to the player: it just stops being joinable.
+    if (this.lobby) {
+      if (s?.lobby === this) s.lobby = null
+      return
+    }
     if (s?.active) s._onServerLost(t(key))
   }
 
