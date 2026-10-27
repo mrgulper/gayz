@@ -713,3 +713,79 @@ test('special blocks batch 7: electric fence, turret, searchlight, repair, gate,
     repair: true, gateOpen: true, gateShut: true, piston: true, sticky: true, conveyor: true, magnet: true, gatesBackOnStop: true,
   })
 })
+
+test('special blocks batch 8: med station, bed, bandages, speed and jump pads, strength, coffee, well, sauna, clover', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 90, 'zombiespawner')
+    const out = {}
+    const ids = ['medstation', 'bedblock', 'bandagebox', 'speedpad', 'jumppad', 'strengthtotem', 'coffeemachine', 'waterwell', 'saunastone', 'luckyclover']
+    out.inPicker = ids.every((id) => bm.isBlockType(id) && bm.blockTypeOf(id).desc && bm.blockIcon(id).startsWith('data:'))
+    const at = { medstation: [3, 0], bedblock: [-30, -30], bandagebox: [0, 3], speedpad: [10, 10], jumppad: [-10, 10], strengthtotem: [3, 3], coffeemachine: [-3, 3], waterwell: [-3, -3], saunastone: [20, -20], luckyclover: [30, 30] }
+    for (const [id, [x, z]] of Object.entries(at)) bm.placeBlock(x, 0, z, id, false, { facing: 0 })
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    s._toSpawn = 0
+    s._breakTimer = 999
+    const sp = bm.specials
+    const tm = bm.tryMode
+    s.health = 10
+    sp.use(3, 0, 0)
+    out.med = s.health === s.maxHealth
+    s.health = 10
+    sp.use(-3, 0, -3)
+    out.well = s.health === 25
+    const packs = () => [...s.inv.hotbar, ...s.inv.grid].filter((it) => it?.id === 'healthpack').reduce((n, it) => n + it.n, 0)
+    const p0 = packs()
+    sp.use(0, 0, 3)
+    out.bandage = packs() === p0 + 1
+    // Strength: more damage for a while.
+    const d0 = s._damageMult()
+    sp.use(3, 0, 3)
+    out.strength = Math.abs(s._damageMult() - d0 * 1.5) < 1e-9
+    // Coffee and the speed pad: faster walking.
+    sp.use(-3, 0, 3)
+    tm.onGround = true
+    sp.update(0.05, { x: 0, y: 0, z: 0 })
+    out.coffee = sp.speedMult === 1.3
+    sp.update(0.05, { x: 10.5, y: 0.07, z: 10.5 })
+    out.speedPad = sp.speedMult === 1.8
+    // Jump pad: launches you.
+    tm.vel.y = 0
+    sp.update(0.05, { x: -9.5, y: 0.07, z: 10.5 })
+    out.jumpPad = tm.vel.y === 16
+    // Sauna: armor builds up nearby.
+    s.armor = 0
+    for (let i = 0; i < 20; i++) sp.update(0.1, { x: 21.5, y: 0, z: -18.5 })
+    out.sauna = s.armor > 0.6 && s.armor < 0.8
+    // Clover: extra coins per kill near it.
+    tm.pos.set(30.5, 0, 28)
+    const zc = s._makeZombie('clover', 31, 0, 25, 10, false)
+    const earned = []
+    const earn = s._earn.bind(s)
+    s._earn = (n) => { earned.push(n); return earn(n) }
+    s.damageZombie(zc, 100)
+    out.clover = earned.includes(2)
+    s._earn = earn
+    // Bed: you die and wake on it, once.
+    sp.use(-30, 0, -30)
+    s.health = 5
+    s._hurtPlayer(50)
+    out.revived = !s.dead && s.health === Math.ceil(s.maxHealth / 2) && Math.floor(tm.pos.x) === -30 && Math.floor(tm.pos.y) === 1
+    s.health = 5
+    s._hurtPlayer(50)
+    out.onlyOnce = s.dead
+    s.stop()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({
+    inPicker: true, med: true, well: true, bandage: true, strength: true, coffee: true, speedPad: true, jumpPad: true,
+    sauna: true, clover: true, revived: true, onlyOnce: true,
+  })
+})

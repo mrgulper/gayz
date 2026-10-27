@@ -449,6 +449,68 @@ export const SPECIAL_BLOCKS = [
     look: { base: 'metal', color: 0x5a5a62, glyph: 'magnet', glyphColor: 0xd04040 },
     fx: { kind: 'magnet', r: 16, near: 3 },
   },
+
+  // ---- Batch 8: healing and boosts ----
+  {
+    ...D, id: 'medstation', name: 'Med Station', color: 0xe8e8e8,
+    desc: 'Use it to heal to full health. Refills in 90 seconds.',
+    look: { base: 'metal', color: 0xe0e0e0, glyph: 'plus', glyphColor: 0xd03030 },
+    fx: { kind: 'heal', full: true, cd: 90 },
+  },
+  {
+    ...D, id: 'bedblock', name: 'Bed', color: 0xb03a3a,
+    desc: 'Use it to sleep there: the next time you die in this game, you wake up on the bed with half your health instead (once).',
+    look: { base: 'wood', color: 0x7a5a38, glyph: 'bed', glyphColor: 0xd04040, topBase: 'glow', topColor: 0xc83a3a, top: 'pillow' },
+    fx: { kind: 'bed' },
+  },
+  {
+    ...D, id: 'bandagebox', name: 'Bandage Box', color: 0xf0f0e8,
+    desc: 'Use it to take a free Health Pack. One a minute.',
+    look: { base: 'wood', color: 0xd8d0c0, glyph: 'plus', glyphColor: 0x3aa0e0 },
+    fx: { kind: 'give', id: 'healthpack', key: 'invHealthPack', n: 1, cd: 60 },
+  },
+  {
+    ...D, id: 'speedpad', name: 'Speed Pad', color: 0x30c0e0, shape: 'pad', emissive: 0x60e0ff, emissiveIntensity: 0.25,
+    desc: 'Step on it to run almost twice as fast for 4 seconds.',
+    look: { base: 'glow', color: 0x1a5a6a, glyph: 'chevron', glyphColor: 0x80f0ff },
+    fx: { kind: 'boost', speed: 1.8, time: 4 },
+  },
+  {
+    ...D, id: 'jumppad', name: 'Jump Pad', color: 0x70e040, shape: 'pad', emissive: 0x90ff60, emissiveIntensity: 0.25,
+    desc: 'Step on it to be launched high into the air (about 4 blocks).',
+    look: { base: 'glow', color: 0x2a5a1a, glyph: 'arrowup', glyphColor: 0xa0ff70 },
+    fx: { kind: 'boost', jump: 16 },
+  },
+  {
+    ...D, id: 'strengthtotem', name: 'Strength Totem', color: 0xc05030,
+    desc: 'Use it for 30 seconds of 50% more damage. Recharges in 90 seconds.',
+    look: { base: 'stone', color: 0x6a3a2a, glyph: 'fist', glyphColor: 0xff8050 },
+    fx: { kind: 'buff', buff: 'damage', mult: 1.5, time: 30, cd: 90 },
+  },
+  {
+    ...D, id: 'coffeemachine', name: 'Coffee Machine', color: 0x5a3a2a,
+    desc: 'Use it for a coffee: 30% faster running for 20 seconds. Brews again in 60 seconds.',
+    look: { base: 'metal', color: 0x3a3030, glyph: 'cup', glyphColor: 0xe8d8c0 },
+    fx: { kind: 'buff', buff: 'speed', mult: 1.3, time: 20, cd: 60 },
+  },
+  {
+    ...D, id: 'waterwell', name: 'Water Well', color: 0x5a7aa0,
+    desc: 'Use it for a drink that heals 15 health. Every 20 seconds.',
+    look: { base: 'stone', color: 0x7a7a80, glyph: 'drop', glyphColor: 0x5ab0f0, topBase: 'glow', topColor: 0x2a5a9a, top: null },
+    fx: { kind: 'heal', heal: 15, cd: 20 },
+  },
+  {
+    ...D, id: 'saunastone', name: 'Sauna Stone', color: 0x8a6a5a, emissive: 0xff7040, emissiveIntensity: 0.1,
+    desc: 'Sit within 3 blocks of it to build up armor, up to 10 points (armor soaks up hits before your health).',
+    look: { base: 'stone', color: 0x6a5a52, glyph: 'steam', glyphColor: 0xf0f0f0 },
+    fx: { kind: 'sauna', r: 3, rate: 0.35, max: 10 },
+  },
+  {
+    ...D, id: 'luckyclover', name: 'Lucky Clover Block', color: 0x40b050,
+    desc: 'While you\'re within 8 blocks of it, every zombie you kill pays 2 extra coins.',
+    look: { base: 'stone', color: 0x2e6a34, glyph: 'clover', glyphColor: 0x70e070 },
+    fx: { kind: 'clover', r: 8, coins: 2 },
+  },
 ]
 
 export const SPECIAL_BY_ID = new Map(SPECIAL_BLOCKS.map((b) => [b.id, b]))
