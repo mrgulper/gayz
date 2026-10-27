@@ -280,6 +280,11 @@ export class PlayFx {
     this._emit('dot', x, y, z, opts)
   }
 
+  // A slow grey puff (Smoke Bomb).
+  smoke(x, y, z) {
+    this._emit('smoke', x, y, z, { life: 2.5, from: 0.8, to: 2.2, alpha: 0.8, vel: new THREE.Vector3((Math.random() - 0.5) * this.B, 0.3 * this.B, (Math.random() - 0.5) * this.B) })
+  }
+
   // One lick of flame rising from a spot (campfires).
   flame(x, y, z) {
     this._emit('flame', x, y, z, { life: 0.5 + Math.random() * 0.3, from: 0.35, to: 0.12, rise: 1.2, alpha: 0.9 })

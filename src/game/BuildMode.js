@@ -3113,7 +3113,9 @@ export class BuildMode {
   // getBlockAt check like everything else, and is breakable/removable the
   // same way; aiming through a dug-out hole just keeps stepping until it
   // finds something else or runs out of maxDist.
-  _raycastGridAligned() {
+  // skip: block types the ray goes straight through (bullets through a
+  // Murder Hole, SHOOT_THROUGH).
+  _raycastGridAligned(skip = null) {
     const origin = this._raycaster.ray.origin
     const dir = this._raycaster.ray.direction
     const maxDist = 40
@@ -3127,7 +3129,8 @@ export class BuildMode {
       // same conversion the other direction).
       const cell = [Math.floor(px / BLOCK_SIZE), Math.floor(py / BLOCK_SIZE), Math.floor(pz / BLOCK_SIZE)]
       // Flowing water/lava can't be aimed at - you build straight through it.
-      if (this.getBlockAt(cell[0], cell[1], cell[2]) && !this.liquids.isFlow(this._key(cell[0], cell[1], cell[2]))) {
+      const type = this.getBlockAt(cell[0], cell[1], cell[2])
+      if (type && !skip?.has(type) && !this.liquids.isFlow(this._key(cell[0], cell[1], cell[2]))) {
         return { placeAt: prevCell || cell, existingBlock: cell, t }
       }
       prevCell = cell

@@ -406,6 +406,8 @@ export class BuildSpecials {
     const entry = this.entryAt(x, y, z)
     if (!entry) return false
     const fx = entry.def.fx
+    // Only blocks made to be used react (a trap's timer isn't touched).
+    if (!USE_KINDS.has(fx.kind) && !(fx.kind === 'lure' && fx.on === 'use')) return false
     const st = this._state(entry)
     if (fx.cd && st.cdUntil > this._time) {
       this._msg(t('specialCooldown', { name: entry.def.name, s: Math.ceil(st.cdUntil - this._time) }))
@@ -453,6 +455,77 @@ export class BuildSpecials {
     }
     if (fx.kind === 'piano') {
       this._playKey(entry)
+      return true
+    }
+    if (fx.kind === 'smoke' || fx.kind === 'shieldgen') {
+      st.until = this._time + fx.time
+      this._sound(fx.kind === 'smoke' ? 'crumble' : 'chime')
+      this._msg(t(fx.kind === 'smoke' ? 'specialSmoke' : 'specialShieldUp', { s: fx.time }))
+      return true
+    }
+    if (fx.kind === 'watchtower') {
+      // To the top of whatever is stacked on it.
+      let top = y + 1
+      while (top < y + 64 && this.bm.getBlockAt(x, top, z)) top++
+      if (top === y + 1) {
+        if (fx.cd) st.cdUntil = 0
+        this._msg(t('specialStackFirst'))
+        return true
+      }
+      const tm = this.bm.tryMode
+      tm.pos.set(x + 0.5, top, z + 0.5)
+      tm.vel?.set(0, 0, 0)
+      this._sound('whoosh')
+      return true
+    }
+    if (fx.kind === 'oilpot') {
+      const s = this.bm.survival
+      for (const zb of s?.active ? s.zombies : []) {
+        if (Math.hypot(zb.x - x - 0.5, zb.z - z - 0.5) > fx.r || zb.y > y + 1 || zb.y < y - 8) continue
+        zb.health -= fx.dmg
+        zb.burn = Math.max(zb.burn || 0, fx.burn)
+        zb.flash = 0.12
+      }
+      for (let i = 0; i < 8; i++) this._effects().flame((x + Math.random()) * this.B, y * this.B, (z + Math.random()) * this.B)
+      this._sound('whoosh')
+      return true
+    }
+    if (fx.kind === 'cannon' || fx.kind === 'catapult') {
+      // Fires away from you, the way you face it.
+      const p = this.bm.tryMode.pos
+      let dx = x + 0.5 - p.x
+      let dz = z + 0.5 - p.z
+      const len = Math.hypot(dx, dz) || 1
+      dx /= len
+      dz /= len
+      const s = this.bm.survival
+      const zombies = s?.active ? s.zombies : []
+      const B = this.B
+      if (fx.kind === 'cannon') {
+        // Everything along the shot's line.
+        for (const zb of zombies) {
+          const rx = zb.x - x - 0.5
+          const rz = zb.z - z - 0.5
+          const along = rx * dx + rz * dz
+          if (along < 0 || along > fx.range || Math.abs(rx * dz - rz * dx) > fx.width || Math.abs(zb.y - y) > 3) continue
+          zb.health -= fx.dmg
+          zb.flash = 0.12
+        }
+        const end = new THREE.Vector3((x + 0.5 + dx * fx.range) * B, (y + 0.5) * B, (z + 0.5 + dz * fx.range) * B)
+        this._effects().explode(end, 1.5)
+      } else {
+        // A boulder landing a way off.
+        const lx = x + 0.5 + dx * fx.range
+        const lz = z + 0.5 + dz * fx.range
+        for (const zb of zombies) {
+          if (Math.hypot(zb.x - lx, zb.z - lz) > fx.blast || Math.abs(zb.y - y) > 6) continue
+          zb.health -= fx.dmg
+          zb.flash = 0.12
+        }
+        this._effects().explode(new THREE.Vector3(lx * B, y * B, lz * B), fx.blast)
+      }
+      audioEngine.playExplosion?.()
+      this._lastSound = 'explosion'
       return true
     }
     if (fx.kind === 'cleanser') {
@@ -540,8 +613,8 @@ export class BuildSpecials {
   // straight, not by the player's path field).
   zombieTarget(zb, target) {
     if (!this.active) return null
-    // Pushed off by repellers first.
-    for (const e of this.kind('repel')) {
+    // Pushed off by repellers (and shields that are up) first.
+    for (const e of this._repellers()) {
       const cx = e.x + 0.5
       const cz = e.z + 0.5
       const d = Math.hypot(zb.x - cx, zb.z - cz)
@@ -555,6 +628,14 @@ export class BuildSpecials {
       for (const e of this.kind('silence')) {
         if (dist3(target, e.x + 0.5, e.y, e.z + 0.5) > e.def.fx.r) continue
         if (Math.hypot(target.x - zb.x, target.z - zb.z) > e.def.fx.hear) return { x: zb.x, y: zb.y, z: zb.z, idle: true, lure: true }
+      }
+    }
+    // Inside a smoke cloud you can't be seen from outside it.
+    if (target && !target.lure) {
+      for (const e of this.kind('smoke')) {
+        if (!(this._st.get(e.key)?.until > this._time)) continue
+        const r = e.def.fx.r
+        if (dist3(target, e.x + 0.5, e.y, e.z + 0.5) <= r && dist3(zb, e.x + 0.5, e.y, e.z + 0.5) > r) return { x: zb.x, y: zb.y, z: zb.z, idle: true, lure: true }
       }
     }
     let best = null
@@ -607,7 +688,7 @@ export class BuildSpecials {
         zb._held = fx.fall
       }
       if (fx.kind === 'flamejet' && this._jetOn(e)) zb.burn = Math.max(zb.burn || 0, fx.burn)
-      if (fx.kind === 'trap') {
+      if (fx.kind === 'trap' || fx.trap) {
         const st = this._state(e)
         if (!(st.cdUntil > this._time)) {
           st.cdUntil = this._time + fx.cd
@@ -650,7 +731,7 @@ export class BuildSpecials {
       speed = 0
     }
     // A repeller's ring is a wall to zombies.
-    for (const e of this.kind('repel')) {
+    for (const e of this._repellers()) {
       const cx = e.x + 0.5
       const cz = e.z + 0.5
       const d = Math.hypot(zb.x - cx, zb.z - cz)
@@ -676,6 +757,24 @@ export class BuildSpecials {
     this._effects().explode(new THREE.Vector3((e.x + 0.5) * B, e.y * B, (e.z + 0.5) * B), fx.blast)
     audioEngine.playExplosion?.()
     this._lastSound = 'explosion'
+  }
+
+  // Repellers, plus Shield Generators while their bubble is up.
+  _repellers() {
+    const out = [...this.kind('repel')]
+    for (const e of this.kind('shieldgen')) if (this._st.get(e.key)?.until > this._time) out.push(e)
+    return out
+  }
+
+  // How much of a hit gets through: crouching right by a sandbag takes less.
+  hurtMult() {
+    if (!this.active || !this.bm.tryMode._crouch) return 1
+    const p = this.bm.tryMode.pos
+    let mult = 1
+    for (const e of this.kind('sandbag')) {
+      if (Math.hypot(p.x - e.x - 0.5, p.z - e.z - 0.5) <= e.def.fx.r && Math.abs(p.y - e.y) < 2) mult = Math.min(mult, e.def.fx.mult)
+    }
+    return mult
   }
 
   // Calls fn(entry, dx, dz) for each special block touching a body (feet
@@ -722,6 +821,17 @@ export class BuildSpecials {
     for (const e of this.kind('campfire')) {
       if (!near(e)) continue
       this._effects().flame((e.x + 0.3 + Math.random() * 0.4) * B, (e.y + 1.05) * B, (e.z + 0.3 + Math.random() * 0.4) * B)
+    }
+    for (const e of this.kind('smoke')) {
+      if (!(this._st.get(e.key)?.until > this._time) || !near(e)) continue
+      const r = e.def.fx.r
+      for (let i = 0; i < 3; i++) this._effects().smoke((e.x + 0.5 + (Math.random() - 0.5) * r * 1.6) * B, (e.y + 0.5 + Math.random() * 2) * B, (e.z + 0.5 + (Math.random() - 0.5) * r * 1.6) * B)
+    }
+    for (const e of this.kind('shieldgen')) {
+      if (!(this._st.get(e.key)?.until > this._time) || !near(e)) continue
+      const a = Math.random() * Math.PI * 2
+      const r = e.def.fx.r
+      this._effects().spark((e.x + 0.5 + Math.cos(a) * r) * B, (e.y + 0.5 + Math.random() * 2.5) * B, (e.z + 0.5 + Math.sin(a) * r) * B, { color: 0x60c8ff, life: 0.6, from: 0.3, to: 0.1 })
     }
     for (const e of this.kind('flamejet')) {
       if (!near(e) || !this._jetOn(e)) continue
@@ -859,6 +969,8 @@ export class BuildSpecials {
 }
 
 const EMPTY = new Set()
+// Kinds that do something when used (plus lures with on: 'use').
+const USE_KINDS = new Set(['crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
 // Piano Block notes: a major scale from middle C.
 const SCALE = [262, 294, 330, 349, 392, 440, 494, 523]
 
