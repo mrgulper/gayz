@@ -45,6 +45,8 @@ const SPECIAL_SOUNDS = {
   radio3: { notes: [[110, 0, 0.2, 'sawtooth', 0.08], [110, 0.5, 0.2, 'sawtooth', 0.08], [147, 1, 0.2, 'sawtooth', 0.08], [131, 1.5, 0.3, 'sawtooth', 0.08]], noise: [0.1, 4000, 6000, 0.08] },
   echo: { noise: [0.3, 900, 300, 0.12] },
   clank: { noise: [0.15, 2500, 900, 0.3], notes: [[180, 0, 0.12, 'square', 0.12, 90]] },
+  crumble: { noise: [0.5, 500, 120, 0.3] },
+  thud: { noise: [0.2, 300, 80, 0.35], notes: [[90, 0, 0.25, 'sine', 0.3, 45]] },
   honk: { notes: [[220, 0, 0.3, 'sawtooth', 0.15], [277, 0, 0.3, 'sawtooth', 0.12], [220, 0.35, 0.45, 'sawtooth', 0.15], [277, 0.35, 0.45, 'sawtooth', 0.12]] },
 }
 

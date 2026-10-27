@@ -37,6 +37,10 @@ export class BuildSpecials {
     this.active = false
     this._time = 0
     this._group = null
+    // How the block under you changes your walking (BuildTryMode).
+    this.speedMult = 1
+    this.gripMult = 1
+    this._crumbled = [] // Crumble Blocks fallen away: { x, y, z, type, back }
   }
 
   // ---- the index ----
@@ -101,11 +105,16 @@ export class BuildSpecials {
     this._onUnderKey = null
     this._padCd = 0
     this._shieldUntil = 0
+    this._standT = 0
+    this._crumbled = []
   }
 
   stop() {
     if (!this.active) return
+    this._restoreCrumbled(true)
     this.active = false
+    this.speedMult = 1
+    this.gripMult = 1
     for (const key of [...(this._overlays?.keys() || [])]) this._dropOverlay(key)
     if (this._group) this.bm.scene.remove(this._group)
     this._group = null
@@ -185,6 +194,37 @@ export class BuildSpecials {
       this._sound(warn ? 'warn' : 'chime')
       st.next = now + (warn ? 1.2 : 4 + Math.random() * 4)
     }
+    this._restoreCrumbled()
+    // Net Launchers catch the nearest zombie in range.
+    for (const e of this.kind('net')) {
+      const st = this._state(e)
+      if (st.cdUntil > now) continue
+      let best = null
+      let bestD = e.def.fx.r
+      for (const zb of zombies) {
+        const d = dist3(zb, e.x + 0.5, e.y, e.z + 0.5)
+        if (d < bestD && !(zb._held > 0)) {
+          best = zb
+          bestD = d
+        }
+      }
+      if (!best) continue
+      st.cdUntil = now + e.def.fx.cd
+      best._held = e.def.fx.hold
+      this._sound('whoosh')
+      this._burst({ x: best.x - 0.5, y: best.y, z: best.z - 0.5 }, 0xe0d8b0, 8)
+    }
+    // Swinging Blades hit everything close, once a swing.
+    for (const e of this.kind('blade')) {
+      const st = this._state(e)
+      if (st.next > now) continue
+      st.next = now + e.def.fx.every
+      for (const zb of zombies) {
+        if (Math.hypot(zb.x - e.x - 0.5, zb.z - e.z - 0.5) > e.def.fx.r || Math.abs(zb.y - e.y) > 2) continue
+        zb.health -= e.def.fx.dmg
+        zb.flash = 0.12
+      }
+    }
     // Graves: at night a zombie climbs out now and then (Play only).
     const night = (this.bm.sky?.nightAmount?.() ?? 0) > 0.5
     for (const e of this.kind('grave')) {
@@ -243,7 +283,25 @@ export class BuildSpecials {
     const underKey = under?.key || null
     if (underKey !== this._onUnderKey) {
       this._onUnderKey = underKey
+      this._standT = 0
       if (under) this._stepOn(under, me)
+    }
+    // Walking on it: sticky, slippery...
+    const ufx = (under || pad)?.def.fx
+    this.speedMult = ufx?.pspeed ?? 1
+    this.gripMult = ufx?.pgrip ?? 1
+    // A Crumble Block gives way a moment after you stand on it.
+    if (under?.def.fx.kind === 'crumble') {
+      this._standT += dt
+      if (this._standT >= under.def.fx.after) this._crumble(under)
+    }
+    // A Flame Jet that's firing burns you.
+    if (play && (under || pad)?.def.fx.kind === 'flamejet' && this._jetOn(under || pad)) {
+      this._jetHurt = (this._jetHurt || 0) + dt
+      if (this._jetHurt >= HURT_EVERY) {
+        this._jetHurt = 0
+        play._hurtPlayer(ufx.pdps * HURT_EVERY)
+      }
     }
     // Healing near campfires.
     if (play && play.health < play.maxHealth) {
@@ -301,6 +359,43 @@ export class BuildSpecials {
       this._burst(best, 0xc08aff, 10)
       void me
     }
+  }
+
+  // ---- falling away and coming back (Crumble Block) ----
+
+  _crumble(entry) {
+    const bm = this.bm
+    const { x, y, z, type } = entry
+    this._crumbled.push({ x, y, z, type, back: this._time + entry.def.fx.back })
+    bm._suppressUndoRecording = true
+    bm.removeBlock(x, y, z)
+    bm._suppressUndoRecording = false
+    this._sound('crumble')
+    this._burst({ x, y: y - 0.5, z }, 0x9a8a70, 10)
+  }
+
+  // Puts fallen Crumble Blocks back when their time is up (all of them
+  // when the try ends), unless something stands in the way.
+  _restoreCrumbled(all = false) {
+    if (!this._crumbled.length) return
+    const bm = this.bm
+    const p = bm.tryMode.pos
+    this._crumbled = this._crumbled.filter((c) => {
+      if (!all && c.back > this._time) return true
+      if (bm.getBlockAt(c.x, c.y, c.z)) return false
+      const inside = Math.floor(p.x) === c.x && Math.floor(p.z) === c.z && c.y >= Math.floor(p.y) && c.y <= Math.floor(p.y + 1.7)
+      if (inside && !all) return true
+      bm._suppressUndoRecording = true
+      bm.placeBlock(c.x, c.y, c.z, c.type)
+      bm._suppressUndoRecording = false
+      return false
+    })
+  }
+
+  // A Flame Jet fires for `on` seconds out of every `every`.
+  _jetOn(entry) {
+    const fx = entry.def.fx
+    return (this._time + (entry.x + entry.z) * 0.37) % fx.every < fx.on
   }
 
   // ---- using a block (E / right-click / phone use button) ----
@@ -506,14 +601,22 @@ export class BuildSpecials {
         zb.flash = Math.max(zb.flash || 0, 0.05)
       }
       if (fx.kind === 'campfire' && !(zb.burn > 0)) zb.burn = 4
+      if (fx.zspeed) speed = Math.min(speed, fx.zspeed)
+      if (fx.kind === 'ice' && !(zb._slipCd > 0)) {
+        zb._slipCd = fx.every
+        zb._held = fx.fall
+      }
+      if (fx.kind === 'flamejet' && this._jetOn(e)) zb.burn = Math.max(zb.burn || 0, fx.burn)
       if (fx.kind === 'trap') {
         const st = this._state(e)
         if (!(st.cdUntil > this._time)) {
           st.cdUntil = this._time + fx.cd
-          zb._held = fx.hold
-          if (fx.dmg) zb.health -= fx.dmg
+          if (fx.hold) zb._held = fx.hold
+          if (fx.burn) zb.burn = Math.max(zb.burn || 0, fx.burn)
+          if (fx.blast) this._explode(e, fx)
+          else if (fx.dmg) zb.health -= fx.dmg
           zb.flash = 0.12
-          this._sound(fx.sound || 'clank')
+          if (!fx.blast) this._sound(fx.sound || 'clank')
           this._burst(e, 0xd0d0d8, 6)
         }
       }
@@ -540,6 +643,7 @@ export class BuildSpecials {
         zb.maxHealth *= fx.curse
       }
     }
+    if (zb._slipCd > 0) zb._slipCd -= dt
     // Held in place (Cage).
     if (zb._held > 0) {
       zb._held -= dt
@@ -558,6 +662,20 @@ export class BuildSpecials {
       }
     }
     return speed
+  }
+
+  // A mine going off: every zombie within fx.blast blocks takes fx.dmg.
+  _explode(e, fx) {
+    const s = this.bm.survival
+    const B = this.B
+    for (const zb of s?.active ? s.zombies : []) {
+      if (dist3(zb, e.x + 0.5, e.y, e.z + 0.5) > fx.blast) continue
+      zb.health -= fx.dmg
+      zb.flash = 0.12
+    }
+    this._effects().explode(new THREE.Vector3((e.x + 0.5) * B, e.y * B, (e.z + 0.5) * B), fx.blast)
+    audioEngine.playExplosion?.()
+    this._lastSound = 'explosion'
   }
 
   // Calls fn(entry, dx, dz) for each special block touching a body (feet
@@ -605,6 +723,10 @@ export class BuildSpecials {
       if (!near(e)) continue
       this._effects().flame((e.x + 0.3 + Math.random() * 0.4) * B, (e.y + 1.05) * B, (e.z + 0.3 + Math.random() * 0.4) * B)
     }
+    for (const e of this.kind('flamejet')) {
+      if (!near(e) || !this._jetOn(e)) continue
+      for (let i = 0; i < 2; i++) this._effects().flame((e.x + 0.2 + Math.random() * 0.6) * B, (e.y + 1) * B, (e.z + 0.2 + Math.random() * 0.6) * B)
+    }
     for (const e of this.kind('zaura')) {
       if (!near(e) || Math.random() < 0.7) continue
       const v = new THREE.Vector3(0, 0.6 * B, 0)
@@ -626,7 +748,7 @@ export class BuildSpecials {
   // the nearest MAX_OVERLAYS within OVERLAY_RANGE.
   _pickOverlays(me) {
     const want = []
-    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter']) {
+    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter', 'blade']) {
       for (const e of this.kind(kind)) {
         if (kind === 'lure' && !e.def.fx.label) continue
         const d = (e.x - me.x) ** 2 + (e.y - me.y) ** 2 + (e.z - me.z) ** 2
@@ -647,6 +769,11 @@ export class BuildSpecials {
       obj = new THREE.Mesh(sharedBox(), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, depthWrite: false }))
       obj.scale.setScalar(1.02 * B)
       obj.position.set((e.x + 0.5) * B, (e.y + 0.5) * B, (e.z + 0.5) * B)
+    } else if (kind === 'blade') {
+      // A long steel bar spinning over the block.
+      obj = new THREE.Mesh(sharedBox(), new THREE.MeshLambertMaterial({ color: 0xc8ccd4 }))
+      obj.scale.set(e.def.fx.r * 2 * B, 0.06 * B, 0.16 * B)
+      obj.position.set((e.x + 0.5) * B, (e.y + 1.4) * B, (e.z + 0.5) * B)
     } else if (kind === 'crop') {
       obj = new THREE.Group()
       const mat = new THREE.MeshBasicMaterial({ color: 0x5aa83a, side: THREE.DoubleSide })
@@ -689,7 +816,9 @@ export class BuildSpecials {
     for (const obj of this._overlays.values()) {
       const e = obj.userData.entry
       const kind = e.def.fx.kind
-      if (kind === 'disco') {
+      if (kind === 'blade') {
+        obj.rotation.y = this._time * Math.PI * 2 / e.def.fx.every
+      } else if (kind === 'disco') {
         obj.material.color.setHSL((this._time * 0.35 + (e.x + e.z) * 0.07) % 1, 0.9, 0.55)
       } else if (kind === 'crop') {
         const st = this._st.get(e.key)

@@ -329,3 +329,90 @@ test('special blocks batch 3: garlic, holy lantern, cage, counter, fake player, 
     grave: true, shielded: true, shieldEnds: true, waveBusy: true, waveEarly: true, cursed: true, timeSlow: true,
   })
 })
+
+test('special blocks batch 4: bear trap, trapdoor pit, fire trap, sticky floor, blade, mine, net, crumble, ice, flame jet', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 90, 'zombiespawner')
+    const out = {}
+    const ids = ['beartrap', 'trapdoorpit', 'firetrap', 'stickyfloor', 'swingingblade', 'landmine', 'netlauncher', 'crumbleblock', 'iceslick', 'flamejet']
+    out.inPicker = ids.every((id) => bm.isBlockType(id) && bm.blockTypeOf(id).desc && bm.blockIcon(id).startsWith('data:'))
+    const at = { beartrap: [20, 0], trapdoorpit: [-20, 0], firetrap: [0, 20], stickyfloor: [0, -20], swingingblade: [20, 20], landmine: [-20, -20], netlauncher: [-20, 20], crumbleblock: [5, 5], iceslick: [20, -20], flamejet: [-5, 5] }
+    for (const [id, [x, z]] of Object.entries(at)) bm.placeBlock(x, 0, z, id, false, { facing: 0 })
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    s._toSpawn = 0
+    s._breakTimer = 999
+    const sp = bm.specials
+    const zombie = (x, y, z) => s._makeZombie(`t${Math.random()}`, x, y, z, 1000, false)
+    const on = (id, y = 1) => zombie(at[id][0] + 0.5, y, at[id][1] + 0.5)
+    const me = { x: 0, y: 0, z: 0 }
+
+    const zb = on('beartrap', 0)
+    sp.zombieTick(zb, 0.05)
+    out.bear = zb.health === 980 && zb._held > 4 && sp.zombieTick(zb, 0.05) === 0
+    const zp = on('trapdoorpit')
+    sp.zombieTick(zp, 0.05)
+    out.pit = zp.health === 940
+    const zf = zombie(0.5, 0, 21.3)
+    sp.zombieTick(zf, 0.05)
+    out.fire = zf.burn > 5
+    out.sticky = sp.zombieTick(on('stickyfloor'), 0.05) === 0.3
+    // Blade: hits zombies close to it once a swing.
+    const zs = zombie(21.5, 0, 20.5)
+    sp._state(sp.entryAt(20, 0, 20)).next = 0
+    sp.update(0.05, me)
+    out.blade = zs.health === 970
+    // Mine: hurts every zombie around it.
+    const zm1 = on('landmine', 0)
+    const zm2 = zombie(-18, 0, -20)
+    sp.zombieTick(zm1, 0.05)
+    out.mine = zm1.health === 920 && zm2.health === 920 && sp._lastSound === 'explosion'
+    // Net: catches the nearest zombie.
+    s.zombies.length = 0
+    const zn = zombie(-15, 0, 20.5)
+    sp.update(0.05, me)
+    out.net = zn._held > 2
+    s.zombies.length = 0
+    // Ice: zombies fall over; slippery for you.
+    const zi = on('iceslick')
+    sp.zombieTick(zi, 0.05)
+    out.iceZombie = zi._held > 1
+    const tm = bm.tryMode
+    tm.onGround = true
+    sp.update(0.05, { x: 20.5, y: 1, z: -19.5 })
+    out.iceYou = sp.gripMult < 0.2
+    sp.update(0.05, { x: 0.5, y: 1, z: -19.5 })
+    out.stickyYou = sp.speedMult === 0.5
+    // Crumble: gone after a moment of standing on it, back later.
+    for (let i = 0; i < 10; i++) sp.update(0.1, { x: 5.5, y: 1, z: 5.5 })
+    out.crumbled = bm.getBlockAt(5, 0, 5) === null
+    sp._time += 6
+    sp.update(0.05, { x: 0, y: 0, z: 0 })
+    out.crumbleBack = bm.getBlockAt(5, 0, 5) === 'crumbleblock'
+    // Flame Jet: burns zombies on it while firing.
+    const zj = on('flamejet')
+    let burnt = false
+    for (let i = 0; i < 40 && !burnt; i++) {
+      sp._time += 0.1
+      sp.zombieTick(zj, 0.01)
+      burnt = zj.burn > 0
+    }
+    out.flamejet = burnt
+    // Leaving puts a fallen crumble block back too.
+    for (let i = 0; i < 10; i++) sp.update(0.1, { x: 5.5, y: 1, z: 5.5 })
+    s.stop()
+    out.restoredOnStop = bm.getBlockAt(5, 0, 5) === 'crumbleblock'
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({
+    inPicker: true, bear: true, pit: true, fire: true, sticky: true, blade: true, mine: true, net: true,
+    iceZombie: true, iceYou: true, stickyYou: true, crumbled: true, crumbleBack: true, flamejet: true, restoredOnStop: true,
+  })
+})
