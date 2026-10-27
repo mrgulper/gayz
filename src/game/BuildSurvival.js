@@ -1292,6 +1292,7 @@ export class BuildSurvival {
     const skeleton = SKELETON_KINDS[z.kind] ? z.kind : null
     if (by) this.net?.queueCredit(by, z.boss, skeleton, z.tier)
     else this._countKill(z.boss, skeleton, z.tier)
+    this.bm.specials.onKill(z)
     this._creditAssists(z, by || '')
     // A bloater bursts instead of falling over.
     if (MONSTER_KINDS[z.kind]?.burst) this._burst(z)
@@ -1632,8 +1633,8 @@ export class BuildSurvival {
     return best ? [best] : []
   }
 
-  _spawnZombie() {
-    const spots = this._spawnSpots()
+  // spots: where it may appear (a Grave, BuildSpecials.js), else the usual.
+  _spawnZombie(spots = this._spawnSpots()) {
     if (!spots.length) return false
     const open = this.camp ? spots.filter(([sx, , sz]) => !this.camp.inside(sx + 0.5, sz + 0.5, 1)) : spots
     if (!open.length) return false
@@ -2238,6 +2239,8 @@ export class BuildSurvival {
   _hurtPlayer(amount) {
     // Spectating: flying about, nothing can hurt you.
     if (this.dead || this.spectating) return
+    // Protected by an Infection Cleanser (BuildSpecials.js).
+    if (this.bm.specials.shielded()) return
     // Worn armor (the inventory's armor slots) takes its share first.
     amount *= 1 - (this.inv?.damageCut() || 0)
     const p = this.bm.tryMode.pos

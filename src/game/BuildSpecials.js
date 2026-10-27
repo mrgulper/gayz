@@ -100,6 +100,7 @@ export class BuildSpecials {
     this._onPadKey = null
     this._onUnderKey = null
     this._padCd = 0
+    this._shieldUntil = 0
   }
 
   stop() {
@@ -183,6 +184,16 @@ export class BuildSpecials {
       if (st.next > now && !fresh) continue
       this._sound(warn ? 'warn' : 'chime')
       st.next = now + (warn ? 1.2 : 4 + Math.random() * 4)
+    }
+    // Graves: at night a zombie climbs out now and then (Play only).
+    const night = (this.bm.sky?.nightAmount?.() ?? 0) > 0.5
+    for (const e of this.kind('grave')) {
+      const st = this._state(e)
+      if (st.next === undefined) st.next = now + e.def.fx.every * Math.random()
+      if (!s?.active || s.dead || s._skin === undefined || !night || st.next > now) continue
+      st.next = now + e.def.fx.every
+      if (s.zombies.length >= e.def.fx.cap || this.bm.getBlockAt(e.x, e.y + 1, e.z)) continue
+      if (s._spawnZombie([[e.x, e.y + 1, e.z]])) this._burst(e, 0x6b4a30, 10)
     }
     for (const e of this.kind('doorbell')) {
       const st = this._st.get(e.key)
@@ -349,6 +360,26 @@ export class BuildSpecials {
       this._playKey(entry)
       return true
     }
+    if (fx.kind === 'cleanser') {
+      this._shieldUntil = this._time + fx.time
+      this._sound('chime')
+      this._msg(t('specialShielded', { s: fx.time }))
+      this._burst(entry, 0x80ffd0, 14)
+      return true
+    }
+    if (fx.kind === 'wavebell') {
+      const s = this._play()
+      if (!s || s._toSpawn > 0 || !(s._breakTimer > 0)) {
+        if (fx.cd) st.cdUntil = 0
+        this._msg(t('specialWaveBusy'))
+        return true
+      }
+      s._breakTimer = 0.01
+      s._earn(fx.coins)
+      this._sound('bell')
+      this._msg(t('specialWaveEarly', { n: fx.coins }))
+      return true
+    }
     return false
   }
 
@@ -359,6 +390,17 @@ export class BuildSpecials {
     this._lastSound = `note${SCALE[step]}`
     audioEngine.playNote?.(SCALE[step])
     this._burst(entry, 0xfff4c0, 3)
+  }
+
+  // Protected from every hit right now (Infection Cleanser).
+  shielded() {
+    return this.active && this._shieldUntil > this._time
+  }
+
+  // A zombie died (BuildSurvival.damageZombie): cursed ones pay extra.
+  onKill(zb) {
+    if (!this.active || !zb.cursed) return
+    this.bm.survival?._earn?.(zb.cursed)
   }
 
   // A shot was fired (BuildSurvival.shoot): Echo Stones near you repeat
@@ -464,6 +506,17 @@ export class BuildSpecials {
         zb.flash = Math.max(zb.flash || 0, 0.05)
       }
       if (fx.kind === 'campfire' && !(zb.burn > 0)) zb.burn = 4
+      if (fx.kind === 'trap') {
+        const st = this._state(e)
+        if (!(st.cdUntil > this._time)) {
+          st.cdUntil = this._time + fx.cd
+          zb._held = fx.hold
+          if (fx.dmg) zb.health -= fx.dmg
+          zb.flash = 0.12
+          this._sound(fx.sound || 'clank')
+          this._burst(e, 0xd0d0d8, 6)
+        }
+      }
       if (fx.kind === 'shove') {
         // Back the way it came, away from the block's middle.
         const len = Math.hypot(dx, dz) || 1
@@ -472,6 +525,26 @@ export class BuildSpecials {
         speed = Math.min(speed, 0.3)
       }
     })
+    // Blocks that work on every zombie near them.
+    for (const e of this.kind('zaura')) {
+      const fx = e.def.fx
+      if (dist3(zb, e.x + 0.5, e.y, e.z + 0.5) > fx.r) continue
+      if (fx.slow) speed = Math.min(speed, fx.slow)
+      if (fx.dps) {
+        zb.health -= fx.dps * dt
+        zb.flash = Math.max(zb.flash || 0, 0.05)
+      }
+      if (fx.curse && !zb.cursed) {
+        zb.cursed = fx.coins
+        zb.health *= fx.curse
+        zb.maxHealth *= fx.curse
+      }
+    }
+    // Held in place (Cage).
+    if (zb._held > 0) {
+      zb._held -= dt
+      speed = 0
+    }
     // A repeller's ring is a wall to zombies.
     for (const e of this.kind('repel')) {
       const cx = e.x + 0.5
@@ -532,6 +605,12 @@ export class BuildSpecials {
       if (!near(e)) continue
       this._effects().flame((e.x + 0.3 + Math.random() * 0.4) * B, (e.y + 1.05) * B, (e.z + 0.3 + Math.random() * 0.4) * B)
     }
+    for (const e of this.kind('zaura')) {
+      if (!near(e) || Math.random() < 0.7) continue
+      const v = new THREE.Vector3(0, 0.6 * B, 0)
+      this._effects().spark((e.x + Math.random()) * B, (e.y + 1) * B, (e.z + Math.random()) * B, { color: e.def.fx.tint, life: 1, from: 0.2, to: 0.05, vel: v })
+    }
+    if (this.shielded() && me) this._effects().spark(me.x * B, (me.y + 1 + Math.random()) * B, me.z * B, { color: 0x80ffd0, life: 0.5, from: 0.25, to: 0.05 })
     for (const e of this.kind('teleport')) {
       if (!near(e) || Math.random() < 0.6) continue
       const v = new THREE.Vector3(0, 1.2 * B, 0)
@@ -547,7 +626,7 @@ export class BuildSpecials {
   // the nearest MAX_OVERLAYS within OVERLAY_RANGE.
   _pickOverlays(me) {
     const want = []
-    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure']) {
+    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter']) {
       for (const e of this.kind(kind)) {
         if (kind === 'lure' && !e.def.fx.label) continue
         const d = (e.x - me.x) ** 2 + (e.y - me.y) ** 2 + (e.z - me.z) ** 2
@@ -579,7 +658,7 @@ export class BuildSpecials {
       }
       obj.position.set((e.x + 0.5) * B, (e.y + 1) * B, (e.z + 0.5) * B)
       obj.userData.mat = mat
-    } else if (kind === 'score' || kind === 'radio' || e.def.fx.label) {
+    } else if (kind === 'score' || kind === 'radio' || kind === 'counter' || e.def.fx.label) {
       obj = textSprite()
       obj.position.set((e.x + 0.5) * B, (e.y + 1.7) * B, (e.z + 0.5) * B)
       obj.scale.set(3 * B, 0.75 * B, 1)
@@ -618,6 +697,10 @@ export class BuildSpecials {
         obj.visible = k > 0
         obj.scale.setScalar(0.25 + k * 0.75)
         obj.userData.mat.color.setHex(k >= 1 ? 0xd8c040 : 0x5aa83a)
+      } else if (kind === 'counter') {
+        const r2 = e.def.fx.r ** 2
+        const n = (this.bm.survival?.active ? this.bm.survival.zombies : []).filter((zb) => (zb.x - e.x - 0.5) ** 2 + (zb.z - e.z - 0.5) ** 2 < r2).length
+        setSpriteText(obj, t('specialZombieCount', { n }))
       } else if (kind === 'radio') {
         const n = this._st.get(e.key)?.station
         obj.visible = !!n

@@ -136,6 +136,68 @@ export const SPECIAL_BLOCKS = [
     look: { base: 'piano', color: 0xf4f2ea, glyph: null },
     fx: { kind: 'piano' },
   },
+
+  // ---- Batch 3: zombie control ----
+  {
+    ...D, id: 'garlicblock', name: 'Garlic Block', color: 0xece4d0,
+    desc: 'Zombies within 3 blocks of it move at half speed.',
+    look: { base: 'stone', color: 0xd8d0b8, glyph: 'garlic', glyphColor: 0xf4f0e4 },
+    fx: { kind: 'zaura', r: 3, slow: 0.5, tint: 0xf0ecd0 },
+  },
+  {
+    ...D, id: 'holylantern', name: 'Holy Lantern', color: 0xfff0a0, emissive: 0xfff0b0, emissiveIntensity: 0.45,
+    desc: 'Zombies within 5 blocks of its light lose 6 health a second.',
+    look: { base: 'glow', color: 0xf0d870, glyph: 'cross', glyphColor: 0xfffbe0 },
+    fx: { kind: 'zaura', r: 5, dps: 6, tint: 0xfff0a0 },
+  },
+  {
+    ...D, id: 'cageblock', name: 'Cage', color: 0x50505a,
+    desc: 'Traps the first zombie that touches it for 6 seconds, then needs 10 seconds to reset.',
+    look: { base: 'metal', color: 0x3a3a42, glyph: 'bars', glyphColor: 0x9a9aa8 },
+    fx: { kind: 'trap', hold: 6, cd: 10 },
+  },
+  {
+    ...D, id: 'zombiecounter', name: 'Zombie Counter', color: 0x2a3a2a,
+    desc: 'Shows how many zombies are within 24 blocks of it, floating above it.',
+    look: { base: 'metal', color: 0x2a3a2a, glyph: 'skull', glyphColor: 0x8af08a },
+    fx: { kind: 'counter', r: 24 },
+  },
+  {
+    ...D, id: 'fakeplayer', name: 'Fake Player', color: 0x5a7ab0,
+    desc: 'A dummy that looks like a person: zombies within 20 blocks chase it instead of you.',
+    look: { base: 'wood', color: 0x6a6a8a, glyph: 'person', glyphColor: 0xf0c8a0 },
+    fx: { kind: 'lure', on: 'always', r: 20 },
+  },
+  {
+    ...D, id: 'graveblock', name: 'Grave', color: 0x6a6a70,
+    desc: 'At night, a zombie climbs out of it about every 30 seconds while you play (each one counts toward the wave).',
+    look: { base: 'stone', color: 0x6a6a70, glyph: 'tomb', glyphColor: 0x9a9aa2, topBase: 'soil', topColor: 0x5a3c26, top: null },
+    fx: { kind: 'grave', every: 30, cap: 28 },
+  },
+  {
+    ...D, id: 'infectioncleanser', name: 'Infection Cleanser', color: 0x60e0b0, emissive: 0x60ffc0, emissiveIntensity: 0.2,
+    desc: 'Use it to be fully protected from every hit for 8 seconds. Recharges in 90 seconds.',
+    look: { base: 'glow', color: 0x2a8a6a, glyph: 'plus', glyphColor: 0xd0fff0 },
+    fx: { kind: 'cleanser', time: 8, cd: 90 },
+  },
+  {
+    ...D, id: 'wavebell', name: 'Wave Bell', color: 0xa07ad0,
+    desc: 'Ring it between waves to start the next wave right away, for 10 bonus coins.',
+    look: { base: 'metal', color: 0x4a3a5a, glyph: 'bell', glyphColor: 0xc8a0f0 },
+    fx: { kind: 'wavebell', coins: 10, cd: 3 },
+  },
+  {
+    ...D, id: 'cursedblock', name: 'Cursed Block', color: 0x5a1a4a, emissive: 0x9a2080, emissiveIntensity: 0.15,
+    desc: 'Zombies that come within 8 blocks get half again as much health, but each one you kill pays 2 extra coins.',
+    look: { base: 'stone', color: 0x3a1a34, glyph: 'skull', glyphColor: 0xd04ab0 },
+    fx: { kind: 'zaura', r: 8, curse: 1.5, coins: 2, tint: 0xd04ab0 },
+  },
+  {
+    ...D, id: 'timeslow', name: 'Time Slow Block', color: 0x4a7ad0, emissive: 0x6090ff, emissiveIntensity: 0.15,
+    desc: 'Zombies within 7 blocks of it move at less than half speed.',
+    look: { base: 'glow', color: 0x2a3a6a, glyph: 'clock', glyphColor: 0x9ac0ff },
+    fx: { kind: 'zaura', r: 7, slow: 0.4, tint: 0x9ac0ff },
+  },
 ]
 
 export const SPECIAL_BY_ID = new Map(SPECIAL_BLOCKS.map((b) => [b.id, b]))
