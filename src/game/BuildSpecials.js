@@ -109,6 +109,7 @@ export class BuildSpecials {
     this._standT = 0
     this._crumbled = []
     this._buffs = {}
+    this._ride = null
     this._bed = null
     this._bedUsed = false
     this._gates = [] // gates standing open: { cells, anchor, byPower, closeAt }
@@ -359,6 +360,38 @@ export class BuildSpecials {
 
   _updateMe(dt, me) {
     const play = this._play()
+    const tm = this.bm.tryMode
+    // Riding a zipline: carried along the line, nothing else.
+    if (this._ride) {
+      const r = this._ride
+      r.t = Math.min(1, r.t + dt / r.dur)
+      const sag = Math.sin(r.t * Math.PI) * r.sag
+      tm.pos.set(r.from.x + (r.to.x - r.from.x) * r.t, r.from.y + (r.to.y - r.from.y) * r.t - sag, r.from.z + (r.to.z - r.from.z) * r.t)
+      tm.vel.set(0, 0, 0)
+      if (r.t >= 1) this._ride = null
+      return
+    }
+    // Fan Blocks blow you away from them (not into walls).
+    for (const e of this.kind('fan')) {
+      if (!e.def.fx.you) continue
+      const dx = me.x - e.x - 0.5
+      const dz = me.z - e.z - 0.5
+      const d = Math.hypot(dx, dz)
+      if (d > e.def.fx.r || Math.abs(me.y - e.y) > 2) continue
+      const k = (e.def.fx.push * dt) / (d || 1)
+      const nx = tm.pos.x + dx * k
+      const nz = tm.pos.z + dz * k
+      if (!tm._hits(nx, tm.pos.y, nz)) tm.pos.set(nx, tm.pos.y, nz)
+    }
+    // Wind Tunnels float you up the column above them.
+    for (const e of this.kind('tunnel')) {
+      if (Math.abs(me.x - e.x - 0.5) > 0.8 || Math.abs(me.z - e.z - 0.5) > 0.8) continue
+      if (me.y < e.y + 0.9 || me.y > e.y + 1 + e.def.fx.h) continue
+      tm.vel.y = Math.max(tm.vel.y, me.y > e.y + e.def.fx.h ? 0 : e.def.fx.lift)
+      tm.onGround = false
+    }
+    this._prevVy = this._lastVy || 0
+    this._lastVy = tm.vel.y
     // Standing on a pad (the cell your feet are in).
     const fx = Math.floor(me.x)
     const fy = Math.floor(me.y + 0.01)
@@ -382,6 +415,11 @@ export class BuildSpecials {
     const ufx = (under || pad)?.def.fx
     this.speedMult = (ufx?.pspeed ?? 1) * (this._buff('speed') || 1)
     this.gripMult = ufx?.pgrip ?? 1
+    // Fired from a Launch Cannon: keep flying until you land.
+    if (this._launched) {
+      if (tm.onGround && this._time > this._launched) this._launched = 0
+      else this.gripMult = 0.02
+    }
     // A conveyor belt carries you along (not into walls).
     if (pad?.def.fx.kind === 'conveyor') {
       const tm = this.bm.tryMode
@@ -440,6 +478,13 @@ export class BuildSpecials {
   // Your feet just went into a pad's cell.
   _stepOn(entry, me) {
     const sfx = entry.def.fx
+    if (sfx.kind === 'bounce') {
+      const tm = this.bm.tryMode
+      tm.vel.y = Math.max(sfx.min, -(this._prevVy || 0) * sfx.keep)
+      tm.onGround = false
+      this._sound('pop')
+      return
+    }
     if (sfx.kind === 'boost') {
       if (sfx.speed) this._setBuff('speed', sfx.speed, sfx.time)
       if (sfx.jump) {
@@ -576,6 +621,73 @@ export class BuildSpecials {
     }
     if (fx.kind === 'piano') {
       this._playKey(entry)
+      return true
+    }
+    if (fx.kind === 'elevator') {
+      // To the next elevator straight above (or, if none, below).
+      const tm = this.bm.tryMode
+      let dest = null
+      for (let dy = 1; dy <= 64 && !dest; dy++) if (this.entryAt(x, y + dy, z)?.type === entry.type) dest = y + dy
+      for (let dy = 1; dy <= 64 && dest === null; dy++) if (this.entryAt(x, y - dy, z)?.type === entry.type) dest = y - dy
+      if (dest === null) {
+        this._msg(t('specialNoPair', { name: entry.def.name }))
+        return true
+      }
+      tm.pos.set(x + 0.5, dest + 1, z + 0.5)
+      tm.vel.set(0, 0, 0)
+      this._sound('pop')
+      return true
+    }
+    if (fx.kind === 'zipline') {
+      let best = null
+      let bestD = fx.r
+      for (const e of this.kind('zipline')) {
+        if (e === entry) continue
+        const d = Math.hypot(e.x - x, e.y - y, e.z - z)
+        if (d < bestD) {
+          best = e
+          bestD = d
+        }
+      }
+      if (!best) {
+        this._msg(t('specialNoPair', { name: entry.def.name }))
+        return true
+      }
+      const from = { x: x + 0.5, y: y + 0.2, z: z + 0.5 }
+      const to = { x: best.x + 0.5, y: best.y + 1, z: best.z + 0.5 }
+      this._ride = { from, to, t: 0, dur: bestD / fx.speed, sag: Math.min(2, bestD / 12) }
+      this._sound('whoosh')
+      return true
+    }
+    if (fx.kind === 'rope') {
+      // Down the side of the anchor to the ground.
+      const bm = this.bm
+      const tm = bm.tryMode
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        if (bm.getBlockAt(x + dx, y, z + dz)) continue
+        for (let fy = y - 1; fy > y - 96; fy--) {
+          if (bm.getBlockAt(x + dx, fy, z + dz)) {
+            if (fy + 1 >= y) break
+            tm.pos.set(x + dx + 0.5, fy + 1, z + dz + 0.5)
+            tm.vel.set(0, 0, 0)
+            this._sound('whoosh')
+            return true
+          }
+        }
+      }
+      this._msg(t('specialNoDrop'))
+      return true
+    }
+    if (fx.kind === 'launcher') {
+      const tm = this.bm.tryMode
+      const yaw = this.bm._yaw
+      tm.pos.set(x + 0.5, y + 1.05, z + 0.5)
+      tm.vel.set(-Math.sin(yaw) * fx.speed, fx.up, -Math.cos(yaw) * fx.speed)
+      tm.onGround = false
+      this._launched = this._time + 0.3
+      audioEngine.playExplosion?.()
+      this._lastSound = 'explosion'
+      this._burst(entry, 0xffa040, 12)
       return true
     }
     if (fx.kind === 'heal') {
@@ -922,7 +1034,7 @@ export class BuildSpecials {
         this._sound('zap')
         this._burst(e, 0x80c0ff, 5)
       }
-      if (fx.kind === 'conveyor' && Math.floor(zb.y + 0.01) === e.y) {
+      if (fx.kind === 'conveyor' && !fx.noZombies && Math.floor(zb.y + 0.01) === e.y) {
         const [cx, cz] = this._facingDir(e)
         this._push(zb, cx * fx.speed * dt, cz * fx.speed * dt)
       }
@@ -1457,7 +1569,7 @@ const SEARCHLIGHT_MULT = 1.25
 const POWER_STEP = 0.1 // seconds between power updates
 const GATE_MODES = ['AND', 'OR', 'NOT']
 // Kinds that do something when used (plus lures with on: 'use').
-const USE_KINDS = new Set(['heal', 'give', 'buff', 'bed', 'turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
+const USE_KINDS = new Set(['elevator', 'zipline', 'rope', 'launcher', 'heal', 'give', 'buff', 'bed', 'turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
 // Piano Block notes: a major scale from middle C.
 const SCALE = [262, 294, 330, 349, 392, 440, 494, 523]
 
