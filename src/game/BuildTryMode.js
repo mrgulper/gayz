@@ -671,7 +671,8 @@ export class BuildTryMode {
   // --- Collision, in block units ---
   // Every block cell the body's box overlaps, checked against how much of
   // that cell is solid (a slab is the bottom half, most blocks all of it).
-  _hits(x, y, z, height = this._height) {
+  // zombie: a zombie's body (Ghost Blocks stop zombies but not you).
+  _hits(x, y, z, height = this._height, zombie = false) {
     const x0 = Math.floor(x - HALF_WIDTH + 1e-4)
     const x1 = Math.floor(x + HALF_WIDTH - 1e-4)
     const z0 = Math.floor(z - HALF_WIDTH + 1e-4)
@@ -683,6 +684,7 @@ export class BuildTryMode {
         for (let cy = y0; cy <= y1; cy++) {
           const top = this.bm._cellSolidTop(cx, cy, cz)
           if (!(top > 0 && y < cy + top - 1e-4 && y + height > cy + 1e-4)) continue
+          if (!zombie && this.bm._blocks.at(cx, cy, cz) === 'ghostblock') continue
           // A narrow block (bamboo) only blocks its own thin middle.
           const inset = this.bm._cellInset(cx, cy, cz)
           if (inset && (x + HALF_WIDTH <= cx + inset || x - HALF_WIDTH >= cx + 1 - inset || z + HALF_WIDTH <= cz + inset || z - HALF_WIDTH >= cz + 1 - inset)) continue
@@ -828,6 +830,9 @@ export class BuildTryMode {
       this._height = crouchHeld ? CROUCH_HEIGHT : HEIGHT
     }
     const crouch = this._crouch
+    // Shrunk by a Shrink Pad: a smaller body fits through 1-block gaps.
+    const size = this.bm.specials.bodySize()
+    this._height = (crouch ? CROUCH_HEIGHT : HEIGHT) * Math.min(1, size)
     // Run: Shift while walking forward (bloxd.io's Shift + W).
     const sprint = !crouch && ((heldAction(keys, 'sprint') && fwd && !back) || !!stick?.run)
     const inLiquid = this._touching(p.x, p.y, p.z, (x, y, z) => this.bm._cellIsLiquid(x, y, z))
@@ -961,7 +966,7 @@ export class BuildTryMode {
     const moving = this.onGround && Math.hypot(this.vel.x, this.vel.z) > 0.5
     this._bob += moving ? dt * (sprint ? 13 : 9) : 0
     const bob = moving ? Math.sin(this._bob) * 0.015 : 0
-    this._eye = THREE.MathUtils.damp(this._eye, crouch ? CROUCH_EYE : EYE, 18, dt)
+    this._eye = THREE.MathUtils.damp(this._eye, (crouch ? CROUCH_EYE : EYE) * size, 18, dt)
     cam.position.set(p.x * B, (p.y + this._eye + bob) * B, p.z * B)
     this.updateHands(dt, keys, moving, sprint)
     // Pressure plates under you (and under zombies while playing).

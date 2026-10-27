@@ -1310,3 +1310,93 @@ test('special blocks batch 14: glow paint, black light, dice, trophy, arcade, dr
     drum: true, countdown: true, race: true, hoop: true, photo: true,
   })
 })
+
+test('special blocks batch 15: voting, gravity flip, shrink and grow pads, mirror, ghost, weather, day/night, random, invisibility', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 90, 'zombiespawner')
+    const out = {}
+    const ids = ['votingblock', 'gravityflip', 'shrinkpad', 'growpad', 'mirrorblock', 'ghostblock', 'weatherstone', 'daynightswitch', 'randomblock', 'invisibilitypad']
+    out.inPicker = ids.every((id) => bm.isBlockType(id) && bm.blockTypeOf(id).desc && bm.blockIcon(id).startsWith('data:'))
+    // Random Block: placing one gives a real block instead.
+    bm.placeBlock(40, 0, 40, 'randomblock')
+    const got = bm.getBlockAt(40, 0, 40)
+    out.random = !!got && got !== 'randomblock' && !bm.blockTypeOf(got).shape && !bm.blockTypeOf(got).game
+    bm.placeBlock(10, 0, 10, 'votingblock')
+    bm.placeBlock(-20, 0, 0, 'gravityflip')
+    bm.placeBlock(20, 0, 0, 'shrinkpad', false, { facing: 0 })
+    bm.placeBlock(20, 0, 5, 'growpad', false, { facing: 0 })
+    bm.placeBlock(3, 0, 3, 'mirrorblock')
+    bm.placeBlock(0, 0, -20, 'ghostblock')
+    bm.placeBlock(-3, 0, 3, 'weatherstone')
+    bm.placeBlock(-3, 0, -3, 'daynightswitch')
+    bm.placeBlock(30, 0, -30, 'invisibilitypad', false, { facing: 0 })
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    s._toSpawn = 0
+    s._breakTimer = 999
+    const sp = bm.specials
+    const tm = bm.tryMode
+    // Voting: you count while standing on it.
+    tm.pos.set(10.5, 1, 10.5)
+    out.vote = sp._votes() === 1
+    tm.pos.set(0, 0, 0)
+    out.noVote = sp._votes() === 0
+    // Gravity flip: you fall up.
+    tm.vel.y = 0
+    sp.update(0.05, { x: -19.5, y: 2, z: 0.5 })
+    out.gravity = tm.vel.y > 2
+    // Shrink: smaller body and eyes, and it lasts until there's room.
+    tm.vel.y = 0
+    sp._onPadKey = null
+    sp.update(0.05, { x: 20.5, y: 0.07, z: 0.5 })
+    tm.pos.set(20.5, 0.07, 0.5)
+    tm.update(0.05, new Set())
+    out.shrink = sp.bodySize() === 0.5 && tm._height < 1
+    // Grow: eyes up high, more damage.
+    sp._buffs.shrink.until = 0
+    const d0 = s._damageMult()
+    sp._onPadKey = null
+    sp.update(0.05, { x: 20.5, y: 0.07, z: 5.5 })
+    out.grow = sp.bodySize() === 1.8 && Math.abs(s._damageMult() - d0 * 1.3) < 1e-9
+    sp._buffs.grow.until = 0
+    // Mirror: a bite near it hurts the zombie too.
+    tm.pos.set(3.5, 0, 1.5)
+    const zm = s._makeZombie('m', 4, 0, 1, 100, false)
+    sp.onBitten(zm, 20)
+    out.mirror = zm.health === 90
+    // Ghost: you pass, zombies don't.
+    out.ghost = !tm._hits(0.5, 0, -19.5) && tm._hits(0.5, 0, -19.5, 1.8, true)
+    // Weather stone and day/night switch change the sky, then put it back.
+    const sky = bm.sky
+    const was = { time: sky.time, weather: sky.weather }
+    const w0 = sky._now
+    sp.use(-3, 0, 3)
+    const w1 = sky._now
+    const n0 = sky.nightAmount() > 0.5
+    sp.use(-3, 0, -3)
+    sky.update?.(0.016)
+    out.sky = w1 !== w0 && sky.time === (n0 ? 'day' : 'night')
+    // Invisibility: zombies lose you.
+    const zi = s._makeZombie('i', 33, 0, -30, 100, false)
+    const me = { x: 30.5, y: 0, z: -29.5, remote: null }
+    const before = sp.zombieTarget(zi, me)
+    sp._onPadKey = null
+    sp.update(0.05, { x: 30.5, y: 0.07, z: -29.5 })
+    const after = sp.zombieTarget(zi, me)
+    out.invisible = before === null && after?.x === zi.x
+    s.stop()
+    out.skyBack = sky.time === was.time && sky.weather === was.weather
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({
+    inPicker: true, random: true, vote: true, noVote: true, gravity: true, shrink: true, grow: true, mirror: true,
+    ghost: true, sky: true, invisible: true, skyBack: true,
+  })
+})
