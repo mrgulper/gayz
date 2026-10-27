@@ -33,4 +33,5 @@ Ideas that would need a whole new system get a smaller real effect instead; each
 ## Status
 (Updated as each batch ships.)
 - Batch 1 shipped 2026-10-27: engine (index, triggers, zombie lure/repel/touch, pads, overlays, floating text, sounds via `audioEngine.playSpecial`, sparkles via `PlayFx.spark`), Vegetables item. Tests: `tests/specials.spec.js` (one test per batch). Special blocks are `game: true`, so they're exempt from the "every full block gets a slab and stairs" rule, like the other game blocks.
+- Batch 2 shipped 2026-10-27: sounds use `_sound()` (remembered in `_lastSound` for tests); `onShot` hook in BuildSurvival.shoot; zombie knockback via `zb._knock/_kx/_kz`; label overlays via `fx.label`.
 - Known flaky (also on main before this work): buildmode "new zombie kinds ... spiders climb" fails ~1 run in 5 (`spiderTop` 1).
