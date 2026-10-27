@@ -17,6 +17,7 @@ import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
 import { PlayFx } from './PlayFx.js'
 import { SPECIAL_BY_ID } from './SpecialBlocks.js'
+import { LINK_RANGE } from './BuildGadgets.js'
 
 const OVERLAY_RANGE = 48 // blocks: look effects (disco, crops, text) only this near you
 const OVERLAY_REFRESH = 2 // seconds between re-picking which blocks get them
@@ -107,6 +108,8 @@ export class BuildSpecials {
     this._shieldUntil = 0
     this._standT = 0
     this._crumbled = []
+    this._on = new Set() // power: keys of blocks giving power right now
+    this._powerAt = -1
   }
 
   stop() {
@@ -172,6 +175,32 @@ export class BuildSpecials {
     const s = this.bm.survival
     const zombies = s?.active ? s.zombies : []
     const now = this._time
+    if (now - this._powerAt >= POWER_STEP) {
+      const elapsed = this._powerAt < 0 ? POWER_STEP : now - this._powerAt
+      this._powerAt = now
+      this._tickPower(me, zombies, elapsed)
+    }
+    // Arrow Shooters fire at the nearest zombie they can see, when powered.
+    for (const e of this.kind('arrows')) {
+      const st = this._state(e)
+      if (st.next > now || !this.powered(e)) continue
+      const fx = e.def.fx
+      let best = null
+      let bestD = fx.r
+      for (const zb of zombies) {
+        const d = dist3(zb, e.x + 0.5, e.y, e.z + 0.5)
+        if (d < bestD && this._clearLine(e, zb)) {
+          best = zb
+          bestD = d
+        }
+      }
+      if (!best) continue
+      st.next = now + fx.every
+      best.health -= fx.dmg
+      best.flash = 0.12
+      this._sound('twang')
+      this._trail(e, best, 0xe0c890)
+    }
     for (const e of this.kind('tripwire')) {
       const st = this._state(e)
       if (st.cdUntil > now) continue
@@ -455,6 +484,22 @@ export class BuildSpecials {
     }
     if (fx.kind === 'piano') {
       this._playKey(entry)
+      return true
+    }
+    if (fx.kind === 'power') {
+      if (fx.src === 'generator') {
+        st.on = !st.on
+        this._sound(st.on ? 'hum' : 'pop')
+        this._msg(t(st.on ? 'specialGenOn' : 'specialGenOff'))
+      } else if (fx.src === 'button') {
+        st.until = this._time + fx.pulse
+        this._sound('pop')
+      } else if (fx.src === 'gate') {
+        st.mode = ((st.mode || 0) + 1) % GATE_MODES.length
+        this._sound('pop')
+        this._msg(t('specialGateMode', { mode: GATE_MODES[st.mode] }))
+      } else return false
+      this._powerAt = -1
       return true
     }
     if (fx.kind === 'smoke' || fx.kind === 'shieldgen') {
@@ -759,6 +804,115 @@ export class BuildSpecials {
     this._lastSound = 'explosion'
   }
 
+  // ---- power (generators, wires, sensors, gates) ----
+
+  // Which power blocks are on, every POWER_STEP. Levers that are on and
+  // pressed plates count as power too. Doors near a source open while it's
+  // on, like they do for a lever.
+  _tickPower(me, zombies, elapsed) {
+    const now = this._time
+    const night = (this.bm.sky?.nightAmount?.() ?? 0) > 0.5
+    const on = new Set()
+    const sources = [] // [x, y, z] of everything giving power
+    const g = this.bm.gadgets
+    for (const key of g.leverOn) sources.push(key.split(',').map(Number))
+    for (const key of g._plateDown.keys()) sources.push(key.split(',').map(Number))
+    const power = this.kind('power')
+    const bySrc = (src) => [...power].filter((e) => e.def.fx.src === src)
+    for (const e of power) {
+      const fx = e.def.fx
+      const st = this._state(e)
+      let lit = false
+      if (fx.src === 'generator') lit = !!st.on
+      else if (fx.src === 'solar') lit = !night
+      else if (fx.src === 'light') lit = night
+      else if (fx.src === 'button') lit = st.until > now
+      else if (fx.src === 'timer') lit = (now + (e.x + e.z) * 0.1) % fx.every < fx.pulse
+      else if (fx.src === 'motion') {
+        const near = (p) => p && dist3(p, e.x + 0.5, e.y, e.z + 0.5) <= fx.r
+        lit = near(me) || zombies.some(near)
+      }
+      if (lit) {
+        on.add(e.key)
+        sources.push([e.x, e.y, e.z])
+      }
+    }
+    const reaches = (e, [x, y, z]) => !(x === e.x && y === e.y && z === e.z) && Math.hypot(x - e.x, y - e.y, z - e.z) <= LINK_RANGE
+    // Batteries charge from any power near them and give it back later.
+    for (const e of bySrc('battery')) {
+      const st = this._state(e)
+      const fed = sources.some((c) => reaches(e, c))
+      st.charge = fed ? e.def.fx.hold : Math.max(0, (st.charge || 0) - elapsed)
+      if (st.charge > 0) {
+        on.add(e.key)
+        if (!fed) sources.push([e.x, e.y, e.z])
+      }
+    }
+    // Logic gates count the power around them.
+    for (const e of bySrc('gate')) {
+      const n = sources.filter((c) => reaches(e, c)).length
+      const mode = GATE_MODES[this._state(e).mode || 0]
+      if (mode === 'AND' ? n >= 2 : mode === 'OR' ? n >= 1 : n === 0) on.add(e.key)
+    }
+    for (const e of bySrc('gate')) if (on.has(e.key)) sources.push([e.x, e.y, e.z])
+    // Wires carry it along: a wire touching power (or a powered wire) is on.
+    const wires = bySrc('wire')
+    let grew = true
+    while (grew) {
+      grew = false
+      for (const e of wires) {
+        if (on.has(e.key)) continue
+        if (sources.some(([x, y, z]) => Math.abs(x - e.x) <= 1 && Math.abs(y - e.y) <= 1 && Math.abs(z - e.z) <= 1 && !(x === e.x && y === e.y && z === e.z))) {
+          on.add(e.key)
+          sources.push([e.x, e.y, e.z])
+          grew = true
+        }
+      }
+    }
+    // Doors near a source that just switched.
+    for (const e of power) {
+      if (e.def.fx.src === 'wire' || on.has(e.key) === this._on.has(e.key)) continue
+      g.setDoorsNear(e.x, e.y, e.z, on.has(e.key))
+    }
+    this._on = on
+    this._sources = sources
+  }
+
+  // True when power reaches this block (within LINK_RANGE of anything on).
+  powered(e) {
+    return (this._sources || []).some(([x, y, z]) => !(x === e.x && y === e.y && z === e.z) && Math.hypot(x - e.x, y - e.y, z - e.z) <= LINK_RANGE)
+  }
+
+  // Nothing solid between a block's middle and a zombie's chest.
+  _clearLine(e, zb) {
+    const ax = e.x + 0.5
+    const ay = e.y + 0.5
+    const az = e.z + 0.5
+    const bx = zb.x
+    const by = zb.y + 1.2
+    const bz = zb.z
+    const n = Math.ceil(Math.hypot(bx - ax, by - ay, bz - az) * 3)
+    for (let i = 1; i < n; i++) {
+      const k = i / n
+      const x = Math.floor(ax + (bx - ax) * k)
+      const y = Math.floor(ay + (by - ay) * k)
+      const z = Math.floor(az + (bz - az) * k)
+      if (x === e.x && y === e.y && z === e.z) continue
+      if (this.bm.getBlockAt(x, y, z)) return false
+    }
+    return true
+  }
+
+  // A line of sparks from a block to a zombie (a shot).
+  _trail(e, zb, color) {
+    const B = this.B
+    const n = 8
+    for (let i = 0; i < n; i++) {
+      const k = i / n
+      this._effects().spark((e.x + 0.5 + (zb.x - e.x - 0.5) * k) * B, (e.y + 0.6 + (zb.y + 1.2 - e.y - 0.6) * k) * B, (e.z + 0.5 + (zb.z - e.z - 0.5) * k) * B, { color, life: 0.25, from: 0.15, to: 0.05 })
+    }
+  }
+
   // Repellers, plus Shield Generators while their bubble is up.
   _repellers() {
     const out = [...this.kind('repel')]
@@ -858,7 +1012,7 @@ export class BuildSpecials {
   // the nearest MAX_OVERLAYS within OVERLAY_RANGE.
   _pickOverlays(me) {
     const want = []
-    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter', 'blade']) {
+    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter', 'blade', 'power']) {
       for (const e of this.kind(kind)) {
         if (kind === 'lure' && !e.def.fx.label) continue
         const d = (e.x - me.x) ** 2 + (e.y - me.y) ** 2 + (e.z - me.z) ** 2
@@ -875,8 +1029,8 @@ export class BuildSpecials {
     const B = this.B
     const kind = e.def.fx.kind
     let obj = null
-    if (kind === 'disco') {
-      obj = new THREE.Mesh(sharedBox(), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, depthWrite: false }))
+    if (kind === 'disco' || kind === 'power') {
+      obj = new THREE.Mesh(sharedBox(), new THREE.MeshBasicMaterial({ color: kind === 'power' ? 0xffe040 : 0xffffff, transparent: true, opacity: kind === 'power' ? 0.3 : 0.4, depthWrite: false }))
       obj.scale.setScalar(1.02 * B)
       obj.position.set((e.x + 0.5) * B, (e.y + 0.5) * B, (e.z + 0.5) * B)
     } else if (kind === 'blade') {
@@ -926,7 +1080,9 @@ export class BuildSpecials {
     for (const obj of this._overlays.values()) {
       const e = obj.userData.entry
       const kind = e.def.fx.kind
-      if (kind === 'blade') {
+      if (kind === 'power') {
+        obj.visible = this._on.has(e.key)
+      } else if (kind === 'blade') {
         obj.rotation.y = this._time * Math.PI * 2 / e.def.fx.every
       } else if (kind === 'disco') {
         obj.material.color.setHSL((this._time * 0.35 + (e.x + e.z) * 0.07) % 1, 0.9, 0.55)
@@ -969,8 +1125,10 @@ export class BuildSpecials {
 }
 
 const EMPTY = new Set()
+const POWER_STEP = 0.1 // seconds between power updates
+const GATE_MODES = ['AND', 'OR', 'NOT']
 // Kinds that do something when used (plus lures with on: 'use').
-const USE_KINDS = new Set(['crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
+const USE_KINDS = new Set(['power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
 // Piano Block notes: a major scale from middle C.
 const SCALE = [262, 294, 330, 349, 392, 440, 494, 523]
 
