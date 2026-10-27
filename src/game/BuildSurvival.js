@@ -36,7 +36,7 @@ import { worldSeed, isEarthWorld } from './OpenWorld.js'
 import { loadEarthTerrain } from './EarthTerrain.js'
 import { BOTTOM } from './Underground.js'
 import { ZOMBIE_TIERS, NAME_COUNT, TAG_W, TAG_H, rollZombieTier, rollZombieName, zombieTagMaterial, zombieGlow, pulseZombieGlows } from './ZombieNames.js'
-import { LEAF_DROP_CHANCE, PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
+import { LEAF_DROP_CHANCE, PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, ASSIST_SHARE, ASSIST_MIN_HURT, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { MONSTER_KINDS, makeMonster } from './ZombieKinds.js'
 import { PlayDamageNumbers } from './PlayDamageNumbers.js'
 import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './SpeechBubble.js'
@@ -276,7 +276,7 @@ export class BuildSurvival {
     this.armor = this.cfg.armor
     this.coins = this.cfg.startCoins
     this.upgrades = {}
-    this.stats = { kills: 0, chests: 0, headshots: 0, meleeKills: 0, skeletonKills: 0 }
+    this.stats = { kills: 0, chests: 0, headshots: 0, meleeKills: 0, skeletonKills: 0, assists: 0 }
     this.streak = 0
     this.bestStreak = 0
     this.bosses = 0
@@ -1264,6 +1264,11 @@ export class BuildSurvival {
   damageZombie(z, amount, dir = null, by = null) {
     // Spectating, everyone's hits show (my own show where I fire).
     if (by && this.spectating) this.damageNumbers?.atZombie(z, amount, '', ZOMBIE_HEIGHT)
+    // On a server, who did how much (for assists, _creditAssists). '' is me.
+    if (this.net && amount > 0 && z.health > 0) {
+      const hurtBy = z.hurtBy || (z.hurtBy = new Map())
+      hurtBy.set(by || '', (hurtBy.get(by || '') || 0) + Math.min(amount, z.health))
+    }
     z.health -= amount
     z.flash = 0.12
     if (z.skel && z.health > 0 && !z.rise && amount > 0) z.hitAnim = z.skel.play('hit', { once: true, fade: 0.05, timeScale: 1.6 })
@@ -1283,8 +1288,9 @@ export class BuildSurvival {
     if (this._toSpawn > 0) this._toSpawn--
     audioEngine.playZombieDeath?.(1, this._panTo(z.x, z.z))
     const skeleton = SKELETON_KINDS[z.kind] ? z.kind : null
-    if (by) this.net?.queueCredit(by, z.boss, skeleton)
+    if (by) this.net?.queueCredit(by, z.boss, skeleton, z.tier)
     else this._countKill(z.boss, skeleton, z.tier)
+    this._creditAssists(z, by || '')
     // A bloater bursts instead of falling over.
     if (MONSTER_KINDS[z.kind]?.burst) this._burst(z)
     else this._spawnCorpse(z, dir)
@@ -1333,6 +1339,30 @@ export class BuildSurvival {
       this._message(t('buildPlayBossDown', { n: Math.round(BOSS_COINS * (this.cfg?.coinMult ?? 1)) }))
     }
     this._report('kill', { boss: !!boss, streak: this.streak, weapon: this.weaponId, skeleton })
+    this._renderHud()
+  }
+
+  // On a server the killing shot gets the full coins; everyone else who did
+  // at least ASSIST_MIN_HURT of its health gets an assist (2026-10-26,
+  // Gaymi: kill + assist, "at least 10% of its health").
+  _creditAssists(z, killer) {
+    if (!this.net || !z.hurtBy) return
+    const need = (z.maxHealth || 0) * ASSIST_MIN_HURT
+    for (const [who, hurt] of z.hurtBy) {
+      if (who === killer || hurt < need) continue
+      if (who) this.net.queueCredit(who, z.boss, null, z.tier, true)
+      else this._countAssist(z.boss, z.tier)
+    }
+  }
+
+  // An assist of mine: ASSIST_SHARE of what the kill paid (its rarity's
+  // coins and a boss's bonus), a "+Assist" message and the assists stat.
+  _countAssist(boss, tier = 'common') {
+    const n = Math.round((COIN_PER_KILL * (ZOMBIE_TIERS[tier]?.coins ?? 1) + (boss ? BOSS_COINS : 0)) * ASSIST_SHARE)
+    this._earn(n)
+    this.stats.assists = (this.stats.assists || 0) + 1
+    this._message(t('buildPlayAssist', { n: Math.round(n * (this.cfg?.coinMult ?? 1)) }))
+    this._report('assist', { boss: !!boss, tier })
     this._renderHud()
   }
 
@@ -2244,6 +2274,7 @@ export class BuildSurvival {
       upgrades: Object.values(this.upgrades || {}).reduce((sum, n) => sum + n, 0),
       bosses: this.bosses,
       skeletonKills: this.stats.skeletonKills || 0,
+      assists: this.stats.assists || 0,
       won,
       died: this.dead,
       mode: this.cfg.mode,
@@ -2922,7 +2953,7 @@ export class BuildSurvival {
     this._lifeStartWave = Math.max(0, this.wave - 1)
     this._startedAt = performance.now()
     this.kills = 0
-    this.stats = { kills: 0, chests: 0, headshots: 0, meleeKills: 0, skeletonKills: 0 }
+    this.stats = { kills: 0, chests: 0, headshots: 0, meleeKills: 0, skeletonKills: 0, assists: 0 }
     this.bestStreak = 0
     this.bosses = 0
     this._coinsEarned = 0

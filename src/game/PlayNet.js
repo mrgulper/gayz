@@ -160,8 +160,10 @@ export class PlayNet {
     this._hurt.push({ to, amount })
   }
 
-  queueCredit(to, boss, skeleton = null) {
-    this._credits.push({ to, boss: !!boss, skeleton })
+  // tier: the zombie's rarity (its coins); assist: they helped, someone
+  // else finished it (BuildSurvival._creditAssists).
+  queueCredit(to, boss, skeleton = null, tier = 'common', assist = false) {
+    this._credits.push({ to, boss: !!boss, skeleton, tier, ...(assist ? { assist: true } : {}) })
   }
 
   // A guest's shot on one of the host's animals (a<id>), or taming it.
@@ -322,7 +324,10 @@ export class PlayNet {
       s.animals?.applySnapshot(res.animals || {})
     }
     for (const amount of res.hurt || []) s._hurtPlayer(amount)
-    for (const c of res.credits || []) s._countKill(!!c.boss, c.skeleton || null)
+    for (const c of res.credits || []) {
+      if (c.assist) s._countAssist(!!c.boss, c.tier)
+      else s._countKill(!!c.boss, c.skeleton || null, c.tier)
+    }
   }
 
   _lost(key) {

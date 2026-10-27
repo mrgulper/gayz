@@ -43,7 +43,8 @@ export function loadEarthTerrain() {
 async function loadHeights() {
   const blob = await (await fetch('/earth/height.png')).blob()
   const img = await createImageBitmap(blob, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' })
-  const canvas = document.createElement('canvas')
+  // (No document in the map's tile worker, MapTileWorker.js.)
+  const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : new OffscreenCanvas(W, H)
   canvas.width = W
   canvas.height = H
   const ctx = canvas.getContext('2d', { willReadFrequently: true })

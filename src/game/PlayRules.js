@@ -58,6 +58,10 @@ export const BOSS_HEALTH_MULT = 8
 export const BOSS_DAMAGE_MULT = 2
 export const BOSS_SIZE = 1.35
 export const BOSS_COINS = 100
+// On a server: an assist (hurting a zombie someone else finished, by at
+// least ASSIST_MIN_HURT of its health) pays ASSIST_SHARE of the kill's coins.
+export const ASSIST_SHARE = 0.25
+export const ASSIST_MIN_HURT = 0.1
 // Zombie Rush: barely a breather between waves, zombies come twice as fast.
 export const RUSH_WAVE_BREAK = 1
 export const RUSH_SPAWN_GAP_MULT = 0.5

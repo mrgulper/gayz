@@ -851,6 +851,8 @@ function loadCareerStats() {
       skeletonKillsRogue: parsed.skeletonKillsRogue || 0,
       skeletonKillsWarrior: parsed.skeletonKillsWarrior || 0,
       skeletonKillsMage: parsed.skeletonKillsMage || 0,
+      // Assists on servers (BuildSurvival._countAssist), a flat number too.
+      totalAssists: parsed.totalAssists || 0,
       // Lifetime XP (Xp.js) - sets your level. A save from before XP gets
       // starter XP from its lifetime kills and games.
       xp: typeof parsed.xp === 'number' ? parsed.xp : starterXp(parsed.totalKills, parsed.totalRuns),
@@ -865,6 +867,7 @@ function loadCareerStats() {
       mostProfitableRun: 0,
       playButtonClicks: 0,
       skeletonKills: 0, skeletonKillsMinion: 0, skeletonKillsRogue: 0, skeletonKillsWarrior: 0, skeletonKillsMage: 0,
+      totalAssists: 0,
       xp: 0,
     }
   }

@@ -596,9 +596,11 @@ export class BuildTryMode {
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
       for (const [, tx, tz] of tiles) {
-        // A sharp tile is up to 128x128 samples (~15 ms), so none is drawn
-        // mid-drag/zoom - the stand-ins below are already sharp enough.
-        const tile = world.mapTile(tx, tz, performance.now() < until && (!moving || T <= 64), T)
+        // A sharp tile is up to 128x128 samples (~15 ms): drawn by the
+        // map's tile workers (OpenWorld._requestTile), asked for at any
+        // time. Without them none is drawn here mid-drag/zoom - the
+        // stand-ins below are already sharp enough.
+        const tile = world.mapTile(tx, tz, world.tilesOffThread() || (performance.now() < until && (!moving || T <= 64)), T)
         if (!tile) missing = true
         // Not drawn yet: the smaller tiles inside it (zooming out), else a
         // bigger, already drawn tile's piece (zooming in - the map is drawn
