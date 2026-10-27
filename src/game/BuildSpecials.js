@@ -127,6 +127,13 @@ export class BuildSpecials {
     this._clearTemp()
     for (const e of this.kind('blacklight')) this._showHidden(e, false)
     this._race = null
+    if (this._skyWas && this.bm.sky) {
+      Object.assign(this.bm.sky, this._skyWas)
+      this.bm.sky._rerollIn = 0
+      this.bm.sky._pickWeather()
+      this.bm.sky.apply()
+    }
+    this._skyWas = null
     this.active = false
     this.speedMult = 1
     this.gripMult = 1
@@ -432,6 +439,12 @@ export class BuildSpecials {
       const nz = tm.pos.z + dz * k
       if (!tm._hits(nx, tm.pos.y, nz)) tm.pos.set(nx, tm.pos.y, nz)
     }
+    // Gravity Flip: near it you fall upward.
+    for (const e of this.kind('gravity')) {
+      if (Math.hypot(me.x - e.x - 0.5, me.z - e.z - 0.5) > e.def.fx.r || me.y < e.y || me.y > e.y + e.def.fx.h) continue
+      tm.vel.y = Math.min(e.def.fx.max, tm.vel.y + e.def.fx.pull * dt)
+      tm.onGround = false
+    }
     // Wind Tunnels float you up the column above them.
     for (const e of this.kind('tunnel')) {
       if (Math.abs(me.x - e.x - 0.5) > 0.8 || Math.abs(me.z - e.z - 0.5) > 0.8) continue
@@ -527,6 +540,21 @@ export class BuildSpecials {
   // Your feet just went into a pad's cell.
   _stepOn(entry, me) {
     const sfx = entry.def.fx
+    if (sfx.kind === 'body') {
+      // Growing back needs room overhead.
+      this._setBuff(sfx.buff, sfx.size, sfx.time)
+      this._sound(sfx.buff === 'shrink' ? 'pop' : 'hum')
+      this._msg(t(sfx.buff === 'shrink' ? 'specialShrunk' : 'specialGrown', { s: sfx.time }))
+      this._burst(entry, sfx.buff === 'shrink' ? 0xff80d0 : 0x80ff80, 10)
+      return
+    }
+    if (sfx.kind === 'invisible' && !(this._invisCd > this._time)) {
+      this._setBuff('invisible', 1, sfx.time)
+      this._invisCd = this._time + sfx.cd
+      this._sound('whoosh')
+      this._msg(t('specialInvisible', { s: sfx.time }))
+      return
+    }
     if (sfx.kind === 'drum') {
       this._sound('drum')
       this._burst(entry, 0xffd080, 3)
@@ -700,6 +728,24 @@ export class BuildSpecials {
     }
     if (fx.kind === 'drum') {
       this._sound('drum')
+      return true
+    }
+    if (fx.kind === 'weather' || fx.kind === 'daynight') {
+      const sky = this.bm.sky
+      if (!sky) return false
+      // Put back as it was when the try ends (not saved as your pick).
+      if (!this._skyWas) this._skyWas = { time: sky.time, weather: sky.weather }
+      if (fx.kind === 'weather') {
+        const i = (fx.list.indexOf(sky._now) + 1) % fx.list.length
+        sky.weather = fx.list[i]
+        sky._rerollIn = 0
+        sky._pickWeather()
+      } else {
+        sky.time = sky.nightAmount() > 0.5 ? 'day' : 'night'
+        sky._clock = 0
+      }
+      sky.apply()
+      this._sound('chime')
       return true
     }
     if (fx.kind === 'dice') {
@@ -1378,15 +1424,62 @@ export class BuildSpecials {
     this._buffs[name] = { mult, until: this._time + time }
   }
 
-  // The buff's multiplier while it lasts, else 0.
+  // The buff's multiplier while it lasts, else 0. Shrunk, you stay small
+  // past the time until there's room to stand up.
   _buff(name) {
     const b = this._buffs?.[name]
-    return this.active && b && b.until > this._time ? b.mult : 0
+    if (!this.active || !b) return 0
+    if (b.until > this._time) return b.mult
+    if (name === 'shrink') {
+      const tm = this.bm.tryMode
+      if (tm.active && tm._hits(tm.pos.x, tm.pos.y, tm.pos.z, 1.8)) return b.mult
+    }
+    return 0
   }
 
   // Your damage multiplier (BuildSurvival._damageMult).
   damageMult() {
-    return (this._buff('damage') || 1) * (1 + (this._bench || 0) * BENCH_STEP)
+    return (this._buff('damage') || 1) * (this._buff('grow') ? GROW_DAMAGE : 1) * (1 + (this._bench || 0) * BENCH_STEP)
+  }
+
+  // Your body's size (Shrink / Grow Pad): BuildTryMode scales your eyes by
+  // it, and (when smaller) your height.
+  bodySize() {
+    if (!this.active) return 1
+    return this._buff('shrink') || this._buff('grow') || 1
+  }
+
+  // A zombie just bit you: a Mirror Block near you sends some back.
+  onBitten(zb, bite) {
+    if (!this.active) return
+    const p = this.bm.tryMode.pos
+    for (const e of this.kind('mirror')) {
+      if (dist3(p, e.x + 0.5, e.y, e.z + 0.5) > e.def.fx.r) continue
+      zb.health -= bite * e.def.fx.back
+      zb.flash = 0.12
+      this._burst(e, 0xd0f0ff, 5)
+      return
+    }
+  }
+
+  // Players (you and others on a server) standing on a Voting Block.
+  _votes() {
+    const s = this.bm.survival
+    const bodies = [this.bm.tryMode.pos, ...(s?.net && !s.net.closed ? s.net.targets() : [])]
+    let n = 0
+    for (const p of bodies) {
+      const e = this.entryAt(Math.floor(p.x), Math.floor(p.y + 0.01) - 1, Math.floor(p.z))
+      if (e?.def.fx.kind === 'vote') n++
+    }
+    return n
+  }
+
+  // A random plain full block (Random Block).
+  randomType() {
+    if (!this._randomPool) {
+      this._randomPool = this.bm.constructor.randomBlockPool?.() || ['stone']
+    }
+    return this._randomPool[Math.floor(Math.random() * this._randomPool.length)]
   }
 
   // Dying (BuildSurvival._die): a Bed you used brings you back there once
@@ -1650,6 +1743,8 @@ export class BuildSpecials {
         return { x: cx + (zb.x - cx) * k, y: zb.y, z: cz + (zb.z - cz) * k, idle: true, lure: true }
       }
     }
+    // Invisible (Invisibility Pad): zombies can't find you.
+    if (target && !target.remote && !target.lure && this._buff('invisible')) return { x: zb.x, y: zb.y, z: zb.z, idle: true, lure: true }
     // Near a Silence Block you can't be heard: zombies far off lose you.
     if (target && !target.lure) {
       for (const e of this.kind('silence')) {
@@ -2152,7 +2247,7 @@ export class BuildSpecials {
   // the nearest MAX_OVERLAYS within OVERLAY_RANGE.
   _pickOverlays(me) {
     const want = []
-    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter', 'blade', 'power', 'turret', 'searchlight', 'slots', 'flowerpot', 'rain', 'lamp', 'flicker', 'hologram', 'dice', 'arcade', 'countdown', 'hoop', 'trophy', 'race', 'pulse']) {
+    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure', 'counter', 'blade', 'power', 'turret', 'searchlight', 'slots', 'flowerpot', 'rain', 'lamp', 'flicker', 'hologram', 'dice', 'arcade', 'countdown', 'hoop', 'trophy', 'race', 'pulse', 'vote']) {
       for (const e of this.kind(kind)) {
         if (kind === 'lure' && !e.def.fx.label) continue
         const d = (e.x - me.x) ** 2 + (e.y - me.y) ** 2 + (e.z - me.z) ** 2
@@ -2273,6 +2368,8 @@ export class BuildSpecials {
       } else if (kind === 'pulse') {
         obj.material.color.setHex(e.def.fx.tint)
         obj.material.opacity = 0.25 + Math.sin(this._time * 2 + e.x) * 0.2
+      } else if (kind === 'vote') {
+        setSpriteText(obj, t('specialVotes', { n: this._votes() }))
       } else if (kind === 'trophy') {
         setSpriteText(obj, t('specialScoreBest', { n: this._bestWave() }))
       } else if (kind === 'race') {
@@ -2337,7 +2434,7 @@ export class BuildSpecials {
 
 const EMPTY = new Set()
 // Kinds that show a floating label (besides score/radio/counter...).
-const LABEL_KINDS = new Set(['dice', 'arcade', 'countdown', 'hoop', 'trophy', 'race'])
+const LABEL_KINDS = new Set(['dice', 'arcade', 'countdown', 'hoop', 'trophy', 'race', 'vote'])
 const SEARCHLIGHT_MULT = 1.25
 const LAMP_COLORS = [0xffffff, 0xff4040, 0xffa030, 0xffe040, 0x50e060, 0x40c0ff, 0x7060ff, 0xff60d0]
 const HOLO_BLOCKS = ['diamondblock', 'gold', 'emeraldblock', 'grass', 'stone', 'oaklog', 'amethystblock', 'c4']
@@ -2345,11 +2442,12 @@ const FLOWER_COLORS = [0xf04060, 0xf0d040, 0x6080f0, 0xf080d0, 0xffffff, 0xf0803
 const RACE_KEY = 'gayz-race-best' // best Start/Finish time per map slot
 const MAIL_KEY = 'gayz-mailbox' // + map slot + block spot (Mailbox)
 const SLOT_SYMBOLS = ['7', '$', '*', '@']
+const GROW_DAMAGE = 1.3 // damage while big (Grow Pad)
 const BENCH_STEP = 0.1 // damage added per Workbench Upgrade
 const POWER_STEP = 0.1 // seconds between power updates
 const GATE_MODES = ['AND', 'OR', 'NOT']
 // Kinds that do something when used (plus lures with on: 'use').
-const USE_KINDS = new Set(['drum', 'dice', 'blacklight', 'countdown', 'arcade', 'hoop', 'photo', 'lamp', 'machine', 'firework', 'confetti', 'hologram', 'producer', 'compost', 'flowerpot', 'rain', 'cook', 'armor', 'trash', 'shop', 'gamble', 'slots', 'clone', 'checkpoint', 'store', 'weaponrack', 'ammo', 'bench', 'recycler', 'boat', 'elevator', 'zipline', 'rope', 'launcher', 'heal', 'give', 'buff', 'bed', 'turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
+const USE_KINDS = new Set(['weather', 'daynight', 'drum', 'dice', 'blacklight', 'countdown', 'arcade', 'hoop', 'photo', 'lamp', 'machine', 'firework', 'confetti', 'hologram', 'producer', 'compost', 'flowerpot', 'rain', 'cook', 'armor', 'trash', 'shop', 'gamble', 'slots', 'clone', 'checkpoint', 'store', 'weaponrack', 'ammo', 'bench', 'recycler', 'boat', 'elevator', 'zipline', 'rope', 'launcher', 'heal', 'give', 'buff', 'bed', 'turret', 'gate', 'power', 'crop', 'doorbell', 'radio', 'horn', 'piano', 'cleanser', 'wavebell', 'smoke', 'shieldgen', 'watchtower', 'oilpot', 'cannon', 'catapult'])
 // Piano Block notes: a major scale from middle C.
 const SCALE = [262, 294, 330, 349, 392, 440, 494, 523]
 

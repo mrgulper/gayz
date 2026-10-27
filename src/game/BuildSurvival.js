@@ -2016,7 +2016,7 @@ export class BuildSurvival {
   _zombieHits(x, y, z) {
     // The camp counts as a wall to zombies.
     if (this.camp?.inside(x, z, ZOMBIE_HALF + 0.05)) return true
-    return this.bm.tryMode._hits(x, y, z, ZOMBIE_FIT_HEIGHT)
+    return this.bm.tryMode._hits(x, y, z, ZOMBIE_FIT_HEIGHT, true)
   }
 
   _moveZombieAxis(zb, axis, amount) {
@@ -2187,7 +2187,11 @@ export class BuildSurvival {
       // reaches anyone inside the camp).
       if (player.remote) {
         if (!this.camp?.inside(player.x, player.z)) this.net?.queueHurt(player.remote, bite)
-      } else this._hurtPlayer(bite)
+      } else {
+        this._hurtPlayer(bite)
+        // A Mirror Block nearby bounces some of it back (BuildSpecials.js).
+        this.bm.specials.onBitten(zb, bite)
+      }
     }
 
     // Draw it: facing where it walks, legs and arms swinging.

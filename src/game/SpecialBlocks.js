@@ -883,6 +883,68 @@ export const SPECIAL_BLOCKS = [
     look: { base: 'metal', color: 0x5a2a3a, glyph: 'camera', glyphColor: 0xf0f0f0 },
     fx: { kind: 'photo', cd: 2 },
   },
+
+  // ---- Batch 15: weird and magic ----
+  {
+    ...D, id: 'votingblock', name: 'Voting Block', color: 0x3a8ae0,
+    desc: 'Stand on it to vote: the number of players standing on Voting Blocks shows above it.',
+    look: { base: 'metal', color: 0x2a5a9a, glyph: 'tick', glyphColor: 0xf0f0f0 },
+    fx: { kind: 'vote' },
+  },
+  {
+    ...D, id: 'gravityflip', name: 'Gravity Flip', color: 0x7a3ad0, emissive: 0x9a50ff, emissiveIntensity: 0.2,
+    desc: 'Stand within 3 blocks of it (and up to 10 above it) and you fall upward instead of down.',
+    look: { base: 'glow', color: 0x3a1a6a, glyph: 'updown', glyphColor: 0xd0a0ff },
+    fx: { kind: 'gravity', r: 3, h: 10, pull: 60, max: 7 },
+  },
+  {
+    ...D, id: 'shrinkpad', name: 'Shrink Pad', color: 0xe060b0, shape: 'pad', emissive: 0xff70d0, emissiveIntensity: 0.25,
+    desc: 'Step on it to shrink for 15 seconds - small enough to fit through 1-block gaps.',
+    look: { base: 'glow', color: 0x6a2a5a, glyph: 'arrowdown', glyphColor: 0xff90e0 },
+    fx: { kind: 'body', buff: 'shrink', size: 0.5, time: 15 },
+  },
+  {
+    ...D, id: 'growpad', name: 'Grow Pad', color: 0x60d060, shape: 'pad', emissive: 0x70ff70, emissiveIntensity: 0.25,
+    desc: 'Step on it to grow big for 15 seconds: you see from up high and hit 30% harder.',
+    look: { base: 'glow', color: 0x2a6a2a, glyph: 'arrowup', glyphColor: 0x90ff90 },
+    fx: { kind: 'body', buff: 'grow', size: 1.8, time: 15 },
+  },
+  {
+    ...D, id: 'mirrorblock', name: 'Mirror Block', color: 0xd0e0f0,
+    desc: 'While you\'re within 3 blocks of it, zombies that bite you take half of the bite back.',
+    look: { base: 'glow', color: 0xb8c8d8, glyph: 'shine', glyphColor: 0xffffff },
+    fx: { kind: 'mirror', r: 3, back: 0.5 },
+  },
+  {
+    ...D, id: 'ghostblock', name: 'Ghost Block', color: 0xb0b8d0,
+    desc: 'You can walk straight through it - zombies can\'t.',
+    look: { base: 'glow', color: 0x9aa0b8, glyph: 'ghost', glyphColor: 0xf0f4ff },
+    fx: { kind: 'ghost' },
+  },
+  {
+    ...D, id: 'weatherstone', name: 'Weather Stone', color: 0x6a8aa0,
+    desc: 'Use it to change the weather: clear, rain, storm, snow, fog, sandstorm (back to normal when you stop).',
+    look: { base: 'stone', color: 0x5a6a78, glyph: 'cloud', glyphColor: 0xa0d0ff },
+    fx: { kind: 'weather', list: ['clear', 'lightRain', 'hardRain', 'lightSnow', 'fog', 'sandstorm'] },
+  },
+  {
+    ...D, id: 'daynightswitch', name: 'Day/Night Switch', color: 0x3a3a6a,
+    desc: 'Use it to switch between day and night (back to normal when you stop).',
+    look: { base: 'metal', color: 0x2a2a4a, glyph: 'moon', glyphColor: 0xffe080, top: 'sun' },
+    fx: { kind: 'daynight' },
+  },
+  {
+    ...D, id: 'randomblock', name: 'Random Block', color: 0xa0a0a0,
+    desc: 'Turns into a random block the moment you place it - a surprise every time.',
+    look: { base: 'disco', color: 0xffffff, glyph: 'question', glyphColor: 0xffffff },
+    fx: { kind: 'random' },
+  },
+  {
+    ...D, id: 'invisibilitypad', name: 'Invisibility Pad', color: 0xc0c8e0, shape: 'pad',
+    desc: 'Step on it to turn invisible for 10 seconds: zombies lose track of you. Recharges in 30 seconds.',
+    look: { base: 'glow', color: 0x4a4a6a, glyph: 'eye', glyphColor: 0xc0c8ff },
+    fx: { kind: 'invisible', time: 10, cd: 30 },
+  },
 ]
 
 export const SPECIAL_BY_ID = new Map(SPECIAL_BLOCKS.map((b) => [b.id, b]))

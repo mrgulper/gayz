@@ -1396,6 +1396,12 @@ export class BuildMode {
   // Read by tests/docs.spec.js, which presses every listed key for real.
   static MENU_SHORTCUTS = MENU_SHORTCUTS
 
+  // Plain full blocks a Random Block can turn into (no liquids, no
+  // working blocks, nothing hidden).
+  static randomBlockPool() {
+    return PICKER_TYPES.filter((b) => !b.shape && !b.game && !b.plant && !b.inset && !LIQUID_TYPES.has(b.id) && b.id !== 'c4').map((b) => b.id)
+  }
+
   static blockShape(type) {
     return BLOCK_BY_ID.get(type)?.shape
   }
@@ -2638,6 +2644,8 @@ export class BuildMode {
   // water and lava react: flow into a gap, get blocked, dry up. A block
   // placed into flowing water replaces it.
   placeBlock(x, y, z, type, skipBoundsUpdate = false, state = null) {
+    // A Random Block turns into a random block as you place it.
+    if (type === 'randomblock' && !skipBoundsUpdate) type = this.specials.randomType()
     const key = this._key(x, y, z)
     this._mapVersion++
     if (this.liquids?.isFlow(key) && this._blocks.has(key)) {
