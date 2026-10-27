@@ -98,6 +98,7 @@ export class BuildSpecials {
     this._fxTimer = 0
     this._hurtAcc = 0
     this._onPadKey = null
+    this._onUnderKey = null
     this._padCd = 0
   }
 
@@ -122,6 +123,12 @@ export class BuildSpecials {
     else this.bm.game?._showHomepageToast?.(text)
   }
 
+  // Plays one of Audio.js's special sounds (remembered for the tests).
+  _sound(kind) {
+    this._lastSound = kind
+    audioEngine.playSpecial?.(kind)
+  }
+
   _effects() {
     if (!this._fx) this._fx = new PlayFx(this.bm.scene, this.B)
     return this._fx
@@ -134,6 +141,7 @@ export class BuildSpecials {
     dt = Math.min(dt, 0.1)
     this._time += dt
     if (me && !this.bm.survival?.spectating) this._updateMe(dt, me)
+    this._tickBlocks(me || this._camFeet())
     this._fxTimer -= dt
     if (this._fxTimer <= 0) {
       this._fxTimer = 0.12
@@ -147,6 +155,56 @@ export class BuildSpecials {
       this._pickOverlays(me || this._camFeet())
     }
     this._updateOverlays(dt)
+  }
+
+  // Blocks that do things over time, near you.
+  _tickBlocks(me) {
+    const s = this.bm.survival
+    const zombies = s?.active ? s.zombies : []
+    const now = this._time
+    for (const e of this.kind('tripwire')) {
+      const st = this._state(e)
+      if (st.cdUntil > now) continue
+      const r = e.def.fx.r
+      if (!zombies.some((zb) => Math.abs(zb.y - e.y) < 3 && Math.hypot(zb.x - e.x - 0.5, zb.z - e.z - 0.5) < r)) continue
+      st.cdUntil = now + e.def.fx.cd
+      this._sound('chime')
+      this._msg(t('specialTripwire', { name: e.def.name }))
+      this._burst(e, 0xfff0a0, 5)
+    }
+    for (const e of this.kind('windchime')) {
+      const st = this._state(e)
+      if (dist3(me, e.x + 0.5, e.y, e.z + 0.5) > e.def.fx.hear) continue
+      // Rattles low when zombies are close (right away when one first
+      // comes), tinkles softly otherwise.
+      const warn = zombies.some((zb) => dist3(zb, e.x + 0.5, e.y, e.z + 0.5) < e.def.fx.warn)
+      const fresh = warn && !st.warned
+      st.warned = warn
+      if (st.next > now && !fresh) continue
+      this._sound(warn ? 'warn' : 'chime')
+      st.next = now + (warn ? 1.2 : 4 + Math.random() * 4)
+    }
+    for (const e of this.kind('doorbell')) {
+      const st = this._st.get(e.key)
+      if (st?.closeAt && st.closeAt <= now) {
+        st.closeAt = 0
+        this.bm.gadgets.setDoorsNear(e.x, e.y, e.z, false)
+      }
+    }
+    for (const e of this.kind('radio')) {
+      const st = this._st.get(e.key)
+      if (!st?.station || st.next > now) continue
+      st.next = now + e.def.fx.every
+      if (dist3(me, e.x + 0.5, e.y, e.z + 0.5) <= e.def.fx.hear) this._sound(`radio${st.station}`)
+    }
+    for (const e of this.kind('echo')) {
+      const st = this._st.get(e.key)
+      if (!st?.echoAt || st.echoAt > now) continue
+      st.echoAt = 0
+      st.until = now + e.def.fx.time
+      this._sound('echo')
+      this._burst(e, 0xb0c8ff, 6)
+    }
   }
 
   _camFeet() {
@@ -168,6 +226,13 @@ export class BuildSpecials {
     if (padKey !== this._onPadKey) {
       this._onPadKey = padKey
       if (pad) this._stepOn(pad, me)
+    }
+    // ...and the block under your feet (a piano key).
+    const under = this.bm.tryMode.onGround === false ? null : this.entryAt(fx, fy - 1, fz)
+    const underKey = under?.key || null
+    if (underKey !== this._onUnderKey) {
+      this._onUnderKey = underKey
+      if (under) this._stepOn(under, me)
     }
     // Healing near campfires.
     if (play && play.health < play.maxHealth) {
@@ -196,6 +261,10 @@ export class BuildSpecials {
 
   // Your feet just went into a pad's cell.
   _stepOn(entry, me) {
+    if (entry.def.fx.kind === 'piano') {
+      this._playKey(entry)
+      return
+    }
     if (entry.def.fx.kind === 'teleport' && this._padCd <= 0) {
       let best = null
       let bestD = Infinity
@@ -216,7 +285,7 @@ export class BuildSpecials {
       tm.vel?.set(0, 0, 0)
       this._onPadKey = best.key
       this._padCd = entry.def.fx.cd
-      audioEngine.playSpecial?.('whoosh')
+      this._sound('whoosh')
       this._burst(entry, 0xc08aff, 10)
       this._burst(best, 0xc08aff, 10)
       void me
@@ -239,20 +308,76 @@ export class BuildSpecials {
     if (fx.kind === 'lure' && fx.on === 'use') {
       st.until = this._time + fx.time
       st.cdUntil = this._time + fx.cd
-      if (fx.sound) audioEngine.playSpecial?.(fx.sound)
+      if (fx.sound) this._sound(fx.sound)
       this._msg(t('specialLured', { name: entry.def.name, s: fx.time }))
       this._burst(entry, 0xffe08a, 12)
       return true
     }
     if (fx.kind === 'crop') return this._useCrop(entry, st)
+    if (fx.cd) st.cdUntil = this._time + fx.cd
+    if (fx.kind === 'doorbell') {
+      this._sound('dingdong')
+      // Opens the doors around it for a moment, like someone answering.
+      this.bm.gadgets.setDoorsNear(x, y, z, true)
+      st.closeAt = this._time + fx.open
+      return true
+    }
+    if (fx.kind === 'radio') {
+      st.station = ((st.station || 0) + 1) % (fx.stations + 1)
+      st.next = this._time
+      this._msg(st.station ? t('specialRadioOn', { n: st.station }) : t('specialRadioOff'))
+      this._overlaysDirty = true
+      return true
+    }
+    if (fx.kind === 'horn') {
+      this._sound('honk')
+      const s = this.bm.survival
+      for (const zb of s?.active ? s.zombies : []) {
+        const dx = zb.x - (x + 0.5)
+        const dz = zb.z - (z + 0.5)
+        const d = Math.hypot(dx, dz)
+        if (d > fx.r || Math.abs(zb.y - y) > 4) continue
+        // Pushed straight away over a moment (zombieTick moves it).
+        zb._knock = 0.35
+        zb._kx = (dx / (d || 1)) * (fx.push / 0.35)
+        zb._kz = (dz / (d || 1)) * (fx.push / 0.35)
+      }
+      this._burst(entry, 0xffffff, 8)
+      return true
+    }
+    if (fx.kind === 'piano') {
+      this._playKey(entry)
+      return true
+    }
     return false
+  }
+
+  // A piano block's note: its own step of the scale, by where it sits, so
+  // a row of them plays a tune.
+  _playKey(entry) {
+    const step = ((entry.x + entry.z) % 8 + 8) % 8
+    this._lastSound = `note${SCALE[step]}`
+    audioEngine.playNote?.(SCALE[step])
+    this._burst(entry, 0xfff4c0, 3)
+  }
+
+  // A shot was fired (BuildSurvival.shoot): Echo Stones near you repeat
+  // it a moment later and pull zombies to themselves for a moment.
+  onShot(pos) {
+    if (!this.active) return
+    for (const e of this.kind('echo')) {
+      if (dist3(pos, e.x + 0.5, e.y, e.z + 0.5) > e.def.fx.hear) continue
+      const st = this._state(e)
+      if (st.echoAt > this._time) continue
+      st.echoAt = this._time + e.def.fx.delay
+    }
   }
 
   _useCrop(entry, st) {
     const fx = entry.def.fx
     if (st.plantedAt === undefined) {
       st.plantedAt = this._time
-      audioEngine.playSpecial?.('pop')
+      this._sound('pop')
       this._msg(t('specialCropPlanted', { s: fx.grow }))
       this._overlaysDirty = true
       return true
@@ -265,7 +390,7 @@ export class BuildSpecials {
     st.plantedAt = undefined
     const play = this._play()
     const kept = play?.inv ? fx.n - play.inv.add({ kind: 'item', id: fx.give, n: fx.n }) : 0
-    audioEngine.playSpecial?.('pop')
+    this._sound('pop')
     this._msg(play ? t('specialCropHarvest', { n: kept }) : t('specialCropHarvestTry'))
     this._burst(entry, 0x7ad04a, 8)
     return true
@@ -288,8 +413,23 @@ export class BuildSpecials {
         return { x: cx + (zb.x - cx) * k, y: zb.y, z: cz + (zb.z - cz) * k, idle: true, lure: true }
       }
     }
+    // Near a Silence Block you can't be heard: zombies far off lose you.
+    if (target && !target.lure) {
+      for (const e of this.kind('silence')) {
+        if (dist3(target, e.x + 0.5, e.y, e.z + 0.5) > e.def.fx.r) continue
+        if (Math.hypot(target.x - zb.x, target.z - zb.z) > e.def.fx.hear) return { x: zb.x, y: zb.y, z: zb.z, idle: true, lure: true }
+      }
+    }
     let best = null
     let bestD = Infinity
+    for (const e of this.kind('echo')) {
+      if (!(this._st.get(e.key)?.until > this._time)) continue
+      const d = dist3(zb, e.x + 0.5, e.y, e.z + 0.5)
+      if (d <= e.def.fx.r && d < bestD) {
+        best = e
+        bestD = d
+      }
+    }
     for (const e of this.kind('lure')) {
       const fx = e.def.fx
       if (fx.on === 'use' && !(this._st.get(e.key)?.until > this._time)) continue
@@ -309,6 +449,14 @@ export class BuildSpecials {
   zombieTick(zb, dt) {
     if (!this.active) return 1
     let speed = 1
+    // Blown back (Horn Block).
+    if (zb._knock > 0) {
+      const k = Math.min(dt, zb._knock)
+      zb._knock -= dt
+      zb.x += zb._kx * k
+      zb.z += zb._kz * k
+      speed = 0
+    }
     this._touching(zb, ZOMBIE_HEIGHT * (zb.size || 1), (e, dx, dz) => {
       const fx = e.def.fx
       if (fx.zdps) {
@@ -399,8 +547,9 @@ export class BuildSpecials {
   // the nearest MAX_OVERLAYS within OVERLAY_RANGE.
   _pickOverlays(me) {
     const want = []
-    for (const kind of ['disco', 'crop', 'score']) {
+    for (const kind of ['disco', 'crop', 'score', 'radio', 'lure']) {
       for (const e of this.kind(kind)) {
+        if (kind === 'lure' && !e.def.fx.label) continue
         const d = (e.x - me.x) ** 2 + (e.y - me.y) ** 2 + (e.z - me.z) ** 2
         if (d < OVERLAY_RANGE * OVERLAY_RANGE) want.push([d, e])
       }
@@ -430,7 +579,7 @@ export class BuildSpecials {
       }
       obj.position.set((e.x + 0.5) * B, (e.y + 1) * B, (e.z + 0.5) * B)
       obj.userData.mat = mat
-    } else if (kind === 'score') {
+    } else if (kind === 'score' || kind === 'radio' || e.def.fx.label) {
       obj = textSprite()
       obj.position.set((e.x + 0.5) * B, (e.y + 1.7) * B, (e.z + 0.5) * B)
       obj.scale.set(3 * B, 0.75 * B, 1)
@@ -469,6 +618,13 @@ export class BuildSpecials {
         obj.visible = k > 0
         obj.scale.setScalar(0.25 + k * 0.75)
         obj.userData.mat.color.setHex(k >= 1 ? 0xd8c040 : 0x5aa83a)
+      } else if (kind === 'radio') {
+        const n = this._st.get(e.key)?.station
+        obj.visible = !!n
+        if (n) setSpriteText(obj, `\u266A ${t('specialRadioOn', { n })}`)
+      } else if (e.def.fx.label) {
+        obj.visible = this._st.get(e.key)?.until > this._time
+        if (obj.visible) setSpriteText(obj, t(e.def.fx.label))
       } else if (kind === 'score') {
         let text
         if (play) text = t('specialScore', { wave: play.wave || 0, kills: play.kills || 0 })
@@ -491,6 +647,8 @@ export class BuildSpecials {
 }
 
 const EMPTY = new Set()
+// Piano Block notes: a major scale from middle C.
+const SCALE = [262, 294, 330, 349, 392, 440, 494, 523]
 
 function dist3(p, x, y, z) {
   return Math.hypot(p.x - x, p.y - y, p.z - z)

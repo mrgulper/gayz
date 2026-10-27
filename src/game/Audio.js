@@ -35,6 +35,16 @@ const SPECIAL_SOUNDS = {
   bell: { notes: [[523, 0, 2.4, 'sine', 0.3], [1046, 0, 1.8, 'sine', 0.12], [1569, 0, 1.2, 'sine', 0.07], [523, 0.9, 2.2, 'sine', 0.22], [1046, 0.9, 1.5, 'sine', 0.08]] },
   whoosh: { noise: [0.45, 300, 3200, 0.3], notes: [[220, 0, 0.4, 'sine', 0.1, 880]] },
   pop: { notes: [[660, 0, 0.09, 'triangle', 0.25, 990], [990, 0.07, 0.1, 'triangle', 0.18, 1320]] },
+  siren: { notes: [[500, 0, 0.9, 'sawtooth', 0.12, 900], [900, 0.9, 0.9, 'sawtooth', 0.12, 500], [500, 1.8, 0.9, 'sawtooth', 0.12, 900], [900, 2.7, 0.9, 'sawtooth', 0.1, 500]] },
+  chime: { notes: [[1568, 0, 0.9, 'sine', 0.08], [2093, 0.12, 0.8, 'sine', 0.06], [1760, 0.27, 0.9, 'sine', 0.05]] },
+  warn: { notes: [[392, 0, 0.5, 'sine', 0.12], [370, 0.18, 0.5, 'sine', 0.12], [392, 0.36, 0.5, 'sine', 0.1]] },
+  dingdong: { notes: [[659, 0, 0.9, 'sine', 0.25], [523, 0.45, 1.2, 'sine', 0.25]] },
+  shout: { noise: [0.35, 600, 1400, 0.25], notes: [[180, 0, 0.35, 'sawtooth', 0.12, 220]] },
+  radio1: { notes: [[523, 0, 0.25, 'square', 0.05], [659, 0.3, 0.25, 'square', 0.05], [784, 0.6, 0.25, 'square', 0.05], [659, 0.9, 0.25, 'square', 0.05], [523, 1.2, 0.5, 'square', 0.05]] },
+  radio2: { notes: [[392, 0, 0.4, 'triangle', 0.1], [440, 0.45, 0.4, 'triangle', 0.1], [494, 0.9, 0.4, 'triangle', 0.1], [587, 1.35, 0.8, 'triangle', 0.1]] },
+  radio3: { notes: [[110, 0, 0.2, 'sawtooth', 0.08], [110, 0.5, 0.2, 'sawtooth', 0.08], [147, 1, 0.2, 'sawtooth', 0.08], [131, 1.5, 0.3, 'sawtooth', 0.08]], noise: [0.1, 4000, 6000, 0.08] },
+  echo: { noise: [0.3, 900, 300, 0.12] },
+  honk: { notes: [[220, 0, 0.3, 'sawtooth', 0.15], [277, 0, 0.3, 'sawtooth', 0.12], [220, 0.35, 0.45, 'sawtooth', 0.15], [277, 0.35, 0.45, 'sawtooth', 0.12]] },
 }
 
 class AudioEngine {
@@ -1004,6 +1014,24 @@ class AudioEngine {
       g.gain.exponentialRampToValueAtTime(0.0001, now + len)
       src.connect(band).connect(g).connect(this.sfxGain)
       src.start(now)
+    }
+  }
+
+  // One soft piano-ish note (the Piano Block).
+  playNote(hz) {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    for (const [mult, gain] of [[1, 0.22], [2, 0.06]]) {
+      const osc = ctx.createOscillator()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(hz * mult, now)
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(gain, now)
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.9)
+      osc.connect(g).connect(this.sfxGain)
+      osc.start(now)
+      osc.stop(now + 0.92)
     }
   }
 

@@ -973,6 +973,8 @@ export class BuildSurvival {
     // Knife and Tomahawk while aiming (right-click held): thrown, not
     // swung (PlayThrow.js).
     if (w.melee && bm.tryMode.aiming && this.throws) return this.throws.throw()
+    // Echo Stones hear gunfire (BuildSpecials.js).
+    if (!w.melee) bm.specials.onShot(bm.tryMode.pos)
     bm.camera.updateMatrixWorld()
     bm._raycaster.setFromCamera({ x: 0, y: 0 }, bm.camera)
     const center = bm._raycaster.ray.clone()

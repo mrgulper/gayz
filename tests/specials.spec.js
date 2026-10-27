@@ -127,3 +127,121 @@ test('special blocks batch 1: bell, repeller, bait, spikes, barricade, campfire,
     planted: true, harvested: true, disco: true, score: true, stopped: true, unindexed: true,
   })
 })
+
+test('special blocks batch 2: siren, tripwire, wind chime, doorbell, megaphone, radio, echo, silence, horn, piano', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 90, 'zombiespawner')
+    const out = {}
+    const ids = ['sirentower', 'tripwirechime', 'windchime', 'doorbell', 'megaphone', 'radioblock', 'echostone', 'silenceblock', 'hornblock', 'pianoblock']
+    out.inPicker = ids.every((id) => bm.isBlockType(id) && bm.blockTypeOf(id).desc && bm.blockIcon(id).startsWith('data:'))
+    bm.placeBlock(40, 0, 0, 'sirentower')
+    bm.placeBlock(-20, 0, 20, 'tripwirechime')
+    bm.placeBlock(4, 0, 4, 'windchime')
+    bm.placeBlock(10, 0, -10, 'doorbell')
+    bm.placeBlock(12, 0, -10, 'oakdoor')
+    bm.placeBlock(-10, 0, -10, 'megaphone')
+    bm.placeBlock(-4, 0, 4, 'radioblock')
+    bm.placeBlock(3, 0, -3, 'echostone')
+    bm.placeBlock(-40, 0, -40, 'silenceblock')
+    bm.placeBlock(25, 0, 25, 'hornblock')
+    bm.placeBlock(2, 0, 2, 'pianoblock')
+    bm.placeBlock(3, 0, 2, 'pianoblock')
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    s._toSpawn = 0
+    s._breakTimer = 999
+    const sp = bm.specials
+    const zombie = (x, z) => s._makeZombie(`t${Math.random()}`, x, 0, z, 1000, false)
+    const me = { x: 0, y: 0, z: 0 }
+
+    // Siren: reaches much further than the bell.
+    const zf = zombie(-30, 0)
+    sp.use(40, 0, 0)
+    out.siren = sp._lastSound === 'siren' && sp.zombieTarget(zf, me)?.x === 40.5
+    sp._st.get('40,0,0').until = 0
+
+    // Tripwire: a zombie walking by sets it off (once, then it waits).
+    const zt = zombie(-19, 21)
+    sp._lastSound = null
+    sp.update(0.05, me)
+    out.tripwire = sp._lastSound === 'chime' && sp._st.get('-20,0,20').cdUntil > sp._time
+    s._removeZombie?.(zt)
+    if (s.zombies.includes(zt)) s.zombies.splice(s.zombies.indexOf(zt), 1)
+
+    // Wind chime: rattles a warning with a zombie close by.
+    sp._lastSound = null
+    const zw = zombie(8, 8)
+    sp.update(0.05, { x: 4, y: 0, z: 2 })
+    out.windWarn = sp._lastSound === 'warn'
+    s.zombies.splice(s.zombies.indexOf(zw), 1)
+
+    // Doorbell: rings and opens the door next to it, then it shuts.
+    sp.use(10, 0, -10)
+    out.doorOpens = sp._lastSound === 'dingdong' && bm._doorState.get('12,0,-10')?.open === true
+    sp._time += 4
+    sp.update(0.05, me)
+    out.doorShuts = bm._doorState.get('12,0,-10')?.open === false
+
+    // Megaphone: lures nearby zombies and shows HEY! over it.
+    const zm = zombie(-15, -15)
+    sp.use(-10, 0, -10)
+    out.megaphone = sp.zombieTarget(zm, me)?.x === -9.5
+    sp._overlaysDirty = true
+    sp.update(0.05, me)
+    out.hey = sp._overlays.get('-10,0,-10')?.visible === true
+    sp._st.get('-10,0,-10').until = 0
+
+    // Radio: station 1, 2, 3, off - and it plays while on.
+    sp.use(-4, 0, 4)
+    sp._lastSound = null
+    sp.update(0.05, me)
+    out.radioPlays = sp._lastSound === 'radio1'
+    sp.use(-4, 0, 4); sp.use(-4, 0, 4); sp.use(-4, 0, 4)
+    out.radioOff = sp._st.get('-4,0,4').station === 0
+
+    // Echo Stone: a shot near it echoes and pulls zombies to it.
+    const ze = zombie(10, -3)
+    sp.onShot({ x: 1, y: 0, z: -1 })
+    sp._time += 0.6
+    sp.update(0.05, me)
+    out.echo = sp._lastSound === 'echo' && sp.zombieTarget(ze, me)?.x === 3.5
+
+    // Silence: standing by it, a far zombie loses you; a near one doesn't.
+    sp._st.get('3,0,-3').until = 0
+    const quiet = { x: -39.5, y: 0, z: -38 }
+    const far = zombie(-10, -40)
+    const near = zombie(-37, -38)
+    const ft = sp.zombieTarget(far, quiet)
+    out.silenceFar = !!ft && ft.x === far.x && ft.idle
+    out.silenceNear = sp.zombieTarget(near, quiet) === null
+
+    // Horn: blows a nearby zombie back.
+    const zh = zombie(27.5, 25.5)
+    sp.use(25, 0, 25)
+    for (let i = 0; i < 10; i++) sp.zombieTick(zh, 0.05)
+    out.horn = sp._lastSound === 'honk' && zh.x > 31
+
+    // Piano: two keys side by side play different notes when stepped on.
+    const tm = bm.tryMode
+    tm.onGround = true
+    sp.update(0.05, { x: 2.5, y: 1, z: 2.5 })
+    const n1 = sp._lastSound
+    sp.update(0.05, { x: 3.5, y: 1, z: 2.5 })
+    const n2 = sp._lastSound
+    out.piano = /^note/.test(n1) && /^note/.test(n2) && n1 !== n2
+    s.stop()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({
+    inPicker: true, siren: true, tripwire: true, windWarn: true, doorOpens: true, doorShuts: true,
+    megaphone: true, hey: true, radioPlays: true, radioOff: true, echo: true,
+    silenceFar: true, silenceNear: true, horn: true, piano: true,
+  })
+})
