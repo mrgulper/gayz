@@ -20,22 +20,42 @@
 // slow     seconds a Void Ripper hit slows a zombie down
 // cleave   zombies one Tomahawk swing can hit at once
 // fuel     shows a fuel tank instead of bullets (mag = one tank)
+// scope    aiming looks through a scope zoomed this many times
+//          (BuildTryMode._updateScope)
+// Ammo is what the real gun holds and what someone would carry for it
+// (2026-10-30, Gaymi: "make the ammo based on how much ammo they would
+// actually have irl") - the comment above each gun says which real gun.
 export const PLAY_WEAPONS = {
-  rifle: { damage: 34, rate: 0.11, auto: true, mag: 30, reserve: 150, reload: 1.6 },
-  pistol: { damage: 42, rate: 0.22, mag: 8, reserve: 72, reload: 1.2 },
-  revolver: { damage: 70, rate: 0.4, mag: 6, reserve: 48, reload: 2.1 },
-  minigun: { damage: 20, rate: 0.05, auto: true, mag: 150, reserve: 450, reload: 3.6 },
-  shotgun: { damage: 18, rate: 0.75, mag: 6, reserve: 42, reload: 2.2, pellets: 8, spread: 0.075 },
-  awp: { damage: 180, rate: 1.25, mag: 5, reserve: 30, reload: 2.6, pierce: 4 },
-  flamethrower: { damage: 11, rate: 0.06, auto: true, mag: 100, reserve: 300, reload: 2.4, range: 7, pellets: 3, spread: 0.06, burn: 3, fuel: true },
-  rocket: { damage: 200, rate: 1.4, mag: 1, reserve: 12, reload: 2.4, blast: 3 },
-  crossbow: { damage: 120, rate: 0.9, mag: 1, reserve: 36, reload: 0.9, pierce: 3 },
-  launcher: { damage: 130, rate: 0.7, mag: 6, reserve: 24, reload: 2.6, blast: 2.5 },
-  suppressedsmg: { damage: 22, rate: 0.07, auto: true, mag: 30, reserve: 180, reload: 1.5 },
+  // Havoc - an AK-47: 30-round magazine, a soldier carries 7 (210 spare)
+  rifle: { damage: 34, rate: 0.11, auto: true, mag: 30, reserve: 210, reload: 1.6 },
+  // Scrapper - an M1911: 7 rounds a magazine, 6 spare magazines
+  pistol: { damage: 42, rate: 0.22, mag: 7, reserve: 42, reload: 1.2 },
+  // Outlaw - a six-shooter: 6 in the cylinder, 6 speed loaders
+  revolver: { damage: 70, rate: 0.4, mag: 6, reserve: 36, reload: 2.1 },
+  // Buzzsaw - an M134 minigun: a 1500-round belt box, one spare
+  minigun: { damage: 20, rate: 0.05, auto: true, mag: 1500, reserve: 1500, reload: 3.6 },
+  // Boomstick - a pump shotgun: 8 shells in the tube, 24 on a shell belt
+  shotgun: { damage: 18, rate: 0.75, mag: 8, reserve: 24, reload: 2.2, pellets: 8, spread: 0.075 },
+  // Farsight - a .338 sniper rifle (AWM): 5 a magazine, 40 rounds carried
+  awp: { damage: 180, rate: 1.25, mag: 5, reserve: 40, reload: 2.6, pierce: 4, scope: 4 },
+  // Dragonbreath - a backpack flamethrower: one tank is ~6 seconds of fire, one spare
+  flamethrower: { damage: 11, rate: 0.06, auto: true, mag: 100, reserve: 100, reload: 2.4, range: 7, pellets: 3, spread: 0.06, burn: 3, fuel: true },
+  // Skybreaker - an RPG-7: one rocket loaded, 4 carried
+  rocket: { damage: 200, rate: 1.4, mag: 1, reserve: 4, reload: 2.4, blast: 3 },
+  // Quill - a crossbow: one bolt, a quiver of 12
+  crossbow: { damage: 120, rate: 0.9, mag: 1, reserve: 12, reload: 0.9, pierce: 3 },
+  // Thumper - a 6-shot revolver grenade launcher (M32): 6 loaded, 18 carried
+  launcher: { damage: 130, rate: 0.7, mag: 6, reserve: 18, reload: 2.6, blast: 2.5 },
+  // Whisper - an MP5-SD: 30-round magazine, 5 spare
+  suppressedsmg: { damage: 22, rate: 0.07, auto: true, mag: 30, reserve: 150, reload: 1.5 },
+  // Void Ripper - made up, no real gun
   voidripper: { damage: 48, rate: 0.16, auto: true, mag: 24, reserve: 120, reload: 1.8, slow: 2 },
-  gpmg: { damage: 30, rate: 0.085, auto: true, mag: 100, reserve: 300, reload: 3.2 },
+  // Bulldog - a GPMG (FN MAG): 100-round belt, 4 spare belts
+  gpmg: { damage: 30, rate: 0.085, auto: true, mag: 100, reserve: 400, reload: 3.2 },
+  // Fang - a combat knife
   melee: { damage: 75, rate: 0.45, auto: true, mag: Infinity, reserve: Infinity, reload: 0, range: 2.6, melee: true },
-  // Slower than the knife but hits harder and reaches a little further.
+  // Cleaver - a tomahawk. Slower than the knife but hits harder and
+  // reaches a little further.
   tomahawk: { damage: 120, rate: 0.7, auto: true, mag: Infinity, reserve: Infinity, reload: 0, range: 3, melee: true, cleave: 3 },
 }
 
@@ -51,7 +71,7 @@ export const COMING_SOON_WEAPONS = new Set(['crossbow', 'launcher', 'minigun', '
 export const canPlayWeapon = (id) => !!PLAY_WEAPONS[id] && !COMING_SOON_WEAPONS.has(id)
 
 // Ammo pickups (chests, the Trader's ammo box) are written for the rifle's
-// 150 spare rounds; other guns get the same share of their own reserve.
+// spare rounds; other guns get the same share of their own reserve.
 export function ammoFor(weaponId, rifleAmount) {
   const w = PLAY_WEAPONS[weaponId] || PLAY_WEAPONS[DEFAULT_PLAY_WEAPON]
   if (!Number.isFinite(w.reserve)) return 0

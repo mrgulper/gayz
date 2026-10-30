@@ -506,3 +506,50 @@ html.ui-theme-old #build-picker .bp-slot.active { border-color: #6b3f17; box-sha
   html.ui-theme-old #build-picker.split { padding: 40px 30px 44px; }
 }
 html.ui-theme-old #play-inventory .inv-box { padding: 62px 58px 52px; }
+
+/* Looking through a scope (BuildTryMode._updateScope): a round lens in
+   the middle, black all round it, a thin reticle with thicker posts at
+   the edges, range dots and a small red dot in the centre. */
+#play-scope { position: fixed; inset: 0; z-index: 14; pointer-events: none; opacity: 0; transition: opacity 0.12s; }
+#play-scope.on { opacity: 1; }
+#play-scope .scope-lens {
+  --r: min(44vh, 44vw);
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 42% 38%, rgba(190, 220, 255, 0.07) 0, transparent calc(var(--r) * 0.6)),
+    radial-gradient(circle at 50% 50%, transparent 0, transparent calc(var(--r) - 18px), rgba(0, 0, 0, 0.55) calc(var(--r) - 4px), #000 var(--r));
+}
+#play-scope .scope-h,
+#play-scope .scope-v { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+/* Thin hairs across the middle, thick posts from the edge inward. */
+#play-scope .scope-h {
+  width: calc(var(--r) * 2);
+  height: 1px;
+  background: linear-gradient(90deg, #000 0 32%, rgba(0, 0, 0, 0.85) 32% 68%, #000 68%);
+}
+#play-scope .scope-h::before,
+#play-scope .scope-h::after,
+#play-scope .scope-v::before,
+#play-scope .scope-v::after { content: ''; position: absolute; background: #000; }
+#play-scope .scope-h::before,
+#play-scope .scope-h::after { top: -2px; height: 5px; width: 32%; }
+#play-scope .scope-h::before { left: 0; }
+#play-scope .scope-h::after { right: 0; }
+#play-scope .scope-v { height: calc(var(--r) * 2); width: 1px; background: rgba(0, 0, 0, 0.85); }
+#play-scope .scope-v::before,
+#play-scope .scope-v::after { left: -2px; width: 5px; height: 32%; }
+#play-scope .scope-v::before { top: 0; }
+#play-scope .scope-v::after { bottom: 0; }
+/* Range dots down the lower hair. */
+#play-scope .scope-dots {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: calc(var(--r) * 0.5);
+  transform: translate(-50%, 6%);
+  background: radial-gradient(circle, #000 0 1.6px, transparent 2.2px) center top / 5px calc(var(--r) * 0.1) repeat-y;
+}
+#play-scope .scope-dot { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #ff3b30; box-shadow: 0 0 4px rgba(255, 59, 48, 0.8); }
+body.scope-on #build-try-crosshair { visibility: hidden; }

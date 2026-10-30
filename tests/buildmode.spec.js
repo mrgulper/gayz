@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { gotoAndWaitForGame } from './helpers.js'
 import { sampleLand, BIOMES } from '../src/game/OpenWorld.js'
 import { SPECIAL_BLOCKS } from '../src/game/SpecialBlocks.js'
+import { PLAY_WEAPONS } from '../src/game/PlayWeapons.js'
 
 test('entering Build Mode shows a scene with a ground plane, exiting returns to the homepage', async ({ page }) => {
   await gotoAndWaitForGame(page)
@@ -907,7 +908,7 @@ test('a Map 1 run starts with the weapon picker and uses the picked gun', async 
     s.zombies = s.zombies.filter((z) => z !== fake)
     return out
   })
-  expect(r).toEqual({ pickerShown: true, cards: 10, soon: 5, waitsForPick: true, spawnedWhilePicking: 0, soonRefused: true, pickerHidden: true, weapon: 'shotgun', ammo: [6, 42], gun: 'shotgun', saved: 'shotgun', shots: [true, false], damaged: true })
+  expect(r).toEqual({ pickerShown: true, cards: 10, soon: 5, waitsForPick: true, spawnedWhilePicking: 0, soonRefused: true, pickerHidden: true, weapon: 'shotgun', ammo: [8, 24], gun: 'shotgun', saved: 'shotgun', shots: [true, false], damaged: true })
 })
 
 test('View Distance hides far chunks and zombies are drawn in one batch', async ({ page }) => {
@@ -3449,3 +3450,54 @@ test('kill + assist coins on servers, map tiles drawn off the main thread', asyn
   expect(m).toEqual({ worker: true, same: [true, true, true] })
 })
 
+
+// 2026-10-30: real-life ammo, GayZ's own gun names, the AWP's scope, and
+// no zoom when aiming without a gun.
+test('gun names, real ammo, the scope and no zoom without a gun', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('awp'))
+  await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
+  const r = await page.evaluate(async () => {
+    const bm = window.__game.buildMode
+    const s = bm.survival
+    const tm = bm.tryMode
+    const out = {}
+    out.names = ['rifle', 'awp', 'shotgun', 'melee'].map((id) => s.inv._label({ kind: 'gun', id }))
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    s._toSpawn = 0
+    const base = tm._baseFov
+    const run = () => { for (let i = 0; i < 60; i++) tm.updateHands(1 / 30, new Set()) }
+    // The AWP: aiming looks through the scope, zoomed four times.
+    tm.setAim(true)
+    run()
+    const scope = document.getElementById('play-scope')
+    out.scoped = !!scope?.classList.contains('on') && document.body.classList.contains('scope-on')
+    out.scopeFov = Math.round(bm.camera.fov)
+    out.slowLook = tm.aimLookScale() < 0.3
+    tm.setAim(false)
+    run()
+    out.scopeOff = !scope.classList.contains('on') && Math.round(bm.camera.fov) === Math.round(base)
+    // Holding a block: right-click doesn't zoom.
+    const inv = s.inv
+    inv.add({ kind: 'block', id: 'stone', n: 4 })
+    inv.select(inv.hotbar.findIndex((it) => it?.id === 'stone'))
+    tm.setAim(true)
+    run()
+    out.blockFov = Math.round(bm.camera.fov)
+    out.blockScope = scope.classList.contains('on')
+    tm.setAim(false)
+    out.base = Math.round(base)
+    return out
+  })
+  expect(r.names).toEqual(['Havoc', 'Farsight', 'Boomstick', 'Fang'])
+  expect(['rifle', 'pistol', 'shotgun', 'awp', 'rocket'].map((id) => [PLAY_WEAPONS[id].mag, PLAY_WEAPONS[id].reserve])).toEqual([[30, 210], [7, 42], [8, 24], [5, 40], [1, 4]])
+  expect(r.scoped).toBe(true)
+  expect(r.scopeFov).toBeLessThan(r.base / 3)
+  expect(r.slowLook).toBe(true)
+  expect(r.scopeOff).toBe(true)
+  expect(r.blockFov).toBe(r.base)
+  expect(r.blockScope).toBe(false)
+})

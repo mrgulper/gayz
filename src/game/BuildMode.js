@@ -1683,8 +1683,9 @@ export class BuildMode {
     this._onMouseMove = (e) => {
       if (document.pointerLockElement !== this.renderer.domElement) return
       // Settings > Controls: Mouse Sensitivity and Invert Look.
-      // Aiming down the sights turns the view slower, like zooming in.
-      const sens = LOOK_SENSITIVITY * ((this.game?.settings?.sensitivity ?? 100) / 100) * (1 - 0.45 * (this.tryMode.aimAmount || 0))
+      // Aiming down the sights turns the view slower, like zooming in
+      // (much slower through a scope; not at all without a gun).
+      const sens = LOOK_SENSITIVITY * ((this.game?.settings?.sensitivity ?? 100) / 100) * this.tryMode.aimLookScale()
       this._yaw -= e.movementX * sens
       this._pitch -= e.movementY * sens * (this.game?.settings?.invertY ? -1 : 1)
       this._pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this._pitch))

@@ -18,6 +18,7 @@ import { MAX_WILD, ANIMAL_IDS } from './PlayAnimals.js'
 import { DINO_KINDS, DINO_CHANCE } from './DinoKinds.js'
 import { RARITIES } from './NewAnimalKinds.js'
 import { GRASS_GROW_SECONDS } from './GrassTufts.js'
+import { PLAY_WEAPONS } from './PlayWeapons.js'
 import { LANGUAGES, t, tHtml } from './i18n.js'
 import { SPECIAL_BLOCKS } from './SpecialBlocks.js'
 import { levelUpCoins } from './Xp.js'
@@ -282,6 +283,15 @@ export function _featureValues(_game) {
     dinoChance: Math.round(DINO_CHANCE * 100),
     grassGrowMinutes: GRASS_GROW_SECONDS / 60,
     leafDropPercent: Math.round(LEAF_DROP_CHANCE * 100),
+    magRifle: PLAY_WEAPONS.rifle.mag,
+    spareRifle: PLAY_WEAPONS.rifle.reserve,
+    magPistol: PLAY_WEAPONS.pistol.mag,
+    magShotgun: PLAY_WEAPONS.shotgun.mag,
+    spareShotgun: PLAY_WEAPONS.shotgun.reserve,
+    magAwp: PLAY_WEAPONS.awp.mag,
+    magGpmg: PLAY_WEAPONS.gpmg.mag,
+    spareRocket: PLAY_WEAPONS.rocket.reserve,
+    scopeZoom: PLAY_WEAPONS.awp.scope,
     editorStoreSide: 10,
     specialBlocks: SPECIAL_BLOCKS.length,
     skeletonWave: SKELETON_FROM_WAVE,
