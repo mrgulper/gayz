@@ -1420,7 +1420,7 @@ export class BuildSurvival {
     const key = bm._key(x, y, z)
     if (this._placed?.delete(key)) bm.tryMode._broken?.delete(key)
     if (bm._isWindowType(type) || /door|lootchest|zombiespawner|playerstart|invisible/.test(type)) return
-    // Leaves only drop a leaf block half the time (2026-10-26, Gaymi).
+    // Leaves drop a leaf block LEAF_DROP_CHANCE of the time.
     if (/leaves$/.test(type) && Math.random() >= LEAF_DROP_CHANCE) return
     // It pops out as a little block you pick up by walking near (PlayDrops).
     if (!this._drops.spawn(type, x, y, z) && this.inv.add({ kind: 'block', id: type, n: 1 }) > 0) this._message(t('invFull'))

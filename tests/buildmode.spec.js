@@ -2180,7 +2180,7 @@ test('inventory, editor block storage, city towns and lost zombies', async ({ pa
     g._exitBuildMode()
     return out
   })
-  expect(editor).toEqual({ split: true, store: 100, hotbar: 10 })
+  expect(editor).toEqual({ split: true, store: 100, hotbar: 0 })
 
   await page.evaluate(() => window.__game.playBtn.click())
   await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
@@ -3089,7 +3089,8 @@ test('new zombie kinds: sizes, the bloater bursts, spiders climb', async ({ page
   expect(r.campTop).toBeLessThan(3)
 })
 
-// 2026-10-26: grass 100 blocks out, crack on every face (on the lumps
+// 2026-10-26: grass 100 blocks out (since 2026-10-30: as far as the land
+// is drawn, growing over time), crack on every face (on the lumps
 // too), puffy leaves, falling leaves and half-chance leaf drops, a
 // friendly spider out of the waves, 16 more animals and 20 rare
 // dinosaurs whose meat-eaters chase and bite.
@@ -3109,7 +3110,16 @@ test('far grass, cracks on bumpy tops, puffy and falling leaves, dinosaurs', asy
     bm.camera.position.set(0.5 * B, 2.6 * B, 0.5 * B)
     const gt = bm.grassTufts
     gt.clear()
+    // Grass starts bare and grows (2026-10-30): only the first few tiny
+    // sprouts after a few seconds, then a full field once its time has passed.
     for (let i = 0; i < 200; i++) gt.update(1 / 60)
+    out.bareAtFirst = gt.mesh.count
+    gt.grow(30)
+    for (let i = 0; i < 200; i++) gt.update(1 / 60)
+    out.sprouting = gt.mesh.count
+    gt.grow(400)
+    for (let i = 0; i < 200; i++) gt.update(1 / 60)
+    out.grown = gt.mesh.count
     let far = 0
     const m = new (bm.camera.matrix.constructor)()
     for (let i = 0; i < gt.mesh.count; i++) {
@@ -3153,8 +3163,12 @@ test('far grass, cracks on bumpy tops, puffy and falling leaves, dinosaurs', asy
     for (let x = -24; x <= -16; x++) for (let z = -24; z <= -16; z++) bm._placeBlockInner(x, 6, z, 'leaves')
     for (let i = 0; i < 5000 && !fl.leaves.length; i++) fl._spawnTry()
     out.leafFalls = fl.leaves.length > 0
+    out.leafShape = fl.leaves[0]?.shape
+    // Each tree its own leaf shape.
+    out.leafShapes = Object.keys(fl.meshes).length
     const first = fl.leaves[0]
-    for (let x = -24; x <= -16; x++) for (let z = -24; z <= -16; z++) bm._placeBlockInner(x, 1, z, 'grass')
+    // Wide enough that a leaf drifting sideways still lands on it.
+    for (let x = -30; x <= -10; x++) for (let z = -30; z <= -10; z++) bm._placeBlockInner(x, 1, z, 'grass')
     for (let i = 0; i < 300 && !first.down; i++) fl.update(1 / 30)
     out.leafLanded = first.down && Math.abs(first.y - 2.02) < 0.05
     // Start a game: animals.
@@ -3179,7 +3193,7 @@ test('far grass, cracks on bumpy tops, puffy and falling leaves, dinosaurs', asy
     }
     out.dinoShare = dinoPicks / picks
     out.dinoSeen = dinoPicks > 0
-    // Leaf blocks drop half the time.
+    // Leaf blocks always drop (2026-10-30).
     s._drops.clear?.()
     let drops = 0
     for (let i = 0; i < 400; i++) {
@@ -3217,6 +3231,11 @@ test('far grass, cracks on bumpy tops, puffy and falling leaves, dinosaurs', asy
     return out
   })
   expect(r.grassFar).toBeGreaterThan(55)
+  expect(r.bareAtFirst).toBeLessThan(r.grown * 0.03)
+  expect(r.sprouting).toBeGreaterThan(r.bareAtFirst)
+  expect(r.grown).toBeGreaterThan(r.sprouting)
+  expect(r.leafShape).toBe('maple')
+  expect(r.leafShapes).toBeGreaterThanOrEqual(9)
   expect(r.leafPuff).toBeGreaterThan(0.08)
   expect(r.crackTop).toBeGreaterThan(1.02)
   expect(r.crackFaces).toBeGreaterThan(24)
@@ -3228,8 +3247,7 @@ test('far grass, cracks on bumpy tops, puffy and falling leaves, dinosaurs', asy
   expect(r.dinoSeen).toBe(true)
   expect(r.dinoShare).toBeLessThan(0.02)
   expect(r.zombiesMade).toBeGreaterThan(20)
-  expect(r.leafDropShare).toBeGreaterThan(0.35)
-  expect(r.leafDropShare).toBeLessThan(0.65)
+  expect(r.leafDropShare).toBe(1)
   expect(r.spiderAnimal).toBe(true)
   expect(r.waveSpiders).toBe(0)
   expect(r.rexCame).toBe(true)

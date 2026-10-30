@@ -17,7 +17,7 @@ import { BUMP_MAX_DEGREES } from './BlockChunks.js'
 import { MAX_WILD, ANIMAL_IDS } from './PlayAnimals.js'
 import { DINO_KINDS, DINO_CHANCE } from './DinoKinds.js'
 import { RARITIES } from './NewAnimalKinds.js'
-import { GRASS_REACH } from './GrassTufts.js'
+import { GRASS_GROW_SECONDS } from './GrassTufts.js'
 import { LANGUAGES, t, tHtml } from './i18n.js'
 import { SPECIAL_BLOCKS } from './SpecialBlocks.js'
 import { levelUpCoins } from './Xp.js'
@@ -280,7 +280,7 @@ export function _featureValues(_game) {
     dinoKinds: Object.keys(DINO_KINDS).length,
     rarityTiers: Object.keys(RARITIES).length,
     dinoChance: Math.round(DINO_CHANCE * 100),
-    grassReach: GRASS_REACH,
+    grassGrowMinutes: GRASS_GROW_SECONDS / 60,
     leafDropPercent: Math.round(LEAF_DROP_CHANCE * 100),
     editorStoreSide: 10,
     specialBlocks: SPECIAL_BLOCKS.length,
