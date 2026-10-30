@@ -1806,15 +1806,15 @@ html.ui-theme-old #menu-nav-buttons .nav-badge-dot {
   right: -7px;
 }
 
-/* The number reads "Quests (3)" after the name now (2026-10-30, "make
-   them as (#) instead of a number beside them") - NavBadges.js puts it
+/* The little number circles are back (2026-10-30, Gaymi: "move back to
+   the old circle ... and just the word"); pointing at a button swaps its
+   circle for "Quests (3)" after the name - NavBadges.js puts the number
    in the label's data-badge, so it takes the label's own font, colour and
-   fit-to-plaque size in every theme. The circles stay in the page (their
-   counts feed the label) but aren't shown. */
-#menu-nav-buttons button > span[data-badge]::after {
+   fit-to-plaque size in every theme. */
+#menu-nav-buttons button:hover > span[data-badge]::after {
   content: attr(data-badge);
 }
-html #menu #menu-nav-buttons .nav-badge-dot {
+html #menu #menu-nav-buttons button:hover .nav-badge-dot {
   display: none !important;
 }
 

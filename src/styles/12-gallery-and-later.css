@@ -744,7 +744,7 @@ html.ui-theme-old #profile-panel .panel-box * {
   color: rgba(255, 255, 255, 0.6);
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
+  border-radius: 20px;
   cursor: pointer;
 }
 .gallery-tab.active {
@@ -877,13 +877,9 @@ img.gallery-detail-character { height: 240px; image-rendering: pixelated; }
 #gallery-detail .mini-action-btn,
 #gallery-post-form .mini-action-btn { border-radius: 999px; padding-left: 16px; padding-right: 16px; }
 
-html.ui-theme-old .gallery-tab {
-  color: #4a2c10;
-  background: rgba(122, 78, 36, 0.08);
-  border-color: rgba(122, 78, 36, 0.4);
-}
-html.ui-theme-old .gallery-tab.active { color: #f4e6c4; background: #6b4423; border-color: #6b4423; }
-html.ui-theme-old .gallery-tab.active * { color: #f4e6c4 !important; }
+/* Gallery's tabs look exactly like Quests' (.quest-tab) in every theme -
+   no Old-theme override of their own (2026-10-30, Gaymi: "exact same
+   style as the regular ... sections"). */
 html.ui-theme-old .gallery-soon-tag { background: rgba(122, 78, 36, 0.2); }
 html.ui-theme-old #gallery-sort {
   color: #2b1a0c;
@@ -1398,12 +1394,23 @@ html #quests-panel .perk-option.quest-card {
   gap: 10px;
   padding: 18px 20px;
   text-align: left;
-  color: inherit;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--rarity) 16%, transparent), color-mix(in srgb, var(--rarity) 5%, transparent)) !important;
-  border: 1px solid color-mix(in srgb, var(--rarity) 45%, transparent) !important;
-  border-left: 5px solid var(--rarity) !important;
+  /* Filled with its rarity's colour like the Store's crates (2026-10-30,
+     Gaymi: "make the colours more based on the shop"): the same light
+     gradient, corner rivets, darker rim and dark ink, in every theme. */
+  color: #241507 !important;
+  background:
+    radial-gradient(circle at 12px 12px, color-mix(in srgb, var(--rarity) 45%, #000 55%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 12px) 12px, color-mix(in srgb, var(--rarity) 45%, #000 55%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at 12px calc(100% - 12px), color-mix(in srgb, var(--rarity) 45%, #000 55%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 12px) calc(100% - 12px), color-mix(in srgb, var(--rarity) 45%, #000 55%) 0 3px, transparent 3.5px),
+    radial-gradient(ellipse at 50% 20%, color-mix(in srgb, var(--rarity) 45%, #fff 55%), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--rarity) 65%, #fff 35%), color-mix(in srgb, var(--rarity) 88%, #fff 12%)) !important;
+  border: 2px solid color-mix(in srgb, var(--rarity) 60%, #2b1a0c 40%) !important;
   border-radius: 12px;
-  box-shadow: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.25),
+    0 4px 10px rgba(43, 26, 12, 0.35);
   opacity: 1;
   cursor: default;
   animation: quest-card-in 0.5s ease both;
@@ -1412,7 +1419,15 @@ html #quests-panel .perk-option.quest-card {
 }
 html #quests-panel .perk-option.quest-card.complete {
   cursor: pointer;
-  box-shadow: 0 0 14px color-mix(in srgb, var(--rarity) 40%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 0 16px color-mix(in srgb, var(--rarity) 70%, transparent),
+    0 4px 10px rgba(43, 26, 12, 0.35);
+}
+html #quests-panel .perk-option.quest-card :is(.perk-name, .perk-cost) {
+  color: #241507 !important;
+  -webkit-text-fill-color: #241507;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 html #quests-panel .perk-option.quest-card.complete:hover {
   transform: scale(1.03);
@@ -1432,9 +1447,10 @@ html #quests-panel .perk-option.quest-card.complete:hover {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #fff !important;
-  -webkit-text-fill-color: #fff;
-  background: var(--rarity) !important;
+  /* Dark like the crates' price button, the words in cream. */
+  color: #f3e3c0 !important;
+  -webkit-text-fill-color: #f3e3c0;
+  background: rgba(43, 26, 12, 0.82) !important;
 }
 #quests-panel .quest-card .perk-name {
   font-size: 18px;
@@ -1448,13 +1464,13 @@ html #quests-panel .perk-option.quest-card.complete:hover {
   height: 8px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(127, 127, 127, 0.22) !important;
+  background: rgba(43, 26, 12, 0.22) !important;
 }
 #quests-panel .quest-card-bar > span {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: var(--rarity) !important;
+  background: color-mix(in srgb, var(--rarity) 45%, #2b1a0c 55%) !important;
 }
 @media (max-width: 480px) {
   #rolling-quests-options { grid-template-columns: minmax(0, 1fr); }

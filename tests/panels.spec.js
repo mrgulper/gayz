@@ -702,7 +702,8 @@ test('number badges, clickable leaderboard, General without account row, legal p
     g._updateQuestsDot()
     const claim = document.getElementById('quests-claim-dot')
     out.quest = [claim.style.display, claim.textContent, document.getElementById('quests-new-dot').style.display]
-    // The number reads after the name, "Quests (2)" (2026-10-30).
+    // A circle with the number; "Quests (2)" only while pointing at the
+    // button (2026-10-30) - checked below with a real hover.
     const questsLabel = document.querySelector('#quests-btn > span:not(.nav-badge-dot)')
     out.questLabel = getComputedStyle(questsLabel, '::after').content
     out.circleShown = claim.getClientRects().length > 0
@@ -723,8 +724,8 @@ test('number badges, clickable leaderboard, General without account row, legal p
     return out
   })
   expect(r.quest).toEqual(['', '2', 'none'])
-  expect(r.questLabel).toBe('" (2)"')
-  expect(r.circleShown).toBe(false)
+  expect(r.questLabel).toBe('none')
+  expect(r.circleShown).toBe(true)
   expect(r.account).toEqual([false, false, false, false])
   expect(r.conflict).toBe(true)
   expect(r.rows).toEqual([['1', false, ['9', '217']], ['2', true, ['4', '5']]])
@@ -732,6 +733,16 @@ test('number badges, clickable leaderboard, General without account row, legal p
   expect(r.notes).toBe(0)
   expect(r.updated).toMatch(/^Last updated: [A-Z][a-z]+ \d{1,2}, 20\d\d$/)
   expect(r.clanLoaded).toBe(true)
+  // Pointing at Quests swaps the circle for "(2)" after its name.
+  await page.evaluate(() => {
+    for (const id of ['terms-panel', 'privacy-panel']) document.getElementById(id)?.querySelector('.panel-close-btn')?.click()
+  })
+  await page.hover('#quests-btn')
+  const hover = await page.evaluate(() => ({
+    label: getComputedStyle(document.querySelector('#quests-btn > span:not(.nav-badge-dot)'), '::after').content,
+    circle: document.getElementById('quests-claim-dot').getClientRects().length > 0,
+  }))
+  expect(hover).toEqual({ label: '" (2)"', circle: false })
 })
 
 // 2026-10-30: Lock sits between Sell and Inspect in the Inventory's card

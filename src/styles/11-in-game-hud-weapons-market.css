@@ -1046,6 +1046,25 @@ html.ui-theme-old #inspect-hint {
 }
 #build-try-crosshair::before { width: 100%; height: 2px; }
 #build-try-crosshair::after { width: 2px; height: 100%; }
+/* Settings > Controls > Crosshair Style (GameplaySettings.js puts it on
+   <body>, 2026-10-30): a dot or a ring instead of the +, same colour,
+   size and outline. */
+body[data-crosshair='dot'] #build-try-crosshair::after { display: none; }
+body[data-crosshair='dot'] #build-try-crosshair::before {
+  width: calc(6px * var(--crosshair-size, 1));
+  height: calc(6px * var(--crosshair-size, 1));
+  border-radius: 50%;
+}
+body[data-crosshair='circle'] #build-try-crosshair::after { display: none; }
+body[data-crosshair='circle'] #build-try-crosshair::before {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: 2px solid var(--crosshair-color, rgba(255, 255, 255, 0.92));
+  border-radius: 50%;
+  box-sizing: border-box;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
 
 /* Oval (pill) inputs, dropdowns and their buttons, the same shape as the
    search bars (2026-10-02): both chat boxes, Add a Friend, the Status

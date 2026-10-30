@@ -1,9 +1,9 @@
 // Right-column nav badges: how many quests are finished, friend requests are
 // waiting... The spans are the old .nav-badge-dot ones in index.html. They
-// were a small circle with the number (2026-10-24); since 2026-10-30 the
-// number is written after the button's name instead - "Quests (3)" - via
-// the label's data-badge (08-homepage.css), and the circles stay hidden.
-// A button with two badges (Quests) shows their total.
+// are a small circle with the number (2026-10-24); pointing at the button
+// swaps it for "Quests (3)" after the name (2026-10-30) - the label's
+// data-badge (08-homepage.css). A button with two badges (Quests) shows
+// their total there.
 
 export function setNavBadge(el, n) {
   if (!el) return

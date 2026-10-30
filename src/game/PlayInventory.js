@@ -67,6 +67,14 @@ export function addAnimalMeat(id, { key, animalKey, icon }) {
   ITEMS[id] = { key, animalKey, icon, heal: ITEMS.meat.heal }
 }
 
+// Worth a second press before dropping (Confirm Before Dropping Rare
+// Items): armor and prize items - not food, ammo or health packs.
+const RARE_DROP_CONFIRM_MS = 3000
+export function isRareItem(it) {
+  const def = it?.kind === 'item' ? ITEMS[it.id] : null
+  return !!def && (!!def.armor || !(def.heal || def.ammo))
+}
+
 // An item's name in the current language.
 export function itemName(id) {
   const def = ITEMS[id]
@@ -285,6 +293,19 @@ export class PlayInventory {
     if (it.kind === 'gun') {
       this.s._message(t('invDropGun'))
       return false
+    }
+    // Settings > Controls > Confirm Before Dropping Rare Items
+    // (2026-10-30): armor and prize items need the Drop key twice within
+    // RARE_DROP_CONFIRM_MS - no pop-up, so the game keeps going.
+    if (isRareItem(it) && this.bm.game?.settings?.confirmRareDrop !== false) {
+      const now = performance.now()
+      const asked = this._rareDropAsk
+      if (!asked || asked.it !== it || now - asked.at > RARE_DROP_CONFIRM_MS) {
+        this._rareDropAsk = { it, at: now }
+        this.s._message(t('invDropRareConfirm', { name: this._label(it), key: keyLabel(getKeyFor('dropItem')) }))
+        return false
+      }
+      this._rareDropAsk = null
     }
     const drops = this.s._drops
     const tm = this.bm.tryMode

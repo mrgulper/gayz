@@ -65,6 +65,7 @@ class AudioEngine {
     this._snowBuffer = null
     this.sfxVolume = 1
     this.ambientVolume = 1
+    this.zombieVolume = 1
     this.positionalAudioEnabled = true
   }
 
@@ -83,6 +84,12 @@ class AudioEngine {
     this.ambientGain = this.ctx.createGain()
     this.ambientGain.gain.value = this.ambientVolume
     this.ambientGain.connect(this.ctx.destination)
+    // Every zombie sound (moans, bites, deaths)
+    // goes through here first: Settings > Audio > Zombie Noises, on top of
+    // Sound Effects (2026-10-30).
+    this.zombieGain = this.ctx.createGain()
+    this.zombieGain.gain.value = this.zombieVolume
+    this.zombieGain.connect(this.sfxGain)
     this._loadZombieSounds()
     this._loadWeatherSounds()
   }
@@ -140,9 +147,9 @@ class AudioEngine {
     if (this.positionalAudioEnabled && pan !== 0) {
       const panner = ctx.createStereoPanner()
       panner.pan.value = Math.max(-1, Math.min(1, pan))
-      source.connect(gainNode).connect(panner).connect(this.sfxGain)
+      source.connect(gainNode).connect(panner).connect(this.zombieGain)
     } else {
-      source.connect(gainNode).connect(this.sfxGain)
+      source.connect(gainNode).connect(this.zombieGain)
     }
     source.start()
     return true
@@ -565,7 +572,7 @@ class AudioEngine {
     moan.connect(formant2)
     formant1.connect(moanGain)
     formant2.connect(moanGain)
-    moanGain.connect(this.sfxGain)
+    moanGain.connect(this.zombieGain)
     moan.start(now)
     moan.stop(now + duration)
 
@@ -587,7 +594,7 @@ class AudioEngine {
     breathGain.gain.linearRampToValueAtTime(0.035, now + duration * 0.3)
     breathGain.gain.linearRampToValueAtTime(0.001, now + duration)
 
-    breath.connect(breathFilter).connect(breathGain).connect(this.sfxGain)
+    breath.connect(breathFilter).connect(breathGain).connect(this.zombieGain)
     breath.start(now)
     breath.stop(now + duration)
   }
@@ -620,7 +627,7 @@ class AudioEngine {
     rattleGain.gain.setValueAtTime(0.28, now)
     rattleGain.gain.exponentialRampToValueAtTime(0.001, now + duration)
 
-    rattle.connect(bandpass).connect(rattleGain).connect(this.sfxGain)
+    rattle.connect(bandpass).connect(rattleGain).connect(this.zombieGain)
     rattle.start(now)
     rattle.stop(now + duration)
   }
@@ -993,6 +1000,11 @@ class AudioEngine {
   setSfxVolume(volume) {
     this.sfxVolume = Math.max(0, Math.min(1, volume))
     if (this.sfxGain) this.sfxGain.gain.value = this.sfxVolume
+  }
+
+  setZombieVolume(volume) {
+    this.zombieVolume = Math.max(0, Math.min(1, volume))
+    if (this.zombieGain) this.zombieGain.gain.value = this.zombieVolume
   }
 
   setAmbientVolume(volume) {

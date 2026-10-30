@@ -48,7 +48,8 @@ export class PlayDamageNumbers {
   // picture beside it (none for hits that aren't yours).
   show(x, y, z, amount, weaponId = '') {
     const n = Math.round(amount)
-    if (!(n >= 1)) return
+    // Settings > Controls > Damage Numbers (2026-10-30).
+    if (!(n >= 1) || this.s.bm?.game?.settings?.damageNumbers === false) return
     const el = document.createElement('div')
     el.className = 'play-dmg'
     const src = thumbFor(weaponId)

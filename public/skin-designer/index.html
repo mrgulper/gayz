@@ -244,6 +244,22 @@
     padding: 10px 12px 0;
   }
   .kind-tabs .tbtn { padding: 7px 18px; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px; }
+  /* The same pills as the game's own panel tabs (Quests' Zombie Survival /
+     World Map, 2026-10-30, Gaymi: "exact same style as the regular ...
+     sections"): 13px bold, round, a faint fill, and the active one filled. */
+  .kind-tabs button.tbtn {
+    padding: 7px 18px; font: 600 13px Arial, sans-serif; letter-spacing: 0.5px;
+    border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04); color: var(--text); box-shadow: none;
+  }
+  .kind-tabs button.tbtn:hover { border-color: rgba(255, 255, 255, 0.12); }
+  .kind-tabs button.tbtn.active { background: #d4a068; border-color: #d4a068; color: #2e1d0e; box-shadow: none; }
+  :root[data-theme="old"] .kind-tabs button.tbtn { color: #2e1d0e; }
+  :root[data-theme="old"] .kind-tabs button.tbtn.active { background: #d4a068; border-color: #d4a068; color: #2e1d0e; box-shadow: none; }
+  /* Simple: the game's Simple tabs - a soft tint of the ink, the active one
+     filled with the ink, no rim. */
+  :root[data-theme="clean"] .kind-tabs button.tbtn { border-radius: 999px; border-color: transparent; background: rgba(var(--clean-fg-rgb), 0.08); color: rgb(var(--clean-fg-rgb)); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+  :root[data-theme="clean"] .kind-tabs button.tbtn.active { background: rgb(var(--clean-fg-rgb)); border-color: transparent; color: var(--clean-bg); }
   .soon-tag { font-size: 0.62rem; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: var(--line); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.3px; }
   .tbtn.active .soon-tag { background: rgba(0, 0, 0, 0.28); color: inherit; }
   .weapon-soon { text-align: center; padding: 70px 20px; color: var(--text-dim); }
@@ -531,7 +547,6 @@
     <div class="toolbar">
       <button class="tbtn active" id="layerBodyBtn" title="Hide/show the base body layer in the 3D preview">Body</button>
       <button class="tbtn" id="layerOuterBtn" title="Show the Layer 2 hat/jacket shell in the 3D preview and paint on it">Outer Layer</button>
-      <button class="tbtn" id="highContrastBtn" title="Stronger colours, for low-vision use">High Contrast</button>
     </div>
     <div class="toolbar">
       <label class="small">Recolor whole skin</label>
@@ -4519,15 +4534,15 @@ for (const btn of document.querySelectorAll('#partToggleRow button[data-part]'))
   });
 }
 
-function setHighContrast(on) {
-  document.body.classList.toggle('high-contrast', on);
-  document.getElementById('highContrastBtn').classList.toggle('active', on);
-  try { localStorage.setItem('skindesigner-avatar-pixel-editor-high-contrast', on ? '1' : '0'); } catch (e) {}
+// High Contrast is switched in the game's Settings > Controls > Design a
+// Skin High Contrast now (2026-10-30, was a button here): the game writes
+// this key, read on load and again whenever it changes.
+const HIGH_CONTRAST_KEY = 'skindesigner-avatar-pixel-editor-high-contrast';
+function readHighContrast() {
+  try { document.body.classList.toggle('high-contrast', localStorage.getItem(HIGH_CONTRAST_KEY) === '1'); } catch (e) {}
 }
-document.getElementById('highContrastBtn').addEventListener('click', () => {
-  setHighContrast(!document.body.classList.contains('high-contrast'));
-});
-try { if (localStorage.getItem('skindesigner-avatar-pixel-editor-high-contrast') === '1') setHighContrast(true); } catch (e) {}
+readHighContrast();
+window.addEventListener('storage', (e) => { if (e.key === HIGH_CONTRAST_KEY) readHighContrast(); });
 
 function resizeRenderer() {
   const width = canvas.clientWidth, height = canvas.clientHeight;

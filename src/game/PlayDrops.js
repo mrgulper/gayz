@@ -85,6 +85,9 @@ export class PlayDrops {
     const px = p.x
     const py = p.y + 0.4 // around your middle, so drops in a hole you dug still come
     const pz = p.z
+    // Settings > Controls > Auto Pick-Up off: drops wait until you press
+    // Use near them (pickUpNear).
+    const auto = this.bm.game?.settings?.autoPickup !== false
     for (const d of [...this.list]) {
       d.age += dt
       if (d.age > DROP_LIFE_S) {
@@ -92,7 +95,7 @@ export class PlayDrops {
         continue
       }
       const dist = Math.hypot(px - d.x, py - d.y, pz - d.z)
-      if (dist < PICKUP_R && d.age > d.wait && !d.full && !this.s.dead) {
+      if (dist < PICKUP_R && d.age > d.wait && !d.full && !this.s.dead && (auto || d.grab)) {
         // Flies into you.
         const k = Math.min(1, dt * 10)
         d.x += (px - d.x) * k
@@ -110,6 +113,7 @@ export class PlayDrops {
         }
       } else {
         if (d.full && dist > PICKUP_R * 1.5) d.full = false
+        if (d.grab && dist > PICKUP_R * 1.5) d.grab = false
         // Hop out, fall, land.
         d.vy -= GRAVITY * dt
         d.x += d.vx * dt
@@ -131,6 +135,21 @@ export class PlayDrops {
       d.mesh.position.set(d.x * B, (d.y + bob + DROP_SCALE / 2) * B, d.z * B)
       d.mesh.rotation.set(0, d.spin, 0)
     }
+  }
+
+  // The Use key with Auto Pick-Up off: everything lying within reach
+  // flies to you. True when there was something to pick up.
+  pickUpNear() {
+    if (this.bm.game?.settings?.autoPickup !== false || this.s.dead) return false
+    const p = this.bm.tryMode.pos
+    let any = false
+    for (const d of this.list) {
+      if (d.age > d.wait && Math.hypot(p.x - d.x, p.y + 0.4 - d.y, p.z - d.z) < PICKUP_R) {
+        d.grab = true
+        any = true
+      }
+    }
+    return any
   }
 
   clear() {

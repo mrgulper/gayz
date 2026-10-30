@@ -3,7 +3,10 @@
 // Every setting the player changes in the Settings panel is written down:
 // when, which setting (its label, in the current language), and the old
 // value -> the new one. Newest first, the last LOG_MAX kept in this
-// browser only (LOG_KEY), with a Clear button.
+// browser only (LOG_KEY), so they're still there after a refresh. Since
+// 2026-10-30 it sits at the very top of General, folds after FOLD_ROWS
+// (Show More / Show Less instead of throwing old ones away), has a "Search
+// my changes" box, and Clear List is a normal Settings button.
 //
 // One capture listener on the panel does the toggles, lists, sliders,
 // colours and text boxes: the old value is read when the control is first
@@ -13,9 +16,11 @@
 import { t } from './i18n.js'
 
 const LOG_KEY = 'gayz-settings-log'
-export const LOG_MAX = 100
+export const LOG_MAX = 1000
+const FOLD_ROWS = 8
+let unfolded = false
 // Typing in these isn't a setting.
-const SKIP_IDS = new Set(['settings-search-input', 'import-keybinds-input', 'import-settings-code-input'])
+const SKIP_IDS = new Set(['settings-search-input', 'settings-log-search', 'import-keybinds-input', 'import-settings-code-input'])
 
 function readLog() {
   try {
@@ -105,24 +110,36 @@ export function bindSettingsLog(panel) {
     writeLog([])
     renderSettingsLog()
   })
+  document.getElementById('settings-log-more')?.addEventListener('click', () => {
+    unfolded = !unfolded
+    renderSettingsLog()
+  })
+  document.getElementById('settings-log-search')?.addEventListener('input', () => renderSettingsLog())
   renderSettingsLog()
 }
 
 export function renderSettingsLog() {
   const box = document.getElementById('settings-log-list')
   if (!box) return
-  const list = readLog()
+  const all = readLog()
   box.textContent = ''
   const clear = document.getElementById('settings-log-clear')
-  if (clear) clear.disabled = !list.length
+  if (clear) clear.disabled = !all.length
+  const query = (document.getElementById('settings-log-search')?.value || '').trim().toLowerCase()
+  const list = query ? all.filter((r) => `${r.n} ${r.o} ${r.v}`.toLowerCase().includes(query)) : all
+  const more = document.getElementById('settings-log-more')
+  if (more) {
+    more.hidden = list.length <= FOLD_ROWS
+    more.textContent = unfolded ? t('settingsLogShowLess') : t('settingsLogShowMore', { n: Math.max(0, list.length - FOLD_ROWS) })
+  }
   if (!list.length) {
     const p = document.createElement('p')
     p.className = 'settings-log-empty'
-    p.textContent = t('settingsLogEmpty')
+    p.textContent = t(all.length ? 'settingsLogNoMatch' : 'settingsLogEmpty')
     box.appendChild(p)
     return
   }
-  for (const r of list) {
+  for (const r of unfolded ? list : list.slice(0, FOLD_ROWS)) {
     const row = document.createElement('div')
     row.className = 'settings-log-row'
     const when = document.createElement('span')

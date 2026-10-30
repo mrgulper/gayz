@@ -959,6 +959,16 @@ Escape before dawn.</p>
         </div>
 
         <div class="settings-page" id="settings-page-general">
+          <h3 class="settings-section-heading" id="settings-section-settings-log">Your Settings Changes</h3>
+          <div id="settings-log">
+            <input type="search" id="settings-log-search" class="nickname-input search-bar" placeholder="Search my changes..." autocomplete="off" />
+            <div id="settings-log-list"></div>
+            <div class="settings-btn-row">
+              <button id="settings-log-more" class="settings-reset-btn" type="button" hidden>Show More</button>
+              <button id="settings-log-clear" class="settings-reset-btn" type="button">Clear List</button>
+            </div>
+          </div>
+
           <h3 class="settings-section-heading" id="settings-section-hud">HUD</h3>
           <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="hudFps" aria-label="What does this do?">?</button>
@@ -1154,14 +1164,6 @@ Escape before dawn.</p>
 
           <button id="reset-general-defaults-btn" class="settings-reset-btn" type="button">Reset General to Defaults</button>
 
-          <h3 class="settings-section-heading" id="settings-section-settings-log">Your Settings Changes</h3>
-          <div id="settings-log">
-            <div id="settings-log-list"></div>
-            <div class="settings-btn-row">
-              <button id="settings-log-clear" type="button">Clear List</button>
-            </div>
-          </div>
-
           <h3 class="settings-section-heading" id="settings-section-danger-zone-general">Danger Zone</h3>
           <div class="settings-btn-row">
             <button id="restore-defaults-btn" class="settings-reset-btn" type="button">Reset All Settings</button>
@@ -1192,6 +1194,12 @@ Escape before dawn.</p>
             <label for="ambient-volume" id="ambient-volume-label">Ambient/&#8203;Environment</label>
             <input type="range" id="ambient-volume" min="0" max="100" value="100" />
             <span id="ambient-volume-value" class="audio-value">100%</span>
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="zombieVolume" aria-label="What does this do?">?</button>
+            <label for="zombie-volume" id="zombie-volume-label">Zombie Noises</label>
+            <input type="range" id="zombie-volume" min="0" max="100" value="100" />
+            <span id="zombie-volume-value" class="audio-value">100%</span>
           </div>
           <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="muteOnBlur" aria-label="What does this do?">?</button>
@@ -1377,6 +1385,46 @@ Escape before dawn.</p>
             <span id="crosshair-size-value" class="audio-value">100%</span>
           </div>
 
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="crosshairStyle" aria-label="What does this do?">?</button>
+            <label for="crosshair-style-select" id="crosshair-style-label">Crosshair Style</label>
+            <select id="crosshair-style-select">
+              <option value="cross">Cross</option>
+              <option value="dot">Dot</option>
+              <option value="circle">Circle</option>
+            </select>
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="damageNumbers" aria-label="What does this do?">?</button>
+            <label for="damage-numbers-toggle" id="damage-numbers-label">Damage Numbers</label>
+            <input type="checkbox" id="damage-numbers-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="zombieNameTags" aria-label="What does this do?">?</button>
+            <label for="zombie-name-tags-toggle" id="zombie-name-tags-label">Name Tags Over Zombies</label>
+            <input type="checkbox" id="zombie-name-tags-toggle" class="audio-checkbox" />
+          </div>
+
+          <h3 class="settings-section-heading" id="settings-section-gameplay">Gameplay</h3>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="sprintMode" aria-label="What does this do?">?</button>
+            <label for="sprint-mode-select" id="sprint-mode-label">Sprint</label>
+            <select id="sprint-mode-select">
+              <option value="hold">Hold to Sprint</option>
+              <option value="toggle">Tap to Sprint</option>
+            </select>
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="autoPickup" aria-label="What does this do?">?</button>
+            <label for="auto-pickup-toggle" id="auto-pickup-label">Auto Pick-Up</label>
+            <input type="checkbox" id="auto-pickup-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="confirmRareDrop" aria-label="What does this do?">?</button>
+            <label for="confirm-rare-drop-toggle" id="confirm-rare-drop-label">Confirm Before Dropping Rare Items</label>
+            <input type="checkbox" id="confirm-rare-drop-toggle" class="audio-checkbox" />
+          </div>
+
           <h3 class="settings-section-heading" id="settings-section-accessibility-2">Accessibility</h3>
           <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="colorblindMode" aria-label="What does this do?">?</button>
@@ -1411,6 +1459,21 @@ Escape before dawn.</p>
             <button type="button" class="settings-info-btn" data-info="highContrastMode" aria-label="What does this do?">?</button>
             <label for="high-contrast-toggle" id="high-contrast-label">High Contrast Mode</label>
             <input type="checkbox" id="high-contrast-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="skinDesignerContrast" aria-label="What does this do?">?</button>
+            <label for="skin-designer-contrast-toggle" id="skin-designer-contrast-label">Design a Skin High Contrast</label>
+            <input type="checkbox" id="skin-designer-contrast-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="darkAreaBoost" aria-label="What does this do?">?</button>
+            <label for="dark-area-boost-toggle" id="dark-area-boost-label">Brighter Caves &amp; Demon Realm</label>
+            <input type="checkbox" id="dark-area-boost-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="colorblindRarity" aria-label="What does this do?">?</button>
+            <label for="colorblind-rarity-toggle" id="colorblind-rarity-label">Colourblind-Friendly Zombie Rarity Glows</label>
+            <input type="checkbox" id="colorblind-rarity-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="focusRing" aria-label="What does this do?">?</button>
@@ -2385,7 +2448,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="QUESTS ROLLING_QUEST_EXPIRE_MS _onPlayEvent">
           <h3>Quests</h3>
-          <p>Rolling quests that come and go (kill zombies, reach a wave, finish runs), counted from your Map 1 runs and claimed for coins in the Quests panel. Each quest is a big card, two to a row, softly coloured by its rarity - Common to Legendary, the Store's colours, rarer for harder quests - with a progress bar; the cards fade in one after another and the list fades out at the bottom. A search box and an All rarities menu at the top find the ones you want. The Quests button says how many are finished and waiting to be claimed in brackets after its name - Upgrades, Friendship and Achievements show their counts the same way.</p>
+          <p>Rolling quests that come and go (kill zombies, reach a wave, finish runs), counted from your Map 1 runs and claimed for coins in the Quests panel. Each quest is a big card, two to a row, filled with its rarity's colour like the Store's crates - Common to Legendary, the Store's colours, rarer for harder quests - with corner rivets, dark writing, a dark rarity label and a progress bar; the cards fade in one after another and the list fades out at the bottom. A search box and an All rarities menu at the top find the ones you want. The Quests button shows how many are finished and waiting to be claimed in a little circle; pointing at it swaps the circle for the number in brackets after its name - Upgrades, Friendship and Achievements show their counts the same way.</p>
         </div>
       </section>
 
@@ -2462,7 +2525,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="PlayInventory ITEMS ARMOR_SLOTS">
           <h3>Inventory</h3>
-          <p>Press Tab in a game (or the bag button on a phone) for your inventory: five armor slots (helmet, chestplate, leggings, boots, shield), a ten-by-ten grid and your hotbar. Your gun is in it (just the one you picked - Switch Weapon swaps it), blocks you break pop out as little spinning blocks that you pick up by walking near them, and Loot Chests drop health packs, ammo boxes, armor and blocks. Hold a block and right-click to place it (the fire button on a phone); click with a health pack or ammo box to use it, or with an animal's raw meat (Raw Beef, Raw Pork and so on) or Vegetables (from a Crop Plot) to eat them. Worn armor blocks part of every hit. Drag items between slots (just the one picture moves), or Shift-click between the hotbar and the grid. Press Q (Drop Item - change it in Settings &gt; Controls) to throw one of the item in your hand on the ground in front of you, or, with the inventory open, one of the item under your pointer; phones get a drop button at the top of the screen. It lies still for a moment before you can pick it up again. Your gun can't be dropped. Right-click an item (double-tap it on a phone) to lock it: a little lock shows on its corner and Q won't drop it until you unlock it the same way. Point at any item (or tap it on a phone) to see its name and what it does - a gun's damage, how fast it shoots and its magazine, how much a health pack heals or how much armor blocks. In the Map Editor, Tab shows the blocks on the left and your hotbar plus a block storage on the right.</p>
+          <p>Press Tab in a game (or the bag button on a phone) for your inventory: five armor slots (helmet, chestplate, leggings, boots, shield), a ten-by-ten grid and your hotbar. Your gun is in it (just the one you picked - Switch Weapon swaps it), blocks you break pop out as little spinning blocks that you pick up by walking near them (or by pressing Use next to them, with Auto Pick-Up turned off), and Loot Chests drop health packs, ammo boxes, armor and blocks. Hold a block and right-click to place it (the fire button on a phone); click with a health pack or ammo box to use it, or with an animal's raw meat (Raw Beef, Raw Pork and so on) or Vegetables (from a Crop Plot) to eat them. Worn armor blocks part of every hit. Drag items between slots (just the one picture moves), or Shift-click between the hotbar and the grid. Press Q (Drop Item - change it in Settings &gt; Controls) to throw one of the item in your hand on the ground in front of you, or, with the inventory open, one of the item under your pointer; phones get a drop button at the top of the screen. It lies still for a moment before you can pick it up again. Armor and prize items need the Drop key pressed twice (Confirm Before Dropping Rare Items in Settings). Your gun can't be dropped. Right-click an item (double-tap it on a phone) to lock it: a little lock shows on its corner and Q won't drop it until you unlock it the same way. Point at any item (or tap it on a phone) to see its name and what it does - a gun's damage, how fast it shoots and its magazine, how much a health pack heals or how much armor blocks. In the Map Editor, Tab shows the blocks on the left and your hotbar plus a block storage on the right.</p>
         </div>
         <div class="feature" data-code="contextmenu">
           <h3>No Right-Click Menu</h3>
@@ -2514,7 +2577,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="GALLERY_KINDS createGalleryPost addGalleryComment">
           <h3>Gallery</h3>
-          <p>The Gallery (beside Design a Skin at the bottom of the homepage) shows everyone's skins and maps in Character and Map sections - newest, most liked, or Top This Week (the most liked from the past week) first - with a My Posts button to see only yours. Every card shows its thumbs-up and thumbs-down counts. Post a skin from Design a Skin or a map from the Map Editor's pause screen, then anyone can open it, give it a thumbs up or a thumbs down (one vote per post), comment on it, wear the skin or Play and Edit the map. Your own posts and the comments on them can be deleted.</p>
+          <p>The Gallery (beside Design a Skin at the bottom of the homepage) shows everyone's skins and maps in Character and Map sections - newest, most liked, or Top This Week (the most liked from the past week) first - with a My Posts button to see only yours. Every card shows its thumbs-up and thumbs-down counts. Post a skin from Design a Skin or a map from the Map Editor's pause screen, then anyone can open it, give it a thumbs up or a thumbs down (one vote per post), comment on it, wear the skin or Play and Edit the map. Your own posts and the comments on them can be deleted. Its section tabs look just like every other panel's tabs, in every theme.</p>
         </div>
         <div class="feature" data-code="BuildTogether OPS_PER_EDIT createBuildRoom">
           <h3>Build Together</h3>
@@ -2539,7 +2602,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="SKIN_DESIGNER_URL">
           <h3>Design a Skin</h3>
-          <p>A built-in skin editor (Design a Skin, at the bottom of the homepage): paint a blocky skin on a live 3D preview - at the classic size or with two, four, eight or sixteen times the pixels for finer detail - save it to slots, and wear it in game - or describe one in your own words ("cowgirl with red hair", "girl with a blonde ponytail") and it draws exactly that - not a preset style - understanding everyday words, plurals and typos, and "no" or "without" ("pirate without a hat"), with long hair falling all the way down the back. Randomize says what it made, and changing the pixel size redraws the skin with that much more detail (catchlights in the eyes, hair strands, woven cloth). The box beside undo and redo edits the skin from a request - "make the shirt red", "blonde hair and a hat", "remove the beard", "darker pants", "make it a pirate" - changing only what was asked: a generated skin is redrawn the same way with that change, and a painted or imported one has that part found and recoloured with its shading kept. It knows a huge list of everyday words - foods, animals, jobs, monsters, fantasy creatures, clothes, places and holidays - reads two words run together ("zombiecat"), and makes its best guess (and says so) from words it doesn't know. The edit box can also change one arm or leg ("make the left arm blue"), and it remembers what you just changed: after "red shirt" you can say "no, blue", "a bit darker", "more purple", "match the pants", "again", "undo" or "remove it". A colour next to gear colours that gear ("add white cat paws", "a gold cape"). Generate reads whole sentences ("a pirate whose hair is red", "hair: white, eyes: blue", "red and black shirt", "a red hat"). It also reads two-word colours ("light blue", "hot pink"), "longer hair", "make the hair match the shirt", and freckles, blush and scars. Long hair falls down the front and back, and animal looks (cat girl, fox, bunny...) get ears, paws with pads, fur cuffs and collar, a tail hanging down a leg, and a little nose and whiskers. Under the character: Classic or Slim (thinner) arms - the 3D model changes shape and the painted arms move over. Download saves skin.png straight to your device in one click, next to Upload from Computer at the bottom of the tools. Post to Gallery shares your skin in the Gallery for everyone to see, like and comment on, and every button and box is an oval. It loads in the background while you're on the homepage, so it opens straight away.</p>
+          <p>A built-in skin editor (Design a Skin, at the bottom of the homepage): paint a blocky skin on a live 3D preview - at the classic size or with two, four, eight or sixteen times the pixels for finer detail - save it to slots, and wear it in game - or describe one in your own words ("cowgirl with red hair", "girl with a blonde ponytail") and it draws exactly that - not a preset style - understanding everyday words, plurals and typos, and "no" or "without" ("pirate without a hat"), with long hair falling all the way down the back. Randomize says what it made, and changing the pixel size redraws the skin with that much more detail (catchlights in the eyes, hair strands, woven cloth). The box beside undo and redo edits the skin from a request - "make the shirt red", "blonde hair and a hat", "remove the beard", "darker pants", "make it a pirate" - changing only what was asked: a generated skin is redrawn the same way with that change, and a painted or imported one has that part found and recoloured with its shading kept. It knows a huge list of everyday words - foods, animals, jobs, monsters, fantasy creatures, clothes, places and holidays - reads two words run together ("zombiecat"), and makes its best guess (and says so) from words it doesn't know. The edit box can also change one arm or leg ("make the left arm blue"), and it remembers what you just changed: after "red shirt" you can say "no, blue", "a bit darker", "more purple", "match the pants", "again", "undo" or "remove it". A colour next to gear colours that gear ("add white cat paws", "a gold cape"). Generate reads whole sentences ("a pirate whose hair is red", "hair: white, eyes: blue", "red and black shirt", "a red hat"). It also reads two-word colours ("light blue", "hot pink"), "longer hair", "make the hair match the shirt", and freckles, blush and scars. Long hair falls down the front and back, and animal looks (cat girl, fox, bunny...) get ears, paws with pads, fur cuffs and collar, a tail hanging down a leg, and a little nose and whiskers. Under the character: Classic or Slim (thinner) arms - the 3D model changes shape and the painted arms move over. Download saves skin.png straight to your device in one click, next to Upload from Computer at the bottom of the tools. Post to Gallery shares your skin in the Gallery for everyone to see, like and comment on, and every button and box is an oval. It loads in the background while you're on the homepage, so it opens straight away. Its Character and Weapon tabs look just like every other panel's tabs, and its High Contrast look is switched in Settings &gt; Controls.</p>
         </div>
         <div class="feature" data-code="INVENTORY_SKINS SKIN_RARITIES InspectViewer">
           <h3>Inventory Skins: Rarities, Inspect &amp; Sell</h3>
@@ -2576,7 +2639,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="PlayDamageNumbers NUMBER_S">
           <h3>Damage Numbers</h3>
-          <p>Every hit you land shows how much damage it did: a bold red number with a dark outline and a little picture of your weapon pops up where the shot landed - on zombies, skeletons, monsters and animals - floats up and fades. While spectating, everyone's hits show.</p>
+          <p>Every hit you land shows how much damage it did: a bold red number with a dark outline and a little picture of your weapon pops up where the shot landed - on zombies, skeletons, monsters and animals - floats up and fades. While spectating, everyone's hits show. Settings &gt; Controls &gt; Damage Numbers turns them off.</p>
         </div>
 
         <div class="feature" data-code="syncWithCloud mergeSaves _renderAuthCard signInViaServer">
@@ -2634,7 +2697,11 @@ Escape before dawn.</p>
 
         <div class="feature" data-code="logSettingChange bindSettingsLog renderSettingsLog">
           <h3>Your Settings Changes</h3>
-          <p>Settings &gt; General keeps a list of every setting you change - when, which setting, and what it was before and after (like "Show FPS Counter on Homepage: Off → On"), newest first. Key changes, the graphics level, the theme, the language and resets are listed too. It keeps your last <span data-feature-value="settingsLogMax">100</span> changes, only in this browser, and Clear List empties it. All the homepage settings (button order, background mood, weather, FPS counter, accent colour, layout density, cursor trail) are in General's Homepage section; Controls holds the keys, under Key Bindings.</p>
+          <p>Settings &gt; General keeps a list of every setting you change - when, which setting, and what it was before and after (like "Show FPS Counter on Homepage: Off → On"), newest first, at the very top of General. Key changes, the graphics level, the theme, the language and resets are listed too. It keeps your last <span data-feature-value="settingsLogMax">1000</span> changes in this browser, so they're still there after a refresh; a long list folds after a few rows (Show More opens the rest), a "Search my changes" box finds one, and Clear List empties it. All the homepage settings (button order, background mood, weather, FPS counter, accent colour, layout density, cursor trail) are in General's Homepage section; Controls holds the keys, under Key Bindings.</p>
+        </div>
+        <div class="feature" data-code="applyGameplaySettings bindGameplaySettings isRareItem pickUpNear setColorblindRarity setZombieVolume">
+          <h3>Gameplay Settings</h3>
+          <p>Settings &gt; Controls has a Crosshair Style (cross, dot or circle, in your crosshair colour and size), Damage Numbers and Name Tags Over Zombies on or off, Hold or Tap to Sprint (one press runs until you stop going forward), Auto Pick-Up (off: things on the ground wait until you press Use next to them) and Confirm Before Dropping Rare Items (armor and prizes need the Drop key twice). Its Accessibility section adds Brighter Caves &amp; Demon Realm (more light and the dark fog pushed back down there), Colourblind-Friendly Zombie Rarity Glows (rarity colours that stay easy to tell apart) and Design a Skin's High Contrast, which used to be a button in the designer. Settings &gt; Audio has its own Zombie Noises volume for moans, bites and deaths.</p>
         </div>
         <div class="feature" data-code="TAB_RESET_KEYS _resetSettingsTab">
           <h3>Settings Help &amp; Resets</h3>

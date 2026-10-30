@@ -1157,8 +1157,17 @@ html.theme-lighter #app { filter: brightness(1.25); }
 /* Settings > General > Your Settings Changes (SettingsLog.js): newest
    first, in its own short scroll box. Colours come from the panel's own
    text colour, so every theme styles it. */
+#settings-log-search {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  margin: 4px auto 8px;
+  box-sizing: border-box;
+}
+/* Folded to FOLD_ROWS (SettingsLog.js); Show More opens the rest in a
+   taller scroll box. */
 #settings-log-list {
-  max-height: 220px;
+  max-height: 420px;
   overflow-y: auto;
   margin: 4px 0 8px;
   border: 1px solid color-mix(in srgb, currentColor 22%, transparent);

@@ -18,6 +18,7 @@ import { ACTIONS, getAllBindings, getKeyFor, keyLabel, resetBindings, setAllBind
 import { LANGUAGES, setLanguage, t } from './i18n.js'
 import { bindHoverMenus } from './HoverMenus.js'
 import { bindSettingsLog, logSettingChange } from './SettingsLog.js'
+import { bindGameplaySettings } from './GameplaySettings.js'
 import { GRAPHICS_LEVELS, LEVEL_LOOK } from './GraphicsLevels.js'
 import { applyUiTheme, cleanVars, normalizeHex, rememberCleanVars, getCleanBgImage, applyCleanBgImage, cropToScreen, CLEAN_BG_IMAGE_KEY } from './CleanTheme.js'
 
@@ -171,6 +172,7 @@ export function _bindSettings(game) {
     if (oldLang?.code !== btn.dataset.lang) logSettingChange(t('tabLanguage'), oldLang ? t(oldLang.nameKey) : '', btn.querySelector('.lang-name')?.textContent || btn.dataset.lang)
   })
   bindSettingsLog(document.getElementById('settings-panel'))
+  bindGameplaySettings(game)
 
   for (const tab of document.querySelectorAll('.settings-tab')) {
     tab.addEventListener('click', () => {
@@ -2164,10 +2166,12 @@ export const TAB_RESET_KEYS = {
     'confirmSignOut', 'stayEmbedSignedIn', 'anonymousLeaderboard', 'shareTelemetry', 'autoDeclineFriendRequests',
     'exactLastSeen', 'rememberSettingsTab', 'confirmRemoveFriend', 'reduceBgEffects', 'disasterBreakAll', 'homepageGreeting',
     'oneHandedLayout', 'whatsNewEveryLaunch'],
-  audio: ['masterVolume', 'sfxVolume', 'ambientVolume', 'muteOnTabBlur', 'positionalAudio', 'mutedBeforeVolumes'],
+  audio: ['masterVolume', 'sfxVolume', 'ambientVolume', 'zombieVolume', 'muteOnTabBlur', 'positionalAudio', 'mutedBeforeVolumes'],
   graphics: ['performanceMode', 'renderResolution', 'fpsCap', 'autoQuality', 'brightness', 'contrast', 'shadowsEnabled',
     'shadowQuality', 'viewDistance', 'grainIntensity', 'panelFlickerEnabled', 'liteTextures', 'graphicsLevel'],
   controls: ['sensitivity', 'invertY', 'fov', 'invertScrollWeaponSwitch', 'crosshairColor', 'crosshairSize',
+    'crosshairStyle', 'damageNumbers', 'zombieNameTags', 'sprintMode', 'autoPickup', 'confirmRareDrop',
+    'skinDesignerHighContrast', 'darkAreaBoost', 'colorblindRarity',
     'colorblindMode', 'largeTextMode', 'dyslexiaFont',
     'highContrastMode', 'focusRingMode', 'underlineLinks', 'textSpacing', 'buttonSize', 'reduceTransparency',
     'hoverAudioCue', 'highVisCursor', 'captionBackground', 'reduceFlashing', 'streamSafeMode', 'toastDuration',
