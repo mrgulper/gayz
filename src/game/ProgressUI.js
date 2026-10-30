@@ -12,6 +12,7 @@ import { ACHIEVEMENTS_SEEN_IDS_KEY, ACHIEVEMENT_CHAINS, ACHIEVEMENT_TOAST_GAP_MS
 import { DEATH_POINTS_CONVERSION, META_UPGRADES, saveMetaProgress } from './MetaProgress.js'
 import { GLOBETROTTER_SECONDS, POINTS_PER_KILL, POINTS_PER_WAVE } from './PlayRules.js'
 import { QUESTS } from './Quests.js'
+import { SKIN_RARITIES } from './InventorySkins.js'
 import { EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQuests.js'
 import { t } from './i18n.js'
 import { setNavBadge } from './NavBadges.js'
@@ -423,6 +424,8 @@ export function _openQuestsPanel(game) {
   // follow-up request, not shown anywhere any more.
   game.questsPanelTitle.textContent = t('questsPanelTitle')
   game.rollingQuestsSubtitle.textContent = t('rollingQuestsSubtitle')
+  const questSearch = document.getElementById('quest-search')
+  if (questSearch) questSearch.placeholder = t('questSearchPlaceholder')
   if (game.monthlyQuestsPlaceholder) game.monthlyQuestsPlaceholder.textContent = t('monthlyQuestsPlaceholder')
   if (game.yearlyQuestsPlaceholder) game.yearlyQuestsPlaceholder.textContent = t('yearlyQuestsPlaceholder')
   // Lifetime quests are Coming Soon while QUESTS is empty.
@@ -471,29 +474,48 @@ export function _renderQuestsPanel(game) {
 export function _renderRollingQuestsPanel(game) {
   game.rollingQuests.refresh()
   game.rollingQuestsOptions.innerHTML = ''
+  game._questRarity = game._questRarity || 'all'
+  game._renderRarityFilter(document.getElementById('quest-rarity-filter-btn'), document.getElementById('quest-rarity-filter-menu'), game._questRarity)
   const active = game.rollingQuests.activeQuests()
   if (active.length === 0) {
     game.rollingQuestsOptions.innerHTML = `<p class="menu-best-stats">${t('rollingQuestNone')}</p>`
     return
   }
+  // Kirka-style cards (2026-10-30): two to a row, each in its rarity's
+  // colour with a progress bar, filtered by the search box (title or
+  // rarity) and the All rarities menu above them.
+  const query = (document.getElementById('quest-search')?.value || '').trim().toLowerCase()
   const now = Date.now()
+  let shown = 0
   for (const q of active) {
+    const rarityId = SKIN_RARITIES[q.template.rarity] ? q.template.rarity : 'common'
+    const rarity = SKIN_RARITIES[rarityId]
+    const title = t(q.template.titleKey, { n: q.template.target.toLocaleString() })
+    if (game._questRarity !== 'all' && rarityId !== game._questRarity) continue
+    if (query && !title.toLowerCase().includes(query) && !t(rarity.key).toLowerCase().includes(query)) continue
     const progress = Math.min(q.template.target, q.progress)
     const complete = progress >= q.template.target
     const timeLeftSeconds = Math.max(0, Math.floor((q.spawnedAt + ROLLING_QUEST_EXPIRE_MS - now) / 1000))
     const btn = document.createElement('button')
-    btn.className = 'perk-option'
+    btn.className = complete ? 'perk-option quest-card complete' : 'perk-option quest-card'
     btn.dataset.spawnedAt = q.spawnedAt
+    btn.dataset.rarity = rarityId
+    btn.style.setProperty('--rarity', rarity.color)
+    btn.style.setProperty('--quest-i', shown)
     btn.disabled = !complete
     const statusText = complete
       ? t('rollingQuestClaimReward', { coins: q.template.rewardCoins, xp: q.template.rewardXp })
       : `${t('questProgress', { current: progress.toLocaleString(), target: q.template.target.toLocaleString() })} · ${t('rollingQuestTimeLeft', { time: _formatDurationShort(timeLeftSeconds) })}`
     btn.innerHTML = `
-      <span class="perk-name">${t(q.template.titleKey, { n: q.template.target.toLocaleString() })}</span>
+      <span class="quest-card-rarity">${_escapeHtml(t(rarity.key))}</span>
+      <span class="perk-name">${title}</span>
+      <span class="quest-card-bar"><span style="width: ${Math.round((progress / q.template.target) * 100)}%"></span></span>
       <span class="perk-cost">${statusText}</span>
     `
     game.rollingQuestsOptions.appendChild(btn)
+    shown++
   }
+  if (!shown) game.rollingQuestsOptions.innerHTML = `<p class="menu-best-stats">${_escapeHtml(t('questNoMatch'))}</p>`
 }
 
 export function _closeQuestsPanel(game) {
@@ -618,7 +640,9 @@ export function _renderAchievementsPanel(game) {
     const name = unlocked ? t(ach.titleKey) : '???'
     if (filter && !name.toLowerCase().includes(filter)) continue
     const btn = document.createElement('button')
-    btn.className = 'perk-option'
+    // Bright, shiny gold cards once earned (2026-10-30, "achievements the
+    // player should be proud") - 12-gallery-and-later.css.
+    btn.className = unlocked ? 'perk-option achievement-card unlocked' : 'perk-option achievement-card'
     btn.disabled = true
     // Chain preview - only for an achievement that's both unlocked and
     // has a defined next tier still locked, so it reads as "here's

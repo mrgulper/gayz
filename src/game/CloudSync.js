@@ -520,18 +520,34 @@ service cloud.firestore {
         && (!('mapCode' in request.resource.data) || request.resource.data.mapCode.matches('^[A-Z0-9]{6}$'))
         && request.resource.data.createdAt is int
         && request.resource.data.likes == 0;
-      allow update: if request.auth != null
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
-        && request.resource.data.likes == resource.data.likes + 1
-        && !exists(/databases/$(database)/documents/gallery/$(postId)/likes/$(request.auth.uid))
-        && existsAfter(/databases/$(database)/documents/gallery/$(postId)/likes/$(request.auth.uid));
+      allow update: if request.auth != null && ((
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+          && request.resource.data.likes == resource.data.likes + 1
+          && !exists(/databases/$(database)/documents/gallery/$(postId)/likes/$(request.auth.uid))
+          && existsAfter(/databases/$(database)/documents/gallery/$(postId)/likes/$(request.auth.uid))
+        ) || (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['dislikes'])
+          && request.resource.data.dislikes == resource.data.get('dislikes', 0) + 1
+          && !exists(/databases/$(database)/documents/gallery/$(postId)/dislikes/$(request.auth.uid))
+          && existsAfter(/databases/$(database)/documents/gallery/$(postId)/dislikes/$(request.auth.uid))
+        ));
       allow delete: if request.auth != null && request.auth.uid == resource.data.creatorUid;
     }
 
     match /gallery/{postId}/likes/{uid} {
       allow read: if true;
       allow create: if request.auth != null && request.auth.uid == uid
-        && request.resource.data.likedAt is int;
+        && request.resource.data.likedAt is int
+        && !exists(/databases/$(database)/documents/gallery/$(postId)/dislikes/$(uid));
+      allow update, delete: if false;
+    }
+
+    // One vote per player per post: a like or a dislike, never both.
+    match /gallery/{postId}/dislikes/{uid} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.dislikedAt is int
+        && !exists(/databases/$(database)/documents/gallery/$(postId)/likes/$(uid));
       allow update, delete: if false;
     }
 
@@ -1682,6 +1698,22 @@ export async function likeGalleryPost(id, uid) {
 export async function hasLikedGalleryPost(id, uid) {
   const { db, fsMod } = await ensureApp()
   return (await fsMod.getDoc(fsMod.doc(db, 'gallery', id, 'likes', uid))).exists()
+}
+
+export async function dislikeGalleryPost(id, uid) {
+  const { db, fsMod } = await ensureApp()
+  const ref = fsMod.doc(db, 'gallery', id, 'dislikes', uid)
+  if ((await fsMod.getDoc(ref)).exists()) return false
+  const batch = fsMod.writeBatch(db)
+  batch.set(ref, { dislikedAt: Date.now() })
+  batch.update(fsMod.doc(db, 'gallery', id), { dislikes: fsMod.increment(1) })
+  await batch.commit()
+  return true
+}
+
+export async function hasDislikedGalleryPost(id, uid) {
+  const { db, fsMod } = await ensureApp()
+  return (await fsMod.getDoc(fsMod.doc(db, 'gallery', id, 'dislikes', uid))).exists()
 }
 
 export async function fetchGalleryComments(id) {

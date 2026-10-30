@@ -411,3 +411,37 @@ test('levelling up pays coins and updates the level number at once', async ({ pa
   })
   expect(r).toEqual({ before: 1, after: 2, levelCoins: Xp.levelUpCoins(2), coinsGained: Xp.levelUpCoins(2), badge: '2', nameplate: '2' })
 })
+
+// 2026-10-30: Quests are Kirka-style cards, two to a row, each with a
+// rarity (by how hard it is) and a search box and All rarities menu on top.
+test('Quests have rarities, two to a row, with search and a rarity filter', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g._openQuestsPanel()
+    await new Promise((res) => setTimeout(res, 300))
+    const cards = () => [...document.querySelectorAll('#rolling-quests-options .quest-card')]
+    const out = {}
+    out.count = cards().length
+    out.allRated = cards().every((c) => ['common', 'uncommon', 'rare', 'epic', 'legendary'].includes(c.dataset.rarity) && c.querySelector('.quest-card-rarity').textContent.length > 0)
+    out.columns = getComputedStyle(document.getElementById('rolling-quests-options')).gridTemplateColumns.split(' ').length
+    document.getElementById('quest-rarity-filter-btn').click()
+    document.querySelector('#quest-rarity-filter-menu [data-market-rarity="legendary"]').click()
+    out.legendaryOnly = cards().every((c) => c.dataset.rarity === 'legendary')
+    g._questRarity = 'all'
+    const search = document.getElementById('quest-search')
+    search.value = 'kill'
+    search.dispatchEvent(new Event('input'))
+    out.searchHits = cards().every((c) => /kill/i.test(c.querySelector('.perk-name').textContent))
+    search.value = 'nothing matches this'
+    search.dispatchEvent(new Event('input'))
+    out.none = cards().length
+    return out
+  })
+  expect(r.count).toBeGreaterThan(0)
+  expect(r.allRated).toBe(true)
+  expect(r.columns).toBe(2)
+  expect(r.legendaryOnly).toBe(true)
+  expect(r.searchHits).toBe(true)
+  expect(r.none).toBe(0)
+})

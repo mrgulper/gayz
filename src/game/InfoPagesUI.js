@@ -464,7 +464,16 @@ export function _openWhatsNewPanel(game) {
   game._closeAllMenuPanels()
   game.whatsNewPanel.style.display = 'flex'
   if (game.whatsNewPanelTitle) game.whatsNewPanelTitle.textContent = t('whatsNewPanelTitle')
-  if (game.whatsNewPausedBanner) game.whatsNewPausedBanner.textContent = t('whatsNewPaused')
+  // Paused, with where the news goes instead (2026-10-30): Discord's
+  // #updates channel, the word Discord a link to the server invite.
+  const pausedTitle = document.getElementById('whatsnew-paused-title')
+  const pausedDiscord = document.getElementById('whatsnew-paused-discord')
+  if (pausedTitle) pausedTitle.textContent = t('whatsNewPaused')
+  if (pausedDiscord) {
+    pausedDiscord.innerHTML = t('whatsNewPausedDiscord', {
+      discord: '<a href="https://discord.gg/kukR72Euj6" target="_blank" rel="noopener noreferrer">Discord</a>',
+    })
+  }
   if (game.buildVersionLine) game.buildVersionLine.textContent = t('buildVersionLine')
   // What's New badge dot - clears the moment the player actually reads
   // game panel, not just on page load, so it stays a genuine "have you

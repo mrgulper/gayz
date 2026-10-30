@@ -17,16 +17,18 @@ export const EXPIRE_MS = 3 * 60 * 60 * 1000
 const BUCKET_LOOKBACK = Math.ceil(EXPIRE_MS / SPAWN_INTERVAL_MS) + 1
 
 // Deliberately non-round targets (11/23/58, not 10/25/50) so a quest
-// reads like a found number, not an obviously-generated one.
+// reads like a found number, not an obviously-generated one. Each has a
+// rarity by how hard it is (2026-10-30) - the Store's skin rarities and
+// colours (SKIN_RARITIES), bigger goal = rarer.
 export const QUEST_TEMPLATES = [
-  { type: 'kills', target: 11, titleKey: 'rollingQuestKills', rewardCoins: 80, rewardXp: 30 },
-  { type: 'kills', target: 23, titleKey: 'rollingQuestKills', rewardCoins: 180, rewardXp: 60 },
-  { type: 'kills', target: 58, titleKey: 'rollingQuestKills', rewardCoins: 350, rewardXp: 120 },
-  { type: 'night', target: 2, titleKey: 'rollingQuestWave', rewardCoins: 120, rewardXp: 40 },
-  { type: 'night', target: 4, titleKey: 'rollingQuestWave', rewardCoins: 280, rewardXp: 90 },
-  { type: 'night', target: 6, titleKey: 'rollingQuestWave', rewardCoins: 500, rewardXp: 160 },
-  { type: 'runs', target: 1, titleKey: 'rollingQuestRuns', rewardCoins: 100, rewardXp: 35 },
-  { type: 'runs', target: 3, titleKey: 'rollingQuestRuns', rewardCoins: 280, rewardXp: 90 },
+  { type: 'kills', target: 11, titleKey: 'rollingQuestKills', rewardCoins: 80, rewardXp: 30, rarity: 'common' },
+  { type: 'kills', target: 23, titleKey: 'rollingQuestKills', rewardCoins: 180, rewardXp: 60, rarity: 'rare' },
+  { type: 'kills', target: 58, titleKey: 'rollingQuestKills', rewardCoins: 350, rewardXp: 120, rarity: 'epic' },
+  { type: 'night', target: 2, titleKey: 'rollingQuestWave', rewardCoins: 120, rewardXp: 40, rarity: 'uncommon' },
+  { type: 'night', target: 4, titleKey: 'rollingQuestWave', rewardCoins: 280, rewardXp: 90, rarity: 'epic' },
+  { type: 'night', target: 6, titleKey: 'rollingQuestWave', rewardCoins: 500, rewardXp: 160, rarity: 'legendary' },
+  { type: 'runs', target: 1, titleKey: 'rollingQuestRuns', rewardCoins: 100, rewardXp: 35, rarity: 'common' },
+  { type: 'runs', target: 3, titleKey: 'rollingQuestRuns', rewardCoins: 280, rewardXp: 90, rarity: 'epic' },
 ]
 
 // Deterministic PRNG (mulberry32) - the same seed always produces the same

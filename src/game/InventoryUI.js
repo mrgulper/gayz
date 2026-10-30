@@ -118,7 +118,7 @@ export function _renderRarityFilter(_game, btn, menu, current) {
 }
 
 export function _closeMarketFilterMenus(game) {
-  for (const [btn, menu] of [[game.marketItemFilterBtn, game.marketItemFilterMenu], [game.marketRarityFilterBtn, game.marketRarityFilterMenu], [game.invRarityFilterBtn, game.invRarityFilterMenu]]) {
+  for (const [btn, menu] of [[game.marketItemFilterBtn, game.marketItemFilterMenu], [game.marketRarityFilterBtn, game.marketRarityFilterMenu], [game.invRarityFilterBtn, game.invRarityFilterMenu], [document.getElementById('quest-rarity-filter-btn'), document.getElementById('quest-rarity-filter-menu')]]) {
     if (menu) menu.style.display = 'none'
     if (btn) btn.classList.remove('open')
   }

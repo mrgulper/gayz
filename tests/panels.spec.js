@@ -496,7 +496,7 @@ test('Levels from a panel, nothing selectable, friend list floats', async ({ pag
     g._openFriendsPanel()
     g.friendsSignedOut.style.display = 'none'
     g.friendsSignedIn.style.display = 'flex'
-    const status = document.getElementById('status-row-heading')
+    const status = document.getElementById('friends-two-col')
     const before = status.getBoundingClientRect().top
     g._showFriendSuggestions([{ name: 'Tazbot', playerId: 'ABC123' }, { name: 'Tazzy', playerId: 'XYZ999' }])
     const after = status.getBoundingClientRect().top
@@ -702,6 +702,10 @@ test('number badges, clickable leaderboard, General without account row, legal p
     g._updateQuestsDot()
     const claim = document.getElementById('quests-claim-dot')
     out.quest = [claim.style.display, claim.textContent, document.getElementById('quests-new-dot').style.display]
+    // The number reads after the name, "Quests (2)" (2026-10-30).
+    const questsLabel = document.querySelector('#quests-btn > span:not(.nav-badge-dot)')
+    out.questLabel = getComputedStyle(questsLabel, '::after').content
+    out.circleShown = claim.getClientRects().length > 0
     out.account = ['cloudsave-avatar', 'cloudsave-account-name', 'cloudsave-sync-now-btn', 'cloudsave-signout-btn'].map((id) => !!document.getElementById(id))
     out.conflict = !!document.getElementById('cloudsave-conflict')
     g._cloudUid = 'me-uid'
@@ -719,6 +723,8 @@ test('number badges, clickable leaderboard, General without account row, legal p
     return out
   })
   expect(r.quest).toEqual(['', '2', 'none'])
+  expect(r.questLabel).toBe('" (2)"')
+  expect(r.circleShown).toBe(false)
   expect(r.account).toEqual([false, false, false, false])
   expect(r.conflict).toBe(true)
   expect(r.rows).toEqual([['1', false, ['9', '217']], ['2', true, ['4', '5']]])

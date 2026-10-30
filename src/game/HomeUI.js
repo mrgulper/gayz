@@ -610,6 +610,9 @@ export function _renderStatusPicker(game) {
   const labels = { online: t('friendStatusOnline'), idle: t('friendStatusIdle'), dnd: t('friendStatusDnd'), offline: t('friendStatusOffline') }
   if (game.statusPickerDot) game.statusPickerDot.dataset.status = mode
   if (game.statusPickerLabel) game.statusPickerLabel.textContent = labels[mode] || labels.online
+  // No Status heading since it moved in front of the friend box (2026-10-30).
+  const toggle = document.getElementById('status-picker-toggle')
+  if (toggle) toggle.title = t('statusRowHeading')
 }
 
 // Count-up animation for Profile stat numbers - only touches values

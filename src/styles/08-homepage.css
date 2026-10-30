@@ -1694,20 +1694,22 @@ html.ui-theme-clean #menu-nav-buttons button {
   opacity: 1;
   color: #fff;
 }
-#footer-menu:is([data-place="side"], [data-place="beside"]) {
+/* Every card is the right column's narrow list now - the bottom links'
+   too (2026-10-30); HoverMenus.js places a footer card over its link. */
+#footer-menu {
   width: 300px;
   max-height: calc(100vh - 16px);
   padding: 20px 24px 22px;
   gap: 10px;
 }
-#footer-menu:is([data-place="side"], [data-place="beside"]) {
+#footer-menu {
   left: auto;
   transform: none;
 }
-#footer-menu:is([data-place="side"], [data-place="beside"]) .footer-menu-title {
+#footer-menu .footer-menu-title {
   font-size: 22px;
 }
-#footer-menu:is([data-place="side"], [data-place="beside"]) .footer-menu-sections {
+#footer-menu .footer-menu-sections {
   columns: 1;
 }
 
@@ -1730,13 +1732,7 @@ html.ui-theme-old #footer-menu {
   border: none;
   box-shadow: none;
 }
-html.ui-theme-old #footer-menu[data-place="footer"] {
-  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
-  border-radius: 0;
-  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.65));
-  padding: 40px 64px 44px;
-}
-html.ui-theme-old #footer-menu:is([data-place="side"], [data-place="beside"]) {
+html.ui-theme-old #footer-menu {
   /* The panels' own old paper too (2026-10-26, Gaymi: "use the old panel
      for the old theme") instead of the CSS-drawn note paper. Wider
      padding keeps the words off its burnt, see-through edges. */
@@ -1751,7 +1747,7 @@ html.ui-theme-old #footer-menu .footer-menu-title {
 html.ui-theme-old #footer-menu .footer-menu-sections button {
   color: var(--old-ink);
 }
-html.ui-theme-old #footer-menu:is([data-place="side"], [data-place="beside"]) .footer-menu-title {
+html.ui-theme-old #footer-menu .footer-menu-title {
   padding-bottom: 6px;
   border-bottom: 1px dashed rgba(74, 44, 16, 0.45);
   align-self: stretch;
@@ -1808,6 +1804,18 @@ html.ui-theme-old #menu-nav-buttons .nav-badge-dot {
 }
 #menu-nav-buttons .nav-badge-dot:is(#quests-new-dot, #friends-accepted-dot) {
   right: -7px;
+}
+
+/* The number reads "Quests (3)" after the name now (2026-10-30, "make
+   them as (#) instead of a number beside them") - NavBadges.js puts it
+   in the label's data-badge, so it takes the label's own font, colour and
+   fit-to-plaque size in every theme. The circles stay in the page (their
+   counts feed the label) but aren't shown. */
+#menu-nav-buttons button > span[data-badge]::after {
+  content: attr(data-badge);
+}
+html #menu #menu-nav-buttons .nav-badge-dot {
+  display: none !important;
 }
 
 /* Gallery (Coming Soon, 2026-10-09): a little dimmer than the live

@@ -1198,6 +1198,24 @@ export function _bindSettings(game) {
     const btn = e.target.closest('button[data-quest-id]')
     if (btn && !btn.disabled) game._claimQuest(btn.dataset.questId)
   })
+  // Quests' search box and All rarities menu (2026-10-30).
+  const questRarityBtn = document.getElementById('quest-rarity-filter-btn')
+  const questRarityMenu = document.getElementById('quest-rarity-filter-menu')
+  document.getElementById('quest-search')?.addEventListener('input', () => game._renderRollingQuestsPanel())
+  if (questRarityBtn && questRarityMenu) {
+    questRarityBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      game._toggleMarketFilterMenu(questRarityBtn, questRarityMenu)
+    })
+    questRarityMenu.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const opt = e.target.closest('[data-market-rarity]')
+      if (!opt) return
+      game._questRarity = opt.dataset.marketRarity
+      game._closeMarketFilterMenus()
+      game._renderRollingQuestsPanel()
+    })
+  }
   game.rollingQuestsOptions.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-spawned-at]')
     if (btn && !btn.disabled) game._claimRollingQuest(Number(btn.dataset.spawnedAt))
