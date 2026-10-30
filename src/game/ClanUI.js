@@ -504,12 +504,18 @@ export function _fetchClanRanking(game) {
   if (cached && Date.now() - cached.at < CLAN_RANKING_CACHE_MS) return cached.promise
   const promise = (async () => {
     const clans = await CloudSync.fetchAllClans().catch(() => [])
+    // A member count the server turned away for a moment (seen as "too
+    // many requests", 2026-10-27) is asked once more before giving up, and
+    // then the leaderboard's own member count stands in - not a blank.
+    const memberCount = (clanId) => CloudSync.fetchClanMemberCount(clanId)
+      .catch(() => new Promise((resolve) => setTimeout(resolve, 1500)).then(() => CloudSync.fetchClanMemberCount(clanId)))
+      .catch(() => null)
     const [counts, stats] = await Promise.all([
-      Promise.all(clans.map((c) => CloudSync.fetchClanMemberCount(c.clanId).catch(() => null))),
+      Promise.all(clans.map((c) => memberCount(c.clanId))),
       Promise.all(clans.map((c) => CloudSync.fetchClanCombinedStats(c.clanId).catch(() => null))),
     ])
     return clans
-      .map((c, i) => ({ ...c, memberCount: counts[i], monthXp: stats[i]?.monthXp ?? 0 }))
+      .map((c, i) => ({ ...c, memberCount: counts[i] ?? stats[i]?.memberCount ?? null, monthXp: stats[i]?.monthXp ?? 0 }))
       .sort((a, b) => b.monthXp - a.monthXp)
   })()
   game._clanRankingCache = { at: Date.now(), promise }

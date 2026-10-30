@@ -2815,10 +2815,11 @@ for (const [mode, button] of [['classic', 'game-mode-classic'], ['zombieDefense'
       }
       killAll()
       out.killsAfter = s.kills
-      // The break, then wave 2 by itself.
+      // The break, then wave 2 by itself (up to 30s: a slow test machine
+      // draws few frames, so the ~6s break can take ~16s of real time).
       const t0 = performance.now()
       await new Promise((done) => {
-        const check = () => (s.wave >= 2 || performance.now() - t0 > 15000 ? done() : setTimeout(check, 100))
+        const check = () => (s.wave >= 2 || performance.now() - t0 > 30000 ? done() : setTimeout(check, 100))
         check()
       })
       out.wave2 = s.wave
