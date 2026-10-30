@@ -428,12 +428,15 @@ test('Play mode spawns zombie waves that reach you and can be shot', async ({ pa
     // Shoot the one in front.
     const target = s.zombies[0]
     const killsBefore = s.kills
-    for (let i = 0; i < 10 && s.zombies.includes(target); i++) s.damageZombie(target, 34)
+    const bodiesBefore = (s._corpses || []).length
+    // (Rare tiers and cave zombies have up to ~8x the health - keep hitting.)
+    for (let i = 0; i < 200 && s.zombies.includes(target); i++) s.damageZombie(target, 34)
     out.killed = s.kills === killsBefore + 1
     // Its body falls over and fades away (own material copies - the live
-    // zombies' shared ones are never touched).
-    const corpse = (s._corpses || [])[0]
-    out.corpse = !!corpse && s._corpses.length === 1
+    // zombies' shared ones are never touched). (Zombies burning in the sun
+    // may have left bodies already - this one is the newest.)
+    const corpse = (s._corpses || [])[bodiesBefore]
+    out.corpse = !!corpse && s._corpses.length === bodiesBefore + 1
     out.ownMaterials = !!corpse && corpse.materials.length > 0 && corpse.materials.every((m) => !s._zBatch.meshes.some((mesh) => [].concat(mesh.material).includes(m)))
     step(0.5)
     out.fell = !!corpse && Math.abs(corpse.group.rotation.x - Math.PI / 2) < 0.01

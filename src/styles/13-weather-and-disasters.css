@@ -4,7 +4,7 @@
 #weather-screen > div { position: absolute; inset: 0; opacity: 0; }
 /* Frost growing in from the edges, with a cold blue rim. */
 #weather-screen .ws-frost {
-  background-size: 100% 100%;
+
   box-shadow: inset 0 0 120px 30px rgba(170, 210, 255, 0.35);
 }
 /* Heat: warm light, and the air over the ground shimmering. */
@@ -53,3 +53,4 @@ body.solar-glitch #build-try-map { filter: contrast(1.5) saturate(0.35) hue-rota
   body.solar-glitch #build-try-map { animation: none; }
 }
 #luck-badge::before { content: '\2663'; margin-right: 6px; color: #b9ffc6; }
+#weather-screen .ws-frost-pic { position: absolute; inset: 0; width: 100%; height: 100%; }

@@ -73,6 +73,7 @@ attribute vec4 color;
 attribute vec2 sizeSpin;
 uniform float uScale;
 uniform float uB;
+uniform float uMaxPx;
 varying vec4 vColor;
 varying float vSpin;
 void main() {
@@ -80,7 +81,7 @@ void main() {
   vSpin = sizeSpin.y;
   vec4 mv = modelViewMatrix * vec4(position * uB, 1.0);
   gl_Position = projectionMatrix * mv;
-  gl_PointSize = min(sizeSpin.x * uB * uScale / max(0.05, -mv.z), 600.0);
+  gl_PointSize = min(sizeSpin.x * uB * uScale / max(0.05, -mv.z), uMaxPx);
 }
 `
 const PARTICLE_FRAG = /* glsl */ `
@@ -101,11 +102,14 @@ void main() {
 // --- Emitter ---
 
 export class Emitter {
-  // opts: max, glow (additive, for fire), flame (teardrop picture).
+  // opts: max, glow (additive, for fire), flame (teardrop picture),
+  // lite (phones and low graphics: under half the particles, and none
+  // drawn huge up close - big see-through puffs are what slows a phone).
   constructor(scene, B, opts = {}) {
     this.scene = scene
     this.B = B
-    this.max = opts.max || 600
+    this.keep = opts.lite ? 0.45 : 1
+    this.max = Math.round((opts.max || 600) * this.keep)
     this.glow = !!opts.glow
     this.list = []
     const geo = new THREE.BufferGeometry()
@@ -116,7 +120,7 @@ export class Emitter {
     geo.setAttribute('color', new THREE.BufferAttribute(this._col, 4).setUsage(THREE.DynamicDrawUsage))
     geo.setAttribute('sizeSpin', new THREE.BufferAttribute(this._size, 2).setUsage(THREE.DynamicDrawUsage))
     geo.setDrawRange(0, 0)
-    this.uniforms = { uScale: { value: 800 }, uB: { value: B }, uMap: { value: opts.flame ? flameTexture() : puffTexture() } }
+    this.uniforms = { uScale: { value: 800 }, uB: { value: B }, uMaxPx: { value: opts.lite ? 220 : 600 }, uMap: { value: opts.flame ? flameTexture() : puffTexture() } }
     this.points = new THREE.Points(geo, new THREE.ShaderMaterial({
       uniforms: this.uniforms,
       vertexShader: PARTICLE_VERT,
@@ -135,6 +139,7 @@ export class Emitter {
   //      fadeIn, drag, lift (+ up / - down per s^2), spin, heat }
   // heat: fire - starts white-yellow, goes orange, red, then dark.
   add(p) {
+    if (this.keep < 1 && Math.random() > this.keep) return
     if (this.list.length >= this.max) this.list.shift()
     p.age = 0
     p.vx ??= 0

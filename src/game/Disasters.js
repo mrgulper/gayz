@@ -89,7 +89,9 @@ export class Disasters {
 
   // The top of the ground in a column (the y you'd stand at): real blocks
   // near `from` where they're loaded, else the land's height.
-  topAt(x, z, from) {
+  // depth: how far down to look from `from` (a falling rock only needs
+  // the next few blocks - not found means it's still in the air).
+  topAt(x, z, from, depth = 48) {
     const fx = Math.floor(x)
     const fz = Math.floor(z)
     const key = `${fx},${fz}`
@@ -97,13 +99,14 @@ export class Disasters {
     if (cached !== undefined && from === undefined) return cached
     const bm = this.bm
     const start = Math.floor(from ?? this.me().y + 24)
-    for (let y = start; y > start - 48; y--) {
+    for (let y = start; y > start - depth; y--) {
       const b = bm.getBlockAt(fx, y, fz)
       if (b && b !== 'water' && b !== 'lava' && !bm.isPlantBlock?.(b)) {
         if (from === undefined) this._tops.set(key, y + 1)
         return y + 1
       }
     }
+    if (depth < 48) return start - depth
     const h = bm.world?.active && !inCity(fx, fz) ? sampleLand(fx, fz).h + 1 : Math.floor(this.me().y)
     if (from === undefined) this._tops.set(key, h)
     return h
@@ -244,7 +247,7 @@ export class Disasters {
   }
 
   emitter(run, opts) {
-    const e = new Emitter(this.scene, this.B, opts)
+    const e = new Emitter(this.scene, this.B, { ...opts, lite: this.lite })
     run.fx.push(e)
     return e
   }
@@ -298,6 +301,8 @@ export class Disasters {
     const run = { kind, seed, t: 0, fx: [], x: opts.x ?? p.x, z: opts.z ?? p.z, rand, done: false, tail: 0 }
     this.active = run
     this._changes = 0
+    // Phones and Potato/low graphics get a lighter version (DisasterFx).
+    this.lite = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || !!this.bm.look?.lite
     RUN[kind].start?.(this, run)
     if (opts.t) this._fastForward(run, opts.t)
     if (!opts.quiet) this.message(kind)
@@ -393,7 +398,7 @@ export class Disasters {
     }
     const wind = this.sky.wind
     let alive = 0
-    const groundAt = (x, z, y) => this.topAt(x, z, y)
+    const groundAt = (x, z, y) => this.topAt(x, z, y, 6)
     for (const f of run.fx) {
       if (f instanceof Emitter) {
         f.update(dt, camera, this.bm.renderer, wind)
@@ -1041,7 +1046,7 @@ const RUN = {
         run.ash.add({
           x: V.x + (run.rand() - 0.5) * 4, y: V.y + run.rand() * 3, z: V.z + (run.rand() - 0.5) * 4,
           vx: (run.rand() - 0.5) * 3, vy: 14 + run.rand() * 14, vz: (run.rand() - 0.5) * 3,
-          life: 22 + run.rand() * 14, size: 7 + run.rand() * 6, grow: 2.4, color: rgb(run.rand() < 0.5 ? 0x3a3532 : 0x544c46), alpha: 0.72, drag: 0.22, lift: -0.25,
+          life: 22 + run.rand() * 14, size: 6 + run.rand() * 4, grow: 1.3, color: rgb(run.rand() < 0.5 ? 0x3a3532 : 0x544c46), alpha: 0.72, drag: 0.22, lift: -0.25,
         })
       }
       // Lava fountaining out of the vent, glowing.
@@ -1278,7 +1283,13 @@ function fireUpdate(D, run, dt, forest) {
   let near = Infinity
   let n = 0
   const list = [...run.burning.values()]
+  // Spreading is checked for a share of the fire each time, round in turn
+  // (a big fire checking every block at once stalled a frame).
+  run.turn = (run.turn || 0) + 1
+  const share = Math.max(1, Math.ceil(list.length / 50))
+  let idx = 0
   for (const c of list) {
+    const mine = idx++ % share === run.turn % share
     c.life -= dt * (wet ? 3 : 1)
     if (c.life <= 0) {
       run.burning.delete(`${c.x},${c.y},${c.z}`)
@@ -1295,7 +1306,7 @@ function fireUpdate(D, run, dt, forest) {
     // Flames from a share of the burning blocks each frame.
     if (n++ < 70 && Math.random() < 0.6) flames(run.fire, run.smoke, run.embers, c.x + 0.5, c.y + 1, c.z + 0.5, D.bm.isTreeBlock?.(D.bm.getBlockAt(c.x, c.y, c.z)) ? 1.6 : 1)
     // Spreading - faster downwind, never in the rain.
-    if (spread && !wet && run.t < run.dur - 20 && run.burnt + run.burning.size < 420) {
+    if (spread && mine && !wet && run.t < run.dur - 20 && run.burnt + run.burning.size < 420) {
       for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [0, -1, 0], [1, 1, 0], [-1, 1, 0], [0, 1, 1], [0, 1, -1], [1, -1, 0], [-1, -1, 0], [0, -1, 1], [0, -1, -1]]) {
         const x = c.x + dx
         const y = c.y + dy
@@ -1303,7 +1314,7 @@ function fireUpdate(D, run, dt, forest) {
         const key = `${x},${y},${z}`
         if (run.burning.has(key)) continue
         const down = 1 + 1.6 * Math.max(0, (dx * wind.x + dz * wind.y) / Math.max(0.5, wind.length())) + (dy > 0 ? 1.5 : 0)
-        if (Math.random() < 0.045 * down && burnable(D, D.bm.getBlockAt(x, y, z), forest)) {
+        if (Math.random() < 0.045 * down * share && burnable(D, D.bm.getBlockAt(x, y, z), forest)) {
           // Something on top of grass burns, not the grass under it.
           run.burning.set(key, { x, y, z, life: (D.bm.isTreeBlock?.(D.bm.getBlockAt(x, y, z)) ? 9 : 5) + Math.random() * 5 })
         }
