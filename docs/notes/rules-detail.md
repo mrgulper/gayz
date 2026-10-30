@@ -94,3 +94,17 @@ CLAUDE.md was cut to one line per rule on 2026-10-23 (Gaymi, to save usage - it 
 - Cloud Save is a three-way merge; automatic syncs are upload-only - never add an automatic apply/reload.
 - Open-world terrain can only hold full cube blocks (no ladders, slabs, fences, doors).
 - In Playwright: wait for `window.__game` with a poll loop; keep timing-sensitive checks in one `evaluate()`; `pkill -f chromium` in its own command, never chained with other commands.
+
+### Moved from CLAUDE.md (2026-10-30, to save usage - still in force)
+
+- Visible UI changes are made and screenshot-checked in both themes (Old: paper/browns/Rye; Clean: flat, one player-picked colour, `src/theme-clean.css`). Golden is deleted.
+- Everything follows the theme: every panel, dropdown, pop-up, card and the Map Editor menu gets Old and Simple colours - never a fixed dark/gold box (Gaymi, 2026-10-24). In a running game screens follow the biome instead (`src/play-biome.css`, 2026-10-25; Settings toggle `playBiomeLook`, default on; readable opposite-colour text).
+- Search bars: `class="nickname-input search-bar"`; text boxes and dropdowns are ovals.
+- Panels: all the same height (`--panel-chrome`), no sideways scroll, join the shared selector list.
+- Homepage: first paint = final look; footer clear of right column; animations on `LiteHome.onHomeFrame` only.
+- Nameplate is one `.nameplate` filled by `Game._fillNameplate()`.
+- Map-making rules (10, in `map-and-world.md`); changing the generator = bump `MAP3_EDITS_KEY` (BuildMode.js).
+- Every standing mob is 2 blocks tall (`MOB_HEIGHT`).
+- The underground is implicit (`Underground.js`) - never fill it in bulk.
+- Every new full block gets a slab, stairs and a `BlockTextures.js` painter.
+- New GLBs go through gltf-transform; credits in `public/models/weapons/CREDITS.txt` only.
