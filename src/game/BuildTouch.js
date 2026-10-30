@@ -29,6 +29,7 @@ const ICONS = {
   reload: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg>',
   use: '<svg viewBox="0 0 24 24"><path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11"/><path d="M12 10V4.5a1.5 1.5 0 0 1 3 0V11"/><path d="M15 10.5V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-1a6 6 0 0 1-5-2.7l-2.6-4a1.5 1.5 0 0 1 2.5-1.6L9 14"/></svg>',
   crouch: '<svg viewBox="0 0 24 24"><path d="M12 5v10M6 11l6 6 6-6"/><path d="M5 20h14"/></svg>',
+  scope: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/></svg>',
   pause: '<svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>',
 }
 
@@ -64,12 +65,14 @@ export class BuildTouch {
       <button type="button" class="tp-btn tp-reload" data-tp="reload" aria-label="Reload">${ICONS.reload}</button>
       <button type="button" class="tp-btn tp-use" data-tp="use" aria-label="Use">${ICONS.use}</button>
       <button type="button" class="tp-btn tp-crouch" data-tp="crouch" aria-label="Crouch">${ICONS.crouch}</button>
-      <button type="button" class="tp-btn tp-bag" data-tp="bag" aria-label="Inventory">${ICONS.bag}</button>`
+      <button type="button" class="tp-btn tp-bag" data-tp="bag" aria-label="Inventory">${ICONS.bag}</button>
+      <button type="button" class="tp-btn tp-scope" data-tp="scope" aria-label="Scope">${ICONS.scope}</button>`
     document.body.appendChild(el)
     this._el = el
     this._stickEl = el.querySelector('.tp-stick')
     this._knobEl = el.querySelector('.tp-stick-knob')
     this._crouchEl = el.querySelector('.tp-crouch')
+    this._scopeEl = el.querySelector('.tp-scope')
     const opts = { passive: false }
     el.addEventListener('touchstart', (e) => this._onStart(e), opts)
     el.addEventListener('touchmove', (e) => this._onMove(e), opts)
@@ -167,6 +170,11 @@ export class BuildTouch {
       this._crouchEl.classList.toggle('on', this._crouch)
       if (this._crouch) bm._keys.add(getKeyFor('crouch'))
       else bm._keys.delete(getKeyFor('crouch'))
+    } else if (action === 'scope') {
+      // Phones have no right-click: a tap looks through the scope, another
+      // tap lowers it (only shown with a scoped gun in hand).
+      bm.tryMode.setAim(!bm.tryMode.aiming)
+      this._scopeEl.classList.toggle('on', bm.tryMode.aiming)
     } else if (action === 'pause') {
       this._release()
       bm.toggleMenu()
@@ -176,7 +184,7 @@ export class BuildTouch {
   _lookBy(dx, dy) {
     const bm = this.bm
     const s = bm.game?.settings
-    const sens = LOOK_PER_PX * ((s?.sensitivity ?? 100) / 100)
+    const sens = LOOK_PER_PX * ((s?.sensitivity ?? 100) / 100) * bm.tryMode.aimLookScale()
     bm._yaw -= dx * sens
     bm._pitch -= dy * sens * (s?.invertY ? -1 : 1)
     bm._pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, bm._pitch))
@@ -221,6 +229,14 @@ export class BuildTouch {
       }
     }
     if (!want) return
+    // The scope button: only with a scoped gun (the AWP) in hand.
+    const scoped = bm.tryMode.hasScope()
+    if (scoped !== this._scopeShown) {
+      this._scopeShown = scoped
+      this._scopeEl.style.display = scoped ? 'flex' : 'none'
+      if (!scoped && bm.tryMode.aiming) bm.tryMode.setAim(false)
+    }
+    if (!bm.tryMode.aiming) this._scopeEl.classList.remove('on')
     // The stick: strafe/forward amounts (-1..1), read by BuildTryMode.
     const st = this._stick
     if (st && (st.dx || st.dy)) {

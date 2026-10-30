@@ -41,6 +41,7 @@ import { t } from './i18n.js'
 import { holdWeapon, poseArms } from './HeldWeapon.js'
 import { GunFx } from './GunFx.js'
 import { MOB_HEIGHT } from './PlayRules.js'
+import { PLAY_WEAPONS } from './PlayWeapons.js'
 import { BOTTOM } from './Underground.js'
 
 const HALF_WIDTH = 0.3
@@ -207,6 +208,14 @@ const AIM_ZOOM = 22
 // view narrows to this many degrees - deeper than the editor's ZOOM_FOV.
 const PLAY_ZOOM_FOV = 9
 const AIM_SPEED = 14
+// Scoped guns (PLAY_WEAPONS `scope`, 2026-10-30, Gaymi: "for the awp when
+// aiming make it like ... aiming based"): aiming puts your eye to the
+// scope - a round lens with a reticle fills the screen, the gun drops out
+// of sight and the view zooms in `scope` times. The look turns slower to
+// match.
+const scopeOf = (id) => PLAY_WEAPONS[id]?.scope || 0
+// How far into aiming (0..1) the scope takes over from the gun.
+const SCOPE_AT = 0.8
 // The gun's kick (2026-10-17, Gaymi: "make it like smoother when shooting
 // ... the gun goes back and front very fast, make it more like kirka"). It
 // used to jump straight to full kick on every shot and slide back in a
@@ -774,6 +783,7 @@ export class BuildTryMode {
     if (this._body) this._body.group.visible = false
     this.aiming = false
     this.aimAmount = 0
+    this._updateScope()
     this._inspectT = -1
     this.bm.gadgets.releasePlates()
     this.bm.specials.stop()
@@ -987,7 +997,11 @@ export class BuildTryMode {
     const cam = this.bm.camera
     if (this._baseFov !== null) {
       const zoom = keys?.has(FIXED_KEYS.buildZoom)
-      const target = zoom ? PLAY_ZOOM_FOV : this._baseFov + (sprint && !this.aiming ? SPRINT_FOV : 0) - AIM_ZOOM * this.aimAmount
+      // Only a gun zooms when you aim (2026-10-30, Gaymi: "if not holding
+      // gun and right clicking don't make the screen zoom in") - a block,
+      // an item or the knife (aimed to throw) keeps the normal view.
+      const aimZoom = !this.aimZooms() ? 0 : scopeOf(this._gunId) ? this._baseFov * (1 - 1 / scopeOf(this._gunId)) : AIM_ZOOM
+      const target = zoom ? PLAY_ZOOM_FOV : this._baseFov + (sprint && !this.aiming ? SPRINT_FOV : 0) - aimZoom * this.aimAmount
       const fov = THREE.MathUtils.damp(cam.fov, target, 10, dt)
       if (Math.abs(fov - cam.fov) > 0.01) {
         cam.fov = fov
@@ -999,6 +1013,7 @@ export class BuildTryMode {
     this._updateDigging(dt)
     this.aimAmount = THREE.MathUtils.damp(this.aimAmount, this.aiming ? 1 : 0, AIM_SPEED, dt)
     if (this.aimAmount < 0.001) this.aimAmount = 0
+    this._updateScope()
     const inspect = this._inspectWeight(dt)
     if (this._gun) {
       const a = this.aimAmount
@@ -1011,6 +1026,8 @@ export class BuildTryMode {
         base.z + this._recoil * 0.045 * (1 - a * 0.5) + inspect * 0.03,
       )
       this._gun.position.y += this._recoil * 0.012 * (1 - a * 0.6)
+      // Looking through the scope: the gun and hands drop out of sight.
+      if (this._scoped) this._gun.position.y -= 1
       // Inspecting turns the gun's side toward you and tips it a little.
       this._gun.rotation.set(this._recoil * 0.13 * (1 - a * 0.6) + inspect * 0.12, inspect * 0.75, inspect * 0.32 + this._kickRoll * (1 - a * 0.7))
     }
@@ -1091,6 +1108,42 @@ export class BuildTryMode {
       this._kickVel = Math.max(0, this._kickVel)
     }
     this._kickRoll = THREE.MathUtils.damp(this._kickRoll, 0, 9, dt)
+  }
+
+  // True when aiming should zoom: a gun (not the knife or tomahawk, not a
+  // block or item) is in your hand.
+  aimZooms() {
+    return !!this._gun?.visible && !/melee|knife|tomahawk/i.test(this._gunId || '')
+  }
+
+  // A gun with a scope is in your hand.
+  hasScope() {
+    return !!scopeOf(this._gunId) && this.aimZooms()
+  }
+
+  // Mouse look speed while aiming: a bit slower down the sights, much
+  // slower through a scope (it turns as fast on screen as without zoom).
+  aimLookScale() {
+    if (!this.aimZooms()) return 1
+    const scope = scopeOf(this._gunId)
+    return 1 - (scope ? 1 - 1 / scope : 0.45) * this.aimAmount
+  }
+
+  // The scope picture over the screen (#play-scope), shown once aiming is
+  // most of the way in with a scoped gun.
+  _updateScope() {
+    const on = this.aimAmount > SCOPE_AT && this.hasScope() && this.active && !this.view
+    if (on === !!this._scoped) return
+    this._scoped = on
+    if (on && !this._scopeEl) {
+      const el = (this._scopeEl = document.createElement('div'))
+      el.id = 'play-scope'
+      el.setAttribute('aria-hidden', 'true')
+      el.innerHTML = '<div class="scope-lens"><i class="scope-h"></i><i class="scope-v"></i><i class="scope-dots"></i><b class="scope-dot"></b></div>'
+      document.body.appendChild(el)
+    }
+    if (this._scopeEl) this._scopeEl.classList.toggle('on', on)
+    document.body.classList.toggle('scope-on', on)
   }
 
   // Held right-click: aim down the sights (stops any inspect) - only in

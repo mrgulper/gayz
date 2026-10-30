@@ -1,25 +1,27 @@
 import { buildViewmodel, preloadWeaponModels } from './Viewmodels.js'
 
-// Every gun's id and name, in hotbar/Inventory order. The old Map 1's
+// Every gun's id and name, in hotbar/Inventory order. GayZ's own names
+// since 2026-10-30 (Gaymi: "give them names ... new names for each gun");
+// the real gun each one is stays in the comment beside it in PlayWeapons.js. The old Map 1's
 // shooting code was deleted with it on 2026-10-05; what's left
 // is the models: the Map Editor's Try Map holds one (BuildTryMode._showGun)
 // and Inventory > Weapons draws its cards and Inspect view from them.
 export const WEAPON_LIST = [
-  { id: 'melee', name: 'Knife' },
-  { id: 'rifle', name: 'AK-47' },
-  { id: 'pistol', name: 'M1911' },
-  { id: 'minigun', name: 'Minigun' },
-  { id: 'shotgun', name: 'Shotgun' },
-  { id: 'awp', name: 'AWP' },
-  { id: 'revolver', name: 'Revolver' },
-  { id: 'flamethrower', name: 'Flamethrower' },
-  { id: 'rocket', name: 'Rocket Launcher' },
-  { id: 'crossbow', name: 'Crossbow' },
-  { id: 'launcher', name: 'Grenade Launcher' },
-  { id: 'suppressedsmg', name: 'Suppressed SMG' },
+  { id: 'melee', name: 'Fang' },
+  { id: 'rifle', name: 'Havoc' },
+  { id: 'pistol', name: 'Scrapper' },
+  { id: 'minigun', name: 'Buzzsaw' },
+  { id: 'shotgun', name: 'Boomstick' },
+  { id: 'awp', name: 'Farsight' },
+  { id: 'revolver', name: 'Outlaw' },
+  { id: 'flamethrower', name: 'Dragonbreath' },
+  { id: 'rocket', name: 'Skybreaker' },
+  { id: 'crossbow', name: 'Quill' },
+  { id: 'launcher', name: 'Thumper' },
+  { id: 'suppressedsmg', name: 'Whisper' },
   { id: 'voidripper', name: 'Void Ripper' },
-  { id: 'gpmg', name: 'GPMG' },
-  { id: 'tomahawk', name: 'Tomahawk' },
+  { id: 'gpmg', name: 'Bulldog' },
+  { id: 'tomahawk', name: 'Cleaver' },
 ]
 
 // One copy of every gun model. The game is built before the GLBs finish
