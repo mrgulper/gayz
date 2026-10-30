@@ -112,6 +112,40 @@ export const DINO_KINDS = {
   })),
 }
 
+// The big meat-eaters, made huge and heavy (2026-10-30, Gaymi: "the
+// dinosaur is kinda not as big as what i was thinking and a bit skinny not
+// strong at all"): everything grows by its BULK size, and grows WIDE
+// more on top of that (body, legs, tail, neck), so they read as heavy;
+// big thighs, a deep lower jaw and twice the health go on as well.
+const BULK = { tRex: 1.6, giganotosaurus: 1.5, spinosaurus: 1.45, allosaurus: 1.55, carnotaurus: 1.5, megalosaurus: 1.55, dilophosaurus: 1.45 }
+const WIDE = 1.35
+const BULK_HEALTH = 2
+const r2 = (n) => Math.round(n * 1000) / 1000
+function bulkUp(k, s) {
+  const grow = ([w, h, l]) => [r2(w * s * WIDE), r2(h * s), r2(l * s)]
+  const [, bh] = k.body
+  const leg = k.leg
+  k.body = grow(k.body)
+  k.head = [r2(k.head[0] * s * 1.15), r2(k.head[1] * s * 1.1), r2(k.head[2] * s)]
+  k.leg = r2(leg * s)
+  k.legW = r2(k.legW * s * 1.45)
+  k.headAt = [r2(k.headAt[0] * s), r2(k.headAt[1] * s)]
+  k.extras = k.extras.map((e) => ({ ...e, size: e.on === 'head' ? e.size.map((n) => r2(n * s)) : grow(e.size), at: [r2(e.at[0] * s * (e.on === 'head' ? 1.15 : WIDE)), r2(e.at[1] * s), r2(e.at[2] * s)] }))
+  const [bw2, , bl2] = k.body
+  const [hw, hh, hl] = k.head
+  k.extras.push(
+    // Thick thighs over the legs.
+    ...pair('body', [r2(k.legW * 1.5), r2(k.leg * 0.5), r2(k.legW * 1.9)], [r2(bw2 * 0.25), r2(k.leg * 0.92), r2(-bl2 * 0.05)], 'body'),
+    // A deep lower jaw.
+    { on: 'head', size: [r2(hw * 0.9), r2(hh * 0.32), r2(hl * 0.92)], at: [0, r2(-hh * 0.58), r2(hl * 0.02)], color: k.colors.spots },
+    // A thick, muscly chest.
+    { on: 'body', size: [r2(bw2 * 0.9), r2(bh * s * 0.75), r2(bl2 * 0.35)], at: [0, r2(k.leg + bh * s * 0.4), r2(bl2 * 0.3)], color: k.colors.spots },
+  )
+  k.health *= BULK_HEALTH
+  k.meat = Math.round(k.meat * s)
+}
+for (const [id, s] of Object.entries(BULK)) bulkUp(DINO_KINDS[id], s)
+
 // Where each dinosaur lives. Only DINO_CHANCE of the animals that turn up
 // in one of these biomes is a dinosaur (one of the biome's, picked
 // evenly), and it comes alone.

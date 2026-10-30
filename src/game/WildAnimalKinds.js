@@ -358,3 +358,6 @@ export const WILD_TIERS = {
   rare: 'serval caracal ocelot africanWildDog dhole honeyBadger greyWolf grizzlyBear slothBear numbat echidna sugarGlider bilby kudu oryx gerenuk eland nyala takin pronghorn guanaco vicuna pygmyHippo babirusa hornbill cockatoo kookaburra albatross secretaryBird osprey frilledLizard gilaMonster monitorLizard basilisk caiman poisonDartFrog leopardSeal elephantSeal dugong seaOtter tigerShark marlin barracuda lionfish ringTailedLemur colobus gelada howlerMonkey spiderMonkey tarantula stagBeetle rhinoBeetle',
   uncommon: 'bobcat wildcat sandCat raccoonDog mongoose stoat mink marten civet coati kinkajou chipmunk prairieDog jerboa flyingSquirrel pika capuchin marmoset tamarin springbok dikDik chamois mountainGoat muntjac peccary hyrax elephantShrew robin blueJay cardinal magpie kingfisher hoopoe lovebird budgie stork crane ibis spoonbill cormorant brownPelican kestrel rhea pheasant grouse ptarmigan loon mandarinDuck boa rattlesnake seaSnake treeFrog bullfrog snappingTurtle angelfish parrotfish koi piranha pike cuttlefish hornet stickInsect cicada glowworm',
 }
+
+// The body plans, for more animals made the same way (CreatureKinds.js).
+export const PLANS = { q, pair, plus, cat, dog, weasel, rodent, antelope, bear, monkey, songbird, raptor, wader, fowl, lizard, snake, frog, turtle, fish, bigFish, whale, seal, bug, flyer }

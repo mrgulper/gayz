@@ -33,6 +33,8 @@ import { MORE_KINDS, MORE_BIOME_ANIMALS } from './AnimalKinds.js'
 import { DINO_KINDS, DINO_BIOMES, DINO_CHANCE } from './DinoKinds.js'
 import { NEW_KINDS, NEW_BIOME_ANIMALS, RARITIES, rarityOf } from './NewAnimalKinds.js'
 import { WILD_KINDS, WILD_BIOME_ANIMALS, WILD_TIERS, HUNTERS } from './WildAnimalKinds.js'
+import { CREATURE_KINDS, CREATURE_BIOME_ANIMALS, CREATURE_TIERS } from './CreatureKinds.js'
+import { addAnimalMeat } from './PlayInventory.js'
 
 export const MAX_WILD = 12
 // Animals a server's sync carries at most (api/_lib/servers.js MAX_ANIMALS).
@@ -173,9 +175,20 @@ const KINDS = {
 }
 // The rest of Gaymi's list (AnimalKinds.js), and health/meat from size
 // for the ones that don't say.
-Object.assign(KINDS, MORE_KINDS, NEW_KINDS, WILD_KINDS, DINO_KINDS)
+Object.assign(KINDS, MORE_KINDS, NEW_KINDS, WILD_KINDS, CREATURE_KINDS, DINO_KINDS)
 // Wolves and bears bite now (WildAnimalKinds.js).
 for (const [id, h] of Object.entries(HUNTERS)) if (KINDS[id]) Object.assign(KINDS[id], { hunts: true }, h)
+// Everything that attacks you looks it (2026-10-30, Gaymi: "animals that
+// will just attack you make them look more scary"): darker fur, angry
+// brows and a scar (faceTexture), fangs (snoutTexture and two boxes under
+// the snout) and red eyes that glow in the dark (_build). Looks only -
+// health and bites stay as they were.
+const SCARY_DARK = 0.8
+for (const k of Object.values(KINDS)) {
+  if (!k.hunts) continue
+  k.scary = true
+  for (const part of ['body', 'spots', 'head', 'leg']) k.colors[part] = new THREE.Color(k.colors[part]).multiplyScalar(SCARY_DARK).getHex()
+}
 for (const k of Object.values(KINDS)) {
   const vol = k.body[0] * k.body[1] * k.body[2]
   if (k.health === undefined) k.health = Math.max(4, Math.min(70, Math.round(vol * 40) + 6))
@@ -216,13 +229,13 @@ export const BIOME_ANIMALS = {
   ocean: {},
   deepOcean: {},
 }
-for (const [biome, ids] of [...Object.entries(MORE_BIOME_ANIMALS), ...Object.entries(NEW_BIOME_ANIMALS), ...Object.entries(WILD_BIOME_ANIMALS)]) {
+for (const [biome, ids] of [...Object.entries(MORE_BIOME_ANIMALS), ...Object.entries(NEW_BIOME_ANIMALS), ...Object.entries(WILD_BIOME_ANIMALS), ...Object.entries(CREATURE_BIOME_ANIMALS)]) {
   const table = BIOME_ANIMALS[biome] = { ...(BIOME_ANIMALS[biome] || {}) }
   for (const id of ids) table[id] = table[id] || 1
 }
 // The 170 newest animals' tiers (WildAnimalKinds.js).
 const WILD_TIER_OF = {}
-for (const [tier, ids] of Object.entries(WILD_TIERS)) for (const id of ids.split(' ')) WILD_TIER_OF[id] = tier
+for (const tiers of [WILD_TIERS, CREATURE_TIERS]) for (const [tier, ids] of Object.entries(tiers)) for (const id of ids.split(' ')) WILD_TIER_OF[id] = tier
 export const animalRarity = (kind) => WILD_TIER_OF[kind] || rarityOf(kind, KINDS[kind])
 // Rarer animals turn up less often (NewAnimalKinds.js RARITIES).
 for (const table of Object.values(BIOME_ANIMALS)) {
@@ -230,6 +243,30 @@ for (const table of Object.values(BIOME_ANIMALS)) {
 }
 export const animalNameKey = (kind) => `animal${kind[0].toUpperCase()}${kind.slice(1)}`
 const nameKey = animalNameKey
+// Every animal drops its own raw meat (2026-10-30, Gaymi: "every animal
+// must have their own drop like a cow might drop beef"): an item per kind
+// (PlayInventory.addAnimalMeat) - beef, pork, mutton, chicken, venison and
+// rabbit by their real names, fish and birds as "Raw <animal>", the rest
+// as "Raw <animal> Meat". The look: fish, poultry, bug or red meat.
+const MEAT_NAMES = {
+  invRawBeef: 'cow bull ox bison yak waterBuffalo muskox',
+  invRawPork: 'pig boar warthog peccary babirusa',
+  invRawMutton: 'sheep bighornSheep goat mountainGoat',
+  invRawChicken: 'chicken rooster',
+  invRawVenison: 'deer elk moose reindeer muntjac',
+  invRawRabbit: 'rabbit hare',
+}
+const MEAT_KEY_OF = {}
+for (const [key, ids] of Object.entries(MEAT_NAMES)) for (const id of ids.split(' ')) MEAT_KEY_OF[id] = key
+// Two-legged but not birds.
+const NOT_BIRDS = /monkey|ape$|gorilla|chimp|bonobo|orangutan|gibbon|baboon|mandrill|lemur|capuchin|marmoset|tamarin|colobus|gelada|tarsier|loris|ayeAye|kangaroo|wallaby|meerkat|yeti|sasquatch/i
+const meatId = (kind) => `meat_${kind}`
+for (const [kind, k] of Object.entries(KINDS)) {
+  const bug = (k.legs === 6 || k.legs === 8) && !k.swim
+  const bird = k.legs === 2 && !k.dino && !NOT_BIRDS.test(kind)
+  const icon = k.swim ? 'fishMeat' : bug ? 'bugMeat' : bird ? 'poultry' : 'meat'
+  addAnimalMeat(meatId(kind), { key: MEAT_KEY_OF[kind] || (k.swim || bird ? 'invRawOf' : 'invRawMeatOf'), animalKey: nameKey(kind), icon })
+}
 // Most placed animals in one map (BuildMode.animalSpots).
 export const MAX_PLACED = 300
 
@@ -346,14 +383,17 @@ function faceTexture(kind, k, seed) {
   const [hw] = k.head
   const ew = hw > 0.6 ? 4 : hw > 0.3 ? 6 : 8 // eye width in pixels (of 32)
   const eh = Math.max(3, Math.round(ew * 0.8))
-  const iris = irisOf(kind)
-  const slit = /goat|sheep/.test(kind)
+  const iris = k.scary ? 0xe0201a : irisOf(kind)
+  const slit = /goat|sheep/.test(kind) || k.scary
   for (const side of [-1, 1]) {
     const cx = Math.round(16 + side * 9.6)
     const x = cx - ew / 2
     const y = 8
     g.fillStyle = css(shade(k.colors.head, 0.55)) // brow
-    g.fillRect(x - 1, y - 2, ew + 2, 1)
+    if (k.scary) {
+      // Angry: the brow slopes down toward the nose, over the eye's top.
+      for (let i = 0; i < ew + 2; i++) g.fillRect(x - 1 + i, y - 2 + Math.round(((side < 0 ? i : ew + 1 - i) / (ew + 1)) * 2), 1, 2)
+    } else g.fillRect(x - 1, y - 2, ew + 2, 1)
     g.fillStyle = '#f2efe6' // white
     g.fillRect(x, y, ew, eh)
     g.fillStyle = css(iris)
@@ -367,6 +407,11 @@ function faceTexture(kind, k, seed) {
     g.fillRect(ix + Math.floor(iw / 4), y + Math.floor(eh / 4), 1, 1)
     g.fillStyle = css(shade(k.colors.head, 0.7)) // lower lid
     g.fillRect(x, y + eh, ew, 1)
+  }
+  if (k.scary) {
+    // An old scar down one side of the face.
+    g.fillStyle = css(shade(k.colors.head, 1.6))
+    for (let i = 0; i < 9; i++) g.fillRect(4 + Math.floor(i / 2), 4 + i * 2, 1, 2)
   }
   return pixelTexture(c)
 }
@@ -388,6 +433,14 @@ function snoutTexture(k) {
   g.fillRect(3, 10, 1, 1)
   g.fillRect(12, 10, 1, 1)
   g.fillRect(7, 8, 2, 3)
+  if (k.scary) {
+    // Bared teeth: a dark mouth full of white points, two big fangs.
+    g.fillRect(2, 11, 12, 4)
+    g.fillStyle = '#f2ecdc'
+    for (let x = 3; x < 13; x += 2) g.fillRect(x, 11, 1, 2)
+    g.fillRect(3, 11, 2, 4)
+    g.fillRect(11, 11, 2, 4)
+  }
   return pixelTexture(c)
 }
 
@@ -502,6 +555,11 @@ export class PlayAnimals {
       legMat: mat(k.colors.leg, patchTexture(k.colors.leg, k.colors.leg, kind.length * 53)),
       footMat: mat(k.leg > 0.5 ? 0x2e2620 : shade(k.colors.leg, 0.6)),
       collarMat: mat(0xc0282a),
+      // Scary ones: glowing red eyes (unlit, so they show in the dark) and fangs.
+      eye: k.scary ? new THREE.BoxGeometry(hw * 0.13 * B, hh * 0.1 * B, 0.01 * B) : null,
+      eyeMat: k.scary ? new THREE.MeshBasicMaterial({ color: 0xff2a1a }) : null,
+      fang: k.scary ? box(hw * 0.07, hh * 0.22, hw * 0.07) : null,
+      fangMat: k.scary ? mat(0xf2ecdc) : null,
       legW,
       // Extra boxes (ears, tails, necks, horns...), same order as k.extras.
       extras: (k.extras || []).map((e) => {
@@ -531,6 +589,18 @@ export class PlayAnimals {
     const snout = new THREE.Mesh(p.snout, p.snoutMat)
     snout.position.set(0, -hh * 0.18 * B, (hl / 2 + 0.05) * B)
     head.add(snout)
+    if (p.eye) {
+      // Over the painted eyes (faceTexture puts them 0.3 of the way out).
+      const hw = k.head[0]
+      for (const side of [-1, 1]) {
+        const eye = new THREE.Mesh(p.eye, p.eyeMat)
+        eye.position.set(side * hw * 0.3 * B, hh * 0.18 * B, (hl / 2 + 0.006) * B)
+        head.add(eye)
+        const fang = new THREE.Mesh(p.fang, p.fangMat)
+        fang.position.set(side * hw * 0.17 * B, -hh * 0.42 * B, (hl / 2 + 0.06) * B)
+        head.add(fang)
+      }
+    }
     const collar = new THREE.Mesh(p.collar, p.collarMat)
     collar.position.set(0, -hh * 0.5 * B, -hl * 0.15 * B)
     collar.visible = false
@@ -940,7 +1010,7 @@ export class PlayAnimals {
   }
 
   _dropMeat(a) {
-    for (let i = 0; i < KINDS[a.kind].meat; i++) this.s._drops?.spawnItem('meat', Math.floor(a.x), a.y, Math.floor(a.z))
+    for (let i = 0; i < KINDS[a.kind].meat; i++) this.s._drops?.spawnItem(meatId(a.kind), Math.floor(a.x), a.y, Math.floor(a.z))
   }
 
   // The Use key on an animal you're looking at: tamed.

@@ -2496,7 +2496,7 @@ test('animals, held blocks, sky top bar, no spectate banner, What\'s New card', 
     const pig = A.spawn('pig', ax, cow.y, az)
     const before = s._drops.list.length
     A.damage(pig, 999)
-    out.meat = s._drops.list.filter((d) => d.kind === 'item' && d.type === 'meat').length - before >= 1
+    out.meat = s._drops.list.filter((d) => d.kind === 'item' && d.type === 'meat_pig').length - before >= 1
     // Picked up and eaten: heals.
     s.inv.add({ kind: 'item', id: 'meat', n: 1 })
     const slot = s.inv.hotbar.findIndex((it) => it?.id === 'meat')
@@ -2522,7 +2522,7 @@ test('animals, held blocks, sky top bar, no spectate banner, What\'s New card', 
     bm.toggleMenu()
     return out
   })
-  expect(r).toEqual({ spawned: true, snow: ['arcticFox', 'hare', 'husky', 'lemming', 'muskox', 'polarBear', 'ptarmigan', 'reindeer', 'saiga', 'snowyOwl'], desert: ['armadillo', 'camel', 'caracal', 'cobra', 'coyote', 'fennecFox', 'gecko', 'gerbil', 'gilaMonster', 'hyrax', 'jackal', 'jerboa', 'lizard', 'oryx', 'rattlesnake', 'roadrunner', 'sandCat', 'scorpion', 'snake', 'tarantula', 'tortoise', 'vulture'], sea: true, allBuilt: true, cowsOnlyWarm: ['city', 'mushroomFields', 'plains'], stillHere: true, tamed: true, petSafe: true, follows: true, meat: true, healed: true, handBlock: true, weather: true, time: true, nightVar: true, noBanner: true })
+  expect(r).toEqual({ spawned: true, snow: ['arcticFox', 'hare', 'husky', 'lemming', 'mammoth', 'muskox', 'polarBear', 'ptarmigan', 'reindeer', 'sabertooth', 'saiga', 'snowyOwl'], desert: ['armadillo', 'camel', 'caracal', 'cobra', 'coyote', 'fennecFox', 'gecko', 'gerbil', 'gilaMonster', 'hyrax', 'jackal', 'jackalope', 'jerboa', 'lizard', 'manticore', 'oryx', 'phoenix', 'rattlesnake', 'roadrunner', 'sandCat', 'scorpion', 'snake', 'tarantula', 'tortoise', 'vulture'], sea: true, allBuilt: true, cowsOnlyWarm: ['city', 'mushroomFields', 'plains'], stillHere: true, tamed: true, petSafe: true, follows: true, meat: true, healed: true, handBlock: true, weather: true, time: true, nightVar: true, noBanner: true })
 })
 
 // The spawn map's countries -> states/provinces -> cities (2026-10-18):
@@ -3225,7 +3225,7 @@ test('far grass, cracks on bumpy tops, puffy and falling leaves, dinosaurs', asy
     // Shot: angry, doesn't run.
     A.damage(rex, 10)
     out.rexAngry = rex.angry > 0 && rex.flee === 0
-    // A T. rex is about 5 blocks tall, a Brachiosaurus about 13.
+    // A T. rex is about 8 blocks tall (made huge 2026-10-30), a Brachiosaurus about 13.
     const tallOf = (kind) => { const k = K[kind]; return Math.max(k.leg + k.body[1], k.headAt[0] + k.head[1] / 2) }
     out.rexTall = tallOf('tRex')
     out.brachioTall = tallOf('brachiosaurus')
@@ -3254,8 +3254,8 @@ test('far grass, cracks on bumpy tops, puffy and falling leaves, dinosaurs', asy
   expect(r.rexCame).toBe(true)
   expect(r.bitten).toBe(true)
   expect(r.rexAngry).toBe(true)
-  expect(r.rexTall).toBeGreaterThan(4)
-  expect(r.rexTall).toBeLessThan(6)
+  expect(r.rexTall).toBeGreaterThan(7)
+  expect(r.rexTall).toBeLessThan(9)
   expect(r.brachioTall).toBeGreaterThan(12)
 })
 
@@ -3500,4 +3500,87 @@ test('gun names, real ammo, the scope and no zoom without a gun', async ({ page 
   expect(r.scopeOff).toBe(true)
   expect(r.blockFov).toBe(r.base)
   expect(r.blockScope).toBe(false)
+})
+
+// 2026-10-30: zombies burn in clear sunshine (not in rain or at night),
+// cave zombies are tougher and rarer, every animal drops its own meat,
+// 30 more creatures, bigger meat-eating dinosaurs and scary attackers.
+test('sun-burning zombies, cave zombies, own meat drops, new creatures, scary hunters', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const bm = g.buildMode
+    const s = bm.survival
+    const out = {}
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    s._toSpawn = 0
+    const sky = bm.sky
+    const me = s.bodyPos()
+    // Open sky over a zombie standing on a platform high up.
+    const top = Math.floor(me.y) + 60
+    for (let x = -2; x <= 2; x++) for (let z = -2; z <= 2; z++) bm._placeBlockInner(Math.floor(me.x) + x, top - 1, Math.floor(me.z) + z, 'stone')
+    const zb = s._makeZombie(9001, Math.floor(me.x) + 0.5, top, Math.floor(me.z) + 0.5, 100, false)
+    const still = { x: zb.x, y: zb.y, z: zb.z, idle: true }
+    const run = (weather, night) => {
+      sky._now = weather
+      sky.nightAmount = () => night
+      zb.health = 100
+      zb._sunIn = 0
+      for (let i = 0; i < 20; i++) s._updateZombie(zb, 0.1, still, 0)
+      return zb.health
+    }
+    out.sunny = run('clear', 0) < 95
+    out.rain = run('lightRain', 0) === 100
+    out.snow = run('mediumSnow', 0) === 100
+    out.night = run('clear', 1) === 100
+    // A roof over it: shade saves it.
+    bm._placeBlockInner(Math.floor(zb.x), top + 4, Math.floor(zb.z), 'stone')
+    out.shade = run('clear', 0) === 100
+    s._removeZombie(zb)
+    s.zombies = []
+    // Cave zombies: below the ground, tougher and bite harder.
+    const under = bm.world.under
+    const cx = Math.floor(me.x) + 300
+    const cz = Math.floor(me.z)
+    const deep = under.bottomAt(cx, cz) - 20
+    out.inCave = s._inCave(cx + 0.5, deep, cz + 0.5) && !s._inCave(cx + 0.5, top, cz + 0.5)
+    let cave = null
+    for (let i = 0; i < 60 && !cave; i++) if (s._spawnZombie([[cx, deep, cz]])) cave = s.zombies[s.zombies.length - 1]
+    let open = null
+    for (let i = 0; i < 60 && !open; i++) if (s._spawnZombie([[cx, top, cz]])) open = s.zombies[s.zombies.length - 1]
+    out.caveTougher = cave?.cave === true && !!open && !open.cave
+    let skipped = 0
+    for (let i = 0; i < 200; i++) if (!s._spawnZombie([[cx, deep, cz]])) skipped++
+    out.caveRarer = skipped > 60 && skipped < 160
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    // Every animal its own meat, named for it.
+    const label = (kind) => s.inv._label({ kind: 'item', id: `meat_${kind}` })
+    out.meats = ['cow', 'pig', 'sheep', 'chicken', 'deer', 'lion', 'salmon', 'duck', 'dragon'].map(label)
+    const A = s.animals
+    const K = A.constructor.KINDS
+    out.allMeat = Object.keys(K).every((kind) => !label(kind).includes('{'))
+    // 30 more creatures, all named in every language.
+    const added = ['ox', 'rooster', 'mammoth', 'sabertooth', 'mantisShrimp', 'seaCucumber', 'frigatebird', 'blobfish', 'stonefish', 'leech', 'cockroach', 'termite', 'sponge', 'conch', 'queenAnt', 'soldierAnt', 'darkLadybug', 'dragon', 'unicorn', 'pegasus', 'griffin', 'phoenix', 'kraken', 'yeti', 'sasquatch', 'jackalope', 'cerberus', 'hydra', 'lakeMonster', 'manticore']
+    out.creatures = added.filter((id) => K[id]).length
+    out.yetiTall = Math.round((K.yeti.headAt[0] + K.yeti.head[1] / 2) * 10) / 10
+    // Built, and an attacker has glowing red eyes and fangs.
+    const dragon = A.spawn('dragon', me.x + 30, me.y, me.z)
+    out.dragonEyes = dragon.head.children.filter((m) => m.material?.type === 'MeshBasicMaterial').length
+    out.scary = K.wolf.scary === true && K.tRex.scary === true && !K.cow.scary && !K.unicorn.scary
+    out.bigRex = K.tRex.body[0] > 4 && K.tRex.health >= 1600
+    A.clearAll()
+    return out
+  })
+  expect(r).toEqual({
+    sunny: true, rain: true, snow: true, night: true, shade: true,
+    inCave: true, caveTougher: true, caveRarer: true,
+    meats: ['Raw Beef', 'Raw Pork', 'Raw Mutton', 'Raw Chicken', 'Raw Venison', 'Raw Lion Meat', 'Raw Salmon', 'Raw Duck', 'Raw Dragon Meat'],
+    allMeat: true, creatures: 30, yetiTall: 2, dragonEyes: 2, scary: true, bigRex: true,
+  })
 })
