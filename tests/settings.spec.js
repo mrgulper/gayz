@@ -233,3 +233,43 @@ test('graphics levels: picked for the device, cards switch the look', async ({ p
   expect(r.real).toBe(1)
   expect(r.potato).toEqual({ res: 40, real: 0, detail: 1 })
 })
+
+// 2026-10-30: the homepage settings moved from Controls to General, keys
+// got their own heading, the Drop key is listed, and General keeps a list
+// of every setting you change.
+test('homepage settings live in General, and General lists your settings changes', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const general = document.getElementById('settings-page-general')
+    const controls = document.getElementById('settings-page-controls')
+    const ids = ['nav-order-list', 'bg-mood-select', 'weather-particles-toggle', 'homepage-fps-toggle', 'accent-color-picker', 'layout-density-select', 'cursor-trail-toggle']
+    const out = {
+      inGeneral: ids.filter((id) => general.contains(document.getElementById(id))).length,
+      inControls: ids.filter((id) => controls.contains(document.getElementById(id))).length,
+      keyHeading: controls.contains(document.getElementById('settings-section-key-bindings')),
+    }
+    g._renderControlsGrid()
+    out.dropKey = document.getElementById('controls-grid').textContent.includes('Drop Item')
+    // A toggle and a list, the way a player changes them.
+    document.getElementById('settings-log-clear').click()
+    const fps = document.getElementById('homepage-fps-toggle')
+    const was = fps.checked
+    fps.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    fps.click()
+    const mood = document.getElementById('bg-mood-select')
+    mood.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+    mood.value = 'bloodmoon'
+    mood.dispatchEvent(new Event('change', { bubbles: true }))
+    await new Promise((res) => setTimeout(res, 50))
+    const rows = [...document.querySelectorAll('#settings-log-list .settings-log-row')].map((row) => row.querySelector('.settings-log-what').textContent)
+    out.rows = rows
+    out.fpsRow = rows.some((t) => t.includes('Show FPS Counter on Homepage') && t.includes(was ? 'On → Off' : 'Off → On'))
+    out.moodRow = rows[0]?.includes('Homepage Background Mood') && rows[0]?.includes('Blood Moon')
+    out.saved = JSON.parse(localStorage.getItem('gayz-settings-log')).length
+    document.getElementById('settings-log-clear').click()
+    out.cleared = document.querySelectorAll('#settings-log-list .settings-log-row').length === 0 && !!document.querySelector('#settings-log-list .settings-log-empty')
+    return out
+  })
+  expect(r).toMatchObject({ inGeneral: 7, inControls: 0, keyHeading: true, dropKey: true, fpsRow: true, moodRow: true, saved: 2, cleared: true })
+})

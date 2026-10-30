@@ -19,11 +19,21 @@
 // Pointing at an item (in the panel or on the hotbar) shows a card with its
 // name and what it does (#play-item-tip, 2026-10-26); on phones, holding a
 // finger on it shows the card for a moment.
+// Drop and Lock (2026-10-30, Gaymi: "a Q for dropping items in game" and a
+// lock so "you can't drop unless you unlock it"): the Drop key (Q, Settings >
+// Controls) throws one of the held item forward - or, with the panel open,
+// one of the item under the pointer. Right-click a slot (double-tap on
+// phones) locks it: a lock shows on its corner and it can't be dropped.
+// Guns are never dropped (you carry just the one).
 import { t } from './i18n.js'
+import { getKeyFor, keyLabel } from './Keybinds.js'
 import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, canPlayWeapon } from './PlayWeapons.js'
 
 // How long the item card stays after a finger lets go (phones).
 const TIP_TOUCH_MS = 1600
+// Two taps on the same slot this close together lock / unlock it (phones).
+const DOUBLE_TAP_MS = 350
+const LOCK_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="2.5" y="7" width="11" height="8" rx="1.5" fill="currentColor"/></svg>'
 
 export const GRID_SIZE = 100
 export const HOTBAR_SIZE = 10
@@ -146,6 +156,7 @@ export class PlayInventory {
           const k = Math.min(left, max - it.n)
           it.n += k
           left -= k
+          if (item.lk) it.lk = 1
         }
       }
     }
@@ -153,7 +164,7 @@ export class PlayInventory {
       for (let i = 0; i < list.length && left > 0; i++) {
         if (list[i]) continue
         const k = Math.min(left, max)
-        list[i] = { kind: item.kind, id: item.id, n: k }
+        list[i] = { kind: item.kind, id: item.id, n: k, ...(item.lk ? { lk: 1 } : {}) }
         left -= k
       }
     }
@@ -250,6 +261,52 @@ export class PlayInventory {
     if (this.open) this.render()
   }
 
+  // Locks or unlocks a slot's item (right-click / double-tap).
+  toggleLock(where, i) {
+    const it = this._list(where)[i]
+    if (!it) return false
+    if (it.lk) delete it.lk
+    else it.lk = 1
+    this.s._message(t(it.lk ? 'invLocked' : 'invUnlocked', { name: this._label(it) }))
+    this.renderHotbar()
+    if (this.open) this.render()
+    return true
+  }
+
+  // The Drop key: one of the item in a slot (the held one by default)
+  // thrown forward on the ground. Locked items and guns stay.
+  drop(where = 'hotbar', i = this.active) {
+    const it = this._list(where)[i]
+    if (!it || this.s.dead) return false
+    if (it.lk) {
+      this.s._message(t('invDropLocked'))
+      return false
+    }
+    if (it.kind === 'gun') {
+      this.s._message(t('invDropGun'))
+      return false
+    }
+    const drops = this.s._drops
+    const tm = this.bm.tryMode
+    if (!drops || !tm?.pos) return false
+    const yaw = this.bm._yaw || 0
+    const toss = { dx: -Math.sin(yaw), dz: -Math.cos(yaw) }
+    const x = tm.pos.x + toss.dx * 0.6
+    const y = tm.pos.y + 1.1
+    const z = tm.pos.z + toss.dz * 0.6
+    const ok = it.kind === 'block' ? drops.spawn(it.id, x, y, z, toss) : drops.spawnItem(it.id, x, y, z, toss)
+    if (!ok) return false
+    this._take(this._list(where), i, 1)
+    return true
+  }
+
+  // Q with the panel open: the item under the pointer (or the held one).
+  dropHovered() {
+    const h = this._hover
+    if (h && this._list(h.where)[h.i]) return this.drop(h.where, h.i)
+    return this.drop()
+  }
+
   // Worn armor's share of a hit taken away.
   damageCut() {
     const pts = this.armor.reduce((sum, it) => sum + (it ? ITEMS[it.id]?.armor || 0 : 0), 0)
@@ -257,7 +314,7 @@ export class PlayInventory {
   }
 
   serialize() {
-    const one = (it) => (it ? [it.kind, it.id, it.n] : 0)
+    const one = (it) => (it ? (it.lk ? [it.kind, it.id, it.n, 1] : [it.kind, it.id, it.n]) : 0)
     return { g: this.grid.map(one), h: this.hotbar.map(one), a: this.armor.map(one), act: this.active }
   }
 
@@ -266,11 +323,12 @@ export class PlayInventory {
     if (!d || typeof d !== 'object') return false
     const ok = (v) => {
       if (!Array.isArray(v)) return null
-      const [kind, id, n] = v
+      const [kind, id, n, lk] = v
       const count = Math.max(1, Math.min(BLOCK_STACK, Math.floor(Number(n) || 1)))
-      if (kind === 'gun' && PLAY_WEAPONS[id]) return { kind, id: canPlayWeapon(id) ? id : DEFAULT_PLAY_WEAPON, n: 1 }
-      if (kind === 'item' && ITEMS[id]) return { kind, id, n: Math.min(count, stackOf({ kind, id })) }
-      if (kind === 'block' && typeof id === 'string' && /^[a-z0-9]{1,40}$/.test(id) && this.bm.isBlockType(id)) return { kind, id, n: count }
+      const lock = lk === 1 ? { lk: 1 } : {}
+      if (kind === 'gun' && PLAY_WEAPONS[id]) return { kind, id: canPlayWeapon(id) ? id : DEFAULT_PLAY_WEAPON, n: 1, ...lock }
+      if (kind === 'item' && ITEMS[id]) return { kind, id, n: Math.min(count, stackOf({ kind, id })), ...lock }
+      if (kind === 'block' && typeof id === 'string' && /^[a-z0-9]{1,40}$/.test(id) && this.bm.isBlockType(id)) return { kind, id, n: count, ...lock }
       return null
     }
     const fill = (list, src) => list.forEach((_, i) => { list[i] = ok(Array.isArray(src) ? src[i] : null) })
@@ -359,8 +417,9 @@ export class PlayInventory {
     const icon = this._icon(it)
     const count = it && it.n > 1 ? `<span class="inv-slot-count">${it.n}</span>` : ''
     const img = icon ? `<img src="${icon}" alt="" draggable="false">` : ''
+    const lock = it?.lk ? `<span class="inv-slot-lock">${LOCK_SVG}</span>` : ''
     const title = it ? ` aria-label="${this._label(it).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}"` : ''
-    return `<div class="inv-slot${it?.kind === 'gun' ? ' gun' : ''}${extra}" data-where="${where}" data-i="${i}"${title}>${img}${count}</div>`
+    return `<div class="inv-slot${it?.kind === 'gun' ? ' gun' : ''}${it?.lk ? ' locked' : ''}${extra}" data-where="${where}" data-i="${i}"${title}>${img}${count}${lock}</div>`
   }
 
   // The always-on-screen hotbar (#build-hotbar) in a game.
@@ -387,6 +446,7 @@ export class PlayInventory {
         c.textContent = String(it.n)
         slot.appendChild(c)
       }
+      if (it?.lk) slot.insertAdjacentHTML('beforeend', `<span class="inv-slot-lock">${LOCK_SVG}</span>`)
       slot.addEventListener('click', () => this.select(i))
       el.appendChild(slot)
     })
@@ -416,10 +476,14 @@ export class PlayInventory {
     el.addEventListener('pointermove', (e) => {
       if (e.pointerType === 'touch') return
       const slot = e.target.closest('.inv-slot')
+      this._hover = slot ? { where: slot.dataset.where, i: Number(slot.dataset.i) } : null
       if (!slot) return this._hideTip()
       this._showTip(this._list(slot.dataset.where)[Number(slot.dataset.i)], e.clientX, e.clientY)
     })
-    el.addEventListener('pointerleave', () => this._hideTip())
+    el.addEventListener('pointerleave', () => {
+      this._hover = null
+      this._hideTip()
+    })
   }
 
   render() {
@@ -433,7 +497,7 @@ export class PlayInventory {
       <div class="inv-armor">${armor}</div>
       <div class="inv-grid">${grid}</div>
       <div class="inv-hotbar">${bar}</div>
-      <p class="inv-hint">${t('invHint')}</p>
+      <p class="inv-hint">${t('invHint', { drop: keyLabel(getKeyFor('dropItem')) })}</p>
     </div>`
   }
 
@@ -459,6 +523,11 @@ export class PlayInventory {
     }
     if (!it) return
     e.preventDefault()
+    // Right-click: lock / unlock.
+    if (e.button === 2) {
+      this.toggleLock(slot.dataset.where, i)
+      return
+    }
     // Shift-click: straight between the hotbar and the grid (armor goes on).
     if (e.shiftKey) {
       this._quickMove(slot.dataset.where, i)
@@ -497,6 +566,17 @@ export class PlayInventory {
       if (d.where === 'hotbar') {
         this.select(d.i)
         this.render()
+      }
+      // A finger's second tap on the same slot locks / unlocks it.
+      if (e.pointerType === 'touch') {
+        const now = performance.now()
+        const last = this._lastTap
+        this._lastTap = { where: d.where, i: d.i, at: now }
+        if (last && last.where === d.where && last.i === d.i && now - last.at < DOUBLE_TAP_MS) {
+          this._lastTap = null
+          this.toggleLock(d.where, d.i)
+          return
+        }
       }
       if (e.pointerType === 'touch') {
         const slot = this._el.querySelector(`.inv-slot[data-where="${d.where}"][data-i="${d.i}"]`)

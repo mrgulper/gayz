@@ -1136,6 +1136,7 @@ html.ui-theme-old #inv-skin-menu button {
 }
 html.ui-theme-old #inv-skin-menu button:not(:disabled):hover { background: #e0c58e; filter: none; }
 html.ui-theme-old #inv-skin-menu-sell { border-color: #a8321f; }
+html.ui-theme-old .inv-skin-card-lock { color: #7a4e24; filter: drop-shadow(0 1px 0 rgba(255, 240, 200, 0.8)); }
 html.ui-theme-old #trade-dialog-box {
   background: #f1e0b8;
   border-color: #7a4e24;

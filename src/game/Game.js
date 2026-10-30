@@ -314,6 +314,9 @@ function loadSettings() {
       // data URL so it survives a reload without needing a server. null
       // means "no custom skin, use the default flat-color character."
       customSkinDataUrl: typeof parsed.customSkinDataUrl === 'string' ? parsed.customSkinDataUrl : null,
+      // Locked skins/guns in the Inventory ('character:<id>' / 'weapon:<id>',
+      // InventoryUI.js): no Market or Sell while locked.
+      lockedSkins: Array.isArray(parsed.lockedSkins) ? parsed.lockedSkins.filter((x) => typeof x === 'string' && x.length <= 80).slice(0, 1000) : [],
       // Profile bio - free text, capped at 250 chars (see _renderProfileBio).
       // 5000, not a hard product decision so much as "no real limit, but
       // still some sane ceiling" (2026-09-23, explicit "write as much as
@@ -528,7 +531,7 @@ function _loadNavOrder(saved) {
 }
 
 export function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, disasterBreakAll: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, clanXp: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, graphicsLevel: null, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', cleanColor: CLEAN_DEFAULT_COLOR, playBiomeLook: true, playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, disasterBreakAll: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, clanXp: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, lockedSkins: [], bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, graphicsLevel: null, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', cleanColor: CLEAN_DEFAULT_COLOR, playBiomeLook: true, playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
 }
 
 
@@ -1418,7 +1421,9 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'settings-section-account-data': 'settingsSectionAccountData',
   'settings-section-social': 'settingsSectionSocial',
   'settings-section-homepage': 'settingsSectionHomepage',
-  'settings-section-homepage-2': 'settingsSectionHomepage',
+  'settings-section-key-bindings': 'settingsSectionKeyBindings',
+  'settings-section-settings-log': 'settingsSectionSettingsLog',
+  'settings-log-clear': 'settingsLogClear',
   'settings-section-accessibility': 'settingsSectionAccessibility',
   'settings-section-accessibility-2': 'settingsSectionAccessibility',
   'settings-section-misc': 'settingsSectionMisc',
@@ -2547,6 +2552,7 @@ export class Game {
     this.invSkinMenuEquip = document.getElementById('inv-skin-menu-equip')
     this.invSkinMenuInspect = document.getElementById('inv-skin-menu-inspect')
     this.invSkinMenuSell = document.getElementById('inv-skin-menu-sell')
+    this.invSkinMenuLock = document.getElementById('inv-skin-menu-lock')
     this.invSkinMenuMarket = document.getElementById('inv-skin-menu-market')
     this.tradeDialog = document.getElementById('trade-dialog')
     this.tradeDialogTitle = document.getElementById('trade-dialog-title')
@@ -3668,6 +3674,7 @@ export class Game {
   _equippedInventorySkinId() { return InventoryUI._equippedInventorySkinId(this) }
 
   _renderInventorySkins() { return InventoryUI._renderInventorySkins(this) }
+  _toggleSkinLock(kind, id) { return InventoryUI._toggleSkinLock(this, kind, id) }
 
   _renderInventorySkinPreview() { return InventoryUI._renderInventorySkinPreview(this) }
 

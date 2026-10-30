@@ -1138,7 +1138,7 @@ test('Settings > Controls keys drive walking in Map 1', async ({ page }) => {
     rebind('moveForward', 'KeyW')
     return { ids, withW, withI, withArrow }
   })
-  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap', 'cameraView'])
+  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap', 'cameraView', 'dropItem'])
   expect(result.withW).toBeLessThan(0.01)
   expect(result.withI).toBeGreaterThan(2)
   expect(result.withArrow).toBeGreaterThan(2)
@@ -1413,7 +1413,7 @@ test('thin bamboo, new blocks and the three map sizes', async ({ page }) => {
 })
 
 // All 26 biomes are out there, within a long walk of the city.
-test('Map 1 has 200 layers underground with ores, caves and walk-in entrances', async ({ page }) => {
+test('Map 1 has 500 layers underground with ores, caves, walk-in entrances and the Demon Realm', async ({ page }) => {
   await gotoAndWaitForGame(page)
 
   const r = await page.evaluate(async () => {
@@ -1431,17 +1431,18 @@ test('Map 1 has 200 layers underground with ores, caves and walk-in entrances', 
       let holes = 0
       let y = 60
       while (y > -1 && !b._blocks.has(`${x},${y},${z}`)) y--
-      for (; y >= -205; y--) {
+      for (; y >= -505; y--) {
         // Fallen into a cave: its walls (and floor) grow around you.
         if (!b._blocks.has(`${x},${y},${z}`)) u._grow(Math.floor(x / 16), Math.floor(y / 16), Math.floor(z / 16))
         const type = b._blocks.get(`${x},${y},${z}`)
         if (!type) continue
         types.add(type)
-        if (type === 'bedrock' && y <= -200) break
+        if (type === 'bedrock' && y <= -500) break
         b.removeBlock(x, y, z)
         for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
           const k = `${x + dx},${y},${z + dz}`
-          if (!b._blocks.has(k)) holes++
+          // (The Demon Realm's caverns are open on purpose.)
+          if (!b._blocks.has(k)) holes += y > -300 ? 1 : 0
           else types.add(b._blocks.get(k))
         }
       }
@@ -1451,8 +1452,8 @@ test('Map 1 has 200 layers underground with ores, caves and walk-in entrances', 
     const land = dig(90, 2)
     const city = dig(3, 5)
     const all = new Set([...land.types, ...city.types])
-    out.endsOnBedrock = land.end === -200 && city.end === -200
-    out.layers = ['stone', 'tuff', 'deepslate', 'smoothbasalt', 'blackstone', 'bedrock'].filter((t) => !all.has(t))
+    out.endsOnBedrock = land.end === -500 && city.end === -500
+    out.layers = ['stone', 'tuff', 'deepslate', 'smoothbasalt', 'blackstone', 'netherrack', 'bedrock'].filter((t) => !all.has(t))
     out.ore = [...all].some((t) => /ore$/.test(t))
     // (A cave crossing the shaft is a real opening, not a hole.)
     out.fewHoles = land.holes + city.holes < 40
@@ -2331,10 +2332,10 @@ test('Spectate keeps zombies off the camera, bedrock floor, thrown knife, invent
     out.reloading = s._reloadLeft > 0
     s._reloadLeft = 0
     // Down to the bottom: stops on the bedrock floor.
-    bm.camera.position.y = -400 * B
+    bm.camera.position.y = -800 * B
     bm.update(1 / 30)
     const floor = bm.scene.getObjectByName('spectate-bedrock-floor')
-    out.floor = [!!floor?.visible, bm.camera.position.y / B > -200, bm.camera.position.y / B < -199]
+    out.floor = [!!floor?.visible, bm.camera.position.y / B > -500, bm.camera.position.y / B < -499]
     bm.toggleMenu()
     out.floorHidden = !floor.visible
     bm.toggleMenu()
@@ -3735,4 +3736,148 @@ test('smooth weather, wind, sky lightning, disasters and impact luck', async ({ 
     luckier: true,
   })
   expect(Object.values(r.disasters).every(Boolean)).toBe(true)
+})
+
+// 2026-10-30: Q drops the held item and Lock keeps it; Heaven (cloud
+// floor, islands) grows up high and goes again below; giant Heaven's
+// Peaks reach it; the Demon Realm under y -300 with bedrock at -500; and
+// angels, demons and sea zombies where they live.
+test('drop key and item lock, Heaven, Heaven\'s Peaks, the Demon Realm and realm zombies', async ({ page }) => {
+  test.setTimeout(180000)
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const bm = g.buildMode
+    const s = bm.survival
+    const inv = s.inv
+    const out = {}
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    s._toSpawn = 0
+    // --- Drop (Q) and Lock ---
+    inv.hotbar[3] = { kind: 'block', id: 'stone', n: 5 }
+    inv.select(3)
+    const drops = s._drops.list.length
+    s.onKeyDown('KeyQ')
+    out.dropped = inv.hotbar[3]?.n === 4 && s._drops.list.length === drops + 1
+    out.waits = s._drops.list[s._drops.list.length - 1].wait > 2
+    inv.toggleLock('hotbar', 3)
+    out.lockedStays = inv.drop() === false && inv.hotbar[3].n === 4
+    out.saveKeepsLock = (() => {
+      const saved = inv.serialize()
+      inv.hotbar[3] = null
+      inv.restore(saved)
+      return inv.hotbar[3]?.lk === 1
+    })()
+    inv.show(true)
+    out.lockIcon = !!document.querySelector('#play-inventory .inv-slot[data-where="hotbar"][data-i="3"] .inv-slot-lock')
+    inv.show(false)
+    inv.toggleLock('hotbar', 3)
+    out.unlockedDrops = inv.drop() === true && inv.hotbar[3].n === 3
+    inv.select(0)
+    out.gunStays = inv.drop() === false && inv.hotbar[0]?.kind === 'gun'
+    inv.hotbar[3] = { kind: 'item', id: 'healthpack', n: 1 }
+    out.itemDrops = inv.drop('hotbar', 3) === true && inv.hotbar[3] === null
+    // --- Heaven ---
+    const world = bm.world
+    const peakIn = world.peakIn
+    const sampleLand = (x, z) => world.landAt(x, z)
+    const HEAVEN_FLOOR = world.heaven.constructor.FLOOR
+    const { BOTTOM, DEMON_TOP, rockAt, demonOpen } = world.under.constructor
+    const me = s.bodyPos()
+    const hx = Math.floor(me.x) + 2000
+    const hz = Math.floor(me.z)
+    for (let i = 0; i < 600 && world.heaven.cols.size < 113; i++) world.heaven.update({ x: hx, y: 330, z: hz })
+    let cloud = 0
+    let other = new Set()
+    for (let x = hx - 90; x < hx + 90; x++) {
+      for (let z = hz - 90; z < hz + 90; z++) {
+        if (Math.abs(x - hx) < 40 && Math.abs(z - hz) < 40 && bm.getBlockAt(x, HEAVEN_FLOOR, z) === 'whitewool') cloud++
+        for (let y = 318; y <= 490; y += 1) {
+          const b = bm.getBlockAt(x, y, z)
+          if (b) other.add(b)
+        }
+      }
+    }
+    out.cloudFloor = cloud > 80 * 80 * 0.6
+    out.islands = other.has('quartzpillar') && (other.has('smoothquartz') || other.has('calcite') || other.has('grass'))
+    world.heaven.update({ x: hx, y: 100, z: hz })
+    out.heavenGoes = world.heaven.cols.size === 0 && !bm.getBlockAt(hx, HEAVEN_FLOOR, hz)
+    // --- Heaven's Peaks ---
+    let peak = null
+    for (let gx = -3; gx <= 3 && !peak; gx++) for (let gz = -3; gz <= 3 && !peak; gz++) {
+      const p = peakIn(gx, gz)
+      if (p && sampleLand(p.x, p.z).h > HEAVEN_FLOOR) peak = p
+    }
+    out.peak = !!peak
+    if (peak) {
+      const h = (dx) => sampleLand(peak.x + dx, peak.z).h
+      out.peakTall = h(0) > HEAVEN_FLOOR && h(0) < 380
+      // Climbable: roughly a block up per cell on its side.
+      let steep = 0
+      for (let dx = 20; dx < 300; dx++) if (Math.abs(h(dx) - h(dx + 1)) > 2) steep++
+      out.peakClimbable = steep < 15
+    }
+    // --- the Demon Realm ---
+    out.bottom = BOTTOM === -500 && DEMON_TOP === -300
+    out.bedrock = rockAt(hx, BOTTOM, hz) === 'bedrock' && rockAt(hx, -250, hz) !== 'bedrock'
+    out.demonRock = ['netherrack', 'soulsand', 'blackstone', 'magmablock', 'netherbrick'].includes(rockAt(hx, -400, hz))
+    let openCells = 0
+    let n = 0
+    for (let x = 0; x < 200; x += 7) for (let y = -480; y < -310; y += 5) for (let z = 0; z < 200; z += 7) { n++; if (demonOpen(hx + x, y, hz + z)) openCells++ }
+    out.caverns = openCells / n > 0.25 && openCells / n < 0.75
+    out.noDemonUpHigh = !demonOpen(hx, -150, hz)
+    // --- realm zombies ---
+    const kinds = (realm) => {
+      const seen = new Set()
+      for (let i = 0; i < 40; i++) if (s._spawnZombie([realm])) seen.add(s.zombies[s.zombies.length - 1].kind)
+      for (const z of [...s.zombies]) s._removeZombie(z)
+      s.zombies = []
+      return [...seen].sort()
+    }
+    out.heavenKinds = kinds([hx, HEAVEN_FLOOR + 1, hz])
+    out.demonKinds = kinds([hx, -400, hz])
+    // (Away from the camp - nothing comes up inside it.)
+    const wx = Math.floor(me.x) + 300
+    const wz = Math.floor(me.z) + 6
+    const wy = 200
+    bm._placeBlockInner(wx, wy, wz, 'water')
+    bm._placeBlockInner(wx, wy + 1, wz, 'water')
+    const sea = kinds([wx, wy, wz])
+    out.oceanKinds = sea.filter((k) => ['drowned', 'sharkman', 'jelly', 'angler'].includes(k)).length >= 2
+    // Every new kind is built, moves, and stands about 2 blocks tall.
+    const sizes = {}
+    for (const k of [...out.heavenKinds, ...out.demonKinds, 'drowned', 'sharkman', 'jelly', 'angler']) {
+      const zb = s._makeZombie(9100, me.x + 4, me.y, me.z + 4, 100, false, k)
+      zb.group.position.set(zb.x * s.B, zb.y * s.B, zb.z * s.B)
+      zb.monster.update(0.1, 1)
+      zb.monster.root.updateMatrixWorld(true)
+      let box = null
+      zb.monster.root.traverse((o) => {
+        if (!o.isMesh) return
+        o.geometry.computeBoundingBox()
+        const b = o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld)
+        box = box ? box.union(b) : b
+      })
+      // From its feet to the top of its head (floating ones hang above).
+      sizes[k] = Math.round((box.max.y / s.B - zb.y) * 10) / 10
+      s._removeZombie(zb)
+    }
+    s.zombies = []
+    out.tallEnough = Object.entries(sizes).filter(([k, h]) => k !== 'hellhound' && (h < 1.7 || h > 2.6)).map(([k, h]) => `${k} ${h}`)
+    return out
+  })
+  expect(r).toEqual({
+    dropped: true, waits: true, lockedStays: true, saveKeepsLock: true, lockIcon: true, unlockedDrops: true, gunStays: true, itemDrops: true,
+    cloudFloor: true, islands: true, heavenGoes: true,
+    peak: true, peakTall: true, peakClimbable: true,
+    bottom: true, bedrock: true, demonRock: true, caverns: true, noDemonUpHigh: true,
+    heavenKinds: ['angel', 'archangel', 'cherub', 'seraph'],
+    demonKinds: ['demon', 'fiend', 'hellhound', 'imp'],
+    oceanKinds: true, tallEnough: [],
+  })
 })

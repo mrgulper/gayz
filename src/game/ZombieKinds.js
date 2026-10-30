@@ -23,6 +23,22 @@
 //   hurting everyone (and every zombie) close by.
 // - skinny: a tall, thin, pale runner. Very fast, very weak.
 //
+// Twelve more that only live in one place (2026-10-30, Gaymi: "make
+// demons underground but in heaven make angels", "ocean will have new
+// zombies") - `realm` says where; they never join the usual mix
+// (BuildSurvival._spawnZombie picks them by where a zombie appears):
+// - heaven (HeavenRealm.js, y 300+): angel (white robe, halo, wings),
+//   seraph (a floating eye in six wings), archangel (gold armour and a
+//   sword - big and tough), cherub (a small floating winged child).
+//   Angels never burn in the sun.
+// - demon (the Demon Realm, below y -300): imp (thin, horned, quick),
+//   hellhound (a burning dog), demon (a huge horned brute with bat
+//   wings), fiend (a hunched clawed ghoul).
+// - ocean (in or by the sea): drowned (soggy, seaweed-wrapped), sharkman
+//   (a shark's head and fin), jelly (a glowing jellyfish), angler (a
+//   deep-sea fish-man with a glowing lure).
+// Parts marked `glow` are drawn unlit (always bright): halos, eyes, lures.
+//
 // Built from boxes (model units: blocks), every face painted procedurally
 // 16x16 and drawn crisp, so they match the block world. A monster's
 // geometry and pictures are shared by every monster of its kind; each one
@@ -44,7 +60,26 @@ export const MONSTER_KINDS = {
   brute: { hp: 3, speed: 0.6, damage: 2, tall: 1, wide: 1.7 },
   bloater: { hp: 1.2, speed: 0.75, damage: 1, tall: 1, wide: 1.4, burst: 3.5 },
   skinny: { hp: 0.6, speed: 1.45, damage: 0.85, tall: 1 },
+  angel: { hp: 1.3, speed: 1.1, damage: 1.1, tall: 1, realm: 'heaven', noSun: true, waves: false },
+  seraph: { hp: 1, speed: 1.3, damage: 1, tall: 1, realm: 'heaven', noSun: true, waves: false },
+  archangel: { hp: 2.6, speed: 0.85, damage: 1.8, tall: 1, wide: 1.3, realm: 'heaven', noSun: true, waves: false },
+  cherub: { hp: 0.7, speed: 1.4, damage: 0.8, tall: 1, realm: 'heaven', noSun: true, waves: false },
+  imp: { hp: 0.8, speed: 1.5, damage: 0.9, tall: 1, realm: 'demon', waves: false },
+  hellhound: { hp: 0.9, speed: 1.65, damage: 1.1, tall: 0.6, realm: 'demon', waves: false },
+  demon: { hp: 3, speed: 0.7, damage: 2, tall: 1, wide: 1.5, realm: 'demon', waves: false },
+  fiend: { hp: 1.4, speed: 1, damage: 1.4, tall: 1, realm: 'demon', waves: false },
+  drowned: { hp: 1.1, speed: 0.95, damage: 1, tall: 1, realm: 'ocean', waves: false },
+  sharkman: { hp: 1.6, speed: 1.2, damage: 1.5, tall: 1, realm: 'ocean', waves: false },
+  jelly: { hp: 0.8, speed: 0.8, damage: 1.2, tall: 1, realm: 'ocean', waves: false },
+  angler: { hp: 1.4, speed: 0.9, damage: 1.3, tall: 1, realm: 'ocean', waves: false },
 }
+
+// Kinds animated by the shared realm moves (makeMonster's update).
+const REALM_ANIM = new Set(Object.keys(MONSTER_KINDS).filter((k) => MONSTER_KINDS[k].realm))
+
+// The kinds that live in each realm.
+export const REALM_KINDS = { heaven: [], demon: [], ocean: [] }
+for (const [id, k] of Object.entries(MONSTER_KINDS)) if (k.realm) REALM_KINDS[k.realm].push(id)
 
 function rng(seed) {
   let a = seed >>> 0
@@ -91,6 +126,18 @@ const BLOAT = ['#9aaa6a', '#8a9a5c', '#a8b878', '#7c8c50', '#b4b07a']
 const SHELL = ['#2a2230', '#231c29', '#33293a', '#1c1621']
 const PALE = ['#b8bfa2', '#a9b094', '#c4caaf', '#9aa286']
 const BRUTE = ['#56703a', '#4b6332', '#607c42', '#3f5429', '#6a6a3e']
+const ROBE = ['#f4f1e8', '#e9e4d6', '#fbf9f2', '#ded8c6']
+const GOLD = ['#f2c94c', '#e5b83a', '#f8d870', '#d4a52c']
+const HOLY_SKIN = ['#f3dcc4', '#ecd2b8', '#f7e4d0']
+const FEATHER = ['#ffffff', '#f2f0ea', '#e6e3da', '#fbfaf6']
+const RED_SKIN = ['#b3261e', '#9e2019', '#c43327', '#86190f']
+const HELL_FUR = ['#2a1210', '#36160f', '#1f0d0b', '#4a1a10']
+const BAT = ['#3a1418', '#2d0f12', '#47191d']
+const DROWNED = ['#4f8a86', '#447a76', '#5b9a94', '#3a6a66']
+const KELP = ['#2f6a2a', '#3a7a30', '#285a22', '#4a8a3a']
+const SHARK = ['#7d8c99', '#6f7e8b', '#8a99a6', '#64727e']
+const JELLY = ['#f29ad8', '#e888cc', '#f7b0e2', '#d978c0']
+const DEEP = ['#2a3040', '#232838', '#323a4c', '#1c2130']
 
 // Patches of darker rot and a few wounds.
 const rot = (set, r, n = 6) => {
@@ -213,6 +260,97 @@ function kindPictures() {
       set(10, 10, '#e8e0c0', 2, 2)
     }),
     bone: paint(27, ['#d8d0b8', '#c8c0a6', '#e4dcc6']),
+    // Heaven.
+    robe: paint(30, ROBE, (set, r) => {
+      for (let i = 0; i < 3; i++) set(Math.floor(r() * 15), 0, '#d8cfb4', 1, 16)
+      set(0, 14, '#e5c158', 16, 1)
+    }),
+    holySkin: paint(31, HOLY_SKIN),
+    holyFace: paint(32, HOLY_SKIN, (set) => {
+      set(3, 5, '#fff7c2', 4, 3)
+      set(9, 5, '#fff7c2', 4, 3)
+      set(4, 6, '#ffd23a', 2, 1)
+      set(10, 6, '#ffd23a', 2, 1)
+      set(5, 11, '#7a3a2a', 6, 1)
+    }),
+    gold: paint(33, GOLD, (set, r) => {
+      for (let i = 0; i < 6; i++) set(Math.floor(r() * 15), Math.floor(r() * 15), '#fff0a8', 2, 1)
+    }),
+    feather: paint(34, FEATHER, (set) => {
+      for (let y = 2; y < 16; y += 3) set(0, y, '#d6d2c6', 16, 1)
+    }),
+    eye: paint(35, FEATHER, (set) => {
+      set(3, 3, '#7ac8ff', 10, 10)
+      set(5, 5, '#1a3a8a', 6, 6)
+      set(7, 7, '#050a1a', 2, 2)
+      set(5, 4, '#ffffff', 2, 1)
+    }),
+    // The Demon Realm.
+    redSkin: paint(40, RED_SKIN, (set, r) => {
+      for (let i = 0; i < 5; i++) set(Math.floor(r() * 15), Math.floor(r() * 15), '#5a0c08', 1, 2)
+    }),
+    demonFace: paint(41, RED_SKIN, (set) => {
+      set(2, 4, '#120404', 5, 3)
+      set(9, 4, '#120404', 5, 3)
+      set(3, 5, '#ffd21a', 3, 1)
+      set(10, 5, '#ffd21a', 3, 1)
+      set(3, 10, '#1a0402', 10, 4)
+      for (const x of [3, 5, 10, 12]) set(x, 10, '#f0e8d0', 1, 2)
+    }),
+    horn: paint(42, ['#2a2420', '#3a322a', '#1c1814'], (set) => set(0, 0, '#8a7a60', 16, 3)),
+    hellFur: paint(43, HELL_FUR, (set, r) => {
+      for (let i = 0; i < 8; i++) set(Math.floor(r() * 15), Math.floor(r() * 15), '#ff5a14', 1, 1)
+    }),
+    hellFace: paint(44, HELL_FUR, (set) => {
+      set(2, 3, '#ffb21a', 4, 3)
+      set(10, 3, '#ffb21a', 4, 3)
+      set(3, 10, '#ff4a0a', 10, 4)
+      for (let x = 3; x < 13; x += 2) set(x, 10, '#f0e8d0', 1, 2)
+    }),
+    flame: paint(45, ['#ff7a14', '#ffa21a', '#ff5a0a', '#ffd04a']),
+    bat: paint(46, BAT, (set) => {
+      for (let x = 2; x < 16; x += 4) set(x, 0, '#1a0608', 1, 16)
+    }),
+    // The ocean.
+    drowned: paint(50, DROWNED, (set, r) => rot(set, r, 3)),
+    drownedFace: paint(51, DROWNED, (set) => {
+      set(3, 5, '#0a1a1a', 4, 3)
+      set(9, 5, '#0a1a1a', 4, 3)
+      set(4, 6, '#7af0ff', 2, 1)
+      set(10, 6, '#7af0ff', 2, 1)
+      set(4, 11, '#0a1414', 8, 2)
+    }),
+    kelp: paint(52, KELP, (set, r) => {
+      for (let i = 0; i < 5; i++) set(Math.floor(r() * 16), 0, '#1f4a1a', 1, 16)
+    }),
+    shark: paint(53, SHARK, (set) => set(0, 11, '#dfe4e8', 16, 5)),
+    sharkFace: paint(54, SHARK, (set) => {
+      set(2, 3, '#0a0a0a', 3, 3)
+      set(11, 3, '#0a0a0a', 3, 3)
+      set(1, 9, '#2a0a0a', 14, 5)
+      for (let x = 1; x < 15; x += 2) {
+        set(x, 9, '#ffffff', 1, 2)
+        set(x + 1, 12, '#ffffff', 1, 2)
+      }
+    }),
+    jelly: paint(55, JELLY, (set, r) => {
+      for (let i = 0; i < 6; i++) set(Math.floor(r() * 14), Math.floor(r() * 14), '#ffe0f4', 2, 2)
+    }),
+    deep: paint(56, DEEP, (set, r) => {
+      for (let i = 0; i < 8; i++) set(Math.floor(r() * 15), Math.floor(r() * 15), '#4a5a7a', 1, 1)
+    }),
+    anglerFace: paint(57, DEEP, (set) => {
+      set(3, 2, '#e8f4ff', 3, 3)
+      set(10, 2, '#e8f4ff', 3, 3)
+      set(4, 3, '#0a0a0a')
+      set(11, 3, '#0a0a0a')
+      set(0, 8, '#0a0408', 16, 7)
+      for (let x = 0; x < 16; x += 2) {
+        set(x, 8, '#f0f0e0', 1, 3)
+        set(x + 1, 13, '#f0f0e0', 1, 2)
+      }
+    }),
+    lure: paint(58, ['#fff27a', '#ffe84a', '#fffbc0']),
   }
   return pictures
 }
@@ -302,6 +440,127 @@ function design(kind) {
       { name: 'armL', geo: box(0.11, 1.0, 0.11), pic: 'pale', parent: 'torso', at: [-0.25, 0.56, 0], rot: [-0.25, 0, 0.06] },
       { name: 'armR', geo: box(0.11, 1.0, 0.11), pic: 'pale', parent: 'torso', at: [0.25, 0.56, 0], rot: [-0.25, 0, -0.06] },
     ]
+  } else if (kind === 'angel' || kind === 'archangel') {
+    // 2 blocks tall, robed (or armoured in gold), a halo and big wings.
+    const big = kind === 'archangel'
+    const body = big ? 'gold' : 'robe'
+    const w = big ? 1.25 : 1
+    parts = [
+      { name: 'legL', geo: box(0.22 * w, 0.8, 0.22), pic: body, at: [-0.13 * w, 0.8, 0] },
+      { name: 'legR', geo: box(0.22 * w, 0.8, 0.22), pic: body, at: [0.13 * w, 0.8, 0] },
+      { name: 'skirt', geo: box(0.62 * w, 0.42, 0.4, [0.5, 0, 0.5]), pic: 'robe', at: [0, 0.46, 0] },
+      { name: 'torso', geo: box(0.58 * w, 0.64, 0.34, [0.5, 0, 0.5]), pic: body, at: [0, 0.82, 0] },
+      { name: 'head', geo: box(0.42, 0.42, 0.42, [0.5, 0, 0.5]), pic: big ? 'gold' : 'holySkin', front: 'holyFace', parent: 'torso', at: [0, 0.64, 0] },
+      { name: 'halo', geo: box(0.52, 0.05, 0.52, [0.5, 0, 0.5]), pic: 'gold', glow: true, parent: 'head', at: [0, 0.54, 0] },
+      { name: 'armL', geo: box(0.15 * w, 0.66, 0.15 * w), pic: body, parent: 'torso', at: [-0.37 * w, 0.62, 0], rot: [-0.7, 0, 0.1] },
+      { name: 'armR', geo: box(0.15 * w, 0.66, 0.15 * w), pic: body, parent: 'torso', at: [0.37 * w, 0.62, 0], rot: [-0.7, 0, -0.1] },
+      { name: 'wingL', geo: box(0.06, big ? 1.2 : 0.95, big ? 0.95 : 0.75, [0.5, 0.25, 1]), pic: 'feather', parent: 'torso', at: [-0.16, 0.56, -0.15], rot: [0.25, 0.55, 0.3] },
+      { name: 'wingR', geo: box(0.06, big ? 1.2 : 0.95, big ? 0.95 : 0.75, [0.5, 0.25, 1]), pic: 'feather', parent: 'torso', at: [0.16, 0.56, -0.15], rot: [0.25, -0.55, -0.3] },
+    ]
+    if (big) parts.push({ name: 'sword', geo: box(0.08, 1.1, 0.14, [0.5, 0.1, 0.5]), pic: 'gold', glow: true, parent: 'armR', at: [0, -0.62, 0.1], rot: [1.4, 0, 0] })
+  } else if (kind === 'seraph') {
+    // A great eye hanging in the air, wrapped in six wings.
+    parts = [
+      { name: 'float', geo: box(0.56, 0.56, 0.56, [0.5, 0.5, 0.5]), pic: 'feather', front: 'eye', at: [0, 1.35, 0] },
+      { name: 'halo', geo: box(0.8, 0.05, 0.8, [0.5, 0.5, 0.5]), pic: 'gold', glow: true, parent: 'float', at: [0, 0.5, 0] },
+    ]
+    for (let i = 0; i < 6; i++) {
+      const side = i % 2 ? 1 : -1
+      const row = Math.floor(i / 2) - 1
+      parts.push({ name: `wing${i}`, geo: box(0.06, 0.75, 0.55, [0.5, 0.1, 1]), pic: 'feather', parent: 'float', at: [side * 0.3, row * 0.32, -0.05], rot: [row * 0.6, side * -0.7, side * -(0.4 + row * 0.3)] })
+    }
+  } else if (kind === 'cherub') {
+    // A small winged child floating at head height.
+    parts = [
+      { name: 'float', geo: box(0.46, 0.5, 0.36, [0.5, 0, 0.5]), pic: 'holySkin', at: [0, 1.05, 0] },
+      { name: 'legL', geo: box(0.16, 0.34, 0.16), pic: 'holySkin', parent: 'float', at: [-0.12, 0.02, 0] },
+      { name: 'legR', geo: box(0.16, 0.34, 0.16), pic: 'holySkin', parent: 'float', at: [0.12, 0.02, 0] },
+      { name: 'head', geo: box(0.48, 0.46, 0.46, [0.5, 0, 0.5]), pic: 'holySkin', front: 'holyFace', parent: 'float', at: [0, 0.5, 0] },
+      { name: 'halo', geo: box(0.46, 0.05, 0.46, [0.5, 0, 0.5]), pic: 'gold', glow: true, parent: 'head', at: [0, 0.56, 0] },
+      { name: 'wingL', geo: box(0.05, 0.55, 0.45, [0.5, 0.25, 1]), pic: 'feather', parent: 'float', at: [-0.12, 0.42, -0.16], rot: [0.2, 0.6, 0.3] },
+      { name: 'wingR', geo: box(0.05, 0.55, 0.45, [0.5, 0.25, 1]), pic: 'feather', parent: 'float', at: [0.12, 0.42, -0.16], rot: [0.2, -0.6, -0.3] },
+    ]
+  } else if (kind === 'imp' || kind === 'demon') {
+    // Red, horned, a pointed tail and bat wings. The demon is a huge brute.
+    const big = kind === 'demon'
+    const w = big ? 1.55 : 0.8
+    parts = [
+      { name: 'legL', geo: box(0.22 * w, 0.78, 0.24 * w), pic: 'redSkin', at: [-0.16 * w, 0.78, 0] },
+      { name: 'legR', geo: box(0.22 * w, 0.78, 0.24 * w), pic: 'redSkin', at: [0.16 * w, 0.78, 0] },
+      { name: 'torso', geo: box(0.62 * w, 0.74, 0.4 * w, [0.5, 0, 0.5]), pic: 'redSkin', at: [0, 0.74, 0], rot: [big ? 0.18 : 0.08, 0, 0] },
+      { name: 'head', geo: box(0.42, 0.44, 0.42, [0.5, 0, 0.5]), pic: 'redSkin', front: 'demonFace', parent: 'torso', at: [0, 0.72, big ? 0.12 : 0.02] },
+      { name: 'hornL', geo: box(0.08, 0.3, 0.08, [0.5, 0, 0.5]), pic: 'horn', parent: 'head', at: [-0.15, 0.42, 0], rot: [0, 0, 0.4] },
+      { name: 'hornR', geo: box(0.08, 0.3, 0.08, [0.5, 0, 0.5]), pic: 'horn', parent: 'head', at: [0.15, 0.42, 0], rot: [0, 0, -0.4] },
+      { name: 'armL', geo: box(0.17 * w, 0.8, 0.17 * w), pic: 'redSkin', parent: 'torso', at: [-0.42 * w, 0.7, 0], rot: [-0.4, 0, 0.1] },
+      { name: 'armR', geo: box(0.17 * w, 0.8, 0.17 * w), pic: 'redSkin', parent: 'torso', at: [0.42 * w, 0.7, 0], rot: [-0.4, 0, -0.1] },
+      { name: 'tail', geo: box(0.08, 0.08, 0.7, [0.5, 0.5, 1]), pic: 'redSkin', parent: 'torso', at: [0, 0.05, -0.18], rot: [0.6, 0, 0] },
+      { name: 'wingL', geo: box(0.05, big ? 1.1 : 0.6, big ? 1 : 0.55, [0.5, 0.25, 1]), pic: 'bat', parent: 'torso', at: [-0.18 * w, 0.62, -0.18], rot: [0.2, 0.7, 0.4] },
+      { name: 'wingR', geo: box(0.05, big ? 1.1 : 0.6, big ? 1 : 0.55, [0.5, 0.25, 1]), pic: 'bat', parent: 'torso', at: [0.18 * w, 0.62, -0.18], rot: [0.2, -0.7, -0.4] },
+    ]
+  } else if (kind === 'fiend') {
+    // Hunched like the ghoul, red-skinned with horns and long claws.
+    parts = [
+      { name: 'legL', geo: box(0.24, 0.7, 0.26), pic: 'hellFur', at: [-0.17, 0.7, 0] },
+      { name: 'legR', geo: box(0.24, 0.7, 0.26), pic: 'hellFur', at: [0.17, 0.7, 0] },
+      { name: 'torso', geo: box(0.62, 0.8, 0.4, [0.5, 0, 0.5]), pic: 'redSkin', at: [0, 0.68, 0], rot: [0.6, 0, 0] },
+      { name: 'head', geo: box(0.5, 0.48, 0.5, [0.5, 0, 0.5]), pic: 'redSkin', front: 'demonFace', parent: 'torso', at: [0, 0.74, 0.12], rot: [-0.4, 0, 0] },
+      { name: 'hornL', geo: box(0.08, 0.34, 0.08, [0.5, 0, 0.5]), pic: 'horn', parent: 'head', at: [-0.18, 0.46, -0.05], rot: [-0.4, 0, 0.3] },
+      { name: 'hornR', geo: box(0.08, 0.34, 0.08, [0.5, 0, 0.5]), pic: 'horn', parent: 'head', at: [0.18, 0.46, -0.05], rot: [-0.4, 0, -0.3] },
+      { name: 'armL', geo: box(0.18, 1.12, 0.18), pic: 'redSkin', parent: 'torso', at: [-0.42, 0.7, 0], rot: [-0.45, 0, 0.08] },
+      { name: 'armR', geo: box(0.18, 1.12, 0.18), pic: 'redSkin', parent: 'torso', at: [0.42, 0.7, 0], rot: [-0.45, 0, -0.08] },
+      { name: 'clawL', geo: box(0.22, 0.24, 0.06), pic: 'horn', parent: 'armL', at: [0, -1.1, 0.05] },
+      { name: 'clawR', geo: box(0.22, 0.24, 0.06), pic: 'horn', parent: 'armR', at: [0, -1.1, 0.05] },
+    ]
+  } else if (kind === 'hellhound') {
+    // A burning dog: black-red fur, glowing face, flames along its back.
+    parts = [
+      { name: 'body', geo: box(0.58, 0.52, 1.2, [0.5, 0, 0.5]), pic: 'hellFur', at: [0, 0.62, 0] },
+      { name: 'head', geo: box(0.5, 0.46, 0.58, [0.5, 0.3, 0]), pic: 'hellFur', front: 'hellFace', parent: 'body', at: [0, 0.42, 0.52] },
+      { name: 'legFL', geo: box(0.17, 0.64, 0.17), pic: 'hellFur', at: [-0.19, 0.64, 0.44] },
+      { name: 'legFR', geo: box(0.17, 0.64, 0.17), pic: 'hellFur', at: [0.19, 0.64, 0.44] },
+      { name: 'legBL', geo: box(0.17, 0.64, 0.17), pic: 'hellFur', at: [-0.19, 0.64, -0.44] },
+      { name: 'legBR', geo: box(0.17, 0.64, 0.17), pic: 'hellFur', at: [0.19, 0.64, -0.44] },
+      { name: 'tail', geo: box(0.1, 0.1, 0.5, [0.5, 0.5, 1]), pic: 'flame', glow: true, parent: 'body', at: [0, 0.42, -0.6], rot: [0.5, 0, 0] },
+      { name: 'flame1', geo: box(0.16, 0.26, 0.16, [0.5, 0, 0.5]), pic: 'flame', glow: true, parent: 'body', at: [0, 0.52, 0.25] },
+      { name: 'flame2', geo: box(0.14, 0.2, 0.14, [0.5, 0, 0.5]), pic: 'flame', glow: true, parent: 'body', at: [0, 0.52, -0.1] },
+      { name: 'flame3', geo: box(0.12, 0.16, 0.12, [0.5, 0, 0.5]), pic: 'flame', glow: true, parent: 'body', at: [0, 0.52, -0.4] },
+    ]
+  } else if (kind === 'drowned' || kind === 'sharkman') {
+    // 2 blocks tall: the drowned wrapped in kelp; the sharkman with a
+    // shark's head and a fin on his back.
+    const shark = kind === 'sharkman'
+    const skin = shark ? 'shark' : 'drowned'
+    parts = [
+      { name: 'legL', geo: box(0.24, 0.8, 0.26), pic: 'kelp', at: [-0.14, 0.8, 0] },
+      { name: 'legR', geo: box(0.24, 0.8, 0.26), pic: 'kelp', at: [0.14, 0.8, 0] },
+      { name: 'torso', geo: box(0.6, 0.7, 0.36, [0.5, 0, 0.5]), pic: shark ? 'shark' : 'kelp', at: [0, 0.78, 0], rot: [0.1, 0, 0] },
+      shark
+        ? { name: 'head', geo: box(0.46, 0.44, 0.7, [0.5, 0, 0.3]), pic: 'shark', front: 'sharkFace', parent: 'torso', at: [0, 0.68, 0.05] }
+        : { name: 'head', geo: box(0.44, 0.44, 0.44, [0.5, 0, 0.5]), pic: 'drowned', front: 'drownedFace', parent: 'torso', at: [0, 0.68, 0.02] },
+      { name: 'armL', geo: box(0.16, 0.72, 0.16), pic: skin, parent: 'torso', at: [-0.38, 0.64, 0], rot: [-1.2, 0, 0.05] },
+      { name: 'armR', geo: box(0.16, 0.72, 0.16), pic: skin, parent: 'torso', at: [0.38, 0.64, 0], rot: [-1.2, 0, -0.05] },
+    ]
+    if (shark) parts.push({ name: 'fin', geo: box(0.06, 0.5, 0.42, [0.5, 0, 0.5]), pic: 'shark', parent: 'torso', at: [0, 0.5, -0.2], rot: [-0.5, 0, 0] })
+    else parts.push({ name: 'weed', geo: box(0.5, 0.5, 0.06, [0.5, 1, 0.5]), pic: 'kelp', parent: 'torso', at: [0.05, 0.7, -0.2], rot: [0.1, 0, 0.1] })
+  } else if (kind === 'jelly') {
+    // A glowing bell floating above the ground, long tentacles hanging.
+    parts = [{ name: 'float', geo: box(1, 0.6, 1, [0.5, 0, 0.5]), pic: 'jelly', glow: true, at: [0, 1.25, 0] }]
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2
+      parts.push({ name: `tent${i}`, geo: box(0.08, 1.1, 0.08), pic: 'jelly', parent: 'float', at: [Math.cos(a) * 0.34, 0.02, Math.sin(a) * 0.34] })
+    }
+  } else if (kind === 'angler') {
+    // A hunched deep-sea fish-man: a huge toothy mouth and a glowing lure.
+    parts = [
+      { name: 'legL', geo: box(0.24, 0.66, 0.26), pic: 'deep', at: [-0.18, 0.66, 0] },
+      { name: 'legR', geo: box(0.24, 0.66, 0.26), pic: 'deep', at: [0.18, 0.66, 0] },
+      { name: 'torso', geo: box(0.7, 0.62, 0.5, [0.5, 0, 0.5]), pic: 'deep', at: [0, 0.62, 0], rot: [0.35, 0, 0] },
+      { name: 'head', geo: box(0.72, 0.62, 0.6, [0.5, 0, 0.4]), pic: 'deep', front: 'anglerFace', parent: 'torso', at: [0, 0.6, 0.12], rot: [-0.3, 0, 0] },
+      { name: 'stalk', geo: box(0.05, 0.5, 0.05, [0.5, 0, 0.5]), pic: 'deep', parent: 'head', at: [0, 0.6, 0.1], rot: [0.7, 0, 0] },
+      { name: 'lure', geo: box(0.14, 0.14, 0.14, [0.5, 0.5, 0.5]), pic: 'lure', glow: true, parent: 'stalk', at: [0, 0.52, 0] },
+      { name: 'armL', geo: box(0.17, 0.9, 0.17), pic: 'deep', parent: 'torso', at: [-0.44, 0.52, 0], rot: [-0.5, 0, 0.12] },
+      { name: 'armR', geo: box(0.17, 0.9, 0.17), pic: 'deep', parent: 'torso', at: [0.44, 0.52, 0], rot: [-0.5, 0, -0.12] },
+    ]
   } else {
     parts = [
       { name: 'body', geo: box(0.55, 0.5, 1.15, [0.5, 0, 0.5]), pic: 'fur', at: [0, 0.6, 0] },
@@ -326,20 +585,23 @@ export function makeMonster(kind, height) {
   scale.scale.setScalar(height / MOB_HEIGHT)
   root.add(scale)
   const materials = []
-  const mat = (pic) => {
-    const m = new THREE.MeshLambertMaterial({ map: pics[pic], emissive: 0x000000 })
+  const mat = (pic, glow) => {
+    // Glowing parts are unlit (no emissive - BuildSurvival's hit flash
+    // skips them).
+    const m = glow ? new THREE.MeshBasicMaterial({ map: pics[pic] }) : new THREE.MeshLambertMaterial({ map: pics[pic], emissive: 0x000000 })
     materials.push(m)
     return m
   }
   const nodes = {}
   for (const p of design(kind)) {
-    const side = mat(p.pic)
+    const side = mat(p.pic, p.glow)
     // Box faces: +x, -x, +y, -y, +z (front), -z.
-    const material = p.front ? [side, side, side, side, mat(p.front), side] : side
+    const material = p.front ? [side, side, side, side, mat(p.front, p.glow || kind === 'seraph'), side] : side
     const mesh = new THREE.Mesh(p.geo, material)
     mesh.position.set(...p.at)
     if (p.rot) mesh.rotation.set(...p.rot)
     mesh.userData.rest = mesh.rotation.clone()
+    mesh.userData.y0 = mesh.position.y
     ;(p.parent ? nodes[p.parent] : scale).add(mesh)
     nodes[p.name] = mesh
   }
@@ -406,6 +668,38 @@ export function makeMonster(kind, height) {
         nodes.armL.rotation.x = rest('armL').x - s * 0.8
         nodes.armR.rotation.x = rest('armR').x + s * 0.8
         nodes.head.rotation.z = Math.sin(t * 1.1) * 0.1
+      } else if (REALM_ANIM.has(kind)) {
+        // The realm kinds: legs and arms swing, wings beat, tails and
+        // tentacles sway, floating ones bob; a hellhound gallops.
+        const s = Math.sin(t * 2) * 0.6 * go
+        if (nodes.legFL) {
+          nodes.legFL.rotation.x = s * 1.2
+          nodes.legFR.rotation.x = s
+          nodes.legBL.rotation.x = -s * 1.2
+          nodes.legBR.rotation.x = -s
+        } else if (nodes.legL) {
+          nodes.legL.rotation.x = rest('legL').x + s
+          nodes.legR.rotation.x = rest('legR').x - s
+        }
+        if (nodes.armL) {
+          nodes.armL.rotation.x = rest('armL').x - s * 0.4
+          nodes.armR.rotation.x = rest('armR').x + s * 0.4
+        }
+        const beat = Math.sin(t * 5)
+        for (const [n, dir] of [['wingL', 1], ['wingR', -1]]) if (nodes[n]) nodes[n].rotation.y = rest(n).y + beat * 0.35 * dir
+        for (let i = 0; i < 6; i++) {
+          const w = nodes[`wing${i}`]
+          if (w) w.rotation.y = rest(`wing${i}`).y + Math.sin(t * 6 + i) * 0.3 * (i % 2 ? -1 : 1)
+          const tent = nodes[`tent${i}`]
+          if (tent) {
+            tent.rotation.x = Math.sin(t * 2.4 + i) * 0.25
+            tent.rotation.z = Math.cos(t * 2 + i * 1.3) * 0.2
+          }
+        }
+        if (nodes.tail) nodes.tail.rotation.y = Math.sin(t * 3) * 0.4
+        if (nodes.float) nodes.float.position.y = nodes.float.userData.y0 + Math.sin(t * 1.6) * 0.12
+        for (const n of ['flame1', 'flame2', 'flame3']) if (nodes[n]) nodes[n].scale.y = 0.8 + Math.abs(Math.sin(t * 7 + n.length)) * 0.5
+        if (nodes.lure) nodes.lure.scale.setScalar(0.85 + Math.sin(t * 4) * 0.15)
       } else {
         // A gallop: front and back pairs in turn.
         const s = Math.sin(t * 2.6) * 0.75 * go

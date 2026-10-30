@@ -30,6 +30,7 @@ const ICONS = {
   use: '<svg viewBox="0 0 24 24"><path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11"/><path d="M12 10V4.5a1.5 1.5 0 0 1 3 0V11"/><path d="M15 10.5V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-1a6 6 0 0 1-5-2.7l-2.6-4a1.5 1.5 0 0 1 2.5-1.6L9 14"/></svg>',
   crouch: '<svg viewBox="0 0 24 24"><path d="M12 5v10M6 11l6 6 6-6"/><path d="M5 20h14"/></svg>',
   scope: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/></svg>',
+  drop: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>',
   pause: '<svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>',
 }
 
@@ -66,6 +67,7 @@ export class BuildTouch {
       <button type="button" class="tp-btn tp-use" data-tp="use" aria-label="Use">${ICONS.use}</button>
       <button type="button" class="tp-btn tp-crouch" data-tp="crouch" aria-label="Crouch">${ICONS.crouch}</button>
       <button type="button" class="tp-btn tp-bag" data-tp="bag" aria-label="Inventory">${ICONS.bag}</button>
+      <button type="button" class="tp-btn tp-drop" data-tp="drop" aria-label="Drop">${ICONS.drop}</button>
       <button type="button" class="tp-btn tp-scope" data-tp="scope" aria-label="Scope">${ICONS.scope}</button>`
     document.body.appendChild(el)
     this._el = el
@@ -161,6 +163,9 @@ export class BuildTouch {
       if (bm.survival.active) bm.survival.reload()
     } else if (action === 'use') {
       bm._tryUseFromCamera()
+    } else if (action === 'drop') {
+      // The Drop key (Q) for phones: one of the held item.
+      if (bm.survival.active) bm.survival.inv?.drop()
     } else if (action === 'bag') {
       // The game's inventory (PlayInventory.js) - phones have no Tab key.
       this._release()

@@ -29,6 +29,7 @@ import { planStructure, planLandmark, planTown, STRUCT_GRID, STRUCTURE_NAMES } f
 import { EARTH_DEG, earthBiome, earthLandAmount, WATER_BIOMES } from './EarthGrid.js'
 import { loadEarthTerrain, earthTerrainReady, earthHeight, earthLakeAt, earthLakeNear, earthRiverNear } from './EarthTerrain.js'
 import { Underground, rockAt, setUnderSeed } from './Underground.js'
+import { HeavenRealm } from './HeavenRealm.js'
 
 const CHUNK = 16
 // The city lies within -CITY .. CITY-1 on x and z (its outline: CityShape.js).
@@ -170,7 +171,7 @@ function noise(x, z, seed) {
   return (a + (b - a) * ux + (c - a) * uz + (a - b - c + d) * ux * uz) * 2 - 1
 }
 
-function fbm(x, z, scale, octaves, seed) {
+export function fbm(x, z, scale, octaves, seed) {
   let sum = 0
   let amp = 1
   let norm = 0
@@ -232,8 +233,67 @@ export function isEarthWorld() {
   return EARTH
 }
 
+// Heaven's Peaks (2026-10-30, Gaymi: Heaven at y 300-500, reached by
+// "build and dig make very tall mountains"): now and then a giant lone
+// mountain rises out of the land, about PEAK_H blocks high - its top pokes
+// through Heaven's cloud floor (HeavenRealm.js). One may sit in each
+// PEAK_GRID square (PEAK_CHANCE), never near the city. Its sides climb
+// about one block per cell, so it can be walked up (with jumps).
+export const PEAK_GRID = 1100
+const PEAK_CHANCE = 0.8
+export const PEAK_R = 330
+const PEAK_H = 330
+const PEAK_CITY_GAP = 520
+
+// The peak (if any) planned in grid square (gx, gz): { x, z }.
+export function peakIn(gx, gz) {
+  if (hash2(gx, gz, 211) > PEAK_CHANCE) return null
+  const m = PEAK_R + 40
+  const x = Math.round(gx * PEAK_GRID + m + hash2(gx, gz, 212) * (PEAK_GRID - 2 * m))
+  const z = Math.round(gz * PEAK_GRID + m + hash2(gx, gz, 213) * (PEAK_GRID - 2 * m))
+  // Its whole foot stays well away from the city.
+  if (Math.hypot(x, z) < PEAK_CITY_GAP + PEAK_R) return null
+  return { x, z }
+}
+
+// Roughly how high a Heaven's Peak alone reaches at (x, z) (0 off one) -
+// Heaven's cloud floor leaves a hole where the mountain comes through.
+export function peakLift(x, z) {
+  const k = peakAmount(x, z)
+  return k > 0 ? k * PEAK_H + fbm(x, z, 1 / 60, 2, 217) * 10 * k : 0
+}
+
+// How much a Heaven's Peak lifts the land at (x, z): 0..1 (1 = its top).
+function peakAmount(x, z) {
+  // (Not in World Map mode: its land follows the real Earth.)
+  if (EARTH) return 0
+  const gx = Math.floor(x / PEAK_GRID)
+  const gz = Math.floor(z / PEAK_GRID)
+  const p = peakIn(gx, gz)
+  if (!p) return 0
+  // Not perfectly round: the edge wanders in and out.
+  const r = Math.hypot(x - p.x, z - p.z) / (PEAK_R * (1 + fbm(x, z, 1 / 140, 2, 215) * 0.18))
+  if (r >= 1) return 0
+  // A cone with a rounded, flat-ish summit.
+  return r < 0.05 ? 1 : 1 - (r - 0.05) / 0.95
+}
+
 export function sampleLand(x, z) {
   if (FLAT) return { h: -1, c: 0.3, T: 0, H: 0, m: 0, river: false, d: 99, biome: 'plains', w: SEA }
+  const s = sampleBase(x, z)
+  const k = s.d > 60 && s.h >= SEA && !s.river ? peakAmount(x, z) : 0
+  if (k <= 0) return s
+  // Lumpy rock on its sides; snow and ice high up.
+  const lift = peakLift(x, z)
+  s.h = Math.round(Math.max(s.h, s.h + lift))
+  if (s.h > 120) s.biome = 'snowyPeaks'
+  else if (s.h > 30) s.biome = 'mountains'
+  s.m = Math.max(s.m, k)
+  s.peak = true
+  return s
+}
+
+function sampleBase(x, z) {
   const d = cityDistance(x, z)
   if (EARTH && earthTerrainReady()) return sampleEarth(x, z, d)
   let c = fbm(x, z, 1 / 420, 3, 11)
@@ -615,6 +675,9 @@ export class OpenWorld {
     // Real-world landmarks from the spawn map (addLandmark), this game only.
     this._landmarks = []
     this.under = new Underground(this)
+    this.heaven = new HeavenRealm(this)
+    // (For tests and tools: where the Heaven's Peaks are.)
+    this.peakIn = peakIn
     this.sea = SEA
   }
 
@@ -663,6 +726,7 @@ export class OpenWorld {
 
   _dropAll() {
     this.under.dropAll()
+    this.heaven.dropAll()
     for (const [key, col] of [...this.columns]) this._unload(key, col)
     // Anything built out in the land goes with it.
     const bm = this.bm
@@ -691,6 +755,7 @@ export class OpenWorld {
     this.active = false
     this.under.chunks.clear()
     this.under._entrances.clear()
+    this.heaven.cols.clear()
     this.columns.clear()
     this.terrainKeys.clear()
     this.removed.clear()
@@ -782,6 +847,8 @@ export class OpenWorld {
     }
     // Cave walls around you (the first point is always you or the camera).
     this.under.update(points[0])
+    // Heaven's clouds and islands while you're up high (HeavenRealm.js).
+    this.heaven.update(points[0])
     // Drop columns well past every point (the player's own changes stay).
     if ((this._unloadTick = (this._unloadTick || 0) + 1) % 30 === 0) {
       const far = r + UNLOAD_MARGIN

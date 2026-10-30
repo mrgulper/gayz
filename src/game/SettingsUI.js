@@ -17,6 +17,7 @@ import { DEVICE_ONLY_KEYS } from './CloudMerge.js'
 import { ACTIONS, getAllBindings, getKeyFor, keyLabel, resetBindings, setAllBindings, setBinding } from './Keybinds.js'
 import { LANGUAGES, setLanguage, t } from './i18n.js'
 import { bindHoverMenus } from './HoverMenus.js'
+import { bindSettingsLog, logSettingChange } from './SettingsLog.js'
 import { GRAPHICS_LEVELS, LEVEL_LOOK } from './GraphicsLevels.js'
 import { applyUiTheme, cleanVars, normalizeHex, rememberCleanVars, getCleanBgImage, applyCleanBgImage, cropToScreen, CLEAN_BG_IMAGE_KEY } from './CleanTheme.js'
 
@@ -152,6 +153,7 @@ export function _bindSettings(game) {
       game._showHomepageToast(t('comingSoonBody'))
       return
     }
+    const oldLang = LANGUAGES.find((l) => l.code === game.settings.language)
     game.settings.language = btn.dataset.lang
     // Remembered for #quick-language-btn's English<->alt toggle.
     if (btn.dataset.lang !== 'en') game.settings.quickLanguageAlt = btn.dataset.lang
@@ -166,7 +168,9 @@ export function _bindSettings(game) {
     game._applyLanguage()
     game._renderNavOrderList() // its labels are read from the nav buttons
     saveSettings(game.settings)
+    if (oldLang?.code !== btn.dataset.lang) logSettingChange(t('tabLanguage'), oldLang ? t(oldLang.nameKey) : '', btn.querySelector('.lang-name')?.textContent || btn.dataset.lang)
   })
+  bindSettingsLog(document.getElementById('settings-panel'))
 
   for (const tab of document.querySelectorAll('.settings-tab')) {
     tab.addEventListener('click', () => {
@@ -386,10 +390,16 @@ export function _bindSettings(game) {
       game._closeInventorySkinMenu()
       if (!id) return
       if (btn.classList.contains('locked')) {
-        game._showHomepageToast(t('marketCantTrade'))
+        game._showHomepageToast(t(btn.dataset.why || 'marketCantTrade'))
         return
       }
       open(id)
+    })
+    game.invSkinMenuLock?.addEventListener('click', () => {
+      const id = game._invSkinMenuFor
+      const kind = game._invSkinMenuKind
+      game._closeInventorySkinMenu()
+      if (id) game._toggleSkinLock(kind, id)
     })
     tradeClick(game.invSkinMenuSell, (id) => game._openSellDialog(id))
     tradeClick(game.invSkinMenuMarket, (id) => game._openListDialog(id))
@@ -958,7 +968,9 @@ export function _bindSettings(game) {
     }
     syncUiTheme()
     rememberCleanVars(game.settings)
+    const themeName = (theme) => document.getElementById(`theme-picker-${theme}-label`)?.textContent || theme
     const pick = (theme) => {
+      if (game.settings.uiTheme !== theme) logSettingChange(t('tabTheme'), themeName(game.settings.uiTheme || 'old'), themeName(theme))
       game.settings.uiTheme = theme
       syncUiTheme()
       saveSettings(game.settings)
@@ -2170,6 +2182,7 @@ export function _resetSettingsTab(game, page) {
   for (const key of keys) game.settings[key] = defaults[key]
   saveSettings(game.settings)
   if (page === 'controls') resetBindings()
+  logSettingChange(t('settingsLogResetTab', { tab: document.getElementById(`tab-${page}`)?.textContent || page }), '', '')
   window.location.reload()
 }
 
@@ -2212,6 +2225,7 @@ export function _applyGraphicsLevel(game, level) {
   const look = LEVEL_LOOK[level]
   if (!look) return
   const s = game.settings
+  if (s.graphicsLevel !== level) logSettingChange(t('settingsLogGraphicsLevel'), s.graphicsLevel ? t(`gfxLevel${s.graphicsLevel.charAt(0).toUpperCase()}${s.graphicsLevel.slice(1)}`) : '', t(`gfxLevel${level.charAt(0).toUpperCase()}${level.slice(1)}`))
   s.graphicsLevel = level
   s.viewDistance = look.view
   s.shadowsEnabled = look.shadows
@@ -2457,7 +2471,9 @@ export function _restoreDefaultSettings(game) {
   // legitimately goes back to blank here, an existing precedent),
   // wiping the account's corner-badge ID on a settings reset would be
   // a surprising identity change, not just a preference reset.
-  saveSettings({ ...defaultSettings(), playerId: game.settings.playerId })
+  // Locked skins stay locked too - that's about your stuff, not a setting.
+  saveSettings({ ...defaultSettings(), playerId: game.settings.playerId, lockedSkins: game.settings.lockedSkins })
+  logSettingChange(t('settingsLogResetAll'), '', '')
   window.location.reload()
 }
 
@@ -2643,7 +2659,11 @@ export function _startRebind(game, btn, action) {
     const collision = ACTIONS.find((a) => a.id !== action && getKeyFor(a.id) === e.code)
     if (e.code !== 'Escape' && !reserved) {
       if (collision) game._showLoreToast(t('keybindCollision', { key: keyLabel(e.code) }))
-      else setBinding(action, e.code)
+      else {
+        const was = getKeyFor(action)
+        setBinding(action, e.code)
+        if (was !== e.code) logSettingChange(t(ACTIONS.find((a) => a.id === action)?.labelKey || action), keyLabel(was), keyLabel(e.code))
+      }
     }
     game._renderControlsGrid()
     game._applyLanguage() // text shows keys via {key:...} - refresh it

@@ -271,7 +271,7 @@ export async function _confirmTradeDialog(game) {
 
 export async function _listSkinOnMarket(game, id, price) {
   const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
-  if (!entry?.sell || !(entry.count(game) > 0)) return
+  if (!entry?.sell || !(entry.count(game) > 0) || _isSkinLocked(game, 'character', id)) return
   const uid = await game._marketUid()
   if (!uid) return
   const name = entry.nameKey ? t(entry.nameKey) : entry.name
@@ -372,6 +372,27 @@ export async function _claimMarketSales(game) {
   }
 }
 
+// Lock (2026-10-30, Gaymi: a lock "under sell and above inspect" so the
+// skin stays in your inventory): a locked card shows a lock on its top
+// corner and can't go on the Market or be sold until it's unlocked.
+const LOCK_ICON = '<svg class="inv-skin-card-lock" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="2.5" y="7" width="11" height="8" rx="1.5" fill="currentColor"/></svg>'
+
+export function _isSkinLocked(game, kind, id) {
+  return (game.settings.lockedSkins || []).includes(`${kind}:${id}`)
+}
+
+export function _toggleSkinLock(game, kind, id) {
+  const key = `${kind}:${id}`
+  const list = (game.settings.lockedSkins || []).filter((k) => k !== key)
+  const locking = list.length === (game.settings.lockedSkins || []).length
+  if (locking) list.push(key)
+  game.settings.lockedSkins = list
+  saveSettings(game.settings)
+  game._showHomepageToast(t(locking ? 'skinLockedToast' : 'skinUnlockedToast'))
+  game._renderInventorySkins()
+  _renderInventoryWeapons(game)
+}
+
 export function _equippedInventorySkinId(game) {
   const custom = game.settings.customSkinDataUrl
   if (!custom) return 'default'
@@ -394,7 +415,10 @@ export function _renderInventorySkins(game) {
     const rarity = SKIN_RARITIES[skin.rarity] || SKIN_RARITIES.common
     const classes = ['inv-skin-card']
     if (skin.id === equippedId) classes.push('equipped')
+    const locked = _isSkinLocked(game, 'character', skin.id)
+    if (locked) classes.push('locked')
     return `<button type="button" class="${classes.join(' ')}" data-inventory-skin="${skin.id}" style="--rarity: ${rarity.color}" title="${_escapeHtml(`${skin.name} - ${t(rarity.key)}`)}">`
+      + (locked ? LOCK_ICON : '')
       + `<span class="inv-skin-card-name">${_escapeHtml(skin.name)}</span>`
       + '<img class="inv-skin-card-img" alt="" draggable="false" />'
       + `<span class="inv-skin-card-count">${_safeStatNumber(skin.owned)}</span>`
@@ -463,12 +487,19 @@ export function _openInventorySkinMenu(game, card) {
   game.invSkinMenuInspect.textContent = t('skinInspect')
   // Always all four buttons, like Kirka; on a skin that can't be traded
   // (Default, an uploaded skin) Market/Sell are faded and say why.
-  const tradable = !!entry?.sell && owned > 0
+  // A locked card can't be traded either (Unlock first).
+  const locked = _isSkinLocked(game, kind, id)
+  const tradable = !!entry?.sell && owned > 0 && !locked
   for (const [btn, key] of [[game.invSkinMenuMarket, 'marketListBtn'], [game.invSkinMenuSell, 'marketSellBtn']]) {
     if (!btn) continue
     btn.textContent = t(key)
     btn.classList.toggle('locked', !tradable)
     btn.setAttribute('aria-disabled', tradable ? 'false' : 'true')
+    btn.dataset.why = locked ? 'skinLockedNoTrade' : 'marketCantTrade'
+  }
+  if (game.invSkinMenuLock) {
+    game.invSkinMenuLock.textContent = t(locked ? 'skinUnlock' : 'skinLock')
+    game.invSkinMenuLock.classList.toggle('on', locked)
   }
   // Lives next to whichever grid the card is in, and always fits inside
   // the card itself (below its name, never past its bottom edge).
@@ -493,7 +524,7 @@ export function _closeInventorySkinMenu(game) {
 // GaygarX: gems) - the confirm box is the Kirka-style trade dialog.
 export function _openSellDialog(game, id) {
   const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
-  if (!entry?.sell || !(entry.count(game) > 0)) return
+  if (!entry?.sell || !(entry.count(game) > 0) || _isSkinLocked(game, 'character', id)) return
   const name = entry.nameKey ? t(entry.nameKey) : entry.name
   game._openTradeDialog('sell', { id, name, priceLabel: game._formatSkinPrice(entry.sell.currency, entry.sell.amount) })
 }
@@ -820,7 +851,9 @@ export function _renderInventoryWeapons(game, { draw = false } = {}) {
       : icon ? `<svg class="inv-weapon-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>` : ''
     // Coming Soon guns: greyed out, tagged, and no menu on click.
     const soon = COMING_SOON_WEAPONS.has(w.id)
-    return `<div class="inv-skin-card inv-weapon-card${soon ? ' inv-weapon-soon' : ''}" ${soon ? 'aria-disabled="true"' : `data-weapon-card="${w.id}"`} style="--rarity: ${rarity.color}" title="${_escapeHtml(`${name} - ${soon ? t('crateComingSoonTag') : t('skinDefault')}`)}">`
+    const locked = !soon && _isSkinLocked(game, 'weapon', w.id)
+    return `<div class="inv-skin-card inv-weapon-card${soon ? ' inv-weapon-soon' : ''}${locked ? ' locked' : ''}" ${soon ? 'aria-disabled="true"' : `data-weapon-card="${w.id}"`} style="--rarity: ${rarity.color}" title="${_escapeHtml(`${name} - ${soon ? t('crateComingSoonTag') : t('skinDefault')}`)}">`
+      + (locked ? LOCK_ICON : '')
       + `<span class="inv-skin-card-name">${_escapeHtml(name)}</span>`
       + (soon ? `<span class="weapon-soon-tag">${_escapeHtml(t('crateComingSoonTag'))}</span>` : '')
       + picture

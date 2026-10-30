@@ -110,6 +110,8 @@ html.ui-theme-biome #play-item-tip b { color: var(--biome-accent); }
 html.ui-theme-biome #play-inventory .inv-slot { background-color: rgba(var(--biome-ink-rgb), 0.1); border-color: var(--biome-line); }
 html.ui-theme-biome #play-inventory .inv-slot.active { border-color: var(--biome-accent); box-shadow: inset 0 0 0 1px var(--biome-accent); }
 html.ui-theme-biome #play-inventory .inv-hotbar { border-top-color: var(--biome-line); }
+html.ui-theme-biome .inv-slot-lock { color: var(--biome-accent); }
+html.ui-theme-biome #play-inventory .inv-slot.locked { border-color: var(--biome-accent); }
 
 /* The corner map: framed in the biome's ground, its labels too. */
 html.ui-theme-biome #build-try-map {

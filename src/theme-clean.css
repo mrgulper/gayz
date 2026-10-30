@@ -646,6 +646,8 @@ html.ui-theme-clean #build-picker .build-picker-swatch.selected {
   border-color: var(--clean-fg);
   box-shadow: inset 0 0 0 1px var(--clean-fg);
 }
+html.ui-theme-clean .inv-slot-lock { color: var(--clean-fg); filter: none; }
+html.ui-theme-clean #play-inventory .inv-slot.locked { border-color: var(--clean-fg); }
 html.ui-theme-clean :is(#play-inventory .inv-hotbar, #build-picker .build-picker-right) {
   border-color: var(--clean-line);
 }
@@ -836,6 +838,7 @@ html.ui-theme-clean #inv-skin-menu button:not(:disabled):hover {
   background: var(--clean-hover);
   filter: none;
 }
+html.ui-theme-clean .inv-skin-card-lock { color: var(--clean-fg); filter: none; }
 
 /* The Market price window (list / buy / sell / take back). */
 html.ui-theme-clean #trade-dialog {
