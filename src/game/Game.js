@@ -2736,6 +2736,14 @@ export class Game {
     setInterval(() => {
       if (this.settings.liteTextures && !this._glLost) shrinkTextures(this._liteTextureRoots())
     }, LITE_TEXTURE_SWEEP_MS)
+    // The gun models arrive after the game is built (WeaponCatalog.ready) -
+    // a gun already in your hands by then was a stand-in box, so swap it.
+    this.weapons.ready.then(() => {
+      const tryMode = this.buildMode?.tryMode
+      if (!tryMode?._gun) return
+      tryMode._gunId = null
+      if (tryMode._gun.visible) tryMode._showGun()
+    })
 
     // Debug/QA hook - lets Playwright (or the browser console) drive real
     // game methods directly, since this project has no test suite.

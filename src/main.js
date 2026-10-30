@@ -19,10 +19,12 @@ import { installOfflineGuards, registerServiceWorker } from './game/Offline.js'
 startMenuRain(document.getElementById('menu-bg-rain'))
 startMenuWater(document.getElementById('menu-bg-water'))
 
-// Only the gun models are preloaded now (Try Map holds one, Inventory >
-// Weapons draws them) - the old Map 1 city and its models were deleted.
+// The gun models (Try Map holds one, Inventory > Weapons draws them) start
+// downloading now but the game no longer waits for them (2026-10-27: ~4 MB
+// kept the homepage unclickable for seconds on a phone connection) -
+// WeaponCatalog swaps them in when they arrive.
+preloadWeaponModels()
 Promise.all([
-  preloadWeaponModels(),
   // Pulls this account's cloud save into localStorage before anything
   // reads it, so another device's progress never needs a reload to show
   // up (see CloudPreBoot.js). Never rejects; capped at a few seconds.

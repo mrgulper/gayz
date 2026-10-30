@@ -1,4 +1,4 @@
-import { buildViewmodel } from './Viewmodels.js'
+import { buildViewmodel, preloadWeaponModels } from './Viewmodels.js'
 
 // Every gun's id and name, in hotbar/Inventory order. The old Map 1's
 // shooting code was deleted with it on 2026-10-05; what's left
@@ -22,12 +22,18 @@ export const WEAPON_LIST = [
   { id: 'tomahawk', name: 'Tomahawk' },
 ]
 
-// One copy of every gun model, built once on load (main.js preloads the
-// GLBs first).
+// One copy of every gun model. The game is built before the GLBs finish
+// loading (2026-10-27), so these start as stand-in boxes and are rebuilt
+// from the real models once `ready` resolves.
 export class WeaponCatalog {
   constructor() {
     this.weapons = WEAPON_LIST.map((w) => ({ ...w, unlocked: true }))
     this.viewmodels = {}
+    this._build()
+    this.ready = preloadWeaponModels().then(() => this._build())
+  }
+
+  _build() {
     for (const w of this.weapons) {
       const vm = buildViewmodel(w.id)
       vm.visible = false

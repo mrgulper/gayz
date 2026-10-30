@@ -62,19 +62,24 @@ const MODEL_CACHE = {}
 // 10-colour, gunmetal, per-gun finish and worn/scratched passes
 // (2026-10-17/18) were removed - see git history for simplifyMaterials.
 
-// Loads every weapon model (main.js waits for this before building the
-// game). A model that fails to load just leaves its weapon as a plain
-// stand-in box (buildViewmodel) instead of stopping the game.
+// Loads every weapon model. A model that fails to load just leaves its
+// weapon as a plain stand-in box (buildViewmodel) instead of stopping the
+// game. Started by main.js but no longer waited for (2026-10-27 load-speed
+// pass: the ~4 MB of guns held the homepage dead for seconds on a phone
+// connection) - WeaponCatalog swaps the real models in when this resolves.
+let modelsReady = null
 export function preloadWeaponModels() {
+  if (modelsReady) return modelsReady
   const loader = new GLTFLoader()
   loader.setMeshoptDecoder(MeshoptDecoder)
-  return Promise.all(Object.keys(WEAPON_MODELS).map(async (id) => {
+  modelsReady = Promise.all(Object.keys(WEAPON_MODELS).map(async (id) => {
     try {
       MODEL_CACHE[id] = await loader.loadAsync(`/models/weapons/${id}.glb`)
     } catch (err) {
       console.warn(`Weapon model ${id} failed to load`, err)
     }
   }))
+  return modelsReady
 }
 
 function placeholder() {
