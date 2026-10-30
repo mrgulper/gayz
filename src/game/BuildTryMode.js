@@ -844,7 +844,20 @@ export class BuildTryMode {
     const size = this.bm.specials.bodySize()
     this._height = (crouch ? CROUCH_HEIGHT : HEIGHT) * Math.min(1, size)
     // Run: Shift while walking forward (bloxd.io's Shift + W).
-    const sprint = !crouch && ((heldAction(keys, 'sprint') && fwd && !back) || !!stick?.run)
+    // Settings > Controls > Sprint: Tap to Sprint (2026-10-30) - one press
+    // turns running on until you stop going forward or press it again
+    // (it can be pressed just before walking off).
+    const sprintKey = heldAction(keys, 'sprint')
+    let sprintWanted = sprintKey
+    if (this.bm.game?.settings?.sprintMode === 'toggle') {
+      if (sprintKey && !this._sprintKeyWas) this._sprintOn = !this._sprintOn
+      // Letting go of forward (or pressing back) ends the run.
+      if ((this._fwdWas && !fwd) || back) this._sprintOn = false
+      sprintWanted = !!this._sprintOn
+    }
+    this._sprintKeyWas = sprintKey
+    this._fwdWas = fwd
+    const sprint = !crouch && ((sprintWanted && fwd && !back) || !!stick?.run)
     const inLiquid = this._touching(p.x, p.y, p.z, (x, y, z) => this.bm._cellIsLiquid(x, y, z))
     const onLadder = this._touching(p.x, p.y, p.z, (x, y, z) => this.bm._cellIsLadder(x, y, z))
     // Staying on the ground past the hop window ends a bunny-hop chain.

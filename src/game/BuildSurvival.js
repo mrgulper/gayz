@@ -1793,14 +1793,17 @@ export class BuildSurvival {
   }
 
   // Name tags stay readable: the same size on screen past ZOMBIE_TAG_NEAR
-  // (like the animals'), hidden while the zombie rises from the ground.
+  // (like the animals'), hidden while the zombie rises from the ground
+  // or when they're turned off in Settings.
   _sizeZombieTags() {
     const cam = this.bm.camera?.position
     if (!cam) return
     const B = this.B
+    // Settings > Controls > Name Tags Over Zombies.
+    const tags = this.bm.game?.settings?.zombieNameTags !== false
     for (const z of this.zombies) {
       if (!z.tag) continue
-      z.tag.visible = !z.rise
+      z.tag.visible = tags && !z.rise
       const d = Math.hypot(z.x * B - cam.x, z.y * B - cam.y, z.z * B - cam.z) / B
       const w = ZOMBIE_TAG_SIZE * Math.max(1, d / ZOMBIE_TAG_NEAR) * B
       z.tag.scale.set(w, w * (TAG_H / TAG_W), 1)

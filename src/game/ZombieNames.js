@@ -63,6 +63,23 @@ export function zombieName(nameIdx) {
   return t('zombieNameFormat', { adj: t(`zombieAdj${adj}`), name: NAMES[i % NAMES.length] })
 }
 
+// Settings > Controls > Colourblind-Friendly Zombie Rarity Glows
+// (2026-10-30): the tag's tier word and the ground glow use colours that
+// stay apart for red-green and blue-yellow colourblindness (a blue to
+// orange to yellow run, with white for common) instead of the rainbow.
+const CB_COLORS = { common: '#ffffff', uncommon: '#56b4e9', rare: '#0072b2', epic: '#cc79a7', legendary: '#e69f00', mythic: '#f0e442' }
+let colorblind = false
+export function tierColor(tier) {
+  return (colorblind ? CB_COLORS[tier] : RARITIES[tier]?.color) || '#ffffff'
+}
+export function setColorblindRarity(on) {
+  if (colorblind === on) return
+  colorblind = on
+  for (const [tier, mat] of ringMats) mat.color.set(tierColor(tier))
+  // New zombies get tags in the new colours (old ones keep theirs).
+  tagCache.clear()
+}
+
 // The tag over its head: the name in white, the tier in its colour, on a
 // soft dark plate - like the animals' tags. One picture per name + tier.
 export const TAG_W = 256
@@ -71,7 +88,7 @@ const tagCache = new Map()
 export function zombieTagMaterial(nameIdx, tier) {
   const name = zombieName(nameIdx)
   const label = t(`rarity${tier[0].toUpperCase()}${tier.slice(1)}`)
-  const key = `${name}|${label}|${tier}`
+  const key = `${name}|${label}|${tier}|${colorblind}`
   if (tagCache.has(key)) return tagCache.get(key)
   const c = document.createElement('canvas')
   c.width = TAG_W
@@ -91,7 +108,7 @@ export function zombieTagMaterial(nameIdx, tier) {
   g.strokeText(name, TAG_W / 2, 27, TAG_W - 12)
   g.fillText(name, TAG_W / 2, 27, TAG_W - 12)
   g.font = 'bold 28px sans-serif'
-  g.fillStyle = RARITIES[tier].color
+  g.fillStyle = tierColor(tier)
   g.strokeText(label, TAG_W / 2, 60, TAG_W - 12)
   g.fillText(label, TAG_W / 2, 60, TAG_W - 12)
   const tex = new THREE.CanvasTexture(c)
@@ -129,7 +146,7 @@ export function zombieGlow(tier, size) {
     ringGeo.userData.tex = new THREE.CanvasTexture(c)
   }
   if (!ringMats.has(tier)) {
-    ringMats.set(tier, new THREE.MeshBasicMaterial({ map: ringGeo.userData.tex, color: new THREE.Color(RARITIES[tier].color), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }))
+    ringMats.set(tier, new THREE.MeshBasicMaterial({ map: ringGeo.userData.tex, color: new THREE.Color(tierColor(tier)), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }))
   }
   const ring = new THREE.Mesh(ringGeo, ringMats.get(tier))
   ring.userData.shared = true

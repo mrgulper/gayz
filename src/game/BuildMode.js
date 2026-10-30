@@ -73,6 +73,11 @@ const DEMON_FOG_COLOR = new THREE.Color(0x2e0806)
 const DEMON_FOG_NEAR = 6
 const DEMON_FOG_FAR = 46
 const HEAVEN_FOG_COLOR = new THREE.Color(0xfffaf0)
+// Brighter Caves & Demon Realm: up to this much more light, the fog this
+// much further away, and its colour lifted towards a soft grey.
+const DARK_BOOST_LIGHT = 0.9
+const DARK_BOOST_FOG = 1.2
+const DARK_BOOST_FOG_COLOR = new THREE.Color(0x6a6660)
 const HEAVEN_FOG_MIX = 0.7
 // View distance (Settings > Graphics), in blocks: chunks further away
 // than this aren't drawn and fog fades out what's left before that edge
@@ -1473,6 +1478,10 @@ export class BuildMode {
       fog.far = 1e6
     }
     const p = this.camera.position
+    // Settings > Controls > Brighter Caves & Demon Realm (2026-10-30): how
+    // deep in the dark you are (0-1), to lift the light and push the fog
+    // back by.
+    let dark = 0
     // Down in the rock (Underground.js) the fog is dark and close, not the
     // sky's colour - a far tunnel would read as a hole otherwise.
     if (this.world.active) {
@@ -1481,6 +1490,7 @@ export class BuildMode {
       const depth = this.world.under.bottomAt(x, z) - p.y / BLOCK_SIZE
       if (depth > 0) {
         const k = Math.min(1, depth / CAVE_FOG_DEPTH)
+        dark = k
         fog.color.lerp(CAVE_FOG_COLOR, k)
         fog.near += (CAVE_FOG_NEAR * BLOCK_SIZE - fog.near) * k
         fog.far += (Math.min(fog.far, CAVE_FOG_FAR * BLOCK_SIZE) - fog.far) * k
@@ -1494,6 +1504,11 @@ export class BuildMode {
         // (The sky works its colour out again every frame.)
         if (this.scene.background?.isColor) this.scene.background.lerp(DEMON_FOG_COLOR, demon)
       }
+      dark = Math.max(dark, demon)
+      if (dark > 0 && this.game?.settings?.darkAreaBoost) {
+        fog.far *= 1 + DARK_BOOST_FOG * dark
+        fog.color.lerp(DARK_BOOST_FOG_COLOR, 0.35 * dark)
+      } else dark = 0
       const heaven = Math.min(1, Math.max(0, (y - (HEAVEN_FLOOR - 40)) / 40))
       if (heaven > 0) fog.color.lerp(HEAVEN_FOG_COLOR, heaven * HEAVEN_FOG_MIX)
       const hideSky = demon > 0.5
@@ -1502,6 +1517,10 @@ export class BuildMode {
         this.sky?.bodies?.show(!hideSky)
       }
     }
+    // The renderer's exposure is shared with the homepage, so it goes back
+    // the moment you're out of the dark (or the setting is off).
+    if (this._baseExposure === undefined) this._baseExposure = this.renderer.toneMappingExposure
+    this.renderer.toneMappingExposure = this._baseExposure * (1 + DARK_BOOST_LIGHT * dark)
     this._chunks.cullTo(p.x / BLOCK_SIZE, p.z / BLOCK_SIZE, blocks)
   }
 
@@ -2174,6 +2193,8 @@ export class BuildMode {
   }
 
   exit() {
+    // Leaving from deep in a cave: no extra light left on the homepage.
+    if (this._baseExposure !== undefined) this.renderer.toneMappingExposure = this._baseExposure
     if (this.tryMode.active) this.toggleTryMode()
     this.together.leave()
     this.sky.onExit()
@@ -2346,6 +2367,8 @@ export class BuildMode {
     if (this.survival?.camp?.use()) return true
     // Tame the animal you're looking at (PlayAnimals.js).
     if (this.survival?.active && this.survival.animals?.use()) return true
+    // Pick up drops lying near you (when Auto Pick-Up is off, PlayDrops.js).
+    if (this.survival?.active && this.survival._drops?.pickUpNear()) return true
     this.camera.updateMatrixWorld()
     this._raycaster.setFromCamera({ x: 0, y: 0 }, this.camera)
     const hit = this._raycastGridAligned()
