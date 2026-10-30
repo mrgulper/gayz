@@ -1,0 +1,1283 @@
+/* Was capped at max-width:620px - request: widen to fill the box like
+   #whatsnew-content does (no width cap). Not just empty margin either -
+   .difficulty-row is flex-wrap (buttons keep their natural size, just
+   more of them fit per row) and .class-grid is a 3-column 1fr grid (see
+   those rules), so the actual buttons get wider along with the
+   container. No margin:auto needed at 100% width, same reasoning as
+   .settings-page's own comment on this. */
+#hub-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.hub-section-title {
+  margin: 0 0 8px;
+  font-family: var(--menu-display-font);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 1.3px;
+  color: var(--menu-gold);
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.hub-section-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.menu-card {
+  position: relative;
+  background:
+    radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.4) 100%),
+    var(--grain-texture),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 12%),
+    var(--menu-panel-bg);
+  border: 2px solid var(--menu-panel-border);
+  border-radius: 4px;
+  padding: 19px 23px;
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    inset 1px 0 0 rgba(255, 255, 255, 0.04),
+    inset -1px 0 0 rgba(0, 0, 0, 0.4);
+  text-align: left;
+  animation: panelFlicker 6.5s ease-in-out infinite;
+  animation-delay: 1.7s;
+}
+
+/* Per-panel stagger (see .menu-card's own comment on why) - each sidebar
+   panel and bottom-row card gets a different point in the flicker cycle
+   rather than every instance of the same element dimming/brightening in
+   lockstep. */
+.menu-panel:nth-of-type(2) { animation-delay: 0.9s; }
+.menu-panel:nth-of-type(3) { animation-delay: 2.3s; }
+.menu-panel:nth-of-type(4) { animation-delay: 3.8s; }
+.menu-panel:nth-of-type(5) { animation-delay: 5.1s; }
+.menu-card:nth-of-type(2) { animation-delay: 3.4s; }
+.menu-card:nth-of-type(3) { animation-delay: 4.9s; }
+
+/* Capped + internally scrollable rather than growing the whole page -
+   Game Modes (the longest list) would otherwise dictate the height of
+   all 3 cards (grid stretch) and, with it, whether the homepage needs to
+   scroll at all. This keeps that page-level guarantee regardless of
+   window height or how many modes/challenges/mutators get added later -
+   only this one small list ever scrolls, never the page itself. */
+
+/* Only bites on genuinely short windows, where Game Modes' 8 rows (the
+   longest of the 3 lists) would otherwise push the whole page into
+   needing to scroll - on anything taller, 20vh above is generous enough
+   that none of the 3 lists actually hit the cap. Tightening this further
+   for every window height (rather than gating it to short ones) used to
+   visibly truncate all 3 lists behind a needless internal scrollbar even
+   on spacious 1080p+ screens, with a lot of empty background left below.
+   Two tiers now (mid + short) since the Homepage batch's several new
+   left/right-column elements (Continue card, Recommended Difficulty
+   hint, Loadout Presets, Achievement Showcase, Season Progress) added
+   real height that a single 820px breakpoint no longer fully offset at
+   900px-tall screens - source order matters here, the tighter (short)
+   rule must come after the looser (mid) one to win at heights under both. */
+@media (max-height: 960px) {
+
+  #menu-title-img {
+    width: min(90%, 620px);
+  }
+
+  /* The avatar's base size doubled (230x480 -> 460x960) to make it more
+     prominent on the homepage - fine on a tall screen, but at 960px and
+     under its own height alone is close to the whole viewport, blowing
+     the zero-scroll budget this page has been tuned to hold. Same
+     "shrink before removing" precedent as every other element in this
+     tier - the further #setup-avatar-wrap reduction at the 750px tier
+     below still applies underneath this one. */
+
+  /* The "everything bigger" side-panel/nav-button pass below this block
+     only has real headroom on tall (>960px) screens - at this height and
+     shorter, pull those specific dimensions back to their pre-bigger
+     sizes rather than the logo alone paying for the whole page's
+     overflow again. */
+  .menu-panel {
+    padding: 8px 14px;
+  }
+
+  .menu-panel-title {
+    margin: 0 0 4px;
+    font-size: 18px;
+  }
+
+  .menu-panel-title:not(:first-child) {
+    margin-top: 10px;
+  }
+
+  .menu-field-label {
+    margin: 3px 0 1px;
+    font-size: 11px;
+  }
+
+  .nickname-input {
+    padding: 5px 10px;
+    font-size: 14px;
+  }
+
+  .difficulty-btn {
+    padding: 8px 17px;
+    font-size: 13px;
+  }
+
+  .class-grid {
+    gap: 8px;
+  }
+
+  .class-btn {
+    gap: 5px;
+    padding: 9px 4px;
+    font-size: 12px;
+  }
+
+  .class-icon-badge {
+    width: 38px;
+    height: 38px;
+  }
+
+  .class-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .stat-row {
+    padding: 1px 0;
+    font-size: 13px;
+  }
+
+  #menu-avatar-icon {
+    width: 115px;
+    height: 115px;
+  }
+
+  /* The profile badge doubling in size at this tier costs #menu-col-right
+     more height than the spinning-avatar/hero-column trims elsewhere in
+     this block claw back, pushing the page back over its zero-scroll
+     budget at 900px-tall heights specifically (768px and under already
+     gets a stronger trim from the 820px tier below). Small nav-button
+     padding trim absorbs it without a visible size change. */
+  #menu-nav-buttons button {
+    padding: 12px 16px;
+  }
+
+  /* Old theme's base override (padding:15px 26px, see its own comment)
+     has higher specificity than every plain #menu-nav-buttons button
+     rule in this file, so none of the responsive shrink tiers below
+     ever reached it on their own - the column stayed at full size while
+     Golden's shrank, breaking the zero-scroll budget under Old theme
+     specifically. Matching Golden's value at each tier (rather than a
+     scaled-down version of Old's own extra clearance) fixes that; the
+     plaque-art clearance the base padding exists for matters far less
+     once everything's already shrunk this far. */
+  html.ui-theme-old #menu-nav-buttons button,
+  html.ui-theme-clean #menu-nav-buttons button {
+    padding: 12px 16px;
+    /* Still needs some left clearance from the plaque art even at this
+       shrunk tier - see the base rule's own comment on this same fix. */
+    padding-left: 48px;
+  }
+
+  #menu-player-tag {
+    font-size: 15px;
+  }
+
+  .menu-card {
+    padding: 16px 20px;
+  }
+
+  .mode-toggle {
+    gap: 9px;
+  }
+
+  .mode-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .mode-toggle input {
+    width: 19px;
+    height: 19px;
+  }
+
+  /* Same reasoning as the logo/panel pulls-back above - the hero text/
+     stats/Play/Settings enlargement pass only has full headroom above
+     this tier. Midpoint between the full size and the tighter 820px
+     tier below, not the pre-enlargement size. */
+  #menu-tagline {
+    font-size: 24px;
+  }
+
+  #menu-subtitle {
+    font-size: 20.25px;
+  }
+
+  #play-btn {
+    --play-w: min(370px, 58vw);
+  }
+
+  #settings-btn {
+    width: 77px;
+    height: 77px;
+  }
+
+  #settings-btn svg {
+    width: 37px;
+    height: 37px;
+  }
+}
+
+@media (max-height: 820px) {
+
+  #menu-title-img {
+    width: min(90%, 480px);
+  }
+
+  /* Build Mode's nav button pushed #menu-nav-buttons' own column past
+     budget at 1366x768 specifically - one more size step down from the
+     960px breakpoint's own #menu-nav-buttons override, same "shrink
+     before removing" precedent as everything else here. */
+  #menu-nav-buttons {
+    gap: 5px;
+  }
+
+  #menu-nav-buttons button {
+    padding: 9px 20px;
+    font-size: 14px;
+  }
+
+  /* Same fix as the 960px tier above - Old theme's base padding override
+     otherwise never shrinks, and this is the exact tier tuned for
+     1366x768 (see this block's own comment above). */
+  html.ui-theme-old #menu-nav-buttons button,
+  html.ui-theme-clean #menu-nav-buttons button {
+    padding: 9px 20px;
+    font-size: 14px;
+    padding-left: 52px;
+  }
+
+  #menu-nav-buttons button svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  #menu-col-left,
+  #menu-col-right {
+    gap: 6px;
+  }
+
+  .menu-panel {
+    padding: 6px 12px;
+  }
+
+  .menu-hint-line {
+    margin-bottom: 0;
+  }
+
+  /* Hero elements (tagline/subtitle/stats/Play/Settings) grew a lot in
+     this pass - still meaningfully bigger than their pre-enlargement
+     size at short heights, just not the full amount, same "shrink
+     before removing" precedent as everything else in this breakpoint. */
+  #menu-tagline {
+    font-size: 22.5px;
+    margin: 2px 0 3px;
+  }
+
+  #menu-subtitle {
+    font-size: 18.75px;
+  }
+
+  #play-btn {
+    --play-w: min(340px, 52vw);
+  }
+
+  #settings-btn {
+    width: 70px;
+    height: 70px;
+  }
+
+  #settings-btn svg {
+    width: 34px;
+    height: 34px;
+  }
+
+  #hero-quick-actions {
+    margin-top: 2px;
+  }
+
+  /* Profile panel - same "genuinely short windows lose density first"
+     precedent as everything else in this breakpoint. Still a lot of real
+     content (40 stats + roadmap + comparison + goals + bio), so this
+     trims further rather than hiding sections outright. */
+  #profile-panel {
+    padding: 2px 0;
+    gap: 2px;
+  }
+
+  #profile-panel h3 {
+    margin: 4px 0 2px;
+    font-size: 12px;
+  }
+
+  #profile-options .perk-name,
+#profile-options .perk-cost,
+#rank-roadmap-list .perk-name,
+#rank-roadmap-list .perk-cost,
+#recent-unlocks-list .perk-name,
+#highlight-reel-list .perk-name,
+#highlight-reel-list .perk-cost {
+    font-size: 12px;
+  }
+
+  #profile-options .perk-option,
+#rank-roadmap-list .perk-option,
+#recent-unlocks-list .perk-option,
+#highlight-reel-list .perk-option {
+    padding: 1px 0;
+  }
+
+  #profile-bio-input {
+    min-height: 28px;
+  }
+
+  #profile-nearly-there-list,
+  #profile-today-line,
+  #pinned-stat-row {
+    display: none;
+  }
+}
+
+/* A real (non-maximized) browser window is very often shorter than every
+   height this project had actually measured against (1366x768 was the
+   shortest tracked breakpoint) - #menu's own overflow-y:auto then kicks
+   in and the homepage becomes an internally-scrollable box, which reads
+   to a player as "the page can scroll" even though the outer page itself
+   never does. Confirmed via a real measurement at 1200x700/1000x650/
+   1440x750 (63px/123px/13px of #menu overflow) before guessing at values -
+   same "shrink before removing" precedent as the 820px tier above, just
+   pushed one step further for genuinely short windows. */
+@media (max-height: 750px) {
+  #menu-title-img {
+    width: min(85%, 380px);
+  }
+
+  #menu-tagline {
+    font-size: 18px;
+    margin: 1px 0 2px;
+  }
+
+  #menu-subtitle {
+    font-size: 15px;
+  }
+
+  #play-btn {
+    --play-w: min(260px, 46vw);
+  }
+
+  #settings-btn {
+    width: 56px;
+    height: 56px;
+  }
+
+  #settings-btn svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  #hero-quick-actions {
+    margin-top: 1px;
+  }
+
+  .menu-panel {
+    padding: 4px 10px;
+  }
+
+  #menu-col-left,
+  #menu-col-right {
+    gap: 4px;
+  }
+
+  /* The Player showcase avatar (#player-showcase-panel/#setup-avatar-wrap)
+     is bottom-aligned to fill whatever height the hero column ends up
+     with (see its own comment in this file) rather than adding its own
+     fixed height on top - but its 480px base height can still exceed a
+     genuinely short hero column, so it needs its own reduction at this
+     tier too, not just the text above. */
+
+  #menu-nav-buttons button {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+
+  /* Same fix as the two taller tiers above. */
+  html.ui-theme-old #menu-nav-buttons button,
+  html.ui-theme-clean #menu-nav-buttons button {
+    padding: 8px 16px;
+    font-size: 13px;
+    padding-left: 42px;
+  }
+
+  #menu-nav-buttons button svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 2px 7px;
+  margin: 0 -7px;
+}
+/* Inside a panel the -7px bleed made the rows 7px wider than the Game
+   Mode page, giving it a sideways scrollbar (2026-10-04). Panels never
+   scroll sideways - see tests/panels.spec.js. */
+.panel-box .mode-toggle {
+  margin: 0;
+  border-radius: 4px;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* Reference mockup puts the checkbox at the row's right edge (icon +
+   label read left-to-right first) rather than between the icon and
+   label - reordered via flex `order` alone so the DOM (icon, input,
+   label - see index.html) doesn't need touching. */
+.mode-toggle .mode-icon {
+  order: 1;
+}
+
+.mode-toggle span {
+  order: 2;
+  text-transform: uppercase;
+}
+
+.mode-toggle input {
+  order: 3;
+  margin-left: auto;
+}
+
+/* No hover highlight on the rows (2026-10-11, Gaymi: "when just mouse on
+   any challenge or mutator it will make it brighter, i dont like that"). */
+
+/* 3D Zombie Survival (always-on - just labels the mode you're already
+   playing, checkbox can't be unchecked) and the PVP FFA/Team entries
+   (not built yet) - dimmed and inert rather than a checkbox that looks
+   interactive but silently does nothing, matching this project's "don't
+   ship inert UI" standing rule with an explicit, visibly-disabled state
+   instead. */
+.mode-toggle.locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.mode-toggle.locked:hover {
+  background: none;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.mode-toggle.locked input {
+  cursor: not-allowed;
+}
+
+.mode-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  color: var(--menu-green);
+  opacity: 0.85;
+}
+
+.mode-toggle input {
+  width: 23px;
+  height: 23px;
+  margin: 0;
+  accent-color: var(--menu-gold);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* USED to be top-anchored with a fixed offset (justify-content:flex-start
+   + padding-top:64px) instead of centered - each settings tab's content
+   is a different height (General is shorter than Language's big grid,
+   etc.), and centering used to mean the WHOLE panel re-centers and
+   visibly shifts position every time the active tab changes. That's now
+   solved differently: .settings-page (further down this file) is a fixed
+   68vh, matching How to Play's own content height, so the box itself
+   never changes size between tabs - centering it is safe now, same move
+   as every other panel today. Also USED to have its own near-solid
+   background (0.98, bumped up from the shared 0.9 after real user
+   feedback that a partially-see-through backdrop read as broken) instead
+   of the shared transparent treatment - that fed-back state was a
+   half-visible, ambiguous backdrop, not this fully-clear, deliberately-
+   see-through one already proven across every other panel today, so
+   going fully transparent instead of partially opaque shouldn't
+   reproduce the same complaint. Flagged this history; if it turns out
+   wrong, Settings can go back to its own solid background without
+   undoing the box/centering part. */
+#settings-panel {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  /* Settings can be opened from the pause overlay, which comes later in
+     the HTML and would otherwise stack on top and block clicks - settings
+     needs to always win regardless of what it was opened from. Must be
+     STRICTLY HIGHER than #pause-overlay's z-index (15), not equal - equal
+     z-index falls back to DOM order, and #pause-overlay comes later, so an
+     equal value here (the bug this comment used to describe fixing, but
+     didn't) let it silently win and eat every click meant for Settings. */
+  z-index: 16;
+}
+
+#settings-title {
+  margin: 0 0 16px !important;
+  text-align: center;
+  font-size: 32px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px;
+  /* Explicit, not the browser default "normal" - CJK/Devanagari fallback
+     fonts render this taller than Latin script at the same font-size
+     (measured ~5-8px more for zh/hi than en/es here), which was the last
+     bit of the settings panel-box still resizing on a language switch
+     after the other status-row fixes above. */
+  line-height: 1.3;
+}
+
+#settings-panel h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ui-gold-bright);
+  opacity: 0.85;
+}
+
+html.ui-theme-old #settings-panel h2 {
+  font-family: 'Rye', Georgia, serif;
+  color: #c2a06e;
+  opacity: 1;
+}
+
+.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.settings-tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  /* Explicit, not the browser default - CJK/Devanagari fallback fonts
+     render taller at the same declared line-height than Latin script
+     does, which was making this row (and so the whole panel-box) a few
+     px taller under zh/hi than en/es/etc. Fixing it here keeps that
+     variance from compounding into the panel-box resizing story above. */
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.settings-tab.active {
+  color: #0c130c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
+}
+
+/* Quests panel tab strip (Quests/Monthly/Yearly/Lifetime) - visually
+   identical to .settings-tab but kept as its own class rather than reusing
+   .settings-tab directly, since Game.js's settings-tab click handler
+   queries .settings-tab/.settings-page globally by class - sharing the
+   class would wire quest tabs into that same handler and break both. */
+.quest-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.quest-tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.quest-tab.active {
+  color: #0c130c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
+}
+
+/* height/overflow-y: same treatment as .general-tab-page/.upgrades-tab-page
+   above - .quest-tabs' own footprint subtracted the same way. */
+.quest-tab-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  height: calc(var(--panel-h) - 45.5px);
+  overflow-y: auto;
+}
+
+.upgrades-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.upgrades-tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.upgrades-tab.active {
+  color: #0c130c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
+}
+
+/* height/overflow-y: same "match How to Play's box exactly" treatment as
+   .general-tab-page (see that rule's own comment for the full reasoning)
+   - .upgrades-tabs' own footprint gets subtracted the same way
+   .general-tabs' does. This is what lets 30+ perk cards live in this
+   panel without the box itself growing past How to Play's height - they
+   scroll inside this fixed area instead. */
+.upgrades-tab-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  height: calc(var(--panel-h) - 45.5px);
+  overflow-y: auto;
+}
+
+/* Inventory panel tab strip (Character/Crates/Weapons) - same reasoning
+   as .quest-tabs above: kept as its own class so it doesn't get swept
+   into the settings-tab/quest-tab click handlers' global .class queries. */
+.inventory-tabs {
+  display: flex;
+  /* Wraps on phones - the four tabs are wider than the panel there. */
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.inventory-tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.inventory-tab.active {
+  color: #0c130c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
+}
+
+/* height/overflow-y: same treatment as .general-tab-page/.upgrades-tab-page
+   above - .inventory-tabs' own footprint subtracted the same way. */
+.inventory-tab-page {
+  width: min(360px, 86vw);
+  margin: 0 auto;
+  padding: 10px 0;
+  height: calc(var(--panel-h) - 45.5px);
+  overflow-y: auto;
+}
+
+/* Clan panel tab strip (General/Clan/Market) - own class, same reasoning
+   as .quest-tabs/.inventory-tabs above (isolated so its click handler
+   never cross-contaminates with .hub-tab, the DIFFERENT panel's own
+   Zombie Survival/Deathmatch tabs). */
+.general-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.general-tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.general-tab.active {
+  color: #0c130c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
+}
+
+/* height/overflow-y matches #howtoplay-content/#credits-content/
+   #whatsnew-content's own treatment (see that rule's comment) - this is
+   what makes the General/Clan/Market box's actual rendered height match
+   How to Play's, both being driven by the same 68vh content area rather
+   than the shared .panel-box min-height floor (which General's own
+   content, especially the "Coming soon." tabs, would otherwise never
+   reach on its own). The `- 45.5px` subtracts .general-tabs' own
+   measured footprint (31.5px tall + 14px margin-bottom, via
+   getBoundingClientRect at 1920x1080) - without it this box would be
+   exactly that much TALLER than How to Play's, since General has the
+   tab-switcher row sitting above this content area and How to Play
+   doesn't have anything in that space. This is a fixed content-block
+   height, not a viewport-relative one, so it stays correct as `68vh`
+   itself scales with screen size. */
+.general-tab-page {
+  width: min(360px, 86vw);
+  margin: 0 auto;
+  padding: 10px 0;
+  height: calc(var(--panel-h) - 45.5px);
+  overflow-y: auto;
+}
+
+/* Same 68vh-content-height idea as .general-tab-page above, for panels
+   with no tab strip of their own (Store, Global) - no header row to
+   subtract, so this is just a plain 68vh, same as
+   #howtoplay-content/#credits-content/#whatsnew-content. */
+.panel-fixed-content {
+  width: 100%;
+  height: var(--panel-h);
+  overflow-y: auto;
+}
+/* No panel area ever scrolls sideways (standing rule, 2026-10-04) -
+   these are the shared scroll wrappers; tests/panels.spec.js checks every
+   element in every panel and tab. */
+.panel-fixed-content,
+.hub-tab-page,
+.general-tab-page {
+  overflow-x: hidden;
+}
+
+/* Clan tab specifically needs real room for the two-column in-clan
+   layout below (member list + stats/requests side by side) - the
+   General/Market tabs' placeholder text stays fine at the narrower
+   shared width above. */
+#general-page-clan,
+#general-page-general {
+  width: min(640px, 90vw, 100%);
+  max-width: 100%;
+}
+/* The leaderboards' headings line up on the left like the rows (2026-10-24). */
+#cloudsave-online-section {
+  text-align: left;
+}
+
+/* Leaderboard fills General's whole width in two columns (2026-10-26,
+   Gaymi: "its like for a phone ... doesnt fit good"): your stats + the
+   main board on the left, Nearby Rank / Most Achievements / Weekly /
+   poll on the right. One scroll for the whole tab (the tab page's own),
+   not a second one inside it. Under 760px wide they stack. */
+#general-page-general {
+  width: 100%;
+}
+#general-page-general #cloudsave-section {
+  width: 100%;
+  padding: 4px 8px 16px;
+  box-sizing: border-box;
+}
+#cloudsave-online-section {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  column-gap: 40px;
+  row-gap: 8px;
+  max-height: none;
+  overflow: visible;
+}
+#cloudsave-online-section > .lb-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+#cloudsave-online-section > .lb-column:last-child > h3:first-child {
+  margin-top: 0;
+}
+@media (max-width: 760px) {
+  #cloudsave-online-section {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* General/Market are just an unstyled "Coming soon." line by default,
+   which reads as broken/unfinished floating over .general-tab-page's 68vh
+   height (see that rule's own comment) rather than an intentional empty
+   state - Clan is excluded since it has real content. Text treatment
+   matches .inventory-section-placeholder (same "coming soon" convention
+   elsewhere in the game). min-height:100% centers within the parent's
+   own 68vh, whatever that resolves to on the current screen. The
+   centering lives on this inner wrapper rather than directly on
+   #general-page-general/-market themselves, because the tab-switch click
+   handler (Game.js) sets `.general-tab-page`'s own `style.display` to
+   'block'/'none' inline on every click - a `display: flex` rule on that
+   same element would get silently overwritten back to 'block' (losing
+   the centering) the first time the tab is clicked, or would need
+   `!important` and then fight the 'none' JS also needs to hide the
+   inactive page. A separate untouched child avoids the conflict
+   entirely. */
+.general-section-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  /* No effect with a single child (the common case elsewhere this class is
+     used) - only matters for the Shop panel's 2 children (the crate grid,
+     then the skin card below it - flex-direction: column stacks them;
+     without it they'd sit side by side regardless of DOM order, which is
+     what actually happened the first time these were reordered). */
+  gap: 20px;
+}
+
+.general-section-placeholder {
+  margin: 0;
+  text-align: center;
+  font-size: 15px;
+  opacity: 0.6;
+}
+
+/* Global panel chat (#server-panel) - a separate chat room from the
+   in-game HUD's #chat-panel (see CloudSync.js's sendServerChatMessage
+   comment for why). Reading is public (Firestore rule: allow read: if
+   true) - only sending needs sign-in - so unlike Friend List/Profile's
+   all-or-nothing sign-in gate, #server-chat-messages always shows, and
+   only the bottom row swaps between the sign-in prompt and the actual
+   input form depending on sign-in state. */
+#server-chat-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 10px;
+}
+
+#server-chat-signed-out {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0 4px;
+  text-align: center;
+}
+
+#server-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 8px;
+}
+
+/* Reuses the in-game chat's .chat-message-row/-nickname/-text class
+   names (same render logic, easy to share the click-to-mute pattern),
+   scoped under this panel's own id since that CSS was tuned for text
+   floating over gameplay with no background (text-shadow instead of a
+   solid box - see #chat-panel's own comment) - wrong look for a normal
+   boxed menu panel, so it's fully overridden here instead of inherited. */
+#server-chat-messages .chat-message-row {
+  font-size: 13px;
+  line-height: 1.5;
+  text-shadow: none;
+  word-break: break-word;
+}
+
+#server-chat-messages .chat-message-nickname {
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--menu-gold, #d9bc4a);
+  margin-right: 6px;
+}
+
+#server-chat-messages .chat-message-nickname:hover {
+  text-decoration: none;
+}
+
+#server-chat-messages .chat-message-text {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+#server-chat-muted-notice {
+  margin: 0;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--menu-red, #c9564a);
+  text-align: center;
+}
+
+#server-chat-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+#server-chat-input {
+  flex: 1;
+}
+
+.clan-list-row,
+.clan-member-row,
+.clan-request-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+/* Member count next to a clan's name in the browse list - muted so the
+   name itself stays the visual lead. */
+.clan-list-count {
+  color: var(--menu-text-dim, rgba(255, 255, 255, 0.55));
+  font-size: 0.85em;
+}
+
+/* Clan Ranking rows specifically (4 children: rank/name/kills/action) -
+   .clan-list-row's own justify-content:space-between (shared with the
+   2-child Incoming Invites row, left untouched) doesn't keep 4 columns
+   aligned row to row, so this overrides just the alignment for this one
+   list without touching the base class's other rows. */
+.clan-ranking-row {
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+.clan-list-rank {
+  flex: 0 0 28px;
+  color: var(--menu-text-dim, rgba(255, 255, 255, 0.55));
+  font-variant-numeric: tabular-nums;
+}
+
+.clan-list-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clan-list-kills {
+  flex: 0 0 auto;
+  color: var(--menu-text-dim, rgba(255, 255, 255, 0.55));
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+}
+
+.clan-list-your-clan {
+  flex: 0 0 auto;
+  color: var(--ui-gold-bright);
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.clan-list-row-mine {
+  border-color: rgba(var(--ui-gold-bright-rgb), 0.5);
+  background: rgba(var(--ui-gold-bright-rgb), 0.08);
+}
+
+/* Sub-tabs inside the Clan tab (My Clan/Clan Ranking/Clan War) - same pill
+   look as .general-tab above it, just visually one level nested (smaller,
+   less margin) since this is a tab strip inside a tab page, not the
+   top-level one. */
+.clan-subtabs {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.clan-subtab {
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+.clan-subtab.active {
+  color: #0c130c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
+}
+
+/* Role above name, plain text (no pill/badge box - simpler per request),
+   small and muted above the bold nickname. */
+.clan-member-name-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.clan-member-role {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #d9bc4a;
+  opacity: 0.8;
+}
+
+.clan-member-name {
+  font-weight: 700;
+}
+
+#clan-display-name {
+  margin: 0 0 8px;
+  font-size: 26px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+}
+
+/* Two-column in-clan layout: member list on the left, stats/Send Clan
+   Request/Requests on the right. */
+#clan-in-clan-columns {
+  display: flex;
+  gap: 20px;
+  text-align: left;
+}
+
+#clan-members-column,
+#clan-info-column {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Two-column browse layout (not in a clan yet): every existing clan on
+   the left, invites/Request-to-Join on the right - same split pattern as
+   #clan-in-clan-columns above. */
+/* Only wraps #clan-browse-join-column now - the "All Clans" list that used
+   to sit alongside it moved to its own Clan Ranking sub-tab (see
+   _renderClanRanking), so this is no longer a real 2-column layout, just
+   the leftover text-align/margin-top this single column still wants. */
+#clan-browse-columns {
+  text-align: left;
+  margin-top: 12px;
+}
+
+#clan-browse-join-column {
+  min-width: 0;
+}
+
+#clan-ranking-heading {
+  margin: 0 0 8px;
+}
+
+/* Hub panel tab strip (Zombie Survival/Deathmatch) - same reasoning as
+   .quest-tabs above: kept as its own class rather than reusing
+   .settings-tab/.quest-tab, so it doesn't get swept into either of those
+   handlers' global .class queries. */
+.hub-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.hub-tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.hub-tab.active {
+  color: #0c130c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
+}
+
+/* Stretch (not center) - unlike .quest-tab-page's card grid, this holds
+   full-width .hub-section blocks (difficulty buttons, class grid,
+   mode-toggle lists) that need to fill #hub-content's own width, same as
+   its direct-child .hub-section siblings did before tabs existed.
+   height/overflow-y: same "match How to Play's box exactly" treatment as
+   .general-tab-page (see that rule's comment) - subtracts .hub-tabs' own
+   footprint PLUS #hub-content's 20px gap between .hub-tabs and this page
+   (unlike General/Upgrades/Quests/Inventory, .hub-tabs has no margin-
+   bottom of its own - the gap comes from its flex parent instead). */
+.hub-tab-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  height: calc(var(--panel-h) - 51.5px);
+  overflow-y: auto;
+}
+
+/* Achievements panel mode tabs (Zombie Survival/Deathmatch) - same
+   reasoning as .hub-tabs above, own class so it doesn't get swept into
+   another tab-strip's handler. */
+.achievements-mode-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.achievements-mode-tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.achievements-mode-tab.active {
+  color: #0c130c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
+}
+
+/* Wraps #achievements-options (the actual card list) + its Deathmatch
+   placeholder - everything else in this panel (.achievements-mode-tabs,
+   #achievements-filter-input, #achievements-controls-row above;
+   #print-achievements-btn below) stays fixed in place, only this middle
+   region scrolls. Same "match How to Play's box exactly" idea as
+   .general-tab-page (see that rule's comment) - height is 68vh minus
+   everything else in the box's own measured footprint, tuned via
+   getBoundingClientRect against #howtoplay-panel .panel-box rather than
+   hand-summed from each element's padding/margin (font line-height
+   isn't reliably hand-computable - see .general-tab-page's own note on
+   this same point). */
+/* Was left-aligned (a <button>'s native display:inline-block sits at the
+   flow's natural left edge, and nothing here overrides that) - centered
+   under the scroll area to match the rest of the panel's centered layout
+   (2026-09-21). */
+#print-achievements-btn {
+  display: block;
+  width: fit-content;
+  margin: 12px auto 0;
+}
+
+.achievements-scroll-area {
+  width: 100%;
+  overflow-y: auto;
+  height: calc(var(--panel-h) - 136.5px);
+}
+
+.settings-page {
+  /* Was capped at min(840px, 92vw) - request: widen to fill the box like
+     #whatsnew-content does (that one has no width cap at all). Not just
+     empty margin either - .audio-row's middle column is 1fr (see that
+     rule), so the actual dropdowns/sliders/checkboxes genuinely get
+     wider along with the container, not just more blank space on the
+     sides. No margin:auto needed at 100% width (was added for the
+     previous narrower version - see .general-tab-page's own comment on
+     why a width-capped child needs it; doesn't apply once there's no
+     cap to center). */
+  width: 100%;
+  /* A fixed height (not max-height) so every tab reserves the same
+     vertical space, whether or not its content fills it - #settings-panel
+     now sits inside .panel-box like every other panel and centers via
+     the shared base rule, so a tab with less content (e.g. Audio) would
+     otherwise shrink the block's total height and drag the search bar/
+     tabs above it down with it. A constant height keeps the header
+     pinned at the same spot regardless of which tab is active. 68vh
+     matches #whatsnew-content's own height (see that rule) - measured
+     via getBoundingClientRect against #whatsnew-panel .panel-box (request:
+     Settings' box should be the exact same size as What's New's, not
+     How to Play's - those two aren't actually the same height as each
+     other at every viewport size, a pre-existing gap between them this
+     didn't create). The subtracted value covers the extra rows Settings
+     has that What's New doesn't (#settings-search-input/.settings-tabs
+     above this, #settings-status-row below it, plus their gaps). Bumped
+     to 169.3px (from 138.5px, which matched How to Play instead) when
+     re-measured against #whatsnew-panel specifically - confirmed 0px
+     diff at 1150px viewport height. */
+  height: calc(var(--panel-h) - 169.3px);
+  overflow-y: auto;
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--ui-gold-accent-rgb), 0.6) transparent;
+}
+
+/* Chrome/Safari default to a stark white scrollbar track+thumb that clashes
+   hard with this dark panel - match the gold accent instead. */
+.settings-page::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-page::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-page::-webkit-scrollbar-thumb {
+  background: rgba(var(--ui-gold-accent-rgb), 0.6);
+  border-radius: 4px;
+}
+
+.settings-page::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--ui-gold-accent-rgb), 0.8);
+}
+

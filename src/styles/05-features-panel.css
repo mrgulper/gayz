@@ -1,0 +1,317 @@
+/* GayZ Features panel - ported in from the standalone gayz-features.
+   vercel.app site (own repo, own habit of getting updated after every
+   shipped change) rather than iframed, per request. Reuses that site's
+   own class names - .feature, .category, .expandable, .detail-list and
+   friends - verified against this whole stylesheet for collisions first,
+   with colors swapped to this game's own gold/dark tokens instead of
+   gayz-features' own (#d9a34a/#0a0a09 -> this file's var(--ui-gold-bright)/
+   rgba(8,8,7,.96) family) so it reads as part of the same UI, not a
+   pasted-in foreign page. */
+/* The tagline, counts and search bar stay put; only the list below them
+   (#features-layout) scrolls (2026-10-12, "when clicking Progression & Meta
+   don't make the search bar slightly pop up" - jumping to a section used to
+   scroll the whole page and leave a sliver of the search bar at the top). */
+#features-content {
+  height: var(--panel-h);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+#features-content > * {
+  flex: none;
+}
+#features-content > #features-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.features-tagline {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+}
+
+#features-stat-line {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.features-stat {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.3);
+  border-radius: 8px;
+  padding: 8px 18px;
+  text-align: center;
+}
+
+.features-stat .num {
+  display: block;
+  font-family: var(--menu-display-font), inherit;
+  font-size: 24px;
+  color: var(--ui-gold-bright);
+  letter-spacing: 1px;
+}
+
+.features-stat .label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+#features-search {
+  width: min(420px, 90%);
+  margin: 0 auto 8px;
+}
+
+#features-search-count {
+  display: none;
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 12px;
+}
+
+/* Left sidebar, matching the standalone gayz-features site's own
+   #layout/nav#toc (grid-template-columns: 240px 1fr, sticky nav) -
+   first pass used a horizontal pill row like every other in-game tab
+   strip, but the request was specifically to match the original site's
+   own sidebar instead. position:sticky here anchors to #features-layout
+   (the nearest scrolling ancestor - a fixed-height overlay panel, not
+   the page), same mechanism the standalone site used against its own
+   natural page scroll. */
+#features-layout {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+#features-toc {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.features-toc-link {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.65);
+  background: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  border-radius: 0 6px 6px 0;
+  cursor: pointer;
+}
+
+.features-toc-link {
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+/* Hovered/current section reads in the panel's own gold, not plain
+   white, and never gets the browser's blue focus ring (2026-10-02). */
+.features-toc-link:hover,
+.features-toc-link.active {
+  color: var(--ui-gold-bright);
+  background: rgba(var(--ui-gold-accent-rgb), 0.08);
+  border-left-color: rgba(var(--ui-gold-accent-rgb), 0.75);
+}
+
+.features-toc-link:focus {
+  outline: none;
+}
+
+.features-toc-link:focus-visible {
+  outline: 1px solid rgba(var(--ui-gold-accent-rgb), 0.6);
+  outline-offset: -1px;
+}
+
+.features-toc-link.coming-link {
+  color: var(--soon-gold);
+}
+
+/* Coming Soon: the same gold highlight as the other sections, a little
+   brighter on hover/when open. */
+.features-toc-link.coming-link:hover,
+.features-toc-link.coming-link.active {
+  color: var(--soon-gold);
+  filter: brightness(1.12);
+}
+
+/* Collapse to a horizontal pill row on narrow screens, same breakpoint
+   idea as the standalone site's own @media (max-width: 820px) - a
+   190px-wide sticky sidebar doesn't leave enough room for the actual
+   feature cards once the panel itself is this narrow. */
+@media (max-width: 640px) {
+  #features-layout {
+    grid-template-columns: 1fr;
+  }
+
+  #features-toc {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .features-toc-link {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    padding: 6px 14px;
+  }
+
+  .features-toc-link.coming-link {
+    border-color: var(--soon-gold-rgb-line);
+  }
+}
+
+section.category {
+  margin-bottom: 40px;
+  scroll-margin-top: 12px;
+}
+
+section.category > h2 {
+  font-family: var(--menu-display-font), inherit;
+  font-size: 24px;
+  letter-spacing: 1px;
+  color: var(--ui-gold-bright);
+  border-bottom: 1px solid rgba(var(--ui-gold-accent-rgb), 0.3);
+  padding-bottom: 8px;
+  margin: 0 0 16px;
+}
+
+.feature {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.2);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+}
+
+.feature.expandable > h3 {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.detail-item {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.detail-item b {
+  color: #fff;
+  font-weight: 600;
+}
+
+.feature h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: var(--ui-gold-bright);
+}
+
+.feature p {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.5;
+}
+
+.feature.coming-soon {
+  background: transparent;
+  border-style: dashed;
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.3);
+  opacity: 0.9;
+  transition: opacity 0.15s, border-color 0.15s, background 0.15s;
+}
+
+/* Coming Soon reads in the panel's own GayZ gold, a step brighter than
+   the other sections so it still stands out (2026-10-02 - red didn't
+   fit the style). --soon-gold follows the UI theme. */
+#features-panel {
+  --soon-gold: color-mix(in srgb, var(--ui-gold-bright) 82%, #fff);
+  --soon-gold-rgb-line: color-mix(in srgb, var(--ui-gold-bright) 45%, transparent);
+}
+
+section.category#coming-soon > h2 {
+  color: var(--soon-gold);
+  border-bottom-color: var(--soon-gold-rgb-line);
+}
+
+.feature.coming-soon h3 {
+  color: var(--soon-gold);
+}
+
+.feature.coming-soon:hover {
+  opacity: 1;
+  border-color: var(--soon-gold-rgb-line);
+  background: rgba(var(--ui-gold-accent-rgb), 0.06);
+}
+
+.feature.coming-soon:hover h3 {
+  filter: brightness(1.12);
+}
+
+.feature.coming-soon h3::after {
+  content: 'COMING SOON';
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--soon-gold);
+  background: rgba(var(--ui-gold-accent-rgb), 0.12);
+  border: 1px solid var(--soon-gold-rgb-line);
+  border-radius: 999px;
+  padding: 2px 7px;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+/* Old theme: the pale gold tag vanished on the paper (2026-10-26, Gaymi:
+   "the coming soon you cant really see it") - a solid ink-brown tag with
+   paper-coloured letters instead, and darker dashed card edges. */
+html.ui-theme-old #features-panel .feature.coming-soon h3::after {
+  color: #f6e9c8;
+  background: #5b3416;
+  border-color: #3f230c;
+}
+html.ui-theme-old #features-panel .feature.coming-soon {
+  border-color: rgba(74, 44, 16, 0.45);
+}
+
+.features-coming-soon-note {
+  margin: -8px 0 16px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.feature.hidden-search,
+section.category.hidden-search {
+  display: none;
+}
+
+.credits-links-row {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+}
+
+@keyframes toast {
+  0% { opacity: 0; transform: translate(-50%, 8px); }
+  15% { opacity: 1; transform: translate(-50%, 0); }
+  75% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -6px); }
+}
+

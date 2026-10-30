@@ -37,7 +37,7 @@ Browser Three.js block-world zombie game (Vite, no framework) at gayz.vercel.app
 - Every new full block gets a slab, stairs and a `BlockTextures.js` painter.
 - New GLBs go through gltf-transform; credits in `public/models/weapons/CREDITS.txt` only.
 - `vercel.json` keeps one catch-all rewrite.
-- Split `Game.js`/`style.css` bit by bit: move an area into its own module (`scripts/move-to-module.py`) as a pure move commit before changing it. Never a big split.
+- Split `Game.js` bit by bit: move an area into its own module (`scripts/move-to-module.py`) as a pure move commit before changing it. `style.css` is split into `src/styles/*.css` and translations into `src/game/i18n/<lang>.js` (map in `codebase.md`) - grep there, read only the part you need.
 - Don't ship inert UI.
 - Single player works offline: no CDN loads; online-only buttons go in `ONLINE_ONLY`.
 - Old Map 1 is gone for good - build on `BuildSurvival`/`BuildCamp`.

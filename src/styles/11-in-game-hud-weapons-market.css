@@ -1,0 +1,1620 @@
+/* Existing in-game HUD (weapon/ammo panel, health/status bars, the
+   gadget-icon column, minimap, top-right stats panel) was only ever
+   sized for a desktop screen - all confirmed pointer-events:none
+   (display-only, so touch buttons were never actually BLOCKED by
+   overlapping it), but it visually crowds a small phone screen. Shrunk
+   here for readability, not because anything was non-functional. Shared
+   shrink values apply to both the narrow-portrait and short-landscape
+   phone cases below. */
+@media (max-width: 700px), (max-height: 450px) {
+
+  #left-hud-stack {
+    gap: 5px;
+  }
+
+  .status-row {
+    font-size: 12px;
+    gap: 5px;
+  }
+}
+
+/* Chat - Global/Clan/Party channels. Always visible (no more open/close
+   toggle - measured as effectively invisible to a real user even with a
+   text label, sitting in the same busy bottom-left corner as the rest
+   of the gameplay HUD) - a real always-on chat log/input, same idea as
+   a typical FPS's chat box. Lives as a normal flex child inside
+   #left-hud-stack, right after #status-hud, instead of its own
+   position:fixed element - the stack is already a flex column sized by
+   its own content specifically to avoid two independent hand-picked
+   `bottom` offsets overlapping (see that rule's own comment), so
+   chat just extends the same fix instead of needing its own position
+   math. pointer-events: auto overrides the stack's own blanket `none`
+   (its other children, the stat bars, never needed clicks - chat does). */
+#chat-panel {
+  /* Hidden on the homepage by default, same as #status-hud right above
+     it in the DOM - shown only during an actual run (see
+     _onGameplayResumed/_onGameplayPaused), per feedback that it read as
+     clutter sitting over the homepage art. */
+  display: none;
+  flex-direction: column;
+  /* Stops short of the bottom-middle hotbar (half of it is ~320px wide
+     in a run), so the input row's Enter button never sits on slot 1. */
+  width: max(220px, min(420px, calc(50vw - 355px)));
+  height: 320px;
+  pointer-events: auto;
+  /* Fully invisible - no box at all (was a low-alpha panel with a blur,
+     per a reference screenshot showing chat as plain floating text with
+     zero background/border). Every element below relies on its own
+     text-shadow for legibility against gameplay now, since there's no
+     dark backdrop behind any of it any more. */
+  background: none;
+  border: none;
+}
+
+/* Map Editor / Try Map: the editor's hotbar is narrower (~264px half). */
+body.build-mode-on #chat-panel {
+  width: max(220px, min(420px, calc(50vw - 300px)));
+}
+
+#chat-channel-tabs {
+  display: flex;
+}
+
+.chat-tab-btn {
+  flex: 1;
+  padding: 6px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: rgba(224, 228, 220, 0.75);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.chat-tab-btn.active {
+  color: var(--menu-gold, #d9bc4a);
+}
+
+.chat-tab-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+#chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-message-row {
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-word;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.6);
+}
+
+/* A line from the game itself ("Tazbot joined the game") - no name, in
+   the theme's accent and slanted so it reads apart from what people say. */
+.chat-system-row .chat-message-text {
+  color: var(--ui-gold-bright, #f2c14e);
+  font-style: italic;
+}
+html.ui-theme-old .chat-system-row .chat-message-text {
+  color: #e1c189;
+}
+
+.chat-message-nickname {
+  /* A <button>, not a <span> - reset to plain inline text so it reads
+     exactly like plain text, with just a hover cue that it's clickable.
+     Left-click copies the Player ID directly; right-click opens the
+     Name/ID/Mute popup (see ChatUI.js's bindChatContextActions). */
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--menu-gold, #d9bc4a);
+  margin-right: 4px;
+}
+
+.chat-message-nickname:hover {
+  text-decoration: underline;
+}
+
+.chat-message-text {
+  color: #eee;
+}
+
+/* A Player ID pasted into a Global chat message (see
+   ChatUI.js's renderChatMessageText) - visually distinct from plain
+   message text so it reads as clickable, click shows that player's
+   stats (ChatUI.js's bindChatContextActions). */
+.chat-message-id-link {
+  font: inherit;
+  font-size: 0.9em;
+  font-weight: 700;
+  color: #170a06;
+  background: var(--ui-gold-bright);
+  border: none;
+  border-radius: 4px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+
+.chat-message-id-link:hover {
+  background: #e8d264;
+}
+
+/* Muted sender's message (see ChatUI.js's renderChatMessageRow) - dimmed/italic
+   placeholder instead of the message just silently not being there,
+   with a small pill "Show" button matching .chat-message-id-link's own
+   clickable-tag language. The real text (.chat-blocked-real-text) is
+   already rendered right next to this, just display:none until Show is
+   clicked - see ChatUI.js's revealBlockedMessage. */
+.chat-blocked-label {
+  font-style: italic;
+  opacity: 0.55;
+}
+
+.chat-blocked-show-btn {
+  font: inherit;
+  font-size: 0.85em;
+  font-weight: 700;
+  color: #170a06;
+  background: var(--ui-gold-bright);
+  border: none;
+  border-radius: 4px;
+  padding: 1px 8px;
+  margin-left: 4px;
+  cursor: pointer;
+}
+
+.chat-blocked-show-btn:hover {
+  background: #e8d264;
+}
+
+.muted-chat-player-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#chat-muted-notice {
+  margin: 0;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--menu-red, #c9564a);
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+#chat-input-row {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+}
+
+#chat-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: #eee;
+  background: none;
+  border: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+#chat-input::placeholder {
+  color: rgba(224, 228, 220, 0.55);
+}
+
+#chat-send-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--menu-gold, #d9bc4a);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+/* In-game chat and hotbar text is white in every theme and biome, with a
+   thin dark edge so it still reads on snow and bright ground
+   (2026-10-26, Gaymi: "for the all text like the message, global, clan etc
+   in gameplay change it to fully white" - was black before). The chat box
+   gets no blue focus ring when Enter opens it. */
+:root {
+  --white-text-edge: 0 0 2px rgba(0, 0, 0, 0.85), 0 0 1px rgba(0, 0, 0, 0.7);
+}
+#chat-panel :is(.chat-tab-btn, .chat-tab-btn.active, .chat-message-row, .chat-message-nickname, .chat-message-text, .chat-system-row .chat-message-text, #chat-input, #chat-send-btn) {
+  color: #fff !important;
+  text-shadow: var(--white-text-edge);
+}
+/* The tab you're on is told apart by being solid; the other is faded. */
+#chat-panel .chat-tab-btn:not(.active) { opacity: 0.55; }
+#chat-panel #chat-input::placeholder { color: rgba(255, 255, 255, 0.65); }
+#chat-panel #chat-input:focus { outline: none; box-shadow: none; }
+
+/* Emoji picker trigger - one per chat input (in-game #chat-input-row and
+   the homepage Global panel's #server-chat-input-row), both opening the
+   same shared #emoji-picker overlay (see _openEmojiPicker in Game.js).
+   Plain emoji glyph as the icon, no SVG needed. */
+.chat-emoji-btn {
+  flex-shrink: 0;
+  padding: 2px 4px;
+  font-size: 16px;
+  line-height: 1;
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.15s;
+}
+
+.chat-emoji-btn:hover,
+.chat-emoji-btn.active {
+  opacity: 1;
+}
+
+/* Single shared picker (not one per chat input) - position:fixed and
+   repositioned via getBoundingClientRect() of whichever emoji button
+   opened it each time (see _openEmojiPicker), since #chat-input-row
+   (in-game HUD) and #server-chat-input-row (Global panel, z-index 15)
+   are two unrelated stacking contexts a plain CSS anchor couldn't
+   straddle. z-index 18: above every .panel-box (15) and the crate
+   purchase modal (17), below the ending/extraction screens (20) - see
+   the z-index scale in this project's CLAUDE.md. */
+#emoji-picker {
+  position: fixed;
+  z-index: 18;
+  width: min(300px, 92vw);
+  max-height: 360px;
+  display: flex;
+  flex-direction: column;
+  background: #0e0e0c;
+  border: 2px solid var(--ui-gold-bright);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+/* Pill shape (border-radius: 999px), matching every other search/filter
+   input in the game (#settings-search-input, #achievements-filter-input)
+   rather than the shared .nickname-input rect default - a standing
+   preference for search bars specifically, see that class's own
+   comment. Padding scaled down for this picker's own compact size. */
+#emoji-picker-search {
+  width: auto;
+  margin: 8px 8px 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+}
+
+#emoji-picker-categories {
+  flex-shrink: 0;
+  display: flex;
+  gap: 2px;
+  padding: 0 6px 6px;
+  border-bottom: 1px solid rgba(var(--ui-gold-accent-rgb), 0.25);
+  overflow-x: auto;
+}
+
+.emoji-picker-category-btn {
+  flex: 1;
+  padding: 4px 0;
+  font-size: 15px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.emoji-picker-category-btn:hover,
+.emoji-picker-category-btn.active {
+  opacity: 1;
+  background: rgba(var(--ui-gold-accent-rgb), 0.15);
+}
+
+#emoji-picker-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 8px 8px;
+}
+
+.emoji-picker-section-label {
+  margin: 8px 2px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #d9bc4a);
+  opacity: 0.75;
+}
+
+.emoji-picker-section-label:first-child {
+  margin-top: 2px;
+}
+
+.emoji-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.emoji-picker-item {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.emoji-picker-item:hover {
+  background: rgba(var(--ui-gold-accent-rgb), 0.18);
+}
+
+#emoji-picker-empty {
+  padding: 20px 8px;
+  text-align: center;
+  font-size: 12px;
+  color: rgba(224, 228, 220, 0.55);
+}
+
+/* Inventory > Character, Kirka-style (2026-09-30): 3D preview on the left,
+   a searchable grid of skin cards on the right. Each card's left bar is
+   its rarity color (--rarity, set per card from SKIN_RARITIES). */
+#inventory-page-character,
+#inventory-page-weapons {
+  width: 100%;
+  padding: 0;
+}
+/* Holds the card menu (positioned against it) when a weapon is clicked. */
+#inventory-page-weapons { position: relative; }
+#inv-skins-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 38%) 1fr;
+  gap: 14px;
+  height: 100%;
+}
+/* No box behind the character (2026-10-10, "remove the colour rectangle
+   around the character, it looks bad") - it stands straight on the panel. */
+#inv-skin-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 0;
+  background: none;
+  border: none;
+  padding: 14px 10px 10px;
+}
+#inv-skin-preview-title {
+  margin: 0;
+  font-size: 22px;
+}
+#inv-skin-preview-canvas {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+#inv-skin-preview-skin {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+#inv-skins-side {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+#inv-skin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+#inv-skin-search {
+  flex: 1 1 200px;
+  width: auto;
+  max-width: 320px;
+  margin: 0;
+}
+#inventory-skins-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-auto-rows: 150px;
+  gap: 8px;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 4px;
+}
+/* Cards match the theme (2026-10-10, "the outside before clicking it does
+   not fit style"): dark warm brown with a thin gold rim in Golden (like the
+   Inspect window), a slightly darker patch of paper with a brown rim and
+   ink lettering in Old (below). The rarity color stays on the left edge. */
+.inv-skin-card {
+  position: relative;
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  background: rgba(22, 17, 10, 0.82);
+  border: 1px solid rgba(201, 162, 74, 0.35);
+  border-left: 5px solid var(--rarity, #9aa0a6);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s, transform 0.12s;
+}
+.inv-skin-card:hover {
+  background: rgba(40, 31, 18, 0.9);
+  transform: translateY(-1px);
+}
+html.ui-theme-old .inv-skin-card {
+  background: rgba(120, 80, 40, 0.14);
+  border-color: rgba(74, 44, 16, 0.4);
+  border-left-color: var(--rarity, #9aa0a6);
+}
+html.ui-theme-old .inv-skin-card:hover {
+  background: rgba(120, 80, 40, 0.24);
+}
+html.ui-theme-old .inv-skin-card-name {
+  color: var(--old-ink, #2e1d0e);
+}
+html.ui-theme-old .inv-weapon-card-icon,
+html.ui-theme-old .inv-weapon-card-skin {
+  color: rgba(46, 29, 14, 0.7);
+}
+html.ui-theme-old .inv-skin-card-count {
+  background: rgba(74, 44, 16, 0.8);
+  color: #f3e3c2;
+}
+.inv-skin-card-name {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  right: 22px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inv-skin-card-img {
+  position: absolute;
+  left: 50%;
+  top: 30px;
+  height: 100px;
+  width: 50px;
+  transform: translateX(-50%);
+  image-rendering: pixelated;
+}
+.inv-skin-card-count {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+/* Equipped: a gold dot top-right, like Kirka's. */
+.inv-skin-card.equipped::after {
+  content: '';
+  position: absolute;
+  top: 9px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f2c14e;
+  box-shadow: 0 0 6px rgba(242, 193, 78, 0.8);
+}
+.inv-skin-empty {
+  grid-column: 1 / -1;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+}
+/* Equip/Market/Sell/Inspect menu that opens over the clicked card -
+   compact enough to fit inside even a weapon card (140px tall). */
+#inv-skin-menu {
+  position: absolute;
+  z-index: 2;
+  flex-direction: column;
+  gap: 3px;
+  transform: translateX(-50%);
+  padding: 4px;
+  background: rgba(10, 12, 20, 0.92);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+#inv-skin-menu button {
+  min-width: 110px;
+  padding: 4px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #fff;
+  cursor: pointer;
+}
+#inv-skin-menu-equip { background: #2f6fd6; }
+#inv-skin-menu-equip:disabled { background: #3b4454; cursor: default; opacity: 0.8; }
+#inv-skin-menu-inspect { background: #2a8fd1; }
+#inv-skin-menu-sell { background: #c0392b; }
+#inv-skin-menu-market { background: #e0a526; color: #1a1408; }
+#inv-skin-menu button.locked { opacity: 0.4; filter: grayscale(0.6); cursor: not-allowed; }
+/* Seller line on Market cards. */
+.market-card-seller {
+  position: absolute;
+  left: 8px;
+  bottom: 7px;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+/* Kirka-style trade dialog (list on Market / sell / buy / take back). */
+#trade-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+#trade-dialog-box {
+  position: relative;
+  width: min(380px, 90vw);
+  padding: 34px 26px 26px;
+  background: #2b3556;
+  border: 3px solid #141a2e;
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  text-align: center;
+  color: #fff;
+}
+#trade-dialog-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 0 7px 0 4px;
+  background: #e0302a;
+  color: #fff;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+#trade-dialog-title {
+  margin: 0 0 18px;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+#trade-dialog-price-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+}
+.trade-dialog-step {
+  width: 48px;
+  height: 32px;
+  border: none;
+  border-bottom: 3px solid #b07a10;
+  border-radius: 4px;
+  background: #f2b93b;
+  color: #1a1408;
+  font-size: 20px;
+  font-weight: 900;
+  cursor: pointer;
+}
+#trade-dialog-price {
+  width: 120px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 3px;
+  background: #1b2340;
+  color: #fff;
+  font-size: 18px;
+  text-align: left;
+}
+#trade-dialog-fee {
+  margin: 14px 0 0;
+  font-size: 16px;
+}
+#trade-dialog-action {
+  margin-top: 20px;
+  padding: 12px 26px;
+  border: none;
+  border-bottom: 4px solid rgba(0, 0, 0, 0.35);
+  border-radius: 4px;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+#trade-dialog-action.trade-action-list,
+#trade-dialog-action.trade-action-buy { background: #2f7de0; }
+#trade-dialog-action.trade-action-sell,
+#trade-dialog-action.trade-action-cancel { background: #e0302a; }
+#trade-dialog-action:disabled { opacity: 0.6; cursor: default; }
+/* Market card: price (or Owned) bottom-right instead of the count. */
+.inv-skin-card-price {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #f2c14e;
+  font-size: 12px;
+  font-weight: 700;
+}
+.inv-skin-card.owned .inv-skin-card-price { color: #6fdc8c; }
+.inv-skin-card.owned { cursor: default; }
+.inv-skin-card.cant-afford .inv-skin-card-price { color: #e07b6f; }
+/* Inventory > Weapons - same grid/cards as Character, one Default skin
+   per weapon (see _renderInventoryWeapons). */
+#inventory-weapons-list {
+  width: 100%;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-auto-rows: 140px;
+  gap: 8px;
+}
+.inv-weapon-card {
+  cursor: default;
+  /* A soft warm glow behind the gun, in the Golden cards' brown - it was
+     navy (2026-10-10). The Old theme's paper card rule wins over this. */
+  background: radial-gradient(ellipse at 50% 55%, rgba(201, 162, 74, 0.22), rgba(22, 17, 10, 0.85) 70%);
+}
+.inv-weapon-card:hover { transform: none; }
+/* Coming Soon guns (COMING_SOON_WEAPONS) - here and in the weapon picker. */
+.weapon-soon-tag {
+  position: absolute;
+  /* At the bottom, where the card's "Default" label / stat bars go - at
+     the top it covered long names. */
+  bottom: 7px;
+  left: 8px;
+  padding: 3px 7px;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #0c0a10;
+  background: #e3c23c;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+html.ui-theme-old .weapon-soon-tag { background: #b8843a; color: #f3e3c2; }
+.inv-weapon-soon .inv-weapon-card-img,
+.inv-weapon-soon .inv-weapon-card-icon { filter: grayscale(1); opacity: 0.45; }
+.inv-weapon-soon .inv-skin-card-name { opacity: 0.6; }
+.inv-weapon-soon .inv-weapon-card-skin,
+.inv-weapon-soon .inv-skin-card-count { display: none; }
+.inv-weapon-card-img,
+.inv-weapon-card-icon {
+  position: absolute;
+  left: 50%;
+  top: 30px;
+  width: 140px;
+  height: 82px;
+  transform: translateX(-50%);
+  object-fit: contain;
+}
+.inv-weapon-card-icon { width: 70px; color: rgba(255, 255, 255, 0.8); }
+.inv-weapon-card-skin {
+  position: absolute;
+  left: 8px;
+  bottom: 7px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+/* Market toolbar: search + Items/Rarity dropdowns (Kirka-style). */
+#market-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  width: min(760px, 100%);
+  margin: 0 auto 12px;
+}
+#market-search {
+  flex: 1 1 260px;
+  width: auto;
+  margin: 0;
+}
+.market-filter {
+  position: relative;
+}
+.market-filter-btn {
+  /* As wide as its words (2026-10-11, "All rarities is taking too much
+     space ... resize it") - was a fixed 210px. */
+  width: auto;
+  min-width: 0;
+  white-space: nowrap;
+  padding: 9px 32px 9px 14px;
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.4);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #eee;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+}
+.market-filter-btn::after {
+  content: '';
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  margin-top: -3px;
+  border: 5px solid transparent;
+  border-top-color: currentColor;
+}
+.market-filter-btn:hover,
+.market-filter-btn.open,
+.market-filter-btn:focus-visible { border-color: var(--ui-gold-bright); outline: none; }
+.market-filter-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 3;
+  /* At least as wide as the button above it, wider if an option needs
+     it. GayZ panel look (dark + gold), not Kirka's blue. */
+  min-width: 100%;
+  width: max-content;
+  box-sizing: border-box;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px;
+  background: rgba(8, 8, 7, 0.97);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.5);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+}
+.market-filter-option {
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: #eee;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.market-filter-option:hover { background: rgba(var(--ui-gold-accent-rgb), 0.12); }
+.market-filter-option.active { background: rgba(var(--ui-gold-accent-rgb), 0.28); }
+.market-filter-option:focus-visible { outline: 1px solid var(--ui-gold-bright); }
+/* Checkbox square - gold with a white tick when on (like Kirka's). */
+.market-check {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #c79a2e;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.3);
+}
+.market-filter-option.checked .market-check { background: #f2b93b; }
+.market-filter-option.checked .market-check::after {
+  content: '';
+  width: 6px;
+  height: 11px;
+  margin-top: -3px;
+  border: solid #fff;
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg);
+}
+#shop-market-grid .inv-skin-empty { text-align: center; }
+/* Market panel grid - same cards as Inventory > Character. */
+#shop-market-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-auto-rows: 150px;
+  gap: 8px;
+  width: min(760px, 100%);
+  margin: 12px auto 0;
+}
+#inv-skin-menu button:not(:disabled):hover { filter: brightness(1.12); }
+@media (max-width: 700px) {
+  #inv-skins-layout { grid-template-columns: 1fr; grid-template-rows: 240px 1fr; }
+}
+
+/* Inventory's Inspect window - Kirka's layout (title bar, rarity pill,
+   count pill, big 3D stage), in GayZ's dark/gold colors. */
+#inspect-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+#inspect-box {
+  display: flex;
+  flex-direction: column;
+  width: min(900px, 92vw);
+  height: min(640px, 82vh);
+  background: rgba(16, 13, 9, 0.97);
+  border: 2px solid #c9a24a;
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+}
+#inspect-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-left: 16px;
+  border-bottom: 1px solid rgba(201, 162, 74, 0.35);
+  background: rgba(201, 162, 74, 0.08);
+}
+#inspect-title {
+  overflow: hidden;
+  color: #f0d9a0;
+  font-size: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+#inspect-close {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: #e0302a;
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+#inspect-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: radial-gradient(ellipse at center, rgba(201, 162, 74, 0.12), rgba(0, 0, 0, 0) 70%);
+}
+#inspect-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+#inspect-canvas:active { cursor: grabbing; }
+#inspect-rarity,
+#inspect-count {
+  position: absolute;
+  top: 12px;
+  z-index: 1;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-weight: 700;
+  pointer-events: none;
+}
+#inspect-rarity {
+  left: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  font-size: 15px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+#inspect-count {
+  right: 14px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 17px;
+}
+#inspect-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  color: rgba(240, 217, 160, 0.6);
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Old theme Inspect: the same torn paper as the Old panels, dark ink, the
+   ink-brown X (2026-10-10, "make it based on style for the background").
+   Golden keeps the dark/gold box above. */
+html.ui-theme-old #inspect-box {
+  padding: 5.5% 6.5% 6%;
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.6));
+  overflow: visible;
+}
+html.ui-theme-old #inspect-header {
+  background: none;
+  border-bottom: 1px solid rgba(74, 44, 16, 0.35);
+}
+html.ui-theme-old #inspect-title {
+  color: var(--old-ink, #2e1d0e);
+  font-family: 'Rye', Georgia, serif;
+  font-weight: 400;
+}
+html.ui-theme-old #inspect-close {
+  background: none;
+  color: #4a2c10;
+  /* In the paper's curled top-right corner, exactly where every Old panel
+     has its X (2026-10-11) - same percentages as .panel-close-btn above. */
+  position: absolute;
+  top: calc(8.7% - 18px);
+  right: calc(7.6% - 18px);
+  width: 36px;
+  height: 36px;
+  z-index: 2;
+}
+html.ui-theme-old #inspect-box {
+  position: relative;
+}
+html.ui-theme-old #inspect-header {
+  padding-right: 40px;
+}
+html.ui-theme-old #inspect-stage {
+  background: radial-gradient(ellipse at center, rgba(120, 80, 40, 0.16), rgba(0, 0, 0, 0) 70%);
+}
+html.ui-theme-old #inspect-count {
+  background: rgba(74, 44, 16, 0.75);
+  color: #f3e3c2;
+}
+html.ui-theme-old #inspect-hint {
+  color: rgba(46, 29, 14, 0.7);
+}
+
+#build-mode-try-btn svg { color: #7fd88f !important; }
+
+/* Try Map's crosshair, a small + in the middle of the screen (2026-10-10,
+   was a dot) - same color/size settings as the game's own crosshair. The
+   two bars are its ::before/::after, each with a thin dark outline so it
+   shows on bright and dark blocks alike. */
+#build-try-crosshair {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 19;
+  width: calc(18px * var(--crosshair-size, 1));
+  height: calc(18px * var(--crosshair-size, 1));
+  margin: calc(-9px * var(--crosshair-size, 1)) 0 0 calc(-9px * var(--crosshair-size, 1));
+  pointer-events: none;
+}
+#build-try-crosshair::before,
+#build-try-crosshair::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: var(--crosshair-color, rgba(255, 255, 255, 0.92));
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
+  transform: translate(-50%, -50%);
+}
+#build-try-crosshair::before { width: 100%; height: 2px; }
+#build-try-crosshair::after { width: 2px; height: 100%; }
+
+/* Oval (pill) inputs, dropdowns and their buttons, the same shape as the
+   search bars (2026-10-02): both chat boxes, Add a Friend, the Status
+   picker, the Achievements Category/Sort dropdowns and the clan invite
+   box. Shape only - each keeps its own dark fill and gold border (the
+   Status picker borrows the inputs' look, it was the one grey box). */
+#chat-input,
+#server-chat-input,
+#cloudsave-friend-input,
+#clan-invite-id-input {
+  border-radius: 999px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+#send-friend-request-btn,
+#clan-invite-send-btn {
+  border-radius: 999px;
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+#status-picker-toggle {
+  border-radius: 999px;
+  padding-left: 14px;
+  padding-right: 14px;
+  background: rgba(0, 0, 0, 0.4);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.4);
+}
+
+#achievements-category-select,
+#achievements-sort-select {
+  border-radius: 999px;
+  padding-left: 14px;
+}
+
+/* Gameplay hotbar, 1-10 (2026-10-03): the weapon list (slots 1-3) and the
+   item slots (4-0, HOTBAR_ITEMS in Game.js) as one row of squares along
+   the bottom middle, like the Map Editor's hotbar. Mouse/keyboard screens
+   only - touch screens keep their own layout (weapon row, item buttons). */
+
+/* Try Map's minimap (BuildTryMode.js): a square in the top-right corner;
+   M makes it bigger, then big and see-through in the middle of the
+   screen, then back. */
+#build-try-map {
+  position: fixed;
+  /* Level with the top bar (2026-10-19) unless the bar would run into it
+     on a narrow window (TopBar._placeMap adds .below-top-bar). */
+  top: 6px;
+  right: 16px;
+  z-index: 19;
+  width: 180px;
+  height: 180px;
+  padding: 3px;
+  background: rgba(8, 8, 7, 0.75);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.55);
+  border-radius: 6px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+#build-try-map.below-top-bar { top: 52px; }
+
+#build-try-map canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 3px;
+  image-rendering: pixelated;
+}
+
+/* The second size shows a much wider area around you (MAP_SPAN_FOR.big),
+   like florr.io's opened map. */
+#build-try-map[data-size='big'] {
+  width: min(360px, 46vmin);
+  height: min(360px, 46vmin);
+}
+
+/* The big map in the middle can be dragged and zoomed (BuildTryMode,
+   2026-10-12): it takes the mouse while it's open. */
+#build-try-map.interactive {
+  pointer-events: auto;
+  opacity: 1;
+  cursor: grab;
+}
+
+#build-try-map.interactive.dragging {
+  cursor: grabbing;
+}
+
+#build-try-map-hint {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 20px);
+  padding: 3px 12px;
+  font: 600 12px/1.3 system-ui, sans-serif;
+  color: #f4ead2;
+  background: rgba(8, 8, 7, 0.75);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.55);
+  border-radius: 999px;
+  text-align: center;
+  pointer-events: none;
+}
+
+#build-try-map-hint:empty {
+  display: none;
+}
+
+/* Closes the middle map on phones (no M key there). */
+#build-try-map-close {
+  display: none;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font: 700 18px/1 system-ui, sans-serif;
+  color: #f4ead2;
+  background: rgba(8, 8, 7, 0.75);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.55);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+body.touch-play-on #build-try-map[data-size='center'] #build-try-map-close {
+  display: block;
+}
+
+/* Out in Map 1's open world: the biome you're in, under the minimap
+   (BuildTryMode._showBiome). */
+#build-try-biome {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  /* Long names ("Brazil · Rio Grande do Norte · Apodi") wrap onto the
+     next line instead of running off the screen (2026-10-19). */
+  width: max-content;
+  max-width: 100%;
+  text-align: center;
+  overflow-wrap: anywhere;
+  padding: 3px 12px;
+  font: 600 13px/1.3 system-ui, sans-serif;
+  color: #f4ead2;
+  background: rgba(8, 8, 7, 0.75);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.55);
+  border-radius: 12px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+#build-try-map[data-size='center'] #build-try-biome {
+  top: auto;
+  bottom: 10px;
+}
+
+#build-try-map[data-size='center'] {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  margin: auto;
+  width: 70vmin;
+  height: 70vmin;
+  opacity: 0.85;
+}
+/* The World Map mode's big map is solid (the world behind showed through as blocks). */
+#build-try-map[data-size='center'].earth { opacity: 1; }
+/* Zoomed far out in the World Map mode it's a globe (EarthGlobe.js): no box round it. */
+#build-try-map[data-size='center'].globe { opacity: 1; background: none; border-color: transparent; box-shadow: none; }
+#build-try-map.globe > canvas:not(.earth-globe):not(.earth-globe-labels) { opacity: 0; }
+#build-try-map .earth-globe,
+#build-try-map .earth-globe-labels { position: absolute; inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); image-rendering: auto; border-radius: 50%; pointer-events: none; }
+
+/* Try Map: head under water (bloxd.io-style blue) or lava. */
+#build-try-underwater {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  pointer-events: none;
+}
+#build-try-underwater.water {
+  background: radial-gradient(ellipse at center, rgba(40, 120, 230, 0.28), rgba(10, 50, 140, 0.55));
+}
+#build-try-underwater.lava {
+  background: radial-gradient(ellipse at center, rgba(255, 120, 20, 0.6), rgba(170, 30, 0, 0.85));
+}
+
+/* Old theme crate cards (2026-10-04, Gaymi: "make the crates not black,
+   use the colour around them - brown for wood, light blue for ice"):
+   each card is filled with its own tier color (--crate-tier-color) instead
+   of near-black, and its text turns dark ink so it reads on the lighter
+   fill. The price pill keeps a dark backing. */
+html.ui-theme-old .crate-card {
+  background:
+    radial-gradient(circle at 14px 14px, color-mix(in srgb, var(--crate-tier-color, #888) 45%, #000 55%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 14px) 14px, color-mix(in srgb, var(--crate-tier-color, #888) 45%, #000 55%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at 14px calc(100% - 14px), color-mix(in srgb, var(--crate-tier-color, #888) 45%, #000 55%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 14px) calc(100% - 14px), color-mix(in srgb, var(--crate-tier-color, #888) 45%, #000 55%) 0 3px, transparent 3.5px),
+    radial-gradient(ellipse at 50% 20%, color-mix(in srgb, var(--crate-tier-color, #888) 45%, #fff 55%), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--crate-tier-color, #888) 65%, #fff 35%), color-mix(in srgb, var(--crate-tier-color, #888) 88%, #fff 12%));
+  border-color: color-mix(in srgb, var(--crate-tier-color, #888) 60%, #2b1a0c 40%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.25),
+    0 4px 10px rgba(43, 26, 12, 0.35);
+}
+html.ui-theme-old .crate-card .crate-tier-name {
+  color: #241507;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* Old theme Market filters (All items / All rarities, 2026-10-04 - "black
+   is not seeable"): the button and its menu are parchment with dark ink
+   and a brown edge, like the rest of the Old theme, instead of a black
+   box whose options the panel's dark-ink rule turned dark-on-dark. */
+html.ui-theme-old .market-filter-btn {
+  background: #ead6ab;
+  border-color: #7a4e24;
+  color: #2b1a0c;
+}
+html.ui-theme-old .market-filter-btn:hover,
+html.ui-theme-old .market-filter-btn.open,
+html.ui-theme-old .market-filter-btn:focus-visible { border-color: #4a2c10; }
+html.ui-theme-old .market-filter-menu {
+  background: #f1e0b8;
+  border: 1px solid #7a4e24;
+  box-shadow: 0 10px 24px rgba(43, 26, 12, 0.45);
+}
+html.ui-theme-old .market-filter-option { color: #2b1a0c; }
+html.ui-theme-old .market-filter-option:hover { background: rgba(122, 78, 36, 0.16); }
+html.ui-theme-old .market-filter-option.active { background: rgba(122, 78, 36, 0.3); }
+html.ui-theme-old .market-check { border-color: #7a4e24; background: rgba(255, 255, 255, 0.35); }
+html.ui-theme-old .market-filter-option.checked .market-check { background: #7a4e24; }
+/* Old theme Status picker and Add a Friend name list (2026-10-10, "the
+   status its fully black i cant see anything"): parchment with dark ink
+   like the Market menus - the panel's dark-ink rule had turned their
+   options dark on the black list. */
+html.ui-theme-old #status-picker-toggle {
+  background: #ead6ab;
+  border-color: #7a4e24;
+  color: #2b1a0c;
+}
+html.ui-theme-old #status-picker-options,
+html.ui-theme-old #cloudsave-friend-suggestions {
+  background: #f1e0b8;
+  border: 1px solid #7a4e24;
+  box-shadow: 0 10px 24px rgba(43, 26, 12, 0.45);
+}
+html.ui-theme-old .status-pick-btn,
+html.ui-theme-old .friend-suggest-row { color: #2b1a0c; }
+html.ui-theme-old .status-pick-btn:hover,
+html.ui-theme-old .friend-suggest-row:hover { background: rgba(122, 78, 36, 0.16); }
+html.ui-theme-old .status-pick-btn.active { color: #2b1a0c; background: rgba(122, 78, 36, 0.3); }
+html.ui-theme-old .crate-card .crate-open-btn {
+  background: rgba(43, 26, 12, 0.82);
+  border-color: rgba(43, 26, 12, 0.9);
+  color: #f3e3c0;
+}
+html.ui-theme-old .crate-card .crate-stock-count { color: #241507; }
+
+/* Which Map Editor tool is on and what the next right-click does
+   (BuildTools.refreshHint) - a small pill just above the hotbar. */
+#build-tool-hint {
+  position: fixed;
+  bottom: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  padding: 6px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffe9a8;
+  background: rgba(10, 10, 10, 0.72);
+  border: 1px solid rgba(255, 207, 92, 0.5);
+  border-radius: 999px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+#build-menu-right > .build-menu-card { flex: none; }
+
+/* The bar along the very top in the Map Editor and Map 1 (TopBar.js,
+   bloxd.io's look): GayZ | mode | FPS | x y z. It replaces the green
+   debug line there. */
+#top-bar {
+  display: none; position: fixed; top: 6px; left: 8px; z-index: 17; pointer-events: none;
+  align-items: stretch; max-width: calc(100vw - 16px); overflow: hidden;
+  background: rgba(20, 20, 24, 0.62); border-radius: 6px;
+  font: 700 17px/1 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  user-select: none; white-space: nowrap;
+}
+.top-bar-part { display: flex; align-items: center; padding: 7px 12px; }
+.top-bar-part + .top-bar-part { border-left: 2px solid rgba(255, 255, 255, 0.28); }
+.top-bar-name { color: #ffd75e; letter-spacing: 0.5px; }
+.top-bar-label { opacity: 0.75; margin-right: 6px; }
+#top-bar-xyz { font-variant-numeric: tabular-nums; white-space: pre; }
+body.build-mode-on #fps-counter { display: none !important; }
+/* Phones: left of the pause button (top middle), wrapping onto a second
+   row when narrow; the wave line always sits just under it (TopBar). */
+body.touch-play-on #top-bar { top: 4px; left: 4px; font-size: 11px; max-width: calc(50vw - 30px); flex-wrap: wrap; }
+body.touch-play-on .top-bar-part { padding: 5px 7px; }
+
+/* Map Editor Play (BuildSurvival.js): wave line top-left, health bar
+   above the hotbar, ammo bottom-right, a red flash when hit. */
+#build-play-hud { display: none; position: fixed; inset: 0; z-index: 16; pointer-events: none; font-family: 'Bebas Neue', sans-serif; }
+#build-play-wave {
+  /* Its look is the top bar's (play-pause.css). */
+  position: absolute; top: 44px; left: 8px;
+}
+#build-play-msg {
+  position: absolute; top: 22%; left: 50%; transform: translateX(-50%);
+  font-size: 40px; letter-spacing: 2px; color: #fff; text-shadow: 0 2px 8px #000, 0 0 3px #000;
+  white-space: nowrap; transition: opacity 0.5s; text-align: center;
+  /* Long lines ("You arrived in the Jungle. The city camp is ... blocks
+     away.") ran under the corner map (2026-10-30) - wrap them in the space
+     between the map and the same gap on the left. */
+  width: max-content;
+  max-width: max(60vw, calc(100vw - 424px));
+}
+body:not(.touch-play-on) #build-play-msg { white-space: normal; }
+#build-play-health {
+  position: absolute; bottom: 132px; left: 50%; transform: translateX(-50%);
+  width: 260px; height: 18px; background: rgba(10, 10, 10, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 999px; overflow: hidden;
+}
+#build-play-health-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #b8261c, #e8483a); transition: width 0.2s; }
+#build-play-health-text { position: absolute; inset: 0; text-align: center; font-size: 16px; line-height: 18px; color: #fff; text-shadow: 0 1px 2px #000; }
+#build-play-ammo {
+  position: absolute; bottom: 28px; right: 24px; font-size: 38px; color: #fff;
+  text-shadow: 0 2px 6px #000;
+}
+/* Flamethrower fuel tank (2026-10-17) in place of the bullet count. */
+#build-play-ammo .fuel-tank { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 18px; letter-spacing: 1px; text-transform: uppercase; }
+#build-play-ammo .fuel-bar { display: block; width: 180px; height: 16px; background: rgba(10, 10, 10, 0.7); border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 999px; overflow: hidden; }
+#build-play-ammo .fuel-bar > span { display: block; height: 100%; background: linear-gradient(90deg, #d9480f, #ffb020); transition: width 0.1s; }
+#build-play-ammo .fuel-spare { font-size: 14px; opacity: 0.85; }
+#build-play-hurt { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(200, 0, 0, 0.55)); opacity: 0; }
+#build-play-hurt.show { animation: build-play-hurt 0.45s ease-out; }
+@keyframes build-play-hurt { from { opacity: 1; } to { opacity: 0; } }
+/* Settings that reach Map 1 (2026-10-17 settings check): Colorblind Mode
+   recolours the health bar and the hurt flash (Okabe-Ito colours), Reduce
+   Flashing softens the hurt flash and the hit mark, and Caption Background
+   puts a dark backing behind the big centre messages. */
+html[data-colorblind="redgreen"] #build-play-health-fill { background: linear-gradient(90deg, #0b5f99, #2b9be0); }
+html[data-colorblind="redgreen"] #build-play-hurt { background: radial-gradient(ellipse at center, transparent 45%, rgba(230, 159, 0, 0.6)); }
+html[data-colorblind="blueyellow"] #build-play-health-fill { background: linear-gradient(90deg, #a8306f, #d86aa6); }
+html[data-colorblind="blueyellow"] #build-play-hurt { background: radial-gradient(ellipse at center, transparent 45%, rgba(204, 121, 167, 0.6)); }
+body.reduce-flashing #build-play-hurt.show { animation-duration: 0.9s; }
+body.reduce-flashing #build-play-hurt { background: radial-gradient(ellipse at center, transparent 55%, rgba(200, 0, 0, 0.22)); }
+body.reduce-flashing #build-try-crosshair.hit,
+body.reduce-flashing #build-try-crosshair.hit::before,
+body.reduce-flashing #build-try-crosshair.hit::after { animation: none; }
+html.caption-background #build-play-msg { background: rgba(0, 0, 0, 0.6); padding: 4px 16px; border-radius: 8px; }
+#build-try-crosshair.hit { animation: build-play-hitmark 0.18s ease-out; }
+#build-try-crosshair.hit::before,
+#build-try-crosshair.hit::after { animation: build-play-hitmark-bar 0.18s ease-out; }
+@keyframes build-play-hitmark { from { transform: scale(1.6); } }
+@keyframes build-play-hitmark-bar { from { background: #ff3b30; } }
+#build-play-over {
+  display: none; position: fixed; inset: 0; z-index: 25; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(60, 0, 0, 0.55), rgba(5, 0, 0, 0.9));
+}
+.build-play-over-card {
+  min-width: 320px; padding: 28px 36px; text-align: center; color: #f1e6c8;
+  background: rgba(18, 15, 10, 0.92); border: 1px solid rgba(232, 194, 90, 0.5); border-radius: 10px;
+}
+#build-play-over-title { margin: 0 0 10px; font-family: 'Black Ops One', 'Bebas Neue', sans-serif; font-size: 44px; color: #e8483a; }
+#build-play-over-text, #build-play-over-best { margin: 6px 0; font-size: 17px; }
+.build-play-over-btns { display: flex; gap: 12px; justify-content: center; margin-top: 18px; }
+.build-play-over-btns button {
+  padding: 10px 18px; font-size: 15px; font-weight: 700; color: #f1e6c8; cursor: pointer;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(232, 194, 90, 0.5); border-radius: 999px;
+}
+.build-play-over-btns button:hover { border-color: #e8c25a; background: rgba(232, 194, 90, 0.18); }
+/* XP bar and LEVEL UP card on the You Died screen (2026-10-26, Gaymi:
+   like kirka.io). Colours follow the card's theme below. */
+#build-play-xp { margin: 14px auto 0; width: min(340px, 100%); text-align: left; }
+.build-play-xp-row { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 6px; font-size: 14px; }
+.build-play-xp-track { height: 14px; border-radius: 999px; overflow: hidden; background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(232, 194, 90, 0.5); }
+#build-play-xp-fill { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #c98a2b, #f2cf5b); }
+#build-play-levelup {
+  position: absolute; inset: 0; z-index: 2; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+.build-play-levelup-card {
+  min-width: 280px; padding: 26px 40px 28px; text-align: center; color: #f1e6c8;
+  background: rgba(18, 15, 10, 0.95); border: 2px solid #e8c25a; border-radius: 12px;
+  animation: build-play-levelup-pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+@keyframes build-play-levelup-pop { from { transform: scale(0.4); opacity: 0; } }
+#build-play-levelup-title { margin: 0; font-family: 'Black Ops One', 'Bebas Neue', sans-serif; font-size: 34px; letter-spacing: 1px; color: #f2cf5b; }
+#build-play-levelup-num {
+  margin: 8px auto; width: 96px; height: 96px; line-height: 96px; border-radius: 50%;
+  font-family: 'Black Ops One', 'Bebas Neue', sans-serif; font-size: 52px; color: #1b1206;
+  background: radial-gradient(circle at 35% 30%, #fff2b0, #e8b93c 55%, #a8701a);
+  box-shadow: 0 0 0 4px rgba(232, 194, 90, 0.35), 0 0 30px rgba(242, 207, 91, 0.6);
+}
+#build-play-levelup-reward { margin: 6px 0 16px; font-size: 18px; font-weight: 700; }
+#build-play-levelup-ok {
+  padding: 10px 26px; font-size: 16px; font-weight: 700; color: #1b1206; cursor: pointer;
+  background: #f2cf5b; border: none; border-radius: 999px;
+}
+#build-play-levelup-ok:hover { background: #ffe07a; }
+html.ui-theme-old .build-play-levelup-card {
+  color: var(--old-ink, #2e1d0e); font-family: 'Rye', Georgia, serif;
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
+  border: none; border-radius: 0; filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.65)); padding: 40px 60px 44px;
+}
+html.ui-theme-old #build-play-levelup-title { font-family: 'Rye', Georgia, serif; color: #8b1a10; }
+html.ui-theme-old #build-play-levelup-ok { font-family: 'Rye', Georgia, serif; color: #2e1d0e; background: rgba(107, 63, 23, 0.12); border: 1px solid rgba(74, 44, 16, 0.55); }
+html.ui-theme-old #build-play-levelup-ok:hover { background: rgba(107, 63, 23, 0.24); }
+html.ui-theme-old .build-play-xp-track { background: rgba(74, 44, 16, 0.15); border-color: rgba(74, 44, 16, 0.55); }
+html.ui-theme-old #build-play-xp-fill { background: linear-gradient(90deg, #6b3f17, #a8701a); }
+/* The You Died card follows the theme (2026-10-25): Old's paper and Rye
+   here, Clean's flat card in theme-clean.css. Same size in both. */
+html.ui-theme-old .build-play-over-card {
+  color: var(--old-ink, #2e1d0e); font-family: 'Rye', Georgia, serif;
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
+  border: none; border-radius: 0; filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.65));
+}
+html.ui-theme-old #build-play-over-title { font-family: 'Rye', Georgia, serif; color: #8b1a10; }
+html.ui-theme-old .build-play-over-btns button { font-family: 'Rye', Georgia, serif; color: #2e1d0e; background: rgba(107, 63, 23, 0.08); border-color: rgba(74, 44, 16, 0.55); }
+html.ui-theme-old .build-play-over-btns button:hover { background: rgba(107, 63, 23, 0.18); border-color: #4a2c10; }
+/* An open panel (Settings, Inventory...) covers the game: the health bar
+   in the middle of the screen would sit on top of it (2026-10-25). */
+html.menu-panel-open #build-play-health { display: none; }
+/* An explosion close by shakes the view (BuildSurvival shoot(), --boom =
+   how far). Off with Reduce Flashing. */
+.boom-shake { animation: boom-shake 0.45s ease-out; }
+@keyframes boom-shake {
+  0% { transform: translate(0, 0); }
+  12% { transform: translate(calc(var(--boom) * -1), var(--boom)); }
+  28% { transform: translate(var(--boom), calc(var(--boom) * -0.6)); }
+  46% { transform: translate(calc(var(--boom) * -0.5), calc(var(--boom) * -0.4)); }
+  66% { transform: translate(calc(var(--boom) * 0.3), calc(var(--boom) * 0.2)); }
+  100% { transform: translate(0, 0); }
+}
+
+/* Graphics connection lost (Game.js webglcontextlost): a small note at the
+   top while the game waits for it to come back, instead of a full-screen
+   message - that only appears if it doesn't come back (GL_LOST_PANEL_MS). */
+#graphics-reconnecting {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffe9a8;
+  background: rgba(10, 10, 10, 0.85);
+  border: 1px solid rgba(255, 207, 92, 0.55);
+  border-radius: 999px;
+  pointer-events: none;
+}
+.graphics-reconnecting-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 233, 168, 0.3);
+  border-top-color: #ffe9a8;
+  border-radius: 50%;
+  animation: graphics-reconnecting-spin 0.9s linear infinite;
+}
+@keyframes graphics-reconnecting-spin { to { transform: rotate(360deg); } }
+
+/* Map 3 camp NPCs in Play (BuildCamp.js): the "talk" prompt under the
+   crosshair and the shop/quest panel (same box as Community Maps). */
+#play-npc-prompt {
+  position: fixed;
+  top: calc(50% + 34px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 17;
+  padding: 6px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffe9a8;
+  background: rgba(10, 10, 10, 0.72);
+  border: 1px solid rgba(255, 207, 92, 0.5);
+  border-radius: 999px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+#play-npc-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background: radial-gradient(ellipse at center, rgba(10, 8, 5, 0.45), rgba(5, 4, 2, 0.8));
+  color: #f1e6c8;
+}
+#play-npc-panel .build-share-box { position: relative; }
+#play-npc-panel .build-share-box h2 { padding: 0 34px; }
+/* The same red X as every GayZ panel (.panel-close-btn), not the box's
+   pill buttons. */
+#play-npc-panel .panel-close-btn {
+  top: 10px; right: 12px; padding: 0; min-width: 0;
+  background: none; border: none; border-radius: 0; box-shadow: none;
+  color: #e05252; font-size: 26px; font-weight: 700;
+}
+#play-npc-panel .panel-close-btn:hover { color: #ff6b6b; background: none; }
+#play-npc-list { display: flex; flex-direction: column; gap: 8px; }
+.play-npc-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 12px; background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(232, 194, 90, 0.22); border-radius: 8px;
+}
+.play-npc-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 13px; color: rgba(241, 230, 200, 0.75); }
+.play-npc-info b { font-size: 16px; color: #fff; }
+.play-npc-row button { flex: none; }
+.play-npc-empty { text-align: center; }
+
+/* Old Map 1 parts kept for later but hidden since the old city was deleted
+   (2026-10-05) - each comes back once it works with the block-city Map 1. */
+
+/* Touch controls for playing on a phone (BuildTouch.js): a floating stick
+   on the left, look by dragging anywhere else, round icon buttons on the
+   right. Hidden on mouse/keyboard devices. */
+#touch-play { display: none; position: fixed; inset: 0; z-index: 17; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#touch-play .tp-look { position: absolute; inset: 0; }
+#touch-play .tp-stick {
+  position: absolute; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%;
+  background: rgba(10, 10, 10, 0.28); border: 2px solid rgba(255, 255, 255, 0.35);
+  opacity: 0; transition: opacity 0.12s; pointer-events: none;
+}
+#touch-play .tp-stick.on { opacity: 1; }
+#touch-play .tp-stick-knob {
+  position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+#touch-play .tp-btn {
+  position: absolute; display: flex; align-items: center; justify-content: center; padding: 0;
+  border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.4); background: rgba(10, 10, 10, 0.42);
+  color: #fff; -webkit-tap-highlight-color: transparent; touch-action: none;
+}
+#touch-play .tp-btn svg { width: 55%; height: 55%; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+#touch-play .tp-btn.down { background: rgba(255, 207, 92, 0.45); border-color: #ffcf5c; }
+#touch-play .tp-crouch.on { background: rgba(255, 207, 92, 0.3); border-color: #ffcf5c; }
+#touch-play .tp-fire { right: max(24px, env(safe-area-inset-right)); bottom: 36px; width: 86px; height: 86px; border-color: rgba(255, 120, 100, 0.7); }
+#touch-play .tp-jump { right: calc(max(24px, env(safe-area-inset-right)) + 104px); bottom: 24px; width: 64px; height: 64px; }
+#touch-play .tp-crouch { right: calc(max(24px, env(safe-area-inset-right)) + 186px); bottom: 20px; width: 52px; height: 52px; }
+#touch-play .tp-reload { right: calc(max(24px, env(safe-area-inset-right)) + 14px); bottom: 140px; width: 56px; height: 56px; }
+#touch-play .tp-use { right: calc(max(24px, env(safe-area-inset-right)) + 90px); bottom: 110px; width: 56px; height: 56px; }
+#touch-play .tp-pause { top: 10px; left: 50%; margin-left: -22px; width: 44px; height: 44px; }
+#touch-play .tp-bag { top: 10px; left: 50%; margin-left: 30px; width: 44px; height: 44px; }
+/* Keep the rest of the screen clear for thumbs while playing on a phone. */
+body.touch-play-on #build-hotbar,
+body.touch-play-on #chat-panel,
+body.touch-play-on #build-tool-hint { display: none !important; }
+body.touch-play-on #build-play-health { bottom: 20px; width: 200px; }
+/* Portrait phones (2026-10-27): the buttons span almost the whole bottom
+   edge, so crouch/jump/fire covered the bar - lift it above them. */
+@media (orientation: portrait) {
+  body.touch-play-on #build-play-health { bottom: 132px; left: max(16px, env(safe-area-inset-left)); transform: none; width: min(180px, 46vw); }
+}
+body.touch-play-on #build-play-ammo { bottom: auto; top: 112px; right: max(20px, env(safe-area-inset-right)); font-size: 26px; }
+body.touch-play-on #build-try-map { top: 8px; right: max(12px, env(safe-area-inset-right)); width: 96px; height: 96px; pointer-events: auto; }
+/* Tapping it grows it like M (BuildTryMode); the bigger sizes really are
+   bigger on a phone, and the middle one fills most of the screen. */
+body.touch-play-on #build-try-map[data-size='big'] { top: 64px; width: min(200px, 52vmin); height: min(200px, 52vmin); }
+body.touch-play-on #build-try-map[data-size='center'] { top: 0; right: 0; width: 92vmin; height: 92vmin; }
+/* The fps readout moves to a small line at the bottom-left corner. */
+body.touch-play-on #fps-counter { top: auto !important; bottom: 4px !important; left: 8px !important; right: auto !important; transform: none !important; max-width: 42vw; font-size: 10px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.touch-play-on #build-play-msg { font-size: 26px; white-space: normal; width: 80vw; }
+body.touch-play-on #build-play-wave { left: 4px; font-size: 13px; padding: 3px 8px; }
+

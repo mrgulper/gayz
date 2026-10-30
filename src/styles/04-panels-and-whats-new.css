@@ -1,0 +1,652 @@
+/* Old theme: every panel box is a torn sheet of old paper
+   (public/images/old-panel-paper-v3.webp - Gaymi's own image, swapped in
+   2026-10-09 for every panel; it came with a painted-in checkerboard,
+   cut out by flood-filling the grey/white from the edges)
+   instead of the black box, with dark ink text on it. The paper's torn
+   edges are see-through, so there's no border or box shadow, just a drop
+   shadow that follows the edge; the padding keeps content off the torn
+   rim. Dark text: see the html.ui-theme-old .panel-box block further down. */
+html.ui-theme-old .panel-box {
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.65));
+  padding: 68px 104px 80px;
+  color: var(--old-ink);
+}
+@media (max-width: 700px) {
+  html.ui-theme-old .panel-box {
+    padding: 40px 30px 46px;
+  }
+}
+
+/* The red close X sits in the middle of the paper's curled-over top-right
+   flap (2026-10-09, Gaymi: "the middle of that corner of the old paper") -
+   at the shared top/right it landed on the torn, see-through edge.
+   Percentages of the box, since the paper stretches with it: the flap's
+   middle's position in the picture,
+   minus half the button so its center lands there (v3 paper: the flap's
+   middle is ~6.2% from the right and ~8.7% from the top; nudged a little
+   further left, to 7.6%, on request). */
+html.ui-theme-old .panel-box > .panel-close-btn {
+  top: calc(8.7% - 18px);
+  right: calc(7.6% - 18px);
+  width: 36px;
+  height: 36px;
+  font-size: 28px;
+  /* Old-style ink brown, not red (2026-10-10, "make the old style x the
+     old style colour") - Golden keeps its red X. */
+  color: #4a2c10;
+}
+@media (max-width: 700px) {
+  html.ui-theme-old .panel-box > .panel-close-btn {
+    top: 30px;
+    right: 26px;
+  }
+}
+
+/* Dark ink for all text on the paper. !important because most panel
+   text has its own ID-level color rule; anything sitting on its own dark
+   background (cards, inputs, dropdowns, dark buttons) is left out by the
+   :not() list so it keeps its light text. */
+html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-title, .inv-skin-card, .crate-card, #shop-skin-buy-btn, #shop-skin-tryon-btn, .shop-new-ribbon, .shop-rarity-pill, #shop-skin-price, .shop-confetti, .shop-soon-card) *, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-title, .inv-skin-card, .crate-card, #shop-skin-buy-btn, #shop-skin-tryon-btn, .shop-new-ribbon, .shop-rarity-pill, #shop-skin-price, .shop-confetti, .shop-soon-card)) {
+  color: var(--old-ink) !important;
+  text-shadow: none !important;
+}
+
+/* Shared close-X for every navigable panel (2026-09-21) - same plain
+   red-X-no-circle look as the crate purchase modal's own close button
+   (#crate-purchase-close-btn keeps its own id for its dedicated click
+   handler, but shares this class for the look). position:relative on
+   .panel-box above is what lets this anchor to each panel's own box
+   instead of the viewport. */
+.panel-close-btn:focus:not(:focus-visible) {
+  outline: none;
+}
+.panel-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: none;
+  color: #e05252;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 1;
+}
+
+/* #other-profile-panel's content (name, ID, up to 5 short stat rows)
+   doesn't need the shared 1080px/680px panel-box sizing (built for much
+   longer content like Credits/Settings). Landed here after a few
+   screenshot-confirmed rounds - 420px read as a tiny, disconnected
+   popup (too small), the shared 1080px left a huge dead zone right of
+   the stat rows (too big), 640px was closer but asked to go a bit
+   wider still. */
+#other-profile-panel .panel-box {
+  /* Widened from 720px (2026-09-22) - the panel picked up a lot more
+     content that same day (Bio/Motto/Longest Survival/Total Kills/Runs
+     Played/Favorite Class/Last Run/Today/Favorite Difficulty/Best Run/
+     Created, see _renderOtherProfilePublicFields), so the old width
+     read as cramped/tall for what's now shown. */
+  width: min(860px, 92vw);
+  min-height: 580px;
+  /* Column flex so the two-column area below can grow to the bottom of
+     the panel (2026-10-01: Bio/Notes should fill the whole right side). */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Two-column split (same day, follow-up) - the stat rows/lines/Best Run
+   card on the left, Bio/Motto on the right, instead of everything
+   stacked in one narrow column down the left side of the now-wider box
+   with empty space wasted on the right. justify-content:center plus a
+   capped width on both columns (rather than a plain flex:1 that always
+   fills the full row) is what keeps this from stretching into one
+   awkwardly wide, thin column when Bio/Motto is empty and JS hides
+   #other-profile-bio-motto entirely - the stats column just centers
+   itself at its own natural width instead of spanning the whole box. */
+#other-profile-columns {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 28px;
+  align-items: stretch;
+  justify-content: center;
+}
+
+#other-profile-stats-column {
+  flex: 1 1 380px;
+  max-width: 380px;
+  min-width: 0;
+}
+
+#other-profile-bio-motto {
+  flex: 1 1 380px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 16px 20px;
+}
+
+@media (max-width: 560px) {
+  #other-profile-columns {
+    flex-direction: column;
+  }
+  #other-profile-stats-column,
+  #other-profile-bio-motto {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+/* The area OUTSIDE the box (the rest of the full-screen panel wrapper)
+   goes fully transparent for these - the homepage shows through clearly
+   there instead of being dimmed, same as Kirka.io's reference. The box
+   itself (.panel-box above) stays solid so the content is still easy to
+   read. !important since this needs to beat an ID selector of equal
+   specificity that comes later in the file. #clan-panel (General) added
+   per request - it still had the dark/grainy backdrop (rgba(6,8,6,0.88)
+   + grain texture) every other sidebar-nav panel gets by default, which
+   read as noticeably darker/harder to see through than How to Play's
+   clear backdrop right next to it. The rest of the sidebar-nav panels
+   (Store/Upgrades/Global/Quests/Friend List/Inventory/Achievements)
+   added per a follow-up request to match - same reasoning, just
+   extended to the ones still on the dark/grainy default. Map Editor
+   deliberately excluded - it's a standalone full-screen 3D editor
+   (BuildMode.js), not a .panel-box overlay like the rest of these, so
+   there's no homepage backdrop behind it to begin with. */
+#credits-panel,
+#terms-panel,
+#privacy-panel,
+#features-panel,
+#skindesigner-panel,
+#gallery-panel,
+#levels-panel,
+#howtoplay-panel,
+#whatsnew-panel,
+#clan-panel,
+#profile-panel,
+#hub-panel,
+#settings-panel,
+#shop-panel,
+#market-panel,
+#upgrades-panel,
+#server-panel,
+#quests-panel,
+#friends-panel,
+#menu-inventory-panel,
+#other-profile-panel,
+#achievements-panel {
+  background: transparent !important;
+}
+
+.panel-box > h2 {
+  margin: 0 0 16px !important;
+  text-align: center;
+  font-size: 32px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px;
+}
+
+/* Most panel titles clear the new .panel-close-btn (top-right, see below)
+   with room to spare at the shared 32px size. These few don't - nudged
+   individually rather than reserving space on every title, which would
+   wrap several shorter titles onto an unwanted second line for no reason. */
+#terms-panel-title {
+  font-size: 28px !important;
+}
+#howtoplay-panel-title {
+  padding-right: 12px;
+}
+#achievements-panel-title {
+  font-size: 26px !important;
+}
+
+.panel-box > h2::after {
+  content: attr(data-icon);
+  display: block;
+  font-size: 28px;
+  margin-top: 8px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+
+/* height (not max-height): Credits/How to Play all render much shorter
+   content than What's New's changelog, but should still occupy the same
+   fixed panel height as it rather than shrink-wrapping down to their own
+   short content - a fixed height keeps every panel in this family the
+   same size regardless of how much text it holds. .settings-page (further
+   down this file) matches this same width/height too, per the "make
+   Settings as wide as Credits/How to Play" request. */
+#credits-content,
+#terms-content,
+#privacy-content,
+#howtoplay-content {
+  height: var(--panel-h);
+  overflow-y: auto;
+}
+
+/* Skin Designer panel embeds the standalone Skin Designer site in an
+   iframe rather than duplicating its ~2000 lines of painter/3D-preview
+   code into this codebase - the iframe fills the box, and handles its
+   own internal scrolling, so no overflow-y here (unlike the plain-text
+   content divs above). */
+#skindesigner-content {
+  height: var(--panel-h);
+}
+#skindesigner-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 8px;
+}
+
+/* Centered rather than left-aligned like How to Play - Credits is short
+   prose, not a structured guide, and reads better centered at that
+   length instead of hugging the left edge of an 840px-wide box. Terms/
+   Privacy are structured, numbered documents (like How to Play), so they
+   stay left-aligned rather than joining Credits here. */
+#credits-content {
+  text-align: center;
+}
+
+#terms-content,
+#privacy-content,
+#howtoplay-content {
+  text-align: left;
+}
+
+/* Widened past #credits-content per request (less scrolling to read the
+   changelog) - capped below 100vw so it never touches the edges of the
+   screen on a narrow window. */
+#whatsnew-content {
+  height: var(--panel-h);
+  overflow-y: auto;
+  text-align: left;
+}
+
+#credits-content h3,
+#terms-content h3,
+#privacy-content h3,
+#howtoplay-content h3 {
+  margin: 14px 0 4px;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--ui-gold-bright);
+}
+
+#credits-content h3:first-child,
+#terms-content h3:first-child,
+#privacy-content h3:first-child,
+#howtoplay-content h3:first-child {
+  margin-top: 0;
+}
+
+/* What's New updates are paused until the game is public. */
+#whatsnew-paused-banner {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--ui-gold-bright);
+  border: 2px solid currentColor;
+  border-radius: 8px;
+}
+
+@media (max-width: 600px) {
+  #whatsnew-paused-banner {
+    font-size: 28px;
+  }
+}
+
+#build-version-line {
+  margin: 0 0 4px;
+  /* Matches .changelog-date's size at the time this was set (21.6px) -
+     not linked/computed from it, so if that value changes again this
+     needs a matching manual update to stay in sync (explicit request:
+     "make the changelog [heading] to how big the date is right now"). */
+  font-size: 21.6px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--ui-gold-bright);
+}
+
+/* Stacked layout (version+date on its own line, description below) -
+   changed from a side-by-side row per explicit request (2026-09-22),
+   same day versioning shipped. Base size bumped 20% (12px -> 14.4px,
+   inherited by both children); .changelog-date is set 50% bigger than
+   that base text on top of that, not 50% bigger than the OLD 12px. */
+/* Not out yet on this player's clock (Game._gateChangelog). */
+.changelog-entry.changelog-future {
+  display: none !important;
+}
+
+.changelog-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+  font-size: 14.4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.changelog-entry:last-child {
+  border-bottom: none;
+}
+
+.changelog-date {
+  color: var(--ui-gold-bright);
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-size: 17.28px;
+}
+
+.changelog-text {
+  opacity: 0.85;
+}
+
+/* Patch notes: each version's changes as short bullet points, grouped
+   under Added / Changed / Fixed instead of one long paragraph
+   (2026-10-02 - "everything jammed up"). */
+.changelog-group {
+  margin: 4px 0 2px;
+}
+
+.changelog-group-label {
+  display: inline-block;
+  margin: 2px 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--ui-gold-bright);
+}
+
+.changelog-added .changelog-group-label { color: #7fc77a; }
+.changelog-fixed .changelog-group-label { color: #6fb2e0; }
+
+.changelog-group ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.changelog-group li {
+  margin: 3px 0;
+  line-height: 1.45;
+}
+
+.changelog-group li::marker {
+  color: var(--ui-gold-bright);
+}
+
+/* Update-available banner (homepage only - see Game.js's _checkForUpdate)
+   - a fixed overlay near the top of the homepage rather than part of the
+   normal #menu-layout flow, so it never eats into the zero-scroll-height
+   budget that layout is tuned for. Sits inside #menu's subtree (a sibling
+   of #menu-layout), so the --menu-* custom properties resolve here,
+   unlike panels that live outside #menu (see #goals-picker's own comment
+   on that gotcha). z-index 8: above normal homepage content (1) but below
+   #asset-loader (10) and modal panels (15), per this file's documented
+   stacking scale. */
+/* The "new version" card (2026-10-09, Gaymi: "move it to the very right
+   corner and make it smaller, write it as What's New, add an X, make it
+   fade away if the player doesn't click it"): a small card in the
+   bottom-right corner showing only the newest Patch Notes entry, the red
+   X closes it (same as the old Later button), and it fades out by itself
+   after UPDATE_BANNER_SHOW_MS unless the mouse is over it (_checkForUpdate,
+   _hideUpdateBanner). */
+#update-available-banner {
+  /* display itself is toggled none/flex via JS (see _checkForUpdate). */
+  flex-direction: column;
+  position: fixed;
+  /* The very top-right corner (2026-10-12), over the profile card. */
+  right: max(12px, env(safe-area-inset-right));
+  top: max(12px, env(safe-area-inset-top));
+  z-index: 17;
+  width: min(260px, calc(100vw - 32px));
+  max-height: min(220px, 30vh);
+  overflow-y: auto;
+  background: var(--menu-panel-bg, rgba(7, 8, 8, 0.95));
+  border: 1px solid var(--menu-gold, #d9bc4a);
+  border-radius: 8px;
+  padding: 10px 12px 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.9s ease, transform 0.9s ease;
+}
+
+#update-available-banner.fading {
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+}
+
+#update-available-banner > .panel-close-btn {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  width: 26px;
+  height: 26px;
+  font-size: 20px;
+}
+
+#update-available-title {
+  margin: 0 22px 4px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #d9bc4a);
+  text-align: center;
+}
+
+#update-available-changelog {
+  margin-bottom: 8px;
+  /* Fills the card's height (stretched to the profile card's bottom -
+     _fitUpdateBanner) and scrolls inside it. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+#update-available-changelog .changelog-entry {
+  margin: 0;
+}
+
+#update-available-changelog .changelog-date {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  opacity: 0.75;
+  margin-bottom: 4px;
+}
+
+#update-available-changelog ul {
+  margin: 2px 0 6px;
+  padding-left: 16px;
+}
+
+#update-available-changelog li {
+  text-align: left;
+  font-size: 11.5px;
+  line-height: 1.35;
+  margin-bottom: 2px;
+}
+
+#update-available-changelog .changelog-group-label {
+  font-size: 10px;
+}
+
+#update-available-buttons {
+  display: flex;
+  justify-content: center;
+}
+
+/* Old theme: the What's New card is a small torn sheet of the same old
+   paper as the panels (2026-10-16, Gaymi picked "old paper / parchment"),
+   with dark ink and the X in the paper's curled top-right flap - same
+   size and corner as Golden's card (only the look changes). The list
+   scrolls inside the paper so the scrollbar never sits on the torn rim. */
+html.ui-theme-old #update-available-banner {
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6));
+  padding: 22px 26px 24px;
+  overflow: hidden;
+  color: var(--old-ink);
+}
+html.ui-theme-old #update-available-banner > .panel-close-btn {
+  top: calc(8.7% - 13px);
+  right: calc(7.6% - 13px);
+  color: var(--old-ink);
+}
+html.ui-theme-old #update-available-title {
+  font-family: 'Rye', Georgia, serif;
+  font-weight: 400;
+  color: var(--old-ink);
+}
+html.ui-theme-old #update-available-changelog {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(46, 29, 14, 0.45) transparent;
+}
+html.ui-theme-old #update-available-changelog .changelog-date,
+html.ui-theme-old #update-available-changelog li {
+  color: var(--old-ink);
+}
+html.ui-theme-old #update-available-changelog li::marker {
+  color: #7a5226;
+}
+html.ui-theme-old #update-available-changelog .changelog-added .changelog-group-label { color: #3f6b2a; }
+html.ui-theme-old #update-available-changelog .changelog-changed .changelog-group-label { color: #7a5226; }
+html.ui-theme-old #update-available-changelog .changelog-fixed .changelog-group-label { color: #2f5a7a; }
+html.ui-theme-old #update-available-refresh-btn {
+  color: #f3e6c8;
+  background: var(--old-ink);
+  border-color: var(--old-ink);
+  border-radius: 999px;
+}
+
+#update-available-refresh-btn {
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.3;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #1a1a1a;
+  background: var(--menu-gold, #d9bc4a);
+  border: 1px solid var(--menu-gold, #d9bc4a);
+}
+
+#credits-content p,
+#terms-content p,
+#privacy-content p,
+#howtoplay-content p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+
+
+#credits-content a,
+#terms-content a,
+#privacy-content a,
+#credits-privacy-link,
+#credits-terms-link,
+.open-privacy-panel-link,
+.open-terms-panel-link {
+  color: var(--ui-gold-bright);
+  text-decoration: none;
+}
+
+#credits-content a:hover,
+#terms-content a:hover,
+#privacy-content a:hover,
+#credits-privacy-link:hover,
+#credits-terms-link:hover,
+.open-privacy-panel-link:hover,
+.open-terms-panel-link:hover {
+  text-decoration: underline;
+}
+
+/* #credits-privacy-link/#credits-terms-link and the Terms<->Privacy
+   cross-reference links inside their own body text are <button> elements
+   now (they open an in-game panel, not a real URL - see _openTermsPanel/
+   _openPrivacyPanel), not <a> tags, so they need a full browser-chrome
+   reset to read as plain inline text links rather than boxy buttons. */
+#credits-privacy-link,
+#credits-terms-link,
+.open-privacy-panel-link,
+.open-terms-panel-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+#terms-content ul,
+#privacy-content ul {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+
+#terms-content li,
+#privacy-content li {
+  margin-bottom: 4px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+#terms-content .legal-updated,
+#privacy-content .legal-updated {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 14px;
+}
+
+#terms-content .legal-placeholder {
+  background: rgba(var(--ui-gold-accent-rgb), 0.18);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-style: italic;
+}
+
+#terms-content .legal-note,
+#privacy-content .legal-note {
+  margin-top: 18px;
+  padding: 12px 14px;
+  background: rgba(var(--ui-gold-accent-rgb), 0.08);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.25);
+  border-radius: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+

@@ -1,0 +1,1863 @@
+/* Push the nav sidebar flush against #menu's own right margin (2026-09-26,
+   at Gaymi's request) - it used to sit well short of the edge, since it
+   was still a normal grid column and inherited both #menu-layout's
+   centering slack (max-width:1900px + margin:auto leaves empty space on
+   wide screens) and its own padding-right:80px on top of that. Taking it
+   out of the grid via position:absolute (grid still reserves its 240px
+   track, just empty now, so the hero column's own centering math - which
+   depends on col-left/col-right stayed equal-width - is untouched) and
+   re-anchoring it to #menu's own right edge directly. The calc() cancels
+   out exactly the auto-centering slack #menu-layout's max-width:1900px
+   leaves on screens wider than that (48px = #menu's own left+right
+   padding, both already fixed values in the rule above); on screens
+   narrower than 1900px there's no slack to cancel and this resolves to
+   plain 0. Only above 700px - below that #menu-layout drops to a single
+   stacked column (see that breakpoint) and this needs to stay in normal
+   flow instead. */
+@media (min-width: 701px) {
+  #menu-col-right {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: calc((min(100vw - 48px, 1900px) - (100vw - 48px)) / 2);
+    /* 260 (was 240): "Achievements" ran into the plaques' right end cap
+       (2026-10-09, "make it wide enough to fit Achievements"). Longer
+       translations still get their font fitted - __menuLayout in
+       index.html. */
+    width: 260px;
+    /* "safe": in a window too short for the profile card + 10 nav
+       buttons, plain centering pushed the top of the profile card off
+       the top of the screen (2026-10-02 report) - safe center keeps it
+       on screen and only centers when there's room. */
+    justify-content: safe center;
+    padding-top: 14px;
+    box-sizing: border-box;
+  }
+}
+
+/* The FPS/position debug readout (#fps, top-left, always-on outside
+   Stream-Safe/Photo Mode - see _updateStreamSafeVisibility/
+   _setPhotoModeHudHidden) sits at the true top-left of the screen. Nothing
+   used to be there on the old centered-title menu; this panel is now the
+   first thing in that corner, so give it enough clearance not to overlap.
+   align-self:stretch overrides #menu-layout's grid-level align-items:start
+   just for this column (the nav sidebar on the right stays top-aligned,
+   unaffected) - without it, this column's own box is only as tall as its
+   content, so justify-content:flex-end below would have no extra space to
+   push against. Stretching it to the full row height (set by the taller
+   hero column) then bottom-aligning the Player showcase inside it is what
+   lands the avatar's feet near the bottom of the page instead of glued to
+   the top - and it's self-adjusting across every tracked viewport height,
+   not a hardcoded margin guess. */
+#menu-col-left {
+  padding-top: 2px;
+  padding-left: 12px;
+  align-self: stretch;
+  justify-content: flex-end;
+}
+
+.menu-panel {
+  position: relative;
+  background:
+    radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.4) 100%),
+    var(--grain-texture),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 12%),
+    var(--menu-panel-bg);
+  border: 2px solid var(--menu-panel-border);
+  border-radius: 4px;
+  padding: 11px 17px;
+  backdrop-filter: blur(2px);
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    inset 1px 0 0 rgba(255, 255, 255, 0.04),
+    inset -1px 0 0 rgba(0, 0, 0, 0.4);
+  /* Old/scary pass - a slow, irregular border flicker like unstable
+     lighting, not a clean pulse (same "irregular spacing reads as real
+     fire/electricity, not a metronome" precedent the background embers
+     already use). */
+  animation: panelFlicker 6.5s ease-in-out infinite;
+}
+
+@keyframes panelFlicker {
+  0%, 19%, 21%, 63%, 65%, 100% { border-color: var(--menu-panel-border); }
+  20% { border-color: rgba(138, 109, 71, 0.22); }
+  64% { border-color: rgba(138, 109, 71, 0.75); }
+  81% { border-color: rgba(138, 109, 71, 0.3); }
+  82% { border-color: var(--menu-panel-border); }
+}
+
+/* Stamped-metal corner brackets (top-left + bottom-right) on every
+   panel/card/nav-button, instead of a plain rounded-rect border - the
+   squared-off industrial look the reference mockup uses throughout. */
+.menu-panel::before,
+.menu-panel::after,
+.menu-card::before,
+.menu-card::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+.menu-panel::before,
+.menu-card::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid var(--menu-gold);
+  border-left: 2px solid var(--menu-gold);
+  /* Worn stamped-metal look, not a crisp flat line - a highlight riding
+     the outer edge and a dark shadow on the inner edge fake a beveled
+     cross-section. */
+  box-shadow: -0.5px -0.5px 0 rgba(255, 255, 255, 0.35), 1px 1px 1px rgba(0, 0, 0, 0.55);
+}
+
+.menu-panel::after,
+.menu-card::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid var(--menu-gold);
+  border-right: 2px solid var(--menu-gold);
+  box-shadow: 0.5px 0.5px 0 rgba(255, 255, 255, 0.35), -1px -1px 1px rgba(0, 0, 0, 0.55);
+}
+
+.menu-panel-title {
+  margin: 0 0 5px;
+  font-family: var(--menu-display-font);
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #e8e8e2;
+  text-transform: uppercase;
+}
+
+.menu-panel-title:not(:first-child) {
+  margin-top: 12px;
+}
+
+.menu-field-label {
+  display: block;
+  margin: 4px 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--menu-text-dim);
+}
+
+.menu-field-label:first-of-type {
+  margin-top: 0;
+}
+
+/* Class-style icon grid (companion role / loadout pickers). */
+.class-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.class-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 8px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--menu-text-dim);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.class-btn:hover {
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.5);
+  color: #eee;
+}
+
+.class-btn.active {
+  color: var(--menu-gold);
+  background: rgba(var(--ui-gold-accent-rgb), 0.38);
+  border-color: var(--menu-gold);
+}
+
+/* Brighter glow on whichever class/difficulty is currently selected -
+   currentColor picks up each button's own accent color (set per class/
+   difficulty below), so this one rule covers all of them. */
+.class-btn.active,
+.difficulty-btn.active {
+  box-shadow: 0 0 4px 1px currentColor, inset 0 0 12px -3px currentColor;
+}
+
+/* Hexagonal icon badge (reference mockup) - a solid-colored hex behind
+   each class icon instead of just tinting the icon's stroke. The icon
+   itself goes plain white (near-black on the gold Balanced badge, the
+   one accent light enough that white would lose contrast) so it reads
+   against any of the 6 accent colors below. */
+.class-icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.class-icon {
+  width: 27px;
+  height: 27px;
+  color: #fff;
+}
+
+/* Embossed vertical shading (light top, dark bottom) layered over each
+   flat accent color - matches the reference mockup's rounded 3D-looking
+   hex badges rather than a flat color fill. */
+/* Game Modes grid (Choose Your Challenge) - same .class-btn/.class-icon-badge
+   base as Choose Class above, just with an emoji glyph instead of an SVG
+   (explicit request for this one section - the rest of the UI keeps this
+   project's usual no-emoji convention). */
+.class-icon-emoji {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.class-btn[data-game-mode="classic"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-olive); }
+.class-btn[data-game-mode="zombieDefense"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-blue); }
+.class-btn[data-game-mode="bossHunt"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-gold); }
+.class-btn[data-game-mode="zombieRush"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-red); }
+.class-btn[data-game-mode="zombieExtraction"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-green); }
+
+.class-btn[data-game-mode="classic"].active { color: var(--menu-olive); background: rgba(146, 160, 94, 0.32); border-color: var(--menu-olive); }
+.class-btn[data-game-mode="zombieDefense"].active { color: var(--menu-blue); background: rgba(111, 168, 220, 0.32); border-color: var(--menu-blue); }
+.class-btn[data-game-mode="bossHunt"].active { color: var(--menu-gold); background: rgba(217, 163, 74, 0.32); border-color: var(--menu-gold); }
+.class-btn[data-game-mode="zombieRush"].active { color: var(--menu-red); background: rgba(201, 86, 74, 0.32); border-color: var(--menu-red); }
+.class-btn[data-game-mode="zombieExtraction"].active { color: var(--menu-green); background: rgba(127, 216, 160, 0.32); border-color: var(--menu-green); }
+
+/* Weapon Gear Guide (Settings) / Special Ammo Guide (Upgrades) - pure
+   reference lists explaining what each Coin Shop attachment does,
+   requested as a standalone list rather than description text on the
+   Shop's own buy rows. Same look as .shop-attachment-row's name+desc
+   pairing (see .attachment-desc above), just without a buy button. */
+
+/* Locked (Coming Soon) entries - same dimmed/inert treatment as the
+   Deathmatch FFA/Team toggles (.mode-toggle.locked), not a button that
+   looks clickable but silently does nothing. */
+.class-btn.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.class-btn.locked:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--menu-text-dim);
+}
+
+.mode-select-soon {
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.class-btn[data-role="ranged"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-green); }
+.class-btn[data-role="melee"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-orange); }
+.class-btn[data-role="medic"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-blue); }
+.class-btn[data-loadout="balanced"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-gold); }
+.class-btn[data-loadout="runner"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-purple); }
+.class-btn[data-loadout="tank"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-red); }
+
+.class-btn[data-loadout="balanced"] .class-icon { color: #1a1a1a; }
+
+.class-btn[data-role="ranged"].active { color: var(--menu-green); background: rgba(127, 216, 160, 0.32); border-color: var(--menu-green); }
+.class-btn[data-role="melee"].active { color: var(--menu-orange); background: rgba(224, 138, 79, 0.32); border-color: var(--menu-orange); }
+.class-btn[data-role="medic"].active { color: var(--menu-blue); background: rgba(111, 168, 220, 0.32); border-color: var(--menu-blue); }
+.class-btn[data-loadout="balanced"].active { color: var(--menu-gold); background: rgba(var(--ui-gold-accent-rgb), 0.32); border-color: var(--menu-gold); }
+.class-btn[data-loadout="runner"].active { color: var(--menu-purple); background: rgba(176, 124, 214, 0.32); border-color: var(--menu-purple); }
+.class-btn[data-loadout="tank"].active { color: var(--menu-red); background: rgba(201, 86, 74, 0.32); border-color: var(--menu-red); }
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: 17px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Reference mockup color-codes each Your Stats value instead of leaving
+   them all plain white - a good/best-run stat in green, a personal-taste
+   stat in purple, a loss/death stat in red. */
+.stat-row [data-stat="longest-survival"]:last-child { color: var(--menu-green); font-weight: 600; }
+.stat-row [data-stat="favorite-class"]:last-child { color: var(--menu-purple); font-weight: 600; }
+.stat-row [data-stat="last-run"]:last-child { color: var(--menu-red); font-weight: 600; }
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-row span:first-child {
+  color: var(--menu-text-dim);
+}
+
+.stat-row span:last-child {
+  font-weight: 700;
+  color: #eee;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Recommended Difficulty hint - a single small line under the panel
+   title, only shown once there's enough run history to base a
+   recommendation on (see _updateRecommendedDifficultyHint). */
+.menu-hint-line {
+  margin: 0 0 2px;
+  font-size: 10px;
+  font-style: italic;
+  color: var(--menu-olive);
+  opacity: 0.85;
+}
+
+/* Shared small button style for compact homepage actions (Continue
+   card's Play Again/Share, Loadout Presets' Save Setup/chips) - a
+   smaller, lower-emphasis sibling of .difficulty-btn rather than a new
+   visual language. */
+.mini-action-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--menu-gold);
+  background: rgba(var(--ui-gold-accent-rgb), 0.1);
+  border: 1px solid var(--menu-panel-border);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.mini-action-btn:hover {
+  background: rgba(var(--ui-gold-accent-rgb), 0.2);
+  border-color: var(--menu-gold);
+}
+
+/* Quick-compare tooltips (batch 8 feature) - anchored above the hovered
+   weapon card via left/top set in JS, transform pulls it fully above and
+   horizontally centered on that point rather than the tooltip's own corner. */
+#weapon-quick-compare-tooltip {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  background: rgba(10, 10, 9, 0.95);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.4);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #e8e6df;
+  pointer-events: none;
+  z-index: 20;
+  white-space: nowrap;
+}
+
+/* ---- Hero (center column) ---- */
+#menu-hero {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding-top: 2px;
+  /* Pins the hero column (title/Play/etc.) to the top of #menu-layout's
+     row instead of #menu-layout's own align-items:center vertically
+     centering it against whichever sidebar column happens to be
+     tallest. The Old theme's 'Rye' display font renders noticeably
+     taller than Golden's for the same nav/checklist text, so without
+     this the whole hero block (logo + Play button, moving together)
+     visibly dropped ~50px lower under Old theme - not a hero-specific
+     size/position rule, just centered against a taller row. Top-aligning
+     removes the dependency on sibling height entirely instead of trying
+     to match the two fonts' metrics. */
+  align-self: start;
+}
+
+/* Reserved space for future ad slots, flanking Play/Game Mode - no ad
+   network wired in yet, just holding the layout. Sized with clamp() (not a
+   fixed px) so it shrinks together with the real empty margin either side
+   of the Play button as the window narrows (that margin shrinks fast -
+   measured ~300px each side at 1900px wide, down to ~126px at 1200px, only
+   ~34px by 1024px) instead of a single fixed size that only fits some
+   widths. Height is clamped too but never exceeds the Play+Game Mode
+   button stack's own natural height (~188px), so this never grows
+   #hero-ad-row taller than it already was without ad squares - no risk to
+   the page's zero-scroll rule from width alone. Below 1150px width the
+   margin is too tight for even the smallest clamped size, so it hides;
+   also hides on genuinely short windows (max-height:750px) as a
+   conservative safety margin, same "nice-to-haves lose first" precedent
+   as #menu-spotlight/.menu-preset-row. Made deliberately bold/opaque
+   (not a faint dashed outline) after the first version was too subtle to
+   notice against the busy background photo. */
+#hero-ad-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+}
+
+#hero-play-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Real logo artwork (cracked-stone letters + dripping blood, background
+   removed and drips recolored to red) - replaces the earlier CSS-only
+   stenciled-text title now that a real image asset exists. */
+#menu-title {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  line-height: 1;
+}
+
+/* The logo is a CSS background from src/menu-art (inlined into the
+   stylesheet, see vite.config.js), not an <img> - so it is there in the
+   very first frame of a refresh like every other homepage picture. */
+#menu-title-img {
+  display: block;
+  width: min(96%, 850px);
+  height: auto;
+  aspect-ratio: 825 / 482;
+  background: url('../menu-art/gayz-logo.webp') center / contain no-repeat;
+  margin: 0 auto;
+  filter:
+    drop-shadow(0 0 40px rgba(255, 222, 92, 0.55))
+    drop-shadow(0 0 70px rgba(154, 20, 20, 0.45))
+    drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+}
+
+/* Logo blood-tint intensity - same 1-5 career-rank tier as the avatar
+   level badge/frame (see the JS that sets these classes), a cosmetic-only
+   nod to lifetime kills. Repeats the base drop-shadows since filter is a
+   single property, then layers saturate/hue-rotate on top - no new image
+   asset, just reading the existing blood-crack texture more intensely. */
+#menu-title-img.logo-tier-3 {
+  filter:
+    drop-shadow(0 0 40px rgba(255, 222, 92, 0.55))
+    drop-shadow(0 0 70px rgba(154, 20, 20, 0.45))
+    drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6))
+    saturate(1.15);
+}
+
+#menu-title-img.logo-tier-4 {
+  filter:
+    drop-shadow(0 0 40px rgba(255, 222, 92, 0.55))
+    drop-shadow(0 0 90px rgba(154, 20, 20, 0.6))
+    drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6))
+    saturate(1.3) contrast(1.05);
+}
+
+#menu-title-img.logo-tier-5 {
+  filter:
+    drop-shadow(0 0 40px rgba(255, 222, 92, 0.6))
+    drop-shadow(0 0 110px rgba(154, 20, 20, 0.75))
+    drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6))
+    saturate(1.45) contrast(1.1);
+}
+
+/* Old theme keeps the same logo artwork (no new asset was made for it),
+   but sepia() warms its blood-red crack texture toward brown/amber - a
+   vintage photo tint instead of a horror-red glow - and the ambient glow
+   drops its red layer for a warm-amber-only halo. */
+html.ui-theme-old #menu-title-img {
+  filter:
+    sepia(1)
+    drop-shadow(0 0 40px rgba(226, 189, 140, 0.5))
+    drop-shadow(0 0 60px rgba(140, 90, 40, 0.35))
+    drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+}
+
+html.ui-theme-old #menu-title-img.logo-tier-3 {
+  filter:
+    sepia(1) saturate(1.15)
+    drop-shadow(0 0 40px rgba(226, 189, 140, 0.55))
+    drop-shadow(0 0 70px rgba(140, 90, 40, 0.4))
+    drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+}
+
+html.ui-theme-old #menu-title-img.logo-tier-4 {
+  filter:
+    sepia(1) saturate(1.25) contrast(1.05)
+    drop-shadow(0 0 40px rgba(226, 189, 140, 0.6))
+    drop-shadow(0 0 90px rgba(140, 90, 40, 0.45))
+    drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+}
+
+html.ui-theme-old #menu-title-img.logo-tier-5 {
+  filter:
+    sepia(1) saturate(1.35) contrast(1.1)
+    drop-shadow(0 0 40px rgba(226, 189, 140, 0.65))
+    drop-shadow(0 0 110px rgba(140, 90, 40, 0.55))
+    drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+}
+
+/* Safari (2026-10-30): two big soft glows stacked go past what it can
+   draw - on an iPhone/iPad the whole logo disappeared, and on a Mac the
+   logo-tier-5 one did - so Safari (any device; WebKit is the only engine
+   that knows the -apple-system-body font keyword) keeps one glow (the near
+   one) plus the shadow. Chrome, Edge and Firefox keep the full look. */
+@supports (font: -apple-system-body) {
+  html.ui-theme-old #menu-title-img {
+    filter: sepia(1) drop-shadow(0 0 40px rgba(226, 189, 140, 0.55)) drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+  }
+  html.ui-theme-old #menu-title-img.logo-tier-3 {
+    filter: sepia(1) saturate(1.15) drop-shadow(0 0 40px rgba(226, 189, 140, 0.6)) drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+  }
+  html.ui-theme-old #menu-title-img.logo-tier-4 {
+    filter: sepia(1) saturate(1.25) contrast(1.05) drop-shadow(0 0 40px rgba(226, 189, 140, 0.65)) drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+  }
+  html.ui-theme-old #menu-title-img.logo-tier-5 {
+    filter: sepia(1) saturate(1.35) contrast(1.1) drop-shadow(0 0 40px rgba(226, 189, 140, 0.7)) drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+  }
+  #menu-title-img.logo-tier-3,
+  #menu-title-img.logo-tier-4,
+  #menu-title-img.logo-tier-5 {
+    filter: drop-shadow(0 0 40px rgba(255, 222, 92, 0.55)) drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6)) saturate(1.3);
+  }
+}
+
+#menu-tagline {
+  margin: 2px 0 4px;
+  font-family: var(--menu-display-font);
+  font-size: 25.5px;
+  letter-spacing: 4.5px;
+  color: var(--menu-gold);
+  text-transform: uppercase;
+  opacity: 0.95;
+  /* Shifts the tagline up into the logo image's own lower whitespace
+     (the blood-drip art has empty space below the visible drips) without
+     touching layout flow - position:relative still reserves this
+     element's original space below it, so #play-btn and everything after
+     stays exactly where it was. */
+  position: relative;
+  top: -40px;
+}
+
+#menu p {
+  margin: 0;
+  opacity: 0.7;
+}
+
+#menu-subtitle {
+  font-size: 21.75px;
+  font-weight: 400;
+  opacity: 0.85 !important;
+  letter-spacing: 0.3px;
+  white-space: pre-line;
+  line-height: 1.25;
+  /* Moves with #menu-tagline above - see its comment. */
+  position: relative;
+  top: -40px;
+}
+
+/* Hidden - the reference layout keeps the hero column to title/tagline/
+   3-line subtitle/stats/Play only, no extra hint or ticker lines. Kept
+   in the DOM (still populated by _updateTexts()) rather than deleted,
+   same reasoning as #round-mode-hint above. */
+.menu-subhint,
+.menu-news-ticker {
+  display: none;
+}
+
+/* Instructional text (round-mode rules, control bindings) removed from
+   the visible menu per the AAA-menu-quality pass - a first-time player
+   already gets this via the in-game tutorial hint sequence
+   (_maybeShowTutorialHints), so it doesn't need to sit permanently under
+   the Play button too. Kept in the DOM (not deleted) since _updateTexts()
+   still populates them and this is reversible with one CSS change. */
+#round-mode-hint {
+  display: none;
+}
+
+.menu-news-ticker {
+  font-size: 11px;
+  font-style: italic;
+  letter-spacing: 0.3px;
+  opacity: 0.45 !important;
+  max-width: 420px;
+}
+
+/* Stamped-metal sign: octagonal clip-path + 4 corner "rivets" (small
+   radial-gradient dots layered on top of the gold fill) instead of a
+   plain rounded pill, plus the same stencil display font as the title. */
+/* Stamped-metal sign: dark steel face (not a flat gold fill) framed by a
+   thick gold border, an inset bevel (light top edge / dark bottom edge)
+   and a soft orange outer glow - reads as an illuminated AAA-menu button
+   rather than a flat web button. Octagonal clip-path + 4 corner "rivets"
+   (small radial-gradient dots) kept from the earlier pass. */
+#play-btn {
+  position: relative;
+  margin-top: 0;
+  /* One width the centered version below reuses (the media queries
+     further down only change --play-w). */
+  --play-w: min(400px, 56vw);
+  width: var(--play-w);
+  aspect-ratio: 1400 / 467;
+  padding: 0;
+  border: none;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  background-color: transparent;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  /* The plate graphic already has "PLAY" baked into it (gold text, its
+     own bevel/rivets/border) - the real <button> text stays in the DOM
+     for accessibility and so _updateTexts() doesn't need touching, just
+     painted invisible so it doesn't double up with the image's own text. */
+  color: transparent;
+  text-shadow: none;
+  /* Play Button Color (Controls tab) keeps doing something real even
+     though it can no longer recolor the image's baked-in gold text -
+     it now drives the ambient glow behind the plate instead.
+     drop-shadow, not box-shadow: box-shadow projects from the element's
+     rectangular layout box, and on this element that box is bigger than
+     the visible octagon (the plate image has transparent corners cut
+     into an otherwise-rectangular canvas) - it rendered as a solid dark
+     square showing through those transparent corners instead of a soft
+     glow (reproduced with a plain rgba() color too, so it wasn't a
+     color-mix() quirk - some box-shadow/blur interaction with the
+     image's own alpha). filter: drop-shadow() glows around the actual
+     rendered alpha shape instead of the bounding box, which sidesteps
+     the bug entirely and, as a bonus, hugs the octagon's real outline
+     rather than glowing as a rectangle. */
+  filter: drop-shadow(0 0 16px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 75%, transparent));
+  transition: transform 0.15s ease, filter 0.25s ease;
+}
+
+#play-btn:hover {
+  transform: translateY(-3px);
+  filter: drop-shadow(0 0 22px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 90%, transparent));
+}
+
+/* Game Mode - a smaller secondary button directly under Play, opens the
+   same content that used to live behind the Hub nav button (see
+   _openHubPanel/#gamemode-btn's listener in Game.js). Reskinned with the
+   same gold-plate image as Hub/Store/Upgrades (2026-08-20) - see that
+   rule's own comment for the background-size/border reasoning, same
+   deal here. */
+#gamemode-btn {
+  margin-top: 2px;
+  /* The plate is a fifth bigger than its word (2026-10-09, "make the
+     panel behind the word game mode slightly bigger, like 0.2") - was
+     14px 38px. */
+  padding: 19px 64px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--menu-gold);
+  background: center / 100% 100% no-repeat;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  transition: filter 0.2s ease, transform 0.15s ease;
+}
+#gamemode-btn:hover {
+  filter: brightness(1.18);
+  transform: translateY(-1px);
+}
+
+/* Old theme's own plate art, swapped in on top of the shared rules above -
+   see the settings-btn/nav-buttons rules further down for the same pattern. */
+html.ui-theme-old #play-btn {
+  background-image: url('../menu-art/old-play-btn.webp');
+}
+
+/* Old theme Game Mode is Gaymi's own plate picture with GAME MODE cast
+   into it (2026-10-10, "change it to the second image") - like PLAY, the
+   button's own text is invisible (kept for screen readers and the paint
+   cache) and the box takes the picture's shape. */
+html.ui-theme-old #gamemode-btn {
+  /* 0.6 of its first size (2026-10-10, "make it 0.6 times smaller"). */
+  width: 180px;
+  max-width: 60vw;
+  aspect-ratio: 1919 / 380;
+  height: auto;
+  padding: 0;
+  color: transparent;
+  text-shadow: none;
+  background-image: url('../menu-art/old-gamemode-plate.webp');
+  background-size: 100% 100%;
+}
+
+#play-btn:active {
+  transform: translateY(2px);
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 60%, transparent));
+}
+
+/* Fixed + centered so it sits exactly in the middle of the viewport -
+   but only when JS (centerPlayBtn in index.html's __menuLayout) has measured
+   actual clearance above and below and confirmed it fits. A plain CSS
+   height breakpoint can't do this reliably: the hero column's own
+   content (news ticker / weekly mutator lines) is variable-length text,
+   so how much room is actually free shifts with it. Shorter viewports
+   (or a long ticker line) keep the safe in-flow position above instead.
+   Centered via inset:0 + margin:auto (needs no transform, and doesn't
+   need to know the button's own width/height ahead of time) rather than
+   the more common left/top:50% + transform:translate(-50%,-50%) - that
+   version measured with a computed transform of matrix(1,0,0,1,0,0)
+   (i.e. not actually applied) in testing for reasons that were never
+   pinned down, silently leaving the button flush against the left edge
+   of its 50%/50% anchor point instead of centered on it. */
+#play-btn.play-btn-centered {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  /* A real size, not fit-content: the button's own text is invisible
+     (PLAY is part of the plate picture), so fit-content shrank it to the
+     width of four tiny letters on screens tall enough to center it. */
+  width: var(--play-w);
+  height: calc(var(--play-w) * 467 / 1400);
+  z-index: 5;
+}
+
+#play-btn.play-btn-centered:hover {
+  transform: translateY(-3px);
+}
+
+#play-btn.play-btn-centered:active {
+  transform: translateY(2px);
+}
+
+#hero-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Pulled back in from 26px per request (move Settings closer to Game
+     Mode) - still enough clearance not to sit flush against it. */
+  margin-top: 10px;
+}
+
+#quick-mute-btn,
+#quick-colorblind-btn,
+#quick-performance-btn,
+#quick-language-btn,
+#howtoplay-btn,
+#quick-cloud-btn,
+#settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  color: var(--menu-gold);
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(var(--ui-gold-accent-rgb), 0.5);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* Reference mockup shows only the Settings gear below Play - the other
+   5 quick-access shortcuts (mute/colorblind/performance/language/how to
+   play/cloud save) are hidden rather than removed, so nothing here is
+   actually deleted: language and colorblind are both also full settings
+   inside the Settings panel's own tabs, and this is a single reversible
+   CSS rule if the shortcuts are wanted back. Must come after the shared
+   display:flex rule above (same selectors, same specificity) to win. */
+#quick-mute-btn,
+#quick-colorblind-btn,
+#quick-performance-btn,
+#quick-language-btn,
+#howtoplay-btn,
+#quick-cloud-btn {
+  display: none;
+}
+
+#quick-mute-btn svg,
+#quick-colorblind-btn svg,
+#quick-performance-btn svg,
+#quick-language-btn svg,
+#howtoplay-btn svg,
+#quick-cloud-btn svg,
+#settings-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Settings gear - scoped size override, coming after the shared
+   quick-action-button rule above (same specificity, later wins) so only
+   this one visible button grows, not the 5 other hidden shortcuts that
+   still share that base rule. Reskinned with the user's own gold-gear
+   plate image (2026-08-20) - the plate has the gear baked in, so the
+   inline SVG (kept in the DOM for markup/history reasons) is hidden
+   rather than removed. */
+#settings-btn {
+  width: 84px;
+  height: 84px;
+  background: center / cover no-repeat;
+  border: none;
+}
+
+html.ui-theme-old #settings-btn {
+  background-image: url('../menu-art/old-settings-gear.webp');
+}
+
+#settings-btn svg {
+  display: none;
+}
+
+#quick-mute-btn:hover,
+#quick-colorblind-btn:hover,
+#quick-performance-btn:hover,
+#quick-language-btn:hover,
+#howtoplay-btn:hover,
+#quick-cloud-btn:hover {
+  background: rgba(var(--ui-gold-accent-rgb), 0.12);
+}
+
+#quick-cloud-btn.signed-in {
+  color: var(--menu-green, #7fd8a0);
+  border-color: var(--menu-green, #7fd8a0);
+}
+
+#quick-mute-btn.active {
+  color: var(--menu-red);
+  border-color: var(--menu-red);
+}
+
+#quick-performance-btn.active {
+  color: var(--menu-green);
+  border-color: var(--menu-green);
+}
+
+#quick-colorblind-btn.active {
+  color: var(--menu-blue);
+  border-color: var(--menu-blue);
+}
+
+#settings-btn:hover {
+  filter: brightness(1.18);
+  transform: rotate(25deg);
+}
+
+/* True top-left corner overlay - independent of #menu-layout's grid (was
+   briefly top-right, corrected back to top-left) so it can't collide
+   with or visually attach to any column content. */
+#menu-currency-bar {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 2;
+  display: flex;
+  gap: 18px;
+  padding: 10px 18px;
+  background: rgba(10, 10, 10, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+/* Real-time clock (General tab, settings.timeFormat) - sits just below
+   the currency bar, same corner, same pill styling. top: 70px is
+   hand-computed against the currency bar's own height (padding + its
+   icons, the tallest content) - re-check this offset if the bar's size
+   changes again (it's shrunk twice since the 78px value was set, which
+   is why the gap had grown noticeably too wide). */
+#homepage-clock {
+  position: fixed;
+  top: 70px;
+  left: 16px;
+  z-index: 2;
+  padding: 6px 18px;
+  font-family: var(--menu-display-font);
+  /* Kept matched to .currency-item's own size, per standing request. */
+  font-size: 18.9px;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(10, 10, 10, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.currency-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--menu-display-font);
+  /* 1.2x of the previous 15.75px, per feedback. */
+  font-size: 18.9px;
+  color: #eee;
+  font-variant-numeric: tabular-nums;
+}
+
+.currency-icon {
+  width: 25.65px;
+  height: 25.65px;
+  flex-shrink: 0;
+}
+/* Brighter, more colourful currencies (2026-10-18, Gaymi: "make the
+   currency more colourful more brighter and more realistic"): each amount
+   in its own currency's colour, and the icons get a soft glow. */
+#menu-currency-bar .currency-icon { filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.18)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6)); }
+#menu-currency-bar .currency-item span { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75); }
+#currency-coins-amount { color: #ffd84a; }
+#currency-points-amount { color: #7cc8ff; }
+#currency-cash-amount { color: #5be07f; }
+#currency-gems-amount { color: #ff5c7a; }
+
+/* ---- Right column: player badge + nav + boards ---- */
+/* Gold plate frame wraps the WHOLE badge (photo + #ID text below it),
+   not just the photo - a plain background-image stretch/cover here
+   would badly warp a wide plate picture against
+   this tall card shape, so this uses border-image instead: a 9-slice
+   technique that keeps the plate's corners/rivets undistorted at any
+   box size and only stretches the flat edge strips between them. */
+#menu-player-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 22px 16px 16px;
+  border-style: solid;
+  border-width: 24px;
+  border-image-source: none;
+  border-image-slice: 90;
+  border-image-width: 24px;
+  border-image-repeat: stretch;
+  /* background-color, not the `background` shorthand - the .ui-theme-old
+     override below only wants to swap the color, and `background: ...`
+     there would silently reset every other background sub-property
+     (including background-clip just below) back to its initial value. */
+  background-color: rgba(10, 8, 4, 0.5);
+  /* Without this, the background paints the full border-box by default -
+     wherever the border-image's own texture has thin/transparent pixels
+     (corners, gaps in the ornate engraving), this tint bleeds through and
+     shows as a flat grey/dark rectangle sticking out past the frame's
+     actual decorative edges. Clipping to padding-box confines it to the
+     window behind the avatar photo, which is what it's actually for. */
+  background-clip: padding-box;
+  cursor: pointer;
+}
+
+html.ui-theme-old #menu-player-badge {
+  border-image-source: url('/images/old-profile-frame.webp');
+  background-color: rgba(21, 15, 9, 0.5);
+}
+
+#menu-player-badge:hover,
+#menu-player-badge.nav-hover,
+#menu-player-badge:focus-visible {
+  filter: brightness(1.15);
+}
+
+/* Avatar box itself is now plain - the gold frame lives on the outer
+   #menu-player-badge card instead (see its own comment above). */
+#menu-avatar-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 130px;
+  height: 130px;
+  color: var(--menu-gold);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+/* Avatar image - a crop of the player's own Minecraft skin face (see
+   Game.js's _updateMenuAvatarPhoto), anonymous silhouette only until that
+   first resolves. Same rounded-square frame, doesn't touch the level
+   badge (still absolutely positioned on top of it via DOM order).
+   image-rendering: pixelated keeps the skin crop crisp instead of blurry
+   at this frame's larger display size. */
+#menu-avatar-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 3px;
+  image-rendering: pixelated;
+}
+
+/* Reported directly: a brand-new account can sit on the anonymous
+   silhouette for several real seconds (measured ~5s on one test) before
+   _updateMenuAvatarPhoto's face crop is ready, since that depends on the
+   same heavy synchronous constructor as everything else on this page -
+   see the shader-warmup/reveal-timing investigation elsewhere this
+   session for why nothing async here can resolve faster than the whole
+   page does. Making it resolve faster needs that same bigger fix; this
+   is the smaller, honest one - a slow pulse so the placeholder reads as
+   "loading," not "broken," while it waits. Removed via .loading being
+   stripped the moment either the anti-flash script (index.html, cached
+   face) or _updateMenuAvatarPhoto (Game.js, freshly rendered face) sets
+   the real photo - whichever gets there first. */
+#menu-avatar-photo.loading {
+  animation: avatarPhotoLoadingPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes avatarPhotoLoadingPulse {
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #menu-avatar-photo.loading {
+    animation: none;
+  }
+}
+
+/* Star shape (not clip-path on this element itself - a 5-point star's
+   concave points would slice through 2-3 digit level numbers) - same
+   safe technique as .crate-stock-count's own star badge: the star lives
+   on ::before, solid yellow, sitting behind the plain, never-clipped
+   level number text (black, readable against the yellow fill).
+   -18px/-18px (half the badge's own 36px width/height; was 30px until
+   Gaymi asked for it brighter and bigger, 2026-10-23) puts the star's
+   bounding-box center exactly on #menu-avatar-icon's bottom-right
+   corner, not just overlapping it. */
+#menu-avatar-level {
+  position: absolute;
+  bottom: -18px;
+  right: -18px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 3px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #0c130c;
+  line-height: 1;
+  /* A glow round the whole star (on the badge, so clip-path can't cut it). */
+  filter: drop-shadow(0 0 5px rgba(255, 230, 0, 0.85));
+}
+
+/* Black star behind (::before) and a slightly smaller yellow star on top
+   (::after) = a black outline, so the badge doesn't blend into a yellow
+   avatar. (A drop-shadow can't do it - clip-path cuts the filter off.) */
+#menu-avatar-level::before,
+#menu-avatar-level::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+#menu-avatar-level::before {
+  inset: -4px;
+  background: #000;
+}
+
+#menu-avatar-level::after {
+  inset: 0;
+  background: #ffea00;
+}
+
+#menu-player-name-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+#menu-player-tag {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #eee;
+  cursor: pointer;
+}
+
+html.ui-theme-old #menu-player-tag {
+  color: #ddd0b8;
+}
+
+/* Old theme profile card (2026-10-03, from Gaymi's mockup): a rusty
+   riveted metal plate (public/images/old-profile-plate.webp, cut from the
+   mockup with its baked-in ID and level number painted out). The face,
+   level coin and ID sit on the plate's own spots, as percentages of the
+   1230x1278 picture: face window 322-895 x 210-790, level coin centered
+   at 893,755 (its own picture, old-level-coin.webp, laid on top of the
+   face), name plate 300-945 x 905-1062. */
+html.ui-theme-old #menu-player-badge {
+  position: relative;
+  display: block;
+  /* As wide as the nav plaques below it (they hang 12px past the
+     column on each side), and taller to match - the text inside scales
+     with it (cqw). */
+  width: calc(100% + 24px);
+  /* -16px below: the plate picture has empty space under its frame (and
+     the first nav plaque some above it), which left a big gap before
+     General (2026-10-09, "make it smaller"). */
+  margin: 0 -12px -16px;
+  aspect-ratio: 1230 / 1278;
+  container-type: inline-size;
+  padding: 0;
+  border: none;
+  border-image: none;
+  background: url('../menu-art/old-profile-plate.webp') center / 100% 100% no-repeat;
+  /* A little darker and harder than the raw picture (2026-10-04, "not so
+     bright" - Gaymi's mockup). */
+  /* Bright by default (2026-10-26, Gaymi: "make it default as the first
+     image bright") - what used to be its pointed-at look. */
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6)) brightness(1.02) contrast(1.1);
+}
+
+/* Pointing at it brightens it more, with the same glow as General,
+   Store, Market... */
+html.ui-theme-old #menu-player-badge:hover,
+html.ui-theme-old #menu-player-badge.nav-hover,
+html.ui-theme-old #menu-player-badge:focus-visible {
+  filter: brightness(1.18) contrast(1.1) drop-shadow(0 0 10px rgba(var(--ui-gold-accent-rgb), 0.45));
+}
+
+html.ui-theme-old #menu-avatar-icon {
+  position: absolute;
+  left: 26.2%;
+  top: 16.4%;
+  width: 46.6%;
+  height: 45.4%;
+  background: #1a1510;
+  border-radius: 0;
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.8);
+}
+
+html.ui-theme-old #menu-avatar-photo {
+  border-radius: 0;
+  /* Aged, dimmed paint (2026-10-04: "not so bright", Gaymi's mockup),
+     then worn on top by the ::after layer below. */
+  filter: sepia(0.25) saturate(1.05) brightness(0.72) contrast(1.15);
+}
+
+/* Worn, rusty paint over whatever skin face is shown (2026-10-04, like
+   the mockup's face): rust flakes, scratches, cracks and grain cut from
+   the mockup (public/images/old-face-wear.webp, transparent except for
+   the wear), plus a dark rim where the face meets its frame. Sits under
+   the level coin (z-index 1). */
+html.ui-theme-old #menu-avatar-icon::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* Two copies of the wear (the second bigger and shifted) for more rust
+     patches, multiplied so the picture's light grain can only darken -
+     laid on normally, it washed the face out. */
+  background:
+    url('../menu-art/old-face-wear.webp') center / 100% 100% no-repeat,
+    url('../menu-art/old-face-wear.webp') 70% 30% / 150% 150% no-repeat;
+  mix-blend-mode: multiply;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.85);
+  pointer-events: none;
+}
+
+/* The level number sits in the plate's round metal coin, not a star. */
+html.ui-theme-old #menu-avatar-level {
+  left: 82.0%;
+  top: 76.6%;
+  right: auto;
+  bottom: auto;
+  width: 35.2%;
+  height: auto;
+  aspect-ratio: 1;
+  /* The coin itself (cut from the same plate picture), on top of the
+     face's corner like the mockup. */
+  background: url('../menu-art/old-level-coin.webp') center / 100% 100% no-repeat;
+  border-radius: 50%;
+  min-width: 0;
+  padding: 0;
+  font-family: 'Black Ops One', sans-serif;
+  font-size: 8.5cqw;
+  font-weight: 400;
+  color: #e4d4b4;
+  text-shadow: 0 2px 0 #000, 0 0 4px rgba(0, 0, 0, 0.9);
+  filter: none;
+}
+
+html.ui-theme-old #menu-avatar-level::before,
+html.ui-theme-old #menu-avatar-level::after {
+  content: none;
+}
+
+html.ui-theme-old #menu-player-name-row {
+  position: absolute;
+  left: 24.4%;
+  right: 23.2%;
+  top: 70.8%;
+  height: 12.3%;
+  margin: 0;
+  justify-content: center;
+}
+
+html.ui-theme-old #menu-player-tag {
+  font-family: 'Black Ops One', sans-serif;
+  font-size: 8cqw;
+  font-weight: 400;
+  letter-spacing: 1px;
+  color: #e4d4b4;
+  text-shadow: 0 2px 0 #000, 0 0 5px rgba(0, 0, 0, 0.9);
+}
+
+html.ui-theme-old #menu-player-tag:hover {
+  color: #f3e6c8;
+}
+
+html.ui-theme-old #homepage-greeting {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  text-align: center;
+}
+
+#menu-player-tag:hover {
+  color: var(--menu-gold);
+}
+
+/* Used by the Player showcase panel's pencil (#player-showcase-rename-btn),
+   which opens the nickname editor (see _revealNicknameEditor in Game.js). */
+.pencil-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  color: var(--menu-text-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.pencil-edit-btn:hover {
+  color: var(--menu-gold);
+  opacity: 1;
+}
+
+.pencil-edit-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Player showcase panel (replaces the old Player Setup form - Companion
+   Name/Challenge Code moved into the Hub panel's new "Player" section,
+   Nickname collapses into #nickname-row below, hidden until the pencil is
+   clicked) - just a heading + pencil button side by side. Deliberately
+   NOT a card: strips every visual the shared .menu-panel class normally
+   paints (background, border, corner brackets, shadow, flicker
+   animation) so it reads as bare text/avatar floating on the homepage
+   background, not a boxed-in form. */
+#player-showcase-panel {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  backdrop-filter: none;
+  box-shadow: none;
+  animation: none;
+}
+
+#player-showcase-panel::before,
+#player-showcase-panel::after {
+  content: none;
+}
+
+/* Centered as a unit (name + pencil together) rather than space-between's
+   name-left/pencil-right split, so "PLAYER" reads as a nameplate centered
+   above the character instead of pinned to the column's left edge. */
+#player-showcase-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  /* Was plain static text, popping in fully-formed the instant the page's
+     anti-flash script (index.html) paints it - visible well before
+     #setup-avatar-canvas below, which stays at opacity:0 until the real
+     avatar is actually ready (MenuAvatar3D.js's reveal() - can take up to
+     its own 600ms safety cap, longer if Game.js's constructor is still
+     mid-preload). A first attempt gave this its own fixed-timer CSS fade
+     instead, but that still finished before the avatar most of the time,
+     so the name kept showing alone anyway - just fading in instead of
+     popping. Fixed for real by having Game.js pass a reveal callback into
+     this player's own MenuAvatar3D instance (see its constructor) that
+     flips this to opacity:1 at the exact same moment the avatar does,
+     with the same transition duration, so name and avatar always appear
+     together as one unit - never one before the other. The anti-flash
+     script still sets the correct *text* synchronously first; this only
+     ever delays how it visually appears. */
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #player-showcase-header {
+    transition: none;
+  }
+}
+
+/* Wraps title + clan name so the clan line stacks above the nickname
+   while the rename pencil button stays a row-sibling of the whole
+   stack, not squeezed between the two lines. */
+#player-showcase-title-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Lets this shrink below its content's natural width inside the
+     #player-showcase-header flex row - needed for the name to actually
+     be scaled down by _fitPlayerShowcaseTitle() (Game.js) instead of
+     forcing the row wider than the column and overflowing it. */
+  min-width: 0;
+}
+
+#player-showcase-header .menu-panel-title {
+  margin: 0;
+  /* Never wraps to a 2nd line - _fitPlayerShowcaseTitle() (Game.js)
+     shrinks the font instead so a long name can't grow this element's
+     height and push it around (see #nickname-row's own comment above for
+     why that matters here). */
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 100%;
+  /* Overrides the shared .menu-panel-title uppercase styling - this one
+     shows the player's actual nickname, which should keep whatever real
+     upper/lowercase mix they typed (see settings.nickname), not get
+     force-capitalized like the other panel section headers that share
+     this class. text-transform alone isn't enough either: .menu-panel-title
+     also sets font-family to Bebas Neue, which has no true lowercase
+     glyphs at all (renders as small-caps regardless of text-transform) -
+     the .nickname-tag class added alongside this one in index.html carries
+     the fix, but ties with .menu-panel-title on specificity and loses on
+     source order, so it's restated here at higher specificity to actually
+     win. */
+  text-transform: none;
+  font-family: var(--nickname-font, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif);
+  color: var(--nickname-color, #e8e8e2);
+}
+
+/* 3D character preview - drag to spin (see MenuAvatar3D.js). Sized as a
+   tall portrait, bigger than the original 84x84/200x400 passes, but kept
+   close to the character's own natural ~1:2 width:height proportions
+   (230x480) rather than stretched into a much taller narrow box - a first
+   attempt at 210x950 (chasing a much taller reference drawing literally)
+   left the character rendering small with a lot of dead space above/below,
+   since a standing humanoid can't fill a box that much narrower than its
+   own shape without either clipping the sides or the camera backing off
+   far enough to shrink the whole figure. This size uses the full 240px
+   column width and needs no per-viewport-height shrinking (480px comfortably
+   fits under the hero column's height at every tracked breakpoint, unlike
+   the 950px attempt). MenuAvatar3D's _resize() reads real width/height
+   instead of forcing a square render, and recomputes camera distance
+   per-resize so the character never clips regardless of aspect ratio. */
+#setup-avatar-wrap {
+  /* Grows and shrinks with the window's height (2026-10-12, "very big when
+     I'm full screen" - it used to jump from 504px to 720px tall the moment
+     a window passed 960px, e.g. a MacBook going full screen). Width keeps
+     the character's own ~0.48 shape. */
+  height: clamp(240px, 54vh, 620px);
+  width: clamp(115px, 26vh, 298px);
+  /* No auto side margins: in the column's flex box they'd turn to 0 once
+     the character is wider than the column and pin it to the left edge. */
+  margin: 10px 0 0;
+  flex: none;
+  cursor: grab;
+}
+
+/* The character and the name above it share one centre line - the
+   character is wider than the 240px column, so it's centred on the
+   column (overflowing both sides evenly) instead of hanging off its
+   right edge (2026-10-12, "the name, level and clan should always be in
+   the middle of the spinning character"). */
+#menu-col-left {
+  align-items: center;
+}
+#menu-col-left > * {
+  align-self: stretch;
+}
+#menu-col-left #player-showcase-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+#menu-col-left #player-showcase-header {
+  align-self: stretch;
+}
+/* An invisible twin of the rename pencil on the left keeps the name
+   itself - not name + pencil - in the middle. */
+#player-showcase-header::before {
+  content: '';
+  flex: none;
+  width: 18px;
+}
+
+#setup-avatar-wrap:active {
+  cursor: grabbing;
+}
+
+#setup-avatar-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#profile-skin-upload-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+/* Card-flip hover flourish (filled achievement slots only) - a rotateY
+   wobble, not a true two-sided flip (this DOM has no back-face content
+   to reveal), still reads as a genuine "flip" motion on hover. */
+
+#menu-nav-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* _applyNavOrder() (Game.js) only sets flex `order` on the 8 user-
+   reorderable buttons (0-7) - #build-mode-btn was never included (it's
+   not part of the Nav Order settings feature), so it defaulted to the
+   CSS-initial order:0, tying it with whichever button is currently first
+   and visually displacing it there instead of staying put at the end.
+   Fixed above the reorderable range so it always renders last regardless
+   of how nav order is customized. */
+#build-mode-btn {
+  order: 99;
+}
+
+/* Gold-plate reskin (2026-08-20, at the user's request) - applies to
+   EVERY button in the nav list via this shared rule (not per-ID
+   overrides), specifically so any nav button added later inherits the
+   same look automatically instead of needing a matching new rule each
+   time. border/box-shadow/border-radius cleared since the plate image
+   already has its own frame baked in - a CSS border around it would
+   double up. background-size stretches the plate to fill each button's
+   own box (100% 100%, not contain/cover) since these buttons' fixed
+   layout dimensions don't match the plate's own aspect ratio and
+   there's no per-button flexibility to give it room otherwise. */
+#menu-nav-buttons button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #d8dcd2;
+  background: center / 100% 100% no-repeat;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: none;
+  transition: filter 0.2s ease, transform 0.15s ease;
+}
+
+html.ui-theme-old #menu-nav-buttons button {
+  color: #ddd0b8;
+  background-image: url('../menu-art/old-nav-plaque.webp');
+  /* The rust-plaque art's own beveled border reads as thicker/chunkier
+     than the old gold plate's, so the icon sat right up against it at the
+     old padding/width - widened via negative margin (bleeds into the
+     grid gap beside this column, not the column track itself, so the
+     column stays at its own deliberately-narrowed width) and given more
+     interior padding for clearance from the border art. */
+  margin: 0 -12px;
+  padding: 15px 26px;
+  /* Longhand after the shorthand above (wins for just this side) - the
+     icon+text group was still overlapping the plaque art's left border
+     decoration even with the padding above (real report, 2026-09-22,
+     "General" specifically flagged but this is the shared button rule
+     so it applies to all 8 nav buttons equally). Extra ~14px clearance
+     on top of the shorthand's 26px. */
+  padding-left: 66px;
+}
+
+/* Simple's card is the size of Old's plaque as you see it: the plaque art
+   has see-through edges (30 of its 480px each side = 6.25%, ~17px), so a
+   full-width card looked much bigger when switching themes (2026-10-25).
+   The padding shrinks by the same 17px so the icon and words stay exactly
+   where Old's are. */
+html.ui-theme-clean #menu-nav-buttons button {
+  margin: 0 5px;
+  padding: 15px 9px;
+  padding-left: 49px;
+}
+
+#menu-nav-buttons button svg {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: var(--menu-gold);
+}
+
+/* .nav-hover: the same look while a panel is open - the panel's backdrop
+   covers the column, so real :hover never reaches it (Game.js mirrors
+   the mouse onto these with elementsFromPoint, 2026-10-11). */
+#menu-nav-buttons button:hover,
+#menu-nav-buttons button.nav-hover {
+  /* box-shadow (what this replaces) always follows the element's plain
+     rectangular box, regardless of what's actually drawn inside it - on
+     a non-rounded button (border-radius: 0) whose background is a
+     faceted/beveled plaque image with transparent corners, that meant a
+     visible rectangular glow poking out past the artwork's real (non-
+     rectangular) silhouette. drop-shadow is a filter, not a box-model
+     effect - it follows the element's actual rendered alpha shape, so
+     the glow now hugs the plaque art itself. Combined into one filter
+     value (brightness first) since only one `filter` declaration can
+     ever apply - a second one would silently replace, not add to, the
+     first. Reported as "a rectangle around it" on click - clicking
+     doesn't move the mouse away, so the hover state (and its glow) was
+     simply still showing, this was never actually about focus/outline.
+     See also #menu-nav-buttons button:focus/mousedown, an earlier
+     (harmless, still-worth-keeping) fix for a real but separate issue. */
+  filter: brightness(1.18) drop-shadow(0 0 10px rgba(var(--ui-gold-accent-rgb), 0.45));
+  color: #fff;
+  transform: translateX(2px);
+}
+
+/* These buttons never got the same outline:none-on-click treatment
+   .nickname-input/select/#play-btn already have elsewhere in this file -
+   the browser's own plain rectangular focus outline doesn't follow the
+   plate art's actual (non-rectangular) shape, reading as a stray box
+   around the button, most noticeable against the Old theme's more
+   ornate plaque art. :not(:focus-visible) only suppresses it for a mouse
+   click - real keyboard Tab navigation still shows a focus indicator
+   (and the opt-in Focus Ring Mode setting's own gold outline, see
+   html.focus-ring-mode above, is untouched either way since it only ever
+   targets :focus-visible, never plain :focus). */
+#menu-nav-buttons button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Plain utility link row (How to Play / What's New / GayZ Features /
+   Credits / Terms of Use / Discord) - just underlined text links,
+   distinct from the big icon-card nav above. An oval background + dot
+   dividers were tried here (twice, including a real rendering-bug
+   detour where the element wouldn't paint its own background/border at
+   all - see this file's git history) and reverted both times at the
+   user's request - don't re-add either without being asked again. */
+#menu-links-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 3px 12px;
+  padding: 6px 4px;
+  /* Full-width footer, last child of #menu's flex column - margin-top:auto
+     is the standard flex trick to dock a child to the far end of its
+     container, pushing this all the way to the bottom of the page instead
+     of just sitting wherever the content above it happens to end. */
+  margin: auto auto 4px;
+  width: fit-content;
+  /* Above the open panels' backdrop (z-index 15, 2026-10-10: "you can
+     also click anything on the bottom like how to play, what's new ...
+     when in a panel") - a link opens its page in place of the open one. */
+  position: relative;
+  z-index: 16;
+}
+
+#menu-links-row button,
+#menu-links-row a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  /* No line under them, can't be selected/copied, no focus ring - just
+     words that get brighter (2026-10-10, "just make them clickable not
+     copyable ... i still see the line under them"). */
+  text-decoration: none;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+  color: #d8dcd2;
+  background: none;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Set by fitLinksRow (index.html's __menuLayout) when the row would reach the right
+   column's buttons. */
+#menu-links-row.links-compact {
+  gap: 2px 4px;
+}
+#menu-links-row.links-compact button,
+#menu-links-row.links-compact a {
+  padding: 6px 7px;
+  font-size: 12.5px;
+}
+
+#menu-links-row svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--menu-gold);
+}
+
+/* Hover only brightens - no gold line (2026-10-10, "dont make a line pop
+   up only make it brighter"). */
+#menu-links-row button:hover,
+#menu-links-row a:hover,
+#menu-links-row button:focus-visible,
+#menu-links-row a:focus-visible {
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.55);
+}
+
+/* Hover drop-down menus (HoverMenus.js, 2026-10-23, like apple.com's):
+   the page's name big, its tabs/sections small underneath; the page behind
+   is never dimmed or blurred (2026-10-25). data-place: footer = a wide card
+   just above the bottom links; side = a narrow card left of the right
+   column; beside = right of Game Mode / Settings. The bottom link it
+   belongs to stays lit while it's open. */
+#menu-links-row :is(button, a).footer-menu-on {
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.55);
+}
+#footer-menu {
+  position: fixed;
+  left: 50%;
+  z-index: 17;
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+  width: min(880px, calc(100vw - 32px));
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 26px 34px 28px;
+  box-sizing: border-box;
+  transform: translateX(-50%);
+  background: var(--menu-gunmetal-dark);
+  border: 1px solid var(--menu-bronze);
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  color: #d8dcd2;
+  text-align: left;
+}
+#footer-menu.open {
+  display: flex;
+}
+#footer-menu button {
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+#footer-menu .footer-menu-title {
+  align-self: flex-start;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ui-gold-bright);
+}
+#footer-menu .footer-menu-sections {
+  columns: 3 200px;
+  column-gap: 28px;
+}
+#footer-menu .footer-menu-sections button {
+  display: block;
+  width: 100%;
+  padding: 5px 0;
+  font-size: 14px;
+  font-weight: 600;
+  break-inside: avoid;
+  opacity: 0.85;
+}
+#footer-menu button:hover {
+  opacity: 1;
+  color: #fff;
+}
+#footer-menu:is([data-place="side"], [data-place="beside"]) {
+  width: 300px;
+  max-height: calc(100vh - 16px);
+  padding: 20px 24px 22px;
+  gap: 10px;
+}
+#footer-menu:is([data-place="side"], [data-place="beside"]) {
+  left: auto;
+  transform: none;
+}
+#footer-menu:is([data-place="side"], [data-place="beside"]) .footer-menu-title {
+  font-size: 22px;
+}
+#footer-menu:is([data-place="side"], [data-place="beside"]) .footer-menu-sections {
+  columns: 1;
+}
+
+/* (The right column used to fade while a panel was open, all but the
+   button that opened it - removed 2026-10-24, Gaymi: "goes darker when
+   you're on a panel, we don't want that". NavCurrent in SettingsUI.js
+   still sets html.menu-panel-open / .nav-current.) */
+
+html.ui-theme-old #footer-menu .footer-menu-title {
+  font-family: 'Rye', Georgia, serif;
+  font-weight: 400;
+}
+
+/* Old theme hover cards are old paper (2026-10-26, Gaymi). The bottom
+   links' wide card and the narrow right-column / Game Mode / Settings
+   cards all use the panels' burnt parchment (its torn edges are
+   see-through, hence the drop shadow and extra padding). Dark ink. */
+html.ui-theme-old #footer-menu {
+  color: var(--old-ink);
+  border: none;
+  box-shadow: none;
+}
+html.ui-theme-old #footer-menu[data-place="footer"] {
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
+  border-radius: 0;
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.65));
+  padding: 40px 64px 44px;
+}
+html.ui-theme-old #footer-menu:is([data-place="side"], [data-place="beside"]) {
+  /* The panels' own old paper too (2026-10-26, Gaymi: "use the old panel
+     for the old theme") instead of the CSS-drawn note paper. Wider
+     padding keeps the words off its burnt, see-through edges. */
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
+  border-radius: 0;
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.65));
+  padding: 30px 38px 34px;
+}
+html.ui-theme-old #footer-menu .footer-menu-title {
+  color: #3a210b;
+}
+html.ui-theme-old #footer-menu .footer-menu-sections button {
+  color: var(--old-ink);
+}
+html.ui-theme-old #footer-menu:is([data-place="side"], [data-place="beside"]) .footer-menu-title {
+  padding-bottom: 6px;
+  border-bottom: 1px dashed rgba(74, 44, 16, 0.45);
+  align-self: stretch;
+}
+html.ui-theme-old #footer-menu button:hover {
+  color: #000;
+  text-decoration: underline;
+  text-decoration-color: rgba(74, 44, 16, 0.55);
+  text-underline-offset: 3px;
+}
+
+/* What's New badge dot - purely an absolute-positioned overlay, zero
+   layout height cost on the row (see _updateWhatsNewDot). */
+.nav-badge-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 7px;
+  height: 7px;
+  background: var(--menu-red);
+  border: 2px solid var(--menu-gunmetal-dark);
+  border-radius: 50%;
+}
+
+/* Right-column badges are a circle with a number (2026-10-24, NavBadges.js)
+   instead of a 7px dot. Still a zero-layout overlay on the corner. */
+#menu-nav-buttons .nav-badge-dot {
+  top: -7px;
+  right: -7px;
+  min-width: 20px;
+  height: 20px;
+  width: auto;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-width: 2px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font: 700 11px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  letter-spacing: 0;
+  color: #fff;
+  pointer-events: none;
+  z-index: 2;
+}
+#menu-nav-buttons .nav-badge-dot.gold {
+  color: #1d1d1f;
+}
+/* Old theme: every badge in the paper ink with light words, like the
+   theme's own text, rather than red/gold (2026-10-24). */
+html.ui-theme-old #menu-nav-buttons .nav-badge-dot {
+  background: var(--old-ink);
+  color: #f3e6c8;
+  border-color: var(--menu-gold);
+}
+#menu-nav-buttons .nav-badge-dot:is(#quests-new-dot, #friends-accepted-dot) {
+  right: -7px;
+}
+
+/* Gallery (Coming Soon, 2026-10-09): a little dimmer than the live
+   buttons, with a "Coming Soon" pill inside the plaque, on its right
+   before the end cap (2026-10-10: on the plaque's top edge it hung into
+   the gap and onto Achievements above it on tablets). fitNavLabels
+   (index.html) keeps the label clear of it. */
+.nav-soon-tag {
+  position: absolute;
+  right: 14%;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 1px 5px;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: #f3e6c8;
+  background: rgba(20, 14, 8, 0.72);
+  border: 1px solid rgba(var(--ui-gold-bright-rgb), 0.45);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+/* Yellow/gold variant - "something you finished/earned" (Quests ready to
+   claim, a new achievement unlocked), distinct from the red variant's
+   "something new/actionable waiting" meaning (Store, Upgrades, Friends). */
+.nav-badge-dot.gold {
+  background: var(--menu-gold);
+}
+
+/* Quests is the one nav button that can show both dots at once (a new
+   quest AND a completed-but-unclaimed one) - offset the red "new" dot
+   left of the default corner spot so it doesn't sit on top of the gold
+   "claim" dot next to it. */
+#quests-new-dot {
+  right: 9px;
+}
+
+/* Friend List can also show both dots at once (an incoming request AND a
+   sent request that just got accepted) - same offset trick as Quests. */
+#friends-accepted-dot {
+  right: 9px;
+}
+
+/* Hub panel - Game Modes/Challenges/Mutators, moved here from the
+   homepage's #menu-cards-row. Deliberately NOT reusing .menu-card-list's
+   own max-height:9vh clamp - that only exists to hold the homepage under
+   its zero-scroll budget while competing with everything else on it; a
+   full-screen modal panel has real room, so the panel itself scrolls
+   (see #achievements-panel's own precedent) instead of each list clamping
+   itself into a tiny internal scrollbar. */

@@ -11,3 +11,19 @@ Browser Three.js zombie-survival FPS. Vite build, no framework. Verification is 
 **`docs/notes/history/3D_ASSET_OVERHAUL.md`** (moved from the repo root 2026-10-17, with `HANDOFF.md`, the July resume kit - both history now; the old Map 1 models it planned for were deleted) holds a complete, adversarially-verified research handoff + phased plan for replacing all ~75 procedural models with real 3D assets at zero cost (CC0 packs / free tiers / Blender scripting). Self-contained — read it before starting any asset/visual-overhaul work.
 
 **`docs/PERFORMANCE.md`** holds the measured diagnosis of the FPS bottleneck that `QualitySettings.js` was written around while it was "still unresolved" — it is resolved: the game is CPU-bound on scene-graph traversal (14,792 objects, 470 draw calls for 35k triangles), not GPU-bound, which is why lowering resolution and quality settings never helped. Self-contained, includes a reproducible measurement script and a full A/B/C implementation plan. **Read it before touching anything performance-related, and before flipping `LOW_QUALITY_MODE`.**
+
+**`style.css` and `i18n.js` split (2026-10-30, Gaymi asked, to save usage).** Both were cut up as pure moves; the built CSS came out byte-identical. `src/style.css` is now only `@import`s, in order (order matters - later files win ties). Find a rule with `grep -n <selector> src/styles/*.css`. Paths inside `src/styles/` are relative to that folder (`../menu-art/...`). Files, by what they mostly hold (each also has leftovers from other areas - grep, don't assume):
+- `01-base-and-map-editor` - base text/fonts, Map Editor pause menu, Community Maps, hotbar, save slots
+- `02-profile-friends-online` - Profile account/bio, Cloud Save, Online Features, Friend List, leaderboards
+- `03-accessibility-and-effects` - Old theme base, Large Text/High Contrast/Colorblind, damage flashes, selects, What's New digest, cheat sheet, name popup
+- `04-panels-and-whats-new` - Old paper panels, close X, Credits, Patch Notes/What's New, update card
+- `05-features-panel` - GayZ Features panel
+- `06-inventory-and-profile` - Inventory/Crates/Store, theme picker, sign-in card, Profile redesign
+- `07-settings-and-menu-effects` - nav order, autosave note, Settings info popups/resets, menu backgrounds, rain, easter eggs, button size
+- `08-homepage` - homepage nav, logo, Play/Game Mode buttons, profile card/plaque, hover cards, badges
+- `09-quests-clans-chat` - panel layouts, Quests, leaderboards, Global chat, Clans, Hub, Achievements
+- `10-scrollbar-and-settings-pages` - gold scrollbar, Settings pages/toggles, warnings, graphics-lost, safety nets
+- `11-in-game-hud-weapons-market` - in-game HUD, chat, emoji picker, weapon cards, trade dialog, Market, Try Map crosshair/minimap, World Map, top bar, You Died
+- `12-gallery-and-later` - Gallery, weapon picker, menu water, nameplate, pin-a-stat, clan invite, Player ID chip, quest mode row
+
+Translations: `src/game/i18n.js` keeps `LANGUAGES`, `t()`, `tHtml()`; each language's strings are in `src/game/i18n/<code>.js` (`en`, `zh`, `hi`, `es` full; the rest small). `scripts/check-docs.mjs` reads both.

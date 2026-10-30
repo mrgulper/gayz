@@ -1,0 +1,1349 @@
+/* Gallery panel (Coming Soon, 2026-10-09) - a centered picture-frame icon
+   and two lines, in the panel's own content area. */
+#gallery-content,
+.coming-soon-content {
+  /* Fills the shared 68vh content area so the message sits in its middle. */
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+.coming-soon-icon {
+  width: 72px;
+  height: 72px;
+  color: var(--ui-gold-bright);
+  opacity: 0.85;
+}
+.coming-soon-icon {
+  color: #6b4423;
+}
+.coming-soon-title {
+  margin: 4px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.coming-soon-text {
+  margin: 0;
+  opacity: 0.8;
+}
+
+/* ================================================================
+   Phones and tablets (2026-10-09, Gaymi: "everything should change as
+   the device that's running gayz ... the tablet it's way oversized" and
+   "for the phone make the character go under the settings and above the
+   profile"). STACKED = narrow phones, portrait tablets and landscape
+   phones - the same query index.html's __menuLayout reads (STACKED_QUERY
+   there; keep the two identical). One scrolling column, in this order:
+   coins + clock, logo, tagline, PLAY, Game Mode, settings, the character,
+   the profile card and buttons, the footer links. The desktop-only
+   measuring (right-column zoom, PLAY dead-centered) is switched off here
+   by __menuLayout.
+   ================================================================ */
+@media (max-width: 700px), (orientation: portrait) and (max-width: 1100px), (max-height: 500px) {
+  #menu {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    display: block;
+    padding: 12px 16px 20px;
+  }
+
+  /* Coins and clock sit at the top of the page and scroll with it, side
+     by side, instead of floating over the logo. */
+  #menu-currency-bar,
+  #homepage-clock {
+    /* relative + z-index, not static: a static element is drawn under
+       the absolutely-positioned background (#menu-bg). */
+    position: relative;
+    top: auto;
+    left: auto;
+    z-index: 2;
+    display: inline-flex;
+    vertical-align: middle;
+    margin: 0 8px 10px 0;
+  }
+
+  #menu-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 100%;
+    padding: 0;
+    gap: 18px;
+  }
+
+  #menu-hero {
+    order: 1;
+    width: 100%;
+    text-align: center;
+  }
+
+  #menu-col-left {
+    order: 2;
+    align-items: center;
+    text-align: center;
+  }
+
+  #menu-col-right,
+  html.ui-theme-old #menu-col-right {
+    order: 3;
+    position: static;
+    width: min(340px, 92vw);
+    zoom: 1;
+    padding-top: 0;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  html.ui-theme-old #menu-player-badge {
+    width: min(240px, 70vw);
+    margin: 0 auto 4px;
+  }
+
+  #menu-nav-buttons {
+    width: 100%;
+  }
+
+  /* The column isn't zoomed here, so the tall-window padding tier would
+     make every plaque ~54px high. */
+  html.ui-theme-old #menu-nav-buttons button,
+  html.ui-theme-clean #menu-nav-buttons button {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  #menu-title-img {
+    width: min(90%, 520px);
+  }
+
+  #play-btn,
+  #play-btn.play-btn-centered {
+    position: relative;
+    inset: auto;
+    margin: 6px auto 0;
+    --play-w: min(360px, 78vw);
+    width: var(--play-w);
+    height: auto;
+  }
+
+  #setup-avatar-wrap {
+    width: min(220px, 50vw);
+    height: min(460px, 105vw);
+    margin: 6px auto 0;
+  }
+
+  #menu-links-row {
+    position: static;
+    transform: none;
+    max-width: 100%;
+    margin-top: 22px;
+    /* Off the very bottom of the page (2026-10-11, "make it slightly a
+       bit higher, not on the ground" on iPads and phones). */
+    margin-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+/* Landscape phones: short, so the character and logo come down further. */
+@media (max-height: 500px) {
+  #menu-title-img {
+    width: min(60%, 360px);
+  }
+
+  #setup-avatar-wrap {
+    width: 150px;
+    height: 300px;
+  }
+}
+
+/* Medium windows that keep the three columns (landscape tablets, small
+   laptops): the character was sized for a big monitor and covered the
+   title and PLAY, and its name tag slid under the coin bar. It scales
+   with the window here, and the left column starts below the coins and
+   clock. */
+@media (min-width: 701px) and (max-width: 1300px) and (min-height: 501px) and (orientation: landscape) {
+  #menu-col-left {
+    padding-top: 112px;
+  }
+
+  /* Also limited by the visible height (dvh - Safari's 100vh is taller
+     than what's on screen), leaving room for the name plate (two lines
+     with a clan) above it and the footer links below (2026-10-12, iPad:
+     "the spinning character was extremely big and How to Play, What's
+     New... aren't even seen"). Width follows the height. */
+  #setup-avatar-wrap {
+    width: min(345px, 21vw, calc((100vh - 340px) * 0.48));
+    height: min(720px, 44vw, calc(100vh - 340px));
+    width: min(345px, 21vw, calc((100dvh - 340px) * 0.48));
+    height: min(720px, 44vw, calc(100dvh - 340px));
+  }
+
+  /* The footer links sit a little up from the bottom edge here too
+     (2026-10-11, iPads in landscape). */
+  #menu-links-row {
+    margin-bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Weapon picker at the start of a Map 1 run (BuildSurvival._openWeaponPicker,
+   2026-10-09 - "pickable at the start when joining a game"). Same dark/gold
+   card as the end-of-run screen; one card per gun with its picture and
+   three bars (damage, fire rate, ammo). */
+#play-weapon-pick {
+  display: none; position: fixed; inset: 0; z-index: 26; align-items: center; justify-content: center;
+  padding: 16px; box-sizing: border-box;
+  background: radial-gradient(ellipse at center, rgba(30, 20, 5, 0.6), rgba(5, 3, 0, 0.88));
+}
+#play-weapon-pick .pwp-card-box {
+  width: min(980px, 100%); max-height: 100%; overflow-y: auto; box-sizing: border-box;
+  padding: 22px 26px 26px; text-align: center; color: #f1e6c8;
+  background: rgba(18, 15, 10, 0.94); border: 1px solid rgba(232, 194, 90, 0.5); border-radius: 10px;
+}
+#play-weapon-pick h2 { margin: 0 0 4px; font-family: 'Black Ops One', 'Bebas Neue', sans-serif; font-size: 34px; color: #e8c25a; letter-spacing: 1px; }
+#play-weapon-pick .pwp-hint { margin: 0 0 16px; opacity: 0.75; font-size: 14px; }
+#play-weapon-pick .pwp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+#play-weapon-pick .pwp-weapon {
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 8px 10px 10px; cursor: pointer;
+  color: #f1e6c8; text-align: left; font: inherit;
+  background: radial-gradient(ellipse at 50% 40%, rgba(255, 255, 255, 0.07), rgba(0, 0, 0, 0.25)), #221d16;
+  border: 1px solid rgba(232, 194, 90, 0.25); border-radius: 8px;
+  transition: border-color 0.15s ease, transform 0.12s ease, background 0.15s ease;
+}
+#play-weapon-pick .pwp-weapon:hover { border-color: #e8c25a; transform: translateY(-2px); }
+#play-weapon-pick .pwp-weapon.active { border-color: #e8c25a; box-shadow: 0 0 0 1px #e8c25a inset, 0 0 14px rgba(232, 194, 90, 0.25); }
+#play-weapon-pick .pwp-name { font-weight: 700; font-size: 14px; }
+#play-weapon-pick .pwp-soon { position: relative; cursor: not-allowed; }
+#play-weapon-pick .pwp-soon .weapon-soon-tag { left: 50%; bottom: 18px; transform: translateX(-50%); }
+#play-weapon-pick .pwp-soon:hover { border-color: rgba(232, 194, 90, 0.25); transform: none; }
+#play-weapon-pick .pwp-soon img, #play-weapon-pick .pwp-soon .pwp-name { filter: grayscale(1); opacity: 0.45; }
+#play-weapon-pick img, #play-weapon-pick .pwp-noimg { width: 100%; aspect-ratio: 240 / 140; object-fit: contain; }
+#play-weapon-pick .pwp-bar { display: flex; align-items: center; gap: 6px; font-size: 10px; opacity: 0.85; }
+#play-weapon-pick .pwp-bar-label { flex: 0 0 52px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#play-weapon-pick .pwp-bar-track { flex: 1; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+#play-weapon-pick .pwp-bar-track span { display: block; height: 100%; background: linear-gradient(90deg, #a8781f, #e8c25a); }
+
+/* Touch devices, and computers whose homepage runs slow (html.home-slow,
+   set by LiteHome.js once the game has loaded): no fog or ash at all - a
+   blurred, animated full-screen layer and a blended one cost a tablet
+   more than everything else on the homepage. */
+html.lite-home #menu-bg-fog,
+html.lite-home #menu-bg-ash,
+html.home-slow #menu-bg-fog,
+html.home-slow #menu-bg-ash {
+  display: none;
+}
+/* ...and nothing on a touch homepage is blended or moved by the browser
+   every frame (2026-10-12, "still lagging crazy on mobile"): the photo
+   holds still (no Ken Burns zoom - it was re-compositing the whole photo
+   and the water inside it every frame), and the road water lays its sheen
+   on normally instead of with a screen blend, which made the phone
+   re-render everything under it each time the water moved. */
+html.lite-home #menu-bg-photo,
+html.lite-home #menu-bg-embers,
+html.home-slow #menu-bg-photo,
+html.home-slow #menu-bg-embers {
+  animation: none;
+}
+/* The background (photo, rain and water canvases) is as tall as the
+   screen's largest visible height and never changes size while you scroll
+   (2026-10-12): Safari's toolbar sliding in and out changes the visible
+   height every frame, and with inset: 0 that re-sized - and cleared and
+   rebuilt - the rain and water canvases each time. */
+html.lite-home #menu-bg {
+  bottom: auto;
+  height: 100vh;
+  height: 100lvh;
+}
+
+/* Moving water on the road - drawn by src/game/MenuWater.js. Sits inside
+   #menu-bg-photo, so it gets the photo's Ken Burns transform and mood
+   filter for free and lines up with the picture exactly. */
+#menu-bg-water {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  /* Laid on normally, not with a screen blend (2026-10-16): a blended
+     layer inside the slowly zooming photo made the browser re-render
+     everything under it whenever the water moved - on computers too. */
+}
+
+/* Global panel servers (ServerBrowser.js, 2026-10-10, like Kirka's): the
+   chat on the left, the server list on the right; one column on narrow
+   screens. Rows only tint the panel (dark ink on the Old paper, light text
+   on Golden, from each theme's panel text color). */
+#server-panel-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 18px;
+  height: 100%;
+  min-height: 0;
+}
+#server-panel-columns > * {
+  min-width: 0;
+  min-height: 0;
+}
+#server-panel-columns {
+  padding-bottom: 10px;
+  box-sizing: border-box;
+}
+/* The Old paper's bottom edge is torn and dips up into the panel - the
+   chat's message box sat right on it (2026-10-10, "move the message
+   bottom up a bit"). */
+html.ui-theme-old #server-panel-columns {
+  padding-bottom: 44px;
+}
+/* Clean (2026-10-27): its height:100% has no sized parent to follow, so
+   the list's natural height made the whole panel box scroll a little on
+   1366x768 - pin it to the shared content height plus a little of the title's room. */
+html.ui-theme-clean #server-panel-columns {
+  height: calc(var(--panel-h) + 24px);
+}
+/* The chat sits in its own framed box beside the list, like Kirka's. */
+#server-panel-columns #server-chat-wrap {
+  padding: 8px 10px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(var(--ui-gold-bright-rgb, 217, 188, 74), 0.25);
+  box-sizing: border-box;
+}
+html.ui-theme-old #server-panel-columns #server-chat-wrap {
+  background: rgba(60, 40, 20, 0.08);
+  border-color: rgba(90, 60, 30, 0.35);
+}
+/* The chat box ends higher than the server list - its top stays put, its
+   bottom (message box, emoji, Send) moves up (2026-10-10, "move the
+   message, emoji and send higher and the rectangle bottom part higher"). */
+#server-panel-columns #server-chat-wrap {
+  height: auto;
+  margin-bottom: 24px;
+}
+html.ui-theme-old #server-panel-columns #server-chat-wrap {
+  margin-bottom: 56px;
+}
+#server-chat-heading {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-align: center;
+}
+#server-browser {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+.server-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+#server-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#server-search {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+.server-create-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+#server-create-name {
+  flex: 1 1 160px;
+  min-width: 0;
+  max-width: 280px;
+  border-radius: 999px;
+}
+#server-refresh-btn svg {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+}
+#server-count-line {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  opacity: 0.8 !important;
+  text-align: center;
+}
+#server-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+}
+.server-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(var(--ui-gold-bright-rgb, 217, 188, 74), 0.25);
+  min-width: 0;
+}
+html.ui-theme-old .server-row {
+  background: rgba(60, 40, 20, 0.1);
+  border-color: rgba(90, 60, 30, 0.35);
+}
+.server-row.full {
+  opacity: 0.6;
+}
+.server-num {
+  opacity: 0.7;
+}
+.server-name {
+  font-weight: 700;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.server-id,
+.server-wave {
+  font-size: 12px;
+  opacity: 0.65;
+  white-space: nowrap;
+}
+.server-players {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.server-join-btn {
+  flex: 0 0 auto;
+}
+.server-empty {
+  text-align: center;
+  opacity: 0.75 !important;
+  margin: 18px 0 !important;
+}
+@media (max-width: 760px) {
+  #server-panel-columns {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+/* Buttons are for clicking, not for selecting their words (2026-10-10). */
+button {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Play's fade to black while Map 1 loads (Game._fadeScreen, 2026-10-10).
+   Above everything, never catches clicks. */
+#play-fade {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.45s ease;
+}
+#play-fade.on {
+  opacity: 1;
+}
+
+/* Every sign-in button - the Google button on the Welcome to GayZ page,
+   and the "Sign up or login to use..." buttons at the bottom of Friend List,
+   Global chat, Clans, Cloud Save, the Market and the Gallery - is the same oval as the panel tabs (Clan,
+   Zombie Survival...), one size everywhere (2026-10-10, Gaymi: "use the
+   second image type oval shape with the same colour ... make the text the
+   same size, style, and everything"). Faint light fill and rim; the Old
+   theme's ink rule makes the words dark brown on the paper. Hover only
+   brightens. */
+#profile-login-gate .auth-btn,
+#friends-signin-btn,
+#server-chat-signin-btn,
+#cloudsave-signin-btn,
+#clan-signin-btn,
+#market-signin-btn,
+#gallery-signin-btn {
+  margin: 0;
+  padding: 9px 24px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  box-shadow: none;
+  cursor: pointer;
+  transition: filter 0.15s ease, background 0.15s ease;
+}
+#profile-login-gate .auth-btn:hover,
+#friends-signin-btn:hover,
+#server-chat-signin-btn:hover,
+#cloudsave-signin-btn:hover,
+#clan-signin-btn:hover,
+#market-signin-btn:hover,
+#gallery-signin-btn:hover {
+  filter: brightness(1.2);
+  background: rgba(255, 255, 255, 0.09);
+}
+html.ui-theme-old #profile-login-gate .auth-btn,
+html.ui-theme-old #friends-signin-btn,
+html.ui-theme-old #server-chat-signin-btn,
+html.ui-theme-old #cloudsave-signin-btn,
+html.ui-theme-old #clan-signin-btn,
+html.ui-theme-old #market-signin-btn,
+html.ui-theme-old #gallery-signin-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* The player's nameplate - the clan on its own line on top, then the
+   level box and name - above the homepage character (#player-showcase-title)
+   and Inventory's preview (#inv-skin-preview-title), filled by
+   Game._fillNameplate and always the same in both places (2026-10-11).
+   Plain sans-serif text for the name and clan in every theme ("use regular
+   text"), no brackets round the clan; the theme only colours them (Golden
+   gold box + white name, Old bronze box + parchment, or ink on paper).
+   Name colour/font settings still win. A grid, not a wrapping flex row,
+   so a long name overflows (and the homepage shrinks it to fit) instead of
+   dropping under the level box. */
+.nameplate {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: center;
+  align-items: center;
+  column-gap: 0.4em;
+  row-gap: 0.1em;
+  white-space: nowrap;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.nameplate-level {
+  flex: none;
+  min-width: 1.3em;
+  padding: 0.05em 0.3em;
+  border-radius: 0.2em;
+  font-size: 0.85em;
+  text-align: center;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: linear-gradient(180deg, #f6d46b, #c9962d);
+  color: #1d1406;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+.nameplate-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #ffffff;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+.nameplate-clan {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  justify-self: center;
+  font-size: 0.62em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: var(--ui-gold-bright, #f2c14e);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+.nameplate-level,
+.nameplate-name {
+  grid-row: 2;
+}
+.nameplate:not(.has-clan) > :is(.nameplate-level, .nameplate-name) {
+  grid-row: 1;
+}
+#player-showcase-header .nameplate {
+  font-size: 22px;
+  letter-spacing: normal;
+}
+/* The Old paper panel's own colour with the level in black (2026-10-11,
+   "make it the colour the old paper panel is and write the level in
+   black text"). */
+html.ui-theme-old .nameplate-level {
+  background: linear-gradient(180deg, #f3d9a4, #ddb377);
+  color: #000 !important;
+  -webkit-text-fill-color: #000;
+  text-shadow: none;
+  box-shadow: 0 0 0 1px rgba(74, 44, 16, 0.75), 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+html.ui-theme-old .nameplate-name {
+  color: #f1e0b8;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85);
+}
+html.ui-theme-old .nameplate-clan {
+  color: #d9b77a;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85);
+}
+/* A name colour picked in Settings (anything but the default white,
+   html.custom-name-color) beats the theme's. */
+html.custom-name-color .nameplate-name {
+  color: var(--nickname-color);
+}
+html.custom-name-font .nameplate-name {
+  font-family: var(--nickname-font);
+}
+/* On Inventory's paper: dark ink instead of parchment. */
+html.ui-theme-old .panel-box .nameplate-name {
+  color: var(--old-ink, #2b1a0c) !important;
+  text-shadow: none;
+}
+html.ui-theme-old .panel-box .nameplate-clan {
+  color: #7a4e24 !important;
+  text-shadow: none;
+}
+/* The homepage copy shrinks its font to fit (_fitPlayerShowcaseTitle)
+   rather than cutting the name short. */
+#player-showcase-header .nameplate-name {
+  flex: none;
+  overflow: visible;
+}
+
+/* Profile > Hidden: private Notes, only ever shown to you (2026-10-11). */
+#profile-notes-box {
+  margin: 10px auto 14px;
+  width: min(820px, 100%);
+  align-self: center;
+}
+#profile-notes-input {
+  display: block;
+  width: 100%;
+  min-height: 160px;
+  margin-top: 4px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #f4f1e6;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--menu-panel-border);
+  border-radius: 6px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+/* Pin a stat to the top: the same oval as the other dropdowns, both themes. */
+#pinned-stat-select {
+  border-radius: 999px;
+  padding: 6px 30px 6px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  color: #f4f1e6;
+  background-color: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.55);
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23e7c76a' stroke-width='2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+html.ui-theme-old #pinned-stat-select {
+  background-color: transparent !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23000' stroke-width='2'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  border: 1px solid #4a2c10;
+}
+html.ui-theme-old #pinned-stat-select option {
+  color: #000;
+  background: #f1e0b8;
+}
+
+/* Old theme Profile: every word is black and nothing has its own darker
+   box behind it - the text sits straight on the paper (2026-10-11, Gaymi:
+   "every single text in profile make black ... remove the colour behind
+   the text"). Borders stay so boxes and text fields are still visible. */
+html.ui-theme-old #profile-panel .panel-box,
+html.ui-theme-old #profile-panel .panel-box *:not(svg, svg *),
+html.ui-theme-old #profile-panel .panel-box ::placeholder {
+  color: #000 !important;
+  -webkit-text-fill-color: #000;
+}
+html.ui-theme-old #profile-panel .panel-box ::placeholder {
+  opacity: 0.55;
+}
+html.ui-theme-old #profile-panel .panel-box :is(div, section, p, h3, span, textarea, canvas, .perk-option) {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+html.ui-theme-old #profile-panel .panel-box textarea {
+  border-color: rgba(43, 26, 12, 0.45) !important;
+}
+/* No lines around the stat cards (Combat, Survival, Economy...), Rank
+   Roadmap, Recently Unlocked, Highlight Reel, Bio or the chart either -
+   only text boxes and buttons keep an edge (2026-10-11, "remove the black
+   lines around all of the combat, survival, etc ... thats like circling
+   something"). */
+html.ui-theme-old #profile-panel .panel-box :is(div, section, p, h3, h4, span, ul, li, canvas) {
+  border-color: transparent !important;
+  border-style: none !important;
+  outline: none !important;
+}
+html.ui-theme-old #profile-panel .perk-option:disabled,
+html.ui-theme-old #profile-panel .panel-box * {
+  opacity: 1;
+}
+
+/* ================================================================
+   Gallery (2026-10-16): Character / Weapon (Coming Soon) / Map tabs, a
+   grid of posts, a post's own page with likes and comments, and the
+   post form Design a Skin and the Map Editor open. GalleryUI.js.
+   ================================================================ */
+#gallery-content {
+  min-height: 0;
+  height: calc(var(--panel-h) - 46px);
+  display: block;
+  text-align: left;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+#gallery-content > [hidden] { display: none !important; }
+#gallery-weapon-page { min-height: 100%; }
+.gallery-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.gallery-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.gallery-tab.active {
+  color: #0c130c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
+}
+.gallery-soon-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.14);
+}
+#gallery-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+#gallery-how { flex: 1; min-width: 0; margin: 0; font-size: 13px; opacity: 0.8; }
+#gallery-sort {
+  flex: none;
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 999px;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.3);
+}
+#gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.gallery-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px;
+  text-align: left;
+  color: #eee;
+  background: rgba(60, 40, 18, 0.55);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.35);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.gallery-card:hover,
+.gallery-card:focus-visible { border-color: var(--ui-gold-bright); }
+.gallery-card-pic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.gallery-pic-character { aspect-ratio: 1; }
+.gallery-card-pic img { max-width: 100%; max-height: 100%; }
+.gallery-pic-character img { height: 100%; image-rendering: pixelated; }
+.gallery-pic-map img { width: 100%; height: 100%; object-fit: cover; }
+.gallery-card-title { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gallery-card-by,
+.gallery-card-likes { font-size: 12px; opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#gallery-empty { text-align: center; opacity: 0.75; margin-top: 40px; }
+
+#gallery-post-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+}
+#gallery-post-heading { margin: 0; }
+#gallery-post-preview { max-width: min(320px, 90%); max-height: 200px; border-radius: 10px; image-rendering: pixelated; }
+#gallery-post-title { margin: 0 auto; }
+.gallery-post-btns,
+.gallery-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+#gallery-post-status { margin: 0; min-height: 1em; font-size: 13px; }
+
+#gallery-detail #gallery-back-btn { margin-bottom: 10px; }
+.gallery-detail-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.gallery-detail-pic {
+  flex: 0 1 320px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+.gallery-detail-pic img { max-width: 100%; }
+img.gallery-detail-character { height: 240px; image-rendering: pixelated; }
+.gallery-detail-info { flex: 1 1 220px; min-width: 0; }
+#gallery-detail-title { margin: 0 0 4px; overflow-wrap: anywhere; }
+#gallery-detail-by { margin: 0 0 12px; opacity: 0.8; }
+#gallery-like-btn.liked { border-color: var(--ui-gold-bright); color: var(--ui-gold-bright); }
+#gallery-comments-heading { margin: 0 0 8px; }
+#gallery-comments { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.gallery-comment {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.gallery-comment-name { font-weight: 700; flex: none; max-width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gallery-comment-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.gallery-comment-time { flex: none; font-size: 11px; opacity: 0.6; }
+.gallery-comment-delete { flex: none; background: none; border: none; color: inherit; font-size: 16px; cursor: pointer; opacity: 0.6; }
+.gallery-comment-delete:hover { opacity: 1; }
+.gallery-no-comments { opacity: 0.7; margin: 0 0 6px; }
+#gallery-comment-row { display: flex; gap: 8px; }
+#gallery-comment-input { flex: 1; min-width: 0; border-radius: 999px; padding-left: 16px; padding-right: 16px; }
+#gallery-comment-send,
+#gallery-detail .mini-action-btn,
+#gallery-post-form .mini-action-btn { border-radius: 999px; padding-left: 16px; padding-right: 16px; }
+
+html.ui-theme-old .gallery-tab {
+  color: #4a2c10;
+  background: rgba(122, 78, 36, 0.08);
+  border-color: rgba(122, 78, 36, 0.4);
+}
+html.ui-theme-old .gallery-tab.active { color: #f4e6c4; background: #6b4423; border-color: #6b4423; }
+html.ui-theme-old .gallery-tab.active * { color: #f4e6c4 !important; }
+html.ui-theme-old .gallery-soon-tag { background: rgba(122, 78, 36, 0.2); }
+html.ui-theme-old #gallery-sort {
+  color: #2b1a0c;
+  background: rgba(241, 224, 184, 0.7);
+  border-color: rgba(122, 78, 36, 0.5);
+}
+html.ui-theme-old .gallery-card {
+  background: rgba(122, 78, 36, 0.14);
+  border-color: rgba(122, 78, 36, 0.45);
+}
+html.ui-theme-old .gallery-card:hover,
+html.ui-theme-old .gallery-card:focus-visible { border-color: #6b4423; }
+html.ui-theme-old .gallery-card-pic,
+html.ui-theme-old .gallery-detail-pic { background: rgba(122, 78, 36, 0.12); }
+html.ui-theme-old .gallery-comment { background: rgba(122, 78, 36, 0.1); }
+html.ui-theme-old #gallery-like-btn.liked { border-color: #6b4423; }
+
+/* Clan invite by name (2026-10-16): the matching players pop up under the
+   box, floating over the page - the same list as Add a Friend's. */
+#clan-invite-row { position: relative; flex: 1; min-width: 0; }
+#clan-invite-row #clan-invite-id-input { width: 100%; box-sizing: border-box; }
+#clan-invite-suggestions {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #1c1e20;
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.4);
+  border-radius: 12px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+#clan-invite-suggestions.open { display: flex; }
+html.ui-theme-old #clan-invite-suggestions {
+  background: #f1e0b8;
+  border: 1px solid #7a4e24;
+  box-shadow: 0 10px 24px rgba(43, 26, 12, 0.45);
+}
+
+/* Softer text boxes and search bars (2026-10-16, "make the player id and
+   all search bars a softer and smoother colour"): a faint see-through fill
+   and a gentle rim instead of the near-black box and hard gold line, with
+   a soft glow on focus. Old theme: a light parchment tint and brown rim
+   with ink text instead of a dark box on the paper. */
+.nickname-input,
+#gallery-sort {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+.nickname-input {
+  color: #f1ece0;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.28);
+}
+.nickname-input:hover { border-color: rgba(var(--ui-gold-accent-rgb), 0.45); }
+.nickname-input:focus {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.7);
+  box-shadow: 0 0 0 3px rgba(var(--ui-gold-accent-rgb), 0.14);
+}
+.nickname-input::placeholder,
+.search-bar::placeholder { color: rgba(241, 236, 224, 0.45); }
+html.ui-theme-old .nickname-input {
+  color: #2b1a0c;
+  background: rgba(241, 224, 184, 0.55);
+  border-color: rgba(122, 78, 36, 0.4);
+}
+html.ui-theme-old .nickname-input:hover { border-color: rgba(122, 78, 36, 0.6); }
+html.ui-theme-old .nickname-input:focus {
+  background: rgba(241, 224, 184, 0.8);
+  border-color: rgba(107, 68, 35, 0.8);
+  box-shadow: 0 0 0 3px rgba(122, 78, 36, 0.14);
+}
+html.ui-theme-old .nickname-input::placeholder,
+html.ui-theme-old .search-bar::placeholder { color: rgba(43, 26, 12, 0.5); }
+/* Achievements' Category and Sort dropdowns wear the search bar's own soft
+   fill and border (2026-10-19, Gaymi: "same colour as the search bar ...
+   it looks softer and smoother"); only the colours - the arrow stays. */
+#achievements-category-select,
+#achievements-sort-select {
+  color: #f1ece0;
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.28);
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+#achievements-category-select:hover,
+#achievements-sort-select:hover { border-color: rgba(var(--ui-gold-accent-rgb), 0.45); }
+#achievements-category-select:focus,
+#achievements-sort-select:focus {
+  background-color: rgba(255, 255, 255, 0.09);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.7);
+  box-shadow: 0 0 0 3px rgba(var(--ui-gold-accent-rgb), 0.14);
+}
+html.ui-theme-old #achievements-category-select,
+html.ui-theme-old #achievements-sort-select {
+  color: #2b1a0c;
+  background-color: rgba(241, 224, 184, 0.55);
+  border-color: rgba(122, 78, 36, 0.4);
+}
+html.ui-theme-old #achievements-category-select:hover,
+html.ui-theme-old #achievements-sort-select:hover { border-color: rgba(122, 78, 36, 0.6); }
+html.ui-theme-old #achievements-category-select:focus,
+html.ui-theme-old #achievements-sort-select:focus {
+  background-color: rgba(241, 224, 184, 0.8);
+  border-color: rgba(107, 68, 35, 0.8);
+  box-shadow: 0 0 0 3px rgba(122, 78, 36, 0.14);
+}
+/* Your Player ID (Friend List, a player's profile): a soft gold chip. */
+#friends-own-id,
+#other-profile-id {
+  display: inline-block;
+  padding: 1px 10px;
+  border-radius: 999px;
+  color: #e9d69a;
+  background: rgba(var(--ui-gold-accent-rgb), 0.12);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.25);
+  transition: background-color 0.2s ease;
+}
+#friends-own-id:hover,
+#other-profile-id:hover { background: rgba(var(--ui-gold-accent-rgb), 0.2); }
+html.ui-theme-old #friends-own-id,
+html.ui-theme-old #other-profile-id {
+  color: #4a2c10 !important;
+  background: rgba(122, 78, 36, 0.12);
+  border-color: rgba(122, 78, 36, 0.35);
+}
+
+/* Levels panel (2026-10-23): your XP level, a bar to the next level and
+   how XP is earned. Same size in every theme - only colours differ. */
+#levels-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 460px;
+  margin: 24px auto 0;
+  text-align: center;
+}
+#levels-level {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 700;
+}
+#levels-bar {
+  width: 100%;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  overflow: hidden;
+}
+#levels-bar-fill {
+  width: 0;
+  height: 100%;
+  background: var(--menu-gold);
+  border-radius: 999px;
+}
+#levels-progress,
+#levels-total,
+#levels-how {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+}
+#levels-how {
+  margin-top: 8px;
+  opacity: 0.8;
+}
+html.ui-theme-old #levels-bar {
+  background: rgba(60, 35, 15, 0.12);
+  border-color: rgba(60, 35, 15, 0.45);
+}
+html.ui-theme-old #levels-bar-fill {
+  background: #6b3f1d;
+}
+#clan-reset-note {
+  margin: -4px 0 10px;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+/* "Sign up or login to use..." at the bottom of the Market and the Gallery
+   while signed out (2026-10-23) - players can still look around. The
+   scroll area above gives up the footer's height so the panel stays the
+   same size as every other one. */
+.signin-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  height: 64px;
+  box-sizing: border-box;
+  padding-top: 10px;
+  text-align: center;
+}
+.signin-footer[hidden] { display: none; }
+.signin-footer p { margin: 0; font-size: 15px; }
+#market-panel:has(#market-signed-out:not([hidden])) .panel-fixed-content { height: calc(var(--panel-h) - 64px); }
+#gallery-panel:has(#gallery-signed-out:not([hidden])) #gallery-content { height: calc(var(--panel-h) - 46px - 64px); }
+@media (max-width: 600px) {
+  .signin-footer { height: 88px; padding-top: 8px; }
+  #market-panel:has(#market-signed-out:not([hidden])) .panel-fixed-content { height: calc(var(--panel-h) - 88px); }
+  #gallery-panel:has(#gallery-signed-out:not([hidden])) #gallery-content { height: calc(var(--panel-h) - 46px - 88px); }
+}
+
+/* Friendship (2026-10-24): Friend List and Clan tabs. The Friend List
+   page itself doesn't scroll - its signed-in/out boxes do, 68vh minus the
+   tab strip (.general-tab-page's 45.5px), so the panel stays the same
+   height as the others. General has no tab strip any more, so its page is
+   a plain 68vh .panel-fixed-content. */
+#general-page-friends {
+  width: 100%;
+  height: auto;
+  padding: 0;
+  overflow: visible;
+}
+#friends-panel #friends-signed-in,
+#friends-panel #friends-signed-out {
+  height: calc(var(--panel-h) - 45.5px);
+}
+
+/* Quests has a game mode row (Zombie Survival/World Map, 2026-10-24) above
+   its own quest tabs - both rows' footprint comes off the page's height
+   (just the one row on World Map, where the quest tabs are hidden). */
+#quests-panel .quest-tab-page {
+  height: calc(var(--panel-h) - 91px);
+}
+#quests-panel:has(#quest-page-tabs[style*='none']) .quest-tab-page {
+  height: calc(var(--panel-h) - 45.5px);
+}
+
+/* Old theme: the Inventory card menu (Equip/Market/Sell/Inspect) and the
+   Market price window were Kirka's blue/black in every theme (2026-10-24,
+   Gaymi: "everything should be based on theme") - here they're parchment
+   with dark ink and a brown edge like Old's Market dropdowns. */
+html.ui-theme-old #inv-skin-menu {
+  background: #f1e0b8;
+  border: 1px solid #7a4e24;
+  box-shadow: 0 10px 24px rgba(43, 26, 12, 0.45);
+}
+html.ui-theme-old #inv-skin-menu button {
+  background: #ead6ab;
+  border: 1px solid #7a4e24;
+}
+html.ui-theme-old #inv-skin-menu button:not(:disabled):hover { background: #e0c58e; filter: none; }
+html.ui-theme-old #inv-skin-menu-sell { border-color: #a8321f; }
+html.ui-theme-old #trade-dialog-box {
+  background: #f1e0b8;
+  border-color: #7a4e24;
+  box-shadow: 0 16px 40px rgba(43, 26, 12, 0.55);
+  color: var(--old-ink, #2e1d0e);
+}
+html.ui-theme-old #trade-dialog-title { font-family: 'Rye', Georgia, serif; font-weight: 400; }
+html.ui-theme-old #trade-dialog-close { background: none; color: #4a2c10; }
+html.ui-theme-old .trade-dialog-step {
+  background: #b8843a;
+  border-bottom-color: #6b3f17;
+  color: #f3e3c2;
+}
+html.ui-theme-old #trade-dialog-price {
+  background: #ead6ab;
+  border: 1px solid #7a4e24;
+  color: #2b1a0c;
+}
+html.ui-theme-old #trade-dialog-action.trade-action-list,
+html.ui-theme-old #trade-dialog-action.trade-action-buy { background: #6b3f17; color: #f3e3c2; }
+html.ui-theme-old #trade-dialog-action.trade-action-sell,
+html.ui-theme-old #trade-dialog-action.trade-action-cancel { background: #a8321f; color: #f3e3c2; }
+
+/* Map Editor's Worlds / Plain choice (HomeUI.js). Same box as the trade
+   dialog; two big picture buttons side by side (stacked on a phone). */
+#editor-pick-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.45);
+}
+#editor-pick-box {
+  position: relative;
+  width: min(560px, 100%);
+  padding: 30px 24px 24px;
+  background: #2b3556;
+  border: 3px solid #141a2e;
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  text-align: center;
+  color: #fff;
+}
+#editor-pick-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 38px;
+  height: 38px;
+  border: none;
+  background: none;
+  color: inherit;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.8;
+}
+#editor-pick-close:hover { opacity: 1; }
+#editor-pick-title {
+  margin: 0 0 18px;
+  font-size: 24px;
+  font-weight: 700;
+}
+#editor-pick-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.editor-pick-option {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 10px 10px 14px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+}
+.editor-pick-option:hover,
+.editor-pick-option:focus-visible {
+  transform: translateY(-2px);
+  border-color: currentColor;
+}
+.editor-pick-art {
+  height: 110px;
+  border-radius: 8px;
+}
+/* Real in-game pictures of each (2026-10-24, Gaymi: "take a screenshot in
+   game for each world and plain"). */
+.editor-pick-art-worlds { background: #6cb4f4 url('/images/editor-pick-worlds.webp') center / cover no-repeat; }
+.editor-pick-art-plain { background: #6cb4f4 url('/images/editor-pick-plain.webp') center / cover no-repeat; }
+.editor-pick-name {
+  font-size: 20px;
+  font-weight: 700;
+}
+.editor-pick-text {
+  font-size: 14px;
+  opacity: 0.8;
+}
+@media (max-width: 480px) {
+  #editor-pick-options { grid-template-columns: 1fr; }
+  .editor-pick-art { height: 80px; }
+}
+html.ui-theme-old #editor-pick-box {
+  background: #f1e0b8;
+  border-color: #7a4e24;
+  box-shadow: 0 16px 40px rgba(43, 26, 12, 0.55);
+  color: var(--old-ink, #2e1d0e);
+}
+html.ui-theme-old #editor-pick-title { font-family: 'Rye', Georgia, serif; font-weight: 400; }
+html.ui-theme-old .editor-pick-option {
+  background: #ead6ab;
+  border-color: #b08850;
+}
+html.ui-theme-old .editor-pick-option:hover,
+html.ui-theme-old .editor-pick-option:focus-visible { border-color: #6b3f17; }
+
+/* Settings > Graphics level cards (GraphicsLevels.js, SettingsUI
+   _renderGraphicsLevels) - a real picture of each level. */
+#gfx-level-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 6px 0 14px;
+}
+.gfx-level-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px 6px 10px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+}
+.gfx-level-card:hover,
+.gfx-level-card:focus-visible { transform: translateY(-2px); border-color: currentColor; }
+.gfx-level-card.active { border-color: #e6b422; box-shadow: 0 0 0 2px #e6b422; }
+.gfx-level-pic {
+  height: 84px;
+  border-radius: 6px;
+  background: #6cb4f4 center / cover no-repeat;
+}
+.gfx-level-name { font-size: 16px; font-weight: 700; padding: 0 2px; }
+.gfx-level-text { font-size: 12px; line-height: 1.3; opacity: 0.8; padding: 0 2px; }
+.gfx-level-tag {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #2e8b3a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+@media (max-width: 480px) {
+  #gfx-level-cards { grid-template-columns: 1fr 1fr; }
+  .gfx-level-pic { height: 64px; }
+}
+html.ui-theme-old .gfx-level-card { background: #ead6ab; border-color: #b08850; color: var(--old-ink, #2e1d0e); }
+html.ui-theme-old .gfx-level-card:hover,
+html.ui-theme-old .gfx-level-card:focus-visible { border-color: #6b3f17; }
+html.ui-theme-old .gfx-level-card.active { border-color: #6b3f17; box-shadow: 0 0 0 2px #6b3f17; }
+html.ui-theme-old .gfx-level-name { font-family: 'Rye', Georgia, serif; font-weight: 400; }
+
+/* Damage numbers over the game (PlayDamageNumbers.js): bold red numbers
+   with a dark outline and the weapon's picture, same in every theme and
+   biome (they're part of the 3D view, not a screen). */
+#play-damage-numbers {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 40;
+}
+#play-damage-numbers .play-dmg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  will-change: transform, opacity;
+}
+#play-damage-numbers .play-dmg span {
+  font: 900 26px/1 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: #ff2a2a;
+  -webkit-text-stroke: 1px #2a0505;
+  text-shadow: 0 0 2px #000, 2px 2px 0 #2a0505, -1px -1px 0 #2a0505, 1px -1px 0 #2a0505, -1px 1px 0 #2a0505;
+}
+#play-damage-numbers .play-dmg img {
+  width: 42px;
+  height: 30px;
+  object-fit: contain;
+  filter: drop-shadow(1px 1px 0 #000);
+}
+@media (max-width: 700px), (pointer: coarse) {
+  #play-damage-numbers .play-dmg span { font-size: 21px; }
+  #play-damage-numbers .play-dmg img { width: 34px; height: 24px; }
+}

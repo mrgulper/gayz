@@ -136,16 +136,16 @@ async function typedKeys() {
   // Press F" on the companion's tag, the ammo guide's name).
   const inCode = []
   for (const file of readdirSync('src', { recursive: true })) {
-    if (!/\.js$/.test(file) || /i18n\.js$/.test(file)) continue
+    if (!/\.js$/.test(file) || /i18n(\.js$|\/)/.test(file)) continue
     const lines = readFileSync(`src/${file}`, 'utf8').split('\n')
     lines.forEach((line, i) => {
       if (/^\s*\/\//.test(line)) return
       for (const m of line.matchAll(/(['"`])((?:(?!\1).)*)\1/g)) {
-        if (TYPED_KEY_PATTERNS.some((re, n) => n !== 4 && re.test(m[2]))) inCode.push(`src/${file}:${i + 1} has a key typed into player text ("${m[2].slice(0, 50)}"). Move it to i18n.js with {key:<action id>}.`)
+        if (TYPED_KEY_PATTERNS.some((re, n) => n !== 4 && re.test(m[2]))) inCode.push(`src/${file}:${i + 1} has a key typed into player text ("${m[2].slice(0, 50)}"). Move it to src/game/i18n/ with {key:<action id>}.`)
       }
     })
   }
-  return [...unknown, ...inCode, ...found.map((k) => `${k} (src/game/i18n.js) has a key typed into it. Write {key:<action id>} instead (e.g. **{key:interact}**, {key:healthPack}) so it shows the player's real key.`)]
+  return [...unknown, ...inCode, ...found.map((k) => `${k} (src/game/i18n/) has a key typed into it. Write {key:<action id>} instead (e.g. **{key:interact}**, {key:healthPack}) so it shows the player's real key.`)]
 }
 
 const norm = (t) => t.replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim().toLowerCase()
@@ -233,7 +233,7 @@ function linkProblems({ indexContent, indexTouched, srcDiff, i18nDiff, message, 
     if (!hit) continue
     const edited = t.lines ? indexTouched.some((n) => n >= t.lines[0] && n <= t.lines[1]) : new RegExp(`^\\s*${t.textKey}:`, 'm').test(i18nChanged)
     if (edited || reread.has(norm(t.label))) continue
-    const where = t.lines ? `GayZ Features entry "${t.label}" (index.html:${t.lines[0]})` : `${t.textKey} (src/game/i18n.js)`
+    const where = t.lines ? `GayZ Features entry "${t.label}" (index.html:${t.lines[0]})` : `${t.textKey} (src/game/i18n/)`
     problems.push(`This change touches ${hit}, which ${where} describes. Re-read it: fix it if it's now wrong, or confirm it with [reread: ${t.label}] in the commit message.`)
   }
   return problems
@@ -277,8 +277,8 @@ function fromCommitMsg(msgFile) {
     indexDiff: git('diff', '--cached', '-U0', '--', 'index.html'),
     indexContent,
     message,
-    srcDiff: git('diff', '--cached', '-U0', '--', 'src', ':!src/game/i18n.js'),
-    i18nDiff: git('diff', '--cached', '-U0', '--', 'src/game/i18n.js'),
+    srcDiff: git('diff', '--cached', '-U0', '--', 'src', ':!src/game/i18n.js', ':!src/game/i18n'),
+    i18nDiff: git('diff', '--cached', '-U0', '--', 'src/game/i18n.js', 'src/game/i18n'),
     read: (f) => { try { return git('show', `:${f}`) } catch { return '' } },
     srcText: workingSrcText(),
   })
@@ -292,8 +292,8 @@ function fromRange(range) {
     indexDiff: git('diff', '-U0', range, '--', 'index.html'),
     indexContent: git('show', `${head}:index.html`),
     message: git('log', '--format=%B', range.replace('...', '..')),
-    srcDiff: git('diff', '-U0', range, '--', 'src', ':!src/game/i18n.js'),
-    i18nDiff: git('diff', '-U0', range, '--', 'src/game/i18n.js'),
+    srcDiff: git('diff', '-U0', range, '--', 'src', ':!src/game/i18n.js', ':!src/game/i18n'),
+    i18nDiff: git('diff', '-U0', range, '--', 'src/game/i18n.js', 'src/game/i18n'),
     read: (f) => { try { return git('show', `${head}:${f}`) } catch { return '' } },
     srcText: workingSrcText(),
   })
