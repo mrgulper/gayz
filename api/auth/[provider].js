@@ -4,7 +4,7 @@
 // sign-in token to the game.
 import crypto from 'node:crypto'
 import { createCustomToken } from '../_lib/firebaseAdmin.js'
-import { PROVIDERS, AuthError, isCallback, missingKeys, firebaseUid, cleanProfile, sameState, resultPage } from '../_lib/oauth.js'
+import { PROVIDERS, AuthError, isCallback, missingKeys, firebaseUid, cleanProfile, sameState, resultPage, siteOrigin } from '../_lib/oauth.js'
 
 const STATE_COOKIE = 'gayz_auth_state'
 
@@ -26,9 +26,10 @@ export default async function handler(req, res) {
   const url = new URL(req.url, 'http://x')
   const provider = url.pathname.split('/').pop()
   if (req.method !== 'GET' || !Object.hasOwn(PROVIDERS, provider)) return page(res, 404, { error: 'failed' })
-  const origin = `https://${req.headers['x-forwarded-host'] || req.headers.host}`
-  const redirectUri = `${origin}/api/auth/${provider}`
   const env = process.env
+  // Never straight from the request's Host header (see siteOrigin).
+  const origin = siteOrigin(req.headers, env)
+  const redirectUri = `${origin}/api/auth/${provider}`
   const query = url.searchParams
 
   if (!isCallback(provider, query)) {

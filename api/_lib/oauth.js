@@ -55,6 +55,9 @@ export const PROVIDERS = {
       if (query.get('openid.mode') !== 'id_res') throw new AuthError('cancelled')
       if (query.get('openid.op_endpoint') !== STEAM_OPENID) throw new AuthError('failed')
       if (!String(query.get('openid.return_to') || '').startsWith(`${redirectUri}?`)) throw new AuthError('failed')
+      // ...and exactly the address this sign-in started with (state is
+      // already matched against the cookie by the caller).
+      if (query.get('openid.return_to') !== `${redirectUri}?state=${query.get('state')}`) throw new AuthError('failed')
       const m = /^https:\/\/steamcommunity\.com\/openid\/id\/(\d{17})$/.exec(query.get('openid.claimed_id') || '')
       if (!m || query.get('openid.identity') !== query.get('openid.claimed_id')) throw new AuthError('failed')
       const check = new URLSearchParams()
@@ -111,6 +114,24 @@ export function cleanProfile({ name, picture }) {
   const displayName = [...String(name || '')].filter((c) => c.charCodeAt(0) >= 32).join('').trim().slice(0, 60)
   const photoURL = typeof picture === 'string' && /^https:\/\/[^\s"'<>]+$/.test(picture) && picture.length < 1000 ? picture : null
   return { displayName: displayName || null, photoURL }
+}
+
+// This site's own address, for the redirect/return_to and Steam's realm
+// (2026-10-30 security fix). It used to be taken straight from the Host /
+// X-Forwarded-Host header, which a request can fake - then a Steam answer
+// made out to another site (one the attacker runs) would pass the
+// return_to check here and sign them in as that Steam player. Now a header
+// host is used only when it is one of this project's own addresses
+// (Vercel sets VERCEL_* for every deployment; PUBLIC_ORIGIN can add a
+// custom domain), and anything else falls back to the main site.
+export const MAIN_ORIGIN = 'https://gayz.vercel.app'
+export function siteOrigin(headers, env) {
+  const own = new Set(['gayz.vercel.app'])
+  for (const v of [env.VERCEL_PROJECT_PRODUCTION_URL, env.VERCEL_URL, env.VERCEL_BRANCH_URL, env.PUBLIC_ORIGIN]) {
+    if (v) own.add(String(v).replace(/^https?:\/\//, '').replace(/\/.*$/, '').toLowerCase())
+  }
+  const host = String(headers['x-forwarded-host'] || headers.host || '').split(',')[0].trim().toLowerCase()
+  return own.has(host) ? `https://${host}` : MAIN_ORIGIN
 }
 
 export function sameState(a, b) {
