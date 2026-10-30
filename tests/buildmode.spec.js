@@ -3167,7 +3167,8 @@ test('far grass, cracks on bumpy tops, puffy and falling leaves, dinosaurs', asy
     // Each tree its own leaf shape.
     out.leafShapes = Object.keys(fl.meshes).length
     const first = fl.leaves[0]
-    for (let x = -24; x <= -16; x++) for (let z = -24; z <= -16; z++) bm._placeBlockInner(x, 1, z, 'grass')
+    // Wide enough that a leaf drifting sideways still lands on it.
+    for (let x = -30; x <= -10; x++) for (let z = -30; z <= -10; z++) bm._placeBlockInner(x, 1, z, 'grass')
     for (let i = 0; i < 300 && !first.down; i++) fl.update(1 / 30)
     out.leafLanded = first.down && Math.abs(first.y - 2.02) < 0.05
     // Start a game: animals.
