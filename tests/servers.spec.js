@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { gotoAndWaitForGame } from './helpers.js'
 import { fakeServerDb } from './fakeServerDb.js'
-import { PROVIDERS, isCallback, missingKeys, firebaseUid, cleanProfile, sameState, resultPage } from '../api/_lib/oauth.js'
+import { PROVIDERS, isCallback, missingKeys, firebaseUid, cleanProfile, sameState, resultPage, siteOrigin } from '../api/_lib/oauth.js'
 import { createServer, joinServer, listServers, syncServer, leaveServer, MAX_PLAYERS, STALE_MS, JOIN_GRACE_MS } from '../api/_lib/servers.js'
 
 // The servers' own rules (api/_lib/servers.js), on an in-memory database.
@@ -84,7 +84,7 @@ test('auth: Discord/Steam sign-in checks', async () => {
   const id = 'https://steamcommunity.com/openid/id/76561198000000000'
   const answer = (over = {}) => new URLSearchParams({
     'openid.ns': 'http://specs.openid.net/auth/2.0', 'openid.mode': 'id_res', 'openid.op_endpoint': 'https://steamcommunity.com/openid/login',
-    'openid.claimed_id': id, 'openid.identity': id, 'openid.return_to': `${redirectUri}?state=${state}`, 'openid.sig': 'sig', ...over,
+    'openid.claimed_id': id, 'openid.identity': id, 'openid.return_to': `${redirectUri}?state=${state}`, 'openid.sig': 'sig', state, ...over,
   })
   const fakeFetch = (valid) => async (url, opts) => {
     if (opts?.method === 'POST') return { ok: true, text: async () => `ns:http://specs.openid.net/auth/2.0\nis_valid:${valid}\n` }
@@ -94,6 +94,15 @@ test('auth: Discord/Steam sign-in checks', async () => {
   await expect(PROVIDERS.steam.finish({ query: answer(), redirectUri, fetch: fakeFetch(false) })).rejects.toMatchObject({ code: 'failed' })
   await expect(PROVIDERS.steam.finish({ query: answer({ 'openid.return_to': 'https://evil.example/api/auth/steam?state=x' }), redirectUri, fetch: fakeFetch(true) })).rejects.toMatchObject({ code: 'failed' })
   await expect(PROVIDERS.steam.finish({ query: answer({ 'openid.op_endpoint': 'https://evil.example/openid' }), redirectUri, fetch: fakeFetch(true) })).rejects.toMatchObject({ code: 'failed' })
+  // An answer made out to this site but for another sign-in's state.
+  await expect(PROVIDERS.steam.finish({ query: answer({ 'openid.return_to': `${redirectUri}?state=${'c'.repeat(32)}` }), redirectUri, fetch: fakeFetch(true) })).rejects.toMatchObject({ code: 'failed' })
+  // The site's own address never comes from a faked Host header (2026-10-30).
+  const env = { VERCEL_URL: 'gayz-abc123.vercel.app', PUBLIC_ORIGIN: 'https://play.example' }
+  expect(siteOrigin({ host: 'gayz.vercel.app' }, {})).toBe('https://gayz.vercel.app')
+  expect(siteOrigin({ host: 'evil.example' }, env)).toBe('https://gayz.vercel.app')
+  expect(siteOrigin({ host: 'gayz.vercel.app', 'x-forwarded-host': 'evil.example' }, env)).toBe('https://gayz.vercel.app')
+  expect(siteOrigin({ 'x-forwarded-host': 'gayz-abc123.vercel.app' }, env)).toBe('https://gayz-abc123.vercel.app')
+  expect(siteOrigin({ host: 'PLAY.example' }, env)).toBe('https://play.example')
   await expect(PROVIDERS.steam.finish({ query: answer({ 'openid.mode': 'cancel' }), redirectUri, fetch: fakeFetch(true) })).rejects.toMatchObject({ code: 'cancelled' })
 
   // The page that hands the token back can't be broken out of.
