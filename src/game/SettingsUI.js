@@ -1985,6 +1985,16 @@ export function _bindGeneralSettings(game) {
     })
   }
 
+  // Natural disasters may wreck builds too, not just the ground (Disasters.js).
+  const breakAll = document.getElementById('disaster-break-all-toggle')
+  if (breakAll) {
+    breakAll.checked = !!game.settings.disasterBreakAll
+    breakAll.addEventListener('change', () => {
+      game.settings.disasterBreakAll = breakAll.checked
+      saveSettings(game.settings)
+    })
+  }
+
   if (game.reduceBgEffectsToggle) {
     game.reduceBgEffectsToggle.checked = game.settings.reduceBgEffects
     document.body.classList.toggle('reduce-bg-effects', game.settings.reduceBgEffects)
@@ -2140,7 +2150,7 @@ export const TAB_RESET_KEYS = {
   general: ['hudFpsCounter', 'friendPresenceNotify', 'achievementToasts', 'rankUpToasts', 'leaderboardRankAlerts',
     'weeklyChallengeReminder', 'lowCurrencyReminder', 'timeFormat', 'autoSaveFrequencySec', 'backupReminder',
     'confirmSignOut', 'stayEmbedSignedIn', 'anonymousLeaderboard', 'shareTelemetry', 'autoDeclineFriendRequests',
-    'exactLastSeen', 'rememberSettingsTab', 'confirmRemoveFriend', 'reduceBgEffects', 'homepageGreeting',
+    'exactLastSeen', 'rememberSettingsTab', 'confirmRemoveFriend', 'reduceBgEffects', 'disasterBreakAll', 'homepageGreeting',
     'oneHandedLayout', 'whatsNewEveryLaunch'],
   audio: ['masterVolume', 'sfxVolume', 'ambientVolume', 'muteOnTabBlur', 'positionalAudio', 'mutedBeforeVolumes'],
   graphics: ['performanceMode', 'renderResolution', 'fpsCap', 'autoQuality', 'brightness', 'contrast', 'shadowsEnabled',

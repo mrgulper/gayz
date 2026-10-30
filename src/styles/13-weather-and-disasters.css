@@ -1,0 +1,55 @@
+/* Extreme weather on your view, the luck badge and disaster warnings
+   (2026-10-30, WeatherScreen.js / Luck.js / Disasters.js). */
+#weather-screen { display: none; position: fixed; inset: 0; z-index: 15; pointer-events: none; }
+#weather-screen > div { position: absolute; inset: 0; opacity: 0; }
+/* Frost growing in from the edges, with a cold blue rim. */
+#weather-screen .ws-frost {
+  background-size: 100% 100%;
+  box-shadow: inset 0 0 120px 30px rgba(170, 210, 255, 0.35);
+}
+/* Heat: warm light, and the air over the ground shimmering. */
+#weather-screen .ws-heat {
+  background: radial-gradient(ellipse at 50% 120%, rgba(255, 140, 40, 0.28), transparent 65%),
+    linear-gradient(to bottom, rgba(255, 210, 150, 0.1), rgba(255, 170, 80, 0.16));
+  -webkit-backdrop-filter: blur(0.6px) saturate(1.25) brightness(1.06);
+  backdrop-filter: blur(0.6px) saturate(1.25) brightness(1.06);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 30%, #000 75%);
+  mask-image: linear-gradient(to bottom, transparent 30%, #000 75%);
+  animation: ws-shimmer 1.7s ease-in-out infinite alternate;
+}
+@keyframes ws-shimmer {
+  from { transform: translateY(0) scaleY(1); }
+  to { transform: translateY(-2px) scaleY(1.006); }
+}
+/* Gas from a lake: grey-green, dim, dark round the edge. */
+#weather-screen .ws-gas {
+  background: radial-gradient(ellipse at center, rgba(150, 165, 140, 0.15) 30%, rgba(30, 38, 30, 0.75));
+  -webkit-backdrop-filter: grayscale(0.6) blur(1.2px);
+  backdrop-filter: grayscale(0.6) blur(1.2px);
+}
+#weather-screen .ws-smoke {
+  background: radial-gradient(ellipse at center, rgba(160, 100, 50, 0.18), rgba(70, 40, 20, 0.6));
+}
+@media (prefers-reduced-motion: reduce) {
+  #weather-screen .ws-heat { animation: none; }
+}
+/* 10x luck after an impact: a small chip under the wave chip. */
+#luck-badge {
+  display: none; position: fixed; top: 78px; left: 8px; z-index: 16; pointer-events: none;
+  padding: 4px 10px; border-radius: 999px;
+  font: 600 13px/1.2 system-ui, sans-serif; letter-spacing: 0.3px; color: #fff;
+  background: linear-gradient(90deg, rgba(40, 140, 70, 0.85), rgba(200, 160, 30, 0.85));
+  box-shadow: 0 0 10px rgba(120, 255, 140, 0.45), 0 2px 6px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+body.touch-play-on #luck-badge { top: 66px; left: 4px; font-size: 12px; padding: 3px 8px; }
+/* A solar flare / geomagnetic storm: the map's signal breaks up. */
+body.solar-glitch #build-try-map { filter: contrast(1.5) saturate(0.35) hue-rotate(35deg); animation: solar-jitter 0.14s steps(2) infinite; }
+@keyframes solar-jitter {
+  from { transform: translate(0, 0); }
+  to { transform: translate(2px, -1px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.solar-glitch #build-try-map { animation: none; }
+}
+#luck-badge::before { content: '\2663'; margin-right: 6px; color: #b9ffc6; }

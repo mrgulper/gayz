@@ -261,3 +261,13 @@ Later the same day: center went back to 70vmin (Gaymi wanted the old size) but k
 - DinoKinds BULK: 7 big meat-eaters x1.45-1.6, extra WIDE 1.35, thighs/jaw/chest boxes, health x2 (T. rex ~7.7 tall).
 - Scary: every `hunts` kind gets `scary`: colours x0.8, angry brows + scar (faceTexture), teeth (snoutTexture), unlit red eye boxes + fang boxes (_build). Looks only.
 - Test: buildmode "sun-burning zombies, cave zombies, own meat drops, new creatures, scary hunters". buildmode + docs 74/74.
+
+## Smooth weather, wind, sky lightning, natural disasters, impact luck (2026-10-30)
+- Gaymi's picks: disasters hurt + small changes to natural ground by default; Settings > General "Disasters Can Break Anything" (`disasterBreakAll`) lets them wreck builds; rare (~1 per 3 game days, `CHANCE` 1/72 per game hour, only where `Disasters.fits`); impacts roll with the eclipse (`ECLIPSE_CHANCE`) and give 10x luck for 24 game hours (`Luck.js`, rare+ x10, uncommon x3).
+- Smooth: Random eases particle density/speed/size/wind (`BuildWeather.setSlow`, `SLOW_EASE`), sky (`SKY_EASE_SLOW` 0.045) and rain sound (`setWeatherAudio(amount, amount, 25)`). Drift is integrated on the CPU (`uDrift`, `uFallOff`) so changing wind never jumps drops.
+- New kinds in `SKY_WEATHERS` / `LADDERS` (rain ends as drizzle - old tests that stepped veryLightRain -> clear now go via drizzle); sleet is a spell after snow (`SLEET_CHANCE`). Frost only at night (`FROST_NIGHT`).
+- Wind: `BuildSky.wind` (blocks/s, `WIND` per weather), `windPush` used by `BuildTryMode` (skipped in water/ladder/spectate, 0 under a roof). Freezing rain glaze cuts grip (`BuildWeather.glaze`).
+- Lightning: `SkyLightning.js` bolts sized by distance (thin ones were invisible); thunder queued in `BuildSky._thunder`; `addFlash`/`screenFlash` respect Reduce Flashing.
+- Disasters: `Disasters.js` (scripts in `RUN`), visuals `DisasterFx.js` (Emitter, Debris, WaterSheet, Wave, Aurora, Fireball). World changes only in a game, <= `MAX_BLOCK_CHANGES` each, never in the camp, only `world.isTerrain` unless break-anything. Camera shake via `beforeRender` around `BuildMode.render`. Synced as `skyState().d` (server `cleanSky` passes `d`). Editor pause screen has a Disaster button (preview, no world changes).
+- Screen: `WeatherScreen.js` (`#weather-screen`: frost/heat/gas/smoke), styles `src/styles/13-weather-and-disasters.css`.
+- Not checked: real-device frame rate during the heaviest ones (volcano ~3k particles, avalanche ~1.6k); the headless pane ran ~1 FPS. Translations (zh/hi/es) are mine, not checked by a native speaker.

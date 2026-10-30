@@ -622,7 +622,7 @@ test('Map Editor weather falls in the world and fits the biome', async ({ page }
       sky._pickWeather()
       rolls.add(sky._now)
     }
-    out.dryRolls = [...rolls].every((k) => k === 'clear' || k === 'sandstorm')
+    out.dryRolls = [...rolls].every((k) => ['clear', 'sandstorm', 'duststorm', 'heatwave'].includes(k))
     return out
   })
 
@@ -636,7 +636,8 @@ test('Map Editor weather falls in the world and fits the biome', async ({ page }
     hardSnow: ['', 'hardSnow', true, true, true],
     hail: ['', 'hail', true, false, true],
     fog: ['', '', false, true, true],
-    sandstorm: ['sandstorm-overlay', '', false, true, true],
+    // Its sand blows through the world too (2026-10-30).
+    sandstorm: ['sandstorm-overlay', 'sandstorm', true, true, true],
     eclipse: ['', '', false, false, true],
     afterExit: ['', '', false],
     dryRolls: true,
@@ -2886,7 +2887,8 @@ test('a rainbow can follow the rain', async ({ page }) => {
     for (const [roll, key] of [[0.05, 'yes'], [0.5, 'no']]) {
       sky._clock = 1440 * 0.1
       sky._rainbowIn = 0
-      sky._now = 'veryLightRain'
+      // Rain ends as drizzle (2026-10-30).
+      sky._now = 'drizzle'
       sky._goal = 'clear'
       sky._stepIn = 0
       Math.random = () => roll
@@ -3583,4 +3585,151 @@ test('sun-burning zombies, cave zombies, own meat drops, new creatures, scary hu
     meats: ['Raw Beef', 'Raw Pork', 'Raw Mutton', 'Raw Chicken', 'Raw Venison', 'Raw Lion Meat', 'Raw Salmon', 'Raw Duck', 'Raw Dragon Meat'],
     allMeat: true, creatures: 30, yetiTall: 2, dragonEyes: 2, scary: true, bigRex: true,
   })
+})
+
+// 2026-10-30: weather eases from step to step, new kinds (drizzle, sleet,
+// freezing rain, ice storms, thunderstorms, snowstorms, blizzards, frost,
+// cold snaps, heatwaves, dust storms), wind that pushes you, lightning in
+// the sky, frost on the screen's edges, natural disasters, and 10x luck
+// after an impact.
+test('smooth weather, wind, sky lightning, disasters and impact luck', async ({ page }) => {
+  test.setTimeout(240000)
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  const r = await page.evaluate(async () => {
+    const bm = window.__game.buildMode
+    const sky = bm.sky
+    const w3 = sky.weather3d
+    const D = sky.disasters
+    const out = {}
+    const run = (s) => { for (let i = 0; i < s * 10; i++) sky.update(0.1) }
+    // Random: a step down eases over many seconds, not at once.
+    sky.weather = 'random'
+    sky._now = sky._goal = 'lightRain'
+    sky.apply()
+    w3.setSlow(false)
+    for (let i = 0; i < 100; i++) w3.update(0.1)
+    sky._goal = 'clear'
+    sky._stepIn = 0
+    sky._rerollIn = 999
+    sky.update(0.01)
+    out.stepped = sky._now
+    const before = w3._density
+    run(2)
+    out.gentle = before - w3._density < 0.08
+    // Every new weather shows (the editor's own pick: straight there).
+    const kinds = ['drizzle', 'thunderstorm', 'freezingRain', 'iceStorm', 'snowstorm', 'blizzard', 'sleet', 'frost', 'coldSnap', 'heatwave', 'duststorm']
+    out.kinds = {}
+    for (const k of kinds) {
+      sky.weather = k
+      sky._pickWeather()
+      sky.apply()
+      run(15)
+      out.kinds[k] = [sky._now, w3.kind || '']
+    }
+    // Wind: soft when clear, a gale in a blizzard, pushing you out in it.
+    sky.weather = 'clear'
+    sky._pickWeather()
+    sky.apply()
+    run(10)
+    out.clearWind = sky.wind.length() < 0.5
+    sky.weather = 'blizzard'
+    sky._pickWeather()
+    sky.apply()
+    run(10)
+    sky._sheltered = false
+    out.blizzardWind = sky.wind.length() > 4
+    const v = { set(x, y) { this.x = x; this.y = y; return this } }
+    out.pushes = sky.windPush(v, true).x !== 0
+    // ...but a clear day's breeze never slides you along the ground.
+    sky.wind.set(0.25, 0)
+    out.breezeStill = sky.windPush(v, true).x === 0
+    // Frost on the screen's edges in a cold snap.
+    sky.weather = 'coldSnap'
+    sky._pickWeather()
+    sky.apply()
+    run(12)
+    out.frost = Number(document.querySelector('#weather-screen .ws-frost')?.style.opacity) > 0.3
+    // Lightning: a bolt in the sky and the sky lighting up.
+    sky.weather = 'thunderstorm'
+    sky._pickWeather()
+    sky.apply()
+    sky._lightningIn = 0.05
+    sky.update(0.1)
+    sky.update(0.02)
+    out.lightning = sky.lightning.flash > 0 && sky._thunder.length > 0
+    // Every disaster runs start to finish without trouble.
+    out.disasters = {}
+    for (const k of D.kinds) {
+      D.start(k)
+      let n = 0
+      let shook = 0
+      // (a drought lasts a whole game day, an aurora five hours)
+      const step = k === 'drought' || k === 'geomagneticStorm' ? 1 : 0.1
+      while (D.active && n < 3000) {
+        sky.update(step)
+        shook = Math.max(shook, D.shake)
+        n++
+      }
+      bm.survival.health = bm.survival.maxHealth
+      out.disasters[k] = !D.active
+      if (k === 'earthquake') out.quakeShakes = shook > 0.1
+    }
+    // A disaster goes out with the sky on servers.
+    D.start('earthquake')
+    out.synced = sky.skyState().d?.k
+    D.end()
+    // Builds are safe unless "Disasters Can Break Anything" is on.
+    const p = bm.tryMode.pos
+    // (well outside the camp, which nothing ever touches)
+    const x = Math.floor(p.x) + 60
+    const y = Math.floor(p.y) + 30
+    const z = Math.floor(p.z) + 60
+    bm.placeBlock(x, y, z, 'oakplanks')
+    out.safe = D.canChange(x, y, z)
+    window.__game.settings.disasterBreakAll = true
+    out.breakAll = D.canChange(x, y, z)
+    window.__game.settings.disasterBreakAll = false
+    // An impact: 10x luck for 24 game hours, shown on a chip; rarer
+    // animals turn up far more often.
+    const luck = sky.luck
+    const animals = bm._animals()
+    const rare = () => { let n = 0; for (let i = 0; i < 3000; i++) { const k = animals.kindAt(300 + (i % 40), 300); if (k && !['common', 'uncommon'].includes(animals.constructor.rarityOf(k))) n++ } return n }
+    luck.stop()
+    const plain = rare()
+    D.start('meteoroid')
+    out.luck = luck.mult()
+    out.luckLeft = Math.round(luck.left())
+    sky.update(0.1)
+    out.chip = document.getElementById('luck-badge')?.style.display === 'block' && /10x/.test(document.getElementById('luck-badge').textContent)
+    out.luckier = rare() > plain * 1.5
+    D.end()
+    luck.stop()
+    return out
+  })
+  expect(r.stepped).toBe('veryLightRain')
+  expect(r).toMatchObject({
+    gentle: true,
+    kinds: {
+      drizzle: ['drizzle', 'drizzle'], thunderstorm: ['thunderstorm', 'thunderstorm'], freezingRain: ['freezingRain', 'freezingRain'],
+      iceStorm: ['iceStorm', 'iceStorm'], snowstorm: ['snowstorm', 'snowstorm'], blizzard: ['blizzard', 'blizzard'], sleet: ['sleet', 'sleet'],
+      frost: ['frost', ''], coldSnap: ['coldSnap', 'coldSnap'], heatwave: ['heatwave', ''], duststorm: ['duststorm', 'duststorm'],
+    },
+    clearWind: true,
+    blizzardWind: true,
+    pushes: true,
+    breezeStill: true,
+    frost: true,
+    lightning: true,
+    quakeShakes: true,
+    synced: 'earthquake',
+    safe: false,
+    breakAll: true,
+    luck: 10,
+    luckLeft: 1440,
+    chip: true,
+    luckier: true,
+  })
+  expect(Object.values(r.disasters).every(Boolean)).toBe(true)
 })

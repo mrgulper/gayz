@@ -31,6 +31,7 @@ import { t, STRINGS } from './i18n.js'
 import { sampleLand, inCity } from './OpenWorld.js'
 import { MORE_KINDS, MORE_BIOME_ANIMALS } from './AnimalKinds.js'
 import { DINO_KINDS, DINO_BIOMES, DINO_CHANCE } from './DinoKinds.js'
+import { luck, luckyWeights } from './Luck.js'
 import { NEW_KINDS, NEW_BIOME_ANIMALS, RARITIES, rarityOf } from './NewAnimalKinds.js'
 import { WILD_KINDS, WILD_BIOME_ANIMALS, WILD_TIERS, HUNTERS } from './WildAnimalKinds.js'
 import { CREATURE_KINDS, CREATURE_BIOME_ANIMALS, CREATURE_TIERS } from './CreatureKinds.js'
@@ -866,8 +867,9 @@ export class PlayAnimals {
     const biome = inCity(fx, fz) ? 'city' : sampleLand(fx, fz).biome
     // Now and then (DINO_CHANCE) a dinosaur that lives here instead.
     const dinos = !wet && DINO_BIOMES[biome]
-    if (dinos && Math.random() < DINO_CHANCE) return dinos[Math.floor(Math.random() * dinos.length)]
-    const all = BIOME_ANIMALS[biome] || {}
+    // 10x luck after an impact (Luck.js): rarer ones far more often.
+    if (dinos && Math.random() < DINO_CHANCE * luck.mult()) return dinos[Math.floor(Math.random() * dinos.length)]
+    const all = luckyWeights(BIOME_ANIMALS[biome] || {}, animalRarity)
     const table = {}
     for (const id in all) if (!!KINDS[id].swim === wet) table[id] = all[id]
     const ids = Object.keys(table)

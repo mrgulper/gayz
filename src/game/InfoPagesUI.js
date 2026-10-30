@@ -12,6 +12,8 @@ import { CHANGELOG_LAST_VIEWED_KEY, Game, HOWTOPLAY_STEPS, LOGIN_CALENDAR_DAYS, 
 import { BIOMES } from './OpenWorld.js'
 import { LEAF_DROP_CHANCE, BOSS_HUNT_EVERY, DEFENSE_WAVES, EXTRACTION_HOLD, EXTRACTION_WAVES, GLOBETROTTER_SECONDS, SKELETON_FROM_WAVE, MONSTER_FROM_WAVE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { RAINBOW_CHANCE } from './BuildSky.js'
+import { DISASTERS } from './Disasters.js'
+import { LUCK_MULT, LUCK_SECONDS } from './Luck.js'
 import { BOTTOM } from './Underground.js'
 import { BUMP_MAX_DEGREES } from './BlockChunks.js'
 import { MAX_WILD, ANIMAL_IDS } from './PlayAnimals.js'
@@ -266,6 +268,9 @@ export function _featureValues(_game) {
     extractionHold: EXTRACTION_HOLD,
     bossEvery: BOSS_HUNT_EVERY,
     rainbowOdds: Math.round(1 / RAINBOW_CHANCE),
+    disasters: DISASTERS.length,
+    luckMult: LUCK_MULT,
+    luckHours: LUCK_SECONDS / 60,
     globetrotterMinutes: GLOBETROTTER_SECONDS / 60,
     upgrades: PLAY_META_UPGRADES.length,
     prestigeBonus: PRESTIGE_BONUS_PERCENT,

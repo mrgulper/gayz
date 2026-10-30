@@ -380,12 +380,16 @@ class AudioEngine {
 
   // Lightning in a storm (BuildWeather.js): a bright crack
   // followed by a rolling low rumble.
-  playThunder() {
+  // opts (2026-10-30, lightning up in the sky): gain (0..1, far strikes
+  // are quieter), soft (a flash inside the clouds - no crack, just a long
+  // low roll).
+  playThunder(opts = {}) {
     if (!this.ctx) return
     const ctx = this.ctx
     const now = ctx.currentTime
-    const crackDuration = 0.25
-    const rumbleDuration = 1.6
+    const loud = opts.gain ?? 1
+    const crackDuration = opts.soft ? 0.01 : 0.25
+    const rumbleDuration = opts.soft ? 3.2 : 1.6 + (1 - loud) * 1.6
 
     const crackBuffer = ctx.createBuffer(1, ctx.sampleRate * crackDuration, ctx.sampleRate)
     const crackData = crackBuffer.getChannelData(0)
@@ -396,8 +400,8 @@ class AudioEngine {
     crackFilter.type = 'highpass'
     crackFilter.frequency.value = 800
     const crackGain = ctx.createGain()
-    crackGain.gain.setValueAtTime(0.6, now)
-    crackGain.gain.exponentialRampToValueAtTime(0.001, now + crackDuration)
+    crackGain.gain.setValueAtTime(opts.soft ? 0.0001 : 0.6 * loud * loud, now)
+    crackGain.gain.exponentialRampToValueAtTime(0.0001, now + crackDuration)
     crack.connect(crackFilter).connect(crackGain).connect(this.sfxGain)
     crack.start(now)
     crack.stop(now + crackDuration)
@@ -409,10 +413,10 @@ class AudioEngine {
     rumble.buffer = rumbleBuffer
     const rumbleFilter = ctx.createBiquadFilter()
     rumbleFilter.type = 'lowpass'
-    rumbleFilter.frequency.value = 220
+    rumbleFilter.frequency.value = opts.soft ? 140 : 220 - (1 - loud) * 90
     const rumbleGain = ctx.createGain()
     rumbleGain.gain.setValueAtTime(0.0001, now)
-    rumbleGain.gain.linearRampToValueAtTime(0.35, now + 0.1)
+    rumbleGain.gain.linearRampToValueAtTime(0.35 * (opts.soft ? 0.45 : 0.4 + 0.6 * loud), now + (opts.soft ? 0.6 : 0.1))
     rumbleGain.gain.exponentialRampToValueAtTime(0.001, now + rumbleDuration)
     rumble.connect(rumbleFilter).connect(rumbleGain).connect(this.sfxGain)
     rumble.start(now)
@@ -859,16 +863,20 @@ class AudioEngine {
   // quieter than rain's - matching how the visual weather system already
   // treats snow as calmer than rain (no thunder, less fog) - but it's a
   // real audible layer now, not silence.
-  setWeatherAudio(raining, snowing) {
+  // raining / snowing: true/false, or how hard (0..1) - the weather now
+  // eases from one strength to the next (2026-10-30), over `ramp` seconds.
+  setWeatherAudio(raining, snowing, ramp = 2) {
     if (!this.ctx || !this._rainGainNode || !this.sfxGain) return
     const now = this.ctx.currentTime
-    const targetRainGain = raining ? 0.4 : 0
+    const targetRainGain = 0.4 * Math.min(1, Number(raining) || 0)
     this._rainGainNode.gain.cancelScheduledValues(now)
-    this._rainGainNode.gain.linearRampToValueAtTime(targetRainGain, now + 2)
+    this._rainGainNode.gain.setValueAtTime(this._rainGainNode.gain.value, now)
+    this._rainGainNode.gain.linearRampToValueAtTime(targetRainGain, now + ramp)
     if (this._snowGainNode) {
-      const targetSnowGain = snowing ? 0.22 : 0
+      const targetSnowGain = 0.22 * Math.min(1.6, Number(snowing) || 0)
       this._snowGainNode.gain.cancelScheduledValues(now)
-      this._snowGainNode.gain.linearRampToValueAtTime(targetSnowGain, now + 2)
+      this._snowGainNode.gain.setValueAtTime(this._snowGainNode.gain.value, now)
+      this._snowGainNode.gain.linearRampToValueAtTime(targetSnowGain, now + ramp)
     }
     if (!this._weatherMuffleFilter) {
       const f = this.ctx.createBiquadFilter()
@@ -878,9 +886,90 @@ class AudioEngine {
       this.sfxGain.connect(f).connect(this.ctx.destination)
       this._weatherMuffleFilter = f
     }
-    const targetCutoff = raining ? 5200 : snowing ? 9000 : 22000
+    const targetCutoff = raining ? 22000 - 16800 * Math.min(1, Number(raining)) : snowing ? 9000 : 22000
     this._weatherMuffleFilter.frequency.cancelScheduledValues(now)
-    this._weatherMuffleFilter.frequency.linearRampToValueAtTime(targetCutoff, now + 2)
+    this._weatherMuffleFilter.frequency.setValueAtTime(this._weatherMuffleFilter.frequency.value, now)
+    this._weatherMuffleFilter.frequency.linearRampToValueAtTime(targetCutoff, now + ramp)
+  }
+
+  // Natural disasters (Disasters.js, 2026-10-30): one looping noise bed
+  // whose sound is set by `tone` - 'rumble' (earthquake, eruption, deep
+  // and shaking), 'roar' (rushing water, avalanche, a wall of wind),
+  // 'crackle' (fire: a hiss with pops) - at `level` (0 = off), eased.
+  disasterBed(level, tone = 'rumble') {
+    if (!this.ctx || !this.sfxGain) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    if (!this._bed) {
+      const len = ctx.sampleRate * 4
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate)
+      const d = buf.getChannelData(0)
+      // Brown-ish noise (deep) with sparse clicks mixed in for fire pops.
+      let last = 0
+      for (let i = 0; i < len; i++) {
+        last = (last + (Math.random() * 2 - 1) * 0.08) * 0.985
+        d[i] = last * 3 + (Math.random() < 0.0009 ? (Math.random() * 2 - 1) * 0.9 : 0)
+      }
+      const src = ctx.createBufferSource()
+      src.buffer = buf
+      src.loop = true
+      const filter = ctx.createBiquadFilter()
+      const gain = ctx.createGain()
+      gain.gain.value = 0
+      // A slow wobble on the level so a rumble swells and shakes.
+      const lfo = ctx.createOscillator()
+      const lfoGain = ctx.createGain()
+      lfo.frequency.value = 0.7
+      lfoGain.gain.value = 0
+      lfo.connect(lfoGain).connect(gain.gain)
+      src.connect(filter).connect(gain).connect(this.sfxGain)
+      src.start()
+      lfo.start()
+      this._bed = { filter, gain, lfoGain, lfo }
+    }
+    const b = this._bed
+    const shape = { rumble: ['lowpass', 120, 0.7], roar: ['lowpass', 900, 0.15], crackle: ['highpass', 1400, 0.35] }[tone] || ['lowpass', 120, 0.7]
+    b.filter.type = shape[0]
+    b.filter.frequency.setTargetAtTime(shape[1], now, 0.3)
+    b.lfo.frequency.setTargetAtTime(tone === 'crackle' ? 3.1 : 0.7, now, 0.3)
+    const g = Math.max(0, Math.min(1, level)) * (tone === 'crackle' ? 0.5 : 0.8)
+    b.gain.gain.setTargetAtTime(g, now, 0.8)
+    b.lfoGain.gain.setTargetAtTime(g * shape[2], now, 0.8)
+  }
+
+  // A deep boom with a long rolling tail - a meteor's impact, a volcano's
+  // blast, a sonic boom (gain 0..1; far ones are quieter and duller).
+  playBoom(gain = 1) {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    const duration = 1.2 + gain * 3
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate)
+    const d = buf.getChannelData(0)
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
+    const noise = ctx.createBufferSource()
+    noise.buffer = buf
+    const lp = ctx.createBiquadFilter()
+    lp.type = 'lowpass'
+    lp.frequency.setValueAtTime(300 + gain * 1500, now)
+    lp.frequency.exponentialRampToValueAtTime(60, now + duration)
+    const ng = ctx.createGain()
+    ng.gain.setValueAtTime(0.0001, now)
+    ng.gain.linearRampToValueAtTime(0.9 * gain, now + 0.04)
+    ng.gain.exponentialRampToValueAtTime(0.001, now + duration)
+    noise.connect(lp).connect(ng).connect(this.sfxGain)
+    noise.start(now)
+    noise.stop(now + duration)
+    const thump = ctx.createOscillator()
+    thump.type = 'sine'
+    thump.frequency.setValueAtTime(70, now)
+    thump.frequency.exponentialRampToValueAtTime(22, now + 0.9)
+    const tg = ctx.createGain()
+    tg.gain.setValueAtTime(gain, now)
+    tg.gain.exponentialRampToValueAtTime(0.001, now + 1)
+    thump.connect(tg).connect(this.sfxGain)
+    thump.start(now)
+    thump.stop(now + 1)
   }
 
   // Underground/indoor spaces (sewer, subway, buildings) get a duller,
