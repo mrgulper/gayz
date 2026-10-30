@@ -30,7 +30,7 @@
   font-weight: 700;
 }
 
-/* Homepage Nav Order list (Settings > Controls) */
+/* Homepage Nav Order list (Settings > General > Homepage) */
 .nav-order-row {
   display: flex;
   align-items: center;
@@ -1153,3 +1153,26 @@ html.theme-lighter #app { filter: brightness(1.25); }
   text-align: left;
 }
 
+
+/* Settings > General > Your Settings Changes (SettingsLog.js): newest
+   first, in its own short scroll box. Colours come from the panel's own
+   text colour, so every theme styles it. */
+#settings-log-list {
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 4px 0 8px;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 8px;
+}
+.settings-log-row {
+  display: flex;
+  gap: 10px;
+  padding: 6px 10px;
+  font-size: 13px;
+  border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+.settings-log-row:first-child { border-top: none; }
+.settings-log-when { flex: 0 0 auto; min-width: 92px; opacity: 0.65; }
+.settings-log-what { display: flex; flex-wrap: wrap; gap: 2px 8px; min-width: 0; overflow-wrap: anywhere; }
+.settings-log-change { opacity: 0.8; }
+.settings-log-empty { margin: 0; padding: 10px; font-size: 13px; opacity: 0.65; }

@@ -259,9 +259,9 @@ const WEATHER_RE = /^[a-zA-Z]{1,20}$/
 function cleanZombie(z) {
   if (!z || typeof z !== 'object') return null
   return {
-    x: num(z.x, -1000, 1000),
-    y: num(z.y, -100, 300),
-    z: num(z.z, -1000, 1000),
+    x: num(z.x, -1e5, 1e5),
+    y: num(z.y, -520, 520),
+    z: num(z.z, -1e5, 1e5),
     r: num(z.r, -10, 10),
     hp: num(z.hp, 0, 1e6),
     max: num(z.max, 1, 1e6),
@@ -295,7 +295,7 @@ function cleanAnimal(a) {
   return {
     k: a.k,
     x: num(a.x, -1e5, 1e5),
-    y: num(a.y, -100, 300),
+    y: num(a.y, -520, 520),
     z: num(a.z, -1e5, 1e5),
     h: num(a.h, -100, 100),
     hp: num(a.hp, 0, 1e4),
@@ -308,7 +308,7 @@ function cleanAnimal(a) {
 function cleanEdit(e) {
   if (!e || typeof e !== 'object') return null
   const x = Math.round(num(e.x, -1e5, 1e5))
-  const y = Math.round(num(e.y, -100, 300))
+  const y = Math.round(num(e.y, -520, 520))
   const z = Math.round(num(e.z, -1e5, 1e5))
   const b = typeof e.b === 'string' && ID_RE.test(e.b) ? e.b : ''
   return { key: `${x},${y},${z}`, b }
@@ -332,9 +332,9 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   const base = `servers/${serverId}`
   const s = body.state || {}
   const updates = {
-    [`${base}/players/${playerId}/x`]: num(s.x, -1000, 1000),
-    [`${base}/players/${playerId}/y`]: num(s.y, -100, 300),
-    [`${base}/players/${playerId}/z`]: num(s.z, -1000, 1000),
+    [`${base}/players/${playerId}/x`]: num(s.x, -1e5, 1e5),
+    [`${base}/players/${playerId}/y`]: num(s.y, -520, 520),
+    [`${base}/players/${playerId}/z`]: num(s.z, -1e5, 1e5),
     [`${base}/players/${playerId}/yaw`]: num(s.yaw, -100, 100),
     [`${base}/players/${playerId}/weapon`]: cleanText(s.weapon, 20),
     [`${base}/players/${playerId}/held`]: typeof s.held === 'string' && ID_RE.test(s.held) ? s.held : '',

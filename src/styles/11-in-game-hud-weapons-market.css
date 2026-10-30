@@ -568,6 +568,10 @@ html.ui-theme-old .inv-skin-card-count {
 #inv-skin-menu-inspect { background: #2a8fd1; }
 #inv-skin-menu-sell { background: #c0392b; }
 #inv-skin-menu-market { background: #e0a526; color: #1a1408; }
+#inv-skin-menu-lock { background: #5b6372; }
+#inv-skin-menu-lock.on { background: #7a8597; }
+/* A locked card: a lock on its top-left corner (the equipped dot is right). */
+.inv-skin-card-lock { position: absolute; top: 7px; left: 7px; z-index: 2; width: 14px; height: 14px; color: #ffd75e; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8)); pointer-events: none; }
 #inv-skin-menu button.locked { opacity: 0.4; filter: grayscale(0.6); cursor: not-allowed; }
 /* Seller line on Market cards. */
 .market-card-seller {
@@ -1597,6 +1601,7 @@ html.menu-panel-open #build-play-health { display: none; }
 #touch-play .tp-use { right: calc(max(24px, env(safe-area-inset-right)) + 90px); bottom: 110px; width: 56px; height: 56px; }
 #touch-play .tp-pause { top: 10px; left: 50%; margin-left: -22px; width: 44px; height: 44px; }
 #touch-play .tp-bag { top: 10px; left: 50%; margin-left: 30px; width: 44px; height: 44px; }
+#touch-play .tp-drop { top: 10px; left: 50%; margin-left: 82px; width: 44px; height: 44px; }
 #touch-play .tp-scope { display: none; right: calc(max(24px, env(safe-area-inset-right)) + 96px); bottom: 186px; width: 56px; height: 56px; }
 #touch-play .tp-scope.on { background: rgba(255, 207, 92, 0.3); border-color: #ffcf5c; }
 /* Keep the rest of the screen clear for thumbs while playing on a phone. */

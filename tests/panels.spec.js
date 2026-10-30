@@ -733,3 +733,42 @@ test('number badges, clickable leaderboard, General without account row, legal p
   expect(r.updated).toMatch(/^Last updated: [A-Z][a-z]+ \d{1,2}, 20\d\d$/)
   expect(r.clanLoaded).toBe(true)
 })
+
+// 2026-10-30: Lock sits between Sell and Inspect in the Inventory's card
+// menu. A locked card shows a lock on its corner and can't be sold or put
+// on the Market until it's unlocked; it stays locked through a reload.
+test('Inventory: Lock keeps a skin from being sold or listed', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    g.ownsShopSkin = true
+    document.getElementById('menu-inventory-btn').click()
+    await wait(300)
+    g._renderInventorySkins()
+    const card = () => document.querySelector('[data-inventory-skin="gaygarx"]')
+    const out = {}
+    card().click()
+    out.order = [...document.querySelectorAll('#inv-skin-menu button')].map((b) => b.id.replace('inv-skin-menu-', ''))
+    out.lockLabel = g.invSkinMenuLock.textContent
+    out.sellOpenBefore = !g.invSkinMenuSell.classList.contains('locked')
+    g.invSkinMenuLock.click()
+    await wait(50)
+    out.saved = g.settings.lockedSkins.includes('character:gaygarx')
+    out.icon = !!card().querySelector('.inv-skin-card-lock') && card().classList.contains('locked')
+    card().click()
+    out.unlockLabel = g.invSkinMenuLock.textContent
+    out.sellLocked = g.invSkinMenuSell.classList.contains('locked') && g.invSkinMenuMarket.classList.contains('locked')
+    g.invSkinMenuSell.click()
+    out.noSellDialog = document.getElementById('trade-dialog')?.style.display !== 'flex'
+    card().click()
+    g.invSkinMenuLock.click()
+    await wait(50)
+    out.unlocked = !g.settings.lockedSkins.includes('character:gaygarx') && !card().querySelector('.inv-skin-card-lock')
+    return out
+  })
+  expect(r).toEqual({
+    order: ['equip', 'market', 'sell', 'lock', 'inspect'],
+    lockLabel: 'Lock', sellOpenBefore: true, saved: true, icon: true, unlockLabel: 'Unlock', sellLocked: true, noSellDialog: true, unlocked: true,
+  })
+})

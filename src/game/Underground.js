@@ -34,7 +34,20 @@ import { cityAt, citiesOver, cityYRange, setUnderCitySeed } from './UnderCity.js
 
 const CHUNK = 16
 // The last layer: bedrock from BOTTOM + 4 down to BOTTOM (always solid).
-export const BOTTOM = -200
+// Was -200 until 2026-10-30, when the Demon Realm went in under it.
+export const BOTTOM = -500
+// The Demon Realm (2026-10-30, Gaymi: "-300 to -500 for demons ... make
+// demons underground"): from DEMON_TOP down to bedrock the rock turns to
+// netherrack, soul sand and blackstone, and huge caverns open up - red
+// fungus floors, glowing magma and glowstone, demons in the dark
+// (ZombieKinds.js). Reached by digging down (no portals).
+export const DEMON_TOP = -300
+const DEMON_FLOOR = BOTTOM + 10
+// The caverns: where this noise is above DEMON_OPEN (half-ish of the rock).
+const DEMON_OPEN = 0.02
+// While you're down there more is grown round you (the caverns are big).
+const DEMON_RADIUS = 3
+const DEMON_BUDGET_MS = 4
 // Cells of solid rock kept over a cave.
 const CAVE_ROOF = 4
 const CAVE_ROOF_PLACE = 14
@@ -138,6 +151,7 @@ const STONE_POCKETS = [[31, 'granite', 0.55], [37, 'diorite', 0.58], [41, 'andes
 const DEEP_POCKETS = [[53, 'tuff', 0.56], [59, 'cobbleddeepslate', 0.66]]
 const DEEPER_POCKETS = [[61, 'tuff', 0.6], [67, 'calcite', 0.72], [71, 'smoothbasalt', 0.64]]
 const BLACK_POCKETS = [[73, 'basalt', 0.58], [79, 'magmablock', 0.74]]
+const DEMON_POCKETS = [[83, 'soulsand', 0.5], [89, 'blackstone', 0.55], [97, 'magmablock', 0.7], [101, 'netherbrick', 0.82]]
 // Ores, rarest first: [block, deepslate block, top y, bottom y, chance per
 // 2x2x2 group of cells].
 const ORES = [
@@ -170,7 +184,8 @@ export function rockAt(x, y, z) {
   else if (yy > -108) base = pocket(x, y, z, DEEP_POCKETS) || 'deepslate'
   else if (yy > -116) base = 'smoothbasalt'
   else if (yy > -172) base = pocket(x, y, z, DEEPER_POCKETS) || 'deepslate'
-  else base = pocket(x, y, z, BLACK_POCKETS) || 'blackstone'
+  else if (yy > DEMON_TOP + 8) base = pocket(x, y, z, BLACK_POCKETS) || 'blackstone'
+  else return pocket(x, y, z, DEMON_POCKETS) || 'netherrack'
   if (base === 'gravel' || base === 'dirt' || base === 'magmablock') return base
   for (let i = 0; i < ORES.length; i++) {
     const [ore, deep, top, low, chance] = ORES[i]
@@ -178,6 +193,25 @@ export function rockAt(x, y, z) {
     if (hash3(x >> 1, y >> 1, z >> 1, 100 + i) < chance && hash3(x, y, z, 120 + i) < 0.62) return SOFT_ROCK.has(base) ? ore : deep
   }
   return base
+}
+
+// --- the Demon Realm's caverns ---
+
+// Is the Demon Realm's cavern noise open here? Closing up near its top and
+// its floor, so a solid roof and floor stay.
+export function demonOpen(x, y, z) {
+  if (y > DEMON_TOP - 4 || y < DEMON_FLOOR) return false
+  const v = noise3(x / 46, y / 20, z / 46, 501) * 0.72 + noise3(x / 15, y / 9, z / 15, 502) * 0.28
+  const edge = Math.max(0, (y - (DEMON_TOP - 20)) / 16, (DEMON_FLOOR + 14 - y) / 14)
+  return v > DEMON_OPEN + edge * 0.6
+}
+
+// A demon cavern's floor or roof block (the cell above or below is open).
+function demonSurface(x, y, z, openAbove, openBelow) {
+  const r = hash3(x, y, z, 503)
+  if (openAbove) return r < 0.55 ? 'crimsonnylium' : r < 0.8 ? 'soulsand' : r < 0.86 ? 'magmablock' : 'netherrack'
+  if (openBelow) return r < 0.04 ? 'glowstone' : r < 0.06 ? 'shroomlight' : null
+  return null
 }
 
 // --- caves ---
@@ -248,6 +282,12 @@ function findCaveNear(end, heading) {
 }
 
 export class Underground {
+  // (For tests and tools: the layers' numbers and rock.)
+  static BOTTOM = BOTTOM
+  static DEMON_TOP = DEMON_TOP
+  static rockAt = rockAt
+  static demonOpen = demonOpen
+
   constructor(world) {
     this.world = world
     this.chunks = new Map() // "cx,cy,cz" -> { keys: [], keep: bool }
@@ -435,6 +475,7 @@ export class Underground {
   // Open (cave or entrance) at a cell? bottom: bottomAt(x, z).
   _carved(x, y, z, bottom, places, entrances) {
     if (entrances.length && this.entranceAir(entrances, x, y, z)) return true
+    if (demonOpen(x, y, z)) return true
     if (y <= CAVE_FLOOR || y >= this._caveTop(x, z, bottom, places)) return false
     return noiseOpen(x, y, z)
   }
@@ -553,6 +594,10 @@ export class Underground {
             open[idx(i, j, k)] = 1
             continue
           }
+          if (y < DEMON_TOP && demonOpen(x, y, z)) {
+            open[idx(i, j, k)] = 1
+            continue
+          }
           if (y <= CAVE_FLOOR || y >= caveTop) continue
           const ay = Math.floor(y / LATTICE) - ly0
           const fy = (y - Math.floor(y / LATTICE) * LATTICE) / LATTICE
@@ -589,7 +634,8 @@ export class Underground {
           if (!seen && gone.size) seen = SIDES.some(([dx, dy, dz]) => gone.has(`${x + dx},${y + dy},${z + dz}`))
           if (!seen && y === bottom - 1 && !blocks.has(`${x},${bottom},${z}`)) seen = true
           if (!seen) continue
-          this._put(rec, key, x, y, z, cityType?.get(idx(i, j, k)) ?? rockAt(x, y, z))
+          const demon = y < DEMON_TOP ? demonSurface(x, y, z, open[idx(i, j + 1, k)], open[idx(i, j - 1, k)]) : null
+          this._put(rec, key, x, y, z, cityType?.get(idx(i, j, k)) ?? demon ?? rockAt(x, y, z))
           put++
         }
       }
@@ -635,9 +681,10 @@ export class Underground {
     // In or near an underground city its whole dome is grown, so the far
     // walls and the roof never show gaps.
     const nearCity = citiesNear(p.x - CITY_NEAR, p.y - CITY_NEAR, p.z - CITY_NEAR, p.x + CITY_NEAR, p.y + CITY_NEAR, p.z + CITY_NEAR).length > 0
-    const radius = nearCity ? CITY_RADIUS : UNDER_RADIUS
+    const demon = p.y < DEMON_TOP + 16
+    const radius = nearCity ? CITY_RADIUS : demon ? DEMON_RADIUS : UNDER_RADIUS
     const above = nearCity ? CITY_ABOVE : UNDER_ABOVE
-    const until = performance.now() + (nearCity ? CITY_BUDGET_MS : UNDER_BUDGET_MS)
+    const until = performance.now() + (nearCity ? CITY_BUDGET_MS : demon ? DEMON_BUDGET_MS : UNDER_BUDGET_MS)
     const wanted = []
     for (let dx = -radius; dx <= radius; dx++) {
       for (let dz = -radius; dz <= radius; dz++) {

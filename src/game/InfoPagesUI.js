@@ -14,7 +14,10 @@ import { LEAF_DROP_CHANCE, BOSS_HUNT_EVERY, DEFENSE_WAVES, EXTRACTION_HOLD, EXTR
 import { RAINBOW_CHANCE } from './BuildSky.js'
 import { DISASTERS } from './Disasters.js'
 import { LUCK_MULT, LUCK_SECONDS } from './Luck.js'
-import { BOTTOM } from './Underground.js'
+import { BOTTOM, DEMON_TOP } from './Underground.js'
+import { HEAVEN_FLOOR, HEAVEN_TOP } from './HeavenRealm.js'
+import { REALM_KINDS } from './ZombieKinds.js'
+import { LOG_MAX } from './SettingsLog.js'
 import { BUMP_MAX_DEGREES } from './BlockChunks.js'
 import { MAX_WILD, ANIMAL_IDS } from './PlayAnimals.js'
 import { DINO_KINDS, DINO_CHANCE } from './DinoKinds.js'
@@ -278,6 +281,13 @@ export function _featureValues(_game) {
     prestigeStep2: (PRESTIGE_COST_STEP * 2).toLocaleString('en-US'),
     biomes: Object.keys(BIOMES).length,
     undergroundDepth: -BOTTOM,
+    demonDepth: -DEMON_TOP,
+    settingsLogMax: LOG_MAX,
+    heavenFloor: HEAVEN_FLOOR,
+    heavenTop: HEAVEN_TOP,
+    angelKinds: REALM_KINDS.heaven.length,
+    demonKinds: REALM_KINDS.demon.length,
+    seaZombieKinds: REALM_KINDS.ocean.length,
     mobHeight: MOB_HEIGHT,
     bumpDegrees: BUMP_MAX_DEGREES,
     levelUpCoinsPerLevel: levelUpCoins(1),

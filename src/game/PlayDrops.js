@@ -18,6 +18,8 @@ const PICKUP_R = 2.2 // blocks: starts flying to you
 const COLLECT_R = 0.45
 const GRAVITY = 22 // blocks / s^2
 const PICKUP_DELAY_S = 0.6 // it hops out first, then comes to you
+const TOSS_SPEED = 5 // blocks / s forward for a dropped item
+const TOSS_PICKUP_S = 2.5 // a dropped item lies still this long first
 
 export class PlayDrops {
   constructor(survival) {
@@ -29,22 +31,23 @@ export class PlayDrops {
     return this.s.bm
   }
 
-  // A drop of `type` from the block at cell (x, y, z).
-  spawn(type, x, y, z) {
+  // A drop of `type` from the block at cell (x, y, z). `toss` ({ dx, dz },
+  // the way you face) throws it forward instead - an item you dropped with
+  // the Drop key (Q), which waits TOSS_PICKUP_S before it comes back.
+  spawn(type, x, y, z, toss) {
     const parts = this.bm._heldBlockParts?.(type)
     if (!parts) return false
     const mesh = new THREE.Mesh(parts.geometry, parts.material)
     mesh.scale.setScalar(DROP_SCALE)
     this.bm.scene.add(mesh)
-    const a = Math.random() * Math.PI * 2
-    this.list.push({ type, mesh, x: x + 0.5, y: y + 0.4, z: z + 0.5, vx: Math.cos(a) * 1.2, vy: 4.5, vz: Math.sin(a) * 1.2, age: 0, spin: Math.random() * 6, onGround: false })
+    this.list.push({ type, mesh, ...this._hop(x, y, z, toss), age: 0, spin: Math.random() * 6, onGround: false })
     while (this.list.length > MAX_DROPS) this._remove(this.list[0])
     return true
   }
 
   // An item (not a block) lying on the ground - Meat from an animal
   // (PlayAnimals.js): its inventory picture, always facing you.
-  spawnItem(id, x, y, z) {
+  spawnItem(id, x, y, z, toss) {
     if (!this._itemMats) this._itemMats = new Map()
     let mat = this._itemMats.get(id)
     if (!mat) {
@@ -57,10 +60,17 @@ export class PlayDrops {
     const mesh = new THREE.Sprite(mat)
     mesh.scale.setScalar(DROP_SCALE * 1.4 * this.s.B)
     this.bm.scene.add(mesh)
-    const a = Math.random() * Math.PI * 2
-    this.list.push({ type: id, kind: 'item', mesh, x: x + 0.5, y: y + 0.4, z: z + 0.5, vx: Math.cos(a) * 1.2, vy: 4.5, vz: Math.sin(a) * 1.2, age: 0, spin: 0, onGround: false })
+    this.list.push({ type: id, kind: 'item', mesh, ...this._hop(x, y, z, toss), age: 0, spin: 0, onGround: false })
     while (this.list.length > MAX_DROPS) this._remove(this.list[0])
     return true
+  }
+
+  // Where a new drop starts and how it flies: a random little hop, or
+  // thrown forward (toss).
+  _hop(x, y, z, toss) {
+    if (toss) return { x, y, z, vx: toss.dx * TOSS_SPEED, vy: 3.5, vz: toss.dz * TOSS_SPEED, wait: TOSS_PICKUP_S }
+    const a = Math.random() * Math.PI * 2
+    return { x: x + 0.5, y: y + 0.4, z: z + 0.5, vx: Math.cos(a) * 1.2, vy: 4.5, vz: Math.sin(a) * 1.2, wait: PICKUP_DELAY_S }
   }
 
   _remove(d) {
@@ -82,7 +92,7 @@ export class PlayDrops {
         continue
       }
       const dist = Math.hypot(px - d.x, py - d.y, pz - d.z)
-      if (dist < PICKUP_R && d.age > PICKUP_DELAY_S && !d.full && !this.s.dead) {
+      if (dist < PICKUP_R && d.age > d.wait && !d.full && !this.s.dead) {
         // Flies into you.
         const k = Math.min(1, dt * 10)
         d.x += (px - d.x) * k

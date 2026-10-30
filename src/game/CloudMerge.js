@@ -36,6 +36,9 @@ export const DEVICE_ONLY_KEYS = new Set([
   'gayz-avatar-face-cache',
   'gayz-clean-vars',
   'gayz-clean-bg-image',
+  // Settings > General > Your Settings Changes (SettingsLog.js): this
+  // browser's own list.
+  'gayz-settings-log',
 ])
 
 // Keys whose numeric fields are running totals/balances - when both devices

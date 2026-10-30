@@ -1091,6 +1091,48 @@ Escape before dawn.</p>
             <label for="homepage-greeting-input" id="homepage-greeting-label">Homepage Greeting</label>
             <input type="text" id="homepage-greeting-input" class="nickname-input" maxlength="40" placeholder="Welcome back!" />
           </div>
+          <div id="nav-order-list"></div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="bgMood" aria-label="What does this do?">?</button>
+            <label for="bg-mood-select" id="bg-mood-label">Homepage Background Mood</label>
+            <select id="bg-mood-select">
+              <option value="auto">Auto (Seasonal)</option>
+              <option value="timeofday">Auto (Your Local Time)</option>
+              <option value="none">Night (Default)</option>
+              <option value="bloodmoon">Blood Moon</option>
+              <option value="foggy">Foggy Blue</option>
+              <option value="amber">Amber Dusk</option>
+            </select>
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="weatherParticles" aria-label="What does this do?">?</button>
+            <label for="weather-particles-toggle" id="weather-particles-label">Homepage Weather Particles</label>
+            <input type="checkbox" id="weather-particles-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="homepageFps" aria-label="What does this do?">?</button>
+            <label for="homepage-fps-toggle" id="homepage-fps-label">Show FPS Counter on Homepage</label>
+            <input type="checkbox" id="homepage-fps-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="accentColor" aria-label="What does this do?">?</button>
+            <label for="accent-color-picker" id="accent-color-label">Homepage Accent Color</label>
+            <input type="color" id="accent-color-picker" value="#d9a34a" />
+          </div>
+          <button id="accent-color-reset-btn" class="settings-reset-btn" type="button">Reset Accent Color</button>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="layoutDensity" aria-label="What does this do?">?</button>
+            <label for="layout-density-select" id="layout-density-label">Homepage Layout Density</label>
+            <select id="layout-density-select">
+              <option value="cozy">Cozy</option>
+              <option value="compact">Compact</option>
+            </select>
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="cursorTrail" aria-label="What does this do?">?</button>
+            <label for="cursor-trail-toggle" id="cursor-trail-label">Cursor Trail Effect (homepage)</label>
+            <input type="checkbox" id="cursor-trail-toggle" class="audio-checkbox" />
+          </div>
 
           <h3 class="settings-section-heading" id="settings-section-accessibility">Accessibility</h3>
           <div class="audio-row">
@@ -1111,6 +1153,14 @@ Escape before dawn.</p>
           </div>
 
           <button id="reset-general-defaults-btn" class="settings-reset-btn" type="button">Reset General to Defaults</button>
+
+          <h3 class="settings-section-heading" id="settings-section-settings-log">Your Settings Changes</h3>
+          <div id="settings-log">
+            <div id="settings-log-list"></div>
+            <div class="settings-btn-row">
+              <button id="settings-log-clear" type="button">Clear List</button>
+            </div>
+          </div>
 
           <h3 class="settings-section-heading" id="settings-section-danger-zone-general">Danger Zone</h3>
           <div class="settings-btn-row">
@@ -1450,11 +1500,6 @@ Escape before dawn.</p>
               </select>
             </div>
             <div class="audio-row">
-              <button type="button" class="settings-info-btn" data-info="cursorTrail" aria-label="What does this do?">?</button>
-              <label for="cursor-trail-toggle" id="cursor-trail-label">Cursor Trail Effect (homepage)</label>
-              <input type="checkbox" id="cursor-trail-toggle" class="audio-checkbox" />
-            </div>
-            <div class="audio-row">
               <button type="button" class="settings-info-btn" data-info="crtScanlines" aria-label="What does this do?">?</button>
               <label for="crt-scanlines-toggle" id="crt-scanlines-label">Retro CRT Scanlines</label>
               <input type="checkbox" id="crt-scanlines-toggle" class="audio-checkbox" />
@@ -1465,12 +1510,6 @@ Escape before dawn.</p>
             <label for="nickname-color-picker" id="nickname-color-label">Nickname Color</label>
             <input type="color" id="nickname-color-picker" value="#ffffff" />
           </div>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="accentColor" aria-label="What does this do?">?</button>
-            <label for="accent-color-picker" id="accent-color-label">Homepage Accent Color</label>
-            <input type="color" id="accent-color-picker" value="#d9a34a" />
-          </div>
-          <button id="accent-color-reset-btn" class="settings-reset-btn" type="button">Reset Accent Color</button>
           <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="playBtnColor" aria-label="What does this do?">?</button>
             <label for="play-btn-color-picker" id="play-btn-color-label">Play Button Color</label>
@@ -1487,40 +1526,8 @@ Escape before dawn.</p>
               <option value="display">Display</option>
             </select>
           </div>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="layoutDensity" aria-label="What does this do?">?</button>
-            <label for="layout-density-select" id="layout-density-label">Homepage Layout Density</label>
-            <select id="layout-density-select">
-              <option value="cozy">Cozy</option>
-              <option value="compact">Compact</option>
-            </select>
-          </div>
 
-          <h3 class="settings-section-heading" id="settings-section-homepage-2">Homepage</h3>
-          <div id="nav-order-list"></div>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="bgMood" aria-label="What does this do?">?</button>
-            <label for="bg-mood-select" id="bg-mood-label">Homepage Background Mood</label>
-            <select id="bg-mood-select">
-              <option value="auto">Auto (Seasonal)</option>
-              <option value="timeofday">Auto (Your Local Time)</option>
-              <option value="none">Night (Default)</option>
-              <option value="bloodmoon">Blood Moon</option>
-              <option value="foggy">Foggy Blue</option>
-              <option value="amber">Amber Dusk</option>
-            </select>
-          </div>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="weatherParticles" aria-label="What does this do?">?</button>
-            <label for="weather-particles-toggle" id="weather-particles-label">Homepage Weather Particles</label>
-            <input type="checkbox" id="weather-particles-toggle" class="audio-checkbox" checked />
-          </div>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="homepageFps" aria-label="What does this do?">?</button>
-            <label for="homepage-fps-toggle" id="homepage-fps-label">Show FPS Counter on Homepage</label>
-            <input type="checkbox" id="homepage-fps-toggle" class="audio-checkbox" />
-          </div>
-
+          <h3 class="settings-section-heading" id="settings-section-key-bindings">Key Bindings</h3>
           <div id="controls-grid" class="controls-grid"></div>
           <div class="settings-btn-row">
             <button id="export-keybinds-btn" type="button">Copy Keybinds Code</button>
@@ -2316,7 +2323,7 @@ Escape before dawn.</p>
             </ul>
 
             <h3>Stored only on your device</h3>
-            <p>Your settings, keybinds, theme colour and any homepage picture you upload stay in your own browser and aren't sent anywhere unless you sign in to Cloud Save (which copies your settings, not the picture).</p>
+            <p>Your settings, keybinds, theme colour, any homepage picture you upload and the list of settings you've changed (Settings &gt; General &gt; Your Settings Changes) stay in your own browser and aren't sent anywhere unless you sign in to Cloud Save (which copies your settings - including which inventory items you've locked - not the picture or the changes list).</p>
 
             <h3>Anonymous usage counters</h3>
             <p>A few features track simple aggregate counts (like how often a setting gets opened) to understand what's actually used. These are just totals - they aren't tied to your account or identity in any readable way.</p>
@@ -2393,13 +2400,17 @@ Escape before dawn.</p>
           <h3>Special Blocks</h3>
           <p><span data-feature-value="specialBlocks">10</span> blocks that do something when you try or play a map, all in the Map Editor's Special category (hover one in the block list, or pick it, to read what it does). Use one with the Use key (or the phone's use button), step on it, or stand near it. Alarm Bell: ring it and every zombie for a long way around runs to the bell for a while. Zombie Repeller: zombies can't get close to it. Bait Block: zombies nearby go for it instead of you. Spike Block: hurts zombies standing on or against it (and you, if you stand on it). Reinforced Barricade: can't be broken while playing and shoves zombies back. Campfire: heals you while you stand by it and sets zombies that touch it on fire. Teleporter Pad: step on one to jump to the nearest other pad. Crop Plot: plant seeds, and harvest Vegetables to eat a little later. Disco Block: flashes rainbow colours. Scoreboard: shows the wave and your kills above it. Siren Tower: a much louder bell that pulls zombies from very far away. Tripwire Chime: jingles and warns you when a zombie walks past. Wind Chime: tinkles when you're near and rattles a warning when zombies come close. Doorbell: ding-dong, and the doors around it open for a moment. Megaphone Post: shout HEY! (it shows above the post) to call nearby zombies over. Radio: switch between three stations of music, or off. Echo Stone: repeats your gunshots, and zombies go to the echo. Silence Block: near it, faraway zombies can't hear you and stop chasing. Horn Block: a HONK that blows nearby zombies back. Piano Block: plays a note when you step on it - each spot a different note, so a row plays a tune. Garlic Block: zombies near it slow to half speed. Holy Lantern: its light slowly hurts zombies around it. Cage: traps the first zombie that touches it for a while, then resets. Zombie Counter: shows how many zombies are around it. Fake Player: a dummy zombies chase instead of you. Grave: at night a zombie climbs out of it now and then (they count toward the wave). Infection Cleanser: use it to be safe from every hit for a few seconds. Wave Bell: ring it between waves to start the next one early, for bonus coins. Cursed Block: zombies near it get tougher, but each one you kill pays extra coins. Time Slow Block: zombies around it move in slow motion. Bear Trap: snaps shut on a zombie that steps on it, hurting it and holding it still. Trapdoor Pit: drops a zombie into the spikes underneath for big damage. Fire Trap: sets zombies that touch it on fire. Sticky Floor: zombies crawl across it (and you walk slowly on it). Swinging Blade: a blade spins over it, hitting every zombie close by once a second. Mine: blows up under a zombie, hurting every zombie around it, then re-arms. Net Launcher: nets the nearest zombie and holds it for a moment. Crumble Block: falls away a moment after you stand on it and comes back a bit later. Ice Slick: zombies slip and fall on it, and it's slippery for you. Flame Jet Floor: shoots flames every few seconds, burning zombies on it - and you, if you're standing on it then. Smoke Bomb Block: a cloud of smoke - zombies outside can't see you inside it. Sound Trap: noises pull zombies in, and the first to reach it gets caged. Shield Generator: a bubble zombies can't get into, for a while. Barbed Wire: zombies pushing past it slow down and get hurt. Sandbag: crouch right next to it and zombies' hits do less damage. Watchtower Base: stack blocks on it, then use it to climb straight to the top. Boiling Oil Pot: tip it onto zombies around and below it - they're burned. Cannon: stand behind it and fire along a line that hits every zombie in the way. Catapult: stand behind it and throw a boulder that lands a long way off and hits the zombies there. Murder Hole: a wall zombies can't get through but your bullets fly straight through. Power: power blocks glow while they're on, and power reaches machines a few blocks around them; levers that are on and pressed plates count as power too, and doors near a power block open while it's on. Generator: switch it on or off. Solar Panel: power in the daytime. Wire: carries power along a line of wires to far-off machines. Battery: charges up from nearby power and keeps giving power for a while after it goes off. Button: a short burst of power. Timer: a burst of power every few seconds, by itself. Motion Sensor: power while you or a zombie are close. Light Sensor: power at night. Logic Gate: switch it between AND (needs two power sources near), OR (any) and NOT (none). Arrow Shooter: with power, it shoots the nearest zombie it can see. Electric Fence: with power, zombies that touch it get a shock and are thrown back. Auto Turret: shoots the nearest zombie it can see while it has ammo - use it to load more from yours. Searchlight: with power, a beam sweeps round and zombies in its light take extra damage. Repair Station: puts back blocks broken around it, one at a time. Gate: use it to open the whole gate for a few seconds, or power it to keep it open. Piston: when its power comes on, it kicks nearby zombies away. Sticky Piston: when its power comes on, it yanks zombies in. Conveyor Belt: carries you and zombies along the way it faces. Fan Pusher: with power, it blows zombies away from it. Magnet: stand next to it and dropped items around it fly to you. Pushed zombies now stop at walls. Med Station: heal to full, then it refills. Bed: sleep in it, and the next time you die that game you wake up on it with half your health (once). Bandage Box: take a free Health Pack every so often. Speed Pad: step on it to run much faster for a few seconds. Jump Pad: launches you high into the air. Strength Totem: more damage for a while. Coffee Machine: a coffee makes you run faster for a while. Water Well: a drink that heals a little. Sauna Stone: sit by it to build up armor. Lucky Clover Block: zombies you kill near it pay extra coins. Fan Block: blows you and zombies away from it. Elevator: use it to go to the next Elevator straight above (or below). Zipline Post: slide along a line to the nearest other post. Bounce Block: bounces you back up when you land on it - the higher the fall, the higher the bounce. Slide Block: super slippery and fast. Rope Anchor: put it at a ledge and climb down to the ground. Rail Track and Speed Rail: carry you along the way they face, so you can lay a track with corners. Launch Cannon: fires you through the air the way you're looking. Wind Tunnel: floats you up the column above it. Boat Dock: take a boat and move through water much faster for a while. Checkpoint Flag: step on it and you come back there if you fall off the map. Portal: step on it to go to a random other Portal. Locker: put the stack you're holding away and take it back later. Shared Chest: a bigger Locker. Weapon Rack: swap to a different gun. Ammo Box: a free magazine every so often. Workbench Upgrade: spend coins on more damage for the game. Recycler: turn blocks you're holding into coins. Fridge: take out a piece of Meat every so often. (The storage blocks keep what you put in for that game only.) Cooking Pot: cook Meat you're holding so it heals twice as much. Anvil: hammer out some armor every so often. Trash Can: throw away what you're holding. Vending Machine: buy a Health Pack with coins. Mailbox: like a Locker, but what you leave in it stays there on this device for your next game on the map. Safe: a Locker with a number code you choose. Mystery Box: pay coins for a surprise prize (or nothing). Slot Machine: a spin for a few coins - match symbols to win more (game coins only, just for fun). Wishing Well: throw in coins and make a wish. Clone Block: put a block on top and get a stack of copies. Sprinkler and Greenhouse Glass: Crop Plots near them grow twice as fast (both together, four times). Beehive: makes honey every so often - eat it to heal. Compost Bin: makes the planted crops around it ready at once. Tree Sapling: a tree grows on it while you play (gone again after the game). Mushroom Log: grows mushrooms to pick (they count as Vegetables). Fish Trap: put it by water and it catches fish (they count as Meat). Chicken Coop: collect Meat every so often. Flower Pot: grows a flower - use it to change the colour. Rain Collector: fills up when it rains on it; drink from it to heal. Scarecrow: spooks zombies near it so they slow down a little. Colour Lamp: a light you can switch between eight colours. Torch Post: a post with a flame burning on top. Flicker Light: a spooky light that flickers. Firework Launcher: shoots a firework that bursts high in the sky. Fog Machine and Snow Machine: switch them on to fill the area with fog or falling snow. Bubble Block: bubbles keep floating up out of it. Confetti Cannon: a burst of party confetti. Hologram Block: a small glowing block spins above it - use it to change which block it shows. Glow Paint Block: glows in the dark by itself. Black Light: switch it on to see the outlines of Invisible Blocks around it. Dice: roll a number from one to six. Trophy: shows your best wave on the map. Arcade Machine: a quick reaction game that pays a few coins. Drum: use it or jump on it for a beat. Countdown Sign: counts down to GO! for races. Start/Finish Line: step on one to start a timer and another to stop it - your best time is kept. Basketball Hoop: stand back and shoot - it keeps score. Photo Booth: saves a picture of what you see. Voting Block: stand on it to vote - the number of players on Voting Blocks shows above it. Gravity Flip: near it you fall upward. Shrink Pad: shrink small enough to fit through gaps one block high. Grow Pad: grow big - you see from up high and hit harder. Mirror Block: zombies that bite you near it take some of the bite back. Ghost Block: you walk straight through it, zombies can't. Weather Stone: change the weather. Day/Night Switch: switch between day and night (both go back to normal when you stop). Random Block: turns into a random block the moment you place it. Invisibility Pad: zombies lose track of you for a few seconds. Each block has its own picture with a symbol on it. Nothing about them is saved beyond the blocks themselves - every try or game starts them fresh.</p>
         </div>
+        <div class="feature" data-code="HeavenRealm peakIn peakLift HEAVEN_FOG_COLOR">
+          <h3>Heaven &amp; Heaven's Peaks</h3>
+          <p>High above the land, from <span data-feature-value="heavenFloor">300</span> to <span data-feature-value="heavenTop">500</span> blocks up, is Heaven: a floor of soft white clouds you can walk on (with a few holes to fall through), floating islands - cloud islands, grassy gardens with glowstone, gold islands and little quartz temples with a glowing roof and a gold altar - and a cloud staircase winding up from the cloud floor to every island. The air turns a bright warm white up there, and angels live in it. There are no portals: build a tower all the way up, or climb a Heaven's Peak - now and then a giant lone mountain rises out of the land, snowy and icy near the top, climbing about a block per step so you can jump your way up, and its summit comes out through the clouds. Like the rest of the land, Heaven is new every game; it only appears once you're high up.</p>
+        </div>
         <div class="feature" data-code="OpenWorld sampleLand BIOMES seedFromText zoomMap">
           <h3>Open World</h3>
           <p>Map 1's city isn't the edge of the world any more: its roads run out through open gates as dirt tracks into an open world that goes on forever, with no edge in any direction. The land grows around you as you go, with <span data-feature-value="biomes">26</span> biomes from all over the Earth - oceans (deep, frozen, and warm ones with thin, branchy coral plants and seagrass you can swim through), beaches, rivers, plains, oak, birch, dark and cherry forests, taiga, snowy tundra and ice spikes, deserts with cacti, savanna, badlands mesas, jungles and bamboo, swamps and mangroves, mushroom fields, and mountains with snowy peaks. The land is brand new every time you start or join a game (everyone on the same server gets the same land), the minimap shows the part around you and names the biome you're in, drawn like a real map - sharp, with about one dot of colour for every block and pixel on your screen, smooth colours instead of single blocks, hills lit from one side so you can see the land's shape, and clean lines along shores and roads - (the map key opens a much wider view, pressing it again the same-size map in the middle of the screen, which can be dragged anywhere and zoomed in and out as far as you like without lagging, and once more back to the small one), the trees and bamboo grow like the real ones, and the zombies follow you out.</p>
         </div>
         <div class="feature" data-code="Underground rockAt BOTTOM noiseOpen _planEntrance findCaveNear reveal CAVE_FOG_COLOR">
           <h3>Underground &amp; Caves</h3>
-          <p>The ground goes <span data-feature-value="undergroundDepth">200</span> blocks down, under the city and the whole open world. Dig down through layers of rock - stone with pockets of granite, diorite, andesite, gravel and dirt, then a band of tuff, deepslate, a band of smooth basalt, deeper deepslate and blackstone - to bedrock at the very bottom. Ores sit at their own depths: coal and copper near the top, iron all the way down, lapis and gold deeper, redstone and diamonds near the bottom, and rare emeralds. Caves wind through the rock with bigger rooms further down, and out in the land there are cave entrances - sloping tunnels you can walk straight into that lead down to a cave room and on through a second tunnel into a bigger cave - never a dead end. Deep down there are underground cities: a huge domed cavern holding a lost city of deepslate streets, houses and towers with doorways and windows, glowstone street lamps, sculk on the empty lots and a plaza with a tall monument. Caves never cut under the city's streets or into villages, castles, pyramids, bridges or the underground cities' buildings, and the fog turns dark underground. Like the rest of the land, it's new every game.</p>
+          <p>The ground goes <span data-feature-value="undergroundDepth">200</span> blocks down, under the city and the whole open world. Dig down through layers of rock - stone with pockets of granite, diorite, andesite, gravel and dirt, then a band of tuff, deepslate, a band of smooth basalt, deeper deepslate and blackstone - and then, <span data-feature-value="demonDepth">300</span> blocks down, the Demon Realm: the rock turns to netherrack, soul sand and blackstone, and huge caverns open up with red fungus floors, glowing magma and glowstone in the roof, dark red fog and no sky. Demons live down there. Bedrock is at the very bottom, and the only way down is to dig. Ores sit at their own depths: coal and copper near the top, iron all the way down, lapis and gold deeper, redstone and diamonds near the bottom, and rare emeralds. Caves wind through the rock with bigger rooms further down, and out in the land there are cave entrances - sloping tunnels you can walk straight into that lead down to a cave room and on through a second tunnel into a bigger cave - never a dead end. Deep down there are underground cities: a huge domed cavern holding a lost city of deepslate streets, houses and towers with doorways and windows, glowstone street lamps, sculk on the empty lots and a plaza with a tall monument. Caves never cut under the city's streets or into villages, castles, pyramids, bridges or the underground cities' buildings, and the fog turns dark underground. Like the rest of the land, it's new every game.</p>
         </div>
         <div class="feature" data-code="planStructure STRUCT_GRID placeName">
           <h3>Villages, Castles, Pyramids &amp; Bridges</h3>
@@ -2451,7 +2462,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="PlayInventory ITEMS ARMOR_SLOTS">
           <h3>Inventory</h3>
-          <p>Press Tab in a game (or the bag button on a phone) for your inventory: five armor slots (helmet, chestplate, leggings, boots, shield), a ten-by-ten grid and your hotbar. Your gun is in it (just the one you picked - Switch Weapon swaps it), blocks you break pop out as little spinning blocks that you pick up by walking near them, and Loot Chests drop health packs, ammo boxes, armor and blocks. Hold a block and right-click to place it (the fire button on a phone); click with a health pack or ammo box to use it, or with an animal's raw meat (Raw Beef, Raw Pork and so on) or Vegetables (from a Crop Plot) to eat them. Worn armor blocks part of every hit. Drag items between slots (just the one picture moves), or Shift-click between the hotbar and the grid. Point at any item (or tap it on a phone) to see its name and what it does - a gun's damage, how fast it shoots and its magazine, how much a health pack heals or how much armor blocks. In the Map Editor, Tab shows the blocks on the left and your hotbar plus a block storage on the right.</p>
+          <p>Press Tab in a game (or the bag button on a phone) for your inventory: five armor slots (helmet, chestplate, leggings, boots, shield), a ten-by-ten grid and your hotbar. Your gun is in it (just the one you picked - Switch Weapon swaps it), blocks you break pop out as little spinning blocks that you pick up by walking near them, and Loot Chests drop health packs, ammo boxes, armor and blocks. Hold a block and right-click to place it (the fire button on a phone); click with a health pack or ammo box to use it, or with an animal's raw meat (Raw Beef, Raw Pork and so on) or Vegetables (from a Crop Plot) to eat them. Worn armor blocks part of every hit. Drag items between slots (just the one picture moves), or Shift-click between the hotbar and the grid. Press Q (Drop Item - change it in Settings &gt; Controls) to throw one of the item in your hand on the ground in front of you, or, with the inventory open, one of the item under your pointer; phones get a drop button at the top of the screen. It lies still for a moment before you can pick it up again. Your gun can't be dropped. Right-click an item (double-tap it on a phone) to lock it: a little lock shows on its corner and Q won't drop it until you unlock it the same way. Point at any item (or tap it on a phone) to see its name and what it does - a gun's damage, how fast it shoots and its magazine, how much a health pack heals or how much armor blocks. In the Map Editor, Tab shows the blocks on the left and your hotbar plus a block storage on the right.</p>
         </div>
         <div class="feature" data-code="contextmenu">
           <h3>No Right-Click Menu</h3>
@@ -2479,7 +2490,11 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="MONSTER_KINDS MONSTER_FROM_WAVE makeMonster">
           <h3>Monster Zombies</h3>
-          <p>From wave <span data-feature-value="monsterWave">1</span> of Zombie Survival, pixel-art monsters make up about half of every wave, next to the regular zombies and skeletons: hunched ghouls with big glowing-eyed heads and long dragging arms that hit hard, rotting slime blobs that squash and stretch as they hop and take a lot of shots, fast zombie dogs that gallop at you on all fours but go down quickly, legless crawlers that drag themselves along the ground on their arms (low and hard to hit), huge brutes with giant arms that are slow but take many shots and hit very hard, swollen bloaters that burst when killed and hurt everyone - players and zombies - close by, and tall skinny runners that are very fast but very weak. Each topples over and fades away when killed, and everyone on a server sees the same ones.</p>
+          <p>From wave <span data-feature-value="monsterWave">1</span> of Zombie Survival, pixel-art monsters make up about half of every wave, next to the regular zombies and skeletons: hunched ghouls with big glowing-eyed heads and long dragging arms that hit hard, rotting slime blobs that squash and stretch as they hop and take a lot of shots, fast zombie dogs that gallop at you on all fours but go down quickly, legless crawlers that drag themselves along the ground on their arms (low and hard to hit), huge brutes with giant arms that are slow but take many shots and hit very hard, swollen bloaters that burst when killed and hurt everyone - players and zombies - close by, and tall skinny runners that are very fast but very weak. Each topples over and fades away when killed, and everyone on a server sees the same ones. (Heaven, the Demon Realm and the sea have their own zombies instead - see Angels, Demons &amp; Sea Zombies.)</p>
+        </div>
+        <div class="feature" data-code="REALM_KINDS _realmAt noSun">
+          <h3>Angels, Demons &amp; Sea Zombies</h3>
+          <p>Some zombies only live in one place. Up in Heaven every zombie is one of <span data-feature-value="angelKinds">4</span> angels: angels in white robes with golden halos and big feathered wings, seraphs (a great floating eye wrapped in six wings), archangels in gold armour with a glowing sword (slow, tough and they hit hard) and small floating cherubs - and angels never burn in the sun. Down in the Demon Realm every zombie is one of <span data-feature-value="demonKinds">4</span> demons: quick horned imps, burning hellhounds, huge winged demons that take many shots and hit very hard, and hunched clawed fiends. In the sea, and on beaches, many zombies are one of <span data-feature-value="seaZombieKinds">4</span> sea zombies instead: kelp-wrapped drowned, shark-headed sharkmen with a fin on their back, glowing jellyfish trailing tentacles and deep-sea anglers with a glowing lure. Like every standing zombie they're <span data-feature-value="mobHeight">2</span> blocks tall, and everyone on a server sees the same ones.</p>
         </div>
         <div class="feature" data-code="ZOMBIE_TIERS rollZombieTier zombieTagMaterial zombieGlow">
           <h3>Zombie Names &amp; Rarity</h3>
@@ -2528,7 +2543,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="INVENTORY_SKINS SKIN_RARITIES InspectViewer">
           <h3>Inventory Skins: Rarities, Inspect &amp; Sell</h3>
-          <p>Everyone starts with two skins, Gaymi (the default) and Alisa (slim arms). Every character skin card shows its rarity (the coloured left edge, on a card in your theme's colour) and how many you own - search them by name or pick a rarity. Click one to Equip it, put it on the Market, Sell it to the game for coins, or Inspect it in a big 3D view you can turn and zoom (zooming stops just outside the item). Inventory also has a Crates tab, a Weapons tab with a picture of every gun, and a Pets tab (Coming Soon).</p>
+          <p>Everyone starts with two skins, Gaymi (the default) and Alisa (slim arms). Every character skin card shows its rarity (the coloured left edge, on a card in your theme's colour) and how many you own - search them by name or pick a rarity. Click one to Equip it, put it on the Market, Sell it to the game for coins, Lock it, or Inspect it in a big 3D view you can turn and zoom (zooming stops just outside the item). A locked skin shows a lock on its top corner and stays in your inventory: it can't be sold or put on the Market until you Unlock it, and it stays locked even after Reset All Settings. Inventory also has a Crates tab, a Weapons tab with a picture of every gun, and a Pets tab (Coming Soon).</p>
         </div>
         <div class="feature" data-code="customSkinDataUrl">
           <h3>Custom Skin Upload</h3>
@@ -2544,7 +2559,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="homepageGreeting">
           <h3>Homepage Personalization</h3>
-          <p>Accent color, Play-button color, UI font, layout density, background mood, homepage greeting text, and the order of every homepage button (up/down arrows in Settings &gt; Controls - new buttons join the list on their own).</p>
+          <p>Accent color, Play-button color, UI font, layout density, background mood, homepage greeting text, and the order of every homepage button (up/down arrows in Settings &gt; General &gt; Homepage - new buttons join the list on their own).</p>
         </div>
       </section>
 
@@ -2617,6 +2632,10 @@ Escape before dawn.</p>
       <section class="category" id="accessibility-settings">
         <h2>Accessibility &amp; Settings</h2>
 
+        <div class="feature" data-code="logSettingChange bindSettingsLog renderSettingsLog">
+          <h3>Your Settings Changes</h3>
+          <p>Settings &gt; General keeps a list of every setting you change - when, which setting, and what it was before and after (like "Show FPS Counter on Homepage: Off → On"), newest first. Key changes, the graphics level, the theme, the language and resets are listed too. It keeps your last <span data-feature-value="settingsLogMax">100</span> changes, only in this browser, and Clear List empties it. All the homepage settings (button order, background mood, weather, FPS counter, accent colour, layout density, cursor trail) are in General's Homepage section; Controls holds the keys, under Key Bindings.</p>
+        </div>
         <div class="feature" data-code="TAB_RESET_KEYS _resetSettingsTab">
           <h3>Settings Help &amp; Resets</h3>
           <p>Every setting has a "?" that explains it in a box styled like your theme. General, Audio and Graphics each have their own Reset to Defaults button that only resets that tab; Controls ends with a Danger Zone holding Reset All Controls (every key and control setting back to default), and General ends with a Danger Zone holding Reset All Settings. Every reset button is the same size and style, and each one asks "Are you sure?" first in a box that matches your theme. Text in Settings can't be selected - every button and box still works.</p>
@@ -2647,7 +2666,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="setBinding ACTIONS heldAction _normalFov">
           <h3>Input Customization</h3>
-          <p>Rebindable keys for everything you do in Map 1 - moving, jumping, sprinting, crouching, reloading, using doors and people, inspecting your gun, the minimap size and the camera view - with Export/Import codes, a one-handed layout (mouse side buttons use and reload), and mouse sensitivity, invert look and field of view for the Map Editor and Map 1.</p>
+          <p>Rebindable keys for everything you do in Map 1 - moving, jumping, sprinting, crouching, reloading, using doors and people, inspecting your gun, the minimap size, the camera view and dropping items - with Export/Import codes, a one-handed layout (mouse side buttons use and reload), and mouse sensitivity, invert look and field of view for the Map Editor and Map 1.</p>
         </div>
         <div class="feature" data-code="HOWTOPLAY_STEPS">
           <h3>How to Play</h3>
@@ -3316,6 +3335,7 @@ Escape before dawn.</p>
                   <button type="button" id="inv-skin-menu-equip"></button>
                   <button type="button" id="inv-skin-menu-market"></button>
                   <button type="button" id="inv-skin-menu-sell"></button>
+                  <button type="button" id="inv-skin-menu-lock"></button>
                   <button type="button" id="inv-skin-menu-inspect"></button>
                 </div>
               </div>

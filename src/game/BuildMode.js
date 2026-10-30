@@ -19,6 +19,8 @@ import { generateMap3 } from './Map3Generator.js'
 import { BuildTryMode } from './BuildTryMode.js'
 import { LiquidFlow } from './LiquidFlow.js'
 import { OpenWorld, inCity as cityCell, setFlatWorld } from './OpenWorld.js'
+import { DEMON_TOP } from './Underground.js'
+import { HEAVEN_FLOOR } from './HeavenRealm.js'
 import { BuildTools } from './BuildTools.js'
 import { PlaySpectate } from './PlaySpectate.js'
 import { BuildSky } from './BuildSky.js'
@@ -64,6 +66,14 @@ const CAVE_FOG_COLOR = new THREE.Color(0x1b1d22)
 const CAVE_FOG_DEPTH = 6
 const CAVE_FOG_NEAR = 6
 const CAVE_FOG_FAR = 48
+// The Demon Realm (Underground.js, below DEMON_TOP): dark red fog, and the
+// sky (sun, moon, clouds) hidden - only rock and fire down there. Heaven
+// (HeavenRealm.js): a soft warm-white haze.
+const DEMON_FOG_COLOR = new THREE.Color(0x2e0806)
+const DEMON_FOG_NEAR = 6
+const DEMON_FOG_FAR = 46
+const HEAVEN_FOG_COLOR = new THREE.Color(0xfffaf0)
+const HEAVEN_FOG_MIX = 0.7
 // View distance (Settings > Graphics), in blocks: chunks further away
 // than this aren't drawn and fog fades out what's left before that edge
 // (BlockChunks.cullTo). Auto starts at Max on a computer and Medium on a
@@ -1475,6 +1485,22 @@ export class BuildMode {
         fog.near += (CAVE_FOG_NEAR * BLOCK_SIZE - fog.near) * k
         fog.far += (Math.min(fog.far, CAVE_FOG_FAR * BLOCK_SIZE) - fog.far) * k
       }
+      const y = p.y / BLOCK_SIZE
+      const demon = Math.min(1, Math.max(0, (DEMON_TOP + 4 - y) / 12))
+      if (demon > 0) {
+        fog.color.lerp(DEMON_FOG_COLOR, demon)
+        fog.near += (DEMON_FOG_NEAR * BLOCK_SIZE - fog.near) * demon
+        fog.far += (DEMON_FOG_FAR * BLOCK_SIZE - fog.far) * demon
+        // (The sky works its colour out again every frame.)
+        if (this.scene.background?.isColor) this.scene.background.lerp(DEMON_FOG_COLOR, demon)
+      }
+      const heaven = Math.min(1, Math.max(0, (y - (HEAVEN_FLOOR - 40)) / 40))
+      if (heaven > 0) fog.color.lerp(HEAVEN_FOG_COLOR, heaven * HEAVEN_FOG_MIX)
+      const hideSky = demon > 0.5
+      if (hideSky !== !!this._skyHiddenDeep) {
+        this._skyHiddenDeep = hideSky
+        this.sky?.bodies?.show(!hideSky)
+      }
     }
     this._chunks.cullTo(p.x / BLOCK_SIZE, p.z / BLOCK_SIZE, blocks)
   }
@@ -1574,6 +1600,11 @@ export class BuildMode {
       // receiving it - this guard was needed even before the search box
       // existed (the picker's Tab-toggle key handling never blocked
       // movement input while open), the search box just made it obvious.
+      // The Drop key with a game's inventory open: the item under the pointer.
+      if (this.pickerOpen && this.survival.active && this.survival.inv?.open && e.code === getKeyFor('dropItem') && !e.repeat) {
+        this.survival.inv.dropHovered()
+        return
+      }
       if (this.pickerOpen) return
       // Typing in a text box over the game (Settings from the pause
       // screen) doesn't move you or press game keys.

@@ -28,6 +28,10 @@ export const ACTIONS = [
   { id: 'cycleMap', defaultKey: 'KeyM', labelKey: 'actionCycleMap' },
   // Camera: first person -> third person behind -> in front (2026-10-13).
   { id: 'cameraView', defaultKey: 'KeyP', labelKey: 'actionCameraView' },
+  // Throws one of the held item on the ground (PlayInventory.drop,
+  // 2026-10-30). Q is also the Map Editor's rotate key - that one only
+  // works while building, this one only in a game.
+  { id: 'dropItem', defaultKey: 'KeyQ', labelKey: 'actionDropItem' },
 ]
 
 // Extra keys that also work for an action, as long as no action is bound

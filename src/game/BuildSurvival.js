@@ -34,10 +34,12 @@ import { PlayThrow } from './PlayThrow.js'
 import { PlayAnimals } from './PlayAnimals.js'
 import { worldSeed, isEarthWorld } from './OpenWorld.js'
 import { loadEarthTerrain } from './EarthTerrain.js'
-import { BOTTOM } from './Underground.js'
+import { BOTTOM, DEMON_TOP } from './Underground.js'
 import { ZOMBIE_TIERS, NAME_COUNT, TAG_W, TAG_H, rollZombieTier, rollZombieName, zombieTagMaterial, zombieGlow, pulseZombieGlows } from './ZombieNames.js'
 import { LEAF_DROP_CHANCE, PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, ASSIST_SHARE, ASSIST_MIN_HURT, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
-import { MONSTER_KINDS, makeMonster } from './ZombieKinds.js'
+import { MONSTER_KINDS, REALM_KINDS, makeMonster } from './ZombieKinds.js'
+import { HEAVEN_FLOOR, HEAVEN_TOP } from './HeavenRealm.js'
+import { WATER_BIOMES } from './EarthGrid.js'
 import { PlayDamageNumbers } from './PlayDamageNumbers.js'
 import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './SpeechBubble.js'
 import { SHOOT_THROUGH } from './SpecialBlocks.js'
@@ -71,6 +73,12 @@ const SUN_NIGHT_MAX = 0.3
 const CAVE_HP_MULT = 1.8
 const CAVE_DAMAGE_MULT = 1.6
 const CAVE_SPAWN_CHANCE = 0.45
+// Realm zombies (2026-10-30, ZombieKinds.js): everything that appears in
+// Heaven is an angel and everything in the Demon Realm a demon; in the sea
+// (or on a beach) OCEAN_CHANCE of them are sea zombies (OCEAN_WET_CHANCE
+// when it comes up in the water itself).
+const OCEAN_CHANCE = 0.5
+const OCEAN_WET_CHANCE = 0.8
 const VOID_SLOW = 0.5
 const CLEAVE_COS = Math.cos(0.6)
 // Burning wood (2026-10-17, Gaymi: "make fire able to fire up the wood",
@@ -550,7 +558,7 @@ export class BuildSurvival {
     // Grows the land there right now (your column and its neighbours).
     bm.world.update([{ x: spot.x + 0.5, z: spot.z + 0.5 }])
     let top = null
-    for (let y = 160; y > BOTTOM && top === null; y--) if (bm.getBlockAt(spot.x, y, spot.z)) top = y
+    for (let y = HEAVEN_TOP; y > BOTTOM && top === null; y--) if (bm.getBlockAt(spot.x, y, spot.z)) top = y
     if (top === null) return false
     tm.pos.set(spot.x + 0.5, top + 1, spot.z + 0.5)
     tm.vel?.set(0, 0, 0)
@@ -1486,6 +1494,7 @@ export class BuildSurvival {
 
   onKeyDown(code) {
     if (code === getKeyFor('reload')) this.reload()
+    else if (code === getKeyFor('dropItem')) this.inv?.drop()
   }
 
   // --- the world: who can stand where ---
@@ -1671,13 +1680,16 @@ export class BuildSurvival {
     const open = this.camp ? spots.filter(([sx, , sz]) => !this.camp.inside(sx + 0.5, sz + 0.5, 1)) : spots
     if (!open.length) return false
     const [x, y, z] = open[Math.floor(Math.random() * open.length)]
+    const realm = this._realmAt(x, y, z)
     const cave = this._inCave(x + 0.5, y, z + 0.5)
-    if (cave && Math.random() > CAVE_SPAWN_CHANCE) return false
+    // (The Demon Realm is all cave - its demons always come.)
+    if (cave && realm !== 'demon' && Math.random() > CAVE_SPAWN_CHANCE) return false
     const boss = this._bossPending > 0
     if (boss) this._bossPending--
     let kind = !boss && this.wave >= SKELETON_FROM_WAVE && skeletonsReady() && Math.random() < SKELETON_CHANCE
       ? SKELETON_KIND_IDS[Math.floor(Math.random() * SKELETON_KIND_IDS.length)] : null
     if (!kind && !boss && this.wave >= MONSTER_FROM_WAVE && Math.random() < MONSTER_CHANCE) kind = MONSTER_KIND_IDS[Math.floor(Math.random() * MONSTER_KIND_IDS.length)]
+    if (realm && !boss) kind = REALM_KINDS[realm][Math.floor(Math.random() * REALM_KINDS[realm].length)]
     // Its rarity and silly name (ZombieNames.js): rarer = tougher.
     const tier = rollZombieTier(boss)
     const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (boss ? BOSS_HEALTH_MULT : 1) * (kindOf(kind)?.hp ?? 1) * ZOMBIE_TIERS[tier].hp * (cave ? CAVE_HP_MULT : 1)
@@ -1688,6 +1700,20 @@ export class BuildSurvival {
       zb.damageMult *= CAVE_DAMAGE_MULT
     }
     return true
+  }
+
+  // Which realm's zombies come at a spot: 'heaven', 'demon', 'ocean' (a
+  // roll, by the sea) or null for the usual ones.
+  _realmAt(x, y, z) {
+    if (y >= HEAVEN_FLOOR - 4) return 'heaven'
+    if (y < DEMON_TOP) return 'demon'
+    const world = this.bm.world
+    const wet = this.bm.getBlockAt(x, y, z) === 'water' || this.bm.getBlockAt(x, y + 1, z) === 'water'
+    if (wet) return Math.random() < OCEAN_WET_CHANCE ? 'ocean' : null
+    if (!world?.active || y > world.sea + 3) return null
+    const land = world.landAt(x, z)
+    if (!land || !(WATER_BIOMES.has(land.biome) || land.biome === 'beach' || land.biome === 'snowyBeach')) return null
+    return Math.random() < OCEAN_CHANCE ? 'ocean' : null
   }
 
   // A zombie's body and state. id: the number the server knows it by
@@ -1925,7 +1951,7 @@ export class BuildSurvival {
     this.bm.scene.add(tilt)
     for (const m of z.monster.materials) {
       m.transparent = true
-      m.emissive.setRGB(0, 0, 0)
+      m.emissive?.setRGB(0, 0, 0)
     }
     this._corpses = this._corpses || []
     const groundY = this._groundUnder(tilt.position.x / this.B, tilt.position.y / this.B, tilt.position.z / this.B) * this.B
@@ -2106,7 +2132,7 @@ export class BuildSurvival {
       const x = Math.floor(zb.x)
       const y = Math.floor(zb.y + 0.01)
       const z = Math.floor(zb.z)
-      zb.sunlit = this._sunny() && !this._inCave(zb.x, zb.y, zb.z) && this._skyAbove(x, y + 1, z) && !this._wetAt(x, y, z)
+      zb.sunlit = !kindOf(zb.kind)?.noSun && this._sunny() && !this._inCave(zb.x, zb.y, zb.z) && this._skyAbove(x, y + 1, z) && !this._wetAt(x, y, z)
     }
     if (zb.sunlit && !(zb.burn > 0)) {
       zb.health -= SUN_BURN_DPS * dt
@@ -2888,7 +2914,7 @@ export class BuildSurvival {
         for (const m of z.skel.materials) m.emissive?.setRGB(red, 0, 0)
       }
       if (z.monster && z.lastRed !== red) {
-        for (const m of z.monster.materials) m.emissive.setRGB(red, 0, 0)
+        for (const m of z.monster.materials) m.emissive?.setRGB(red, 0, 0)
       }
       z.lastRed = red
     }
