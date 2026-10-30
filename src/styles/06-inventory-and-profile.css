@@ -1,0 +1,1231 @@
+/* Personal stats dashboard (batch feature) - a small bar chart of kills
+   per run, most recent on the right, in the Profile panel. */
+#stats-dashboard-canvas {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  height: 90px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.3);
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+/* Inventory panel's Weapons tab (see _renderInventoryWeapons) - a plain,
+   read-only list, not a clickable-card grid like .perk-option (this tab has
+   no button per row, just a name + mastery badge, so .perk-option's pointer
+   cursor/hover-highlight would misleadingly suggest something clickable). */
+
+/* Inventory panel's Crates tab - visual-only for now (see the "Coming soon"
+   line still under this grid in index.html) - no cost/button yet, and
+   deliberately no cursor:pointer/hover-highlight like .perk-option gets,
+   since these aren't clickable at all yet and shouldn't look like they are. */
+/* Theme picker (General > Theme) - was a plain <select>, replaced with
+   two clickable preview-photo cards per request. Same "photo card + gold
+   border/glow when active" language as .crate-card below, just image-fill
+   instead of an SVG icon. */
+#theme-picker-grid {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.theme-picker-card {
+  position: relative;
+  width: 220px;
+  aspect-ratio: 16 / 10;
+  padding: 0;
+  border: 2px solid rgba(var(--ui-gold-accent-rgb), 0.35);
+  border-radius: 8px;
+  background: #000;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.theme-picker-card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.theme-picker-card:hover {
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.7);
+}
+
+.theme-picker-card.active {
+  border-color: var(--ui-gold-bright);
+  box-shadow: 0 0 0 2px rgba(var(--ui-gold-accent-rgb), 0.35), 0 0 16px rgba(var(--ui-gold-accent-rgb), 0.4);
+}
+
+/* The theme's name above its card (2026-10-23, was a strip inside the
+   photo), with Clean's colour circle and hex box beside it. Same height
+   for both so the cards line up. */
+.theme-picker-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 220px;
+}
+.theme-picker-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+}
+.theme-picker-name {
+  margin-right: auto;
+  font-family: var(--menu-display-font), inherit;
+  font-size: 16px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.theme-picker-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.crate-section-heading {
+  margin: 0;
+  /* Matches #shop-skin-name's (the "GaygarX" heading) size, per explicit
+     request - not computed/linked, so keep these two in sync by hand if
+     either changes again. */
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #d9bc4a);
+  opacity: 0.85;
+  text-align: center;
+}
+
+.crate-tier-grid {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+/* Pushed toward a reference mockup (2026-09-20, painted/glowing game-card
+   art) as far as flat CSS/SVG can reasonably go - real texture/lighting
+   like that reference needs actual rendered image assets (see
+   docs/notes/history/3D_ASSET_OVERHAUL.md for how this project already treats that class of
+   work as its own separate project), not achievable in inline SVG/CSS.
+   This is the vector-only approximation: a beveled metal frame (layered
+   inset+outset box-shadow, corner rivets via 4 stacked radial-gradients
+   so no extra DOM nodes are needed per corner), a tier-colored outer
+   glow, and a darker/richer card background. */
+.crate-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 170px;
+  padding: 25px 15px 20px;
+  border-radius: 12px;
+  border: 2px solid var(--crate-tier-color, rgba(255, 255, 255, 0.14));
+  background:
+    radial-gradient(circle at 14px 14px, color-mix(in srgb, var(--crate-tier-color, #888) 55%, #000 45%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 14px) 14px, color-mix(in srgb, var(--crate-tier-color, #888) 55%, #000 45%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at 14px calc(100% - 14px), color-mix(in srgb, var(--crate-tier-color, #888) 55%, #000 45%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 14px) calc(100% - 14px), color-mix(in srgb, var(--crate-tier-color, #888) 55%, #000 45%) 0 3px, transparent 3.5px),
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--crate-tier-color, #888) 22%, transparent), transparent 65%),
+    linear-gradient(180deg, #1c1712, #0a0806 75%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--crate-tier-color, #888) 50%, transparent),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.6),
+    0 0 14px color-mix(in srgb, var(--crate-tier-color, #888) 35%, transparent),
+    0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.crate-icon {
+  width: 68px;
+  height: 68px;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.55));
+}
+
+.crate-tier-name {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-align: center;
+  color: color-mix(in srgb, var(--crate-tier-color, #eee) 55%, #fff 45%);
+  text-shadow: 0 2px 2px rgba(0, 0, 0, 0.85), 0 -1px 0 rgba(0, 0, 0, 0.4);
+}
+
+.crate-tier-wood { --crate-tier-color: #c9915a; }
+.crate-tier-ice { --crate-tier-color: #8fd9f0; }
+.crate-tier-golden { --crate-tier-color: #f0c23e; }
+.crate-tier-monthly { --crate-tier-color: #b57ce8; }
+
+/* "Coming Soon" ribbon for the Monthly Chest preview card - not yet
+   purchasable (see #shop-crate-tier-grid's data-crate-tier="monthly"
+   button, disabled and deliberately absent from CRATE_TIERS so every
+   existing click handler already no-ops on it safely). Absolutely
+   positioned in the top-right corner rather than inline with the tier
+   name, so it reads as a badge on the card, not stacked page text. */
+.crate-coming-soon-tag {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 3px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #0c0a10;
+  background: var(--crate-tier-color, #e3c23c);
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Inventory > Crates' "how many do I own, unopened" badge - top-right
+   corner now (moved from top-left at Gaymi's request, see this rule's
+   own history), overlapping the card's edge (negative top/right) and
+   tilted like a stamp for a more "game reward badge" look, rather than
+   sitting flush inside the border. Never coexists with the Shop-only
+   .crate-coming-soon-tag (Monthly Chest, also top-right) - different
+   cards, see that tag's own comment. Hidden entirely at x0 (see
+   _renderCrateTiers) rather than shown grayed-out, so an empty
+   Inventory reads as clean Wood/Ice/Golden cards, same as before this
+   feature existed. */
+/* Star drawn as a ::before background behind the number rather than
+   clip-path on the badge itself - a 5-point star's concave points would
+   slice through digit text if the whole badge were clipped, especially
+   once counts hit 2-3 digits. This way the star is purely decorative and
+   the number always paints fully on top, unclipped, at any width. */
+.crate-stock-count {
+  position: absolute;
+  /* Nudged up + left from a prior pass (was top: -8px; right: -23px)
+     per a follow-up "move it a bit top left" request - still close
+     enough to the corner rivet dot below it to keep covering that dot,
+     just shifted toward the card's top-left a little. */
+  top: -14px;
+  right: -15px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  height: 46px;
+  padding: 0 5px;
+  font-size: 13.6px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: #241804;
+  text-shadow: none;
+  transform: rotate(30deg);
+}
+
+.crate-stock-count::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--crate-tier-color, #e3c23c) 80%, #fff 20%), var(--crate-tier-color, #e3c23c));
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+/* Price moved onto the button itself (amount + coin icon, see
+   _renderCrateTiers) - flex row so the number and icon sit inline
+   instead of stacking, small gap between them. Same beveled-inset
+   treatment as the card frame above, tier-colored border/glow, so the
+   price pill reads as part of the same "metal plate" language. */
+.crate-open-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 19px;
+  font-weight: 700;
+  padding: 8px 17px;
+  border-radius: 7px;
+  border: 1.5px solid color-mix(in srgb, var(--crate-tier-color, #e3c23c) 70%, transparent);
+  background: linear-gradient(180deg, #2a221a, #14100c);
+  /* No explicit color before - this button has its own dark background,
+     so it silently fell back to a default dark/black text color and read
+     as almost invisible (confirmed via a real screenshot, not assumed). */
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.7),
+    0 0 8px color-mix(in srgb, var(--crate-tier-color, #e3c23c) 30%, transparent);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.crate-open-btn .currency-icon {
+  width: 20px;
+  height: 20px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+}
+
+.crate-open-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+#hub-panel,
+#coming-soon-panel,
+#clan-panel,
+#upgrades-panel,
+#quests-panel,
+#achievements-panel,
+#profile-panel,
+#credits-panel,
+#terms-panel,
+#privacy-panel,
+#features-panel,
+#skindesigner-panel,
+#gallery-panel,
+#levels-panel,
+#shop-panel,
+#market-panel,
+#whatsnew-panel,
+#howtoplay-panel,
+#friends-panel,
+#other-profile-panel,
+#menu-inventory-panel,
+#server-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  /* Was rgba(6, 8, 6, 0.98) - nearly fully opaque, fully hiding the
+     homepage behind every panel. Lowered so the homepage's own background
+     photo stays dimly visible behind the panel (per a reference example
+     showing a translucent backdrop with the page still visible through
+     it). 0.75 (a first pass) let the homepage's own text (tagline, Play
+     button label) stay legible enough to visually compete with sparser
+     panels' own text (Shop's "Not Available Yet" sits right over
+     "Escape before dawn.") - 0.88 keeps the same "something's back there"
+     depth without the homepage's own words reading clearly enough to
+     clash with panel content. */
+  background:
+    radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.55) 100%),
+    var(--grain-texture),
+    rgba(6, 8, 6, 0.88);
+}
+
+/* Crate bulk-purchase modal (2026-09-21) - click anywhere on a crate card
+   OTHER than the Open/price button itself (see the click binding in
+   Game.js) to pick a quantity and buy more than one at once, instead of
+   the Open button's own "buy exactly 1, instantly" behavior which stays
+   unchanged. z-index above the shared 15 (same reasoning as
+   #other-profile-panel's own comment) since this opens from INSIDE an
+   already-open Shop/Inventory panel, not standalone. */
+#crate-purchase-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 17;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 8, 6, 0.75);
+}
+
+#crate-purchase-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(280px, 88vw);
+  min-height: 0;
+  padding: 34px 24px 24px;
+  /* Same tier-colored glow/bevel language as .crate-card - --crate-tier-
+     color is set inline by Game.js when the modal opens, matching
+     whichever crate was clicked. */
+  border: 2px solid var(--crate-tier-color, #e3c23c);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--crate-tier-color, #e3c23c) 50%, transparent),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.6),
+    0 0 20px color-mix(in srgb, var(--crate-tier-color, #e3c23c) 45%, transparent),
+    0 6px 16px rgba(0, 0, 0, 0.6);
+}
+
+#crate-purchase-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: none;
+  color: #e05252;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#crate-purchase-icon-wrap svg {
+  width: 84px;
+  height: 84px;
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.55));
+}
+
+#crate-purchase-tier-name {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--crate-tier-color, #eee) 55%, #fff 45%);
+  text-shadow: 0 2px 2px rgba(0, 0, 0, 0.85);
+}
+
+#crate-purchase-qty-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Brighter than the shared .mini-action-btn default (dim gold-on-faint
+   background, easy to lose against the modal's own dark background -
+   real screenshot report) and tinted per-tier via the same
+   --crate-tier-color custom property #crate-purchase-box already sets
+   inline per tier, so wood/ice/golden/monthly each get their own
+   accent automatically. */
+#crate-purchase-qty-minus,
+#crate-purchase-qty-plus {
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: color-mix(in srgb, var(--crate-tier-color, #e3c23c) 70%, transparent);
+}
+
+#crate-purchase-qty-minus:hover,
+#crate-purchase-qty-plus:hover {
+  background: color-mix(in srgb, var(--crate-tier-color, #e3c23c) 25%, transparent);
+  border-color: var(--crate-tier-color, #e3c23c);
+}
+
+#crate-purchase-qty-minus:disabled,
+#crate-purchase-qty-plus:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* A real <input type="number"> now (was a plain <span>) - typing an
+   exact quantity directly, not just +/- one at a time. Was just a bare
+   bottom line with no real box; now a proper tier-themed box (same
+   --crate-tier-color as the +/- buttons and the rest of this modal)
+   instead of plain white-on-nothing. */
+#crate-purchase-qty-value {
+  width: 44px;
+  padding: 4px 0;
+  text-align: center;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid color-mix(in srgb, var(--crate-tier-color, #e3c23c) 55%, transparent);
+  border-radius: 6px;
+  cursor: text;
+}
+
+#crate-purchase-qty-value:hover,
+#crate-purchase-qty-value:focus {
+  border-color: var(--crate-tier-color, #e3c23c);
+  outline: none;
+}
+
+#crate-purchase-qty-value::-webkit-outer-spin-button,
+#crate-purchase-qty-value::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+#crate-purchase-qty-value[type="number"] {
+  -moz-appearance: textfield;
+}
+
+#crate-purchase-confirm-btn {
+  width: 100%;
+  font-size: 17px;
+  padding: 10px 16px;
+}
+
+#crate-purchase-confirm-btn .currency-icon {
+  width: 18px;
+  height: 18px;
+}
+
+#crate-purchase-confirm-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* #other-profile-panel is reachable from INSIDE other already-open panels
+   now (Friends rows, and since 2026-09-20 also pasted chat IDs on the
+   homepage Global panel) - same z-index:15 as every other panel above
+   means whichever one is LATER in the DOM wins ties, which happened to
+   put #server-panel on top, silently hiding this panel behind the still-
+   open Global chat the moment it was opened from there. One explicit
+   step above the shared z-index fixes it regardless of DOM order or
+   which parent panel it was opened from. */
+#other-profile-panel {
+  z-index: 16;
+}
+
+/* Old theme's warm-brown backdrop, same 24-panel list as the rule above -
+   see the palette comment on html.ui-theme-old's :root block. */
+html.ui-theme-old #settings-panel,
+html.ui-theme-old #hub-panel,
+html.ui-theme-old #coming-soon-panel,
+html.ui-theme-old #clan-panel,
+html.ui-theme-old #upgrades-panel,
+html.ui-theme-old #quests-panel,
+html.ui-theme-old #achievements-panel,
+html.ui-theme-old #profile-panel,
+html.ui-theme-old #credits-panel,
+html.ui-theme-old #terms-panel,
+html.ui-theme-old #features-panel,
+html.ui-theme-old #skindesigner-panel,
+html.ui-theme-old #gallery-panel,
+html.ui-theme-old #levels-panel,
+html.ui-theme-old #privacy-panel,
+html.ui-theme-old #shop-panel,
+html.ui-theme-old #market-panel,
+html.ui-theme-old #whatsnew-panel,
+html.ui-theme-old #howtoplay-panel,
+html.ui-theme-old #friends-panel,
+html.ui-theme-old #other-profile-panel,
+html.ui-theme-old #menu-inventory-panel,
+html.ui-theme-old #server-panel {
+  background:
+    radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.6) 100%),
+    var(--grain-texture),
+    rgba(21, 15, 9, 0.92);
+}
+
+/* Logged-out Profile gate - replaces the entire profile (stats/bio/
+   highlights/etc, all normally visible even to a local guest) with a
+   Sign Up or Login card, since viewing a Profile now
+   requires being signed in. See _openProfilePanel's early-return branch. */
+/* height:100% (was min-height:320px + its own solid #000 background) -
+   now sits inside .panel-fixed-content, which is already a fixed 68vh
+   tall and already sits on .panel-box's own solid background, so a
+   short min-height here left it pinned to the top of that much taller
+   area with an empty void below, same issue General's placeholder had
+   before .general-section-empty (see that class's comment) - height:100%
+   lets this rule's own flex centering place the Sign Up or Login card
+   in the middle of the full available height instead. */
+#profile-login-gate {
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+/* The signed-out Profile card: Google, then the other sign-ins (2026-10-23;
+   was Sign Up or Login pages from 2026-10-10). No box of its own - it sits
+   straight on the panel (paper in Old, dark in Golden). */
+.auth-card {
+  position: relative;
+  width: min(100%, 560px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  /* Pulled up toward the panel title (2026-10-10, "move that a bit higher
+     up closer to Welcome to GayZ"). */
+  padding: 0 12px 8px;
+}
+/* Right under the title (2026-10-23, Gaymi: "theres a big gap between
+   welcome to gayz and login to save your progress") - a plain <p> had
+   16px above it on top of the title's own space. */
+.auth-sub {
+  margin: 0 0 14px;
+}
+.auth-note {
+  margin: 0;
+  max-width: 440px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(232, 226, 208, 0.75);
+}
+/* The Google button: the shared sign-in look at the end of this file. */
+.auth-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 150px;
+}
+.auth-btn:active { transform: translateY(1px); }
+.auth-google { margin: 4px 0; }
+.auth-google-g {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  padding: 3px;
+  background: #fff;
+  border-radius: 50%;
+  box-sizing: content-box;
+}
+/* Every sign-in is a full-width "Login with ..." oval like Google's
+   (2026-10-23, Gaymi: "like google not just icon"), each with its logo in
+   a small circle of the site's own colour, the same in both themes.
+   Microsoft, Facebook, LINE, Apple and WeChat were dropped (each needed a
+   phone number, a card or a company). No "or" line under Google. */
+.auth-providers {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Room for the "Last used" tag on a button's top edge. */
+  gap: 14px;
+  width: 100%;
+  margin-bottom: 16px;
+}
+.auth-wide { width: min(100%, 280px); }
+.auth-logo {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  padding: 3px;
+  border-radius: 50%;
+  box-sizing: content-box;
+}
+.auth-logo [fill="currentColor"] { fill: #fff !important; }
+.auth-provider-steam .auth-logo { background: #171a21; }
+.auth-provider-github .auth-logo { background: #24292f; }
+.auth-provider-discord .auth-logo { background: #5865f2; }
+/* "Last used" on the site signed in with last, a small pill sitting on
+   the button's top-right edge (like vercel.com). */
+#profile-login-gate .auth-btn { position: relative; }
+.auth-last-used {
+  position: absolute;
+  right: 14px;
+  top: -9px;
+  padding: 2px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  color: #1d1d1f;
+  background: #fff;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+/* Old theme: ink on the paper, the rusty plaques with light lettering. */
+html.ui-theme-old .auth-note { opacity: 0.82; }
+
+/* Wraps every existing piece of profile content so it can be toggled as
+   one unit against #profile-login-gate - replicates the flex-column
+   layout #profile-panel's shared rule (below) gives its direct children,
+   since this content is now nested one level deeper than before. */
+#profile-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Was 4px, then 12px - now 8px since Profile lives inside a fixed-size
+     scrolling box now (.panel-fixed-content) instead of the whole page,
+     so there's real value in fitting more of its 15+ sections into view
+     at once. The 5 card heading/list pairs below cancel this gap between
+     themselves (see their own -8px margin-top, kept matching this value)
+     so they still sit flush as one card. */
+  gap: 8px;
+  width: 100%;
+}
+
+/* Profile panel USED to have its own broken-wood-photo backdrop and be
+   top-anchored/outer-scrolling here (own custom rule, removed) - request:
+   match How to Play's box/position/background like every other panel in
+   this file now does. The old comment's negative-y login-row bug (a
+   too-tall block getting centered as a whole, pushing its early content
+   above the visible top edge) doesn't apply to the new approach: the box
+   itself is a fixed size now (never taller than How to Play's own box),
+   and the actual overflow scrolls inside .panel-fixed-content instead -
+   same structure already proven safe for Achievements/Upgrades' even
+   longer content earlier today. #profile-login-gate/#profile-content
+   are wrapped in .panel-fixed-content the same way General's tab pages
+   and Friend List's signed-out/signed-in states are - see that class's
+   own comment. */
+
+/* #achievements-panel USED to be top-anchored/outer-scrolling here (same
+   reasoning as the old #hub-panel/#upgrades-panel rules below - its list
+   regularly runs taller than one screen). Pulled out for the same reason
+   #clan-panel was (match How to Play's position/size) - see
+   .achievements-scroll-area further down for where its own internal
+   scrolling now lives instead. */
+
+/* Filter search box - same too-narrow-and-left-aligned bug Settings'
+   search bar had (see #settings-search-input's comment) - now its own
+   centered block line with the same width cap. Pill shape (border-radius/
+   padding override the shared .nickname-input rect) matches the GayZ
+   Features site's own search bar. */
+#achievements-filter-input {
+  margin: 0 auto 10px;
+}
+
+/* Settings search bar - was a small 25%-width bar sitting inline next to
+   the Saved indicator, off to the left. Request: bigger and centered -
+   now its own full block line, width capped well below the box's own
+   ~1016px content width so it doesn't look like a whole extra section,
+   just a wider/more prominent search field than before. Same pill shape
+   as #achievements-filter-input above. */
+#settings-search-input {
+  margin: 0 auto 14px;
+}
+
+/* #hub-panel (Game Mode button's panel) USED to be top-anchored/outer-
+   scrolling here too (3 full sections - Player/Difficulty/Choose Class,
+   plus Game Modes/Challenges/Mutators - rarely fit one screen at once).
+   Same move as Achievements/Upgrades above - see .hub-tab-page further
+   down for its own internal scrolling. */
+
+/* #upgrades-panel USED to be top-anchored/outer-scrolling here too (30+
+   perk cards never fit one screen). Same move as Achievements above -
+   see .upgrades-tab-page further down for its own internal scrolling. */
+
+/* Store, Server(Global), Quests, Friend List, and Inventory ALL used to
+   be top-anchored/outer-scrolling here too (own rule now removed, same
+   move as General/Achievements/Upgrades above - request: match How to
+   Play's position/size everywhere in the sidebar nav). Every one of
+   them now gets its own internal-scroll content area sized to exactly
+   fill the remaining 68vh instead (.panel-fixed-content for the two
+   with no tab strip of their own - Store/Global; .inventory-tab-page/
+   .quest-tab-page for the two that do; #friends-signed-out/-in
+   directly, since Friend List has no tab strip either but does have two
+   mutually-exclusive states in that same role). Dropping all of them
+   back to the shared base rule's plain centered position is what makes
+   them land at the same spot on screen as How to Play/Credits/What's
+   New/General (none of which are in this list either, for the same
+   reason). */
+
+#coming-soon-body {
+  max-width: 420px;
+  text-align: center;
+  color: var(--menu-text-dim);
+  font-size: 15px;
+  line-height: 1.5;
+}
+#coming-soon-close-btn {
+  padding: 10px 28px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--menu-gold);
+  background: var(--menu-gunmetal-dark);
+  border: 2px solid var(--menu-panel-border);
+  border-radius: 5px;
+  cursor: pointer;
+}
+#coming-soon-close-btn:hover {
+  border-color: var(--menu-gold);
+}
+
+/* Loadout compare view (batch 3 feature) - a toggle above the weapon
+   grid; while active, clicking cards selects up to 2 for a side-by-side
+   stat table instead of equipping them. */
+
+/* Weapon icon badge - same hexagonal "featured icon in a card" treatment
+   as .class-icon-badge in Choose Class, reused here rather than inventing
+   a second visual language, just neutral-toned since weapons don't carry
+   a per-item accent color the way classes do. */
+
+#hub-panel-title,
+#coming-soon-title,
+#upgrades-panel-title,
+#quests-panel-title,
+#achievements-panel-title,
+#profile-panel-title,
+#credits-panel-title,
+#terms-panel-title,
+#features-panel-title,
+#skindesigner-panel-title,
+#gallery-panel-title,
+#levels-panel-title,
+#privacy-panel-title,
+#shop-panel-title,
+#market-panel-title,
+#whatsnew-panel-title,
+#howtoplay-panel-title,
+#friends-panel-title,
+#menu-inventory-panel-title,
+#server-panel-title,
+#clan-panel-title {
+  margin: 0;
+  /* Doubled from 15px per request - this is the title shown right after
+     opening any of these panels (Hub, Store, Achievements, etc.), not
+     the homepage nav button label. */
+  font-size: 30px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ui-gold-bright);
+  opacity: 0.85;
+}
+
+/* Old theme's heading treatment, same panel-title list as the rule above. */
+html.ui-theme-old #upgrades-panel-title,
+html.ui-theme-old #quests-panel-title,
+html.ui-theme-old #achievements-panel-title,
+html.ui-theme-old #profile-panel-title,
+html.ui-theme-old #credits-panel-title,
+html.ui-theme-old #terms-panel-title,
+html.ui-theme-old #features-panel-title,
+html.ui-theme-old #skindesigner-panel-title,
+html.ui-theme-old #gallery-panel-title,
+html.ui-theme-old #levels-panel-title,
+html.ui-theme-old #privacy-panel-title,
+html.ui-theme-old #shop-panel-title,
+html.ui-theme-old #market-panel-title,
+html.ui-theme-old #whatsnew-panel-title,
+html.ui-theme-old #howtoplay-panel-title,
+html.ui-theme-old #friends-panel-title,
+html.ui-theme-old #menu-inventory-panel-title,
+html.ui-theme-old #server-panel-title,
+html.ui-theme-old #clan-panel-title {
+  font-family: 'Rye', Georgia, serif;
+  color: #c2a06e;
+  opacity: 1;
+}
+
+#upgrades-points-line {
+  font-size: 14px;
+  color: #ffde5c;
+  opacity: 0.9;
+  margin-top: -8px;
+}
+
+/* #upgrades-points-line is the first child of .upgrades-tab-page, which
+   scrolls (overflow-y: auto) and already spaces its children with its own
+   gap:14px - unlike #perk-points-line/#trader-points-line (simple
+   non-scrolling panels, where -8px just tightens against the heading
+   above), the negative margin here pulled "Legacy Points: N" up above
+   the scroll area's own top edge, clipping it - not scrollable back into
+   view since that's already scroll position 0 (2026-09-21). */
+#upgrades-points-line {
+  margin-top: 0;
+}
+
+/* Profile panel redesign (2026-08-26, "jammed up" complaint) - every flat
+   list here used to be one dense grid with 1px row-gap and 2-3px padding,
+   specifically squeezed to avoid extra scroll height. #profile-panel
+   already scrolls (overflow-y:auto on the panel itself), so that tradeoff
+   no longer needs to be this extreme - each section now reads as its own
+   card with real breathing room instead. Still reuses .perk-option/
+   .perk-name/.perk-cost as-is (not a new markup structure) so Copy Stats/
+   Print Stats Sheet, which read this exact markup via
+   querySelectorAll('.perk-option'), keep working unchanged.
+
+   Two different techniques get to the same "card" look depending on what
+   generates the markup:
+   - Combat/Survival/Economy/Social & Meta (#profile-options) are built by
+     _openProfilePanel() (Game.js), which now wraps each group in a real
+     <div class="profile-stat-card"> - a true single element, so it just
+     gets a normal all-around border/background/radius.
+   - Rank Roadmap / Class Comparison / Highlight Reel / Recently Unlocked /
+     Prestige History are each a static <h3> immediately followed by its
+     own list container already in index.html - rather than touching that
+     markup to add a wrapper div, the heading is styled as the card's top
+     edge and the list as its bottom edge (matching background/border,
+     complementary rounded corners, no border where they meet), so the
+     two elements read as one continuous card. */
+#rank-roadmap-list,
+#recent-unlocks-list,
+#highlight-reel-list,
+#prestige-history-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 20px;
+  row-gap: 6px;
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+#profile-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* The pinned stat (if any) renders as a single row directly inside
+   #profile-options, outside any card - same "always first" position it
+   had before cards existed, spanning both columns so it doesn't look like
+   it's fighting a card for space. */
+#profile-options > .perk-option {
+  grid-column: 1 / -1;
+}
+
+.profile-stat-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+  row-gap: 4px;
+  align-content: start;
+  background: rgba(20, 16, 10, 0.55);
+  border: 1px solid rgba(138, 109, 71, 0.4);
+  border-radius: 8px;
+  padding: 10px 14px 12px;
+}
+
+#profile-options .settings-section-heading {
+  grid-column: 1 / -1;
+  margin: 0 0 6px;
+}
+
+/* Card top edge - see the technique comment above. Matches
+   .profile-stat-card's own background/border/radius so the two pieces
+   read as one box. */
+/* #profile-content prefix (a second ID) beats #profile-panel h3's own
+   margin rule on specificity alone, without needing !important. */
+#profile-content #highlight-reel-heading,
+#profile-content #rank-roadmap-heading,
+#profile-content #recent-unlocks-heading,
+#profile-content #prestige-history-heading {
+  background: rgba(20, 16, 10, 0.55);
+  border: 1px solid rgba(138, 109, 71, 0.4);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  margin: 0 auto;
+  padding: 8px 14px 4px;
+  max-width: 820px;
+}
+
+/* The Profile panel's 2 real sections (2026-09-20) - Public (see Game.js's
+   _renderPublicProfileSection, the exact fields a friend sees if they
+   look this account up by #ID) and Hidden (literally everything else the
+   panel already had - stat dashboard, highlight reel, roadmap, bio, etc.,
+   untouched). Reworked from 2 stacked boxes into a pill tab switcher
+   (per reference screenshot) matching .upgrades-tabs/.upgrades-tab
+   exactly - own class rather than reusing that one, same per-panel
+   naming convention as .inventory-tabs/.hub-tab/etc. below. */
+.profile-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.profile-tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.profile-tab.active {
+  color: #0c130c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
+}
+
+/* Only one page shows at a time now, so no separate box per page - the
+   panel's own .panel-box + .panel-fixed-content (68vh, own scrollbar)
+   is already the boundary, same as .upgrades-tab-page. Replaces
+   #profile-content as the flex parent for whichever page is visible -
+   same display/gap so the existing negative -8px margins further down
+   (cancelling a parent's 8px flex gap to make heading+list pairs sit
+   flush as one card) keep working unchanged at their new nesting depth. */
+.profile-tab-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 820px;
+}
+
+#profile-public-hint,
+#profile-private-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0 0 8px;
+  text-align: center;
+}
+
+/* Card bottom edge - margin-top cancels #profile-content's own 8px flex
+   gap (see that rule) so this sits flush against its heading above with
+   no visible seam, instead of the two pieces floating apart. */
+#highlight-reel-list,
+#rank-roadmap-list,
+#recent-unlocks-list,
+#prestige-history-list {
+  background: rgba(20, 16, 10, 0.55);
+  border: 1px solid rgba(138, 109, 71, 0.4);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  padding: 6px 14px 12px;
+  margin-top: -8px;
+}
+
+/* Old theme Profile (2026-10-10, "make the profile less dark for the old
+   style"): the stat cards, list cards and their headings are a faint
+   brown wash on the paper with an ink edge instead of near-black boxes. */
+html.ui-theme-old .profile-stat-card,
+html.ui-theme-old #profile-content #highlight-reel-heading,
+html.ui-theme-old #profile-content #rank-roadmap-heading,
+html.ui-theme-old #profile-content #recent-unlocks-heading,
+html.ui-theme-old #profile-content #prestige-history-heading,
+html.ui-theme-old #highlight-reel-list,
+html.ui-theme-old #rank-roadmap-list,
+html.ui-theme-old #recent-unlocks-list,
+html.ui-theme-old #prestige-history-list {
+  background: rgba(122, 78, 36, 0.1);
+  border-color: rgba(74, 44, 16, 0.4);
+}
+
+#profile-options .perk-option,
+#rank-roadmap-list .perk-option,
+#recent-unlocks-list .perk-option,
+#highlight-reel-list .perk-option,
+#prestige-history-list .perk-option {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 5px 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  cursor: default;
+  text-align: left;
+}
+
+#profile-options .perk-option:last-child,
+#rank-roadmap-list .perk-option:last-child,
+#recent-unlocks-list .perk-option:last-child,
+#highlight-reel-list .perk-option:last-child,
+#prestige-history-list .perk-option:last-child {
+  border-bottom: none;
+}
+
+#profile-options .perk-name,
+#rank-roadmap-list .perk-name,
+#recent-unlocks-list .perk-name,
+#highlight-reel-list .perk-name,
+#prestige-history-list .perk-name {
+  font-size: 14px;
+  font-weight: 400;
+  /* --menu-text-dim is declared on #menu, not :root - #profile-panel is a
+     modal sibling of #menu (see #goals-picker's own comment on the same
+     gotcha), so this was silently resolving to nothing and falling back
+     to inherited text color instead of the intended dim tone. Literal
+     fallback fixes it, same pattern #profile-panel h3/.settings-section-
+     heading already use. */
+  color: var(--menu-text-dim, rgba(224, 228, 220, 0.62));
+}
+
+#profile-options .perk-cost,
+#rank-roadmap-list .perk-cost,
+#recent-unlocks-list .perk-cost,
+#highlight-reel-list .perk-cost,
+#prestige-history-list .perk-cost {
+  font-size: 14px;
+  font-weight: 700;
+  color: #eee;
+}
+
+/* Every section heading in the Profile panel is a bare <h3> with no class
+   (unlike Settings, which uses .settings-section-heading throughout) -
+   they were falling back to the browser's default ~1em-top/bottom margin
+   and larger default font-size, which alone accounted for a real chunk of
+   this panel's excess height across a dozen+ sections. Same compact look
+   as .settings-section-heading, just scoped by tag instead of requiring a
+   class on every heading. */
+#profile-panel h3 {
+  margin: 6px 0 3px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #d9bc4a);
+  text-align: center;
+}
+
+#profile-panel h3:first-of-type {
+  margin-top: 2px;
+}
+
+.perk-options {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 90vw;
+}
+
+.perk-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 160px;
+  padding: 18px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  color: #eee;
+  cursor: pointer;
+  text-align: center;
+}
+
+.perk-option:hover:not(:disabled) {
+  border-color: var(--ui-gold-bright);
+  background: rgba(var(--ui-gold-accent-rgb), 0.1);
+}
+
+.perk-option.featured {
+  border-color: #ffde5c;
+  background: rgba(255, 207, 92, 0.08);
+}
+
+.perk-option.featured:hover:not(:disabled) {
+  border-color: #ffde5c;
+  background: rgba(255, 207, 92, 0.16);
+}
+
+.perk-option:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.perk-option.locked {
+  opacity: 0.3;
+  border-style: dashed;
+}
+
+.perk-option.locked .perk-cost {
+  color: #888;
+  font-style: italic;
+}
+
+.perk-option .perk-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Best Value tag - a small
+   inline badge, not a separate row, so it doesn't add height to the shop
+   grid. */
+
+.perk-option .perk-cost {
+  font-size: 12px;
+  color: #ffde5c;
+}
+
+.perk-option .perk-lore {
+  font-size: 11px;
+  font-style: italic;
+  color: rgba(238, 238, 238, 0.6);
+  line-height: 1.35;
+}
+
+.perk-panel-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+#prestige-section {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  text-align: center;
+}
+
+#prestige-level-line {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: #ffde5c;
+}
+
+/* Respec section - Long-Term Goals batch, same layout as #prestige-section
+   above, just without a level-line paragraph since Respec has no counter
+   of its own to display. */
+#respec-section {
+  margin-top: 10px;
+  text-align: center;
+}
+
+#profile-nearly-there-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nearly-there-line {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+/* Nearly There progress bars (see _renderNearlyThereNudge) - same track/
+   fill visual language as #season-progress-track/-fill, reused generically
+   rather than a second bespoke bar style. */
+.mini-progress-track {
+  width: 100%;
+  height: 5px;
+  margin-top: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mini-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--menu-bronze), var(--menu-gold));
+  transition: width 0.6s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mini-progress-fill {
+    transition: none;
+  }
+}
+
+.nearly-there-item {
+  margin: 0 0 6px;
+}
+
+/* Goals picker chips (Profile panel) - plain colors, not the #menu-scoped
+   --menu-* vars .preset-chip uses, since this renders inside #profile-panel
+   (a modal sibling of #menu, not a descendant - those vars don't reach it). */
+#goals-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.goal-chip {
+  padding: 5px 10px;
+  font-size: 11px;
+  color: #ccc;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  cursor: pointer;
+}
+

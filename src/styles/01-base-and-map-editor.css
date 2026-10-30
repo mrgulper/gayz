@@ -1,0 +1,804 @@
+* {
+  box-sizing: border-box;
+}
+
+/* Visually hidden but still reachable by screen readers - standard
+   clip-based technique (display:none/visibility:hidden would remove it
+   from the accessibility tree too, defeating the point). Used by the
+   homepage's aria-live stat summary region. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #eee;
+}
+
+/* Old theme's base text/font - most panel text has no font-family/color
+   of its own and just inherits from here, so this one rule reskins the
+   bulk of it at once. A handful of elements (dropdowns, stat tables,
+   chips) set their own explicit color and stay unchanged by this. */
+html.ui-theme-old {
+  font-family: 'Crimson Text', Georgia, serif;
+  color: #ddd0b8;
+}
+
+/* Nothing in the game can be highlighted, selected or dragged out - only
+   real text boxes (2026-10-11, Gaymi: "the profile is copied ... fix this
+   from the root cause, make everything not selectable"). Set on every
+   element rather than relying on html/body passing it down, the selection
+   colour is see-through outside text boxes, and Game.js also cancels any
+   selectstart/dragstart that doesn't begin in a text box. IDs are copied
+   by clicking them instead (#friends-own-id, #other-profile-id). */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+*, *::before, *::after {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+::selection {
+  background: transparent;
+}
+
+input, textarea, [contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+}
+#settings-panel input::selection {
+  background: transparent;
+}
+input::selection, textarea::selection, [contenteditable="true"] ::selection {
+  background: rgba(214, 170, 76, 0.45);
+}
+
+/* A mouse click never leaves the browser's focus ring around a clickable
+   card/button; keyboard focus (:focus-visible) still shows one. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
+/* Dyslexia-friendly font (Settings > Controls) - Lexend, a real font
+   designed for reading proficiency, loaded from Google Fonts alongside
+   the existing display fonts. Only overrides body/base text - any
+   element with its own explicit font-family (titles using
+   --menu-display-font, Black Ops One, etc.) keeps that, since a direct
+   declaration always wins over this inherited one regardless of source
+   order. */
+html.dyslexia-font body {
+  font-family: 'Lexend', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  /* Phone browsers size 100vh as if their toolbars were hidden, but
+     html/body never scroll so the toolbars never hide - the bottom strip
+     (homepage footer links, touch buttons) sat under the browser's
+     bottom bar. dvh tracks the actually-visible height; older browsers
+     ignore it and keep 100vh above. */
+  height: 100dvh;
+}
+
+#scene {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Build Mode's action menu (see BuildMode.js's toggleMenu) - hidden until
+   Escape is pressed, instead of every action button sitting on screen the
+   whole time you're building. Same fixed-centered-panel pattern as
+   #build-picker below. */
+/* Map Editor pause screen (Escape) - GayZ dark/gold: title top-left, a
+   preview card on the left, the action menu in the middle, Quick Info /
+   Shortcuts / Tip on the right. See BuildMode._refreshMenuInfo. */
+#build-menu {
+  --bm-gold: #e8c25a;
+  --bm-gold-rgb: 232, 194, 90;
+  --bm-gold-dim: rgba(var(--bm-gold-rgb), 0.45);
+  --bm-panel: rgba(18, 15, 10, 0.92);
+  --bm-text: #f1e6c8;
+  --bm-title-font: 'Black Ops One', 'Bebas Neue', sans-serif;
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 90px 24px 60px;
+  box-sizing: border-box;
+  background: radial-gradient(ellipse at center, rgba(10, 8, 5, 0.55), rgba(5, 4, 2, 0.88));
+  color: var(--bm-text);
+}
+.build-menu-card {
+  position: relative;
+  box-sizing: border-box;
+  padding: 16px 18px;
+  background: var(--bm-panel);
+  border: 1px solid var(--bm-gold-dim);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+/* Gold corner brackets, like the homepage panels. */
+.build-menu-card::before,
+.build-menu-card::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--bm-gold);
+  pointer-events: none;
+}
+.build-menu-card::before { top: -2px; left: -2px; border-right: none; border-bottom: none; border-top-left-radius: 8px; }
+.build-menu-card::after { bottom: -2px; right: -2px; border-left: none; border-top: none; border-bottom-right-radius: 8px; }
+
+/* Old theme: the same pause screen in its bronze/tan palette and Rye
+   lettering, like the rest of the Old-theme menus. */
+html.ui-theme-old #build-menu {
+  --bm-gold: #d4a068;
+  --bm-gold-rgb: 212, 160, 104;
+  --bm-panel: rgba(21, 15, 9, 0.92);
+  --bm-text: #ecdcc0;
+  --bm-title-font: 'Rye', Georgia, serif;
+}
+
+#build-menu-title {
+  position: absolute;
+  top: 22px;
+  left: 28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--bm-gold);
+}
+#build-menu-title svg { width: 46px; height: 46px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7)); }
+#build-menu-title div { display: flex; flex-direction: column; line-height: 1; }
+#build-menu-title-main {
+  font-family: var(--bm-title-font);
+  font-size: 42px;
+  text-transform: uppercase;
+  text-shadow: 0 3px 0 #000, 0 0 18px rgba(var(--bm-gold-rgb), 0.35);
+}
+#build-menu-title-sub {
+  margin-top: 4px;
+  font-family: var(--bm-title-font);
+  font-size: 18px;
+  letter-spacing: 3px;
+  color: var(--bm-text);
+  text-transform: uppercase;
+}
+#build-menu-close {
+  position: absolute;
+  top: 22px;
+  right: 26px;
+  width: 46px;
+  height: 46px;
+  border: 2px solid var(--bm-gold);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--bm-gold);
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+}
+#build-menu-close:hover { background: rgba(var(--bm-gold-rgb), 0.15); }
+
+#build-menu-left,
+#build-menu-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 300px;
+  flex: none;
+}
+#build-menu-preview-card { padding: 10px; }
+#build-menu-preview {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 5px;
+  background: #0c0a07;
+}
+#build-menu-map-name {
+  margin: 10px 4px 2px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+#build-menu-map-saved {
+  margin: 0 4px 4px;
+  font-size: 13px;
+  color: rgba(241, 230, 200, 0.6);
+}
+
+#build-menu-center {
+  display: flex;
+  flex-direction: column;
+  width: 420px;
+  max-height: 100%;
+  min-height: 0;
+  padding: 14px 18px 18px;
+}
+#build-menu-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(var(--bm-gold-rgb), 0.7);
+  text-align: center;
+}
+/* Two columns (2026-10-04 - with Fill/Replace/Shapes/Play added, one
+   column ran off the bottom); the main actions span both. */
+#build-menu-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-content: start;
+  gap: 7px;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 2px;
+}
+#build-menu-buttons button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--bm-text);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(var(--bm-gold-rgb), 0.22);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, color 0.12s, box-shadow 0.12s;
+}
+#build-menu-buttons button svg { width: 22px; height: 22px; flex: none; color: var(--bm-gold); }
+#build-menu-buttons button:hover:not(:disabled) {
+  border-color: var(--bm-gold);
+  background: linear-gradient(180deg, rgba(var(--bm-gold-rgb), 0.18), rgba(var(--bm-gold-rgb), 0.05));
+  box-shadow: 0 0 12px rgba(var(--bm-gold-rgb), 0.25);
+  color: #fff;
+}
+#build-menu-buttons button:disabled { opacity: 0.4; cursor: default; }
+#build-mode-exit-btn { margin-top: 6px; }
+#build-mode-try-btn, #build-mode-play-btn, #build-mode-exit-btn { grid-column: span 2; }
+/* Post to Gallery and Build Together share a row (2026-10-16). */
+#build-menu-buttons button { gap: 10px; padding: 9px 12px; font-size: 14px; min-width: 0; }
+#build-menu-buttons button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#build-mode-exit-btn svg { color: #e06a5a; }
+
+/* A tool that's switched on (Mirror / Line / Copy) glows gold. */
+#build-mode-mirror-btn.active,
+#build-mode-line-btn.active,
+#build-mode-copy-btn.active,
+#build-mode-fill-btn.active,
+#build-mode-replace-btn.active,
+#build-mode-shape-btn.active {
+  border-color: var(--bm-gold);
+  background: linear-gradient(180deg, rgba(var(--bm-gold-rgb), 0.32), rgba(var(--bm-gold-rgb), 0.12));
+  box-shadow: 0 0 14px rgba(var(--bm-gold-rgb), 0.35);
+  color: #fff;
+}
+
+#build-menu-right h3 {
+  margin: 0 0 12px;
+  font-family: var(--bm-title-font);
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--bm-gold);
+}
+.build-menu-info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 14px;
+  border-top: 1px solid rgba(var(--bm-gold-rgb), 0.1);
+}
+.build-menu-info-row:first-of-type { border-top: none; }
+.build-menu-info-row span { color: rgba(241, 230, 200, 0.6); }
+.build-menu-info-row b { color: #fff; text-align: right; }
+#build-menu-shortcuts { display: flex; flex-direction: column; gap: 4px; }
+/* The right column scrolls inside the screen instead of running off it
+   on short windows (17 shortcuts since the Fill/Replace/Shapes tools). */
+#build-menu-right { max-height: 100%; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-right: 2px; }
+.build-menu-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: rgba(241, 230, 200, 0.75);
+}
+.build-menu-keys {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 92px;
+  color: rgba(241, 230, 200, 0.5);
+}
+.build-menu-keys kbd {
+  min-width: 18px;
+  padding: 2px 7px;
+  font: 600 12px/1.4 inherit;
+  text-align: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(var(--bm-gold-rgb), 0.45);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+}
+#build-menu-tip {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(241, 230, 200, 0.85);
+}
+#build-menu-editing {
+  position: absolute;
+  left: 28px;
+  bottom: 20px;
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bm-gold);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--bm-gold-dim);
+  border-radius: 6px;
+}
+/* Narrower screens keep just the menu in the middle. */
+@media (max-width: 1180px) {
+  #build-menu-left,
+  #build-menu-right { display: none; }
+}
+@media (max-height: 640px) {
+  #build-menu { padding-top: 76px; }
+  #build-menu-title svg { width: 34px; height: 34px; }
+  #build-menu-title-main { font-size: 30px; }
+}
+
+/* Community Maps (BuildShare.js) and Build Together (BuildTogether.js) -
+   the Map Editor pause screen's dark-and-gold look. Text boxes are the
+   standard oval search bar. */
+#community-maps-panel,
+#build-together-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background: radial-gradient(ellipse at center, rgba(10, 8, 5, 0.6), rgba(5, 4, 2, 0.9));
+  color: #f1e6c8;
+}
+.build-share-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(620px, 100%);
+  max-height: 100%;
+  box-sizing: border-box;
+  padding: 20px 22px;
+  background: rgba(18, 15, 10, 0.94);
+  border: 1px solid rgba(232, 194, 90, 0.45);
+  border-radius: 10px;
+}
+.build-share-box h2 {
+  margin: 0;
+  text-align: center;
+  font-family: 'Black Ops One', 'Bebas Neue', sans-serif;
+  font-weight: 400;
+  font-size: 26px;
+  letter-spacing: 1px;
+  color: #e8c25a;
+}
+html.ui-theme-old .build-share-box h2 { font-family: 'Rye', Georgia, serif; color: #d4a068; }
+.build-share-box p { margin: 0; font-size: 14px; text-align: center; color: rgba(241, 230, 200, 0.8); }
+.build-share-box button {
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #f1e6c8;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(232, 194, 90, 0.4);
+  border-radius: 999px;
+}
+.build-share-box button:hover:not(:disabled) { border-color: #e8c25a; background: rgba(232, 194, 90, 0.18); color: #fff; }
+.build-share-box button:disabled { opacity: 0.45; cursor: default; }
+.build-share-code-row { display: flex; gap: 8px; align-items: center; justify-content: center; }
+.build-share-code-row input { width: 220px; margin: 0; text-transform: uppercase; letter-spacing: 3px; text-align: center; }
+.build-share-code-row input::placeholder { text-transform: none; letter-spacing: 0.3px; }
+.build-share-tabs { display: flex; gap: 6px; justify-content: center; }
+.build-share-tabs button.active { border-color: #e8c25a; background: rgba(232, 194, 90, 0.28); color: #fff; }
+#community-maps-shared, #build-together-code-line {
+  display: flex; gap: 10px; align-items: center; justify-content: center;
+  padding: 8px; border: 1px dashed rgba(232, 194, 90, 0.6); border-radius: 8px;
+}
+#community-maps-shared-code, #build-together-room-code { font-size: 26px; letter-spacing: 5px; color: #ffe9a8; }
+#community-maps-list { overflow-y: auto; overflow-x: hidden; min-height: 120px; max-height: 50vh; display: flex; flex-direction: column; gap: 6px; }
+.community-map-row {
+  display: flex; align-items: center; gap: 10px; justify-content: space-between;
+  padding: 8px 10px; background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(232, 194, 90, 0.22); border-radius: 8px;
+}
+.community-map-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 12px; color: rgba(241, 230, 200, 0.7); }
+.community-map-info b { font-size: 15px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.community-map-info span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.community-map-code { letter-spacing: 2px; color: #ffe9a8; }
+.community-map-btns { display: flex; gap: 4px; flex: none; }
+.community-map-btns button { padding: 6px 10px; font-size: 12px; }
+.community-maps-older { margin: 8px 0 2px; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: rgba(232, 194, 90, 0.75); }
+.build-share-big { align-self: center; padding: 10px 22px !important; font-size: 15px !important; }
+#build-together-start, #build-together-in-room { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.build-share-close { align-self: center; }
+#build-together-chip {
+  position: fixed; top: 64px; right: 196px; z-index: 15;
+  padding: 6px 14px; font-size: 14px; font-weight: 600; color: #ffe9a8;
+  background: rgba(10, 10, 10, 0.7); border: 1px solid rgba(255, 207, 92, 0.5); border-radius: 999px;
+  pointer-events: none;
+}
+
+#build-mode-exit-btn {
+  margin-top: 4px;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+#build-picker {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: rgba(10, 10, 10, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  /* Grid can grow past 6 rows now (36 block types) - cap height and let it
+     scroll internally rather than push the panel off the bottom of short
+     windows, same reasoning every other scrollable panel in this project
+     already applies. */
+  max-height: 80vh;
+}
+
+/* Search bar (the shared oval .search-bar look) and the block-type
+   dropdown beside it, on one row inside the picker's frame. */
+.build-picker-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.build-picker-toolbar .build-picker-search {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 13px;
+}
+.build-picker-toolbar .build-picker-category {
+  width: auto;
+  flex: 0 0 auto;
+  max-width: 45%;
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.build-picker-search:focus {
+  border-color: #d9bc4a;
+}
+
+.build-picker-grid {
+  display: grid;
+  /* 36 block types (up from the original 9) - 6 columns keeps this a
+     wide-but-short grid instead of a tall narrow one. */
+  grid-template-columns: repeat(6, 68px);
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.build-picker-empty {
+  grid-column: 1 / -1;
+  margin: 12px 0;
+  font-size: 12px;
+  color: rgba(232, 232, 232, 0.6);
+  text-align: center;
+}
+
+.build-picker-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 68px;
+  cursor: pointer;
+}
+
+.build-picker-swatch {
+  width: 68px;
+  height: 50px;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  /* 3D block icons (BlockTextures.js blockIconURL) - kept pixel-sharp. */
+  background: center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+.build-picker-swatch.selected {
+  border-color: #d9bc4a;
+}
+
+.build-picker-label {
+  font-size: 10px;
+  line-height: 1.15;
+  color: #e8e8e8;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+/* Minecraft-style always-on-screen quick-select bar (Digit1-9/0), separate
+   from the Tab picker above - the picker still covers all 18 block types,
+   this is just fast access to the first 10 without opening it. */
+#build-hotbar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+}
+
+/* No dark box on any slot (2026-10-19, Gaymi: "its black around the item
+   when youre on it it should be transparent") - the slot you're on is
+   marked by its gold border only. */
+.build-hotbar-slot {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  background: center / 38px no-repeat;
+  image-rendering: pixelated;
+}
+
+.build-hotbar-slot.selected {
+  border-color: #000;
+}
+
+.build-hotbar-slot-num {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: var(--white-text-edge);
+  pointer-events: none;
+}
+
+/* Save-slot picker (see BuildMode.js's switchSlot/_renderSlots) - top-left,
+   opposite corner from the exit/undo/save/export/import toolbar row. */
+/* Lives in the Escape menu (#build-menu), as a row above its buttons. */
+/* 10 save slots + Map 3: two rows of six (Map 3 takes the last two). */
+#build-slots {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 7px;
+  margin-bottom: 14px;
+}
+#build-slots .build-slot-map3 { grid-column: span 2; }
+
+#build-menu .build-slot-btn {
+  position: relative;
+  width: 100%;
+  height: 44px;
+  padding: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--bm-text);
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(var(--bm-gold-rgb), 0.3);
+  border-radius: 6px;
+  cursor: pointer;
+}
+#build-menu .build-slot-btn:hover { border-color: var(--bm-gold); }
+/* A slot with a picture of its map (BuildMode._saveSlotThumb): the
+   number moves to a little badge in the corner. */
+#build-menu .build-slot-btn.has-thumb {
+  height: 44px;
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+  font-size: 13px;
+  text-shadow: 0 1px 3px #000, 0 0 2px #000;
+}
+#build-menu .build-slot-btn.has-thumb .build-slot-num {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+}
+
+#build-menu .build-slot-btn.active {
+  border: 2px solid var(--bm-gold);
+  color: var(--bm-gold);
+  box-shadow: 0 0 12px rgba(var(--bm-gold-rgb), 0.35);
+}
+/* Map 3's button sits after the numbered slots and needs room for its name. */
+#build-menu .build-slot-btn.build-slot-map3 {
+  width: auto;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.build-slot-dot {
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #7fd8a0;
+}
+
+/* Nickname color (see settings.nicknameColor) - wraps every nickname
+   display site (Hardcore Memorial, Kill Feed), same --X-color-from-JS
+   pattern as --crosshair-color above. */
+.nickname-tag {
+  color: var(--nickname-color, #ffffff);
+  font-weight: 700;
+  font-family: var(--nickname-font, inherit);
+}
+
+/* Homepage Layout Density (Controls tab) - tightens the same gap/padding
+   spots the short-window @media rules already tighten for genuinely
+   short screens, just as an explicit opt-in at any height. */
+html.layout-compact #menu-col-left,
+html.layout-compact #menu-col-right {
+  gap: 6px;
+}
+
+html.layout-compact .menu-panel {
+  padding: 6px 12px;
+}
+
+/* Profile panel account row (see Game.js's _renderProfileAccountRow) -
+   Login/Register when signed out, Sign Out when signed in - both states
+   share the same row, only one visible at a time via inline display
+   toggles set from JS. */
+#profile-account-row {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+#profile-account-signed-out,
+#profile-account-signed-in {
+  display: flex;
+  gap: 10px;
+}
+
+/* Own-profile "Shown to Public" tab (2026-09-23) - restructured to match
+   #other-profile-panel's layout exactly (same centered header + divider,
+   same two-column split, same merged single stat list instead of a
+   separate "Your Stats" sub-panel) so a player sees their own public
+   profile laid out the same way a friend sees it. */
+#profile-public-name-value {
+  text-align: center;
+  margin: 10px 0 6px;
+}
+
+#profile-public-id-line {
+  text-align: center;
+  margin: 0 0 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+#profile-public-columns {
+  width: 100%;
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+#profile-public-stats-column {
+  flex: 1 1 380px;
+  max-width: 380px;
+  min-width: 0;
+}
+
+#profile-public-stats {
+  width: 100%;
+}
+
+#profile-public-stats-column > p,
+#profile-public-stats-column > #profile-best-run-card,
+#profile-public-stats-column > #profile-created-title {
+  margin-top: 10px;
+}
+
+#profile-bio-column {
+  flex: 1 1 380px;
+  max-width: 380px;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 16px 20px;
+}
+
+@media (max-width: 560px) {
+  #profile-public-columns {
+    flex-direction: column;
+  }
+  #profile-public-stats-column,
+  #profile-bio-column {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+/* Profile bio (see Game.js's _renderProfileBio) - free text, capped at
+   250 chars. */
+#profile-bio-input {
+  display: block;
+  width: 100%;
+  /* A bit bigger by default (2026-10-11); still resizable. */
+  min-height: 240px;
+  margin-top: 4px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #f4f1e6;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--menu-panel-border);
+  border-radius: 6px;
+  resize: vertical;
+}
+
+#profile-bio-counter {
+  margin: 2px 0 0;
+  font-size: 11px;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.5);
+}
+

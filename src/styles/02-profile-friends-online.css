@@ -1,0 +1,832 @@
+/* How to Play walkthrough - replayable panel (see _openHowToPlayPanel),
+   distinct from the one-time toast sequence (_maybeShowTutorialHints).
+   Rendered as one static scrollable list, same shape as Credits/Rules &
+   Info (#howtoplay-content joins their shared rules below) rather than a
+   Next/Back stepper. */
+/* Highlighted keys/words follow the UI theme's own gold (Old: warm
+   tan, Golden: bright gold) instead of a fixed yellow (2026-10-02). */
+#howtoplay-content b {
+  color: var(--ui-gold-bright);
+  filter: brightness(1.15);
+}
+
+/* Cloud Save (CloudSync.js, CloudSaveUI.js) - sign-in state, sync status
+   and the cloud-vs-local question. A section of General's General tab
+   since 2026-10-23 (was its own popup panel). */
+#cloudsave-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(560px, 100%);
+  margin: 0 auto;
+  padding: 8px 0 16px;
+  text-align: center;
+}
+#cloudsave-signed-out,
+#cloudsave-signed-in {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+/* height/overflow-y on both: same "match How to Play's box exactly"
+   treatment as .general-tab-page (see that rule's comment) - no header
+   row of its own to subtract here (h2 is the only element before these
+   two), so it's a plain 68vh like .panel-fixed-content. Only one of
+   these two is ever visible at a time (CloudSaveUI.renderCloudSaveState
+   toggles `style.display` between 'flex'/'none' depending on sign-in
+   state), same as General's tab pages. */
+/* margin:auto on both - same box-centering bug/fix as .settings-page
+   above (see that rule's comment) - align-items:center here only
+   centers each one's OWN children, not the element itself within
+   .panel-box. */
+#friends-signed-out {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(360px, 84vw);
+  margin: 0 auto;
+  height: var(--panel-h);
+  overflow-y: auto;
+  text-align: center;
+}
+
+/* Wider than the shared min(360px) rule above - the two-column split
+   (#friends-two-col) needs real room for an add-friend form on one side
+   and a friends list on the other. */
+#friends-signed-in {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(640px, 90vw);
+  margin: 0 auto;
+  height: var(--panel-h);
+  overflow-y: auto;
+  text-align: center;
+}
+
+/* The line above every Sign Up or Login button reads the same everywhere
+   (2026-10-10, "make the text the same size, style, and everything"). */
+/* My Clan while signed out (2026-10-23). */
+#clan-signin-gate {
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 0;
+  text-align: center;
+}
+
+#friends-signed-out-desc,
+#server-chat-signed-out-desc,
+#clan-signin-gate-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+  opacity: 0.8;
+}
+
+#cloudsave-conflict {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+}
+
+#cloudsave-conflict-desc {
+  margin: 0;
+  font-size: 12px;
+}
+
+/* Online Features (leaderboard, weekly ranking, friend compare, global
+   kill counter, community poll) - see _renderCloudOnlineSection. Its own
+   scroll region (same max-height+overflow-y pattern #whats-new-digest-list
+   already uses) rather than letting the whole modal grow past the
+   viewport once leaderboard rows + poll options stack up. */
+/* Leaderboards fill General's tab now the account row is gone
+   (2026-10-24): the panel's 68vh minus the tab buttons. */
+#cloudsave-online-section {
+  width: 100%;
+  max-height: calc(var(--panel-h) - 60px);
+  overflow-y: auto;
+  margin-top: 0;
+  padding-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#cloudsave-online-section h3 {
+  margin: 8px 0 2px;
+  font-size: 12px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--ui-gold-bright);
+  opacity: 0.85;
+}
+
+#cloudsave-global-kills {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#cloudsave-rank-line,
+#cloudsave-rival-line,
+#cloudsave-avg-line {
+  margin: 2px 0 0;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+#cloudsave-leaderboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#cloudsave-leaderboard-header h3 {
+  margin: 8px 0 2px;
+}
+
+#cloudsave-region-select {
+  padding: 3px 20px 3px 6px;
+  font-size: 11px;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0L5 6L10 0Z' fill='%23e3a63c'/%3E%3C/svg%3E") no-repeat right 6px center;
+  background-size: 8px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+}
+
+/* The dropdown-arrow color above is baked into an inline SVG data URI,
+   which can't read a CSS var - re-encoded with the Old theme's accent
+   hex instead so the arrow isn't stuck gold when Golden's isn't used. */
+html.ui-theme-old #cloudsave-region-select {
+  background: rgba(255, 255, 255, 0.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0L5 6L10 0Z' fill='%23c2884f'/%3E%3C/svg%3E") no-repeat right 6px center;
+}
+/* On General's paper: dark ink on a light tint (light grey text was
+   nearly invisible there, 2026-10-26). */
+html.ui-theme-old .panel-box #cloudsave-region-select {
+  color: var(--old-ink);
+  background-color: rgba(255, 248, 230, 0.55);
+  border-color: rgba(74, 44, 16, 0.45);
+  font-weight: 600;
+}
+
+/* Two-column split: left = add-friend form (+ your own ID, DND/hide
+   toggles), right = your friends list with live status. Stacks to one
+   column on genuinely narrow windows rather than squeezing both. */
+#friends-two-col {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+  text-align: left;
+}
+
+#friends-col-requests,
+#friends-col-list {
+  flex: 1;
+  min-width: 220px;
+}
+
+#friends-col-add {
+  width: 100%;
+  text-align: left;
+}
+
+@media (max-width: 560px) {
+  #friends-two-col {
+    flex-direction: column;
+  }
+}
+
+#friends-own-id-line {
+  margin: 2px 0 10px;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+#friends-own-id {
+  font-weight: 700;
+  color: var(--ui-gold-bright);
+  cursor: pointer;
+}
+
+/* Player's own presence Status picker - sits between "Add a Friend" and
+   the Friend Requests/Your Friends columns. Reuses .friend-status-dot's
+   data-status color keying so the pill colors always match the dots shown
+   next to friends in "Your Friends" below. */
+#status-row {
+  width: 100%;
+  text-align: left;
+}
+
+/* Collapsed dropdown (Discord-style) instead of 4 always-visible pills -
+   #status-picker-toggle shows the current pick, click opens the floating
+   #status-picker-options list below it; .open (toggled in Game.js) drives
+   both. Reuses .friend-status-dot's data-status coloring throughout. */
+#status-picker {
+  position: relative;
+  width: 100%;
+  max-width: 240px;
+}
+
+#status-picker-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e8e8e2;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+#status-picker-toggle:hover,
+#status-picker.open #status-picker-toggle {
+  border-color: #d9bc4a;
+}
+
+#status-picker-label {
+  flex: 1;
+  text-align: left;
+}
+
+#status-picker-chevron {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: #d9bc4a;
+  transition: transform 0.15s ease;
+}
+
+#status-picker.open #status-picker-chevron {
+  transform: rotate(180deg);
+}
+
+/* Literal hex, not var(--menu-gunmetal-dark)/var(--menu-gold) - those are
+   defined as custom properties on #menu itself, and #friends-panel sits
+   outside #menu in the DOM, so the var() calls silently resolved to
+   nothing here and this rendered fully transparent (Friend Requests
+   content visibly bleeding through underneath it) until caught live. */
+#status-picker-options {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  background: #1c1e20;
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.4);
+  border-radius: 8px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+  z-index: 5;
+}
+
+#status-picker.open #status-picker-options {
+  display: flex;
+}
+
+.status-pick-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: #ccc;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.status-pick-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.status-pick-btn.active {
+  color: #e8e8e2;
+  background: rgba(var(--ui-gold-accent-rgb), 0.16);
+}
+
+#cloudsave-saved-friends {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.saved-friend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: var(--menu-text-dim, #ccc);
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+}
+
+.saved-friend-row:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.4);
+}
+
+#other-profile-id {
+  font-weight: 700;
+  color: var(--ui-gold-bright);
+  cursor: pointer;
+}
+
+/* Same color-coding as the own-profile Your Stats panel's
+   [data-stat="..."] rule - deliberately done by ID here instead of
+   reusing that same data-stat attribute value: that selector is an
+   UNSCOPED document.querySelectorAll (see _updateBestStatsDisplay),
+   so reusing it here would let the local player's own stats silently
+   overwrite whatever this popup just rendered for a DIFFERENT player,
+   every time that own-profile update runs. */
+#other-profile-longestsurvival-value { color: var(--menu-green); font-weight: 600; }
+#other-profile-lastrun-value { color: var(--menu-red); font-weight: 600; }
+
+/* Header (name/ID) - centered with a divider before the two columns,
+   redesigned 2026-09-22 alongside the rest of this panel's polish pass
+   (was plain unstyled h2/p defaults, left-aligned flush against the
+   stats below with no separation). */
+#other-profile-name {
+  text-align: center;
+  margin: 0 0 6px;
+}
+
+#other-profile-id-line {
+  text-align: center;
+  margin: 0 0 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* No more fixed 320px cap - #other-profile-stats-column (the new flex
+   column wrapper) now owns the width budget instead. */
+#other-profile-stats {
+  width: 100%;
+}
+
+#other-profile-stats-column > p,
+#other-profile-stats-column > #other-profile-best-run-card,
+#other-profile-stats-column > #other-profile-created-line {
+  margin-top: 10px;
+}
+
+#other-profile-anniversary-line,
+#other-profile-today-line,
+#other-profile-favorite-difficulty-line {
+  margin: 4px 0;
+  font-size: 12px;
+  opacity: 0.7;
+  font-style: italic;
+}
+
+/* Same "quiet metal card" look as the own-profile Best Run card
+   (#profile-best-run-card) - was plain unstyled h3/p text here before. */
+#other-profile-best-run-card {
+  margin: 10px 0;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  text-align: center;
+}
+
+#other-profile-best-run-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+#other-profile-best-run-line {
+  margin: 0;
+  font-size: 12px;
+}
+
+#other-profile-created-line {
+  font-size: 12px;
+  opacity: 0.6;
+  text-align: center;
+}
+
+#other-profile-bio-heading {
+  margin: 0 0 4px;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #d9bc4a);
+  opacity: 0.85;
+}
+
+#other-profile-bio-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: 0.9;
+  word-break: break-word;
+}
+
+/* Private per-player Notes (2026-09-23) - same heading language as
+   Bio above, textarea styled like the owner's own #profile-bio-input
+   so it doesn't read as a mismatched native control. */
+#other-profile-notes-heading {
+  margin: 14px 0 2px;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #d9bc4a);
+  opacity: 0.85;
+}
+
+#other-profile-notes-hint {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-style: italic;
+  opacity: 0.55;
+}
+
+#other-profile-notes-input {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #f4f1e6;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--menu-panel-border);
+  border-radius: 6px;
+  resize: none;
+  flex: 1 1 auto;
+}
+
+.friend-name {
+  flex: 1;
+}
+
+/* A friend's Player ID after their name (2026-10-10, "add (#) for your
+   friends") - also on the Add a Friend name-search list. */
+.friend-id {
+  font-size: 0.85em;
+  font-weight: 600;
+  opacity: 0.7;
+  margin-left: 4px;
+}
+
+/* Add a Friend by name: the list of matching players under the box. It
+   floats over what's below (2026-10-11, "dont let the background move
+   down when it pops up") - inside #cloudsave-friend-row, which is
+   position: relative. */
+#cloudsave-friend-suggestions {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #1c1e20;
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.4);
+  border-radius: 12px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+#cloudsave-friend-suggestions.open { display: flex; }
+.friend-suggest-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 13px;
+  color: #e8e8e2;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+.friend-suggest-row:hover,
+.friend-suggest-row:focus-visible { background: rgba(var(--ui-gold-accent-rgb), 0.16); }
+.friend-suggest-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Status dot - color keyed off data-status, set live per friend by
+   _fetchFriendPresences/_computeFriendStatus in Game.js. */
+.friend-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #6b6b6b;
+}
+
+.friend-status-dot[data-status="online"] { background: #4caf50; }
+.friend-status-dot[data-status="idle"] { background: #e0bf3c; }
+.friend-status-dot[data-status="dnd"] { background: #c9564a; }
+.friend-status-dot[data-status="offline"] { background: #6b6b6b; }
+
+.friend-status-label {
+  font-size: 10px;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+#friend-requests-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+#friend-requests-count,
+#friends-count {
+  font-size: 12px;
+  opacity: 0.65;
+}
+
+#friends-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+#friend-requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto 8px;
+}
+
+.friend-request-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.saved-friend-remove {
+  color: var(--menu-red, #c9564a);
+  font-weight: 700;
+  padding: 0 1px;
+  cursor: pointer;
+}
+
+/* General's leaderboards (2026-10-24 redesign, OnlineUI lbRow): rank in a
+   circle (gold/silver/bronze for the top 3), the name (a button that opens
+   that player's profile), then right-aligned number columns under a small
+   header. Your own row is tinted. */
+.lb-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 6px 10px;
+  font-size: 14px;
+  border-radius: 10px;
+}
+.lb-row + .lb-row:not(.me, .lb-head) {
+  box-shadow: inset 0 1px 0 rgba(var(--ui-gold-bright-rgb), 0.1);
+}
+.lb-row.lb-head {
+  min-height: 0;
+  padding: 2px 10px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.lb-rank {
+  flex: 0 0 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(var(--ui-gold-bright-rgb), 0.1);
+}
+.lb-rank:empty,
+.lb-head .lb-rank {
+  background: none;
+}
+.podium-1 .lb-rank { background: #f2c94c; color: #1d1d1f !important; }
+.podium-2 .lb-rank { background: #cfd4dc; color: #1d1d1f !important; }
+.podium-3 .lb-rank { background: #d9a066; color: #1d1d1f !important; }
+.lb-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-weight: 600;
+}
+#cloudsave-online-section .lb-row .lb-name-link {
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  filter: none;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+#cloudsave-online-section .lb-row .lb-name-link:hover,
+#cloudsave-online-section .lb-row .lb-name-link:focus-visible {
+  background: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.lb-tag {
+  flex: 0 0 auto;
+  font-size: 11px;
+  opacity: 0.7;
+}
+.lb-stat {
+  flex: 0 0 64px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.lb-head .lb-name {
+  font-weight: 600;
+}
+.lb-row.me {
+  background: rgba(var(--ui-gold-bright-rgb), 0.12);
+  font-weight: 700;
+}
+@media (max-width: 480px) {
+  .lb-row { gap: 8px; padding: 6px 6px; font-size: 13px; }
+  .lb-stat { flex-basis: 48px; }
+}
+
+.cloud-leaderboard-empty {
+  margin: 4px 0;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+#cloudsave-friend-row {
+  position: relative;
+  display: flex;
+  gap: 6px;
+}
+
+#cloudsave-friend-row .nickname-input {
+  flex: 1;
+}
+
+#cloudsave-friend-result {
+  margin: 6px 0 0;
+  font-size: 12px;
+  text-align: left;
+}
+
+#cloudsave-poll-options {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.poll-option-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  font-size: 12px;
+  text-align: left;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.poll-option-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: var(--poll-pct, 0%);
+  background: rgba(var(--ui-gold-accent-rgb), 0.18);
+  z-index: 0;
+}
+
+.poll-option-label,
+.poll-option-pct {
+  position: relative;
+  z-index: 1;
+}
+
+.poll-option-btn.voted {
+  border-color: var(--ui-gold-bright);
+  cursor: default;
+}
+
+#cloudsave-poll-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+/* Homepage quick-cloud icon needs position:relative for its signed-in
+   dot overlay - same technique as .nav-badge-dot on the Credits button,
+   just on a smaller icon button instead of a full nav button. */
+#quick-cloud-btn {
+  position: relative;
+}
+
+#quick-cloud-btn .nav-badge-dot {
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  background: var(--menu-green, #7fd8a0);
+}
+
+:root {
+  /* Reference mockup's panels/buttons read as textured stamped metal, not
+     flat color - a subtle fractal-noise grain (SVG feTurbulence, alpha
+     baked into the filter itself so it composites faint) approximates
+     that without needing an actual image asset. On :root (not #menu)
+     since the Shop/Upgrades/Achievements/etc. modal panels that also use
+     it are siblings of #menu in the DOM, not descendants - a custom
+     property scoped to #menu wouldn't reach them. */
+  --grain-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  /* Theme palette - moved here from #menu (2026-08-26) for the same reason
+     --grain-texture already lives here: the Clan/Community-Builds/Friends
+     etc. standalone panels are siblings of #menu, not descendants, so a
+     custom property declared on #menu itself never reached them (they were
+     falling back to their own hardcoded var(--menu-gold, #d9bc4a) literal
+     instead). Moving the real declaration to :root means every panel now
+     genuinely reads the same live value - harmless for Golden (the
+     fallback hex already matched these numbers exactly) and required for
+     the Old theme override below to actually reach every panel. */
+  --menu-gold: #d9bc4a;
+  --menu-green: #7fd8a0;
+  --menu-red: #c9564a;
+  --menu-orange: #e0c34f;
+  --menu-blue: #6fa8dc;
+  --menu-purple: #b07cd6;
+  --menu-olive: #92a05e;
+  --menu-gunmetal: #34383c;
+  --menu-gunmetal-dark: #1c1e20;
+  --menu-bronze: #8a6d47;
+  /* Bright accent pair (2026-09-26) - a lot of shared chrome (panel-box
+     border/glow, tabs, checkboxes, inputs, dropdowns) was hardcoding
+     these two literal golds directly instead of reading them from a
+     var, so picking Old theme left all of it still gold. Values here
+     match the literals exactly so Golden's look doesn't change at all;
+     only the html.ui-theme-old override below differs. */
+  --ui-gold-bright: #e3c23c;
+  --ui-gold-bright-rgb: 227, 194, 60;
+  --ui-gold-accent: #e3a63c;
+  --ui-gold-accent-rgb: 227, 166, 60;
+  --menu-panel-bg: rgba(7, 8, 8, 0.95);
+  --menu-panel-border: rgba(138, 109, 71, 0.5);
+  --menu-text-dim: rgba(224, 228, 220, 0.62);
+  --menu-display-font: 'Bebas Neue', 'Segoe UI', sans-serif;
+}
+

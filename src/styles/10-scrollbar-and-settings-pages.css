@@ -1,0 +1,862 @@
+/* Universal gold scrollbar (standing rule, 2026-08-26 - Gaymi asked for
+   this to apply everywhere by default from now on, including #upgrades-
+   panel which had never gotten it) - same exact style as .settings-page
+   above (Firefox thin/gold, WebKit 8px gold thumb/transparent track),
+   applied to EVERY element via the universal selector rather than a
+   per-panel whitelist, so any future scrollable panel gets it
+   automatically with no CSS change needed. * has the lowest possible
+   specificity, so every more specific rule below (or anywhere else)
+   still wins where one already exists - this only fills gaps. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--ui-gold-accent-rgb), 0.6) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(var(--ui-gold-accent-rgb), 0.6);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--ui-gold-accent-rgb), 0.8);
+}
+
+/* Same gold scrollbar as .settings-page above, applied to every other
+   panel/list that scrolls - previously only Settings had it, so
+   Achievements/Profile/Hub/etc fell back to the browser's stark white
+   default scrollbar. Now redundant with the universal rule above (every
+   panel here would inherit the same styling regardless), kept as-is
+   since removing it risks nothing but also gains nothing. */
+#profile-panel,
+#achievements-panel,
+#hub-panel,
+#credits-content,
+#terms-content,
+#privacy-content,
+#features-layout,
+#howtoplay-content,
+#whatsnew-content,
+#whats-new-digest-list,
+#cloudsave-online-section,
+.build-picker-grid {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--ui-gold-accent-rgb), 0.6) transparent;
+}
+
+#profile-panel::-webkit-scrollbar,
+#achievements-panel::-webkit-scrollbar,
+#hub-panel::-webkit-scrollbar,
+#credits-content::-webkit-scrollbar,
+#terms-content::-webkit-scrollbar,
+#privacy-content::-webkit-scrollbar,
+#features-layout::-webkit-scrollbar,
+#howtoplay-content::-webkit-scrollbar,
+#whatsnew-content::-webkit-scrollbar,
+#whats-new-digest-list::-webkit-scrollbar,
+#cloudsave-online-section::-webkit-scrollbar,
+.build-picker-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+#profile-panel::-webkit-scrollbar-track,
+#achievements-panel::-webkit-scrollbar-track,
+#hub-panel::-webkit-scrollbar-track,
+#credits-content::-webkit-scrollbar-track,
+#terms-content::-webkit-scrollbar-track,
+#privacy-content::-webkit-scrollbar-track,
+#features-layout::-webkit-scrollbar-track,
+#howtoplay-content::-webkit-scrollbar-track,
+#whatsnew-content::-webkit-scrollbar-track,
+#whats-new-digest-list::-webkit-scrollbar-track,
+#cloudsave-online-section::-webkit-scrollbar-track,
+.build-picker-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#profile-panel::-webkit-scrollbar-thumb,
+#achievements-panel::-webkit-scrollbar-thumb,
+#hub-panel::-webkit-scrollbar-thumb,
+#credits-content::-webkit-scrollbar-thumb,
+#terms-content::-webkit-scrollbar-thumb,
+#privacy-content::-webkit-scrollbar-thumb,
+#features-layout::-webkit-scrollbar-thumb,
+#howtoplay-content::-webkit-scrollbar-thumb,
+#whatsnew-content::-webkit-scrollbar-thumb,
+#whats-new-digest-list::-webkit-scrollbar-thumb,
+#cloudsave-online-section::-webkit-scrollbar-thumb,
+.build-picker-grid::-webkit-scrollbar-thumb {
+  background: rgba(var(--ui-gold-accent-rgb), 0.6);
+  border-radius: 4px;
+}
+
+#profile-panel::-webkit-scrollbar-thumb:hover,
+#achievements-panel::-webkit-scrollbar-thumb:hover,
+#hub-panel::-webkit-scrollbar-thumb:hover,
+#credits-content::-webkit-scrollbar-thumb:hover,
+#terms-content::-webkit-scrollbar-thumb:hover,
+#privacy-content::-webkit-scrollbar-thumb:hover,
+#features-layout::-webkit-scrollbar-thumb:hover,
+#howtoplay-content::-webkit-scrollbar-thumb:hover,
+#whatsnew-content::-webkit-scrollbar-thumb:hover,
+#whats-new-digest-list::-webkit-scrollbar-thumb:hover,
+#cloudsave-online-section::-webkit-scrollbar-thumb:hover,
+.build-picker-grid::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--ui-gold-accent-rgb), 0.8);
+}
+
+.language-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.language-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #eee;
+  cursor: pointer;
+  text-align: left;
+}
+
+.language-btn:hover {
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.5);
+}
+
+.language-btn.active {
+  background: rgba(var(--ui-gold-accent-rgb), 0.14);
+  border-color: var(--ui-gold-bright);
+}
+
+.language-btn .lang-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.language-btn .lang-native {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.language-btn .lang-coming-soon {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--ui-gold-bright);
+  opacity: 0.75;
+}
+
+#language-missing-hint {
+  margin: 14px 4px 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+}
+
+#language-missing-discord-link {
+  color: var(--ui-gold-bright);
+  text-decoration: underline;
+}
+
+#language-missing-discord-link:hover {
+  color: #f4da70;
+}
+
+.audio-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 48px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 4px;
+}
+
+/* Advanced disclosure (Settings > Controls > Personalization) - collapsed
+   by default, holding the cosmetic-only settings someone might genuinely
+   want but shouldn't be first-tier UI (CRT scanlines/cursor trail/theme
+   presets). Native <details> rather than a custom JS toggle - free
+   keyboard/screen-reader support, no state to wire up. */
+.settings-advanced {
+  margin: 4px 0;
+}
+
+.settings-advanced summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #d9bc4a);
+  opacity: 0.85;
+  padding: 4px;
+  list-style: none;
+}
+
+.settings-advanced summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-advanced summary::before {
+  content: '\25B8';
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 0.15s ease;
+}
+
+.settings-advanced[open] summary::before {
+  transform: rotate(90deg);
+}
+
+/* Sub-section headings within a settings page (Graphics tab's Rendering/
+   Effects/Damage Indicator/Damage Numbers groups) - uppercase like the
+   panel titles elsewhere, but smaller/left-aligned since it's grouping
+   rows in a list, not topping a whole panel. */
+.settings-section-heading {
+  margin: 18px 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #d9bc4a);
+  text-align: left;
+}
+
+.settings-section-heading:first-child {
+  margin-top: 4px;
+}
+
+/* Profile panel groups its stat rows within #profile-options, a flex-wrap
+   grid (see .perk-options) rather than the Settings panel's block-flow
+   layout - flex-basis:100% is what forces a heading onto its own full-width
+   row instead of just becoming another wrapped flex item. */
+.perk-options .settings-section-heading {
+  flex-basis: 100%;
+  text-align: center;
+}
+
+.audio-row label {
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+.audio-row input[type='range'] {
+  width: 100%;
+  accent-color: var(--ui-gold-bright);
+}
+
+/* Settings checkboxes, GayZ style - plain color only (2026-10-10, Gaymi:
+   "make it only colour, not something in it, in GayZ style for all
+   themes"; it was a riveted metal plate with a brushed check before).
+   Off: a dim fill inside the theme's rim. On: filled with the theme's
+   color and a check mark (since 2026-10-11, below). Golden uses gold,
+   Old the paper's brown. */
+.audio-checkbox {
+  --cb-rim: var(--ui-gold-bright);
+  --cb-off: rgba(0, 0, 0, 0.3);
+  --cb-on: #d9a94a;
+  --cb-on-top: #f3d68a;
+  --cb-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.2 8.4l3 3 6.6-6.8' fill='none' stroke='%232a1b08' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  appearance: none;
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  flex-shrink: 0;
+  background: var(--cb-off);
+  border: 1.5px solid var(--cb-rim);
+  border-radius: 6px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  position: relative;
+  justify-self: start;
+  transition: background-color 0.2s ease, border-color 0.2s ease, filter 0.15s ease, transform 0.1s ease;
+}
+
+/* On: a soft top-to-bottom shade of the theme color with a check mark
+   in it (2026-10-11, Gaymi: "make it smoother colour also add the check
+   mark when clicking it"). --cb-check is the mark, as an SVG picture. */
+.audio-checkbox:checked {
+  background-color: var(--cb-on);
+  background-image: var(--cb-check), linear-gradient(180deg, var(--cb-on-top), var(--cb-on));
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 78% 78%, 100% 100%;
+}
+
+.audio-checkbox:hover {
+  filter: brightness(1.15);
+}
+
+.audio-checkbox:active {
+  transform: scale(0.92);
+}
+
+html.ui-theme-old .audio-checkbox {
+  --cb-rim: #8a5f34;
+  --cb-off: rgba(90, 58, 26, 0.1);
+  --cb-on: #9a6a3a;
+  --cb-on-top: #b98a58;
+  --cb-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.2 8.4l3 3 6.6-6.8' fill='none' stroke='%23f6e7c4' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.audio-checkbox:focus-visible {
+  outline: 2px solid var(--ui-gold-bright);
+  outline-offset: 2px;
+}
+
+.audio-value {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  opacity: 0.75;
+}
+
+.audio-value-editable {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 4px;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.audio-value-editable:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* appearance was left at its browser default (never reset), which on
+   some platforms paints this control's own native white background/blue
+   focus ring UNDER the custom background/border below rather than
+   respecting them - looked completely undone next to every other themed
+   input in Settings (2026-09-21). The native spin buttons are hidden
+   (same as the input's own appearance reset) and replaced with the two
+   custom .audio-value-step buttons below - the native ones didn't
+   reliably pick up this dark theme either, but simply removing them
+   silently lost the up/down-clicking feature itself, caught immediately
+   and rebuilt as custom buttons instead of left gone. */
+.audio-value-input-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+  /* Matches .audio-value-editable's own rendered height exactly (19px)
+     so swapping the label for this on click can't grow .audio-row and
+     shift every row below it down a couple px - box-sizing: border-box
+     below keeps the input's padding/border inside that same height
+     budget instead of adding to it (2026-09-21, caught from a real
+     "everything moved down slightly" report). */
+  height: 19px;
+}
+
+.audio-value-input {
+  box-sizing: border-box;
+  height: 100%;
+  width: 44px;
+  padding-right: 14px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.6);
+  border-radius: 4px;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.audio-value-input:focus {
+  border-color: var(--ui-gold-bright);
+}
+
+.audio-value-input::-webkit-inner-spin-button,
+.audio-value-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.audio-value-step {
+  position: absolute;
+  right: 3px;
+  width: 11px;
+  height: 9px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: rgba(var(--ui-gold-accent-rgb), 0.75);
+  font-size: 7px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.audio-value-step:hover {
+  color: var(--ui-gold-bright);
+}
+
+.audio-value-step-up {
+  top: 1px;
+}
+
+.audio-value-step-down {
+  bottom: 1px;
+}
+
+.audio-value-step-up::before {
+  content: '\25B2';
+}
+
+.audio-value-step-down::before {
+  content: '\25BC';
+}
+
+/* Upgrades/Achievements/Bestiary/Profile/Credits/Coin Shop panels - same
+   "no explicit Close button, click the backdrop instead" pattern as
+   Settings above (see the matching click-outside handlers in Game.js). */
+.panel-close-hint {
+  margin-top: 16px;
+  font-size: 13px;
+  opacity: 0.55;
+}
+
+/* Real report (2026-09-19): a phone's specific graphics chip rendered the
+   whole 3D world as solid black while every DOM-based HUD element (chat,
+   controls, minimap) still worked fine - device GPU quirks like this are
+   hard to fix one-by-one without the exact hardware, so this is a visible,
+   always-shown (not hidden behind the "?" tooltip) escape hatch: the one
+   thing most likely to help someone who's already confused and stuck. */
+.settings-troubleshoot-hint {
+  margin: 4px 0 12px;
+  padding-left: 20px;
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: 0.65;
+}
+
+.controls-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 14px;
+  align-items: center;
+}
+
+.control-label {
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+.control-key-btn {
+  min-width: 64px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.control-key-btn:hover {
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.5);
+}
+
+.control-key-btn.listening {
+  color: #0c130c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
+}
+
+/* Red warning text (e.g. Storage is getting full). */
+.danger-text {
+  color: #e07a7a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#screen-overlays {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Real individual falling particles (was a tiled CSS background-position
+   shift - looked like an obviously repeating pattern rather than rain/
+   snow actually descending, per direct follow-up feedback) - each
+   particle is its own small DOM element (built once by Game.js's
+   _ensureWeatherParticles, sized/positioned/timed via inline style per
+   particle for genuine randomness a shared background-image tile can't
+   give) that travels the full height of the screen top-to-bottom on a
+   loop, not a short back-and-forth shift. */
+#rain-overlay,
+#rain-overlay-hard,
+#snow-overlay,
+#snow-overlay-hard {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.rain-particle,
+.snow-particle {
+  position: absolute;
+  top: -10px;
+  border-radius: 1px;
+  animation-name: particle-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.rain-particle {
+  background: #4d9fff;
+}
+
+.snow-particle {
+  background: #ffffff;
+}
+
+/* --sway (set per-particle by Game.js, snow only) bends the fall path
+   into a gentle S-curve instead of a dead-straight line - rain has no
+   --sway set, so it defaults to 0 and falls straight down. */
+@keyframes particle-fall {
+  0% { transform: translate(0, -5vh); }
+  25% { transform: translate(var(--sway, 0px), 25vh); }
+  50% { transform: translate(0, 50vh); }
+  75% { transform: translate(calc(var(--sway, 0px) * -1), 75vh); }
+  100% { transform: translate(0, 105vh); }
+}
+
+/* Sandstorm (Map Editor weather, BuildSky.js) - a uniform tan haze with a slow
+   pulse, deliberately simpler than rain/snow's particle patterns since a
+   sandstorm reads more as an even haze than individual falling shapes. */
+#sandstorm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(196, 154, 92, 0.32);
+  mix-blend-mode: multiply;
+  animation: sandstorm-pulse 4s ease-in-out infinite;
+}
+
+@keyframes sandstorm-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* Graphics-connection-lost panel - can appear over literally any other
+   screen/panel at any moment (a browser-level WebGL context loss, usually
+   from too many GPU-heavy tabs open at once - see Game.js's own comment
+   next to the renderer for the real player report this traces to), so it
+   sits above every other z-index in this file (30 was previously the max,
+   #screen-fade) rather than joining the regular panel/overlay scale. */
+#graphics-lost-panel {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 40px;
+  text-align: center;
+  background: radial-gradient(ellipse at center, rgba(45, 10, 10, 0.94), rgba(6, 2, 2, 0.99));
+  z-index: 9999;
+}
+
+#graphics-lost-title {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: 2px;
+  color: #e35c3c;
+  text-shadow: 0 0 20px rgba(227, 92, 60, 0.5);
+}
+
+#graphics-lost-text {
+  max-width: 480px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #e0d0cf;
+}
+
+#graphics-lost-buttons {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+#graphics-lost-keep-playing-btn,
+#graphics-lost-reload-btn {
+  padding: 14px 32px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* Primary once graphics reconnect - the recommended default is to keep
+   playing, not reload (see Game.js's webglcontextrestored handler). */
+#graphics-lost-keep-playing-btn {
+  color: #170a06;
+  background: var(--ui-gold-bright);
+  border: none;
+}
+
+#graphics-lost-keep-playing-btn:hover {
+  background: #e8d264;
+}
+
+/* Secondary/backup action - stays available the whole time (including
+   before reconnection, where it's the only button shown) in case the
+   automatic recovery leaves something looking wrong. */
+#graphics-lost-reload-btn {
+  color: #e0d0cf;
+  background: transparent;
+  border: 1px solid rgba(224, 208, 207, 0.5);
+}
+
+#graphics-lost-reload-btn:hover {
+  background: rgba(224, 208, 207, 0.1);
+}
+
+/* Safety net for "Keep Playing" (2026-09-19) - a real report: the
+   automatic recovery can report success (isContextLost() false) while the
+   actual picture never comes back, and the old behavior hid the ENTIRE
+   graphics-lost-panel on Keep Playing, reload button included, leaving no
+   way back except knowing to manually refresh. This stays reachable in a
+   corner instead of disappearing - same z-index tier as graphics-lost-
+   panel since it has to be reachable no matter what else is on screen. */
+#graphics-recovery-notice {
+  display: none;
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(20, 10, 10, 0.9);
+  border: 1px solid rgba(227, 92, 60, 0.5);
+  border-radius: 8px;
+  color: #e0d0cf;
+  font-size: 13px;
+  z-index: 9999;
+}
+
+#graphics-recovery-reload-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #170a06;
+  background: var(--ui-gold-bright);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+#graphics-recovery-reload-btn:hover {
+  background: #e8d264;
+}
+
+#graphics-recovery-dismiss-btn {
+  padding: 2px 6px;
+  font-size: 15px;
+  line-height: 1;
+  color: #e0d0cf;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+#graphics-recovery-dismiss-btn:hover {
+  opacity: 1;
+}
+
+/* Real portrait touch layout (2026-09-20). Landscape's positions (default
+   + the existing @media (max-width: 700px) compact-grid pass above) are
+   built around a wide screen with plenty of vertical room - on a phone
+   held upright, #left-hud-stack (health/status bars, previously
+   anchored bottom-left) sat directly under the joystick, and #chat-panel
+   (a 420x320px box nested inside that same stack) sprawled most of the
+   way up the screen since flex-column has nowhere to wrap to. This
+   detaches chat from that stack, shrinks and relocates every HUD piece
+   that competed for space, and turns the joystick/action buttons back
+   on (the rotate-prompt query above used to hide them and show
+   #touch-rotate-prompt instead - now only the touch-target repositioning
+   below applies, #touch-rotate-prompt stays off). Every position here
+   was tuned against real getBoundingClientRect() overlap checks at
+   375x812 (iPhone-class) and 390x844, same verification method the
+   compact-grid query above already established for this file - not
+   just eyeballed. */
+@media (orientation: portrait) and (hover: none) and (pointer: coarse) {
+  /* #left-hud-stack used to also contain #chat-panel (flex children,
+     stacking tall) - moved up under the minimap and shrunk, chat
+     detached below with its own fixed position instead of flowing here.
+     !important on the sizing properties below: the existing
+     @media (max-width: 700px), (max-height: 450px) query further down
+     this file also sets gap/font-size/width on these same selectors,
+     same specificity, later source position - it was winning that tie
+     on a narrow portrait phone (which matches both queries at once),
+     silently keeping this stack a bit taller than the math below
+     assumes. Matches this file's established fix for the same problem
+     class (see .panel-box's transparent-background rule, and
+     #chat-panel's own !important right below). */
+  #left-hud-stack {
+    left: 12px;
+    bottom: auto;
+    top: 112px;
+    gap: 4px !important;
+  }
+
+  .status-row {
+    font-size: 10px !important;
+    gap: 4px !important;
+  }
+
+  /* Detached from #left-hud-stack's flex flow (position:absolute here
+     overrides its default in-flow placement) so its own size/position
+     don't push or get pushed by the status bars above. Sits in the gap
+     between the status bars (ending around y=112+~140=252) and the
+     joystick's top edge (bottom:30px + 110px tall = starts around
+     y=672 on an 812-tall screen) - shrunk from the landscape 420x320
+     to something that actually fits a ~375px-wide screen. */
+  #chat-panel {
+    position: absolute;
+    left: 12px;
+    top: 270px;
+    bottom: auto;
+    /* !important: #chat-panel's own base rule (much further down this
+       file, in the chat section) also sets width/height - same
+       specificity, later source position, so it was winning that tie and
+       silently keeping the landscape 420x320 size despite this query
+       matching (confirmed via a live getComputedStyle check reporting
+       height:320px here even though top/left/overflow all correctly
+       applied). Matches this file's own established fix for the same
+       problem class (see .panel-box's transparent-background rule). */
+    width: 58vw !important;
+    max-width: 230px;
+    height: 150px !important;
+    /* height:150px alone doesn't clip a flex column's children if their
+       natural content height exceeds it - #chat-messages' flex:1 doesn't
+       shrink below its own content's intrinsic height without
+       min-height:0 (see below), so without this the whole box was
+       actually rendering much taller than 150px and pushing the input
+       row down onto the joystick. Confirmed via a real screenshot, not
+       assumed. */
+    overflow: hidden;
+  }
+
+  #chat-messages {
+    padding: 4px 6px;
+    min-height: 0;
+  }
+
+  .chat-message-row {
+    font-size: 11px;
+  }
+
+  /* Current weapon name + ammo count (bottom-right in landscape, where
+     it used to sit almost exactly under the compact grid's Fire button
+     at right:20px;bottom:20px) - moved above the action-button grid
+     instead of behind it. */
+}
+
+/* Phone/tablet portrait homepage (mobile playability, part 2 of 3 - the
+   width-based counterpart to the height-based breakpoints above, which
+   only ever handled a short-but-WIDE desktop window, never a
+   narrow-but-tall phone screen). Unlike every desktop breakpoint above,
+   this one deliberately does NOT chase zero-scroll - a scrollable start
+   menu is completely normal on a phone (unlike the "everything fits on
+   one arcade screen" feel the desktop version was tuned for), so #menu
+   gets its own scroll instead of fighting to cram a single-column stack
+   into one viewport height. The 3-column grid collapses to one column,
+   stacking in existing DOM order (avatar/nickname, then title+Play+
+   controls, then profile badge+nav buttons) - already a sensible top-to-
+   bottom reading order, so no explicit reordering needed. */
+@media (max-width: 700px) {
+  #menu {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Profile panel's stat cards (see .profile-stat-card and the
+     #highlight-reel-heading/etc card rules earlier in this file) are 2-3
+     columns wide by default - fine on desktop, but at phone width that
+     squeezes longer labels ("Best single-run kills", "Survive-to-dawn
+     rate") into a sub-100px sliver, wrapping across 2-3 lines. Single
+     column here gives every row its full width instead. */
+  #profile-options,
+.profile-stat-card,
+#rank-roadmap-list,
+#recent-unlocks-list,
+#highlight-reel-list,
+#prestige-history-list {
+    grid-template-columns: 1fr;
+  }
+
+  #menu-layout {
+    grid-template-columns: 1fr;
+    max-width: 100%;
+    padding: 0 16px;
+    gap: 16px;
+  }
+
+  #menu-col-left,
+  #menu-col-right {
+    align-items: center;
+    text-align: center;
+  }
+
+  #setup-avatar-wrap {
+    width: min(240px, 55vw);
+    height: min(500px, 115vw);
+    margin: 6px auto 0;
+  }
+
+  #menu-hero {
+    text-align: center;
+  }
+
+  #menu-title-img {
+    width: min(90%, 380px);
+  }
+
+  #round-mode-hint {
+    display: none;
+  }
+
+  #menu-nav-buttons {
+    width: 100%;
+  }
+
+  #menu-nav-buttons button {
+    width: 100%;
+  }
+
+  /* Touch control buttons were positioned generously for a wide screen -
+     on an actual ~390px-wide phone, several landed on top of the
+     joystick, the minimap, or each other (confirmed via real
+     getBoundingClientRect() overlap checks at 390x844, not just
+     eyeballed). Replaced with a compact 2-column x 4-row grid, shrunk
+     down, so all 8 fit without colliding with each other or the
+     joystick. NOTE: this still shares bottom-right screen space with the
+     pre-existing (desktop-only) weapon/ammo HUD panel, which itself has
+     never been adapted for a narrow screen - that panel's own layout is
+     a separate follow-up, not solved here. */
+}
+

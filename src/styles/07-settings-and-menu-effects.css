@@ -1,0 +1,1155 @@
+/* Bigger than the original 12px, plus real padding for a proper hit area -
+   at 12px with no padding this was easy to miss/misclick. */
+
+#achievements-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #ccc;
+  margin: 6px 0;
+}
+/* Phones (2026-10-27): the Sort dropdown ran ~60px off the right edge and
+   the whole panel scrolled sideways - let the row wrap and the dropdowns
+   shrink to fit. */
+@media (max-width: 600px) {
+  #achievements-controls-row {
+    flex-wrap: wrap;
+  }
+  #achievements-controls-row select {
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 0;
+  }
+}
+
+.goal-chip.active {
+  color: #1a1a1a;
+  background: #e0c03e;
+  border-color: #e0c03e;
+  font-weight: 700;
+}
+
+/* Homepage Nav Order list (Settings > Controls) */
+.nav-order-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+  color: #ccc;
+}
+
+/* The Up/Down buttons used to be two direct children of the row alongside
+   the label, so space-between spread all three evenly across the full
+   width - Up ended up stranded in the middle, Down pinned to the far
+   right, nowhere near each other. Grouping them in their own flex
+   container keeps them together as one pair, with space-between now only
+   pushing that pair away from the label. */
+.nav-order-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.nav-order-row .mini-action-btn {
+  padding: 2px 8px;
+}
+
+/* Subtle autosave confirmation (see saveSettings). Used to sit between
+   the search bar and the tab row - moved down into #settings-status-row
+   (below the tab content, next to #recently-changed-list) since that
+   busier top area was getting crowded, and grouping it with the other
+   session-status line makes more sense anyway. */
+#settings-saved-indicator {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.3;
+  color: #7fd88f;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+#settings-saved-indicator.show {
+  opacity: 1;
+}
+
+/* Fixed-height footer strip for both session-status lines (Saved pulse +
+   Changed This Session/Undo) - reserves the same vertical space whether
+   or not either one currently has anything to show, so the settings
+   panel's total height never changes based on what you've touched this
+   session (was resizing whenever a real setting - not just switching
+   tabs, see #recently-changed-list's own comment - changed, e.g. picking
+   a language). visibility (not display:none) on the children keeps this
+   row's own height reserved even while both are empty/hidden. */
+#settings-status-row {
+  margin-top: 10px;
+  min-height: 52px;
+}
+
+#recently-changed-list {
+  height: 40px;
+  overflow-y: auto;
+  text-align: center;
+  visibility: hidden;
+  margin-top: 4px;
+}
+
+#recently-changed-list.show {
+  visibility: visible;
+}
+
+#recently-changed-list p {
+  margin: 0 0 4px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+#recently-changed-list button {
+  line-height: 1.3;
+}
+
+/* Global average bar chart (Cloud Save panel, see _renderGlobalAverages) */
+.avg-bar-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 50px;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.avg-bar-label {
+  font-size: 11px;
+  color: #ccc;
+}
+
+.avg-bar-value {
+  font-size: 11px;
+  color: #ccc;
+  text-align: right;
+}
+
+#profile-anniversary-line,
+#profile-today-line,
+#profile-favorite-difficulty-line {
+  margin: 4px 0;
+  font-size: 12px;
+  opacity: 0.7;
+  font-style: italic;
+}
+
+#profile-best-run-card {
+  margin: 6px 0;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  text-align: center;
+}
+
+#profile-best-run-title {
+  margin: 0 0 4px !important;
+}
+
+#profile-best-run-line {
+  margin: 0;
+  font-size: 12px;
+}
+
+/* Local Sharing batch. */
+#local-sharing-section {
+  text-align: center;
+}
+
+#storage-usage-line {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: rgba(238, 238, 238, 0.6);
+}
+
+#print-stats-sheet {
+  display: none;
+}
+
+/* Printer-friendly Career Stats sheet - hides the entire game (canvas,
+   HUD, every panel) and shows only #print-stats-sheet, populated fresh by
+   _printProfile() right before window.print() is called. Targets #app's
+   own children (everything in index.html lives inside div#app, body has
+   no other direct children) - a body > * selector would hide #app itself,
+   which would hide print-stats-sheet too since it's nested inside #app. */
+@media print {
+  #app > *:not(#print-stats-sheet) {
+    display: none !important;
+  }
+  #print-stats-sheet {
+    display: block !important;
+    color: #000;
+    background: #fff;
+    font-family: sans-serif;
+    padding: 20px;
+  }
+  #print-stats-sheet h1 {
+    font-size: 20px;
+    margin-bottom: 12px;
+  }
+  #print-stats-sheet .changelog-entry {
+    display: block;
+    padding: 6px 0;
+    border-bottom: 1px solid #ccc;
+  }
+  #print-stats-sheet .changelog-date {
+    font-weight: 700;
+    margin-right: 6px;
+  }
+  /* Print Achievements List (see the print button's click handler in
+     Game.js) - redesigned 2026-09-21. Previously reused the live
+     .perk-option cards' own markup (built for the dark in-game panel),
+     which under print styling stacked name/status/hint on 3 separate
+     underlined lines per entry with no sections or summary - unreadable
+     on paper. This builds clean name/status rows itself instead. */
+  #print-stats-sheet .print-ach-section {
+    font-size: 15px;
+    margin: 20px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid #000;
+  }
+  #print-stats-sheet .print-ach-section:first-of-type {
+    margin-top: 0;
+  }
+  #print-stats-sheet .print-ach-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px 20px;
+  }
+  /* Stacked (name, then status below), not side-by-side - a
+     side-by-side flex row left long status sentences ("Survive to
+     Night 10 in a single run") with nowhere to shrink to (flex items
+     default to min-width:auto, which blocks shrinking below their own
+     text's unwrapped width) and they overflowed the row's own border
+     straight into the neighboring grid column's row, overlapping its
+     text (2026-09-21 - caught from a real printed page). Stacking
+     avoids the two texts ever competing for the same horizontal space
+     at all, so this can't recur regardless of how long a hint gets. */
+  #print-stats-sheet .print-ach-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 12px;
+    break-inside: avoid;
+  }
+  #print-stats-sheet .print-ach-row.unlocked {
+    background: #f2f2f2;
+    border-color: #999;
+  }
+  #print-stats-sheet .print-ach-name {
+    font-weight: 700;
+  }
+  #print-stats-sheet .print-ach-row.locked .print-ach-name {
+    font-weight: 400;
+    color: #888;
+  }
+  #print-stats-sheet .print-ach-status {
+    color: #555;
+  }
+  /* The game page is one screen tall with overflow hidden, which cut the
+     sheet to its first page (2026-10-24, only 8 achievements printed). */
+  html, body, #app {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    position: static !important;
+    background: #fff !important;
+  }
+  /* Achievements: all of them as 8 across x 9 down on one landscape page,
+     with a thin title line. Small page margins also leave no room for the
+     browser's own date/title/address lines. */
+  html.print-achievements #print-stats-sheet {
+    padding: 0;
+  }
+  html.print-achievements #print-stats-sheet .print-ach-section {
+    margin: 0 0 4px;
+    padding-bottom: 2px;
+    font-size: 11px;
+    border-bottom-width: 1px;
+  }
+  html.print-achievements #print-stats-sheet .print-ach-grid {
+    grid-template-columns: repeat(8, 1fr);
+    gap: 3px;
+  }
+  html.print-achievements #print-stats-sheet .print-ach-row {
+    gap: 1px;
+    height: 20.5mm;
+    padding: 3px 4px;
+    font-size: 7.5px;
+    line-height: 1.2;
+    overflow: hidden;
+  }
+}
+@page {
+  size: landscape;
+  margin: 5mm;
+}
+
+#clear-cache-btn,
+#export-keybinds-btn,
+#import-keybinds-btn,
+#import-keybinds-apply-btn,
+#import-settings-code-apply-btn,
+#export-settings-code-btn,
+#import-settings-code-btn,
+#prestige-btn,
+#respec-btn,
+#profile-career-portrait-btn,
+#profile-signout-btn,
+#friends-signin-btn,
+#cloudsave-signin-btn,
+#export-save-btn,
+#import-save-btn {
+  margin-top: 6px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* Settings Info popup body - wider than quit-confirm-text since these
+   are meant to be genuinely detailed explanations, not a one-line
+   warning. */
+/* Settings Info - a small floating tooltip (NOT a full-screen modal
+   like quit-confirm/pause), positioned next to whichever "?" was
+   clicked via _showSettingsInfo's own left/top math. Sits above
+   Settings (z-index 15) since it's opened from inside that panel. */
+#settings-info-overlay {
+  position: fixed;
+  z-index: 20;
+  display: none;
+  max-width: 280px;
+  padding: 10px 14px;
+  background: rgba(10, 8, 4, 0.97);
+  border: 1px solid var(--menu-gold, var(--ui-gold-bright));
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+#settings-info-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* The small "(?)" that sits right before a setting's own label.
+   position:absolute (not grid placement) on purpose - an explicit
+   grid-column on just this one child would throw off CSS Grid's
+   auto-placement for its label/select siblings (which have no explicit
+   column of their own), shifting them into the wrong columns entirely.
+   Absolute removes it from grid flow, so the label/select auto-place
+   exactly as they already did on every row that doesn't have one yet -
+   see .audio-row:has() below for the matching position:relative +
+   label padding that makes room for it. Deliberately plain/small -
+   discoverable, not decorative. */
+.settings-info-btn {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  /* Black ring + black "?" in every theme (2026-10-17, Gaymi: "the
+     circle around it should be black"). */
+  border: 1.5px solid #000;
+  background: transparent;
+  color: #000;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.75;
+  transition: opacity 0.15s ease;
+}
+.settings-info-btn:hover {
+  opacity: 1;
+}
+/* The "?" popup follows the theme: Old is a slip of the same paper + dark ink + brown edge
+   as the Settings page around it. */
+html.ui-theme-old #settings-info-overlay {
+  background: #ead6ac;
+  border: 2px solid var(--menu-bronze);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(46, 29, 14, 0.45);
+}
+html.ui-theme-old #settings-info-text {
+  color: var(--old-ink);
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+/* Button rows at the bottom of Settings tabs (keybinds, Save & Backup,
+   Danger Zone) and each tab's "Reset <tab> to Defaults" button. */
+/* A dropdown with a long option (Colorblind Mode, Background Mood) used
+   to push the Settings page sideways on phones - let it shrink instead. */
+.settings-page .audio-row select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.settings-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.settings-btn-row > button {
+  margin: 0;
+}
+.settings-btn-row:not(:has(> :not([style*="display: none"]))) {
+  display: none;
+}
+/* Every Settings reset button (2026-10-17, Gaymi: "make all the resets
+   same style, size same everything") - General/Audio/Graphics/Controls,
+   Reset All Settings, the two colour resets, and the warning box's own
+   buttons. Border follows the text colour so it shows on both themes. */
+.settings-reset-btn {
+  display: block;
+  width: min(260px, 100%);
+  margin: 18px auto 4px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.6);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.settings-reset-btn:hover {
+  border-color: color-mix(in srgb, currentColor 75%, transparent);
+}
+.settings-btn-row > .settings-reset-btn {
+  margin: 18px auto 4px;
+}
+
+#reset-confirm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 8, 6, 0.75);
+}
+#reset-confirm-modal.open {
+  display: flex;
+}
+#reset-confirm-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(340px, 88vw);
+  min-height: 0;
+  padding: 26px 22px 20px;
+  text-align: center;
+}
+#reset-confirm-title {
+  margin: 0;
+  font-size: 18px;
+}
+#reset-confirm-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+#reset-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+#reset-confirm-actions .settings-reset-btn {
+  width: 130px;
+  margin: 8px 0 0;
+}
+#reset-confirm-ok-btn {
+  background: rgba(200, 60, 60, 0.22);
+  border-color: rgba(200, 60, 60, 0.8);
+}
+#reset-confirm-ok-btn:hover {
+  background: rgba(200, 60, 60, 0.36);
+}
+
+/* position:relative anchors the absolutely-positioned "?" to this row
+   (not the whole page) - and padding-left on the label makes room for
+   it. Only rows that actually have a "?" get either of these, via
+   :has(), so rows without one yet (most of them, during the rollout)
+   stay exactly as they were. */
+.audio-row:has(.settings-info-btn) {
+  position: relative;
+}
+.audio-row:has(.settings-info-btn) label {
+  padding-left: 20px;
+}
+
+/* ==========================================================================
+   Main menu redesign - design tokens
+   ========================================================================== */
+#menu {
+  /* --menu-* tokens live on :root now (see that block's comment) - this
+     rule just lays the menu out. */
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: linear-gradient(180deg, #0a1210 0%, #0d1a14 45%, #050807 100%);
+  color: #eee;
+  text-align: center;
+  padding: 3px 24px 3px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Backdrop - real photo (ruined night-time city block) with a few
+   animated layers over it (slow zoom, flickering embers, light rain) so
+   it reads as alive rather than a frozen frame, behind a dark scrim +
+   vignette for text contrast. Sits behind #menu-layout (which gets
+   position:relative + a higher z-index below) and never intercepts
+   clicks. */
+#menu-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+#menu-bg-photo {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 35%;
+  transform-origin: 50% 60%;
+  /* Was scale-only, 50s - a slow enough cycle (25s each direction) that it
+     barely read as "moving" on a normal glance at the homepage. Added a
+     gentle pan alongside the zoom and sped it up somewhat so the photo
+     reads as continuously, ambiently alive (Apple-product-page style)
+     without being fast enough to distract. */
+  animation: menuBgKenBurns 28s ease-in-out infinite alternate;
+}
+
+/* Old's street photo. Clean has no photo (theme-clean.css). */
+html.ui-theme-old #menu-bg-photo {
+  background-image: url('../menu-art/old-menu-bg.webp');
+}
+
+@keyframes menuBgKenBurns {
+  from { transform: scale(1) translate(0, 0); }
+  to { transform: scale(1.1) translate(-1.5%, -1%); }
+}
+
+/* Homepage background mood picker (Settings panel > Homepage Background
+   Mood) + the seasonal auto-default that uses these same classes - see
+   _applyBgMood in Game.js. Layers a filter on top of the existing
+   transform animation above; doesn't touch the ember/rain/ash/fog/scrim
+   overlay layers (separate sibling elements), so those keep reading the
+   same regardless of mood. */
+html.bg-mood-bloodmoon #menu-bg-photo {
+  filter: saturate(1.3) hue-rotate(-15deg) brightness(0.9) sepia(0.15);
+}
+
+html.bg-mood-foggy #menu-bg-photo {
+  filter: saturate(0.55) hue-rotate(10deg) brightness(1.05) contrast(0.92);
+}
+
+html.bg-mood-amber #menu-bg-photo {
+  filter: sepia(0.35) saturate(1.2) hue-rotate(-8deg) brightness(1.02);
+}
+
+/* A handful of soft glows over the photo's own warm window/street-fire
+   lights, flickering unevenly (irregular keyframe spacing, not a clean
+   sine wave) so they read as fire rather than a pulsing LED. Approximate
+   positions, not tied to exact pixels in the photo - close enough reads
+   as ambient ember light regardless. */
+/* Reduce Homepage Background Effects (General tab) - dims/stills the
+   embers and rain overlays without fully hiding them like
+   prefers-reduced-motion's own stricter media query does elsewhere. */
+body.reduce-bg-effects #menu-bg-embers,
+body.reduce-bg-effects #menu-bg-rain {
+  opacity: 0.35;
+  animation: none !important;
+}
+
+#menu-bg-embers {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(20px 20px at 24% 58%, rgba(255, 150, 60, 0.5), transparent 70%),
+    radial-gradient(16px 16px at 63% 63%, rgba(255, 130, 50, 0.45), transparent 70%),
+    radial-gradient(18px 18px at 81% 56%, rgba(255, 160, 70, 0.4), transparent 70%);
+  animation: menuBgEmberFlicker 3.4s ease-in-out infinite;
+}
+
+@keyframes menuBgEmberFlicker {
+  0%, 100% { opacity: 0.7; }
+  28% { opacity: 1; }
+  45% { opacity: 0.45; }
+  62% { opacity: 0.9; }
+  80% { opacity: 0.55; }
+}
+
+/* Rain - drawn by src/game/MenuRain.js on this canvas (straight drops
+   that land only on the photo's street, strength that comes and goes,
+   drop pictures + splashes; 2026-10-09). It used to be a repeating CSS
+   stripe pattern. */
+#menu-bg-rain {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Drifting ash/embers - a small repeating tile of warm dots, tiled and
+   animated so the drift loops seamlessly (background-position shifts by
+   exactly one tile height). Distinct from #menu-bg-embers above (which is
+   a few large soft glows that flicker in place over the photo's own
+   light sources) - these are small particles that visibly float upward. */
+#menu-bg-ash {
+  position: absolute;
+  left: 0;
+  right: -50px;
+  top: 0;
+  /* One tile taller than the screen, moved with a transform (2026-10-16):
+     it used to animate background-position, which repaints the whole
+     screen every frame, and a screen blend made the browser re-blend the
+     whole background with it. A transform only moves the finished
+     picture. */
+  height: calc(100% + 280px);
+  background-image:
+    radial-gradient(1.6px 1.6px at 20% 30%, rgba(255, 180, 120, 0.75), transparent),
+    radial-gradient(1.2px 1.2px at 60% 70%, rgba(255, 200, 140, 0.65), transparent),
+    radial-gradient(1.6px 1.6px at 80% 20%, rgba(255, 170, 100, 0.7), transparent),
+    radial-gradient(1.2px 1.2px at 40% 85%, rgba(255, 190, 130, 0.6), transparent),
+    radial-gradient(1.6px 1.6px at 10% 60%, rgba(255, 180, 110, 0.65), transparent);
+  background-size: 280px 280px;
+  background-repeat: repeat;
+  animation: menuBgAshDrift 22s linear infinite;
+  opacity: 0.6;
+  will-change: transform;
+}
+
+@keyframes menuBgAshDrift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50px, -280px, 0); }
+}
+
+/* Faint ground fog - a soft blurred haze low in frame, sways slowly side
+   to side rather than sitting frozen. */
+#menu-bg-fog {
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  bottom: 0;
+  height: 38%;
+  background: linear-gradient(180deg, transparent 0%, rgba(180, 185, 175, 0.05) 45%, rgba(180, 185, 175, 0.1) 100%);
+  /* No blur (2026-10-16): the gradient is already soft, and blurring a
+     moving 140%-wide layer cost a full-screen blur every frame. */
+  animation: menuBgFogDrift 40s ease-in-out infinite alternate;
+}
+
+@keyframes menuBgFogDrift {
+  from { transform: translateX(0); }
+  to { transform: translateX(3%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #menu-bg-photo,
+  #menu-bg-embers,
+  #menu-bg-rain,
+  #menu-bg-ash,
+  #menu-bg-fog,
+  .menu-panel,
+  .menu-card,
+  #menu.konami-flourish {
+    animation: none;
+  }
+}
+
+/* Konami code easter egg (MenuEasterEggs.js) - a brief, purely cosmetic
+   hue-shift flourish, auto-removed after 2s. */
+#menu.konami-flourish {
+  animation: konamiFlourish 2s ease-in-out;
+}
+
+@keyframes konamiFlourish {
+  0%, 100% { filter: none; }
+  50% { filter: hue-rotate(180deg) saturate(1.6); }
+}
+
+/* Idle animation - a subtle nudge on the Play
+   button after 30s of no interaction, not a new element. */
+.menu-idle #play-btn.play-btn-centered {
+  animation: idlePulse 2s ease-in-out infinite;
+}
+
+/* Confetti burst (see _fireConfetti) - each piece is a plain positioned
+   div, removed on its own animationend, no canvas/library. */
+/* Cursor Trail Effect (opt-in, see the mousemove listener in Game.js) */
+.cursor-trail-dot {
+  position: fixed;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--menu-gold, #d9bc4a);
+  z-index: 19;
+  pointer-events: none;
+  animation: cursorTrailFade 0.5s ease-out forwards;
+}
+
+@keyframes cursorTrailFade {
+  0% { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.3); }
+}
+
+/* Retro CRT Scanlines (opt-in, Controls tab) - a repeating horizontal
+   line pattern over #app, same layer #app's High Contrast/Theme Preset
+   filters already sit on. */
+html.crt-scanlines #app::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 26;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15) 0px,
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* Profile stat-row entrance animation - staggered per row via nth-child,
+   auto-plays on element insertion (these are genuinely new elements each
+   time innerHTML is rewritten, not a display:none toggle, so a plain CSS
+   animation reliably fires without any JS trigger). Capped stagger delay
+   (nth-child beyond 15 shares 15's delay) so a long stat grid doesn't
+   take seconds to finish appearing. */
+#profile-options .perk-option {
+  animation: statRowEnter 0.35s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #profile-options .perk-option {
+    animation: none;
+  }
+}
+
+@keyframes statRowEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+#profile-options .perk-option:nth-child(1) { animation-delay: 0s; }
+#profile-options .perk-option:nth-child(2) { animation-delay: 0.02s; }
+#profile-options .perk-option:nth-child(3) { animation-delay: 0.04s; }
+#profile-options .perk-option:nth-child(4) { animation-delay: 0.06s; }
+#profile-options .perk-option:nth-child(5) { animation-delay: 0.08s; }
+#profile-options .perk-option:nth-child(6) { animation-delay: 0.1s; }
+#profile-options .perk-option:nth-child(7) { animation-delay: 0.12s; }
+#profile-options .perk-option:nth-child(8) { animation-delay: 0.14s; }
+#profile-options .perk-option:nth-child(9) { animation-delay: 0.16s; }
+#profile-options .perk-option:nth-child(10) { animation-delay: 0.18s; }
+#profile-options .perk-option:nth-child(n+11) { animation-delay: 0.2s; }
+
+.confetti-piece {
+  position: fixed;
+  top: -12px;
+  width: 8px;
+  height: 8px;
+  z-index: 18;
+  pointer-events: none;
+  animation-name: confettiFall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}
+
+@keyframes confettiFall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+}
+
+/* Hidden zombie icon easter egg (MenuEasterEggs.js) - low-opacity
+   until hover, tucked in a bottom corner of the background layer so it's
+   genuinely easy to miss rather than an obvious button. */
+#hidden-zombie-icon {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  z-index: 1;
+  transition: color 0.3s ease;
+}
+
+#hidden-zombie-icon:hover {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* April Fools (MenuEasterEggs.js) - date-gated, only ever applies on
+   April 1st. */
+.april-fools-flip {
+  display: inline-block;
+  transform: rotate(180deg);
+}
+
+#hidden-zombie-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Absolutely positioned (relative to #player-showcase-header, see its own
+   position:relative below) rather than a normal in-flow sibling - that
+   header sits inside #menu-col-left, which is bottom-anchored (see its own
+   CSS comment) so the character's feet stay near the bottom of the page.
+   An in-flow row here used to grow the column's total content height the
+   instant the pencil was clicked, which shoved the name/level line above
+   it further up the screen to keep everything bottom-anchored. Floating
+   this out of flow means opening the editor never moves anything else -
+   it just appears in its own spot right under the name. */
+#nickname-row {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 6px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+#nickname-row .nickname-input {
+  flex: 1;
+}
+
+@keyframes idlePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-idle #play-btn.play-btn-centered {
+    animation: none;
+  }
+}
+
+/* Menu Panel Flicker toggle (Graphics tab) - same effect as the
+   reduced-motion query above, but explicit and independent of the OS
+   setting. */
+html.no-panel-flicker .menu-panel,
+html.no-panel-flicker .menu-card {
+  animation: none;
+}
+
+/* Visible Keyboard Focus Ring (Controls tab) - an opt-in, consistent
+   focus outline across every interactive element, for players whose
+   browser/OS default focus ring is too faint against this game's dark
+   palette to rely on. */
+html.focus-ring-mode *:focus-visible {
+  outline: 3px solid var(--menu-gold, #e0c03e);
+  outline-offset: 2px;
+}
+
+/* Underline Links & Buttons (Controls tab) - readability aid for text-
+   based interactive elements; empty/icon-only buttons show nothing extra
+   since text-decoration only paints actual text content. */
+html.underline-links a,
+html.underline-links button {
+  text-decoration: underline;
+}
+
+/* Skip to Play button - standard visually-hidden-until-focused skip link. */
+#skip-to-play-link {
+  position: fixed;
+  top: -100px;
+  left: 8px;
+  z-index: 30;
+  background: #1a1a1a;
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+
+#skip-to-play-link:focus {
+  top: 8px;
+}
+
+/* UI Font (see settings.uiFont) - applied broadly via :root, not scoped
+   to nicknames like --nickname-font. */
+html {
+  font-family: var(--ui-font, inherit);
+}
+
+/* Text Spacing (see settings.textSpacing) - gated behind html.text-
+   spacing-active (only added once the setting actually differs from its
+   100% default, see the toggle wiring) rather than an always-applied
+   rule - an earlier version set line-height: calc(1.4 * .../100) directly
+   on #menu/.menu-panel, which unconditionally forced line-height:1.4
+   even at the 100% default (no prior rule set an explicit line-height
+   there, so this silently added real height across many homepage text
+   elements at once and blew the zero-scroll budget by 13px - caught by
+   the standard 4-height overflow measurement this project always
+   re-checks after a size-affecting change). */
+html.text-spacing-active #menu,
+html.text-spacing-active .menu-panel,
+html.text-spacing-active #upgrades-panel,
+html.text-spacing-active #credits-panel,
+html.text-spacing-active #terms-panel,
+html.text-spacing-active #features-panel,
+html.text-spacing-active #privacy-panel,
+html.text-spacing-active #shop-panel,
+html.text-spacing-active #market-panel,
+html.text-spacing-active #whatsnew-panel,
+html.text-spacing-active #achievements-panel,
+html.text-spacing-active #profile-panel,
+html.text-spacing-active #settings-panel,
+html.text-spacing-active #quests-panel,
+html.text-spacing-active #howtoplay-panel {
+  letter-spacing: calc((var(--text-spacing, 100) - 100) * 0.005px);
+  line-height: calc(1.4 * var(--text-spacing, 100) / 100);
+}
+
+/* Button Size (see settings.buttonSize) - a transform scale on every
+   button, from its own center, so layout position doesn't shift. */
+html.button-size-scaled button {
+  transform: scale(var(--button-size-scale, 1));
+}
+
+/* Reduce Transparency - flattens every translucent panel background to a
+   solid color, for players who find blurred/translucent backgrounds hard
+   to read text over. This selector list used to only cover the panels
+   reachable from the main-menu nav row - it missed every panel that only
+   ever opens mid-run (Perk Panel, Trader, the pause overlay, the XP
+   level-up trait draw, the weapon pickup choice, the Journal), which all
+   share the exact same translucent background as the ones already listed
+   (see the 24-panel list a few hundred lines up this file, and its
+   html.ui-theme-old twin right after it) - confirmed via a real
+   getComputedStyle() check that Reduce Transparency did nothing to
+   #perk-panel/#trader-panel while correctly flattening #upgrades-panel.
+   Extended to the same 24-panel list so this setting actually does what
+   its own comment already claimed ("every translucent panel"), not just
+   the subset that happens to be visible from the homepage. */
+html.reduce-transparency .menu-panel,
+html.reduce-transparency #upgrades-panel,
+html.reduce-transparency #credits-panel,
+html.reduce-transparency #terms-panel,
+html.reduce-transparency #features-panel,
+html.reduce-transparency #skindesigner-panel,
+html.reduce-transparency #gallery-panel,
+html.reduce-transparency #levels-panel,
+html.reduce-transparency #privacy-panel,
+html.reduce-transparency #shop-panel,
+html.reduce-transparency #market-panel,
+html.reduce-transparency #whatsnew-panel,
+html.reduce-transparency #achievements-panel,
+html.reduce-transparency #profile-panel,
+html.reduce-transparency #settings-panel,
+html.reduce-transparency #quests-panel,
+html.reduce-transparency #howtoplay-panel,
+html.reduce-transparency #hub-panel,
+html.reduce-transparency #coming-soon-panel,
+html.reduce-transparency #clan-panel,
+html.reduce-transparency #friends-panel,
+html.reduce-transparency #other-profile-panel,
+html.reduce-transparency #menu-inventory-panel,
+html.reduce-transparency #server-panel {
+  background: #0a0a0a !important;
+  backdrop-filter: none !important;
+}
+
+/* High-Visibility Cursor - a large, high-contrast custom cursor, homepage
+   only (in-game uses Pointer Lock, so this never applies there). */
+html.high-vis-cursor #menu * {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Cpath d='M4 2 L4 26 L11 20 L15 28 L19 26 L15 18 L24 18 Z' fill='%23ffff00' stroke='%23000' stroke-width='2'/%3E%3C/svg%3E") 4 2, auto;
+}
+
+/* Caption-Style Text Backgrounds - a solid dark box behind stat/label
+   text for readability, opt-in since it changes the visual style a fair
+   bit. */
+html.caption-background .perk-name,
+html.caption-background .perk-cost,
+html.caption-background .nearly-there-line {
+  background: rgba(0, 0, 0, 0.6);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+/* Theme Presets (see settings.themePreset) - a filter on #app, same
+   technique High Contrast Mode already uses, just different filter
+   values per preset instead of one fixed contrast boost. */
+html.theme-sepia #app { filter: sepia(0.4); }
+html.theme-darker #app { filter: brightness(0.75); }
+html.theme-lighter #app { filter: brightness(1.25); }
+
+/* Reduced Flashing preview swatches (Controls tab) - illustrative only,
+   not tied to any real in-game effect; "before" flashes fast/hard,
+   "after" pulses slow/gentle, so the difference is visible without
+   needing to trigger anything in-game. */
+#reduce-flashing-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #aaa;
+  padding: 2px 0 8px;
+}
+
+#reduce-flashing-preview-before,
+#reduce-flashing-preview-after {
+  display: inline-block;
+  width: 24px;
+  height: 14px;
+  border-radius: 3px;
+  background: #d64545;
+}
+
+#reduce-flashing-preview-before {
+  animation: reduceFlashPreviewFast 0.4s step-start infinite;
+}
+
+#reduce-flashing-preview-after {
+  animation: reduceFlashPreviewSlow 2.4s ease-in-out infinite;
+}
+
+@keyframes reduceFlashPreviewFast {
+  50% { background: #ffffff; }
+}
+
+@keyframes reduceFlashPreviewSlow {
+  50% { background: #e0c34f; }
+}
+
+/* Colorblind palette preview (Controls tab) - the exact hex values
+   Zombie.js's _redrawHealthBar actually switches between, not
+   placeholder colors, so the swatch never drifts from the real effect. */
+#colorblind-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #aaa;
+  padding: 2px 0 8px;
+}
+
+.colorblind-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+/* Flat dark wash, tinted to match the game's dark green-black palette
+   rather than neutral black, so hero text sitting directly on the photo
+   (no card background under it) stays readable. */
+#menu-bg-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 6, 5, 0.42);
+}
+
+#menu-bg-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, transparent 20%, rgba(0, 0, 0, 0.7) 100%);
+}
+
+/* ==========================================================================
+   Layout
+   ========================================================================== */
+/* Left/right columns are equal width (was 250px/230px) so the hero
+   (center) column's own natural center lines up exactly with the true
+   viewport center - #play-btn.play-btn-centered fixes itself to viewport
+   50% (not to the hero column's box), so any left/right imbalance here
+   used to show up as the title/tagline/stats (centered within the hero
+   column) drifting visibly away from the centered Play button below
+   them. */
+/* justify-content:center matters here specifically because the 3 tracks
+   (245 + up-to-560 + 245, plus 2x18px gaps) only add up to ~1086px even
+   though the container itself grows to the full max-width (1180px) on
+   most screens - without this, the grid defaults to left-aligning its
+   tracks inside that wider box, leaving the ~94px difference as unused
+   space on the right instead of split evenly on both sides. That silent
+   ~47px rightward "hole" was why the hero column's own content (title,
+   tagline, stats) sat visibly off-center from window.innerWidth/2 even
+   though #menu-layout's own box was correctly centered via margin:auto. */
+#menu-layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  /* Side columns pulled back in further (were 400px each, briefly widened
+     from an original 290px to use more of the screen on wide monitors,
+     then 280px - the nav column was reported as still too wide even at
+     that size, and the small pill link row that used to live at the
+     bottom of this column moved into the hero column instead, so there's
+     less content to make room for here too). Left and right stay equal
+     width on purpose (see the hero-centering note below) even though
+     only the right column's content was flagged, since an asymmetric
+     grid re-breaks that fix. Grid's own max-width still caps this on
+     narrower screens (it never forces horizontal overflow, just uses
+     less than the cap when the viewport is narrower) - re-verify
+     zero-scroll at the 4 tracked heights after any further change here,
+     same as every prior sizing round in this section. */
+  grid-template-columns: 240px minmax(360px, 1000px) 240px;
+  justify-content: center;
+  gap: 24px;
+  align-items: center;
+  width: 100%;
+  max-width: 1900px;
+  margin: 0 auto;
+  /* #menu-col-right no longer actually renders in this grid's own right
+     track (see its own rule below, 2026-09-26) - this padding now only
+     shrinks the box that justify-content:center measures leftover space
+     against, which is exactly why it has to stay: removing it widens
+     that box by 80px, which re-centers ALL THREE tracks (not just the
+     now-empty, invisible one) and visibly shifts the still-real left
+     column and hero content too. Keeping it holds their position exactly
+     where it always was. */
+  padding-right: 80px;
+}
+
+#menu-col-left,
+#menu-col-right {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  text-align: left;
+}
+
