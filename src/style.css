@@ -11086,7 +11086,13 @@ body.touch-play-on .top-bar-part { padding: 5px 7px; }
   position: absolute; top: 22%; left: 50%; transform: translateX(-50%);
   font-size: 40px; letter-spacing: 2px; color: #fff; text-shadow: 0 2px 8px #000, 0 0 3px #000;
   white-space: nowrap; transition: opacity 0.5s; text-align: center;
+  /* Long lines ("You arrived in the Jungle. The city camp is ... blocks
+     away.") ran under the corner map (2026-10-30) - wrap them in the space
+     between the map and the same gap on the left. */
+  width: max-content;
+  max-width: max(60vw, calc(100vw - 424px));
 }
+body:not(.touch-play-on) #build-play-msg { white-space: normal; }
 #build-play-health {
   position: absolute; bottom: 132px; left: 50%; transform: translateX(-50%);
   width: 260px; height: 18px; background: rgba(10, 10, 10, 0.7);
