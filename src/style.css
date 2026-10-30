@@ -854,7 +854,7 @@ html.layout-compact .menu-panel {
   gap: 10px;
   width: min(360px, 84vw);
   margin: 0 auto;
-  height: 68vh;
+  height: var(--panel-h);
   overflow-y: auto;
   text-align: center;
 }
@@ -869,7 +869,7 @@ html.layout-compact .menu-panel {
   gap: 10px;
   width: min(640px, 90vw);
   margin: 0 auto;
-  height: 68vh;
+  height: var(--panel-h);
   overflow-y: auto;
   text-align: center;
 }
@@ -919,7 +919,7 @@ html.layout-compact .menu-panel {
    (2026-10-24): the panel's 68vh minus the tab buttons. */
 #cloudsave-online-section {
   width: 100%;
-  max-height: calc(68vh - 60px);
+  max-height: calc(var(--panel-h) - 60px);
   overflow-y: auto;
   margin-top: 0;
   padding-top: 4px;
@@ -2365,10 +2365,15 @@ html.ui-theme-old select {
      (Achievements) plus ~12px of room, since fonts render a pixel or two
      taller on some machines (CI's made Achievements 1px taller than an
      exact fit), so no panel or tab comes out a different size. */
-  min-height: calc(68vh + var(--panel-chrome));
+  min-height: calc(var(--panel-h) + var(--panel-chrome));
 }
 :root {
   --panel-chrome: 138px;
+  /* The shared content height (2026-10-27): 68vh, but on short windows
+     (1366x768 laptops) never so tall that the centred panel reaches the
+     footer links (~52px at the bottom, drawn above open panels) - so at
+     most the window minus the footer on both sides minus the chrome. */
+  --panel-h: min(68vh, calc(100vh - 104px - var(--panel-chrome)));
 }
 html.ui-theme-old {
   --panel-chrome: 224px;
@@ -2614,7 +2619,7 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
 #terms-content,
 #privacy-content,
 #howtoplay-content {
-  height: 68vh;
+  height: var(--panel-h);
   overflow-y: auto;
 }
 
@@ -2624,7 +2629,7 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
    own internal scrolling, so no overflow-y here (unlike the plain-text
    content divs above). */
 #skindesigner-content {
-  height: 68vh;
+  height: var(--panel-h);
 }
 #skindesigner-frame {
   display: block;
@@ -2653,7 +2658,7 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
    changelog) - capped below 100vw so it never touches the edges of the
    screen on a narrow window. */
 #whatsnew-content {
-  height: 68vh;
+  height: var(--panel-h);
   overflow-y: auto;
   text-align: left;
 }
@@ -3050,7 +3055,7 @@ html.ui-theme-old #update-available-refresh-btn {
    don't make the search bar slightly pop up" - jumping to a section used to
    scroll the whole page and leave a sliver of the search bar at the top). */
 #features-content {
-  height: 68vh;
+  height: var(--panel-h);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -4594,6 +4599,19 @@ html.ui-theme-old #prestige-history-list {
   font-size: 12px;
   color: #ccc;
   margin: 6px 0;
+}
+/* Phones (2026-10-27): the Sort dropdown ran ~60px off the right edge and
+   the whole panel scrolled sideways - let the row wrap and the dropdowns
+   shrink to fit. */
+@media (max-width: 600px) {
+  #achievements-controls-row {
+    flex-wrap: wrap;
+  }
+  #achievements-controls-row select {
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 0;
+  }
 }
 
 .goal-chip.active {
@@ -8208,7 +8226,7 @@ html.ui-theme-old #settings-panel h2 {
   align-items: center;
   gap: 14px;
   width: 100%;
-  height: calc(68vh - 45.5px);
+  height: calc(var(--panel-h) - 45.5px);
   overflow-y: auto;
 }
 
@@ -8250,7 +8268,7 @@ html.ui-theme-old #settings-panel h2 {
   align-items: center;
   gap: 14px;
   width: 100%;
-  height: calc(68vh - 45.5px);
+  height: calc(var(--panel-h) - 45.5px);
   overflow-y: auto;
 }
 
@@ -8290,7 +8308,7 @@ html.ui-theme-old #settings-panel h2 {
   width: min(360px, 86vw);
   margin: 0 auto;
   padding: 10px 0;
-  height: calc(68vh - 45.5px);
+  height: calc(var(--panel-h) - 45.5px);
   overflow-y: auto;
 }
 
@@ -8341,7 +8359,7 @@ html.ui-theme-old #settings-panel h2 {
   width: min(360px, 86vw);
   margin: 0 auto;
   padding: 10px 0;
-  height: calc(68vh - 45.5px);
+  height: calc(var(--panel-h) - 45.5px);
   overflow-y: auto;
 }
 
@@ -8351,7 +8369,7 @@ html.ui-theme-old #settings-panel h2 {
    #howtoplay-content/#credits-content/#whatsnew-content. */
 .panel-fixed-content {
   width: 100%;
-  height: 68vh;
+  height: var(--panel-h);
   overflow-y: auto;
 }
 /* No panel area ever scrolls sideways (standing rule, 2026-10-04) -
@@ -8732,7 +8750,7 @@ html.ui-theme-old #settings-panel h2 {
   flex-direction: column;
   gap: 20px;
   width: 100%;
-  height: calc(68vh - 51.5px);
+  height: calc(var(--panel-h) - 51.5px);
   overflow-y: auto;
 }
 
@@ -8789,7 +8807,7 @@ html.ui-theme-old #settings-panel h2 {
 .achievements-scroll-area {
   width: 100%;
   overflow-y: auto;
-  height: calc(68vh - 136.5px);
+  height: calc(var(--panel-h) - 136.5px);
 }
 
 .settings-page {
@@ -8821,7 +8839,7 @@ html.ui-theme-old #settings-panel h2 {
      to 169.3px (from 138.5px, which matched How to Play instead) when
      re-measured against #whatsnew-panel specifically - confirmed 0px
      diff at 1150px viewport height. */
-  height: calc(68vh - 169.3px);
+  height: calc(var(--panel-h) - 169.3px);
   overflow-y: auto;
   /* Firefox */
   scrollbar-width: thin;
@@ -11307,6 +11325,11 @@ body.touch-play-on #build-hotbar,
 body.touch-play-on #chat-panel,
 body.touch-play-on #build-tool-hint { display: none !important; }
 body.touch-play-on #build-play-health { bottom: 20px; width: 200px; }
+/* Portrait phones (2026-10-27): the buttons span almost the whole bottom
+   edge, so crouch/jump/fire covered the bar - lift it above them. */
+@media (orientation: portrait) {
+  body.touch-play-on #build-play-health { bottom: 132px; left: max(16px, env(safe-area-inset-left)); transform: none; width: min(180px, 46vw); }
+}
 body.touch-play-on #build-play-ammo { bottom: auto; top: 112px; right: max(20px, env(safe-area-inset-right)); font-size: 26px; }
 body.touch-play-on #build-try-map { top: 8px; right: max(12px, env(safe-area-inset-right)); width: 96px; height: 96px; pointer-events: auto; }
 /* Tapping it grows it like M (BuildTryMode); the bigger sizes really are
@@ -11618,6 +11641,12 @@ html.lite-home #menu-bg {
    bottom up a bit"). */
 html.ui-theme-old #server-panel-columns {
   padding-bottom: 44px;
+}
+/* Clean (2026-10-27): its height:100% has no sized parent to follow, so
+   the list's natural height made the whole panel box scroll a little on
+   1366x768 - pin it to the shared content height plus a little of the title's room. */
+html.ui-theme-clean #server-panel-columns {
+  height: calc(var(--panel-h) + 24px);
 }
 /* The chat sits in its own framed box beside the list, like Kirka's. */
 #server-panel-columns #server-chat-wrap {
@@ -12033,7 +12062,7 @@ html.ui-theme-old #profile-panel .panel-box * {
    ================================================================ */
 #gallery-content {
   min-height: 0;
-  height: calc(68vh - 46px);
+  height: calc(var(--panel-h) - 46px);
   display: block;
   text-align: left;
   overflow-y: auto;
@@ -12397,12 +12426,12 @@ html.ui-theme-old #levels-bar-fill {
 }
 .signin-footer[hidden] { display: none; }
 .signin-footer p { margin: 0; font-size: 15px; }
-#market-panel:has(#market-signed-out:not([hidden])) .panel-fixed-content { height: calc(68vh - 64px); }
-#gallery-panel:has(#gallery-signed-out:not([hidden])) #gallery-content { height: calc(68vh - 46px - 64px); }
+#market-panel:has(#market-signed-out:not([hidden])) .panel-fixed-content { height: calc(var(--panel-h) - 64px); }
+#gallery-panel:has(#gallery-signed-out:not([hidden])) #gallery-content { height: calc(var(--panel-h) - 46px - 64px); }
 @media (max-width: 600px) {
   .signin-footer { height: 88px; padding-top: 8px; }
-  #market-panel:has(#market-signed-out:not([hidden])) .panel-fixed-content { height: calc(68vh - 88px); }
-  #gallery-panel:has(#gallery-signed-out:not([hidden])) #gallery-content { height: calc(68vh - 46px - 88px); }
+  #market-panel:has(#market-signed-out:not([hidden])) .panel-fixed-content { height: calc(var(--panel-h) - 88px); }
+  #gallery-panel:has(#gallery-signed-out:not([hidden])) #gallery-content { height: calc(var(--panel-h) - 46px - 88px); }
 }
 
 /* Friendship (2026-10-24): Friend List and Clan tabs. The Friend List
@@ -12418,17 +12447,17 @@ html.ui-theme-old #levels-bar-fill {
 }
 #friends-panel #friends-signed-in,
 #friends-panel #friends-signed-out {
-  height: calc(68vh - 45.5px);
+  height: calc(var(--panel-h) - 45.5px);
 }
 
 /* Quests has a game mode row (Zombie Survival/World Map, 2026-10-24) above
    its own quest tabs - both rows' footprint comes off the page's height
    (just the one row on World Map, where the quest tabs are hidden). */
 #quests-panel .quest-tab-page {
-  height: calc(68vh - 91px);
+  height: calc(var(--panel-h) - 91px);
 }
 #quests-panel:has(#quest-page-tabs[style*='none']) .quest-tab-page {
-  height: calc(68vh - 45.5px);
+  height: calc(var(--panel-h) - 45.5px);
 }
 
 /* Old theme: the Inventory card menu (Equip/Market/Sell/Inspect) and the

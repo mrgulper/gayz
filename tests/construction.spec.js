@@ -71,7 +71,7 @@ test('the homepage paints its final layout before the game has loaded', async ({
   const loaded = await page.evaluate(snap)
   // Friend List under Global, then Quests, Inventory, Achievements, Gallery, Map Editor.
   expect([...loaded.navTops].sort((a, b) => a - b)).toEqual(loaded.navTops)
-  expect(loaded.friends).toBe('Lista de amigos')
+  expect(loaded.friends).toBe('Amistad')
 
   let release
   const held = new Promise((resolve) => { release = resolve })

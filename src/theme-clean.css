@@ -484,6 +484,9 @@ html.ui-theme-clean .crate-card .crate-open-btn {
   color: #f3e3c0 !important;
 }
 html.ui-theme-clean .panel-box .crate-card .crate-open-btn * { color: #f3e3c0 !important; }
+/* Coming Soon badges sit on their tier/card colour - dark ink like Old's,
+   not the panel's pale text (unreadable on Ice and Golden, 2026-10-27). */
+html.ui-theme-clean .panel-box .crate-coming-soon-tag { color: #0c0a10 !important; }
 html.ui-theme-clean #shop-skin-item {
   background:
     radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--rarity) 35%, #fff 65%), transparent 70%),

@@ -1901,7 +1901,11 @@ export class BuildTryMode {
   _renderOnTop(renderer) {
     const cam = this.bm.camera
     this._gunCamera.aspect = cam.aspect
-    this._gunCamera.fov = 70
+    // Portrait phones (2026-10-27): at 70 degrees tall the view is only a
+    // sliver wide, so the gun sat off the right edge and the arm filled
+    // the corner as a big wedge - keep it at least as wide as a square
+    // screen's view instead.
+    this._gunCamera.fov = cam.aspect >= 1 ? 70 : THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(35)) / cam.aspect))
     this._gunCamera.updateProjectionMatrix()
     const autoClear = renderer.autoClear
     renderer.autoClear = false

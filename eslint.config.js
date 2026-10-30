@@ -87,7 +87,7 @@ export default [
   {
     // Vercel serverless functions and repo scripts (Node, ESM - package.json
     // has "type": "module") - server-side only, never bundled for the browser.
-    files: ['api/**/*.js', 'scripts/**/*.mjs'],
+    files: ['api/**/*.js', 'scripts/**/*.mjs', 'gayz-discord-bot/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',

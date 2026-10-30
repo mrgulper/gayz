@@ -545,6 +545,11 @@ export async function _openInspectDialog(game, kind, id) {
   if (kind === 'weapon') {
     // Barrel pointing left, side-on - like Kirka's.
     viewer.setObject(game._weaponDisplayClone(game.weapons.viewmodels[id]), { yaw: Math.PI / 2, pitch: 0.12 })
+    // Opened before the gun models finished loading: show the real one
+    // as soon as it arrives (WeaponCatalog.ready).
+    game.weapons.ready.then(() => {
+      if (game._inspectViewer === viewer) viewer.setObject(game._weaponDisplayClone(game.weapons.viewmodels[id]), { yaw: Math.PI / 2, pitch: 0.12 })
+    })
   } else {
     const skin = _inspectSkin(game, id)
     try {
