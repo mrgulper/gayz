@@ -50,11 +50,28 @@ export const ITEMS = {
   shield: { key: 'invShield', armor: 2, slot: 4 },
 }
 
+// Each animal's own raw meat ('meat_<kind>', PlayAnimals.js): eaten like
+// Meat. key names it ({animal} = its translated animal name), icon is
+// which picture it uses.
+export function addAnimalMeat(id, { key, animalKey, icon }) {
+  ITEMS[id] = { key, animalKey, icon, heal: ITEMS.meat.heal }
+}
+
+// An item's name in the current language.
+export function itemName(id) {
+  const def = ITEMS[id]
+  if (!def) return t(id)
+  return def.animalKey ? t(def.key, { animal: t(def.animalKey) }) : t(def.key)
+}
+
 // Little pixel pictures for the items (16 x 16, drawn once).
 const ICON_PIXELS = {
   healthpack: ['................', '..############..', '.#wwwwwwwwwwww#.', '.#wwwwwrrwwwww#.', '.#wwwwwrrwwwww#.', '.#wwwrrrrrrwww#.', '.#wwwrrrrrrwww#.', '.#wwwwwrrwwwww#.', '.#wwwwwrrwwwww#.', '.#wwwwwwwwwwww#.', '..############..'],
   veggies: ['................', '.......gg.g.....', '......gggg......', '.......gg.......', '......oooo......', '.....oooooo.....', '.....oooooo.....', '......oooo......', '......oooo......', '.......oo.......', '.......oo.......'],
   meat: ['................', '..........ww....', '.........wwww...', '........wwww....', '.....mmmmww.....', '....mmmmmm......', '...mmmmmmmm.....', '...mmmmmmmm.....', '...mmmmmmmm.....', '....mmmmmm......', '.....mmmm.......'],
+  poultry: ['................', '...........ww...', '..........wwww..', '.........wwww...', '.....ppppww.....', '....pppppp......', '...pppppppp.....', '...pppppppp.....', '....pppppp......', '.....pppp.......'],
+  fishMeat: ['................', '................', '..fffffffff.....', '.ffwfffwfffff...', '.fffffffffffff..', '.ffwfffwffffff..', '..ffffffffff....', '................'],
+  bugMeat: ['................', '.....nn..nn.....', '......nnnn......', '....nnnnnnnn....', '...nnwnnnnwnn...', '...nnnnnnnnnn...', '....nnnnnnnn....', '......nnnn......'],
   ammobox: ['................', '................', '...yy.yy.yy.....', '...yy.yy.yy.....', '...yy.yy.yy.....', '.##############.', '.#gggggggggggg#.', '.#ggg######ggg#.', '.#gggggggggggg#.', '.#gggggggggggg#.', '.##############.'],
   helmet: ['................', '....########....', '...#iiiiiiii#...', '..#iiiiiiiiii#..', '..#iiiiiiiiii#..', '..#ii######ii#..', '..#i#......#i#..', '..##........##..'],
   chestplate: ['..###....###....', '.#iii#..#iii#...', '.#iiii##iiii#...', '..#iiiiiiii#....', '..#iiiiiiii#....', '..#iiiiiiii#....', '..#iiiiiiii#....', '..##########....'],
@@ -62,7 +79,7 @@ const ICON_PIXELS = {
   boots: ['................', '..###....###....', '..#i#....#i#....', '..#i#....#i#....', '..#ii##..#ii##..', '..#iiii#.#iiii#.', '..######.######.'],
   shield: ['....########....', '...#bbbbbbbb#...', '...#bbbyybbb#...', '...#byyyyyyb#...', '...#bbbyybbb#...', '....#bbyybb#....', '.....#bbbb#.....', '......####......'],
 }
-const ICON_COLORS = { o: '#e8862a', m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8' }
+const ICON_COLORS = { p: '#e8b49a', f: '#f08a5a', n: '#8aa83a', o: '#e8862a', m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8' }
 const iconCache = new Map()
 function itemIcon(id) {
   if (iconCache.has(id)) return iconCache.get(id)
@@ -73,7 +90,7 @@ function itemIcon(id) {
 
 // The same picture as a canvas (for an item lying on the ground, PlayDrops).
 export function itemIconCanvas(id) {
-  const rows = ICON_PIXELS[id] || []
+  const rows = ICON_PIXELS[ITEMS[id]?.icon || id] || []
   const c = document.createElement('canvas')
   c.width = c.height = 16
   const g = c.getContext('2d')
@@ -278,7 +295,7 @@ export class PlayInventory {
     if (!it) return ''
     if (it.kind === 'gun') return t(this.bm.game?.weapons?.getSummary?.().find((w) => w.id === it.id)?.nameKey || 'weaponRifle')
     if (it.kind === 'block') return this.bm.blockName(it.id)
-    return t(ITEMS[it.id]?.key || it.id)
+    return itemName(it.id)
   }
 
   // The item card's second line: what it does.
@@ -295,7 +312,7 @@ export class PlayInventory {
     if (!item) return ''
     if (item.armor) return t('invTipArmor', { n: `${Math.round(item.armor * ARMOR_PER_POINT * 100)}%` })
     if (it.id === 'ammobox') return t('invTipAmmoBox')
-    return t(it.id === 'meat' || it.id === 'veggies' ? 'invTipMeat' : 'invTipHealthPack', { n: item.heal })
+    return t(it.id === 'meat' || it.id === 'veggies' || ITEMS[it.id]?.animalKey ? 'invTipMeat' : 'invTipHealthPack', { n: item.heal })
   }
 
   // The item card beside the pointer (x, y), or beside a slot on phones.

@@ -28,7 +28,7 @@ import { PlayFx } from './PlayFx.js'
 import { openSpawnMap, closeSpawnMap, findSpawn } from './SpawnMap.js'
 import { LANDMARKS, LANDMARK_REACH } from './Landmarks.js'
 import { CITIES, TOWN_R, TOWN_SPAWN, townStyleAt } from './Towns.js'
-import { PlayInventory, ITEMS, ARMOR_SLOTS } from './PlayInventory.js'
+import { PlayInventory, ARMOR_SLOTS, itemName } from './PlayInventory.js'
 import { PlayDrops } from './PlayDrops.js'
 import { PlayThrow } from './PlayThrow.js'
 import { PlayAnimals } from './PlayAnimals.js'
@@ -58,6 +58,19 @@ const ZOMBIE_HALF = 0.3
 // Void Ripper slow (zombies move at this share of their speed), and the
 // Tomahawk's swing width (cos of the half-angle in front of you).
 const BURN_DPS = 14
+// Sunlight (2026-10-30, Gaymi: "make them like fire in day only if its
+// clear with sun"): a zombie under open sky on a clear day (not night,
+// not rain/snow/fog/storm/eclipse) catches fire and takes SUN_BURN_DPS -
+// a roof, shade or water saves it. Spawning goes on as usual.
+const SUN_BURN_DPS = 6
+const SUN_NIGHT_MAX = 0.3
+// Cave zombies ("in cave zombies are more powerful and even rarer"): one
+// spawned down in the rock (below the column's ground) is tougher and
+// bites harder, and only CAVE_SPAWN_CHANCE of cave spawns go ahead. The
+// sun never reaches them while they stay underground.
+const CAVE_HP_MULT = 1.8
+const CAVE_DAMAGE_MULT = 1.6
+const CAVE_SPAWN_CHANCE = 0.45
 const VOID_SLOW = 0.5
 const CLEAVE_COS = Math.cos(0.6)
 // Burning wood (2026-10-17, Gaymi: "make fire able to fire up the wood",
@@ -1161,6 +1174,20 @@ export class BuildSurvival {
     return true
   }
 
+  // A clear, sunny day right now (no clouds of weather, not night).
+  _sunny() {
+    const sky = this.bm.sky
+    if (!sky) return false
+    return (sky._now || 'clear') === 'clear' && sky.nightAmount() < SUN_NIGHT_MAX
+  }
+
+  // Down in the rock: below the ground of its column (Underground.js).
+  _inCave(x, y, z) {
+    const world = this.bm.world
+    if (!world?.active || !world.under) return false
+    return y < world.under.bottomAt(Math.floor(x), Math.floor(z)) - 1
+  }
+
   // Water next to (or in) a cell, or rain falling on it - no fire there.
   _wetAt(x, y, z) {
     const bm = this.bm
@@ -1400,7 +1427,7 @@ export class BuildSurvival {
     // Items for the inventory too: health packs, ammo boxes, armor, blocks.
     const got = []
     const give = (item) => {
-      if (this.inv.add(item) < item.n) got.push(item.kind === 'block' ? this.bm.blockName(item.id) : t(ITEMS[item.id].key))
+      if (this.inv.add(item) < item.n) got.push(item.kind === 'block' ? this.bm.blockName(item.id) : itemName(item.id))
     }
     if (Math.random() < 0.6) give({ kind: 'item', id: 'healthpack', n: 1 })
     if (Math.random() < 0.4) give({ kind: 'item', id: 'ammobox', n: 1 })
@@ -1643,6 +1670,8 @@ export class BuildSurvival {
     const open = this.camp ? spots.filter(([sx, , sz]) => !this.camp.inside(sx + 0.5, sz + 0.5, 1)) : spots
     if (!open.length) return false
     const [x, y, z] = open[Math.floor(Math.random() * open.length)]
+    const cave = this._inCave(x + 0.5, y, z + 0.5)
+    if (cave && Math.random() > CAVE_SPAWN_CHANCE) return false
     const boss = this._bossPending > 0
     if (boss) this._bossPending--
     let kind = !boss && this.wave >= SKELETON_FROM_WAVE && skeletonsReady() && Math.random() < SKELETON_CHANCE
@@ -1650,9 +1679,13 @@ export class BuildSurvival {
     if (!kind && !boss && this.wave >= MONSTER_FROM_WAVE && Math.random() < MONSTER_CHANCE) kind = MONSTER_KIND_IDS[Math.floor(Math.random() * MONSTER_KIND_IDS.length)]
     // Its rarity and silly name (ZombieNames.js): rarer = tougher.
     const tier = rollZombieTier(boss)
-    const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (boss ? BOSS_HEALTH_MULT : 1) * (kindOf(kind)?.hp ?? 1) * ZOMBIE_TIERS[tier].hp
+    const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (boss ? BOSS_HEALTH_MULT : 1) * (kindOf(kind)?.hp ?? 1) * ZOMBIE_TIERS[tier].hp * (cave ? CAVE_HP_MULT : 1)
     if (boss) this._message(t('buildPlayBossComing'))
-    this._makeZombie(++this._zid, x + 0.5, y, z + 0.5, health, boss, kind, { tier, name: rollZombieName() })
+    const zb = this._makeZombie(++this._zid, x + 0.5, y, z + 0.5, health, boss, kind, { tier, name: rollZombieName() })
+    if (cave) {
+      zb.cave = true
+      zb.damageMult *= CAVE_DAMAGE_MULT
+    }
     return true
   }
 
@@ -2063,6 +2096,19 @@ export class BuildSurvival {
         if (this._wetAt(Math.floor(zb.x), Math.floor(zb.y), Math.floor(zb.z))) zb.burn = 0
       }
       zb.health -= BURN_DPS * this._damageMult() * dt
+      zb.flash = Math.max(zb.flash || 0, 0.05)
+      this._fx?.burn(zb, ZOMBIE_HEIGHT * (zb.size || 1))
+    }
+    // In the sun: checked twice a second (reading blocks above it).
+    if ((zb._sunIn = (zb._sunIn || 0) - dt) <= 0) {
+      zb._sunIn = 0.5
+      const x = Math.floor(zb.x)
+      const y = Math.floor(zb.y + 0.01)
+      const z = Math.floor(zb.z)
+      zb.sunlit = this._sunny() && !this._inCave(zb.x, zb.y, zb.z) && this._skyAbove(x, y + 1, z) && !this._wetAt(x, y, z)
+    }
+    if (zb.sunlit && !(zb.burn > 0)) {
+      zb.health -= SUN_BURN_DPS * dt
       zb.flash = Math.max(zb.flash || 0, 0.05)
       this._fx?.burn(zb, ZOMBIE_HEIGHT * (zb.size || 1))
     }
