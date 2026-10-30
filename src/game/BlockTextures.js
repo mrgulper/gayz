@@ -1357,7 +1357,7 @@ function baseFaces(type) {
     const done = new Map()
     for (const k of Object.keys(faces)) {
       const src = faces[k]
-      if (!done.has(src)) done.set(src, detailFace(src, hashStr(`${type.id}:${k}`)))
+      if (!done.has(src)) done.set(src, detailFace(src, hashStr(`${type.id}:${k}`), type.id, k))
       faces[k] = done.get(src)
     }
   }
@@ -1391,10 +1391,13 @@ export function setTextureDetail(n) {
   iconCache.clear()
   return true
 }
-function detailFace(src, seed) {
+function detailFace(src, seed, id = '', face = 'side') {
   if (DETAIL === 1) return src
   const crisp = crispFace(src, seed)
-  return DETAIL === 4 ? realFace(crisp, seed) : crisp
+  if (DETAIL !== 4) return crisp
+  const real = realFace(crisp, seed)
+  realSurface(real, id, face, seed)
+  return real
 }
 
 // Natural unevenness (2026-10-26, Gaymi: "all texture packs have a big
@@ -1466,6 +1469,188 @@ function realFace(src, seed) {
   canvas.width = canvas.height = m
   canvas.getContext('2d', { willReadFrequently: true }).putImageData(new ImageData(out, m, m), 0, 0)
   return canvas
+}
+
+// Real surfaces on In Real Life (2026-10-30, Gaymi: "check if it actually
+// looks like the block if it was based on irl like the rocks look so fake
+// too smooth"): the smooth 64x64 picture alone looked like soft blobs, so
+// natural blocks get what the real thing has at that size, drawn on top -
+// a rough grit everywhere, then by material: crystal flecks (granite pink,
+// white and black; diorite black on white), hairline cracks in rock,
+// fine grains in sand, crumbs and tiny stones in soil, round shaded
+// pebbles in gravel, deep furrows in bark and grain lines in planks.
+// Matched by block id; the first rule that fits is used.
+const SURFACES = [
+  [/^(granite)$/, { grit: 0.16, flecks: [[[236, 214, 205], 70], [[40, 30, 30], 60], [[200, 120, 100], 50]], cracks: 1 }],
+  [/^(diorite)$/, { grit: 0.1, flecks: [[[45, 45, 45], 90], [[120, 120, 120], 60]], cracks: 0 }],
+  [/^(andesite|tuff)$/, { grit: 0.18, flecks: [[[70, 70, 70], 50], [[220, 220, 215], 30]], cracks: 2 }],
+  [/^(stone|calcite|endstone|blackstone|cobbleddeepslate)$|ore$/, { grit: 0.18, flecks: [[0.7, 40], [1.25, 30]], cracks: 3 }],
+  [/^(deepslate|basalt)$/, { grit: 0.16, flecks: [[0.75, 30]], cracks: 2, lines: true }],
+  [/^(cobblestone|mossycobblestone)$/, { grit: 0.2, flecks: [[0.72, 40], [1.2, 30]], cracks: 1 }],
+  [/^(netherrack)$/, { grit: 0.22, flecks: [[0.6, 50]], cracks: 1 }],
+  [/^(gravel)$/, { grit: 0.12, pebbles: 70 }],
+  [/^(sand|redsand|soulsand)$/, { grit: 0.16, grains: 260 }],
+  [/^(sandstone)$/, { grit: 0.14, grains: 120, lines: true }],
+  [/^(dirt|coarsedirt|podzol|mud|packedmud|rooteddirt|farmland)$/, { grit: 0.2, crumbs: 26, grains: 60 }],
+  [/^(clay)$/, { grit: 0.08, grains: 40 }],
+  [/^(snow)$/, { grit: 0.05, sparkle: 50 }],
+  [/^(grass|mycelium)$/, { grit: 0.16, blades: true, crumbs: 18 }],
+  [/log$|wood$|stem$/, { grit: 0.12, bark: true }],
+  [/planks$/, { grit: 0.08, grain: true }],
+]
+
+function realSurface(canvas, id, face, seed) {
+  const rule = SURFACES.find(([re]) => re.test(id))
+  if (!rule) return
+  const o = rule[1]
+  const m = canvas.width
+  const g = canvas.getContext('2d', { willReadFrequently: true })
+  const img = g.getImageData(0, 0, m, m)
+  const d = img.data
+  for (let i = 3; i < d.length; i += 4) if (d[i] < 255) return
+  const r = rng(seed ^ 0x51ed)
+  const wrap = (v) => ((v % m) + m) % m
+  const idx = (x, y) => (wrap(y) * m + wrap(x)) * 4
+  const scale = (x, y, f) => {
+    const i = idx(x, y)
+    d[i] *= f
+    d[i + 1] *= f
+    d[i + 2] *= f
+  }
+  // A colour (rgb) or, as one number, a brightness of what's there.
+  const paintAt = (x, y, c, amt = 1) => {
+    if (typeof c === 'number') return scale(x, y, 1 + (c - 1) * amt)
+    const i = idx(x, y)
+    for (let k = 0; k < 3; k++) d[i + k] = d[i + k] * (1 - amt) + c[k] * amt
+  }
+  const top = face === 'top'
+  const soilSide = (y) => o.blades && !top && y >= m * 0.28
+  // Grit: fine bumps 1-3 pixels across plus a per-pixel grain, so the
+  // surface reads rough instead of smooth.
+  if (o.grit) {
+    const fine = patchNoise(seed ^ 0x2b, m)
+    const n4 = Array.from({ length: (m / 2) * (m / 2) }, () => r())
+    for (let y = 0; y < m; y++) {
+      for (let x = 0; x < m; x++) {
+        const lump = n4[(y >> 1) * (m / 2) + (x >> 1)] - 0.5
+        scale(x, y, 1 + (lump * 1.3 + (r() - 0.5) * 1.1 + (fine(x * 4, y * 4) - 1) * 1.4) * o.grit)
+      }
+    }
+  }
+  // Long faint layers (deepslate, basalt, sandstone): bands across.
+  if (o.lines) {
+    for (let y = 0; y < m; y++) {
+      const f = 1 + Math.sin(y * 0.9 + r() * 0.4) * 0.04 + (r() < 0.12 ? -0.08 : 0)
+      for (let x = 0; x < m; x++) scale(id === 'basalt' ? y : x, id === 'basalt' ? x : y, f)
+    }
+  }
+  // Crystal flecks: 1-2 pixel specks of their own colour.
+  for (const [c, count] of o.flecks || []) {
+    for (let i = 0; i < count; i++) {
+      const x = Math.floor(r() * m)
+      const y = Math.floor(r() * m)
+      const big = r() < 0.35
+      paintAt(x, y, c, 0.75)
+      if (big) {
+        paintAt(x + 1, y, c, 0.55)
+        paintAt(x, y + 1, c, 0.45)
+      }
+    }
+  }
+  // Hairline cracks: a wandering dark line with a lit lip under it.
+  for (let k = 0; k < (o.cracks || 0); k++) {
+    let x = r() * m
+    let y = r() * m
+    let a = r() * Math.PI * 2
+    const len = 8 + Math.floor(r() * 18)
+    for (let i = 0; i < len; i++) {
+      scale(Math.floor(x), Math.floor(y), 0.62)
+      scale(Math.floor(x), Math.floor(y) + 1, 1.12)
+      a += (r() - 0.5) * 0.9
+      x += Math.cos(a)
+      y += Math.sin(a)
+    }
+  }
+  // Sand / soil grains: single light and dark pixels.
+  for (let i = 0; i < (o.grains || 0); i++) {
+    const x = Math.floor(r() * m)
+    const y = Math.floor(r() * m)
+    scale(x, y, r() < 0.5 ? 0.78 : 1.2)
+  }
+  // Snow glints.
+  for (let i = 0; i < (o.sparkle || 0); i++) paintAt(Math.floor(r() * m), Math.floor(r() * m), [255, 255, 255], 0.8)
+  // Soil crumbs: little clods lit on top, shaded underneath, and a few
+  // tiny grey stones.
+  for (let i = 0; i < (o.crumbs || 0); i++) {
+    const x = Math.floor(r() * m)
+    const y = Math.floor(r() * m)
+    if (o.blades && (top || !soilSide(y))) continue
+    const w = 1 + Math.floor(r() * 2)
+    const stoney = r() < 0.25
+    for (let dy = 0; dy <= w; dy++) {
+      for (let dx = 0; dx <= w; dx++) {
+        if (stoney) paintAt(x + dx, y + dy, [128, 124, 116], 0.45)
+        scale(x + dx, y + dy, dy === 0 ? 1.18 : dy === w ? 0.72 : 1)
+      }
+    }
+  }
+  // Grass: thin blade strokes on top (and along the green edge of the side).
+  if (o.blades) {
+    const count = top ? 140 : 40
+    for (let i = 0; i < count; i++) {
+      const x = Math.floor(r() * m)
+      const y = top ? Math.floor(r() * m) : Math.floor(r() * m * 0.22)
+      const len = 2 + Math.floor(r() * 3)
+      const f = r() < 0.5 ? 1.22 : 0.76
+      const lean = r() < 0.5 ? -1 : 1
+      for (let k = 0; k < len; k++) scale(x + (k > 1 ? lean : 0), y - k, f)
+    }
+  }
+  // Gravel: round pebbles, each lit from the top left with a shadow under.
+  for (let i = 0; i < (o.pebbles || 0); i++) {
+    const cx = r() * m
+    const cy = r() * m
+    const rad = 2.5 + r() * 4
+    const tone = 0.75 + r() * 0.5
+    const tint = r() < 0.2 ? [150, 120, 100] : null
+    for (let y = Math.floor(cy - rad - 1); y <= cy + rad + 1; y++) {
+      for (let x = Math.floor(cx - rad - 1); x <= cx + rad + 1; x++) {
+        const dx = (x + 0.5 - cx) / rad
+        const dy = (y + 0.5 - cy) / (rad * 0.8)
+        const q = dx * dx + dy * dy
+        if (q > 1.25) continue
+        if (q > 1) {
+          scale(x, y, 0.7)
+          continue
+        }
+        if (tint) paintAt(x, y, tint, 0.25)
+        scale(x, y, tone * (1.12 - (dx + dy) * 0.18) * (1 - q * 0.15))
+      }
+    }
+  }
+  // Bark: deep wavy furrows up the side; rings stay on the cut ends.
+  if (o.bark && !top && face !== 'bottom') {
+    for (let k = 0; k < 9; k++) {
+      let x = r() * m
+      for (let y = 0; y < m; y++) {
+        x += (r() - 0.5) * 0.9
+        scale(Math.floor(x), y, 0.58)
+        scale(Math.floor(x) + 1, y, 0.82)
+        scale(Math.floor(x) - 1, y, 1.14)
+      }
+    }
+  }
+  // Planks: fine grain lines along the board.
+  if (o.grain) {
+    for (let k = 0; k < 22; k++) {
+      const y0 = Math.floor(r() * m)
+      const x0 = Math.floor(r() * m)
+      const len = 10 + Math.floor(r() * 30)
+      const f = r() < 0.6 ? 0.86 : 1.1
+      for (let i = 0; i < len; i++) scale(x0 + i, y0 + Math.round(Math.sin((x0 + i) * 0.15) * 0.6), f)
+    }
+  }
+  g.putImageData(img, 0, 0)
 }
 
 // The 32x32 detailed picture (every level from Simple up).

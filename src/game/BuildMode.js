@@ -3163,6 +3163,10 @@ export class BuildMode {
   // from the left onto a hotbar or storage slot, drag between slots to
   // move/swap, click a hotbar slot to make it the active one, click a
   // stored block to put it in the active hotbar slot.
+  // Exactly half and half, no hotbar row (the one at the bottom of the
+  // screen is enough) and bigger storage slots (2026-10-30, Gaymi: "make
+  // the blocks you can pick and your inventory 50/50 ... remove the hotbar
+  // in inventory not needed ... make the inventory 10x10 slightly bigger").
   _renderPickerSide() {
     const picker = this._pickerEl
     if (!picker) return
@@ -3189,9 +3193,7 @@ export class BuildMode {
       const title = bt ? ` title="${bt.name.replace(/"/g, '&quot;')}"` : ''
       return `<div class="bp-slot${active ? ' active' : ''}" data-where="${where}" data-i="${i}"${icon}${title}></div>`
     }
-    this._pickerSideEl.innerHTML = `<div class="bp-title">${t('editorPickerHotbar')}</div>
-      <div class="bp-hotbar">${this.hotbar.map((id, i) => slot(id, 'hotbar', i, i === this.activeHotbarIndex)).join('')}</div>
-      <div class="bp-title">${t('editorPickerStorage')}</div>
+    this._pickerSideEl.innerHTML = `<div class="bp-title">${t('editorPickerStorage')}</div>
       <div class="bp-store">${this._editorStore.map((id, i) => slot(id, 'store', i, false)).join('')}</div>`
   }
 
