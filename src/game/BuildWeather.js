@@ -31,6 +31,17 @@
 // is small hard ice pellets with a short streak behind them that bounce
 // off the ground (the splash points jump instead of ringing), and lie
 // about as little round stones (BlockChunks).
+//
+// Smooth weather and more kinds (2026-10-30, Gaymi: "the weather switch is
+// way too fast ... make it switch smoothly like in real life"): in Random
+// the amount of rain/snow and the drops' speed, size and wind all ease
+// from one step to the next over about half a minute (setSlow) instead of
+// a second, and the drift is added up frame by frame (uDrift, uFallOff) so
+// a change of wind never makes the drops jump. The wind has a direction
+// now (windDir, BuildSky turns it slowly). New: drizzle, sleet, freezing
+// rain, ice storms, thunderstorms, heavy snowstorms, blizzards, and dust
+// and sand storms whose dust blows through the world (look 3: soft puffs
+// racing along with the wind).
 import * as THREE from 'three'
 import { ROOF_GRID } from './BlockChunks.js'
 
@@ -55,27 +66,47 @@ const ICE_IN = 1 / 25
 const ICE_OUT = 1 / 45
 // Per weather: how many of the particles show, how fast they fall
 // (blocks/s), wind drift (blocks/s), size (blocks) and look (0 rain, 1 snow).
+// look: 0 rain, 1 snow, 2 ice pellets, 3 blowing dust.
 const KINDS = {
+  drizzle: { density: 0.12, fall: 9, wind: 0.5, size: 0.32, snow: 0, alpha: 0.42 },
   veryLightRain: { density: 0.18, fall: 14, wind: 0.8, size: 0.5, snow: 0 },
   lightRain: { density: 0.42, fall: 16, wind: 1.2, size: 0.6, snow: 0 },
   mediumRain: { density: 0.7, fall: 19, wind: 2.2, size: 0.7, snow: 0 },
   hardRain: { density: 1, fall: 22, wind: 3.2, size: 0.8, snow: 0 },
+  thunderstorm: { density: 1, fall: 25, wind: 4.6, size: 0.86, snow: 0, alpha: 0.66 },
+  // Rain that freezes where it lands: clearer, icier drops.
+  freezingRain: { density: 0.55, fall: 17, wind: 1.2, size: 0.6, snow: 0, color: 0xc6dcf2, glaze: 0.7 },
+  iceStorm: { density: 0.85, fall: 20, wind: 2.8, size: 0.72, snow: 0, color: 0xcfe2f6, glaze: 1 },
   veryLightSnow: { density: 0.2, fall: 1.4, wind: 0.4, size: 0.14, snow: 1 },
   lightSnow: { density: 0.45, fall: 1.6, wind: 0.5, size: 0.16, snow: 1 },
   mediumSnow: { density: 0.72, fall: 2.1, wind: 1.4, size: 0.18, snow: 1 },
   hardSnow: { density: 1, fall: 2.6, wind: 2.2, size: 0.2, snow: 1 },
+  snowstorm: { density: 1, fall: 3, wind: 4.5, size: 0.21, snow: 1, alpha: 0.9 },
+  // Snow flying sideways in a gale.
+  blizzard: { density: 1, fall: 3.4, wind: 8.5, size: 0.19, snow: 1, alpha: 0.95 },
+  // Bitter cold, clear sky: a few tiny ice crystals glinting in the air.
+  coldSnap: { density: 0.1, fall: 0.5, wind: 5, size: 0.07, snow: 1, alpha: 0.9 },
   // Little ice balls coming down fast (2026-10-25); round like snow.
   hail: { density: 0.75, fall: 19, wind: 1.4, size: 0.13, snow: 1, ice: true },
+  // Sleet (snow melting on the way down, 2026-10-30): small clear ice
+  // pellets, slower than hail, that leave the ground slushy.
+  sleet: { density: 0.62, fall: 11, wind: 1.6, size: 0.085, snow: 1, ice: true, color: 0xdde8f2, alpha: 0.75 },
+  duststorm: { density: 0.8, fall: 0.3, wind: 7, size: 1.5, snow: 0, dust: true, color: 0x8f7a5e, alpha: 0.2 },
+  sandstorm: { density: 1, fall: 0.4, wind: 9.5, size: 1.3, snow: 0, dust: true, color: 0xc9a066, alpha: 0.26 },
 }
+const lookOf = (k) => (k.dust ? 3 : k.ice ? 2 : k.snow ? 1 : 0)
+// Random's easing: about this much of the gap closes per second.
+const SLOW_EASE = 0.05
 
 const VERT = /* glsl */ `
 uniform float uTime;
 uniform float uDensity;
-uniform float uFall;
-uniform float uWind;
+uniform float uFallOff;
+uniform vec2 uDrift;
 uniform float uSize;
 uniform float uSnow;
 uniform float uIce;
+uniform float uDust;
 uniform float uScale;
 uniform float uB;
 uniform vec3 uCam;
@@ -97,14 +128,17 @@ void main() {
   vec3 cam = uCam / uB; // in blocks
   // Snowflakes flutter both ways as they drift (hail drops straight);
   // big flakes fall a little faster than small ones.
-  float flutter = uSnow * (1.0 - uIce);
+  float flutter = uSnow * (1.0 - uIce) * (1.0 - uDust);
   float sway = flutter * (sin(uTime * (0.6 + seed.w) + seed.x * 40.0) * 0.6 + sin(uTime * (1.9 + seed.y * 1.3) + seed.z * 25.0) * 0.18);
   float swayZ = flutter * cos(uTime * (0.5 + seed.y * 0.8) + seed.z * 31.0) * 0.45;
-  float fall = uTime * uFall * (0.85 + seed.w * 0.3) * (1.0 + flutter * (seed.z - 0.5) * 0.5);
+  float fall = uFallOff * (0.85 + seed.w * 0.3) * (1.0 + flutter * (seed.z - 0.5) * 0.5);
+  // Dust rolls and billows as it blows along.
+  float billow = uDust * sin(uTime * (0.7 + seed.x) + seed.z * 20.0) * 1.2;
+  float gust = 1.0 + uDust * (seed.y - 0.5) * 0.6;
   vec3 p;
-  p.x = cam.x + (fract(seed.x - (cam.x - uTime * uWind - sway) / BOX) - 0.5) * BOX;
-  p.z = cam.z + (fract(seed.z - (cam.z - swayZ) / BOX) - 0.5) * BOX;
-  p.y = cam.y - DOWN + fract(seed.y - (cam.y + fall) / H) * H;
+  p.x = cam.x + (fract(seed.x - (cam.x - uDrift.x * gust - sway) / BOX) - 0.5) * BOX;
+  p.z = cam.z + (fract(seed.z - (cam.z - uDrift.y * gust - swayZ) / BOX) - 0.5) * BOX;
+  p.y = cam.y - DOWN + fract(seed.y - (cam.y + fall - billow) / H) * H;
   // Under a roof: hidden.
   vec2 cell = floor(p.xz) - uRoofOrigin;
   if (cell.x >= 0.0 && cell.y >= 0.0 && cell.x < ROOF && cell.y < ROOF) {
@@ -114,15 +148,16 @@ void main() {
   vec4 mv = modelViewMatrix * vec4(p * uB, 1.0);
   gl_Position = projectionMatrix * mv;
   // Flakes come in all sizes; hail pellets need room for their streak.
-  float size = uSize * (1.0 + flutter * (seed.z * 1.1 - 0.45)) * (1.0 + uIce * 1.6);
-  gl_PointSize = min(size * uB * uScale / -mv.z, uIce > 0.5 ? 34.0 : uSnow > 0.5 ? 40.0 : 160.0);
+  float size = uSize * (1.0 + flutter * (seed.z * 1.1 - 0.45)) * (1.0 + uIce * 1.6) * (1.0 + uDust * (seed.w - 0.3));
+  gl_PointSize = min(size * uB * uScale / -mv.z, uDust > 0.5 ? 260.0 : uIce > 0.5 ? 34.0 : uSnow > 0.5 ? 40.0 : 160.0);
   vPx = gl_PointSize;
   vStrength = 0.55 + seed.x * 0.45;
   vSeed = seed.y;
   // Fade at the box's edges so it has no hard border, and very close up.
   vec3 d = abs(p - cam) / vec3(BOX * 0.5, H * 0.5, BOX * 0.5);
   float edge = 1.0 - smoothstep(0.7, 1.0, max(d.x, d.z));
-  vAlpha = edge * smoothstep(0.4 + (1.0 - uSnow) * 0.8, 1.2 + (1.0 - uSnow) * 1.5, -mv.z / uB);
+  float nearCut = uDust > 0.5 ? 0.3 : 0.4 + (1.0 - uSnow) * 0.8;
+  vAlpha = edge * smoothstep(nearCut, nearCut + (uDust > 0.5 ? 2.5 : 0.8 + (1.0 - uSnow) * 0.7), -mv.z / uB);
 }
 `
 
@@ -130,6 +165,7 @@ const FRAG = /* glsl */ `
 uniform float uTime;
 uniform float uSnow;
 uniform float uIce;
+uniform float uDust;
 uniform vec3 uColor;
 uniform float uAlpha;
 uniform float uLean;
@@ -167,7 +203,13 @@ void main() {
   vec2 c = gl_PointCoord - 0.5;
   float a;
   vec3 col = uColor;
-  if (uIce > 0.5) {
+  if (uDust > 0.5) {
+    // A soft, lumpy puff of dust or sand, thicker in the middle.
+    float r = length(c);
+    float lump = 0.08 * sin(atan(c.y, c.x) * 3.0 + vSeed * 40.0) + 0.05 * sin(atan(c.y, c.x) * 7.0 - vSeed * 17.0);
+    a = pow(max(0.0, 1.0 - r / (0.48 + lump)), 1.7);
+    col = uColor * (0.85 + 0.3 * vSeed);
+  } else if (uIce > 0.5) {
     // A hard little ice pellet at the bottom with a faint streak above it
     // (it's falling fast), a bright glint on its top-left.
     vec2 h = c - vec2(c.y * uLean, 0.0) - vec2(0.0, 0.32);
@@ -312,11 +354,12 @@ export class BuildWeather {
     this.uniforms = {
       uTime: { value: 0 },
       uDensity: { value: 0 },
-      uFall: { value: 16 },
-      uWind: { value: 1 },
+      uFallOff: { value: 0 },
+      uDrift: { value: new THREE.Vector2() },
       uSize: { value: 0.5 },
       uSnow: { value: 0 },
       uIce: { value: 0 },
+      uDust: { value: 0 },
       uScale: { value: 800 },
       uB: { value: blockSize },
       uCam: { value: new THREE.Vector3() },
@@ -356,11 +399,32 @@ export class BuildWeather {
     this.splash.renderOrder = 2
     buildMode.scene.add(this.splash)
     this._lite = false
+    // Random eases slowly between steps (setSlow); the editor's own pick
+    // and a new game change faster.
+    this._slow = false
+    // What's falling now: eased toward the kind's numbers.
+    this._now = { fall: 16, wind: 1, size: 0.5, alpha: 0.6 }
+    this.windDir = new THREE.Vector2(1, 0)
+    // Frost on the ground (BuildSky: frost, cold snaps) and how fast
+    // things dry (heatwaves dry everything quickly).
+    this.frost = 0
+    this.dryMult = 1
     this._scanRow = ROOF
     this._scanOrigin = { x: 0, z: 0, y: 0 }
   }
 
-  // 'lightRain' | 'hardRain' | 'lightSnow' | 'hardSnow' | 'hail' | anything else (none).
+  setSlow(on) {
+    this._slow = !!on
+  }
+
+  // How icy the ground is (0..1): freezing rain glazes it (BuildTryMode
+  // makes you slide).
+  glaze() {
+    const k = KINDS[this.kind]
+    return k?.glaze && this._want === this.kind ? k.glaze * Math.min(1, this._density / k.density) : 0
+  }
+
+  // A kind from KINDS, or anything else (none).
   set(kind) {
     const k = KINDS[kind] ? kind : null
     if (k === this._want) return
@@ -375,26 +439,29 @@ export class BuildWeather {
   }
 
   update(dt) {
-    // A step up or down the same weather (light rain -> slightly hard
-    // rain, BuildSky's ladders): the drops change and the amount eases
-    // over. A different weather fades the old one out first.
-    if (this._want && this.kind && this._want !== this.kind && KINDS[this._want].snow === KINDS[this.kind].snow && !KINDS[this._want].ice === !KINDS[this.kind].ice) {
-      this.kind = this._want
-      this._useKind(KINDS[this.kind])
-    }
+    // A step up or down the same sort of weather (light rain -> slightly
+    // hard rain, BuildSky's ladders): the drops change and the amount
+    // eases over. A different sort fades the old one out first.
+    const same = (a, b) => lookOf(KINDS[a]) === lookOf(KINDS[b])
+    if (this._want && this.kind && this._want !== this.kind && same(this._want, this.kind)) this.kind = this._want
+    const ease = this._slow ? 1 - Math.exp(-SLOW_EASE * dt) : 0
     if (this._want !== this.kind) {
-      this._density = Math.max(0, this._density - FADE_SPEED * dt * 2)
-      if (this._density === 0) {
+      this._density = this._slow ? Math.max(0, this._density - Math.max(this._density * ease * 2, 0.004 * dt)) : Math.max(0, this._density - FADE_SPEED * dt * 2)
+      if (this._density < 0.002) {
+        this._density = 0
         this.kind = this._want
-        if (this.kind) this._useKind(KINDS[this.kind])
+        if (this.kind) this._useKind(KINDS[this.kind], true)
       }
     } else if (this.kind) {
       const goal = KINDS[this.kind].density
-      this._density += Math.sign(goal - this._density) * Math.min(Math.abs(goal - this._density), FADE_SPEED * dt)
+      if (this._slow) this._density += (goal - this._density) * ease
+      else this._density += Math.sign(goal - this._density) * Math.min(Math.abs(goal - this._density), FADE_SPEED * dt)
     }
+    if (this.kind) this._useKind(KINDS[this.kind], !this._slow, dt)
     const on = !!this.kind && this._density > 0.002
     this.points.visible = on
-    this.splash.visible = on && !this._lite && (this.kind.endsWith('Rain') || this.kind === 'hail')
+    const look = this.kind ? lookOf(KINDS[this.kind]) : 3
+    this.splash.visible = on && !this._lite && (look === 0 || look === 2)
     const groundLeft = this._updateGround(dt)
     if (!on && !groundLeft) {
       this._scanRow = ROOF
@@ -408,6 +475,17 @@ export class BuildWeather {
     this._time += dt
     const u = this.uniforms
     u.uTime.value = this._time
+    // Added up each frame (so easing the speeds never jumps the drops),
+    // wrapped now and then so the shader's numbers stay precise.
+    const n = this._now
+    u.uFallOff.value = (u.uFallOff.value + n.fall * dt) % 65536
+    u.uDrift.value.x = (u.uDrift.value.x + this.windDir.x * n.wind * dt) % 65536
+    u.uDrift.value.y = (u.uDrift.value.y + this.windDir.y * n.wind * dt) % 65536
+    // Rain leans with the wind as you see it (-: the head trails the tail).
+    const right = this._right || (this._right = new THREE.Vector3())
+    right.set(1, 0, 0).applyQuaternion(this.bm.camera.quaternion)
+    const across = this.windDir.x * right.x + this.windDir.y * right.z
+    u.uLean.value = u.uSnow.value > 0.5 || u.uDust.value > 0.5 ? 0 : -THREE.MathUtils.clamp((n.wind * across) / n.fall * 2, -0.5, 0.5)
     u.uDensity.value = this._density
     const cam = this.bm.camera
     u.uCam.value.copy(cam.position)
@@ -423,35 +501,48 @@ export class BuildWeather {
     const g = this.ground
     const k = this._want === this.kind ? this.kind : null
     const d = KINDS[k] ? this._density / KINDS[k].density : 0
-    const rain = k && k.endsWith('Rain') ? d : 0
-    const snow = k && k.endsWith('Snow') ? d : 0
+    const look = KINDS[k] ? lookOf(KINDS[k]) : -1
+    const rain = look === 0 ? d : k === 'sleet' ? d * 0.8 : 0
+    const snow = look === 1 && k !== 'coldSnap' ? d : 0
     const hail = k === 'hail' ? d : 0
+    const glaze = KINDS[k]?.glaze ? d * 0.25 : 0
+    const frost = Math.max(this.frost, glaze, k === 'sleet' ? d * 0.3 : 0)
     // Melting snow leaves the ground wet.
     const melting = g.snow.value > 0 && !snow ? 0.5 : 0
     const step = (u, inRate, outRate, amount, goal = 1) => {
       const target = amount > 0 ? goal : 0
-      u.value = u.value < target ? Math.min(target, u.value + inRate * amount * dt) : Math.max(target, u.value - outRate * dt)
+      u.value = u.value < target ? Math.min(target, u.value + inRate * amount * dt) : Math.max(target, u.value - outRate * this.dryMult * dt)
     }
     step(g.wet, WET_IN, WET_OUT, rain + hail * 0.5 + melting, rain > 0 ? 1 : 0.6)
-    step(g.snow, SNOW_IN, SNOW_OUT, snow, k === 'hardSnow' ? 1 : 0.75)
+    // A white frost (frosty mornings, cold snaps, freezing rain's glaze)
+    // is a thin dusting; real snow covers the ground.
+    if (snow) step(g.snow, SNOW_IN, SNOW_OUT, snow, /hardSnow|snowstorm|blizzard/.test(k) ? 1 : 0.75)
+    else step(g.snow, SNOW_IN * 3, SNOW_OUT, frost, 0.3 * Math.min(1, frost * 1.5))
     step(g.ice, ICE_IN, ICE_OUT, hail)
     return g.wet.value + g.snow.value + g.ice.value > 0
   }
 
-  _useKind(k) {
+  // The drops' look switches at once (a new sort of weather starts from
+  // nothing); their speed, size, wind and see-through-ness ease over
+  // (jump: straight there).
+  _useKind(k, jump, dt = 0) {
     const u = this.uniforms
-    u.uFall.value = k.fall
-    u.uWind.value = k.wind
-    u.uSize.value = k.size
-    u.uSnow.value = k.snow
-    u.uIce.value = k.ice ? 1 : 0
-    u.uColor.value.setHex(k.ice ? 0xd4e3f2 : k.snow ? 0xf7faff : 0xaebfd4)
-    u.uAlpha.value = k.ice ? 0.95 : k.snow ? 0.85 : 0.6
+    const look = lookOf(k)
+    u.uSnow.value = look === 1 || look === 2 ? 1 : 0
+    u.uIce.value = look === 2 ? 1 : 0
+    u.uDust.value = look === 3 ? 1 : 0
+    const goal = { fall: k.fall, wind: k.wind, size: k.size, alpha: k.alpha ?? (k.ice ? 0.95 : k.snow ? 0.85 : 0.6) }
+    const e = jump ? 1 : 1 - Math.exp(-SLOW_EASE * 1.4 * dt)
+    for (const key in goal) this._now[key] += (goal[key] - this._now[key]) * e
+    u.uSize.value = this._now.size
+    u.uAlpha.value = this._now.alpha
+    const color = this._color || (this._color = new THREE.Color())
+    color.setHex(k.color ?? (k.ice ? 0xd4e3f2 : k.snow ? 0xf7faff : 0xaebfd4))
+    if (jump) u.uColor.value.copy(color)
+    else u.uColor.value.lerp(color, e)
     const sp = this.splash.material.uniforms
     sp.uBounce.value = k.ice ? 1 : 0
     sp.uColor.value.setHex(k.ice ? 0xe4eef8 : 0xc8d6e6)
-    // Rain leans with the wind (-: the head trails the tail sideways).
-    u.uLean.value = k.snow ? 0 : -Math.min(0.5, k.wind / k.fall * 2)
   }
 
   // A few rows of the roof grid per frame; when a full pass ends, it goes

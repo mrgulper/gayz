@@ -16,8 +16,8 @@ const MODE_KEYS = {
   worldMap: 'topBarModeWorldMap',
 }
 // The weather's sign before its name (clear shows a sun, or a moon at night).
-const WEATHER_ICON = { veryLightRain: '☂', lightRain: '☂', mediumRain: '☂', hardRain: '☂', veryLightSnow: '❄', lightSnow: '❄', mediumSnow: '❄', hardSnow: '❄', hail: '☂', fog: '≡', sandstorm: '≋', eclipse: '◐' }
-const WEATHER_KIND = { veryLightRain: 'rain', lightRain: 'rain', mediumRain: 'rain', hardRain: 'rain', veryLightSnow: 'snow', lightSnow: 'snow', mediumSnow: 'snow', hardSnow: 'snow', hail: 'rain', fog: 'snow', sandstorm: 'sand', eclipse: 'rain' }
+const WEATHER_ICON = { drizzle: '☂', veryLightRain: '☂', lightRain: '☂', mediumRain: '☂', hardRain: '☂', thunderstorm: '⚡', freezingRain: '☂', iceStorm: '❄', veryLightSnow: '❄', lightSnow: '❄', mediumSnow: '❄', hardSnow: '❄', snowstorm: '❄', blizzard: '❄', sleet: '❄', hail: '☂', frost: '❄', coldSnap: '❄', fog: '≡', heatwave: '☀', duststorm: '≋', sandstorm: '≋', eclipse: '◐' }
+const WEATHER_KIND = { drizzle: 'rain', veryLightRain: 'rain', lightRain: 'rain', mediumRain: 'rain', hardRain: 'rain', thunderstorm: 'rain', freezingRain: 'rain', iceStorm: 'snow', veryLightSnow: 'snow', lightSnow: 'snow', mediumSnow: 'snow', hardSnow: 'snow', snowstorm: 'snow', blizzard: 'snow', sleet: 'snow', hail: 'rain', frost: 'snow', coldSnap: 'snow', fog: 'snow', heatwave: 'sand', duststorm: 'sand', sandstorm: 'sand', eclipse: 'rain' }
 // Coordinates and the mode are refreshed this often (ms), not every frame.
 const REFRESH_MS = 100
 
@@ -190,7 +190,8 @@ export class TopBar {
     const look = sky?.topBarLook?.()
     if (!look) return
     const night = look.night > 0.5
-    const weather = `${WEATHER_ICON[look.weather] || (night ? '☾' : '☀')} ${t(`buildWeather_${look.weather}`)}`
+    // A natural disaster going on shows next to the weather (Disasters.js).
+    const weather = `${WEATHER_ICON[look.weather] || (night ? '☾' : '☀')} ${t(`buildWeather_${look.weather}`)}${look.disaster ? ` · ⚠ ${t(`disaster_${look.disaster}`)}` : ''}`
     if (weather !== this._text.weather) this._weather.textContent = this._text.weather = weather
     // The game's clock, every minute (2026-10-18, Gaymi: "dont make it go
     // by 10 minutes make it go 1 minute"), in the player's own 12/24-hour

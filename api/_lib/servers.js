@@ -276,11 +276,16 @@ function cleanZombie(z) {
 }
 
 // The host's sky: the day-night clock, the weather showing and where it's
-// heading, and seconds of rainbow left (BuildSky.skyState).
+// heading, seconds of rainbow left, and a natural disaster going on - its
+// kind, seed, spot and how long it's been going (BuildSky.skyState,
+// Disasters.state).
 function cleanSky(v) {
   if (!v || typeof v !== 'object') return null
   const kind = (k) => (typeof k === 'string' && WEATHER_RE.test(k) ? k : 'clear')
-  return { c: num(v.c, 0, 1e7), n: kind(v.n), g: kind(v.g), r: num(v.r, 0, 600) }
+  const d = v.d && typeof v.d === 'object' && typeof v.d.k === 'string' && WEATHER_RE.test(v.d.k)
+    ? { k: v.d.k, s: Math.floor(num(v.d.s, 0, 2 ** 31)), x: num(v.d.x, -1e5, 1e5), z: num(v.d.z, -1e5, 1e5), t: num(v.d.t, 0, 3000) }
+    : null
+  return { c: num(v.c, 0, 1e7), n: kind(v.n), g: kind(v.g), r: num(v.r, 0, 600), ...(d ? { d } : {}) }
 }
 
 // One of the host's animals (PlayAnimals.snapshot): kind, spot, heading,

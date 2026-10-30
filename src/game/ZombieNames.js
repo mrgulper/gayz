@@ -11,6 +11,7 @@
 import * as THREE from 'three'
 import { t } from './i18n.js'
 import { RARITIES } from './NewAnimalKinds.js'
+import { luck, luckFor } from './Luck.js'
 
 // chance: how often a zombie rolls this tier. hp / damage / speed / coins:
 // times a common one's.
@@ -33,6 +34,18 @@ export const NAME_COUNT = ADJECTIVES.length * NAMES.length
 // A boss is always legendary or mythic.
 export function rollZombieTier(boss, r = Math.random()) {
   if (boss) return r < 0.7 ? 'legendary' : 'mythic'
+  // With 10x luck (Luck.js) the rarer tiers weigh far more (out of the
+  // new total).
+  const m = luck.mult()
+  if (m > 1) {
+    const w = (id) => ZOMBIE_TIERS[id].chance * luckFor(id, m)
+    r *= ZOMBIE_TIER_IDS.reduce((sum, id) => sum + w(id), 0)
+    for (const id of ZOMBIE_TIER_IDS) {
+      if (r < w(id)) return id
+      r -= w(id)
+    }
+    return 'common'
+  }
   for (const id of ZOMBIE_TIER_IDS) {
     if (r < ZOMBIE_TIERS[id].chance) return id
     r -= ZOMBIE_TIERS[id].chance

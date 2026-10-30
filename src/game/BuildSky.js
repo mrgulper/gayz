@@ -33,29 +33,56 @@
 // minutes, starting in the morning) with Random weather whatever the
 // Map Editor's buttons are set to, without touching that saved choice.
 // The sun, moon and clouds are SkyBodies.js.
+//
+// Even more real weather (2026-10-30, Gaymi: "make the weather even more
+// realistic"): every change eases over about half a minute (the sky here,
+// the drops in BuildWeather, the rain's sound) instead of popping; drizzle,
+// sleet (sometimes, as snow ends), freezing rain, ice storms,
+// thunderstorms, heavy snowstorms, blizzards, frost, dust storms,
+// heatwaves and cold snaps; a wind for every weather (soft when it's
+// clear, a gale in a blizzard) that turns slowly and pushes you a little
+// when you're out in it (windPush); lightning that forks down from the
+// clouds or flickers inside them (SkyLightning.js); frost growing in from
+// the screen's edges in bitter cold and a heat haze in a heatwave
+// (WeatherScreen.js); and natural disasters (Disasters.js) with 10x luck
+// after an impact (Luck.js).
 import * as THREE from 'three'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
 import { BuildWeather } from './BuildWeather.js'
 import { SkyBodies, MOON_PHASES } from './SkyBodies.js'
 import { sampleLand, inCity } from './OpenWorld.js'
+import { SkyLightning } from './SkyLightning.js'
+import { WeatherScreen } from './WeatherScreen.js'
+import { Disasters, DISASTERS, IMPACTS } from './Disasters.js'
+import { luck } from './Luck.js'
 
 export const SKY_TIMES = ['day', 'sunset', 'night', 'cycle']
-export const SKY_WEATHERS = ['clear', 'veryLightRain', 'lightRain', 'mediumRain', 'hardRain', 'veryLightSnow', 'lightSnow', 'mediumSnow', 'hardSnow', 'hail', 'fog', 'sandstorm', 'eclipse', 'random']
+export const SKY_WEATHERS = ['clear', 'drizzle', 'veryLightRain', 'lightRain', 'mediumRain', 'hardRain', 'thunderstorm', 'freezingRain', 'iceStorm', 'veryLightSnow', 'lightSnow', 'mediumSnow', 'hardSnow', 'snowstorm', 'blizzard', 'sleet', 'hail', 'frost', 'coldSnap', 'fog', 'heatwave', 'duststorm', 'sandstorm', 'eclipse', 'random']
+// Clear skies (sun out, stars at night), whatever the temperature.
+export const CLEAR_SKIES = new Set(['clear', 'frost', 'heatwave', 'coldSnap'])
 // Weather changes a step at a time (2026-10-25, Gaymi: "hard rain slightly
 // hard rain light rain very light rain the clear needs something like that
 // not just instant weather switch", picked about 1 minute a step): Random
 // walks down the old weather's ladder to clear and up the new one's,
 // STEP_S per step. A ladder's first step is the one next to clear.
+// Rain starts and ends as drizzle; the worst rain is a thunderstorm and
+// the worst snow a blizzard (2026-10-30).
 const LADDERS = {
-  rain: ['veryLightRain', 'lightRain', 'mediumRain', 'hardRain'],
-  snow: ['veryLightSnow', 'lightSnow', 'mediumSnow', 'hardSnow'],
-  hail: ['veryLightRain', 'lightRain', 'hail'],
+  rain: ['drizzle', 'veryLightRain', 'lightRain', 'mediumRain', 'hardRain', 'thunderstorm'],
+  snow: ['veryLightSnow', 'lightSnow', 'mediumSnow', 'hardSnow', 'snowstorm', 'blizzard'],
+  hail: ['drizzle', 'veryLightRain', 'lightRain', 'hail'],
+  freezing: ['drizzle', 'freezingRain', 'iceStorm'],
+  sleet: ['sleet'],
 }
 const LADDER_OF = {
-  veryLightRain: 'rain', lightRain: 'rain', mediumRain: 'rain', hardRain: 'rain',
-  veryLightSnow: 'snow', lightSnow: 'snow', mediumSnow: 'snow', hardSnow: 'snow', hail: 'hail',
+  drizzle: 'rain', veryLightRain: 'rain', lightRain: 'rain', mediumRain: 'rain', hardRain: 'rain', thunderstorm: 'rain',
+  veryLightSnow: 'snow', lightSnow: 'snow', mediumSnow: 'snow', hardSnow: 'snow', snowstorm: 'snow', blizzard: 'snow',
+  hail: 'hail', freezingRain: 'freezing', iceStorm: 'freezing', sleet: 'sleet',
 }
+// Sleet (2026-10-30, Gaymi: "sleet(after snowing)"): this chance, as snow
+// ends, of a spell of sleet before it clears.
+const SLEET_CHANCE = 0.4
 const STEP_S = 60
 // A solar eclipse (2026-10-25, Gaymi: "something rare eclipse has a 0.01
 // chance" - 0.01%): rolled first on every Random weather change, daytime
@@ -77,26 +104,48 @@ const CYCLE_SECONDS = 1440
 const GAME_START_PHASE = 0.85
 const PREF_KEY = 'buildmode-sky'
 const RANDOM_REROLL_S = 240
-const LIGHTNING_MIN_S = 8
-const LIGHTNING_RANGE_S = 14
 // Bumped to switch every saved Weather choice to Random once (2026-10-17).
 const PREF_VERSION = 2
 const SKY_EASE = 0.6 // how fast the sky, light and fog follow the weather
 // ...and in Random, where each step gets about a minute to settle in.
-const SKY_EASE_SLOW = 0.08
+const SKY_EASE_SLOW = 0.045
 const CLIMATE_CHECK_S = 2
 // Which weather each climate can have, with its chance (the rest is clear).
 // Snow, hail and fog can turn up in the city too now (2026-10-25, Gaymi:
 // "add more weathers ... snowing hard snowing light snowing and also add
 // hail") - just less often than where it's cold.
+// Heatwaves and cold snaps are rare - only the worst weather (2026-10-30);
+// frost only forms at night and in the early morning (FROST_NIGHT).
 const CLIMATES = {
-  mild: [['veryLightRain', 0.08], ['lightRain', 0.14], ['mediumRain', 0.07], ['hardRain', 0.07], ['fog', 0.08], ['lightSnow', 0.05], ['hardSnow', 0.025], ['hail', 0.03]],
-  wet: [['veryLightRain', 0.08], ['lightRain', 0.2], ['mediumRain', 0.14], ['hardRain', 0.16], ['fog', 0.12], ['hail', 0.04]],
-  cold: [['veryLightSnow', 0.08], ['lightSnow', 0.18], ['mediumSnow', 0.12], ['hardSnow', 0.14], ['fog', 0.08], ['hail', 0.04]],
-  dry: [['sandstorm', 0.3]],
-  savanna: [['veryLightRain', 0.06], ['lightRain', 0.1], ['fog', 0.03]],
-  mountain: [['veryLightSnow', 0.06], ['lightSnow', 0.14], ['mediumSnow', 0.04], ['hardSnow', 0.05], ['lightRain', 0.12], ['fog', 0.12], ['hail', 0.05]],
+  mild: [['drizzle', 0.06], ['veryLightRain', 0.07], ['lightRain', 0.12], ['mediumRain', 0.06], ['hardRain', 0.05], ['thunderstorm', 0.02], ['fog', 0.08], ['lightSnow', 0.04], ['hardSnow', 0.02], ['hail', 0.025], ['freezingRain', 0.01], ['frost', 0.04], ['heatwave', 0.015]],
+  wet: [['drizzle', 0.06], ['veryLightRain', 0.07], ['lightRain', 0.17], ['mediumRain', 0.12], ['hardRain', 0.13], ['thunderstorm', 0.06], ['fog', 0.12], ['hail', 0.035], ['heatwave', 0.015]],
+  cold: [['veryLightSnow', 0.08], ['lightSnow', 0.16], ['mediumSnow', 0.11], ['hardSnow', 0.1], ['snowstorm', 0.05], ['blizzard', 0.03], ['freezingRain', 0.03], ['iceStorm', 0.02], ['fog', 0.07], ['hail', 0.03], ['frost', 0.06], ['coldSnap', 0.025]],
+  dry: [['sandstorm', 0.2], ['duststorm', 0.1], ['heatwave', 0.08]],
+  savanna: [['drizzle', 0.05], ['veryLightRain', 0.05], ['lightRain', 0.08], ['thunderstorm', 0.02], ['fog', 0.03], ['duststorm', 0.05], ['heatwave', 0.04]],
+  mountain: [['veryLightSnow', 0.06], ['lightSnow', 0.12], ['mediumSnow', 0.04], ['hardSnow', 0.04], ['snowstorm', 0.03], ['blizzard', 0.015], ['lightRain', 0.1], ['freezingRain', 0.03], ['fog', 0.12], ['hail', 0.04], ['frost', 0.05], ['coldSnap', 0.015]],
 }
+const FROST_NIGHT = 0.3
+// The wind for each weather (blocks/second): very soft when it's clear,
+// a gale in a blizzard. It pushes you a little (WIND_PUSH of it) when
+// there's nothing over your head (windPush).
+const WIND = {
+  clear: 0.25, drizzle: 0.5, veryLightRain: 0.6, lightRain: 0.9, mediumRain: 1.5, hardRain: 2.4, thunderstorm: 3.4,
+  freezingRain: 1.1, iceStorm: 2.6, veryLightSnow: 0.5, lightSnow: 0.7, mediumSnow: 1.2, hardSnow: 2, snowstorm: 3.4,
+  blizzard: 5.5, sleet: 1.4, hail: 1.8, frost: 0.15, coldSnap: 3.2, fog: 0.1, heatwave: 0.35, duststorm: 4, sandstorm: 5,
+  eclipse: 0.3,
+}
+const WIND_PUSH = 0.22
+const WIND_GRIP = 1.8
+// How hard it's raining / snowing, for the sound (0..1+).
+const RAIN_SOUND = { drizzle: 0.2, veryLightRain: 0.3, lightRain: 0.5, mediumRain: 0.7, hardRain: 0.9, thunderstorm: 1, freezingRain: 0.5, iceStorm: 0.8, sleet: 0.5, hail: 0.8 }
+const SNOW_SOUND = { veryLightSnow: 0.3, lightSnow: 0.5, mediumSnow: 0.7, hardSnow: 1, snowstorm: 1.3, blizzard: 1.6, coldSnap: 0.9, sandstorm: 1.3, duststorm: 1.1 }
+// Lightning: [seconds between (min, range), share of hard strikes].
+const LIGHTNING = {
+  mediumRain: [24, 30, 0], hardRain: [7, 14, 0.4], thunderstorm: [3.5, 8, 0.6], hail: [14, 18, 0.2],
+  iceStorm: [30, 40, 0], snowstorm: [45, 60, 0], blizzard: [40, 60, 0],
+}
+// The screen in the worst weather (WeatherScreen): frost or heat.
+const SCREEN = { coldSnap: { frost: 0.85 }, blizzard: { frost: 0.6 }, iceStorm: { frost: 0.4 }, snowstorm: { frost: 0.25 }, heatwave: { heat: 0.7 } }
 const BIOME_CLIMATE = {
   snowyBeach: 'cold', snowyTaiga: 'cold', snowyPlains: 'cold', iceSpikes: 'cold', snowyPeaks: 'cold', frozenOcean: 'cold',
   desert: 'dry', badlands: 'dry', savanna: 'savanna',
@@ -127,6 +176,18 @@ const WEATHER_LOOK = {
   mediumSnow: [0xc9cdd4, 0.7, 0.73, 0.92],
   hardSnow: [0xd0d4da, 0.85, 0.66, 0.8],
   hail: [0x4d5259, 0.9, 0.55, 1],
+  drizzle: [0x7a8088, 0.5, 0.86, 1],
+  thunderstorm: [0x2c3036, 0.97, 0.36, 0.9],
+  freezingRain: [0x7f8790, 0.8, 0.66, 1],
+  iceStorm: [0x6a717a, 0.9, 0.55, 0.85],
+  sleet: [0x899098, 0.75, 0.68, 1],
+  snowstorm: [0xd3d7dc, 0.9, 0.6, 0.6],
+  // A whiteout: you can hardly see.
+  blizzard: [0xdde1e6, 0.97, 0.55, 0.28],
+  frost: [0xcfe0f0, 0.12, 1, 1],
+  coldSnap: [0xb8d0ea, 0.22, 0.97, 1],
+  heatwave: [0xf2d7a0, 0.3, 1.1, 0.8],
+  duststorm: [0x9c8668, 0.72, 0.72, 0.45],
   fog: [0xb7bcc3, 0.8, 0.78, 0.22],
   sandstorm: [0xc49a5c, 0.75, 0.7, 0.35],
   eclipse: [0x0b0d18, 0.9, 0.2, 1],
@@ -188,9 +249,23 @@ export class BuildSky {
     this._sunBase = 0
     this.weather3d = new BuildWeather(buildMode, blockSize)
     this.bodies = new SkyBodies(buildMode.scene)
+    this.lightning = new SkyLightning(buildMode.scene)
+    this.screen = new WeatherScreen()
+    this.disasters = new Disasters(this, buildMode, blockSize)
+    this.luck = luck
+    // The wind (blocks/s), turning slowly; and the thunder still to come.
+    this.wind = new THREE.Vector2(WIND.clear, 0)
+    this._windAng = Math.random() * Math.PI * 2
+    this._windTime = 0
+    this._sheltered = false
+    this._shelterIn = 0
+    this._thunder = []
+    this._flashColor = new THREE.Color(0xe6e4ff)
+    this._disasterPick = 'none'
     this._editorChoice = null
     document.getElementById('build-mode-time-btn')?.addEventListener('click', () => this.cycleTime())
     document.getElementById('build-mode-weather-btn')?.addEventListener('click', () => this.cycleWeather())
+    document.getElementById('build-mode-disaster-btn')?.addEventListener('click', () => this.cycleDisaster())
     this.apply()
   }
 
@@ -209,6 +284,16 @@ export class BuildSky {
     this.apply()
   }
 
+  // The pause screen's Disaster button: the next one starts right away
+  // (to look at), and once round it's back to none.
+  cycleDisaster() {
+    const list = ['none', ...DISASTERS]
+    this._disasterPick = list[(list.indexOf(this._disasterPick) + 1) % list.length]
+    if (this._disasterPick === 'none') this.disasters.end()
+    else this.disasters.start(this._disasterPick)
+    this.refreshButtons()
+  }
+
   // Random: a roll from where you are's climate (CLIMATES).
   // jump: show it straight away (a new game, the editor's own pick)
   // instead of stepping there (_step).
@@ -221,6 +306,10 @@ export class BuildSky {
     this._rerollIn = RANDOM_REROLL_S
     this._stepIn = STEP_S
     let goal = 'clear'
+    // An impact (2026-10-30, Gaymi: "make them very rare the impact
+    // events like 0.01 make it same as the eclipse"): rolled alongside it,
+    // any time of day, only in a game.
+    if (this._inGame && !this._following && !this.disasters.active && Math.random() < ECLIPSE_CHANCE) this.disasters.start(IMPACTS[Math.floor(Math.random() * IMPACTS.length)])
     if (this.nightAmount() < 0.3 && Math.random() < ECLIPSE_CHANCE) goal = 'eclipse'
     else {
       let roll = Math.random()
@@ -232,6 +321,9 @@ export class BuildSky {
         roll -= chance
       }
     }
+    if (goal === 'frost' && this.nightAmount() < FROST_NIGHT) goal = 'clear'
+    // A drought: no rain, often a heatwave.
+    if (this.disasters.blocksRain() && goal !== 'clear' && goal !== 'eclipse') goal = goal === 'heatwave' || Math.random() < 0.5 ? 'heatwave' : 'clear'
     this._goal = goal
     if (jump) this._now = goal
   }
@@ -255,6 +347,49 @@ export class BuildSky {
     return want ? want[0] : goal
   }
 
+  // A drought set in: the sky clears (walking down from any rain).
+  forceClear() {
+    if (this.weather !== 'random') return
+    this._goal = 'heatwave'
+    this._rerollIn = RANDOM_REROLL_S
+  }
+
+  // Lightning lit the sky (amount ~0..1.5); also a meteor's flash.
+  addFlash(amount) {
+    const reduce = this.bm.game?.settings?.reduceFlashing
+    this.lightning.addFlash(amount * (reduce ? 0.35 : 1))
+  }
+
+  // The whole screen flashes white (a close strike, a big impact).
+  screenFlash() {
+    if (this.bm.game?.settings?.reduceFlashing) return
+    const flash = this.bm.game?.lightningFlashEl
+    if (!flash) return
+    flash.classList.remove('flash')
+    void flash.offsetWidth
+    flash.classList.add('flash')
+  }
+
+  // A bolt to the ground at a spot (blocks) - a wildfire's start.
+  strikeAt(x, z) {
+    const B = this.B
+    const cam = this.bm.camera.position
+    this.lightning.strike(cam, true, (wx, wz) => this.disasters.topAt(wx / B, wz / B) * B, Math.random, { x: x * B, z: z * B })
+    this.addFlash(0.6)
+    this._thunder.push([1.2, { gain: 0.8 }])
+  }
+
+  // How the wind pushes you (blocks/s), out in the open; and whatever a
+  // disaster is doing to you (a flood's current, an avalanche).
+  // On the ground a breeze doesn't slide you along - only wind past
+  // WIND_GRIP does (storms, gales, blizzards); in the air any wind does.
+  windPush(out, onGround = false) {
+    const len = this.wind.length()
+    let k = this._active && !this._sheltered ? WIND_PUSH : 0
+    if (onGround) k *= len > WIND_GRIP ? (len - WIND_GRIP) / len : 0
+    return out.set(this.wind.x * k + this.disasters.push.x, this.wind.y * k + this.disasters.push.y)
+  }
+
   // The climate where you are: the open world's biome, or mild in the city
   // and on maps that aren't the open world.
   _climateAt() {
@@ -272,7 +407,7 @@ export class BuildSky {
   // didn't see the same thing I had on my screen"): the host sends this
   // with each sync (PlayNet) and the others follow() it.
   skyState() {
-    return { c: +this._clock.toFixed(1), n: this._now, g: this._goal, r: +Math.max(0, this._rainbowIn).toFixed(1) }
+    return { c: +this._clock.toFixed(1), n: this._now, g: this._goal, r: +Math.max(0, this._rainbowIn).toFixed(1), d: this.disasters.state() }
   }
 
   // The host's sky (null: back to rolling our own, e.g. we became the host).
@@ -287,6 +422,7 @@ export class BuildSky {
     if (this.time === 'cycle' && Number.isFinite(state.c) && Math.abs(state.c - this._clock) > 3) this._clock = state.c
     if (ok(state.g)) this._goal = state.g
     this._rainbowIn = Number(state.r) || 0
+    this.disasters.follow(state.d || null)
     if (ok(state.n) && state.n !== this._now) {
       this._now = state.n
       this.apply()
@@ -297,6 +433,9 @@ export class BuildSky {
   // random weather, then back to the editor's own choice.
   forGame(on) {
     this._following = false
+    this._inGame = !!on
+    this.disasters.end()
+    luck.stop()
     if (on) {
       if (!this._editorChoice) this._editorChoice = { time: this.time, weather: this.weather }
       this.time = 'cycle'
@@ -328,6 +467,10 @@ export class BuildSky {
     this._shownKind = null
     this._showOverlays('clear')
     this.weather3d.clear()
+    this.lightning.clear()
+    this.screen.clear()
+    this.disasters.end()
+    this._thunder = []
     this.bm.grassTufts?.clear()
     const game = this.bm.game
     audioEngine.setWeatherAudio(!!game?.raining && !!game?.gameStarted, !!game?.snowing && !!game?.gameStarted)
@@ -362,6 +505,7 @@ export class BuildSky {
     }
     set('build-mode-time-btn-label', t('buildTimeBtn', { time: t(`buildTime_${this.time}`) }))
     set('build-mode-weather-btn-label', t('buildWeatherBtn', { weather: t(`buildWeather_${this.weather}`) }))
+    set('build-mode-disaster-btn-label', t('buildDisasterBtn', { name: this._disasterPick === 'none' ? t('disasterNone') : t(`disaster_${this._disasterPick}`) }))
   }
 
   // 0 = noon ... 0.5 = midnight, for Cycle; fixed for the others.
@@ -411,15 +555,18 @@ export class BuildSky {
     const night = this.nightAmount()
     const stars = this._stars.material.uniforms.opacity
     // Only once it's really dark - not in a morning or evening sky.
-    stars.value = w === 'eclipse' ? 0.8 : THREE.MathUtils.smoothstep(night, 0.4, 0.9) * (w === 'clear' ? 1 : 0.25)
+    stars.value = w === 'eclipse' ? 0.8 : THREE.MathUtils.smoothstep(night, 0.4, 0.9) * (CLEAR_SKIES.has(w) ? 1 : 0.25)
     this._stars.visible = stars.value > 0.01
     // (apply() runs a few times a second in Cycle - only touch the
     // overlays, sound and lightning when the weather itself changes.)
     if (this._active && this._shownKind !== w) {
       this._shownKind = w
       this._showOverlays(w)
-      audioEngine.setWeatherAudio(w.endsWith('Rain') || w === 'hail', w.endsWith('Snow'))
-      this._lightningIn = w === 'hardRain' ? LIGHTNING_MIN_S + Math.random() * LIGHTNING_RANGE_S : 0
+      // Random eases the sound over the step too.
+      audioEngine.setWeatherAudio(RAIN_SOUND[w] || 0, SNOW_SOUND[w] || 0, this.weather === 'random' ? 25 : 2)
+      const l = LIGHTNING[w]
+      this._lightningIn = l ? l[0] * 0.5 + Math.random() * l[1] : 0
+      this.screen.set(SCREEN[w] || {})
     }
     this._easeLook(0)
     bm._shadowsDirty = true
@@ -443,6 +590,12 @@ export class BuildSky {
       this.fogFactor += (this._fogGoal - this.fogFactor) * k
     }
     this._sky.copy(this._base).lerp(this._tint, this._mix)
+    // A disaster's own sky (smoke, ash, a fire's glow), then lightning.
+    const d = this.disasters.look
+    if (d.mix > 0.001) this._sky.lerp(d.tint, d.mix)
+    const flash = this.lightning.flash
+    if (flash > 0.001) this._sky.lerp(this._flashColor, Math.min(0.75, flash * 0.55))
+    const lightMult = d.light * (1 + flash * 1.6)
     const bm = this.bm
     // Puddles, water and far haze mirror this colour (BlockChunks).
     bm._chunks?.fx.sky.value.copy(this._sky)
@@ -457,9 +610,9 @@ export class BuildSky {
     // softer, bluer sky light, so shade looks cool and sunlit faces warm,
     // like outdoors.
     const real = bm.look?.realLight
-    if (bm._hemiLight) bm._hemiLight.intensity = this._hemiBase * this._light * (real ? 0.78 : 1)
+    if (bm._hemiLight) bm._hemiLight.intensity = this._hemiBase * this._light * lightMult * (real ? 0.78 : 1)
     if (bm._sunLight) {
-      bm._sunLight.intensity = this._sunBase * this._light * (real ? 1.35 : 1)
+      bm._sunLight.intensity = this._sunBase * this._light * d.light * (real ? 1.35 : 1)
       if (this._sunColor) bm._sunLight.color.copy(this._sunColor)
       if (real) bm._sunLight.color.multiply(this._a.setRGB(1, 0.95, 0.86))
     }
@@ -479,7 +632,8 @@ export class BuildSky {
   // hours (0-24; noon at phase 0, midnight at 0.5).
   topBarLook() {
     const w = this._now || 'clear'
-    return { weather: w, strength: WEATHER_LOOK[w]?.[1] ?? 0, night: this.nightAmount(), hours: (12 + this._phase() * 24) % 24 }
+    const d = this.disasters.active
+    return { weather: w, strength: WEATHER_LOOK[w]?.[1] ?? 0, night: this.nightAmount(), hours: (12 + this._phase() * 24) % 24, disaster: d && !d.done ? d.kind : null }
   }
 
   // 0 in daylight ... 1 at night.
@@ -575,8 +729,26 @@ export class BuildSky {
       u.ratio.value = bm.renderer?.getPixelRatio?.() || 1
       u.zoom.value = (this.bm._normalFov?.() || 75) / bm.camera.fov
     }
+    luck.update(dt, this._active && !!bm.survival?.active)
     if (!this._active) return
+    this._updateWind(dt)
+    this.lightning.update(dt)
     this._easeLook(dt)
+    this.weather3d.setSlow(this.weather === 'random')
+    // Thunder still on its way.
+    for (let i = this._thunder.length - 1; i >= 0; i--) {
+      if ((this._thunder[i][0] -= dt) <= 0) {
+        audioEngine.playThunder?.(this._thunder[i][1])
+        this._thunder.splice(i, 1)
+      }
+    }
+    this.disasters.update(dt, bm.camera)
+    if (!this._following && this.weather === 'random') this.disasters.roll(dt)
+    // The worst weather on your view, or a disaster's.
+    const ds = this.disasters.screen
+    const ws = SCREEN[this._now] || {}
+    this.screen.set({ frost: Math.max(ws.frost || 0, ds.frost), heat: Math.max(ws.heat || 0, ds.heat), gas: ds.gas, smoke: ds.smoke })
+    this.screen.update(dt, true)
     this._eclipse += ((this._now === 'eclipse' ? 1 : 0) - this._eclipse) * Math.min(1, dt * SKY_EASE)
     // How overcast it is, before night dims the tint (rain clouds stay at
     // night), and the moon's phase - a new one each game day, changing at
@@ -616,7 +788,9 @@ export class BuildSky {
         this._stepIn = STEP_S
         const was = this._now
         this._now = this._step()
-        if (this._now === 'clear' && (LADDER_OF[was] === 'rain' || LADDER_OF[was] === 'hail') && Math.random() < RAINBOW_CHANCE) this.showRainbow()
+        // As snow ends, now and then a spell of sleet first.
+        if (this._now === 'clear' && LADDER_OF[was] === 'snow' && Math.random() < SLEET_CHANCE) this._now = 'sleet'
+        if (this._now === 'clear' && (LADDER_OF[was] === 'rain' || LADDER_OF[was] === 'hail' || LADDER_OF[was] === 'freezing') && Math.random() < RAINBOW_CHANCE) this.showRainbow()
         this.apply()
       }
       if (this._rerollIn <= 0) this._pickWeather(false)
@@ -624,20 +798,46 @@ export class BuildSky {
     this._lightning(dt)
   }
 
-  // Hard rain: lightning and thunder now and then, like Map 1.
-  _lightning(dt) {
-    if (this._now === 'hardRain' && this._lightningIn > 0) {
-      this._lightningIn -= dt
-      if (this._lightningIn <= 0) {
-        this._lightningIn = LIGHTNING_MIN_S + Math.random() * LIGHTNING_RANGE_S
-        const flash = this.bm.game?.lightningFlashEl
-        if (flash) {
-          flash.classList.remove('flash')
-          void flash.offsetWidth
-          flash.classList.add('flash')
-        }
-        audioEngine.playThunder?.()
-      }
+  // The wind: each weather's strength, gusting, its direction turning
+  // slowly; the drops and dust blow with it. Under a roof you're out of it.
+  _updateWind(dt) {
+    this._windTime += dt
+    this._windAng += Math.sin(this._windTime * 0.013) * 0.004 + (Math.random() - 0.5) * 0.002
+    const base = WIND[this._now] ?? WIND.clear
+    const gust = 1 + 0.35 * Math.sin(this._windTime * 0.7) * Math.sin(this._windTime * 1.9 + 1)
+    const k = 1 - Math.exp(-dt * (this.weather === 'random' ? 0.05 : 0.8))
+    this.wind.x += (Math.cos(this._windAng) * base * gust - this.wind.x) * k
+    this.wind.y += (Math.sin(this._windAng) * base * gust - this.wind.y) * k
+    const len = this.wind.length()
+    if (len > 0.01) this.weather3d.windDir.set(this.wind.x / len, this.wind.y / len)
+    if ((this._shelterIn -= dt) <= 0) {
+      this._shelterIn = 0.5
+      const p = this.disasters.me()
+      let roof = false
+      for (let y = Math.floor(p.y) + 2; y < Math.floor(p.y) + 14 && !roof; y++) roof = !!this.bm.getBlockAt(Math.floor(p.x), y, Math.floor(p.z))
+      this._sheltered = roof
     }
+  }
+
+  // Lightning in storms (LIGHTNING): hard strikes fork down to the ground
+  // round you, soft ones flash inside the clouds; the thunder follows,
+  // later and duller from farther away.
+  _lightning(dt) {
+    const l = LIGHTNING[this._now]
+    if (!l || this._lightningIn <= 0) {
+      if (l) this._lightningIn = l[0] + Math.random() * l[1]
+      return
+    }
+    this._lightningIn -= dt
+    if (this._lightningIn > 0) return
+    this._lightningIn = l[0] + Math.random() * l[1]
+    const B = this.B
+    const hard = Math.random() < l[2]
+    const { dist } = this.lightning.strike(this.bm.camera.position, hard, (x, z) => this.disasters.topAt(x / B, z / B) * B)
+    const blocks = dist / B
+    this.addFlash(1)
+    if (hard && blocks < 70) this.screenFlash()
+    const gain = Math.max(0.15, 1 - blocks / 360)
+    this._thunder.push([hard ? 0.3 + blocks / 140 : 1.5 + Math.random() * 3, { gain, soft: !hard }])
   }
 }

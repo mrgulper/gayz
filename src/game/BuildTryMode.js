@@ -858,10 +858,19 @@ export class BuildTryMode {
     speed *= BHOP_MULT[this._hopChain]
     // Slower in water - unless you took a boat from a Boat Dock.
     if (inLiquid) speed *= 0.7 * (this.bm.specials._buff('boat') || 1)
+    // Wading through flood water (Disasters.js).
+    speed *= this.bm.sky?.disasters?.slow ?? 1
     const want = len ? (speed * amount) / len : 0
-    const grip = (this.onGround ? GROUND_GRIP : AIR_GRIP) * this.bm.specials.gripMult
-    this.vel.x = THREE.MathUtils.damp(this.vel.x, mx * want, grip, dt)
-    this.vel.z = THREE.MathUtils.damp(this.vel.z, mz * want, grip, dt)
+    // Freezing rain glazes the ground: you slide about (BuildWeather.glaze).
+    const glaze = this.onGround ? this.bm.sky?.weather3d?.glaze() || 0 : 0
+    const grip = (this.onGround ? GROUND_GRIP : AIR_GRIP) * this.bm.specials.gripMult * (1 - glaze * 0.75)
+    // The wind (stronger in worse weather) and a disaster's push - a
+    // flood's current, an avalanche, a shockwave - carry you along a
+    // little (2026-10-30, Gaymi: "wind effects that could blow you
+    // slightly"). Not in water, on a ladder, or while spectating.
+    const push = this.bm.sky && !inLiquid && !onLadder && !this.bm.spectate?.active ? this.bm.sky.windPush(this._push || (this._push = new THREE.Vector2()), this.onGround) : null
+    this.vel.x = THREE.MathUtils.damp(this.vel.x, mx * want + (push?.x || 0), grip, dt)
+    this.vel.z = THREE.MathUtils.damp(this.vel.z, mz * want + (push?.y || 0), grip, dt)
 
     // Jump timing: coyote time after leaving the ground, a buffered press
     // just before landing, and holding Space hops again on every landing.

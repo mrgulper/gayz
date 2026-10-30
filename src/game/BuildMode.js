@@ -4622,7 +4622,10 @@ export class BuildMode {
     this.renderer.info.reset()
     // Third person: the camera steps out for this drawing only.
     const restoreView = this.tryMode.applyView()
+    // An earthquake (or an impact) shakes the view (Disasters.js).
+    const restoreShake = this.sky.disasters?.beforeRender(this.camera)
     this.renderer.render(this.scene, this.camera)
+    restoreShake?.()
     restoreView?.()
     this.lastDrawCalls = this.renderer.info.render.calls
     shadowMap.autoUpdate = shadowAutoUpdate

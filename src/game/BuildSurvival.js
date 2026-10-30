@@ -1165,7 +1165,7 @@ export class BuildSurvival {
 
   // Raining (or hailing) right now (the sky's weather)?
   _raining() {
-    return /Rain$|^hail$/.test(this.bm.sky?._now || '')
+    return /Rain$|^hail$|^drizzle$|^thunderstorm$|^sleet$|^iceStorm$/.test(this.bm.sky?._now || '')
   }
 
   // Open sky above a cell (nothing solid in the next 24 blocks up).
@@ -1178,7 +1178,8 @@ export class BuildSurvival {
   _sunny() {
     const sky = this.bm.sky
     if (!sky) return false
-    return (sky._now || 'clear') === 'clear' && sky.nightAmount() < SUN_NIGHT_MAX
+    // Frosty mornings, heatwaves and cold snaps are sunny too.
+    return /^(clear|frost|heatwave|coldSnap)$/.test(sky._now || 'clear') && sky.nightAmount() < SUN_NIGHT_MAX
   }
 
   // Down in the rock: below the ground of its column (Underground.js).
