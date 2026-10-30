@@ -6253,6 +6253,31 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
     drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
 }
 
+/* Safari (2026-10-30): two big soft glows stacked go past what it can
+   draw - on an iPhone/iPad the whole logo disappeared, and on a Mac the
+   logo-tier-5 one did - so Safari (any device; WebKit is the only engine
+   that knows the -apple-system-body font keyword) keeps one glow (the near
+   one) plus the shadow. Chrome, Edge and Firefox keep the full look. */
+@supports (font: -apple-system-body) {
+  html.ui-theme-old #menu-title-img {
+    filter: sepia(1) drop-shadow(0 0 40px rgba(226, 189, 140, 0.55)) drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+  }
+  html.ui-theme-old #menu-title-img.logo-tier-3 {
+    filter: sepia(1) saturate(1.15) drop-shadow(0 0 40px rgba(226, 189, 140, 0.6)) drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+  }
+  html.ui-theme-old #menu-title-img.logo-tier-4 {
+    filter: sepia(1) saturate(1.25) contrast(1.05) drop-shadow(0 0 40px rgba(226, 189, 140, 0.65)) drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+  }
+  html.ui-theme-old #menu-title-img.logo-tier-5 {
+    filter: sepia(1) saturate(1.35) contrast(1.1) drop-shadow(0 0 40px rgba(226, 189, 140, 0.7)) drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+  }
+  #menu-title-img.logo-tier-3,
+  #menu-title-img.logo-tier-4,
+  #menu-title-img.logo-tier-5 {
+    filter: drop-shadow(0 0 40px rgba(255, 222, 92, 0.55)) drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6)) saturate(1.3);
+  }
+}
+
 #menu-tagline {
   margin: 2px 0 4px;
   font-family: var(--menu-display-font);
