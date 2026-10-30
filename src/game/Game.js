@@ -1388,7 +1388,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'cloudsave-offline-warning': 'cloudsaveOfflineWarning',
   'cloudsave-use-cloud-btn': 'cloudsaveUseCloudBtnLabel',
   'cloudsave-use-local-btn': 'cloudsaveUseLocalBtnLabel',
-  'status-row-heading': 'statusRowHeading',
   'status-pick-label-online': 'friendStatusOnline',
   'status-pick-label-idle': 'friendStatusIdle',
   'status-pick-label-dnd': 'friendStatusDnd',

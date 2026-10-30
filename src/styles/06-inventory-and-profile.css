@@ -1092,9 +1092,21 @@ html.ui-theme-old #prestige-history-list {
   text-align: center;
 }
 
-.perk-option:hover:not(:disabled) {
+.perk-option:hover:not(:disabled, #upgrades-options .perk-option) {
   border-color: var(--ui-gold-bright);
   background: rgba(var(--ui-gold-accent-rgb), 0.1);
+}
+
+/* Upgrades cards grow a little when pointed at instead of changing colour,
+   like the homepage buttons do (2026-10-30, "instead of making it go darker
+   make it go bigger"). Every card grows, bought or not; the colour stays. */
+#upgrades-options .perk-option {
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+#upgrades-options .perk-option:hover {
+  transform: scale(1.06);
+  position: relative;
+  z-index: 1;
 }
 
 .perk-option.featured {
@@ -1102,7 +1114,7 @@ html.ui-theme-old #prestige-history-list {
   background: rgba(255, 207, 92, 0.08);
 }
 
-.perk-option.featured:hover:not(:disabled) {
+.perk-option.featured:hover:not(:disabled, #upgrades-options .perk-option) {
   border-color: #ffde5c;
   background: rgba(255, 207, 92, 0.16);
 }

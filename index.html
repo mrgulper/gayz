@@ -1913,6 +1913,15 @@ Escape before dawn.</p>
             <button class="quest-tab" data-quest-page="lifetime" id="quest-tab-lifetime">Lifetime Quest</button>
           </div>
           <div class="quest-tab-page" id="quests-page-rolling">
+            <!-- Search + All rarities, same controls as the Market's
+                 (2026-10-30). -->
+            <div id="quest-toolbar">
+              <input type="text" id="quest-search" class="nickname-input search-bar" autocomplete="off" />
+              <div class="market-filter">
+                <button type="button" class="market-filter-btn" id="quest-rarity-filter-btn"></button>
+                <div class="market-filter-menu" id="quest-rarity-filter-menu" style="display: none"></div>
+              </div>
+            </div>
             <p id="rolling-quests-subtitle" class="menu-best-stats"></p>
             <div class="perk-options" id="rolling-quests-options"></div>
           </div>
@@ -1942,8 +1951,9 @@ Escape before dawn.</p>
             <button class="achievements-mode-tab" data-achievements-mode="deathmatch" id="achievements-tab-deathmatch">Deathmatch</button>
             <button class="achievements-mode-tab" data-achievements-mode="parkour" id="achievements-tab-parkour">Parkour</button>
           </div>
-          <input type="text" id="achievements-filter-input" class="nickname-input search-bar" placeholder="Search achievements..." />
+          <!-- Search, Category and Sort on one line (2026-10-30). -->
           <div id="achievements-controls-row">
+            <input type="text" id="achievements-filter-input" class="nickname-input search-bar" placeholder="Search achievements..." />
             <label for="achievements-category-select" id="achievements-category-label">Category:</label>
             <select id="achievements-category-select">
               <option value="all">All</option>
@@ -2118,9 +2128,11 @@ Escape before dawn.</p>
             <div id="gallery-list-view">
               <div id="gallery-toolbar">
                 <p id="gallery-how"></p>
+                <button type="button" id="gallery-mine-btn">My Posts</button>
                 <select id="gallery-sort" aria-label="Sort">
                   <option value="new">Newest</option>
                   <option value="likes">Most Liked</option>
+                  <option value="week">Top This Week</option>
                 </select>
               </div>
               <div id="gallery-grid"></div>
@@ -2150,6 +2162,7 @@ Escape before dawn.</p>
                   <p id="gallery-detail-by"></p>
                   <div class="gallery-detail-actions">
                     <button type="button" id="gallery-like-btn" class="mini-action-btn"></button>
+                    <button type="button" id="gallery-dislike-btn" class="mini-action-btn"></button>
                     <button type="button" id="gallery-use-btn" class="mini-action-btn"></button>
                     <button type="button" id="gallery-edit-btn" class="mini-action-btn"></button>
                     <button type="button" id="gallery-delete-btn" class="mini-action-btn"></button>
@@ -2291,7 +2304,7 @@ Escape before dawn.</p>
 
             <h3>Gallery, shared maps and servers</h3>
             <ul>
-              <li>Gallery posts store the picture you post, its title, your nickname, likes and comments - anyone can see them.</li>
+              <li>Gallery posts store the picture you post, its title, your nickname, likes, dislikes and comments - anyone can see them. Each like or dislike is saved under your account so you can only vote once per post.</li>
               <li>Maps you share get a code and are stored online so anyone can play them; Build Together rooms store the edits and each player's spot while you build.</li>
               <li>When you play on a server, your position, skin and nickname are sent to the other players in it while you play, along with what you hold, the blocks you place and break, and what you say in Global chat (shown over your head). A game you start from the homepage is a private server from the start, so friends can join it by its link; nobody sees it in the server list, and it's deleted when you leave.</li>
             </ul>
@@ -2339,7 +2352,7 @@ Escape before dawn.</p>
 
         <div class="feature" data-code="ACHIEVEMENTS">
           <h3><span data-feature-count="achievements">19</span> Achievements</h3>
-          <p>Spanning combat, survival and story, each with a hint instead of a bare "???" (skeleton hunters get Rattled, Bone Collector and Skeleton Key; the toughest runs earn Half Century, Slaughterhouse and Unstoppable; buying upgrades earns Well Equipped and Maxed Out; the deepest runs reach Sixty Waves and Never Ending, every difficulty, game mode and challenge mutator has its own, and the biggest single-game numbers earn Body Count, Killing Spree, Eagle Eye, Knife Party and Jackpot) — plus search, category filter, sort, and a Print list that puts every achievement on one landscape page, eight across and nine down. On a phone, the Category and Sort boxes fit side by side without the panel scrolling sideways.</p>
+          <p>Spanning combat, survival and story, each with a hint instead of a bare "???" (skeleton hunters get Rattled, Bone Collector and Skeleton Key; the toughest runs earn Half Century, Slaughterhouse and Unstoppable; buying upgrades earns Well Equipped and Maxed Out; the deepest runs reach Sixty Waves and Never Ending, every difficulty, game mode and challenge mutator has its own, and the biggest single-game numbers earn Body Count, Killing Spree, Eagle Eye, Knife Party and Jackpot) — earned ones are bright, shiny gold cards, and locked ones stay easy to read - plus search, category filter and sort on one line, and a Print list that puts every achievement on one landscape page, eight across and nine down. On a phone, the Category and Sort boxes fit side by side without the panel scrolling sideways.</p>
         </div>
         <div class="feature" data-code="xpForGame levelFromXp xpToNextLevel starterXp">
           <h3>XP &amp; Levels</h3>
@@ -2355,11 +2368,11 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="UPGRADE_PLAY PLAY_META_UPGRADES DEATH_POINTS_CONVERSION PRESTIGE_COST_STEP">
           <h3>Upgrades &amp; Points</h3>
-          <p>Every Map 1 run earns Points (the blue star next to your coins) from its kills and waves. Spend them in Upgrades' Zombie Survival tab on boosts that last for every run after: more health and armor, more gun damage and headshot damage, faster reloads, more speed, starting coins, more coins from kills, more spare ammo, softer zombie hits, slow healing (Second Wind), a cheaper camp Trader and faster healing in the camp, with third picks after many of them (Kevlar Vest, Berserker, Gold Rush, Haggler and more) - <span data-feature-value="upgrades">26</span> in all. Once you've survived to wave ten, Prestige trades your Points and Upgrades for <span data-feature-value="prestigeBonus">10</span>% more Points from every run, per level - and each level costs more: <span data-feature-value="prestigeStep">100,000</span> Points for the first, <span data-feature-value="prestigeStep2">200,000</span> for the second, and so on.</p>
+          <p>Every Map 1 run earns Points (the blue star next to your coins) from its kills and waves. Spend them in Upgrades' Zombie Survival tab on boosts that last for every run after: more health and armor, more gun damage and headshot damage, faster reloads, more speed, starting coins, more coins from kills, more spare ammo, softer zombie hits, slow healing (Second Wind), a cheaper camp Trader and faster healing in the camp (each card grows a little when you point at it), with third picks after many of them (Kevlar Vest, Berserker, Gold Rush, Haggler and more) - <span data-feature-value="upgrades">26</span> in all. Once you've survived to wave ten, Prestige trades your Points and Upgrades for <span data-feature-value="prestigeBonus">10</span>% more Points from every run, per level - and each level costs more: <span data-feature-value="prestigeStep">100,000</span> Points for the first, <span data-feature-value="prestigeStep2">200,000</span> for the second, and so on.</p>
         </div>
         <div class="feature" data-code="QUESTS ROLLING_QUEST_EXPIRE_MS _onPlayEvent">
           <h3>Quests</h3>
-          <p>Rolling quests that come and go (kill zombies, reach a wave, finish runs), counted from your Map 1 runs and claimed for coins in the Quests panel. A number in a circle on the Quests button says how many are finished and waiting to be claimed - the right-side buttons for Upgrades, Friend List and Achievements show a count the same way instead of a dot, in each theme's own colours.</p>
+          <p>Rolling quests that come and go (kill zombies, reach a wave, finish runs), counted from your Map 1 runs and claimed for coins in the Quests panel. Each quest is a big card, two to a row, softly coloured by its rarity - Common to Legendary, the Store's colours, rarer for harder quests - with a progress bar; the cards fade in one after another and the list fades out at the bottom. A search box and an All rarities menu at the top find the ones you want. The Quests button says how many are finished and waiting to be claimed in brackets after its name - Upgrades, Friendship and Achievements show their counts the same way.</p>
         </div>
       </section>
 
@@ -2476,7 +2489,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="GALLERY_KINDS createGalleryPost addGalleryComment">
           <h3>Gallery</h3>
-          <p>The Gallery (beside Design a Skin at the bottom of the homepage) shows everyone's skins and maps in Character and Map sections, newest or most liked first. Post a skin from Design a Skin or a map from the Map Editor's pause screen, then anyone can open it, like it, comment on it, wear the skin or Play and Edit the map. Your own posts and the comments on them can be deleted.</p>
+          <p>The Gallery (beside Design a Skin at the bottom of the homepage) shows everyone's skins and maps in Character and Map sections - newest, most liked, or Top This Week (the most liked from the past week) first - with a My Posts button to see only yours. Every card shows its thumbs-up and thumbs-down counts. Post a skin from Design a Skin or a map from the Map Editor's pause screen, then anyone can open it, give it a thumbs up or a thumbs down (one vote per post), comment on it, wear the skin or Play and Edit the map. Your own posts and the comments on them can be deleted.</p>
         </div>
         <div class="feature" data-code="BuildTogether OPS_PER_EDIT createBuildRoom">
           <h3>Build Together</h3>
@@ -2497,7 +2510,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="bindHoverMenus">
           <h3>Homepage Hover Menus</h3>
-          <p>Point at almost anything on the homepage and a menu of that page's tabs or sections opens: the bottom links (How to Play, What's New with the latest updates, GayZ Features, Terms of Use, Privacy Policy) get a wide menu above them (the page behind stays as it is, never darkened), the right-side buttons and profile card a menu to their left, and Game Mode and Settings one to their right. In the Old theme the bottom links' menu is burnt parchment and the side menus are old note paper. Click the page's name to open it, or a tab or section to open it right there. Pages without tabs or sections, and Play, open straight away. While a page is open, only the right-side button that opened it stays lit. On touch screens a tap still opens the page.</p>
+          <p>Point at almost anything on the homepage and a menu of that page's tabs or sections opens: the bottom links (How to Play, What's New with the latest updates, GayZ Features, Gallery, Terms of Use, Privacy Policy) get one just above them (the page behind stays as it is, never darkened), the right-side buttons and profile card one to their left, and Game Mode and Settings one to their right - all the same narrow list card. In the Old theme the menus are the panels' burnt parchment. Click the page's name to open it, or a tab or section to open it right there. Pages without tabs or sections, and Play, open straight away. While a page is open, only the right-side button that opened it stays lit. On touch screens a tap still opens the page.</p>
         </div>
         <div class="feature" data-code="SKIN_DESIGNER_URL">
           <h3>Design a Skin</h3>
@@ -2505,7 +2518,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="INVENTORY_SKINS SKIN_RARITIES InspectViewer">
           <h3>Inventory Skins: Rarities, Inspect &amp; Sell</h3>
-          <p>Everyone starts with two skins, Gaymi (the default) and Alisa (slim arms). Every character skin card shows its rarity and how many you own - search them by name or pick a rarity. Click one to Equip it, put it on the Market, Sell it to the game for coins, or Inspect it in a big 3D view you can turn and zoom (zooming stops just outside the item). Inventory also has a Crates tab, a Weapons tab with a picture of every gun, and a Pets tab (Coming Soon).</p>
+          <p>Everyone starts with two skins, Gaymi (the default) and Alisa (slim arms). Every character skin card shows its rarity (the coloured left edge, on a card in your theme's colour) and how many you own - search them by name or pick a rarity. Click one to Equip it, put it on the Market, Sell it to the game for coins, or Inspect it in a big 3D view you can turn and zoom (zooming stops just outside the item). Inventory also has a Crates tab, a Weapons tab with a picture of every gun, and a Pets tab (Coming Soon).</p>
         </div>
         <div class="feature" data-code="customSkinDataUrl">
           <h3>Custom Skin Upload</h3>
@@ -2555,7 +2568,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="savedFriends searchLeaderboardByName">
           <h3>Friendship</h3>
-          <p>The Friendship button opens a panel with two tabs, Friend List and Clan. Friend List: add by player ID or by name (a list of matching players pops up as you type), real-time friend requests, as many friends as you like (counted next to Your Friends) with each one's #ID, live Friend Compare, and an online/idle/DND/offline status dropdown with last-seen time. Click your own ID to copy it.</p>
+          <p>The Friendship button opens a panel with two tabs, Friend List and Clan. Friend List: add by player ID or by name (a list of matching players pops up as you type), real-time friend requests, as many friends as you like (counted next to Your Friends) with each one's #ID, live Friend Compare, and an online/idle/DND/offline status dropdown with last-seen time, right in front of the friend ID box so Friend Requests and Your Friends get the room. Click your own ID to copy it.</p>
         </div>
         <div class="feature" data-code="createClan sendClanInvite fetchClanCombinedStats clanMonthKey entryClanXp">
           <h3>Clans</h3>
@@ -2661,7 +2674,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="whatsNewDigest">
           <h3>What's New Digest</h3>
-          <p>A structured, dated in-game changelog (new entries are paused for now, shown by a big banner at the top) with an optional "show every launch" toggle, and a What's New card in the top corner of the homepage when GayZ has been updated, covering the whole profile card (a torn sheet of old paper in the Old theme) - close it with the X, click anywhere else, or let it fade away.</p>
+          <p>A structured, dated in-game changelog (new entries are paused for now, shown by a big banner at the top that points to the #updates channel on Discord, with a link) with an optional "show every launch" toggle, and a What's New card in the top corner of the homepage when GayZ has been updated, covering the whole profile card (a torn sheet of old paper in the Old theme) - close it with the X, click anywhere else, or let it fade away.</p>
         </div>
         <div class="feature" data-code="MenuEasterEggs">
           <h3>Easter Eggs</h3>
@@ -2754,16 +2767,17 @@ Escape before dawn.</p>
           <div class="panel-fixed-content">
             <!-- Search + filters: an Items dropdown with a
                  checkbox per item (Character and every weapon) and a
-                 Rarity dropdown. See _renderMarketFilters. -->
+                 Rarity dropdown (Rarity first since 2026-10-30: All items is
+                 the longer label, so it goes last). See _renderMarketFilters. -->
             <div id="market-toolbar">
               <input type="text" id="market-search" class="nickname-input search-bar" autocomplete="off" />
               <div class="market-filter">
-                <button type="button" class="market-filter-btn" id="market-item-filter-btn"></button>
-                <div class="market-filter-menu" id="market-item-filter-menu" style="display: none"></div>
-              </div>
-              <div class="market-filter">
                 <button type="button" class="market-filter-btn" id="market-rarity-filter-btn"></button>
                 <div class="market-filter-menu" id="market-rarity-filter-menu" style="display: none"></div>
+              </div>
+              <div class="market-filter">
+                <button type="button" class="market-filter-btn" id="market-item-filter-btn"></button>
+                <div class="market-filter-menu" id="market-item-filter-menu" style="display: none"></div>
               </div>
             </div>
             <div id="shop-market-grid"></div>
@@ -3048,7 +3062,7 @@ Escape before dawn.</p>
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
           <h2 id="whatsnew-panel-title">What's New</h2>
           <div id="whatsnew-content">
-            <p id="whatsnew-paused-banner">Paused for now</p>
+            <p id="whatsnew-paused-banner"><span id="whatsnew-paused-title">Paused for now</span><span id="whatsnew-paused-discord">Check new updates on <a href="https://discord.gg/kukR72Euj6" target="_blank" rel="noopener noreferrer">Discord</a> #updates</span></p>
             <p id="build-version-line"></p>
           <div id="changelog-list">
             <div class="changelog-entry"><span class="changelog-date">v0.21 · Oct 19, 2026</span><div class="changelog-text"><div class="changelog-group changelog-added"><span class="changelog-group-label">Added</span><ul><li>The map key has a fourth step: the map held in both your hands in front of you (you can look around, but not shoot), then back to the small map.</li><li>Design a Skin: a colour next to gear colours that gear - "add white cat paws", "a gold cape", "pink ears".</li></ul></div><div class="changelog-group changelog-changed"><span class="changelog-group-label">Changed</span><ul><li>Every gun is back in its original colours and materials.</li><li>Blocks and items stack up to 999 in one slot.</li><li>Burning wood flickers slower and calmer.</li><li>Achievements: the Category and Sort boxes match the search bar's softer look.</li><li>A long place name under the map wraps onto a second line instead of running off the screen.</li><li>Design a Skin: Generate makes one skin again, the tap-a-part button is gone, and the edit box shows only its latest reply.</li></ul></div><div class="changelog-group changelog-fixed"><span class="changelog-group-label">Fixed</span><ul><li>Design a Skin: "add cat white paw" made the whole outfit white.</li><li>Inventory: the character no longer looks squashed for a moment when you open it again.</li></ul></div></div></div>
@@ -3104,29 +3118,28 @@ Escape before dawn.</p>
             <div id="friends-col-add">
               <h3 id="add-friend-heading">Add a Friend</h3>
               <p id="friends-own-id-line"><span id="friends-own-id-label">Your ID:</span> <span id="friends-own-id"></span></p>
+              <!-- Your Status sits in front of the friend box (2026-10-30,
+                   "its kinda taking a lot of space") so Friend Requests and
+                   Your Friends get the room. -->
               <div id="cloudsave-friend-row">
+                <div id="status-picker">
+                  <button type="button" id="status-picker-toggle">
+                    <span class="friend-status-dot" data-status="online" id="status-picker-dot"></span>
+                    <span id="status-picker-label">Online</span>
+                    <svg id="status-picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  <div id="status-picker-options">
+                    <button type="button" class="status-pick-btn" data-status="online"><span class="friend-status-dot" data-status="online"></span><span id="status-pick-label-online">Online</span></button>
+                    <button type="button" class="status-pick-btn" data-status="idle"><span class="friend-status-dot" data-status="idle"></span><span id="status-pick-label-idle">Busy</span></button>
+                    <button type="button" class="status-pick-btn" data-status="dnd"><span class="friend-status-dot" data-status="dnd"></span><span id="status-pick-label-dnd">Do Not Disturb</span></button>
+                    <button type="button" class="status-pick-btn" data-status="offline"><span class="friend-status-dot" data-status="offline"></span><span id="status-pick-label-offline">Offline</span></button>
+                  </div>
+                </div>
                 <input type="text" id="cloudsave-friend-input" class="nickname-input" placeholder="Friend's ID or name" maxlength="24" />
                 <button id="send-friend-request-btn" class="mini-action-btn" type="button">Add Friend</button>
                 <div id="cloudsave-friend-suggestions" role="listbox"></div>
               </div>
               <p id="cloudsave-friend-result"></p>
-            </div>
-
-            <div id="status-row">
-              <h3 id="status-row-heading">Status</h3>
-              <div id="status-picker">
-                <button type="button" id="status-picker-toggle">
-                  <span class="friend-status-dot" data-status="online" id="status-picker-dot"></span>
-                  <span id="status-picker-label">Online</span>
-                  <svg id="status-picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-                <div id="status-picker-options">
-                  <button type="button" class="status-pick-btn" data-status="online"><span class="friend-status-dot" data-status="online"></span><span id="status-pick-label-online">Online</span></button>
-                  <button type="button" class="status-pick-btn" data-status="idle"><span class="friend-status-dot" data-status="idle"></span><span id="status-pick-label-idle">Busy</span></button>
-                  <button type="button" class="status-pick-btn" data-status="dnd"><span class="friend-status-dot" data-status="dnd"></span><span id="status-pick-label-dnd">Do Not Disturb</span></button>
-                  <button type="button" class="status-pick-btn" data-status="offline"><span class="friend-status-dot" data-status="offline"></span><span id="status-pick-label-offline">Offline</span></button>
-                </div>
-              </div>
             </div>
 
             <div id="friends-two-col">

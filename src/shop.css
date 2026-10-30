@@ -448,3 +448,24 @@ html.ui-theme-old #inventory-pets-soon {
   background: rgba(120, 80, 40, 0.14);
   border-color: rgba(74, 44, 16, 0.4);
 }
+
+/* Inventory's own skin cards are the theme's colour (paper in Old, the
+   picked colour in Simple) instead of the rarity fill - the rarity stays as
+   the thick left edge (2026-10-30, "make the characters background same as
+   theme based"). Market and Store cards keep their rarity glow. */
+html.ui-theme-old #inventory-skins-list .inv-skin-card:not(.inv-weapon-card) {
+  background: rgba(120, 80, 40, 0.14);
+  border-color: rgba(74, 44, 16, 0.4);
+  border-left-color: var(--rarity, #9aa0a6);
+  box-shadow: none;
+}
+html.ui-theme-old #inventory-skins-list .inv-skin-card:not(.inv-weapon-card):hover {
+  background: rgba(120, 80, 40, 0.24);
+}
+html.ui-theme-clean #inventory-skins-list .inv-skin-card:not(.inv-weapon-card),
+html.ui-theme-clean #inventory-skins-list .inv-skin-card:not(.inv-weapon-card):hover {
+  background: var(--clean-surface);
+  border-color: var(--clean-line);
+  border-left-color: var(--rarity, #9aa0a6);
+  box-shadow: none;
+}

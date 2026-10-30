@@ -305,9 +305,30 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
   border-radius: 8px;
 }
 
+#whatsnew-paused-title,
+#whatsnew-paused-discord {
+  display: block;
+}
+/* Where to find new updates meanwhile (2026-10-30). */
+#whatsnew-paused-discord {
+  margin-top: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+#whatsnew-paused-discord a {
+  color: inherit;
+  text-decoration: underline;
+  font-weight: 800;
+}
+
 @media (max-width: 600px) {
   #whatsnew-paused-banner {
     font-size: 28px;
+  }
+  #whatsnew-paused-discord {
+    font-size: 14px;
   }
 }
 

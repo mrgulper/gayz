@@ -7,7 +7,8 @@
 // opens the page; clicking a tab/section opens it right there. Bottom
 // links get a wide card above the row, the right column a card to its
 // left, Game Mode and Settings one to their right (below left no room
-// above the bottom links). Buttons whose page has no tabs
+// above the bottom links; since 2026-10-30 the bottom links' card is the
+// same narrow list as the right column's). Buttons whose page has no tabs
 // or sections (Market, Map Editor, Design a Skin...) and Play get none.
 // Mouse only - touch screens have no pointing, so a tap still just opens
 // the page.
@@ -48,6 +49,8 @@ const PANEL_MENUS = [
   { link: 'achievements-btn', panel: 'achievements-panel', tabs: '.achievements-mode-tab' },
   { link: 'gamemode-btn', panel: 'hub-panel', tabs: '.hub-tab', place: 'beside' },
   { link: 'settings-btn', panel: 'settings-panel', tabs: '.settings-tab', place: 'beside' },
+  // Gallery's sections, like the other bottom links (2026-10-30).
+  { link: 'nav-gallery-link', panel: 'gallery-panel', tabs: '.gallery-tab', place: 'footer' },
 ].map((m) => {
   const panel = () => document.getElementById(m.panel)
   // Tabs/sections the page shows right now (e.g. Friends' lists only
@@ -60,7 +63,7 @@ const PANEL_MENUS = [
     link: m.link,
     place: m.place || 'side',
     open: () => document.getElementById(m.link)?.click(),
-    labels: () => items().map((el) => el.textContent.trim().replace(/\s+/g, ' ')),
+    labels: () => items().map((el) => (el.querySelector('.gallery-tab-label') || el).textContent.trim().replace(/\s+/g, ' ')),
     target: (i) => items()[i],
     tabs: !!m.tabs,
   }
@@ -123,8 +126,13 @@ export function bindHoverMenus(game) {
     const r = menu.linkEl.getBoundingClientRect()
     card.style.top = card.style.bottom = card.style.left = card.style.right = ''
     if (menu.place === 'footer') {
-      // Just above the links row, whatever height the window is.
+      // Just above its link, whatever height the window is - the same
+      // narrow card as the right column's since 2026-10-30 ("make
+      // anything in the bottom line the section same as the right side"),
+      // centred on the link but never off the screen.
       card.style.bottom = `${Math.max(8, window.innerHeight - r.top + 6)}px`
+      const w = card.offsetWidth
+      card.style.left = `${Math.max(8, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - 8))}px`
     } else if (menu.place === 'side') {
       // To the left of the right column, level with the button but
       // never off the bottom of the screen.
@@ -148,7 +156,7 @@ export function bindHoverMenus(game) {
     // shows an ID, so those two are named here).
     titleBtn.textContent = menu.link === 'settings-btn' ? t('settingsTitle')
       : menu.link === 'menu-player-badge' ? t('profilePanelTitle')
-        : menu.linkEl.textContent.trim().replace(/\s+/g, ' ')
+        : (menu.linkEl.querySelector('span:not(.nav-badge-dot)') || menu.linkEl).textContent.trim().replace(/\s+/g, ' ')
     list.replaceChildren(...labels.map((label, i) => {
       const b = document.createElement('button')
       b.type = 'button'

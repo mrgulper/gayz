@@ -63,7 +63,7 @@
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  width: min(640px, 90vw);
+  width: min(640px, 100%);
   margin: 0 auto;
   height: var(--panel-h);
   overflow-y: auto;
@@ -222,23 +222,18 @@ html.ui-theme-old .panel-box #cloudsave-region-select {
   cursor: pointer;
 }
 
-/* Player's own presence Status picker - sits between "Add a Friend" and
-   the Friend Requests/Your Friends columns. Reuses .friend-status-dot's
+/* Player's own presence Status picker - first thing in the friend box row
+   (#cloudsave-friend-row, 2026-10-30), in front of the ID/name box. Reuses .friend-status-dot's
    data-status color keying so the pill colors always match the dots shown
    next to friends in "Your Friends" below. */
-#status-row {
-  width: 100%;
-  text-align: left;
-}
-
 /* Collapsed dropdown (Discord-style) instead of 4 always-visible pills -
    #status-picker-toggle shows the current pick, click opens the floating
    #status-picker-options list below it; .open (toggled in Game.js) drives
    both. Reuses .friend-status-dot's data-status coloring throughout. */
 #status-picker {
   position: relative;
-  width: 100%;
-  max-width: 240px;
+  flex: 0 0 auto;
+  width: 150px;
 }
 
 #status-picker-toggle {
@@ -714,6 +709,18 @@ html.ui-theme-old .panel-box #cloudsave-region-select {
 
 #cloudsave-friend-row .nickname-input {
   flex: 1;
+  min-width: 0;
+}
+/* Phones: not enough room for Status, the box and Add Friend on one line -
+   Status goes on its own line just above (2026-10-30). */
+@media (max-width: 600px) {
+  #cloudsave-friend-row {
+    flex-wrap: wrap;
+  }
+  #cloudsave-friend-row #status-picker {
+    flex: 1 1 100%;
+    width: auto;
+  }
 }
 
 #cloudsave-friend-result {

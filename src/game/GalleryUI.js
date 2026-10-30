@@ -38,14 +38,22 @@ export function bindGallery(game) {
   game._galleryKind = 'character'
   game._gallerySort = 'new'
   game._galleryPosts = []
-  game._galleryLiked = new Set()
+  // Post id -> 'like' or 'dislike' (one vote each, 2026-10-30).
+  game._galleryVotes = new Map()
+  game._galleryMine = false
   game._galleryOpen = null
   game._galleryDraft = null
   for (const tab of document.querySelectorAll('.gallery-tab')) {
     tab.addEventListener('click', () => showKind(game, tab.dataset.galleryKind))
   }
   $('gallery-sort')?.addEventListener('change', (e) => {
-    game._gallerySort = e.target.value === 'likes' ? 'likes' : 'new'
+    game._gallerySort = ['likes', 'week'].includes(e.target.value) ? e.target.value : 'new'
+    renderGrid(game)
+  })
+  // My Posts: only your own posts (2026-10-30).
+  $('gallery-mine-btn')?.addEventListener('click', () => {
+    if (!game._galleryMine && !game._cloudUid) return needSignIn(game)
+    game._galleryMine = !game._galleryMine
     renderGrid(game)
   })
   $('gallery-grid')?.addEventListener('click', (e) => {
@@ -54,7 +62,8 @@ export function bindGallery(game) {
     if (post) openPost(game, post)
   })
   $('gallery-back-btn')?.addEventListener('click', () => showList(game))
-  $('gallery-like-btn')?.addEventListener('click', () => likeOpenPost(game))
+  $('gallery-like-btn')?.addEventListener('click', () => voteOpenPost(game, 'like'))
+  $('gallery-dislike-btn')?.addEventListener('click', () => voteOpenPost(game, 'dislike'))
   $('gallery-use-btn')?.addEventListener('click', () => useOpenPost(game, true))
   $('gallery-edit-btn')?.addEventListener('click', () => useOpenPost(game, false))
   $('gallery-delete-btn')?.addEventListener('click', () => deleteOpenPost(game))
@@ -102,7 +111,9 @@ export function renderTexts() {
   if (sort) {
     sort.options[0].textContent = t('gallerySortNew')
     sort.options[1].textContent = t('gallerySortLikes')
+    sort.options[2].textContent = t('gallerySortWeek')
   }
+  text('gallery-mine-btn', 'galleryMineBtn')
   text('gallery-back-btn', 'galleryBackBtn')
   text('gallery-comments-heading', 'galleryCommentsHeading')
   text('gallery-comment-send', 'gallerySendBtn')
@@ -165,23 +176,34 @@ async function showList(game) {
   renderGrid(game)
 }
 
+const count = (n) => Math.max(0, Math.floor(Number(n) || 0))
+// The thumbs are emoji on purpose - Gaymi asked for exactly these
+// (2026-10-30), the one exception to the project's no-emoji rule.
+const THUMBS_UP = '\u{1F44D}' // eslint-disable-line local/no-emoji
+const THUMBS_DOWN = '\u{1F44E}' // eslint-disable-line local/no-emoji
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+
 function renderGrid(game) {
   const grid = $('gallery-grid')
   const empty = $('gallery-empty')
   if (!grid) return
-  const posts = [...game._galleryPosts].sort((a, b) => game._gallerySort === 'likes'
-    ? (Number(b.likes) || 0) - (Number(a.likes) || 0) || (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0)
-    : (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0))
+  $('gallery-mine-btn')?.classList.toggle('active', game._galleryMine)
+  // Top This Week: the last 7 days' posts, most liked first.
+  const weekAgo = Date.now() - WEEK_MS
+  const byNew = (a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0)
+  const posts = game._galleryPosts
+    .filter((p) => (!game._galleryMine || p.creatorUid === game._cloudUid) && (game._gallerySort !== 'week' || (Number(p.createdAt) || 0) >= weekAgo))
+    .sort((a, b) => game._gallerySort === 'new' ? byNew(a, b) : count(b.likes) - count(a.likes) || byNew(a, b))
   grid.innerHTML = posts.map((p) => `
     <button type="button" class="gallery-card" data-id="${_escapeHtml(p.id)}">
       <span class="gallery-card-pic gallery-pic-${p.kind === 'map' ? 'map' : 'character'}"><img alt="" data-src-for="${_escapeHtml(p.id)}"></span>
       <span class="gallery-card-title">${_escapeHtml(String(p.title || '').slice(0, 40))}</span>
       <span class="gallery-card-by">${_escapeHtml(t('galleryBy', { name: String(p.creatorNickname || '').slice(0, 24) }))}</span>
-      <span class="gallery-card-likes">${_escapeHtml(t('galleryLikes', { n: Math.max(0, Math.floor(Number(p.likes) || 0)) }))}</span>
+      <span class="gallery-card-likes"><span class="gallery-card-up">${THUMBS_UP} ${count(p.likes)}</span><span class="gallery-card-down">${THUMBS_DOWN} ${count(p.dislikes)}</span></span>
     </button>`).join('')
   if (empty) {
     empty.hidden = posts.length > 0
-    empty.textContent = t('galleryEmpty')
+    empty.textContent = t(game._galleryMine ? 'galleryMineEmpty' : 'galleryEmpty')
   }
   // Pictures: a map's screenshot as it is, a skin as its flat front view.
   for (const p of posts) {
@@ -216,36 +238,60 @@ async function openPost(game, post) {
   const del = $('gallery-delete-btn')
   del.textContent = t('galleryDeleteBtn')
   del.hidden = !mine
-  renderLike(game)
-  if (game._cloudUid && !game._galleryLiked.has(post.id)) {
-    api(game).hasLikedGalleryPost(post.id, game._cloudUid).then((liked) => {
-      if (liked) game._galleryLiked.add(post.id)
-      if (game._galleryOpen === post) renderLike(game)
-    }).catch(() => {})
+  renderVotes(game)
+  if (game._cloudUid && !game._galleryVotes.has(post.id)) {
+    const backend = api(game)
+    Promise.all([
+      backend.hasLikedGalleryPost(post.id, game._cloudUid).catch(() => false),
+      backend.hasDislikedGalleryPost ? backend.hasDislikedGalleryPost(post.id, game._cloudUid).catch(() => false) : false,
+    ]).then(([liked, disliked]) => {
+      if (liked) game._galleryVotes.set(post.id, 'like')
+      else if (disliked) game._galleryVotes.set(post.id, 'dislike')
+      if (game._galleryOpen === post) renderVotes(game)
+    })
   }
   loadComments(game, post)
 }
 
-function renderLike(game) {
+// 👍 and 👎 with their counts (2026-10-30). One vote per post: once you
+// pick one, both buttons lock and yours is highlighted.
+function renderVotes(game) {
   const post = game._galleryOpen
-  const btn = $('gallery-like-btn')
-  if (!post || !btn) return
-  const liked = game._galleryLiked.has(post.id)
-  btn.textContent = `${t(liked ? 'galleryLiked' : 'galleryLikeBtn')} · ${Math.max(0, Math.floor(Number(post.likes) || 0))}`
-  btn.disabled = liked
-  btn.classList.toggle('liked', liked)
+  const up = $('gallery-like-btn')
+  const down = $('gallery-dislike-btn')
+  if (!post || !up) return
+  const vote = game._galleryVotes.get(post.id)
+  up.textContent = `${THUMBS_UP} ${count(post.likes)}`
+  up.title = t(vote === 'like' ? 'galleryLiked' : 'galleryLikeBtn')
+  up.disabled = !!vote
+  up.classList.toggle('liked', vote === 'like')
+  if (down) {
+    down.textContent = `${THUMBS_DOWN} ${count(post.dislikes)}`
+    down.title = t(vote === 'dislike' ? 'galleryDisliked' : 'galleryDislikeBtn')
+    down.disabled = !!vote
+    down.classList.toggle('liked', vote === 'dislike')
+  }
 }
 
-async function likeOpenPost(game) {
+async function voteOpenPost(game, vote) {
   const post = game._galleryOpen
   if (!post) return
   if (!game._cloudUid) return needSignIn(game)
-  if (game._galleryLiked.has(post.id)) return
-  game._galleryLiked.add(post.id)
-  renderLike(game)
-  const ok = await api(game).likeGalleryPost(post.id, game._cloudUid).catch(() => false)
-  if (ok) post.likes = (Number(post.likes) || 0) + 1
-  renderLike(game)
+  if (game._galleryVotes.has(post.id)) return
+  game._galleryVotes.set(post.id, vote)
+  renderVotes(game)
+  const backend = api(game)
+  const send = vote === 'like' ? backend.likeGalleryPost : backend.dislikeGalleryPost
+  // true = counted, false = this vote was already there, null = it
+  // didn't go through (offline, or refused) - then they can try again.
+  const ok = send ? await send.call(backend, post.id, game._cloudUid).catch(() => null) : null
+  if (ok) {
+    const field = vote === 'like' ? 'likes' : 'dislikes'
+    post[field] = count(post[field]) + 1
+  } else if (ok === null) {
+    game._galleryVotes.delete(post.id)
+  }
+  renderVotes(game)
 }
 
 async function useOpenPost(game, primary) {

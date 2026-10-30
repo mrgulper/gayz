@@ -767,6 +767,7 @@ html.ui-theme-old #profile-panel .panel-box * {
   margin-bottom: 12px;
 }
 #gallery-how { flex: 1; min-width: 0; margin: 0; font-size: 13px; opacity: 0.8; }
+#gallery-mine-btn,
 #gallery-sort {
   flex: none;
   padding: 6px 14px;
@@ -812,6 +813,8 @@ html.ui-theme-old #profile-panel .panel-box * {
 .gallery-card-title { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gallery-card-by,
 .gallery-card-likes { font-size: 12px; opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 👍 and 👎 counts side by side on each card (2026-10-30). */
+.gallery-card-likes { display: flex; gap: 12px; opacity: 0.9; }
 #gallery-empty { text-align: center; opacity: 0.75; margin-top: 40px; }
 
 #gallery-post-form {
@@ -850,7 +853,8 @@ img.gallery-detail-character { height: 240px; image-rendering: pixelated; }
 .gallery-detail-info { flex: 1 1 220px; min-width: 0; }
 #gallery-detail-title { margin: 0 0 4px; overflow-wrap: anywhere; }
 #gallery-detail-by { margin: 0 0 12px; opacity: 0.8; }
-#gallery-like-btn.liked { border-color: var(--ui-gold-bright); color: var(--ui-gold-bright); }
+#gallery-like-btn.liked,
+#gallery-dislike-btn.liked { border-color: var(--ui-gold-bright); color: var(--ui-gold-bright); }
 #gallery-comments-heading { margin: 0 0 8px; }
 #gallery-comments { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
 .gallery-comment {
@@ -895,7 +899,7 @@ html.ui-theme-old .gallery-card:focus-visible { border-color: #6b4423; }
 html.ui-theme-old .gallery-card-pic,
 html.ui-theme-old .gallery-detail-pic { background: rgba(122, 78, 36, 0.12); }
 html.ui-theme-old .gallery-comment { background: rgba(122, 78, 36, 0.1); }
-html.ui-theme-old #gallery-like-btn.liked { border-color: #6b4423; }
+html.ui-theme-old :is(#gallery-like-btn, #gallery-dislike-btn).liked { border-color: #6b4423; }
 
 /* Clan invite by name (2026-10-16): the matching players pop up under the
    box, floating over the page - the same list as Add a Friend's. */
@@ -1346,4 +1350,240 @@ html.ui-theme-old .gfx-level-name { font-family: 'Rye', Georgia, serif; font-wei
 @media (max-width: 700px), (pointer: coarse) {
   #play-damage-numbers .play-dmg span { font-size: 21px; }
   #play-damage-numbers .play-dmg img { width: 34px; height: 24px; }
+}
+
+/* ================================================================
+   Quests, Kirka-style (2026-10-30): a search box and All rarities menu
+   at the top, then bigger cards two to a row, each softly tinted in its
+   rarity's Store colour (not shiny - that's Achievements), with a
+   progress bar. Cards fade in one after another and the list fades out
+   at the bottom edge instead of being cut off. ProgressUI.js.
+   ================================================================ */
+#quest-toolbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  flex: none;
+}
+#quest-search {
+  width: 260px;
+  margin: 0;
+}
+#quests-page-rolling {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
+}
+#rolling-quests-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
+  max-width: 780px;
+  max-width: min(780px, 100%);
+  padding-bottom: 40px;
+}
+#rolling-quests-options > .menu-best-stats {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+html #quests-panel .perk-option.quest-card {
+  position: relative;
+  width: auto;
+  min-height: 132px;
+  align-items: stretch;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px 20px;
+  text-align: left;
+  color: inherit;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rarity) 16%, transparent), color-mix(in srgb, var(--rarity) 5%, transparent)) !important;
+  border: 1px solid color-mix(in srgb, var(--rarity) 45%, transparent) !important;
+  border-left: 5px solid var(--rarity) !important;
+  border-radius: 12px;
+  box-shadow: none;
+  opacity: 1;
+  cursor: default;
+  animation: quest-card-in 0.5s ease both;
+  animation-delay: calc(var(--quest-i, 0) * 70ms);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+html #quests-panel .perk-option.quest-card.complete {
+  cursor: pointer;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--rarity) 40%, transparent);
+}
+html #quests-panel .perk-option.quest-card.complete:hover {
+  transform: scale(1.03);
+}
+@keyframes quest-card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html #quests-panel .perk-option.quest-card { animation: none; }
+}
+#quests-panel .quest-card-rarity {
+  align-self: flex-start;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff;
+  background: var(--rarity) !important;
+}
+#quests-panel .quest-card .perk-name {
+  font-size: 18px;
+}
+#quests-panel .quest-card .perk-cost {
+  font-size: 13px;
+  opacity: 0.85;
+}
+#quests-panel .quest-card-bar {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(127, 127, 127, 0.22) !important;
+}
+#quests-panel .quest-card-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--rarity) !important;
+}
+@media (max-width: 480px) {
+  #rolling-quests-options { grid-template-columns: minmax(0, 1fr); }
+  #quest-search { width: auto; flex: 1; min-width: 0; }
+}
+
+/* ================================================================
+   One look for every search bar and filter (2026-10-30, "make all the
+   search bars and the category and sort and all rarities and stuff the
+   same size and style for both themes"): the same height, text size,
+   pill shape and soft fill everywhere - Market, Inventory, Quests,
+   Achievements, Gallery, Settings. The ids keep these above each
+   panel's older rules; the dropdown arrows stay.
+   ================================================================ */
+html :is(.search-bar, .market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn) {
+  box-sizing: border-box;
+  height: 36px;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 34px;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 999px;
+  color: #f1ece0;
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.28);
+}
+html :is(.search-bar, #gallery-mine-btn) {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+html :is(#achievements-category-select, #achievements-sort-select, #gallery-sort) {
+  padding-left: 16px;
+  padding-right: 30px;
+}
+html :is(.market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn):hover {
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.45);
+}
+html.ui-theme-old :is(.search-bar, .market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn) {
+  color: #2b1a0c;
+  background-color: rgba(241, 224, 184, 0.55);
+  border-color: rgba(122, 78, 36, 0.4);
+}
+html.ui-theme-old :is(.market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn):hover {
+  border-color: rgba(122, 78, 36, 0.6);
+}
+html.ui-theme-clean :is(.search-bar, .market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn) {
+  color: var(--clean-fg);
+  background-color: var(--clean-surface);
+  border-color: var(--clean-line);
+}
+html.ui-theme-clean :is(.market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn):hover {
+  border-color: rgba(var(--clean-fg-rgb), 0.45);
+}
+/* "On" (My Posts) is filled with the ink, like an active tab. */
+html #gallery-mine-btn.active {
+  color: #16110a;
+  background-color: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
+}
+html.ui-theme-old #gallery-mine-btn.active {
+  color: #f4e6c4;
+  background-color: #6b4423;
+  border-color: #6b4423;
+}
+html.ui-theme-clean #gallery-mine-btn.active {
+  color: var(--clean-bg) !important;
+  background-color: var(--clean-fg);
+  border-color: var(--clean-fg);
+}
+/* Search with its dropdowns on one centred line. */
+#achievements-controls-row {
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+}
+#achievements-controls-row #achievements-filter-input {
+  flex: 0 1 300px;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+}
+
+/* ================================================================
+   Achievements, brighter (2026-10-30, "achievements the player should be
+   proud make it on both themes brighter and shiny"): earned ones are gold
+   cards with a light that sweeps across now and then; locked ones are
+   fully readable instead of faded. Same sizes as before.
+   ================================================================ */
+html #achievements-panel .perk-option.achievement-card {
+  position: relative;
+  overflow: hidden;
+  opacity: 1;
+  border-radius: 12px;
+  cursor: default;
+}
+html #achievements-panel .perk-option.achievement-card:not(.unlocked) {
+  background: color-mix(in srgb, currentColor 7%, transparent) !important;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent) !important;
+  opacity: 0.85;
+}
+html #achievements-panel .perk-option.achievement-card.unlocked {
+  background: linear-gradient(135deg, #fff6d1 0%, #ffd96b 45%, #f2a516 100%) !important;
+  border: 1px solid #d9951a !important;
+  box-shadow: 0 0 16px rgba(242, 165, 22, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.75) !important;
+}
+html #achievements-panel .perk-option.achievement-card.unlocked,
+html #achievements-panel .perk-option.achievement-card.unlocked * {
+  color: #3a2400 !important;
+  -webkit-text-fill-color: #3a2400;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+}
+html #achievements-panel .perk-option.achievement-card.unlocked::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: -60%;
+  width: 40%;
+  height: 140%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+  transform: skewX(-20deg);
+  animation: achievement-shine 4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes achievement-shine {
+  0%, 60% { left: -60%; }
+  100% { left: 130%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html #achievements-panel .perk-option.achievement-card.unlocked::after { animation: none; display: none; }
 }

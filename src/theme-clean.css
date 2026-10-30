@@ -758,6 +758,35 @@ html.ui-theme-clean :is(#highlight-reel-list, #rank-roadmap-list, #recent-unlock
   border-top: none;
 }
 
+/* Profile, softer (2026-10-30, "make the profile softer and lighter
+   colours like the bio and everything in the hidden make the text all
+   black and remove the light colour behind the text"): every word in the
+   text colour, nothing filled behind words, and only the text boxes (Bio,
+   Notes) and buttons keep a soft fill. Same idea as Old's Profile. */
+html.ui-theme-clean #profile-panel .panel-box :is(div, section, p, h3, h4, span, label, li, canvas, .perk-option):not(button *, .friend-status-dot) {
+  color: var(--clean-fg) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+html.ui-theme-clean #profile-panel .perk-option:disabled,
+html.ui-theme-clean #profile-panel .panel-box :is(p, span, h3, canvas) {
+  opacity: 1;
+}
+html.ui-theme-clean #profile-panel #stats-dashboard-canvas {
+  border: 1px solid var(--clean-line) !important;
+}
+html.ui-theme-clean #profile-panel .panel-box textarea {
+  color: var(--clean-fg) !important;
+  background: rgba(var(--clean-fg-rgb), 0.03) !important;
+  border: 1px solid var(--clean-line) !important;
+  box-shadow: none !important;
+}
+html.ui-theme-clean #profile-panel .panel-box textarea::placeholder {
+  color: var(--clean-fg);
+  opacity: 0.45;
+}
+
 /* ---- Everything else follows the colour too (2026-10-24, Gaymi:
    "everything should be based on theme") ----
    These were the dark/gold look in Simple: Inventory's weapon and skin
@@ -1020,3 +1049,8 @@ html.ui-theme-clean .gfx-level-card { background: var(--clean-surface); border-c
 html.ui-theme-clean .gfx-level-card:hover,
 html.ui-theme-clean .gfx-level-card:focus-visible { border-color: var(--clean-fg); }
 html.ui-theme-clean .gfx-level-card.active { border-color: var(--clean-fg); box-shadow: 0 0 0 2px var(--clean-fg); }
+
+/* Gallery: your 👍 or 👎 vote is outlined in the ink (2026-10-30). */
+html.ui-theme-clean .panel-box :is(#gallery-like-btn, #gallery-dislike-btn).liked {
+  border-color: var(--clean-fg);
+}
