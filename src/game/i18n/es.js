@@ -1809,6 +1809,7 @@ export default {
   buildPlayWaveOf: "Oleada {n} / {max}",
   buildPlayTime: "Tiempo {t}",
   buildPlayBossComing: "¡Viene un jefe!",
+  buildPlayScreamerCalled: "¡Un chillón llamó a la horda!",
   buildPlayBossDown: "¡Jefe abatido! +{n} monedas",
   buildPlayAssist: "+¡Asistencia! +{n} monedas",
   buildPlayOverWinTitle: "¡Aguantaste la ciudad!",

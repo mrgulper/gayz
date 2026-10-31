@@ -3096,6 +3096,93 @@ test('new zombie kinds: sizes, the bloater bursts, spiders climb', async ({ page
   expect(r.campTop).toBeLessThan(3)
 })
 
+// 2026-10-31: zombies with tricks (ZombieTricks.js) - a screamer calls
+// the zombies round it, a lurker hides then pounces, a bloater's burst
+// leaves a slime puddle that slows you.
+test('zombie tricks: screamer calls, lurker hides and pounces, slime slows', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    const B = bm._chunks.blockSize
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 30, 'zombiespawner')
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    const clear = () => {
+      for (const z of [...s.zombies]) s._removeZombie(z)
+      s.zombies = []
+    }
+    if (s._picking) s._pickWeapon('rifle')
+    clear()
+    s._toSpawn = 0
+    s.health = 1e9
+    const out = {}
+    const p = bm.tryMode.pos
+    // Both stand 2 blocks tall.
+    for (const k of ['screamer', 'lurker']) {
+      const z = s._makeZombie(950, 0.5, 1, 20.5, 100, false, k)
+      z.monster.update(0, 0)
+      z.group.updateMatrixWorld(true)
+      let lo = Infinity
+      let hi = -Infinity
+      z.monster.root.traverse((o) => {
+        if (!o.isMesh) return
+        o.geometry.computeBoundingBox()
+        const bb = o.geometry.boundingBox
+        for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const zz of [bb.min.z, bb.max.z]) {
+          const v = o.localToWorld(bb.min.clone().set(x, y, zz))
+          lo = Math.min(lo, v.y)
+          hi = Math.max(hi, v.y)
+        }
+      })
+      out[`${k}Tall`] = Math.round(((hi - lo) / B) * 100) / 100
+      clear()
+    }
+    // A screamer 10 blocks off spots you, stands still and screams: the
+    // zombie 15 blocks past it is called, one 60 blocks away isn't.
+    const sc = s._makeZombie(951, p.x, p.y, p.z + 10, 1000, false, 'screamer')
+    const near = s._makeZombie(952, p.x + 3, p.y, p.z + 25, 1000, false, null)
+    const far = s._makeZombie(953, p.x, p.y, p.z + 70, 1000, false, null)
+    // (It waits a moment after appearing before its first scream.)
+    for (let i = 0; i < 36; i++) s.update(0.05)
+    out.scream = { yelling: sc.yell > 0, posed: sc.monster.screaming, near: near.called > 0, far: !(far.called > 0), snap: s.zombieSnapshot()[`z${sc.id}`].ys === 1 }
+    clear()
+    // A lurker 12 blocks off creeps hidden (faded, no name tag); close up
+    // it leaps out.
+    const lk = s._makeZombie(954, p.x, p.y, p.z + 12, 1000, false, 'lurker')
+    for (let i = 0; i < 30; i++) s.update(0.05)
+    s._sizeZombieTags()
+    out.hidden = { hidden: lk.hidden, faded: lk.monster.materials[0].opacity < 0.5, tag: lk.tag.visible, snap: s.zombieSnapshot()[`z${lk.id}`].hd === 1 }
+    lk.z = p.z + 2
+    lk.x = p.x
+    s.update(0.05)
+    for (let i = 0; i < 20; i++) s.update(0.05)
+    s._sizeZombieTags()
+    out.pounced = { hidden: lk.hidden, seen: lk.monster.materials[0].opacity > 0.9 }
+    clear()
+    // A bloater bursting under you leaves slime: you're slowed, then it dries up.
+    const bl = s._makeZombie(955, p.x + 0.5, p.y, p.z, 10, false, 'bloater')
+    s.damageZombie(bl, 50)
+    s.update(0.05)
+    out.slime = { puddles: s.tricks._puddles.length, slow: s.tricks.slow }
+    for (let i = 0; i < 100; i++) s.update(0.1)
+    out.dried = { puddles: s.tricks._puddles.length, slow: s.tricks.slow }
+    s.stop()
+    g._exitBuildMode()
+    return out
+  })
+  expect(Math.abs(r.screamerTall - 2), JSON.stringify(r)).toBeLessThan(0.12)
+  expect(Math.abs(r.lurkerTall - 2), JSON.stringify(r)).toBeLessThan(0.12)
+  expect(r.scream).toEqual({ yelling: true, posed: true, near: true, far: true, snap: true })
+  expect(r.hidden).toEqual({ hidden: true, faded: true, tag: false, snap: true })
+  expect(r.pounced).toEqual({ hidden: false, seen: true })
+  expect(r.slime).toEqual({ puddles: 1, slow: 0.5 })
+  expect(r.dried).toEqual({ puddles: 0, slow: 1 })
+})
+
 // 2026-10-26: grass 100 blocks out (since 2026-10-30: as far as the land
 // is drawn, growing over time), crack on every face (on the lumps
 // too), puffy leaves, falling leaves and half-chance leaf drops, a

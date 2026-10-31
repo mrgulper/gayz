@@ -691,6 +691,52 @@ class AudioEngine {
     scream.stop(now + duration)
   }
 
+  // A screamer's scream (ZombieTricks.js): close and loud, unlike the
+  // muffled distant one above - a rising shriek over a raspy noise burst.
+  playZombieScream(pan = 0) {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    const duration = 1.3
+    const out = ctx.createStereoPanner ? ctx.createStereoPanner() : null
+    if (out) {
+      out.pan.value = Math.max(-1, Math.min(1, pan))
+      out.connect(this.sfxGain)
+    }
+    const dest = out || this.sfxGain
+    for (const [type, f, g] of [['sawtooth', 700, 0.12], ['square', 1050, 0.05]]) {
+      const osc = ctx.createOscillator()
+      osc.type = type
+      osc.frequency.setValueAtTime(f * 0.6, now)
+      osc.frequency.linearRampToValueAtTime(f, now + 0.25)
+      // A wavering shriek.
+      for (let i = 1; i < 8; i++) osc.frequency.linearRampToValueAtTime(f * (i % 2 ? 1.08 : 0.95), now + 0.25 + i * 0.1)
+      osc.frequency.exponentialRampToValueAtTime(f * 0.45, now + duration)
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0.001, now)
+      gain.gain.linearRampToValueAtTime(g, now + 0.15)
+      gain.gain.setValueAtTime(g, now + duration * 0.7)
+      gain.gain.linearRampToValueAtTime(0.001, now + duration)
+      osc.connect(gain).connect(dest)
+      osc.start(now)
+      osc.stop(now + duration)
+    }
+    // Rasp: a short burst of filtered noise.
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate)
+    const data = buf.getChannelData(0)
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+    const noise = ctx.createBufferSource()
+    noise.buffer = buf
+    const band = ctx.createBiquadFilter()
+    band.type = 'bandpass'
+    band.frequency.value = 1800
+    const ng = ctx.createGain()
+    ng.gain.setValueAtTime(0.06, now)
+    ng.gain.linearRampToValueAtTime(0.001, now + duration)
+    noise.connect(band).connect(ng).connect(dest)
+    noise.start(now)
+  }
+
   // Ambient audio storytelling (batch 8 feature) - a garbled radio
   // transmission drifting by, distinct from the wordless creak/scream above:
   // white-noise "static" with a bandpass sweep and choppy on/off gating
