@@ -10,9 +10,9 @@
 //   servers/{id}      { name, mode, host, createdAt, wave, zombies, world,
 //                       hidden, sky, animals, editSeq,
 //                       players: { pid: { nick, x, y, z, yaw, weapon, held,
-//                                         firing, dead, t, hurt, credits,
+//                                         firing, dead, t, hurt, credits, caught,
 //                                         say } },
-//                       hits: { key: { id, dmg, by, tame } },
+//                       hits: { key: { id, dmg, by, tame, catch } },
 //                       edits: { "x,y,z": { b, s, by } } }
 //   serverSecrets/{id}/{pid}  the player's token (never sent to others)
 //   serverSkins/{id}/{pid}    the player's skin picture (sent once on ask)
@@ -249,6 +249,22 @@ function cleanCredit(c) {
     ...(ZOMBIE_SHINE_IDS.has(c?.shine) ? { shine: c.shine } : {}),
   }
 }
+// A Catch Trap's answer (PlayCatch.hostCatch): caught or not, and what it
+// was ({ t: 'z' | 'a', k: kind, r: tier, n: name, b: boss }). Checked again
+// by the game (Creatures.cleanCreature) before it's kept.
+function cleanCatch(c) {
+  if (c?.t !== 'z' && c?.t !== 'a') return { ok: false }
+  const k = typeof c.k === 'string' && (c.t === 'a' ? ANIMAL_RE : KIND_RE).test(c.k) ? c.k : ''
+  return {
+    ok: c.ok === true,
+    t: c.t,
+    k,
+    r: ZOMBIE_TIER_IDS.has(c.r) ? c.r : 'common',
+    n: Number.isInteger(c.n) && c.n >= 0 && c.n < 100000 ? c.n : 0,
+    b: c.b === true,
+  }
+}
+
 // A zombie's kind: a skeleton or a monster (ZombieKinds.js) - plain
 // lowercase words, checked against the real lists by the game.
 const KIND_RE = /^[a-z]{1,20}$/
@@ -364,7 +380,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     updates[`${base}/host`] = host
   }
   const isHost = host === playerId
-  const out = { host, isHost, wave: server.wave || 0, players: {}, zombies: {}, hurt: [], credits: [], hits: [], edits: [], editSeq: server.editSeq || 0 }
+  const out = { host, isHost, wave: server.wave || 0, players: {}, zombies: {}, hurt: [], credits: [], caught: [], hits: [], edits: [], editSeq: server.editSeq || 0 }
 
   // Something I said in chat: a bubble over my head for the others.
   const say = cleanSay(body.say)
@@ -438,6 +454,11 @@ export async function syncServer(db, body = {}, now = Date.now()) {
       if (!c || !live.has(c.to) || c.to === playerId) continue
       updates[`${base}/players/${c.to}/credits/${newId(8)}`] = cleanCredit(c)
     }
+    // Catch Trap answers for other players (PlayCatch.hostCatch).
+    for (const c of [].concat(body.catches || []).slice(0, 20)) {
+      if (!c || !live.has(c.to) || c.to === playerId) continue
+      updates[`${base}/players/${c.to}/caught/${newId(8)}`] = cleanCatch(c)
+    }
   } else {
     out.zombies = server.zombies || {}
     out.sky = server.sky || null
@@ -445,7 +466,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     // Shots on the host's zombies (z...) and animals (a..., or taming one).
     for (const h of [].concat(body.hits || []).slice(0, MAX_HITS_PER_SYNC)) {
       if (!h || !/^[za]\d{1,9}$/.test(h.id)) continue
-      updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId, ...(h.tame === true && h.id[0] === 'a' ? { tame: true } : {}) }
+      updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId, ...(h.tame === true && h.id[0] === 'a' ? { tame: true } : {}), ...(h.catch === true ? { catch: true } : {}) }
     }
   }
   // What was queued for me.
@@ -456,6 +477,10 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   for (const [key, c] of Object.entries(me.credits || {})) {
     out.credits.push(cleanCredit(c))
     updates[`${base}/players/${playerId}/credits/${key}`] = null
+  }
+  for (const [key, c] of Object.entries(me.caught || {})) {
+    out.caught.push(cleanCatch(c))
+    updates[`${base}/players/${playerId}/caught/${key}`] = null
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p) continue

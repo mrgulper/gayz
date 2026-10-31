@@ -2232,7 +2232,6 @@ export default {
   invDropRareConfirm: "Pulsa {key} otra vez para soltar {name}",
   invTrap: "Trampa de Captura",
   invTipTrap: "Golpea a un zombi o animal hasta debilitarlo y luego lánzale esto para atraparlo para tu equipo de batalla",
-  catchHostOnly: "Por ahora solo el anfitrión puede atrapar en un servidor",
   catchFull: "No puedes tener más de {n} criaturas",
   catchCaught: "¡Atrapaste a {name}! Míralo en la página Equipo",
   catchBrokeFree: "¡{name} se escapó!",

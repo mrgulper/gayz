@@ -2232,7 +2232,6 @@ export default {
   invDropRareConfirm: "{name} गिराने के लिए {key} फिर दबाएँ",
   invTrap: "कैच ट्रैप",
   invTipTrap: "किसी ज़ॉम्बी या जानवर को कमज़ोर होने तक मारें, फिर इसे फेंककर अपनी बैटल टीम के लिए पकड़ें",
-  catchHostOnly: "अभी सर्वर पर सिर्फ़ होस्ट ही पकड़ सकता है",
   catchFull: "आप {n} से ज़्यादा जीव नहीं रख सकते",
   catchCaught: "{name} पकड़ा गया! टीम पेज पर देखें",
   catchBrokeFree: "{name} छूटकर भाग गया!",

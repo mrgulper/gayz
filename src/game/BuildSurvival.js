@@ -3084,6 +3084,11 @@ export class BuildSurvival {
   // The host: other players' hits on my zombies (and animals).
   _applyRemoteHits(hits) {
     for (const h of hits) {
+      // Another player's Catch Trap (PlayCatch.js).
+      if (h.catch) {
+        this.catcher?.hostCatch(h)
+        continue
+      }
       if (String(h.id)[0] === 'a') {
         this.animals?.remoteHit(h)
         continue

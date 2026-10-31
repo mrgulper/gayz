@@ -2235,7 +2235,6 @@ export default {
   invDropRareConfirm: "再按一次 {key} 丢弃{name}",
   invTrap: "捕捉陷阱",
   invTipTrap: "把僵尸或动物打到虚弱，再扔出它就能抓住，加入你的战斗队伍",
-  catchHostOnly: "目前在服务器上只有房主能捕捉",
   catchFull: "最多只能保留 {n} 只生物",
   catchCaught: "抓到了{name}！去队伍页面看看",
   catchBrokeFree: "{name}挣脱了！",
