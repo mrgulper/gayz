@@ -691,6 +691,32 @@ class AudioEngine {
     scream.stop(now + duration)
   }
 
+  // A cargo plane passing over (a supply drop, WorldEvents.js): a low
+  // propeller drone that swells and fades over a few seconds.
+  playPlaneFlyby() {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    const duration = 7
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0.001, now)
+    gain.gain.linearRampToValueAtTime(0.08, now + duration * 0.5)
+    gain.gain.linearRampToValueAtTime(0.001, now + duration)
+    const low = ctx.createBiquadFilter()
+    low.type = 'lowpass'
+    low.frequency.value = 420
+    low.connect(gain).connect(this.sfxGain)
+    for (const f of [72, 75.5]) {
+      const osc = ctx.createOscillator()
+      osc.type = 'sawtooth'
+      osc.frequency.setValueAtTime(f * 1.06, now)
+      osc.frequency.linearRampToValueAtTime(f * 0.94, now + duration)
+      osc.connect(low)
+      osc.start(now)
+      osc.stop(now + duration)
+    }
+  }
+
   // A screamer's scream (ZombieTricks.js): close and loud, unlike the
   // muffled distant one above - a rising shriek over a raspy noise burst.
   playZombieScream(pan = 0) {
