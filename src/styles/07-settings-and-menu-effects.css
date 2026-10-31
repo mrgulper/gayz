@@ -952,6 +952,7 @@ html.text-spacing-active #achievements-panel,
 html.text-spacing-active #profile-panel,
 html.text-spacing-active #settings-panel,
 html.text-spacing-active #quests-panel,
+html.text-spacing-active #today-panel,
 html.text-spacing-active #howtoplay-panel {
   letter-spacing: calc((var(--text-spacing, 100) - 100) * 0.005px);
   line-height: calc(1.4 * var(--text-spacing, 100) / 100);
@@ -993,6 +994,7 @@ html.reduce-transparency #achievements-panel,
 html.reduce-transparency #profile-panel,
 html.reduce-transparency #settings-panel,
 html.reduce-transparency #quests-panel,
+html.reduce-transparency #today-panel,
 html.reduce-transparency #howtoplay-panel,
 html.reduce-transparency #hub-panel,
 html.reduce-transparency #coming-soon-panel,

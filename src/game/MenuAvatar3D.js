@@ -13,6 +13,7 @@
 // spin either way, auto or manual, not two.
 import * as THREE from 'three'
 import { LITE_HOME, onHomeFrame } from './LiteHome.js'
+import { EMOTE_S, poseEmote } from './Emotes.js'
 
 // How often a preview that doesn't spin on its own redraws while nobody
 // drags it.
@@ -540,20 +541,29 @@ export class MenuAvatar3D {
   // loop() pauses itself while the player is actively turning it by hand.
   _bindDrag() {
     let lastX = 0
+    let moved = 0
+    let downAt = 0
     this.canvas.style.touchAction = 'none'
     this.canvas.addEventListener('pointerdown', (e) => {
       this._dragging = true
       lastX = e.clientX
+      moved = 0
+      downAt = performance.now()
       this.canvas.setPointerCapture(e.pointerId)
     })
     this.canvas.addEventListener('pointermove', (e) => {
       if (!this._dragging) return
       const dx = e.clientX - lastX
       lastX = e.clientX
+      moved += Math.abs(dx)
       this.character.rotation.y += dx * 0.02
     })
     const stop = () => { this._dragging = false }
-    this.canvas.addEventListener('pointerup', stop)
+    // A tap (no real drag) is for onTap - the homepage plays an emote.
+    this.canvas.addEventListener('pointerup', () => {
+      if (this._dragging && moved < 6 && performance.now() - downAt < 400) this.onTap?.()
+      stop()
+    })
     this.canvas.addEventListener('pointercancel', stop)
     this.canvas.addEventListener('pointerleave', stop)
   }
@@ -661,6 +671,26 @@ export class MenuAvatar3D {
     this.camera.updateProjectionMatrix()
   }
 
+  // An emote from Emotes.js (dance / wave / flex) for EMOTE_S seconds
+  // (2026-10-31: tapping your character on the homepage).
+  playEmote(id) {
+    this._emote = { id, at: performance.now() }
+  }
+
+  // Poses this frame's emote, and stands the character back up after it.
+  _updateEmote(now) {
+    const lp = this.character?.limbPivots
+    if (!this._emote || !lp) return
+    const time = (now - this._emote.at) / 1000
+    if (time > EMOTE_S) {
+      for (const k of ['armR', 'armL', 'legR', 'legL']) lp[k].rotation.set(0, 0, 0)
+      this.character.position.y = 0
+      this._emote = null
+      return
+    }
+    this.character.position.y = poseEmote(lp, this._emote.id, time) || 0
+  }
+
   start() {
     if (this._running) return
     this._running = true
@@ -670,7 +700,7 @@ export class MenuAvatar3D {
     // (LiteHome.js onHomeFrame), or every frame while being dragged.
     const loop = (now, due) => {
       if (!this._running) return
-      if (!due && !this._dragging) return
+      if (!due && !this._dragging && !this._emote) return
       // A still preview (Inventory) only needs a fresh picture now and
       // then (a new skin, a resize) unless it's being dragged.
       if (this.noSpin && !this._dragging && now - (this._lastStillDraw || 0) < STILL_REDRAW_MS) return
@@ -691,6 +721,7 @@ export class MenuAvatar3D {
       if (!this._dragging && !reduceMotion && !this.noSpin) {
         this.character.rotation.y += (this.spinSpeed || IDLE_SPIN_SPEED) * dt
       }
+      this._updateEmote(now)
       this.renderer.render(this.scene, this.camera)
     }
     // Only the homepage character pauses while a map is open (LiteHome).

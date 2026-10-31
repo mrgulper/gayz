@@ -52,6 +52,7 @@ html.large-text-mode #privacy-panel,
 html.large-text-mode #shop-panel,
 html.large-text-mode #market-panel,
 html.large-text-mode #whatsnew-panel,
+html.large-text-mode #today-panel,
 html.large-text-mode #howtoplay-panel,
 html.large-text-mode #settings-panel {
   zoom: 1.18;
@@ -697,6 +698,7 @@ html.ui-theme-old select {
 #gallery-panel .panel-box,
 #levels-panel .panel-box,
 #privacy-panel .panel-box,
+#today-panel .panel-box,
 #howtoplay-panel .panel-box,
 #whatsnew-panel .panel-box,
 #shop-panel .panel-box,

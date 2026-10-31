@@ -572,13 +572,42 @@ export function _claimDailyChallenge(game) {
   game.xp += reward.xp
   saveShopProgress(game)
   game._showHomepageToast(t('dailyChallengeClaimedToast', { coins: reward.coins, xp: reward.xp, n: reward.streak }))
-  game._renderRollingQuestsPanel()
+  // Just this card changes (now "Done for today"), not the whole list.
+  const card = game.rollingQuestsOptions?.querySelector('button[data-daily]')
+  if (card) {
+    const at = card.nextSibling
+    card.remove()
+    _renderDailyCard(game)
+    const fresh = game.rollingQuestsOptions.lastElementChild
+    if (fresh?.dataset.daily) game.rollingQuestsOptions.insertBefore(fresh, at)
+  }
   game._updateQuestsDot()
   game._updateFaviconQuestBadge()
 }
 
 export function _closeQuestsPanel(game) {
   game.questsPanel.style.display = 'none'
+}
+
+// A claimed quest card just fades away (2026-10-31, Gaymi: "simply fade
+// away instead of making the whole quest page reload"). The rest of the
+// list stays put; if it was the last card, the "no quests" line shows.
+function _fadeOutQuestCard(game, card) {
+  if (!card) return game._renderRollingQuestsPanel()
+  card.disabled = true
+  card.classList.add('quest-fade-out')
+  let done = false
+  const finish = () => {
+    if (done) return
+    done = true
+    card.remove()
+    const list = game.rollingQuestsOptions
+    if (list && !list.querySelector('button[data-spawned-at]')) {
+      list.insertAdjacentHTML('beforeend', `<p class="menu-best-stats">${_escapeHtml(t('rollingQuestNone'))}</p>`)
+    }
+  }
+  card.addEventListener('animationend', finish, { once: true })
+  setTimeout(finish, 600)
 }
 
 export function _claimQuest(game, id) {
@@ -603,7 +632,7 @@ export function _claimRollingQuest(game, spawnedAt) {
   game.xp += reward.xp
   saveShopProgress(game)
   game._showHomepageToast(t('rollingQuestClaimedToast', { coins: reward.coins, xp: reward.xp }))
-  game._renderRollingQuestsPanel()
+  _fadeOutQuestCard(game, game.rollingQuestsOptions?.querySelector(`button[data-spawned-at="${Number(spawnedAt)}"]`))
   game._updateQuestsDot()
   game._updateFaviconQuestBadge()
 }
@@ -866,6 +895,7 @@ export function _updateQuestsDot(game) {
   setNavBadge(game.questsClaimDot, lifetimeReady + rollingReady + (game.dailyChallenge?.ready() || 0))
   game._updateQuestsNewDot()
   _renderHomeDaily(game)
+  game._renderHomeExtras?.()
 }
 
 // Today's challenge on the homepage, under Play (2026-10-31, "reasons to
@@ -895,6 +925,13 @@ export function _renderHomeDaily(game) {
   }
   el.classList.remove('pending')
   el.removeAttribute('aria-hidden')
+  // The new day's goal shows up by itself at the player's midnight, even
+  // with the page left open (2026-10-31).
+  clearTimeout(game._homeDailyMidnightTimer)
+  game._homeDailyMidnightTimer = setTimeout(() => {
+    game._updateQuestsDot()
+    if (game.questsPanel?.style.display === 'flex') game._renderRollingQuestsPanel()
+  }, game.dailyChallenge.msLeft() + 1000)
 }
 
 // Quests nav dot - red, lights up if there's a lifetime quest (id-based)

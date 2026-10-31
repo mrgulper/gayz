@@ -130,6 +130,7 @@ import * as CloudSync from './CloudSync.js'
 import * as CloudSaveUI from './CloudSaveUI.js'
 import * as ChatUI from './ChatUI.js'
 import * as HomeUI from './HomeUI.js'
+import * as HomeExtras from './HomeExtras.js'
 import * as PlayEntryUI from './PlayEntryUI.js'
 import * as InfoPagesUI from './InfoPagesUI.js'
 import * as ProgressUI from './ProgressUI.js'
@@ -439,6 +440,7 @@ function loadSettings() {
       playBtnColor: parsed.playBtnColor || null,
       nicknameFont: parsed.nicknameFont || 'default',
       layoutDensity: parsed.layoutDensity || 'cozy',
+      homeExtrasLayout: parsed.homeExtrasLayout === 'panel' ? 'panel' : 'cards',
       pinnedStat: parsed.pinnedStat || null,
       navOrder: _loadNavOrder(parsed.navOrder),
       // Third features batch - Accessibility group.
@@ -557,7 +559,7 @@ function _loadNavOrder(saved) {
 }
 
 export function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, disasterBreakAll: false, crosshairStyle: 'cross', damageNumbers: true, zombieNameTags: true, autoPickup: true, confirmRareDrop: true, darkAreaBoost: false, colorblindRarity: false, sprintMode: 'hold', autoJump: false, battleView: '3d', zombieVolume: 100, skinDesignerHighContrast: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, clanXp: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, lockedSkins: [], bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', cosmeticHat: '', cosmeticCape: '', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, graphicsLevel: null, graphicsLevelAuto: null, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', cleanColor: CLEAN_DEFAULT_COLOR, playBiomeLook: true, playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, disasterBreakAll: false, crosshairStyle: 'cross', damageNumbers: true, zombieNameTags: true, autoPickup: true, confirmRareDrop: true, darkAreaBoost: false, colorblindRarity: false, sprintMode: 'hold', autoJump: false, battleView: '3d', zombieVolume: 100, skinDesignerHighContrast: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, clanXp: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, lockedSkins: [], bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', cosmeticHat: '', cosmeticCape: '', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, graphicsLevel: null, graphicsLevelAuto: null, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', homeExtrasLayout: 'cards', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', cleanColor: CLEAN_DEFAULT_COLOR, playBiomeLook: true, playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
 }
 
 
@@ -583,7 +585,7 @@ export function _thisWeekStr(date) {
 // function's own logic (by feeding it future dates) rather than
 // re-deriving the week-boundary math by hand, so this can never drift
 // out of sync with what "this week" actually means elsewhere.
-function _daysUntilWeekReset() {
+export function _daysUntilWeekReset() {
   const current = _thisWeekStr()
   for (let i = 1; i <= 7; i++) {
     const future = new Date()
@@ -1297,6 +1299,8 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'play-btn-color-reset-btn': 'playBtnColorResetBtn',
   'nickname-font-label': 'nicknameFontLabel',
   'layout-density-label': 'layoutDensityLabel',
+  'home-extras-layout-label': 'homeExtrasLayoutLabel',
+  'today-panel-title': 'homeExtrasToday',
   'bg-mood-label': 'bgMoodLabel',
   'weather-particles-label': 'weatherParticlesLabel',
   'disaster-break-all-label': 'disasterBreakAllLabel',
@@ -1515,6 +1519,7 @@ const SELECT_OPTION_I18N_KEYS = {
   'theme-preset-select': { 'none': 'optThemePresetDefault', 'sepia': 'optThemePresetSepia', 'darker': 'optThemePresetDarker', 'lighter': 'optThemePresetLighter' },
   'nickname-font-select': { 'default': 'optNicknameFontDefault', 'mono': 'optNicknameFontMono', 'serif': 'optNicknameFontSerif', 'display': 'optNicknameFontDisplay' },
   'layout-density-select': { 'cozy': 'optLayoutCozy', 'compact': 'optLayoutCompact' },
+  'home-extras-layout-select': { 'cards': 'optHomeExtrasCards', 'panel': 'optHomeExtrasPanel' },
   'bg-mood-select': { 'auto': 'optBgMoodAutoSeasonal', 'timeofday': 'optBgMoodAutoLocal', 'sunny': 'optBgMoodSunny', 'none': 'optBgMoodNight', 'bloodmoon': 'optBgMoodBloodMoon', 'foggy': 'optBgMoodFoggy', 'amber': 'optBgMoodAmber' },
   'achievements-category-select': { 'all': 'optAchCatAll', 'combat': 'optAchCatCombat', 'survival': 'optAchCatSurvival', 'story': 'optAchCatStory' },
   'achievements-sort-select': { 'default': 'optAchSortDefault', 'achieved': 'optAchSortAchieved', 'incomplete': 'optAchSortIncomplete' },
@@ -2182,6 +2187,7 @@ export class Game {
     this.playBtnColorResetBtn = document.getElementById('play-btn-color-reset-btn')
     this.nicknameFontSelect = document.getElementById('nickname-font-select')
     this.layoutDensitySelect = document.getElementById('layout-density-select')
+    this.homeExtrasLayoutSelect = document.getElementById('home-extras-layout-select')
     this.randomNicknameBtn = document.getElementById('random-nickname-btn')
     this.recentUnlocksHeading = document.getElementById('recent-unlocks-heading')
     this.recentUnlocksList = document.getElementById('recent-unlocks-list')
@@ -3450,6 +3456,7 @@ export class Game {
     if (this._shopTryOn) this._endShopTryOn(false)
     if (this.upgradesPanel) this.upgradesPanel.style.display = 'none'
     if (this.howtoplayPanel) this.howtoplayPanel.style.display = 'none'
+    HomeExtras.closeTodayPanel()
     if (this.settingsPanel && this.settingsOpen) {
       this.settingsOpen = false
       this.settingsPanel.style.display = 'none'
@@ -4058,6 +4065,8 @@ export class Game {
   _closeHowToPlayPanel() { return InfoPagesUI._closeHowToPlayPanel(this) }
 
   _bindHomepageBatch() { return HomeUI._bindHomepageBatch(this) }
+  _bindHomeExtras() { return HomeExtras.bindHomeExtras(this) }
+  _renderHomeExtras() { return HomeExtras.renderHomeExtras(this) }
 
 
   _updateMenuNewsTicker() { return HomeUI._updateMenuNewsTicker(this) }

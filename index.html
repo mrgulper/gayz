@@ -455,6 +455,9 @@
           </div>
         </div>
 
+        <!-- Homepage extras (HomeExtras.js): corner card stacks, or the Today button. -->
+        <div id="home-extras-left" class="home-extras pending"></div>
+        <div id="home-extras-right" class="home-extras pending"></div>
         <div id="menu-layout">
           <div id="menu-col-left">
             <section class="menu-panel" id="player-showcase-panel">
@@ -1141,6 +1144,14 @@ Escape before dawn.</p>
             <select id="layout-density-select">
               <option value="cozy">Cozy</option>
               <option value="compact">Compact</option>
+            </select>
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="homeExtrasLayout" aria-label="What does this do?">?</button>
+            <label for="home-extras-layout-select" id="home-extras-layout-label">Homepage Extras Layout</label>
+            <select id="home-extras-layout-select">
+              <option value="cards">Cards</option>
+              <option value="panel">Today Panel</option>
             </select>
           </div>
           <div class="audio-row">
@@ -2467,11 +2478,15 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="QUESTS ROLLING_QUEST_EXPIRE_MS _onPlayEvent">
           <h3>Quests</h3>
-          <p>Rolling quests that come and go (kill zombies, reach a wave, finish runs), counted from your Map 1 runs and claimed for coins in the Quests panel. Each quest is a big card, two to a row, filled with its rarity's colour like the Store's crates - Common to Legendary, the Store's colours, rarer for harder quests - with corner rivets, dark writing, a dark rarity label and a progress bar; the cards fade in one after another and the list fades out at the bottom. A search box and an All rarities menu at the top find the ones you want. The Quests button shows how many are finished and waiting to be claimed in a little circle; pointing at it swaps the circle for the number in brackets after its name - Upgrades, Friendship and Achievements show their counts the same way.</p>
+          <p>Rolling quests that come and go (kill zombies, reach a wave, finish runs), counted from your Map 1 runs and claimed for coins in the Quests panel. Each quest is a big card, two to a row, filled with its rarity's colour like the Store's crates - Common to Legendary, the Store's colours, rarer for harder quests - with corner rivets, dark writing, a dark rarity label and a progress bar; the cards fade in one after another and the list fades out at the bottom. A search box and an All rarities menu at the top find the ones you want. Claiming a quest makes just that card fade away - the rest of the list stays where it is. The Quests button shows how many are finished and waiting to be claimed in a little circle, and pointing at it changes nothing - Upgrades, Friendship and Achievements show their counts the same way.</p>
         </div>
         <div class="feature" data-code="DailyChallenge DAILY_TEMPLATES streakMult _renderDailyCard _renderHomeDaily">
           <h3>Daily Challenge</h3>
-          <p>One goal a day, the same for everyone, on a wide gold card at the top of the Quests: take down zombies, take them down with a melee weapon, take down skeletons, Rare-or-rarer zombies or bosses, reach a wave, or get a kill streak - <span data-feature-value="dailyKinds">7</span> kinds, each easy, medium or hard, and harder pays more coins and XP. The game tells you the moment it's done, and you claim it in the Quests. Claim it on days in a row to build a streak: every day of streak adds <span data-feature-value="dailyStreakStep">25</span>% to the reward, up to <span data-feature-value="dailyStreakMax">2.5</span> times on day <span data-feature-value="dailyStreakDays">7</span> and after. Miss a day and the streak starts again. A new challenge comes at midnight, with a countdown on the card. It's on the homepage too, just under Play: today's goal, how far along you are and your streak, and "Claim!" once it's done - click it to open the Quests.</p>
+          <p>One goal a day, the same for everyone, on a wide gold card at the top of the Quests: take lots of zombies down, in one run or on Hard and up, take them down with a melee weapon, take down skeletons, Rare-or-rarer zombies or bosses, reach a high wave (some days on Hard and up), or get a long kill streak - <span data-feature-value="dailyKinds">10</span> kinds, each easy, medium or hard. They're tough on purpose (the easiest kill goal is <span data-feature-value="dailyMinKills">120</span> zombies), and harder pays more coins and XP. The game tells you the moment it's done, and you claim it in the Quests. Claim it on days in a row to build a streak: every day of streak adds <span data-feature-value="dailyStreakStep">25</span>% to the reward, up to <span data-feature-value="dailyStreakMax">2.5</span> times on day <span data-feature-value="dailyStreakDays">7</span> and after. Miss a day and the streak starts again. A new challenge comes at midnight your time - it shows up by itself even with the page left open - with a countdown on the card. It's on the homepage too, just under Play: today's goal, how far along you are and your streak, and "Claim!" once it's done - click it to open the Quests.</p>
+        </div>
+        <div class="feature" data-code="HomeExtras renderHomeExtras homeExtrasLayout">
+          <h3>Homepage Extras</h3>
+          <p>Small cards on the homepage: your level and the XP to the next one, your last run and best wave, a tip of the day (<span data-feature-value="tipCount">12</span> of them, a new one each day), your login streak with countdowns to the next daily challenge and weekly mutator, the top <span data-feature-value="topPlayers">3</span> players by best wave, and an Invite a friend button that copies the game's link (or opens your phone's share menu). Pick how they show in Settings &gt; General &gt; Homepage: Cards puts them in the bottom corners (as many as fit your screen), Today Panel keeps the homepage clean and puts them all behind one Today button. Play gets a Continue tag when you left a run halfway (it picks it up on the same mode and difficulty), and a New here? tag that opens How to Play before your first run. Tap your character for a dance, wave or flex; now and then a zombie peeks in from the side. Bats fly over the homepage in late October and snow falls in December.</p>
         </div>
       </section>
 
@@ -3239,6 +3254,14 @@ Escape before dawn.</p>
             <div class="changelog-entry"><span class="changelog-date">v0.01 · Sep 22, 2026</span><div class="changelog-text"><div class="changelog-group changelog-changed"><span class="changelog-group-label">Changed</span><ul><li>Polish pass on yesterday's new crate stock counter - it's now a bigger, tilted gold star badge overlapping the card's top-right corner, with the count shown as "x3" inside.</li><li>Shop crate cards are bigger overall too, and the "Crates" heading now matches the GaygarX skin name's size.</li><li>Profile's "Shown to Public" tab now includes your Bio, Motto, and full stats (Longest Survival, Total Kills, Runs Played, Favorite Class, Last Run, Best Run, Most Played Difficulty, Today, and Created) - other players can see these when they look up your Player ID, same as your name and best stats already could.</li><li>Performance: cleaned up the 6 heaviest always-loaded character models and made the game's code/model files cache in your browser instead of re-downloading every visit - should make reloading a bit faster. This What's New list now has version numbers (starting today, v0.01) and a bigger, restyled layout, and its heading is now "Changelogs" instead of "Update Logs".</li></ul></div><div class="changelog-group changelog-fixed"><span class="changelog-group-label">Fixed</span><ul><li>Fixed the "General" sidebar button's text overlapping its plaque art.</li><li>Chat: fixed a real bug where clicking a name in Global chat to copy their Player ID silently failed if that player had ever changed their nickname; a muted player's messages now show as a dimmed "Blocked message - Show" instead of just vanishing, with a click to reveal them anyway; Global/in-game chat no longer shows old message history after you reload the page (only new messages from that point on); removed the underline that appeared when hovering a name; and the "look up a player" popup is wider, better organized into two columns, and colors its stats to match your own Profile.</li></ul></div></div></div>
           </div> <!-- end changelog-list (scripts/check-docs.mjs) -->
           </div>
+        </div>
+      </div>
+
+      <div id="today-panel">
+        <div class="panel-box">
+          <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
+          <h2 id="today-panel-title">Today</h2>
+          <div id="today-panel-list"></div>
         </div>
       </div>
 
