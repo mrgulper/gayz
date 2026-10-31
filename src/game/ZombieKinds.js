@@ -51,6 +51,8 @@ import { MOB_HEIGHT } from './PlayRules.js'
 // wide: its hit box's width, times a zombie's. climbs: goes straight up
 // walls. burst: blows up when killed, hurting things this many blocks round.
 // waves: false - never joins the waves.
+// slime: leaves a slime puddle where it bursts. scream / hides: its trick
+// (ZombieTricks.js). see: its materials can fade (drawn see-through).
 export const MONSTER_KINDS = {
   hunched: { hp: 1.3, speed: 0.9, damage: 1.35, tall: 1 },
   blob: { hp: 1.8, speed: 0.7, damage: 1.1, tall: 0.75 },
@@ -58,8 +60,10 @@ export const MONSTER_KINDS = {
   crawler: { hp: 0.8, speed: 0.75, damage: 0.9, tall: 0.35 },
   spider: { hp: 0.9, speed: 1.2, damage: 0.9, tall: 0.45, wide: 1.6, climbs: true, waves: false },
   brute: { hp: 3, speed: 0.6, damage: 2, tall: 1, wide: 1.7 },
-  bloater: { hp: 1.2, speed: 0.75, damage: 1, tall: 1, wide: 1.4, burst: 3.5 },
+  bloater: { hp: 1.2, speed: 0.75, damage: 1, tall: 1, wide: 1.4, burst: 3.5, slime: true },
   skinny: { hp: 0.6, speed: 1.45, damage: 0.85, tall: 1 },
+  screamer: { hp: 0.7, speed: 1, damage: 0.8, tall: 1, scream: true },
+  lurker: { hp: 0.9, speed: 1.15, damage: 1.2, tall: 1, hides: true, see: true },
   angel: { hp: 1.3, speed: 1.1, damage: 1.1, tall: 1, realm: 'heaven', noSun: true, waves: false },
   seraph: { hp: 1, speed: 1.3, damage: 1, tall: 1, realm: 'heaven', noSun: true, waves: false },
   archangel: { hp: 2.6, speed: 0.85, damage: 1.8, tall: 1, wide: 1.3, realm: 'heaven', noSun: true, waves: false },
@@ -137,6 +141,8 @@ const DROWNED = ['#4f8a86', '#447a76', '#5b9a94', '#3a6a66']
 const KELP = ['#2f6a2a', '#3a7a30', '#285a22', '#4a8a3a']
 const SHARK = ['#7d8c99', '#6f7e8b', '#8a99a6', '#64727e']
 const JELLY = ['#f29ad8', '#e888cc', '#f7b0e2', '#d978c0']
+const SCREAM = ['#8a96a2', '#7c8894', '#98a4b0', '#6e7a86']
+const LEAFY = ['#3f6a2a', '#365e24', '#4a7a32', '#2e5020', '#557f38']
 const DEEP = ['#2a3040', '#232838', '#323a4c', '#1c2130']
 
 // Patches of darker rot and a few wounds.
@@ -220,6 +226,32 @@ function kindPictures() {
       set(10, 5, '#e8f05a')
       set(5, 10, '#3a1410', 6, 4)
       set(6, 13, '#9ac04a', 2, 3)
+    }),
+    // Grey-blue skin stretched thin, ribs showing.
+    screamSkin: paint(50, SCREAM, (set) => {
+      for (let y = 4; y < 14; y += 3) set(3, y, '#5a6470', 10, 1)
+    }),
+    // The mouth: a huge black hole down the whole face, tiny white eyes.
+    screamFace: paint(51, SCREAM, (set) => {
+      set(4, 2, '#0a0a0a', 2, 2)
+      set(10, 2, '#0a0a0a', 2, 2)
+      set(4, 2, '#f4f4f4')
+      set(10, 2, '#f4f4f4')
+      set(4, 5, '#1a0606', 8, 10)
+      set(5, 6, '#3a0a0a', 6, 8)
+      for (const x of [4, 6, 9, 11]) set(x, 5, '#e8e0c0', 1, 2)
+    }),
+    // Leaf-green mottled skin with dark blotches, like a bush.
+    leafy: paint(52, LEAFY, (set, r) => {
+      for (let i = 0; i < 7; i++) set(Math.floor(r() * 14), Math.floor(r() * 14), '#24401c', 2, 2)
+      for (let i = 0; i < 5; i++) set(Math.floor(r() * 16), Math.floor(r() * 16), '#8ab04a')
+    }),
+    lurkFace: paint(53, LEAFY, (set) => {
+      set(3, 6, '#0e1a0a', 4, 2)
+      set(9, 6, '#0e1a0a', 4, 2)
+      set(4, 6, '#d8ff4a', 2, 1)
+      set(10, 6, '#d8ff4a', 2, 1)
+      set(5, 11, '#0e1a0a', 6, 2)
     }),
     // A dark shell with a red mark.
     shell: paint(21, SHELL, (set, r) => {
@@ -440,6 +472,29 @@ function design(kind) {
       { name: 'armL', geo: box(0.11, 1.0, 0.11), pic: 'pale', parent: 'torso', at: [-0.25, 0.56, 0], rot: [-0.25, 0, 0.06] },
       { name: 'armR', geo: box(0.11, 1.0, 0.11), pic: 'pale', parent: 'torso', at: [0.25, 0.56, 0], rot: [-0.25, 0, -0.06] },
     ]
+  } else if (kind === 'screamer') {
+    // 2 blocks tall and thin; the head tips back to scream (ZombieTricks).
+    parts = [
+      { name: 'legL', geo: box(0.17, 0.9, 0.17), pic: 'screamSkin', at: [-0.12, 0.9, 0] },
+      { name: 'legR', geo: box(0.17, 0.9, 0.17), pic: 'screamSkin', at: [0.12, 0.9, 0] },
+      { name: 'torso', geo: box(0.44, 0.62, 0.24, [0.5, 0, 0.5]), pic: 'screamSkin', at: [0, 0.88, 0] },
+      { name: 'head', geo: box(0.44, 0.5, 0.42, [0.5, 0, 0.5]), pic: 'screamSkin', front: 'screamFace', parent: 'torso', at: [0, 0.62, 0.02] },
+      { name: 'armL', geo: box(0.12, 0.9, 0.12), pic: 'screamSkin', parent: 'torso', at: [-0.29, 0.58, 0], rot: [-0.2, 0, 0.1] },
+      { name: 'armR', geo: box(0.12, 0.9, 0.12), pic: 'screamSkin', parent: 'torso', at: [0.29, 0.58, 0], rot: [-0.2, 0, -0.1] },
+    ]
+  } else if (kind === 'lurker') {
+    // 2 blocks tall standing; it creeps crouched (ZombieTricks squashes it).
+    parts = [
+      { name: 'legL', geo: box(0.24, 0.76, 0.24), pic: 'leafy', at: [-0.16, 0.76, 0] },
+      { name: 'legR', geo: box(0.24, 0.76, 0.24), pic: 'leafy', at: [0.16, 0.76, 0] },
+      { name: 'torso', geo: box(0.56, 0.7, 0.34, [0.5, 0, 0.5]), pic: 'leafy', at: [0, 0.73, 0], rot: [0.3, 0, 0] },
+      { name: 'head', geo: box(0.48, 0.46, 0.46, [0.5, 0, 0.5]), pic: 'leafy', front: 'lurkFace', parent: 'torso', at: [0, 0.7, 0.08], rot: [-0.3, 0, 0] },
+      // Leafy tufts growing out of its back and head.
+      { name: 'tuft1', geo: box(0.3, 0.16, 0.3, [0.5, 0, 0.5]), pic: 'leafy', parent: 'head', at: [0.06, 0.46, -0.04], rot: [0, 0.6, 0.2] },
+      { name: 'tuft2', geo: box(0.36, 0.2, 0.26, [0.5, 0, 0.5]), pic: 'leafy', parent: 'torso', at: [-0.12, 0.5, -0.17], rot: [0.4, 0.3, 0] },
+      { name: 'armL', geo: box(0.16, 1.0, 0.16), pic: 'leafy', parent: 'torso', at: [-0.36, 0.64, 0], rot: [-0.6, 0, 0.1] },
+      { name: 'armR', geo: box(0.16, 1.0, 0.16), pic: 'leafy', parent: 'torso', at: [0.36, 0.64, 0], rot: [-0.6, 0, -0.1] },
+    ]
   } else if (kind === 'angel' || kind === 'archangel') {
     // 2 blocks tall, robed (or armoured in gold), a halo and big wings.
     const big = kind === 'archangel'
@@ -577,7 +632,8 @@ function design(kind) {
 }
 
 // A new monster of `kind`, `height` world units for a regular zombie's
-// height. -> { root, materials, kind, update(dt, moveLen), dispose() }.
+// height. -> { root, materials, kind, body, screaming, update(dt, moveLen),
+// dispose() }.
 export function makeMonster(kind, height) {
   const pics = kindPictures()
   const root = new THREE.Group()
@@ -589,6 +645,9 @@ export function makeMonster(kind, height) {
     // Glowing parts are unlit (no emissive - BuildSurvival's hit flash
     // skips them).
     const m = glow ? new THREE.MeshBasicMaterial({ map: pics[pic] }) : new THREE.MeshLambertMaterial({ map: pics[pic], emissive: 0x000000 })
+    // A kind that fades (the lurker) is see-through from the start, so
+    // fading it is only an opacity change (no shader rebuild).
+    if (MONSTER_KINDS[kind]?.see) m.transparent = true
     materials.push(m)
     return m
   }
@@ -611,6 +670,10 @@ export function makeMonster(kind, height) {
     root,
     materials,
     kind,
+    // The scaled body (the lurker's crouch squashes it) and the
+    // screamer's yell - both set by ZombieTricks.js.
+    body: scale,
+    screaming: false,
     // moveLen: how fast it's going (blocks/s).
     update(dt, moveLen) {
       t += dt * (1 + moveLen * 1.6)
@@ -668,6 +731,26 @@ export function makeMonster(kind, height) {
         nodes.armL.rotation.x = rest('armL').x - s * 0.8
         nodes.armR.rotation.x = rest('armR').x + s * 0.8
         nodes.head.rotation.z = Math.sin(t * 1.1) * 0.1
+      } else if (kind === 'screamer') {
+        // A jerky walk; while screaming (this.screaming, set by
+        // ZombieTricks) the head tips back and the arms fly up.
+        const s = Math.sin(t * 2.4) * 0.6 * go
+        const yell = this.screaming ? 1 : 0
+        nodes.legL.rotation.x = s
+        nodes.legR.rotation.x = -s
+        nodes.armL.rotation.x = rest('armL').x - s * 0.5 - yell * 2.4
+        nodes.armR.rotation.x = rest('armR').x + s * 0.5 - yell * 2.4
+        nodes.head.rotation.x = -yell * (0.55 + Math.sin(t * 30) * 0.06)
+        nodes.head.rotation.z = Math.sin(t * 1.3) * 0.15 * (1 - yell)
+      } else if (kind === 'lurker') {
+        // A slinking crouch-walk; the leafy tufts quiver.
+        const s = Math.sin(t * 2) * 0.5 * go
+        nodes.legL.rotation.x = s
+        nodes.legR.rotation.x = -s
+        nodes.armL.rotation.x = rest('armL').x - s * 0.6
+        nodes.armR.rotation.x = rest('armR').x + s * 0.6
+        nodes.tuft1.rotation.z = rest('tuft1').z + Math.sin(t * 6) * 0.08
+        nodes.tuft2.rotation.x = rest('tuft2').x + Math.sin(t * 5 + 1) * 0.08
       } else if (REALM_ANIM.has(kind)) {
         // The realm kinds: legs and arms swing, wings beat, tails and
         // tentacles sway, floating ones bob; a hellhound gallops.

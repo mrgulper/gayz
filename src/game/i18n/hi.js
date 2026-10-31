@@ -1809,6 +1809,7 @@ export default {
   buildPlayWaveOf: "लहर {n} / {max}",
   buildPlayTime: "समय {t}",
   buildPlayBossComing: "एक बॉस आ रहा है!",
+  buildPlayScreamerCalled: "एक चीखने वाले ने झुंड को बुला लिया!",
   buildPlayBossDown: "बॉस ढेर! +{n} सिक्के",
   buildPlayAssist: "+असिस्ट! +{n} सिक्के",
   buildPlayOverWinTitle: "तुमने शहर बचा लिया!",

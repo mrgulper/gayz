@@ -873,6 +873,8 @@ export class BuildTryMode {
     if (inLiquid) speed *= 0.7 * (this.bm.specials._buff('boat') || 1)
     // Wading through flood water (Disasters.js).
     speed *= this.bm.sky?.disasters?.slow ?? 1
+    // Standing in a bloater's slime puddle (ZombieTricks.js).
+    speed *= this.bm.survival?.tricks?.slow ?? 1
     const want = len ? (speed * amount) / len : 0
     // Freezing rain glazes the ground: you slide about (BuildWeather.glaze).
     const glaze = this.onGround ? this.bm.sky?.weather3d?.glaze() || 0 : 0

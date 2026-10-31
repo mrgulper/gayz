@@ -290,6 +290,16 @@ export class PlayFx {
     this._emit('flame', x, y, z, { life: 0.5 + Math.random() * 0.3, from: 0.35, to: 0.12, rise: 1.2, alpha: 0.9 })
   }
 
+  // A leaf drifting down (a hiding lurker rustling, ZombieTricks.js).
+  leaf(x, y, z) {
+    this._emit('debris', x, y, z, { life: 1.2, from: 0.14, to: 0.1, alpha: 0.9, gravity: 3, color: 0x4a7a32, vel: new THREE.Vector3((Math.random() - 0.5) * this.B, 0.8 * this.B, (Math.random() - 0.5) * this.B) })
+  }
+
+  // A blob of slime flung up (a bloater's burst, ZombieTricks.js).
+  slime(x, y, z) {
+    this._emit('debris', x, y, z, { life: 0.9, from: 0.3, to: 0.15, gravity: 14, color: 0x8bbf55, vel: new THREE.Vector3((Math.random() - 0.5) * 3 * this.B, (3 + Math.random() * 3) * this.B, (Math.random() - 0.5) * 3 * this.B) })
+  }
+
   voidHit(pos) {
     for (let i = 0; i < 4; i++) {
       this._emit('void', pos.x, pos.y, pos.z, { life: 0.4 + i * 0.06, from: 1.5 - i * 0.2, to: 0.1, delay: i * 0.04 })

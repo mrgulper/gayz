@@ -39,6 +39,7 @@ import { deathJoke } from './DeathJokes.js'
 import { ZOMBIE_TIERS, NAME_COUNT, TAG_W, TAG_H, rollZombieTier, rollZombieName, zombieTagMaterial, zombieGlow, pulseZombieGlows, zombieName, ZOMBIE_SHINES, rollZombieShine, shineCoins, shineBody, glowShineBody, shineTagMaterial, zombieShineFx, animateShineFx, pulseShines } from './ZombieNames.js'
 import { LEAF_DROP_CHANCE, PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, ASSIST_SHARE, ASSIST_MIN_HURT, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { MONSTER_KINDS, REALM_KINDS, makeMonster } from './ZombieKinds.js'
+import { ZombieTricks } from './ZombieTricks.js'
 import { HEAVEN_FLOOR, HEAVEN_TOP } from './HeavenRealm.js'
 import { WATER_BIOMES } from './EarthGrid.js'
 import { PlayDamageNumbers } from './PlayDamageNumbers.js'
@@ -334,6 +335,8 @@ export class BuildSurvival {
     if (fromMenu) bm.sky?.forGame(true)
     this._nextShotAt = 0
     if (!this._fx) this._fx = new PlayFx(bm.scene, this.B)
+    // Screamers, lurkers and slime puddles (ZombieTricks.js).
+    if (!this.tricks) this.tricks = new ZombieTricks(this)
     if (!this.throws) this.throws = new PlayThrow(this)
     this.throws.clear()
     if (!this.animals) this.animals = new PlayAnimals(this)
@@ -437,6 +440,7 @@ export class BuildSurvival {
     for (const z of this.zombies) this._removeZombie(z)
     this.zombies = []
     this._clearCorpses()
+    this.tricks?.clear()
     this._fx?.clear()
     this.throws?.clear()
     this.animals?.clear()
@@ -1317,6 +1321,8 @@ export class BuildSurvival {
     if (amount > 0) amount *= this.bm.specials.zombieHurtMult(z)
     z.health -= amount
     z.flash = 0.12
+    // Hit by something (not just sunburn) - a hiding lurker leaps out.
+    if (amount > 0) z.hit = true
     if (z.skel && z.health > 0 && !z.rise && amount > 0) z.hitAnim = z.skel.play('hit', { once: true, fade: 0.05, timeScale: 1.6 })
     if (dir) {
       z.vx += dir.x * 3
@@ -1354,6 +1360,8 @@ export class BuildSurvival {
     const mid = z.y + ZOMBIE_HEIGHT * 0.5
     try { audioEngine.playExplosion?.() } catch { /* no audio */ }
     this._fx?.explode(new THREE.Vector3(z.x * B, mid * B, z.z * B), r * 0.6)
+    // A slime puddle that slows you (ZombieTricks.js).
+    this.tricks?.burst(z)
     const hit = zombieDamage(this.wave) * this.cfg.zombieDamageMult * 1.6
     for (const p of this._targets()) {
       const d = Math.hypot(p.x - z.x, p.y + 1 - mid, p.z - z.z)
@@ -1813,6 +1821,7 @@ export class BuildSurvival {
     if (glow) {
       glow.position.y = 0.04 * this.B
       group.add(glow)
+      zombie.glow = glow
     }
     this.bm.scene.add(group)
     this.zombies.push(zombie)
@@ -1830,7 +1839,7 @@ export class BuildSurvival {
     const tags = this.bm.game?.settings?.zombieNameTags !== false
     for (const z of this.zombies) {
       if (!z.tag) continue
-      z.tag.visible = tags && !z.rise
+      z.tag.visible = tags && !z.rise && !z.hidden
       const d = Math.hypot(z.x * B - cam.x, z.y * B - cam.y, z.z * B - cam.z) / B
       const w = ZOMBIE_TAG_SIZE * Math.max(1, d / ZOMBIE_TAG_NEAR) * B
       z.tag.scale.set(w, w * (TAG_H / TAG_W), 1)
@@ -2214,7 +2223,8 @@ export class BuildSurvival {
     let dz = tz - zb.z
     const len = Math.hypot(dx, dz) || 1
     // The brain bends the way (flankers) and sets the pace (lungers).
-    const pace = this._zombieBrain(zb, dt, player)
+    // ...and its kind's trick (a screamer stops to scream, a lurker creeps).
+    const pace = this._zombieBrain(zb, dt, player) * (this.tricks?.tick(zb, dt, player) ?? 1)
     if (zb.flank > 0) {
       // Forward plus a sideways part (left or right of the way in).
       const fx = dx / len
@@ -2526,6 +2536,7 @@ export class BuildSurvival {
     if (!this.active) return
     this._updateCorpses(Math.min(dt, 0.1))
     this._fx?.update(Math.min(dt, 0.1))
+    this.tricks?.update(Math.min(dt, 0.1))
     this.damageNumbers?.update(Math.min(dt, 0.1))
     this._updateOwnBubble(Math.min(dt, 0.1))
     this.throws?.update(Math.min(dt, 0.1))
@@ -2882,7 +2893,7 @@ export class BuildSurvival {
   zombieSnapshot() {
     const out = {}
     for (const z of this.zombies) {
-      out[`z${z.id}`] = { x: +z.x.toFixed(2), y: +z.y.toFixed(2), z: +z.z.toFixed(2), r: +z.group.rotation.y.toFixed(2), hp: Math.round(z.health), max: Math.round(z.maxHealth || z.health), boss: !!z.boss, ...(z.kind ? { k: z.kind } : {}), rt: z.tier || 'common', nm: z.nameIdx ?? 0, ...(z.shine ? { sh: z.shine } : {}) }
+      out[`z${z.id}`] = { x: +z.x.toFixed(2), y: +z.y.toFixed(2), z: +z.z.toFixed(2), r: +z.group.rotation.y.toFixed(2), hp: Math.round(z.health), max: Math.round(z.maxHealth || z.health), boss: !!z.boss, ...(z.kind ? { k: z.kind } : {}), rt: z.tier || 'common', nm: z.nameIdx ?? 0, ...(z.shine ? { sh: z.shine } : {}), ...(z.hidden ? { hd: 1 } : {}), ...(z.yell > 0 ? { ys: 1 } : {}) }
     }
     return out
   }
@@ -2911,6 +2922,9 @@ export class BuildSurvival {
       }
       z.health = d.hp
       z.maxHealth = d.max
+      // A hiding lurker, a screaming screamer (ZombieTricks.js).
+      z.hidden = !!d.hd
+      z.yell = d.ys ? 1 : 0
     }
     for (const z of [...this.zombies]) {
       if (seen.has(z.id)) continue
@@ -2950,6 +2964,7 @@ export class BuildSurvival {
           if (z.rise <= 0) z.skel.play('walk')
         } else this._skeletonGait(z, dt, moveLen)
       }
+      this.tricks?.look(z, dt)
       z.monster?.update(dt, moveLen)
       z.walk += dt * moveLen * 3.2
       const swing = Math.sin(z.walk) * Math.min(1, moveLen / 2) * 0.7

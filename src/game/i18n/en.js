@@ -1864,6 +1864,7 @@ export default {
   buildPlayWaveOf: "Wave {n} / {max}",
   buildPlayTime: "Time {t}",
   buildPlayBossComing: "A boss is coming!",
+  buildPlayScreamerCalled: "A screamer called the horde!",
   buildPlayBossDown: "Boss down! +{n} coins",
   buildPlayAssist: "+Assist! +{n} coins",
   buildPlayOverWinTitle: "You held the city!",
