@@ -135,6 +135,7 @@ import * as InfoPagesUI from './InfoPagesUI.js'
 import * as ProgressUI from './ProgressUI.js'
 import * as ProfileUI from './ProfileUI.js'
 import * as TeamUI from './TeamUI.js'
+import * as CosmeticsUI from './CosmeticsUI.js'
 import * as InventoryUI from './InventoryUI.js'
 import * as ClanUI from './ClanUI.js'
 import { levelFromXp, starterXp } from './Xp.js'
@@ -392,6 +393,9 @@ function loadSettings() {
       // same seasonal date windows as EVENT_BANNERS, any other value is an
       // explicit user override that ignores the calendar.
       bgMood: parsed.bgMood || 'auto',
+      // Hats & Capes worn (Cosmetics.js) - ids, '' for none.
+      cosmeticHat: typeof parsed.cosmeticHat === 'string' ? parsed.cosmeticHat : '',
+      cosmeticCape: typeof parsed.cosmeticCape === 'string' ? parsed.cosmeticCape : '',
       // Graphics tab (see _bindGraphicsSettings). renderResolution is a
       // percentage fed into _basePixelRatio's pixel-ratio math, not a
       // separate render target size - docs/PERFORMANCE.md already ruled
@@ -548,7 +552,7 @@ function _loadNavOrder(saved) {
 }
 
 export function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, disasterBreakAll: false, crosshairStyle: 'cross', damageNumbers: true, zombieNameTags: true, autoPickup: true, confirmRareDrop: true, darkAreaBoost: false, colorblindRarity: false, sprintMode: 'hold', autoJump: false, battleView: '3d', zombieVolume: 100, skinDesignerHighContrast: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, clanXp: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, lockedSkins: [], bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, graphicsLevel: null, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', cleanColor: CLEAN_DEFAULT_COLOR, playBiomeLook: true, playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, disasterBreakAll: false, crosshairStyle: 'cross', damageNumbers: true, zombieNameTags: true, autoPickup: true, confirmRareDrop: true, darkAreaBoost: false, colorblindRarity: false, sprintMode: 'hold', autoJump: false, battleView: '3d', zombieVolume: 100, skinDesignerHighContrast: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, clanXp: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, lockedSkins: [], bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', cosmeticHat: '', cosmeticCape: '', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, graphicsLevel: null, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', cleanColor: CLEAN_DEFAULT_COLOR, playBiomeLook: true, playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
 }
 
 
@@ -1328,6 +1332,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'general-tab-general': 'cloudsaveLeaderboardTitle',
   'tab-theme': 'tabTheme',
   'inventory-tab-pets': 'inventoryPetsTitle',
+  'inventory-tab-cosmetics': 'inventoryCosmeticsTitle',
   'inventory-pets-soon-title': 'inventoryPetsTitle',
   'inventory-pets-soon-text': 'inventoryPetsSoon',
   'inventory-pets-soon-tag': 'crateComingSoonTag',
@@ -1505,7 +1510,7 @@ const SELECT_OPTION_I18N_KEYS = {
   'theme-preset-select': { 'none': 'optThemePresetDefault', 'sepia': 'optThemePresetSepia', 'darker': 'optThemePresetDarker', 'lighter': 'optThemePresetLighter' },
   'nickname-font-select': { 'default': 'optNicknameFontDefault', 'mono': 'optNicknameFontMono', 'serif': 'optNicknameFontSerif', 'display': 'optNicknameFontDisplay' },
   'layout-density-select': { 'cozy': 'optLayoutCozy', 'compact': 'optLayoutCompact' },
-  'bg-mood-select': { 'auto': 'optBgMoodAutoSeasonal', 'timeofday': 'optBgMoodAutoLocal', 'none': 'optBgMoodNight', 'bloodmoon': 'optBgMoodBloodMoon', 'foggy': 'optBgMoodFoggy', 'amber': 'optBgMoodAmber' },
+  'bg-mood-select': { 'auto': 'optBgMoodAutoSeasonal', 'timeofday': 'optBgMoodAutoLocal', 'sunny': 'optBgMoodSunny', 'none': 'optBgMoodNight', 'bloodmoon': 'optBgMoodBloodMoon', 'foggy': 'optBgMoodFoggy', 'amber': 'optBgMoodAmber' },
   'achievements-category-select': { 'all': 'optAchCatAll', 'combat': 'optAchCatCombat', 'survival': 'optAchCatSurvival', 'story': 'optAchCatStory' },
   'achievements-sort-select': { 'default': 'optAchSortDefault', 'achieved': 'optAchSortAchieved', 'incomplete': 'optAchSortIncomplete' },
   'pinned-stat-select': { '': 'optPinnedStatNone' },
@@ -2764,6 +2769,7 @@ export class Game {
     this._bindGameModeSelect()
     this._checkImportSkinCode()
     TeamUI.bindTeamUI(this)
+    CosmeticsUI.bindCosmeticsUI(this)
     this._bindPanelRouting()
     this._bindControlsTab()
     this._applyLanguage()
@@ -3327,7 +3333,7 @@ export class Game {
       },
       {
         slug: 'inventory', panel: this.menuInventoryPanel, open: () => this._openMenuInventoryPanel(),
-        subTabs: this._subTabsFor('inventory-tab-', ['character', 'crates', 'weapons', 'pets']),
+        subTabs: this._subTabsFor('inventory-tab-', ['character', 'crates', 'weapons', 'pets', 'cosmetics']),
       },
       { slug: 'global', panel: this.serverPanel, open: () => this._openServerPanel() },
       {

@@ -103,6 +103,11 @@ function getTextures() {
     // ring and bits of dirt and rubble thrown out.
     flash: blobTexture([[0, 'rgba(255,255,255,1)'], [0.25, 'rgba(255,245,200,0.9)'], [1, 'rgba(255,200,120,0)']]),
     ring: blobTexture([[0, 'rgba(255,255,255,0)'], [0.72, 'rgba(255,255,255,0)'], [0.86, 'rgba(255,240,220,0.5)'], [1, 'rgba(255,255,255,0)']]),
+    // A plain square, tinted per piece (a Disco Zombie's confetti).
+    confetti: canvasTexture((g) => {
+      g.fillStyle = '#ffffff'
+      g.fillRect(16, 24, 32, 16)
+    }),
     debris: canvasTexture((g) => {
       g.fillStyle = '#2b2520'
       g.fillRect(18, 20, 28, 24)
@@ -140,10 +145,10 @@ export class PlayFx {
     this._next = (this._next + 1) % POOL
     const d = s.userData
     const tex = getTextures()
-    const add = kind !== 'smoke' && kind !== 'debris'
+    const add = kind !== 'smoke' && kind !== 'debris' && kind !== 'confetti'
     d.flame = kind === 'flame'
     d.gravity = gravity * this.B
-    d.solid = kind === 'debris'
+    d.solid = kind === 'debris' || kind === 'confetti'
     d.rise = rise * this.B
     d.wob = Math.random() * 10
     d.wobble = wobble
@@ -278,6 +283,17 @@ export class PlayFx {
   // A tinted sparkle (x, y, z in world units) - opts as _emit's, plus color.
   spark(x, y, z, opts) {
     this._emit('dot', x, y, z, opts)
+  }
+
+  // A Disco Zombie's party popper: bright paper bits flung up, spinning
+  // and floating down (x, y, z in world units).
+  confetti(x, y, z) {
+    const colors = [0xff5ca8, 0xffd23f, 0x5cc8ff, 0x7dff8a, 0xa98bff, 0xff7a1a]
+    for (let i = 0; i < 48; i++) {
+      const a = Math.random() * Math.PI * 2
+      const out = 1.5 + Math.random() * 3
+      this._emit('confetti', x, y, z, { life: 1.6 + Math.random() * 0.8, from: 0.22, to: 0.18, gravity: 4, drag: 0, color: colors[i % colors.length], delay: Math.random() * 0.08, vel: new THREE.Vector3(Math.cos(a) * out * this.B, (4 + Math.random() * 4) * this.B, Math.sin(a) * out * this.B) })
+    }
   }
 
   // A slow grey puff (Smoke Bomb).

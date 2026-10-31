@@ -32,6 +32,8 @@
 // you stop trying the map and are never saved.
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { wearCosmetics, myWorn } from './Cosmetics.js'
+import { poseEmote } from './Emotes.js'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { audioEngine } from './Audio.js'
 import { addGunLights, cloneViewmodel } from './Viewmodels.js'
@@ -1240,6 +1242,17 @@ export class BuildTryMode {
     body.char.position.y = body.lift - (this._crouch ? (HEIGHT - CROUCH_HEIGHT) * B * 0.5 : 0)
     const lp = body.char.limbPivots
     const speed = Math.hypot(this.vel.x, this.vel.z)
+    // Hats & Capes (Cosmetics.js), in a game.
+    const playing = this.bm.survival?.active
+    wearCosmetics(body.char, playing ? myWorn(this.bm.game, 'hat') : '', playing ? myWorn(this.bm.game, 'cape') : '')
+    // An emote (Emotes.js) plays until you walk off.
+    const emotes = playing ? this.bm.survival.emotes : null
+    if (emotes?.current && speed > 0.5) emotes.stop()
+    const bob = emotes?.current ? poseEmote(lp, emotes.current, performance.now() / 1000) : null
+    if (bob !== null) {
+      body.char.position.y += bob * body.char.scale.y
+      return
+    }
     body.walk += dt * speed * 3.2
     const swing = Math.sin(body.walk) * Math.min(1, speed / 2) * 0.7
     if (lp) {

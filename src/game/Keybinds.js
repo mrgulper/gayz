@@ -32,6 +32,8 @@ export const ACTIONS = [
   // 2026-10-30). Q is also the Map Editor's rotate key - that one only
   // works while building, this one only in a game.
   { id: 'dropItem', defaultKey: 'KeyQ', labelKey: 'actionDropItem' },
+  // Opens the emote bar: dance, wave, flex (Emotes.js, 2026-10-31).
+  { id: 'emote', defaultKey: 'KeyB', labelKey: 'actionEmote' },
 ]
 
 // Extra keys that also work for an action, as long as no action is bound

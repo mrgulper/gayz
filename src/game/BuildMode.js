@@ -2081,6 +2081,8 @@ export class BuildMode {
       if (this.pickerOpen) return
       const digitIndex = DIGIT_KEY_TO_HOTBAR_INDEX[e.code]
       if (digitIndex === undefined) return
+      // With the emote bar open, 1-3 pick an emote instead (Emotes.js).
+      if (this.survival?.active && this.survival.emotes?.pick(e.code)) return
       if (this.survival?.active && this.survival.inv) this.survival.inv.select(digitIndex)
       else this._selectHotbarSlot(digitIndex)
     }

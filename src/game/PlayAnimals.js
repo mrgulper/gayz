@@ -46,6 +46,15 @@ const SPAWN_EVERY_S = 1.5
 const SPAWN_MIN = 24 // blocks from you
 const SPAWN_MAX = 56
 const DESPAWN = 110
+// Animals panic when a zombie comes close (2026-10-31, Gaymi's funny
+// update: "chickens running in circles or a cow staring at zombies"):
+// birds run round in circles flapping, cows freeze and stare at it, the
+// rest bolt away zig-zagging and hopping. Zombies still leave them alone.
+const PANIC_RANGE = 7 // blocks
+const PANIC_LOOK_S = 0.4 // how often each one checks for zombies
+const PANIC_S = 1.2 // keeps panicking this long after the last look
+const CIRCLERS = new Set(['chicken', 'turkey', 'duck'])
+const STARERS = new Set(['cow'])
 const WALK = 1.1 // blocks per second
 const RUN = 4
 const FLEE_S = 4
@@ -722,6 +731,16 @@ export class PlayAnimals {
       a.flee -= dt
       a.heading = Math.atan2(-dx, -dz) + Math.sin(a.flee * 3) * 0.4
       speed = RUN
+    } else if (!a.placed && this._panicking(a, dt)) {
+      const z = a.scaredBy
+      if (CIRCLERS.has(a.kind)) {
+        a.heading += dt * 7
+        speed = RUN * 0.8
+      } else if (STARERS.has(a.kind)) a.heading = Math.atan2(z.x - a.x, z.z - a.z)
+      else {
+        a.heading = Math.atan2(a.x - z.x, a.z - z.z) + Math.sin(a.panic * 9) * 0.6
+        speed = RUN
+      }
     } else {
       a.think -= dt
       if (a.think <= 0) {
@@ -774,7 +793,31 @@ export class PlayAnimals {
       a.biteT -= dt
       a.head.rotation.x = Math.sin(Math.max(0, a.biteT) / 0.25 * Math.PI) * 0.5
     }
-    a.group.position.set(a.x * B, a.y * B, a.z * B)
+    // Panicking ones hop as they run (a staring cow just stands there).
+    const hop = a.panic > 0 && speed > 0 ? Math.abs(Math.sin(a.walk * 0.9)) * 0.3 : 0
+    a.group.position.set(a.x * B, (a.y + hop) * B, a.z * B)
+  }
+
+  // Is a zombie close enough to panic this animal? Looks every
+  // PANIC_LOOK_S, keeps a.scaredBy (that zombie) and a.panic (seconds
+  // left). Wild animals only; dinosaurs that hunt never get here.
+  _panicking(a, dt) {
+    a.panic = Math.max(0, (a.panic || 0) - dt)
+    a.panicLook = (a.panicLook || Math.random() * PANIC_LOOK_S) - dt
+    if (a.panicLook <= 0) {
+      a.panicLook = PANIC_LOOK_S
+      let best = PANIC_RANGE
+      for (const z of this.s.zombies || []) {
+        if (z.health <= 0 || z.hidden || Math.abs(z.y - a.y) > 4) continue
+        const d = Math.hypot(z.x - a.x, z.z - a.z)
+        if (d < best) {
+          best = d
+          a.scaredBy = z
+          a.panic = PANIC_S
+        }
+      }
+    }
+    return a.panic > 0 && !!a.scaredBy
   }
 
   // A meat-eating dinosaur: heads for the nearest player it can see and

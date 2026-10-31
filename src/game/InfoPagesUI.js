@@ -29,6 +29,11 @@ import { RARITIES } from './NewAnimalKinds.js'
 import { ZOMBIE_SHINES } from './ZombieNames.js'
 import { DAILY_TEMPLATES, STREAK_STEP, STREAK_MAX_DAYS, streakMult } from './DailyChallenge.js'
 import { DEATH_JOB_COUNT } from './DeathJokes.js'
+import { HAT_EVERY } from './FunnyZombies.js'
+import { JOKE_SIGN_COUNT } from './JokeSigns.js'
+import { SILLY_TIP_COUNT } from './SillyTips.js'
+import { COSMETIC_IDS } from './Cosmetics.js'
+import { EMOTES } from './Emotes.js'
 import { GRASS_GROW_SECONDS } from './GrassTufts.js'
 import { PLAY_WEAPONS } from './PlayWeapons.js'
 import { LANGUAGES, t, tHtml } from './i18n.js'
@@ -317,6 +322,13 @@ export function _featureValues(_game) {
     dailyStreakDays: STREAK_MAX_DAYS,
     dailyStreakMax: streakMult(STREAK_MAX_DAYS),
     deathJobs: DEATH_JOB_COUNT,
+    discoOdds: Math.round(1 / ZOMBIE_SHINES.disco.chance),
+    discoCoins: ZOMBIE_SHINES.disco.coins,
+    zombieHatOdds: HAT_EVERY,
+    jokeSigns: JOKE_SIGN_COUNT,
+    sillyTips: SILLY_TIP_COUNT,
+    cosmetics: COSMETIC_IDS.length,
+    emotes: EMOTES.length,
     dinoChance: Math.round(DINO_CHANCE * 100),
     grassGrowMinutes: GRASS_GROW_SECONDS / 60,
     leafDropPercent: Math.round(LEAF_DROP_CHANCE * 100),

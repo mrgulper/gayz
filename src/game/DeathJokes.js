@@ -4,13 +4,15 @@
 // from before it was a zombie. Died some other way (a fall, the sun,
 // another player's server)? One of the "nobody did it" lines instead.
 //
+// More of them 2026-10-31 (Gaymi's funny update): 14 and 10.
+//
 // i18n: deathJoke1..N take {name} and {job}; deathJob1..N are "an
 // accountant" style (with their article); deathJokeAlone1..N stand alone.
 import { t } from './i18n.js'
 
-export const DEATH_JOKE_COUNT = 8
+export const DEATH_JOKE_COUNT = 14
 export const DEATH_JOB_COUNT = 24
-export const DEATH_ALONE_COUNT = 6
+export const DEATH_ALONE_COUNT = 10
 
 const pick = (n) => 1 + Math.floor(Math.random() * n)
 

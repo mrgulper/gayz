@@ -28,6 +28,7 @@
 //                    and goes to the homepage.
 // On a server there's nothing to save: Save Progress is hidden.
 import { t } from './i18n.js'
+import { sillyTip } from './SillyTips.js'
 import { inviteLink, makeGameJoinable, newServerId } from './ServerBrowser.js'
 
 export class PlayPauseMenu {
@@ -88,6 +89,8 @@ export class PlayPauseMenu {
     set('play-pause-save-label', t('playPauseSave'))
     set('play-pause-leave-label', t('playPauseLeave'))
     set('play-pause-hint', t('playPauseHint'))
+    // A silly tip each time (SillyTips.js).
+    set('play-pause-tip', sillyTip())
     set('play-pause-status', '')
     const save = document.getElementById('play-pause-save-btn')
     if (save) save.style.display = s.net ? 'none' : ''

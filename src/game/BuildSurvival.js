@@ -38,6 +38,9 @@ import { worldSeed, isEarthWorld } from './OpenWorld.js'
 import { loadEarthTerrain } from './EarthTerrain.js'
 import { BOTTOM, DEMON_TOP } from './Underground.js'
 import { deathJoke } from './DeathJokes.js'
+import { sillyTip } from './SillyTips.js'
+import { JokeSigns } from './JokeSigns.js'
+import { Emotes } from './Emotes.js'
 import { ZOMBIE_TIERS, NAME_COUNT, TAG_W, TAG_H, rollZombieTier, rollZombieName, zombieTagMaterial, zombieGlow, pulseZombieGlows, zombieName, ZOMBIE_SHINES, rollZombieShine, shineCoins, shineBody, glowShineBody, shineTagMaterial, zombieShineFx, animateShineFx, pulseShines } from './ZombieNames.js'
 import { LEAF_DROP_CHANCE, PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, ASSIST_SHARE, ASSIST_MIN_HURT, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { MONSTER_KINDS, REALM_KINDS, makeMonster } from './ZombieKinds.js'
@@ -48,6 +51,7 @@ import { GoKart } from './GoKart.js'
 import { HEAVEN_FLOOR, HEAVEN_TOP } from './HeavenRealm.js'
 import { WATER_BIOMES } from './EarthGrid.js'
 import { PlayDamageNumbers } from './PlayDamageNumbers.js'
+import { zombieHat, makeHat, disposeHat, poseZombieLimbs, GOOF_CHANCE } from './FunnyZombies.js'
 import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './SpeechBubble.js'
 import { SHOOT_THROUGH } from './SpecialBlocks.js'
 import { openLobby } from './ServerBrowser.js'
@@ -183,6 +187,9 @@ const kindOf = (kind) => SKELETON_KINDS[kind] || MONSTER_KINDS[kind] || null
 // seconds, lie still for CORPSE_LIE, then fade out over CORPSE_FADE. At most
 // MAX_CORPSES at once (the oldest goes first) - each is a few draw calls.
 const CORPSE_FALL = 0.45
+// ...then it bounces once and wobbles to a stop, arms flapping
+// (2026-10-31, Gaymi: "ragdoll flops") over CORPSE_BOUNCE seconds.
+const CORPSE_BOUNCE = 0.55
 // 2026-10-18 (Gaymi: "zombie bodies will fade naturally in 1 minute to be
 // fully gone, they can also use fire to make them fade faster"): a body
 // lies for CORPSE_LIE and fades over CORPSE_FADE - a minute in all - and
@@ -367,6 +374,10 @@ export class BuildSurvival {
     this.hpBars.clear()
     if (!this.animals) this.animals = new PlayAnimals(this)
     this.animals.clear()
+    if (!this.signs) this.signs = new JokeSigns(this)
+    this.signs.clear()
+    if (!this.emotes) this.emotes = new Emotes(this)
+    this.emotes.clear()
     this._fires = new Map()
     this._groundFires = []
     this.mag = this.magSize()
@@ -475,6 +486,8 @@ export class BuildSurvival {
     this.catcher?.clear()
     this.hpBars?.clear()
     this.animals?.clear()
+    this.signs?.clear()
+    this.emotes?.clear()
     this._fires?.clear()
     this.bm.spectate?.exit()
     // Blocks placed this game go again (the saved map never changes).
@@ -613,6 +626,8 @@ export class BuildSurvival {
     const n = Math.round(Math.hypot(spot.x, spot.z))
     const text = town ? t('spawnArrivedCity', { city: town, n }) : landmark ? t('spawnArrivedLandmark', { biome: name, n, name: landmark }) : t('spawnArrived', { biome: name, n })
     this._message(text, landmark || town ? 6 : undefined)
+    // Then a silly tip (SillyTips.js) once you've had a look round.
+    setTimeout(() => this.active && !this.dead && this._message(sillyTip(), 5), 9000)
     return true
   }
 
@@ -1442,9 +1457,12 @@ export class BuildSurvival {
     const paid = Math.round(COIN_PER_KILL * (ZOMBIE_TIERS[tier]?.coins ?? 1) * shineCoins(shine))
     this._earn(paid)
     if (ZOMBIE_SHINES[shine]) {
-      this.stats[shine === 'diamond' ? 'diamondKills' : 'goldKills'] = (this.stats[shine === 'diamond' ? 'diamondKills' : 'goldKills'] || 0) + 1
-      this._message(t(shine === 'diamond' ? 'zombieShineDiamondKill' : 'zombieShineGoldKill', { n: Math.round(paid * (this.cfg?.coinMult ?? 1)) }), 4)
-      try { audioEngine.playSpecial?.(shine === 'diamond' ? 'diamondZombie' : 'goldZombie') } catch { /* no audio */ }
+      const stat = `${shine}Kills`
+      this.stats[stat] = (this.stats[stat] || 0) + 1
+      const key = { diamond: 'zombieShineDiamondKill', disco: 'zombieShineDiscoKill' }[shine] || 'zombieShineGoldKill'
+      this._message(t(key, { n: Math.round(paid * (this.cfg?.coinMult ?? 1)) }), 4)
+      try { audioEngine.playSpecial?.(`${shine}Zombie`) } catch { /* no audio */ }
+      if (shine === 'disco') this._discoLoot()
     }
     if (boss) {
       this.bosses++
@@ -1570,6 +1588,7 @@ export class BuildSurvival {
   onKeyDown(code) {
     if (code === getKeyFor('reload')) this.reload()
     else if (code === getKeyFor('dropItem')) this.inv?.drop()
+    else if (code === getKeyFor('emote')) this.emotes?.toggleBar()
   }
 
   // --- the world: who can stand where ---
@@ -1877,6 +1896,14 @@ export class BuildSurvival {
       // Arms out in front, the classic zombie walk.
       body.limbPivots.armR.rotation.x = -Math.PI / 2
       body.limbPivots.armL.rotation.x = -Math.PI / 2
+      // Now and then a silly hat (FunnyZombies.js) - after the parts were
+      // counted, so the batch's part numbers stay the same.
+      const hatKind = zombieHat(id)
+      if (hatKind) {
+        zombie.hat = makeHat(hatKind)
+        body.add(zombie.hat)
+      }
+      zombie.bodyY = body.position.y
       group.add(body)
       zombie.body = body
     } else {
@@ -1939,8 +1966,27 @@ export class BuildSurvival {
 
   // "A Golden zombie appeared!" - a message and a sparkly sound.
   _announceShine(z) {
-    this._message(t(z.shine === 'diamond' ? 'zombieShineDiamondAppeared' : 'zombieShineGoldAppeared', { name: zombieName(z.nameIdx) }), 4)
-    try { audioEngine.playSpecial?.(z.shine === 'diamond' ? 'diamondZombie' : 'goldZombie') } catch { /* no audio */ }
+    const key = { diamond: 'zombieShineDiamondAppeared', disco: 'zombieShineDiscoAppeared' }[z.shine] || 'zombieShineGoldAppeared'
+    this._message(t(key, { name: zombieName(z.nameIdx) }), 4)
+    try { audioEngine.playSpecial?.(`${z.shine}Zombie`) } catch { /* no audio */ }
+  }
+
+  // The Disco Zombie's prize for whoever got it: like a loot chest's -
+  // ammo, health and a couple of handy items.
+  _discoLoot() {
+    if (!this.inv) return
+    const ammo = ammoFor(this.weaponId, CHEST_LOOT.ammo)
+    this.reserve += ammo
+    this.health = Math.min(this.maxHealth, this.health + CHEST_LOOT.health)
+    const got = []
+    const give = (item) => {
+      if (this.inv.add(item) < item.n) got.push(itemName(item.id))
+    }
+    give({ kind: 'item', id: 'healthpack', n: 1 })
+    give({ kind: 'item', id: 'ammobox', n: 1 })
+    if (Math.random() < 0.5) give({ kind: 'item', id: ARMOR_SLOTS[Math.floor(Math.random() * ARMOR_SLOTS.length)], n: 1 })
+    setTimeout(() => this.active && this._message(t('zombieShineDiscoLoot', { ammo, health: CHEST_LOOT.health, items: got.join(', ') || '-' }), 4), 1800)
+    this._renderHud()
   }
 
   // Every zombie looks the same, so their bodies are drawn together: one
@@ -2011,6 +2057,8 @@ export class BuildSurvival {
   // geometry is the shared zombie body's (never disposed here); the
   // materials are its own copies, so fading one never fades another.
   _spawnCorpse(z, dir) {
+    // A Disco Zombie goes out in a burst of confetti (everyone sees it).
+    if (z.shine === 'disco') this._fx?.confetti(z.x * this.B, (z.y + 1.2) * this.B, z.z * this.B)
     if (z.skel) {
       this._skeletonCorpse(z, dir)
       return
@@ -2063,7 +2111,7 @@ export class BuildSurvival {
     // Killed mid-jump, it drops to the ground under it (2026-10-12, "their
     // dead body flows - it should always be on the ground").
     const groundY = this._groundUnder(tilt.position.x / B, tilt.position.y / B, tilt.position.z / B) * B
-    this._corpses.push({ group: tilt, materials, arms, armFrom: arms.map((a) => a.rotation.x), t: 0, lift, baseY: tilt.position.y, groundY, vy: 0 })
+    this._corpses.push({ group: tilt, materials, arms, armFrom: arms.map((a) => a.rotation.x), t: 0, lift, baseY: tilt.position.y, groundY, vy: 0, flop: Math.random() < 0.5 ? 1 : -1 })
     while (this._corpses.length > MAX_CORPSES) this._dropCorpse(this._corpses[0])
   }
 
@@ -2092,7 +2140,7 @@ export class BuildSurvival {
     }
     this._corpses = this._corpses || []
     const groundY = this._groundUnder(tilt.position.x / this.B, tilt.position.y / this.B, tilt.position.z / this.B) * this.B
-    this._corpses.push({ group: tilt, materials: z.monster.materials, arms: [], armFrom: [], t: 0, lift: 0.2 * this.B * (z.tall || 1), baseY: tilt.position.y, groundY, vy: 0 })
+    this._corpses.push({ group: tilt, materials: z.monster.materials, arms: [], armFrom: [], t: 0, lift: 0.2 * this.B * (z.tall || 1), baseY: tilt.position.y, groundY, vy: 0, flop: Math.random() < 0.5 ? 1 : -1 })
     while (this._corpses.length > MAX_CORPSES) this._dropCorpse(this._corpses[0])
   }
 
@@ -2131,13 +2179,18 @@ export class BuildSurvival {
       c.t += dt
       // Falls like it has weight: slow, then faster.
       const f = Math.min(1, c.t / CORPSE_FALL)
-      c.group.rotation.x = (Math.PI / 2) * f * f
+      // Lands, bounces up once and settles - a comic flop, not a plank.
+      const b = (c.t - CORPSE_FALL) / CORPSE_BOUNCE
+      const bounce = b > 0 && b < 1 ? Math.sin(b * Math.PI) * (1 - b) : 0
+      c.group.rotation.x = (Math.PI / 2) * f * f - bounce * 0.3
+      c.group.rotation.z = c.flop * (0.2 * f * f + bounce * 0.25)
       if (c.baseY > c.groundY) {
         c.vy += CORPSE_GRAVITY * this.B * dt
         c.baseY = Math.max(c.groundY, c.baseY - c.vy * dt)
       }
-      c.group.position.y = c.baseY + c.lift * f
-      c.arms.forEach((a, i) => { a.rotation.x = c.armFrom[i] * (1 - f) })
+      c.group.position.y = c.baseY + c.lift * f + bounce * 0.45 * this.B
+      // Arms fling up as it goes over and flap on the bounce.
+      c.arms.forEach((a, i) => { a.rotation.x = c.armFrom[i] * (1 - f) - Math.sin(f * Math.PI) * 1.4 - bounce * 1.6 })
       // Burning: flames all over it and gone in CORPSE_BURN_S (rain or
       // water puts it out - then it just fades as usual).
       if (c.burnLeft !== undefined) {
@@ -2201,6 +2254,7 @@ export class BuildSurvival {
       z.monster.dispose()
       return
     }
+    disposeHat(z.hat)
     // A batched body shares its geometry and material - nothing to free.
     if (z.parts) return
     // A shiny body shares the geometry; its materials are its own.
@@ -2418,11 +2472,9 @@ export class BuildSurvival {
     if (zb.skel) this._skeletonGait(zb, dt, moveLen)
     zb.monster?.update(dt, moveLen)
     if (zb.body) {
-      const lp = zb.body.limbPivots
-      lp.legR.rotation.x = swing
-      lp.legL.rotation.x = -swing
-      lp.armR.rotation.x = -Math.PI / 2 + swing * 0.2
-      lp.armL.rotation.x = -Math.PI / 2 - swing * 0.2
+      // The Disco Zombie dances (FunnyZombies.js).
+      const bob = poseZombieLimbs(zb.body.limbPivots, swing, zb.shine === 'disco', performance.now() / 1000, zb.id)
+      zb.body.position.y = zb.bodyY + bob * zb.body.scale.y
     }
     if (zb.flash > 0) zb.flash -= dt
     const red = zb.flash > 0 ? 0.6 : 0
@@ -2439,7 +2491,11 @@ export class BuildSurvival {
     zb.moan -= dt
     if (zb.moan <= 0) {
       zb.moan = 6 + Math.random() * 10
-      if (Math.hypot(px, pz) < 14) audioEngine.playZombieMoan?.(1, this._panTo(zb.x, zb.z))
+      // Sometimes a burp or a hiccup instead (FunnyZombies.js).
+      if (Math.hypot(px, pz) < 14) {
+        if (Math.random() < GOOF_CHANCE) audioEngine.playZombieGoof?.(Math.random() < 0.5 ? 'burp' : 'hiccup', this._panTo(zb.x, zb.z))
+        else audioEngine.playZombieMoan?.(1, this._panTo(zb.x, zb.z))
+      }
     }
   }
 
@@ -2644,6 +2700,8 @@ export class BuildSurvival {
     // or in the menu); the others mirror them.
     if (net && !net.isHost) this.animals?.updateMirror(dt)
     else if (playing || net) this.animals?.update(dt)
+    if (playing) this.signs?.update(dt)
+    this.emotes?.update(dt)
     if (!this.bm.menuOpen) this._updateFires(dt)
     if (net && !net.isHost) {
       this._updateMirroredZombies(dt)
@@ -3068,11 +3126,8 @@ export class BuildSurvival {
       z.walk += dt * moveLen * 3.2
       const swing = Math.sin(z.walk) * Math.min(1, moveLen / 2) * 0.7
       if (z.body) {
-        const lp = z.body.limbPivots
-        lp.legR.rotation.x = swing
-        lp.legL.rotation.x = -swing
-        lp.armR.rotation.x = -Math.PI / 2 + swing * 0.2
-        lp.armL.rotation.x = -Math.PI / 2 - swing * 0.2
+        const bob = poseZombieLimbs(z.body.limbPivots, swing, z.shine === 'disco', performance.now() / 1000, z.id)
+        z.body.position.y = z.bodyY + bob * z.body.scale.y
       }
       if (z.flash > 0) z.flash -= dt
       const red = z.flash > 0 ? 0.6 : 0

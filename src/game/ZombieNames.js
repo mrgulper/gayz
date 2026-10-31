@@ -168,13 +168,19 @@ export function pulseZombieGlows(time) {
 export const ZOMBIE_SHINES = {
   gold: { chance: 1 / 200, coins: 10, color: '#ffd23f', tint: [1.35, 1.05, 0.3] },
   diamond: { chance: 1 / 1000, coins: 50, color: '#8ff7ff', tint: [0.75, 1.25, 1.45] },
+  // The Disco Zombie (2026-10-31, Gaymi's funny-zombies list): glows
+  // every colour, dances (FunnyZombies.js), and goes out in confetti with
+  // loot for whoever got it (BuildSurvival._discoLoot).
+  disco: { chance: 1 / 250, coins: 15, color: '#ff5ce1', tint: [1.25, 1.2, 1.3] },
 }
+const RAINBOW = ['#ff7ad9', '#ffd23f', '#7dff8a', '#8ff7ff', '#a98bff']
 export const ZOMBIE_SHINE_IDS = Object.keys(ZOMBIE_SHINES)
 
 // Diamond is checked first, so it really is 1 in 1000.
 export function rollZombieShine(r = Math.random()) {
   if (r < ZOMBIE_SHINES.diamond.chance) return 'diamond'
   if (r < ZOMBIE_SHINES.diamond.chance + ZOMBIE_SHINES.gold.chance) return 'gold'
+  if (r < ZOMBIE_SHINES.diamond.chance + ZOMBIE_SHINES.gold.chance + ZOMBIE_SHINES.disco.chance) return 'disco'
   return null
 }
 
@@ -211,6 +217,8 @@ export function glowShineBody(mats, shine, time, id = 0, hurt = false) {
     if (!mat.emissive) continue
     if (hurt) mat.emissive.setRGB(0.6, 0, 0)
     else if (shine === 'diamond') mat.emissive.setHSL((time * 0.15 + id * 0.13) % 1, 0.8, 0.3)
+    // Disco: flashes through every colour, fast, like a dance floor.
+    else if (shine === 'disco') mat.emissive.setHSL((Math.floor(time * 4) * 0.17 + id * 0.13) % 1, 1, 0.35)
     else mat.emissive.set(s.color).multiplyScalar(0.25 + 0.1 * Math.sin(time * 6 + id))
   }
 }
@@ -219,7 +227,7 @@ export function glowShineBody(mats, shine, time, id = 0, hurt = false) {
 // tier, gold or rainbow letters with a glowing outline.
 export function shineTagMaterial(nameIdx, shine) {
   const name = zombieName(nameIdx)
-  const label = t(shine === 'diamond' ? 'zombieShineDiamond' : 'zombieShineGold')
+  const label = t(shine === 'diamond' ? 'zombieShineDiamond' : shine === 'disco' ? 'zombieShineDisco' : 'zombieShineGold')
   const key = `${name}|${label}|shine-${shine}`
   if (tagCache.has(key)) return tagCache.get(key)
   const c = document.createElement('canvas')
@@ -244,9 +252,9 @@ export function shineTagMaterial(nameIdx, shine) {
   g.fillText(name, TAG_W / 2, 27, TAG_W - 12)
   g.font = 'bold 28px sans-serif'
   let fill = ZOMBIE_SHINES.gold.color
-  if (shine === 'diamond') {
+  if (shine === 'diamond' || shine === 'disco') {
     fill = g.createLinearGradient(TAG_W / 2 - 80, 0, TAG_W / 2 + 80, 0)
-    ;['#ff7ad9', '#ffd23f', '#7dff8a', '#8ff7ff', '#a98bff'].forEach((col, i) => fill.addColorStop(i / 4, col))
+    RAINBOW.forEach((col, i) => fill.addColorStop(i / 4, col))
   }
   g.shadowColor = ZOMBIE_SHINES[shine].color
   g.shadowBlur = 10
@@ -294,6 +302,7 @@ export function zombieShineFx(shine, width, height) {
   const s = ZOMBIE_SHINES[shine]
   if (!s) return null
   const diamond = shine === 'diamond'
+  const rainbow = diamond || shine === 'disco'
   const fx = new THREE.Group()
   fx.userData.shine = shine
   const halo = new THREE.Sprite(shineMat(`${shine}-halo`, s.color, diamond ? 0.55 : 0.4))
@@ -301,9 +310,9 @@ export function zombieShineFx(shine, width, height) {
   halo.position.y = height * 0.5
   halo.userData.shared = true
   fx.add(halo)
-  const count = diamond ? 14 : 8
+  const count = rainbow ? 14 : 8
   for (let i = 0; i < count; i++) {
-    const spark = new THREE.Sprite(shineMat(diamond ? `diamond-spark-${i % 5}` : 'gold-spark', diamond ? ['#ff7ad9', '#ffd23f', '#7dff8a', '#8ff7ff', '#a98bff'][i % 5] : '#fff2a8', 0.95))
+    const spark = new THREE.Sprite(shineMat(rainbow ? `${shine}-spark-${i % 5}` : 'gold-spark', rainbow ? RAINBOW[i % 5] : '#fff2a8', 0.95))
     const a = (i / count) * Math.PI * 2
     const r = width * (0.8 + (i % 3) * 0.15)
     spark.position.set(Math.cos(a) * r, height * (0.15 + ((i * 0.37) % 1) * 0.85), Math.sin(a) * r)
@@ -343,7 +352,7 @@ export function zombieShineFx(shine, width, height) {
 
 // Spins the sparkles and makes everything twinkle. One call a frame.
 export function animateShineFx(fx, time) {
-  fx.rotation.y = time * (fx.userData.shine === 'diamond' ? 1.6 : 1.1)
+  fx.rotation.y = time * (fx.userData.shine === 'disco' ? 2.6 : fx.userData.shine === 'diamond' ? 1.6 : 1.1)
   for (const o of fx.children) {
     if (o.userData.phase !== undefined) o.position.y = o.userData.baseY + Math.sin(time * 3 + o.userData.phase) * o.scale.x * 0.6
   }
@@ -354,6 +363,7 @@ export function pulseShines(time) {
     if (id.includes('spark')) mat.opacity = base * (0.55 + 0.45 * Math.abs(Math.sin(time * 5 + id.length)))
     else mat.opacity = base * (0.75 + 0.25 * Math.sin(time * 3))
     if (id.startsWith('diamond') && !id.includes('spark')) mat.color.setHSL((time * 0.15) % 1, 0.8, 0.7)
+    if (id.startsWith('disco') && !id.includes('spark')) mat.color.setHSL((Math.floor(time * 4) * 0.17) % 1, 1, 0.65)
   }
   if (beamMat) {
     beamMat.color.setHSL((time * 0.15) % 1, 0.8, 0.7)
