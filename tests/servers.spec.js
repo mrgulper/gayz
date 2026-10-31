@@ -509,3 +509,32 @@ test('chat: presses that send nothing never mute you', async ({ page }) => {
   expect(muted.until).toBe(0)
   expect(muted.notice).toBe('none')
 })
+
+test('servers: a guest\'s Catch Trap goes to the host and the answer comes back', async () => {
+  const db = fakeServerDb()
+  const t0 = 3_000_000
+  const a = await createServer(db, { nickname: 'Ann' }, t0)
+  const b = await joinServer(db, { serverId: a.serverId, nickname: 'Bo' }, t0 + 10)
+  // Bo's trap hits the host's zombie: it reaches the host marked as a catch.
+  await syncServer(db, { ...b, hits: [{ id: 'z7', dmg: 0, catch: true }, { id: 'a2', dmg: 999, catch: 'yes' }] }, t0 + 20)
+  let ra = await syncServer(db, { ...a }, t0 + 30)
+  expect(ra.hits).toEqual(expect.arrayContaining([{ id: 'z7', dmg: 0, by: b.playerId, catch: true }, { id: 'a2', dmg: 999, by: b.playerId }]))
+  // The host's answers reach only Bo, cleaned.
+  ra = await syncServer(db, { ...a, catches: [
+    { to: b.playerId, ok: true, t: 'z', k: 'brute', r: 'epic', n: 12, b: true },
+    { to: b.playerId, ok: false, t: 'a', k: 'polarBear', r: 'rare' },
+    { to: b.playerId, ok: true, t: 'a', k: '<img>', r: '<b>', n: -4 },
+    { to: b.playerId, ok: true, t: 'x' },
+    { to: a.playerId, ok: true, t: 'z' },
+  ] }, t0 + 40)
+  expect(ra.caught).toEqual([])
+  const rb = await syncServer(db, { ...b }, t0 + 50)
+  expect(rb.caught).toEqual(expect.arrayContaining([
+    { ok: true, t: 'z', k: 'brute', r: 'epic', n: 12, b: true },
+    { ok: false, t: 'a', k: 'polarBear', r: 'rare', n: 0, b: false },
+    { ok: true, t: 'a', k: '', r: 'common', n: 0, b: false },
+    { ok: false },
+  ]))
+  expect(rb.caught).toHaveLength(4)
+  expect((await syncServer(db, { ...b }, t0 + 60)).caught).toEqual([])
+})

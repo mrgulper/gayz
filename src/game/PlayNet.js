@@ -84,6 +84,7 @@ export class PlayNet {
     this._hits = []
     this._hurt = []
     this._credits = []
+    this._catches = []
     this._skinAsked = new Set()
     this._firstSync = true
     this.lobby = lobby
@@ -176,6 +177,17 @@ export class PlayNet {
     this._hits.push({ id, dmg, ...(tame ? { tame: true } : {}) })
   }
 
+  // A guest's Catch Trap on one of the host's zombies (z<id>) or animals
+  // (a<id>) - the host rolls it (PlayCatch.hostCatch).
+  queueCatch(id) {
+    this._hits.push({ id, dmg: 0, catch: true })
+  }
+
+  // Host: the answer for that player ({ ok, ...what it was }).
+  queueCatchResult(to, result) {
+    this._catches.push({ to, ...result })
+  }
+
   // A block I placed (b: its id) or broke (b: '').
   queueEdit(x, y, z, b) {
     this._edits.push({ x, y, z, b: b || '' })
@@ -233,6 +245,7 @@ export class PlayNet {
       body.wave = s.wave
       body.hurt = this._hurt.splice(0)
       body.credits = this._credits.splice(0)
+      body.catches = this._catches.splice(0)
       const sky = bm.sky?.skyState?.()
       if (sky) body.sky = sky
       if (s.animals) body.animals = s.animals.snapshot()
@@ -333,6 +346,7 @@ export class PlayNet {
       if (c.assist) s._countAssist(!!c.boss, c.tier, c.shine)
       else s._countKill(!!c.boss, c.skeleton || null, c.tier, c.shine)
     }
+    for (const c of res.caught || []) s.catcher?.remoteResult(c)
   }
 
   _giveUpIfLong() {

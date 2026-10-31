@@ -2287,7 +2287,6 @@ export default {
   invDropRareConfirm: "Press {key} again to drop {name}",
   invTrap: "Catch Trap",
   invTipTrap: "Hit a zombie or animal until it's weak, then throw this at it to catch it for your battle team",
-  catchHostOnly: "Only the host can catch on a server for now",
   catchFull: "You can't keep more than {n} creatures",
   catchCaught: "Caught {name}! See it on the Team page",
   catchBrokeFree: "{name} broke free!",

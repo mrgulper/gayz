@@ -161,3 +161,71 @@ test('Team page lists catches, picks the team, and a battle plays to a win or lo
   expect(await page.locator('#team-battle').count()).toBe(0)
   expect(await page.textContent('#team-record')).toMatch(/Wins: [01] · Losses: [01]/)
 })
+
+test('on a server a guest\'s trap waits for the host, and the host rolls it', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => localStorage.removeItem('gayz-creatures'))
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
+  const r = await page.evaluate(() => {
+    const bm = window.__game.buildMode
+    const s = bm.survival
+    const inv = s.inv
+    const out = {}
+    const realNet = s.net
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    bm._pitch = -0.25
+    bm.update(1 / 60)
+    const cam = bm.camera
+    cam.updateMatrixWorld()
+    const dir = cam.getWorldDirection(cam.position.clone())
+    const tp = bm.tryMode.pos
+    const ax = tp.x + dir.x * 3
+    const az = tp.z + dir.z * 3
+    const gy = s._groundUnder(ax, tp.y + 2, az)
+    // A guest: the trap is sent to the host and waits, shaking.
+    const sent = []
+    s.net = { closed: false, isHost: false, players: new Map(), queueCatch: (id) => sent.push(id) }
+    const z = s._makeZombie(41, ax, gy, az, 100, false)
+    if (!s.zombies.includes(z)) s.zombies.push(z)
+    inv.active = inv.hotbar.length - 1
+    s.catcher._nextAt = 0
+    inv.useHeld()
+    for (let i = 0; i < 30; i++) s.catcher.update(1 / 60)
+    out.sent = sent
+    out.waiting = s.catcher._waiting.length
+    out.zombieStill = s.zombies.includes(z)
+    // The host's answer: caught - kept here.
+    s.catcher.remoteResult({ ok: true, t: 'z', k: 'brute', r: 'epic', n: 12, b: false })
+    out.saved = JSON.parse(localStorage.getItem('gayz-creatures')).list.map((c) => `${c.t}:${c.k}:${c.r}`)
+    out.waitingAfter = s.catcher._waiting.length
+    // The host: another player's trap on my weakened zombie - rolled, gone,
+    // and the answer queued for them (nothing kept here).
+    const answers = []
+    s.net = { closed: false, isHost: true, players: new Map(), queueCatchResult: (to, res) => answers.push({ to, ...res }) }
+    z.health = 1
+    const rand = Math.random
+    Math.random = () => 0.01
+    s._applyRemoteHits([{ id: `z${z.id}`, dmg: 0, by: 'p2', catch: true }, { id: 'z999', dmg: 0, by: 'p2', catch: true }])
+    Math.random = rand
+    out.answers = answers
+    out.hostGone = !s.zombies.includes(z)
+    out.hostKept = JSON.parse(localStorage.getItem('gayz-creatures')).list.length
+    s.net = realNet
+    return out
+  })
+  expect(r).toEqual({
+    sent: ['z41'],
+    waiting: 1,
+    zombieStill: true,
+    saved: ['z:brute:epic'],
+    waitingAfter: 0,
+    answers: [{ to: 'p2', ok: true, t: 'z', k: null, r: 'common', n: expect.any(Number), b: false }, { to: 'p2', ok: false }],
+    hostGone: true,
+    hostKept: 1,
+  })
+})
