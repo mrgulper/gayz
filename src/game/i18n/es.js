@@ -1825,6 +1825,8 @@ export default {
   buildPlaySurvivorQuestProgress: "Misión del superviviente: {n}/{m}",
   buildPlaySurvivorQuestDone: "¡Misión del superviviente completada! +{n} monedas.",
   buildPlaySurvivorQuestFailed: "Se acabó el tiempo: la misión del superviviente falló.",
+  buildPlayKartHint: "¡Un kart! Pulsa {key:use} junto a él para subirte.",
+  buildPlayKartIn: "Adelante y atrás para conducir, izquierda y derecha para girar: ¡atropéllalos! Pulsa {key:use} para bajarte.",
   buildPlayBossDown: "¡Jefe abatido! +{n} monedas",
   buildPlayAssist: "+¡Asistencia! +{n} monedas",
   buildPlayOverWinTitle: "¡Aguantaste la ciudad!",

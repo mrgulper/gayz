@@ -42,6 +42,7 @@ import { MONSTER_KINDS, REALM_KINDS, makeMonster } from './ZombieKinds.js'
 import { ZombieTricks } from './ZombieTricks.js'
 import { WorldEvents, MUTANT_COINS } from './WorldEvents.js'
 import { Survivors } from './Survivors.js'
+import { GoKart } from './GoKart.js'
 import { HEAVEN_FLOOR, HEAVEN_TOP } from './HeavenRealm.js'
 import { WATER_BIOMES } from './EarthGrid.js'
 import { PlayDamageNumbers } from './PlayDamageNumbers.js'
@@ -349,6 +350,10 @@ export class BuildSurvival {
     // Rooftop survivors to rescue (Survivors.js) - one of the events.
     if (!this.survivors) this.survivors = new Survivors(this)
     this.survivors.clear()
+    // A go-kart parked near where you start (GoKart.js).
+    if (!this.kart) this.kart = new GoKart(this)
+    this.kart.dispose()
+    this._kartParked = false
     this.events.reset()
     if (!this.throws) this.throws = new PlayThrow(this)
     this.throws.clear()
@@ -456,6 +461,7 @@ export class BuildSurvival {
     this.tricks?.clear()
     this.events?.clear()
     this.survivors?.clear()
+    this.kart?.dispose()
     this._fx?.clear()
     this.throws?.clear()
     this.animals?.clear()
@@ -1763,6 +1769,20 @@ export class BuildSurvival {
     return true
   }
 
+  // The go-kart (GoKart.js): parked near you once the run is under way,
+  // then rolling (or driven).
+  _updateKart(dt) {
+    if (!this.kart) return
+    if (!this._kartParked && !this.spectating) this._kartParked = this.kart.park(this.bm.tryMode.pos)
+    this.kart.update(dt)
+  }
+
+  // How much a go-kart hitting a zombie at `frac` of its top speed hurts
+  // it: at full speed about a regular zombie's whole health this wave.
+  ramDamage(frac) {
+    return zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * 1.15 * frac
+  }
+
   // One more zombie that isn't part of the wave (a world event's horde or
   // mutants, WorldEvents.js): as tough as this wave's, sometimes a monster.
   // -> the zombie, or null.
@@ -2491,6 +2511,7 @@ export class BuildSurvival {
   }
 
   _die(won = false) {
+    this.kart?.leave()
     // A Bed you slept in brings you back once (BuildSpecials.js).
     if (!won && this.bm.specials.tryRevive(this)) return
     this.dead = true
@@ -2605,6 +2626,7 @@ export class BuildSurvival {
     const playing = !this.dead && !this.bm.menuOpen && !this._picking
     if (playing) this._updateMe(dt)
     if (playing) this._drops?.update(dt)
+    if (playing) this._updateKart(dt)
     // On a server the host runs the animals for everyone (even while dead
     // or in the menu); the others mirror them.
     if (net && !net.isHost) this.animals?.updateMirror(dt)

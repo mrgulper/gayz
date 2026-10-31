@@ -1828,6 +1828,8 @@ export default {
   buildPlaySurvivorQuestProgress: "幸存者任务：{n}/{m}",
   buildPlaySurvivorQuestDone: "幸存者任务完成！+{n} 金币。",
   buildPlaySurvivorQuestFailed: "时间到——幸存者任务失败。",
+  buildPlayKartHint: '一辆卡丁车！在旁边按 {key:use} 上车。',
+  buildPlayKartIn: '前后键驾驶，左右键转向——撞飞它们！按 {key:use} 下车。',
   buildPlayBossDown: "首领倒下了！+{n} 金币",
   buildPlayAssist: "+助攻！+{n} 金币",
   buildPlayOverWinTitle: "你守住了这座城！",

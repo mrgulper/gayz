@@ -3367,6 +3367,61 @@ test('survivors: rooftop rescue, a helper who shoots, a kill quest', async ({ pa
   expect(r).toEqual({ onRoof: true, joined: true, helperShot: true, quest: true, questDone: true, cleared: true })
 })
 
+// 2026-10-31: the go-kart - parked near you, Use hops in, the keys drive
+// it, it runs zombies over, Use hops out beside it.
+test('go-kart: hop in, drive, run zombies over, hop out', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 60, 'zombiespawner')
+    for (let x = -40; x <= 40; x++) for (let z = -40; z <= 40; z++) if (x || z) bm.placeBlock(x, 0, z, 'grass', true)
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    if (s._picking) s._pickWeapon('rifle')
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    s._toSpawn = 0
+    s._breakTimer = 1e9
+    s.health = 1e9
+    s.update(0.05)
+    const k = s.kart
+    const out = { parked: !!k.group }
+    // Too far: Use does nothing. Next to it: in.
+    bm.tryMode.pos.set(k.x + 10, k.y, k.z)
+    out.farUse = k.use()
+    bm.tryMode.pos.set(k.x + 1, k.y, k.z)
+    out.inUse = bm._tryUseFromCamera() && k.driving
+    // Face +z and hold forward: it speeds up and moves.
+    k.heading = 0
+    const z0 = k.z
+    for (let i = 0; i < 40; i++) bm.tryMode.update(0.05, new Set(['KeyW']))
+    out.moved = k.z - z0 > 5
+    out.fast = k.speed > 10
+    out.meWithKart = Math.abs(bm.tryMode.pos.z - k.z) < 0.01
+    // A zombie straight ahead gets run over.
+    const zb = s._makeZombie(990, k.x, k.y, k.z + 3, 10000, false, null)
+    zb.speedMult = 0
+    for (let i = 0; i < 10; i++) bm.tryMode.update(0.05, new Set(['KeyW']))
+    out.rammed = zb.health < 10000
+    // Steering turns it.
+    const h0 = k.heading
+    for (let i = 0; i < 10; i++) bm.tryMode.update(0.05, new Set(['KeyW', 'KeyA']))
+    out.turned = k.heading > h0 + 0.3
+    // Out: standing beside it, not driving.
+    out.outUse = k.use() && !k.driving
+    out.beside = Math.hypot(bm.tryMode.pos.x - k.x, bm.tryMode.pos.z - k.z) > 1
+    s.stop()
+    out.gone = !k.group
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({ parked: true, farUse: false, inUse: true, moved: true, fast: true, meWithKart: true, rammed: true, turned: true, outUse: true, beside: true, gone: true })
+})
+
 // 2026-10-26: grass 100 blocks out (since 2026-10-30: as far as the land
 // is drawn, growing over time), crack on every face (on the lumps
 // too), puffy leaves, falling leaves and half-chance leaf drops, a

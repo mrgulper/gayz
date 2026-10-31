@@ -43,6 +43,7 @@ import { GunFx } from './GunFx.js'
 import { MOB_HEIGHT } from './PlayRules.js'
 import { PLAY_WEAPONS } from './PlayWeapons.js'
 import { BOTTOM } from './Underground.js'
+import { KART_EYE } from './GoKart.js'
 
 const HALF_WIDTH = 0.3
 // How bright the gun in your hands is lit, against its picture's light
@@ -828,6 +829,20 @@ export class BuildTryMode {
     if (stick) {
       mx += fx * stick.y - fz * stick.x
       mz += fz * stick.y + fx * stick.x
+    }
+    // Driving the go-kart (GoKart.js): the keys drive it, you sit in it -
+    // no walking or jumping; looking round, shooting and the rest go on.
+    const kart = this.bm.survival?.active ? this.bm.survival.kart : null
+    if (kart?.driving) {
+      kart.drive(dt, { fwd, back, left, right, stick })
+      this.vel.set(0, 0, 0)
+      this.onGround = true
+      this.pos.set(kart.x, kart.y + 0.01, kart.z)
+      cam.position.set(kart.x * B, (kart.y + KART_EYE) * B, kart.z * B)
+      this.updateHands(dt, keys, false, false)
+      this.bm.specials.update(dt, this.pos)
+      this._drawMap(performance.now())
+      return
     }
     const len = Math.hypot(mx, mz)
     // A stick pushed only part way walks slower (keys are all or nothing).

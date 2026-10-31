@@ -1880,6 +1880,8 @@ export default {
   buildPlaySurvivorQuestProgress: "Survivor quest: {n}/{m}",
   buildPlaySurvivorQuestDone: "Survivor quest done! +{n} coins.",
   buildPlaySurvivorQuestFailed: "Out of time - the survivor quest failed.",
+  buildPlayKartHint: "A go-kart! Press {key:use} next to it to hop in.",
+  buildPlayKartIn: "Forward and back to drive, left and right to steer - run them over! Press {key:use} to hop out.",
   buildPlayBossDown: "Boss down! +{n} coins",
   buildPlayAssist: "+Assist! +{n} coins",
   buildPlayOverWinTitle: "You held the city!",
