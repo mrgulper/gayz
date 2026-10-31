@@ -40,6 +40,7 @@ import { ZOMBIE_TIERS, NAME_COUNT, TAG_W, TAG_H, rollZombieTier, rollZombieName,
 import { LEAF_DROP_CHANCE, PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, ASSIST_SHARE, ASSIST_MIN_HURT, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { MONSTER_KINDS, REALM_KINDS, makeMonster } from './ZombieKinds.js'
 import { ZombieTricks } from './ZombieTricks.js'
+import { WorldEvents, MUTANT_COINS } from './WorldEvents.js'
 import { HEAVEN_FLOOR, HEAVEN_TOP } from './HeavenRealm.js'
 import { WATER_BIOMES } from './EarthGrid.js'
 import { PlayDamageNumbers } from './PlayDamageNumbers.js'
@@ -342,6 +343,9 @@ export class BuildSurvival {
     if (!this._fx) this._fx = new PlayFx(bm.scene, this.B)
     // Screamers, lurkers and slime puddles (ZombieTricks.js).
     if (!this.tricks) this.tricks = new ZombieTricks(this)
+    // Supply drops, hordes passing by, mutant meteors (WorldEvents.js).
+    if (!this.events) this.events = new WorldEvents(this)
+    this.events.reset()
     if (!this.throws) this.throws = new PlayThrow(this)
     this.throws.clear()
     if (!this.animals) this.animals = new PlayAnimals(this)
@@ -446,6 +450,7 @@ export class BuildSurvival {
     this.zombies = []
     this._clearCorpses()
     this.tricks?.clear()
+    this.events?.clear()
     this._fx?.clear()
     this.throws?.clear()
     this.animals?.clear()
@@ -1345,7 +1350,10 @@ export class BuildSurvival {
       return
     }
     // Every kill counts toward the wave's target (see SPAWN_GAP).
-    if (this._toSpawn > 0) this._toSpawn--
+    // (Not the extra ones a world event brought - WorldEvents.js.)
+    if (this._toSpawn > 0 && !z.extra) this._toSpawn--
+    // A mutant (a meteor's, WorldEvents.js) pays extra.
+    if (z.mutant && !by) this._earn(MUTANT_COINS)
     audioEngine.playZombieDeath?.(1, this._panTo(z.x, z.z))
     const skeleton = SKELETON_KINDS[z.kind] ? z.kind : null
     if (by) this.net?.queueCredit(by, z.boss, skeleton, z.tier, false, z.shine)
@@ -1748,6 +1756,23 @@ export class BuildSurvival {
     return true
   }
 
+  // One more zombie that isn't part of the wave (a world event's horde or
+  // mutants, WorldEvents.js): as tough as this wave's, sometimes a monster.
+  // -> the zombie, or null.
+  _extraZombie(x, y, z) {
+    if (!Number.isFinite(y)) return null
+    const kind = Math.random() < MONSTER_CHANCE ? MONSTER_KIND_IDS[Math.floor(Math.random() * MONSTER_KIND_IDS.length)] : null
+    const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (kindOf(kind)?.hp ?? 1)
+    const zb = this._makeZombie(++this._zid, x, y, z, health, false, kind)
+    zb.extra = true
+    return zb
+  }
+
+  // Ammo for this gun from a loot chest (or a supply crate, WorldEvents.js).
+  _chestAmmo() {
+    return ammoFor(this.weaponId, CHEST_LOOT.ammo)
+  }
+
   // Which realm's zombies come at a spot: 'heaven', 'demon', 'ocean' (a
   // roll, by the sea) or null for the usual ones.
   _realmAt(x, y, z) {
@@ -1916,8 +1941,10 @@ export class BuildSurvival {
     batch.meshes.forEach((mesh, p) => {
       list.forEach((z, i) => {
         mesh.setMatrixAt(i, z.parts[p].matrixWorld)
-        const red = z.lastRed > 0
-        mesh.instanceColor.setXYZ(i, 1, red ? 0.35 : 1, red ? 0.35 : 1)
+        // Red when hit; a mutant (WorldEvents.js) is tinted purple.
+        if (z.lastRed > 0) mesh.instanceColor.setXYZ(i, 1, 0.35, 0.35)
+        else if (z.mutant) mesh.instanceColor.setXYZ(i, 0.85, 0.6, 1)
+        else mesh.instanceColor.setXYZ(i, 1, 1, 1)
       })
       mesh.count = list.length
       mesh.instanceMatrix.needsUpdate = true
@@ -2741,6 +2768,7 @@ export class BuildSurvival {
       }
     }
     if (this._extract && this._updateExtraction(dt)) return
+    this.events?.update(dt)
     const speed = zombieSpeed(this.wave, this.cfg.escalation)
     for (const zb of [...this.zombies]) {
       // Each zombie goes for the nearest player.
@@ -2758,7 +2786,7 @@ export class BuildSurvival {
       if (targets.length && best > DESPAWN_DIST * DESPAWN_DIST) {
         zb.lost = true
         zb.health = 0
-      } else this._updateZombie(zb, dt, this.bm.specials.zombieTarget(zb, target) || target || { x: zb.x, y: zb.y, z: zb.z, idle: true }, speed)
+      } else this._updateZombie(zb, dt, this.bm.specials.zombieTarget(zb, target) || this.events?.target(zb, target) || target || { x: zb.x, y: zb.y, z: zb.z, idle: true }, speed)
       if (zb.health <= 0 && this.zombies.includes(zb)) this.damageZombie(zb, 0)
       if (this.dead && !this.net) return
     }
@@ -2916,7 +2944,7 @@ export class BuildSurvival {
   zombieSnapshot() {
     const out = {}
     for (const z of this.zombies) {
-      out[`z${z.id}`] = { x: +z.x.toFixed(2), y: +z.y.toFixed(2), z: +z.z.toFixed(2), r: +z.group.rotation.y.toFixed(2), hp: Math.round(z.health), max: Math.round(z.maxHealth || z.health), boss: !!z.boss, ...(z.kind ? { k: z.kind } : {}), rt: z.tier || 'common', nm: z.nameIdx ?? 0, ...(z.shine ? { sh: z.shine } : {}), ...(z.hidden ? { hd: 1 } : {}), ...(z.yell > 0 ? { ys: 1 } : {}) }
+      out[`z${z.id}`] = { x: +z.x.toFixed(2), y: +z.y.toFixed(2), z: +z.z.toFixed(2), r: +z.group.rotation.y.toFixed(2), hp: Math.round(z.health), max: Math.round(z.maxHealth || z.health), boss: !!z.boss, ...(z.kind ? { k: z.kind } : {}), rt: z.tier || 'common', nm: z.nameIdx ?? 0, ...(z.shine ? { sh: z.shine } : {}), ...(z.hidden ? { hd: 1 } : {}), ...(z.yell > 0 ? { ys: 1 } : {}), ...(z.mutant ? { mu: 1 } : {}) }
     }
     return out
   }
@@ -2948,6 +2976,8 @@ export class BuildSurvival {
       // A hiding lurker, a screaming screamer (ZombieTricks.js).
       z.hidden = !!d.hd
       z.yell = d.ys ? 1 : 0
+      // A meteor's mutant (WorldEvents.js): just its size here.
+      if (d.mu) this.events?.mutate(z, true)
     }
     for (const z of [...this.zombies]) {
       if (seen.has(z.id)) continue

@@ -3227,6 +3227,82 @@ test('traps: explosive barrels chain, waves hand out traps', async ({ page }) =>
   expect(r.msg).toMatch(/Trap supplies: \d+ × /)
 })
 
+// 2026-10-31: world events - a supply drop's crate pays out, a horde walks
+// past (until shot), a meteor makes mutants.
+test('world events: supply crate, passing horde, mutant meteor', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 60, 'zombiespawner')
+    for (let x = -40; x <= 40; x++) for (let z = -40; z <= 40; z++) if (x || z) bm.placeBlock(x, 0, z, 'grass', true)
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    if (s._picking) s._pickWeapon('rifle')
+    const clear = () => {
+      for (const z of [...s.zombies]) s._removeZombie(z)
+      s.zombies = []
+    }
+    clear()
+    s._toSpawn = 0
+    s._breakTimer = 1e9
+    s.health = 1e9
+    s.wave = 3
+    const out = {}
+    const ev = s.events
+    // Supply: the plane flies over, the crate lands, walking up opens it.
+    out.supply = ev.start('supply')
+    for (let i = 0; i < 300 && !ev._crate?.landed; i++) s.update(0.05)
+    out.landed = !!ev._crate?.landed
+    const coins = s.coins
+    const ammo = s.reserve
+    if (ev._crate) bm.tryMode.pos.set(ev._crate.x, ev._crate.y, ev._crate.z)
+    s.update(0.05)
+    out.opened = !ev._crate && s.coins > coins && s.reserve > ammo
+    bm.tryMode.pos.set(0.5, 1, 0.5)
+    for (let i = 0; i < 300 && ev._run; i++) s.update(0.05)
+    // Horde: extra zombies that walk past and don't count toward the wave.
+    out.horde = ev.start('horde')
+    const horde = s.zombies.filter((z) => z.migrate)
+    out.hordeSize = horde.length
+    out.extra = horde.every((z) => z.extra)
+    const z0 = horde[0]
+    const d0 = Math.hypot(z0.x - 0.5, z0.z - 0.5)
+    for (let i = 0; i < 20; i++) s.update(0.05)
+    out.stillMigrating = !!z0.migrate
+    s.damageZombie(z0, 1)
+    s.update(0.05)
+    out.shotOneChases = !z0.migrate && d0 > 0
+    clear()
+    ev._endRun()
+    // Meteor: zombies near the impact turn mutant (bigger, tougher).
+    out.meteor = ev.start('meteor')
+    for (let i = 0; i < 100 && ev._run; i++) s.update(0.05)
+    out.mutants = s.zombies.filter((z) => z.mutant).length
+    const m = s.zombies.find((z) => z.mutant)
+    out.mutantBig = !!m && m.group.scale.x > 1.2 && m.health > 100
+    out.snap = !!m && s.zombieSnapshot()[`z${m.id}`].mu === 1
+    s.stop()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r.supply).toBe(true)
+  expect(r.landed).toBe(true)
+  expect(r.opened).toBe(true)
+  expect(r.horde).toBe(true)
+  expect(r.hordeSize).toBeGreaterThanOrEqual(6)
+  expect(r.extra).toBe(true)
+  expect(r.stillMigrating).toBe(true)
+  expect(r.shotOneChases).toBe(true)
+  expect(r.meteor).toBe(true)
+  expect(r.mutants).toBeGreaterThanOrEqual(3)
+  expect(r.mutantBig).toBe(true)
+  expect(r.snap).toBe(true)
+})
+
 // 2026-10-26: grass 100 blocks out (since 2026-10-30: as far as the land
 // is drawn, growing over time), crack on every face (on the lumps
 // too), puffy leaves, falling leaves and half-chance leaf drops, a
