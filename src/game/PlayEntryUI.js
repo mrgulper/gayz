@@ -11,6 +11,7 @@ import { PlayNet } from './PlayNet.js'
 import { loadEarthTerrain } from './EarthTerrain.js'
 import { playConfig } from './PlayRules.js'
 import { t } from './i18n.js'
+import { GRAPHICS_LEVELS } from './GraphicsLevels.js'
 
 export function _bindDifficulty(game) {
   for (const btn of game.difficultyBtns) {
@@ -341,6 +342,32 @@ export function _updateRecommendedDifficultyHint(game) {
 // frame for an identical image, since rendering straight to the canvas
 // applies the same toneMapping/outputColorSpace OutputPass exists to apply
 // to an offscreen target.
+// Nothing left for Auto Quality to give up and still under MIN_FPS in a
+// game (2026-10-31, "smooth on weak devices"): after SLOW_SAMPLES slow
+// half-seconds in a row-ish (a good one takes two back), the graphics
+// level the game picked steps down one (never one the player picked, and
+// never below Potato), with a note saying where to change it.
+export const MIN_FPS = 30
+const SLOW_SAMPLES = 40
+const LOWER_HOLD_MS = 30000
+export function _autoLowerGraphics(game, msPerFrame, now) {
+  const s = game.settings
+  if (!game.buildMode?.survival?.active || msPerFrame < 1000 / MIN_FPS) return false
+  const auto = s.graphicsLevelAuto === true || (s.graphicsLevelAuto == null && s.graphicsLevel === game._deviceGraphicsLevel)
+  const at = GRAPHICS_LEVELS.indexOf(s.graphicsLevel)
+  if (!auto || at <= 0 || now < (game._gfxLowerHold || 0)) return false
+  game._gfxSlow = (game._gfxSlow || 0) + 1
+  if (game._gfxSlow < SLOW_SAMPLES) return false
+  game._gfxSlow = 0
+  game._gfxLowerHold = now + LOWER_HOLD_MS
+  const level = GRAPHICS_LEVELS[at - 1]
+  game._applyGraphicsLevel(level)
+  s.graphicsLevelAuto = true
+  saveSettings(s)
+  game.buildMode.survival._message?.(t('gfxAutoLowered', { level: t(`gfxLevel${level.charAt(0).toUpperCase()}${level.slice(1)}`) }), 5)
+  return true
+}
+
 // Map editor auto resolution (Auto Quality setting) - holds 60 fps by
 // giving up high-DPI extra pixels when frames run slow, and taking them
 // back once there's headroom. Called every ~500ms with the average frame
@@ -374,8 +401,9 @@ export function _updateEditorResScale(game, msPerFrame, now) {
       // Draw straight away - a resize clears the canvas, and waiting for
       // the next frame would show one black frame.
       if (game._applyRenderScale()) game.buildMode.render()
-    }
+    } else _autoLowerGraphics(game, msPerFrame, now)
   } else if (msPerFrame < targetMs * 1.05) {
+    game._gfxSlow = Math.max(0, (game._gfxSlow || 0) - 2)
     game._editorResGood = (game._editorResGood || 0) + 1
     if (game._editorResGood >= 6 && now > (game._editorResUpAfter || 0)) {
       game._editorResGood = 0

@@ -640,6 +640,48 @@ class AudioEngine {
     rattle.stop(now + duration)
   }
 
+  // A shot landing on a zombie (2026-10-31, "juicy core": "a few
+  // different hit sounds"). kind: 'body' (one of three thuds, picked at
+  // random so a burst doesn't repeat), 'head' (a bright ping on top) or
+  // 'kill' (a heavier crunch).
+  playHit(kind = 'body') {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    const THUDS = [[210, 0.07], [160, 0.09], [260, 0.06]]
+    const [hz, len] = kind === 'kill' ? [120, 0.16] : THUDS[Math.floor(Math.random() * THUDS.length)]
+    // A short body thump: noise through a low band, a quick drop.
+    const n = Math.max(1, Math.floor(ctx.sampleRate * len))
+    const buf = ctx.createBuffer(1, n, ctx.sampleRate)
+    const data = buf.getChannelData(0)
+    for (let i = 0; i < n; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / n)
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    const band = ctx.createBiquadFilter()
+    band.type = 'bandpass'
+    band.frequency.setValueAtTime(hz * 4, now)
+    band.frequency.exponentialRampToValueAtTime(hz, now + len)
+    band.Q.value = 1.4
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(kind === 'kill' ? 0.5 : 0.32, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + len)
+    src.connect(band).connect(gain).connect(this.sfxGain)
+    src.start(now)
+    src.stop(now + len)
+    if (kind === 'body') return
+    // The ping (headshot) or the crunch's low knock (kill).
+    const osc = ctx.createOscillator()
+    osc.type = kind === 'head' ? 'triangle' : 'square'
+    osc.frequency.setValueAtTime(kind === 'head' ? 1650 : 140, now)
+    osc.frequency.exponentialRampToValueAtTime(kind === 'head' ? 1250 : 55, now + 0.12)
+    const og = ctx.createGain()
+    og.gain.setValueAtTime(kind === 'head' ? 0.16 : 0.12, now)
+    og.gain.exponentialRampToValueAtTime(0.001, now + (kind === 'head' ? 0.18 : 0.14))
+    osc.connect(og).connect(this.sfxGain)
+    osc.start(now)
+    osc.stop(now + 0.2)
+  }
+
   // Distant metallic creak/groan — implies the city settling, not a threat.
   playDistantCreak() {
     if (!this.ctx) return

@@ -55,6 +55,8 @@ import { zombieHat, makeHat, disposeHat, poseZombieLimbs, GOOF_CHANCE } from './
 import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './SpeechBubble.js'
 import { SHOOT_THROUGH } from './SpecialBlocks.js'
 import { openLobby } from './ServerBrowser.js'
+import { PlayOnboarding, isFirstGame } from './PlayOnboarding.js'
+import { nextUnlock, nextUnlockText, newlyUnlocked, cosmeticName, COSMETICS } from './Cosmetics.js'
 
 export const CHEST_LOOT = { ammo: 60, health: 35 }
 // How often a Loot Chest has a Catch Trap or two (PlayCatch.js).
@@ -138,6 +140,11 @@ const WAVE_BREAK = 6
 // to any player (path distance alone let them pop up right beside you
 // round a corner; PlayRules.js).
 const SPAWN_GAP = 0.7
+// Hit feedback (_hitFeedback): a hit this big shakes the view a little;
+// knock-back per hit is KNOCK_BASE plus a bit per damage, up to KNOCK_MAX.
+const BIG_HIT = 60
+const KNOCK_BASE = 3
+const KNOCK_MAX = 5
 const SPAWN_MAX_STEPS = 70
 const MAX_ALIVE = 28
 const SPAWNER_RANGE = 48
@@ -314,6 +321,12 @@ export class BuildSurvival {
       bm._yaw = Math.PI - (bm._stairFacing.get(bm._key(x, y, z)) || 0) * (Math.PI / 2)
       bm._pitch = 0
     }
+    // A new player's first game (PlayOnboarding.js): no weapon picker,
+    // start at the camp gate, a zombie close by straight away.
+    if (!this.onboard) this.onboard = new PlayOnboarding(this)
+    if (fromMenu && !net && isFirstGame(bm.game) && !BuildSurvival.savedRun() && this.cfg.mode !== 'worldMap') {
+      this.onboard.begin(bm.activeSlot === 'map3' ? bm._map3Base().map.safeZone : null)
+    } else this.onboard.end()
     this.active = true
     this.dead = false
     this.health = this.cfg.maxHealth
@@ -423,7 +436,8 @@ export class BuildSurvival {
         if (isEarthWorld()) loadEarthTerrain().then(() => { if (this.active) this._spawnAt(pick) })
         else this._spawnAt(pick)
       }
-      this._openWeaponPicker()
+      if (this.onboard.active) this._pickWeapon(this.weaponId)
+      else this._openWeaponPicker()
     }
     else this._message(t('buildPlayGetReady'))
     zombieSkin().then((skin) => { this._skin = skin; this._warmShaders() }).catch(() => { this._skin = null })
@@ -468,6 +482,7 @@ export class BuildSurvival {
     this.lobby?.leave()
     this.lobby = null
     this.damageNumbers?.clear()
+    this.onboard?.end()
     if (this._ownBubble) disposeBubble(this._ownBubble.sprite)
     this._ownBubble = null
     this.bm.tryMode.speedMult = 1
@@ -917,6 +932,7 @@ export class BuildSurvival {
         <p id="build-play-over-text"></p>
         <p id="build-play-over-joke"></p>
         <p id="build-play-over-best"></p>
+        <p id="build-play-over-unlock"></p>
         <div id="build-play-xp" style="display: none">
           <div class="build-play-xp-row"><b id="build-play-xp-level"></b><span id="build-play-xp-num"></span></div>
           <div class="build-play-xp-track"><i id="build-play-xp-fill"></i></div>
@@ -1060,6 +1076,7 @@ export class BuildSurvival {
     const damage = w.damage * this._damageMult()
     const hits = new Map()
     const add = (z, amount) => hits.set(z, (hits.get(z) || 0) + amount)
+    let anyHead = false
     const box = new THREE.Box3()
     const hitPoint = this._v
     let impact = null
@@ -1115,7 +1132,10 @@ export class BuildSurvival {
       onRay.sort((a, b) => a.d - b.d)
       const struck = onRay.slice(0, w.pierce || 1)
       for (const hit of struck) {
-        if (hit.head) this.stats.headshots++
+        if (hit.head) {
+          this.stats.headshots++
+          anyHead = true
+        }
         add(hit.z, damage * (hit.head ? HEAD_MULT * (this.cfg?.headshotMult ?? 1) : 1))
       }
       if (struck.length) {
@@ -1151,13 +1171,7 @@ export class BuildSurvival {
       this._fx?.explode(impact.clone().addScaledVector(center.direction, -0.8 * B), w.blast)
       // The screen shakes, harder the closer it went off.
       const near = 1 - impact.distanceTo(center.origin) / (14 * B)
-      if (near > 0 && !document.body.classList.contains('reduce-flashing')) {
-        const view = bm.renderer.domElement
-        view.style.setProperty('--boom', `${(3 + near * 9).toFixed(1)}px`)
-        view.classList.remove('boom-shake')
-        void view.offsetWidth
-        view.classList.add('boom-shake')
-      }
+      if (near > 0) this._shake(3 + near * 9)
       const radius = w.blast * B
       for (const z of this.zombies) {
         const cx = z.x * B
@@ -1173,6 +1187,9 @@ export class BuildSurvival {
     // ...or maybe an animal (PlayAnimals.js).
     if (!hits.size) return !!this.animals?.hitRay(center, reach, damage, this.weaponId)
     if (w.slow && impact) this._fx?.voidHit(impact)
+    let killed = false
+    let boss = false
+    let biggest = 0
     for (const [z, amount] of hits) {
       if (!this.zombies.includes(z)) continue
       // Flamethrower sets them on fire; Void Ripper slows them.
@@ -1185,14 +1202,52 @@ export class BuildSurvival {
         this.net.queueHit(`z${z.id}`, amount)
         z.flash = 0.12
       } else this.damageZombie(z, amount, center.direction)
+      biggest = Math.max(biggest, amount)
+      if (!this.zombies.includes(z)) {
+        killed = true
+        boss ||= !!z.boss
+      }
     }
+    this._hitFeedback({ head: anyHead, kill: killed, boss, amount: biggest })
+    return true
+  }
+
+  // Hit feedback (2026-10-31, Gaymi's "juicy core": "a hit marker, small
+  // knock-back, a few different hit sounds, coins popping out on a kill,
+  // a light screen shake on big hits"): an X over the crosshair - gold on
+  // a headshot, red and bigger on a kill - its sound, and a small shake
+  // for a headshot kill, a boss kill or a hit of BIG_HIT or more. (Coins:
+  // damageZombie; knock-back: damageZombie's push.)
+  _hitFeedback({ head = false, kill = false, boss = false, amount = 0 } = {}) {
+    let el = document.getElementById('play-hitmark')
+    if (!el) {
+      el = document.createElement('div')
+      el.id = 'play-hitmark'
+      el.setAttribute('aria-hidden', 'true')
+      document.body.appendChild(el)
+    }
+    el.className = ''
+    void el.offsetWidth
+    el.className = kill ? 'kill' : head ? 'head' : 'hit'
     const cross = document.getElementById('build-try-crosshair')
     if (cross) {
       cross.classList.remove('hit')
       void cross.offsetWidth
       cross.classList.add('hit')
     }
-    return true
+    try { audioEngine.playHit?.(kill ? 'kill' : head ? 'head' : 'body') } catch { /* no audio */ }
+    if ((kill && (head || boss)) || amount >= BIG_HIT) this._shake(kill ? 4 : 2.5)
+  }
+
+  // Shakes the view by px (explosions close by, big hits). Off with
+  // Reduce Flashing.
+  _shake(px) {
+    if (document.body.classList.contains('reduce-flashing')) return
+    const view = this.bm.renderer.domElement
+    view.style.setProperty('--boom', `${px.toFixed(1)}px`)
+    view.classList.remove('boom-shake')
+    void view.offsetWidth
+    view.classList.add('boom-shake')
   }
 
   // One hit from something other than shoot()'s rays (a thrown knife or
@@ -1207,12 +1262,7 @@ export class BuildSurvival {
       this.net.queueHit(`z${z.id}`, amount)
       z.flash = 0.12
     } else this.damageZombie(z, amount, dir)
-    const cross = document.getElementById('build-try-crosshair')
-    if (cross) {
-      cross.classList.remove('hit')
-      void cross.offsetWidth
-      cross.classList.add('hit')
-    }
+    this._hitFeedback({ head, kill: !this.zombies.includes(z), boss: !!z.boss, amount })
   }
 
   // --- Burning wood (see FIRE_BURN_S) ---
@@ -1373,9 +1423,12 @@ export class BuildSurvival {
     // Hit by something (not just sunburn) - a hiding lurker leaps out.
     if (amount > 0) z.hit = true
     if (z.skel && z.health > 0 && !z.rise && amount > 0) z.hitAnim = z.skel.play('hit', { once: true, fade: 0.05, timeScale: 1.6 })
+    // Knocked back a little - a bit more by a big hit (and less for a
+    // boss, which is heavy).
     if (dir) {
-      z.vx += dir.x * 3
-      z.vz += dir.z * 3
+      const push = Math.min(KNOCK_MAX, KNOCK_BASE + amount / 40) / (z.boss ? 2 : 1)
+      z.vx += dir.x * push
+      z.vz += dir.z * push
     }
     if (z.health > 0) return
     // Lost (fell out, or wandered far from everyone): just removed, no kill.
@@ -1388,14 +1441,23 @@ export class BuildSurvival {
     // Every kill counts toward the wave's target (see SPAWN_GAP).
     // (Not the extra ones a world event brought - WorldEvents.js.)
     if (this._toSpawn > 0 && !z.extra) this._toSpawn--
+    // Burned up in the sun without anyone ever hitting it: nobody's kill,
+    // no coins (2026-10-31 check-up: a new player read "Kills: 7" before
+    // firing a shot).
+    const sunOnly = amount === 0 && z.sunlit && !z.hit
     // A mutant (a meteor's, WorldEvents.js) pays extra.
-    if (z.mutant && !by) this._earn(MUTANT_COINS)
+    if (z.mutant && !by && !sunOnly) this._earn(MUTANT_COINS)
     audioEngine.playZombieDeath?.(1, this._panTo(z.x, z.z))
     const skeleton = SKELETON_KINDS[z.kind] ? z.kind : null
     if (by) this.net?.queueCredit(by, z.boss, skeleton, z.tier, false, z.shine)
-    else this._countKill(z.boss, skeleton, z.tier, z.shine)
+    else if (!sunOnly) {
+      const coins = this._coinsEarned
+      this._countKill(z.boss, skeleton, z.tier, z.shine)
+      this.onboard?.onKill()
+      this.damageNumbers?.coinsAt(z, this._coinsEarned - coins, ZOMBIE_HEIGHT)
+    }
     this.bm.specials.onKill(z)
-    this._creditAssists(z, by || '')
+    if (!sunOnly) this._creditAssists(z, by || '')
     // A bloater bursts instead of falling over.
     if (MONSTER_KINDS[z.kind]?.burst) this._burst(z)
     else this._spawnCorpse(z, dir)
@@ -2325,7 +2387,7 @@ export class BuildSurvival {
       const x = Math.floor(zb.x)
       const y = Math.floor(zb.y + 0.01)
       const z = Math.floor(zb.z)
-      zb.sunlit = !kindOf(zb.kind)?.noSun && this._sunny() && !this._inCave(zb.x, zb.y, zb.z) && this._skyAbove(x, y + 1, z) && !this._wetAt(x, y, z)
+      zb.sunlit = !kindOf(zb.kind)?.noSun && !zb.noSun && this._sunny() && !this._inCave(zb.x, zb.y, zb.z) && this._skyAbove(x, y + 1, z) && !this._wetAt(x, y, z)
     }
     if (zb.sunlit && !(zb.burn > 0)) {
       zb.health -= SUN_BURN_DPS * dt
@@ -2582,6 +2644,9 @@ export class BuildSurvival {
     // A Bed you slept in brings you back once (BuildSpecials.js).
     if (!won && this.bm.specials.tryRevive(this)) return
     this.dead = true
+    this.onboard?.onDeath()
+    const career = this.bm.game?.careerStats
+    const careerBefore = career ? { ...career } : null
     const reward = this._endRun(won)
     const waves = won ? this.wave : Math.max(0, this.wave - 1)
     let best
@@ -2610,9 +2675,29 @@ export class BuildSurvival {
     this._lastBiter = null
     set('build-play-again-btn', t(won ? 'buildPlayAgainBtn' : 'buildPlayRespawnBtn'))
     set('build-play-back-btn', t(!this.fromMenu ? 'buildPlayBackBtn' : won ? 'buildPlayBackMenuBtn' : 'buildPlayLeaveBtn'))
+    this._showUnlock(this.fromMenu && careerBefore ? careerBefore : null, career)
     this._overEl.style.display = 'flex'
     if (document.pointerLockElement) document.exitPointerLock()
     this._showXpBar(reward)
+  }
+
+  // Reasons to come back (2026-10-31): a hat or cape this game unlocked
+  // pops up on the card ("New hat unlocked!"); otherwise the one you're
+  // closest to ("3 more games for the Red Cape!"). Homepage games only
+  // (the ones that count toward them).
+  _showUnlock(before, after) {
+    const el = document.getElementById('build-play-over-unlock')
+    if (!el) return
+    el.classList.remove('new')
+    const fresh = before && after ? newlyUnlocked(before, after) : []
+    if (fresh.length) {
+      const id = fresh[0]
+      el.textContent = `${t(COSMETICS[id].slot === 'hat' ? 'unlockNewHat' : 'unlockNewCape', { name: cosmeticName(id) })} ${t('unlockWearHint')}`
+      void el.offsetWidth
+      el.classList.add('new')
+      try { audioEngine.playLevelUp?.() } catch { /* no audio */ }
+    } else el.textContent = before && after ? nextUnlockText(nextUnlock(after)) : ''
+    el.style.display = el.textContent ? '' : 'none'
   }
 
   // Kirka-style XP bar on the You Died card (2026-10-26, Gaymi): it fills
@@ -2870,6 +2955,7 @@ export class BuildSurvival {
     if (this._extract && this._updateExtraction(dt)) return
     this.events?.update(dt)
     this.survivors?.update(dt)
+    this.onboard?.update(dt)
     const speed = zombieSpeed(this.wave, this.cfg.escalation)
     for (const zb of [...this.zombies]) {
       // Each zombie goes for the nearest player.

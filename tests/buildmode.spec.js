@@ -711,6 +711,8 @@ test('Map 3 Play starts in a safe camp with working NPCs', async ({ page }) => {
 
   const r = await page.evaluate(async () => {
     const g = window.__game
+    // A returning player (a first game starts at the gate, PlayOnboarding).
+    g.careerStats.totalRuns = 1
     await g._enterBuildMode({ map: 'map3', play: true })
     // Play fades to black while Map 1 loads and back in once it's drawn.
     const fade = document.getElementById('play-fade')
@@ -871,7 +873,8 @@ test('Play starts the block city (Map 1) zombie waves', async ({ page }) => {
 // spawns until a gun is picked, and the gun's own stats take over.
 test('a Map 1 run starts with the weapon picker and uses the picked gun', async ({ page }) => {
   await gotoAndWaitForGame(page)
-  await page.evaluate(() => window.__game.playBtn.click())
+  // A returning player (a first game skips the picker, PlayOnboarding).
+  await page.evaluate(() => { window.__game.careerStats.totalRuns = 1; window.__game.playBtn.click() })
   await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
   const r = await page.evaluate(() => {
     const g = window.__game
@@ -2275,6 +2278,7 @@ test('World Map mode follows the real Earth; Classic skips the map', async ({ pa
   await gotoAndWaitForGame(page)
   const classic = await page.evaluate(async () => {
     const g = window.__game
+    g.careerStats.totalRuns = 1
     g.settings.selectedGameMode = 'classic'
     g.playBtn.click()
     for (let i = 0; i < 300 && !g.buildMode?.survival?.active; i++) await new Promise((r) => setTimeout(r, 200))
@@ -2309,7 +2313,7 @@ test('World Map mode follows the real Earth; Classic skips the map', async ({ pa
 // picture while dragging and only the chosen hotbar slot has a dark box.
 test('Spectate keeps zombies off the camera, bedrock floor, thrown knife, inventory drag', async ({ page }) => {
   await gotoAndWaitForGame(page)
-  await page.evaluate(() => window.__game.playBtn.click())
+  await page.evaluate(() => { window.__game.careerStats.totalRuns = 1; window.__game.playBtn.click() })
   await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
   await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
   await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
@@ -4300,4 +4304,84 @@ test('drop key and item lock, Heaven, Heaven\'s Peaks, the Demon Realm and realm
     demonKinds: ['demon', 'fiend', 'hellhound', 'imp'],
     oceanKinds: true, tallEnough: [],
   })
+})
+
+// New-player polish (2026-10-31): a first game skips the picker, starts
+// outside the camp gate with a zombie close by and a fading hint; hits
+// show a marker and kills pop coins; a sun-only death isn't your kill;
+// You Died shows the next unlock; a game-picked graphics level steps down
+// when a game stays slow.
+test('first game, hit feedback, sun kills, next unlock, auto graphics', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const bm = g.buildMode
+    const s = bm.survival
+    const out = { first: s.onboard.active, picker: !!s._picking }
+    const p = bm.tryMode.pos
+    out.outsideCamp = !!s.camp && !s.camp.inside(p.x, p.z)
+    // Run the game forward without real frames until the starter comes.
+    s.health = 1e9
+    for (let i = 0; i < 20 * 8 && !s.onboard.starter; i++) { bm.tryMode.update(0.05, new Set()); s.update(0.05) }
+    const z = s.onboard.starter
+    out.starterNear = !!z && Math.hypot(z.x - p.x, z.z - p.z) <= 17
+    out.starterNoSun = !!z && z.noSun === true
+    const hint = document.getElementById('play-first-hint')
+    out.hint = !!hint && getComputedStyle(hint).display !== 'none' && hint.textContent.length > 0
+    s.hitZombieWith(z, 1, null, true)
+    out.headMark = document.getElementById('play-hitmark')?.className
+    const kills = s.kills
+    for (let i = 0; i < 100 && s.zombies.includes(z); i++) s.hitZombieWith(z, 40, { x: 0, y: 0, z: 1 })
+    out.killMark = document.getElementById('play-hitmark')?.className
+    out.killed = s.kills === kills + 1
+    out.coins = document.querySelectorAll('#play-damage-numbers .play-coins').length > 0
+    // Burned up in the sun with no hit: not a kill, no coins.
+    const before = { kills: s.kills, coins: s.coins }
+    s._spawnZombie()
+    const sunny = s.zombies[s.zombies.length - 1]
+    sunny.sunlit = true
+    sunny.health = 0
+    s.damageZombie(sunny, 0)
+    out.sunKill = { gone: !s.zombies.includes(sunny), kills: s.kills - before.kills, coins: s.coins - before.coins }
+    // Auto graphics: still slow with nothing left to lower.
+    g.settings.autoQuality = true
+    g.settings.graphicsLevel = 'balanced'
+    g.settings.graphicsLevelAuto = true
+    g.settings.viewDistance = 'short'
+    g._editorResScale = 0.25
+    g._gfxLowerHold = 0
+    g._gfxSlow = 0
+    let now = performance.now() + 60000
+    for (let i = 0; i < 45; i++) g._updateEditorResScale(40, (now += 500))
+    out.lowered = g.settings.graphicsLevel
+    g.settings.graphicsLevelAuto = false
+    g._gfxLowerHold = 0
+    for (let i = 0; i < 45; i++) g._updateEditorResScale(40, (now += 500))
+    out.pickedStays = g.settings.graphicsLevel
+    // You Died: the next hat or cape.
+    s.health = 1
+    s._hurtPlayer(50)
+    out.unlock = document.getElementById('build-play-over-unlock').textContent
+    out.hintGone = getComputedStyle(hint).display === 'none'
+    s.stop()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toMatchObject({
+    first: true, picker: false, outsideCamp: true, starterNear: true, starterNoSun: true, hint: true,
+    headMark: 'head', killMark: 'kill', killed: true, coins: true,
+    sunKill: { gone: true, kills: 0, coins: 0 },
+    lowered: 'simple', pickedStays: 'simple', hintGone: true,
+  })
+  expect(r.unlock).toMatch(/Propeller Cap/)
+  // The homepage daily card.
+  const home = await page.evaluate(() => {
+    const el = document.getElementById('home-daily')
+    return { shown: !el.classList.contains('pending') && getComputedStyle(el).visibility === 'visible', text: el.textContent }
+  })
+  expect(home.shown).toBe(true)
+  expect(home.text).toMatch(/Daily Challenge/i)
 })

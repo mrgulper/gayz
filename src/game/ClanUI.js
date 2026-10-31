@@ -499,21 +499,33 @@ export async function _renderClanIncomingInvites(game) {
 // Firestore reads per clan, so the result is shared for
 // CLAN_RANKING_CACHE_MS - opening General starts it, the Clan tab reuses
 // it - and dropped whenever this player's own clan changes.
+const CLAN_FETCH_AT_ONCE = 2
 export function _fetchClanRanking(game) {
   const cached = game._clanRankingCache
   if (cached && Date.now() - cached.at < CLAN_RANKING_CACHE_MS) return cached.promise
   const promise = (async () => {
     const clans = await CloudSync.fetchAllClans().catch(() => [])
-    // A member count the server turned away for a moment (seen as "too
-    // many requests", 2026-10-27) is asked once more before giving up, and
-    // then the leaderboard's own member count stands in - not a blank.
-    const memberCount = (clanId) => CloudSync.fetchClanMemberCount(clanId)
-      .catch(() => new Promise((resolve) => setTimeout(resolve, 1500)).then(() => CloudSync.fetchClanMemberCount(clanId)))
-      .catch(() => null)
-    const [counts, stats] = await Promise.all([
-      Promise.all(clans.map((c) => memberCount(c.clanId))),
-      Promise.all(clans.map((c) => CloudSync.fetchClanCombinedStats(c.clanId).catch(() => null))),
-    ])
+    // A member count the server turns away ("too many requests" - its
+    // "Quota exceeded", 2026-10-27 and the 2026-10-31 check-up) isn't
+    // asked again (that only doubled the errors on every homepage load):
+    // the leaderboard's own member count stands in - not a blank.
+    const memberCount = (clanId) => CloudSync.fetchClanMemberCount(clanId).catch(() => null)
+    // A few clans at a time, not every clan's three reads at once - all at
+    // once the server turned most of them away ("too many requests" on
+    // every homepage load, 2026-10-31 check-up).
+    const counts = []
+    const stats = []
+    let next = 0
+    const worker = async () => {
+      while (next < clans.length) {
+        const i = next++
+        ;[counts[i], stats[i]] = await Promise.all([
+          memberCount(clans[i].clanId),
+          CloudSync.fetchClanCombinedStats(clans[i].clanId).catch(() => null),
+        ])
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(CLAN_FETCH_AT_ONCE, clans.length) }, worker))
     return clans
       .map((c, i) => ({ ...c, memberCount: counts[i] ?? stats[i]?.memberCount ?? null, monthXp: stats[i]?.monthXp ?? 0 }))
       .sort((a, b) => b.monthXp - a.monthXp)
