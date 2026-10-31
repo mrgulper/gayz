@@ -2,7 +2,7 @@
 // "catch zombies and animals, build a team, battle other players' ghost
 // teams"; picked "weaken, then throw a trap" and "you control one
 // creature"). Catching happens in a game (PlayCatch.js); the Team page on
-// the homepage (TeamUI.js) picks up to TEAM_SIZE of them, and a battle
+// Inventory's Pets tab (TeamUI.js) picks up to TEAM_SIZE of them, and a battle
 // (TeamBattle.js) puts them against another player's saved team.
 //
 // Saved in localStorage (CREATURES_KEY), so Cloud Save carries it like the
@@ -18,7 +18,8 @@ import { t } from './i18n.js'
 
 export const CREATURES_KEY = 'gayz-creatures'
 export const MAX_CREATURES = 200
-export const TEAM_SIZE = 3
+// Gaymi (2026-10-31): "make it 10 slots" (was 3).
+export const TEAM_SIZE = 10
 
 // Zombies: the game's zombie, times its kind's and tier's numbers.
 const ZOMBIE_BASE = { hp: 110, atk: 13, speed: 2.6 }
@@ -196,14 +197,15 @@ export function creatureIconURL(c) {
 const BOT_ANIMALS = ['wolf', 'bear', 'boar', 'fox', 'horse', 'cow', 'polarBear', 'camel', 'lion', 'tiger', 'crocodile', 'gorilla']
 const BOT_ZOMBIES = [null, null, null, 'hunched', 'beast', 'skinny', 'brute', 'crawler']
 
-// A made-up team about as strong as mine (target: power()).
-export function botTeam(target, rand = Math.random) {
+// A made-up team about as strong as mine (target: power()), as many as
+// mine (size).
+export function botTeam(target, size = TEAM_SIZE, rand = Math.random) {
   const kinds = BOT_ANIMALS.filter((k) => Object.hasOwn(KINDS(), k))
   const pick = (list) => list[Math.floor(rand() * list.length)]
   let best = null
   for (let i = 0; i < 12; i++) {
     const team = []
-    for (let j = 0; j < TEAM_SIZE; j++) {
+    for (let j = 0; j < Math.max(1, Math.min(TEAM_SIZE, size)); j++) {
       const r = ZOMBIE_TIER_IDS[Math.min(ZOMBIE_TIER_IDS.length - 1, Math.floor(rand() * rand() * 4))]
       team.push(rand() < 0.5 && kinds.length
         ? { t: 'a', k: pick(kinds), r }

@@ -76,7 +76,7 @@ const CLOSE_DELAY_MS = 180
 // nothing - no card on top of the page, no dimming, the page stays open.
 // Only a click opens the other page (2026-10-24, Gaymi).
 const PAGE_PANELS = ['clan-panel', 'hub-panel', 'upgrades-panel', 'quests-panel', 'achievements-panel',
-  'profile-panel', 'credits-panel', 'gallery-panel', 'levels-panel', 'team-panel', 'terms-panel', 'privacy-panel',
+  'profile-panel', 'credits-panel', 'gallery-panel', 'levels-panel', 'terms-panel', 'privacy-panel',
   'features-panel', 'skindesigner-panel', 'market-panel', 'shop-panel', 'whatsnew-panel', 'howtoplay-panel',
   'friends-panel', 'other-profile-panel', 'menu-inventory-panel', 'server-panel', 'settings-panel', 'coming-soon-panel']
 const pageOpen = () => PAGE_PANELS.some((id) => {

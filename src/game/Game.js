@@ -3333,7 +3333,6 @@ export class Game {
       },
       { slug: 'credits', panel: this.creditsPanel, open: () => this._openCreditsPanel() },
       { slug: 'levels', panel: this.levelsPanel, open: () => this._openLevelsPanel() },
-      { slug: 'team', panel: this.teamPanel, open: () => TeamUI.openTeamPanel(this) },
       { slug: 'gallery', panel: this.galleryPanel, open: () => this._openGalleryPanel() },
       { slug: 'terms', panel: this.termsPanel, open: () => this._openTermsPanel() },
       { slug: 'privacy', panel: this.privacyPanel, open: () => this._openPrivacyPanel() },
@@ -3444,7 +3443,6 @@ export class Game {
     if (this.profilePanel) this._closeProfilePanel()
     if (this.creditsPanel) this._closeCreditsPanel()
     if (this.levelsPanel) this._closeLevelsPanel()
-    if (this.teamPanel) TeamUI.closeTeamPanel(this)
     if (this.galleryPanel) this._closeGalleryPanel()
     if (this.termsPanel) this._closeTermsPanel()
     if (this.privacyPanel) this._closePrivacyPanel()
@@ -3823,8 +3821,6 @@ export class Game {
     this.settingsBtn.setAttribute('aria-label', t('settingsBtn'))
     this.upgradesBtn.querySelector('span').textContent = t('upgradesBtn')
     this.questsBtn.querySelector('span').textContent = t('questsBtn')
-    const teamLabel = this.teamBtn?.querySelector('span')
-    if (teamLabel) teamLabel.textContent = t('teamBtn')
     this.achievementsBtn.querySelector('span').textContent = t('achievementsBtn')
     const galleryLink = document.getElementById('nav-gallery-link')
     if (galleryLink) galleryLink.querySelector('span').textContent = t('galleryBtn')

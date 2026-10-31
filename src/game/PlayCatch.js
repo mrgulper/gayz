@@ -1,8 +1,8 @@
-// Catch Traps (2026-10-31, Gaymi picked "weaken, then throw a trap"): hold
-// one and click to throw it. It flies in an arc like a thrown knife
-// (PlayThrow.js) and snaps shut on the first zombie or wild animal it
-// touches. The weaker that one is, the better the chance (catchChance) -
-// caught, it's gone from the game and kept (Creatures.js) for your battle
+// Catch Traps (2026-10-31): hold one and click to throw it. It flies in an
+// arc like a thrown knife (PlayThrow.js) and snaps shut on the first zombie
+// or wild animal it touches. No weakening first (Gaymi, same day: "they
+// dont needa be weak to catch"): only how rare it is, and being a boss,
+// make it harder (catchChance) - caught, it's gone from the game and kept (Creatures.js) for your battle
 // team; not caught, it breaks free and the trap is used up. Owned by
 // BuildSurvival (`s.catcher`), stepped from its update().
 //
@@ -14,7 +14,7 @@
 // thrower (remoteResult), who keeps the creature.
 import * as THREE from 'three'
 import { addCreature, creatureCount, creatureName, MAX_CREATURES } from './Creatures.js'
-import { PlayAnimals, animalRarity } from './PlayAnimals.js'
+import { animalRarity } from './PlayAnimals.js'
 import { t } from './i18n.js'
 
 const SPEED = 22 // blocks per second
@@ -29,11 +29,12 @@ const WAIT_S = 6
 const RARITY_MULT = { common: 1, uncommon: 0.9, rare: 0.78, epic: 0.64, legendary: 0.5, mythic: 0.4 }
 const BOSS_MULT = 0.4
 
-// 0..1: a little at full health, most of the way at nearly none.
-export function catchChance(health, maxHealth, tier = 'common', boss = false) {
-  const left = Math.max(0, Math.min(1, health / (maxHealth || 1)))
-  const base = 0.08 + 0.84 * (1 - left) ** 1.4
-  return Math.min(0.95, base * (RARITY_MULT[tier] ?? 1) * (boss ? BOSS_MULT : 1))
+// A Common one is caught most of the time, health doesn't matter.
+const BASE_CHANCE = 0.85
+
+// 0..1, from how rare it is.
+export function catchChance(tier = 'common', boss = false) {
+  return Math.min(0.95, BASE_CHANCE * (RARITY_MULT[tier] ?? 1) * (boss ? BOSS_MULT : 1))
 }
 
 let _geo = null
@@ -193,7 +194,7 @@ export class PlayCatch {
   _rollZombie(z) {
     const s = this.s
     const c = this._zombieCreature(z)
-    if (Math.random() >= catchChance(z.health, z.maxHealth, c.r, c.b)) return false
+    if (Math.random() >= catchChance(c.r, c.b)) return false
     if (s._toSpawn > 0 && !z.extra) s._toSpawn--
     s._removeZombie(z)
     s.zombies = s.zombies.filter((o) => o !== z)
@@ -204,7 +205,7 @@ export class PlayCatch {
   _rollAnimal(a) {
     const s = this.s
     const c = this._animalCreature(a)
-    if (Math.random() >= catchChance(a.health, PlayAnimals.KINDS[a.kind].health, c.r)) {
+    if (Math.random() >= catchChance(c.r)) {
       // It runs off (or gets angry), like being hit.
       s.animals.damage(a, 0)
       return false

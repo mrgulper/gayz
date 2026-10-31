@@ -1,7 +1,8 @@
 // The Team page (2026-10-31): every zombie and animal you've caught
 // (Creatures.js), the up-to-TEAM_SIZE picked for battles, your wins and
-// losses, and the Battle button (TeamBattle.js). Opened from the homepage's
-// Team button.
+// losses, and the Battle button (TeamBattle.js). It's Inventory's Pets tab
+// (#team-page; Gaymi, same day: "move the teams into inventory") - it used
+// to be its own panel behind a homepage Team button.
 //
 // A battle's other team is another player's ghost team (ghostTeams in
 // Firestore, CloudSync.fetchGhostTeams) about as strong as yours; when
@@ -37,7 +38,6 @@ function card(c, slot = 0) {
 export function renderTeamPanel(game) {
   const data = loadCreatures()
   const set = (id, text) => { const el = byId(id); if (el) el.textContent = text }
-  set('team-panel-title', t('teamPanelTitle'))
   set('team-record', t('teamRecord', { w: data.wins, l: data.losses }))
   set('team-picked-title', t('teamPickedTitle', { n: data.team.length, max: TEAM_SIZE }))
   set('team-caught-title', t('teamCaughtTitle', { n: data.list.length }))
@@ -62,14 +62,10 @@ export function renderTeamPanel(game) {
   }
 }
 
+// Inventory, on the Pets tab.
 export function openTeamPanel(game) {
-  game._closeAllMenuPanels()
-  game.teamPanel.style.display = 'flex'
-  renderTeamPanel(game)
-}
-
-export function closeTeamPanel(game) {
-  game.teamPanel.style.display = 'none'
+  game._openMenuInventoryPanel()
+  byId('inventory-tab-pets')?.click()
 }
 
 // A card clicked: on the team, or off it.
@@ -125,7 +121,7 @@ export async function startTeamBattle(game) {
   game._teamFinding = false
   renderTeamPanel(game)
   const foe = ghost ? t('teamGhostName', { name: ghost.name }) : t('teamBotName')
-  const theirs = ghost ? ghost.team : botTeam(power(team))
+  const theirs = ghost ? ghost.team : botTeam(power(team), team.length)
   game._teamBattle = new TeamBattle({
     mine: team,
     theirs,
@@ -150,15 +146,11 @@ export async function startTeamBattle(game) {
 }
 
 export function bindTeamUI(game) {
-  game.teamBtn = byId('team-btn')
-  game.teamPanel = byId('team-panel')
-  if (!game.teamPanel) return
-  game.teamBtn?.addEventListener('click', () => {
-    game._lastPanelOpener = () => openTeamPanel(game)
-    openTeamPanel(game)
-  })
-  game.teamPanel.addEventListener('click', (e) => {
-    if (e.target === game.teamPanel) closeTeamPanel(game)
+  const page = byId('team-page')
+  if (!page) return
+  // Drawn each time the Pets tab is looked at (a catch in a game changes it).
+  byId('inventory-tab-pets')?.addEventListener('click', () => renderTeamPanel(game))
+  page.addEventListener('click', (e) => {
     const c = e.target.closest('.team-card[data-id]')
     if (c) toggle(game, Number(c.dataset.id))
   })

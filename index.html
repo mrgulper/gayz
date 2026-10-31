@@ -620,10 +620,6 @@ Escape before dawn.</p>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 <span>Map Editor</span>
               </button>
-              <button id="team-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="16" rx="1"/><line x1="5" y1="7" x2="19" y2="7"/><line x1="5" y1="17" x2="19" y2="17"/><line x1="9" y1="7" x2="9" y2="17"/><line x1="12" y1="7" x2="12" y2="17"/><line x1="15" y1="7" x2="15" y2="17"/></svg>
-                <span>Team</span>
-              </button>
             </nav>
             <script>
               // Anti-flash: applies the saved Nav Order immediately, before
@@ -2279,22 +2275,6 @@ Escape before dawn.</p>
         </div>
       </div>
 
-      <!-- Team (2026-10-31, TeamUI.js): caught zombies and animals, the
-           battle team, and the Battle button. -->
-      <div id="team-panel">
-        <div class="panel-box">
-          <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
-          <h2 id="team-panel-title">Team</h2>
-          <p id="team-record" class="menu-best-stats"></p>
-          <h3 id="team-picked-title" class="team-section-title"></h3>
-          <div id="team-slots" class="team-cards"></div>
-          <button type="button" id="team-battle-btn" class="team-battle-btn">Battle!</button>
-          <h3 id="team-caught-title" class="team-section-title"></h3>
-          <p id="team-empty"><span id="team-how"></span></p>
-          <div id="team-grid" class="team-cards"></div>
-        </div>
-      </div>
-
       <div id="terms-panel">
         <div class="panel-box">
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
@@ -2527,7 +2507,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="PlayCatch catchChance Creatures TeamBattle startTeamBattle fetchGhostTeams">
           <h3>Catching &amp; Team Battles</h3>
-          <p>Catch zombies and animals and build a battle team. Every game starts with <span data-feature-value="startTraps">3</span> Catch Traps in the last hotbar slot, and Loot Chests often have one or two more. Hit a zombie or a wild animal until it's weak, hold a Catch Trap and click to throw it: it flies in an arc and snaps shut on the first one it touches. The weaker it is, the better the chance - rarer ones and bosses are harder to catch - and if it breaks free the trap is used up. Caught ones leave the game and go to the Team page (the Team button on the homepage), where you can keep up to <span data-feature-value="maxCreatures">200</span>. Each shows its rarity, health and attack, which come from what it was: a boss zombie or a Legendary dragon is far tougher than a Common cow. Click creatures to put up to <span data-feature-value="teamSize">3</span> on your team, then press Battle!. Your team fights another player's ghost team - a team someone saved by battling - about as strong as yours, or a Wild Team when nobody else's can be found, in a fenced grass arena. You steer your first creature (move keys and click or Space on a computer, the stick and Attack button on phones); the others fight on their own, and when yours falls you take over the next. The last team standing wins, or the one with more health left after <span data-feature-value="teamRoundSeconds">120</span> seconds. A win pays <span data-feature-value="teamWinCoins">30</span> coins and a loss <span data-feature-value="teamLossCoins">5</span>, and the Team page counts your wins and losses. On a server everyone can catch: the trap shakes on the one it hit for a moment while the host's game decides.</p>
+          <p>Catch zombies and animals and build a battle team. Every game starts with <span data-feature-value="startTraps">3</span> Catch Traps in the last hotbar slot, and Loot Chests often have one or two more. Hold a Catch Trap and click to throw it at a zombie or a wild animal - no need to weaken it first: it flies in an arc and snaps shut on the first one it touches. Most are caught straight away, but rarer ones and bosses break free more often, and if one breaks free the trap is used up. Every zombie and animal also shows a health bar above it for a few seconds after it's hurt. Caught ones leave the game and go to the Pets tab in Inventory, where you can keep up to <span data-feature-value="maxCreatures">200</span>. Each shows its rarity, health and attack, which come from what it was: a boss zombie or a Legendary dragon is far tougher than a Common cow. Click creatures to put up to <span data-feature-value="teamSize">3</span> on your team, then press Battle!. Your team fights another player's ghost team - a team someone saved by battling - about as strong as yours, or a Wild Team when nobody else's can be found, in a fenced grass arena. You steer your first creature (move keys and click or Space on a computer, the stick and Attack button on phones); the others fight on their own, and when yours falls you take over the next. The last team standing wins, or the one with more health left after <span data-feature-value="teamRoundSeconds">120</span> seconds. A win pays <span data-feature-value="teamWinCoins">30</span> coins and a loss <span data-feature-value="teamLossCoins">5</span>, and the Pets tab counts your wins and losses. On a server everyone can catch: the trap shakes on the one it hit for a moment while the host's game decides.</p>
         </div>
         <div class="feature" data-code="AREA_TOOLS rotateClipboard _undoGroupDo">
           <h3>Map Editor Building Tools</h3>
@@ -2656,7 +2636,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="INVENTORY_SKINS SKIN_RARITIES InspectViewer">
           <h3>Inventory Skins: Rarities, Inspect &amp; Sell</h3>
-          <p>Everyone starts with two skins, Gaymi (the default) and Alisa (slim arms). Every character skin card shows its rarity (the coloured left edge, on a card in your theme's colour) and how many you own - search them by name or pick a rarity. Click one to Equip it, put it on the Market, Sell it to the game for coins, Lock it, or Inspect it in a big 3D view you can turn and zoom (zooming stops just outside the item). A locked skin shows a lock on its top corner and stays in your inventory: it can't be sold or put on the Market until you Unlock it, and it stays locked even after Reset All Settings. Inventory also has a Crates tab, a Weapons tab with a picture of every gun, and a Pets tab (Coming Soon).</p>
+          <p>Everyone starts with two skins, Gaymi (the default) and Alisa (slim arms). Every character skin card shows its rarity (the coloured left edge, on a card in your theme's colour) and how many you own - search them by name or pick a rarity. Click one to Equip it, put it on the Market, Sell it to the game for coins, Lock it, or Inspect it in a big 3D view you can turn and zoom (zooming stops just outside the item). A locked skin shows a lock on its top corner and stays in your inventory: it can't be sold or put on the Market until you Unlock it, and it stays locked even after Reset All Settings. Inventory also has a Crates tab, a Weapons tab with a picture of every gun, and a Pets tab with the zombies and animals you've caught and your battle team.</p>
         </div>
         <div class="feature" data-code="customSkinDataUrl">
           <h3>Custom Skin Upload</h3>
@@ -2878,7 +2858,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature coming-soon">
           <h3>Pets</h3>
-          <p>A Pets tab in Inventory, after Weapons, and Pets in the Market's item list - pets to collect are coming soon.</p>
+          <p>Pets in the Market's item list - trading the zombies and animals you catch is coming soon.</p>
         </div>
         <div class="feature coming-soon">
           <h3>Weapon Gallery</h3>
@@ -3556,13 +3536,17 @@ Escape before dawn.</p>
             <div id="inventory-weapons-list"></div>
           </div>
           <div class="inventory-tab-page" id="inventory-page-pets" style="display: none">
-            <!-- Pets (2026-10-24): nothing to own yet - a Coming Soon card
-                 until the first pets arrive (GayZ Features > Coming Soon). -->
-            <div id="inventory-pets-soon">
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="6" cy="9.5" rx="2" ry="2.6"/><ellipse cx="10" cy="5.6" rx="2" ry="2.6"/><ellipse cx="14" cy="5.6" rx="2" ry="2.6"/><ellipse cx="18" cy="9.5" rx="2" ry="2.6"/><path d="M12 11c-3 0-6.2 3.6-6.2 6.4 0 2 1.6 2.9 3.3 2.6 1-.2 1.9-.6 2.9-.6s1.9.4 2.9.6c1.7.3 3.3-.6 3.3-2.6 0-2.8-3.2-6.4-6.2-6.4z"/></svg>
-              <p id="inventory-pets-soon-title">Pets</p>
-              <p id="inventory-pets-soon-text">Pets are coming soon.</p>
-              <span class="weapon-soon-tag" id="inventory-pets-soon-tag">Coming Soon</span>
+            <!-- Pets (2026-10-31, TeamUI.js, Gaymi: "move the teams into
+                 inventory"): caught zombies and animals, the battle team
+                 and the Battle button - this was the homepage's Team page. -->
+            <div id="team-page">
+              <p id="team-record" class="menu-best-stats"></p>
+              <h3 id="team-picked-title" class="team-section-title"></h3>
+              <div id="team-slots" class="team-cards"></div>
+              <button type="button" id="team-battle-btn" class="team-battle-btn">Battle!</button>
+              <h3 id="team-caught-title" class="team-section-title"></h3>
+              <p id="team-empty"><span id="team-how"></span></p>
+              <div id="team-grid" class="team-cards"></div>
             </div>
           </div>
         </div>

@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test'
 import { gotoAndWaitForGame } from './helpers.js'
 
-// Catching zombies and animals with Catch Traps, the Team page and team
-// battles (2026-10-31, PlayCatch.js / Creatures.js / TeamUI.js / TeamBattle.js).
+// Catching zombies and animals with Catch Traps, the Team page (Inventory >
+// Pets) and team battles (2026-10-31, PlayCatch.js / Creatures.js / TeamUI.js
+// / TeamBattle.js), and health bars over mobs (MobHealthBars.js).
 
-test('Catch Traps catch a weakened animal and zombie; a healthy one breaks free', async ({ page }) => {
+test('Catch Traps catch an animal and zombie at full health; an unlucky throw breaks free', async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 900 })
   await gotoAndWaitForGame(page)
   await page.evaluate(() => localStorage.removeItem('gayz-creatures'))
@@ -39,27 +40,27 @@ test('Catch Traps catch a weakened animal and zombie; a healthy one breaks free'
       for (let i = 0; i < 60 && s.catcher.list.some((tr) => !tr.shake); i++) s.catcher.update(1 / 60)
       return used
     }
-    // A cow at full health: breaks free (and the trap is used up).
+    // Unlucky: it breaks free (and the trap is used up).
     const cow = s.animals.spawn('cow', ax, s._groundUnder(ax, tp.y + 2, az), az)
     cow.group.updateMatrixWorld()
     Math.random = () => 0.99
     out.thrown1 = throwAt()
     out.cowStillHere = s.animals.list.includes(cow)
     out.trapsLeft1 = inv.hotbar[last]?.n
-    // Nearly dead: caught.
+    // Still at full health: caught anyway.
     cow.x = ax
     cow.z = az
-    cow.health = 1
+    out.cowFull = cow.health === window.__game.buildMode.survival.animals.constructor.KINDS.cow.health
     cow.flee = 0
     cow.group.position.set(ax * B, cow.y * B, az * B)
     cow.group.updateMatrixWorld()
     Math.random = () => 0.01
     out.thrown2 = throwAt()
     out.cowGone = !s.animals.list.includes(cow)
-    // A zombie, weakened.
+    // A zombie at full health.
     const z = s._makeZombie(++s._zid, ax, cow.y, az, 100, false)
     if (!s.zombies.includes(z)) s.zombies.push(z)
-    z.health = 5
+    out.zombieFull = z.health === z.maxHealth
     out.thrown3 = throwAt()
     out.zombieGone = !s.zombies.includes(z)
     Math.random = rand
@@ -75,14 +76,59 @@ test('Catch Traps catch a weakened animal and zombie; a healthy one breaks free'
     thrown1: true,
     cowStillHere: true,
     trapsLeft1: 2,
+    cowFull: true,
     thrown2: true,
     cowGone: true,
     thrown3: true,
+    zombieFull: true,
     zombieGone: true,
     slotAfter: null,
     saved: ['a:cow', 'z:'],
     team: 2,
   })
+})
+
+test('a hurt zombie or animal shows a health bar for a few seconds; rarer ones are harder to catch', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
+  const r = await page.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const tp = window.__game.buildMode.tryMode.pos
+    s.animals.clear()
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    const z = s._makeZombie(++s._zid, tp.x + 4, tp.y, tp.z, 100, false)
+    if (!s.zombies.includes(z)) s.zombies.push(z)
+    const cow = s.animals.spawn('cow', tp.x - 4, s._groundUnder(tp.x - 4, tp.y + 2, tp.z), tp.z)
+    const out = {}
+    s.hpBars.update(1 / 60)
+    out.before = !!z._hpBar || !!cow._hpBar
+    z.health = z.maxHealth * 0.4
+    s.animals.damage(cow, 5)
+    s.hpBars.update(1 / 60)
+    out.zombieBar = !!z._hpBar && z._hpBar.sprite.parent === z.group
+    out.cowBar = !!cow._hpBar && cow._hpBar.sprite.parent === cow.group
+    // 40% left: the yellow part is 40% of the bar.
+    out.zombieFill = z._hpBar.px
+    for (let i = 0; i < 40; i++) s.hpBars.update(0.1)
+    out.after = !!z._hpBar || !!cow._hpBar
+    // The same middling luck catches a Common one but not a Legendary one.
+    const rand = Math.random
+    Math.random = () => 0.5
+    const legend = s._makeZombie(++s._zid, tp.x + 4, tp.y, tp.z + 3, 100, false)
+    if (!s.zombies.includes(legend)) s.zombies.push(legend)
+    legend.tier = 'legendary'
+    out.legendCaught = s.catcher._rollZombie(legend)
+    z.tier = 'common'
+    out.commonCaught = s.catcher._rollZombie(z)
+    Math.random = rand
+    return out
+  })
+  expect(r).toEqual({ before: false, zombieBar: true, cowBar: true, zombieFill: 24, after: false, legendCaught: false, commonCaught: true })
 })
 
 test('Team page lists catches, picks the team, and a battle plays to a win or loss', async ({ page }) => {
@@ -106,18 +152,21 @@ test('Team page lists catches, picks the team, and a battle plays to a win or lo
       nextId: 6,
     }))
   })
-  await page.click('#team-btn')
+  // No Team button on the homepage any more: it's Inventory > Pets.
+  expect(await page.locator('#team-btn').count()).toBe(0)
+  await page.click('#menu-inventory-btn')
+  await page.click('#inventory-tab-pets')
   const panel = await page.evaluate(() => {
     const cards = (sel) => [...document.querySelectorAll(`${sel} .team-card[data-id]`)].map((c) => Number(c.dataset.id))
     return {
-      open: getComputedStyle(document.getElementById('team-panel')).display,
+      open: getComputedStyle(document.getElementById('inventory-page-pets')).display,
       slots: cards('#team-slots'),
       empties: document.querySelectorAll('#team-slots .team-card.empty').length,
       grid: cards('#team-grid'),
       emptyNoteHidden: document.getElementById('team-empty').style.display === 'none',
     }
   })
-  expect(panel).toEqual({ open: 'flex', slots: [1, 2], empties: 1, grid: [4, 3, 2, 1], emptyNoteHidden: true })
+  expect(panel).toEqual({ open: 'block', slots: [1, 2], empties: 8, grid: [4, 3, 2, 1], emptyNoteHidden: true })
   // Clicking a caught one adds it; clicking a team one takes it off.
   await page.click('#team-grid .team-card[data-id="3"]')
   await page.click('#team-grid .team-card[data-id="1"]')

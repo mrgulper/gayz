@@ -397,7 +397,7 @@ service cloud.firestore {
       allow create, update: if request.auth != null && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['nickname', 'team', 'power', 'wins', 'updatedAt'])
         && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 24
-        && request.resource.data.team is list && request.resource.data.team.size() > 0 && request.resource.data.team.size() <= 3
+        && request.resource.data.team is list && request.resource.data.team.size() > 0 && request.resource.data.team.size() <= 10
         && request.resource.data.power is int && request.resource.data.power >= 0 && request.resource.data.power <= 100000
         && request.resource.data.wins is int && request.resource.data.wins >= 0
         && request.resource.data.updatedAt is int;

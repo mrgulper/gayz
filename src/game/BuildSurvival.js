@@ -32,6 +32,7 @@ import { PlayInventory, ARMOR_SLOTS, itemName } from './PlayInventory.js'
 import { PlayDrops } from './PlayDrops.js'
 import { PlayThrow } from './PlayThrow.js'
 import { PlayCatch } from './PlayCatch.js'
+import { MobHealthBars } from './MobHealthBars.js'
 import { PlayAnimals } from './PlayAnimals.js'
 import { worldSeed, isEarthWorld } from './OpenWorld.js'
 import { loadEarthTerrain } from './EarthTerrain.js'
@@ -362,6 +363,8 @@ export class BuildSurvival {
     this.throws.clear()
     if (!this.catcher) this.catcher = new PlayCatch(this)
     this.catcher.clear()
+    if (!this.hpBars) this.hpBars = new MobHealthBars(this)
+    this.hpBars.clear()
     if (!this.animals) this.animals = new PlayAnimals(this)
     this.animals.clear()
     this._fires = new Map()
@@ -470,6 +473,7 @@ export class BuildSurvival {
     this._fx?.clear()
     this.throws?.clear()
     this.catcher?.clear()
+    this.hpBars?.clear()
     this.animals?.clear()
     this._fires?.clear()
     this.bm.spectate?.exit()
@@ -2624,6 +2628,7 @@ export class BuildSurvival {
     this._updateOwnBubble(Math.min(dt, 0.1))
     this.throws?.update(Math.min(dt, 0.1))
     this.catcher?.update(Math.min(dt, 0.1))
+    this.hpBars?.update(Math.min(dt, 0.1))
     // On a server the world goes on while you're dead or in the menu.
     const net = this.net && !this.net.closed ? this.net : null
     if (net) net.update(Math.min(dt, 0.25))
