@@ -1880,6 +1880,31 @@ export class BuildSpecials {
     return speed
   }
 
+  // A shot hit a block (BuildSurvival.shoot): an Explosive Barrel goes
+  // off. -> true if it did.
+  shootBlock(x, y, z) {
+    const e = this.entryAt(x, y, z)
+    if (e?.def.fx.kind !== 'barrel') return false
+    this._blowBarrel(e)
+    return true
+  }
+
+  // The barrel breaks, the blast hurts zombies (and you, less the further
+  // away), and barrels in the blast go off too.
+  _blowBarrel(e) {
+    const fx = e.def.fx
+    const play = this.bm.survival
+    this.bm.tryMode.breakBlock(e.x, e.y, e.z)
+    play?._recordEdit?.(e.x, e.y, e.z, '')
+    this._explode(e, fx)
+    const me = this.bm.tryMode.pos
+    const d = dist3(me, e.x + 0.5, e.y, e.z + 0.5)
+    if (play?.active && !play.dead && d < fx.blast) play._hurtPlayer(fx.pdmg * (1 - d / fx.blast))
+    for (const o of [...this.kind('barrel')]) {
+      if (this._at.get(o.key) === o && dist3({ x: o.x + 0.5, y: o.y, z: o.z + 0.5 }, e.x + 0.5, e.y, e.z + 0.5) < fx.blast) this._blowBarrel(o)
+    }
+  }
+
   // A mine going off: every zombie within fx.blast blocks takes fx.dmg.
   _explode(e, fx) {
     const s = this.bm.survival

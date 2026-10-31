@@ -1865,6 +1865,7 @@ export default {
   buildPlayTime: "Time {t}",
   buildPlayBossComing: "A boss is coming!",
   buildPlayScreamerCalled: "A screamer called the horde!",
+  buildPlayTrapSupplies: "Trap supplies: {n} × {name}",
   buildPlayBossDown: "Boss down! +{n} coins",
   buildPlayAssist: "+Assist! +{n} coins",
   buildPlayOverWinTitle: "You held the city!",

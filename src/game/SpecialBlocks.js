@@ -945,6 +945,16 @@ export const SPECIAL_BLOCKS = [
     look: { base: 'glow', color: 0x4a4a6a, glyph: 'eye', glyphColor: 0xc0c8ff },
     fx: { kind: 'invisible', time: 10, cd: 30 },
   },
+  // ---- Batch 16: zombie traps (2026-10-31, Gaymi's "traps: spike
+  // floors, bait that pulls zombies in, explosive barrels" idea - spikes
+  // and bait were already here; Zombie Survival now hands out traps,
+  // BuildSurvival TRAP_SUPPLIES) ----
+  {
+    ...D, id: 'explosivebarrel', name: 'Explosive Barrel', color: 0xc0392b,
+    desc: 'Shoot it to blow it up: 120 damage to every zombie within 4 blocks (and it hurts you too if you\'re close). Barrels next to it go off as well.',
+    look: { base: 'metal', color: 0xb03a2a, glyph: 'flame', glyphColor: 0xf2d24a },
+    fx: { kind: 'barrel', blast: 4, dmg: 120, pdmg: 40 },
+  },
 ]
 
 export const SPECIAL_BY_ID = new Map(SPECIAL_BLOCKS.map((b) => [b.id, b]))

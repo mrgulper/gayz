@@ -1810,6 +1810,7 @@ export default {
   buildPlayTime: "Tiempo {t}",
   buildPlayBossComing: "¡Viene un jefe!",
   buildPlayScreamerCalled: "¡Un chillón llamó a la horda!",
+  buildPlayTrapSupplies: "Suministros de trampas: {n} × {name}",
   buildPlayBossDown: "¡Jefe abatido! +{n} monedas",
   buildPlayAssist: "+¡Asistencia! +{n} monedas",
   buildPlayOverWinTitle: "¡Aguantaste la ciudad!",
