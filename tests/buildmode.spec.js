@@ -3183,6 +3183,50 @@ test('zombie tricks: screamer calls, lurker hides and pounces, slime slows', asy
   expect(r.dried).toEqual({ puddles: 0, slow: 1 })
 })
 
+// 2026-10-31: traps - a shot Explosive Barrel blows up (and sets off the
+// one next to it), and cleared waves hand out traps.
+test('traps: explosive barrels chain, waves hand out traps', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 30, 'zombiespawner')
+    bm.placeBlock(0, 1, 10, 'explosivebarrel')
+    bm.placeBlock(2, 1, 10, 'explosivebarrel')
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    if (s._picking) s._pickWeapon('rifle')
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    s._toSpawn = 0
+    s.health = 100
+    const zb = s._makeZombie(960, 0.5, 1, 12.5, 500, false, null)
+    const out = {}
+    out.notBarrel = bm.specials.shootBlock(5, 1, 5)
+    out.blew = bm.specials.shootBlock(0, 1, 10)
+    out.zombieHurt = zb.health < 500
+    out.bothGone = !bm.getBlockAt(0, 1, 10) && !bm.getBlockAt(2, 1, 10)
+    out.meFine = s.health === 100
+    const before = JSON.stringify(s.inv.hotbar) + JSON.stringify(s.inv.grid)
+    out.msg = s._trapSupplies()
+    out.gotTrap = JSON.stringify(s.inv.hotbar) + JSON.stringify(s.inv.grid) !== before
+    s.stop()
+    g._exitBuildMode()
+    out.barrelBack = bm.getBlockAt(0, 1, 10) === 'explosivebarrel'
+    return out
+  })
+  expect(r.notBarrel).toBe(false)
+  expect(r.blew).toBe(true)
+  expect(r.zombieHurt).toBe(true)
+  expect(r.bothGone).toBe(true)
+  expect(r.meFine).toBe(true)
+  expect(r.gotTrap).toBe(true)
+  expect(r.msg).toMatch(/Trap supplies: \d+ × /)
+})
+
 // 2026-10-26: grass 100 blocks out (since 2026-10-30: as far as the land
 // is drawn, growing over time), crack on every face (on the lumps
 // too), puffy leaves, falling leaves and half-chance leaf drops, a

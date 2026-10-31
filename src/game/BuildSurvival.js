@@ -135,6 +135,11 @@ const DESPAWN_DIST = 96
 // Placing blocks from the inventory: how far, and what chests can give.
 const PLACE_REACH = 6
 const CHEST_BLOCKS = ['cobblestone', 'oakplanks', 'oaklog', 'glass', 'stonebricks', 'dirt']
+// Traps (2026-10-31, Gaymi's "traps ... mix well with waves"): every
+// cleared wave hands you one of these ([block, how many] - SpecialBlocks.js),
+// and a loot chest has a TRAP_CHEST_CHANCE of one too.
+const TRAP_SUPPLIES = [['spikeblock', 4], ['baitblock', 1], ['landmine', 2], ['beartrap', 2], ['explosivebarrel', 3]]
+const TRAP_CHEST_CHANCE = 0.35
 // Skeletons (2026-10-16, real animated 3D models - SkeletonModels.js) join
 // the waves from SKELETON_FROM_WAVE with SKELETON_CHANCE per spawn
 // (PlayRules.js; never a boss). They rise out of the ground (can't move or hit for
@@ -1121,7 +1126,10 @@ export class BuildSurvival {
         if (d < radius) add(z, damage * 0.8 * (1 - d / radius))
       }
     }
-    // No zombie hit: maybe an animal (PlayAnimals.js).
+    // No zombie hit: an Explosive Barrel in the way goes off
+    // (BuildSpecials.shootBlock)...
+    if (!hits.size && wall?.existingBlock && wall.t <= reach && bm.specials.shootBlock(...wall.existingBlock)) return true
+    // ...or maybe an animal (PlayAnimals.js).
     if (!hits.size) return !!this.animals?.hitRay(center, reach, damage, this.weaponId)
     if (w.slow && impact) this._fx?.voidHit(impact)
     for (const [z, amount] of hits) {
@@ -1381,6 +1389,15 @@ export class BuildSurvival {
     }
   }
 
+  // A cleared wave's trap (TRAP_SUPPLIES) into my inventory. -> the
+  // message saying what it was.
+  _trapSupplies() {
+    const [id, n] = TRAP_SUPPLIES[Math.floor(Math.random() * TRAP_SUPPLIES.length)]
+    // add() hands back what didn't fit.
+    const got = n - this.inv.add({ kind: 'block', id, n })
+    return got > 0 ? t('buildPlayTrapSupplies', { n: got, name: this.bm.blockName(id) }) : t('invFull')
+  }
+
   // A kill of mine: stats, coins, the streak, achievements.
   // tier: its rarity (ZombieNames.js) - rarer ones pay more coins.
   // shine: a Golden or Diamond one pays ZOMBIE_SHINES coins times that.
@@ -1464,6 +1481,10 @@ export class BuildSurvival {
     if (Math.random() < 0.4) give({ kind: 'item', id: 'ammobox', n: 1 })
     if (Math.random() < 0.25) give({ kind: 'item', id: ARMOR_SLOTS[Math.floor(Math.random() * ARMOR_SLOTS.length)], n: 1 })
     if (Math.random() < 0.3) give({ kind: 'block', id: CHEST_BLOCKS[Math.floor(Math.random() * CHEST_BLOCKS.length)], n: 8 + Math.floor(Math.random() * 9) })
+    if (Math.random() < TRAP_CHEST_CHANCE) {
+      const [id, n] = TRAP_SUPPLIES[Math.floor(Math.random() * TRAP_SUPPLIES.length)]
+      give({ kind: 'block', id, n })
+    }
     if (got.length) setTimeout(() => this.active && this._message(t('invChestItems', { items: got.join(', ') })), 1800)
     this._renderHud()
     return true
@@ -2705,7 +2726,9 @@ export class BuildSurvival {
           }
           // Zombie Extraction: the helicopter comes after enough waves.
           if (this.cfg.mode === 'zombieExtraction' && this.wave >= EXTRACTION_WAVES && !this._extract) this._placeExtraction()
-          if (!rush) this._message(t('buildPlayWaveClear', { n: this.wave, s: WAVE_BREAK }))
+          const traps = this._trapSupplies()
+          if (!rush) this._message(`${t('buildPlayWaveClear', { n: this.wave, s: WAVE_BREAK })} ${traps}`, 4)
+          else this._message(traps)
         }
       }
     }
@@ -2934,7 +2957,10 @@ export class BuildSurvival {
     }
     if (wave !== this.wave) {
       // The waves I've lived through pay like my own.
-      if (wave > this.wave && this.wave > 0) this._earn(COIN_PER_WAVE)
+      if (wave > this.wave && this.wave > 0) {
+        this._earn(COIN_PER_WAVE)
+        this._message(this._trapSupplies())
+      }
       if (wave > 0) this._startWave(wave)
       this._toSpawn = 0
     }

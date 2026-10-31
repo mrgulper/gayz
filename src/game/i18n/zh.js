@@ -1813,6 +1813,7 @@ export default {
   buildPlayTime: "时间 {t}",
   buildPlayBossComing: "首领来了！",
   buildPlayScreamerCalled: "尖叫者召来了尸群！",
+  buildPlayTrapSupplies: "陷阱补给：{n} × {name}",
   buildPlayBossDown: "首领倒下了！+{n} 金币",
   buildPlayAssist: "+助攻！+{n} 金币",
   buildPlayOverWinTitle: "你守住了这座城！",
