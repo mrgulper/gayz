@@ -31,6 +31,7 @@ import { CITIES, TOWN_R, TOWN_SPAWN, townStyleAt } from './Towns.js'
 import { PlayInventory, ARMOR_SLOTS, itemName } from './PlayInventory.js'
 import { PlayDrops } from './PlayDrops.js'
 import { PlayThrow } from './PlayThrow.js'
+import { PlayCatch } from './PlayCatch.js'
 import { PlayAnimals } from './PlayAnimals.js'
 import { worldSeed, isEarthWorld } from './OpenWorld.js'
 import { loadEarthTerrain } from './EarthTerrain.js'
@@ -51,6 +52,8 @@ import { SHOOT_THROUGH } from './SpecialBlocks.js'
 import { openLobby } from './ServerBrowser.js'
 
 export const CHEST_LOOT = { ammo: 60, health: 35 }
+// How often a Loot Chest has a Catch Trap or two (PlayCatch.js).
+const CATCH_TRAP_CHANCE = 0.35
 // A zombie's name tag: blocks wide up close, then the same size on screen
 // past ZOMBIE_TAG_NEAR blocks.
 const ZOMBIE_TAG_SIZE = 1.5
@@ -357,6 +360,8 @@ export class BuildSurvival {
     this.events.reset()
     if (!this.throws) this.throws = new PlayThrow(this)
     this.throws.clear()
+    if (!this.catcher) this.catcher = new PlayCatch(this)
+    this.catcher.clear()
     if (!this.animals) this.animals = new PlayAnimals(this)
     this.animals.clear()
     this._fires = new Map()
@@ -464,6 +469,7 @@ export class BuildSurvival {
     this.kart?.dispose()
     this._fx?.clear()
     this.throws?.clear()
+    this.catcher?.clear()
     this.animals?.clear()
     this._fires?.clear()
     this.bm.spectate?.exit()
@@ -1500,6 +1506,7 @@ export class BuildSurvival {
     }
     if (Math.random() < 0.6) give({ kind: 'item', id: 'healthpack', n: 1 })
     if (Math.random() < 0.4) give({ kind: 'item', id: 'ammobox', n: 1 })
+    if (Math.random() < CATCH_TRAP_CHANCE) give({ kind: 'item', id: 'catchTrap', n: 1 + Math.floor(Math.random() * 2) })
     if (Math.random() < 0.25) give({ kind: 'item', id: ARMOR_SLOTS[Math.floor(Math.random() * ARMOR_SLOTS.length)], n: 1 })
     if (Math.random() < 0.3) give({ kind: 'block', id: CHEST_BLOCKS[Math.floor(Math.random() * CHEST_BLOCKS.length)], n: 8 + Math.floor(Math.random() * 9) })
     if (Math.random() < TRAP_CHEST_CHANCE) {
@@ -2616,6 +2623,7 @@ export class BuildSurvival {
     this.damageNumbers?.update(Math.min(dt, 0.1))
     this._updateOwnBubble(Math.min(dt, 0.1))
     this.throws?.update(Math.min(dt, 0.1))
+    this.catcher?.update(Math.min(dt, 0.1))
     // On a server the world goes on while you're dead or in the menu.
     const net = this.net && !this.net.closed ? this.net : null
     if (net) net.update(Math.min(dt, 0.25))

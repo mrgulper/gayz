@@ -388,6 +388,22 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Ghost teams (2026-10-31, Creatures.js / TeamUI.js): each account's
+    // battle team, saved when it starts a battle, for other players to
+    // fight. Anyone reads them; only you write your own. The creatures in
+    // it are checked again by whoever reads it (Creatures.unpackTeam).
+    match /ghostTeams/{uid} {
+      allow read: if true;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['nickname', 'team', 'power', 'wins', 'updatedAt'])
+        && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 24
+        && request.resource.data.team is list && request.resource.data.team.size() > 0 && request.resource.data.team.size() <= 3
+        && request.resource.data.power is int && request.resource.data.power >= 0 && request.resource.data.power <= 100000
+        && request.resource.data.wins is int && request.resource.data.wins >= 0
+        && request.resource.data.updatedAt is int;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
     // Build Together rooms (2026-10-04): the host's map when the room
     // opened, then every change anyone in it makes (as small edit docs, a
     // JSON string of block changes), and where each builder is.
@@ -1328,6 +1344,20 @@ export async function deleteSharedMap(code) {
 export async function reportSharedMap(code, uid) {
   const { db, fsMod } = await ensureApp()
   await fsMod.setDoc(fsMod.doc(db, 'sharedMaps', code, 'reports', uid), { reportedAt: Date.now() })
+}
+
+// Ghost teams (2026-10-31, see the ghostTeams rules above).
+export async function saveGhostTeam(uid, entry) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'ghostTeams', uid), { ...entry, updatedAt: Date.now() })
+}
+
+// The most recently saved teams (mine left out).
+export async function fetchGhostTeams(myUid, n = 30) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'ghostTeams'), fsMod.orderBy('updatedAt', 'desc'), fsMod.limit(n))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.filter((d) => d.id !== myUid).map((d) => ({ ...d.data(), uid: d.id }))
 }
 
 // Build Together rooms (2026-10-04, see the buildRooms rules above).

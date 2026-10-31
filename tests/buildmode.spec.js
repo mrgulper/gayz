@@ -2203,7 +2203,8 @@ test('inventory, editor block storage, city towns and lost zombies', async ({ pa
     const bm = window.__game.buildMode
     const s = bm.survival
     const inv = s.inv
-    // Starting kit: just the picked gun in slot 1 (no other guns, no health pack).
+    // Starting kit: just the picked gun in slot 1 (no other guns, no health
+    // pack), and the Catch Traps in the last slot (PlayCatch.js).
     out.kit = [inv.hotbar[0]?.id, inv.grid.filter(Boolean).length + inv.hotbar.filter(Boolean).length]
     // Tab opens the inventory panel with 100 + 10 + 5 slots.
     bm.togglePicker()
@@ -2255,7 +2256,7 @@ test('inventory, editor block storage, city towns and lost zombies', async ({ pa
     out.lost = [s.kills === kills, s._toSpawn === left, !s.zombies.includes(z)]
     return out
   }, first)
-  expect(r).toEqual({ town: true, townPlan: true, kit: ['rifle', 1], panel: [100, 10, 5], dropped: true, pickedUp: true, holding: 'oakplanks', placed: true, wrongSlot: true, cut: 0.16, restored: 'chestplate', lost: [true, true, true] })
+  expect(r).toEqual({ town: true, townPlan: true, kit: ['rifle', 2], panel: [100, 10, 5], dropped: true, pickedUp: true, holding: 'oakplanks', placed: true, wrongSlot: true, cut: 0.16, restored: 'chestplate', lost: [true, true, true] })
 })
 
 // 2026-10-18 (third batch): World Map is its own game mode - the land
