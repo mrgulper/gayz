@@ -4377,11 +4377,6 @@ test('first game, hit feedback, sun kills, next unlock, auto graphics', async ({
     lowered: 'simple', pickedStays: 'simple', hintGone: true,
   })
   expect(r.unlock).toMatch(/Propeller Cap/)
-  // The homepage daily card.
-  const home = await page.evaluate(() => {
-    const el = document.getElementById('home-daily')
-    return { shown: !el.classList.contains('pending') && getComputedStyle(el).visibility === 'visible', text: el.textContent }
-  })
-  expect(home.shown).toBe(true)
-  expect(home.text).toMatch(/Daily Challenge/i)
+  // The daily challenge is in the Quests, no longer a card on the homepage.
+  expect(await page.evaluate(() => document.getElementById('home-daily'))).toBeNull()
 })

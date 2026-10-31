@@ -786,7 +786,7 @@ test('Inventory: Lock keeps a skin from being sold or listed', async ({ page }) 
 
 // 2026-10-31: homepage extras (HomeExtras.js) - corner cards or one Today
 // panel (Settings > General > Homepage), Continue / New here? tags on
-// Play, a tap on your character plays an emote, holiday decorations.
+// Play, a tap on your character plays an emote, December snow.
 test('homepage extras: cards, Today panel, Play tags, emote', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 })
   await gotoAndWaitForGame(page)
@@ -808,7 +808,7 @@ test('homepage extras: cards, Today panel, Play tags, emote', async ({ page }) =
     const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
     const visibleCards = [...document.querySelectorAll('.home-extras > *')].filter((c) => c.getClientRects().length)
     out.cards = visibleCards.length
-    out.overlaps = visibleCards.filter((c) => ['#menu-nav-buttons', '#setup-avatar-wrap', '#menu-links-row', '#home-daily', '#play-btn'].some((s) => document.querySelector(s) && hit(c.getBoundingClientRect(), box(s)))).length
+    out.overlaps = visibleCards.filter((c) => ['#menu-nav-buttons', '#setup-avatar-wrap', '#menu-links-row', '#play-btn'].some((s) => document.querySelector(s) && hit(c.getBoundingClientRect(), box(s)))).length
     // The Today panel layout.
     g.homeExtrasLayoutSelect.value = 'panel'
     g.homeExtrasLayoutSelect.dispatchEvent(new Event('change'))
@@ -841,10 +841,10 @@ test('homepage extras: cards, Today panel, Play tags, emote', async ({ page }) =
     out.holiday = document.documentElement.dataset.holiday
     return out
   })
-  expect(r.left).toMatch(/Level 2/)
+  expect(r.left).not.toMatch(/Level/)
   expect(r.left).toMatch(/Wave 7 · 43 kills/)
   expect(r.left).toMatch(/Best: Wave 12/)
-  expect(r.right).toMatch(/login streak|streak/i)
+  expect(r.right).not.toMatch(/streak/i)
   expect(r.right).toMatch(/Invite a friend/)
   expect(r.escaped).toBe(true)
   expect(r.cards).toBeGreaterThan(2)
@@ -852,12 +852,12 @@ test('homepage extras: cards, Today panel, Play tags, emote', async ({ page }) =
   expect(r.panelCorner).toMatch(/Today/)
   expect(r.leftEmpty).toBe(0)
   expect(r.panelOpen).toBe('flex')
-  expect(r.panelCards).toBe(6)
+  expect(r.panelCards).toBe(4)
   expect(r.panelClosed).toBe('none')
   expect(r.newHere).toEqual([true, false])
   expect(r.cont).toEqual([false, true, '▶ Continue Wave 6 · Hard'])
   expect(r.emote).toBe(true)
   expect(r.armMoved).toBe(true)
   const d = new Date()
-  expect(r.holiday).toBe(d.getMonth() === 9 && d.getDate() >= 20 ? 'halloween' : d.getMonth() === 11 ? 'winter' : '')
+  expect(r.holiday).toBe(d.getMonth() === 11 ? 'winter' : '')
 })
