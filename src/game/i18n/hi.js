@@ -1825,6 +1825,8 @@ export default {
   buildPlaySurvivorQuestProgress: "बचाए गए इंसान का काम: {n}/{m}",
   buildPlaySurvivorQuestDone: "काम पूरा! +{n} सिक्के।",
   buildPlaySurvivorQuestFailed: "समय खत्म - काम पूरा नहीं हुआ।",
+  buildPlayKartHint: "एक गो-कार्ट! उसके पास {key:use} दबाकर उसमें बैठो।",
+  buildPlayKartIn: "आगे-पीछे चलाने के लिए, बाएँ-दाएँ मोड़ने के लिए - उन्हें कुचल दो! उतरने के लिए {key:use} दबाओ।",
   buildPlayBossDown: "बॉस ढेर! +{n} सिक्के",
   buildPlayAssist: "+असिस्ट! +{n} सिक्के",
   buildPlayOverWinTitle: "तुमने शहर बचा लिया!",

@@ -2370,6 +2370,8 @@ export class BuildMode {
   // Trying the map: right-click or E opens/closes the door you're looking
   // at, within arm's reach - and never swings one shut onto yourself.
   _tryUseFromCamera() {
+    // Hop in or out of the go-kart (GoKart.js).
+    if (this.survival?.active && this.survival.kart?.use()) return true
     // Playing on Map 3: talk to the camp NPC you're looking at.
     if (this.survival?.camp?.use()) return true
     // Tame the animal you're looking at (PlayAnimals.js).

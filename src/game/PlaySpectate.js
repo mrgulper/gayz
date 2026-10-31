@@ -79,6 +79,8 @@ export class PlaySpectate {
     if (photo) this._showPhotoUi(true)
     this._watch = -1
     this._vel.set(0, 0, 0)
+    // Out of the go-kart first (you leave your body behind).
+    s.kart?.leave()
     this._saved = { pos: bm.camera.position.clone(), yaw: bm._yaw, pitch: bm._pitch }
     s.spectating = true
     this._savedPos = bm.tryMode.pos.clone()
