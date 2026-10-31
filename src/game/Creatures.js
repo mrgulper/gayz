@@ -127,6 +127,36 @@ export function stats(c) {
   }
 }
 
+// Special powers (2026-10-31, Gaymi: battles fight by themselves, with
+// "special powers"). Every creature has one, from what it is - so a
+// balance change reaches creatures already caught, like stats(). What
+// each does is in TeamBattle.js; names and descriptions are i18n
+// teamPower<Id> / teamPowerInfo<Id>.
+export const POWERS = ['horde', 'bones', 'rage', 'stomp', 'pounce', 'roar', 'hide', 'heal']
+export function powerOf(c) {
+  if (c.t === 'a') {
+    const k = KINDS()[c.k]
+    if (k.dino) return 'roar'
+    if (k.hunts) return 'pounce'
+    if (Math.max(k.body[0], k.body[2]) > 2.2 || k.health >= 40) return 'hide'
+    return 'heal'
+  }
+  if (c.b) return 'stomp'
+  if (SKELETON_KINDS[c.k]) return 'bones'
+  if (MONSTER_KINDS[c.k]) return 'rage'
+  return 'horde'
+}
+
+export function powerName(c) {
+  const id = powerOf(c)
+  return t(`teamPower${id[0].toUpperCase()}${id.slice(1)}`)
+}
+
+export function powerInfo(c) {
+  const id = powerOf(c)
+  return t(`teamPowerInfo${id[0].toUpperCase()}${id.slice(1)}`)
+}
+
 // How strong a whole team is (for matching ghost teams fairly).
 export function power(team) {
   return Math.round(team.reduce((sum, c) => {

@@ -3,12 +3,14 @@
 // (`survival.kart`): every Zombie Survival run parks one a few blocks
 // from where you start.
 //
-// - Walk up to it (within ENTER_REACH blocks) and press Use (the phone's
-//   use button) to hop in; press it again to hop out beside it.
+// - Walk up to it (within ENTER_REACH blocks) and right-click it, or press
+//   Use (the phone's use button), to hop in; Use again hops out beside it
+//   (2026-10-31, Gaymi: "as long you right click it you will ride it").
 // - Forward / back (or the phone's stick up and down) drive and reverse,
 //   left / right (stick sideways) steer. You can still look round and
-//   shoot while driving. It climbs one-block steps, falls off ledges and
-//   bounces off walls.
+//   shoot while driving. It drives up one-block steps (hills and
+//   mountains too) - the model and your view glide up instead of
+//   jumping - falls off ledges and bounces off walls.
 // - Hitting a zombie at speed (over RAM_MIN blocks a second) hurts it -
 //   at top speed about a regular zombie's whole health this wave
 //   (BuildSurvival.ramDamage) - and flings it; the kart loses a bit of
@@ -31,6 +33,7 @@ const COAST = 5
 const TURN = 2.4
 const GRAVITY = 30
 const STEP = 1.05
+const LIFT_GLIDE = 12 // how fast the model catches up after climbing a step
 const BODY_R = 0.75
 const RAM_REACH = 1.4
 const RAM_MIN = 3
@@ -83,6 +86,17 @@ export class GoKart {
     return null
   }
 
+  // The highest ground under the kart's middle and its four edges.
+  _groundAt(x, from, z) {
+    let top = -Infinity
+    for (const [dx, dz] of [[0, 0], [BODY_R, 0], [-BODY_R, 0], [0, BODY_R], [0, -BODY_R]]) {
+      const g = this.s._groundUnder(x + dx, from, z + dz)
+      // An edge over a bottomless drop doesn't count (the middle always does).
+      if (g !== from || (!dx && !dz)) top = Math.max(top, g)
+    }
+    return top
+  }
+
   // Something solid where the kart's body would be.
   _blocked(x, y, z) {
     const cy = Math.floor(y + 0.01)
@@ -92,6 +106,19 @@ export class GoKart {
       if (this.s._solid(cx, cy, cz) || this.s._solid(cx, cy + 1, cz)) return true
     }
     return false
+  }
+
+  // Right-clicking (BuildMode's mouse-down): hop in if you're looking at
+  // it from close enough.
+  rightClick() {
+    if (!this.group || this.driving || this.s.dead || this.s.spectating) return false
+    const me = this.s.bm.tryMode.pos
+    if (Math.hypot(me.x - this.x, me.z - this.z) > ENTER_REACH + 0.5 || Math.abs(me.y - this.y) > 2) return false
+    const cam = this.s.bm.camera
+    const look = cam.getWorldDirection(new THREE.Vector3())
+    const to = new THREE.Vector3(this.x * this.B, (this.y + 0.4) * this.B, this.z * this.B).sub(cam.position).normalize()
+    if (look.dot(to) < 0.8) return false
+    return this.use()
   }
 
   // The Use key (BuildMode._tryUseFromCamera): hop in or out.
@@ -166,8 +193,11 @@ export class GoKart {
     this.heading += steer * TURN * dt * THREE.MathUtils.clamp(this.speed / 6, -1, 1)
     const nx = this.x + Math.sin(this.heading) * this.speed * dt
     const nz = this.z + Math.cos(this.heading) * this.speed * dt
-    // Up a step of a block at most; a taller wall bounces it back.
-    const ground = this.s._groundUnder(nx, this.y + STEP + 0.05, nz)
+    // Up a step of a block at most; a taller wall bounces it back. The
+    // ground is the highest under its middle or edges, so the nose reaching
+    // a step lifts it (it used to only climb once its middle got there,
+    // and the nose hit the step first, so it bounced instead).
+    const ground = this._groundAt(nx, this.y + STEP + 0.05, nz)
     if (ground > this.y + STEP || this._blocked(nx, Math.max(ground, this.y), nz)) {
       if (Math.abs(this.speed) > 4) audioEngine.playMelee?.()
       this.speed *= -0.3
@@ -175,6 +205,7 @@ export class GoKart {
       this.x = nx
       this.z = nz
       if (ground >= this.y) {
+        if (ground > this.y + 0.01) this.lift = Math.max(-STEP, (this.lift || 0) - (ground - this.y))
         this.y = ground
         this.vy = 0
       } else {
@@ -212,7 +243,8 @@ export class GoKart {
   // The model where the kart is; wheels spin with the speed.
   _place(dt = 0) {
     const B = this.B
-    this.group.position.set(this.x * B, this.y * B, this.z * B)
+    this.lift = THREE.MathUtils.damp(this.lift || 0, 0, LIFT_GLIDE, dt)
+    this.group.position.set(this.x * B, (this.y + this.lift) * B, this.z * B)
     this.group.rotation.y = this.heading
     const spin = (this.speed * dt) / 0.25
     for (const w of this.group.userData.wheels) w.rotation.x += spin

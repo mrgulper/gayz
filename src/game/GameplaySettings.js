@@ -15,6 +15,8 @@ const ROWS = [
   { id: 'damage-numbers-toggle', key: 'damageNumbers' },
   { id: 'zombie-name-tags-toggle', key: 'zombieNameTags' },
   { id: 'sprint-mode-select', key: 'sprintMode' },
+  { id: 'auto-jump-toggle', key: 'autoJump' },
+  { id: 'battle-view-select', key: 'battleView' },
   { id: 'auto-pickup-toggle', key: 'autoPickup' },
   { id: 'confirm-rare-drop-toggle', key: 'confirmRareDrop' },
   { id: 'skin-designer-contrast-toggle', key: 'skinDesignerHighContrast' },

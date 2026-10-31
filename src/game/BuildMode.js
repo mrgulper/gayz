@@ -1947,6 +1947,8 @@ export class BuildMode {
         // click it stops aiming") - doors, chests and NPCs are on the Use
         // key (E).
         // Holding a block from the inventory: right-click places it.
+        // Right-clicking the go-kart hops in (GoKart.js).
+        else if (e.button === 2 && this.survival?.active && this.survival.kart?.rightClick()) return
         else if (e.button === 2 && this.survival?.holding?.kind === 'block') this.survival.placeHeldBlock()
         else if (e.button === 2) this.tryMode.setAim(true)
         return

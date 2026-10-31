@@ -3423,6 +3423,98 @@ test('go-kart: hop in, drive, run zombies over, hop out', async ({ page }) => {
   expect(r).toEqual({ parked: true, farUse: false, inUse: true, moved: true, fast: true, meWithKart: true, rammed: true, turned: true, outUse: true, beside: true, gone: true })
 })
 
+// 2026-10-31: right-clicking the kart hops in, it drives up a 1-block
+// step, Settings > Auto Jump hops you up one, and walking eases in and the
+// view glides up a step.
+test('go-kart right-click and steps; auto jump; smoother walking', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    const B = bm._chunks.blockSize
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 60, 'zombiespawner')
+    for (let x = -40; x <= 40; x++) for (let z = -40; z <= 40; z++) if (x || z) bm.placeBlock(x, 0, z, 'grass', true)
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    if (s._picking) s._pickWeapon('rifle')
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    s._toSpawn = 0
+    s._breakTimer = 1e9
+    s.health = 1e9
+    s.update(0.05)
+    const k = s.kart
+    const tm = bm.tryMode
+    const out = {}
+    const look = (x, y, z) => {
+      const d = { x: x - bm.camera.position.x / B, y: y - bm.camera.position.y / B, z: z - bm.camera.position.z / B }
+      bm._yaw = Math.atan2(-d.x, -d.z)
+      bm._pitch = Math.atan2(d.y, Math.hypot(d.x, d.z))
+      bm._applyCameraRotation?.()
+      bm.camera.rotation.set(bm._pitch, bm._yaw, 0, 'YXZ')
+      bm.camera.updateMatrixWorld()
+    }
+    // Right-click while looking away: nothing. Looking at it: in.
+    tm.pos.set(k.x + 2, k.y, k.z)
+    tm.update(0.016, new Set())
+    look(k.x + 10, k.y + 1, k.z)
+    out.awayClick = k.rightClick()
+    look(k.x, k.y + 0.4, k.z)
+    out.lookClick = k.rightClick() && k.driving
+    // A one-block step across its way: it drives up onto it.
+    const y0 = k.y
+    const fx = Math.floor(k.x)
+    const fz = Math.floor(k.z)
+    for (let x = fx - 4; x <= fx + 4; x++) for (let z = fz + 4; z <= fz + 12; z++) bm.placeBlock(x, Math.round(y0), z, 'grass', true)
+    k.heading = 0
+    k.x = fx + 0.5
+    let top = y0
+    for (let i = 0; i < 60; i++) {
+      tm.update(0.05, new Set(['KeyW']))
+      top = Math.max(top, k.y)
+    }
+    out.kartClimbed = Math.round(top - y0)
+    k.use()
+    // Walking speeds up over a moment instead of at once.
+    s.kart.dispose()
+    tm.pos.set(20.5, 1.01, -20.5)
+    tm.vel.set(0, 0, 0)
+    bm._yaw = Math.PI // facing +z
+    for (let i = 0; i < 5; i++) tm.update(0.016, new Set())
+    tm.update(0.016, new Set(['KeyW']))
+    out.easesIn = Math.hypot(tm.vel.x, tm.vel.z) < 2
+    // Auto Jump off: walking into a 1-block step stops you.
+    for (let x = 18; x <= 23; x++) for (let z = -17; z <= -10; z++) bm.placeBlock(x, 1, z, 'grass', true)
+    g.settings.autoJump = false
+    for (let i = 0; i < 90; i++) tm.update(0.016, new Set(['KeyW']))
+    out.offStuck = tm.pos.y < 1.5
+    // On: it hops up.
+    tm.pos.set(20.5, 1.01, -20.5)
+    g.settings.autoJump = true
+    let lagSeen = false
+    for (let i = 0; i < 120; i++) tm.update(0.016, new Set(['KeyW']))
+    out.onClimbed = tm.pos.y > 1.9
+    g.settings.autoJump = false
+    // A slab step up: the view lags behind, then catches up.
+    tm.pos.set(30.5, 1.01, 0.5)
+    for (let i = 0; i < 5; i++) tm.update(0.016, new Set())
+    bm.placeBlock(30, 1, 2, 'stonebricksslab', true)
+    for (let i = 0; i < 60; i++) {
+      tm.update(0.016, new Set(['KeyW']))
+      if (tm._stepLag < -0.05) lagSeen = true
+    }
+    out.glide = lagSeen
+    out.settled = Math.abs(tm._stepLag) < 0.01
+    s.stop()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({ awayClick: false, lookClick: true, kartClimbed: 1, easesIn: true, offStuck: true, onClimbed: true, glide: true, settled: true })
+})
+
 // 2026-10-26: grass 100 blocks out (since 2026-10-30: as far as the land
 // is drawn, growing over time), crack on every face (on the lumps
 // too), puffy leaves, falling leaves and half-chance leaf drops, a

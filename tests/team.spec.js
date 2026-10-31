@@ -180,11 +180,15 @@ test('Team page lists catches, picks the team, and a battle plays to a win or lo
   const battle = await page.evaluate(async () => {
     const b = window.__game._teamBattle
     const out = { mine: b.fighters.filter((f) => f.side === 'mine').length, foes: b.fighters.filter((f) => f.side === 'foe').length, foe: b.foe }
-    // Walk toward them and keep hitting, until it's over (the round clock
-    // ends it at the latest).
-    b.keys.add('f')
-    b.attackHeld = true
+    out.view = b.view
+    out.powers = b.fighters.map((f) => f.power)
+    // Flip to 2D mid-fight: the flat board shows, the choice is remembered.
+    document.querySelector('#team-battle .tb-view').click()
+    out.flat = getComputedStyle(document.querySelector('#team-battle .tb-canvas-2d')).display !== 'none'
+    out.saved = window.__game.settings.battleView
+    // It fights by itself until it's over (the round clock ends it at the latest).
     for (let i = 0; i < 4000 && !b.over; i++) {
+      b._draw()
       b._step(0.05)
       if (i % 40 === 0) await new Promise((r) => setTimeout(r, 0))
     }
@@ -197,6 +201,10 @@ test('Team page lists catches, picks the team, and a battle plays to a win or lo
   expect(battle.mine).toBe(3)
   expect(battle.foes).toBe(3)
   expect(battle.foe).toBe('Wild Team')
+  expect(battle.view).toBe('3d')
+  expect(battle.flat).toBe(true)
+  expect(battle.saved).toBe('2d')
+  expect(battle.powers.every((p) => ['horde', 'bones', 'rage', 'stomp', 'pounce', 'roar', 'hide', 'heal'].includes(p))).toBe(true)
   expect(battle.over).toBe(true)
   expect(battle.result).toBe('flex')
   expect(['You won!', 'You lost']).toContain(battle.title)
