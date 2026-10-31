@@ -3303,6 +3303,70 @@ test('world events: supply crate, passing horde, mutant meteor', async ({ page }
   expect(r.snap).toBe(true)
 })
 
+// 2026-10-31: survivors - one appears on the highest spot near you,
+// reaching them rescues them: the first follows you and shoots, the next
+// gives a kill quest.
+test('survivors: rooftop rescue, a helper who shoots, a kill quest', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 60, 'zombiespawner')
+    for (let x = -35; x <= 35; x++) for (let z = -35; z <= 35; z++) if (x || z) bm.placeBlock(x, 0, z, 'grass', true)
+    // A "building": a 5-high stone tower 20 blocks off.
+    for (let y = 1; y <= 5; y++) for (let x = 19; x <= 21; x++) for (let z = -1; z <= 1; z++) bm.placeBlock(x, y, z, 'stone', true)
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    if (s._picking) s._pickWeapon('rifle')
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    s._toSpawn = 0
+    s._breakTimer = 1e9
+    s.health = 1e9
+    s.wave = 2
+    const out = {}
+    const sv = s.survivors
+    // Keep trying until one lands on the tower (the spot is random).
+    for (let i = 0; i < 30; i++) {
+      sv.clear()
+      s.events._endRun()
+      s.events.start('survivor')
+      if (sv.waiting && sv.waiting.y >= 6) break
+    }
+    out.onRoof = !!sv.waiting && sv.waiting.y >= 6
+    const w = sv.waiting
+    bm.tryMode.pos.set(w.x, w.y, w.z)
+    s.update(0.05)
+    out.joined = sv.helpers.length === 1 && !sv.waiting
+    // The helper shoots a zombie near them.
+    bm.tryMode.pos.set(0.5, 1, 0.5)
+    for (let i = 0; i < 20; i++) s.update(0.05)
+    const h = sv.helpers[0]
+    const zb = s._makeZombie(980, h.x + 4, h.y, h.z, 1000, false, null)
+    zb.speedMult = 0
+    for (let i = 0; i < 30; i++) s.update(0.05)
+    out.helperShot = zb.health < 1000
+    // The next one gives a quest; kills count toward it.
+    sv.spawn(bm.tryMode.pos)
+    const w2 = sv.waiting
+    bm.tryMode.pos.set(w2.x, w2.y, w2.z)
+    s.update(0.05)
+    out.quest = !!sv.quest && sv.helpers.length === 1
+    const coins = s.coins
+    const need = sv.quest?.need || 0
+    for (let i = 0; i < need; i++) s._countKill(false)
+    out.questDone = !sv.quest && s.coins > coins
+    s.stop()
+    out.cleared = sv.helpers.length === 0 && !sv.waiting
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({ onRoof: true, joined: true, helperShot: true, quest: true, questDone: true, cleared: true })
+})
+
 // 2026-10-26: grass 100 blocks out (since 2026-10-30: as far as the land
 // is drawn, growing over time), crack on every face (on the lumps
 // too), puffy leaves, falling leaves and half-chance leaf drops, a

@@ -18,6 +18,7 @@
 //   mutant (bigger, purple sparks, MUTANT_HP x health, faster, harder
 //   hitting, MUTANT_COINS extra coins), and METEOR_SPAWN mutants climb out
 //   of the crater.
+// - survivor: someone stuck on a rooftop to rescue (Survivors.js).
 //
 // On a server the others see the zombies (mutants too, zombieSnapshot
 // `mu`) but not the plane, crate or meteor - those are the host's, like
@@ -29,7 +30,7 @@ import { t } from './i18n.js'
 const EVENT_FROM_WAVE = 2
 const EVENT_FIRST = 90
 const EVENT_GAP = [150, 240]
-const KINDS = ['supply', 'horde', 'meteor']
+const KINDS = ['supply', 'horde', 'meteor', 'survivor']
 const PLANE_HEIGHT = 32
 const PLANE_SPEED = 14
 const DROP_NEAR = 14
@@ -107,6 +108,7 @@ export class WorldEvents {
     if (kind === 'supply') this._run = this._supply(me)
     else if (kind === 'horde') this._run = this._horde(me)
     else if (kind === 'meteor') this._run = this._meteor(me)
+    else if (kind === 'survivor') this._run = this.s.survivors?.spawn(me) ? { update: () => this.s.survivors.busy } : null
     return !!this._run
   }
 
