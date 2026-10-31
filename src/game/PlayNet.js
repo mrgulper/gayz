@@ -78,6 +78,8 @@ export class PlayNet {
     // The host's world, for a game made joinable with Invite Friends.
     this.world = info.world || null
     this.isHost = info.host === info.playerId
+    // The server's mode: 'main' (Zombie Survival) or 'infection'.
+    this.mode = info.mode || 'main'
     this.wave = 0
     this.players = new Map()
     this.survival = null
@@ -251,6 +253,7 @@ export class PlayNet {
       const sky = bm.sky?.skyState?.()
       if (sky) body.sky = sky
       if (s.animals) body.animals = s.animals.snapshot()
+      if (s.infection) body.inf = s.infection.snapshot()
     } else {
       body.hits = this._hits.splice(0)
     }
@@ -342,6 +345,7 @@ export class PlayNet {
       s._applyZombieSnapshot(res.zombies || {}, this.wave)
       if (res.sky) s.bm.sky?.follow?.(res.sky)
       s.animals?.applySnapshot(res.animals || {})
+      if (res.inf) s.infection?.applySnapshot(res.inf)
     }
     for (const amount of res.hurt || []) s._hurtPlayer(amount)
     for (const c of res.credits || []) {
@@ -371,7 +375,7 @@ export class PlayNet {
       if (err?.code !== 'gone') throw err
       // Nobody left in it: open it again under the same id, so the invite
       // link still works and the others get back into it too.
-      info = await this.api.create({ ...me, name: this.name, mode: 'main', world: this.world, id: this.serverId, ...(this.lobby ? { hidden: true } : {}) })
+      info = await this.api.create({ ...me, name: this.name, mode: this.mode, world: this.world, id: this.serverId, ...(this.lobby ? { hidden: true } : {}) })
       reopened = true
       if (info.serverId !== this.serverId) {
         // Someone else opened it again first: into theirs.

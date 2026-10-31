@@ -46,6 +46,8 @@ import { Emotes } from './Emotes.js'
 import { ZOMBIE_TIERS, NAME_COUNT, TAG_W, TAG_H, rollZombieTier, rollZombieName, zombieTagMaterial, zombieGlow, pulseZombieGlows, zombieName, ZOMBIE_SHINES, rollZombieShine, shineCoins, shineBody, glowShineBody, shineTagMaterial, zombieShineFx, animateShineFx, pulseShines } from './ZombieNames.js'
 import { LEAF_DROP_CHANCE, PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, ASSIST_SHARE, ASSIST_MIN_HURT, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { MONSTER_KINDS, REALM_KINDS, makeMonster } from './ZombieKinds.js'
+import * as ZombieBook from './ZombieBook.js'
+import { Infection } from './Infection.js'
 import { ZombieTricks } from './ZombieTricks.js'
 import { WorldEvents, MUTANT_COINS } from './WorldEvents.js'
 import { Survivors } from './Survivors.js'
@@ -308,7 +310,9 @@ export class BuildSurvival {
     this._spawnPick = null
     if (net) {
       net.attach(this)
-      this.cfg.mode = 'classic'
+      // A server plays its own mode: Zombie Survival, or Infection.
+      this.cfg.mode = net.mode === 'infection' ? 'infection' : 'classic'
+      this.cfg.noZombies = this.cfg.mode === 'infection'
     }
     this._zid = 0
     this._disposeExtraction()
@@ -326,7 +330,7 @@ export class BuildSurvival {
     // A new player's first game (PlayOnboarding.js): no weapon picker,
     // start at the camp gate, a zombie close by straight away.
     if (!this.onboard) this.onboard = new PlayOnboarding(this)
-    if (fromMenu && !net && isFirstGame(bm.game) && !BuildSurvival.savedRun() && this.cfg.mode !== 'worldMap') {
+    if (fromMenu && !net && isFirstGame(bm.game) && !BuildSurvival.savedRun() && this.cfg.mode !== 'worldMap' && this.cfg.mode !== 'infection') {
       this.onboard.begin(bm.activeSlot === 'map3' ? bm._map3Base().map.safeZone : null)
     } else this.onboard.end()
     this.active = true
@@ -348,6 +352,9 @@ export class BuildSurvival {
     this._hurtAt = 0
     this._coinsEarned = 0
     bm.tryMode.speedMult = this.cfg.moveMult
+    // Infection mode (Infection.js): rounds of tag instead of waves.
+    this.infection?.dispose()
+    this.infection = this.cfg.mode === 'infection' ? new Infection(this) : null
     // The gun (PlayWeapons.js): a homepage run starts with the weapon
     // picker open (last pick highlighted); the editor's own Play just
     // uses the rifle.
@@ -486,6 +493,8 @@ export class BuildSurvival {
     // Leaving a run before dying still counts it (stats, quests).
     if (!this.dead && !suspend) this._endRun(false)
     this.active = false
+    this.infection?.dispose()
+    this.infection = null
     this.net?.leave()
     this.net = null
     this.lobby?.leave()
@@ -1005,7 +1014,7 @@ export class BuildSurvival {
     // World Map: no waves - where you are and how long you've explored.
     if (this.cfg?.noZombies) {
       const s = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
-      set('build-play-wave-text', `${t('topBarModeWorldMap')} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}`)
+      set('build-play-wave-text', this.infection ? this.infection.hudText() : `${t('topBarModeWorldMap')} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}`)
     }
     const waveText = mode === 'zombieDefense' ? t('buildPlayWaveOf', { n: Math.max(1, this.wave), max: DEFENSE_WAVES }) : t('buildPlayWave', { n: Math.max(1, this.wave) })
     const secs = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
@@ -1085,6 +1094,12 @@ export class BuildSurvival {
     const center = bm._raycaster.ray.clone()
     const wall = bm._raycastGridAligned(SHOOT_THROUGH)
     const reach = Math.min(wall ? wall.t : Infinity, Number.isFinite(w.range) ? w.range * B : Infinity)
+    // Infection: a shot only stuns an infected one (Infection.js).
+    if (this.infection) {
+      const stunned = this.infection.shoot(center, reach)
+      if (stunned) this._hitFeedback({ amount: 0 })
+      return stunned
+    }
     const damage = w.damage * this._damageMult()
     const hits = new Map()
     const add = (z, amount) => hits.set(z, (hits.get(z) || 0) + amount)
@@ -1943,6 +1958,8 @@ export class BuildSurvival {
     const zombie = { id, x, y, z, vx: 0, vy: 0, vz: 0, onGround: false, health, maxHealth: health, attackCd: 0.6, bash: 0, flash: 0, walk: Math.random() * 6, moan: 2 + Math.random() * 8, group, body: null, boss, size: boss ? BOSS_SIZE : 1 }
     const monster = MONSTER_KINDS[kind]
     const batch = monster || (kind && skeletonsReady()) ? null : this._zombieBatch()
+    // The first of its kind in my game goes in the Zombie Book (ZombieBook.js).
+    if (this.active) ZombieBook.meet(this.bm.game, ZombieBook.bookIdFor(boss, monster || skeletonsReady() ? kind : null), (text) => this._message(text, 4))
     if (monster) {
       const m = makeMonster(kind, ZOMBIE_HEIGHT * this.B)
       group.add(m.root)
@@ -2820,6 +2837,7 @@ export class BuildSurvival {
     // Nothing happens until a weapon has been picked.
     if (this._picking && !net) return
     dt = Math.min(dt, 1 / 20)
+    this.infection?.update(dt)
     const playing = !this.dead && !this.bm.menuOpen && !this._picking
     if (playing) this._updateMe(dt)
     if (playing && !net) this.replay?.record(dt)
@@ -3285,6 +3303,11 @@ export class BuildSurvival {
       }
       if (String(h.id)[0] === 'a') {
         this.animals?.remoteHit(h)
+        continue
+      }
+      // A stun shot in Infection mode.
+      if (String(h.id)[0] === 's') {
+        this.infection?.remoteHit(h)
         continue
       }
       const id = Number(String(h.id).slice(1))

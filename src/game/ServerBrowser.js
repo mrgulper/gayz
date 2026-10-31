@@ -241,6 +241,9 @@ export function newServerId() {
   return [...bytes].map((n) => ID_CHARS[n % ID_CHARS.length]).join('')
 }
 
+// Infection games make Infection servers (Infection.js).
+const serverMode = (survival) => (survival?.cfg?.mode === 'infection' ? 'infection' : 'main')
+
 export async function makeGameJoinable(game, survival, id = newServerId()) {
   if (survival.net && !survival.net.closed) return survival.net
   // Already ready for friends (a lobby): it just becomes a server game now.
@@ -250,7 +253,7 @@ export async function makeGameJoinable(game, survival, id = newServerId()) {
     return lobby
   }
   const world = game.buildMode?.world?.active ? { seed: worldSeed(), earth: isEarthWorld(), pick: survival._spawnPick || null } : null
-  const info = await serverApi(game).create({ ...(await myDetails(game)), name: '', mode: 'main', world, id })
+  const info = await serverApi(game).create({ ...(await myDetails(game)), name: '', mode: serverMode(survival), world, id })
   const net = new PlayNet(game, { ...info, world })
   survival.net = net
   net.attach(survival)
@@ -265,7 +268,7 @@ export async function openLobby(game, survival) {
   if (survival.net || survival.lobby || (typeof navigator !== 'undefined' && navigator.onLine === false)) return null
   const world = game.buildMode?.world?.active ? { seed: worldSeed(), earth: isEarthWorld(), pick: survival._spawnPick || null } : null
   const api = serverApi(game)
-  const info = await api.create({ ...(await myDetails(game)), name: '', mode: 'main', world, id: newServerId(), hidden: true })
+  const info = await api.create({ ...(await myDetails(game)), name: '', mode: serverMode(survival), world, id: newServerId(), hidden: true })
   if (!info?.serverId || !info.token) return null
   // The game ended (or got a server another way) while this was made.
   if (!survival.active || survival.net || survival.lobby) {
