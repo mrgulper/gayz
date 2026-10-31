@@ -522,8 +522,6 @@ Escape before dawn.</p>
               </button>
             </div>
 
-            <button type="button" id="home-daily" class="pending" aria-hidden="true"></button>
-
             <p id="round-mode-hint">Easy &amp; Normal: kill the wave to advance, no timer. Hard &amp; Nightmare: 90s timed nights.</p>
           </div>
 
@@ -2134,6 +2132,7 @@ Escape before dawn.</p>
               </div>
               <p id="profile-anniversary-line" style="display: none"></p>
               <p id="profile-today-line" style="display: none"></p>
+              <p id="profile-streak-line" style="display: none"></p>
               <p id="profile-favorite-difficulty-line" style="display: none"></p>
               <div id="profile-best-run-card" style="display: none">
                 <h3 id="profile-best-run-title">Best Run</h3>
@@ -2480,13 +2479,13 @@ Escape before dawn.</p>
           <h3>Quests</h3>
           <p>Rolling quests that come and go (kill zombies, reach a wave, finish runs), counted from your Map 1 runs and claimed for coins in the Quests panel. Each quest is a big card, two to a row, filled with its rarity's colour like the Store's crates - Common to Legendary, the Store's colours, rarer for harder quests - with corner rivets, dark writing, a dark rarity label and a progress bar; the cards fade in one after another and the list fades out at the bottom. A search box and an All rarities menu at the top find the ones you want. Claiming a quest makes just that card fade away - the rest of the list stays where it is. The Quests button shows how many are finished and waiting to be claimed in a little circle, and pointing at it changes nothing - Upgrades, Friendship and Achievements show their counts the same way.</p>
         </div>
-        <div class="feature" data-code="DailyChallenge DAILY_TEMPLATES streakMult _renderDailyCard _renderHomeDaily">
+        <div class="feature" data-code="DailyChallenge DAILY_TEMPLATES streakMult _renderDailyCard">
           <h3>Daily Challenge</h3>
           <p>One goal a day, the same for everyone, on a wide gold card at the top of the Quests: take lots of zombies down, in one run or on Hard and up, take them down with a melee weapon, take down skeletons, Rare-or-rarer zombies or bosses, reach a high wave (some days on Hard and up), or get a long kill streak - <span data-feature-value="dailyKinds">10</span> kinds, each easy, medium or hard. They're tough on purpose (the easiest kill goal is <span data-feature-value="dailyMinKills">120</span> zombies), and harder pays more coins and XP. The game tells you the moment it's done, and you claim it in the Quests. Claim it on days in a row to build a streak: every day of streak adds <span data-feature-value="dailyStreakStep">25</span>% to the reward, up to <span data-feature-value="dailyStreakMax">2.5</span> times on day <span data-feature-value="dailyStreakDays">7</span> and after. Miss a day and the streak starts again. A new challenge comes at midnight your time - it shows up by itself even with the page left open - with a countdown on the card. It's on the homepage too, just under Play: today's goal, how far along you are and your streak, and "Claim!" once it's done - click it to open the Quests.</p>
         </div>
         <div class="feature" data-code="HomeExtras renderHomeExtras homeExtrasLayout">
           <h3>Homepage Extras</h3>
-          <p>Small cards on the homepage: your level and the XP to the next one, your last run and best wave, a tip of the day (<span data-feature-value="tipCount">12</span> of them, a new one each day), your login streak with countdowns to the next daily challenge and weekly mutator, the top <span data-feature-value="topPlayers">3</span> players by best wave, and an Invite a friend button that copies the game's link (or opens your phone's share menu). Pick how they show in Settings &gt; General &gt; Homepage: Cards puts them in the bottom corners (as many as fit your screen), Today Panel keeps the homepage clean and puts them all behind one Today button. Play gets a Continue tag when you left a run halfway (it picks it up on the same mode and difficulty), and a New here? tag that opens How to Play before your first run. Tap your character for a dance, wave or flex; now and then a zombie peeks in from the side. Bats fly over the homepage in late October and snow falls in December.</p>
+          <p>Small cards on the homepage: your last run and best wave, a tip of the day (<span data-feature-value="tipCount">12</span> of them, a new one each day), the top <span data-feature-value="topPlayers">3</span> players by best wave, and an Invite a friend button that copies the game's link (or opens your phone's share menu). Pick how they show in Settings &gt; General &gt; Homepage: Cards puts them in the bottom corners (as many as fit your screen), Today Panel keeps the homepage clean and puts them all behind one Today button. Play gets a Continue tag when you left a run halfway (it picks it up on the same mode and difficulty), and a New here? tag that opens How to Play before your first run. Tap your character for a dance, wave or flex; now and then a zombie peeks in from the side, and snow falls in December. Your login streak is on your Profile, and the Daily Challenge lives in the Quests.</p>
         </div>
       </section>
 

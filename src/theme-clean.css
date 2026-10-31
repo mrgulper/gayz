@@ -1058,14 +1058,6 @@ html.ui-theme-clean .panel-box :is(#gallery-like-btn, #gallery-dislike-btn).like
   border-color: var(--clean-fg);
 }
 
-/* Homepage daily challenge card (08-homepage.css): a card in the Simple
-   colours, same size and place. */
-html.ui-theme-clean #home-daily { font-family: var(--clean-font); color: var(--clean-fg); background: var(--clean-card); border: 1px solid var(--clean-line); }
-html.ui-theme-clean #home-daily .home-daily-tag { color: var(--clean-fg); opacity: 0.7; }
-html.ui-theme-clean #home-daily .home-daily-bar { background: rgba(var(--clean-fg-rgb), 0.15); }
-html.ui-theme-clean #home-daily .home-daily-bar i { background: var(--clean-fg); }
-html.ui-theme-clean #home-daily.ready { box-shadow: 0 0 0 2px var(--clean-fg); }
-
 /* Homepage extras (HomeExtras.js): the cards and Play tags in the Simple
    colours, same size and place as the other themes. */
 html.ui-theme-clean .home-x-card { font-family: var(--clean-font); color: var(--clean-fg); background: var(--clean-card); border: 1px solid var(--clean-line); }

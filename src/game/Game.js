@@ -1951,6 +1951,7 @@ export class Game {
     this.profileNearlyThereList = document.getElementById('profile-nearly-there-list')
     this.profileAnniversaryLine = document.getElementById('profile-anniversary-line')
     this.profileTodayLine = document.getElementById('profile-today-line')
+    this.profileStreakLine = document.getElementById('profile-streak-line')
     this.profileFavoriteDifficultyLine = document.getElementById('profile-favorite-difficulty-line')
     this.profileBestRunCard = document.getElementById('profile-best-run-card')
     this.profileBestRunTitle = document.getElementById('profile-best-run-title')
@@ -4361,6 +4362,12 @@ export class Game {
     const minutes = Math.round((performance.now() - this._sessionStartTime) / 60000)
     this.profileTodayLine.textContent = t('todayLine', { kills: this._sessionKills, minutes })
     this.profileTodayLine.style.display = ''
+    // The login streak lives here now, not on the homepage.
+    if (this.profileStreakLine) {
+      const streak = _safeStatNumber(this.loginStreak?.streak)
+      this.profileStreakLine.textContent = streak > 0 ? t('homeExtrasStreak', { n: streak }) : t('homeExtrasStreakNone')
+      this.profileStreakLine.style.display = ''
+    }
   }
 
   // Longest single session (Profile panel) - compares the CURRENT

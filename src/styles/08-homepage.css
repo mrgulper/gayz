@@ -1899,50 +1899,11 @@ html.ui-theme-old #menu-nav-buttons .nav-badge-dot {
   #play-btn:active { animation: none; }
 }
 
-/* Today's daily challenge under the Settings gear (ProgressUI
-   _renderHomeDaily, 2026-10-31, "put the daily challenge and streak on
-   the homepage"). Out of the flow just under the hero, so Play and the
-   gear never move; in the flow on the stacked phone layout (the same
-   breakpoint as 12-gallery-and-later.css's), where the page scrolls.
-   Old: paper and ink; Simple: theme-clean.css. */
-#home-daily {
-  position: absolute; left: 50%; top: calc(100% + 10px); transform: translateX(-50%);
-  width: 300px; max-width: 86vw; box-sizing: border-box; z-index: 2;
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 3px 8px;
-  padding: 8px 14px 10px; text-align: left; cursor: pointer;
-  font: 600 13px/1.25 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #f1e6c8;
-  background: rgba(18, 15, 10, 0.8); border: 1px solid rgba(232, 194, 90, 0.55); border-radius: 12px;
-  transition: filter 0.15s ease;
-}
-/* Its place is kept until the game fills it, so nothing below jumps. */
-#home-daily.pending { visibility: hidden; min-height: 46px; }
-#home-daily:hover { filter: brightness(1.12); }
-#home-daily .home-daily-tag { font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--menu-gold, #d9bc4a); }
-#home-daily .home-daily-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-#home-daily .home-daily-status { font-weight: 800; white-space: nowrap; }
-#home-daily .home-daily-streak { grid-column: 1 / -1; font-size: 12px; opacity: 0.85; }
-#home-daily .home-daily-bar { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
-#home-daily .home-daily-bar i { display: block; height: 100%; background: linear-gradient(90deg, #a8781f, #e8c25a); }
-#home-daily.ready { box-shadow: 0 0 0 2px var(--menu-gold, #d9bc4a), 0 0 16px rgba(232, 194, 90, 0.5); }
-#home-daily.claimed .home-daily-bar { display: none; }
-html.ui-theme-old #home-daily {
-  color: var(--old-ink);
-  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
-  border: 2px solid rgba(74, 44, 16, 0.75);
-}
-html.ui-theme-old #home-daily .home-daily-tag { color: #6b3f17; }
-html.ui-theme-old #home-daily .home-daily-bar { background: rgba(74, 44, 16, 0.2); }
-html.ui-theme-old #home-daily .home-daily-bar i { background: linear-gradient(90deg, #6b3f17, #a8781f); }
-html.ui-theme-old #home-daily.ready { box-shadow: 0 0 0 2px #6b3f17, 0 0 14px rgba(107, 63, 23, 0.5); }
-@media (max-width: 700px), (orientation: portrait) and (max-width: 1100px), (max-height: 500px) {
-  #home-daily { position: relative; top: auto; left: auto; transform: none; margin: 10px auto 0; }
-}
-
 /* Homepage extras (HomeExtras.js, 2026-10-31): small cards in the bottom
    corners (or one Today button there, with the cards in #today-panel).
    Out of the flow so nothing else on the homepage moves; fitHomeExtras()
-   hides the lowest cards when a short screen has no room for them. Same
-   paper/ink look as the daily card in Old, theme-clean.css in Simple. */
+   hides the lowest cards when a short screen has no room for them. Paper/ink
+   look in Old, theme-clean.css in Simple. */
 .home-extras {
   position: absolute; bottom: 12px; z-index: 3;
   width: 210px; display: flex; flex-direction: column; gap: 6px;
@@ -1967,9 +1928,7 @@ html.ui-theme-old #home-daily.ready { box-shadow: 0 0 0 2px #6b3f17, 0 0 14px rg
 .home-x-top3 .home-x-muted { list-style: none; margin-left: -18px; opacity: 0.75; }
 button.home-x-card { cursor: pointer; align-items: center; text-align: center; font-size: 13px; font-weight: 800; transition: filter 0.15s ease; }
 button.home-x-card:hover { filter: brightness(1.12); }
-.home-x-flame { display: inline-block; width: 15px; height: 15px; vertical-align: -2px; animation: home-x-flicker 1.6s ease-in-out infinite; }
 .home-x-icon { display: inline-block; width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; }
-@keyframes home-x-flicker { 50% { transform: scale(1.15) rotate(-6deg); } }
 html.ui-theme-old .home-x-card {
   padding: 9px 16px 10px;
   color: var(--old-ink);
@@ -2018,40 +1977,20 @@ html.ui-theme-old .home-play-tag { color: #f3e6c8; background: var(--old-ink); b
 #home-zombie-peek .zp-eye.r { right: 12px; background: #b3121f; }
 #home-zombie-peek .zp-mouth { position: absolute; left: 14px; right: 14px; bottom: 10px; height: 6px; background: #2f1a10; }
 
-/* Holiday decorations (HomeExtras.applyHoliday): bats in late October,
-   snow in December. Never in the way of a click. */
+/* Holiday decorations (HomeExtras.applyHoliday): snow in December. Never in the way of a click. */
 #home-holiday { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
 #home-holiday.off { display: none; }
 #home-holiday i { position: absolute; left: var(--x); top: var(--y); font-style: normal; animation-delay: var(--delay); }
 #home-holiday i svg { display: block; width: 100%; height: 100%; }
-#home-holiday .hx-bat { width: 34px; height: 17px; opacity: 0.85; animation: hx-bat var(--d) linear infinite; }
 #home-holiday .hx-snow { top: -5%; width: 12px; height: 12px; opacity: 0.75; animation: hx-snow var(--d) linear infinite; }
-@keyframes hx-bat {
-  0% { transform: translate(-60vw, 0) scaleX(-1); }
-  25% { transform: translate(-30vw, -3vh) scaleX(-1); }
-  50% { transform: translate(0, 2vh) scaleX(-1); }
-  75% { transform: translate(30vw, -2vh) scaleX(-1); }
-  100% { transform: translate(60vw, 0) scaleX(-1); }
-}
 @keyframes hx-snow { to { transform: translate(4vw, 110vh); } }
-html[data-holiday='halloween'] #home-daily::before,
-html[data-holiday='winter'] #home-daily::before {
-  content: ''; position: absolute; top: -14px; left: -10px; width: 26px; height: 24px; pointer-events: none;
-  background: center / contain no-repeat;
-}
-html[data-holiday='halloween'] #home-daily::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 24'%3E%3Cpath d='M13 5c1-3 3-4 4-4' stroke='%23355e1c' stroke-width='2.5' fill='none'/%3E%3Cellipse cx='8' cy='14' rx='7' ry='8' fill='%23e8761c'/%3E%3Cellipse cx='18' cy='14' rx='7' ry='8' fill='%23e8761c'/%3E%3Cellipse cx='13' cy='14' rx='6' ry='9' fill='%23f28c26' stroke='%23a24c0b'/%3E%3Cpath d='M8 12l2-2 2 2zM14 12l2-2 2 2zM8 17q5 4 10 0l-2 1-1-1-1 1-1-1-1 1-1-1-1 1z' fill='%23401a05'/%3E%3C/svg%3E");
-}
-html[data-holiday='winter'] #home-daily::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 24' fill='none' stroke='%239fd4ff' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M13 2v20M4.3 7l17.4 10M4.3 17l17.4-10'/%3E%3C/svg%3E");
-}
 @media (prefers-reduced-motion: reduce) {
   #home-holiday, #home-zombie-peek { display: none; }
-  .home-play-tag, .home-x-flame { animation: none; }
+  .home-play-tag { animation: none; }
 }
 
-/* Stacked phone layout (same breakpoint as #home-daily's): the cards go
-   in the page flow under the daily card, two to a row. */
+/* Stacked phone layout (the same breakpoint as 12-gallery-and-later.css's): the
+   cards go in the page flow under the nav buttons, two to a row. */
 @media (max-width: 700px), (orientation: portrait) and (max-width: 1100px), (max-height: 500px) {
   .home-extras { position: static; width: auto; max-width: 420px; margin: 8px auto 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #home-extras-left { margin-top: 10px; }
