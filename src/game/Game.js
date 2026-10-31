@@ -4,6 +4,7 @@ import { WeaponCatalog } from './WeaponCatalog.js'
 import { Achievements, ACHIEVEMENTS } from './Achievements.js'
 import { Quests } from './Quests.js'
 import { RollingQuests } from './RollingQuests.js'
+import { DailyChallenge } from './DailyChallenge.js'
 
 // The Skin Designer page, embedded in #skindesigner-frame. Served from this
 // game's own site (public/skin-designer/) since 2026-09-30 - it used to be a
@@ -2495,6 +2496,7 @@ export class Game {
     this.achievements = new Achievements((def) => this._showAchievementToast(def))
     this.quests = new Quests()
     this.rollingQuests = new RollingQuests()
+    this.dailyChallenge = new DailyChallenge()
     if (this.achievements.unlocked.has(ENDGAME_ACHIEVEMENT)) {
       document.getElementById('diff-nightmare').style.display = ''
     }
@@ -3473,6 +3475,8 @@ export class Game {
   _claimQuest(id) { return ProgressUI._claimQuest(this, id) }
 
   _claimRollingQuest(spawnedAt) { return ProgressUI._claimRollingQuest(this, spawnedAt) }
+
+  _claimDailyChallenge() { return ProgressUI._claimDailyChallenge(this) }
 
   _updateFaviconQuestBadge() { return ProgressUI._updateFaviconQuestBadge(this) }
 

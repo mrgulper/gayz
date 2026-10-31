@@ -13,6 +13,14 @@
 //                  back to the free camera. The server's world keeps going,
 //                  same as with the pause screen open.
 //
+// Photo Mode (2026-10-30, Gaymi: "pause, fly the camera around, hide the
+// HUD, take a picture", saved to the device): the same free camera with
+// `photo` on - every button and bar is hidden (body.play-photo), the gun
+// isn't drawn, and alone the world stands still (BuildMode.update skips
+// the game while `frozen`). A click, P or Enter, or the shutter button
+// saves a PNG (BuildMode.render reads the picture straight after drawing
+// it - the canvas keeps no copy).
+//
 // Escape goes back to the pause screen and puts the camera back where you
 // were. Owned by BuildMode (`bm.spectate`), driven from its update() and
 // key/mouse handlers.
@@ -21,6 +29,7 @@ import { getKeyFor } from './Keybinds.js'
 import { BOTTOM } from './Underground.js'
 import { BLOCK_TYPES } from './BuildMode.js'
 import { blockFaceCanvases } from './BlockTextures.js'
+import { t } from './i18n.js'
 
 const FLY_SPEED = 14 // blocks per second
 const FAST_MULT = 2.5 // holding Ctrl
@@ -42,6 +51,13 @@ export class PlaySpectate {
     this._watch = -1 // index into the server's players, -1 = free camera
     this._vel = new THREE.Vector3()
     this._saved = null
+    this.photo = false
+  }
+
+  // Photo Mode alone stops the world; a server's game can't wait.
+  get frozen() {
+    const net = this.bm.survival?.net
+    return this.active && this.photo && !(net && !net.closed)
   }
 
   _players() {
@@ -54,11 +70,13 @@ export class PlaySpectate {
     return this._players().length > 0
   }
 
-  enter() {
+  enter({ photo = false } = {}) {
     const bm = this.bm
     const s = bm.survival
     if (!s?.active || s.dead || this.active) return
     this.active = true
+    this.photo = photo
+    if (photo) this._showPhotoUi(true)
     this._watch = -1
     this._vel.set(0, 0, 0)
     this._saved = { pos: bm.camera.position.clone(), yaw: bm._yaw, pitch: bm._pitch }
@@ -90,6 +108,88 @@ export class PlaySpectate {
     }
     this._showFloor(false)
     document.body.classList.remove('play-spectating')
+    if (this.photo) this._showPhotoUi(false)
+    this.photo = false
+  }
+
+  // The shutter and Exit buttons (the only things left on screen) and a
+  // "Photo saved" flash.
+  _showPhotoUi(on) {
+    document.body.classList.toggle('play-photo', on)
+    let ui = document.getElementById('play-photo-ui')
+    if (on && !ui) {
+      ui = document.createElement('div')
+      ui.id = 'play-photo-ui'
+      ui.innerHTML = `
+        <div id="play-photo-flash"></div>
+        <p id="play-photo-hint"></p>
+        <p id="play-photo-saved" aria-live="polite"></p>
+        <div id="play-photo-btns">
+          <button type="button" id="play-photo-exit"></button>
+          <button type="button" id="play-photo-shutter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h4l2-3h6l2 3h4v12H3z"/><circle cx="12" cy="13" r="4"/></svg></button>
+        </div>`
+      document.body.appendChild(ui)
+      // Buttons don't reach the game underneath (no shot, no re-lock).
+      for (const id of ['play-photo-exit', 'play-photo-shutter']) {
+        ui.querySelector(`#${id}`).addEventListener('pointerdown', (e) => e.stopPropagation())
+      }
+      ui.querySelector('#play-photo-shutter').addEventListener('click', (e) => {
+        e.stopPropagation()
+        this.snap()
+      })
+      ui.querySelector('#play-photo-exit').addEventListener('click', (e) => {
+        e.stopPropagation()
+        if (this.active) this.bm.toggleMenu()
+      })
+    }
+    if (!ui) return
+    ui.style.display = on ? '' : 'none'
+    if (!on) return
+    ui.querySelector('#play-photo-hint').textContent = t('photoModeHint')
+    ui.querySelector('#play-photo-exit').textContent = t('photoModeExit')
+    ui.querySelector('#play-photo-shutter').setAttribute('aria-label', t('photoModeSnap'))
+    ui.querySelector('#play-photo-shutter').title = t('photoModeSnap')
+  }
+
+  // Takes the picture on the next frame drawn (BuildMode.render).
+  snap() {
+    if (!this.photo) return
+    this.bm._photoPending = true
+  }
+
+  // BuildMode.render calls this with the picture it just drew.
+  savePhoto(canvas) {
+    // Local time, "2026-10-30-17-05-09".
+    const d = new Date()
+    const stamp = [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, '0')).join('-')
+    try {
+      canvas.toBlob((blob) => {
+        if (!blob) return
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `gayz-photo-${stamp}.png`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        setTimeout(() => URL.revokeObjectURL(url), 4000)
+      }, 'image/png')
+    } catch {
+      return
+    }
+    const flash = document.getElementById('play-photo-flash')
+    if (flash) {
+      flash.classList.remove('show')
+      void flash.offsetWidth
+      flash.classList.add('show')
+    }
+    const saved = document.getElementById('play-photo-saved')
+    if (saved) {
+      saved.textContent = t('photoModeSaved')
+      saved.classList.remove('show')
+      void saved.offsetWidth
+      saved.classList.add('show')
+    }
   }
 
   _showFloor(on) {
@@ -179,8 +279,8 @@ export class PlaySpectate {
     tm.vel?.set(0, 0, 0)
     // And everything else works like playing: the gun (aim, recoil,
     // inspect), breaking blocks, the minimap, pressure plates under
-    // zombies, the underwater look.
-    tm.updateHands(dt, keys)
+    // zombies, the underwater look. (Photo Mode has no gun.)
+    if (!this.photo) tm.updateHands(dt, keys)
     const s = bm.survival
     if (s?.active) bm.gadgets.updatePlates(s.zombieCells(), dt)
     bm.specials.update(dt, null)

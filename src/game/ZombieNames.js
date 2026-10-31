@@ -159,3 +159,204 @@ export function zombieGlow(tier, size) {
 export function pulseZombieGlows(time) {
   for (const [tier, mat] of ringMats) mat.opacity = 0.55 + 0.35 * Math.sin(time * (2 + ZOMBIE_TIER_IDS.indexOf(tier) * 0.6))
 }
+
+// Golden and Diamond zombies (2026-10-30, Gaymi: "make both rare big
+// reward and very rare huge reward, make the very rarer even more shiny").
+// A shine is rolled on top of the rarity tier, so any zombie - even a
+// Common one or a boss - can come out shiny. coins: times what it would
+// pay anyway. tint: its body colour, times its picture (shineBody).
+export const ZOMBIE_SHINES = {
+  gold: { chance: 1 / 200, coins: 10, color: '#ffd23f', tint: [1.35, 1.05, 0.3] },
+  diamond: { chance: 1 / 1000, coins: 50, color: '#8ff7ff', tint: [0.75, 1.25, 1.45] },
+}
+export const ZOMBIE_SHINE_IDS = Object.keys(ZOMBIE_SHINES)
+
+// Diamond is checked first, so it really is 1 in 1000.
+export function rollZombieShine(r = Math.random()) {
+  if (r < ZOMBIE_SHINES.diamond.chance) return 'diamond'
+  if (r < ZOMBIE_SHINES.diamond.chance + ZOMBIE_SHINES.gold.chance) return 'gold'
+  return null
+}
+
+export function shineCoins(shine) {
+  return ZOMBIE_SHINES[shine]?.coins ?? 1
+}
+
+// A shiny zombie's own body: the shared zombie body's parts with their
+// own copies of its material, tinted and glowing (a batched body can only
+// be darkened, and the green skin never looked gold). Returns the copied
+// materials, so the zombie can light them up and free them.
+export function shineBody(parts, shine) {
+  const s = ZOMBIE_SHINES[shine]
+  const mats = []
+  for (const part of parts) {
+    part.visible = true
+    const mat = part.material.clone()
+    mat.color.setRGB(...s.tint)
+    if (mat.emissive) mat.emissive.set(s.color).multiplyScalar(0.3)
+    part.material = mat
+    part.userData.shared = true
+    mats.push(mat)
+  }
+  return mats
+}
+
+// Its glow this frame: a Golden one flickers a little like a coin; a
+// Diamond one slowly runs through icy rainbow colours. hurt: the red hit
+// flash wins.
+export function glowShineBody(mats, shine, time, id = 0, hurt = false) {
+  const s = ZOMBIE_SHINES[shine]
+  if (!s) return
+  for (const mat of mats) {
+    if (!mat.emissive) continue
+    if (hurt) mat.emissive.setRGB(0.6, 0, 0)
+    else if (shine === 'diamond') mat.emissive.setHSL((time * 0.15 + id * 0.13) % 1, 0.8, 0.3)
+    else mat.emissive.set(s.color).multiplyScalar(0.25 + 0.1 * Math.sin(time * 6 + id))
+  }
+}
+
+// The tag's second line for a shiny zombie: its shine word instead of the
+// tier, gold or rainbow letters with a glowing outline.
+export function shineTagMaterial(nameIdx, shine) {
+  const name = zombieName(nameIdx)
+  const label = t(shine === 'diamond' ? 'zombieShineDiamond' : 'zombieShineGold')
+  const key = `${name}|${label}|shine-${shine}`
+  if (tagCache.has(key)) return tagCache.get(key)
+  const c = document.createElement('canvas')
+  c.width = TAG_W
+  c.height = TAG_H
+  const g = c.getContext('2d')
+  g.textAlign = 'center'
+  g.textBaseline = 'middle'
+  g.font = 'bold 34px sans-serif'
+  const w = Math.min(TAG_W - 4, Math.max(g.measureText(name).width, 120) + 28)
+  g.fillStyle = 'rgba(0, 0, 0, 0.55)'
+  g.beginPath()
+  g.roundRect((TAG_W - w) / 2, 2, w, TAG_H - 4, 16)
+  g.fill()
+  g.lineWidth = 3
+  g.strokeStyle = ZOMBIE_SHINES[shine].color
+  g.stroke()
+  g.lineWidth = 5
+  g.strokeStyle = 'rgba(0, 0, 0, 0.8)'
+  g.fillStyle = '#ffffff'
+  g.strokeText(name, TAG_W / 2, 27, TAG_W - 12)
+  g.fillText(name, TAG_W / 2, 27, TAG_W - 12)
+  g.font = 'bold 28px sans-serif'
+  let fill = ZOMBIE_SHINES.gold.color
+  if (shine === 'diamond') {
+    fill = g.createLinearGradient(TAG_W / 2 - 80, 0, TAG_W / 2 + 80, 0)
+    ;['#ff7ad9', '#ffd23f', '#7dff8a', '#8ff7ff', '#a98bff'].forEach((col, i) => fill.addColorStop(i / 4, col))
+  }
+  g.shadowColor = ZOMBIE_SHINES[shine].color
+  g.shadowBlur = 10
+  g.strokeText(label, TAG_W / 2, 60, TAG_W - 12)
+  g.fillStyle = fill
+  g.fillText(label, TAG_W / 2, 60, TAG_W - 12)
+  const tex = new THREE.CanvasTexture(c)
+  tex.colorSpace = THREE.SRGBColorSpace
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false })
+  tagCache.set(key, mat)
+  return mat
+}
+
+// The shine round its body: a soft halo, sparkles circling it and a big
+// ground glow. A Diamond one also gets a beam of light up into the sky,
+// so you can spot it from across the map. Pictures and materials are
+// shared (userData.shared); the group is the zombie's own, so it can spin.
+let sparkTex = null
+const shineMats = new Map()
+function softDot() {
+  if (sparkTex) return sparkTex
+  const c = document.createElement('canvas')
+  c.width = c.height = 32
+  const g = c.getContext('2d')
+  const grad = g.createRadialGradient(16, 16, 0, 16, 16, 16)
+  grad.addColorStop(0, 'rgba(255,255,255,1)')
+  grad.addColorStop(0.3, 'rgba(255,255,255,0.8)')
+  grad.addColorStop(1, 'rgba(255,255,255,0)')
+  g.fillStyle = grad
+  g.fillRect(0, 0, 32, 32)
+  sparkTex = new THREE.CanvasTexture(c)
+  return sparkTex
+}
+function shineMat(id, color, opacity) {
+  if (!shineMats.has(id)) {
+    const mat = new THREE.SpriteMaterial({ map: softDot(), color: new THREE.Color(color), transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })
+    mat.userData.base = opacity
+    shineMats.set(id, mat)
+  }
+  return shineMats.get(id)
+}
+let beamGeo = null
+let beamMat = null
+export function zombieShineFx(shine, width, height) {
+  const s = ZOMBIE_SHINES[shine]
+  if (!s) return null
+  const diamond = shine === 'diamond'
+  const fx = new THREE.Group()
+  fx.userData.shine = shine
+  const halo = new THREE.Sprite(shineMat(`${shine}-halo`, s.color, diamond ? 0.55 : 0.4))
+  halo.scale.set(width * (diamond ? 2.6 : 2), height * (diamond ? 1.6 : 1.3), 1)
+  halo.position.y = height * 0.5
+  halo.userData.shared = true
+  fx.add(halo)
+  const count = diamond ? 14 : 8
+  for (let i = 0; i < count; i++) {
+    const spark = new THREE.Sprite(shineMat(diamond ? `diamond-spark-${i % 5}` : 'gold-spark', diamond ? ['#ff7ad9', '#ffd23f', '#7dff8a', '#8ff7ff', '#a98bff'][i % 5] : '#fff2a8', 0.95))
+    const a = (i / count) * Math.PI * 2
+    const r = width * (0.8 + (i % 3) * 0.15)
+    spark.position.set(Math.cos(a) * r, height * (0.15 + ((i * 0.37) % 1) * 0.85), Math.sin(a) * r)
+    spark.scale.setScalar(width * (diamond ? 0.28 : 0.22))
+    spark.userData.shared = true
+    spark.userData.phase = i
+    spark.userData.baseY = spark.position.y
+    fx.add(spark)
+  }
+  const ring = zombieGlow('mythic', width * (diamond ? 4 : 3))
+  if (ring) {
+    const id = `${shine}-ring`
+    if (!shineMats.has(id)) {
+      const mat = ring.material.clone()
+      mat.color.set(s.color)
+      mat.userData.base = 0.85
+      shineMats.set(id, mat)
+    }
+    ring.material = shineMats.get(id)
+    ring.position.y = 0.02 * height
+    fx.add(ring)
+  }
+  if (diamond) {
+    if (!beamGeo) {
+      beamGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 12, 1, true)
+      beamGeo.translate(0, 0.5, 0)
+      beamMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(s.color), transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false })
+    }
+    const beam = new THREE.Mesh(beamGeo, beamMat)
+    beam.scale.set(width * 0.9, height * 40, width * 0.9)
+    beam.userData.shared = true
+    beam.renderOrder = 2
+    fx.add(beam)
+  }
+  return fx
+}
+
+// Spins the sparkles and makes everything twinkle. One call a frame.
+export function animateShineFx(fx, time) {
+  fx.rotation.y = time * (fx.userData.shine === 'diamond' ? 1.6 : 1.1)
+  for (const o of fx.children) {
+    if (o.userData.phase !== undefined) o.position.y = o.userData.baseY + Math.sin(time * 3 + o.userData.phase) * o.scale.x * 0.6
+  }
+}
+export function pulseShines(time) {
+  for (const [id, mat] of shineMats) {
+    const base = mat.userData.base
+    if (id.includes('spark')) mat.opacity = base * (0.55 + 0.45 * Math.abs(Math.sin(time * 5 + id.length)))
+    else mat.opacity = base * (0.75 + 0.25 * Math.sin(time * 3))
+    if (id.startsWith('diamond') && !id.includes('spark')) mat.color.setHSL((time * 0.15) % 1, 0.8, 0.7)
+  }
+  if (beamMat) {
+    beamMat.color.setHSL((time * 0.15) % 1, 0.8, 0.7)
+    beamMat.opacity = 0.16 + 0.08 * Math.sin(time * 2)
+  }
+}

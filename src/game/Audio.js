@@ -44,6 +44,9 @@ const SPECIAL_SOUNDS = {
   radio2: { notes: [[392, 0, 0.4, 'triangle', 0.1], [440, 0.45, 0.4, 'triangle', 0.1], [494, 0.9, 0.4, 'triangle', 0.1], [587, 1.35, 0.8, 'triangle', 0.1]] },
   radio3: { notes: [[110, 0, 0.2, 'sawtooth', 0.08], [110, 0.5, 0.2, 'sawtooth', 0.08], [147, 1, 0.2, 'sawtooth', 0.08], [131, 1.5, 0.3, 'sawtooth', 0.08]], noise: [0.1, 4000, 6000, 0.08] },
   echo: { noise: [0.3, 900, 300, 0.12] },
+  // A Golden / Diamond zombie showing up or going down (ZombieNames.js).
+  goldZombie: { notes: [[1319, 0, 0.25, 'triangle', 0.16], [1568, 0.08, 0.25, 'triangle', 0.14], [2093, 0.16, 0.6, 'sine', 0.12]] },
+  diamondZombie: { notes: [[1047, 0, 0.3, 'sine', 0.14], [1319, 0.07, 0.3, 'sine', 0.13], [1568, 0.14, 0.3, 'sine', 0.12], [2093, 0.21, 0.4, 'sine', 0.12], [2637, 0.28, 0.9, 'sine', 0.1], [3136, 0.4, 1, 'triangle', 0.05]], noise: [0.6, 5000, 9000, 0.05] },
   clank: { noise: [0.15, 2500, 900, 0.3], notes: [[180, 0, 0.12, 'square', 0.12, 90]] },
   crumble: { noise: [0.5, 500, 120, 0.3] },
   thud: { noise: [0.2, 300, 80, 0.35], notes: [[90, 0, 0.25, 'sine', 0.3, 45]] },

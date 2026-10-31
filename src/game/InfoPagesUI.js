@@ -22,6 +22,9 @@ import { BUMP_MAX_DEGREES } from './BlockChunks.js'
 import { MAX_WILD, ANIMAL_IDS } from './PlayAnimals.js'
 import { DINO_KINDS, DINO_CHANCE } from './DinoKinds.js'
 import { RARITIES } from './NewAnimalKinds.js'
+import { ZOMBIE_SHINES } from './ZombieNames.js'
+import { DAILY_TEMPLATES, STREAK_STEP, STREAK_MAX_DAYS, streakMult } from './DailyChallenge.js'
+import { DEATH_JOB_COUNT } from './DeathJokes.js'
 import { GRASS_GROW_SECONDS } from './GrassTufts.js'
 import { PLAY_WEAPONS } from './PlayWeapons.js'
 import { LANGUAGES, t, tHtml } from './i18n.js'
@@ -295,6 +298,15 @@ export function _featureValues(_game) {
     animalKinds: ANIMAL_IDS.length,
     dinoKinds: Object.keys(DINO_KINDS).length,
     rarityTiers: Object.keys(RARITIES).length,
+    goldOdds: Math.round(1 / ZOMBIE_SHINES.gold.chance),
+    goldCoins: ZOMBIE_SHINES.gold.coins,
+    diamondOdds: Math.round(1 / ZOMBIE_SHINES.diamond.chance),
+    diamondCoins: ZOMBIE_SHINES.diamond.coins,
+    dailyKinds: DAILY_TEMPLATES.length,
+    dailyStreakStep: Math.round(STREAK_STEP * 100),
+    dailyStreakDays: STREAK_MAX_DAYS,
+    dailyStreakMax: streakMult(STREAK_MAX_DAYS),
+    deathJobs: DEATH_JOB_COUNT,
     dinoChance: Math.round(DINO_CHANCE * 100),
     grassGrowMinutes: GRASS_GROW_SECONDS / 60,
     leafDropPercent: Math.round(LEAF_DROP_CHANCE * 100),
