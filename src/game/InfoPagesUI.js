@@ -30,7 +30,10 @@ import { RARITIES } from './NewAnimalKinds.js'
 import { ZOMBIE_SHINES } from './ZombieNames.js'
 import { DAILY_TEMPLATES, STREAK_STEP, STREAK_MAX_DAYS, streakMult } from './DailyChallenge.js'
 import { DEATH_JOB_COUNT } from './DeathJokes.js'
-import { HAT_EVERY } from './FunnyZombies.js'
+import { HAT_EVERY, CAPE_EVERY } from './FunnyZombies.js'
+import { CHANCE as BLOOD_MOON_CHANCE, FROM_WAVE as BLOOD_MOON_WAVE } from './BloodMoon.js'
+import { SPAN as REPLAY_SECONDS } from './DeathReplay.js'
+import { PHOTO_FILTERS } from './PhotoFilters.js'
 import { JOKE_SIGN_COUNT } from './JokeSigns.js'
 import { SILLY_TIP_COUNT } from './SillyTips.js'
 import { COSMETIC_IDS } from './Cosmetics.js'
@@ -330,6 +333,11 @@ export function _featureValues(_game) {
     discoOdds: Math.round(1 / ZOMBIE_SHINES.disco.chance),
     discoCoins: ZOMBIE_SHINES.disco.coins,
     zombieHatOdds: HAT_EVERY,
+    zombieCapeOdds: CAPE_EVERY,
+    bloodMoonOdds: Math.round(1 / BLOOD_MOON_CHANCE),
+    bloodMoonWave: BLOOD_MOON_WAVE,
+    replaySeconds: REPLAY_SECONDS,
+    photoFilters: PHOTO_FILTERS.length - 1,
     jokeSigns: JOKE_SIGN_COUNT,
     sillyTips: SILLY_TIP_COUNT,
     cosmetics: COSMETIC_IDS.length,

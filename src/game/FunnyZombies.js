@@ -2,7 +2,10 @@
 // of looking so cold"):
 //
 // - hats: about one zombie in HAT_EVERY wears a party hat, a traffic cone
-//   or a tiny crown. Picked from the zombie's id, so on a server everyone
+//   or a tiny crown - or one of the players' own hats (2026-10-31, Gaymi:
+//   "some zombies wear random player cosmetics, so players can show off
+//   cosmetics"), and about one in CAPE_EVERY a cape (Cosmetics.js). Picked
+//   from the zombie's id, so on a server everyone
 //   sees the same hat on the same zombie without sending anything. Built
 //   from boxes like everything else, in the body's own units (the head's
 //   top is at y = HEAD_TOP), so it rides along when the body is copied
@@ -15,7 +18,9 @@
 import * as THREE from 'three'
 
 export const HAT_EVERY = 7
-export const HAT_KINDS = ['party', 'cone', 'crown']
+export const HAT_KINDS = ['party', 'cone', 'crown', 'propeller', 'chicken']
+export const CAPE_EVERY = 12
+export const CAPE_KINDS = ['redCape', 'rainbowCape', 'goldCape']
 export const GOOF_CHANCE = 0.2
 const HEAD_TOP = 30
 
@@ -25,6 +30,13 @@ export function zombieHat(id) {
   const h = Math.imul((id | 0) ^ 0x5bd1e995, 0x27d4eb2d) >>> 0
   if (h % HAT_EVERY !== 0) return null
   return HAT_KINDS[(h >>> 8) % HAT_KINDS.length]
+}
+
+// Which cape (or null) a zombie wears, the same way.
+export function zombieCape(id) {
+  const h = Math.imul((id | 0) ^ 0x1b873593, 0x85ebca6b) >>> 0
+  if (h % CAPE_EVERY !== 0) return null
+  return CAPE_KINDS[(h >>> 8) % CAPE_KINDS.length]
 }
 
 // [width, height, depth, y, colour] boxes stacked up from the head's top,
@@ -44,7 +56,7 @@ const HAT_BOXES = {
     [1, 1.6, 1, 2.2, 0xf8d870, -2, 2], [1, 1.6, 1, 2.2, 0xf8d870, 2, 2],
     [1, 1, 1, 1, 0xe0284f, 0, -2.6],
   ],
-  // Players' hats only (Cosmetics.js) - zombies wear HAT_KINDS.
+  // The players' own hats (Cosmetics.js) - zombies wear these too.
   propeller: [
     [8.4, 2, 8.4, 1, 0xe0284f], [8.4, 0.6, 3, 0.3, 0x2a62d8, 0, 5], [0.8, 1.4, 0.8, 2.7, 0xffd23f],
     [7, 0.4, 1, 3.6, 0x5cc8ff, 0, 0, 'spin'],

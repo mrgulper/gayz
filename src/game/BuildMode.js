@@ -4688,8 +4688,9 @@ export class BuildMode {
       this._shadowsDirty = false
     }
     this.renderer.info.reset()
-    // Third person: the camera steps out for this drawing only.
-    const restoreView = this.tryMode.applyView()
+    // Third person: the camera steps out for this drawing only (and a
+    // death replay circles your body - DeathReplay.js).
+    const restoreView = this.survival?.replay?.applyView(this.camera) || this.tryMode.applyView()
     // An earthquake (or an impact) shakes the view (Disasters.js).
     const restoreShake = this.sky.disasters?.beforeRender(this.camera)
     this.renderer.render(this.scene, this.camera)
@@ -4708,7 +4709,9 @@ export class BuildMode {
     }
     // A block held from the game's inventory is drawn in the hand instead.
     const held = this.tryMode.active && this.survival?.active ? this.survival.holding : null
-    if (held?.kind === 'block') this.tryMode.drawHand(this.renderer, held.id, true)
+    if (this.survival?.replay?.active) {
+      // A death replay: no hand.
+    } else if (held?.kind === 'block') this.tryMode.drawHand(this.renderer, held.id, true)
     else if (this.tryMode.active && !held) this.tryMode.drawGun(this.renderer)
     else if (!this.menuOpen && !this.pickerOpen && !this._noHand) this.tryMode.drawHand(this.renderer, this.selectedType)
     // The minimap shows while building too (Try Map draws its own).

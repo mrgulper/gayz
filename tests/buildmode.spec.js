@@ -3,6 +3,7 @@ import { gotoAndWaitForGame } from './helpers.js'
 import { sampleLand, BIOMES } from '../src/game/OpenWorld.js'
 import { SPECIAL_BLOCKS } from '../src/game/SpecialBlocks.js'
 import { PLAY_WEAPONS } from '../src/game/PlayWeapons.js'
+import { zombieHat, zombieCape } from '../src/game/FunnyZombies.js'
 
 test('entering Build Mode shows a scene with a ground plane, exiting returns to the homepage', async ({ page }) => {
   await gotoAndWaitForGame(page)
@@ -453,6 +454,8 @@ test('Play mode spawns zombie waves that reach you and can be shot', async ({ pa
     out.chestOnce = s.useChest(2, 0, 1) && s.reserve === reserve + 60
     s.health = 5
     s._hurtPlayer(10)
+    // (The death replay plays first - skipped here, DeathReplay.js.)
+    s.replay?.stop()
     out.dead = s.dead && document.getElementById('build-play-over').style.display === 'flex'
     s.stop()
     out.stopped = !s.active && !bm.tryMode.active && s.zombies.length === 0
@@ -2857,6 +2860,8 @@ for (const [mode, button] of [['classic', 'game-mode-classic'], ['zombieDefense'
       s.armor = 0
       s._hurtPlayer(1000)
       if (!s.dead) s._die()
+      // (The death replay plays first - skipped here, DeathReplay.js.)
+      s.replay?.stop()
       out.dead = s.dead
       out.title = document.getElementById('build-play-over-title').textContent
       out.overShown = s._overEl.style.display !== 'none'
@@ -4379,4 +4384,60 @@ test('first game, hit feedback, sun kills, next unlock, auto graphics', async ({
   expect(r.unlock).toMatch(/Propeller Cap/)
   // The daily challenge is in the Quests, no longer a card on the homepage.
   expect(await page.evaluate(() => document.getElementById('home-daily'))).toBeNull()
+})
+
+// Gaymi's quick wins (2026-10-31): a Blood Moon doubles zombies and coins
+// and turns the sky red; zombies wear the players' hats and capes; dying
+// alone plays a slow-motion replay first (skippable), then the You Died
+// card; Photo Mode's filters show live and go into the saved picture.
+test('Blood Moon, zombie cosmetics, death replay and photo filters', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game._enterBuildMode({ play: true }))
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const bm = g.buildMode
+    const s = bm.survival
+    for (let i = 0; i < 40 && !s.active; i++) await new Promise((res) => setTimeout(res, 250))
+    s._pickWeapon('rifle')
+    const out = {}
+    s._startWave(3)
+    const normal = s._toSpawn
+    let c = s.coins
+    s._earn(10)
+    out.normalCoins = s.coins - c
+    out.started = s.bloodMoon.start()
+    out.doubled = s._toSpawn === normal * 2
+    c = s.coins
+    s._earn(10)
+    out.bloodCoins = s.coins - c
+    out.skyState = bm.sky.skyState().b
+    for (let i = 0; i < 60; i++) bm.update(0.05)
+    out.redEdge = document.body.classList.contains('play-blood-moon')
+    // Dying alone: the replay first, then the card once it's skipped.
+    for (let i = 0; i < 70; i++) s.update(0.05)
+    s.health = 0
+    s._die()
+    out.replay = s.replay.active
+    out.cardDuring = s._overEl.style.display
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', bubbles: true }))
+    out.cardAfter = s._overEl.style.display
+    out.replayAfter = s.replay.active
+    // Photo filters.
+    document.getElementById('build-play-again-btn').click()
+    s._pickWeapon('rifle')
+    bm.spectate.enter({ photo: true })
+    bm.spectate.setFilter('bw')
+    out.liveFilter = bm.renderer.domElement.style.filter
+    bm.spectate.exit?.()
+    return out
+  })
+  expect(r).toEqual({
+    normalCoins: 10, started: true, doubled: true, bloodCoins: 20, skyState: 1, redEdge: true,
+    replay: true, cardDuring: 'none', cardAfter: 'flex', replayAfter: false,
+    liveFilter: 'url("#gz-photo-bw")',
+  })
+  // The players' own hats and capes turn up on zombies too.
+  const ids = Array.from({ length: 400 }, (_, i) => i)
+  expect(ids.some((i) => zombieHat(i) === 'propeller') && ids.some((i) => zombieHat(i) === 'chicken')).toBe(true)
+  expect(ids.filter((i) => zombieCape(i)).length).toBeGreaterThan(0)
 })

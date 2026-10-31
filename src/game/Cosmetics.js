@@ -95,8 +95,8 @@ export function myWorn(game, slot) {
 
 let capeGeo = null
 // A cape hanging off the shoulders, flaring back a little; stripes for
-// one of more colours.
-function makeCape(id) {
+// one of more colours. (Zombies wear them too - BuildSurvival.)
+export function makeCape(id) {
   const colors = COSMETICS[id]?.colors
   if (!colors) return null
   if (!capeGeo) {

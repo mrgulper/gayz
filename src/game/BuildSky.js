@@ -155,6 +155,9 @@ const BIOME_CLIMATE = {
 // A clean, bright, flat blue by day and near black at night (2026-10-23,
 // Gaymi's reference pictures), with real-looking stars (_buildStars).
 const DAY_SKY = 0x6cb4f4
+// A Blood Moon night (BloodMoon.js): the sky, the light and the moon go red.
+const BLOOD_SKY = new THREE.Color(0x4a0508)
+const BLOOD_LIGHT = new THREE.Color(0xff3a2e)
 const STAR_COUNT = 4000
 // Extra faint stars that only come out while zoomed in (hold V).
 const DEEP_STARS = 36000
@@ -243,6 +246,10 @@ export class BuildSky {
     this._eclipse = 0
     this._rainbowIn = 0 // seconds of rainbow left
     this.rainbow = 0 // how much is showing (0..1)
+    // A Blood Moon tonight (set by BloodMoon.js, or the host's sky), and how
+    // red the sky is right now (eases in and out).
+    this.bloodMoon = false
+    this._blood = 0
     // On a server and not the host: the host's sky is shown (follow) and
     // nothing is rolled here.
     this._following = false
@@ -410,7 +417,7 @@ export class BuildSky {
   // didn't see the same thing I had on my screen"): the host sends this
   // with each sync (PlayNet) and the others follow() it.
   skyState() {
-    return { c: +this._clock.toFixed(1), n: this._now, g: this._goal, r: +Math.max(0, this._rainbowIn).toFixed(1), d: this.disasters.state() }
+    return { c: +this._clock.toFixed(1), n: this._now, g: this._goal, r: +Math.max(0, this._rainbowIn).toFixed(1), d: this.disasters.state(), b: this.bloodMoon ? 1 : 0 }
   }
 
   // The host's sky (null: back to rolling our own, e.g. we became the host).
@@ -425,6 +432,7 @@ export class BuildSky {
     if (this.time === 'cycle' && Number.isFinite(state.c) && Math.abs(state.c - this._clock) > 3) this._clock = state.c
     if (ok(state.g)) this._goal = state.g
     this._rainbowIn = Number(state.r) || 0
+    this.bloodMoon = state.b === 1
     this.disasters.follow(state.d || null)
     if (ok(state.n) && state.n !== this._now) {
       this._now = state.n
@@ -437,6 +445,7 @@ export class BuildSky {
   forGame(on) {
     this._following = false
     this._inGame = !!on
+    this.bloodMoon = false
     this.disasters.end()
     luck.stop()
     if (on) {
@@ -580,6 +589,7 @@ export class BuildSky {
   // smoothly (k: 0 = jump straight there).
   _easeLook(dt) {
     const k = dt > 0 ? 1 - Math.exp(-(this.weather === 'random' ? SKY_EASE_SLOW : SKY_EASE) * dt) : 1
+    this._blood += ((this.bloodMoon ? 1 : 0) - this._blood) * (this._active ? 1 - Math.exp(-0.6 * Math.max(0, dt)) : 1)
     if (!this._active) {
       // Outside the editor/Play nothing is showing - no easing needed.
       this._tint.copy(this._tintGoal)
@@ -596,6 +606,9 @@ export class BuildSky {
     // A disaster's own sky (smoke, ash, a fire's glow), then lightning.
     const d = this.disasters.look
     if (d.mix > 0.001) this._sky.lerp(d.tint, d.mix)
+    const blood = this._blood
+    if (blood > 0.001) this._sky.lerp(BLOOD_SKY, blood * 0.8)
+    if (this.bodies?.moon) this.bodies.moon.material.color.setRGB(1, 1 - blood * 0.72, 1 - blood * 0.78)
     const flash = this.lightning.flash
     if (flash > 0.001) this._sky.lerp(this._flashColor, Math.min(0.75, flash * 0.55))
     const lightMult = d.light * (1 + flash * 1.6)
@@ -618,10 +631,12 @@ export class BuildSky {
       bm._sunLight.intensity = this._sunBase * this._light * d.light * (real ? 1.35 : 1)
       if (this._sunColor) bm._sunLight.color.copy(this._sunColor)
       if (real) bm._sunLight.color.multiply(this._a.setRGB(1, 0.95, 0.86))
+      if (blood > 0.001) bm._sunLight.color.lerp(BLOOD_LIGHT, blood * 0.7)
     }
     if (bm._hemiLight && this._hemiColor) {
       bm._hemiLight.color.copy(this._hemiColor)
       if (real) bm._hemiLight.color.lerp(this._a.setRGB(0.78, 0.86, 1), 0.35)
+      if (blood > 0.001) bm._hemiLight.color.lerp(BLOOD_LIGHT, blood * 0.55)
     }
   }
 
