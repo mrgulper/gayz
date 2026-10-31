@@ -8,7 +8,7 @@
 //
 // A screen of its own over the homepage (#team-battle) with its own small
 // renderer, made when a battle starts and thrown away when it ends - the
-// homepage keeps running underneath. Opened from the Team page (TeamUI.js).
+// homepage keeps running underneath. Opened from Inventory's Pets tab (TeamUI.js).
 import * as THREE from 'three'
 import { PlayAnimals } from './PlayAnimals.js'
 import { stats, creatureName, creatureIconURL, tierColor } from './Creatures.js'
@@ -22,6 +22,9 @@ export const ROUND_S = 120
 const ARENA = 11 // half the arena's width, in blocks
 const START_Z = 6
 const SPREAD = 3
+// Up to this many side by side; a bigger team stands in a second row behind.
+const ROW = 5
+const ROW_GAP = 2.2
 const CRIT_CHANCE = 0.1
 const CRIT_MULT = 1.5
 const KNOCK = 0.7
@@ -247,8 +250,11 @@ export class TeamBattle {
   _fighter(c, side, i, n) {
     const s = stats(c)
     const built = c.t === 'a' ? animalModel(c.k) : zombieModel(c)
-    const x = (i - (n - 1) / 2) * SPREAD
-    const z = side === 'mine' ? START_Z : -START_Z
+    const row = Math.floor(i / ROW)
+    const inRow = Math.min(ROW, n - row * ROW)
+    const x = ((i % ROW) - (inRow - 1) / 2) * SPREAD
+    const back = START_Z + row * ROW_GAP
+    const z = side === 'mine' ? back : -back
     const heading = side === 'mine' ? Math.PI : 0
     built.group.position.set(x, 0, z)
     built.group.rotation.y = heading
