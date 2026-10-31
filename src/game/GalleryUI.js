@@ -2,7 +2,8 @@
 // 3 sections for Character, Weapon and Map ... where everyone can see, like,
 // and comment on it"). Opened from its footer link next to Design a Skin.
 // Character posts come from Design a Skin (its Post to Gallery button), map
-// posts from the Map Editor's pause screen; Weapon is Coming Soon.
+// posts from the Map Editor's pause screen, Photo posts from a game's Photo
+// Mode (PlaySpectate.postPhoto, 2026-10-31); Weapon is Coming Soon.
 //
 // Same convention as ChatUI.js/CloudSaveUI.js: plain functions taking `game`,
 // all state on the Game instance. Firestore side: CloudSync's gallery
@@ -14,7 +15,9 @@ import * as CloudSync from './CloudSync.js'
 import { t } from './i18n.js'
 import { _escapeHtml, _censorText, _formatRelativeTime, skinFrontIconURL } from './Game.js'
 
-export const GALLERY_KINDS = ['character', 'weapon', 'map']
+export const GALLERY_KINDS = ['character', 'weapon', 'map', 'photo']
+// Posts that are a picture shown as it is (not a skin).
+const PICTURE_KINDS = ['map', 'photo']
 // The biggest picture a post may carry (the rules allow 400k characters).
 const MAX_IMAGE = 300000
 // Skins bigger than this are posted as a copy with fewer pixels.
@@ -131,7 +134,7 @@ function showKind(game, kind) {
   game._galleryKind = kind
   for (const tab of document.querySelectorAll('.gallery-tab')) tab.classList.toggle('active', tab.dataset.galleryKind === kind)
   const how = $('gallery-how')
-  if (how) how.textContent = t(kind === 'map' ? 'galleryHowMap' : 'galleryHowCharacter')
+  if (how) how.textContent = t(kind === 'map' ? 'galleryHowMap' : kind === 'photo' ? 'galleryHowPhoto' : 'galleryHowCharacter')
   if (kind === 'weapon') {
     setView('weapon')
     return
@@ -196,7 +199,7 @@ function renderGrid(game) {
     .sort((a, b) => game._gallerySort === 'new' ? byNew(a, b) : count(b.likes) - count(a.likes) || byNew(a, b))
   grid.innerHTML = posts.map((p) => `
     <button type="button" class="gallery-card" data-id="${_escapeHtml(p.id)}">
-      <span class="gallery-card-pic gallery-pic-${p.kind === 'map' ? 'map' : 'character'}"><img alt="" data-src-for="${_escapeHtml(p.id)}"></span>
+      <span class="gallery-card-pic gallery-pic-${PICTURE_KINDS.includes(p.kind) ? 'map' : 'character'}"><img alt="" data-src-for="${_escapeHtml(p.id)}"></span>
       <span class="gallery-card-title">${_escapeHtml(String(p.title || '').slice(0, 40))}</span>
       <span class="gallery-card-by">${_escapeHtml(t('galleryBy', { name: String(p.creatorNickname || '').slice(0, 24) }))}</span>
       <span class="gallery-card-likes"><span class="gallery-card-up">${THUMBS_UP} ${count(p.likes)}</span><span class="gallery-card-down">${THUMBS_DOWN} ${count(p.dislikes)}</span></span>
@@ -210,7 +213,7 @@ function renderGrid(game) {
     const img = grid.querySelector(`img[data-src-for="${CSS.escape(p.id)}"]`)
     const src = safeImage(p.image)
     if (!img || !src) continue
-    if (p.kind === 'map') img.src = src
+    if (PICTURE_KINDS.includes(p.kind)) img.src = src
     else skinFrontIconURL(src).then((url) => { if (url) img.src = url })
   }
 }
@@ -220,10 +223,10 @@ async function openPost(game, post) {
   setView('detail')
   const src = safeImage(post.image)
   const img = $('gallery-detail-img')
-  img.className = post.kind === 'map' ? 'gallery-detail-map' : 'gallery-detail-character'
+  img.className = PICTURE_KINDS.includes(post.kind) ? 'gallery-detail-map' : 'gallery-detail-character'
   img.removeAttribute('src')
   if (src) {
-    if (post.kind === 'map') img.src = src
+    if (PICTURE_KINDS.includes(post.kind)) img.src = src
     else skinFrontIconURL(src).then((url) => { if (url && game._galleryOpen === post) img.src = url })
   }
   $('gallery-detail-title').textContent = String(post.title || '').slice(0, 40)
@@ -232,7 +235,8 @@ async function openPost(game, post) {
   const use = $('gallery-use-btn')
   const edit = $('gallery-edit-btn')
   use.textContent = t(post.kind === 'map' ? 'galleryPlayBtn' : 'galleryWearBtn')
-  use.hidden = post.kind === 'map' ? !MAP_CODE_RE.test(post.mapCode || '') : !src
+  // A photo is just to look at.
+  use.hidden = post.kind === 'photo' || (post.kind === 'map' ? !MAP_CODE_RE.test(post.mapCode || '') : !src)
   edit.textContent = t('galleryEditBtn')
   edit.hidden = post.kind !== 'map' || !MAP_CODE_RE.test(post.mapCode || '')
   const del = $('gallery-delete-btn')
@@ -296,7 +300,7 @@ async function voteOpenPost(game, vote) {
 
 async function useOpenPost(game, primary) {
   const post = game._galleryOpen
-  if (!post) return
+  if (!post || post.kind === 'photo') return
   if (post.kind === 'map') {
     if (!MAP_CODE_RE.test(post.mapCode || '')) return
     game._closeGalleryPanel()

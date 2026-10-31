@@ -21,6 +21,12 @@
 // saves a PNG (BuildMode.render reads the picture straight after drawing
 // it - the canvas keeps no copy).
 //
+// Filters and posting (2026-10-31, Gaymi's idea list: "add filters, then
+// post the picture to your Gallery"): a row of PHOTO_FILTERS (colour
+// matrices, so the live look - an SVG filter on the game's canvas - and
+// the saved picture are the same), and once a photo's taken, Post to
+// Gallery sends it (a smaller JPEG) to the Gallery's Photo section.
+//
 // Escape goes back to the pause screen and puts the camera back where you
 // were. Owned by BuildMode (`bm.spectate`), driven from its update() and
 // key/mouse handlers.
@@ -30,6 +36,10 @@ import { BOTTOM } from './Underground.js'
 import { BLOCK_TYPES } from './BuildMode.js'
 import { blockFaceCanvases } from './BlockTextures.js'
 import { t } from './i18n.js'
+import { postToGallery } from './GalleryUI.js'
+import { PHOTO_FILTERS, filterDefs, applyFilter } from './PhotoFilters.js'
+import { isOffline } from './Offline.js'
+import { _censorText } from './Game.js'
 
 const FLY_SPEED = 14 // blocks per second
 const FAST_MULT = 2.5 // holding Ctrl
@@ -43,6 +53,10 @@ const EYE = 1.62 // blocks above a player's feet
 const FLOOR_SIZE = 1024 // blocks across
 const MIN_EYE = BOTTOM + 0.4 // lowest the camera goes, in blocks
 
+// A posted photo: a JPEG this wide at most, and under the Gallery's limit.
+const POST_WIDTH = 960
+const POST_MAX = 290000
+
 export class PlaySpectate {
   constructor(bm, blockSize) {
     this.bm = bm
@@ -52,6 +66,8 @@ export class PlaySpectate {
     this._vel = new THREE.Vector3()
     this._saved = null
     this.photo = false
+    this.filter = 'none'
+    this._lastPhoto = null
   }
 
   // Photo Mode alone stops the world; a server's game can't wait.
@@ -112,6 +128,8 @@ export class PlaySpectate {
     document.body.classList.remove('play-spectating')
     if (this.photo) this._showPhotoUi(false)
     this.photo = false
+    this.setFilter('none')
+    this._lastPhoto = null
   }
 
   // The shutter and Exit buttons (the only things left on screen) and a
@@ -126,15 +144,34 @@ export class PlaySpectate {
         <div id="play-photo-flash"></div>
         <p id="play-photo-hint"></p>
         <p id="play-photo-saved" aria-live="polite"></p>
+        <div id="play-photo-filters" role="group"></div>
         <div id="play-photo-btns">
           <button type="button" id="play-photo-exit"></button>
+          <button type="button" id="play-photo-post" hidden></button>
           <button type="button" id="play-photo-shutter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h4l2-3h6l2 3h4v12H3z"/><circle cx="12" cy="13" r="4"/></svg></button>
         </div>`
       document.body.appendChild(ui)
       // Buttons don't reach the game underneath (no shot, no re-lock).
-      for (const id of ['play-photo-exit', 'play-photo-shutter']) {
+      const filters = ui.querySelector('#play-photo-filters')
+      for (const [id] of PHOTO_FILTERS) {
+        const b = document.createElement('button')
+        b.type = 'button'
+        b.dataset.filter = id
+        filters.appendChild(b)
+      }
+      filters.addEventListener('pointerdown', (e) => e.stopPropagation())
+      filters.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const b = e.target.closest('[data-filter]')
+        if (b) this.setFilter(b.dataset.filter)
+      })
+      for (const id of ['play-photo-exit', 'play-photo-shutter', 'play-photo-post']) {
         ui.querySelector(`#${id}`).addEventListener('pointerdown', (e) => e.stopPropagation())
       }
+      ui.querySelector('#play-photo-post').addEventListener('click', (e) => {
+        e.stopPropagation()
+        this.postPhoto()
+      })
       ui.querySelector('#play-photo-shutter').addEventListener('click', (e) => {
         e.stopPropagation()
         this.snap()
@@ -151,6 +188,65 @@ export class PlaySpectate {
     ui.querySelector('#play-photo-exit').textContent = t('photoModeExit')
     ui.querySelector('#play-photo-shutter').setAttribute('aria-label', t('photoModeSnap'))
     ui.querySelector('#play-photo-shutter').title = t('photoModeSnap')
+    const post = ui.querySelector('#play-photo-post')
+    post.textContent = t('photoModePost')
+    post.hidden = !this._lastPhoto
+    for (const b of ui.querySelectorAll('[data-filter]')) {
+      b.textContent = t(`photoFilter_${b.dataset.filter}`)
+      b.classList.toggle('active', b.dataset.filter === this.filter)
+    }
+  }
+
+  // A filter for the photos (and the live view while in Photo Mode).
+  setFilter(id) {
+    this.filter = PHOTO_FILTERS.some(([f]) => f === id) ? id : 'none'
+    if (this.filter !== 'none') filterDefs()
+    const canvas = this.bm.renderer?.domElement
+    if (canvas) canvas.style.filter = this.filter === 'none' ? '' : `url(#gz-photo-${this.filter})`
+    for (const b of document.querySelectorAll('#play-photo-filters [data-filter]')) b.classList.toggle('active', b.dataset.filter === this.filter)
+  }
+
+  // Post to Gallery: the last photo taken, to the Photo section.
+  async postPhoto() {
+    const shot = this._lastPhoto
+    const game = this.bm.game
+    if (!shot || !game || this._posting) return
+    if (isOffline()) return this._note(t('needsInternet'))
+    if (!game._cloudUid) return this._note(t('gallerySignIn'))
+    if (document.pointerLockElement) document.exitPointerLock()
+    const name = window.prompt(t('photoPostPrompt'), '')
+    const title = _censorText((name || '').trim()).slice(0, 40)
+    if (!title) return
+    // A smaller JPEG, a little smaller again until it fits.
+    let image = ''
+    for (let w = Math.min(POST_WIDTH, shot.width); w >= 240 && !image; w = Math.round(w * 0.75)) {
+      const c = document.createElement('canvas')
+      c.width = w
+      c.height = Math.round((shot.height * w) / shot.width)
+      c.getContext('2d').drawImage(shot, 0, 0, c.width, c.height)
+      const url = c.toDataURL('image/jpeg', 0.8)
+      if (url.length <= POST_MAX) image = url
+    }
+    if (!image) return this._note(t('galleryPostFailed'))
+    this._posting = true
+    try {
+      await postToGallery(game, { kind: 'photo', title, image })
+      this._note(t('galleryPosted'))
+    } catch {
+      this._note(t('galleryPostFailed'))
+    } finally {
+      this._posting = false
+    }
+  }
+
+  // A short note in the middle of the screen ("Photo saved!").
+  _note(text) {
+    const saved = document.getElementById('play-photo-saved')
+    if (!saved) return
+    saved.textContent = text
+    saved.classList.remove('show')
+    void saved.offsetWidth
+    saved.classList.add('show')
   }
 
   // Takes the picture on the next frame drawn (BuildMode.render).
@@ -165,7 +261,17 @@ export class PlaySpectate {
     const d = new Date()
     const stamp = [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, '0')).join('-')
     try {
-      canvas.toBlob((blob) => {
+      // Copied now (the game's canvas is cleared after this frame), with
+      // the filter baked in; kept for Post to Gallery.
+      const shot = document.createElement('canvas')
+      shot.width = canvas.width
+      shot.height = canvas.height
+      shot.getContext('2d', { willReadFrequently: true }).drawImage(canvas, 0, 0)
+      applyFilter(shot, PHOTO_FILTERS.find(([f]) => f === this.filter)?.[1])
+      this._lastPhoto = shot
+      const post = document.getElementById('play-photo-post')
+      if (post) post.hidden = false
+      shot.toBlob((blob) => {
         if (!blob) return
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -185,13 +291,7 @@ export class PlaySpectate {
       void flash.offsetWidth
       flash.classList.add('show')
     }
-    const saved = document.getElementById('play-photo-saved')
-    if (saved) {
-      saved.textContent = t('photoModeSaved')
-      saved.classList.remove('show')
-      void saved.offsetWidth
-      saved.classList.add('show')
-    }
+    this._note(t('photoModeSaved'))
   }
 
   _showFloor(on) {

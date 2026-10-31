@@ -622,3 +622,67 @@ html.ui-theme-biome #play-photo-btns button { background: var(--biome-surface); 
 html.ui-theme-biome #play-photo-shutter { color: var(--biome-ink) !important; }
 html.ui-theme-biome #play-photo-btns button:hover { background: var(--biome-button-hover); }
 html.ui-theme-biome #play-photo-saved { color: #fff; }
+/* Photo filters: a row of pills under the hint, the picked one gold. */
+#play-photo-filters {
+  position: absolute; left: 50%; top: 56px; transform: translateX(-50%);
+  display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; width: max-content; max-width: calc(100vw - 32px);
+  pointer-events: auto;
+}
+#play-photo-filters button {
+  height: 32px; padding: 0 12px; border-radius: 999px; font: inherit; font-size: 13px; white-space: nowrap; cursor: pointer; color: inherit;
+  background: rgba(18, 15, 10, 0.85); border: 1px solid rgba(var(--pp-gold-rgb), 0.45);
+}
+#play-photo-filters button.active { background: var(--pp-gold); color: #1b140a; border-color: var(--pp-gold); }
+#play-photo-filters button:hover:not(.active) { background: rgba(var(--pp-gold-rgb), 0.25); }
+#play-photo-post { height: 44px; padding: 0 18px; border-radius: 999px; font-size: 15px; }
+#play-photo-post[hidden] { display: none; }
+body.touch-play-on #play-photo-filters { top: 12px; }
+html.ui-theme-old #play-photo-filters button { background: rgba(232, 214, 176, 0.92); border-color: #6b4a22; font-family: 'Rye', serif; }
+html.ui-theme-old #play-photo-filters button.active { background: #6b4a22; color: #f3e2b8; }
+html.ui-theme-biome #play-photo-filters button { background: var(--biome-surface); border-color: var(--biome-edge); }
+html.ui-theme-biome #play-photo-filters button.active { background: var(--biome-accent); color: rgb(var(--biome-bg-rgb)); border-color: var(--biome-accent); }
+
+/* Death replay (DeathReplay.js): the HUD goes, letterbox bars come in, a
+   blinking REPLAY tag, the death joke near the end, and Skip. */
+body.play-replay #app > :not(#scene),
+body.play-replay > :not(#app):not(#play-replay-ui):not(script):not(style) { visibility: hidden !important; }
+#play-replay-ui {
+  position: fixed; inset: 0; z-index: 25; cursor: pointer; color: #fff;
+  font-family: 'Luckiest Guy', system-ui, sans-serif;
+}
+#play-replay-ui::before, #play-replay-ui::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 9vh; background: #000;
+  animation: play-replay-bars 0.4s ease-out;
+}
+#play-replay-ui::before { top: 0; }
+#play-replay-ui::after { bottom: 0; }
+@keyframes play-replay-bars { from { height: 0; } }
+#play-replay-tag {
+  position: absolute; z-index: 1; top: calc(9vh + 12px); left: 18px; margin: 0;
+  display: flex; align-items: center; gap: 8px; font-size: 22px; letter-spacing: 2px; text-shadow: 0 2px 6px #000;
+}
+#play-replay-tag span { width: 12px; height: 12px; border-radius: 50%; background: #ff3b30; animation: play-replay-blink 1s steps(2, start) infinite; }
+@keyframes play-replay-blink { to { visibility: hidden; } }
+#play-replay-joke {
+  position: absolute; z-index: 1; left: 50%; bottom: calc(9vh + 24px); transform: translateX(-50%);
+  width: min(90vw, 720px); margin: 0; text-align: center; font-size: clamp(20px, 4vw, 34px); line-height: 1.2;
+  text-shadow: 0 3px 10px #000; opacity: 0; transition: opacity 0.6s;
+}
+#play-replay-joke.show { opacity: 1; }
+#play-replay-skip {
+  position: absolute; z-index: 1; top: calc(9vh + 10px); right: 18px; height: 38px; padding: 0 18px; border-radius: 999px;
+  font: inherit; font-size: 16px; letter-spacing: 1px; color: #fff; cursor: pointer;
+  background: rgba(0, 0, 0, 0.55); border: 1px solid rgba(255, 255, 255, 0.5);
+}
+#play-replay-skip:hover { background: rgba(255, 255, 255, 0.2); }
+html.ui-theme-biome #play-replay-skip { background: var(--biome-surface); border-color: var(--biome-edge); color: var(--biome-ink); }
+html.ui-theme-old #play-replay-skip { background: rgba(232, 214, 176, 0.92); border-color: #6b4a22; color: #2b1d0e; font-family: 'Rye', serif; }
+
+/* Blood Moon (BloodMoon.js): a red edge round the screen all night. */
+body.play-blood-moon::after {
+  content: ''; position: fixed; inset: 0; z-index: 2; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(150, 0, 10, 0.38) 100%);
+  animation: play-blood-pulse 4s ease-in-out infinite alternate;
+}
+@keyframes play-blood-pulse { from { opacity: 0.7; } to { opacity: 1; } }
+body.play-photo.play-blood-moon::after, body.play-replay.play-blood-moon::after { display: none; }

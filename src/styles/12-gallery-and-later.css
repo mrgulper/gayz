@@ -729,6 +729,7 @@ html.ui-theme-old #profile-panel .panel-box * {
 #gallery-weapon-page { min-height: 100%; }
 .gallery-tabs {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
   margin-bottom: 14px;
@@ -767,6 +768,14 @@ html.ui-theme-old #profile-panel .panel-box * {
   margin-bottom: 12px;
 }
 #gallery-how { flex: 1; min-width: 0; margin: 0; font-size: 13px; opacity: 0.8; }
+/* Phones: the four section tabs fit on one or two rows, and the "how to
+   post" line gets the toolbar's whole width above the buttons. */
+@media (max-width: 520px) {
+  .gallery-tabs { gap: 6px; }
+  .gallery-tab { padding: 6px 12px; }
+  #gallery-toolbar { flex-wrap: wrap; }
+  #gallery-how { flex-basis: 100%; }
+}
 #gallery-mine-btn,
 #gallery-sort {
   flex: none;

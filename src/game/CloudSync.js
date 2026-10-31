@@ -528,7 +528,7 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.keys().hasOnly(['kind', 'title', 'creatorUid', 'creatorNickname', 'image', 'mapCode', 'createdAt', 'likes'])
         && request.resource.data.creatorUid == request.auth.uid
-        && request.resource.data.kind in ['character', 'map']
+        && request.resource.data.kind in ['character', 'map', 'photo']
         && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 40
         && request.resource.data.creatorNickname is string && request.resource.data.creatorNickname.size() > 0 && request.resource.data.creatorNickname.size() <= 24
         && request.resource.data.image is string && request.resource.data.image.size() <= 400000

@@ -38,6 +38,8 @@ import { worldSeed, isEarthWorld } from './OpenWorld.js'
 import { loadEarthTerrain } from './EarthTerrain.js'
 import { BOTTOM, DEMON_TOP } from './Underground.js'
 import { deathJoke } from './DeathJokes.js'
+import { BloodMoon } from './BloodMoon.js'
+import { DeathReplay } from './DeathReplay.js'
 import { sillyTip } from './SillyTips.js'
 import { JokeSigns } from './JokeSigns.js'
 import { Emotes } from './Emotes.js'
@@ -51,12 +53,12 @@ import { GoKart } from './GoKart.js'
 import { HEAVEN_FLOOR, HEAVEN_TOP } from './HeavenRealm.js'
 import { WATER_BIOMES } from './EarthGrid.js'
 import { PlayDamageNumbers } from './PlayDamageNumbers.js'
-import { zombieHat, makeHat, disposeHat, poseZombieLimbs, GOOF_CHANCE } from './FunnyZombies.js'
+import { zombieHat, zombieCape, makeHat, disposeHat, poseZombieLimbs, GOOF_CHANCE } from './FunnyZombies.js'
 import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './SpeechBubble.js'
 import { SHOOT_THROUGH } from './SpecialBlocks.js'
 import { openLobby } from './ServerBrowser.js'
 import { PlayOnboarding, isFirstGame } from './PlayOnboarding.js'
-import { nextUnlock, nextUnlockText, newlyUnlocked, cosmeticName, COSMETICS } from './Cosmetics.js'
+import { nextUnlock, nextUnlockText, newlyUnlocked, cosmeticName, COSMETICS, makeCape, isUnlocked, needText } from './Cosmetics.js'
 
 export const CHEST_LOOT = { ammo: 60, health: 35 }
 // How often a Loot Chest has a Catch Trap or two (PlayCatch.js).
@@ -379,6 +381,13 @@ export class BuildSurvival {
     this.kart.dispose()
     this._kartParked = false
     this.events.reset()
+    // A rare red night: double zombies, double coins (BloodMoon.js).
+    if (!this.bloodMoon) this.bloodMoon = new BloodMoon(this)
+    this.bloodMoon.reset()
+    this._wornSeen = null
+    // Your last seconds, played back slowly when you die (DeathReplay.js).
+    if (!this.replay) this.replay = new DeathReplay(this)
+    this.replay.clear()
     if (!this.throws) this.throws = new PlayThrow(this)
     this.throws.clear()
     if (!this.catcher) this.catcher = new PlayCatch(this)
@@ -494,6 +503,8 @@ export class BuildSurvival {
     this._clearCorpses()
     this.tricks?.clear()
     this.events?.clear()
+    this.bloodMoon?.reset()
+    this.replay?.clear()
     this.survivors?.clear()
     this.kart?.dispose()
     this._fx?.clear()
@@ -872,9 +883,10 @@ export class BuildSurvival {
     return (1 + 0.25 * (this.upgrades?.damage || 0)) * (this.cfg?.damageMult ?? 1) * this.bm.specials.damageMult()
   }
 
-  // Coins come in through here, so Loot Rush doubles them all.
+  // Coins come in through here, so Loot Rush doubles them all (and so
+  // does a Blood Moon).
   _earn(n) {
-    const got = Math.round(n * (this.cfg?.coinMult ?? 1))
+    const got = Math.round(n * (this.cfg?.coinMult ?? 1) * (this.bloodMoon?.mult ?? 1))
     this.coins += got
     this._coinsEarned += got
   }
@@ -1453,6 +1465,7 @@ export class BuildSurvival {
     else if (!sunOnly) {
       const coins = this._coinsEarned
       this._countKill(z.boss, skeleton, z.tier, z.shine)
+      this._wornByZombie(z)
       this.onboard?.onKill()
       this.damageNumbers?.coinsAt(z, this._coinsEarned - coins, ZOMBIE_HEIGHT)
     }
@@ -1507,6 +1520,20 @@ export class BuildSurvival {
   // A kill of mine: stats, coins, the streak, achievements.
   // tier: its rarity (ZombieNames.js) - rarer ones pay more coins.
   // shine: a Golden or Diamond one pays ZOMBIE_SHINES coins times that.
+  // A zombie I took down wore a hat or cape I haven't unlocked yet: say
+  // which, and how to get it (once each per game).
+  _wornByZombie(z) {
+    const career = this.bm.game?.careerStats
+    if (!career || !this.fromMenu) return
+    const seen = this._wornSeen || (this._wornSeen = new Set())
+    for (const id of [z.capeKind, z.hatKind]) {
+      if (!COSMETICS[id] || seen.has(id) || isUnlocked(id, career)) continue
+      seen.add(id)
+      this._message(t('zombieWoreCosmetic', { name: cosmeticName(id), need: needText(id) }), 4)
+      return
+    }
+  }
+
   _countKill(boss, skeleton = null, tier = 'common', shine = null) {
     this.kills++
     this.stats.kills++
@@ -1963,7 +1990,15 @@ export class BuildSurvival {
       const hatKind = zombieHat(id)
       if (hatKind) {
         zombie.hat = makeHat(hatKind)
+        zombie.hatKind = hatKind
         body.add(zombie.hat)
+      }
+      // ...or one of the players' capes (Cosmetics.js).
+      const capeKind = zombieCape(id)
+      if (capeKind) {
+        zombie.cape = makeCape(capeKind)
+        zombie.capeKind = capeKind
+        body.add(zombie.cape)
       }
       zombie.bodyY = body.position.y
       group.add(body)
@@ -2317,6 +2352,7 @@ export class BuildSurvival {
       return
     }
     disposeHat(z.hat)
+    disposeHat(z.cape)
     // A batched body shares its geometry and material - nothing to free.
     if (z.parts) return
     // A shiny body shares the geometry; its materials are its own.
@@ -2671,14 +2707,20 @@ export class BuildSurvival {
     // A silly line about who got you (DeathJokes.js) - a zombie that bit
     // you in the last few seconds, or a "nobody did it" one.
     const biter = this._lastBiter && performance.now() - this._lastBiter.at < DEATH_JOKE_BITE_MS ? zombieName(this._lastBiter.nameIdx) : null
-    set('build-play-over-joke', won ? '' : deathJoke(biter))
+    const joke = won ? '' : deathJoke(biter)
+    set('build-play-over-joke', joke)
     this._lastBiter = null
     set('build-play-again-btn', t(won ? 'buildPlayAgainBtn' : 'buildPlayRespawnBtn'))
     set('build-play-back-btn', t(!this.fromMenu ? 'buildPlayBackBtn' : won ? 'buildPlayBackMenuBtn' : 'buildPlayLeaveBtn'))
     this._showUnlock(this.fromMenu && careerBefore ? careerBefore : null, career)
-    this._overEl.style.display = 'flex'
-    if (document.pointerLockElement) document.exitPointerLock()
-    this._showXpBar(reward)
+    const show = () => {
+      if (!this.active || !this.dead) return
+      this._overEl.style.display = 'flex'
+      if (document.pointerLockElement) document.exitPointerLock()
+      this._showXpBar(reward)
+    }
+    // Alone, a slow look back at how it happened first (DeathReplay.js).
+    if (won || this.net || !this.replay?.start(show, joke)) show()
   }
 
   // Reasons to come back (2026-10-31): a hat or cape this game unlocked
@@ -2762,6 +2804,7 @@ export class BuildSurvival {
   // Each frame while playing (after Try Map has moved you).
   update(dt) {
     if (!this.active) return
+    this.replay?.update(dt)
     this._updateCorpses(Math.min(dt, 0.1))
     this._fx?.update(Math.min(dt, 0.1))
     this.tricks?.update(Math.min(dt, 0.1))
@@ -2779,6 +2822,7 @@ export class BuildSurvival {
     dt = Math.min(dt, 1 / 20)
     const playing = !this.dead && !this.bm.menuOpen && !this._picking
     if (playing) this._updateMe(dt)
+    if (playing && !net) this.replay?.record(dt)
     if (playing) this._drops?.update(dt)
     if (playing) this._updateKart(dt)
     // On a server the host runs the animals for everyone (even while dead
@@ -2787,6 +2831,7 @@ export class BuildSurvival {
     else if (playing || net) this.animals?.update(dt)
     if (playing) this.signs?.update(dt)
     this.emotes?.update(dt)
+    this.bloodMoon?.syncLook()
     if (!this.bm.menuOpen) this._updateFires(dt)
     if (net && !net.isHost) {
       this._updateMirroredZombies(dt)
@@ -2944,16 +2989,19 @@ export class BuildSurvival {
         }
       }
     }
-    if (this._toSpawn > 0 && this.zombies.length < aliveCap(this.wave) * Math.max(1, this.cfg.zombieCountMult) && sources.length) {
+    // A Blood Moon: twice as many at once, coming twice as fast.
+    const blood = this.bloodMoon?.mult ?? 1
+    if (this._toSpawn > 0 && this.zombies.length < aliveCap(this.wave) * Math.max(1, this.cfg.zombieCountMult) * blood && sources.length) {
       this._spawnTimer -= dt
       if (this._spawnTimer <= 0 && this._skin !== undefined) {
-        this._spawnTimer = SPAWN_GAP * (this.cfg.mode === 'zombieRush' ? RUSH_SPAWN_GAP_MULT : 1)
+        this._spawnTimer = (SPAWN_GAP * (this.cfg.mode === 'zombieRush' ? RUSH_SPAWN_GAP_MULT : 1)) / blood
         this._spawnZombie()
         this._renderHud()
       }
     }
     if (this._extract && this._updateExtraction(dt)) return
     this.events?.update(dt)
+    this.bloodMoon?.update()
     this.survivors?.update(dt)
     this.onboard?.update(dt)
     const speed = zombieSpeed(this.wave, this.cfg.escalation)
@@ -2981,7 +3029,7 @@ export class BuildSurvival {
 
   _startWave(n) {
     this.wave = n
-    this._toSpawn = Math.max(1, Math.round(waveSize(this.wave) * this.cfg.zombieCountMult))
+    this._toSpawn = Math.max(1, Math.round(waveSize(this.wave) * this.cfg.zombieCountMult * (this.bloodMoon?.mult ?? 1)))
     this._bossPending = this.cfg.bossEvery && this.wave % this.cfg.bossEvery === 0 ? 1 : 0
     this._chestsUsed.clear()
     this._message(t('buildPlayWaveStart', { n: this.wave }))
@@ -3351,6 +3399,7 @@ export class BuildSurvival {
       this.bm.tryMode.pos.set(x + 0.5, y, z + 0.5)
       this.bm.tryMode.vel.set(0, 0, 0)
     }
+    this.replay?.clear()
     this.dead = false
     // A new life: the run already counted at death starts over from here.
     this._ended = false
