@@ -104,6 +104,13 @@ html.ui-theme-old #play-invite-copy { color: #f6e9c8; background: #6b3f17; }
   font-size: 14px;
   color: var(--pp-gold);
 }
+#play-pause-tip {
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-style: italic;
+  opacity: 0.85;
+}
+#play-pause-tip:empty { display: none; }
 #play-pause-hint {
   margin: 6px 0 0;
   font-size: 13px;

@@ -184,7 +184,9 @@ export function _applyBgMood(game) {
   if (mood === 'auto') {
     const now = new Date()
     const active = EVENT_BANNERS.find((ev) => now.getMonth() === ev.month && now.getDate() >= ev.startDay && now.getDate() <= ev.endDay)
-    mood = active ? active.bgMood : 'none'
+    // Outside any event: warm and sunny (2026-10-31, Gaymi: "instead of
+    // looking so cold").
+    mood = active ? active.bgMood : 'sunny'
   } else if (mood === 'timeofday') {
     // Reuses the same 3 existing tint classes (no new art) mapped to the
     // player's real local hour rather than a fixed/seasonal schedule -
@@ -192,11 +194,11 @@ export function _applyBgMood(game) {
     // no separate daytime photo asset to switch to.
     const hour = new Date().getHours()
     if (hour >= 5 && hour < 8) mood = 'foggy'
-    else if (hour >= 8 && hour < 17) mood = 'amber'
+    else if (hour >= 8 && hour < 17) mood = 'sunny'
     else if (hour >= 17 && hour < 22) mood = 'bloodmoon'
     else mood = 'none'
   }
-  for (const cls of ['bg-mood-bloodmoon', 'bg-mood-foggy', 'bg-mood-amber']) {
+  for (const cls of ['bg-mood-bloodmoon', 'bg-mood-foggy', 'bg-mood-amber', 'bg-mood-sunny']) {
     document.documentElement.classList.remove(cls)
   }
   if (mood !== 'none') document.documentElement.classList.add(`bg-mood-${mood}`)

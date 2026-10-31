@@ -77,7 +77,7 @@ html.ui-theme-biome #build-play-levelup-title { font-family: 'Bebas Neue', sans-
 html.ui-theme-biome #build-play-levelup-ok { font-family: inherit; color: rgb(var(--biome-bg-rgb)); background: var(--biome-accent); border: none; }
 html.ui-theme-biome .build-play-xp-track { background: rgba(var(--biome-ink-rgb), 0.18); border-color: var(--biome-line); }
 html.ui-theme-biome #build-play-xp-fill { background: var(--biome-accent); }
-html.ui-theme-biome :is(#play-pause-close, #play-pause-info, #play-pause-hint, #play-invite-hint, #play-pause-status, #play-weapon-pick .pwp-hint) { color: var(--biome-ink); }
+html.ui-theme-biome :is(#play-pause-close, #play-pause-info, #play-pause-hint, #play-pause-tip, #play-invite-hint, #play-pause-status, #play-weapon-pick .pwp-hint) { color: var(--biome-ink); }
 
 /* Buttons and picks on those boxes. */
 html.ui-theme-biome :is(#play-pause-buttons button, .build-play-over-btns button, #play-weapon-pick .pwp-weapon, #spawn-map button) {
@@ -130,3 +130,35 @@ html.ui-theme-biome :is(#build-try-map-hint, #build-try-biome, #build-try-map-cl
 
 /* Health bar: the biome's frame round it. */
 html.ui-theme-biome #build-play-health { border-color: var(--biome-edge); }
+
+/* Cartoony titles in a game (2026-10-31, Gaymi: "make gayz more funny
+   based instead of looking so cold"): the You Died / You Won title, the
+   messages in the middle of the screen and the wave counter use Luckiest
+   Guy whatever the theme or biome (font only - each keeps its colours).
+   !important: the theme's own title fonts (theme-clean.css) are more
+   specific. */
+#build-play-over-title,
+#build-play-msg,
+#build-play-wave-text {
+  font-family: 'Luckiest Guy', 'Bebas Neue', sans-serif !important;
+  font-weight: 400 !important;
+}
+
+/* The emote bar (Emotes.js, 2026-10-31): three buttons low in the middle
+   of the screen - dark glass in any theme, the biome's frame round it. */
+#emote-bar {
+  position: fixed; left: 50%; bottom: 140px; transform: translateX(-50%);
+  display: flex; gap: 8px; padding: 8px; z-index: 60;
+  background: rgba(10, 12, 16, 0.72); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 14px;
+}
+#emote-bar[hidden] { display: none; }
+#emote-bar button {
+  display: flex; align-items: center; gap: 6px; padding: 8px 14px;
+  font: 18px 'Luckiest Guy', 'Bebas Neue', sans-serif; color: #fff;
+  background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 999px; cursor: pointer;
+}
+#emote-bar button:hover { background: rgba(255, 207, 92, 0.3); }
+#emote-bar kbd { font: 12px sans-serif; padding: 1px 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.2); }
+html.ui-theme-biome #emote-bar { border-color: var(--biome-edge); }
+body.touch-play-on #emote-bar { bottom: auto; top: 42%; }
+body.touch-play-on #emote-bar kbd { display: none; }

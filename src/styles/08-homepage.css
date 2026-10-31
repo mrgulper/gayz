@@ -1869,3 +1869,41 @@ html #menu #menu-nav-buttons button:hover .nav-badge-dot {
    full-screen modal panel has real room, so the panel itself scrolls
    (see #achievements-panel's own precedent) instead of each list clamping
    itself into a tiny internal scrollbar. */
+
+/* Bouncy menus (2026-10-31, Gaymi: "make gayz more funny based"): the
+   homepage's Play and sidebar buttons wobble a little on hover, and every
+   menu button squishes when pressed and pops back on release. Uses the
+   separate `scale` / `rotate` properties and its own animations, so it
+   never fights a button's own `transform` or `transition` (hover lifts,
+   colour fades). Size and place are untouched, so both themes stay the
+   same shape. */
+@keyframes gayz-wobble {
+  0%, 100% { rotate: 0deg; }
+  25% { rotate: -2.5deg; }
+  50% { rotate: 2deg; }
+  75% { rotate: -1deg; }
+}
+@keyframes gayz-press {
+  to { scale: 0.92; }
+}
+@keyframes gayz-pop {
+  0% { scale: 0.92; }
+  55% { scale: 1.05; }
+  100% { scale: 1; }
+}
+#play-btn:hover,
+#menu-nav-buttons button:hover {
+  animation: gayz-wobble 0.45s ease-in-out, gayz-pop 0.3s ease-out;
+}
+#menu button:active,
+#menu-nav-buttons button:active,
+#play-btn:active {
+  animation: gayz-press 0.08s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  #play-btn:hover,
+  #menu-nav-buttons button:hover,
+  #menu button:active,
+  #menu-nav-buttons button:active,
+  #play-btn:active { animation: none; }
+}

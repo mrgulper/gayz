@@ -579,6 +579,17 @@ html.bg-mood-foggy #menu-bg-photo {
   filter: saturate(0.55) hue-rotate(10deg) brightness(1.05) contrast(0.92);
 }
 
+/* Sunny: the default outside events (2026-10-31) - the grey city warmed
+   up to a golden afternoon. */
+html.bg-mood-sunny #menu-bg-photo {
+  filter: sepia(0.35) saturate(1.6) hue-rotate(-12deg) brightness(1.35) contrast(1.02);
+}
+/* ...and the dark edges lifted a little, so it reads as day (the
+   shading behind the text stays, so the tagline stays readable). */
+html.bg-mood-sunny #menu-bg-vignette {
+  opacity: 0.55;
+}
+
 html.bg-mood-amber #menu-bg-photo {
   filter: sepia(0.35) saturate(1.2) hue-rotate(-8deg) brightness(1.02);
 }

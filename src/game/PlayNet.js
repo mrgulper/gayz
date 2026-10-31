@@ -31,6 +31,8 @@
 // exactly like a solo game until someone opens the link - then it becomes
 // a normal server game (_promote), the same as Invite Friends.
 import * as THREE from 'three'
+import { wearCosmetics, cleanWorn, myWorn } from './Cosmetics.js'
+import { poseEmote, EMOTES } from './Emotes.js'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { nameTag } from './BuildCamp.js'
 import { serverApi, myDetails } from './ServerBrowser.js'
@@ -227,7 +229,7 @@ export class PlayNet {
     const holding = s.holding
     const body = {
       ...this.auth,
-      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden },
+      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape') },
       editsAfter: this._editSeq,
     }
     const edits = this._edits.splice(0, EDITS_PER_SYNC)
@@ -307,7 +309,7 @@ export class PlayNet {
         // Not for the players already there when I joined.
         if (!this._firstSync) addChatSystemLine(this.game, t('serverPlayerJoined', { name: p.nick || 'Survivor' }))
       }
-      Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing })
+      Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape') })
       if (p.say && p.say.n !== mine.sayN) {
         mine.sayN = p.say.n
         const left = bubbleSeconds(p.say.text) - (Number(p.say.age) || 0) / 1000
@@ -492,9 +494,16 @@ export class PlayNet {
           p.block = holdBlock(this.survival.bm, p.body, p.held, p.block, B)
           p.blockId = p.held || ''
         }
-        lp.legR.rotation.x = swing
-        lp.legL.rotation.x = -swing
-        poseArms(lp, { holding: (!!p.gun || !!p.block) && !p.dead, melee: p.melee, firing: p.firing, swing })
+        // Their Hats & Capes and emote (Cosmetics.js, Emotes.js).
+        wearCosmetics(p.body, p.hat, p.cape)
+        const bob = !p.dead && p.emote ? poseEmote(lp, p.emote, performance.now() / 1000) : null
+        p.body.position.y = p.bodyY ?? (p.bodyY = p.body.position.y)
+        if (bob !== null) p.body.position.y += bob * p.body.scale.y
+        else {
+          lp.legR.rotation.x = swing
+          lp.legL.rotation.x = -swing
+          poseArms(lp, { holding: (!!p.gun || !!p.block) && !p.dead, melee: p.melee, firing: p.firing, swing })
+        }
       }
     }
   }

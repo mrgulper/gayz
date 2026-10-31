@@ -30,6 +30,7 @@ const ICONS = {
   use: '<svg viewBox="0 0 24 24"><path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11"/><path d="M12 10V4.5a1.5 1.5 0 0 1 3 0V11"/><path d="M15 10.5V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-1a6 6 0 0 1-5-2.7l-2.6-4a1.5 1.5 0 0 1 2.5-1.6L9 14"/></svg>',
   crouch: '<svg viewBox="0 0 24 24"><path d="M12 5v10M6 11l6 6 6-6"/><path d="M5 20h14"/></svg>',
   scope: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/></svg>',
+  emote: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14.5c1 1.5 2.4 2.2 4 2.2s3-.7 4-2.2"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>',
   drop: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>',
   pause: '<svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>',
 }
@@ -61,6 +62,7 @@ export class BuildTouch {
       <div class="tp-look"></div>
       <div class="tp-stick"><div class="tp-stick-knob"></div></div>
       <button type="button" class="tp-btn tp-pause" data-tp="pause" aria-label="Pause">${ICONS.pause}</button>
+      <button type="button" class="tp-btn tp-emote" data-tp="emote" aria-label="Emote">${ICONS.emote}</button>
       <button type="button" class="tp-btn tp-fire" data-tp="fire" aria-label="Fire">${ICONS.fire}</button>
       <button type="button" class="tp-btn tp-jump" data-tp="jump" aria-label="Jump">${ICONS.jump}</button>
       <button type="button" class="tp-btn tp-reload" data-tp="reload" aria-label="Reload">${ICONS.reload}</button>
@@ -163,6 +165,9 @@ export class BuildTouch {
       if (bm.survival.active) bm.survival.reload()
     } else if (action === 'use') {
       bm._tryUseFromCamera()
+    } else if (action === 'emote') {
+      // The Emote key (B) for phones: the emote bar, tap one (Emotes.js).
+      if (bm.survival.active) bm.survival.emotes?.toggleBar()
     } else if (action === 'drop') {
       // The Drop key (Q) for phones: one of the held item.
       if (bm.survival.active) bm.survival.inv?.drop()

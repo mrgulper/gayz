@@ -47,6 +47,11 @@ const SPECIAL_SOUNDS = {
   // A Golden / Diamond zombie showing up or going down (ZombieNames.js).
   goldZombie: { notes: [[1319, 0, 0.25, 'triangle', 0.16], [1568, 0.08, 0.25, 'triangle', 0.14], [2093, 0.16, 0.6, 'sine', 0.12]] },
   diamondZombie: { notes: [[1047, 0, 0.3, 'sine', 0.14], [1319, 0.07, 0.3, 'sine', 0.13], [1568, 0.14, 0.3, 'sine', 0.12], [2093, 0.21, 0.4, 'sine', 0.12], [2637, 0.28, 0.9, 'sine', 0.1], [3136, 0.4, 1, 'triangle', 0.05]], noise: [0.6, 5000, 9000, 0.05] },
+  // Disco Zombie: a quick funky bass line and a cymbal splash.
+  discoZombie: { notes: [[110, 0, 0.12, 'square', 0.12], [220, 0.12, 0.12, 'square', 0.1], [165, 0.24, 0.12, 'square', 0.12], [330, 0.36, 0.12, 'square', 0.1], [880, 0.5, 0.4, 'triangle', 0.08, 1320]], noise: [0.5, 7000, 9000, 0.08] },
+  // A zombie's goofs (FunnyZombies.js): a long low burp, a little hiccup.
+  burp: { notes: [[120, 0, 0.5, 'sawtooth', 0.14, 70], [180, 0, 0.45, 'square', 0.04, 95]], noise: [0.45, 350, 140, 0.1] },
+  hiccup: { notes: [[330, 0, 0.09, 'triangle', 0.22, 780], [360, 0.5, 0.08, 'triangle', 0.18, 820]] },
   clank: { noise: [0.15, 2500, 900, 0.3], notes: [[180, 0, 0.12, 'square', 0.12, 90]] },
   crumble: { noise: [0.5, 500, 120, 0.3] },
   thud: { noise: [0.2, 300, 80, 0.35], notes: [[90, 0, 0.25, 'sine', 0.3, 45]] },
@@ -1161,14 +1166,28 @@ class AudioEngine {
     })
   }
 
+  // A burp or a hiccup instead of a moan (FunnyZombies.js), on the
+  // zombie sound slider like the moans, panned to where it came from.
+  playZombieGoof(kind, pan = 0) {
+    if (!this.ctx) return
+    this.playSpecial(kind, this.zombieGain, pan)
+  }
+
   // The special blocks' sounds (SpecialBlocks.js): each a few synth
   // notes - [hz, start s, length s, wave, loudness, end hz] - and/or a
   // puff of filtered noise. No sound files, so nothing extra to load.
-  playSpecial(kind) {
+  // out: where it plays (the effects slider unless said); pan: -1..1.
+  playSpecial(kind, out = this.sfxGain, pan = 0) {
     if (!this.ctx) return
     const recipe = SPECIAL_SOUNDS[kind]
     if (!recipe) return
     const ctx = this.ctx
+    let dest = out
+    if (pan && ctx.createStereoPanner) {
+      dest = ctx.createStereoPanner()
+      dest.pan.value = Math.max(-1, Math.min(1, pan))
+      dest.connect(out)
+    }
     const now = ctx.currentTime
     for (const [hz, at, len, type = 'sine', gain = 0.2, endHz = hz] of recipe.notes || []) {
       const osc = ctx.createOscillator()
@@ -1179,7 +1198,7 @@ class AudioEngine {
       g.gain.setValueAtTime(0.0001, now + at)
       g.gain.exponentialRampToValueAtTime(gain, now + at + 0.01)
       g.gain.exponentialRampToValueAtTime(0.0001, now + at + len)
-      osc.connect(g).connect(this.sfxGain)
+      osc.connect(g).connect(dest)
       osc.start(now + at)
       osc.stop(now + at + len + 0.02)
     }
@@ -1197,7 +1216,7 @@ class AudioEngine {
       const g = ctx.createGain()
       g.gain.setValueAtTime(gain, now)
       g.gain.exponentialRampToValueAtTime(0.0001, now + len)
-      src.connect(band).connect(g).connect(this.sfxGain)
+      src.connect(band).connect(g).connect(dest)
       src.start(now)
     }
   }

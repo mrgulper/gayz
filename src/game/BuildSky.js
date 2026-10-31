@@ -194,9 +194,12 @@ const WEATHER_LOOK = {
 }
 // [sky color, hemisphere color, hemisphere intensity, sun color, sun
 // intensity, sun height (0-1)]
+// Warm days and candy-pink sunsets, nights still dark and spooky
+// (2026-10-31, Gaymi: "instead of looking so cold" - picked warm days,
+// spooky nights).
 const LOOKS = {
-  day: [DAY_SKY, 0xffffff, 2.0, 0xfff4e0, 1.5, 1],
-  sunset: [0xf0956a, 0xffd6b0, 1.35, 0xff9850, 1.05, 0.25],
+  day: [DAY_SKY, 0xfff3e2, 2.0, 0xffe4b8, 1.55, 1],
+  sunset: [0xff8fa3, 0xffc9d6, 1.4, 0xff8a50, 1.1, 0.25],
   night: [0x020306, 0x8a9fd6, 0.6, 0x9fb4ff, 0.28, 0.8],
 }
 

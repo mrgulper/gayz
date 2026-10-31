@@ -410,3 +410,31 @@ html.ui-theme-clean .team-card-slot {
 html.ui-theme-clean #team-page .team-card.empty {
   border-color: rgba(0, 0, 0, 0.22);
 }
+
+/* Inventory > Hats & Capes (2026-10-31, CosmeticsUI.js): the same cards
+   as the Pets tab. */
+#cosmetics-page {
+  text-align: center;
+}
+#cosmetics-page .team-card {
+  position: relative;
+  width: 132px;
+  padding: 12px 8px;
+  gap: 4px;
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  font: inherit;
+}
+#cosmetics-page .team-card.picked {
+  background: rgba(var(--ui-gold-accent-rgb), 0.16);
+  box-shadow: 0 0 0 2px var(--menu-gold);
+}
+#cosmetics-page .team-card img {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+}
+/* A hat or cape you haven't unlocked yet. */
+#cosmetics-page .team-card.locked {
+  opacity: 0.55;
+  cursor: default;
+}

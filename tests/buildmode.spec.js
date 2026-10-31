@@ -438,7 +438,8 @@ test('Play mode spawns zombie waves that reach you and can be shot', async ({ pa
     const corpse = (s._corpses || [])[bodiesBefore]
     out.corpse = !!corpse && s._corpses.length === bodiesBefore + 1
     out.ownMaterials = !!corpse && corpse.materials.length > 0 && corpse.materials.every((m) => !s._zBatch.meshes.some((mesh) => [].concat(mesh.material).includes(m)))
-    step(0.5)
+    // Falls, bounces once and settles (the comic flop, 2026-10-31).
+    step(1.1)
     out.fell = !!corpse && Math.abs(corpse.group.rotation.x - Math.PI / 2) < 0.01
     // Bodies lie for 40 s, then fade over the rest of a minute (2026-10-18).
     s._updateCorpses(45)
@@ -1138,7 +1139,7 @@ test('Settings > Controls keys drive walking in Map 1', async ({ page }) => {
     rebind('moveForward', 'KeyW')
     return { ids, withW, withI, withArrow }
   })
-  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap', 'cameraView', 'dropItem'])
+  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap', 'cameraView', 'dropItem', 'emote'])
   expect(result.withW).toBeLessThan(0.01)
   expect(result.withI).toBeGreaterThan(2)
   expect(result.withArrow).toBeGreaterThan(2)

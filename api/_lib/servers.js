@@ -10,7 +10,8 @@
 //   servers/{id}      { name, mode, host, createdAt, wave, zombies, world,
 //                       hidden, sky, animals, editSeq,
 //                       players: { pid: { nick, x, y, z, yaw, weapon, held,
-//                                         firing, dead, t, hurt, credits, caught,
+//                                         firing, dead, emote, hat, cape, t,
+//                                         hurt, credits, caught,
 //                                         say } },
 //                       hits: { key: { id, dmg, by, tame, catch } },
 //                       edits: { "x,y,z": { b, s, by } } }
@@ -361,6 +362,10 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     [`${base}/players/${playerId}/firing`]: !!s.firing,
     [`${base}/players/${playerId}/dead`]: !!s.dead,
     [`${base}/players/${playerId}/away`]: !!s.away,
+    // An emote playing and the hat / cape worn (Emotes.js, Cosmetics.js).
+    [`${base}/players/${playerId}/emote`]: typeof s.emote === 'string' && /^[a-z]{1,12}$/.test(s.emote) ? s.emote : '',
+    [`${base}/players/${playerId}/hat`]: typeof s.hat === 'string' && ID_RE.test(s.hat) ? s.hat : '',
+    [`${base}/players/${playerId}/cape`]: typeof s.cape === 'string' && /^[A-Za-z]{1,20}$/.test(s.cape) ? s.cape : '',
     [`${base}/players/${playerId}/t`]: now,
   }
   // Drop players who went quiet; take over as host if the host did.
@@ -484,7 +489,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p) continue
-    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead }
+    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '' }
     // A chat bubble: its number (new one = new bubble) and how long ago.
     if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }
