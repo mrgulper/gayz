@@ -2172,7 +2172,7 @@ export const TAB_RESET_KEYS = {
   graphics: ['performanceMode', 'renderResolution', 'fpsCap', 'autoQuality', 'brightness', 'contrast', 'shadowsEnabled',
     'shadowQuality', 'viewDistance', 'grainIntensity', 'panelFlickerEnabled', 'liteTextures', 'graphicsLevel'],
   controls: ['sensitivity', 'invertY', 'fov', 'invertScrollWeaponSwitch', 'crosshairColor', 'crosshairSize',
-    'crosshairStyle', 'damageNumbers', 'zombieNameTags', 'sprintMode', 'autoPickup', 'confirmRareDrop',
+    'crosshairStyle', 'damageNumbers', 'zombieNameTags', 'sprintMode', 'autoJump', 'battleView', 'autoPickup', 'confirmRareDrop',
     'skinDesignerHighContrast', 'darkAreaBoost', 'colorblindRarity',
     'colorblindMode', 'largeTextMode', 'dyslexiaFont',
     'highContrastMode', 'focusRingMode', 'underlineLinks', 'textSpacing', 'buttonSize', 'reduceTransparency',

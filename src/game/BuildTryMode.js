@@ -18,7 +18,10 @@
 // rebindable in Settings > Controls, see Keybinds.js) -
 // and its bunny hop: jump again right as you land and each hop in a row
 // is faster (+15%, +22.5%, +30%), lost as soon as you stay on the ground.
-// Movement starts and stops almost instantly, steers well in the air, a
+// Movement speeds up and slows down over a split second (2026-10-31,
+// Gaymi: "make the movement smoother" - it used to snap on and off), the
+// view glides up a step instead of jumping, Settings > Auto Jump hops
+// you up a 1-block step you walk into, it steers well in the air, a
 // short grace window still lets you jump just after walking off a ledge,
 // a jump pressed a moment before landing still counts, holding Space keeps
 // hopping (and counts as a bunny hop), running widens the view a little,
@@ -102,7 +105,7 @@ const CROUCH = 2
 // going; each link speeds you up (bloxd.io's numbers).
 const BHOP_WINDOW = 0.12
 const BHOP_MULT = [1, 1.15, 1.225, 1.3]
-const GROUND_GRIP = 26 // how fast speed follows the keys on the ground
+const GROUND_GRIP = 15 // how fast speed follows the keys on the ground (26 felt like a snap)
 const AIR_GRIP = 11 // ...and in the air (bloxd steers well mid-jump)
 const GRAVITY = 30
 const JUMP = 8.8 // ~1.3 blocks high
@@ -117,6 +120,7 @@ const COYOTE = 0.1 // seconds after leaving a ledge you can still jump
 const JUMP_BUFFER = 0.15 // a jump pressed this early before landing counts
 const STEP_UP = 0.55
 const STAIR_STEP = 1.05
+const STEP_GLIDE = 14 // how fast the view catches up after stepping up
 const CLIMB = 3.4
 const MAX_FALL = 60
 const SPRINT_FOV = 8 // degrees added while sprinting
@@ -748,6 +752,7 @@ export class BuildTryMode {
     this._crouch = false
     this._height = HEIGHT
     this._eye = EYE
+    this._stepLag = 0
     const p = { x: cam.position.x / B, y: cam.position.y / B - EYE, z: cam.position.z / B }
     for (let i = 0; i < 200 && this._hits(p.x, p.y, p.z); i++) p.y += 1
     this.pos.set(p.x, p.y, p.z)
@@ -838,7 +843,7 @@ export class BuildTryMode {
       this.vel.set(0, 0, 0)
       this.onGround = true
       this.pos.set(kart.x, kart.y + 0.01, kart.z)
-      cam.position.set(kart.x * B, (kart.y + KART_EYE) * B, kart.z * B)
+      cam.position.set(kart.x * B, (kart.y + (kart.lift || 0) + KART_EYE) * B, kart.z * B)
       this.updateHands(dt, keys, false, false)
       this.bm.specials.update(dt, this.pos)
       this._drawMap(performance.now())
@@ -949,6 +954,9 @@ export class BuildTryMode {
     // Horizontal moves, stepping up onto a slab (or a stair) on the way.
     const stairs = (x, y, z) => this.bm._cellIsStairs(x, y, z)
     this._pushingWall = false
+    const yBefore = p.y
+    // Settings > Auto Jump: walking into a 1-block step jumps for you.
+    const autoJump = this.bm.game?.settings?.autoJump && len > 0 && !crouch && !onLadder && !inLiquid && this.onGround
     for (const axis of ['x', 'z']) {
       const amount = this.vel[axis] * dt
       if (!amount) continue
@@ -981,6 +989,13 @@ export class BuildTryMode {
           }
         }
         if (didStep) continue
+        // Room to land on top (and above your head)? Then hop next frame.
+        if (autoJump && !this._hits(p.x, p.y + STAIR_STEP, p.z)) {
+          const top = { x: p.x, y: p.y + STAIR_STEP, z: p.z }
+          top[axis] = before
+          this._moveAxis(top, axis, Math.sign(amount) * 0.3)
+          if (Math.abs(top[axis] - before) > 0.2) this._jumpBuffer = JUMP_BUFFER
+        }
       }
       if (blocked) {
         this.vel[axis] = 0
@@ -997,6 +1012,10 @@ export class BuildTryMode {
       this._jumpedAt = false
     }
     if (hitY) this.vel.y = 0
+    // Stepped up a slab or stair: the body is up there at once, but the
+    // view glides after it.
+    if (this.onGround && wasOnGround && p.y > yBefore + 0.01) this._stepLag = Math.max(-STAIR_STEP, (this._stepLag || 0) - (p.y - yBefore))
+    this._stepLag = THREE.MathUtils.damp(this._stepLag || 0, 0, STEP_GLIDE, dt)
 
     // Never off the map: held inside the 128x128 ground (or, on Map 1 with
     // its open world, inside the world's far limit), and anyone who still
@@ -1016,7 +1035,7 @@ export class BuildTryMode {
     this._bob += moving ? dt * (sprint ? 13 : 9) : 0
     const bob = moving ? Math.sin(this._bob) * 0.015 : 0
     this._eye = THREE.MathUtils.damp(this._eye, (crouch ? CROUCH_EYE : EYE) * size, 18, dt)
-    cam.position.set(p.x * B, (p.y + this._eye + bob) * B, p.z * B)
+    cam.position.set(p.x * B, (p.y + this._eye + bob + this._stepLag) * B, p.z * B)
     this.updateHands(dt, keys, moving, sprint)
     // Pressure plates under you (and under zombies while playing).
     const play = this.bm.survival

@@ -10,9 +10,9 @@
 // Starting a battle while signed in saves your own team as a ghost team
 // for others to fight.
 import * as CloudSync from './CloudSync.js'
-import { loadCreatures, saveCreatures, stats, power, creatureName, creatureType, rarityName, creatureIconURL, tierColor, botTeam, packTeam, unpackTeam, TEAM_SIZE } from './Creatures.js'
+import { loadCreatures, saveCreatures, stats, power, powerName, powerInfo, creatureName, creatureType, rarityName, creatureIconURL, tierColor, botTeam, packTeam, unpackTeam, TEAM_SIZE } from './Creatures.js'
 import { TeamBattle } from './TeamBattle.js'
-import { saveShopProgress } from './Game.js'
+import { saveShopProgress, saveSettings } from './Game.js'
 import { t } from './i18n.js'
 
 export const WIN_COINS = 30
@@ -26,12 +26,13 @@ const byId = (id) => document.getElementById(id)
 
 function card(c, slot = 0) {
   const s = stats(c)
-  return `<button type="button" class="perk-option team-card${slot ? ' picked' : ''}" data-id="${c.id}" style="--tier: ${tierColor(c.r)}">
+  return `<button type="button" class="perk-option team-card${slot ? ' picked' : ''}" data-id="${c.id}" style="--tier: ${tierColor(c.r)}" title="${esc(powerInfo(c))}">
     ${slot ? `<span class="team-card-slot">${slot}</span>` : ''}
     <img src="${creatureIconURL(c)}" alt="" draggable="false" />
     <span class="team-card-name">${esc(creatureName(c))}</span>
     <span class="team-card-type">${esc(rarityName(c.r))} ${esc(creatureType(c))}</span>
     <span class="team-card-stats">${esc(t('teamStats', { hp: s.hp, atk: s.atk }))}</span>
+    <span class="team-card-power">${esc(powerName(c))}</span>
   </button>`
 }
 
@@ -141,6 +142,16 @@ export async function startTeamBattle(game) {
       return reward
     },
     onAgain: () => startTeamBattle(game),
+    // 2D or 3D (Settings > Team Battle View; the battle's own button
+    // changes it too, and it's remembered).
+    view: game.settings?.battleView === '2d' ? '2d' : '3d',
+    onView: (v) => {
+      if (!game.settings) return
+      game.settings.battleView = v
+      saveSettings(game.settings)
+      const sel = byId('battle-view-select')
+      if (sel) sel.value = v
+    },
   })
   game._teamBattle.open()
 }
