@@ -1435,6 +1435,9 @@ html.caption-background #build-play-msg { background: rgba(0, 0, 0, 0.6); paddin
 }
 #build-play-over-title { margin: 0 0 10px; font-family: 'Black Ops One', 'Bebas Neue', sans-serif; font-size: 44px; color: #e8483a; }
 #build-play-over-text, #build-play-over-best { margin: 6px 0; font-size: 17px; }
+/* The silly line about who got you (DeathJokes.js) - the card's own colour. */
+#build-play-over-joke { margin: 10px auto 6px; max-width: 380px; font-size: 16px; font-style: italic; line-height: 1.35; opacity: 0.92; }
+#build-play-over-joke:empty { display: none; }
 .build-play-over-btns { display: flex; gap: 12px; justify-content: center; margin-top: 18px; }
 .build-play-over-btns button {
   padding: 10px 18px; font-size: 15px; font-weight: 700; color: #f1e6c8; cursor: pointer;

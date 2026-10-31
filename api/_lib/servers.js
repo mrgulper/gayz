@@ -236,6 +236,8 @@ const SKELETON_KIND_IDS = new Set(['minion', 'rogue', 'warrior', 'mage'])
 // A zombie's rarity (ZombieNames.js ZOMBIE_TIERS) - a kill credit carries it
 // so the player paid gets that rarity's coins.
 const ZOMBIE_TIER_IDS = new Set(['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'])
+// A Golden or Diamond zombie (ZombieNames.js ZOMBIE_SHINES) - pays more.
+const ZOMBIE_SHINE_IDS = new Set(['gold', 'diamond'])
 
 // A kill (or assist) credit for another player: { boss, skeleton?, tier?, assist? }.
 function cleanCredit(c) {
@@ -244,6 +246,7 @@ function cleanCredit(c) {
     ...(SKELETON_KIND_IDS.has(c?.skeleton) ? { skeleton: c.skeleton } : {}),
     ...(ZOMBIE_TIER_IDS.has(c?.tier) ? { tier: c.tier } : {}),
     ...(c?.assist ? { assist: true } : {}),
+    ...(ZOMBIE_SHINE_IDS.has(c?.shine) ? { shine: c.shine } : {}),
   }
 }
 // A zombie's kind: a skeleton or a monster (ZombieKinds.js) - plain
@@ -272,6 +275,7 @@ function cleanZombie(z) {
     // same "Grumpy Gary".
     ...(typeof z.rt === 'string' && KIND_RE.test(z.rt) ? { rt: z.rt } : {}),
     ...(Number.isInteger(z.nm) && z.nm >= 0 && z.nm < 10000 ? { nm: z.nm } : {}),
+    ...(ZOMBIE_SHINE_IDS.has(z.sh) ? { sh: z.sh } : {}),
   }
 }
 

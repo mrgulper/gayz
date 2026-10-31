@@ -1231,6 +1231,8 @@ export function _bindSettings(game) {
     })
   }
   game.rollingQuestsOptions.addEventListener('click', (e) => {
+    const daily = e.target.closest('button[data-daily]')
+    if (daily && !daily.disabled) game._claimDailyChallenge()
     const btn = e.target.closest('button[data-spawned-at]')
     if (btn && !btn.disabled) game._claimRollingQuest(Number(btn.dataset.spawnedAt))
   })

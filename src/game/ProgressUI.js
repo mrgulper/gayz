@@ -101,6 +101,7 @@ export function _onPlayEvent(game, type, data) {
   if (game.settings.guestMode) return null
   if (type === 'kill') {
     game.rollingQuests.recordKill()
+    _recordDaily(game, type, data)
     game._checkWeeklyChallengeProgress()
     game.achievements.unlock('first_blood')
     if (data.boss) game.achievements.unlock('giant_slayer')
@@ -117,6 +118,7 @@ export function _onPlayEvent(game, type, data) {
   if (type === 'wave') {
     const wave = data.wave
     game.rollingQuests.recordWave(wave)
+    _recordDaily(game, type, data)
     if (wave >= 5) game.achievements.unlock('survivor_5')
     if (wave >= 10) game.achievements.unlock('survivor_10')
     if (wave >= SURVIVOR_20_WAVES) game.achievements.unlock('survivor_20')
@@ -475,10 +477,11 @@ export function _renderRollingQuestsPanel(game) {
   game.rollingQuests.refresh()
   game.rollingQuestsOptions.innerHTML = ''
   game._questRarity = game._questRarity || 'all'
+  _renderDailyCard(game)
   game._renderRarityFilter(document.getElementById('quest-rarity-filter-btn'), document.getElementById('quest-rarity-filter-menu'), game._questRarity)
   const active = game.rollingQuests.activeQuests()
   if (active.length === 0) {
-    game.rollingQuestsOptions.innerHTML = `<p class="menu-best-stats">${t('rollingQuestNone')}</p>`
+    game.rollingQuestsOptions.insertAdjacentHTML('beforeend', `<p class="menu-best-stats">${t('rollingQuestNone')}</p>`)
     return
   }
   // Kirka-style cards (2026-10-30): two to a row, each in its rarity's
@@ -515,7 +518,63 @@ export function _renderRollingQuestsPanel(game) {
     game.rollingQuestsOptions.appendChild(btn)
     shown++
   }
-  if (!shown) game.rollingQuestsOptions.innerHTML = `<p class="menu-best-stats">${_escapeHtml(t('questNoMatch'))}</p>`
+  if (!shown) game.rollingQuestsOptions.insertAdjacentHTML('beforeend', `<p class="menu-best-stats">${_escapeHtml(t('questNoMatch'))}</p>`)
+}
+
+// Daily Challenge (DailyChallenge.js): a kill or wave from a run counts
+// toward today's goal; finishing it says so in the game.
+function _recordDaily(game, type, data) {
+  if (!game.dailyChallenge?.record(type, data)) return
+  game.buildMode?.survival?._message?.(t('dailyChallengeDoneInGame'), 4)
+  game._updateQuestsDot()
+}
+
+// The wide gold card at the top of the rolling quests: today's goal, its
+// progress, the streak and the countdown to the next one. It's Legendary
+// for the rarity menu, and the search box finds it by its goal or name.
+function _renderDailyCard(game) {
+  const c = game.dailyChallenge?.current()
+  if (!c) return
+  const title = t(c.template.titleKey, { n: c.target.toLocaleString() })
+  const query = (document.getElementById('quest-search')?.value || '').trim().toLowerCase()
+  if (game._questRarity !== 'all' && game._questRarity !== 'legendary') return
+  if (query && !`${title} ${t('dailyChallengeTag')}`.toLowerCase().includes(query)) return
+  const btn = document.createElement('button')
+  btn.type = 'button'
+  btn.className = `perk-option quest-card daily-card${c.done ? ' complete' : ''}${c.claimed ? ' claimed' : ''}`
+  btn.dataset.daily = '1'
+  btn.dataset.rarity = 'legendary'
+  btn.style.setProperty('--rarity', SKIN_RARITIES.legendary?.color || '#f5b301')
+  btn.disabled = !c.done || c.claimed
+  const timeLeft = _formatDurationShort(Math.floor(game.dailyChallenge.msLeft() / 1000))
+  const status = c.claimed
+    ? t('dailyChallengeClaimed', { time: timeLeft })
+    : c.done
+      ? t('rollingQuestClaimReward', { coins: c.rewardCoins, xp: c.rewardXp })
+      : `${t('questProgress', { current: c.progress.toLocaleString(), target: c.target.toLocaleString() })} · ${t('rollingQuestTimeLeft', { time: timeLeft })}`
+  const streak = c.streak > 0 ? t('dailyChallengeStreak', { n: c.streak }) : t('dailyChallengeStreakNone')
+  const bonus = !c.claimed && c.mult > 1 ? ` · ${t('dailyChallengeBonus', { n: Math.round((c.mult - 1) * 100) })}` : ''
+  btn.innerHTML = `
+    <span class="quest-card-rarity">${_escapeHtml(t('dailyChallengeTag'))}</span>
+    <span class="perk-name">${_escapeHtml(title)}</span>
+    <span class="daily-card-streak">${_escapeHtml(streak + bonus)}</span>
+    <span class="quest-card-bar"><span style="width: ${Math.round((c.progress / c.target) * 100)}%"></span></span>
+    <span class="perk-cost">${_escapeHtml(status)}</span>
+  `
+  game.rollingQuestsOptions.appendChild(btn)
+}
+
+export function _claimDailyChallenge(game) {
+  const reward = game.dailyChallenge.claim()
+  if (!reward) return
+  // Coins and XP the same way as a rolling quest's claim.
+  game.coins += reward.coins
+  game.xp += reward.xp
+  saveShopProgress(game)
+  game._showHomepageToast(t('dailyChallengeClaimedToast', { coins: reward.coins, xp: reward.xp, n: reward.streak }))
+  game._renderRollingQuestsPanel()
+  game._updateQuestsDot()
+  game._updateFaviconQuestBadge()
 }
 
 export function _closeQuestsPanel(game) {
@@ -560,7 +619,7 @@ export function _claimRollingQuest(game, spawnedAt) {
 export function _updateFaviconQuestBadge(game) {
   const lifetimeCount = QUESTS.filter((q) => game.quests.isComplete(q, game) && !game.quests.isClaimed(q.id)).length
   const rollingCount = game.rollingQuests.activeQuests().filter((q) => q.progress >= q.template.target).length
-  const count = lifetimeCount + rollingCount
+  const count = lifetimeCount + rollingCount + (game.dailyChallenge?.ready() || 0)
   const link = document.querySelector('link[rel="icon"]')
   if (!link) return
   if (count <= 0) {
@@ -804,7 +863,7 @@ export function _updateQuestsDot(game) {
   // The number is how many quests are finished and waiting to be claimed.
   const lifetimeReady = QUESTS.filter((q) => game.quests.isComplete(q, game) && !game.quests.isClaimed(q.id)).length
   const rollingReady = game.rollingQuests.activeQuests().filter((q) => q.progress >= q.template.target).length
-  setNavBadge(game.questsClaimDot, lifetimeReady + rollingReady)
+  setNavBadge(game.questsClaimDot, lifetimeReady + rollingReady + (game.dailyChallenge?.ready() || 0))
   game._updateQuestsNewDot()
 }
 

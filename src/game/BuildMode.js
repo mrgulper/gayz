@@ -1642,7 +1642,9 @@ export class BuildMode {
       // the map key all still work while flying.
       if (this.spectate.active) {
         if (this.survival.camp?.panelOpen) return
-        if (!e.repeat) {
+        if (!e.repeat && this.spectate.photo) {
+          if (e.code === 'KeyP' || e.code === 'Enter') this.spectate.snap()
+        } else if (!e.repeat) {
           if (e.code === getKeyFor('use') && this.spectate.hasPlayers()) this.spectate.onKey(e.code)
           else if (e.code === getKeyFor('use')) this._tryUseFromCamera()
           if (this.survival.active) this.survival.onKeyDown(e.code)
@@ -1925,6 +1927,11 @@ export class BuildMode {
       // BuildTryMode._updateDigging); nothing gets built.
       // Spectating: on a server a click watches the next player; alone it
       // shoots like normal.
+      // Photo Mode: a click takes the picture (once the mouse is locked).
+      if (this.spectate.active && this.spectate.photo) {
+        if (e.button === 0 && document.pointerLockElement === this.renderer.domElement) this.spectate.snap()
+        return
+      }
       if (this.spectate.active && this.spectate.hasPlayers() && e.button === 0) {
         this.spectate.cycle(1)
         return
@@ -4473,7 +4480,8 @@ export class BuildMode {
     // its own, the player stands still.
     if (this.spectate.active) {
       this.spectate.update(dt, this._keys)
-      this.survival.update(dt)
+      // Photo Mode alone: everything holds still for the picture.
+      if (!this.spectate.frozen) this.survival.update(dt)
       return
     }
     if (this.tryMode.active) {
@@ -4684,6 +4692,14 @@ export class BuildMode {
     this.lastDrawCalls = this.renderer.info.render.calls
     shadowMap.autoUpdate = shadowAutoUpdate
     this.renderer.toneMapping = toneMapping
+    // Photo Mode: just the world, saved straight after it's drawn.
+    if (this.spectate?.photo) {
+      if (this._photoPending) {
+        this._photoPending = false
+        this.spectate.savePhoto(this.renderer.domElement)
+      }
+      return
+    }
     // A block held from the game's inventory is drawn in the hand instead.
     const held = this.tryMode.active && this.survival?.active ? this.survival.holding : null
     if (held?.kind === 'block') this.tryMode.drawHand(this.renderer, held.id, true)

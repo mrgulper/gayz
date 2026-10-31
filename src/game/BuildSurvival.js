@@ -35,7 +35,8 @@ import { PlayAnimals } from './PlayAnimals.js'
 import { worldSeed, isEarthWorld } from './OpenWorld.js'
 import { loadEarthTerrain } from './EarthTerrain.js'
 import { BOTTOM, DEMON_TOP } from './Underground.js'
-import { ZOMBIE_TIERS, NAME_COUNT, TAG_W, TAG_H, rollZombieTier, rollZombieName, zombieTagMaterial, zombieGlow, pulseZombieGlows } from './ZombieNames.js'
+import { deathJoke } from './DeathJokes.js'
+import { ZOMBIE_TIERS, NAME_COUNT, TAG_W, TAG_H, rollZombieTier, rollZombieName, zombieTagMaterial, zombieGlow, pulseZombieGlows, zombieName, ZOMBIE_SHINES, rollZombieShine, shineCoins, shineBody, glowShineBody, shineTagMaterial, zombieShineFx, animateShineFx, pulseShines } from './ZombieNames.js'
 import { LEAF_DROP_CHANCE, PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, ASSIST_SHARE, ASSIST_MIN_HURT, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { MONSTER_KINDS, REALM_KINDS, makeMonster } from './ZombieKinds.js'
 import { HEAVEN_FLOOR, HEAVEN_TOP } from './HeavenRealm.js'
@@ -56,6 +57,8 @@ const HEAD_MULT = 2.4
 const ZOMBIE_HEIGHT = MOB_HEIGHT
 const ZOMBIE_FIT_HEIGHT = 1.85
 const ZOMBIE_HALF = 0.3
+// A bite this recent counts as what got you (the You Died joke).
+const DEATH_JOKE_BITE_MS = 4000
 // Special guns (PlayWeapons.js): Flamethrower burn damage per second,
 // Void Ripper slow (zombies move at this share of their speed), and the
 // Tomahawk's swing width (cos of the half-angle in front of you).
@@ -862,6 +865,7 @@ export class BuildSurvival {
       <div class="build-play-over-card">
         <h2 id="build-play-over-title"></h2>
         <p id="build-play-over-text"></p>
+        <p id="build-play-over-joke"></p>
         <p id="build-play-over-best"></p>
         <div id="build-play-xp" style="display: none">
           <div class="build-play-xp-row"><b id="build-play-xp-level"></b><span id="build-play-xp-num"></span></div>
@@ -1330,8 +1334,8 @@ export class BuildSurvival {
     if (this._toSpawn > 0) this._toSpawn--
     audioEngine.playZombieDeath?.(1, this._panTo(z.x, z.z))
     const skeleton = SKELETON_KINDS[z.kind] ? z.kind : null
-    if (by) this.net?.queueCredit(by, z.boss, skeleton, z.tier)
-    else this._countKill(z.boss, skeleton, z.tier)
+    if (by) this.net?.queueCredit(by, z.boss, skeleton, z.tier, false, z.shine)
+    else this._countKill(z.boss, skeleton, z.tier, z.shine)
     this.bm.specials.onKill(z)
     this._creditAssists(z, by || '')
     // A bloater bursts instead of falling over.
@@ -1357,7 +1361,10 @@ export class BuildSurvival {
       const amount = hit * (1 - d / r)
       if (p.remote) {
         if (!this.camp?.inside(p.x, p.z)) this.net?.queueHurt(p.remote, amount)
-      } else this._hurtPlayer(amount)
+      } else {
+        this._lastBiter = { nameIdx: z.nameIdx, at: performance.now() }
+        this._hurtPlayer(amount)
+      }
     }
     for (const o of [...this.zombies]) {
       if (o === z || o.health <= 0 || !this.zombies.includes(o)) continue
@@ -1368,20 +1375,27 @@ export class BuildSurvival {
 
   // A kill of mine: stats, coins, the streak, achievements.
   // tier: its rarity (ZombieNames.js) - rarer ones pay more coins.
-  _countKill(boss, skeleton = null, tier = 'common') {
+  // shine: a Golden or Diamond one pays ZOMBIE_SHINES coins times that.
+  _countKill(boss, skeleton = null, tier = 'common', shine = null) {
     this.kills++
     this.stats.kills++
     if (skeleton) this.stats.skeletonKills = (this.stats.skeletonKills || 0) + 1
     if (this.weapon.melee) this.stats.meleeKills++
     this.streak++
     this.bestStreak = Math.max(this.bestStreak, this.streak)
-    this._earn(Math.round(COIN_PER_KILL * (ZOMBIE_TIERS[tier]?.coins ?? 1)))
+    const paid = Math.round(COIN_PER_KILL * (ZOMBIE_TIERS[tier]?.coins ?? 1) * shineCoins(shine))
+    this._earn(paid)
+    if (ZOMBIE_SHINES[shine]) {
+      this.stats[shine === 'diamond' ? 'diamondKills' : 'goldKills'] = (this.stats[shine === 'diamond' ? 'diamondKills' : 'goldKills'] || 0) + 1
+      this._message(t(shine === 'diamond' ? 'zombieShineDiamondKill' : 'zombieShineGoldKill', { n: Math.round(paid * (this.cfg?.coinMult ?? 1)) }), 4)
+      try { audioEngine.playSpecial?.(shine === 'diamond' ? 'diamondZombie' : 'goldZombie') } catch { /* no audio */ }
+    }
     if (boss) {
       this.bosses++
       this._earn(BOSS_COINS)
       this._message(t('buildPlayBossDown', { n: Math.round(BOSS_COINS * (this.cfg?.coinMult ?? 1)) }))
     }
-    this._report('kill', { boss: !!boss, streak: this.streak, weapon: this.weaponId, skeleton })
+    this._report('kill', { boss: !!boss, streak: this.streak, weapon: this.weaponId, skeleton, melee: !!this.weapon.melee, tier, shine })
     this._renderHud()
   }
 
@@ -1393,15 +1407,15 @@ export class BuildSurvival {
     const need = (z.maxHealth || 0) * ASSIST_MIN_HURT
     for (const [who, hurt] of z.hurtBy) {
       if (who === killer || hurt < need) continue
-      if (who) this.net.queueCredit(who, z.boss, null, z.tier, true)
-      else this._countAssist(z.boss, z.tier)
+      if (who) this.net.queueCredit(who, z.boss, null, z.tier, true, z.shine)
+      else this._countAssist(z.boss, z.tier, z.shine)
     }
   }
 
   // An assist of mine: ASSIST_SHARE of what the kill paid (its rarity's
   // coins and a boss's bonus), a "+Assist" message and the assists stat.
-  _countAssist(boss, tier = 'common') {
-    const n = Math.round((COIN_PER_KILL * (ZOMBIE_TIERS[tier]?.coins ?? 1) + (boss ? BOSS_COINS : 0)) * ASSIST_SHARE)
+  _countAssist(boss, tier = 'common', shine = null) {
+    const n = Math.round((COIN_PER_KILL * (ZOMBIE_TIERS[tier]?.coins ?? 1) * shineCoins(shine) + (boss ? BOSS_COINS : 0)) * ASSIST_SHARE)
     this._earn(n)
     this.stats.assists = (this.stats.assists || 0) + 1
     this._message(t('buildPlayAssist', { n: Math.round(n * (this.cfg?.coinMult ?? 1)) }))
@@ -1694,7 +1708,10 @@ export class BuildSurvival {
     const tier = rollZombieTier(boss)
     const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (boss ? BOSS_HEALTH_MULT : 1) * (kindOf(kind)?.hp ?? 1) * ZOMBIE_TIERS[tier].hp * (cave ? CAVE_HP_MULT : 1)
     if (boss) this._message(t('buildPlayBossComing'))
-    const zb = this._makeZombie(++this._zid, x + 0.5, y, z + 0.5, health, boss, kind, { tier, name: rollZombieName() })
+    // Now and then a Golden or Diamond one: worth far more coins.
+    const shine = rollZombieShine()
+    const zb = this._makeZombie(++this._zid, x + 0.5, y, z + 0.5, health, boss, kind, { tier, name: rollZombieName(), shine })
+    if (shine) this._announceShine(zb)
     if (cave) {
       zb.cave = true
       zb.damageMult *= CAVE_DAMAGE_MULT
@@ -1755,8 +1772,13 @@ export class BuildSurvival {
       const nodes = []
       body.traverse((o) => nodes.push(o))
       body.limbPivots = Object.fromEntries(Object.entries(batch.pivotIndex).map(([name, i]) => [name, nodes[i]]))
-      zombie.parts = batch.partIndex.map((i) => nodes[i])
-      for (const part of zombie.parts) part.visible = false
+      const parts = batch.partIndex.map((i) => nodes[i])
+      // A Golden or Diamond one draws its own glowing body (ZombieNames.js).
+      if (ZOMBIE_SHINES[look?.shine]) zombie.shineMats = shineBody(parts, look.shine)
+      else {
+        zombie.parts = parts
+        for (const part of parts) part.visible = false
+      }
       const s = (ZOMBIE_HEIGHT * this.B * zombie.size) / 32
       body.scale.setScalar(s)
       body.position.y = 2 * s
@@ -1775,14 +1797,19 @@ export class BuildSurvival {
     zombie.nameIdx = Number.isInteger(look?.name) && look.name >= 0 && look.name < NAME_COUNT ? look.name : rollZombieName()
     zombie.speedMult = (zombie.speedMult || 1) * ZOMBIE_TIERS[tier].speed
     zombie.damageMult = (zombie.damageMult || 1) * ZOMBIE_TIERS[tier].damage
+    zombie.shine = ZOMBIE_SHINES[look?.shine] ? look.shine : null
     // Name tag just over its head, and a glow round rare and rarer ones.
-    const tag = new THREE.Sprite(zombieTagMaterial(zombie.nameIdx, tier))
+    const tag = new THREE.Sprite(zombie.shine ? shineTagMaterial(zombie.nameIdx, zombie.shine) : zombieTagMaterial(zombie.nameIdx, tier))
     tag.center.set(0.5, 0)
     tag.position.y = (ZOMBIE_HEIGHT * zombie.size * (zombie.tall || 1) + 0.3) * this.B
     tag.renderOrder = 5
     group.add(tag)
     zombie.tag = tag
-    const glow = zombieGlow(tier, 1.8 * zombie.size * (zombie.wide || 1) * this.B)
+    const glow = zombie.shine ? null : zombieGlow(tier, 1.8 * zombie.size * (zombie.wide || 1) * this.B)
+    if (zombie.shine) {
+      zombie.shineFx = zombieShineFx(zombie.shine, 0.8 * zombie.size * (zombie.wide || 1) * this.B, ZOMBIE_HEIGHT * zombie.size * (zombie.tall || 1) * this.B)
+      group.add(zombie.shineFx)
+    }
     if (glow) {
       glow.position.y = 0.04 * this.B
       group.add(glow)
@@ -1808,7 +1835,19 @@ export class BuildSurvival {
       const w = ZOMBIE_TAG_SIZE * Math.max(1, d / ZOMBIE_TAG_NEAR) * B
       z.tag.scale.set(w, w * (TAG_H / TAG_W), 1)
     }
-    pulseZombieGlows(performance.now() / 1000)
+    const time = performance.now() / 1000
+    pulseZombieGlows(time)
+    pulseShines(time)
+    for (const z of this.zombies) {
+      if (z.shineFx) animateShineFx(z.shineFx, time)
+      if (z.shineMats) glowShineBody(z.shineMats, z.shine, time, z.id, z.flash > 0)
+    }
+  }
+
+  // "A Golden zombie appeared!" - a message and a sparkly sound.
+  _announceShine(z) {
+    this._message(t(z.shine === 'diamond' ? 'zombieShineDiamondAppeared' : 'zombieShineGoldAppeared', { name: zombieName(z.nameIdx) }), 4)
+    try { audioEngine.playSpecial?.(z.shine === 'diamond' ? 'diamondZombie' : 'goldZombie') } catch { /* no audio */ }
   }
 
   // Every zombie looks the same, so their bodies are drawn together: one
@@ -1885,7 +1924,7 @@ export class BuildSurvival {
       this._monsterCorpse(z, dir)
       return
     }
-    if (!z.body || !z.parts) return
+    if (!z.body || !(z.parts || z.shineMats)) return
     const B = this.B
     const body = z.body.clone()
     // Its arms (held out in front while walking) drop along the body as it
@@ -2069,6 +2108,8 @@ export class BuildSurvival {
     }
     // A batched body shares its geometry and material - nothing to free.
     if (z.parts) return
+    // A shiny body shares the geometry; its materials are its own.
+    if (z.shineMats) for (const m of z.shineMats) m.dispose()
     z.group.traverse((o) => {
       if (!o.isMesh || o.userData.shared) return
       o.geometry.dispose()
@@ -2264,6 +2305,7 @@ export class BuildSurvival {
       if (player.remote) {
         if (!this.camp?.inside(player.x, player.z)) this.net?.queueHurt(player.remote, bite)
       } else {
+        this._lastBiter = { nameIdx: zb.nameIdx, at: performance.now() }
         this._hurtPlayer(bite)
         // A Mirror Block nearby bounces some of it back (BuildSpecials.js).
         this.bm.specials.onBitten(zb, bite)
@@ -2290,8 +2332,9 @@ export class BuildSurvival {
     const red = zb.flash > 0 ? 0.6 : 0
     if (zb.lastRed !== red) {
       zb.lastRed = red
-      // A batched body gets its red tint in drawZombies().
-      if (!zb.parts) {
+      // A batched body gets its red tint in drawZombies(), a shiny one in
+      // glowShineBody.
+      if (!zb.parts && !zb.shineMats) {
         zb.group.traverse((o) => {
           if (o.isMesh && o.material.emissive) o.material.emissive.setRGB(red, 0, 0)
         })
@@ -2407,6 +2450,11 @@ export class BuildSurvival {
     set('build-play-over-text', t(extracted ? 'extractionWinText' : won ? 'buildPlayOverWinText' : 'buildPlayOverText', { waves, kills: this.kills }))
     set('build-play-over-best', `${t('buildPlayOverBest', { n: best })}${reward?.legacy ? ` · ${t('buildPlayOverLegacy', { n: reward.legacy })}` : ''}${reward?.xp ? ` · ${t('buildPlayOverXp', { n: reward.xp })}` : ''}`)
     // Dying: the run goes on from a fresh spawn or you leave, so say that
+    // A silly line about who got you (DeathJokes.js) - a zombie that bit
+    // you in the last few seconds, or a "nobody did it" one.
+    const biter = this._lastBiter && performance.now() - this._lastBiter.at < DEATH_JOKE_BITE_MS ? zombieName(this._lastBiter.nameIdx) : null
+    set('build-play-over-joke', won ? '' : deathJoke(biter))
+    this._lastBiter = null
     set('build-play-again-btn', t(won ? 'buildPlayAgainBtn' : 'buildPlayRespawnBtn'))
     set('build-play-back-btn', t(!this.fromMenu ? 'buildPlayBackBtn' : won ? 'buildPlayBackMenuBtn' : 'buildPlayLeaveBtn'))
     this._overEl.style.display = 'flex'
@@ -2834,7 +2882,7 @@ export class BuildSurvival {
   zombieSnapshot() {
     const out = {}
     for (const z of this.zombies) {
-      out[`z${z.id}`] = { x: +z.x.toFixed(2), y: +z.y.toFixed(2), z: +z.z.toFixed(2), r: +z.group.rotation.y.toFixed(2), hp: Math.round(z.health), max: Math.round(z.maxHealth || z.health), boss: !!z.boss, ...(z.kind ? { k: z.kind } : {}), rt: z.tier || 'common', nm: z.nameIdx ?? 0 }
+      out[`z${z.id}`] = { x: +z.x.toFixed(2), y: +z.y.toFixed(2), z: +z.z.toFixed(2), r: +z.group.rotation.y.toFixed(2), hp: Math.round(z.health), max: Math.round(z.maxHealth || z.health), boss: !!z.boss, ...(z.kind ? { k: z.kind } : {}), rt: z.tier || 'common', nm: z.nameIdx ?? 0, ...(z.shine ? { sh: z.shine } : {}) }
     }
     return out
   }
@@ -2848,7 +2896,8 @@ export class BuildSurvival {
       seen.add(id)
       let z = this.zombies.find((o) => o.id === id)
       if (!z) {
-        z = this._makeZombie(id, d.x, d.y, d.z, d.hp, d.boss, kindOf(d.k) ? d.k : null, { tier: d.rt, name: d.nm })
+        z = this._makeZombie(id, d.x, d.y, d.z, d.hp, d.boss, kindOf(d.k) ? d.k : null, { tier: d.rt, name: d.nm, shine: d.sh })
+        if (z.shine) this._announceShine(z)
         z.group.position.set(d.x * this.B, d.y * this.B, d.z * this.B)
       }
       z.tx = d.x

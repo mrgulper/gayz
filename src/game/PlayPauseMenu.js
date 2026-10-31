@@ -16,6 +16,10 @@
 //                    ammo (BuildSurvival._pickWeapon).
 //   Spectate       - a free camera, or other players' eyes on a server
 //                    (PlaySpectate.js, 2026-10-17); Escape comes back.
+//   Photo Mode     - the free camera with every button and bar hidden,
+//                    the world frozen (alone - a server keeps going) and a
+//                    click / P / the shutter button saving a picture
+//                    (PlaySpectate.js, 2026-10-30).
 //   Invite Friends - a link friends open to join you (2026-10-18). A solo
 //                    game becomes a server first, keeping its world
 //                    (ServerBrowser.makeGameJoinable).
@@ -41,6 +45,7 @@ export class PlayPauseMenu {
     on('play-pause-settings-btn', () => this.openSettings())
     on('play-pause-weapon-btn', () => this.switchWeapon())
     on('play-pause-spectate-btn', () => this.bm.spectate?.enter())
+    on('play-pause-photo-btn', () => this.bm.spectate?.enter({ photo: true }))
     on('play-pause-invite-btn', () => this.invite())
     on('play-invite-copy', () => this.copyInvite())
     on('play-pause-save-btn', () => this.saveProgress())
@@ -76,6 +81,7 @@ export class PlayPauseMenu {
     set('play-pause-settings-label', t('playPauseSettings'))
     set('play-pause-weapon-label', t('playPauseWeapon'))
     set('play-pause-spectate-label', t('playPauseSpectate'))
+    set('play-pause-photo-label', t('playPausePhoto'))
     set('play-pause-invite-label', t('playPauseInvite'))
     set('play-invite-copy', t('playInviteCopy'))
     set('play-invite-hint', t('playInviteHint'))

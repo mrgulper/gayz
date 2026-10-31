@@ -557,3 +557,61 @@ html.ui-theme-old #play-inventory .inv-box { padding: 62px 58px 52px; }
 }
 #play-scope .scope-dot { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #ff3b30; box-shadow: 0 0 4px rgba(255, 59, 48, 0.8); }
 body.scope-on #build-try-crosshair { visibility: hidden; }
+
+/* Photo Mode (PlaySpectate.js): every bar and button is hidden, leaving
+   the world, a small hint, the Exit and shutter buttons and the "Photo
+   saved" note. Phones keep the move stick, look area and up/down buttons
+   so the camera can still fly. Golden by default; Old and biome below. */
+body.play-photo #app > :not(#scene),
+body.play-photo > :not(#app):not(#play-photo-ui):not(#touch-play):not(script):not(style) { visibility: hidden !important; }
+body.play-photo #touch-play .tp-btn:not(.tp-jump):not(.tp-crouch) { visibility: hidden !important; }
+#play-photo-ui {
+  --pp-gold: #e8c25a;
+  --pp-gold-rgb: 232, 194, 90;
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  pointer-events: none;
+  color: #f1e6c8;
+}
+#play-photo-flash { position: absolute; inset: 0; background: #fff; opacity: 0; }
+#play-photo-flash.show { animation: play-photo-flash 0.45s ease-out; }
+@keyframes play-photo-flash { from { opacity: 0.85; } to { opacity: 0; } }
+#play-photo-hint {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  margin: 0; padding: 6px 16px; border-radius: 999px; font-size: 14px; white-space: nowrap;
+  background: rgba(18, 15, 10, 0.7); border: 1px solid rgba(var(--pp-gold-rgb), 0.45);
+}
+#play-photo-saved {
+  position: absolute; top: 40%; left: 50%; transform: translateX(-50%);
+  margin: 0; font-size: 30px; letter-spacing: 1px; color: var(--pp-gold);
+  text-shadow: 0 2px 8px #000; opacity: 0;
+}
+#play-photo-saved.show { animation: play-photo-saved 1.8s ease-out; }
+@keyframes play-photo-saved { 0% { opacity: 0; } 15%, 70% { opacity: 1; } 100% { opacity: 0; } }
+#play-photo-btns {
+  position: absolute; right: 24px; bottom: 24px; display: flex; gap: 14px; align-items: center;
+  pointer-events: auto;
+}
+#play-photo-btns button {
+  box-sizing: border-box; cursor: pointer; color: inherit; font: inherit;
+  background: rgba(18, 15, 10, 0.85); border: 1px solid rgba(var(--pp-gold-rgb), 0.6);
+}
+#play-photo-exit { height: 44px; padding: 0 20px; border-radius: 999px; font-size: 16px; }
+#play-photo-shutter { width: 68px; height: 68px; border-radius: 50%; display: grid; place-items: center; border-width: 3px !important; color: var(--pp-gold) !important; }
+#play-photo-shutter svg { width: 32px; height: 32px; }
+#play-photo-btns button:hover { background: rgba(var(--pp-gold-rgb), 0.25); }
+/* Phones: the shutter sits where the fire button was, Exit above it. */
+body.touch-play-on #play-photo-btns { flex-direction: column-reverse; right: 18px; bottom: 30%; }
+body.touch-play-on #play-photo-hint { display: none; }
+html.ui-theme-old #play-photo-ui { color: #2b1d0e; }
+html.ui-theme-old #play-photo-hint,
+html.ui-theme-old #play-photo-btns button { background: rgba(232, 214, 176, 0.92); border-color: #6b4a22; font-family: 'Rye', serif; }
+html.ui-theme-old #play-photo-shutter { color: #6b4a22 !important; }
+html.ui-theme-old #play-photo-saved { color: #f3e2b8; font-family: 'Rye', serif; }
+html.ui-theme-biome #play-photo-ui { color: var(--biome-ink); }
+html.ui-theme-biome #play-photo-hint,
+html.ui-theme-biome #play-photo-btns button { background: var(--biome-surface); border-color: var(--biome-edge); }
+html.ui-theme-biome #play-photo-shutter { color: var(--biome-ink) !important; }
+html.ui-theme-biome #play-photo-btns button:hover { background: var(--biome-button-hover); }
+html.ui-theme-biome #play-photo-saved { color: #fff; }
