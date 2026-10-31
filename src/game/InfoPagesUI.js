@@ -25,6 +25,8 @@ import { START_TRAPS } from './PlayInventory.js'
 import { TEAM_SIZE, MAX_CREATURES } from './Creatures.js'
 import { WIN_COINS, LOSS_COINS } from './TeamUI.js'
 import { ROUND_S } from './TeamBattle.js'
+import { BOOK_IDS, BOOK_COINS, BOOK_DONE_COINS } from './ZombieBook.js'
+import * as Infection from './Infection.js'
 import { DINO_KINDS, DINO_CHANCE } from './DinoKinds.js'
 import { RARITIES } from './NewAnimalKinds.js'
 import { ZOMBIE_SHINES } from './ZombieNames.js'
@@ -288,6 +290,16 @@ export function _featureValues(_game) {
     teamWinCoins: WIN_COINS,
     teamLossCoins: LOSS_COINS,
     teamRoundSeconds: ROUND_S,
+    bookKinds: BOOK_IDS.length,
+    bookCoins: BOOK_COINS,
+    bookDoneCoins: BOOK_DONE_COINS,
+    infectionPlayers: Infection.TOTAL,
+    infectionWait: Infection.WAIT_S,
+    infectionRound: Infection.ROUND_S,
+    infectionHeadStart: Infection.HEAD_START_S,
+    infectionStun: Infection.STUN_S,
+    infectionHumanCoins: Infection.HUMAN_WIN_COINS,
+    infectionZombieCoins: Infection.INFECTED_WIN_COINS,
     shopSkinPrice: Game.SHOP_SKIN_PRICE.toLocaleString('en-US'),
     defenseWaves: DEFENSE_WAVES,
     extractionWaves: EXTRACTION_WAVES,

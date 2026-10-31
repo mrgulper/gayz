@@ -1821,6 +1821,10 @@ Escape before dawn.</p>
                   <div class="class-icon-badge"><span class="class-icon-emoji">🚁</span></div>
                   <span>Zombie Extraction</span>
                 </button>
+                <button class="mode-select-btn class-btn" data-game-mode="infection" id="game-mode-infection" type="button">
+                  <div class="class-icon-badge"><span class="class-icon-emoji">🦠</span></div>
+                  <span id="game-mode-infection-label">Infection</span>
+                </button>
               </div>
             </div>
           </section>
@@ -2542,6 +2546,14 @@ Escape before dawn.</p>
           <h3>Catching &amp; Team Battles</h3>
           <p>Catch zombies and animals and build a battle team. Every game starts with <span data-feature-value="startTraps">3</span> Catch Traps in the last hotbar slot, and Loot Chests often have one or two more. Hold a Catch Trap and click to throw it at a zombie or a wild animal - no need to weaken it first: it flies in an arc and snaps shut on the first one it touches. Most are caught straight away, but rarer ones and bosses break free more often, and if one breaks free the trap is used up. Every zombie and animal also shows a health bar above it for a few seconds after it's hurt. Caught ones leave the game and go to the Pets tab in Inventory, where you can keep up to <span data-feature-value="maxCreatures">200</span>. Each shows its rarity, health and attack, which come from what it was: a boss zombie or a Legendary dragon is far tougher than a Common cow. Click creatures to put up to <span data-feature-value="teamSize">3</span> on your team, then press Battle!. Your team fights another player's ghost team - a team someone saved by battling - about as strong as yours, or a Wild Team when nobody else's can be found, in a fenced grass arena. The battle plays itself: every creature goes for the nearest enemy, and each has a special power from what it is - plain zombies get stronger together (Horde), skeletons throw bones from a few blocks away, monster zombies hit harder when hurt (Rage), bosses Stomp everyone near their target, hunting animals Pounce for a double first hit, dinosaurs Roar to weaken the other team, big animals have Thick Hide and the rest Heal Friends. The power shows on each creature's card. Watch it in 3D or 2D (from straight above) - switch with the button on the battle or in Settings &gt; Controls &gt; Team Battle View - and speed it up to two or four times as fast. The last team standing wins, or the one with more health left after <span data-feature-value="teamRoundSeconds">120</span> seconds. A win pays <span data-feature-value="teamWinCoins">30</span> coins and a loss <span data-feature-value="teamLossCoins">5</span>, and the Pets tab counts your wins and losses. On a server everyone can catch: the trap shakes on the one it hit for a moment while the host's game decides.</p>
         </div>
+        <div class="feature" data-code="ZombieBook BOOK_IDS bookIdFor renderBook">
+          <h3>Zombie Book</h3>
+          <p>Inventory &gt; Zombie Book has a card for every kind of zombie - <span data-feature-value="bookKinds">27</span> of them: the regular zombie, the boss, the skeletons, the monster zombies, and the ones that only live in Heaven, the Demon Realm or the ocean. Each card shows the zombie in 3D with a few words about it (fast, tough, hits hard, bursts, where it lives). Ones you haven't met yet are dark shadows named ???. A kind counts as met the first time one appears in your game (on a server too), which pays <span data-feature-value="bookCoins">10</span> coins, and meeting the last one pays <span data-feature-value="bookDoneCoins">200</span> more and puts a Complete! badge on the page.</p>
+        </div>
+        <div class="feature" data-code="Infection HEAD_START_S _moveBot remoteHit">
+          <h3>Infection Mode</h3>
+          <p>A game of zombie tag, picked in Game Modes. There are no zombie waves: one player turns into a zombie, and every human an infected one touches turns too. Bots fill the game up to <span data-feature-value="infectionPlayers">6</span> players, so you can play it alone, and friends join with the invite link (the address bar, or Invite Friends in the pause menu) - each friend takes a bot's place at the next round. A round starts after <span data-feature-value="infectionWait">8</span> seconds, and the first zombie is held still for <span data-feature-value="infectionHeadStart">3</span> seconds so the humans can run. Infected players look like zombies to everyone, run faster, have a green edge round the screen and can't shoot. Humans can't hurt the infected, but a shot stuns one for <span data-feature-value="infectionStun">2.5</span> seconds: it slows right down and can't tag anyone. If everyone is infected the zombies win; anyone still human after <span data-feature-value="infectionRound">150</span> seconds wins. Humans who survive get <span data-feature-value="infectionHumanCoins">25</span> coins and the infected get <span data-feature-value="infectionZombieCoins">15</span> when the zombies win, and the next round starts a few seconds later.</p>
+        </div>
         <div class="feature" data-code="AREA_TOOLS rotateClipboard _undoGroupDo">
           <h3>Map Editor Building Tools</h3>
           <p>Fill a whole area with one block, Replace one kind of block with another, and build walls, floors, hollow boxes, circles and balls with two clicks - a gold box shows the area first. Turn a copied build before pasting it, and one Undo takes back a whole fill, shape or paste.</p>
@@ -2596,7 +2608,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="PlayOnboarding isFirstGame _spawnStarter _showHint">
           <h3>First Game</h3>
-          <p>A brand-new player's first game drops straight into the action: no Choose Your Weapon screen (you get the usual starting gun), you start just outside the camp's gate facing out, and a zombie walks up from a short way off within a couple of seconds. One line with the controls (or the touch controls on a phone) shows above the health bar and fades away on its own, sooner once you take your first zombie down, and that game's first wave doesn't burn in the sun. From the next game on, everything is as usual.</p>
+          <p>A brand-new player's first game (unless it's Infection) drops straight into the action: no Choose Your Weapon screen (you get the usual starting gun), you start just outside the camp's gate facing out, and a zombie walks up from a short way off within a couple of seconds. One line with the controls (or the touch controls on a phone) shows above the health bar and fades away on its own, sooner once you take your first zombie down, and that game's first wave doesn't burn in the sun. From the next game on, everything is as usual.</p>
         </div>
         <div class="feature" data-code="PLAY_WEAPONS _openWeaponPicker ammoFor addGunLights">
           <h3>Choose Your Weapon</h3>
@@ -2608,7 +2620,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="playConfig PLAY_GAME_MODES PLAY_MUTATORS">
           <h3>Map 1 Game Modes, Difficulty &amp; Mutators</h3>
-          <p>Before you press Play, pick in Game Mode: a difficulty (Easy, Normal, Hard - Nightmare and Apex unlock later), a game mode - Classic (waves forever), Zombie Defense (hold out for <span data-feature-value="defenseWaves">10</span> waves to win), Boss Hunt (a big, tough boss every <span data-feature-value="bossEvery">3</span> waves), Zombie Rush (barely a breather between waves, a survival timer, and no buying) or Zombie Extraction (after <span data-feature-value="extractionWaves">5</span> waves a helicopter lands somewhere in the city - follow its red beam and hold its landing ring for <span data-feature-value="extractionHold">10</span> seconds while the zombies keep coming) - and mutators: Horde Rush, Loot Rush, Health Regen, Glass House, Iron Mode, Escalation and Boss Rush. Guest Mode plays a run without saving anything from it.</p>
+          <p>Before you press Play, pick in Game Mode: a difficulty (Easy, Normal, Hard - Nightmare and Apex unlock later), a game mode - Classic (waves forever), Zombie Defense (hold out for <span data-feature-value="defenseWaves">10</span> waves to win), Boss Hunt (a big, tough boss every <span data-feature-value="bossEvery">3</span> waves), Zombie Rush (barely a breather between waves, a survival timer, and no buying) or Zombie Extraction (after <span data-feature-value="extractionWaves">5</span> waves a helicopter lands somewhere in the city - follow its red beam and hold its landing ring for <span data-feature-value="extractionHold">10</span> seconds while the zombies keep coming) or Infection (zombie tag with no waves - see Infection Mode) - and mutators: Horde Rush, Loot Rush, Health Regen, Glass House, Iron Mode, Escalation and Boss Rush. Guest Mode plays a run without saving anything from it.</p>
         </div>
         <div class="feature" data-code="SKELETON_KINDS SKELETON_FROM_WAVE makeSkeleton">
           <h3>Skeletons</h3>
@@ -3456,6 +3468,7 @@ Escape before dawn.</p>
             <button class="inventory-tab" data-inventory-page="weapons" id="inventory-tab-weapons">Weapons</button>
             <button class="inventory-tab" data-inventory-page="pets" id="inventory-tab-pets">Pets</button>
             <button class="inventory-tab" data-inventory-page="cosmetics" id="inventory-tab-cosmetics">Hats &amp; Capes</button>
+            <button class="inventory-tab" data-inventory-page="zombiebook" id="inventory-tab-zombiebook">Zombie Book</button>
           </div>
           <!-- Character tab (2026-09-30): big 3D preview of the
                equipped (or inspected) skin on the left, a searchable grid
@@ -3608,6 +3621,15 @@ Escape before dawn.</p>
               <div id="cosmetics-hats" class="team-cards"></div>
               <h3 id="cosmetics-capes-title" class="team-section-title"></h3>
               <div id="cosmetics-capes" class="team-cards"></div>
+            </div>
+          </div>
+          <div class="inventory-tab-page" id="inventory-page-zombiebook" style="display: none">
+            <!-- Zombie Book (ZombieBook.js): every kind of zombie, the ones
+                 not met yet as dark shadows. -->
+            <div id="zombie-book-page">
+              <p id="zombie-book-how" class="menu-best-stats"></p>
+              <h3 class="team-section-title"><span id="zombie-book-count"></span> <span id="zombie-book-badge" class="zombie-book-badge" style="display: none">&#9733; <span id="zombie-book-done">Complete!</span></span></h3>
+              <div id="zombie-book-grid" class="team-cards"></div>
             </div>
           </div>
         </div>

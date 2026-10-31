@@ -538,3 +538,146 @@ test('servers: a guest\'s Catch Trap goes to the host and the answer comes back'
   expect(rb.caught).toHaveLength(4)
   expect((await syncServer(db, { ...b }, t0 + 60)).caught).toEqual([])
 })
+
+// Infection mode (Infection.js): the server keeps the host's round and
+// passes guests' stun shots on.
+test('servers: Infection rounds and stun shots go through the server', async () => {
+  const db = fakeServerDb()
+  const t0 = 1_000_000
+  const a = await createServer(db, { nickname: 'Ann', mode: 'infection' }, t0)
+  expect(a.mode).toBe('infection')
+  const b = await joinServer(db, { serverId: a.serverId, nickname: 'Bo' }, t0 + 10)
+  expect(b.mode).toBe('infection')
+  await syncServer(db, { ...b, hits: [{ id: `s${a.playerId}`, dmg: 0 }, { id: 's<b>', dmg: 0 }] }, t0 + 20)
+  const ra = await syncServer(db, { ...a, inf: { ph: 'play', t: 99.5, r: 2, w: '', ids: [a.playerId, 'b1', '<img>'], st: { b1: 2 }, bots: { b1: { x: 1, y: 2, z: 3, h: 0.5, n: 1 }, bad: { x: 1 } } } }, t0 + 30)
+  expect(ra.hits).toEqual([{ id: `s${a.playerId}`, dmg: 0, by: b.playerId }])
+  const rb = await syncServer(db, { ...b }, t0 + 40)
+  expect(rb.inf).toEqual({ ph: 'play', t: 99.5, r: 2, w: '', ids: [a.playerId, 'b1'], st: { b1: 2 }, bots: { b1: { x: 1, y: 2, z: 3, h: 0.5, n: 1 } } })
+  // A Zombie Survival server takes no stun shots and no round.
+  const c = await createServer(db, { nickname: 'Cy' }, t0)
+  const d = await joinServer(db, { serverId: c.serverId, nickname: 'Di' }, t0 + 10)
+  await syncServer(db, { ...d, hits: [{ id: `s${c.playerId}`, dmg: 0 }] }, t0 + 20)
+  const rc = await syncServer(db, { ...c, inf: { ph: 'play' } }, t0 + 30)
+  expect(rc.hits).toEqual([])
+  expect((await syncServer(db, { ...d }, t0 + 40)).inf).toBeUndefined()
+})
+
+test('Infection: a friend joins by link, gets tagged and stuns the zombie', async ({ browser }) => {
+  test.setTimeout(240000)
+  const db = fakeServerDb()
+  const fns = { list: () => listServers(db), create: (b) => createServer(db, b), join: (b) => joinServer(db, b), leave: (b) => leaveServer(db, b), sync: (b) => syncServer(db, b) }
+  const open = async (path = '/') => {
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await page.exposeFunction('__srv', async (name, body) => {
+      try {
+        return { ok: await fns[name](body) }
+      } catch (err) {
+        return { err: err.code || 'server' }
+      }
+    })
+    await page.addInitScript(() => {
+      const call = async (name, body) => {
+        const r = await window.__srv(name, body)
+        if (r.err) throw Object.assign(new Error(r.err), { code: r.err })
+        return r.ok
+      }
+      window.__serversBackendForTests = { list: () => call('list'), create: (b) => call('create', b), join: (b) => call('join', b), leave: (b) => call('leave', b), sync: (b) => call('sync', b) }
+    })
+    await gotoAndWaitForGame(page, path)
+    return page
+  }
+
+  const a = await open()
+  await a.evaluate(() => { window.__game.settings.selectedGameMode = 'infection'; window.__game.playBtn.click() })
+  await a.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await a.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  await a.waitForFunction(() => window.__game.buildMode.survival.lobby && location.search.startsWith('?join='), null, { timeout: 20000 })
+  const search = await a.evaluate(() => location.search)
+  const b = await open(`/${search}`)
+  await a.evaluate(() => window.__game.buildMode.survival.lobby?._sync() || window.__game.buildMode.survival.net?._sync())
+  await b.waitForFunction(() => window.__game.buildMode?.survival?.active && window.__game.buildMode.survival.net, null, { timeout: 60000 })
+  await b.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  const sync = (page) => page.evaluate(() => window.__game.buildMode.survival.net._sync())
+  await sync(b)
+  await a.evaluate(() => window.__game.buildMode.survival.lobby?._sync() || window.__game.buildMode.survival.net._sync())
+  await sync(b)
+  const guest = await b.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    return { mode: s.cfg.mode, noZombies: s.cfg.noZombies, inf: !!s.infection, netMode: s.net.mode, host: s.net.isHost }
+  })
+  expect(guest).toEqual({ mode: 'infection', noZombies: true, inf: true, netMode: 'infection', host: false })
+  // Bo walks off a little, out of reach.
+  await b.evaluate(() => { window.__game.buildMode.survival.bm.tryMode.pos.x += 15 })
+  await sync(b)
+  await a.evaluate(() => window.__game.buildMode.survival.net._sync())
+
+  // The host starts a round with itself as the first zombie.
+  const hostId = await a.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const inf = s.infection
+    inf.update(0.05)
+    inf._begin(inf._people())
+    // The first zombie is held for a head start.
+    const held = [...inf.infected].every((id) => inf.stunned.has(id))
+    inf.infected = new Set([inf.myId])
+    inf.stunned.clear()
+    inf.update(0.05)
+    return held && inf.myId
+  })
+  await a.evaluate(() => window.__game.buildMode.survival.net._sync())
+  await sync(b)
+  const seen = await b.evaluate(() => {
+    const inf = window.__game.buildMode.survival.infection
+    inf.update(0.05)
+    return { phase: inf.phase, ids: [...inf.infected], bots: inf.bots.size, me: inf.meInfected, hud: inf.hudText() }
+  })
+  expect(hostId).toBeTruthy()
+  expect(seen.phase).toBe('play')
+  expect(seen.ids).toContain(hostId)
+  expect(seen.ids).not.toContain(await b.evaluate(() => window.__game.buildMode.survival.net.playerId))
+  // Bots fill the rest of the TOTAL (6) spots.
+  expect(seen.bots).toBe(4)
+  expect(seen.me).toBe(false)
+  expect(seen.hud).toContain('Infection')
+
+  // Bo shoots Ann: the stun reaches the host.
+  await b.evaluate((id) => {
+    const s = window.__game.buildMode.survival
+    const p = s.net.players.get(id)
+    const B = s.B
+    const ray = s.bm._raycaster.ray.clone()
+    ray.origin.set((p.tx + 3) * B, (p.ty + 1) * B, p.tz * B)
+    ray.direction.set(-1, 0, 0)
+    window.__stunned = s.infection.shoot(ray, 50 * B)
+  }, hostId)
+  expect(await b.evaluate(() => window.__stunned)).toBe(true)
+  await sync(b)
+  await a.evaluate(() => window.__game.buildMode.survival.net._sync())
+  expect(await a.evaluate(() => window.__game.buildMode.survival.infection.stunned.has(window.__game.buildMode.survival.infection.myId))).toBe(true)
+
+  // Stunned, Ann can't tag; once it wears off, touching Bo turns him.
+  const guestId = await b.evaluate(() => window.__game.buildMode.survival.net.playerId)
+  const tagged = await a.evaluate((id) => {
+    const s = window.__game.buildMode.survival
+    const inf = s.infection
+    const p = s.net.players.get(id)
+    s.bm.tryMode.pos.set(p.tx, p.ty, p.tz)
+    inf.update(0.05)
+    const whileStunned = inf.infected.has(id)
+    inf.stunned.clear()
+    inf.update(0.05)
+    return { whileStunned, after: inf.infected.has(id) }
+  }, guestId)
+  expect(tagged).toEqual({ whileStunned: false, after: true })
+  await a.evaluate(() => window.__game.buildMode.survival.net._sync())
+  await sync(b)
+  expect(await b.evaluate(() => { const inf = window.__game.buildMode.survival.infection; inf.update(0.05); return inf.meInfected })).toBe(true)
+  // Ann looks like a zombie on Bo's screen.
+  await b.waitForFunction((id) => {
+    const s = window.__game.buildMode.survival
+    s.infection.update(0.05)
+    const p = s.net.players.get(id)
+    return p?.zbody?.visible && p.body && !p.body.visible
+  }, hostId, { timeout: 20000 })
+})

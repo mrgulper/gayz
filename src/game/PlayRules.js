@@ -18,11 +18,12 @@ export const PLAY_MUTATORS = ['hordeRush', 'lootRush', 'healthRegen', 'glassHous
 // Game Modes with a block-city version.
 // worldMap (2026-10-18): pick a real place on Earth and survive in land
 // shaped like the real world (SpawnMap.js, OpenWorld's Earth mode).
-export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'worldMap']
+// infection (2026-10-31, Infection.js): tag - zombies turn humans, last human wins.
+export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'worldMap', 'infection']
 // Game Modes with no zombies at all (2026-10-26, Gaymi: "make world map
 // not spawn zombies ... make world map just a gamemode with the world
 // map"): you just explore the real Earth.
-export const NO_ZOMBIE_MODES = ['worldMap']
+export const NO_ZOMBIE_MODES = ['worldMap', 'infection']
 // Its achievement, Globetrotter: a World Map run this long (seconds).
 export const GLOBETROTTER_SECONDS = 600
 

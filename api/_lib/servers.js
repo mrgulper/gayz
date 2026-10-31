@@ -8,7 +8,7 @@
 //
 // Layout in the database:
 //   servers/{id}      { name, mode, host, createdAt, wave, zombies, world,
-//                       hidden, sky, animals, editSeq,
+//                       hidden, sky, animals, inf, editSeq,
 //                       players: { pid: { nick, x, y, z, yaw, weapon, held,
 //                                         firing, dead, emote, hat, cape, t,
 //                                         hurt, credits, caught,
@@ -45,7 +45,8 @@ export const STALE_MS = 10000
 // take well over 30s on a slow phone or a software-rendered browser -
 // 30s dropped joiners there, 2026-10-10).
 export const JOIN_GRACE_MS = 90000
-export const MODES = ['main']
+// main: Zombie Survival; infection: Infection mode (src/game/Infection.js).
+export const MODES = ['main', 'infection']
 const NAME_MAX = 24
 const NICK_MAX = 20
 const MAX_ZOMBIES = 40
@@ -179,7 +180,7 @@ export async function createServer(db, { name, mode, nickname, skin, world, id: 
   const s = skinOf(skin)
   updates[`serverSkins/${id}`] = s ? { [pid]: s } : null
   await db.update(updates)
-  return { serverId: id, playerId: pid, token, host: pid }
+  return { serverId: id, playerId: pid, token, host: pid, mode: m }
 }
 
 export async function joinServer(db, { serverId, nickname, skin } = {}, now = Date.now()) {
@@ -335,6 +336,30 @@ function cleanEdit(e) {
   return { key: `${x},${y},${z}`, b }
 }
 
+// The host's Infection round (Infection.snapshot): phase, time left,
+// round, winner, who's infected, who's stunned, and the bots.
+const INF_ID_RE = /^(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/
+function cleanInf(v) {
+  if (!v || typeof v !== 'object') return null
+  const ids = [].concat(v.ids || []).filter((id) => typeof id === 'string' && INF_ID_RE.test(id)).slice(0, 40)
+  const st = {}
+  for (const [id, left] of Object.entries(v.st && typeof v.st === 'object' ? v.st : {}).slice(0, 40)) if (INF_ID_RE.test(id)) st[id] = num(left, 0, 10)
+  const bots = {}
+  for (const [id, b] of Object.entries(v.bots && typeof v.bots === 'object' ? v.bots : {}).slice(0, 12)) {
+    if (!/^b\d{1,4}$/.test(id) || !b || typeof b !== 'object') continue
+    bots[id] = { x: num(b.x, -1e5, 1e5), y: num(b.y, -520, 520), z: num(b.z, -1e5, 1e5), h: num(b.h, -100, 100), n: Math.round(num(b.n, 1, 9999)) }
+  }
+  return {
+    ph: ['wait', 'play', 'end'].includes(v.ph) ? v.ph : 'wait',
+    t: num(v.t, 0, 1000),
+    r: Math.round(num(v.r, 1, 1e6)),
+    w: v.w === 'h' || v.w === 'z' ? v.w : '',
+    ids,
+    st,
+    bots,
+  }
+}
+
 function cleanSay(v) {
   if (!v || typeof v !== 'object') return null
   const text = cleanText(v.text, SAY_MAX)
@@ -433,6 +458,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     }
     const sky = cleanSky(body.sky)
     if (sky) updates[`${base}/sky`] = sky
+    const inf = server.mode === 'infection' ? cleanInf(body.inf) : null
+    if (inf) updates[`${base}/inf`] = inf
     if (body.animals && typeof body.animals === 'object') {
       const as = {}
       for (const [id, a] of Object.entries(body.animals).slice(0, MAX_ANIMALS)) {
@@ -468,9 +495,11 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     out.zombies = server.zombies || {}
     out.sky = server.sky || null
     out.animals = server.animals || {}
+    if (server.inf) out.inf = server.inf
     // Shots on the host's zombies (z...) and animals (a..., or taming one).
     for (const h of [].concat(body.hits || []).slice(0, MAX_HITS_PER_SYNC)) {
-      if (!h || !/^[za]\d{1,9}$/.test(h.id)) continue
+      // z/a: a zombie or animal; s: a stun shot in Infection (s + who).
+      if (!h || !(/^[za]\d{1,9}$/.test(h.id) || (server.mode === 'infection' && /^s(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)))) continue
       updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId, ...(h.tame === true && h.id[0] === 'a' ? { tame: true } : {}), ...(h.catch === true ? { catch: true } : {}) }
     }
   }

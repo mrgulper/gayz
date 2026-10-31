@@ -4441,3 +4441,140 @@ test('Blood Moon, zombie cosmetics, death replay and photo filters', async ({ pa
   expect(ids.some((i) => zombieHat(i) === 'propeller') && ids.some((i) => zombieHat(i) === 'chicken')).toBe(true)
   expect(ids.filter((i) => zombieCape(i)).length).toBeGreaterThan(0)
 })
+
+// Infection mode on your own (Infection.js): bots fill the game, one turns,
+// tags spread it, a shot stuns, and the round ends when everyone's turned.
+test('Infection: bots, tags, stuns and the round ending', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    // Solo: no server for the lobby.
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'infection'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    const inf = s.infection
+    const out = { mode: s.cfg.mode, noZombies: s.cfg.noZombies, phase0: inf.phase }
+    inf.update(0.05)
+    out.bots = inf.bots.size
+    const start = [...inf.bots.values()].map((b) => [b.x, b.z])
+    // The wait runs out: a round starts with one infected.
+    for (let i = 0; i < 200 && inf.phase === 'wait'; i++) inf.update(0.05)
+    out.phase1 = inf.phase
+    out.infected1 = inf.infected.size
+    // Bots move and stay on the ground (not NaN, not falling forever).
+    for (let i = 0; i < 40; i++) inf.update(0.05)
+    out.botsMoved = [...inf.bots.values()].some((b, i) => Math.hypot(b.x - start[i][0], b.z - start[i][1]) > 0.5)
+    out.botsOk = [...inf.bots.values()].every((b) => Number.isFinite(b.y) && Math.abs(b.y - s._groundUnder(b.x, b.y + 0.05, b.z)) < 1.5)
+    // Make one bot the only zombie, right on top of me: I'm tagged.
+    const [first] = inf.bots.values()
+    inf.infected = new Set([first.id])
+    inf.stunned.clear()
+    const me = s.bodyPos()
+    first.x = me.x
+    first.y = me.y
+    first.z = me.z
+    inf.update(0.02)
+    out.meInfected = inf.meInfected
+    out.speed = s.bm.tryMode.speedMult
+    out.vignette = document.getElementById('infection-vignette')?.className
+    out.hud = document.getElementById('build-play-wave-text')?.textContent || ''
+    // Infected can't stun; a human can.
+    const ray = s.bm._raycaster.ray.clone()
+    const B = s.B
+    ray.origin.set((first.x + 4) * B, (first.y + 1) * B, first.z * B)
+    ray.direction.set(-1, 0, 0)
+    out.shotWhileInfected = inf.shoot(ray, 40 * B)
+    inf.infected.delete(inf.myId)
+    out.shotAsHuman = inf.shoot(ray, 40 * B)
+    out.stunned = inf.stunned.has(first.id)
+    // Everyone turned: the zombies win and I (a zombie) get coins.
+    const coins = g.coins
+    for (const p of inf._people()) inf.infected.add(p.id)
+    inf.update(0.02)
+    out.phase2 = inf.phase
+    out.winner = inf.winner
+    out.coins = g.coins - coins
+    // Then a new round.
+    for (let i = 0; i < 200 && inf.phase === 'end'; i++) inf.update(0.05)
+    out.phase3 = inf.phase
+    out.round = inf.round
+    out.zombies = s.zombies.length
+    g._exitBuildMode()
+    out.vignetteGone = !document.getElementById('infection-vignette')
+    out.botsGone = !g.buildMode.scene.children.some((c) => c === first.group)
+    return out
+  })
+  expect(r.mode).toBe('infection')
+  expect(r.noZombies).toBe(true)
+  expect(r.phase0).toBe('wait')
+  expect(r.bots).toBe(5)
+  expect(r.phase1).toBe('play')
+  expect(r.infected1).toBe(1)
+  expect(r.botsMoved).toBe(true)
+  expect(r.botsOk).toBe(true)
+  expect(r.meInfected).toBe(true)
+  expect(r.speed).toBeGreaterThan(1.1)
+  expect(r.vignette).toBe('on')
+  expect(r.hud).toContain('Infection')
+  expect(r.shotWhileInfected).toBe(false)
+  expect(r.shotAsHuman).toBe(true)
+  expect(r.stunned).toBe(true)
+  expect(r.phase2).toBe('end')
+  expect(r.winner).toBe('z')
+  expect(r.coins).toBe(15)
+  expect(r.phase3).toBe('wait')
+  expect(r.round).toBe(2)
+  expect(r.zombies).toBe(0)
+  expect(r.vignetteGone).toBe(true)
+  expect(r.botsGone).toBe(true)
+})
+
+// The Zombie Book (ZombieBook.js): a new kind pays coins once and shows up.
+test('Zombie Book: meeting a new kind of zombie pays once and fills its page', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    localStorage.removeItem('gayz-zombie-book')
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'classic'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    const coins = g.coins
+    const p = s.bodyPos()
+    s._makeZombie(9001, p.x + 5, p.y, p.z, 50, false, 'brute')
+    const out = { paid: g.coins - coins, msg: document.getElementById('build-play-msg')?.textContent || '' }
+    const again = g.coins
+    s._makeZombie(9002, p.x + 6, p.y, p.z, 50, false, 'brute')
+    out.paidAgain = g.coins - again
+    const book = JSON.parse(localStorage.getItem('gayz-zombie-book') || '{}')
+    out.brute = !!book.brute
+    out.met = Object.keys(book).length
+    g._exitBuildMode()
+    g._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-zombiebook').click()
+    for (let i = 0; i < 100 && !document.querySelector('#zombie-book-grid img'); i++) await new Promise((res) => setTimeout(res, 100))
+    const card = document.querySelector('[data-book="brute"]')
+    out.count = document.getElementById('zombie-book-count').textContent
+    out.cards = document.querySelectorAll('#zombie-book-grid .zombie-book-card').length
+    out.unmet = document.querySelectorAll('#zombie-book-grid .unmet').length
+    out.bruteName = card?.querySelector('.team-card-name')?.textContent
+    out.pics = document.querySelectorAll('#zombie-book-grid img').length
+    return out
+  })
+  expect(r.paid).toBe(10)
+  expect(r.paidAgain).toBe(0)
+  expect(r.brute).toBe(true)
+  expect(r.msg).toContain('Brute')
+  expect(r.count).toBe(`Met ${r.met} of 27`)
+  expect(r.cards).toBe(27)
+  expect(r.unmet).toBe(27 - r.met)
+  expect(r.bruteName).toBe('Brute')
+  expect(r.pics).toBe(27)
+})

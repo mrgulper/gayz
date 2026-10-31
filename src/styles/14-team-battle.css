@@ -438,3 +438,44 @@ html.ui-theme-clean #team-page .team-card.empty {
   opacity: 0.55;
   cursor: default;
 }
+
+/* Inventory > Zombie Book (ZombieBook.js): the same cards; a zombie you
+   haven't met yet is a dark shadow. */
+#zombie-book-page {
+  text-align: center;
+}
+#zombie-book-page .team-card {
+  position: relative;
+  width: 132px;
+  padding: 12px 8px;
+  gap: 4px;
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  font: inherit;
+  cursor: default;
+}
+#zombie-book-page .team-card img,
+.zombie-book-blank {
+  display: block;
+  width: 72px;
+  height: 84px;
+  object-fit: contain;
+}
+#zombie-book-page .team-card.unmet img {
+  filter: brightness(0);
+  opacity: 0.55;
+}
+#zombie-book-page .team-card.unmet .team-card-name {
+  opacity: 0.6;
+}
+.zombie-book-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(var(--ui-gold-accent-rgb), 0.2);
+  color: var(--menu-gold);
+  font-size: 0.8em;
+}
+html.ui-theme-clean #zombie-book-page .team-card {
+  border-color: rgba(0, 0, 0, 0.18);
+}
