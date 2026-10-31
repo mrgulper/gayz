@@ -2290,7 +2290,10 @@ export function _renderGraphicsLevels(game) {
       tag.textContent = t('gfxLevelRecommended')
       card.append(tag)
     }
-    card.addEventListener('click', () => _applyGraphicsLevel(game, id))
+    card.addEventListener('click', () => {
+      game.settings.graphicsLevelAuto = false
+      _applyGraphicsLevel(game, id)
+    })
     return card
   }))
 }

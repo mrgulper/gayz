@@ -14,6 +14,9 @@ import { WEAPON_THUMB_IDS, WEAPON_THUMBS_VERSION } from './weaponThumbs.js'
 export const NUMBER_S = 0.9
 const RISE = 0.9
 const MAX_UP = 24
+// Coins out of a kill: how long they show and how many little ones.
+export const COIN_S = 1.1
+const COIN_BITS = 3
 
 const THUMBS = new Set(WEAPON_THUMB_IDS)
 // The weapon's picture, for the ones that have one (melee weapons share
@@ -63,12 +66,8 @@ export class PlayDamageNumbers {
     const num = document.createElement('span')
     num.textContent = String(n)
     el.appendChild(num)
-    this._layer().appendChild(el)
     // A little sideways scatter, so hits in a row don't stack exactly.
-    const item = { el, x: x + (Math.random() - 0.5) * 0.5, y, z: z + (Math.random() - 0.5) * 0.5, t: 0 }
-    this.list.push(item)
-    while (this.list.length > MAX_UP) this._drop(this.list[0])
-    this._place(item)
+    this._add({ el, x: x + (Math.random() - 0.5) * 0.5, y, z: z + (Math.random() - 0.5) * 0.5, t: 0 })
   }
 
   // At a zombie (its upper body) - the spot most hits land on.
@@ -76,10 +75,37 @@ export class PlayDamageNumbers {
     this.show(zb.x, zb.y + height * (zb.size || 1) * (zb.tall || 1) * 0.85, zb.z, amount, weaponId)
   }
 
+  // Coins popping out of a zombie you took down (2026-10-31, "juicy core"):
+  // a gold "+n" and a few coins hopping out sideways and dropping.
+  coinsAt(zb, n, height) {
+    if (!(n >= 1)) return
+    const y = zb.y + height * (zb.size || 1) * (zb.tall || 1) * 0.6
+    const label = document.createElement('div')
+    label.className = 'play-dmg play-coins'
+    label.innerHTML = '<i class="play-coin"></i><span></span>'
+    label.querySelector('span').textContent = `+${Math.round(n)}`
+    this._add({ el: label, x: zb.x, y: y + 0.4, z: zb.z, t: 0, life: COIN_S })
+    for (let i = 0; i < COIN_BITS; i++) {
+      const el = document.createElement('div')
+      el.className = 'play-dmg play-coin-bit'
+      el.innerHTML = '<i class="play-coin"></i>'
+      const a = Math.random() * Math.PI * 2
+      const sp = 0.6 + Math.random() * 0.7
+      this._add({ el, x: zb.x, y, z: zb.z, t: 0, life: COIN_S, vx: Math.cos(a) * sp, vz: Math.sin(a) * sp, hop: 0.9 + Math.random() * 0.5 })
+    }
+  }
+
+  _add(item) {
+    this._layer().appendChild(item.el)
+    this.list.push(item)
+    while (this.list.length > MAX_UP) this._drop(this.list[0])
+    this._place(item)
+  }
+
   update(dt) {
     for (const item of [...this.list]) {
       item.t += dt
-      if (item.t >= NUMBER_S) this._drop(item)
+      if (item.t >= (item.life || NUMBER_S)) this._drop(item)
       else this._place(item)
     }
   }
@@ -87,8 +113,11 @@ export class PlayDamageNumbers {
   _place(item) {
     const bm = this.s.bm
     const B = this.s.B
-    const k = item.t / NUMBER_S
-    const v = this._v.set(item.x * B, (item.y + RISE * (1 - (1 - k) * (1 - k))) * B, item.z * B).project(bm.camera)
+    const k = item.t / (item.life || NUMBER_S)
+    // A coin bit flies out and arcs down; everything else rises.
+    const v = item.hop
+      ? this._v.set((item.x + item.vx * k) * B, (item.y + item.hop * 4 * k * (1 - k) - 0.6 * k) * B, (item.z + item.vz * k) * B).project(bm.camera)
+      : this._v.set(item.x * B, (item.y + RISE * (1 - (1 - k) * (1 - k))) * B, item.z * B).project(bm.camera)
     // Behind the camera: hidden.
     if (v.z > 1) {
       item.el.style.opacity = '0'

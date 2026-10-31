@@ -193,3 +193,7 @@ Gaymi: "make the edit and generating a skin smarter" - chose to stay offline (no
 - Bouncy buttons in `08-homepage.css`: separate `scale`/`rotate` animations only - never set `transition`/`transform` there (would break buttons' own hover effects).
 - Luckiest Guy font (`public/fonts`, offline) only for in-game titles (`play-biome.css`); theme fonts unchanged on purpose (Old/Simple identity + layout drift risk).
 - Inventory > Hats & Capes (`CosmeticsUI.js`, sub-tab `cosmetics` in `_subTabsFor` list), reuses Pets card styles. Phone emote button: left edge, bottom 176px (overlap-checked portrait + landscape).
+
+## Homepage daily challenge card (2026-10-31)
+- `#home-daily` (index.html, after `#hero-quick-actions`), filled by `ProgressUI._renderHomeDaily` from `_updateQuestsDot` (startup, menu refresh, claims). Click opens Quests. Starts `.pending` (visibility hidden, keeps 46px) so nothing jumps when it fills in.
+- Desktop: absolute just under `#menu-hero` (`top: calc(100% + 10px)`), so Play/gear never move - measured zero scroll and no nav overlap at 1920x1080, 1600x900, 1440x900, 1366x768 in Old and Simple. Stacked phone layout (same media query as 12-gallery-and-later.css): static, in the flow. Styles: 08-homepage.css (base + Old paper/ink), theme-clean.css (Simple).

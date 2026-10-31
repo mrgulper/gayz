@@ -50,6 +50,32 @@ export function needText(id) {
   return t(`cosmeticNeed${k.charAt(0).toUpperCase()}${k.slice(1)}`, { n })
 }
 
+// Reasons to come back (2026-10-31): the locked hat or cape you're
+// closest to, for the end-of-game card ("3 more games for the Red
+// Cape!"). { id, kind, left, need } or null once everything's unlocked.
+export function nextUnlock(career) {
+  const have = progress(career)
+  let best = null
+  for (const id of COSMETIC_IDS) {
+    if (isUnlocked(id, career)) continue
+    const [kind, need] = Object.entries(COSMETICS[id].need)[0]
+    const frac = have[kind] / need
+    if (!best || frac > best.frac) best = { id, kind, need, left: need - have[kind], frac }
+  }
+  return best
+}
+
+export function nextUnlockText(u) {
+  if (!u) return ''
+  const key = `unlockSoon${u.kind.charAt(0).toUpperCase()}${u.kind.slice(1)}${u.left === 1 && u.kind !== 'level' ? 'One' : ''}`
+  return t(key, { n: u.kind === 'level' ? u.need : u.left, name: cosmeticName(u.id) })
+}
+
+// The ones `after` has unlocked that `before` hadn't.
+export function newlyUnlocked(before, after) {
+  return COSMETIC_IDS.filter((id) => isUnlocked(id, after) && !isUnlocked(id, before))
+}
+
 export function cosmeticName(id) {
   return t(`cosmetic${id.charAt(0).toUpperCase()}${id.slice(1)}`)
 }

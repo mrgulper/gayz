@@ -162,3 +162,17 @@ html.ui-theme-biome #build-play-health { border-color: var(--biome-edge); }
 html.ui-theme-biome #emote-bar { border-color: var(--biome-edge); }
 body.touch-play-on #emote-bar { bottom: auto; top: 42%; }
 body.touch-play-on #emote-bar kbd { display: none; }
+
+/* A new player's first game (PlayOnboarding.js, 2026-10-31): the controls
+   in one line above the health bar, fading on their own. The biome's box
+   in a game; dark glass if the biome look is off. */
+#play-first-hint {
+  position: fixed; left: 50%; bottom: 190px; transform: translateX(-50%);
+  z-index: 17; pointer-events: none; padding: 10px 22px; border-radius: 999px;
+  font: 24px 'Luckiest Guy', 'Bebas Neue', sans-serif; letter-spacing: 1px;
+  color: #fff; background: rgba(10, 12, 16, 0.78); border: 2px solid rgba(255, 255, 255, 0.3);
+  text-align: center; white-space: nowrap; max-width: 92vw; transition: opacity 0.8s;
+}
+html.ui-theme-biome #play-first-hint { color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); }
+#play-first-hint.gone { opacity: 0; }
+body.touch-play-on #play-first-hint { bottom: auto; top: 34%; font-size: 18px; white-space: normal; width: max-content; }

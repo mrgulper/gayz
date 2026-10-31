@@ -1907,3 +1907,42 @@ html #menu #menu-nav-buttons button:hover .nav-badge-dot {
   #menu-nav-buttons button:active,
   #play-btn:active { animation: none; }
 }
+
+/* Today's daily challenge under the Settings gear (ProgressUI
+   _renderHomeDaily, 2026-10-31, "put the daily challenge and streak on
+   the homepage"). Out of the flow just under the hero, so Play and the
+   gear never move; in the flow on the stacked phone layout (the same
+   breakpoint as 12-gallery-and-later.css's), where the page scrolls.
+   Old: paper and ink; Simple: theme-clean.css. */
+#home-daily {
+  position: absolute; left: 50%; top: calc(100% + 10px); transform: translateX(-50%);
+  width: 300px; max-width: 86vw; box-sizing: border-box; z-index: 2;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 3px 8px;
+  padding: 8px 14px 10px; text-align: left; cursor: pointer;
+  font: 600 13px/1.25 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #f1e6c8;
+  background: rgba(18, 15, 10, 0.8); border: 1px solid rgba(232, 194, 90, 0.55); border-radius: 12px;
+  transition: filter 0.15s ease;
+}
+/* Its place is kept until the game fills it, so nothing below jumps. */
+#home-daily.pending { visibility: hidden; min-height: 46px; }
+#home-daily:hover { filter: brightness(1.12); }
+#home-daily .home-daily-tag { font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--menu-gold, #d9bc4a); }
+#home-daily .home-daily-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#home-daily .home-daily-status { font-weight: 800; white-space: nowrap; }
+#home-daily .home-daily-streak { grid-column: 1 / -1; font-size: 12px; opacity: 0.85; }
+#home-daily .home-daily-bar { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
+#home-daily .home-daily-bar i { display: block; height: 100%; background: linear-gradient(90deg, #a8781f, #e8c25a); }
+#home-daily.ready { box-shadow: 0 0 0 2px var(--menu-gold, #d9bc4a), 0 0 16px rgba(232, 194, 90, 0.5); }
+#home-daily.claimed .home-daily-bar { display: none; }
+html.ui-theme-old #home-daily {
+  color: var(--old-ink);
+  background: url('/images/old-panel-paper-v3.webp') center / 100% 100% no-repeat;
+  border: 2px solid rgba(74, 44, 16, 0.75);
+}
+html.ui-theme-old #home-daily .home-daily-tag { color: #6b3f17; }
+html.ui-theme-old #home-daily .home-daily-bar { background: rgba(74, 44, 16, 0.2); }
+html.ui-theme-old #home-daily .home-daily-bar i { background: linear-gradient(90deg, #6b3f17, #a8781f); }
+html.ui-theme-old #home-daily.ready { box-shadow: 0 0 0 2px #6b3f17, 0 0 14px rgba(107, 63, 23, 0.5); }
+@media (max-width: 700px), (orientation: portrait) and (max-width: 1100px), (max-height: 500px) {
+  #home-daily { position: static; transform: none; margin: 10px auto 0; }
+}

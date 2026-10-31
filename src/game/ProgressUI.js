@@ -865,6 +865,36 @@ export function _updateQuestsDot(game) {
   const rollingReady = game.rollingQuests.activeQuests().filter((q) => q.progress >= q.template.target).length
   setNavBadge(game.questsClaimDot, lifetimeReady + rollingReady + (game.dailyChallenge?.ready() || 0))
   game._updateQuestsNewDot()
+  _renderHomeDaily(game)
+}
+
+// Today's challenge on the homepage, under Play (2026-10-31, "reasons to
+// come back": "put the daily challenge and streak on the homepage"): the
+// goal, how far along, your streak - or "Claim!" once it's done. Opens
+// the Quests, where it's claimed. Refreshed with the Quests badge.
+export function _renderHomeDaily(game) {
+  const el = document.getElementById('home-daily')
+  if (!el || !game.dailyChallenge) return
+  const c = game.dailyChallenge.current()
+  const title = t(c.template.titleKey, { n: c.target.toLocaleString() })
+  const status = c.claimed
+    ? t('homeDailyDone', { time: _formatDurationShort(Math.floor(game.dailyChallenge.msLeft() / 1000)) })
+    : c.done ? t('homeDailyClaim') : `${c.progress.toLocaleString()} / ${c.target.toLocaleString()}`
+  const streak = c.streak > 0 ? t('homeDailyStreak', { n: c.streak }) : ''
+  el.innerHTML = `
+    <span class="home-daily-tag">${_escapeHtml(t('dailyChallengeTag'))}</span>
+    <span class="home-daily-title">${_escapeHtml(title)}</span>
+    <span class="home-daily-status">${_escapeHtml(status)}</span>
+    ${streak ? `<span class="home-daily-streak">${_escapeHtml(streak)}</span>` : ''}
+    <span class="home-daily-bar"><i style="width: ${Math.round((c.progress / c.target) * 100)}%"></i></span>`
+  el.classList.toggle('ready', c.done && !c.claimed)
+  el.classList.toggle('claimed', c.claimed)
+  if (!el.dataset.bound) {
+    el.dataset.bound = '1'
+    el.addEventListener('click', () => game._openQuestsPanel())
+  }
+  el.classList.remove('pending')
+  el.removeAttribute('aria-hidden')
 }
 
 // Quests nav dot - red, lights up if there's a lifetime quest (id-based)

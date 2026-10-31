@@ -33,6 +33,7 @@ import { HAT_EVERY } from './FunnyZombies.js'
 import { JOKE_SIGN_COUNT } from './JokeSigns.js'
 import { SILLY_TIP_COUNT } from './SillyTips.js'
 import { COSMETIC_IDS } from './Cosmetics.js'
+import { MIN_FPS } from './PlayEntryUI.js'
 import { EMOTES } from './Emotes.js'
 import { GRASS_GROW_SECONDS } from './GrassTufts.js'
 import { PLAY_WEAPONS } from './PlayWeapons.js'
@@ -328,6 +329,7 @@ export function _featureValues(_game) {
     jokeSigns: JOKE_SIGN_COUNT,
     sillyTips: SILLY_TIP_COUNT,
     cosmetics: COSMETIC_IDS.length,
+    minFps: MIN_FPS,
     emotes: EMOTES.length,
     dinoChance: Math.round(DINO_CHANCE * 100),
     grassGrowMinutes: GRASS_GROW_SECONDS / 60,
