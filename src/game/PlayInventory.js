@@ -41,6 +41,7 @@ export const ARMOR_SLOTS = ['helmet', 'chestplate', 'leggings', 'boots', 'shield
 // Blocks and items stack up to 999 a slot (2026-10-19, Gaymi: "the hotbar
 // max at 999 not just 8"); guns and armour stay one each.
 const BLOCK_STACK = 999
+export const START_TRAPS = 3
 const ITEM_STACK = 999
 const ARMOR_PER_POINT = 0.04
 const MAX_ARMOR_CUT = 0.6
@@ -53,6 +54,8 @@ export const ITEMS = {
   // From a Crop Plot (SpecialBlocks.js).
   veggies: { key: 'invVeggies', heal: 15 },
   ammobox: { key: 'invAmmoBox', ammo: 0.5 },
+  // Thrown to catch a weakened zombie or animal (PlayCatch.js).
+  catchTrap: { key: 'invTrap', trap: true },
   helmet: { key: 'invHelmet', armor: 2, slot: 0 },
   chestplate: { key: 'invChestplate', armor: 4, slot: 1 },
   leggings: { key: 'invLeggings', armor: 3, slot: 2 },
@@ -72,7 +75,7 @@ export function addAnimalMeat(id, { key, animalKey, icon }) {
 const RARE_DROP_CONFIRM_MS = 3000
 export function isRareItem(it) {
   const def = it?.kind === 'item' ? ITEMS[it.id] : null
-  return !!def && (!!def.armor || !(def.heal || def.ammo))
+  return !!def && (!!def.armor || !(def.heal || def.ammo || def.trap))
 }
 
 // An item's name in the current language.
@@ -95,6 +98,7 @@ const ICON_PIXELS = {
   chestplate: ['..###....###....', '.#iii#..#iii#...', '.#iiii##iiii#...', '..#iiiiiiii#....', '..#iiiiiiii#....', '..#iiiiiiii#....', '..#iiiiiiii#....', '..##########....'],
   leggings: ['..##########....', '..#iiiiiiii#....', '..#iiiiiiii#....', '..#iii##iii#....', '..#iii##iii#....', '..#iii##iii#....', '..#iii##iii#....', '..#####..####...'],
   boots: ['................', '..###....###....', '..#i#....#i#....', '..#i#....#i#....', '..#ii##..#ii##..', '..#iiii#.#iiii#.', '..######.######.'],
+  catchTrap: ['................', '...##########...', '...#yyyyyyyy#...', '...##########...', '...#i.i..i.i#...', '...#i.i..i.i#...', '...#i.i..i.i#...', '...#i.i..i.i#...', '...##########...', '...#yyyyyyyy#...', '...##########...'],
   shield: ['....########....', '...#bbbbbbbb#...', '...#bbbyybbb#...', '...#byyyyyyb#...', '...#bbbyybbb#...', '....#bbyybb#....', '.....#bbbb#.....', '......####......'],
 }
 const ICON_COLORS = { p: '#e8b49a', f: '#f08a5a', n: '#8aa83a', o: '#e8862a', m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8' }
@@ -148,6 +152,8 @@ export class PlayInventory {
     this.armor.fill(null)
     this.active = 0
     this.hotbar[0] = { kind: 'gun', id: weaponId, n: 1 }
+    // A few Catch Traps to start with, in the last slot (PlayCatch.js).
+    this.hotbar[this.hotbar.length - 1] = { kind: 'item', id: 'catchTrap', n: START_TRAPS }
     this.renderHotbar()
   }
 
@@ -227,7 +233,8 @@ export class PlayInventory {
     this.add({ kind: 'gun', id, n: 1 })
   }
 
-  // Uses one of the held item (health pack, ammo box). true if used.
+  // Uses one of the held item (health pack, ammo box, a thrown Catch
+  // Trap). true if used.
   useHeld() {
     const it = this.selected()
     const s = this.s
@@ -246,6 +253,8 @@ export class PlayInventory {
       const n = Math.round(gun.reserve * def.ammo)
       s.reserve += n
       s._message(t('invAmmoAdded', { n }))
+    } else if (def?.trap) {
+      if (!s.catcher?.throw()) return false
     } else return false
     this._take(this.hotbar, this.active, 1)
     s._renderHud()
@@ -391,6 +400,7 @@ export class PlayInventory {
     if (!item) return ''
     if (item.armor) return t('invTipArmor', { n: `${Math.round(item.armor * ARMOR_PER_POINT * 100)}%` })
     if (it.id === 'ammobox') return t('invTipAmmoBox')
+    if (item.trap) return t('invTipTrap')
     return t(it.id === 'meat' || it.id === 'veggies' || ITEMS[it.id]?.animalKey ? 'invTipMeat' : 'invTipHealthPack', { n: item.heal })
   }
 

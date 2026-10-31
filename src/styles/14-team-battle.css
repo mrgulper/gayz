@@ -1,0 +1,430 @@
+/* Team page and team battles (2026-10-31, TeamUI.js / TeamBattle.js). */
+
+#team-panel .panel-box {
+  text-align: center;
+}
+.team-section-title {
+  margin: 18px 0 8px;
+  font-size: 16px;
+  color: var(--menu-gold);
+}
+html.ui-theme-old .team-section-title {
+  color: var(--old-ink);
+}
+.team-cards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+#team-grid {
+  max-height: calc(var(--panel-h) - 300px);
+  min-height: 120px;
+  overflow-y: auto;
+  padding: 4px;
+}
+#team-panel .team-card {
+  position: relative;
+  width: 132px;
+  padding: 12px 8px;
+  gap: 4px;
+  border: 2px solid var(--tier, rgba(255, 255, 255, 0.14));
+  font: inherit;
+}
+#team-panel .team-card.picked {
+  background: rgba(var(--ui-gold-accent-rgb), 0.16);
+  box-shadow: 0 0 0 2px var(--menu-gold);
+}
+#team-panel .team-card.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 132px;
+  border: 2px dashed rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  opacity: 0.7;
+  cursor: default;
+}
+#team-panel .team-card img {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+}
+.team-card-name {
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.2;
+}
+.team-card-type,
+.team-card-stats {
+  font-size: 11px;
+  opacity: 0.85;
+}
+.team-card-slot {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--menu-gold);
+  color: #1a1408;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 18px;
+}
+html.ui-theme-old #team-panel .team-card {
+  color: var(--old-ink);
+  background: rgba(60, 40, 20, 0.08);
+}
+html.ui-theme-old #team-panel .team-card.empty {
+  border-color: rgba(60, 40, 20, 0.35);
+}
+html.ui-theme-old #team-panel .team-card-name {
+  /* Rarity colours are too light on paper - a dark outline keeps them readable. */
+  text-shadow: 0 0 2px #2b2016, 0 0 2px #2b2016;
+}
+.team-battle-btn {
+  margin: 14px auto 0;
+  padding: 10px 34px;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 800;
+  color: #1a1408;
+  background: var(--menu-gold);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.team-battle-btn:hover:not(:disabled) {
+  transform: scale(1.06);
+}
+.team-battle-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+#team-empty {
+  max-width: 420px;
+  margin: 8px auto;
+  opacity: 0.85;
+}
+@media (max-width: 700px) {
+  #team-panel .team-card {
+    width: 104px;
+    padding: 10px 6px;
+  }
+  #team-panel .team-card.empty {
+    min-height: 110px;
+  }
+  #team-grid {
+    max-height: none;
+  }
+}
+
+/* --- the battle screen --- */
+
+#team-battle {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: #8cc8f0;
+  color: #fff;
+  font-family: inherit;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+#team-battle .tb-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+#team-battle .tb-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.tb-label {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px #000, 0 0 3px #000;
+  white-space: nowrap;
+}
+.tb-label.me .tb-label-name::before {
+  content: '\25BC  ';
+  color: #fff;
+}
+.tb-label-bar {
+  display: block;
+  width: 56px;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.tb-label-bar span {
+  display: block;
+  height: 100%;
+  background: #4aa3ff;
+}
+.tb-label.foe .tb-label-bar span {
+  background: #ff4d4d;
+}
+.tb-number {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  font-size: 18px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 1px 3px #000;
+  animation: tb-rise 0.8s ease-out forwards;
+}
+.tb-number.crit {
+  color: #ffd84a;
+  font-size: 22px;
+}
+@keyframes tb-rise {
+  from { opacity: 1; margin-top: 0; }
+  to { opacity: 0; margin-top: -40px; }
+}
+.tb-top {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 14px;
+  background: rgba(10, 12, 18, 0.6);
+  border-radius: 12px;
+}
+.tb-side {
+  display: flex;
+  gap: 6px;
+}
+.tb-card {
+  width: 46px;
+  padding: 4px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.tb-card.me {
+  box-shadow: 0 0 0 2px #fff;
+}
+.tb-card.down {
+  opacity: 0.3;
+  filter: grayscale(1);
+}
+.tb-card img {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+}
+.tb-card-bar {
+  display: block;
+  width: 100%;
+  height: 5px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.tb-card-bar span {
+  display: block;
+  height: 100%;
+  background: #4aa3ff;
+}
+.tb-foe .tb-card-bar span {
+  background: #ff4d4d;
+}
+.tb-vs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 90px;
+  line-height: 1.2;
+}
+.tb-vs-word {
+  font-size: 18px;
+  font-weight: 900;
+}
+.tb-foe-name {
+  font-size: 11px;
+  opacity: 0.85;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tb-clock {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffd84a;
+}
+.tb-msg {
+  position: absolute;
+  top: 34%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  font-size: 38px;
+  font-weight: 900;
+  text-shadow: 0 2px 6px #000;
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s;
+  pointer-events: none;
+  text-align: center;
+}
+.tb-msg.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+.tb-hint {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 14px;
+  font-size: 13px;
+  background: rgba(10, 12, 18, 0.55);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.tb-leave {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13px;
+  color: #fff;
+  background: rgba(10, 12, 18, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.tb-touch {
+  display: none;
+}
+@media (pointer: coarse) {
+  .tb-hint {
+    display: none;
+  }
+  .tb-touch {
+    display: block;
+  }
+  .tb-stick {
+    position: absolute;
+    left: 24px;
+    bottom: 28px;
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+  }
+  .tb-knob {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 56px;
+    height: 56px;
+    margin: -28px 0 0 -28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.55);
+  }
+  .tb-attack {
+    position: absolute;
+    right: 28px;
+    bottom: 40px;
+    width: 104px;
+    height: 104px;
+    border-radius: 50%;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 800;
+    color: #fff;
+    background: rgba(255, 77, 77, 0.6);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+  }
+}
+@media (max-width: 600px) {
+  .tb-top {
+    top: 52px;
+    gap: 8px;
+    padding: 6px 8px;
+  }
+  .tb-card {
+    width: 34px;
+  }
+  .tb-card img {
+    width: 24px;
+    height: 24px;
+  }
+  .tb-vs {
+    min-width: 60px;
+  }
+  .tb-msg {
+    font-size: 28px;
+  }
+}
+.tb-result {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+.tb-result-box {
+  position: relative;
+  min-width: min(360px, calc(100vw - 32px));
+  text-align: center;
+}
+.tb-result-btns {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.tb-result-btns button {
+  padding: 8px 20px;
+  font: inherit;
+  font-weight: 700;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid var(--menu-panel-border);
+  color: var(--menu-gold);
+  background: rgba(var(--ui-gold-accent-rgb), 0.12);
+}
+.tb-result-btns .tb-again {
+  color: #1a1408;
+  background: var(--menu-gold);
+  border: none;
+}
+html.ui-theme-old .tb-result-btns .tb-back {
+  color: var(--old-ink);
+}
+/* Clean theme: its gold is near-black, and white dashes vanish on its light panel. */
+html.ui-theme-clean .team-card-slot {
+  color: #fff;
+}
+html.ui-theme-clean #team-panel .team-card.empty {
+  border-color: rgba(0, 0, 0, 0.22);
+}

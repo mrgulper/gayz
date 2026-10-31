@@ -20,6 +20,10 @@ import { REALM_KINDS } from './ZombieKinds.js'
 import { LOG_MAX } from './SettingsLog.js'
 import { BUMP_MAX_DEGREES } from './BlockChunks.js'
 import { MAX_WILD, ANIMAL_IDS } from './PlayAnimals.js'
+import { START_TRAPS } from './PlayInventory.js'
+import { TEAM_SIZE, MAX_CREATURES } from './Creatures.js'
+import { WIN_COINS, LOSS_COINS } from './TeamUI.js'
+import { ROUND_S } from './TeamBattle.js'
 import { DINO_KINDS, DINO_CHANCE } from './DinoKinds.js'
 import { RARITIES } from './NewAnimalKinds.js'
 import { ZOMBIE_SHINES } from './ZombieNames.js'
@@ -268,6 +272,12 @@ export function _featureValues(_game) {
   const coming = LANGUAGES.filter((l) => !SUPPORTED_LANGUAGE_CODES.has(l.code)).map((l) => l.name)
   return {
     goals: MAX_GOALS,
+    startTraps: START_TRAPS,
+    teamSize: TEAM_SIZE,
+    maxCreatures: MAX_CREATURES,
+    teamWinCoins: WIN_COINS,
+    teamLossCoins: LOSS_COINS,
+    teamRoundSeconds: ROUND_S,
     shopSkinPrice: Game.SHOP_SKIN_PRICE.toLocaleString('en-US'),
     defenseWaves: DEFENSE_WAVES,
     extractionWaves: EXTRACTION_WAVES,
