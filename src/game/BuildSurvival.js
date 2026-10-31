@@ -41,6 +41,7 @@ import { LEAF_DROP_CHANCE, PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXT
 import { MONSTER_KINDS, REALM_KINDS, makeMonster } from './ZombieKinds.js'
 import { ZombieTricks } from './ZombieTricks.js'
 import { WorldEvents, MUTANT_COINS } from './WorldEvents.js'
+import { Survivors } from './Survivors.js'
 import { HEAVEN_FLOOR, HEAVEN_TOP } from './HeavenRealm.js'
 import { WATER_BIOMES } from './EarthGrid.js'
 import { PlayDamageNumbers } from './PlayDamageNumbers.js'
@@ -345,6 +346,9 @@ export class BuildSurvival {
     if (!this.tricks) this.tricks = new ZombieTricks(this)
     // Supply drops, hordes passing by, mutant meteors (WorldEvents.js).
     if (!this.events) this.events = new WorldEvents(this)
+    // Rooftop survivors to rescue (Survivors.js) - one of the events.
+    if (!this.survivors) this.survivors = new Survivors(this)
+    this.survivors.clear()
     this.events.reset()
     if (!this.throws) this.throws = new PlayThrow(this)
     this.throws.clear()
@@ -451,6 +455,7 @@ export class BuildSurvival {
     this._clearCorpses()
     this.tricks?.clear()
     this.events?.clear()
+    this.survivors?.clear()
     this._fx?.clear()
     this.throws?.clear()
     this.animals?.clear()
@@ -1412,6 +1417,8 @@ export class BuildSurvival {
   _countKill(boss, skeleton = null, tier = 'common', shine = null) {
     this.kills++
     this.stats.kills++
+    // A rescued survivor's quest counts it (Survivors.js).
+    this.survivors?.onKill()
     if (skeleton) this.stats.skeletonKills = (this.stats.skeletonKills || 0) + 1
     if (this.weapon.melee) this.stats.meleeKills++
     this.streak++
@@ -2769,6 +2776,7 @@ export class BuildSurvival {
     }
     if (this._extract && this._updateExtraction(dt)) return
     this.events?.update(dt)
+    this.survivors?.update(dt)
     const speed = zombieSpeed(this.wave, this.cfg.escalation)
     for (const zb of [...this.zombies]) {
       // Each zombie goes for the nearest player.
