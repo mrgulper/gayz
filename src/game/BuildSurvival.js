@@ -1531,7 +1531,7 @@ export class BuildSurvival {
       this._earn(BOSS_COINS)
       this._message(t('buildPlayBossDown', { n: Math.round(BOSS_COINS * (this.cfg?.coinMult ?? 1)) }))
     }
-    this._report('kill', { boss: !!boss, streak: this.streak, weapon: this.weaponId, skeleton, melee: !!this.weapon.melee, tier, shine })
+    this._report('kill', { boss: !!boss, streak: this.streak, weapon: this.weaponId, skeleton, melee: !!this.weapon.melee, tier, shine, runKills: this.kills, difficulty: this.cfg.difficulty || 'normal' })
     this._renderHud()
   }
 

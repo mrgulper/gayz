@@ -702,8 +702,8 @@ test('number badges, clickable leaderboard, General without account row, legal p
     g._updateQuestsDot()
     const claim = document.getElementById('quests-claim-dot')
     out.quest = [claim.style.display, claim.textContent, document.getElementById('quests-new-dot').style.display]
-    // A circle with the number; "Quests (2)" only while pointing at the
-    // button (2026-10-30) - checked below with a real hover.
+    // A circle with the number; pointing at the button changes nothing
+    // (2026-10-31) - checked below with a real hover.
     const questsLabel = document.querySelector('#quests-btn > span:not(.nav-badge-dot)')
     out.questLabel = getComputedStyle(questsLabel, '::after').content
     out.circleShown = claim.getClientRects().length > 0
@@ -733,7 +733,7 @@ test('number badges, clickable leaderboard, General without account row, legal p
   expect(r.notes).toBe(0)
   expect(r.updated).toMatch(/^Last updated: [A-Z][a-z]+ \d{1,2}, 20\d\d$/)
   expect(r.clanLoaded).toBe(true)
-  // Pointing at Quests swaps the circle for "(2)" after its name.
+  // Pointing at Quests changes nothing: the circle stays, no "(2)".
   await page.evaluate(() => {
     for (const id of ['terms-panel', 'privacy-panel']) document.getElementById(id)?.querySelector('.panel-close-btn')?.click()
   })
@@ -742,7 +742,7 @@ test('number badges, clickable leaderboard, General without account row, legal p
     label: getComputedStyle(document.querySelector('#quests-btn > span:not(.nav-badge-dot)'), '::after').content,
     circle: document.getElementById('quests-claim-dot').getClientRects().length > 0,
   }))
-  expect(hover).toEqual({ label: '" (2)"', circle: false })
+  expect(hover).toEqual({ label: 'none', circle: true })
 })
 
 // 2026-10-30: Lock sits between Sell and Inspect in the Inventory's card
@@ -782,4 +782,82 @@ test('Inventory: Lock keeps a skin from being sold or listed', async ({ page }) 
     order: ['equip', 'market', 'sell', 'lock', 'inspect'],
     lockLabel: 'Lock', sellOpenBefore: true, saved: true, icon: true, unlockLabel: 'Unlock', sellLocked: true, noSellDialog: true, unlocked: true,
   })
+})
+
+// 2026-10-31: homepage extras (HomeExtras.js) - corner cards or one Today
+// panel (Settings > General > Homepage), Continue / New here? tags on
+// Play, a tap on your character plays an emote, holiday decorations.
+test('homepage extras: cards, Today panel, Play tags, emote', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    const out = {}
+    g.careerStats.xp = 600
+    g.runHistory = [{ night: 7, kills: 43, ts: Date.now() }]
+    g.bestStats.bestWave = 12
+    g._homeTop3 = [{ name: '<b>x</b>', wave: 20 }]
+    g._renderHomeExtras()
+    const text = (id) => document.getElementById(id).textContent
+    out.left = text('home-extras-left')
+    out.right = text('home-extras-right')
+    out.escaped = !document.querySelector('#home-extras-right .home-x-top3 b')
+    // Nothing in the corners covers the character, the nav or the links.
+    const box = (sel) => document.querySelector(sel).getBoundingClientRect()
+    const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+    const visibleCards = [...document.querySelectorAll('.home-extras > *')].filter((c) => c.getClientRects().length)
+    out.cards = visibleCards.length
+    out.overlaps = visibleCards.filter((c) => ['#menu-nav-buttons', '#setup-avatar-wrap', '#menu-links-row', '#home-daily', '#play-btn'].some((s) => document.querySelector(s) && hit(c.getBoundingClientRect(), box(s)))).length
+    // The Today panel layout.
+    g.homeExtrasLayoutSelect.value = 'panel'
+    g.homeExtrasLayoutSelect.dispatchEvent(new Event('change'))
+    out.panelCorner = text('home-extras-right')
+    out.leftEmpty = document.getElementById('home-extras-left').children.length
+    document.getElementById('home-today-btn').click()
+    await wait(100)
+    out.panelOpen = getComputedStyle(document.getElementById('today-panel')).display
+    out.panelCards = document.querySelectorAll('#today-panel-list .home-x-card').length
+    document.querySelector('#today-panel .panel-close-btn').click()
+    out.panelClosed = getComputedStyle(document.getElementById('today-panel')).display
+    g.homeExtrasLayoutSelect.value = 'cards'
+    g.homeExtrasLayoutSelect.dispatchEvent(new Event('change'))
+    // New here? with no runs; Continue once a run is saved.
+    g.careerStats.totalRuns = 0
+    localStorage.removeItem('gayz-play-saved-run')
+    g._renderHomeExtras()
+    const shown = (id) => getComputedStyle(document.getElementById(id)).display !== 'none'
+    out.newHere = [shown('home-newhere-tag'), shown('home-continue-tag')]
+    localStorage.setItem('gayz-play-saved-run', JSON.stringify({ v: 1, wave: 6, mode: 'classic', difficulty: 'hard' }))
+    g._renderHomeExtras()
+    out.cont = [shown('home-newhere-tag'), shown('home-continue-tag'), document.getElementById('home-continue-tag').textContent]
+    localStorage.removeItem('gayz-play-saved-run')
+    // A tap on the character plays an emote.
+    const avatar = g._menuAvatar3D
+    avatar.onTap()
+    out.emote = !!avatar._emote
+    await wait(400)
+    out.armMoved = Math.abs(avatar.character.limbPivots.armR.rotation.x) > 0.1
+    out.holiday = document.documentElement.dataset.holiday
+    return out
+  })
+  expect(r.left).toMatch(/Level 2/)
+  expect(r.left).toMatch(/Wave 7 · 43 kills/)
+  expect(r.left).toMatch(/Best: Wave 12/)
+  expect(r.right).toMatch(/login streak|streak/i)
+  expect(r.right).toMatch(/Invite a friend/)
+  expect(r.escaped).toBe(true)
+  expect(r.cards).toBeGreaterThan(2)
+  expect(r.overlaps).toBe(0)
+  expect(r.panelCorner).toMatch(/Today/)
+  expect(r.leftEmpty).toBe(0)
+  expect(r.panelOpen).toBe('flex')
+  expect(r.panelCards).toBe(6)
+  expect(r.panelClosed).toBe('none')
+  expect(r.newHere).toEqual([true, false])
+  expect(r.cont).toEqual([false, true, '▶ Continue Wave 6 · Hard'])
+  expect(r.emote).toBe(true)
+  expect(r.armMoved).toBe(true)
+  const d = new Date()
+  expect(r.holiday).toBe(d.getMonth() === 9 && d.getDate() >= 20 ? 'halloween' : d.getMonth() === 11 ? 'winter' : '')
 })

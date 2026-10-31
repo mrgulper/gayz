@@ -738,6 +738,16 @@ export function _bindSettings(game) {
     })
   }
 
+  // Homepage Extras Layout (2026-10-31): corner cards or one Today panel.
+  if (game.homeExtrasLayoutSelect) {
+    game.homeExtrasLayoutSelect.value = game.settings.homeExtrasLayout
+    game.homeExtrasLayoutSelect.addEventListener('change', () => {
+      game.settings.homeExtrasLayout = game.homeExtrasLayoutSelect.value === 'panel' ? 'panel' : 'cards'
+      saveSettings(game.settings)
+      game._renderHomeExtras()
+    })
+  }
+
   if (game.randomNicknameBtn) {
     game.randomNicknameBtn.addEventListener('click', () => {
       // Only previews a candidate name in the box - doesn't save/apply it.
@@ -1412,6 +1422,7 @@ export function _bindSettings(game) {
   game.storeBtn.addEventListener('click', () => trackAndOpen(() => game._openShopPanel()))
   game.marketBtn?.addEventListener('click', () => trackAndOpen(() => game._openMarketPanel()))
   game._bindHomepageBatch()
+  game._bindHomeExtras()
   CloudSaveUI.bindCloudSave(game)
   CloudSaveUI.installChangeTracking(game)
   game._startPresenceHeartbeat()

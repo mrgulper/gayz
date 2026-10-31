@@ -12,17 +12,26 @@ export const STREAK_STEP = 0.25
 export const STREAK_MAX_DAYS = 7
 
 // type: what counts (see record()). targets: easy / medium / hard -
-// the day's seed picks one, and harder pays more (REWARDS).
+// the day's seed picks one, and harder pays more (REWARDS). Very hard on
+// purpose (2026-10-31, Gaymi: "make it harder not too simple"): about 3x
+// the first numbers, and some days only count one run or Hard and up.
+// Bump VERSION when these change, so today's old progress doesn't carry
+// over onto a different goal.
+const VERSION = 2
 export const DAILY_TEMPLATES = [
-  { type: 'kills', titleKey: 'dailyChallengeKills', targets: [40, 60, 80] },
-  { type: 'melee', titleKey: 'dailyChallengeMelee', targets: [15, 25, 35] },
-  { type: 'skeletons', titleKey: 'dailyChallengeSkeletons', targets: [8, 12, 16] },
-  { type: 'rare', titleKey: 'dailyChallengeRare', targets: [5, 8, 12] },
-  { type: 'wave', titleKey: 'dailyChallengeWave', targets: [5, 7, 9] },
-  { type: 'streak', titleKey: 'dailyChallengeStreak', targets: [15, 25, 35] },
-  { type: 'bosses', titleKey: 'dailyChallengeBosses', targets: [1, 2, 3] },
+  { type: 'kills', titleKey: 'dailyChallengeKills', targets: [120, 180, 240] },
+  { type: 'runKills', titleKey: 'dailyChallengeRunKills', targets: [60, 90, 120] },
+  { type: 'hardKills', titleKey: 'dailyChallengeHardKills', targets: [60, 90, 120] },
+  { type: 'melee', titleKey: 'dailyChallengeMelee', targets: [45, 70, 100] },
+  { type: 'skeletons', titleKey: 'dailyChallengeSkeletons', targets: [25, 35, 50] },
+  { type: 'rare', titleKey: 'dailyChallengeRare', targets: [15, 25, 35] },
+  { type: 'wave', titleKey: 'dailyChallengeWave', targets: [12, 16, 20] },
+  { type: 'hardWave', titleKey: 'dailyChallengeHardWave', targets: [8, 10, 12] },
+  { type: 'streak', titleKey: 'dailyChallengeKillStreak', targets: [40, 60, 80] },
+  { type: 'bosses', titleKey: 'dailyChallengeBosses', targets: [3, 5, 8] },
 ]
-const REWARDS = [{ coins: 250, xp: 80 }, { coins: 400, xp: 130 }, { coins: 600, xp: 200 }]
+const REWARDS = [{ coins: 500, xp: 160 }, { coins: 800, xp: 260 }, { coins: 1200, xp: 400 }]
+const HARD_DIFFICULTIES = new Set(['hard', 'nightmare', 'apex'])
 const RARE_TIERS = new Set(['rare', 'epic', 'legendary', 'mythic'])
 
 // The local calendar day, "2026-10-30".
@@ -66,12 +75,13 @@ function loadState() {
         claimed: !!parsed.claimed,
         streak: Number.isInteger(parsed.streak) ? Math.max(0, parsed.streak) : 0,
         lastClaim: typeof parsed.lastClaim === 'string' ? parsed.lastClaim : null,
+        v: Number.isInteger(parsed.v) ? parsed.v : 1,
       }
     }
   } catch {
     // Malformed or unavailable - fresh state below.
   }
-  return { day: null, progress: 0, claimed: false, streak: 0, lastClaim: null }
+  return { day: null, progress: 0, claimed: false, streak: 0, lastClaim: null, v: VERSION }
 }
 
 export class DailyChallenge {
@@ -88,12 +98,16 @@ export class DailyChallenge {
   }
 
   // A new day: fresh progress (the streak stays until a claim decides it).
+  // New goals (VERSION) start today's progress again, unless it's claimed.
   _roll() {
     const today = dayKey()
-    if (this.state.day === today) return
+    if (this.state.day === today && this.state.v === VERSION) return
+    if (this.state.day !== today || !this.state.claimed) {
+      this.state.progress = 0
+      this.state.claimed = false
+    }
     this.state.day = today
-    this.state.progress = 0
-    this.state.claimed = false
+    this.state.v = VERSION
     this._save()
   }
 
@@ -131,12 +145,15 @@ export class DailyChallenge {
     const kind = c.template.type
     if (type === 'kill') {
       if (kind === 'kills') next++
+      else if (kind === 'runKills') next = Math.max(next, data.runKills || 0)
+      else if (kind === 'hardKills' && HARD_DIFFICULTIES.has(data.difficulty)) next++
       else if (kind === 'melee' && data.melee) next++
       else if (kind === 'skeletons' && data.skeleton) next++
       else if (kind === 'rare' && RARE_TIERS.has(data.tier)) next++
       else if (kind === 'bosses' && data.boss) next++
       else if (kind === 'streak') next = Math.max(next, data.streak || 0)
     } else if (type === 'wave' && kind === 'wave') next = Math.max(next, data.wave || 0)
+    else if (type === 'wave' && kind === 'hardWave' && HARD_DIFFICULTIES.has(data.difficulty)) next = Math.max(next, data.wave || 0)
     if (next === before) return false
     this.state.progress = next
     this._save()

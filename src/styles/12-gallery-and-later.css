@@ -1464,6 +1464,15 @@ html #quests-panel .perk-option.quest-card.daily-card.claimed::after { display: 
 @media (prefers-reduced-motion: reduce) {
   html #quests-panel .perk-option.quest-card.daily-card::after { animation: none; display: none; }
 }
+/* A claimed card fades away on its own (ProgressUI._fadeOutQuestCard). */
+html #quests-panel .perk-option.quest-card.quest-fade-out {
+  animation: quest-card-out 0.45s ease forwards;
+  animation-delay: 0s;
+  pointer-events: none;
+}
+@keyframes quest-card-out {
+  to { opacity: 0; transform: scale(0.92); }
+}
 @keyframes quest-card-in {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }

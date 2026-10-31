@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test'
 import { gotoAndWaitForGame, waitForGame } from './helpers.js'
 import * as Xp from '../src/game/Xp.js'
+import { DAILY_TEMPLATES, challengeFor } from '../src/game/DailyChallenge.js'
+import en from '../src/game/i18n/en.js'
 
 test('careerStats.totalKills persists after a completed run', async ({ page }) => {
   await gotoAndWaitForGame(page)
@@ -444,4 +446,68 @@ test('Quests have rarities, two to a row, with search and a rarity filter', asyn
   expect(r.legendaryOnly).toBe(true)
   expect(r.searchHits).toBe(true)
   expect(r.none).toBe(0)
+})
+
+// 2026-10-31: the Daily Challenge is very hard now (about 3x, some days
+// one run or Hard and up only), and a claimed quest card fades away on
+// its own instead of the whole list being drawn again.
+test('daily challenge is hard with run rules; a claimed quest fades away', async ({ page }) => {
+  expect(DAILY_TEMPLATES.find((d) => d.type === 'kills').targets[0]).toBeGreaterThanOrEqual(120)
+  expect(DAILY_TEMPLATES.find((d) => d.type === 'wave').targets[0]).toBeGreaterThanOrEqual(12)
+  expect(DAILY_TEMPLATES.map((d) => d.type)).toEqual(expect.arrayContaining(['runKills', 'hardKills', 'hardWave']))
+  // Every goal has its own words (the kill-streak one used to say "day streak").
+  for (const d of DAILY_TEMPLATES) {
+    expect(en[d.titleKey]).toBeTruthy()
+    expect(en[d.titleKey]).not.toMatch(/day streak/)
+  }
+  const findDay = (type) => {
+    for (let i = 0; i < 2000; i++) {
+      const day = `2030-${i}`
+      if (challengeFor(day).template.type === type) return day
+    }
+    return null
+  }
+  const days = { runKills: findDay('runKills'), hardKills: findDay('hardKills') }
+  expect(days.runKills).toBeTruthy()
+  expect(days.hardKills).toBeTruthy()
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async (days) => {
+    const g = window.__game
+    const out = {}
+    // Run rules: a single run's kills, and Hard-and-up kills only.
+    const dc = new g.dailyChallenge.constructor()
+    dc._roll = () => {}
+    dc._save = () => {}
+    dc.state = { day: days.runKills, progress: 0, claimed: false, streak: 0, lastClaim: null, v: 2 }
+    dc.record('kill', { runKills: 30 })
+    dc.record('kill', { runKills: 10 })
+    out.runKills = dc.state.progress
+    dc.state = { day: days.hardKills, progress: 0, claimed: false, streak: 0, lastClaim: null, v: 2 }
+    dc.record('kill', { difficulty: 'normal' })
+    dc.record('kill', { difficulty: 'hard' })
+    dc.record('kill', { difficulty: 'nightmare' })
+    out.hardKills = dc.state.progress
+    // A claimed quest card fades and is removed; the list isn't redrawn.
+    g.rollingQuests.activeQuests = () => [1, 2, 3].map((spawnedAt) => ({ spawnedAt, progress: 5, template: { target: 5, rarity: 'common', titleKey: 'rollingQuestKills', rewardCoins: 1, rewardXp: 1 } }))
+    g.rollingQuests.claim = () => ({ coins: 1, xp: 1 })
+    g._openQuestsPanel()
+    await new Promise((res) => setTimeout(res, 300))
+    const list = g.rollingQuestsOptions
+    const keep = list.querySelector('[data-spawned-at="2"]')
+    const card = list.querySelector('[data-spawned-at="1"]')
+    card.click()
+    out.fading = card.classList.contains('quest-fade-out')
+    await new Promise((res) => setTimeout(res, 200))
+    out.midOpacity = Number(getComputedStyle(card).opacity)
+    await new Promise((res) => setTimeout(res, 700))
+    out.removed = !list.querySelector('[data-spawned-at="1"]')
+    out.sameOthers = list.querySelector('[data-spawned-at="2"]') === keep
+    return out
+  }, days)
+  expect(r.runKills).toBe(30)
+  expect(r.hardKills).toBe(2)
+  expect(r.fading).toBe(true)
+  expect(r.midOpacity).toBeLessThan(1)
+  expect(r.removed).toBe(true)
+  expect(r.sameOthers).toBe(true)
 })
