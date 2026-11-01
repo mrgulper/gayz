@@ -28,6 +28,7 @@
 import { t } from './i18n.js'
 import { getKeyFor, keyLabel } from './Keybinds.js'
 import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, canPlayWeapon } from './PlayWeapons.js'
+import { PlayCrafting } from './PlayCrafting.js'
 
 // How long the item card stays after a finger lets go (phones).
 const TIP_TOUCH_MS = 1600
@@ -56,6 +57,11 @@ export const ITEMS = {
   ammobox: { key: 'invAmmoBox', ammo: 0.5 },
   // Thrown to catch a weakened zombie or animal (PlayCatch.js).
   catchTrap: { key: 'invTrap', trap: true },
+  // Crafting materials (PlayCrafting.js): dropped by zombies / from crops.
+  zombieGoo: { key: 'invZombieGoo', material: true },
+  plantFiber: { key: 'invPlantFiber', material: true },
+  // Smeared on: zombies ignore you for a while (BuildSurvival.disguise).
+  gooDisguise: { key: 'invGooDisguise', disguise: 30 },
   helmet: { key: 'invHelmet', armor: 2, slot: 0 },
   chestplate: { key: 'invChestplate', armor: 4, slot: 1 },
   leggings: { key: 'invLeggings', armor: 3, slot: 2 },
@@ -75,7 +81,7 @@ export function addAnimalMeat(id, { key, animalKey, icon }) {
 const RARE_DROP_CONFIRM_MS = 3000
 export function isRareItem(it) {
   const def = it?.kind === 'item' ? ITEMS[it.id] : null
-  return !!def && (!!def.armor || !(def.heal || def.ammo || def.trap))
+  return !!def && (!!def.armor || !(def.heal || def.ammo || def.trap || def.material || def.disguise))
 }
 
 // An item's name in the current language.
@@ -99,9 +105,12 @@ const ICON_PIXELS = {
   leggings: ['..##########....', '..#iiiiiiii#....', '..#iiiiiiii#....', '..#iii##iii#....', '..#iii##iii#....', '..#iii##iii#....', '..#iii##iii#....', '..#####..####...'],
   boots: ['................', '..###....###....', '..#i#....#i#....', '..#i#....#i#....', '..#ii##..#ii##..', '..#iiii#.#iiii#.', '..######.######.'],
   catchTrap: ['................', '...##########...', '...#yyyyyyyy#...', '...##########...', '...#i.i..i.i#...', '...#i.i..i.i#...', '...#i.i..i.i#...', '...#i.i..i.i#...', '...##########...', '...#yyyyyyyy#...', '...##########...'],
+  zombieGoo: ['................', '................', '.......vv.......', '......vvvv......', '.....vvlvvv.....', '....vvvvvlvv....', '....vlvvvvvv....', '...vvvvvvvvvv...', '...vvvvlvvvvv...', '....vvvvvvvv....', '.....vvvvvv.....'],
+  plantFiber: ['................', '...g.......g....', '....g.....g.....', '....g..g..g.....', '.....g.g.g......', '.....g.g.g......', '......ggg.......', '......yyy.......', '......ggg.......', '......ggg.......', '.......g........'],
+  gooDisguise: ['................', '......####......', '......#ww#......', '.....##ww##.....', '....#vvvvvv#....', '...#vvlvvvvv#...', '...#vvvvvlvv#...', '...#vlvvvvvv#...', '...#vvvvvvvv#...', '....#vvvvvv#....', '.....######.....'],
   shield: ['....########....', '...#bbbbbbbb#...', '...#bbbyybbb#...', '...#byyyyyyb#...', '...#bbbyybbb#...', '....#bbyybb#....', '.....#bbbb#.....', '......####......'],
 }
-const ICON_COLORS = { p: '#e8b49a', f: '#f08a5a', n: '#8aa83a', o: '#e8862a', m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8' }
+const ICON_COLORS = { v: '#6fc23a', l: '#b8f06a', p: '#e8b49a', f: '#f08a5a', n: '#8aa83a', o: '#e8862a', m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8' }
 const iconCache = new Map()
 function itemIcon(id) {
   if (iconCache.has(id)) return iconCache.get(id)
@@ -136,6 +145,9 @@ export class PlayInventory {
     this.armor = new Array(ARMOR_SLOTS.length).fill(null)
     this.active = 0
     this.open = false
+    // Which tab the panel shows: 'bag' or 'craft' (PlayCrafting.js).
+    this.tab = 'bag'
+    this.crafting = new PlayCrafting(this)
     this._el = null
     this._drag = null
   }
@@ -255,6 +267,8 @@ export class PlayInventory {
       s._message(t('invAmmoAdded', { n }))
     } else if (def?.trap) {
       if (!s.catcher?.throw()) return false
+    } else if (def?.disguise) {
+      if (!s.putOnDisguise?.(def.disguise)) return false
     } else return false
     this._take(this.hotbar, this.active, 1)
     s._renderHud()
@@ -401,6 +415,8 @@ export class PlayInventory {
     if (item.armor) return t('invTipArmor', { n: `${Math.round(item.armor * ARMOR_PER_POINT * 100)}%` })
     if (it.id === 'ammobox') return t('invTipAmmoBox')
     if (item.trap) return t('invTipTrap')
+    if (item.material) return t('invTipMaterial')
+    if (item.disguise) return t('invTipGooDisguise', { s: item.disguise })
     return t(it.id === 'meat' || it.id === 'veggies' || ITEMS[it.id]?.animalKey ? 'invTipMeat' : 'invTipHealthPack', { n: item.heal })
   }
 
@@ -523,10 +539,14 @@ export class PlayInventory {
     const grid = this.grid.map((it, i) => this._slotHtml(it, 'grid', i)).join('')
     const bar = this.hotbar.map((it, i) => this._slotHtml(it, 'hotbar', i, i === this.active ? ' active' : '')).join('')
     const cut = Math.round(this.damageCut() * 100)
-    this._el.innerHTML = `<div class="inv-box">
-      <div class="inv-head"><b>${t('invTitle')}</b><span>${t('invArmorLine', { n: cut })}</span><button type="button" class="inv-close" aria-label="Close">&times;</button></div>
-      <div class="inv-armor">${armor}</div>
-      <div class="inv-grid">${grid}</div>
+    const craft = this.tab === 'craft'
+    const tabs = `<div class="inv-tabs" role="tablist">${['bag', 'craft'].map((id) => `<button type="button" role="tab" class="inv-tab${this.tab === id ? ' active' : ''}" data-tab="${id}" aria-selected="${this.tab === id}">${t(id === 'bag' ? 'invTabBag' : 'invTabCraft')}</button>`).join('')}</div>`
+    const body = craft ? this.crafting.html() : `<div class="inv-armor">${armor}</div>
+      <div class="inv-grid">${grid}</div>`
+    this._el.innerHTML = `<div class="inv-box${craft ? ' crafting' : ''}">
+      <div class="inv-head"><b>${t(craft ? 'invTabCraft' : 'invTitle')}</b><span>${craft ? t('craftHint') : t('invArmorLine', { n: cut })}</span><button type="button" class="inv-close" aria-label="Close">&times;</button></div>
+      ${tabs}
+      ${body}
       <div class="inv-hotbar">${bar}</div>
       <p class="inv-hint">${t('invHint', { drop: keyLabel(getKeyFor('dropItem')) })}</p>
     </div>`
@@ -539,6 +559,18 @@ export class PlayInventory {
   _down(e) {
     if (e.target.closest('.inv-close')) {
       this.bm.togglePicker()
+      return
+    }
+    const tab = e.target.closest('.inv-tab')
+    if (tab) {
+      this.tab = tab.dataset.tab
+      this.render()
+      return
+    }
+    const craftBtn = e.target.closest('.craft-btn')
+    if (craftBtn) {
+      e.preventDefault()
+      if (this.crafting.craft(craftBtn.dataset.craft)) this.render()
       return
     }
     const slot = e.target.closest('.inv-slot')

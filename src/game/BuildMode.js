@@ -2378,6 +2378,8 @@ export class BuildMode {
     if (this.survival?.active && this.survival.kart?.use()) return true
     // Playing on Map 3: talk to the camp NPC you're looking at.
     if (this.survival?.camp?.use()) return true
+    // Give a rescued survivor an order: follow me / hold here (Survivors.js).
+    if (this.survival?.active && this.survival.survivors?.use()) return true
     // Tame the animal you're looking at (PlayAnimals.js).
     if (this.survival?.active && this.survival.animals?.use()) return true
     // Pick up drops lying near you (when Auto Pick-Up is off, PlayDrops.js).

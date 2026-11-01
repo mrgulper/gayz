@@ -112,6 +112,9 @@ html.ui-theme-biome #play-inventory .inv-slot.active { border-color: var(--biome
 html.ui-theme-biome #play-inventory .inv-hotbar { border-top-color: var(--biome-line); }
 html.ui-theme-biome .inv-slot-lock { color: var(--biome-accent); }
 html.ui-theme-biome #play-inventory .inv-slot.locked { border-color: var(--biome-accent); }
+html.ui-theme-biome #play-inventory :is(.inv-tab, .craft-row) { background: rgba(var(--biome-ink-rgb), 0.08); border-color: var(--biome-line); }
+html.ui-theme-biome #play-inventory :is(.inv-tab.active, .craft-btn) { color: rgb(var(--biome-bg-rgb)); background: var(--biome-accent); border-color: var(--biome-accent); }
+html.ui-theme-biome #play-inventory .craft-btn:disabled { color: var(--biome-ink); background: rgba(var(--biome-ink-rgb), 0.14); }
 
 /* The corner map: framed in the biome's ground, its labels too. */
 html.ui-theme-biome #build-try-map {
@@ -176,3 +179,6 @@ body.touch-play-on #emote-bar kbd { display: none; }
 html.ui-theme-biome #play-first-hint { color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); }
 #play-first-hint.gone { opacity: 0; }
 body.touch-play-on #play-first-hint { bottom: auto; top: 34%; font-size: 18px; white-space: normal; width: max-content; }
+
+/* The Use prompts under the crosshair (camp NPCs, survivors' orders). */
+html.ui-theme-biome :is(#play-npc-prompt, #play-survivor-prompt) { color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); }
