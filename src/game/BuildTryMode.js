@@ -650,6 +650,16 @@ export class BuildTryMode {
       this._showBiome(null)
     }
     // Zombie Extraction's helicopter: a pulsing red ring.
+    // Helicopter Escape's fuel cans still out there: yellow dots.
+    for (const c of this.bm.survival?.fuel?.cans || []) {
+      ctx.beginPath()
+      ctx.arc((c.x - ox) * k, (c.z - oz) * k, Math.max(3, s / 55), 0, Math.PI * 2)
+      ctx.fillStyle = '#ffd23a'
+      ctx.strokeStyle = '#3a1010'
+      ctx.lineWidth = Math.max(1, s / 160)
+      ctx.fill()
+      ctx.stroke()
+    }
     const ex = this.bm.survival?._extract
     if (ex) {
       const pulse = 0.5 + 0.5 * Math.sin(now / 180)
@@ -839,6 +849,18 @@ export class BuildTryMode {
     }
     // Driving the go-kart (GoKart.js): the keys drive it, you sit in it -
     // no walking or jumping; looking round, shooting and the rest go on.
+    // On board Helicopter Escape's helicopter (BuildSurvival._updateExtraction):
+    // you sit in it as it climbs - look round, nothing else.
+    const ride = this.bm.survival?.active ? this.bm.survival._ride : null
+    if (ride) {
+      this.vel.set(0, 0, 0)
+      this.onGround = true
+      this.pos.set(ride.x, ride.y, ride.z)
+      cam.position.set(ride.x * B, (ride.y + ride.eye) * B, ride.z * B)
+      this.updateHands(dt, keys, false, false)
+      this._drawMap(performance.now())
+      return
+    }
     const kart = this.bm.survival?.active ? this.bm.survival.kart : null
     if (kart?.driving) {
       kart.drive(dt, { fwd, back, left, right, stick })

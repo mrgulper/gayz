@@ -28,6 +28,8 @@ const ZOMBIE_HEIGHT = 2
 const TOUCH = 0.4 // blocks between a body and a block that counts as touching
 const HURT_EVERY = 0.5 // seconds: a hurting block bites you in steps, not every frame
 const BEST_KEY = 'buildmode-play-best'
+// Plant Fiber from each Crop Plot harvested in a game (for crafting).
+const CROP_FIBER = 2
 
 export class BuildSpecials {
   constructor(buildMode, blockSize) {
@@ -1704,24 +1706,32 @@ export class BuildSpecials {
 
   _useCrop(entry, st) {
     const fx = entry.def.fx
+    // One of your camp farm's plots grows in real time (CampFarm.js).
+    const farm = this._play()?.farm
+    const farmed = !!farm?.owns(entry)
+    const timeText = (secs) => (farmed ? t('farmTime', { m: Math.floor(secs / 60), s: String(Math.ceil(secs) % 60).padStart(2, '0') }) : `${Math.ceil(secs)}s`)
     if (!st.planted) {
       st.planted = true
       st.grown = 0
+      if (farmed) farm.onPlant(entry)
       this._sound('pop')
-      this._msg(t('specialCropPlanted', { s: Math.ceil(fx.grow / this._growRate(entry)) }))
+      this._msg(t('specialCropPlantedIn', { t: timeText(farmed ? farm.secondsLeft(entry) : fx.grow / this._growRate(entry)) }))
       this._overlaysDirty = true
       return true
     }
-    const left = (fx.grow - st.grown) / this._growRate(entry)
+    const left = farmed ? farm.secondsLeft(entry) : (fx.grow - st.grown) / this._growRate(entry)
     if (left > 0) {
-      this._msg(t('specialCropGrowing', { s: Math.ceil(left) }))
+      this._msg(t('specialCropGrowingIn', { t: timeText(left) }))
       return true
     }
     st.planted = false
     const play = this._play()
     const kept = play?.inv ? fx.n - play.inv.add({ kind: 'item', id: fx.give, n: fx.n }) : 0
+    // Plant Fiber too, for crafting (PlayCrafting.js).
+    const fiber = play?.inv ? CROP_FIBER - play.inv.add({ kind: 'item', id: 'plantFiber', n: CROP_FIBER }) : 0
+    play?.farm?.onHarvest(entry)
     this._sound('pop')
-    this._msg(play ? t('specialCropHarvest', { n: kept }) : t('specialCropHarvestTry'))
+    this._msg(play ? t('specialCropHarvestFiber', { n: kept, f: fiber }) : t('specialCropHarvestTry'))
     this._burst(entry, 0x7ad04a, 8)
     return true
   }

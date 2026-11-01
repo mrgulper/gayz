@@ -1553,7 +1553,8 @@ html.menu-panel-open #build-play-health { display: none; }
 
 /* Map 3 camp NPCs in Play (BuildCamp.js): the "talk" prompt under the
    crosshair and the shop/quest panel (same box as Community Maps). */
-#play-npc-prompt {
+#play-npc-prompt,
+#play-survivor-prompt {
   position: fixed;
   top: calc(50% + 34px);
   left: 50%;

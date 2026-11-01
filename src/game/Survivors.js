@@ -13,6 +13,14 @@
 //     most MAX_HELPERS at a time.
 //   - gives you a quest: kill QUEST_BASE + half the wave number zombies in
 //     QUEST_TIME seconds for QUEST_COINS coins and a trap.
+//
+// Upgraded 2026-10-31 (Gaymi picked "they stay at camp AND take orders"):
+// - Everyone you rescue moves into your camp for good (CAMP_KEY, at most
+//   CAMP_MAX). In later games (your own, on Map 1) they stand guard in the
+//   camp and shoot zombies that come near the walls.
+// - Orders: look at one (TALK_RANGE) and press Use - "Follow me" (at most
+//   MAX_HELPERS follow at once) or "Hold here" (they stay put and keep
+//   shooting). A prompt under the crosshair says which.
 import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
@@ -20,12 +28,13 @@ import { MOB_HEIGHT } from './PlayRules.js'
 import { NPC_SKINS, nameTag } from './BuildCamp.js'
 import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { speechBubble, disposeBubble } from './SpeechBubble.js'
+import { getKeyFor, keyLabel } from './Keybinds.js'
 
 const ROOF_NEAR = 12
 const ROOF_FAR = 32
 const HOLD_OUT = 120
 const RESCUE_REACH = 2.5
-const MAX_HELPERS = 3
+export const MAX_HELPERS = 3
 const FOLLOW_GAP = 2.5
 const FOLLOW_SPEED = 6
 const SHOOT_RANGE = 14
@@ -34,6 +43,12 @@ const HELPER_DAMAGE = 0.5
 const QUEST_BASE = 6
 const QUEST_TIME = 90
 const QUEST_COINS = 60
+const TALK_RANGE = 3.2
+// Who lives in your camp: { list: [{ skin }] } (skin = SKINS index).
+export const CAMP_KEY = 'gayz-camp-survivors'
+export const CAMP_MAX = 8
+// How far from the camp's middle the guards stand.
+const GUARD_RING = 3
 // The camp's people's skins (not the zombie one).
 const SKINS = Object.values(NPC_SKINS)
 
@@ -41,7 +56,7 @@ export class Survivors {
   constructor(survival) {
     this.s = survival
     this.waiting = null // the one on the roof: { x, y, z, group, body, left }
-    this.helpers = [] // the ones following you
+    this.helpers = [] // rescued ones with you: order 'follow' or 'hold'
     this.quest = null // { need, got, left }
     this._rescues = 0
   }
@@ -79,15 +94,119 @@ export class Survivors {
     return true
   }
 
+  // --- your camp's people ---
+
+  static roster() {
+    let raw
+    try {
+      raw = JSON.parse(localStorage.getItem(CAMP_KEY) || 'null')
+    } catch {
+      raw = null
+    }
+    const list = Array.isArray(raw?.list) ? raw.list : []
+    return list.slice(0, CAMP_MAX).map((p) => ({ skin: Math.max(0, Math.min(SKINS.length - 1, Math.floor(Number(p?.skin)) || 0)) }))
+  }
+
+  // One more moves in. -> false if the camp is full.
+  _moveIn(p) {
+    const list = Survivors.roster()
+    if (list.length >= CAMP_MAX) return false
+    list.push({ skin: p.skin })
+    try {
+      localStorage.setItem(CAMP_KEY, JSON.stringify({ list }))
+    } catch { /* not kept */ }
+    return true
+  }
+
+  // A game with a camp (your own, not a server's): the camp's people
+  // stand guard round its middle, holding.
+  start() {
+    const camp = this.s.camp
+    if (!camp || this.s.net) return
+    const list = Survivors.roster()
+    const cx = (camp.zone.cx ?? (camp.zone.x0 + camp.zone.x1) / 2) + 0.5
+    const cz = (camp.zone.cz ?? (camp.zone.z0 + camp.zone.z1) / 2) + 0.5
+    list.forEach((m, i) => {
+      const a = (i / Math.max(1, list.length)) * Math.PI * 2
+      const x = cx + Math.cos(a) * GUARD_RING
+      const z = cz + Math.sin(a) * GUARD_RING
+      // Searched down from just over where you start (in the camp).
+      const y = this.s._groundUnder(x, this.s.bm.camera.position.y / this.B + 6, z)
+      const p = this._person({ x, y, z }, m.skin)
+      p.order = 'hold'
+      p.shootIn = SHOOT_EVERY
+      this.helpers.push(p)
+    })
+  }
+
+  get followers() {
+    return this.helpers.filter((h) => h.order === 'follow').length
+  }
+
+  // The one you're looking at, close enough to talk to.
+  _facing() {
+    const p = this.s.bm.tryMode.pos
+    const yaw = this.s.bm._yaw
+    const fx = -Math.sin(yaw)
+    const fz = -Math.cos(yaw)
+    let best = null
+    let bestD = TALK_RANGE
+    for (const h of this.helpers) {
+      const dx = h.x - p.x
+      const dz = h.z - p.z
+      const d = Math.hypot(dx, dz)
+      if (d > bestD || d < 0.01 || Math.abs(h.y - p.y) > 2.5) continue
+      if ((dx * fx + dz * fz) / d < 0.6) continue
+      best = h
+      bestD = d
+    }
+    return best
+  }
+
+  // Use key: give the one you're looking at an order. True if one was there.
+  use() {
+    if (this.s.dead) return false
+    const h = this._facing()
+    if (!h) return false
+    if (h.order === 'follow') {
+      h.order = 'hold'
+      this.s._message(t('survivorHolding'), 2.5)
+    } else if (this.followers >= MAX_HELPERS) {
+      this.s._message(t('survivorFollowFull', { n: MAX_HELPERS }), 3)
+    } else {
+      h.order = 'follow'
+      this.s._message(t('survivorFollowing'), 2.5)
+    }
+    this._promptFor = null
+    try { audioEngine.playFootstep?.(false, 'default') } catch { /* no audio */ }
+    return true
+  }
+
+  _updatePrompt() {
+    const h = this.s.dead || this.s.camp?.panelOpen ? null : this._facing()
+    if (!h && !this._prompt) return
+    if (!this._prompt) {
+      this._prompt = document.createElement('div')
+      this._prompt.id = 'play-survivor-prompt'
+      document.body.appendChild(this._prompt)
+    }
+    this._prompt.style.display = h ? 'block' : 'none'
+    const want = h ? h.order : null
+    if (want && this._promptFor !== want) {
+      this._promptFor = want
+      this._prompt.textContent = t(want === 'follow' ? 'survivorPromptHold' : 'survivorPromptFollow', { key: keyLabel(getKeyFor('use')) })
+    }
+  }
+
   // Someone standing at `at`: a name tag, and a body when the skin loads.
-  _person(at) {
+  _person(at, skin = Math.floor(Math.random() * SKINS.length)) {
     const B = this.B
     const group = new THREE.Group()
     group.position.set(at.x * B, at.y * B, at.z * B)
     group.add(nameTag(t('buildPlaySurvivorName'), B))
     this.s.bm.scene.add(group)
-    const p = { x: at.x, y: at.y, z: at.z, group, body: null, t: Math.random() * 6 }
-    loadSkinTexture(SKINS[Math.floor(Math.random() * SKINS.length)]).then((skin) => {
+    const p = { x: at.x, y: at.y, z: at.z, group, body: null, t: Math.random() * 6, skin }
+    loadSkinTexture(SKINS[skin]).then((skin) => {
       if (!group.parent) return
       const body = buildTexturedCharacter(skin)
       const sc = (MOB_HEIGHT * B) / 32
@@ -129,6 +248,7 @@ export class Survivors {
       } else if (me && Math.hypot(me.x - w.x, me.z - w.z) < RESCUE_REACH && Math.abs(me.y - w.y) < 2) this._rescue(w)
     }
     for (const h of this.helpers) this._updateHelper(h, dt, me)
+    this._updatePrompt()
     if (this.quest) {
       this.quest.left -= dt
       if (this.quest.left <= 0) {
@@ -147,16 +267,21 @@ export class Survivors {
     w.beam.geometry.dispose()
     w.beam.material.dispose()
     this._rescues++
-    const quest = this._rescues % 2 === 0 || this.helpers.length >= MAX_HELPERS
+    // Either way they move into your camp for later games (not on a
+    // server: the camp's people are yours alone).
+    const moved = !this.s.net && this._moveIn(w)
+    const home = moved ? ` ${t('survivorMovedIn')}` : ''
+    const quest = this._rescues % 2 === 0 || this.followers >= MAX_HELPERS
     if (quest) {
       this._drop(w)
       const need = QUEST_BASE + Math.floor(this.s.wave / 2)
       this.quest = { need, got: 0, left: QUEST_TIME }
-      this.s._message(t('buildPlaySurvivorQuest', { n: need, s: QUEST_TIME }), 5)
+      this.s._message(`${t('buildPlaySurvivorQuest', { n: need, s: QUEST_TIME })}${home}`, 5)
     } else {
       w.shootIn = SHOOT_EVERY
+      w.order = 'follow'
       this.helpers.push(w)
-      this.s._message(t('buildPlaySurvivorJoined'), 4)
+      this.s._message(`${t('buildPlaySurvivorJoined')}${home}`, 4)
     }
     audioEngine.playLevelUp?.()
   }
@@ -180,7 +305,8 @@ export class Survivors {
   _updateHelper(h, dt, me) {
     const B = this.B
     h.t += dt
-    if (me) {
+    h.moving = false
+    if (me && h.order === 'follow') {
       const dx = me.x - h.x
       const dz = me.z - h.z
       const d = Math.hypot(dx, dz)
@@ -209,7 +335,7 @@ export class Survivors {
       }
     }
     if (near) h.group.rotation.y = Math.atan2(near.x - h.x, near.z - h.z)
-    else if (me) h.group.rotation.y = Math.atan2(me.x - h.x, me.z - h.z)
+    else if (me && Math.hypot(me.x - h.x, me.z - h.z) < 10) h.group.rotation.y = Math.atan2(me.x - h.x, me.z - h.z)
     h.shootIn -= dt
     if (near && h.shootIn <= 0) {
       h.shootIn = SHOOT_EVERY
@@ -251,5 +377,7 @@ export class Survivors {
     this.helpers = []
     this.quest = null
     this._rescues = 0
+    this._promptFor = null
+    if (this._prompt) this._prompt.style.display = 'none'
   }
 }

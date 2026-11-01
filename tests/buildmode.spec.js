@@ -1015,7 +1015,7 @@ test.describe('on a phone', () => {
   })
 })
 
-test('Zombie Extraction: the helicopter lands after its waves and holding the ring wins', async ({ page }) => {
+test('Helicopter Escape: find the fuel cans, the helicopter flies in, hold the ring and it takes off with you', async ({ page }) => {
   await gotoAndWaitForGame(page)
   await page.evaluate(() => {
     const g = window.__game
@@ -1028,19 +1028,36 @@ test('Zombie Extraction: the helicopter lands after its waves and holding the ri
     const g = window.__game
     const s = g.buildMode.survival
     s._pickWeapon('rifle')
-    const out = { mode: s.cfg.mode, unlocked: !document.getElementById('game-mode-zombie-extraction').disabled }
-    // Wave 5 just cleared: the helicopter comes down somewhere reachable.
+    const out = { mode: s.cfg.mode, label: document.getElementById('game-mode-zombie-extraction').textContent.trim() }
     const p = s.bm.tryMode.pos
     s._rebuildFlow([s._playerCell(p)])
-    s.wave = 5
+    // Wave 1 on: the cans go out, spread apart, none in the camp.
+    s.wave = 1
     s._toSpawn = 0
-    for (const z of [...s.zombies]) { s._removeZombie(z); s.zombies = s.zombies.filter((o) => o !== z) }
-    s._breakTimer = 0
     s._updateWorld(0.01)
+    const f = s.fuel
+    out.cans = f.cans.length
+    out.hud = document.getElementById('build-play-wave-text').textContent
+    out.noHeliYet = !s._extract
+    out.inCamp = f.cans.some((c) => s.camp?.inside(c.x, c.z))
+    // Walk into each can.
+    for (const c of [...f.cans]) {
+      p.set(c.x, c.y, c.z)
+      f.update(0.01)
+    }
+    out.got = f.got
     const ex = s._extract
-    out.placed = !!ex
-    out.hud = document.getElementById('build-play-wave').textContent
+    out.called = !!ex
+    // Flying in: the ring doesn't count until it has landed.
+    out.startHigh = ex.heli.position.y / s.B
+    p.set(ex.x, ex.y, ex.z)
+    s._updateExtraction(2)
+    out.holdWhileFlying = ex.hold
+    out.lower = ex.heli.position.y / s.B < out.startHigh
+    s._updateExtraction(5)
+    out.landed = ex.landed
     // Away from it: no count. On the ring: counts, stepping off resets it.
+    p.set(ex.x + 10, ex.y, ex.z)
     s._updateExtraction(1)
     out.awayHold = ex.hold
     p.set(ex.x, ex.y, ex.z)
@@ -1050,20 +1067,39 @@ test('Zombie Extraction: the helicopter lands after its waves and holding the ri
     s._updateExtraction(0.1)
     out.resetHold = ex.hold
     p.set(ex.x, ex.y, ex.z)
+    for (let i = 0; i < 11 && ex.takeoff == null; i++) s._updateExtraction(1)
+    // Aboard: you ride it up and nothing can hurt you.
+    out.aboard = ex.takeoff != null && !s.dead
+    s._updateExtraction(2)
+    out.riding = !!s._ride && s._ride.y > ex.y + 3
+    const hp = s.health
+    s._hurtPlayer(50)
+    out.safe = s.health === hp
     const runs0 = g.careerStats.totalRuns
-    for (let i = 0; i < 12 && !s.dead; i++) s._updateExtraction(1)
+    for (let i = 0; i < 5 && !s.dead; i++) s._updateExtraction(1)
     out.won = s._won && s.dead
     out.title = document.getElementById('build-play-over-title').textContent
     out.counted = g.careerStats.totalRuns === runs0 + 1
     return out
   })
   expect(r.mode).toBe('zombieExtraction')
-  expect(r.unlocked).toBe(true)
-  expect(r.placed).toBe(true)
-  expect(r.hud).toContain('Helicopter')
+  expect(r.label).toContain('Helicopter Escape')
+  expect(r.cans).toBe(3)
+  expect(r.hud).toContain('Fuel 0/3')
+  expect(r.noHeliYet).toBe(true)
+  expect(r.inCamp).toBe(false)
+  expect(r.got).toBe(3)
+  expect(r.called).toBe(true)
+  expect(r.startHigh).toBeGreaterThan(30)
+  expect(r.holdWhileFlying).toBe(0)
+  expect(r.lower).toBe(true)
+  expect(r.landed).toBe(true)
   expect(r.awayHold).toBe(0)
   expect(r.onHold).toBe(4)
   expect(r.resetHold).toBe(0)
+  expect(r.aboard).toBe(true)
+  expect(r.riding).toBe(true)
+  expect(r.safe).toBe(true)
   expect(r.won).toBe(true)
   expect(r.title).toBe('You got out!')
   expect(r.counted).toBe(true)
@@ -4577,4 +4613,231 @@ test('Zombie Book: meeting a new kind of zombie pays once and fills its page', a
   expect(r.unmet).toBe(27 - r.met)
   expect(r.bruteName).toBe('Brute')
   expect(r.pics).toBe(27)
+})
+
+// Batch 2 (2026-10-31): crafting, the goo disguise, the camp farm and the
+// camp's survivors, each through the real game objects.
+async function startCampGame(page) {
+  await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'classic'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+  })
+}
+
+test('Crafting: the Crafting tab makes gear and blocks from what you carry', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await startCampGame(page)
+  const r = await page.evaluate(async () => {
+    const s = window.__game.buildMode.survival
+    const inv = s.inv
+    const count = (kind, id) => [...inv.hotbar, ...inv.grid].reduce((n, it) => n + (it && it.kind === kind && it.id === id ? it.n : 0), 0)
+    inv.add({ kind: 'block', id: 'oaklog', n: 3 })
+    inv.add({ kind: 'block', id: 'cobblestone', n: 4 })
+    inv.add({ kind: 'item', id: 'zombieGoo', n: 3 })
+    window.__game.buildMode.togglePicker()
+    document.querySelector('#play-inventory .inv-tab[data-tab="craft"]').click()
+    document.querySelector('#play-inventory .inv-tab[data-tab="craft"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    const out = { rows: document.querySelectorAll('#play-inventory .craft-row').length }
+    const btn = (id) => document.querySelector(`#play-inventory .craft-btn[data-craft="${id}"]`)
+    out.ammoReady = !btn('ammobox').disabled
+    out.helmetReady = !btn('helmet').disabled
+    btn('ammobox').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    out.ammo = count('item', 'ammobox')
+    out.stoneLeft = count('block', 'cobblestone')
+    out.logLeft = count('block', 'oaklog')
+    out.ammoNow = !btn('ammobox').disabled
+    btn('oakplanks').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    out.planks = count('block', 'oakplanks')
+    btn('gooDisguise').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    out.disguise = count('item', 'gooDisguise')
+    out.goo = count('item', 'zombieGoo')
+    // The recipe list takes the bag's room: switching tabs keeps the panel's size.
+    const box = () => document.querySelector('#play-inventory .inv-box').getBoundingClientRect()
+    const craftBox = box()
+    document.querySelector('#play-inventory .inv-tab[data-tab="bag"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    const bagBox = box()
+    out.sizes = [craftBox.width, craftBox.height, bagBox.width, bagBox.height].map(Math.round)
+    out.boxSame = Math.abs(craftBox.height - bagBox.height) < 3 && Math.abs(craftBox.width - bagBox.width) < 3
+    window.__game.buildMode.togglePicker()
+    // Killed zombies drop Zombie Goo sometimes.
+    const p = s.bodyPos()
+    let drops = 0
+    for (let i = 0; i < 20; i++) {
+      s._makeZombie(9100 + i, p.x + 8, p.y, p.z, 10, false)
+      const z = s.zombies[s.zombies.length - 1]
+      const before = s._drops.list.filter((d) => d.type === 'zombieGoo').length
+      s.damageZombie(z, 1e6)
+      drops += s._drops.list.filter((d) => d.type === 'zombieGoo').length - before
+    }
+    out.gooDrops = drops
+    return out
+  })
+  expect(r.rows).toBe(15)
+  expect(r.ammoReady).toBe(true)
+  expect(r.helmetReady).toBe(false)
+  expect(r.ammo).toBe(1)
+  expect(r.stoneLeft).toBe(0)
+  expect(r.logLeft).toBe(2)
+  expect(r.ammoNow).toBe(false)
+  expect(r.planks).toBe(4)
+  expect(r.disguise).toBe(1)
+  expect(r.goo).toBe(0)
+  expect(r.boxSame, String(r.sizes)).toBe(true)
+  expect(r.gooDrops).toBeGreaterThan(0)
+  expect(r.gooDrops).toBeLessThan(20)
+})
+
+test('Goo Disguise: zombies ignore you until it wears off or you attack', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await startCampGame(page)
+  const r = await page.evaluate(async () => {
+    const s = window.__game.buildMode.survival
+    const inv = s.inv
+    inv.hotbar[1] = { kind: 'item', id: 'gooDisguise', n: 2 }
+    inv.select(1)
+    const out = { targetsBefore: s._targets().length }
+    out.used = inv.useHeld()
+    out.left = inv.hotbar[1]?.n
+    out.targetsDuring = s._targets().length
+    out.vignette = document.getElementById('goo-vignette')?.classList.contains('on')
+    out.twice = inv.useHeld()
+    s.disguise.update(10)
+    out.stillOn = s.disguise.active
+    s.disguise.update(25)
+    out.woreOff = !s.disguise.active && s._targets().length === 1
+    inv.useHeld()
+    inv.select(0)
+    s.shoot()
+    out.brokeOnShot = !s.disguise.active
+    return out
+  })
+  expect(r.targetsBefore).toBe(1)
+  expect(r.used).toBe(true)
+  expect(r.left).toBe(1)
+  expect(r.targetsDuring).toBe(0)
+  expect(r.vignette).toBe(true)
+  expect(r.twice).toBe(false)
+  expect(r.stillOn).toBe(true)
+  expect(r.woreOff).toBe(true)
+  expect(r.brokeOnShot).toBe(true)
+})
+
+test('Camp Farm: a Crop Plot in the camp is kept between games and grows in real time', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => localStorage.removeItem('gayz-camp-farm'))
+  await startCampGame(page)
+  const spot = await page.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const bm = s.bm
+    const zn = s.camp.zone
+    // An empty cell on the camp floor.
+    for (let x = zn.x0 + 3; x < zn.x1 - 2; x++) {
+      for (let z = zn.z0 + 3; z < zn.z1 - 2; z++) {
+        const y = Math.floor(s._groundUnder(x + 0.5, bm.tryMode.pos.y + 4, z + 0.5))
+        if (!bm.getBlockAt(x, y, z) && !bm.getBlockAt(x, y + 1, z) && bm.getBlockAt(x, y - 1, z)) {
+          bm.placeBlock(x, y, z, 'cropplot', false)
+          s._placed.set(bm._key(x, y, z), 'cropplot')
+          s.farm.onPlaced('cropplot', x, y, z)
+          return { x, y, z }
+        }
+      }
+    }
+    return null
+  })
+  expect(spot).not.toBeNull()
+  const planted = await page.evaluate(({ x, y, z }) => {
+    const s = window.__game.buildMode.survival
+    const sp = s.bm.specials
+    const out = { saved: JSON.parse(localStorage.getItem('gayz-camp-farm')).plots.length }
+    sp.use(x, y, z)
+    out.msg = document.getElementById('build-play-msg')?.textContent || ''
+    out.at = JSON.parse(localStorage.getItem('gayz-camp-farm')).plots[0].at > 0
+    // Six minutes ago, as if the game had been closed meanwhile.
+    const farm = JSON.parse(localStorage.getItem('gayz-camp-farm'))
+    farm.plots[0].at = Date.now() - 6 * 60 * 1000
+    localStorage.setItem('gayz-camp-farm', JSON.stringify(farm))
+    window.__game._exitBuildMode()
+    out.goneAfter = !s.bm.getBlockAt(x, y, z)
+    return out
+  }, spot)
+  await startCampGame(page)
+  const back = await page.evaluate(({ x, y, z }) => {
+    const s = window.__game.buildMode.survival
+    const inv = s.inv
+    const count = (id) => [...inv.hotbar, ...inv.grid].reduce((n, it) => n + (it && it.kind === 'item' && it.id === id ? it.n : 0), 0)
+    const out = { there: s.bm.getBlockAt(x, y, z) }
+    s.farm.update()
+    const entry = s.bm.specials._at.get(`${x},${y},${z}`)
+    out.ready = s.farm.secondsLeft(entry) === 0
+    s.bm.specials.use(x, y, z)
+    out.veggies = count('veggies')
+    out.fiber = count('plantFiber')
+    out.emptyAgain = JSON.parse(localStorage.getItem('gayz-camp-farm')).plots[0].at === 0
+    return out
+  }, spot)
+  expect(planted.saved).toBe(1)
+  expect(planted.msg).toContain('5:00')
+  expect(planted.at).toBe(true)
+  expect(planted.goneAfter).toBe(true)
+  expect(back.there).toBe('cropplot')
+  expect(back.ready).toBe(true)
+  expect(back.veggies).toBe(2)
+  expect(back.fiber).toBe(2)
+  expect(back.emptyAgain).toBe(true)
+})
+
+test('Survivors: rescued ones live at camp, guard it and take Follow / Hold orders', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => localStorage.setItem('gayz-camp-survivors', JSON.stringify({ list: [{ skin: 0 }, { skin: 1 }, { skin: 'x' }] })))
+  await startCampGame(page)
+  const r = await page.evaluate(async () => {
+    const s = window.__game.buildMode.survival
+    const sv = s.survivors
+    const out = { guards: sv.helpers.length, holding: sv.helpers.every((h) => h.order === 'hold'), inCamp: sv.helpers.every((h) => s.camp.inside(h.x, h.z, 1)) }
+    // Look straight at the first one, close up, and press Use.
+    const h = sv.helpers[0]
+    const p = s.bm.tryMode.pos
+    p.set(h.x, h.y, h.z + 2)
+    s.bm._yaw = 0
+    out.used = s.bm._tryUseFromCamera()
+    out.following = h.order === 'follow'
+    sv.update(0.1)
+    out.prompt = document.getElementById('play-survivor-prompt')?.textContent || ''
+    // Walk away: the follower comes along, the other one stays.
+    const other = sv.helpers[1]
+    const ox = other.x
+    p.set(h.x + 8, h.y, h.z + 2)
+    for (let i = 0; i < 20; i++) sv.update(0.1)
+    out.followed = Math.hypot(h.x - p.x, h.z - p.z) < 4
+    out.stayed = other.x === ox
+    // Use again: hold.
+    p.set(h.x, h.y, h.z + 2)
+    s.bm._yaw = 0
+    s.bm._tryUseFromCamera()
+    out.holdAgain = h.order === 'hold'
+    // A new rescue moves in too.
+    const w = sv._person({ x: p.x + 1, y: p.y, z: p.z })
+    w.beam = new (h.group.constructor)()
+    w.beam.geometry = { dispose() {} }
+    w.beam.material = { dispose() {} }
+    sv._rescue(w)
+    out.roster = JSON.parse(localStorage.getItem('gayz-camp-survivors')).list.length
+    return out
+  })
+  expect(r.guards).toBe(3)
+  expect(r.holding).toBe(true)
+  expect(r.inCamp).toBe(true)
+  expect(r.used).toBe(true)
+  expect(r.following).toBe(true)
+  expect(r.prompt).toContain('Hold here')
+  expect(r.followed).toBe(true)
+  expect(r.stayed).toBe(true)
+  expect(r.holdAgain).toBe(true)
+  expect(r.roster).toBe(4)
 })

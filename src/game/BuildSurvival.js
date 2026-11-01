@@ -44,7 +44,7 @@ import { sillyTip } from './SillyTips.js'
 import { JokeSigns } from './JokeSigns.js'
 import { Emotes } from './Emotes.js'
 import { ZOMBIE_TIERS, NAME_COUNT, TAG_W, TAG_H, rollZombieTier, rollZombieName, zombieTagMaterial, zombieGlow, pulseZombieGlows, zombieName, ZOMBIE_SHINES, rollZombieShine, shineCoins, shineBody, glowShineBody, shineTagMaterial, zombieShineFx, animateShineFx, pulseShines } from './ZombieNames.js'
-import { LEAF_DROP_CHANCE, PLAY_DEFAULTS, EXTRACTION_WAVES, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, ASSIST_SHARE, ASSIST_MIN_HURT, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
+import { LEAF_DROP_CHANCE, PLAY_DEFAULTS, FUEL_CANS, HELI_FLY_IN, HELI_TAKE_OFF, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, ASSIST_SHARE, ASSIST_MIN_HURT, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { MONSTER_KINDS, REALM_KINDS, makeMonster } from './ZombieKinds.js'
 import * as ZombieBook from './ZombieBook.js'
 import { Infection } from './Infection.js'
@@ -60,6 +60,10 @@ import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './Speech
 import { SHOOT_THROUGH } from './SpecialBlocks.js'
 import { openLobby } from './ServerBrowser.js'
 import { PlayOnboarding, isFirstGame } from './PlayOnboarding.js'
+import { GooDisguise } from './GooDisguise.js'
+import { CampFarm } from './CampFarm.js'
+import { HeliFuel } from './HeliFuel.js'
+import { GOO_CHANCE } from './PlayCrafting.js'
 import { nextUnlock, nextUnlockText, newlyUnlocked, cosmeticName, COSMETICS, makeCape, isUnlocked, needText } from './Cosmetics.js'
 
 export const CHEST_LOOT = { ammo: 60, health: 35 }
@@ -156,6 +160,10 @@ const SPAWNER_RANGE = 48
 const DESPAWN_DIST = 96
 // Placing blocks from the inventory: how far, and what chests can give.
 const PLACE_REACH = 6
+// The escape helicopter's height over its landing spot (blocks): where it
+// flies in from / climbs to, and sitting on the ground.
+const HELI_HIGH = 40
+const HELI_LANDED = 0.35
 const CHEST_BLOCKS = ['cobblestone', 'oakplanks', 'oaklog', 'glass', 'stonebricks', 'dirt']
 // Traps (2026-10-31, Gaymi's "traps ... mix well with waves"): every
 // cleared wave hands you one of these ([block, how many] - SpecialBlocks.js),
@@ -383,6 +391,12 @@ export class BuildSurvival {
     // Rooftop survivors to rescue (Survivors.js) - one of the events.
     if (!this.survivors) this.survivors = new Survivors(this)
     this.survivors.clear()
+    // Helicopter Escape's fuel cans (HeliFuel.js).
+    if (!this.fuel) this.fuel = new HeliFuel(this)
+    this.fuel.clear()
+    // The zombie-goo disguise (GooDisguise.js).
+    if (!this.disguise) this.disguise = new GooDisguise(this)
+    this.disguise.clear()
     // A go-kart parked near where you start (GoKart.js).
     if (!this.kart) this.kart = new GoKart(this)
     this.kart.dispose()
@@ -426,6 +440,13 @@ export class BuildSurvival {
     this.camp?.dispose()
     const zone = bm.activeSlot === 'map3' ? bm._map3Base().map.safeZone : null
     this.camp = zone ? new BuildCamp(this, zone, this.B) : null
+    // Your camp farm's Crop Plots come back (CampFarm.js) - your own games
+    // only, not on a server (the others wouldn't see them).
+    if (!this.farm) this.farm = new CampFarm(this)
+    if (!net) this.farm.start()
+    else this.farm.stop()
+    // The people who live in your camp stand guard there (Survivors.js).
+    this.survivors.start()
     this._ensureHud()
     this._hud.style.display = 'block'
     this._overEl.style.display = 'none'
@@ -506,6 +527,7 @@ export class BuildSurvival {
     this.bm.tryMode.speedMult = 1
     this.camp?.dispose()
     this.camp = null
+    this.farm?.stop()
     this._disposeExtraction()
     for (const z of this.zombies) this._removeZombie(z)
     this.zombies = []
@@ -515,6 +537,8 @@ export class BuildSurvival {
     this.bloodMoon?.reset()
     this.replay?.clear()
     this.survivors?.clear()
+    this.disguise?.clear()
+    this.fuel?.clear()
     this.kart?.dispose()
     this._fx?.clear()
     this.throws?.clear()
@@ -1022,7 +1046,11 @@ export class BuildSurvival {
     let extractText = ''
     if (mode === 'zombieExtraction') {
       const ex = this._extract
-      if (!ex) extractText = ` · ${t('extractionAfterWave', { n: EXTRACTION_WAVES })}`
+      const fuel = this.fuel
+      if (!ex && !fuel?.placed) extractText = ` · ${t('fuelLooking')}`
+      else if (!ex) extractText = ` · ${t('fuelHud', { n: fuel.got, m: FUEL_CANS, d: Math.round(fuel.nearest() ?? 0) })}`
+      else if (ex.takeoff != null) extractText = ` · ${t('extractionTakeOff')}`
+      else if (!ex.landed) extractText = ` · ${t('extractionComing')}`
       else if (ex.hold > 0) extractText = ` · ${t('extractionHolding', { s: Math.ceil(EXTRACTION_HOLD - ex.hold) })}`
       else extractText = ` · ${t('extractionDistance', { n: Math.round(ex.dist ?? 0) })}`
     }
@@ -1081,6 +1109,8 @@ export class BuildSurvival {
   // solid is in the way first. Returns true if a zombie took it.
   shoot() {
     if (!this.active || this.dead) return false
+    // Attacking washes the goo disguise off (GooDisguise.js).
+    this.disguise?.break()
     const bm = this.bm
     const B = this.B
     const w = this.weapon
@@ -1482,6 +1512,8 @@ export class BuildSurvival {
       this._countKill(z.boss, skeleton, z.tier, z.shine)
       this._wornByZombie(z)
       this.onboard?.onKill()
+      // Zombie Goo for crafting (PlayCrafting.js).
+      if (Math.random() < GOO_CHANCE) this._drops?.spawnItem('zombieGoo', z.x, z.y + 1, z.z)
       this.damageNumbers?.coinsAt(z, this._coinsEarned - coins, ZOMBIE_HEIGHT)
     }
     this.bm.specials.onKill(z)
@@ -1652,6 +1684,7 @@ export class BuildSurvival {
     // One you placed yourself: it's simply gone (not put back at the end).
     const key = bm._key(x, y, z)
     if (this._placed?.delete(key)) bm.tryMode._broken?.delete(key)
+    this.farm?.onMined(x, y, z)
     if (bm._isWindowType(type) || /door|lootchest|zombiespawner|playerstart|invisible/.test(type)) return
     // Leaves drop a leaf block LEAF_DROP_CHANCE of the time.
     if (/leaves$/.test(type) && Math.random() >= LEAF_DROP_CHANCE) return
@@ -1679,6 +1712,7 @@ export class BuildSurvival {
     bm._suppressUndoRecording = false
     this._placed.set(bm._key(x, y, z), held.id)
     this._recordEdit(x, y, z, held.id)
+    if (!this.net) this.farm?.onPlaced(held.id, x, y, z)
     this.inv.usedBlock()
     audioEngine.playFootstep?.(false, 'default')
     return true
@@ -2631,8 +2665,9 @@ export class BuildSurvival {
   }
 
   _hurtPlayer(amount) {
-    // Spectating: flying about, nothing can hurt you.
-    if (this.dead || this.spectating) return
+    // Spectating: flying about, nothing can hurt you. Nor on board the
+    // escape helicopter (_updateExtraction).
+    if (this.dead || this.spectating || this._ride) return
     // Protected by an Infection Cleanser; less behind sandbags (BuildSpecials.js).
     if (this.bm.specials.shielded()) return
     amount *= this.bm.specials.hurtMult()
@@ -2685,6 +2720,16 @@ export class BuildSurvival {
       seconds: (performance.now() - this._startedAt) / 1000,
       coins: this._coinsEarned,
     })
+  }
+
+  // A path-field key -> [x, y, z] (HeliFuel.js).
+  _cellOf(key) {
+    return cellOf(key)
+  }
+
+  // Holding Goo Disguise and using it (PlayInventory.useHeld).
+  putOnDisguise(seconds) {
+    return !!this.disguise?.put(seconds)
   }
 
   _win() {
@@ -2954,7 +2999,8 @@ export class BuildSurvival {
   // living player. Each: { x, y, z, remote } in blocks (remote = their id).
   _targets() {
     const out = []
-    if (!this.dead && !this._picking) {
+    // Wearing the goo disguise: zombies don't see you (GooDisguise.js).
+    if (!this.dead && !this._picking && !this.disguise?.active) {
       const p = this.bodyPos()
       out.push({ x: p.x, y: p.y, z: p.z, remote: null })
     }
@@ -2999,8 +3045,6 @@ export class BuildSurvival {
             this._win()
             return
           }
-          // Zombie Extraction: the helicopter comes after enough waves.
-          if (this.cfg.mode === 'zombieExtraction' && this.wave >= EXTRACTION_WAVES && !this._extract) this._placeExtraction()
           const traps = this._trapSupplies()
           if (!rush) this._message(`${t('buildPlayWaveClear', { n: this.wave, s: WAVE_BREAK })} ${traps}`, 4)
           else this._message(traps)
@@ -3017,10 +3061,17 @@ export class BuildSurvival {
         this._renderHud()
       }
     }
+    // Helicopter Escape: the fuel cans go out once the first wave is on.
+    if (this.cfg.mode === 'zombieExtraction' && this.wave >= 1 && this.fuel) {
+      if (!this.fuel.placed) this.fuel.place()
+      this.fuel.update(dt)
+    }
     if (this._extract && this._updateExtraction(dt)) return
     this.events?.update(dt)
     this.bloodMoon?.update()
     this.survivors?.update(dt)
+    this.disguise?.update(dt)
+    this.farm?.update()
     this.onboard?.update(dt)
     const speed = zombieSpeed(this.wave, this.cfg.escalation)
     for (const zb of [...this.zombies]) {
@@ -3146,12 +3197,14 @@ export class BuildSurvival {
       rotor.add(blade)
     }
     heli.add(rotor)
-    heli.position.y = 0.35 * B
+    // It flies in from high up (HELI_FLY_IN) and lands before the ring
+    // counts; the ring and beam already show where.
+    heli.position.y = HELI_HIGH * B
     heli.rotation.y = Math.random() * Math.PI * 2
     group.add(heli)
     this.bm.scene.add(group)
-    this._extract = { x: x + 0.5, y, z: z + 0.5, group, rotor, ring, hold: 0, dist: null }
-    this._message(t('extractionReady'), 4)
+    this._extract = { x: x + 0.5, y, z: z + 0.5, group, heli, rotor, ring, hold: 0, dist: null, flyIn: 0, landed: false, takeoff: null }
+    this._message(t('extractionComingMsg'), 4)
     try { audioEngine.playExplosion?.() } catch { /* no audio */ }
     this._renderHud()
   }
@@ -3161,8 +3214,38 @@ export class BuildSurvival {
   // True once you're out (the run is won).
   _updateExtraction(dt) {
     const ex = this._extract
+    const B = this.B
     ex.rotor.rotation.y += dt * 14
     ex.ring.material.opacity = 0.55 + 0.3 * Math.sin(performance.now() / 200)
+    // Flying in: down from HELI_HIGH, slowing as it comes (eased).
+    if (!ex.landed) {
+      ex.flyIn = Math.min(HELI_FLY_IN, ex.flyIn + dt)
+      const k = ex.flyIn / HELI_FLY_IN
+      ex.heli.position.y = (HELI_LANDED + (HELI_HIGH - HELI_LANDED) * (1 - k) ** 3) * B
+      ex.heli.rotation.z = Math.sin(ex.flyIn * 2) * 0.05 * (1 - k)
+      if (k < 1) return false
+      ex.landed = true
+      this._message(t('extractionReady'), 4)
+      try { audioEngine.playExplosion?.() } catch { /* no audio */ }
+      this._renderHud()
+    }
+    // Taking off with you on board: up and away, then the win.
+    if (ex.takeoff != null) {
+      ex.takeoff += dt
+      const k = Math.min(1, ex.takeoff / HELI_TAKE_OFF)
+      const up = HELI_LANDED + k * k * HELI_HIGH
+      ex.heli.position.y = up * B
+      ex.heli.rotation.x = -0.12 * k
+      ex.heli.position.z = k * k * 6 * B
+      const seat = ex.heli.localToWorld(new THREE.Vector3(0, 0.75 * B, 0.6 * B))
+      this._ride = { x: seat.x / B, y: seat.y / B, z: seat.z / B, eye: 0.9 }
+      if (k >= 1) {
+        this._ride = null
+        this._win()
+        return true
+      }
+      return false
+    }
     const p = this.bm.tryMode.pos
     const dist = Math.hypot(p.x - ex.x, p.z - ex.z)
     const was = Math.round(ex.dist ?? -1)
@@ -3172,8 +3255,13 @@ export class BuildSurvival {
     if (on) ex.hold += dt
     else ex.hold = 0
     if (ex.hold >= EXTRACTION_HOLD) {
-      this._win()
-      return true
+      // Climb aboard: the take-off (you ride it, nothing can hurt you).
+      ex.takeoff = 0
+      ex.ring.visible = false
+      this._message(t('extractionAboard'), 3)
+      try { audioEngine.playLevelUp?.() } catch { /* no audio */ }
+      this._renderHud()
+      return false
     }
     if (Math.round(dist) !== was || Math.ceil(EXTRACTION_HOLD - ex.hold) !== before) this._renderHud()
     return false
@@ -3182,6 +3270,7 @@ export class BuildSurvival {
   _disposeExtraction() {
     const ex = this._extract
     this._extract = null
+    this._ride = null
     if (!ex) return
     this.bm.scene.remove(ex.group)
     ex.group.traverse((o) => {

@@ -586,6 +586,9 @@ html.ui-theme-clean :is(#play-pause-card, .build-menu-card)::before,
 html.ui-theme-clean :is(#play-pause-card, .build-menu-card)::after {
   display: none;
 }
+html.ui-theme-clean #play-inventory :is(.inv-tab, .craft-row) { background: var(--clean-surface); border-color: transparent; }
+html.ui-theme-clean #play-inventory :is(.inv-tab.active, .craft-btn) { color: var(--clean-bg); background: var(--clean-fg); }
+html.ui-theme-clean #play-inventory .craft-btn:disabled { color: var(--clean-fg); background: var(--clean-hover); }
 html.ui-theme-clean :is(#play-pause-menu, #build-menu, #build-picker, #play-inventory, #spawn-map) * {
   text-shadow: none !important;
   font-family: var(--clean-font) !important;

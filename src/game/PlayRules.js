@@ -30,10 +30,21 @@ export const GLOBETROTTER_SECONDS = 600
 // Zombie Defense: hold out this many waves to win.
 export const DEFENSE_WAVES = 10
 // Zombie Extraction (2026-10-10, "make all of these game modes work"):
-// after EXTRACTION_WAVES waves a helicopter lands somewhere in the city,
-// EXTRACTION_MIN..MAX blocks of walking away; stand within EXTRACTION_RADIUS
-// of it for EXTRACTION_HOLD seconds (the waves keep coming) to win.
-export const EXTRACTION_WAVES = 5
+// a helicopter lands somewhere in the city, EXTRACTION_MIN..MAX blocks of
+// walking away; stand within EXTRACTION_RADIUS of it for EXTRACTION_HOLD
+// seconds (the waves keep coming) to win.
+// Helicopter Escape (the same mode, upgraded 2026-10-31, HeliFuel.js): it
+// no longer waits for wave 5 - find FUEL_CANS fuel cans
+// FUEL_MIN..FUEL_MAX blocks of walking away (about FUEL_GAP apart, picked
+// up within FUEL_REACH), then the helicopter flies in over HELI_FLY_IN
+// seconds, and after the hold you ride it up for HELI_TAKE_OFF seconds.
+export const FUEL_CANS = 3
+export const FUEL_MIN = 15
+export const FUEL_MAX = 70
+export const FUEL_GAP = 18
+export const FUEL_REACH = 1.8
+export const HELI_FLY_IN = 6
+export const HELI_TAKE_OFF = 4
 // Skeletons (real animated 3D models, SkeletonModels.js) join the waves
 // from this wave on, each spawn with SKELETON_CHANCE (BuildSurvival).
 export const SKELETON_FROM_WAVE = 3

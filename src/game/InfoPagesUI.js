@@ -11,7 +11,7 @@ import { ACHIEVEMENTS } from './Achievements.js'
 import { CHANGELOG_LAST_VIEWED_KEY, Game, HOWTOPLAY_STEPS, LOGIN_CALENDAR_DAYS, MARKET_FEE_RATE, MAX_GOALS, PLAY_META_UPGRADES, PRESTIGE_BONUS_PERCENT, PRESTIGE_COST_STEP, SUPPORTED_LANGUAGE_CODES, UPDATE_BANNER_FADE_MS, UPDATE_BANNER_SHOW_MS, WHATS_NEW_SEEN_KEY, WHATS_NEW_VERSION, saveSettings } from './Game.js'
 import { BIOMES } from './OpenWorld.js'
 import { TIP_COUNT, TOP_PLAYERS } from './HomeExtras.js'
-import { LEAF_DROP_CHANCE, BOSS_HUNT_EVERY, DEFENSE_WAVES, EXTRACTION_HOLD, EXTRACTION_WAVES, GLOBETROTTER_SECONDS, SKELETON_FROM_WAVE, MONSTER_FROM_WAVE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
+import { LEAF_DROP_CHANCE, BOSS_HUNT_EVERY, DEFENSE_WAVES, EXTRACTION_HOLD, FUEL_CANS, GLOBETROTTER_SECONDS, SKELETON_FROM_WAVE, MONSTER_FROM_WAVE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { RAINBOW_CHANCE } from './BuildSky.js'
 import { DISASTERS } from './Disasters.js'
 import { LUCK_MULT, LUCK_SECONDS } from './Luck.js'
@@ -21,7 +21,10 @@ import { REALM_KINDS } from './ZombieKinds.js'
 import { LOG_MAX } from './SettingsLog.js'
 import { BUMP_MAX_DEGREES } from './BlockChunks.js'
 import { MAX_WILD, ANIMAL_IDS } from './PlayAnimals.js'
-import { START_TRAPS } from './PlayInventory.js'
+import { START_TRAPS, ITEMS } from './PlayInventory.js'
+import { RECIPES, GOO_CHANCE } from './PlayCrafting.js'
+import { FARM_GROW_S } from './CampFarm.js'
+import { CAMP_MAX, MAX_HELPERS } from './Survivors.js'
 import { TEAM_SIZE, MAX_CREATURES } from './Creatures.js'
 import { WIN_COINS, LOSS_COINS } from './TeamUI.js'
 import { ROUND_S } from './TeamBattle.js'
@@ -302,7 +305,13 @@ export function _featureValues(_game) {
     infectionZombieCoins: Infection.INFECTED_WIN_COINS,
     shopSkinPrice: Game.SHOP_SKIN_PRICE.toLocaleString('en-US'),
     defenseWaves: DEFENSE_WAVES,
-    extractionWaves: EXTRACTION_WAVES,
+    fuelCans: FUEL_CANS,
+    recipes: RECIPES.length,
+    gooChance: Math.round(GOO_CHANCE * 100),
+    gooSeconds: ITEMS.gooDisguise.disguise,
+    farmMinutes: FARM_GROW_S / 60,
+    campSurvivors: CAMP_MAX,
+    maxFollowers: MAX_HELPERS,
     extractionHold: EXTRACTION_HOLD,
     bossEvery: BOSS_HUNT_EVERY,
     rainbowOdds: Math.round(1 / RAINBOW_CHANCE),
