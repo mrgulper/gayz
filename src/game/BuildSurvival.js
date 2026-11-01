@@ -39,6 +39,9 @@ import { loadEarthTerrain } from './EarthTerrain.js'
 import { BOTTOM, DEMON_TOP } from './Underground.js'
 import { deathJoke } from './DeathJokes.js'
 import { BloodMoon } from './BloodMoon.js'
+import { Fishing } from './Fishing.js'
+import { ZombieRadio } from './ZombieRadio.js'
+import { Sprays } from './Sprays.js'
 import { DeathReplay } from './DeathReplay.js'
 import { sillyTip } from './SillyTips.js'
 import { JokeSigns } from './JokeSigns.js'
@@ -71,6 +74,7 @@ import { nextUnlock, nextUnlockText, newlyUnlocked, cosmeticName, COSMETICS, mak
 export const CHEST_LOOT = { ammo: 60, health: 35 }
 // How often a Loot Chest has a Catch Trap or two (PlayCatch.js).
 const CATCH_TRAP_CHANCE = 0.35
+const CHEST_ROD_CHANCE = 0.1
 // A zombie's name tag: blocks wide up close, then the same size on screen
 // past ZOMBIE_TAG_NEAR blocks.
 const ZOMBIE_TAG_SIZE = 1.5
@@ -430,6 +434,13 @@ export class BuildSurvival {
     this.signs.clear()
     if (!this.emotes) this.emotes = new Emotes(this)
     this.emotes.clear()
+    // Fishing, Zombie Radios and spray tags (2026-11-01).
+    if (!this.fishing) this.fishing = new Fishing(this)
+    this.fishing.clear()
+    if (!this.radios) this.radios = new ZombieRadio(this)
+    this.radios.clear()
+    if (!this.sprays) this.sprays = new Sprays(this)
+    this.sprays.clear()
     this._fires = new Map()
     this._groundFires = []
     this.mag = this.magSize()
@@ -559,6 +570,9 @@ export class BuildSurvival {
     this.animals?.clear()
     this.signs?.clear()
     this.emotes?.clear()
+    this.fishing?.clear()
+    this.radios?.clear()
+    this.sprays?.clear()
     this._fires?.clear()
     this.bm.spectate?.exit()
     // Blocks placed this game go again (the saved map never changes).
@@ -1678,6 +1692,8 @@ export class BuildSurvival {
     if (Math.random() < 0.6) give({ kind: 'item', id: 'healthpack', n: 1 })
     if (Math.random() < 0.4) give({ kind: 'item', id: 'ammobox', n: 1 })
     if (Math.random() < CATCH_TRAP_CHANCE) give({ kind: 'item', id: 'catchTrap', n: 1 + Math.floor(Math.random() * 2) })
+    // Now and then a Fishing Rod, for worlds without the camp's Trader (Fishing.js).
+    if (Math.random() < CHEST_ROD_CHANCE && !this.inv.has('fishingRod')) give({ kind: 'item', id: 'fishingRod', n: 1 })
     if (Math.random() < 0.25) give({ kind: 'item', id: ARMOR_SLOTS[Math.floor(Math.random() * ARMOR_SLOTS.length)], n: 1 })
     if (Math.random() < 0.3) give({ kind: 'block', id: CHEST_BLOCKS[Math.floor(Math.random() * CHEST_BLOCKS.length)], n: 8 + Math.floor(Math.random() * 9) })
     if (Math.random() < TRAP_CHEST_CHANCE) {
@@ -1740,6 +1756,7 @@ export class BuildSurvival {
     if (code === getKeyFor('reload')) this.reload()
     else if (code === getKeyFor('dropItem')) this.inv?.drop()
     else if (code === getKeyFor('emote')) this.emotes?.toggleBar()
+    else if (code === getKeyFor('spray')) this.sprays?.spray()
   }
 
   // --- the world: who can stand where ---
@@ -2912,6 +2929,9 @@ export class BuildSurvival {
     if (net && !net.isHost) this.animals?.updateMirror(dt)
     else if (playing || net) this.animals?.update(dt)
     if (playing) this.signs?.update(dt)
+    if (playing) this.fishing?.update(dt)
+    if (playing && this.fromMenu) this.radios?.update(dt)
+    this.sprays?.update(dt)
     this.emotes?.update(dt)
     this.bloodMoon?.syncLook()
     if (!this.bm.menuOpen) this._updateFires(dt)

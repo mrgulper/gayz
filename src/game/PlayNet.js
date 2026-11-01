@@ -232,7 +232,7 @@ export class PlayNet {
     const holding = s.holding
     const body = {
       ...this.auth,
-      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), veh: s.vehicles?.snapshot() || [] },
+      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), veh: s.vehicles?.snapshot() || [], spray: s.sprays?.snapshot() || null },
       editsAfter: this._editSeq,
     }
     const edits = this._edits.splice(0, EDITS_PER_SYNC)
@@ -315,7 +315,7 @@ export class PlayNet {
         // Not for the players already there when I joined.
         if (!this._firstSync) addChatSystemLine(this.game, t('serverPlayerJoined', { name: p.nick || 'Survivor' }))
       }
-      Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh) })
+      Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh), spray: p.spray || null })
       if (p.say && p.say.n !== mine.sayN) {
         mine.sayN = p.say.n
         const left = bubbleSeconds(p.say.text) - (Number(p.say.age) || 0) / 1000
@@ -335,6 +335,8 @@ export class PlayNet {
       this._removePlayer(pid)
     }
     this._firstSync = false
+    // Their spray tags (Sprays.js).
+    s.sprays?.syncRemote(this.players)
     if (seen.size !== this._lastCount) {
       this._lastCount = seen.size
       s._renderHud()
@@ -452,8 +454,9 @@ export class PlayNet {
     if (!player) return
     this.players.delete(pid)
     this.survival?.bm.scene.remove(player.group)
-    // Their boats and helicopters (Vehicles.js).
+    // Their boats and helicopters (Vehicles.js), and spray tags (Sprays.js).
     disposeRemote(player)
+    this.survival?.sprays?.dropRemote(pid)
     // The held weapon and block share the game's own geometry - never disposed.
     if (player.gun) player.gun.parent?.remove(player.gun)
     if (player.block) player.block.parent?.remove(player.block)

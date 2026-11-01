@@ -20,6 +20,10 @@
 //                    the world frozen (alone - a server keeps going) and a
 //                    click / P / the shutter button saving a picture
 //                    (PlaySpectate.js, 2026-10-30).
+//   Spray Paint    - draw your 16 x 16 spray tag (Sprays.js, 2026-11-01):
+//                    the buttons make way for a drawing pad, a row of
+//                    paints (the first is the eraser), Clear and Done.
+//                    Done (or closing the pause screen) keeps it.
 //   Invite Friends - a link friends open to join you (2026-10-18). A solo
 //                    game becomes a server first, keeping its world
 //                    (ServerBrowser.makeGameJoinable).
@@ -30,6 +34,8 @@
 import { t } from './i18n.js'
 import { sillyTip } from './SillyTips.js'
 import { inviteLink, makeGameJoinable, newServerId } from './ServerBrowser.js'
+import { SPRAY_SIZE, SPRAY_COLORS, loadSpray, saveSpray, sprayCanvas } from './Sprays.js'
+import { getKeyFor, keyLabel } from './Keybinds.js'
 
 export class PlayPauseMenu {
   constructor(bm) {
@@ -47,6 +53,13 @@ export class PlayPauseMenu {
     on('play-pause-weapon-btn', () => this.switchWeapon())
     on('play-pause-spectate-btn', () => this.bm.spectate?.enter())
     on('play-pause-photo-btn', () => this.bm.spectate?.enter({ photo: true }))
+    on('play-pause-spray-btn', () => this.openSpray())
+    on('play-spray-done', () => this.closeSpray())
+    on('play-spray-clear', () => {
+      this._spray = '0'.repeat(SPRAY_SIZE * SPRAY_SIZE)
+      this._drawSpray()
+    })
+    this._bindSprayPad()
     on('play-pause-invite-btn', () => this.invite())
     on('play-invite-copy', () => this.copyInvite())
     on('play-pause-save-btn', () => this.saveProgress())
@@ -66,6 +79,7 @@ export class PlayPauseMenu {
 
   show(on) {
     if (!this.el) return
+    if (!on && this._spray) this.closeSpray()
     this.el.style.display = on ? 'flex' : 'none'
     if (on) this._refresh()
   }
@@ -83,6 +97,10 @@ export class PlayPauseMenu {
     set('play-pause-weapon-label', t('playPauseWeapon'))
     set('play-pause-spectate-label', t('playPauseSpectate'))
     set('play-pause-photo-label', t('playPausePhoto'))
+    set('play-pause-spray-label', t('playPauseSpray'))
+    set('play-spray-clear', t('sprayClear'))
+    set('play-spray-done', t('sprayDone'))
+    set('play-spray-hint', t('sprayHint', { key: keyLabel(getKeyFor('spray')) }))
     set('play-pause-invite-label', t('playPauseInvite'))
     set('play-invite-copy', t('playInviteCopy'))
     set('play-invite-hint', t('playInviteHint'))
@@ -95,6 +113,84 @@ export class PlayPauseMenu {
     const save = document.getElementById('play-pause-save-btn')
     if (save) save.style.display = s.net ? 'none' : ''
     this._showInvite()
+  }
+
+  // --- Spray Paint ---
+
+  openSpray() {
+    this._spray = loadSpray()
+    this._paint = this._paint || 3
+    const buttons = document.getElementById('play-pause-buttons')
+    const box = document.getElementById('play-spray')
+    if (buttons) buttons.hidden = true
+    if (box) box.hidden = false
+    document.getElementById('play-invite')?.setAttribute('hidden', '')
+    const colors = document.getElementById('play-spray-colors')
+    if (colors && !colors.childElementCount) {
+      // Built once: fixed colours, no outside text.
+      colors.innerHTML = SPRAY_COLORS.map((c, i) => `<button type="button" data-paint="${i}" class="${i ? '' : 'play-spray-eraser'}" style="${c ? `background:${c}` : ''}" aria-label="${i ? c : 'Eraser'}"></button>`).join('')
+      colors.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-paint]')
+        if (!btn) return
+        this._paint = Number(btn.dataset.paint)
+        this._markPaint()
+      })
+    }
+    const eraser = colors?.querySelector('.play-spray-eraser')
+    if (eraser) eraser.setAttribute('aria-label', t('sprayEraser'))
+    this._markPaint()
+    this._drawSpray()
+  }
+
+  closeSpray() {
+    if (this._spray) {
+      saveSpray(this._spray)
+      this.bm.survival?.sprays?.setPicture(this._spray)
+    }
+    this._spray = null
+    const buttons = document.getElementById('play-pause-buttons')
+    const box = document.getElementById('play-spray')
+    if (buttons) buttons.hidden = false
+    if (box) box.hidden = true
+    this._showInvite()
+  }
+
+  _markPaint() {
+    for (const btn of document.querySelectorAll('#play-spray-colors [data-paint]')) btn.classList.toggle('on', Number(btn.dataset.paint) === this._paint)
+  }
+
+  _drawSpray() {
+    const pad = document.getElementById('play-spray-pad')
+    if (pad && this._spray) sprayCanvas(this._spray, 16, pad)
+  }
+
+  // Click or drag (mouse or finger) to paint squares.
+  _bindSprayPad() {
+    const pad = document.getElementById('play-spray-pad')
+    if (!pad) return
+    let down = false
+    const paintAt = (e) => {
+      if (!this._spray) return
+      const r = pad.getBoundingClientRect()
+      const x = Math.floor(((e.clientX - r.left) / r.width) * SPRAY_SIZE)
+      const y = Math.floor(((e.clientY - r.top) / r.height) * SPRAY_SIZE)
+      if (x < 0 || y < 0 || x >= SPRAY_SIZE || y >= SPRAY_SIZE) return
+      const i = y * SPRAY_SIZE + x
+      const c = this._paint.toString(16)
+      if (this._spray[i] === c) return
+      this._spray = this._spray.slice(0, i) + c + this._spray.slice(i + 1)
+      this._drawSpray()
+    }
+    pad.addEventListener('pointerdown', (e) => {
+      e.preventDefault()
+      down = true
+      try { pad.setPointerCapture?.(e.pointerId) } catch { /* not a live pointer */ }
+      paintAt(e)
+    })
+    pad.addEventListener('pointermove', (e) => { if (down) paintAt(e) })
+    const up = () => { down = false }
+    pad.addEventListener('pointerup', up)
+    pad.addEventListener('pointercancel', up)
   }
 
   // The link box, once this game has a server (or is getting one: the

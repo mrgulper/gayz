@@ -68,6 +68,12 @@ export const ITEMS = {
   boat: { key: 'invBoat', vehicle: 'boat' },
   helicopter: { key: 'invHelicopter', vehicle: 'heli' },
   heliFuel: { key: 'invHeliFuel', fuel: true },
+  // Fishing (Fishing.js): the rod (bought from the Trader, never used up)
+  // and what it pulls out of the water.
+  fishingRod: { key: 'invFishingRod', rod: true },
+  fish: { key: 'invFish', heal: 20 },
+  goldenFish: { key: 'invGoldenFish', heal: 60 },
+  oldBoot: { key: 'invOldBoot', junk: true },
   helmet: { key: 'invHelmet', armor: 2, slot: 0 },
   chestplate: { key: 'invChestplate', armor: 4, slot: 1 },
   leggings: { key: 'invLeggings', armor: 3, slot: 2 },
@@ -87,7 +93,7 @@ export function addAnimalMeat(id, { key, animalKey, icon }) {
 const RARE_DROP_CONFIRM_MS = 3000
 export function isRareItem(it) {
   const def = it?.kind === 'item' ? ITEMS[it.id] : null
-  return !!def && (!!def.armor || !(def.heal || def.ammo || def.trap || def.material || def.disguise || def.fuel))
+  return !!def && (!!def.armor || !(def.heal || def.ammo || def.trap || def.material || def.disguise || def.fuel || def.junk))
 }
 
 // An item's name in the current language.
@@ -117,9 +123,13 @@ const ICON_PIXELS = {
   boat: ['................', '................', '................', '.......##.......', '.......#w.......', '.......#ww......', '.......#www.....', '.......#........', '.##############.', '.#oooooooooooo#.', '..#oooooooooo#..', '...##########...'],
   helicopter: ['................', '.##############.', '.......##.......', '....######......', '...#yyyyyyy#....', '..#bbyyyyyyy####', '..#bbyyyyyyy#..#', '...#yyyyyyy#....', '....#######.....', '....#.....#.....', '..###########...'],
   heliFuel: ['................', '......###.......', '.....#...#......', '...#########....', '...#rrrrrrr#....', '...#rryyyrr#....', '...#rryrrrr#....', '...#rryyrrr#....', '...#rryrrrr#....', '...#rrrrrrr#....', '...#########....'],
+  fishingRod: ['..............k.', '.............k.w', '............k..w', '...........k...w', '..........k....w', '.........k.....w', '........k......w', '.......k.......r', '......k........w', '.....k..........', '....k...........', '...dd...........', '..dd............', '.dd.............'],
+  fish: ['................', '................', '..........c.....', '.....cccccc...cc', '...cccccccccccc.', '..ccwccccccccc..', '..cccccccccccc..', '...cccccccccccc.', '.....cccccc...cc', '..........c.....'],
+  goldenFish: ['................', '................', '..........y.....', '.....yyyyyy...yy', '...yyyyyylyyyyy.', '..yy#yyyyyyyyy..', '..yyyyyyyyylyy..', '...yyyyyyyyyyyy.', '.....yyyyyy...yy', '..........y.....'],
+  oldBoot: ['................', '.....kkkk.......', '.....kkkk.......', '.....kkkk.......', '.....kkkk.......', '.....kkkk.......', '.....kkkkkkk....', '....kkkkkkkkkk..', '....kkkkkkkkkkk.', '....ddddddddddd.'],
   shield: ['....########....', '...#bbbbbbbb#...', '...#bbbyybbb#...', '...#byyyyyyb#...', '...#bbbyybbb#...', '....#bbyybb#....', '.....#bbbb#.....', '......####......'],
 }
-const ICON_COLORS = { v: '#6fc23a', l: '#b8f06a', p: '#e8b49a', f: '#f08a5a', n: '#8aa83a', o: '#e8862a', m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8' }
+const ICON_COLORS = { v: '#6fc23a', l: '#b8f06a', p: '#e8b49a', f: '#f08a5a', n: '#8aa83a', o: '#e8862a', m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8', c: '#5aa7d8', k: '#8a5a2a', d: '#4a4a4a' }
 const iconCache = new Map()
 function itemIcon(id) {
   if (iconCache.has(id)) return iconCache.get(id)
@@ -282,6 +292,9 @@ export class PlayInventory {
       if (!s.vehicles?.place(def.vehicle)) return false
     } else if (def?.fuel) {
       if (!s.vehicles?.addFuel()) return false
+    } else if (def?.rod) {
+      // Cast or reel in - the rod itself is never used up.
+      return !!s.fishing?.use()
     } else return false
     this._take(this.hotbar, this.active, 1)
     s._renderHud()
@@ -297,6 +310,11 @@ export class PlayInventory {
       return true
     }
     return false
+  }
+
+  // Is there an `id` item anywhere (hotbar or grid)?
+  has(id) {
+    return [this.grid, this.hotbar].some((list) => list.some((it) => it?.kind === 'item' && it.id === id))
   }
 
   // One less of a held block (after placing it).
@@ -443,7 +461,9 @@ export class PlayInventory {
     if (item.disguise) return t('invTipGooDisguise', { s: item.disguise })
     if (item.vehicle) return t(item.vehicle === 'boat' ? 'invTipBoat' : 'invTipHelicopter')
     if (item.fuel) return t('invTipHeliFuel', { s: HELI_FUEL_S })
-    return t(it.id === 'meat' || it.id === 'veggies' || ITEMS[it.id]?.animalKey ? 'invTipMeat' : 'invTipHealthPack', { n: item.heal })
+    if (item.rod) return t('invTipFishingRod')
+    if (item.junk) return t('invTipJunk')
+    return t(it.id === 'meat' || it.id === 'veggies' || it.id === 'fish' || it.id === 'goldenFish' || ITEMS[it.id]?.animalKey ? 'invTipMeat' : 'invTipHealthPack', { n: item.heal })
   }
 
   // The item card beside the pointer (x, y), or beside a slot on phones.

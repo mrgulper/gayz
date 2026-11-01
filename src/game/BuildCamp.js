@@ -10,7 +10,8 @@
 // - Four NPCs (skins made in Design a Skin, NPC_SKINS) stand in front of
 //   the tents and the quest board, each with a name tag; walk up, look at one and press the use
 //   key to talk:
-//   - Trader: Med Kit, Armor and an Ammo Box for coins.
+//   - Trader: Med Kit, Armor, an Ammo Box and a Fishing Rod (Fishing.js)
+//     for coins.
 //   - Upgrader: Damage, Reload Speed and Bigger Magazine, three levels each.
 //   - Ammo Refill: fills your gun and spare ammo for free, then needs a
 //     short rest (AMMO_FILL_COOLDOWN).
@@ -24,6 +25,7 @@ import { ammoFor } from './PlayWeapons.js'
 import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { t } from './i18n.js'
 import { MOB_HEIGHT } from './PlayRules.js'
+import { ROD_COST } from './Fishing.js'
 
 export const COIN_PER_KILL = 10
 export const COIN_PER_WAVE = 50
@@ -33,6 +35,8 @@ export const SHOP_ITEMS = [
   { id: 'medkit', cost: 40, health: 50 },
   { id: 'armor', cost: 75, armor: 50 },
   { id: 'ammobox', cost: 25, ammo: 60 },
+  // Goes in the inventory (PlayInventory ITEMS).
+  { id: 'fishingRod', cost: ROD_COST, item: 'fishingRod' },
 ]
 export const UPGRADES = [
   { id: 'damage', costs: [120, 240, 400] },
@@ -362,6 +366,11 @@ export class BuildCamp {
       if (item.armor) s.armor = Math.min(100, s.armor + item.armor)
       // Ammo in the picked gun's own amounts (PlayWeapons.ammoFor).
       if (item.ammo) s.reserve += ammoFor(s.weaponId, item.ammo)
+      if (item.item && s.inv?.add({ kind: 'item', id: item.item, n: 1 })) {
+        // No room: the coins back.
+        s.coins += this._price(item)
+        s._message(t('invFull'))
+      }
     } else if (act === 'upgrade') {
       const up = UPGRADES.find((u) => u.id === id)
       const level = s.upgrades[id] || 0
