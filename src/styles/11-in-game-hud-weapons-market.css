@@ -1637,6 +1637,7 @@ html.menu-panel-open #build-play-health { display: none; }
 #touch-play .tp-pause { top: 10px; left: 50%; margin-left: -22px; width: 44px; height: 44px; }
 #touch-play .tp-bag { top: 10px; left: 50%; margin-left: 30px; width: 44px; height: 44px; }
 #touch-play .tp-drop { top: 10px; left: 50%; margin-left: 82px; width: 44px; height: 44px; }
+#touch-play .tp-spray { top: 10px; left: 50%; margin-left: -74px; width: 44px; height: 44px; }
 /* Emote (Emotes.js): left edge, above the health bar in portrait. */
 #touch-play .tp-emote { left: max(16px, env(safe-area-inset-left)); bottom: 176px; width: 48px; height: 48px; }
 #touch-play .tp-scope { display: none; right: calc(max(24px, env(safe-area-inset-right)) + 96px); bottom: 186px; width: 56px; height: 56px; }

@@ -375,6 +375,16 @@ function cleanVeh(v) {
   return v.slice(0, 4).filter((d) => d && (d.k === 'b' || d.k === 'h')).map((d) => ({ k: d.k, x: num(d.x, -1e5, 1e5), y: num(d.y, -520, 520), z: num(d.z, -1e5, 1e5), h: num(d.h, -100, 100), r: d.r ? 1 : 0 }))
 }
 
+// A player's spray tags (src/game/Sprays.js): the 16 x 16 picture (hex
+// digits, one per square) and up to 3 spots (a block cell + which side).
+const SPRAY_RE = /^[0-9a-f]{256}$/
+function cleanSpray(v) {
+  if (!v || typeof v !== 'object' || typeof v.p !== 'string' || !SPRAY_RE.test(v.p) || !Array.isArray(v.s)) return null
+  const int = (n, lo, hi) => (Number.isInteger(n) && n >= lo && n <= hi ? n : null)
+  const s = v.s.slice(0, 3).map((d) => d && { x: int(d.x, -1e5, 1e5), y: int(d.y, -520, 520), z: int(d.z, -1e5, 1e5), f: int(d.f, 0, 5) }).filter((d) => d && d.x !== null && d.y !== null && d.z !== null && d.f !== null)
+  return s.length ? { p: v.p, s } : null
+}
+
 function cleanSay(v) {
   if (!v || typeof v !== 'object') return null
   const text = cleanText(v.text, SAY_MAX)
@@ -407,6 +417,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     [`${base}/players/${playerId}/hat`]: typeof s.hat === 'string' && ID_RE.test(s.hat) ? s.hat : '',
     [`${base}/players/${playerId}/cape`]: typeof s.cape === 'string' && /^[A-Za-z]{1,20}$/.test(s.cape) ? s.cape : '',
     [`${base}/players/${playerId}/veh`]: cleanVeh(s.veh),
+    [`${base}/players/${playerId}/spray`]: cleanSpray(s.spray),
     [`${base}/players/${playerId}/t`]: now,
   }
   // Drop players who went quiet; take over as host if the host did.
@@ -537,7 +548,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p) continue
-    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [] }
+    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], spray: p.spray || null }
     // A chat bubble: its number (new one = new bubble) and how long ago.
     if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }

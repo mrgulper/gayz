@@ -1181,7 +1181,7 @@ test('Settings > Controls keys drive walking in Map 1', async ({ page }) => {
     rebind('moveForward', 'KeyW')
     return { ids, withW, withI, withArrow }
   })
-  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap', 'cameraView', 'dropItem', 'emote'])
+  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap', 'cameraView', 'dropItem', 'emote', 'spray'])
   expect(result.withW).toBeLessThan(0.01)
   expect(result.withI).toBeGreaterThan(2)
   expect(result.withArrow).toBeGreaterThan(2)
@@ -5014,4 +5014,117 @@ test('shrinking zone: ring, fog outside, faster zombies, win at the end', async 
     return out
   })
   expect(r).toEqual({ mode: 'shrinkingZone', wall: true, firstR: 100, hud: true, fogInside: false, fogOutside: true, fogText: true, fastOut: 1.7, normalIn: 1, shrinking: true, nested: true, rings: 2, sameOnGuests: true, won: true, title: 'You outlasted the zone!' })
+})
+
+// Quick wins (2026-11-01): the Golden Runner world event (catch it for a
+// coin burst), Fishing (the Trader's rod, cast, bite, catch), Zombie
+// Radios (walk up for a broadcast) and spray tags (draw in Spray Paint,
+// spray on a block, others' sprays from a server, hidden when muted/off).
+test('Golden Runner, fishing, zombie radios and spray tags', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game._enterBuildMode({ map: 'map3', play: true }))
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const bm = g.buildMode
+    const s = bm.survival
+    for (let i = 0; i < 60 && !s.active; i++) await new Promise((res) => setTimeout(res, 250))
+    s._pickWeapon('rifle')
+    const out = {}
+    const me = bm.tryMode.pos
+    const home = { x: me.x, y: me.y, z: me.z }
+    // --- Golden Runner: it runs off; touching it bursts into coins.
+    s._startWave(2)
+    out.goldenStarted = s.events.start('golden')
+    const run = s.events._run
+    const r0 = { x: run.runner.x, z: run.runner.z }
+    for (let i = 0; i < 20; i++) s.events.update(0.05)
+    out.goldenMoved = Math.hypot(run.runner.x - r0.x, run.runner.z - r0.z) > 0.2
+    const coins = s.coins
+    me.set(run.runner.x, run.runner.y, run.runner.z)
+    s.events.update(0.05)
+    out.goldenCaught = !!run.runner.caught
+    out.goldenCoins = s.coins - coins >= 100
+    for (let i = 0; i < 60 && s.events._run; i++) s.events.update(0.05)
+    out.goldenGone = !s.events._run
+    me.set(home.x, home.y, home.z)
+    // --- Fishing: buy the rod from the Trader, hold it, cast, wait, reel in.
+    s.coins = 500
+    if (s.camp) s.camp._act('buy', 'fishingRod')
+    else s.inv.add({ kind: 'item', id: 'fishingRod', n: 1 })
+    out.hasRod = s.inv.has('fishingRod')
+    out.paid = s.camp ? s.coins === 440 : true
+    const slot = s.inv.hotbar.findIndex((it) => it?.id === 'fishingRod')
+    s.inv.select(slot)
+    s.inv.apply()
+    // Pretend the middle of the screen points at water a few blocks ahead.
+    s.fishing._waterInView = () => ({ x: me.x + 4, y: me.y, z: me.z, cx: Math.floor(me.x + 4), cz: Math.floor(me.z) })
+    s.inv.useHeld()
+    out.cast = s.fishing.out
+    out.rodKept = s.inv.has('fishingRod')
+    s.fishing.bob.wait = 0.1
+    for (let i = 0; i < 20 && !(s.fishing.bob?.bite > 0); i++) s.fishing.update(0.05)
+    out.bite = s.fishing.bob?.bite > 0
+    const before = JSON.stringify([...s.inv.hotbar, ...s.inv.grid].filter(Boolean))
+    const coinsBefore = s.coins
+    const zombiesBefore = s.zombies.length
+    s.inv.useHeld()
+    out.reeled = !s.fishing.out
+    const after = JSON.stringify([...s.inv.hotbar, ...s.inv.grid].filter(Boolean))
+    out.gotSomething = after !== before || s.coins > coinsBefore || s.zombies.length > zombiesBefore
+    // --- Zombie Radio: one turns up; walking up plays it.
+    const radio = s.radios._place(me)
+    out.radioPlaced = !!radio
+    if (radio) {
+      me.set(radio.x, radio.y, radio.z)
+      s.radios.update(0.05)
+      out.radioPlayed = radio.played
+      out.radioMsg = document.getElementById('build-play-msg').textContent.startsWith('\u{1F4FB}')
+      me.set(home.x, home.y, home.z)
+    }
+    // --- Spray tags: spray the block under my feet.
+    const bx = Math.floor(me.x)
+    const bz = Math.floor(me.z)
+    let by = Math.floor(me.y) - 1
+    while (!bm.getBlockAt(bx, by, bz) && by > -60) by--
+    bm._raycastGridAligned = () => ({ existingBlock: [bx, by, bz], placeAt: [bx, by + 1, bz], t: 1 })
+    out.sprayed = s.sprays.spray()
+    out.mine = s.sprays.mine.length
+    const snap = s.sprays.snapshot()
+    out.snap = snap && snap.p.length === 256 && snap.s[0].f === 2
+    // Someone else's spray from a server.
+    const players = new Map([['p1', { nick: 'Bob', spray: { p: snap.p, s: [{ x: bx, y: by, z: bz, f: 0 }] } }]])
+    s.sprays.syncRemote(players)
+    out.remote = s.sprays.remote.get('p1')?.list.length
+    g.settings.mutedChatPlayers = ['Bob']
+    s.sprays.syncRemote(players)
+    out.mutedHidden = !s.sprays.remote.has('p1')
+    g.settings.mutedChatPlayers = []
+    g.settings.showOtherSprays = false
+    s.sprays.syncRemote(players)
+    out.offHidden = !s.sprays.remote.has('p1')
+    g.settings.showOtherSprays = true
+    // A bad picture from the network never shows.
+    s.sprays.syncRemote(new Map([['p2', { nick: 'Eve', spray: { p: '<b>', s: [{ x: bx, y: by, z: bz, f: 0 }] } }]]))
+    out.badIgnored = !s.sprays.remote.has('p2')
+    // Spray Paint in the pause screen: paint a square, Done keeps it.
+    bm.toggleMenu()
+    document.getElementById('play-pause-spray-btn').click()
+    out.padShown = !document.getElementById('play-spray').hidden && document.getElementById('play-pause-buttons').hidden
+    document.querySelector('#play-spray-colors [data-paint="3"]').click()
+    const pad = document.getElementById('play-spray-pad')
+    const box = pad.getBoundingClientRect()
+    pad.dispatchEvent(new PointerEvent('pointerdown', { clientX: box.left + 2, clientY: box.top + 2, bubbles: true, pointerId: 1 }))
+    pad.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }))
+    document.getElementById('play-spray-done').click()
+    out.saved = (localStorage.getItem('gayz-spray-v1') || '')[0]
+    out.buttonsBack = !document.getElementById('play-pause-buttons').hidden
+    return out
+  })
+  expect(r).toEqual({
+    goldenStarted: true, goldenMoved: true, goldenCaught: true, goldenCoins: true, goldenGone: true,
+    hasRod: true, paid: true, cast: true, rodKept: true, bite: true, reeled: true, gotSomething: true,
+    radioPlaced: true, radioPlayed: true, radioMsg: true,
+    sprayed: true, mine: 1, snap: true, remote: 1, mutedHidden: true, offHidden: true, badIgnored: true,
+    padShown: true, saved: '3', buttonsBack: true,
+  })
 })

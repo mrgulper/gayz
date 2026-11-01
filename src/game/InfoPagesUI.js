@@ -38,6 +38,10 @@ import { ZOMBIE_SHINES } from './ZombieNames.js'
 import { DAILY_TEMPLATES, STREAK_STEP, STREAK_MAX_DAYS, streakMult } from './DailyChallenge.js'
 import { DEATH_JOB_COUNT } from './DeathJokes.js'
 import { HAT_EVERY, CAPE_EVERY } from './FunnyZombies.js'
+import { LIFE_S as GOLDEN_LIFE_S, COINS as GOLDEN_COINS } from './GoldenRunner.js'
+import { CATCHES, ROD_COST } from './Fishing.js'
+import { RADIO_LINES } from './ZombieRadio.js'
+import { MAX_SPRAYS, SPRAY_SIZE, SPRAY_COLORS } from './Sprays.js'
 import { CHANCE as BLOOD_MOON_CHANCE, FROM_WAVE as BLOOD_MOON_WAVE } from './BloodMoon.js'
 import { SPAN as REPLAY_SECONDS } from './DeathReplay.js'
 import { PHOTO_FILTERS } from './PhotoFilters.js'
@@ -367,6 +371,14 @@ export function _featureValues(_game) {
     zombieCapeOdds: CAPE_EVERY,
     bloodMoonOdds: Math.round(1 / BLOOD_MOON_CHANCE),
     bloodMoonWave: BLOOD_MOON_WAVE,
+    goldenLife: GOLDEN_LIFE_S,
+    goldenCoins: GOLDEN_COINS,
+    rodCost: ROD_COST,
+    catchKinds: CATCHES.length,
+    radioLines: RADIO_LINES,
+    spraySize: SPRAY_SIZE,
+    sprayColors: SPRAY_COLORS.length - 1,
+    maxSprays: MAX_SPRAYS,
     replaySeconds: REPLAY_SECONDS,
     photoFilters: PHOTO_FILTERS.length - 1,
     jokeSigns: JOKE_SIGN_COUNT,

@@ -34,6 +34,8 @@ export const ACTIONS = [
   { id: 'dropItem', defaultKey: 'KeyQ', labelKey: 'actionDropItem' },
   // Opens the emote bar: dance, wave, flex (Emotes.js, 2026-10-31).
   { id: 'emote', defaultKey: 'KeyB', labelKey: 'actionEmote' },
+  // Sprays your own picture on the block you look at (Sprays.js, 2026-11-01).
+  { id: 'spray', defaultKey: 'KeyY', labelKey: 'actionSpray' },
 ]
 
 // Extra keys that also work for an action, as long as no action is bound

@@ -219,9 +219,20 @@
             <button type="button" id="play-pause-weapon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9h15l2 2v2H9l-1 4H5l1-4H3z"/><path d="M18 9V7"/><path d="M11 13v2"/></svg><span id="play-pause-weapon-label">Switch Weapon</span></button>
             <button type="button" id="play-pause-spectate-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span id="play-pause-spectate-label">Spectate</span></button>
             <button type="button" id="play-pause-photo-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h4l2-3h6l2 3h4v12H3z"/><circle cx="12" cy="13" r="4"/></svg><span id="play-pause-photo-label">Photo Mode</span></button>
+            <button type="button" id="play-pause-spray-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="9" width="8" height="12" rx="1.5"/><path d="M9 9V6h4v3"/><path d="M16 5h.01M19 4h.01M18 7h.01M21 6h.01"/></svg><span id="play-pause-spray-label">Spray Paint</span></button>
             <button type="button" id="play-pause-invite-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M19 8v6M16 11h6"/></svg><span id="play-pause-invite-label">Invite Friends</span></button>
             <button type="button" id="play-pause-save-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3"/><rect x="8" y="13" width="8" height="6"/></svg><span id="play-pause-save-label">Save Progress</span></button>
             <button type="button" id="play-pause-leave-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h5v16h-5"/><path d="M10 8l-4 4 4 4"/><path d="M6 12h10"/></svg><span id="play-pause-leave-label">Leave Game</span></button>
+          </div>
+          <!-- Spray Paint: draw your spray tag (Sprays.js, PlayPauseMenu.openSpray). -->
+          <div id="play-spray" hidden>
+            <p id="play-spray-hint"></p>
+            <canvas id="play-spray-pad" width="256" height="256"></canvas>
+            <div id="play-spray-colors"></div>
+            <div class="play-spray-row">
+              <button type="button" id="play-spray-clear">Clear</button>
+              <button type="button" id="play-spray-done">Done</button>
+            </div>
           </div>
           <div id="play-invite" hidden>
             <p id="play-invite-hint"></p>
@@ -1418,6 +1429,11 @@ Escape before dawn.</p>
             <label for="zombie-name-tags-toggle" id="zombie-name-tags-label">Name Tags Over Zombies</label>
             <input type="checkbox" id="zombie-name-tags-toggle" class="audio-checkbox" />
           </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="showOtherSprays" aria-label="What does this do?">?</button>
+            <label for="show-other-sprays-toggle" id="show-other-sprays-label">Show Other Players' Sprays</label>
+            <input type="checkbox" id="show-other-sprays-toggle" class="audio-checkbox" />
+          </div>
 
           <h3 class="settings-section-heading" id="settings-section-gameplay">Gameplay</h3>
           <div class="audio-row">
@@ -2336,9 +2352,9 @@ Escape before dawn.</p>
             </ul>
 
             <h3>5. Acceptable use</h3>
-            <p>Some things you make in GayZ are seen by other players: your nickname, bio and Player ID, chat messages (Global, server and clan chat), clan names, Market listings, Gallery posts and comments, and maps you share or build together with others. When using GayZ, you agree not to:</p>
+            <p>Some things you make in GayZ are seen by other players: your nickname, bio and Player ID, chat messages (Global, server and clan chat), clan names, Market listings, Gallery posts and comments, maps you share or build together with others, and the spray tags you draw and spray in a server. When using GayZ, you agree not to:</p>
             <ul>
-              <li>Use your nickname, bio, chat, clan name, posts, comments, shared maps or any other field to harass anyone, impersonate someone else, or post personal information (yours or anyone else's);</li>
+              <li>Use your nickname, bio, chat, clan name, posts, comments, shared maps, spray tags or any other field to harass anyone, impersonate someone else, or post personal information (yours or anyone else's);</li>
               <li>Post anything hateful, sexual, violent toward real people, or that you don't have the right to share (like someone else's artwork in a skin or Gallery post);</li>
               <li>Use exploits, bots, cheats, or hacked/modified clients to alter the game, gain an unfair advantage, or manipulate leaderboards;</li>
               <li>Attempt to disrupt, overload, or gain unauthorized access to the game, its accounts, or the systems behind it;</li>
@@ -2420,7 +2436,7 @@ Escape before dawn.</p>
             <ul>
               <li>Gallery posts (skins, maps and photos you take in Photo Mode) store the picture you post, its title, your nickname, likes, dislikes and comments - anyone can see them. Each like or dislike is saved under your account so you can only vote once per post.</li>
               <li>Maps you share get a code and are stored online so anyone can play them; Build Together rooms store the edits and each player's spot while you build.</li>
-              <li>When you play on a server, your position, skin and nickname are sent to the other players in it while you play, along with what you hold, the hat and cape you wear, the emote you play, the boats and helicopters you put down, the blocks you place and break, and what you say in Global chat (shown over your head). A game you start from the homepage is a private server from the start, so friends can join it by its link; nobody sees it in the server list, and it's deleted when you leave.</li>
+              <li>When you play on a server, your position, skin and nickname are sent to the other players in it while you play, along with what you hold, the hat and cape you wear, the emote you play, the boats and helicopters you put down, the spray tags you spray (your drawing and where it is), the blocks you place and break, and what you say in Global chat (shown over your head). A game you start from the homepage is a private server from the start, so friends can join it by its link; nobody sees it in the server list, and it's deleted when you leave.</li>
             </ul>
 
             <h3>Stored only on your device</h3>
@@ -2516,11 +2532,24 @@ Escape before dawn.</p>
         <div class="feature" data-code="WorldEvents EVENT_GAP MUTANT_HP BloodMoon bloodMoon">
           <h3>World Events</h3>
           <p>From the second wave of Zombie Survival, something unexpected happens every few minutes. A supply plane flies over and drops a crate on a parachute nearby - follow its light beam and walk up to it for ammo, health packs, a trap and coins before it's gone. A zombie horde migrates across the map past you - they leave you alone unless you get close or shoot one. Or a glowing meteor streaks down and blows up nearby: the zombies around it mutate into bigger, purple, sparking mutants that take more shots, run faster, hit harder and pay extra coins, and a few more climb out of the crater.</p>
+          <p>Golden Runner: a glowing gold zombie turns up under a gold light beam and runs away from you. Every few seconds it stops to dance and taunt you, and it gets tired as it goes - sprint after it and touch it to catch it, and at least <span data-feature-value="goldenCoins">100</span> coins burst out (more on later waves). Leave it for <span data-feature-value="goldenLife">50</span> seconds and it digs into the ground and escapes.</p>
           <p>Blood Moon: from wave <span data-feature-value="bloodMoonWave">2</span>, about one night in <span data-feature-value="bloodMoonOdds">3</span> the moon rises red. The sky, the light and the moon turn blood red, a red glow pulses round the edge of the screen, and until sunrise every wave has double the zombies, twice as many at once, coming twice as fast - and every coin you earn counts double. On a server everyone gets the same Blood Moon.</p>
         </div>
         <div class="feature" data-code="Survivors MAX_HELPERS QUEST_COINS CAMP_MAX">
           <h3>Survivors to Rescue</h3>
           <p>One of Zombie Survival's world events: someone gets stuck on a rooftop nearby, waving and shouting for help, with a green light beam over them. Climb up and reach them before they give up to rescue them. Every other survivor joins you - they follow you around and shoot the zombies near you (zombies leave them alone) - and the rest give you a quick quest instead: kill a set number of zombies in time for coins and a trap. Everyone you rescue then moves into your camp for good (up to <span data-feature-value="campSurvivors">8</span>): in your later games on Map 1 they stand guard in the camp and shoot zombies that come near its walls. Look at one and press Use to give an order - Follow Me (up to <span data-feature-value="maxFollowers">3</span> at once) or Hold Here, where they stay put and keep shooting. Survivors only live in your own games, not on servers.</p>
+        </div>
+        <div class="feature" data-code="Fishing CATCHES fishingRod">
+          <h3>Fishing</h3>
+          <p>Buy a Fishing Rod from the camp's Trader for <span data-feature-value="rodCost">60</span> coins (loot chests sometimes have one too). Hold it, look at water and click to cast: the bobber flies out and floats. When something bites, the bobber dips and "Click now!" shows - click quickly to reel it in, or it gets away. You might pull out a Fish or a rare Golden Fish (eat them to heal), an Old Boot, a sunken treasure chest full of coins and an item, or a Zombie Fish that leaps out of the water at you. Out of <span data-feature-value="catchKinds">5</span> kinds of catch, fish are the most common.</p>
+        </div>
+        <div class="feature" data-code="ZombieRadio RADIO_LINES">
+          <h3>Zombie Radios</h3>
+          <p>Old radios turn up on the ground as you explore, with a yellow music note bobbing over them. Walk up to one and it crackles into one of <span data-feature-value="radioLines">10</span> silly news reports - and often a real tip too: a supply plane on its way to you. Each radio plays once.</p>
+        </div>
+        <div class="feature" data-code="Sprays MAX_SPRAYS SPRAY_SIZE">
+          <h3>Spray Tags</h3>
+          <p>Draw your own <span data-feature-value="spraySize">16</span> x <span data-feature-value="spraySize">16</span> spray tag in the pause screen's Spray Paint, with <span data-feature-value="sprayColors">15</span> paints and an eraser. In a game, look at a block close by and press Y (Settings > Controls) - or the spray-can button on a phone - to spray it on. Your last <span data-feature-value="maxSprays">3</span> stay up; breaking the block takes one off. On a server everyone sees them; turn off Settings > Controls > Show Other Players' Sprays to hide others' sprays, and a player you mute never shows theirs.</p>
         </div>
         <div class="feature" data-code="PlayCrafting RECIPES GOO_CHANCE">
           <h3>Crafting</h3>
@@ -2620,7 +2649,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="PlayInventory ITEMS ARMOR_SLOTS">
           <h3>Inventory</h3>
-          <p>Press Tab in a game (or the bag button on a phone) for your inventory: five armor slots (helmet, chestplate, leggings, boots, shield), a ten-by-ten grid and your hotbar. Your gun is in it (just the one you picked - Switch Weapon swaps it), blocks you break pop out as little spinning blocks that you pick up by walking near them (or by pressing Use next to them, with Auto Pick-Up turned off), and Loot Chests drop health packs, ammo boxes, armor and blocks. Hold a block and right-click to place it (the fire button on a phone); click with a health pack or ammo box to use it, or with an animal's raw meat (Raw Beef, Raw Pork and so on) or Vegetables (from a Crop Plot) to eat them. Worn armor blocks part of every hit. Drag items between slots (just the one picture moves), or Shift-click between the hotbar and the grid. Press Q (Drop Item - change it in Settings &gt; Controls) to throw one of the item in your hand on the ground in front of you, or, with the inventory open, one of the item under your pointer; phones get a drop button at the top of the screen. It lies still for a moment before you can pick it up again. Armor and prize items need the Drop key pressed twice (Confirm Before Dropping Rare Items in Settings). Your gun can't be dropped. Right-click an item (double-tap it on a phone) to lock it: a little lock shows on its corner and Q won't drop it until you unlock it the same way. Point at any item (or tap it on a phone) to see its name and what it does - a gun's damage, how fast it shoots and its magazine, how much a health pack heals or how much armor blocks. The inventory's Crafting tab turns what you carry into gear and blocks - see Crafting. In the Map Editor, Tab shows the blocks on the left and your hotbar plus a block storage on the right.</p>
+          <p>Press Tab in a game (or the bag button on a phone) for your inventory: five armor slots (helmet, chestplate, leggings, boots, shield), a ten-by-ten grid and your hotbar. Your gun is in it (just the one you picked - Switch Weapon swaps it), blocks you break pop out as little spinning blocks that you pick up by walking near them (or by pressing Use next to them, with Auto Pick-Up turned off), and Loot Chests drop health packs, ammo boxes, armor, blocks and now and then a Fishing Rod. Hold a block and right-click to place it (the fire button on a phone); click with a health pack or ammo box to use it, or with an animal's raw meat (Raw Beef, Raw Pork and so on) Vegetables (from a Crop Plot) or a fish you caught (see Fishing) to eat them. Worn armor blocks part of every hit. Drag items between slots (just the one picture moves), or Shift-click between the hotbar and the grid. Press Q (Drop Item - change it in Settings &gt; Controls) to throw one of the item in your hand on the ground in front of you, or, with the inventory open, one of the item under your pointer; phones get a drop button at the top of the screen. It lies still for a moment before you can pick it up again. Armor and prize items need the Drop key pressed twice (Confirm Before Dropping Rare Items in Settings). Your gun can't be dropped. Right-click an item (double-tap it on a phone) to lock it: a little lock shows on its corner and Q won't drop it until you unlock it the same way. Point at any item (or tap it on a phone) to see its name and what it does - a gun's damage, how fast it shoots and its magazine, how much a health pack heals or how much armor blocks. The inventory's Crafting tab turns what you carry into gear and blocks - see Crafting. In the Map Editor, Tab shows the blocks on the left and your hotbar plus a block storage on the right.</p>
         </div>
         <div class="feature" data-code="contextmenu">
           <h3>No Right-Click Menu</h3>

@@ -103,6 +103,12 @@ html.ui-theme-biome #spawn-map :is(#spawn-map-go, #spawn-map-list button.active)
 }
 html.ui-theme-biome #play-invite-link { color: var(--biome-ink); background: var(--biome-button); border-color: var(--biome-line); }
 html.ui-theme-biome #play-invite-copy { color: rgb(var(--biome-bg-rgb)); background: var(--biome-accent); }
+/* Spray Paint's pad (PlayPauseMenu.openSpray). */
+html.ui-theme-biome #play-spray-hint { color: var(--biome-ink); }
+html.ui-theme-biome #play-spray-pad { border-color: var(--biome-line); }
+html.ui-theme-biome #play-spray .play-spray-row button { color: var(--biome-ink); background: var(--biome-button); border-color: var(--biome-line); font-family: inherit; }
+html.ui-theme-biome #play-spray #play-spray-done { color: var(--biome-ink); font-weight: 700; background: var(--biome-accent); border-color: var(--biome-accent); }
+html.ui-theme-biome #play-spray-colors button.on { border-color: var(--biome-accent); box-shadow: 0 0 0 2px var(--biome-accent); }
 
 /* Inventory slots. */
 html.ui-theme-biome #play-item-tip { color: var(--biome-ink); background: var(--biome-surface); border: 2px solid var(--biome-edge); border-radius: 8px; font-family: inherit; image-rendering: pixelated; }

@@ -89,6 +89,35 @@
 #play-pause-buttons button:hover { background: rgba(var(--pp-gold-rgb), 0.2); border-color: var(--pp-gold); }
 #play-pause-leave-btn { margin-top: 6px; }
 #play-pause-leave-btn:hover { border-color: #e8483a !important; background: rgba(232, 72, 58, 0.18) !important; }
+/* Spray Paint's drawing pad (PlayPauseMenu.openSpray, Sprays.js). */
+#play-pause-buttons[hidden] { display: none; }
+#play-spray { text-align: center; }
+#play-spray[hidden] { display: none; }
+#play-spray-hint { margin: 0 0 10px; font-size: 13px; opacity: 0.85; }
+#play-spray-pad {
+  display: block;
+  width: min(240px, 64vw);
+  height: auto;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  image-rendering: pixelated;
+  touch-action: none;
+  cursor: crosshair;
+  border: 2px solid rgba(var(--pp-gold-rgb), 0.6);
+  border-radius: 6px;
+  /* A light check shows where it's see-through. */
+  background: repeating-conic-gradient(rgba(255, 255, 255, 0.16) 0% 25%, rgba(255, 255, 255, 0.04) 0% 50%) 0 0 / 30px 30px;
+}
+#play-spray-colors { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 280px; margin: 12px auto 0; }
+#play-spray-colors button { width: 26px; height: 26px; padding: 0; border: 2px solid rgba(var(--pp-gold-rgb), 0.35); border-radius: 50%; cursor: pointer; }
+#play-spray-colors button.on { border-color: var(--pp-gold); box-shadow: 0 0 0 2px var(--pp-gold); }
+#play-spray-colors .play-spray-eraser { background: repeating-conic-gradient(#ffffff 0% 25%, #b0b0b0 0% 50%) 0 0 / 10px 10px; }
+#play-spray .play-spray-row { display: flex; justify-content: center; gap: 10px; margin-top: 14px; }
+#play-spray .play-spray-row button { padding: 8px 20px; font: inherit; font-size: 15px; font-weight: 700; color: var(--pp-text); background: rgba(var(--pp-gold-rgb), 0.08); border: 1px solid rgba(var(--pp-gold-rgb), 0.5); border-radius: 999px; cursor: pointer; }
+#play-spray #play-spray-done { color: #1a1206; background: var(--pp-gold); border-color: var(--pp-gold); }
+html.ui-theme-old #play-spray .play-spray-row button { font-family: 'Rye', Georgia, serif; }
+html.ui-theme-old #play-spray #play-spray-done { color: #f6e9c8; }
+html.ui-theme-old #play-spray-pad { background-color: rgba(255, 248, 230, 0.5); }
 /* Invite Friends' link box (PlayPauseMenu.invite). */
 #play-invite { margin-top: 12px; text-align: center; }
 #play-invite[hidden] { display: none; }

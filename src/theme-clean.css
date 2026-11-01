@@ -624,6 +624,22 @@ html.ui-theme-clean #play-invite-copy {
   color: var(--clean-bg);
   background: var(--clean-fg);
 }
+html.ui-theme-clean #play-spray .play-spray-row button {
+  color: var(--clean-fg);
+  background: var(--clean-surface);
+  border-color: transparent;
+}
+html.ui-theme-clean #play-spray #play-spray-done {
+  color: var(--clean-bg);
+  background: var(--clean-fg);
+}
+html.ui-theme-clean #play-spray-pad {
+  border-color: var(--clean-line);
+}
+html.ui-theme-clean #play-spray-colors button.on {
+  border-color: var(--clean-fg);
+  box-shadow: 0 0 0 2px var(--clean-fg);
+}
 html.ui-theme-clean #play-inventory .inv-box,
 html.ui-theme-clean #build-picker :is(.bp-title, .build-picker-label, .build-picker-empty) {
   color: var(--clean-fg);
