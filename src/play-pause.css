@@ -760,3 +760,52 @@ body.play-photo.play-blood-moon::after, body.play-replay.play-blood-moon::after 
   border-radius: 999px;
   text-shadow: 0 1px 2px #000;
 }
+
+/* Shrinking Zone (ShrinkZone.js, 2026-11-01): the toxic green fog over
+   the screen while you're outside the safe zone, and how far back in it is. */
+#zone-fog {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s;
+  background:
+    radial-gradient(ellipse at center, rgba(110, 200, 50, 0.18) 0%, rgba(90, 170, 30, 0.42) 70%, rgba(50, 120, 10, 0.75) 100%);
+  backdrop-filter: blur(1.5px) saturate(0.7);
+}
+#zone-fog.on { opacity: 1; animation: zone-fog-pulse 3s ease-in-out infinite alternate; }
+@keyframes zone-fog-pulse { from { filter: brightness(0.9); } to { filter: brightness(1.1); } }
+#zone-fog span {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  transform: translateX(-50%);
+  padding: 5px 16px;
+  font: 700 15px/1.3 system-ui, sans-serif;
+  color: #eaffd8;
+  background: rgba(30, 70, 10, 0.75);
+  border-radius: 999px;
+  text-shadow: 0 1px 2px #000;
+  white-space: nowrap;
+}
+
+/* Flying a crafted helicopter (Vehicles.js, 2026-11-01): the fuel left. */
+#vehicle-fuel {
+  position: fixed;
+  left: 50%;
+  bottom: 150px;
+  transform: translateX(-50%);
+  z-index: 5;
+  pointer-events: none;
+  display: none;
+  padding: 4px 14px;
+  font: 700 14px/1.3 system-ui, sans-serif;
+  color: #fff4d0;
+  background: rgba(70, 50, 10, 0.72);
+  border-radius: 999px;
+  text-shadow: 0 1px 2px #000;
+}
+#vehicle-fuel.on { display: block; }
+#vehicle-fuel.low { color: #ffd0c8; background: rgba(120, 25, 15, 0.78); }
+body.play-photo #zone-fog, body.play-photo #vehicle-fuel { display: none; }

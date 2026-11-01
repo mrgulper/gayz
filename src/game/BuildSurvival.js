@@ -52,6 +52,8 @@ import { ZombieTricks } from './ZombieTricks.js'
 import { WorldEvents, MUTANT_COINS } from './WorldEvents.js'
 import { Survivors } from './Survivors.js'
 import { GoKart } from './GoKart.js'
+import { Vehicles } from './Vehicles.js'
+import { ShrinkZone } from './ShrinkZone.js'
 import { HEAVEN_FLOOR, HEAVEN_TOP } from './HeavenRealm.js'
 import { WATER_BIOMES } from './EarthGrid.js'
 import { PlayDamageNumbers } from './PlayDamageNumbers.js'
@@ -318,8 +320,9 @@ export class BuildSurvival {
     this._spawnPick = null
     if (net) {
       net.attach(this)
-      // A server plays its own mode: Zombie Survival, or Infection.
-      this.cfg.mode = net.mode === 'infection' ? 'infection' : 'classic'
+      // A server plays its own mode: Zombie Survival, Infection or
+      // Shrinking Zone.
+      this.cfg.mode = net.mode === 'infection' ? 'infection' : net.mode === 'zone' ? 'shrinkingZone' : 'classic'
       this.cfg.noZombies = this.cfg.mode === 'infection'
     }
     this._zid = 0
@@ -363,6 +366,9 @@ export class BuildSurvival {
     // Infection mode (Infection.js): rounds of tag instead of waves.
     this.infection?.dispose()
     this.infection = this.cfg.mode === 'infection' ? new Infection(this) : null
+    // Shrinking Zone mode (ShrinkZone.js): the waves, inside a closing ring.
+    this.zone?.dispose()
+    this.zone = this.cfg.mode === 'shrinkingZone' ? new ShrinkZone(this) : null
     // The gun (PlayWeapons.js): a homepage run starts with the weapon
     // picker open (last pick highlighted); the editor's own Play just
     // uses the rifle.
@@ -401,6 +407,9 @@ export class BuildSurvival {
     if (!this.kart) this.kart = new GoKart(this)
     this.kart.dispose()
     this._kartParked = false
+    // Crafted boats and helicopters (Vehicles.js).
+    if (!this.vehicles) this.vehicles = new Vehicles(this)
+    this.vehicles.clear()
     this.events.reset()
     // A rare red night: double zombies, double coins (BloodMoon.js).
     if (!this.bloodMoon) this.bloodMoon = new BloodMoon(this)
@@ -516,6 +525,8 @@ export class BuildSurvival {
     this.active = false
     this.infection?.dispose()
     this.infection = null
+    this.zone?.dispose()
+    this.zone = null
     this.net?.leave()
     this.net = null
     this.lobby?.leave()
@@ -540,6 +551,7 @@ export class BuildSurvival {
     this.disguise?.clear()
     this.fuel?.clear()
     this.kart?.dispose()
+    this.vehicles?.clear()
     this._fx?.clear()
     this.throws?.clear()
     this.catcher?.clear()
@@ -1054,6 +1066,7 @@ export class BuildSurvival {
       else if (ex.hold > 0) extractText = ` · ${t('extractionHolding', { s: Math.ceil(EXTRACTION_HOLD - ex.hold) })}`
       else extractText = ` · ${t('extractionDistance', { n: Math.round(ex.dist ?? 0) })}`
     }
+    if (this.zone) extractText = ` · ${this.zone.hudText()}`
     const serverText = this.net && !this.net.closed ? ` · ${t('serverHudLine', { name: this.net.name, n: this.net.players.size + 1 })}` : ''
     // Between waves: when the next one comes, not "0 left" (that read as
     // a wave over with nothing killed).
@@ -1943,6 +1956,7 @@ export class BuildSurvival {
     if (!this.kart) return
     if (!this._kartParked && !this.spectating) this._kartParked = this.kart.park(this.bm.tryMode.pos)
     this.kart.update(dt)
+    this.vehicles?.update(dt)
   }
 
   // How much a go-kart hitting a zombie at `frac` of its top speed hurts
@@ -2457,6 +2471,8 @@ export class BuildSurvival {
       speed *= zb.speedMult || 1
     }
     if (zb.monster) speed *= zb.speedMult || 1
+    // Out in Shrinking Zone's toxic fog they run faster (ShrinkZone.js).
+    if (this.zone) speed *= this.zone.zombieMult(zb)
     if (zb.burn > 0) {
       zb.burn -= dt
       // Water or rain puts a burning zombie out.
@@ -2739,6 +2755,7 @@ export class BuildSurvival {
 
   _die(won = false) {
     this.kart?.leave()
+    this.vehicles?.leave(true)
     // A Bed you slept in brings you back once (BuildSpecials.js).
     if (!won && this.bm.specials.tryRevive(this)) return
     this.dead = true
@@ -2762,8 +2779,9 @@ export class BuildSurvival {
       if (el) el.textContent = text
     }
     const extracted = won && this.cfg.mode === 'zombieExtraction'
-    set('build-play-over-title', t(extracted ? 'extractionWinTitle' : won ? 'buildPlayOverWinTitle' : 'buildPlayOverTitle'))
-    set('build-play-over-text', t(extracted ? 'extractionWinText' : won ? 'buildPlayOverWinText' : 'buildPlayOverText', { waves, kills: this.kills }))
+    const zoned = won && this.cfg.mode === 'shrinkingZone'
+    set('build-play-over-title', t(extracted ? 'extractionWinTitle' : zoned ? 'zoneWinTitle' : won ? 'buildPlayOverWinTitle' : 'buildPlayOverTitle'))
+    set('build-play-over-text', t(extracted ? 'extractionWinText' : zoned ? 'zoneWinText' : won ? 'buildPlayOverWinText' : 'buildPlayOverText', { waves, kills: this.kills }))
     set('build-play-over-best', `${t('buildPlayOverBest', { n: best })}${reward?.legacy ? ` · ${t('buildPlayOverLegacy', { n: reward.legacy })}` : ''}${reward?.xp ? ` · ${t('buildPlayOverXp', { n: reward.xp })}` : ''}`)
     // Dying: the run goes on from a fresh spawn or you leave, so say that
     // A silly line about who got you (DeathJokes.js) - a zombie that bit
@@ -2883,6 +2901,7 @@ export class BuildSurvival {
     if (this._picking && !net) return
     dt = Math.min(dt, 1 / 20)
     this.infection?.update(dt)
+    this.zone?.update(dt)
     const playing = !this.dead && !this.bm.menuOpen && !this._picking
     if (playing) this._updateMe(dt)
     if (playing && !net) this.replay?.record(dt)
@@ -2923,7 +2942,7 @@ export class BuildSurvival {
         this._renderHud()
       }
     }
-    if ((this.cfg.mode === 'zombieRush' || this.cfg.noZombies) && Math.floor(nowMs / 1000) !== this._lastSecond) {
+    if ((this.cfg.mode === 'zombieRush' || this.cfg.noZombies || this.zone) && Math.floor(nowMs / 1000) !== this._lastSecond) {
       this._lastSecond = Math.floor(nowMs / 1000)
       this._renderHud()
     }

@@ -1345,6 +1345,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'inventory-tab-cosmetics': 'inventoryCosmeticsTitle',
   'inventory-tab-zombiebook': 'inventoryBookTitle',
   'game-mode-infection-label': 'topBarModeInfection',
+  'game-mode-shrinking-zone-label': 'topBarModeShrinkingZone',
   'zombie-book-done': 'bookComplete',
   'inventory-pets-soon-title': 'inventoryPetsTitle',
   'inventory-pets-soon-text': 'inventoryPetsSoon',

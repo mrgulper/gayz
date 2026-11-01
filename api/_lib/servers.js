@@ -45,8 +45,9 @@ export const STALE_MS = 10000
 // take well over 30s on a slow phone or a software-rendered browser -
 // 30s dropped joiners there, 2026-10-10).
 export const JOIN_GRACE_MS = 90000
-// main: Zombie Survival; infection: Infection mode (src/game/Infection.js).
-export const MODES = ['main', 'infection']
+// main: Zombie Survival; infection: Infection mode (src/game/Infection.js);
+// zone: Shrinking Zone (src/game/ShrinkZone.js).
+export const MODES = ['main', 'infection', 'zone']
 const NAME_MAX = 24
 const NICK_MAX = 20
 const MAX_ZOMBIES = 40
@@ -360,6 +361,20 @@ function cleanInf(v) {
   }
 }
 
+// Shrinking Zone (src/game/ShrinkZone.js): where it began, its seed and
+// how far along it is.
+function cleanZone(v) {
+  if (!v || typeof v !== 'object') return null
+  return { x: num(v.x, -1e5, 1e5), z: num(v.z, -1e5, 1e5), y: Math.round(num(v.y, -520, 520)), s: Math.round(num(v.s, 0, 2 ** 31)), t: num(v.t, 0, 3600) }
+}
+
+// A player's boats and helicopters (src/game/Vehicles.js): b / h, where,
+// facing, rotor on.
+function cleanVeh(v) {
+  if (!Array.isArray(v)) return []
+  return v.slice(0, 4).filter((d) => d && (d.k === 'b' || d.k === 'h')).map((d) => ({ k: d.k, x: num(d.x, -1e5, 1e5), y: num(d.y, -520, 520), z: num(d.z, -1e5, 1e5), h: num(d.h, -100, 100), r: d.r ? 1 : 0 }))
+}
+
 function cleanSay(v) {
   if (!v || typeof v !== 'object') return null
   const text = cleanText(v.text, SAY_MAX)
@@ -391,6 +406,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     [`${base}/players/${playerId}/emote`]: typeof s.emote === 'string' && /^[a-z]{1,12}$/.test(s.emote) ? s.emote : '',
     [`${base}/players/${playerId}/hat`]: typeof s.hat === 'string' && ID_RE.test(s.hat) ? s.hat : '',
     [`${base}/players/${playerId}/cape`]: typeof s.cape === 'string' && /^[A-Za-z]{1,20}$/.test(s.cape) ? s.cape : '',
+    [`${base}/players/${playerId}/veh`]: cleanVeh(s.veh),
     [`${base}/players/${playerId}/t`]: now,
   }
   // Drop players who went quiet; take over as host if the host did.
@@ -460,6 +476,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     if (sky) updates[`${base}/sky`] = sky
     const inf = server.mode === 'infection' ? cleanInf(body.inf) : null
     if (inf) updates[`${base}/inf`] = inf
+    const zone = server.mode === 'zone' ? cleanZone(body.zone) : null
+    if (zone) updates[`${base}/zone`] = zone
     if (body.animals && typeof body.animals === 'object') {
       const as = {}
       for (const [id, a] of Object.entries(body.animals).slice(0, MAX_ANIMALS)) {
@@ -496,6 +514,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     out.sky = server.sky || null
     out.animals = server.animals || {}
     if (server.inf) out.inf = server.inf
+    if (server.zone) out.zone = server.zone
     // Shots on the host's zombies (z...) and animals (a..., or taming one).
     for (const h of [].concat(body.hits || []).slice(0, MAX_HITS_PER_SYNC)) {
       // z/a: a zombie or animal; s: a stun shot in Infection (s + who).
@@ -518,7 +537,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p) continue
-    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '' }
+    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [] }
     // A chat bubble: its number (new one = new bubble) and how long ago.
     if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }

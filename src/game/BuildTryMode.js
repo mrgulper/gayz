@@ -660,6 +660,16 @@ export class BuildTryMode {
       ctx.fill()
       ctx.stroke()
     }
+    // Shrinking Zone (ShrinkZone.js): the safe zone in green, the next one in white.
+    for (const ring of this.bm.survival?.zone?.mapRings() || []) {
+      ctx.beginPath()
+      ctx.arc((ring.x - ox) * k, (ring.z - oz) * k, ring.r * k, 0, Math.PI * 2)
+      ctx.strokeStyle = ring.next ? 'rgba(255, 255, 255, 0.85)' : '#7dff4a'
+      ctx.lineWidth = Math.max(1.5, s / (ring.next ? 160 : 90))
+      ctx.setLineDash(ring.next ? [4, 4] : [])
+      ctx.stroke()
+      ctx.setLineDash([])
+    }
     const ex = this.bm.survival?._extract
     if (ex) {
       const pulse = 0.5 + 0.5 * Math.sin(now / 180)
@@ -860,6 +870,23 @@ export class BuildTryMode {
       this.updateHands(dt, keys, false, false)
       this._drawMap(performance.now())
       return
+    }
+    // Riding a crafted boat or helicopter (Vehicles.js): the same, plus
+    // Jump / Crouch to climb and sink a helicopter.
+    const vehicles = this.bm.survival?.active ? this.bm.survival.vehicles : null
+    if (vehicles?.riding) {
+      vehicles.drive(dt, { fwd, back, left, right, stick, up: heldAction(keys, 'jump'), down: heldAction(keys, 'crouch') })
+      const seat = vehicles.seat()
+      if (seat) {
+        this.vel.set(0, 0, 0)
+        this.onGround = true
+        this.pos.set(seat.x, seat.y, seat.z)
+        cam.position.set(seat.x * B, (seat.y + seat.eye) * B, seat.z * B)
+        this.updateHands(dt, keys, false, false)
+        this.bm.specials.update(dt, this.pos)
+        this._drawMap(performance.now())
+        return
+      }
     }
     const kart = this.bm.survival?.active ? this.bm.survival.kart : null
     if (kart?.driving) {
