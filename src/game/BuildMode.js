@@ -1948,7 +1948,7 @@ export class BuildMode {
         // key (E).
         // Holding a block from the inventory: right-click places it.
         // Right-clicking the go-kart hops in (GoKart.js).
-        else if (e.button === 2 && this.survival?.active && this.survival.kart?.rightClick()) return
+        else if (e.button === 2 && this.survival?.active && (this.survival.kart?.rightClick() || this.survival.vehicles?.rightClick())) return
         else if (e.button === 2 && this.survival?.holding?.kind === 'block') this.survival.placeHeldBlock()
         else if (e.button === 2) this.tryMode.setAim(true)
         return
@@ -2375,7 +2375,10 @@ export class BuildMode {
   // at, within arm's reach - and never swings one shut onto yourself.
   _tryUseFromCamera() {
     // Hop in or out of the go-kart (GoKart.js).
+    if (this.survival?.active && this.survival.vehicles?.riding && this.survival.vehicles.use()) return true
     if (this.survival?.active && this.survival.kart?.use()) return true
+    // ...or a boat / helicopter (Vehicles.js).
+    if (this.survival?.active && this.survival.vehicles?.use()) return true
     // Playing on Map 3: talk to the camp NPC you're looking at.
     if (this.survival?.camp?.use()) return true
     // Give a rescued survivor an order: follow me / hold here (Survivors.js).

@@ -29,6 +29,7 @@ import { t } from './i18n.js'
 import { getKeyFor, keyLabel } from './Keybinds.js'
 import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, canPlayWeapon } from './PlayWeapons.js'
 import { PlayCrafting } from './PlayCrafting.js'
+import { HELI_FUEL_S } from './Vehicles.js'
 
 // How long the item card stays after a finger lets go (phones).
 const TIP_TOUCH_MS = 1600
@@ -62,6 +63,11 @@ export const ITEMS = {
   plantFiber: { key: 'invPlantFiber', material: true },
   // Smeared on: zombies ignore you for a while (BuildSurvival.disguise).
   gooDisguise: { key: 'invGooDisguise', disguise: 30 },
+  // Crafted vehicles and the helicopter's fuel (Vehicles.js): used to put
+  // one down / fill one up.
+  boat: { key: 'invBoat', vehicle: 'boat' },
+  helicopter: { key: 'invHelicopter', vehicle: 'heli' },
+  heliFuel: { key: 'invHeliFuel', fuel: true },
   helmet: { key: 'invHelmet', armor: 2, slot: 0 },
   chestplate: { key: 'invChestplate', armor: 4, slot: 1 },
   leggings: { key: 'invLeggings', armor: 3, slot: 2 },
@@ -81,7 +87,7 @@ export function addAnimalMeat(id, { key, animalKey, icon }) {
 const RARE_DROP_CONFIRM_MS = 3000
 export function isRareItem(it) {
   const def = it?.kind === 'item' ? ITEMS[it.id] : null
-  return !!def && (!!def.armor || !(def.heal || def.ammo || def.trap || def.material || def.disguise))
+  return !!def && (!!def.armor || !(def.heal || def.ammo || def.trap || def.material || def.disguise || def.fuel))
 }
 
 // An item's name in the current language.
@@ -108,6 +114,9 @@ const ICON_PIXELS = {
   zombieGoo: ['................', '................', '.......vv.......', '......vvvv......', '.....vvlvvv.....', '....vvvvvlvv....', '....vlvvvvvv....', '...vvvvvvvvvv...', '...vvvvlvvvvv...', '....vvvvvvvv....', '.....vvvvvv.....'],
   plantFiber: ['................', '...g.......g....', '....g.....g.....', '....g..g..g.....', '.....g.g.g......', '.....g.g.g......', '......ggg.......', '......yyy.......', '......ggg.......', '......ggg.......', '.......g........'],
   gooDisguise: ['................', '......####......', '......#ww#......', '.....##ww##.....', '....#vvvvvv#....', '...#vvlvvvvv#...', '...#vvvvvlvv#...', '...#vlvvvvvv#...', '...#vvvvvvvv#...', '....#vvvvvv#....', '.....######.....'],
+  boat: ['................', '................', '................', '.......##.......', '.......#w.......', '.......#ww......', '.......#www.....', '.......#........', '.##############.', '.#oooooooooooo#.', '..#oooooooooo#..', '...##########...'],
+  helicopter: ['................', '.##############.', '.......##.......', '....######......', '...#yyyyyyy#....', '..#bbyyyyyyy####', '..#bbyyyyyyy#..#', '...#yyyyyyy#....', '....#######.....', '....#.....#.....', '..###########...'],
+  heliFuel: ['................', '......###.......', '.....#...#......', '...#########....', '...#rrrrrrr#....', '...#rryyyrr#....', '...#rryrrrr#....', '...#rryyrrr#....', '...#rryrrrr#....', '...#rrrrrrr#....', '...#########....'],
   shield: ['....########....', '...#bbbbbbbb#...', '...#bbbyybbb#...', '...#byyyyyyb#...', '...#bbbyybbb#...', '....#bbyybb#....', '.....#bbbb#.....', '......####......'],
 }
 const ICON_COLORS = { v: '#6fc23a', l: '#b8f06a', p: '#e8b49a', f: '#f08a5a', n: '#8aa83a', o: '#e8862a', m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8' }
@@ -269,10 +278,25 @@ export class PlayInventory {
       if (!s.catcher?.throw()) return false
     } else if (def?.disguise) {
       if (!s.putOnDisguise?.(def.disguise)) return false
+    } else if (def?.vehicle) {
+      if (!s.vehicles?.place(def.vehicle)) return false
+    } else if (def?.fuel) {
+      if (!s.vehicles?.addFuel()) return false
     } else return false
     this._take(this.hotbar, this.active, 1)
     s._renderHud()
     return true
+  }
+
+  // Takes one `id` item from anywhere (the grid first). -> true if there was one.
+  takeItem(id) {
+    for (const list of [this.grid, this.hotbar]) {
+      const i = list.findIndex((it) => it?.kind === 'item' && it.id === id)
+      if (i < 0) continue
+      this._take(list, i, 1)
+      return true
+    }
+    return false
   }
 
   // One less of a held block (after placing it).
@@ -417,6 +441,8 @@ export class PlayInventory {
     if (item.trap) return t('invTipTrap')
     if (item.material) return t('invTipMaterial')
     if (item.disguise) return t('invTipGooDisguise', { s: item.disguise })
+    if (item.vehicle) return t(item.vehicle === 'boat' ? 'invTipBoat' : 'invTipHelicopter')
+    if (item.fuel) return t('invTipHeliFuel', { s: HELI_FUEL_S })
     return t(it.id === 'meat' || it.id === 'veggies' || ITEMS[it.id]?.animalKey ? 'invTipMeat' : 'invTipHealthPack', { n: item.heal })
   }
 

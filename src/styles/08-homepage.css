@@ -233,12 +233,14 @@
 .class-btn[data-game-mode="zombieDefense"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-blue); }
 .class-btn[data-game-mode="bossHunt"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-gold); }
 .class-btn[data-game-mode="zombieRush"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-red); }
+.class-btn[data-game-mode="shrinkingZone"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-purple); }
 .class-btn[data-game-mode="zombieExtraction"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-green); }
 
 .class-btn[data-game-mode="classic"].active { color: var(--menu-olive); background: rgba(146, 160, 94, 0.32); border-color: var(--menu-olive); }
 .class-btn[data-game-mode="zombieDefense"].active { color: var(--menu-blue); background: rgba(111, 168, 220, 0.32); border-color: var(--menu-blue); }
 .class-btn[data-game-mode="bossHunt"].active { color: var(--menu-gold); background: rgba(217, 163, 74, 0.32); border-color: var(--menu-gold); }
 .class-btn[data-game-mode="zombieRush"].active { color: var(--menu-red); background: rgba(201, 86, 74, 0.32); border-color: var(--menu-red); }
+.class-btn[data-game-mode="shrinkingZone"].active { color: var(--menu-purple); background: rgba(160, 120, 220, 0.32); border-color: var(--menu-purple); }
 .class-btn[data-game-mode="zombieExtraction"].active { color: var(--menu-green); background: rgba(127, 216, 160, 0.32); border-color: var(--menu-green); }
 
 /* Weapon Gear Guide (Settings) / Special Ammo Guide (Upgrades) - pure

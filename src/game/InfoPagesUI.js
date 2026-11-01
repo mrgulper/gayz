@@ -11,7 +11,7 @@ import { ACHIEVEMENTS } from './Achievements.js'
 import { CHANGELOG_LAST_VIEWED_KEY, Game, HOWTOPLAY_STEPS, LOGIN_CALENDAR_DAYS, MARKET_FEE_RATE, MAX_GOALS, PLAY_META_UPGRADES, PRESTIGE_BONUS_PERCENT, PRESTIGE_COST_STEP, SUPPORTED_LANGUAGE_CODES, UPDATE_BANNER_FADE_MS, UPDATE_BANNER_SHOW_MS, WHATS_NEW_SEEN_KEY, WHATS_NEW_VERSION, saveSettings } from './Game.js'
 import { BIOMES } from './OpenWorld.js'
 import { TIP_COUNT, TOP_PLAYERS } from './HomeExtras.js'
-import { LEAF_DROP_CHANCE, BOSS_HUNT_EVERY, DEFENSE_WAVES, EXTRACTION_HOLD, FUEL_CANS, GLOBETROTTER_SECONDS, SKELETON_FROM_WAVE, MONSTER_FROM_WAVE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
+import { LEAF_DROP_CHANCE, BOSS_HUNT_EVERY, DEFENSE_WAVES, EXTRACTION_HOLD, FUEL_CANS, GLOBETROTTER_SECONDS, SKELETON_FROM_WAVE, MONSTER_FROM_WAVE, MOB_HEIGHT, SPAWN_MIN_DIST, ZONE_STAGES, ZONE_ZOMBIE_SPEED } from './PlayRules.js'
 import { RAINBOW_CHANCE } from './BuildSky.js'
 import { DISASTERS } from './Disasters.js'
 import { LUCK_MULT, LUCK_SECONDS } from './Luck.js'
@@ -30,6 +30,8 @@ import { WIN_COINS, LOSS_COINS } from './TeamUI.js'
 import { ROUND_S } from './TeamBattle.js'
 import { BOOK_IDS, BOOK_COINS, BOOK_DONE_COINS } from './ZombieBook.js'
 import * as Infection from './Infection.js'
+import { HELI_FUEL_S, HELI_CEILING, MAX_OUT } from './Vehicles.js'
+import { ZONE_TOTAL_S } from './ShrinkZone.js'
 import { DINO_KINDS, DINO_CHANCE } from './DinoKinds.js'
 import { RARITIES } from './NewAnimalKinds.js'
 import { ZOMBIE_SHINES } from './ZombieNames.js'
@@ -306,6 +308,14 @@ export function _featureValues(_game) {
     shopSkinPrice: Game.SHOP_SKIN_PRICE.toLocaleString('en-US'),
     defenseWaves: DEFENSE_WAVES,
     fuelCans: FUEL_CANS,
+    heliFuelSeconds: HELI_FUEL_S,
+    heliCeiling: HELI_CEILING,
+    vehiclesOut: MAX_OUT,
+    zoneStages: ZONE_STAGES.length,
+    zoneStartR: ZONE_STAGES[0].r,
+    zoneFinalR: ZONE_STAGES[ZONE_STAGES.length - 1].r,
+    zoneSpeed: ZONE_ZOMBIE_SPEED,
+    zoneMinutes: Math.floor(ZONE_TOTAL_S / 60),
     recipes: RECIPES.length,
     gooChance: Math.round(GOO_CHANCE * 100),
     gooSeconds: ITEMS.gooDisguise.disguise,

@@ -8,6 +8,7 @@
 //   one exact kind.
 // - Materials: blocks you break, Zombie Goo (zombies drop it, GOO_CHANCE),
 //   Plant Fiber (harvested Crop Plots, BuildSpecials._useCrop) and food.
+// - Boats, Helicopters and Heli Fuel (Vehicles.js) are items too.
 // - Gear goes in as items, blocks as blocks (placed like any held block).
 //   A Crop Plot is a block too: placed in the camp it stays there between
 //   games and keeps growing (CampFarm.js).
@@ -33,6 +34,10 @@ export const RECIPES = [
   { id: 'healthpack', kind: 'item', n: 1, needs: [{ item: 'veggies', n: 2 }, { item: 'plantFiber', n: 2 }] },
   { id: 'ammobox', kind: 'item', n: 1, needs: [{ group: 'stone', n: 4 }, { group: 'log', n: 1 }] },
   { id: 'catchTrap', kind: 'item', n: 2, needs: [{ group: 'log', n: 2 }, { group: 'stone', n: 2 }] },
+  // Boats and helicopters (Vehicles.js, 2026-11-01 big batch).
+  { id: 'boat', kind: 'item', n: 1, needs: [{ group: 'planks', n: 6 }, { group: 'log', n: 2 }] },
+  { id: 'helicopter', kind: 'item', n: 1, needs: [{ group: 'stone', n: 12 }, { block: 'glass', n: 2 }, { group: 'planks', n: 4 }, { item: 'zombieGoo', n: 4 }] },
+  { id: 'heliFuel', kind: 'item', n: 1, needs: [{ item: 'zombieGoo', n: 2 }, { group: 'log', n: 1 }] },
   { id: 'helmet', kind: 'item', n: 1, needs: [{ group: 'stone', n: 5 }] },
   { id: 'chestplate', kind: 'item', n: 1, needs: [{ group: 'stone', n: 8 }] },
   { id: 'leggings', kind: 'item', n: 1, needs: [{ group: 'stone', n: 7 }] },

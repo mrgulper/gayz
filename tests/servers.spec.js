@@ -681,3 +681,85 @@ test('Infection: a friend joins by link, gets tagged and stuns the zombie', asyn
     return p?.zbody?.visible && p.body && !p.body.visible
   }, hostId, { timeout: 20000 })
 })
+
+// 2026-11-01: Shrinking Zone servers share the host's zone, and everyone's
+// boats and helicopters go out with their state (ShrinkZone.js, Vehicles.js).
+test('servers: the zone and vehicles go through the server', async () => {
+  const db = fakeServerDb()
+  const t0 = 1_000_000
+  const a = await createServer(db, { nickname: 'Ann', mode: 'zone' }, t0)
+  expect(a.mode).toBe('zone')
+  const b = await joinServer(db, { serverId: a.serverId, nickname: 'Bo' }, t0 + 10)
+  await syncServer(db, { ...a, zone: { x: 1.5, z: -2, y: 4, s: 1234, t: 30.5 }, state: { x: 1, y: 1, z: 1, veh: [{ k: 'h', x: 1, y: 9, z: 2, h: 0.5, r: 1 }, { k: '<b>', x: 1 }, { k: 'b', x: 3, y: 1, z: 4, h: 0, r: 0 }] } }, t0 + 20)
+  const rb = await syncServer(db, { ...b }, t0 + 30)
+  expect(rb.zone).toEqual({ x: 1.5, z: -2, y: 4, s: 1234, t: 30.5 })
+  expect(rb.players[a.playerId].veh).toEqual([{ k: 'h', x: 1, y: 9, z: 2, h: 0.5, r: 1 }, { k: 'b', x: 3, y: 1, z: 4, h: 0, r: 0 }])
+  // A guest can't set the zone; a Zombie Survival server keeps none.
+  await syncServer(db, { ...b, zone: { x: 99, z: 99, y: 0, s: 1, t: 0 } }, t0 + 40)
+  expect((await syncServer(db, { ...b }, t0 + 50)).zone.s).toBe(1234)
+  const c = await createServer(db, { nickname: 'Cy' }, t0)
+  const d = await joinServer(db, { serverId: c.serverId, nickname: 'Di' }, t0 + 10)
+  await syncServer(db, { ...c, zone: { x: 1, z: 1, y: 1, s: 5, t: 1 } }, t0 + 20)
+  expect((await syncServer(db, { ...d }, t0 + 30)).zone).toBeUndefined()
+})
+
+test('Shrinking Zone: a friend joins, gets the same zone and sees my helicopter', async ({ browser }) => {
+  test.setTimeout(240000)
+  const db = fakeServerDb()
+  const fns = { list: () => listServers(db), create: (b) => createServer(db, b), join: (b) => joinServer(db, b), leave: (b) => leaveServer(db, b), sync: (b) => syncServer(db, b) }
+  const open = async (path = '/') => {
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await page.exposeFunction('__srv', async (name, body) => {
+      try {
+        return { ok: await fns[name](body) }
+      } catch (err) {
+        return { err: err.code || 'server' }
+      }
+    })
+    await page.addInitScript(() => {
+      const call = async (name, body) => {
+        const r = await window.__srv(name, body)
+        if (r.err) throw Object.assign(new Error(r.err), { code: r.err })
+        return r.ok
+      }
+      window.__serversBackendForTests = { list: () => call('list'), create: (b) => call('create', b), join: (b) => call('join', b), leave: (b) => call('leave', b), sync: (b) => call('sync', b) }
+    })
+    await gotoAndWaitForGame(page, path)
+    return page
+  }
+  const a = await open()
+  await a.evaluate(() => { window.__game.settings.selectedGameMode = 'shrinkingZone'; window.__game.playBtn.click() })
+  await a.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await a.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  await a.waitForFunction(() => window.__game.buildMode.survival.lobby && location.search.startsWith('?join='), null, { timeout: 20000 })
+  await a.waitForFunction(() => window.__game.buildMode.survival.zone?.started, null, { timeout: 20000 })
+  const search = await a.evaluate(() => location.search)
+  const b = await open(`/${search}`)
+  await a.evaluate(() => window.__game.buildMode.survival.lobby?._sync() || window.__game.buildMode.survival.net?._sync())
+  await b.waitForFunction(() => window.__game.buildMode?.survival?.active && window.__game.buildMode.survival.net, null, { timeout: 60000 })
+  await b.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  const sync = (page) => page.evaluate(() => window.__game.buildMode.survival.net._sync())
+  // The host puts a helicopter down (straight into the list - where it
+  // lands doesn't matter here) and both sync.
+  await a.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const p = s.bm.tryMode.pos
+    const v = s.vehicles
+    v.list.push({ id: 99, kind: 'heli', x: p.x + 3, y: p.y + 5, z: p.z, heading: 1, speed: 0, side: 0, vy: 0, fuel: 60, rotor: 1, group: new (s.bm.scene.constructor)() })
+  })
+  await sync(b)
+  await a.evaluate(() => window.__game.buildMode.survival.net._sync())
+  await sync(b)
+  const host = await a.evaluate(() => {
+    const z = window.__game.buildMode.survival.zone
+    return { seed: z.seed, c: z.centers.map((c) => [Math.round(c.x * 10), Math.round(c.z * 10)]) }
+  })
+  const guest = await b.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    for (let i = 0; i < 5; i++) s.net.update(0.1)
+    const other = [...s.net.players.values()][0]
+    return { mode: s.cfg.mode, netMode: s.net.mode, seed: s.zone?.seed, c: s.zone?.centers.map((c) => [Math.round(c.x * 10), Math.round(c.z * 10)]), wall: !!s.zone?.wall?.parent, veh: other?.veh?.map((d) => d.k), drawn: other?.vehicles?.length === 1 && !!other.vehicles[0].group.parent && !!other.vehicles[0].group.userData.rotor }
+  })
+  expect(guest).toEqual({ mode: 'shrinkingZone', netMode: 'zone', seed: host.seed, c: host.c, wall: true, veh: ['h'], drawn: true })
+})

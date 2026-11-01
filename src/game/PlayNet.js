@@ -43,6 +43,7 @@ import { MOB_HEIGHT } from './PlayRules.js'
 import { _censorText } from './Game.js'
 import { worldSeed, isEarthWorld } from './OpenWorld.js'
 import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './SpeechBubble.js'
+import { drawRemote, disposeRemote, cleanRemote } from './Vehicles.js'
 
 // Seconds between syncs.
 export const SYNC_EVERY = 0.16
@@ -78,7 +79,7 @@ export class PlayNet {
     // The host's world, for a game made joinable with Invite Friends.
     this.world = info.world || null
     this.isHost = info.host === info.playerId
-    // The server's mode: 'main' (Zombie Survival) or 'infection'.
+    // The server's mode: 'main' (Zombie Survival), 'infection' or 'zone'.
     this.mode = info.mode || 'main'
     this.wave = 0
     this.players = new Map()
@@ -231,7 +232,7 @@ export class PlayNet {
     const holding = s.holding
     const body = {
       ...this.auth,
-      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape') },
+      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), veh: s.vehicles?.snapshot() || [] },
       editsAfter: this._editSeq,
     }
     const edits = this._edits.splice(0, EDITS_PER_SYNC)
@@ -254,6 +255,8 @@ export class PlayNet {
       if (sky) body.sky = sky
       if (s.animals) body.animals = s.animals.snapshot()
       if (s.infection) body.inf = s.infection.snapshot()
+      const zone = s.zone?.snapshot()
+      if (zone) body.zone = zone
     } else {
       body.hits = this._hits.splice(0)
     }
@@ -312,7 +315,7 @@ export class PlayNet {
         // Not for the players already there when I joined.
         if (!this._firstSync) addChatSystemLine(this.game, t('serverPlayerJoined', { name: p.nick || 'Survivor' }))
       }
-      Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape') })
+      Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh) })
       if (p.say && p.say.n !== mine.sayN) {
         mine.sayN = p.say.n
         const left = bubbleSeconds(p.say.text) - (Number(p.say.age) || 0) / 1000
@@ -346,6 +349,7 @@ export class PlayNet {
       if (res.sky) s.bm.sky?.follow?.(res.sky)
       s.animals?.applySnapshot(res.animals || {})
       if (res.inf) s.infection?.applySnapshot(res.inf)
+      if (res.zone) s.zone?.applySnapshot(res.zone)
     }
     for (const amount of res.hurt || []) s._hurtPlayer(amount)
     for (const c of res.credits || []) {
@@ -448,6 +452,8 @@ export class PlayNet {
     if (!player) return
     this.players.delete(pid)
     this.survival?.bm.scene.remove(player.group)
+    // Their boats and helicopters (Vehicles.js).
+    disposeRemote(player)
     // The held weapon and block share the game's own geometry - never disposed.
     if (player.gun) player.gun.parent?.remove(player.gun)
     if (player.block) player.block.parent?.remove(player.block)
@@ -476,6 +482,8 @@ export class PlayNet {
     const B = this.survival.B
     p.group.position.set(p.x * B, p.y * B, p.z * B)
     p.group.rotation.y = p.yaw + Math.PI
+    // Their boats and helicopters (Vehicles.js).
+    drawRemote(this.survival, p, dt)
     if (p.bubble && (p.bubbleLeft -= dt) <= 0) {
       disposeBubble(p.bubble)
       p.bubble = null

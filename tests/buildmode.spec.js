@@ -4678,7 +4678,7 @@ test('Crafting: the Crafting tab makes gear and blocks from what you carry', asy
     out.gooDrops = drops
     return out
   })
-  expect(r.rows).toBe(15)
+  expect(r.rows).toBe(18)
   expect(r.ammoReady).toBe(true)
   expect(r.helmetReady).toBe(false)
   expect(r.ammo).toBe(1)
@@ -4840,4 +4840,178 @@ test('Survivors: rescued ones live at camp, guard it and take Follow / Hold orde
   expect(r.stayed).toBe(true)
   expect(r.holdAgain).toBe(true)
   expect(r.roster).toBe(4)
+})
+
+// 2026-11-01: crafted boats and helicopters (Vehicles.js) - crafted from
+// the Crafting tab, put down, ridden; the helicopter climbs with Jump,
+// burns fuel, refills from Heli Fuel you carry, and won't let you out up high.
+test('boats and helicopters: craft, put down, ride, fly on fuel', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 80, 'zombiespawner')
+    for (let x = -40; x <= 40; x++) for (let z = -40; z <= 40; z++) if (x || z) bm.placeBlock(x, 0, z, 'grass', true)
+    // A pond in front (+z): stone bed, water on top.
+    for (let x = -4; x <= 4; x++) {
+      for (let z = 3; z <= 16; z++) {
+        bm.removeBlock?.(x, 0, z)
+        bm.placeBlock(x, -1, z, 'stone', true)
+        bm.placeBlock(x, 0, z, 'water', true)
+      }
+    }
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    if (s._picking) s._pickWeapon('rifle')
+    for (const z of [...s.zombies]) s._removeZombie(z)
+    s.zombies = []
+    s._toSpawn = 0
+    s._breakTimer = 1e9
+    s.health = 1e9
+    s.update(0.05)
+    s.kart.dispose()
+    const v = s.vehicles
+    const inv = s.inv
+    const out = {}
+    // Crafting: the three recipes are there and make the items.
+    inv.add({ kind: 'item', id: 'zombieGoo', n: 12 })
+    inv.add({ kind: 'block', id: 'oakplanks', n: 10 })
+    inv.add({ kind: 'block', id: 'oaklog', n: 4 })
+    inv.add({ kind: 'block', id: 'stone', n: 12 })
+    inv.add({ kind: 'block', id: 'glass', n: 2 })
+    out.html = ['boat', 'helicopter', 'heliFuel'].every((id) => inv.crafting.html().includes(`data-craft="${id}"`))
+    out.crafted = inv.crafting.craft('boat') && inv.crafting.craft('helicopter') && inv.crafting.craft('heliFuel')
+    const hold = (id) => {
+      inv.hotbar[0] = { kind: 'item', id, n: 1 }
+      inv.active = 0
+      inv.apply()
+    }
+    // Facing +z (the pond) from dry land: a boat goes on the water.
+    bm._yaw = Math.PI
+    bm.tryMode.pos.set(0.5, 1, 1.5)
+    hold('boat')
+    out.boatPlaced = inv.useHeld() && v.list.length === 1 && v.list[0].kind === 'boat'
+    const boat = v.list[0]
+    out.boatOnWater = boat.y > 0.5 && boat.y < 1.1
+    // Facing -z (dry grass): no boat.
+    bm._yaw = 0
+    hold('boat')
+    out.boatNeedsWater = !inv.useHeld()
+    // In, forward: it moves over the water; the shore stops it.
+    bm._yaw = Math.PI
+    bm.tryMode.pos.set(boat.x, boat.y, boat.z - 1)
+    out.boatIn = bm._tryUseFromCamera() && v.riding === boat
+    boat.heading = 0
+    const z0 = boat.z
+    for (let i = 0; i < 30; i++) bm.tryMode.update(0.05, new Set(['KeyW']))
+    out.boatMoved = boat.z - z0 > 3
+    for (let i = 0; i < 80; i++) bm.tryMode.update(0.05, new Set(['KeyW']))
+    out.boatStaysOnWater = boat.z < 17.2
+    out.boatOut = v.use() && !v.riding
+    // A helicopter on the grass behind (-z).
+    bm._yaw = 0
+    bm.tryMode.pos.set(0.5, 1, -2)
+    hold('helicopter')
+    out.heliPlaced = inv.useHeld() && v.list.some((o) => o.kind === 'heli')
+    const heli = v.list.find((o) => o.kind === 'heli')
+    out.heliFull = heli.fuel === 60
+    bm.tryMode.pos.set(heli.x + 1, heli.y, heli.z)
+    out.heliIn = v.use() && v.riding === heli
+    // Jump climbs; fuel burns.
+    const y0 = heli.y
+    for (let i = 0; i < 40; i++) bm.tryMode.update(0.05, new Set(['Space']))
+    out.climbed = heli.y - y0 > 8
+    out.burned = heli.fuel < 59
+    out.meInSeat = Math.abs(bm.tryMode.pos.y - heli.y) < 0.1
+    out.fuelHud = document.getElementById('vehicle-fuel')?.classList.contains('on')
+    // Up high you can't get out.
+    out.noExitHigh = (v.use(), v.riding === heli)
+    // Forward flies the way you look (-z here).
+    const hz = heli.z
+    for (let i = 0; i < 30; i++) bm.tryMode.update(0.05, new Set(['KeyW']))
+    out.flewForward = heli.z < hz - 4
+    // Empty tank with Heli Fuel on you: it refills itself.
+    for (const list of [inv.hotbar, inv.grid]) list.forEach((it, i) => { if (it?.id === 'heliFuel') list[i] = null })
+    inv.hotbar[3] = { kind: 'item', id: 'heliFuel', n: 1 }
+    heli.fuel = 0.01
+    bm.tryMode.update(0.05, new Set(['Space']))
+    out.autoRefuel = heli.fuel > 50 && !inv.hotbar.some((it) => it?.id === 'heliFuel') && !inv.grid.some((it) => it?.id === 'heliFuel')
+    // Empty with none: it sinks to the ground, then you can get out.
+    heli.fuel = 0.01
+    const yHigh = heli.y
+    for (let i = 0; i < 300; i++) bm.tryMode.update(0.05, new Set(['Space']))
+    out.sank = heli.y < yHigh - 5
+    out.landedOut = v.use() && !v.riding
+    out.snapshot = v.snapshot().map((d) => d.k).sort().join('')
+    s.stop()
+    out.gone = v.list.length === 0
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({
+    html: true, crafted: true, boatPlaced: true, boatOnWater: true, boatNeedsWater: true, boatIn: true, boatMoved: true, boatStaysOnWater: true, boatOut: true,
+    heliPlaced: true, heliFull: true, heliIn: true, climbed: true, burned: true, meInSeat: true, fuelHud: true, noExitHigh: true, flewForward: true, autoRefuel: true, sank: true, landedOut: true, snapshot: 'bh', gone: true,
+  })
+})
+
+// 2026-11-01: Shrinking Zone mode (ShrinkZone.js) - picked in Game Modes,
+// a ring that shrinks stage by stage, toxic fog and faster zombies
+// outside it, and surviving the last circle wins.
+test('shrinking zone: ring, fog outside, faster zombies, win at the end', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    const g = window.__game
+    g.settings.guestMode = false
+    document.getElementById('game-mode-shrinking-zone').click()
+    g.playBtn.click()
+  })
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  await page.waitForFunction(() => window.__game.buildMode.survival.zone?.started, null, { timeout: 30000 })
+  const r = await page.evaluate(async () => {
+    const s = window.__game.buildMode.survival
+    const z = s.zone
+    s.health = 1e9
+    const out = { mode: s.cfg.mode, wall: !!z.wall?.parent }
+    const n0 = z.now()
+    out.firstR = n0.r
+    out.hud = /Zone 1\/6/.test(document.getElementById('build-play-wave-text').textContent)
+    // Inside: no fog. Far outside: fog, and zombies there are faster.
+    const me = s.bm.tryMode.pos
+    me.set(n0.x, me.y, n0.z)
+    z.update(0.01)
+    out.fogInside = document.getElementById('zone-fog').classList.contains('on')
+    me.set(n0.x + n0.r + 30, me.y, n0.z)
+    z.update(0.01)
+    out.fogOutside = document.getElementById('zone-fog').classList.contains('on')
+    out.fogText = /\d+ blocks/.test(document.getElementById('zone-fog').textContent)
+    out.fastOut = z.zombieMult({ x: n0.x + n0.r + 5, z: n0.z })
+    out.normalIn = z.zombieMult({ x: n0.x, z: n0.z })
+    me.set(n0.x, me.y, n0.z)
+    // Halfway through the first shrink: smaller, still bigger than the next.
+    z.t = 45 + 10
+    const mid = z.now()
+    out.shrinking = mid.shrinking && mid.r < 100 && mid.r > 70
+    // Every next circle sits inside the one before.
+    out.nested = z.centers.every((c, i) => i === 0 || Math.hypot(c.x - z.centers[i - 1].x, c.z - z.centers[i - 1].z) + [100, 70, 45, 28, 15, 7][i] <= [100, 70, 45, 28, 15, 7][i - 1] + 0.01)
+    out.rings = z.mapRings().length
+    // Same seed and start, same zone (what a server's guests rebuild).
+    const copy = new z.constructor(s)
+    copy.applySnapshot(z.snapshot())
+    out.sameOnGuests = copy.centers.every((c, i) => Math.abs(c.x - z.centers[i].x) < 0.01 && Math.abs(c.z - z.centers[i].z) < 0.01)
+    copy.dispose()
+    // The end: standing in the last circle when time's up wins.
+    const last = z.centers[z.centers.length - 1]
+    me.set(last.x, me.y, last.z)
+    z.t = 1e9
+    z.update(0.01)
+    s.replay?.stop()
+    out.won = !!s._won && s.dead
+    out.title = document.getElementById('build-play-over-title').textContent
+    return out
+  })
+  expect(r).toEqual({ mode: 'shrinkingZone', wall: true, firstR: 100, hud: true, fogInside: false, fogOutside: true, fogText: true, fastOut: 1.7, normalIn: 1, shrinking: true, nested: true, rings: 2, sameOnGuests: true, won: true, title: 'You outlasted the zone!' })
 })

@@ -1825,6 +1825,10 @@ Escape before dawn.</p>
                   <div class="class-icon-badge"><span class="class-icon-emoji">🦠</span></div>
                   <span id="game-mode-infection-label">Infection</span>
                 </button>
+                <button class="mode-select-btn class-btn" data-game-mode="shrinkingZone" id="game-mode-shrinking-zone" type="button">
+                  <div class="class-icon-badge"><span class="class-icon-emoji">🌀</span></div>
+                  <span id="game-mode-shrinking-zone-label">Shrinking Zone</span>
+                </button>
               </div>
             </div>
           </section>
@@ -2416,7 +2420,7 @@ Escape before dawn.</p>
             <ul>
               <li>Gallery posts (skins, maps and photos you take in Photo Mode) store the picture you post, its title, your nickname, likes, dislikes and comments - anyone can see them. Each like or dislike is saved under your account so you can only vote once per post.</li>
               <li>Maps you share get a code and are stored online so anyone can play them; Build Together rooms store the edits and each player's spot while you build.</li>
-              <li>When you play on a server, your position, skin and nickname are sent to the other players in it while you play, along with what you hold, the hat and cape you wear, the emote you play, the blocks you place and break, and what you say in Global chat (shown over your head). A game you start from the homepage is a private server from the start, so friends can join it by its link; nobody sees it in the server list, and it's deleted when you leave.</li>
+              <li>When you play on a server, your position, skin and nickname are sent to the other players in it while you play, along with what you hold, the hat and cape you wear, the emote you play, the boats and helicopters you put down, the blocks you place and break, and what you say in Global chat (shown over your head). A game you start from the homepage is a private server from the start, so friends can join it by its link; nobody sees it in the server list, and it's deleted when you leave.</li>
             </ul>
 
             <h3>Stored only on your device</h3>
@@ -2520,7 +2524,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="PlayCrafting RECIPES GOO_CHANCE">
           <h3>Crafting</h3>
-          <p>Open your inventory in a game and pick the Crafting tab. Every recipe shows what it makes, what it needs (how many you have and how many it takes) and a Craft button. There are <span data-feature-value="recipes">15</span> recipes: gear - Goo Disguise, Health Pack, Ammo Box, Catch Traps and all five armor pieces - and blocks - Crop Plot, Oak Planks, Crate, Stone Bricks, Glass and Bricks. Most take blocks you break (any log, any stone, any dirt or grass, any sand, any planks), so you don't need one exact kind. Two new materials: Zombie Goo, which about <span data-feature-value="gooChance">45</span>% of the zombies you kill drop, and Plant Fiber, which comes with every Crop Plot harvest. If your bag is full, what you made lands at your feet.</p>
+          <p>Open your inventory in a game and pick the Crafting tab. Every recipe shows what it makes, what it needs (how many you have and how many it takes) and a Craft button. There are <span data-feature-value="recipes">15</span> recipes: gear - Goo Disguise, Boat, Helicopter, Heli Fuel, Health Pack, Ammo Box, Catch Traps and all five armor pieces - and blocks - Crop Plot, Oak Planks, Crate, Stone Bricks, Glass and Bricks. Most take blocks you break (any log, any stone, any dirt or grass, any sand, any planks), so you don't need one exact kind. Two new materials: Zombie Goo, which about <span data-feature-value="gooChance">45</span>% of the zombies you kill drop, and Plant Fiber, which comes with every Crop Plot harvest. If your bag is full, what you made lands at your feet.</p>
         </div>
         <div class="feature" data-code="GooDisguise putOnDisguise">
           <h3>Goo Disguise</h3>
@@ -2529,6 +2533,10 @@ Escape before dawn.</p>
         <div class="feature" data-code="CampFarm FARM_GROW_S FARM_KEY">
           <h3>Camp Farm</h3>
           <p>Place a Crop Plot (craft one from dirt and a log) inside your camp's walls on Map 1 and it joins your camp farm: unlike other blocks you place in a game, it stays there for every later game. Press Use on it to plant seeds; a farm crop takes <span data-feature-value="farmMinutes">5</span> minutes of real time to grow, and keeps growing while you're away or the game is closed (Sprinklers and Greenhouse Glass still speed it up). Harvest it for Vegetables (eat them to heal) and Plant Fiber for crafting, then plant again. Break a plot to take it off the farm. The farm only exists in your own games, not on servers.</p>
+        </div>
+        <div class="feature" data-code="Vehicles HELI_FUEL_S drawRemote">
+          <h3>Boats &amp; Helicopters</h3>
+          <p>Craft a Boat (planks and logs) or a Helicopter (stone, glass, planks and Zombie Goo), hold it and click: a boat goes on the water in front of you, a helicopter on open ground in front of you. Right-click one, or press Use beside it, to get in, and Use again to get out. A boat only moves on water - forward and back, left and right to steer. A helicopter flies the way you look: forward, back and sideways to move, Jump to climb and Crouch to go down, up to about <span data-feature-value="heliCeiling">40</span> blocks over the ground, and you can still shoot from it. It burns fuel while it's up: a full tank is <span data-feature-value="heliFuelSeconds">60</span> seconds of flying (a new helicopter comes full). Craft Heli Fuel from Zombie Goo and a log and use it in or next to one - or just carry some, and an empty tank fills itself from it. Out of fuel, it sinks slowly to the ground. To get out of a helicopter, land first. You can have up to <span data-feature-value="vehiclesOut">4</span> out at once, and on a server everyone sees your boats and helicopters.</p>
         </div>
         <div class="feature" data-code="GoKart ramDamage KART_EYE">
           <h3>Go-Kart</h3>
@@ -2561,6 +2569,10 @@ Escape before dawn.</p>
         <div class="feature" data-code="ZombieBook BOOK_IDS bookIdFor renderBook">
           <h3>Zombie Book</h3>
           <p>Inventory &gt; Zombie Book has a card for every kind of zombie - <span data-feature-value="bookKinds">27</span> of them: the regular zombie, the boss, the skeletons, the monster zombies, and the ones that only live in Heaven, the Demon Realm or the ocean. Each card shows the zombie in 3D with a few words about it (fast, tough, hits hard, bursts, where it lives). Ones you haven't met yet are dark shadows named ???. A kind counts as met the first time one appears in your game (on a server too), which pays <span data-feature-value="bookCoins">10</span> coins, and meeting the last one pays <span data-feature-value="bookDoneCoins">200</span> more and puts a Complete! badge on the page.</p>
+        </div>
+        <div class="feature" data-code="ShrinkZone ZONE_STAGES ZONE_ZOMBIE_SPEED">
+          <h3>Shrinking Zone Mode</h3>
+          <p>Picked in Game Modes. The zombie waves come as usual, but a glowing green wall rings a safe zone <span data-feature-value="zoneStartR">100</span> blocks across from its middle. It waits, then closes in to a smaller circle - <span data-feature-value="zoneStages">6</span> circles in all, each one inside the last, down to just <span data-feature-value="zoneFinalR">7</span> blocks. The minimap shows the zone in green and the next one as a dashed white ring, and the top line says how long until it shrinks. Outside the wall is toxic fog: a green haze over your screen tells you how far the safe zone is, and zombies out there run <span data-feature-value="zoneSpeed">1.7</span> times as fast. Survive the last circle and you win - a whole game takes about <span data-feature-value="zoneMinutes">5</span> minutes. It works on servers too: everyone gets the same zone.</p>
         </div>
         <div class="feature" data-code="Infection HEAD_START_S _moveBot remoteHit">
           <h3>Infection Mode</h3>
@@ -2632,7 +2644,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="playConfig PLAY_GAME_MODES PLAY_MUTATORS">
           <h3>Map 1 Game Modes, Difficulty &amp; Mutators</h3>
-          <p>Before you press Play, pick in Game Mode: a difficulty (Easy, Normal, Hard - Nightmare and Apex unlock later), a game mode - Classic (waves forever), Zombie Defense (hold out for <span data-feature-value="defenseWaves">10</span> waves to win), Boss Hunt (a big, tough boss every <span data-feature-value="bossEvery">3</span> waves), Zombie Rush (barely a breather between waves, a survival timer, and no buying) or Helicopter Escape (once the first wave starts, <span data-feature-value="fuelCans">3</span> fuel cans appear around the city under yellow beams, also shown on the minimap - pick them all up and a helicopter flies in and lands under a red beam; hold its landing ring for <span data-feature-value="extractionHold">10</span> seconds while the zombies keep coming, then you climb aboard and it takes off with you) or Infection (zombie tag with no waves - see Infection Mode) - and mutators: Horde Rush, Loot Rush, Health Regen, Glass House, Iron Mode, Escalation and Boss Rush. Guest Mode plays a run without saving anything from it.</p>
+          <p>Before you press Play, pick in Game Mode: a difficulty (Easy, Normal, Hard - Nightmare and Apex unlock later), a game mode - Classic (waves forever), Zombie Defense (hold out for <span data-feature-value="defenseWaves">10</span> waves to win), Boss Hunt (a big, tough boss every <span data-feature-value="bossEvery">3</span> waves), Zombie Rush (barely a breather between waves, a survival timer, and no buying) or Helicopter Escape (once the first wave starts, <span data-feature-value="fuelCans">3</span> fuel cans appear around the city under yellow beams, also shown on the minimap - pick them all up and a helicopter flies in and lands under a red beam; hold its landing ring for <span data-feature-value="extractionHold">10</span> seconds while the zombies keep coming, then you climb aboard and it takes off with you) or Infection (zombie tag with no waves - see Infection Mode) or Shrinking Zone (survive the waves inside a closing ring - see Shrinking Zone Mode) - and mutators: Horde Rush, Loot Rush, Health Regen, Glass House, Iron Mode, Escalation and Boss Rush. Guest Mode plays a run without saving anything from it.</p>
         </div>
         <div class="feature" data-code="SKELETON_KINDS SKELETON_FROM_WAVE makeSkeleton">
           <h3>Skeletons</h3>

@@ -19,7 +19,8 @@ export const PLAY_MUTATORS = ['hordeRush', 'lootRush', 'healthRegen', 'glassHous
 // worldMap (2026-10-18): pick a real place on Earth and survive in land
 // shaped like the real world (SpawnMap.js, OpenWorld's Earth mode).
 // infection (2026-10-31, Infection.js): tag - zombies turn humans, last human wins.
-export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'worldMap', 'infection']
+// shrinkingZone (2026-11-01, ShrinkZone.js): the waves inside a closing ring.
+export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'worldMap', 'infection', 'shrinkingZone']
 // Game Modes with no zombies at all (2026-10-26, Gaymi: "make world map
 // not spawn zombies ... make world map just a gamemode with the world
 // map"): you just explore the real Earth.
@@ -45,6 +46,20 @@ export const FUEL_GAP = 18
 export const FUEL_REACH = 1.8
 export const HELI_FLY_IN = 6
 export const HELI_TAKE_OFF = 4
+// Shrinking Zone (ShrinkZone.js): each circle's radius (blocks) and how
+// long it holds (seconds) before shrinking to the next over ZONE_SHRINK_S;
+// outside it zombies run ZONE_ZOMBIE_SPEED times as fast. Lasting out the
+// last hold wins (about 5 and a half minutes in all).
+export const ZONE_STAGES = [
+  { r: 100, hold: 45 },
+  { r: 70, hold: 40 },
+  { r: 45, hold: 35 },
+  { r: 28, hold: 30 },
+  { r: 15, hold: 30 },
+  { r: 7, hold: 45 },
+]
+export const ZONE_SHRINK_S = 20
+export const ZONE_ZOMBIE_SPEED = 1.7
 // Skeletons (real animated 3D models, SkeletonModels.js) join the waves
 // from this wave on, each spawn with SKELETON_CHANCE (BuildSurvival).
 export const SKELETON_FROM_WAVE = 3
