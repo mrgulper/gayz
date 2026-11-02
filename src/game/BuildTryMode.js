@@ -1079,7 +1079,7 @@ export class BuildTryMode {
     // Standing in a bloater's slime puddle (ZombieTricks.js).
     speed *= this.bm.survival?.tricks?.slow ?? 1
     // On a skateboard, or on ice: faster and slippery (Skateboards.js).
-    const glide = this.bm.survival?.active && !inLiquid ? this.bm.survival.skate?.mods(this.onGround, p) : null
+    const glide = this.bm.survival?.active && !inLiquid ? (this.bm.survival.sled?.mods(this.onGround, p) || this.bm.survival.skate?.mods(this.onGround, p)) : null
     if (glide) speed *= glide.speed
     const want = len ? (speed * amount) / len : 0
     // Freezing rain glazes the ground: you slide about (BuildWeather.glaze).

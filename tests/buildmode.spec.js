@@ -4717,8 +4717,8 @@ test('Crafting: the Crafting tab makes gear and blocks from what you carry', asy
     out.gooDrops = drops
     return out
   })
-  // 32 out of winter (the Snowball recipe only shows December to February).
-  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 33 : 32)
+  // 33 out of winter (the Snowball recipe only shows December to February).
+  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 34 : 33)
   expect(r.ammoReady).toBe(true)
   expect(r.helmetReady).toBe(false)
   expect(r.ammo).toBe(1)
@@ -6069,4 +6069,117 @@ test('Submarine, sunken ruins, the ghost pirate ship, the Zombie Train and the M
     return out
   })
   expect(Object.keys(r).filter((k) => r[k] !== true)).toEqual([])
+})
+
+test('Sleds, hot springs, the Zombie Zoo and Floor is Lava', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    const start = async (mode) => {
+      localStorage.removeItem('gayz-play-saved-run')
+      g.settings.selectedGameMode = mode
+      await g._enterBuildMode({ map: 'map3', play: true })
+      const s = g.buildMode.survival
+      for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+      s._pickWeapon('rifle')
+      return s
+    }
+    const stop = async () => {
+      g.buildMode.survival.stop?.()
+      g._exitBuildMode?.()
+      await new Promise((res) => setTimeout(res, 200))
+    }
+    localStorage.setItem('gayz-creatures', JSON.stringify({ list: [1, 2, 3].map((id) => ({ id, t: 'z', k: 'walker', r: 'common', n: id, at: id })), team: [], nextId: 4 }))
+    let s = await start('classic')
+    const tm = s.bm.tryMode
+    const pick = (id) => {
+      s.inv.active = s.inv.hotbar.findIndex((it) => it?.id === id)
+      return s.inv.active >= 0
+    }
+    // Sled: crafted, on, glides on snow, drags off it, a drop speeds it up, a run pays.
+    s.inv.add({ kind: 'block', id: 'oakplanks', n: 4 })
+    s.inv.add({ kind: 'item', id: 'plantFiber', n: 1 })
+    out.sledCrafted = s.inv.crafting.craft('sled') && s.inv.has('sled')
+    out.sledPicked = pick('sled')
+    s.inv.useHeld()
+    out.sledOn = s.sled.on && !!s.sled.mesh?.parent
+    const p = tm.pos
+    const fx = Math.floor(p.x)
+    const fy = Math.floor(p.y - 0.05)
+    const fz = Math.floor(p.z)
+    const was = s.bm.getBlockAt(fx, fy, fz)
+    s.bm.removeBlock(fx, fy, fz)
+    s.bm.placeBlock(fx, fy, fz, 'stone')
+    const drag = s.sled.mods(true, p)
+    s.bm.removeBlock(fx, fy, fz)
+    s.bm.placeBlock(fx, fy, fz, 'snow')
+    const glide = s.sled.mods(true, p)
+    out.sledSnow = !!glide && !!drag && glide.speed > 1.3 && glide.grip < 0.5 && drag.speed < 1
+    tm.onGround = true
+    s.sled.update(0.05)
+    const y0 = p.y
+    p.y -= 2
+    s.bm.placeBlock(fx, Math.floor(p.y - 0.05), fz, 'snow')
+    s.sled.update(0.05)
+    out.sledFaster = s.sled.boost > 0.3
+    p.y = y0
+    const coins = s.coins
+    s.sled.run = 40
+    s.sled.top = 9
+    s.inv.useHeld()
+    out.sledRunPaid = !s.sled.on && !s.sled.mesh && s.coins > coins
+    s.bm.removeBlock(fx, fy, fz)
+    if (was) s.bm.placeBlock(fx, fy, fz, was)
+    // Hot spring: a pool of water, steam, and it heals you in it.
+    const gy = s._groundUnder(p.x, p.y + 1, p.z) - 1
+    const sp = s.springs.build(fx, gy, fz)
+    out.springPool = s.bm.getBlockAt(fx, gy, fz) === 'water' && s.bm.getBlockAt(fx, gy - 1, fz) === 'water' && sp.puffs.length > 0
+    tm.pos.set(fx + 0.5, gy, fz + 0.5)
+    s.health = 10
+    s.springs.update(1)
+    out.springHeals = s.health > 10 && s.springs.inSpring(s.bodyPos())
+    s.springs.clear()
+    out.springGone = s.bm.getBlockAt(fx, gy, fz) !== 'water'
+    // Zombie Zoo: the caught zombies walk about in a pen at camp.
+    const camp = s.camp
+    for (let i = 0; i < 20 && !camp?.zoo; i++) await new Promise((res) => setTimeout(res, 100))
+    out.zoo = !!camp?.zoo
+    if (camp?.zoo) {
+      const Zoo = camp.zoo.constructor
+      camp.zoo.dispose()
+      camp.zoo = new Zoo(camp)
+      camp.zoo.build([camp.trophies?.spot && { ...camp.trophies.spot, wide: 8 }].filter(Boolean))
+      out.zooPen = !!camp.zoo.group && camp.zoo.zombies.length === 3
+      const x0 = camp.zoo.zombies[0].x
+      const z0 = camp.zoo.zombies[0].z
+      camp.zoo.zombies[0].wait = 0
+      for (let i = 0; i < 10; i++) camp.zoo.update(0.1)
+      out.zooWalks = camp.zoo.zombies[0].x !== x0 || camp.zoo.zombies[0].z !== z0
+    }
+    await stop()
+    localStorage.removeItem('gayz-creatures')
+    // Floor is Lava: a floor in the sky, tiles glow then melt, falling = out.
+    s = await start('floorLava')
+    const pm = s.party
+    out.lavaMade = !!pm?.ext && s.cfg.noZombies
+    for (let i = 0; i < 200 && pm.phase === 'wait'; i++) pm.update(0.05)
+    const L = pm.ext
+    out.lavaFloor = pm.phase === 'play' && s.bm.getBlockAt(Math.floor(L.tileMid(0).x), 230, Math.floor(L.tileMid(0).z)) !== null && s.bm.tryMode.pos.y > 229
+    for (let i = 0; i < 80; i++) pm.update(0.05)
+    out.lavaGlows = L.tiles.some((st) => st > 0)
+    const snap = JSON.parse(JSON.stringify(pm.snapshot()))
+    out.lavaSnap = typeof snap.x?.tl === 'string' && snap.x.tl.length === 81
+    const bot = [...pm.bots.values()][0]
+    bot.y = 200
+    pm._run(0.05)
+    out.lavaBotOut = pm.out.has(bot.id) && bot.y > 229
+    for (const b of pm.bots.values()) pm.out.add(b.id)
+    pm._run(0.05)
+    out.lavaWin = pm.phase === 'end' && pm.winner === pm.myId
+    await stop()
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })

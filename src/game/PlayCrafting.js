@@ -58,6 +58,8 @@ export const RECIPES = [
   { id: 'kite', kind: 'item', n: 1, needs: [{ item: 'plantFiber', n: 4 }, { group: 'planks', n: 2 }] },
   // Skateboard and Boombox (Skateboards.js, DanceOff.js, 2026-11-02).
   { id: 'skateboard', kind: 'item', n: 1, needs: [{ group: 'planks', n: 3 }, { group: 'stone', n: 2 }] },
+  // Sled (Sleds.js, 2026-11-02).
+  { id: 'sled', kind: 'item', n: 1, needs: [{ group: 'planks', n: 4 }, { item: 'plantFiber', n: 1 }] },
   // Submarine and Rocket (Vehicles.js, MoonTrip.js, 2026-11-02).
   { id: 'submarine', kind: 'item', n: 1, needs: [{ group: 'stone', n: 14 }, { block: 'glass', n: 3 }, { group: 'planks', n: 4 }, { item: 'zombieGoo', n: 3 }] },
   { id: 'rocket', kind: 'item', n: 1, needs: [{ group: 'stone', n: 20 }, { block: 'glass', n: 2 }, { item: 'heliFuel', n: 3 }, { item: 'zombieGoo', n: 4 }] },

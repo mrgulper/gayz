@@ -50,6 +50,14 @@
 //   (keys 1-5 or the buttons; not your own). Bots build one of a few
 //   shapes and vote too. The most stars wins.
 //
+// More modes live in their own files and plug in through `this.ext`
+// (PARTY_EXT, 2026-11-02, idea list 6): Floor is Lava (PartyLava.js).
+// An ext can give: home(me), begin(people, shuffled), run(people, dt),
+// timeUp(), botGoal(b, people), moveBot(b, dt), botsStun, markColor(id),
+// build(), draw(dt), events(was), startText(), hud(), shoot(ray, reach,
+// wall), onStun(id, by), remoteHit(h), protects(x, y, z), speed(),
+// snap() / apply(d) (its part of the host's sync) and dispose().
+//
 // Whoever runs it (alone, or a server's host - `runs`) keeps the round,
 // moves the bots and the ball and checks touches from everyone's synced
 // spots (PlayNet.players). Its state goes to the others in the host's sync
@@ -63,14 +71,17 @@ import { MOB_HEIGHT } from './PlayRules.js'
 import { saveShopProgress } from './Game.js'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
+import { PartyLava } from './PartyLava.js'
 
-export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle']
+// The modes that live in their own files (see `this.ext` above).
+const PARTY_EXT = { floorLava: PartyLava }
+export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'floorLava']
 // Each mode's server mode (api/_lib/servers.js MODES).
-export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling', paintWars: 'paint', buildBattle: 'build' }
+export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling', paintWars: 'paint', buildBattle: 'build', floorLava: 'lava' }
 export const TOTAL = 6
 export const WAIT_S = 8
 export const END_S = 7
-export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300, paintWars: 150, buildBattle: 300 }
+export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300, paintWars: 150, buildBattle: 300, floorLava: 240 }
 export const HIDE_S = 20
 export const STUN_S = 2.5
 export const FLAG_GAP = 32
@@ -103,7 +114,7 @@ export const BB_Y = 220
 export const BB_PALETTE = ['oak', 'stonebricks', 'glass', 'concrete', 'redsandstone', 'quartz', 'oaklog', 'birchleaves', 'sealantern', 'prismarinebricks', 'terracotta', 'pumpkin']
 export const BB_THEMES = ['house', 'castle', 'tree', 'monster', 'rocket', 'boat', 'tower', 'animal', 'car', 'statue']
 const BB_STACK = 64
-const ID_SCORE_MODES = new Set(['kingHill', 'hotPotato', 'zombieBowling', 'buildBattle'])
+const ID_SCORE_MODES = new Set(['kingHill', 'hotPotato', 'zombieBowling', 'buildBattle', 'floorLava'])
 const TEAM_MODES = new Set(['captureFlag', 'zombieSoccer', 'paintWars'])
 const TAG_DIST = 1.2
 const STUN_SPEED = 0.4
@@ -181,6 +192,7 @@ export class PartyMode {
     this.arena = new THREE.Group()
     survival.bm.scene.add(this.arena)
     this._marks = new Map() // id -> team mark mesh over their head
+    this.ext = PARTY_EXT[kind] ? new PARTY_EXT[kind](this) : null
   }
 
   get runs() {
@@ -255,7 +267,7 @@ export class PartyMode {
     }
     const voting = this.kind === 'buildBattle' && this.phase === 'play' && this.sub === 'vote'
     const frozen = (this.kind === 'hideSeek' && this.phase === 'play' && this.seekers.has(me) && this._hiding()) || voting
-    s.bm.tryMode.speedMult = this._baseSpeed * (frozen ? 0 : this.stunned.has(me) ? STUN_SPEED : 1)
+    s.bm.tryMode.speedMult = this._baseSpeed * (frozen ? 0 : this.stunned.has(me) ? STUN_SPEED : 1) * (this.ext?.speed?.() ?? 1)
     this._blind.className = frozen && !voting ? 'on' : ''
     if (frozen) this._blind.firstChild.textContent = t('partyBlindfold', { n: Math.ceil(this._hideLeft()) })
     if (Math.floor(this.left) !== this._lastShown) {
@@ -278,7 +290,7 @@ export class PartyMode {
     const people = this._people()
     const real = people.filter((p) => !p.bot).length
     if (this.phase === 'wait') {
-      this._fillBots(Math.max(0, TOTAL - real))
+      this._fillBots(Math.max(0, (this.ext?.total ?? TOTAL) - real))
       this.left -= dt
       if (this.left <= 0) this._begin()
       return
@@ -298,7 +310,7 @@ export class PartyMode {
     for (const id of [...this.teams.keys()]) if (!ids.has(id)) this.teams.delete(id)
     for (const id of this.seekers) if (!ids.has(id)) this.seekers.delete(id)
     for (const id of this.out) if (!ids.has(id)) this.out.delete(id)
-    if (TEAM_MODES.has(this.kind)) for (const p of people) if (!this.teams.has(p.id)) this.teams.set(p.id, this._smallerTeam())
+    if (TEAM_MODES.has(this.kind) || this.ext?.teams) for (const p of people) if (!this.teams.has(p.id)) this.teams.set(p.id, this._smallerTeam())
     this.left -= dt
     if (this.kind === 'hideSeek') this._runHide(people)
     else if (this.kind === 'captureFlag') this._runFlags(people)
@@ -307,6 +319,7 @@ export class PartyMode {
     else if (this.kind === 'zombieBowling') this._runBowl(people, dt)
     else if (this.kind === 'paintWars') this._runPaint(people, dt)
     else if (this.kind === 'buildBattle') this._runBuild(people)
+    else if (this.ext) this.ext.run(people, dt)
     else this._runBall(people, dt)
     if (this.phase === 'play' && this.left <= 0) this._timeUp()
   }
@@ -323,6 +336,7 @@ export class PartyMode {
     this.home = { x: Math.round(me.x * 10) / 10, y: Math.round(me.y * 10) / 10, z: Math.round(me.z * 10) / 10 }
     // Build Battle: the same platform in the sky, round after round.
     if (this.kind === 'buildBattle') this.home = this._bbHome || (this._bbHome = { x: Math.round(me.x), y: BB_Y + 1, z: Math.round(me.z) })
+    if (this.ext?.home) this.home = this.ext.home(me)
     this.phase = 'play'
     this.left = ROUND_S[this.kind]
     this.stunned.clear()
@@ -331,7 +345,7 @@ export class PartyMode {
     this.score = {}
     const people = this._people()
     const shuffled = people.map((p) => p.id).sort(() => Math.random() - 0.5)
-    if (TEAM_MODES.has(this.kind)) {
+    if (TEAM_MODES.has(this.kind) || this.ext?.teams) {
       shuffled.forEach((id, i) => this.teams.set(id, i % 2 ? 'b' : 'r'))
       this.score = { r: 0, b: 0 }
     }
@@ -360,11 +374,13 @@ export class PartyMode {
       for (const id of shuffled) this.score[id] = 0
       this._startTurn(shuffled[0])
     }
+    this.ext?.begin?.(people, shuffled)
     // Bots start at their own end (team modes) or scattered.
     for (const b of this.bots.values()) {
       const tm = this.teams.get(b.id)
       const at = tm ? this.spot(tm) : null
-      if (at) this._place(b, at.x + (Math.random() - 0.5) * 4, at.z + (Math.random() - 0.5) * 4)
+      if (this.ext?.placeBot) this.ext.placeBot(b)
+      else if (at) this._place(b, at.x + (Math.random() - 0.5) * 4, at.z + (Math.random() - 0.5) * 4)
       b.hideAt = null
       b.shotIn = BOT_SHOT_EVERY[0] + Math.random() * (BOT_SHOT_EVERY[1] - BOT_SHOT_EVERY[0])
     }
@@ -385,6 +401,7 @@ export class PartyMode {
 
   // The clock ran out: the most points wins (Hide and Seek: the hiders).
   _timeUp() {
+    if (this.ext?.timeUp) return this.ext.timeUp()
     if (this.kind === 'hideSeek') return this._end('h')
     if (this.kind === 'hotPotato') return this._end('tie')
     if (this.kind === 'paintWars') {
@@ -815,6 +832,7 @@ export class PartyMode {
   // BuildSurvival: may this block be placed / broken? Only inside your
   // own plot while building.
   protects(x, y, z) {
+    if (this.ext) return !!this.ext.protects?.(x, y, z)
     if (this.kind !== 'buildBattle' || !this.home) return false
     if (!this._inPlatform(x, y, z)) return false
     if (y <= BB_Y) return true
@@ -1114,6 +1132,7 @@ export class PartyMode {
     const others = people.filter((p) => p.id !== b.id)
     const nearest = (list) => list.reduce((best, p) => (!best || Math.hypot(p.x - b.x, p.z - b.z) < Math.hypot(best.x - b.x, best.z - b.z) ? p : best), null)
     if (this.phase !== 'play' || !me) return null
+    if (this.ext) return this.ext.botGoal?.(b, people) ?? null
     if (this.kind === 'hideSeek') {
       if (this.seekers.has(b.id)) {
         if (this._hiding()) return { x: b.x, z: b.z, stay: true }
@@ -1203,15 +1222,16 @@ export class PartyMode {
       b.tyaw = 0
       return
     }
+    if (this.ext?.moveBot?.(b, dt)) return
     const goal = this._botGoal(b, people)
     // Bots stun enemies close by now and then (Flag and Hill).
-    if (this.phase === 'play' && (this.kind === 'captureFlag' || this.kind === 'kingHill') && !this.stunned.has(b.id)) {
+    if (this.phase === 'play' && (this.kind === 'captureFlag' || this.kind === 'kingHill' || this.ext?.botsStun) && !this.stunned.has(b.id)) {
       b.shotIn -= dt
       if (b.shotIn <= 0) {
         b.shotIn = BOT_SHOT_EVERY[0] + Math.random() * (BOT_SHOT_EVERY[1] - BOT_SHOT_EVERY[0])
         const tm = this.teams.get(b.id)
         const target = people.find((p) => p.id !== b.id && (!tm || this.teams.get(p.id) !== tm) && Math.hypot(p.x - b.x, p.z - b.z) < BOT_SHOT_RANGE)
-        if (target && Math.random() < 0.5) this.stun(target.id)
+        if (target && Math.random() < 0.5) this.stun(target.id, b.id)
       }
     }
     let dx = 0
@@ -1304,6 +1324,7 @@ export class PartyMode {
   // purple, or the King's gold).
   _markColor(id) {
     if (this.phase !== 'play' && this.phase !== 'end') return null
+    if (this.ext?.markColor) return this.ext.markColor(id)
     if (this.kind === 'hideSeek') return this.seekers.has(id) ? 0xa060ff : null
     if (this.kind === 'kingHill') return this.king === id ? 0xffd23f : null
     if (this.kind === 'hotPotato') return this.holder === id ? 0xff5a1a : this.out.has(id) ? 0x777777 : null
@@ -1364,6 +1385,7 @@ export class PartyMode {
       this._ballMesh.rotation.z -= (b.vx || 0) * 0.02
     }
     if (this.kind === 'paintWars') this._drawPaint()
+    this.ext?.draw?.()
     if (this.kind === 'kingHill' && this._hillMesh) this._hillMesh.material.opacity = 0.3 + Math.sin(performance.now() / 300) * 0.1
     if (this.kind === 'hotPotato' && this._bomb) {
       const h = this._people().find((p) => p.id === this.holder && !this.out.has(p.id))
@@ -1401,6 +1423,7 @@ export class PartyMode {
     this._builtFor = `${this.home.x},${this.home.z}`
     this._paintMesh = null
     this._paintDirty = true
+    this.ext?.build?.()
     if (this.kind === 'paintWars') {
       // The arena's edge: a ring of little posts.
       const h = this.home
@@ -1539,6 +1562,7 @@ export class PartyMode {
         if (id === this.myId) s._message(t('partyPotatoYouOut'), 4)
       }
     }
+    this.ext?.events?.(was)
     if (this.kind === 'zombieBowling' && this.phase === 'play' && this.turn !== was.turn && this.turn === this.myId) s._message(t('partyBowlYourTurn', { s: TURN_S }), 4)
     if (this._say && this.runs) this._sayNow(this._say)
     this._say = null
@@ -1561,6 +1585,7 @@ export class PartyMode {
   _startText() {
     const tm = this.myTeam
     const team = tm ? t(tm === 'r' ? 'partyRed' : 'partyBlue') : ''
+    if (this.ext) return this.ext.startText()
     if (this.kind === 'hideSeek') return t(this.seekers.has(this.myId) ? 'partyYouSeek' : 'partyYouHide', { n: HIDE_S })
     if (this.kind === 'captureFlag') return t('partyFlagStart', { team, n: CAPS_TO_WIN })
     if (this.kind === 'kingHill') return t('partyHillStart', { n: HILL_POINTS })
@@ -1575,7 +1600,7 @@ export class PartyMode {
     const w = this.winner
     const me = this.myId
     if (this.kind === 'hideSeek') return (w === 'h' && !this.seekers.has(me)) || (w === 's' && this.seekers.has(me))
-    if (ID_SCORE_MODES.has(this.kind)) return w === me
+    if (ID_SCORE_MODES.has(this.kind) || (this.ext && !this.ext.teams)) return w === me
     return !!w && w === this.myTeam
   }
 
@@ -1592,7 +1617,7 @@ export class PartyMode {
     if (w === 'tie') who = t('partyTie')
     else if (this.kind === 'hideSeek') who = t(w === 's' ? 'partySeekersWin' : 'partyHidersWin')
     else if (this.kind === 'kingHill') who = t('partyKingWins', { name: this._name(w) })
-    else if (ID_SCORE_MODES.has(this.kind)) who = t('partyPlayerWins', { name: this._name(w) })
+    else if (ID_SCORE_MODES.has(this.kind) || (this.ext && !this.ext.teams)) who = t('partyPlayerWins', { name: this._name(w) })
     else who = t('partyTeamWins', { team: t(w === 'r' ? 'partyRed' : 'partyBlue') })
     this.s._message(`${who}${won ? ` ${t('partyYouWon', { n: WIN_COINS })}` : ''}`, END_S - 1)
   }
@@ -1610,7 +1635,8 @@ export class PartyMode {
     const name = this._modeName()
     if (this.phase === 'wait') return `${name} · ${t('infectionStartsIn', { n: Math.ceil(this.left) })}`
     let mid
-    if (this.kind === 'paintWars') {
+    if (this.ext) mid = this.ext.hud()
+    else if (this.kind === 'paintWars') {
       const [r, b] = this.paintCounts()
       const all = Math.max(1, r + b)
       mid = `${t('partyRed')} ${Math.round((r / all) * 100)}% - ${Math.round((b / all) * 100)}% ${t('partyBlue')}`
@@ -1647,6 +1673,7 @@ export class PartyMode {
     const B = this.s.B
     const box = new THREE.Box3()
     const hit = new THREE.Vector3()
+    if (this.ext?.shoot) return this.ext.shoot(ray, reach, wall)
     if (this.kind === 'hotPotato' || this.kind === 'buildBattle') return false
     if (this.kind === 'paintWars') {
       // A splat where the shot lands on the ground.
@@ -1688,7 +1715,7 @@ export class PartyMode {
       }
     }
     if (!best) return false
-    if (this.runs) this.stun(best.id)
+    if (this.runs) this.stun(best.id, this.myId)
     else {
       this.s.net.queueHit(`s${best.id}`, 0)
       this.stunned.set(best.id, STUN_S)
@@ -1696,9 +1723,10 @@ export class PartyMode {
     return true
   }
 
-  stun(id) {
-    this.stunned.set(id, STUN_S)
+  stun(id, by = '') {
+    this.stunned.set(id, this.ext?.stunS ?? STUN_S)
     this._dropFlags(id)
+    this.ext?.onStun?.(id, by)
   }
 
   // A guest's stun shot (BuildSurvival._applyRemoteHits).
@@ -1714,7 +1742,8 @@ export class PartyMode {
       if (this.sub === 'vote' && owner === this._voteOwner() && h.by && h.by !== owner) (this.votes[owner] ||= {})[h.by] = Math.max(1, Math.min(5, Number(h.dmg) || 1))
       return
     }
-    if (this.kind === 'captureFlag' || this.kind === 'kingHill') this.stun(id.slice(1))
+    if (this.ext?.remoteHit) return this.ext.remoteHit(h)
+    if (this.kind === 'captureFlag' || this.kind === 'kingHill' || this.ext?.botsStun) this.stun(id.slice(1), String(h.by || ''))
   }
 
   // A burst of paint drops where a shot landed.
@@ -1764,6 +1793,7 @@ export class PartyMode {
       th: this.theme,
       vi: this.voteI,
       pl: Object.fromEntries([...this.plots].map(([id, n]) => [this._out(id), n])),
+      x: this.ext?.snap?.() ?? null,
     }
   }
 
@@ -1802,6 +1832,7 @@ export class PartyMode {
       this.voteI = Math.max(0, Number(d.vi) || 0)
       this.plots = new Map(Object.entries(d.pl || {}).filter(([id, n]) => ok(id) && Number.isInteger(n) && n >= 0 && n < PLOTS))
     }
+    if (this.ext?.apply && d.x && typeof d.x === 'object') this.ext.apply(d.x)
     const pd = Number(d.pd) || 0
     for (let i = 0; i < PINS; i++) this.pinsDown[i] = !!(pd & (1 << i))
     if (Array.isArray(d.ball) && d.ball.every(Number.isFinite)) {
@@ -1826,6 +1857,7 @@ export class PartyMode {
   }
 
   dispose() {
+    this.ext?.dispose?.()
     for (const id of [...this.bots.keys()]) this._removeBot(id)
     for (const m of this._marks.values()) {
       m.removeFromParent()

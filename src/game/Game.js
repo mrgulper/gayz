@@ -1364,6 +1364,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'game-mode-paint-wars-label': 'topBarModePaintWars',
   'game-mode-build-battle-label': 'topBarModeBuildBattle',
   'game-mode-escape-room-label': 'topBarModeEscapeRoom',
+  'game-mode-floor-lava-label': 'topBarModeFloorLava',
   'zombie-book-done': 'bookComplete',
   'inventory-pets-soon-title': 'inventoryPetsTitle',
   'inventory-pets-soon-text': 'inventoryPetsSoon',

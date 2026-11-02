@@ -22,6 +22,7 @@ import { t } from './i18n.js'
 import { MOB_HEIGHT } from './PlayRules.js'
 import { CampTrophies } from './CampTrophies.js'
 import { CampAquarium } from './CampAquarium.js'
+import { CampZoo } from './CampZoo.js'
 
 export const COIN_PER_KILL = 10
 export const COIN_PER_WAVE = 50
@@ -132,6 +133,8 @@ export class BuildCamp {
     this.trophies = null
     this.aquarium?.dispose()
     this.aquarium = null
+    this.zoo?.dispose()
+    this.zoo = null
     if (this._prompt) this._prompt.style.display = 'none'
   }
 
@@ -196,9 +199,13 @@ export class BuildCamp {
       // The Aquarium beside it (CampAquarium.js).
       this.aquarium = new CampAquarium(this)
       this.aquarium.build(this.trophies.spot)
+      // And the Zombie Zoo, clear of both (CampZoo.js).
+      this.zoo = new CampZoo(this)
+      this.zoo.build([this.trophies.spot && { ...this.trophies.spot, wide: 8 }, this.aquarium.spot && { ...this.aquarium.spot, wide: 5 }].filter(Boolean))
     }
     this.trophies.update(p)
     this.aquarium?.update(dt)
+    this.zoo?.update(dt)
     const npc = this.s.shop?.panelOpen ? null : this._facingNpc()
     if (this._prompt) {
       this._prompt.style.display = npc ? 'block' : 'none'
