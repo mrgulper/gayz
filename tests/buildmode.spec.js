@@ -5364,13 +5364,13 @@ test('Speedrun: clock, best time and ghost path', async ({ page }) => {
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })
 
-test('Party modes: hide and seek, capture the flag, king of the hill, zombie soccer', async ({ page }) => {
+test('Party modes: hide and seek, capture the flag, king of the hill, zombie soccer, hot potato, bowling', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
     const g = window.__game
     g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
     const out = {}
-    for (const mode of ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer']) {
+    for (const mode of ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling']) {
       localStorage.removeItem('gayz-play-saved-run')
       g.settings.selectedGameMode = mode
       await g._enterBuildMode({ map: 'map3', play: true })
@@ -5437,10 +5437,112 @@ test('Party modes: hide and seek, capture the flag, king of the hill, zombie soc
         p._run(0.01)
         out.goal = p.score.r === 1
       }
+      if (mode === 'hotPotato') {
+        out.potatoHolder = !!p.holder && p.fuse > 0
+        for (const b of p.bots.values()) b.x += 500
+        p.holder = p.myId
+        p._passCd = 0
+        const [b] = p.bots.values()
+        const me = s.bodyPos()
+        Object.assign(b, { x: me.x + 0.3, y: me.y, z: me.z })
+        p._run(0.01)
+        out.potatoPassed = p.holder === b.id
+        p.fuse = 0.001
+        p._run(0.01)
+        out.potatoBoom = p.out.has(b.id) && !!p.holder && p.holder !== b.id
+        out.potatoSnap = JSON.parse(JSON.stringify(p.snapshot())).ou.includes(b.id)
+      }
+      if (mode === 'zombieBowling') {
+        out.bowlTurn = !!p.turn && p.order.length === 6
+        for (const b of p.bots.values()) b.x += 500
+        p._startTurn(p.myId)
+        const ball = p.ball
+        s.bm.tryMode.pos.set(ball.x - 0.5, ball.y, ball.z)
+        p._run(0.05)
+        out.bowlRolled = p.rolled && ball.vx > 1
+        s.bm.tryMode.pos.set(ball.x - 50, ball.y, ball.z)
+        // A pin in the ball's way falls.
+        const pin = p.pinSpot(0)
+        Object.assign(ball, { x: pin.x, y: pin.y, z: pin.z, vx: 6, vz: 0 })
+        p._run(0.01)
+        out.bowlPinDown = p.pinsDown[0]
+        for (let i = 0; i < 400 && p.turn === p.myId; i++) p._run(0.05)
+        out.bowlScored = p.rolls[p.myId] === 1 && p.score[p.myId] >= 1
+      }
       g.buildMode.survival.stop?.()
       g._exitBuildMode?.()
       await new Promise((res) => setTimeout(res, 200))
     }
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})
+
+test('Treasure maps, kites and the camp aquarium', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    localStorage.removeItem('gayz-play-saved-run')
+    localStorage.removeItem('gayz-aquarium')
+    g.settings.selectedGameMode = 'classic'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    const pick = (id) => {
+      s.inv.active = s.inv.hotbar.findIndex((it) => it?.id === id)
+      return s.inv.active >= 0
+    }
+    // Three pieces craft a map; the map marks an X, then digs it up.
+    s.inv.add({ kind: 'item', id: 'mapPiece', n: 3 })
+    out.crafted = s.inv.crafting.craft('treasureMap') && s.inv.has('treasureMap') && !s.inv.has('mapPiece')
+    out.picked = pick('treasureMap')
+    s.inv.useHeld()
+    const spot = s.treasure.spot
+    out.marked = !!spot && s.inv.has('treasureMap')
+    s.pins.update(1)
+    out.compassX = (document.getElementById('pin-compass')?.textContent || '').includes('X')
+    s.inv.useHeld()
+    out.stillMap = s.inv.has('treasureMap') && !!s.treasure.spot
+    s.bm.tryMode.pos.set(spot.x, spot.y, spot.z)
+    const coins = s._coinsEarned
+    const gems = g.gems
+    s.inv.useHeld()
+    out.dug = !s.treasure.spot && !s.inv.has('treasureMap') && s._coinsEarned > coins && g.gems > gems
+    // The kite: up, pulls with the wind, slows a fall, reels in.
+    s.inv.add({ kind: 'item', id: 'kite', n: 1 })
+    out.kitePicked = pick('kite')
+    s.inv.useHeld()
+    for (let i = 0; i < 20; i++) s.kite.update(0.1)
+    out.kiteUp = s.kite.up && !!s.kite.mesh?.parent && s.inv.has('kite')
+    const pull = s.kite.pull()
+    out.kitePull = !!pull && Math.hypot(pull.x, pull.z) > 0.1
+    out.kiteGlide = s.kite.fall(-20) > -5
+    s.inv.useHeld()
+    out.kiteDown = !s.kite.up && !s.kite.mesh
+    // The aquarium counts catches (a sure Fish off the rod) and fills the tank.
+    const rnd = Math.random
+    Math.random = () => 0
+    const me = s.bodyPos()
+    s.fishing.bob = { x: me.x, y: me.y, z: me.z }
+    s.fishing._land()
+    s.fishing._land()
+    Math.random = rnd
+    out.counted = JSON.parse(localStorage.getItem('gayz-aquarium') || '{}').fish === 2
+    localStorage.setItem('gayz-aquarium', JSON.stringify({ fish: 2, golden: 1 }))
+    const camp = s.camp
+    for (let i = 0; i < 20 && !camp?.aquarium; i++) await new Promise((res) => setTimeout(res, 100))
+    out.campAquarium = !!camp?.aquarium
+    const Aquarium = camp.aquarium.constructor
+    camp.aquarium.dispose()
+    camp.aquarium = new Aquarium(camp)
+    camp.aquarium.build(camp.trophies?.spot)
+    out.tank = !!camp.aquarium.group && camp.aquarium.fish.length === 3
+    out.apart = !camp.trophies?.spot || Math.hypot(camp.aquarium.spot.x - camp.trophies.spot.x, camp.aquarium.spot.z - camp.trophies.spot.z) > 4
+    s.stop?.()
+    g._exitBuildMode?.()
+    localStorage.removeItem('gayz-aquarium')
     return out
   })
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)

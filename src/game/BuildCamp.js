@@ -21,6 +21,7 @@ import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { t } from './i18n.js'
 import { MOB_HEIGHT } from './PlayRules.js'
 import { CampTrophies } from './CampTrophies.js'
+import { CampAquarium } from './CampAquarium.js'
 
 export const COIN_PER_KILL = 10
 export const COIN_PER_WAVE = 50
@@ -129,6 +130,8 @@ export class BuildCamp {
     this.npcs = []
     this.trophies?.dispose()
     this.trophies = null
+    this.aquarium?.dispose()
+    this.aquarium = null
     if (this._prompt) this._prompt.style.display = 'none'
   }
 
@@ -190,8 +193,12 @@ export class BuildCamp {
     if (!this.trophies) {
       this.trophies = new CampTrophies(this)
       this.trophies.build()
+      // The Aquarium beside it (CampAquarium.js).
+      this.aquarium = new CampAquarium(this)
+      this.aquarium.build(this.trophies.spot)
     }
     this.trophies.update(p)
+    this.aquarium?.update(dt)
     const npc = this.s.shop?.panelOpen ? null : this._facingNpc()
     if (this._prompt) {
       this._prompt.style.display = npc ? 'block' : 'none'

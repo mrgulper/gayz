@@ -19,6 +19,7 @@ import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
 import { itemName } from './PlayInventory.js'
+import { recordFish } from './CampAquarium.js'
 
 // The Trader's price (BuildCamp SHOP_ITEMS).
 export const ROD_COST = 60
@@ -171,6 +172,8 @@ export class Fishing {
       return
     }
     const fits = s.inv.add({ kind: 'item', id, n: 1 }) === 0
+    // Counted for the camp's Aquarium (CampAquarium.js).
+    recordFish(id)
     s._message(fits ? t(id === 'goldenFish' ? 'fishCaughtGolden' : 'fishCaught', { item: itemName(id) }) : t('invFull'), 3)
     if (id === 'goldenFish') try { audioEngine.playSpecial?.('goldZombie') } catch { /* no audio */ }
   }

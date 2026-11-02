@@ -11,6 +11,8 @@
 //   alone it only has Remove.
 // - A compass strip along the top while any pin is out: N / E / S / W and
 //   every pin (yours and the ones others share with you) with how far.
+// - A Treasure Map's X (TreasureMaps.js, `s.treasure.spot`) shows on both
+//   too, in gold - it's never a pin and never sent.
 // Owned by BuildSurvival (`s.pins`); BuildTryMode draws them on the map
 // and hands over taps; PlayNet sends snapshot() and passes the others'.
 import { t } from './i18n.js'
@@ -25,6 +27,7 @@ const VIS_KEY = { a: 'pinVisAll', f: 'pinVisFriends', m: 'pinVisMe' }
 // are white.
 const COLORS = ['#ff4a3a', '#3a8cff', '#3adf5a']
 const OTHER_COLOR = '#f4f0e0'
+const TREASURE_COLOR = '#ffcf3a'
 // The compass shows this much to either side (radians) over its width.
 const COMPASS_HALF = Math.PI / 2
 const COMPASS_EVERY_S = 0.1
@@ -141,6 +144,25 @@ export class MapPins {
     }
     for (const p of this._theirs()) pinAt(p.x, p.z, OTHER_COLOR, p.name.slice(0, 1).toUpperCase())
     this.list.forEach((p) => pinAt(p.x, p.z, p.color, ''))
+    // The Treasure Map's X: a big gold cross.
+    const tr = this.s.treasure?.spot
+    if (tr) {
+      const px = (tr.x - ox) * k
+      const pz = (tr.z - oz) * k
+      const a = r * 1.1
+      ctx.lineCap = 'round'
+      for (const [w, color] of [[line * 4, '#1a1408'], [line * 2.2, TREASURE_COLOR]]) {
+        ctx.strokeStyle = color
+        ctx.lineWidth = w
+        ctx.beginPath()
+        ctx.moveTo(px - a, pz - a)
+        ctx.lineTo(px + a, pz + a)
+        ctx.moveTo(px + a, pz - a)
+        ctx.lineTo(px - a, pz + a)
+        ctx.stroke()
+      }
+      ctx.lineCap = 'butt'
+    }
     this._renderMenu(el, ox, oz, k, s)
   }
 
@@ -195,6 +217,8 @@ export class MapPins {
     if ((this._compassIn -= dt) > 0) return
     this._compassIn = COMPASS_EVERY_S
     const pins = [...this.list.map((p) => ({ x: p.x, z: p.z, color: p.color, label: '' })), ...this._theirs().map((p) => ({ x: p.x, z: p.z, color: OTHER_COLOR, label: p.name.slice(0, 1).toUpperCase() }))]
+    const tr = this.s.treasure?.spot
+    if (tr) pins.push({ x: tr.x, z: tr.z, color: TREASURE_COLOR, label: 'X' })
     const on = pins.length > 0
     if (!this._compassEl) {
       if (!on) return

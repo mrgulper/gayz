@@ -1359,6 +1359,8 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'game-mode-capture-flag-label': 'topBarModeCaptureFlag',
   'game-mode-king-hill-label': 'topBarModeKingHill',
   'game-mode-zombie-soccer-label': 'topBarModeZombieSoccer',
+  'game-mode-hot-potato-label': 'topBarModeHotPotato',
+  'game-mode-zombie-bowling-label': 'topBarModeZombieBowling',
   'zombie-book-done': 'bookComplete',
   'inventory-pets-soon-title': 'inventoryPetsTitle',
   'inventory-pets-soon-text': 'inventoryPetsSoon',
