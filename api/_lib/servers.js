@@ -416,9 +416,22 @@ function cleanZone(v) {
 // A player's boats and helicopters (src/game/Vehicles.js): b / h, where,
 // facing, rotor on.
 // Up to 3 map pins: a spot and who sees it ('a' everyone, 'f' friends).
+// A friends pin carries `to`: the nicknames (lower case) of the players
+// in the server who are on its owner's friends list - only they get it.
 function cleanPins(v) {
   if (!Array.isArray(v)) return []
-  return v.slice(0, 3).filter((d) => d && (d.v === 'a' || d.v === 'f')).map((d) => ({ x: num(d.x, -1e5, 1e5), z: num(d.z, -1e5, 1e5), v: d.v }))
+  return v.slice(0, 3).filter((d) => d && (d.v === 'a' || d.v === 'f')).map((d) => {
+    const pin = { x: num(d.x, -1e5, 1e5), z: num(d.z, -1e5, 1e5), v: d.v }
+    if (d.v === 'f') pin.to = (Array.isArray(d.to) ? d.to : []).filter((n) => typeof n === 'string').slice(0, MAX_PLAYERS).map((n) => n.slice(0, 40).toLowerCase())
+    return pin
+  })
+}
+
+// Another player's pins as `viewer` (a nickname) may see them: everyone's,
+// and friends pins only when they name the viewer. `to` never goes out.
+function pinsFor(list, viewer) {
+  const me = String(viewer || '').toLowerCase()
+  return (Array.isArray(list) ? list : []).filter((p) => p && (p.v === 'a' || (p.v === 'f' && Array.isArray(p.to) && p.to.includes(me)))).map((p) => ({ x: p.x, z: p.z, v: p.v }))
 }
 
 function cleanVeh(v) {
@@ -606,7 +619,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p) continue
-    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: Array.isArray(p.pins) ? p.pins : [], sit: Number(p.sit) || 0, spray: p.spray || null }
+    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null }
     // A chat bubble: its number (new one = new bubble) and how long ago.
     if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }

@@ -6,8 +6,9 @@
 //   phone) a click / tap drops a pin there - up to MAX_PINS, the oldest
 //   goes when you drop another. Clicking a pin opens its little menu again.
 // - Beside a new pin a menu pops up: on a server, who sees it (Everyone,
-//   Friends, Only me - Friends is matched by nickname against your saved
-//   friends on their side), and Remove. Playing alone it only has Remove.
+//   Friends, Only me - Friends: the server only passes it to the players
+//   in it whose nickname is on your friends list), and Remove. Playing
+//   alone it only has Remove.
 // - A compass strip along the top while any pin is out: N / E / S / W and
 //   every pin (yours and the ones others share with you) with how far.
 // Owned by BuildSurvival (`s.pins`); BuildTryMode draws them on the map
@@ -86,24 +87,27 @@ export class MapPins {
     if (this._open === pin) this._open = null
   }
 
-  // Other players' pins I'm allowed to see: { x, z, name }.
+  // Other players' pins shared with me (the server already left out the
+  // friends pins that aren't for me): { x, z, name }.
   _theirs() {
     const net = this.online ? this.s.net : null
     if (!net) return []
-    const friends = new Set((this.bm.game?.settings?.savedFriends || []).map((f) => String(f.name || '').toLowerCase()))
     const out = []
-    for (const p of net.players.values()) {
-      for (const pin of p.pins || []) {
-        if (pin.v === 'f' && !friends.has(String(p.nick || '').toLowerCase())) continue
-        out.push({ x: pin.x, z: pin.z, name: p.nick || '' })
-      }
-    }
+    for (const p of net.players.values()) for (const pin of p.pins || []) out.push({ x: pin.x, z: pin.z, name: p.nick || '' })
     return out
   }
 
-  // What the other players need (PlayNet, each sync): only shared pins.
+  // What the other players need (PlayNet, each sync): only shared pins. A
+  // friends pin names who it's for: the players here on my friends list.
   snapshot() {
-    return this.list.filter((p) => p.vis !== 'm').map((p) => ({ x: +p.x.toFixed(1), z: +p.z.toFixed(1), v: p.vis }))
+    const pins = this.list.filter((p) => p.vis !== 'm')
+    if (!pins.length) return []
+    let to = []
+    if (pins.some((p) => p.vis === 'f')) {
+      const friends = new Set((this.bm.game?.settings?.savedFriends || []).map((f) => String(f.name || '').toLowerCase()))
+      to = [...(this.s.net?.players?.values() || [])].map((p) => String(p.nick || '').toLowerCase()).filter((n) => n && friends.has(n))
+    }
+    return pins.map((p) => ({ x: +p.x.toFixed(1), z: +p.z.toFixed(1), v: p.vis, ...(p.vis === 'f' ? { to } : {}) }))
   }
 
   // On the map (BuildTryMode._drawMap): canvas spot = (x - ox) * k.
