@@ -46,6 +46,8 @@ import { MetalDetector } from './MetalDetector.js'
 import { TreasureMaps, PIECE_CHANCE } from './TreasureMaps.js'
 import { Kites } from './Kites.js'
 import { Skateboards } from './Skateboards.js'
+import { Sleds } from './Sleds.js'
+import { HotSprings } from './HotSprings.js'
 import { DanceOff } from './DanceOff.js'
 import { EscapeRooms } from './EscapeRooms.js'
 import { Reefs } from './Reefs.js'
@@ -486,6 +488,11 @@ export class BuildSurvival {
     // Skateboards, frozen lakes and the Dance-Off (Skateboards.js, DanceOff.js).
     if (!this.skate) this.skate = new Skateboards(this)
     this.skate.clear()
+    // Sleds and hot springs (Sleds.js, HotSprings.js).
+    if (!this.sled) this.sled = new Sleds(this)
+    this.sled.clear()
+    if (!this.springs) this.springs = new HotSprings(this)
+    this.springs.clear()
     if (!this.dance) this.dance = new DanceOff(this)
     this.dance.clear()
     // Reefs and ruins, the pirate ship, the train and the Moon
@@ -685,6 +692,8 @@ export class BuildSurvival {
     this.treasure?.clear()
     this.kite?.clear()
     this.skate?.clear()
+    this.sled?.clear()
+    this.springs?.clear()
     this.dance?.clear()
     this.train?.clear()
     this.moon?.clear()
@@ -3155,6 +3164,8 @@ export class BuildSurvival {
     this.detector?.update(dt)
     this.kite?.update(Math.min(dt, 0.1))
     this.skate?.update(Math.min(dt, 0.1))
+    this.sled?.update(Math.min(dt, 0.1))
+    this.springs?.update(Math.min(dt, 0.1))
     this.reefs?.update(Math.min(dt, 0.1))
     this.moon?.update(Math.min(dt, 0.1))
     this.potions?.update()

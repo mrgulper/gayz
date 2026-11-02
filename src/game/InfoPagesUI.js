@@ -35,6 +35,10 @@ import { MAX_PINS } from './MapPins.js'
 import { PIECE_CHANCE, PIECES_PER_MAP, COINS as TREASURE_COINS, GEMS as TREASURE_GEMS } from './TreasureMaps.js'
 import { MAX_FISH as AQUARIUM_FISH, MAX_GOLDEN as AQUARIUM_GOLDEN } from './CampAquarium.js'
 import { BOARD_SPEED, TRICK_COINS, FREEZE_R } from './Skateboards.js'
+import { SNOW_SPEED as SLED_SPEED, MAX_BOOST as SLED_BOOST, RUN_MIN as SLED_RUN_MIN, RUN_STEP as SLED_RUN_STEP, SLED_COINS } from './Sleds.js'
+import { MAX_SPRINGS, HEAL_PER_S as SPRING_HEAL } from './HotSprings.js'
+import { MAX_ZOO } from './CampZoo.js'
+import { GRID as LAVA_GRID, WARN_S as LAVA_WARN, REGROW_S as LAVA_REGROW } from './PartyLava.js'
 import { DANCE_S, DANCE_R, DANCE_COINS, DAZE_S, COOLDOWN_S as BOOMBOX_COOL } from './DanceOff.js'
 import { MAX_RUINS, SEA_ZOMBIES as RUIN_ZOMBIES } from './Reefs.js'
 import { PIRATES, PIRATE_COINS, SHIP_LIFE } from './PirateShip.js'
@@ -414,6 +418,17 @@ export function _featureValues(_game) {
     treasureGems: `${TREASURE_GEMS[0]}-${TREASURE_GEMS[1]}`,
     aquariumFish: AQUARIUM_FISH,
     aquariumGolden: AQUARIUM_GOLDEN,
+    sledSpeed: SLED_SPEED,
+    sledBoost: SLED_BOOST,
+    sledRunMin: SLED_RUN_MIN,
+    sledRunStep: SLED_RUN_STEP,
+    sledCoins: SLED_COINS,
+    springMax: MAX_SPRINGS,
+    springHeal: SPRING_HEAL,
+    zooMax: MAX_ZOO,
+    lavaGrid: `${LAVA_GRID} x ${LAVA_GRID}`,
+    lavaWarn: LAVA_WARN,
+    lavaRegrow: LAVA_REGROW,
     dungeonSize: DUNGEON_SIZE,
     zoneSpeed: ZONE_ZOMBIE_SPEED,
     zoneMinutes: Math.floor(ZONE_TOTAL_S / 60),

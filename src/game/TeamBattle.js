@@ -68,7 +68,7 @@ function animalModel(kind) {
 
 // A blocky zombie, 2 blocks tall (a skeleton in bone, a monster kind
 // stretched to its shape). Its own materials, so a hit can light it up.
-function zombieModel(c) {
+export function zombieModel(c) {
   const skel = !!SKELETON_KINDS[c.k]
   const mon = MONSTER_KINDS[c.k]
   const skin = skel ? 0xe8e0c8 : mon ? 0x7a9a4a : 0x5f9a52

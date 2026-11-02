@@ -48,9 +48,9 @@ export const JOIN_GRACE_MS = 90000
 // main: Zombie Survival; infection: Infection mode (src/game/Infection.js);
 // zone: Shrinking Zone (src/game/ShrinkZone.js).
 // td: Tower Defense (src/game/TowerDefense.js).
-// hide / ctf / koth / soccer / potato / bowling / paint / build: the party modes (src/game/PartyModes.js).
-export const MODES = ['main', 'infection', 'zone', 'hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'paint', 'build', 'td']
-const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer', potato: 'hotPotato', bowling: 'zombieBowling', paint: 'paintWars', build: 'buildBattle' }
+// hide / ctf / koth / soccer / potato / bowling / paint / build / lava: the party modes (src/game/PartyModes.js).
+export const MODES = ['main', 'infection', 'zone', 'hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'paint', 'build', 'lava', 'td']
+const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer', potato: 'hotPotato', bowling: 'zombieBowling', paint: 'paintWars', build: 'buildBattle', lava: 'floorLava' }
 const NAME_MAX = 24
 const NICK_MAX = 20
 const MAX_ZOMBIES = 40
@@ -417,7 +417,29 @@ function cleanParty(v, kind) {
     th: Math.round(num(v.th, 0, 20)),
     vi: Math.round(num(v.vi, 0, 40)),
     pl: Object.fromEntries(obj(v.pl).filter(([k]) => id(k)).map(([k, n]) => [k, Math.round(num(n, 0, 7))])),
+    x: cleanPartyExt(v.x),
   }
+}
+
+// The part of a party round from a mode in its own file (PartyModes
+// `ext`, e.g. Floor is Lava's tiles): up to 16 fields of short plain
+// strings, numbers, or small lists / maps of numbers.
+function cleanPartyExt(v) {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const out = {}
+  for (const [k, x] of Object.entries(v).slice(0, 16)) {
+    if (!/^[a-z]{1,4}$/.test(k)) continue
+    if (typeof x === 'string') {
+      if (/^[A-Za-z0-9_.,:;|-]{0,1200}$/.test(x)) out[k] = x
+    } else if (typeof x === 'number') out[k] = num(x, -1e6, 1e6)
+    else if (Array.isArray(x)) out[k] = x.slice(0, 64).map((n) => num(n, -1e6, 1e6))
+    else if (x && typeof x === 'object') {
+      const m = {}
+      for (const [mk, n] of Object.entries(x).slice(0, 40)) if (/^(?:b\d{1,4}|[A-Za-z0-9]{1,40})$/.test(mk)) m[mk] = num(n, -1e6, 1e6)
+      out[k] = m
+    }
+  }
+  return out
 }
 
 // Shrinking Zone (src/game/ShrinkZone.js): where it began, its seed and

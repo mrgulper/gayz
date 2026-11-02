@@ -89,6 +89,8 @@ export const ITEMS = {
   kite: { key: 'invKite', kite: true },
   // Skateboard (Skateboards.js) and Boombox (DanceOff.js), never used up.
   skateboard: { key: 'invSkateboard', skate: true },
+  // Sled (Sleds.js), never used up.
+  sled: { key: 'invSled', sled: true },
   boombox: { key: 'invBoombox', boombox: true },
   // Submarine (Vehicles.js) and Rocket (MoonTrip.js).
   submarine: { key: 'invSubmarine', vehicle: 'sub' },
@@ -164,6 +166,7 @@ const ICON_PIXELS = {
   mapPiece: ['................', '................', '..aaaaaaaa......', '..aaaakaaaa.....', '..akaaaaaaaa....', '..aaaaaaakaa....', '..aaakaaaaa.....', '..aaaaaaaaa.....', '..aaaaakaa......', '..aaaaaaa.......', '...aaaa.........'],
   treasureMap: ['................', '.aaaaaaaaaaaaaa.', '.akkaaaaaaaaaaa.', '.aaakkaaaaaaaaa.', '.aaaaakkaaraara.', '.aaaaaaakaarraa.', '.aaaaaaaaaarraa.', '.aaaaaaaaaraara.', '.aaakaaaaaaaaaa.', '.aakkkaaaaaaaaa.', '.aaakaaaaaaaaaa.', '.aaaaaaaaaaaaaa.'],
   skateboard: ['................', '................', '................', '................', '................', '.kkkkkkkkkkkkkk.', 'kooooooooooooook', '.kkkkkkkkkkkkkk.', '..ii........ii..', '..yy........yy..', '..yy........yy..'],
+  sled: ['................', '................', '................', '................', '..rrrrrrrrrrrr..', '.rkrkrkrkrkrkr..', '..rrrrrrrrrrrr..', '...i........i...', '..iiiiiiiiiiiii.', '.i..............', '..ii............'],
   submarine: ['................', '................', '.......yy.......', '.......yy..d....', '......yyyy.d....', '..yyyyyyyyyyyy..', '.yyycyyccyycyyy.', 'dyyyyyyyyyyyyyyy', '.yyyyyyyyyyyyyy.', '..yyyyyyyyyyyy..'],
   rocket: ['.......r........', '......rrr.......', '......www.......', '.....wwwww......', '.....wwcww......', '.....wwwww......', '.....wwwww......', '.....wwwww......', '....rwwwwwr.....', '...rrwwwwwrr....', '...r.dddd..r....', '.......o........', '......ooo.......'],
   boombox: ['................', '....dddddddd....', '....d......d....', '.dddddddddddddd.', '.d############d.', '.d#iii#cc#iii#d.', '.d#i#i#cc#i#i#d.', '.d#iii####iii#d.', '.d############d.', '.dddddddddddddd.'],
@@ -359,6 +362,9 @@ export class PlayInventory {
     } else if (def?.skate) {
       s.skate?.use()
       return true
+    } else if (def?.sled) {
+      s.sled?.use()
+      return true
     } else if (def?.boombox) {
       s.dance?.useBoombox()
       return true
@@ -541,6 +547,7 @@ export class PlayInventory {
     if (item.treasure) return t('invTipTreasureMap')
     if (item.kite) return t('invTipKite')
     if (item.skate) return t('invTipSkateboard')
+    if (item.sled) return t('invTipSled')
     if (item.boombox) return t('invTipBoombox')
     if (item.junk) return t('invTipJunk')
     return t(it.id === 'meat' || it.id === 'veggies' || it.id === 'fish' || it.id === 'goldenFish' || ITEMS[it.id]?.animalKey ? 'invTipMeat' : 'invTipHealthPack', { n: item.heal })
