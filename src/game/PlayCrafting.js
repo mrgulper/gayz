@@ -38,6 +38,8 @@ export const RECIPES = [
   // Boats and helicopters (Vehicles.js, 2026-11-01 big batch).
   { id: 'boat', kind: 'item', n: 1, needs: [{ group: 'planks', n: 6 }, { group: 'log', n: 2 }] },
   { id: 'helicopter', kind: 'item', n: 1, needs: [{ group: 'stone', n: 12 }, { block: 'glass', n: 2 }, { group: 'planks', n: 4 }, { item: 'zombieGoo', n: 4 }] },
+  // Hot-air balloon (Vehicles.js, 2026-11-01): cloth, a basket, goo glue.
+  { id: 'hotAirBalloon', kind: 'item', n: 1, needs: [{ item: 'plantFiber', n: 6 }, { group: 'planks', n: 4 }, { item: 'zombieGoo', n: 2 }] },
   { id: 'heliFuel', kind: 'item', n: 1, needs: [{ item: 'zombieGoo', n: 2 }, { group: 'log', n: 1 }] },
   { id: 'helmet', kind: 'item', n: 1, needs: [{ group: 'stone', n: 5 }] },
   { id: 'chestplate', kind: 'item', n: 1, needs: [{ group: 'stone', n: 8 }] },

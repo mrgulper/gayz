@@ -14,10 +14,12 @@
 //   key (B) opens the same thing anywhere, on every map.
 // - Coins come from kills (COIN_PER_KILL) and cleared waves
 //   (COIN_PER_WAVE), and only last for that game of Play.
+// - A Trophy Room against one wall (CampTrophies.js, 2026-11-01).
 import * as THREE from 'three'
 import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { t } from './i18n.js'
 import { MOB_HEIGHT } from './PlayRules.js'
+import { CampTrophies } from './CampTrophies.js'
 
 export const COIN_PER_KILL = 10
 export const COIN_PER_WAVE = 50
@@ -124,6 +126,8 @@ export class BuildCamp {
       })
     }
     this.npcs = []
+    this.trophies?.dispose()
+    this.trophies = null
     if (this._prompt) this._prompt.style.display = 'none'
   }
 
@@ -180,6 +184,13 @@ export class BuildCamp {
       }
     }
     if (this.display) return
+    // The Trophy Room goes up on the first frame, once the camp farm's
+    // Crop Plots are back in (they'd be in its way).
+    if (!this.trophies) {
+      this.trophies = new CampTrophies(this)
+      this.trophies.build()
+    }
+    this.trophies.update(p)
     const npc = this.s.shop?.panelOpen ? null : this._facingNpc()
     if (this._prompt) {
       this._prompt.style.display = npc ? 'block' : 'none'

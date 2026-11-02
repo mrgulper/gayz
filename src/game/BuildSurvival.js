@@ -46,6 +46,7 @@ import { MetalDetector } from './MetalDetector.js'
 import { AnimalRiding } from './AnimalRiding.js'
 import { Potions, POTION_IDS, CHEST_POTION_CHANCE } from './Potions.js'
 import { Jetpack } from './Jetpack.js'
+import { MapPins } from './MapPins.js'
 import { ZombieRadio } from './ZombieRadio.js'
 import { Sprays } from './Sprays.js'
 import { DeathReplay } from './DeathReplay.js'
@@ -437,6 +438,9 @@ export class BuildSurvival {
     // Crafted boats and helicopters (Vehicles.js).
     if (!this.vehicles) this.vehicles = new Vehicles(this)
     this.vehicles.clear()
+    // Map pins and the compass (MapPins.js).
+    if (!this.pins) this.pins = new MapPins(this)
+    this.pins.clear()
     this.events.reset()
     // A rare red night: double zombies, double coins (BloodMoon.js).
     if (!this.bloodMoon) this.bloodMoon = new BloodMoon(this)
@@ -611,6 +615,7 @@ export class BuildSurvival {
     this.fuel?.clear()
     this.kart?.dispose()
     this.vehicles?.clear()
+    this.pins?.clear()
     this._fx?.clear()
     this.throws?.clear()
     this.catcher?.clear()
@@ -3043,6 +3048,7 @@ export class BuildSurvival {
     this.potions?.update()
     if (!this.dead && !this.bm.menuOpen) this._checkDungeon(dt)
     this.jetpack?.update()
+    this.pins?.update(dt)
     this.catcher?.update(Math.min(dt, 0.1))
     this.hpBars?.update(Math.min(dt, 0.1))
     // On a server the world goes on while you're dead or in the menu.

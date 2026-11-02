@@ -908,3 +908,95 @@ body.play-photo #play-pills { display: none; }
   color: #e6dcff;
   white-space: nowrap;
 }
+
+/* Map pins (MapPins.js, 2026-11-01): the little menu beside a pin on the
+   big map, and the compass strip along the top while a pin is out. */
+#map-pin-menu {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  font: 600 12px/1.3 system-ui, sans-serif;
+  color: #f4ead2;
+  background: rgba(8, 8, 7, 0.88);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.55);
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  cursor: default;
+}
+#map-pin-menu .map-pin-title { text-align: center; }
+#map-pin-menu :is(.map-pin-vis, .map-pin-row) { display: flex; gap: 4px; }
+#map-pin-menu button {
+  flex: 1;
+  min-height: 32px;
+  padding: 4px 9px;
+  font: inherit;
+  color: inherit;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.45);
+  border-radius: 999px;
+  cursor: pointer;
+}
+#map-pin-menu button.on { color: #1a1408; background: rgb(var(--ui-gold-accent-rgb)); }
+
+#pin-compass {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  z-index: 6;
+  display: none;
+  width: min(300px, 46vw);
+  height: 30px;
+  transform: translateX(-50%);
+  overflow: hidden;
+  pointer-events: none;
+  font: 700 13px/1 system-ui, sans-serif;
+  color: #f4ead2;
+  background: rgba(8, 8, 7, 0.6);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.55);
+  border-radius: 999px;
+  text-shadow: 0 1px 2px #000;
+}
+#pin-compass.on { display: block; }
+#pin-compass .pin-compass-tick {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 2px;
+  height: 6px;
+  background: currentColor;
+  transform: translateX(-50%);
+}
+#pin-compass :is(.pin-compass-dir, .pin-compass-pin) {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+#pin-compass .pin-compass-dir { opacity: 0.8; }
+#pin-compass .pin-compass-pin { display: flex; align-items: center; gap: 3px; }
+#pin-compass .pin-compass-pin i {
+  display: grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  font: 700 9px/1 system-ui, sans-serif;
+  font-style: normal;
+  color: #1a1408;
+  text-shadow: none;
+  background: var(--pin);
+  border: 1.5px solid #1a1408;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+}
+#pin-compass .pin-compass-pin b { font-size: 11px; }
+#pin-compass .pin-compass-pin.behind { opacity: 0.55; }
+body.touch-play-on #pin-compass { top: 74px; width: min(220px, 56vw); height: 26px; }
+body.play-photo #pin-compass { display: none; }
+
+html.ui-theme-old :is(#map-pin-menu, #pin-compass) { color: #f3e6c8; background: rgba(74, 44, 16, 0.9); }
+html.ui-theme-clean :is(#map-pin-menu, #pin-compass) { color: var(--clean-bg); background: var(--clean-fg); border-color: var(--clean-fg); text-shadow: none; }
+html.ui-theme-clean #map-pin-menu button { border-color: var(--clean-bg); }
+html.ui-theme-clean #map-pin-menu button.on { color: var(--clean-fg); background: var(--clean-bg); }

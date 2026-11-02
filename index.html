@@ -2163,6 +2163,15 @@ Escape before dawn.</p>
         <div class="profile-tabs">
           <button type="button" class="profile-tab active" data-profile-page="public" id="profile-tab-public">Shown to Public</button>
           <button type="button" class="profile-tab" data-profile-page="hidden" id="profile-tab-hidden">Hidden</button>
+          <button type="button" class="profile-tab" data-profile-page="trophies" id="profile-tab-trophies">Trophies</button>
+        </div>
+
+        <!-- Trophies (Trophies.js, 2026-11-01): bronze / silver / gold from
+             your saved records - the same ones stand in the camp's Trophy Room. -->
+        <div class="profile-tab-page" id="profile-page-trophies" style="display: none">
+          <p id="profile-trophies-hint">Bronze, silver and gold for your best records. They also stand on the shelves of the Trophy Room at Safe Camp.</p>
+          <p id="profile-trophies-count"></p>
+          <div id="profile-trophies-grid"></div>
         </div>
 
         <div class="profile-tab-page" id="profile-page-public">
@@ -2467,7 +2476,7 @@ Escape before dawn.</p>
             <ul>
               <li>Gallery posts (skins, maps and photos you take in Photo Mode) store the picture you post, its title, your nickname, likes, dislikes and comments - anyone can see them. Each like or dislike is saved under your account so you can only vote once per post.</li>
               <li>Maps you share get a code and are stored online so anyone can play them; Build Together rooms store the edits and each player's spot while you build.</li>
-              <li>When you play on a server, your position, skin and nickname are sent to the other players in it while you play, along with what you hold, the hat and cape you wear, the emote you play, whether you're sitting in a vehicle, the boats and helicopters you put down, the spray tags you spray (your drawing and where it is), the blocks you place and break, and what you say in Global chat (shown over your head). A game you start from the homepage is a private server from the start, so friends can join it by its link; nobody sees it in the server list, and it's deleted when you leave.</li>
+              <li>When you play on a server, your position, skin and nickname are sent to the other players in it while you play, along with what you hold, the hat and cape you wear, the emote you play, whether you're sitting in a vehicle, the boats, helicopters and hot-air balloons you put down, the map pins you share (where they are and whether they're for everyone or friends only; pins for friends only are sent only to the players in the server who are on your friends list), the spray tags you spray (your drawing and where it is), the blocks you place and break, and what you say in Global chat (shown over your head). A game you start from the homepage is a private server from the start, so friends can join it by its link; nobody sees it in the server list, and it's deleted when you leave.</li>
             </ul>
 
             <h3>Stored only on your device</h3>
@@ -2521,7 +2530,11 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="careerStats privateNotes">
           <h3>Career Stats &amp; Profile</h3>
-          <p>Lifetime totals, a stats-over-time chart, a pinnable highlight reel, a Best Run breakdown, an anniversary line, today's session stats, and a "Nearly There" panel toward trackable achievements - plus a Bio others can see and private Notes only you can see.</p>
+          <p>Lifetime totals, a stats-over-time chart, a pinnable highlight reel, a Best Run breakdown, an anniversary line, today's session stats, and a "Nearly There" panel toward trackable achievements - plus a Bio others can see, private Notes only you can see, and a Trophies tab (see Trophies &amp; Trophy Room).</p>
+        </div>
+        <div class="feature" data-code="Trophies TROPHIES tierOf renderTrophies CampTrophies">
+          <h3>Trophies &amp; Trophy Room</h3>
+          <p><span data-feature-value="trophyCount">15</span> trophies for your best records - zombies killed, best wave, kill streak, skeletons, games played, hours played, coins earned, your level, assists, achievements, creatures caught, your rarest catch, Team battles won, the Zombie Book and your best speedrun time. Each comes in bronze, silver and gold. The Trophies tab on your Profile shows them all, with what the next one up needs. On Map 1 the Safe Camp has a Trophy Room against one of its walls: a booth with your cups on two shelves (dark grey while still locked) - look at a cup to see its name and tier. On a server, everyone sees their own trophies there.</p>
         </div>
         <div class="feature" data-code="selectedGoals MAX_GOALS">
           <h3>Goals</h3>
@@ -2602,6 +2615,10 @@ Escape before dawn.</p>
           <h3>Boats &amp; Helicopters</h3>
           <p>Craft a Boat (planks and logs) or a Helicopter (stone, glass, planks and Zombie Goo), hold it and click: a boat goes on the water in front of you, a helicopter on open ground in front of you. Right-click one, or press Use beside it, to get in - you sit in the seat (watch yourself with P, and others on a server see you sitting) - and right-click or Use again to get out (Crouch gets you out of a boat too). A boat only moves on water - forward and back, left and right to steer. A helicopter flies the way you look: forward, back and sideways to move, Jump to climb and Crouch to go down, up to about <span data-feature-value="heliCeiling">40</span> blocks over the ground, and you can still shoot from it. It burns fuel while it's up: a full tank is <span data-feature-value="heliFuelSeconds">60</span> seconds of flying (a new helicopter comes full). Craft Heli Fuel from Zombie Goo and a log and use it in or next to one - or just carry some, and an empty tank fills itself from it. Out of fuel, it sinks slowly to the ground. To get out of a helicopter, land first. You can have up to <span data-feature-value="vehiclesOut">4</span> out at once, and on a server everyone sees your boats and helicopters.</p>
         </div>
+        <div class="feature" data-code="makeBalloon _moveBalloon BALLOON_FUEL_S BALLOON_CEILING hotAirBalloon">
+          <h3>Hot-Air Balloon</h3>
+          <p>Craft a Hot-Air Balloon (Plant Fiber, planks and Zombie Goo), hold it and click to put it down on open ground with room above it, then right-click it or press Use to climb into the basket. You only steer up and down: hold Jump to light the burner and rise, Crouch to let air out and sink faster, or do neither and it slowly drifts down. The wind carries you along - the higher you are, the faster it blows - up to about <span data-feature-value="balloonCeiling">60</span> blocks over the ground. The burner runs on Heli Fuel: a full tank is <span data-feature-value="balloonFuelSeconds">60</span> seconds of burning (a new balloon comes full), and a can in your bag fills it again on its own. Out of fuel, it floats slowly down. Land to get out. It counts toward your vehicles out at once, and on a server everyone sees it.</p>
+        </div>
         <div class="feature" data-code="GoKart ramDamage KART_EYE">
           <h3>Go-Kart</h3>
           <p>Every Zombie Survival run parks a rickety blocky go-kart a few steps from where you start. Walk up to it and right-click it, or press Use (the use button on a phone), to hop in and sit down in the seat (press P to see yourself; on a server others see you sitting), and right-click, Use or Crouch to hop out beside it. Forward and back drive and reverse, left and right steer (on a phone, the move stick does both), and you can still look around and shoot while you drive. It drives up one-block steps - up hills and mountains too, gliding up each step instead of jumping - drops off ledges and bounces off walls. Ram a zombie at speed to run it over - at full speed that's about a regular zombie's whole health - but watch out: zombies can still bite you in the seat.</p>
@@ -2661,6 +2678,10 @@ Escape before dawn.</p>
         <div class="feature" data-code="Potions POTIONS POTION_S">
           <h3>Potions</h3>
           <p>Four potions, crafted or found in loot chests: Speed (run much faster), Invisibility (zombies lose track of you), Giant (much bigger, hitting harder) and Tiny (small enough for one-block gaps). Hold one and click to drink it - it lasts <span data-feature-value="potionSeconds">30</span> seconds, with a timer above your hotbar. Giant and Tiny cancel each other.</p>
+        </div>
+        <div class="feature" data-code="MapPins MAX_PINS cleanPins _tapMapPin">
+          <h3>Map Pins &amp; Compass</h3>
+          <p>Open the big map (press M twice, or tap the corner map on a phone) and click or tap anywhere to drop a pin there - up to <span data-feature-value="mapPins">3</span>, and dropping another takes the oldest away. A little menu pops up beside the pin to remove it; on a server it also lets you pick who sees it: Everyone, Friends (only the players there who are on your friends list get it) or Only me. Click a pin again to open its menu. While any pin is out a compass runs along the top of the screen with North, East, South and West and every pin - yours, and the ones other players share with you, marked with their first letter - and how many blocks away it is. A pin behind you sits at the edge, on the side to turn to.</p>
         </div>
         <div class="feature" data-code="Jetpack JET_S jetFuel">
           <h3>Jetpack</h3>

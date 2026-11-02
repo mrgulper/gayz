@@ -30,7 +30,9 @@ import { WIN_COINS, LOSS_COINS } from './TeamUI.js'
 import { ROUND_S } from './TeamBattle.js'
 import { BOOK_IDS, BOOK_COINS, BOOK_DONE_COINS } from './ZombieBook.js'
 import * as Infection from './Infection.js'
-import { HELI_FUEL_S, HELI_CEILING, MAX_OUT } from './Vehicles.js'
+import { HELI_FUEL_S, HELI_CEILING, MAX_OUT, BALLOON_FUEL_S, BALLOON_CEILING } from './Vehicles.js'
+import { MAX_PINS } from './MapPins.js'
+import { TROPHIES } from './Trophies.js'
 import { ZONE_TOTAL_S } from './ShrinkZone.js'
 import { DINO_KINDS, DINO_CHANCE } from './DinoKinds.js'
 import { RARITIES } from './NewAnimalKinds.js'
@@ -322,6 +324,10 @@ export function _featureValues(_game) {
     heliFuelSeconds: HELI_FUEL_S,
     heliCeiling: HELI_CEILING,
     vehiclesOut: MAX_OUT,
+    balloonFuelSeconds: BALLOON_FUEL_S,
+    balloonCeiling: BALLOON_CEILING,
+    mapPins: MAX_PINS,
+    trophyCount: TROPHIES.length,
     zoneStages: ZONE_STAGES.length,
     zoneStartR: ZONE_STAGES[0].r,
     zoneFinalR: ZONE_STAGES[ZONE_STAGES.length - 1].r,

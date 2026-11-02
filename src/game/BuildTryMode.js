@@ -350,8 +350,13 @@ export class BuildTryMode {
       const [a, b] = [...fingers.values()]
       return Math.hypot(a.x - b.x, a.y - b.y)
     }
+    // A tap that didn't drag drops a map pin (MapPins.js) - a moment
+    // later, so a double-click still only brings the map back to you.
+    let press = null
+    let pinTimer = 0
     this._mapCanvas.addEventListener('pointerdown', (e) => {
       if (!this._mapInteractive()) return
+      press = fingers.size ? null : { x: e.clientX, y: e.clientY, t: performance.now() }
       fingers.set(e.pointerId, { x: e.clientX, y: e.clientY })
       if (fingers.size === 2) pinch = spread()
       drag = { x: e.clientX, y: e.clientY }
@@ -375,6 +380,12 @@ export class BuildTryMode {
       this._mapDrawAt = 0
     })
     const endDrag = (e) => {
+      if (press && e.type === 'pointerup' && fingers.size === 1 && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 6 && performance.now() - press.t < 500) {
+        const at = { x: e.clientX, y: e.clientY }
+        clearTimeout(pinTimer)
+        pinTimer = setTimeout(() => this._tapMapPin(at), 260)
+      }
+      press = null
       fingers.delete(e.pointerId)
       pinch = 0
       const left = [...fingers.values()][0]
@@ -384,6 +395,7 @@ export class BuildTryMode {
     this._mapCanvas.addEventListener('pointerup', endDrag)
     this._mapCanvas.addEventListener('pointercancel', endDrag)
     this._mapCanvas.addEventListener('dblclick', () => {
+      clearTimeout(pinTimer)
       this._mapPan = { x: 0, z: 0 }
       this._mapZoom = this._mapOpenZoom()
       this._mapDrawAt = 0
@@ -402,6 +414,22 @@ export class BuildTryMode {
   _mapOpenZoom() {
     if (!this.bm.world?.active) return 1
     return MAP_SPAN_FOR.big / MAP_WORLD_SPAN
+  }
+
+  // A tap on the big map (screen spot `at`): a pin there while playing.
+  _tapMapPin(at) {
+    const pins = this.bm.survival?.active ? this.bm.survival.pins : null
+    const v = this._mapView
+    if (!pins || !v || !this._mapInteractive()) return
+    const rect = this._mapCanvas.getBoundingClientRect()
+    if (!rect.width) return
+    const cx = ((at.x - rect.left) / rect.width) * v.s
+    const cz = ((at.y - rect.top) / rect.height) * v.s
+    const cssPerPx = rect.width / v.s
+    // How far (CSS px) the tap is from a pin's head.
+    const near = (p) => Math.hypot((p.x - v.ox) * v.k - cx, (p.z - v.oz) * v.k - Math.max(5, v.s / 40) * 1.9 - cz) * cssPerPx
+    pins.tap(v.ox + cx / v.k, v.oz + cz / v.k, near)
+    this._mapDrawAt = 0
   }
 
   _mapInteractive() {
@@ -508,7 +536,8 @@ export class BuildTryMode {
       }
     }
     const touch = document.body.classList.contains('touch-play-on')
-    this._mapHintEl.textContent = interactive ? t(touch ? 'mapDragHintTouch' : 'mapDragHint') : ''
+    const pinHint = this.bm.survival?.active ? ` · ${t(touch ? 'mapPinHintTouch' : 'mapPinHint')}` : ''
+    this._mapHintEl.textContent = interactive ? t(touch ? 'mapDragHintTouch' : 'mapDragHint') + pinHint : ''
     this._mapCloseEl.setAttribute('aria-label', t('mapCloseBtn'))
     // Drawn at the size it's shown, so the blocks stay crisp.
     const px = Math.max(1, Math.round(this._mapEl.clientWidth * Math.min(window.devicePixelRatio || 1, 2)))
@@ -580,6 +609,8 @@ export class BuildTryMode {
       ctx.drawImage(this._mapImage, (-cells / 2 - ox) * k, (-cells / 2 - oz) * k, cells * k, cells * k)
       this._showBiome(null)
     } else if (globeView) {
+      this._mapView = null
+      this.bm.survival?.pins?.draw(null)
       // The map's middle faces you; you're the arrow on it.
       this._globe.setPicture(pic)
       const yawNow = this.bm._yaw
@@ -658,6 +689,7 @@ export class BuildTryMode {
       ctx.drawImage(this._mapImage, 0, 0, s, s)
       this._showBiome(null)
     }
+    this._mapView = { ox, oz, k, s }
     // Zombie Extraction's helicopter: a pulsing red ring.
     // Helicopter Escape's fuel cans still out there: yellow dots.
     for (const c of this.bm.survival?.fuel?.cans || []) {
@@ -690,6 +722,8 @@ export class BuildTryMode {
       ctx.fill()
       ctx.stroke()
     }
+    // Map pins, yours and the ones shared with you (MapPins.js).
+    if (this.bm.survival?.active) this.bm.survival.pins?.draw(ctx, ox, oz, k, s, this._mapEl)
     // Where you are, and which way you're looking.
     const px = (x - ox) * k
     const pz = (z - oz) * k

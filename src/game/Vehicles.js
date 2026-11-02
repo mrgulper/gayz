@@ -16,6 +16,12 @@
 //   Fuel (from zombie goo) and use it in or beside one, or keep some on
 //   you and the tank refills itself from it when it runs dry. Empty, it
 //   sinks slowly to the ground.
+// - Hot-air balloons (2026-11-01, Gaymi's idea list 4, quick wins: "up
+//   down and wind also some fuel"): crafted too and put down on open
+//   ground. You only steer up and down - Jump lights the burner (it burns
+//   fuel, BALLOON_FUEL_S a tank, filled from Heli Fuel like a helicopter),
+//   Crouch lets air out, neither and it sinks slowly. The wind
+//   (BuildSky.wind) pushes it along, harder the higher it is.
 // - On a server everyone sees your boats and helicopters (snapshot() goes
 //   out with your state, `veh` in api/_lib/servers.js; drawRemote() draws
 //   the others').
@@ -47,6 +53,34 @@ const HELI_EYE = 1.3
 const HELI_R = 0.9
 // Getting out: no higher than this over the ground.
 const HELI_EXIT_HIGH = 2.5
+// Hot-air balloon. Climb / vent / sink speeds (blocks/s), how quickly it
+// gets there (a balloon is slow to answer), the wind speed it drifts at
+// (blocks/s, never less than BALLOON_WIND_MIN, more the higher it is).
+export const BALLOON_FUEL_S = 60
+const BALLOON_CLIMB = 3.2
+const BALLOON_VENT = 3
+const BALLOON_SINK = 0.7
+const BALLOON_EASE = 1.2
+const BALLOON_WIND_MIN = 1.2
+const BALLOON_WIND_K = 1.6
+const BALLOON_WIND_HIGH = 30
+export const BALLOON_CEILING = 60
+const BALLOON_EYE = 1.35
+const BALLOON_R = 1.3
+// The envelope's bottom and top over the basket floor (blocks).
+const BALLOON_ENV_LOW = 2.6
+const BALLOON_ENV_HIGH = 9.5
+const FUEL_FOR = { heli: HELI_FUEL_S, balloon: BALLOON_FUEL_S }
+// The text for each kind (i18n keys).
+const KEYS = {
+  boat: { placed: 'vehicleBoatPlaced', in: 'vehicleBoatIn' },
+  heli: { placed: 'vehicleHeliPlaced', in: 'vehicleHeliIn', refueled: 'vehicleRefueled', out: 'vehicleOutOfFuel' },
+  balloon: { placed: 'vehicleBalloonPlaced', in: 'vehicleBalloonIn', refueled: 'vehicleBalloonRefueled', out: 'vehicleBalloonOutOfFuel' },
+}
+const MAKE = { boat: (B) => makeBoat(B), heli: (B) => makeHeli(B), balloon: (B) => makeBalloon(B) }
+// Kinds over the network (snapshot / cleanRemote).
+const NET_KIND = { boat: 'b', heli: 'h', balloon: 'a' }
+const KIND_OF_NET = { b: 'boat', h: 'heli', a: 'balloon' }
 
 const isWater = (bm, x, y, z) => {
   const type = bm.getBlockAt(x, y, z)
@@ -83,7 +117,7 @@ export class Vehicles {
   place(kind) {
     const s = this.s
     if (s.dead || s.spectating || this.riding) return false
-    const spot = kind === 'boat' ? this._waterAhead() : this._groundAhead()
+    const spot = kind === 'boat' ? this._waterAhead() : this._groundAhead(kind)
     if (!spot) {
       s._message(t(kind === 'boat' ? 'vehicleNeedWater' : 'vehicleNeedRoom'), 3)
       return false
@@ -101,14 +135,15 @@ export class Vehicles {
       speed: 0,
       side: 0,
       vy: 0,
-      fuel: kind === 'heli' ? HELI_FUEL_S : 0,
+      fuel: FUEL_FOR[kind] || 0,
       rotor: 0,
-      group: kind === 'boat' ? makeBoat(this.B) : makeHeli(this.B),
+      burner: false,
+      group: MAKE[kind](this.B),
     }
     this.bm.scene.add(v.group)
     this.list.push(v)
     this._place(v, 0)
-    s._message(t(kind === 'boat' ? 'vehicleBoatPlaced' : 'vehicleHeliPlaced'), 4)
+    s._message(t(KEYS[kind].placed), 4)
     try { audioEngine.playPlace?.() } catch { /* no audio */ }
     return true
   }
@@ -144,17 +179,19 @@ export class Vehicles {
     return null
   }
 
-  // Open ground 2..4 blocks in front of you with room for the rotor.
-  _groundAhead() {
+  // Open ground 2..4 blocks in front of you with room for the rotor (a
+  // balloon: a little further, with open sky for the envelope).
+  _groundAhead(kind = 'heli') {
     const p = this.bm.tryMode.pos
     const yaw = this.bm._yaw
-    for (let d = 2.5; d <= 4.5; d += 0.5) {
+    const from = kind === 'balloon' ? 3 : 2.5
+    for (let d = from; d <= from + 2; d += 0.5) {
       const x = Math.floor(p.x - Math.sin(yaw) * d) + 0.5
       const z = Math.floor(p.z - Math.cos(yaw) * d) + 0.5
       if (this.s.camp?.inside(x, z, 1)) continue
       const y = this.s._groundUnder(x, p.y + 3, z)
       if (y === p.y + 3 || Math.abs(y - p.y) > 3) continue
-      if (this._heliBlocked(x, y, z)) continue
+      if (kind === 'balloon' ? this._balloonBlocked(x, y, z) : this._heliBlocked(x, y, z)) continue
       return { x, y, z }
     }
     return null
@@ -166,6 +203,23 @@ export class Vehicles {
       const cx = Math.floor(x + dx)
       const cz = Math.floor(z + dz)
       for (let k = 0; k < 3; k++) if (this.s._solid(cx, cy + k, cz)) return true
+    }
+    return false
+  }
+
+  // The basket (3 high, so you fit) and the envelope above it (wider).
+  _balloonBlocked(x, y, z) {
+    const cy = Math.floor(y + 0.01)
+    const r = BALLOON_R * 0.7
+    for (const [dx, dz] of [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]]) {
+      const cx = Math.floor(x + dx)
+      const cz = Math.floor(z + dz)
+      for (let k = 0; k < 3; k++) if (this.s._solid(cx, cy + k, cz)) return true
+    }
+    for (const [dx, dz] of [[0, 0], [BALLOON_R * 1.6, 0], [-BALLOON_R * 1.6, 0], [0, BALLOON_R * 1.6], [0, -BALLOON_R * 1.6]]) {
+      const cx = Math.floor(x + dx)
+      const cz = Math.floor(z + dz)
+      for (let k = Math.floor(BALLOON_ENV_LOW); k <= Math.ceil(BALLOON_ENV_HIGH); k++) if (this.s._solid(cx, cy + k, cz)) return true
     }
     return false
   }
@@ -211,17 +265,18 @@ export class Vehicles {
     this.riding = v
     v.speed = 0
     v.side = 0
-    this.s._message(t(v.kind === 'boat' ? 'vehicleBoatIn' : 'vehicleHeliIn'), 4)
+    this.s._message(t(KEYS[v.kind].in), 4)
     this._renderFuel()
     return true
   }
 
-  // Out beside it. A helicopter up high says to land first (unless `force`).
+  // Out beside it. A helicopter or balloon up high says to land first
+  // (unless `force`).
   leave(force = false) {
     const v = this.riding
     if (!v) return
     const tm = this.bm.tryMode
-    if (v.kind === 'heli' && !force) {
+    if (v.kind !== 'boat' && !force) {
       const ground = this.s._groundUnder(v.x, v.y + 0.5, v.z)
       if (v.y - ground > HELI_EXIT_HIGH) {
         this.s._message(t('vehicleLandFirst'), 2)
@@ -231,6 +286,7 @@ export class Vehicles {
     this.riding = null
     v.speed = 0
     v.side = 0
+    v.burner = false
     this._renderFuel()
     const sx = Math.cos(v.heading)
     const sz = -Math.sin(v.heading)
@@ -251,7 +307,8 @@ export class Vehicles {
   seat() {
     const v = this.riding
     if (!v) return null
-    return { x: v.x, y: v.y + 0.01, z: v.z, eye: (v.kind === 'boat' ? BOAT_EYE : HELI_EYE) + (v.bob || 0) }
+    const eye = v.kind === 'boat' ? BOAT_EYE : v.kind === 'balloon' ? BALLOON_EYE : HELI_EYE
+    return { x: v.x, y: v.y + 0.01, z: v.z, eye: eye + (v.bob || 0) }
   }
 
   // Every frame (BuildSurvival): the parked ones float / settle, the hint.
@@ -262,6 +319,7 @@ export class Vehicles {
     for (const v of this.list) {
       if (v === this.riding) continue
       if (v.kind === 'boat') this._moveBoat(v, dt, 0, 0)
+      else if (v.kind === 'balloon') this._moveBalloon(v, dt, {})
       else this._moveHeli(v, dt, {})
       if (!this._hinted && !this.s.dead && Math.hypot(me.x - v.x, me.z - v.z) < HINT_REACH) {
         this._hinted = true
@@ -281,6 +339,7 @@ export class Vehicles {
       if (!steer) steer = THREE.MathUtils.clamp(-stick.x, -1, 1)
     }
     if (v.kind === 'boat') this._moveBoat(v, dt, throttle, steer)
+    else if (v.kind === 'balloon') this._moveBalloon(v, dt, { up, down, riding: true })
     else this._moveHeli(v, dt, { throttle, steer, up, down, riding: true })
   }
 
@@ -357,41 +416,104 @@ export class Vehicles {
     this._place(v, dt)
   }
 
+  // A hot-air balloon: up and down are yours, the wind takes it along.
+  _moveBalloon(v, dt, { up = false, down = false, riding = false }) {
+    const g = this.s._groundUnder(v.x, v.y + 0.5, v.z)
+    const air = v.y - g > 0.05
+    v.burner = riding && up && v.fuel > 0
+    if (v.burner) this._burn(v, dt)
+    // Where it's heading up or down; it eases there slowly.
+    let want = -BALLOON_SINK
+    if (v.burner) want = BALLOON_CLIMB
+    else if (riding && down) want = -BALLOON_VENT
+    else if (!riding) want = -BALLOON_SINK * 1.6
+    v.vy += (want - v.vy) * Math.min(1, dt * BALLOON_EASE)
+    let ny = v.y + v.vy * dt
+    if (ny > g + BALLOON_CEILING) ny = Math.max(v.y, g + BALLOON_CEILING)
+    if (v.vy > 0 && this._balloonBlocked(v.x, ny + 0.2, v.z)) {
+      ny = v.y
+      v.vy = 0
+    }
+    v.y = Math.max(g, ny)
+    if (v.y <= g && v.vy < 0) v.vy = 0
+    // Off the ground the wind carries it, faster the higher it is.
+    const w = this._wind(v.y - g)
+    const k = Math.min(1, dt * 0.6)
+    v.side += ((air ? w.x : 0) - v.side) * k
+    v.speed += ((air ? w.z : 0) - v.speed) * k
+    if (!air) {
+      v.side *= Math.max(0, 1 - dt * 6)
+      v.speed *= Math.max(0, 1 - dt * 6)
+    }
+    const nx = v.x + v.side * dt
+    const nz = v.z + v.speed * dt
+    if (!this._balloonBlocked(nx, v.y, nz)) {
+      v.x = nx
+      v.z = nz
+    } else {
+      v.side = 0
+      v.speed = 0
+    }
+    if (riding) this._renderFuel()
+    v.bob = 0
+    this._place(v, dt)
+  }
+
+  // The wind (blocks/s, x and z) at `high` blocks over the ground: the
+  // sky's own (BuildSky.wind) where there is one, else a slow breeze.
+  _wind(high) {
+    const sky = this.bm.sky?.wind
+    let x
+    let z
+    if (sky && sky.length() > 0.01) {
+      x = sky.x / sky.length()
+      z = sky.y / sky.length()
+    } else {
+      this._windAng = (this._windAng || 0) + 0.0005
+      x = Math.cos(this._windAng)
+      z = Math.sin(this._windAng)
+    }
+    const strength = Math.max(BALLOON_WIND_MIN, (sky ? sky.length() : 0) * BALLOON_WIND_K) * (1 + Math.max(0, high) / BALLOON_WIND_HIGH)
+    return { x: x * strength, z: z * strength }
+  }
+
   _burn(v, dt) {
     const had = v.fuel
     v.fuel = Math.max(0, v.fuel - dt)
     if (v.fuel === 0 && had > 0) {
       // Fuel on you: the tank fills itself from it.
       if (this.s.inv?.takeItem?.('heliFuel')) {
-        v.fuel = HELI_FUEL_S
-        this.s._message(t('vehicleRefueled'), 3)
-      } else this.s._message(t('vehicleOutOfFuel'), 4)
+        v.fuel = FUEL_FOR[v.kind]
+        this.s._message(t(KEYS[v.kind].refueled), 3)
+      } else this.s._message(t(KEYS[v.kind].out), 4)
     } else if (had > 10 && v.fuel <= 10) this.s._message(t('vehicleLowFuel'), 3)
     if (Math.ceil(had) !== Math.ceil(v.fuel)) this._renderFuel()
   }
 
-  // Using Heli Fuel (PlayInventory.useHeld): fills the helicopter you're
-  // in or standing next to. -> true if used.
+  // Using Heli Fuel (PlayInventory.useHeld): fills the helicopter or
+  // balloon you're in or standing next to. -> true if used.
   addFuel() {
-    const v = this.riding?.kind === 'heli' ? this.riding : this.list.find((o) => o.kind === 'heli' && Math.hypot(o.x - this.bm.tryMode.pos.x, o.z - this.bm.tryMode.pos.z) < ENTER_REACH + 1)
+    const fuels = (o) => !!FUEL_FOR[o?.kind]
+    const v = fuels(this.riding) ? this.riding : this.list.find((o) => fuels(o) && Math.hypot(o.x - this.bm.tryMode.pos.x, o.z - this.bm.tryMode.pos.z) < ENTER_REACH + 1)
     if (!v) {
       this.s._message(t('vehicleFuelNoHeli'), 3)
       return false
     }
-    if (v.fuel >= HELI_FUEL_S - 0.5) {
+    if (v.fuel >= FUEL_FOR[v.kind] - 0.5) {
       this.s._message(t('vehicleFuelFull'), 2)
       return false
     }
-    v.fuel = HELI_FUEL_S
-    this.s._message(t('vehicleRefueled'), 3)
+    v.fuel = FUEL_FOR[v.kind]
+    this.s._message(t(KEYS[v.kind].refueled), 3)
     this._renderFuel()
     return true
   }
 
-  // The fuel left, under the crosshair while you fly one.
+  // The fuel left, under the crosshair while you fly one (a balloon: and
+  // how high you are, since height is all you steer).
   _renderFuel() {
     const v = this.riding
-    const on = v?.kind === 'heli'
+    const on = !!FUEL_FOR[v?.kind]
     if (!this._fuelEl) {
       if (!on) return
       this._fuelEl = document.createElement('div')
@@ -400,7 +522,13 @@ export class Vehicles {
     }
     this._fuelEl.classList.toggle('on', on)
     this._fuelEl.classList.toggle('low', on && v.fuel <= 10)
-    if (on) this._fuelEl.textContent = t('vehicleFuelHud', { s: Math.ceil(v.fuel) })
+    if (!on) return
+    let text = t('vehicleFuelHud', { s: Math.ceil(v.fuel) })
+    if (v.kind === 'balloon') text = t('vehicleBalloonHud', { s: Math.ceil(v.fuel), h: Math.max(0, Math.round(v.y - this.s._groundUnder(v.x, v.y + 0.5, v.z))) })
+    if (text !== this._fuelText) {
+      this._fuelText = text
+      this._fuelEl.textContent = text
+    }
   }
 
   _place(v, dt) {
@@ -417,11 +545,12 @@ export class Vehicles {
     } else {
       v.group.rotation.z = Math.sin(performance.now() / 600 + v.id) * 0.04
     }
+    if (ud.flame) ud.flame.visible = !!v.burner
   }
 
   // What the other players need to draw mine (PlayNet, each sync).
   snapshot() {
-    return this.list.map((v) => ({ k: v.kind === 'boat' ? 'b' : 'h', x: +v.x.toFixed(2), y: +v.y.toFixed(2), z: +v.z.toFixed(2), h: +v.heading.toFixed(2), r: v.rotor > 0.05 ? 1 : 0 }))
+    return this.list.map((v) => ({ k: NET_KIND[v.kind], x: +v.x.toFixed(2), y: +v.y.toFixed(2), z: +v.z.toFixed(2), h: +v.heading.toFixed(2), r: v.rotor > 0.05 || v.burner ? 1 : 0 }))
   }
 
   dispose() {
@@ -445,7 +574,7 @@ export function drawRemote(survival, p, dt) {
       m = null
     }
     if (!m) {
-      m = { k: d.k, x: d.x, y: d.y, z: d.z, h: d.h, group: d.k === 'b' ? makeBoat(B) : makeHeli(B) }
+      m = { k: d.k, x: d.x, y: d.y, z: d.z, h: d.h, group: MAKE[KIND_OF_NET[d.k]](B) }
       survival.bm.scene.add(m.group)
       p.vehicles[i] = m
     }
@@ -462,6 +591,7 @@ export function drawRemote(survival, p, dt) {
       ud.rotor.rotation.y += dt * 28
       ud.tail.rotation.x += dt * 34
     }
+    if (ud.flame) ud.flame.visible = !!d.r
   })
 }
 
@@ -474,7 +604,7 @@ export function disposeRemote(p) {
 export function cleanRemote(list) {
   if (!Array.isArray(list)) return []
   const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0)
-  return list.slice(0, MAX_OUT).filter((d) => d && (d.k === 'b' || d.k === 'h')).map((d) => ({ k: d.k, x: n(d.x), y: n(d.y), z: n(d.z), h: n(d.h), r: d.r ? 1 : 0 }))
+  return list.slice(0, MAX_OUT).filter((d) => d && KIND_OF_NET[d.k]).map((d) => ({ k: d.k, x: n(d.x), y: n(d.y), z: n(d.z), h: n(d.h), r: d.r ? 1 : 0 }))
 }
 
 function disposeGroup(group) {
@@ -546,5 +676,44 @@ export function makeHeli(B) {
   g.add(tail)
   g.userData.rotor = rotor
   g.userData.tail = tail
+  return g
+}
+
+// A blocky hot-air balloon: a wicker basket, four ropes, the burner (its
+// flame shows while it burns) and a striped envelope stacked from boxes,
+// widest in the middle. Every material is its own (disposeGroup).
+export function makeBalloon(B) {
+  const g = new THREE.Group()
+  const box = (w, h, d, color, x, y, z, emissive = 0) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w * B, h * B, d * B), new THREE.MeshLambertMaterial({ color, emissive }))
+    m.position.set(x * B, y * B, z * B)
+    g.add(m)
+    return m
+  }
+  const wicker = 0x9a6a36
+  const rim = 0x5e3b1f
+  // The basket: a floor and four low walls you see over.
+  box(1.6, 0.12, 1.6, rim, 0, 0.06, 0)
+  box(0.12, 0.9, 1.6, wicker, -0.74, 0.5, 0)
+  box(0.12, 0.9, 1.6, wicker, 0.74, 0.5, 0)
+  box(1.6, 0.9, 0.12, wicker, 0, 0.5, -0.74)
+  box(1.6, 0.9, 0.12, wicker, 0, 0.5, 0.74)
+  for (const [x, z] of [[-0.74, -0.74], [0.74, -0.74], [-0.74, 0.74], [0.74, 0.74]]) {
+    box(0.16, 0.12, 0.16, rim, x, 0.98, z)
+    // Ropes up to the envelope.
+    box(0.05, BALLOON_ENV_LOW - 0.9, 0.05, 0x3a2a1a, x * 0.9, (0.9 + BALLOON_ENV_LOW) / 2 + 0.1, z * 0.9)
+  }
+  // The burner and its flame.
+  box(0.4, 0.25, 0.4, 0x333333, 0, 2.15, 0)
+  const flame = box(0.26, 0.5, 0.26, 0xffa020, 0, 2.55, 0, 0xff6a00)
+  flame.visible = false
+  // The envelope: layers of boxes, stripes of red and cream.
+  const layers = [[1.2, 0.5], [2.2, 0.6], [3.0, 0.8], [3.5, 1.0], [3.7, 1.2], [3.5, 1.0], [3.0, 0.8], [2.2, 0.6], [1.2, 0.4]]
+  let y = BALLOON_ENV_LOW
+  layers.forEach(([w, h], i) => {
+    box(w, h, w, i % 2 ? 0xf2e6c8 : 0xd8352a, 0, y + h / 2, 0)
+    y += h
+  })
+  g.userData.flame = flame
   return g
 }

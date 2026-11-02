@@ -11,6 +11,7 @@ import { LAST_SIGN_IN_KEY } from './CloudSync.js'
 import { loadSkinTexture } from './MenuAvatar3D.js'
 import { t } from './i18n.js'
 import { levelFromXp } from './Xp.js'
+import { renderTrophies } from './Trophies.js'
 
 // Levels panel - opened by the level coin on the profile card: your XP
 // level, the bar to the next one and how XP is earned (Xp.js, 2026-10-23;
@@ -198,6 +199,8 @@ export async function _openProfilePanel(game) {
     return
   }
   if (game.profileContent) game.profileContent.style.display = ''
+  // The Trophies tab (Trophies.js).
+  renderTrophies(game)
   if (game.profileLoginGate) game.profileLoginGate.style.display = 'none'
   game._renderPublicProfileSection()
   game._drawStatsDashboard()
