@@ -773,3 +773,24 @@ test('Shrinking Zone: a friend joins, gets the same zone and sees my helicopter'
   })
   expect(guest).toEqual({ mode: 'shrinkingZone', netMode: 'zone', seed: host.seed, c: host.c, wall: true, veh: ['h'], drawn: true })
 })
+
+test('servers: Paint Wars splats and Build Battle stars go through the server', async () => {
+  const db = fakeServerDb()
+  const t0 = 1_000_000
+  const a = await createServer(db, { nickname: 'Ann', mode: 'paint' }, t0)
+  expect(a.mode).toBe('paint')
+  const b = await joinServer(db, { serverId: a.serverId, nickname: 'Bo' }, t0 + 10)
+  await syncServer(db, { ...b, hits: [{ id: 'p12_-7', dmg: 0 }, { id: 'p<x>', dmg: 0 }, { id: `v${a.playerId}`, dmg: 4 }] }, t0 + 20)
+  const ra = await syncServer(db, { ...a, party: { k: 'paintWars', ph: 'play', pa: '0rrb<b>' } }, t0 + 30)
+  expect(ra.hits).toEqual([{ id: 'p12_-7', dmg: 0, by: b.playerId }])
+  await syncServer(db, { ...a, party: { k: 'paintWars', ph: 'play', pa: '0rrb0b' } }, t0 + 35)
+  expect((await syncServer(db, { ...b }, t0 + 40)).party.pa).toBe('0rrb0b')
+  // Build Battle: a guest's stars for the host's plot; its stage and plots.
+  const c = await createServer(db, { nickname: 'Cy', mode: 'build' }, t0)
+  const d = await joinServer(db, { serverId: c.serverId, nickname: 'Di' }, t0 + 10)
+  await syncServer(db, { ...d, hits: [{ id: `v${c.playerId}`, dmg: 5 }, { id: 'p1_1', dmg: 0 }] }, t0 + 20)
+  const rc = await syncServer(db, { ...c, party: { k: 'buildBattle', ph: 'play', sb: 'vote', th: 3, vi: 1, pl: { [c.playerId]: 0, b1: 9 } } }, t0 + 30)
+  expect(rc.hits).toEqual([{ id: `v${c.playerId}`, dmg: 5, by: d.playerId }])
+  const rd = await syncServer(db, { ...d }, t0 + 40)
+  expect([rd.party.sb, rd.party.th, rd.party.vi, rd.party.pl]).toEqual(['vote', 3, 1, { [c.playerId]: 0, b1: 7 }])
+})

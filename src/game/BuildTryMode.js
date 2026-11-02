@@ -1061,10 +1061,13 @@ export class BuildTryMode {
     speed *= this.bm.sky?.disasters?.slow ?? 1
     // Standing in a bloater's slime puddle (ZombieTricks.js).
     speed *= this.bm.survival?.tricks?.slow ?? 1
+    // On a skateboard, or on ice: faster and slippery (Skateboards.js).
+    const glide = this.bm.survival?.active && !inLiquid ? this.bm.survival.skate?.mods(this.onGround, p) : null
+    if (glide) speed *= glide.speed
     const want = len ? (speed * amount) / len : 0
     // Freezing rain glazes the ground: you slide about (BuildWeather.glaze).
     const glaze = this.onGround ? this.bm.sky?.weather3d?.glaze() || 0 : 0
-    const grip = (this.onGround ? GROUND_GRIP : AIR_GRIP) * this.bm.specials.gripMult * (1 - glaze * 0.75)
+    const grip = (this.onGround ? GROUND_GRIP : AIR_GRIP) * this.bm.specials.gripMult * (1 - glaze * 0.75) * (glide?.grip ?? 1)
     // The wind (stronger in worse weather) and a disaster's push - a
     // flood's current, an avalanche, a shockwave - carry you along a
     // little (2026-10-30, Gaymi: "wind effects that could blow you
@@ -1190,7 +1193,11 @@ export class BuildTryMode {
     if (hitY) this.vel.y = 0
     // Stepped up a slab or stair: the body is up there at once, but the
     // view glides after it.
-    if (this.onGround && wasOnGround && p.y > yBefore + 0.01) this._stepLag = Math.max(-STAIR_STEP, (this._stepLag || 0) - (p.y - yBefore))
+    if (this.onGround && wasOnGround && p.y > yBefore + 0.01) {
+      this._stepLag = Math.max(-STAIR_STEP, (this._stepLag || 0) - (p.y - yBefore))
+      // Rolling up it on a skateboard: a ramp launches you (Skateboards.js).
+      if (this.bm.survival?.active) this.bm.survival.skate?.ramp(this)
+    }
     this._stepLag = THREE.MathUtils.damp(this._stepLag || 0, 0, STEP_GLIDE, dt)
 
     // Never off the map: held inside the 128x128 ground (or, on Map 1 with
@@ -1599,7 +1606,7 @@ export class BuildTryMode {
     const busy = !this.active || !bm._fireHeld || bm.menuOpen || bm.gameMenuOpen || (play?.active && (play.dead || play._picking))
     let hit = busy ? null : this._digTarget()
     // Tower Defense's map can't be broken (TowerDefense.js).
-    if (hit && play?.active && play.td?.protects(hit.x, hit.y, hit.z)) hit = null
+    if (hit && play?.active && play._protects(hit.x, hit.y, hit.z)) hit = null
     if (!hit) {
       this._stopDig()
       return

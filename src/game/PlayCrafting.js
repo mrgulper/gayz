@@ -56,6 +56,9 @@ export const RECIPES = [
   // Treasure Maps and Kites (TreasureMaps.js, Kites.js, 2026-11-02).
   { id: 'treasureMap', kind: 'item', n: 1, needs: [{ item: 'mapPiece', n: 3 }] },
   { id: 'kite', kind: 'item', n: 1, needs: [{ item: 'plantFiber', n: 4 }, { group: 'planks', n: 2 }] },
+  // Skateboard and Boombox (Skateboards.js, DanceOff.js, 2026-11-02).
+  { id: 'skateboard', kind: 'item', n: 1, needs: [{ group: 'planks', n: 3 }, { group: 'stone', n: 2 }] },
+  { id: 'boombox', kind: 'item', n: 1, needs: [{ group: 'planks', n: 2 }, { block: 'glass', n: 1 }, { item: 'zombieGoo', n: 1 }] },
   // Winter only (Snowballs.winterOn): a Snow block packs into four.
   { id: 'snowball', kind: 'item', n: 4, needs: [{ block: 'snow', n: 1 }], winter: true },
   { id: 'cropplot', kind: 'block', n: 1, needs: [{ group: 'dirt', n: 4 }, { group: 'log', n: 1 }] },

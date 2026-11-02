@@ -34,6 +34,9 @@ import { HELI_FUEL_S, HELI_CEILING, MAX_OUT, BALLOON_FUEL_S, BALLOON_CEILING } f
 import { MAX_PINS } from './MapPins.js'
 import { PIECE_CHANCE, PIECES_PER_MAP, COINS as TREASURE_COINS, GEMS as TREASURE_GEMS } from './TreasureMaps.js'
 import { MAX_FISH as AQUARIUM_FISH, MAX_GOLDEN as AQUARIUM_GOLDEN } from './CampAquarium.js'
+import { BOARD_SPEED, TRICK_COINS, FREEZE_R } from './Skateboards.js'
+import { DANCE_S, DANCE_R, DANCE_COINS, DAZE_S, COOLDOWN_S as BOOMBOX_COOL } from './DanceOff.js'
+import { ROOMS as ESC_ROOMS, ROOM_S as ESC_ROOM_S, WRONG_COST as ESC_WRONG, ESC_COINS, ROOM_COINS as ESC_ROOM_COINS } from './EscapeRooms.js'
 import { TROPHIES } from './Trophies.js'
 import { ZONE_TOTAL_S } from './ShrinkZone.js'
 import { DINO_KINDS, DINO_CHANCE } from './DinoKinds.js'
@@ -374,6 +377,23 @@ export function _featureValues(_game) {
     bowlRolls: Party.ROLLS,
     bowlPins: Party.PINS,
     bowlTurn: Party.TURN_S,
+    paintArena: Party.PAINT_R,
+    bbBlocks: Party.BB_PALETTE.length,
+    bbMinutes: Math.round(Party.BUILD_S / 60),
+    bbVoteS: Party.VOTE_S,
+    boardSpeed: BOARD_SPEED,
+    trickCoins: TRICK_COINS,
+    freezeR: FREEZE_R,
+    danceS: DANCE_S,
+    danceR: DANCE_R,
+    danceCoins: DANCE_COINS,
+    dazeS: DAZE_S,
+    boomboxCool: BOOMBOX_COOL,
+    escRooms: ESC_ROOMS,
+    escDoorS: ESC_ROOM_S.join(', '),
+    escWrong: ESC_WRONG,
+    escCoins: ESC_COINS,
+    escRoomCoins: ESC_ROOM_COINS,
     mapPieceChance: Math.round(PIECE_CHANCE * 100),
     mapPieces: PIECES_PER_MAP,
     treasureCoins: `${TREASURE_COINS[0]}-${TREASURE_COINS[1]}`,
