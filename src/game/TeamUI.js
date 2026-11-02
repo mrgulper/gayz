@@ -12,6 +12,7 @@
 import * as CloudSync from './CloudSync.js'
 import { loadCreatures, saveCreatures, stats, power, powerName, powerInfo, creatureName, creatureType, rarityName, creatureIconURL, tierColor, botTeam, packTeam, unpackTeam, TEAM_SIZE } from './Creatures.js'
 import { TeamBattle } from './TeamBattle.js'
+import { renderTournament, playTournament } from './TeamTournament.js'
 import { saveShopProgress, saveSettings } from './Game.js'
 import { t } from './i18n.js'
 
@@ -56,6 +57,8 @@ export function renderTeamPanel(game) {
   }
   const empty = byId('team-empty')
   if (empty) empty.style.display = data.list.length ? 'none' : ''
+  // The Weekly Team Tournament (TeamTournament.js).
+  renderTournament(game)
   const btn = byId('team-battle-btn')
   if (btn && !game._teamFinding) {
     btn.textContent = t('teamBattleBtn')
@@ -166,4 +169,5 @@ export function bindTeamUI(game) {
     if (c) toggle(game, Number(c.dataset.id))
   })
   byId('team-battle-btn')?.addEventListener('click', () => startTeamBattle(game))
+  byId('tourney-btn')?.addEventListener('click', () => playTournament(game, renderTeamPanel))
 }

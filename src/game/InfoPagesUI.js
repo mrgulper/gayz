@@ -64,6 +64,11 @@ import { PLAY_WEAPONS } from './PlayWeapons.js'
 import { LANGUAGES, t, tHtml } from './i18n.js'
 import { SPECIAL_BLOCKS } from './SpecialBlocks.js'
 import { levelUpCoins } from './Xp.js'
+import { PERKS, CARDS as PERK_CARDS } from './RunPerks.js'
+import { COINS as ESCORT_COINS, BONUS_XP as ESCORT_XP } from './EscortMission.js'
+import { FROM_WAVE as SIEGE_WAVE, BREAK_INS as SIEGE_BREAK_INS, LIMIT_S as SIEGE_LIMIT_S, COINS as SIEGE_COINS, BONUS_XP as SIEGE_XP } from './CampSiege.js'
+import { TD_WAVES, LIVES as TD_LIVES, START_COINS as TD_START_COINS, LEAK_BOSS as TD_LEAK_BOSS } from './TowerDefense.js'
+import { SIZE as TOURNEY_SIZE, ROUND_COINS as TOURNEY_ROUND_COINS, CHAMP_COINS as TOURNEY_CHAMP_COINS } from './TeamTournament.js'
 
 // Update-available check - only ever called from _exitBuildMode (back
 // at the homepage), never mid-game, so a fresh deploy
@@ -330,6 +335,23 @@ export function _featureValues(_game) {
     trophyCount: TROPHIES.length,
     zoneStages: ZONE_STAGES.length,
     zoneStartR: ZONE_STAGES[0].r,
+    perkCards: PERK_CARDS,
+    perkCount: PERKS.length,
+    escortCoins: ESCORT_COINS.survivor,
+    escortBusCoins: ESCORT_COINS.bus,
+    escortXp: ESCORT_XP,
+    siegeWave: SIEGE_WAVE,
+    siegeBreakIns: SIEGE_BREAK_INS,
+    siegeMinutes: SIEGE_LIMIT_S / 60,
+    siegeCoins: SIEGE_COINS,
+    siegeXp: SIEGE_XP,
+    tdWaves: TD_WAVES,
+    tdLives: TD_LIVES,
+    tdStartCoins: TD_START_COINS,
+    tdBossLeak: TD_LEAK_BOSS,
+    tourneyTeams: TOURNEY_SIZE,
+    tourneyRoundCoins: TOURNEY_ROUND_COINS,
+    tourneyChampCoins: TOURNEY_CHAMP_COINS,
     zoneFinalR: ZONE_STAGES[ZONE_STAGES.length - 1].r,
     pinataOdds: Math.round(1 / ZOMBIE_SHINES.pinata.chance),
     pinataCoins: PINATA_COINS,

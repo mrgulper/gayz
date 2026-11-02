@@ -286,3 +286,43 @@ test('on a server a guest\'s trap waits for the host, and the host rolls it', as
     hostKept: 1,
   })
 })
+
+// 2026-11-02: the Weekly Team Tournament (TeamTournament.js).
+test('Weekly Team Tournament: enter, win three rounds for the Champion badge', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    localStorage.setItem('gayz-creatures', JSON.stringify({ list: [{ id: 1, t: 'a', k: 'wolf', r: 'rare', at: 1 }, { id: 2, t: 'z', k: null, r: 'common', n: 3, at: 1 }], team: [1, 2], wins: 0, losses: 0, nextId: 3 }))
+    localStorage.removeItem('gayz-tournament')
+    window.__game._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-pets').click()
+  })
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = { enter: document.getElementById('tourney-btn').textContent }
+    const coins = g.coins
+    const play = async () => {
+      for (let i = 0; i < 80 && !(g._teamBattle?.root && !g._teamBattle.over); i++) await new Promise((res) => setTimeout(res, 100))
+      out.foes = (out.foes || 0) + (document.querySelector('#team-battle .tb-foe-name').textContent ? 1 : 0)
+      g._teamBattle._finish(true)
+    }
+    document.getElementById('tourney-btn').click()
+    await play()
+    out.next = document.querySelector('#team-battle .tb-again').textContent
+    document.querySelector('#team-battle .tb-again').click()
+    await play()
+    document.querySelector('#team-battle .tb-again').click()
+    await play()
+    out.last = document.querySelector('#team-battle .tb-again').textContent
+    document.querySelector('#team-battle .tb-back').click()
+    const saved = JSON.parse(localStorage.getItem('gayz-tournament'))
+    out.entrants = saved.cur.entrants.length
+    out.place = saved.cur.place
+    out.badges = saved.badges.map((b) => b.place)
+    out.coins = g.coins - coins
+    out.btn = document.getElementById('tourney-btn').disabled
+    out.bracketCols = document.querySelectorAll('#tourney-bracket .tourney-col').length
+    out.badgeShown = /Champion/.test(document.getElementById('tourney-badges').textContent)
+    return out
+  })
+  expect(r).toEqual({ enter: 'Enter Tournament', foes: 3, next: 'Next Round', last: 'Back to Bracket', entrants: 8, place: 'champion', badges: ['champion'], coins: 320, btn: true, bracketCols: 4, badgeShown: true })
+})

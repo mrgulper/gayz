@@ -1354,6 +1354,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'game-mode-infection-label': 'topBarModeInfection',
   'game-mode-shrinking-zone-label': 'topBarModeShrinkingZone',
   'game-mode-speedrun-label': 'topBarModeSpeedrun',
+  'game-mode-tower-defense-label': 'topBarModeTowerDefense',
   'game-mode-hide-seek-label': 'topBarModeHideSeek',
   'game-mode-capture-flag-label': 'topBarModeCaptureFlag',
   'game-mode-king-hill-label': 'topBarModeKingHill',

@@ -44,7 +44,7 @@ html.ui-theme-biome {
 
 /* The boxes: pause card, You Died, Choose Your Weapon, inventory, open
    panels (Settings from the pause screen...), the spawn map's boxes. */
-html.ui-theme-biome :is(#play-pause-card, .build-play-over-card, #play-weapon-pick .pwp-card-box, #play-inventory .inv-box, #play-npc-panel .build-share-box, .panel-box),
+html.ui-theme-biome :is(#play-pause-card, .build-play-over-card, :is(#play-weapon-pick, #play-perk-pick) .pwp-card-box, #play-inventory .inv-box, #play-npc-panel .build-share-box, .panel-box),
 html.ui-theme-biome #spawn-map :is(.spawn-map-heading, #spawn-map-info, #spawn-map-list) {
   color: var(--biome-ink);
   background: var(--biome-surface);
@@ -52,7 +52,7 @@ html.ui-theme-biome #spawn-map :is(.spawn-map-heading, #spawn-map-info, #spawn-m
   text-shadow: none;
   image-rendering: pixelated;
 }
-html.ui-theme-biome :is(#play-pause-card, .build-play-over-card, #play-weapon-pick .pwp-card-box, #play-inventory .inv-box, #play-npc-panel .build-share-box) {
+html.ui-theme-biome :is(#play-pause-card, .build-play-over-card, :is(#play-weapon-pick, #play-perk-pick) .pwp-card-box, #play-inventory .inv-box, #play-npc-panel .build-share-box) {
   border-style: solid;
   border-width: 2px;
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.18);
@@ -60,13 +60,13 @@ html.ui-theme-biome :is(#play-pause-card, .build-play-over-card, #play-weapon-pi
 /* No gold corner brackets: the picture is the frame. */
 html.ui-theme-biome #play-pause-card::before,
 html.ui-theme-biome #play-pause-card::after { display: none; }
-html.ui-theme-biome :is(#play-pause-menu, #play-weapon-pick, #build-play-over) {
+html.ui-theme-biome :is(#play-pause-menu, :is(#play-weapon-pick, #play-perk-pick), #build-play-over) {
   background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.6));
 }
 
 /* Titles: the HUD's Bebas Neue in the biome's colour. */
 html.ui-theme-biome :is(.panel-box, #play-npc-panel) :is(h1, h2) { color: var(--biome-accent); }
-html.ui-theme-biome :is(#play-pause-title, #play-weapon-pick h2, #play-inventory .inv-head b, #play-inventory .inv-col-head b, #spawn-map h2) {
+html.ui-theme-biome :is(#play-pause-title, :is(#play-weapon-pick, #play-perk-pick) h2, #play-inventory .inv-head b, #play-inventory .inv-col-head b, #spawn-map h2) {
   font-family: 'Bebas Neue', sans-serif;
   letter-spacing: 1px;
   color: var(--biome-accent);
@@ -77,24 +77,24 @@ html.ui-theme-biome #build-play-levelup-title { font-family: 'Bebas Neue', sans-
 html.ui-theme-biome #build-play-levelup-ok { font-family: inherit; color: rgb(var(--biome-bg-rgb)); background: var(--biome-accent); border: none; }
 html.ui-theme-biome .build-play-xp-track { background: rgba(var(--biome-ink-rgb), 0.18); border-color: var(--biome-line); }
 html.ui-theme-biome #build-play-xp-fill { background: var(--biome-accent); }
-html.ui-theme-biome :is(#play-pause-close, #play-pause-info, #play-pause-hint, #play-pause-tip, #play-invite-hint, #play-pause-status, #play-weapon-pick .pwp-hint) { color: var(--biome-ink); }
+html.ui-theme-biome :is(#play-pause-close, #play-pause-info, #play-pause-hint, #play-pause-tip, #play-invite-hint, #play-pause-status, :is(#play-weapon-pick, #play-perk-pick) .pwp-hint) { color: var(--biome-ink); }
 
 /* Buttons and picks on those boxes. */
-html.ui-theme-biome :is(#play-pause-buttons button, .build-play-over-btns button, #play-weapon-pick .pwp-weapon, #spawn-map button) {
+html.ui-theme-biome :is(#play-pause-buttons button, .build-play-over-btns button, :is(#play-weapon-pick, #play-perk-pick) .pwp-weapon, #spawn-map button) {
   color: var(--biome-ink);
   background: var(--biome-button);
   border-color: var(--biome-line);
   text-shadow: none;
 }
-html.ui-theme-biome :is(#play-pause-buttons button, .build-play-over-btns button, #play-weapon-pick .pwp-weapon:not(.pwp-soon), #spawn-map button):hover,
-html.ui-theme-biome #play-weapon-pick .pwp-weapon.active {
+html.ui-theme-biome :is(#play-pause-buttons button, .build-play-over-btns button, :is(#play-weapon-pick, #play-perk-pick) .pwp-weapon:not(.pwp-soon), #spawn-map button):hover,
+html.ui-theme-biome :is(#play-weapon-pick, #play-perk-pick) .pwp-weapon.active {
   background: var(--biome-button-hover);
   border-color: var(--biome-accent);
   box-shadow: none;
 }
 html.ui-theme-biome #play-pause-buttons button svg { color: var(--biome-accent); }
-html.ui-theme-biome #play-weapon-pick .pwp-bar-track { background: rgba(var(--biome-ink-rgb), 0.18); }
-html.ui-theme-biome #play-weapon-pick .pwp-bar-track span { background: var(--biome-accent); }
+html.ui-theme-biome :is(#play-weapon-pick, #play-perk-pick) .pwp-bar-track { background: rgba(var(--biome-ink-rgb), 0.18); }
+html.ui-theme-biome :is(#play-weapon-pick, #play-perk-pick) .pwp-bar-track span { background: var(--biome-accent); }
 html.ui-theme-biome #spawn-map :is(#spawn-map-go, #spawn-map-list button.active) {
   color: rgb(var(--biome-bg-rgb));
   background: var(--biome-accent);

@@ -17,9 +17,12 @@ export const XP_DIFFICULTY = { easy: 1, normal: 1, hard: 1.25, nightmare: 1.5, a
 export const STARTER_XP_PER_KILL = 10
 export const STARTER_XP_PER_RUN = 25
 
-export function xpForGame({ kills = 0, waves = 0, seconds = 0, won = false, difficulty = 'normal' } = {}) {
+// bonusXp: extra from the game itself (an escort mission or camp siege won,
+// EscortMission.js / CampSiege.js), up to BONUS_XP_MAX.
+export const BONUS_XP_MAX = 2000
+export function xpForGame({ kills = 0, waves = 0, seconds = 0, won = false, difficulty = 'normal', bonusXp = 0 } = {}) {
   const n = (v) => Math.max(0, Number(v) || 0)
-  const base = n(kills) * XP_PER_KILL + n(waves) * XP_PER_WAVE + Math.floor(n(seconds) / 60) * XP_PER_MINUTE + (won ? XP_WIN_BONUS : 0)
+  const base = n(kills) * XP_PER_KILL + n(waves) * XP_PER_WAVE + Math.floor(n(seconds) / 60) * XP_PER_MINUTE + (won ? XP_WIN_BONUS : 0) + Math.min(BONUS_XP_MAX, n(bonusXp))
   return Math.round(base * (XP_DIFFICULTY[difficulty] || 1))
 }
 
