@@ -456,7 +456,7 @@ test('Invite Friends makes a solo game joinable and the link joins it', async ({
     s._spawnAt({ lat: 48.85, lon: 2.35, biome: 'plains', country: 'France', city: 'Paris' })
     s._pickWeapon('rifle')
     const p = s.bm.tryMode.pos
-    return { x: Math.round(p.x), y: Math.round(p.y), z: Math.round(p.z) }
+    return { x: p.x, y: p.y, z: p.z }
   })
   await a.waitForFunction(() => window.__game.buildMode.survival.lobby && location.search.startsWith('?join='), null, { timeout: 20000 })
   const lobbySearch = await a.evaluate(() => location.search)
@@ -482,14 +482,16 @@ test('Invite Friends makes a solo game joinable and the link joins it', async ({
   const guest = await b.evaluate(() => {
     const s = window.__game.buildMode.survival
     const p = s.bm.tryMode.pos
-    return { x: Math.round(p.x), y: Math.round(p.y), z: Math.round(p.z), url: location.search, host: s.net.isHost }
+    return { x: p.x, y: p.y, z: p.z, url: location.search, host: s.net.isHost }
   })
   expect(guest.host).toBe(false)
   // On the server the address bar is its invite link (not /map-editor).
   expect(guest.url).toBe(new URL(link).search)
   expect(await a.evaluate(() => location.pathname + location.search)).toBe(new URL(link).pathname + new URL(link).search)
-  // Same spot on the same land (the same ground height there).
-  expect([guest.x, guest.y, guest.z]).toEqual([host.x, host.y, host.z])
+  // Same spot on the same land (the same ground height there). Within half
+  // a block: spawns sit on a block's middle (x.5), so the wind nudging the
+  // guest a hair used to round to the next block (2026-11-02).
+  for (const k of ['x', 'y', 'z']) expect(Math.abs(guest[k] - host[k])).toBeLessThan(0.5)
 })
 
 // 2026-10-19 (Gaymi's friend was "muted for spamming" just trying to chat):
