@@ -3110,6 +3110,13 @@ test('new zombie kinds: sizes, the bloater bursts, spiders climb', async ({ page
     // A spider walks up a 4-high wall in its way.
     for (let y = 1; y < 5; y++) for (let x = -3; x <= 3; x++) bm.placeBlock(x, y, 10, 'stone')
     const sp = s._makeZombie(992, 0.5, 1, 14.5, 1000, false, 'spider')
+    // Straight at you: no path round the wall (it's built a few ms at a
+    // time, so how far it got depended on the machine) and no flanker brain.
+    sp.role = 'rusher'
+    const stepFlow = s._stepFlow
+    s._stepFlow = () => {}
+    s._flow = new Map()
+    s._flowJob = null
     s.zombies.push(sp)
     s.health = 1e9
     let top = sp.y
@@ -3119,6 +3126,7 @@ test('new zombie kinds: sizes, the bloater bursts, spiders climb', async ({ page
       top = Math.max(top, sp.y)
     }
     out.spiderTop = top
+    s._stepFlow = stepFlow
     // ...but the camp's edge isn't a wall to climb (it used to carry a
     // spider up into the sky, 2026-10-26).
     s._removeZombie(sp)
@@ -4709,8 +4717,8 @@ test('Crafting: the Crafting tab makes gear and blocks from what you carry', asy
     out.gooDrops = drops
     return out
   })
-  // 26 out of winter (the Snowball recipe only shows December to February).
-  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 27 : 26)
+  // 28 out of winter (the Snowball recipe only shows December to February).
+  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 29 : 28)
   expect(r.ammoReady).toBe(true)
   expect(r.helmetReady).toBe(false)
   expect(r.ammo).toBe(1)
@@ -5442,6 +5450,8 @@ test('Party modes: hide and seek, capture the flag, king of the hill, zombie soc
         for (const b of p.bots.values()) b.x += 500
         p.holder = p.myId
         p._passCd = 0
+        // (No pass-back rule in the way: whoever had it before doesn't matter here.)
+        p._from = ''
         const [b] = p.bots.values()
         const me = s.bodyPos()
         Object.assign(b, { x: me.x + 0.3, y: me.y, z: me.z })
