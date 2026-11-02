@@ -4717,8 +4717,8 @@ test('Crafting: the Crafting tab makes gear and blocks from what you carry', asy
     out.gooDrops = drops
     return out
   })
-  // 28 out of winter (the Snowball recipe only shows December to February).
-  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 29 : 28)
+  // 30 out of winter (the Snowball recipe only shows December to February).
+  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 31 : 30)
   expect(r.ammoReady).toBe(true)
   expect(r.helmetReady).toBe(false)
   expect(r.ammo).toBe(1)
