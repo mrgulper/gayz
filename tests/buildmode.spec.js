@@ -4717,8 +4717,8 @@ test('Crafting: the Crafting tab makes gear and blocks from what you carry', asy
     out.gooDrops = drops
     return out
   })
-  // 30 out of winter (the Snowball recipe only shows December to February).
-  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 31 : 30)
+  // 32 out of winter (the Snowball recipe only shows December to February).
+  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 33 : 32)
   expect(r.ammoReady).toBe(true)
   expect(r.helmetReady).toBe(false)
   expect(r.ammo).toBe(1)
@@ -5940,4 +5940,133 @@ test('Paint Wars, Build Battle and Escape Rooms', async ({ page }) => {
     return out
   })
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})
+
+test('Submarine, sunken ruins, the ghost pirate ship, the Zombie Train and the Moon', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'classic'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    const bm = s.bm
+    const tm = bm.tryMode
+    const pick = (id) => {
+      s.inv.active = s.inv.hotbar.findIndex((it) => it?.id === id)
+      return s.inv.active >= 0
+    }
+    // A pool of water far off in the sky to dive in: 9 x 9, 6 deep.
+    const P = { x: 4000, y: 150, z: 4000 }
+    for (let x = -4; x <= 4; x++) for (let z = -4; z <= 4; z++) {
+      bm.placeBlock(P.x + x, P.y - 7, P.z + z, 'stone')
+      for (let y = P.y - 6; y < P.y; y++) bm.placeBlock(P.x + x, y, P.z + z, 'water')
+    }
+    bm.placeBlock(P.x - 6, P.y - 1, P.z, 'stone')
+    tm.pos.set(P.x - 5.5, P.y, P.z + 0.5)
+    tm.vel.set(0, 0, 0)
+    bm._yaw = -Math.PI / 2
+    // Submarine: crafted, in the water, in, dives, out.
+    s.inv.add({ kind: 'block', id: 'cobblestone', n: 14 })
+    s.inv.add({ kind: 'block', id: 'glass', n: 3 })
+    s.inv.add({ kind: 'block', id: 'oakplanks', n: 4 })
+    s.inv.add({ kind: 'item', id: 'zombieGoo', n: 3 })
+    out.subCrafted = s.inv.crafting.craft('submarine') && s.inv.has('submarine')
+    out.subPicked = pick('submarine')
+    s.inv.useHeld()
+    const sub = s.vehicles.list.find((v) => v.kind === 'sub')
+    out.subPlaced = !!sub
+    tm.pos.set(sub.x - 1, sub.y, sub.z)
+    out.subIn = s.vehicles.use() && s.vehicles.riding === sub
+    const y0 = sub.y
+    for (let i = 0; i < 40; i++) s.vehicles.drive(0.05, { down: true })
+    out.subDives = sub.y < y0 - 1.5
+    for (let i = 0; i < 20; i++) s.vehicles.drive(0.05, { fwd: true })
+    out.subMoves = Math.hypot(sub.x - P.x, sub.z - P.z) < 6
+    out.subSnap = s.vehicles.snapshot().some((d) => d.k === 's')
+    s.vehicles.use()
+    out.subOut = !s.vehicles.riding
+    // A sunken ruin on the pool's floor: prismarine, a chest, sea zombies.
+    const zBefore = s.zombies.length
+    const ruin = s.reefs.build(P.x, P.y - 7, P.z)
+    out.ruin = !!ruin && bm.getBlockAt(P.x + 1, P.y - 6, P.z + 1) === 'lootchest' && /prismarine/.test(bm.getBlockAt(P.x + 3, P.y - 7, P.z) || '')
+    out.seaZombies = s.zombies.length - zBefore === 3
+    out.ruinNotSaved = s._placed.has(bm._key(P.x + 1, P.y - 6, P.z + 1))
+    s.reefs.clear()
+    out.ruinGone = bm.getBlockAt(P.x + 1, P.y - 6, P.z + 1) === 'water' && bm.getBlockAt(P.x + 3, P.y - 7, P.z) === 'stone'
+    // The ghost pirate ship: blocks on the water, pirates, the captain's chest.
+    const Q = { x: 4100, y: 150, z: 4100 }
+    for (let x = -1; x <= 16; x++) for (let z = -5; z <= 5; z++) for (let y = Q.y - 4; y <= Q.y; y++) bm.placeBlock(Q.x + x, y, Q.z + z, 'water')
+    const zb2 = s.zombies.length
+    s.pirate._build(Q.x, Q.y, Q.z)
+    out.ship = bm.getBlockAt(Q.x + 7, Q.y + 1, Q.z) === 'darkoakplanks' && bm.getBlockAt(Q.x + 6, Q.y + 8, Q.z) === 'darkoaklog'
+    out.pirates = s.zombies.length - zb2 === 4 && s.zombies.slice(-4).every((z) => z.pirate)
+    const coins = s.coins
+    out.chestOpened = s.useChest(Q.x + 2, Q.y + 2, Q.z)
+    out.captainsLoot = s.coins >= coins + 80 && s.inv.has('treasureMap')
+    out.shipFades = s.pirate._update(1) === true && (s.pirate.ship.left = 0.01, s.pirate._update(0.05) === false)
+    s.pirate.clear()
+    out.shipGone = bm.getBlockAt(Q.x + 7, Q.y, Q.z) === 'water' && !bm.getBlockAt(Q.x + 6, Q.y + 8, Q.z)
+    // The pirate event only when the sea is near.
+    out.pirateEventKind = typeof s.pirate.possible() === 'boolean'
+    // The Zombie Train: a loop, stations, riding, zombies in the wagons.
+    const tr = s.train
+    let laid = tr.on
+    for (let i = 0; i < 8 && !laid; i++) laid = tr.setup({ x: 300 * Math.cos(i), y: 70, z: 300 * Math.sin(i) })
+    out.trainLaid = laid && tr.stations.length === 3 && tr._cars.length === 4
+    const startHead = tr.head
+    tr.wait = 0
+    for (let i = 0; i < 20; i++) tr.update(0.05)
+    out.trainRuns = tr.head > startHead
+    const spot = tr._spot(6, 0)
+    tm.pos.set(spot.x + 1, spot.y, spot.z)
+    out.boarded = tr.use() && !!tr.aboard
+    const seat = tr.seat()
+    out.seat = Math.hypot(seat.x - spot.x, seat.z - spot.z) < 3
+    const z3 = s.zombies.length
+    tr.wait = 0.01
+    tr.update(0.05)
+    out.trainZombies = s.zombies.length > z3 && tr.riders.length > 0
+    const rider = tr.riders[0]
+    const offWas = rider.trainOff
+    tr.update(0.5)
+    out.ridersCome = Math.abs(rider.trainOff - tr.aboard.off) < Math.abs(offWas - tr.aboard.off)
+    tr.speed = 0
+    tr.leave()
+    out.jumpedOff = !tr.aboard
+    // The Moon: a rocket, the trip, low gravity, space-suit zombies, home.
+    s.inv.add({ kind: 'item', id: 'rocket', n: 1 })
+    out.rocketPicked = pick('rocket')
+    tm.pos.set(P.x - 30.5, P.y + 20, P.z + 0.5)
+    for (let x = -8; x <= 8; x++) for (let z = -8; z <= 8; z++) bm.placeBlock(P.x - 30 + x, P.y + 19, P.z + z, 'stone')
+    bm._yaw = Math.PI / 2
+    s.inv.useHeld()
+    out.rocketStands = !!s.moon.rocket && !s.inv.has('rocket')
+    const rk = s.moon.rocket
+    tm.pos.set(rk.x + 1, rk.y, rk.z)
+    out.launch = s.moon.use() && !!s.moon.trip
+    for (let i = 0; i < 160 && s.moon.trip; i++) s.moon.update(0.05)
+    out.onMoon = s.moon.on && Math.abs(tm.pos.y - 301) < 3 && s.moon.built && !s._ride
+    s.moon.update(0.05)
+    out.lowGravity = tm.gravityMult === 0.3 && s.moon._sky.visible
+    out.moonGround = /tuff|calcite|endstone/.test(bm.getBlockAt(Math.floor(s.moon.cx + 10), 300, Math.floor(s.moon.cz)) || '') || !!s.moon.spawnSpots().length
+    out.craterSpawns = s._spawnSpots().every(([, y]) => y > 290)
+    const mz = s._makeZombie(++s._zid, tm.pos.x + 2, tm.pos.y, tm.pos.z, 100, false)
+    s.moon.update(0.05)
+    out.spaceSuit = !!mz.suit
+    const home = s.moon.home
+    tm.pos.set(home.x + 1, home.y, home.z)
+    out.goHome = s.moon.use()
+    for (let i = 0; i < 160 && s.moon.trip; i++) s.moon.update(0.05)
+    s.moon.update(0.05)
+    out.backOnEarth = !s.moon.on && tm.pos.y < 200 && tm.gravityMult === 1
+    g.buildMode.survival.stop?.()
+    g._exitBuildMode?.()
+    out.moonGone = !g.buildMode.getBlockAt(0, 300, 0)
+    return out
+  })
+  expect(Object.keys(r).filter((k) => r[k] !== true)).toEqual([])
 })

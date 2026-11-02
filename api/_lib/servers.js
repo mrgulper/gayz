@@ -456,7 +456,7 @@ function pinsFor(list, viewer) {
 
 function cleanVeh(v) {
   if (!Array.isArray(v)) return []
-  return v.slice(0, 4).filter((d) => d && (d.k === 'b' || d.k === 'h' || d.k === 'a')).map((d) => ({ k: d.k, x: num(d.x, -1e5, 1e5), y: num(d.y, -520, 520), z: num(d.z, -1e5, 1e5), h: num(d.h, -100, 100), r: d.r ? 1 : 0 }))
+  return v.slice(0, 4).filter((d) => d && (d.k === 'b' || d.k === 'h' || d.k === 'a' || d.k === 's')).map((d) => ({ k: d.k, x: num(d.x, -1e5, 1e5), y: num(d.y, -520, 520), z: num(d.z, -1e5, 1e5), h: num(d.h, -100, 100), r: d.r ? 1 : 0 }))
 }
 
 // A player's spray tags (src/game/Sprays.js): the 16 x 16 picture (hex

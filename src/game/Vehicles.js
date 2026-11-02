@@ -22,6 +22,12 @@
 //   fuel, BALLOON_FUEL_S a tank, filled from Heli Fuel like a helicopter),
 //   Crouch lets air out, neither and it sinks slowly. The wind
 //   (BuildSky.wind) pushes it along, harder the higher it is.
+// - Submarines (2026-11-02, Gaymi's idea list 5: "dive in a craftable sub
+//   and explore sea-floor ruins"): crafted, put on water like a boat. The
+//   keys drive it like a boat, Jump rises and Crouch dives (SUB_DIVE). It
+//   only moves through water and never above the surface. Use / right-click
+//   gets out, even deep down (you swim up). Riding one over the deep sea
+//   finds reefs and sunken ruins (Reefs.js). No fuel.
 // - On a server everyone sees your boats and helicopters (snapshot() goes
 //   out with your state, `veh` in api/_lib/servers.js; drawRemote() draws
 //   the others').
@@ -70,17 +76,24 @@ const BALLOON_R = 1.3
 // The envelope's bottom and top over the basket floor (blocks).
 const BALLOON_ENV_LOW = 2.6
 const BALLOON_ENV_HIGH = 9.5
+// Submarine.
+export const SUB_SPEED = 8
+const SUB_ACCEL = 6
+const SUB_TURN = 1.6
+export const SUB_DIVE = 4
+const SUB_EYE = 0.7
 const FUEL_FOR = { heli: HELI_FUEL_S, balloon: BALLOON_FUEL_S }
 // The text for each kind (i18n keys).
 const KEYS = {
   boat: { placed: 'vehicleBoatPlaced', in: 'vehicleBoatIn' },
   heli: { placed: 'vehicleHeliPlaced', in: 'vehicleHeliIn', refueled: 'vehicleRefueled', out: 'vehicleOutOfFuel' },
   balloon: { placed: 'vehicleBalloonPlaced', in: 'vehicleBalloonIn', refueled: 'vehicleBalloonRefueled', out: 'vehicleBalloonOutOfFuel' },
+  sub: { placed: 'vehicleSubPlaced', in: 'vehicleSubIn' },
 }
-const MAKE = { boat: (B) => makeBoat(B), heli: (B) => makeHeli(B), balloon: (B) => makeBalloon(B) }
+const MAKE = { boat: (B) => makeBoat(B), heli: (B) => makeHeli(B), balloon: (B) => makeBalloon(B), sub: (B) => makeSub(B) }
 // Kinds over the network (snapshot / cleanRemote).
-const NET_KIND = { boat: 'b', heli: 'h', balloon: 'a' }
-const KIND_OF_NET = { b: 'boat', h: 'heli', a: 'balloon' }
+const NET_KIND = { boat: 'b', heli: 'h', balloon: 'a', sub: 's' }
+const KIND_OF_NET = { b: 'boat', h: 'heli', a: 'balloon', s: 'sub' }
 
 const isWater = (bm, x, y, z) => {
   const type = bm.getBlockAt(x, y, z)
@@ -117,9 +130,10 @@ export class Vehicles {
   place(kind) {
     const s = this.s
     if (s.dead || s.spectating || this.riding) return false
-    const spot = kind === 'boat' ? this._waterAhead() : this._groundAhead(kind)
+    const wet = kind === 'boat' || kind === 'sub'
+    const spot = wet ? this._waterAhead() : this._groundAhead(kind)
     if (!spot) {
-      s._message(t(kind === 'boat' ? 'vehicleNeedWater' : 'vehicleNeedRoom'), 3)
+      s._message(t(wet ? 'vehicleNeedWater' : 'vehicleNeedRoom'), 3)
       return false
     }
     // Too many out: the oldest one you're not in goes.
@@ -276,7 +290,7 @@ export class Vehicles {
     const v = this.riding
     if (!v) return
     const tm = this.bm.tryMode
-    if (v.kind !== 'boat' && !force) {
+    if (v.kind !== 'boat' && v.kind !== 'sub' && !force) {
       const ground = this.s._groundUnder(v.x, v.y + 0.5, v.z)
       if (v.y - ground > HELI_EXIT_HIGH) {
         this.s._message(t('vehicleLandFirst'), 2)
@@ -307,7 +321,7 @@ export class Vehicles {
   seat() {
     const v = this.riding
     if (!v) return null
-    const eye = v.kind === 'boat' ? BOAT_EYE : v.kind === 'balloon' ? BALLOON_EYE : HELI_EYE
+    const eye = v.kind === 'boat' ? BOAT_EYE : v.kind === 'sub' ? SUB_EYE : v.kind === 'balloon' ? BALLOON_EYE : HELI_EYE
     return { x: v.x, y: v.y + 0.01, z: v.z, eye: eye + (v.bob || 0) }
   }
 
@@ -319,6 +333,7 @@ export class Vehicles {
     for (const v of this.list) {
       if (v === this.riding) continue
       if (v.kind === 'boat') this._moveBoat(v, dt, 0, 0)
+      else if (v.kind === 'sub') this._moveSub(v, dt, 0, 0, 0)
       else if (v.kind === 'balloon') this._moveBalloon(v, dt, {})
       else this._moveHeli(v, dt, {})
       if (!this._hinted && !this.s.dead && Math.hypot(me.x - v.x, me.z - v.z) < HINT_REACH) {
@@ -339,6 +354,7 @@ export class Vehicles {
       if (!steer) steer = THREE.MathUtils.clamp(-stick.x, -1, 1)
     }
     if (v.kind === 'boat') this._moveBoat(v, dt, throttle, steer)
+    else if (v.kind === 'sub') this._moveSub(v, dt, throttle, steer, (up ? 1 : 0) - (down ? 1 : 0))
     else if (v.kind === 'balloon') this._moveBalloon(v, dt, { up, down, riding: true })
     else this._moveHeli(v, dt, { throttle, steer, up, down, riding: true })
   }
@@ -363,6 +379,38 @@ export class Vehicles {
     }
     // The water it was on is gone (broken out, drained): it sits there.
     v.bob = Math.sin(performance.now() / 450 + v.id) * 0.06
+    this._place(v, dt)
+  }
+
+  // A submarine: like a boat, plus up and down, only through water.
+  _moveSub(v, dt, throttle, steer, dive) {
+    const bm = this.bm
+    const wet = (x, y, z) => isWater(bm, Math.floor(x), Math.floor(y), Math.floor(z))
+    if (throttle) v.speed += throttle * SUB_ACCEL * dt
+    else v.speed -= Math.sign(v.speed) * Math.min(Math.abs(v.speed), SUB_ACCEL * 0.5 * dt)
+    v.speed = THREE.MathUtils.clamp(v.speed, -SUB_SPEED * 0.4, SUB_SPEED)
+    v.heading += steer * SUB_TURN * dt
+    const nx = v.x + Math.sin(v.heading) * v.speed * dt
+    const nz = v.z + Math.cos(v.heading) * v.speed * dt
+    if (wet(nx, v.y + 0.2, nz) && !this.s._solid(Math.floor(nx), Math.floor(v.y + 0.2), Math.floor(nz))) {
+      v.x = nx
+      v.z = nz
+    } else {
+      if (Math.abs(v.speed) > 3) try { audioEngine.playMelee?.() } catch { /* no audio */ }
+      v.speed *= -0.3
+    }
+    // Up and down; never out of the top of the water.
+    v.vy = THREE.MathUtils.damp(v.vy || 0, dive * SUB_DIVE, 3, dt)
+    const ny = v.y + v.vy * dt
+    if (v.vy < 0 ? wet(v.x, ny - 0.1, v.z) && !this.s._solid(Math.floor(v.x), Math.floor(ny - 0.1), Math.floor(v.z)) : wet(v.x, ny + 0.6, v.z)) v.y = ny
+    else v.vy = 0
+    // At the top it bobs on the surface like a boat.
+    const surf = this._surface(v.x, v.z, v.y + 1)
+    if (surf !== null && v.y > surf - 0.5) {
+      v.y = Math.min(v.y, surf - 0.35)
+      v.bob = Math.sin(performance.now() / 450 + v.id) * 0.05
+    } else v.bob = 0
+    v.rotor = Math.abs(v.speed) > 0.3 ? 1 : 0
     this._place(v, dt)
   }
 
@@ -546,6 +594,7 @@ export class Vehicles {
       v.group.rotation.z = Math.sin(performance.now() / 600 + v.id) * 0.04
     }
     if (ud.flame) ud.flame.visible = !!v.burner
+    if (ud.prop) ud.prop.rotation.z += v.rotor * dt * 20
   }
 
   // What the other players need to draw mine (PlayNet, each sync).
@@ -592,6 +641,7 @@ export function drawRemote(survival, p, dt) {
       ud.tail.rotation.x += dt * 34
     }
     if (ud.flame) ud.flame.visible = !!d.r
+    if (ud.prop && d.r) ud.prop.rotation.z += dt * 20
   })
 }
 
@@ -715,5 +765,36 @@ export function makeBalloon(B) {
     y += h
   })
   g.userData.flame = flame
+  return g
+}
+
+// A yellow submarine: a long rounded hull, a tower with a periscope,
+// round portholes down each side, fins and a propeller at the back.
+export function makeSub(B) {
+  const g = new THREE.Group()
+  const box = (w, h, d, color, x, y, z, parent = g, extra = {}) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w * B, h * B, d * B), new THREE.MeshLambertMaterial({ color, ...extra }))
+    m.position.set(x * B, y * B, z * B)
+    parent.add(m)
+    return m
+  }
+  const paint = 0xf2c12e
+  const dark = 0x3a3a40
+  box(1.3, 1.1, 2.8, paint, 0, 0.55, 0)
+  box(1.0, 0.85, 0.5, paint, 0, 0.55, 1.6)
+  box(0.6, 0.5, 0.3, paint, 0, 0.55, 1.95)
+  box(1.0, 0.85, 0.4, paint, 0, 0.55, -1.55)
+  box(0.6, 0.7, 0.9, paint, 0, 1.4, 0.2)
+  box(0.1, 0.5, 0.1, dark, 0.1, 1.95, 0.4)
+  box(0.1, 0.1, 0.3, dark, 0.1, 2.15, 0.5)
+  for (const side of [-1, 1]) for (const z of [-0.8, 0, 0.8]) box(0.05, 0.3, 0.3, 0x8fd6ff, side * 0.66, 0.65, z, g, { emissive: 0x2a6a88 })
+  box(1.8, 0.08, 0.4, dark, 0, 0.55, -1.4)
+  box(0.08, 0.8, 0.4, dark, 0, 0.55, -1.6)
+  const prop = new THREE.Group()
+  prop.position.set(0, 0.55 * B, -1.85 * B)
+  box(0.7, 0.12, 0.05, dark, 0, 0, 0, prop)
+  box(0.12, 0.7, 0.05, dark, 0, 0, 0, prop)
+  g.add(prop)
+  g.userData.prop = prop
   return g
 }

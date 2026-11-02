@@ -36,6 +36,10 @@ import { PIECE_CHANCE, PIECES_PER_MAP, COINS as TREASURE_COINS, GEMS as TREASURE
 import { MAX_FISH as AQUARIUM_FISH, MAX_GOLDEN as AQUARIUM_GOLDEN } from './CampAquarium.js'
 import { BOARD_SPEED, TRICK_COINS, FREEZE_R } from './Skateboards.js'
 import { DANCE_S, DANCE_R, DANCE_COINS, DAZE_S, COOLDOWN_S as BOOMBOX_COOL } from './DanceOff.js'
+import { MAX_RUINS, SEA_ZOMBIES as RUIN_ZOMBIES } from './Reefs.js'
+import { PIRATES, PIRATE_COINS, SHIP_LIFE } from './PirateShip.js'
+import { STATIONS as TRAIN_STATIONS, CARS as TRAIN_CARS, STOP_S as TRAIN_STOP, CAR_ZOMBIES } from './ZombieTrain.js'
+import { MOON_G } from './MoonTrip.js'
 import { ROOMS as ESC_ROOMS, ROOM_S as ESC_ROOM_S, WRONG_COST as ESC_WRONG, ESC_COINS, ROOM_COINS as ESC_ROOM_COINS } from './EscapeRooms.js'
 import { TROPHIES } from './Trophies.js'
 import { ZONE_TOTAL_S } from './ShrinkZone.js'
@@ -394,6 +398,16 @@ export function _featureValues(_game) {
     escWrong: ESC_WRONG,
     escCoins: ESC_COINS,
     escRoomCoins: ESC_ROOM_COINS,
+    maxRuins: MAX_RUINS,
+    ruinZombies: RUIN_ZOMBIES,
+    pirates: PIRATES,
+    pirateCoins: PIRATE_COINS,
+    shipMinutes: Math.round(SHIP_LIFE / 60),
+    trainStations: TRAIN_STATIONS,
+    trainCars: TRAIN_CARS,
+    trainStop: TRAIN_STOP,
+    carZombies: CAR_ZOMBIES,
+    moonGravity: Math.round(MOON_G * 100),
     mapPieceChance: Math.round(PIECE_CHANCE * 100),
     mapPieces: PIECES_PER_MAP,
     treasureCoins: `${TREASURE_COINS[0]}-${TREASURE_COINS[1]}`,
