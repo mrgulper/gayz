@@ -79,7 +79,8 @@ export class PlayNet {
     // The host's world, for a game made joinable with Invite Friends.
     this.world = info.world || null
     this.isHost = info.host === info.playerId
-    // The server's mode: 'main' (Zombie Survival), 'infection' or 'zone'.
+    // The server's mode: 'main' (Zombie Survival), 'infection', 'zone' or
+    // a party mode ('hide', 'ctf', 'koth', 'soccer' - PartyModes.js).
     this.mode = info.mode || 'main'
     this.wave = 0
     this.players = new Map()
@@ -164,6 +165,11 @@ export class PlayNet {
   // A guest's shot that hit one of the host's zombies.
   queueHit(id, dmg) {
     this._hits.push({ id, dmg })
+  }
+
+  // A guest's snowball on one of the host's zombies (Snowballs.js).
+  queueFreeze(id, dmg) {
+    this._hits.push({ id, dmg, freeze: true })
   }
 
   // Host: a zombie bit another player / another player's hit finished it.
@@ -255,6 +261,7 @@ export class PlayNet {
       if (sky) body.sky = sky
       if (s.animals) body.animals = s.animals.snapshot()
       if (s.infection) body.inf = s.infection.snapshot()
+      if (s.party) body.party = s.party.snapshot()
       const zone = s.zone?.snapshot()
       if (zone) body.zone = zone
     } else {
@@ -351,6 +358,7 @@ export class PlayNet {
       if (res.sky) s.bm.sky?.follow?.(res.sky)
       s.animals?.applySnapshot(res.animals || {})
       if (res.inf) s.infection?.applySnapshot(res.inf)
+      if (res.party) s.party?.applySnapshot(res.party)
       if (res.zone) s.zone?.applySnapshot(res.zone)
     }
     for (const amount of res.hurt || []) s._hurtPlayer(amount)

@@ -40,13 +40,18 @@ import { BOTTOM, DEMON_TOP } from './Underground.js'
 import { deathJoke } from './DeathJokes.js'
 import { BloodMoon } from './BloodMoon.js'
 import { Fishing } from './Fishing.js'
+import { Snowballs } from './Snowballs.js'
+import { MetalDetector } from './MetalDetector.js'
+import { AnimalRiding } from './AnimalRiding.js'
+import { Potions, POTION_IDS, CHEST_POTION_CHANCE } from './Potions.js'
+import { Jetpack } from './Jetpack.js'
 import { ZombieRadio } from './ZombieRadio.js'
 import { Sprays } from './Sprays.js'
 import { DeathReplay } from './DeathReplay.js'
 import { sillyTip } from './SillyTips.js'
 import { JokeSigns } from './JokeSigns.js'
 import { Emotes } from './Emotes.js'
-import { ZOMBIE_TIERS, NAME_COUNT, TAG_W, TAG_H, rollZombieTier, rollZombieName, zombieTagMaterial, zombieGlow, pulseZombieGlows, zombieName, ZOMBIE_SHINES, rollZombieShine, shineCoins, shineBody, glowShineBody, shineTagMaterial, zombieShineFx, animateShineFx, pulseShines } from './ZombieNames.js'
+import { PINATA_CANDY, PINATA_COINS, ZOMBIE_TIERS, NAME_COUNT, TAG_W, TAG_H, rollZombieTier, rollZombieName, zombieTagMaterial, zombieGlow, pulseZombieGlows, zombieName, ZOMBIE_SHINES, rollZombieShine, shineCoins, shineBody, glowShineBody, shineTagMaterial, zombieShineFx, animateShineFx, pulseShines } from './ZombieNames.js'
 import { LEAF_DROP_CHANCE, PLAY_DEFAULTS, FUEL_CANS, HELI_FLY_IN, HELI_TAKE_OFF, EXTRACTION_HOLD, EXTRACTION_RADIUS, EXTRACTION_MIN, EXTRACTION_MAX, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, ASSIST_SHARE, ASSIST_MIN_HURT, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND, SKELETON_FROM_WAVE, SKELETON_CHANCE, MONSTER_FROM_WAVE, MONSTER_CHANCE, MOB_HEIGHT, SPAWN_MIN_DIST } from './PlayRules.js'
 import { MONSTER_KINDS, REALM_KINDS, makeMonster } from './ZombieKinds.js'
 import * as ZombieBook from './ZombieBook.js'
@@ -57,6 +62,9 @@ import { Survivors } from './Survivors.js'
 import { GoKart } from './GoKart.js'
 import { Vehicles } from './Vehicles.js'
 import { ShrinkZone } from './ShrinkZone.js'
+import { Speedrun, SPEEDRUN_WAVES } from './Speedrun.js'
+import { PartyMode, PARTY_MODES, PARTY_SERVER_MODES } from './PartyModes.js'
+import { dungeonAt, inBossRoom } from './Dungeons.js'
 import { HEAVEN_FLOOR, HEAVEN_TOP } from './HeavenRealm.js'
 import { WATER_BIOMES } from './EarthGrid.js'
 import { PlayDamageNumbers } from './PlayDamageNumbers.js'
@@ -75,6 +83,11 @@ export const CHEST_LOOT = { ammo: 60, health: 35 }
 // How often a Loot Chest has a Catch Trap or two (PlayCatch.js).
 const CATCH_TRAP_CHANCE = 0.35
 const CHEST_ROD_CHANCE = 0.1
+const CHEST_DETECTOR_CHANCE = 0.06
+const CHEST_JETPACK_CHANCE = 0.04
+const CHEST_JET_FUEL_CHANCE = 0.15
+// Zombies that wake with a dungeon's boss (_checkDungeon).
+const DUNGEON_GUARDS = 2
 // A zombie's name tag: blocks wide up close, then the same size on screen
 // past ZOMBIE_TAG_NEAR blocks.
 const ZOMBIE_TAG_SIZE = 1.5
@@ -326,8 +339,9 @@ export class BuildSurvival {
       net.attach(this)
       // A server plays its own mode: Zombie Survival, Infection or
       // Shrinking Zone.
-      this.cfg.mode = net.mode === 'infection' ? 'infection' : net.mode === 'zone' ? 'shrinkingZone' : 'classic'
-      this.cfg.noZombies = this.cfg.mode === 'infection'
+      const party = PARTY_MODES.find((m) => PARTY_SERVER_MODES[m] === net.mode)
+      this.cfg.mode = net.mode === 'infection' ? 'infection' : net.mode === 'zone' ? 'shrinkingZone' : party || 'classic'
+      this.cfg.noZombies = this.cfg.mode === 'infection' || !!party
     }
     this._zid = 0
     this._disposeExtraction()
@@ -345,7 +359,7 @@ export class BuildSurvival {
     // A new player's first game (PlayOnboarding.js): no weapon picker,
     // start at the camp gate, a zombie close by straight away.
     if (!this.onboard) this.onboard = new PlayOnboarding(this)
-    if (fromMenu && !net && isFirstGame(bm.game) && !BuildSurvival.savedRun() && this.cfg.mode !== 'worldMap' && this.cfg.mode !== 'infection') {
+    if (fromMenu && !net && isFirstGame(bm.game) && !BuildSurvival.savedRun() && this.cfg.mode !== 'worldMap' && this.cfg.mode !== 'infection' && !PARTY_MODES.includes(this.cfg.mode)) {
       this.onboard.begin(bm.activeSlot === 'map3' ? bm._map3Base().map.safeZone : null)
     } else this.onboard.end()
     this.active = true
@@ -370,6 +384,12 @@ export class BuildSurvival {
     // Infection mode (Infection.js): rounds of tag instead of waves.
     this.infection?.dispose()
     this.infection = this.cfg.mode === 'infection' ? new Infection(this) : null
+    // Speedrun mode (Speedrun.js): the clock and the ghost.
+    this.speedrun?.dispose()
+    this.speedrun = this.cfg.mode === 'speedrun' && !net ? new Speedrun(this) : null
+    // Hide and Seek, Capture the Flag, King of the Hill, Zombie Soccer (PartyModes.js).
+    this.party?.dispose()
+    this.party = PARTY_MODES.includes(this.cfg.mode) ? new PartyMode(this, this.cfg.mode) : null
     // Shrinking Zone mode (ShrinkZone.js): the waves, inside a closing ring.
     this.zone?.dispose()
     this.zone = this.cfg.mode === 'shrinkingZone' ? new ShrinkZone(this) : null
@@ -424,6 +444,24 @@ export class BuildSurvival {
     this.replay.clear()
     if (!this.throws) this.throws = new PlayThrow(this)
     this.throws.clear()
+    // Winter snowballs (Snowballs.js, 2026-11-01).
+    if (!this.snowballs) this.snowballs = new Snowballs(this)
+    this.snowballs.clear()
+    // The metal detector's buried loot (MetalDetector.js).
+    if (!this.detector) this.detector = new MetalDetector(this)
+    this.detector.clear()
+    // Riding tamed animals (AnimalRiding.js).
+    if (!this.riding) this.riding = new AnimalRiding(this)
+    this.riding.clear()
+    // Potions and the jetpack (Potions.js, Jetpack.js).
+    if (!this.potions) this.potions = new Potions(this)
+    this.potions.clear()
+    // Dungeons found and Boss Rooms woken this game (Dungeons.js).
+    this._dungeonsSeen = new Set()
+    this._dungeonBosses = new Set()
+    this._dungeonCheckIn = 0
+    if (!this.jetpack) this.jetpack = new Jetpack(this)
+    this.jetpack.clear()
     if (!this.catcher) this.catcher = new PlayCatch(this)
     this.catcher.clear()
     if (!this.hpBars) this.hpBars = new MobHealthBars(this)
@@ -536,6 +574,10 @@ export class BuildSurvival {
     this.active = false
     this.infection?.dispose()
     this.infection = null
+    this.speedrun?.dispose()
+    this.speedrun = null
+    this.party?.dispose()
+    this.party = null
     this.zone?.dispose()
     this.zone = null
     this.net?.leave()
@@ -572,6 +614,11 @@ export class BuildSurvival {
     this.emotes?.clear()
     this.fishing?.clear()
     this.radios?.clear()
+    this.snowballs?.clear()
+    this.detector?.clear()
+    this.riding?.clear()
+    this.potions?.clear()
+    this.jetpack?.clear()
     this.sprays?.clear()
     this._fires?.clear()
     this.bm.spectate?.exit()
@@ -1003,6 +1050,7 @@ export class BuildSurvival {
         <p id="build-play-over-text"></p>
         <p id="build-play-over-joke"></p>
         <p id="build-play-over-best"></p>
+        <p id="build-play-over-speedrun" hidden></p>
         <p id="build-play-over-unlock"></p>
         <div id="build-play-xp" style="display: none">
           <div class="build-play-xp-row"><b id="build-play-xp-level"></b><span id="build-play-xp-num"></span></div>
@@ -1064,9 +1112,9 @@ export class BuildSurvival {
     // World Map: no waves - where you are and how long you've explored.
     if (this.cfg?.noZombies) {
       const s = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
-      set('build-play-wave-text', this.infection ? this.infection.hudText() : `${t('topBarModeWorldMap')} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}`)
+      set('build-play-wave-text', this.infection ? this.infection.hudText() : this.party ? this.party.hudText() : `${t('topBarModeWorldMap')} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}`)
     }
-    const waveText = mode === 'zombieDefense' ? t('buildPlayWaveOf', { n: Math.max(1, this.wave), max: DEFENSE_WAVES }) : t('buildPlayWave', { n: Math.max(1, this.wave) })
+    const waveText = mode === 'zombieDefense' || this.speedrun ? t('buildPlayWaveOf', { n: Math.max(1, this.wave), max: this.speedrun ? SPEEDRUN_WAVES : DEFENSE_WAVES }) : t('buildPlayWave', { n: Math.max(1, this.wave) })
     const secs = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
     const timeText = mode === 'zombieRush' ? ` · ${t('buildPlayTime', { t: `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` })}` : ''
     let extractText = ''
@@ -1152,6 +1200,12 @@ export class BuildSurvival {
     const wall = bm._raycastGridAligned(SHOOT_THROUGH)
     const reach = Math.min(wall ? wall.t : Infinity, Number.isFinite(w.range) ? w.range * B : Infinity)
     // Infection: a shot only stuns an infected one (Infection.js).
+    // The party modes: a stun, a kicked ball, or nothing (PartyModes.js).
+    if (this.party) {
+      const hit = this.party.shoot(center, reach)
+      if (hit) this._hitFeedback({ amount: 0 })
+      return hit
+    }
     if (this.infection) {
       const stunned = this.infection.shoot(center, reach)
       if (stunned) this._hitFeedback({ amount: 0 })
@@ -1622,10 +1676,11 @@ export class BuildSurvival {
     if (ZOMBIE_SHINES[shine]) {
       const stat = `${shine}Kills`
       this.stats[stat] = (this.stats[stat] || 0) + 1
-      const key = { diamond: 'zombieShineDiamondKill', disco: 'zombieShineDiscoKill' }[shine] || 'zombieShineGoldKill'
+      const key = { diamond: 'zombieShineDiamondKill', disco: 'zombieShineDiscoKill', pinata: 'zombieShinePinataKill' }[shine] || 'zombieShineGoldKill'
       this._message(t(key, { n: Math.round(paid * (this.cfg?.coinMult ?? 1)) }), 4)
       try { audioEngine.playSpecial?.(`${shine}Zombie`) } catch { /* no audio */ }
       if (shine === 'disco') this._discoLoot()
+      if (shine === 'pinata') this._pinataLoot()
     }
     if (boss) {
       this.bosses++
@@ -1694,6 +1749,14 @@ export class BuildSurvival {
     if (Math.random() < CATCH_TRAP_CHANCE) give({ kind: 'item', id: 'catchTrap', n: 1 + Math.floor(Math.random() * 2) })
     // Now and then a Fishing Rod, for worlds without the camp's Trader (Fishing.js).
     if (Math.random() < CHEST_ROD_CHANCE && !this.inv.has('fishingRod')) give({ kind: 'item', id: 'fishingRod', n: 1 })
+    if (Math.random() < CHEST_DETECTOR_CHANCE && !this.inv.has('metalDetector')) give({ kind: 'item', id: 'metalDetector', n: 1 })
+    // Potions, the jetpack and its fuel (Potions.js, Jetpack.js).
+    if (Math.random() < CHEST_POTION_CHANCE) give({ kind: 'item', id: POTION_IDS[Math.floor(Math.random() * POTION_IDS.length)], n: 1 })
+    if (Math.random() < CHEST_JETPACK_CHANCE && !this.inv.has('jetpack')) give({ kind: 'item', id: 'jetpack', n: 1 })
+    if (Math.random() < CHEST_JET_FUEL_CHANCE && this.inv.has('jetpack')) give({ kind: 'item', id: 'jetFuel', n: 1 })
+    // Snowballs in winter (Snowballs.js).
+    const snow = this.snowballs?.chestCount() || 0
+    if (snow) give({ kind: 'item', id: 'snowball', n: snow })
     if (Math.random() < 0.25) give({ kind: 'item', id: ARMOR_SLOTS[Math.floor(Math.random() * ARMOR_SLOTS.length)], n: 1 })
     if (Math.random() < 0.3) give({ kind: 'block', id: CHEST_BLOCKS[Math.floor(Math.random() * CHEST_BLOCKS.length)], n: 8 + Math.floor(Math.random() * 9) })
     if (Math.random() < TRAP_CHEST_CHANCE) {
@@ -2145,7 +2208,7 @@ export class BuildSurvival {
 
   // "A Golden zombie appeared!" - a message and a sparkly sound.
   _announceShine(z) {
-    const key = { diamond: 'zombieShineDiamondAppeared', disco: 'zombieShineDiscoAppeared' }[z.shine] || 'zombieShineGoldAppeared'
+    const key = { diamond: 'zombieShineDiamondAppeared', disco: 'zombieShineDiscoAppeared', pinata: 'zombieShinePinataAppeared' }[z.shine] || 'zombieShineGoldAppeared'
     this._message(t(key, { name: zombieName(z.nameIdx) }), 4)
     try { audioEngine.playSpecial?.(`${z.shine}Zombie`) } catch { /* no audio */ }
   }
@@ -2165,6 +2228,19 @@ export class BuildSurvival {
     give({ kind: 'item', id: 'ammobox', n: 1 })
     if (Math.random() < 0.5) give({ kind: 'item', id: ARMOR_SLOTS[Math.floor(Math.random() * ARMOR_SLOTS.length)], n: 1 })
     setTimeout(() => this.active && this._message(t('zombieShineDiscoLoot', { ammo, health: CHEST_LOOT.health, items: got.join(', ') || '-' }), 4), 1800)
+    this._renderHud()
+  }
+
+  // The Pinata Zombie's prize for whoever got it: PINATA_CANDY candy
+  // (heals a little each) and PINATA_COINS extra coins.
+  _pinataLoot() {
+    if (!this.inv) return
+    const [lo, hi] = PINATA_CANDY
+    const n = lo + Math.floor(Math.random() * (hi - lo + 1))
+    const kept = n - this.inv.add({ kind: 'item', id: 'candy', n })
+    const before = this._coinsEarned
+    this._earn(PINATA_COINS)
+    setTimeout(() => this.active && this._message(t('zombieShinePinataLoot', { n: kept, coins: this._coinsEarned - before }), 4), 1800)
     this._renderHud()
   }
 
@@ -2237,7 +2313,7 @@ export class BuildSurvival {
   // materials are its own copies, so fading one never fades another.
   _spawnCorpse(z, dir) {
     // A Disco Zombie goes out in a burst of confetti (everyone sees it).
-    if (z.shine === 'disco') this._fx?.confetti(z.x * this.B, (z.y + 1.2) * this.B, z.z * this.B)
+    if (z.shine === 'disco' || z.shine === 'pinata') this._fx?.confetti(z.x * this.B, (z.y + 1.2) * this.B, z.z * this.B)
     if (z.skel) {
       this._skeletonCorpse(z, dir)
       return
@@ -2518,6 +2594,11 @@ export class BuildSurvival {
       zb.slow -= dt
       speed *= VOID_SLOW
     }
+    // Frozen by a snowball (Snowballs.js): can't move or bite.
+    if (zb.frozen > 0) {
+      zb.frozen -= dt
+      speed = 0
+    }
     // Special blocks it touches (spikes, a barricade...), BuildSpecials.js.
     speed *= this.bm.specials.zombieTick(zb, dt)
     const cx = Math.floor(zb.x)
@@ -2628,7 +2709,7 @@ export class BuildSurvival {
     zb.attackCd -= dt
     const px = player.x - zb.x
     const pz = player.z - zb.z
-    if (!player.idle && Math.hypot(px, pz) < ATTACK_RANGE && Math.abs(player.y - zb.y) < 1.5 && zb.attackCd <= 0) {
+    if (!player.idle && !(zb.frozen > 0) && Math.hypot(px, pz) < ATTACK_RANGE && Math.abs(player.y - zb.y) < 1.5 && zb.attackCd <= 0) {
       zb.attackCd = ATTACK_COOLDOWN
       const bite = zombieDamage(this.wave) * this.cfg.zombieDamageMult * (zb.boss ? BOSS_DAMAGE_MULT : 1) * (zb.damageMult || 1)
       if (zb.skel) zb.attackAnim = zb.skel.play('attack', { once: true, fade: 0.08, timeScale: 1.4 })
@@ -2765,6 +2846,46 @@ export class BuildSurvival {
     return !!this.disguise?.put(seconds)
   }
 
+  // Walking into a dungeon (Dungeons.js): a message the first time; the
+  // Boss Room wakes its boss (and DUNGEON_GUARDS) once a game - alone or
+  // as the host, in a game with zombies.
+  _checkDungeon(dt) {
+    this._dungeonCheckIn -= dt
+    const under = this.bm.world?.active ? this.bm.world.under : null
+    if (this._dungeonCheckIn > 0 || this.dead || !under) return
+    this._dungeonCheckIn = 0.5
+    const p = this.bodyPos()
+    const d = dungeonAt(under.dungeonsNear(p.x, p.z, p.x, p.z), Math.floor(p.x), Math.floor(p.y), Math.floor(p.z))
+    if (!d) return
+    if (!this._dungeonsSeen.has(d.id)) {
+      this._dungeonsSeen.add(d.id)
+      this.stats.dungeons = (this.stats.dungeons || 0) + 1
+      this._message(t('dungeonFound'), 4)
+    }
+    const mid = inBossRoom(d, p.x, p.y, p.z)
+    if (!mid || this._dungeonBosses.has(d.id) || this.cfg.noZombies || (this.net && !this.net.isHost)) return
+    this._dungeonBosses.add(d.id)
+    const health = zombieHealth(Math.max(1, this.wave), this.cfg.escalation) * this.cfg.zombieHealthMult * BOSS_HEALTH_MULT
+    const boss = this._makeZombie(++this._zid, mid.x, mid.y, mid.z, health, true, null, { tier: rollZombieTier(true), name: rollZombieName() })
+    boss.extra = true
+    boss.cave = true
+    for (let i = 0; i < DUNGEON_GUARDS; i++) {
+      const a = (i / DUNGEON_GUARDS) * Math.PI * 2
+      this._extraZombie(mid.x + Math.cos(a) * 3, mid.y, mid.z + Math.sin(a) * 3)
+    }
+    this._message(t('dungeonBoss'), 4)
+    try { audioEngine.playSpecial?.('bell') } catch { /* no audio */ }
+  }
+
+  // Speedrun's time, best and the world's top on the end screen.
+  _showSpeedrunResult() {
+    const el = document.getElementById('build-play-over-speedrun')
+    if (!el) return
+    const text = this.speedrun?.text() || ''
+    el.hidden = !text
+    el.textContent = text
+  }
+
   _win() {
     this._won = true
     this._die(true)
@@ -2797,6 +2918,7 @@ export class BuildSurvival {
     }
     const extracted = won && this.cfg.mode === 'zombieExtraction'
     const zoned = won && this.cfg.mode === 'shrinkingZone'
+    this._showSpeedrunResult()
     set('build-play-over-title', t(extracted ? 'extractionWinTitle' : zoned ? 'zoneWinTitle' : won ? 'buildPlayOverWinTitle' : 'buildPlayOverTitle'))
     set('build-play-over-text', t(extracted ? 'extractionWinText' : zoned ? 'zoneWinText' : won ? 'buildPlayOverWinText' : 'buildPlayOverText', { waves, kills: this.kills }))
     set('build-play-over-best', `${t('buildPlayOverBest', { n: best })}${reward?.legacy ? ` · ${t('buildPlayOverLegacy', { n: reward.legacy })}` : ''}${reward?.xp ? ` · ${t('buildPlayOverXp', { n: reward.xp })}` : ''}`)
@@ -2908,6 +3030,11 @@ export class BuildSurvival {
     this.damageNumbers?.update(Math.min(dt, 0.1))
     this._updateOwnBubble(Math.min(dt, 0.1))
     this.throws?.update(Math.min(dt, 0.1))
+    this.snowballs?.update(Math.min(dt, 0.1))
+    this.detector?.update(dt)
+    this.potions?.update()
+    if (!this.dead && !this.bm.menuOpen) this._checkDungeon(dt)
+    this.jetpack?.update()
     this.catcher?.update(Math.min(dt, 0.1))
     this.hpBars?.update(Math.min(dt, 0.1))
     // On a server the world goes on while you're dead or in the menu.
@@ -2918,6 +3045,8 @@ export class BuildSurvival {
     if (this._picking && !net) return
     dt = Math.min(dt, 1 / 20)
     this.infection?.update(dt)
+    this.speedrun?.update(dt)
+    this.party?.update(dt)
     this.zone?.update(dt)
     const playing = !this.dead && !this.bm.menuOpen && !this._picking
     if (playing) this._updateMe(dt)
@@ -3075,12 +3204,18 @@ export class BuildSurvival {
         if (this._breakTimer <= 0) this._startWave(this.wave + 1)
         else if (Math.ceil(this._breakTimer) !== shown) this._renderHud()
       } else {
-        const rush = this.cfg.mode === 'zombieRush'
+        const rush = this.cfg.mode === 'zombieRush' || !!this.speedrun
         this._breakTimer = rush ? RUSH_WAVE_BREAK : WAVE_BREAK
         if (this.wave > 0) {
           this._earn(COIN_PER_WAVE)
           // Zombie Defense: the last wave held is a win.
           if (this.cfg.mode === 'zombieDefense' && this.wave >= DEFENSE_WAVES) {
+            this._win()
+            return
+          }
+          // Speedrun: the last wave cleared stops the clock.
+          if (this.speedrun && this.wave >= SPEEDRUN_WAVES) {
+            this.speedrun.finish()
             this._win()
             return
           }
@@ -3141,6 +3276,8 @@ export class BuildSurvival {
     this._bossPending = this.cfg.bossEvery && this.wave % this.cfg.bossEvery === 0 ? 1 : 0
     this._chestsUsed.clear()
     this._message(t('buildPlayWaveStart', { n: this.wave }))
+    this.snowballs?.onWave(n)
+    if (n === 1) this.speedrun?.start()
     this._report('wave', { wave: this.wave, difficulty: this.cfg.difficulty || 'normal', mutators: this.cfg.mutators || [], mode: this.cfg.mode })
     this._renderHud()
   }
@@ -3436,10 +3573,13 @@ export class BuildSurvival {
       // A stun shot in Infection mode.
       if (String(h.id)[0] === 's') {
         this.infection?.remoteHit(h)
+        this.party?.remoteHit(h)
         continue
       }
       const id = Number(String(h.id).slice(1))
       const z = this.zombies.find((o) => o.id === id)
+      // A guest's snowball (Snowballs.js) freezes it as well.
+      if (z && h.freeze) this.snowballs?.freeze(z)
       if (z) this.damageZombie(z, Number(h.dmg) || 0, null, h.by)
     }
   }

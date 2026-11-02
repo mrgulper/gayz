@@ -8,6 +8,7 @@
 // stand-in for each, so callers are unchanged.
 import * as CloudSaveUI from './CloudSaveUI.js'
 import * as CloudSync from './CloudSync.js'
+import { loadBest as loadSpeedrunBest } from './Speedrun.js'
 import { CLOUD_BASE_UID_KEY, readBase } from './CloudMerge.js'
 import { ACHIEVEMENTS } from './Achievements.js'
 import { GLOBAL_KILLS_MILESTONE_STEP, POLL_ID, POLL_OPTIONS, _escapeHtml, _safeStatNumber, _thisWeekStr, saveShopProgress } from './Game.js'
@@ -398,6 +399,11 @@ export async function _pushOnlineStats(game) {
   // here anyway per explicit request despite that, so it WILL read
   // stale (frozen at whatever it was on the last sync) until game
   // player's next _pushOnlineStats call, unlike every other field above.
+  // Speedrun mode's best time (Speedrun.js), only once there is one.
+  {
+    const run = loadSpeedrunBest()
+    if (run) entry.speedrunMs = run.ms
+  }
   entry.todayKills = _safeStatNumber(game._sessionKills)
   entry.todayMinutes = Math.round((performance.now() - game._sessionStartTime) / 60000)
   CloudSync.pushLeaderboardEntry(game._cloudUid, entry).catch(() => {})

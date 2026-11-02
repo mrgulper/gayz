@@ -14,6 +14,7 @@
 //   games and keeps growing (CampFarm.js).
 import { t } from './i18n.js'
 import { ITEMS, itemName } from './PlayInventory.js'
+import { winterOn } from './Snowballs.js'
 
 // A killed zombie (mine) drops Zombie Goo this often (BuildSurvival.damageZombie).
 export const GOO_CHANCE = 0.45
@@ -43,6 +44,15 @@ export const RECIPES = [
   { id: 'leggings', kind: 'item', n: 1, needs: [{ group: 'stone', n: 7 }] },
   { id: 'boots', kind: 'item', n: 1, needs: [{ group: 'stone', n: 4 }] },
   { id: 'shield', kind: 'item', n: 1, needs: [{ group: 'planks', n: 6 }] },
+  { id: 'potionSpeed', kind: 'item', n: 1, needs: [{ item: 'veggies', n: 1 }, { item: 'plantFiber', n: 1 }, { block: 'glass', n: 1 }] },
+  { id: 'potionInvis', kind: 'item', n: 1, needs: [{ item: 'zombieGoo', n: 2 }, { block: 'glass', n: 1 }] },
+  { id: 'potionGiant', kind: 'item', n: 1, needs: [{ item: 'veggies', n: 2 }, { item: 'zombieGoo', n: 1 }, { block: 'glass', n: 1 }] },
+  { id: 'potionTiny', kind: 'item', n: 1, needs: [{ item: 'plantFiber', n: 2 }, { group: 'sand', n: 1 }, { block: 'glass', n: 1 }] },
+  { id: 'jetpack', kind: 'item', n: 1, needs: [{ group: 'stone', n: 10 }, { item: 'heliFuel', n: 1 }, { item: 'zombieGoo', n: 3 }] },
+  { id: 'jetFuel', kind: 'item', n: 1, needs: [{ item: 'zombieGoo', n: 2 }] },
+  { id: 'metalDetector', kind: 'item', n: 1, needs: [{ group: 'stone', n: 6 }, { block: 'glass', n: 1 }, { item: 'zombieGoo', n: 1 }] },
+  // Winter only (Snowballs.winterOn): a Snow block packs into four.
+  { id: 'snowball', kind: 'item', n: 4, needs: [{ block: 'snow', n: 1 }], winter: true },
   { id: 'cropplot', kind: 'block', n: 1, needs: [{ group: 'dirt', n: 4 }, { group: 'log', n: 1 }] },
   { id: 'oakplanks', kind: 'block', n: 4, needs: [{ group: 'log', n: 1 }] },
   { id: 'crate', kind: 'block', n: 1, needs: [{ group: 'planks', n: 4 }] },
@@ -76,6 +86,7 @@ export class PlayCrafting {
   }
 
   canCraft(r) {
+    if (r.winter && !winterOn(this.bm.game?.settings)) return false
     return r.needs.every((need) => this.have(need) >= need.n)
   }
 
@@ -123,7 +134,8 @@ export class PlayCrafting {
   // The Crafting tab's rows (PlayInventory.render).
   html() {
     const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;')
-    const rows = RECIPES.filter((r) => r.kind === 'item' ? ITEMS[r.id] : this.bm.isBlockType(r.id)).map((r) => {
+    const winter = winterOn(this.bm.game?.settings)
+    const rows = RECIPES.filter((r) => (r.kind === 'item' ? ITEMS[r.id] : this.bm.isBlockType(r.id)) && (!r.winter || winter)).map((r) => {
       const ok = this.canCraft(r)
       const icon = this.inv._icon({ kind: r.kind, id: r.id })
       const needs = r.needs.map((need) => {

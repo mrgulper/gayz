@@ -2376,6 +2376,8 @@ export class BuildMode {
   _tryUseFromCamera() {
     // Hop in or out of the go-kart (GoKart.js).
     if (this.survival?.active && this.survival.vehicles?.riding && this.survival.vehicles.use()) return true
+    // On or off a tamed animal (AnimalRiding.js).
+    if (this.survival?.active && this.survival.riding?.use()) return true
     if (this.survival?.active && this.survival.kart?.use()) return true
     // ...or a boat / helicopter (Vehicles.js).
     if (this.survival?.active && this.survival.vehicles?.use()) return true

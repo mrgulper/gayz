@@ -172,7 +172,14 @@ export const ZOMBIE_SHINES = {
   // every colour, dances (FunnyZombies.js), and goes out in confetti with
   // loot for whoever got it (BuildSurvival._discoLoot).
   disco: { chance: 1 / 250, coins: 15, color: '#ff5ce1', tint: [1.25, 1.2, 1.3] },
+  // The Pinata Zombie (2026-11-01, Gaymi's idea list 3): a paper-party
+  // body in candy stripes; it bursts into candy and coins for whoever
+  // got it (BuildSurvival._pinataLoot).
+  pinata: { chance: 1 / 300, coins: 8, color: '#ff9f1c', tint: [1.4, 1.05, 0.8] },
 }
+// The Pinata Zombie's candy (a range) and extra coins (BuildSurvival._pinataLoot).
+export const PINATA_CANDY = [3, 6]
+export const PINATA_COINS = 60
 const RAINBOW = ['#ff7ad9', '#ffd23f', '#7dff8a', '#8ff7ff', '#a98bff']
 export const ZOMBIE_SHINE_IDS = Object.keys(ZOMBIE_SHINES)
 
@@ -181,6 +188,7 @@ export function rollZombieShine(r = Math.random()) {
   if (r < ZOMBIE_SHINES.diamond.chance) return 'diamond'
   if (r < ZOMBIE_SHINES.diamond.chance + ZOMBIE_SHINES.gold.chance) return 'gold'
   if (r < ZOMBIE_SHINES.diamond.chance + ZOMBIE_SHINES.gold.chance + ZOMBIE_SHINES.disco.chance) return 'disco'
+  if (r < ZOMBIE_SHINES.diamond.chance + ZOMBIE_SHINES.gold.chance + ZOMBIE_SHINES.disco.chance + ZOMBIE_SHINES.pinata.chance) return 'pinata'
   return null
 }
 
@@ -213,21 +221,23 @@ export function shineBody(parts, shine) {
 export function glowShineBody(mats, shine, time, id = 0, hurt = false) {
   const s = ZOMBIE_SHINES[shine]
   if (!s) return
-  for (const mat of mats) {
-    if (!mat.emissive) continue
+  mats.forEach((mat, i) => {
+    if (!mat.emissive) return
     if (hurt) mat.emissive.setRGB(0.6, 0, 0)
     else if (shine === 'diamond') mat.emissive.setHSL((time * 0.15 + id * 0.13) % 1, 0.8, 0.3)
     // Disco: flashes through every colour, fast, like a dance floor.
     else if (shine === 'disco') mat.emissive.setHSL((Math.floor(time * 4) * 0.17 + id * 0.13) % 1, 1, 0.35)
+    // Pinata: every part its own candy colour, slowly sliding along.
+    else if (shine === 'pinata') mat.emissive.setHSL((i * 0.23 + time * 0.08) % 1, 0.95, 0.32)
     else mat.emissive.set(s.color).multiplyScalar(0.25 + 0.1 * Math.sin(time * 6 + id))
-  }
+  })
 }
 
 // The tag's second line for a shiny zombie: its shine word instead of the
 // tier, gold or rainbow letters with a glowing outline.
 export function shineTagMaterial(nameIdx, shine) {
   const name = zombieName(nameIdx)
-  const label = t(shine === 'diamond' ? 'zombieShineDiamond' : shine === 'disco' ? 'zombieShineDisco' : 'zombieShineGold')
+  const label = t({ diamond: 'zombieShineDiamond', disco: 'zombieShineDisco', pinata: 'zombieShinePinata' }[shine] || 'zombieShineGold')
   const key = `${name}|${label}|shine-${shine}`
   if (tagCache.has(key)) return tagCache.get(key)
   const c = document.createElement('canvas')
@@ -252,7 +262,7 @@ export function shineTagMaterial(nameIdx, shine) {
   g.fillText(name, TAG_W / 2, 27, TAG_W - 12)
   g.font = 'bold 28px sans-serif'
   let fill = ZOMBIE_SHINES.gold.color
-  if (shine === 'diamond' || shine === 'disco') {
+  if (shine === 'diamond' || shine === 'disco' || shine === 'pinata') {
     fill = g.createLinearGradient(TAG_W / 2 - 80, 0, TAG_W / 2 + 80, 0)
     RAINBOW.forEach((col, i) => fill.addColorStop(i / 4, col))
   }
@@ -302,7 +312,7 @@ export function zombieShineFx(shine, width, height) {
   const s = ZOMBIE_SHINES[shine]
   if (!s) return null
   const diamond = shine === 'diamond'
-  const rainbow = diamond || shine === 'disco'
+  const rainbow = diamond || shine === 'disco' || shine === 'pinata'
   const fx = new THREE.Group()
   fx.userData.shine = shine
   const halo = new THREE.Sprite(shineMat(`${shine}-halo`, s.color, diamond ? 0.55 : 0.4))

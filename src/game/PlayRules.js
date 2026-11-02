@@ -20,11 +20,13 @@ export const PLAY_MUTATORS = ['hordeRush', 'lootRush', 'healthRegen', 'glassHous
 // shaped like the real world (SpawnMap.js, OpenWorld's Earth mode).
 // infection (2026-10-31, Infection.js): tag - zombies turn humans, last human wins.
 // shrinkingZone (2026-11-01, ShrinkZone.js): the waves inside a closing ring.
-export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'worldMap', 'infection', 'shrinkingZone']
+// speedrun (2026-11-01, Speedrun.js): clear SPEEDRUN_WAVES waves against the clock.
+// hideSeek, captureFlag, kingHill, zombieSoccer (2026-11-01, PartyModes.js): party games, no zombies.
+export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'worldMap', 'infection', 'shrinkingZone', 'speedrun', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer']
 // Game Modes with no zombies at all (2026-10-26, Gaymi: "make world map
 // not spawn zombies ... make world map just a gamemode with the world
 // map"): you just explore the real Earth.
-export const NO_ZOMBIE_MODES = ['worldMap', 'infection']
+export const NO_ZOMBIE_MODES = ['worldMap', 'infection', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer']
 // Its achievement, Globetrotter: a World Map run this long (seconds).
 export const GLOBETROTTER_SECONDS = 600
 

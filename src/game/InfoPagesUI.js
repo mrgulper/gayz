@@ -34,7 +34,7 @@ import { HELI_FUEL_S, HELI_CEILING, MAX_OUT } from './Vehicles.js'
 import { ZONE_TOTAL_S } from './ShrinkZone.js'
 import { DINO_KINDS, DINO_CHANCE } from './DinoKinds.js'
 import { RARITIES } from './NewAnimalKinds.js'
-import { ZOMBIE_SHINES } from './ZombieNames.js'
+import { ZOMBIE_SHINES, PINATA_COINS } from './ZombieNames.js'
 import { DAILY_TEMPLATES, STREAK_STEP, STREAK_MAX_DAYS, streakMult } from './DailyChallenge.js'
 import { DEATH_JOB_COUNT } from './DeathJokes.js'
 import { HAT_EVERY, CAPE_EVERY } from './FunnyZombies.js'
@@ -46,6 +46,12 @@ import { CHANCE as BLOOD_MOON_CHANCE, FROM_WAVE as BLOOD_MOON_WAVE } from './Blo
 import { SPAN as REPLAY_SECONDS } from './DeathReplay.js'
 import { PHOTO_FILTERS } from './PhotoFilters.js'
 import { JOKE_SIGN_COUNT } from './JokeSigns.js'
+import { FREEZE_S, START_SNOWBALLS, WAVE_SNOWBALLS } from './Snowballs.js'
+import { POTION_S } from './Potions.js'
+import { JET_S } from './Jetpack.js'
+import { SPEEDRUN_WAVES, TOP_N as SPEEDRUN_TOP } from './Speedrun.js'
+import * as Party from './PartyModes.js'
+import { SIZE as DUNGEON_SIZE } from './Dungeons.js'
 import { SILLY_TIP_COUNT } from './SillyTips.js'
 import { COSMETIC_IDS } from './Cosmetics.js'
 import { MIN_FPS } from './PlayEntryUI.js'
@@ -318,6 +324,22 @@ export function _featureValues(_game) {
     zoneStages: ZONE_STAGES.length,
     zoneStartR: ZONE_STAGES[0].r,
     zoneFinalR: ZONE_STAGES[ZONE_STAGES.length - 1].r,
+    pinataOdds: Math.round(1 / ZOMBIE_SHINES.pinata.chance),
+    pinataCoins: PINATA_COINS,
+    snowFreeze: FREEZE_S,
+    snowStart: START_SNOWBALLS,
+    snowWave: WAVE_SNOWBALLS,
+    potionSeconds: POTION_S,
+    jetSeconds: JET_S,
+    speedrunWaves: SPEEDRUN_WAVES,
+    speedrunTop: SPEEDRUN_TOP,
+    partyPlayers: Party.TOTAL,
+    partyHide: Party.HIDE_S,
+    partyCaps: Party.CAPS_TO_WIN,
+    partyHill: Party.HILL_POINTS,
+    partyGoals: Party.GOALS_TO_WIN,
+    partyCoins: Party.WIN_COINS,
+    dungeonSize: DUNGEON_SIZE,
     zoneSpeed: ZONE_ZOMBIE_SPEED,
     zoneMinutes: Math.floor(ZONE_TOTAL_S / 60),
     recipes: RECIPES.length,

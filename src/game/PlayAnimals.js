@@ -206,6 +206,8 @@ for (const k of Object.values(KINDS)) {
 }
 // Every kind, in list order (the Map Editor's Animals list).
 export const ANIMAL_IDS = Object.keys(KINDS)
+// One kind's body sizes and flags (AnimalRiding.js).
+export const animalKind = (kind) => KINDS[kind]
 // Which animals live in each biome, with how often each turns up
 // (2026-10-23, Gaymi: a cow in the snowy mountains is wrong). Map 1's city
 // and the plains get the farm animals; the open sea gets none.
@@ -700,6 +702,8 @@ export class PlayAnimals {
         this._remove(a)
         continue
       }
+      // Being ridden (AnimalRiding.js): the rider moves it.
+      if (a.ridden) continue
       // Another player's pet follows them.
       const owner = a.owner && this._net?.players.get(a.owner)
       this._step(a, dt, owner?.seen ? owner : me)
