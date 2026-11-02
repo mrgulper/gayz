@@ -56,6 +56,7 @@ import { SILLY_TIP_COUNT } from './SillyTips.js'
 import { COSMETIC_IDS } from './Cosmetics.js'
 import { MIN_FPS } from './PlayEntryUI.js'
 import { EMOTES } from './Emotes.js'
+import { SHOP_TABS, AMMO_FILL_COOLDOWN } from './PlayShop.js'
 import { GRASS_GROW_SECONDS } from './GrassTufts.js'
 import { PLAY_WEAPONS } from './PlayWeapons.js'
 import { LANGUAGES, t, tHtml } from './i18n.js'
@@ -408,6 +409,8 @@ export function _featureValues(_game) {
     cosmetics: COSMETIC_IDS.length,
     minFps: MIN_FPS,
     emotes: EMOTES.length,
+    shopTabs: SHOP_TABS.length,
+    ammoFillCooldown: AMMO_FILL_COOLDOWN,
     dinoChance: Math.round(DINO_CHANCE * 100),
     grassGrowMinutes: GRASS_GROW_SECONDS / 60,
     leafDropPercent: Math.round(LEAF_DROP_CHANCE * 100),

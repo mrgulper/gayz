@@ -5,8 +5,9 @@
 // - Craft a Boat or a Helicopter (PlayCrafting.js), hold it and use it
 //   (click / the phone's use button): a boat goes on the water in front of
 //   you, a helicopter on open ground in front of you.
-// - Right-click one, or press Use beside it, to get in; Use again gets out
-//   (a helicopter has to be near the ground first).
+// - Right-click one, or press Use beside it, to get in; right-click or Use
+//   again gets out (a helicopter has to be near the ground first), and so
+//   does Crouch in a boat.
 // - A boat only moves on water: forward / back / left / right like the
 //   go-kart. A helicopter flies where you look: forward / back / sideways,
 //   Jump to climb, Crouch to go down.
@@ -184,8 +185,10 @@ export class Vehicles {
   }
 
   // Right-clicking (BuildMode's mouse-down): get in if you're looking at one.
+  // Riding, right-click gets out again (like the go-kart).
   rightClick() {
-    if (this.riding || this.s.dead || this.s.spectating) return false
+    if (this.riding) return this.use()
+    if (this.s.dead || this.s.spectating) return false
     const v = this._nearest(ENTER_REACH + 0.5)
     if (!v) return false
     const cam = this.bm.camera

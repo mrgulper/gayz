@@ -10,7 +10,7 @@
 //   servers/{id}      { name, mode, host, createdAt, wave, zombies, world,
 //                       hidden, sky, animals, inf, editSeq,
 //                       players: { pid: { nick, x, y, z, yaw, weapon, held,
-//                                         firing, dead, emote, hat, cape, t,
+//                                         firing, dead, emote, hat, cape, sit, t,
 //                                         hurt, credits, caught,
 //                                         say } },
 //                       hits: { key: { id, dmg, by, tame, catch, freeze } },
@@ -461,6 +461,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     [`${base}/players/${playerId}/emote`]: typeof s.emote === 'string' && /^[a-z]{1,12}$/.test(s.emote) ? s.emote : '',
     [`${base}/players/${playerId}/hat`]: typeof s.hat === 'string' && ID_RE.test(s.hat) ? s.hat : '',
     [`${base}/players/${playerId}/cape`]: typeof s.cape === 'string' && /^[A-Za-z]{1,20}$/.test(s.cape) ? s.cape : '',
+    // Sitting in a vehicle: the seat's eye height in blocks, 0 standing.
+    [`${base}/players/${playerId}/sit`]: num(s.sit, 0, 4),
     [`${base}/players/${playerId}/veh`]: cleanVeh(s.veh),
     [`${base}/players/${playerId}/spray`]: cleanSpray(s.spray),
     [`${base}/players/${playerId}/t`]: now,
@@ -596,7 +598,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p) continue
-    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], spray: p.spray || null }
+    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], sit: Number(p.sit) || 0, spray: p.spray || null }
     // A chat bubble: its number (new one = new bubble) and how long ago.
     if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }

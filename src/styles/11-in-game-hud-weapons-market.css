@@ -1602,6 +1602,15 @@ html.menu-panel-open #build-play-health { display: none; }
 .play-npc-info b { font-size: 16px; color: #fff; }
 .play-npc-row button { flex: none; }
 .play-npc-empty { text-align: center; }
+/* The Shop's tabs (PlayShop.js, 2026-11-01): Items, Traps, Upgrades, Ammo,
+   Quests. The list keeps one height so switching tabs never resizes it. */
+#play-npc-panel .build-share-box { width: min(500px, 100%); box-sizing: border-box; }
+#play-shop-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-bottom: 12px; }
+#play-shop-tabs .play-shop-tab { padding: 5px 14px; min-width: 0; font: inherit; font-size: 13px; font-weight: 700; color: inherit; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(232, 194, 90, 0.35); border-radius: 999px; box-shadow: none; cursor: pointer; }
+#play-shop-tabs .play-shop-tab.active { color: #1a1408; background: #ffd75e; border-color: #ffd75e; }
+#play-npc-list { min-height: min(330px, 50dvh); max-height: 55dvh; overflow-y: auto; }
+html.ui-theme-old #play-shop-tabs .play-shop-tab { background: rgba(107, 63, 23, 0.1); border-color: rgba(107, 63, 23, 0.45); }
+html.ui-theme-old #play-shop-tabs .play-shop-tab.active { color: #f6e7c4; background: #6b3f17; border-color: #6b3f17; }
 
 /* Old Map 1 parts kept for later but hidden since the old city was deleted
    (2026-10-05) - each comes back once it works with the block-city Map 1. */
@@ -1638,6 +1647,7 @@ html.menu-panel-open #build-play-health { display: none; }
 #touch-play .tp-bag { top: 10px; left: 50%; margin-left: 30px; width: 44px; height: 44px; }
 #touch-play .tp-drop { top: 10px; left: 50%; margin-left: 82px; width: 44px; height: 44px; }
 #touch-play .tp-spray { top: 10px; left: 50%; margin-left: -74px; width: 44px; height: 44px; }
+#touch-play .tp-shop { top: 10px; left: 50%; margin-left: -126px; width: 44px; height: 44px; }
 /* Emote (Emotes.js): left edge, above the health bar in portrait. */
 #touch-play .tp-emote { left: max(16px, env(safe-area-inset-left)); bottom: 176px; width: 48px; height: 48px; }
 #touch-play .tp-scope { display: none; right: calc(max(24px, env(safe-area-inset-right)) + 96px); bottom: 186px; width: 56px; height: 56px; }

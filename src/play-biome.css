@@ -44,7 +44,7 @@ html.ui-theme-biome {
 
 /* The boxes: pause card, You Died, Choose Your Weapon, inventory, open
    panels (Settings from the pause screen...), the spawn map's boxes. */
-html.ui-theme-biome :is(#play-pause-card, .build-play-over-card, #play-weapon-pick .pwp-card-box, #play-inventory .inv-box, .panel-box),
+html.ui-theme-biome :is(#play-pause-card, .build-play-over-card, #play-weapon-pick .pwp-card-box, #play-inventory .inv-box, #play-npc-panel .build-share-box, .panel-box),
 html.ui-theme-biome #spawn-map :is(.spawn-map-heading, #spawn-map-info, #spawn-map-list) {
   color: var(--biome-ink);
   background: var(--biome-surface);
@@ -52,7 +52,7 @@ html.ui-theme-biome #spawn-map :is(.spawn-map-heading, #spawn-map-info, #spawn-m
   text-shadow: none;
   image-rendering: pixelated;
 }
-html.ui-theme-biome :is(#play-pause-card, .build-play-over-card, #play-weapon-pick .pwp-card-box, #play-inventory .inv-box) {
+html.ui-theme-biome :is(#play-pause-card, .build-play-over-card, #play-weapon-pick .pwp-card-box, #play-inventory .inv-box, #play-npc-panel .build-share-box) {
   border-style: solid;
   border-width: 2px;
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.18);
@@ -65,8 +65,8 @@ html.ui-theme-biome :is(#play-pause-menu, #play-weapon-pick, #build-play-over) {
 }
 
 /* Titles: the HUD's Bebas Neue in the biome's colour. */
-html.ui-theme-biome .panel-box :is(h1, h2) { color: var(--biome-accent); }
-html.ui-theme-biome :is(#play-pause-title, #play-weapon-pick h2, #play-inventory .inv-head b, #spawn-map h2) {
+html.ui-theme-biome :is(.panel-box, #play-npc-panel) :is(h1, h2) { color: var(--biome-accent); }
+html.ui-theme-biome :is(#play-pause-title, #play-weapon-pick h2, #play-inventory .inv-head b, #play-inventory .inv-col-head b, #spawn-map h2) {
   font-family: 'Bebas Neue', sans-serif;
   letter-spacing: 1px;
   color: var(--biome-accent);
@@ -116,6 +116,7 @@ html.ui-theme-biome #play-item-tip b { color: var(--biome-accent); }
 html.ui-theme-biome #play-inventory .inv-slot { background-color: rgba(var(--biome-ink-rgb), 0.1); border-color: var(--biome-line); }
 html.ui-theme-biome #play-inventory .inv-slot.active { border-color: var(--biome-accent); box-shadow: inset 0 0 0 1px var(--biome-accent); }
 html.ui-theme-biome #play-inventory .inv-hotbar { border-top-color: var(--biome-line); }
+html.ui-theme-biome #play-inventory .inv-craft-col { border-right-color: var(--biome-line); }
 html.ui-theme-biome .inv-slot-lock { color: var(--biome-accent); }
 html.ui-theme-biome #play-inventory .inv-slot.locked { border-color: var(--biome-accent); }
 html.ui-theme-biome #play-inventory :is(.inv-tab, .craft-row) { background: rgba(var(--biome-ink-rgb), 0.08); border-color: var(--biome-line); }
@@ -153,24 +154,27 @@ html.ui-theme-biome #build-play-health { border-color: var(--biome-edge); }
   font-weight: 400 !important;
 }
 
-/* The emote bar (Emotes.js, 2026-10-31): three buttons low in the middle
-   of the screen - dark glass in any theme, the biome's frame round it. */
-#emote-bar {
-  position: fixed; left: 50%; bottom: 140px; transform: translateX(-50%);
-  display: flex; gap: 8px; padding: 8px; z-index: 60;
-  background: rgba(10, 12, 16, 0.72); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 14px;
+/* The emote wheel (Emotes.js, 2026-11-01): a ring of round buttons in the
+   middle of the screen, the hovered one's name in the centre - dark glass
+   in any theme, the biome's frame round it. */
+#emote-wheel { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.2); }
+#emote-wheel[hidden] { display: none; }
+#emote-wheel .emote-ring {
+  position: relative; width: 300px; height: 300px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(10, 12, 16, 0.55) 0 26%, rgba(10, 12, 16, 0.78) 27% 100%);
+  border: 2px solid rgba(255, 255, 255, 0.2);
 }
-#emote-bar[hidden] { display: none; }
-#emote-bar button {
-  display: flex; align-items: center; gap: 6px; padding: 8px 14px;
-  font: 18px 'Luckiest Guy', 'Bebas Neue', sans-serif; color: #fff;
-  background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 999px; cursor: pointer;
+#emote-wheel button {
+  position: absolute; width: 80px; height: 80px; margin: -40px 0 0 -40px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0;
+  font: 15px 'Luckiest Guy', 'Bebas Neue', sans-serif; color: #fff;
+  background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 50%; cursor: pointer;
 }
-#emote-bar button:hover { background: rgba(255, 207, 92, 0.3); }
-#emote-bar kbd { font: 12px sans-serif; padding: 1px 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.2); }
-html.ui-theme-biome #emote-bar { border-color: var(--biome-edge); }
-body.touch-play-on #emote-bar { bottom: auto; top: 42%; }
-body.touch-play-on #emote-bar kbd { display: none; }
+#emote-wheel button:hover, #emote-wheel button:focus-visible { background: rgba(255, 207, 92, 0.35); border-color: #ffcf5c; }
+#emote-wheel kbd { font: 11px sans-serif; padding: 1px 5px; border-radius: 4px; background: rgba(255, 255, 255, 0.2); }
+#emote-wheel .emote-mid { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: 90px; font: 18px 'Luckiest Guy', 'Bebas Neue', sans-serif; color: #ffcf5c; text-align: center; pointer-events: none; }
+html.ui-theme-biome #emote-wheel .emote-ring { border-color: var(--biome-edge); }
+body.touch-play-on #emote-wheel kbd { display: none; }
 
 /* A new player's first game (PlayOnboarding.js, 2026-10-31): the controls
    in one line above the health bar, fading on their own. The biome's box
@@ -188,6 +192,16 @@ body.touch-play-on #play-first-hint { bottom: auto; top: 34%; font-size: 18px; w
 
 /* The Use prompts under the crosshair (camp NPCs, survivors' orders). */
 html.ui-theme-biome :is(#play-npc-prompt, #play-survivor-prompt) { color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); }
+/* The Shop (PlayShop.js): rows, buttons and tabs in the biome's colours. */
+html.ui-theme-biome #play-npc-panel { color: var(--biome-ink); }
+html.ui-theme-biome #play-npc-panel .play-npc-row { background: rgba(var(--biome-ink-rgb), 0.06); border-color: var(--biome-line); }
+html.ui-theme-biome #play-npc-panel .play-npc-info { color: rgba(var(--biome-ink-rgb), 0.75); }
+html.ui-theme-biome #play-npc-panel .play-npc-info b { color: var(--biome-ink); }
+html.ui-theme-biome #play-npc-panel .build-share-box button:not(.panel-close-btn) { color: var(--biome-ink); background: rgba(var(--biome-ink-rgb), 0.08); border-color: var(--biome-line); }
+html.ui-theme-biome #play-npc-panel .build-share-box button:not(.panel-close-btn):hover:not(:disabled) { background: rgba(var(--biome-ink-rgb), 0.18); border-color: var(--biome-accent); }
+/* Ink on the biome colour always reads, whatever the accent is. */
+html.ui-theme-biome #play-npc-panel #play-shop-tabs .play-shop-tab.active { color: rgb(var(--biome-bg-rgb)); background: var(--biome-ink); border-color: var(--biome-ink); }
+html.ui-theme-biome #play-npc-panel :is(#play-npc-coins, #play-npc-title) { color: var(--biome-ink); }
 
 /* Status pills (PlayPills.js) in the biome's colours. */
 html.ui-theme-biome .play-pill {

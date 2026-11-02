@@ -32,8 +32,11 @@ export const ACTIONS = [
   // 2026-10-30). Q is also the Map Editor's rotate key - that one only
   // works while building, this one only in a game.
   { id: 'dropItem', defaultKey: 'KeyQ', labelKey: 'actionDropItem' },
-  // Opens the emote bar: dance, wave, flex (Emotes.js, 2026-10-31).
-  { id: 'emote', defaultKey: 'KeyB', labelKey: 'actionEmote' },
+  // Opens the emote wheel (Emotes.js, 2026-10-31; Z and a wheel since
+  // 2026-11-01, when B became the Shop).
+  { id: 'emote', defaultKey: 'KeyZ', labelKey: 'actionEmote' },
+  // Opens the Shop: items, traps, upgrades, ammo, quests (PlayShop.js).
+  { id: 'shop', defaultKey: 'KeyB', labelKey: 'actionShop' },
   // Sprays your own picture on the block you look at (Sprays.js, 2026-11-01).
   { id: 'spray', defaultKey: 'KeyY', labelKey: 'actionSpray' },
 ]
@@ -80,6 +83,8 @@ function loadBindings() {
     // Sprint's old default was E, which is Use now - a save still holding
     // it gets Shift back instead of two actions on one key.
     if (parsed.sprint === 'KeyE' && out.use === 'KeyE') out.sprint = 'ShiftLeft'
+    // Emote's old default was B, which is the Shop now (2026-11-01).
+    if (parsed.emote === 'KeyB' && typeof parsed.shop !== 'string') out.emote = 'KeyZ'
     return out
   } catch {
     return defaultBindings()

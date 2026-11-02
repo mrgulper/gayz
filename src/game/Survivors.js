@@ -183,7 +183,7 @@ export class Survivors {
   }
 
   _updatePrompt() {
-    const h = this.s.dead || this.s.camp?.panelOpen ? null : this._facing()
+    const h = this.s.dead || this.s.shop?.panelOpen ? null : this._facing()
     if (!h && !this._prompt) return
     if (!this._prompt) {
       this._prompt = document.createElement('div')

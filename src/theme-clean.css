@@ -587,6 +587,8 @@ html.ui-theme-clean :is(#play-pause-card, .build-menu-card)::after {
   display: none;
 }
 html.ui-theme-clean #play-inventory :is(.inv-tab, .craft-row) { background: var(--clean-surface); border-color: transparent; }
+html.ui-theme-clean #play-shop-tabs .play-shop-tab { background: var(--clean-surface); border-color: transparent; }
+html.ui-theme-clean #play-shop-tabs .play-shop-tab.active { color: var(--clean-bg); background: var(--clean-fg); }
 html.ui-theme-clean #play-inventory :is(.inv-tab.active, .craft-btn) { color: var(--clean-bg); background: var(--clean-fg); }
 html.ui-theme-clean #play-inventory .craft-btn:disabled { color: var(--clean-fg); background: var(--clean-hover); }
 html.ui-theme-clean :is(#play-pause-menu, #build-menu, #build-picker, #play-inventory, #spawn-map) * {
@@ -653,7 +655,7 @@ html.ui-theme-clean #play-item-tip {
   font-family: var(--clean-font);
 }
 html.ui-theme-clean #play-item-tip b { color: var(--clean-fg); font-weight: 600; }
-html.ui-theme-clean #play-inventory .inv-head b {
+html.ui-theme-clean #play-inventory :is(.inv-head b, .inv-col-head b) {
   color: var(--clean-fg);
 }
 html.ui-theme-clean :is(#play-inventory .inv-slot, #build-picker .bp-slot) {
