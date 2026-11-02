@@ -45,6 +45,9 @@ import { Snowballs } from './Snowballs.js'
 import { MetalDetector } from './MetalDetector.js'
 import { TreasureMaps, PIECE_CHANCE } from './TreasureMaps.js'
 import { Kites } from './Kites.js'
+import { Skateboards } from './Skateboards.js'
+import { DanceOff } from './DanceOff.js'
+import { EscapeRooms } from './EscapeRooms.js'
 import { AnimalRiding } from './AnimalRiding.js'
 import { Potions, POTION_IDS, CHEST_POTION_CHANCE } from './Potions.js'
 import { Jetpack } from './Jetpack.js'
@@ -368,7 +371,7 @@ export class BuildSurvival {
     // A new player's first game (PlayOnboarding.js): no weapon picker,
     // start at the camp gate, a zombie close by straight away.
     if (!this.onboard) this.onboard = new PlayOnboarding(this)
-    if (fromMenu && !net && isFirstGame(bm.game) && !BuildSurvival.savedRun() && this.cfg.mode !== 'worldMap' && this.cfg.mode !== 'infection' && this.cfg.mode !== 'towerDefense' && !PARTY_MODES.includes(this.cfg.mode)) {
+    if (fromMenu && !net && isFirstGame(bm.game) && !BuildSurvival.savedRun() && this.cfg.mode !== 'worldMap' && this.cfg.mode !== 'infection' && this.cfg.mode !== 'towerDefense' && this.cfg.mode !== 'escapeRoom' && !PARTY_MODES.includes(this.cfg.mode)) {
       this.onboard.begin(bm.activeSlot === 'map3' ? bm._map3Base().map.safeZone : null)
     } else this.onboard.end()
     this.active = true
@@ -422,6 +425,9 @@ export class BuildSurvival {
     // Tower Defense (TowerDefense.js): its own map, put in now.
     this.td?.dispose()
     this.td = this.cfg.mode === 'towerDefense' ? new TowerDefense(this) : null
+    // Escape Rooms (EscapeRooms.js): alone only, its own rooms in the sky.
+    this.escape?.dispose()
+    this.escape = this.cfg.mode === 'escapeRoom' && !net ? new EscapeRooms(this) : null
     if (this.td) this.coins = Math.max(this.coins, TD_START_COINS)
     if (!this._drops) this._drops = new PlayDrops(this)
     this._drops.clear()
@@ -473,6 +479,11 @@ export class BuildSurvival {
     this.treasure.clear()
     if (!this.kite) this.kite = new Kites(this)
     this.kite.clear()
+    // Skateboards, frozen lakes and the Dance-Off (Skateboards.js, DanceOff.js).
+    if (!this.skate) this.skate = new Skateboards(this)
+    this.skate.clear()
+    if (!this.dance) this.dance = new DanceOff(this)
+    this.dance.clear()
     // Riding tamed animals (AnimalRiding.js).
     if (!this.riding) this.riding = new AnimalRiding(this)
     this.riding.clear()
@@ -614,6 +625,8 @@ export class BuildSurvival {
     this.zone = null
     this.td?.dispose()
     this.td = null
+    this.escape?.dispose()
+    this.escape = null
     this.net?.leave()
     this.net = null
     this.lobby?.leave()
@@ -656,6 +669,8 @@ export class BuildSurvival {
     this.detector?.clear()
     this.treasure?.clear()
     this.kite?.clear()
+    this.skate?.clear()
+    this.dance?.clear()
     this.riding?.clear()
     this.potions?.clear()
     this.jetpack?.clear()
@@ -1156,7 +1171,7 @@ export class BuildSurvival {
     // World Map: no waves - where you are and how long you've explored.
     if (this.cfg?.noZombies) {
       const s = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
-      set('build-play-wave-text', this.infection ? this.infection.hudText() : this.party ? this.party.hudText() : `${t('topBarModeWorldMap')} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}`)
+      set('build-play-wave-text', this.infection ? this.infection.hudText() : this.party ? this.party.hudText() : this.escape ? `${this.escape.hudText()} · ${t('campCoins', { n: this.coins })} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}` : `${t('topBarModeWorldMap')} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}`)
     }
     const waveText = mode === 'zombieDefense' || this.speedrun || this.td ? t('buildPlayWaveOf', { n: Math.max(1, this.wave), max: this.speedrun ? SPEEDRUN_WAVES : this.td ? TD_WAVES : DEFENSE_WAVES }) : t('buildPlayWave', { n: Math.max(1, this.wave) })
     const secs = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
@@ -1247,7 +1262,7 @@ export class BuildSurvival {
     // Infection: a shot only stuns an infected one (Infection.js).
     // The party modes: a stun, a kicked ball, or nothing (PartyModes.js).
     if (this.party) {
-      const hit = this.party.shoot(center, reach)
+      const hit = this.party.shoot(center, reach, wall)
       if (hit) this._hitFeedback({ amount: 0 })
       return hit
     }
@@ -1854,6 +1869,8 @@ export class BuildSurvival {
       this._message(t('tdNoBuildPath'), 2)
       return false
     }
+    // Build Battle: only on your own plot; Escape Rooms: not at all.
+    if (this._protects(x, y, z)) return false
     // Not inside you or a zombie.
     const p = bm.tryMode.pos
     const inBox = (bx, by, bz) => Math.floor(bx) === x && Math.floor(bz) === z && y >= Math.floor(by) && y <= Math.floor(by + 1.7)
@@ -1867,6 +1884,11 @@ export class BuildSurvival {
     this.inv.usedBlock()
     audioEngine.playFootstep?.(false, 'default')
     return true
+  }
+
+  // Blocks a mode's own map keeps: never broken, never built on.
+  _protects(x, y, z) {
+    return !!(this.td?.protects(x, y, z) || this.party?.protects(x, y, z) || this.escape?.protects(x, y, z) || this.moon?.protects(x, y, z))
   }
 
   // Cells zombies stand in, for pressure plates.
@@ -2991,7 +3013,7 @@ export class BuildSurvival {
     const extracted = won && this.cfg.mode === 'zombieExtraction'
     const zoned = won && this.cfg.mode === 'shrinkingZone'
     // Tower Defense: held every wave, or the base fell.
-    const td = this.td ? (won ? 'tdWin' : 'tdLost') : ''
+    const td = this.td ? (won ? 'tdWin' : 'tdLost') : this.escape && won ? 'escapeWin' : ''
     this._showSpeedrunResult()
     set('build-play-over-title', t(extracted ? 'extractionWinTitle' : zoned ? 'zoneWinTitle' : td ? `${td}Title` : won ? 'buildPlayOverWinTitle' : 'buildPlayOverTitle'))
     set('build-play-over-text', t(extracted ? 'extractionWinText' : zoned ? 'zoneWinText' : td ? `${td}Text` : won ? 'buildPlayOverWinText' : 'buildPlayOverText', { waves: td === 'tdLost' ? Math.max(1, this.wave) : waves, kills: this.kills }))
@@ -3108,6 +3130,7 @@ export class BuildSurvival {
     this.snowballs?.update(Math.min(dt, 0.1))
     this.detector?.update(dt)
     this.kite?.update(Math.min(dt, 0.1))
+    this.skate?.update(Math.min(dt, 0.1))
     this.potions?.update()
     if (!this.dead && !this.bm.menuOpen) this._checkDungeon(dt)
     this.jetpack?.update()
@@ -3126,6 +3149,7 @@ export class BuildSurvival {
     this.party?.update(dt)
     this.zone?.update(dt)
     this.td?.update(dt)
+    this.escape?.update(dt)
     const playing = !this.dead && !this.bm.menuOpen && !this._picking
     if (playing) this._updateMe(dt)
     if (playing && !net) this.replay?.record(dt)
@@ -3351,6 +3375,8 @@ export class BuildSurvival {
       if (zb.health <= 0 && this.zombies.includes(zb)) this.damageZombie(zb, 0)
       if (this.dead && !this.net) return
     }
+    // After the zombies moved, so the ones dancing strike their pose.
+    this.dance?.update(dt)
   }
 
   _startWave(n) {
@@ -3658,6 +3684,11 @@ export class BuildSurvival {
         this.animals?.remoteHit(h)
         continue
       }
+      // Paint Wars' splats and Build Battle's stars (PartyModes.js).
+      if (/^[pv]/.test(String(h.id))) {
+        this.party?.remoteHit(h)
+        continue
+      }
       // A stun shot in Infection mode.
       if (String(h.id)[0] === 's') {
         this.infection?.remoteHit(h)
@@ -3778,6 +3809,8 @@ export class BuildSurvival {
       this.bm.tryMode.pos.set(x + 0.5, y, z + 0.5)
       this.bm.tryMode.vel.set(0, 0, 0)
     }
+    // Escape Rooms: back in the room you were in.
+    this.escape?.placePlayer()
     this.replay?.clear()
     this.dead = false
     // A new life: the run already counted at death starts over from here.

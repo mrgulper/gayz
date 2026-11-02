@@ -37,6 +37,18 @@
 //   shoot it - to send it down at 10 little zombie pins BOWL_GAP away; a
 //   pin hit falls and can knock its neighbours. Pins down = points, all
 //   10 is a Strike. Only the bowler can touch the ball. Most pins wins.
+// - paintWars (Paint Wars, 2026-11-02, idea list 5): Red against Blue.
+//   Every shot splats your team's paint on the ground where it lands
+//   (SPLAT_R blocks round), inside PAINT_R blocks of the middle; painting
+//   over the other team's colour takes it back. The team covering the
+//   most ground when the time runs out wins.
+// - buildBattle (Build Battle, 2026-11-02, idea list 5): everyone gets a
+//   plot (PLOT x PLOT) on a white platform high in the sky (BB_Y, built
+//   on every screen like Tower Defense's map) and BUILD_S seconds to build
+//   something on a theme, with a free set of blocks (BB_PALETTE). Then
+//   everyone visits each plot in turn (VOTE_S each) and gives it 1-5 stars
+//   (keys 1-5 or the buttons; not your own). Bots build one of a few
+//   shapes and vote too. The most stars wins.
 //
 // Whoever runs it (alone, or a server's host - `runs`) keeps the round,
 // moves the bots and the ball and checks touches from everyone's synced
@@ -52,13 +64,13 @@ import { saveShopProgress } from './Game.js'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
 
-export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling']
+export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle']
 // Each mode's server mode (api/_lib/servers.js MODES).
-export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling' }
+export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling', paintWars: 'paint', buildBattle: 'build' }
 export const TOTAL = 6
 export const WAIT_S = 8
 export const END_S = 7
-export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300 }
+export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300, paintWars: 150, buildBattle: 300 }
 export const HIDE_S = 20
 export const STUN_S = 2.5
 export const FLAG_GAP = 32
@@ -78,8 +90,21 @@ export const TURN_S = 14
 const PIN_R = 0.3
 const PIN_CHAIN = 0.55 // a falling pin knocks a neighbour this often
 const BOT_AIM = 1.4 // how far off a bot's roll can be (blocks)
-const ID_SCORE_MODES = new Set(['kingHill', 'hotPotato', 'zombieBowling'])
-const TEAM_MODES = new Set(['captureFlag', 'zombieSoccer'])
+export const PAINT_R = 16
+const SPLAT_R = 1.6
+const BOT_PAINT_EVERY = [0.45, 1]
+export const BUILD_S = 300
+export const VOTE_S = 8
+export const PLOT = 9
+const PLOT_GAP = 3
+const PLOTS = 8 // 2 rows of 4
+const PLOT_H = 14 // how high you can build
+export const BB_Y = 220
+export const BB_PALETTE = ['oak', 'stonebricks', 'glass', 'concrete', 'redsandstone', 'quartz', 'oaklog', 'birchleaves', 'sealantern', 'prismarinebricks', 'terracotta', 'pumpkin']
+export const BB_THEMES = ['house', 'castle', 'tree', 'monster', 'rocket', 'boat', 'tower', 'animal', 'car', 'statue']
+const BB_STACK = 64
+const ID_SCORE_MODES = new Set(['kingHill', 'hotPotato', 'zombieBowling', 'buildBattle'])
+const TEAM_MODES = new Set(['captureFlag', 'zombieSoccer', 'paintWars'])
 const TAG_DIST = 1.2
 const STUN_SPEED = 0.4
 const BOT_SPEED = 5.2
@@ -132,6 +157,15 @@ export class PartyMode {
     this.turnLeft = 0
     this.pinsDown = new Array(PINS).fill(false)
     this._still = 0
+    this.paint = new Map() // Paint Wars: "x,z" -> 'r' | 'b'
+    this._paintDirty = true
+    this.sub = '' // Build Battle: 'build' | 'vote'
+    this.theme = 0
+    this.plots = new Map() // id -> plot number
+    this.voteI = 0
+    this.votes = {} // owner id -> { voter id: stars }
+    this.myVote = 0
+    this._platformFor = ''
     this.bots = new Map()
     this._botN = 0
     this._myId = 'me'
@@ -210,9 +244,19 @@ export class PartyMode {
     this._markPlayers()
     this._events()
     const me = this.myId
-    const frozen = this.kind === 'hideSeek' && this.phase === 'play' && this.seekers.has(me) && this._hiding()
+    if (this.kind === 'buildBattle') {
+      if (this.home) this._platform()
+      // A new round on a guest's screen: the plots empty out.
+      if (!this.runs && this.sub === 'build' && this._clearedFor !== this.round) this._clearPlots(false)
+      this._clearedFor = this.sub === 'build' ? this.round : this._clearedFor
+      this._bbPlace()
+      this._bbBag()
+      this._renderVote()
+    }
+    const voting = this.kind === 'buildBattle' && this.phase === 'play' && this.sub === 'vote'
+    const frozen = (this.kind === 'hideSeek' && this.phase === 'play' && this.seekers.has(me) && this._hiding()) || voting
     s.bm.tryMode.speedMult = this._baseSpeed * (frozen ? 0 : this.stunned.has(me) ? STUN_SPEED : 1)
-    this._blind.className = frozen ? 'on' : ''
+    this._blind.className = frozen && !voting ? 'on' : ''
     if (frozen) this._blind.firstChild.textContent = t('partyBlindfold', { n: Math.ceil(this._hideLeft()) })
     if (Math.floor(this.left) !== this._lastShown) {
       this._lastShown = Math.floor(this.left)
@@ -261,6 +305,8 @@ export class PartyMode {
     else if (this.kind === 'kingHill') this._runHill(people, dt)
     else if (this.kind === 'hotPotato') this._runPotato(people, dt)
     else if (this.kind === 'zombieBowling') this._runBowl(people, dt)
+    else if (this.kind === 'paintWars') this._runPaint(people, dt)
+    else if (this.kind === 'buildBattle') this._runBuild(people)
     else this._runBall(people, dt)
     if (this.phase === 'play' && this.left <= 0) this._timeUp()
   }
@@ -275,6 +321,8 @@ export class PartyMode {
   _begin() {
     const me = this.s.bodyPos()
     this.home = { x: Math.round(me.x * 10) / 10, y: Math.round(me.y * 10) / 10, z: Math.round(me.z * 10) / 10 }
+    // Build Battle: the same platform in the sky, round after round.
+    if (this.kind === 'buildBattle') this.home = this._bbHome || (this._bbHome = { x: Math.round(me.x), y: BB_Y + 1, z: Math.round(me.z) })
     this.phase = 'play'
     this.left = ROUND_S[this.kind]
     this.stunned.clear()
@@ -292,6 +340,20 @@ export class PartyMode {
     if (this.kind === 'zombieSoccer') this._ballHome()
     this.out.clear()
     if (this.kind === 'hotPotato') this._newBomb(people)
+    if (this.kind === 'paintWars') {
+      this.paint.clear()
+      this._paintDirty = true
+    }
+    if (this.kind === 'buildBattle') {
+      this.sub = 'build'
+      this.theme = Math.floor(Math.random() * BB_THEMES.length)
+      this.plots.clear()
+      shuffled.forEach((id, i) => this.plots.set(id, i % PLOTS))
+      this.votes = {}
+      this.voteI = 0
+      for (const id of shuffled) this.score[id] = 0
+      this._clearPlots(true)
+    }
     if (this.kind === 'zombieBowling') {
       this.order = shuffled
       this.rolls = {}
@@ -325,6 +387,10 @@ export class PartyMode {
   _timeUp() {
     if (this.kind === 'hideSeek') return this._end('h')
     if (this.kind === 'hotPotato') return this._end('tie')
+    if (this.kind === 'paintWars') {
+      const [r, b] = this.paintCounts()
+      return this._end(r === b ? 'tie' : r > b ? 'r' : 'b')
+    }
     let best = ''
     let top = -1
     let tie = false
@@ -617,6 +683,397 @@ export class PartyMode {
     this._timeUp()
   }
 
+  // --- Paint Wars ---
+
+  inArena(x, z) {
+    return !!this.home && Math.hypot(x + 0.5 - this.home.x, z + 0.5 - this.home.z) <= PAINT_R
+  }
+
+  // Paint a splat for team `tm` round (x, z) (blocks).
+  splat(x, z, tm) {
+    if (tm !== 'r' && tm !== 'b') return
+    for (let dx = -2; dx <= 2; dx++) {
+      for (let dz = -2; dz <= 2; dz++) {
+        const cx = Math.floor(x) + dx
+        const cz = Math.floor(z) + dz
+        if (Math.hypot(cx + 0.5 - x, cz + 0.5 - z) > SPLAT_R || !this.inArena(cx, cz)) continue
+        const k = `${cx},${cz}`
+        if (this.paint.get(k) !== tm) {
+          this.paint.set(k, tm)
+          this._paintDirty = true
+        }
+      }
+    }
+  }
+
+  paintCounts() {
+    let r = 0
+    let b = 0
+    for (const v of this.paint.values()) v === 'r' ? r++ : b++
+    return [r, b]
+  }
+
+  _runPaint(people, dt) {
+    // Bots fire paint ahead of them now and then.
+    for (const b of this.bots.values()) {
+      b.paintIn = (b.paintIn ?? 0) - dt
+      if (b.paintIn > 0) continue
+      b.paintIn = BOT_PAINT_EVERY[0] + Math.random() * (BOT_PAINT_EVERY[1] - BOT_PAINT_EVERY[0])
+      const d = 3 + Math.random() * 6
+      const a = b.tyaw + (Math.random() - 0.5) * 0.8
+      this.splat(b.x + Math.sin(a) * d, b.z + Math.cos(a) * d, this.teams.get(b.id))
+    }
+  }
+
+  // The painted ground as a string (the server sync): one letter a cell,
+  // row by row over the arena's square.
+  _paintCode() {
+    if (!this.home) return ''
+    const R = PAINT_R
+    const hx = Math.floor(this.home.x)
+    const hz = Math.floor(this.home.z)
+    let out = ''
+    for (let z = -R; z <= R; z++) for (let x = -R; x <= R; x++) out += this.paint.get(`${hx + x},${hz + z}`) || '0'
+    return out.replace(/0+$/, '')
+  }
+
+  _paintFrom(code) {
+    if (typeof code !== 'string' || !this.home) return
+    const R = PAINT_R
+    const W = R * 2 + 1
+    const hx = Math.floor(this.home.x)
+    const hz = Math.floor(this.home.z)
+    const next = new Map()
+    for (let i = 0; i < code.length && i < W * W; i++) {
+      const c = code[i]
+      if (c === 'r' || c === 'b') next.set(`${hx + (i % W) - R},${hz + Math.floor(i / W) - R}`, c)
+    }
+    if (next.size !== this.paint.size || [...next].some(([k, v]) => this.paint.get(k) !== v)) {
+      this.paint = next
+      this._paintDirty = true
+    }
+  }
+
+  // The painted cells: one flat square each, on the ground's top.
+  _drawPaint() {
+    const B = this.s.B
+    if (!this._paintMesh) {
+      const max = (PAINT_R * 2 + 1) ** 2
+      const geo = new THREE.PlaneGeometry(B, B).rotateX(-Math.PI / 2)
+      this._paintMesh = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ color: 0xffffff }), max)
+      this._paintMesh.frustumCulled = false
+      this._paintMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+      this.arena.add(this._paintMesh)
+      this._groundY = new Map()
+    }
+    if (!this._paintDirty) return
+    this._paintDirty = false
+    const m = new THREE.Matrix4()
+    const c = new THREE.Color()
+    let i = 0
+    for (const [k, tm] of this.paint) {
+      let y = this._groundY.get(k)
+      const [x, z] = k.split(',').map(Number)
+      if (y === undefined) {
+        y = this.s._groundUnder(x + 0.5, this.home.y + 6, z + 0.5)
+        this._groundY.set(k, y)
+      }
+      m.makeTranslation((x + 0.5) * B, (y + 0.02) * B, (z + 0.5) * B)
+      this._paintMesh.setMatrixAt(i, m)
+      this._paintMesh.setColorAt(i, c.set(TEAM_COLORS[tm]))
+      i++
+    }
+    this._paintMesh.count = i
+    this._paintMesh.instanceMatrix.needsUpdate = true
+    if (this._paintMesh.instanceColor) this._paintMesh.instanceColor.needsUpdate = true
+  }
+
+  // --- Build Battle ---
+
+  // Plot n's corner (its lowest x, z) and floor height.
+  plotAt(n) {
+    const h = this.home
+    const step = PLOT + PLOT_GAP
+    return { x: Math.floor(h.x + ((n % 4) - 2) * step + PLOT_GAP / 2), y: BB_Y, z: Math.floor(h.z + (Math.floor(n / 4) - 1) * step + PLOT_GAP / 2) }
+  }
+
+  _plotOf(x, z) {
+    if (!this.home) return -1
+    for (let n = 0; n < PLOTS; n++) {
+      const p = this.plotAt(n)
+      if (x >= p.x && x < p.x + PLOT && z >= p.z && z < p.z + PLOT) return n
+    }
+    return -1
+  }
+
+  _inPlatform(x, y, z) {
+    if (!this.home || y < BB_Y - 1 || y > BB_Y + PLOT_H + 1) return false
+    const step = PLOT + PLOT_GAP
+    return Math.abs(x + 0.5 - this.home.x) <= step * 2 + 1 && Math.abs(z + 0.5 - this.home.z) <= step + 1
+  }
+
+  // BuildSurvival: may this block be placed / broken? Only inside your
+  // own plot while building.
+  protects(x, y, z) {
+    if (this.kind !== 'buildBattle' || !this.home) return false
+    if (!this._inPlatform(x, y, z)) return false
+    if (y <= BB_Y) return true
+    return !(this.phase === 'play' && this.sub === 'build' && this._plotOf(x, z) === this.plots.get(this.myId))
+  }
+
+  // The platform: real blocks, put in on every screen (gone at the end).
+  _platform() {
+    const key = this.home ? `${this.home.x},${this.home.z}` : ''
+    if (!key || this._platformFor === key) return
+    this._platformFor = key
+    const s = this.s
+    const bm = s.bm
+    const step = PLOT + PLOT_GAP
+    bm._suppressUndoRecording = true
+    for (let x = Math.floor(this.home.x - step * 2 - 1); x <= this.home.x + step * 2 + 1; x++) {
+      for (let z = Math.floor(this.home.z - step - 1); z <= this.home.z + step + 1; z++) {
+        const type = this._plotOf(x, z) >= 0 ? 'smoothquartz' : 'polishedtuff'
+        if (bm.getBlockAt(x, BB_Y, z) === type) continue
+        bm.placeBlock(x, BB_Y, z, type, true)
+        s._placed.set(bm._key(x, BB_Y, z), type)
+      }
+    }
+    bm._suppressUndoRecording = false
+  }
+
+  // Everything built on the plots goes (a new round).
+  _clearPlots(record) {
+    if (!this.home) return
+    this._platform()
+    const s = this.s
+    const bm = s.bm
+    bm._suppressUndoRecording = true
+    for (let n = 0; n < PLOTS; n++) {
+      const p = this.plotAt(n)
+      for (let x = p.x; x < p.x + PLOT; x++) for (let z = p.z; z < p.z + PLOT; z++) for (let y = BB_Y + 1; y <= BB_Y + PLOT_H; y++) {
+        if (!bm.getBlockAt(x, y, z)) continue
+        bm.removeBlock(x, y, z)
+        s._placed.delete(bm._key(x, y, z))
+        if (record && this.runs) s._recordEdit(x, y, z, '')
+      }
+    }
+    bm._suppressUndoRecording = false
+    for (const b of this.bots.values()) b.built = 0
+  }
+
+  _plotOrder() {
+    return [...this.plots.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id)
+  }
+
+  _voteOwner() {
+    return this._plotOrder()[this.voteI] || ''
+  }
+
+  _runBuild(people) {
+    const here = new Set(people.map((p) => p.id))
+    // Someone who joined mid-round gets a free plot.
+    for (const p of people) {
+      if (this.plots.has(p.id)) continue
+      const used = new Set(this.plots.values())
+      for (let n = 0; n < PLOTS; n++) if (!used.has(n)) {
+        this.plots.set(p.id, n)
+        this.score[p.id] = this.score[p.id] || 0
+        break
+      }
+    }
+    if (this.sub === 'build') {
+      for (const b of this.bots.values()) this._botBuild(b)
+      if (this.left <= 0) {
+        this.sub = 'vote'
+        this.voteI = 0
+        this.left = VOTE_S
+      }
+      return
+    }
+    // Voting: bots give their stars a moment in.
+    const owner = this._voteOwner()
+    if (owner && this.left < VOTE_S - 2) {
+      for (const b of this.bots.values()) {
+        if (b.id === owner) continue
+        const v = (this.votes[owner] ||= {})
+        if (v[b.id]) continue
+        v[b.id] = 2 + Math.floor(Math.random() * 3) + (this._plotBlocks(this.plots.get(owner)) > 20 && Math.random() < 0.5 ? 1 : 0)
+      }
+    }
+    if (this.left > 0) return
+    // Stars for this plot.
+    if (owner && here.has(owner)) this.score[owner] = Object.values(this.votes[owner] || {}).reduce((a, n) => a + Math.max(1, Math.min(5, n)), 0)
+    this.voteI++
+    this.left = VOTE_S
+    if (this.voteI >= this._plotOrder().length) {
+      this.left = 0.001
+      this.sub = ''
+      let best = ''
+      let top = -1
+      let tie = false
+      for (const [id, n] of Object.entries(this.score)) {
+        if (n > top) {
+          top = n
+          best = id
+          tie = false
+        } else if (n === top) tie = true
+      }
+      this._end(tie || !best ? 'tie' : best)
+    }
+  }
+
+  _plotBlocks(n) {
+    if (n === undefined) return 0
+    const p = this.plotAt(n)
+    const bm = this.s.bm
+    let k = 0
+    for (let x = p.x; x < p.x + PLOT; x++) for (let z = p.z; z < p.z + PLOT; z++) for (let y = BB_Y + 1; y <= BB_Y + 8; y++) if (bm.getBlockAt(x, y, z)) k++
+    return k
+  }
+
+  // A bot builds its shape a block at a time over most of the build time.
+  _botBuild(b) {
+    const n = this.plots.get(b.id)
+    if (n === undefined) return
+    const p = this.plotAt(n)
+    const shape = (b.shape ||= botShape(BB_THEMES[this.theme]))
+    const due = Math.floor(shape.length * Math.min(1, (BUILD_S - this.left) / (BUILD_S * 0.75)))
+    const s = this.s
+    const bm = s.bm
+    while ((b.built || 0) < due) {
+      const [dx, dy, dz, type] = shape[b.built || 0]
+      b.built = (b.built || 0) + 1
+      const x = p.x + dx
+      const y = BB_Y + 1 + dy
+      const z = p.z + dz
+      if (bm.getBlockAt(x, y, z)) continue
+      bm._suppressUndoRecording = true
+      bm.placeBlock(x, y, z, type, true)
+      bm._suppressUndoRecording = false
+      s._placed.set(bm._key(x, y, z), type)
+      s._recordEdit(x, y, z, type)
+    }
+  }
+
+  // My stars for the plot on show (keys 1-5 / the buttons).
+  vote(stars) {
+    if (this.kind !== 'buildBattle' || this.phase !== 'play' || this.sub !== 'vote') return
+    const owner = this._voteOwner()
+    if (!owner || owner === this.myId) return
+    stars = Math.max(1, Math.min(5, Math.round(stars)))
+    this.myVote = stars
+    this._votedFor = owner
+    if (this.runs) (this.votes[owner] ||= {})[this.myId] = stars
+    else this.s.net?.queueHit(`v${owner}`, stars)
+    this._renderVote()
+  }
+
+  // Where I am during Build Battle: on my plot to build, in front of
+  // the plot on show to vote; off the edge, back on my plot.
+  _bbPlace() {
+    const s = this.s
+    const tm = s.bm.tryMode
+    if (!this.home || !tm?.active) return
+    const want = this.phase === 'play' ? this.sub : ''
+    const voteOwner = want === 'vote' ? this._voteOwner() : ''
+    const key = `${this.round},${want},${voteOwner}`
+    const fell = tm.pos.y < BB_Y - 6
+    if (this._bbAt === key && !fell) return
+    this._bbAt = key
+    const mine = this.plots.get(this.myId)
+    const n = want === 'vote' ? this.plots.get(voteOwner) : mine
+    const p = this.plotAt(n ?? 0)
+    const B = s.B
+    const x = p.x + PLOT / 2
+    const z = want === 'vote' ? p.z - 2 : p.z + PLOT / 2
+    tm.pos.set(x, BB_Y + 1, z)
+    tm.vel?.set(0, 0, 0)
+    s.bm.camera.position.set(x * B, (BB_Y + 1 + 1.62) * B, z * B)
+    if (want === 'vote') {
+      s.bm._yaw = Math.PI
+      s.bm._pitch = -0.25
+    }
+  }
+
+  // The palette of blocks while building (my own bag comes back after).
+  _bbBag() {
+    const inv = this.s.inv
+    if (!inv) return
+    const building = this.kind === 'buildBattle' && this.phase === 'play' && this.sub === 'build'
+    if (building && !this._savedBag) {
+      this._savedBag = { hotbar: inv.hotbar.map((it) => (it ? { ...it } : null)), grid: inv.grid.map((it) => (it ? { ...it } : null)) }
+      inv.hotbar.fill(null)
+      inv.grid.fill(null)
+      for (const id of BB_PALETTE) inv.add({ kind: 'block', id, n: BB_STACK })
+      inv.select(0)
+      this.s._message(t('bbStart', { theme: t(`bbTheme_${BB_THEMES[this.theme]}`), n: Math.round(BUILD_S / 60) }), 6)
+    } else if (!building && this._savedBag) {
+      this._restoreBag()
+    }
+    // Plenty of each, always.
+    if (building) for (const it of inv.hotbar) if (it?.kind === 'block' && it.n < 8) it.n = BB_STACK
+  }
+
+  _restoreBag() {
+    const inv = this.s.inv
+    if (!inv || !this._savedBag) return
+    inv.hotbar.splice(0, inv.hotbar.length, ...this._savedBag.hotbar)
+    inv.grid.splice(0, inv.grid.length, ...this._savedBag.grid)
+    this._savedBag = null
+    inv.apply?.()
+    inv.renderHotbar?.()
+  }
+
+  // The star buttons while voting.
+  _renderVote() {
+    const on = this.kind === 'buildBattle' && this.phase === 'play' && this.sub === 'vote'
+    if (!on) {
+      if (this._voteEl) {
+        this._voteEl.remove()
+        this._voteEl = null
+        window.removeEventListener('keydown', this._voteKey, true)
+      }
+      return
+    }
+    if (!this._voteEl) {
+      const el = document.createElement('div')
+      el.id = 'bb-vote'
+      const title = document.createElement('div')
+      title.className = 'bb-vote-title'
+      el.appendChild(title)
+      const row = document.createElement('div')
+      row.className = 'bb-vote-stars'
+      for (let i = 1; i <= 5; i++) {
+        const b = document.createElement('button')
+        b.type = 'button'
+        b.textContent = '★'
+        b.dataset.n = String(i)
+        b.addEventListener('pointerdown', (e) => {
+          e.preventDefault()
+          this.vote(i)
+        })
+        row.appendChild(b)
+      }
+      el.appendChild(row)
+      document.body.appendChild(el)
+      this._voteEl = el
+      this._voteKey = (e) => {
+        const m = /^(?:Digit|Numpad)([1-5])$/.exec(e.code)
+        if (!m) return
+        e.preventDefault()
+        e.stopPropagation()
+        this.vote(Number(m[1]))
+      }
+      window.addEventListener('keydown', this._voteKey, true)
+    }
+    const owner = this._voteOwner()
+    if (this._votedFor !== owner) this.myVote = 0
+    const mine = owner === this.myId
+    this._voteEl.querySelector('.bb-vote-title').textContent = mine ? t('bbYourPlot') : t('bbVoteFor', { name: this._name(owner) })
+    this._voteEl.classList.toggle('mine', mine)
+    for (const b of this._voteEl.querySelectorAll('button')) b.classList.toggle('on', Number(b.dataset.n) <= this.myVote)
+  }
+
   // --- bots ---
 
   _fillBots(want) {
@@ -686,6 +1143,15 @@ export class PartyMode {
       return this.flags[enemy]
     }
     if (this.kind === 'kingHill') return this.spot('hill')
+    if (this.kind === 'paintWars') {
+      // Somewhere in the arena that isn't my colour yet.
+      if (!b.paintGoal || Math.hypot(b.paintGoal.x - b.x, b.paintGoal.z - b.z) < 1.5 || Math.random() < 0.004) {
+        const a = Math.random() * Math.PI * 2
+        const r = Math.random() * PAINT_R * 0.9
+        b.paintGoal = { x: this.home.x + Math.cos(a) * r, z: this.home.z + Math.sin(a) * r }
+      }
+      return b.paintGoal
+    }
     if (this.kind === 'hotPotato') {
       if (this.out.has(b.id)) return null
       const alive = others.filter((p) => !this.out.has(p.id))
@@ -725,6 +1191,18 @@ export class PartyMode {
     const s = this.s
     const people = this._people()
     this._dt = dt
+    if (this.kind === 'buildBattle' && this.home) {
+      const n = this.plots.get(b.id)
+      if (n === undefined) return
+      const p = this.plotAt(n)
+      const x = p.x + 1 + (b.n % 3) * 3
+      const z = p.z - 0.8
+      b.x = b.tx = x
+      b.z = b.tz = z
+      b.y = b.ty = BB_Y + 1
+      b.tyaw = 0
+      return
+    }
     const goal = this._botGoal(b, people)
     // Bots stun enemies close by now and then (Flag and Hill).
     if (this.phase === 'play' && (this.kind === 'captureFlag' || this.kind === 'kingHill') && !this.stunned.has(b.id)) {
@@ -885,6 +1363,7 @@ export class PartyMode {
       this._ballMesh.rotation.x += (b.vz || 0) * 0.02
       this._ballMesh.rotation.z -= (b.vx || 0) * 0.02
     }
+    if (this.kind === 'paintWars') this._drawPaint()
     if (this.kind === 'kingHill' && this._hillMesh) this._hillMesh.material.opacity = 0.3 + Math.sin(performance.now() / 300) * 0.1
     if (this.kind === 'hotPotato' && this._bomb) {
       const h = this._people().find((p) => p.id === this.holder && !this.out.has(p.id))
@@ -920,7 +1399,20 @@ export class PartyMode {
     this.arena.clear()
     this._built = true
     this._builtFor = `${this.home.x},${this.home.z}`
-    if (this.kind === 'captureFlag') {
+    this._paintMesh = null
+    this._paintDirty = true
+    if (this.kind === 'paintWars') {
+      // The arena's edge: a ring of little posts.
+      const h = this.home
+      for (let i = 0; i < 32; i++) {
+        const a = (i / 32) * Math.PI * 2
+        const x = h.x + Math.cos(a) * PAINT_R
+        const z = h.z + Math.sin(a) * PAINT_R
+        const m = new THREE.Mesh(new THREE.BoxGeometry(0.2 * B, 1.2 * B, 0.2 * B), i % 2 ? lambert(TEAM_COLORS.r) : lambert(TEAM_COLORS.b))
+        m.position.set(x * B, (this.s._groundUnder(x, h.y + 6, z) + 0.6) * B, z * B)
+        this.arena.add(m)
+      }
+    } else if (this.kind === 'captureFlag') {
       this._flagMeshes = {}
       for (const tm of ['r', 'b']) {
         const base = this.spot(tm)
@@ -1074,6 +1566,8 @@ export class PartyMode {
     if (this.kind === 'kingHill') return t('partyHillStart', { n: HILL_POINTS })
     if (this.kind === 'hotPotato') return t('partyPotatoStart')
     if (this.kind === 'zombieBowling') return t('partyBowlStart', { n: ROLLS })
+    if (this.kind === 'paintWars') return t('partyPaintStart', { team })
+    if (this.kind === 'buildBattle') return t('bbStart', { theme: t(`bbTheme_${BB_THEMES[this.theme]}`), n: Math.round(BUILD_S / 60) })
     return t('partySoccerStart', { team, n: GOALS_TO_WIN })
   }
 
@@ -1116,7 +1610,16 @@ export class PartyMode {
     const name = this._modeName()
     if (this.phase === 'wait') return `${name} · ${t('infectionStartsIn', { n: Math.ceil(this.left) })}`
     let mid
-    if (this.kind === 'hideSeek') {
+    if (this.kind === 'paintWars') {
+      const [r, b] = this.paintCounts()
+      const all = Math.max(1, r + b)
+      mid = `${t('partyRed')} ${Math.round((r / all) * 100)}% - ${Math.round((b / all) * 100)}% ${t('partyBlue')}`
+      if (this.myTeam) mid += ` · ${t('partyYourTeam', { team: t(this.myTeam === 'r' ? 'partyRed' : 'partyBlue') })}`
+    } else if (this.kind === 'buildBattle') {
+      const theme = t(`bbTheme_${BB_THEMES[this.theme] || 'house'}`)
+      if (this.sub === 'vote') mid = t('bbHudVote', { theme, name: this._name(this._voteOwner() || ''), i: this.voteI + 1, n: this._plotOrder().length })
+      else mid = t('bbHudBuild', { theme })
+    } else if (this.kind === 'hideSeek') {
       const people = this._people()
       mid = t('partyHideCounts', { h: people.filter((p) => !this.seekers.has(p.id)).length, s: this.seekers.size })
       if (this.phase === 'play') mid += ` · ${t(this.seekers.has(this.myId) ? 'partySeeker' : 'partyHider')}`
@@ -1139,12 +1642,24 @@ export class PartyMode {
 
   // My shot (BuildSurvival.shoot). Flag / Hill: stuns the first enemy on
   // the ray. Soccer: knocks the ball. Hide and Seek: nothing.
-  shoot(ray, reach) {
+  shoot(ray, reach, wall = null) {
     if (this.phase !== 'play' || this.stunned.has(this.myId)) return false
     const B = this.s.B
     const box = new THREE.Box3()
     const hit = new THREE.Vector3()
-    if (this.kind === 'hotPotato') return false
+    if (this.kind === 'hotPotato' || this.kind === 'buildBattle') return false
+    if (this.kind === 'paintWars') {
+      // A splat where the shot lands on the ground.
+      if (!wall || wall.t > reach) return false
+      ray.at(wall.t + 0.01, hit)
+      const x = hit.x / B
+      const z = hit.z / B
+      if (!this.inArena(Math.floor(x), Math.floor(z))) return false
+      this.splat(x, z, this.myTeam)
+      this._splatFx(x, hit.y / B, z, this.myTeam)
+      if (!this.runs) this.s.net?.queueHit(`p${Math.floor(x)}_${Math.floor(z)}`, 0)
+      return true
+    }
     if (this.kind === 'zombieSoccer' || this.kind === 'zombieBowling') {
       if (this.kind === 'zombieBowling' && this.turn !== this.myId) return false
       const b = this.ball
@@ -1188,7 +1703,25 @@ export class PartyMode {
 
   // A guest's stun shot (BuildSurvival._applyRemoteHits).
   remoteHit(h) {
-    if (this.kind === 'captureFlag' || this.kind === 'kingHill') this.stun(String(h.id).slice(1))
+    const id = String(h.id)
+    if (this.kind === 'paintWars' && id[0] === 'p') {
+      const m = /^p(-?\d{1,6})_(-?\d{1,6})$/.exec(id)
+      if (m) this.splat(Number(m[1]) + 0.5, Number(m[2]) + 0.5, this.teams.get(String(h.by)))
+      return
+    }
+    if (this.kind === 'buildBattle' && id[0] === 'v') {
+      const owner = id.slice(1)
+      if (this.sub === 'vote' && owner === this._voteOwner() && h.by && h.by !== owner) (this.votes[owner] ||= {})[h.by] = Math.max(1, Math.min(5, Number(h.dmg) || 1))
+      return
+    }
+    if (this.kind === 'captureFlag' || this.kind === 'kingHill') this.stun(id.slice(1))
+  }
+
+  // A burst of paint drops where a shot landed.
+  _splatFx(x, y, z, tm) {
+    const s = this.s
+    s._fx?.paint?.(x * s.B, (y + 0.3) * s.B, z * s.B, TEAM_COLORS[tm])
+    try { audioEngine.playSpecial?.('pop') } catch { /* no audio */ }
   }
 
   // --- the server ---
@@ -1226,6 +1759,11 @@ export class PartyMode {
       tu: this._out(this.turn),
       ro: Object.fromEntries(Object.entries(this.rolls).map(([id, n]) => [this._out(id), n])),
       pd: this.pinsDown.reduce((m, down, i) => m | (down ? 1 << i : 0), 0),
+      pa: this.kind === 'paintWars' ? this._paintCode() : '',
+      sb: this.sub,
+      th: this.theme,
+      vi: this.voteI,
+      pl: Object.fromEntries([...this.plots].map(([id, n]) => [this._out(id), n])),
     }
   }
 
@@ -1256,6 +1794,14 @@ export class PartyMode {
     this.out = new Set([].concat(d.ou || []).filter(ok))
     this.turn = ok(d.tu) ? d.tu : ''
     this.rolls = Object.fromEntries(Object.entries(d.ro || {}).filter(([id, n]) => ok(id) && Number.isFinite(n)))
+    if (this.kind === 'paintWars') this._paintFrom(d.pa || '')
+    if (this.kind === 'buildBattle') {
+      if (Array.isArray(d.h)) this._bbHome = this.home
+      this.sub = ['build', 'vote'].includes(d.sb) ? d.sb : ''
+      this.theme = Math.max(0, Math.min(BB_THEMES.length - 1, Number(d.th) || 0))
+      this.voteI = Math.max(0, Number(d.vi) || 0)
+      this.plots = new Map(Object.entries(d.pl || {}).filter(([id, n]) => ok(id) && Number.isInteger(n) && n >= 0 && n < PLOTS))
+    }
     const pd = Number(d.pd) || 0
     for (let i = 0; i < PINS; i++) this.pinsDown[i] = !!(pd & (1 << i))
     if (Array.isArray(d.ball) && d.ball.every(Number.isFinite)) {
@@ -1291,6 +1837,11 @@ export class PartyMode {
     this.arena.removeFromParent()
     this.s.bm.tryMode.speedMult = this._baseSpeed
     this._blind.remove()
+    this._restoreBag()
+    if (this._voteEl) {
+      this._voteEl.remove()
+      window.removeEventListener('keydown', this._voteKey, true)
+    }
   }
 }
 
@@ -1303,4 +1854,30 @@ function disposeTree(root) {
       m.dispose?.()
     }
   })
+}
+
+// A bot's build for a theme: [dx, dy, dz, block] inside a PLOT x PLOT plot,
+// bottom up.
+function botShape(theme) {
+  const out = []
+  const put = (x, y, z, type) => out.push([x, y, z, type])
+  if (['tree', 'animal', 'monster'].includes(theme)) {
+    for (let y = 0; y < 4; y++) put(4, y, 4, 'oaklog')
+    for (let y = 3; y < 7; y++) for (let x = 2; x <= 6; x++) for (let z = 2; z <= 6; z++) {
+      if (Math.hypot(x - 4, (y - 4.5) * 1.3, z - 4) < 2.6 && !(x === 4 && z === 4 && y < 4)) put(x, y, z, 'birchleaves')
+    }
+  } else if (['tower', 'rocket', 'statue'].includes(theme)) {
+    for (let y = 0; y < 8; y++) for (let x = 3; x <= 5; x++) for (let z = 3; z <= 5; z++) if (x !== 4 || z !== 4 || y === 7) put(x, y, z, y === 7 ? 'sealantern' : 'stonebricks')
+    for (const [x, z] of [[3, 3], [3, 5], [5, 3], [5, 5]]) put(x, 8, z, 'stonebricks')
+  } else {
+    for (let y = 0; y < 3; y++) for (let x = 2; x <= 6; x++) for (let z = 2; z <= 6; z++) {
+      if (x !== 2 && x !== 6 && z !== 2 && z !== 6) continue
+      put(x, y, z, x === 4 && z === 2 && y < 2 ? null : y === 1 && (x === 2 || x === 6) && z === 4 ? 'glass' : 'oak')
+    }
+    for (let k = 0; k < 3; k++) for (let x = 2 + k; x <= 6 - k; x++) for (let z = 2 + k; z <= 6 - k; z++) {
+      if (k < 2 && x > 2 + k && x < 6 - k && z > 2 + k && z < 6 - k) continue
+      put(x, 3 + k, z, 'terracotta')
+    }
+  }
+  return out.filter((b) => b[3])
 }

@@ -21,6 +21,7 @@
 // - survivor: someone stuck on a rooftop to rescue (Survivors.js).
 // - golden: a Golden Runner to chase down for coins (GoldenRunner.js).
 // - escort: walk a survivor or a bus to an exit (EscortMission.js).
+// - disco: a disco ball to dance under (DanceOff.js).
 //
 // On a server the others see the zombies (mutants too, zombieSnapshot
 // `mu`) but not the plane, crate or meteor - those are the host's, like
@@ -34,7 +35,7 @@ import { escortMission } from './EscortMission.js'
 const EVENT_FROM_WAVE = 2
 const EVENT_FIRST = 90
 const EVENT_GAP = [150, 240]
-const KINDS = ['supply', 'horde', 'meteor', 'survivor', 'golden', 'escort']
+const KINDS = ['supply', 'horde', 'meteor', 'survivor', 'golden', 'escort', 'disco']
 const PLANE_HEIGHT = 32
 const PLANE_SPEED = 14
 const DROP_NEAR = 14
@@ -115,6 +116,7 @@ export class WorldEvents {
     else if (kind === 'survivor') this._run = this.s.survivors?.spawn(me) ? { update: () => this.s.survivors.busy } : null
     else if (kind === 'golden') this._run = goldenRunner(this.s, me)
     else if (kind === 'escort') this._run = escortMission(this.s, me)
+    else if (kind === 'disco') this._run = this.s.dance?.disco(this._spotNear(me, 14, 24)) || null
     return !!this._run
   }
 

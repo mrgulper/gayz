@@ -2410,6 +2410,8 @@ export class BuildMode {
     const c = this.camera.position
     const reach = TRY_REACH_BLOCKS * BLOCK_SIZE
     if (Math.hypot((x + 0.5) * BLOCK_SIZE - c.x, (y + 0.5) * BLOCK_SIZE - c.y, (z + 0.5) * BLOCK_SIZE - c.z) > reach) return false
+    // Escape Rooms' keypad and buttons (EscapeRooms.js).
+    if (this.survival?.active && this.survival.escape?.useBlock(x, y, z)) return true
     if (this.gadgets.use(x, y, z, true)) return true
     if (this.specials.use(x, y, z)) return true
     if (this.survival?.useChest(x, y, z)) return true

@@ -3110,6 +3110,13 @@ test('new zombie kinds: sizes, the bloater bursts, spiders climb', async ({ page
     // A spider walks up a 4-high wall in its way.
     for (let y = 1; y < 5; y++) for (let x = -3; x <= 3; x++) bm.placeBlock(x, y, 10, 'stone')
     const sp = s._makeZombie(992, 0.5, 1, 14.5, 1000, false, 'spider')
+    // Straight at you: no path round the wall (it's built a few ms at a
+    // time, so how far it got depended on the machine) and no flanker brain.
+    sp.role = 'rusher'
+    const stepFlow = s._stepFlow
+    s._stepFlow = () => {}
+    s._flow = new Map()
+    s._flowJob = null
     s.zombies.push(sp)
     s.health = 1e9
     let top = sp.y
@@ -3119,6 +3126,7 @@ test('new zombie kinds: sizes, the bloater bursts, spiders climb', async ({ page
       top = Math.max(top, sp.y)
     }
     out.spiderTop = top
+    s._stepFlow = stepFlow
     // ...but the camp's edge isn't a wall to climb (it used to carry a
     // spider up into the sky, 2026-10-26).
     s._removeZombie(sp)
@@ -4709,8 +4717,8 @@ test('Crafting: the Crafting tab makes gear and blocks from what you carry', asy
     out.gooDrops = drops
     return out
   })
-  // 26 out of winter (the Snowball recipe only shows December to February).
-  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 27 : 26)
+  // 30 out of winter (the Snowball recipe only shows December to February).
+  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 31 : 30)
   expect(r.ammoReady).toBe(true)
   expect(r.helmetReady).toBe(false)
   expect(r.ammo).toBe(1)
@@ -5442,6 +5450,8 @@ test('Party modes: hide and seek, capture the flag, king of the hill, zombie soc
         for (const b of p.bots.values()) b.x += 500
         p.holder = p.myId
         p._passCd = 0
+        // (No pass-back rule in the way: whoever had it before doesn't matter here.)
+        p._from = ''
         const [b] = p.bots.values()
         const me = s.bodyPos()
         Object.assign(b, { x: me.x + 0.3, y: me.y, z: me.z })
@@ -5695,4 +5705,239 @@ test('Tower Defense: its own map, zombies walk the path, towers, lives and the w
     return out
   })
   expect(r).toEqual({ mode: 'towerDefense', coins: 200, tab: 'towers', map: true, noBuildPath: true, notSaved: true, bought: true, atPortal: true, lives: 19, counted: true, hud: true, won: true, title: 'Base Defended!', gone: true })
+})
+
+test('Tornado, skateboards, frozen lakes and the Dance-Off', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'classic'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    const tm = s.bm.tryMode
+    const pick = (id) => {
+      s.inv.active = s.inv.hotbar.findIndex((it) => it?.id === id)
+      return s.inv.active >= 0
+    }
+    // Skateboard: crafted, on, faster and slipperier, a ramp launches, a trick pays.
+    s.inv.add({ kind: 'block', id: 'oakplanks', n: 3 })
+    s.inv.add({ kind: 'block', id: 'cobblestone', n: 2 })
+    out.boardCrafted = s.inv.crafting.craft('skateboard') && s.inv.has('skateboard')
+    out.boardPicked = pick('skateboard')
+    s.inv.useHeld()
+    out.boardOn = s.skate.on && !!s.skate.mesh?.parent
+    const m = s.skate.mods(true, tm.pos)
+    out.boardFast = !!m && m.speed > 1.5 && m.grip < 1
+    tm.vel.set(9, 0, 0)
+    s.skate.ramp(tm)
+    out.ramp = tm.vel.y > 8
+    const coins = s.coins
+    tm.onGround = false
+    tm._spaceWasDown = false
+    s.skate.update(0.05)
+    tm._spaceWasDown = true
+    s.skate.update(0.05)
+    out.trickStarted = !!s.skate.trick
+    for (let i = 0; i < 12; i++) s.skate.update(0.05)
+    tm.onGround = true
+    s.skate.update(0.05)
+    out.trickPaid = s.coins > coins
+    s.inv.useHeld()
+    out.boardOff = !s.skate.on && !s.skate.mesh
+    // Ice is slippery even on foot.
+    const p = tm.pos
+    const fx = Math.floor(p.x)
+    const fy = Math.floor(p.y - 0.05)
+    const fz = Math.floor(p.z)
+    const was = s.bm.getBlockAt(fx, fy, fz)
+    s.bm.removeBlock(fx, fy, fz)
+    s.bm.placeBlock(fx, fy, fz, 'ice')
+    const ice = s.skate.mods(true, p)
+    out.iceSlippery = !!ice && ice.grip < 0.5 && ice.speed > 1
+    s.bm.removeBlock(fx, fy, fz)
+    if (was) s.bm.placeBlock(fx, fy, fz, was)
+    // Winter freezes still water near you, and it thaws back at the end.
+    g.settings.snowballsAllYear = true
+    const wx = fx + 3
+    const wy = Math.floor(p.y)
+    s.bm.removeBlock(wx, wy, fz)
+    s.bm.removeBlock(wx, wy + 1, fz)
+    s.bm.placeBlock(wx, wy, fz, 'water')
+    s.skate._freezeIn = 0
+    s.skate._freeze(0.1)
+    out.frozen = s.bm.getBlockAt(wx, wy, fz) === 'ice'
+    s.skate._thaw()
+    out.thawed = s.bm.getBlockAt(wx, wy, fz) === 'water'
+    s.bm.removeBlock(wx, wy, fz)
+    g.settings.snowballsAllYear = false
+    // Dance-Off: the boombox starts it, zombies stop and copy, hits fill the groove.
+    s.inv.add({ kind: 'item', id: 'boombox', n: 1 })
+    out.boxPicked = pick('boombox')
+    const me = s.bodyPos()
+    const zb = s._makeZombie(++s._zid, me.x + 3, me.y, me.z, 100, false)
+    s.inv.useHeld()
+    out.danceOn = s.dance.on && !!document.getElementById('dance-off')
+    s.dance.update(0.05)
+    out.zombieFrozen = zb.frozen > 0 && zb.dancing
+    const n = s.dance.notes[0]
+    s.dance.time = n.at
+    const groove = s.dance.groove
+    s.dance.press(n.lane)
+    out.hit = n.done && s.dance.groove > groove && s.dance.hits === 1
+    out.danceKeysBlocked = tm.speedMult === 0
+    // Missing everything ends it.
+    for (let i = 0; i < 10 && s.dance.on; i++) s.dance._miss(0)
+    out.danceLost = !s.dance.on && !document.getElementById('dance-off') && tm.speedMult > 0
+    s.dance.start()
+    s.dance.time = 29.99
+    for (const note of s.dance.notes) note.done = true
+    const c2 = s.coins
+    s.dance.update(0.05)
+    out.danceWon = !s.dance.on && s.coins > c2 && zb.frozen >= 4
+    // The disco ball event.
+    out.disco = s.events.start('disco') && !!s.dance._disco
+    s.events._endRun()
+    out.discoGone = !s.dance._disco
+    // Tornado: in the list, pulls, throws zombies up the funnel.
+    const sky = s.bm.sky
+    out.tornadoListed = sky.disasters.kinds.includes('tornado')
+    sky.disasters.start('tornado', { x: me.x, z: me.z, quiet: true })
+    const run = sky.disasters.active
+    run.cx = me.x + 1
+    run.cz = me.z
+    run.t = 10
+    zb.x = run.cx
+    zb.z = run.cz + 0.5
+    zb.y = me.y
+    zb.frozen = 0
+    for (let i = 0; i < 10; i++) sky.disasters.update(0.05, s.bm.camera)
+    out.tornadoPulls = sky.disasters.push.length() > 0.5
+    out.zombieLifted = zb.y > me.y + 1
+    sky.disasters.end()
+    out.tornadoEnded = !sky.disasters.active
+    g.buildMode.survival.stop?.()
+    g._exitBuildMode?.()
+    return out
+  })
+  expect(Object.keys(r).filter((k) => r[k] !== true)).toEqual([])
+})
+
+test('Paint Wars, Build Battle and Escape Rooms', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    const start = async (mode) => {
+      localStorage.removeItem('gayz-play-saved-run')
+      g.settings.selectedGameMode = mode
+      await g._enterBuildMode({ map: 'map3', play: true })
+      const s = g.buildMode.survival
+      for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+      s._pickWeapon('rifle')
+      return s
+    }
+    const stop = async () => {
+      g.buildMode.survival.stop?.()
+      g._exitBuildMode?.()
+      await new Promise((res) => setTimeout(res, 200))
+    }
+    // Paint Wars: teams, bots paint, a shot paints, the sync carries it.
+    let s = await start('paintWars')
+    let p = s.party
+    out.paintMade = !!p && s.cfg.noZombies
+    for (let i = 0; i < 200 && p.phase === 'wait'; i++) p.update(0.05)
+    out.paintTeams = p.phase === 'play' && p.teams.size === 6
+    for (let i = 0; i < 60; i++) p.update(0.05)
+    out.botsPaint = p.paint.size > 5
+    p.paint.clear()
+    const h = p.home
+    p.splat(h.x, h.z, p.myTeam)
+    out.splat = p.paintCounts()[p.myTeam === 'r' ? 0 : 1] >= 5
+    const snap = JSON.parse(JSON.stringify(p.snapshot()))
+    out.paintSnap = snap.pa.length > 0 && /^[0rb]+$/.test(snap.pa)
+    const n = p.paint.size
+    p.paint.clear()
+    p._paintFrom(snap.pa)
+    out.paintBack = p.paint.size === n
+    p._drawArena()
+    out.paintDrawn = p._paintMesh?.count === n
+    p.left = 0.01
+    p._run(0.05)
+    out.paintWinner = p.phase === 'end' && ['r', 'b', 'tie'].includes(p.winner)
+    await stop()
+    // Build Battle: a platform, a plot each, bot builds, my blocks only on my plot, voting.
+    s = await start('buildBattle')
+    p = s.party
+    for (let i = 0; i < 200 && p.phase === 'wait'; i++) p.update(0.05)
+    p.update(0.05)
+    out.bbPlaying = p.phase === 'play' && p.sub === 'build' && p.plots.size === 6
+    const mine = p.plotAt(p.plots.get(p.myId))
+    out.platform = s.bm.getBlockAt(mine.x, 220, mine.z) === 'smoothquartz'
+    out.onMyPlot = Math.abs(s.bm.tryMode.pos.y - 221) < 0.5
+    out.palette = s.inv.hotbar.some((it) => it?.kind === 'block' && it.id === 'oak')
+    out.canBuildMine = !s._protects(mine.x + 2, 221, mine.z + 2)
+    const other = p.plotAt((p.plots.get(p.myId) + 1) % 8)
+    out.cantBuildOthers = s._protects(other.x + 2, 221, other.z + 2) && s._protects(mine.x, 220, mine.z)
+    p.left = 60
+    p._run(0.05)
+    const bot = [...p.bots.values()][0]
+    out.botBuilt = p._plotBlocks(p.plots.get(bot.id)) > 10
+    p.left = 0.001
+    p._run(0.05)
+    p.update(0.05)
+    out.voting = p.sub === 'vote' && !!document.getElementById('bb-vote') && s.bm.tryMode.speedMult === 0
+    out.bagBack = !s.inv.hotbar.some((it) => it?.kind === 'block' && it.id === 'sealantern')
+    for (let i = 0; i < 400 && p.phase === 'play'; i++) {
+      if (p._voteOwner() !== p.myId) p.vote(4)
+      p._run(0.25)
+      p.update(0.01)
+    }
+    out.bbEnded = p.phase === 'end' && !!p.winner && Object.values(p.score).some((v) => v > 0)
+    out.voteGone = !document.getElementById('bb-vote')
+    await stop()
+    // Escape Rooms: rooms in the sky, levers, the code, the buttons, out.
+    s = await start('escapeRoom')
+    const e = s.escape
+    out.escMade = !!e && s.cfg.noZombies && !s.party
+    out.inRoom1 = Math.abs(s.bm.tryMode.pos.y - 241) < 0.5 && !!document.getElementById('escape-bar')
+    out.mapSafe = s._protects(e._roomX(0), 241, e.oz)
+    e.update(0.1)
+    e.pattern.forEach((on, i) => { if (on) s.bm.gadgets.setLever(...e._levers[i], true) })
+    e.update(0.1)
+    out.leversOpen = e.solved[0] && !s.bm.getBlockAt(...e._exits[0][0])
+    s.bm.tryMode.pos.set(e._roomX(1) + 5, 241, e.oz)
+    e.update(0.1)
+    out.room2 = e.room === 1
+    e.useBlock(...e._keypad)
+    out.keypad = !!document.getElementById('escape-keypad')
+    for (const d of e.code) [...document.querySelectorAll('#escape-keypad .escape-pad-keys button')].find((b) => b.textContent === String(d)).click()
+    out.codeOpen = e.solved[1] && !document.getElementById('escape-keypad')
+    s.bm.tryMode.pos.set(e._roomX(2) + 5, 241, e.oz)
+    e.update(0.1)
+    e._showing = null
+    const doorWas = e.doorLeft[2]
+    e._pressSimon((e.simon[0] + 1) % 4)
+    out.simonWrong = e.doorLeft[2] < doorWas - 5
+    e._showing = null
+    for (const k of e.simon) e._pressSimon(k)
+    out.simonOpen = e.solved[2]
+    // The door bursts when its time runs out.
+    e.doorLeft[2] = 0.01
+    e.solved[2] = false
+    e.update(0.1)
+    out.brokeIn = e.broke[2] && s.zombies.length >= 3
+    e.solved[2] = true
+    s.bm.tryMode.pos.set(e._roomX(3) + 2, 241, e.oz)
+    e.update(0.1)
+    out.escaped = e.done && s.dead && (document.getElementById('build-play-over-title')?.textContent || '').length > 3
+    await stop()
+    out.mapGone = !g.buildMode.getBlockAt(0, 240, 0)
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })

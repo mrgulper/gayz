@@ -311,6 +311,11 @@ export class PlayFx {
     this._emit('debris', x, y, z, { life: 1.2, from: 0.14, to: 0.1, alpha: 0.9, gravity: 3, color: 0x4a7a32, vel: new THREE.Vector3((Math.random() - 0.5) * this.B, 0.8 * this.B, (Math.random() - 0.5) * this.B) })
   }
 
+  // A paint splat (Paint Wars, PartyModes.js): blobs of one colour.
+  paint(x, y, z, color) {
+    for (let i = 0; i < 8; i++) this._emit('debris', x, y, z, { life: 0.6, from: 0.22, to: 0.12, gravity: 14, color, vel: new THREE.Vector3((Math.random() - 0.5) * 3 * this.B, (2 + Math.random() * 3) * this.B, (Math.random() - 0.5) * 3 * this.B) })
+  }
+
   // A blob of slime flung up (a bloater's burst, ZombieTricks.js).
   slime(x, y, z) {
     this._emit('debris', x, y, z, { life: 0.9, from: 0.3, to: 0.15, gravity: 14, color: 0x8bbf55, vel: new THREE.Vector3((Math.random() - 0.5) * 3 * this.B, (3 + Math.random() * 3) * this.B, (Math.random() - 0.5) * 3 * this.B) })

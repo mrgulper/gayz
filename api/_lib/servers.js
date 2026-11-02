@@ -48,9 +48,9 @@ export const JOIN_GRACE_MS = 90000
 // main: Zombie Survival; infection: Infection mode (src/game/Infection.js);
 // zone: Shrinking Zone (src/game/ShrinkZone.js).
 // td: Tower Defense (src/game/TowerDefense.js).
-// hide / ctf / koth / soccer / potato / bowling: the party modes (src/game/PartyModes.js).
-export const MODES = ['main', 'infection', 'zone', 'hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'td']
-const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer', potato: 'hotPotato', bowling: 'zombieBowling' }
+// hide / ctf / koth / soccer / potato / bowling / paint / build: the party modes (src/game/PartyModes.js).
+export const MODES = ['main', 'infection', 'zone', 'hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'paint', 'build', 'td']
+const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer', potato: 'hotPotato', bowling: 'zombieBowling', paint: 'paintWars', build: 'buildBattle' }
 const NAME_MAX = 24
 const NICK_MAX = 20
 const MAX_ZOMBIES = 40
@@ -367,7 +367,8 @@ function cleanInf(v) {
 // A party round (PartyModes.snapshot): phase, time, round, winner, where
 // the arena is, teams, seekers, stuns, scores, flags, the King, the ball,
 // the bots, Hot Potato's bomb (holder, fuse, who's out) and Zombie
-// Bowling's turn, rolls and pins down. Only the server's own mode's kind is kept.
+// Bowling's turn, rolls and pins down, Paint Wars' painted ground and Build
+// Battle's stage, theme, plot on show and plots. Only the server's own mode's kind is kept.
 function cleanParty(v, kind) {
   if (!v || typeof v !== 'object' || v.k !== kind) return null
   const obj = (o) => (o && typeof o === 'object' && !Array.isArray(o) ? Object.entries(o).slice(0, 40) : [])
@@ -411,6 +412,11 @@ function cleanParty(v, kind) {
     tu: id(v.tu) ? v.tu : '',
     ro: Object.fromEntries(obj(v.ro).filter(([k]) => id(k)).map(([k, n]) => [k, Math.round(num(n, 0, 10))])),
     pd: Math.round(num(v.pd, 0, 1023)),
+    pa: typeof v.pa === 'string' && /^[0rb]{0,1100}$/.test(v.pa) ? v.pa : '',
+    sb: v.sb === 'build' || v.sb === 'vote' ? v.sb : '',
+    th: Math.round(num(v.th, 0, 20)),
+    vi: Math.round(num(v.vi, 0, 40)),
+    pl: Object.fromEntries(obj(v.pl).filter(([k]) => id(k)).map(([k, n]) => [k, Math.round(num(n, 0, 7))])),
   }
 }
 
@@ -617,7 +623,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     // Shots on the host's zombies (z...) and animals (a..., or taming one).
     for (const h of [].concat(body.hits || []).slice(0, MAX_HITS_PER_SYNC)) {
       // z/a: a zombie or animal; s: a stun shot in Infection (s + who).
-      if (!h || !(/^[za]\d{1,9}$/.test(h.id) || (['infection', 'ctf', 'koth'].includes(server.mode) && /^s(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)))) continue
+      // p: a Paint Wars splat (p + x_z); v: Build Battle stars (v + whose plot, dmg = stars).
+      if (!h || !(/^[za]\d{1,9}$/.test(h.id) || (['infection', 'ctf', 'koth'].includes(server.mode) && /^s(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'paint' && /^p-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'build' && /^v(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)))) continue
       updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId, ...(h.tame === true && h.id[0] === 'a' ? { tame: true } : {}), ...(h.catch === true ? { catch: true } : {}), ...(h.freeze === true && h.id[0] === 'z' ? { freeze: true } : {}) }
     }
   }

@@ -1067,3 +1067,89 @@ body.touch-play-on #siege-bar { top: 66px; }
   #siege-bar, body.touch-play-on #siege-bar { top: 302px; }
   #escort-bar .escort-track { width: 70px; }
 }
+
+/* Escape Rooms (EscapeRooms.js, 2026-11-02): the room and how long the
+   door holds at the top, and the keypad for room 2's code. */
+#escape-bar {
+  position: fixed; top: 44px; left: 50%; z-index: 17; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px; padding: 4px 10px; pointer-events: none;
+  font: 400 17px/1 'Bebas Neue', sans-serif; letter-spacing: 0.5px; color: #fff; white-space: nowrap;
+  background: rgba(24, 30, 20, 0.85); border: 2px solid rgba(0, 0, 0, 0.45); border-radius: 8px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+#escape-bar .escape-track { width: 120px; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.18); overflow: hidden; }
+#escape-bar .escape-track i { display: block; height: 100%; background: #c89a5a; transition: width 0.3s; }
+#escape-bar.low .escape-track i { background: #e8443a; }
+body.touch-play-on #escape-bar { top: 40px; font-size: 14px; }
+body.play-photo #escape-bar { display: none; }
+html.ui-theme-biome #escape-bar { color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); text-shadow: none; }
+html.ui-theme-biome #escape-bar .escape-track { background: var(--biome-line); }
+html.ui-theme-clean #escape-bar { color: var(--clean-bg); background: var(--clean-fg); border-color: var(--clean-fg); text-shadow: none; }
+#escape-keypad {
+  position: fixed; left: 50%; top: 50%; z-index: 40; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 18px;
+  font: 600 14px/1.3 system-ui, sans-serif; color: #f4ead2;
+  background: rgba(8, 8, 7, 0.92); border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.55); border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
+}
+#escape-keypad.wrong { animation: escape-shake 0.35s; }
+@keyframes escape-shake { 25% { transform: translate(-53%, -50%); } 75% { transform: translate(-47%, -50%); } }
+#escape-keypad .escape-pad-code { font: 700 28px/1 monospace; letter-spacing: 4px; }
+#escape-keypad .escape-pad-keys { display: grid; grid-template-columns: repeat(3, 52px); gap: 6px; }
+#escape-keypad button { height: 44px; font: 700 18px/1 system-ui, sans-serif; color: inherit; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; cursor: pointer; }
+#escape-keypad button:hover { background: rgba(255, 255, 255, 0.16); }
+#escape-keypad .escape-pad-close { width: 100%; height: 34px; font-size: 14px; }
+html.ui-theme-biome #escape-keypad { color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); }
+html.ui-theme-biome #escape-keypad button { background: var(--biome-surface); border-color: var(--biome-edge); }
+html.ui-theme-biome #escape-keypad button:hover { background: var(--biome-button-hover); }
+html.ui-theme-clean #escape-keypad { color: var(--clean-bg); background: var(--clean-fg); border-color: var(--clean-fg); }
+
+/* Dance-Off (DanceOff.js, 2026-11-02): four lanes the arrows rise up, the
+   line at the top, and the Groove meter. On phones the lanes are buttons. */
+#dance-off {
+  position: fixed; left: 50%; bottom: 120px; z-index: 18; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+#dance-off .dance-groove { position: relative; width: 248px; height: 14px; border-radius: 7px; background: rgba(0, 0, 0, 0.55); overflow: hidden; }
+#dance-off .dance-groove i { display: block; height: 100%; background: linear-gradient(90deg, #ff5ca8, #ffd23f); transition: width 0.15s; }
+#dance-off .dance-groove span { position: absolute; inset: 0; font: 700 10px/14px system-ui, sans-serif; text-align: center; color: #fff; text-shadow: 0 1px 2px #000; }
+#dance-off .dance-lanes { display: flex; gap: 8px; }
+#dance-off .dance-lane {
+  position: relative; width: 56px; height: 220px; padding: 0; overflow: hidden;
+  background: rgba(10, 10, 20, 0.55); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 10px; cursor: pointer; touch-action: none;
+}
+#dance-off .dance-target, #dance-off .dance-arrow {
+  position: absolute; left: 50%; transform: translate(-50%, 0); width: 44px; height: 44px;
+  font: 700 26px/44px system-ui, sans-serif; text-align: center; border-radius: 8px;
+}
+#dance-off .dance-target { top: 6px; color: rgba(255, 255, 255, 0.55); border: 2px solid rgba(255, 255, 255, 0.45); box-sizing: border-box; line-height: 40px; }
+#dance-off .dance-arrow { margin-top: 6px; color: #fff; background: #a060ff; box-shadow: 0 0 8px rgba(160, 96, 255, 0.8); pointer-events: none; }
+#dance-off .dance-lane:nth-child(1) .dance-arrow { background: #ff5ca8; }
+#dance-off .dance-lane:nth-child(2) .dance-arrow { background: #5cc8ff; }
+#dance-off .dance-lane:nth-child(3) .dance-arrow { background: #7dff8a; color: #123; }
+#dance-off .dance-lane:nth-child(4) .dance-arrow { background: #ffd23f; color: #321; }
+#dance-off .dance-lane[data-hit='perfect'] .dance-target { border-color: #ffd23f; background: rgba(255, 210, 63, 0.35); }
+#dance-off .dance-lane[data-hit='good'] .dance-target { border-color: #7dff8a; background: rgba(125, 255, 138, 0.25); }
+#dance-off .dance-lane[data-hit='miss'] .dance-target { border-color: #e8443a; background: rgba(232, 68, 58, 0.3); }
+@media (max-width: 560px) { #dance-off .dance-lane { width: 48px; height: 180px; } #dance-off .dance-groove { width: 216px; } }
+body.play-photo #dance-off { display: none; }
+html.ui-theme-biome #dance-off .dance-lane { background: var(--biome-surface); border-color: var(--biome-edge); }
+html.ui-theme-biome #dance-off .dance-target { color: var(--biome-ink); border-color: var(--biome-edge); }
+html.ui-theme-clean #dance-off .dance-lane { background: var(--clean-fg); border-color: var(--clean-fg); }
+
+/* Build Battle's voting (PartyModes.js, 2026-11-02): five stars. */
+#bb-vote {
+  position: fixed; left: 50%; bottom: 150px; z-index: 18; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 14px;
+  font: 600 14px/1.3 system-ui, sans-serif; color: #f4ead2;
+  background: rgba(8, 8, 7, 0.85); border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.55); border-radius: 10px;
+}
+#bb-vote .bb-vote-stars { display: flex; gap: 6px; }
+#bb-vote button { width: 44px; height: 44px; font: 700 26px/1 system-ui, sans-serif; color: rgba(255, 255, 255, 0.35); background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; cursor: pointer; touch-action: none; }
+#bb-vote button.on { color: #ffd23f; }
+#bb-vote.mine .bb-vote-stars { display: none; }
+body.play-photo #bb-vote { display: none; }
+html.ui-theme-biome #bb-vote { color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); }
+html.ui-theme-biome #bb-vote button { background: var(--biome-surface); border-color: var(--biome-edge); }
+html.ui-theme-biome #bb-vote button.on { color: var(--biome-accent); }
+html.ui-theme-clean #bb-vote { color: var(--clean-bg); background: var(--clean-fg); border-color: var(--clean-fg); }

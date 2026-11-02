@@ -28,7 +28,7 @@ import { sampleLand, inCity } from './OpenWorld.js'
 import { luck } from './Luck.js'
 import { Emitter, Debris, WaterSheet, Wave, Aurora, Fireball, seeded } from './DisasterFx.js'
 
-export const DISASTERS = ['flood', 'flashFlood', 'drought', 'wildfire', 'forestFire', 'avalanche', 'limnicEruption', 'earthquake', 'tsunami', 'volcanicEruption', 'landslide', 'mudslide', 'rockfall', 'sinkhole', 'subsidence', 'solarFlare', 'geomagneticStorm', 'meteoroid', 'asteroid', 'comet']
+export const DISASTERS = ['flood', 'flashFlood', 'drought', 'wildfire', 'forestFire', 'avalanche', 'limnicEruption', 'earthquake', 'tsunami', 'volcanicEruption', 'landslide', 'mudslide', 'rockfall', 'sinkhole', 'subsidence', 'solarFlare', 'geomagneticStorm', 'tornado', 'meteoroid', 'asteroid', 'comet']
 export const IMPACTS = ['meteoroid', 'asteroid', 'comet']
 const ROLL_S = 60 // one game hour
 // Rare: about one in three game days.
@@ -286,6 +286,8 @@ export class Disasters {
       case 'solarFlare': return night < 0.3 && weather === 'clear'
       case 'geomagneticStorm': return night > 0.6
       case 'earthquake': return true
+      // Thunderstorms over open land only (2026-11-02, idea list 5).
+      case 'tornado': return weather === 'thunderstorm' && !OCEANS.test(biome) && !SNOWY_BIOMES.has(biome)
       default: return false
     }
   }
@@ -1175,6 +1177,30 @@ const RUN = {
     },
   },
 
+  tornado: {
+    start(D, run) {
+      run.dur = 60
+      const a = run.rand() * Math.PI * 2
+      run.cx = run.x + Math.cos(a) * TORNADO_FAR
+      run.cz = run.z + Math.sin(a) * TORNADO_FAR
+      // Heading at (and past) where you were, give or take.
+      run.dir = new THREE.Vector2(run.x - run.cx, run.z - run.cz).normalize().rotateAround(new THREE.Vector2(), (run.rand() - 0.5) * 0.5)
+      run.funnel = new Funnel(D.scene, D.B)
+      run.fx.push(run.funnel)
+      run.dust = D.emitter(run, { max: 1400 })
+      run.debris = D.debris(run, { max: 80, shape: 'box' })
+      run.carry = new Map()
+      run.thrown = []
+      run.next = 0
+    },
+    update(D, run, dt) {
+      tornadoUpdate(D, run, dt)
+    },
+    end(D, run) {
+      for (const o of run.carry?.keys() || []) o.ridden = false
+    },
+  },
+
   comet: {
     start(D, run) {
       run.dur = 85
@@ -1228,6 +1254,193 @@ const RUN = {
       impactUpdate(D, run, dt)
     },
   },
+}
+
+// A tornado (2026-11-02, Gaymi's idea list 5: "a new natural disaster
+// that sucks up loose blocks, animals and zombies"). A dark twisting
+// funnel touches down TORNADO_FAR blocks away and wanders past you at
+// TORNADO_SPEED. Within TORNADO_PULL blocks it drags you (and zombies and
+// animals) round and in; in its core (TORNADO_CORE) you're thrown up and
+// out and hurt a little, while zombies and animals spin up the funnel and
+// are flung off - zombies take TORNADO_ZOMBIE_HIT when they land. Loose
+// blocks (plants, leaves, sand, gravel, snow, hay, crates...) under it are
+// torn up and whirled away as debris. Zombies and animals are only
+// thrown where the game runs (alone, or a server's host).
+export const TORNADO_SPEED = 3.2
+const TORNADO_FAR = 34
+export const TORNADO_PULL = 18
+const TORNADO_CORE = 2.8
+const TORNADO_TOP = 34
+export const TORNADO_ZOMBIE_HIT = 60
+const LOOSE = /leaves$|^(sand|redsand|gravel|snow|haybale|crate|thatch|pumpkin|melon|bamboo|cactus|seagrass)$/
+
+class Funnel {
+  constructor(scene, B) {
+    this.B = B
+    this.group = new THREE.Group()
+    this.rings = []
+    const mat = new THREE.MeshLambertMaterial({ color: 0x55584f, transparent: true, opacity: 0.42, side: THREE.DoubleSide, depthWrite: false })
+    const n = 14
+    for (let i = 0; i < n; i++) {
+      const f0 = i / n
+      const f1 = (i + 1) / n
+      const r0 = (0.9 + f0 * f0 * 9) * B
+      const r1 = (0.9 + f1 * f1 * 9) * B
+      const h = (TORNADO_TOP / n) * B
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, h, 14, 1, true), mat)
+      m.position.y = (i + 0.5) * h
+      this.group.add(m)
+      this.rings.push(m)
+    }
+    this.mat = mat
+    this.t = 0
+    scene.add(this.group)
+  }
+
+  set(x, y, z, grow, dt) {
+    const B = this.B
+    this.t += dt
+    this.group.position.set(x * B, y * B, z * B)
+    this.group.scale.set(grow, Math.max(0.05, grow), grow)
+    this.rings.forEach((m, i) => {
+      m.rotation.y += dt * (6 - i * 0.25)
+      // The funnel snakes about: each ring a little off the one below.
+      m.position.x = Math.sin(this.t * 0.9 + i * 0.35) * i * 0.18 * B
+      m.position.z = Math.cos(this.t * 0.7 + i * 0.3) * i * 0.18 * B
+    })
+    this.mat.opacity = 0.42 * grow
+  }
+
+  update() {}
+
+  dispose() {
+    this.group.removeFromParent()
+    for (const m of this.rings) m.geometry.dispose()
+    this.mat.dispose()
+  }
+}
+
+// Where the funnel is at height h over its base (follows the snaking rings).
+function funnelAt(run, h) {
+  const i = (h / TORNADO_TOP) * 14
+  const ft = run.funnel.t
+  return { x: run.cx + Math.sin(ft * 0.9 + i * 0.35) * i * 0.18, z: run.cz + Math.cos(ft * 0.7 + i * 0.3) * i * 0.18 }
+}
+
+function tornadoUpdate(D, run, dt) {
+  const t = run.t
+  const grow = Math.min(1, t / 6) * Math.min(1, Math.max(0, (run.dur - t) / 6))
+  const wob = Math.sin(t * 0.37) * 0.8
+  run.cx += (run.dir.x * Math.cos(wob) - run.dir.y * Math.sin(wob)) * TORNADO_SPEED * dt
+  run.cz += (run.dir.y * Math.cos(wob) + run.dir.x * Math.sin(wob)) * TORNADO_SPEED * dt
+  const ground = D.topAt(run.cx, run.cz)
+  run.funnel.set(run.cx, ground, run.cz, grow, dt)
+  const me = D.me()
+  const d = Math.hypot(me.x - run.cx, me.z - run.cz)
+  D.look.tint.setRGB(0.32, 0.35, 0.3)
+  D.look.mix = Math.max(D.look.mix, 0.35 * grow)
+  D.look.light = Math.min(D.look.light, 1 - 0.3 * grow)
+  D.shake = 0.05 * grow * Math.max(0, 1 - d / 40)
+  audioEngine.disasterBed?.(Math.min(1, grow * Math.max(0.25, 1 - d / 60)), 'roar')
+  // A ring of dust whirling round the base.
+  for (let i = 0; i < 4 * grow; i++) {
+    const a = run.rand() * Math.PI * 2
+    const r = 1.5 + run.rand() * 3
+    run.dust.add({
+      x: run.cx + Math.cos(a) * r, y: ground + run.rand(), z: run.cz + Math.sin(a) * r,
+      vx: -Math.sin(a) * 9, vy: 2 + run.rand() * 5, vz: Math.cos(a) * 9,
+      life: 1.5 + run.rand() * 1.5, size: 1.6 + run.rand() * 1.6, grow: 1.3, color: rgb(0x6e6a5e), alpha: 0.5, drag: 0.9, lift: 0.6,
+    })
+  }
+  // Loose blocks under it are torn up and whirled away.
+  if (grow > 0.6 && (run.next -= dt) <= 0) {
+    run.next = 0.12
+    const a = run.rand() * Math.PI * 2
+    const r = run.rand() * 3.5
+    const x = Math.floor(run.cx + Math.cos(a) * r)
+    const z = Math.floor(run.cz + Math.sin(a) * r)
+    for (let y = ground + 6; y >= ground - 1; y--) {
+      const type = D.bm.getBlockAt(x, y, z)
+      if (!type || !(LOOSE.test(type) || D.bm.isPlantBlock?.(type))) continue
+      if (!D.removeAt(x, y, z)) continue
+      run.debris.add({ x: x + 0.5, y: y + 0.5, z: z + 0.5, vx: -Math.sin(a) * 10, vy: 9 + run.rand() * 8, vz: Math.cos(a) * 10, size: 0.5 + run.rand() * 0.4, color: D.colorOf(type), hurts: 6, life: 8 })
+      break
+    }
+  }
+  // You: dragged round and in; in the core, thrown up and out.
+  if (grow > 0.3 && d < TORNADO_PULL && Math.abs(me.y - ground) < 12) {
+    const k = (1 - d / TORNADO_PULL) * grow
+    const nx = (run.cx - me.x) / (d || 1)
+    const nz = (run.cz - me.z) / (d || 1)
+    D.push.set(nx * 5 * k - nz * 7 * k, nz * 5 * k + nx * 7 * k)
+    const tm = D.bm.tryMode
+    if (d < TORNADO_CORE && tm?.vel && !(run.tossCd > 0)) {
+      run.tossCd = 3
+      tm.vel.y = Math.max(tm.vel.y, 13)
+      D.push.set(-nx * 14 - nz * 10, -nz * 14 + nx * 10)
+      D.hurt(8)
+    }
+  } else D.push.multiplyScalar(Math.exp(-dt * 2))
+  run.tossCd = (run.tossCd || 0) - dt
+  const s = D.bm.survival
+  if (!s?.active || (s.net && !s.net.isHost)) return
+  // Zombies and animals: pulled in, carried up the funnel, flung off.
+  const spin = (o, isZombie) => {
+    let c = run.carry.get(o)
+    const od = Math.hypot(o.x - run.cx, o.z - run.cz)
+    if (!c) {
+      if (grow < 0.5 || od > TORNADO_PULL || Math.abs(o.y - ground) > 10) return
+      if (od > TORNADO_CORE + 0.5) {
+        const k = (1 - od / TORNADO_PULL) * 4 * dt
+        o.x += ((run.cx - o.x) / od) * k
+        o.z += ((run.cz - o.z) / od) * k
+        return
+      }
+      c = { a: Math.atan2(o.z - run.cz, o.x - run.cx), h: Math.max(0, o.y - ground), up: true }
+      run.carry.set(o, c)
+      if (!isZombie) o.ridden = true
+    }
+    c.a += dt * 4
+    c.h += dt * 7
+    const at = funnelAt(run, c.h)
+    const r = 1 + (c.h / TORNADO_TOP) * 4
+    o.x = at.x + Math.cos(c.a) * r
+    o.z = at.z + Math.sin(c.a) * r
+    o.y = ground + c.h
+    if (isZombie) {
+      o.frozen = 0.3
+      o.vy = 0
+      o.onGround = false
+    } else {
+      o.group.position.set(o.x * D.B, o.y * D.B, o.z * D.B)
+      o.group.rotation.y = c.a
+    }
+    // High enough (or the funnel's going): flung off.
+    if (c.h > 14 + (o.id || 0) % 6 || grow < 0.3) {
+      run.carry.delete(o)
+      if (isZombie) {
+        o.vx = Math.cos(c.a) * 8
+        o.vz = Math.sin(c.a) * 8
+        o.thrownHit = TORNADO_ZOMBIE_HIT
+        run.thrown.push(o)
+      } else {
+        o.ridden = false
+        o.y = s._groundUnder(o.x, o.y, o.z)
+        o.flee = 4
+      }
+    }
+  }
+  for (const zb of [...s.zombies]) if (zb.health > 0) spin(zb, true)
+  for (const a of s.animals?.list || []) if (!a.tamed && !a.dying && (!a.ridden || run.carry.has(a))) spin(a, false)
+  // Thrown zombies hurt when they come down.
+  run.thrown = run.thrown.filter((zb) => {
+    if (zb.health <= 0 || !s.zombies.includes(zb)) return false
+    if (zb.onGround || zb.y <= s._groundUnder(zb.x, zb.y + 0.5, zb.z) + 0.05) {
+      s.damageZombie(zb, zb.thrownHit || TORNADO_ZOMBIE_HIT)
+      return false
+    }
+    return true
+  })
 }
 
 // Fire: a spreading front of burning blocks.
