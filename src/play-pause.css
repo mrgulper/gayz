@@ -838,3 +838,54 @@ body.play-photo.play-blood-moon::after, body.play-replay.play-blood-moon::after 
 #vehicle-fuel.on { display: block; }
 #vehicle-fuel.low { color: #ffd0c8; background: rgba(120, 25, 15, 0.78); }
 body.play-photo #zone-fog, body.play-photo #vehicle-fuel { display: none; }
+
+/* Small status pills over the hotbar (PlayPills.js, 2026-11-01): metal
+   detector signal, jetpack fuel, potion timers. Stacked, never moving
+   anything else. */
+#play-pills {
+  position: fixed;
+  left: 50%;
+  bottom: 186px;
+  transform: translateX(-50%);
+  z-index: 5;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.play-pill {
+  display: none;
+  padding: 4px 14px;
+  font: 700 14px/1.3 system-ui, sans-serif;
+  color: #f4f8ff;
+  background: rgba(20, 30, 50, 0.72);
+  border-radius: 999px;
+  text-shadow: 0 1px 2px #000;
+  white-space: nowrap;
+}
+.play-pill.on { display: block; }
+.play-pill.low { color: #ffd0c8; background: rgba(120, 25, 15, 0.78); }
+body.play-photo #play-pills { display: none; }
+
+/* Hide and Seek's blindfold (PartyModes.js, 2026-11-01): a seeker sees
+   nothing while the others hide, only the seconds left. */
+#party-blind {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  display: none;
+  background: radial-gradient(ellipse at center, rgba(10, 6, 20, 0.97) 0%, rgba(0, 0, 0, 1) 100%);
+}
+#party-blind.on { display: block; }
+#party-blind span {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translateX(-50%);
+  padding: 6px 18px;
+  font: 700 18px/1.3 system-ui, sans-serif;
+  color: #e6dcff;
+  white-space: nowrap;
+}

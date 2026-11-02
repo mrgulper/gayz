@@ -10,6 +10,7 @@
 // Same module shape as ChatUI.js / CloudSaveUI.js: plain functions taking
 // `game`, all state on the game (game._serverList, game._serverTab...).
 import { t } from './i18n.js'
+import { PARTY_SERVER_MODES } from './PartyModes.js'
 import { _escapeHtml } from './Game.js'
 import { DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { PlayNet } from './PlayNet.js'
@@ -242,8 +243,8 @@ export function newServerId() {
 }
 
 // Infection games make Infection servers (Infection.js), Shrinking Zone
-// games Zone servers (ShrinkZone.js).
-const serverMode = (survival) => (survival?.cfg?.mode === 'infection' ? 'infection' : survival?.cfg?.mode === 'shrinkingZone' ? 'zone' : 'main')
+// games Zone servers (ShrinkZone.js), party games their own (PartyModes.js).
+const serverMode = (survival) => (survival?.cfg?.mode === 'infection' ? 'infection' : survival?.cfg?.mode === 'shrinkingZone' ? 'zone' : PARTY_SERVER_MODES[survival?.cfg?.mode] || 'main')
 
 export async function makeGameJoinable(game, survival, id = newServerId()) {
   if (survival.net && !survival.net.closed) return survival.net

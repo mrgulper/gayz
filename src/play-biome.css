@@ -188,3 +188,11 @@ body.touch-play-on #play-first-hint { bottom: auto; top: 34%; font-size: 18px; w
 
 /* The Use prompts under the crosshair (camp NPCs, survivors' orders). */
 html.ui-theme-biome :is(#play-npc-prompt, #play-survivor-prompt) { color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); }
+
+/* Status pills (PlayPills.js) in the biome's colours. */
+html.ui-theme-biome .play-pill {
+  background: var(--biome-surface);
+  color: var(--biome-ink);
+  border: 1px solid var(--biome-edge);
+  text-shadow: none;
+}

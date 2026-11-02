@@ -49,6 +49,17 @@ const SPECIAL_SOUNDS = {
   diamondZombie: { notes: [[1047, 0, 0.3, 'sine', 0.14], [1319, 0.07, 0.3, 'sine', 0.13], [1568, 0.14, 0.3, 'sine', 0.12], [2093, 0.21, 0.4, 'sine', 0.12], [2637, 0.28, 0.9, 'sine', 0.1], [3136, 0.4, 1, 'triangle', 0.05]], noise: [0.6, 5000, 9000, 0.05] },
   // Disco Zombie: a quick funky bass line and a cymbal splash.
   discoZombie: { notes: [[110, 0, 0.12, 'square', 0.12], [220, 0.12, 0.12, 'square', 0.1], [165, 0.24, 0.12, 'square', 0.12], [330, 0.36, 0.12, 'square', 0.1], [880, 0.5, 0.4, 'triangle', 0.08, 1320]], noise: [0.5, 7000, 9000, 0.08] },
+  // Snowballs (Snowballs.js): a whoosh, and a soft crunchy splat.
+  snowThrow: { noise: [0.12, 1800, 3500, 0.08] },
+  snowSplat: { noise: [0.18, 600, 2400, 0.14] },
+  // Metal detector beep (MetalDetector.js).
+  detectorBeep: { notes: [[1760, 0, 0.06, 'square', 0.06]] },
+  detectorFound: { notes: [[880, 0, 0.12, 'square', 0.08], [1320, 0.12, 0.12, 'square', 0.08], [1760, 0.24, 0.3, 'square', 0.07]] },
+  // Drinking a potion (Potions.js), a jetpack's hiss (Jetpack.js).
+  potionGulp: { notes: [[330, 0, 0.08, 'sine', 0.1], [262, 0.1, 0.08, 'sine', 0.1], [392, 0.22, 0.2, 'sine', 0.1]] },
+  jetpack: { noise: [0.28, 900, 2600, 0.07] },
+  // Pinata Zombie: a paper pop and a happy little toot.
+  pinataZombie: { notes: [[784, 0.05, 0.12, 'triangle', 0.12], [988, 0.15, 0.12, 'triangle', 0.12], [1175, 0.25, 0.3, 'triangle', 0.1]], noise: [0.15, 2500, 5000, 0.18] },
   // A zombie's goofs (FunnyZombies.js): a long low burp, a little hiccup.
   burp: { notes: [[120, 0, 0.5, 'sawtooth', 0.14, 70], [180, 0, 0.45, 'square', 0.04, 95]], noise: [0.45, 350, 140, 0.1] },
   hiccup: { notes: [[330, 0, 0.09, 'triangle', 0.22, 780], [360, 0.5, 0.08, 'triangle', 0.18, 820]] },

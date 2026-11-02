@@ -16,6 +16,8 @@ const ROWS = [
   { id: 'zombie-name-tags-toggle', key: 'zombieNameTags' },
   // Other players' spray tags on servers (Sprays.js, 2026-11-01).
   { id: 'show-other-sprays-toggle', key: 'showOtherSprays' },
+  // Snowballs outside winter (Snowballs.js, 2026-11-01).
+  { id: 'snowballs-all-year-toggle', key: 'snowballsAllYear' },
   { id: 'sprint-mode-select', key: 'sprintMode' },
   { id: 'auto-jump-toggle', key: 'autoJump' },
   { id: 'battle-view-select', key: 'battleView' },

@@ -13,7 +13,7 @@
 //                                         firing, dead, emote, hat, cape, t,
 //                                         hurt, credits, caught,
 //                                         say } },
-//                       hits: { key: { id, dmg, by, tame, catch } },
+//                       hits: { key: { id, dmg, by, tame, catch, freeze } },
 //                       edits: { "x,y,z": { b, s, by } } }
 //   serverSecrets/{id}/{pid}  the player's token (never sent to others)
 //   serverSkins/{id}/{pid}    the player's skin picture (sent once on ask)
@@ -47,7 +47,9 @@ export const STALE_MS = 10000
 export const JOIN_GRACE_MS = 90000
 // main: Zombie Survival; infection: Infection mode (src/game/Infection.js);
 // zone: Shrinking Zone (src/game/ShrinkZone.js).
-export const MODES = ['main', 'infection', 'zone']
+// hide / ctf / koth / soccer: the party modes (src/game/PartyModes.js).
+export const MODES = ['main', 'infection', 'zone', 'hide', 'ctf', 'koth', 'soccer']
+const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer' }
 const NAME_MAX = 24
 const NICK_MAX = 20
 const MAX_ZOMBIES = 40
@@ -240,7 +242,7 @@ const SKELETON_KIND_IDS = new Set(['minion', 'rogue', 'warrior', 'mage'])
 // so the player paid gets that rarity's coins.
 const ZOMBIE_TIER_IDS = new Set(['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'])
 // A Golden or Diamond zombie (ZombieNames.js ZOMBIE_SHINES) - pays more.
-const ZOMBIE_SHINE_IDS = new Set(['gold', 'diamond'])
+const ZOMBIE_SHINE_IDS = new Set(['gold', 'diamond', 'disco', 'pinata'])
 
 // A kill (or assist) credit for another player: { boss, skeleton?, tier?, assist? }.
 function cleanCredit(c) {
@@ -357,6 +359,49 @@ function cleanInf(v) {
     w: v.w === 'h' || v.w === 'z' ? v.w : '',
     ids,
     st,
+    bots,
+  }
+}
+
+// A party round (PartyModes.snapshot): phase, time, round, winner, where
+// the arena is, teams, seekers, stuns, scores, flags, the King, the ball
+// and the bots. Only the server's own mode's kind is kept.
+function cleanParty(v, kind) {
+  if (!v || typeof v !== 'object' || v.k !== kind) return null
+  const obj = (o) => (o && typeof o === 'object' && !Array.isArray(o) ? Object.entries(o).slice(0, 40) : [])
+  const id = (s) => typeof s === 'string' && INF_ID_RE.test(s)
+  const tm = {}
+  for (const [k, team] of obj(v.tm)) if (id(k) && (team === 'r' || team === 'b')) tm[k] = team
+  const st = {}
+  for (const [k, left] of obj(v.st)) if (id(k)) st[k] = num(left, 0, 10)
+  const sc = {}
+  for (const [k, n] of obj(v.sc)) if (id(k) || k === 'r' || k === 'b') sc[k] = Math.round(num(n, 0, 1000))
+  const fl = {}
+  for (const k of ['r', 'b']) {
+    const f = v.fl?.[k]
+    if (f && typeof f === 'object') fl[k] = { a: ['base', 'carried', 'down'].includes(f.a) ? f.a : 'base', by: id(f.by) ? f.by : '', x: num(f.x, -1e5, 1e5), y: num(f.y, -520, 520), z: num(f.z, -1e5, 1e5) }
+  }
+  const bots = {}
+  for (const [k, b] of obj(v.bots).slice(0, 12)) {
+    if (!/^b\d{1,4}$/.test(k) || !b || typeof b !== 'object') continue
+    bots[k] = { x: num(b.x, -1e5, 1e5), y: num(b.y, -520, 520), z: num(b.z, -1e5, 1e5), h: num(b.h, -100, 100), n: Math.round(num(b.n, 1, 9999)) }
+  }
+  const h = Array.isArray(v.h) && v.h.length === 3 ? [num(v.h[0], -1e5, 1e5), num(v.h[1], -520, 520), num(v.h[2], -1e5, 1e5)] : null
+  const ball = Array.isArray(v.ball) && v.ball.length === 3 ? [num(v.ball[0], -1e5, 1e5), num(v.ball[1], -520, 520), num(v.ball[2], -1e5, 1e5)] : null
+  return {
+    k: kind,
+    ph: ['wait', 'play', 'end'].includes(v.ph) ? v.ph : 'wait',
+    t: num(v.t, 0, 1000),
+    r: Math.round(num(v.r, 1, 1e6)),
+    w: typeof v.w === 'string' && (id(v.w) || ['r', 'b', 'h', 's', 'tie'].includes(v.w)) ? v.w : '',
+    h,
+    tm,
+    sk: [].concat(v.sk || []).filter(id).slice(0, 40),
+    st,
+    sc,
+    fl,
+    kg: id(v.kg) ? v.kg : '',
+    ball,
     bots,
   }
 }
@@ -489,6 +534,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     if (inf) updates[`${base}/inf`] = inf
     const zone = server.mode === 'zone' ? cleanZone(body.zone) : null
     if (zone) updates[`${base}/zone`] = zone
+    const party = PARTY_KINDS[server.mode] ? cleanParty(body.party, PARTY_KINDS[server.mode]) : null
+    if (party) updates[`${base}/party`] = party
     if (body.animals && typeof body.animals === 'object') {
       const as = {}
       for (const [id, a] of Object.entries(body.animals).slice(0, MAX_ANIMALS)) {
@@ -526,11 +573,12 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     out.animals = server.animals || {}
     if (server.inf) out.inf = server.inf
     if (server.zone) out.zone = server.zone
+    if (server.party) out.party = server.party
     // Shots on the host's zombies (z...) and animals (a..., or taming one).
     for (const h of [].concat(body.hits || []).slice(0, MAX_HITS_PER_SYNC)) {
       // z/a: a zombie or animal; s: a stun shot in Infection (s + who).
-      if (!h || !(/^[za]\d{1,9}$/.test(h.id) || (server.mode === 'infection' && /^s(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)))) continue
-      updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId, ...(h.tame === true && h.id[0] === 'a' ? { tame: true } : {}), ...(h.catch === true ? { catch: true } : {}) }
+      if (!h || !(/^[za]\d{1,9}$/.test(h.id) || (['infection', 'ctf', 'koth'].includes(server.mode) && /^s(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)))) continue
+      updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId, ...(h.tame === true && h.id[0] === 'a' ? { tame: true } : {}), ...(h.catch === true ? { catch: true } : {}), ...(h.freeze === true && h.id[0] === 'z' ? { freeze: true } : {}) }
     }
   }
   // What was queued for me.

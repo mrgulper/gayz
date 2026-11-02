@@ -74,6 +74,20 @@ export const ITEMS = {
   fish: { key: 'invFish', heal: 20 },
   goldenFish: { key: 'invGoldenFish', heal: 60 },
   oldBoot: { key: 'invOldBoot', junk: true },
+  // From a Pinata Zombie (BuildSurvival._pinataLoot).
+  candy: { key: 'invCandy', heal: 10 },
+  // Winter (Snowballs.js): thrown, freezes a zombie.
+  snowball: { key: 'invSnowball', snowball: true },
+  // Finds buried loot (MetalDetector.js), never used up.
+  metalDetector: { key: 'invMetalDetector', detector: true },
+  // Potions (Potions.js): drunk for 30 seconds of an effect.
+  potionSpeed: { key: 'invPotionSpeed', potion: true },
+  potionInvis: { key: 'invPotionInvis', potion: true },
+  potionGiant: { key: 'invPotionGiant', potion: true },
+  potionTiny: { key: 'invPotionTiny', potion: true },
+  // Jetpack (Jetpack.js): works from the bag; its fuel refills it.
+  jetpack: { key: 'invJetpack', jet: true },
+  jetFuel: { key: 'invJetFuel', refill: true },
   helmet: { key: 'invHelmet', armor: 2, slot: 0 },
   chestplate: { key: 'invChestplate', armor: 4, slot: 1 },
   leggings: { key: 'invLeggings', armor: 3, slot: 2 },
@@ -93,7 +107,7 @@ export function addAnimalMeat(id, { key, animalKey, icon }) {
 const RARE_DROP_CONFIRM_MS = 3000
 export function isRareItem(it) {
   const def = it?.kind === 'item' ? ITEMS[it.id] : null
-  return !!def && (!!def.armor || !(def.heal || def.ammo || def.trap || def.material || def.disguise || def.fuel || def.junk))
+  return !!def && (!!def.armor || !(def.heal || def.ammo || def.trap || def.material || def.disguise || def.fuel || def.junk || def.snowball || def.refill))
 }
 
 // An item's name in the current language.
@@ -127,6 +141,15 @@ const ICON_PIXELS = {
   fish: ['................', '................', '..........c.....', '.....cccccc...cc', '...cccccccccccc.', '..ccwccccccccc..', '..cccccccccccc..', '...cccccccccccc.', '.....cccccc...cc', '..........c.....'],
   goldenFish: ['................', '................', '..........y.....', '.....yyyyyy...yy', '...yyyyyylyyyyy.', '..yy#yyyyyyyyy..', '..yyyyyyyyylyy..', '...yyyyyyyyyyyy.', '.....yyyyyy...yy', '..........y.....'],
   oldBoot: ['................', '.....kkkk.......', '.....kkkk.......', '.....kkkk.......', '.....kkkk.......', '.....kkkk.......', '.....kkkkkkk....', '....kkkkkkkkkk..', '....kkkkkkkkkkk.', '....ddddddddddd.'],
+  potionSpeed: ['.......##.......', '.......ww.......', '......#ww#......', '.....#cccc#.....', '....#cccccc#....', '....#cwcccc#....', '....#cccccc#....', '.....#cccc#.....', '......####......'],
+  potionInvis: ['.......##.......', '.......ww.......', '......#ww#......', '.....#iiii#.....', '....#iiiiii#....', '....#iwiiii#....', '....#iiiiii#....', '.....#iiii#.....', '......####......'],
+  potionGiant: ['.......##.......', '.......ww.......', '......#ww#......', '.....#vvvv#.....', '....#vvvvvv#....', '....#vwvvvv#....', '....#vvvvvv#....', '.....#vvvv#.....', '......####......'],
+  potionTiny: ['.......##.......', '.......ww.......', '......#ww#......', '.....#rrrr#.....', '....#rrrrrr#....', '....#rwrrrr#....', '....#rrrrrr#....', '.....#rrrr#.....', '......####......'],
+  jetpack: ['................', '...iiii..iiii...', '..iiriii.iiri...', '..iiiiiiiiiii...', '..iiiiiiiiiii...', '..iii..i..iii...', '..iii.....iii...', '...o.......o....', '...y.......y....', '..ooo.....ooo...'],
+  jetFuel: ['................', '......###.......', '.....#...#......', '...#########....', '...#ooooooo#....', '...#ooyyyoo#....', '...#ooyoooo#....', '...#ooyyooo#....', '...#ooyoooo#....', '...#ooooooo#....', '...#########....'],
+  metalDetector: ['..........ddd...', '..........dyd...', '..........ddd...', '.........d......', '........d.......', '.......d........', '......d.........', '.....d..........', '....d...........', '..iiiii.........', '.iiiiiii........', '.iiibiii........', '..iiiii.........'],
+  snowball: ['................', '................', '................', '.....wwwww......', '....wwwwwww.....', '...wwwwwwiww....', '...wwwwwwwww....', '...wwwiwwwww....', '...wwwwwwwww....', '....wwwwwww.....', '.....wwwww......'],
+  candy: ['................', '................', '................', '..p..........p..', '.ppp.yyyyyy.ppp.', '..ppyrryrryypp..', '...pyyrryrrrp...', '..ppyrryrryypp..', '.ppp.yyyyyy.ppp.', '..p..........p..'],
   shield: ['....########....', '...#bbbbbbbb#...', '...#bbbyybbb#...', '...#byyyyyyb#...', '...#bbbyybbb#...', '....#bbyybb#....', '.....#bbbb#.....', '......####......'],
 }
 const ICON_COLORS = { v: '#6fc23a', l: '#b8f06a', p: '#e8b49a', f: '#f08a5a', n: '#8aa83a', o: '#e8862a', m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8', c: '#5aa7d8', k: '#8a5a2a', d: '#4a4a4a' }
@@ -292,6 +315,22 @@ export class PlayInventory {
       if (!s.vehicles?.place(def.vehicle)) return false
     } else if (def?.fuel) {
       if (!s.vehicles?.addFuel()) return false
+    } else if (def?.potion) {
+      if (!s.potions?.drink(it.id)) return false
+    } else if (def?.jet) {
+      s._message(t('jetpackHint'), 3)
+      return false
+    } else if (def?.refill) {
+      if (!s.jetpack || s.jetpack.fuel >= 1) {
+        s._message(t('jetpackFull'), 2)
+        return false
+      }
+      s.jetpack.fuel = 1
+      s._message(t('jetpackRefuel'), 2)
+    } else if (def?.detector) {
+      return !!s.detector?.use()
+    } else if (def?.snowball) {
+      if (!s.snowballs?.throw()) return false
     } else if (def?.rod) {
       // Cast or reel in - the rod itself is never used up.
       return !!s.fishing?.use()

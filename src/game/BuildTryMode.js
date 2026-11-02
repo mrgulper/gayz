@@ -871,6 +871,22 @@ export class BuildTryMode {
       this._drawMap(performance.now())
       return
     }
+    // On a tamed animal (AnimalRiding.js): the keys run it, Jump hops.
+    const riding = this.bm.survival?.active ? this.bm.survival.riding : null
+    if (riding?.on) {
+      riding.drive(dt, { fwd, back, left, right, stick, jump: heldAction(keys, 'jump') })
+      const seat = riding.seat()
+      if (seat) {
+        this.vel.set(0, 0, 0)
+        this.onGround = true
+        this.pos.set(seat.x, seat.y, seat.z)
+        cam.position.set(seat.x * B, (seat.y + seat.eye) * B, seat.z * B)
+        this.updateHands(dt, keys, false, false)
+        this.bm.specials.update(dt, this.pos)
+        this._drawMap(performance.now())
+        return
+      }
+    }
     // Riding a crafted boat or helicopter (Vehicles.js): the same, plus
     // Jump / Crouch to climb and sink a helicopter.
     const vehicles = this.bm.survival?.active ? this.bm.survival.vehicles : null
@@ -1000,6 +1016,9 @@ export class BuildTryMode {
         this.onGround = false
       }
       this.vel.y = Math.max(this.vel.y - GRAVITY * dt, -MAX_FALL)
+      // A jetpack in the bag (Jetpack.js): Jump held in the air flies up.
+      const jet = this.bm.survival?.active ? this.bm.survival.jetpack : null
+      if (jet) this.vel.y = jet.thrust(dt, spaceDown, this.onGround, this.vel.y)
     }
 
     // Horizontal moves, stepping up onto a slab (or a stair) on the way.

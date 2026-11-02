@@ -4678,7 +4678,8 @@ test('Crafting: the Crafting tab makes gear and blocks from what you carry', asy
     out.gooDrops = drops
     return out
   })
-  expect(r.rows).toBe(18)
+  // 25 out of winter (the Snowball recipe only shows December to February).
+  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 26 : 25)
   expect(r.ammoReady).toBe(true)
   expect(r.helmetReady).toBe(false)
   expect(r.ammo).toBe(1)
@@ -5127,4 +5128,258 @@ test('Golden Runner, fishing, zombie radios and spray tags', async ({ page }) =>
     sprayed: true, mine: 1, snap: true, remote: 1, mutedHidden: true, offHidden: true, badIgnored: true,
     padShown: true, saved: '3', buttonsBack: true,
   })
+})
+
+test('Pinata zombie, snowballs, metal detector, riding, potions and jetpack', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game._enterBuildMode({ map: 'map3', play: true }))
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const bm = g.buildMode
+    const s = bm.survival
+    for (let i = 0; i < 60 && !s.active; i++) await new Promise((res) => setTimeout(res, 250))
+    s._pickWeapon('rifle')
+    const out = {}
+    const me = bm.tryMode.pos
+    const hold = (id) => {
+      let slot = s.inv.hotbar.findIndex((it) => it?.id === id)
+      if (slot < 0) {
+        s.inv.hotbar[8] = { kind: 'item', id, n: s.inv.grid.find((it) => it?.id === id)?.n || 1 }
+        slot = 8
+      }
+      s.inv.select(slot)
+      s.inv.apply()
+    }
+    // --- Pinata zombie: candy and coins for the kill.
+    s.zombies.forEach((z) => { z.health = 0 })
+    const zp = s._makeZombie(9001, me.x + 3, me.y, me.z, 10, false, null, { tier: 'common', name: 0, shine: 'pinata' })
+    out.pinataTag = !!zp.shine
+    const coins = s.coins
+    s.damageZombie(zp, 999)
+    s._pinataLoot()
+    out.pinataCandy = s.inv.has('candy')
+    out.pinataCoins = s.coins > coins
+    // --- Snowballs: on with the setting, a wave hands them out, one freezes a zombie.
+    g.settings.snowballsAllYear = true
+    s._startWave(1)
+    out.snowballs = s.inv.has('snowball')
+    const zf = s._makeZombie(9002, me.x, me.y, me.z - 4, 500, false, null, { tier: 'common', name: 0 })
+    s.snowballs.freeze(zf)
+    out.frozen = zf.frozen > 0
+    s.snowballs.update(0.05)
+    out.ice = s.snowballs.ice.has(zf)
+    hold('snowball')
+    const before = s.inv.selected().n
+    s.snowballs._nextAt = 0
+    out.thrown = s.inv.useHeld() && s.inv.selected().n === before - 1 && s.snowballs.list.length > 0
+    g.settings.snowballsAllYear = false
+    out.recipeHidden = !s.inv.crafting?.html().includes('data-craft="snowball"') || new Date().getMonth() % 11 < 2
+    // --- Metal detector: hide a spot, stand on it, dig.
+    s.inv.add({ kind: 'item', id: 'metalDetector', n: 1 })
+    hold('metalDetector')
+    const spot = s.detector.hide(me)
+    out.spot = !!spot
+    out.signalFar = s.detector.signal({ x: spot.x + 30, z: spot.z }) < s.detector.signal({ x: spot.x + 2, z: spot.z })
+    me.set(spot.x, spot.y, spot.z)
+    const c2 = s.coins
+    s.inv.useHeld()
+    out.dug = s.coins > c2 && s.stats.dug === 1
+    out.keptDetector = s.inv.has('metalDetector')
+    // --- Potions: speed and giant, through the special blocks' buffs.
+    s.inv.add({ kind: 'item', id: 'potionSpeed', n: 1 })
+    hold('potionSpeed')
+    out.drank = s.inv.useHeld() && bm.specials._buff('speed') > 1
+    out.potionLeft = s.potions.left('potionSpeed') > 25
+    s.potions.drink('potionGiant')
+    out.giant = bm.specials.bodySize() > 1.5
+    s.potions.drink('potionTiny')
+    out.tiny = bm.specials.bodySize() < 1
+    // --- Jetpack: Jump held in the air climbs and burns fuel.
+    s.inv.add({ kind: 'item', id: 'jetpack', n: 1 })
+    s.jetpack.clear()
+    let vy = 0
+    for (let i = 0; i < 10; i++) vy = s.jetpack.thrust(0.05, true, false, vy)
+    out.jetUp = vy > 1 && s.jetpack.fuel < 1
+    s.jetpack.fuel = 0
+    s.inv.add({ kind: 'item', id: 'jetFuel', n: 1 })
+    s.jetpack.thrust(0.05, true, false, 0)
+    out.jetRefuelled = s.jetpack.fuel > 0.9 && !s.inv.has('jetFuel')
+    // --- Riding: a tamed horse, Use climbs on, keys move it, Use gets off.
+    const a = s.animals.placeAt({ kind: 'horse', x: me.x + 2, y: s._groundUnder(me.x + 2, me.y + 3, me.z), z: me.z })
+    out.horse = !!a
+    if (a) {
+      a.tamed = true
+      bm._raycaster.setFromCamera({ x: 0, y: 0 }, bm.camera)
+      s.animals._onRay = () => a
+      out.mounted = s.riding.use() && s.riding.on && a.ridden
+      const x0 = a.x
+      const z0 = a.z
+      for (let i = 0; i < 10; i++) s.riding.drive(0.05, { fwd: true })
+      out.rode = Math.hypot(a.x - x0, a.z - z0) > 1
+      out.seat = s.riding.seat().y > a.y + 1
+      s.riding.use()
+      out.off = !s.riding.on && !a.ridden
+    }
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})
+
+test('Speedrun: clock, best time and ghost path', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    localStorage.removeItem('gayz-play-saved-run')
+    localStorage.removeItem('gayz-speedrun-best')
+    g.settings.selectedGameMode = 'speedrun'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    const out = { mode: s.cfg.mode === 'speedrun', made: !!s.speedrun }
+    s._startWave(1)
+    const sr = s.speedrun
+    out.running = sr.running
+    for (let i = 0; i < 20; i++) sr.update(0.1)
+    out.timed = sr.t > 1.9 && sr.path.length >= 9
+    out.pill = document.getElementById('pill-speedrun')?.classList.contains('on')
+    const res = sr.finish()
+    out.best = res.isBest && JSON.parse(localStorage.getItem('gayz-speedrun-best')).ms === res.ms
+    out.text = sr.text().length > 5
+    // A slower second run doesn't replace the best.
+    sr.result = null
+    sr.start()
+    sr.t = res.ms / 1000 + 5
+    out.slower = !sr.finish().isBest
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})
+
+test('Party modes: hide and seek, capture the flag, king of the hill, zombie soccer', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    for (const mode of ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer']) {
+      localStorage.removeItem('gayz-play-saved-run')
+      g.settings.selectedGameMode = mode
+      await g._enterBuildMode({ map: 'map3', play: true })
+      const s = g.buildMode.survival
+      for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+      s._pickWeapon('rifle')
+      const p = s.party
+      out[`${mode}Made`] = !!p && s.cfg.noZombies
+      for (let i = 0; i < 200 && p.phase === 'wait'; i++) p.update(0.05)
+      out[`${mode}Playing`] = p.phase === 'play' && p.bots.size === 5
+      const start = [...p.bots.values()].map((b) => [b.x, b.z])
+      for (let i = 0; i < 60; i++) p.update(0.05)
+      out[`${mode}BotsMove`] = [...p.bots.values()].some((b, i) => Math.hypot(b.x - start[i][0], b.z - start[i][1]) > 0.5) || mode === 'hideSeek'
+      out[`${mode}BotsOk`] = [...p.bots.values()].every((b) => Number.isFinite(b.x) && Number.isFinite(b.y))
+      out[`${mode}Hud`] = (document.getElementById('build-play-wave-text')?.textContent || '').length > 5
+      const snap = JSON.parse(JSON.stringify(p.snapshot()))
+      out[`${mode}Snap`] = snap.k === mode && snap.ph === 'play' && !!snap.h
+      if (mode === 'hideSeek') {
+        p.seekers = new Set([p.myId])
+        p.left = 10
+        const [b] = p.bots.values()
+        const me = s.bodyPos()
+        b.x = me.x
+        b.z = me.z
+        b.y = me.y
+        p._run(0.01)
+        out.found = p.seekers.has(b.id)
+        for (const o of p.bots.values()) p.seekers.add(o.id)
+        p._run(0.01)
+        out.seekersWin = p.phase === 'end' && p.winner === 's'
+      }
+      if (mode === 'captureFlag') {
+        const mine = p.myTeam
+        const enemy = mine === 'r' ? 'b' : 'r'
+        for (const b of p.bots.values()) b.x += 500
+        const ef = p.flags[enemy]
+        s.bm.tryMode.pos.set(ef.x, ef.y, ef.z)
+        p._run(0.01)
+        out.carrying = ef.at === 'carried' && ef.by === p.myId
+        const home = p.spot(mine)
+        s.bm.tryMode.pos.set(home.x, home.y, home.z)
+        p._run(0.01)
+        out.captured = p.score[mine] === 1 && ef.at === 'base'
+      }
+      if (mode === 'kingHill') {
+        for (const b of p.bots.values()) b.x += 500
+        const hill = p.spot('hill')
+        s.bm.tryMode.pos.set(hill.x, hill.y, hill.z)
+        // A bot may have just stunned me (stunned players don't score).
+        p.stunned.clear()
+        for (let i = 0; i < 5; i++) p._run(0.5)
+        out.kingPoints = (p.score[p.myId] || 0) >= 2
+      }
+      if (mode === 'zombieSoccer') {
+        for (const b of p.bots.values()) b.x += 500
+        const ball = p.ball
+        const x0 = ball.x
+        s.bm.tryMode.pos.set(ball.x - 0.5, ball.y, ball.z)
+        p._run(0.05)
+        for (let i = 0; i < 5; i++) p._run(0.05)
+        out.kicked = ball.x - x0 > 0.3
+        ball.x = p.home.x + 40
+        ball.z = p.home.z
+        p._run(0.01)
+        out.goal = p.score.r === 1
+      }
+      g.buildMode.survival.stop?.()
+      g._exitBuildMode?.()
+      await new Promise((res) => setTimeout(res, 200))
+    }
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})
+
+test('Dungeons: rooms underground, a way in, and the Boss Room', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'classic'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const bm = g.buildMode
+    const s = bm.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    const out = {}
+    const under = bm.world.under
+    // Dungeons near the city, and at least one with a way in from the land.
+    const list = under.dungeonsNear(-600, -600, 600, 600)
+    out.some = list.length > 0
+    const withWay = list.filter((d) => under._dungeonEntrance(d))
+    out.ways = withWay.length > 0
+    const d = withWay[0] || list[0]
+    if (!d) return out
+    const room = d.rooms.find((o) => o.boss)
+    const cx = d.x0 + room.x0 + 2
+    const cz = d.z0 + room.z0 + 2
+    // The rock knows the room is open and its floor is solid.
+    out.airInside = !under.implicitSolid(cx, d.floor + 1, cz, `${cx},${d.floor + 1},${cz}`) || bm.getBlockAt(cx, d.floor + 1, cz) === null
+    out.floorSolid = under.implicitSolid(cx, d.floor, cz, `${cx},${d.floor},${cz}`) || !!bm.getBlockAt(cx, d.floor, cz)
+    // Walk in: its walls get built, the dungeon is noticed, the boss wakes.
+    bm.tryMode.pos.set(cx + 0.5, d.floor + 1, cz + 0.5)
+    for (let i = 0; i < 40; i++) {
+      bm.tryMode.pos.set(cx + 0.5, d.floor + 1, cz + 0.5)
+      await new Promise((res) => setTimeout(res, 150))
+    }
+    let bricks = 0
+    for (let x = d.x0; x < d.x0 + 36; x++) for (let z = d.z0; z < d.z0 + 36; z++) if (/stonebricks/.test(bm.getBlockAt(x, d.floor, z) || '')) bricks++
+    out.built = bricks > 20
+    const zs = s.zombies.length
+    s._dungeonCheckIn = 0
+    s._checkDungeon(0.1)
+    out.seen = s._dungeonsSeen.has(d.id)
+    // (It may have woken already while we stood there.)
+    out.boss = s._dungeonBosses.has(d.id) && (s.zombies.length > zs || s.zombies.some((z) => z.boss))
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })

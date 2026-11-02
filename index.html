@@ -1434,6 +1434,11 @@ Escape before dawn.</p>
             <label for="show-other-sprays-toggle" id="show-other-sprays-label">Show Other Players' Sprays</label>
             <input type="checkbox" id="show-other-sprays-toggle" class="audio-checkbox" />
           </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="snowballsAllYear" aria-label="What does this do?">?</button>
+            <label for="snowballs-all-year-toggle" id="snowballs-all-year-label">Snowballs All Year</label>
+            <input type="checkbox" id="snowballs-all-year-toggle" class="audio-checkbox" />
+          </div>
 
           <h3 class="settings-section-heading" id="settings-section-gameplay">Gameplay</h3>
           <div class="audio-row">
@@ -1844,6 +1849,26 @@ Escape before dawn.</p>
                 <button class="mode-select-btn class-btn" data-game-mode="shrinkingZone" id="game-mode-shrinking-zone" type="button">
                   <div class="class-icon-badge"><span class="class-icon-emoji">🌀</span></div>
                   <span id="game-mode-shrinking-zone-label">Shrinking Zone</span>
+                </button>
+                <button class="mode-select-btn class-btn" data-game-mode="speedrun" id="game-mode-speedrun" type="button">
+                  <div class="class-icon-badge"><span class="class-icon-emoji">⏱️</span></div>
+                  <span id="game-mode-speedrun-label">Speedrun</span>
+                </button>
+                <button class="mode-select-btn class-btn" data-game-mode="hideSeek" id="game-mode-hide-seek" type="button">
+                  <div class="class-icon-badge"><span class="class-icon-emoji">🙈</span></div>
+                  <span id="game-mode-hide-seek-label">Hide and Seek</span>
+                </button>
+                <button class="mode-select-btn class-btn" data-game-mode="captureFlag" id="game-mode-capture-flag" type="button">
+                  <div class="class-icon-badge"><span class="class-icon-emoji">🚩</span></div>
+                  <span id="game-mode-capture-flag-label">Capture the Flag</span>
+                </button>
+                <button class="mode-select-btn class-btn" data-game-mode="kingHill" id="game-mode-king-hill" type="button">
+                  <div class="class-icon-badge"><span class="class-icon-emoji">🏔️</span></div>
+                  <span id="game-mode-king-hill-label">King of the Hill</span>
+                </button>
+                <button class="mode-select-btn class-btn" data-game-mode="zombieSoccer" id="game-mode-zombie-soccer" type="button">
+                  <div class="class-icon-badge"><span class="class-icon-emoji">⚽</span></div>
+                  <span id="game-mode-zombie-soccer-label">Zombie Soccer</span>
                 </button>
               </div>
             </div>
@@ -2423,6 +2448,7 @@ Escape before dawn.</p>
             <h3>Nicknames, profiles, and leaderboards</h3>
             <p>Your nickname, Player ID, bio, and stats shown on your public profile (Profile panel &gt; Shown to Public) are visible to other players wherever public features (leaderboards, chat, friend lookups) show them. Please don't put personal information (real name, contact details, etc.) in any field, since a field that's private today could become visible in a future update.</p>
             <p>If you're signed in, starting a Team Battle saves your battle team as a "ghost team" that other players can see and battle: your nickname, which zombies and animals are on it, their rarity, how strong the team is and how many battles you've won. It's replaced each time you start another battle.</p>
+            <p>If you're signed in and play Speedrun mode, your best time goes on the leaderboard with your nickname, so other players can see the fastest runs. The ghost of your best run (where you went) stays on your device.</p>
 
             <h3>Chat, clans, friends and the Market</h3>
             <ul>
@@ -2553,7 +2579,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="PlayCrafting RECIPES GOO_CHANCE">
           <h3>Crafting</h3>
-          <p>Open your inventory in a game and pick the Crafting tab. Every recipe shows what it makes, what it needs (how many you have and how many it takes) and a Craft button. There are <span data-feature-value="recipes">15</span> recipes: gear - Goo Disguise, Boat, Helicopter, Heli Fuel, Health Pack, Ammo Box, Catch Traps and all five armor pieces - and blocks - Crop Plot, Oak Planks, Crate, Stone Bricks, Glass and Bricks. Most take blocks you break (any log, any stone, any dirt or grass, any sand, any planks), so you don't need one exact kind. Two new materials: Zombie Goo, which about <span data-feature-value="gooChance">45</span>% of the zombies you kill drop, and Plant Fiber, which comes with every Crop Plot harvest. If your bag is full, what you made lands at your feet.</p>
+          <p>Open your inventory in a game and pick the Crafting tab. Every recipe shows what it makes, what it needs (how many you have and how many it takes) and a Craft button. There are <span data-feature-value="recipes">15</span> recipes: gear - Goo Disguise, Boat, Helicopter, Heli Fuel, Health Pack, Ammo Box, Catch Traps, all five armor pieces, the four Potions, the Jetpack and Jetpack Fuel, the Metal Detector and (in winter) Snowballs - and blocks - Crop Plot, Oak Planks, Crate, Stone Bricks, Glass and Bricks. Most take blocks you break (any log, any stone, any dirt or grass, any sand, any planks), so you don't need one exact kind. Two new materials: Zombie Goo, which about <span data-feature-value="gooChance">45</span>% of the zombies you kill drop, and Plant Fiber, which comes with every Crop Plot harvest. If your bag is full, what you made lands at your feet.</p>
         </div>
         <div class="feature" data-code="GooDisguise putOnDisguise">
           <h3>Goo Disguise</h3>
@@ -2607,6 +2633,42 @@ Escape before dawn.</p>
           <h3>Infection Mode</h3>
           <p>A game of zombie tag, picked in Game Modes. There are no zombie waves: one player turns into a zombie, and every human an infected one touches turns too. Bots fill the game up to <span data-feature-value="infectionPlayers">6</span> players, so you can play it alone, and friends join with the invite link (the address bar, or Invite Friends in the pause menu) - each friend takes a bot's place at the next round. A round starts after <span data-feature-value="infectionWait">8</span> seconds, and the first zombie is held still for <span data-feature-value="infectionHeadStart">3</span> seconds so the humans can run. Infected players look like zombies to everyone, run faster, have a green edge round the screen and can't shoot. Humans can't hurt the infected, but a shot stuns one for <span data-feature-value="infectionStun">2.5</span> seconds: it slows right down and can't tag anyone. If everyone is infected the zombies win; anyone still human after <span data-feature-value="infectionRound">150</span> seconds wins. Humans who survive get <span data-feature-value="infectionHumanCoins">25</span> coins and the infected get <span data-feature-value="infectionZombieCoins">15</span> when the zombies win, and the next round starts a few seconds later.</p>
         </div>
+        <div class="feature" data-code="pinata _pinataLoot PINATA_COINS">
+          <h3>Pinata Zombies</h3>
+          <p>About one zombie in <span data-feature-value="pinataOdds">300</span> is a Pinata Zombie: a paper-party body glowing in sliding candy colours with a Pinata tag. Smash it and it bursts into confetti, and whoever got it wins a candy rain: a handful of Candy (eat it to heal a little) and <span data-feature-value="pinataCoins">60</span> extra coins on top of the kill.</p>
+        </div>
+        <div class="feature" data-code="Snowballs winterOn snowballsAllYear">
+          <h3>Snowball Fights</h3>
+          <p>A winter event, from December to February: you start every game with <span data-feature-value="snowStart">8</span> Snowballs and get <span data-feature-value="snowWave">4</span> more each wave, loot chests have some, and a Snow block crafts into four. Hold one and click to throw it in an arc - the zombie it hits is frozen in a block of ice for <span data-feature-value="snowFreeze">3</span> seconds and can't move or bite. Settings &gt; Snowballs All Year turns them on all year. Snowballs from other players on a server freeze zombies too.</p>
+        </div>
+        <div class="feature" data-code="MetalDetector DIG_COINS metalDetector">
+          <h3>Metal Detector</h3>
+          <p>Craft one (stone, glass and Zombie Goo) or find one in a loot chest. While you hold it, treasure is buried somewhere nearby: it beeps faster the closer you get, and a Signal bar fills up. Stand right on the spot and click to dig up coins and a random find, then a new treasure is hidden. Click anywhere else for a "cold / warm / very close" hint.</p>
+        </div>
+        <div class="feature" data-code="AnimalRiding rideable RIDE_SPEED">
+          <h3>Riding Animals</h3>
+          <p>Look at one of your own tamed animals that's big enough to sit on (horses, cows, camels, bears and more - not tiny ones, swimmers, flyers or dinosaurs) and press Use to climb on. Move to ride where you look, Jump to hop, and Use again to get off. You can still look around and shoot while riding. Alone or as a server's host.</p>
+        </div>
+        <div class="feature" data-code="Potions POTIONS POTION_S">
+          <h3>Potions</h3>
+          <p>Four potions, crafted or found in loot chests: Speed (run much faster), Invisibility (zombies lose track of you), Giant (much bigger, hitting harder) and Tiny (small enough for one-block gaps). Hold one and click to drink it - it lasts <span data-feature-value="potionSeconds">30</span> seconds, with a timer above your hotbar. Giant and Tiny cancel each other.</p>
+        </div>
+        <div class="feature" data-code="Jetpack JET_S jetFuel">
+          <h3>Jetpack</h3>
+          <p>Craft a Jetpack (or, rarely, find one in a loot chest). It works from your bag: jump, then keep Jump held in the air to fly up, with flames under your feet. A full tank lasts <span data-feature-value="jetSeconds">8</span> seconds of flying, and when it runs dry a Jetpack Fuel from your bag fills it again on its own. A fuel bar shows while the tank isn't full.</p>
+        </div>
+        <div class="feature" data-code="Speedrun SPEEDRUN_WAVES fetchTopSpeedruns">
+          <h3>Speedrun Mode</h3>
+          <p>A game mode against the clock: clear <span data-feature-value="speedrunWaves">5</span> waves as fast as you can, with short breaks. The timer runs above your hotbar next to your best time (it turns red once you're behind). Beat your best and your run is saved - next time a see-through blue ghost of you runs it alongside you. Signed in, your best time goes on the leaderboard, and the end screen shows the world's <span data-feature-value="speedrunTop">5</span> fastest.</p>
+        </div>
+        <div class="feature" data-code="PartyMode PARTY_MODES hideSeek captureFlag kingHill zombieSoccer">
+          <h3>Party Modes</h3>
+          <p>Four game modes with no zombie waves, played in rounds on servers or alone with bots filling the game up to <span data-feature-value="partyPlayers">6</span> players. Hide and Seek: the seeker is blindfolded for <span data-feature-value="partyHide">20</span> seconds while everyone hides, and everyone found joins the seekers. Capture the Flag: Red against Blue - carry the other team's flag home, and shoot an enemy to stun them and make them drop it; first to <span data-feature-value="partyCaps">3</span>. King of the Hill: stand alone on the glowing hill for a point a second, first to <span data-feature-value="partyHill">45</span>. Zombie Soccer: Red against Blue, run into the giant zombie head (or shoot it) to kick it into the other goal; first to <span data-feature-value="partyGoals">3</span>. A coloured diamond over everyone's head shows their team. Winners get <span data-feature-value="partyCoins">25</span> coins.</p>
+        </div>
+        <div class="feature" data-code="dungeonCell dungeonsOver _checkDungeon _dungeonEntrance">
+          <h3>Dungeons</h3>
+          <p>Deep under the land around the city and in every Open World world lie dungeons: a grid of stone-brick rooms joined by corridors, lit by glowstone, about <span data-feature-value="dungeonSize">36</span> blocks across. A sloped tunnel leads down from the land to the door (or dig or cave your way in). Some rooms hold loot chests. The big Boss Room in the middle has two more chests - and the first time you walk in, a boss zombie wakes up with guards.</p>
+        </div>
         <div class="feature" data-code="AREA_TOOLS rotateClipboard _undoGroupDo">
           <h3>Map Editor Building Tools</h3>
           <p>Fill a whole area with one block, Replace one kind of block with another, and build walls, floors, hollow boxes, circles and balls with two clicks - a gold box shows the area first. Turn a copied build before pasting it, and one Undo takes back a whole fill, shape or paste.</p>
@@ -2649,7 +2711,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="PlayInventory ITEMS ARMOR_SLOTS">
           <h3>Inventory</h3>
-          <p>Press Tab in a game (or the bag button on a phone) for your inventory: five armor slots (helmet, chestplate, leggings, boots, shield), a ten-by-ten grid and your hotbar. Your gun is in it (just the one you picked - Switch Weapon swaps it), blocks you break pop out as little spinning blocks that you pick up by walking near them (or by pressing Use next to them, with Auto Pick-Up turned off), and Loot Chests drop health packs, ammo boxes, armor, blocks and now and then a Fishing Rod. Hold a block and right-click to place it (the fire button on a phone); click with a health pack or ammo box to use it, or with an animal's raw meat (Raw Beef, Raw Pork and so on) Vegetables (from a Crop Plot) or a fish you caught (see Fishing) to eat them. Worn armor blocks part of every hit. Drag items between slots (just the one picture moves), or Shift-click between the hotbar and the grid. Press Q (Drop Item - change it in Settings &gt; Controls) to throw one of the item in your hand on the ground in front of you, or, with the inventory open, one of the item under your pointer; phones get a drop button at the top of the screen. It lies still for a moment before you can pick it up again. Armor and prize items need the Drop key pressed twice (Confirm Before Dropping Rare Items in Settings). Your gun can't be dropped. Right-click an item (double-tap it on a phone) to lock it: a little lock shows on its corner and Q won't drop it until you unlock it the same way. Point at any item (or tap it on a phone) to see its name and what it does - a gun's damage, how fast it shoots and its magazine, how much a health pack heals or how much armor blocks. The inventory's Crafting tab turns what you carry into gear and blocks - see Crafting. In the Map Editor, Tab shows the blocks on the left and your hotbar plus a block storage on the right.</p>
+          <p>Press Tab in a game (or the bag button on a phone) for your inventory: five armor slots (helmet, chestplate, leggings, boots, shield), a ten-by-ten grid and your hotbar. Your gun is in it (just the one you picked - Switch Weapon swaps it), blocks you break pop out as little spinning blocks that you pick up by walking near them (or by pressing Use next to them, with Auto Pick-Up turned off), and Loot Chests drop health packs, ammo boxes, armor, blocks and now and then a Fishing Rod, a Potion, a Metal Detector or a Jetpack (and Snowballs in winter). Hold a block and right-click to place it (the fire button on a phone); click with a health pack or ammo box to use it, or with an animal's raw meat (Raw Beef, Raw Pork and so on) Vegetables (from a Crop Plot) or a fish you caught (see Fishing) to eat them. Worn armor blocks part of every hit. Drag items between slots (just the one picture moves), or Shift-click between the hotbar and the grid. Press Q (Drop Item - change it in Settings &gt; Controls) to throw one of the item in your hand on the ground in front of you, or, with the inventory open, one of the item under your pointer; phones get a drop button at the top of the screen. It lies still for a moment before you can pick it up again. Armor and prize items need the Drop key pressed twice (Confirm Before Dropping Rare Items in Settings). Your gun can't be dropped. Right-click an item (double-tap it on a phone) to lock it: a little lock shows on its corner and Q won't drop it until you unlock it the same way. Point at any item (or tap it on a phone) to see its name and what it does - a gun's damage, how fast it shoots and its magazine, how much a health pack heals or how much armor blocks. The inventory's Crafting tab turns what you carry into gear and blocks - see Crafting. In the Map Editor, Tab shows the blocks on the left and your hotbar plus a block storage on the right.</p>
         </div>
         <div class="feature" data-code="contextmenu">
           <h3>No Right-Click Menu</h3>
@@ -2673,7 +2735,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="playConfig PLAY_GAME_MODES PLAY_MUTATORS">
           <h3>Map 1 Game Modes, Difficulty &amp; Mutators</h3>
-          <p>Before you press Play, pick in Game Mode: a difficulty (Easy, Normal, Hard - Nightmare and Apex unlock later), a game mode - Classic (waves forever), Zombie Defense (hold out for <span data-feature-value="defenseWaves">10</span> waves to win), Boss Hunt (a big, tough boss every <span data-feature-value="bossEvery">3</span> waves), Zombie Rush (barely a breather between waves, a survival timer, and no buying) or Helicopter Escape (once the first wave starts, <span data-feature-value="fuelCans">3</span> fuel cans appear around the city under yellow beams, also shown on the minimap - pick them all up and a helicopter flies in and lands under a red beam; hold its landing ring for <span data-feature-value="extractionHold">10</span> seconds while the zombies keep coming, then you climb aboard and it takes off with you) or Infection (zombie tag with no waves - see Infection Mode) or Shrinking Zone (survive the waves inside a closing ring - see Shrinking Zone Mode) - and mutators: Horde Rush, Loot Rush, Health Regen, Glass House, Iron Mode, Escalation and Boss Rush. Guest Mode plays a run without saving anything from it.</p>
+          <p>Before you press Play, pick in Game Mode: a difficulty (Easy, Normal, Hard - Nightmare and Apex unlock later), a game mode - Classic (waves forever), Zombie Defense (hold out for <span data-feature-value="defenseWaves">10</span> waves to win), Boss Hunt (a big, tough boss every <span data-feature-value="bossEvery">3</span> waves), Zombie Rush (barely a breather between waves, a survival timer, and no buying) or Helicopter Escape (once the first wave starts, <span data-feature-value="fuelCans">3</span> fuel cans appear around the city under yellow beams, also shown on the minimap - pick them all up and a helicopter flies in and lands under a red beam; hold its landing ring for <span data-feature-value="extractionHold">10</span> seconds while the zombies keep coming, then you climb aboard and it takes off with you) or Infection (zombie tag with no waves - see Infection Mode) or Shrinking Zone (survive the waves inside a closing ring - see Shrinking Zone Mode) or Speedrun (clear the waves against the clock - see Speedrun Mode) or one of the four Party Modes (Hide and Seek, Capture the Flag, King of the Hill, Zombie Soccer) - and mutators: Horde Rush, Loot Rush, Health Regen, Glass House, Iron Mode, Escalation and Boss Rush. Guest Mode plays a run without saving anything from it.</p>
         </div>
         <div class="feature" data-code="SKELETON_KINDS SKELETON_FROM_WAVE makeSkeleton">
           <h3>Skeletons</h3>

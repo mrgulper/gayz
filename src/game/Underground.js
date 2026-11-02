@@ -31,6 +31,7 @@
 // real blocks, in the city's own materials.
 import { inCityShape, cityEdgeDistance } from './CityShape.js'
 import { cityAt, citiesOver, cityYRange, setUnderCitySeed } from './UnderCity.js'
+import { dungeonsOver, setDungeonSeed } from './Dungeons.js'
 
 const CHUNK = 16
 // The last layer: bedrock from BOTTOM + 4 down to BOTTOM (always solid).
@@ -95,11 +96,13 @@ let SALT = 0
 export function setUnderSeed(seed) {
   SALT = seed | 0
   setUnderCitySeed(seed)
+  setDungeonSeed(seed)
 }
 
-// Cities reaching into a box, and the block (or rock) at one cell.
+// Cities (and dungeons, Dungeons.js) reaching into a box, and the block
+// (or rock) at one cell.
 function citiesNear(x0, y0, z0, x1, y1, z1) {
-  return citiesOver(x0, z0, x1, z1).filter((c) => {
+  return [...citiesOver(x0, z0, x1, z1), ...dungeonsOver(x0, z0, x1, z1)].filter((c) => {
     const [lo, hi] = cityYRange(c)
     return hi >= y0 && lo <= y1
   })
@@ -396,9 +399,78 @@ export class Underground {
     }
   }
 
+  // Dungeons reaching into an x/z box (Dungeons.js, this world's seed).
+  dungeonsNear(x0, z0, x1, z1) {
+    return dungeonsOver(x0, z0, x1, z1)
+  }
+
+  // A dungeon's way in (Dungeons.js): a sloped tunnel like an entrance's,
+  // from the land down to the door in its west wall, coming in from the
+  // west (or a little to either side). null when no way works - the
+  // dungeon is still there to dig or cave into.
+  _dungeonEntrance(d) {
+    const key = `d${d.id}`
+    if (this._entrances.has(key)) return this._entrances.get(key)
+    let e = null
+    try {
+      for (const turn of [0, 0.5, -0.5, 0.9, -0.9]) {
+        e = this._planDungeonWay(d, Math.PI + turn)
+        if (e) break
+      }
+    } finally {
+      this._entrances.set(key, e)
+    }
+    return e
+  }
+
+  _planDungeonWay(d, a) {
+    const world = this.world
+    const dx = Math.cos(a)
+    const dz = Math.sin(a)
+    // The tunnel's low end: just outside the door, a bit further out.
+    const end = { x: d.door.x - 2.5 + dx * 1.5, y: d.door.y + 1.5, z: d.door.z + 0.5 + dz * 1.5 }
+    // How long, so it comes out on the land (twice, as the ground moves).
+    let L = 30
+    let land = null
+    for (let i = 0; i < 3; i++) {
+      land = world.landAt(Math.round(end.x + dx * L), Math.round(end.z + dz * L))
+      if (!land) return null
+      L = Math.max(12, (land.h + 1 - end.y) / ENTRANCE_DROP)
+    }
+    if (land.h < land.w + 1 || L > 110) return null
+    const sx = end.x + dx * L
+    const sz = end.z + dz * L
+    const sy = end.y + ENTRANCE_DROP * L
+    for (let s = 0; s <= L; s += 4) {
+      const x = Math.round(sx - dx * s)
+      const z = Math.round(sz - dz * s)
+      if (cityEdgeDistance(x, z) < 10) return null
+      const at = world.landAt(x, z)
+      if (!at) return null
+      const y = sy - ENTRANCE_DROP * s
+      if (at.h < at.w + 1 && y + ENTRANCE_R + 3 > at.h - 2) return null
+    }
+    for (let s = 0; s <= 10; s++) if (world._nearPath(Math.round(sx - dx * s), Math.round(sz - dz * s))) return null
+    const R = ENTRANCE_ROOM_R + 1
+    const x0 = Math.floor(Math.min(sx, end.x) - R)
+    const x1 = Math.ceil(Math.max(sx, end.x) + R)
+    const z0 = Math.floor(Math.min(sz, end.z) - R)
+    const z1 = Math.ceil(Math.max(sz, end.z) + R)
+    if (world._plansOver(x0, z0, x1, z1, 6).length) return null
+    return {
+      sx, sy, sz, dx: end.x - sx, dy: end.y - sy, dz: end.z - sz, end, link: null, hall: null, dungeon: d.id,
+      x0, x1, z0, z1, y0: Math.floor(end.y - R), y1: Math.ceil(sy + ENTRANCE_R + 1),
+    }
+  }
+
   // Entrances whose box reaches into this x/z box.
   _entrancesOver(x0, z0, x1, z1) {
     const out = []
+    // Dungeons' ways in (their tunnels reach up to ~110 cells out).
+    for (const d of dungeonsOver(x0 - 120, z0 - 120, x1 + 120, z1 + 120)) {
+      const e = this._dungeonEntrance(d)
+      if (e && e.x1 >= x0 && e.x0 <= x1 && e.z1 >= z0 && e.z0 <= z1) out.push(e)
+    }
     const gx0 = Math.floor((x0 - ENTRANCE_LEN - LINK_REACH - HALL_R - 8) / ENTRANCE_GRID)
     const gx1 = Math.floor((x1 + ENTRANCE_LEN + LINK_REACH + HALL_R + 8) / ENTRANCE_GRID)
     const gz0 = Math.floor((z0 - ENTRANCE_LEN - LINK_REACH - HALL_R - 8) / ENTRANCE_GRID)

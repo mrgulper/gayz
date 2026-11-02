@@ -126,6 +126,8 @@ service cloud.firestore {
         && (!('manualIdle' in request.resource.data) || request.resource.data.manualIdle is bool)
         && (!('clanId' in request.resource.data) || (request.resource.data.clanId is string && request.resource.data.clanId.size() > 0))
         && (!('clanTag' in request.resource.data) || (request.resource.data.clanTag is string && request.resource.data.clanTag.size() <= 4))
+        // Speedrun mode's best time in ms (Speedrun.js, 2026-11-01).
+        && (!('speedrunMs' in request.resource.data) || (request.resource.data.speedrunMs is int && request.resource.data.speedrunMs >= 1000 && request.resource.data.speedrunMs < 36000000))
         // XP and this month's clan XP (Xp.js, 2026-10-23).
         && (!('xp' in request.resource.data) || (request.resource.data.xp is int && request.resource.data.xp >= 0 && request.resource.data.xp < 1000000000))
         && (!('clanXp' in request.resource.data) || (request.resource.data.clanXp is int && request.resource.data.clanXp >= 0 && request.resource.data.clanXp < 100000000))
@@ -894,6 +896,15 @@ export function subscribeTopLeaderboard(n, region, callback) {
 // Achievement-count leaderboard - same collection, sorted by a different
 // field (achievementCount, pushed alongside bestNight/bestKills/
 // bestKillStreak - see pushLeaderboardEntry's caller in Game.js).
+// Speedrun mode's fastest times (Speedrun.js): leaderboard docs with a
+// speedrunMs, lowest first (a single-field order, no index needed).
+export async function fetchTopSpeedruns(n) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('speedrunMs', 'asc'), fsMod.limit(n))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map(withUid).filter((e) => Number.isFinite(e.speedrunMs))
+}
+
 export async function fetchTopByAchievements(n) {
   const { db, fsMod } = await ensureApp()
   const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('achievementCount', 'desc'), fsMod.limit(n))
