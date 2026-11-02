@@ -126,6 +126,15 @@ const STEP_GLIDE = 14 // how fast the view catches up after stepping up
 const CLIMB = 3.4
 const MAX_FALL = 60
 const SPRINT_FOV = 8 // degrees added while sprinting
+// View Bobbing (blocks): how far walking bobs the view up and sways it
+// sideways, and the landing dip - LAND_DIP_PER_SPEED per block/s of fall
+// past a small hop, never more than LAND_DIP_MAX, easing back at
+// LAND_DIP_EASE.
+const BOB_UP = 0.04
+const BOB_SIDE = 0.025
+const LAND_DIP_PER_SPEED = 0.012
+const LAND_DIP_MAX = 0.18
+const LAND_DIP_EASE = 9
 // Kirka-style blocky arms holding the gun, made from the player's own
 // skin: each runs from a shoulder off the bottom of the screen to its hand
 // spot on the gun (_findHandSpots; positions relative to GUN_OFFSET).
@@ -833,6 +842,7 @@ export class BuildTryMode {
   }
 
   update(dt, keys) {
+    const frameDt = Math.min(dt, 0.1)
     dt = Math.min(dt, 1 / 30)
     const B = this.B
     const p = { x: this.pos.x, y: this.pos.y, z: this.pos.z }
@@ -932,6 +942,45 @@ export class BuildTryMode {
       this._drawMap(performance.now())
       return
     }
+    // Walking runs in steady steps of at most 1/30 s (2026-11-01, Gaymi:
+    // "smoother movements and less lag"): a slow device at 15 fps takes two
+    // steps a frame, so you move at the real speed instead of in slow
+    // motion, and every frame rate jumps and falls the same.
+    const steps = Math.max(1, Math.ceil(frameDt * 30 - 1e-6))
+    let walk
+    for (let i = 0; i < steps; i++) walk = this._walk(frameDt / steps, keys, { fwd, back, left, right, stick, mx, mz })
+    const { sprint, crouch, size } = walk
+    Object.assign(p, this.pos)
+
+    // Camera at eye height, the view widening a little while sprinting.
+    // Settings > View Bobbing (2026-11-01, on unless turned off): walking
+    // gently bobs the view up and down and sways it side to side, easing
+    // in and out instead of snapping, and landing dips it (_walk). Off
+    // keeps the camera perfectly still.
+    const moving = this.onGround && Math.hypot(this.vel.x, this.vel.z) > 0.5
+    this._bob += moving ? dt * (sprint ? 13 : 9) : 0
+    const bobbing = this.bm.game?.settings?.viewBobbing ?? true
+    this._bobAmt = THREE.MathUtils.damp(this._bobAmt || 0, bobbing && moving ? (sprint ? 1.3 : 1) : 0, 8, dt)
+    const bob = Math.sin(this._bob) * BOB_UP * this._bobAmt
+    const sway = Math.sin(this._bob * 0.5) * BOB_SIDE * this._bobAmt
+    this._landDip = THREE.MathUtils.damp(this._landDip || 0, 0, LAND_DIP_EASE, dt)
+    const dip = bobbing ? this._landDip : 0
+    this._eye = THREE.MathUtils.damp(this._eye, (crouch ? CROUCH_EYE : EYE) * size, 18, dt)
+    cam.position.set((p.x - fz * sway) * B, (p.y + this._eye + bob - dip + this._stepLag) * B, (p.z + fx * sway) * B)
+    this.updateHands(dt, keys, moving, sprint)
+    // Pressure plates under you (and under zombies while playing).
+    const play = this.bm.survival
+    this.bm.gadgets.updatePlates([[Math.floor(p.x), Math.floor(p.y + 0.01), Math.floor(p.z)], ...(play?.active ? play.zombieCells() : [])], dt)
+    // Special blocks you stand on, near or touch (BuildSpecials.js).
+    this.bm.specials.update(dt, p)
+    this._drawMap(performance.now())
+    this._setUnderwater(this._liquidAtEye(p))
+  }
+
+  // One step of walking, jumping, swimming and climbing (update runs it
+  // once or more a frame): moves this.pos and tells how you're moving.
+  _walk(dt, keys, { fwd, back, left, right, stick, mx, mz }) {
+    const p = { x: this.pos.x, y: this.pos.y, z: this.pos.z }
     const len = Math.hypot(mx, mz)
     // A stick pushed only part way walks slower (keys are all or nothing).
     const amount = stick && !fwd && !back && !left && !right ? Math.min(1, len) : 1
@@ -1089,10 +1138,13 @@ export class BuildTryMode {
       }
     }
     const falling = this.vel.y <= 0
+    const fallSpeed = -this.vel.y
     const hitY = this._moveAxis(p, 'y', this.vel.y * dt)
     const wasOnGround = this.onGround
     this.onGround = hitY && falling
     if (this.onGround && !wasOnGround) {
+      // Landing dips the view a little - more after a longer fall.
+      this._landDip = Math.max(this._landDip || 0, Math.min(LAND_DIP_MAX, Math.max(0, fallSpeed - 3) * LAND_DIP_PER_SPEED))
       this._groundTime = 0
       this._landedFromJump = !!this._jumpedAt
       this._jumpedAt = false
@@ -1114,22 +1166,7 @@ export class BuildTryMode {
       this.vel.set(0, 0, 0)
     }
     this.pos.set(p.x, p.y, p.z)
-
-    // Camera at eye height, with only a faint bob while walking, and the
-    // view widening a little while sprinting.
-    const moving = this.onGround && Math.hypot(this.vel.x, this.vel.z) > 0.5
-    this._bob += moving ? dt * (sprint ? 13 : 9) : 0
-    const bob = moving ? Math.sin(this._bob) * 0.015 : 0
-    this._eye = THREE.MathUtils.damp(this._eye, (crouch ? CROUCH_EYE : EYE) * size, 18, dt)
-    cam.position.set(p.x * B, (p.y + this._eye + bob + this._stepLag) * B, p.z * B)
-    this.updateHands(dt, keys, moving, sprint)
-    // Pressure plates under you (and under zombies while playing).
-    const play = this.bm.survival
-    this.bm.gadgets.updatePlates([[Math.floor(p.x), Math.floor(p.y + 0.01), Math.floor(p.z)], ...(play?.active ? play.zombieCells() : [])], dt)
-    // Special blocks you stand on, near or touch (BuildSpecials.js).
-    this.bm.specials.update(dt, p)
-    this._drawMap(performance.now())
-    this._setUnderwater(this._liquidAtEye(p))
+    return { sprint, crouch, size }
   }
 
   // Everything after moving: zoom, the gun (aim, recoil, inspect), digging,

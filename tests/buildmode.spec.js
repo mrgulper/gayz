@@ -3554,11 +3554,32 @@ test('go-kart right-click and steps; auto jump; smoother walking', async ({ page
     }
     out.glide = lagSeen
     out.settled = Math.abs(tm._stepLag) < 0.01
+    // 2026-11-01: a slow frame rate walks as far as a fast one (steady
+    // steps, not slow motion), and landing dips the view.
+    const walkFor = (frameDt) => {
+      tm.pos.set(-20.5, 1.01, 10.5)
+      tm.vel.set(0, 0, 0)
+      for (let i = 0; i < 5; i++) tm.update(0.016, new Set())
+      const z0 = tm.pos.z
+      for (let i = 0; i < Math.round(1 / frameDt); i++) tm.update(frameDt, new Set(['KeyW']))
+      return tm.pos.z - z0
+    }
+    const fast = walkFor(1 / 60)
+    const slow = walkFor(1 / 10)
+    out.sameSpeed = fast > 2 && Math.abs(slow - fast) / fast < 0.1
+    tm.pos.set(-20.5, 6, 10.5)
+    tm.vel.set(0, 0, 0)
+    let dipSeen = false
+    for (let i = 0; i < 80; i++) {
+      tm.update(0.016, new Set())
+      if (tm._landDip > 0.05) dipSeen = true
+    }
+    out.landDip = dipSeen
     s.stop()
     g._exitBuildMode()
     return out
   })
-  expect(r).toEqual({ awayClick: false, lookClick: true, kartClimbed: 1, easesIn: true, offStuck: true, onClimbed: true, glide: true, settled: true })
+  expect(r).toEqual({ awayClick: false, lookClick: true, kartClimbed: 1, easesIn: true, offStuck: true, onClimbed: true, glide: true, settled: true, sameSpeed: true, landDip: true })
 })
 
 // 2026-10-26: grass 100 blocks out (since 2026-10-30: as far as the land

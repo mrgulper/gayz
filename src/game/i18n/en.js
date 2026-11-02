@@ -2482,6 +2482,8 @@ export default {
   teamBattleBack: "Back",
   autoJumpLabel: "Auto Jump",
   autoJumpInfoText: "On: walking into a 1-block step jumps up it for you, no {key:jump} needed. Taller walls still stop you.",
+  viewBobbingLabel: "View Bobbing",
+  viewBobbingInfoText: "On: the view gently bobs and sways while you walk and dips when you land. Off: the camera stays perfectly still.",
   battleViewLabel: "Team Battle View",
   battleViewInfoText: "How team battles are shown: 3D (the arena at an angle) or 2D (seen from straight above). The battle's own button switches it too.",
   optBattleView3d: "3D",

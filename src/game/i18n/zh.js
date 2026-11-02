@@ -2430,6 +2430,8 @@ export default {
   teamBattleBack: "返回",
   autoJumpLabel: "自动跳跃",
   autoJumpInfoText: "开启：走向一格高的台阶时会自动跳上去，不用按 {key:jump}。更高的墙仍会挡住你。",
+  viewBobbingLabel: "视角晃动",
+  viewBobbingInfoText: "开启：走路时视角会轻轻上下起伏、左右摇摆，落地时会微微下沉。关闭：镜头保持完全平稳。",
   battleViewLabel: "团队战斗视角",
   battleViewInfoText: "团队战斗的显示方式：3D（斜看竞技场）或 2D（从正上方看）。战斗中的按钮也能切换。",
   optBattleView3d: "3D",

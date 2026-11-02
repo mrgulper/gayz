@@ -4456,6 +4456,18 @@ export class BuildMode {
     if (groundMesh) groundMesh.computeBoundingSphere()
   }
 
+  // How much of its usual time per frame growing and building new land
+  // may take (0.35..1). A slow device (frameMs from Game's fps readout)
+  // gets smaller slices, so walking into new land stutters less - it just
+  // fills in a little later (2026-11-01, Gaymi: "less lag for weaker
+  // devices"). Potato never takes more than 60%.
+  workShare() {
+    const ms = this.frameMs || 0
+    let share = ms > 18 ? Math.max(0.35, 18 / ms) : 1
+    if (this.game?.settings?.graphicsLevel === 'potato') share = Math.min(share, 0.6)
+    return share
+  }
+
   // Grows the open world around you (or the flying camera) and every
   // other player on a server (OpenWorld.js).
   _updateWorld() {
@@ -4465,7 +4477,7 @@ export class BuildMode {
     if (net && !net.closed) for (const p of net.targets()) points.push(p)
     // A bug in the land must never stop the game's frame loop.
     try {
-      this.world.update(points)
+      this.world.update(points, this.workShare())
     } catch (err) {
       if (!this._worldError) console.error('Open world:', err)
       this._worldError = true
@@ -4681,7 +4693,7 @@ export class BuildMode {
     // Chunk meshes are rebuilt here, once per frame, however many blocks
     // changed since the last one (a paste or a load touches thousands).
     const focus = this.tryMode.active ? this.tryMode.pos : { x: this.camera.position.x / BLOCK_SIZE, z: this.camera.position.z / BLOCK_SIZE }
-    if (this._chunks.flush(this._chunkCells, focus)) this._shadowsDirty = true
+    if (this._chunks.flush(this._chunkCells, focus, this.workShare())) this._shadowsDirty = true
     this.tools.update()
     if (this._invisShadowDirty) this._rebuildInvisibleShadows()
     if (this._invisShadowMesh) this._invisShadowMesh.visible = !this.renderer.shadowMap.enabled

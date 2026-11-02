@@ -808,8 +808,9 @@ export class OpenWorld {
   }
 
   // Grows the columns nearest the given points (blocks) and drops far
-  // ones. Called every frame while the map is open.
-  update(points) {
+  // ones. Called every frame while the map is open. share (0..1) shrinks
+  // the time slice on a slow device (BuildMode.workShare).
+  update(points, share = 1) {
     if (!this.active || !points.length) return
     const r = this.radius()
     const rc = Math.ceil(r / CHUNK)
@@ -820,7 +821,7 @@ export class OpenWorld {
       const pcz = Math.floor(p.z / CHUNK)
       for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) this._ensure(pcx + dx, pcz + dz)
     }
-    const until = performance.now() + GEN_BUDGET_MS
+    const until = performance.now() + GEN_BUDGET_MS * share
     // Plan one place ahead per frame (a castle takes a few milliseconds),
     // so the columns that need it later don't wait on it.
     if (!FLAT) this._prefetchPlan(points, r + STRUCT_GRID)
