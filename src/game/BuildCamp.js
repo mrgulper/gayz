@@ -15,6 +15,7 @@
 // - Coins come from kills (COIN_PER_KILL) and cleared waves
 //   (COIN_PER_WAVE), and only last for that game of Play.
 // - A Trophy Room against one wall (CampTrophies.js, 2026-11-01).
+// - Now and then a siege makes it unsafe for a while (CampSiege.js).
 import * as THREE from 'three'
 import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { t } from './i18n.js'

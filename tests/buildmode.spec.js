@@ -2870,7 +2870,11 @@ for (const [mode, button] of [['classic', 'game-mode-classic'], ['zombieDefense'
       // draws few frames, so the ~6s break can take ~16s of real time).
       const t0 = performance.now()
       await new Promise((done) => {
-        const check = () => (s.wave >= 2 || performance.now() - t0 > 30000 ? done() : setTimeout(check, 100))
+        const check = () => {
+          // A cleared wave offers perk cards and waits for a pick (RunPerks.js).
+          if (s.perks?.open) s.perks.pick(s.perks.offer[0])
+          return s.wave >= 2 || performance.now() - t0 > 30000 ? done() : setTimeout(check, 100)
+        }
         check()
       })
       out.wave2 = s.wave
@@ -5486,4 +5490,107 @@ test('Dungeons: rooms underground, a way in, and the Boss Room', async ({ page }
     return out
   })
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})
+
+// 2026-11-02: run perks (RunPerks.js), escort missions (EscortMission.js),
+// camp sieges (CampSiege.js) and Tower Defense mode (TowerDefense.js).
+test('run perks, an escort mission and a camp siege in Zombie Survival', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => { const g = window.__game; g.settings.guestMode = false; g.settings.selectedGameMode = 'classic'; g.playBtn.click() })
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  const r = await page.evaluate(async () => {
+    const s = window.__game.buildMode.survival
+    s.health = s.maxHealth = 1e6
+    s._breakTimer = 9999
+    const out = {}
+    // A cleared wave: three cards, the break waits, "2" picks the middle one.
+    s.wave = 1
+    s._toSpawn = 0
+    s._breakTimer = 0
+    for (const z of [...s.zombies]) s.damageZombie(z, 1e6)
+    s._updateWorld(0.01)
+    s._updateWorld(0.01)
+    out.cards = document.querySelectorAll('#play-perk-pick .perk-card').length
+    const wait = s._breakTimer
+    s._updateWorld(1)
+    out.waits = s._breakTimer === wait
+    const middle = s.perks.offer[1]
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit2', bubbles: true }))
+    out.picked = s.perks.n(middle) === 1 && !s.perks.open
+    s.perks.offer = ['hardHitter']
+    const dmg = s._damageMult()
+    s.perks.pick('hardHitter')
+    out.harder = +(s._damageMult() / dmg).toFixed(2)
+    // An escort: someone to walk to an exit, that zombies go for.
+    s._breakTimer = 9999
+    out.escort = s.events.start('escort')
+    const run = s.events._run
+    out.path = run?.escort.path.length >= 20
+    const zb = s._extraZombie(run.escort.x + 3, run.escort.y, run.escort.z)
+    out.chases = !!run.target(zb)?.hurt
+    run.hurt(1e6)
+    out.lost = run.escort.over === 'lost'
+    // A siege (only with the camp): the camp isn't safe until it's over.
+    if (s.camp) {
+      s.wave = 5
+      out.siege = s.siege.start()
+      const c = s.siege.center()
+      out.unsafe = !s._campSafe(c.x, c.z)
+      for (let i = 0; i < 80 && s.siege.toSend > 0; i++) s.siege.update(0.5)
+      for (const z of [...s.siege.zombies]) s.damageZombie(z, 1e6)
+      s.siege.update(0.1)
+      out.held = !s.siege.active && s.stats.sieges === 1 && s._campSafe(c.x, c.z)
+    }
+    return out
+  })
+  expect(r).toEqual({ cards: 3, waits: true, picked: true, harder: 1.2, escort: true, path: true, chases: true, lost: true, ...(r.siege !== undefined ? { siege: true, unsafe: true, held: true } : {}) })
+})
+
+test('Tower Defense: its own map, zombies walk the path, towers, lives and the win', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => { const g = window.__game; g.settings.guestMode = false; g.settings.selectedGameMode = 'towerDefense'; g.playBtn.click() })
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  const r = await page.evaluate(async () => {
+    const s = window.__game.buildMode.survival
+    const bm = s.bm
+    const td = s.td
+    const out = { mode: s.cfg.mode, coins: s.coins, tab: s.shop.tab }
+    out.map = bm.getBlockAt(0, 200, 3) === 'grass' && bm.getBlockAt(0, 200, 0) === 'dirtpath'
+    out.noBuildPath = td.protects(0, 201, 0) && !td.protects(0, 201, 3)
+    // Saving mid-game never keeps the map.
+    bm.save()
+    const edits = JSON.parse(localStorage.getItem('buildmode-map3-v8-edits') || '{"placed":[]}').placed
+    out.notSaved = !edits.some((b) => b.y === 200 && b.x === 0 && b.z === 3)
+    // A tower from the shop.
+    s.shop._act('trap', 'autoturret')
+    out.bought = s.coins === out.coins - 60
+    // A zombie at the base costs a life and counts toward the wave.
+    s._startWave(1)
+    s._spawnZombie()
+    const zb = s.zombies[0]
+    out.atPortal = Math.abs(zb.x - (td.ox - 16 + 0.5)) < 0.01
+    zb.tdAt = 9
+    zb.x = td.ox + 16.5
+    zb.z = td.oz + 14.5
+    const left = s._toSpawn
+    s._updateWorld(0.01)
+    out.lives = td.lives
+    out.counted = s._toSpawn === left - 1
+    out.hud = /Lives: 19\/20/.test(document.getElementById('build-play-wave-text').textContent)
+    // The last wave held wins.
+    for (const z of [...s.zombies]) { z.lost = true; z.health = 0 }
+    s._updateWorld(0.01)
+    s.wave = 15
+    s._toSpawn = 0
+    s._breakTimer = 0
+    s._updateWorld(0.01)
+    out.won = !!s._won
+    out.title = document.getElementById('build-play-over-title').textContent
+    s.stop()
+    out.gone = bm.getBlockAt(0, 200, 3) === null
+    return out
+  })
+  expect(r).toEqual({ mode: 'towerDefense', coins: 200, tab: 'towers', map: true, noBuildPath: true, notSaved: true, bought: true, atPortal: true, lives: 19, counted: true, hud: true, won: true, title: 'Base Defended!', gone: true })
 })

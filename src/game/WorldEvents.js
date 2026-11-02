@@ -20,6 +20,7 @@
 //   of the crater.
 // - survivor: someone stuck on a rooftop to rescue (Survivors.js).
 // - golden: a Golden Runner to chase down for coins (GoldenRunner.js).
+// - escort: walk a survivor or a bus to an exit (EscortMission.js).
 //
 // On a server the others see the zombies (mutants too, zombieSnapshot
 // `mu`) but not the plane, crate or meteor - those are the host's, like
@@ -28,11 +29,12 @@ import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
 import { goldenRunner } from './GoldenRunner.js'
+import { escortMission } from './EscortMission.js'
 
 const EVENT_FROM_WAVE = 2
 const EVENT_FIRST = 90
 const EVENT_GAP = [150, 240]
-const KINDS = ['supply', 'horde', 'meteor', 'survivor', 'golden']
+const KINDS = ['supply', 'horde', 'meteor', 'survivor', 'golden', 'escort']
 const PLANE_HEIGHT = 32
 const PLANE_SPEED = 14
 const DROP_NEAR = 14
@@ -112,6 +114,7 @@ export class WorldEvents {
     else if (kind === 'meteor') this._run = this._meteor(me)
     else if (kind === 'survivor') this._run = this.s.survivors?.spawn(me) ? { update: () => this.s.survivors.busy } : null
     else if (kind === 'golden') this._run = goldenRunner(this.s, me)
+    else if (kind === 'escort') this._run = escortMission(this.s, me)
     return !!this._run
   }
 
@@ -270,6 +273,9 @@ export class WorldEvents {
   // Where a migrating zombie heads (BuildSurvival._updateWorld) - null once
   // it's after you.
   target(zb, player) {
+    // An escort mission: zombies near it go for it (EscortMission.js).
+    const e = this._run?.target?.(zb)
+    if (e) return e
     const m = zb.migrate
     if (!m) return null
     const near = player && !player.idle && Math.hypot(player.x - zb.x, player.z - zb.z) < HORDE_NOTICE

@@ -699,40 +699,40 @@ html.ui-theme-clean :is(#build-try-map-hint, #build-try-biome, #build-try-map-cl
 }
 
 /* Choose Your Weapon (start of a run). */
-html.ui-theme-clean #play-weapon-pick {
+html.ui-theme-clean :is(#play-weapon-pick, #play-perk-pick) {
   background: rgba(0, 0, 0, 0.35);
 }
-html.ui-theme-clean #play-weapon-pick .pwp-card-box {
+html.ui-theme-clean :is(#play-weapon-pick, #play-perk-pick) .pwp-card-box {
   color: var(--clean-fg);
   background: var(--clean-bg);
   border: 1px solid var(--clean-line);
   border-radius: 20px;
   font-family: var(--clean-font);
 }
-html.ui-theme-clean #play-weapon-pick h2 {
+html.ui-theme-clean :is(#play-weapon-pick, #play-perk-pick) h2 {
   font-family: var(--clean-font);
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--clean-fg);
 }
-html.ui-theme-clean #play-weapon-pick .pwp-weapon {
+html.ui-theme-clean :is(#play-weapon-pick, #play-perk-pick) .pwp-weapon {
   color: var(--clean-fg);
   background: var(--clean-surface);
   border-color: transparent;
   border-radius: 14px;
 }
-html.ui-theme-clean #play-weapon-pick .pwp-weapon:hover,
-html.ui-theme-clean #play-weapon-pick .pwp-weapon.active {
+html.ui-theme-clean :is(#play-weapon-pick, #play-perk-pick) .pwp-weapon:hover,
+html.ui-theme-clean :is(#play-weapon-pick, #play-perk-pick) .pwp-weapon.active {
   border-color: var(--clean-fg);
   box-shadow: none;
 }
-html.ui-theme-clean #play-weapon-pick .pwp-soon:hover {
+html.ui-theme-clean :is(#play-weapon-pick, #play-perk-pick) .pwp-soon:hover {
   border-color: transparent;
 }
-html.ui-theme-clean #play-weapon-pick .pwp-bar-track {
+html.ui-theme-clean :is(#play-weapon-pick, #play-perk-pick) .pwp-bar-track {
   background: var(--clean-line);
 }
-html.ui-theme-clean #play-weapon-pick .pwp-bar-track span {
+html.ui-theme-clean :is(#play-weapon-pick, #play-perk-pick) .pwp-bar-track span {
   background: var(--clean-fg);
 }
 

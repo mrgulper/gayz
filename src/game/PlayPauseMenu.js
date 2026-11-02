@@ -266,7 +266,7 @@ export class PlayPauseMenu {
     const s = this.bm.survival
     const ok = s.saveRun()
     const el = document.getElementById('play-pause-status')
-    if (el) el.textContent = t(ok ? 'playPauseSaved' : 'playPauseSaveFailed', { n: Math.max(1, s.wave) })
+    if (el) el.textContent = t(ok ? 'playPauseSaved' : s.td ? 'tdNoSave' : 'playPauseSaveFailed', { n: Math.max(1, s.wave) })
     return ok
   }
 

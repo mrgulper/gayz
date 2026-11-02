@@ -17,6 +17,7 @@ const MODE_KEYS = {
   infection: 'topBarModeInfection',
   shrinkingZone: 'topBarModeShrinkingZone',
   speedrun: 'topBarModeSpeedrun',
+  towerDefense: 'topBarModeTowerDefense',
   hideSeek: 'topBarModeHideSeek',
   captureFlag: 'topBarModeCaptureFlag',
   kingHill: 'topBarModeKingHill',

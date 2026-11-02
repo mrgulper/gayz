@@ -81,7 +81,8 @@ export class PlayNet {
     this.world = info.world || null
     this.isHost = info.host === info.playerId
     // The server's mode: 'main' (Zombie Survival), 'infection', 'zone' or
-    // a party mode ('hide', 'ctf', 'koth', 'soccer' - PartyModes.js).
+    // a party mode ('hide', 'ctf', 'koth', 'soccer' - PartyModes.js) or
+    // 'td' (Tower Defense, TowerDefense.js).
     this.mode = info.mode || 'main'
     this.wave = 0
     this.players = new Map()
@@ -265,6 +266,8 @@ export class PlayNet {
       if (s.party) body.party = s.party.snapshot()
       const zone = s.zone?.snapshot()
       if (zone) body.zone = zone
+      const td = s.td?.snapshot()
+      if (td) body.td = td
     } else {
       body.hits = this._hits.splice(0)
     }
@@ -361,6 +364,7 @@ export class PlayNet {
       if (res.inf) s.infection?.applySnapshot(res.inf)
       if (res.party) s.party?.applySnapshot(res.party)
       if (res.zone) s.zone?.applySnapshot(res.zone)
+      if (res.td) s.td?.applySnapshot(res.td)
     }
     for (const amount of res.hurt || []) s._hurtPlayer(amount)
     for (const c of res.credits || []) {

@@ -77,8 +77,11 @@ import { openLobby } from './ServerBrowser.js'
 import { PlayOnboarding, isFirstGame } from './PlayOnboarding.js'
 import { GooDisguise } from './GooDisguise.js'
 import { CampFarm } from './CampFarm.js'
+import { CampSiege } from './CampSiege.js'
+import { TowerDefense, TD_WAVES, START_COINS as TD_START_COINS, FIRST_BREAK as TD_FIRST_BREAK, BREAK as TD_BREAK } from './TowerDefense.js'
 import { HeliFuel } from './HeliFuel.js'
 import { GOO_CHANCE } from './PlayCrafting.js'
+import { RunPerks, perksFor } from './RunPerks.js'
 import { nextUnlock, nextUnlockText, newlyUnlocked, cosmeticName, COSMETICS, makeCape, isUnlocked, needText } from './Cosmetics.js'
 
 export const CHEST_LOOT = { ammo: 60, health: 35 }
@@ -344,7 +347,7 @@ export class BuildSurvival {
       // A server plays its own mode: Zombie Survival, Infection or
       // Shrinking Zone.
       const party = PARTY_MODES.find((m) => PARTY_SERVER_MODES[m] === net.mode)
-      this.cfg.mode = net.mode === 'infection' ? 'infection' : net.mode === 'zone' ? 'shrinkingZone' : party || 'classic'
+      this.cfg.mode = net.mode === 'infection' ? 'infection' : net.mode === 'zone' ? 'shrinkingZone' : net.mode === 'td' ? 'towerDefense' : party || 'classic'
       this.cfg.noZombies = this.cfg.mode === 'infection' || !!party
     }
     this._zid = 0
@@ -363,7 +366,7 @@ export class BuildSurvival {
     // A new player's first game (PlayOnboarding.js): no weapon picker,
     // start at the camp gate, a zombie close by straight away.
     if (!this.onboard) this.onboard = new PlayOnboarding(this)
-    if (fromMenu && !net && isFirstGame(bm.game) && !BuildSurvival.savedRun() && this.cfg.mode !== 'worldMap' && this.cfg.mode !== 'infection' && !PARTY_MODES.includes(this.cfg.mode)) {
+    if (fromMenu && !net && isFirstGame(bm.game) && !BuildSurvival.savedRun() && this.cfg.mode !== 'worldMap' && this.cfg.mode !== 'infection' && this.cfg.mode !== 'towerDefense' && !PARTY_MODES.includes(this.cfg.mode)) {
       this.onboard.begin(bm.activeSlot === 'map3' ? bm._map3Base().map.safeZone : null)
     } else this.onboard.end()
     this.active = true
@@ -384,6 +387,8 @@ export class BuildSurvival {
     this._startedAt = performance.now()
     this._hurtAt = 0
     this._coinsEarned = 0
+    // XP on top, for escort missions and camp sieges won (Xp.js bonusXp).
+    this._bonusXp = 0
     bm.tryMode.speedMult = this.cfg.moveMult
     // Infection mode (Infection.js): rounds of tag instead of waves.
     this.infection?.dispose()
@@ -412,6 +417,10 @@ export class BuildSurvival {
     this._invRestored = false
     this.holding = null
     this._placed = new Map()
+    // Tower Defense (TowerDefense.js): its own map, put in now.
+    this.td?.dispose()
+    this.td = this.cfg.mode === 'towerDefense' ? new TowerDefense(this) : null
+    if (this.td) this.coins = Math.max(this.coins, TD_START_COINS)
     if (!this._drops) this._drops = new PlayDrops(this)
     this._drops.clear()
     // Day and night, and the weather, in games from the homepage.
@@ -482,6 +491,9 @@ export class BuildSurvival {
     // The Shop (B, PlayShop.js): fresh quests every game.
     if (!this.shop) this.shop = new PlayShop(this)
     this.shop.reset()
+    // Run perks between waves (RunPerks.js).
+    if (!this.perks) this.perks = new RunPerks(this)
+    this.perks.reset(perksFor(this.cfg))
     // Fishing, Zombie Radios and spray tags (2026-11-01).
     if (!this.fishing) this.fishing = new Fishing(this)
     this.fishing.clear()
@@ -497,7 +509,7 @@ export class BuildSurvival {
     this.kills = 0
     this._toSpawn = 0
     this._spawnTimer = 0
-    this._breakTimer = 2
+    this._breakTimer = this.td ? TD_FIRST_BREAK : 2
     this._reloadLeft = 0
     this._chestsUsed = new Set()
     this._flow = new Map()
@@ -515,6 +527,9 @@ export class BuildSurvival {
     else this.farm.stop()
     // The people who live in your camp stand guard there (Survivors.js).
     this.survivors.start()
+    // Now and then a horde attacks the camp (CampSiege.js).
+    if (!this.siege) this.siege = new CampSiege(this)
+    this.siege.clear()
     this._ensureHud()
     this._hud.style.display = 'block'
     this._overEl.style.display = 'none'
@@ -590,6 +605,8 @@ export class BuildSurvival {
     this.party = null
     this.zone?.dispose()
     this.zone = null
+    this.td?.dispose()
+    this.td = null
     this.net?.leave()
     this.net = null
     this.lobby?.leave()
@@ -599,6 +616,7 @@ export class BuildSurvival {
     if (this._ownBubble) disposeBubble(this._ownBubble.sprite)
     this._ownBubble = null
     this.bm.tryMode.speedMult = 1
+    this.siege?.clear()
     this.camp?.dispose()
     this.camp = null
     this.farm?.stop()
@@ -624,6 +642,7 @@ export class BuildSurvival {
     this.signs?.clear()
     this.emotes?.clear()
     this.shop?.closePanel(false)
+    this.perks?.clear()
     this.fishing?.clear()
     this.radios?.clear()
     this.snowballs?.clear()
@@ -700,11 +719,11 @@ export class BuildSurvival {
   magSize() {
     const base = this.weapon.mag
     if (!Number.isFinite(base)) return Infinity
-    return base + Math.max(1, Math.round(base / 3)) * (this.upgrades?.mag || 0)
+    return Math.round((base + Math.max(1, Math.round(base / 3)) * (this.upgrades?.mag || 0)) * (this.perks?.magMult() ?? 1))
   }
 
   _reloadTime() {
-    return this.weapon.reload * (1 - 0.2 * (this.upgrades?.reload || 0)) * (this.cfg?.reloadMult ?? 1)
+    return this.weapon.reload * (1 - 0.2 * (this.upgrades?.reload || 0)) * (this.cfg?.reloadMult ?? 1) * (this.perks?.reloadMult() ?? 1)
   }
 
   // --- the spawn map (homepage solo games) ---
@@ -880,7 +899,8 @@ export class BuildSurvival {
   // homepage carries on from there (the wave you were on starts again).
   // Never on a server. Counted (stats, quests) once, when the run ends. ---
   saveRun() {
-    if (!this.active || !this.fromMenu || this.net || this.dead) return false
+    // (Not Tower Defense: its towers go when the game stops.)
+    if (!this.active || !this.fromMenu || this.net || this.dead || this.td) return false
     const tm = this.bm.tryMode
     const run = {
       v: 1,
@@ -904,6 +924,7 @@ export class BuildSurvival {
       inv: this.inv?.serialize(),
       seconds: (performance.now() - this._startedAt) / 1000,
       claimed: (this.shop?.quests || []).filter((q) => q.claimed).map((q) => q.id),
+      perks: this.perks?.serialize() || {},
       pos: { x: tm.pos.x, y: tm.pos.y, z: tm.pos.z },
       yaw: this.bm._yaw,
       seed: this.bm.world?.active ? worldSeed() : null,
@@ -951,6 +972,7 @@ export class BuildSurvival {
       }])),
       seconds: num(d.seconds, 0, 1e7),
       claimed: Array.isArray(d.claimed) ? d.claimed.filter((id) => typeof id === 'string').slice(0, 50) : [],
+      perks: ints(d.perks),
       pos,
       yaw: num(d.yaw, -1e3, 1e3, 0),
       seed: Number.isFinite(d.seed) ? d.seed : null,
@@ -979,6 +1001,7 @@ export class BuildSurvival {
     this.coins = r.coins
     this._coinsEarned = r.coinsEarned
     this.upgrades = r.upgrades
+    this.perks?.restore(r.perks)
     this.stats = { ...this.stats, ...r.stats }
     this.bestStreak = r.bestStreak
     this.bosses = r.bosses
@@ -998,13 +1021,13 @@ export class BuildSurvival {
 
   _damageMult() {
     // x a Strength Totem's boost (BuildSpecials.js).
-    return (1 + 0.25 * (this.upgrades?.damage || 0)) * (this.cfg?.damageMult ?? 1) * this.bm.specials.damageMult()
+    return (1 + 0.25 * (this.upgrades?.damage || 0)) * (this.cfg?.damageMult ?? 1) * this.bm.specials.damageMult() * (this.perks?.damageMult() ?? 1)
   }
 
   // Coins come in through here, so Loot Rush doubles them all (and so
   // does a Blood Moon).
   _earn(n) {
-    const got = Math.round(n * (this.cfg?.coinMult ?? 1) * (this.bloodMoon?.mult ?? 1))
+    const got = Math.round(n * (this.cfg?.coinMult ?? 1) * (this.bloodMoon?.mult ?? 1) * (this.perks?.coinMult() ?? 1))
     this.coins += got
     this._coinsEarned += got
   }
@@ -1126,7 +1149,7 @@ export class BuildSurvival {
       const s = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
       set('build-play-wave-text', this.infection ? this.infection.hudText() : this.party ? this.party.hudText() : `${t('topBarModeWorldMap')} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}`)
     }
-    const waveText = mode === 'zombieDefense' || this.speedrun ? t('buildPlayWaveOf', { n: Math.max(1, this.wave), max: this.speedrun ? SPEEDRUN_WAVES : DEFENSE_WAVES }) : t('buildPlayWave', { n: Math.max(1, this.wave) })
+    const waveText = mode === 'zombieDefense' || this.speedrun || this.td ? t('buildPlayWaveOf', { n: Math.max(1, this.wave), max: this.speedrun ? SPEEDRUN_WAVES : this.td ? TD_WAVES : DEFENSE_WAVES }) : t('buildPlayWave', { n: Math.max(1, this.wave) })
     const secs = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
     const timeText = mode === 'zombieRush' ? ` · ${t('buildPlayTime', { t: `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` })}` : ''
     let extractText = ''
@@ -1141,11 +1164,12 @@ export class BuildSurvival {
       else extractText = ` · ${t('extractionDistance', { n: Math.round(ex.dist ?? 0) })}`
     }
     if (this.zone) extractText = ` · ${this.zone.hudText()}`
+    if (this.td) extractText = ` · ${this.td.hudText()}`
     const serverText = this.net && !this.net.closed ? ` · ${t('serverHudLine', { name: this.net.name, n: this.net.players.size + 1 })}` : ''
     // Between waves: when the next one comes, not "0 left" (that read as
     // a wave over with nothing killed).
     const leftText = alive === 0 && this._breakTimer > 0 ? t('buildPlayNextWaveIn', { n: Math.ceil(this._breakTimer) }) : t('buildPlayZombiesLeft', { n: alive })
-    if (!this.cfg?.noZombies) set('build-play-wave-text', `${waveText} · ${leftText} · ${t('buildPlayKills', { n: this.kills })}${this.camp ? ` · ${t('campCoins', { n: this.coins })}` : ''}${timeText}${extractText}${serverText}`)
+    if (!this.cfg?.noZombies) set('build-play-wave-text', `${waveText} · ${leftText} · ${t('buildPlayKills', { n: this.kills })}${this.camp || this.td ? ` · ${t('campCoins', { n: this.coins })}` : ''}${timeText}${extractText}${serverText}`)
     const fill = document.getElementById('build-play-health-fill')
     if (fill) fill.style.width = `${Math.max(0, Math.min(100, (this.health / (this.maxHealth || 100)) * 100))}%`
     set('build-play-health-text', `${Math.max(0, Math.ceil(this.health))}${this.armor > 0 ? ` + ${Math.ceil(this.armor)}` : ''}`)
@@ -1340,6 +1364,11 @@ export class BuildSurvival {
     let killed = false
     let boss = false
     let biggest = 0
+    // Run perks: a lucky x3, and Bounce passing hits on (RunPerks.js).
+    if (this.perks) {
+      for (const [z, amount] of hits) hits.set(z, this.perks.shotDamage(amount))
+      for (const [z, amount] of this.perks.bounces(hits)) hits.set(z, amount)
+    }
     for (const [z, amount] of hits) {
       if (!this.zombies.includes(z)) continue
       // Flamethrower sets them on fire; Void Ripper slows them.
@@ -1610,6 +1639,7 @@ export class BuildSurvival {
       this.damageNumbers?.coinsAt(z, this._coinsEarned - coins, ZOMBIE_HEIGHT)
     }
     this.bm.specials.onKill(z)
+    if (!by && !sunOnly) this.perks?.onKillAt(z)
     if (!sunOnly) this._creditAssists(z, by || '')
     // A bloater bursts instead of falling over.
     if (MONSTER_KINDS[z.kind]?.burst) this._burst(z)
@@ -1677,6 +1707,7 @@ export class BuildSurvival {
   _countKill(boss, skeleton = null, tier = 'common', shine = null) {
     this.kills++
     this.stats.kills++
+    this.perks?.onKill()
     // A rescued survivor's quest counts it (Survivors.js).
     this.survivors?.onKill()
     if (skeleton) this.stats.skeletonKills = (this.stats.skeletonKills || 0) + 1
@@ -1807,6 +1838,11 @@ export class BuildSurvival {
     if (!hit?.placeAt || hit.t > PLACE_REACH * this.B) return false
     const [x, y, z] = hit.placeAt
     if (bm.getBlockAt(x, y, z)) return false
+    // Tower Defense: not on the zombies' path.
+    if (this.td?.protects(x, y, z)) {
+      this._message(t('tdNoBuildPath'), 2)
+      return false
+    }
     // Not inside you or a zombie.
     const p = bm.tryMode.pos
     const inBox = (bx, by, bz) => Math.floor(bx) === x && Math.floor(bz) === z && y >= Math.floor(by) && y <= Math.floor(by + 1.7)
@@ -1977,6 +2013,8 @@ export class BuildSurvival {
   // --- zombies ---
 
   _spawnSpots() {
+    // Tower Defense: out of the portal at the start of the path.
+    if (this.td) return this.td.spawnSpots()
     const spots = []
     const players = [this.bodyPos(), ...(this.net && !this.net.closed ? this.net.targets() : [])]
     for (const [x, y, z] of this._findBlocks('zombiespawner')) {
@@ -2047,7 +2085,7 @@ export class BuildSurvival {
   // then rolling (or driven).
   _updateKart(dt) {
     if (!this.kart) return
-    if (!this._kartParked && !this.spectating) this._kartParked = this.kart.park(this.bm.tryMode.pos)
+    if (!this._kartParked && !this.spectating && !this.td) this._kartParked = this.kart.park(this.bm.tryMode.pos)
     this.kart.update(dt)
     this.vehicles?.update(dt)
   }
@@ -2510,6 +2548,7 @@ export class BuildSurvival {
   }
 
   _removeZombie(z) {
+    if (z.siege) this.siege?.onKilled(z)
     // A dead skeleton's body is still lying there (_skeletonCorpse).
     if (z.corpseTaken) return
     this.bm.scene.remove(z.group)
@@ -2535,9 +2574,14 @@ export class BuildSurvival {
     })
   }
 
+  // Inside the camp and safe there (not during a siege, CampSiege.js).
+  _campSafe(x, z, margin = 0) {
+    return !!this.camp && !this.camp.siege && this.camp.inside(x, z, margin)
+  }
+
   _zombieHits(x, y, z) {
-    // The camp counts as a wall to zombies.
-    if (this.camp?.inside(x, z, ZOMBIE_HALF + 0.05)) return true
+    // The camp counts as a wall to zombies (not in a siege, CampSiege.js).
+    if (this._campSafe(x, z, ZOMBIE_HALF + 0.05)) return true
     return this.bm.tryMode._hits(x, y, z, ZOMBIE_FIT_HEIGHT, true)
   }
 
@@ -2722,19 +2766,22 @@ export class BuildSurvival {
     zb.attackCd -= dt
     const px = player.x - zb.x
     const pz = player.z - zb.z
-    if (!player.idle && !(zb.frozen > 0) && Math.hypot(px, pz) < ATTACK_RANGE && Math.abs(player.y - zb.y) < 1.5 && zb.attackCd <= 0) {
+    if (!player.idle && !(zb.frozen > 0) && Math.hypot(px, pz) < (player.reach || ATTACK_RANGE) && Math.abs(player.y - zb.y) < 1.5 && zb.attackCd <= 0) {
       zb.attackCd = ATTACK_COOLDOWN
       const bite = zombieDamage(this.wave) * this.cfg.zombieDamageMult * (zb.boss ? BOSS_DAMAGE_MULT : 1) * (zb.damageMult || 1)
       if (zb.skel) zb.attackAnim = zb.skel.play('attack', { once: true, fade: 0.08, timeScale: 1.4 })
       // Another player on the server: the bite travels to them (nothing
       // reaches anyone inside the camp).
-      if (player.remote) {
-        if (!this.camp?.inside(player.x, player.z)) this.net?.queueHurt(player.remote, bite)
+      // An escort mission's survivor or bus (EscortMission.js).
+      if (player.hurt) player.hurt(bite)
+      else if (player.remote) {
+        if (!this._campSafe(player.x, player.z)) this.net?.queueHurt(player.remote, bite)
       } else {
         this._lastBiter = { nameIdx: zb.nameIdx, at: performance.now() }
         this._hurtPlayer(bite)
         // A Mirror Block nearby bounces some of it back (BuildSpecials.js).
         this.bm.specials.onBitten(zb, bite)
+        this.perks?.onBitten(zb)
       }
     }
 
@@ -2801,8 +2848,8 @@ export class BuildSurvival {
     // Worn armor (the inventory's armor slots) takes its share first.
     amount *= 1 - (this.inv?.damageCut() || 0)
     const p = this.bm.tryMode.pos
-    // Nothing reaches you inside the camp.
-    if (this.camp?.inside(p.x, p.z)) return
+    // Nothing reaches you inside the camp (except in a siege).
+    if (this._campSafe(p.x, p.z)) return
     this.streak = 0
     this._hurtAt = performance.now()
     // Armor (from the camp's Trader) takes the hit first.
@@ -2846,6 +2893,7 @@ export class BuildSurvival {
       difficulty: this.cfg.difficulty || 'normal',
       seconds: (performance.now() - this._startedAt) / 1000,
       coins: this._coinsEarned,
+      bonusXp: this._bonusXp || 0,
     })
   }
 
@@ -2931,9 +2979,11 @@ export class BuildSurvival {
     }
     const extracted = won && this.cfg.mode === 'zombieExtraction'
     const zoned = won && this.cfg.mode === 'shrinkingZone'
+    // Tower Defense: held every wave, or the base fell.
+    const td = this.td ? (won ? 'tdWin' : 'tdLost') : ''
     this._showSpeedrunResult()
-    set('build-play-over-title', t(extracted ? 'extractionWinTitle' : zoned ? 'zoneWinTitle' : won ? 'buildPlayOverWinTitle' : 'buildPlayOverTitle'))
-    set('build-play-over-text', t(extracted ? 'extractionWinText' : zoned ? 'zoneWinText' : won ? 'buildPlayOverWinText' : 'buildPlayOverText', { waves, kills: this.kills }))
+    set('build-play-over-title', t(extracted ? 'extractionWinTitle' : zoned ? 'zoneWinTitle' : td ? `${td}Title` : won ? 'buildPlayOverWinTitle' : 'buildPlayOverTitle'))
+    set('build-play-over-text', t(extracted ? 'extractionWinText' : zoned ? 'zoneWinText' : td ? `${td}Text` : won ? 'buildPlayOverWinText' : 'buildPlayOverText', { waves: td === 'tdLost' ? Math.max(1, this.wave) : waves, kills: this.kills }))
     set('build-play-over-best', `${t('buildPlayOverBest', { n: best })}${reward?.legacy ? ` · ${t('buildPlayOverLegacy', { n: reward.legacy })}` : ''}${reward?.xp ? ` · ${t('buildPlayOverXp', { n: reward.xp })}` : ''}`)
     // Dying: the run goes on from a fresh spawn or you leave, so say that
     // A silly line about who got you (DeathJokes.js) - a zombie that bit
@@ -2942,7 +2992,7 @@ export class BuildSurvival {
     const joke = won ? '' : deathJoke(biter)
     set('build-play-over-joke', joke)
     this._lastBiter = null
-    set('build-play-again-btn', t(won ? 'buildPlayAgainBtn' : 'buildPlayRespawnBtn'))
+    set('build-play-again-btn', t(won || this.td?.over ? 'buildPlayAgainBtn' : 'buildPlayRespawnBtn'))
     set('build-play-back-btn', t(!this.fromMenu ? 'buildPlayBackBtn' : won ? 'buildPlayBackMenuBtn' : 'buildPlayLeaveBtn'))
     this._showUnlock(this.fromMenu && careerBefore ? careerBefore : null, career)
     const show = () => {
@@ -3042,6 +3092,7 @@ export class BuildSurvival {
     this.tricks?.update(Math.min(dt, 0.1))
     this.damageNumbers?.update(Math.min(dt, 0.1))
     this._updateOwnBubble(Math.min(dt, 0.1))
+    this.perks?.update(Math.min(dt, 0.1))
     this.throws?.update(Math.min(dt, 0.1))
     this.snowballs?.update(Math.min(dt, 0.1))
     this.detector?.update(dt)
@@ -3062,6 +3113,7 @@ export class BuildSurvival {
     this.speedrun?.update(dt)
     this.party?.update(dt)
     this.zone?.update(dt)
+    this.td?.update(dt)
     const playing = !this.dead && !this.bm.menuOpen && !this._picking
     if (playing) this._updateMe(dt)
     if (playing && !net) this.replay?.record(dt)
@@ -3097,7 +3149,7 @@ export class BuildSurvival {
       const tp = this.bm.tryMode.pos
       let heal = 0
       if (this.cfg.regen && nowMs - this._hurtAt > REGEN_DELAY * 1000) heal += REGEN_PER_SECOND
-      if (this.camp?.inside(tp.x, tp.z)) heal += this.cfg.campHealRate
+      if (this._campSafe(tp.x, tp.z)) heal += this.cfg.campHealRate
       if (heal) {
         this.health = Math.min(this.maxHealth, this.health + heal * dt)
         this._renderHud()
@@ -3212,16 +3264,22 @@ export class BuildSurvival {
     } else if (this._toSpawn === 0) {
       if (this._breakTimer > 0) {
         const shown = Math.ceil(this._breakTimer)
-        this._breakTimer -= dt
+        // Alone, the break waits while you pick a perk card (RunPerks.js).
+        if (!(this.perks?.open && !this.net)) this._breakTimer -= dt
         if (this._breakTimer <= 0) this._startWave(this.wave + 1)
         else if (Math.ceil(this._breakTimer) !== shown) this._renderHud()
       } else {
         const rush = this.cfg.mode === 'zombieRush' || !!this.speedrun
-        this._breakTimer = rush ? RUSH_WAVE_BREAK : WAVE_BREAK
+        this._breakTimer = this.td ? TD_BREAK : rush ? RUSH_WAVE_BREAK : WAVE_BREAK
         if (this.wave > 0) {
           this._earn(COIN_PER_WAVE)
           // Zombie Defense: the last wave held is a win.
           if (this.cfg.mode === 'zombieDefense' && this.wave >= DEFENSE_WAVES) {
+            this._win()
+            return
+          }
+          // Tower Defense: the last wave held is a win too.
+          if (this.td && this.wave >= TD_WAVES) {
             this._win()
             return
           }
@@ -3232,7 +3290,8 @@ export class BuildSurvival {
             return
           }
           // Traps are bought in the Shop now (PlayShop.js), not handed out.
-          if (!rush) this._message(t('buildPlayWaveClear', { n: this.wave, s: WAVE_BREAK }), 4)
+          if (!rush) this._message(t('buildPlayWaveClear', { n: this.wave, s: Math.round(this._breakTimer) }), 4)
+          this.perks?.offerCards()
         }
       }
     }
@@ -3252,7 +3311,8 @@ export class BuildSurvival {
       this.fuel.update(dt)
     }
     if (this._extract && this._updateExtraction(dt)) return
-    this.events?.update(dt)
+    if (!this.td) this.events?.update(dt)
+    this.siege?.update(dt)
     this.bloodMoon?.update()
     this.survivors?.update(dt)
     this.disguise?.update(dt)
@@ -3275,13 +3335,14 @@ export class BuildSurvival {
       if (targets.length && best > DESPAWN_DIST * DESPAWN_DIST) {
         zb.lost = true
         zb.health = 0
-      } else this._updateZombie(zb, dt, this.bm.specials.zombieTarget(zb, target) || this.events?.target(zb, target) || target || { x: zb.x, y: zb.y, z: zb.z, idle: true }, speed)
+      } else this._updateZombie(zb, dt, this.td?.target(zb) || this.bm.specials.zombieTarget(zb, target) || this.events?.target(zb, target) || this.siege?.target(zb, target) || target || { x: zb.x, y: zb.y, z: zb.z, idle: true }, speed)
       if (zb.health <= 0 && this.zombies.includes(zb)) this.damageZombie(zb, 0)
       if (this.dead && !this.net) return
     }
   }
 
   _startWave(n) {
+    this.perks?.onWaveStart()
     this.wave = n
     this._toSpawn = Math.max(1, Math.round(waveSize(this.wave) * this.cfg.zombieCountMult * (this.bloodMoon?.mult ?? 1)))
     this._bossPending = this.cfg.bossEvery && this.wave % this.cfg.bossEvery === 0 ? 1 : 0
@@ -3289,6 +3350,7 @@ export class BuildSurvival {
     this._message(t('buildPlayWaveStart', { n: this.wave }))
     this.snowballs?.onWave(n)
     if (n === 1) this.speedrun?.start()
+    this.siege?.onWave(n)
     this._report('wave', { wave: this.wave, difficulty: this.cfg.difficulty || 'normal', mutators: this.cfg.mutators || [], mode: this.cfg.mode })
     this._renderHud()
   }
@@ -3516,11 +3578,14 @@ export class BuildSurvival {
     }
     if (wave !== this.wave) {
       // The waves I've lived through pay like my own.
-      if (wave > this.wave && this.wave > 0) {
+      const cleared = wave > this.wave && this.wave > 0
+      if (cleared) {
         this._earn(COIN_PER_WAVE)
         this._message(this._trapSupplies())
       }
       if (wave > 0) this._startWave(wave)
+      // A guest's perk cards come with the next wave (RunPerks.js).
+      if (cleared) this.perks?.offerCards()
       this._toSpawn = 0
     }
     this._renderHud()

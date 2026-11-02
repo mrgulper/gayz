@@ -10,6 +10,8 @@
 //   - Upgrades: Damage, Reload Speed and Bigger Magazine, three levels each.
 //   - Ammo: fills your gun and spare ammo for free, then needs a short
 //     rest (AMMO_FILL_COOLDOWN).
+//   - Towers (Tower Defense only, TowerDefense.js): Auto Turrets,
+//     Cannons and Catapults to put down beside the zombies' path.
 //   - Quests: up to three at a time (kill zombies, open chests, headshots,
 //     reach a wave); finished ones are claimed here for coins and the next
 //     one takes their place.
@@ -36,6 +38,12 @@ export const SHOP_TRAPS = [
   { id: 'landmine', n: 2, cost: 45 },
   { id: 'explosivebarrel', n: 3, cost: 40 },
   { id: 'baitblock', n: 1, cost: 20 },
+]
+// Tower Defense's towers (TowerDefense.js): [block, how many, coins].
+export const SHOP_TOWERS = [
+  { id: 'autoturret', n: 1, cost: 60 },
+  { id: 'cannonblock', n: 1, cost: 120 },
+  { id: 'catapult', n: 1, cost: 150 },
 ]
 export const UPGRADES = [
   { id: 'damage', costs: [120, 240, 400] },
@@ -70,6 +78,7 @@ export class PlayShop {
   // A new game: quests from the start, the ammo refill ready.
   reset() {
     this.closePanel(false)
+    this.tab = this.s.td ? 'towers' : 'items'
     this.quests = CAMP_QUESTS.map((q) => ({ ...q, claimed: false }))
     this._notified = new Set()
     this._ammoReadyAt = 0
@@ -181,17 +190,17 @@ export class PlayShop {
     set('#play-npc-title', t('shopTitle'))
     set('#play-npc-coins', t('campCoins', { n: s.coins }))
     this._panel.querySelector('#play-npc-close').setAttribute('aria-label', t('communityBuildsCloseBtn'))
-    this._panel.querySelector('#play-shop-tabs').innerHTML = SHOP_TABS.map((tab) => `<button type="button" role="tab" class="play-shop-tab${tab === id ? ' active' : ''}" data-shop-tab="${tab}" aria-selected="${tab === id}">${t(`shopTab_${tab}`)}</button>`).join('')
+    this._panel.querySelector('#play-shop-tabs').innerHTML = this.tabs().map((tab) => `<button type="button" role="tab" class="play-shop-tab${tab === id ? ' active' : ''}" data-shop-tab="${tab}" aria-selected="${tab === id}">${t(`shopTab_${tab}`)}</button>`).join('')
     const rows = []
     const row = (name, detail, btnText, act, itemId, disabled) => `<div class="play-npc-row"><div class="play-npc-info"><b>${name}</b><span>${detail}</span></div><button type="button" data-act="${act}" data-id="${itemId}" ${disabled ? 'disabled' : ''}>${btnText}</button></div>`
-    const buying = id === 'items' || id === 'traps' || id === 'upgrades'
+    const buying = id === 'items' || id === 'traps' || id === 'towers' || id === 'upgrades'
     // Iron Mode (a Game Mode mutator): no buying in the shop.
     const iron = !!s.cfg?.ironMode && buying
     if (iron) rows.push(`<p class="play-npc-empty">${t('campIronMode')}</p>`)
     // Settings > General > Low Coins Reminder: say so when nothing here is
     // affordable yet.
     if (!iron && buying && this.bm.game?.settings?.lowCurrencyReminder !== false) {
-      const costs = id === 'items' ? SHOP_ITEMS.map((item) => this._price(item)) : id === 'traps' ? SHOP_TRAPS.map((trap) => this._price(trap)) : UPGRADES.map((up) => up.costs[s.upgrades[up.id] || 0]).filter((c) => c !== undefined)
+      const costs = id === 'items' ? SHOP_ITEMS.map((item) => this._price(item)) : id === 'traps' || id === 'towers' ? (id === 'traps' ? SHOP_TRAPS : SHOP_TOWERS).map((trap) => this._price(trap)) : UPGRADES.map((up) => up.costs[s.upgrades[up.id] || 0]).filter((c) => c !== undefined)
       if (costs.length && s.coins < Math.min(...costs)) rows.push(`<p class="play-npc-empty">${t('campLowCoins', { n: s.coins })}</p>`)
     }
     if (id === 'items') {
@@ -199,8 +208,8 @@ export class PlayShop {
         const cost = this._price(item)
         rows.push(row(t(`campItem_${item.id}`), t(`campItem_${item.id}_about`, { n: item.health || item.armor || ammoFor(s.weaponId, item.ammo) }), t('campBuy', { n: cost }), 'buy', item.id, iron || s.coins < cost))
       }
-    } else if (id === 'traps') {
-      for (const trap of SHOP_TRAPS) {
+    } else if (id === 'traps' || id === 'towers') {
+      for (const trap of id === 'traps' ? SHOP_TRAPS : SHOP_TOWERS) {
         const cost = this._price(trap)
         rows.push(row(`${this.bm.blockName(trap.id)} ×${trap.n}`, t(`shopTrap_${trap.id}`), t('campBuy', { n: cost }), 'trap', trap.id, iron || s.coins < cost))
       }
@@ -225,6 +234,11 @@ export class PlayShop {
     this._panel.querySelector('#play-npc-list').innerHTML = rows.join('')
   }
 
+  // The tabs: Towers first in Tower Defense.
+  tabs() {
+    return this.s.td ? ['towers', ...SHOP_TABS] : SHOP_TABS
+  }
+
   // A price after the Trader Discount upgrade (PlayRules.js).
   _price(item) {
     return Math.round(item.cost * (1 - (this.s.cfg?.discount || 0)))
@@ -247,7 +261,7 @@ export class PlayShop {
         s._message(t('invFull'))
       }
     } else if (act === 'trap') {
-      const trap = SHOP_TRAPS.find((x) => x.id === id)
+      const trap = [...SHOP_TRAPS, ...(s.td ? SHOP_TOWERS : [])].find((x) => x.id === id)
       if (!trap || s.coins < this._price(trap)) return
       // add() hands back what didn't fit; nothing fit -> the coins back.
       const left = s.inv?.add({ kind: 'block', id: trap.id, n: trap.n }) ?? trap.n

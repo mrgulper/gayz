@@ -173,13 +173,15 @@ export class TeamBattle {
   // mine, theirs: creatures (Creatures.js). foe: who the other team is.
   // onEnd(won | null): null when left before the end. view: '3d' | '2d';
   // onView(view) when the battle's own button changes it.
-  constructor({ mine, theirs, foe, ghost, onEnd, onAgain, view = '3d', onView }) {
+  // againKey(won): the again button's text (the tournament's own).
+  constructor({ mine, theirs, foe, ghost, onEnd, onAgain, againKey, view = '3d', onView }) {
     this.mine = mine
     this.theirs = theirs
     this.foe = foe
     this.ghost = ghost
     this.onEnd = onEnd
     this.onAgain = onAgain
+    this.againKey = againKey
     this.view = view === '2d' ? '2d' : '3d'
     this.onView = onView
     this.speed = 1
@@ -736,7 +738,7 @@ export class TeamBattle {
     const box = this.root.querySelector('.tb-result')
     box.querySelector('.tb-result-title').textContent = t(won ? 'teamBattleWon' : 'teamBattleLost')
     box.querySelector('.tb-result-text').textContent = t('teamBattleReward', { n: reward })
-    box.querySelector('.tb-again').textContent = t('teamBattleAgain')
+    box.querySelector('.tb-again').textContent = t(this.againKey?.(won) || 'teamBattleAgain')
     box.querySelector('.tb-back').textContent = t('teamBattleBack')
     box.style.display = 'flex'
     if (won) audioEngine.playLevelUp?.()

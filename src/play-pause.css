@@ -1000,3 +1000,70 @@ html.ui-theme-old :is(#map-pin-menu, #pin-compass) { color: #f3e6c8; background:
 html.ui-theme-clean :is(#map-pin-menu, #pin-compass) { color: var(--clean-bg); background: var(--clean-fg); border-color: var(--clean-fg); text-shadow: none; }
 html.ui-theme-clean #map-pin-menu button { border-color: var(--clean-bg); }
 html.ui-theme-clean #map-pin-menu button.on { color: var(--clean-fg); background: var(--clean-bg); }
+
+/* Run perks (RunPerks.js, 2026-11-02): three cards between waves, in the
+   weapon picker's look (#play-perk-pick shares its rules), and the small
+   badges of the perks you have under the wave text. */
+#play-perk-pick .pwp-card-box { width: min(720px, 100%); }
+#play-perk-pick .perk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#play-perk-pick .perk-card { position: relative; gap: 6px; padding-top: 18px; }
+#play-perk-pick .perk-key {
+  position: absolute; top: 6px; left: 8px;
+  font: 700 11px/1 system-ui, sans-serif; opacity: 0.6;
+}
+#play-perk-pick .perk-icon { font-size: 34px; line-height: 1.1; color: #e8c25a; }
+#play-perk-pick .perk-desc { font-size: 12px; line-height: 1.3; opacity: 0.85; }
+#play-perk-pick .perk-have { font-size: 11px; font-weight: 700; color: #8fd8ff; }
+body.touch-play-on #play-perk-pick .perk-key { display: none; }
+@media (max-width: 560px) {
+  #play-perk-pick .perk-grid { grid-template-columns: 1fr; }
+  #play-perk-pick .perk-card { flex-direction: row; flex-wrap: wrap; justify-content: center; padding-top: 10px; }
+  #play-perk-pick .perk-desc { flex-basis: 100%; }
+}
+#play-perk-row {
+  display: none; position: fixed; top: 78px; left: 8px; z-index: 17;
+  flex-wrap: wrap; max-width: 40vw; gap: 4px; pointer-events: none;
+}
+#play-perk-row .perk-badge {
+  display: flex; align-items: center; gap: 2px; padding: 2px 6px;
+  font: 700 13px/1.2 system-ui, sans-serif; color: #f3e6c8;
+  background: rgba(20, 14, 6, 0.7); border: 1px solid rgba(232, 194, 90, 0.5); border-radius: 10px;
+}
+#play-perk-row .perk-badge i { font-style: normal; color: #e8c25a; }
+#play-perk-row .perk-badge b { font-size: 10px; }
+body.touch-play-on #play-perk-row { top: 70px; left: 4px; }
+body.play-photo #play-perk-row { display: none !important; }
+html.ui-theme-biome #play-perk-pick .perk-icon, html.ui-theme-biome #play-perk-row .perk-badge i { color: var(--biome-accent); }
+html.ui-theme-biome #play-perk-row .perk-badge { color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); }
+html.ui-theme-clean #play-perk-pick .perk-icon, html.ui-theme-clean #play-perk-row .perk-badge i { color: inherit; }
+html.ui-theme-clean #play-perk-row .perk-badge { color: var(--clean-bg); background: var(--clean-fg); border-color: var(--clean-fg); }
+
+/* Escort missions (EscortMission.js): who you're walking to the exit, their
+   health and how far is left, at the top of the screen. */
+:is(#escort-bar, #siege-bar) {
+  position: fixed; top: 44px; left: 50%; z-index: 17; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px; padding: 4px 10px; pointer-events: none;
+  font: 400 17px/1 'Bebas Neue', sans-serif; letter-spacing: 0.5px; color: #fff;
+  background: rgba(24, 30, 20, 0.85); border: 2px solid rgba(0, 0, 0, 0.45); border-radius: 8px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9); transition: opacity 0.3s;
+}
+#escort-bar .escort-track { width: 120px; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.18); overflow: hidden; }
+#escort-bar .escort-track span { display: block; height: 100%; background: #55dd77; transition: width 0.2s; }
+#escort-bar .escort-left { opacity: 0.85; }
+body.touch-play-on :is(#escort-bar, #siege-bar) { top: 40px; font-size: 14px; }
+body.touch-play-on #escort-bar .escort-track { width: 70px; }
+body.play-photo :is(#escort-bar, #siege-bar) { display: none; }
+html.ui-theme-biome :is(#escort-bar, #siege-bar) { color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); text-shadow: none; }
+html.ui-theme-biome #escort-bar .escort-track { background: var(--biome-line); }
+html.ui-theme-clean :is(#escort-bar, #siege-bar) { color: var(--clean-bg); background: var(--clean-fg); border-color: var(--clean-fg); text-shadow: none; }
+/* A camp siege's bar sits just under an escort's when both are on. */
+#siege-bar { top: 74px; color: #ffd6d0; }
+body.touch-play-on #siege-bar { top: 66px; }
+/* Phones: the wave box wraps and the map sits under it on the right, so
+   the perk badges, then the escort and siege bars, go below the map. */
+@media (max-width: 560px) {
+  #play-perk-row, body.touch-play-on #play-perk-row { top: 240px; left: 8px; max-width: calc(100vw - 16px); }
+  :is(#escort-bar, #siege-bar), body.touch-play-on :is(#escort-bar, #siege-bar) { top: 270px; max-width: calc(100vw - 16px); font-size: 14px; }
+  #siege-bar, body.touch-play-on #siege-bar { top: 302px; }
+  #escort-bar .escort-track { width: 70px; }
+}

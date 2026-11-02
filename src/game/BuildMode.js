@@ -3781,7 +3781,7 @@ export class BuildMode {
   mouseScreenOpen() {
     if (this.menuOpen || this.pickerOpen || this.share?.isOpen || this.together?.isOpen) return true
     if (this.survival?.shop?.panelOpen || this.survival?.emotes?.open || this.tryMode?._mapInteractive?.()) return true
-    if (['play-weapon-pick', 'build-play-over', 'spawn-map'].some((id) => {
+    if (['play-weapon-pick', 'play-perk-pick', 'build-play-over', 'spawn-map'].some((id) => {
       const el = document.getElementById(id)
       return !!el && el.style.display !== 'none' && el.style.display !== ''
     })) return true
@@ -4180,7 +4180,7 @@ export class BuildMode {
       this._saveMap3Edits()
       return
     }
-    this._writeSlot(this.activeSlot, this._snapshot())
+    this._writeSlot(this.activeSlot, this._snapshot({ skipPlay: true }))
   }
 
   // Switches to a different slot: saves the current build into whichever
@@ -4201,9 +4201,14 @@ export class BuildMode {
 
   // Shared by save() (local persistence) and exportMap() (downloadable
   // file) - one source of truth for "what does a saved build contain."
-  _snapshot() {
+  // skipPlay: leave out what a game put down (BuildSurvival._placed - its
+  // blocks, traps, towers and Tower Defense's whole map go again when it
+  // ends) - for saving, which can happen mid-game (switching tabs).
+  _snapshot({ skipPlay = false } = {}) {
     const blocks = []
+    const play = skipPlay && this.survival?.active ? this.survival._placed : null
     for (const [key, type] of this._blocks) {
+      if (play?.get(key) === type) continue
       const shape = BLOCK_BY_ID.get(type)?.shape
       // A door's top half is rebuilt from its bottom half on load, and
       // flowing water/lava from its sources.
@@ -4300,7 +4305,7 @@ export class BuildMode {
     const { byKey } = this._map3Base()
     const sig = (b) => (b ? `${b.type}|${b.facing ?? ''}|${b.open ? 1 : 0}|${b.text ?? ''}` : '')
     const current = new Map()
-    for (const b of this._snapshot().blocks) if (cityCell(b.x, b.z)) current.set(this._key(b.x, b.y, b.z), b)
+    for (const b of this._snapshot({ skipPlay: true }).blocks) if (cityCell(b.x, b.z)) current.set(this._key(b.x, b.y, b.z), b)
     const removed = []
     const placed = []
     for (const [k, base] of byKey) {

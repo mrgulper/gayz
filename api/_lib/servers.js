@@ -47,8 +47,9 @@ export const STALE_MS = 10000
 export const JOIN_GRACE_MS = 90000
 // main: Zombie Survival; infection: Infection mode (src/game/Infection.js);
 // zone: Shrinking Zone (src/game/ShrinkZone.js).
+// td: Tower Defense (src/game/TowerDefense.js).
 // hide / ctf / koth / soccer: the party modes (src/game/PartyModes.js).
-export const MODES = ['main', 'infection', 'zone', 'hide', 'ctf', 'koth', 'soccer']
+export const MODES = ['main', 'infection', 'zone', 'hide', 'ctf', 'koth', 'soccer', 'td']
 const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer' }
 const NAME_MAX = 24
 const NICK_MAX = 20
@@ -413,6 +414,12 @@ function cleanZone(v) {
   return { x: num(v.x, -1e5, 1e5), z: num(v.z, -1e5, 1e5), y: Math.round(num(v.y, -520, 520)), s: Math.round(num(v.s, 0, 2 ** 31)), t: num(v.t, 0, 3600) }
 }
 
+// Tower Defense (src/game/TowerDefense.js): the lives left.
+function cleanTd(v) {
+  if (!v || typeof v !== 'object') return null
+  return { l: Math.round(num(v.l, 0, 99)) }
+}
+
 // A player's boats and helicopters (src/game/Vehicles.js): b / h, where,
 // facing, rotor on.
 // Up to 3 map pins: a spot and who sees it ('a' everyone, 'f' friends).
@@ -557,6 +564,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     if (inf) updates[`${base}/inf`] = inf
     const zone = server.mode === 'zone' ? cleanZone(body.zone) : null
     if (zone) updates[`${base}/zone`] = zone
+    const td = server.mode === 'td' ? cleanTd(body.td) : null
+    if (td) updates[`${base}/td`] = td
     const party = PARTY_KINDS[server.mode] ? cleanParty(body.party, PARTY_KINDS[server.mode]) : null
     if (party) updates[`${base}/party`] = party
     if (body.animals && typeof body.animals === 'object') {
@@ -596,6 +605,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     out.animals = server.animals || {}
     if (server.inf) out.inf = server.inf
     if (server.zone) out.zone = server.zone
+    if (server.td) out.td = server.td
     if (server.party) out.party = server.party
     // Shots on the host's zombies (z...) and animals (a..., or taming one).
     for (const h of [].concat(body.hits || []).slice(0, MAX_HITS_PER_SYNC)) {

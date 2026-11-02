@@ -194,38 +194,38 @@
    2026-10-09 - "pickable at the start when joining a game"). Same dark/gold
    card as the end-of-run screen; one card per gun with its picture and
    three bars (damage, fire rate, ammo). */
-#play-weapon-pick {
+:is(#play-weapon-pick, #play-perk-pick) {
   display: none; position: fixed; inset: 0; z-index: 26; align-items: center; justify-content: center;
   padding: 16px; box-sizing: border-box;
   background: radial-gradient(ellipse at center, rgba(30, 20, 5, 0.6), rgba(5, 3, 0, 0.88));
 }
-#play-weapon-pick .pwp-card-box {
+:is(#play-weapon-pick, #play-perk-pick) .pwp-card-box {
   width: min(980px, 100%); max-height: 100%; overflow-y: auto; box-sizing: border-box;
   padding: 22px 26px 26px; text-align: center; color: #f1e6c8;
   background: rgba(18, 15, 10, 0.94); border: 1px solid rgba(232, 194, 90, 0.5); border-radius: 10px;
 }
-#play-weapon-pick h2 { margin: 0 0 4px; font-family: 'Black Ops One', 'Bebas Neue', sans-serif; font-size: 34px; color: #e8c25a; letter-spacing: 1px; }
-#play-weapon-pick .pwp-hint { margin: 0 0 16px; opacity: 0.75; font-size: 14px; }
-#play-weapon-pick .pwp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-#play-weapon-pick .pwp-weapon {
+:is(#play-weapon-pick, #play-perk-pick) h2 { margin: 0 0 4px; font-family: 'Black Ops One', 'Bebas Neue', sans-serif; font-size: 34px; color: #e8c25a; letter-spacing: 1px; }
+:is(#play-weapon-pick, #play-perk-pick) .pwp-hint { margin: 0 0 16px; opacity: 0.75; font-size: 14px; }
+:is(#play-weapon-pick, #play-perk-pick) .pwp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+:is(#play-weapon-pick, #play-perk-pick) .pwp-weapon {
   display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 8px 10px 10px; cursor: pointer;
   color: #f1e6c8; text-align: left; font: inherit;
   background: radial-gradient(ellipse at 50% 40%, rgba(255, 255, 255, 0.07), rgba(0, 0, 0, 0.25)), #221d16;
   border: 1px solid rgba(232, 194, 90, 0.25); border-radius: 8px;
   transition: border-color 0.15s ease, transform 0.12s ease, background 0.15s ease;
 }
-#play-weapon-pick .pwp-weapon:hover { border-color: #e8c25a; transform: translateY(-2px); }
-#play-weapon-pick .pwp-weapon.active { border-color: #e8c25a; box-shadow: 0 0 0 1px #e8c25a inset, 0 0 14px rgba(232, 194, 90, 0.25); }
-#play-weapon-pick .pwp-name { font-weight: 700; font-size: 14px; }
-#play-weapon-pick .pwp-soon { position: relative; cursor: not-allowed; }
-#play-weapon-pick .pwp-soon .weapon-soon-tag { left: 50%; bottom: 18px; transform: translateX(-50%); }
-#play-weapon-pick .pwp-soon:hover { border-color: rgba(232, 194, 90, 0.25); transform: none; }
-#play-weapon-pick .pwp-soon img, #play-weapon-pick .pwp-soon .pwp-name { filter: grayscale(1); opacity: 0.45; }
-#play-weapon-pick img, #play-weapon-pick .pwp-noimg { width: 100%; aspect-ratio: 240 / 140; object-fit: contain; }
-#play-weapon-pick .pwp-bar { display: flex; align-items: center; gap: 6px; font-size: 10px; opacity: 0.85; }
-#play-weapon-pick .pwp-bar-label { flex: 0 0 52px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#play-weapon-pick .pwp-bar-track { flex: 1; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
-#play-weapon-pick .pwp-bar-track span { display: block; height: 100%; background: linear-gradient(90deg, #a8781f, #e8c25a); }
+:is(#play-weapon-pick, #play-perk-pick) .pwp-weapon:hover { border-color: #e8c25a; transform: translateY(-2px); }
+:is(#play-weapon-pick, #play-perk-pick) .pwp-weapon.active { border-color: #e8c25a; box-shadow: 0 0 0 1px #e8c25a inset, 0 0 14px rgba(232, 194, 90, 0.25); }
+:is(#play-weapon-pick, #play-perk-pick) .pwp-name { font-weight: 700; font-size: 14px; }
+:is(#play-weapon-pick, #play-perk-pick) .pwp-soon { position: relative; cursor: not-allowed; }
+:is(#play-weapon-pick, #play-perk-pick) .pwp-soon .weapon-soon-tag { left: 50%; bottom: 18px; transform: translateX(-50%); }
+:is(#play-weapon-pick, #play-perk-pick) .pwp-soon:hover { border-color: rgba(232, 194, 90, 0.25); transform: none; }
+:is(#play-weapon-pick, #play-perk-pick) .pwp-soon img, :is(#play-weapon-pick, #play-perk-pick) .pwp-soon .pwp-name { filter: grayscale(1); opacity: 0.45; }
+:is(#play-weapon-pick, #play-perk-pick) img, :is(#play-weapon-pick, #play-perk-pick) .pwp-noimg { width: 100%; aspect-ratio: 240 / 140; object-fit: contain; }
+:is(#play-weapon-pick, #play-perk-pick) .pwp-bar { display: flex; align-items: center; gap: 6px; font-size: 10px; opacity: 0.85; }
+:is(#play-weapon-pick, #play-perk-pick) .pwp-bar-label { flex: 0 0 52px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:is(#play-weapon-pick, #play-perk-pick) .pwp-bar-track { flex: 1; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+:is(#play-weapon-pick, #play-perk-pick) .pwp-bar-track span { display: block; height: 100%; background: linear-gradient(90deg, #a8781f, #e8c25a); }
 
 /* Touch devices, and computers whose homepage runs slow (html.home-slow,
    set by LiteHome.js once the game has loaded): no fog or ash at all - a
@@ -1675,10 +1675,10 @@ html #achievements-panel .perk-option.achievement-card.unlocked::after {
 /* Phones (2026-10-31 check-up): one huge card per row meant scrolling
    through the guns - two smaller ones per row instead. */
 @media (max-width: 520px) {
-  #play-weapon-pick { padding: 10px; }
-  #play-weapon-pick .pwp-card-box { padding: 14px 12px 16px; }
-  #play-weapon-pick h2 { font-size: 26px; }
-  #play-weapon-pick .pwp-hint { margin-bottom: 10px; }
-  #play-weapon-pick .pwp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  #play-weapon-pick .pwp-bar-label { flex-basis: 44px; }
+  :is(#play-weapon-pick, #play-perk-pick) { padding: 10px; }
+  :is(#play-weapon-pick, #play-perk-pick) .pwp-card-box { padding: 14px 12px 16px; }
+  :is(#play-weapon-pick, #play-perk-pick) h2 { font-size: 26px; }
+  :is(#play-weapon-pick, #play-perk-pick) .pwp-hint { margin-bottom: 10px; }
+  :is(#play-weapon-pick, #play-perk-pick) .pwp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  :is(#play-weapon-pick, #play-perk-pick) .pwp-bar-label { flex-basis: 44px; }
 }

@@ -1593,7 +1593,9 @@ export class BuildTryMode {
     const bm = this.bm
     const play = bm.survival
     const busy = !this.active || !bm._fireHeld || bm.menuOpen || bm.gameMenuOpen || (play?.active && (play.dead || play._picking))
-    const hit = busy ? null : this._digTarget()
+    let hit = busy ? null : this._digTarget()
+    // Tower Defense's map can't be broken (TowerDefense.js).
+    if (hit && play?.active && play.td?.protects(hit.x, hit.y, hit.z)) hit = null
     if (!hit) {
       this._stopDig()
       return

@@ -211,7 +211,7 @@ export function _onPlayEvent(game, type, data) {
   // XP (Xp.js) - never spent; sets your level, and counts for your clan
   // this month while you're signed in and in one. Saved by _recordRunEnd
   // (career stats) and pushed with the online stats it sends.
-  const xp = xpForGame({ kills: data.kills, waves: data.waves, seconds: data.seconds, won: data.won, difficulty: data.difficulty })
+  const xp = xpForGame({ kills: data.kills, waves: data.waves, seconds: data.seconds, won: data.won, difficulty: data.difficulty, bonusXp: data.bonusXp })
   const xpBefore = _safeStatNumber(game.careerStats.xp)
   game.careerStats.xp = xpBefore + xp
   // Level up (2026-10-26, Gaymi: like kirka.io): every level reached in
