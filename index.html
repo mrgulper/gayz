@@ -1455,6 +1455,11 @@ Escape before dawn.</p>
             <input type="checkbox" id="auto-jump-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="viewBobbing" aria-label="What does this do?">?</button>
+            <label for="view-bobbing-toggle" id="view-bobbing-label">View Bobbing</label>
+            <input type="checkbox" id="view-bobbing-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="battleView" aria-label="What does this do?">?</button>
             <label for="battle-view-select" id="battle-view-label">Team Battle View</label>
             <select id="battle-view-select">
@@ -2903,7 +2908,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="applyGameplaySettings bindGameplaySettings isRareItem pickUpNear setColorblindRarity setZombieVolume">
           <h3>Gameplay Settings</h3>
-          <p>Settings &gt; Controls has a Crosshair Style (cross, dot or circle, in your crosshair colour and size), Damage Numbers and Name Tags Over Zombies on or off, Hold or Tap to Sprint (one press runs until you stop going forward), Auto Jump (walking into a one-block step hops up it for you), Team Battle View (3D or 2D), Auto Pick-Up (off: things on the ground wait until you press Use next to them) and Confirm Before Dropping Rare Items (armor and prizes need the Drop key twice). Its Accessibility section adds Brighter Caves &amp; Demon Realm (more light and the dark fog pushed back down there), Colourblind-Friendly Zombie Rarity Glows (rarity colours that stay easy to tell apart) and Design a Skin's High Contrast, which used to be a button in the designer. Settings &gt; Audio has its own Zombie Noises volume for moans, bites and deaths.</p>
+          <p>Settings &gt; Controls has a Crosshair Style (cross, dot or circle, in your crosshair colour and size), Damage Numbers and Name Tags Over Zombies on or off, Hold or Tap to Sprint (one press runs until you stop going forward), Auto Jump (walking into a one-block step hops up it for you), View Bobbing (on by default: the view gently bobs and sways while you walk and dips when you land - off keeps the camera still), Team Battle View (3D or 2D), Auto Pick-Up (off: things on the ground wait until you press Use next to them) and Confirm Before Dropping Rare Items (armor and prizes need the Drop key twice). Its Accessibility section adds Brighter Caves &amp; Demon Realm (more light and the dark fog pushed back down there), Colourblind-Friendly Zombie Rarity Glows (rarity colours that stay easy to tell apart) and Design a Skin's High Contrast, which used to be a button in the designer. Settings &gt; Audio has its own Zombie Noises volume for moans, bites and deaths.</p>
         </div>
         <div class="feature" data-code="TAB_RESET_KEYS _resetSettingsTab">
           <h3>Settings Help &amp; Resets</h3>
@@ -2911,7 +2916,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="autoQuality _updateEditorResScale stepAutoView fpsCap">
           <h3>Auto Quality &amp; FPS Cap</h3>
-          <p>Auto Quality (on by default) first draws a little less far away when the game slows down, and only then makes the picture less sharp (on In Real Life never below your screen's own pixels) - sharpness comes back first when it can - and if a game is still too slow after that, a graphics level the game picked steps down one (see Graphics Levels); an FPS Cap setting limits the frame rate. Both are in Settings &gt; Graphics. Behind the scenes the game is built to stay smooth on slower devices: weapon pictures come ready-made, blocks are found quickly, new land is built with little work, zombies and skeletons are prepared before they appear, and the homepage's animations rest while you play.</p>
+          <p>Auto Quality (on by default) first draws a little less far away when the game slows down, and only then makes the picture less sharp (on In Real Life never below your screen's own pixels) - sharpness comes back first when it can - and if a game is still too slow after that, a graphics level the game picked steps down one (see Graphics Levels); an FPS Cap setting limits the frame rate. Both are in Settings &gt; Graphics. Behind the scenes the game is built to stay smooth on slower devices: weapon pictures come ready-made, blocks are found quickly, new land is built with little work, zombies and skeletons are prepared before they appear, and the homepage's animations rest while you play. On a slow device new land is built in smaller pieces each frame, so walking into it stutters less, and moving runs in steady steps, so you walk, jump and fall at full speed even at a low frame rate instead of in slow motion.</p>
         </div>
         <div class="feature" data-code="VIEW_DISTANCES stepAutoView">
           <h3>View Distance</h3>
@@ -2927,7 +2932,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="reduceFlashing">
           <h3>Motion &amp; Flash Sensitivity</h3>
-          <p>Reduce Flashing Effects with a live preview (in Map 1 it also softens the hit flash, the hit mark on the crosshair, lightning and meteor flashes, and stops the whole-screen white flash, the view shaking on big hits and the New hat unlocked pop), Streaming-Safe Mode, and toast duration control.</p>
+          <p>Reduce Flashing Effects with a live preview (in Map 1 it also softens the hit flash, the hit mark on the crosshair, lightning and meteor flashes, and stops the whole-screen white flash, the view shaking on big hits and the New hat unlocked pop), View Bobbing in Settings &gt; Controls (turn it off to keep the camera still while walking and landing), Streaming-Safe Mode, and toast duration control.</p>
         </div>
         <div class="feature" data-code="captionBackground">
           <h3>Audio Accessibility</h3>

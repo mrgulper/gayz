@@ -20,6 +20,8 @@ const ROWS = [
   { id: 'snowballs-all-year-toggle', key: 'snowballsAllYear' },
   { id: 'sprint-mode-select', key: 'sprintMode' },
   { id: 'auto-jump-toggle', key: 'autoJump' },
+  // Walking sway and landing dip (BuildTryMode, 2026-11-01).
+  { id: 'view-bobbing-toggle', key: 'viewBobbing' },
   { id: 'battle-view-select', key: 'battleView' },
   { id: 'auto-pickup-toggle', key: 'autoPickup' },
   { id: 'confirm-rare-drop-toggle', key: 'confirmRareDrop' },

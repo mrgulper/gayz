@@ -2427,6 +2427,8 @@ export default {
   teamBattleBack: "Volver",
   autoJumpLabel: "Salto automático",
   autoJumpInfoText: "Activado: al caminar contra un escalón de 1 bloque saltas solo, sin pulsar {key:jump}. Las paredes más altas te siguen frenando.",
+  viewBobbingLabel: "Balanceo de la vista",
+  viewBobbingInfoText: "Activado: la vista se balancea suavemente al caminar y baja un poco al aterrizar. Desactivado: la cámara se queda completamente quieta.",
   battleViewLabel: "Vista de batallas de equipo",
   battleViewInfoText: "Cómo se ven las batallas de equipo: 3D (la arena en ángulo) o 2D (vista desde arriba). El botón de la batalla también la cambia.",
   optBattleView3d: "3D",

@@ -833,9 +833,10 @@ export class BlockChunks {
   // Rebuilds every dirty chunk. Cheap enough to run every frame: a normal
   // click dirties 1-4 chunks, and a full load is a one-off. Lazy chunks
   // (the open world's) get LAZY_BUDGET_MS per frame, nearest `focus` (x/z
-  // in blocks) first.
+  // in blocks) first. share (0..1) shrinks that slice on a slow device
+  // (BuildMode.workShare).
   // Returns true if any chunk was rebuilt.
-  flush(blocksByChunk, focus = null) {
+  flush(blocksByChunk, focus = null, share = 1) {
     let built = false
     if (this.dirty.size) {
       for (const key of this.dirty) {
@@ -846,7 +847,7 @@ export class BlockChunks {
       built = true
     }
     if (this.lazy.size) {
-      const until = performance.now() + LAZY_BUDGET_MS
+      const until = performance.now() + LAZY_BUDGET_MS * share
       const fx = focus ? focus.x / CHUNK : 0
       const fz = focus ? focus.z / CHUNK : 0
       const order = [...this.lazy].map((key) => {
