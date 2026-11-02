@@ -1449,6 +1449,8 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'profile-public-region-label': 'profilePublicRegionLabel',
   'profile-public-clan-label': 'profilePublicClanLabel',
   'profile-tab-hidden': 'profilePrivateHeading',
+  'profile-tab-trophies': 'profileTabTrophies',
+  'profile-trophies-hint': 'profileTrophiesHint',
   'profile-private-hint': 'profilePrivateHint',
   'stats-dashboard-heading': 'statsDashboardHeadingLabel',
   'pinned-stat-label': 'pinnedStatLabel',

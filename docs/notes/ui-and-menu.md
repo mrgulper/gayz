@@ -206,3 +206,4 @@ Gaymi: "make the edit and generating a skin smarter" - chose to stay offline (no
 - Daily Challenge: very hard (10 templates incl. `runKills` via the kill report's `runKills`, `hardKills`/`hardWave` on hard/nightmare/apex), `VERSION` in state (bump when templates change - resets today's unclaimed progress), the kill-streak goal has its own key `dailyChallengeKillStreak`. `_renderHomeDaily` sets a timer to refresh at local midnight.
 - Claimed rolling quest: `_fadeOutQuestCard` (`.quest-fade-out`) instead of re-rendering; daily card swapped in place.
 - Nav badges: hover changes nothing now (`data-badge` / `::after` removed from NavBadges.js and 08-homepage.css).
+- Profile > Trophies tab (`#profile-page-trophies`, `Trophies.renderTrophies` on every `_openProfilePanel`): `.trophy-card[data-tier]` with a CSS cup (`--cup`), themed in default / Old / Simple.

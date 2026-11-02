@@ -68,6 +68,8 @@ export const ITEMS = {
   boat: { key: 'invBoat', vehicle: 'boat' },
   helicopter: { key: 'invHelicopter', vehicle: 'heli' },
   heliFuel: { key: 'invHeliFuel', fuel: true },
+  // Runs on Heli Fuel too (2026-11-01).
+  hotAirBalloon: { key: 'invBalloon', vehicle: 'balloon' },
   // Fishing (Fishing.js): the rod (bought from the Trader, never used up)
   // and what it pulls out of the water.
   fishingRod: { key: 'invFishingRod', rod: true },
@@ -136,6 +138,7 @@ const ICON_PIXELS = {
   gooDisguise: ['................', '......####......', '......#ww#......', '.....##ww##.....', '....#vvvvvv#....', '...#vvlvvvvv#...', '...#vvvvvlvv#...', '...#vlvvvvvv#...', '...#vvvvvvvv#...', '....#vvvvvv#....', '.....######.....'],
   boat: ['................', '................', '................', '.......##.......', '.......#w.......', '.......#ww......', '.......#www.....', '.......#........', '.##############.', '.#oooooooooooo#.', '..#oooooooooo#..', '...##########...'],
   helicopter: ['................', '.##############.', '.......##.......', '....######......', '...#yyyyyyy#....', '..#bbyyyyyyy####', '..#bbyyyyyyy#..#', '...#yyyyyyy#....', '....#######.....', '....#.....#.....', '..###########...'],
+  hotAirBalloon: ['.....rrwwrr.....', '...rrrwwwwrrr...', '..rrrrwwwwrrrr..', '..rrrrwwwwrrrr..', '...rrrwwwwrrr...', '....rrwwwwrr....', '......#..#......', '......#..#......', '.....######.....', '.....#kkkk#.....', '.....######.....'],
   heliFuel: ['................', '......###.......', '.....#...#......', '...#########....', '...#rrrrrrr#....', '...#rryyyrr#....', '...#rryrrrr#....', '...#rryyrrr#....', '...#rryrrrr#....', '...#rrrrrrr#....', '...#########....'],
   fishingRod: ['..............k.', '.............k.w', '............k..w', '...........k...w', '..........k....w', '.........k.....w', '........k......w', '.......k.......r', '......k........w', '.....k..........', '....k...........', '...dd...........', '..dd............', '.dd.............'],
   fish: ['................', '................', '..........c.....', '.....cccccc...cc', '...cccccccccccc.', '..ccwccccccccc..', '..cccccccccccc..', '...cccccccccccc.', '.....cccccc...cc', '..........c.....'],
@@ -498,7 +501,7 @@ export class PlayInventory {
     if (item.trap) return t('invTipTrap')
     if (item.material) return t('invTipMaterial')
     if (item.disguise) return t('invTipGooDisguise', { s: item.disguise })
-    if (item.vehicle) return t(item.vehicle === 'boat' ? 'invTipBoat' : 'invTipHelicopter')
+    if (item.vehicle) return t(item.vehicle === 'boat' ? 'invTipBoat' : item.vehicle === 'balloon' ? 'invTipBalloon' : 'invTipHelicopter')
     if (item.fuel) return t('invTipHeliFuel', { s: HELI_FUEL_S })
     if (item.rod) return t('invTipFishingRod')
     if (item.junk) return t('invTipJunk')

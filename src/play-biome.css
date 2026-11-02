@@ -210,3 +210,15 @@ html.ui-theme-biome .play-pill {
   border: 1px solid var(--biome-edge);
   text-shadow: none;
 }
+
+/* Map pins (MapPins.js): the pin's menu and the compass, in the biome's colours. */
+html.ui-theme-biome :is(#map-pin-menu, #pin-compass) {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.6px;
+  color: var(--biome-ink);
+  background: var(--biome-surface);
+  border-color: var(--biome-edge);
+  text-shadow: none;
+}
+html.ui-theme-biome #map-pin-menu button { font-family: inherit; border-color: var(--biome-edge); background: rgba(var(--biome-ink-rgb), 0.08); }
+html.ui-theme-biome #map-pin-menu button.on { color: rgb(var(--biome-bg-rgb)); background: var(--biome-accent); border-color: var(--biome-accent); }

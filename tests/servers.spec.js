@@ -697,6 +697,12 @@ test('servers: the zone and vehicles go through the server', async () => {
   // A guest can't set the zone; a Zombie Survival server keeps none.
   await syncServer(db, { ...b, zone: { x: 99, z: 99, y: 0, s: 1, t: 0 } }, t0 + 40)
   expect((await syncServer(db, { ...b }, t0 + 50)).zone.s).toBe(1234)
+  // Hot-air balloons (k 'a') and shared map pins go out too (MapPins.js);
+  // an "only me" pin or junk never does.
+  await syncServer(db, { ...a, state: { x: 1, y: 1, z: 1, veh: [{ k: 'a', x: 5, y: 20, z: 6, h: 0, r: 1 }], pins: [{ x: 10, z: -4, v: 'a' }, { x: 3, z: 3, v: 'f' }, { x: 1, z: 1, v: 'm' }, 'x'] } }, t0 + 60)
+  const rp = await syncServer(db, { ...b }, t0 + 70)
+  expect(rp.players[a.playerId].veh).toEqual([{ k: 'a', x: 5, y: 20, z: 6, h: 0, r: 1 }])
+  expect(rp.players[a.playerId].pins).toEqual([{ x: 10, z: -4, v: 'a' }, { x: 3, z: 3, v: 'f' }])
   const c = await createServer(db, { nickname: 'Cy' }, t0)
   const d = await joinServer(db, { serverId: c.serverId, nickname: 'Di' }, t0 + 10)
   await syncServer(db, { ...c, zone: { x: 1, z: 1, y: 1, s: 5, t: 1 } }, t0 + 20)

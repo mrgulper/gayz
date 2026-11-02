@@ -1086,3 +1086,6 @@ html.ui-theme-clean .home-x-card .home-x-tag { color: var(--clean-fg); opacity: 
 html.ui-theme-clean .home-x-card .home-x-bar { background: rgba(var(--clean-fg-rgb), 0.15); }
 html.ui-theme-clean .home-x-card .home-x-bar i { background: var(--clean-fg); }
 html.ui-theme-clean #menu .home-play-tag { font-family: var(--clean-font); color: var(--clean-card) !important; -webkit-text-fill-color: var(--clean-card); background: var(--clean-fg) !important; border-color: var(--clean-card); }
+
+/* Profile > Trophies (Trophies.js): the cards on the panel's own surface. */
+html.ui-theme-clean .trophy-card { background: var(--clean-surface); border-color: var(--clean-line); }
