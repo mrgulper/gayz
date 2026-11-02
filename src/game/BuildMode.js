@@ -1641,7 +1641,11 @@ export class BuildMode {
       // Use (doors, chests - or the next player on a server), inspect and
       // the map key all still work while flying.
       if (this.spectate.active) {
-        if (this.survival.camp?.panelOpen) return
+        // The Shop (PlayShop.js) is open: only its own key closes it here.
+        if (this.survival.shop?.panelOpen) {
+          if (e.code === getKeyFor('shop') && !e.repeat) this.survival.shop.closePanel()
+          return
+        }
         if (!e.repeat && this.spectate.photo) {
           if (e.code === 'KeyP' || e.code === 'Enter') this.spectate.snap()
         } else if (!e.repeat) {
@@ -1656,7 +1660,11 @@ export class BuildMode {
         return
       }
       if (this.tryMode.active) {
-        if (this.survival.camp?.panelOpen) return
+        // The Shop (PlayShop.js) is open: only its own key closes it here.
+        if (this.survival.shop?.panelOpen) {
+          if (e.code === getKeyFor('shop') && !e.repeat) this.survival.shop.closePanel()
+          return
+        }
         if (this.survival.active && !e.repeat) this.survival.onKeyDown(e.code)
         if (e.code === getKeyFor('use') && !e.repeat) this._tryUseFromCamera()
         if (e.code === getKeyFor('inspectWeapon') && !e.repeat) this.tryMode.inspect()
@@ -2109,9 +2117,14 @@ export class BuildMode {
     }
 
     this._onKeyDownPicker = (e) => {
+      // The emote wheel is up (Emotes.js): Escape closes it.
+      if (e.code === 'Escape' && this.survival?.emotes?.open) {
+        this.survival.emotes.close()
+        return
+      }
       // An NPC's shop is open: Escape closes it, nothing else happens.
-      if (this.survival?.camp?.panelOpen) {
-        if (e.code === 'Escape') this.survival.camp.closePanel()
+      if (this.survival?.shop?.panelOpen) {
+        if (e.code === 'Escape') this.survival.shop.closePanel()
         return
       }
       if (e.code === 'Tab') {
@@ -3767,7 +3780,7 @@ export class BuildMode {
   // Share or Play Together, or the big map.
   mouseScreenOpen() {
     if (this.menuOpen || this.pickerOpen || this.share?.isOpen || this.together?.isOpen) return true
-    if (this.survival?.camp?.panelOpen || this.tryMode?._mapInteractive?.()) return true
+    if (this.survival?.shop?.panelOpen || this.survival?.emotes?.open || this.tryMode?._mapInteractive?.()) return true
     if (['play-weapon-pick', 'build-play-over', 'spawn-map'].some((id) => {
       const el = document.getElementById(id)
       return !!el && el.style.display !== 'none' && el.style.display !== ''

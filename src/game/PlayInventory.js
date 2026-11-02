@@ -624,15 +624,26 @@ export class PlayInventory {
     const grid = this.grid.map((it, i) => this._slotHtml(it, 'grid', i)).join('')
     const bar = this.hotbar.map((it, i) => this._slotHtml(it, 'hotbar', i, i === this.active ? ' active' : '')).join('')
     const cut = Math.round(this.damageCut() * 100)
+    // Crafting on the left, the bag on the right (2026-11-01, Gaymi: "make
+    // the crafting and bag half half"). A narrow phone screen has no room
+    // for both, so there the Bag / Crafting tabs pick one (CSS).
     const craft = this.tab === 'craft'
     const tabs = `<div class="inv-tabs" role="tablist">${['bag', 'craft'].map((id) => `<button type="button" role="tab" class="inv-tab${this.tab === id ? ' active' : ''}" data-tab="${id}" aria-selected="${this.tab === id}">${t(id === 'bag' ? 'invTabBag' : 'invTabCraft')}</button>`).join('')}</div>`
-    const body = craft ? this.crafting.html() : `<div class="inv-armor">${armor}</div>
-      <div class="inv-grid">${grid}</div>`
-    this._el.innerHTML = `<div class="inv-box${craft ? ' crafting' : ''}">
-      <div class="inv-head"><b>${t(craft ? 'invTabCraft' : 'invTitle')}</b><span>${craft ? t('craftHint') : t('invArmorLine', { n: cut })}</span><button type="button" class="inv-close" aria-label="Close">&times;</button></div>
+    this._el.innerHTML = `<div class="inv-box">
+      <div class="inv-head"><b>${t('invTitle')}</b><span>${t('invArmorLine', { n: cut })}</span><button type="button" class="inv-close" aria-label="Close">&times;</button></div>
       ${tabs}
-      ${body}
-      <div class="inv-hotbar">${bar}</div>
+      <div class="inv-split ${craft ? 'show-craft' : 'show-bag'}">
+        <section class="inv-col inv-craft-col">
+          <div class="inv-col-head"><b>${t('invTabCraft')}</b><span>${t('craftHint')}</span></div>
+          ${this.crafting.html()}
+        </section>
+        <section class="inv-col inv-bag-col">
+          <div class="inv-col-head"><b>${t('invTabBag')}</b></div>
+          <div class="inv-armor">${armor}</div>
+          <div class="inv-grid">${grid}</div>
+          <div class="inv-hotbar">${bar}</div>
+        </section>
+      </div>
       <p class="inv-hint">${t('invHint', { drop: keyLabel(getKeyFor('dropItem')) })}</p>
     </div>`
   }

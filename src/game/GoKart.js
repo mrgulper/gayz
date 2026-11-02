@@ -4,8 +4,9 @@
 // from where you start.
 //
 // - Walk up to it (within ENTER_REACH blocks) and right-click it, or press
-//   Use (the phone's use button), to hop in; Use again hops out beside it
-//   (2026-10-31, Gaymi: "as long you right click it you will ride it").
+//   Use (the phone's use button), to hop in; right-click, Use or Crouch
+//   again hops out beside it (2026-10-31, Gaymi: "as long you right click
+//   it you will ride it").
 // - Forward / back (or the phone's stick up and down) drive and reverse,
 //   left / right (stick sideways) steer. You can still look round and
 //   shoot while driving. It drives up one-block steps (hills and
@@ -110,8 +111,11 @@ export class GoKart {
 
   // Right-clicking (BuildMode's mouse-down): hop in if you're looking at
   // it from close enough.
+  // Driving, right-click hops out again (2026-11-01, Gaymi: "you cant get
+  // off it" - right-click got you in but did nothing after).
   rightClick() {
-    if (!this.group || this.driving || this.s.dead || this.s.spectating) return false
+    if (this.driving) return this.use()
+    if (!this.group || this.s.dead || this.s.spectating) return false
     const me = this.s.bm.tryMode.pos
     if (Math.hypot(me.x - this.x, me.z - this.z) > ENTER_REACH + 0.5 || Math.abs(me.y - this.y) > 2) return false
     const cam = this.s.bm.camera

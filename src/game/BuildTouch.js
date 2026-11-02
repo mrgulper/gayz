@@ -33,6 +33,7 @@ const ICONS = {
   emote: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14.5c1 1.5 2.4 2.2 4 2.2s3-.7 4-2.2"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>',
   drop: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>',
   pause: '<svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>',
+  shop: '<svg viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h10.2L20 8H6.2"/><circle cx="9" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/></svg>',
   spray: '<svg viewBox="0 0 24 24"><rect x="7" y="9" width="8" height="12" rx="1.5"/><path d="M9 9V6h4v3"/><path d="M16 5h.01M19 4h.01M18 7h.01M21 6h.01"/></svg>',
 }
 
@@ -65,6 +66,7 @@ export class BuildTouch {
       <button type="button" class="tp-btn tp-pause" data-tp="pause" aria-label="Pause">${ICONS.pause}</button>
       <button type="button" class="tp-btn tp-emote" data-tp="emote" aria-label="Emote">${ICONS.emote}</button>
       <button type="button" class="tp-btn tp-spray" data-tp="spray" aria-label="Spray">${ICONS.spray}</button>
+      <button type="button" class="tp-btn tp-shop" data-tp="shop" aria-label="Shop">${ICONS.shop}</button>
       <button type="button" class="tp-btn tp-fire" data-tp="fire" aria-label="Fire">${ICONS.fire}</button>
       <button type="button" class="tp-btn tp-jump" data-tp="jump" aria-label="Jump">${ICONS.jump}</button>
       <button type="button" class="tp-btn tp-reload" data-tp="reload" aria-label="Reload">${ICONS.reload}</button>
@@ -168,8 +170,11 @@ export class BuildTouch {
     } else if (action === 'use') {
       bm._tryUseFromCamera()
     } else if (action === 'emote') {
-      // The Emote key (B) for phones: the emote bar, tap one (Emotes.js).
+      // The Emote key (Z) for phones: the emote wheel, tap one (Emotes.js).
       if (bm.survival.active) bm.survival.emotes?.toggleBar()
+    } else if (action === 'shop') {
+      // The Shop key (B) for phones (PlayShop.js).
+      if (bm.survival.active) bm.survival.shop?.toggle()
     } else if (action === 'spray') {
       // The Spray key (Y) for phones: your picture on the block ahead (Sprays.js).
       if (bm.survival.active) bm.survival.sprays?.spray()
@@ -231,7 +236,7 @@ export class BuildTouch {
       this._inMap = inMap
       document.body.classList.toggle('touch-play-on', inMap)
     }
-    const want = inMap && !bm.menuOpen && !bm.pickerOpen && !bm.survival.camp?.panelOpen && !bm.survival.dead
+    const want = inMap && !bm.menuOpen && !bm.pickerOpen && !bm.survival.shop?.panelOpen && !bm.survival.dead
     if (want !== this.shown) {
       this.shown = want
       if (want) this._ensureDom()

@@ -1,7 +1,9 @@
 // Emotes (2026-10-31, Gaymi's funny update: "dance, wave or a flex
-// pose"). Press the Emote key (B, Settings > Controls) - or the smiley
-// touch button on a phone - and a little bar shows the three; 1 / 2 / 3
-// (or a click / tap) plays one for EMOTE_S seconds. Your own body shows
+// pose"). Press the Emote key (Z, Settings > Controls) - or the smiley
+// touch button on a phone - and a wheel of them opens round the middle of
+// the screen (2026-11-01, Gaymi: "a circle where you can pick"); click /
+// tap one, or press its number, and it plays for EMOTE_S seconds. The
+// mouse is free while the wheel is up; Z or Escape closes it. Your own body shows
 // it in third person (P), and on a server everyone sees it: the emote's
 // id rides along with your position (PlayNet state `emote`).
 //
@@ -9,9 +11,9 @@
 // body (BuildTryMode._updateBody) and other players' (PlayNet._drawPlayer).
 import { t } from './i18n.js'
 
-export const EMOTES = ['dance', 'wave', 'flex']
+export const EMOTES = ['dance', 'wave', 'flex', 'cheer', 'point', 'sit']
 export const EMOTE_S = 3.5
-const BAR_S = 4 // the bar closes itself after this long
+const WHEEL_R = 96 // px from the wheel's middle to each button's
 
 // Poses a blocky body (MenuAvatar3D limbPivots) for an emote at time t
 // (seconds). -> how far the body bobs up (body units), or null when
@@ -36,6 +38,24 @@ export function poseEmote(lp, emote, time) {
     lp.armR.rotation.z = 0.35 + Math.sin(time * 10) * 0.45
     return 0
   }
+  if (emote === 'cheer') {
+    lp.armR.rotation.x = -Math.PI
+    lp.armL.rotation.x = -Math.PI
+    lp.armR.rotation.z = 0.25 + Math.sin(time * 12) * 0.15
+    lp.armL.rotation.z = -0.25 - Math.sin(time * 12) * 0.15
+    return Math.abs(Math.sin(time * 6)) * 1.5
+  }
+  if (emote === 'point') {
+    lp.armR.rotation.x = -Math.PI / 2
+    return 0
+  }
+  if (emote === 'sit') {
+    // On the ground: the hips drop to the feet's level (poseSit).
+    poseSit(lp)
+    lp.armR.rotation.x = -0.35
+    lp.armL.rotation.x = -0.35
+    return -12
+  }
   // Flex: both arms up and out, a proud little bounce.
   lp.armR.rotation.x = -Math.PI * 0.5
   lp.armL.rotation.x = -Math.PI * 0.5
@@ -44,31 +64,62 @@ export function poseEmote(lp, emote, time) {
   return Math.abs(Math.sin(time * 3)) * 0.5
 }
 
+// Sitting in a vehicle (2026-11-01, Gaymi: "you should be sitting not
+// standing"): both legs straight out in front. `eye` is how far above
+// your feet the seat view is (blocks) -> how far to move the body (world
+// units) so the hips land on the seat. Shared by your own body and the
+// other players' (PlayNet `sit`).
+const HIP_TO_EYE = 1.06 // blocks, on the standard 2-block body
+const STAND_HIP = 0.75
+export function poseSit(lp) {
+  if (!lp) return
+  lp.legR.rotation.set(-Math.PI / 2, 0, 0.08)
+  lp.legL.rotation.set(-Math.PI / 2, 0, -0.08)
+}
+export function sitDrop(eye, B) {
+  return (eye - HIP_TO_EYE - STAND_HIP) * B
+}
+
 export class Emotes {
   constructor(survival) {
     this.s = survival
     this.current = '' // the emote playing now ('' = none)
     this._left = 0
-    this._barLeft = 0
-    this._bar = null
+    this._wheel = null
   }
 
-  // The Emote key / touch button: opens or closes the bar.
+  get open() {
+    return !!this._wheel && !this._wheel.hidden
+  }
+
+  // The Emote key / touch button: opens or closes the wheel.
   toggleBar() {
+    if (this.open) return this.close()
     if (!this.s.active || this.s.dead) return
-    this._ensureBar()
-    const open = this._bar.hidden
-    this._bar.hidden = !open
-    this._barLeft = open ? BAR_S : 0
+    this._ensureWheel()
+    this._wheel.hidden = false
+    this._hover('')
+    // The real mouse, to click one.
+    this.s.bm._keys?.clear()
+    if (document.pointerLockElement) document.exitPointerLock()
   }
 
-  // A number key while the bar is open picks that emote. -> true if it
+  close(relock = true) {
+    if (!this.open) return
+    this._wheel.hidden = true
+    if (relock && !this.s.dead && this.s.active) {
+      try { this.s.bm.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available */ }
+    }
+  }
+
+  // A number key while the wheel is open picks that emote. -> true if it
   // was used (the hotbar leaves it alone).
   pick(code) {
-    if (!this._bar || this._bar.hidden) return false
-    const i = { Digit1: 0, Digit2: 1, Digit3: 2 }[code]
-    if (i === undefined) return false
-    this.play(EMOTES[i])
+    if (!this.open) return false
+    const m = /^Digit([1-9])$/.exec(code)
+    const id = m && EMOTES[Number(m[1]) - 1]
+    if (!id) return false
+    this.play(id)
     return true
   }
 
@@ -76,7 +127,7 @@ export class Emotes {
     if (!EMOTES.includes(id) || !this.s.active || this.s.dead) return
     this.current = id
     this._left = EMOTE_S
-    if (this._bar) this._bar.hidden = true
+    this.close()
   }
 
   // Moving, shooting or getting hurt stops it, like any game.
@@ -88,36 +139,51 @@ export class Emotes {
   update(dt) {
     if (this.current && this.s.dead) this.stop()
     if (this._left > 0 && (this._left -= dt) <= 0) this.stop()
-    if (this._bar && !this._bar.hidden && (this._barLeft -= dt) <= 0) this._bar.hidden = true
+    if (this.open && (this.s.dead || !this.s.active)) this.close(false)
   }
 
   clear() {
     this.stop()
-    if (this._bar) this._bar.hidden = true
+    this.close(false)
   }
 
-  _ensureBar() {
-    if (this._bar) {
+  _ensureWheel() {
+    if (this._wheel) {
       this._label()
       return
     }
-    const bar = document.createElement('div')
-    bar.id = 'emote-bar'
-    bar.hidden = true
-    bar.innerHTML = EMOTES.map((id, i) => `<button type="button" data-emote="${id}"><kbd>${i + 1}</kbd><span></span></button>`).join('')
-    bar.addEventListener('click', (e) => {
+    const wheel = document.createElement('div')
+    wheel.id = 'emote-wheel'
+    wheel.hidden = true
+    // Evenly round the circle, the first one at the top.
+    wheel.innerHTML = `<div class="emote-ring">${EMOTES.map((id, i) => {
+      const a = (i / EMOTES.length) * Math.PI * 2
+      return `<button type="button" data-emote="${id}" style="left: calc(50% + ${Math.round(Math.sin(a) * WHEEL_R)}px); top: calc(50% - ${Math.round(Math.cos(a) * WHEEL_R)}px)"><kbd>${i + 1}</kbd><span></span></button>`
+    }).join('')}<b class="emote-mid"></b></div>`
+    wheel.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-emote]')
       if (btn) this.play(btn.dataset.emote)
+      // A click off the ring closes it.
+      else if (!e.target.closest('.emote-ring')) this.close()
     })
-    document.body.appendChild(bar)
-    this._bar = bar
+    wheel.addEventListener('pointerover', (e) => this._hover(e.target.closest('[data-emote]')?.dataset.emote || ''))
+    document.body.appendChild(wheel)
+    this._wheel = wheel
     this._label()
   }
 
+  _name(id) {
+    return t(`emote${id.charAt(0).toUpperCase()}${id.slice(1)}`)
+  }
+
+  // The middle says which one you're pointing at.
+  _hover(id) {
+    const mid = this._wheel?.querySelector('.emote-mid')
+    if (mid) mid.textContent = id ? this._name(id) : t('actionEmote')
+  }
+
   _label() {
-    for (const btn of this._bar.querySelectorAll('[data-emote]')) {
-      const id = btn.dataset.emote
-      btn.querySelector('span').textContent = t(`emote${id.charAt(0).toUpperCase()}${id.slice(1)}`)
-    }
+    for (const btn of this._wheel.querySelectorAll('[data-emote]')) btn.querySelector('span').textContent = this._name(btn.dataset.emote)
+    this._hover('')
   }
 }

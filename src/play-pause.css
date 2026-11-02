@@ -393,7 +393,8 @@ html.ui-theme-old #build-try-map-close { color: #f3e6c8; background: rgba(74, 44
   justify-content: center;
   padding: 12px;
   background: rgba(6, 8, 6, 0.45);
-  --inv-slot: min(46px, calc((100vw - 90px) / 10), calc((100dvh - 230px) / 12));
+  --inv-craft-w: 340px;
+  --inv-slot: min(44px, calc((100vw - 150px - var(--inv-craft-w)) / 10), calc((100dvh - 250px) / 13));
   touch-action: none;
   user-select: none;
 }
@@ -465,13 +466,31 @@ html.ui-theme-old #build-try-map-close { color: #f3e6c8; background: rgba(74, 44
 #play-inventory .inv-tabs { display: flex; gap: 6px; }
 #play-inventory .inv-tab { padding: 5px 16px; font: inherit; font-size: 13px; font-weight: 700; color: inherit; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(217, 188, 74, 0.35); border-radius: 999px; cursor: pointer; }
 #play-inventory .inv-tab.active { color: #1a1408; background: #ffd75e; border-color: #ffd75e; }
+/* Crafting | Bag side by side (2026-11-01); the recipe list is as tall
+   as the bag's armor row + grid + hotbar. Below 760px wide only one shows,
+   picked with the tabs. */
+#play-inventory .inv-tabs { display: none; }
+#play-inventory .inv-split { display: flex; align-items: flex-start; gap: 18px; }
+#play-inventory .inv-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+#play-inventory .inv-craft-col { width: var(--inv-craft-w); padding-right: 18px; border-right: 1px solid rgba(217, 188, 74, 0.35); }
+#play-inventory .inv-col-head { display: flex; flex-direction: column; align-items: center; gap: 1px; text-align: center; }
+#play-inventory .inv-col-head b { font-size: 15px; color: #ffd75e; }
+#play-inventory .inv-col-head span { font-size: 12px; opacity: 0.75; }
+html.ui-theme-old #play-inventory .inv-col-head b { color: #6b3f17; }
+html.ui-theme-old #play-inventory .inv-craft-col { border-right-color: rgba(107, 63, 23, 0.4); }
+@media (max-width: 759px) {
+  #play-inventory { --inv-craft-w: calc(var(--inv-slot) * 10 + 36px); --inv-slot: min(46px, calc((100vw - 90px) / 10), calc((100dvh - 250px) / 13)); }
+  #play-inventory .inv-tabs { display: flex; }
+  #play-inventory .inv-split.show-bag .inv-craft-col, #play-inventory .inv-split.show-craft .inv-bag-col { display: none; }
+  #play-inventory .inv-craft-col { padding-right: 0; border-right: none; }
+}
 #play-inventory .craft-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
   box-sizing: border-box;
-  width: calc(var(--inv-slot) * 10 + 36px);
-  height: calc(var(--inv-slot) * 11 + 50px);
+  width: 100%;
+  height: calc(var(--inv-slot) * 12 + 56px);
   overflow-y: auto;
   padding-right: 4px;
   touch-action: pan-y;

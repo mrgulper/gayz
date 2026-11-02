@@ -33,7 +33,7 @@
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { wearCosmetics, myWorn } from './Cosmetics.js'
-import { poseEmote } from './Emotes.js'
+import { poseEmote, poseSit, sitDrop } from './Emotes.js'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { audioEngine } from './Audio.js'
 import { addGunLights, cloneViewmodel } from './Viewmodels.js'
@@ -867,10 +867,23 @@ export class BuildTryMode {
       this.onGround = true
       this.pos.set(ride.x, ride.y, ride.z)
       cam.position.set(ride.x * B, (ride.y + ride.eye) * B, ride.z * B)
+      this._seatEye = ride.eye
       this.updateHands(dt, keys, false, false)
       this._drawMap(performance.now())
       return
     }
+    // Not sitting in anything (each ride below sets it again).
+    this._seatEye = 0
+    // Crouch hops out of the go-kart or a boat (2026-11-01, Gaymi: "you
+    // cant get off it") - only on the press, so holding it in doesn't
+    // chain. A helicopter keeps Crouch for going down.
+    const crouchNow = heldAction(keys, 'crouch')
+    if (crouchNow && !this._rideCrouch && this.bm.survival?.active) {
+      const sv = this.bm.survival
+      if (sv.kart?.driving) sv.kart.leave()
+      else if (sv.vehicles?.riding?.kind === 'boat') sv.vehicles.leave()
+    }
+    this._rideCrouch = crouchNow
     // On a tamed animal (AnimalRiding.js): the keys run it, Jump hops.
     const riding = this.bm.survival?.active ? this.bm.survival.riding : null
     if (riding?.on) {
@@ -881,6 +894,7 @@ export class BuildTryMode {
         this.onGround = true
         this.pos.set(seat.x, seat.y, seat.z)
         cam.position.set(seat.x * B, (seat.y + seat.eye) * B, seat.z * B)
+        this._seatEye = seat.eye
         this.updateHands(dt, keys, false, false)
         this.bm.specials.update(dt, this.pos)
         this._drawMap(performance.now())
@@ -898,6 +912,7 @@ export class BuildTryMode {
         this.onGround = true
         this.pos.set(seat.x, seat.y, seat.z)
         cam.position.set(seat.x * B, (seat.y + seat.eye) * B, seat.z * B)
+        this._seatEye = seat.eye
         this.updateHands(dt, keys, false, false)
         this.bm.specials.update(dt, this.pos)
         this._drawMap(performance.now())
@@ -911,6 +926,7 @@ export class BuildTryMode {
       this.onGround = true
       this.pos.set(kart.x, kart.y + 0.01, kart.z)
       cam.position.set(kart.x * B, (kart.y + (kart.lift || 0) + KART_EYE) * B, kart.z * B)
+      this._seatEye = (kart.lift || 0) + KART_EYE - 0.01
       this.updateHands(dt, keys, false, false)
       this.bm.specials.update(dt, this.pos)
       this._drawMap(performance.now())
@@ -1316,6 +1332,15 @@ export class BuildTryMode {
     // An emote (Emotes.js) plays until you walk off.
     const emotes = playing ? this.bm.survival.emotes : null
     if (emotes?.current && speed > 0.5) emotes.stop()
+    // Sitting in a vehicle or on an animal (poseSit): legs out, hips on
+    // the seat - no walking or emotes.
+    if (this._seatEye && lp) {
+      emotes?.stop()
+      body.char.position.y = body.lift + sitDrop(this._seatEye, B)
+      poseSit(lp)
+      this._poseHeld(body, lp, 0)
+      return
+    }
     const bob = emotes?.current ? poseEmote(lp, emotes.current, performance.now() / 1000) : null
     if (bob !== null) {
       body.char.position.y += bob * body.char.scale.y
@@ -1326,15 +1351,20 @@ export class BuildTryMode {
     if (lp) {
       lp.legR.rotation.x = swing
       lp.legL.rotation.x = -swing
-      const id = this._gunId || ''
-      if (body.gunId !== id) {
-        const held = holdWeapon(this.bm.game, body.char, id, body.gun)
-        body.gun = held.gun
-        body.melee = held.melee
-        body.gunId = id
-      }
-      poseArms(lp, { holding: !!body.gun, melee: body.melee, firing: this._recoil > 0.05, swing })
+      this._poseHeld(body, lp, swing)
     }
+  }
+
+  // The gun in your body's hands, arms posed for it.
+  _poseHeld(body, lp, swing) {
+    const id = this._gunId || ''
+    if (body.gunId !== id) {
+      const held = holdWeapon(this.bm.game, body.char, id, body.gun)
+      body.gun = held.gun
+      body.melee = held.melee
+      body.gunId = id
+    }
+    poseArms(lp, { holding: !!body.gun, melee: body.melee, firing: this._recoil > 0.05, swing })
   }
 
   _buildBody() {

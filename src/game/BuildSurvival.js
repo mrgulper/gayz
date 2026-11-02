@@ -23,6 +23,7 @@ import { xpToNextLevel } from './Xp.js'
 import { getKeyFor } from './Keybinds.js'
 import { t } from './i18n.js'
 import { BuildCamp, COIN_PER_KILL, COIN_PER_WAVE } from './BuildCamp.js'
+import { PlayShop } from './PlayShop.js'
 import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, COMING_SOON_WEAPONS, ammoFor, canPlayWeapon, weaponBars } from './PlayWeapons.js'
 import { PlayFx } from './PlayFx.js'
 import { openSpawnMap, closeSpawnMap, findSpawn } from './SpawnMap.js'
@@ -184,9 +185,11 @@ const PLACE_REACH = 6
 const HELI_HIGH = 40
 const HELI_LANDED = 0.35
 const CHEST_BLOCKS = ['cobblestone', 'oakplanks', 'oaklog', 'glass', 'stonebricks', 'dirt']
-// Traps (2026-10-31, Gaymi's "traps ... mix well with waves"): every
-// cleared wave hands you one of these ([block, how many] - SpecialBlocks.js),
-// and a loot chest has a TRAP_CHEST_CHANCE of one too.
+// Traps (2026-10-31, Gaymi's "traps ... mix well with waves"): a loot
+// chest has a TRAP_CHEST_CHANCE of one of these (and some rewards give
+// one, _trapSupplies) ([block, how many] -
+// SpecialBlocks.js). Since 2026-11-01 cleared waves no longer hand them
+// out: they're bought in the Shop (PlayShop.js SHOP_TRAPS).
 const TRAP_SUPPLIES = [['spikeblock', 4], ['baitblock', 1], ['landmine', 2], ['beartrap', 2], ['explosivebarrel', 3]]
 const TRAP_CHEST_CHANCE = 0.35
 // Skeletons (2026-10-16, real animated 3D models - SkeletonModels.js) join
@@ -472,6 +475,9 @@ export class BuildSurvival {
     this.signs.clear()
     if (!this.emotes) this.emotes = new Emotes(this)
     this.emotes.clear()
+    // The Shop (B, PlayShop.js): fresh quests every game.
+    if (!this.shop) this.shop = new PlayShop(this)
+    this.shop.reset()
     // Fishing, Zombie Radios and spray tags (2026-11-01).
     if (!this.fishing) this.fishing = new Fishing(this)
     this.fishing.clear()
@@ -612,6 +618,7 @@ export class BuildSurvival {
     this.animals?.clear()
     this.signs?.clear()
     this.emotes?.clear()
+    this.shop?.closePanel(false)
     this.fishing?.clear()
     this.radios?.clear()
     this.snowballs?.clear()
@@ -891,7 +898,7 @@ export class BuildSurvival {
       ammoByWeapon: this._ammoByWeapon,
       inv: this.inv?.serialize(),
       seconds: (performance.now() - this._startedAt) / 1000,
-      claimed: (this.camp?.quests || []).filter((q) => q.claimed).map((q) => q.id),
+      claimed: (this.shop?.quests || []).filter((q) => q.claimed).map((q) => q.id),
       pos: { x: tm.pos.x, y: tm.pos.y, z: tm.pos.z },
       yaw: this.bm._yaw,
       seed: this.bm.world?.active ? worldSeed() : null,
@@ -975,7 +982,7 @@ export class BuildSurvival {
     this.mag = Math.min(r.mag, this.magSize())
     this.reserve = r.reserve
     this._startedAt = performance.now() - r.seconds * 1000
-    for (const q of this.camp?.quests || []) q.claimed = r.claimed.includes(q.id)
+    for (const q of this.shop?.quests || []) q.claimed = r.claimed.includes(q.id)
     if (r.pos) {
       this.bm.tryMode.pos.set(r.pos.x, r.pos.y, r.pos.z)
       this.bm._yaw = r.yaw
@@ -1636,8 +1643,8 @@ export class BuildSurvival {
     }
   }
 
-  // A cleared wave's trap (TRAP_SUPPLIES) into my inventory. -> the
-  // message saying what it was.
+  // A trap pack (TRAP_SUPPLIES) into my inventory, as a reward (a rescued
+  // survivor, a world event...). -> the message saying what it was.
   _trapSupplies() {
     const [id, n] = TRAP_SUPPLIES[Math.floor(Math.random() * TRAP_SUPPLIES.length)]
     // add() hands back what didn't fit.
@@ -1819,6 +1826,7 @@ export class BuildSurvival {
     if (code === getKeyFor('reload')) this.reload()
     else if (code === getKeyFor('dropItem')) this.inv?.drop()
     else if (code === getKeyFor('emote')) this.emotes?.toggleBar()
+    else if (code === getKeyFor('shop')) this.shop?.toggle()
     else if (code === getKeyFor('spray')) this.sprays?.spray()
   }
 
@@ -3075,10 +3083,8 @@ export class BuildSurvival {
   _updateMe(dt) {
     // Automatic guns keep firing while the button is held.
     if (this.bm._fireHeld && this.weapon.auto && document.pointerLockElement) this.bm.tryMode.fire()
-    if (this.camp) {
-      this.camp.update(dt)
-      this.camp.checkQuests()
-    }
+    this.camp?.update(dt)
+    this.shop?.update()
     // Healing: Health Regen out of combat, and inside Map 1's camp.
     const nowMs = performance.now()
     if (this.health < this.maxHealth) {
@@ -3219,9 +3225,8 @@ export class BuildSurvival {
             this._win()
             return
           }
-          const traps = this._trapSupplies()
-          if (!rush) this._message(`${t('buildPlayWaveClear', { n: this.wave, s: WAVE_BREAK })} ${traps}`, 4)
-          else this._message(traps)
+          // Traps are bought in the Shop now (PlayShop.js), not handed out.
+          if (!rush) this._message(t('buildPlayWaveClear', { n: this.wave, s: WAVE_BREAK }), 4)
         }
       }
     }

@@ -748,24 +748,24 @@ test('Map 3 Play starts in a safe camp with working NPCs', async ({ page }) => {
     s._hurtPlayer(30)
     out.safe = s.health === hp
     s.coins = 1000
-    c._act('buy', 'armor')
+    s.shop._act('buy', 'armor')
     out.armor = s.armor
-    c._act('upgrade', 'mag')
+    s.shop._act('upgrade', 'mag')
     out.mag = s.magSize()
     s.mag = 0
     s.reserve = 0
-    c._act('fill', 'fill')
+    s.shop._act('fill', 'fill')
     out.filled = s.mag === s.magSize() && s.reserve > 0
     s.stats.kills = 15
-    c._act('claim', 'kill15')
+    s.shop._act('claim', 'kill15')
     out.coinsLeft = s.coins
-    out.nextQuests = c.activeQuests().map((q) => q.id).join()
+    out.nextQuests = s.shop.activeQuests().map((q) => q.id).join()
     // The board closes on a click outside it, and stays open on one inside.
-    c.openPanel('trader')
+    c.npcs.length && s.shop.openPanel('trader')
     document.getElementById('play-npc-list').click()
-    out.insideKeepsOpen = c.panelOpen
+    out.insideKeepsOpen = s.shop.panelOpen
     document.getElementById('play-npc-panel').click()
-    out.outsideCloses = !c.panelOpen
+    out.outsideCloses = !s.shop.panelOpen
     s.stop()
     out.cleaned = !s.camp
     g._exitBuildMode()
@@ -1181,7 +1181,7 @@ test('Settings > Controls keys drive walking in Map 1', async ({ page }) => {
     rebind('moveForward', 'KeyW')
     return { ids, withW, withI, withArrow }
   })
-  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap', 'cameraView', 'dropItem', 'emote', 'spray'])
+  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap', 'cameraView', 'dropItem', 'emote', 'shop', 'spray'])
   expect(result.withW).toBeLessThan(0.01)
   expect(result.withI).toBeGreaterThan(2)
   expect(result.withArrow).toBeGreaterThan(2)
@@ -4664,6 +4664,12 @@ test('Crafting: the Crafting tab makes gear and blocks from what you carry', asy
     const bagBox = box()
     out.sizes = [craftBox.width, craftBox.height, bagBox.width, bagBox.height].map(Math.round)
     out.boxSame = Math.abs(craftBox.height - bagBox.height) < 3 && Math.abs(craftBox.width - bagBox.width) < 3
+    // A wide screen shows both at once: crafting on the left, the bag on the right.
+    out.wasOpen = window.__game.buildMode.pickerOpen
+    if (!window.__game.buildMode.pickerOpen) window.__game.buildMode.togglePicker()
+    const col = (sel) => document.querySelector(`#play-inventory ${sel}`).getBoundingClientRect()
+    out.sides = [col('.inv-craft-col').left, col('.inv-craft-col').right, col('.inv-craft-col').width, col('.inv-bag-col').left, col('.inv-bag-col').width, innerWidth].map(Math.round)
+    out.sideBySide = col('.inv-craft-col').width > 0 && col('.inv-bag-col').width > 0 && col('.inv-craft-col').right <= col('.inv-bag-col').left
     window.__game.buildMode.togglePicker()
     // Killed zombies drop Zombie Goo sometimes.
     const p = s.bodyPos()
@@ -4690,6 +4696,7 @@ test('Crafting: the Crafting tab makes gear and blocks from what you carry', asy
   expect(r.disguise).toBe(1)
   expect(r.goo).toBe(0)
   expect(r.boxSame, String(r.sizes)).toBe(true)
+  expect(r.sideBySide, String(r.sides)).toBe(true)
   expect(r.gooDrops).toBeGreaterThan(0)
   expect(r.gooDrops).toBeLessThan(20)
 })
@@ -4846,6 +4853,83 @@ test('Survivors: rescued ones live at camp, guard it and take Follow / Hold orde
 // 2026-11-01: crafted boats and helicopters (Vehicles.js) - crafted from
 // the Crafting tab, put down, ridden; the helicopter climbs with Jump,
 // burns fuel, refills from Heli Fuel you carry, and won't let you out up high.
+// 2026-11-01: B opens the Shop (the camp's people + traps) on any map,
+// cleared waves no longer hand out traps, Z opens the emote wheel, and
+// you sit in vehicles and can right-click / Crouch out of them.
+test('Shop on B, emote wheel on Z, sitting in and getting off vehicles', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await startCampGame(page)
+  const r = await page.evaluate(async () => {
+    const bm = window.__game.buildMode
+    const s = bm.survival
+    const key = (code) => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }))
+      window.dispatchEvent(new KeyboardEvent('keyup', { code, bubbles: true }))
+    }
+    const out = {}
+    // --- the Shop
+    key('KeyB')
+    out.shopOpen = s.shop.panelOpen
+    out.tabs = [...document.querySelectorAll('#play-shop-tabs [data-shop-tab]')].map((b) => b.dataset.shopTab).join()
+    document.querySelector('[data-shop-tab="traps"]').click()
+    out.trapRows = document.querySelectorAll('#play-npc-list button[data-act="trap"]').length
+    s.coins = 100
+    s.shop._panelKey = ''
+    s.shop._renderPanel()
+    const mines = () => [...s.inv.hotbar, ...s.inv.grid].reduce((n, it) => n + (it?.id === 'landmine' ? it.n : 0), 0)
+    const had = mines()
+    document.querySelector('#play-npc-list button[data-act="trap"][data-id="landmine"]').click()
+    out.boughtMine = mines() === had + 2 && s.coins === 100 - s.shop._price({ cost: 45 }) ? true : [had, mines(), s.coins]
+    key('KeyB')
+    out.shopClosed = !s.shop.panelOpen
+    // Talking to a camp person opens the Shop on their tab.
+    s.shop.openPanel('upgrader')
+    out.npcTab = s.shop.tab
+    s.shop.closePanel(false)
+    // --- no free traps for a cleared wave any more
+    const traps = () => ['spikeblock', 'baitblock', 'landmine', 'beartrap', 'explosivebarrel'].reduce((n, id) => n + [...s.inv.hotbar, ...s.inv.grid].reduce((m, it) => m + (it?.id === id ? it.n : 0), 0), 0)
+    const before = traps()
+    s.zombies.forEach((z) => s._removeZombie(z))
+    s.zombies = []
+    s._toSpawn = 0
+    s._breakTimer = 0
+    for (let i = 0; i < 5; i++) s.update(0.05)
+    out.noWaveTraps = traps() === before
+    s._breakTimer = 1e9
+    // --- the emote wheel
+    key('KeyZ')
+    out.wheelOpen = s.emotes.open
+    out.wheelButtons = document.querySelectorAll('#emote-wheel [data-emote]').length
+    document.querySelector('#emote-wheel [data-emote="cheer"]').click()
+    out.cheer = s.emotes.current === 'cheer' && !s.emotes.open
+    // --- the go-kart: sit in it, right-click out, Crouch out
+    const k = s.kart
+    const tm = bm.tryMode
+    tm.pos.set(k.x + 1, k.y, k.z)
+    out.in = k.use() && k.driving
+    tm.update(0.05, new Set())
+    out.seated = tm._seatEye > 0.5
+    tm.view = 1
+    tm._updateBody(0.05)
+    out.legsOut = Math.abs(tm._body?.char.limbPivots.legR.rotation.x + Math.PI / 2) < 0.01
+    tm.view = 0
+    out.rightClickOut = k.rightClick() && !k.driving
+    tm.pos.set(k.x + 1, k.y, k.z)
+    k.use()
+    tm.update(0.05, new Set())
+    tm.update(0.05, new Set(['KeyC']))
+    out.crouchOut = !k.driving
+    tm.update(0.05, new Set())
+    out.standing = tm._seatEye === 0
+    return out
+  })
+  expect(r).toEqual({
+    shopOpen: true, tabs: 'items,traps,upgrades,ammo,quests', trapRows: 5, boughtMine: true, shopClosed: true, npcTab: 'upgrades',
+    noWaveTraps: true, wheelOpen: true, wheelButtons: 6, cheer: true,
+    in: true, seated: true, legsOut: true, rightClickOut: true, crouchOut: true, standing: true,
+  })
+})
+
 test('boats and helicopters: craft, put down, ride, fly on fuel', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
@@ -5050,10 +5134,9 @@ test('Golden Runner, fishing, zombie radios and spray tags', async ({ page }) =>
     me.set(home.x, home.y, home.z)
     // --- Fishing: buy the rod from the Trader, hold it, cast, wait, reel in.
     s.coins = 500
-    if (s.camp) s.camp._act('buy', 'fishingRod')
-    else s.inv.add({ kind: 'item', id: 'fishingRod', n: 1 })
+    s.shop._act('buy', 'fishingRod')
     out.hasRod = s.inv.has('fishingRod')
-    out.paid = s.camp ? s.coins === 440 : true
+    out.paid = s.coins === 440
     const slot = s.inv.hotbar.findIndex((it) => it?.id === 'fishingRod')
     s.inv.select(slot)
     s.inv.apply()
