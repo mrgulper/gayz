@@ -48,9 +48,9 @@ export const JOIN_GRACE_MS = 90000
 // main: Zombie Survival; infection: Infection mode (src/game/Infection.js);
 // zone: Shrinking Zone (src/game/ShrinkZone.js).
 // td: Tower Defense (src/game/TowerDefense.js).
-// hide / ctf / koth / soccer: the party modes (src/game/PartyModes.js).
-export const MODES = ['main', 'infection', 'zone', 'hide', 'ctf', 'koth', 'soccer', 'td']
-const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer' }
+// hide / ctf / koth / soccer / potato / bowling: the party modes (src/game/PartyModes.js).
+export const MODES = ['main', 'infection', 'zone', 'hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'td']
+const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer', potato: 'hotPotato', bowling: 'zombieBowling' }
 const NAME_MAX = 24
 const NICK_MAX = 20
 const MAX_ZOMBIES = 40
@@ -365,8 +365,9 @@ function cleanInf(v) {
 }
 
 // A party round (PartyModes.snapshot): phase, time, round, winner, where
-// the arena is, teams, seekers, stuns, scores, flags, the King, the ball
-// and the bots. Only the server's own mode's kind is kept.
+// the arena is, teams, seekers, stuns, scores, flags, the King, the ball,
+// the bots, Hot Potato's bomb (holder, fuse, who's out) and Zombie
+// Bowling's turn, rolls and pins down. Only the server's own mode's kind is kept.
 function cleanParty(v, kind) {
   if (!v || typeof v !== 'object' || v.k !== kind) return null
   const obj = (o) => (o && typeof o === 'object' && !Array.isArray(o) ? Object.entries(o).slice(0, 40) : [])
@@ -404,6 +405,12 @@ function cleanParty(v, kind) {
     kg: id(v.kg) ? v.kg : '',
     ball,
     bots,
+    ho: id(v.ho) ? v.ho : '',
+    fu: num(v.fu, 0, 60),
+    ou: [].concat(v.ou || []).filter(id).slice(0, 40),
+    tu: id(v.tu) ? v.tu : '',
+    ro: Object.fromEntries(obj(v.ro).filter(([k]) => id(k)).map(([k, n]) => [k, Math.round(num(n, 0, 10))])),
+    pd: Math.round(num(v.pd, 0, 1023)),
   }
 }
 

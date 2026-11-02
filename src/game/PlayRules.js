@@ -22,12 +22,13 @@ export const PLAY_MUTATORS = ['hordeRush', 'lootRush', 'healthRegen', 'glassHous
 // shrinkingZone (2026-11-01, ShrinkZone.js): the waves inside a closing ring.
 // speedrun (2026-11-01, Speedrun.js): clear SPEEDRUN_WAVES waves against the clock.
 // hideSeek, captureFlag, kingHill, zombieSoccer (2026-11-01, PartyModes.js): party games, no zombies.
+// hotPotato, zombieBowling (2026-11-02, PartyModes.js): two more of them.
 // towerDefense (2026-11-02, TowerDefense.js): towers by a path on its own map.
-export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'worldMap', 'infection', 'shrinkingZone', 'speedrun', 'towerDefense', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer']
+export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'worldMap', 'infection', 'shrinkingZone', 'speedrun', 'towerDefense', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling']
 // Game Modes with no zombies at all (2026-10-26, Gaymi: "make world map
 // not spawn zombies ... make world map just a gamemode with the world
 // map"): you just explore the real Earth.
-export const NO_ZOMBIE_MODES = ['worldMap', 'infection', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer']
+export const NO_ZOMBIE_MODES = ['worldMap', 'infection', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling']
 // Its achievement, Globetrotter: a World Map run this long (seconds).
 export const GLOBETROTTER_SECONDS = 600
 

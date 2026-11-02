@@ -43,6 +43,8 @@ import { BloodMoon } from './BloodMoon.js'
 import { Fishing } from './Fishing.js'
 import { Snowballs } from './Snowballs.js'
 import { MetalDetector } from './MetalDetector.js'
+import { TreasureMaps, PIECE_CHANCE } from './TreasureMaps.js'
+import { Kites } from './Kites.js'
 import { AnimalRiding } from './AnimalRiding.js'
 import { Potions, POTION_IDS, CHEST_POTION_CHANCE } from './Potions.js'
 import { Jetpack } from './Jetpack.js'
@@ -466,6 +468,11 @@ export class BuildSurvival {
     // The metal detector's buried loot (MetalDetector.js).
     if (!this.detector) this.detector = new MetalDetector(this)
     this.detector.clear()
+    // Treasure Maps' X and the kite (TreasureMaps.js, Kites.js).
+    if (!this.treasure) this.treasure = new TreasureMaps(this)
+    this.treasure.clear()
+    if (!this.kite) this.kite = new Kites(this)
+    this.kite.clear()
     // Riding tamed animals (AnimalRiding.js).
     if (!this.riding) this.riding = new AnimalRiding(this)
     this.riding.clear()
@@ -647,6 +654,8 @@ export class BuildSurvival {
     this.radios?.clear()
     this.snowballs?.clear()
     this.detector?.clear()
+    this.treasure?.clear()
+    this.kite?.clear()
     this.riding?.clear()
     this.potions?.clear()
     this.jetpack?.clear()
@@ -1636,6 +1645,8 @@ export class BuildSurvival {
       this.onboard?.onKill()
       // Zombie Goo for crafting (PlayCrafting.js).
       if (Math.random() < GOO_CHANCE) this._drops?.spawnItem('zombieGoo', z.x, z.y + 1, z.z)
+      // A torn Map Piece now and then (TreasureMaps.js).
+      if (Math.random() < PIECE_CHANCE) this._drops?.spawnItem('mapPiece', z.x, z.y + 1.2, z.z)
       this.damageNumbers?.coinsAt(z, this._coinsEarned - coins, ZOMBIE_HEIGHT)
     }
     this.bm.specials.onKill(z)
@@ -3096,6 +3107,7 @@ export class BuildSurvival {
     this.throws?.update(Math.min(dt, 0.1))
     this.snowballs?.update(Math.min(dt, 0.1))
     this.detector?.update(dt)
+    this.kite?.update(Math.min(dt, 0.1))
     this.potions?.update()
     if (!this.dead && !this.bm.menuOpen) this._checkDungeon(dt)
     this.jetpack?.update()

@@ -1,6 +1,7 @@
-// Four party modes (2026-11-01, Gaymi's idea list 3: "hide-and-seek,
+// Six party modes (2026-11-01, Gaymi's idea list 3: "hide-and-seek,
 // capture the flag, king of the hill, or zombie soccer" - Gaymi picked
-// "servers + bots solo", like Infection). Owned by BuildSurvival
+// "servers + bots solo", like Infection; Hot Potato and Zombie Bowling
+// added 2026-11-02, idea list 5, "like other party modes"). Owned by BuildSurvival
 // (`s.party`) when cfg.mode is one of PARTY_MODES (all NO_ZOMBIE_MODES:
 // no waves). Every mode plays in rounds: WAIT_S to get ready (bots fill
 // the empty spots up to TOTAL), the round, then END_S showing who won.
@@ -25,6 +26,17 @@
 //   ball (run into it) into the other team's goal (GOAL_GAP apart,
 //   GOAL_W wide). A shot knocks the ball along. GOALS_TO_WIN, or the most
 //   when time runs out.
+// - hotPotato (Hot Potato): everyone for themselves. One player carries a
+//   ticking zombie bomb over their head; touching someone passes it (not
+//   straight back: PASS_CD). Its fuse (FUSE_S, hidden - it ticks faster
+//   near the end) runs out on whoever holds it: they blow up into
+//   confetti and are out, and a new bomb starts on someone still in. The
+//   last one standing wins. No shooting.
+// - zombieBowling (Zombie Bowling): everyone for themselves, in turns
+//   (ROLLS each). On your turn (TURN_S) run into the ball at the line - or
+//   shoot it - to send it down at 10 little zombie pins BOWL_GAP away; a
+//   pin hit falls and can knock its neighbours. Pins down = points, all
+//   10 is a Strike. Only the bowler can touch the ball. Most pins wins.
 //
 // Whoever runs it (alone, or a server's host - `runs`) keeps the round,
 // moves the bots and the ball and checks touches from everyone's synced
@@ -37,15 +49,16 @@ import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from '
 import { nameTag } from './BuildCamp.js'
 import { MOB_HEIGHT } from './PlayRules.js'
 import { saveShopProgress } from './Game.js'
+import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
 
-export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer']
+export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling']
 // Each mode's server mode (api/_lib/servers.js MODES).
-export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer' }
+export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling' }
 export const TOTAL = 6
 export const WAIT_S = 8
 export const END_S = 7
-export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240 }
+export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300 }
 export const HIDE_S = 20
 export const STUN_S = 2.5
 export const FLAG_GAP = 32
@@ -56,6 +69,16 @@ export const GOAL_GAP = 34
 export const GOAL_W = 5
 export const GOALS_TO_WIN = 3
 export const WIN_COINS = 25
+export const FUSE_S = [12, 22]
+const PASS_CD = 1
+export const BOWL_GAP = 22
+export const PINS = 10
+export const ROLLS = 2
+export const TURN_S = 14
+const PIN_R = 0.3
+const PIN_CHAIN = 0.55 // a falling pin knocks a neighbour this often
+const BOT_AIM = 1.4 // how far off a bot's roll can be (blocks)
+const ID_SCORE_MODES = new Set(['kingHill', 'hotPotato', 'zombieBowling'])
 const TEAM_MODES = new Set(['captureFlag', 'zombieSoccer'])
 const TAG_DIST = 1.2
 const STUN_SPEED = 0.4
@@ -65,6 +88,7 @@ const BALL_R = 0.45
 const KICK = 9
 const SHOT_KICK = 12
 const BALL_DRAG = 1.2
+const BOWL_DRAG = 0.35
 const GRAVITY = 28
 const JUMP = 8.6
 const FOLLOW = 12
@@ -97,11 +121,22 @@ export class PartyMode {
     this.score = {} // team or player id -> points
     this.flags = { r: { at: 'base', by: '', x: 0, y: 0, z: 0 }, b: { at: 'base', by: '', x: 0, y: 0, z: 0 } }
     this.ball = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 }
+    this.holder = '' // Hot Potato: who has the bomb
+    this.fuse = 0
+    this.out = new Set()
+    this._passCd = 0
+    this.turn = '' // Zombie Bowling: whose roll it is
+    this.order = []
+    this.rolls = {} // id -> rolls done
+    this.rolled = false
+    this.turnLeft = 0
+    this.pinsDown = new Array(PINS).fill(false)
+    this._still = 0
     this.bots = new Map()
     this._botN = 0
     this._myId = 'me'
     this._hillT = 0
-    this._was = { phase: '', round: 0, seeker: false }
+    this._was = { phase: '', round: 0, seeker: false, holder: '', out: new Set(), turn: '' }
     this._baseSpeed = survival.bm.tryMode.speedMult ?? 1
     this._skin = null
     skin().then((k) => { this._skin = k })
@@ -151,7 +186,7 @@ export class PartyMode {
   spot(which) {
     const h = this.home
     if (!h) return null
-    const gap = this.kind === 'zombieSoccer' ? GOAL_GAP : FLAG_GAP
+    const gap = this.kind === 'zombieSoccer' ? GOAL_GAP : this.kind === 'zombieBowling' ? BOWL_GAP : FLAG_GAP
     const dx = which === 'r' ? -gap / 2 : which === 'b' ? gap / 2 : 0
     const x = h.x + dx
     const z = h.z
@@ -218,11 +253,14 @@ export class PartyMode {
     const ids = new Set(people.map((p) => p.id))
     for (const id of [...this.teams.keys()]) if (!ids.has(id)) this.teams.delete(id)
     for (const id of this.seekers) if (!ids.has(id)) this.seekers.delete(id)
+    for (const id of this.out) if (!ids.has(id)) this.out.delete(id)
     if (TEAM_MODES.has(this.kind)) for (const p of people) if (!this.teams.has(p.id)) this.teams.set(p.id, this._smallerTeam())
     this.left -= dt
     if (this.kind === 'hideSeek') this._runHide(people)
     else if (this.kind === 'captureFlag') this._runFlags(people)
     else if (this.kind === 'kingHill') this._runHill(people, dt)
+    else if (this.kind === 'hotPotato') this._runPotato(people, dt)
+    else if (this.kind === 'zombieBowling') this._runBowl(people, dt)
     else this._runBall(people, dt)
     if (this.phase === 'play' && this.left <= 0) this._timeUp()
   }
@@ -252,6 +290,14 @@ export class PartyMode {
     if (this.kind === 'hideSeek') for (const id of shuffled.slice(0, people.length >= 6 ? 2 : 1)) this.seekers.add(id)
     if (this.kind === 'captureFlag') for (const tm of ['r', 'b']) this._flagHome(tm)
     if (this.kind === 'zombieSoccer') this._ballHome()
+    this.out.clear()
+    if (this.kind === 'hotPotato') this._newBomb(people)
+    if (this.kind === 'zombieBowling') {
+      this.order = shuffled
+      this.rolls = {}
+      for (const id of shuffled) this.score[id] = 0
+      this._startTurn(shuffled[0])
+    }
     // Bots start at their own end (team modes) or scattered.
     for (const b of this.bots.values()) {
       const tm = this.teams.get(b.id)
@@ -278,6 +324,7 @@ export class PartyMode {
   // The clock ran out: the most points wins (Hide and Seek: the hiders).
   _timeUp() {
     if (this.kind === 'hideSeek') return this._end('h')
+    if (this.kind === 'hotPotato') return this._end('tie')
     let best = ''
     let top = -1
     let tie = false
@@ -374,19 +421,40 @@ export class PartyMode {
   }
 
   _runBall(people, dt) {
+    const b = this.ball
+    this._moveBall(dt, people)
+    // A goal: past a goal line, between the posts.
+    const h = this.home
+    if (Math.abs(b.z - h.z) < GOAL_W / 2) {
+      const scorer = b.x < h.x - GOAL_GAP / 2 ? 'b' : b.x > h.x + GOAL_GAP / 2 ? 'r' : ''
+      if (scorer) {
+        this.score[scorer] = (this.score[scorer] || 0) + 1
+        this._say = { k: 'partyGoal', team: scorer }
+        this._ballHome()
+        if (this.score[scorer] >= GOALS_TO_WIN) this._end(scorer)
+      }
+    }
+    // Lost far away: back to the middle.
+    if (Math.hypot(b.x - h.x, b.z - h.z) > GOAL_GAP * 1.5 || b.y < h.y - 30) this._ballHome()
+  }
+
+  // The ball rolls, bounces off walls and is kicked by `kickers` running
+  // into it. -> true if someone kicked it.
+  _moveBall(dt, kickers) {
     const s = this.s
     const b = this.ball
-    // Kicks: anyone running into it.
-    for (const p of people) {
+    let kicked = false
+    for (const p of kickers) {
       const dx = b.x - p.x
       const dz = b.z - p.z
       const d = Math.hypot(dx, dz)
       if (d > 0.9 || Math.abs(b.y - p.y) > 1.6 || this.stunned.has(p.id)) continue
       b.vx = (dx / (d || 1)) * KICK
       b.vz = (dz / (d || 1)) * KICK
-      b.vy = 3
+      b.vy = this.kind === 'zombieBowling' ? 0.5 : 3
+      kicked = true
     }
-    const k = Math.exp(-BALL_DRAG * dt)
+    const k = Math.exp(-(this.kind === 'zombieBowling' ? BOWL_DRAG : BALL_DRAG) * dt)
     b.vx *= k
     b.vz *= k
     for (const axis of ['x', 'z']) {
@@ -409,19 +477,144 @@ export class PartyMode {
       b.y = ground
       b.vy = Math.abs(b.vy) > 3 ? -b.vy * 0.4 : 0
     }
-    // A goal: past a goal line, between the posts.
-    const h = this.home
-    if (Math.abs(b.z - h.z) < GOAL_W / 2) {
-      const scorer = b.x < h.x - GOAL_GAP / 2 ? 'b' : b.x > h.x + GOAL_GAP / 2 ? 'r' : ''
-      if (scorer) {
-        this.score[scorer] = (this.score[scorer] || 0) + 1
-        this._say = { k: 'partyGoal', team: scorer }
-        this._ballHome()
-        if (this.score[scorer] >= GOALS_TO_WIN) this._end(scorer)
+    return kicked
+  }
+
+  // --- Hot Potato ---
+
+  // A new bomb on someone still in, with a fresh (hidden) fuse.
+  _newBomb(people) {
+    const alive = people.filter((p) => !this.out.has(p.id))
+    this.holder = alive.length ? alive[Math.floor(Math.random() * alive.length)].id : ''
+    this.fuse = FUSE_S[0] + Math.random() * (FUSE_S[1] - FUSE_S[0])
+    this._passCd = PASS_CD
+    this._from = ''
+  }
+
+  _runPotato(people, dt) {
+    const alive = people.filter((p) => !this.out.has(p.id))
+    if (alive.length <= 1) return this._end(alive[0]?.id || 'tie')
+    const h = alive.find((p) => p.id === this.holder)
+    if (!h) return this._newBomb(people)
+    this.fuse -= dt
+    if (this.fuse <= 0) {
+      this.out.add(h.id)
+      this._say = { k: 'partyPotatoBoom', name: h.id }
+      const left = alive.filter((p) => p.id !== h.id)
+      if (left.length <= 1) return this._end(left[0]?.id || 'tie')
+      return this._newBomb(people)
+    }
+    this._passCd -= dt
+    if (this._passCd > 0) return
+    for (const p of alive) {
+      if (p.id === h.id || (p.id === this._from && this._passCd > -PASS_CD)) continue
+      if (Math.hypot(p.x - h.x, p.z - h.z) < TAG_DIST + 0.2 && Math.abs(p.y - h.y) < 1.6) {
+        this._from = h.id
+        this.holder = p.id
+        this._passCd = PASS_CD
+        break
       }
     }
-    // Lost far away: back to the middle.
-    if (Math.hypot(b.x - h.x, b.z - h.z) > GOAL_GAP * 1.5 || b.y < h.y - 30) this._ballHome()
+  }
+
+  // --- Zombie Bowling ---
+
+  // Where pin i stands: a triangle (1, 2, 3, 4) pointing at the line.
+  pinSpot(i) {
+    const key = this.home ? `${this.home.x},${this.home.z}` : ''
+    if (this._pinKey !== key) {
+      this._pinKey = key
+      this._pinAt = []
+    }
+    return this._pinAt[i] || (this._pinAt[i] = this._pinSpot(i))
+  }
+
+  _pinSpot(i) {
+    const head = this.spot('b')
+    if (!head) return null
+    let row = 0
+    let first = 0
+    while (i >= first + row + 1) {
+      first += row + 1
+      row++
+    }
+    const x = head.x + row * 0.8
+    const z = head.z + (i - first - row / 2) * 0.8
+    return { x, y: this.s._groundUnder(x, head.y + 4, z), z }
+  }
+
+  _ballAtLine() {
+    const at = this.spot('r')
+    Object.assign(this.ball, { x: at.x + 1.5, y: at.y + 0.5, z: at.z, vx: 0, vy: 0, vz: 0 })
+  }
+
+  _startTurn(id) {
+    this.turn = id || ''
+    this.rolled = false
+    this.turnLeft = TURN_S
+    this._still = 0
+    this.pinsDown.fill(false)
+    this._ballAtLine()
+    const b = this.bots.get(id)
+    if (b) {
+      const at = this.spot('r')
+      this._place(b, at.x - 1, at.z + (Math.random() - 0.5))
+      b.aim = (Math.random() - 0.5) * 2 * BOT_AIM
+      b.wait = 0.8 + Math.random()
+    }
+  }
+
+  _runBowl(people, dt) {
+    for (const p of people) if (!this.order.includes(p.id)) {
+      this.order.push(p.id)
+      this.score[p.id] = this.score[p.id] || 0
+    }
+    const bowler = people.find((p) => p.id === this.turn)
+    if (!bowler) return this._nextTurn(people)
+    this.turnLeft -= dt
+    const b = this.ball
+    if (this._moveBall(dt, [bowler])) this.rolled = true
+    // Pins it hits fall, and can knock a neighbour over.
+    const speed = Math.hypot(b.vx, b.vz)
+    const fall = (i) => {
+      if (this.pinsDown[i]) return
+      this.pinsDown[i] = true
+      const at = this.pinSpot(i)
+      for (let j = 0; j < PINS; j++) {
+        if (this.pinsDown[j]) continue
+        const o = this.pinSpot(j)
+        if (Math.hypot(o.x - at.x, o.z - at.z) < 0.95 && Math.random() < PIN_CHAIN) fall(j)
+      }
+    }
+    if (speed > 1) for (let i = 0; i < PINS; i++) {
+      const at = this.pinSpot(i)
+      if (!this.pinsDown[i] && Math.hypot(at.x - b.x, at.z - b.z) < PIN_R + BALL_R && Math.abs(at.y - b.y) < 1.5) fall(i)
+    }
+    const head = this.spot('b')
+    this._still = this.rolled && speed < 0.4 ? this._still + dt : 0
+    const gone = b.x > head.x + 5 || Math.abs(b.z - head.z) > 8 || b.y < head.y - 10
+    if (this._still > 0.8 || (this.rolled && gone) || this.turnLeft <= 0) this._finishTurn(people)
+  }
+
+  _finishTurn(people) {
+    const n = this.pinsDown.filter(Boolean).length
+    const id = this.turn
+    this.score[id] = (this.score[id] || 0) + n
+    this.rolls[id] = (this.rolls[id] || 0) + 1
+    this._say = n === PINS ? { k: 'partyBowlStrike', name: id } : { k: 'partyBowlPins', name: id, n }
+    this._nextTurn(people)
+  }
+
+  // The next one in the order with rolls left; nobody left: the most pins wins.
+  _nextTurn(people) {
+    const here = new Set(people.map((p) => p.id))
+    const i0 = this.order.indexOf(this.turn)
+    for (let k = 1; k <= this.order.length; k++) {
+      const id = this.order[(i0 + k) % this.order.length]
+      if (here.has(id) && (this.rolls[id] || 0) < ROLLS) return this._startTurn(id)
+    }
+    this.turn = ''
+    this._timeUp()
   }
 
   // --- bots ---
@@ -493,6 +686,30 @@ export class PartyMode {
       return this.flags[enemy]
     }
     if (this.kind === 'kingHill') return this.spot('hill')
+    if (this.kind === 'hotPotato') {
+      if (this.out.has(b.id)) return null
+      const alive = others.filter((p) => !this.out.has(p.id))
+      if (this.holder === b.id) return nearest(alive)
+      const h = alive.find((p) => p.id === this.holder)
+      if (h && Math.hypot(h.x - b.x, h.z - b.z) < 9) return { x: b.x * 2 - h.x, z: b.z * 2 - h.z }
+      return null
+    }
+    if (this.kind === 'zombieBowling') {
+      const line = this.spot('r')
+      if (this.turn !== b.id || this.rolled) {
+        // Waiting: off to the side of the line.
+        const w = { x: line.x - 2, z: line.z + 3 + (b.n % 3) }
+        return Math.hypot(w.x - b.x, w.z - b.z) > 1 ? w : { x: b.x, z: b.z, stay: true }
+      }
+      if ((b.wait -= this._dt || 0) > 0) return { x: b.x, z: b.z, stay: true }
+      const head = this.spot('b')
+      const ball = this.ball
+      const gx = head.x + 1.2 - ball.x
+      const gz = head.z + (b.aim || 0) - ball.z
+      const gd = Math.hypot(gx, gz) || 1
+      const behind = { x: ball.x - (gx / gd) * 1.2, z: ball.z - (gz / gd) * 1.2 }
+      return Math.hypot(behind.x - b.x, behind.z - b.z) > 0.6 ? behind : { x: ball.x + gx / gd, z: ball.z + gz / gd }
+    }
     // Soccer: get behind the ball (on the side away from the goal it's
     // going for), then run through it.
     const goal = this.spot(tm === 'r' ? 'b' : 'r')
@@ -507,6 +724,7 @@ export class PartyMode {
   _moveBot(b, dt) {
     const s = this.s
     const people = this._people()
+    this._dt = dt
     const goal = this._botGoal(b, people)
     // Bots stun enemies close by now and then (Flag and Hill).
     if (this.phase === 'play' && (this.kind === 'captureFlag' || this.kind === 'kingHill') && !this.stunned.has(b.id)) {
@@ -610,6 +828,8 @@ export class PartyMode {
     if (this.phase !== 'play' && this.phase !== 'end') return null
     if (this.kind === 'hideSeek') return this.seekers.has(id) ? 0xa060ff : null
     if (this.kind === 'kingHill') return this.king === id ? 0xffd23f : null
+    if (this.kind === 'hotPotato') return this.holder === id ? 0xff5a1a : this.out.has(id) ? 0x777777 : null
+    if (this.kind === 'zombieBowling') return this.turn === id ? 0xffd23f : null
     const tm = this.teams.get(id)
     return tm ? TEAM_COLORS[tm] : null
   }
@@ -666,6 +886,32 @@ export class PartyMode {
       this._ballMesh.rotation.z -= (b.vx || 0) * 0.02
     }
     if (this.kind === 'kingHill' && this._hillMesh) this._hillMesh.material.opacity = 0.3 + Math.sin(performance.now() / 300) * 0.1
+    if (this.kind === 'hotPotato' && this._bomb) {
+      const h = this._people().find((p) => p.id === this.holder && !this.out.has(p.id))
+      this._bomb.visible = !!h && this.phase === 'play'
+      if (h) {
+        this._bomb.position.set(h.x * B, (h.y + MOB_HEIGHT + 0.7) * B, h.z * B)
+        this._bomb.rotation.y += 0.04
+        // Ticks faster as the fuse burns down (guests go by the host's).
+        const rate = 2 + Math.max(0, 10 - this.fuse) * 1.2
+        const on = Math.sin(performance.now() / 1000 * rate * Math.PI) > 0
+        this._spark.material.color.set(on ? 0xffee55 : 0xff3a1a)
+        this._spark.scale.setScalar(on ? 1.4 : 0.8)
+      }
+    }
+    if (this.kind === 'zombieBowling' && this._pinMeshes) {
+      const b = this.ball
+      this._ballMesh.position.set(b.x * B, (b.y + BALL_R) * B, b.z * B)
+      this._ballMesh.rotation.z -= (b.vx || 0) * 0.03
+      this._ballMesh.visible = !!this.turn
+      this._pinMeshes.forEach((m, i) => {
+        const at = this.pinSpot(i)
+        m.position.set(at.x * B, at.y * B, at.z * B)
+        // A knocked pin tips over onto its back.
+        const want = this.pinsDown[i] ? -Math.PI / 2 : 0
+        m.rotation.z += (want - m.rotation.z) * 0.2
+      })
+    }
   }
 
   _build() {
@@ -722,6 +968,57 @@ export class PartyMode {
       }
       this._ballMesh = ball
       this.arena.add(ball)
+    } else if (this.kind === 'hotPotato') {
+      // The bomb: a green zombie head with a lit fuse on top.
+      const bomb = new THREE.Group()
+      bomb.add(new THREE.Mesh(new THREE.BoxGeometry(0.6 * B, 0.6 * B, 0.6 * B), lambert(0x4f8a3e)))
+      const dark = lambert(0x1c2a14)
+      for (const [x, y, w] of [[-0.13, 0.08, 0.12], [0.13, 0.08, 0.12], [0, -0.14, 0.3]]) {
+        const bit = new THREE.Mesh(new THREE.BoxGeometry(w * B, 0.08 * B, 0.03 * B), dark)
+        bit.position.set(x * B, y * B, 0.31 * B)
+        bomb.add(bit)
+      }
+      const wick = new THREE.Mesh(new THREE.BoxGeometry(0.06 * B, 0.25 * B, 0.06 * B), lambert(0x2b2016))
+      wick.position.y = 0.42 * B
+      this._spark = new THREE.Mesh(new THREE.BoxGeometry(0.12 * B, 0.12 * B, 0.12 * B), new THREE.MeshBasicMaterial({ color: 0xffee55 }))
+      this._spark.position.y = 0.58 * B
+      bomb.add(wick, this._spark)
+      this._bomb = bomb
+      this.arena.add(bomb)
+    } else if (this.kind === 'zombieBowling') {
+      // The foul line, the pins (little zombies) and a dark purple ball.
+      const line = this.spot('r')
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.15 * B, 0.06 * B, 5 * B), lambert(0xffd23f, { emissive: 0x6b4a00 }))
+      bar.position.set((line.x + 0.5) * B, (line.y + 0.03) * B, line.z * B)
+      this.arena.add(bar)
+      const head = this.spot('b')
+      const pad = new THREE.Mesh(new THREE.BoxGeometry(4.2 * B, 0.06 * B, 4.2 * B), lambert(0xc89a5a, { transparent: true, opacity: 0.6 }))
+      pad.position.set((head.x + 1.2) * B, (head.y + 0.03) * B, head.z * B)
+      this.arena.add(pad)
+      const body = lambert(0x5c9a4a)
+      const shirt = lambert(0x3a5fa8)
+      const eye = lambert(0x1c2a14)
+      this._pinMeshes = []
+      for (let i = 0; i < PINS; i++) {
+        const pin = new THREE.Group()
+        const legs = new THREE.Mesh(new THREE.BoxGeometry(0.26 * B, 0.3 * B, 0.2 * B), shirt)
+        legs.position.y = 0.15 * B
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(0.3 * B, 0.35 * B, 0.22 * B), body)
+        torso.position.y = 0.47 * B
+        const top = new THREE.Mesh(new THREE.BoxGeometry(0.3 * B, 0.3 * B, 0.3 * B), body)
+        top.position.y = 0.8 * B
+        pin.add(legs, torso, top)
+        for (const z of [-0.07, 0.07]) {
+          const e = new THREE.Mesh(new THREE.BoxGeometry(0.03 * B, 0.06 * B, 0.06 * B), eye)
+          e.position.set(-0.16 * B, 0.84 * B, z * B)
+          pin.add(e)
+        }
+        this.arena.add(pin)
+        this._pinMeshes.push(pin)
+      }
+      const ball = new THREE.Mesh(new THREE.BoxGeometry(BALL_R * 2 * B, BALL_R * 2 * B, BALL_R * 2 * B), lambert(0x4a2a8a))
+      this._ballMesh = ball
+      this.arena.add(ball)
     }
   }
 
@@ -736,15 +1033,33 @@ export class PartyMode {
       else if (this.phase === 'play') s._message(this._startText(), 5)
       else if (this.phase === 'end') this._roundOver()
     } else if (this.phase === 'play' && this.kind === 'hideSeek' && seeker && !was.seeker) s._message(t('partyFound'), 4)
+    if (this.kind === 'hotPotato' && this.phase === 'play') {
+      if (this.holder === this.myId && was.holder !== this.myId && !this.out.has(this.myId)) {
+        s._message(t('partyPotatoYouHave'), 3)
+        try { audioEngine.playSpecial?.('warn') } catch { /* no audio */ }
+      }
+      // Someone new is out: a bang and confetti where they stand.
+      for (const id of this.out) {
+        if (was.out.has(id)) continue
+        const p = this._people().find((q) => q.id === id)
+        if (p) s._fx?.confetti?.(p.x * s.B, (p.y + 1.2) * s.B, p.z * s.B)
+        try { audioEngine.playSpecial?.('firework') } catch { /* no audio */ }
+        if (id === this.myId) s._message(t('partyPotatoYouOut'), 4)
+      }
+    }
+    if (this.kind === 'zombieBowling' && this.phase === 'play' && this.turn !== was.turn && this.turn === this.myId) s._message(t('partyBowlYourTurn', { s: TURN_S }), 4)
     if (this._say && this.runs) this._sayNow(this._say)
     this._say = null
     was.phase = this.phase
     was.round = this.round
     was.seeker = seeker
+    was.holder = this.holder
+    was.out = new Set(this.out)
+    was.turn = this.turn
   }
 
-  _sayNow({ k, team }) {
-    this.s._message(t(k, { team: t(team === 'r' ? 'partyRed' : 'partyBlue') }), 3)
+  _sayNow({ k, team, name, n }) {
+    this.s._message(t(k, { team: t(team === 'r' ? 'partyRed' : 'partyBlue'), name: name ? this._name(name) : '', n }), 3)
   }
 
   _modeName() {
@@ -757,6 +1072,8 @@ export class PartyMode {
     if (this.kind === 'hideSeek') return t(this.seekers.has(this.myId) ? 'partyYouSeek' : 'partyYouHide', { n: HIDE_S })
     if (this.kind === 'captureFlag') return t('partyFlagStart', { team, n: CAPS_TO_WIN })
     if (this.kind === 'kingHill') return t('partyHillStart', { n: HILL_POINTS })
+    if (this.kind === 'hotPotato') return t('partyPotatoStart')
+    if (this.kind === 'zombieBowling') return t('partyBowlStart', { n: ROLLS })
     return t('partySoccerStart', { team, n: GOALS_TO_WIN })
   }
 
@@ -764,7 +1081,7 @@ export class PartyMode {
     const w = this.winner
     const me = this.myId
     if (this.kind === 'hideSeek') return (w === 'h' && !this.seekers.has(me)) || (w === 's' && this.seekers.has(me))
-    if (this.kind === 'kingHill') return w === me
+    if (ID_SCORE_MODES.has(this.kind)) return w === me
     return !!w && w === this.myTeam
   }
 
@@ -781,6 +1098,7 @@ export class PartyMode {
     if (w === 'tie') who = t('partyTie')
     else if (this.kind === 'hideSeek') who = t(w === 's' ? 'partySeekersWin' : 'partyHidersWin')
     else if (this.kind === 'kingHill') who = t('partyKingWins', { name: this._name(w) })
+    else if (ID_SCORE_MODES.has(this.kind)) who = t('partyPlayerWins', { name: this._name(w) })
     else who = t('partyTeamWins', { team: t(w === 'r' ? 'partyRed' : 'partyBlue') })
     this.s._message(`${who}${won ? ` ${t('partyYouWon', { n: WIN_COINS })}` : ''}`, END_S - 1)
   }
@@ -804,6 +1122,12 @@ export class PartyMode {
       if (this.phase === 'play') mid += ` · ${t(this.seekers.has(this.myId) ? 'partySeeker' : 'partyHider')}`
     } else if (this.kind === 'kingHill') {
       mid = t('partyHillScore', { n: this.score[this.myId] || 0, max: HILL_POINTS })
+    } else if (this.kind === 'hotPotato') {
+      const left = this._people().filter((p) => !this.out.has(p.id)).length
+      mid = t('partyPotatoHud', { name: this.holder ? this._name(this.holder) : '-', n: left })
+      if (this.out.has(this.myId)) mid += ` · ${t('partyPotatoOutTag')}`
+    } else if (this.kind === 'zombieBowling') {
+      mid = t('partyBowlHud', { name: this.turn ? this._name(this.turn) : '-', n: this.score[this.myId] || 0, r: Math.min(ROLLS, (this.rolls[this.myId] || 0) + (this.turn === this.myId ? 1 : 0)), max: ROLLS })
     } else {
       mid = `${t('partyRed')} ${this.score.r || 0} - ${this.score.b || 0} ${t('partyBlue')}`
       if (this.myTeam) mid += ` · ${t('partyYourTeam', { team: t(this.myTeam === 'r' ? 'partyRed' : 'partyBlue') })}`
@@ -820,14 +1144,17 @@ export class PartyMode {
     const B = this.s.B
     const box = new THREE.Box3()
     const hit = new THREE.Vector3()
-    if (this.kind === 'zombieSoccer') {
+    if (this.kind === 'hotPotato') return false
+    if (this.kind === 'zombieSoccer' || this.kind === 'zombieBowling') {
+      if (this.kind === 'zombieBowling' && this.turn !== this.myId) return false
       const b = this.ball
       box.min.set((b.x - BALL_R) * B, b.y * B, (b.z - BALL_R) * B)
       box.max.set((b.x + BALL_R) * B, (b.y + BALL_R * 2) * B, (b.z + BALL_R) * B)
       if (!ray.intersectBox(box, hit) || hit.distanceTo(ray.origin) > reach || !this.runs) return false
       b.vx += ray.direction.x * SHOT_KICK
       b.vz += ray.direction.z * SHOT_KICK
-      b.vy = 4
+      b.vy = this.kind === 'zombieBowling' ? 1 : 4
+      if (this.kind === 'zombieBowling') this.rolled = true
       return true
     }
     if (this.kind === 'hideSeek') return false
@@ -893,6 +1220,12 @@ export class PartyMode {
       kg: this._out(this.king || ''),
       ball: [+b.x.toFixed(2), +b.y.toFixed(2), +b.z.toFixed(2)],
       bots,
+      ho: this._out(this.holder),
+      fu: +this.fuse.toFixed(1),
+      ou: [...this.out].map((id) => this._out(id)),
+      tu: this._out(this.turn),
+      ro: Object.fromEntries(Object.entries(this.rolls).map(([id, n]) => [this._out(id), n])),
+      pd: this.pinsDown.reduce((m, down, i) => m | (down ? 1 << i : 0), 0),
     }
   }
 
@@ -918,6 +1251,13 @@ export class PartyMode {
       if (f && Number.isFinite(f.x)) Object.assign(this.flags[k], { at: ['base', 'carried', 'down'].includes(f.a) ? f.a : 'base', by: ok(f.by) ? f.by : '', x: f.x, y: f.y, z: f.z })
     }
     this.king = ok(d.kg) ? d.kg : ''
+    this.holder = ok(d.ho) ? d.ho : ''
+    this.fuse = Number(d.fu) || 0
+    this.out = new Set([].concat(d.ou || []).filter(ok))
+    this.turn = ok(d.tu) ? d.tu : ''
+    this.rolls = Object.fromEntries(Object.entries(d.ro || {}).filter(([id, n]) => ok(id) && Number.isFinite(n)))
+    const pd = Number(d.pd) || 0
+    for (let i = 0; i < PINS; i++) this.pinsDown[i] = !!(pd & (1 << i))
     if (Array.isArray(d.ball) && d.ball.every(Number.isFinite)) {
       // Glides to where the host has it.
       const b = this.ball

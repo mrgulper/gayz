@@ -1879,6 +1879,14 @@ Escape before dawn.</p>
                   <div class="class-icon-badge"><span class="class-icon-emoji">⚽</span></div>
                   <span id="game-mode-zombie-soccer-label">Zombie Soccer</span>
                 </button>
+                <button class="mode-select-btn class-btn" data-game-mode="hotPotato" id="game-mode-hot-potato" type="button">
+                  <div class="class-icon-badge"><span class="class-icon-emoji">💣</span></div>
+                  <span id="game-mode-hot-potato-label">Hot Potato</span>
+                </button>
+                <button class="mode-select-btn class-btn" data-game-mode="zombieBowling" id="game-mode-zombie-bowling" type="button">
+                  <div class="class-icon-badge"><span class="class-icon-emoji">🎳</span></div>
+                  <span id="game-mode-zombie-bowling-label">Zombie Bowling</span>
+                </button>
               </div>
             </div>
           </section>
@@ -2605,6 +2613,10 @@ Escape before dawn.</p>
           <h3>Fishing</h3>
           <p>Buy a Fishing Rod in the Shop (press B) for <span data-feature-value="rodCost">60</span> coins (loot chests sometimes have one too). Hold it, look at water and click to cast: the bobber flies out and floats. When something bites, the bobber dips and "Click now!" shows - click quickly to reel it in, or it gets away. You might pull out a Fish or a rare Golden Fish (eat them to heal), an Old Boot, a sunken treasure chest full of coins and an item, or a Zombie Fish that leaps out of the water at you. Out of <span data-feature-value="catchKinds">5</span> kinds of catch, fish are the most common.</p>
         </div>
+        <div class="feature" data-code="CampAquarium recordFish AQUARIUM_KEY">
+          <h3>Camp Aquarium</h3>
+          <p>A glass fish tank on a wooden stand against a Safe Camp wall, next to the Trophy Room. Every Fish and Golden Fish you ever reel in is counted, and one little fish swims in the tank for each (up to <span data-feature-value="aquariumFish">14</span>), with your golden ones glowing gold (up to <span data-feature-value="aquariumGolden">6</span>). A sign over it shows how many you've caught; an empty tank tells you to go fishing. New catches join the tank next time you're at camp.</p>
+        </div>
         <div class="feature" data-code="ZombieRadio RADIO_LINES">
           <h3>Zombie Radios</h3>
           <p>Old radios turn up on the ground as you explore, with a yellow music note bobbing over them. Walk up to one and it crackles into one of <span data-feature-value="radioLines">10</span> silly news reports - and often a real tip too: a supply plane on its way to you. Each radio plays once.</p>
@@ -2689,6 +2701,14 @@ Escape before dawn.</p>
           <h3>Snowball Fights</h3>
           <p>A winter event, from December to February: you start every game with <span data-feature-value="snowStart">8</span> Snowballs and get <span data-feature-value="snowWave">4</span> more each wave, loot chests have some, and a Snow block crafts into four. Hold one and click to throw it in an arc - the zombie it hits is frozen in a block of ice for <span data-feature-value="snowFreeze">3</span> seconds and can't move or bite. Settings &gt; Snowballs All Year turns them on all year. Snowballs from other players on a server freeze zombies too.</p>
         </div>
+        <div class="feature" data-code="TreasureMaps PIECE_CHANCE treasureMap mapPiece">
+          <h3>Treasure Maps</h3>
+          <p>Zombies sometimes drop a torn Map Piece (<span data-feature-value="mapPieceChance">6</span>% of kills, on every map). Craft <span data-feature-value="mapPieces">3</span> pieces into a Treasure Map and use it: an X is marked somewhere out in the world, shown as a gold X on your big map and on the compass strip with how far it is. Walk there, stand on the X and use the map again to dig up a treasure chest: <span data-feature-value="treasureCoins">120-260</span> coins, <span data-feature-value="treasureGems">1-3</span> gems and one rare item (a jetpack, potion, golden fish, armour and more). The map is used up.</p>
+        </div>
+        <div class="feature" data-code="Kites kite GLIDE_FALL">
+          <h3>Kites</h3>
+          <p>Craft a Kite from Plant Fiber and planks. Hold it and use it to let it up on its string - it flies downwind of you, higher and further the windier it is. While it's up it pulls you along with the wind and, in the air, holds you up so you float down gently instead of falling. On a calm day it hangs low and hardly pulls; in a storm it really tugs. Use it again (or put it away) to reel it in. It's never used up.</p>
+        </div>
         <div class="feature" data-code="MetalDetector DIG_COINS metalDetector">
           <h3>Metal Detector</h3>
           <p>Craft one (stone, glass and Zombie Goo) or find one in a loot chest. While you hold it, treasure is buried somewhere nearby: it beeps faster the closer you get, and a Signal bar fills up. Stand right on the spot and click to dig up coins and a random find, then a new treasure is hidden. Click anywhere else for a "cold / warm / very close" hint.</p>
@@ -2713,9 +2733,9 @@ Escape before dawn.</p>
           <h3>Speedrun Mode</h3>
           <p>A game mode against the clock: clear <span data-feature-value="speedrunWaves">5</span> waves as fast as you can, with short breaks. The timer runs above your hotbar next to your best time (it turns red once you're behind). Beat your best and your run is saved - next time a see-through blue ghost of you runs it alongside you. Signed in, your best time goes on the leaderboard, and the end screen shows the world's <span data-feature-value="speedrunTop">5</span> fastest.</p>
         </div>
-        <div class="feature" data-code="PartyMode PARTY_MODES hideSeek captureFlag kingHill zombieSoccer">
+        <div class="feature" data-code="PartyMode PARTY_MODES hideSeek captureFlag kingHill zombieSoccer hotPotato zombieBowling">
           <h3>Party Modes</h3>
-          <p>Four game modes with no zombie waves, played in rounds on servers or alone with bots filling the game up to <span data-feature-value="partyPlayers">6</span> players. Hide and Seek: the seeker is blindfolded for <span data-feature-value="partyHide">20</span> seconds while everyone hides, and everyone found joins the seekers. Capture the Flag: Red against Blue - carry the other team's flag home, and shoot an enemy to stun them and make them drop it; first to <span data-feature-value="partyCaps">3</span>. King of the Hill: stand alone on the glowing hill for a point a second, first to <span data-feature-value="partyHill">45</span>. Zombie Soccer: Red against Blue, run into the giant zombie head (or shoot it) to kick it into the other goal; first to <span data-feature-value="partyGoals">3</span>. A coloured diamond over everyone's head shows their team. Winners get <span data-feature-value="partyCoins">25</span> coins.</p>
+          <p>Six game modes with no zombie waves, played in rounds on servers or alone with bots filling the game up to <span data-feature-value="partyPlayers">6</span> players. Hide and Seek: the seeker is blindfolded for <span data-feature-value="partyHide">20</span> seconds while everyone hides, and everyone found joins the seekers. Capture the Flag: Red against Blue - carry the other team's flag home, and shoot an enemy to stun them and make them drop it; first to <span data-feature-value="partyCaps">3</span>. King of the Hill: stand alone on the glowing hill for a point a second, first to <span data-feature-value="partyHill">45</span>. Zombie Soccer: Red against Blue, run into the giant zombie head (or shoot it) to kick it into the other goal; first to <span data-feature-value="partyGoals">3</span>. Hot Potato: a ticking zombie bomb floats over one player's head - touch someone to pass it on before its hidden fuse (<span data-feature-value="potatoFuse">12-22</span> seconds, ticking faster near the end) runs out, or you blow up into confetti and you're out; last one standing wins. Zombie Bowling: take turns (<span data-feature-value="bowlRolls">2</span> rolls each, <span data-feature-value="bowlTurn">14</span> seconds a turn) running into the ball or shooting it down at <span data-feature-value="bowlPins">10</span> little zombie pins - knocked pins can topple their neighbours, all of them is a Strike, and the most pins wins. A coloured diamond over everyone's head shows their team. Winners get <span data-feature-value="partyCoins">25</span> coins.</p>
         </div>
         <div class="feature" data-code="dungeonCell dungeonsOver _checkDungeon _dungeonEntrance">
           <h3>Dungeons</h3>
@@ -2787,7 +2807,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="playConfig PLAY_GAME_MODES PLAY_MUTATORS">
           <h3>Map 1 Game Modes, Difficulty &amp; Mutators</h3>
-          <p>Before you press Play, pick in Game Mode: a difficulty (Easy, Normal, Hard - Nightmare and Apex unlock later), a game mode - Classic (waves forever), Zombie Defense (hold out for <span data-feature-value="defenseWaves">10</span> waves to win), Boss Hunt (a big, tough boss every <span data-feature-value="bossEvery">3</span> waves), Zombie Rush (barely a breather between waves, a survival timer, and no buying) or Helicopter Escape (once the first wave starts, <span data-feature-value="fuelCans">3</span> fuel cans appear around the city under yellow beams, also shown on the minimap - pick them all up and a helicopter flies in and lands under a red beam; hold its landing ring for <span data-feature-value="extractionHold">10</span> seconds while the zombies keep coming, then you climb aboard and it takes off with you) or Infection (zombie tag with no waves - see Infection Mode) or Shrinking Zone (survive the waves inside a closing ring - see Shrinking Zone Mode) or Speedrun (clear the waves against the clock - see Speedrun Mode) or Tower Defense (stop zombies on a path with towers, on a map of its own - see Tower Defense Mode) or one of the four Party Modes (Hide and Seek, Capture the Flag, King of the Hill, Zombie Soccer) - and mutators: Horde Rush, Loot Rush, Health Regen, Glass House, Iron Mode, Escalation and Boss Rush. Guest Mode plays a run without saving anything from it.</p>
+          <p>Before you press Play, pick in Game Mode: a difficulty (Easy, Normal, Hard - Nightmare and Apex unlock later), a game mode - Classic (waves forever), Zombie Defense (hold out for <span data-feature-value="defenseWaves">10</span> waves to win), Boss Hunt (a big, tough boss every <span data-feature-value="bossEvery">3</span> waves), Zombie Rush (barely a breather between waves, a survival timer, and no buying) or Helicopter Escape (once the first wave starts, <span data-feature-value="fuelCans">3</span> fuel cans appear around the city under yellow beams, also shown on the minimap - pick them all up and a helicopter flies in and lands under a red beam; hold its landing ring for <span data-feature-value="extractionHold">10</span> seconds while the zombies keep coming, then you climb aboard and it takes off with you) or Infection (zombie tag with no waves - see Infection Mode) or Shrinking Zone (survive the waves inside a closing ring - see Shrinking Zone Mode) or Speedrun (clear the waves against the clock - see Speedrun Mode) or Tower Defense (stop zombies on a path with towers, on a map of its own - see Tower Defense Mode) or one of the six Party Modes (Hide and Seek, Capture the Flag, King of the Hill, Zombie Soccer, Hot Potato, Zombie Bowling) - and mutators: Horde Rush, Loot Rush, Health Regen, Glass House, Iron Mode, Escalation and Boss Rush. Guest Mode plays a run without saving anything from it.</p>
         </div>
         <div class="feature" data-code="SKELETON_KINDS SKELETON_FROM_WAVE makeSkeleton">
           <h3>Skeletons</h3>

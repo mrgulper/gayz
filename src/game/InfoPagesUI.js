@@ -32,6 +32,8 @@ import { BOOK_IDS, BOOK_COINS, BOOK_DONE_COINS } from './ZombieBook.js'
 import * as Infection from './Infection.js'
 import { HELI_FUEL_S, HELI_CEILING, MAX_OUT, BALLOON_FUEL_S, BALLOON_CEILING } from './Vehicles.js'
 import { MAX_PINS } from './MapPins.js'
+import { PIECE_CHANCE, PIECES_PER_MAP, COINS as TREASURE_COINS, GEMS as TREASURE_GEMS } from './TreasureMaps.js'
+import { MAX_FISH as AQUARIUM_FISH, MAX_GOLDEN as AQUARIUM_GOLDEN } from './CampAquarium.js'
 import { TROPHIES } from './Trophies.js'
 import { ZONE_TOTAL_S } from './ShrinkZone.js'
 import { DINO_KINDS, DINO_CHANCE } from './DinoKinds.js'
@@ -368,6 +370,16 @@ export function _featureValues(_game) {
     partyHill: Party.HILL_POINTS,
     partyGoals: Party.GOALS_TO_WIN,
     partyCoins: Party.WIN_COINS,
+    potatoFuse: `${Party.FUSE_S[0]}-${Party.FUSE_S[1]}`,
+    bowlRolls: Party.ROLLS,
+    bowlPins: Party.PINS,
+    bowlTurn: Party.TURN_S,
+    mapPieceChance: Math.round(PIECE_CHANCE * 100),
+    mapPieces: PIECES_PER_MAP,
+    treasureCoins: `${TREASURE_COINS[0]}-${TREASURE_COINS[1]}`,
+    treasureGems: `${TREASURE_GEMS[0]}-${TREASURE_GEMS[1]}`,
+    aquariumFish: AQUARIUM_FISH,
+    aquariumGolden: AQUARIUM_GOLDEN,
     dungeonSize: DUNGEON_SIZE,
     zoneSpeed: ZONE_ZOMBIE_SPEED,
     zoneMinutes: Math.floor(ZONE_TOTAL_S / 60),

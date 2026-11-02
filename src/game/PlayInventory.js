@@ -82,6 +82,11 @@ export const ITEMS = {
   snowball: { key: 'invSnowball', snowball: true },
   // Finds buried loot (MetalDetector.js), never used up.
   metalDetector: { key: 'invMetalDetector', detector: true },
+  // Treasure Maps (TreasureMaps.js): zombies drop pieces, three craft a map.
+  mapPiece: { key: 'invMapPiece', material: true },
+  treasureMap: { key: 'invTreasureMap', treasure: true },
+  // Kite (Kites.js): let up / reeled in, never used up.
+  kite: { key: 'invKite', kite: true },
   // Potions (Potions.js): drunk for 30 seconds of an effect.
   potionSpeed: { key: 'invPotionSpeed', potion: true },
   potionInvis: { key: 'invPotionInvis', potion: true },
@@ -150,12 +155,15 @@ const ICON_PIXELS = {
   potionTiny: ['.......##.......', '.......ww.......', '......#ww#......', '.....#rrrr#.....', '....#rrrrrr#....', '....#rwrrrr#....', '....#rrrrrr#....', '.....#rrrr#.....', '......####......'],
   jetpack: ['................', '...iiii..iiii...', '..iiriii.iiri...', '..iiiiiiiiiii...', '..iiiiiiiiiii...', '..iii..i..iii...', '..iii.....iii...', '...o.......o....', '...y.......y....', '..ooo.....ooo...'],
   jetFuel: ['................', '......###.......', '.....#...#......', '...#########....', '...#ooooooo#....', '...#ooyyyoo#....', '...#ooyoooo#....', '...#ooyyooo#....', '...#ooyoooo#....', '...#ooooooo#....', '...#########....'],
+  mapPiece: ['................', '................', '..aaaaaaaa......', '..aaaakaaaa.....', '..akaaaaaaaa....', '..aaaaaaakaa....', '..aaakaaaaa.....', '..aaaaaaaaa.....', '..aaaaakaa......', '..aaaaaaa.......', '...aaaa.........'],
+  treasureMap: ['................', '.aaaaaaaaaaaaaa.', '.akkaaaaaaaaaaa.', '.aaakkaaaaaaaaa.', '.aaaaakkaaraara.', '.aaaaaaakaarraa.', '.aaaaaaaaaarraa.', '.aaaaaaaaaraara.', '.aaakaaaaaaaaaa.', '.aakkkaaaaaaaaa.', '.aaakaaaaaaaaaa.', '.aaaaaaaaaaaaaa.'],
+  kite: ['.......r........', '......rry.......', '.....rrryy......', '....rrrryyy.....', '...rrrrryyyy....', '..yyyyyyrrrrr...', '...yyyyyrrrr....', '....yyyyrrr.....', '.....yyyrr......', '......yyr.......', '.......w........', '......b.w.......', '.........w......', '........b.w.....'],
   metalDetector: ['..........ddd...', '..........dyd...', '..........ddd...', '.........d......', '........d.......', '.......d........', '......d.........', '.....d..........', '....d...........', '..iiiii.........', '.iiiiiii........', '.iiibiii........', '..iiiii.........'],
   snowball: ['................', '................', '................', '.....wwwww......', '....wwwwwww.....', '...wwwwwwiww....', '...wwwwwwwww....', '...wwwiwwwww....', '...wwwwwwwww....', '....wwwwwww.....', '.....wwwww......'],
   candy: ['................', '................', '................', '..p..........p..', '.ppp.yyyyyy.ppp.', '..ppyrryrryypp..', '...pyyrryrrrp...', '..ppyrryrryypp..', '.ppp.yyyyyy.ppp.', '..p..........p..'],
   shield: ['....########....', '...#bbbbbbbb#...', '...#bbbyybbb#...', '...#byyyyyyb#...', '...#bbbyybbb#...', '....#bbyybb#....', '.....#bbbb#.....', '......####......'],
 }
-const ICON_COLORS = { v: '#6fc23a', l: '#b8f06a', p: '#e8b49a', f: '#f08a5a', n: '#8aa83a', o: '#e8862a', m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8', c: '#5aa7d8', k: '#8a5a2a', d: '#4a4a4a' }
+const ICON_COLORS = { v: '#6fc23a', l: '#b8f06a', p: '#e8b49a', f: '#f08a5a', n: '#8aa83a', o: '#e8862a', m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8', c: '#5aa7d8', k: '#8a5a2a', d: '#4a4a4a', a: '#e3cf9a' }
 const iconCache = new Map()
 function itemIcon(id) {
   if (iconCache.has(id)) return iconCache.get(id)
@@ -332,6 +340,12 @@ export class PlayInventory {
       s._message(t('jetpackRefuel'), 2)
     } else if (def?.detector) {
       return !!s.detector?.use()
+    } else if (def?.treasure) {
+      // Only digging the chest up uses the map.
+      if (!s.treasure?.use()) return false
+    } else if (def?.kite) {
+      s.kite?.use()
+      return true
     } else if (def?.snowball) {
       if (!s.snowballs?.throw()) return false
     } else if (def?.rod) {
@@ -499,11 +513,14 @@ export class PlayInventory {
     if (item.armor) return t('invTipArmor', { n: `${Math.round(item.armor * ARMOR_PER_POINT * 100)}%` })
     if (it.id === 'ammobox') return t('invTipAmmoBox')
     if (item.trap) return t('invTipTrap')
+    if (it.id === 'mapPiece') return t('invTipMapPiece')
     if (item.material) return t('invTipMaterial')
     if (item.disguise) return t('invTipGooDisguise', { s: item.disguise })
     if (item.vehicle) return t(item.vehicle === 'boat' ? 'invTipBoat' : item.vehicle === 'balloon' ? 'invTipBalloon' : 'invTipHelicopter')
     if (item.fuel) return t('invTipHeliFuel', { s: HELI_FUEL_S })
     if (item.rod) return t('invTipFishingRod')
+    if (item.treasure) return t('invTipTreasureMap')
+    if (item.kite) return t('invTipKite')
     if (item.junk) return t('invTipJunk')
     return t(it.id === 'meat' || it.id === 'veggies' || it.id === 'fish' || it.id === 'goldenFish' || ITEMS[it.id]?.animalKey ? 'invTipMeat' : 'invTipHealthPack', { n: item.heal })
   }

@@ -1070,8 +1070,10 @@ export class BuildTryMode {
     // little (2026-10-30, Gaymi: "wind effects that could blow you
     // slightly"). Not in water, on a ladder, or while spectating.
     const push = this.bm.sky && !inLiquid && !onLadder && !this.bm.spectate?.active ? this.bm.sky.windPush(this._push || (this._push = new THREE.Vector2()), this.onGround) : null
-    this.vel.x = THREE.MathUtils.damp(this.vel.x, mx * want + (push?.x || 0), grip, dt)
-    this.vel.z = THREE.MathUtils.damp(this.vel.z, mz * want + (push?.y || 0), grip, dt)
+    // A kite that's up pulls you along with the wind (Kites.js).
+    const kite = this.bm.survival?.active && !inLiquid && !onLadder ? this.bm.survival.kite?.pull() : null
+    this.vel.x = THREE.MathUtils.damp(this.vel.x, mx * want + (push?.x || 0) + (kite?.x || 0), grip, dt)
+    this.vel.z = THREE.MathUtils.damp(this.vel.z, mz * want + (push?.y || 0) + (kite?.z || 0), grip, dt)
 
     // Jump timing: coyote time after leaving the ground, a buffered press
     // just before landing, and holding Space hops again on every landing.
@@ -1118,6 +1120,8 @@ export class BuildTryMode {
       // A jetpack in the bag (Jetpack.js): Jump held in the air flies up.
       const jet = this.bm.survival?.active ? this.bm.survival.jetpack : null
       if (jet) this.vel.y = jet.thrust(dt, spaceDown, this.onGround, this.vel.y)
+      // ...and a kite that's up holds you up: you float down (Kites.js).
+      if (this.bm.survival?.active && this.bm.survival.kite) this.vel.y = this.bm.survival.kite.fall(this.vel.y)
     }
 
     // Horizontal moves, stepping up onto a slab (or a stair) on the way.

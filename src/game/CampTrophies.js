@@ -34,51 +34,18 @@ export class CampTrophies {
     return this.camp.B
   }
 
-  // The first free strip: along the back wall first (opposite the gate),
-  // then the sides, then the gate's own wall. -> { x, z, rot } or null.
   _findSpot() {
-    const zn = this.camp.zone
-    const s = this.camp.s
-    const npcs = Object.values(zn.npcSpots || {}).filter(Boolean)
-    const free = (cells) => cells.every(([x, z]) => {
-      for (let y = 0; y < 3; y++) if (s._solid(x, y, z)) return false
-      return !npcs.some(([nx, nz]) => Math.abs(nx - x) <= 1 && Math.abs(nz - z) <= 1)
-    })
-    // Each wall: cells along it (a, fixed b) and which way is into the camp.
-    const walls = {
-      zmax: { along: 'x', lo: zn.x0 + 2, hi: zn.x1 - 2, at: zn.z1 - 1, into: -1, rot: Math.PI },
-      zmin: { along: 'x', lo: zn.x0 + 2, hi: zn.x1 - 2, at: zn.z0 + 1, into: 1, rot: 0 },
-      xmax: { along: 'z', lo: zn.z0 + 2, hi: zn.z1 - 2, at: zn.x1 - 1, into: -1, rot: -Math.PI / 2 },
-      xmin: { along: 'z', lo: zn.z0 + 2, hi: zn.z1 - 2, at: zn.x0 + 1, into: 1, rot: Math.PI / 2 },
-    }
-    const back = { zmin: 'zmax', zmax: 'zmin', xmin: 'xmax', xmax: 'xmin' }[zn.facade] || 'zmax'
-    const order = [back, ...Object.keys(walls).filter((w) => w !== back && w !== zn.facade), zn.facade].filter((w) => walls[w])
-    for (const name of order) {
-      const w = walls[name]
-      const mid = Math.floor((w.lo + w.hi) / 2)
-      // From the middle of the wall outwards.
-      for (let i = 0; i <= w.hi - w.lo; i++) {
-        const a0 = mid + (i % 2 ? -1 : 1) * Math.ceil(i / 2) - Math.floor(WIDE / 2)
-        if (a0 < w.lo || a0 + WIDE - 1 > w.hi) continue
-        const cells = []
-        for (let a = a0; a < a0 + WIDE; a++) for (let d = 0; d < DEEP; d++) {
-          const b = w.at + w.into * d
-          cells.push(w.along === 'x' ? [a, b] : [b, a])
-        }
-        if (!free(cells)) continue
-        // The booth's middle, at the wall side of its strip.
-        const a = a0 + WIDE / 2
-        const b = w.at + (w.into > 0 ? 0 : 1)
-        return w.along === 'x' ? { x: a, z: b, rot: w.rot } : { x: b, z: a, rot: w.rot }
-      }
-    }
-    return null
+    return findWallStrip(this.camp, WIDE, DEEP)
   }
 
   build() {
     if (this.group) return
     this.spot = this._findSpot()
     if (!this.spot) return
+    this._build()
+  }
+
+  _build() {
     const B = this.B
     const g = new THREE.Group()
     const box = (w, h, d, color, x, y, z, emissive = 0) => {
@@ -169,8 +136,55 @@ export class CampTrophies {
   }
 }
 
+// The first free strip `wide` cells along a camp wall and `deep` into the
+// camp: along the back wall first (opposite the gate), then the sides,
+// then the gate's own wall. `avoid`: spots already taken ({ x, z, wide }).
+// -> { x, z, rot } (the strip's middle, at the wall side) or null.
+// Shared with the Aquarium (CampAquarium.js).
+export function findWallStrip(camp, wide, deep, avoid = []) {
+  const WIDE = wide
+  const DEEP = deep
+  const zn = camp.zone
+  const s = camp.s
+  const npcs = Object.values(zn.npcSpots || {}).filter(Boolean)
+  const free = (cells) => cells.every(([x, z]) => {
+    for (let y = 0; y < 3; y++) if (s._solid(x, y, z)) return false
+    if (avoid.some((o) => Math.abs(o.x - x) <= o.wide / 2 + 1 && Math.abs(o.z - z) <= o.wide / 2 + 1)) return false
+    return !npcs.some(([nx, nz]) => Math.abs(nx - x) <= 1 && Math.abs(nz - z) <= 1)
+  })
+  // Each wall: cells along it (a, fixed b) and which way is into the camp.
+  const walls = {
+    zmax: { along: 'x', lo: zn.x0 + 2, hi: zn.x1 - 2, at: zn.z1 - 1, into: -1, rot: Math.PI },
+    zmin: { along: 'x', lo: zn.x0 + 2, hi: zn.x1 - 2, at: zn.z0 + 1, into: 1, rot: 0 },
+    xmax: { along: 'z', lo: zn.z0 + 2, hi: zn.z1 - 2, at: zn.x1 - 1, into: -1, rot: -Math.PI / 2 },
+    xmin: { along: 'z', lo: zn.z0 + 2, hi: zn.z1 - 2, at: zn.x0 + 1, into: 1, rot: Math.PI / 2 },
+  }
+  const back = { zmin: 'zmax', zmax: 'zmin', xmin: 'xmax', xmax: 'xmin' }[zn.facade] || 'zmax'
+  const order = [back, ...Object.keys(walls).filter((w) => w !== back && w !== zn.facade), zn.facade].filter((w) => walls[w])
+  for (const name of order) {
+    const w = walls[name]
+    const mid = Math.floor((w.lo + w.hi) / 2)
+    // From the middle of the wall outwards.
+    for (let i = 0; i <= w.hi - w.lo; i++) {
+      const a0 = mid + (i % 2 ? -1 : 1) * Math.ceil(i / 2) - Math.floor(WIDE / 2)
+      if (a0 < w.lo || a0 + WIDE - 1 > w.hi) continue
+      const cells = []
+      for (let a = a0; a < a0 + WIDE; a++) for (let d = 0; d < DEEP; d++) {
+        const b = w.at + w.into * d
+        cells.push(w.along === 'x' ? [a, b] : [b, a])
+      }
+      if (!free(cells)) continue
+      // The booth's middle, at the wall side of its strip.
+      const a = a0 + WIDE / 2
+      const b = w.at + (w.into > 0 ? 0 : 1)
+      return w.along === 'x' ? { x: a, z: b, rot: w.rot } : { x: b, z: a, rot: w.rot }
+    }
+  }
+  return null
+}
+
 // Words on a see-through sprite, outlined so they read on anything.
-function makeLabel(text, w, px, color) {
+export function makeLabel(text, w, px, color) {
   const c = document.createElement('canvas')
   c.width = w
   c.height = Math.round(px * 1.8)
