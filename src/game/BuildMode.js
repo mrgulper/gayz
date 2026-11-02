@@ -2394,6 +2394,9 @@ export class BuildMode {
     if (this.survival?.active && this.survival.kart?.use()) return true
     // ...or a boat / helicopter (Vehicles.js).
     if (this.survival?.active && this.survival.vehicles?.use()) return true
+    // Into the Zombie Train, or a rocket to the Moon (ZombieTrain.js, MoonTrip.js).
+    if (this.survival?.active && this.survival.train?.use()) return true
+    if (this.survival?.active && this.survival.moon?.use()) return true
     // Playing on Map 3: talk to the camp NPC you're looking at.
     if (this.survival?.camp?.use()) return true
     // Give a rescued survivor an order: follow me / hold here (Survivors.js).

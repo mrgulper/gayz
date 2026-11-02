@@ -58,6 +58,9 @@ export const RECIPES = [
   { id: 'kite', kind: 'item', n: 1, needs: [{ item: 'plantFiber', n: 4 }, { group: 'planks', n: 2 }] },
   // Skateboard and Boombox (Skateboards.js, DanceOff.js, 2026-11-02).
   { id: 'skateboard', kind: 'item', n: 1, needs: [{ group: 'planks', n: 3 }, { group: 'stone', n: 2 }] },
+  // Submarine and Rocket (Vehicles.js, MoonTrip.js, 2026-11-02).
+  { id: 'submarine', kind: 'item', n: 1, needs: [{ group: 'stone', n: 14 }, { block: 'glass', n: 3 }, { group: 'planks', n: 4 }, { item: 'zombieGoo', n: 3 }] },
+  { id: 'rocket', kind: 'item', n: 1, needs: [{ group: 'stone', n: 20 }, { block: 'glass', n: 2 }, { item: 'heliFuel', n: 3 }, { item: 'zombieGoo', n: 4 }] },
   { id: 'boombox', kind: 'item', n: 1, needs: [{ group: 'planks', n: 2 }, { block: 'glass', n: 1 }, { item: 'zombieGoo', n: 1 }] },
   // Winter only (Snowballs.winterOn): a Snow block packs into four.
   { id: 'snowball', kind: 'item', n: 4, needs: [{ block: 'snow', n: 1 }], winter: true },

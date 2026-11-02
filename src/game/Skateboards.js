@@ -22,6 +22,7 @@ import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
 import { winterOn } from './Snowballs.js'
 import { sampleLand } from './OpenWorld.js'
+import { TempBlocks } from './TempBlocks.js'
 
 export const BOARD_SPEED = 1.7
 const BOARD_GRIP = 0.35
@@ -47,7 +48,7 @@ export class Skateboards {
     this._air = false
     this._jumpWas = false
     this._freezeIn = 0
-    this._frozen = new Map() // key -> [x, y, z]
+    this._frozen = new TempBlocks(survival)
   }
 
   get holding() {
@@ -196,35 +197,22 @@ export class Skateboards {
     const bm = s.bm
     const p = bm.tryMode.pos
     const y0 = Math.floor(p.y)
-    bm._suppressUndoRecording = true
     for (let x = Math.floor(p.x) - FREEZE_R; x <= p.x + FREEZE_R; x++) {
       for (let z = Math.floor(p.z) - FREEZE_R; z <= p.z + FREEZE_R; z++) {
         if (Math.hypot(x - p.x, z - p.z) > FREEZE_R) continue
         if (bm.world?.active && /cean$/.test(sampleLand(x, z)?.biome || '')) continue
         for (let y = y0 + 1; y >= y0 - 4; y--) {
           if (bm.getBlockAt(x, y, z) !== 'water' || bm.getBlockAt(x, y + 1, z)) continue
-          bm.removeBlock(x, y, z)
-          bm.placeBlock(x, y, z, 'ice', true)
-          this._frozen.set(bm._key(x, y, z), [x, y, z])
+          this._frozen.put(x, y, z, 'ice')
           break
         }
       }
     }
-    bm._suppressUndoRecording = false
   }
 
   // The ice goes back to water (the saved map never changes).
   _thaw() {
-    if (!this._frozen.size) return
-    const bm = this.s.bm
-    bm._suppressUndoRecording = true
-    for (const [x, y, z] of this._frozen.values()) {
-      if (bm.getBlockAt(x, y, z) !== 'ice') continue
-      bm.removeBlock(x, y, z)
-      bm.placeBlock(x, y, z, 'water', true)
-    }
-    bm._suppressUndoRecording = false
-    this._frozen.clear()
+    this._frozen.restore()
   }
 
   clear() {

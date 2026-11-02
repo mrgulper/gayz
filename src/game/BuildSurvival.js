@@ -48,6 +48,10 @@ import { Kites } from './Kites.js'
 import { Skateboards } from './Skateboards.js'
 import { DanceOff } from './DanceOff.js'
 import { EscapeRooms } from './EscapeRooms.js'
+import { Reefs } from './Reefs.js'
+import { PirateShip } from './PirateShip.js'
+import { ZombieTrain } from './ZombieTrain.js'
+import { MoonTrip } from './MoonTrip.js'
 import { AnimalRiding } from './AnimalRiding.js'
 import { Potions, POTION_IDS, CHEST_POTION_CHANCE } from './Potions.js'
 import { Jetpack } from './Jetpack.js'
@@ -484,6 +488,17 @@ export class BuildSurvival {
     this.skate.clear()
     if (!this.dance) this.dance = new DanceOff(this)
     this.dance.clear()
+    // Reefs and ruins, the pirate ship, the train and the Moon
+    // (Reefs.js, PirateShip.js, ZombieTrain.js, MoonTrip.js).
+    if (!this.reefs) this.reefs = new Reefs(this)
+    this.reefs.clear()
+    if (!this.pirate) this.pirate = new PirateShip(this)
+    this.pirate.clear()
+    if (!this.train) this.train = new ZombieTrain(this)
+    this.train.clear()
+    this._trainTried = false
+    if (!this.moon) this.moon = new MoonTrip(this)
+    this.moon.clear()
     // Riding tamed animals (AnimalRiding.js).
     if (!this.riding) this.riding = new AnimalRiding(this)
     this.riding.clear()
@@ -671,6 +686,10 @@ export class BuildSurvival {
     this.kite?.clear()
     this.skate?.clear()
     this.dance?.clear()
+    this.train?.clear()
+    this.moon?.clear()
+    this.pirate?.clear()
+    this.reefs?.clear()
     this.riding?.clear()
     this.potions?.clear()
     this.jetpack?.clear()
@@ -1802,6 +1821,8 @@ export class BuildSurvival {
       return true
     }
     this._chestsUsed.add(key)
+    // The ghost pirate ship's captain's chest has more (PirateShip.js).
+    this.pirate?.onChest(key)
     this.stats.chests++
     // Ammo in this gun's own amounts (PlayWeapons.ammoFor).
     const ammo = ammoFor(this.weaponId, CHEST_LOOT.ammo)
@@ -2048,6 +2069,8 @@ export class BuildSurvival {
   _spawnSpots() {
     // Tower Defense: out of the portal at the start of the path.
     if (this.td) return this.td.spawnSpots()
+    // On the Moon: out of its craters (MoonTrip.js).
+    if (this.moon?.on) return this.moon.spawnSpots()
     const spots = []
     const players = [this.bodyPos(), ...(this.net && !this.net.closed ? this.net.targets() : [])]
     for (const [x, y, z] of this._findBlocks('zombiespawner')) {
@@ -2132,9 +2155,10 @@ export class BuildSurvival {
   // One more zombie that isn't part of the wave (a world event's horde or
   // mutants, WorldEvents.js): as tough as this wave's, sometimes a monster.
   // -> the zombie, or null.
-  _extraZombie(x, y, z) {
+  // forced: this kind (a sea zombie for a sunken ruin, a skeleton pirate).
+  _extraZombie(x, y, z, forced = undefined) {
     if (!Number.isFinite(y)) return null
-    const kind = Math.random() < MONSTER_CHANCE ? MONSTER_KIND_IDS[Math.floor(Math.random() * MONSTER_KIND_IDS.length)] : null
+    const kind = forced !== undefined ? forced : Math.random() < MONSTER_CHANCE ? MONSTER_KIND_IDS[Math.floor(Math.random() * MONSTER_KIND_IDS.length)] : null
     const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (kindOf(kind)?.hp ?? 1)
     const zb = this._makeZombie(++this._zid, x, y, z, health, false, kind)
     zb.extra = true
@@ -3131,6 +3155,8 @@ export class BuildSurvival {
     this.detector?.update(dt)
     this.kite?.update(Math.min(dt, 0.1))
     this.skate?.update(Math.min(dt, 0.1))
+    this.reefs?.update(Math.min(dt, 0.1))
+    this.moon?.update(Math.min(dt, 0.1))
     this.potions?.update()
     if (!this.dead && !this.bm.menuOpen) this._checkDungeon(dt)
     this.jetpack?.update()
@@ -3375,8 +3401,14 @@ export class BuildSurvival {
       if (zb.health <= 0 && this.zombies.includes(zb)) this.damageZombie(zb, 0)
       if (this.dead && !this.net) return
     }
-    // After the zombies moved, so the ones dancing strike their pose.
+    // After the zombies moved, so the ones dancing strike their pose
+    // and the ones on the train stay on it.
     this.dance?.update(dt)
+    if (!this._trainTried && this.train && !this.dead) {
+      this._trainTried = true
+      if (this.train.setup(this.bodyPos())) this._message(t('trainIntro'), 5)
+    }
+    this.train?.update(dt)
   }
 
   _startWave(n) {

@@ -22,6 +22,7 @@
 // - golden: a Golden Runner to chase down for coins (GoldenRunner.js).
 // - escort: walk a survivor or a bus to an exit (EscortMission.js).
 // - disco: a disco ball to dance under (DanceOff.js).
+// - pirate: a ghost pirate ship out at sea (PirateShip.js).
 //
 // On a server the others see the zombies (mutants too, zombieSnapshot
 // `mu`) but not the plane, crate or meteor - those are the host's, like
@@ -35,7 +36,7 @@ import { escortMission } from './EscortMission.js'
 const EVENT_FROM_WAVE = 2
 const EVENT_FIRST = 90
 const EVENT_GAP = [150, 240]
-const KINDS = ['supply', 'horde', 'meteor', 'survivor', 'golden', 'escort', 'disco']
+const KINDS = ['supply', 'horde', 'meteor', 'survivor', 'golden', 'escort', 'disco', 'pirate']
 const PLANE_HEIGHT = 32
 const PLANE_SPEED = 14
 const DROP_NEAR = 14
@@ -96,7 +97,8 @@ export class WorldEvents {
     if (!s.cfg.noZombies && s.wave >= EVENT_FROM_WAVE && !this._run) {
       this._next -= dt
       if (this._next <= 0) {
-        const pick = KINDS.filter((k) => k !== this._last)
+        // The pirate ship only comes when the open sea is close.
+        const pick = KINDS.filter((k) => k !== this._last && (k !== 'pirate' || this.s.pirate?.possible()))
         this.start(pick[Math.floor(Math.random() * pick.length)])
       }
     }
@@ -117,6 +119,7 @@ export class WorldEvents {
     else if (kind === 'golden') this._run = goldenRunner(this.s, me)
     else if (kind === 'escort') this._run = escortMission(this.s, me)
     else if (kind === 'disco') this._run = this.s.dance?.disco(this._spotNear(me, 14, 24)) || null
+    else if (kind === 'pirate') this._run = this.s.pirate?.event(me) || null
     return !!this._run
   }
 

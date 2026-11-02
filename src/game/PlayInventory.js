@@ -90,6 +90,9 @@ export const ITEMS = {
   // Skateboard (Skateboards.js) and Boombox (DanceOff.js), never used up.
   skateboard: { key: 'invSkateboard', skate: true },
   boombox: { key: 'invBoombox', boombox: true },
+  // Submarine (Vehicles.js) and Rocket (MoonTrip.js).
+  submarine: { key: 'invSubmarine', vehicle: 'sub' },
+  rocket: { key: 'invRocket', rocket: true },
   // Potions (Potions.js): drunk for 30 seconds of an effect.
   potionSpeed: { key: 'invPotionSpeed', potion: true },
   potionInvis: { key: 'invPotionInvis', potion: true },
@@ -161,6 +164,8 @@ const ICON_PIXELS = {
   mapPiece: ['................', '................', '..aaaaaaaa......', '..aaaakaaaa.....', '..akaaaaaaaa....', '..aaaaaaakaa....', '..aaakaaaaa.....', '..aaaaaaaaa.....', '..aaaaakaa......', '..aaaaaaa.......', '...aaaa.........'],
   treasureMap: ['................', '.aaaaaaaaaaaaaa.', '.akkaaaaaaaaaaa.', '.aaakkaaaaaaaaa.', '.aaaaakkaaraara.', '.aaaaaaakaarraa.', '.aaaaaaaaaarraa.', '.aaaaaaaaaraara.', '.aaakaaaaaaaaaa.', '.aakkkaaaaaaaaa.', '.aaakaaaaaaaaaa.', '.aaaaaaaaaaaaaa.'],
   skateboard: ['................', '................', '................', '................', '................', '.kkkkkkkkkkkkkk.', 'kooooooooooooook', '.kkkkkkkkkkkkkk.', '..ii........ii..', '..yy........yy..', '..yy........yy..'],
+  submarine: ['................', '................', '.......yy.......', '.......yy..d....', '......yyyy.d....', '..yyyyyyyyyyyy..', '.yyycyyccyycyyy.', 'dyyyyyyyyyyyyyyy', '.yyyyyyyyyyyyyy.', '..yyyyyyyyyyyy..'],
+  rocket: ['.......r........', '......rrr.......', '......www.......', '.....wwwww......', '.....wwcww......', '.....wwwww......', '.....wwwww......', '.....wwwww......', '....rwwwwwr.....', '...rrwwwwwrr....', '...r.dddd..r....', '.......o........', '......ooo.......'],
   boombox: ['................', '....dddddddd....', '....d......d....', '.dddddddddddddd.', '.d############d.', '.d#iii#cc#iii#d.', '.d#i#i#cc#i#i#d.', '.d#iii####iii#d.', '.d############d.', '.dddddddddddddd.'],
   kite: ['.......r........', '......rry.......', '.....rrryy......', '....rrrryyy.....', '...rrrrryyyy....', '..yyyyyyrrrrr...', '...yyyyyrrrr....', '....yyyyrrr.....', '.....yyyrr......', '......yyr.......', '.......w........', '......b.w.......', '.........w......', '........b.w.....'],
   metalDetector: ['..........ddd...', '..........dyd...', '..........ddd...', '.........d......', '........d.......', '.......d........', '......d.........', '.....d..........', '....d...........', '..iiiii.........', '.iiiiiii........', '.iiibiii........', '..iiiii.........'],
@@ -357,6 +362,8 @@ export class PlayInventory {
     } else if (def?.boombox) {
       s.dance?.useBoombox()
       return true
+    } else if (def?.rocket) {
+      if (!s.moon?.place()) return false
     } else if (def?.snowball) {
       if (!s.snowballs?.throw()) return false
     } else if (def?.rod) {
@@ -527,7 +534,8 @@ export class PlayInventory {
     if (it.id === 'mapPiece') return t('invTipMapPiece')
     if (item.material) return t('invTipMaterial')
     if (item.disguise) return t('invTipGooDisguise', { s: item.disguise })
-    if (item.vehicle) return t(item.vehicle === 'boat' ? 'invTipBoat' : item.vehicle === 'balloon' ? 'invTipBalloon' : 'invTipHelicopter')
+    if (item.vehicle) return t(item.vehicle === 'boat' ? 'invTipBoat' : item.vehicle === 'sub' ? 'invTipSubmarine' : item.vehicle === 'balloon' ? 'invTipBalloon' : 'invTipHelicopter')
+    if (item.rocket) return t('invTipRocket')
     if (item.fuel) return t('invTipHeliFuel', { s: HELI_FUEL_S })
     if (item.rod) return t('invTipFishingRod')
     if (item.treasure) return t('invTipTreasureMap')
