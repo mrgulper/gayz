@@ -777,6 +777,8 @@ html.ui-theme-old #profile-panel .panel-box * {
   #gallery-how { flex-basis: 100%; }
 }
 #gallery-mine-btn,
+#gallery-postcards-btn,
+#gallery-postcard-to,
 #gallery-sort {
   flex: none;
   padding: 6px 14px;
@@ -884,6 +886,8 @@ img.gallery-detail-character { height: 240px; image-rendering: pixelated; }
 #gallery-comment-input { flex: 1; min-width: 0; border-radius: 999px; padding-left: 16px; padding-right: 16px; }
 #gallery-comment-send,
 #gallery-detail .mini-action-btn,
+#gallery-postcard-form .mini-action-btn,
+#gallery-postcards-view .mini-action-btn,
 #gallery-post-form .mini-action-btn { border-radius: 999px; padding-left: 16px; padding-right: 16px; }
 
 /* Gallery's tabs look exactly like Quests' (.quest-tab) in every theme -
@@ -1535,7 +1539,7 @@ html #quests-panel .perk-option.quest-card.quest-fade-out {
    Achievements, Gallery, Settings. The ids keep these above each
    panel's older rules; the dropdown arrows stay.
    ================================================================ */
-html :is(.search-bar, .market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn) {
+html :is(.search-bar, .market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to) {
   box-sizing: border-box;
   height: 36px;
   padding-top: 0;
@@ -1550,31 +1554,31 @@ html :is(.search-bar, .market-filter-btn, #achievements-category-select, #achiev
   background-color: rgba(255, 255, 255, 0.06);
   border-color: rgba(var(--ui-gold-accent-rgb), 0.28);
 }
-html :is(.search-bar, #gallery-mine-btn) {
+html :is(.search-bar, #gallery-mine-btn, #gallery-postcards-btn) {
   padding-left: 16px;
   padding-right: 16px;
 }
-html :is(#achievements-category-select, #achievements-sort-select, #gallery-sort) {
+html :is(#achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-postcard-to) {
   padding-left: 16px;
   padding-right: 30px;
 }
-html :is(.market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn):hover {
+html :is(.market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to):hover {
   border-color: rgba(var(--ui-gold-accent-rgb), 0.45);
 }
-html.ui-theme-old :is(.search-bar, .market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn) {
+html.ui-theme-old :is(.search-bar, .market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to) {
   color: #2b1a0c;
   background-color: rgba(241, 224, 184, 0.55);
   border-color: rgba(122, 78, 36, 0.4);
 }
-html.ui-theme-old :is(.market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn):hover {
+html.ui-theme-old :is(.market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to):hover {
   border-color: rgba(122, 78, 36, 0.6);
 }
-html.ui-theme-clean :is(.search-bar, .market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn) {
+html.ui-theme-clean :is(.search-bar, .market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to) {
   color: var(--clean-fg);
   background-color: var(--clean-surface);
   border-color: var(--clean-line);
 }
-html.ui-theme-clean :is(.market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn):hover {
+html.ui-theme-clean :is(.market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to):hover {
   border-color: rgba(var(--clean-fg-rgb), 0.45);
 }
 /* "On" (My Posts) is filled with the ink, like an active tab. */
@@ -1681,4 +1685,53 @@ html #achievements-panel .perk-option.achievement-card.unlocked::after {
   :is(#play-weapon-pick, #play-perk-pick) .pwp-hint { margin-bottom: 10px; }
   :is(#play-weapon-pick, #play-perk-pick) .pwp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   :is(#play-weapon-pick, #play-perk-pick) .pwp-bar-label { flex-basis: 44px; }
+}
+
+/* Photo Postcards (Postcards.js, 2026-11-06): the send form like the post
+   form, and the mailbox as a list of cards - each a picture with who sent
+   it and their note beside it. Colours follow the theme like the cards. */
+#gallery-postcard-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+}
+#gallery-postcard-heading,
+#gallery-postcards-heading { margin: 0; }
+#gallery-postcard-preview { max-width: min(320px, 90%); max-height: 200px; border-radius: 10px; border: 6px solid #f2f0ea; }
+#gallery-postcard-to { min-width: 200px; }
+#gallery-postcard-note { margin: 0 auto; }
+#gallery-postcard-status { margin: 0; min-height: 1em; font-size: 13px; }
+#gallery-postcards-view { display: flex; flex-direction: column; gap: 10px; }
+#gallery-postcards-view[hidden],
+#gallery-postcard-form[hidden] { display: none; }
+#gallery-postcards-back { align-self: flex-start; }
+#gallery-postcards-list { display: flex; flex-direction: column; gap: 12px; }
+#gallery-postcards-empty { text-align: center; opacity: 0.75; margin-top: 30px; }
+.postcard {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 10px;
+  border-radius: 12px;
+  color: #eee;
+  background: rgba(60, 40, 18, 0.55);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.35);
+}
+.postcard-pic { flex: 0 1 260px; min-width: 0; }
+.postcard-pic img { width: 100%; border-radius: 6px; border: 5px solid #f2f0ea; box-sizing: border-box; }
+.postcard-side { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.postcard-from { margin: 0; font-weight: 700; }
+.postcard-when { margin: 0; font-size: 12px; opacity: 0.7; }
+.postcard-note { margin: 4px 0 8px; overflow-wrap: anywhere; font-style: italic; }
+html.ui-theme-old .postcard {
+  color: #2b1a0c;
+  background: rgba(122, 78, 36, 0.14);
+  border-color: rgba(122, 78, 36, 0.45);
+}
+html.ui-theme-clean .postcard {
+  color: var(--clean-fg);
+  background: var(--clean-surface);
+  border-color: var(--clean-line);
 }

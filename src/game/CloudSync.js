@@ -586,6 +586,29 @@ service cloud.firestore {
         || request.auth.uid == get(/databases/$(database)/documents/gallery/$(postId)).data.creatorUid);
       allow update: if false;
     }
+
+    // Photo Postcards (Postcards.js, 2026-11-06): a Gallery photo sent to a
+    // friend. Like friend requests, anyone signed in can drop one in
+    // someone else's box (never their own), only the receiver can read or
+    // delete theirs, and nobody can change one. The picture must be one of
+    // the sender's own Photo posts in the Gallery (already public), and the
+    // card's id is sender_post, so each photo reaches each person once.
+    match /postcards/{toUid}/inbox/{cardId} {
+      allow read, delete: if request.auth != null && request.auth.uid == toUid;
+      allow create: if request.auth != null && request.auth.uid != toUid
+        && request.resource.data.keys().hasOnly(['fromUid', 'fromNickname', 'postId', 'image', 'note', 'title', 'sentAt'])
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.postId is string && request.resource.data.postId.size() > 0 && request.resource.data.postId.size() <= 64
+        && cardId == request.auth.uid + '_' + request.resource.data.postId
+        && get(/databases/$(database)/documents/gallery/$(request.resource.data.postId)).data.kind == 'photo'
+        && get(/databases/$(database)/documents/gallery/$(request.resource.data.postId)).data.creatorUid == request.auth.uid
+        && get(/databases/$(database)/documents/gallery/$(request.resource.data.postId)).data.image == request.resource.data.image
+        && request.resource.data.fromNickname is string && request.resource.data.fromNickname.size() > 0 && request.resource.data.fromNickname.size() <= 24
+        && request.resource.data.note is string && request.resource.data.note.size() <= 80
+        && request.resource.data.title is string && request.resource.data.title.size() <= 40
+        && request.resource.data.sentAt is int;
+      allow update: if false;
+    }
   }
 }`
 
@@ -1794,4 +1817,26 @@ export async function addGalleryComment(id, comment) {
 export async function deleteGalleryComment(id, commentId) {
   const { db, fsMod } = await ensureApp()
   await fsMod.deleteDoc(fsMod.doc(db, 'gallery', id, 'comments', commentId))
+}
+
+// Photo Postcards (Postcards.js): card = { fromUid, fromNickname, postId,
+// image, note, title }.
+// The card's id is sender_post (the rules allow one per photo per friend).
+export async function sendPostcard(toUid, card) {
+  const { db, fsMod } = await ensureApp()
+  const data = { fromUid: card.fromUid, fromNickname: card.fromNickname, postId: card.postId, image: card.image, note: card.note || '', title: card.title || '', sentAt: Date.now() }
+  await fsMod.setDoc(fsMod.doc(db, 'postcards', toUid, 'inbox', `${card.fromUid}_${card.postId}`), data)
+}
+
+// My mailbox, newest first.
+export async function fetchPostcards(uid, n = 30) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'postcards', uid, 'inbox'), fsMod.orderBy('sentAt', 'desc'), fsMod.limit(n))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id }))
+}
+
+export async function deletePostcard(uid, id) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'postcards', uid, 'inbox', id))
 }

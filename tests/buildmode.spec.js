@@ -6403,3 +6403,131 @@ test('UFO abduction, the dragon boss and the Duel Arena', async ({ page }) => {
   })
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })
+
+// Idea list 7, batch 1 (2026-11-06): Zombie Mini-Golf, Freeze Tag and the
+// camp's Daily Lucky Wheel.
+test('Zombie Mini-Golf, Freeze Tag and the Lucky Wheel', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    const start = async (mode) => {
+      localStorage.removeItem('gayz-play-saved-run')
+      g.settings.selectedGameMode = mode
+      await g._enterBuildMode({ map: 'map3', play: true })
+      const s = g.buildMode.survival
+      for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+      s._pickWeapon('rifle')
+      return s
+    }
+    const stop = async () => {
+      g.buildMode.survival.stop?.()
+      g._exitBuildMode?.()
+      await new Promise((res) => setTimeout(res, 200))
+    }
+    const toPlay = (pm) => { for (let i = 0; i < 200 && pm.phase === 'wait'; i++) pm.update(0.05) }
+    // Mini-Golf: a course in the sky, a ball each, putts count, zombies, holes.
+    let s = await start('miniGolf')
+    let pm = s.party
+    toPlay(pm)
+    const G = pm.ext
+    const tee = G.tee()
+    out.golfCourse = pm.phase === 'play' && s.bm.tryMode.pos.y > 240 && !!s.bm.getBlockAt(Math.floor(tee.x), 240, Math.floor(tee.z)) && G.balls.size === 6
+    const ball = G.balls.get(pm.myId)
+    s.bm.tryMode.pos.set(ball.x, 241, ball.z - 3)
+    out.golfPutt = G.shoot({ direction: { x: 0, y: 0, z: 1 } }) === true && pm.score[pm.myId] === 1 && ball.vz > 0
+    out.golfNoDoublePutt = G.shoot({ direction: { x: 0, y: 0, z: 1 } }) === false && pm.score[pm.myId] === 1
+    const z0 = ball.z
+    for (let i = 0; i < 40; i++) pm.update(0.05)
+    out.golfRolls = ball.z > z0 + 1
+    for (let i = 0; i < 120; i++) pm.update(0.05)
+    out.golfBotsPutt = [...pm.bots.values()].some((b) => (pm.score[b.id] || 0) >= 1)
+    // A zombie in the way knocks a ball off.
+    const zb = G.zombies[0]
+    const other = [...G.balls.values()].find((b) => !b.cup)
+    other.x = zb.x + 0.3
+    other.z = zb.z
+    other.vx = other.vz = 0
+    pm._run(0.01)
+    out.golfZombieKnock = Math.hypot(other.vx, other.vz) > 3
+    out.golfSnap = !!JSON.parse(JSON.stringify(pm.snapshot())).x?.bx
+    for (const b of G.balls.values()) b.cup = true
+    pm._run(0.05)
+    out.golfNextHole = G.hole === 1 && [...G.balls.values()].every((b) => !b.cup)
+    G.hole = 2
+    for (const b of G.balls.values()) b.cup = true
+    for (const id of Object.keys(pm.score)) pm.score[id] = 9
+    pm.score[pm.myId] = 3
+    pm._run(0.05)
+    out.golfFewestWins = pm.phase === 'end' && pm.winner === pm.myId
+    await stop()
+    // Freeze Tag: a Tagger freezes on touch, a friend thaws, all frozen = Taggers win.
+    s = await start('freezeTag')
+    pm = s.party
+    toPlay(pm)
+    const F = pm.ext
+    out.freezeTaggers = pm.phase === 'play' && pm.seekers.size === 2
+    const tagger = [...pm.seekers][0]
+    const runners = pm._people().filter((p) => !pm.seekers.has(p.id) && p.bot)
+    const tg = pm.bots.get(tagger) || null
+    const victim = runners[0].bot
+    if (tg) {
+      victim.x = tg.x + 0.5
+      victim.z = tg.z
+      victim.y = tg.y
+    } else {
+      const me = s.bodyPos()
+      victim.x = me.x + 0.5
+      victim.z = me.z
+      victim.y = me.y
+    }
+    F.run(pm._people(), 0.05)
+    out.freezeTag = F.frozen.has(victim.id)
+    // Move everyone else far away, a friend stands by the frozen one.
+    for (const b of pm.bots.values()) if (b !== victim) { b.x += 40; b.z += 40 }
+    s.bm.tryMode.pos.x += 60
+    const helper = runners[1].bot
+    helper.x = victim.x + 1
+    helper.z = victim.z
+    helper.y = victim.y
+    for (let i = 0; i < 70; i++) F.run(pm._people(), 0.05)
+    out.freezeThaw = !F.frozen.has(victim.id)
+    for (const p of pm._people()) if (!pm.seekers.has(p.id)) F.frozen.add(p.id)
+    F.run(pm._people(), 0.05)
+    out.freezeTaggersWin = pm.phase === 'end' && pm.winner === 's'
+    out.freezeMeSpeed = typeof F.speed() === 'number'
+    await stop()
+    // The Lucky Wheel at camp: one spin a day, a prize, Spin Again.
+    localStorage.removeItem('gayz-lucky-wheel')
+    s = await start('classic')
+    const camp = s.camp
+    for (let i = 0; i < 30 && !camp?.wheel; i++) await new Promise((res) => setTimeout(res, 100))
+    const W = camp?.wheel
+    out.wheelBuilt = !!W?.group
+    if (W?.group) {
+      const m = W._mid()
+      s.bm.tryMode.pos.set(m.x, s.bm.tryMode.pos.y, m.z)
+      out.wheelNear = W.near()
+      const coins = g.coins || 0
+      W.use()
+      out.wheelSpins = !!W.spin
+      W.spin.prize = 6 // 250 coins
+      for (let i = 0; i < 50; i++) W.update(0.1)
+      out.wheelPrize = !W.spin && (g.coins || 0) === coins + 250
+      W.use()
+      out.wheelOncePerDay = !W.spin
+      localStorage.removeItem('gayz-lucky-wheel')
+      W.use()
+      W.spin.prize = 7 // Spin Again
+      for (let i = 0; i < 50; i++) W.update(0.1)
+      W.use()
+      out.wheelAgain = !!W.spin
+      for (let i = 0; i < 50; i++) W.update(0.1)
+    }
+    await stop()
+    localStorage.removeItem('gayz-lucky-wheel')
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})

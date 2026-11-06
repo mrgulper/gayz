@@ -1911,6 +1911,14 @@ Escape before dawn.</p>
                   <div class="class-icon-badge"><span class="class-icon-emoji">🏎️</span></div>
                   <span id="game-mode-kart-race-label">Kart Racing</span>
                 </button>
+                <button class="mode-select-btn class-btn" data-game-mode="miniGolf" id="game-mode-mini-golf" type="button">
+                  <div class="class-icon-badge"><span class="class-icon-emoji">⛳</span></div>
+                  <span id="game-mode-mini-golf-label">Zombie Mini-Golf</span>
+                </button>
+                <button class="mode-select-btn class-btn" data-game-mode="freezeTag" id="game-mode-freeze-tag" type="button">
+                  <div class="class-icon-badge"><span class="class-icon-emoji">🧊</span></div>
+                  <span id="game-mode-freeze-tag-label">Freeze Tag</span>
+                </button>
               </div>
             </div>
           </section>
@@ -2344,6 +2352,7 @@ Escape before dawn.</p>
               <div id="gallery-toolbar">
                 <p id="gallery-how"></p>
                 <button type="button" id="gallery-mine-btn">My Posts</button>
+                <button type="button" id="gallery-postcards-btn" hidden>Postcards</button>
                 <select id="gallery-sort" aria-label="Sort">
                   <option value="new">Newest</option>
                   <option value="likes">Most Liked</option>
@@ -2368,6 +2377,24 @@ Escape before dawn.</p>
               </div>
               <p id="gallery-post-status"></p>
             </div>
+            <div id="gallery-postcard-form" hidden>
+              <h3 id="gallery-postcard-heading">Send as a Postcard</h3>
+              <img id="gallery-postcard-preview" alt="" />
+              <label id="gallery-postcard-to-label" for="gallery-postcard-to">To</label>
+              <select id="gallery-postcard-to"></select>
+              <input type="text" id="gallery-postcard-note" class="nickname-input search-bar" maxlength="80" autocomplete="off" />
+              <div class="gallery-post-btns">
+                <button type="button" id="gallery-postcard-send" class="mini-action-btn">Send</button>
+                <button type="button" id="gallery-postcard-cancel" class="mini-action-btn">Cancel</button>
+              </div>
+              <p id="gallery-postcard-status"></p>
+            </div>
+            <div id="gallery-postcards-view" hidden>
+              <button type="button" id="gallery-postcards-back" class="mini-action-btn">Back</button>
+              <h3 id="gallery-postcards-heading">Your Postcards</h3>
+              <div id="gallery-postcards-list"></div>
+              <p id="gallery-postcards-empty" hidden></p>
+            </div>
             <div id="gallery-detail" hidden>
               <button type="button" id="gallery-back-btn" class="mini-action-btn">Back</button>
               <div class="gallery-detail-main">
@@ -2381,6 +2408,7 @@ Escape before dawn.</p>
                     <button type="button" id="gallery-use-btn" class="mini-action-btn"></button>
                     <button type="button" id="gallery-edit-btn" class="mini-action-btn"></button>
                     <button type="button" id="gallery-delete-btn" class="mini-action-btn"></button>
+                    <button type="button" id="gallery-postcard-btn" class="mini-action-btn" hidden></button>
                   </div>
                 </div>
               </div>
@@ -2438,7 +2466,7 @@ Escape before dawn.</p>
             </ul>
 
             <h3>5. Acceptable use</h3>
-            <p>Some things you make in GayZ are seen by other players: your nickname, bio and Player ID, chat messages (Global, server and clan chat), clan names, Market listings, Gallery posts and comments, maps you share or build together with others, and the spray tags you draw and spray in a server. When using GayZ, you agree not to:</p>
+            <p>Some things you make in GayZ are seen by other players: your nickname, bio and Player ID, chat messages (Global, server and clan chat), clan names, Market listings, Gallery posts and comments, Photo Postcards (seen by the friend you send them to), maps you share or build together with others, and the spray tags you draw and spray in a server. When using GayZ, you agree not to:</p>
             <ul>
               <li>Use your nickname, bio, chat, clan name, posts, comments, shared maps, spray tags or any other field to harass anyone, impersonate someone else, or post personal information (yours or anyone else's);</li>
               <li>Post anything hateful, sexual, violent toward real people, or that you don't have the right to share (like someone else's artwork in a skin or Gallery post);</li>
@@ -2524,6 +2552,7 @@ Escape before dawn.</p>
             <h3>Gallery, shared maps and servers</h3>
             <ul>
               <li>Gallery posts (skins, maps and photos you take in Photo Mode) store the picture you post, its title, your nickname, likes, dislikes and comments - anyone can see them. Each like or dislike is saved under your account so you can only vote once per post.</li>
+              <li>Photo Postcards you send to a friend store the photo, your short note, its title, your nickname and when you sent it, in that friend's mailbox. Only they can read it, and they can delete it.</li>
               <li>Maps you share get a code and are stored online so anyone can play them; Build Together rooms store the edits and each player's spot while you build.</li>
               <li>When you play on a server, your position, skin and nickname are sent to the other players in it while you play, along with what you hold, the hat and cape you wear, the emote you play, whether you're sitting in a vehicle, the boats, helicopters and hot-air balloons you put down, the map pins you share (where they are and whether they're for everyone or friends only; pins for friends only are sent only to the players in the server who are on your friends list), the spray tags you spray (your drawing and where it is), the blocks you place and break, where your shots splat paint in Paint Wars, the stars you give other players' builds in Build Battle, and what you say in Global chat (shown over your head). A game you start from the homepage is a private server from the start, so friends can join it by its link; nobody sees it in the server list, and it's deleted when you leave.</li>
             </ul>
@@ -2542,7 +2571,7 @@ Escape before dawn.</p>
             </ul>
 
             <h3>Your choices</h3>
-            <p>You can play entirely without signing in. You can delete your own Gallery posts, comments and shared maps, take back Market listings, and leave or delete your clan at any time. If you have signed in and want your cloud save or account data deleted, or have any other question about your data, reach out on Discord (link below) and it'll be handled directly.</p>
+            <p>You can play entirely without signing in. You can delete your own Gallery posts, comments and shared maps, delete postcards sent to you, take back Market listings, and leave or delete your clan at any time. If you have signed in and want your cloud save or account data deleted, or have any other question about your data, reach out on Discord (link below) and it'll be handled directly.</p>
 
             <h3>Contact</h3>
             <p>Discord: <a href="https://discord.gg/kukR72Euj6" target="_blank" rel="noopener noreferrer">discord.gg/kukR72Euj6</a></p>
@@ -2656,6 +2685,10 @@ Escape before dawn.</p>
         <div class="feature" data-code="CampZoo MAX_ZOO zombieModel">
           <h3>Zombie Zoo</h3>
           <p>A fenced grass pen at camp, next to the Trophy Room and the Aquarium, where the zombies you've caught with Catch Traps shamble about - up to <span data-feature-value="zooMax">8</span> of your newest, each with its name floating over its head in its rarity's colour (boss zombies are bigger). A sign says how many zombies you've caught; while it's empty it tells you to go catch some.</p>
+        </div>
+        <div class="feature" data-code="CampWheel WHEEL_KEY SPIN_S PRIZES BIG_PRIZE">
+          <h3>Daily Lucky Wheel</h3>
+          <p>A big coloured wheel on a wooden stand against a camp wall, past the Trophy Room, the Aquarium and the Zombie Zoo. Look at it and press Use for one free spin a day: it spins for <span data-feature-value="wheelSpin">4</span> seconds and the red arrow on top picks your prize - shop coins (up to <span data-feature-value="wheelBig">250</span>, kept for good), a potion, candy, snowballs, or Spin Again for one more go today. A sign under its name says whether today's spin is ready.</p>
         </div>
         <div class="feature" data-code="ZombieRadio RADIO_LINES">
           <h3>Zombie Radios</h3>
@@ -2845,6 +2878,14 @@ Escape before dawn.</p>
           <h3>Kart Racing</h3>
           <p>A party mode, on servers or alone with bots. Everyone starts on the grid of a walled oval track in the sky, sitting in a go-kart you can't hop out of until the race is over. <span data-feature-value="kartLaps">3</span> laps - the first across the chequered line wins coins (if time runs out, whoever is furthest round wins). Drive through a floating "?" box for an item: a Boost (<span data-feature-value="kartBoost">1.8</span> seconds of extra speed) or a Banana to drop behind you - whoever drives over it spins out. Shoot to use your item. The bots race in their own karts and use items too. The top of the screen shows your lap, your place and your item.</p>
         </div>
+        <div class="feature" data-code="PartyGolf miniGolf GOLF_Y HOLES HOLE_S PUTT_REACH MISS_STROKES GOLF_ZOMBIES">
+          <h3>Zombie Mini-Golf</h3>
+          <p>A party mode, on servers or alone with bots. A course of <span data-feature-value="golfHoles">3</span> holes high in the sky, each a walled green lane with red bumpers and a cup with a flag at the end. Everyone plays the same hole at once with their own ball (yours is white): shoot to putt it the way you're looking - the further back you stand (up to <span data-feature-value="golfReach">6</span> blocks), the harder the hit. Every putt is a stroke. <span data-feature-value="golfZombies">2</span> zombies shamble back and forth across the lane, and a ball that rolls into one gets knocked away. When every ball is in, or after <span data-feature-value="golfHoleS">70</span> seconds (a ball still out costs <span data-feature-value="golfMiss">2</span> strokes), everyone moves on to the next hole. Fewest strokes after the last hole wins coins.</p>
+        </div>
+        <div class="feature" data-code="PartyFreeze freezeTag THAW_S THAW_R TAGGER_SPEED">
+          <h3>Freeze Tag</h3>
+          <p>A party mode, on servers or alone with bots, played on the ground where the round starts. One Tagger (two with a full game of <span data-feature-value="partyPlayers">6</span>) has a frosty blue diamond over their head and runs a little faster. A Tagger touching a runner freezes them in a block of ice - they can't move. Stand next to a frozen runner for <span data-feature-value="freezeThaw">3</span> seconds to thaw them out (the ice thins as you go). Freeze every runner and the Taggers win; anyone still running when the clock runs out and the runners win. No shooting.</p>
+        </div>
         <div class="feature" data-code="PartyDuel duelArena DUEL_HP DMG_SHARE WIN_PTS LOSS_PTS fetchTopDuels duelRating">
           <h3>Duel Arena</h3>
           <p>On the Deathmatch tab: one on one in a walled stone arena in the sky, separate from your zombie runs. Each fighter has <span data-feature-value="duelHp">100</span> health of their own for the duel (your real health and gear aren't touched), and every hit takes part of your gun's damage. Bring the other one down to win, or have more health left when time runs out. Alone you duel a bot; on a Duel server (Global &gt; Deathmatch) two players fight while everyone else watches from the stand, and the winner stays on for the next challenger. Every duel moves your rating (it starts at <span data-feature-value="duelStart">1000</span>: +<span data-feature-value="duelWin">20</span> for a win, -<span data-feature-value="duelLoss">15</span> for a loss). Signed in, your rating goes on the leaderboard and the top of the screen shows the world's best.</p>
@@ -2919,7 +2960,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="playConfig PLAY_GAME_MODES PLAY_MUTATORS">
           <h3>Map 1 Game Modes, Difficulty &amp; Mutators</h3>
-          <p>Before you press Play, pick in Game Mode: a difficulty (Easy, Normal, Hard - Nightmare and Apex unlock later), a game mode - Classic (waves forever), Zombie Defense (hold out for <span data-feature-value="defenseWaves">10</span> waves to win), Boss Hunt (a big, tough boss every <span data-feature-value="bossEvery">3</span> waves), Zombie Rush (barely a breather between waves, a survival timer, and no buying) or Helicopter Escape (once the first wave starts, <span data-feature-value="fuelCans">3</span> fuel cans appear around the city under yellow beams, also shown on the minimap - pick them all up and a helicopter flies in and lands under a red beam; hold its landing ring for <span data-feature-value="extractionHold">10</span> seconds while the zombies keep coming, then you climb aboard and it takes off with you) or Infection (zombie tag with no waves - see Infection Mode) or Shrinking Zone (survive the waves inside a closing ring - see Shrinking Zone Mode) or Speedrun (clear the waves against the clock - see Speedrun Mode) or Tower Defense (stop zombies on a path with towers, on a map of its own - see Tower Defense Mode) or Escape Rooms (puzzle rooms in the sky - see Escape Rooms) or Obstacle Course (on the Parkour tab - see Obstacle Course) or one of the Party Modes (Hide and Seek, Capture the Flag, King of the Hill, Zombie Soccer, Hot Potato, Zombie Bowling, Paint Wars, Build Battle, Floor is Lava, Laser Tag, Kart Racing) or Duel Arena (on the Deathmatch tab - see Duel Arena) - and mutators: Horde Rush, Loot Rush, Health Regen, Glass House, Iron Mode, Escalation and Boss Rush. Guest Mode plays a run without saving anything from it.</p>
+          <p>Before you press Play, pick in Game Mode: a difficulty (Easy, Normal, Hard - Nightmare and Apex unlock later), a game mode - Classic (waves forever), Zombie Defense (hold out for <span data-feature-value="defenseWaves">10</span> waves to win), Boss Hunt (a big, tough boss every <span data-feature-value="bossEvery">3</span> waves), Zombie Rush (barely a breather between waves, a survival timer, and no buying) or Helicopter Escape (once the first wave starts, <span data-feature-value="fuelCans">3</span> fuel cans appear around the city under yellow beams, also shown on the minimap - pick them all up and a helicopter flies in and lands under a red beam; hold its landing ring for <span data-feature-value="extractionHold">10</span> seconds while the zombies keep coming, then you climb aboard and it takes off with you) or Infection (zombie tag with no waves - see Infection Mode) or Shrinking Zone (survive the waves inside a closing ring - see Shrinking Zone Mode) or Speedrun (clear the waves against the clock - see Speedrun Mode) or Tower Defense (stop zombies on a path with towers, on a map of its own - see Tower Defense Mode) or Escape Rooms (puzzle rooms in the sky - see Escape Rooms) or Obstacle Course (on the Parkour tab - see Obstacle Course) or one of the Party Modes (Hide and Seek, Capture the Flag, King of the Hill, Zombie Soccer, Hot Potato, Zombie Bowling, Paint Wars, Build Battle, Floor is Lava, Laser Tag, Kart Racing, Zombie Mini-Golf, Freeze Tag) or Duel Arena (on the Deathmatch tab - see Duel Arena) - and mutators: Horde Rush, Loot Rush, Health Regen, Glass House, Iron Mode, Escalation and Boss Rush. Guest Mode plays a run without saving anything from it.</p>
         </div>
         <div class="feature" data-code="SKELETON_KINDS SKELETON_FROM_WAVE makeSkeleton">
           <h3>Skeletons</h3>
@@ -2957,9 +2998,9 @@ Escape before dawn.</p>
           <h3>Share Codes &amp; Community Maps</h3>
           <p>Share Map puts your map online under a short code. Anyone can type a code - or pick a map from Community Maps, sorted by Newest, Most Liked or Most Played - and Play it against zombie waves or open it to Edit, in its own Shared Map slot so none of your maps are touched. Like the ones you enjoy (once each), report anything bad, and delete your own. Post to Gallery on the pause screen shares the map with a picture of it in the Gallery's Map section.</p>
         </div>
-        <div class="feature" data-code="GALLERY_KINDS createGalleryPost addGalleryComment">
+        <div class="feature" data-code="GALLERY_KINDS createGalleryPost addGalleryComment sendPostcard NOTE_MAX">
           <h3>Gallery</h3>
-          <p>The Gallery (beside Design a Skin at the bottom of the homepage) shows everyone's skins, maps and photos in Character, Map and Photo sections - newest, most liked, or Top This Week (the most liked from the past week) first - with a My Posts button to see only yours. Every card shows its thumbs-up and thumbs-down counts. Post a skin from Design a Skin, a map from the Map Editor's pause screen or a photo from Photo Mode in a game, then anyone can open it, give it a thumbs up or a thumbs down (one vote per post), comment on it, wear the skin or Play and Edit the map. Your own posts and the comments on them can be deleted. Its section tabs look just like every other panel's tabs, in every theme.</p>
+          <p>The Gallery (beside Design a Skin at the bottom of the homepage) shows everyone's skins, maps and photos in Character, Map and Photo sections - newest, most liked, or Top This Week (the most liked from the past week) first - with a My Posts button to see only yours. Every card shows its thumbs-up and thumbs-down counts. Post a skin from Design a Skin, a map from the Map Editor's pause screen or a photo from Photo Mode in a game, then anyone can open it, give it a thumbs up or a thumbs down (one vote per post), comment on it, wear the skin or Play and Edit the map. Your own posts and the comments on them can be deleted. On one of your own photos, Send as Postcard sends it to a friend from your Friends list (each photo once per friend) with a short note (up to <span data-feature-value="postcardNote">80</span> letters); the Photo tab's Postcards button opens your mailbox, where postcards from friends show the photo, who sent it, when, and their note, and you can delete them. Its section tabs look just like every other panel's tabs, in every theme.</p>
         </div>
         <div class="feature" data-code="BuildTogether OPS_PER_EDIT createBuildRoom">
           <h3>Build Together</h3>
@@ -3038,7 +3079,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="savedFriends searchLeaderboardByName">
           <h3>Friendship</h3>
-          <p>The Friendship button opens a panel with two tabs, Friend List and Clan. Friend List: add by player ID or by name (a list of matching players pops up as you type), real-time friend requests, as many friends as you like (counted next to Your Friends) with each one's #ID, live Friend Compare, and an online/idle/DND/offline status dropdown with last-seen time, right in front of the friend ID box so Friend Requests and Your Friends get the room. Click your own ID to copy it.</p>
+          <p>The Friendship button opens a panel with two tabs, Friend List and Clan. Friend List: add by player ID or by name (a list of matching players pops up as you type), real-time friend requests, as many friends as you like (counted next to Your Friends) with each one's #ID, live Friend Compare, and an online/idle/DND/offline status dropdown with last-seen time, right in front of the friend ID box so Friend Requests and Your Friends get the room. Click your own ID to copy it. Friends with a saved account can also be sent Photo Postcards from the Gallery.</p>
         </div>
         <div class="feature" data-code="createClan sendClanInvite fetchClanCombinedStats clanMonthKey entryClanXp">
           <h3>Clans</h3>
