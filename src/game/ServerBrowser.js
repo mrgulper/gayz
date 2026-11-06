@@ -1,9 +1,9 @@
 // The Global panel's server list, Kirka-style (2026-10-10, Gaymi: "do the
 // same like Kirka, make Global have servers too"): chat on the left, the
 // servers on the right with Zombie Survival / Deathmatch / Parkour /
-// Custom tabs (Deathmatch and Custom are Coming Soon - those modes don't
-// exist yet; the first tab's internal id is still 'main'; Parkour lists
-// Obstacle Course servers, mode 'parkour', since 2026-11-02), a search box, a
+// Custom tabs (Custom is Coming Soon; the first tab's internal id is still
+// 'main'; since 2026-11-02 Parkour lists Obstacle Course servers, mode
+// 'parkour', and Deathmatch lists Duel Arena servers, mode 'duel'), a search box, a
 // Create Server button and one row per server with its player count and
 // Join. Joining or creating one starts Map 1 with the other players
 // (PlayNet.js); the rules live in api/_lib/servers.js.
@@ -16,6 +16,9 @@ import { _escapeHtml } from './Game.js'
 import { DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { PlayNet } from './PlayNet.js'
 import { isEarthWorld, worldSeed } from './OpenWorld.js'
+
+// Each live tab's server mode.
+const TAB_MODES = { main: 'main', parkour: 'parkour', deathmatch: 'duel' }
 
 // How often the open list refreshes itself.
 const LIST_REFRESH_MS = 5000
@@ -145,7 +148,7 @@ export function renderServerList(game) {
   const line = document.getElementById('server-count-line')
   const tools = document.getElementById('server-tools')
   if (!list) return
-  const soon = tab !== 'main' && tab !== 'parkour'
+  const soon = !TAB_MODES[tab]
   if (tools) tools.style.display = soon ? 'none' : ''
   if (soon) {
     if (line) line.textContent = ''
@@ -154,7 +157,7 @@ export function renderServerList(game) {
     return
   }
   const q = (document.getElementById('server-search')?.value || '').trim().toLowerCase()
-  const all = (game._serverList || []).filter((s) => s.mode === (tab === 'parkour' ? 'parkour' : 'main'))
+  const all = (game._serverList || []).filter((s) => s.mode === TAB_MODES[tab])
   const shown = all.filter((s) => !q || String(s.name).toLowerCase().includes(q) || String(s.id).toLowerCase().includes(q))
   if (line) line.textContent = game._serverListError ? '' : t('serverCountLine', { n: all.length })
   if (game._serverListError) {
@@ -192,7 +195,7 @@ async function createServer(game) {
   const name = (document.getElementById('server-create-name')?.value || '').trim()
   setBusy(game, true)
   try {
-    const info = await serverApi(game).create({ ...(await myDetails(game)), name, mode: game._serverTab === 'parkour' ? 'parkour' : 'main' })
+    const info = await serverApi(game).create({ ...(await myDetails(game)), name, mode: TAB_MODES[game._serverTab] || 'main' })
     enterServer(game, { ...info, name: name || info.name })
   } catch {
     game._showHomepageToast(t('serverCreateFailed'))

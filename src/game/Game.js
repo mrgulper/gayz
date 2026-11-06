@@ -1386,6 +1386,8 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'hub-section-parkour': 'hubTabParkour',
   'hub-parkour-hint': 'parkourHint',
   'game-mode-obstacle-course-label': 'topBarModeObstacleCourse',
+  'game-mode-duel-arena-label': 'topBarModeDuelArena',
+  'hub-duel-hint': 'duelHint',
   'hub-tab-custom': 'hubTabCustom',
   'server-tab-main': 'hubTabSurvival',
   'server-tab-deathmatch': 'hubTabDeathmatch',
@@ -3576,6 +3578,7 @@ export class Game {
     // Opens on the World Map tab when that's the picked mode.
     if (this.settings.selectedGameMode === 'worldMap') document.getElementById('hub-tab-worldmap')?.click()
     if (this.settings.selectedGameMode === 'obstacleCourse') document.getElementById('hub-tab-parkour')?.click()
+    if (this.settings.selectedGameMode === 'duelArena') document.getElementById('hub-tab-deathmatch')?.click()
   }
 
   _closeHubPanel() {

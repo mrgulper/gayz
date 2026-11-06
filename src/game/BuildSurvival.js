@@ -50,6 +50,8 @@ import { Sleds } from './Sleds.js'
 import { HotSprings } from './HotSprings.js'
 import { HauntedHouse } from './HauntedHouse.js'
 import { Minecarts } from './Minecarts.js'
+import { Ufo } from './Ufo.js'
+import { DragonBoss } from './DragonBoss.js'
 import { DanceOff } from './DanceOff.js'
 import { EscapeRooms } from './EscapeRooms.js'
 import { Reefs } from './Reefs.js'
@@ -500,6 +502,11 @@ export class BuildSurvival {
     this.haunted.clear()
     if (!this.carts) this.carts = new Minecarts(this)
     this.carts.clear()
+    // The UFO and the dragon (Ufo.js, DragonBoss.js), world events.
+    if (!this.ufo) this.ufo = new Ufo(this)
+    this.ufo.clear()
+    if (!this.dragon) this.dragon = new DragonBoss(this)
+    this.dragon.clear()
     if (!this.dance) this.dance = new DanceOff(this)
     this.dance.clear()
     // Reefs and ruins, the pirate ship, the train and the Moon
@@ -703,6 +710,8 @@ export class BuildSurvival {
     this.springs?.clear()
     this.haunted?.clear()
     this.carts?.clear()
+    this.ufo?.clear()
+    this.dragon?.clear()
     this.dance?.clear()
     this.train?.clear()
     this.moon?.clear()
@@ -1299,7 +1308,7 @@ export class BuildSurvival {
     // Infection: a shot only stuns an infected one (Infection.js).
     // The party modes: a stun, a kicked ball, or nothing (PartyModes.js).
     if (this.party) {
-      const hit = this.party.shoot(center, reach, wall)
+      const hit = this.party.shoot(center, reach, wall, w.damage * this._damageMult())
       if (hit) this._hitFeedback({ amount: 0 })
       return hit
     }
@@ -1309,6 +1318,11 @@ export class BuildSurvival {
       return stunned
     }
     const damage = w.damage * this._damageMult()
+    // The dragon (DragonBoss.js) is shot like a big zombie.
+    if (this.dragon?.shoot(center, reach, damage)) {
+      this._hitFeedback({ amount: damage, boss: true })
+      return true
+    }
     const hits = new Map()
     const add = (z, amount) => hits.set(z, (hits.get(z) || 0) + amount)
     let anyHead = false
@@ -1929,7 +1943,7 @@ export class BuildSurvival {
 
   // Blocks a mode's own map keeps: never broken, never built on.
   _protects(x, y, z) {
-    return !!(this.td?.protects(x, y, z) || this.party?.protects(x, y, z) || this.escape?.protects(x, y, z) || this.moon?.protects(x, y, z))
+    return !!(this.td?.protects(x, y, z) || this.party?.protects(x, y, z) || this.escape?.protects(x, y, z) || this.moon?.protects(x, y, z) || this.ufo?.protects(x, y, z))
   }
 
   // Cells zombies stand in, for pressure plates.

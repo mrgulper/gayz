@@ -44,6 +44,9 @@ import { LAPS as KART_LAPS, BOOST_S as KART_BOOST } from './PartyKart.js'
 import { CHECKPOINTS as PARKOUR_CPS } from './PartyParkour.js'
 import { MAX_TRACKS as CART_TRACKS, HOP_EVERY as CART_HOP, CART_COINS } from './Minecarts.js'
 import { GHOSTS as HAUNT_GHOSTS, HAUNT_COINS } from './HauntedHouse.js'
+import { GRAB_S as UFO_GRAB, ALIENS as UFO_ALIENS, UFO_COINS } from './Ufo.js'
+import { FROM_WAVE as DRAGON_WAVE, FIRE_DMG as DRAGON_FIRE, DRAGON_HP, HOARD_COINS, HOARD_GEMS } from './DragonBoss.js'
+import { DUEL_HP, RATING_START as DUEL_START, WIN_PTS as DUEL_WIN, LOSS_PTS as DUEL_LOSS } from './PartyDuel.js'
 import { DANCE_S, DANCE_R, DANCE_COINS, DAZE_S, COOLDOWN_S as BOOMBOX_COOL } from './DanceOff.js'
 import { MAX_RUINS, SEA_ZOMBIES as RUIN_ZOMBIES } from './Reefs.js'
 import { PIRATES, PIRATE_COINS, SHIP_LIFE } from './PirateShip.js'
@@ -443,6 +446,18 @@ export function _featureValues(_game) {
     cartCoins: CART_COINS,
     hauntGhosts: HAUNT_GHOSTS,
     hauntCoins: HAUNT_COINS,
+    ufoGrab: UFO_GRAB,
+    ufoAliens: UFO_ALIENS,
+    ufoCoins: UFO_COINS,
+    dragonWave: DRAGON_WAVE,
+    dragonFire: DRAGON_FIRE,
+    dragonHp: DRAGON_HP,
+    dragonCoins: HOARD_COINS,
+    dragonGems: HOARD_GEMS,
+    duelHp: DUEL_HP,
+    duelStart: DUEL_START,
+    duelWin: DUEL_WIN,
+    duelLoss: DUEL_LOSS,
     dungeonSize: DUNGEON_SIZE,
     zoneSpeed: ZONE_ZOMBIE_SPEED,
     zoneMinutes: Math.floor(ZONE_TOTAL_S / 60),
