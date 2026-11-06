@@ -53,12 +53,15 @@
 // More modes live in their own files and plug in through `this.ext`
 // (PARTY_EXT, 2026-11-02, idea list 6): Floor is Lava (PartyLava.js), Laser
 // Tag (PartyLaser.js), Kart Racing (PartyKart.js), Obstacle Course
-// (PartyParkour.js), Duel Arena (PartyDuel.js).
+// (PartyParkour.js), Duel Arena (PartyDuel.js); idea list 7 (2026-11-06):
+// Zombie Mini-Golf (PartyGolf.js), Freeze Tag (PartyFreeze.js), Bomb
+// Defuse (PartyBomb.js), Werewolf Night (PartyWerewolf.js).
 // An ext can give: home(me), begin(people, shuffled), run(people, dt),
 // timeUp(), botGoal(b, people), moveBot(b, dt), botsStun, markColor(id),
 // build(), draw(dt), events(was), startText(), hud(), shoot(ray, reach,
 // wall), onStun(id, by), remoteHit(h), protects(x, y, z), speed(),
-// snap() / apply(d) (its part of the host's sync) and dispose().
+// won() / winText(w) (its own winners), snap() / apply(d) (its part of
+// the host's sync) and dispose().
 //
 // Whoever runs it (alone, or a server's host - `runs`) keeps the round,
 // moves the bots and the ball and checks touches from everyone's synced
@@ -78,16 +81,18 @@ import { PartyLaser } from './PartyLaser.js'
 import { PartyKart } from './PartyKart.js'
 import { PartyParkour } from './PartyParkour.js'
 import { PartyDuel } from './PartyDuel.js'
+import { PartyGolf } from './PartyGolf.js'
+import { PartyFreeze } from './PartyFreeze.js'
 
 // The modes that live in their own files (see `this.ext` above).
-const PARTY_EXT = { floorLava: PartyLava, laserTag: PartyLaser, kartRace: PartyKart, obstacleCourse: PartyParkour, duelArena: PartyDuel }
-export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena']
+const PARTY_EXT = { floorLava: PartyLava, laserTag: PartyLaser, kartRace: PartyKart, obstacleCourse: PartyParkour, duelArena: PartyDuel, miniGolf: PartyGolf, freezeTag: PartyFreeze }
+export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'miniGolf', 'freezeTag']
 // Each mode's server mode (api/_lib/servers.js MODES).
-export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling', paintWars: 'paint', buildBattle: 'build', floorLava: 'lava', laserTag: 'laser', kartRace: 'kart', obstacleCourse: 'parkour', duelArena: 'duel' }
+export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling', paintWars: 'paint', buildBattle: 'build', floorLava: 'lava', laserTag: 'laser', kartRace: 'kart', obstacleCourse: 'parkour', duelArena: 'duel', miniGolf: 'golf', freezeTag: 'freeze' }
 export const TOTAL = 6
 export const WAIT_S = 8
 export const END_S = 7
-export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300, paintWars: 150, buildBattle: 300, floorLava: 240, laserTag: 180, kartRace: 300, obstacleCourse: 420, duelArena: 120 }
+export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300, paintWars: 150, buildBattle: 300, floorLava: 240, laserTag: 180, kartRace: 300, obstacleCourse: 420, duelArena: 120, miniGolf: 240, freezeTag: 150 }
 export const HIDE_S = 20
 export const STUN_S = 2.5
 export const FLAG_GAP = 32
@@ -1605,6 +1610,7 @@ export class PartyMode {
   _won() {
     const w = this.winner
     const me = this.myId
+    if (this.ext?.won) return this.ext.won()
     if (this.kind === 'hideSeek') return (w === 'h' && !this.seekers.has(me)) || (w === 's' && this.seekers.has(me))
     if (ID_SCORE_MODES.has(this.kind) || (this.ext && !this.ext.teams)) return w === me
     return !!w && w === this.myTeam
@@ -1621,6 +1627,7 @@ export class PartyMode {
     const w = this.winner
     let who
     if (w === 'tie') who = t('partyTie')
+    else if (this.ext?.winText) who = this.ext.winText(w)
     else if (this.kind === 'hideSeek') who = t(w === 's' ? 'partySeekersWin' : 'partyHidersWin')
     else if (this.kind === 'kingHill') who = t('partyKingWins', { name: this._name(w) })
     else if (ID_SCORE_MODES.has(this.kind) || (this.ext && !this.ext.teams)) who = t('partyPlayerWins', { name: this._name(w) })

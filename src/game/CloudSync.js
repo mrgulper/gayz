@@ -586,6 +586,24 @@ service cloud.firestore {
         || request.auth.uid == get(/databases/$(database)/documents/gallery/$(postId)).data.creatorUid);
       allow update: if false;
     }
+
+    // Photo Postcards (Postcards.js, 2026-11-06): a Gallery photo sent to a
+    // friend. Like friend requests, anyone signed in can drop one in
+    // someone else's box (never their own), only the receiver can read or
+    // delete theirs, and nobody can change one.
+    match /postcards/{toUid}/inbox/{cardId} {
+      allow read, delete: if request.auth != null && request.auth.uid == toUid;
+      allow create: if request.auth != null && request.auth.uid != toUid
+        && request.resource.data.keys().hasOnly(['fromUid', 'fromNickname', 'image', 'note', 'title', 'sentAt'])
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.fromNickname is string && request.resource.data.fromNickname.size() > 0 && request.resource.data.fromNickname.size() <= 24
+        && request.resource.data.image is string && request.resource.data.image.size() <= 400000
+        && request.resource.data.image.matches('^data:image/(png|jpeg);base64,.*')
+        && request.resource.data.note is string && request.resource.data.note.size() <= 80
+        && request.resource.data.title is string && request.resource.data.title.size() <= 40
+        && request.resource.data.sentAt is int;
+      allow update: if false;
+    }
   }
 }`
 
@@ -1794,4 +1812,25 @@ export async function addGalleryComment(id, comment) {
 export async function deleteGalleryComment(id, commentId) {
   const { db, fsMod } = await ensureApp()
   await fsMod.deleteDoc(fsMod.doc(db, 'gallery', id, 'comments', commentId))
+}
+
+// Photo Postcards (Postcards.js): card = { fromUid, fromNickname, image,
+// note, title }.
+export async function sendPostcard(toUid, card) {
+  const { db, fsMod } = await ensureApp()
+  const data = { fromUid: card.fromUid, fromNickname: card.fromNickname, image: card.image, note: card.note || '', title: card.title || '', sentAt: Date.now() }
+  await fsMod.addDoc(fsMod.collection(db, 'postcards', toUid, 'inbox'), data)
+}
+
+// My mailbox, newest first.
+export async function fetchPostcards(uid, n = 30) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'postcards', uid, 'inbox'), fsMod.orderBy('sentAt', 'desc'), fsMod.limit(n))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id }))
+}
+
+export async function deletePostcard(uid, id) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'postcards', uid, 'inbox', id))
 }

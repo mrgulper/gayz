@@ -47,6 +47,10 @@ import { GHOSTS as HAUNT_GHOSTS, HAUNT_COINS } from './HauntedHouse.js'
 import { GRAB_S as UFO_GRAB, ALIENS as UFO_ALIENS, UFO_COINS } from './Ufo.js'
 import { FROM_WAVE as DRAGON_WAVE, FIRE_DMG as DRAGON_FIRE, DRAGON_HP, HOARD_COINS, HOARD_GEMS } from './DragonBoss.js'
 import { DUEL_HP, RATING_START as DUEL_START, WIN_PTS as DUEL_WIN, LOSS_PTS as DUEL_LOSS } from './PartyDuel.js'
+import { HOLES as GOLF_HOLES, PUTT_REACH as GOLF_REACH, GOLF_ZOMBIES, HOLE_S as GOLF_HOLE_S, MISS_STROKES as GOLF_MISS } from './PartyGolf.js'
+import { THAW_S as FREEZE_THAW } from './PartyFreeze.js'
+import { SPIN_S as WHEEL_SPIN, BIG_PRIZE as WHEEL_BIG } from './CampWheel.js'
+import { NOTE_MAX as POSTCARD_NOTE } from './Postcards.js'
 import { DANCE_S, DANCE_R, DANCE_COINS, DAZE_S, COOLDOWN_S as BOOMBOX_COOL } from './DanceOff.js'
 import { MAX_RUINS, SEA_ZOMBIES as RUIN_ZOMBIES } from './Reefs.js'
 import { PIRATES, PIRATE_COINS, SHIP_LIFE } from './PirateShip.js'
@@ -458,6 +462,15 @@ export function _featureValues(_game) {
     duelStart: DUEL_START,
     duelWin: DUEL_WIN,
     duelLoss: DUEL_LOSS,
+    golfHoles: GOLF_HOLES,
+    golfReach: GOLF_REACH,
+    golfZombies: GOLF_ZOMBIES,
+    golfHoleS: GOLF_HOLE_S,
+    golfMiss: GOLF_MISS,
+    freezeThaw: FREEZE_THAW,
+    wheelSpin: WHEEL_SPIN,
+    wheelBig: WHEEL_BIG,
+    postcardNote: POSTCARD_NOTE,
     dungeonSize: DUNGEON_SIZE,
     zoneSpeed: ZONE_ZOMBIE_SPEED,
     zoneMinutes: Math.floor(ZONE_TOTAL_S / 60),

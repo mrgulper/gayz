@@ -14,6 +14,7 @@ import { blockedOffline } from './Offline.js'
 import * as CloudSync from './CloudSync.js'
 import { t } from './i18n.js'
 import { _escapeHtml, _censorText, _formatRelativeTime, skinFrontIconURL } from './Game.js'
+import { bindPostcards, renderPostcardTexts, showPostcardButton, showInboxButton } from './Postcards.js'
 
 export const GALLERY_KINDS = ['character', 'weapon', 'map', 'photo']
 // Posts that are a picture shown as it is (not a skin).
@@ -88,6 +89,8 @@ export function bindGallery(game) {
     e.stopPropagation()
     if (e.key === 'Enter') submitPost(game)
   })
+  // Photo Postcards (Postcards.js).
+  bindPostcards(game, setView, needSignIn)
 }
 
 // Opens the Gallery on a section (the last one, by default).
@@ -127,6 +130,7 @@ export function renderTexts() {
   if (input) input.placeholder = t('galleryCommentPlaceholder')
   const title = $('gallery-post-title')
   if (title) title.placeholder = t('galleryTitlePlaceholder')
+  renderPostcardTexts()
 }
 
 function showKind(game, kind) {
@@ -135,6 +139,7 @@ function showKind(game, kind) {
   for (const tab of document.querySelectorAll('.gallery-tab')) tab.classList.toggle('active', tab.dataset.galleryKind === kind)
   const how = $('gallery-how')
   if (how) how.textContent = t(kind === 'map' ? 'galleryHowMap' : kind === 'photo' ? 'galleryHowPhoto' : 'galleryHowCharacter')
+  showInboxButton(kind)
   if (kind === 'weapon') {
     setView('weapon')
     return
@@ -147,7 +152,7 @@ function showKind(game, kind) {
 }
 
 function setView(view) {
-  const views = { list: 'gallery-list-view', weapon: 'gallery-weapon-page', post: 'gallery-post-form', detail: 'gallery-detail' }
+  const views = { list: 'gallery-list-view', weapon: 'gallery-weapon-page', post: 'gallery-post-form', detail: 'gallery-detail', postcard: 'gallery-postcard-form', postcards: 'gallery-postcards-view' }
   for (const [name, id] of Object.entries(views)) {
     const el = $(id)
     if (el) el.hidden = name !== view
@@ -242,6 +247,7 @@ async function openPost(game, post) {
   const del = $('gallery-delete-btn')
   del.textContent = t('galleryDeleteBtn')
   del.hidden = !mine
+  showPostcardButton(game, post)
   renderVotes(game)
   if (game._cloudUid && !game._galleryVotes.has(post.id)) {
     const backend = api(game)

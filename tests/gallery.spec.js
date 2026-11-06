@@ -131,3 +131,59 @@ test('Gallery has dislikes, My Posts and Top This Week', async ({ page }) => {
   await expect(page.locator('#gallery-dislike-btn')).toBeDisabled()
   await expect(page.locator('#gallery-like-btn')).toBeDisabled()
 })
+
+// Photo Postcards (2026-11-06): send one of your photos to a friend, read
+// and delete postcards in your mailbox.
+test('a photo can be sent as a postcard and read in the mailbox', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForFunction(() => !!window.__game, null, { timeout: 60000 })
+  const pic = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+  await page.evaluate((image) => {
+    const g = window.__game
+    Object.defineProperty(g, '_cloudUid', { get: () => 'me1234', set: () => {}, configurable: true })
+    g.settings.nickname = 'Tester'
+    g.settings.savedFriends = [{ name: 'Pal', uid: 'friend123' }, { name: 'NoId' }]
+    const sent = []
+    let inbox = [{ id: 'c1', fromNickname: '<i>Pal</i>', note: 'Hi <b>there</b>', image, sentAt: Date.now() - 60000 }]
+    g.__galleryBackendForTests = {
+      async fetchGalleryPosts(kind) { return kind === 'photo' ? [{ id: 'p1', kind: 'photo', title: 'Sunset', creatorUid: 'me1234', creatorNickname: 'Tester', image, likes: 0, createdAt: Date.now() }] : [] },
+      async hasLikedGalleryPost() { return false },
+      async hasDislikedGalleryPost() { return false },
+      async fetchGalleryComments() { return [] },
+      async sendPostcard(to, card) { sent.push({ to, ...card }) },
+      async fetchPostcards() { return inbox.map((c) => ({ ...c })) },
+      async deletePostcard(uid, id) { inbox = inbox.filter((c) => c.id !== id) },
+      _sent: sent,
+    }
+  }, pic)
+  await page.click('#nav-gallery-link')
+  await page.click('#gallery-tab-photo')
+  await expect(page.locator('#gallery-postcards-btn')).toBeVisible()
+  await page.click('.gallery-card')
+  await expect(page.locator('#gallery-postcard-btn')).toBeVisible()
+  await page.click('#gallery-postcard-btn')
+  await expect(page.locator('#gallery-postcard-form')).toBeVisible()
+  // Only friends with an account id can get one.
+  await expect(page.locator('#gallery-postcard-to option')).toHaveCount(1)
+  await page.fill('#gallery-postcard-note', 'Wish you were here')
+  await page.click('#gallery-postcard-send')
+  await expect(page.locator('#gallery-detail')).toBeVisible()
+  const sent = await page.evaluate(() => window.__game.__galleryBackendForTests._sent)
+  expect(sent.length).toBe(1)
+  expect(sent[0].to).toBe('friend123')
+  expect(sent[0].note).toBe('Wish you were here')
+  expect(sent[0].fromUid).toBe('me1234')
+  // The mailbox: text from others shows as text, never markup.
+  await page.click('#gallery-back-btn')
+  await page.click('#gallery-postcards-btn')
+  await expect(page.locator('.postcard')).toHaveCount(1)
+  await expect(page.locator('.postcard-note')).toHaveText('Hi <b>there</b>')
+  await expect(page.locator('.postcard-from')).toContainText('<i>Pal</i>')
+  await page.click('[data-delete-postcard]')
+  await expect(page.locator('.postcard')).toHaveCount(0)
+  await expect(page.locator('#gallery-postcards-empty')).toBeVisible()
+  // Other tabs don't show the Postcards button.
+  await page.click('#gallery-postcards-back')
+  await page.click('#gallery-tab-character')
+  await expect(page.locator('#gallery-postcards-btn')).toBeHidden()
+})

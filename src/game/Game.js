@@ -1366,6 +1366,8 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'game-mode-escape-room-label': 'topBarModeEscapeRoom',
   'game-mode-floor-lava-label': 'topBarModeFloorLava',
   'game-mode-laser-tag-label': 'topBarModeLaserTag',
+  'game-mode-mini-golf-label': 'topBarModeMiniGolf',
+  'game-mode-freeze-tag-label': 'topBarModeFreezeTag',
   'game-mode-kart-race-label': 'topBarModeKartRace',
   'zombie-book-done': 'bookComplete',
   'inventory-pets-soon-title': 'inventoryPetsTitle',
