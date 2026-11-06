@@ -53,7 +53,7 @@
 // More modes live in their own files and plug in through `this.ext`
 // (PARTY_EXT, 2026-11-02, idea list 6): Floor is Lava (PartyLava.js), Laser
 // Tag (PartyLaser.js), Kart Racing (PartyKart.js), Obstacle Course
-// (PartyParkour.js).
+// (PartyParkour.js), Duel Arena (PartyDuel.js).
 // An ext can give: home(me), begin(people, shuffled), run(people, dt),
 // timeUp(), botGoal(b, people), moveBot(b, dt), botsStun, markColor(id),
 // build(), draw(dt), events(was), startText(), hud(), shoot(ray, reach,
@@ -77,16 +77,17 @@ import { PartyLava } from './PartyLava.js'
 import { PartyLaser } from './PartyLaser.js'
 import { PartyKart } from './PartyKart.js'
 import { PartyParkour } from './PartyParkour.js'
+import { PartyDuel } from './PartyDuel.js'
 
 // The modes that live in their own files (see `this.ext` above).
-const PARTY_EXT = { floorLava: PartyLava, laserTag: PartyLaser, kartRace: PartyKart, obstacleCourse: PartyParkour }
-export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse']
+const PARTY_EXT = { floorLava: PartyLava, laserTag: PartyLaser, kartRace: PartyKart, obstacleCourse: PartyParkour, duelArena: PartyDuel }
+export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena']
 // Each mode's server mode (api/_lib/servers.js MODES).
-export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling', paintWars: 'paint', buildBattle: 'build', floorLava: 'lava', laserTag: 'laser', kartRace: 'kart', obstacleCourse: 'parkour' }
+export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling', paintWars: 'paint', buildBattle: 'build', floorLava: 'lava', laserTag: 'laser', kartRace: 'kart', obstacleCourse: 'parkour', duelArena: 'duel' }
 export const TOTAL = 6
 export const WAIT_S = 8
 export const END_S = 7
-export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300, paintWars: 150, buildBattle: 300, floorLava: 240, laserTag: 180, kartRace: 300, obstacleCourse: 420 }
+export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300, paintWars: 150, buildBattle: 300, floorLava: 240, laserTag: 180, kartRace: 300, obstacleCourse: 420, duelArena: 120 }
 export const HIDE_S = 20
 export const STUN_S = 2.5
 export const FLAG_GAP = 32
@@ -1673,12 +1674,12 @@ export class PartyMode {
 
   // My shot (BuildSurvival.shoot). Flag / Hill: stuns the first enemy on
   // the ray. Soccer: knocks the ball. Hide and Seek: nothing.
-  shoot(ray, reach, wall = null) {
+  shoot(ray, reach, wall = null, damage = 0) {
     if (this.phase !== 'play' || this.stunned.has(this.myId)) return false
     const B = this.s.B
     const box = new THREE.Box3()
     const hit = new THREE.Vector3()
-    if (this.ext?.shoot) return this.ext.shoot(ray, reach, wall)
+    if (this.ext?.shoot) return this.ext.shoot(ray, reach, wall, damage)
     if (this.kind === 'hotPotato' || this.kind === 'buildBattle') return false
     if (this.kind === 'paintWars') {
       // A splat where the shot lands on the ground.

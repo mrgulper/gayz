@@ -128,6 +128,9 @@ service cloud.firestore {
         && (!('clanTag' in request.resource.data) || (request.resource.data.clanTag is string && request.resource.data.clanTag.size() <= 4))
         // Speedrun mode's best time in ms (Speedrun.js, 2026-11-01).
         && (!('speedrunMs' in request.resource.data) || (request.resource.data.speedrunMs is int && request.resource.data.speedrunMs >= 1000 && request.resource.data.speedrunMs < 36000000))
+        // The Duel Arena's rating and wins (PartyDuel.js, 2026-11-02).
+        && (!('duelRating' in request.resource.data) || (request.resource.data.duelRating is int && request.resource.data.duelRating >= 0 && request.resource.data.duelRating < 100000))
+        && (!('duelWins' in request.resource.data) || (request.resource.data.duelWins is int && request.resource.data.duelWins >= 0 && request.resource.data.duelWins < 100000))
         // The Obstacle Course's best time in ms (PartyParkour.js, 2026-11-02).
         && (!('parkourMs' in request.resource.data) || (request.resource.data.parkourMs is int && request.resource.data.parkourMs >= 1000 && request.resource.data.parkourMs < 36000000))
         // XP and this month's clan XP (Xp.js, 2026-10-23).
@@ -913,6 +916,14 @@ export async function fetchTopParkour(n) {
   const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('parkourMs', 'asc'), fsMod.limit(n))
   const snap = await fsMod.getDocs(q)
   return snap.docs.map(withUid).filter((e) => Number.isFinite(e.parkourMs))
+}
+
+// The Duel Arena's best ratings (PartyDuel.js), highest first.
+export async function fetchTopDuels(n) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('duelRating', 'desc'), fsMod.limit(n))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map(withUid).filter((e) => Number.isFinite(e.duelRating))
 }
 
 export async function fetchTopByAchievements(n) {

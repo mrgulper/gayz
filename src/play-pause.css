@@ -1181,3 +1181,12 @@ html.ui-theme-clean #bb-vote { color: var(--clean-bg); background: var(--clean-f
   70% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(1.05); }
 }
+
+/* The Dragon's boss bar (DragonBoss.js), under the top bar. */
+#dragon-bar {
+  position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 30;
+  display: none; flex-direction: column; align-items: center; gap: 4px; pointer-events: none;
+  font: bold 14px sans-serif; color: #ffd9c0; text-shadow: 0 1px 2px #000;
+}
+#dragon-bar .dragon-track { width: min(360px, 70vw); height: 10px; border-radius: 5px; background: rgba(0, 0, 0, 0.45); overflow: hidden; border: 1px solid rgba(255, 200, 160, 0.5); }
+#dragon-bar .dragon-track i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #a01a10, #ff5a1a); }

@@ -6301,3 +6301,105 @@ test('Laser Tag, Kart Racing, the Obstacle Course, minecarts and the haunted hou
   })
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })
+
+test('UFO abduction, the dragon boss and the Duel Arena', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    const start = async (mode) => {
+      localStorage.removeItem('gayz-play-saved-run')
+      g.settings.selectedGameMode = mode
+      await g._enterBuildMode({ map: 'map3', play: true })
+      const s = g.buildMode.survival
+      for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+      s._pickWeapon('rifle')
+      return s
+    }
+    const stop = async () => {
+      g.buildMode.survival.stop?.()
+      g._exitBuildMode?.()
+      await new Promise((res) => setTimeout(res, 200))
+    }
+    let s = await start('classic')
+    const tm = s.bm.tryMode
+    // A copy: bodyPos() is your live position.
+    const me = { ...s.bodyPos() }
+    // UFO: beams a zombie up, then takes you; beat the aliens, the pad takes you home.
+    const run = s.ufo.event(me)
+    const u = s.ufo.ufo
+    out.ufoCame = !!run && !!s.ufo._group
+    u.gx = me.x + 40
+    u.gz = me.z
+    run.update(0.05)
+    const zb = s._extraZombie(u.x, s._groundUnder(u.x, me.y + 10, u.z), u.z)
+    s.ufo._beamUp()
+    for (let i = 0; i < 40; i++) run.update(0.05)
+    out.ufoBeamsUp = !!zb && !s.zombies.includes(zb)
+    const coins = s.coins
+    for (let i = 0; i < 40 && !s.ufo.aboard; i++) {
+      tm.pos.set(u.x, s._groundUnder(u.x, me.y + 10, u.z), u.z)
+      run.update(0.05)
+    }
+    const ab = s.ufo.aboard
+    out.ufoTaken = !!ab && tm.pos.y > 340 && ab.aliens.length === 4
+    for (const a of ab?.aliens || []) a.health = 0
+    run.update(0.05)
+    out.ufoPad = !!ab?.open
+    if (ab) tm.pos.set(ab.cx + 0.5, 341, ab.cz + 0.5)
+    const done = run.update(0.05)
+    out.ufoHome = done === false && !s.ufo.aboard && tm.pos.y < 300 && s.coins === coins + 90
+    s.ufo.clear()
+    // Dragon: a lair, fireballs hurt, shots bring it down, the hoard pays.
+    s.wave = 3
+    tm.pos.set(me.x, me.y, me.z)
+    // (Its lair next to you: a test's world is only loaded round the camp.)
+    const drun = s.dragon.event(me, { x: Math.floor(me.x) + 20, y: Math.floor(me.y), z: Math.floor(me.z) })
+    const d = s.dragon.d
+    out.dragonCame = !!drun && !!d && document.getElementById('dragon-bar')?.style.display === 'flex'
+    drun.update(0.05)
+    s.health = s.maxHealth
+    s.dragon._breathe(s.bodyPos())
+    out.dragonBreathes = s.dragon.fireballs.length === 1
+    // One coming straight at you from close by.
+    const ball = s.dragon.fireballs[0]
+    const at = s.bodyPos()
+    ball.p.set(at.x, at.y + 1, at.z + 3)
+    ball.v.set(0, 0, -16)
+    for (let i = 0; i < 20 && s.dragon.fireballs.length; i++) s.dragon._fire(0.05)
+    out.dragonFire = s.health < s.maxHealth
+    const B = s.B
+    const ray = s.bm._raycaster.ray.clone()
+    ray.origin.set(d.x * B, (d.y + 20) * B, d.z * B)
+    ray.direction.set(0, -1, 0)
+    out.dragonHit = s.dragon.shoot(ray, 1e9, 100) && d.hp < 1500
+    const c1 = s.coins
+    const gems = g.gems || 0
+    s.dragon.shoot(ray, 1e9, 5000)
+    out.dragonSlain = d.dying > 0 && s.coins === c1 + 300 && g.gems === gems + 3
+    s.dragon.clear()
+    out.dragonGone = !s.dragon.d && document.getElementById('dragon-bar')?.style.display === 'none'
+    await stop()
+    // Duel Arena: you against a bot, a hit takes duel health, a win moves the rating.
+    localStorage.removeItem('gayz-duel')
+    s = await start('duelArena')
+    const pm = s.party
+    for (let i = 0; i < 200 && pm.phase === 'wait'; i++) pm.update(0.05)
+    const D = pm.ext
+    out.duelFighters = pm.phase === 'play' && D.fighters.length === 2 && D.fighters.includes(pm.myId) && D.hp.get(pm.myId) === 100 && s.bm.tryMode.pos.y > 170
+    const foe = D._other(pm.myId)
+    D._hit(foe, 30, pm.myId)
+    out.duelHit = D.hp.get(foe) === 70
+    const snap = JSON.parse(JSON.stringify(pm.snapshot()))
+    out.duelSnap = snap.x?.hp?.[foe] === 70 && snap.x.fi.includes('|')
+    D._hit(foe, 100, pm.myId)
+    pm.update(0.05)
+    const rating = JSON.parse(localStorage.getItem('gayz-duel') || '{}')
+    out.duelWon = pm.phase === 'end' && pm.winner === pm.myId && rating.rating === 1020 && rating.wins === 1
+    await stop()
+    localStorage.removeItem('gayz-duel')
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})

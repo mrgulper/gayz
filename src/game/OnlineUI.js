@@ -10,6 +10,7 @@ import * as CloudSaveUI from './CloudSaveUI.js'
 import * as CloudSync from './CloudSync.js'
 import { loadBest as loadSpeedrunBest } from './Speedrun.js'
 import { loadParkourBest } from './PartyParkour.js'
+import { loadDuel } from './PartyDuel.js'
 import { CLOUD_BASE_UID_KEY, readBase } from './CloudMerge.js'
 import { ACHIEVEMENTS } from './Achievements.js'
 import { GLOBAL_KILLS_MILESTONE_STEP, POLL_ID, POLL_OPTIONS, _escapeHtml, _safeStatNumber, _thisWeekStr, saveShopProgress } from './Game.js'
@@ -409,6 +410,14 @@ export async function _pushOnlineStats(game) {
   {
     const ms = loadParkourBest()
     if (ms) entry.parkourMs = ms
+  }
+  // The Duel Arena's rating (PartyDuel.js), once you've fought a duel.
+  {
+    const d = loadDuel()
+    if (d.wins + d.losses) {
+      entry.duelRating = d.rating
+      entry.duelWins = d.wins
+    }
   }
   entry.todayKills = _safeStatNumber(game._sessionKills)
   entry.todayMinutes = Math.round((performance.now() - game._sessionStartTime) / 60000)
