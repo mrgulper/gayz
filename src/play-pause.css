@@ -1153,3 +1153,31 @@ html.ui-theme-biome #bb-vote { color: var(--biome-ink); background: var(--biome-
 html.ui-theme-biome #bb-vote button { background: var(--biome-surface); border-color: var(--biome-edge); }
 html.ui-theme-biome #bb-vote button.on { color: var(--biome-accent); }
 html.ui-theme-clean #bb-vote { color: var(--clean-bg); background: var(--clean-fg); border-color: var(--clean-fg); }
+
+/* The Haunted House's jump scare (HauntedHouse.js): a ghost face rushes at
+   the screen and fades. Pointer events pass through. */
+#haunt-scare {
+  position: fixed; inset: 0; z-index: 60; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle, rgba(10, 0, 20, 0.2), rgba(10, 0, 20, 0.85));
+  opacity: 0; visibility: hidden;
+}
+#haunt-scare.on { visibility: visible; animation: haunt-scare 0.7s ease-out forwards; }
+#haunt-scare .haunt-face {
+  position: relative; width: min(70vw, 70vh); height: min(80vw, 80vh);
+  background: rgba(238, 242, 255, 0.92); border-radius: 45% 45% 12% 12%;
+}
+#haunt-scare .haunt-face i {
+  position: absolute; top: 30%; width: 18%; height: 22%; background: #111; border-radius: 10%;
+}
+#haunt-scare .haunt-face i:first-child { left: 22%; }
+#haunt-scare .haunt-face i:nth-child(2) { right: 22%; }
+#haunt-scare .haunt-face b {
+  position: absolute; left: 36%; top: 62%; width: 28%; height: 24%; background: #111; border-radius: 50%;
+}
+@keyframes haunt-scare {
+  0% { opacity: 0; transform: scale(0.4); }
+  15% { opacity: 1; transform: scale(1.1); }
+  70% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.05); }
+}

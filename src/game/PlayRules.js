@@ -26,12 +26,13 @@ export const PLAY_MUTATORS = ['hordeRush', 'lootRush', 'healthRegen', 'glassHous
 // towerDefense (2026-11-02, TowerDefense.js): towers by a path on its own map.
 // paintWars, buildBattle (2026-11-02, PartyModes.js): two more party games.
 // escapeRoom (2026-11-02, EscapeRooms.js): three puzzle rooms in the sky, alone.
-// floorLava (2026-11-02, PartyLava.js): a party game on melting tiles.
-export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'worldMap', 'infection', 'shrinkingZone', 'speedrun', 'towerDefense', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'escapeRoom', 'floorLava']
+// floorLava, laserTag, kartRace, obstacleCourse (2026-11-02, PartyLava.js,
+// PartyLaser.js, PartyKart.js, PartyParkour.js): more party games.
+export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'worldMap', 'infection', 'shrinkingZone', 'speedrun', 'towerDefense', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'escapeRoom', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse']
 // Game Modes with no zombies at all (2026-10-26, Gaymi: "make world map
 // not spawn zombies ... make world map just a gamemode with the world
 // map"): you just explore the real Earth.
-export const NO_ZOMBIE_MODES = ['worldMap', 'infection', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'escapeRoom', 'floorLava']
+export const NO_ZOMBIE_MODES = ['worldMap', 'infection', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'escapeRoom', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse']
 // Its achievement, Globetrotter: a World Map run this long (seconds).
 export const GLOBETROTTER_SECONDS = 600
 

@@ -48,6 +48,8 @@ import { Kites } from './Kites.js'
 import { Skateboards } from './Skateboards.js'
 import { Sleds } from './Sleds.js'
 import { HotSprings } from './HotSprings.js'
+import { HauntedHouse } from './HauntedHouse.js'
+import { Minecarts } from './Minecarts.js'
 import { DanceOff } from './DanceOff.js'
 import { EscapeRooms } from './EscapeRooms.js'
 import { Reefs } from './Reefs.js'
@@ -493,6 +495,11 @@ export class BuildSurvival {
     this.sled.clear()
     if (!this.springs) this.springs = new HotSprings(this)
     this.springs.clear()
+    // The haunted house and minecarts (HauntedHouse.js, Minecarts.js).
+    if (!this.haunted) this.haunted = new HauntedHouse(this)
+    this.haunted.clear()
+    if (!this.carts) this.carts = new Minecarts(this)
+    this.carts.clear()
     if (!this.dance) this.dance = new DanceOff(this)
     this.dance.clear()
     // Reefs and ruins, the pirate ship, the train and the Moon
@@ -694,6 +701,8 @@ export class BuildSurvival {
     this.skate?.clear()
     this.sled?.clear()
     this.springs?.clear()
+    this.haunted?.clear()
+    this.carts?.clear()
     this.dance?.clear()
     this.train?.clear()
     this.moon?.clear()
@@ -1832,6 +1841,8 @@ export class BuildSurvival {
     this._chestsUsed.add(key)
     // The ghost pirate ship's captain's chest has more (PirateShip.js).
     this.pirate?.onChest(key)
+    // So does the haunted house's attic chest (HauntedHouse.js).
+    this.haunted?.onChest(key)
     this.stats.chests++
     // Ammo in this gun's own amounts (PlayWeapons.ammoFor).
     const ammo = ammoFor(this.weaponId, CHEST_LOOT.ammo)
@@ -3166,6 +3177,7 @@ export class BuildSurvival {
     this.skate?.update(Math.min(dt, 0.1))
     this.sled?.update(Math.min(dt, 0.1))
     this.springs?.update(Math.min(dt, 0.1))
+    this.carts?.update(Math.min(dt, 0.1))
     this.reefs?.update(Math.min(dt, 0.1))
     this.moon?.update(Math.min(dt, 0.1))
     this.potions?.update()
@@ -3420,6 +3432,8 @@ export class BuildSurvival {
       if (this.train.setup(this.bodyPos())) this._message(t('trainIntro'), 5)
     }
     this.train?.update(dt)
+    // The minecart ride, and the zombies on the cart stay on it (Minecarts.js).
+    this.carts?.ride(dt)
   }
 
   _startWave(n) {

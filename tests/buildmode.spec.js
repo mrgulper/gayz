@@ -6183,3 +6183,121 @@ test('Sleds, hot springs, the Zombie Zoo and Floor is Lava', async ({ page }) =>
   })
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })
+
+test('Laser Tag, Kart Racing, the Obstacle Course, minecarts and the haunted house', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    const start = async (mode) => {
+      localStorage.removeItem('gayz-play-saved-run')
+      g.settings.selectedGameMode = mode
+      await g._enterBuildMode({ map: 'map3', play: true })
+      const s = g.buildMode.survival
+      for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+      s._pickWeapon('rifle')
+      return s
+    }
+    const stop = async () => {
+      g.buildMode.survival.stop?.()
+      g._exitBuildMode?.()
+      await new Promise((res) => setTimeout(res, 200))
+    }
+    const toPlay = (pm) => { for (let i = 0; i < 200 && pm.phase === 'wait'; i++) pm.update(0.05) }
+    // Laser Tag: teams in a sky arena, a tag scores and knocks out.
+    let s = await start('laserTag')
+    let pm = s.party
+    toPlay(pm)
+    out.laserTeams = pm.phase === 'play' && pm.teams.size === 6 && s.bm.tryMode.pos.y > 190
+    out.laserArena = s.bm.getBlockAt(Math.floor(pm.home.x), 190, Math.floor(pm.home.z)) !== null
+    const enemy = [...pm.bots.values()].find((b) => pm.teams.get(b.id) !== pm.myTeam)
+    pm.stun(enemy.id, pm.myId)
+    out.laserScore = pm.score[pm.myTeam] === 1 && pm.stunned.get(enemy.id) === 3
+    const friend = [...pm.bots.values()].find((b) => pm.teams.get(b.id) !== pm.myTeam)
+    pm.stun(pm.myId, friend.id)
+    out.laserKo = pm.ext.speed() === 0
+    await stop()
+    // Kart Racing: in a kart on the grid, bots drive, items, laps.
+    s = await start('kartRace')
+    pm = s.party
+    toPlay(pm)
+    const K = pm.ext
+    out.kartIn = !!s.kart.driving && s.kart.lockedIn && Math.abs(s.kart.y - 211) < 0.6
+    s.kart.leave()
+    out.kartLocked = s.kart.driving
+    const bot = [...pm.bots.values()][0]
+    const ks = bot.ks
+    for (let i = 0; i < 20; i++) pm.update(0.05)
+    out.kartBotsDrive = bot.ks > ks + 1 && !!bot.kartMesh
+    K.item = 'boost'
+    out.kartBoost = K.shoot() && s.kart.boostT > 0 && !K.item
+    K.item = 'banana'
+    K.shoot()
+    out.kartBanana = K.bananas.length >= 1
+    const L = 4 * 20 + 2 * Math.PI * 13
+    K.prog.set(bot.id, { s: L * 0.95, laps: 2, cp: true })
+    bot.ks = L * 3 + 1
+    pm._run(0.05)
+    out.kartWin = pm.phase === 'end' && pm.winner === bot.id
+    out.kartSnap = !!JSON.parse(JSON.stringify(pm.snapshot())).x?.pr
+    await stop()
+    // Obstacle Course: no bots, checkpoints, falling back, the finish and best time.
+    localStorage.removeItem('gayz-parkour-best')
+    s = await start('obstacleCourse')
+    pm = s.party
+    toPlay(pm)
+    const P = pm.ext
+    const tm = s.bm.tryMode
+    out.parkourStart = pm.phase === 'play' && pm.bots.size === 0 && Math.abs(tm.pos.y - 261) < 0.5
+    out.parkourMoves = JSON.stringify(P.moverAt(0, 0)) !== JSON.stringify(P.moverAt(0, 3500))
+    const hx = Math.floor(pm.home.x)
+    const hz = Math.floor(pm.home.z)
+    tm.pos.set(hx + 26.5, 264, hz + 0.5)
+    pm.update(0.05)
+    out.parkourCheckpoint = P.cp === 1
+    tm.pos.set(hx + 30, 240, hz)
+    pm.update(0.05)
+    out.parkourBack = Math.abs(tm.pos.x - (hx + 26.5)) < 0.1 && tm.pos.y > 263
+    tm.pos.set(hx + 105.5, 270, hz + 0.5)
+    pm.update(0.05)
+    out.parkourDone = P.done > 0 && pm.phase === 'end' && Number(localStorage.getItem('gayz-parkour-best')) === P.done
+    await stop()
+    localStorage.removeItem('gayz-parkour-best')
+    // Minecarts: a line through the rock, a ride to the end, zombies hop on.
+    s = await start('classic')
+    const me = s.bodyPos()
+    let tr = null
+    // Away from the camp (tracks never cut through it).
+    for (const [ox, oz] of [[-70, 0], [70, 0], [0, 70], [0, -70]]) for (const dir of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!tr) tr = s.carts.lay(Math.floor(me.x + ox), Math.floor(me.y) - 10, Math.floor(me.z + oz), dir)
+    out.cartLaid = !!tr && tr.len >= 18 && s.bm.getBlockAt(Math.floor(tr.x0 + tr.dx * 5), tr.y - 1, Math.floor(tr.z0 + tr.dz * 5)) === 'stonebricks'
+    if (tr) {
+      const coins = s.coins
+      tr.armed = true
+      tm.pos.set(tr.x0, tr.y, tr.z0)
+      s.carts.update(0.05)
+      out.cartRiding = !!s.carts.riding
+      for (let i = 0; i < 200 && s.carts.riding; i++) s.carts.ride(0.05)
+      out.cartArrived = !s.carts.riding && tr.at === tr.len && s.coins > coins && !s._ride
+      const key = [Math.floor(tr.x0 + tr.dx * 5), tr.y - 1, Math.floor(tr.z0 + tr.dz * 5)]
+      s.carts.clear()
+      out.cartRestored = s.carts.tracks.length === 0 && s.bm.getBlockAt(...key) !== 'stonebricks'
+    }
+    // The haunted house: only at night, ghosts, the attic chest pays.
+    s.haunted.clear()
+    const gy = s._groundUnder(me.x + 25, me.y + 15, me.z)
+    s.haunted.build(Math.floor(me.x + 25), gy, Math.floor(me.z))
+    const h = s.haunted.house
+    out.hauntBuilt = !!h && s.bm.getBlockAt(h.x0 + 4, h.y0 + 10, h.z0 + 4) === 'lootchest' && s.haunted.ghosts.length === 5
+    const c0 = s.coins
+    s.haunted.onChest(s.haunted.chest)
+    out.hauntLoot = s.coins === c0 + 100
+    s.haunted._scare()
+    out.hauntScare = document.getElementById('haunt-scare')?.classList.contains('on')
+    s.haunted.clear()
+    out.hauntGone = s.bm.getBlockAt(h.x0 + 4, h.y0 + 10, h.z0 + 4) !== 'lootchest'
+    await stop()
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})

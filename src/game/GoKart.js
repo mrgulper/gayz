@@ -41,6 +41,7 @@ const RAM_MIN = 3
 const RAM_CD = 0.5
 // Where you sit and see from (blocks above the kart's floor).
 export const KART_EYE = 1.15
+export const BOOST_MULT = 1.6
 
 export class GoKart {
   constructor(survival) {
@@ -69,6 +70,18 @@ export class GoKart {
     this.s.bm.scene.add(this.group)
     this._place()
     return true
+  }
+
+  // Kart Racing (PartyKart.js): this kart on the starting grid, you in
+  // it and locked in (you can't hop out mid-race).
+  placeAt(x, y, z, heading) {
+    this.dispose()
+    Object.assign(this, { x, y, z, heading, speed: 0, vy: 0, boostT: 0, spinT: 0, _hinted: true })
+    this.group = makeKart(this.B)
+    this.s.bm.scene.add(this.group)
+    this._place()
+    this.driving = true
+    this.lockedIn = true
   }
 
   // Open ground 3..6 blocks from `at`, with room over it.
@@ -142,7 +155,7 @@ export class GoKart {
 
   // Out, standing beside it (or on top, if both sides are walled in).
   leave() {
-    if (!this.driving) return
+    if (!this.driving || this.lockedIn) return
     this.driving = false
     this.speed = 0
     const tm = this.s.bm.tryMode
@@ -188,11 +201,23 @@ export class GoKart {
   }
 
   _move(dt, throttle, steer) {
+    // Kart Racing: a boost (faster, pulls hard) or spinning out on a banana.
+    const boost = (this.boostT = Math.max(0, (this.boostT || 0) - dt)) > 0
+    if ((this.spinT = Math.max(0, (this.spinT || 0) - dt)) > 0) {
+      this.heading += 9 * dt
+      this.speed *= Math.max(0, 1 - 3 * dt)
+      throttle = 0
+      steer = 0
+    }
+    if (boost) {
+      throttle = 1
+      this.speed += ACCEL * dt
+    }
     // Speed: gas, brake (pressing against the way it's rolling), coast.
     if (throttle && Math.sign(throttle) !== Math.sign(this.speed) && Math.abs(this.speed) > 0.5) this.speed += Math.sign(throttle) * BRAKE * dt
     else if (throttle) this.speed += throttle * ACCEL * dt
     else this.speed -= Math.sign(this.speed) * Math.min(Math.abs(this.speed), COAST * dt)
-    this.speed = THREE.MathUtils.clamp(this.speed, -REVERSE_MAX, MAX_SPEED)
+    this.speed = THREE.MathUtils.clamp(this.speed, -REVERSE_MAX, MAX_SPEED * (boost ? BOOST_MULT : 1))
     // Steering turns it more the faster it goes (and backwards in reverse).
     this.heading += steer * TURN * dt * THREE.MathUtils.clamp(this.speed / 6, -1, 1)
     const nx = this.x + Math.sin(this.heading) * this.speed * dt
@@ -258,6 +283,7 @@ export class GoKart {
 
   dispose() {
     this.driving = false
+    this.lockedIn = false
     if (!this.group) return
     this.group.removeFromParent()
     this.group.traverse((o) => {
@@ -271,7 +297,7 @@ export class GoKart {
 
 // Boxes: a red frame, a seat, a steering wheel, a little engine and four
 // fat wheels. Under a block tall; facing +z.
-function makeKart(B) {
+export function makeKart(B) {
   const g = new THREE.Group()
   const body = new THREE.Group()
   g.add(body)
