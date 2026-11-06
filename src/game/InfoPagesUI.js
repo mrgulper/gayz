@@ -54,6 +54,10 @@ import { NOTE_MAX as POSTCARD_NOTE } from './Postcards.js'
 import { GRAVES as GRAVE_GRAVES, RISE_GAP as GRAVE_GAP, GRAVE_COINS } from './Graveyard.js'
 import { SPOT_S as LIGHTHOUSE_SPOT } from './Lighthouse.js'
 import { DECK_Y as TREE_DECK } from './CampTreehouse.js'
+import { GUARDS as HEIST_GUARDS, ALARM_EXTRA as HEIST_EXTRA, HEIST_COINS, STEALTH_X as HEIST_STEALTH } from './Heist.js'
+import { PARK_DIST, FERRIS_S as PARK_FERRIS, GAME_S as PARK_GAME, TICKET_COINS as PARK_TICKET, PARK_ZOMBIES } from './ThemePark.js'
+import { ERAS as TIME_ERAS, ERA_S as TIME_ERA_S, ERA_COINS as TIME_COINS, ALL_ERAS_COINS as TIME_ALL } from './TimeMachine.js'
+import { NIGHT_S as WOLF_NIGHT, DAY_S as WOLF_DAY, CLAW_R as WOLF_CLAW } from './PartyWerewolf.js'
 import { PLANT_S as BOMB_PLANT, BOMB_S as BOMB_TIME, DEFUSE_S as BOMB_DEFUSE, STUN_S as BOMB_STUN } from './PartyBomb.js'
 import { DANCE_S, DANCE_R, DANCE_COINS, DAZE_S, COOLDOWN_S as BOOMBOX_COOL } from './DanceOff.js'
 import { MAX_RUINS, SEA_ZOMBIES as RUIN_ZOMBIES } from './Reefs.js'
@@ -484,6 +488,22 @@ export function _featureValues(_game) {
     bombTime: BOMB_TIME,
     bombDefuse: BOMB_DEFUSE,
     bombStun: BOMB_STUN,
+    heistGuards: HEIST_GUARDS,
+    heistExtra: HEIST_EXTRA,
+    heistCoins: HEIST_COINS,
+    heistStealth: HEIST_STEALTH,
+    parkDist: PARK_DIST,
+    parkFerris: PARK_FERRIS,
+    parkGame: PARK_GAME,
+    parkTicket: PARK_TICKET,
+    parkZombies: PARK_ZOMBIES,
+    timeEraS: TIME_ERA_S,
+    timeCoins: TIME_COINS,
+    timeAllCoins: TIME_ALL,
+    timeEras: TIME_ERAS.length,
+    wolfNight: WOLF_NIGHT,
+    wolfDay: WOLF_DAY,
+    wolfClaw: WOLF_CLAW,
     dungeonSize: DUNGEON_SIZE,
     zoneSpeed: ZONE_ZOMBIE_SPEED,
     zoneMinutes: Math.floor(ZONE_TOTAL_S / 60),

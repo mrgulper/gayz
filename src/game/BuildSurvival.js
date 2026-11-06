@@ -54,6 +54,9 @@ import { Ufo } from './Ufo.js'
 import { DragonBoss } from './DragonBoss.js'
 import { Graveyard } from './Graveyard.js'
 import { Lighthouse } from './Lighthouse.js'
+import { Heist, SHOT_NOISE as HEIST_SHOT } from './Heist.js'
+import { ThemePark } from './ThemePark.js'
+import { TimeMachine } from './TimeMachine.js'
 import { DanceOff } from './DanceOff.js'
 import { EscapeRooms } from './EscapeRooms.js'
 import { Reefs } from './Reefs.js'
@@ -515,6 +518,14 @@ export class BuildSurvival {
     this.graveyard.clear()
     if (!this.lighthouse) this.lighthouse = new Lighthouse(this)
     this.lighthouse.clear()
+    // The Vault Heist (a world event), the open world's Theme Park and the
+    // Time Machine (Heist.js, ThemePark.js, TimeMachine.js).
+    if (!this.heist) this.heist = new Heist(this)
+    this.heist.clear()
+    if (!this.park) this.park = new ThemePark(this)
+    this.park.clear()
+    if (!this.time) this.time = new TimeMachine(this)
+    this.time.clear()
     if (!this.dance) this.dance = new DanceOff(this)
     this.dance.clear()
     // Reefs and ruins, the pirate ship, the train and the Moon
@@ -722,6 +733,9 @@ export class BuildSurvival {
     this.dragon?.clear()
     this.graveyard?.clear()
     this.lighthouse?.clear()
+    this.heist?.clear()
+    this.park?.clear()
+    this.time?.clear()
     this.dance?.clear()
     this.train?.clear()
     this.moon?.clear()
@@ -1308,8 +1322,10 @@ export class BuildSurvival {
     // Knife and Tomahawk while aiming (right-click held): thrown, not
     // swung (PlayThrow.js).
     if (w.melee && bm.tryMode.aiming && this.throws) return this.throws.throw()
-    // Echo Stones hear gunfire (BuildSpecials.js).
+    // Echo Stones hear gunfire (BuildSpecials.js) - and so do sleeping
+    // bank guards (Heist.js).
     if (!w.melee) bm.specials.onShot(bm.tryMode.pos)
+    if (!w.melee) this.heist?.noise(HEIST_SHOT)
     bm.camera.updateMatrixWorld()
     bm._raycaster.setFromCamera({ x: 0, y: 0 }, bm.camera)
     const center = bm._raycaster.ray.clone()
@@ -1328,6 +1344,11 @@ export class BuildSurvival {
       return stunned
     }
     const damage = w.damage * this._damageMult()
+    // Whack-a-Zombie's heads at the Theme Park (ThemePark.js).
+    if (this.park?.shoot(center)) {
+      this._hitFeedback({ amount: 0 })
+      return true
+    }
     // The dragon (DragonBoss.js) is shot like a big zombie.
     if (this.dragon?.shoot(center, reach, damage)) {
       this._hitFeedback({ amount: damage, boss: true })
@@ -1869,6 +1890,8 @@ export class BuildSurvival {
     this.haunted?.onChest(key)
     // ...and the graveyard's coffin (Graveyard.js).
     this.graveyard?.onChest(key)
+    // ...and the bank vault's (Heist.js).
+    this.heist?.onChest(key)
     this.stats.chests++
     // Ammo in this gun's own amounts (PlayWeapons.ammoFor).
     const ammo = ammoFor(this.weaponId, CHEST_LOOT.ammo)
@@ -1955,7 +1978,7 @@ export class BuildSurvival {
 
   // Blocks a mode's own map keeps: never broken, never built on.
   _protects(x, y, z) {
-    return !!(this.td?.protects(x, y, z) || this.party?.protects(x, y, z) || this.escape?.protects(x, y, z) || this.moon?.protects(x, y, z) || this.ufo?.protects(x, y, z))
+    return !!(this.td?.protects(x, y, z) || this.party?.protects(x, y, z) || this.escape?.protects(x, y, z) || this.moon?.protects(x, y, z) || this.ufo?.protects(x, y, z) || this.time?.protects(x, y, z))
   }
 
   // Cells zombies stand in, for pressure plates.
@@ -2117,6 +2140,8 @@ export class BuildSurvival {
     if (this.td) return this.td.spawnSpots()
     // On the Moon: out of its craters (MoonTrip.js).
     if (this.moon?.on) return this.moon.spawnSpots()
+    // Off in another era: round its edge (TimeMachine.js).
+    if (this.time?.away) return this.time.spawnSpots()
     const spots = []
     const players = [this.bodyPos(), ...(this.net && !this.net.closed ? this.net.targets() : [])]
     for (const [x, y, z] of this._findBlocks('zombiespawner')) {
@@ -3205,6 +3230,8 @@ export class BuildSurvival {
     this.springs?.update(Math.min(dt, 0.1))
     this.carts?.update(Math.min(dt, 0.1))
     this.lighthouse?.update(Math.min(dt, 0.1))
+    this.park?.update(Math.min(dt, 0.1))
+    this.time?.update(Math.min(dt, 0.1))
     this.reefs?.update(Math.min(dt, 0.1))
     this.moon?.update(Math.min(dt, 0.1))
     this.potions?.update()
