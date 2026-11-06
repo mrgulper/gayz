@@ -6647,3 +6647,163 @@ test('Graveyard Midnight, the lighthouse, the treehouse and Bomb Defuse', async 
   })
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })
+
+// Idea list 7, batch 3 (2026-11-06): the Vault Heist, the Theme Park, the
+// Time Machine and Werewolf Night.
+test('the Vault Heist, the Theme Park, the Time Machine and Werewolf Night', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    const start = async (mode) => {
+      localStorage.removeItem('gayz-play-saved-run')
+      g.settings.selectedGameMode = mode
+      await g._enterBuildMode({ map: 'map3', play: true })
+      const s = g.buildMode.survival
+      for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+      s._pickWeapon('rifle')
+      return s
+    }
+    const stop = async () => {
+      g.buildMode.survival.stop?.()
+      g._exitBuildMode?.()
+      await new Promise((res) => setTimeout(res, 200))
+    }
+    let s = await start('classic')
+    const bm = s.bm
+    const tm = bm.tryMode
+    const P = { x: 4300, y: 150, z: 4300 }
+    for (let x = -18; x <= 18; x++) for (let z = -18; z <= 18; z++) bm.placeBlock(P.x + x, P.y - 1, P.z + z, 'stone')
+    const killAll = (list) => {
+      for (const z of list) s._removeZombie(z)
+      s.zombies = s.zombies.filter((z) => !list.includes(z))
+    }
+    // Vault Heist: sleeping guards, noise wakes them, the vault's gold.
+    const H = s.heist
+    H.build(P.x - 6, P.y, P.z - 5)
+    out.heistBank = bm.getBlockAt(P.x - 6, P.y + 1, P.z - 5) === 'stonebricks' && bm.getBlockAt(P.x, P.y, P.z + 4) === 'lootchest' && bm.getBlockAt(P.x - 3, P.y, P.z + 1) === 'iron'
+    out.heistAsleep = H.bank.guards.length === 4 && H.bank.guards.every((zb) => zb.asleep && zb.frozen > 1000)
+    tm.pos.set(P.x + 0.5, P.y, P.z - 3)
+    tm._crouch = true
+    tm.vel.set(0, 0, 0)
+    H._update(0.5)
+    out.heistQuiet = H.noiseLevel === 0
+    // A perfect heist: open the vault with everyone asleep.
+    let coins = s.coins
+    s.useChest(P.x, P.y, P.z + 4)
+    out.heistSneaky = s.coins >= coins + 240
+    H.clear()
+    killAll(s.zombies.filter((z) => z.asleep !== undefined))
+    H.build(P.x - 6, P.y, P.z - 5)
+    tm.pos.set(P.x + 0.5, P.y, P.z - 3)
+    for (let i = 0; i < 3; i++) H.noise(40)
+    H._update(0.05)
+    out.heistAlarm = H.bank.alarm && H.bank.guards.length === 7 && H.bank.guards.every((zb) => !zb.asleep && !(zb.frozen > 0))
+    coins = s.coins
+    // (A loot chest opens once a wave - this is the same spot as before.)
+    s._chestsUsed.clear()
+    s.useChest(P.x, P.y, P.z + 4)
+    out.heistLoud = s.coins >= coins + 120 && s.coins < coins + 240
+    const guards = [...H.bank.guards]
+    H.clear()
+    killAll(guards)
+    tm._crouch = false
+    // Theme Park: rides you sit in, Whack-a-Zombie pays coins.
+    const K = s.park
+    out.parkSpot = K.spot() === null || Number.isFinite(K.spot().x)
+    K.build(P.x, P.y, P.z)
+    out.parkPlaza = bm.getBlockAt(P.x - 15, P.y, P.z) === 'oakfence' && !!bm.getBlockAt(P.x, P.y - 1, P.z) && !!K._group
+    const bottom = K._cabin(0, 0)
+    tm.pos.set(K.park.x + bottom.x + 1, P.y, K.park.z + bottom.z)
+    out.parkFerris = K.use() && K.ride?.kind === 'ferris'
+    for (let i = 0; i < 150; i++) K._rideStep(0.1)
+    out.parkFerrisHigh = !!s._ride && s._ride.y > P.y + 10
+    for (let i = 0; i < 200 && K.ride; i++) K._rideStep(0.1)
+    out.parkFerrisOff = !K.ride && !s._ride
+    const st = K.trackPoint(0)
+    tm.pos.set(K.park.x + st.x + 1.6, P.y, K.park.z + st.z)
+    out.parkCoaster = K.use() && K.ride?.kind === 'coaster'
+    let top = 0
+    for (let i = 0; i < 600 && K.ride; i++) {
+      K._rideStep(0.05)
+      if (s._ride) top = Math.max(top, s._ride.y)
+    }
+    out.parkCoasterHills = top > P.y + 7 && !K.ride
+    tm.pos.set(K.park.x + 6, P.y, K.park.z - 7.6)
+    out.parkWhack = K.use() && !!K.game
+    const head = K._heads[0]
+    head.up = 1
+    const THREE = { Ray: bm._raycaster.ray.constructor, V: bm.camera.position.constructor }
+    const target = new THREE.V((K.park.x + head.x) * s.B, (K.park.y + head.y) * s.B, (K.park.z + head.z) * s.B)
+    const from = new THREE.V(target.x, target.y, target.z - 3 * s.B)
+    const ray = new THREE.Ray(from, target.clone().sub(from).normalize())
+    out.parkWhackHit = s.park.shoot(ray) && K.game.hits === 1
+    coins = s.coins
+    K.game.left = 0.01
+    K._gameStep(0.05)
+    out.parkWhackCoins = !K.game && s.coins === coins + 4
+    K.clear()
+    out.parkGone = !bm.getBlockAt(P.x - 15, P.y, P.z)
+    // Time Machine: craft, put down, need a pass, go to the Ice Age, home.
+    localStorage.removeItem('gayz-time-eras')
+    s.inv.add({ kind: 'block', id: 'cobblestone', n: 16 })
+    s.inv.add({ kind: 'block', id: 'glass', n: 4 })
+    s.inv.add({ kind: 'item', id: 'heliFuel', n: 2 })
+    s.inv.add({ kind: 'item', id: 'zombieGoo', n: 7 })
+    s.inv.add({ kind: 'block', id: 'oakplanks', n: 1 })
+    out.timeCrafted = s.inv.crafting.craft('timeMachine') && s.inv.has('timeMachine') && s.inv.crafting.craft('timePass') && s.inv.has('timePass')
+    tm.pos.set(P.x + 0.5, P.y, P.z + 0.5)
+    bm._yaw = 0
+    const T = s.time
+    out.timePlaced = T.place() && !!T.machine
+    tm.pos.set(T.machine.x + 1, T.machine.y, T.machine.z)
+    out.timePick = T.use() && T.pickOpen && document.querySelectorAll('#time-pick button').length === 6
+    s.inv.takeItem('timePass')
+    out.timeNeedsPass = T.go('ice') === false && !T.away
+    s.inv.add({ kind: 'item', id: 'timePass', n: 1 })
+    const zb0 = s.zombies.length
+    out.timeGo = T.go('ice') === true && T.away && !T.pickOpen && Math.abs(tm.pos.y - 421) < 1 && !s.inv.has('timePass')
+    out.timeEraWorld = !!bm.getBlockAt(Math.floor(T.cx), 419, Math.floor(T.cz)) && T._sky?.visible !== undefined
+    out.timeIceZombies = s.zombies.length - zb0 === 5 && T.zombies.every((zb) => zb.frozen > 0 && zb.era === 'ice')
+    out.timeSpawnSpots = s._spawnSpots().every(([, y]) => y === 421)
+    const zx = Math.floor(T.zombies[0].x)
+    const zz = Math.floor(T.zombies[0].z)
+    out.timeIceBlock = bm.getBlockAt(zx, 421, zz) === 'ice'
+    for (let i = 0; i < 40; i++) T._iceStep(0.1)
+    out.timeIceBreaks = bm.getBlockAt(zx, 421, zz) !== 'ice'
+    coins = s.coins
+    T.left = 0.01
+    T.update(0.05)
+    out.timeHome = !T.away && Math.abs(tm.pos.y - T.machine.y) < 1 && s.coins === coins + 60 && JSON.parse(localStorage.getItem('gayz-time-eras')).includes('ice')
+    out.timeEraGone = !bm.getBlockAt(Math.floor(T.cx), 419, Math.floor(T.cz)) && T.zombies.length === 0
+    localStorage.removeItem('gayz-time-eras')
+    await stop()
+    // Werewolf Night: a secret Werewolf, a knock-out at night, the day's vote.
+    s = await start('werewolfNight')
+    const pm = s.party
+    for (let i = 0; i < 200 && pm.phase === 'wait'; i++) pm.update(0.05)
+    const W = pm.ext
+    out.wolfOne = pm.phase === 'play' && pm.seekers.size === 1 && W.sub === 'night'
+    const wolf = W.wolf
+    const people = pm._people()
+    const a = people.find((p) => p.id === wolf)
+    const victim = people.find((p) => p.id !== wolf && p.bot)
+    victim.bot.x = a.x + 1
+    victim.bot.z = a.z
+    out.wolfClaw = W.claw(wolf, victim.id) && pm.out.has(victim.id)
+    out.wolfOncePerNight = !W.claw(wolf, people.find((p) => p.id !== wolf && p.id !== victim.id).id)
+    W.subLeft = 0
+    W.run(pm._people(), 0.05)
+    out.wolfDay = W.sub === 'day'
+    for (const p of pm._people()) if (!pm.out.has(p.id) && p.id !== wolf) W.vote(p.id, wolf)
+    W.vote(wolf, pm._people().find((p) => p.id !== wolf && !pm.out.has(p.id)).id)
+    W.subLeft = 0
+    W.run(pm._people(), 0.05)
+    out.wolfCaught = pm.phase === 'end' && pm.winner === 'h'
+    out.wolfSnap = typeof JSON.parse(JSON.stringify(pm.snapshot())).x?.vs === 'string'
+    await stop()
+    return out
+  })
+  expect(Object.keys(r).filter((k) => r[k] !== true)).toEqual([])
+})

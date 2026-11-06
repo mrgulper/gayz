@@ -2397,6 +2397,9 @@ export class BuildMode {
     // Into the Zombie Train, or a rocket to the Moon (ZombieTrain.js, MoonTrip.js).
     if (this.survival?.active && this.survival.train?.use()) return true
     if (this.survival?.active && this.survival.moon?.use()) return true
+    // The Time Machine and the Theme Park's rides (TimeMachine.js, ThemePark.js).
+    if (this.survival?.active && this.survival.time?.use()) return true
+    if (this.survival?.active && this.survival.park?.use()) return true
     // Playing on Map 3: talk to the camp NPC you're looking at.
     if (this.survival?.camp?.use()) return true
     // Give a rescued survivor an order: follow me / hold here (Survivors.js).
@@ -3785,7 +3788,7 @@ export class BuildMode {
   // Share or Play Together, or the big map.
   mouseScreenOpen() {
     if (this.menuOpen || this.pickerOpen || this.share?.isOpen || this.together?.isOpen) return true
-    if (this.survival?.shop?.panelOpen || this.survival?.emotes?.open || this.tryMode?._mapInteractive?.()) return true
+    if (this.survival?.shop?.panelOpen || this.survival?.emotes?.open || this.survival?.time?.pickOpen || this.tryMode?._mapInteractive?.()) return true
     if (['play-weapon-pick', 'play-perk-pick', 'build-play-over', 'spawn-map'].some((id) => {
       const el = document.getElementById(id)
       return !!el && el.style.display !== 'none' && el.style.display !== ''

@@ -28,6 +28,7 @@
 // - dragon: a dragon over a lair, from wave 3 (DragonBoss.js).
 // - graveyard: a graveyard whose dead rise at midnight, only at night
 //   (Graveyard.js).
+// - heist: a bank with sleeping zombie guards and a vault (Heist.js).
 //
 // On a server the others see the zombies (mutants too, zombieSnapshot
 // `mu`) but not the plane, crate or meteor - those are the host's, like
@@ -41,7 +42,7 @@ import { escortMission } from './EscortMission.js'
 const EVENT_FROM_WAVE = 2
 const EVENT_FIRST = 90
 const EVENT_GAP = [150, 240]
-const KINDS = ['supply', 'horde', 'meteor', 'survivor', 'golden', 'escort', 'disco', 'pirate', 'haunted', 'ufo', 'dragon', 'graveyard']
+const KINDS = ['supply', 'horde', 'meteor', 'survivor', 'golden', 'escort', 'disco', 'pirate', 'haunted', 'ufo', 'dragon', 'graveyard', 'heist']
 const PLANE_HEIGHT = 32
 const PLANE_SPEED = 14
 const DROP_NEAR = 14
@@ -103,7 +104,7 @@ export class WorldEvents {
       this._next -= dt
       if (this._next <= 0) {
         // The pirate ship only comes when the open sea is close.
-        const pick = KINDS.filter((k) => k !== this._last && (k !== 'pirate' || this.s.pirate?.possible()) && (k !== 'haunted' || this.s.haunted?.possible()) && (k !== 'ufo' || this.s.ufo?.possible()) && (k !== 'dragon' || this.s.dragon?.possible()) && (k !== 'graveyard' || this.s.graveyard?.possible()))
+        const pick = KINDS.filter((k) => k !== this._last && (k !== 'pirate' || this.s.pirate?.possible()) && (k !== 'haunted' || this.s.haunted?.possible()) && (k !== 'ufo' || this.s.ufo?.possible()) && (k !== 'dragon' || this.s.dragon?.possible()) && (k !== 'graveyard' || this.s.graveyard?.possible()) && (k !== 'heist' || this.s.heist?.possible()))
         this.start(pick[Math.floor(Math.random() * pick.length)])
       }
     }
@@ -129,6 +130,7 @@ export class WorldEvents {
     else if (kind === 'ufo') this._run = this.s.ufo?.event(me) || null
     else if (kind === 'dragon') this._run = this.s.dragon?.event(me) || null
     else if (kind === 'graveyard') this._run = this.s.graveyard?.event(me) || null
+    else if (kind === 'heist') this._run = this.s.heist?.event(me) || null
     return !!this._run
   }
 
