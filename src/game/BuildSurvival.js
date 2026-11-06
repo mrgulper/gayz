@@ -52,6 +52,8 @@ import { HauntedHouse } from './HauntedHouse.js'
 import { Minecarts } from './Minecarts.js'
 import { Ufo } from './Ufo.js'
 import { DragonBoss } from './DragonBoss.js'
+import { Graveyard } from './Graveyard.js'
+import { Lighthouse } from './Lighthouse.js'
 import { DanceOff } from './DanceOff.js'
 import { EscapeRooms } from './EscapeRooms.js'
 import { Reefs } from './Reefs.js'
@@ -507,6 +509,12 @@ export class BuildSurvival {
     this.ufo.clear()
     if (!this.dragon) this.dragon = new DragonBoss(this)
     this.dragon.clear()
+    // The graveyard (a night world event) and the lighthouse on the coast
+    // (Graveyard.js, Lighthouse.js).
+    if (!this.graveyard) this.graveyard = new Graveyard(this)
+    this.graveyard.clear()
+    if (!this.lighthouse) this.lighthouse = new Lighthouse(this)
+    this.lighthouse.clear()
     if (!this.dance) this.dance = new DanceOff(this)
     this.dance.clear()
     // Reefs and ruins, the pirate ship, the train and the Moon
@@ -712,6 +720,8 @@ export class BuildSurvival {
     this.carts?.clear()
     this.ufo?.clear()
     this.dragon?.clear()
+    this.graveyard?.clear()
+    this.lighthouse?.clear()
     this.dance?.clear()
     this.train?.clear()
     this.moon?.clear()
@@ -1857,6 +1867,8 @@ export class BuildSurvival {
     this.pirate?.onChest(key)
     // So does the haunted house's attic chest (HauntedHouse.js).
     this.haunted?.onChest(key)
+    // ...and the graveyard's coffin (Graveyard.js).
+    this.graveyard?.onChest(key)
     this.stats.chests++
     // Ammo in this gun's own amounts (PlayWeapons.ammoFor).
     const ammo = ammoFor(this.weaponId, CHEST_LOOT.ammo)
@@ -3192,6 +3204,7 @@ export class BuildSurvival {
     this.sled?.update(Math.min(dt, 0.1))
     this.springs?.update(Math.min(dt, 0.1))
     this.carts?.update(Math.min(dt, 0.1))
+    this.lighthouse?.update(Math.min(dt, 0.1))
     this.reefs?.update(Math.min(dt, 0.1))
     this.moon?.update(Math.min(dt, 0.1))
     this.potions?.update()

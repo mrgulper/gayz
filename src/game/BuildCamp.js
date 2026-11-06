@@ -26,6 +26,7 @@ import { CampTrophies } from './CampTrophies.js'
 import { CampAquarium } from './CampAquarium.js'
 import { CampZoo } from './CampZoo.js'
 import { CampWheel } from './CampWheel.js'
+import { CampTreehouse } from './CampTreehouse.js'
 
 export const COIN_PER_KILL = 10
 export const COIN_PER_WAVE = 50
@@ -140,6 +141,8 @@ export class BuildCamp {
     this.zoo = null
     this.wheel?.dispose()
     this.wheel = null
+    this.treehouse?.dispose()
+    this.treehouse = null
     if (this._prompt) this._prompt.style.display = 'none'
   }
 
@@ -172,6 +175,8 @@ export class BuildCamp {
     if (shop.panelOpen) return true
     // The Lucky Wheel (CampWheel.js).
     if (this.wheel?.use()) return true
+    // The Treehouse's ladder (CampTreehouse.js).
+    if (this.treehouse?.use()) return true
     const npc = this._facingNpc()
     if (!npc) return false
     shop.openPanel(npc.id)
@@ -214,6 +219,10 @@ export class BuildCamp {
       if (this.zoo.spot) taken.push({ ...this.zoo.spot, wide: 8 })
       this.wheel = new CampWheel(this)
       this.wheel.build(taken)
+      // And the Treehouse (CampTreehouse.js).
+      if (this.wheel.spot) taken.push({ ...this.wheel.spot, wide: 4 })
+      this.treehouse = new CampTreehouse(this)
+      this.treehouse.build(taken)
     }
     this.trophies.update(p)
     this.aquarium?.update(dt)
@@ -221,14 +230,18 @@ export class BuildCamp {
     this.wheel?.update(dt)
     const npc = this.s.shop?.panelOpen ? null : this._facingNpc()
     const wheel = !npc && !this.s.shop?.panelOpen && !!this.wheel?.near()
+    const tree = !npc && !wheel && !this.s.shop?.panelOpen && !!this.treehouse?.near()
     if (this._prompt) {
-      this._prompt.style.display = npc || wheel ? 'block' : 'none'
+      this._prompt.style.display = npc || wheel || tree ? 'block' : 'none'
       if (npc && this._promptFor !== npc.id) {
         this._promptFor = npc.id
         this._prompt.textContent = t('campTalk', { name: t(`campNpc_${npc.id}`) })
       } else if (wheel && this._promptFor !== 'wheel') {
         this._promptFor = 'wheel'
         this._prompt.textContent = t('wheelPrompt')
+      } else if (tree && this._promptFor !== `tree${this.treehouse.up}`) {
+        this._promptFor = `tree${this.treehouse.up}`
+        this._prompt.textContent = t(this.treehouse.up ? 'treehousePromptDown' : 'treehousePromptUp')
       }
     }
   }

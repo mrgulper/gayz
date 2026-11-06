@@ -51,6 +51,10 @@ import { HOLES as GOLF_HOLES, PUTT_REACH as GOLF_REACH, GOLF_ZOMBIES, HOLE_S as 
 import { THAW_S as FREEZE_THAW } from './PartyFreeze.js'
 import { SPIN_S as WHEEL_SPIN, BIG_PRIZE as WHEEL_BIG } from './CampWheel.js'
 import { NOTE_MAX as POSTCARD_NOTE } from './Postcards.js'
+import { GRAVES as GRAVE_GRAVES, RISE_GAP as GRAVE_GAP, GRAVE_COINS } from './Graveyard.js'
+import { SPOT_S as LIGHTHOUSE_SPOT } from './Lighthouse.js'
+import { DECK_Y as TREE_DECK } from './CampTreehouse.js'
+import { PLANT_S as BOMB_PLANT, BOMB_S as BOMB_TIME, DEFUSE_S as BOMB_DEFUSE, STUN_S as BOMB_STUN } from './PartyBomb.js'
 import { DANCE_S, DANCE_R, DANCE_COINS, DAZE_S, COOLDOWN_S as BOOMBOX_COOL } from './DanceOff.js'
 import { MAX_RUINS, SEA_ZOMBIES as RUIN_ZOMBIES } from './Reefs.js'
 import { PIRATES, PIRATE_COINS, SHIP_LIFE } from './PirateShip.js'
@@ -471,6 +475,15 @@ export function _featureValues(_game) {
     wheelSpin: WHEEL_SPIN,
     wheelBig: WHEEL_BIG,
     postcardNote: POSTCARD_NOTE,
+    graveGraves: GRAVE_GRAVES,
+    graveGap: GRAVE_GAP,
+    graveCoins: GRAVE_COINS,
+    lighthouseSpot: LIGHTHOUSE_SPOT,
+    treeDeck: TREE_DECK,
+    bombPlant: BOMB_PLANT,
+    bombTime: BOMB_TIME,
+    bombDefuse: BOMB_DEFUSE,
+    bombStun: BOMB_STUN,
     dungeonSize: DUNGEON_SIZE,
     zoneSpeed: ZONE_ZOMBIE_SPEED,
     zoneMinutes: Math.floor(ZONE_TOTAL_S / 60),

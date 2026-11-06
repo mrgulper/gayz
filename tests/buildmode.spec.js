@@ -6531,3 +6531,119 @@ test('Zombie Mini-Golf, Freeze Tag and the Lucky Wheel', async ({ page }) => {
   })
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })
+
+// Idea list 7, batch 2 (2026-11-06): the graveyard, the lighthouse, the
+// camp treehouse and Bomb Defuse.
+test('Graveyard Midnight, the lighthouse, the treehouse and Bomb Defuse', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    const start = async (mode) => {
+      localStorage.removeItem('gayz-play-saved-run')
+      g.settings.selectedGameMode = mode
+      await g._enterBuildMode({ map: 'map3', play: true })
+      const s = g.buildMode.survival
+      for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+      s._pickWeapon('rifle')
+      return s
+    }
+    const stop = async () => {
+      g.buildMode.survival.stop?.()
+      g._exitBuildMode?.()
+      await new Promise((res) => setTimeout(res, 200))
+    }
+    let s = await start('classic')
+    const bm = s.bm
+    const tm = bm.tryMode
+    // A flat stone floor far off in the sky to build on.
+    const P = { x: 4200, y: 150, z: 4200 }
+    for (let x = -14; x <= 14; x++) for (let z = -14; z <= 14; z++) bm.placeBlock(P.x + x, P.y - 1, P.z + z, 'stone')
+    // Graveyard: fence, graves, the dead rise when you walk in, a coffin.
+    const gy = s.graveyard
+    gy.build(P.x - 5, P.y, P.z - 5)
+    out.graveBuilt = bm.getBlockAt(P.x - 5, P.y, P.z - 5) === 'stonefence' && gy.graves.length === 8 && bm.getBlockAt(P.x - 3, P.y + 1, P.z - 1) === 'chiseledstonebricks'
+    const zb0 = s.zombies.length
+    tm.pos.set(P.x + 0.5, P.y, P.z + 0.5)
+    for (let i = 0; i < 100; i++) gy._update(0.1)
+    const risen = s.zombies.slice(zb0)
+    out.graveRise = risen.length === 8 && gy.yard.risen.length === 8
+    out.graveSkeletons = risen.some((z) => z.skel || z.kind) || risen.length === 8
+    for (const z of risen) s._removeZombie(z)
+    s.zombies = s.zombies.filter((z) => !risen.includes(z))
+    gy._update(0.1)
+    out.graveCoffin = gy.yard.cleared && bm.getBlockAt(P.x, P.y, P.z) === 'lootchest'
+    const coins = s.coins
+    s.useChest(P.x, P.y, P.z)
+    out.graveLoot = s.coins >= coins + 90
+    gy.clear()
+    out.graveGone = !bm.getBlockAt(P.x - 5, P.y, P.z - 5) && bm.getBlockAt(P.x, P.y - 1, P.z) === 'stone'
+    // Lighthouse: a striped tower with a ladder; the beam marks zombies.
+    const L = s.lighthouse
+    L.build(P.x, P.y, P.z)
+    out.lhTower = bm.getBlockAt(P.x + 1, P.y + 3, P.z) === 'redconcrete' && bm.getBlockAt(P.x, P.y + 5, P.z) === 'ladder' && bm.getBlockAt(P.x, P.y + 16, P.z) === 'sealantern'
+    const zb = s._extraZombie(P.x + 10.5, P.y, P.z + 0.5, null)
+    L.angle = 0
+    out.lhInBeam = L.inBeam(zb.x, zb.z) && !L.inBeam(P.x - 10.5, P.z + 0.5)
+    L._sweep()
+    out.lhSpotted = zb.spotted > 0
+    L._drawMarks()
+    out.lhMarker = L._marks.length >= 1 && L._marks[0].visible
+    tm.pos.set(P.x + 1.5, P.y + 15, P.z + 0.5)
+    zb.spotted = 0
+    L._sweep()
+    out.lhTopLonger = L.onTop(s.bodyPos()) && zb.spotted > 6
+    L.clear()
+    out.lhGone = !bm.getBlockAt(P.x + 1, P.y + 3, P.z)
+    s._removeZombie(zb)
+    s.zombies = s.zombies.filter((z) => z !== zb)
+    // Treehouse at camp: a deck up the tree, the ladder pulls up and down.
+    const camp = s.camp
+    for (let i = 0; i < 30 && !camp?.treehouse; i++) await new Promise((res) => setTimeout(res, 100))
+    const T = camp?.treehouse
+    out.treeBuilt = !!T?.spot
+    if (T?.spot) {
+      const h = T.hatch
+      out.treeLadder = bm.getBlockAt(h.x, T.y0 + 2, h.z) === 'ladder'
+      const deck = T._cell(0, 3)
+      tm.pos.set(deck.x + 0.5, T.y0 + 7, deck.z + 0.5)
+      out.treeNear = T.near()
+      camp.use()
+      out.treeUp = T.up && !bm.getBlockAt(h.x, T.y0 + 2, h.z) && bm.getBlockAt(h.x, T.y0 + 6, h.z) === 'oakplanks'
+      camp.use()
+      out.treeDown = !T.up && bm.getBlockAt(h.x, T.y0 + 2, h.z) === 'ladder'
+    }
+    await stop()
+    // Bomb Defuse: plant on a site, tick, defuse; time out = Blue.
+    s = await start('bombDefuse')
+    const pm = s.party
+    for (let i = 0; i < 200 && pm.phase === 'wait'; i++) pm.update(0.05)
+    const Bx = pm.ext
+    out.bombTeams = pm.phase === 'play' && pm.teams.size === 6 && s.bm.tryMode.pos.y > 275
+    const red = [...pm.bots.values()].filter((b) => pm.teams.get(b.id) === 'r')
+    const blue = [...pm.bots.values()].filter((b) => pm.teams.get(b.id) === 'b')
+    // Hold everyone else back at their ends.
+    const park = () => {
+      for (const b of pm.bots.values()) { b.x = pm.home.x - 18; b.z = pm.home.z; b.y = 276 }
+      s.bm.tryMode.pos.set(pm.home.x - 18, 276, pm.home.z + 3)
+    }
+    park()
+    const site = Bx.site(0)
+    red[0].x = site.x
+    red[0].z = site.z
+    for (let i = 0; i < 50; i++) Bx.run(pm._people(), 0.1)
+    out.bombPlanted = Bx.planted === 0 && Bx.bombT > 30
+    park()
+    if (blue.length) {
+      blue[0].x = site.x
+      blue[0].z = site.z
+      for (let i = 0; i < 60 && pm.phase === 'play'; i++) Bx.run(pm._people(), 0.1)
+      out.bombDefused = pm.phase === 'end' && pm.winner === 'b'
+    }
+    out.bombSnap = JSON.parse(JSON.stringify(pm.snapshot())).x?.pl === 0
+    await stop()
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})

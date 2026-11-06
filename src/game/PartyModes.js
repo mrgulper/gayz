@@ -83,16 +83,17 @@ import { PartyParkour } from './PartyParkour.js'
 import { PartyDuel } from './PartyDuel.js'
 import { PartyGolf } from './PartyGolf.js'
 import { PartyFreeze } from './PartyFreeze.js'
+import { PartyBomb } from './PartyBomb.js'
 
 // The modes that live in their own files (see `this.ext` above).
-const PARTY_EXT = { floorLava: PartyLava, laserTag: PartyLaser, kartRace: PartyKart, obstacleCourse: PartyParkour, duelArena: PartyDuel, miniGolf: PartyGolf, freezeTag: PartyFreeze }
-export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'miniGolf', 'freezeTag']
+const PARTY_EXT = { floorLava: PartyLava, laserTag: PartyLaser, kartRace: PartyKart, obstacleCourse: PartyParkour, duelArena: PartyDuel, miniGolf: PartyGolf, freezeTag: PartyFreeze, bombDefuse: PartyBomb }
+export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'miniGolf', 'freezeTag', 'bombDefuse']
 // Each mode's server mode (api/_lib/servers.js MODES).
-export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling', paintWars: 'paint', buildBattle: 'build', floorLava: 'lava', laserTag: 'laser', kartRace: 'kart', obstacleCourse: 'parkour', duelArena: 'duel', miniGolf: 'golf', freezeTag: 'freeze' }
+export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling', paintWars: 'paint', buildBattle: 'build', floorLava: 'lava', laserTag: 'laser', kartRace: 'kart', obstacleCourse: 'parkour', duelArena: 'duel', miniGolf: 'golf', freezeTag: 'freeze', bombDefuse: 'bomb' }
 export const TOTAL = 6
 export const WAIT_S = 8
 export const END_S = 7
-export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300, paintWars: 150, buildBattle: 300, floorLava: 240, laserTag: 180, kartRace: 300, obstacleCourse: 420, duelArena: 120, miniGolf: 240, freezeTag: 150 }
+export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300, paintWars: 150, buildBattle: 300, floorLava: 240, laserTag: 180, kartRace: 300, obstacleCourse: 420, duelArena: 120, miniGolf: 240, freezeTag: 150, bombDefuse: 150 }
 export const HIDE_S = 20
 export const STUN_S = 2.5
 export const FLAG_GAP = 32
