@@ -1,8 +1,9 @@
 // The Global panel's server list, Kirka-style (2026-10-10, Gaymi: "do the
 // same like Kirka, make Global have servers too"): chat on the left, the
 // servers on the right with Zombie Survival / Deathmatch / Parkour /
-// Custom tabs (all but Zombie Survival are Coming Soon - those modes don't
-// exist yet; the first tab's internal id is still 'main'), a search box, a
+// Custom tabs (Deathmatch and Custom are Coming Soon - those modes don't
+// exist yet; the first tab's internal id is still 'main'; Parkour lists
+// Obstacle Course servers, mode 'parkour', since 2026-11-02), a search box, a
 // Create Server button and one row per server with its player count and
 // Join. Joining or creating one starts Map 1 with the other players
 // (PlayNet.js); the rules live in api/_lib/servers.js.
@@ -144,7 +145,7 @@ export function renderServerList(game) {
   const line = document.getElementById('server-count-line')
   const tools = document.getElementById('server-tools')
   if (!list) return
-  const soon = tab !== 'main'
+  const soon = tab !== 'main' && tab !== 'parkour'
   if (tools) tools.style.display = soon ? 'none' : ''
   if (soon) {
     if (line) line.textContent = ''
@@ -153,7 +154,7 @@ export function renderServerList(game) {
     return
   }
   const q = (document.getElementById('server-search')?.value || '').trim().toLowerCase()
-  const all = (game._serverList || []).filter((s) => s.mode === 'main')
+  const all = (game._serverList || []).filter((s) => s.mode === (tab === 'parkour' ? 'parkour' : 'main'))
   const shown = all.filter((s) => !q || String(s.name).toLowerCase().includes(q) || String(s.id).toLowerCase().includes(q))
   if (line) line.textContent = game._serverListError ? '' : t('serverCountLine', { n: all.length })
   if (game._serverListError) {
@@ -191,7 +192,7 @@ async function createServer(game) {
   const name = (document.getElementById('server-create-name')?.value || '').trim()
   setBusy(game, true)
   try {
-    const info = await serverApi(game).create({ ...(await myDetails(game)), name, mode: 'main' })
+    const info = await serverApi(game).create({ ...(await myDetails(game)), name, mode: game._serverTab === 'parkour' ? 'parkour' : 'main' })
     enterServer(game, { ...info, name: name || info.name })
   } catch {
     game._showHomepageToast(t('serverCreateFailed'))

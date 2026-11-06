@@ -1365,6 +1365,8 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'game-mode-build-battle-label': 'topBarModeBuildBattle',
   'game-mode-escape-room-label': 'topBarModeEscapeRoom',
   'game-mode-floor-lava-label': 'topBarModeFloorLava',
+  'game-mode-laser-tag-label': 'topBarModeLaserTag',
+  'game-mode-kart-race-label': 'topBarModeKartRace',
   'zombie-book-done': 'bookComplete',
   'inventory-pets-soon-title': 'inventoryPetsTitle',
   'inventory-pets-soon-text': 'inventoryPetsSoon',
@@ -1381,7 +1383,9 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'hub-tab-survival': 'hubTabSurvival',
   'hub-tab-deathmatch': 'hubTabDeathmatch',
   'hub-tab-parkour': 'hubTabParkour',
-  'hub-parkour-soon-label': 'hubParkourSoon',
+  'hub-section-parkour': 'hubTabParkour',
+  'hub-parkour-hint': 'parkourHint',
+  'game-mode-obstacle-course-label': 'topBarModeObstacleCourse',
   'hub-tab-custom': 'hubTabCustom',
   'server-tab-main': 'hubTabSurvival',
   'server-tab-deathmatch': 'hubTabDeathmatch',
@@ -3571,6 +3575,7 @@ export class Game {
     if (this.hubPanelTitle) this.hubPanelTitle.textContent = t('hubPanelTitle')
     // Opens on the World Map tab when that's the picked mode.
     if (this.settings.selectedGameMode === 'worldMap') document.getElementById('hub-tab-worldmap')?.click()
+    if (this.settings.selectedGameMode === 'obstacleCourse') document.getElementById('hub-tab-parkour')?.click()
   }
 
   _closeHubPanel() {

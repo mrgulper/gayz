@@ -39,6 +39,11 @@ import { SNOW_SPEED as SLED_SPEED, MAX_BOOST as SLED_BOOST, RUN_MIN as SLED_RUN_
 import { MAX_SPRINGS, HEAL_PER_S as SPRING_HEAL } from './HotSprings.js'
 import { MAX_ZOO } from './CampZoo.js'
 import { GRID as LAVA_GRID, WARN_S as LAVA_WARN, REGROW_S as LAVA_REGROW } from './PartyLava.js'
+import { KO_S as LASER_KO } from './PartyLaser.js'
+import { LAPS as KART_LAPS, BOOST_S as KART_BOOST } from './PartyKart.js'
+import { CHECKPOINTS as PARKOUR_CPS } from './PartyParkour.js'
+import { MAX_TRACKS as CART_TRACKS, HOP_EVERY as CART_HOP, CART_COINS } from './Minecarts.js'
+import { GHOSTS as HAUNT_GHOSTS, HAUNT_COINS } from './HauntedHouse.js'
 import { DANCE_S, DANCE_R, DANCE_COINS, DAZE_S, COOLDOWN_S as BOOMBOX_COOL } from './DanceOff.js'
 import { MAX_RUINS, SEA_ZOMBIES as RUIN_ZOMBIES } from './Reefs.js'
 import { PIRATES, PIRATE_COINS, SHIP_LIFE } from './PirateShip.js'
@@ -429,6 +434,15 @@ export function _featureValues(_game) {
     lavaGrid: `${LAVA_GRID} x ${LAVA_GRID}`,
     lavaWarn: LAVA_WARN,
     lavaRegrow: LAVA_REGROW,
+    laserKo: LASER_KO,
+    kartLaps: KART_LAPS,
+    kartBoost: KART_BOOST,
+    parkourCheckpoints: PARKOUR_CPS.length - 1,
+    cartTracks: CART_TRACKS,
+    cartHop: CART_HOP,
+    cartCoins: CART_COINS,
+    hauntGhosts: HAUNT_GHOSTS,
+    hauntCoins: HAUNT_COINS,
     dungeonSize: DUNGEON_SIZE,
     zoneSpeed: ZONE_ZOMBIE_SPEED,
     zoneMinutes: Math.floor(ZONE_TOTAL_S / 60),

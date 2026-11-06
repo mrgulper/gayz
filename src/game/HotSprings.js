@@ -121,7 +121,7 @@ export class HotSprings {
     const sp = { x: cx + 0.5, y: y0 + 1, z: cz + 0.5, seen: false, puffs: [] }
     this._puffs(sp)
     this.springs.push(sp)
-    try { audioEngine.playSpecial?.('splash') } catch { /* no audio */ }
+    try { audioEngine.playSpecial?.('thud') } catch { /* no audio */ }
     return sp
   }
 

@@ -284,7 +284,7 @@ export class PartyLava {
     if (pm.phase !== 'play') return
     for (const id of pm.out) {
       if (was.out.has(id)) continue
-      try { audioEngine.playSpecial?.('splash') } catch { /* no audio */ }
+      try { audioEngine.playSpecial?.('thud') } catch { /* no audio */ }
       if (id === pm.myId) s._message(t('lavaYouOut'), 4)
     }
   }
