@@ -173,6 +173,7 @@ test('a photo can be sent as a postcard and read in the mailbox', async ({ page 
   expect(sent[0].to).toBe('friend123')
   expect(sent[0].note).toBe('Wish you were here')
   expect(sent[0].fromUid).toBe('me1234')
+  expect(sent[0].postId).toBe('p1')
   // The mailbox: text from others shows as text, never markup.
   await page.click('#gallery-back-btn')
   await page.click('#gallery-postcards-btn')

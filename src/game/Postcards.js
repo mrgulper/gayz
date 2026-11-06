@@ -12,7 +12,8 @@
 // Firestore: postcards/{toUid}/inbox/{id} (CloudSync's postcard functions
 // and rules) - only the receiver can read or delete theirs, anyone signed
 // in can drop one in someone else's box (the friends-only check is the
-// Friends list here, like friend requests). Same plain-functions-taking-
+// Friends list here, like friend requests; the rules only take your own
+// Photo posts, each one once per person - sending it again fails). Same plain-functions-taking-
 // `game` convention as GalleryUI.js; everything someone else wrote is
 // escaped, and a picture is only ever an <img> after it's checked to be a
 // PNG/JPEG data URL.
@@ -145,7 +146,7 @@ async function send(game, setView) {
   if (btn) btn.disabled = true
   status(t('postcardSending'))
   try {
-    await api(game).sendPostcard(friend.uid, { fromUid: game._cloudUid, fromNickname: nick, image, note, title: String(post.title || '').slice(0, 40) })
+    await api(game).sendPostcard(friend.uid, { fromUid: game._cloudUid, fromNickname: nick, postId: post.id, image, note, title: String(post.title || '').slice(0, 40) })
     game._postcardSentAt = Date.now()
     game._postcardPost = null
     setView('detail')

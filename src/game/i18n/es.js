@@ -3030,7 +3030,7 @@ export default {
   postcardsHeading: "Tus postales",
   postcardNotePlaceholder: "Escribe una nota corta...",
   postcardNoFriends: "Añade primero un amigo (panel de Amigos) para enviarle una postal.",
-  postcardFailed: "No se pudo enviar la postal. Inténtalo de nuevo.",
+  postcardFailed: "No se pudo enviar la postal. Cada foto solo puede ir una vez a cada amigo.",
   postcardWait: "Espera unos segundos antes de enviar otra.",
   postcardSending: "Enviando...",
   postcardSent: "¡Postal enviada a {name}!",

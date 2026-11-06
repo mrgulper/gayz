@@ -3033,7 +3033,7 @@ export default {
   postcardsHeading: "你的明信片",
   postcardNotePlaceholder: "写一句话...",
   postcardNoFriends: "先加一个好友(好友面板),才能给他们寄明信片。",
-  postcardFailed: "明信片没寄出去。再试一次。",
+  postcardFailed: "明信片没寄出去。每张照片只能给同一个好友寄一次。",
   postcardWait: "等几秒再寄下一张。",
   postcardSending: "寄送中...",
   postcardSent: "明信片已寄给 {name}!",

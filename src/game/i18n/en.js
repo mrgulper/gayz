@@ -3085,7 +3085,7 @@ export default {
   postcardsHeading: "Your Postcards",
   postcardNotePlaceholder: "Write a short note...",
   postcardNoFriends: "Add a friend first (Friends panel) to send them a postcard.",
-  postcardFailed: "Couldn't send the postcard. Try again.",
+  postcardFailed: "Couldn't send the postcard. Each photo can go to each friend only once.",
   postcardWait: "Wait a few seconds before sending another.",
   postcardSending: "Sending...",
   postcardSent: "Postcard sent to {name}!",

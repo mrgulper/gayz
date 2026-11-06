@@ -3030,7 +3030,7 @@ export default {
   postcardsHeading: "तुम्हारे पोस्टकार्ड",
   postcardNotePlaceholder: "एक छोटा संदेश लिखो...",
   postcardNoFriends: "पोस्टकार्ड भेजने के लिए पहले एक दोस्त जोड़ो (फ़्रेंड्स पैनल)।",
-  postcardFailed: "पोस्टकार्ड नहीं भेजा जा सका। फिर कोशिश करो।",
+  postcardFailed: "पोस्टकार्ड नहीं भेजा जा सका। हर फ़ोटो एक दोस्त को सिर्फ़ एक बार भेजी जा सकती है।",
   postcardWait: "अगला भेजने से पहले कुछ सेकंड रुको।",
   postcardSending: "भेज रहे हैं...",
   postcardSent: "{name} को पोस्टकार्ड भेज दिया!",
