@@ -31,6 +31,8 @@ import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, canPlayWeapon } from './PlayWeapons.
 import { PlayCrafting } from './PlayCrafting.js'
 import { HELI_FUEL_S } from './Vehicles.js'
 import { TANK as WATER_TANK } from './WaterGun.js'
+import { OPEN_H as WING_OPEN_H } from './Wingsuit.js'
+import { noteItem as noteMuseumItem } from './CampMuseum.js'
 
 // How long the item card stays after a finger lets go (phones).
 const TIP_TOUCH_MS = 1600
@@ -102,6 +104,13 @@ export const ITEMS = {
   // Water Gun (WaterGun.js) and Brain Snack (PetZombie.js), 2026-11-06.
   waterGun: { key: 'invWaterGun', water: true },
   brainSnack: { key: 'invBrainSnack', petTreat: true },
+  // Cooked on a Campfire (Hunger.js, 2026-11-06): heal and fill you more.
+  cookedMeat: { key: 'invCookedMeat', heal: 40 },
+  cookedFish: { key: 'invCookedFish', heal: 35 },
+  // The Story Campaign's last chapter (Campaign.js): handed to Dr. Goo.
+  theCure: { key: 'invTheCure', cure: true },
+  // Wingsuit (Wingsuit.js): works from the bag, never used up.
+  wingsuit: { key: 'invWingsuit', wing: true },
   // Potions (Potions.js): drunk for 30 seconds of an effect.
   potionSpeed: { key: 'invPotionSpeed', potion: true },
   potionInvis: { key: 'invPotionInvis', potion: true },
@@ -180,6 +189,10 @@ const ICON_PIXELS = {
   timePass: ['................', '................', '.yyyyyyyyyyyyyy.', '.y############y.', '.y#wwwwwwwwww#y.', '.y#w..k...ccw#y.', '.y#w...k..ccw#y.', '.y#w..kkk.ccw#y.', '.y#wwwwwwwwww#y.', '.y############y.', '.yyyyyyyyyyyyyy.'],
   waterGun: ['................', '................', '..oooooooooo....', '.occcccccccoo...', '.oooooooooooocc.', '.....ooo..o.....', '.....ooo........', '....ooo.........', '....ooo.........', '...ooo..........'],
   brainSnack: ['................', '.....pppppp.....', '...ppfppfpppp...', '..pfpppfppfppp..', '..ppfpppfpppfp..', '..pppfpppfpppp..', '...pppppppppp...', '.....pppppp.....', '.......kk.......', '.......kk.......', '.......kk.......'],
+  cookedMeat: ['................', '..........ww....', '.........wwww...', '........wwww....', '.....kkkkww.....', '....kmkkmk......', '...kkkmkkkkk....', '...kmkkkkmkk....', '...kkkkmkkkk....', '....kkkkkk......'],
+  cookedFish: ['................', '................', '..........k.....', '.....kkkkkk...kk', '...kkokkkkokkkk.', '..kkwkkkokkkkk..', '..kkkokkkkkokk..', '...kkkkkokkkkkk.', '.....kkkkkk...kk', '..........k.....'],
+  theCure: ['.......##.......', '.......ww.......', '......#ww#......', '.....#llll#.....', '....#llllll#....', '....#lwlrll#....', '....#lrrrll#....', '....#llrlll#....', '.....#llll#.....', '......####......'],
+  wingsuit: ['................', '.......dd.......', '......dddd......', 'r....dddddd....r', 'rr..dddddddd..rr', 'rrrrddddddddrrrr', '.rrrrddddddrrrr.', '..rrrddddddrrr..', '...rr.dddd.rr...', '......d..d......', '......d..d......', '.....dd..dd.....'],
   boombox: ['................', '....dddddddd....', '....d......d....', '.dddddddddddddd.', '.d############d.', '.d#iii#cc#iii#d.', '.d#i#i#cc#i#i#d.', '.d#iii####iii#d.', '.d############d.', '.dddddddddddddd.'],
   kite: ['.......r........', '......rry.......', '.....rrryy......', '....rrrryyy.....', '...rrrrryyyy....', '..yyyyyyrrrrr...', '...yyyyyrrrr....', '....yyyyrrr.....', '.....yyyrr......', '......yyr.......', '.......w........', '......b.w.......', '.........w......', '........b.w.....'],
   metalDetector: ['..........ddd...', '..........dyd...', '..........ddd...', '.........d......', '........d.......', '.......d........', '......d.........', '.....d..........', '....d...........', '..iiiii.........', '.iiiiiii........', '.iiibiii........', '..iiiii.........'],
@@ -249,6 +262,8 @@ export class PlayInventory {
   // Puts items in: the hotbar first (filling stacks, then empty slots),
   // then the grid. Returns how many didn't fit.
   add(item) {
+    // A rare find for the Museum's glass cases (CampMuseum.js).
+    if (item.kind === 'item') noteMuseumItem(item.id)
     let left = item.n
     const lists = [this.hotbar, this.grid]
     const max = stackOf(item)
@@ -329,13 +344,19 @@ export class PlayInventory {
     const s = this.s
     if (!it || it.kind !== 'item') return false
     const def = ITEMS[it.id]
+    // Raw meat or a fish by a Campfire (or in camp): cooked instead of eaten (Hunger.js).
+    if (def?.heal && s.hunger?.cook(it)) {
+      s._renderHud()
+      return true
+    }
     if (def?.heal) {
-      if (s.health >= s.maxHealth) {
+      if (s.health >= s.maxHealth && !s.hunger?.hungry()) {
         s._message(t('invFullHealth'))
         return false
       }
       s.health = Math.min(s.maxHealth, s.health + def.heal)
-      s._message(t('invHealed', { n: def.heal }))
+      const fed = s.hunger?.eat(it.id) || 0
+      s._message(fed ? t('hungerAte', { n: def.heal, f: fed }) : t('invHealed', { n: def.heal }))
     } else if (def?.ammo) {
       const gun = PLAY_WEAPONS[s.weaponId]
       if (!gun || !Number.isFinite(gun.reserve)) return false
@@ -386,6 +407,12 @@ export class PlayInventory {
     } else if (def?.timePass) {
       // Only a trip uses it (TimeMachine.go).
       s._message(t('timePassHint'), 3)
+      return false
+    } else if (def?.cure) {
+      s._message(t('cureHint'), 3)
+      return false
+    } else if (def?.wing) {
+      s._message(t('wingHint', { n: WING_OPEN_H }), 3)
       return false
     } else if (def?.water) {
       // Squirt - the gun itself is never used up (WaterGun.js).
@@ -566,6 +593,8 @@ export class PlayInventory {
     if (item.rocket) return t('invTipRocket')
     if (item.water) return t('invTipWaterGun', { n: WATER_TANK })
     if (item.petTreat) return t('invTipBrainSnack')
+    if (item.wing) return t('invTipWingsuit', { n: WING_OPEN_H })
+    if (item.cure) return t('invTipTheCure')
     if (item.timeMachine) return t('invTipTimeMachine')
     if (item.timePass) return t('invTipTimePass')
     if (item.fuel) return t('invTipHeliFuel', { s: HELI_FUEL_S })

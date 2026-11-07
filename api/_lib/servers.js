@@ -48,9 +48,9 @@ export const JOIN_GRACE_MS = 90000
 // main: Zombie Survival; infection: Infection mode (src/game/Infection.js);
 // zone: Shrinking Zone (src/game/ShrinkZone.js).
 // td: Tower Defense (src/game/TowerDefense.js).
-// hide / ctf / koth / soccer / potato / bowling / paint / build / lava / laser / kart / parkour / duel / golf / freeze / bomb / werewolf: the party modes (src/game/PartyModes.js).
-export const MODES = ['main', 'infection', 'zone', 'hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'paint', 'build', 'lava', 'laser', 'kart', 'parkour', 'duel', 'golf', 'freeze', 'bomb', 'werewolf', 'td']
-const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer', potato: 'hotPotato', bowling: 'zombieBowling', paint: 'paintWars', build: 'buildBattle', lava: 'floorLava', laser: 'laserTag', kart: 'kartRace', parkour: 'obstacleCourse', duel: 'duelArena', golf: 'miniGolf', freeze: 'freezeTag', bomb: 'bombDefuse', werewolf: 'werewolfNight' }
+// hide / ctf / koth / soccer / potato / bowling / paint / build / lava / laser / kart / parkour / duel / golf / freeze / bomb / werewolf / dodge / chairs / simon: the party modes (src/game/PartyModes.js).
+export const MODES = ['main', 'infection', 'zone', 'hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'paint', 'build', 'lava', 'laser', 'kart', 'parkour', 'duel', 'golf', 'freeze', 'bomb', 'werewolf', 'dodge', 'chairs', 'simon', 'td']
+const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer', potato: 'hotPotato', bowling: 'zombieBowling', paint: 'paintWars', build: 'buildBattle', lava: 'floorLava', laser: 'laserTag', kart: 'kartRace', parkour: 'obstacleCourse', duel: 'duelArena', golf: 'miniGolf', freeze: 'freezeTag', bomb: 'bombDefuse', werewolf: 'werewolfNight', dodge: 'dodgeball', chairs: 'musicalChairs', simon: 'simonSays' }
 const NAME_MAX = 24
 const NICK_MAX = 20
 const MAX_ZOMBIES = 40
@@ -651,7 +651,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
       // g: a Mini-Golf putt (g + angle in mrad, dmg = power x 10).
       // s / w (Bomb Defuse, Werewolf Night): a stun (s + who) or a werewolf
       // knock-out / day vote (w + who, dmg 1 = knock out, 2 = vote).
-      if (!h || !(/^[za]\d{1,9}$/.test(h.id) || (['infection', 'ctf', 'koth', 'laser'].includes(server.mode) && /^s(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'paint' && /^p-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'kart' && /^k-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'parkour' && /^f\d{4,8}$/.test(h.id)) || (server.mode === 'duel' && /^d(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'golf' && /^g-?\d{1,5}$/.test(h.id)) || (['bomb', 'werewolf'].includes(server.mode) && /^[sw](?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'build' && /^v(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)))) continue
+      if (!h || !(/^[za]\d{1,9}$/.test(h.id) || (['infection', 'ctf', 'koth', 'laser', 'dodge'].includes(server.mode) && /^s(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'paint' && /^p-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'kart' && /^k-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'parkour' && /^f\d{4,8}$/.test(h.id)) || (server.mode === 'duel' && /^d(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'golf' && /^g-?\d{1,5}$/.test(h.id)) || (['bomb', 'werewolf'].includes(server.mode) && /^[sw](?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'build' && /^v(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)))) continue
       updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId, ...(h.tame === true && h.id[0] === 'a' ? { tame: true } : {}), ...(h.catch === true ? { catch: true } : {}), ...(h.freeze === true && h.id[0] === 'z' ? { freeze: true } : {}) }
     }
   }
