@@ -1956,6 +1956,24 @@ html.ui-theme-old .home-x-card {
 html.ui-theme-old .home-x-card .home-x-tag { color: #6b3f17; }
 html.ui-theme-old .home-x-card .home-x-bar { background: rgba(74, 44, 16, 0.2); }
 html.ui-theme-old .home-x-card .home-x-bar i { background: linear-gradient(90deg, #6b3f17, #a8781f); }
+/* Birthday, Map of the Week and Players online (2026-11-07). The small
+   button inside a card (Claim / Play) is a gold pill, ink on paper in Old. */
+.home-x-card .home-x-btn {
+  align-self: flex-start; margin-top: 3px; padding: 3px 12px; cursor: pointer;
+  font: inherit; font-size: 12px; font-weight: 800; color: #16110a;
+  background: var(--ui-gold-bright, #e8c25a); border: 1px solid var(--ui-gold-bright, #e8c25a); border-radius: 999px;
+  transition: filter 0.15s ease;
+}
+.home-x-card .home-x-btn:hover { filter: brightness(1.1); }
+.home-x-mapweek-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.home-x-mapweek-img { flex: none; width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(232, 194, 90, 0.4); }
+.home-x-mapweek-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.home-x-mapweek-text .home-x-line { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* Players online, inside the homepage clock's pill (HomeUI). */
+#homepage-clock .homepage-online { margin-left: 10px; padding-left: 10px; border-left: 1px solid currentColor; font-size: 0.8em; }
+.home-x-online-dot { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: #4cd964; vertical-align: 1px; }
+html.ui-theme-old .home-x-card .home-x-btn { color: #f3e6c4; background: #6b3f17; border-color: #4a2c10; }
+html.ui-theme-old .home-x-mapweek-img { border-color: rgba(74, 44, 16, 0.6); }
 
 /* The Today panel: the same cards, two to a row. */
 #today-panel-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }

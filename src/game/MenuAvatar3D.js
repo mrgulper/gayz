@@ -422,6 +422,12 @@ function buildCharacter(skin) {
 const CHAR_HALF_HEIGHT = 17
 const CHAR_HALF_WIDTH = 8.5
 const CHAR_FIT_MARGIN = 0.85 // leaves ~15% breathing room on whichever axis is tightest
+// Homepage pet (HomePet.js): stands a little behind and to the right of
+// the character, so the frame widens and slides right to fit both.
+const PET_X = 13
+const PET_Z = -9
+const PET_FRAME_HALF_WIDTH = 14.5
+const PET_FRAME_CENTER_X = 5
 
 export class MenuAvatar3D {
   constructor(canvas, skin, onReveal) {
@@ -524,6 +530,23 @@ export class MenuAvatar3D {
     this.character.rotation.y = oldRotation
     this.scene.add(this.character)
     this.reveal()
+  }
+
+  // The homepage pet (HomePet.js built it: { group, tick, dispose }) or
+  // null to clear it. It doesn't turn with the character.
+  setPet(pet) {
+    if (this._pet) {
+      this.scene.remove(this._pet.group)
+      this._pet.dispose()
+    }
+    this._pet = pet || null
+    if (pet) {
+      pet.group.position.set(PET_X, -2, PET_Z)
+      pet.group.rotation.y = -0.35
+      this.scene.add(pet.group)
+    }
+    this._resize()
+    this._forceDraw = true
   }
 
   reveal() {
@@ -660,14 +683,17 @@ export class MenuAvatar3D {
     this.camera.aspect = aspect
     const halfVFov = THREE.MathUtils.degToRad(this.camera.fov) / 2
     const distForHeight = (CHAR_HALF_HEIGHT / CHAR_FIT_MARGIN) / Math.tan(halfVFov)
-    const distForWidth = (CHAR_HALF_WIDTH / CHAR_FIT_MARGIN) / (Math.tan(halfVFov) * aspect)
+    const halfW = this._pet ? PET_FRAME_HALF_WIDTH : CHAR_HALF_WIDTH
+    const cx = this._pet ? PET_FRAME_CENTER_X : 0
+    const distForWidth = (halfW / CHAR_FIT_MARGIN) / (Math.tan(halfVFov) * aspect)
     this.camera.position.z = Math.max(distForHeight, distForWidth, 20)
+    this.camera.position.x = cx
     this._baseDist = this.camera.position.z
     // Moving along z while x/y stay fixed changes the angle to the look
     // target, so the camera has to re-aim itself - lookAt isn't "sticky"
     // across a later position change, it only orients at call time.
     if (this._inspect) this._placeCamera()
-    else this.camera.lookAt(0, 16, 0)
+    else this.camera.lookAt(cx, 16, 0)
     this.camera.updateProjectionMatrix()
   }
 
@@ -700,7 +726,8 @@ export class MenuAvatar3D {
     // (LiteHome.js onHomeFrame), or every frame while being dragged.
     const loop = (now, due) => {
       if (!this._running) return
-      if (!due && !this._dragging && !this._emote) return
+      if (!due && !this._dragging && !this._emote && !this._forceDraw) return
+      this._forceDraw = false
       // A still preview (Inventory) only needs a fresh picture now and
       // then (a new skin, a resize) unless it's being dragged.
       if (this.noSpin && !this._dragging && now - (this._lastStillDraw || 0) < STILL_REDRAW_MS) return
@@ -722,6 +749,7 @@ export class MenuAvatar3D {
         this.character.rotation.y += (this.spinSpeed || IDLE_SPIN_SPEED) * dt
       }
       this._updateEmote(now)
+      this._pet?.tick(dt)
       this.renderer.render(this.scene, this.camera)
     }
     // Only the homepage character pauses while a map is open (LiteHome).

@@ -12,7 +12,7 @@
 // the saved run); only the top 3 goes online, once, a few
 // seconds after the homepage is ready, so it never slows the first paint.
 import { t } from './i18n.js'
-import { _escapeHtml, _safeStatNumber, saveSettings } from './Game.js'
+import { _escapeHtml, _safeStatNumber, saveSettings, saveCareerStats, saveShopProgress, FRIEND_OFFLINE_THRESHOLD_MS } from './Game.js'
 import { EMOTES } from './Emotes.js'
 
 const SAVED_RUN_KEY = 'gayz-play-saved-run' // BuildSurvival.SAVED_RUN_KEY
@@ -27,8 +27,60 @@ const PEEK_SHOW_MS = 2600
 
 // The card ids, in the order the Today panel lists them. In the cards
 // layout the first two sit bottom-left, the rest bottom-right.
-const LEFT_CARDS = ['lastrun', 'tip']
-const RIGHT_CARDS = ['top3', 'invite']
+// (2026-11-07) The birthday card leads the left stack on your GayZ
+// birthday; Map of the Week leads the right one once a map is found.
+const LEFT_CARDS = ['birthday', 'lastrun', 'tip']
+const RIGHT_CARDS = ['mapweek', 'top3', 'invite']
+
+// Players online now (in the clock's pill): refreshed this often, only while
+// the homepage itself is on screen. Kept slow on purpose - the database's
+// free plan has a daily read limit (it ran out on 2026-11-07).
+const ONLINE_REFRESH_MS = 5 * 60 * 1000
+// Map of the Week: the most liked Gallery map posted in the last 7 days
+// (or the most liked of all when none is that new). Remembered on this
+// device for MAPWEEK_CACHE_MS (localStorage): the lookup reads up to 80
+// Gallery posts, so it mustn't run on every visit.
+const MAPWEEK_CACHE_KEY = 'gayz-home-mapweek'
+const MAPWEEK_CACHE_MS = 12 * 60 * 60 * 1000
+// A picture bigger than this isn't kept in the cache (the card shows none).
+const MAPWEEK_CACHE_IMAGE_MAX = 150000
+const MAPWEEK_RETRY_MS = 30 * 60 * 1000
+export const MAPWEEK_DAYS = 7
+const WEEK_MS = MAPWEEK_DAYS * 24 * 60 * 60 * 1000
+const MAP_CODE_RE = /^[A-Z0-9]{6}$/
+const IMAGE_RE = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/
+// GayZ birthday gift: this many coins per year survived, once a year.
+export const BIRTHDAY_COINS_PER_YEAR = 100
+
+// Whole years since your first run, if today is its yearly date (and at
+// least a year has passed), else 0. Feb 29 starts celebrate on Feb 28 in
+// other years.
+export function birthdayYears(firstPlayedDate, now = new Date()) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(firstPlayedDate || ''))
+  if (!m) return 0
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])]
+  const leap = (yr) => (yr % 4 === 0 && yr % 100 !== 0) || yr % 400 === 0
+  const day = mo === 2 && d === 29 && !leap(now.getFullYear()) ? 28 : d
+  if (now.getMonth() + 1 !== mo || now.getDate() !== day) return 0
+  return Math.max(0, now.getFullYear() - y)
+}
+
+// The pick from a list of Gallery map posts (untrusted), or null.
+export function pickMapOfWeek(posts, now = Date.now()) {
+  const n = (v) => Math.max(0, Math.floor(Number(v) || 0))
+  const ok = (Array.isArray(posts) ? posts : []).filter((p) => p && MAP_CODE_RE.test(p.mapCode || ''))
+  const byLikes = (a, b) => n(b.likes) - n(a.likes) || n(b.createdAt) - n(a.createdAt)
+  const fresh = ok.filter((p) => n(p.createdAt) >= now - WEEK_MS).sort(byLikes)
+  const p = fresh[0] || ok.sort(byLikes)[0]
+  if (!p) return null
+  return {
+    code: p.mapCode,
+    title: String(p.title || '').slice(0, 40),
+    by: String(p.creatorNickname || '').slice(0, 24),
+    likes: n(p.likes),
+    image: typeof p.image === 'string' && p.image.length <= 400000 && IMAGE_RE.test(p.image) ? p.image : '',
+  }
+}
 
 // The day's tip: same for everyone on the same date, a new one tomorrow.
 export function tipOfDayKey(date = new Date()) {
@@ -68,6 +120,33 @@ function difficultyName(id) {
 }
 
 function cardHtml(game, id) {
+  if (id === 'birthday') {
+    const years = birthdayYears(game.careerStats?.firstPlayedDate)
+    if (!years) return ''
+    const claimed = game.careerStats.birthdayClaimedYear === new Date().getFullYear()
+    return `<div class="home-x-card home-x-birthday" data-card="birthday">
+      <span class="home-x-tag">${_escapeHtml(t('homeBirthdayTag'))}</span>
+      <span class="home-x-line home-x-big">${_escapeHtml(t(years === 1 ? 'homeBirthdayOne' : 'homeBirthdayMany', { n: years }))}</span>
+      ${claimed
+        ? `<span class="home-x-line">${_escapeHtml(t('homeBirthdayClaimed'))}</span>`
+        : `<button type="button" class="home-x-btn" data-birthday-claim>${_escapeHtml(t('homeBirthdayClaim', { coins: years * BIRTHDAY_COINS_PER_YEAR }))}</button>`}
+    </div>`
+  }
+  if (id === 'mapweek') {
+    const m = game._homeMapWeek
+    if (!m) return ''
+    return `<div class="home-x-card home-x-mapweek" data-card="mapweek">
+      <span class="home-x-tag">${_escapeHtml(t('homeMapWeekTag'))}</span>
+      <span class="home-x-mapweek-row">
+        ${m.image ? `<img class="home-x-mapweek-img" src="${m.image}" alt="">` : ''}
+        <span class="home-x-mapweek-text">
+          <span class="home-x-line home-x-big">${_escapeHtml(m.title || m.code)}</span>
+          <span class="home-x-line">${_escapeHtml(t('galleryBy', { name: m.by }))}</span>
+        </span>
+      </span>
+      <button type="button" class="home-x-btn" data-mapweek-play>${_escapeHtml(t('galleryPlayBtn'))}</button>
+    </div>`
+  }
   if (id === 'lastrun') {
     const last = Array.isArray(game.runHistory) ? game.runHistory[0] : null
     const best = _safeStatNumber(game.bestStats?.bestWave)
@@ -105,6 +184,14 @@ function top3Rows(game) {
   return list.map((e) => `<li><span class="home-x-name">${_escapeHtml(e.name)}</span><span>${_escapeHtml(t('homeExtrasTop3Row', { n: e.wave }))}</span></li>`).join('')
 }
 
+// "128 survivors online", shown in the homepage clock's pill (HomeUI's
+// _updateHomepageClock). Signed-in players' heartbeats only; you're added
+// when your own isn't one of them (signed out / appearing offline).
+export function onlineTotal(count, signedIn, statusMode) {
+  if (!Number.isFinite(count)) return null
+  return count + (signedIn && statusMode !== 'offline' ? 0 : 1)
+}
+
 // Draws every card into the layout the player picked. Called with the
 // Quests badge refresh (startup, back on the homepage, claims).
 export function renderHomeExtras(game) {
@@ -128,6 +215,8 @@ export function renderHomeExtras(game) {
   renderPlayTags(game)
   fitHomeExtras()
   loadTop3Later(game)
+  loadOnlineLater(game)
+  loadMapWeekLater(game)
 }
 
 // Hides cards from the bottom of a corner stack up while it would run into
@@ -270,6 +359,94 @@ function loadTop3Later(game) {
   }, TOP3_DELAY_MS)
 }
 
+// The online number, a few seconds after the homepage is ready and then
+// every ONLINE_REFRESH_MS while the tab is visible.
+function loadOnlineLater(game) {
+  if (game._homeOnlineTimer) return
+  const tick = async () => {
+    if (document.visibilityState === 'hidden' || navigator.onLine === false) return
+    // In a game (or any page over the homepage's cards): skip this round.
+    const stack = document.getElementById('home-extras-right')
+    if (!stack || !stack.getClientRects().length) return
+    try {
+      const CloudSync = await import('./CloudSync.js')
+      if (!CloudSync.isConfigured()) return
+      const n = await CloudSync.fetchOnlineCount(FRIEND_OFFLINE_THRESHOLD_MS)
+      game._homeOnlineTotal = onlineTotal(n, !!game._cloudUid, game.settings.statusMode)
+      game._updateHomepageClock?.()
+    } catch { /* keeps the last number */ }
+  }
+  game._homeOnlineTimer = setTimeout(function again() {
+    tick()
+    game._homeOnlineTimer = setTimeout(again, ONLINE_REFRESH_MS)
+  }, TOP3_DELAY_MS)
+}
+
+// Map of the Week, once, a few seconds after the homepage is ready.
+function loadMapWeekLater(game) {
+  if (game._homeMapWeek !== undefined || game._homeMapWeekPending) return
+  // After a failed lookup (offline, read limit reached) wait a while.
+  if (Date.now() - (game._homeMapWeekFailedAt || 0) < MAPWEEK_RETRY_MS) return
+  try {
+    const cached = JSON.parse(localStorage.getItem(MAPWEEK_CACHE_KEY) || 'null')
+    if (cached && Date.now() - cached.at < MAPWEEK_CACHE_MS && Date.now() >= cached.at) {
+      game._homeMapWeek = pickMapOfWeek(cached.list)
+      if (game._homeMapWeek) renderHomeExtras(game)
+      return
+    }
+  } catch { /* no cache - fetch below */ }
+  if (navigator.onLine === false) return
+  game._homeMapWeekPending = true
+  setTimeout(async () => {
+    try {
+      const CloudSync = await import('./CloudSync.js')
+      if (!CloudSync.isConfigured()) return
+      const posts = await CloudSync.fetchGalleryPosts('map')
+      const pick = pickMapOfWeek(posts)
+      game._homeMapWeek = pick
+      const keep = pick ? [{ mapCode: pick.code, title: pick.title, creatorNickname: pick.by, likes: pick.likes, createdAt: Date.now(), image: pick.image.length <= MAPWEEK_CACHE_IMAGE_MAX ? pick.image : '' }] : []
+      try { localStorage.setItem(MAPWEEK_CACHE_KEY, JSON.stringify({ at: Date.now(), list: keep })) } catch { /* no room - fetched again next visit */ }
+      if (pick) renderHomeExtras(game)
+    } catch {
+      game._homeMapWeek = undefined
+      game._homeMapWeekFailedAt = Date.now()
+    } finally {
+      game._homeMapWeekPending = false
+    }
+  }, TOP3_DELAY_MS + 1500)
+}
+
+async function playMapOfWeek(game) {
+  const m = game._homeMapWeek
+  if (!m || !MAP_CODE_RE.test(m.code)) return
+  closeTodayPanel()
+  await game._enterBuildMode()
+  game.buildMode?.share?.openCode(m.code, true)
+}
+
+// The birthday gift: once per birthday, coins = years x BIRTHDAY_COINS_PER_YEAR.
+function claimBirthday(game) {
+  const years = birthdayYears(game.careerStats?.firstPlayedDate)
+  const year = new Date().getFullYear()
+  if (!years || game.careerStats.birthdayClaimedYear === year) return
+  const coins = years * BIRTHDAY_COINS_PER_YEAR
+  game.careerStats.birthdayClaimedYear = year
+  saveCareerStats(game.careerStats)
+  game.coins += coins
+  saveShopProgress(game)
+  game._renderCurrencyBar?.()
+  game._fireConfetti?.()
+  game._showHomepageToast(t('homeBirthdayGot', { coins }))
+  renderHomeExtras(game)
+}
+
+// Confetti once per page load on your birthday.
+function celebrateBirthday(game) {
+  if (game._birthdayCelebrated || !birthdayYears(game.careerStats?.firstPlayedDate)) return
+  game._birthdayCelebrated = true
+  setTimeout(() => game._fireConfetti?.(), 1200)
+}
+
 function refreshTop3(game) {
   for (const ol of document.querySelectorAll('[data-card="top3"] .home-x-top3')) ol.innerHTML = top3Rows(game)
   fitHomeExtras()
@@ -377,12 +554,18 @@ export function bindHomeExtras(game) {
   document.getElementById('home-extras-right')?.addEventListener('click', (e) => {
     if (e.target.closest('#home-today-btn')) openTodayPanel(game)
     else if (e.target.closest('[data-card="invite"]')) invite(game)
+    else if (e.target.closest('[data-mapweek-play]')) playMapOfWeek(game)
+  })
+  document.getElementById('home-extras-left')?.addEventListener('click', (e) => {
+    if (e.target.closest('[data-birthday-claim]')) claimBirthday(game)
   })
   const panel = document.getElementById('today-panel')
   if (panel) {
     panel.addEventListener('click', (e) => {
       if (e.target === panel || e.target.closest('.panel-close-btn')) closeTodayPanel()
       else if (e.target.closest('[data-card="invite"]')) invite(game)
+      else if (e.target.closest('[data-mapweek-play]')) playMapOfWeek(game)
+      else if (e.target.closest('[data-birthday-claim]')) claimBirthday(game)
     })
   }
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeTodayPanel() })
@@ -390,5 +573,6 @@ export function bindHomeExtras(game) {
   window.addEventListener('online', () => { if (!game._homeTop3) loadTop3Later(game) })
   bindAvatarEmote(game)
   bindZombiePeek(game)
+  celebrateBirthday(game)
   applyHoliday(game)
 }
