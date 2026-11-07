@@ -4717,8 +4717,8 @@ test('Crafting: the Crafting tab makes gear and blocks from what you carry', asy
     out.gooDrops = drops
     return out
   })
-  // 37 out of winter (the Snowball recipe only shows December to February).
-  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 38 : 37)
+  // 39 out of winter (the Snowball recipe only shows December to February).
+  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 40 : 39)
   expect(r.ammoReady).toBe(true)
   expect(r.helmetReady).toBe(false)
   expect(r.ammo).toBe(1)
@@ -6928,6 +6928,225 @@ test('the camp Plaza (newspaper, lost and found, pinball, chess), the Pet Zombie
     out.waterEmpty = !s.water.squirt()
     s.stop?.()
     g._exitBuildMode?.()
+    return out
+  })
+  expect(Object.keys(r).filter((k) => r[k] !== true)).toEqual([])
+})
+
+test('the Wingsuit, Dodgeball, Musical Chairs and Simon Says', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    const start = async (mode) => {
+      localStorage.removeItem('gayz-play-saved-run')
+      g.settings.selectedGameMode = mode
+      await g._enterBuildMode({ map: 'map3', play: true })
+      const s = g.buildMode.survival
+      for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+      s._pickWeapon('rifle')
+      return s
+    }
+    const stop = async () => {
+      g.buildMode.survival.stop?.()
+      g._exitBuildMode?.()
+      await new Promise((res) => setTimeout(res, 200))
+    }
+    const play = (pm) => {
+      for (let i = 0; i < 300 && pm.phase === 'wait'; i++) pm.update(0.05)
+      return pm.phase === 'play'
+    }
+    // Wingsuit: opens on a long fall, glides, rings pay.
+    let s = await start('classic')
+    const bm = s.bm
+    const tm = bm.tryMode
+    const P = { x: 4300, y: 150, z: 4300 }
+    for (let x = -4; x <= 4; x++) for (let z = -4; z <= 4; z++) bm.placeBlock(P.x + x, P.y - 1, P.z + z, 'stone')
+    s.inv.add({ kind: 'item', id: 'wingsuit', n: 1 })
+    const W = s.wing
+    tm.pos.set(P.x + 0.5, P.y + 40, P.z + 0.5)
+    tm.vel.set(0, -15, 0)
+    bm._yaw = 0
+    bm._pitch = 0
+    W.fly(tm.vel, 0.016, false, false)
+    out.wingOpens = W.open && W.rings.length === 6
+    for (let i = 0; i < 60; i++) W.fly(tm.vel, 0.016, false, false)
+    out.wingGlides = tm.vel.z < -12 && Math.abs(tm.vel.x) < 1 && tm.vel.y > -4 && tm.vel.y < -1
+    const ring = W.rings[0]
+    let coins = s.coins
+    tm.pos.set(ring.c.x, ring.c.y - 1, ring.c.z + 0.5)
+    W.update(0.016)
+    tm.pos.set(ring.c.x, ring.c.y - 1, ring.c.z - 0.5)
+    W.update(0.016)
+    out.wingRing = ring.got && s.coins === coins + 5
+    W.fly(tm.vel, 0.016, false, true)
+    out.wingCrouchCloses = !W.open
+    W.fly(tm.vel, 0.016, true, false)
+    out.wingLands = W.rings.length === 0
+    await stop()
+    // Dodgeball: teams, a ball hit scores, the middle line holds.
+    s = await start('dodgeball')
+    let pm = s.party
+    out.dodgePlay = play(pm)
+    const D = pm.ext
+    const mine = pm.myTeam
+    const foe = [...pm.bots.values()].find((b) => pm.teams.get(b.id) && pm.teams.get(b.id) !== mine)
+    out.dodgeTeams = !!mine && !!foe
+    D.balls = []
+    D._throw({ x: foe.x - (mine === 'r' ? 1.2 : -1.2), y: foe.y + 1, z: foe.z }, { x: mine === 'r' ? 1 : -1, y: 0, z: 0 }, mine, pm.myId, true)
+    D.balls[0].vy = 0
+    for (let i = 0; i < 5; i++) D._fly(0.02)
+    out.dodgeHit = pm.stunned.has(foe.id) && pm.score[mine] === 1
+    const hf = D.half(mine)
+    s.bm.tryMode.pos.set(pm.home.x + (mine === 'r' ? 5 : -5), 181, pm.home.z)
+    D.events({ phase: 'play', round: pm.round })
+    out.dodgeLine = s.bm.tryMode.pos.x >= hf.lo && s.bm.tryMode.pos.x <= hf.hi
+    out.dodgeSnap = Array.isArray(JSON.parse(JSON.stringify(pm.snapshot())).x?.db)
+    await stop()
+    // Musical Chairs: one fewer chair, whoever's left standing is out.
+    s = await start('musicalChairs')
+    pm = s.party
+    out.chairsPlay = play(pm)
+    const C = pm.ext
+    const n0 = pm._people().length
+    out.chairsCount = C.n === n0 - 1 && C.sub === 'music'
+    C.subLeft = 0
+    C.run(pm._people(), 0.05)
+    out.chairsGrab = C.sub === 'grab'
+    const bots = [...pm.bots.values()]
+    const c0 = C.chair(0)
+    s.bm.tryMode.pos.set(c0.x, 221, c0.z)
+    bots.forEach((b, i) => {
+      const c = i < C.n - 1 ? C.chair(i + 1) : { x: pm.home.x + 9, z: pm.home.z }
+      b.x = b.tx = c.x
+      b.z = b.tz = c.z
+      b.y = b.ty = 221
+    })
+    C.run(pm._people(), 0.05)
+    out.chairsOut = pm.out.size === 1 && pm.out.has(bots[bots.length - 1].id) && C.n === n0 - 2 && C.sub === 'music'
+    await stop()
+    // Simon Says: do it when Simon says, don't when he doesn't.
+    s = await start('simonSays')
+    pm = s.party
+    out.simonPlay = play(pm)
+    const S = pm.ext
+    S.subLeft = 0
+    S.run(pm._people(), 0.05)
+    out.simonOrder = S.sub === 'cmd' && !!S.cmd
+    out.simonPads = S.padAt(pm.home.x + 6, pm.home.z + 6) === 'yellow' && S.padAt(pm.home.x, pm.home.z) === ''
+    const ids = pm._people().map((p) => p.id)
+    S._say()
+    S.cmd = 'jump'
+    S.simon = true
+    for (const id of ids) S.track.set(id, { x: 0, z: 0, y0: -100, moved: 0, rose: id !== ids[1] })
+    S.subLeft = -1
+    const people = pm._people().map((p) => ({ ...p, y: -1000 }))
+    S.run(people, 0)
+    out.simonSaysOut = pm.out.size === 1 && pm.out.has(ids[1])
+    pm.out.clear()
+    S._say()
+    S.cmd = 'freeze'
+    S.simon = false
+    for (const id of ids) S.track.set(id, { x: 0, z: 0, y0: 100, moved: id === ids[2] ? 0 : 10, rose: false })
+    S.subLeft = -1
+    S.run(pm._people().map((p) => ({ ...p, x: 0, z: 0, y: -1000 })), 0)
+    out.simonNotSaysOut = pm.out.size === 1 && pm.out.has(ids[2])
+    out.simonSnap = typeof JSON.parse(JSON.stringify(pm.snapshot())).x?.sc === 'string'
+    await stop()
+    return out
+  })
+  expect(Object.keys(r).filter((k) => r[k] !== true)).toEqual([])
+})
+
+test('Hardcore Survival and cooking, the Zombie Museum and the Story Campaign', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    for (const k of ['gayz-play-saved-run', 'gayz-museum', 'gayz-campaign']) localStorage.removeItem(k)
+    g.settings.selectedGameMode = 'classic'
+    g.settings.mutators.hardcore = true
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    g.settings.mutators.hardcore = false
+    const bm = s.bm
+    const tm = bm.tryMode
+    const H = s.hunger
+    out.hungerCfg = s.cfg.hunger === true
+    H.start()
+    const bag = [...s.inv.hotbar, ...s.inv.grid]
+    out.hungerCampfire = H.on && bag.some((it) => it?.kind === 'block' && it.id === 'campfire')
+    H.food = 50
+    H.update(60)
+    out.hungerDrains = H.food < 50 && H.food > 40
+    // Eating at full health while hungry.
+    const P = { x: 4300, y: 150, z: 4300 }
+    for (let x = -6; x <= 6; x++) for (let z = -6; z <= 6; z++) bm.placeBlock(P.x + x, P.y - 1, P.z + z, 'stone')
+    tm.pos.set(P.x + 0.5, P.y, P.z + 0.5)
+    s.health = s.maxHealth
+    H.food = 50
+    s.inv.hotbar[6] = { kind: 'item', id: 'veggies', n: 1 }
+    s.inv.active = 6
+    out.hungerEats = s.inv.useHeld() && Math.round(H.food) === 75
+    // Cooking by a campfire.
+    out.hungerNoFire = !H.nearFire()
+    bm.placeBlock(P.x + 2, P.y, P.z, 'campfire')
+    bm.specials?.rebuild?.()
+    out.hungerFire = H.nearFire()
+    s.inv.hotbar[6] = { kind: 'item', id: 'meat', n: 1 }
+    s.inv.active = 6
+    s.inv.useHeld()
+    out.hungerCooks = [...s.inv.hotbar, ...s.inv.grid].some((it) => it?.id === 'cookedMeat') && !s.inv.hotbar[6]
+    // Starving.
+    H.food = 0
+    s.health = 50
+    H.update(3.2)
+    out.hungerStarves = s.health <= 48 && s.health >= 46
+    H.food = 100
+    // The Museum: a rare find, a boss beaten.
+    s.camp.update(0.016)
+    const M = s.camp.museum
+    out.museumBuilt = !!M?.spot
+    s.inv.add({ kind: 'item', id: 'goldenFish', n: 1 })
+    out.museumItem = JSON.parse(localStorage.getItem('gayz-museum')).items.includes('goldenFish')
+    const boss = s._makeZombie(++s._zid, P.x + 3, P.y, P.z + 3, 10, true)
+    s.zombies.push(boss)
+    s.damageZombie(boss, 1e6)
+    out.museumBoss = JSON.parse(localStorage.getItem('gayz-museum')).bosses.includes('waveBoss')
+    M._checkIn = 0
+    M.update()
+    out.museumCounts = M.counts().items === 1 && M.counts().bosses === 1
+    tm.pos.set(M.door.x, 0, M.door.z)
+    out.museumOpens = M.use() && document.querySelectorAll('#camp-screen .museum-list div').length > 10
+    document.querySelector('#camp-screen .camp-screen-x').click()
+    // The Story Campaign.
+    const L = s.camp.lab
+    out.labBuilt = !!L?.spot
+    tm.pos.set(L.door.x, 0, L.door.z)
+    out.storyStarts = L.use() && L.story.ch === 0 && L.story.started && !!document.querySelector('#camp-screen .story-line')
+    const next = () => [...document.querySelectorAll('#camp-screen button')].find((b) => b.className === 'camp-screen-btn')
+    for (let i = 0; i < 6 && document.getElementById('camp-screen'); i++) next().click()
+    out.storySceneEnds = !document.getElementById('camp-screen')
+    let coins = s.coins
+    out.storyMoon = !L.reached(0) && L._finish(0) && L.story.done && s.coins >= coins + 100
+    L.use()
+    out.storyNextChapter = L.story.ch === 1 && L.story.started && !L.story.done
+    document.querySelector('#camp-screen .camp-screen-x').click()
+    tm.pos.y = 302
+    out.storyHeaven = L.reached(1)
+    tm.pos.set(L.door.x, 0, L.door.z)
+    L.story = { ch: 4, started: true, done: false }
+    coins = s.coins
+    s.inv.add({ kind: 'item', id: 'theCure', n: 1 })
+    out.storyCure = L.use() && L.story.ch === 5 && s.coins >= coins + 500 && !s.inv.has('theCure') && JSON.parse(localStorage.getItem('gayz-campaign')).ch === 5
+    document.querySelector('#camp-screen .camp-screen-x')?.click()
+    s.stop?.()
+    g._exitBuildMode?.()
+    for (const k of ['gayz-museum', 'gayz-campaign']) localStorage.removeItem(k)
     return out
   })
   expect(Object.keys(r).filter((k) => r[k] !== true)).toEqual([])

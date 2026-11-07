@@ -13,7 +13,8 @@ export const MOB_HEIGHT = 2
 
 // The Challenges & Mutators that have a block-city version. The others in
 // that list stay hidden until they get one.
-export const PLAY_MUTATORS = ['hordeRush', 'lootRush', 'healthRegen', 'glassHouse', 'ironMode', 'escalation', 'bossRush']
+// hardcore (2026-11-06, Hunger.js): a hunger meter.
+export const PLAY_MUTATORS = ['hordeRush', 'lootRush', 'healthRegen', 'glassHouse', 'ironMode', 'escalation', 'bossRush', 'hardcore']
 
 // Game Modes with a block-city version.
 // worldMap (2026-10-18): pick a real place on Earth and survive in land
@@ -28,11 +29,11 @@ export const PLAY_MUTATORS = ['hordeRush', 'lootRush', 'healthRegen', 'glassHous
 // escapeRoom (2026-11-02, EscapeRooms.js): three puzzle rooms in the sky, alone.
 // floorLava, laserTag, kartRace, obstacleCourse, duelArena (2026-11-02,
 // PartyLava.js, PartyLaser.js, PartyKart.js, PartyParkour.js, PartyDuel.js): more party games.
-export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'worldMap', 'infection', 'shrinkingZone', 'speedrun', 'towerDefense', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'escapeRoom', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'miniGolf', 'freezeTag', 'bombDefuse', 'werewolfNight']
+export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'worldMap', 'infection', 'shrinkingZone', 'speedrun', 'towerDefense', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'escapeRoom', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'miniGolf', 'freezeTag', 'bombDefuse', 'werewolfNight', 'dodgeball', 'musicalChairs', 'simonSays']
 // Game Modes with no zombies at all (2026-10-26, Gaymi: "make world map
 // not spawn zombies ... make world map just a gamemode with the world
 // map"): you just explore the real Earth.
-export const NO_ZOMBIE_MODES = ['worldMap', 'infection', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'escapeRoom', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'miniGolf', 'freezeTag', 'bombDefuse', 'werewolfNight']
+export const NO_ZOMBIE_MODES = ['worldMap', 'infection', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'escapeRoom', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'miniGolf', 'freezeTag', 'bombDefuse', 'werewolfNight', 'dodgeball', 'musicalChairs', 'simonSays']
 // Its achievement, Globetrotter: a World Map run this long (seconds).
 export const GLOBETROTTER_SECONDS = 600
 
@@ -232,6 +233,7 @@ export function playConfig({ difficulty, gameMode, mutators = {}, purchased = ne
   cfg.zombieDamageMult *= Math.max(0.5, 1 - toughness)
   if (on.includes('ironMode')) cfg.ironMode = true
   if (on.includes('escalation')) cfg.escalation = true
+  if (on.includes('hardcore')) cfg.hunger = true
   if (on.includes('bossRush')) cfg.bossEvery = 1
   else if (cfg.mode === 'bossHunt') cfg.bossEvery = BOSS_HUNT_EVERY
   return cfg

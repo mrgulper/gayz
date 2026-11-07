@@ -483,6 +483,8 @@ function loadSettings() {
         bossHunt: parsed.mutators?.bossHunt ?? false,
         zombieRush: parsed.mutators?.zombieRush ?? false,
         escalation: parsed.mutators?.escalation ?? false,
+        // Hardcore Survival: a hunger meter (Hunger.js, 2026-11-06), off by default.
+        hardcore: parsed.mutators?.hardcore ?? false,
       },
     }
     // Repairs a hotbar with empty (null) slots - a real save could have
@@ -564,7 +566,7 @@ function _loadNavOrder(saved) {
 }
 
 export function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, disasterBreakAll: false, crosshairStyle: 'cross', damageNumbers: true, zombieNameTags: true, showOtherSprays: true, snowballsAllYear: false, autoPickup: true, confirmRareDrop: true, darkAreaBoost: false, colorblindRarity: false, sprintMode: 'hold', autoJump: false, viewBobbing: true, battleView: '3d', zombieVolume: 100, skinDesignerHighContrast: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, clanXp: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, lockedSkins: [], bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', cosmeticHat: '', cosmeticCape: '', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, graphicsLevel: null, graphicsLevelAuto: null, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', homeExtrasLayout: 'cards', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', cleanColor: CLEAN_DEFAULT_COLOR, playBiomeLook: true, playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, disasterBreakAll: false, crosshairStyle: 'cross', damageNumbers: true, zombieNameTags: true, showOtherSprays: true, snowballsAllYear: false, autoPickup: true, confirmRareDrop: true, darkAreaBoost: false, colorblindRarity: false, sprintMode: 'hold', autoJump: false, viewBobbing: true, battleView: '3d', zombieVolume: 100, skinDesignerHighContrast: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, clanXp: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, lockedSkins: [], bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', cosmeticHat: '', cosmeticCape: '', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, graphicsLevel: null, graphicsLevelAuto: null, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', homeExtrasLayout: 'cards', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', cleanColor: CLEAN_DEFAULT_COLOR, playBiomeLook: true, playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, hardcore: false } }
 }
 
 
@@ -687,6 +689,7 @@ export const MUTATOR_LABEL_KEYS = {
   bossHunt: 'mutatorBossHunt',
   zombieRush: 'mutatorZombieRush',
   escalation: 'mutatorEscalation',
+  hardcore: 'mutatorHardcore',
 }
 
 
@@ -1370,6 +1373,9 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'game-mode-freeze-tag-label': 'topBarModeFreezeTag',
   'game-mode-bomb-defuse-label': 'topBarModeBombDefuse',
   'game-mode-werewolf-night-label': 'topBarModeWerewolfNight',
+  'game-mode-dodgeball-label': 'topBarModeDodgeball',
+  'game-mode-musical-chairs-label': 'topBarModeMusicalChairs',
+  'game-mode-simon-says-label': 'topBarModeSimonSays',
   'game-mode-kart-race-label': 'topBarModeKartRace',
   'zombie-book-done': 'bookComplete',
   'inventory-pets-soon-title': 'inventoryPetsTitle',
@@ -2309,6 +2315,7 @@ export class Game {
     this.mutatorLootRush = document.getElementById('mutator-loot-rush')
     this.mutatorBossRush = document.getElementById('mutator-boss-rush')
     this.mutatorEscalation = document.getElementById('mutator-escalation')
+    this.mutatorHardcore = document.getElementById('mutator-hardcore')
     this.mutatorHealthRegen = document.getElementById('mutator-health-regen')
     this.mutatorIronMode = document.getElementById('mutator-iron-mode')
     this.mutatorGlassHouse = document.getElementById('mutator-glass-house')
@@ -3945,6 +3952,7 @@ export class Game {
     document.getElementById('mutator-loot-rush-label').textContent = t('mutatorLootRush')
     document.getElementById('mutator-boss-rush-label').textContent = t('mutatorBossRush')
     document.getElementById('mutator-escalation-label').textContent = t('mutatorEscalation')
+    document.getElementById('mutator-hardcore-label').textContent = t('mutatorHardcore')
     document.getElementById('mutator-health-regen-label').textContent = t('mutatorHealthRegen')
     document.getElementById('mutator-iron-mode-label').textContent = t('mutatorIronMode')
     document.getElementById('mutator-glass-house-label').textContent = t('mutatorGlassHouse')

@@ -1144,7 +1144,10 @@ export class BuildTryMode {
       if (jet) this.vel.y = jet.thrust(dt, spaceDown, this.onGround, this.vel.y)
       // ...and a kite that's up holds you up: you float down (Kites.js).
       if (this.bm.survival?.active && this.bm.survival.kite) this.vel.y = this.bm.survival.kite.fall(this.vel.y)
+      // ...and a wingsuit in the bag glides you along (Wingsuit.js).
+      if (this.bm.survival?.active && this.bm.survival.wing) this.bm.survival.wing.fly(this.vel, dt, this.onGround, crouch)
     }
+    if (onLadder || inLiquid) this.bm.survival?.wing?.land()
 
     // Horizontal moves, stepping up onto a slab (or a stair) on the way.
     const stairs = (x, y, z) => this.bm._cellIsStairs(x, y, z)

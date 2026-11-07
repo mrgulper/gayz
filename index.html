@@ -1927,6 +1927,18 @@ Escape before dawn.</p>
                   <div class="class-icon-badge"><span class="class-icon-emoji">🐺</span></div>
                   <span id="game-mode-werewolf-night-label">Werewolf Night</span>
                 </button>
+                <button class="mode-select-btn class-btn" data-game-mode="dodgeball" id="game-mode-dodgeball" type="button">
+                  <div class="class-icon-badge"><span class="class-icon-emoji">🏐</span></div>
+                  <span id="game-mode-dodgeball-label">Dodgeball</span>
+                </button>
+                <button class="mode-select-btn class-btn" data-game-mode="musicalChairs" id="game-mode-musical-chairs" type="button">
+                  <div class="class-icon-badge"><span class="class-icon-emoji">🪑</span></div>
+                  <span id="game-mode-musical-chairs-label">Musical Chairs</span>
+                </button>
+                <button class="mode-select-btn class-btn" data-game-mode="simonSays" id="game-mode-simon-says" type="button">
+                  <div class="class-icon-badge"><span class="class-icon-emoji">🗣️</span></div>
+                  <span id="game-mode-simon-says-label">Simon Says</span>
+                </button>
               </div>
             </div>
           </section>
@@ -1986,6 +1998,11 @@ Escape before dawn.</p>
                 <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h4v-6H3v6zM10 20h4V10h-4v10zM17 20h4V4h-4v16z"/></svg>
                 <input type="checkbox" id="mutator-escalation" />
                 <span id="mutator-escalation-label">Escalation Mode (difficulty keeps climbing, no cap)</span>
+              </label>
+              <label class="mode-toggle" for="mutator-hardcore">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v8a2 2 0 0 0 4 0V3"/><line x1="9" y1="11" x2="9" y2="21"/><path d="M16 3c-1.7 0-3 2-3 5s1.3 4 3 4v9"/></svg>
+                <input type="checkbox" id="mutator-hardcore" />
+                <span id="mutator-hardcore-label">Hardcore Survival (a hunger meter - hunt, fish or farm, and cook it)</span>
               </label>
             </div>
           </section>
@@ -2722,6 +2739,22 @@ Escape before dawn.</p>
           <h3>Water Gun</h3>
           <p>Hold a Water Gun and use it to squirt a spray of water. A zombie it soaks moves at <span data-feature-value="waterSlow">45</span>% speed for <span data-feature-value="waterSoak">4</span> seconds and stops burning, and any fire where the water lands goes out. It does no damage and is never used up: the tank holds <span data-feature-value="waterTank">25</span> squirts and fills again while you stand in water or in the rain. Craft one any time (planks, glass and Zombie Goo) - and in summer (June to August) you start every game with one.</p>
         </div>
+        <div class="feature" data-code="Wingsuit OPEN_H OPEN_FALL GLIDE_SPEED RINGS RING_COINS ALL_RINGS_COINS wingsuit">
+          <h3>Wingsuit</h3>
+          <p>Craft a Wingsuit (Plant Fiber, Zombie Goo and a log); it works from your bag, like the Jetpack. Jump off anything more than <span data-feature-value="wingOpenH">8</span> blocks high - Heaven's Peaks, the lighthouse, a tall building - and it opens by itself: you glide forward the way you look, sinking slowly. Look down to dive faster, look up to float; crouch to close it and drop. Each time it opens, <span data-feature-value="wingRings">6</span> gold rings appear in a line ahead and below - fly through one for <span data-feature-value="wingRingCoins">5</span> coins, and all of them for <span data-feature-value="wingAllCoins">25</span> more.</p>
+        </div>
+        <div class="feature" data-code="Campaign CHAPTERS CHAPTER_COINS FINALE_COINS SCENE_LINES loadStory reached theCure">
+          <h3>Story Campaign</h3>
+          <p>Dr. Goo, the camp's scientist, has a lab against a camp wall - press Use there to start the story: find out where the zombies came from and make a cure. There are <span data-feature-value="storyChapters">5</span> chapters, each with a short scene (Dr. Goo talks in a speech bubble and the lines show in a pop-up you click through) and a goal at a place GayZ already has: fly a rocket to the Moon, climb up to Heaven, find a dungeon underground, find the Under City, then craft The Cure (Zombie Goo, Vegetables, Plant Fiber and Glass) and bring it back to Dr. Goo. A Story pill on screen shows the goal. Each chapter done pays <span data-feature-value="storyCoins">100</span> coins - go back to the lab for the next scene - and the ending pays <span data-feature-value="storyFinale">500</span>. The story is kept on this device and carries on over as many games as it takes.</p>
+        </div>
+        <div class="feature" data-code="Hunger HUNGER_MINUTES STARVE_DPS COOK_R FOOD RAW_FOOD COOKED_FOOD hardcore cookedMeat cookedFish">
+          <h3>Hardcore Survival</h3>
+          <p>A mutator in Game Mode, off unless you turn it on. A Hunger meter starts full and empties over <span data-feature-value="hungerMinutes">12</span> minutes; eat to fill it - raw meat and fish only a little (<span data-feature-value="hungerRaw">15</span>), Vegetables from the Camp Farm and fish from Fishing more, cooked food the most (<span data-feature-value="hungerCooked">45</span> for Cooked Meat). You can eat at full health while you're hungry. If it runs out you lose <span data-feature-value="hungerStarve">1</span> health a second (even in camp) until you eat. Hardcore games start with a Campfire block to put down. Cooking works in every game: hold raw meat or a fish within <span data-feature-value="hungerCookR">3</span> blocks of a Campfire, or inside the camp, and use it to turn it into Cooked Meat or Cooked Fish, which heal more too.</p>
+        </div>
+        <div class="feature" data-code="CampMuseum EXHIBITS BOSSES noteItem noteBoss">
+          <h3>Zombie Museum</h3>
+          <p>A long marble hall against a camp wall that fills up as you play. The Statue Room has a stone statue on a plinth for every Zombie Book entry you've met (empty plinths for the rest). The Glass Cases hold <span data-feature-value="museumExhibits">8</span> rare finds - a Golden Fish, an Old Boot, a Treasure Map, a Jetpack, a Metal Detector, two Potions and Candy - each showing up the first time one goes in your bag. The Hall of Bosses has a plaque for each of <span data-feature-value="museumBosses">3</span> bosses - a wave boss, a dungeon's Boss Room boss and the dragon - that turns gold once you've beaten it. Press Use at the museum for a list of everything in it. Kept on this device.</p>
+        </div>
         <div class="feature" data-code="ZombieRadio RADIO_LINES">
           <h3>Zombie Radios</h3>
           <p>Old radios turn up on the ground as you explore, with a yellow music note bobbing over them. Walk up to one and it crackles into one of <span data-feature-value="radioLines">10</span> silly news reports - and often a real tip too: a supply plane on its way to you. Each radio plays once.</p>
@@ -2732,7 +2765,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="PlayCrafting RECIPES GOO_CHANCE">
           <h3>Crafting</h3>
-          <p>Open your inventory in a game: Crafting is on the left and your bag on the right, side by side (on a narrow phone screen, Bag and Crafting tabs switch between them). Every recipe shows what it makes, what it needs (how many you have and how many it takes) and a Craft button. There are <span data-feature-value="recipes">15</span> recipes: gear - Goo Disguise, Boat, Helicopter, Heli Fuel, Health Pack, Ammo Box, Catch Traps, all five armor pieces, the four Potions, the Jetpack and Jetpack Fuel, the Metal Detector, the Time Machine and Time Passes, the Water Gun, the Brain Snack (for a Pet Zombie) and (in winter) Snowballs - and blocks - Crop Plot, Oak Planks, Crate, Stone Bricks, Glass and Bricks. Most take blocks you break (any log, any stone, any dirt or grass, any sand, any planks), so you don't need one exact kind. Two new materials: Zombie Goo, which about <span data-feature-value="gooChance">45</span>% of the zombies you kill drop, and Plant Fiber, which comes with every Crop Plot harvest. If your bag is full, what you made lands at your feet.</p>
+          <p>Open your inventory in a game: Crafting is on the left and your bag on the right, side by side (on a narrow phone screen, Bag and Crafting tabs switch between them). Every recipe shows what it makes, what it needs (how many you have and how many it takes) and a Craft button. There are <span data-feature-value="recipes">15</span> recipes: gear - Goo Disguise, Boat, Helicopter, Heli Fuel, Health Pack, Ammo Box, Catch Traps, all five armor pieces, the four Potions, the Jetpack and Jetpack Fuel, the Metal Detector, the Time Machine and Time Passes, the Water Gun, the Brain Snack (for a Pet Zombie), the Wingsuit, The Cure (for the Story Campaign) and (in winter) Snowballs - and blocks - Crop Plot, Oak Planks, Crate, Stone Bricks, Glass and Bricks. Most take blocks you break (any log, any stone, any dirt or grass, any sand, any planks), so you don't need one exact kind. Two new materials: Zombie Goo, which about <span data-feature-value="gooChance">45</span>% of the zombies you kill drop, and Plant Fiber, which comes with every Crop Plot harvest. If your bag is full, what you made lands at your feet.</p>
         </div>
         <div class="feature" data-code="GooDisguise putOnDisguise">
           <h3>Goo Disguise</h3>
@@ -2942,6 +2975,18 @@ Escape before dawn.</p>
           <h3>Bomb Defuse</h3>
           <p>A party mode, on servers or alone with bots. Red attacks and Blue defends in a walled stone arena high in the sky, with wooden crates for cover and two glowing bomb sites, A and B, at Blue's end. A Red player standing on a site for <span data-feature-value="bombPlant">4</span> seconds plants the bomb - it beeps faster and faster and blows up after <span data-feature-value="bombTime">40</span> seconds, and Red wins. A Blue player standing on it for <span data-feature-value="bombDefuse">5</span> seconds defuses it and Blue wins; if time runs out with nothing planted, Blue wins too. A shot stuns an enemy for <span data-feature-value="bombStun">3</span> seconds, and stunned players can't plant or defuse.</p>
         </div>
+        <div class="feature" data-code="PartyDodge dodgeball DB_Y OUT_S THROW_S BALL_SPEED DB_W DB_D">
+          <h3>Dodgeball</h3>
+          <p>A party mode: Red against Blue on a court high in the sky, split down the middle by a white line nobody can cross. Fire to throw a big soft ball where you look - it flies in an arc, so it can be dodged, and you can throw one every <span data-feature-value="dodgeThrow">1.2</span> seconds. A ball that hits someone on the other team knocks them out for <span data-feature-value="dodgeOut">5</span> seconds (their vest blinks) and scores a point for your team. The team with the most hits after <span data-feature-value="dodgeMinutes">3</span> minutes wins. On servers or with bots, who throw too.</p>
+        </div>
+        <div class="feature" data-code="PartyChairs musicalChairs MC_Y MUSIC_S GRAB_S SIT_R">
+          <h3>Musical Chairs</h3>
+          <p>A party mode on a round floor in the sky with a ring of chairs - always one fewer than the players still in. Walk round while the music plays (for <span data-feature-value="chairsMusic">6-12</span> seconds, so nobody knows when it'll stop). When it stops you have <span data-feature-value="chairsGrab">5</span> seconds to stand on a free chair - first one there gets it, and sitting early does nothing. Whoever's left without a chair is out. A chair goes and the music starts again; the last one in wins. On servers or with bots.</p>
+        </div>
+        <div class="feature" data-code="PartySimon simonSays SS_Y CMD_S MIN_CMD_S SIMON_CHANCE RUN_DIST FREEZE_DIST COMMANDS">
+          <h3>Simon Says</h3>
+          <p>A party mode on a square floor in the sky with a red, blue, green and yellow pad in the corners. Every few seconds Simon calls out an order - Jump!, Freeze!, Run!, or Go to a colour! - and you have <span data-feature-value="simonCmd">4</span> seconds (getting quicker as it goes on, down to <span data-feature-value="simonMinCmd">2.5</span>). If it starts with "Simon says", do it; if it doesn't, don't (Freeze! without Simon means keep moving). Get it wrong and you're out; if everyone gets it wrong at once, nobody is. Run means covering <span data-feature-value="simonRun">4</span> blocks. Last one in wins. On servers or with bots, who slip up now and then.</p>
+        </div>
         <div class="feature" data-code="PartyWerewolf werewolfNight NIGHT_S DAY_S CLAW_R WOLF_SPEED">
           <h3>Werewolf Night</h3>
           <p>A party mode, on servers or alone with bots. One player is secretly the Werewolf - only they're told. The round goes night, day, night, day. At night (<span data-feature-value="wolfNight">30</span> seconds) the screen goes dark under a full moon, the Werewolf runs faster and can knock out one player a night by shooting them from up to <span data-feature-value="wolfClaw">3</span> blocks away. By day (<span data-feature-value="wolfDay">25</span> seconds) everyone still in votes for who they think the Werewolf is, with the number keys or the name buttons: whoever gets the most votes is out (a tie: nobody). Catch the Werewolf and the villagers win; the Werewolf wins once only one villager is left, or if the clock runs out. Bots vote too, usually for whoever was standing closest to the last knock-out.</p>
@@ -3020,7 +3065,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="playConfig PLAY_GAME_MODES PLAY_MUTATORS">
           <h3>Map 1 Game Modes, Difficulty &amp; Mutators</h3>
-          <p>Before you press Play, pick in Game Mode: a difficulty (Easy, Normal, Hard - Nightmare and Apex unlock later), a game mode - Classic (waves forever), Zombie Defense (hold out for <span data-feature-value="defenseWaves">10</span> waves to win), Boss Hunt (a big, tough boss every <span data-feature-value="bossEvery">3</span> waves), Zombie Rush (barely a breather between waves, a survival timer, and no buying) or Helicopter Escape (once the first wave starts, <span data-feature-value="fuelCans">3</span> fuel cans appear around the city under yellow beams, also shown on the minimap - pick them all up and a helicopter flies in and lands under a red beam; hold its landing ring for <span data-feature-value="extractionHold">10</span> seconds while the zombies keep coming, then you climb aboard and it takes off with you) or Infection (zombie tag with no waves - see Infection Mode) or Shrinking Zone (survive the waves inside a closing ring - see Shrinking Zone Mode) or Speedrun (clear the waves against the clock - see Speedrun Mode) or Tower Defense (stop zombies on a path with towers, on a map of its own - see Tower Defense Mode) or Escape Rooms (puzzle rooms in the sky - see Escape Rooms) or Obstacle Course (on the Parkour tab - see Obstacle Course) or one of the Party Modes (Hide and Seek, Capture the Flag, King of the Hill, Zombie Soccer, Hot Potato, Zombie Bowling, Paint Wars, Build Battle, Floor is Lava, Laser Tag, Kart Racing, Zombie Mini-Golf, Freeze Tag, Bomb Defuse, Werewolf Night) or Duel Arena (on the Deathmatch tab - see Duel Arena) - and mutators: Horde Rush, Loot Rush, Health Regen, Glass House, Iron Mode, Escalation and Boss Rush. Guest Mode plays a run without saving anything from it.</p>
+          <p>Before you press Play, pick in Game Mode: a difficulty (Easy, Normal, Hard - Nightmare and Apex unlock later), a game mode - Classic (waves forever), Zombie Defense (hold out for <span data-feature-value="defenseWaves">10</span> waves to win), Boss Hunt (a big, tough boss every <span data-feature-value="bossEvery">3</span> waves), Zombie Rush (barely a breather between waves, a survival timer, and no buying) or Helicopter Escape (once the first wave starts, <span data-feature-value="fuelCans">3</span> fuel cans appear around the city under yellow beams, also shown on the minimap - pick them all up and a helicopter flies in and lands under a red beam; hold its landing ring for <span data-feature-value="extractionHold">10</span> seconds while the zombies keep coming, then you climb aboard and it takes off with you) or Infection (zombie tag with no waves - see Infection Mode) or Shrinking Zone (survive the waves inside a closing ring - see Shrinking Zone Mode) or Speedrun (clear the waves against the clock - see Speedrun Mode) or Tower Defense (stop zombies on a path with towers, on a map of its own - see Tower Defense Mode) or Escape Rooms (puzzle rooms in the sky - see Escape Rooms) or Obstacle Course (on the Parkour tab - see Obstacle Course) or one of the Party Modes (Hide and Seek, Capture the Flag, King of the Hill, Zombie Soccer, Hot Potato, Zombie Bowling, Paint Wars, Build Battle, Floor is Lava, Laser Tag, Kart Racing, Zombie Mini-Golf, Freeze Tag, Bomb Defuse, Werewolf Night, Dodgeball, Musical Chairs, Simon Says) or Duel Arena (on the Deathmatch tab - see Duel Arena) - and mutators: Horde Rush, Loot Rush, Health Regen, Glass House, Iron Mode, Escalation, Boss Rush and Hardcore Survival (see Hardcore Survival). Guest Mode plays a run without saving anything from it.</p>
         </div>
         <div class="feature" data-code="SKELETON_KINDS SKELETON_FROM_WAVE makeSkeleton">
           <h3>Skeletons</h3>

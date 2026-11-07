@@ -1178,6 +1178,11 @@ export function _bindSettings(game) {
     game.settings.mutators.ironMode = game.mutatorIronMode.checked
     saveSettings(game.settings)
   })
+  game.mutatorHardcore.checked = game.settings.mutators.hardcore
+  game.mutatorHardcore.addEventListener('change', () => {
+    game.settings.mutators.hardcore = game.mutatorHardcore.checked
+    saveSettings(game.settings)
+  })
   game.mutatorGlassHouse.checked = game.settings.mutators.glassHouse
   game.mutatorGlassHouse.addEventListener('change', () => {
     game.settings.mutators.glassHouse = game.mutatorGlassHouse.checked

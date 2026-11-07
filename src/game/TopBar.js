@@ -36,6 +36,9 @@ const MODE_KEYS = {
   freezeTag: 'topBarModeFreezeTag',
   bombDefuse: 'topBarModeBombDefuse',
   werewolfNight: 'topBarModeWerewolfNight',
+  dodgeball: 'topBarModeDodgeball',
+  musicalChairs: 'topBarModeMusicalChairs',
+  simonSays: 'topBarModeSimonSays',
 }
 // The weather's sign before its name (clear shows a sun, or a moon at night).
 const WEATHER_ICON = { drizzle: '☂', veryLightRain: '☂', lightRain: '☂', mediumRain: '☂', hardRain: '☂', thunderstorm: '⚡', freezingRain: '☂', iceStorm: '❄', veryLightSnow: '❄', lightSnow: '❄', mediumSnow: '❄', hardSnow: '❄', snowstorm: '❄', blizzard: '❄', sleet: '❄', hail: '☂', frost: '❄', coldSnap: '❄', fog: '≡', heatwave: '☀', duststorm: '≋', sandstorm: '≋', eclipse: '◐' }

@@ -202,3 +202,31 @@ export function makeLabel(text, w, px, color) {
   tex.colorSpace = THREE.SRGBColorSpace
   return new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }))
 }
+
+// Like findWallStrip, but when every wall is taken (the camp has a lot of
+// booths now, 2026-11-06) it looks for open ground inside the camp instead:
+// a clear `wide` x `deep` patch (plus a block all round), facing +z.
+export function findCampSpot(camp, wide, deep, avoid = []) {
+  const wall = findWallStrip(camp, wide, deep, avoid)
+  if (wall) return wall
+  const zn = camp.zone
+  const s = camp.s
+  const npcs = Object.values(zn.npcSpots || {}).filter(Boolean)
+  const clear = (x, z) => {
+    for (let y = 0; y < 3; y++) if (s._solid(x, y, z)) return false
+    if (npcs.some(([nx, nz]) => Math.abs(nx - x) <= 1 && Math.abs(nz - z) <= 1)) return false
+    return !avoid.some((o) => Math.abs(o.x - x) <= o.wide / 2 + 1 && Math.abs(o.z - z) <= o.wide / 2 + 1)
+  }
+  const cx = (zn.x0 + zn.x1) / 2
+  const cz = (zn.z0 + zn.z1) / 2
+  const tries = []
+  for (let x0 = zn.x0 + 3; x0 + wide <= zn.x1 - 2; x0++) for (let z0 = zn.z0 + 3; z0 + deep <= zn.z1 - 2; z0++) tries.push([x0, z0])
+  // Nearest the middle first.
+  tries.sort((a, b) => Math.hypot(a[0] + wide / 2 - cx, a[1] - cz) - Math.hypot(b[0] + wide / 2 - cx, b[1] - cz))
+  for (const [x0, z0] of tries) {
+    let ok = true
+    for (let x = x0 - 1; ok && x <= x0 + wide; x++) for (let z = z0 - 1; ok && z <= z0 + deep + 1; z++) if (!clear(x, z)) ok = false
+    if (ok) return { x: x0 + wide / 2, z: z0, rot: 0 }
+  }
+  return null
+}

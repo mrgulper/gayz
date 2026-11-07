@@ -59,6 +59,13 @@ import { MAX_STACKS as LOST_STACKS } from './LostFound.js'
 import { BALLS as PIN_BALLS, BUMPER_PTS as PIN_BUMPER, PTS_PER_COIN as PIN_PER_COIN, MAX_PIN_COINS, CHESS_WIN_COINS, CHESS_DEPTH } from './CampArcade.js'
 import { TAME_R as PET_TAME_R, GUARD_R as PET_GUARD_R, PET_DAMAGE } from './PetZombie.js'
 import { SOAK_S as WATER_SOAK, SOAK_SLOW as WATER_SLOW, TANK as WATER_TANK } from './WaterGun.js'
+import { OPEN_H as WING_OPEN_H, RINGS as WING_RINGS, RING_COINS as WING_RING_COINS, ALL_RINGS_COINS as WING_ALL } from './Wingsuit.js'
+import { OUT_S as DODGE_OUT, THROW_S as DODGE_THROW } from './PartyDodge.js'
+import { MUSIC_S as CHAIRS_MUSIC, GRAB_S as CHAIRS_GRAB } from './PartyChairs.js'
+import { CMD_S as SIMON_CMD, MIN_CMD_S as SIMON_MIN, RUN_DIST as SIMON_RUN } from './PartySimon.js'
+import { CHAPTERS as STORY_CHAPTERS, CHAPTER_COINS as STORY_COINS, FINALE_COINS as STORY_FINALE } from './Campaign.js'
+import { HUNGER_MINUTES, RAW_FOOD, COOKED_FOOD, STARVE_DPS, COOK_R } from './Hunger.js'
+import { EXHIBITS as MUSEUM_EXHIBITS, BOSSES as MUSEUM_BOSSES } from './CampMuseum.js'
 import { GUARDS as HEIST_GUARDS, ALARM_EXTRA as HEIST_EXTRA, HEIST_COINS, STEALTH_X as HEIST_STEALTH } from './Heist.js'
 import { PARK_DIST, FERRIS_S as PARK_FERRIS, GAME_S as PARK_GAME, TICKET_COINS as PARK_TICKET, PARK_ZOMBIES } from './ThemePark.js'
 import { ERAS as TIME_ERAS, ERA_S as TIME_ERA_S, ERA_COINS as TIME_COINS, ALL_ERAS_COINS as TIME_ALL } from './TimeMachine.js'
@@ -506,6 +513,28 @@ export function _featureValues(_game) {
     waterSlow: Math.round(WATER_SLOW * 100),
     waterSoak: WATER_SOAK,
     waterTank: WATER_TANK,
+    wingOpenH: WING_OPEN_H,
+    wingRings: WING_RINGS,
+    wingRingCoins: WING_RING_COINS,
+    wingAllCoins: WING_ALL,
+    dodgeThrow: DODGE_THROW,
+    dodgeOut: DODGE_OUT,
+    dodgeMinutes: Math.round(Party.ROUND_S.dodgeball / 60),
+    chairsMusic: `${CHAIRS_MUSIC[0]}-${CHAIRS_MUSIC[1]}`,
+    chairsGrab: CHAIRS_GRAB,
+    simonCmd: SIMON_CMD,
+    simonMinCmd: SIMON_MIN,
+    simonRun: SIMON_RUN,
+    storyChapters: STORY_CHAPTERS.length,
+    storyCoins: STORY_COINS,
+    storyFinale: STORY_FINALE,
+    hungerMinutes: HUNGER_MINUTES,
+    hungerRaw: RAW_FOOD,
+    hungerCooked: COOKED_FOOD,
+    hungerStarve: STARVE_DPS,
+    hungerCookR: COOK_R,
+    museumExhibits: MUSEUM_EXHIBITS.length,
+    museumBosses: MUSEUM_BOSSES.length,
     bombPlant: BOMB_PLANT,
     bombTime: BOMB_TIME,
     bombDefuse: BOMB_DEFUSE,

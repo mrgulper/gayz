@@ -13,6 +13,7 @@
 // gems, and the chest's loot. After DRAGON_LIFE seconds an unbeaten dragon
 // flies away. On a server only the host sees (and fights) it, like the
 // other events' planes and meteors.
+import { noteBoss } from './CampMuseum.js'
 import * as THREE from 'three'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
@@ -291,6 +292,8 @@ export class DragonBoss {
       game._renderCurrencyBar?.()
     }
     s.bosses = (s.bosses || 0) + 1
+    // The Museum's Hall of Bosses (CampMuseum.js).
+    noteBoss('dragon')
     s._message(t('dragonSlain', { c: HOARD_COINS, g: HOARD_GEMS }), 6)
     try { audioEngine.playSpecial?.('firework') } catch { /* no audio */ }
     s._fx?.confetti?.(d.x * this.B, d.y * this.B, d.z * this.B)

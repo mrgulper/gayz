@@ -69,6 +69,10 @@ export const RECIPES = [
   // Water Gun and Brain Snack (WaterGun.js, PetZombie.js, 2026-11-06).
   { id: 'waterGun', kind: 'item', n: 1, needs: [{ group: 'planks', n: 2 }, { block: 'glass', n: 1 }, { item: 'zombieGoo', n: 1 }] },
   { id: 'brainSnack', kind: 'item', n: 1, needs: [{ item: 'zombieGoo', n: 4 }, { item: 'plantFiber', n: 1 }] },
+  // The Cure (Campaign.js, 2026-11-06): the story's last chapter.
+  { id: 'theCure', kind: 'item', n: 1, needs: [{ item: 'zombieGoo', n: 6 }, { item: 'veggies', n: 2 }, { item: 'plantFiber', n: 3 }, { block: 'glass', n: 1 }] },
+  // Wingsuit (Wingsuit.js, 2026-11-06).
+  { id: 'wingsuit', kind: 'item', n: 1, needs: [{ item: 'plantFiber', n: 6 }, { item: 'zombieGoo', n: 2 }, { group: 'log', n: 1 }] },
   { id: 'boombox', kind: 'item', n: 1, needs: [{ group: 'planks', n: 2 }, { block: 'glass', n: 1 }, { item: 'zombieGoo', n: 1 }] },
   // Winter only (Snowballs.winterOn): a Snow block packs into four.
   { id: 'snowball', kind: 'item', n: 4, needs: [{ block: 'snow', n: 1 }], winter: true },

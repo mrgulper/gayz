@@ -85,16 +85,19 @@ import { PartyGolf } from './PartyGolf.js'
 import { PartyFreeze } from './PartyFreeze.js'
 import { PartyBomb } from './PartyBomb.js'
 import { PartyWerewolf } from './PartyWerewolf.js'
+import { PartyDodge } from './PartyDodge.js'
+import { PartyChairs } from './PartyChairs.js'
+import { PartySimon } from './PartySimon.js'
 
 // The modes that live in their own files (see `this.ext` above).
-const PARTY_EXT = { floorLava: PartyLava, laserTag: PartyLaser, kartRace: PartyKart, obstacleCourse: PartyParkour, duelArena: PartyDuel, miniGolf: PartyGolf, freezeTag: PartyFreeze, bombDefuse: PartyBomb, werewolfNight: PartyWerewolf }
-export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'miniGolf', 'freezeTag', 'bombDefuse', 'werewolfNight']
+const PARTY_EXT = { floorLava: PartyLava, laserTag: PartyLaser, kartRace: PartyKart, obstacleCourse: PartyParkour, duelArena: PartyDuel, miniGolf: PartyGolf, freezeTag: PartyFreeze, bombDefuse: PartyBomb, werewolfNight: PartyWerewolf, dodgeball: PartyDodge, musicalChairs: PartyChairs, simonSays: PartySimon }
+export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'miniGolf', 'freezeTag', 'bombDefuse', 'werewolfNight', 'dodgeball', 'musicalChairs', 'simonSays']
 // Each mode's server mode (api/_lib/servers.js MODES).
-export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling', paintWars: 'paint', buildBattle: 'build', floorLava: 'lava', laserTag: 'laser', kartRace: 'kart', obstacleCourse: 'parkour', duelArena: 'duel', miniGolf: 'golf', freezeTag: 'freeze', bombDefuse: 'bomb', werewolfNight: 'werewolf' }
+export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling', paintWars: 'paint', buildBattle: 'build', floorLava: 'lava', laserTag: 'laser', kartRace: 'kart', obstacleCourse: 'parkour', duelArena: 'duel', miniGolf: 'golf', freezeTag: 'freeze', bombDefuse: 'bomb', werewolfNight: 'werewolf', dodgeball: 'dodge', musicalChairs: 'chairs', simonSays: 'simon' }
 export const TOTAL = 6
 export const WAIT_S = 8
 export const END_S = 7
-export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300, paintWars: 150, buildBattle: 300, floorLava: 240, laserTag: 180, kartRace: 300, obstacleCourse: 420, duelArena: 120, miniGolf: 240, freezeTag: 150, bombDefuse: 150, werewolfNight: 330 }
+export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300, paintWars: 150, buildBattle: 300, floorLava: 240, laserTag: 180, kartRace: 300, obstacleCourse: 420, duelArena: 120, miniGolf: 240, freezeTag: 150, bombDefuse: 150, werewolfNight: 330, dodgeball: 180, musicalChairs: 300, simonSays: 300 }
 export const HIDE_S = 20
 export const STUN_S = 2.5
 export const FLAG_GAP = 32
@@ -1373,7 +1376,7 @@ export class PartyMode {
 
   // --- the arena: flags, bases, the hill, goals and the ball ---
 
-  _drawArena() {
+  _drawArena(dt = 1 / 60) {
     const B = this.s.B
     const show = !!this.home && this.phase !== 'wait'
     this.arena.visible = show
@@ -1398,7 +1401,7 @@ export class PartyMode {
       this._ballMesh.rotation.z -= (b.vx || 0) * 0.02
     }
     if (this.kind === 'paintWars') this._drawPaint()
-    this.ext?.draw?.()
+    this.ext?.draw?.(dt)
     if (this.kind === 'kingHill' && this._hillMesh) this._hillMesh.material.opacity = 0.3 + Math.sin(performance.now() / 300) * 0.1
     if (this.kind === 'hotPotato' && this._bomb) {
       const h = this._people().find((p) => p.id === this.holder && !this.out.has(p.id))

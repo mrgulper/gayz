@@ -102,6 +102,9 @@ import { TowerDefense, TD_WAVES, START_COINS as TD_START_COINS, FIRST_BREAK as T
 import { HeliFuel } from './HeliFuel.js'
 import { GOO_CHANCE } from './PlayCrafting.js'
 import { PetZombie } from './PetZombie.js'
+import { Wingsuit } from './Wingsuit.js'
+import { Hunger } from './Hunger.js'
+import { noteBoss } from './CampMuseum.js'
 import { WaterGun, SOAK_SLOW } from './WaterGun.js'
 import { closeScreen as closeCampScreen } from './CampScreen.js'
 import { RunPerks, perksFor } from './RunPerks.js'
@@ -536,6 +539,13 @@ export class BuildSurvival {
     this.pet.clear()
     if (!this.water) this.water = new WaterGun(this)
     this.water.clear()
+    // The Wingsuit (Wingsuit.js).
+    if (!this.wing) this.wing = new Wingsuit(this)
+    this.wing.clear()
+    // Hardcore Survival's hunger meter (Hunger.js) - on once the bag's ready.
+    if (!this.hunger) this.hunger = new Hunger(this)
+    this.hunger.clear()
+    this._hungerStart = true
     // Reefs and ruins, the pirate ship, the train and the Moon
     // (Reefs.js, PirateShip.js, ZombieTrain.js, MoonTrip.js).
     if (!this.reefs) this.reefs = new Reefs(this)
@@ -747,6 +757,8 @@ export class BuildSurvival {
     this.dance?.clear()
     this.pet?.clear()
     this.water?.clear()
+    this.wing?.clear()
+    this.hunger?.clear()
     closeCampScreen(false)
     this.train?.clear()
     this.moon?.clear()
@@ -1748,6 +1760,8 @@ export class BuildSurvival {
     if (by) this.net?.queueCredit(by, z.boss, skeleton, z.tier, false, z.shine)
     else if (!sunOnly) {
       const coins = this._coinsEarned
+      // A boss beaten goes in the Museum's Hall of Bosses (CampMuseum.js).
+      if (z.boss && this.active) noteBoss(z.cave ? 'dungeonBoss' : 'waveBoss')
       this._countKill(z.boss, skeleton, z.tier, z.shine)
       this._wornByZombie(z)
       this.onboard?.onKill()
@@ -3247,6 +3261,7 @@ export class BuildSurvival {
     this.carts?.update(Math.min(dt, 0.1))
     this.lighthouse?.update(Math.min(dt, 0.1))
     this.water?.update(Math.min(dt, 0.1))
+    this.wing?.update(Math.min(dt, 0.1))
     this.park?.update(Math.min(dt, 0.1))
     this.time?.update(Math.min(dt, 0.1))
     this.reefs?.update(Math.min(dt, 0.1))
@@ -3282,6 +3297,11 @@ export class BuildSurvival {
     if (playing) this.signs?.update(dt)
     if (playing) this.fishing?.update(dt)
     if (playing) this.pet?.update(dt)
+    if (playing && this._hungerStart) {
+      this._hungerStart = false
+      this.hunger?.start()
+    }
+    this.hunger?.update(dt)
     if (playing && this.fromMenu) this.radios?.update(dt)
     this.sprays?.update(dt)
     this.emotes?.update(dt)
