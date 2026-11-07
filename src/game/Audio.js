@@ -52,6 +52,13 @@ const SPECIAL_SOUNDS = {
   // Snowballs (Snowballs.js): a whoosh, and a soft crunchy splat.
   snowThrow: { noise: [0.12, 1800, 3500, 0.08] },
   snowSplat: { noise: [0.18, 600, 2400, 0.14] },
+  // Water Gun squirt (WaterGun.js), Pinball (CampArcade.js), Simon Says
+  // and Musical Chairs (PartySimon.js, PartyChairs.js), 2026-11-06.
+  squirt: { noise: [0.1, 2600, 5200, 0.07] },
+  flipper: { notes: [[220, 0, 0.05, 'square', 0.12, 140]] },
+  bumper: { notes: [[880, 0, 0.08, 'square', 0.12, 1320]] },
+  tune: { notes: [[523, 0, 0.18, 'triangle', 0.14], [659, 0.2, 0.18, 'triangle', 0.14], [784, 0.4, 0.18, 'triangle', 0.14], [659, 0.6, 0.18, 'triangle', 0.14]] },
+  scratch: { notes: [[400, 0, 0.3, 'sawtooth', 0.12, 80]] },
   // Metal detector beep (MetalDetector.js).
   detectorBeep: { notes: [[1760, 0, 0.06, 'square', 0.06]] },
   detectorFound: { notes: [[880, 0, 0.12, 'square', 0.08], [1320, 0.12, 0.12, 'square', 0.08], [1760, 0.24, 0.3, 'square', 0.07]] },

@@ -66,6 +66,9 @@ export const RECIPES = [
   // Time Machine and Time Pass (TimeMachine.js, 2026-11-06).
   { id: 'timeMachine', kind: 'item', n: 1, needs: [{ group: 'stone', n: 16 }, { block: 'glass', n: 4 }, { item: 'heliFuel', n: 2 }, { item: 'zombieGoo', n: 4 }] },
   { id: 'timePass', kind: 'item', n: 1, needs: [{ item: 'zombieGoo', n: 3 }, { group: 'planks', n: 1 }] },
+  // Water Gun and Brain Snack (WaterGun.js, PetZombie.js, 2026-11-06).
+  { id: 'waterGun', kind: 'item', n: 1, needs: [{ group: 'planks', n: 2 }, { block: 'glass', n: 1 }, { item: 'zombieGoo', n: 1 }] },
+  { id: 'brainSnack', kind: 'item', n: 1, needs: [{ item: 'zombieGoo', n: 4 }, { item: 'plantFiber', n: 1 }] },
   { id: 'boombox', kind: 'item', n: 1, needs: [{ group: 'planks', n: 2 }, { block: 'glass', n: 1 }, { item: 'zombieGoo', n: 1 }] },
   // Winter only (Snowballs.winterOn): a Snow block packs into four.
   { id: 'snowball', kind: 'item', n: 4, needs: [{ block: 'snow', n: 1 }], winter: true },

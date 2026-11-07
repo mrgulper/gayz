@@ -1247,3 +1247,45 @@ html.ui-theme-clean #time-pick { color: var(--clean-bg); background: var(--clean
 #time-flash { position: fixed; inset: 0; z-index: 59; pointer-events: none; background: #fff; opacity: 0; }
 #time-flash.on { animation: time-flash 0.9s ease-out; }
 @keyframes time-flash { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
+
+/* The camp's pop-up screens: Newspaper, Lost & Found, Pinball, Chess, the
+   Museum's plaques and the Story Campaign's scenes (CampScreen.js). */
+#camp-screen {
+  position: fixed; left: 50%; top: 50%; z-index: 40; transform: translate(-50%, -50%); width: min(440px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow-y: auto; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px;
+  font: 14px/1.4 system-ui, sans-serif; color: #f4ead2;
+  background: rgba(8, 8, 7, 0.94); border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.55); border-radius: 12px;
+}
+#camp-screen.wide { width: min(560px, calc(100vw - 24px)); }
+#camp-screen .camp-screen-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 16px; }
+#camp-screen .camp-screen-x { width: 32px; height: 32px; flex: none; font: inherit; color: inherit; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 50%; cursor: pointer; }
+#camp-screen .camp-screen-body { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+#camp-screen .camp-screen-note { margin: 0; font-size: 13px; opacity: 0.85; text-align: center; }
+#camp-screen .camp-screen-btn { min-height: 36px; padding: 6px 18px; font: inherit; font-weight: 700; color: #16110a; background: #ffd23f; border: 0; border-radius: 999px; cursor: pointer; }
+#camp-screen .news-page { align-items: stretch; padding: 12px; color: #1d1a14; background: #f3ecd8; border-radius: 6px; font-family: Georgia, 'Times New Roman', serif; }
+#camp-screen .news-masthead { font-size: 26px; font-weight: 900; text-align: center; letter-spacing: 1px; border-bottom: 3px double #1d1a14; }
+#camp-screen .news-date { font-size: 12px; text-align: center; font-style: italic; }
+#camp-screen .news-headline { margin: 4px 0; font-size: 21px; line-height: 1.15; text-align: center; text-transform: uppercase; }
+#camp-screen .news-stories { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #1d1a14; padding-top: 6px; }
+#camp-screen .news-stories p { margin: 0; font-size: 14px; }
+#camp-screen .lost-list { width: 100%; max-height: 40vh; overflow-y: auto; margin: 0; padding: 0 0 0 18px; }
+#camp-screen .arcade-canvas { width: min(300px, 72vw); height: auto; aspect-ratio: 300 / 480; max-height: 58vh; border-radius: 8px; touch-action: none; }
+#camp-screen .chess-board { display: grid; grid-template-columns: repeat(8, 1fr); width: min(360px, calc(100vw - 52px)); aspect-ratio: 1; border: 2px solid #3a2a18; }
+#camp-screen .chess-sq { display: flex; align-items: center; justify-content: center; padding: 0; border: 0; font-size: min(32px, 8vw); line-height: 1; cursor: pointer; }
+#camp-screen .chess-sq.light { background: #eed9b0; }
+#camp-screen .chess-sq.dark { background: #a8784a; }
+#camp-screen .chess-sq.pick { box-shadow: inset 0 0 0 3px #ffd23f; }
+#camp-screen .chess-sq.to { box-shadow: inset 0 0 0 3px #5fd35f; }
+#camp-screen .chess-sq .w { color: #ffffff; text-shadow: 0 0 2px #000, 0 0 2px #000; }
+#camp-screen .chess-sq .b { color: #161616; }
+#camp-screen .museum-list { width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+#camp-screen .museum-list div { padding: 6px 8px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; font-size: 13px; }
+#camp-screen .museum-list div.off { opacity: 0.45; }
+#camp-screen .story-line { width: 100%; margin: 0; padding: 8px 10px; background: rgba(255, 255, 255, 0.06); border-radius: 8px; }
+#camp-screen .story-line b { display: block; font-size: 12px; opacity: 0.8; }
+body.play-photo #camp-screen { display: none; }
+html.ui-theme-biome #camp-screen { color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); }
+html.ui-theme-biome #camp-screen .camp-screen-x { border-color: var(--biome-edge); }
+html.ui-theme-biome #camp-screen .camp-screen-btn { color: var(--biome-surface); background: var(--biome-accent); }
+html.ui-theme-clean #camp-screen { color: var(--clean-bg); background: var(--clean-fg); border-color: var(--clean-fg); }
+html.ui-theme-clean #camp-screen .camp-screen-btn { color: var(--clean-fg); background: var(--clean-bg); }
