@@ -1148,15 +1148,10 @@ html.theme-lighter #app { filter: brightness(1.25); }
   width: 100%;
   max-width: 1900px;
   margin: 0 auto;
-  /* #menu-col-right no longer actually renders in this grid's own right
-     track (see its own rule below, 2026-09-26) - this padding now only
-     shrinks the box that justify-content:center measures leftover space
-     against, which is exactly why it has to stay: removing it widens
-     that box by 80px, which re-centers ALL THREE tracks (not just the
-     now-empty, invisible one) and visibly shifts the still-real left
-     column and hero content too. Keeping it holds their position exactly
-     where it always was. */
-  padding-right: 80px;
+  /* No right-only padding here (removed 2026-11-07): #menu-col-right is
+     position:absolute (see 08-homepage.css), so any one-sided padding
+     shifts the hero column (logo, Play, Game Mode) off the true screen
+     center. Keep left/right spacing symmetric in every theme. */
 }
 
 #menu-col-left,
