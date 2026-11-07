@@ -4717,8 +4717,8 @@ test('Crafting: the Crafting tab makes gear and blocks from what you carry', asy
     out.gooDrops = drops
     return out
   })
-  // 35 out of winter (the Snowball recipe only shows December to February).
-  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 36 : 35)
+  // 37 out of winter (the Snowball recipe only shows December to February).
+  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 38 : 37)
   expect(r.ammoReady).toBe(true)
   expect(r.helmetReady).toBe(false)
   expect(r.ammo).toBe(1)
@@ -6803,6 +6803,131 @@ test('the Vault Heist, the Theme Park, the Time Machine and Werewolf Night', asy
     out.wolfCaught = pm.phase === 'end' && pm.winner === 'h'
     out.wolfSnap = typeof JSON.parse(JSON.stringify(pm.snapshot())).x?.vs === 'string'
     await stop()
+    return out
+  })
+  expect(Object.keys(r).filter((k) => r[k] !== true)).toEqual([])
+})
+
+test('the camp Plaza (newspaper, lost and found, pinball, chess), the Pet Zombie and the Water Gun', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    localStorage.removeItem('gayz-play-saved-run')
+    localStorage.removeItem('gayz-lost-found')
+    localStorage.removeItem('gayz-pet-zombie')
+    g.settings.selectedGameMode = 'classic'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    for (let i = 0; i < 50 && !s._skin; i++) await new Promise((res) => setTimeout(res, 100))
+    const bm = s.bm
+    const tm = bm.tryMode
+    s.camp.update(0.016)
+    const plaza = s.camp.plaza
+    out.plazaBuilt = !!plaza?.spot && plaza.stations.length === 4
+    const at = (id) => {
+      const st = plaza.stations.find((x) => x.id === id)
+      tm.pos.set(st.x, 0, st.z)
+      return plaza.near()?.id === id
+    }
+    // The newspaper.
+    out.newsNear = at('news')
+    out.newsOpens = plaza.use() && !!document.querySelector('#camp-screen .news-headline')?.textContent && bm.mouseScreenOpen()
+    document.querySelector('#camp-screen .camp-screen-x').click()
+    out.newsCloses = !document.getElementById('camp-screen') && !bm.mouseScreenOpen()
+    // Lost & Found: a dropped item that's never picked up again.
+    s.inv.hotbar[3] = { kind: 'item', id: 'zombieGoo', n: 2 }
+    s.inv.active = 3
+    s.inv.drop()
+    const d = s._drops.list.find((x) => x.type === 'zombieGoo')
+    out.lostMarked = !!d?.mine
+    d.age = 1000
+    s._drops.update(0.016)
+    out.lostSaved = JSON.parse(localStorage.getItem('gayz-lost-found') || '[]').some((v) => v[1] === 'zombieGoo')
+    out.lostNear = at('lost')
+    plaza.use()
+    const take = [...document.querySelectorAll('#camp-screen button')].find((b) => b.className === 'camp-screen-btn')
+    take.click()
+    out.lostBack = s.inv.hotbar[3]?.n === 2 && JSON.parse(localStorage.getItem('gayz-lost-found')).length === 0 && !document.getElementById('camp-screen')
+    // Pinball: a bumper scores, a ball drains.
+    at('pinball')
+    plaza.use()
+    const P = plaza.last
+    out.pinLaunch = P.launch() && !!P.ball
+    P.ball.x = 100
+    P.ball.y = 110
+    P.ball.vx = 0
+    P.ball.vy = 300
+    for (let i = 0; i < 20; i++) P.step(0.005)
+    out.pinBumper = P.score >= 100
+    P.ball.x = 150
+    P.ball.y = 470
+    P.ball.vx = 0
+    P.ball.vy = 400
+    for (let i = 0; i < 40; i++) P.step(0.005)
+    out.pinDrain = !P.ball && P.balls === 2
+    document.querySelector('#camp-screen .camp-screen-x').click()
+    // Chess: 20 first moves, Fool's mate, the zombie answers.
+    at('chess')
+    plaza.use()
+    const C = plaza.last
+    out.chess20 = C.legal().length === 20
+    C.play(53, 45)
+    C.play(12, 28)
+    C.play(54, 38)
+    C.play(3, 39)
+    out.chessMate = C.result() === 'mate'
+    document.querySelector('#camp-screen .camp-screen-x').click()
+    at('chess')
+    plaza.use()
+    const C2 = plaza.last
+    C2.tap(52)
+    C2.tap(36)
+    await new Promise((res) => setTimeout(res, 600))
+    out.chessReply = C2.S.turn === 'w' && C2.S.b[36] === 'P' && C2.legal().length > 0
+    document.querySelector('#camp-screen .camp-screen-x').click()
+    // Pet Zombie: a Brain Snack on a zombie in front of you.
+    const P0 = { x: 4300, y: 150, z: 4300 }
+    for (let x = -12; x <= 12; x++) for (let z = -12; z <= 12; z++) bm.placeBlock(P0.x + x, P0.y - 1, P0.z + z, 'stone')
+    tm.pos.set(P0.x + 0.5, P0.y, P0.z + 0.5)
+    bm._yaw = 0
+    bm._pitch = 0
+    bm.camera.position.set((P0.x + 0.5) * s.B, (P0.y + 1.62) * s.B, (P0.z + 0.5) * s.B)
+    bm.camera.rotation.set(0, 0, 0)
+    bm.camera.updateMatrixWorld()
+    const z1 = s._makeZombie(++s._zid, P0.x + 0.5, P0.y, P0.z - 2.5, 100, false)
+    s.zombies.push(z1)
+    s.inv.hotbar[4] = { kind: 'item', id: 'brainSnack', n: 1 }
+    s.inv.active = 4
+    s.inv.apply?.()
+    out.petTamed = s.inv.useHeld() && !!s.pet.pet && !s.zombies.includes(z1) && !!localStorage.getItem('gayz-pet-zombie') && !s.inv.hotbar[4]
+    const z2 = s._makeZombie(++s._zid, s.pet.pet.x + 1, P0.y, s.pet.pet.z, 100, false)
+    s.zombies.push(z2)
+    for (let i = 0; i < 40; i++) s.pet.update(0.05)
+    out.petBites = z2.health < 100
+    s.pet.release()
+    out.petReleased = !s.pet.pet && !localStorage.getItem('gayz-pet-zombie')
+    // Water Gun: soaks a zombie, puts out a fire, empties and refills.
+    const z3 = s._makeZombie(++s._zid, P0.x + 0.5, P0.y, P0.z - 4, 100, false)
+    z3.burn = 3
+    s.zombies.push(z3)
+    s.inv.hotbar[5] = { kind: 'item', id: 'waterGun', n: 1 }
+    s.inv.active = 5
+    s.inv.apply?.()
+    out.waterSquirt = s.inv.useHeld() && s.water.tank === 24 && !!s.inv.hotbar[5]
+    for (let i = 0; i < 30; i++) s.water.update(0.016)
+    out.waterSoak = z3.soaked > 0 && !(z3.burn > 0)
+    s._groundFires = s._groundFires || []
+    s._groundFires.push({ x: P0.x, y: P0.y, z: P0.z - 6, t: 0, life: 20 })
+    out.waterDouse = s.water.douse(P0.x + 0.5, P0.y + 0.3, P0.z - 5.5) >= 1 && !s._groundFires.some((f) => f.z === P0.z - 6)
+    s.water.tank = 0
+    s.water._nextAt = 0
+    out.waterEmpty = !s.water.squirt()
+    s.stop?.()
+    g._exitBuildMode?.()
     return out
   })
   expect(Object.keys(r).filter((k) => r[k] !== true)).toEqual([])

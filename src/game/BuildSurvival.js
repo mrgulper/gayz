@@ -101,6 +101,9 @@ import { CampSiege } from './CampSiege.js'
 import { TowerDefense, TD_WAVES, START_COINS as TD_START_COINS, FIRST_BREAK as TD_FIRST_BREAK, BREAK as TD_BREAK } from './TowerDefense.js'
 import { HeliFuel } from './HeliFuel.js'
 import { GOO_CHANCE } from './PlayCrafting.js'
+import { PetZombie } from './PetZombie.js'
+import { WaterGun, SOAK_SLOW } from './WaterGun.js'
+import { closeScreen as closeCampScreen } from './CampScreen.js'
 import { RunPerks, perksFor } from './RunPerks.js'
 import { nextUnlock, nextUnlockText, newlyUnlocked, cosmeticName, COSMETICS, makeCape, isUnlocked, needText } from './Cosmetics.js'
 
@@ -528,6 +531,11 @@ export class BuildSurvival {
     this.time.clear()
     if (!this.dance) this.dance = new DanceOff(this)
     this.dance.clear()
+    // Your Pet Zombie and the Water Gun (PetZombie.js, WaterGun.js).
+    if (!this.pet) this.pet = new PetZombie(this)
+    this.pet.clear()
+    if (!this.water) this.water = new WaterGun(this)
+    this.water.clear()
     // Reefs and ruins, the pirate ship, the train and the Moon
     // (Reefs.js, PirateShip.js, ZombieTrain.js, MoonTrip.js).
     if (!this.reefs) this.reefs = new Reefs(this)
@@ -737,6 +745,9 @@ export class BuildSurvival {
     this.park?.clear()
     this.time?.clear()
     this.dance?.clear()
+    this.pet?.clear()
+    this.water?.clear()
+    closeCampScreen(false)
     this.train?.clear()
     this.moon?.clear()
     this.pirate?.clear()
@@ -2784,6 +2795,11 @@ export class BuildSurvival {
       zb.frozen -= dt
       speed = 0
     }
+    // Soaked by a Water Gun: slowed for a while (WaterGun.js).
+    if (zb.soaked > 0) {
+      zb.soaked -= dt
+      speed *= SOAK_SLOW
+    }
     // Special blocks it touches (spikes, a barricade...), BuildSpecials.js.
     speed *= this.bm.specials.zombieTick(zb, dt)
     const cx = Math.floor(zb.x)
@@ -3230,6 +3246,7 @@ export class BuildSurvival {
     this.springs?.update(Math.min(dt, 0.1))
     this.carts?.update(Math.min(dt, 0.1))
     this.lighthouse?.update(Math.min(dt, 0.1))
+    this.water?.update(Math.min(dt, 0.1))
     this.park?.update(Math.min(dt, 0.1))
     this.time?.update(Math.min(dt, 0.1))
     this.reefs?.update(Math.min(dt, 0.1))
@@ -3264,6 +3281,7 @@ export class BuildSurvival {
     else if (playing || net) this.animals?.update(dt)
     if (playing) this.signs?.update(dt)
     if (playing) this.fishing?.update(dt)
+    if (playing) this.pet?.update(dt)
     if (playing && this.fromMenu) this.radios?.update(dt)
     this.sprays?.update(dt)
     this.emotes?.update(dt)
@@ -3498,6 +3516,7 @@ export class BuildSurvival {
     this._chestsUsed.clear()
     this._message(t('buildPlayWaveStart', { n: this.wave }))
     this.snowballs?.onWave(n)
+    if (n <= 1) this.water?.start()
     if (n === 1) this.speedrun?.start()
     this.siege?.onWave(n)
     this._report('wave', { wave: this.wave, difficulty: this.cfg.difficulty || 'normal', mutators: this.cfg.mutators || [], mode: this.cfg.mode })

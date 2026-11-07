@@ -54,6 +54,11 @@ import { NOTE_MAX as POSTCARD_NOTE } from './Postcards.js'
 import { GRAVES as GRAVE_GRAVES, RISE_GAP as GRAVE_GAP, GRAVE_COINS } from './Graveyard.js'
 import { SPOT_S as LIGHTHOUSE_SPOT } from './Lighthouse.js'
 import { DECK_Y as TREE_DECK } from './CampTreehouse.js'
+import { HEADLINES as NEWS_HEADS, JOKES as NEWS_JOKES, STORIES as NEWS_STORIES, PER_PAGE as NEWS_PER } from './Newspaper.js'
+import { MAX_STACKS as LOST_STACKS } from './LostFound.js'
+import { BALLS as PIN_BALLS, BUMPER_PTS as PIN_BUMPER, PTS_PER_COIN as PIN_PER_COIN, MAX_PIN_COINS, CHESS_WIN_COINS, CHESS_DEPTH } from './CampArcade.js'
+import { TAME_R as PET_TAME_R, GUARD_R as PET_GUARD_R, PET_DAMAGE } from './PetZombie.js'
+import { SOAK_S as WATER_SOAK, SOAK_SLOW as WATER_SLOW, TANK as WATER_TANK } from './WaterGun.js'
 import { GUARDS as HEIST_GUARDS, ALARM_EXTRA as HEIST_EXTRA, HEIST_COINS, STEALTH_X as HEIST_STEALTH } from './Heist.js'
 import { PARK_DIST, FERRIS_S as PARK_FERRIS, GAME_S as PARK_GAME, TICKET_COINS as PARK_TICKET, PARK_ZOMBIES } from './ThemePark.js'
 import { ERAS as TIME_ERAS, ERA_S as TIME_ERA_S, ERA_COINS as TIME_COINS, ALL_ERAS_COINS as TIME_ALL } from './TimeMachine.js'
@@ -484,6 +489,23 @@ export function _featureValues(_game) {
     graveCoins: GRAVE_COINS,
     lighthouseSpot: LIGHTHOUSE_SPOT,
     treeDeck: TREE_DECK,
+    newsHeadlines: NEWS_HEADS,
+    newsJokes: NEWS_JOKES,
+    newsStories: NEWS_STORIES,
+    newsPerPage: NEWS_PER,
+    lostStacks: LOST_STACKS,
+    pinBumper: PIN_BUMPER,
+    pinBalls: PIN_BALLS,
+    pinPerCoin: PIN_PER_COIN,
+    pinMaxCoins: MAX_PIN_COINS,
+    chessDepth: CHESS_DEPTH,
+    chessCoins: CHESS_WIN_COINS,
+    petTameR: PET_TAME_R,
+    petGuardR: PET_GUARD_R,
+    petDamage: PET_DAMAGE,
+    waterSlow: Math.round(WATER_SLOW * 100),
+    waterSoak: WATER_SOAK,
+    waterTank: WATER_TANK,
     bombPlant: BOMB_PLANT,
     bombTime: BOMB_TIME,
     bombDefuse: BOMB_DEFUSE,

@@ -10,6 +10,7 @@
 import * as THREE from 'three'
 import { t } from './i18n.js'
 import { itemIconCanvas } from './PlayInventory.js'
+import { addLost } from './LostFound.js'
 
 const DROP_SCALE = 0.36
 const DROP_LIFE_S = 300
@@ -40,8 +41,10 @@ export class PlayDrops {
     const mesh = new THREE.Mesh(parts.geometry, parts.material)
     mesh.scale.setScalar(DROP_SCALE)
     this.bm.scene.add(mesh)
-    this.list.push({ type, mesh, ...this._hop(x, y, z, toss), age: 0, spin: Math.random() * 6, onGround: false })
-    while (this.list.length > MAX_DROPS) this._remove(this.list[0])
+    // mine: thrown out with the Drop key - if it's never picked up again it
+    // goes to the Lost & Found box (LostFound.js).
+    this.list.push({ type, mesh, ...this._hop(x, y, z, toss), age: 0, spin: Math.random() * 6, onGround: false, mine: !!toss })
+    while (this.list.length > MAX_DROPS) this._evict(this.list[0])
     return true
   }
 
@@ -60,8 +63,8 @@ export class PlayDrops {
     const mesh = new THREE.Sprite(mat)
     mesh.scale.setScalar(DROP_SCALE * 1.4 * this.s.B)
     this.bm.scene.add(mesh)
-    this.list.push({ type: id, kind: 'item', mesh, ...this._hop(x, y, z, toss), age: 0, spin: 0, onGround: false })
-    while (this.list.length > MAX_DROPS) this._remove(this.list[0])
+    this.list.push({ type: id, kind: 'item', mesh, ...this._hop(x, y, z, toss), age: 0, spin: 0, onGround: false, mine: !!toss })
+    while (this.list.length > MAX_DROPS) this._evict(this.list[0])
     return true
   }
 
@@ -71,6 +74,13 @@ export class PlayDrops {
     if (toss) return { x, y, z, vx: toss.dx * TOSS_SPEED, vy: 3.5, vz: toss.dz * TOSS_SPEED, wait: TOSS_PICKUP_S }
     const a = Math.random() * Math.PI * 2
     return { x: x + 0.5, y: y + 0.4, z: z + 0.5, vx: Math.cos(a) * 1.2, vy: 4.5, vz: Math.sin(a) * 1.2, wait: PICKUP_DELAY_S }
+  }
+
+  // Pushed out by too many drops: a dropped one of mine is kept in the
+  // Lost & Found.
+  _evict(d) {
+    if (d.mine) addLost(d.kind || 'block', d.type, 1)
+    this._remove(d)
   }
 
   _remove(d) {
@@ -91,6 +101,7 @@ export class PlayDrops {
     for (const d of [...this.list]) {
       d.age += dt
       if (d.age > DROP_LIFE_S) {
+        if (d.mine) addLost(d.kind || 'block', d.type, 1)
         this._remove(d)
         continue
       }
@@ -153,6 +164,8 @@ export class PlayDrops {
   }
 
   clear() {
+    // Left on the ground when the game ends: to the Lost & Found.
+    for (const d of this.list) if (d.mine) addLost(d.kind || 'block', d.type, 1)
     for (const d of this.list) this.bm.scene.remove(d.mesh)
     this.list = []
   }

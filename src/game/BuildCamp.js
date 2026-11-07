@@ -18,6 +18,8 @@
 // - Now and then a siege makes it unsafe for a while (CampSiege.js).
 // - A Daily Lucky Wheel (CampWheel.js, 2026-11-06) and a Treehouse
 //   (CampTreehouse.js, 2026-11-06).
+// - The Plaza: the Zombie Newspaper, the Lost & Found box, Pinball and
+//   Chess (CampPlaza.js, 2026-11-06).
 import * as THREE from 'three'
 import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { t } from './i18n.js'
@@ -27,6 +29,7 @@ import { CampAquarium } from './CampAquarium.js'
 import { CampZoo } from './CampZoo.js'
 import { CampWheel } from './CampWheel.js'
 import { CampTreehouse } from './CampTreehouse.js'
+import { CampPlaza, WIDE as PLAZA_WIDE } from './CampPlaza.js'
 
 export const COIN_PER_KILL = 10
 export const COIN_PER_WAVE = 50
@@ -143,6 +146,8 @@ export class BuildCamp {
     this.wheel = null
     this.treehouse?.dispose()
     this.treehouse = null
+    this.plaza?.dispose()
+    this.plaza = null
     if (this._prompt) this._prompt.style.display = 'none'
   }
 
@@ -177,6 +182,8 @@ export class BuildCamp {
     if (this.wheel?.use()) return true
     // The Treehouse's ladder (CampTreehouse.js).
     if (this.treehouse?.use()) return true
+    // The Plaza's stations (CampPlaza.js).
+    if (this.plaza?.use()) return true
     const npc = this._facingNpc()
     if (!npc) return false
     shop.openPanel(npc.id)
@@ -223,6 +230,12 @@ export class BuildCamp {
       if (this.wheel.spot) taken.push({ ...this.wheel.spot, wide: 4 })
       this.treehouse = new CampTreehouse(this)
       this.treehouse.build(taken)
+      // And the Plaza (CampPlaza.js).
+      if (this.treehouse.spot) taken.push({ ...this.treehouse.spot, wide: 5 })
+      this.plaza = new CampPlaza(this)
+      this.plaza.build(taken)
+      if (this.plaza.spot) taken.push({ ...this.plaza.spot, wide: PLAZA_WIDE })
+      this.taken = taken
     }
     this.trophies.update(p)
     this.aquarium?.update(dt)
@@ -231,8 +244,9 @@ export class BuildCamp {
     const npc = this.s.shop?.panelOpen ? null : this._facingNpc()
     const wheel = !npc && !this.s.shop?.panelOpen && !!this.wheel?.near()
     const tree = !npc && !wheel && !this.s.shop?.panelOpen && !!this.treehouse?.near()
+    const st = !npc && !wheel && !tree && !this.s.shop?.panelOpen ? this.plaza?.near() : null
     if (this._prompt) {
-      this._prompt.style.display = npc || wheel || tree ? 'block' : 'none'
+      this._prompt.style.display = npc || wheel || tree || st ? 'block' : 'none'
       if (npc && this._promptFor !== npc.id) {
         this._promptFor = npc.id
         this._prompt.textContent = t('campTalk', { name: t(`campNpc_${npc.id}`) })
@@ -242,6 +256,9 @@ export class BuildCamp {
       } else if (tree && this._promptFor !== `tree${this.treehouse.up}`) {
         this._promptFor = `tree${this.treehouse.up}`
         this._prompt.textContent = t(this.treehouse.up ? 'treehousePromptDown' : 'treehousePromptUp')
+      } else if (st && this._promptFor !== `plaza${st.id}`) {
+        this._promptFor = `plaza${st.id}`
+        this._prompt.textContent = this.plaza.prompt(st)
       }
     }
   }

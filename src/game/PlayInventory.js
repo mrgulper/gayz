@@ -30,6 +30,7 @@ import { getKeyFor, keyLabel } from './Keybinds.js'
 import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, canPlayWeapon } from './PlayWeapons.js'
 import { PlayCrafting } from './PlayCrafting.js'
 import { HELI_FUEL_S } from './Vehicles.js'
+import { TANK as WATER_TANK } from './WaterGun.js'
 
 // How long the item card stays after a finger lets go (phones).
 const TIP_TOUCH_MS = 1600
@@ -98,6 +99,9 @@ export const ITEMS = {
   // Time Machine and Time Pass (TimeMachine.js, 2026-11-06).
   timeMachine: { key: 'invTimeMachine', timeMachine: true },
   timePass: { key: 'invTimePass', timePass: true },
+  // Water Gun (WaterGun.js) and Brain Snack (PetZombie.js), 2026-11-06.
+  waterGun: { key: 'invWaterGun', water: true },
+  brainSnack: { key: 'invBrainSnack', petTreat: true },
   // Potions (Potions.js): drunk for 30 seconds of an effect.
   potionSpeed: { key: 'invPotionSpeed', potion: true },
   potionInvis: { key: 'invPotionInvis', potion: true },
@@ -174,6 +178,8 @@ const ICON_PIXELS = {
   rocket: ['.......r........', '......rrr.......', '......www.......', '.....wwwww......', '.....wwcww......', '.....wwwww......', '.....wwwww......', '.....wwwww......', '....rwwwwwr.....', '...rrwwwwwrr....', '...r.dddd..r....', '.......o........', '......ooo.......'],
   timeMachine: ['................', '.....cccccc.....', '....cwccccwc....', '...yyyyyyyyyy...', '...vvvvvvvvvv...', '..yvvvwwwwvvvy..', '..yvvwk..wwvvy..', '..yvvw.k..wvvy..', '..yvvwwwwwwvvy..', '...yyyyyyyyyy...', '...dddddddddd...', '..dddddddddddd..'],
   timePass: ['................', '................', '.yyyyyyyyyyyyyy.', '.y############y.', '.y#wwwwwwwwww#y.', '.y#w..k...ccw#y.', '.y#w...k..ccw#y.', '.y#w..kkk.ccw#y.', '.y#wwwwwwwwww#y.', '.y############y.', '.yyyyyyyyyyyyyy.'],
+  waterGun: ['................', '................', '..oooooooooo....', '.occcccccccoo...', '.oooooooooooocc.', '.....ooo..o.....', '.....ooo........', '....ooo.........', '....ooo.........', '...ooo..........'],
+  brainSnack: ['................', '.....pppppp.....', '...ppfppfpppp...', '..pfpppfppfppp..', '..ppfpppfpppfp..', '..pppfpppfpppp..', '...pppppppppp...', '.....pppppp.....', '.......kk.......', '.......kk.......', '.......kk.......'],
   boombox: ['................', '....dddddddd....', '....d......d....', '.dddddddddddddd.', '.d############d.', '.d#iii#cc#iii#d.', '.d#i#i#cc#i#i#d.', '.d#iii####iii#d.', '.d############d.', '.dddddddddddddd.'],
   kite: ['.......r........', '......rry.......', '.....rrryy......', '....rrrryyy.....', '...rrrrryyyy....', '..yyyyyyrrrrr...', '...yyyyyrrrr....', '....yyyyrrr.....', '.....yyyrr......', '......yyr.......', '.......w........', '......b.w.......', '.........w......', '........b.w.....'],
   metalDetector: ['..........ddd...', '..........dyd...', '..........ddd...', '.........d......', '........d.......', '.......d........', '......d.........', '.....d..........', '....d...........', '..iiiii.........', '.iiiiiii........', '.iiibiii........', '..iiiii.........'],
@@ -381,6 +387,11 @@ export class PlayInventory {
       // Only a trip uses it (TimeMachine.go).
       s._message(t('timePassHint'), 3)
       return false
+    } else if (def?.water) {
+      // Squirt - the gun itself is never used up (WaterGun.js).
+      return !!s.water?.squirt()
+    } else if (def?.petTreat) {
+      if (!s.pet?.tame()) return false
     } else if (def?.snowball) {
       if (!s.snowballs?.throw()) return false
     } else if (def?.rod) {
@@ -553,6 +564,8 @@ export class PlayInventory {
     if (item.disguise) return t('invTipGooDisguise', { s: item.disguise })
     if (item.vehicle) return t(item.vehicle === 'boat' ? 'invTipBoat' : item.vehicle === 'sub' ? 'invTipSubmarine' : item.vehicle === 'balloon' ? 'invTipBalloon' : 'invTipHelicopter')
     if (item.rocket) return t('invTipRocket')
+    if (item.water) return t('invTipWaterGun', { n: WATER_TANK })
+    if (item.petTreat) return t('invTipBrainSnack')
     if (item.timeMachine) return t('invTipTimeMachine')
     if (item.timePass) return t('invTipTimePass')
     if (item.fuel) return t('invTipHeliFuel', { s: HELI_FUEL_S })

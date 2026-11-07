@@ -2,6 +2,7 @@
 // zombie survival gameplay (see docs/superpowers/specs/2026-08-08-build-mode-design.md).
 // Reuses Game.js's existing renderer/canvas rather than a second WebGL
 // context - only the scene/camera passed to render() changes.
+import { screenOpen as campScreenOpen } from './CampScreen.js'
 import { FIXED_KEYS, getKeyFor, keyLabel, keysFor } from './Keybinds.js'
 import * as THREE from 'three'
 import { setHomePaused } from './LiteHome.js'
@@ -3788,7 +3789,7 @@ export class BuildMode {
   // Share or Play Together, or the big map.
   mouseScreenOpen() {
     if (this.menuOpen || this.pickerOpen || this.share?.isOpen || this.together?.isOpen) return true
-    if (this.survival?.shop?.panelOpen || this.survival?.emotes?.open || this.survival?.time?.pickOpen || this.tryMode?._mapInteractive?.()) return true
+    if (this.survival?.shop?.panelOpen || this.survival?.emotes?.open || this.survival?.time?.pickOpen || campScreenOpen() || this.tryMode?._mapInteractive?.()) return true
     if (['play-weapon-pick', 'play-perk-pick', 'build-play-over', 'spawn-map'].some((id) => {
       const el = document.getElementById(id)
       return !!el && el.style.display !== 'none' && el.style.display !== ''
