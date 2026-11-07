@@ -8,7 +8,7 @@
 // Lives with the Map Editor's code (BuildMode.js loads it) since it needs
 // the block pictures; TopBar asks bm.biomeBarLook().
 import { blockFaceCanvases } from './BlockTextures.js'
-import { sampleLand, inCity, isFlatWorld } from './OpenWorld.js'
+import { sampleLand } from './OpenWorld.js'
 import { oppositeInk } from './CleanTheme.js'
 
 // Which block's picture each biome's bar uses.
@@ -19,7 +19,6 @@ const BIOME_BLOCK = {
   forest: 'leaves', darkForest: 'leaves', birchForest: 'birchleaves', taiga: 'spruceleaves', cherryGrove: 'cherryleaves',
   jungle: 'jungleleaves', bambooJungle: 'jungleleaves', swamp: 'mangroveleaves', mangroveSwamp: 'mangroveleaves',
 }
-const CITY_BLOCK = 'stonebricks'
 // The highlight colour that goes with each picture (titles, the picked
 // slot, bars) on the game's biome-styled screens (play-biome.css).
 const ACCENT = {
@@ -85,7 +84,11 @@ export function biomeBarLook(bm, x, z) {
   if (!bm.world?.active) return null
   const cx = Math.floor(x)
   const cz = Math.floor(z)
-  const id = inCity(cx, cz) && !isFlatWorld() ? CITY_BLOCK : BIOME_BLOCK[sampleLand(cx, cz).biome] || 'grass'
+  // Cities used to force grey stone bricks; now the bar (and the wave line
+  // under it) always wears the biome underneath, a city in a cherry grove
+  // stays pink (2026-11-07, Gaymi: "make it more like the very top changes
+  // as biome type").
+  const id = BIOME_BLOCK[sampleLand(cx, cz).biome] || 'grass'
   const type = bm.blockTypeOf?.(id)
   if (!type) return null
   return { key: id, url: pictureOf(type), accent: ACCENT[id] || '#ffe38a', ...coloursOf(type) }

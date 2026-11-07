@@ -120,7 +120,7 @@ import { UPGRADE_PLAY, PLAY_GAME_MODES } from './PlayRules.js'
 import * as GalleryUI from './GalleryUI.js'
 import { TopBar } from './TopBar.js'
 import { setLanguage, t } from './i18n.js'
-import { CLEAN_DEFAULT_COLOR, normalizeHex, uiThemeOf } from './CleanTheme.js'
+import { CLEAN_DEFAULT_COLOR, normalizeHex, uiThemeOf, skinDesignerTheme } from './CleanTheme.js'
 import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 // BuildMode.js is deliberately NOT statically imported here - it's a big,
 // self-contained system most visitors never touch (a whole separate
@@ -1342,6 +1342,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'theme-picker-clean-label': 'optUiThemeClean',
   'theme-clean-color-label': 'themeCleanColorLabel',
   'theme-picker-old-label': 'optUiThemeOld',
+  'theme-picker-sakura-label': 'optUiThemeSakura',
   'play-biome-look-label': 'playBiomeLookLabel',
   'coming-soon-close-btn': 'comingSoonCloseBtn',
   // Friendship's tabs (Clan moved there from General, 2026-10-24).
@@ -2265,6 +2266,7 @@ export class Game {
     this.themeCleanBgClear = document.getElementById('theme-clean-bg-clear')
     this.themeCleanBgFile = document.getElementById('theme-clean-bg-file')
     this.themePickerOld = document.getElementById('theme-picker-old')
+    this.themePickerSakura = document.getElementById('theme-picker-sakura')
     this.playBiomeLookToggle = document.getElementById('play-biome-look-toggle')
     this.cursorTrailToggle = document.getElementById('cursor-trail-toggle')
     this.crtScanlinesToggle = document.getElementById('crt-scanlines-toggle')
@@ -4245,8 +4247,8 @@ export class Game {
 
   _loadSkinDesignerFrame() {
     if (this.skindesignerFrame && this.skindesignerFrame.src === 'about:blank') {
-      const theme = this.settings.uiTheme === 'clean' ? 'clean' : 'old'
-      this.skindesignerFrame.src = `${SKIN_DESIGNER_URL}?theme=${theme}&color=${encodeURIComponent(this.settings.cleanColor)}`
+      const { theme, color } = skinDesignerTheme(this.settings)
+      this.skindesignerFrame.src = `${SKIN_DESIGNER_URL}?theme=${theme}&color=${encodeURIComponent(color)}`
     }
   }
 

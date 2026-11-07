@@ -1089,3 +1089,37 @@ html.ui-theme-clean #menu .home-play-tag { font-family: var(--clean-font); color
 
 /* Profile > Trophies (Trophies.js): the cards on the panel's own surface. */
 html.ui-theme-clean .trophy-card { background: var(--clean-surface); border-color: var(--clean-line); }
+
+/* ---- Sakura Dream (2026-11-07) ----
+   Simple's shapes (html.ui-theme-clean is on too) in fixed soft pinks
+   with plum ink, the cherry-blossom street picture behind the homepage
+   (--clean-bg-image, CleanTheme.js SAKURA_IMAGE) and the cute bubbly
+   letters (Luckiest Guy, the same one as the in-game wave line - Gaymi's
+   reference picture) on every single text. html.sakura-font stays on in
+   games when the screens follow the biome, so the biome look gets the
+   letters too. Only colour, picture and font change - never size or place. */
+html.ui-theme-sakura {
+  --clean-line: rgba(214, 92, 150, 0.32);
+  --clean-dim: rgba(var(--clean-fg-rgb), 0.7);
+  --clean-font: 'Luckiest Guy', 'Bebas Neue', sans-serif;
+}
+html.sakura-font,
+html.sakura-font body,
+html.sakura-font body *:not(svg, svg *) {
+  font-family: 'Luckiest Guy', 'Bebas Neue', sans-serif !important;
+  font-weight: 400 !important;
+}
+/* A soft pink glow round the boxes, like petals in the light. */
+html.ui-theme-sakura :is(.theme-picker-card.active) {
+  border-color: rgb(236, 112, 170);
+  box-shadow: 0 0 0 2px rgba(236, 112, 170, 0.25), 0 0 14px rgba(236, 112, 170, 0.35);
+}
+#theme-picker-sakura img { object-position: center; }
+/* Plum words stay readable over the busy blossom picture: a soft
+   petal-white glow behind them (boxes keep their own fill). */
+html.ui-theme-sakura #menu {
+  text-shadow: 0 0 6px rgba(255, 244, 250, 0.95), 0 1px 2px rgba(255, 244, 250, 0.9);
+}
+/* The bubbly letters sit tighter than the system font: the tagline keeps
+   Simple's line height so Play and everything under it stay put. */
+html.ui-theme-sakura #menu-tagline { line-height: 1.178; }

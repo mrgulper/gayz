@@ -20,7 +20,7 @@ import { bindHoverMenus } from './HoverMenus.js'
 import { bindSettingsLog, logSettingChange } from './SettingsLog.js'
 import { bindGameplaySettings } from './GameplaySettings.js'
 import { GRAPHICS_LEVELS, LEVEL_LOOK } from './GraphicsLevels.js'
-import { applyUiTheme, cleanVars, normalizeHex, rememberCleanVars, getCleanBgImage, applyCleanBgImage, cropToScreen, CLEAN_BG_IMAGE_KEY } from './CleanTheme.js'
+import { applyUiTheme, cleanVars, normalizeHex, rememberCleanVars, getCleanBgImage, applyCleanBgImage, cropToScreen, CLEAN_BG_IMAGE_KEY, uiThemeOf, skinDesignerTheme } from './CleanTheme.js'
 
 // Swaps a slider's value label for a temporary <input type="number"> on
 // click, so a precise number can be typed in instead of fighting the
@@ -960,9 +960,10 @@ export function _bindSettings(game) {
   if (game.themePickerClean && game.themePickerOld) {
     const syncUiTheme = () => {
       applyUiTheme(game.settings)
-      const clean = game.settings.uiTheme === 'clean'
-      game.themePickerClean.classList.toggle('active', clean)
-      game.themePickerOld.classList.toggle('active', !clean)
+      const theme = uiThemeOf(game.settings)
+      game.themePickerClean.classList.toggle('active', theme === 'clean')
+      game.themePickerOld.classList.toggle('active', theme === 'old')
+      game.themePickerSakura?.classList.toggle('active', theme === 'sakura')
       game.themePickerClean.style.setProperty('--clean-preview', game.settings.cleanColor)
       game.themePickerClean.style.setProperty('--clean-preview-fg', cleanVars(game.settings.cleanColor)['--clean-fg'])
       if (game.themeCleanColorInput) game.themeCleanColorInput.value = game.settings.cleanColor
@@ -975,7 +976,7 @@ export function _bindSettings(game) {
       // already open (its iframe src is only ever set once - see
       // _openSkinDesignerPanel - so it can't pick up a fresh ?theme=).
       if (game.skindesignerFrame && game.skindesignerFrame.src !== 'about:blank') {
-        game.skindesignerFrame.contentWindow.postMessage({ type: 'gayz-set-theme', theme: clean ? 'clean' : 'old', color: game.settings.cleanColor }, SKIN_DESIGNER_ORIGIN)
+        game.skindesignerFrame.contentWindow.postMessage({ type: 'gayz-set-theme', ...skinDesignerTheme(game.settings) }, SKIN_DESIGNER_ORIGIN)
       }
     }
     syncUiTheme()
@@ -989,6 +990,7 @@ export function _bindSettings(game) {
     }
     game.themePickerClean.addEventListener('click', () => pick('clean'))
     game.themePickerOld.addEventListener('click', () => pick('old'))
+    game.themePickerSakura?.addEventListener('click', () => pick('sakura'))
     // Picking a colour also switches to Clean - it's Clean's colour.
     const setColor = (value, save) => {
       const hex = normalizeHex(value)
