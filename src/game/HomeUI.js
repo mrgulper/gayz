@@ -24,13 +24,23 @@ export function _updateHomepageClock(game) {
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
     if (zone) game.homepageClockEl.title = `${game.homepageClockEl.title || 'Current time'} (${zone.replace(/_/g, ' ')})`
   }
+  let time
   if (game.settings.timeFormat === '24h') {
-    game.homepageClockEl.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   } else {
     const h24 = now.getHours()
     const h12 = h24 % 12 || 12
-    game.homepageClockEl.textContent = `${h12}:${String(now.getMinutes()).padStart(2, '0')} ${h24 < 12 ? 'AM' : 'PM'}`
+    time = `${h12}:${String(now.getMinutes()).padStart(2, '0')} ${h24 < 12 ? 'AM' : 'PM'}`
   }
+  // Players online now (HomeExtras' loadOnlineLater sets the number) rides
+  // in the same pill, after the time (2026-11-07).
+  const n = game._homeOnlineTotal
+  const online = Number.isFinite(n) ? t(n === 1 ? 'homeOnlineOne' : 'homeOnlineMany', { n: n.toLocaleString() }) : ''
+  const key = `${time}|${online}`
+  if (game._clockShown === key) return
+  game._clockShown = key
+  if (!online) game.homepageClockEl.textContent = time
+  else game.homepageClockEl.innerHTML = `${_escapeHtml(time)}<span class="homepage-online"><span class="home-x-online-dot" aria-hidden="true"></span>${_escapeHtml(online)}</span>`
 }
 
 // Diffs the live settings object against the snapshot taken when the
@@ -186,22 +196,26 @@ export function _applyBgMood(game) {
     const active = EVENT_BANNERS.find((ev) => now.getMonth() === ev.month && now.getDate() >= ev.startDay && now.getDate() <= ev.endDay)
     // Outside any event: warm and sunny (2026-10-31, Gaymi: "instead of
     // looking so cold").
-    mood = active ? active.bgMood : 'sunny'
+    // Outside any event: the sky follows your real clock (2026-11-07,
+    // Gaymi - was always sunny since 2026-10-31).
+    mood = active ? active.bgMood : 'clock'
   } else if (mood === 'timeofday') {
-    // Reuses the same 3 existing tint classes (no new art) mapped to the
-    // player's real local hour rather than a fixed/seasonal schedule -
-    // late night keeps the default night-photo look as-is since there's
-    // no separate daytime photo asset to switch to.
-    const hour = new Date().getHours()
-    if (hour >= 5 && hour < 8) mood = 'foggy'
-    else if (hour >= 8 && hour < 17) mood = 'sunny'
-    else if (hour >= 17 && hour < 22) mood = 'bloodmoon'
-    else mood = 'none'
+    mood = 'clock'
   }
-  for (const cls of ['bg-mood-bloodmoon', 'bg-mood-foggy', 'bg-mood-amber', 'bg-mood-sunny']) {
+  for (const cls of ['bg-mood-bloodmoon', 'bg-mood-foggy', 'bg-mood-amber', 'bg-mood-sunny', 'bg-mood-clock']) {
     document.documentElement.classList.remove(cls)
   }
-  if (mood !== 'none') document.documentElement.classList.add(`bg-mood-${mood}`)
+  if (mood === 'clock') {
+    // The colours live in index.html's first-paint script (window.__gayzSky).
+    const now = new Date()
+    window.__gayzSky?.(now.getHours() + now.getMinutes() / 60)
+    // Every minute while open, so the sky moves with the clock.
+    if (!game._skyClockTimer) game._skyClockTimer = setInterval(() => game._applyBgMood(), 60000)
+  } else {
+    if (game._skyClockTimer) clearInterval(game._skyClockTimer)
+    game._skyClockTimer = null
+    if (mood !== 'none') document.documentElement.classList.add(`bg-mood-${mood}`)
+  }
 }
 
 // Homepage batch - every quick-action/one-shot listener that isn't

@@ -14,6 +14,7 @@ import { loadCreatures, saveCreatures, stats, power, powerName, powerInfo, creat
 import { TeamBattle } from './TeamBattle.js'
 import { renderTournament, playTournament } from './TeamTournament.js'
 import { saveShopProgress, saveSettings } from './Game.js'
+import { zombieName } from './ZombieNames.js'
 import { t } from './i18n.js'
 
 export const WIN_COINS = 30
@@ -55,6 +56,7 @@ export function renderTeamPanel(game) {
     // Newest first.
     grid.innerHTML = [...data.list].reverse().map((c) => card(c, data.team.indexOf(c.id) + 1)).join('')
   }
+  renderHomePetPicker(game, data)
   const empty = byId('team-empty')
   if (empty) empty.style.display = data.list.length ? 'none' : ''
   // The Weekly Team Tournament (TeamTournament.js).
@@ -159,6 +161,32 @@ export async function startTeamBattle(game) {
   game._teamBattle.open()
 }
 
+// The Homepage pet dropdown (HomePet.js): none, your Pet Zombie, or any
+// creature you caught. 'auto' shows as the Pet Zombie when you have one.
+// Reads PetZombie's save (KEY) here instead of importing PetZombie.js,
+// which would pull the camp code into the homepage bundle.
+function savedPetName() {
+  try {
+    const d = JSON.parse(localStorage.getItem('gayz-pet-zombie') || 'null')
+    return d && Number.isInteger(d.name) && d.name >= 0 ? d.name : null
+  } catch { return null }
+}
+
+function renderHomePetPicker(game, data) {
+  const sel = byId('home-pet-select')
+  if (!sel) return
+  const label = byId('home-pet-label')
+  if (label) label.textContent = t('homePetLabel')
+  const pet = savedPetName()
+  const opts = [['none', t('homePetNone')]]
+  if (pet !== null) opts.push(['pet', t('homePetZombie', { name: zombieName(pet) })])
+  for (const c of [...data.list].reverse()) opts.push([`c${c.id}`, `${creatureName(c)} (${rarityName(c.r)} ${creatureType(c)})`])
+  sel.innerHTML = opts.map(([v, text]) => `<option value="${esc(v)}">${esc(text)}</option>`).join('')
+  let v = game.settings.homePet || 'auto'
+  if (v === 'auto') v = pet !== null ? 'pet' : 'none'
+  sel.value = opts.some(([o]) => o === v) ? v : 'none'
+}
+
 export function bindTeamUI(game) {
   const page = byId('team-page')
   if (!page) return
@@ -167,6 +195,11 @@ export function bindTeamUI(game) {
   page.addEventListener('click', (e) => {
     const c = e.target.closest('.team-card[data-id]')
     if (c) toggle(game, Number(c.dataset.id))
+  })
+  byId('home-pet-select')?.addEventListener('change', (e) => {
+    game.settings.homePet = e.target.value
+    saveSettings(game.settings)
+    game._refreshHomePet?.()
   })
   byId('team-battle-btn')?.addEventListener('click', () => startTeamBattle(game))
   byId('tourney-btn')?.addEventListener('click', () => playTournament(game, renderTeamPanel))

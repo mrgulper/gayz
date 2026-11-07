@@ -10,7 +10,7 @@ import * as ChatUI from './ChatUI.js'
 import { ACHIEVEMENTS } from './Achievements.js'
 import { CHANGELOG_LAST_VIEWED_KEY, Game, HOWTOPLAY_STEPS, LOGIN_CALENDAR_DAYS, MARKET_FEE_RATE, MAX_GOALS, PLAY_META_UPGRADES, PRESTIGE_BONUS_PERCENT, PRESTIGE_COST_STEP, SUPPORTED_LANGUAGE_CODES, UPDATE_BANNER_FADE_MS, UPDATE_BANNER_SHOW_MS, WHATS_NEW_SEEN_KEY, WHATS_NEW_VERSION, saveSettings } from './Game.js'
 import { BIOMES } from './OpenWorld.js'
-import { TIP_COUNT, TOP_PLAYERS } from './HomeExtras.js'
+import { TIP_COUNT, TOP_PLAYERS, BIRTHDAY_COINS_PER_YEAR, MAPWEEK_DAYS } from './HomeExtras.js'
 import { LEAF_DROP_CHANCE, BOSS_HUNT_EVERY, DEFENSE_WAVES, EXTRACTION_HOLD, FUEL_CANS, GLOBETROTTER_SECONDS, SKELETON_FROM_WAVE, MONSTER_FROM_WAVE, MOB_HEIGHT, SPAWN_MIN_DIST, ZONE_STAGES, ZONE_ZOMBIE_SPEED } from './PlayRules.js'
 import { RAINBOW_CHANCE } from './BuildSky.js'
 import { DISASTERS } from './Disasters.js'
@@ -599,6 +599,8 @@ export function _featureValues(_game) {
     dailyMinKills: DAILY_TEMPLATES.find((d) => d.type === 'kills')?.targets[0],
     tipCount: TIP_COUNT,
     topPlayers: TOP_PLAYERS,
+    birthdayCoins: BIRTHDAY_COINS_PER_YEAR,
+    mapWeekDays: MAPWEEK_DAYS,
     dailyStreakStep: Math.round(STREAK_STEP * 100),
     dailyStreakDays: STREAK_MAX_DAYS,
     dailyStreakMax: streakMult(STREAK_MAX_DAYS),

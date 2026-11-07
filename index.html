@@ -62,6 +62,33 @@
           var __img = localStorage.getItem('gayz-clean-bg-image')
           if (__img && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(__img)) __r.setProperty('--clean-bg-image', 'url("' + __img + '")')
         } else document.documentElement.classList.add('ui-theme-old')
+        // Sky clock (2026-11-07): the homepage photo follows the player's
+        // real clock - night, pink dawn, sunny day, orange dusk - blended
+        // smoothly between them. The one copy of the colours; HomeUI's
+        // _applyBgMood calls window.__gayzSky every minute. Painted here
+        // too so the first paint is already the right sky.
+        window.__gayzSky = function (hour) {
+          var N = [0, 1, 0, 1, 1, 1, 20, 30, 80, 0.2]
+          var DAWN = [0.2, 0.85, 5, 1.12, 0.95, 0.75, 255, 150, 170, 0.14]
+          var DAY = [0.35, 1.6, -12, 1.35, 1.02, 0.55, 255, 230, 160, 0]
+          var DUSK = [0.4, 1.4, -20, 1.05, 1.02, 0.8, 255, 110, 40, 0.16]
+          var P = [[0, N], [5, N], [6.5, DAWN], [9, DAY], [16.5, DAY], [18.5, DUSK], [20.5, N], [24, N]]
+          var i = 0
+          while (i < P.length - 2 && hour >= P[i + 1][0]) i++
+          var a = P[i], b = P[i + 1]
+          var k = Math.min(1, Math.max(0, (hour - a[0]) / (b[0] - a[0])))
+          var v = a[1].map(function (x, j) { return x + (b[1][j] - x) * k })
+          var r = document.documentElement
+          r.style.setProperty('--sky-filter', 'sepia(' + v[0].toFixed(3) + ') saturate(' + v[1].toFixed(3) + ') hue-rotate(' + v[2].toFixed(1) + 'deg) brightness(' + v[3].toFixed(3) + ') contrast(' + v[4].toFixed(3) + ')')
+          r.style.setProperty('--sky-vignette', v[5].toFixed(3))
+          r.style.setProperty('--sky-tint', 'rgba(' + Math.round(v[6]) + ', ' + Math.round(v[7]) + ', ' + Math.round(v[8]) + ', ' + v[9].toFixed(3) + ')')
+          r.classList.add('bg-mood-clock')
+          return v
+        }
+        var __m = (__s && __s.bgMood) || 'auto'
+        var __d = new Date()
+        var __ev = (__d.getMonth() === 9 && __d.getDate() >= 20) || (__d.getMonth() === 11 && __d.getDate() >= 15)
+        if (__m === 'timeofday' || (__m === 'auto' && !__ev)) window.__gayzSky(__d.getHours() + __d.getMinutes() / 60)
         // Touch devices get a lighter homepage (src/game/LiteHome.js).
         if (window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches) document.documentElement.classList.add('lite-home')
       } catch (e) {}
@@ -1128,8 +1155,8 @@ Escape before dawn.</p>
             <button type="button" class="settings-info-btn" data-info="bgMood" aria-label="What does this do?">?</button>
             <label for="bg-mood-select" id="bg-mood-label">Homepage Background Mood</label>
             <select id="bg-mood-select">
-              <option value="auto">Auto (Seasonal)</option>
-              <option value="timeofday">Auto (Your Local Time)</option>
+              <option value="auto">Auto (Your Clock + Events)</option>
+              <option value="timeofday">Your Clock Only</option>
               <option value="sunny">Sunny</option>
               <option value="none">Night</option>
               <option value="bloodmoon">Blood Moon</option>
@@ -2586,6 +2613,7 @@ Escape before dawn.</p>
               <li>Chat messages you send (Global, server and clan chat) are stored online with your nickname so other players can read them.</li>
               <li>Clans store their name, members and roles, and the XP members earn this month.</li>
               <li>Friend requests, your friend list and your online status (online, in a game, or when you were last seen) are stored so your friends can see them.</li>
+              <li>The homepage shows how many signed-in players are online right now. It's only a total, worked out from that same online status - no names - and choosing Offline as your status leaves you out of it.</li>
               <li>Market listings store the skin, price and seller's nickname, and who bought it once it sells.</li>
             </ul>
 
@@ -2670,9 +2698,9 @@ Escape before dawn.</p>
           <h3>Daily Challenge</h3>
           <p>One goal a day, the same for everyone, on a wide gold card at the top of the Quests: take lots of zombies down, in one run or on Hard and up, take them down with a melee weapon, take down skeletons, Rare-or-rarer zombies or bosses, reach a high wave (some days on Hard and up), or get a long kill streak - <span data-feature-value="dailyKinds">10</span> kinds, each easy, medium or hard. They're tough on purpose (the easiest kill goal is <span data-feature-value="dailyMinKills">120</span> zombies), and harder pays more coins and XP. The game tells you the moment it's done, and you claim it in the Quests. Claim it on days in a row to build a streak: every day of streak adds <span data-feature-value="dailyStreakStep">25</span>% to the reward, up to <span data-feature-value="dailyStreakMax">2.5</span> times on day <span data-feature-value="dailyStreakDays">7</span> and after. Miss a day and the streak starts again. A new challenge comes at midnight your time - it shows up by itself even with the page left open - with a countdown on the card. It's on the homepage too, just under Play: today's goal, how far along you are and your streak, and "Claim!" once it's done - click it to open the Quests.</p>
         </div>
-        <div class="feature" data-code="HomeExtras renderHomeExtras homeExtrasLayout">
+        <div class="feature" data-code="HomeExtras renderHomeExtras homeExtrasLayout pickMapOfWeek birthdayYears">
           <h3>Homepage Extras</h3>
-          <p>Small cards on the homepage: your last run and best wave, a tip of the day (<span data-feature-value="tipCount">12</span> of them, a new one each day), the top <span data-feature-value="topPlayers">3</span> players by best wave, and an Invite a friend button that copies the game's link (or opens your phone's share menu). Pick how they show in Settings &gt; General &gt; Homepage: Cards puts them in the bottom corners (as many as fit your screen), Today Panel keeps the homepage clean and puts them all behind one Today button. Play gets a Continue tag when you left a run halfway (it picks it up on the same mode and difficulty), and a New here? tag that opens How to Play before your first run. Tap your character for a dance, wave or flex; now and then a zombie peeks in from the side, and snow falls in December. Your login streak is on your Profile, and the Daily Challenge lives in the Quests.</p>
+          <p>Small cards on the homepage: your last run and best wave, a tip of the day (<span data-feature-value="tipCount">12</span> of them, a new one each day), the top <span data-feature-value="topPlayers">3</span> players by best wave, Map of the Week - the most liked map posted to the Gallery in the last <span data-feature-value="mapWeekDays">7</span> days, with a Play button - and an Invite a friend button that copies the game's link (or opens your phone's share menu). Pick how they show in Settings &gt; General &gt; Homepage: Cards puts them in the bottom corners (as many as fit your screen), Today Panel keeps the homepage clean and puts them all behind one Today button. Play gets a Continue tag when you left a run halfway (it picks it up on the same mode and difficulty), and a New here? tag that opens How to Play before your first run. Tap your character for a dance, wave or flex; now and then a zombie peeks in from the side, and snow falls in December. Next to the clock in the top corner: how many survivors are online right now (signed-in players, plus you). On your GayZ birthday - the date you finished your first run, every year after - confetti falls and a birthday card counting your years surviving gives a gift of <span data-feature-value="birthdayCoins">100</span> coins for every year, once per birthday. Your login streak is on your Profile, and the Daily Challenge lives in the Quests.</p>
         </div>
       </section>
 
@@ -2748,7 +2776,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="PetZombie tame TAME_R GUARD_R PET_DAMAGE BITE_S brainSnack">
           <h3>Pet Zombie</h3>
-          <p>Craft a Brain Snack (Zombie Goo and Plant Fiber), hold it, look at a zombie within <span data-feature-value="petTameR">5</span> blocks and use it: the zombie calms down and becomes your pet, keeping its name and looking exactly like it did before - a slime blob stays a blob, a skeleton a skeleton, a Golden or Diamond zombie keeps its shine, and its hat, cape and rarity glow stay too - with a pink bow and "(pet)" on its tag (tamed animals keep their own look too). You can have one; it's remembered on this device and is back beside you at the start of every game. It follows a little behind you, catches up if it falls far behind, and nibbles any zombie that comes within <span data-feature-value="petGuardR">5</span> blocks of it for <span data-feature-value="petDamage">10</span> damage. Zombies never go for it and nothing can hurt it. Bosses are too grumpy to tame.</p>
+          <p>Craft a Brain Snack (Zombie Goo and Plant Fiber), hold it, look at a zombie within <span data-feature-value="petTameR">5</span> blocks and use it: the zombie calms down and becomes your pet, keeping its name and looking exactly like it did before - a slime blob stays a blob, a skeleton a skeleton, a Golden or Diamond zombie keeps its shine, and its hat, cape and rarity glow stay too - with a pink bow and "(pet)" on its tag (tamed animals keep their own look too). You can have one; it's remembered on this device and is back beside you at the start of every game. It follows a little behind you, catches up if it falls far behind, and nibbles any zombie that comes within <span data-feature-value="petGuardR">5</span> blocks of it for <span data-feature-value="petDamage">10</span> damage. Zombies never go for it and nothing can hurt it. Bosses are too grumpy to tame. It also stands beside your character on the homepage - pick which pet (your Pet Zombie, any creature you caught, or none) with Homepage pet on the Team page.</p>
         </div>
         <div class="feature" data-code="WaterGun squirt soak douse SOAK_S SOAK_SLOW TANK summerOn waterGun">
           <h3>Water Gun</h3>
@@ -3165,7 +3193,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="homepageGreeting">
           <h3>Homepage Personalization</h3>
-          <p>Accent color, Play-button color, UI font, layout density, background mood, homepage greeting text, and the order of every homepage button (up/down arrows in Settings &gt; General &gt; Homepage - new buttons join the list on their own).</p>
+          <p>Accent color, Play-button color, UI font, layout density, background mood (by default the sky behind the homepage follows your real clock - dark night, pink dawn, sunny day, orange dusk, blending smoothly hour by hour - except during Halloween and winter, or pick Your Clock Only or a fixed look), homepage greeting text, and the order of every homepage button (up/down arrows in Settings &gt; General &gt; Homepage - new buttons join the list on their own).</p>
         </div>
       </section>
 
@@ -4064,6 +4092,8 @@ Escape before dawn.</p>
                  and the Battle button - this was the homepage's Team page. -->
             <div id="team-page">
               <p id="team-record" class="menu-best-stats"></p>
+              <!-- Homepage pet picker (HomePet.js, 2026-11-07). -->
+              <div id="home-pet-row"><label for="home-pet-select" id="home-pet-label">Homepage pet</label><select id="home-pet-select"></select></div>
               <h3 id="team-picked-title" class="team-section-title"></h3>
               <div id="team-slots" class="team-cards"></div>
               <button type="button" id="team-battle-btn" class="team-battle-btn">Battle!</button>

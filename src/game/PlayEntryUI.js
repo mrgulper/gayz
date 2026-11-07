@@ -281,6 +281,8 @@ export function _playConfig(game) {
 
 export function _exitBuildMode(game) {
   game.buildMode.exit()
+  // A pet tamed in that game can stand on the homepage now (HomePet.js).
+  game._refreshHomePet?.()
   game._topBar?.hide()
   game.chatPanel.style.display = 'none'
   document.body.classList.remove('build-mode-on')

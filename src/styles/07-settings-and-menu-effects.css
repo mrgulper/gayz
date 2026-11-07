@@ -591,6 +591,25 @@ html.bg-mood-sunny #menu-bg-vignette {
   opacity: 0.55;
 }
 
+/* Sky clock (2026-11-07): the default outside events - follows the
+   player's real clock. The values come from window.__gayzSky (index.html's
+   first-paint script), blended smoothly hour by hour. The tint is a plain
+   see-through colour on top (no blend mode - blends made the moving water
+   re-render everything under it). */
+html.bg-mood-clock #menu-bg-photo {
+  filter: var(--sky-filter, none);
+}
+html.bg-mood-clock #menu-bg-photo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--sky-tint, transparent);
+  pointer-events: none;
+}
+html.bg-mood-clock #menu-bg-vignette {
+  opacity: var(--sky-vignette, 1);
+}
+
 html.bg-mood-amber #menu-bg-photo {
   filter: sepia(0.35) saturate(1.2) hue-rotate(-8deg) brightness(1.02);
 }

@@ -399,6 +399,9 @@ function loadSettings() {
       // same seasonal date windows as EVENT_BANNERS, any other value is an
       // explicit user override that ignores the calendar.
       bgMood: parsed.bgMood || 'auto',
+      // Homepage pet (HomePet.js) - 'auto' (your Pet Zombie), 'none',
+      // 'pet' or 'c<creature id>'. Untrusted, so only those shapes.
+      homePet: typeof parsed.homePet === 'string' && /^(auto|none|pet|c\d{1,15})$/.test(parsed.homePet) ? parsed.homePet : 'auto',
       // Hats & Capes worn (Cosmetics.js) - ids, '' for none.
       cosmeticHat: typeof parsed.cosmeticHat === 'string' ? parsed.cosmeticHat : '',
       cosmeticCape: typeof parsed.cosmeticCape === 'string' ? parsed.cosmeticCape : '',
@@ -566,7 +569,7 @@ function _loadNavOrder(saved) {
 }
 
 export function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, disasterBreakAll: false, crosshairStyle: 'cross', damageNumbers: true, zombieNameTags: true, showOtherSprays: true, snowballsAllYear: false, autoPickup: true, confirmRareDrop: true, darkAreaBoost: false, colorblindRarity: false, sprintMode: 'hold', autoJump: false, viewBobbing: true, battleView: '3d', zombieVolume: 100, skinDesignerHighContrast: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, clanXp: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, lockedSkins: [], bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', cosmeticHat: '', cosmeticCape: '', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, graphicsLevel: null, graphicsLevelAuto: null, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', homeExtrasLayout: 'cards', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', cleanColor: CLEAN_DEFAULT_COLOR, playBiomeLook: true, playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, hardcore: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, disasterBreakAll: false, crosshairStyle: 'cross', damageNumbers: true, zombieNameTags: true, showOtherSprays: true, snowballsAllYear: false, autoPickup: true, confirmRareDrop: true, darkAreaBoost: false, colorblindRarity: false, sprintMode: 'hold', autoJump: false, viewBobbing: true, battleView: '3d', zombieVolume: 100, skinDesignerHighContrast: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, clanXp: null, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, lockedSkins: [], bio: '', privateNotes: '', streamSafeMode: false, defaultTag: null, guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', homePet: 'auto', cosmeticHat: '', cosmeticCape: '', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, graphicsLevel: null, graphicsLevelAuto: null, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', homeExtrasLayout: 'cards', pinnedStat: null, navOrder: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', cleanColor: CLEAN_DEFAULT_COLOR, playBiomeLook: true, playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, hardcore: false } }
 }
 
 
@@ -869,6 +872,8 @@ function loadCareerStats() {
       // touched again - backs the Profile panel's "X days since your
       // first run" anniversary line.
       firstPlayedDate: parsed.firstPlayedDate || null,
+      // The last year the homepage birthday gift was claimed (HomeExtras).
+      birthdayClaimedYear: Number.isInteger(parsed.birthdayClaimedYear) ? parsed.birthdayClaimedYear : 0,
       // Profile panel's "Created" line (see _renderProfileCreated) - unlike
       // firstPlayedDate above (date-only, set on first completed RUN), this
       // is a real millisecond timestamp set on the very first time the game
@@ -903,7 +908,7 @@ function loadCareerStats() {
       totalKills: 0, totalRuns: 0, veteranPerksGranted: [],
       lifetimePlaytimeSeconds: 0, lifetimeCoinsEarned: 0, lifetimePointsEarned: 0,
       playtimeMilestonesGranted: [],
-      totalDeaths: 0, difficultyStats: {}, firstPlayedDate: null, accountCreatedAt: null,
+      totalDeaths: 0, difficultyStats: {}, firstPlayedDate: null, birthdayClaimedYear: 0, accountCreatedAt: null,
       longestSessionSeconds: 0, mutatorUseCounts: {},
       mostProfitableRun: 0,
       playButtonClicks: 0,
@@ -1954,6 +1959,10 @@ export class Game {
         if (showcaseHeader) showcaseHeader.style.opacity = '1'
       })
       this._menuAvatar3D.start()
+      // The homepage pet, once the homepage is idle - and only if there
+      // could be one (no download at all otherwise).
+      const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500))
+      idle(() => this._refreshHomePet(), { timeout: 4000 })
     }
     // The Profile panel used to show this same live 3D character again in
     // its own canvas - removed by request in favor of just the corner
@@ -4093,6 +4102,13 @@ export class Game {
   }
 
   _applyBgMood() { return HomeUI._applyBgMood(this) }
+  // Shows the chosen homepage pet (HomePet.js, loaded only when needed).
+  _refreshHomePet() {
+    let any = false
+    try { any = !!localStorage.getItem('gayz-pet-zombie') || !!localStorage.getItem('gayz-creatures') } catch { /* no storage */ }
+    if (!any && !this._menuAvatar3D?._pet) return Promise.resolve()
+    return import('./HomePet.js').then((m) => m.refreshHomePet(this)).catch(() => {})
+  }
 
   _updateWhatsNewDot() { return InfoPagesUI._updateWhatsNewDot(this) }
 

@@ -846,6 +846,17 @@ export async function updateLastActive(uid, doNotDisturb, manualIdle) {
   await fsMod.setDoc(fsMod.doc(db, 'leaderboard', uid), { lastActiveAt: Date.now(), doNotDisturb: !!doNotDisturb, manualIdle: !!manualIdle }, { merge: true })
 }
 
+// "Players online now" on the homepage (HomeExtras, 2026-11-07): how many
+// signed-in players' presence heartbeat (above) is fresher than sinceMs.
+// A COUNT aggregation, so it costs about one read however many there are.
+// Guests send no heartbeat, so they aren't counted.
+export async function fetchOnlineCount(sinceMs) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('lastActiveAt', '>=', Date.now() - sinceMs))
+  const snap = await fsMod.getCountFromServer(q)
+  return snap.data().count
+}
+
 // One direct doc read by uid (not a query) - used to check a single
 // friend's live lastActiveAt/doNotDisturb when rendering "Your Friends"
 // (see Game.js's _renderSavedFriends). A friend who has never synced

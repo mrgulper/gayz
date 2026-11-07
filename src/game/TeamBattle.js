@@ -58,7 +58,7 @@ const HEAL_SHARE = 0.12 // ...each this share of the friend's health
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 
 let _animalHelper = null
-function animalModel(kind) {
+export function animalModel(kind) {
   // PlayAnimals' own models, built with a block as 1 unit and no world.
   if (!_animalHelper) _animalHelper = new PlayAnimals({ B: 1, bm: null })
   const built = _animalHelper._build(kind)

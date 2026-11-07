@@ -1539,7 +1539,7 @@ html #quests-panel .perk-option.quest-card.quest-fade-out {
    Achievements, Gallery, Settings. The ids keep these above each
    panel's older rules; the dropdown arrows stay.
    ================================================================ */
-html :is(.search-bar, .market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to) {
+html :is(.search-bar, .market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to, #home-pet-select) {
   box-sizing: border-box;
   height: 36px;
   padding-top: 0;
@@ -1558,27 +1558,27 @@ html :is(.search-bar, #gallery-mine-btn, #gallery-postcards-btn) {
   padding-left: 16px;
   padding-right: 16px;
 }
-html :is(#achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-postcard-to) {
+html :is(#achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-postcard-to, #home-pet-select) {
   padding-left: 16px;
   padding-right: 30px;
 }
-html :is(.market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to):hover {
+html :is(.market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to, #home-pet-select):hover {
   border-color: rgba(var(--ui-gold-accent-rgb), 0.45);
 }
-html.ui-theme-old :is(.search-bar, .market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to) {
+html.ui-theme-old :is(.search-bar, .market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to, #home-pet-select) {
   color: #2b1a0c;
   background-color: rgba(241, 224, 184, 0.55);
   border-color: rgba(122, 78, 36, 0.4);
 }
-html.ui-theme-old :is(.market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to):hover {
+html.ui-theme-old :is(.market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to, #home-pet-select):hover {
   border-color: rgba(122, 78, 36, 0.6);
 }
-html.ui-theme-clean :is(.search-bar, .market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to) {
+html.ui-theme-clean :is(.search-bar, .market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to, #home-pet-select) {
   color: var(--clean-fg);
   background-color: var(--clean-surface);
   border-color: var(--clean-line);
 }
-html.ui-theme-clean :is(.market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to):hover {
+html.ui-theme-clean :is(.market-filter-btn, #achievements-category-select, #achievements-sort-select, #gallery-sort, #gallery-mine-btn, #gallery-postcards-btn, #gallery-postcard-to, #home-pet-select):hover {
   border-color: rgba(var(--clean-fg-rgb), 0.45);
 }
 /* "On" (My Posts) is filled with the ink, like an active tab. */
@@ -1734,4 +1734,19 @@ html.ui-theme-clean .postcard {
   color: var(--clean-fg);
   background: var(--clean-surface);
   border-color: var(--clean-line);
+}
+
+/* Homepage pet picker on the Team page (HomePet.js, 2026-11-07). Its
+   pill look comes from the shared rules above. */
+#home-pet-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 4px 0 10px;
+}
+#home-pet-select {
+  min-width: 0;
+  max-width: 100%;
 }
