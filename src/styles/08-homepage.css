@@ -1885,8 +1885,19 @@ html.ui-theme-old #menu-nav-buttons .nav-badge-dot {
   100% { scale: 1; }
 }
 #play-btn:hover,
-#menu-nav-buttons button:hover {
+#menu-nav-buttons button:hover,
+#menu-player-badge:hover,
+#gamemode-btn:hover,
+#hero-quick-actions button:hover,
+#menu-links-row > :is(button, a):hover {
   animation: gayz-wobble 0.45s ease-in-out, gayz-pop 0.3s ease-out;
+}
+/* The level circle on the profile wiggles on its own too (2026-11-07,
+   Gaymi: "when pointing at the profile even the level it will tick like
+   the rightside panel"), a beat after the card, so it reads as its own
+   little tick. */
+#menu-player-badge:hover #menu-avatar-level {
+  animation: gayz-wobble 0.45s ease-in-out 0.08s, gayz-pop 0.3s ease-out 0.08s;
 }
 #menu button:active,
 #menu-nav-buttons button:active,
@@ -1896,6 +1907,11 @@ html.ui-theme-old #menu-nav-buttons .nav-badge-dot {
 @media (prefers-reduced-motion: reduce) {
   #play-btn:hover,
   #menu-nav-buttons button:hover,
+  #menu-player-badge:hover,
+  #menu-player-badge:hover #menu-avatar-level,
+  #gamemode-btn:hover,
+  #hero-quick-actions button:hover,
+  #menu-links-row > :is(button, a):hover,
   #menu button:active,
   #menu-nav-buttons button:active,
   #play-btn:active { animation: none; }
