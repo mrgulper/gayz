@@ -21,7 +21,9 @@
 // Fifth batch (2026-11-08): the rest of the soft ground joins the same
 // land - sand, gravel, mud, clay, moss, podzol, nylium... - each with its
 // own look (LOOK_OF below), melting into the grass, dirt and rock round it.
-export const REAL_GROUND = /^(grass|dirt|sand|redsand|soulsand|gravel|mud|clay|packedmud|moss|mycelium|podzol|coarsedirt|rooteddirt|dirtpath|soulsoil|crimsonnylium|warpednylium|terracotta)$/
+// Sixth batch (2026-11-08): snow (soft rounded drifts) and ice (smooth,
+// glassy rounded slabs - plain ice stays see-through) join it too.
+export const REAL_GROUND = /^(grass|dirt|sand|redsand|soulsand|gravel|mud|clay|packedmud|moss|mycelium|podzol|coarsedirt|rooteddirt|dirtpath|soulsoil|crimsonnylium|warpednylium|terracotta|snow|ice|packedice|blueice)$/
 // Second batch (2026-11-08): leaves join into one bushy treetop (same
 // corner-point idea as the ground, with bigger bumps and leaf clumps
 // poking out - BlockChunks._realLeafCell), and logs are drawn as round,
@@ -45,9 +47,11 @@ export const NOT_ROCK = /(slab|stairs|fence|wall|button|plate|lamp|door|block)$|
 //    dunes, smoother than dirt").
 //  gravel: lumpy, small stones poking out.
 //  mud: flat, soft and a bit shiny wet.
-//  snow: soft rounded drifts (sixth batch).
-export const LOOKS = ['rock', 'sand', 'gravel', 'mud', 'snow']
-const LOOK_OF = { sand: 'sand', redsand: 'sand', soulsand: 'sand', gravel: 'gravel', mud: 'mud', clay: 'mud', terracotta: 'rock' }
+//  snow: soft rounded drifts, smoother than dirt, slightly sparkly
+//    (sixth batch).
+//  ice: smooth, glassy rounded slabs with hardly any bumps (sixth batch).
+export const LOOKS = ['rock', 'sand', 'gravel', 'mud', 'snow', 'ice']
+const LOOK_OF = { sand: 'sand', redsand: 'sand', soulsand: 'sand', gravel: 'gravel', mud: 'mud', clay: 'mud', terracotta: 'rock', snow: 'snow', ice: 'ice', packedice: 'ice', blueice: 'ice' }
 // Which look a real-ground block has ('dirt' = plain earth).
 export function lookOf(id) {
   if (LOOK_OF[id]) return LOOK_OF[id]
@@ -140,8 +144,8 @@ export function kindOfLook(look) {
   return i < 0 ? REAL : 4 + i
 }
 // How much less each look's corners round off than dirt (rock keeps an
-// edge; snow rounds a little more).
-const LOOK_ROUND = [0.3, 0, 0.05, 0, -0.12]
+// edge; snow rounds a little more; ice keeps a slab's softened edge).
+const LOOK_ROUND = [0.3, 0, 0.05, 0, -0.12, 0.2]
 
 // One lattice point (X, Y, Z: a corner where up to 8 cells meet) into
 // out[o..o+8]: the rounding move (x, y, z), the ground's facing direction
@@ -216,7 +220,7 @@ export function realPoint(P, L, s, t, fn, amt, out, look = GROUND_LOOK) {
   const { bump: aBump, jit: aJit, jitY } = look
   const W0 = (1 - s) * (1 - t), W1 = s * (1 - t), W2 = s * t, W3 = (1 - s) * t
   let px = 0, py = 0, pz = 0, mx = 0, my = 0, mz = 0, nx = 0, ny = 0, nz = 0, w = 0, ao = 0, rf = 0
-  let sand = 0, grav = 0, mud = 0, snow = 0
+  let sand = 0, grav = 0, mud = 0, snow = 0, ice = 0
   for (let k = 0; k < 4; k++) {
     const Wk = k === 0 ? W0 : k === 1 ? W1 : k === 2 ? W2 : W3
     const p = P[k], l = L[k]
@@ -234,9 +238,10 @@ export function realPoint(P, L, s, t, fn, amt, out, look = GROUND_LOOK) {
       grav += Wk * l[10]
       mud += Wk * l[11]
       snow += Wk * l[12]
+      ice += Wk * l[13]
     }
   }
-  const soft = sand + grav + mud + snow
+  const soft = sand + grav + mud + snow + ice
   let nl = Math.hypot(nx, ny, nz)
   if (nl < 1e-6) { nx = fn[0]; ny = fn[1]; nz = fn[2] } else { nx /= nl; ny /= nl; nz /= nl }
   const k = w * amt
@@ -269,15 +274,16 @@ export function realPoint(P, L, s, t, fn, amt, out, look = GROUND_LOOK) {
         const v = gravelD(px, py, pz), m = grav * GRAVEL_BUMP
         b += m * v; gx += m * G[0]; gy += m * G[1]; gz += m * G[2]
       }
-      if (mud + snow > 0.001) {
-        // Mud and snow share one broad, slow swell (snow's is bigger).
+      if (mud + snow + ice > 0.001) {
+        // Mud, snow and ice share one broad, slow swell (snow's is the
+        // biggest - drifts; ice hardly rises at all - glassy slabs).
         const v = vnoiseD(px * 0.32, py * 0.32, pz * 0.32, 63) * 2 - 1
-        const m = mud * MUD_BUMP + snow * SNOW_BUMP
+        const m = mud * MUD_BUMP + snow * SNOW_BUMP + ice * ICE_BUMP
         b += m * v; gx += m * D[0] * 0.64; gy += m * D[1] * 0.64; gz += m * D[2] * 0.64
       }
     }
     // Smooth looks wobble less sideways too.
-    const jit = 1 - 0.4 * (sand + snow) - 0.5 * mud
+    const jit = 1 - 0.4 * (sand + snow) - 0.5 * mud - 0.85 * ice
     let jx, jy, jz
     if (rf > 0.001) {
       // Rock (lots of it underground): one noise's slope makes all three
@@ -310,8 +316,10 @@ export function realPoint(P, L, s, t, fn, amt, out, look = GROUND_LOOK) {
   out.shade = shadeOf(nx, ny, nz)
   out.rock = rf
   out.grain = rf > 0.001 && k > 0 ? GRAIN : 0.5
-  // How glossy (0..1): wet mud shines, snow glints a little.
-  out.gloss = mud * 0.55 + snow * 0.15
+  // How glossy (0..1): wet mud shines, snow glints a little (and
+  // sparkles - the solid shader's glitter keys on a light picture with
+  // this little gloss), ice shines like glass.
+  out.gloss = mud * 0.55 + snow * 0.15 + ice * 0.9
   out.gravel = grav
   return out
 }
@@ -370,6 +378,7 @@ const SAND_BUMP = 0.75
 const GRAVEL_BUMP = 1.1
 const MUD_BUMP = 0.35
 const SNOW_BUMP = 1
+const ICE_BUMP = 0.15
 // Sand (-1..1): a slow, low swell plus wind ripples about 1.5 blocks
 // apart, bent by a slow noise so they curve like real dunes. Ripples
 // only on what faces up (ny), sand walls just get the swell.

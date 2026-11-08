@@ -220,6 +220,21 @@ function sharpen(mat, fx, extra = null) {
         // vEdge below 0: the block's own gloss (real-life wet mud).
         float glossy = clamp(wetNow * 0.7 + puddle + max(-vEdge, 0.0), 0.0, 1.0);
         float sp = pow(nh, mix(20.0, 160.0, glossy)) * mix(0.07, 1.5, glossy);
+        #ifdef USE_MAP
+        // Real-life snow (sixth batch) sparkles: a light picture with snow's
+        // little gloss (0.08..0.3 on aEdge) gets tiny glints that blink on
+        // and off as you move, up close only.
+        float own = max(-vEdge, 0.0);
+        float lum = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
+        float snowy = smoothstep(0.06, 0.12, own) * (1.0 - smoothstep(0.3, 0.4, own)) * smoothstep(0.62, 0.8, lum);
+        if (snowy > 0.0) {
+          vec3 gc = floor(vWPos / uBlock * 26.0);
+          vec3 vq = floor(normalize(vViewPosition) * 9.0);
+          float glint = step(0.96, realHash(gc)) * step(0.55, realHash(gc + vq * 3.1));
+          float near = 1.0 - smoothstep(6.0, 20.0, length(vViewPosition) / uBlock);
+          sp += glint * snowy * near * 2.5;
+        }
+        #endif
         reflectedLight.directDiffuse += directLight.color * sp * uSpec * step(0.0, dot(geometryNormal, directLight.direction));
       }
       #endif`)
@@ -509,7 +524,9 @@ export class BlockChunks {
         // Ground that smooths into hills (NATURAL).
         natural: NATURAL.test(t.id) && !t.transparent && !liquid && !t.inset,
         // Drawn as real-life ground on the top levels (RealGround.js).
-        real: (REAL_GROUND.test(t.id) || (REAL_ROCK.test(t.id) && !NOT_ROCK.test(t.id) && !t.emissive)) && !t.transparent && !liquid && !t.inset,
+        // Plain ice is see-through but still joins (sixth batch): drawn
+        // with the see-through blocks, its own alpha kept.
+        real: (REAL_GROUND.test(t.id) || (REAL_ROCK.test(t.id) && !NOT_ROCK.test(t.id) && !t.emissive)) && (!t.transparent || t.id === 'ice') && !liquid && !t.inset,
         // Real ground with the rock look (RealGround.js, third batch).
         rock: lookOf(t.id) === 'rock' && !t.emissive,
         // Its real-ground look ('dirt', 'rock', 'sand', 'gravel', 'mud'...)
@@ -720,6 +737,79 @@ export class BlockChunks {
         #include <fog_fragment>`)
     }
     this.materials.water.customProgramCacheKey = () => 'waves-sky-ripples-real'
+    // Real-life lava (sixth batch, top 3 levels, Gaymi's pick "like the
+    // water batch"): a dark, cooled crust drifting slowly across the
+    // surface, broken by bright glowing cracks and the odd open molten
+    // patch; fully crusted where it runs shallow at the edge, churning
+    // bright where a lava fall lands, and the falls themselves pour in
+    // glowing streaks. Worked out from the world position, so it runs on
+    // across blocks with no seams. Plain lava picture on the other levels.
+    this.materials.lava.onBeforeCompile = (shader) => {
+      shader.uniforms.uTime = this.fx.time
+      shader.uniforms.uBlock = this.fx.block
+      shader.uniforms.uRealWater = this.fx.realWater
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nattribute vec2 aWater;\nvarying vec2 vWater;\nvarying float vTop;\nvarying vec3 vLp;\nuniform float uBlock;')
+        .replace('#include <project_vertex>', `#include <project_vertex>
+        vWater = aWater;
+        vTop = objectNormal.y > 0.5 ? 1.0 : 0.0;
+        vLp = (modelMatrix * vec4(transformed, 1.0)).xyz / uBlock;`)
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', `#include <common>
+        uniform float uTime;
+        uniform float uRealWater;
+        varying vec2 vWater;
+        varying float vTop;
+        varying vec3 vLp;
+        ${NOISE_GLSL}`)
+        .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        if (uRealWater > 0.0) {
+          // Shade only (the glow of nearby lights would light the crust up).
+          float lit = min(max(vColor.r, max(vColor.g, vColor.b)), 1.0);
+          float t = uTime;
+          float crustF;
+          float heat;
+          float tone;
+          if (vTop > 0.5) {
+            // The crust drifts slowly one way.
+            vec2 q = vLp.xz + vec2(t * 0.05, t * 0.03);
+            float n1 = realNoise(vec3(q * 0.9, 1.0));
+            float n2 = realNoise(vec3(q * 2.3, 4.0 + t * 0.02));
+            float n = n1 * 0.65 + n2 * 0.35;
+            // Cracks: thin lines where the noise crosses its middle, plus a
+            // finer network of smaller ones.
+            float crack = 1.0 - smoothstep(0.0, 0.05, abs(n - 0.5));
+            crack = max(crack, (1.0 - smoothstep(0.0, 0.04, abs(realNoise(vec3(q * 4.5, 7.0)) - 0.5))) * 0.75);
+            float open = smoothstep(0.66, 0.78, realNoise(vec3(q * 0.35, 9.0)));
+            // Shallow edge (vWater.x: depth in blocks; -1 = plain top).
+            float shore = vWater.x >= 0.0 ? 1.0 - smoothstep(0.05, 0.4, vWater.x) : 0.0;
+            crustF = clamp((1.0 - open) * (1.0 - crack) + shore * crack * 0.7, 0.0, 1.0);
+            // Where a lava fall lands it churns open and bright.
+            float spl = max(vWater.y, 0.0) * (0.65 + 0.35 * sin(t * 5.0 + vLp.x * 9.0) * sin(t * 4.0 - vLp.z * 8.0));
+            crustF *= 1.0 - spl;
+            heat = max(crack, spl);
+            tone = n2;
+          } else {
+            // A lava fall: glowing streaks pouring downward, with dark
+            // lumps of crust carried down in them.
+            float u = vLp.x + vLp.z;
+            float st = 0.5 + 0.5 * sin(u * 9.0 + sin(u * 3.0) * 2.0);
+            float fl = realNoise(vec3(u * 3.0, vLp.y * 1.4 + t * 1.3, 2.0));
+            crustF = smoothstep(0.6, 0.78, fl) * 0.75;
+            heat = st * 0.6;
+            tone = fl;
+          }
+          float pulse = 0.88 + 0.12 * sin(t * 1.3 + tone * 9.0);
+          vec3 hot = mix(vec3(1.0, 0.3, 0.03), vec3(1.0, 0.7, 0.2), heat) * pulse;
+          vec3 crustCol = vec3(0.014, 0.008, 0.007) * (0.6 + 0.8 * tone);
+          // The glow is its own light (emissive), so the sun doesn't wash
+          // the hot parts out to white.
+          diffuseColor.rgb = mix(hot * 0.12, crustCol, crustF) * lit;
+          // The crust still glows a dull red from the heat under it.
+          totalEmissiveRadiance = mix(hot * 0.9, vec3(0.035, 0.006, 0.0), crustF);
+        }`)
+    }
+    this.materials.lava.customProgramCacheKey = () => 'lava-real'
   }
 
   // How much the leaves sway and the water rolls (world units) and how
@@ -1090,7 +1180,7 @@ export class BlockChunks {
       // runs smoothly downhill from its source, like Minecraft.
       const cornerY = info.liquid ? this._liquidCorners(x, y, z, type) : null
       if (latAt && info.real) {
-        this._realCell(out.solid, x, y, z, bx, by, bz, info, type, typeAt, latAt, glowSources, stoneUv)
+        this._realCell(info.solidDraw ? out.solid : out.clear, x, y, z, bx, by, bz, info, type, typeAt, latAt, glowSources, stoneUv)
         continue
       }
       if (leafLatAt && info.leaf) {
@@ -1177,7 +1267,7 @@ export class BlockChunks {
           this._leafPuff(buf, x, y, z, bx, by, bz, face, [u0, v0, u1, v1], ao.map((a) => AO_LEVELS[a] * face.shade * tint))
           continue
         }
-        if (realAmt > 0 && info.liquid === 'water' && ny === 1) {
+        if (realAmt > 0 && info.liquid && ny === 1) {
           this._realWaterTop(buf, x, y, z, bx, by, bz, type, cornerY, edge, glowSources, typeAt)
           continue
         }
@@ -1203,7 +1293,7 @@ export class BlockChunks {
           if (buf.stride === 4) buf.col.push(cr, cg, cb, info.alpha)
           else buf.col.push(cr, cg, cb)
           // Water's depth and splash (only the real-life top uses them).
-          if (buf === out.water) buf.wat.push(-1, 0)
+          if (buf === out.water || buf === out.lava) buf.wat.push(-1, 0)
         }
         // Split the quad along the diagonal whose corners are shaded more
         // alike, or the corner darkening shows a visible crease.
@@ -1224,7 +1314,7 @@ export class BlockChunks {
       geo.setAttribute('uv', new THREE.Float32BufferAttribute(buf.uv, 2))
       geo.setAttribute('color', new THREE.Float32BufferAttribute(buf.col, buf.stride))
       if (shapes || kind === 'water') geo.setAttribute('aEdge', new THREE.Float32BufferAttribute(buf.edge, 1))
-      if (kind === 'water') geo.setAttribute('aWater', new THREE.Float32BufferAttribute(buf.wat, 2))
+      if (kind === 'water' || kind === 'lava') geo.setAttribute('aWater', new THREE.Float32BufferAttribute(buf.wat, 2))
       geo.setIndex(buf.pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(buf.idx, 1) : new THREE.Uint16BufferAttribute(buf.idx, 1))
       geo.computeBoundingSphere()
       const mesh = new THREE.Mesh(geo, this.materials[kind])
@@ -1342,6 +1432,8 @@ export class BlockChunks {
     // Water doesn't hold the ground's corners (fourth batch): banks and
     // lake beds round off and roll under it like real shores.
     if (info.liquid === 'water') return AIR
+    // Nor does lava (sixth batch): its banks round off under it too.
+    if (info.liquid === 'lava') return AIR
     if (info.real) return info.lookKind
     return info.opaque ? PIN_SOLID : PIN_OTHER
   }
@@ -1439,7 +1531,9 @@ export class BlockChunks {
     })
   }
 
-  // Real-life water's top (fourth batch, top 3 levels). Like the plain
+  // Real-life water's top (fourth batch, top 3 levels) - and lava's
+  // (sixth batch: the same soft edges, depth and falls; its own shader
+  // turns them into crust, cracks and glowing splashes). Like the plain
   // top, plus: where the shore is solid it reaches SHORE_REACH under the
   // bank, so the water meets the rounded-off bank instead of stopping at
   // the old square edge; every corner carries how deep the water is there
@@ -1491,7 +1585,8 @@ export class BlockChunks {
         buf.edge.push(edge)
         buf.uv.push(vx, 1 - vz)
         const L = glowSources && this._glowAt(x + cx, y + h, z + cz, FACES[2].n, glowSources)
-        buf.col.push(L ? 1 + L[0] : 1, L ? 1 + L[1] : 1, L ? 1 + L[2] : 1, alpha)
+        buf.col.push(L ? 1 + L[0] : 1, L ? 1 + L[1] : 1, L ? 1 + L[2] : 1)
+        if (buf.stride === 4) buf.col.push(alpha)
         // (depth, splash); splash -1 marks the edge reaching under a bank.
         buf.wat.push(inside ? dep[cx * 2 + cz] : 0, inside ? spl[cx * 2 + cz] : -1)
       }
