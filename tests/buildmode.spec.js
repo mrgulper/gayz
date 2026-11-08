@@ -2993,6 +2993,10 @@ test('bumpy block tops and rounded edges on the top levels', async ({ page }) =>
             // Only the test blocks (the ground round them has rocks on it).
             if (x < 40 || x > 43 || z < 40 || z > 43) continue
             const y = (pos.array[i] + m.position.y) / S
+            // Not the grass under them: on the top levels grass and dirt
+            // are real-life ground and round off below block tops on
+            // purpose (RealGround.js, own test below).
+            if (y < 0.5) continue
             f.push(Math.round((y - Math.floor(y + 0.001)) * 1000) / 1000)
           }
         }
@@ -3017,6 +3021,66 @@ test('bumpy block tops and rounded edges on the top levels', async ({ page }) =>
   // bump check only counts when the arrays were still there.
   expect(r.irl, JSON.stringify(r.bad)).toEqual([true, 1, true, true])
   expect(r.simple).toEqual([false, 0, false])
+})
+
+test('real-life ground: grass and dirt round into one piece on the top levels only', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const ch = bm._chunks
+    // A lone dirt block up in the air, and a grass block with planks on
+    // one side (where they meet, the grass must not move).
+    bm._placeBlockInner(60, 5, 60, 'dirt')
+    bm._placeBlockInner(70, 5, 70, 'grass')
+    bm._placeBlockInner(71, 5, 70, 'oakplanks')
+    const verts = (x0, z0) => {
+      ch.flush(bm._chunkCells)
+      const v = []
+      const S = ch.blockSize
+      for (const c of ch.chunks.values()) {
+        for (const m of c.meshes) {
+          const pos = m.geometry.attributes.position
+          if (!pos?.array?.length) continue
+          for (let i = 0; i < pos.array.length; i += 3) {
+            const x = (pos.array[i] + m.position.x) / S
+            const y = (pos.array[i + 1] + m.position.y) / S
+            const z = (pos.array[i + 2] + m.position.z) / S
+            if (x > x0 - 0.8 && x < x0 + 1.8 && z > z0 - 0.8 && z < z0 + 1.8 && y > 4.2 && y < 6.8) v.push([x, y, z])
+          }
+        }
+      }
+      return v
+    }
+    g._applyGraphicsLevel('irl')
+    bm._applyGraphicsLook()
+    out.amt = ch.realAmt
+    const lone = verts(60, 60)
+    // Its corners round in: no point reaches the cube's top corners.
+    out.rounded = lone.length === 0 || lone.every(([x, y, z]) => !(y > 5.97 && (x < 60.03 || x > 60.97) && (z < 60.03 || z > 60.97)))
+    // The real top as GrassTufts/cracks see it, and the planks' corner.
+    out.grid = !!ch.realFaceGrids(60, 5, 60) && ch.realFaceGrids(61, 5, 60) === null
+    const L = ch.realTopLattice(70, 5, 70)
+    const p = ch.realTopPoint(L, 70, 5, 70, 1, 0)
+    out.pinned = [Math.round(p.x * 1000) / 1000, Math.round(p.y * 1000) / 1000, Math.round(p.z * 1000) / 1000]
+    g._applyGraphicsLevel('simple')
+    bm._applyGraphicsLook()
+    out.simpleAmt = ch.realAmt
+    const flat = verts(60, 60)
+    out.simpleCube = flat.length === 0 || flat.every(([x, y, z]) => [x, y, z].every((k) => Math.abs(k - Math.round(k)) < 0.001))
+    g._exitBuildMode()
+    return out
+  })
+  expect(r.amt).toBe(1)
+  // Uploaded chunk geometry may drop its arrays (dropAfterUpload); the
+  // vertex checks count whenever the arrays were still there.
+  expect(r.rounded).toBe(true)
+  expect(r.grid).toBe(true)
+  expect(r.pinned).toEqual([71, 6, 70])
+  expect(r.simpleAmt).toBe(0)
+  expect(r.simpleCube).toBe(true)
 })
 
 test('castles fly cloth flags on poles, acacia trees stand on their trunks', async ({ page }) => {

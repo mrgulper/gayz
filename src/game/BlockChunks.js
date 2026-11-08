@@ -19,6 +19,7 @@
 // keep BuildMode's per-type InstancedMesh path - they're rare, and they
 // never hide a neighbor's face.
 import * as THREE from 'three'
+import { REAL_GROUND, AIR, REAL, PIN_SOLID, PIN_OTHER, latticeAt, realPoint, realTint } from './RealGround.js'
 
 export const CHUNK = 16
 // A chunk plus a one-cell ring on every side (see _build), and the mark
@@ -470,6 +471,8 @@ export class BlockChunks {
       uvOf.set(src, [u0, v0, u1, v1])
     })
     this.shapes = false
+    // Real-life ground strength (RealGround.js, 0 = plain blocks).
+    this.realAmt = 0
     cube.forEach((t, i) => {
       const f = faceSets[i]
       const liquid = LIQUIDS[t.id] ? t.id : null
@@ -498,6 +501,8 @@ export class BlockChunks {
         glow: !!t.emissive,
         // Ground that smooths into hills (NATURAL).
         natural: NATURAL.test(t.id) && !t.transparent && !liquid && !t.inset,
+        // Drawn as real-life ground on the top levels (RealGround.js).
+        real: REAL_GROUND.test(t.id) && !t.transparent && !liquid && !t.inset,
       })
     })
     const tex = new THREE.CanvasTexture(canvas)
@@ -642,7 +647,12 @@ export class BlockChunks {
   // How much the leaves sway and the water rolls (world units) and how
   // much the water shines (0..1) - set from the graphics level. hazeScale:
   // how much of the far haze the weather lets through (0 on a clear day).
-  setEffects({ sway = 0, waves = 0, shine = 0, real = 0, bump = 0, haze = 0, grade = 0, ao = 0, spec = 0, round = 0 } = {}, hazeScale = 1) {
+  setEffects({ sway = 0, waves = 0, shine = 0, real = 0, bump = 0, haze = 0, grade = 0, ao = 0, spec = 0, round = 0, realShape = 0 } = {}, hazeScale = 1) {
+    // Real-life ground changes the chunks' shapes too: rebuild on a change.
+    if (realShape !== this.realAmt) {
+      this.realAmt = realShape
+      this.rebuildAll()
+    }
     this.fx.round.value = round
     // Smooth hills, pebbles and leafy edges change the chunks' shapes, so
     // turning them on or off rebuilds every chunk once.
@@ -871,6 +881,18 @@ export class BlockChunks {
   // lay the breaking crack over the lumps (BuildTryMode).
   lumpyTopPoints(x, y, z) {
     if (!this.shapes) return null
+    if (this.realAmt > 0 && this.info.get(this.getType(x, y, z))?.real) {
+      const L = this.realTopLattice(x, y, z)
+      const pts = []
+      const pt = {}
+      for (let j = 0; j <= 3; j++) {
+        for (let i = 0; i <= 3; i++) {
+          this.realTopPoint(L, x, y, z, i / 3, j / 3, pt)
+          pts.push([pt.x - x, pt.z - z, pt.y - y])
+        }
+      }
+      return pts
+    }
     const info = this.info.get(this.getType(x, y, z))
     if (!info || !info.opaque || info.inset || info.liquid) return null
     const above = this.getType(x, y + 1, z)
@@ -945,6 +967,31 @@ export class BlockChunks {
       return !!t && !!this.info.get(t)?.opaque
     }
     const shapes = this.shapes
+    // Real-life ground (RealGround.js): each corner point's move, worked
+    // out once per build (17^3 corners in a chunk).
+    const realAmt = this.realAmt
+    let latAt = null
+    if (realAmt > 0) {
+      const kind = (x, y, z) => this._kindOf(typeAt(x, y, z))
+      const L = CHUNK + 1
+      if (!this._latBuf) {
+        this._latBuf = new Float32Array(L * L * L * 8)
+        this._latViews = Array.from({ length: L * L * L }, (_, i) => this._latBuf.subarray(i * 8, i * 8 + 8))
+        this._latDone = new Uint8Array(L * L * L)
+      }
+      this._latDone.fill(0)
+      latAt = (X, Y, Z) => {
+        const lx = X - bx, ly = Y - by, lz = Z - bz
+        if (lx < 0 || ly < 0 || lz < 0 || lx > CHUNK || ly > CHUNK || lz > CHUNK) return latticeAt(kind, X, Y, Z, realAmt, new Float32Array(8))
+        const i = (ly * L + lz) * L + lx
+        const v = this._latViews[i]
+        if (!this._latDone[i]) {
+          latticeAt(kind, X, Y, Z, realAmt, v)
+          this._latDone[i] = 1
+        }
+        return v
+      }
+    }
     // Bumpy blocks (2026-10-26, Gaymi: "you cant really tell what block
     // it is ... make them slightly bumpy ... no more then 20 degrees"):
     // every natural top keeps its edges at the block's own height, so each
@@ -960,7 +1007,9 @@ export class BlockChunks {
       if (!info) continue
       const buf = info.liquid ? out[info.liquid] : info.solidDraw ? (info.glow ? out.glow : out.solid) : info.cutout ? out.cutout : out.clear
       if (info.plant) {
-        this._plant(buf, x, y, z, bx, by, bz, info.uvs[0], tintAt(x, y, z), glowSources)
+        // On real ground, sat on its rolling top instead of the cube's.
+        const lift = latAt && this.info.get(typeAt(x, y - 1, z))?.real ? this._realTopAt(x, y - 1, z, 0.5, 0.5, latAt).y - y : 0
+        this._plant(buf, x, y, z, bx, by, bz, info.uvs[0], tintAt(x, y, z), glowSources, lift)
         continue
       }
       const inset = info.inset
@@ -970,6 +1019,10 @@ export class BlockChunks {
       // touching liquid with more of it on top is full - so flowing water
       // runs smoothly downhill from its source, like Minecraft.
       const cornerY = info.liquid ? this._liquidCorners(x, y, z, type) : null
+      if (latAt && info.real) {
+        this._realCell(out.solid, x, y, z, bx, by, bz, info, type, typeAt, latAt, glowSources, stoneUv)
+        continue
+      }
       const smooth = shapes && info.opaque && !inset && !info.liquid && !opaqueAt(x, y + 1, z)
       if (smooth && info.natural && PEBBLE_ON.test(type) && hash01(x, y, z, 1) < 0.07 && stoneUv) this._pebble(out.solid, x - bx, y - by, z - bz, x, y, z, cornerH, stoneUv)
       for (let fi = 0; fi < 6; fi++) {
@@ -1194,6 +1247,158 @@ export class BlockChunks {
     }
   }
 
+  // What a block is to real ground round it (RealGround.js kinds).
+  // Anything this class doesn't draw (shaped blocks like slabs) pins it.
+  _kindOf(t) {
+    if (!t) return AIR
+    const info = this.info.get(t)
+    if (!info) return PIN_OTHER
+    if (info.plant) return AIR
+    if (info.real) return REAL
+    return info.opaque ? PIN_SOLID : PIN_OTHER
+  }
+
+  // A corner point's record outside a chunk build (cracks, grass tufts).
+  _latOutside(X, Y, Z) {
+    return latticeAt((a, b, c) => this._kindOf(this.getType(a, b, c)), X, Y, Z, this.realAmt, new Float32Array(8))
+  }
+
+  // A point on the real top of cell x, y, z at (u along x, v along z),
+  // in world blocks. latAt: the corner records to use.
+  _realTopAt(x, y, z, u, v, latAt, out = {}) {
+    const c = FACES[2].c
+    const P = c.map((k) => [x + k[0], y + k[1], z + k[2]])
+    const L = P.map((p) => latAt(p[0], p[1], p[2]))
+    return realPoint(P, L, u, 1 - v, FACES[2].n, this.realAmt, out)
+  }
+
+  // The 4 corner records of real ground's top at x, y, z (null if it
+  // isn't drawn as real ground) - GrassTufts keeps these for the tufts
+  // near you and asks realTopPoint() where each one sits.
+  realTopLattice(x, y, z) {
+    if (!(this.realAmt > 0) || !this.info.get(this.getType(x, y, z))?.real) return null
+    return FACES[2].c.map((k) => this._latOutside(x + k[0], y + k[1], z + k[2]))
+  }
+
+  realTopPoint(L, x, y, z, u, v, out = {}) {
+    const P = FACES[2].c.map((k) => [x + k[0], y + k[1], z + k[2]])
+    return realPoint(P, L, u, 1 - v, FACES[2].n, this.realAmt, out)
+  }
+
+  // Real ground's 6 faces as drawn: per face 16 [x, y, z] points inside
+  // the cell (4 x 4, the face's own (s, t) order, outward winding), or
+  // null if x, y, z isn't drawn as real ground. Lays the breaking crack
+  // over the real shape (BuildTryMode).
+  realFaceGrids(x, y, z) {
+    if (!(this.realAmt > 0) || !this.info.get(this.getType(x, y, z))?.real) return null
+    const cache = new Map()
+    const latAt = (X, Y, Z) => {
+      const k = `${X},${Y},${Z}`
+      if (!cache.has(k)) cache.set(k, this._latOutside(X, Y, Z))
+      return cache.get(k)
+    }
+    const pt = {}
+    return FACES.map((face) => {
+      const P = face.c.map((c) => [x + c[0], y + c[1], z + c[2]])
+      const L = P.map((p) => latAt(p[0], p[1], p[2]))
+      const pts = []
+      for (let j = 0; j <= 3; j++) {
+        for (let i = 0; i <= 3; i++) {
+          realPoint(P, L, i / 3, j / 3, face.n, this.realAmt, pt)
+          pts.push([pt.x - x, pt.y - y, pt.z - z])
+        }
+      }
+      return pts
+    })
+  }
+
+  // One real-ground block (RealGround.js): each showing face as a 3x3
+  // grid whose points all move the shared way, so the faces join into
+  // one rounded, lumpy piece of land. Lit by its rounded shape, not the
+  // cube face's, and shaded in soft patches, not per block.
+  _realCell(buf, x, y, z, bx, by, bz, info, type, typeAt, latAt, glowSources, stoneUv) {
+    const N = 3
+    const S = this.blockSize
+    const amt = this.realAmt
+    const pt = this._rp || (this._rp = {})
+    const P = this._rP || (this._rP = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]])
+    const L = [null, null, null, null]
+    const G = [null, null, null, null]
+    const aboveInfo = this.info.get(typeAt(x, y + 1, z))
+    // A pebble now and then, sat on the rolling top.
+    if (PEBBLE_ON.test(type) && !aboveInfo?.opaque && hash01(x, y, z, 1) < 0.07 && stoneUv) {
+      const cornerH = (X, Z) => this._realTopAt(x, y, z, X - x, Z - z, latAt).y - y
+      this._pebble(buf, x - bx, y - by, z - bz, x, y, z, cornerH, stoneUv)
+    }
+    for (let fi = 0; fi < 6; fi++) {
+      const face = FACES[fi]
+      const [nx, ny, nz] = face.n
+      const nType = typeAt(x + nx, y + ny, z + nz)
+      if (nType) {
+        const nInfo = this.info.get(nType)
+        if (nInfo && (nInfo.opaque || nType === type)) continue
+      }
+      for (let i = 0; i < 4; i++) {
+        const c = face.c[i]
+        P[i][0] = x + c[0]
+        P[i][1] = y + c[1]
+        P[i][2] = z + c[2]
+        L[i] = latAt(P[i][0], P[i][1], P[i][2])
+        G[i] = glowSources ? this._glowAt(P[i][0], P[i][1], P[i][2], face.n, glowSources) : null
+      }
+      // A grass side that's only a short step (ground right below the
+      // cell in front of it) is a grassy slope in real life, not a dirt
+      // wall: it gets the grass top picture. Taller drops stay dirt.
+      const slope = ny === 0 && type === 'grass' && this._kindOf(typeAt(x + nx, y - 1, z + nz)) !== AIR
+      const [u0, v0, u1, v1] = slope ? info.uvs[2] : info.uvs[fi]
+      // Tops turned a random quarter per block, so the grass picture
+      // doesn't repeat in rows.
+      const turn = ny === 1 ? Math.floor(hash01(x, y, z, 31) * 4) : 0
+      const base = buf.pos.length / 3
+      for (let j = 0; j <= N; j++) {
+        for (let i = 0; i <= N; i++) {
+          const s = i / N
+          const t = j / N
+          realPoint(P, L, s, t, face.n, amt, pt)
+          buf.pos.push((pt.x - bx) * S, (pt.y - by) * S, (pt.z - bz) * S)
+          buf.nrm.push(pt.nx, pt.ny, pt.nz)
+          buf.edge.push(0)
+          const tu = turn === 0 ? s : turn === 1 ? 1 - t : turn === 2 ? 1 - s : t
+          const tv = turn === 0 ? t : turn === 1 ? s : turn === 2 ? 1 - t : 1 - s
+          buf.uv.push(u0 + (u1 - u0) * tu, v0 + (v1 - v0) * tv)
+          const b = pt.ao * pt.shade * realTint(pt.x, pt.y, pt.z)
+          let r = b, g = b, bl = b
+          if (glowSources) {
+            const W = [(1 - s) * (1 - t), s * (1 - t), s * t, (1 - s) * t]
+            let lr = 0, lg = 0, lb = 0
+            for (let k = 0; k < 4; k++) {
+              if (!G[k]) continue
+              lr += W[k] * G[k][0]
+              lg += W[k] * G[k][1]
+              lb += W[k] * G[k][2]
+            }
+            r *= 1 + lr
+            g *= 1 + lg
+            bl *= 1 + lb
+          }
+          if (buf.stride === 4) buf.col.push(r, g, bl, info.alpha)
+          else buf.col.push(r, g, bl)
+        }
+      }
+      for (let j = 0; j < N; j++) {
+        for (let i = 0; i < N; i++) {
+          const a = base + j * (N + 1) + i
+          const b = a + 1
+          const c = a + N + 1
+          const d = c + 1
+          // Diagonal flips square to square, so no straight crease shows.
+          if ((i + j) % 2) buf.idx.push(a, b, c, b, d, c)
+          else buf.idx.push(a, b, d, a, d, c)
+        }
+      }
+    }
+  }
+
   // A little lumpy stone lying on a ground block's top (lx/ly/lz: the
   // cell in chunk space, x/y/z: in the world), sat on the smooth slope:
   // a ring of 6 points on the ground, a smaller turned ring above and a
@@ -1266,7 +1471,7 @@ export class BlockChunks {
   // A plant (coral, seagrass): two pictures crossed corner to corner
   // through the cell, each drawn from both sides, a little off-centre and
   // turned per cell so a patch doesn't look stamped out.
-  _plant(buf, x, y, z, bx, by, bz, uv, tint, glowSources) {
+  _plant(buf, x, y, z, bx, by, bz, uv, tint, glowSources, lift = 0) {
     const [u0, v0, u1, v1] = uv
     const s = this.blockSize
     const ox = (hash01(x, y, z, 3) - 0.5) * 0.3
@@ -1284,7 +1489,7 @@ export class BlockChunks {
         const ends = side === 1 ? [[-1, 0], [1, 0], [1, 1], [-1, 1]] : [[1, 0], [-1, 0], [-1, 1], [1, 1]]
         for (let i = 0; i < 4; i++) {
           const [e, up] = ends[i]
-          buf.pos.push((x - bx + 0.5 + ox + dx * e) * s, (y - by + up) * s, (z - bz + 0.5 + oz + dz * e) * s)
+          buf.pos.push((x - bx + 0.5 + ox + dx * e) * s, (y - by + up + lift) * s, (z - bz + 0.5 + oz + dz * e) * s)
           // Lit from above more than from the side, like leaves.
           buf.nrm.push(nx * side * 0.5, 0.85, nz * side * 0.5)
           buf.edge.push(0)

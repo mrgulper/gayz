@@ -1755,14 +1755,27 @@ export class BuildTryMode {
     }
     const lo = -e
     const hi = 1 + e
+    // Real-life ground (RealGround.js): the crack follows its rounded,
+    // lumpy faces, a hair outside each.
+    const real = this.bm._chunks?.realFaceGrids?.(dig.x, dig.y, dig.z)
+    const REAL_N = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
+    if (real) {
+      real.forEach((g, fi) => face(3, (i, j) => {
+        const p = g[j * 4 + i]
+        const n = REAL_N[fi]
+        return [p[0] + n[0] * e, p[1] + n[1] * e, p[2] + n[2] * e, i / 3, j / 3]
+      }))
+    }
     // Outward-facing winding: for each, (i, j) runs so a x b points out.
-    face(1, (i, j) => [hi, lo + j * (hi - lo), hi - i * (hi - lo), i, j]) // +x
-    face(1, (i, j) => [lo, lo + j * (hi - lo), lo + i * (hi - lo), i, j]) // -x
-    face(1, (i, j) => [lo + i * (hi - lo), lo, lo + j * (hi - lo), i, j]) // -y
-    face(1, (i, j) => [lo + i * (hi - lo), lo + j * (hi - lo), hi, i, j]) // +z
-    face(1, (i, j) => [hi - i * (hi - lo), lo + j * (hi - lo), lo, i, j]) // -z
-    if (lumps) face(3, (i, j) => { const [u, v, h] = lumps[(3 - j) * 4 + i]; return [u, h + e, v, i / 3, j / 3] }) // +y, lumpy
-    else face(1, (i, j) => [lo + i * (hi - lo), hi, hi - j * (hi - lo), i, j]) // +y
+    else {
+      face(1, (i, j) => [hi, lo + j * (hi - lo), hi - i * (hi - lo), i, j]) // +x
+      face(1, (i, j) => [lo, lo + j * (hi - lo), lo + i * (hi - lo), i, j]) // -x
+      face(1, (i, j) => [lo + i * (hi - lo), lo, lo + j * (hi - lo), i, j]) // -y
+      face(1, (i, j) => [lo + i * (hi - lo), lo + j * (hi - lo), hi, i, j]) // +z
+      face(1, (i, j) => [hi - i * (hi - lo), lo + j * (hi - lo), lo, i, j]) // -z
+      if (lumps) face(3, (i, j) => { const [u, v, h] = lumps[(3 - j) * 4 + i]; return [u, h + e, v, i / 3, j / 3] }) // +y, lumpy
+      else face(1, (i, j) => [lo + i * (hi - lo), hi, hi - j * (hi - lo), i, j]) // +y
+    }
     const geo = new THREE.BufferGeometry()
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
