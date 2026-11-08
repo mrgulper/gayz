@@ -492,3 +492,35 @@ export function roundHeight(shape, amt) {
 
 // Round shapes that run on into the same shape stacked above/below.
 export const ROUND_STACKS = { log: true, cactus: true, hay: true }
+
+// Eighth batch (2026-11-08): wood builds - planks, wood, bookshelves,
+// barrels, crates, crafting tables, timber frame, thatch and roof/slate
+// shingles. The man-made rule (Gaymi's option A, "one solid wall"):
+// faces stay perfectly flat and straight so builds line up, blocks of
+// the build join with no seams, and only the outside edges of the whole
+// build get a slight soft bevel (BlockChunks._realWoodFace). Where wood
+// touches anything else (stone, glass, a slab...) the line stays sharp.
+// The wood's colour drifts across the planks (woodTint) instead of every
+// block being the same shade, and thatch is shaggy with straw poking out.
+export const REAL_WOOD = /^([a-z]*planks|wood|bookshelf|barrel|crate|craftingtable|timberframe|thatch|roofshingles|slateshingles)$/
+// How far in from a cube edge the bevel starts (blocks, at full
+// strength). One size for every wood block, so their edges line up.
+export const WOOD_BEVEL = 0.14
+
+// Wood colour drifting in long soft patches (a little lighter / darker,
+// warmer / cooler) - [r, g, b] multipliers, the same at the same spot.
+const WT = [1, 1, 1]
+export function woodTint(x, y, z) {
+  const v = vnoise(x * 0.21, y * 0.21, z * 0.21, 90)
+  const w = vnoise(x * 0.13 + 5, y * 0.13, z * 0.13, 91) - 0.5
+  const br = 0.91 + v * 0.14
+  WT[0] = br * (1 + w * 0.08)
+  WT[1] = br
+  WT[2] = br * (1 - w * 0.14)
+  return WT
+}
+
+// How shaggy thatch is at a point (0..1), for its straw lumps.
+export function shag(x, y, z) {
+  return vnoise(x * 2.7, y * 2.7, z * 2.7, 92)
+}

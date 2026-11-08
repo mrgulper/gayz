@@ -19,7 +19,7 @@
 // keep BuildMode's per-type InstancedMesh path - they're rare, and they
 // never hide a neighbor's face.
 import * as THREE from 'three'
-import { REAL_GROUND, REAL_LEAVES, REAL_ROCK, NOT_ROCK, REC, AIR, REAL, PIN_SOLID, lookOf, kindOfLook, PIN_OTHER, LEAF_LOOK, K_LEAF, latticeAt, realPoint, realTint, rockTint, logRadius, roundOf, roundRadius, roundHeight, ROUND_STACKS, REAL_BLOB, REAL_EXTRA_ROCK } from './RealGround.js'
+import { REAL_GROUND, REAL_LEAVES, REAL_ROCK, NOT_ROCK, REC, AIR, REAL, PIN_SOLID, lookOf, kindOfLook, PIN_OTHER, LEAF_LOOK, K_LEAF, latticeAt, realPoint, realTint, rockTint, logRadius, roundOf, roundRadius, roundHeight, ROUND_STACKS, REAL_BLOB, REAL_EXTRA_ROCK, REAL_WOOD, WOOD_BEVEL, woodTint, shag } from './RealGround.js'
 
 export const CHUNK = 16
 // A chunk plus a one-cell ring on every side (see _build), and the mark
@@ -546,6 +546,10 @@ export class BlockChunks {
         // Soft bumpy blob that joins the treetop shape (seventh batch):
         // mushroom/wart/coral blocks and sculk, no leaf clumps.
         blob: REAL_BLOB.test(t.id) && !t.transparent && !liquid && !t.plant,
+        // Wood build (eighth batch): flat faces, softly bevelled outside
+        // edges, colour drifting across the planks (_realWoodFace).
+        wood: REAL_WOOD.test(t.id) && !t.transparent && !liquid && !t.inset && !t.emissive && !t.plant,
+        thatch: t.id === 'thatch',
       })
     })
     const tex = new THREE.CanvasTexture(canvas)
@@ -1061,6 +1065,8 @@ export class BlockChunks {
     if (!this.shapes) return null
     // A round trunk's top is its flat cut end.
     if (this.realAmt > 0 && this.info.get(this.getType(x, y, z))?.log) return null
+    // Wood builds' tops are flat on the top levels (eighth batch).
+    if (this.realAmt > 0 && this.info.get(this.getType(x, y, z))?.wood) return null
     if (this.realAmt > 0 && this.info.get(this.getType(x, y, z))?.real) {
       const L = this.realTopLattice(x, y, z)
       const pts = []
@@ -1162,6 +1168,16 @@ export class BlockChunks {
     // next to one still draws its face there (no hole to look through).
     // Blobs (seventh batch) round away from their cell's edges too.
     const hides = (nInfo) => nInfo.opaque && !(realAmt > 0 && (nInfo.log || nInfo.blob))
+    // Wood builds (eighth batch): what each cell is to a wood edge -
+    // 0 empty (air, a plant), 1 a wood block, 2 anything else.
+    const woodAt = realAmt > 0 ? (x, y, z) => {
+      const t = typeAt(x, y, z)
+      if (!t) return 0
+      const i = this.info.get(t)
+      if (!i) return 2
+      if (i.plant) return 0
+      return i.wood ? 1 : 2
+    } : null
     // Bumpy blocks (2026-10-26, Gaymi: "you cant really tell what block
     // it is ... make them slightly bumpy ... no more then 20 degrees"):
     // every natural top keeps its edges at the block's own height, so each
@@ -1251,6 +1267,10 @@ export class BlockChunks {
           }
           const corner = opaqueAt(ox + sx, oy + sy, oz + sz)
           ao[i] = s1 && s2 ? 3 : (s1 ? 1 : 0) + (s2 ? 1 : 0) + (corner ? 1 : 0)
+        }
+        if (woodAt && info.wood) {
+          this._realWoodFace(buf, x, y, z, bx, by, bz, face, info, u0, v0, u1, v1, ao, tint, glowSources, woodAt)
+          continue
         }
         // Which of this face's 4 edges are outside corners (rounded): bit
         // 1/2 = toward -/+ its first axis (y for x faces, else x), 4/8 =
@@ -1707,6 +1727,237 @@ export class BlockChunks {
           else buf.idx.push(a, b, d, a, d, c)
         }
       }
+    }
+  }
+
+  // Wood builds (eighth batch): how a cube edge's points move. The edge
+  // runs along axis d from lattice point (X, Y, Z); of the 4 cells round
+  // it, exactly one wood block with the other 3 empty = an outside edge
+  // of the build, so its points move h in toward that block on both
+  // other axes (half a bevel each way: the rounded middle of the bevel).
+  // Anything else (a wall going on, an inside corner, another kind of
+  // block) leaves the edge sharp. Only depends on those 4 cells, so every
+  // face sharing the edge moves it the same way. Fills m[0..2].
+  _woodEdge(woodAt, X, Y, Z, d, h, m) {
+    m[0] = m[1] = m[2] = 0
+    const p = d === 0 ? 1 : 0, q = d === 2 ? 1 : 2
+    const C = [X, Y, Z]
+    let found = -1
+    for (let k = 0; k < 4; k++) {
+      C[p] = (p === 0 ? X : p === 1 ? Y : Z) - (k & 1 ? 0 : 1)
+      C[q] = (q === 0 ? X : q === 1 ? Y : Z) - (k & 2 ? 0 : 1)
+      const w = woodAt(C[0], C[1], C[2])
+      if (w === 2) return m
+      if (w === 1) {
+        if (found >= 0) return m
+        found = k
+      }
+    }
+    if (found < 0) return m
+    m[p] = found & 1 ? h : -h
+    m[q] = found & 2 ? h : -h
+    return m
+  }
+
+  // A wood corner point's move (lattice point X, Y, Z): every edge
+  // meeting there, per axis (edges pulling opposite ways cancel). Pinned
+  // if any of its 8 cells is another kind of block, so wood meets it
+  // exactly. Only depends on those 8 cells - shared corners never crack.
+  _woodCorner(woodAt, X, Y, Z, h, m) {
+    m[0] = m[1] = m[2] = 0
+    for (let dy = -1; dy <= 0; dy++) {
+      for (let dz = -1; dz <= 0; dz++) {
+        for (let dx = -1; dx <= 0; dx++) if (woodAt(X + dx, Y + dy, Z + dz) === 2) return m
+      }
+    }
+    const e = this._we || (this._we = [0, 0, 0])
+    let clash = 0
+    for (let d = 0; d < 3; d++) {
+      for (let back = 0; back < 2; back++) {
+        this._woodEdge(woodAt, X - (d === 0 ? back : 0), Y - (d === 1 ? back : 0), Z - (d === 2 ? back : 0), d, h, e)
+        for (let k = 0; k < 3; k++) {
+          if (!e[k]) continue
+          if (!m[k]) m[k] = e[k]
+          else if (m[k] !== e[k]) clash |= 1 << k
+        }
+      }
+    }
+    for (let k = 0; k < 3; k++) if (clash & (1 << k)) m[k] = 0
+    return m
+  }
+
+  // One face of a wood block on the top levels (eighth batch, Gaymi's
+  // "one solid wall"): flat, with the build's outside edges softly
+  // bevelled. A face whose edges all stay sharp is one quad (cities have
+  // a lot of wall); otherwise a 4 x 4 grid at 0, b, 1 - b, 1 along each
+  // side, where only the edge and corner points move and the normals
+  // there lean out, so the bevel looks rounded. Thatch also gets shaggy
+  // lumps and straw poking out, and a fringe hanging off its overhangs.
+  _realWoodFace(buf, x, y, z, bx, by, bz, face, info, u0, v0, u1, v1, ao, tint, glowSources, woodAt) {
+    const S = this.blockSize
+    const amt = this.realAmt
+    const b = WOOD_BEVEL * amt
+    const h = b / 2
+    const c = face.c
+    const fn = face.n
+    const p0 = c[0]
+    const A = [c[1][0] - p0[0], c[1][1] - p0[1], c[1][2] - p0[2]]
+    const B = [c[3][0] - p0[0], c[3][1] - p0[1], c[3][2] - p0[2]]
+    const ad = A[0] ? 0 : A[1] ? 1 : 2
+    const bd = B[0] ? 0 : B[1] ? 1 : 2
+    // Moves: 4 corners (face.c order), then edges t = 0, s = 1, t = 1, s = 0.
+    const M = this._wm || (this._wm = Array.from({ length: 8 }, () => [0, 0, 0]))
+    let moved = false
+    for (let k = 0; k < 4; k++) {
+      this._woodCorner(woodAt, x + c[k][0], y + c[k][1], z + c[k][2], h, M[k])
+      if (M[k][0] || M[k][1] || M[k][2]) moved = true
+    }
+    // Each edge from its lower lattice end.
+    const edgeFrom = (k0, k1, d, out) => {
+      const P = c[k0], Q = c[k1]
+      this._woodEdge(woodAt, x + Math.min(P[0], Q[0]), y + Math.min(P[1], Q[1]), z + Math.min(P[2], Q[2]), d, h, out)
+      if (out[0] || out[1] || out[2]) moved = true
+    }
+    edgeFrom(0, 1, ad, M[4])
+    edgeFrom(1, 2, bd, M[5])
+    edgeFrom(3, 2, ad, M[6])
+    edgeFrom(0, 3, bd, M[7])
+    const thatch = info.thatch
+    // Corner shade (AO and face shade) and block light, blended across.
+    const sh = [0, 1, 2, 3].map((k) => AO_LEVELS[ao[k]] * face.shade * tint)
+    const G = glowSources ? [0, 1, 2, 3].map((k) => this._glowAt(x + c[k][0], y + c[k][1], z + c[k][2], fn, glowSources)) : null
+    const color = (s, t, wx, wy, wz) => {
+      const W0 = (1 - s) * (1 - t), W1 = s * (1 - t), W2 = s * t, W3 = (1 - s) * t
+      const base = W0 * sh[0] + W1 * sh[1] + W2 * sh[2] + W3 * sh[3]
+      const wt = woodTint(wx, wy, wz)
+      let r = base * wt[0], g = base * wt[1], bl = base * wt[2]
+      if (G) {
+        const L = (i) => W0 * (G[0]?.[i] || 0) + W1 * (G[1]?.[i] || 0) + W2 * (G[2]?.[i] || 0) + W3 * (G[3]?.[i] || 0)
+        r *= 1 + L(0)
+        g *= 1 + L(1)
+        bl *= 1 + L(2)
+      }
+      if (buf.stride === 4) buf.col.push(r, g, bl, info.alpha)
+      else buf.col.push(r, g, bl)
+    }
+    const base = buf.pos.length / 3
+    if (!moved && !thatch) {
+      // Nothing bevelled: one flat quad, like a plain block.
+      for (let k = 0; k < 4; k++) {
+        const wx = x + c[k][0], wy = y + c[k][1], wz = z + c[k][2]
+        buf.pos.push((wx - bx) * S, (wy - by) * S, (wz - bz) * S)
+        buf.nrm.push(fn[0], fn[1], fn[2])
+        buf.edge.push(0)
+        buf.uv.push(CORNER_UV[k][0] ? u1 : u0, CORNER_UV[k][1] ? v1 : v0)
+        color(CORNER_UV[k][0], CORNER_UV[k][1], wx, wy, wz)
+      }
+      if (ao[0] + ao[2] > ao[1] + ao[3]) buf.idx.push(base + 1, base + 2, base + 3, base + 1, base + 3, base)
+      else buf.idx.push(base, base + 1, base + 2, base, base + 2, base + 3)
+      return
+    }
+    const ST = [0, b, 1 - b, 1]
+    const Z3 = [0, 0, 0]
+    for (let j = 0; j < 4; j++) {
+      for (let i = 0; i < 4; i++) {
+        const s = ST[i], t = ST[j]
+        const es = i === 0 || i === 3, et = j === 0 || j === 3
+        const m = es && et ? M[i === 0 ? (j === 0 ? 0 : 3) : (j === 0 ? 1 : 2)]
+          : es ? M[i === 0 ? 7 : 5]
+            : et ? M[j === 0 ? 4 : 6] : Z3
+        const wx = x + p0[0] + A[0] * s + B[0] * t
+        const wy = y + p0[1] + A[1] * s + B[1] * t
+        const wz = z + p0[2] + A[2] * s + B[2] * t
+        let px = wx + m[0], py = wy + m[1], pz = wz + m[2]
+        let nx = fn[0], ny = fn[1], nz = fn[2]
+        const ml = Math.hypot(m[0], m[1], m[2])
+        if (ml > 0) {
+          // Rounded bevel: lean out the way the edge was pulled in from.
+          nx = -m[0] / ml; ny = -m[1] / ml; nz = -m[2] / ml
+          if (nx * fn[0] + ny * fn[1] + nz * fn[2] < 0.3) {
+            nx += fn[0]; ny += fn[1]; nz += fn[2]
+            const l = Math.hypot(nx, ny, nz)
+            nx /= l; ny /= l; nz /= l
+          }
+        } else if (thatch && !es && !et) {
+          // Shaggy thatch: the inside of each face puffs out in lumps.
+          const o = shag(wx, wy, wz) * 0.06 * amt
+          px += fn[0] * o; py += fn[1] * o; pz += fn[2] * o
+        }
+        buf.pos.push((px - bx) * S, (py - by) * S, (pz - bz) * S)
+        buf.nrm.push(nx, ny, nz)
+        buf.edge.push(0)
+        buf.uv.push(u0 + (u1 - u0) * s, v0 + (v1 - v0) * t)
+        color(s, t, wx, wy, wz)
+      }
+    }
+    for (let j = 0; j < 3; j++) {
+      for (let i = 0; i < 3; i++) {
+        const a = base + j * 4 + i
+        const bb = a + 1
+        const cc = a + 4
+        const d = cc + 1
+        if ((i + j) % 2) buf.idx.push(a, bb, cc, bb, d, cc)
+        else buf.idx.push(a, bb, d, a, d, cc)
+      }
+    }
+    if (thatch) this._thatchStraw(buf, x, y, z, bx, by, bz, face, A, B, u0, v0, u1, v1, sh, woodAt, M)
+  }
+
+  // Thatch straw (eighth batch, Gaymi: "thatch shaggy and straw-like"):
+  // a couple of loose straws poking out of each face, and on a side face
+  // with nothing under it (a roof's overhang) a fringe hanging down. Thin
+  // cards drawn from both sides, lit like the face they come out of.
+  _thatchStraw(buf, x, y, z, bx, by, bz, face, A, B, u0, v0, u1, v1, sh, woodAt, M) {
+    const S = this.blockSize
+    const amt = this.realAmt
+    const fn = face.n
+    const p0 = face.c[0]
+    const fi = FACES.indexOf(face)
+    const shade = (sh[0] + sh[1] + sh[2] + sh[3]) / 4
+    const card = (o, d, w, e, len, su, light) => {
+      // o: root, d: across the straw, e: along it (unit vectors).
+      const uw = (u1 - u0) * 0.08
+      const cu = u0 + (u1 - u0) * su
+      const pts = [
+        [o[0] - d[0] * w, o[1] - d[1] * w, o[2] - d[2] * w, cu - uw, v0],
+        [o[0] + d[0] * w, o[1] + d[1] * w, o[2] + d[2] * w, cu + uw, v0],
+        [o[0] + d[0] * w + e[0] * len, o[1] + d[1] * w + e[1] * len, o[2] + d[2] * w + e[2] * len, cu + uw, v0 + (v1 - v0) * 0.35],
+        [o[0] - d[0] * w + e[0] * len, o[1] - d[1] * w + e[1] * len, o[2] - d[2] * w + e[2] * len, cu - uw, v0 + (v1 - v0) * 0.35],
+      ]
+      const cb = buf.pos.length / 3
+      for (const [px, py, pz, uu, vv] of pts) {
+        buf.pos.push((px - bx) * S, (py - by) * S, (pz - bz) * S)
+        buf.nrm.push(fn[0], fn[1], fn[2])
+        buf.edge.push(0)
+        buf.uv.push(uu, vv)
+        const wt = woodTint(px, py, pz)
+        const l = light * shade
+        if (buf.stride === 4) buf.col.push(l * wt[0], l * wt[1], l * wt[2], 1)
+        else buf.col.push(l * wt[0], l * wt[1], l * wt[2])
+      }
+      buf.idx.push(cb, cb + 1, cb + 2, cb, cb + 2, cb + 3, cb, cb + 2, cb + 1, cb, cb + 3, cb + 2)
+    }
+    const at = (s, t) => [x + p0[0] + A[0] * s + B[0] * t, y + p0[1] + A[1] * s + B[1] * t, z + p0[2] + A[2] * s + B[2] * t]
+    // Loose straws: 2 per face, leaning out every which way.
+    for (let k = 0; k < 2; k++) {
+      const s = 0.2 + hash01(x * 3 + k, y, z, 101 + fi) * 0.6
+      const t = 0.2 + hash01(x, y * 3 + k, z, 107 + fi) * 0.6
+      const o = at(s, t)
+      const lean = (hash01(x, y, z * 3 + k, 113 + fi) - 0.5) * 1.6
+      const lean2 = (hash01(x * 5 + k, y, z, 127 + fi) - 0.5) * 1.6
+      const e = norm3([fn[0] + A[0] * lean + B[0] * lean2, fn[1] + A[1] * lean + B[1] * lean2, fn[2] + A[2] * lean + B[2] * lean2])
+      const d = norm3(cross3(e, fn[1] ? [1, 0, 0] : [0, 1, 0]))
+      card(o, d, 0.025, e, (0.16 + hash01(x, y * 5 + k, z, 131 + fi) * 0.12) * amt, s, 1.05)
+    }
+    // The fringe: straws hanging off the bottom edge of an overhang.
+    if (fn[1] !== 0 || woodAt(x, y - 1, z) !== 0 || woodAt(x + fn[0], y - 1, z + fn[2]) === 1) return
+    const bm = M[4] // the bottom edge's move (t = 0 on a side face)
+    const down = norm3([fn[0] * 0.35, -1, fn[2] * 0.35])
+    for (let k = 0; k < 7; k++) {
+      const s = (k + 0.2 + hash01(x * 7 + k, y, z, 137 + fi) * 0.6) / 7
+      const o = at(s, 0)
+      o[0] += bm[0]; o[1] += bm[1] + 0.03; o[2] += bm[2]
+      card(o, A, 0.045, down, (0.12 + hash01(x, y, z * 7 + k, 139 + fi) * 0.16) * amt, s, 0.85)
     }
   }
 
