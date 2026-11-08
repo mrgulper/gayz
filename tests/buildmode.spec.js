@@ -3083,6 +3083,64 @@ test('real-life ground: grass and dirt round into one piece on the top levels on
   expect(r.simpleCube).toBe(true)
 })
 
+test('real-life trees: leaves join into one bushy top, logs turn round, on the top levels only', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const ch = bm._chunks
+    // A little tree up in the air: 2 logs, a 3x3 leaf layer on top.
+    bm._placeBlockInner(80, 5, 80, 'oaklog')
+    bm._placeBlockInner(80, 6, 80, 'oaklog')
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) bm._placeBlockInner(80 + dx, 7, 80 + dz, dx || dz ? 'leaves' : 'birchleaves')
+    const verts = (y0, y1) => {
+      ch.flush(bm._chunkCells)
+      const v = []
+      const S = ch.blockSize
+      for (const c of ch.chunks.values()) {
+        for (const m of c.meshes) {
+          const pos = m.geometry.attributes.position
+          if (!pos?.array?.length) continue
+          for (let i = 0; i < pos.array.length; i += 3) {
+            const x = (pos.array[i] + m.position.x) / S
+            const y = (pos.array[i + 1] + m.position.y) / S
+            const z = (pos.array[i + 2] + m.position.z) / S
+            if (x > 78 && x < 83 && z > 78 && z < 83 && y > y0 && y < y1) v.push([x, y, z])
+          }
+        }
+      }
+      return v
+    }
+    g._applyGraphicsLevel('irl')
+    bm._applyGraphicsLook()
+    // Trunk: every point within the round, none at the square's corners.
+    const trunk = verts(5.01, 6.3)
+    out.round = trunk.every(([x, , z]) => Math.hypot(x - 80.5, z - 80.5) < 0.505)
+    out.trunkPts = trunk.length
+    out.badTrunk = trunk.filter(([x, , z]) => Math.hypot(x - 80.5, z - 80.5) >= 0.505).slice(0, 6).map((p) => p.map((k) => Math.round(k * 100) / 100))
+    // Crown: the 3x3 layer's outside corners are rounded in (the clumps
+    // stick out, but never reach the square crown's top corners).
+    const crown = verts(6.99, 8.6)
+    out.crownRounded = crown.every(([x, y, z]) => !(y > 7.97 && (x < 79.03 || x > 81.97) && (z < 79.03 || z > 81.97)))
+    out.grid = !!ch.realFaceGrids(80, 7, 80) && !!ch.realFaceGrids(79, 7, 79)
+    g._applyGraphicsLevel('simple')
+    bm._applyGraphicsLook()
+    const flat = verts(5.01, 6.3)
+    out.simpleSquare = flat.some(([x, , z]) => Math.hypot(x - 80.5, z - 80.5) > 0.6)
+    out.simpleGrid = ch.realFaceGrids(80, 7, 80) === null
+    g._exitBuildMode()
+    return out
+  })
+  expect(r.round, JSON.stringify(r.badTrunk)).toBe(true)
+  expect(r.crownRounded).toBe(true)
+  expect(r.grid).toBe(true)
+  expect(r.simpleGrid).toBe(true)
+  // Vertex checks count whenever the arrays were still there.
+  if (r.trunkPts) expect(r.simpleSquare).toBe(true)
+})
+
 test('castles fly cloth flags on poles, acacia trees stand on their trunks', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
