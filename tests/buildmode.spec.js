@@ -3252,7 +3252,7 @@ test('real-life soft ground: sand, gravel, mud... join the land with their own l
     out.real = ids.map((t) => !!ch.info.get(t)?.real)
     out.looks = ids.map((t) => ch.info.get(t)?.look)
     // Still cubes: snow (its own batch), planks, glass.
-    out.notReal = ['snow', 'oakplanks', 'glass', 'sandslab'].map((t) => !!ch.info.get(t)?.real)
+    out.notReal = ['oakplanks', 'glass', 'sandslab'].map((t) => !!ch.info.get(t)?.real)
     const sand = verts(130, 130)
     out.rounded = sand.length > 0 && sand.every(([x, y, z]) => !(y > 5.97 && (x < 130.03 || x > 130.97) && (z < 130.03 || z > 130.97)))
     // Gravel carries small stones: more points than a lone sand block.
@@ -3293,7 +3293,7 @@ test('real-life soft ground: sand, gravel, mud... join the land with their own l
   console.log(`soft ground rebuild ms: dirt ${r.msDirt.toFixed(0)}, soft ${r.msSoft.toFixed(0)}`)
   expect(r.real).toEqual(Array(12).fill(true))
   expect(r.looks).toEqual(['sand', 'sand', 'gravel', 'mud', 'mud', 'dirt', 'dirt', 'dirt', 'sand', 'dirt', 'rock', 'dirt'])
-  expect(r.notReal).toEqual([false, false, false, false])
+  expect(r.notReal).toEqual([false, false, false])
   expect(r.rounded).toBe(true)
   expect(r.gravelStones).toBe(true)
   expect(r.mudGloss).toBe(true)
@@ -3376,6 +3376,151 @@ test('real-life water: soft shores, depth and splash on the top levels only', as
     expect(r.shore0).toBe(true)
   }
   if (r.simplePts) expect(r.simpleInside).toBe(true)
+})
+
+test('real-life snow, ice and lava: drifts, glassy see-through ice, crusted lava with soft banks, top levels only', async ({ page }) => {
+  const errors = []
+  page.on('console', (m) => { if (m.type() === 'error' && /shader|program|webgl/i.test(m.text())) errors.push(m.text()) })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const ch = bm._chunks
+    const S = ch.blockSize
+    // Lone snow, ice and packed ice up in the air; snow beside grass.
+    bm._placeBlockInner(150, 5, 150, 'snow')
+    bm._placeBlockInner(154, 5, 150, 'ice')
+    bm._placeBlockInner(158, 5, 150, 'packedice')
+    bm._placeBlockInner(150, 5, 155, 'snow')
+    bm._placeBlockInner(151, 5, 155, 'grass')
+    // A 3x3 lava pool, 2 deep, in a stone basin, with lava falling on its
+    // middle.
+    for (let x = 169; x <= 175; x++) for (let z = 169; z <= 175; z++) for (let y = 3; y <= 5; y++) bm._placeBlockInner(x, y, z, 'stone')
+    for (let x = 171; x <= 173; x++) for (let z = 171; z <= 173; z++) for (let y = 4; y <= 5; y++) { bm._removeBlockInner?.(x, y, z); bm._placeBlockInner(x, y, z, 'lava') }
+    bm._placeBlockInner(172, 6, 172, 'lava')
+    // Vertices near (x0, z0), y 4.2..6.8, from meshes with material mat
+    // (null = any): [x, y, z, aEdge, alpha].
+    const verts = (x0, z0, mat = null) => {
+      ch.flush(bm._chunkCells)
+      const v = []
+      for (const c of ch.chunks.values()) {
+        for (const m of c.meshes) {
+          if (mat && m.material !== mat) continue
+          const pos = m.geometry.attributes.position
+          const e = m.geometry.attributes.aEdge
+          const col = m.geometry.attributes.color
+          if (!pos?.array?.length) continue
+          for (let i = 0, k = 0; i < pos.array.length; i += 3, k++) {
+            const x = (pos.array[i] + m.position.x) / S
+            const y = (pos.array[i + 1] + m.position.y) / S
+            const z = (pos.array[i + 2] + m.position.z) / S
+            const a = col?.itemSize === 4 ? col.array[k * 4 + 3] : 1
+            if (x > x0 - 0.8 && x < x0 + 1.8 && z > z0 - 0.8 && z < z0 + 1.8 && y > 4.2 && y < 6.8) v.push([x, y, z, e?.array?.[k] ?? 0, a])
+          }
+        }
+      }
+      return v
+    }
+    const lava = () => {
+      ch.flush(bm._chunkCells)
+      const v = []
+      for (const c of ch.chunks.values()) {
+        for (const m of c.meshes) {
+          if (m.material !== ch.materials.lava) continue
+          const pos = m.geometry.attributes.position
+          const w = m.geometry.attributes.aWater
+          if (!pos?.array?.length) continue
+          for (let i = 0, k = 0; i < pos.array.length; i += 3, k += 2) {
+            const x = (pos.array[i] + m.position.x) / S
+            const y = (pos.array[i + 1] + m.position.y) / S
+            const z = (pos.array[i + 2] + m.position.z) / S
+            if (x > 168 && x < 177 && z > 168 && z < 177 && y > 5.5 && y < 6.2) v.push([x, y, z, w?.array?.[k], w?.array?.[k + 1]])
+          }
+        }
+      }
+      return v
+    }
+    g._applyGraphicsLevel('irl')
+    bm._applyGraphicsLook()
+    const ids = ['snow', 'ice', 'packedice', 'blueice']
+    out.real = ids.map((t) => !!ch.info.get(t)?.real)
+    out.looks = ids.map((t) => ch.info.get(t)?.look)
+    out.lavaReal = !!ch.info.get('lava')?.real
+    const snow = verts(150, 150)
+    out.snowPts = snow.length
+    out.snowRound = snow.every(([x, y, z]) => !(y > 5.97 && (x < 150.03 || x > 150.97) && (z < 150.03 || z > 150.97)))
+    // Snow's little gloss (sparkles); ice shines like glass.
+    out.snowGloss = snow.some((p) => p[3] < -0.1 && p[3] > -0.2)
+    const ice = verts(154, 150, ch.materials.clear)
+    out.icePts = ice.length
+    out.iceClear = ice.length > 0 && ice.every((p) => p[4] < 0.9)
+    out.iceGloss = ice.some((p) => p[3] < -0.8)
+    out.iceRound = ice.every(([x, y, z]) => !(y > 5.97 && (x < 154.03 || x > 154.97) && (z < 154.03 || z > 154.97)))
+    out.packedSolid = verts(158, 150, ch.materials.solid).length > 0
+    // Snow and grass share their middle edge and it moves (not pinned).
+    const L = ch.realTopLattice(150, 5, 155)
+    out.joinFree = L[1][6] === 1 && L[1][12] > 0 && L[1][12] < 1
+    const a = ch.realTopPoint(L, 150, 5, 155, 1, 0.5)
+    const b = ch.realTopPoint(ch.realTopLattice(151, 5, 155), 151, 5, 155, 0, 0.5)
+    out.joined = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < 1e-4
+    out.crack = !!ch.realFaceGrids(154, 5, 150)
+    // Lava: the stone bank's corner at its edge is free to round off.
+    out.bankFree = ch.realTopLattice(170, 5, 171)[1][6] === 1
+    const top = lava()
+    out.lavaPts = top.length
+    out.reach = top.some(([x]) => x < 170.9) && top.some(([x]) => x > 174.1)
+    out.deep = Math.max(...top.map((p) => p[3] ?? 0))
+    out.splash = top.some((p) => p[4] === 1)
+    // Every shader compiles: draw one frame with the new looks in view.
+    bm.camera.position.set(160 * S, 12 * S, 140 * S)
+    bm.camera.lookAt(160 * S, 5 * S, 160 * S)
+    bm.camera.updateMatrixWorld()
+    bm.renderer.render(bm.scene, bm.camera)
+    const gl = bm.renderer.getContext()
+    out.glError = gl.getError()
+    out.badPrograms = (bm.renderer.info.programs || []).filter((p) => p.diagnostics && !p.diagnostics.runnable).length
+    g._applyGraphicsLevel('simple')
+    bm._applyGraphicsLook()
+    const flat = verts(150, 150)
+    out.simplePts = flat.length
+    out.simpleCube = flat.every(([x, y, z]) => [x, y, z].every((k) => Math.abs(k - Math.round(k)) < 0.001))
+    const flatLava = lava()
+    out.simpleLavaPts = flatLava.length
+    out.simpleLavaInside = flatLava.every(([x, , z]) => x > 170.99 && x < 174.01 && z > 170.99 && z < 174.01)
+    g._exitBuildMode()
+    return out
+  })
+  expect(r.real).toEqual([true, true, true, true])
+  expect(r.looks).toEqual(['snow', 'ice', 'ice', 'ice'])
+  expect(r.lavaReal).toBe(false)
+  expect(r.joinFree).toBe(true)
+  expect(r.joined).toBe(true)
+  expect(r.crack).toBe(true)
+  expect(r.bankFree).toBe(true)
+  expect(r.glError).toBe(0)
+  expect(r.badPrograms).toBe(0)
+  expect(errors).toEqual([])
+  // Vertex checks count whenever the arrays were still there
+  // (dropAfterUpload).
+  if (r.snowPts) {
+    expect(r.snowRound).toBe(true)
+    expect(r.snowGloss).toBe(true)
+  }
+  if (r.icePts) {
+    expect(r.iceClear).toBe(true)
+    expect(r.iceGloss).toBe(true)
+    expect(r.iceRound).toBe(true)
+  }
+  if (r.lavaPts) {
+    expect(r.reach).toBe(true)
+    expect(r.deep).toBeGreaterThan(1.5)
+    expect(r.splash).toBe(true)
+  }
+  if (r.simplePts) expect(r.simpleCube).toBe(true)
+  if (r.simpleLavaPts) expect(r.simpleLavaInside).toBe(true)
+  console.log(JSON.stringify(r))
 })
 
 test('castles fly cloth flags on poles, acacia trees stand on their trunks', async ({ page }) => {
