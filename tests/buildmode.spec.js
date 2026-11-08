@@ -3229,6 +3229,93 @@ test('real-life nature extras: round stems, cactus, hay, pumpkins, melons, bumpy
   if (r.blobPts) expect(r.blobRounded).toBe(true)
 })
 
+test('real-life wood builds: flat faces, soft outside edges, one solid wall, shaggy thatch, top levels only', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const ch = bm._chunks
+    // A 3x3 plank wall, a lone crate, planks against stone, a thatch overhang.
+    for (let dx = 0; dx < 3; dx++) for (let dy = 0; dy < 3; dy++) bm._placeBlockInner(124 + dx, 5 + dy, 124, 'oakplanks')
+    bm._placeBlockInner(120, 5, 120, 'crate')
+    bm._placeBlockInner(130, 5, 130, 'oakplanks')
+    bm._placeBlockInner(131, 5, 130, 'stone')
+    bm._placeBlockInner(136, 8, 136, 'thatch')
+    const verts = (x0, x1, y0, y1, z0, z1) => {
+      ch.flush(bm._chunkCells)
+      const v = []
+      const S = ch.blockSize
+      for (const c of ch.chunks.values()) {
+        for (const m of c.meshes) {
+          const pos = m.geometry.attributes.position
+          if (!pos?.array?.length) continue
+          for (let i = 0; i < pos.array.length; i += 3) {
+            const x = (pos.array[i] + m.position.x) / S
+            const y = (pos.array[i + 1] + m.position.y) / S
+            const z = (pos.array[i + 2] + m.position.z) / S
+            if (x > x0 && x < x1 && y > y0 && y < y1 && z > z0 && z < z1) v.push([x, y, z])
+          }
+        }
+      }
+      return v
+    }
+    const near = (v, x, y, z) => v.some((p) => Math.abs(p[0] - x) < 0.002 && Math.abs(p[1] - y) < 0.002 && Math.abs(p[2] - z) < 0.002)
+    const crate = () => verts(119.9, 121.1, 4.9, 6.1, 119.9, 121.1)
+    g._applyGraphicsLevel('irl')
+    bm._applyGraphicsLook()
+    const c = crate()
+    out.cratePts = c.length
+    // Corners rounded in, nothing sticks out, top stays flat.
+    out.crateCorner = near(c, 121, 6, 121)
+    out.crateInside = c.every(([x, y, z]) => x >= 119.999 && x <= 121.001 && y >= 4.999 && y <= 6.001 && z >= 119.999 && z <= 121.001)
+    out.crateFlatTop = c.filter((p) => p[1] > 5.95).every((p) => p[1] > 5.999 || p[1] < 5.96)
+    // The wall: the bevel runs on across the joint (no pinch), and the
+    // middle block's front is one plain quad (no extra points).
+    const w = verts(123.9, 127.1, 4.9, 8.1, 123.9, 125.1)
+    out.wallPts = w.length
+    const h = 0.07
+    out.wallJoint = near(w, 125, 8 - h, 124 + h)
+    out.wallMiddle = w.filter(([x, y, z]) => x > 125.01 && x < 125.99 && y > 6.01 && y < 6.99 && z < 124.01).length
+    // Against stone the corner stays put (a sharp, clean line).
+    const s = verts(129.9, 131.1, 4.9, 6.1, 129.9, 131.1)
+    out.stonePts = s.length
+    out.stonePinned = near(s, 131, 6, 130)
+    // Thatch: straw hangs under the overhang and pokes out.
+    const t = verts(135.5, 137.5, 7.5, 9.5, 135.5, 137.5)
+    out.thatchPts = t.length
+    out.fringe = t.some((p) => p[1] < 7.97)
+    const I = (id) => ch.info.get(id) || {}
+    out.wood = ['oakplanks', 'spruceplanks', 'crimsonplanks', 'bambooplanks', 'planks', 'wood', 'bookshelf', 'barrel', 'crate', 'craftingtable', 'timberframe', 'thatch', 'roofshingles', 'slateshingles'].every((id) => !ch.info.has(id) || I(id).wood)
+    out.notWood = !I('explosivebarrel').wood && !I('stone').wood && !I('oaklog').wood && ![...ch.info.keys()].some((id) => /(slab|stairs|fence|door)$/.test(id) && I(id).wood)
+    out.flatCrack = ch.lumpyTopPoints(120, 5, 120) === null
+    g._applyGraphicsLevel('simple')
+    bm._applyGraphicsLook()
+    const c2 = crate()
+    out.simplePts = c2.length
+    out.simpleCorner = near(c2, 121, 6, 121)
+    g._exitBuildMode()
+    return out
+  })
+  expect(r.wood).toBe(true)
+  expect(r.notWood).toBe(true)
+  expect(r.flatCrack).toBe(true)
+  // Vertex checks count whenever the arrays were still there.
+  if (r.cratePts) {
+    expect(r.crateCorner).toBe(false)
+    expect(r.crateInside).toBe(true)
+    expect(r.crateFlatTop).toBe(true)
+  }
+  if (r.wallPts) {
+    expect(r.wallJoint).toBe(true)
+    expect(r.wallMiddle).toBe(0)
+  }
+  if (r.stonePts) expect(r.stonePinned).toBe(true)
+  if (r.thatchPts) expect(r.fringe).toBe(true)
+  if (r.simplePts) expect(r.simpleCorner).toBe(true)
+})
+
 test('real-life rock: stone-type blocks turn craggy, melt into dirt, on the top levels only', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
