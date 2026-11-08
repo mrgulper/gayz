@@ -19,7 +19,7 @@
 // keep BuildMode's per-type InstancedMesh path - they're rare, and they
 // never hide a neighbor's face.
 import * as THREE from 'three'
-import { REAL_GROUND, REAL_LEAVES, REAL_LOG, REAL_ROCK, NOT_ROCK, REC, AIR, REAL, PIN_SOLID, lookOf, kindOfLook, PIN_OTHER, LEAF_LOOK, K_LEAF, latticeAt, realPoint, realTint, rockTint, logRadius } from './RealGround.js'
+import { REAL_GROUND, REAL_LEAVES, REAL_ROCK, NOT_ROCK, REC, AIR, REAL, PIN_SOLID, lookOf, kindOfLook, PIN_OTHER, LEAF_LOOK, K_LEAF, latticeAt, realPoint, realTint, rockTint, logRadius, roundOf, roundRadius, roundHeight, ROUND_STACKS, REAL_BLOB, REAL_EXTRA_ROCK } from './RealGround.js'
 
 export const CHUNK = 16
 // A chunk plus a one-cell ring on every side (see _build), and the mark
@@ -498,6 +498,9 @@ export class BlockChunks {
     cube.forEach((t, i) => {
       const f = faceSets[i]
       const liquid = LIQUIDS[t.id] ? t.id : null
+      // Rocky blocks named something else (seventh batch) - glowing ones
+      // (magma, glowstone) join the rock land and keep their glow.
+      const xrock = REAL_EXTRA_ROCK.test(t.id)
       this.info.set(t.id, {
         liquid,
         // Indexed like FACES: +x, -x, top, bottom, +z, -z.
@@ -526,17 +529,23 @@ export class BlockChunks {
         // Drawn as real-life ground on the top levels (RealGround.js).
         // Plain ice is see-through but still joins (sixth batch): drawn
         // with the see-through blocks, its own alpha kept.
-        real: (REAL_GROUND.test(t.id) || (REAL_ROCK.test(t.id) && !NOT_ROCK.test(t.id) && !t.emissive)) && (!t.transparent || t.id === 'ice') && !liquid && !t.inset,
+        real: (REAL_GROUND.test(t.id) || xrock || (REAL_ROCK.test(t.id) && !NOT_ROCK.test(t.id) && !t.emissive)) && (!t.transparent || t.id === 'ice') && !liquid && !t.inset,
         // Real ground with the rock look (RealGround.js, third batch).
-        rock: lookOf(t.id) === 'rock' && !t.emissive,
+        rock: lookOf(t.id) === 'rock' && (!t.emissive || xrock),
         // Its real-ground look ('dirt', 'rock', 'sand', 'gravel', 'mud'...)
         // and that look's kind code for the corner points (_kindOf).
         look: lookOf(t.id),
-        lookKind: kindOfLook(t.emissive ? 'dirt' : lookOf(t.id)),
+        lookKind: kindOfLook(t.emissive && !xrock ? 'dirt' : lookOf(t.id)),
         // Joined into one bushy treetop / drawn as a round trunk on the
         // top levels (RealGround.js, second batch).
         leaf: REAL_LEAVES.test(t.id) && !liquid && !t.plant,
-        log: REAL_LOG.test(t.id) && !t.transparent && !liquid && !t.inset,
+        // Seventh batch: `log` is any round block (logs, stems, cactus,
+        // hay, pumpkin, melon - drawn by _realLog); `round` says which.
+        log: !!roundOf(t.id) && !t.transparent && !liquid && !t.inset,
+        round: roundOf(t.id),
+        // Soft bumpy blob that joins the treetop shape (seventh batch):
+        // mushroom/wart/coral blocks and sculk, no leaf clumps.
+        blob: REAL_BLOB.test(t.id) && !t.transparent && !liquid && !t.plant,
       })
     })
     const tex = new THREE.CanvasTexture(canvas)
@@ -1151,7 +1160,8 @@ export class BlockChunks {
     }
     // Round trunks leave the corners of their cell empty, so a block
     // next to one still draws its face there (no hole to look through).
-    const hides = (nInfo) => nInfo.opaque && !(realAmt > 0 && nInfo.log)
+    // Blobs (seventh batch) round away from their cell's edges too.
+    const hides = (nInfo) => nInfo.opaque && !(realAmt > 0 && (nInfo.log || nInfo.blob))
     // Bumpy blocks (2026-10-26, Gaymi: "you cant really tell what block
     // it is ... make them slightly bumpy ... no more then 20 degrees"):
     // every natural top keeps its edges at the block's own height, so each
@@ -1180,10 +1190,10 @@ export class BlockChunks {
       // runs smoothly downhill from its source, like Minecraft.
       const cornerY = info.liquid ? this._liquidCorners(x, y, z, type) : null
       if (latAt && info.real) {
-        this._realCell(info.solidDraw ? out.solid : out.clear, x, y, z, bx, by, bz, info, type, typeAt, latAt, glowSources, stoneUv)
+        this._realCell(info.solidDraw ? (info.glow ? out.glow : out.solid) : out.clear, x, y, z, bx, by, bz, info, type, typeAt, latAt, glowSources, stoneUv)
         continue
       }
-      if (leafLatAt && info.leaf) {
+      if (leafLatAt && (info.leaf || info.blob)) {
         this._realLeafCell(buf, x, y, z, bx, by, bz, info, typeAt, leafLatAt, glowSources)
         continue
       }
@@ -1445,7 +1455,10 @@ export class BlockChunks {
     const info = this.info.get(t)
     if (!info) return PIN_OTHER
     if (info.plant) return AIR
-    if (info.leaf || info.log) return REAL
+    // Coral blocks sit under water, so it mustn't hold their corners.
+    if (info.liquid === 'water') return AIR
+    // Only real trunks join a treetop (not cactus, hay, pumpkins...).
+    if (info.leaf || info.blob || (info.log && info.round === 'log')) return REAL
     return info.opaque ? PIN_SOLID : PIN_OTHER
   }
 
@@ -1508,7 +1521,7 @@ export class BlockChunks {
   // over the real shape (BuildTryMode).
   realFaceGrids(x, y, z) {
     const info = this.realAmt > 0 && this.info.get(this.getType(x, y, z))
-    if (!info || !(info.real || info.leaf)) return null
+    if (!info || !(info.real || info.leaf || info.blob)) return null
     const leaf = !info.real
     const cache = new Map()
     const latAt = (X, Y, Z) => {
@@ -1633,7 +1646,7 @@ export class BlockChunks {
       const nType = typeAt(x + nx, y + ny, z + nz)
       if (nType) {
         const nInfo = this.info.get(nType)
-        if (nInfo && ((nInfo.opaque && !nInfo.log) || nType === type)) continue
+        if (nInfo && ((nInfo.opaque && !nInfo.log && !nInfo.blob) || nType === type)) continue
       }
       for (let i = 0; i < 4; i++) {
         const c = face.c[i]
@@ -1717,7 +1730,7 @@ export class BlockChunks {
       const nType = typeAt(x + nx, y + ny, z + nz)
       if (nType) {
         const nInfo = this.info.get(nType)
-        if (nInfo && (nInfo.leaf || (nInfo.opaque && !nInfo.log))) continue
+        if (nInfo && (nInfo.leaf || nInfo.blob || (nInfo.opaque && !nInfo.log))) continue
       }
       for (let i = 0; i < 4; i++) {
         const c = face.c[i]
@@ -1772,7 +1785,8 @@ export class BlockChunks {
       // Leaf clumps: 1-2 per face, each two small leafy cards crossed and
       // tipped out from the surface (drawn from both sides, lit like the
       // crown under them so they don't show dark backs).
-      const clumps = 1 + (hash01(x, y, z, 60 + fi) < 0.45 ? 1 : 0)
+      // Blobs (mushroom caps, wart, coral, sculk) are smooth lumps: none.
+      const clumps = info.blob ? 0 : 1 + (hash01(x, y, z, 60 + fi) < 0.45 ? 1 : 0)
       for (let k = 0; k < clumps; k++) {
         const s = 0.2 + hash01(x * 3 + k, y, z, 61 + fi) * 0.6
         const t = 0.2 + hash01(x, y * 3 + k, z, 67 + fi) * 0.6
@@ -1819,12 +1833,21 @@ export class BlockChunks {
   // (still a whole block to walk into and dig). Logs stacked on each
   // other run on as one trunk; a cut end shows the rings picture. Logs
   // side by side each stay round, like a log cabin.
+  // Seventh batch: the same code draws stems (as trunks), cactus and hay
+  // bales (columns that run on when stacked) and pumpkins and melons
+  // (one round fruit per block, bulging in the middle) - RealGround's
+  // roundRadius/roundHeight give each one's shape.
   _realLog(buf, x, y, z, bx, by, bz, info, typeAt, glowSources) {
     const S = this.blockSize
     const amt = this.realAmt
+    const shape = info.round || 'log'
+    const fruit = !ROUND_STACKS[shape]
     const SEG = 3 // per quarter, 12 round
-    const ROWS = 2
+    const ROWS = fruit ? 6 : 2
+    const H = roundHeight(shape, amt)
     const cx = x + 0.5, cz = z + 0.5
+    // How far out the side sits at angle a, row j.
+    const rad = (a, j) => shape === 'log' ? logRadius(a, y + j / ROWS, cx, cz, amt) : roundRadius(shape, a, j / ROWS, cx, y, cz, amt)
     const nInfo = (dx, dy, dz) => {
       const t = typeAt(x + dx, y + dy, z + dz)
       return t ? this.info.get(t) : null
@@ -1862,13 +1885,21 @@ export class BlockChunks {
         const [u0, v0, u1, v1] = info.uvs[[0, 4, 1, 5][q]]
         const base = buf.pos.length / 3
         for (let j = 0; j <= ROWS; j++) {
-          const py = y + j / ROWS
+          const py = y + H * j / ROWS
           for (let i = 0; i <= SEG; i++) {
             const a = (q - 0.5 + i / SEG) * Math.PI / 2
-            const r = logRadius(a, py, cx, cz, amt)
-            const n = [Math.cos(a), 0, Math.sin(a)]
+            const r = rad(a, j)
+            let n = [Math.cos(a), 0, Math.sin(a)]
             const px = cx + n[0] * r, pz = cz + n[2] * r
-            let b = (0.86 * Math.abs(n[0]) + 0.93 * Math.abs(n[2])) / (Math.abs(n[0]) + Math.abs(n[2])) * tint
+            // A bulging fruit's side tips up near its top, down near its
+            // bottom (slope of the radius up the side).
+            if (fruit) {
+              const dr = (rad(a, Math.min(j + 0.5, ROWS)) - rad(a, Math.max(j - 0.5, 0))) / (H / ROWS * (Math.min(j + 0.5, ROWS) - Math.max(j - 0.5, 0)))
+              n = norm3([n[0], -dr, n[2]])
+            }
+            const flat = Math.hypot(n[0], n[2]) || 1
+            let b = (0.86 * Math.abs(n[0]) + 0.93 * Math.abs(n[2])) / (Math.abs(n[0]) + Math.abs(n[2]) || 1) * flat + (n[1] > 0 ? 1 : 0.7) * Math.abs(n[1])
+            b *= tint
             if (footDark && j === 0) b *= 0.75
             push(px, py, pz, n, u0 + (u1 - u0) * (1 - i / SEG), v0 + (v1 - v0) * (j / ROWS), col(b, px, py, pz, n))
           }
@@ -1888,10 +1919,13 @@ export class BlockChunks {
     // Cut ends: where no log carries on above/below and nothing solid covers it.
     for (const up of [1, 0]) {
       const nb = up ? above : below
-      if (nb && (nb.log || nb.opaque)) continue
+      // Covered by the same column running on, or by a solid square block
+      // (which draws its own face against the round one). Fruit always
+      // shows its ends - they're pinched in, so nothing else covers them.
+      if (nb && !fruit && ((nb.round === shape) || (nb.opaque && !nb.log))) continue
       const [u0, v0, u1, v1] = info.uvs[up ? 2 : 3]
       const uc = (u0 + u1) / 2, vc = (v0 + v1) / 2
-      const py = y + up
+      const py = y + (up ? H : 0)
       const n = [0, up ? 1 : -1, 0]
       const b = (up ? 1 : 0.7) * tint
       const c = col(b, cx, py, cz, n)
@@ -1900,7 +1934,7 @@ export class BlockChunks {
       const RING = SEG * 4
       for (let i = 0; i < RING; i++) {
         const a = (i / RING - 0.125) * Math.PI * 2
-        const r = logRadius(a, py, cx, cz, amt)
+        const r = rad(a, up ? ROWS : 0)
         push(cx + Math.cos(a) * r, py, cz + Math.sin(a) * r, n, uc + Math.cos(a) * r * (u1 - u0), vc - Math.sin(a) * r * (v1 - v0), c)
       }
       for (let i = 0; i < RING; i++) {
