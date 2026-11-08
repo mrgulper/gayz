@@ -3210,6 +3210,76 @@ test('real-life rock: stone-type blocks turn craggy, melt into dirt, on the top 
   expect(r.simpleGrid).toBe(true)
 })
 
+test('real-life water: soft shores, depth and splash on the top levels only', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const ch = bm._chunks
+    // A 3x3 pond, 2 deep, in a dirt basin with a grass bank, up in the air;
+    // one water block on top of its middle (a waterfall landing).
+    for (let x = 109; x <= 115; x++) for (let z = 109; z <= 115; z++) for (let y = 3; y <= 5; y++) bm._placeBlockInner(x, y, z, y === 5 ? 'grass' : 'dirt')
+    for (let x = 111; x <= 113; x++) for (let z = 111; z <= 113; z++) for (let y = 4; y <= 5; y++) { bm._removeBlockInner?.(x, y, z); bm._placeBlockInner(x, y, z, 'water') }
+    bm._placeBlockInner(112, 6, 112, 'water')
+    const water = () => {
+      ch.flush(bm._chunkCells)
+      const v = []
+      const S = ch.blockSize
+      for (const c of ch.chunks.values()) {
+        for (const m of c.meshes) {
+          if (m.material !== ch.materials.water) continue
+          const pos = m.geometry.attributes.position
+          const w = m.geometry.attributes.aWater
+          if (!pos?.array?.length) continue
+          for (let i = 0, k = 0; i < pos.array.length; i += 3, k += 2) {
+            const x = (pos.array[i] + m.position.x) / S
+            const y = (pos.array[i + 1] + m.position.y) / S
+            const z = (pos.array[i + 2] + m.position.z) / S
+            if (x > 108 && x < 117 && z > 108 && z < 117 && y > 5.5 && y < 6.2) v.push([x, y, z, w?.array?.[k], w?.array?.[k + 1]])
+          }
+        }
+      }
+      return v
+    }
+    out.types = [bm._blocks.get('112,5,112'), bm._blocks.get('112,4,112'), bm._blocks.get('112,6,112')]
+    g._applyGraphicsLevel('irl')
+    bm._applyGraphicsLook()
+    out.amt = ch.fx.realWater.value
+    // The bank's corner at the water's edge is free to round off now.
+    const L = ch.realTopLattice(110, 5, 111)
+    out.bankFree = L[1][6] === 1
+    const top = water()
+    out.pts = top.length
+    // The water reaches under the bank (past its own cells, x 111..114).
+    out.reach = top.some(([x]) => x < 110.9) && top.some(([x]) => x > 114.1)
+    out.deep = Math.max(...top.map((p) => p[3] ?? 0))
+    out.splash = top.some((p) => p[4] === 1)
+    out.shore0 = top.some((p) => p[3] === 0 && p[4] === -1)
+    g._applyGraphicsLevel('simple')
+    bm._applyGraphicsLook()
+    out.simpleAmt = ch.fx.realWater.value
+    const flat = water()
+    out.simplePts = flat.length
+    out.simpleInside = flat.every(([x, , z]) => x > 110.99 && x < 114.01 && z > 110.99 && z < 114.01)
+    g._exitBuildMode()
+    return out
+  })
+  expect(r.types).toEqual(['water', 'water', 'water'])
+  expect(r.amt).toBe(1)
+  expect(r.bankFree).toBe(true)
+  expect(r.simpleAmt).toBe(0)
+  // Vertex checks count whenever the arrays were still there.
+  if (r.pts) {
+    expect(r.reach).toBe(true)
+    expect(r.deep).toBeGreaterThan(1.5)
+    expect(r.splash).toBe(true)
+    expect(r.shore0).toBe(true)
+  }
+  if (r.simplePts) expect(r.simpleInside).toBe(true)
+})
+
 test('castles fly cloth flags on poles, acacia trees stand on their trunks', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
