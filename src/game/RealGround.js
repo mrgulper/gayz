@@ -18,7 +18,10 @@
 // ground always meets other blocks exactly.
 
 // Blocks drawn as real ground. First batch: grass + dirt (Gaymi's pick).
-export const REAL_GROUND = /^(grass|dirt)$/
+// Fifth batch (2026-11-08): the rest of the soft ground joins the same
+// land - sand, gravel, mud, clay, moss, podzol, nylium... - each with its
+// own look (LOOK_OF below), melting into the grass, dirt and rock round it.
+export const REAL_GROUND = /^(grass|dirt|sand|redsand|soulsand|gravel|mud|clay|packedmud|moss|mycelium|podzol|coarsedirt|rooteddirt|dirtpath|soulsoil|crimsonnylium|warpednylium|terracotta)$/
 // Second batch (2026-11-08): leaves join into one bushy treetop (same
 // corner-point idea as the ground, with bigger bumps and leaf clumps
 // poking out - BlockChunks._realLeafCell), and logs are drawn as round,
@@ -34,8 +37,25 @@ export const REAL_LOG = /log$/
 export const REAL_ROCK = /(stone|cobble|granite|andesite|diorite|deepslate|tuff|calcite|basalt|bedrock|netherrack|marble|obsidian)|ore$/
 // Gadget stones keep their cube so they're easy to spot.
 export const NOT_ROCK = /(slab|stairs|fence|wall|button|plate|lamp|door|block)$|^(echostone|weatherstone|saunastone)$/
+// The real ground's looks besides plain earth (grass, dirt, moss...).
+// Each has a kind code (4 + its place here) and a record slot (8 + its
+// place) holding how much of the ground round a corner has that look.
+//  rock: craggy ledges and smooth boulders (third batch).
+//  sand: gentle wind ripples on a smooth swell (Gaymi: "gentle rippled
+//    dunes, smoother than dirt").
+//  gravel: lumpy, small stones poking out.
+//  mud: flat, soft and a bit shiny wet.
+//  snow: soft rounded drifts (sixth batch).
+export const LOOKS = ['rock', 'sand', 'gravel', 'mud', 'snow']
+const LOOK_OF = { sand: 'sand', redsand: 'sand', soulsand: 'sand', gravel: 'gravel', mud: 'mud', clay: 'mud', terracotta: 'rock' }
+// Which look a real-ground block has ('dirt' = plain earth).
+export function lookOf(id) {
+  if (LOOK_OF[id]) return LOOK_OF[id]
+  if (REAL_ROCK.test(id) && !NOT_ROCK.test(id) && !REAL_GROUND.test(id)) return 'rock'
+  return 'dirt'
+}
 // Floats per lattice point record (see latticeAt).
-export const REC = 9
+export const REC = 8 + LOOKS.length
 
 // How far corners round off (blocks, at full strength).
 const K_ROUND = 0.85
@@ -113,9 +133,15 @@ export function realTint(x, y, z) {
 // water, a torch...). 2 and 3 pin the corners round them in place.
 export const AIR = 0, REAL = 1, PIN_SOLID = 2, PIN_OTHER = 3
 // Rock: real ground with the rock look (counts as REAL for the shape).
+// The other looks follow on (SAND = 5...): kindOfLook().
 export const ROCK = 4
-// How much less rock corners round off than dirt (rock keeps an edge).
-const ROCK_ROUND = 0.3
+export function kindOfLook(look) {
+  const i = LOOKS.indexOf(look)
+  return i < 0 ? REAL : 4 + i
+}
+// How much less each look's corners round off than dirt (rock keeps an
+// edge; snow rounds a little more).
+const LOOK_ROUND = [0.3, 0, 0.05, 0, -0.12]
 
 // One lattice point (X, Y, Z: a corner where up to 8 cells meet) into
 // out[o..o+8]: the rounding move (x, y, z), the ground's facing direction
@@ -123,29 +149,34 @@ const ROCK_ROUND = 0.3
 // much of the ground round it is rock (0..1).
 // kind(x, y, z) -> AIR / REAL / ROCK / PIN_SOLID / PIN_OTHER.
 export function latticeAt(kind, X, Y, Z, amt, out, o = 0, kRound = K_ROUND) {
-  let n = 0, solid = 0, pinned = false, rock = 0
+  let n = 0, solid = 0, pinned = false
+  for (let i = 8; i < REC; i++) out[o + i] = 0
   let sx = 0, sy = 0, sz = 0, ax = 0, ay = 0, az = 0
   for (let dy = -1; dy <= 0; dy++) {
     for (let dz = -1; dz <= 0; dz++) {
       for (let dx = -1; dx <= 0; dx++) {
         const k = kind(X + dx, Y + dy, Z + dz)
         const cx = dx + 0.5, cy = dy + 0.5, cz = dz + 0.5
-        if (k === REAL || k === ROCK) {
+        if (k === REAL || k >= ROCK) {
           n++
-          if (k === ROCK) rock++
+          if (k >= ROCK) out[o + 4 + k]++
           sx += cx; sy += cy; sz += cz
         } else {
           if (k !== AIR) pinned = true
           ax += cx; ay += cy; az += cz
         }
-        if (k === REAL || k === ROCK || k === PIN_SOLID) solid++
+        if (k === REAL || k >= ROCK || k === PIN_SOLID) solid++
       }
     }
   }
   // Corner shade: the more solid round it, the more tucked in (dark).
   out[o + 7] = solid <= 4 ? 1 : solid === 5 ? 0.84 : solid === 6 ? 0.68 : 0.55
-  const rf = n ? rock / n : 0
-  out[o + 8] = rf
+  let round = 1
+  for (let i = 0; i < LOOKS.length; i++) {
+    const f = n ? out[o + 8 + i] / n : 0
+    out[o + 8 + i] = f
+    round -= LOOK_ROUND[i] * f
+  }
   if (pinned || n === 0 || n === 8) {
     out[o] = out[o + 1] = out[o + 2] = out[o + 3] = out[o + 4] = out[o + 5] = out[o + 6] = 0
     return out
@@ -155,7 +186,7 @@ export function latticeAt(kind, X, Y, Z, amt, out, o = 0, kRound = K_ROUND) {
   ax /= na; ay /= na; az /= na
   // Toward the ground's middle on an outside corner (rounds it off),
   // toward the air on an inside one (fills it in), nothing on flat ground.
-  const k = kRound * amt * (1 - ROCK_ROUND * rf)
+  const k = kRound * amt * round
   out[o] = (sx + ax) * k
   out[o + 1] = (sy + ay) * k
   out[o + 2] = (sz + az) * k
@@ -185,6 +216,7 @@ export function realPoint(P, L, s, t, fn, amt, out, look = GROUND_LOOK) {
   const { bump: aBump, jit: aJit, jitY } = look
   const W0 = (1 - s) * (1 - t), W1 = s * (1 - t), W2 = s * t, W3 = (1 - s) * t
   let px = 0, py = 0, pz = 0, mx = 0, my = 0, mz = 0, nx = 0, ny = 0, nz = 0, w = 0, ao = 0, rf = 0
+  let sand = 0, grav = 0, mud = 0, snow = 0
   for (let k = 0; k < 4; k++) {
     const Wk = k === 0 ? W0 : k === 1 ? W1 : k === 2 ? W2 : W3
     const p = P[k], l = L[k]
@@ -196,16 +228,56 @@ export function realPoint(P, L, s, t, fn, amt, out, look = GROUND_LOOK) {
     nz += Wk * (lw * l[5] + (1 - lw) * fn[2])
     w += Wk * lw
     ao += Wk * l[7]
-    rf += Wk * (l[8] || 0)
+    if (l.length > 8) {
+      rf += Wk * l[8]
+      sand += Wk * l[9]
+      grav += Wk * l[10]
+      mud += Wk * l[11]
+      snow += Wk * l[12]
+    }
   }
+  const soft = sand + grav + mud + snow
   let nl = Math.hypot(nx, ny, nz)
   if (nl < 1e-6) { nx = fn[0]; ny = fn[1]; nz = fn[2] } else { nx /= nl; ny /= nl; nz /= nl }
   const k = w * amt
   let x = px + mx, y = py + my, z = pz + mz
   if (k > 0) {
-    const amp = aBump * (1 + ROCK_BUMP * rf)
-    const b = rf > 0.001 ? mixedD(px, py, pz, rf) : bumpD(px, py, pz)
-    const gx = G[0], gy = G[1], gz = G[2]
+    let amp, b, gx, gy, gz
+    if (soft < 0.001) {
+      amp = aBump * (1 + ROCK_BUMP * rf)
+      b = rf > 0.001 ? mixedD(px, py, pz, rf) : bumpD(px, py, pz)
+      gx = G[0]; gy = G[1]; gz = G[2]
+    } else {
+      // Soft ground (fifth batch): each look's own bumps, already at its
+      // own size, mixed by how much of it is round this point.
+      amp = aBump
+      b = 0; gx = 0; gy = 0; gz = 0
+      const dirt = 1 - rf - soft
+      if (dirt > 0.001) {
+        const v = bumpD(px, py, pz)
+        b += dirt * v; gx += dirt * G[0]; gy += dirt * G[1]; gz += dirt * G[2]
+      }
+      if (rf > 0.001) {
+        const v = rockD(px, py, pz), m = rf * (1 + ROCK_BUMP)
+        b += m * v; gx += m * G[0]; gy += m * G[1]; gz += m * G[2]
+      }
+      if (sand > 0.001) {
+        const v = sandD(px, py, pz, ny), m = sand * SAND_BUMP
+        b += m * v; gx += m * G[0]; gy += m * G[1]; gz += m * G[2]
+      }
+      if (grav > 0.001) {
+        const v = gravelD(px, py, pz), m = grav * GRAVEL_BUMP
+        b += m * v; gx += m * G[0]; gy += m * G[1]; gz += m * G[2]
+      }
+      if (mud + snow > 0.001) {
+        // Mud and snow share one broad, slow swell (snow's is bigger).
+        const v = vnoiseD(px * 0.32, py * 0.32, pz * 0.32, 63) * 2 - 1
+        const m = mud * MUD_BUMP + snow * SNOW_BUMP
+        b += m * v; gx += m * D[0] * 0.64; gy += m * D[1] * 0.64; gz += m * D[2] * 0.64
+      }
+    }
+    // Smooth looks wobble less sideways too.
+    const jit = 1 - 0.4 * (sand + snow) - 0.5 * mud
     let jx, jy, jz
     if (rf > 0.001) {
       // Rock (lots of it underground): one noise's slope makes all three
@@ -219,9 +291,9 @@ export function realPoint(P, L, s, t, fn, amt, out, look = GROUND_LOOK) {
       jy = (vnoise(px * 0.5, py * 0.5, pz * 0.5, 44) * 2 - 1) * jitY
       jz = vnoise(px * 0.5, py * 0.5, pz * 0.5, 45) * 2 - 1
     }
-    x += k * (amp * b * nx + aJit * jx)
-    y += k * (amp * b * ny + aJit * jy)
-    z += k * (amp * b * nz + aJit * jz)
+    x += k * (amp * b * nx + aJit * jit * jx)
+    y += k * (amp * b * ny + aJit * jit * jy)
+    z += k * (amp * b * nz + aJit * jit * jz)
     // The bumps tip the surface: lean the facing direction away from
     // where they rise (only the part along the surface).
     const gd = gx * nx + gy * ny + gz * nz
@@ -238,6 +310,9 @@ export function realPoint(P, L, s, t, fn, amt, out, look = GROUND_LOOK) {
   out.shade = shadeOf(nx, ny, nz)
   out.rock = rf
   out.grain = rf > 0.001 && k > 0 ? GRAIN : 0.5
+  // How glossy (0..1): wet mud shines, snow glints a little.
+  out.gloss = mud * 0.55 + snow * 0.15
+  out.gravel = grav
   return out
 }
 
@@ -288,6 +363,43 @@ function rockD(x, y, z) {
   G[1] = 2 * (by + (sy - by) * crag + diff * cy)
   G[2] = 2 * (bz + (sz - bz) * crag + diff * cz)
   return (bo + diff * crag) * 2 - 1
+}
+
+// The soft looks' sizes, against dirt's bumps (1).
+const SAND_BUMP = 0.75
+const GRAVEL_BUMP = 1.1
+const MUD_BUMP = 0.35
+const SNOW_BUMP = 1
+// Sand (-1..1): a slow, low swell plus wind ripples about 1.5 blocks
+// apart, bent by a slow noise so they curve like real dunes. Ripples
+// only on what faces up (ny), sand walls just get the swell.
+function sandD(x, y, z, ny) {
+  const sw = vnoiseD(x * 0.3, y * 0.3, z * 0.3, 60)
+  const s0 = D[0] * 0.3, s1 = D[1] * 0.3, s2 = D[2] * 0.3
+  const wv = vnoiseD(x * 0.21, y * 0.21, z * 0.21, 61) * 3
+  const w0 = D[0] * 0.63, w1 = D[1] * 0.63, w2 = D[2] * 0.63
+  const ph = (x * 0.55 + z * 0.35 + wv) * Math.PI * 2
+  // Wind ripples rise slowly and drop off steeper on the far side.
+  const sn = Math.sin(ph), cs = Math.cos(ph)
+  const r = sn + 0.25 * Math.sin(2 * ph)
+  const dr = (cs + 0.5 * Math.cos(2 * ph)) * Math.PI * 2
+  const up = ny > 0 ? ny : 0
+  const ra = 0.45 * up
+  G[0] = 2 * 0.55 * s0 + ra * dr * (0.55 + w0)
+  G[1] = 2 * 0.55 * s1 + ra * dr * w1
+  G[2] = 2 * 0.55 * s2 + ra * dr * (0.35 + w2)
+  return 0.55 * (sw * 2 - 1) + ra * r / 1.25
+}
+// Gravel (-1..1): busy lumps about half a block across, on a gentle
+// swell - with the small stones BlockChunks scatters on top.
+function gravelD(x, y, z) {
+  const a = vnoiseD(x * 1.5, y * 1.5, z * 1.5, 62)
+  const a0 = D[0] * 1.5, a1 = D[1] * 1.5, a2 = D[2] * 1.5
+  const c = vnoiseD(x * 0.6, y * 0.6, z * 0.6, 64)
+  G[0] = 2 * (0.7 * a0 + 0.3 * D[0] * 0.6)
+  G[1] = 2 * (0.7 * a1 + 0.3 * D[1] * 0.6)
+  G[2] = 2 * (0.7 * a2 + 0.3 * D[2] * 0.6)
+  return (a * 0.7 + c * 0.3) * 2 - 1
 }
 
 // Where rock meets dirt, the two looks blend by how much rock is round
