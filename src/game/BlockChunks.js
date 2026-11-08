@@ -326,6 +326,9 @@ const LIQUIDS = {
 // Vertex brightness by how many of the 3 neighbor cells around a corner
 // are solid (0 = fully open ... 3 = tucked into a corner).
 const AO_LEVELS = [1, 0.78, 0.6, 0.45]
+// How far real-life water reaches under a solid bank (blocks), so it
+// always meets the bank's rounded-off edge.
+const SHORE_REACH = 0.45
 
 // Less blocky land (2026-10-26, Gaymi: "make the blocks not all so blocky
 // ... make them have more possible shapes", on Realistic, Ultra and In
@@ -547,6 +550,7 @@ export class BlockChunks {
       roof: { value: null }, roofOrigin: { value: new THREE.Vector2(1e6, 1e6) }, roofBase: { value: 0 },
       sky: { value: new THREE.Color(0.6, 0.75, 0.95) }, bump: { value: 0 }, haze: { value: 0 }, reflect: { value: 0 },
       grade: { value: 0 }, ao: { value: 0 }, spec: { value: 0 }, round: { value: 0 },
+      realWater: { value: 0 },
     }
     this.materials = {
       water: new THREE.MeshPhongMaterial({ map: waterMap, vertexColors: true, transparent: true, depthWrite: false, specular: 0x000000, shininess: 140 }),
@@ -566,9 +570,31 @@ export class BlockChunks {
       shader.uniforms.uSky = this.fx.sky
       shader.uniforms.uReflect = this.fx.reflect
       shader.uniforms.uBlock = this.fx.block
+      shader.uniforms.uRealWater = this.fx.realWater
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nattribute float aEdge;\nvarying float vShore;\nvarying vec2 vCell;\nvarying float vTop;')
-        .replace('#include <project_vertex>', `#include <project_vertex>
+        .replace('#include <common>', '#include <common>\nattribute float aEdge;\nattribute vec2 aWater;\nvarying float vShore;\nvarying vec2 vCell;\nvarying float vTop;\nvarying vec2 vWater;\nvarying float vWy;\nvarying vec2 vSwell;\nuniform float uRealWater;\nuniform float uBlock;')
+        .replace('#include <project_vertex>', `
+        // Real-life water (2026-11-08, top 3 levels): a long, slow swell
+        // rolls across the whole surface on top of the small waves, and
+        // its slope (vSwell) tips the light so the swells catch the sun.
+        vSwell = vec2(0.0);
+        if (uRealWater > 0.0 && uAmount > 0.0 && objectNormal.y > 0.5 && aWater.y < -0.5) {
+          // The edge reaching under a bank stays put (no small waves
+          // either), so a wave never lifts the water over the bank.
+          vec4 wq = modelMatrix * vec4(transformed, 1.0);
+          transformed.y -= (sin(uTime * 1.7 + wq.x * 1.3 + wq.z * 0.9) + sin(uTime * 1.1 - wq.z * 1.7)) * 0.5 * uAmount;
+        } else if (uRealWater > 0.0 && uAmount > 0.0 && objectNormal.y > 0.5) {
+          vec2 q = (modelMatrix * vec4(transformed, 1.0)).xz / uBlock;
+          float a1 = dot(q, vec2(0.8, 0.6)) * 0.55 + uTime * 0.9;
+          float a2 = dot(q, vec2(-0.45, 0.9)) * 0.8 + uTime * 1.25;
+          // Calmer near the shore (shallow corners), full swell out deep.
+          float amp = uAmount * uRealWater * (aWater.x >= 0.0 ? clamp(aWater.x * 1.2, 0.25, 1.0) : 1.0);
+          transformed.y += (sin(a1) * 0.6 + sin(a2) * 0.4) * amp;
+          vSwell = (vec2(0.8, 0.6) * (0.55 * 0.6) * cos(a1) + vec2(-0.45, 0.9) * (0.8 * 0.4) * cos(a2)) * amp / uBlock;
+        }
+        #include <project_vertex>
+        vWater = vec2(aWater.x, max(aWater.y, 0.0));
+        vWy = (modelMatrix * vec4(transformed, 1.0)).y / uBlock;
         vShore = objectNormal.y > 0.5 ? aEdge : 0.0;
         vTop = objectNormal.y > 0.5 ? 1.0 : 0.0;
         vCell = (modelMatrix * vec4(position, 1.0)).xz;`)
@@ -578,9 +604,13 @@ export class BlockChunks {
         uniform float uReflect;
         uniform float uBlock;
         uniform float uTime;
+        uniform float uRealWater;
         varying float vShore;
         varying vec2 vCell;
         varying float vTop;
+        varying vec2 vWater;
+        varying float vWy;
+        varying vec2 vSwell;
         // Real-looking water (2026-10-26, Gaymi: "make water texture more
         // clear and clean ... looks so fake"): on Balanced and up the
         // surface is no longer the striped block picture repeated per
@@ -605,7 +635,7 @@ export class BlockChunks {
         if (uReflect > 0.0 && vTop > 0.5) {
           // Tilt the surface by the ripples' slope, so the sun glints off
           // the wave sides and the sky mirror wobbles.
-          vec3 tilt = vec3(-wr.y, 0.0, -wr.z) * 0.16;
+          vec3 tilt = vec3(-wr.y, 0.0, -wr.z) * 0.16 + vec3(-vSwell.x, 0.0, -vSwell.y) * 3.0;
           normal = normalize(normal + (viewMatrix * vec4(tilt, 0.0)).xyz);
         }`)
         .replace('#include <alphatest_fragment>', `#include <alphatest_fragment>
@@ -618,8 +648,36 @@ export class BlockChunks {
           vec3 light = vec3(0.04, 0.48, 0.66);
           diffuseColor.rgb = mix(deep, light, crest * vTop + (1.0 - vTop) * 0.4) * max(vColor.r, max(vColor.g, vColor.b)) * 1.15;
           diffuseColor.a = vTop > 0.5 ? 0.7 + 0.08 * crest : 0.72;
+          float lit = max(vColor.r, max(vColor.g, vColor.b)) * 1.15;
+          if (uRealWater > 0.0 && vTop > 0.5 && vWater.x >= 0.0) {
+            // Real-life water: clear green shallows you see the bottom
+            // through, fading into dark blue deeps (vWater.x: depth in
+            // blocks at this point)...
+            float dep = sqrt(clamp(vWater.x / 5.0, 0.0, 1.0));
+            vec3 col = mix(vec3(0.1, 0.52, 0.48), vec3(0.0, 0.1, 0.32), dep);
+            diffuseColor.rgb = mix(col, col * 1.3 + 0.04, crest * 0.6) * lit;
+            diffuseColor.a = mix(0.3, 0.9, dep) + 0.05 * crest;
+            // ...a ragged line of foam where it runs shallow at the shore...
+            vec2 c = vCell / uBlock;
+            float fn = 0.5 + 0.5 * sin(c.x * 9.0 + wr.x * 6.0 + uTime * 1.3) * sin(c.y * 8.0 - uTime * 1.1);
+            float foam = (1.0 - smoothstep(0.02, 0.09 + 0.08 * fn, vWater.x)) * 0.7;
+            // ...and white, churning splash where a waterfall lands.
+            float spl = vWater.y * (0.6 + 0.4 * sin(uTime * 7.0 + c.x * 13.0) * sin(uTime * 5.0 - c.y * 11.0));
+            foam = max(foam, spl * 0.9);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.96, 0.98) * max(lit, 0.6), foam);
+            diffuseColor.a = max(diffuseColor.a, foam * 0.92);
+          } else if (uRealWater > 0.0 && vTop < 0.5) {
+            // Water running down a drop is a waterfall: pale streaks
+            // pouring downward.
+            float u = (vCell.x + vCell.y) / uBlock;
+            float st = 0.5 + 0.5 * sin(u * 21.0 + sin(u * 5.0) * 3.0);
+            float fl = fract(vWy * 0.7 + uTime * 1.8 + st * 0.6);
+            float streak = smoothstep(0.55, 0.95, st) * (0.35 + 0.65 * smoothstep(0.1, 0.6, fl) * (1.0 - smoothstep(0.75, 1.0, fl)));
+            diffuseColor.rgb = mix(vec3(0.08, 0.4, 0.58) * lit, vec3(0.9, 0.95, 1.0) * max(lit, 0.6), streak * 0.75);
+            diffuseColor.a = 0.78 + 0.16 * streak;
+          }
         }
-        if (vShore > 0.5) {
+        if (vShore > 0.5 && uRealWater <= 0.0) {
           // Where the shore turns a corner, the water's corner is a curve
           // (aEdge bits: 1/2 = shore at -x/+x, 4/8 = at -z/+z). Outside the
           // curve the water stays (cutting it out left an empty hole in
@@ -644,10 +702,16 @@ export class BlockChunks {
           float m = uReflect * (0.05 + 0.6 * fres);
           gl_FragColor.rgb = mix(gl_FragColor.rgb, sRGBTransferOETF(vec4(uSky, 1.0)).rgb, m);
           gl_FragColor.a = mix(gl_FragColor.a, 1.0, m * 0.6);
+          if (uRealWater > 0.0 && vTop > 0.5) {
+            // Sparkles: tiny points of sunlight twinkling on the waves.
+            vec2 c = vCell / uBlock;
+            float tw = sin(dot(c, vec2(12.9, 7.3)) + uTime * 3.1 + wr.x * 8.0) * sin(dot(c, vec2(-8.1, 14.7)) - uTime * 2.3);
+            gl_FragColor.rgb += vec3(smoothstep(0.975, 1.0, tw) * (0.2 + 0.8 * fres) * 0.6 * uRealWater);
+          }
         }
         #include <fog_fragment>`)
     }
-    this.materials.water.customProgramCacheKey = () => 'waves-sky-ripples'
+    this.materials.water.customProgramCacheKey = () => 'waves-sky-ripples-real'
   }
 
   // How much the leaves sway and the water rolls (world units) and how
@@ -660,6 +724,7 @@ export class BlockChunks {
       this.rebuildAll()
     }
     this.fx.round.value = round
+    this.fx.realWater.value = realShape
     // Smooth hills, pebbles and leafy edges change the chunks' shapes, so
     // turning them on or off rebuilds every chunk once.
     const shapes = round > 0
@@ -1104,6 +1169,10 @@ export class BlockChunks {
           this._leafPuff(buf, x, y, z, bx, by, bz, face, [u0, v0, u1, v1], ao.map((a) => AO_LEVELS[a] * face.shade * tint))
           continue
         }
+        if (realAmt > 0 && info.liquid === 'water' && ny === 1) {
+          this._realWaterTop(buf, x, y, z, bx, by, bz, type, cornerY, edge, glowSources, typeAt)
+          continue
+        }
         if (smooth && ny === 1) {
           this._lumpyTop(buf, x, y, z, bx, by, bz, cornerH, [u0, v0, u1, v1], ao.map((a) => AO_LEVELS[a] * face.shade * tint), info.alpha, glowSources)
           continue
@@ -1125,6 +1194,8 @@ export class BlockChunks {
           const cb = L ? b * (1 + L[2]) : b
           if (buf.stride === 4) buf.col.push(cr, cg, cb, info.alpha)
           else buf.col.push(cr, cg, cb)
+          // Water's depth and splash (only the real-life top uses them).
+          if (buf === out.water) buf.wat.push(-1, 0)
         }
         // Split the quad along the diagonal whose corners are shaded more
         // alike, or the corner darkening shows a visible crease.
@@ -1145,6 +1216,7 @@ export class BlockChunks {
       geo.setAttribute('uv', new THREE.Float32BufferAttribute(buf.uv, 2))
       geo.setAttribute('color', new THREE.Float32BufferAttribute(buf.col, buf.stride))
       if (shapes || kind === 'water') geo.setAttribute('aEdge', new THREE.Float32BufferAttribute(buf.edge, 1))
+      if (kind === 'water') geo.setAttribute('aWater', new THREE.Float32BufferAttribute(buf.wat, 2))
       geo.setIndex(buf.pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(buf.idx, 1) : new THREE.Uint16BufferAttribute(buf.idx, 1))
       geo.computeBoundingSphere()
       const mesh = new THREE.Mesh(geo, this.materials[kind])
@@ -1259,6 +1331,9 @@ export class BlockChunks {
     const info = this.info.get(t)
     if (!info) return PIN_OTHER
     if (info.plant) return AIR
+    // Water doesn't hold the ground's corners (fourth batch): banks and
+    // lake beds round off and roll under it like real shores.
+    if (info.liquid === 'water') return AIR
     if (info.real) return info.rock ? ROCK : REAL
     return info.opaque ? PIN_SOLID : PIN_OTHER
   }
@@ -1354,6 +1429,76 @@ export class BlockChunks {
       }
       return pts
     })
+  }
+
+  // Real-life water's top (fourth batch, top 3 levels). Like the plain
+  // top, plus: where the shore is solid it reaches SHORE_REACH under the
+  // bank, so the water meets the rounded-off bank instead of stopping at
+  // the old square edge; every corner carries how deep the water is there
+  // (the shader fades clear green shallows into dark blue deeps and puts
+  // foam where it gets shallow at the shore) and whether a waterfall
+  // lands next to it (splash foam).
+  _realWaterTop(buf, x, y, z, bx, by, bz, type, cornerY, edge, glowSources, typeAt) {
+    const S = this.blockSize
+    const R = SHORE_REACH
+    const solidAt = (a, b, c) => {
+      const t = typeAt(a, b, c)
+      return !!t && !!this.info.get(t)?.opaque
+    }
+    // How deep the water column at (cx, y, cz) is, in blocks (0 if no water).
+    const colDepth = (cx, cz) => {
+      if (typeAt(cx, y, cz) !== type) return 0
+      let d = this.liquidHeight(cx, y, cz)
+      for (let k = 1; k < 8 && typeAt(cx, y - k, cz) === type; k++) d++
+      return d
+    }
+    const dep = [0, 0, 0, 0]
+    const spl = [0, 0, 0, 0]
+    for (let cx = 0; cx <= 1; cx++) {
+      for (let cz = 0; cz <= 1; cz++) {
+        let sum = 0, fall = 0
+        for (let i = -1; i <= 0; i++) {
+          for (let j = -1; j <= 0; j++) {
+            sum += colDepth(x + cx + i, z + cz + j)
+            if (typeAt(x + cx + i, y + 1, z + cz + j) === type) fall = 1
+          }
+        }
+        dep[cx * 2 + cz] = sum / 4
+        spl[cx * 2 + cz] = fall
+      }
+    }
+    const xs = [solidAt(x - 1, y, z) ? -R : null, 0, 1, solidAt(x + 1, y, z) ? 1 + R : null].filter((v) => v !== null)
+    const zs = [solidAt(x, y, z - 1) ? -R : null, 0, 1, solidAt(x, y, z + 1) ? 1 + R : null].filter((v) => v !== null)
+    const alpha = this.info.get(type).alpha
+    const base = buf.pos.length / 3
+    for (const vz of zs) {
+      for (const vx of xs) {
+        const cx = vx <= 0 ? 0 : 1
+        const cz = vz <= 0 ? 0 : 1
+        const inside = vx >= 0 && vx <= 1 && vz >= 0 && vz <= 1
+        const h = cornerY[cx * 2 + cz]
+        // Under the bank the water dips a little, out of sight.
+        buf.pos.push((x - bx + vx) * S, (y - by + h - (inside ? 0 : 0.06)) * S, (z - bz + vz) * S)
+        buf.nrm.push(0, 1, 0)
+        buf.edge.push(edge)
+        buf.uv.push(vx, 1 - vz)
+        const L = glowSources && this._glowAt(x + cx, y + h, z + cz, FACES[2].n, glowSources)
+        buf.col.push(L ? 1 + L[0] : 1, L ? 1 + L[1] : 1, L ? 1 + L[2] : 1, alpha)
+        // (depth, splash); splash -1 marks the edge reaching under a bank.
+        buf.wat.push(inside ? dep[cx * 2 + cz] : 0, inside ? spl[cx * 2 + cz] : -1)
+      }
+    }
+    const W = xs.length
+    for (let j = 0; j < zs.length - 1; j++) {
+      for (let i = 0; i < W - 1; i++) {
+        const a = base + j * W + i
+        const b = a + 1
+        const c = a + W
+        const d = c + 1
+        // Up-facing winding (x right, z toward you).
+        buf.idx.push(a, c, d, a, d, b)
+      }
+    }
   }
 
   // One real-ground block (RealGround.js): each showing face as a 3x3
@@ -1835,7 +1980,7 @@ export class BlockChunks {
 }
 
 function newBuffers(stride) {
-  return { pos: [], nrm: [], uv: [], col: [], idx: [], edge: [], stride }
+  return { pos: [], nrm: [], uv: [], col: [], idx: [], edge: [], wat: [], stride }
 }
 
 // Small 3D vector helpers (pebbles, leaf puffs).

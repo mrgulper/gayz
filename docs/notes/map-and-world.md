@@ -395,4 +395,10 @@ Gaymi's answers: every stone-ish block (bricks/polished/smooth too), "a bit of b
 - Lattice records are now `REC` = 9 floats: [8] = rock fraction round the corner. Rock corners round 30% less (`ROCK_ROUND`). realPoint interpolates it (`rf`) and blends the dirt bumps into `rockD` (craggy ledges + ridges vs smooth boulders, drifting by world noise seed 50), bumps 1.6x bigger. Out: `rock`, `grain` -> `rockTint`.
 - Speed: noise slopes are analytic now (`vnoiseD`, one call instead of 4 finite differences - grass/dirt got cheaper too), rock jitter comes from one noise's slope. Full Map 3 rebuild on In Real Life ~2x the no-rock cost (e.g. 0.81s vs 0.41s with ~34k rock blocks, mostly cave walls; simple 0.16s; headless). Streaming stays budgeted (LAZY_BUDGET_MS).
 - Test: `buildmode.spec.js` "real-life rock".
-- Next batch: water.
+
+### Batch 4: water (2026-11-08)
+Gaymi picked all four: soft shoreline, depth colour, real rolling waves, waterfalls. (My question wrongly said waves were Ultra-only - Realistic/Ultra/IRL already had `waves` 0.03/0.06/0.1.) All gated on `realShape` > 0 (`fx.realWater` uniform).
+- Soft shore: `_kindOf` returns AIR for water, so banks and lake beds round off under it (they used to pin). `_realWaterTop` draws the top as a small grid that reaches `SHORE_REACH` (0.45) under any opaque neighbour side (dipped 0.06, out of sight), so the water meets the rounded bank. The old shader corner-curve/sand trick is off when real.
+- `aWater` attribute (water meshes only): (depth in blocks, splash). Depth = average of the 4 columns round each corner (water cells down, capped 8; non-water = 0; reach-under vertices 0) -> shader mixes green shallows (alpha 0.3) to dark blue (0.9) and foam where depth < ~0.1-0.17. Splash = 1 if any of those 4 columns has water above (a waterfall lands) -> churning white. Splash -1 marks reach-under vertices: the vertex shader keeps them still (cancels the small waves too) so crests never lift water over a bank. Plain tops push (-1, 0) = old look.
+- Swell: vertex shader adds two long sines (amp `uAmount`, x0.25..1 by corner depth), slope passed as `vSwell` to tip the normal. Sparkles in the fog_fragment block. Side faces (vTop 0) get downward-scrolling streaks (`vWy`).
+- Test: `buildmode.spec.js` "real-life water". Cache key `waves-sky-ripples-real`.
