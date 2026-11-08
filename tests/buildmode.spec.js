@@ -3143,6 +3143,92 @@ test('real-life trees: leaves join into one bushy top, logs turn round, on the t
   if (r.trunkPts) expect(r.simpleSquare).toBe(true)
 })
 
+test('real-life nature extras: round stems, cactus, hay, pumpkins, melons, bumpy blobs, more rock, top levels only', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const ch = bm._chunks
+    // Each one up in the air on its own spot (x = z = the spot).
+    const ROUND = { crimsonstem: 90, cactus: 94, haybale: 98, pumpkin: 102, melon: 106 }
+    for (const [id, at] of Object.entries(ROUND)) {
+      bm._placeBlockInner(at, 5, at, id)
+      if (id === 'cactus' || id === 'haybale') bm._placeBlockInner(at, 6, at, id)
+    }
+    // A 2x2 nether wart cap.
+    for (let dx = 0; dx <= 1; dx++) for (let dz = 0; dz <= 1; dz++) bm._placeBlockInner(110 + dx, 5, 110 + dz, 'netherwartblock')
+    const verts = (x0, x1, y0, y1) => {
+      ch.flush(bm._chunkCells)
+      const v = []
+      const S = ch.blockSize
+      for (const c of ch.chunks.values()) {
+        for (const m of c.meshes) {
+          const pos = m.geometry.attributes.position
+          if (!pos?.array?.length) continue
+          for (let i = 0; i < pos.array.length; i += 3) {
+            const x = (pos.array[i] + m.position.x) / S
+            const y = (pos.array[i + 1] + m.position.y) / S
+            const z = (pos.array[i + 2] + m.position.z) / S
+            if (x > x0 && x < x1 && z > x0 && z < x1 && y > y0 && y < y1) v.push([x, y, z])
+          }
+        }
+      }
+      return v
+    }
+    const around = (at, h) => verts(at - 1, at + 2, 4.5, 5 + h + 0.5)
+    g._applyGraphicsLevel('irl')
+    bm._applyGraphicsLook()
+    out.round = {}
+    out.pts = {}
+    for (const [id, at] of Object.entries(ROUND)) {
+      const v = around(at, id === 'cactus' || id === 'haybale' ? 2 : 1)
+      out.pts[id] = v.length
+      out.round[id] = v.every(([x, , z]) => Math.hypot(x - at - 0.5, z - at - 0.5) < 0.505)
+    }
+    // Pumpkins sit squat; melons are fatter in the middle than at the ends.
+    const pv = around(102, 1)
+    out.pumpkinTop = pv.length ? Math.max(...pv.map((p) => p[1])) : 0
+    const mv = around(106, 1)
+    const rAt = (v, at, lo, hi) => Math.max(0, ...v.filter((p) => p[1] > lo && p[1] < hi).map(([x, , z]) => Math.hypot(x - at - 0.5, z - at - 0.5)))
+    out.melonMid = rAt(mv, 106, 5.4, 5.6)
+    out.melonEnd = rAt(mv, 106, 5.93, 5.96)
+    // Blob: the cap's outside top corners round in, and it has a real crack shape.
+    const bv = verts(109.5, 112.5, 4.5, 6.5)
+    out.blobPts = bv.length
+    out.blobRounded = bv.every(([x, y, z]) => !(y > 5.97 && (x < 110.03 || x > 111.97) && (z < 110.03 || z > 111.97)))
+    out.blobGrid = !!ch.realFaceGrids(110, 5, 110)
+    const I = (id) => ch.info.get(id) || {}
+    out.rock = ['amethystblock', 'magmablock', 'glowstone', 'ancientdebris', 'rawironblock', 'rawgoldblock', 'rawcopperblock'].every((id) => I(id).real && I(id).rock)
+    out.glowKept = I('magmablock').glow && I('glowstone').glow
+    out.blobs = ['redmushroomblock', 'brownmushroomblock', 'warpedwartblock', 'tubecoralblock', 'horncoralblock', 'sculk'].every((id) => I(id).blob)
+    // Glow lights stay plain cubes.
+    out.plain = !I('shroomlight').real && !I('shroomlight').blob && !I('jackolantern').log && !I('sealantern').real
+    g._applyGraphicsLevel('simple')
+    bm._applyGraphicsLook()
+    const flat = around(102, 1)
+    out.simpleSquare = flat.some(([x, , z]) => Math.hypot(x - 102.5, z - 102.5) > 0.6)
+    out.simpleGrid = ch.realFaceGrids(110, 5, 110) === null
+    g._exitBuildMode()
+    return out
+  })
+  expect(r.rock).toBe(true)
+  expect(r.glowKept).toBe(true)
+  expect(r.blobs).toBe(true)
+  expect(r.plain).toBe(true)
+  expect(r.blobGrid).toBe(true)
+  expect(r.simpleGrid).toBe(true)
+  // Vertex checks count whenever the arrays were still there.
+  for (const id of Object.keys(r.round)) if (r.pts[id]) expect(r.round[id], id).toBe(true)
+  if (r.pts.pumpkin) {
+    expect(r.pumpkinTop).toBeLessThan(5.95)
+    expect(r.simpleSquare).toBe(true)
+  }
+  if (r.pts.melon) expect(r.melonMid).toBeGreaterThan(r.melonEnd + 0.05)
+  if (r.blobPts) expect(r.blobRounded).toBe(true)
+})
+
 test('real-life rock: stone-type blocks turn craggy, melt into dirt, on the top levels only', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
@@ -3178,7 +3264,7 @@ test('real-life rock: stone-type blocks turn craggy, melt into dirt, on the top 
     g._applyGraphicsLevel('irl')
     bm._applyGraphicsLook()
     out.kinds = ['stone', 'cobblestone', 'stonebricks', 'diamondore', 'sandstone', 'smoothstone'].map((t) => !!ch.info.get(t)?.rock)
-    out.notRock = ['stoneslab', 'glowstone', 'redstonelamp', 'grass', 'oakplanks'].map((t) => !!ch.info.get(t)?.rock)
+    out.notRock = ['stoneslab', 'sealantern', 'redstonelamp', 'grass', 'oakplanks'].map((t) => !!ch.info.get(t)?.rock)
     const lone = verts(90, 90)
     out.pts = lone.length
     out.rounded = lone.every(([x, y, z]) => !(y > 5.97 && (x < 90.03 || x > 90.97) && (z < 90.03 || z > 90.97)))

@@ -29,7 +29,26 @@ export const REAL_GROUND = /^(grass|dirt|sand|redsand|soulsand|gravel|mud|clay|p
 // poking out - BlockChunks._realLeafCell), and logs are drawn as round,
 // bark-bumpy trunks (BlockChunks._realLog). Every leaf and log kind.
 export const REAL_LEAVES = /leaves$/
-export const REAL_LOG = /log$/
+// Seventh batch (2026-11-08): crimson and warped stems are trunks too.
+export const REAL_LOG = /(log|stem)$/
+// Seventh batch: round things inside a whole block, drawn like logs
+// (corners look empty, you still bump the full cube). Cactus and hay
+// bales stack into one column like trunks; pumpkins and melons are each
+// their own round fruit.
+const ROUND_OF = { cactus: 'cactus', haybale: 'hay', pumpkin: 'pumpkin', melon: 'melon' }
+// Which round shape a block is drawn as ('log', 'cactus', 'hay',
+// 'pumpkin', 'melon'), or null for none.
+export function roundOf(id) {
+  if (ROUND_OF[id]) return ROUND_OF[id]
+  return REAL_LOG.test(id) ? 'log' : null
+}
+// Seventh batch: soft bumpy blobs that join each other like a treetop
+// (mushroom caps, nether/warped wart, coral blocks, sculk) - the treetop
+// shape without the leaf clumps.
+export const REAL_BLOB = /^(redmushroomblock|brownmushroomblock|netherwartblock|warpedwartblock|tubecoralblock|braincoralblock|bubblecoralblock|firecoralblock|horncoralblock|sculk)$/
+// Seventh batch: rocky blocks whose names don't say so get the rock look
+// too - glowing ones (magma, glowstone) keep their glow.
+export const REAL_EXTRA_ROCK = /^(amethystblock|magmablock|glowstone|ancientdebris|rawironblock|rawgoldblock|rawcopperblock)$/
 // Third batch (2026-11-08, Gaymi picked "every stone-ish block"): rock,
 // cobble, ores, bricks, polished and smooth stone, sandstone... all join
 // the real ground (they melt into grass and dirt where they touch) but
@@ -55,6 +74,7 @@ const LOOK_OF = { sand: 'sand', redsand: 'sand', soulsand: 'sand', gravel: 'grav
 // Which look a real-ground block has ('dirt' = plain earth).
 export function lookOf(id) {
   if (LOOK_OF[id]) return LOOK_OF[id]
+  if (REAL_EXTRA_ROCK.test(id)) return 'rock'
   if (REAL_ROCK.test(id) && !NOT_ROCK.test(id) && !REAL_GROUND.test(id)) return 'rock'
   return 'dirt'
 }
@@ -443,3 +463,32 @@ export function logRadius(a, y, x, z, amt) {
     vnoise(x * 5.3 + ca * 4, y * 6, z * 5.3 + sa * 4, 49) * 0.3
   return 0.5 - amt * (0.015 + bark * 0.035)
 }
+
+// How far out a round block's side sits at angle a and height t (0 =
+// its bottom, 1 = its top) - seventh batch. Logs use logRadius instead.
+//  cactus: a slimmer column with 8 soft ribs.
+//  hay: a fat, slightly fuzzy bale.
+//  pumpkin: squat, 8 deep ribs, pinched in at the top and bottom.
+//  melon: a fat round ball, a little flattened.
+export function roundRadius(shape, a, t, x, y, z, amt) {
+  const s = 1 - amt * 0.5 // how much it shrinks from a full cube's edge
+  if (shape === 'cactus') return (0.5 - amt * 0.08) * (1 - amt * 0.05 * (1 - Math.abs(Math.cos(a * 4))))
+  if (shape === 'hay') return 0.5 - amt * (0.03 + vnoise(x * 4 + Math.cos(a) * 3, y * 5 + t * 5, z * 4 + Math.sin(a) * 3, 47) * 0.03)
+  const bulge = Math.sin(Math.PI * (0.06 + 0.88 * t))
+  if (shape === 'pumpkin') {
+    const rib = 1 - amt * 0.1 * (1 - Math.abs(Math.cos(a * 4)))
+    return 0.5 * (s + (1 - s) * 0.05 + (1 - s) * 0.95 * Math.pow(bulge, 0.6)) * rib * (1 - amt * 0.04)
+  }
+  // melon
+  return 0.5 * (s + (1 - s) * Math.pow(bulge, 0.5)) * (1 - amt * 0.03)
+}
+
+// How tall a round block is drawn (blocks): pumpkins sit a bit squat.
+export function roundHeight(shape, amt) {
+  if (shape === 'pumpkin') return 1 - amt * 0.12
+  if (shape === 'melon') return 1 - amt * 0.05
+  return 1
+}
+
+// Round shapes that run on into the same shape stacked above/below.
+export const ROUND_STACKS = { log: true, cactus: true, hay: true }
