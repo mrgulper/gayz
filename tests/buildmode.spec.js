@@ -2974,10 +2974,11 @@ test('bumpy block tops and rounded edges on the top levels', async ({ page }) =>
     await g._enterBuildMode()
     const bm = g.buildMode
     const ch = bm._chunks
-    // A one-block step: a 3x3 stone floor with one more stone on top
-    // (stone, so no little rocks lie on it).
-    for (let x = 40; x < 43; x++) for (let z = 40; z < 43; z++) bm._placeBlockInner(x, 0, z, 'stone')
-    bm._placeBlockInner(41, 1, 41, 'stone')
+    // A one-block step: a 3x3 clay floor with one more clay on top
+    // (clay: no little rocks lie on it, and it isn't real-life ground or
+    // rock, which round off on these levels - RealGround.js).
+    for (let x = 40; x < 43; x++) for (let z = 40; z < 43; z++) bm._placeBlockInner(x, 0, z, 'clay')
+    bm._placeBlockInner(41, 1, 41, 'clay')
     // Every vertex height's part above the whole block under it.
     const fracs = () => {
       ch.flush(bm._chunkCells)
@@ -3139,6 +3140,74 @@ test('real-life trees: leaves join into one bushy top, logs turn round, on the t
   expect(r.simpleGrid).toBe(true)
   // Vertex checks count whenever the arrays were still there.
   if (r.trunkPts) expect(r.simpleSquare).toBe(true)
+})
+
+test('real-life rock: stone-type blocks turn craggy, melt into dirt, on the top levels only', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const ch = bm._chunks
+    // A lone stone up in the air, stone beside dirt, bricks beside planks.
+    bm._placeBlockInner(90, 5, 90, 'stone')
+    bm._placeBlockInner(95, 5, 95, 'cobblestone')
+    bm._placeBlockInner(96, 5, 95, 'dirt')
+    bm._placeBlockInner(100, 5, 100, 'stonebricks')
+    bm._placeBlockInner(101, 5, 100, 'oakplanks')
+    const verts = (x0, z0) => {
+      ch.flush(bm._chunkCells)
+      const v = []
+      const S = ch.blockSize
+      for (const c of ch.chunks.values()) {
+        for (const m of c.meshes) {
+          const pos = m.geometry.attributes.position
+          if (!pos?.array?.length) continue
+          for (let i = 0; i < pos.array.length; i += 3) {
+            const x = (pos.array[i] + m.position.x) / S
+            const y = (pos.array[i + 1] + m.position.y) / S
+            const z = (pos.array[i + 2] + m.position.z) / S
+            if (x > x0 - 0.8 && x < x0 + 1.8 && z > z0 - 0.8 && z < z0 + 1.8 && y > 4.2 && y < 6.8) v.push([x, y, z])
+          }
+        }
+      }
+      return v
+    }
+    g._applyGraphicsLevel('irl')
+    bm._applyGraphicsLook()
+    out.kinds = ['stone', 'cobblestone', 'stonebricks', 'diamondore', 'sandstone', 'smoothstone'].map((t) => !!ch.info.get(t)?.rock)
+    out.notRock = ['stoneslab', 'glowstone', 'redstonelamp', 'grass', 'oakplanks'].map((t) => !!ch.info.get(t)?.rock)
+    const lone = verts(90, 90)
+    out.pts = lone.length
+    out.rounded = lone.every(([x, y, z]) => !(y > 5.97 && (x < 90.03 || x > 90.97) && (z < 90.03 || z > 90.97)))
+    // Rock and dirt share their middle edge and it moves (not pinned).
+    const L = ch.realTopLattice(95, 5, 95)
+    out.joinFree = L[1][6] === 1 && L[1][8] > 0 && L[1][8] < 1
+    const a = ch.realTopPoint(L, 95, 5, 95, 1, 0.5)
+    const b = ch.realTopPoint(ch.realTopLattice(96, 5, 95), 96, 5, 95, 0, 0.5)
+    out.joined = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < 1e-4
+    // Bricks meeting planks stay pinned at the planks.
+    const p = ch.realTopPoint(ch.realTopLattice(100, 5, 100), 100, 5, 100, 1, 0)
+    out.pinned = [p.x, p.y, p.z].map((k) => Math.round(k * 1000) / 1000)
+    out.crack = !!ch.realFaceGrids(90, 5, 90)
+    g._applyGraphicsLevel('simple')
+    bm._applyGraphicsLook()
+    const flat = verts(90, 90)
+    out.simpleCube = flat.every(([x, y, z]) => [x, y, z].every((k) => Math.abs(k - Math.round(k)) < 0.001))
+    out.simpleGrid = ch.realFaceGrids(90, 5, 90) === null
+    g._exitBuildMode()
+    return out
+  })
+  expect(r.kinds).toEqual([true, true, true, true, true, true])
+  expect(r.notRock).toEqual([false, false, false, false, false])
+  expect(r.rounded).toBe(true)
+  expect(r.joinFree).toBe(true)
+  expect(r.joined).toBe(true)
+  expect(r.pinned).toEqual([101, 6, 100])
+  expect(r.crack).toBe(true)
+  expect(r.simpleCube).toBe(true)
+  expect(r.simpleGrid).toBe(true)
 })
 
 test('castles fly cloth flags on poles, acacia trees stand on their trunks', async ({ page }) => {
@@ -3773,7 +3842,7 @@ test('far grass, cracks on bumpy tops, puffy and falling leaves, dinosaurs', asy
     }
     out.leafPuff = Math.round(puff * 100) / 100
     // Breaking crack: its top follows the bumpy top (above 1.0).
-    bm._placeBlockInner(5, 3, 5, 'stone')
+    bm._placeBlockInner(5, 3, 5, 'clay')
     const dig = { x: 5, y: 3, z: 5, type: 'stone' }
     bm.tryMode._showDigCrack(dig, 0.5)
     const pos = bm.tryMode._digMesh.geometry.attributes.position
