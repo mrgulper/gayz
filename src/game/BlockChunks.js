@@ -19,7 +19,7 @@
 // keep BuildMode's per-type InstancedMesh path - they're rare, and they
 // never hide a neighbor's face.
 import * as THREE from 'three'
-import { REAL_GROUND, REAL_LEAVES, REAL_LOG, REAL_ROCK, NOT_ROCK, REC, AIR, REAL, ROCK, PIN_SOLID, PIN_OTHER, LEAF_LOOK, K_LEAF, latticeAt, realPoint, realTint, rockTint, logRadius } from './RealGround.js'
+import { REAL_GROUND, REAL_LEAVES, REAL_LOG, REAL_ROCK, NOT_ROCK, REC, AIR, REAL, PIN_SOLID, lookOf, kindOfLook, PIN_OTHER, LEAF_LOOK, K_LEAF, latticeAt, realPoint, realTint, rockTint, logRadius } from './RealGround.js'
 
 export const CHUNK = 16
 // A chunk plus a one-cell ring on every side (see _build), and the mark
@@ -217,7 +217,8 @@ function sharpen(mat, fx, extra = null) {
         // directLight is the sun here, already dimmed by its shadow.
         vec3 hv = normalize(directLight.direction + geometryViewDir);
         float nh = max(dot(geometryNormal, hv), 0.0);
-        float glossy = clamp(wetNow * 0.7 + puddle, 0.0, 1.0);
+        // vEdge below 0: the block's own gloss (real-life wet mud).
+        float glossy = clamp(wetNow * 0.7 + puddle + max(-vEdge, 0.0), 0.0, 1.0);
         float sp = pow(nh, mix(20.0, 160.0, glossy)) * mix(0.07, 1.5, glossy);
         reflectedLight.directDiffuse += directLight.color * sp * uSpec * step(0.0, dot(geometryNormal, directLight.direction));
       }
@@ -353,6 +354,9 @@ export const BUMP_MAX_DEGREES = 20
 const BUMP_MIN = 0.02
 const BUMP_RANGE = 0.08
 const PEBBLE_ON = /^(grass|dirt|sand|gravel|mud|coarsedirt|podzol|redsand|snow|moss)$/
+// Real ground whose top picture (grass, fungus, needles) runs down a
+// one-block step instead of showing the bare side (_realCell).
+const GRASSY_TOP = /^(grass|mycelium|podzol|crimsonnylium|warpednylium)$/
 
 // A stable 0..1 number for a cell (and a salt), for where the extra
 // shapes go.
@@ -507,7 +511,11 @@ export class BlockChunks {
         // Drawn as real-life ground on the top levels (RealGround.js).
         real: (REAL_GROUND.test(t.id) || (REAL_ROCK.test(t.id) && !NOT_ROCK.test(t.id) && !t.emissive)) && !t.transparent && !liquid && !t.inset,
         // Real ground with the rock look (RealGround.js, third batch).
-        rock: REAL_ROCK.test(t.id) && !NOT_ROCK.test(t.id) && !t.emissive && !REAL_GROUND.test(t.id),
+        rock: lookOf(t.id) === 'rock' && !t.emissive,
+        // Its real-ground look ('dirt', 'rock', 'sand', 'gravel', 'mud'...)
+        // and that look's kind code for the corner points (_kindOf).
+        look: lookOf(t.id),
+        lookKind: kindOfLook(t.emissive ? 'dirt' : lookOf(t.id)),
         // Joined into one bushy treetop / drawn as a round trunk on the
         // top levels (RealGround.js, second batch).
         leaf: REAL_LEAVES.test(t.id) && !liquid && !t.plant,
@@ -1334,7 +1342,7 @@ export class BlockChunks {
     // Water doesn't hold the ground's corners (fourth batch): banks and
     // lake beds round off and roll under it like real shores.
     if (info.liquid === 'water') return AIR
-    if (info.real) return info.rock ? ROCK : REAL
+    if (info.real) return info.lookKind
     return info.opaque ? PIN_SOLID : PIN_OTHER
   }
 
@@ -1515,9 +1523,14 @@ export class BlockChunks {
     const G = [null, null, null, null]
     const aboveInfo = this.info.get(typeAt(x, y + 1, z))
     // A pebble now and then, sat on the rolling top.
-    if (PEBBLE_ON.test(type) && !aboveInfo?.opaque && hash01(x, y, z, 1) < 0.07 && stoneUv) {
+    if (PEBBLE_ON.test(type) && !aboveInfo?.opaque && stoneUv) {
       const cornerH = (X, Z) => this._realTopAt(x, y, z, X - x, Z - z, latAt).y - y
-      this._pebble(buf, x - bx, y - by, z - bz, x, y, z, cornerH, stoneUv)
+      // Gravel: small stones poking out of most blocks (Gaymi's pick),
+      // up to 3 each; everything else now and then.
+      const gravel = info.look === 'gravel'
+      for (let k = 0; k < (gravel ? 3 : 1); k++) {
+        if (hash01(x, y, z, 1 + k * 40) < (gravel ? 0.45 : 0.07)) this._pebble(buf, x - bx, y - by, z - bz, x, y, z, cornerH, stoneUv, k * 40)
+      }
     }
     for (let fi = 0; fi < 6; fi++) {
       const face = FACES[fi]
@@ -1538,7 +1551,7 @@ export class BlockChunks {
       // A grass side that's only a short step (ground right below the
       // cell in front of it) is a grassy slope in real life, not a dirt
       // wall: it gets the grass top picture. Taller drops stay dirt.
-      const slope = ny === 0 && type === 'grass' && this._kindOf(typeAt(x + nx, y - 1, z + nz)) !== AIR
+      const slope = ny === 0 && GRASSY_TOP.test(type) && this._kindOf(typeAt(x + nx, y - 1, z + nz)) !== AIR
       const [u0, v0, u1, v1] = slope ? info.uvs[2] : info.uvs[fi]
       // Tops turned a random quarter per block, so the grass picture
       // doesn't repeat in rows.
@@ -1551,7 +1564,8 @@ export class BlockChunks {
           realPoint(P, L, s, t, face.n, amt, pt)
           buf.pos.push((pt.x - bx) * S, (pt.y - by) * S, (pt.z - bz) * S)
           buf.nrm.push(pt.nx, pt.ny, pt.nz)
-          buf.edge.push(0)
+          // Below 0 = how glossy (wet mud), read by the sun-glint shader.
+          buf.edge.push(-pt.gloss)
           const tu = turn === 0 ? s : turn === 1 ? 1 - t : turn === 2 ? 1 - s : t
           const tv = turn === 0 ? t : turn === 1 ? s : turn === 2 ? 1 - t : 1 - s
           buf.uv.push(u0 + (u1 - u0) * tu, v0 + (v1 - v0) * tv)
@@ -1807,39 +1821,39 @@ export class BlockChunks {
   // a ring of 6 points on the ground, a smaller turned ring above and a
   // peak, each pushed about at random, drawn with flat facets
   // (2026-10-26, Gaymi: lumpy pebbles instead of little boxes).
-  _pebble(buf, lx, ly, lz, x, y, z, cornerH, uv) {
-    const px = 0.2 + hash01(x, y, z, 7) * 0.6
-    const pz = 0.2 + hash01(x, y, z, 8) * 0.6
+  _pebble(buf, lx, ly, lz, x, y, z, cornerH, uv, salt = 0) {
+    const px = 0.2 + hash01(x, y, z, 7 + salt) * 0.6
+    const pz = 0.2 + hash01(x, y, z, 8 + salt) * 0.6
     const h00 = cornerH(x, z, y)
     const h10 = cornerH(x + 1, z, y)
     const h01 = cornerH(x, z + 1, y)
     const h11 = cornerH(x + 1, z + 1, y)
     const gy = h00 * (1 - px) * (1 - pz) + h10 * px * (1 - pz) + h01 * (1 - px) * pz + h11 * px * pz
-    const r = 0.05 + hash01(x, y, z, 9) * 0.06
-    const stretch = 0.7 + hash01(x, y, z, 10) * 0.6
-    const h = r * (0.9 + hash01(x, y, z, 12) * 0.6)
+    const r = 0.05 + hash01(x, y, z, 9 + salt) * 0.06
+    const stretch = 0.7 + hash01(x, y, z, 10 + salt) * 0.6
+    const h = r * (0.9 + hash01(x, y, z, 12 + salt) * 0.6)
     const cx = lx + px
     const cz = lz + pz
     const y0 = ly + gy - h * 0.25
-    const turn = hash01(x, y, z, 13) * Math.PI * 2
+    const turn = hash01(x, y, z, 13 + salt) * Math.PI * 2
     const SIDES = 6
     const ring = (k, rad, yy, twist) => {
       const pts = []
       for (let i = 0; i < SIDES; i++) {
         const a = turn + twist + (i / SIDES) * Math.PI * 2
-        const rr = rad * (0.75 + hash01(x * 7 + i, y + k, z, 14) * 0.5)
-        pts.push([cx + Math.cos(a) * rr * stretch, yy + (hash01(x, y + k, z * 7 + i, 15) - 0.5) * h * 0.25, cz + Math.sin(a) * rr])
+        const rr = rad * (0.75 + hash01(x * 7 + i, y + k, z, 14 + salt) * 0.5)
+        pts.push([cx + Math.cos(a) * rr * stretch, yy + (hash01(x, y + k, z * 7 + i, 15 + salt) - 0.5) * h * 0.25, cz + Math.sin(a) * rr])
       }
       return pts
     }
     const low = ring(0, r, y0, 0)
     const mid = ring(1, r * 0.72, y0 + h * 0.65, Math.PI / SIDES)
-    const peak = [cx + (hash01(x, y, z, 16) - 0.5) * r * 0.5, y0 + h, cz + (hash01(x, y, z, 17) - 0.5) * r * 0.5]
+    const peak = [cx + (hash01(x, y, z, 16 + salt) - 0.5) * r * 0.5, y0 + h, cz + (hash01(x, y, z, 17 + salt) - 0.5) * r * 0.5]
     const centre = [cx, y0 + h * 0.4, cz]
     const [u0, v0, u1, v1] = uv
     const du = (u1 - u0) * 0.3
     const dv = (v1 - v0) * 0.3
-    const b = 0.78 + hash01(x, y, z, 11) * 0.2
+    const b = 0.78 + hash01(x, y, z, 11 + salt) * 0.2
     const tri = (A, B, C) => {
       let n = cross3(sub3(B, A), sub3(C, A))
       // Point it outward (away from the stone's middle).

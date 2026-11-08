@@ -2975,8 +2975,9 @@ test('bumpy block tops and rounded edges on the top levels', async ({ page }) =>
     const bm = g.buildMode
     const ch = bm._chunks
     // A one-block step: a 3x3 clay floor with one more clay on top
-    // (clay: no little rocks lie on it, and it isn't real-life ground or
-    // rock, which round off on these levels - RealGround.js).
+    // (clay: no little rocks lie on it). Checked on Detailed, the best
+    // level without real-life ground - on the top 3 every natural block
+    // rounds off into real land now (RealGround.js, own tests below).
     for (let x = 40; x < 43; x++) for (let z = 40; z < 43; z++) bm._placeBlockInner(x, 0, z, 'clay')
     bm._placeBlockInner(41, 1, 41, 'clay')
     // Every vertex height's part above the whole block under it.
@@ -3004,7 +3005,7 @@ test('bumpy block tops and rounded edges on the top levels', async ({ page }) =>
       }
       return f
     }
-    g._applyGraphicsLevel('irl')
+    g._applyGraphicsLevel('detailed')
     bm._applyGraphicsLook()
     const irl = fracs()
     // Bumps rise a little (0.02..0.1 of a block) above flat tops; nothing
@@ -3020,7 +3021,7 @@ test('bumpy block tops and rounded edges on the top levels', async ({ page }) =>
   })
   // Uploaded chunk geometry may drop its arrays (dropAfterUpload), so the
   // bump check only counts when the arrays were still there.
-  expect(r.irl, JSON.stringify(r.bad)).toEqual([true, 1, true, true])
+  expect(r.irl, JSON.stringify(r.bad)).toEqual([true, 0.35, true, true])
   expect(r.simple).toEqual([false, 0, false])
 })
 
@@ -3208,6 +3209,103 @@ test('real-life rock: stone-type blocks turn craggy, melt into dirt, on the top 
   expect(r.crack).toBe(true)
   expect(r.simpleCube).toBe(true)
   expect(r.simpleGrid).toBe(true)
+})
+
+test('real-life soft ground: sand, gravel, mud... join the land with their own looks, top levels only', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const ch = bm._chunks
+    // Lone blocks up in the air, sand beside grass, mud beside planks.
+    bm._placeBlockInner(130, 5, 130, 'sand')
+    bm._placeBlockInner(134, 5, 130, 'gravel')
+    bm._placeBlockInner(138, 5, 130, 'mud')
+    bm._placeBlockInner(130, 5, 135, 'sand')
+    bm._placeBlockInner(131, 5, 135, 'grass')
+    bm._placeBlockInner(135, 5, 135, 'mud')
+    bm._placeBlockInner(136, 5, 135, 'oakplanks')
+    const verts = (x0, z0) => {
+      ch.flush(bm._chunkCells)
+      const v = []
+      const S = ch.blockSize
+      for (const c of ch.chunks.values()) {
+        for (const m of c.meshes) {
+          const pos = m.geometry.attributes.position
+          const e = m.geometry.attributes.aEdge
+          if (!pos?.array?.length) continue
+          for (let i = 0, k = 0; i < pos.array.length; i += 3, k++) {
+            const x = (pos.array[i] + m.position.x) / S
+            const y = (pos.array[i + 1] + m.position.y) / S
+            const z = (pos.array[i + 2] + m.position.z) / S
+            if (x > x0 - 0.8 && x < x0 + 1.8 && z > z0 - 0.8 && z < z0 + 1.8 && y > 4.2 && y < 6.8) v.push([x, y, z, e?.array?.[k] ?? 0])
+          }
+        }
+      }
+      return v
+    }
+    g._applyGraphicsLevel('irl')
+    bm._applyGraphicsLook()
+    const ids = ['sand', 'redsand', 'gravel', 'mud', 'clay', 'moss', 'podzol', 'mycelium', 'soulsand', 'crimsonnylium', 'terracotta', 'dirtpath']
+    out.real = ids.map((t) => !!ch.info.get(t)?.real)
+    out.looks = ids.map((t) => ch.info.get(t)?.look)
+    // Still cubes: snow (its own batch), planks, glass.
+    out.notReal = ['snow', 'oakplanks', 'glass', 'sandslab'].map((t) => !!ch.info.get(t)?.real)
+    const sand = verts(130, 130)
+    out.rounded = sand.length > 0 && sand.every(([x, y, z]) => !(y > 5.97 && (x < 130.03 || x > 130.97) && (z < 130.03 || z > 130.97)))
+    // Gravel carries small stones: more points than a lone sand block.
+    out.gravelStones = verts(134, 130).length > sand.length
+    // Wet mud shines (gloss rides below 0 on aEdge); sand doesn't.
+    out.mudGloss = verts(138, 130).some((p) => p[3] < -0.3)
+    out.sandDry = sand.every((p) => p[3] > -0.01)
+    // Sand and grass share their middle edge and it moves (not pinned).
+    const L = ch.realTopLattice(130, 5, 135)
+    out.joinFree = L[1][6] === 1 && L[1][9] > 0 && L[1][9] < 1
+    const a = ch.realTopPoint(L, 130, 5, 135, 1, 0.5)
+    const b = ch.realTopPoint(ch.realTopLattice(131, 5, 135), 131, 5, 135, 0, 0.5)
+    out.joined = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < 1e-4
+    // Mud meeting planks stays pinned at the planks.
+    const p = ch.realTopPoint(ch.realTopLattice(135, 5, 135), 135, 5, 135, 1, 0)
+    out.pinned = [p.x, p.y, p.z].map((k) => Math.round(k * 1000) / 1000)
+    out.crack = !!ch.realFaceGrids(134, 5, 130)
+    // Speed: a 40x40 field, 3 deep, as dirt and then as mixed soft ground.
+    const field = (pick) => {
+      for (let x = 0; x < 40; x++) for (let z = 0; z < 40; z++) for (let y = 10; y < 13; y++) bm._placeBlockInner(200 + x, y, 200 + z, pick(x, z))
+      ch.flush(bm._chunkCells)
+      const t0 = performance.now()
+      ch.rebuildAll()
+      ch.flush(bm._chunkCells)
+      return performance.now() - t0
+    }
+    const soft = ['sand', 'gravel', 'mud', 'clay', 'moss', 'podzol']
+    out.msDirt = field(() => 'dirt')
+    out.msSoft = field((x, z) => soft[(Math.floor(x / 7) + Math.floor(z / 7) * 3) % soft.length])
+    g._applyGraphicsLevel('simple')
+    bm._applyGraphicsLook()
+    const flat = verts(130, 130)
+    out.simpleCube = flat.every(([x, y, z]) => [x, y, z].every((k) => Math.abs(k - Math.round(k)) < 0.001))
+    out.simpleGrid = ch.realFaceGrids(130, 5, 130) === null
+    g._exitBuildMode()
+    return out
+  })
+  console.log(`soft ground rebuild ms: dirt ${r.msDirt.toFixed(0)}, soft ${r.msSoft.toFixed(0)}`)
+  expect(r.real).toEqual(Array(12).fill(true))
+  expect(r.looks).toEqual(['sand', 'sand', 'gravel', 'mud', 'mud', 'dirt', 'dirt', 'dirt', 'sand', 'dirt', 'rock', 'dirt'])
+  expect(r.notReal).toEqual([false, false, false, false])
+  expect(r.rounded).toBe(true)
+  expect(r.gravelStones).toBe(true)
+  expect(r.mudGloss).toBe(true)
+  expect(r.sandDry).toBe(true)
+  expect(r.joinFree).toBe(true)
+  expect(r.joined).toBe(true)
+  expect(r.pinned).toEqual([136, 6, 135])
+  expect(r.crack).toBe(true)
+  expect(r.simpleCube).toBe(true)
+  expect(r.simpleGrid).toBe(true)
+  // Mixed soft ground costs about the same as plain dirt to build.
+  expect(r.msSoft).toBeLessThan(r.msDirt * 2 + 100)
 })
 
 test('real-life water: soft shores, depth and splash on the top levels only', async ({ page }) => {
