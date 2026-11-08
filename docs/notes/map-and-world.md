@@ -388,4 +388,11 @@ Gaymi's answers: trunks round and filling the block (corners look empty, you sti
 - Logs (`_realLog`): 12-sided cylinder, 2 rows, radius `logRadius` (0.45-0.5, bark noise from world y + column, so stacked logs line up), each quarter shows its side picture, ring caps where no log/solid block covers the end, darker foot on the ground. Skipped when all 8 side neighbours are solid non-logs. Logs no longer hide neighbour faces (`hides()` in `_build`, and in `_realCell`) so their empty corners show the block behind, not a hole. Ground lattice still pins at logs.
 - Crack: `realFaceGrids` follows the crown for leaves; logs keep the cube crack. `lumpyTopPoints` returns null for logs.
 - Test: `buildmode.spec.js` "real-life trees". Cost: full Map 3 rebuild +~50ms (2374 leaves, 363 logs; headless).
-- Next batches: stone/rocks, then water.
+
+### Batch 3: stone/rocks (2026-11-08)
+Gaymi's answers: every stone-ish block (bricks/polished/smooth too), "a bit of both craggy and smooth boulders", rock melts into grass/dirt.
+- `REAL_ROCK` / `NOT_ROCK` (RealGround.js): ids with stone/cobble/granite/.../obsidian or ending in `ore`; not slabs/stairs/walls/fences/buttons/plates/lamps/doors/`*block`, gadget stones (echo/weather/sauna), or emissive blocks. `info.real` + `info.rock`; `_kindOf` -> `ROCK`, which the ground lattice treats as ground (so rock and dirt share corners = melt together).
+- Lattice records are now `REC` = 9 floats: [8] = rock fraction round the corner. Rock corners round 30% less (`ROCK_ROUND`). realPoint interpolates it (`rf`) and blends the dirt bumps into `rockD` (craggy ledges + ridges vs smooth boulders, drifting by world noise seed 50), bumps 1.6x bigger. Out: `rock`, `grain` -> `rockTint`.
+- Speed: noise slopes are analytic now (`vnoiseD`, one call instead of 4 finite differences - grass/dirt got cheaper too), rock jitter comes from one noise's slope. Full Map 3 rebuild on In Real Life ~2x the no-rock cost (e.g. 0.81s vs 0.41s with ~34k rock blocks, mostly cave walls; simple 0.16s; headless). Streaming stays budgeted (LAZY_BUDGET_MS).
+- Test: `buildmode.spec.js` "real-life rock".
+- Next batch: water.

@@ -19,7 +19,7 @@
 // keep BuildMode's per-type InstancedMesh path - they're rare, and they
 // never hide a neighbor's face.
 import * as THREE from 'three'
-import { REAL_GROUND, REAL_LEAVES, REAL_LOG, AIR, REAL, PIN_SOLID, PIN_OTHER, LEAF_LOOK, K_LEAF, latticeAt, realPoint, realTint, logRadius } from './RealGround.js'
+import { REAL_GROUND, REAL_LEAVES, REAL_LOG, REAL_ROCK, NOT_ROCK, REC, AIR, REAL, ROCK, PIN_SOLID, PIN_OTHER, LEAF_LOOK, K_LEAF, latticeAt, realPoint, realTint, rockTint, logRadius } from './RealGround.js'
 
 export const CHUNK = 16
 // A chunk plus a one-cell ring on every side (see _build), and the mark
@@ -502,7 +502,9 @@ export class BlockChunks {
         // Ground that smooths into hills (NATURAL).
         natural: NATURAL.test(t.id) && !t.transparent && !liquid && !t.inset,
         // Drawn as real-life ground on the top levels (RealGround.js).
-        real: REAL_GROUND.test(t.id) && !t.transparent && !liquid && !t.inset,
+        real: (REAL_GROUND.test(t.id) || (REAL_ROCK.test(t.id) && !NOT_ROCK.test(t.id) && !t.emissive)) && !t.transparent && !liquid && !t.inset,
+        // Real ground with the rock look (RealGround.js, third batch).
+        rock: REAL_ROCK.test(t.id) && !NOT_ROCK.test(t.id) && !t.emissive && !REAL_GROUND.test(t.id),
         // Joined into one bushy treetop / drawn as a round trunk on the
         // top levels (RealGround.js, second batch).
         leaf: REAL_LEAVES.test(t.id) && !liquid && !t.plant,
@@ -1257,7 +1259,7 @@ export class BlockChunks {
     const info = this.info.get(t)
     if (!info) return PIN_OTHER
     if (info.plant) return AIR
-    if (info.real) return REAL
+    if (info.real) return info.rock ? ROCK : REAL
     return info.opaque ? PIN_SOLID : PIN_OTHER
   }
 
@@ -1277,13 +1279,13 @@ export class BlockChunks {
   _latticeFn(slot, kind, bx, by, bz, amt, kRound) {
     const L = CHUNK + 1
     const c = (this._lat || (this._lat = {}))[slot] || (this._lat[slot] = (() => {
-      const buf = new Float32Array(L * L * L * 8)
-      return { views: Array.from({ length: L * L * L }, (_, i) => buf.subarray(i * 8, i * 8 + 8)), done: new Uint8Array(L * L * L) }
+      const buf = new Float32Array(L * L * L * REC)
+      return { views: Array.from({ length: L * L * L }, (_, i) => buf.subarray(i * REC, i * REC + REC)), done: new Uint8Array(L * L * L) }
     })())
     c.done.fill(0)
     return (X, Y, Z) => {
       const lx = X - bx, ly = Y - by, lz = Z - bz
-      if (lx < 0 || ly < 0 || lz < 0 || lx > CHUNK || ly > CHUNK || lz > CHUNK) return latticeAt(kind, X, Y, Z, amt, new Float32Array(8), 0, kRound)
+      if (lx < 0 || ly < 0 || lz < 0 || lx > CHUNK || ly > CHUNK || lz > CHUNK) return latticeAt(kind, X, Y, Z, amt, new Float32Array(REC), 0, kRound)
       const i = (ly * L + lz) * L + lx
       const v = c.views[i]
       if (!c.done[i]) {
@@ -1296,11 +1298,11 @@ export class BlockChunks {
 
   // A corner point's record outside a chunk build (cracks, grass tufts).
   _latOutside(X, Y, Z) {
-    return latticeAt((a, b, c) => this._kindOf(this.getType(a, b, c)), X, Y, Z, this.realAmt, new Float32Array(8))
+    return latticeAt((a, b, c) => this._kindOf(this.getType(a, b, c)), X, Y, Z, this.realAmt, new Float32Array(REC))
   }
 
   _leafLatOutside(X, Y, Z) {
-    return latticeAt((a, b, c) => this._leafKindOf(this.getType(a, b, c)), X, Y, Z, this.realAmt, new Float32Array(8), 0, K_LEAF)
+    return latticeAt((a, b, c) => this._leafKindOf(this.getType(a, b, c)), X, Y, Z, this.realAmt, new Float32Array(REC), 0, K_LEAF)
   }
 
   // A point on the real top of cell x, y, z at (u along x, v along z),
@@ -1408,7 +1410,7 @@ export class BlockChunks {
           const tu = turn === 0 ? s : turn === 1 ? 1 - t : turn === 2 ? 1 - s : t
           const tv = turn === 0 ? t : turn === 1 ? s : turn === 2 ? 1 - t : 1 - s
           buf.uv.push(u0 + (u1 - u0) * tu, v0 + (v1 - v0) * tv)
-          const b = pt.ao * pt.shade * realTint(pt.x, pt.y, pt.z)
+          const b = pt.ao * pt.shade * (pt.rock > 0 ? rockTint(pt.x, pt.y, pt.z, pt.rock, pt.grain) : realTint(pt.x, pt.y, pt.z))
           let r = b, g = b, bl = b
           if (glowSources) {
             const W = [(1 - s) * (1 - t), s * (1 - t), s * t, (1 - s) * t]
