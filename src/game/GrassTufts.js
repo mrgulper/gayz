@@ -130,6 +130,9 @@ export class GrassTufts {
     // Grass tops found this pass: block x, z and the top's height.
     this._found = new Int32Array(MAX_SPAN * MAX_SPAN * 3)
     this._foundCount = 0
+    // Per found grass top near you: its real-ground corner records, if any.
+    this._lift = []
+    this._liftPt = {}
     this._radius = MAX_RADIUS
     this._row = Infinity
     // When each grass block was first seen (cellKey -> this._clock), so
@@ -196,10 +199,14 @@ export class GrassTufts {
         if (y === null) continue
         top = y
         if (bm.getBlockAt(x, y, z) === 'grass' && this._foundCount * 3 < this._found.length) {
-          const i = this._foundCount++ * 3
+          const f = this._foundCount++
+          const i = f * 3
           this._found[i] = x
           this._found[i + 1] = y + 1
           this._found[i + 2] = z
+          // Real-life ground (RealGround.js) rolls and rounds off: the
+          // tufts near you sit on its real top, not the cube's.
+          this._lift[f] = dx * dx + dz * dz < NEAR * NEAR ? bm._chunks?.realTopLattice?.(x, y, z) || null : null
         }
       }
     }
@@ -253,7 +260,13 @@ export class GrassTufts {
         const grown = Math.min(1, Math.max(0, (age - hash(x, z, i + 17) * SPREAD) / GROW))
         const size = (0.7 + hash(x, z, i + 7) * 0.6) * edge * grow * grown
         if (size < 0.05) continue
-        this._p.set((x + 0.15 + hash(x, z, i + 3) * 0.7) * B, top * B, (z + 0.15 + hash(x, z, i + 5) * 0.7) * B)
+        const u = 0.15 + hash(x, z, i + 3) * 0.7
+        const v = 0.15 + hash(x, z, i + 5) * 0.7
+        const L = this._lift[f]
+        if (L) {
+          const pt = this.bm._chunks.realTopPoint(L, x, top - 1, z, u, v, this._liftPt)
+          this._p.set(pt.x * B, pt.y * B, pt.z * B)
+        } else this._p.set((x + u) * B, top * B, (z + v) * B)
         this._q.setFromAxisAngle(this._up, hash(x, z, i + 11) * Math.PI)
         this._s.setScalar(size)
         this._m.compose(this._p, this._q, this._s)
