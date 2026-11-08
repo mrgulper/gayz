@@ -19,6 +19,12 @@
 
 // Blocks drawn as real ground. First batch: grass + dirt (Gaymi's pick).
 export const REAL_GROUND = /^(grass|dirt)$/
+// Second batch (2026-11-08): leaves join into one bushy treetop (same
+// corner-point idea as the ground, with bigger bumps and leaf clumps
+// poking out - BlockChunks._realLeafCell), and logs are drawn as round,
+// bark-bumpy trunks (BlockChunks._realLog). Every leaf and log kind.
+export const REAL_LEAVES = /leaves$/
+export const REAL_LOG = /log$/
 
 // How far corners round off (blocks, at full strength).
 const K_ROUND = 0.85
@@ -29,6 +35,11 @@ const A_JIT = 0.12
 // The wobble moves points up and down less than sideways, so flat ground
 // stays close to where you stand.
 const JIT_Y = 0.4
+// The ground's look, and the treetops': rounder corners, bigger lumps
+// and more wobble (leaves are fluffy, not packed earth).
+export const GROUND_LOOK = { bump: A_BUMP, jit: A_JIT, jitY: JIT_Y }
+export const LEAF_LOOK = { bump: 0.2, jit: 0.15, jitY: 0.8 }
+export const K_LEAF = 1
 
 function hash3(x, y, z, s) {
   let h = (x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ (s * 2654435761)
@@ -74,7 +85,7 @@ export const AIR = 0, REAL = 1, PIN_SOLID = 2, PIN_OTHER = 3
 // out[o..o+7]: the rounding move (x, y, z), the ground's facing direction
 // there (x, y, z), w (1 = free to move, 0 = pinned) and corner shade.
 // kind(x, y, z) -> AIR / REAL / PIN_SOLID / PIN_OTHER.
-export function latticeAt(kind, X, Y, Z, amt, out, o = 0) {
+export function latticeAt(kind, X, Y, Z, amt, out, o = 0, kRound = K_ROUND) {
   let n = 0, solid = 0, pinned = false
   let sx = 0, sy = 0, sz = 0, ax = 0, ay = 0, az = 0
   for (let dy = -1; dy <= 0; dy++) {
@@ -104,7 +115,7 @@ export function latticeAt(kind, X, Y, Z, amt, out, o = 0) {
   ax /= na; ay /= na; az /= na
   // Toward the ground's middle on an outside corner (rounds it off),
   // toward the air on an inside one (fills it in), nothing on flat ground.
-  const k = K_ROUND * amt
+  const k = kRound * amt
   out[o] = (sx + ax) * k
   out[o + 1] = (sy + ay) * k
   out[o + 2] = (sz + az) * k
@@ -130,7 +141,8 @@ function shadeOf(nx, ny, nz) {
 // blocks, [x, y, z] each) in the order (s, t) = (0,0), (1,0), (1,1),
 // (0,1); L: their lattice records (Float32Arrays from latticeAt); fn: the
 // cube face's own direction. Fills out: x, y, z, nx, ny, nz, ao, shade.
-export function realPoint(P, L, s, t, fn, amt, out) {
+export function realPoint(P, L, s, t, fn, amt, out, look = GROUND_LOOK) {
+  const { bump: aBump, jit: aJit, jitY } = look
   const W0 = (1 - s) * (1 - t), W1 = s * (1 - t), W2 = s * t, W3 = (1 - s) * t
   let px = 0, py = 0, pz = 0, mx = 0, my = 0, mz = 0, nx = 0, ny = 0, nz = 0, w = 0, ao = 0
   for (let k = 0; k < 4; k++) {
@@ -152,11 +164,11 @@ export function realPoint(P, L, s, t, fn, amt, out) {
   if (k > 0) {
     const b = bumpAt(px, py, pz)
     const jx = vnoise(px * 0.5, py * 0.5, pz * 0.5, 43) * 2 - 1
-    const jy = (vnoise(px * 0.5, py * 0.5, pz * 0.5, 44) * 2 - 1) * JIT_Y
+    const jy = (vnoise(px * 0.5, py * 0.5, pz * 0.5, 44) * 2 - 1) * jitY
     const jz = vnoise(px * 0.5, py * 0.5, pz * 0.5, 45) * 2 - 1
-    x += k * (A_BUMP * b * nx + A_JIT * jx)
-    y += k * (A_BUMP * b * ny + A_JIT * jy)
-    z += k * (A_BUMP * b * nz + A_JIT * jz)
+    x += k * (aBump * b * nx + aJit * jx)
+    y += k * (aBump * b * ny + aJit * jy)
+    z += k * (aBump * b * nz + aJit * jz)
     // The bumps tip the surface: lean the facing direction away from
     // where they rise (only the part along the surface).
     const e = 0.08
@@ -164,7 +176,7 @@ export function realPoint(P, L, s, t, fn, amt, out) {
     const gy = (bumpAt(px, py + e, pz) - b) / e
     const gz = (bumpAt(px, py, pz + e) - b) / e
     const gd = gx * nx + gy * ny + gz * nz
-    const f = k * A_BUMP
+    const f = k * aBump
     nx -= f * (gx - gd * nx)
     ny -= f * (gy - gd * ny)
     nz -= f * (gz - gd * nz)
@@ -176,4 +188,15 @@ export function realPoint(P, L, s, t, fn, amt, out) {
   out.ao = ao
   out.shade = shadeOf(nx, ny, nz)
   return out
+}
+
+// A round trunk's radius at angle a (radians) and height y, for the log
+// standing in column x, z: nearly the whole block wide, with soft bark
+// bumps that run on smoothly from one log to the one stacked on it (they
+// depend on the world height, not the block's).
+export function logRadius(a, y, x, z, amt) {
+  const ca = Math.cos(a), sa = Math.sin(a)
+  const bark = vnoise(x * 3.1 + ca * 1.6, y * 2.2, z * 3.1 + sa * 1.6, 48) * 0.7 +
+    vnoise(x * 5.3 + ca * 4, y * 6, z * 5.3 + sa * 4, 49) * 0.3
+  return 0.5 - amt * (0.015 + bark * 0.035)
 }

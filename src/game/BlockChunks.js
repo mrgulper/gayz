@@ -19,7 +19,7 @@
 // keep BuildMode's per-type InstancedMesh path - they're rare, and they
 // never hide a neighbor's face.
 import * as THREE from 'three'
-import { REAL_GROUND, AIR, REAL, PIN_SOLID, PIN_OTHER, latticeAt, realPoint, realTint } from './RealGround.js'
+import { REAL_GROUND, REAL_LEAVES, REAL_LOG, AIR, REAL, PIN_SOLID, PIN_OTHER, LEAF_LOOK, K_LEAF, latticeAt, realPoint, realTint, logRadius } from './RealGround.js'
 
 export const CHUNK = 16
 // A chunk plus a one-cell ring on every side (see _build), and the mark
@@ -503,6 +503,10 @@ export class BlockChunks {
         natural: NATURAL.test(t.id) && !t.transparent && !liquid && !t.inset,
         // Drawn as real-life ground on the top levels (RealGround.js).
         real: REAL_GROUND.test(t.id) && !t.transparent && !liquid && !t.inset,
+        // Joined into one bushy treetop / drawn as a round trunk on the
+        // top levels (RealGround.js, second batch).
+        leaf: REAL_LEAVES.test(t.id) && !liquid && !t.plant,
+        log: REAL_LOG.test(t.id) && !t.transparent && !liquid && !t.inset,
       })
     })
     const tex = new THREE.CanvasTexture(canvas)
@@ -881,6 +885,8 @@ export class BlockChunks {
   // lay the breaking crack over the lumps (BuildTryMode).
   lumpyTopPoints(x, y, z) {
     if (!this.shapes) return null
+    // A round trunk's top is its flat cut end.
+    if (this.realAmt > 0 && this.info.get(this.getType(x, y, z))?.log) return null
     if (this.realAmt > 0 && this.info.get(this.getType(x, y, z))?.real) {
       const L = this.realTopLattice(x, y, z)
       const pts = []
@@ -971,27 +977,16 @@ export class BlockChunks {
     // out once per build (17^3 corners in a chunk).
     const realAmt = this.realAmt
     let latAt = null
+    let leafLatAt = null
     if (realAmt > 0) {
-      const kind = (x, y, z) => this._kindOf(typeAt(x, y, z))
-      const L = CHUNK + 1
-      if (!this._latBuf) {
-        this._latBuf = new Float32Array(L * L * L * 8)
-        this._latViews = Array.from({ length: L * L * L }, (_, i) => this._latBuf.subarray(i * 8, i * 8 + 8))
-        this._latDone = new Uint8Array(L * L * L)
-      }
-      this._latDone.fill(0)
-      latAt = (X, Y, Z) => {
-        const lx = X - bx, ly = Y - by, lz = Z - bz
-        if (lx < 0 || ly < 0 || lz < 0 || lx > CHUNK || ly > CHUNK || lz > CHUNK) return latticeAt(kind, X, Y, Z, realAmt, new Float32Array(8))
-        const i = (ly * L + lz) * L + lx
-        const v = this._latViews[i]
-        if (!this._latDone[i]) {
-          latticeAt(kind, X, Y, Z, realAmt, v)
-          this._latDone[i] = 1
-        }
-        return v
-      }
+      latAt = this._latticeFn('ground', (x, y, z) => this._kindOf(typeAt(x, y, z)), bx, by, bz, realAmt)
+      // Treetops get their own corner points: leaves (and the logs
+      // inside them) are the "ground" there, everything else pins.
+      leafLatAt = this._latticeFn('leaf', (x, y, z) => this._leafKindOf(typeAt(x, y, z)), bx, by, bz, realAmt, K_LEAF)
     }
+    // Round trunks leave the corners of their cell empty, so a block
+    // next to one still draws its face there (no hole to look through).
+    const hides = (nInfo) => nInfo.opaque && !(realAmt > 0 && nInfo.log)
     // Bumpy blocks (2026-10-26, Gaymi: "you cant really tell what block
     // it is ... make them slightly bumpy ... no more then 20 degrees"):
     // every natural top keeps its edges at the block's own height, so each
@@ -1023,6 +1018,14 @@ export class BlockChunks {
         this._realCell(out.solid, x, y, z, bx, by, bz, info, type, typeAt, latAt, glowSources, stoneUv)
         continue
       }
+      if (leafLatAt && info.leaf) {
+        this._realLeafCell(buf, x, y, z, bx, by, bz, info, typeAt, leafLatAt, glowSources)
+        continue
+      }
+      if (realAmt > 0 && info.log) {
+        this._realLog(buf, x, y, z, bx, by, bz, info, typeAt, glowSources)
+        continue
+      }
       const smooth = shapes && info.opaque && !inset && !info.liquid && !opaqueAt(x, y + 1, z)
       if (smooth && info.natural && PEBBLE_ON.test(type) && hash01(x, y, z, 1) < 0.07 && stoneUv) this._pebble(out.solid, x - bx, y - by, z - bz, x, y, z, cornerH, stoneUv)
       for (let fi = 0; fi < 6; fi++) {
@@ -1033,7 +1036,7 @@ export class BlockChunks {
         if (nType && !(inset && ny === 0)) {
           const nInfo = this.info.get(nType)
           // Hidden behind a solid cube, or glass against the same glass.
-          if (nInfo && (nInfo.opaque || nType === type)) continue
+          if (nInfo && (hides(nInfo) || nType === type)) continue
           // Coral/seagrass stand in sea water: no water wall round them.
           if (info.liquid === 'water' && nInfo?.plant) continue
         }
@@ -1258,9 +1261,46 @@ export class BlockChunks {
     return info.opaque ? PIN_SOLID : PIN_OTHER
   }
 
+  // What a block is to a treetop round it: leaves and logs are the
+  // treetop, air and plants are air, anything else pins its corners.
+  _leafKindOf(t) {
+    if (!t) return AIR
+    const info = this.info.get(t)
+    if (!info) return PIN_OTHER
+    if (info.plant) return AIR
+    if (info.leaf || info.log) return REAL
+    return info.opaque ? PIN_SOLID : PIN_OTHER
+  }
+
+  // Corner-point lookup for one chunk build: each of the chunk's 17^3
+  // corners worked out once (slot: which cache - ground or treetop).
+  _latticeFn(slot, kind, bx, by, bz, amt, kRound) {
+    const L = CHUNK + 1
+    const c = (this._lat || (this._lat = {}))[slot] || (this._lat[slot] = (() => {
+      const buf = new Float32Array(L * L * L * 8)
+      return { views: Array.from({ length: L * L * L }, (_, i) => buf.subarray(i * 8, i * 8 + 8)), done: new Uint8Array(L * L * L) }
+    })())
+    c.done.fill(0)
+    return (X, Y, Z) => {
+      const lx = X - bx, ly = Y - by, lz = Z - bz
+      if (lx < 0 || ly < 0 || lz < 0 || lx > CHUNK || ly > CHUNK || lz > CHUNK) return latticeAt(kind, X, Y, Z, amt, new Float32Array(8), 0, kRound)
+      const i = (ly * L + lz) * L + lx
+      const v = c.views[i]
+      if (!c.done[i]) {
+        latticeAt(kind, X, Y, Z, amt, v, 0, kRound)
+        c.done[i] = 1
+      }
+      return v
+    }
+  }
+
   // A corner point's record outside a chunk build (cracks, grass tufts).
   _latOutside(X, Y, Z) {
     return latticeAt((a, b, c) => this._kindOf(this.getType(a, b, c)), X, Y, Z, this.realAmt, new Float32Array(8))
+  }
+
+  _leafLatOutside(X, Y, Z) {
+    return latticeAt((a, b, c) => this._leafKindOf(this.getType(a, b, c)), X, Y, Z, this.realAmt, new Float32Array(8), 0, K_LEAF)
   }
 
   // A point on the real top of cell x, y, z at (u along x, v along z),
@@ -1290,11 +1330,13 @@ export class BlockChunks {
   // null if x, y, z isn't drawn as real ground. Lays the breaking crack
   // over the real shape (BuildTryMode).
   realFaceGrids(x, y, z) {
-    if (!(this.realAmt > 0) || !this.info.get(this.getType(x, y, z))?.real) return null
+    const info = this.realAmt > 0 && this.info.get(this.getType(x, y, z))
+    if (!info || !(info.real || info.leaf)) return null
+    const leaf = !info.real
     const cache = new Map()
     const latAt = (X, Y, Z) => {
       const k = `${X},${Y},${Z}`
-      if (!cache.has(k)) cache.set(k, this._latOutside(X, Y, Z))
+      if (!cache.has(k)) cache.set(k, leaf ? this._leafLatOutside(X, Y, Z) : this._latOutside(X, Y, Z))
       return cache.get(k)
     }
     const pt = {}
@@ -1304,7 +1346,7 @@ export class BlockChunks {
       const pts = []
       for (let j = 0; j <= 3; j++) {
         for (let i = 0; i <= 3; i++) {
-          realPoint(P, L, i / 3, j / 3, face.n, this.realAmt, pt)
+          realPoint(P, L, i / 3, j / 3, face.n, this.realAmt, pt, leaf ? LEAF_LOOK : undefined)
           pts.push([pt.x - x, pt.y - y, pt.z - z])
         }
       }
@@ -1336,7 +1378,7 @@ export class BlockChunks {
       const nType = typeAt(x + nx, y + ny, z + nz)
       if (nType) {
         const nInfo = this.info.get(nType)
-        if (nInfo && (nInfo.opaque || nType === type)) continue
+        if (nInfo && ((nInfo.opaque && !nInfo.log) || nType === type)) continue
       }
       for (let i = 0; i < 4; i++) {
         const c = face.c[i]
@@ -1395,6 +1437,220 @@ export class BlockChunks {
           if ((i + j) % 2) buf.idx.push(a, b, c, b, d, c)
           else buf.idx.push(a, b, d, a, d, c)
         }
+      }
+    }
+  }
+
+  // One leaf block on the top levels (RealGround.js, second batch): only
+  // the treetop's outside is drawn (faces against other leaves, of any
+  // kind, are skipped), each face a 3x3 grid on the treetop's own corner
+  // points - so all the leaf blocks of a tree round off into one soft,
+  // lumpy crown - plus a leaf clump or two poking out past the surface so
+  // the outline looks ragged like a real tree, not a smooth balloon.
+  _realLeafCell(buf, x, y, z, bx, by, bz, info, typeAt, latAt, glowSources) {
+    const N = 3
+    const S = this.blockSize
+    const amt = this.realAmt
+    const pt = this._lp || (this._lp = {})
+    const P = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]]
+    const L = [null, null, null, null]
+    const G = [null, null, null, null]
+    for (let fi = 0; fi < 6; fi++) {
+      const face = FACES[fi]
+      const [nx, ny, nz] = face.n
+      const nType = typeAt(x + nx, y + ny, z + nz)
+      if (nType) {
+        const nInfo = this.info.get(nType)
+        if (nInfo && (nInfo.leaf || (nInfo.opaque && !nInfo.log))) continue
+      }
+      for (let i = 0; i < 4; i++) {
+        const c = face.c[i]
+        P[i][0] = x + c[0]
+        P[i][1] = y + c[1]
+        P[i][2] = z + c[2]
+        L[i] = latAt(P[i][0], P[i][1], P[i][2])
+        G[i] = glowSources ? this._glowAt(P[i][0], P[i][1], P[i][2], face.n, glowSources) : null
+      }
+      const light = (s, t, b) => {
+        if (!glowSources) return [b, b, b]
+        const W = [(1 - s) * (1 - t), s * (1 - t), s * t, (1 - s) * t]
+        let lr = 0, lg = 0, lb = 0
+        for (let k = 0; k < 4; k++) {
+          if (!G[k]) continue
+          lr += W[k] * G[k][0]
+          lg += W[k] * G[k][1]
+          lb += W[k] * G[k][2]
+        }
+        return [b * (1 + lr), b * (1 + lg), b * (1 + lb)]
+      }
+      const [u0, v0, u1, v1] = info.uvs[fi]
+      // Turned a random quarter, so the leaf picture doesn't repeat in rows.
+      const turn = Math.floor(hash01(x, y, z, 31 + fi) * 4)
+      const base = buf.pos.length / 3
+      for (let j = 0; j <= N; j++) {
+        for (let i = 0; i <= N; i++) {
+          const s = i / N
+          const t = j / N
+          realPoint(P, L, s, t, face.n, amt, pt, LEAF_LOOK)
+          buf.pos.push((pt.x - bx) * S, (pt.y - by) * S, (pt.z - bz) * S)
+          buf.nrm.push(pt.nx, pt.ny, pt.nz)
+          buf.edge.push(0)
+          const tu = turn === 0 ? s : turn === 1 ? 1 - t : turn === 2 ? 1 - s : t
+          const tv = turn === 0 ? t : turn === 1 ? s : turn === 2 ? 1 - t : 1 - s
+          buf.uv.push(u0 + (u1 - u0) * tu, v0 + (v1 - v0) * tv)
+          const [r, g, bl] = light(s, t, pt.ao * pt.shade * realTint(pt.x, pt.y, pt.z))
+          if (buf.stride === 4) buf.col.push(r, g, bl, 1)
+          else buf.col.push(r, g, bl)
+        }
+      }
+      for (let j = 0; j < N; j++) {
+        for (let i = 0; i < N; i++) {
+          const a = base + j * (N + 1) + i
+          const b = a + 1
+          const c = a + N + 1
+          const d = c + 1
+          if ((i + j) % 2) buf.idx.push(a, b, c, b, d, c)
+          else buf.idx.push(a, b, d, a, d, c)
+        }
+      }
+      // Leaf clumps: 1-2 per face, each two small leafy cards crossed and
+      // tipped out from the surface (drawn from both sides, lit like the
+      // crown under them so they don't show dark backs).
+      const clumps = 1 + (hash01(x, y, z, 60 + fi) < 0.45 ? 1 : 0)
+      for (let k = 0; k < clumps; k++) {
+        const s = 0.2 + hash01(x * 3 + k, y, z, 61 + fi) * 0.6
+        const t = 0.2 + hash01(x, y * 3 + k, z, 67 + fi) * 0.6
+        realPoint(P, L, s, t, face.n, amt, pt, LEAF_LOOK)
+        const n = [pt.nx, pt.ny, pt.nz]
+        // Two directions along the surface.
+        const ref = Math.abs(n[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]
+        const t1 = norm3(cross3(n, ref))
+        const t2 = cross3(n, t1)
+        const a = hash01(x, y * 7 + k, z, 73 + fi) * Math.PI
+        const size = (0.42 + hash01(x * 5 + k, y, z, 79 + fi) * 0.2) * amt
+        const [r, g, bl] = light(s, t, pt.ao * pt.shade * realTint(pt.x, pt.y, pt.z) * 1.05)
+        for (let q = 0; q < 2; q++) {
+          const aa = a + q * Math.PI / 2
+          const d = [t1[0] * Math.cos(aa) + t2[0] * Math.sin(aa), t1[1] * Math.cos(aa) + t2[1] * Math.sin(aa), t1[2] * Math.cos(aa) + t2[2] * Math.sin(aa)]
+          const side = cross3(n, d)
+          // Leaning out: mostly away from the crown, a bit to one side.
+          const lean = hash01(x + q, y, z * 7 + k, 83 + fi) < 0.5 ? -0.55 : 0.55
+          const e = norm3([n[0] + side[0] * lean, n[1] + side[1] * lean, n[2] + side[2] * lean])
+          const o = [pt.x - n[0] * 0.08, pt.y - n[1] * 0.08, pt.z - n[2] * 0.08]
+          const corners = [
+            [o[0] - d[0] * size / 2, o[1] - d[1] * size / 2, o[2] - d[2] * size / 2, u0, v0],
+            [o[0] + d[0] * size / 2, o[1] + d[1] * size / 2, o[2] + d[2] * size / 2, u1, v0],
+            [o[0] + d[0] * size / 2 + e[0] * size, o[1] + d[1] * size / 2 + e[1] * size, o[2] + d[2] * size / 2 + e[2] * size, u1, v1],
+            [o[0] - d[0] * size / 2 + e[0] * size, o[1] - d[1] * size / 2 + e[1] * size, o[2] - d[2] * size / 2 + e[2] * size, u0, v1],
+          ]
+          const cb = buf.pos.length / 3
+          for (const [px, py, pz, uu, vv] of corners) {
+            buf.pos.push((px - bx) * S, (py - by) * S, (pz - bz) * S)
+            buf.nrm.push(n[0], n[1], n[2])
+            buf.edge.push(0)
+            buf.uv.push(uu, vv)
+            if (buf.stride === 4) buf.col.push(r, g, bl, 1)
+            else buf.col.push(r, g, bl)
+          }
+          buf.idx.push(cb, cb + 1, cb + 2, cb, cb + 2, cb + 3, cb, cb + 2, cb + 1, cb, cb + 3, cb + 2)
+        }
+      }
+    }
+  }
+
+  // One log on the top levels (RealGround.js, second batch): a round,
+  // bark-bumpy trunk nearly the block's width instead of a square post
+  // (still a whole block to walk into and dig). Logs stacked on each
+  // other run on as one trunk; a cut end shows the rings picture. Logs
+  // side by side each stay round, like a log cabin.
+  _realLog(buf, x, y, z, bx, by, bz, info, typeAt, glowSources) {
+    const S = this.blockSize
+    const amt = this.realAmt
+    const SEG = 3 // per quarter, 12 round
+    const ROWS = 2
+    const cx = x + 0.5, cz = z + 0.5
+    const nInfo = (dx, dy, dz) => {
+      const t = typeAt(x + dx, y + dy, z + dz)
+      return t ? this.info.get(t) : null
+    }
+    const solidNotLog = (i) => !!i && i.opaque && !i.log
+    const above = nInfo(0, 1, 0), below = nInfo(0, -1, 0)
+    // Shut in on every side by solid blocks: nothing of it can be seen.
+    let open = false
+    for (let dz = -1; dz <= 1 && !open; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if ((dx || dz) && !solidNotLog(nInfo(dx, 0, dz))) { open = true; break }
+      }
+    }
+    const tint = tintAt(x, y, z)
+    const col = (b, px, py, pz, n) => {
+      if (glowSources) {
+        const G = this._glowAt(px, py, pz, n, glowSources)
+        if (G) return [b * (1 + G[0]), b * (1 + G[1]), b * (1 + G[2])]
+      }
+      return [b, b, b]
+    }
+    const push = (px, py, pz, n, u, v, c) => {
+      buf.pos.push((px - bx) * S, (py - by) * S, (pz - bz) * S)
+      buf.nrm.push(n[0], n[1], n[2])
+      buf.edge.push(0)
+      buf.uv.push(u, v)
+      if (buf.stride === 4) buf.col.push(c[0], c[1], c[2], 1)
+      else buf.col.push(c[0], c[1], c[2])
+    }
+    // Sitting on the ground: the foot of the trunk a little darker.
+    const footDark = below && !below.log && below.opaque
+    if (open) {
+      for (let q = 0; q < 4; q++) {
+        // Each quarter faces one side and shows that side's picture once.
+        const [u0, v0, u1, v1] = info.uvs[[0, 4, 1, 5][q]]
+        const base = buf.pos.length / 3
+        for (let j = 0; j <= ROWS; j++) {
+          const py = y + j / ROWS
+          for (let i = 0; i <= SEG; i++) {
+            const a = (q - 0.5 + i / SEG) * Math.PI / 2
+            const r = logRadius(a, py, cx, cz, amt)
+            const n = [Math.cos(a), 0, Math.sin(a)]
+            const px = cx + n[0] * r, pz = cz + n[2] * r
+            let b = (0.86 * Math.abs(n[0]) + 0.93 * Math.abs(n[2])) / (Math.abs(n[0]) + Math.abs(n[2])) * tint
+            if (footDark && j === 0) b *= 0.75
+            push(px, py, pz, n, u0 + (u1 - u0) * (1 - i / SEG), v0 + (v1 - v0) * (j / ROWS), col(b, px, py, pz, n))
+          }
+        }
+        for (let j = 0; j < ROWS; j++) {
+          for (let i = 0; i < SEG; i++) {
+            const a = base + j * (SEG + 1) + i
+            const b = a + 1
+            const c = a + SEG + 1
+            const d = c + 1
+            // Angle runs counterclockwise from above, so this winding faces out.
+            buf.idx.push(a, c, d, a, d, b)
+          }
+        }
+      }
+    }
+    // Cut ends: where no log carries on above/below and nothing solid covers it.
+    for (const up of [1, 0]) {
+      const nb = up ? above : below
+      if (nb && (nb.log || nb.opaque)) continue
+      const [u0, v0, u1, v1] = info.uvs[up ? 2 : 3]
+      const uc = (u0 + u1) / 2, vc = (v0 + v1) / 2
+      const py = y + up
+      const n = [0, up ? 1 : -1, 0]
+      const b = (up ? 1 : 0.7) * tint
+      const c = col(b, cx, py, cz, n)
+      const base = buf.pos.length / 3
+      push(cx, py, cz, n, uc, vc, c)
+      const RING = SEG * 4
+      for (let i = 0; i < RING; i++) {
+        const a = (i / RING - 0.125) * Math.PI * 2
+        const r = logRadius(a, py, cx, cz, amt)
+        push(cx + Math.cos(a) * r, py, cz + Math.sin(a) * r, n, uc + Math.cos(a) * r * (u1 - u0), vc - Math.sin(a) * r * (v1 - v0), c)
+      }
+      for (let i = 0; i < RING; i++) {
+        const p = base + 1 + i, p2 = base + 1 + (i + 1) % RING
+        if (up) buf.idx.push(base, p2, p)
+        else buf.idx.push(base, p, p2)
       }
     }
   }
@@ -1584,3 +1840,4 @@ function newBuffers(stride) {
 const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
 const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
 const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+const norm3 = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l] }
