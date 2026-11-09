@@ -9,6 +9,9 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    # A normal run takes ~35 min on GitHub's machines; a stuck one stops
+    # here instead of running for hours.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,10 +43,4 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run tests
-        run: npx playwright test tests/zzdebug.spec.js tests/specials.spec.js tests/progression.spec.js tests/save.spec.js tests/construction.spec.js || true
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: results
-          path: test-results
-          retention-days: 3
+        run: npm test

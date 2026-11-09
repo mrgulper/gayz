@@ -946,22 +946,24 @@ test('View Distance hides far chunks and zombies are drawn in one batch', async 
     const max = chunks.filter((c) => c.shown).length
     // A few zombies: their bodies are instanced, not one mesh each.
     s._toSpawn = 3
-    for (let i = 0; i < 300 && s.zombies.length < 3; i++) { s._spawnTimer = 0; bm.update(1 / 30) }
+    for (let i = 0; i < 300 && s.zombies.filter((z) => z.parts).length < 3; i++) { s._toSpawn = Math.max(s._toSpawn, 1); s._spawnTimer = 0; bm.update(1 / 30) }
     bm.render()
     const batch = s._zBatch
     return {
       short,
       max,
       fogFar,
-      zombies: s.zombies.length,
-      batched: !!batch && batch.meshes.every((m) => m.count === s.zombies.length),
-      ownMeshesHidden: s.zombies.every((z) => z.parts.every((p) => !p.visible)),
+      // Only plain zombies share the batch: monsters, skeletons and Golden /
+      // Diamond ones draw their own bodies, and which kinds turn up is random.
+      plain: s.zombies.filter((z) => z.parts).length,
+      batched: !!batch && batch.meshes.every((m) => m.count === s.zombies.filter((z) => z.parts).length),
+      ownMeshesHidden: s.zombies.filter((z) => z.parts).every((z) => z.parts.every((p) => !p.visible)),
     }
   })
   expect(r.short).toBeGreaterThan(0)
   expect(r.short).toBeLessThan(r.max)
   expect(r.fogFar).toBeLessThan(100)
-  expect(r.zombies).toBe(3)
+  expect(r.plain).toBeGreaterThanOrEqual(3)
   expect(r.batched).toBe(true)
   expect(r.ownMeshesHidden).toBe(true)
 })
@@ -2866,19 +2868,18 @@ for (const [mode, button] of [['classic', 'game-mode-classic'], ['zombieDefense'
       }
       killAll()
       out.killsAfter = s.kills
-      // The break, then wave 2 by itself (up to 30s: a slow test machine
-      // draws few frames, so the ~6s break can take ~16s of real time).
-      const t0 = performance.now()
-      await new Promise((done) => {
-        const check = () => {
-          // A cleared wave offers perk cards and waits for a pick (RunPerks.js).
-          if (s.perks?.open) s.perks.pick(s.perks.offer[0])
-          return s.wave >= 2 || performance.now() - t0 > 30000 ? done() : setTimeout(check, 100)
-        }
-        check()
-      })
+      // The break, then wave 2 by itself - counted in game time, stepped
+      // right here (a slow test machine draws ~1 frame a second, so real
+      // seconds said nothing about the break: 6 game seconds took 30+).
+      let gameSecs = 0
+      for (let i = 0; i < 600 && s.wave < 2; i++) {
+        // A cleared wave offers perk cards and waits for a pick (RunPerks.js).
+        if (s.perks?.open) s.perks.pick(s.perks.offer[0])
+        s.bm.update(0.05)
+        gameSecs += 0.05
+      }
       out.wave2 = s.wave
-      out.breakSecs = Math.round((performance.now() - t0) / 1000)
+      out.breakSecs = Math.round(gameSecs)
       if (m === 'bossHunt') {
         s._startWave(3)
         s._spawnZombie()
@@ -2914,8 +2915,8 @@ for (const [mode, button] of [['classic', 'game-mode-classic'], ['zombieDefense'
     expect(r.killsAfter).toBeGreaterThan(0)
     expect(r.wave2).toBe(2)
     if (mode === 'zombieRush') {
-      // Rush's 1s break vs the normal 6s one (~22s real time on a slow CI machine).
-      expect(r.breakSecs).toBeLessThanOrEqual(5)
+      // Rush's short break vs the normal ~6s one (game seconds).
+      expect(r.breakSecs).toBeLessThanOrEqual(3)
       expect(r.timer).toBe(true)
     }
     if (mode === 'bossHunt') expect(r.boss).toBe(true)
@@ -5076,7 +5077,10 @@ test('smooth weather, wind, sky lightning, disasters and impact luck', async ({ 
     // animals turn up far more often.
     const luck = sky.luck
     const animals = bm._animals()
-    const rare = () => { let n = 0; for (let i = 0; i < 3000; i++) { const k = animals.kindAt(300 + (i % 40), 300); if (k && !['common', 'uncommon'].includes(animals.constructor.rarityOf(k))) n++ } return n }
+    // Spots spread over many biomes: one fixed spot's biome comes from the
+    // world's random seed, and some biomes have no rare animals at all
+    // (0 vs 0 failed about half the runs).
+    const rare = () => { let n = 0; for (let i = 0; i < 3000; i++) { const k = animals.kindAt(((i * 7919) % 4000) - 2000, ((i * 104729) % 4000) - 2000); if (k && !['common', 'uncommon'].includes(animals.constructor.rarityOf(k))) n++ } return n }
     luck.stop()
     const plain = rare()
     D.start('meteoroid')
