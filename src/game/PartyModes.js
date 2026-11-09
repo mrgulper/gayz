@@ -55,7 +55,8 @@
 // Tag (PartyLaser.js), Kart Racing (PartyKart.js), Obstacle Course
 // (PartyParkour.js), Duel Arena (PartyDuel.js); idea list 7 (2026-11-06):
 // Zombie Mini-Golf (PartyGolf.js), Freeze Tag (PartyFreeze.js), Bomb
-// Defuse (PartyBomb.js), Werewolf Night (PartyWerewolf.js).
+// Defuse (PartyBomb.js), Werewolf Night (PartyWerewolf.js); idea list 9
+// (2026-11-09): Prop Hunt (PartyProps.js).
 // An ext can give: home(me), begin(people, shuffled), run(people, dt),
 // timeUp(), botGoal(b, people), moveBot(b, dt), botsStun, markColor(id),
 // build(), draw(dt), events(was), startText(), hud(), shoot(ray, reach,
@@ -88,16 +89,17 @@ import { PartyWerewolf } from './PartyWerewolf.js'
 import { PartyDodge } from './PartyDodge.js'
 import { PartyChairs } from './PartyChairs.js'
 import { PartySimon } from './PartySimon.js'
+import { PartyProps, HIDE_S as PROP_HIDE_S, SEEK_S as PROP_SEEK_S } from './PartyProps.js'
 
 // The modes that live in their own files (see `this.ext` above).
-const PARTY_EXT = { floorLava: PartyLava, laserTag: PartyLaser, kartRace: PartyKart, obstacleCourse: PartyParkour, duelArena: PartyDuel, miniGolf: PartyGolf, freezeTag: PartyFreeze, bombDefuse: PartyBomb, werewolfNight: PartyWerewolf, dodgeball: PartyDodge, musicalChairs: PartyChairs, simonSays: PartySimon }
-export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'miniGolf', 'freezeTag', 'bombDefuse', 'werewolfNight', 'dodgeball', 'musicalChairs', 'simonSays']
+const PARTY_EXT = { floorLava: PartyLava, laserTag: PartyLaser, kartRace: PartyKart, obstacleCourse: PartyParkour, duelArena: PartyDuel, miniGolf: PartyGolf, freezeTag: PartyFreeze, bombDefuse: PartyBomb, werewolfNight: PartyWerewolf, dodgeball: PartyDodge, musicalChairs: PartyChairs, simonSays: PartySimon, propHunt: PartyProps }
+export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'miniGolf', 'freezeTag', 'bombDefuse', 'werewolfNight', 'dodgeball', 'musicalChairs', 'simonSays', 'propHunt']
 // Each mode's server mode (api/_lib/servers.js MODES).
-export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling', paintWars: 'paint', buildBattle: 'build', floorLava: 'lava', laserTag: 'laser', kartRace: 'kart', obstacleCourse: 'parkour', duelArena: 'duel', miniGolf: 'golf', freezeTag: 'freeze', bombDefuse: 'bomb', werewolfNight: 'werewolf', dodgeball: 'dodge', musicalChairs: 'chairs', simonSays: 'simon' }
+export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling', paintWars: 'paint', buildBattle: 'build', floorLava: 'lava', laserTag: 'laser', kartRace: 'kart', obstacleCourse: 'parkour', duelArena: 'duel', miniGolf: 'golf', freezeTag: 'freeze', bombDefuse: 'bomb', werewolfNight: 'werewolf', dodgeball: 'dodge', musicalChairs: 'chairs', simonSays: 'simon', propHunt: 'prop' }
 export const TOTAL = 6
 export const WAIT_S = 8
 export const END_S = 7
-export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300, paintWars: 150, buildBattle: 300, floorLava: 240, laserTag: 180, kartRace: 300, obstacleCourse: 420, duelArena: 120, miniGolf: 240, freezeTag: 150, bombDefuse: 150, werewolfNight: 330, dodgeball: 180, musicalChairs: 300, simonSays: 300 }
+export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300, paintWars: 150, buildBattle: 300, floorLava: 240, laserTag: 180, kartRace: 300, obstacleCourse: 420, duelArena: 120, miniGolf: 240, freezeTag: 150, bombDefuse: 150, werewolfNight: 330, dodgeball: 180, musicalChairs: 300, simonSays: 300, propHunt: PROP_HIDE_S + PROP_SEEK_S }
 export const HIDE_S = 20
 export const STUN_S = 2.5
 export const FLAG_GAP = 32
@@ -285,10 +287,12 @@ export class PartyMode {
       this._renderVote()
     }
     const voting = this.kind === 'buildBattle' && this.phase === 'play' && this.sub === 'vote'
-    const frozen = (this.kind === 'hideSeek' && this.phase === 'play' && this.seekers.has(me) && this._hiding()) || voting
+    // An ext's own blindfold (Prop Hunt): seconds left, 0 = none.
+    const extBlind = this.ext?.blind?.() || 0
+    const frozen = (this.kind === 'hideSeek' && this.phase === 'play' && this.seekers.has(me) && this._hiding()) || voting || extBlind > 0
     s.bm.tryMode.speedMult = this._baseSpeed * (frozen ? 0 : this.stunned.has(me) ? STUN_SPEED : 1) * (this.ext?.speed?.() ?? 1)
     this._blind.className = frozen && !voting ? 'on' : ''
-    if (frozen) this._blind.firstChild.textContent = t('partyBlindfold', { n: Math.ceil(this._hideLeft()) })
+    if (frozen) this._blind.firstChild.textContent = t('partyBlindfold', { n: Math.ceil(extBlind || this._hideLeft()) })
     if (Math.floor(this.left) !== this._lastShown) {
       this._lastShown = Math.floor(this.left)
       s._renderHud()

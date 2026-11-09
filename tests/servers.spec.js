@@ -1063,3 +1063,24 @@ test('Escape Rooms: a team shares the puzzles; a race gives everyone their own r
   })
   expect(rh).toEqual({ lane: 0, shell: 'oakplanks' })
 })
+
+test('servers: Prop Hunt hits, ghosts, boos and jams go through the server', async () => {
+  const db = fakeServerDb()
+  const t0 = 1_000_000
+  const a = await createServer(db, { nickname: 'Al', mode: 'prop' }, t0)
+  expect(a.mode).toBe('prop')
+  const b = await joinServer(db, { serverId: a.serverId, nickname: 'Bo' }, t0 + 10)
+  // A guest's find (s + who) and new disguise (q + prop) reach the host; junk doesn't.
+  await syncServer(db, { ...b, hits: [{ id: `s${a.playerId}`, dmg: 0 }, { id: 'q3', dmg: 0 }, { id: 'q<x>', dmg: 0 }, { id: 'p1_1', dmg: 0 }] }, t0 + 20)
+  expect((await syncServer(db, { ...a }, t0 + 30)).hits.map((h) => h.id)).toEqual([`s${a.playerId}`, 'q3'])
+  // A ghost's grave and marks, a jam and a boo on a zombie.
+  await syncServer(db, { ...b, hits: [{ id: 'z12', dmg: 0, boo: true }, { id: 'a3', dmg: 0, boo: true }], state: { x: 1, y: 2, z: 3, dead: true, gh: { g: [4, 5, 6], m: [12, 'x', 13], junk: 1 }, jam: { i: 'g', n: 7, k: '1358' } } }, t0 + 40)
+  const ra = await syncServer(db, { ...a }, t0 + 50)
+  expect(ra.players[b.playerId].gh).toEqual({ g: [4, 5, 6], m: [12, 13] })
+  expect(ra.players[b.playerId].jam).toEqual({ i: 'g', n: 7, k: '1358' })
+  expect(ra.hits).toEqual([{ id: 'z12', dmg: 0, by: b.playerId, boo: true }, { id: 'a3', dmg: 0, by: b.playerId }])
+  // Bad jams and ghosts are dropped.
+  await syncServer(db, { ...b, state: { x: 1, y: 2, z: 3, gh: { g: [1, 2] }, jam: { i: 'x', n: 1, k: '99' } } }, t0 + 60)
+  const ra2 = await syncServer(db, { ...a }, t0 + 70)
+  expect([ra2.players[b.playerId].gh, ra2.players[b.playerId].jam]).toEqual([null, null])
+})

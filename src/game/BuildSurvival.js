@@ -46,6 +46,10 @@ import { MetalDetector } from './MetalDetector.js'
 import { TreasureMaps, PIECE_CHANCE } from './TreasureMaps.js'
 import { Kites } from './Kites.js'
 import { Skateboards } from './Skateboards.js'
+import { Rides } from './Rides.js'
+import { WorldFinds } from './WorldFinds.js'
+import { Instruments } from './Instruments.js'
+import { Ghosts } from './Ghosts.js'
 import { Sleds } from './Sleds.js'
 import { HotSprings } from './HotSprings.js'
 import { HauntedHouse } from './HauntedHouse.js'
@@ -118,6 +122,8 @@ const CHEST_ROD_CHANCE = 0.1
 const CHEST_DETECTOR_CHANCE = 0.06
 const CHEST_JETPACK_CHANCE = 0.04
 const CHEST_JET_FUEL_CHANCE = 0.15
+// A Bike, Hoverboard, Guitar or Drums you don't have yet (WorldFinds.js).
+const CHEST_FIND_CHANCE = 0.12
 // Zombies that wake with a dungeon's boss (_checkDungeon).
 const DUNGEON_GUARDS = 2
 // A zombie's name tag: blocks wide up close, then the same size on screen
@@ -507,6 +513,16 @@ export class BuildSurvival {
     // Skateboards, frozen lakes and the Dance-Off (Skateboards.js, DanceOff.js).
     if (!this.skate) this.skate = new Skateboards(this)
     this.skate.clear()
+    // Bikes, hoverboards, instruments, the finds lying about and ghosts
+    // (Rides.js, Instruments.js, WorldFinds.js, Ghosts.js).
+    if (!this.rides) this.rides = new Rides(this)
+    this.rides.clear()
+    if (!this.music) this.music = new Instruments(this)
+    this.music.clear()
+    if (!this.finds) this.finds = new WorldFinds(this)
+    this.finds.clear()
+    if (!this.ghosts) this.ghosts = new Ghosts(this)
+    this.ghosts.clear()
     // Sleds and hot springs (Sleds.js, HotSprings.js).
     if (!this.sled) this.sled = new Sleds(this)
     this.sled.clear()
@@ -748,6 +764,10 @@ export class BuildSurvival {
     this.treasure?.clear()
     this.kite?.clear()
     this.skate?.clear()
+    this.rides?.clear()
+    this.music?.clear()
+    this.finds?.clear()
+    this.ghosts?.clear()
     this.sled?.clear()
     this.springs?.clear()
     this.haunted?.clear()
@@ -1950,6 +1970,10 @@ export class BuildSurvival {
     if (Math.random() < CHEST_POTION_CHANCE) give({ kind: 'item', id: POTION_IDS[Math.floor(Math.random() * POTION_IDS.length)], n: 1 })
     if (Math.random() < CHEST_JETPACK_CHANCE && !this.inv.has('jetpack')) give({ kind: 'item', id: 'jetpack', n: 1 })
     if (Math.random() < CHEST_JET_FUEL_CHANCE && this.inv.has('jetpack')) give({ kind: 'item', id: 'jetFuel', n: 1 })
+    if (Math.random() < CHEST_FIND_CHANCE) {
+      const id = this.finds?.pick()
+      if (id) give({ kind: 'item', id, n: 1 })
+    }
     // Snowballs in winter (Snowballs.js).
     const snow = this.snowballs?.chestCount() || 0
     if (snow) give({ kind: 'item', id: 'snowball', n: snow })
@@ -3175,6 +3199,10 @@ export class BuildSurvival {
       if (document.pointerLockElement) document.exitPointerLock()
       this._showXpBar(reward)
     }
+    this._showOver = show
+    // On a server with friends still up: a ghost first (Ghosts.js) - the
+    // card shows later if nobody comes to revive you.
+    if (!won && this.ghosts?.start()) return
     // Alone, a slow look back at how it happened first (DeathReplay.js).
     if (won || this.net || !this.replay?.start(show, joke)) show()
   }
@@ -3272,6 +3300,10 @@ export class BuildSurvival {
     this.detector?.update(dt)
     this.kite?.update(Math.min(dt, 0.1))
     this.skate?.update(Math.min(dt, 0.1))
+    this.rides?.update(Math.min(dt, 0.1))
+    this.music?.update(Math.min(dt, 0.1))
+    this.finds?.update(Math.min(dt, 0.1))
+    this.ghosts?.update(Math.min(dt, 0.1))
     this.sled?.update(Math.min(dt, 0.1))
     this.springs?.update(Math.min(dt, 0.1))
     this.carts?.update(Math.min(dt, 0.1))
@@ -3865,8 +3897,8 @@ export class BuildSurvival {
         this.escape?.remoteHit(h)
         continue
       }
-      // Paint Wars' splats and Build Battle's stars (PartyModes.js).
-      if (/^[pv]/.test(String(h.id))) {
+      // Paint Wars' splats, Build Battle's stars and Prop Hunt's disguises (PartyModes.js).
+      if (/^[pvq]/.test(String(h.id))) {
         this.party?.remoteHit(h)
         continue
       }
@@ -3878,6 +3910,11 @@ export class BuildSurvival {
       }
       const id = Number(String(h.id).slice(1))
       const z = this.zombies.find((o) => o.id === id)
+      // A ghost's boo (Ghosts.js): slowed, no damage.
+      if (z && h.boo) {
+        this.ghosts?.scare(z)
+        continue
+      }
       // A guest's snowball (Snowballs.js) freezes it as well.
       if (z && h.freeze) this.snowballs?.freeze(z)
       if (z) this.damageZombie(z, Number(h.dmg) || 0, null, h.by)

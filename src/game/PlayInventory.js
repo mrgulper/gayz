@@ -32,6 +32,7 @@ import { PlayCrafting } from './PlayCrafting.js'
 import { HELI_FUEL_S } from './Vehicles.js'
 import { TANK as WATER_TANK } from './WaterGun.js'
 import { OPEN_H as WING_OPEN_H } from './Wingsuit.js'
+import { QUIET_HEAR } from './Rides.js'
 import { noteItem as noteMuseumItem } from './CampMuseum.js'
 
 // How long the item card stays after a finger lets go (phones).
@@ -95,6 +96,12 @@ export const ITEMS = {
   // Sled (Sleds.js), never used up.
   sled: { key: 'invSled', sled: true },
   boombox: { key: 'invBoombox', boombox: true },
+  // Found lying about the world (WorldFinds.js), never used up: Bike and
+  // Hoverboard (Rides.js), Guitar and Drums (Instruments.js).
+  bike: { key: 'invBike', ride: true },
+  hoverboard: { key: 'invHoverboard', ride: true },
+  guitar: { key: 'invGuitar', music: true },
+  drums: { key: 'invDrums', music: true },
   // Submarine (Vehicles.js) and Rocket (MoonTrip.js).
   submarine: { key: 'invSubmarine', vehicle: 'sub' },
   rocket: { key: 'invRocket', rocket: true },
@@ -182,6 +189,10 @@ const ICON_PIXELS = {
   mapPiece: ['................', '................', '..aaaaaaaa......', '..aaaakaaaa.....', '..akaaaaaaaa....', '..aaaaaaakaa....', '..aaakaaaaa.....', '..aaaaaaaaa.....', '..aaaaakaa......', '..aaaaaaa.......', '...aaaa.........'],
   treasureMap: ['................', '.aaaaaaaaaaaaaa.', '.akkaaaaaaaaaaa.', '.aaakkaaaaaaaaa.', '.aaaaakkaaraara.', '.aaaaaaakaarraa.', '.aaaaaaaaaarraa.', '.aaaaaaaaaraara.', '.aaakaaaaaaaaaa.', '.aakkkaaaaaaaaa.', '.aaakaaaaaaaaaa.', '.aaaaaaaaaaaaaa.'],
   skateboard: ['................', '................', '................', '................', '................', '.kkkkkkkkkkkkkk.', 'kooooooooooooook', '.kkkkkkkkkkkkkk.', '..ii........ii..', '..yy........yy..', '..yy........yy..'],
+  bike: ['................', '................', '................', '..........dd....', '...rr.....r.....', '....rrrrrrr.....', '....r.r..r......', '..ddd..r.ddd....', '.d...d.rd...d...', '.d.i.d..d.i.d...', '.d...d..d...d...', '..ddd....ddd....'],
+  hoverboard: ['................', '................', '................', '................', '................', '.dddddddddddddd.', 'dwwddddddddddwwd', '.cccccccccccccc.', '................', '..c..c..c..c..c.', '................'],
+  guitar: ['...........kk...', '..........kk....', '.........kk.....', '........kk......', '.......kk.......', '..ooo.kk........', '.oooookk........', 'oooddooo........', 'oood#ooo........', 'oooddoooo.......', '.oooooo.........', '..oooo..........'],
+  drums: ['................', '..i..........i..', '.iiii......iiii.', '................', '....wwwwwwww....', '...rwwwwwwwwr...', '...rrrrrrrrrr...', '...ryyyyyyyyr...', '...rrrrrrrrrr...', '...rrrrrrrrrr...', '...r........r...'],
   sled: ['................', '................', '................', '................', '..rrrrrrrrrrrr..', '.rkrkrkrkrkrkr..', '..rrrrrrrrrrrr..', '...i........i...', '..iiiiiiiiiiiii.', '.i..............', '..ii............'],
   submarine: ['................', '................', '.......yy.......', '.......yy..d....', '......yyyy.d....', '..yyyyyyyyyyyy..', '.yyycyyccyycyyy.', 'dyyyyyyyyyyyyyyy', '.yyyyyyyyyyyyyy.', '..yyyyyyyyyyyy..'],
   rocket: ['.......r........', '......rrr.......', '......www.......', '.....wwwww......', '.....wwcww......', '.....wwwww......', '.....wwwww......', '.....wwwww......', '....rwwwwwr.....', '...rrwwwwwrr....', '...r.dddd..r....', '.......o........', '......ooo.......'],
@@ -394,6 +405,12 @@ export class PlayInventory {
     } else if (def?.skate) {
       s.skate?.use()
       return true
+    } else if (def?.ride) {
+      s.rides?.use()
+      return true
+    } else if (def?.music) {
+      s.music?.use()
+      return true
     } else if (def?.sled) {
       s.sled?.use()
       return true
@@ -603,6 +620,8 @@ export class PlayInventory {
     if (item.kite) return t('invTipKite')
     if (item.skate) return t('invTipSkateboard')
     if (item.sled) return t('invTipSled')
+    if (item.ride) return t(it.id === 'bike' ? 'invTipBike' : 'invTipHoverboard', { n: QUIET_HEAR })
+    if (item.music) return t('invTipInstrument')
     if (item.boombox) return t('invTipBoombox')
     if (item.junk) return t('invTipJunk')
     return t(it.id === 'meat' || it.id === 'veggies' || it.id === 'fish' || it.id === 'goldenFish' || ITEMS[it.id]?.animalKey ? 'invTipMeat' : 'invTipHealthPack', { n: item.heal })

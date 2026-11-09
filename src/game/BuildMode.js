@@ -2092,6 +2092,8 @@ export class BuildMode {
       if (digitIndex === undefined) return
       // With the emote bar open, 1-3 pick an emote instead (Emotes.js).
       if (this.survival?.active && this.survival.emotes?.pick(e.code)) return
+      // Playing a Guitar or Drums, 1-8 play notes (Instruments.js).
+      if (this.survival?.active && this.survival.music?.key(e.code)) return
       if (this.survival?.active && this.survival.inv) this.survival.inv.select(digitIndex)
       else this._selectHotbarSlot(digitIndex)
     }

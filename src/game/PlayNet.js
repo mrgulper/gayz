@@ -171,6 +171,11 @@ export class PlayNet {
     this._hits.push({ id, dmg })
   }
 
+  // A ghost's boo on one of the host's zombies (Ghosts.js).
+  queueBoo(id) {
+    this._hits.push({ id, dmg: 0, boo: true })
+  }
+
   // A guest's snowball on one of the host's zombies (Snowballs.js).
   queueFreeze(id, dmg) {
     this._hits.push({ id, dmg, freeze: true })
@@ -242,7 +247,7 @@ export class PlayNet {
     const holding = s.holding
     const body = {
       ...this.auth,
-      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, lane: s.escape?.lane || 0 },
+      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, lane: s.escape?.lane || 0, gh: s.ghosts?.snapshot() || null, jam: s.music?.snapshot() || null },
       editsAfter: this._editSeq,
     }
     const edits = this._edits.splice(0, EDITS_PER_SYNC)
@@ -334,7 +339,7 @@ export class PlayNet {
         // Not for the players already there when I joined.
         if (!this._firstSync) addChatSystemLine(this.game, t('serverPlayerJoined', { name: p.nick || 'Survivor' }))
       }
-      Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))) })
+      Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), gh: cleanGhost(p.gh), jam: cleanJam(p.jam) })
       if (p.say && p.say.n !== mine.sayN) {
         mine.sayN = p.say.n
         const left = bubbleSeconds(p.say.text) - (Number(p.say.age) || 0) / 1000
@@ -354,8 +359,9 @@ export class PlayNet {
       this._removePlayer(pid)
     }
     this._firstSync = false
-    // Their spray tags (Sprays.js).
+    // Their spray tags (Sprays.js), and the notes they played (Instruments.js).
     s.sprays?.syncRemote(this.players)
+    s.music?.syncRemote(this.players)
     if (seen.size !== this._lastCount) {
       this._lastCount = seen.size
       s._renderHud()
@@ -570,4 +576,16 @@ export class PlayNet {
     for (const pid of [...this.players.keys()]) this._removePlayer(pid)
     clearChatSystemLines(this.game)
   }
+}
+
+// Someone's ghost (Ghosts.js): their grave and the zombies they marked.
+function cleanGhost(v) {
+  if (!v || typeof v !== 'object' || !Array.isArray(v.g) || v.g.length !== 3 || !v.g.every(Number.isFinite)) return null
+  return { g: v.g, m: [].concat(v.m || []).filter(Number.isInteger).slice(0, 4) }
+}
+
+// The notes someone just played (Instruments.js).
+function cleanJam(v) {
+  if (!v || typeof v !== 'object' || !['g', 'd'].includes(v.i) || !Number.isInteger(v.n) || typeof v.k !== 'string' || !/^[1-8]{0,16}$/.test(v.k)) return null
+  return { i: v.i, n: v.n, k: v.k }
 }

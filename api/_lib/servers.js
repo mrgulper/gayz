@@ -13,7 +13,7 @@
 //                                         firing, dead, emote, hat, cape, sit, t,
 //                                         hurt, credits, caught,
 //                                         say } },
-//                       hits: { key: { id, dmg, by, tame, catch, freeze } },
+//                       hits: { key: { id, dmg, by, tame, catch, freeze, boo } },
 //                       edits: { "x,y,z": { b, s, by } } }
 //   serverSecrets/{id}/{pid}  the player's token (never sent to others)
 //   serverSkins/{id}/{pid}    the player's skin picture (sent once on ask)
@@ -48,10 +48,10 @@ export const JOIN_GRACE_MS = 90000
 // main: Zombie Survival; infection: Infection mode (src/game/Infection.js);
 // zone: Shrinking Zone (src/game/ShrinkZone.js).
 // td: Tower Defense (src/game/TowerDefense.js).
-// hide / ctf / koth / soccer / potato / bowling / paint / build / lava / laser / kart / parkour / duel / golf / freeze / bomb / werewolf / dodge / chairs / simon: the party modes (src/game/PartyModes.js).
+// hide / ctf / koth / soccer / potato / bowling / paint / build / lava / laser / kart / parkour / duel / golf / freeze / bomb / werewolf / dodge / chairs / simon / prop: the party modes (src/game/PartyModes.js).
 // escape / escapeSolo: Escape Rooms as a team, and Escape Race (src/game/EscapeRooms.js).
-export const MODES = ['main', 'infection', 'zone', 'escape', 'escapeSolo', 'hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'paint', 'build', 'lava', 'laser', 'kart', 'parkour', 'duel', 'golf', 'freeze', 'bomb', 'werewolf', 'dodge', 'chairs', 'simon', 'td']
-const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer', potato: 'hotPotato', bowling: 'zombieBowling', paint: 'paintWars', build: 'buildBattle', lava: 'floorLava', laser: 'laserTag', kart: 'kartRace', parkour: 'obstacleCourse', duel: 'duelArena', golf: 'miniGolf', freeze: 'freezeTag', bomb: 'bombDefuse', werewolf: 'werewolfNight', dodge: 'dodgeball', chairs: 'musicalChairs', simon: 'simonSays' }
+export const MODES = ['main', 'infection', 'zone', 'escape', 'escapeSolo', 'hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'paint', 'build', 'lava', 'laser', 'kart', 'parkour', 'duel', 'golf', 'freeze', 'bomb', 'werewolf', 'dodge', 'chairs', 'simon', 'prop', 'td']
+const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer', potato: 'hotPotato', bowling: 'zombieBowling', paint: 'paintWars', build: 'buildBattle', lava: 'floorLava', laser: 'laserTag', kart: 'kartRace', parkour: 'obstacleCourse', duel: 'duelArena', golf: 'miniGolf', freeze: 'freezeTag', bomb: 'bombDefuse', werewolf: 'werewolfNight', dodge: 'dodgeball', chairs: 'musicalChairs', simon: 'simonSays', prop: 'propHunt' }
 const ESCAPE_MODES = ['escape', 'escapeSolo']
 const NAME_MAX = 24
 const NICK_MAX = 20
@@ -527,6 +527,20 @@ function cleanSpray(v) {
   return s.length ? { p: v.p, s } : null
 }
 
+// A ghost (src/game/Ghosts.js): the grave [x, y, z] and up to 4 marked zombie ids.
+function cleanGhost(v) {
+  if (!v || typeof v !== 'object' || !Array.isArray(v.g) || v.g.length !== 3) return null
+  const g = [num(v.g[0], -1e5, 1e5), num(v.g[1], -520, 520), num(v.g[2], -1e5, 1e5)]
+  const m = [].concat(v.m || []).filter((id) => Number.isInteger(id) && id >= 0 && id < 1e9).slice(0, 4)
+  return { g, m }
+}
+
+// Notes just played on a Guitar or Drums (src/game/Instruments.js).
+function cleanJam(v) {
+  if (!v || typeof v !== 'object' || !['g', 'd'].includes(v.i) || typeof v.k !== 'string' || !/^[1-8]{0,16}$/.test(v.k)) return null
+  return { i: v.i, n: Math.round(num(v.n, 0, 1e6)), k: v.k }
+}
+
 function cleanSay(v) {
   if (!v || typeof v !== 'object') return null
   const text = cleanText(v.text, SAY_MAX)
@@ -566,6 +580,9 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     [`${base}/players/${playerId}/spray`]: cleanSpray(s.spray),
     // Escape Race: which copy of the rooms is theirs (src/game/EscapeRooms.js).
     [`${base}/players/${playerId}/lane`]: Math.round(num(s.lane, 0, 15)),
+    // A ghost's grave and marks, and the notes just played (src/game/Ghosts.js, Instruments.js).
+    [`${base}/players/${playerId}/gh`]: cleanGhost(s.gh),
+    [`${base}/players/${playerId}/jam`]: cleanJam(s.jam),
     [`${base}/players/${playerId}/t`]: now,
   }
   // Drop players who went quiet; take over as host if the host did.
@@ -699,8 +716,9 @@ export async function syncServer(db, body = {}, now = Date.now()) {
       // g: a Mini-Golf putt (g + angle in mrad, dmg = power x 10).
       // s / w (Bomb Defuse, Werewolf Night): a stun (s + who) or a werewolf
       // knock-out / day vote (w + who, dmg 1 = knock out, 2 = vote).
-      if (!h || !(/^[za]\d{1,9}$/.test(h.id) || (['infection', 'ctf', 'koth', 'laser', 'dodge'].includes(server.mode) && /^s(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'paint' && /^p-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'kart' && /^k-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'parkour' && /^f\d{4,8}$/.test(h.id)) || (server.mode === 'duel' && /^d(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'golf' && /^g-?\d{1,5}$/.test(h.id)) || (['bomb', 'werewolf'].includes(server.mode) && /^[sw](?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'build' && /^v(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || h.id === 'x1' || (ESCAPE_MODES.includes(server.mode) && /^e[swb]\d(?:_\d{1,2})?$/.test(h.id)))) continue
-      updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId, ...(h.tame === true && h.id[0] === 'a' ? { tame: true } : {}), ...(h.catch === true ? { catch: true } : {}), ...(h.freeze === true && h.id[0] === 'z' ? { freeze: true } : {}) }
+      // s / q (Prop Hunt): a find (s + who) or a new disguise (q + prop).
+      if (!h || !(/^[za]\d{1,9}$/.test(h.id) || (['infection', 'ctf', 'koth', 'laser', 'dodge'].includes(server.mode) && /^s(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'paint' && /^p-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'kart' && /^k-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'parkour' && /^f\d{4,8}$/.test(h.id)) || (server.mode === 'duel' && /^d(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'golf' && /^g-?\d{1,5}$/.test(h.id)) || (['bomb', 'werewolf'].includes(server.mode) && /^[sw](?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'prop' && /^(?:s(?:b\d{1,4}|[A-Za-z0-9]{4,40})|q\d{1,2})$/.test(h.id)) || (server.mode === 'build' && /^v(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || h.id === 'x1' || (ESCAPE_MODES.includes(server.mode) && /^e[swb]\d(?:_\d{1,2})?$/.test(h.id)))) continue
+      updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId, ...(h.tame === true && h.id[0] === 'a' ? { tame: true } : {}), ...(h.catch === true ? { catch: true } : {}), ...(h.freeze === true && h.id[0] === 'z' ? { freeze: true } : {}), ...(h.boo === true && h.id[0] === 'z' ? { boo: true } : {}) }
     }
   }
   // What was queued for me.
@@ -718,7 +736,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p) continue
-    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0 }
+    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, gh: p.gh || null, jam: p.jam || null }
     // A chat bubble: its number (new one = new bubble) and how long ago.
     if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }

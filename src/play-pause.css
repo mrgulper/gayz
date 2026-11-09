@@ -1289,3 +1289,86 @@ html.ui-theme-biome #camp-screen .camp-screen-x { border-color: var(--biome-edge
 html.ui-theme-biome #camp-screen .camp-screen-btn { color: var(--biome-surface); background: var(--biome-accent); }
 html.ui-theme-clean #camp-screen { color: var(--clean-bg); background: var(--clean-fg); border-color: var(--clean-fg); }
 html.ui-theme-clean #camp-screen .camp-screen-btn { color: var(--clean-fg); background: var(--clean-bg); }
+
+/* Guitar / Drums pad (Instruments.js, 2026-11-09): 8 note buttons over the
+   hotbar while you play (keys 1-8 do the same); on a phone, under the top
+   bar where thumbs don't cover it. Biome look in games (play-biome.css). */
+#music-pad {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  z-index: 16;
+  display: none;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+  width: min(560px, calc(100% - 32px));
+  padding: 8px;
+  border-radius: 14px;
+  background: rgba(20, 20, 28, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-sizing: border-box;
+}
+#music-pad.on { display: grid; }
+#music-pad button {
+  min-width: 0;
+  height: 44px;
+  padding: 0 2px;
+  border-radius: 10px;
+  border: 2px solid var(--note, #fff);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: 700 13px/1.1 system-ui, sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#music-pad button:active { background: var(--note, #fff); color: #111; }
+#music-pad.drums button { font-size: 11px; }
+body.touch-play-on #music-pad { bottom: auto; top: 236px; grid-template-columns: repeat(4, 1fr); width: min(340px, calc(100% - 140px)); }
+html.ui-theme-biome #music-pad { background: var(--biome-surface); border-color: var(--biome-edge); }
+html.ui-theme-biome #music-pad button { color: var(--biome-ink); background: var(--biome-button); }
+html.ui-theme-biome #music-pad button:active { background: var(--note, #fff); color: #111; }
+
+/* Ghost teammates (Ghosts.js, 2026-11-09): a pale wash over the screen and
+   a bar at the top - what you can do, and the revive filling up. */
+#ghost-hud {
+  position: fixed;
+  left: 50%;
+  top: 64px;
+  transform: translateX(-50%);
+  z-index: 16;
+  display: none;
+  width: min(420px, calc(100% - 32px));
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(30, 40, 70, 0.78);
+  border: 1px solid rgba(190, 215, 255, 0.5);
+  color: #eef4ff;
+  text-align: center;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+#ghost-hud.on { display: block; }
+#ghost-hud p { margin: 0; font: 600 13px/1.35 system-ui, sans-serif; }
+#ghost-hud .ghost-title { font-size: 16px; font-weight: 800; margin-bottom: 2px; }
+#ghost-hud .ghost-bar { height: 6px; margin-top: 8px; border-radius: 3px; background: rgba(255, 255, 255, 0.18); overflow: hidden; }
+#ghost-hud .ghost-bar span { display: block; height: 100%; width: 0; background: #9fd0ff; }
+body.ghost-on::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(180, 210, 255, 0) 45%, rgba(170, 200, 255, 0.35) 100%);
+}
+body.touch-play-on #ghost-hud { top: 236px; width: min(340px, calc(100% - 140px)); padding: 8px 10px; }
+html.ui-theme-biome #ghost-hud { background: var(--biome-surface); border-color: var(--biome-edge); color: var(--biome-ink); }
+html.ui-theme-biome #ghost-hud .ghost-bar { background: var(--biome-line); }
+/* Landscape phones: the middle band between the top buttons and the thumbs. */
+@media (orientation: landscape) {
+  body.touch-play-on #music-pad,
+  body.touch-play-on #ghost-hud { top: 128px; }
+}
