@@ -147,6 +147,7 @@ export class Fishing {
     const s = this.s
     const b = this.bob
     let id = rollCatch()
+    s.bingo?.note('fish')
     const zombiesOk = !s.cfg?.noZombies && (!s.net || s.net.isHost)
     if (id === 'zombieFish' && !zombiesOk) id = 'fish'
     try { audioEngine.playSpecial?.('pop') } catch { /* no audio */ }

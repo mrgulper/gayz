@@ -39,6 +39,8 @@ export const ACTIONS = [
   { id: 'shop', defaultKey: 'KeyB', labelKey: 'actionShop' },
   // Sprays your own picture on the block you look at (Sprays.js, 2026-11-01).
   { id: 'spray', defaultKey: 'KeyY', labelKey: 'actionSpray' },
+  // Shows this run's Zombie Bingo card (ZombieBingo.js, 2026-11-09).
+  { id: 'bingo', defaultKey: 'KeyJ', labelKey: 'actionBingo' },
 ]
 
 // Extra keys that also work for an action, as long as no action is bound

@@ -2411,6 +2411,8 @@ export class BuildMode {
     // The Time Machine and the Theme Park's rides (TimeMachine.js, ThemePark.js).
     if (this.survival?.active && this.survival.time?.use()) return true
     if (this.survival?.active && this.survival.park?.use()) return true
+    // Cooking and serving at the Zombie Diner (ZombieDiner.js).
+    if (this.survival?.active && this.survival.diner?.use()) return true
     // Playing on Map 3: talk to the camp NPC you're looking at.
     if (this.survival?.camp?.use()) return true
     // Give a rescued survivor an order: follow me / hold here (Survivors.js).

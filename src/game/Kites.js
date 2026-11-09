@@ -50,6 +50,7 @@ export class Kites {
     this._build()
     const w = this._windNow()
     s._message(t(Math.hypot(w.x, w.z) < CALM ? 'kiteCalm' : 'kiteUp'), 3)
+    s.bingo?.note('kite')
     try { audioEngine.playSpecial?.('pop') } catch { /* no audio */ }
   }
 

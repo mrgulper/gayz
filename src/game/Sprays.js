@@ -137,6 +137,7 @@ export class Sprays {
     this.mine.push({ x, y, z, f, mesh: this._mesh(x, y, z, f, this._pic) })
     this._cool = COOLDOWN_S
     try { audioEngine.playSpecial?.('whoosh') } catch { /* no audio */ }
+    s.bingo?.note('spray')
     return true
   }
 

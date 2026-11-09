@@ -1387,6 +1387,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'game-mode-musical-chairs-label': 'topBarModeMusicalChairs',
   'game-mode-simon-says-label': 'topBarModeSimonSays',
   'game-mode-prop-hunt-label': 'topBarModePropHunt',
+  'game-mode-tug-of-war-label': 'topBarModeTugOfWar',
   'game-mode-kart-race-label': 'topBarModeKartRace',
   'zombie-book-done': 'bookComplete',
   'inventory-pets-soon-title': 'inventoryPetsTitle',

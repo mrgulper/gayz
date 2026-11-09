@@ -33,6 +33,7 @@ import { HELI_FUEL_S } from './Vehicles.js'
 import { TANK as WATER_TANK } from './WaterGun.js'
 import { OPEN_H as WING_OPEN_H } from './Wingsuit.js'
 import { QUIET_HEAR } from './Rides.js'
+import { MIN_DROP as BUNGEE_MIN_DROP } from './Bungee.js'
 import { noteItem as noteMuseumItem } from './CampMuseum.js'
 
 // How long the item card stays after a finger lets go (phones).
@@ -104,6 +105,9 @@ export const ITEMS = {
   drums: { key: 'invDrums', music: true },
   // Submarine (Vehicles.js) and Rocket (MoonTrip.js).
   submarine: { key: 'invSubmarine', vehicle: 'sub' },
+  // Jet Ski (Vehicles.js) and Bungee Cord (Bungee.js), 2026-11-09.
+  jetSki: { key: 'invJetSki', vehicle: 'jetski' },
+  bungeeCord: { key: 'invBungee', bungee: true },
   rocket: { key: 'invRocket', rocket: true },
   // Time Machine and Time Pass (TimeMachine.js, 2026-11-06).
   timeMachine: { key: 'invTimeMachine', timeMachine: true },
@@ -193,6 +197,8 @@ const ICON_PIXELS = {
   hoverboard: ['................', '................', '................', '................', '................', '.dddddddddddddd.', 'dwwddddddddddwwd', '.cccccccccccccc.', '................', '..c..c..c..c..c.', '................'],
   guitar: ['...........kk...', '..........kk....', '.........kk.....', '........kk......', '.......kk.......', '..ooo.kk........', '.oooookk........', 'oooddooo........', 'oood#ooo........', 'oooddoooo.......', '.oooooo.........', '..oooo..........'],
   drums: ['................', '..i..........i..', '.iiii......iiii.', '................', '....wwwwwwww....', '...rwwwwwwwwr...', '...rrrrrrrrrr...', '...ryyyyyyyyr...', '...rrrrrrrrrr...', '...rrrrrrrrrr...', '...r........r...'],
+  jetSki: ['................', '................', '................', '................', '.......d........', '......ddd.......', '.......d........', '....kkkkk.......', '.wwwwwwwwwwwwr..', 'wwrrrrrrrrrrrrr.', '.wwwwwwwwwwwww..', '..cccccccccc....'],
+  bungeeCord: ['......dddd......', '.....d....d.....', '.....d....d.....', '......dddd......', '.......gg.......', '......g..g......', '.......gg.......', '......g..g......', '.......gg.......', '......g..g......', '.......gg.......', '......ffff......'],
   sled: ['................', '................', '................', '................', '..rrrrrrrrrrrr..', '.rkrkrkrkrkrkr..', '..rrrrrrrrrrrr..', '...i........i...', '..iiiiiiiiiiiii.', '.i..............', '..ii............'],
   submarine: ['................', '................', '.......yy.......', '.......yy..d....', '......yyyy.d....', '..yyyyyyyyyyyy..', '.yyycyyccyycyyy.', 'dyyyyyyyyyyyyyyy', '.yyyyyyyyyyyyyy.', '..yyyyyyyyyyyy..'],
   rocket: ['.......r........', '......rrr.......', '......www.......', '.....wwwww......', '.....wwcww......', '.....wwwww......', '.....wwwww......', '.....wwwww......', '....rwwwwwr.....', '...rrwwwwwrr....', '...r.dddd..r....', '.......o........', '......ooo.......'],
@@ -367,6 +373,7 @@ export class PlayInventory {
       }
       s.health = Math.min(s.maxHealth, s.health + def.heal)
       const fed = s.hunger?.eat(it.id) || 0
+      s.bingo?.note('eat')
       s._message(fed ? t('hungerAte', { n: def.heal, f: fed }) : t('invHealed', { n: def.heal }))
     } else if (def?.ammo) {
       const gun = PLAY_WEAPONS[s.weaponId]
@@ -407,6 +414,9 @@ export class PlayInventory {
       return true
     } else if (def?.ride) {
       s.rides?.use()
+      return true
+    } else if (def?.bungee) {
+      s.bungee?.use()
       return true
     } else if (def?.music) {
       s.music?.use()
@@ -606,7 +616,8 @@ export class PlayInventory {
     if (it.id === 'mapPiece') return t('invTipMapPiece')
     if (item.material) return t('invTipMaterial')
     if (item.disguise) return t('invTipGooDisguise', { s: item.disguise })
-    if (item.vehicle) return t(item.vehicle === 'boat' ? 'invTipBoat' : item.vehicle === 'sub' ? 'invTipSubmarine' : item.vehicle === 'balloon' ? 'invTipBalloon' : 'invTipHelicopter')
+    if (item.bungee) return t('invTipBungee', { n: BUNGEE_MIN_DROP })
+    if (item.vehicle) return t(item.vehicle === 'jetski' ? 'invTipJetSki' : item.vehicle === 'boat' ? 'invTipBoat' : item.vehicle === 'sub' ? 'invTipSubmarine' : item.vehicle === 'balloon' ? 'invTipBalloon' : 'invTipHelicopter')
     if (item.rocket) return t('invTipRocket')
     if (item.water) return t('invTipWaterGun', { n: WATER_TANK })
     if (item.petTreat) return t('invTipBrainSnack')

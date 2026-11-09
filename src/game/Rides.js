@@ -57,6 +57,7 @@ export class Rides {
     this.on = kind
     this._build()
     s._message(t(kind === 'bike' ? 'rideBikeOn' : 'rideHoverOn', { n: QUIET_HEAR }), 3)
+    s.bingo?.note('ride')
     try { audioEngine.playSpecial?.(kind === 'bike' ? 'dingdong' : 'whoosh') } catch { /* no audio */ }
   }
 

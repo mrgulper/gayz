@@ -474,6 +474,18 @@ Gaymi's answers: skip Message in a Bottle for now (database limit), Prop Hunt wi
 - Ghosts: `Ghosts.js` (`s.ghosts`). `_die` stores `_showOver` and calls `ghosts.start()` (needs a server + a live friend). Fire while dead -> `ghosts.boo()` (BuildTryMode.fire); guest boo = hit `z<id>` + `boo` (servers.js keeps it). State `gh` {g: grave, m: marked ids}. Revive decided on the ghost's own screen from friends' synced positions. Touch controls stay while a ghost (BuildTouch). After `GHOST_WAIT_S` the old card shows.
 - Phone layout: pad + ghost bar at top 236px portrait / 128px landscape (free band between the top buttons and the thumbs, checked with getBoundingClientRect).
 
+## Idea list 10 (2026-11-09)
+
+Gaymi picked all 8. Decisions made on my own: blimp host-only like the UFO; pizza counter falls back to just outside the camp front (camp is full); diner prefers the nearest town (`world._landmarks` with `placeName`), else flat ground near you.
+- Zombie Blimp: `ZombieBlimp.js` (`s.blimp`), WorldEvents kind `blimp`. Shot like the dragon (`shoot()` in `BuildSurvival.shoot`). Chutes are meshes; landing = `_extraZombie`. Event end lands any chutes still falling.
+- Zombie Bingo: `ZombieBingo.js` (`s.bingo`). Dealt lazily in `BuildSurvival.update`. Hooks are one-liners `s.bingo?.note(ev)` / `reach(ev, v)` in each feature (grep `bingo?.`). Key `bingo` = J (Keybinds). Card uses `openScreen`; pill `#pill-bingo.tappable` is clickable.
+- Pizza Delivery: `PizzaDelivery.js` (`s.pizza`); counter built by BuildCamp after the lab (`buildCounter`), Use/prompt in BuildCamp. People via `NpcPeople.js`.
+- Tug of War: `PartyTug.js` (ext `tugOfWar`, server mode `tug`). Presses = keydown Jump/Space + mousedown/touchstart (not shots), capped `MAX_TAPS`/s. Guest presses = hit `u<n>` (BuildSurvival routes `u` to the party). Positions forced from `slot()` each frame.
+- Bungee: `Bungee.js` (`s.bungee`), item `bungeeCord` (craft + WorldFinds). States clipped -> fall -> hang -> up. No fall damage in GayZ, so catching just above ground is safe.
+- Jet Ski: kind `jetski` in `Vehicles.js` (net `j`, servers.js `cleanVeh`), item `jetSki` crafted. Wave hops = `v.air` added via `v.bob`. Sea zombies (`REALM_KINDS.ocean`) only alone/host.
+- Zombie Diner: `ZombieDiner.js` (`s.diner`), TempBlocks building, Use routed from `BuildMode._tryUseFromCamera`. Hints use a pill (the camp prompt element is owned by BuildCamp).
+- Zombies that learn: `ZombieLearning.js` (`s.learn`). `onKill` in `_countKill`, `dress` in `_spawnZombie`/`_extraZombie`, `mult` in `damageZombie` (my hits only). Gear meshes share one geometry/material cache, never disposed.
+
 ## Place names, real-place pyramids, country towns (2026-11-09, rebuilt from the Oct 23 world-polish leftovers)
 - **Place names (EarthFeatures.js `featureAt`):** peaks (circles), rivers/ranges (rough lines + width), lakes/seas/deserts/forests (boxes), oceans by region. BuildTryMode `_featureName` adds it as a 2nd line under the map and `_showPlaceTitle` fades `#build-place-title` in for 4s (same place not again for 60s). Names: `feat_<id>` in en/zh/hi/es.
 - **Real places (WorldStructures.js):** OpenWorld passes `placeAt(x, z)` -> { lat, lon, country } only in World Map mode. `realPyramid`: Egypt/Sudan sandstone, Maya stone in south Mexico/Central America, grass mounds near Xi'an; `realCastle`: Europe + Levant. Made-up world unchanged.

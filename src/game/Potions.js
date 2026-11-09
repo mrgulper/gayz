@@ -47,6 +47,7 @@ export class Potions {
     if (p.buff === 'shrink') delete this.sp._buffs.grow
     this.sp._setBuff(p.buff, p.mult, POTION_S)
     s._message(t('potionDrunk', { name: itemName(id), s: POTION_S }), 3)
+    s.bingo?.note('potion')
     try { audioEngine.playSpecial?.('potionGulp') } catch { /* no audio */ }
     return true
   }

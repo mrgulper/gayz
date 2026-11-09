@@ -55,6 +55,12 @@ import { HotSprings } from './HotSprings.js'
 import { HauntedHouse } from './HauntedHouse.js'
 import { Minecarts } from './Minecarts.js'
 import { Ufo } from './Ufo.js'
+import { ZombieBlimp } from './ZombieBlimp.js'
+import { ZombieBingo } from './ZombieBingo.js'
+import { PizzaDelivery } from './PizzaDelivery.js'
+import { Bungee } from './Bungee.js'
+import { ZombieDiner } from './ZombieDiner.js'
+import { ZombieLearning } from './ZombieLearning.js'
 import { DragonBoss } from './DragonBoss.js'
 import { Graveyard } from './Graveyard.js'
 import { Lighthouse } from './Lighthouse.js'
@@ -543,6 +549,23 @@ export class BuildSurvival {
     this.ufo.clear()
     if (!this.dragon) this.dragon = new DragonBoss(this)
     this.dragon.clear()
+    // Idea list 10 (2026-11-09): the Zombie Blimp (a world event), Zombie
+    // Bingo and Pizza Delivery (ZombieBlimp.js, ZombieBingo.js,
+    // PizzaDelivery.js).
+    if (!this.blimp) this.blimp = new ZombieBlimp(this)
+    this.blimp.clear()
+    if (!this.bingo) this.bingo = new ZombieBingo(this)
+    this.bingo.clear()
+    if (!this.pizza) this.pizza = new PizzaDelivery(this)
+    this.pizza.clear()
+    // ...Bungee Jump, the Zombie Diner and zombies that learn (Bungee.js,
+    // ZombieDiner.js, ZombieLearning.js).
+    if (!this.bungee) this.bungee = new Bungee(this)
+    this.bungee.clear()
+    if (!this.diner) this.diner = new ZombieDiner(this)
+    this.diner.clear()
+    if (!this.learn) this.learn = new ZombieLearning(this)
+    this.learn.clear()
     // The graveyard (a night world event) and the lighthouse on the coast
     // (Graveyard.js, Lighthouse.js).
     if (!this.graveyard) this.graveyard = new Graveyard(this)
@@ -779,6 +802,12 @@ export class BuildSurvival {
     this.carts?.clear()
     this.ufo?.clear()
     this.dragon?.clear()
+    this.blimp?.clear()
+    this.bingo?.clear()
+    this.pizza?.clear()
+    this.bungee?.clear()
+    this.diner?.clear()
+    this.learn?.clear()
     this.graveyard?.clear()
     this.lighthouse?.clear()
     this.heist?.clear()
@@ -1182,6 +1211,7 @@ export class BuildSurvival {
     const got = Math.round(n * (this.cfg?.coinMult ?? 1) * (this.bloodMoon?.mult ?? 1) * (this.perks?.coinMult() ?? 1))
     this.coins += got
     this._coinsEarned += got
+    this.bingo?.note('coins', got)
   }
 
   // Tells Game.js about a homepage run (stats, quests, achievements).
@@ -1419,6 +1449,11 @@ export class BuildSurvival {
       this._hitFeedback({ amount: damage, boss: true })
       return true
     }
+    // ...and so is the Zombie Blimp's balloon (ZombieBlimp.js).
+    if (this.blimp?.shoot(center, reach, damage)) {
+      this._hitFeedback({ amount: damage, boss: true })
+      return true
+    }
     const hits = new Map()
     const add = (z, amount) => hits.set(z, (hits.get(z) || 0) + amount)
     let anyHead = false
@@ -1479,6 +1514,7 @@ export class BuildSurvival {
       for (const hit of struck) {
         if (hit.head) {
           this.stats.headshots++
+          this.bingo?.note('headshot')
           anyHead = true
         }
         add(hit.z, damage * (hit.head ? HEAD_MULT * (this.cfg?.headshotMult ?? 1) : 1))
@@ -1606,7 +1642,10 @@ export class BuildSurvival {
   get zombieHeight() { return ZOMBIE_HEIGHT }
   hitZombieWith(z, amount, dir, head = false) {
     if (!this.zombies.includes(z)) return
-    if (head) this.stats.headshots++
+    if (head) {
+      this.stats.headshots++
+      this.bingo?.note('headshot')
+    }
     this.damageNumbers?.atZombie(z, amount, this.weaponId, ZOMBIE_HEIGHT)
     if (this.net && !this.net.isHost) {
       this.net.queueHit(`z${z.id}`, amount)
@@ -1768,6 +1807,8 @@ export class BuildSurvival {
     }
     // Lit by a Searchlight: hit harder (BuildSpecials.js).
     if (amount > 0) amount *= this.bm.specials.zombieHurtMult(z)
+    // My hits on a zombie geared against my weapon (ZombieLearning.js).
+    if (amount > 0 && !by) amount *= this.learn?.mult(z) ?? 1
     z.health -= amount
     z.flash = 0.12
     // Hit by something (not just sunburn) - a hiding lurker leaps out.
@@ -1889,6 +1930,17 @@ export class BuildSurvival {
     if (this.weapon.melee) this.stats.meleeKills++
     this.streak++
     this.bestStreak = Math.max(this.bestStreak, this.streak)
+    // Zombie Bingo (ZombieBingo.js).
+    this.learn?.onKill()
+    const bingo = this.bingo
+    if (bingo) {
+      bingo.note('kill')
+      if (this.weapon.melee) bingo.note('melee')
+      if (shine === 'gold' || shine === 'diamond') bingo.note('golden')
+      if (boss) bingo.note('boss')
+      if (skeleton) bingo.note('skeleton')
+      bingo.reach('streak', this.streak)
+    }
     const paid = Math.round(COIN_PER_KILL * (ZOMBIE_TIERS[tier]?.coins ?? 1) * shineCoins(shine))
     this._earn(paid)
     if (ZOMBIE_SHINES[shine]) {
@@ -1960,6 +2012,7 @@ export class BuildSurvival {
     // ...and the bank vault's (Heist.js).
     this.heist?.onChest(key)
     this.stats.chests++
+    this.bingo?.note('chest')
     // World Map: a chest on the map's travel journal.
     if (this.bm.world?.active && isEarthWorld()) journal.loot(x, z)
     // Ammo in this gun's own amounts (PlayWeapons.ammoFor).
@@ -2065,6 +2118,7 @@ export class BuildSurvival {
     else if (code === getKeyFor('emote')) this.emotes?.toggleBar()
     else if (code === getKeyFor('shop')) this.shop?.toggle()
     else if (code === getKeyFor('spray')) this.sprays?.spray()
+    else if (code === getKeyFor('bingo')) this.bingo?.toggle()
   }
 
   // --- the world: who can stand where ---
@@ -2274,6 +2328,7 @@ export class BuildSurvival {
     const shine = rollZombieShine()
     const zb = this._makeZombie(++this._zid, x + 0.5, y, z + 0.5, health, boss, kind, { tier, name: rollZombieName(), shine })
     if (shine) this._announceShine(zb)
+    this.learn?.dress(zb)
     if (cave) {
       zb.cave = true
       zb.damageMult *= CAVE_DAMAGE_MULT
@@ -2310,6 +2365,7 @@ export class BuildSurvival {
     const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (kindOf(kind)?.hp ?? 1)
     const zb = this._makeZombie(++this._zid, x, y, z, health, false, kind)
     zb.extra = true
+    this.learn?.dress(zb)
     return zb
   }
 
@@ -3318,6 +3374,12 @@ export class BuildSurvival {
     this.kite?.update(Math.min(dt, 0.1))
     this.skate?.update(Math.min(dt, 0.1))
     this.rides?.update(Math.min(dt, 0.1))
+    this.pizza?.update(Math.min(dt, 0.1))
+    this.bungee?.update(Math.min(dt, 0.1))
+    this.diner?.update(Math.min(dt, 0.1))
+    this.learn?.update(Math.min(dt, 0.1))
+    // A new run's Bingo card, once the run is set up (ZombieBingo.js).
+    if (this.bingo && !this.bingo.card && this.bingo.allowed && !this.dead) this.bingo.deal()
     this.music?.update(Math.min(dt, 0.1))
     this.finds?.update(Math.min(dt, 0.1))
     this.ghosts?.update(Math.min(dt, 0.1))
@@ -3610,6 +3672,7 @@ export class BuildSurvival {
     if (n <= 1) this.water?.start()
     if (n === 1) this.speedrun?.start()
     this.siege?.onWave(n)
+    this.bingo?.reach('wave', this.wave)
     this._report('wave', { wave: this.wave, difficulty: this.cfg.difficulty || 'normal', mutators: this.cfg.mutators || [], mode: this.cfg.mode })
     this._renderHud()
   }
@@ -3914,8 +3977,9 @@ export class BuildSurvival {
         this.escape?.remoteHit(h)
         continue
       }
-      // Paint Wars' splats, Build Battle's stars and Prop Hunt's disguises (PartyModes.js).
-      if (/^[pvq]/.test(String(h.id))) {
+      // Paint Wars' splats, Build Battle's stars, Prop Hunt's disguises and
+      // Tug of War's pulls (PartyModes.js).
+      if (/^[pvqu]/.test(String(h.id))) {
         this.party?.remoteHit(h)
         continue
       }

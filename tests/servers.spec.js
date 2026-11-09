@@ -1064,6 +1064,19 @@ test('Escape Rooms: a team shares the puzzles; a race gives everyone their own r
   expect(rh).toEqual({ lane: 0, shell: 'oakplanks' })
 })
 
+test('servers: Tug of War pulls and jet skis go through the server', async () => {
+  const db = fakeServerDb()
+  const t0 = 1_000_000
+  const a = await createServer(db, { nickname: 'Al', mode: 'tug' }, t0)
+  expect(a.mode).toBe('tug')
+  const b = await joinServer(db, { serverId: a.serverId, nickname: 'Bo' }, t0 + 10)
+  // A guest's pulls (u + how many) reach the host; junk doesn't.
+  await syncServer(db, { ...b, hits: [{ id: 'u3', dmg: 0 }, { id: 'u999', dmg: 0 }, { id: 'q3', dmg: 0 }], state: { x: 1, y: 2, z: 3, veh: [{ k: 'j', x: 1, y: 2, z: 3, h: 0, r: 1 }, { k: 'x', x: 0, y: 0, z: 0, h: 0 }] } }, t0 + 20)
+  const ra = await syncServer(db, { ...a }, t0 + 30)
+  expect(ra.hits.map((h) => h.id)).toEqual(['u3'])
+  expect(ra.players[b.playerId].veh).toEqual([{ k: 'j', x: 1, y: 2, z: 3, h: 0, r: 1 }])
+})
+
 test('servers: Prop Hunt hits, ghosts, boos and jams go through the server', async () => {
   const db = fakeServerDb()
   const t0 = 1_000_000

@@ -127,6 +127,7 @@ export class Emotes {
     if (!EMOTES.includes(id) || !this.s.active || this.s.dead) return
     this.current = id
     this._left = EMOTE_S
+    this.s.bingo?.note('emote')
     this.close()
   }
 
