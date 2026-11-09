@@ -1709,7 +1709,11 @@ export class BuildSpecials {
     // One of your camp farm's plots grows in real time (CampFarm.js).
     const farm = this._play()?.farm
     const farmed = !!farm?.owns(entry)
-    const timeText = (secs) => (farmed ? t('farmTime', { m: Math.floor(secs / 60), s: String(Math.ceil(secs) % 60).padStart(2, '0') }) : `${Math.ceil(secs)}s`)
+    const timeText = (secs) => {
+      // Round up once, then split, so 299.9s left reads 5:00 (not 4:00).
+      const c = Math.ceil(secs)
+      return farmed ? t('farmTime', { m: Math.floor(c / 60), s: String(c % 60).padStart(2, '0') }) : `${c}s`
+    }
     if (!st.planted) {
       st.planted = true
       st.grown = 0

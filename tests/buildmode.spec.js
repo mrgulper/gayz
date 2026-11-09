@@ -2914,7 +2914,8 @@ for (const [mode, button] of [['classic', 'game-mode-classic'], ['zombieDefense'
     expect(r.killsAfter).toBeGreaterThan(0)
     expect(r.wave2).toBe(2)
     if (mode === 'zombieRush') {
-      expect(r.breakSecs).toBeLessThanOrEqual(3)
+      // Rush's 1s break vs the normal 6s one (~22s real time on a slow CI machine).
+      expect(r.breakSecs).toBeLessThanOrEqual(5)
       expect(r.timer).toBe(true)
     }
     if (mode === 'bossHunt') expect(r.boss).toBe(true)

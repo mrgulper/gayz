@@ -868,7 +868,12 @@ test('special blocks batch 9: fan, elevator, zipline, bounce, slide, rope, rails
     out.launch = tm.vel.y === 13 && tm.vel.z < -15
     // ...and with real movement frames you really fly a long way.
     const z0 = tm.pos.z
-    for (let i = 0; i < 40; i++) tm.update(0.05, new Set())
+    // (The game updates the special blocks every frame too - that keeps the
+    // air slippery while you're launched.)
+    for (let i = 0; i < 40; i++) {
+      sp.update(0.05, tm.pos)
+      tm.update(0.05, new Set())
+    }
     out.launchFar = z0 - tm.pos.z > 10
     // Wind tunnel: lifts you in the column above it.
     tm.vel.y = -3
