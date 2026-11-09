@@ -19,7 +19,7 @@
 // keep BuildMode's per-type InstancedMesh path - they're rare, and they
 // never hide a neighbor's face.
 import * as THREE from 'three'
-import { REAL_GROUND, REAL_LEAVES, REAL_ROCK, NOT_ROCK, REC, AIR, REAL, PIN_SOLID, lookOf, kindOfLook, PIN_OTHER, LEAF_LOOK, K_LEAF, latticeAt, realPoint, realTint, rockTint, logRadius, roundOf, roundRadius, roundHeight, ROUND_STACKS, REAL_BLOB, REAL_EXTRA_ROCK, REAL_WOOD, WOOD_BEVEL, woodTint, shag } from './RealGround.js'
+import { REAL_GROUND, REAL_LEAVES, REAL_ROCK, NOT_ROCK, REC, AIR, REAL, PIN_SOLID, lookOf, kindOfLook, PIN_OTHER, LEAF_LOOK, K_LEAF, latticeAt, realPoint, realTint, rockTint, logRadius, roundOf, roundRadius, roundHeight, ROUND_STACKS, REAL_BLOB, REAL_EXTRA_ROCK, REAL_WOOD, woodTint, shag, buildOf, BUILD_BEVEL, buildGloss, buildTint } from './RealGround.js'
 
 export const CHUNK = 16
 // A chunk plus a one-cell ring on every side (see _build), and the mark
@@ -550,6 +550,14 @@ export class BlockChunks {
         // edges, colour drifting across the planks (_realWoodFace).
         wood: REAL_WOOD.test(t.id) && !t.transparent && !liquid && !t.inset && !t.emissive && !t.plant,
         thatch: t.id === 'thatch',
+        // Ninth batch: the man-made family it joins ('wood' | 'stone' |
+        // 'metal', null = not a build block). Stone/metal builds follow
+        // the same one-solid-wall bevel; blocks already drawn as real
+        // ground/rock keep that look. Redstone block keeps its glow.
+        build: buildOf(t.id) && !t.transparent && !liquid && !t.inset && !t.plant &&
+          !(REAL_GROUND.test(t.id) || xrock || (REAL_ROCK.test(t.id) && !NOT_ROCK.test(t.id))) &&
+          (!t.emissive || t.id === 'redstoneblock') ? buildOf(t.id) : null,
+        gloss: buildGloss(t.id, buildOf(t.id)),
       })
     })
     const tex = new THREE.CanvasTexture(canvas)
@@ -1066,7 +1074,7 @@ export class BlockChunks {
     // A round trunk's top is its flat cut end.
     if (this.realAmt > 0 && this.info.get(this.getType(x, y, z))?.log) return null
     // Wood builds' tops are flat on the top levels (eighth batch).
-    if (this.realAmt > 0 && this.info.get(this.getType(x, y, z))?.wood) return null
+    if (this.realAmt > 0 && this.info.get(this.getType(x, y, z))?.build) return null
     if (this.realAmt > 0 && this.info.get(this.getType(x, y, z))?.real) {
       const L = this.realTopLattice(x, y, z)
       const pts = []
@@ -1170,14 +1178,18 @@ export class BlockChunks {
     const hides = (nInfo) => nInfo.opaque && !(realAmt > 0 && (nInfo.log || nInfo.blob))
     // Wood builds (eighth batch): what each cell is to a wood edge -
     // 0 empty (air, a plant), 1 a wood block, 2 anything else.
-    const woodAt = realAmt > 0 ? (x, y, z) => {
+    // Ninth batch: one of these per family (wood, stone, metal) - blocks
+    // of another family count as "anything else", so where a brick wall
+    // meets a plank wall the line stays sharp.
+    const famAt = (fam) => (x, y, z) => {
       const t = typeAt(x, y, z)
       if (!t) return 0
       const i = this.info.get(t)
       if (!i) return 2
       if (i.plant) return 0
-      return i.wood ? 1 : 2
-    } : null
+      return i.build === fam ? 1 : 2
+    }
+    const buildAt = realAmt > 0 ? { wood: famAt('wood'), stone: famAt('stone'), metal: famAt('metal') } : null
     // Bumpy blocks (2026-10-26, Gaymi: "you cant really tell what block
     // it is ... make them slightly bumpy ... no more then 20 degrees"):
     // every natural top keeps its edges at the block's own height, so each
@@ -1268,8 +1280,8 @@ export class BlockChunks {
           const corner = opaqueAt(ox + sx, oy + sy, oz + sz)
           ao[i] = s1 && s2 ? 3 : (s1 ? 1 : 0) + (s2 ? 1 : 0) + (corner ? 1 : 0)
         }
-        if (woodAt && info.wood) {
-          this._realWoodFace(buf, x, y, z, bx, by, bz, face, info, u0, v0, u1, v1, ao, tint, glowSources, woodAt)
+        if (buildAt && info.build) {
+          this._realWoodFace(buf, x, y, z, bx, by, bz, face, info, u0, v0, u1, v1, ao, tint, glowSources, buildAt[info.build])
           continue
         }
         // Which of this face's 4 edges are outside corners (rounded): bit
@@ -1796,7 +1808,9 @@ export class BlockChunks {
   _realWoodFace(buf, x, y, z, bx, by, bz, face, info, u0, v0, u1, v1, ao, tint, glowSources, woodAt) {
     const S = this.blockSize
     const amt = this.realAmt
-    const b = WOOD_BEVEL * amt
+    const fam = info.build
+    const b = BUILD_BEVEL[fam] * amt
+    const gloss = info.gloss
     const h = b / 2
     const c = face.c
     const fn = face.n
@@ -1829,7 +1843,7 @@ export class BlockChunks {
     const color = (s, t, wx, wy, wz) => {
       const W0 = (1 - s) * (1 - t), W1 = s * (1 - t), W2 = s * t, W3 = (1 - s) * t
       const base = W0 * sh[0] + W1 * sh[1] + W2 * sh[2] + W3 * sh[3]
-      const wt = woodTint(wx, wy, wz)
+      const wt = buildTint(fam, wx, wy, wz)
       let r = base * wt[0], g = base * wt[1], bl = base * wt[2]
       if (G) {
         const L = (i) => W0 * (G[0]?.[i] || 0) + W1 * (G[1]?.[i] || 0) + W2 * (G[2]?.[i] || 0) + W3 * (G[3]?.[i] || 0)
@@ -1847,7 +1861,7 @@ export class BlockChunks {
         const wx = x + c[k][0], wy = y + c[k][1], wz = z + c[k][2]
         buf.pos.push((wx - bx) * S, (wy - by) * S, (wz - bz) * S)
         buf.nrm.push(fn[0], fn[1], fn[2])
-        buf.edge.push(0)
+        buf.edge.push(-gloss)
         buf.uv.push(CORNER_UV[k][0] ? u1 : u0, CORNER_UV[k][1] ? v1 : v0)
         color(CORNER_UV[k][0], CORNER_UV[k][1], wx, wy, wz)
       }
@@ -1885,7 +1899,7 @@ export class BlockChunks {
         }
         buf.pos.push((px - bx) * S, (py - by) * S, (pz - bz) * S)
         buf.nrm.push(nx, ny, nz)
-        buf.edge.push(0)
+        buf.edge.push(-gloss)
         buf.uv.push(u0 + (u1 - u0) * s, v0 + (v1 - v0) * t)
         color(s, t, wx, wy, wz)
       }

@@ -3316,6 +3316,94 @@ test('real-life wood builds: flat faces, soft outside edges, one solid wall, sha
   if (r.simplePts) expect(r.simpleCorner).toBe(true)
 })
 
+test('real-life stone and metal builds: one solid wall, metal sharper and shiny, kinds meet sharp', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const ch = bm._chunks
+    // A lone brick, a lone iron block, a 3x3 concrete wall, brick against planks.
+    bm._placeBlockInner(140, 5, 140, 'brick')
+    bm._placeBlockInner(144, 5, 140, 'iron')
+    for (let dx = 0; dx < 3; dx++) for (let dy = 0; dy < 3; dy++) bm._placeBlockInner(148 + dx, 5 + dy, 148, 'whiteconcrete')
+    bm._placeBlockInner(154, 5, 154, 'brick')
+    bm._placeBlockInner(155, 5, 154, 'oakplanks')
+    const verts = (x0, x1, y0, y1, z0, z1) => {
+      ch.flush(bm._chunkCells)
+      const v = []
+      const S = ch.blockSize
+      for (const c of ch.chunks.values()) {
+        for (const m of c.meshes) {
+          const pos = m.geometry.attributes.position
+          if (!pos?.array?.length) continue
+          const ed = m.geometry.attributes.aEdge
+          for (let i = 0; i < pos.array.length; i += 3) {
+            const x = (pos.array[i] + m.position.x) / S
+            const y = (pos.array[i + 1] + m.position.y) / S
+            const z = (pos.array[i + 2] + m.position.z) / S
+            if (x > x0 && x < x1 && y > y0 && y < y1 && z > z0 && z < z1) v.push([x, y, z, ed ? ed.array[i / 3] : 0])
+          }
+        }
+      }
+      return v
+    }
+    const near = (v, x, y, z, e = 0.002) => v.some((p) => Math.abs(p[0] - x) < e && Math.abs(p[1] - y) < e && Math.abs(p[2] - z) < e)
+    g._applyGraphicsLevel('irl')
+    bm._applyGraphicsLook()
+    const b = verts(139.9, 141.1, 4.9, 6.1, 139.9, 141.1)
+    const m = verts(143.9, 145.1, 4.9, 6.1, 139.9, 141.1)
+    out.brickPts = b.length
+    out.ironPts = m.length
+    out.brickCorner = near(b, 141, 6, 141)
+    out.ironCorner = near(m, 145, 6, 141)
+    // Bevel depth: deepest drop below the top on the block's points.
+    out.brickDrop = Math.max(...b.map((p) => 6 - p[1]).filter((d) => d < 0.3))
+    out.ironDrop = Math.max(...m.map((p) => 6 - p[1]).filter((d) => d < 0.3))
+    out.brickInside = b.every(([x, y, z]) => x >= 139.999 && x <= 141.001 && y >= 4.999 && y <= 6.001 && z >= 139.999 && z <= 141.001)
+    out.ironShiny = m.some((p) => p[3] < -0.5)
+    out.brickDull = b.every((p) => p[3] === 0)
+    const w = verts(147.9, 151.1, 4.9, 8.1, 147.9, 149.1)
+    out.wallPts = w.length
+    out.wallMiddle = w.filter(([x, y, z]) => x > 149.01 && x < 149.99 && y > 6.01 && y < 6.99 && z < 148.01).length
+    const s = verts(153.9, 156.1, 4.9, 6.1, 153.9, 155.1)
+    out.mixPts = s.length
+    out.mixPinned = near(s, 155, 6, 154)
+    const I = (id) => ch.info.get(id) || {}
+    const has = (id) => ch.info.has(id)
+    out.stone = ['brick', 'netherbrick', 'mudbricks', 'quartz', 'purpurblock', 'prismarine', 'concrete', 'whiteconcrete', 'redterracotta', 'glazedterracotta', 'plaster', 'asphalt'].filter((id) => has(id) && I(id).build !== 'stone')
+    out.metal = ['metal', 'iron', 'gold', 'copper', 'oxidizedcopper', 'netherite', 'diamondblock', 'emeraldblock', 'lapisblock', 'coalblock', 'redstoneblock'].filter((id) => has(id) && I(id).build !== 'metal')
+    out.notBuild = ['stonebricks', 'terracotta', 'tintedglass', 'redstonelamp', 'brickslab', 'irondoor', 'ironore', 'tnt', 'sealantern'].filter((id) => has(id) && I(id).build)
+    out.stillRock = !has('stonebricks') || I('stonebricks').real
+    out.flatCrack = ch.lumpyTopPoints(140, 5, 140) === null
+    g._applyGraphicsLevel('simple')
+    bm._applyGraphicsLook()
+    const b2 = verts(139.9, 141.1, 4.9, 6.1, 139.9, 141.1)
+    out.simplePts = b2.length
+    out.simpleCorner = near(b2, 141, 6, 141)
+    g._exitBuildMode()
+    return out
+  })
+  expect(r.stone).toEqual([])
+  expect(r.metal).toEqual([])
+  expect(r.notBuild).toEqual([])
+  expect(r.stillRock).toBe(true)
+  expect(r.flatCrack).toBe(true)
+  if (r.brickPts && r.ironPts) {
+    expect(r.brickCorner).toBe(false)
+    expect(r.ironCorner).toBe(false)
+    expect(r.brickInside).toBe(true)
+    // Metal edges are sharper (a smaller bevel) and shiny; brick isn't.
+    expect(r.ironDrop).toBeLessThan(r.brickDrop)
+    expect(r.ironShiny).toBe(true)
+    expect(r.brickDull).toBe(true)
+  }
+  if (r.wallPts) expect(r.wallMiddle).toBe(0)
+  if (r.mixPts) expect(r.mixPinned).toBe(true)
+  if (r.simplePts) expect(r.simpleCorner).toBe(true)
+})
+
 test('real-life rock: stone-type blocks turn craggy, melt into dirt, on the top levels only', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
