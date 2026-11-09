@@ -1239,6 +1239,8 @@ body.touch-play-on #build-try-map[data-size='center'] #build-try-map-close {
 /* The World Map mode's big map is solid (the world behind showed through as blocks). */
 #build-try-map[data-size='center'].earth { opacity: 1; }
 /* Zoomed far out in the World Map mode it's a globe (EarthGlobe.js): no box round it. */
+/* (Its box fades away as the globe fades in - BuildTryMode, 2026-11-09.) */
+#build-try-map[data-size='center'].earth { transition: background-color 0.4s, border-color 0.4s, box-shadow 0.4s; }
 #build-try-map[data-size='center'].globe { opacity: 1; background: none; border-color: transparent; box-shadow: none; }
 #build-try-map.globe > canvas:not(.earth-globe):not(.earth-globe-labels) { opacity: 0; }
 #build-try-map .earth-globe,

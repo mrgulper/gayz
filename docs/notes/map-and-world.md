@@ -480,3 +480,12 @@ Gaymi's answers: skip Message in a Bottle for now (database limit), Prop Hunt wi
 - **Towns (Towns.js `townStyleFor`):** low-income country -> 'rural' (small houses, tin/thatch, dirt roads, 40% empty lots); lower-middle -> '<style>-low' (max 3 floors). Big CITIES keep their towers.
 - **Spawn map** fills the screen pole to pole (`dppY`) when the screen's shape is close to the map's; tall phone screens keep the old fit.
 - **Sandstorm haze** fades in/out over 12s (BuildSky `SAND_FADE_MS`). Slow rain/snow and gentle map scroll already existed (Oct 24/30), so those leftovers were dropped, as were the old cloud and animal changes.
+
+## Sky extras + globe fade (2026-11-09)
+Gaymi picked all of: stronger sky fade, Team Battle gradient sky, sun rays, constellations, planets, dawn birdsong, globe fade-in, globe night side + city lights, globe clouds, unexplored fog.
+- Sky dome zenith is deeper (`SkyBodies.update`). Sun rays = `SkyBodies.rays` (additive plane at the sun); **off on Potato** (`_lite`) - so CI/SwiftShader never shows them; force `bodies._lite = false` to check.
+- `NightSky.js` (constellations + planets) follows the stars' opacity (`BuildSky.apply`). Lines show while the camera looks up.
+- Birdsong: `BuildSky._birdsong` -> `audioEngine.playBirdChirp` (synth, sfx bus). Night -> day, cycle only, clear skies, not below y -8.
+- Team Battle sky: `TeamBattle.skyDome`; the camera looks down, so it deepens toward the top of the screen (`gl_FragCoord`).
+- Globe: crossfade between `GLOBE_FADE_FROM` (48 deg) and `GLOBE_FROM` (70 deg) in `_drawMap`; `EarthGlobe.setFade`. Night side uses the real clock (`subsolarPoint`), lights from the atlas land + `CITIES`.
+- Fog: `ExploredMap.js`, 16-block cells, localStorage `gayz-world-explored-v1` (cap 30k cells, saved 5s after a change). Only the flat map, not the globe. Test: `tests/sky-extras.spec.js`.

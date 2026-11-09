@@ -50,6 +50,7 @@ import * as THREE from 'three'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
 import { BuildWeather } from './BuildWeather.js'
+import { NightSky } from './NightSky.js'
 import { SkyBodies, MOON_PHASES } from './SkyBodies.js'
 import { sampleLand, inCity } from './OpenWorld.js'
 import { SkyLightning } from './SkyLightning.js'
@@ -57,6 +58,8 @@ import { WeatherScreen } from './WeatherScreen.js'
 import { Disasters, DISASTERS, IMPACTS } from './Disasters.js'
 import { luck } from './Luck.js'
 
+// Birds don't sing to you underground (block height; the ground is ~0).
+const BIRD_MIN_Y = -8
 export const SKY_TIMES = ['day', 'sunset', 'night', 'cycle']
 export const SKY_WEATHERS = ['clear', 'drizzle', 'veryLightRain', 'lightRain', 'mediumRain', 'hardRain', 'thunderstorm', 'freezingRain', 'iceStorm', 'veryLightSnow', 'lightSnow', 'mediumSnow', 'hardSnow', 'snowstorm', 'blizzard', 'sleet', 'hail', 'frost', 'coldSnap', 'fog', 'heatwave', 'duststorm', 'sandstorm', 'eclipse', 'random']
 // Clear skies (sun out, stars at night), whatever the temperature.
@@ -227,6 +230,11 @@ export class BuildSky {
     this._b = new THREE.Color()
     this._lastShadowAt = 0
     this._buildStars()
+    this.nightSky = new NightSky(buildMode.scene)
+    // Dawn birdsong: seconds of it left, and the next chirp.
+    this._birdsFor = 0
+    this._birdIn = 0
+    this._wasNight = false
     this._active = false
     this._now = 'clear' // what's actually showing (Random picks one)
     this._goal = 'clear' // where Random is stepping to (_step)
@@ -585,6 +593,7 @@ export class BuildSky {
     // Only once it's really dark - not in a morning or evening sky.
     stars.value = w === 'eclipse' ? 0.8 : THREE.MathUtils.smoothstep(night, 0.4, 0.9) * (CLEAR_SKIES.has(w) ? 1 : 0.25)
     this._stars.visible = stars.value > 0.01
+    this.nightSky.setOpacity(stars.value)
     // (apply() runs a few times a second in Cycle - only touch the
     // overlays, sound and lightning when the weather itself changes.)
     if (this._active && this._shownKind !== w) {
@@ -763,8 +772,10 @@ export class BuildSky {
       u.ratio.value = bm.renderer?.getPixelRatio?.() || 1
       u.zoom.value = (this.bm._normalFov?.() || 75) / bm.camera.fov
     }
+    this.nightSky.update(dt, bm.camera, bm.renderer?.getPixelRatio?.() || 1)
     luck.update(dt, this._active && !!bm.survival?.active)
     if (!this._active) return
+    this._birdsong(dt)
     this._updateWind(dt)
     this.lightning.update(dt)
     this._easeLook(dt)
@@ -830,6 +841,24 @@ export class BuildSky {
       if (this._rerollIn <= 0) this._pickWeather(false)
     }
     this._lightning(dt)
+  }
+
+  // Dawn birdsong (2026-11-09): as the night ends in a game, birds sing for
+  // about a minute - chirps from different sides now and then. Not in
+  // rain or snow, and not underground.
+  _birdsong(dt) {
+    const night = this.nightAmount() > 0.5
+    if (this._wasNight && !night && this._inGame && this.time === 'cycle' && CLEAR_SKIES.has(this._now)) {
+      this._birdsFor = 60
+      this._birdIn = 1
+    }
+    this._wasNight = night
+    if (this._birdsFor <= 0) return
+    this._birdsFor -= dt
+    if ((this._birdIn -= dt) > 0) return
+    this._birdIn = 0.6 + Math.random() * 2.4
+    if (!CLEAR_SKIES.has(this._now) || this.bm.camera.position.y / this.B < BIRD_MIN_Y) return
+    audioEngine.playBirdChirp?.(Math.random() * 1.6 - 0.8)
   }
 
   // The wind: each weather's strength, gusting, its direction turning

@@ -11,6 +11,11 @@
 // Its own small renderer and scene (no lights - the picture is drawn as
 // it is, with a soft shading circle on top), made the first time it's
 // needed and kept.
+//
+// Added 2026-11-09 (Gaymi picked them): the side of the Earth where it's
+// night right now (real time) is dark, with city lights glowing; thin
+// clouds drift over it; and it fades in over the block map as you zoom
+// out (BuildTryMode, setFade) instead of popping in.
 import * as THREE from 'three'
 import { earthAtlasCanvas, earthCountryLabels, mapText, cityDot } from './EarthAtlas.js'
 import { CITIES } from './Towns.js'
@@ -20,6 +25,99 @@ const HALF = Math.tan((FOV * Math.PI) / 360)
 // Nearest and farthest the camera gets (globe radius 1).
 const NEAR_D = 1.15
 const FAR_D = 1.12 / Math.sin((FOV * Math.PI) / 360)
+// The clouds turn this many radians a second, on top of the Earth.
+const CLOUD_DRIFT = 0.004
+
+// Where the sun is overhead right now (the real date and time).
+export function subsolarPoint(date = new Date()) {
+  const start = Date.UTC(date.getUTCFullYear(), 0, 0)
+  const day = (date.getTime() - start) / 86400000
+  const hours = date.getUTCHours() + date.getUTCMinutes() / 60
+  return { lat: -23.44 * Math.cos(((2 * Math.PI) / 365) * (day + 10)), lon: -(hours - 12) * 15 }
+}
+
+// City lights, as a world picture (longitude -180 on the left, north on
+// top): faint specks sprinkled over the land and bright glows at the big
+// cities with towns round them.
+function lightsCanvas() {
+  const W = 1024
+  const H = 512
+  const c = document.createElement('canvas')
+  c.width = W
+  c.height = H
+  const g = c.getContext('2d')
+  g.fillStyle = '#000'
+  g.fillRect(0, 0, W, H)
+  const atlas = earthAtlasCanvas()
+  const probe = document.createElement('canvas')
+  probe.width = 360
+  probe.height = 180
+  const pg = probe.getContext('2d', { willReadFrequently: true })
+  pg.drawImage(atlas, 0, 0, 360, 180)
+  const px = pg.getImageData(0, 0, 360, 180).data
+  const land = (i, j) => {
+    const k = (j * 360 + i) * 4
+    return px[k + 3] > 100 && !(px[k + 2] > px[k] + 25 && px[k + 2] >= px[k + 1])
+  }
+  let seed = 7
+  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+  const dot = (x, y, r, a) => {
+    const gr = g.createRadialGradient(x, y, 0, x, y, r)
+    gr.addColorStop(0, `rgba(255, 214, 140, ${a})`)
+    gr.addColorStop(1, 'rgba(255, 214, 140, 0)')
+    g.fillStyle = gr
+    g.fillRect(x - r, y - r, r * 2, r * 2)
+  }
+  for (let n = 0; n < 9000; n++) {
+    const i = Math.floor(rand() * 360)
+    const j = Math.floor(18 + rand() * 130) // not the poles
+    if (land(i, j)) dot(((i + rand()) / 360) * W, ((j + rand()) / 180) * H, 1.4, 0.35 + rand() * 0.3)
+  }
+  for (const city of CITIES) {
+    const x = ((city.lon + 180) / 360) * W
+    const y = ((90 - city.lat) / 180) * H
+    dot(x, y, 7, 0.95)
+    for (let n = 0; n < 14; n++) dot(x + (rand() - 0.5) * 22, y + (rand() - 0.5) * 14, 2, 0.7)
+  }
+  return c
+}
+
+// Soft clouds, as a world picture that wraps round left to right: more in
+// the stormy middle latitudes, fewer in the deserts' bands.
+function cloudsCanvas() {
+  const W = 1024
+  const H = 512
+  const c = document.createElement('canvas')
+  c.width = W
+  c.height = H
+  const g = c.getContext('2d')
+  let seed = 11
+  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+  for (let n = 0; n < 700; n++) {
+    const lat = (rand() * 2 - 1) * 70
+    const band = Math.abs(lat)
+    const keep = band < 10 ? 0.8 : band < 30 ? 0.35 : 1
+    if (rand() > keep) continue
+    const y = ((90 - lat) / 180) * H
+    const x = rand() * W
+    const rx = 10 + rand() * 38
+    const ry = rx * (0.35 + rand() * 0.3)
+    for (const ox of [-W, 0, W]) {
+      g.save()
+      g.translate(x + ox, y)
+      g.scale(1, ry / rx)
+      const gr = g.createRadialGradient(0, 0, 0, 0, 0, rx)
+      gr.addColorStop(0, `rgba(255, 255, 255, ${0.28 + rand() * 0.22})`)
+      gr.addColorStop(1, 'rgba(255, 255, 255, 0)')
+      g.fillStyle = gr
+      g.beginPath()
+      g.arc(0, 0, rx, 0, Math.PI * 2)
+      g.fill()
+      g.restore()
+    }
+  }
+  return c
+}
 
 // The point on the unit sphere for a latitude / longitude, in the globe's
 // own space (three's SphereGeometry UVs: u = 0 is longitude -180).
@@ -50,6 +148,36 @@ export class EarthGlobe {
     this._picVersion = -1
     this._useTexture(earthAtlasCanvas())
     this.spin.add(new THREE.Mesh(new THREE.SphereGeometry(1, 96, 64), this._mat))
+    // Night: dark where the sun is down, with city lights.
+    const lights = new THREE.CanvasTexture(lightsCanvas())
+    lights.colorSpace = THREE.SRGBColorSpace
+    this.nightMat = new THREE.ShaderMaterial({
+      uniforms: { sunDir: { value: new THREE.Vector3(1, 0, 0) }, lights: { value: lights } },
+      vertexShader: 'varying vec3 vPos; varying vec2 vUv; void main() { vPos = position; vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `uniform vec3 sunDir; uniform sampler2D lights; varying vec3 vPos; varying vec2 vUv;
+        void main() {
+          float sun = dot(normalize(vPos), sunDir);
+          // A soft twilight band between day and night.
+          float night = smoothstep(0.08, -0.12, sun);
+          vec3 glow = texture2D(lights, vUv).rgb * night;
+          float lit = max(glow.r, max(glow.g, glow.b));
+          float a = night * 0.62;
+          vec3 col = mix(vec3(0.01, 0.02, 0.08), glow / max(lit, 0.001), lit);
+          gl_FragColor = vec4(col, max(a, lit));
+          #include <colorspace_fragment>
+        }`,
+      transparent: true,
+      depthWrite: false,
+    })
+    this.spin.add(new THREE.Mesh(new THREE.SphereGeometry(1.002, 96, 64), this.nightMat))
+    // Clouds, a little above the ground, drifting on their own.
+    const clouds = new THREE.CanvasTexture(cloudsCanvas())
+    clouds.colorSpace = THREE.SRGBColorSpace
+    this.clouds = new THREE.Mesh(new THREE.SphereGeometry(1.012, 64, 48), new THREE.MeshBasicMaterial({ map: clouds, transparent: true, opacity: 0.6, depthWrite: false }))
+    this.spin.add(this.clouds)
+    this._drawnAt = performance.now()
+    this._sunAt = 0
+    this._fade = 1
     // A thin blue glow round the edge, like air.
     const air = new THREE.Mesh(new THREE.SphereGeometry(1.035, 64, 32), new THREE.MeshBasicMaterial({ color: 0x9ad2ff, transparent: true, opacity: 0.22, side: THREE.BackSide }))
     this.scene.add(air)
@@ -85,6 +213,13 @@ export class EarthGlobe {
     this.overlay.style.display = on ? 'block' : 'none'
   }
 
+  // How much the globe shows (0-1) while it fades in over the block map.
+  setFade(a) {
+    if (a === this._fade) return
+    this._fade = a
+    this.gl.style.opacity = this.overlay.style.opacity = a >= 1 ? '' : String(a)
+  }
+
   // Draws the globe `px` pixels square with (lat, lon) facing you and
   // about `spanDeg` degrees across; `you` = { lat, lon, ang } (the arrow's
   // angle as the flat map draws it, north up).
@@ -101,6 +236,16 @@ export class EarthGlobe {
     const p = spherePoint(0, lon, this._v)
     this.spin.rotation.y = -Math.atan2(p.x, p.z)
     this.tilt.rotation.x = (lat * Math.PI) / 180
+    // The clouds drift; the night side follows the real clock (worked out
+    // once a minute - it moves slowly).
+    const now = performance.now()
+    this.clouds.rotation.y += Math.min(0.5, (now - this._drawnAt) / 1000) * CLOUD_DRIFT
+    this._drawnAt = now
+    if (now - this._sunAt > 60000 || !this._sunAt) {
+      this._sunAt = now
+      const sp = subsolarPoint()
+      spherePoint(sp.lat, sp.lon, this.nightMat.uniforms.sunDir.value)
+    }
     this.scene.updateMatrixWorld(true)
     this.renderer.render(this.scene, this.camera)
 
