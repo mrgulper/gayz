@@ -2,7 +2,9 @@
 // through the Open World. You can ride it, fight zombies through its
 // carriages and jump off at stations"). Owned by BuildSurvival
 // (`s.train`): Zombie Survival with the open world on, alone or as a
-// server's host (the others don't see it yet).
+// server's host. On a server the host runs it and everyone else sees the
+// same train on the same track and can ride it too (2026-11-09:
+// snapshot() -> applySnapshot(), a "mirror" that follows the host's).
 //
 // The track: a circle LOOP_R blocks round, picked out in the open land
 // LOOP_FAR blocks from where you start (away from the city and the sea),
@@ -78,6 +80,59 @@ export class ZombieTrain {
     this.on = true
     this._build()
     return true
+  }
+
+  // --- on a server ---
+
+  // The host's train for the others (PlayNet, `train`): the track's middle
+  // and how far round the front is.
+  snapshot() {
+    if (!this.on || this.mirror) return null
+    return { cx: +this.cx.toFixed(2), cz: +this.cz.toFixed(2), head: +this.head.toFixed(2), w: this.wait > 0 ? 1 : 0 }
+  }
+
+  // Everyone else: the same track (it's worked out from the same world)
+  // and the train following the host's. null: there's none (any more).
+  applySnapshot(d) {
+    if (!d) {
+      if (this.mirror) this.clear()
+      return
+    }
+    if (!this.on || !this.mirror || this.cx !== d.cx || this.cz !== d.cz) {
+      this.clear()
+      this.cx = d.cx
+      this.cz = d.cz
+      this._heights()
+      this.perim = Math.PI * 2 * LOOP_R
+      this.stations = Array.from({ length: STATIONS }, (_, i) => (i / STATIONS) * this.perim)
+      this.head = d.head
+      this.speed = 0
+      this.wait = 0
+      this.on = true
+      this.mirror = true
+      this._build()
+    }
+    this._netHead = d.head
+    this._netWait = !!d.w
+  }
+
+  // A mirror's frame: slide after the host's train (a little ahead of the
+  // last update while it's moving, so it doesn't stop and start).
+  _follow(dt) {
+    // The host left and it's me now: the train carries on, run here.
+    if (this.s.net?.isHost) {
+      this.mirror = false
+      return
+    }
+    if (!this._netWait) this._netHead += TRAIN_SPEED * 0.5 * dt
+    const before = this.head
+    const gap = this._netHead - this.head
+    if (Math.abs(gap) > 30) this.head = this._netHead
+    else this.head += gap * Math.min(1, dt * 4)
+    this.speed = dt > 0 ? Math.abs(this.head - before) / dt : 0
+    this.wait = this._netWait ? 1 : 0
+    this._draw()
+    if (this.aboard && (this.s.dead || !this.s.active)) this.aboard = null
   }
 
   // Open, dry, not too steep land LOOP_FAR away in some direction.
@@ -218,6 +273,7 @@ export class ZombieTrain {
 
   update(dt) {
     if (!this.on) return
+    if (this.mirror) return this._follow(dt)
     const s = this.s
     if (this.wait > 0) {
       this.wait -= dt
@@ -384,6 +440,7 @@ export class ZombieTrain {
   clear() {
     this.aboard = null
     this.on = false
+    this.mirror = false
     for (const zb of this.riders) zb.frozen = 0
     this.riders = []
     if (this._group) {

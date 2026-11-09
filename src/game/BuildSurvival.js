@@ -82,6 +82,7 @@ import { ZombieTricks } from './ZombieTricks.js'
 import { WorldEvents, MUTANT_COINS } from './WorldEvents.js'
 import { Survivors } from './Survivors.js'
 import { GoKart } from './GoKart.js'
+import { RemoteRides } from './RemoteRides.js'
 import { Vehicles } from './Vehicles.js'
 import { ShrinkZone } from './ShrinkZone.js'
 import { Speedrun, SPEEDRUN_WAVES } from './Speedrun.js'
@@ -373,8 +374,8 @@ export class BuildSurvival {
       // A server plays its own mode: Zombie Survival, Infection or
       // Shrinking Zone.
       const party = PARTY_MODES.find((m) => PARTY_SERVER_MODES[m] === net.mode)
-      this.cfg.mode = net.mode === 'infection' ? 'infection' : net.mode === 'zone' ? 'shrinkingZone' : net.mode === 'td' ? 'towerDefense' : party || 'classic'
-      this.cfg.noZombies = this.cfg.mode === 'infection' || !!party
+      this.cfg.mode = net.mode === 'infection' ? 'infection' : net.mode === 'zone' ? 'shrinkingZone' : net.mode === 'td' ? 'towerDefense' : net.mode === 'escape' ? 'escapeRoom' : net.mode === 'escapeSolo' ? 'escapeRace' : party || 'classic'
+      this.cfg.noZombies = this.cfg.mode === 'infection' || !!party || this.cfg.mode === 'escapeRoom' || this.cfg.mode === 'escapeRace'
     }
     this._zid = 0
     this._disposeExtraction()
@@ -392,7 +393,7 @@ export class BuildSurvival {
     // A new player's first game (PlayOnboarding.js): no weapon picker,
     // start at the camp gate, a zombie close by straight away.
     if (!this.onboard) this.onboard = new PlayOnboarding(this)
-    if (fromMenu && !net && isFirstGame(bm.game) && !BuildSurvival.savedRun() && this.cfg.mode !== 'worldMap' && this.cfg.mode !== 'infection' && this.cfg.mode !== 'towerDefense' && this.cfg.mode !== 'escapeRoom' && !PARTY_MODES.includes(this.cfg.mode)) {
+    if (fromMenu && !net && isFirstGame(bm.game) && !BuildSurvival.savedRun() && this.cfg.mode !== 'worldMap' && this.cfg.mode !== 'infection' && this.cfg.mode !== 'towerDefense' && this.cfg.mode !== 'escapeRoom' && this.cfg.mode !== 'escapeRace' && !PARTY_MODES.includes(this.cfg.mode)) {
       this.onboard.begin(bm.activeSlot === 'map3' ? bm._map3Base().map.safeZone : null)
     } else this.onboard.end()
     this.active = true
@@ -448,7 +449,7 @@ export class BuildSurvival {
     this.td = this.cfg.mode === 'towerDefense' ? new TowerDefense(this) : null
     // Escape Rooms (EscapeRooms.js): alone only, its own rooms in the sky.
     this.escape?.dispose()
-    this.escape = this.cfg.mode === 'escapeRoom' && !net ? new EscapeRooms(this) : null
+    this.escape = this.cfg.mode === 'escapeRoom' || this.cfg.mode === 'escapeRace' ? new EscapeRooms(this, { race: this.cfg.mode === 'escapeRace' }) : null
     if (this.td) this.coins = Math.max(this.coins, TD_START_COINS)
     if (!this._drops) this._drops = new PlayDrops(this)
     this._drops.clear()
@@ -471,6 +472,9 @@ export class BuildSurvival {
     this.disguise.clear()
     // A go-kart parked near where you start (GoKart.js).
     if (!this.kart) this.kart = new GoKart(this)
+    // Riding along in another player's vehicle (RemoteRides.js).
+    if (!this.passenger) this.passenger = new RemoteRides(this)
+    this.passenger.clear()
     this.kart.dispose()
     this._kartParked = false
     // Crafted boats and helicopters (Vehicles.js).
@@ -725,6 +729,7 @@ export class BuildSurvival {
     this.disguise?.clear()
     this.fuel?.clear()
     this.kart?.dispose()
+    this.passenger?.clear()
     this.vehicles?.clear()
     this.pins?.clear()
     this._fx?.clear()
@@ -3304,6 +3309,12 @@ export class BuildSurvival {
     // On a server the host runs the animals for everyone (even while dead
     // or in the menu); the others mirror them.
     if (net && !net.isHost) this.animals?.updateMirror(dt)
+    // ...and the train, the dragon and the UFO (copies of the host's).
+    if (net && !net.isHost) {
+      if (this.train?.mirror) this.train.update(dt)
+      this.dragon?.mirrorUpdate(dt)
+      this.ufo?.mirrorUpdate(dt)
+    }
     else if (playing || net) this.animals?.update(dt)
     if (playing) this.signs?.update(dt)
     if (playing) this.fishing?.update(dt)
@@ -3843,6 +3854,15 @@ export class BuildSurvival {
       }
       if (String(h.id)[0] === 'a') {
         this.animals?.remoteHit(h)
+        continue
+      }
+      // A guest's shot at the dragon, and Escape Rooms' messages.
+      if (h.id === 'x1') {
+        this.dragon?.remoteHit(h)
+        continue
+      }
+      if (String(h.id)[0] === 'e') {
+        this.escape?.remoteHit(h)
         continue
       }
       // Paint Wars' splats and Build Battle's stars (PartyModes.js).

@@ -19,7 +19,9 @@
 //
 // BuildTryMode hands it your keys each frame while you drive (drive()) and
 // puts you and the camera in the seat. On a server your hits go to the
-// host like shots do; the others don't see the kart (only you, moving).
+// host like shots do. The others see your kart (snapshot() rides along
+// with your boats in `veh`, Vehicles.drawRemote) and can hop on behind
+// you as a passenger (RemoteRides.js, 2026-11-09).
 import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
@@ -139,6 +141,13 @@ export class GoKart {
   }
 
   // The Use key (BuildMode._tryUseFromCamera): hop in or out.
+  // For the others on a server (PlayNet `veh`, kind 'k'): where it is,
+  // and whether someone's driving it (the wheels turn).
+  snapshot() {
+    if (!this.group) return []
+    return [{ k: 'k', x: +this.x.toFixed(2), y: +(this.y + (this.lift || 0)).toFixed(2), z: +this.z.toFixed(2), h: +this.heading.toFixed(2), r: this.driving && Math.abs(this.speed) > 0.5 ? 1 : 0 }]
+  }
+
   use() {
     if (!this.group || this.s.dead || this.s.spectating) return false
     if (this.driving) {

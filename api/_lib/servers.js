@@ -49,8 +49,10 @@ export const JOIN_GRACE_MS = 90000
 // zone: Shrinking Zone (src/game/ShrinkZone.js).
 // td: Tower Defense (src/game/TowerDefense.js).
 // hide / ctf / koth / soccer / potato / bowling / paint / build / lava / laser / kart / parkour / duel / golf / freeze / bomb / werewolf / dodge / chairs / simon: the party modes (src/game/PartyModes.js).
-export const MODES = ['main', 'infection', 'zone', 'hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'paint', 'build', 'lava', 'laser', 'kart', 'parkour', 'duel', 'golf', 'freeze', 'bomb', 'werewolf', 'dodge', 'chairs', 'simon', 'td']
+// escape / escapeSolo: Escape Rooms as a team, and Escape Race (src/game/EscapeRooms.js).
+export const MODES = ['main', 'infection', 'zone', 'escape', 'escapeSolo', 'hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'paint', 'build', 'lava', 'laser', 'kart', 'parkour', 'duel', 'golf', 'freeze', 'bomb', 'werewolf', 'dodge', 'chairs', 'simon', 'td']
 const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer', potato: 'hotPotato', bowling: 'zombieBowling', paint: 'paintWars', build: 'buildBattle', lava: 'floorLava', laser: 'laserTag', kart: 'kartRace', parkour: 'obstacleCourse', duel: 'duelArena', golf: 'miniGolf', freeze: 'freezeTag', bomb: 'bombDefuse', werewolf: 'werewolfNight', dodge: 'dodgeball', chairs: 'musicalChairs', simon: 'simonSays' }
+const ESCAPE_MODES = ['escape', 'escapeSolo']
 const NAME_MAX = 24
 const NICK_MAX = 20
 const MAX_ZOMBIES = 40
@@ -476,9 +478,43 @@ function pinsFor(list, viewer) {
   return (Array.isArray(list) ? list : []).filter((p) => p && (p.v === 'a' || (p.v === 'f' && Array.isArray(p.to) && p.to.includes(me)))).map((p) => ({ x: p.x, z: p.z, v: p.v }))
 }
 
+// The host's Zombie Train (src/game/ZombieTrain.js snapshot()): the loop's
+// middle and how far round its front is.
+// Escape Rooms as a team (src/game/EscapeRooms.js snapshot()): the host's
+// puzzles (lever bits, code, button order, sign order), which rooms are
+// solved / broken in, each door's seconds left, the team's room.
+function cleanEsc(v) {
+  if (!v || typeof v !== 'object') return null
+  const digits = (s, len, max) => (typeof s === 'string' && s.length === len && [...s].every((c) => c >= '0' && c <= String(max)) ? s : null)
+  const c = digits(v.c, 4, 9)
+  const m = digits(v.m, 5, 3)
+  const o = digits(v.o, 4, 3)
+  if (!c || !m || !o) return null
+  const bits = (n, max) => Math.round(num(n, 0, max))
+  return { p: bits(v.p, 15), c, m, o, s: bits(v.s, 7), b: bits(v.b, 7), d: (Array.isArray(v.d) ? v.d : []).slice(0, 3).map((n) => Math.round(num(n, 0, 999))), r: bits(v.r, 2) }
+}
+
+function cleanTrain(v) {
+  if (!v || typeof v !== 'object') return null
+  return { cx: num(v.cx, -1e5, 1e5), cz: num(v.cz, -1e5, 1e5), head: num(v.head, -1e9, 1e9), w: v.w ? 1 : 0 }
+}
+
+// The host's dragon (DragonBoss.js): its lair, where round it is, health.
+function cleanDragon(v) {
+  if (!v || typeof v !== 'object') return null
+  return { lx: Math.round(num(v.lx, -1e5, 1e5)), ly: Math.round(num(v.ly, -520, 520)), lz: Math.round(num(v.lz, -1e5, 1e5)), a: num(v.a, -1e6, 1e6), hp: Math.round(num(v.hp, 0, 1e5)), dy: v.dy ? 1 : 0 }
+}
+
+// The host's UFO (Ufo.js): where it drifts round, its height and clock.
+function cleanUfo(v) {
+  if (!v || typeof v !== 'object') return null
+  return { gx: num(v.gx, -1e5, 1e5), gz: num(v.gz, -1e5, 1e5), y: num(v.y, -520, 1000), t: num(v.t, 0, 1e6) }
+}
+
 function cleanVeh(v) {
   if (!Array.isArray(v)) return []
-  return v.slice(0, 4).filter((d) => d && (d.k === 'b' || d.k === 'h' || d.k === 'a' || d.k === 's')).map((d) => ({ k: d.k, x: num(d.x, -1e5, 1e5), y: num(d.y, -520, 520), z: num(d.z, -1e5, 1e5), h: num(d.h, -100, 100), r: d.r ? 1 : 0 }))
+  // b/h/a/s: boat, helicopter, balloon, submarine (up to 4); k: the go-kart.
+  return v.slice(0, 5).filter((d) => d && ['b', 'h', 'a', 's', 'k'].includes(d.k)).map((d) => ({ k: d.k, x: num(d.x, -1e5, 1e5), y: num(d.y, -520, 520), z: num(d.z, -1e5, 1e5), h: num(d.h, -100, 100), r: d.r ? 1 : 0 }))
 }
 
 // A player's spray tags (src/game/Sprays.js): the 16 x 16 picture (hex
@@ -528,6 +564,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     // Map pins shared with the others (src/game/MapPins.js).
     [`${base}/players/${playerId}/pins`]: cleanPins(s.pins),
     [`${base}/players/${playerId}/spray`]: cleanSpray(s.spray),
+    // Escape Race: which copy of the rooms is theirs (src/game/EscapeRooms.js).
+    [`${base}/players/${playerId}/lane`]: Math.round(num(s.lane, 0, 15)),
     [`${base}/players/${playerId}/t`]: now,
   }
   // Drop players who went quiet; take over as host if the host did.
@@ -601,6 +639,12 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     if (zone) updates[`${base}/zone`] = zone
     const td = server.mode === 'td' ? cleanTd(body.td) : null
     if (td) updates[`${base}/td`] = td
+    // The Zombie Train, the dragon and the UFO (2026-11-09): null clears.
+    if (body.train !== undefined) updates[`${base}/train`] = cleanTrain(body.train)
+    if (body.dragon !== undefined) updates[`${base}/dragon`] = cleanDragon(body.dragon)
+    if (body.ufo !== undefined) updates[`${base}/ufo`] = cleanUfo(body.ufo)
+    const esc = ESCAPE_MODES.includes(server.mode) ? cleanEsc(body.esc) : null
+    if (esc) updates[`${base}/esc`] = esc
     const party = PARTY_KINDS[server.mode] ? cleanParty(body.party, PARTY_KINDS[server.mode]) : null
     if (party) updates[`${base}/party`] = party
     if (body.animals && typeof body.animals === 'object') {
@@ -642,6 +686,10 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     if (server.zone) out.zone = server.zone
     if (server.td) out.td = server.td
     if (server.party) out.party = server.party
+    out.train = server.train || null
+    out.dragon = server.dragon || null
+    out.ufo = server.ufo || null
+    if (server.esc) out.esc = server.esc
     // Shots on the host's zombies (z...) and animals (a..., or taming one).
     for (const h of [].concat(body.hits || []).slice(0, MAX_HITS_PER_SYNC)) {
       // z/a: a zombie or animal; s: a stun shot in Infection (s + who).
@@ -651,7 +699,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
       // g: a Mini-Golf putt (g + angle in mrad, dmg = power x 10).
       // s / w (Bomb Defuse, Werewolf Night): a stun (s + who) or a werewolf
       // knock-out / day vote (w + who, dmg 1 = knock out, 2 = vote).
-      if (!h || !(/^[za]\d{1,9}$/.test(h.id) || (['infection', 'ctf', 'koth', 'laser', 'dodge'].includes(server.mode) && /^s(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'paint' && /^p-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'kart' && /^k-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'parkour' && /^f\d{4,8}$/.test(h.id)) || (server.mode === 'duel' && /^d(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'golf' && /^g-?\d{1,5}$/.test(h.id)) || (['bomb', 'werewolf'].includes(server.mode) && /^[sw](?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'build' && /^v(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)))) continue
+      if (!h || !(/^[za]\d{1,9}$/.test(h.id) || (['infection', 'ctf', 'koth', 'laser', 'dodge'].includes(server.mode) && /^s(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'paint' && /^p-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'kart' && /^k-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'parkour' && /^f\d{4,8}$/.test(h.id)) || (server.mode === 'duel' && /^d(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'golf' && /^g-?\d{1,5}$/.test(h.id)) || (['bomb', 'werewolf'].includes(server.mode) && /^[sw](?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'build' && /^v(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || h.id === 'x1' || (ESCAPE_MODES.includes(server.mode) && /^e[swb]\d(?:_\d{1,2})?$/.test(h.id)))) continue
       updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId, ...(h.tame === true && h.id[0] === 'a' ? { tame: true } : {}), ...(h.catch === true ? { catch: true } : {}), ...(h.freeze === true && h.id[0] === 'z' ? { freeze: true } : {}) }
     }
   }
@@ -670,7 +718,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p) continue
-    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null }
+    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0 }
     // A chat bubble: its number (new one = new bubble) and how long ago.
     if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }

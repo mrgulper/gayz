@@ -34,6 +34,7 @@
 import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
+import { makeKart } from './GoKart.js'
 
 const ENTER_REACH = 3
 const HINT_REACH = 5
@@ -90,10 +91,12 @@ const KEYS = {
   balloon: { placed: 'vehicleBalloonPlaced', in: 'vehicleBalloonIn', refueled: 'vehicleBalloonRefueled', out: 'vehicleBalloonOutOfFuel' },
   sub: { placed: 'vehicleSubPlaced', in: 'vehicleSubIn' },
 }
-const MAKE = { boat: (B) => makeBoat(B), heli: (B) => makeHeli(B), balloon: (B) => makeBalloon(B), sub: (B) => makeSub(B) }
+const MAKE = { boat: (B) => makeBoat(B), heli: (B) => makeHeli(B), balloon: (B) => makeBalloon(B), sub: (B) => makeSub(B), kart: (B) => makeKart(B) }
 // Kinds over the network (snapshot / cleanRemote).
-const NET_KIND = { boat: 'b', heli: 'h', balloon: 'a', sub: 's' }
-const KIND_OF_NET = { b: 'boat', h: 'heli', a: 'balloon', s: 'sub' }
+const NET_KIND = { boat: 'b', heli: 'h', balloon: 'a', sub: 's', kart: 'k' }
+const KIND_OF_NET = { b: 'boat', h: 'heli', a: 'balloon', s: 'sub', k: 'kart' }
+// A player's list on a server: their boats etc. plus their go-kart.
+export const MAX_REMOTE = MAX_OUT + 1
 
 const isWater = (bm, x, y, z) => {
   const type = bm.getBlockAt(x, y, z)
@@ -642,6 +645,8 @@ export function drawRemote(survival, p, dt) {
     }
     if (ud.flame) ud.flame.visible = !!d.r
     if (ud.prop && d.r) ud.prop.rotation.z += dt * 20
+    // A kart's wheels turn while it's driven.
+    if (ud.wheels && d.r) for (const w of ud.wheels) w.rotation.x += dt * 30
   })
 }
 
@@ -654,7 +659,7 @@ export function disposeRemote(p) {
 export function cleanRemote(list) {
   if (!Array.isArray(list)) return []
   const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0)
-  return list.slice(0, MAX_OUT).filter((d) => d && KIND_OF_NET[d.k]).map((d) => ({ k: d.k, x: n(d.x), y: n(d.y), z: n(d.z), h: n(d.h), r: d.r ? 1 : 0 }))
+  return list.slice(0, MAX_REMOTE).filter((d) => d && KIND_OF_NET[d.k]).map((d) => ({ k: d.k, x: n(d.x), y: n(d.y), z: n(d.z), h: n(d.h), r: d.r ? 1 : 0 }))
 }
 
 function disposeGroup(group) {

@@ -2388,6 +2388,8 @@ export class BuildMode {
   // Trying the map: right-click or E opens/closes the door you're looking
   // at, within arm's reach - and never swings one shut onto yourself.
   _tryUseFromCamera() {
+    // Off someone else's vehicle (RemoteRides.js).
+    if (this.survival?.active && this.survival.passenger?.on && this.survival.passenger.use()) return true
     // Hop in or out of the go-kart (GoKart.js).
     if (this.survival?.active && this.survival.vehicles?.riding && this.survival.vehicles.use()) return true
     // On or off a tamed animal (AnimalRiding.js).
@@ -2395,6 +2397,8 @@ export class BuildMode {
     if (this.survival?.active && this.survival.kart?.use()) return true
     // ...or a boat / helicopter (Vehicles.js).
     if (this.survival?.active && this.survival.vehicles?.use()) return true
+    // ...or on board another player's, as a passenger (RemoteRides.js).
+    if (this.survival?.active && this.survival.passenger?.use()) return true
     // Into the Zombie Train, or a rocket to the Moon (ZombieTrain.js, MoonTrip.js).
     if (this.survival?.active && this.survival.train?.use()) return true
     if (this.survival?.active && this.survival.moon?.use()) return true
@@ -4726,6 +4730,11 @@ export class BuildMode {
     // Shadows (when the Shadows setting is on) only change when blocks do -
     // the sun never moves here - so the shadow map is redrawn only then,
     // instead of drawing every block a second time every frame.
+    // Tests only (game.__testNoDraw): everything above still runs - chunks,
+    // zombies, the look - but nothing is sent to the graphics card. A test
+    // machine without one draws ~2 frames a second, and a test with two
+    // players' games open at once spent minutes on pictures nobody checks.
+    if (this.game?.__testNoDraw) return
     const shadowMap = this.renderer.shadowMap
     const shadowAutoUpdate = shadowMap.autoUpdate
     shadowMap.autoUpdate = false

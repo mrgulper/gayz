@@ -924,10 +924,30 @@ export class BuildTryMode {
     const crouchNow = heldAction(keys, 'crouch')
     if (crouchNow && !this._rideCrouch && this.bm.survival?.active) {
       const sv = this.bm.survival
-      if (sv.kart?.driving) sv.kart.leave()
+      if (sv.passenger?.on) sv.passenger.leave()
+      else if (sv.kart?.driving) sv.kart.leave()
       else if (sv.vehicles?.riding?.kind === 'boat') sv.vehicles.leave()
     }
     this._rideCrouch = crouchNow
+    // A passenger in another player's vehicle (RemoteRides.js): carried
+    // along in its seat; Jump hops off too.
+    const passenger = this.bm.survival?.active ? this.bm.survival.passenger : null
+    if (passenger?.on) {
+      const jumpNow = heldAction(keys, 'jump')
+      if (jumpNow && !this._rideJump) passenger.leave()
+      this._rideJump = jumpNow
+      const seat = passenger.on ? passenger.seat() : null
+      if (seat) {
+        this.vel.set(0, 0, 0)
+        this.onGround = true
+        this.pos.set(seat.x, seat.y, seat.z)
+        cam.position.set(seat.x * B, (seat.y + seat.eye) * B, seat.z * B)
+        this._seatEye = seat.eye
+        this.updateHands(dt, keys, false, false)
+        this._drawMap(performance.now())
+        return
+      }
+    } else this._rideJump = heldAction(keys, 'jump')
     // On a tamed animal (AnimalRiding.js): the keys run it, Jump hops.
     const riding = this.bm.survival?.active ? this.bm.survival.riding : null
     if (riding?.on) {

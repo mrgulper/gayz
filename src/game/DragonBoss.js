@@ -11,8 +11,11 @@
 // if it hits; dodge it). Shoot it down: DRAGON_HP health, shown in a boss
 // bar. Slay it and its hoard is yours: HOARD_COINS coins and HOARD_GEMS
 // gems, and the chest's loot. After DRAGON_LIFE seconds an unbeaten dragon
-// flies away. On a server only the host sees (and fights) it, like the
-// other events' planes and meteors.
+// flies away. On a server the host runs it and everyone sees it
+// (2026-11-09): the others get a copy that follows the host's (snapshot()
+// -> applySnapshot(), lair and all), it breathes fire at each of them
+// too, their shots hurt the real one (a hit `x1` to the host,
+// remoteHit()) and everyone there gets the hoard when it falls.
 import { noteBoss } from './CampMuseum.js'
 import * as THREE from 'three'
 import { t } from './i18n.js'
@@ -80,6 +83,54 @@ export class DragonBoss {
     s._message(t('dragonAppears'), 6)
     try { audioEngine.playSpecial?.('shout') } catch { /* no audio */ }
     return { update: (dt) => this._update(dt), dispose: () => this.clear() }
+  }
+
+  // --- on a server ---
+
+  // The host's dragon for the others (PlayNet, `dragon`).
+  snapshot() {
+    const d = this.d
+    if (!d || this.mirror) return null
+    return { lx: d.lair.x, ly: d.lair.y, lz: d.lair.z, a: +d.a.toFixed(3), hp: Math.max(0, Math.round(d.hp)), dy: d.dying ? 1 : 0 }
+  }
+
+  // Everyone else: a copy of the host's (null: it's gone).
+  applySnapshot(n) {
+    if (!n) {
+      if (this.mirror && this.d && !this.d.dying) this.clear()
+      return
+    }
+    if (this.d && !this.mirror) return
+    if (!this.d) {
+      const lair = { x: n.lx, y: n.ly, z: n.lz }
+      this._lair(lair)
+      this.mirror = true
+      this.d = { lair, hp: n.hp, a: n.a, x: lair.x, y: lair.y + FLY_UP, z: lair.z, fireIn: 3, left: DRAGON_LIFE, dying: 0, flash: 0, t: 0 }
+      this._mesh()
+      this._bar(true)
+      this.s._message(t('dragonAppears'), 6)
+      try { audioEngine.playSpecial?.('shout') } catch { /* no audio */ }
+    }
+    const d = this.d
+    d.netA = n.a
+    if (!d.dying) d.hp = Math.min(d.hp, n.hp)
+    if (n.dy && !d.dying) this._slain()
+  }
+
+  // A mirror's frame (BuildSurvival.update - the host's runs as an event).
+  mirrorUpdate(dt) {
+    if (!this.mirror || !this.d) return
+    // The host left and it's me now: this copy goes (the events start over).
+    if (this.s.net?.isHost || !this._update(dt)) this.clear()
+  }
+
+  // Another player's shot (host only).
+  remoteHit(h) {
+    const d = this.d
+    if (!d || d.dying || this.mirror) return
+    d.hp -= Number(h.dmg) || 0
+    d.flash = 0.12
+    if (d.hp <= 0) this._slain()
   }
 
   // The lair: dark rock, obsidian spikes, a gold pile, the hoard chest.
@@ -187,9 +238,14 @@ export class DragonBoss {
       }
       return d.dying < 30
     }
-    d.left -= dt
-    // Round and round the lair.
+    if (!this.mirror) d.left -= dt
+    // Round and round the lair (a copy eases after the host's).
     d.a += dt * 0.32
+    if (this.mirror && d.netA !== undefined) {
+      const gap = Math.atan2(Math.sin(d.netA - d.a), Math.cos(d.netA - d.a))
+      d.a += gap * Math.min(1, dt * 3)
+      d.netA += dt * 0.32
+    }
     d.x = d.lair.x + 0.5 + Math.cos(d.a) * CIRCLE_R
     d.z = d.lair.z + 0.5 + Math.sin(d.a) * CIRCLE_R
     d.y = d.lair.y + FLY_UP + Math.sin(d.t * 0.8) * 1.5
@@ -275,6 +331,11 @@ export class DragonBoss {
     d.hp -= amount
     d.flash = 0.12
     this.s.damageNumbers?.show(d.x, d.y + 2, d.z, amount)
+    // A copy: the host's dragon takes the hit (it falls when the host's does).
+    if (this.mirror) {
+      this.s.net?.queueHit?.('x1', amount)
+      return true
+    }
     if (d.hp <= 0) this._slain()
     return true
   }
@@ -312,5 +373,6 @@ export class DragonBoss {
     this._group = null
     this._bar(false)
     this.d = null
+    this.mirror = false
   }
 }

@@ -27,6 +27,7 @@ const MODE_KEYS = {
   paintWars: 'topBarModePaintWars',
   buildBattle: 'topBarModeBuildBattle',
   escapeRoom: 'topBarModeEscapeRoom',
+  escapeRace: 'topBarModeEscapeRace',
   floorLava: 'topBarModeFloorLava',
   laserTag: 'topBarModeLaserTag',
   kartRace: 'topBarModeKartRace',
