@@ -133,6 +133,7 @@ export class Instruments {
     this.on = i
     this._showPad()
     s._message(t(i === 'g' ? 'musicGuitarOn' : 'musicDrumsOn'), 3)
+    s.bingo?.note('music')
   }
 
   off() {

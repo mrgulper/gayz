@@ -48,10 +48,10 @@ export const JOIN_GRACE_MS = 90000
 // main: Zombie Survival; infection: Infection mode (src/game/Infection.js);
 // zone: Shrinking Zone (src/game/ShrinkZone.js).
 // td: Tower Defense (src/game/TowerDefense.js).
-// hide / ctf / koth / soccer / potato / bowling / paint / build / lava / laser / kart / parkour / duel / golf / freeze / bomb / werewolf / dodge / chairs / simon / prop: the party modes (src/game/PartyModes.js).
+// hide / ctf / koth / soccer / potato / bowling / paint / build / lava / laser / kart / parkour / duel / golf / freeze / bomb / werewolf / dodge / chairs / simon / prop / tug: the party modes (src/game/PartyModes.js).
 // escape / escapeSolo: Escape Rooms as a team, and Escape Race (src/game/EscapeRooms.js).
-export const MODES = ['main', 'infection', 'zone', 'escape', 'escapeSolo', 'hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'paint', 'build', 'lava', 'laser', 'kart', 'parkour', 'duel', 'golf', 'freeze', 'bomb', 'werewolf', 'dodge', 'chairs', 'simon', 'prop', 'td']
-const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer', potato: 'hotPotato', bowling: 'zombieBowling', paint: 'paintWars', build: 'buildBattle', lava: 'floorLava', laser: 'laserTag', kart: 'kartRace', parkour: 'obstacleCourse', duel: 'duelArena', golf: 'miniGolf', freeze: 'freezeTag', bomb: 'bombDefuse', werewolf: 'werewolfNight', dodge: 'dodgeball', chairs: 'musicalChairs', simon: 'simonSays', prop: 'propHunt' }
+export const MODES = ['main', 'infection', 'zone', 'escape', 'escapeSolo', 'hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'paint', 'build', 'lava', 'laser', 'kart', 'parkour', 'duel', 'golf', 'freeze', 'bomb', 'werewolf', 'dodge', 'chairs', 'simon', 'prop', 'tug', 'td']
+const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer', potato: 'hotPotato', bowling: 'zombieBowling', paint: 'paintWars', build: 'buildBattle', lava: 'floorLava', laser: 'laserTag', kart: 'kartRace', parkour: 'obstacleCourse', duel: 'duelArena', golf: 'miniGolf', freeze: 'freezeTag', bomb: 'bombDefuse', werewolf: 'werewolfNight', dodge: 'dodgeball', chairs: 'musicalChairs', simon: 'simonSays', prop: 'propHunt', tug: 'tugOfWar' }
 const ESCAPE_MODES = ['escape', 'escapeSolo']
 const NAME_MAX = 24
 const NICK_MAX = 20
@@ -513,8 +513,8 @@ function cleanUfo(v) {
 
 function cleanVeh(v) {
   if (!Array.isArray(v)) return []
-  // b/h/a/s: boat, helicopter, balloon, submarine (up to 4); k: the go-kart.
-  return v.slice(0, 5).filter((d) => d && ['b', 'h', 'a', 's', 'k'].includes(d.k)).map((d) => ({ k: d.k, x: num(d.x, -1e5, 1e5), y: num(d.y, -520, 520), z: num(d.z, -1e5, 1e5), h: num(d.h, -100, 100), r: d.r ? 1 : 0 }))
+  // b/h/a/s/j: boat, helicopter, balloon, submarine, jet ski (up to 4); k: the go-kart.
+  return v.slice(0, 5).filter((d) => d && ['b', 'h', 'a', 's', 'j', 'k'].includes(d.k)).map((d) => ({ k: d.k, x: num(d.x, -1e5, 1e5), y: num(d.y, -520, 520), z: num(d.z, -1e5, 1e5), h: num(d.h, -100, 100), r: d.r ? 1 : 0 }))
 }
 
 // A player's spray tags (src/game/Sprays.js): the 16 x 16 picture (hex
@@ -727,7 +727,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
       // s / w (Bomb Defuse, Werewolf Night): a stun (s + who) or a werewolf
       // knock-out / day vote (w + who, dmg 1 = knock out, 2 = vote).
       // s / q (Prop Hunt): a find (s + who) or a new disguise (q + prop).
-      if (!h || !(/^[za]\d{1,9}$/.test(h.id) || (['infection', 'ctf', 'koth', 'laser', 'dodge'].includes(server.mode) && /^s(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'paint' && /^p-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'kart' && /^k-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'parkour' && /^f\d{4,8}$/.test(h.id)) || (server.mode === 'duel' && /^d(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'golf' && /^g-?\d{1,5}$/.test(h.id)) || (['bomb', 'werewolf'].includes(server.mode) && /^[sw](?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'prop' && /^(?:s(?:b\d{1,4}|[A-Za-z0-9]{4,40})|q\d{1,2})$/.test(h.id)) || (server.mode === 'build' && /^v(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || h.id === 'x1' || (ESCAPE_MODES.includes(server.mode) && /^e[swb]\d(?:_\d{1,2})?$/.test(h.id)))) continue
+      // u (Tug of War): how many times they pulled (u + count).
+      if (!h || !(/^[za]\d{1,9}$/.test(h.id) || (['infection', 'ctf', 'koth', 'laser', 'dodge'].includes(server.mode) && /^s(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'paint' && /^p-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'kart' && /^k-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'parkour' && /^f\d{4,8}$/.test(h.id)) || (server.mode === 'duel' && /^d(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'golf' && /^g-?\d{1,5}$/.test(h.id)) || (['bomb', 'werewolf'].includes(server.mode) && /^[sw](?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'tug' && /^u\d{1,2}$/.test(h.id)) || (server.mode === 'prop' && /^(?:s(?:b\d{1,4}|[A-Za-z0-9]{4,40})|q\d{1,2})$/.test(h.id)) || (server.mode === 'build' && /^v(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || h.id === 'x1' || (ESCAPE_MODES.includes(server.mode) && /^e[swb]\d(?:_\d{1,2})?$/.test(h.id)))) continue
       updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId, ...(h.tame === true && h.id[0] === 'a' ? { tame: true } : {}), ...(h.catch === true ? { catch: true } : {}), ...(h.freeze === true && h.id[0] === 'z' ? { freeze: true } : {}), ...(h.boo === true && h.id[0] === 'z' ? { boo: true } : {}) }
     }
   }

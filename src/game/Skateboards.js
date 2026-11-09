@@ -64,6 +64,7 @@ export class Skateboards {
     this.on = true
     this._build()
     s._message(t('skateOn'), 3)
+    s.bingo?.note('ride')
     try { audioEngine.playSpecial?.('clank') } catch { /* no audio */ }
   }
 

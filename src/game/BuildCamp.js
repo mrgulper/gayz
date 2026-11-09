@@ -33,7 +33,7 @@ import { CampWheel } from './CampWheel.js'
 import { CampTreehouse } from './CampTreehouse.js'
 import { CampPlaza, WIDE as PLAZA_WIDE } from './CampPlaza.js'
 import { CampMuseum, WIDE as MUSEUM_WIDE } from './CampMuseum.js'
-import { Campaign } from './Campaign.js'
+import { Campaign, WIDE as LAB_WIDE } from './Campaign.js'
 
 export const COIN_PER_KILL = 10
 export const COIN_PER_WAVE = 50
@@ -156,6 +156,7 @@ export class BuildCamp {
     this.museum = null
     this.lab?.dispose()
     this.lab = null
+    this.s?.pizza?.disposeCounter()
     if (this._prompt) this._prompt.style.display = 'none'
   }
 
@@ -195,6 +196,8 @@ export class BuildCamp {
     // The Museum and Dr. Goo's lab (CampMuseum.js, Campaign.js).
     if (this.museum?.use()) return true
     if (this.lab?.use()) return true
+    // The Pizza counter (PizzaDelivery.js).
+    if (this.s?.pizza?.use()) return true
     const npc = this._facingNpc()
     if (!npc) return false
     shop.openPanel(npc.id)
@@ -252,6 +255,9 @@ export class BuildCamp {
       if (this.museum.spot) taken.push({ ...this.museum.spot, wide: MUSEUM_WIDE })
       this.lab = new Campaign(this)
       this.lab.build(taken)
+      // The Pizza counter (PizzaDelivery.js, 2026-11-09).
+      if (this.lab.spot) taken.push({ ...this.lab.spot, wide: LAB_WIDE })
+      this.s?.pizza?.buildCounter(this, taken)
       this.taken = taken
     }
     this.museum?.update()
@@ -266,8 +272,9 @@ export class BuildCamp {
     const st = !npc && !wheel && !tree && !this.s.shop?.panelOpen ? this.plaza?.near() : null
     const mus = !npc && !wheel && !tree && !st && !this.s.shop?.panelOpen && !!this.museum?.near()
     const lab = !npc && !wheel && !tree && !st && !mus && !this.s.shop?.panelOpen && !!this.lab?.near()
+    const pz = !npc && !wheel && !tree && !st && !mus && !lab && !this.s.shop?.panelOpen && !!this.s?.pizza?.near()
     if (this._prompt) {
-      this._prompt.style.display = npc || wheel || tree || st || mus || lab ? 'block' : 'none'
+      this._prompt.style.display = npc || wheel || tree || st || mus || lab || pz ? 'block' : 'none'
       if (npc && this._promptFor !== npc.id) {
         this._promptFor = npc.id
         this._prompt.textContent = t('campTalk', { name: t(`campNpc_${npc.id}`) })
@@ -286,6 +293,9 @@ export class BuildCamp {
       } else if (lab && this._promptFor !== `lab${this.lab.story.ch}${this.lab.story.started}${this.lab.story.done}`) {
         this._promptFor = `lab${this.lab.story.ch}${this.lab.story.started}${this.lab.story.done}`
         this._prompt.textContent = this.lab.prompt()
+      } else if (pz && this._promptFor !== `pizza${!!this.s.pizza.job}`) {
+        this._promptFor = `pizza${!!this.s.pizza.job}`
+        this._prompt.textContent = this.s.pizza.prompt()
       }
     }
   }

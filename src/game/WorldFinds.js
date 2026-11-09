@@ -14,7 +14,7 @@ import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
 import { itemIconCanvas, itemName } from './PlayInventory.js'
 
-export const FIND_IDS = ['bike', 'hoverboard', 'guitar', 'drums']
+export const FIND_IDS = ['bike', 'hoverboard', 'guitar', 'drums', 'bungeeCord']
 export const FIND_FIRST_S = 45
 export const FIND_EVERY_S = 120
 export const FIND_LIFE_S = 180

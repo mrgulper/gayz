@@ -28,6 +28,14 @@
 //   only moves through water and never above the surface. Use / right-click
 //   gets out, even deep down (you swim up). Riding one over the deep sea
 //   finds reefs and sunken ruins (Reefs.js). No fuel.
+// - Jet skis (2026-11-09, Gaymi's idea list 10: "a fast ride on the
+//   water that jumps over waves, while sea zombies grab at you"): crafted,
+//   put on water like a boat. JET_SPEED top speed, quick to turn; going
+//   faster than JET_HOP_SPEED it bounces off the waves now and then. While
+//   you ride, sea zombies come up out of the water near you (one every
+//   JET_SEA_EVERY seconds, JET_SEA_MAX at once - alone or as the host); one
+//   that gets within JET_GRAB_R blocks grabs it and holds you down to
+//   JET_GRAB_SPEED for JET_GRAB_S seconds.
 // - On a server everyone sees your boats and helicopters (snapshot() goes
 //   out with your state, `veh` in api/_lib/servers.js; drawRemote() draws
 //   the others').
@@ -35,6 +43,7 @@ import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
 import { makeKart } from './GoKart.js'
+import { REALM_KINDS } from './ZombieKinds.js'
 
 const ENTER_REACH = 3
 const HINT_REACH = 5
@@ -83,6 +92,21 @@ const SUB_ACCEL = 6
 const SUB_TURN = 1.6
 export const SUB_DIVE = 4
 const SUB_EYE = 0.7
+// Jet ski.
+export const JET_SPEED = 20
+const JET_ACCEL = 16
+const JET_TURN = 2.6
+const JET_EYE = 0.85
+export const JET_HOP_SPEED = 12
+const JET_HOP_EVERY = [1.2, 2.6]
+const JET_GRAVITY = 14
+export const JET_SEA_EVERY = 6
+export const JET_SEA_MAX = 3
+export const JET_GRAB_R = 1.8
+export const JET_GRAB_SPEED = 5
+export const JET_GRAB_S = 1.5
+const JET_SEA_NEAR = 9
+const JET_SEA_FAR = 15
 const FUEL_FOR = { heli: HELI_FUEL_S, balloon: BALLOON_FUEL_S }
 // The text for each kind (i18n keys).
 const KEYS = {
@@ -90,11 +114,12 @@ const KEYS = {
   heli: { placed: 'vehicleHeliPlaced', in: 'vehicleHeliIn', refueled: 'vehicleRefueled', out: 'vehicleOutOfFuel' },
   balloon: { placed: 'vehicleBalloonPlaced', in: 'vehicleBalloonIn', refueled: 'vehicleBalloonRefueled', out: 'vehicleBalloonOutOfFuel' },
   sub: { placed: 'vehicleSubPlaced', in: 'vehicleSubIn' },
+  jetski: { placed: 'vehicleJetSkiPlaced', in: 'vehicleJetSkiIn' },
 }
-const MAKE = { boat: (B) => makeBoat(B), heli: (B) => makeHeli(B), balloon: (B) => makeBalloon(B), sub: (B) => makeSub(B), kart: (B) => makeKart(B) }
+const MAKE = { boat: (B) => makeBoat(B), heli: (B) => makeHeli(B), balloon: (B) => makeBalloon(B), sub: (B) => makeSub(B), jetski: (B) => makeJetSki(B), kart: (B) => makeKart(B) }
 // Kinds over the network (snapshot / cleanRemote).
-const NET_KIND = { boat: 'b', heli: 'h', balloon: 'a', sub: 's', kart: 'k' }
-const KIND_OF_NET = { b: 'boat', h: 'heli', a: 'balloon', s: 'sub', k: 'kart' }
+const NET_KIND = { boat: 'b', heli: 'h', balloon: 'a', sub: 's', jetski: 'j', kart: 'k' }
+const KIND_OF_NET = { b: 'boat', h: 'heli', a: 'balloon', s: 'sub', j: 'jetski', k: 'kart' }
 // A player's list on a server: their boats etc. plus their go-kart.
 export const MAX_REMOTE = MAX_OUT + 1
 
@@ -133,7 +158,7 @@ export class Vehicles {
   place(kind) {
     const s = this.s
     if (s.dead || s.spectating || this.riding) return false
-    const wet = kind === 'boat' || kind === 'sub'
+    const wet = kind === 'boat' || kind === 'sub' || kind === 'jetski'
     const spot = wet ? this._waterAhead() : this._groundAhead(kind)
     if (!spot) {
       s._message(t(wet ? 'vehicleNeedWater' : 'vehicleNeedRoom'), 3)
@@ -280,6 +305,10 @@ export class Vehicles {
     if (!v) return false
     this.s.kart?.leave()
     this.riding = v
+    if (v.kind === 'jetski') {
+      v.seaIn = JET_SEA_EVERY
+      this.s.bingo?.note('jetski')
+    }
     v.speed = 0
     v.side = 0
     this.s._message(t(KEYS[v.kind].in), 4)
@@ -293,7 +322,7 @@ export class Vehicles {
     const v = this.riding
     if (!v) return
     const tm = this.bm.tryMode
-    if (v.kind !== 'boat' && v.kind !== 'sub' && !force) {
+    if (v.kind !== 'boat' && v.kind !== 'sub' && v.kind !== 'jetski' && !force) {
       const ground = this.s._groundUnder(v.x, v.y + 0.5, v.z)
       if (v.y - ground > HELI_EXIT_HIGH) {
         this.s._message(t('vehicleLandFirst'), 2)
@@ -324,7 +353,7 @@ export class Vehicles {
   seat() {
     const v = this.riding
     if (!v) return null
-    const eye = v.kind === 'boat' ? BOAT_EYE : v.kind === 'sub' ? SUB_EYE : v.kind === 'balloon' ? BALLOON_EYE : HELI_EYE
+    const eye = v.kind === 'jetski' ? JET_EYE : v.kind === 'boat' ? BOAT_EYE : v.kind === 'sub' ? SUB_EYE : v.kind === 'balloon' ? BALLOON_EYE : HELI_EYE
     return { x: v.x, y: v.y + 0.01, z: v.z, eye: eye + (v.bob || 0) }
   }
 
@@ -335,7 +364,7 @@ export class Vehicles {
     const me = this.s.bodyPos()
     for (const v of this.list) {
       if (v === this.riding) continue
-      if (v.kind === 'boat') this._moveBoat(v, dt, 0, 0)
+      if (v.kind === 'boat' || v.kind === 'jetski') this._moveBoat(v, dt, 0, 0)
       else if (v.kind === 'sub') this._moveSub(v, dt, 0, 0, 0)
       else if (v.kind === 'balloon') this._moveBalloon(v, dt, {})
       else this._moveHeli(v, dt, {})
@@ -357,6 +386,7 @@ export class Vehicles {
       if (!steer) steer = THREE.MathUtils.clamp(-stick.x, -1, 1)
     }
     if (v.kind === 'boat') this._moveBoat(v, dt, throttle, steer)
+    else if (v.kind === 'jetski') this._moveJet(v, dt, throttle, steer)
     else if (v.kind === 'sub') this._moveSub(v, dt, throttle, steer, (up ? 1 : 0) - (down ? 1 : 0))
     else if (v.kind === 'balloon') this._moveBalloon(v, dt, { up, down, riding: true })
     else this._moveHeli(v, dt, { throttle, steer, up, down, riding: true })
@@ -383,6 +413,88 @@ export class Vehicles {
     // The water it was on is gone (broken out, drained): it sits there.
     v.bob = Math.sin(performance.now() / 450 + v.id) * 0.06
     this._place(v, dt)
+  }
+
+  // A jet ski: a fast boat that hops off the waves and gets grabbed.
+  _moveJet(v, dt, throttle, steer) {
+    v.grab = Math.max(0, (v.grab || 0) - dt)
+    const top = v.grab > 0 ? JET_GRAB_SPEED : JET_SPEED
+    if (throttle) v.speed += throttle * JET_ACCEL * dt
+    else v.speed -= Math.sign(v.speed) * Math.min(Math.abs(v.speed), BOAT_COAST * 2 * dt)
+    v.speed = THREE.MathUtils.clamp(v.speed, -BOAT_REVERSE, top)
+    v.heading += steer * JET_TURN * dt * THREE.MathUtils.clamp(Math.abs(v.speed) / 5 + 0.3, 0, 1) * Math.sign(v.speed || 1)
+    const nx = v.x + Math.sin(v.heading) * v.speed * dt
+    const nz = v.z + Math.cos(v.heading) * v.speed * dt
+    const surf = this._surface(nx, nz, v.y)
+    if (surf === null || Math.abs(surf - v.y) > 1.2) {
+      if (Math.abs(v.speed) > 3) try { audioEngine.playMelee?.() } catch { /* no audio */ }
+      v.speed *= -0.3
+    } else {
+      v.x = nx
+      v.z = nz
+      v.y = surf
+    }
+    // Off a wave now and then at speed: up, and back down with a splash.
+    v.air = v.air || 0
+    v.airV = v.airV || 0
+    if (v.air > 0 || v.airV > 0) {
+      v.airV -= JET_GRAVITY * dt
+      v.air += v.airV * dt
+      if (v.air <= 0) {
+        v.air = 0
+        v.airV = 0
+        try { audioEngine.playSpecial?.('whoosh') } catch { /* no audio */ }
+      }
+    } else if (v.speed > JET_HOP_SPEED) {
+      v.hopIn = (v.hopIn ?? 1) - dt
+      if (v.hopIn <= 0) {
+        v.hopIn = JET_HOP_EVERY[0] + Math.random() * (JET_HOP_EVERY[1] - JET_HOP_EVERY[0])
+        v.airV = 3.5 + Math.random() * 2.5
+      }
+    }
+    v.bob = v.air + Math.sin(performance.now() / 300 + v.id) * 0.05
+    this._place(v, dt)
+    v.group.rotation.x = THREE.MathUtils.damp(v.group.rotation.x, v.air > 0 ? -v.airV * 0.05 : -v.speed * 0.006, 6, dt)
+    this._seaZombies(v, dt)
+  }
+
+  // Sea zombies come up round a jet ski, and grab it.
+  _seaZombies(v, dt) {
+    const s = this.s
+    if (s.cfg?.noZombies || (s.net && !s.net.isHost) || s.party || s.td || s.escape) return
+    this._sea = (this._sea || []).filter((z) => z.health > 0 && s.zombies.includes(z))
+    v.seaIn = (v.seaIn ?? JET_SEA_EVERY) - dt
+    if (v.seaIn <= 0 && this._sea.length < JET_SEA_MAX) {
+      v.seaIn = JET_SEA_EVERY
+      const kinds = REALM_KINDS.ocean
+      for (let i = 0; i < 10; i++) {
+        // Somewhere ahead or off to the side, in the water.
+        const a = v.heading + (Math.random() - 0.5) * 1.6
+        const d = JET_SEA_NEAR + Math.random() * (JET_SEA_FAR - JET_SEA_NEAR)
+        const x = v.x + Math.sin(a) * d
+        const z = v.z + Math.cos(a) * d
+        const y = this._surface(x, z, v.y)
+        if (y === null) continue
+        const zb = s._extraZombie(Math.floor(x) + 0.5, Math.floor(y), Math.floor(z) + 0.5, kinds.length ? kinds[Math.floor(Math.random() * kinds.length)] : undefined)
+        if (zb) {
+          this._sea.push(zb)
+          if (!this._seaTold) {
+            this._seaTold = true
+            s._message(t('jetSkiSea'), 3)
+          }
+        }
+        break
+      }
+    }
+    if (v.grab > 0 || v.air > 0.3) return
+    for (const z of s.zombies) {
+      if (z.health <= 0 || Math.hypot(z.x - v.x, z.z - v.z) > JET_GRAB_R || Math.abs(z.y - v.y) > 2.5) continue
+      v.grab = JET_GRAB_S
+      v.speed = Math.min(v.speed, JET_GRAB_SPEED)
+      s._message(t('jetSkiGrabbed'), 2)
+      try { audioEngine.playSpecial?.('clank') } catch { /* no audio */ }
+      break
+    }
   }
 
   // A submarine: like a boat, plus up and down, only through water.
@@ -775,6 +887,28 @@ export function makeBalloon(B) {
 
 // A yellow submarine: a long rounded hull, a tower with a periscope,
 // round portholes down each side, fins and a propeller at the back.
+// A jet ski: a sleek two-tone hull, a seat and handlebars, facing +z.
+export function makeJetSki(B) {
+  const g = new THREE.Group()
+  const box = (w, h, d, color, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w * B, h * B, d * B), new THREE.MeshLambertMaterial({ color }))
+    m.position.set(x * B, y * B, z * B)
+    g.add(m)
+    return m
+  }
+  box(0.9, 0.35, 2.2, 0xf2f0ea, 0, 0, 0)
+  box(0.7, 0.3, 0.5, 0xf2f0ea, 0, 0, 1.3)
+  box(0.95, 0.12, 2.2, 0xd8352a, 0, 0.2, 0)
+  box(0.5, 0.25, 0.4, 0xd8352a, 0, 0.3, 1.25)
+  // The seat and the handlebars.
+  box(0.45, 0.2, 1.0, 0x2b2b2b, 0, 0.38, -0.35)
+  box(0.1, 0.45, 0.1, 0x4a4a4a, 0, 0.5, 0.55)
+  box(0.7, 0.08, 0.08, 0x2b2b2b, 0, 0.75, 0.55)
+  // A spray of foam at the back.
+  box(0.6, 0.1, 0.25, 0xd8f0ff, 0, -0.1, -1.2)
+  return g
+}
+
 export function makeSub(B) {
   const g = new THREE.Group()
   const box = (w, h, d, color, x, y, z, parent = g, extra = {}) => {

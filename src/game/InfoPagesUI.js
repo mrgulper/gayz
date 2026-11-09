@@ -65,6 +65,14 @@ import { MUSIC_S as CHAIRS_MUSIC, GRAB_S as CHAIRS_GRAB } from './PartyChairs.js
 import { CMD_S as SIMON_CMD, MIN_CMD_S as SIMON_MIN, RUN_DIST as SIMON_RUN } from './PartySimon.js'
 import { HIDE_S as PROP_HIDE_S, SEEK_S as PROP_SEEK_S, DECOYS as PROP_DECOYS, PROPS as PROP_KINDS, MISS_SLOW_S as PROP_MISS_S } from './PartyProps.js'
 import { BIKE_SPEED, HOVER_SPEED, HOVER_FALL, QUIET_HEAR } from './Rides.js'
+import { BLIMP_HP, BLIMP_LIFE, BLIMP_COINS, DROP_EVERY as BLIMP_DROP_EVERY, DROPS_MAX as BLIMP_DROPS } from './ZombieBlimp.js'
+import { SIZE as BINGO_SIZE, GOALS as BINGO_GOALS, LINE_COINS as BINGO_LINE, FULL_COINS as BINGO_FULL, FULL_GEMS as BINGO_GEMS } from './ZombieBingo.js'
+import { PIZZAS, HOT_S as PIZZA_HOT_S, TIP_S as PIZZA_TIP_S, PIZZA_COINS, TIP_COINS as PIZZA_TIP, COLD_COINS as PIZZA_COLD, SMELL_EVERY as PIZZA_SMELL } from './PizzaDelivery.js'
+import { WIN as TUG_WIN, ROUND as TUG_ROUND, MAX_TAPS as TUG_TAPS } from './PartyTug.js'
+import { MIN_DROP as BUNGEE_DROP, HANG_S as BUNGEE_HANG, BAG_COINS as BUNGEE_COINS, BAG_ITEMS as BUNGEE_ITEMS, GUARDS as BUNGEE_GUARDS } from './Bungee.js'
+import { JET_SEA_EVERY, JET_SEA_MAX, JET_GRAB_S } from './Vehicles.js'
+import { DISHES as DINER_DISHES, SEATS as DINER_SEATS, DISH_COINS as DINER_COINS, TIP_COINS as DINER_TIP, TIP_S as DINER_TIP_S, SPOT_COINS as DINER_SPOT, PATIENCE_S as DINER_PATIENCE, REVEAL_S as DINER_REVEAL } from './ZombieDiner.js'
+import { WINDOW as LEARN_WINDOW, SHARE as LEARN_SHARE, MAX_LEVEL as LEARN_MAX, LEVEL_CHANCE as LEARN_CHANCE, GEAR_MULT as LEARN_GEAR, FORGET_S as LEARN_FORGET } from './ZombieLearning.js'
 import { FIND_FIRST_S, FIND_EVERY_S, FIND_LIFE_S } from './WorldFinds.js'
 import { NOTES as MUSIC_NOTES, HEAR_R as MUSIC_HEAR, JAM_R as MUSIC_JAM } from './Instruments.js'
 import { BOO_S, BOO_CD, MARK_S, REVIVE_S, GHOST_WAIT_S } from './Ghosts.js'
@@ -543,6 +551,49 @@ export function _featureValues(_game) {
     hoverSpeed: HOVER_SPEED,
     hoverFall: HOVER_FALL,
     quietHear: QUIET_HEAR,
+    // Idea list 10 (2026-11-09).
+    blimpHp: BLIMP_HP,
+    blimpLife: BLIMP_LIFE,
+    blimpCoins: BLIMP_COINS,
+    blimpDropEvery: BLIMP_DROP_EVERY,
+    blimpDrops: BLIMP_DROPS,
+    bingoSize: BINGO_SIZE,
+    bingoGoals: BINGO_GOALS.length,
+    bingoLine: BINGO_LINE,
+    bingoFull: BINGO_FULL,
+    bingoGems: BINGO_GEMS,
+    pizzaCount: PIZZAS,
+    pizzaHotS: PIZZA_HOT_S,
+    pizzaTipS: PIZZA_TIP_S,
+    pizzaCoins: PIZZA_COINS,
+    pizzaTip: PIZZA_TIP,
+    pizzaCold: PIZZA_COLD,
+    pizzaSmell: PIZZA_SMELL,
+    tugWin: TUG_WIN,
+    tugMinutes: Math.round(TUG_ROUND / 60),
+    tugTaps: TUG_TAPS,
+    bungeeDrop: BUNGEE_DROP,
+    bungeeHang: BUNGEE_HANG,
+    bungeeCoins: BUNGEE_COINS,
+    bungeeItems: BUNGEE_ITEMS,
+    bungeeGuards: BUNGEE_GUARDS,
+    jetSeaEvery: JET_SEA_EVERY,
+    jetSeaMax: JET_SEA_MAX,
+    jetGrabS: JET_GRAB_S,
+    dinerDishes: DINER_DISHES.length,
+    dinerSeats: DINER_SEATS,
+    dinerCoins: DINER_COINS,
+    dinerTip: DINER_TIP,
+    dinerTipS: DINER_TIP_S,
+    dinerSpot: DINER_SPOT,
+    dinerPatience: DINER_PATIENCE,
+    dinerReveal: `${DINER_REVEAL[0]}-${DINER_REVEAL[1]}`,
+    learnWindow: LEARN_WINDOW,
+    learnShare: Math.round(LEARN_SHARE * 100),
+    learnMax: LEARN_MAX,
+    learnChance: Math.round(LEARN_CHANCE * 100),
+    learnGear: Math.round(LEARN_GEAR * 100),
+    learnForget: LEARN_FORGET,
     findFirst: FIND_FIRST_S,
     // World Map travel (Passport.js, FastTravel.js).
     stampCoins: STAMP_COINS,

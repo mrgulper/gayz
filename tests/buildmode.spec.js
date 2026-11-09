@@ -1183,7 +1183,7 @@ test('Settings > Controls keys drive walking in Map 1', async ({ page }) => {
     rebind('moveForward', 'KeyW')
     return { ids, withW, withI, withArrow }
   })
-  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap', 'cameraView', 'dropItem', 'emote', 'shop', 'spray'])
+  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap', 'cameraView', 'dropItem', 'emote', 'shop', 'spray', 'bingo'])
   expect(result.withW).toBeLessThan(0.01)
   expect(result.withI).toBeGreaterThan(2)
   expect(result.withArrow).toBeGreaterThan(2)
@@ -5610,8 +5610,8 @@ test('Crafting: the Crafting tab makes gear and blocks from what you carry', asy
     out.gooDrops = drops
     return out
   })
-  // 39 out of winter (the Snowball recipe only shows December to February).
-  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 40 : 39)
+  // 41 out of winter (the Snowball recipe only shows December to February).
+  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 42 : 41)
   expect(r.ammoReady).toBe(true)
   expect(r.helmetReady).toBe(false)
   expect(r.ammo).toBe(1)
@@ -8213,6 +8213,257 @@ test('Prop Hunt, bikes and hoverboards, finds, instruments and ghost teammates',
 
 // Names of big real places, pyramids and castles only where real ones are,
 // and towns sized to their country (World Map mode).
+test('the Zombie Blimp, Zombie Bingo, Pizza Delivery and Tug of War', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    const start = async (mode) => {
+      localStorage.removeItem('gayz-play-saved-run')
+      g.settings.selectedGameMode = mode
+      await g._enterBuildMode({ map: 'map3', play: true })
+      const s = g.buildMode.survival
+      for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+      s._pickWeapon('rifle')
+      return s
+    }
+    const stop = async () => {
+      g.buildMode.survival.stop?.()
+      g._exitBuildMode?.()
+      await new Promise((res) => setTimeout(res, 200))
+    }
+    let s = await start('classic')
+    const tm = s.bm.tryMode
+    const B = s.B
+    // --- Zombie Bingo: a card is dealt; a full card pays every line + the big prize ---
+    s.update(0.05)
+    const bingo = s.bingo
+    out.bingoDealt = bingo.card?.length === 25 && bingo.card[12] === null && bingo.card.filter(Boolean).length === 24 && new Set(bingo.card.filter(Boolean).map((x) => x.id)).size === 24
+    out.bingoPill = /Bingo/.test(document.getElementById('pill-bingo')?.textContent || '')
+    bingo.card = bingo.card.map((x, i) => (i === 12 ? null : { id: 'fish', ev: 'fish', n: 1 }))
+    let coins = s.coins
+    const gems = g.gems || 0
+    s.bingo.note('fish')
+    out.bingoFull = bingo.full && bingo.lines.size === 12 && s.coins >= coins + 12 * 100 + 1000 && (g.gems || 0) === gems + 10
+    bingo.toggle()
+    out.bingoCard = document.querySelectorAll('#camp-screen .bingo-cell').length === 25 && document.querySelectorAll('#camp-screen .bingo-cell.done').length === 25
+    bingo.toggle()
+    out.bingoCloses = !document.getElementById('camp-screen')
+    // --- the Zombie Blimp: drops parachute zombies, shot down it crashes with loot ---
+    out.blimpCame = s.events.start('blimp') && !!s.blimp.b && !!s.blimp.group
+    const zBefore = s.zombies.length
+    for (let i = 0; i < 400 && s.zombies.length === zBefore; i++) s.events.update(0.05)
+    out.blimpChutes = s.blimp.b?.drops >= 1 && s.zombies.length > zBefore
+    const b = s.blimp.b
+    const ray = s.bm._raycaster.ray.clone()
+    ray.origin.set(b.x * B, (b.y - 20) * B, b.z * B)
+    ray.direction.set(0, 1, 0)
+    coins = s.coins
+    out.blimpHit = s.blimp.shoot(ray, Infinity, 500) && b.hp === 400 && !b.falling
+    s.blimp.shoot(ray, Infinity, 500)
+    out.blimpFalls = b.falling === true
+    for (let i = 0; i < 400 && s.blimp.b; i++) s.events.update(0.05)
+    out.blimpCrashed = !s.blimp.b && !s.blimp.group && s.coins >= coins + 200
+    // --- Pizza Delivery: the camp counter, a hot delivery, the smell ---
+    for (let i = 0; i < 5; i++) s.update(0.05)
+    const P = s.pizza
+    out.pizzaCounter = !!P.group && !!P.front
+    tm.pos.set(P.front.x, tm.pos.y, P.front.z)
+    out.pizzaPrompt = P.near() && P.use() && P.job?.drops.length >= 1
+    const d = P.job.drops[0]
+    coins = s.coins
+    const smellBefore = s.zombies.length
+    for (let i = 0; i < 6 && P.job.smelled === 0; i++) {
+      P.job.smellIn = 0
+      P.update(0.05)
+    }
+    out.pizzaSmell = P.job.smelled >= 1 && s.zombies.length > smellBefore
+    tm.pos.set(d.x, d.y, d.z)
+    P.update(0.05)
+    out.pizzaDelivered = d.done === true && s.coins >= coins + 40
+    await stop()
+    // --- Tug of War: teams on the rope, the pull, the pit ---
+    s = await start('tugOfWar')
+    const pm = s.party
+    for (let i = 0; i < 200 && pm.phase === 'wait'; i++) pm.update(0.05)
+    const T = pm.ext
+    out.tugTeams = pm.phase === 'play' && T.members('r').length === 3 && T.members('b').length === 3
+    pm.update(0.05)
+    const mine = T.slot(pm.myId)
+    out.tugHoldsRope = !!mine && Math.abs(s.bm.tryMode.pos.x - mine.x) < 0.01 && T.speed() === 0
+    const h = pm.home
+    out.tugPit = !s.bm.getBlockAt(h.x, 205, h.z) && s.bm.getBlockAt(h.x, 200, h.z) === 'smoothstone'
+    // A guest's presses arrive as hits.
+    const blue = T.members('b')[0]
+    T.pull.set(blue, 0)
+    pm.remoteHit({ id: 'u3', by: blue })
+    out.tugRemote = T.pull.get(blue) === 3
+    // Red pulls hard: the rope goes their way and Blue goes in the pit.
+    for (let i = 0; i < 600 && pm.phase === 'play'; i++) {
+      for (const id of T.members('r')) T._add(id, 1)
+      pm.update(0.05)
+    }
+    out.tugRedWins = pm.phase === 'end' && pm.winner === 'r' && T.rope <= -5
+    out.tugSnap = JSON.parse(JSON.stringify(pm.snapshot())).x.ur <= -5
+    await stop()
+    return out
+  })
+  expect(Object.keys(r).filter((k) => r[k] !== true)).toEqual([])
+})
+
+test('Bungee Jump, the Jet Ski, the Zombie Diner and zombies that learn', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'classic'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    const bm = s.bm
+    const tm = bm.tryMode
+    const me = s.bodyPos()
+    const X = Math.floor(me.x)
+    const Z = Math.floor(me.z)
+    const put = (x, y, z, type) => {
+      if (bm.getBlockAt(x, y, z)) bm.removeBlock(x, y, z)
+      bm.placeBlock(x, y, z, type, true)
+    }
+    const hold = (id) => {
+      s.inv.hotbar[1] = { kind: 'item', id, n: 1 }
+      s.inv.select(1)
+    }
+    // --- Bungee: a pillar 12 up over a stone pad in the sky ---
+    for (let x = -5; x <= 5; x++) for (let z = -5; z <= 5; z++) put(X + x, 240, Z + z, 'stone')
+    put(X, 252, Z, 'stone')
+    tm.pos.set(X + 0.5, 253, Z + 0.5)
+    tm.vel.set(0, 0, 0)
+    tm.onGround = true
+    bm._yaw = -Math.PI / 2
+    hold('bungeeCord')
+    const zb0 = s.zombies.length
+    s.inv.useHeld()
+    out.bungeeClipped = s.bungee.state === 'clipped' && !!s.bungee.bag && s.zombies.length >= zb0 + 1
+    tm.onGround = false
+    let coins = s.coins
+    tm.pos.set(X + 2, 250, Z + 0.5)
+    s.bungee.update(0.05)
+    out.bungeeFalls = s.bungee.state === 'fall'
+    tm.pos.set(X + 2, 242, Z + 0.5)
+    s.bungee.update(0.05)
+    out.bungeeHangs = s.bungee.state === 'hang' && !s.bungee.bag && s.coins >= coins + 60
+    for (let i = 0; i < 80 && s.bungee.state; i++) s.bungee.update(0.05)
+    out.bungeeBack = s.bungee.state === '' && Math.abs(tm.pos.y - 253) < 0.5 && !s.bungee.cordMesh
+    // A too-low spot says to find a high edge.
+    tm.pos.set(X + 0.5, 241, Z + 0.5)
+    tm.onGround = true
+    s.inv.useHeld()
+    out.bungeeNeedsEdge = s.bungee.state === ''
+    // --- the Jet Ski: a long pool in the sky ---
+    for (let x = -2; x <= 60; x++) {
+      for (let z = -4; z <= 4; z++) {
+        put(X + x, 219, Z + z, 'stone')
+        put(X + x, 220, Z + z, 'water')
+      }
+    }
+    tm.pos.set(X + 0.5, 221, Z + 0.5)
+    bm._yaw = -Math.PI / 2
+    hold('jetSki')
+    s.inv.useHeld()
+    const v = s.vehicles.list.find((o) => o.kind === 'jetski')
+    out.jetPlaced = !!v
+    tm.pos.set(v.x, v.y + 0.5, v.z)
+    out.jetIn = s.vehicles.use() && s.vehicles.riding === v
+    v.heading = Math.PI / 2
+    let air = 0
+    for (let i = 0; i < 70; i++) {
+      s.vehicles.drive(0.05, { fwd: true })
+      air = Math.max(air, v.air || 0)
+    }
+    out.jetFast = v.speed > 12 || air > 0
+    out.jetHops = air > 0.2
+    v.x = X + 8
+    v.z = Z + 0.5
+    v.heading = Math.PI / 2
+    v.seaIn = 0
+    const z0 = s.zombies.length
+    s.vehicles.drive(0.05, {})
+    out.jetSeaZombie = s.zombies.length === z0 + 1
+    const sz = s.zombies[s.zombies.length - 1]
+    v.air = 0
+    v.airV = 0
+    v.grab = 0
+    sz.x = v.x
+    sz.z = v.z
+    sz.y = v.y
+    s.vehicles.drive(0.05, { fwd: true })
+    out.jetGrabbed = v.grab > 0 && v.speed <= 5
+    s.vehicles.leave(true)
+    // --- the Zombie Diner on a pad in the sky ---
+    for (let x = -6; x <= 6; x++) for (let z = -6; z <= 6; z++) put(X + x, 199, Z + z, 'stone')
+    const D = s.diner
+    D._build({ x: X, y: 200, z: Z })
+    out.dinerBuilt = bm.getBlockAt(X + 3, 200, Z - 3) === 'furnace' && bm.getBlockAt(X - 4, 200, Z) === 'redconcrete'
+    tm.pos.set(X + 0.5, 200, Z + 0.5)
+    D.nextIn = 0
+    D.update(0.05)
+    const c = D.customers[0]
+    out.dinerCustomer = !!c && D.customers.length === 1
+    c.zombie = false
+    c.dish = 'soup'
+    // At the stove: the menu cooks a dish.
+    tm.pos.set(D.stove.x, 200, D.stove.z)
+    out.dinerMenu = D.use() && document.querySelectorAll('#camp-screen .diner-dish').length === 4
+    document.querySelector('#camp-screen .diner-dish[data-dish="soup"]').click()
+    out.dinerCooked = D.holding === 'soup' && !document.getElementById('camp-screen')
+    // Serve from behind the counter, facing them.
+    tm.pos.set(c.x, 200, c.z - 2)
+    bm._yaw = Math.PI
+    coins = s.coins
+    out.dinerServed = D.use() && c.gone === true && s.coins >= coins + 30 && D.holding === ''
+    // A zombie in disguise: thrown out with empty hands.
+    D.nextIn = 0
+    D.update(0.05)
+    const zc = D.customers[0]
+    zc.zombie = true
+    tm.pos.set(zc.x, 200, zc.z - 2)
+    const zbs = s.zombies.length
+    coins = s.coins
+    out.dinerSpotted = D.use() && zc.gone && s.zombies.length === zbs + 1 && s.coins >= coins + 40
+    D.clear()
+    out.dinerPutBack = bm.getBlockAt(X + 3, 200, Z - 3) !== 'furnace'
+    // --- zombies that learn: guns all the time -> helmets ---
+    const L = s.learn
+    L.clear()
+    for (let i = 0; i < 20; i++) L.onKill()
+    out.learnGun = L.level.gun === 1 && /Zombies learned/.test(document.getElementById('pill-learn')?.textContent || '')
+    L.level.gun = 3
+    let geared = null
+    for (let i = 0; i < 40 && !geared; i++) {
+      const z = s._extraZombie(me.x + 3, s._groundUnder(me.x + 3, me.y + 10, me.z), me.z)
+      if (z?.gear === 'gun') geared = z
+    }
+    out.learnHelmet = !!geared && geared.group.children.some((o) => o.material?.color?.getHex?.() === 0x5a6b4a)
+    geared.health = 1000
+    s.damageZombie(geared, 100)
+    out.learnHalf = Math.abs(geared.health - 950) < 1
+    s._pickWeapon('melee')
+    s.damageZombie(geared, 100)
+    out.learnSwitch = Math.abs(geared.health - 850) < 1
+    L.recent = new Array(20).fill('melee')
+    L.forgetIn = 0
+    L.update(0.05)
+    out.learnForgets = L.level.gun === 2
+    s.stop?.()
+    g._exitBuildMode?.()
+    return out
+  })
+  expect(Object.keys(r).filter((k) => r[k] !== true)).toEqual([])
+})
+
 test('real place names, real-place pyramids and towns sized to their country', async ({ page }) => {
   const { featureAt, FEATURE_IDS } = await import('../src/game/EarthFeatures.js')
   expect([

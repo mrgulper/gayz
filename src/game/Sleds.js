@@ -61,6 +61,7 @@ export class Sleds {
     this._y = null
     this._build()
     s._message(t('sledOn'), 3)
+    s.bingo?.note('ride')
     try { audioEngine.playSpecial?.('whoosh') } catch { /* no audio */ }
   }
 

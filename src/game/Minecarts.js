@@ -173,6 +173,7 @@ export class Minecarts {
     // From the near end it goes to the far one, and back again.
     this.riding = { tr, to: tr.at < tr.len / 2 ? tr.len : 0, v: 0, hop: HOP_EVERY }
     s._message(t('cartIn'), 2.5)
+    s.bingo?.note('minecart')
     try { audioEngine.playSpecial?.('clank') } catch { /* no audio */ }
   }
 

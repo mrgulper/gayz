@@ -62,6 +62,9 @@ export const RECIPES = [
   { id: 'sled', kind: 'item', n: 1, needs: [{ group: 'planks', n: 4 }, { item: 'plantFiber', n: 1 }] },
   // Submarine and Rocket (Vehicles.js, MoonTrip.js, 2026-11-02).
   { id: 'submarine', kind: 'item', n: 1, needs: [{ group: 'stone', n: 14 }, { block: 'glass', n: 3 }, { group: 'planks', n: 4 }, { item: 'zombieGoo', n: 3 }] },
+  // Jet Ski and Bungee Cord (Vehicles.js, Bungee.js, 2026-11-09).
+  { id: 'jetSki', kind: 'item', n: 1, needs: [{ group: 'stone', n: 8 }, { group: 'planks', n: 2 }, { item: 'heliFuel', n: 1 }, { item: 'zombieGoo', n: 2 }] },
+  { id: 'bungeeCord', kind: 'item', n: 1, needs: [{ item: 'plantFiber', n: 6 }, { item: 'zombieGoo', n: 1 }] },
   { id: 'rocket', kind: 'item', n: 1, needs: [{ group: 'stone', n: 20 }, { block: 'glass', n: 2 }, { item: 'heliFuel', n: 3 }, { item: 'zombieGoo', n: 4 }] },
   // Time Machine and Time Pass (TimeMachine.js, 2026-11-06).
   { id: 'timeMachine', kind: 'item', n: 1, needs: [{ group: 'stone', n: 16 }, { block: 'glass', n: 4 }, { item: 'heliFuel', n: 2 }, { item: 'zombieGoo', n: 4 }] },
@@ -140,6 +143,7 @@ export class PlayCrafting {
       }
     }
     inv.s._message(t('craftMade', { n: r.n, item: this.name(r) }))
+    inv.s.bingo?.note('craft')
     inv.apply()
     return true
   }

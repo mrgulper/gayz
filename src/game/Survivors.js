@@ -260,6 +260,7 @@ export class Survivors {
 
   // Rescued: they join you, or (every other one) give you a quest.
   _rescue(w) {
+    this.s.bingo?.note('survivor')
     this.waiting = null
     if (w.bubble) disposeBubble(w.bubble)
     w.bubble = null

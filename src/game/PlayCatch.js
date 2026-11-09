@@ -274,6 +274,7 @@ export class PlayCatch {
         return
       }
       this.s.stats.caught = (this.s.stats.caught || 0) + 1
+      this.s.bingo?.note('catch')
       this.s._message(t('catchCaught', { name: creatureName(c) }))
       if (live) {
         tr.wait = 0
@@ -291,6 +292,7 @@ export class PlayCatch {
     tr.group.rotation.set(0, 0, 0)
     tr.shake = SHAKE_S
     this.s.stats.caught = (this.s.stats.caught || 0) + 1
+    this.s.bingo?.note('catch')
     this.s._message(t('catchCaught', { name: creatureName(c) }))
   }
 
