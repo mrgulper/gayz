@@ -7331,8 +7331,13 @@ test('Zombie Mini-Golf, Freeze Tag and the Lucky Wheel', async ({ page }) => {
     out.golfPutt = G.shoot({ direction: { x: 0, y: 0, z: 1 } }) === true && pm.score[pm.myId] === 1 && ball.vz > 0
     out.golfNoDoublePutt = G.shoot({ direction: { x: 0, y: 0, z: 1 } }) === false && pm.score[pm.myId] === 1
     const z0 = ball.z
+    // (The course's zombies step aside for this: one wandering across the
+    // lane knocked the ball back now and then - checked on its own below.)
+    const zombieX = G.zombies.map((zb) => zb.x)
+    for (const zb of G.zombies) zb.x = -1e4
     for (let i = 0; i < 40; i++) pm.update(0.05)
     out.golfRolls = ball.z > z0 + 1
+    G.zombies.forEach((zb, i) => { zb.x = zombieX[i] })
     for (let i = 0; i < 120; i++) pm.update(0.05)
     out.golfBotsPutt = [...pm.bots.values()].some((b) => (pm.score[b.id] || 0) >= 1)
     // A zombie in the way knocks a ball off.
@@ -7380,6 +7385,10 @@ test('Zombie Mini-Golf, Freeze Tag and the Lucky Wheel', async ({ page }) => {
     for (const b of pm.bots.values()) if (b !== victim) { b.x += 40; b.z += 40 }
     s.bm.tryMode.pos.x += 60
     const helper = runners[1].bot
+    // Nothing else in play: the helper free, every Tagger far off (one
+    // left close by froze the helper again now and then).
+    F.frozen.delete(helper.id)
+    for (const id of pm.seekers) { const b = pm.bots.get(id); if (b) b.x += 200 }
     helper.x = victim.x + 1
     helper.z = victim.z
     helper.y = victim.y
