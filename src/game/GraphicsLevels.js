@@ -66,8 +66,31 @@ export const LEVEL_LOOK = {
   irl: { detail: 4, view: 'max', shadows: true, shadowQuality: 'high', realLight: true, sway: 0.09, waves: 0.1, shine: 1, real: 1, bump: 1, haze: 1, tufts: 1, motes: 1, grade: 1, ao: 0.75, spec: 1, soft: 3, round: 1, realShape: 1 },
 }
 
+// Performance Mode (2026-11-09, Gaymi: "make performance mode turn off
+// more extra features thats for graphics"): the level's look minus the
+// extras - swaying leaves, water waves and shine, grass tufts, dust in the
+// air, far haze, glints, bumpy blocks, real-life ground, soft shadow edges,
+// sky rays and low clouds, falling leaves, half the rain (lite). The block
+// pictures, colours and shapes stay, so it still looks like your level.
+// Kept per level so the same object comes back every frame.
+const PERF_LOOK = {}
+export function perfLook(base) {
+  return {
+    ...base,
+    detail: Math.min(base.detail || 1, 2),
+    sway: 0, waves: 0, shine: Math.min(base.shine || 0, 0.12), real: 0, bump: 0, haze: 0,
+    tufts: 0, motes: 0, spec: 0, soft: 1, realShape: 0,
+    lite: true,
+    // Only Potato's few pixels are drawn as crisp squares.
+    crisp: !!base.lite,
+    perf: true,
+  }
+}
+
 export function graphicsLook(settings) {
-  return LEVEL_LOOK[settings?.graphicsLevel] || LEVEL_LOOK.detailed
+  const level = LEVEL_LOOK[settings?.graphicsLevel] ? settings.graphicsLevel : 'detailed'
+  if (!settings?.performanceMode) return LEVEL_LOOK[level]
+  return (PERF_LOOK[level] ||= perfLook(LEVEL_LOOK[level]))
 }
 
 // The level that fits this device, from what the browser tells a page:

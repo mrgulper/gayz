@@ -1437,10 +1437,14 @@ export class BuildMode {
   // A block id a player could have placed (not a door's hidden top half).
   // Settings > Controls: Field of View (the old Map 1's setting, 75 by default).
   // The view distance in blocks right now (see VIEW_DISTANCES).
+  // Performance Mode sees one step nearer (2026-11-09) - fewer far chunks
+  // loaded and drawn, the biggest saving after shadows.
   viewDistance() {
     const pick = this.game?.settings?.viewDistance || 'auto'
-    if (pick !== 'auto') return VIEW_DISTANCES[pick] ?? Infinity
-    return VIEW_DISTANCES[this._autoView || this.autoViewStart()]
+    let key = pick !== 'auto' ? pick : this._autoView || this.autoViewStart()
+    const at = VIEW_STEPS.indexOf(key)
+    if (this.game?.settings?.performanceMode && at > 0) key = VIEW_STEPS[at - 1]
+    return VIEW_DISTANCES[key] ?? Infinity
   }
 
   autoViewStart() {
@@ -4672,10 +4676,12 @@ export class BuildMode {
     // Softer shadow edges on the higher levels, like real sunlight
     // (just how wide the shadow map is sampled - no redraw needed).
     if (this._sunLight) this._sunLight.shadow.radius = look.soft || 1
-    // Potato's few pixels stretched up as crisp squares instead of a blur.
-    if (this._liteWas !== !!look.lite) {
-      this._liteWas = !!look.lite
-      this.renderer.domElement.style.imageRendering = look.lite ? 'pixelated' : ''
+    // Potato's few pixels stretched up as crisp squares instead of a blur
+    // (Performance Mode is lite too, but keeps the normal smooth picture).
+    const crisp = !!(look.crisp ?? look.lite)
+    if (this._liteWas !== crisp) {
+      this._liteWas = crisp
+      this.renderer.domElement.style.imageRendering = crisp ? 'pixelated' : ''
     }
     // Shadows switched on or off while playing: every material is built
     // again for it - otherwise the land went missing after turning them
