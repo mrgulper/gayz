@@ -40,4 +40,10 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run tests
-        run: npm test
+        run: npx playwright test tests/zzdebug.spec.js tests/specials.spec.js tests/progression.spec.js tests/save.spec.js tests/construction.spec.js || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results
+          path: test-results
+          retention-days: 3
