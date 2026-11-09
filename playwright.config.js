@@ -24,6 +24,16 @@ export default defineConfig({
   reporter: 'list',
   use: {
     baseURL: 'http://localhost:4173',
+    // Tests never reach the real database or sign-in servers (2026-11-09):
+    // every test page used to read the live Firestore (Market, clans, Map
+    // of the Week...) - ~230 tests a run, several runs a day, which used
+    // up the free daily read limit for real players (2026-11-07). Tests
+    // that need online features swap in in-memory fakes
+    // (__cloudBackendForTests and friends). This applies to every page
+    // and every browser context, including ones a test makes itself.
+    launchOptions: {
+      args: ['--host-resolver-rules=MAP firestore.googleapis.com ~NOTFOUND, MAP identitytoolkit.googleapis.com ~NOTFOUND, MAP securetoken.googleapis.com ~NOTFOUND, MAP *.firebaseio.com ~NOTFOUND, MAP firebaseinstallations.googleapis.com ~NOTFOUND'],
+    },
     trace: 'retain-on-failure',
   },
   webServer: {

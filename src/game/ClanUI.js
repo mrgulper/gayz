@@ -115,6 +115,7 @@ export function _bindClanSection(game) {
       if (!clanId) return
       game.settings.clanId = clanId
       game._clanRankingCache = null
+      game._clanRankingDirty = true
       game.settings.clanName = name
       saveSettings(game.settings)
       game._renderPlayerTag()
@@ -180,6 +181,7 @@ export function _bindClanSection(game) {
         if (!result.ok) return
         game.settings.clanId = acceptBtn.dataset.clanId
         game._clanRankingCache = null
+        game._clanRankingDirty = true
         game.settings.clanName = acceptBtn.dataset.clanName
         saveSettings(game.settings)
         game._renderPlayerTag()
@@ -231,6 +233,7 @@ export function _bindClanSection(game) {
       if (isSoleOwner) await CloudSync.deleteClan(clanId).catch(() => {})
       game.settings.clanId = null
       game._clanRankingCache = null
+      game._clanRankingDirty = true
       game.settings.clanName = null
       saveSettings(game.settings)
       game._renderPlayerTag()
@@ -332,6 +335,7 @@ export async function _refreshClanUi(game) {
     if (ledClan) {
       game.settings.clanId = ledClan.clanId
       game._clanRankingCache = null
+      game._clanRankingDirty = true
       game.settings.clanName = ledClan.name
       saveSettings(game.settings)
       game._renderPlayerTag()
@@ -368,6 +372,7 @@ export async function _refreshClanUi(game) {
   if (!me) {
     game.settings.clanId = null
     game._clanRankingCache = null
+    game._clanRankingDirty = true
     game.settings.clanName = null
     saveSettings(game.settings)
     game._renderPlayerTag()
@@ -500,9 +505,48 @@ export async function _renderClanIncomingInvites(game) {
 // CLAN_RANKING_CACHE_MS - opening General starts it, the Clan tab reuses
 // it - and dropped whenever this player's own clan changes.
 const CLAN_FETCH_AT_ONCE = 2
+// The last good list is also kept on this device (2026-11-09): loading it
+// costs a read per clan plus one per member, and every visit used to load
+// it again when the game started - with the Market's preload, enough to
+// use up the database's free daily reads (2026-11-07). Now the game start
+// only shows the saved copy; the real list loads when General opens, at
+// most every CLAN_SAVED_MS.
+const CLAN_SAVED_KEY = 'gayz-clan-ranking'
+const CLAN_SAVED_MS = 15 * 60 * 1000
+function savedClanRanking() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CLAN_SAVED_KEY) || 'null')
+    if (!saved || !Array.isArray(saved.list) || !(saved.at <= Date.now())) return null
+    // Saved values are untrusted: only the fields the list shows, cleaned.
+    const list = saved.list.filter((c) => c && typeof c.clanId === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(c.clanId)).map((c) => ({
+      clanId: c.clanId,
+      name: String(c.name || '').slice(0, 40),
+      memberCount: Number.isFinite(Number(c.memberCount)) && c.memberCount !== null ? Math.max(0, Math.floor(Number(c.memberCount))) : null,
+      monthXp: Number(c.monthXp) || 0,
+    }))
+    return { at: saved.at, list }
+  } catch {
+    return null
+  }
+}
+
+// Game start: last visit's list, no database reads.
+export function _warmClanRanking(game) {
+  const saved = savedClanRanking()
+  if (saved?.list.length && !game._clanRankingLast) game._clanRankingLast = saved.list
+}
+
 export function _fetchClanRanking(game) {
   const cached = game._clanRankingCache
   if (cached && Date.now() - cached.at < CLAN_RANKING_CACHE_MS) return cached.promise
+  const saved = savedClanRanking()
+  if (saved?.list.length && Date.now() - saved.at < CLAN_SAVED_MS && !game._clanRankingDirty) {
+    const promise = Promise.resolve(saved.list)
+    game._clanRankingLast = game._clanRankingLast || saved.list
+    game._clanRankingCache = { at: saved.at, promise }
+    return promise
+  }
+  game._clanRankingDirty = false
   const promise = (async () => {
     const clans = await CloudSync.fetchAllClans().catch(() => [])
     // A member count the server turns away ("too many requests" - its
@@ -535,7 +579,10 @@ export function _fetchClanRanking(game) {
   // A good one is kept as _clanRankingLast, so the Clan tab can show it
   // straight away even after the cache runs out (and update it after).
   promise.then((list) => {
-    if (list.length) game._clanRankingLast = list
+    if (list.length) {
+      game._clanRankingLast = list
+      try { localStorage.setItem(CLAN_SAVED_KEY, JSON.stringify({ at: Date.now(), list })) } catch { /* no room - loaded again next time */ }
+    }
     else if (game._clanRankingCache?.promise === promise) game._clanRankingCache = null
   })
   return promise

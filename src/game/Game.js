@@ -2890,11 +2890,13 @@ export class Game {
         if (typeof this.buildMode.enter !== 'function' && !this._enteringBuildMode) this.buildMode = new BuildMode(this.renderer, this)
       })
     }).catch(() => { /* tried again on Play */ }))
-    // The Market's listings too, so opening it shows them at once.
-    setTimeout(() => idle(() => { if (this._marketListings === null) this._loadMarketListings() }), 3000)
-    // And the clan list, so General > Clan shows it at once (2026-10-24,
-    // "make it load already when the game loads").
-    setTimeout(() => idle(() => { if (navigator.onLine !== false) this._fetchClanRanking().catch(() => {}) }), 3000)
+    // The Market's listings and the clan list no longer load when the game
+    // starts (2026-11-09): up to 300 + a few hundred database reads on
+    // every visit, for panels most visits never open - together they used
+    // up the free daily reads (2026-11-07). The Market loads when opened;
+    // the clan list shows last visit's copy at once (ClanUI._warmClanRanking)
+    // and loads fresh when General opens.
+    ClanUI._warmClanRanking(this)
     // And Design a Skin (2026-10-16, "when you reload the design a skin is
     // already reloaded for you"): its page loads in the hidden panel, so
     // opening it shows the finished tool at once.
