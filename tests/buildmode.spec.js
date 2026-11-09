@@ -946,22 +946,24 @@ test('View Distance hides far chunks and zombies are drawn in one batch', async 
     const max = chunks.filter((c) => c.shown).length
     // A few zombies: their bodies are instanced, not one mesh each.
     s._toSpawn = 3
-    for (let i = 0; i < 300 && s.zombies.length < 3; i++) { s._spawnTimer = 0; bm.update(1 / 30) }
+    for (let i = 0; i < 300 && s.zombies.filter((z) => z.parts).length < 3; i++) { s._toSpawn = Math.max(s._toSpawn, 1); s._spawnTimer = 0; bm.update(1 / 30) }
     bm.render()
     const batch = s._zBatch
     return {
       short,
       max,
       fogFar,
-      zombies: s.zombies.length,
-      batched: !!batch && batch.meshes.every((m) => m.count === s.zombies.length),
-      ownMeshesHidden: s.zombies.every((z) => z.parts.every((p) => !p.visible)),
+      // Only plain zombies share the batch: monsters, skeletons and Golden /
+      // Diamond ones draw their own bodies, and which kinds turn up is random.
+      plain: s.zombies.filter((z) => z.parts).length,
+      batched: !!batch && batch.meshes.every((m) => m.count === s.zombies.filter((z) => z.parts).length),
+      ownMeshesHidden: s.zombies.filter((z) => z.parts).every((z) => z.parts.every((p) => !p.visible)),
     }
   })
   expect(r.short).toBeGreaterThan(0)
   expect(r.short).toBeLessThan(r.max)
   expect(r.fogFar).toBeLessThan(100)
-  expect(r.zombies).toBe(3)
+  expect(r.plain).toBeGreaterThanOrEqual(3)
   expect(r.batched).toBe(true)
   expect(r.ownMeshesHidden).toBe(true)
 })
@@ -2866,19 +2868,18 @@ for (const [mode, button] of [['classic', 'game-mode-classic'], ['zombieDefense'
       }
       killAll()
       out.killsAfter = s.kills
-      // The break, then wave 2 by itself (up to 30s: a slow test machine
-      // draws few frames, so the ~6s break can take ~16s of real time).
-      const t0 = performance.now()
-      await new Promise((done) => {
-        const check = () => {
-          // A cleared wave offers perk cards and waits for a pick (RunPerks.js).
-          if (s.perks?.open) s.perks.pick(s.perks.offer[0])
-          return s.wave >= 2 || performance.now() - t0 > 30000 ? done() : setTimeout(check, 100)
-        }
-        check()
-      })
+      // The break, then wave 2 by itself - counted in game time, stepped
+      // right here (a slow test machine draws ~1 frame a second, so real
+      // seconds said nothing about the break: 6 game seconds took 30+).
+      let gameSecs = 0
+      for (let i = 0; i < 600 && s.wave < 2; i++) {
+        // A cleared wave offers perk cards and waits for a pick (RunPerks.js).
+        if (s.perks?.open) s.perks.pick(s.perks.offer[0])
+        s.bm.update(0.05)
+        gameSecs += 0.05
+      }
       out.wave2 = s.wave
-      out.breakSecs = Math.round((performance.now() - t0) / 1000)
+      out.breakSecs = Math.round(gameSecs)
       if (m === 'bossHunt') {
         s._startWave(3)
         s._spawnZombie()
@@ -2914,8 +2915,8 @@ for (const [mode, button] of [['classic', 'game-mode-classic'], ['zombieDefense'
     expect(r.killsAfter).toBeGreaterThan(0)
     expect(r.wave2).toBe(2)
     if (mode === 'zombieRush') {
-      // Rush's 1s break vs the normal 6s one (~22s real time on a slow CI machine).
-      expect(r.breakSecs).toBeLessThanOrEqual(5)
+      // Rush's short break vs the normal ~6s one (game seconds).
+      expect(r.breakSecs).toBeLessThanOrEqual(3)
       expect(r.timer).toBe(true)
     }
     if (mode === 'bossHunt') expect(r.boss).toBe(true)
@@ -5076,7 +5077,10 @@ test('smooth weather, wind, sky lightning, disasters and impact luck', async ({ 
     // animals turn up far more often.
     const luck = sky.luck
     const animals = bm._animals()
-    const rare = () => { let n = 0; for (let i = 0; i < 3000; i++) { const k = animals.kindAt(300 + (i % 40), 300); if (k && !['common', 'uncommon'].includes(animals.constructor.rarityOf(k))) n++ } return n }
+    // Spots spread over many biomes: one fixed spot's biome comes from the
+    // world's random seed, and some biomes have no rare animals at all
+    // (0 vs 0 failed about half the runs).
+    const rare = () => { let n = 0; for (let i = 0; i < 3000; i++) { const k = animals.kindAt(((i * 7919) % 4000) - 2000, ((i * 104729) % 4000) - 2000); if (k && !['common', 'uncommon'].includes(animals.constructor.rarityOf(k))) n++ } return n }
     luck.stop()
     const plain = rare()
     D.start('meteoroid')
@@ -5194,10 +5198,16 @@ test('drop key and item lock, Heaven, Heaven\'s Peaks, the Demon Realm and realm
     if (peak) {
       const h = (dx) => sampleLand(peak.x + dx, peak.z).h
       out.peakTall = h(0) > HEAVEN_FLOOR && h(0) < 380
-      // Climbable: roughly a block up per cell on its side.
-      let steep = 0
-      for (let dx = 20; dx < 300; dx++) if (Math.abs(h(dx) - h(dx + 1)) > 2) steep++
-      out.peakClimbable = steep < 15
+      // Climbable: roughly a block up per cell on at least one side (the
+      // world's seed is random and one side of about 1 peak in 8 has
+      // cliffs - checked over 120 worlds, the best side never had more
+      // than 9 steps over 2 blocks).
+      const steepOn = (ux, uz) => {
+        let n = 0
+        for (let d = 20; d < 300; d++) if (Math.abs(sampleLand(peak.x + ux * d, peak.z + uz * d).h - sampleLand(peak.x + ux * (d + 1), peak.z + uz * (d + 1)).h) > 2) n++
+        return n
+      }
+      out.peakClimbable = Math.min(steepOn(1, 0), steepOn(-1, 0), steepOn(0, 1), steepOn(0, -1)) < 15
     }
     // --- the Demon Realm ---
     out.bottom = BOTTOM === -500 && DEMON_TOP === -300
@@ -5507,7 +5517,10 @@ test('Zombie Book: meeting a new kind of zombie pays once and fills its page', a
     g._exitBuildMode()
     g._openMenuInventoryPanel()
     document.getElementById('inventory-tab-zombiebook').click()
-    for (let i = 0; i < 100 && !document.querySelector('#zombie-book-grid img'); i++) await new Promise((res) => setTimeout(res, 100))
+    // Its 27 pictures are drawn on this device (ZombieBook.drawPictures) -
+    // a test machine without a graphics card takes many seconds - and the
+    // page fills them in when they're all done.
+    for (let i = 0; i < 900 && document.querySelectorAll('#zombie-book-grid img').length < 27; i++) await new Promise((res) => setTimeout(res, 100))
     const card = document.querySelector('[data-book="brute"]')
     out.count = document.getElementById('zombie-book-count').textContent
     out.cards = document.querySelectorAll('#zombie-book-grid .zombie-book-card').length
@@ -6200,7 +6213,12 @@ test('Pinata zombie, snowballs, metal detector, riding, potions and jetpack', as
     s.jetpack.thrust(0.05, true, false, 0)
     out.jetRefuelled = s.jetpack.fuel > 0.9 && !s.inv.has('jetFuel')
     // --- Riding: a tamed horse, Use climbs on, keys move it, Use gets off.
-    const a = s.animals.placeAt({ kind: 'horse', x: me.x + 2, y: s._groundUnder(me.x + 2, me.y + 3, me.z), z: me.z })
+    // On a flat stone pad high up: the world is random, and now and then
+    // a wall or a slope right ahead stopped the horse (seen on CI).
+    const padY = Math.floor(me.y) + 60
+    for (let dx = -10; dx <= 10; dx++) for (let dz = -10; dz <= 10; dz++) bm.placeBlock(Math.floor(me.x) + dx, padY - 1, Math.floor(me.z) + dz, 'stone', true)
+    s.bm.tryMode.pos.set(me.x, padY, me.z)
+    const a = s.animals.placeAt({ kind: 'horse', x: me.x + 2, y: padY, z: me.z })
     out.horse = !!a
     if (a) {
       a.tamed = true
@@ -7318,8 +7336,13 @@ test('Zombie Mini-Golf, Freeze Tag and the Lucky Wheel', async ({ page }) => {
     out.golfPutt = G.shoot({ direction: { x: 0, y: 0, z: 1 } }) === true && pm.score[pm.myId] === 1 && ball.vz > 0
     out.golfNoDoublePutt = G.shoot({ direction: { x: 0, y: 0, z: 1 } }) === false && pm.score[pm.myId] === 1
     const z0 = ball.z
+    // (The course's zombies step aside for this: one wandering across the
+    // lane knocked the ball back now and then - checked on its own below.)
+    const zombieX = G.zombies.map((zb) => zb.x)
+    for (const zb of G.zombies) zb.x = -1e4
     for (let i = 0; i < 40; i++) pm.update(0.05)
     out.golfRolls = ball.z > z0 + 1
+    G.zombies.forEach((zb, i) => { zb.x = zombieX[i] })
     for (let i = 0; i < 120; i++) pm.update(0.05)
     out.golfBotsPutt = [...pm.bots.values()].some((b) => (pm.score[b.id] || 0) >= 1)
     // A zombie in the way knocks a ball off.
@@ -7367,6 +7390,10 @@ test('Zombie Mini-Golf, Freeze Tag and the Lucky Wheel', async ({ page }) => {
     for (const b of pm.bots.values()) if (b !== victim) { b.x += 40; b.z += 40 }
     s.bm.tryMode.pos.x += 60
     const helper = runners[1].bot
+    // Nothing else in play: the helper free, every Tagger far off (one
+    // left close by froze the helper again now and then).
+    F.frozen.delete(helper.id)
+    for (const id of pm.seekers) { const b = pm.bots.get(id); if (b) b.x += 200 }
     helper.x = victim.x + 1
     helper.z = victim.z
     helper.y = victim.y

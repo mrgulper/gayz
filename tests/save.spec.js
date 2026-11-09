@@ -91,7 +91,7 @@ test('cloud merge: totals add up, records take the higher, lists stay in order',
 
 // A fake cloud in the page: one account's save, with every upload counted.
 async function installFakeCloud(page, uid, cloudData) {
-  await page.evaluate(({ uid, cloudData }) => {
+  await page.evaluate(({ cloudData }) => {
     const g = window.__game
     const cloud = { data: cloudData, modifiedTime: 1 }
     window.__fakeCloud = { cloud, pushes: 0 }
@@ -105,7 +105,22 @@ async function installFakeCloud(page, uid, cloudData) {
         return cloud.modifiedTime
       },
     }
-    Object.defineProperty(g, '_cloudUid', { value: uid, writable: true, configurable: true })
+    // No background sync left over from boot (a 5s change timer or one
+    // already running) may land in the middle of the test - on a slow test
+    // machine one often did, before the test's own sync.
+    clearTimeout(g._changeSyncTimer)
+    return g._cloudSyncInFlight
+  }, { cloudData })
+  await page.evaluate(({ uid, cloudData }) => {
+    const g = window.__game
+    clearTimeout(g._changeSyncTimer)
+    window.__fakeCloud.cloud.data = cloudData
+    window.__fakeCloud.cloud.modifiedTime = 1
+    window.__fakeCloud.pushes = 0
+    // Fixed for the test: the page's own sign-in check (Firebase's auth
+    // answer, "signed out") can land after this on a slow machine and
+    // used to wipe it (seen on CI: uid null).
+    Object.defineProperty(g, '_cloudUid', { get: () => uid, set: () => {}, configurable: true })
   }, { uid, cloudData })
 }
 
@@ -121,8 +136,10 @@ test('cloud sync: waits for the keep-which-save answer, never mixes two accounts
     localStorage.setItem('gayz-cloud-base-uid', 'alice')
     localStorage.setItem('gayz-shop-progress', JSON.stringify({ coins: 7 }))
     // The background sync a signed-in page runs (upload-only).
+    out.before = { inFlight: !!g._cloudSyncInFlight, importing: !!g._importingSave, uid: g._cloudUid }
     await g._checkForNewerCloudSave()
     out.pending = !!g._cloudPendingConflict
+    out.after = { importing: !!g._importingSave, base: localStorage.getItem('gayz-cloud-base-uid'), cloud: JSON.stringify(window.__fakeCloud.cloud) }
     // While the question is open, background syncs do nothing.
     await g._checkForNewerCloudSave()
     out.pushes = window.__fakeCloud.pushes
@@ -130,7 +147,7 @@ test('cloud sync: waits for the keep-which-save answer, never mixes two accounts
     out.localCoins = JSON.parse(localStorage.getItem('gayz-shop-progress')).coins
     return out
   })
-  expect(r.pending).toBe(true)
+  expect(r.pending, JSON.stringify(r)).toBe(true)
   expect(r.pushes).toBe(0)
   expect(r.cloudCoins).toBe(999)
   expect(r.localCoins).toBe(7)

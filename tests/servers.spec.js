@@ -218,6 +218,8 @@ test('two players play Map 1 together on a server', async ({ browser }) => {
       }
     })
     await gotoAndWaitForGame(page)
+    // Two games at once: skip drawing (BuildMode.render, __testNoDraw).
+    await page.evaluate(() => { window.__game.__testNoDraw = true })
     await page.evaluate(() => {
       const call = async (name, body) => {
         const r = await window.__srv(name, body)
@@ -445,6 +447,8 @@ test('Invite Friends makes a solo game joinable and the link joins it', async ({
       window.__serversBackendForTests = { list: () => call('list'), create: (b) => call('create', b), join: (b) => call('join', b), leave: (b) => call('leave', b), sync: (b) => call('sync', b) }
     })
     await gotoAndWaitForGame(page, path)
+    // Two games at once: skip drawing (BuildMode.render, __testNoDraw).
+    await page.evaluate(() => { window.__game.__testNoDraw = true })
     return page
   }
 
@@ -587,6 +591,8 @@ test('Infection: a friend joins by link, gets tagged and stuns the zombie', asyn
       window.__serversBackendForTests = { list: () => call('list'), create: (b) => call('create', b), join: (b) => call('join', b), leave: (b) => call('leave', b), sync: (b) => call('sync', b) }
     })
     await gotoAndWaitForGame(page, path)
+    // Two games at once: skip drawing (BuildMode.render, __testNoDraw).
+    await page.evaluate(() => { window.__game.__testNoDraw = true })
     return page
   }
 
@@ -736,6 +742,8 @@ test('Shrinking Zone: a friend joins, gets the same zone and sees my helicopter'
       window.__serversBackendForTests = { list: () => call('list'), create: (b) => call('create', b), join: (b) => call('join', b), leave: (b) => call('leave', b), sync: (b) => call('sync', b) }
     })
     await gotoAndWaitForGame(page, path)
+    // Two games at once: skip drawing (BuildMode.render, __testNoDraw).
+    await page.evaluate(() => { window.__game.__testNoDraw = true })
     return page
   }
   const a = await open()

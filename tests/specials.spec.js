@@ -875,6 +875,8 @@ test('special blocks batch 9: fan, elevator, zipline, bounce, slide, rope, rails
       tm.update(0.05, new Set())
     }
     out.launchFar = z0 - tm.pos.z > 10
+    // (Rare on the test machine: what the flight looked like when it fell short.)
+    if (!out.launchFar) out.launchDebug = { z0, z: tm.pos.z, y: tm.pos.y, ground: tm.onGround, vel: [tm.vel.x, tm.vel.y, tm.vel.z], launched: sp._launched, time: sp._time, dead: s.dead, active: s.active }
     // Wind tunnel: lifts you in the column above it.
     tm.vel.y = -3
     sp.update(0.02, at(40.5, 3, 40.5))
@@ -883,7 +885,7 @@ test('special blocks batch 9: fan, elevator, zipline, bounce, slide, rope, rails
     g._exitBuildMode()
     return out
   })
-  expect(r).toEqual({
+  expect(r, JSON.stringify(r.launchDebug)).toEqual({
     inPicker: true, fan: true, elevator: true, zipline: true, bounce: true, slide: true, rope: true, rails: true, launch: true, launchFar: true, tunnel: true,
   })
 })
