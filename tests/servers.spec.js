@@ -884,7 +884,14 @@ test('servers: a friend sees my kart, train, dragon and UFO and rides in my kart
   await a.evaluate(() => window.__game.buildMode.survival.lobby?._sync() || window.__game.buildMode.survival.net?._sync())
   await b.waitForFunction(() => window.__game.buildMode?.survival?.active && window.__game.buildMode.survival.net, null, { timeout: 60000 })
   await b.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
-  const sync = (page) => page.evaluate(() => window.__game.buildMode.survival.net._sync())
+  // The host may still be a hidden lobby until its next (4s) lobby check
+  // turns it into a server - sync that one now instead of waiting.
+  const sync = (page) => page.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const n = s.net || s.lobby
+    n._lastLobbySync = 0
+    return n._sync()
+  })
   // The host: the kart right where the guest stands, the dragon, the UFO
   // and (on an open-world map) the train.
   const guestPos = await b.evaluate(() => { const p = window.__game.buildMode.tryMode.pos; return { x: p.x, y: p.y, z: p.z } })
@@ -1002,7 +1009,14 @@ test('Escape Rooms: a team shares the puzzles; a race gives everyone their own r
     const b = await open(`/${search}`)
     await a.evaluate(() => window.__game.buildMode.survival.lobby?._sync() || window.__game.buildMode.survival.net?._sync())
     await b.waitForFunction(() => window.__game.buildMode?.survival?.active && window.__game.buildMode.survival.net, null, { timeout: 60000 })
-    const sync = (page) => page.evaluate(() => window.__game.buildMode.survival.net._sync())
+    // The host may still be a hidden lobby until its next (4s) lobby check
+  // turns it into a server - sync that one now instead of waiting.
+  const sync = (page) => page.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const n = s.net || s.lobby
+    n._lastLobbySync = 0
+    return n._sync()
+  })
     for (let i = 0; i < 3; i++) {
       await sync(a)
       await sync(b)
