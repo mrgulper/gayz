@@ -302,6 +302,7 @@ export class EscapeRooms {
 
   _openKeypad() {
     if (this._pad) return
+    this.s._hideMessage?.()
     const el = document.createElement('div')
     el.id = 'escape-keypad'
     const title = document.createElement('div')

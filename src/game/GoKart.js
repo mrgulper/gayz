@@ -181,7 +181,7 @@ export class GoKart {
       // Rolls to a stop, and falls if the ground goes.
       this._move(dt, 0, 0)
       const me = this.s.bodyPos()
-      if (!this._hinted && !this.s.dead && Math.hypot(me.x - this.x, me.z - this.z) < HINT_REACH) {
+      if (!this._hinted && !this.s.dead && Math.hypot(me.x - this.x, me.z - this.z) < HINT_REACH && Math.abs(me.y - this.y) < 3) {
         this._hinted = true
         this.s._message(t('buildPlayKartHint'), 4)
       }

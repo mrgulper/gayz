@@ -848,8 +848,12 @@ export class OpenWorld {
     }
     // Cave walls around you (the first point is always you or the camera).
     this.under.update(points[0])
-    // Heaven's clouds and islands while you're up high (HeavenRealm.js).
-    this.heaven.update(points[0])
+    // Heaven's clouds and islands while you're up high (HeavenRealm.js) -
+    // not while you're off in a Time Machine era, which is built at a
+    // height inside Heaven's (2026-11-09 visual check: islands hung over it).
+    if (this.bm.survival?.time?.away) {
+      if (this.heaven.cols.size) this.heaven.dropAll()
+    } else this.heaven.update(points[0])
     // Drop columns well past every point (the player's own changes stay).
     if ((this._unloadTick = (this._unloadTick || 0) + 1) % 30 === 0) {
       const far = r + UNLOAD_MARGIN

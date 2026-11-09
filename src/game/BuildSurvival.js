@@ -1245,6 +1245,13 @@ export class BuildSurvival {
     })
   }
 
+  // Clears the big message at once (a panel opening over the middle).
+  _hideMessage() {
+    const el = document.getElementById('build-play-msg')
+    if (el) el.style.opacity = '0'
+    this._msgLeft = 0
+  }
+
   _message(text, seconds = 2.5) {
     const el = document.getElementById('build-play-msg')
     if (!el) return
@@ -2237,7 +2244,11 @@ export class BuildSurvival {
   // then rolling (or driven).
   _updateKart(dt) {
     if (!this.kart) return
-    if (!this._kartParked && !this.spectating && !this.td) this._kartParked = this.kart.park(this.bm.tryMode.pos)
+    // (Not while you're off in an era, on the Moon or in the UFO, nor in a
+    // party mode's arena or Escape Rooms - it parked there, 2026-11-09
+    // visual check. Kart Racing puts its own karts on the grid.)
+    const away = this.time?.away || this.moon?.on || this.ufo?.aboard || this.escape || this.party
+    if (!this._kartParked && !this.spectating && !this.td && !away) this._kartParked = this.kart.park(this.bm.tryMode.pos)
     this.kart.update(dt)
     this.vehicles?.update(dt)
   }

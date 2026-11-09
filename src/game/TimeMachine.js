@@ -144,6 +144,9 @@ export class TimeMachine {
     if (this.pickOpen) return
     this.pickOpen = true
     s.bm._keys?.clear?.()
+    // The big message in the middle of the screen goes, so it isn't drawn
+    // through the picker (2026-11-09 visual check).
+    s._hideMessage?.()
     if (document.pointerLockElement) document.exitPointerLock()
     let el = this._pick
     if (!el) {
@@ -221,6 +224,9 @@ export class TimeMachine {
     this.back = m ? { x: m.x + 1.5, y: m.y, z: m.z } : { ...s.bodyPos() }
     this.era = era
     this.left = ERA_S
+    // Heaven's islands share the era's height: gone first, so none mixes
+    // into it (OpenWorld keeps them away while you're here).
+    if (s.bm.world?.heaven?.cols?.size) s.bm.world.heaven.dropAll()
     this._build(era)
     this._flash()
     const tm = s.bm.tryMode
