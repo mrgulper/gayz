@@ -8060,3 +8060,152 @@ test('Hardcore Survival and cooking, the Zombie Museum and the Story Campaign', 
   })
   expect(Object.keys(r).filter((k) => r[k] !== true)).toEqual([])
 })
+
+test('Prop Hunt, bikes and hoverboards, finds, instruments and ghost teammates', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    const start = async (mode) => {
+      localStorage.removeItem('gayz-play-saved-run')
+      g.settings.selectedGameMode = mode
+      await g._enterBuildMode({ map: 'map3', play: true })
+      const s = g.buildMode.survival
+      for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+      s._pickWeapon('rifle')
+      return s
+    }
+    const stop = async () => {
+      g.buildMode.survival.stop?.()
+      g._exitBuildMode?.()
+      await new Promise((res) => setTimeout(res, 200))
+    }
+    const toPlay = (pm) => { for (let i = 0; i < 200 && pm.phase === 'wait'; i++) pm.update(0.05) }
+    // --- Prop Hunt ---
+    let s = await start('propHunt')
+    const pm = s.party
+    toPlay(pm)
+    const P = pm.ext
+    out.propSeekers = pm.phase === 'play' && pm.seekers.size === 2 && P.props.size === 4
+    pm.update(0.05)
+    out.propDecoys = P.decoys.length === 28
+    // Hiders wear a prop (body hidden), seekers blindfolded and still.
+    const hiderBot = [...pm.bots.values()].find((b) => P.isHider(b.id))
+    out.propWorn = !!hiderBot && !!P._worn.get(hiderBot.id) && hiderBot.body?.visible !== true
+    out.propBlindSeeker = !pm.seekers.has(pm.myId) || (P.blind() > 0 && P.speed() === 0)
+    // No finds while hiding; after: a seeker touching a hider finds them.
+    const seeker = pm._people().find((p) => pm.seekers.has(p.id))
+    hiderBot.x = seeker.x + 0.4
+    hiderBot.z = seeker.z
+    hiderBot.y = seeker.y
+    P.run(pm._people(), 0.05)
+    out.propSafeWhileHiding = P.isHider(hiderBot.id)
+    pm.left = 100
+    hiderBot.x = seeker.x + 0.4
+    hiderBot.z = seeker.z
+    hiderBot.y = seeker.y
+    P.run(pm._people(), 0.05)
+    out.propFoundByTouch = pm.seekers.has(hiderBot.id) && !P.isHider(hiderBot.id)
+    pm.update(0.05)
+    out.propUnworn = !P._worn.get(hiderBot.id)
+    // A guest's new disguise and find arrive as hits.
+    const hider2 = [...pm.bots.values()].find((b) => P.isHider(b.id))
+    const before = P.props.get(hider2.id)
+    pm.remoteHit({ id: `q${(before + 1) % 8}`, by: hider2.id })
+    out.propRemoteDisguise = P.props.get(hider2.id) === (before + 1) % 8
+    // Everyone found: the Seekers win; the sync carries props.
+    out.propSnap = Object.keys(JSON.parse(JSON.stringify(pm.snapshot())).x.pr).length >= 1
+    for (const p of pm._people()) pm.seekers.add(p.id)
+    P.run(pm._people(), 0.05)
+    out.propSeekersWin = pm.phase === 'end' && pm.winner === 's'
+    await stop()
+    // --- Bike / hoverboard / finds / instruments in a normal game ---
+    s = await start('classic')
+    const hold = (id) => {
+      s.inv.hotbar[1] = { kind: 'item', id, n: 1 }
+      s.inv.select(1)
+    }
+    hold('bike')
+    s.inv.useHeld()
+    out.bikeOn = s.rides.on === 'bike' && !!s.rides.mesh && s.rides.mods(true).speed > 1.5 && s.rides.quiet
+    const fake = { x: s.bodyPos().x, y: s.bodyPos().y, z: s.bodyPos().z, remote: null }
+    const far = { x: fake.x + 30, y: fake.y, z: fake.z }
+    out.bikeQuiet = !!s.bm.specials.zombieTarget(far, fake)?.idle
+    s.inv.useHeld()
+    out.bikeOff = s.rides.on === '' && !s.rides.mesh
+    hold('hoverboard')
+    s.inv.useHeld()
+    const tm = s.bm.tryMode
+    tm.onGround = false
+    tm.vel.y = -20
+    s.rides.update(0.05)
+    out.hoverFloats = s.rides.on === 'hover' && tm.vel.y >= -3.01
+    s.inv.useHeld()
+    // Finds: one turns up near you; walking into it picks it up.
+    s.finds.next = 0
+    s.finds.update(0.05)
+    const f = s.finds.find
+    out.findPlaced = !!f && ['bike', 'hoverboard', 'guitar', 'drums'].includes(f.id) && !s.inv.has(f.id) && Math.hypot(f.x - s.bodyPos().x, f.z - s.bodyPos().z) >= 13
+    if (f) {
+      tm.pos.set(f.x, f.y, f.z)
+      s.finds.update(0.05)
+      out.findPicked = !s.finds.find && s.inv.has(f.id)
+    }
+    // Instruments: keys play notes, the sync carries them.
+    hold('guitar')
+    s.inv.useHeld()
+    const pad = document.getElementById('music-pad')
+    out.musicOn = s.music.on === 'g' && pad.classList.contains('on') && pad.querySelectorAll('button').length === 8
+    out.musicKey = s.music.key('Digit3') === true && s.music.key('Digit9') === false
+    s.music.play(0)
+    const jam = s.music.snapshot()
+    out.musicSnap = jam?.i === 'g' && jam.k === '31' && s.music.snapshot().n === jam.n
+    out.musicFloats = s.music._floaters.length >= 2
+    s.inv.useHeld()
+    out.musicOff = !s.music.on && !pad.classList.contains('on')
+    // --- Ghosts (a stand-in server with one friend alive) ---
+    const friendGroup = s.bm.scene.clone(false)
+    const friend = { seen: true, dead: false, x: 0, y: 0, z: 0, nick: 'Pal', group: friendGroup }
+    const realNet = s.net
+    const booed = []
+    s.net = { players: new Map([['Pal123', friend]]), isHost: false, closed: false, queueBoo: (id) => booed.push(id) }
+    const me = s.bodyPos()
+    friend.x = me.x + 40
+    friend.y = me.y
+    friend.z = me.z
+    s.health = 0
+    s._die()
+    out.ghostStarted = s.dead && s.ghosts.on && document.getElementById('ghost-hud').classList.contains('on') && s._overEl.style.display !== 'flex'
+    const snap = s.ghosts.snapshot()
+    out.ghostSnap = Array.isArray(snap?.g) && snap.g.length === 3
+    // Boo the zombie in front of the camera.
+    const cam = s.bm.camera
+    const B = s.B
+    const o = cam.getWorldPosition(cam.position.clone()).divideScalar(B)
+    const d = cam.getWorldDirection(cam.position.clone())
+    const zb = { id: 4242, x: o.x + d.x * 6, y: o.y + d.y * 6 - 1, z: o.z + d.z * 6, dead: false }
+    s.zombies.push(zb)
+    out.ghostBoo = s.ghosts.boo() === true && booed[0] === 'z4242' && s.ghosts.marks.has(4242)
+    out.ghostBooCooldown = s.ghosts.boo() === false
+    s.ghosts._drawMarks()
+    out.ghostMark = s.ghosts._markMeshes.has(4242)
+    s.zombies.splice(s.zombies.indexOf(zb), 1)
+    // The friend comes to the grave: revived there.
+    const gv = s.ghosts.grave
+    friend.x = gv.x + 0.5
+    friend.z = gv.z
+    friend.y = gv.y
+    for (let i = 0; i < 100 && s.dead; i++) s.ghosts._ghostly(0.05)
+    out.ghostRevived = !s.dead && !s.ghosts.on && Math.hypot(s.bodyPos().x - gv.x, s.bodyPos().z - gv.z) < 0.5 && s.health > 0 && s.health <= s.maxHealth / 2 + 1
+    // Alone on a server: no ghost, the card shows.
+    friend.dead = true
+    s._die()
+    out.ghostNeedsFriend = !s.ghosts.on
+    s.net = realNet
+    s._respawn()
+    await stop()
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})

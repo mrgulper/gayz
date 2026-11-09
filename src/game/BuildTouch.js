@@ -236,7 +236,7 @@ export class BuildTouch {
       this._inMap = inMap
       document.body.classList.toggle('touch-play-on', inMap)
     }
-    const want = inMap && !bm.menuOpen && !bm.pickerOpen && !bm.survival.shop?.panelOpen && !bm.survival.dead
+    const want = inMap && !bm.menuOpen && !bm.pickerOpen && !bm.survival.shop?.panelOpen && (!bm.survival.dead || !!bm.survival.ghosts?.on)
     if (want !== this.shown) {
       this.shown = want
       if (want) this._ensureDom()

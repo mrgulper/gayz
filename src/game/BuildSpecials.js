@@ -19,6 +19,7 @@ import { PlayFx } from './PlayFx.js'
 import { SPECIAL_BY_ID } from './SpecialBlocks.js'
 import { LINK_RANGE } from './BuildGadgets.js'
 import { ITEMS, ARMOR_SLOTS } from './PlayInventory.js'
+import { QUIET_HEAR } from './Rides.js'
 
 const OVERLAY_RANGE = 48 // blocks: look effects (disco, crops, text) only this near you
 const OVERLAY_REFRESH = 2 // seconds between re-picking which blocks get them
@@ -1759,6 +1760,9 @@ export class BuildSpecials {
     }
     // Invisible (Invisibility Pad): zombies can't find you.
     if (target && !target.remote && !target.lure && this._buff('invisible')) return { x: zb.x, y: zb.y, z: zb.z, idle: true, lure: true }
+    // Riding a Bike or Hoverboard is quiet (Rides.js): zombies far off lose you.
+    const rides = this.bm.survival?.rides
+    if (target && !target.remote && !target.lure && rides?.quiet && Math.hypot(target.x - zb.x, target.z - zb.z) > QUIET_HEAR) return { x: zb.x, y: zb.y, z: zb.z, idle: true, lure: true }
     // Near a Silence Block you can't be heard: zombies far off lose you.
     if (target && !target.lure) {
       for (const e of this.kind('silence')) {

@@ -63,6 +63,11 @@ import { OPEN_H as WING_OPEN_H, RINGS as WING_RINGS, RING_COINS as WING_RING_COI
 import { OUT_S as DODGE_OUT, THROW_S as DODGE_THROW } from './PartyDodge.js'
 import { MUSIC_S as CHAIRS_MUSIC, GRAB_S as CHAIRS_GRAB } from './PartyChairs.js'
 import { CMD_S as SIMON_CMD, MIN_CMD_S as SIMON_MIN, RUN_DIST as SIMON_RUN } from './PartySimon.js'
+import { HIDE_S as PROP_HIDE_S, SEEK_S as PROP_SEEK_S, DECOYS as PROP_DECOYS, PROPS as PROP_KINDS, MISS_SLOW_S as PROP_MISS_S } from './PartyProps.js'
+import { BIKE_SPEED, HOVER_SPEED, HOVER_FALL, QUIET_HEAR } from './Rides.js'
+import { FIND_FIRST_S, FIND_EVERY_S, FIND_LIFE_S } from './WorldFinds.js'
+import { NOTES as MUSIC_NOTES, HEAR_R as MUSIC_HEAR, JAM_R as MUSIC_JAM } from './Instruments.js'
+import { BOO_S, BOO_CD, MARK_S, REVIVE_S, GHOST_WAIT_S } from './Ghosts.js'
 import { CHAPTERS as STORY_CHAPTERS, CHAPTER_COINS as STORY_COINS, FINALE_COINS as STORY_FINALE } from './Campaign.js'
 import { HUNGER_MINUTES, RAW_FOOD, COOKED_FOOD, STARVE_DPS, COOK_R } from './Hunger.js'
 import { EXHIBITS as MUSEUM_EXHIBITS, BOSSES as MUSEUM_BOSSES } from './CampMuseum.js'
@@ -525,6 +530,26 @@ export function _featureValues(_game) {
     simonCmd: SIMON_CMD,
     simonMinCmd: SIMON_MIN,
     simonRun: SIMON_RUN,
+    propKinds: PROP_KINDS.length,
+    propDecoys: PROP_DECOYS,
+    propHideS: PROP_HIDE_S,
+    propSeekMinutes: Math.round(PROP_SEEK_S / 60),
+    propMissS: PROP_MISS_S,
+    bikeSpeed: BIKE_SPEED,
+    hoverSpeed: HOVER_SPEED,
+    hoverFall: HOVER_FALL,
+    quietHear: QUIET_HEAR,
+    findFirst: FIND_FIRST_S,
+    findEveryMinutes: Math.round(FIND_EVERY_S / 60),
+    findLifeMinutes: Math.round(FIND_LIFE_S / 60),
+    musicNotes: MUSIC_NOTES,
+    musicHear: MUSIC_HEAR,
+    musicJam: MUSIC_JAM,
+    booS: BOO_S,
+    booCd: BOO_CD,
+    markS: MARK_S,
+    reviveS: REVIVE_S,
+    ghostWait: GHOST_WAIT_S,
     storyChapters: STORY_CHAPTERS.length,
     storyCoins: STORY_COINS,
     storyFinale: STORY_FINALE,
