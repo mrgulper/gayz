@@ -19,7 +19,7 @@
 // keep BuildMode's per-type InstancedMesh path - they're rare, and they
 // never hide a neighbor's face.
 import * as THREE from 'three'
-import { REAL_GROUND, REAL_LEAVES, REAL_ROCK, NOT_ROCK, REC, AIR, REAL, PIN_SOLID, lookOf, kindOfLook, PIN_OTHER, LEAF_LOOK, K_LEAF, latticeAt, realPoint, realTint, rockTint, logRadius, roundOf, roundRadius, roundHeight, ROUND_STACKS, REAL_BLOB, REAL_EXTRA_ROCK, REAL_WOOD, woodTint, shag, buildOf, BUILD_BEVEL, buildGloss, buildTint } from './RealGround.js'
+import { REAL_GROUND, REAL_LEAVES, REAL_ROCK, NOT_ROCK, REC, AIR, REAL, PIN_SOLID, lookOf, kindOfLook, PIN_OTHER, LEAF_LOOK, K_LEAF, latticeAt, realPoint, realTint, rockTint, logRadius, roundOf, roundRadius, roundHeight, ROUND_STACKS, REAL_BLOB, REAL_EXTRA_ROCK, REAL_WOOD, woodTint, shag, buildOf, BUILD_BEVEL, BUILD_PUFF, JOIN_BY_ID, buildGloss, buildTint } from './RealGround.js'
 
 export const CHUNK = 16
 // A chunk plus a one-cell ring on every side (see _build), and the mark
@@ -554,9 +554,14 @@ export class BlockChunks {
         // 'metal', null = not a build block). Stone/metal builds follow
         // the same one-solid-wall bevel; blocks already drawn as real
         // ground/rock keep that look. Redstone block keeps its glow.
-        build: buildOf(t.id) && !t.transparent && !liquid && !t.inset && !t.plant &&
+        // Tenth batch: wool, and the see-through glass/honey/slime
+        // (drawn with the see-through blocks, their own alpha kept).
+        build: buildOf(t.id) && (!t.transparent || JOIN_BY_ID[buildOf(t.id)]) && !liquid && !t.inset && !t.plant &&
           !(REAL_GROUND.test(t.id) || xrock || (REAL_ROCK.test(t.id) && !NOT_ROCK.test(t.id))) &&
           (!t.emissive || t.id === 'redstoneblock') ? buildOf(t.id) : null,
+        // What it joins with: its family, or only itself (glass, jelly).
+        join: JOIN_BY_ID[buildOf(t.id)] ? t.id : buildOf(t.id),
+        puff: BUILD_PUFF[buildOf(t.id)] || 0,
         gloss: buildGloss(t.id, buildOf(t.id)),
       })
     })
@@ -1181,15 +1186,22 @@ export class BlockChunks {
     // Ninth batch: one of these per family (wood, stone, metal) - blocks
     // of another family count as "anything else", so where a brick wall
     // meets a plank wall the line stays sharp.
-    const famAt = (fam) => (x, y, z) => {
+    // Tenth batch: keyed by what a block joins with (its family, or for
+    // glass/honey/slime the block itself), made on first use.
+    const famAt = (key) => (x, y, z) => {
       const t = typeAt(x, y, z)
       if (!t) return 0
       const i = this.info.get(t)
       if (!i) return 2
       if (i.plant) return 0
-      return i.build === fam ? 1 : 2
+      return i.build && i.join === key ? 1 : 2
     }
-    const buildAt = realAmt > 0 ? { wood: famAt('wood'), stone: famAt('stone'), metal: famAt('metal') } : null
+    const joinFns = new Map()
+    const buildAt = realAmt > 0 ? (key) => {
+      let f = joinFns.get(key)
+      if (!f) joinFns.set(key, f = famAt(key))
+      return f
+    } : null
     // Bumpy blocks (2026-10-26, Gaymi: "you cant really tell what block
     // it is ... make them slightly bumpy ... no more then 20 degrees"):
     // every natural top keeps its edges at the block's own height, so each
@@ -1281,7 +1293,7 @@ export class BlockChunks {
           ao[i] = s1 && s2 ? 3 : (s1 ? 1 : 0) + (s2 ? 1 : 0) + (corner ? 1 : 0)
         }
         if (buildAt && info.build) {
-          this._realWoodFace(buf, x, y, z, bx, by, bz, face, info, u0, v0, u1, v1, ao, tint, glowSources, buildAt[info.build])
+          this._realWoodFace(buf, x, y, z, bx, by, bz, face, info, u0, v0, u1, v1, ao, tint, glowSources, buildAt(info.join), typeAt)
           continue
         }
         // Which of this face's 4 edges are outside corners (rounded): bit
@@ -1805,10 +1817,11 @@ export class BlockChunks {
   // side, where only the edge and corner points move and the normals
   // there lean out, so the bevel looks rounded. Thatch also gets shaggy
   // lumps and straw poking out, and a fringe hanging off its overhangs.
-  _realWoodFace(buf, x, y, z, bx, by, bz, face, info, u0, v0, u1, v1, ao, tint, glowSources, woodAt) {
+  _realWoodFace(buf, x, y, z, bx, by, bz, face, info, u0, v0, u1, v1, ao, tint, glowSources, woodAt, typeAt = this.getType.bind(this)) {
     const S = this.blockSize
     const amt = this.realAmt
     const fam = info.build
+    const glass = fam === 'glass'
     const b = BUILD_BEVEL[fam] * amt
     const gloss = info.gloss
     const h = b / 2
@@ -1837,10 +1850,29 @@ export class BlockChunks {
     edgeFrom(3, 2, ad, M[6])
     edgeFrom(0, 3, bd, M[7])
     const thatch = info.thatch
+    // Tenth batch. Wool/jelly: the face's inside swells out (pillow).
+    const puff = info.puff * amt
+    // Glass: its picture's thin frame shows only on the outside of the
+    // window - a side with the same glass across it reads the picture
+    // just inside the frame, so panes join into one. Jelly never shows
+    // the frame (one soft blob). The middle is clearer than the frame.
+    let edgeAlpha = null
+    if (glass || fam === 'jelly') {
+      const own = typeAt(x, y, z)
+      const same = (d, k) => fam === 'jelly' || typeAt(x + d[0] * k, y + d[1] * k, z + d[2] * k) === own
+      // Joined sides (t = 0, s = 1, t = 1, s = 0 like M[4..7]).
+      const J = [same(B, -1), same(A, 1), same(B, 1), same(A, -1)]
+      const du = (u1 - u0) * 1.5 / 16, dv = (v1 - v0) * 1.5 / 16
+      if (J[3]) u0 += du
+      if (J[1]) u1 -= du
+      if (J[0]) v0 += dv
+      if (J[2]) v1 -= dv
+      if (glass) edgeAlpha = J
+    }
     // Corner shade (AO and face shade) and block light, blended across.
     const sh = [0, 1, 2, 3].map((k) => AO_LEVELS[ao[k]] * face.shade * tint)
     const G = glowSources ? [0, 1, 2, 3].map((k) => this._glowAt(x + c[k][0], y + c[k][1], z + c[k][2], fn, glowSources)) : null
-    const color = (s, t, wx, wy, wz) => {
+    const color = (s, t, wx, wy, wz, af = 1) => {
       const W0 = (1 - s) * (1 - t), W1 = s * (1 - t), W2 = s * t, W3 = (1 - s) * t
       const base = W0 * sh[0] + W1 * sh[1] + W2 * sh[2] + W3 * sh[3]
       const wt = buildTint(fam, wx, wy, wz)
@@ -1851,11 +1883,15 @@ export class BlockChunks {
         g *= 1 + L(1)
         bl *= 1 + L(2)
       }
-      if (buf.stride === 4) buf.col.push(r, g, bl, info.alpha)
+      if (buf.stride === 4) buf.col.push(r, g, bl, info.alpha * af)
       else buf.col.push(r, g, bl)
     }
+    // Glass: frame sides solid, everything else (middle, joined sides)
+    // clearer.
+    const CLEAR = 0.6
+    const alphaAt = edgeAlpha ? (i, j) => (j === 0 && !edgeAlpha[0]) || (i === 3 && !edgeAlpha[1]) || (j === 3 && !edgeAlpha[2]) || (i === 0 && !edgeAlpha[3]) ? 1 : CLEAR : null
     const base = buf.pos.length / 3
-    if (!moved && !thatch) {
+    if (!moved && !thatch && !puff && !(glass && edgeAlpha.includes(false))) {
       // Nothing bevelled: one flat quad, like a plain block.
       for (let k = 0; k < 4; k++) {
         const wx = x + c[k][0], wy = y + c[k][1], wz = z + c[k][2]
@@ -1863,13 +1899,15 @@ export class BlockChunks {
         buf.nrm.push(fn[0], fn[1], fn[2])
         buf.edge.push(-gloss)
         buf.uv.push(CORNER_UV[k][0] ? u1 : u0, CORNER_UV[k][1] ? v1 : v0)
-        color(CORNER_UV[k][0], CORNER_UV[k][1], wx, wy, wz)
+        color(CORNER_UV[k][0], CORNER_UV[k][1], wx, wy, wz, alphaAt ? CLEAR : 1)
       }
       if (ao[0] + ao[2] > ao[1] + ao[3]) buf.idx.push(base + 1, base + 2, base + 3, base + 1, base + 3, base)
       else buf.idx.push(base, base + 1, base + 2, base, base + 2, base + 3)
       return
     }
-    const ST = [0, b, 1 - b, 1]
+    // Glass's grid lines sit on its picture's frame (1/16 of a block).
+    const gs = glass ? 1 / 16 : b
+    const ST = [0, gs, 1 - gs, 1]
     const Z3 = [0, 0, 0]
     for (let j = 0; j < 4; j++) {
       for (let i = 0; i < 4; i++) {
@@ -1892,6 +1930,15 @@ export class BlockChunks {
             const l = Math.hypot(nx, ny, nz)
             nx /= l; ny /= l; nz /= l
           }
+        } else if (puff && !es && !et) {
+          // Pillow: pushed out, leaning away from the face's middle.
+          px += fn[0] * puff; py += fn[1] * puff; pz += fn[2] * puff
+          const ls = s - 0.5, lt = t - 0.5
+          nx += A[0] * ls + B[0] * lt
+          ny += A[1] * ls + B[1] * lt
+          nz += A[2] * ls + B[2] * lt
+          const l = Math.hypot(nx, ny, nz)
+          nx /= l; ny /= l; nz /= l
         } else if (thatch && !es && !et) {
           // Shaggy thatch: the inside of each face puffs out in lumps.
           const o = shag(wx, wy, wz) * 0.06 * amt
@@ -1901,7 +1948,7 @@ export class BlockChunks {
         buf.nrm.push(nx, ny, nz)
         buf.edge.push(-gloss)
         buf.uv.push(u0 + (u1 - u0) * s, v0 + (v1 - v0) * t)
-        color(s, t, wx, wy, wz)
+        color(s, t, wx, wy, wz, alphaAt ? alphaAt(i, j) : 1)
       }
     }
     for (let j = 0; j < 3; j++) {

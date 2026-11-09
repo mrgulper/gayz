@@ -533,17 +533,37 @@ export const REAL_METAL_BUILD = /^(metal|iron|gold|[a-z]*copper|copperblock|neth
 // 'metal'), or null. Only blocks of the same family join into one wall.
 export function buildOf(id) {
   if (REAL_WOOD.test(id)) return 'wood'
+  if (REAL_WOOL.test(id)) return 'wool'
+  if (REAL_GLASS.test(id)) return 'glass'
+  if (REAL_JELLY.test(id)) return 'jelly'
   if (REAL_METAL_BUILD.test(id)) return 'metal'
   if (REAL_STONE_BUILD.test(id)) return 'stone'
   return null
 }
-// Bevel size per family (blocks, at full strength): metal/gems sharpest.
-export const BUILD_BEVEL = { wood: WOOD_BEVEL, stone: 0.11, metal: 0.05 }
+// Tenth batch (2026-11-08): soft and see-through. Wool joins like the
+// other builds but puffier (big rounded edges, each block's face swelling
+// out like a pillow); glass keeps a thin rounded frame only round the
+// outside of a window (panes of the same glass join into one), with a
+// clearer middle; honey and slime are big rounded jelly blobs (each kind
+// joins only with itself). Glass panes (inset) stay as they are.
+export const REAL_WOOL = /^[a-z]*wool$/
+export const REAL_GLASS = /^(glass|tintedglass|[a-z]+stainedglass)$/
+export const REAL_JELLY = /^(honeyblock|slimeblock)$/
+// Families whose blocks only join with the very same block (a red pane
+// next to a blue one keeps both frames; honey never melts into slime).
+export const JOIN_BY_ID = { glass: true, jelly: true }
+// Bevel size per family (blocks, at full strength): metal/gems sharpest,
+// jelly roundest. Glass's is its thin frame.
+export const BUILD_BEVEL = { wood: WOOD_BEVEL, stone: 0.11, metal: 0.05, wool: 0.24, glass: 1 / 16, jelly: 0.34 }
+// How far the inside of a face swells out (blocks, at full strength).
+export const BUILD_PUFF = { wool: 0.05, jelly: 0.07 }
 // How shiny a build block is (the sun-glint shader's own gloss; kept
 // above snow's sparkle range 0.06..0.4). Glazed terracotta is glazed.
 export function buildGloss(id, fam) {
   if (fam === 'metal') return id === 'coalblock' ? 0.45 : 0.7
   if (id === 'glazedterracotta') return 0.5
+  if (fam === 'glass') return 0.85
+  if (fam === 'jelly') return 0.75
   return 0
 }
 
@@ -551,8 +571,12 @@ export function buildGloss(id, fam) {
 // long soft patches (weathering), no warm/cool shift. Metal drifts less.
 export function buildTint(fam, x, y, z) {
   if (fam === 'wood') return woodTint(x, y, z)
+  if (fam === 'glass' || fam === 'jelly') {
+    WT[0] = WT[1] = WT[2] = 1
+    return WT
+  }
   const v = vnoise(x * 0.19, y * 0.19, z * 0.19, 93)
-  const br = fam === 'metal' ? 0.96 + v * 0.06 : 0.93 + v * 0.1
+  const br = fam === 'metal' ? 0.96 + v * 0.06 : fam === 'wool' ? 0.95 + v * 0.07 : 0.93 + v * 0.1
   WT[0] = WT[1] = WT[2] = br
   return WT
 }
