@@ -488,4 +488,5 @@ Gaymi picked all of: stronger sky fade, Team Battle gradient sky, sun rays, cons
 - Birdsong: `BuildSky._birdsong` -> `audioEngine.playBirdChirp` (synth, sfx bus). Night -> day, cycle only, clear skies, not below y -8.
 - Team Battle sky: `TeamBattle.skyDome`; the camera looks down, so it deepens toward the top of the screen (`gl_FragCoord`).
 - Globe: crossfade between `GLOBE_FADE_FROM` (48 deg) and `GLOBE_FROM` (70 deg) in `_drawMap`; `EarthGlobe.setFade`. Night side uses the real clock (`subsolarPoint`), lights from the atlas land + `CITIES`.
-- Fog: `ExploredMap.js`, 16-block cells, localStorage `gayz-world-explored-v1` (cap 30k cells, saved 5s after a change). Only the flat map, not the globe. Test: `tests/sky-extras.spec.js`.
+- Fog: `ExploredMap.js`, 16-block cells, localStorage `gayz-world-explored-v1` (cap 30k cells, saved 5s after a change). Test: `tests/sky-extras.spec.js`.
+- Globe fog (2026-11-09): `explored.globeCanvas()` = 2048x1024 world picture (~21 blocks/pixel; lon -180 left, north top), cloud base made once (~50 ms, first globe open), each redraw clears seen cells' pixels, at most 1/s. `EarthGlobe.setFog` wraps it on a 1.0015 sphere; renderOrder fog 1 < night 2 < clouds 3, so fog darkens at night. A bit lighter than the flat map (alpha 0.62-0.82) so countries still read.

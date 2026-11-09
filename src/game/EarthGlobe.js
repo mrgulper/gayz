@@ -169,11 +169,21 @@ export class EarthGlobe {
       transparent: true,
       depthWrite: false,
     })
-    this.spin.add(new THREE.Mesh(new THREE.SphereGeometry(1.002, 96, 64), this.nightMat))
+    const nightMesh = new THREE.Mesh(new THREE.SphereGeometry(1.002, 96, 64), this.nightMat)
+    nightMesh.renderOrder = 2
+    this.spin.add(nightMesh)
+    // Unexplored fog (ExploredMap.globeCanvas), under the night side so it
+    // goes dark at night too; hidden until setFog gives it a picture.
+    this.fogMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false })
+    this.fog = new THREE.Mesh(new THREE.SphereGeometry(1.0015, 96, 64), this.fogMat)
+    this.fog.renderOrder = 1
+    this.fog.visible = false
+    this.spin.add(this.fog)
     // Clouds, a little above the ground, drifting on their own.
     const clouds = new THREE.CanvasTexture(cloudsCanvas())
     clouds.colorSpace = THREE.SRGBColorSpace
     this.clouds = new THREE.Mesh(new THREE.SphereGeometry(1.012, 64, 48), new THREE.MeshBasicMaterial({ map: clouds, transparent: true, opacity: 0.6, depthWrite: false }))
+    this.clouds.renderOrder = 3
     this.spin.add(this.clouds)
     this._drawnAt = performance.now()
     this._sunAt = 0
@@ -205,6 +215,27 @@ export class EarthGlobe {
     } else if (pic.version !== this._picVersion) {
       this._picVersion = pic.version
       this._mat.map.needsUpdate = true
+    }
+  }
+
+  // The unexplored fog's world picture (ExploredMap.globeCanvas); it
+  // updates when the canvas has been redrawn.
+  setFog(canvas) {
+    if (!canvas) {
+      this.fog.visible = false
+      return
+    }
+    this.fog.visible = true
+    if (this.fogMat.map?.image !== canvas) {
+      this.fogMat.map?.dispose()
+      const tex = new THREE.CanvasTexture(canvas)
+      tex.colorSpace = THREE.SRGBColorSpace
+      this.fogMat.map = tex
+      this.fogMat.needsUpdate = true
+      this._fogDrawnAt = canvas._drawnAt
+    } else if (this._fogDrawnAt !== canvas._drawnAt) {
+      this._fogDrawnAt = canvas._drawnAt
+      this.fogMat.map.needsUpdate = true
     }
   }
 

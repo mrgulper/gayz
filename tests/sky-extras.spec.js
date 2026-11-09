@@ -80,6 +80,18 @@ test('sky extras and the World Map globe fade and fog', async ({ page }) => {
     out.during = steps.some((s) => s[0] > 50 && s[0] < 68 && s[1] > 0.05 && s[1] < 1)
     out.after = steps.filter((s) => s[0] > 71).every((s) => s[1] === 1 && s[3])
     out.lights = !!tm._globe?.nightMat && !!tm._globe?.clouds
+    // The fog is on the globe too: clear where you've walked, cloudy far off.
+    const fogCv = tm._globe?.fogMat?.map?.image
+    out.globeFog = !!tm._globe?.fog?.visible && fogCv === explored.globeCanvas()
+    if (fogCv) {
+      const px = (bx, bz) => {
+        const i = Math.floor((bx / 120 + 180) / 360 * fogCv.width)
+        const j = Math.floor((bz / 120 + 90) / 180 * fogCv.height)
+        return fogCv.getContext('2d').getImageData(i, j, 1, 1).data[3]
+      }
+      out.globeFogHere = px(x0, z0)
+      out.globeFogFar = px(x0 + 5000, z0) > 100
+    }
     return out
   })
   expect(r).toEqual({
@@ -94,6 +106,9 @@ test('sky extras and the World Map globe fade and fog', async ({ page }) => {
     during: true,
     after: true,
     lights: true,
+    globeFog: true,
+    globeFogHere: 0,
+    globeFogFar: true,
   })
   // The real-time night side: the sun is overhead roughly where it's noon.
   const { subsolarPoint } = await import('../src/game/EarthGlobe.js').catch(() => ({}))
