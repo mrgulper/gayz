@@ -395,7 +395,10 @@ function loadMapWeekLater(game) {
   if (Date.now() - (game._homeMapWeekFailedAt || 0) < MAPWEEK_RETRY_MS) return
   try {
     const cached = JSON.parse(localStorage.getItem(MAPWEEK_CACHE_KEY) || 'null')
-    if (cached && Date.now() - cached.at < MAPWEEK_CACHE_MS && Date.now() >= cached.at) {
+    // An empty answer is only kept a short while (2026-11-09): one saved
+    // while the database was turning reads away hid the card for 12 hours.
+    const keepFor = cached?.list?.length ? MAPWEEK_CACHE_MS : MAPWEEK_RETRY_MS
+    if (cached && Date.now() - cached.at < keepFor && Date.now() >= cached.at) {
       game._homeMapWeek = pickMapOfWeek(cached.list)
       if (game._homeMapWeek) renderHomeExtras(game)
       return
