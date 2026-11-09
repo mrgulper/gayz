@@ -6213,7 +6213,12 @@ test('Pinata zombie, snowballs, metal detector, riding, potions and jetpack', as
     s.jetpack.thrust(0.05, true, false, 0)
     out.jetRefuelled = s.jetpack.fuel > 0.9 && !s.inv.has('jetFuel')
     // --- Riding: a tamed horse, Use climbs on, keys move it, Use gets off.
-    const a = s.animals.placeAt({ kind: 'horse', x: me.x + 2, y: s._groundUnder(me.x + 2, me.y + 3, me.z), z: me.z })
+    // On a flat stone pad high up: the world is random, and now and then
+    // a wall or a slope right ahead stopped the horse (seen on CI).
+    const padY = Math.floor(me.y) + 60
+    for (let dx = -10; dx <= 10; dx++) for (let dz = -10; dz <= 10; dz++) bm.placeBlock(Math.floor(me.x) + dx, padY - 1, Math.floor(me.z) + dz, 'stone', true)
+    s.bm.tryMode.pos.set(me.x, padY, me.z)
+    const a = s.animals.placeAt({ kind: 'horse', x: me.x + 2, y: padY, z: me.z })
     out.horse = !!a
     if (a) {
       a.tamed = true
