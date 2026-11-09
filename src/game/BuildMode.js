@@ -4730,6 +4730,11 @@ export class BuildMode {
     // Shadows (when the Shadows setting is on) only change when blocks do -
     // the sun never moves here - so the shadow map is redrawn only then,
     // instead of drawing every block a second time every frame.
+    // Tests only (game.__testNoDraw): everything above still runs - chunks,
+    // zombies, the look - but nothing is sent to the graphics card. A test
+    // machine without one draws ~2 frames a second, and a test with two
+    // players' games open at once spent minutes on pictures nobody checks.
+    if (this.game?.__testNoDraw) return
     const shadowMap = this.renderer.shadowMap
     const shadowAutoUpdate = shadowMap.autoUpdate
     shadowMap.autoUpdate = false

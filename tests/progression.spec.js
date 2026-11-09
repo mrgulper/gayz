@@ -497,9 +497,12 @@ test('daily challenge is hard with run rules; a claimed quest fades away', async
     const card = list.querySelector('[data-spawned-at="1"]')
     card.click()
     out.fading = card.classList.contains('quest-fade-out')
-    await new Promise((res) => setTimeout(res, 200))
+    // Halfway through the fade (read off the animation itself: a busy test
+    // machine may not have drawn a single frame of it after 200ms).
+    const fade = card.getAnimations().find((a) => a.animationName === 'quest-card-out')
+    if (fade) fade.currentTime = 200
     out.midOpacity = Number(getComputedStyle(card).opacity)
-    await new Promise((res) => setTimeout(res, 700))
+    for (let i = 0; i < 40 && list.querySelector('[data-spawned-at="1"]'); i++) await new Promise((res) => setTimeout(res, 50))
     out.removed = !list.querySelector('[data-spawned-at="1"]')
     out.sameOthers = list.querySelector('[data-spawned-at="2"]') === keep
     return out
