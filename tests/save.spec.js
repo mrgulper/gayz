@@ -117,7 +117,10 @@ async function installFakeCloud(page, uid, cloudData) {
     window.__fakeCloud.cloud.data = cloudData
     window.__fakeCloud.cloud.modifiedTime = 1
     window.__fakeCloud.pushes = 0
-    Object.defineProperty(g, '_cloudUid', { value: uid, writable: true, configurable: true })
+    // Fixed for the test: the page's own sign-in check (Firebase's auth
+    // answer, "signed out") can land after this on a slow machine and
+    // used to wipe it (seen on CI: uid null).
+    Object.defineProperty(g, '_cloudUid', { get: () => uid, set: () => {}, configurable: true })
   }, { uid, cloudData })
 }
 
