@@ -520,6 +520,43 @@ export function woodTint(x, y, z) {
   return WT
 }
 
+// Ninth batch (2026-11-08): stone and metal builds, same "one solid
+// wall" rule as wood. Bricks, quartz, purpur, prismarine, concrete,
+// coloured/glazed terracotta, plaster and asphalt bevel a little less
+// than wood; metal and gem blocks (iron, gold, copper, netherite,
+// diamond/emerald/lapis/coal/redstone blocks) have sharper edges and
+// shine. Blocks already drawn as rock (stone bricks, sandstone...) and
+// plain terracotta (soft ground) keep their real-ground look.
+export const REAL_STONE_BUILD = /^([a-z]*bricks?|[a-z]*quartz|quartzpillar|purpurblock|purpurpillar|[a-z]*prismarine|[a-z]*concrete|[a-z]+terracotta|plaster|asphalt)$/
+export const REAL_METAL_BUILD = /^(metal|iron|gold|[a-z]*copper|copperblock|netherite|diamondblock|emeraldblock|lapisblock|coalblock|redstoneblock)$/
+// Which man-made family a block id belongs to ('wood' | 'stone' |
+// 'metal'), or null. Only blocks of the same family join into one wall.
+export function buildOf(id) {
+  if (REAL_WOOD.test(id)) return 'wood'
+  if (REAL_METAL_BUILD.test(id)) return 'metal'
+  if (REAL_STONE_BUILD.test(id)) return 'stone'
+  return null
+}
+// Bevel size per family (blocks, at full strength): metal/gems sharpest.
+export const BUILD_BEVEL = { wood: WOOD_BEVEL, stone: 0.11, metal: 0.05 }
+// How shiny a build block is (the sun-glint shader's own gloss; kept
+// above snow's sparkle range 0.06..0.4). Glazed terracotta is glazed.
+export function buildGloss(id, fam) {
+  if (fam === 'metal') return id === 'coalblock' ? 0.45 : 0.7
+  if (id === 'glazedterracotta') return 0.5
+  return 0
+}
+
+// Colour drift for stone/metal builds: a little lighter or darker in
+// long soft patches (weathering), no warm/cool shift. Metal drifts less.
+export function buildTint(fam, x, y, z) {
+  if (fam === 'wood') return woodTint(x, y, z)
+  const v = vnoise(x * 0.19, y * 0.19, z * 0.19, 93)
+  const br = fam === 'metal' ? 0.96 + v * 0.06 : 0.93 + v * 0.1
+  WT[0] = WT[1] = WT[2] = br
+  return WT
+}
+
 // How shaggy thatch is at a point (0..1), for its straw lumps.
 export function shag(x, y, z) {
   return vnoise(x * 2.7, y * 2.7, z * 2.7, 92)
