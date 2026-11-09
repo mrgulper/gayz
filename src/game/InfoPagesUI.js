@@ -119,6 +119,8 @@ import { COINS as ESCORT_COINS, BONUS_XP as ESCORT_XP } from './EscortMission.js
 import { FROM_WAVE as SIEGE_WAVE, BREAK_INS as SIEGE_BREAK_INS, LIMIT_S as SIEGE_LIMIT_S, COINS as SIEGE_COINS, BONUS_XP as SIEGE_XP } from './CampSiege.js'
 import { TD_WAVES, LIVES as TD_LIVES, START_COINS as TD_START_COINS, LEAK_BOSS as TD_LEAK_BOSS } from './TowerDefense.js'
 import { CONSTELLATION_COUNT } from './NightSky.js'
+import { STAMP_COINS } from './Passport.js'
+import { TRAVEL_BASE, TRAVEL_PER_BLOCKS, TRAVEL_MOST, TRAVEL_WAIT_S } from './FastTravel.js'
 import { SIZE as TOURNEY_SIZE, ROUND_COINS as TOURNEY_ROUND_COINS, CHAMP_COINS as TOURNEY_CHAMP_COINS } from './TeamTournament.js'
 
 // Update-available check - only ever called from _exitBuildMode (back
@@ -542,6 +544,12 @@ export function _featureValues(_game) {
     hoverFall: HOVER_FALL,
     quietHear: QUIET_HEAR,
     findFirst: FIND_FIRST_S,
+    // World Map travel (Passport.js, FastTravel.js).
+    stampCoins: STAMP_COINS,
+    travelBase: TRAVEL_BASE,
+    travelPerBlocks: TRAVEL_PER_BLOCKS,
+    travelMost: TRAVEL_MOST,
+    travelWaitMin: TRAVEL_WAIT_S / 60,
     findEveryMinutes: Math.round(FIND_EVERY_S / 60),
     findLifeMinutes: Math.round(FIND_LIFE_S / 60),
     musicNotes: MUSIC_NOTES,

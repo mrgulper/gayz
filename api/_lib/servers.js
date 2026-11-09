@@ -541,6 +541,15 @@ function cleanJam(v) {
   return { i: v.i, n: Math.round(num(v.n, 0, 1e6)), k: v.k }
 }
 
+// A piece of the explored map a player is sharing (World Map mode,
+// src/game/ExploredMap.js shareState): its number and the cells, sorted,
+// as base-36 gaps.
+const FOG_RE = /^[0-9a-z]+(,[0-9a-z]+){0,399}$/
+function cleanFog(v) {
+  if (!v || typeof v !== 'object' || typeof v.c !== 'string' || v.c.length > 4000 || !FOG_RE.test(v.c)) return null
+  return { n: Math.round(num(v.n, 0, 1e9)), c: v.c }
+}
+
 function cleanSay(v) {
   if (!v || typeof v !== 'object') return null
   const text = cleanText(v.text, SAY_MAX)
@@ -583,6 +592,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     // A ghost's grave and marks, and the notes just played (src/game/Ghosts.js, Instruments.js).
     [`${base}/players/${playerId}/gh`]: cleanGhost(s.gh),
     [`${base}/players/${playerId}/jam`]: cleanJam(s.jam),
+    [`${base}/players/${playerId}/fog`]: cleanFog(s.fog),
     [`${base}/players/${playerId}/t`]: now,
   }
   // Drop players who went quiet; take over as host if the host did.
@@ -736,7 +746,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p) continue
-    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, gh: p.gh || null, jam: p.jam || null }
+    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, gh: p.gh || null, jam: p.jam || null, fog: p.fog || null }
     // A chat bubble: its number (new one = new bubble) and how long ago.
     if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }

@@ -223,3 +223,17 @@ html.ui-theme-biome :is(#map-pin-menu, #pin-compass) {
 }
 html.ui-theme-biome #map-pin-menu button { font-family: inherit; border-color: var(--biome-edge); background: rgba(var(--biome-ink-rgb), 0.08); }
 html.ui-theme-biome #map-pin-menu button.on { color: rgb(var(--biome-bg-rgb)); background: var(--biome-accent); border-color: var(--biome-accent); }
+
+/* World Map travel (Passport.js, FastTravel.js): counter, bar, passport
+   book and the globe's travel box in the biome's colours. */
+html.ui-theme-biome :is(#world-explored, #world-map-bar .world-map-seen, #world-map-bar button, #world-passport, #globe-travel) {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.6px;
+  color: var(--biome-ink);
+  background: var(--biome-surface);
+  border-color: var(--biome-edge);
+  text-shadow: none;
+}
+html.ui-theme-biome :is(#world-passport, #globe-travel) button { font-family: inherit; border-color: var(--biome-edge); background: rgba(var(--biome-ink-rgb), 0.08); }
+html.ui-theme-biome #world-passport .passport-stamp { background: rgba(var(--biome-ink-rgb), 0.06); }
+html.ui-theme-biome :is(#map-pin-menu, #globe-travel) button.map-travel:not(:disabled) { color: rgb(var(--biome-bg-rgb)); background: var(--biome-accent); border-color: var(--biome-accent); }

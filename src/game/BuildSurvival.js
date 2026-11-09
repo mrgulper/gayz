@@ -93,6 +93,8 @@ import { Speedrun, SPEEDRUN_WAVES } from './Speedrun.js'
 import { PartyMode, PARTY_MODES, PARTY_SERVER_MODES } from './PartyModes.js'
 import { dungeonAt, inBossRoom } from './Dungeons.js'
 import { HEAVEN_FLOOR, HEAVEN_TOP } from './HeavenRealm.js'
+import { passport } from './Passport.js'
+import { journal } from './TravelJournal.js'
 import { WATER_BIOMES } from './EarthGrid.js'
 import { PlayDamageNumbers } from './PlayDamageNumbers.js'
 import { zombieHat, zombieCape, makeHat, disposeHat, poseZombieLimbs, GOOF_CHANCE } from './FunnyZombies.js'
@@ -408,6 +410,8 @@ export class BuildSurvival {
     this.maxHealth = this.cfg.maxHealth
     this.armor = this.cfg.armor
     this.coins = this.cfg.startCoins
+    // World Map fast travel's wait (FastTravel.js) starts over each game.
+    this._travelAt = 0
     this.upgrades = {}
     this.stats = { kills: 0, chests: 0, headshots: 0, meleeKills: 0, skeletonKills: 0, assists: 0 }
     this.streak = 0
@@ -888,6 +892,11 @@ export class BuildSurvival {
     if (!spot) return false
     // Kept for Invite Friends (players joining start at the same place).
     this._spawnPick = { lat: pick.lat, lon: pick.lon, biome: pick.biome, country: pick.country || '', city: pick.city || '' }
+    // World Map: a new trip for the passport's welcome and the journal.
+    if (isEarthWorld()) {
+      passport.reset()
+      journal.newTrip()
+    }
     const bm = this.bm
     const tm = bm.tryMode
     // Near a real city: its block town, you on the main avenue facing the
@@ -1296,7 +1305,7 @@ export class BuildSurvival {
     // World Map: no waves - where you are and how long you've explored.
     if (this.cfg?.noZombies) {
       const s = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
-      set('build-play-wave-text', this.infection ? this.infection.hudText() : this.party ? this.party.hudText() : this.escape ? `${this.escape.hudText()} · ${t('campCoins', { n: this.coins })} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}` : `${t('topBarModeWorldMap')} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}`)
+      set('build-play-wave-text', this.infection ? this.infection.hudText() : this.party ? this.party.hudText() : this.escape ? `${this.escape.hudText()} · ${t('campCoins', { n: this.coins })} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}` : `${t('topBarModeWorldMap')} · ${t('campCoins', { n: this.coins })} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}`)
     }
     const waveText = mode === 'zombieDefense' || this.speedrun || this.td ? t('buildPlayWaveOf', { n: Math.max(1, this.wave), max: this.speedrun ? SPEEDRUN_WAVES : this.td ? TD_WAVES : DEFENSE_WAVES }) : t('buildPlayWave', { n: Math.max(1, this.wave) })
     const secs = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
@@ -1950,6 +1959,8 @@ export class BuildSurvival {
     // ...and the bank vault's (Heist.js).
     this.heist?.onChest(key)
     this.stats.chests++
+    // World Map: a chest on the map's travel journal.
+    if (this.bm.world?.active && isEarthWorld()) journal.loot(x, z)
     // Ammo in this gun's own amounts (PlayWeapons.ammoFor).
     const ammo = ammoFor(this.weaponId, CHEST_LOOT.ammo)
     this.reserve += ammo
@@ -3156,6 +3167,11 @@ export class BuildSurvival {
     // A Bed you slept in brings you back once (BuildSpecials.js).
     if (!won && this.bm.specials.tryRevive(this)) return
     this.dead = true
+    // World Map: a skull on the map's travel journal (TravelJournal.js).
+    if (!won && this.bm.world?.active && isEarthWorld()) {
+      const at = this.bodyPos()
+      journal.died(at.x, at.z)
+    }
     this.onboard?.onDeath()
     const career = this.bm.game?.careerStats
     const careerBefore = career ? { ...career } : null
@@ -4027,6 +4043,7 @@ export class BuildSurvival {
       this.bm.tryMode.pos.set(x + 0.5, y, z + 0.5)
       this.bm.tryMode.vel.set(0, 0, 0)
     }
+    journal.jumped()
     // Escape Rooms: back in the room you were in.
     this.escape?.placePlayer()
     this.replay?.clear()

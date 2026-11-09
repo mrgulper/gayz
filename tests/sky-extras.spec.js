@@ -10,6 +10,7 @@ test('sky extras and the World Map globe fade and fog', async ({ page }) => {
   await page.waitForFunction(() => window.__game?.playBtn, null, { timeout: 120000 })
   await page.evaluate(() => {
     localStorage.removeItem('gayz-world-explored-v1')
+    localStorage.removeItem('gayz-world-explored-v2')
     const g = window.__game
     g.settings.selectedGameMode = 'worldMap'
     g.playBtn.click()
@@ -64,7 +65,7 @@ test('sky extras and the World Map globe fade and fog', async ({ page }) => {
     out.seenHere = explored.seenIn(x0 - 8, z0 - 8, 16) === 1
     out.seenFar = explored.seenIn(x0 + 5000, z0, 16)
     for (let i = 0; i < 60; i++) explored.visit(x0, z0, 0.1)
-    out.saved = (JSON.parse(localStorage.getItem('gayz-world-explored-v1') || '{}').c || []).length > 0
+    out.saved = (JSON.parse(localStorage.getItem('gayz-world-explored-v2') || '{}').d || '').length > 0
     // The globe fades in over the block map as you zoom out.
     tm.cycleMap()
     tm.cycleMap()

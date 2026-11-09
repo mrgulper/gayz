@@ -102,7 +102,7 @@ const RAINBOW_FADE = 0.25
 const OLD_WEATHERS = { rain: 'lightRain', snow: 'lightSnow' }
 // A whole day: 1440 seconds, so one game minute is one real second
 // (2026-10-18, Gaymi: "make it go 1 minute but each minute=1 second").
-const CYCLE_SECONDS = 1440
+export const CYCLE_SECONDS = 1440
 // Games start mid-morning: a little after sunrise (0.75) on the way to noon.
 const GAME_START_PHASE = 0.85
 const PREF_KEY = 'buildmode-sky'
