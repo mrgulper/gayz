@@ -40,6 +40,7 @@ import { addGunLights, cloneViewmodel } from './Viewmodels.js'
 import { heldAction, FIXED_KEYS } from './Keybinds.js'
 import { WORLD_LIMIT, sampleLand, biomeName, inCity, isEarthWorld } from './OpenWorld.js'
 import { EarthGlobe } from './EarthGlobe.js'
+import { explored } from './ExploredMap.js'
 import { EARTH_DEG } from './EarthGrid.js'
 import { placeNameAt } from './EarthPlaces.js'
 import { featureAt } from './EarthFeatures.js'
@@ -93,6 +94,10 @@ const MAP_COARSE_BUDGET_MS = 3
 // make it go to the circle world map"); zoom stops at GLOBE_MOST (200
 // degrees, the whole globe).
 const GLOBE_FROM = 70 * EARTH_DEG
+// Zooming out from here to GLOBE_FROM the globe fades in over the block
+// map and the block map fades away (2026-11-09, Gaymi: "the smooth world
+// map fade-in"), instead of one swapping for the other.
+const GLOBE_FADE_FROM = 48 * EARTH_DEG
 const GLOBE_MOST = 200 * EARTH_DEG
 // One wheel step zooms by at most this much (2026-10-24, "when scrolling
 // goes out and in slower") - smaller trackpad steps zoom less.
@@ -620,6 +625,16 @@ export class BuildTryMode {
     this._drawMap(now, cam.x / this.B, cam.z / this.B)
   }
 
+  // The World Map mode's unexplored fog (ExploredMap.js) over the map.
+  _drawExplored(ctx, ox, oz, span, k) {
+    explored.draw(ctx, ox, oz, span, k)
+  }
+
+  // (Tests reach the fog through here.)
+  get explored() {
+    return explored
+  }
+
   _drawMap(now, x = this.pos.x, z = this.pos.z) {
     // Redrawn every frame while the big map is being dragged or zoomed (it
     // used to keep to ~16 a second, which felt laggy), else ~16 a second.
@@ -645,13 +660,21 @@ export class BuildTryMode {
     const earth = !!world && isEarthWorld()
     const pic = earth ? world.earthPicture() : null
     const globeView = earth && this._mapInteractive() && span > GLOBE_FROM
+    // Between GLOBE_FADE_FROM and GLOBE_FROM: both, the globe fading in.
+    const fade = earth && this._mapInteractive() ? THREE.MathUtils.clamp((span - GLOBE_FADE_FROM) / (GLOBE_FROM - GLOBE_FADE_FROM), 0, 1) : 0
+    const globeShown = fade > 0
     // Solid, not see-through: the world behind showed through as blocks.
     if (earth !== this._mapEl.classList.contains('earth')) this._mapEl.classList.toggle('earth', earth)
-    if (globeView !== this._mapEl.classList.contains('globe')) {
-      this._mapEl.classList.toggle('globe', globeView)
-      if (globeView && !this._globe) this._globe = new EarthGlobe(this._mapEl)
-      this._globe?.show(globeView)
+    if (globeView !== this._mapEl.classList.contains('globe')) this._mapEl.classList.toggle('globe', globeView)
+    if (globeShown !== !!this._globeShown) {
+      this._globeShown = globeShown
+      if (globeShown && !this._globe) this._globe = new EarthGlobe(this._mapEl)
+      this._globe?.show(globeShown)
     }
+    if (this._globe) this._globe.setFade(globeView ? 1 : THREE.MathUtils.smoothstep(fade, 0, 0.7))
+    // The flat map fades out over the second half.
+    const flat = globeView ? '' : fade > 0.4 ? String(1 - THREE.MathUtils.smoothstep(fade, 0.4, 1)) : ''
+    if (c.style.opacity !== flat) c.style.opacity = flat
     if (!world && windowed) {
       ctx.fillStyle = '#1d2a1a'
       ctx.fillRect(0, 0, s, s)
@@ -733,7 +756,14 @@ export class BuildTryMode {
       if (missing) this._mapDrawAt = 0
       ctx.imageSmoothingEnabled = false
       ctx.drawImage(this._mapImage, (-cells / 2 - ox) * k, (-cells / 2 - oz) * k, cells * k, cells * k)
+      if (earth) this._drawExplored(ctx, ox, oz, span, k)
       this._showBiome(x, z)
+      if (globeShown) {
+        this._globe.setPicture(pic)
+        const yawNow = this.bm._yaw
+        this._globe.draw(s, -(oz + span / 2) / EARTH_DEG, (ox + span / 2) / EARTH_DEG, span / EARTH_DEG, { lat: -z / EARTH_DEG, lon: x / EARTH_DEG, ang: Math.atan2(-Math.cos(yawNow), -Math.sin(yawNow)) })
+        if (moving) this._mapDrawAt = 0
+      }
     } else {
       ctx.drawImage(this._mapImage, 0, 0, s, s)
       this._showBiome(null)
@@ -927,6 +957,8 @@ export class BuildTryMode {
   update(dt, keys) {
     const frameDt = Math.min(dt, 0.1)
     dt = Math.min(dt, 1 / 30)
+    // The World Map mode: where you've walked clears the map's fog.
+    if (this.bm.world?.active && isEarthWorld()) explored.visit(this.pos.x, this.pos.z, frameDt)
     const B = this.B
     const p = { x: this.pos.x, y: this.pos.y, z: this.pos.z }
     const cam = this.bm.camera

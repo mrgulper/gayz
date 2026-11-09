@@ -364,7 +364,7 @@ export class SkyBodies {
         void main() {
           vec3 dir = normalize(vDir);
           float up = clamp(dir.y, 0.0, 1.0);
-          vec3 c = mix(horizon, zenith, pow(up, 0.55));
+          vec3 c = mix(horizon, zenith, pow(up, 0.45));
           float s = max(dot(dir, sunDir), 0.0);
           c += glow * glowAmount * (pow(s, 48.0) * 0.6 + pow(s, 6.0) * 0.18);
           gl_FragColor = vec4(c, 1.0);
@@ -435,6 +435,38 @@ export class SkyBodies {
     this.rainbow.visible = false
     scene.add(this.rainbow)
     this._bowDir = new THREE.Vector3()
+    // Sun rays (2026-11-09): soft beams fanning out from the sun, strongest
+    // low in the sky (sunrise/sunset) and when there are gaps in the
+    // clouds. A big see-through picture round the sun, facing you, so
+    // blocks in front still hide it. Off on Potato.
+    this.raysMat = new THREE.ShaderMaterial({
+      uniforms: { opacity: { value: 0 }, time: { value: 0 }, color: { value: new THREE.Color(1, 0.9, 0.7) } },
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `uniform float opacity; uniform float time; uniform vec3 color; varying vec2 vUv;
+        void main() {
+          vec2 p = vUv - 0.5;
+          float r = length(p);
+          float ang = atan(p.y, p.x);
+          // Beams of different widths that slowly come and go.
+          float b = (0.5 + 0.5 * sin(ang * 11.0 + time * 0.07)) * (0.5 + 0.5 * sin(ang * 17.0 - time * 0.05 + 1.7));
+          b = pow(b, 2.2) + 0.25 * pow(0.5 + 0.5 * sin(ang * 29.0 + time * 0.11), 6.0);
+          float fade = (1.0 - smoothstep(0.05, 0.42, r)) * smoothstep(0.02, 0.07, r);
+          float a = b * fade * opacity;
+          if (a < 0.003) discard;
+          gl_FragColor = vec4(color * a, a);
+          #include <colorspace_fragment>
+        }`,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      fog: false,
+      toneMapped: false,
+    })
+    this.rays = new THREE.Mesh(new THREE.PlaneGeometry(SUN_SIZE * 4, SUN_SIZE * 4), this.raysMat)
+    this.rays.frustumCulled = false
+    this.rays.renderOrder = -1
+    this.rays.visible = false
+    scene.add(this.rays)
     this._lite = false
     for (const o of [this.dome, this.sun, this.moon, this.clouds]) {
       o.visible = false
@@ -449,6 +481,7 @@ export class SkyBodies {
       this.eclipse.visible = false
       this.lowClouds.visible = false
       this.rainbow.visible = false
+      this.rays.visible = false
     }
   }
 
@@ -465,6 +498,7 @@ export class SkyBodies {
   update(dt, camera, phase, cover, daylight, sky, eclipse = 0, moonPhase = 0.5, rainbow = 0) {
     if (!this.clouds.visible) {
       this.rainbow.visible = false
+      this.rays.visible = false
       return
     }
     if (moonPhase !== this._moonPhase) {
@@ -490,6 +524,19 @@ export class SkyBodies {
       this.eclipse.material.opacity = eclipse * sunUp
       this.sun.material.opacity *= 1 - eclipse * 0.7
     }
+    // Sun rays: a low sun and broken cloud make the strongest beams.
+    const lowSun = 0.35 + 0.65 * (1 - THREE.MathUtils.smoothstep(this._dir.y, 0.25, 0.85))
+    const gaps = 0.45 + 0.55 * THREE.MathUtils.smoothstep(cover, 0.1, 0.4) * (1 - THREE.MathUtils.smoothstep(cover, 0.6, 0.9))
+    const rays = this._lite ? 0 : sunUp * lowSun * gaps * (1 - eclipse) * (1 - cover * 0.6) * 0.45
+    this.rays.visible = rays > 0.004
+    if (this.rays.visible) {
+      this.rays.position.copy(cam).addScaledVector(this._dir, SKY_R - 2)
+      this.rays.lookAt(cam)
+      this.raysMat.uniforms.opacity.value = rays
+      this.raysMat.uniforms.time.value += dt
+      // Warmer the lower it is.
+      this.raysMat.uniforms.color.value.setRGB(1, 0.78 + 0.17 * (1 - lowSun * 0.8), 0.55 + 0.3 * (1 - lowSun * 0.8))
+    }
     // The rainbow: round the point opposite the sun. With the sun high a
     // real one would be under the horizon, so the middle never sinks lower
     // than ~24 degrees down - you still get to see the arc.
@@ -504,12 +551,13 @@ export class SkyBodies {
     }
     // The dome: the horizon is the fog's colour; overhead is a deeper,
     // bluer version of it on a clear day, about the same when overcast.
+    // (Deeper since 2026-11-09, Gaymi picked "make it stronger".)
     if (sky) {
       this.dome.position.copy(cam)
       const u = this.domeMat.uniforms
       u.horizon.value.copy(sky)
       const deep = (1 - cover) * daylight
-      u.zenith.value.setRGB(sky.r * (1 - 0.45 * deep), sky.g * (1 - 0.3 * deep), sky.b * (1 - 0.08 * deep))
+      u.zenith.value.setRGB(sky.r * (1 - 0.62 * deep), sky.g * (1 - 0.42 * deep), sky.b * (1 - 0.12 * deep))
       u.sunDir.value.copy(this._dir)
       u.glowAmount.value = sunUp * (1 - cover) * (0.35 + 0.65 * daylight) * (1 - eclipse)
     }

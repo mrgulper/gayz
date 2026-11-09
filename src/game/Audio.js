@@ -700,6 +700,40 @@ class AudioEngine {
     osc.stop(now + 0.2)
   }
 
+  // Dawn birdsong (2026-11-09): a short phrase of chirps from one bird - a
+  // few quick whistles sliding up or down. BuildSky plays a handful of
+  // these, from different "birds", for about a minute at sunrise.
+  playBirdChirp(pan = 0) {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    let t = ctx.currentTime + 0.02
+    const base = 2600 + Math.random() * 1800
+    const notes = 2 + Math.floor(Math.random() * 5)
+    const panner = ctx.createStereoPanner ? ctx.createStereoPanner() : null
+    if (panner) {
+      panner.pan.value = Math.max(-1, Math.min(1, pan))
+      panner.connect(this.sfxGain)
+    }
+    const out = panner || this.sfxGain
+    const rise = Math.random() < 0.5
+    for (let i = 0; i < notes; i++) {
+      const len = 0.06 + Math.random() * 0.08
+      const f = base * (0.85 + Math.random() * 0.3)
+      const osc = ctx.createOscillator()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(rise ? f * 0.75 : f * 1.2, t)
+      osc.frequency.exponentialRampToValueAtTime(rise ? f * 1.2 : f * 0.75, t + len)
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(0.0001, t)
+      g.gain.exponentialRampToValueAtTime(0.035, t + len * 0.25)
+      g.gain.exponentialRampToValueAtTime(0.0001, t + len)
+      osc.connect(g).connect(out)
+      osc.start(t)
+      osc.stop(t + len + 0.02)
+      t += len + 0.03 + Math.random() * 0.06
+    }
+  }
+
   // Distant metallic creak/groan — implies the city settling, not a threat.
   playDistantCreak() {
     if (!this.ctx) return

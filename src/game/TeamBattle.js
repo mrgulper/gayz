@@ -305,6 +305,32 @@ export class TeamBattle {
     this.scene.background = new THREE.Color(0x8cc8f0)
     this.scene.fog = new THREE.Fog(0x8cc8f0, 40, 80)
     this.camera = new THREE.PerspectiveCamera(55, 1, 0.1, 140)
+    // The sky fades from the fog's pale blue at the horizon to a deeper blue
+    // overhead, like the main game's sky (2026-11-09), not one flat colour.
+    this.skyDome = new THREE.Mesh(
+      new THREE.SphereGeometry(120, 32, 16),
+      new THREE.ShaderMaterial({
+        uniforms: { horizon: { value: new THREE.Color(0x8cc8f0) }, zenith: { value: new THREE.Color(0x3a7fd0) }, height: { value: 1 } },
+        vertexShader: 'varying vec3 vDir; void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: `uniform vec3 horizon; uniform vec3 zenith; uniform float height; varying vec3 vDir;
+          void main() {
+            // The camera looks down on the arena, so the bit of sky you see
+            // is all near the horizon: it deepens towards the top of the
+            // screen instead (and overhead, if the view ever looks up).
+            float up = max(smoothstep(0.0, 0.5, normalize(vDir).y), smoothstep(0.55, 1.0, gl_FragCoord.y / height));
+            gl_FragColor = vec4(mix(horizon, zenith, up), 1.0);
+            #include <colorspace_fragment>
+          }`,
+        side: THREE.BackSide,
+        depthWrite: false,
+        depthTest: false,
+        fog: false,
+        toneMapped: false,
+      }),
+    )
+    this.skyDome.frustumCulled = false
+    this.skyDome.renderOrder = -3
+    this.scene.add(this.skyDome)
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x4a5a3a, 1.6))
     const sun = new THREE.DirectionalLight(0xffffff, 1.4)
     sun.position.set(6, 14, 8)
@@ -615,6 +641,8 @@ export class TeamBattle {
       s.mesh.position.set(s.x, s.y, s.z)
       s.mesh.rotation.x += 0.3
     }
+    this.skyDome.position.copy(this.camera.position)
+    this.skyDome.material.uniforms.height.value = this.renderer.domElement.height || 1
     this.renderer.render(this.scene, this.camera)
   }
 

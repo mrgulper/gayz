@@ -118,6 +118,7 @@ import { PERKS, CARDS as PERK_CARDS } from './RunPerks.js'
 import { COINS as ESCORT_COINS, BONUS_XP as ESCORT_XP } from './EscortMission.js'
 import { FROM_WAVE as SIEGE_WAVE, BREAK_INS as SIEGE_BREAK_INS, LIMIT_S as SIEGE_LIMIT_S, COINS as SIEGE_COINS, BONUS_XP as SIEGE_XP } from './CampSiege.js'
 import { TD_WAVES, LIVES as TD_LIVES, START_COINS as TD_START_COINS, LEAK_BOSS as TD_LEAK_BOSS } from './TowerDefense.js'
+import { CONSTELLATION_COUNT } from './NightSky.js'
 import { SIZE as TOURNEY_SIZE, ROUND_COINS as TOURNEY_ROUND_COINS, CHAMP_COINS as TOURNEY_CHAMP_COINS } from './TeamTournament.js'
 
 // Update-available check - only ever called from _exitBuildMode (back
@@ -356,6 +357,7 @@ export function _featureValues(_game) {
   const supported = LANGUAGES.filter((l) => SUPPORTED_LANGUAGE_CODES.has(l.code)).map((l) => l.name)
   const coming = LANGUAGES.filter((l) => !SUPPORTED_LANGUAGE_CODES.has(l.code)).map((l) => l.name)
   return {
+    constellations: CONSTELLATION_COUNT,
     goals: MAX_GOALS,
     startTraps: START_TRAPS,
     teamSize: TEAM_SIZE,
