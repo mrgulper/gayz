@@ -158,6 +158,9 @@ function skin() {
 
 const lambert = (color, extra = {}) => new THREE.MeshLambertMaterial({ color, ...extra })
 
+// Announcements with a "...You" wording for when they're about you.
+const YOU_KEYS = new Set(['wolfStruck', 'wolfCaught', 'wolfWrong', 'freezeThawed', 'partyPotatoBoom', 'golfKnocked'])
+
 export class PartyMode {
   constructor(survival, kind) {
     this.s = survival
@@ -1591,6 +1594,9 @@ export class PartyMode {
   }
 
   _sayNow({ k, team, name, n }) {
+    // About you: its own wording where "You" doesn't fit the sentence
+    // ("You was the Werewolf!", 2026-11-09 visual check).
+    if (name && name === this.myId && YOU_KEYS.has(k)) k += 'You'
     this.s._message(t(k, { team: t(team === 'r' ? 'partyRed' : 'partyBlue'), name: name ? this._name(name) : '', n }), 3)
   }
 
