@@ -248,7 +248,7 @@ export function newServerId() {
 
 // Infection games make Infection servers (Infection.js), Shrinking Zone
 // games Zone servers (ShrinkZone.js), party games their own (PartyModes.js).
-const serverMode = (survival) => (survival?.cfg?.mode === 'infection' ? 'infection' : survival?.cfg?.mode === 'shrinkingZone' ? 'zone' : survival?.cfg?.mode === 'towerDefense' ? 'td' : PARTY_SERVER_MODES[survival?.cfg?.mode] || 'main')
+const serverMode = (survival) => (survival?.cfg?.mode === 'infection' ? 'infection' : survival?.cfg?.mode === 'shrinkingZone' ? 'zone' : survival?.cfg?.mode === 'towerDefense' ? 'td' : survival?.cfg?.mode === 'escapeRoom' ? 'escape' : survival?.cfg?.mode === 'escapeRace' ? 'escapeSolo' : PARTY_SERVER_MODES[survival?.cfg?.mode] || 'main')
 
 export async function makeGameJoinable(game, survival, id = newServerId()) {
   if (survival.net && !survival.net.closed) return survival.net

@@ -1373,6 +1373,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'game-mode-paint-wars-label': 'topBarModePaintWars',
   'game-mode-build-battle-label': 'topBarModeBuildBattle',
   'game-mode-escape-room-label': 'topBarModeEscapeRoom',
+  'game-mode-escape-race-label': 'topBarModeEscapeRace',
   'game-mode-floor-lava-label': 'topBarModeFloorLava',
   'game-mode-laser-tag-label': 'topBarModeLaserTag',
   'game-mode-mini-golf-label': 'topBarModeMiniGolf',

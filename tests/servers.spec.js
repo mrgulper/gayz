@@ -769,8 +769,9 @@ test('Shrinking Zone: a friend joins, gets the same zone and sees my helicopter'
     const s = window.__game.buildMode.survival
     for (let i = 0; i < 5; i++) s.net.update(0.1)
     const other = [...s.net.players.values()][0]
-    return { mode: s.cfg.mode, netMode: s.net.mode, seed: s.zone?.seed, c: s.zone?.centers.map((c) => [Math.round(c.x * 10), Math.round(c.z * 10)]), wall: !!s.zone?.wall?.parent, veh: other?.veh?.map((d) => d.k), drawn: other?.vehicles?.length === 1 && !!other.vehicles[0].group.parent && !!other.vehicles[0].group.userData.rotor }
+    return { mode: s.cfg.mode, netMode: s.net.mode, seed: s.zone?.seed, c: s.zone?.centers.map((c) => [Math.round(c.x * 10), Math.round(c.z * 10)]), wall: !!s.zone?.wall?.parent, veh: other?.veh?.map((d) => d.k).filter((k) => k !== 'k'), drawn: !!other?.vehicles?.find((m) => m.k === 'h')?.group.parent && !!other.vehicles.find((m) => m.k === 'h').group.userData.rotor }
   })
+  // (The host's go-kart rides along in the same list since 2026-11-09.)
   expect(guest).toEqual({ mode: 'shrinkingZone', netMode: 'zone', seed: host.seed, c: host.c, wall: true, veh: ['h'], drawn: true })
 })
 
@@ -793,4 +794,250 @@ test('servers: Paint Wars splats and Build Battle stars go through the server', 
   expect(rc.hits).toEqual([{ id: `v${c.playerId}`, dmg: 5, by: d.playerId }])
   const rd = await syncServer(db, { ...d }, t0 + 40)
   expect([rd.party.sb, rd.party.th, rd.party.vi, rd.party.pl]).toEqual(['vote', 3, 1, { [c.playerId]: 0, b1: 7 }])
+})
+
+// 2026-11-09 (Gaymi: others see the Zombie Train, karts, dragon and UFO and
+// can hop on as passengers; Escape Rooms on servers, as a team and a race).
+test('servers: karts, the train, the dragon, the UFO and Escape Rooms go through the server', async () => {
+  const db = fakeServerDb()
+  const t0 = 1_000_000
+  const a = await createServer(db, { nickname: 'Ann' }, t0)
+  const b = await joinServer(db, { serverId: a.serverId, nickname: 'Bo' }, t0 + 10)
+  // A kart (k) rides along with 4 boats; the host's train, dragon and UFO.
+  const boats = [1, 2, 3, 4].map((i) => ({ k: 'b', x: i, y: 1, z: 1, h: 0, r: 0 }))
+  await syncServer(db, { ...a, train: { cx: 10, cz: -20, head: 33.5, w: 1, junk: '<x>' }, dragon: { lx: 5, ly: 30, lz: 6, a: 1.25, hp: 900, dy: 0 }, ufo: { gx: 1, gz: 2, y: 40, t: 12 }, state: { x: 1, y: 1, z: 1, veh: [...boats, { k: 'k', x: 7, y: 2, z: 8, h: 1, r: 1 }] } }, t0 + 20)
+  const rb = await syncServer(db, { ...b, hits: [{ id: 'x1', dmg: 120 }, { id: 'eb1_2', dmg: 0 }] }, t0 + 30)
+  expect(rb.players[a.playerId].veh.map((d) => d.k)).toEqual(['b', 'b', 'b', 'b', 'k'])
+  expect(rb.train).toEqual({ cx: 10, cz: -20, head: 33.5, w: 1 })
+  expect(rb.dragon).toEqual({ lx: 5, ly: 30, lz: 6, a: 1.25, hp: 900, dy: 0 })
+  expect(rb.ufo).toEqual({ gx: 1, gz: 2, y: 40, t: 12 })
+  // A guest's dragon shot reaches the host; Escape messages only on Escape servers.
+  expect((await syncServer(db, { ...a }, t0 + 40)).hits).toEqual([{ id: 'x1', dmg: 120, by: b.playerId }])
+  // null clears them; a guest can't set them.
+  await syncServer(db, { ...b, train: { cx: 1, cz: 1, head: 1 } }, t0 + 45)
+  await syncServer(db, { ...a, train: null, dragon: null, ufo: null }, t0 + 50)
+  const rb2 = await syncServer(db, { ...b }, t0 + 60)
+  expect([rb2.train, rb2.dragon, rb2.ufo]).toEqual([null, null, null])
+  // Escape Rooms as a team: the host's puzzles and progress for everyone,
+  // a guest's solved room and wrong button go to the host.
+  const c = await createServer(db, { nickname: 'Cy', mode: 'escape' }, t0)
+  expect(c.mode).toBe('escape')
+  const d = await joinServer(db, { serverId: c.serverId, nickname: 'Di' }, t0 + 10)
+  const esc = { p: 5, c: '4071', m: '03122', o: '2013', s: 1, b: 0, d: [0, 140, 140], r: 1 }
+  await syncServer(db, { ...c, esc: { ...esc, junk: 1 } }, t0 + 20)
+  const rd = await syncServer(db, { ...d, hits: [{ id: 'es1', dmg: 0 }, { id: 'ew2', dmg: 0 }, { id: 'e<x>', dmg: 0 }], state: { x: 0, y: 241, z: 0, lane: 3 } }, t0 + 30)
+  expect(rd.esc).toEqual(esc)
+  const rc = await syncServer(db, { ...c, esc: { ...esc, c: '12<3' } }, t0 + 40)
+  expect(rc.hits.map((h) => h.id)).toEqual(['es1', 'ew2'])
+  expect(rc.players[d.playerId].lane).toBe(3)
+  // Escape Race servers: a guest's burst door asks the host for zombies.
+  const e = await createServer(db, { nickname: 'Ed', mode: 'escapeSolo' }, t0)
+  const f = await joinServer(db, { serverId: e.serverId, nickname: 'Fi' }, t0 + 10)
+  await syncServer(db, { ...f, hits: [{ id: 'eb1_2', dmg: 0 }] }, t0 + 20)
+  expect((await syncServer(db, { ...e }, t0 + 30)).hits.map((h) => h.id)).toEqual(['eb1_2'])
+})
+
+// Two real games on one server: the host's kart, train, dragon and UFO on
+// the guest's screen, and the guest riding along in the host's kart.
+test('servers: a friend sees my kart, train, dragon and UFO and rides in my kart', async ({ browser }) => {
+  test.setTimeout(240000)
+  const db = fakeServerDb()
+  const fns = { list: () => listServers(db), create: (b) => createServer(db, b), join: (b) => joinServer(db, b), leave: (b) => leaveServer(db, b), sync: (b) => syncServer(db, b) }
+  const open = async (path = '/') => {
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await page.exposeFunction('__srv', async (name, body) => {
+      try {
+        return { ok: await fns[name](body) }
+      } catch (err) {
+        return { err: err.code || 'server' }
+      }
+    })
+    await page.addInitScript(() => {
+      const call = async (name, body) => {
+        const r = await window.__srv(name, body)
+        if (r.err) throw Object.assign(new Error(r.err), { code: r.err })
+        return r.ok
+      }
+      window.__serversBackendForTests = { list: () => call('list'), create: (b) => call('create', b), join: (b) => call('join', b), leave: (b) => call('leave', b), sync: (b) => call('sync', b) }
+    })
+    await gotoAndWaitForGame(page, path)
+    // Two games at once: skip drawing (BuildMode.render, __testNoDraw).
+    await page.evaluate(() => { window.__game.__testNoDraw = true })
+    return page
+  }
+  const a = await open()
+  await a.evaluate(() => { window.__game.settings.selectedGameMode = 'classic'; window.__game.playBtn.click() })
+  await a.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await a.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  await a.waitForFunction(() => window.__game.buildMode.survival.lobby && location.search.startsWith('?join='), null, { timeout: 20000 })
+  const search = await a.evaluate(() => location.search)
+  const b = await open(`/${search}`)
+  await a.evaluate(() => window.__game.buildMode.survival.lobby?._sync() || window.__game.buildMode.survival.net?._sync())
+  await b.waitForFunction(() => window.__game.buildMode?.survival?.active && window.__game.buildMode.survival.net, null, { timeout: 60000 })
+  await b.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  const sync = (page) => page.evaluate(() => window.__game.buildMode.survival.net._sync())
+  // The host: the kart right where the guest stands, the dragon, the UFO
+  // and (on an open-world map) the train.
+  const guestPos = await b.evaluate(() => { const p = window.__game.buildMode.tryMode.pos; return { x: p.x, y: p.y, z: p.z } })
+  const host = await a.evaluate((gp) => {
+    const s = window.__game.buildMode.survival
+    const k = s.kart
+    if (!k.group) k.park(s.bodyPos())
+    Object.assign(k, { x: gp.x + 1.5, y: gp.y, z: gp.z, heading: 0.5 })
+    k._place()
+    s.dragon.clear()
+    s.wave = Math.max(s.wave, 3)
+    const me = s.bodyPos()
+    const dragon = !!s.dragon.event(me, { x: Math.floor(me.x) + 40, y: Math.floor(me.y), z: Math.floor(me.z) })
+    s.ufo.clear()
+    const ufo = !!s.ufo.event(me)
+    const train = s.train.on || s.train.setup(me)
+    return { dragon, ufo, train, hp: s.dragon.d?.hp }
+  }, guestPos)
+  expect(host.dragon && host.ufo).toBe(true)
+  for (let i = 0; i < 2; i++) {
+    await sync(a)
+    await sync(b)
+  }
+  const guest = await b.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    for (let i = 0; i < 10; i++) s.net.update(0.1)
+    s.dragon.mirrorUpdate(0.1)
+    s.ufo.mirrorUpdate(0.1)
+    if (s.train.mirror) s.train.update(0.1)
+    const other = [...s.net.players.values()][0]
+    const out = {
+      kart: other?.veh?.some((d) => d.k === 'k') && !!other.vehicles?.find((m) => m.k === 'k')?.group?.parent,
+      dragon: !!s.dragon.mirror && !!s.dragon._group?.parent,
+      ufo: !!s.ufo.mirror && !!s.ufo._group?.parent,
+      train: !!s.train.mirror && !!s.train._group?.parent,
+    }
+    // Hop on: Use next to the host's kart, carried along with it.
+    out.boarded = s.passenger.use() && !!s.passenger.on
+    const seat = s.passenger.seat()
+    const m = other.vehicles.find((v) => v.k === 'k')
+    out.seatNear = !!seat && Math.hypot(seat.x - m.x, seat.z - m.z) < 1.5
+    // A shot at the dragon goes to the host.
+    s.dragon.d.flash = 0
+    const before = s.net._hits.length
+    s.dragon.remoteHit({ dmg: 1 })
+    const B = s.B
+    const d = s.dragon.d
+    const origin = new (s.bm.camera.position.constructor)(d.x * B, (d.y + 30) * B, d.z * B)
+    const ray = { origin, intersectSphere: (sph, v) => v.copy(sph.center) }
+    out.shot = s.dragon.shoot(ray, 1e9, 50) && s.net._hits.length === before + 1 && s.net._hits.at(-1).id === 'x1'
+    return out
+  })
+  expect(guest).toEqual({ kart: true, dragon: true, ufo: true, train: host.train, boarded: true, seatNear: true, shot: true })
+  // The host gets the guest's shot.
+  await sync(b)
+  await sync(a)
+  const hp = await a.evaluate(() => window.__game.buildMode.survival.dragon.d?.hp)
+  expect(hp).toBeLessThan(host.hp)
+  // The kart moves: the passenger goes with it; Use hops off.
+  await a.evaluate(() => {
+    const k = window.__game.buildMode.survival.kart
+    k.x += 6
+    k._place()
+  })
+  await sync(a)
+  await sync(b)
+  const ride = await b.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    for (let i = 0; i < 30; i++) s.net.update(0.1)
+    const before = s.passenger.seat()
+    const m = [...s.net.players.values()][0].vehicles.find((v) => v.k === 'k')
+    const out = { follows: Math.hypot(before.x - m.x, before.z - m.z) < 1.5 }
+    s.bm._tryUseFromCamera()
+    out.off = !s.passenger.on
+    return out
+  })
+  expect(ride).toEqual({ follows: true, off: true })
+})
+
+// Escape Rooms on a server: the team's rooms are the host's (same code),
+// a room the guest solves opens for the host too; Escape Race gives the
+// guest a copy of their own in another lane.
+test('Escape Rooms: a team shares the puzzles; a race gives everyone their own rooms', async ({ browser }) => {
+  test.setTimeout(240000)
+  const db = fakeServerDb()
+  const fns = { list: () => listServers(db), create: (b) => createServer(db, b), join: (b) => joinServer(db, b), leave: (b) => leaveServer(db, b), sync: (b) => syncServer(db, b) }
+  const open = async (path = '/') => {
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await page.exposeFunction('__srv', async (name, body) => {
+      try {
+        return { ok: await fns[name](body) }
+      } catch (err) {
+        return { err: err.code || 'server' }
+      }
+    })
+    await page.addInitScript(() => {
+      const call = async (name, body) => {
+        const r = await window.__srv(name, body)
+        if (r.err) throw Object.assign(new Error(r.err), { code: r.err })
+        return r.ok
+      }
+      window.__serversBackendForTests = { list: () => call('list'), create: (b) => call('create', b), join: (b) => call('join', b), leave: (b) => call('leave', b), sync: (b) => call('sync', b) }
+    })
+    await gotoAndWaitForGame(page, path)
+    // Two games at once: skip drawing (BuildMode.render, __testNoDraw).
+    await page.evaluate(() => { window.__game.__testNoDraw = true })
+    return page
+  }
+  const play = async (mode) => {
+    const a = await open()
+    await a.evaluate((m) => { window.__game.settings.selectedGameMode = m; window.__game.playBtn.click() }, mode)
+    await a.waitForFunction(() => window.__game.buildMode?.survival?.escape && window.__game.buildMode.survival.lobby && location.search.startsWith('?join='), null, { timeout: 60000 })
+    const search = await a.evaluate(() => location.search)
+    const b = await open(`/${search}`)
+    await a.evaluate(() => window.__game.buildMode.survival.lobby?._sync() || window.__game.buildMode.survival.net?._sync())
+    await b.waitForFunction(() => window.__game.buildMode?.survival?.active && window.__game.buildMode.survival.net, null, { timeout: 60000 })
+    const sync = (page) => page.evaluate(() => window.__game.buildMode.survival.net._sync())
+    for (let i = 0; i < 3; i++) {
+      await sync(a)
+      await sync(b)
+      await b.evaluate(() => window.__game.buildMode.survival.escape.update(0.05))
+    }
+    return { a, b, sync }
+  }
+  // A team.
+  const team = await play('escapeRoom')
+  const tg = await team.b.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const e = s.escape
+    const out = { mode: s.cfg.mode, net: s.net.mode, built: !e.waiting, code: e.code.join(''), oz: e.oz, floor: s.bm.getBlockAt(e._roomX(0) + 3, 240, 0) }
+    // The guest solves the first room.
+    e._solve(0)
+    return out
+  })
+  const th = await team.a.evaluate(() => {
+    const e = window.__game.buildMode.survival.escape
+    return { code: e.code.join(''), net: window.__game.buildMode.survival.net.mode }
+  })
+  expect(tg).toEqual({ mode: 'escapeRoom', net: 'escape', built: true, code: th.code, oz: 0, floor: 'oakplanks' })
+  expect(th.net).toBe('escape')
+  await team.sync(team.b)
+  await team.sync(team.a)
+  expect(await team.a.evaluate(() => window.__game.buildMode.survival.escape.solved[0])).toBe(true)
+  await team.a.context().close()
+  await team.b.context().close()
+  // A race.
+  const race = await play('escapeRace')
+  const rg = await race.b.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const e = s.escape
+    return { mode: s.cfg.mode, net: s.net.mode, built: !e.waiting, lane: e.lane, oz: e.oz, floor: s.bm.getBlockAt(e._roomX(0) + 3, 240, e.oz) }
+  })
+  expect(rg).toEqual({ mode: 'escapeRace', net: 'escapeSolo', built: true, lane: 1, oz: 14, floor: 'oakplanks' })
+  await race.sync(race.b)
+  await race.sync(race.a)
+  const rh = await race.a.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    s.escape.update(0.05)
+    const e = s.escape
+    return { lane: e.lane, shell: s.bm.getBlockAt(e._roomX(0) + 3, 240, 14) }
+  })
+  expect(rh).toEqual({ lane: 0, shell: 'oakplanks' })
 })
