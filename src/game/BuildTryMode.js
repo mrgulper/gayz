@@ -40,7 +40,11 @@ import { addGunLights, cloneViewmodel } from './Viewmodels.js'
 import { heldAction, FIXED_KEYS } from './Keybinds.js'
 import { WORLD_LIMIT, sampleLand, biomeName, inCity, isEarthWorld } from './OpenWorld.js'
 import { EarthGlobe } from './EarthGlobe.js'
-import { explored } from './ExploredMap.js'
+import { explored, countryAtBlock, pctText, revealFor, packKeys, unpackKeys } from './ExploredMap.js'
+import { passport } from './Passport.js'
+import { journal } from './TravelJournal.js'
+import { travelButton, travelInfo, flyTo } from './FastTravel.js'
+import { CYCLE_SECONDS } from './BuildSky.js'
 import { EARTH_DEG } from './EarthGrid.js'
 import { placeNameAt } from './EarthPlaces.js'
 import { featureAt } from './EarthFeatures.js'
@@ -106,6 +110,8 @@ const MAP_WHEEL_RATE = 0.001
 // Big real places (EarthFeatures.js): the title stays this long, and the
 // same place doesn't title again within FEATURE_AGAIN_MS.
 const PLACE_TITLE_MS = 4000
+// A queued title waits this long after the last one starts fading.
+const PLACE_TITLE_GAP_MS = 1000
 const FEATURE_AGAIN_MS = 60000
 const HEIGHT = 1.8
 const EYE = 1.62
@@ -367,6 +373,7 @@ export class BuildTryMode {
     let pinTimer = 0
     this._mapCanvas.addEventListener('pointerdown', (e) => {
       if (!this._mapInteractive()) return
+      this._closeGlobeTravel()
       press = fingers.size ? null : { x: e.clientX, y: e.clientY, t: performance.now() }
       fingers.set(e.pointerId, { x: e.clientX, y: e.clientY })
       if (fingers.size === 2) pinch = spread()
@@ -429,6 +436,7 @@ export class BuildTryMode {
 
   // A tap on the big map (screen spot `at`): a pin there while playing.
   _tapMapPin(at) {
+    if (this._mapEl.classList.contains('globe') && this._mapInteractive()) return this._tapGlobe(at)
     const pins = this.bm.survival?.active ? this.bm.survival.pins : null
     const v = this._mapView
     if (!pins || !v || !this._mapInteractive()) return
@@ -521,7 +529,25 @@ export class BuildTryMode {
   }
 
   // A big title that fades in for a few seconds as you arrive somewhere.
-  _showPlaceTitle(text) {
+  // `sub` is a smaller line over it and `big` a bigger title (a new
+  // passport stamp, Passport.js). One arriving while another shows waits
+  // its turn, so a country's welcome and a mountain's name don't overwrite
+  // each other.
+  _showPlaceTitle(text, sub = '', big = false) {
+    this._titleQueue ||= []
+    this._titleQueue.push([text, sub, big])
+    if (this._titleQueue.length > 3) this._titleQueue.splice(0, this._titleQueue.length - 3)
+    if (!this._titleBusy) this._nextPlaceTitle()
+  }
+
+  _nextPlaceTitle() {
+    const next = this._titleQueue?.shift()
+    if (!next) {
+      this._titleBusy = false
+      return
+    }
+    this._titleBusy = true
+    const [text, sub, big] = next
     let el = document.getElementById('build-place-title')
     if (!el) {
       el = document.createElement('div')
@@ -530,11 +556,122 @@ export class BuildTryMode {
       document.body.appendChild(el)
     }
     el.textContent = text
+    // The small line goes above the title, clear of the messages below it.
+    if (sub) {
+      const line = document.createElement('span')
+      line.className = 'place-sub'
+      line.textContent = sub
+      el.prepend(line)
+    }
+    el.classList.toggle('big', !!big)
     el.classList.remove('show')
     void el.offsetWidth
     el.classList.add('show')
     clearTimeout(this._placeTitleTimer)
-    this._placeTitleTimer = setTimeout(() => el.classList.remove('show'), PLACE_TITLE_MS)
+    this._placeTitleTimer = setTimeout(() => {
+      el.classList.remove('show')
+      // The next one once this one has faded.
+      this._placeTitleTimer = setTimeout(() => this._nextPlaceTitle(), this._titleQueue.length ? PLACE_TITLE_GAP_MS : 0)
+    }, big ? PLACE_TITLE_MS * 1.5 : PLACE_TITLE_MS)
+  }
+
+  // World Map mode, each frame (2026-11-09, Gaymi's world-map list 2):
+  // the fog clears round your body (wider the higher you stand), the
+  // passport notices new countries, the journal draws your trail. In
+  // Spectate it's where your body was, not the flying camera.
+  _worldTravel(dt) {
+    const s = this.bm.survival?.active ? this.bm.survival : null
+    const body = s?.bodyPos?.() || this.pos
+    explored.visit(body.x, body.z, dt, body.y)
+    // Not before the spawn is picked (the camp's spot isn't on the Earth).
+    if (!s?._spawnPick || s._picking) return
+    passport.update(body.x, body.z, this, s)
+    const sky = this.bm.sky
+    journal.update(body.x, body.z, sky?.time === 'cycle' ? Math.floor(sky._clock / CYCLE_SECONDS + 0.5) : null, dt)
+  }
+
+  // The "You've seen 4% of France · 0.01% of Earth" counter, in the map's
+  // corner (and under the big middle map, beside the Passport button).
+  // Worked out at most twice a second.
+  _showExplored(x, z, now) {
+    if (!this._exploredEl) {
+      this._exploredEl = document.createElement('div')
+      this._exploredEl.id = 'world-explored'
+      this._mapEl.appendChild(this._exploredEl)
+      this._worldBarEl = document.createElement('div')
+      this._worldBarEl.id = 'world-map-bar'
+      this._worldBarEl.innerHTML = '<span class="world-map-seen"></span><button type="button" class="world-passport-btn"></button>'
+      for (const ev of ['pointerdown', 'pointerup', 'dblclick', 'wheel']) this._worldBarEl.addEventListener(ev, (e) => e.stopPropagation(), { passive: ev !== 'wheel' })
+      this._worldBarEl.querySelector('button').addEventListener('click', (e) => {
+        e.stopPropagation()
+        if (passport.isOpen(this._mapEl)) passport.close(this._mapEl)
+        else passport.open(this._mapEl)
+      })
+      this._mapEl.appendChild(this._worldBarEl)
+    }
+    if (now - (this._exploredAt || 0) < 500) return
+    this._exploredAt = now
+    const country = countryAtBlock(x, z)
+    const st = explored.stats(country)
+    const text = country ? t('exploredCounter', { pct: pctText(st.country || 0), country, earth: pctText(st.earth) }) : t('exploredCounterSea', { earth: pctText(st.earth) })
+    // The small corner maps get the short version.
+    const short = country ? t('exploredCounterShort', { pct: pctText(st.country || 0), country, earth: pctText(st.earth) }) : t('exploredCounterShortSea', { earth: pctText(st.earth) })
+    if (this._exploredEl.textContent !== short) this._exploredEl.textContent = short
+    const seen = this._worldBarEl.firstChild
+    if (seen.textContent !== text) seen.textContent = text
+    const btn = this._worldBarEl.lastChild
+    const label = `${t('passportBtn')} · ${passport.count}`
+    if (btn.textContent !== label) btn.textContent = label
+  }
+
+  // A tap on the globe (World Map mode, zoomed far out): "Fly to <place>?"
+  // if it's a spot you've cleared (FastTravel.js).
+  _tapGlobe(at) {
+    const s = this.bm.survival?.active ? this.bm.survival : null
+    const globe = this._globe
+    if (!s || !globe) return
+    const rect = globe.gl.getBoundingClientRect()
+    if (!rect.width) return
+    const spot = globe.pick((at.x - rect.left) / rect.width, (at.y - rect.top) / rect.height)
+    this._closeGlobeTravel()
+    if (!spot) return
+    const x = spot.lon * EARTH_DEG
+    const z = -spot.lat * EARTH_DEG
+    const box = document.createElement('div')
+    box.id = 'globe-travel'
+    box.className = 'map-pin-menu-like'
+    for (const ev of ['pointerdown', 'pointerup', 'click', 'dblclick', 'wheel']) box.addEventListener(ev, (e) => e.stopPropagation(), { passive: ev !== 'wheel' })
+    const place = countryAtBlock(x, z) || t('travelSomewhere')
+    const btn = travelButton(s, x, z)
+    box.innerHTML = `<div class="map-pin-title"></div><div class="map-pin-row">${btn.html}<button type="button" data-close="1"></button></div>`
+    box.querySelector('.map-pin-title').textContent = t('travelTitle', { place })
+    box.querySelector('[data-close]').textContent = t('travelCancel')
+    box.addEventListener('click', (e) => {
+      const b = e.target.closest('button')
+      if (!b) return
+      if (b.dataset.travel && flyTo(s, x, z)) this._afterTravel()
+      this._closeGlobeTravel()
+    })
+    const mr = this._mapEl.getBoundingClientRect()
+    box.style.left = `${Math.max(4, Math.min(mr.width - 230, at.x - mr.left + 10))}px`
+    box.style.top = `${Math.max(4, Math.min(mr.height - 110, at.y - mr.top + 10))}px`
+    this._mapEl.appendChild(box)
+    this._globeTravelEl = box
+  }
+
+  _closeGlobeTravel() {
+    this._globeTravelEl?.remove()
+    this._globeTravelEl = null
+  }
+
+  // Just flew: the big map closes so you see where you landed.
+  _afterTravel() {
+    this._mapPan = { x: 0, z: 0 }
+    this._closeGlobeTravel()
+    if (this._mapInteractive()) {
+      this._mapMode = 0
+      this._applyMapMode()
+    }
   }
 
   _showBiome(x, z) {
@@ -576,6 +713,10 @@ export class BuildTryMode {
     // The big map frees the mouse so it can be dragged; closing it puts
     // the view back on you and catches the mouse again.
     const interactive = this._mapInteractive()
+    if (!interactive) {
+      passport.close(this._mapEl)
+      this._closeGlobeTravel()
+    }
     if (interactive !== this._mapEl.classList.contains('interactive')) {
       this._mapEl.classList.toggle('interactive', interactive)
       this._mapPan = { x: 0, z: 0 }
@@ -635,6 +776,11 @@ export class BuildTryMode {
     return explored
   }
 
+  // (...and the rest of World Map travel.)
+  get worldTravel() {
+    return { passport, journal, travelInfo, flyTo, revealFor, packKeys, unpackKeys }
+  }
+
   _drawMap(now, x = this.pos.x, z = this.pos.z) {
     // Redrawn every frame while the big map is being dragged or zoomed (it
     // used to keep to ~16 a second, which felt laggy), else ~16 a second.
@@ -689,6 +835,7 @@ export class BuildTryMode {
       const yawNow = this.bm._yaw
       this._globe.draw(s, -(oz + span / 2) / EARTH_DEG, (ox + span / 2) / EARTH_DEG, span / EARTH_DEG, { lat: -z / EARTH_DEG, lon: x / EARTH_DEG, ang: Math.atan2(-Math.cos(yawNow), -Math.sin(yawNow)) })
       this._showBiome(x, z)
+      this._showExplored(x, z, now)
       // Spinning/zooming: keep drawing every frame.
       if (moving) this._mapDrawAt = 0
       return
@@ -757,7 +904,12 @@ export class BuildTryMode {
       if (missing) this._mapDrawAt = 0
       ctx.imageSmoothingEnabled = false
       ctx.drawImage(this._mapImage, (-cells / 2 - ox) * k, (-cells / 2 - oz) * k, cells * k, cells * k)
-      if (earth) this._drawExplored(ctx, ox, oz, span, k)
+      if (earth) {
+        this._drawExplored(ctx, ox, oz, span, k)
+        // The travel journal (TravelJournal.js) over the fog.
+        if (this.bm.survival?.active) journal.draw(ctx, ox, oz, span, k, s)
+        this._showExplored(x, z, now)
+      }
       this._showBiome(x, z)
       if (globeShown) {
         this._globe.setPicture(pic)
@@ -960,7 +1112,7 @@ export class BuildTryMode {
     const frameDt = Math.min(dt, 0.1)
     dt = Math.min(dt, 1 / 30)
     // The World Map mode: where you've walked clears the map's fog.
-    if (this.bm.world?.active && isEarthWorld()) explored.visit(this.pos.x, this.pos.z, frameDt)
+    if (this.bm.world?.active && isEarthWorld()) this._worldTravel(frameDt)
     const B = this.B
     const p = { x: this.pos.x, y: this.pos.y, z: this.pos.z }
     const cam = this.bm.camera

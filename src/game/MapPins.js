@@ -16,6 +16,8 @@
 // Owned by BuildSurvival (`s.pins`); BuildTryMode draws them on the map
 // and hands over taps; PlayNet sends snapshot() and passes the others'.
 import { t } from './i18n.js'
+import { isEarthWorld } from './OpenWorld.js'
+import { travelButton, flyTo } from './FastTravel.js'
 
 export const MAX_PINS = 3
 // A tap this close (CSS px) to a pin opens it instead of dropping a new one.
@@ -186,17 +188,24 @@ export class MapPins {
           this._open.vis = btn.dataset.vis
           this._lastVis = btn.dataset.vis
           this._menuKey = ''
+        } else if (btn.dataset.travel) {
+          // World Map mode's fast travel (FastTravel.js).
+          const pin = this._open
+          this._open = null
+          if (flyTo(this.s, pin.x, pin.z)) this.bm.tryMode._afterTravel()
         } else if (btn.dataset.remove) this.remove(this._open)
         else this._open = null
       })
       el.appendChild(this._menuEl)
     }
     const online = this.online
-    const key = `${pin.id}|${pin.vis}|${online}`
+    // World Map mode: fly to the pin (FastTravel.js).
+    const travel = this.bm.world?.active && isEarthWorld() ? travelButton(this.s, pin.x, pin.z) : null
+    const key = `${pin.id}|${pin.vis}|${online}|${travel?.key || ''}`
     if (key !== this._menuKey) {
       this._menuKey = key
       const vis = online ? `<div class="map-pin-title">${t('pinWhoSees')}</div><div class="map-pin-vis">${VIS.map((v) => `<button type="button" data-vis="${v}" class="${pin.vis === v ? 'on' : ''}">${t(VIS_KEY[v])}</button>`).join('')}</div>` : ''
-      this._menuEl.innerHTML = `${vis}<div class="map-pin-row"><button type="button" data-remove="1">${t('pinRemove')}</button><button type="button" data-close="1">${t('pinDone')}</button></div>`
+      this._menuEl.innerHTML = `${vis}${travel ? `<div class="map-pin-row">${travel.html}</div>` : ''}<div class="map-pin-row"><button type="button" data-remove="1">${t('pinRemove')}</button><button type="button" data-close="1">${t('pinDone')}</button></div>`
     }
     this._menuEl.style.display = ''
     // Beside the pin (in CSS px inside the map box), kept on the map.

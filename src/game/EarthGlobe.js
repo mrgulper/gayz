@@ -251,6 +251,22 @@ export class EarthGlobe {
     this.gl.style.opacity = this.overlay.style.opacity = a >= 1 ? '' : String(a)
   }
 
+  // The place under a spot on the globe (fx, fy: 0..1 across and down
+  // its picture, as last drawn): { lat, lon }, or null off the edge
+  // (fast travel taps, BuildTryMode._tapGlobe).
+  pick(fx, fy) {
+    const ray = new THREE.Raycaster()
+    ray.setFromCamera(new THREE.Vector2(fx * 2 - 1, 1 - fy * 2), this.camera)
+    const hit = ray.ray.intersectSphere(new THREE.Sphere(new THREE.Vector3(), 1), new THREE.Vector3())
+    if (!hit) return null
+    this.spin.worldToLocal(hit)
+    const lat = (Math.asin(Math.max(-1, Math.min(1, hit.y))) * 180) / Math.PI
+    const phi = Math.atan2(hit.z, -hit.x)
+    let lon = (phi * 180) / Math.PI - 180
+    lon = ((((lon + 180) % 360) + 360) % 360) - 180
+    return { lat, lon }
+  }
+
   // Draws the globe `px` pixels square with (lat, lon) facing you and
   // about `spanDeg` degrees across; `you` = { lat, lon, ang } (the arrow's
   // angle as the flat map draws it, north up).

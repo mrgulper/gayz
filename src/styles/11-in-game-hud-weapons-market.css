@@ -1391,6 +1391,10 @@ body.touch-play-on .top-bar-part { padding: 5px 7px; }
 }
 #build-place-title.show { opacity: 1; transform: translate(-50%, 0); }
 html.caption-background #build-place-title { background: rgba(0, 0, 0, 0.6); padding: 4px 16px; border-radius: 8px; }
+/* A new passport stamp (Passport.js): a bigger title, a little higher,
+   with a gold line over it (kept clear of #build-play-msg at 22%). */
+#build-place-title.big { top: 8%; font-size: clamp(28px, 5.4vw, 52px); }
+#build-place-title .place-sub { display: block; margin-bottom: 2px; font-size: clamp(13px, 2vw, 19px); letter-spacing: 1px; color: #ffde5c; }
 #build-play-msg {
   position: absolute; top: 22%; left: 50%; transform: translateX(-50%);
   font-size: 40px; letter-spacing: 2px; color: #fff; text-shadow: 0 2px 8px #000, 0 0 3px #000;
