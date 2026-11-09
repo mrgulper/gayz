@@ -4510,15 +4510,30 @@ test('far grass, cracks on bumpy tops, puffy and falling leaves, dinosaurs', asy
       }
     }
     out.leafPuff = Math.round(puff * 100) / 100
-    // Breaking crack: its top follows the bumpy top (above 1.0).
+    // Breaking crack: it follows the block's real top. On Detailed that's
+    // the lumpy cube top (above 1.0). On In Real Life clay is real ground
+    // (since the real-ground batches): a lone block is rounded off, its top
+    // well under 1.0, and the crack sits a hair outside that instead.
     bm._placeBlockInner(5, 3, 5, 'clay')
-    const dig = { x: 5, y: 3, z: 5, type: 'stone' }
-    bm.tryMode._showDigCrack(dig, 0.5)
-    const pos = bm.tryMode._digMesh.geometry.attributes.position
-    let top = 0
-    for (let i = 0; i < pos.count; i++) top = Math.max(top, pos.getY(i) / B + 0.5)
-    out.crackTop = top
-    out.crackFaces = pos.count
+    const crackOf = () => {
+      bm.tryMode._showDigCrack({ x: 5, y: 3, z: 5, type: 'stone' }, 0.5)
+      const pos = bm.tryMode._digMesh.geometry.attributes.position
+      let top = 0
+      for (let i = 0; i < pos.count; i++) top = Math.max(top, pos.getY(i) / B + 0.5)
+      return { top, count: pos.count }
+    }
+    const realCrack = crackOf()
+    let drawnTop = 0
+    for (const f of ch.realFaceGrids(5, 3, 5) || []) for (const p of f) drawnTop = Math.max(drawnTop, p[1])
+    out.crackRealTop = realCrack.top
+    out.crackRealDrawn = drawnTop
+    g._applyGraphicsLevel('detailed')
+    bm._applyGraphicsLook()
+    const lumpyCrack = crackOf()
+    out.crackTop = lumpyCrack.top
+    out.crackFaces = lumpyCrack.count
+    g._applyGraphicsLevel('irl')
+    bm._applyGraphicsLook()
     // Water corners: never cut out any more.
     out.waterCut = String(ch.materials.water.onBeforeCompile).includes('discard')
     // Falling leaves come off the leaf block above and land.
@@ -4604,6 +4619,9 @@ test('far grass, cracks on bumpy tops, puffy and falling leaves, dinosaurs', asy
   expect(r.leafPuff).toBeGreaterThan(0.08)
   expect(r.crackTop).toBeGreaterThan(1.02)
   expect(r.crackFaces).toBeGreaterThan(24)
+  expect(r.crackRealDrawn).toBeGreaterThan(0.3)
+  expect(r.crackRealDrawn).toBeLessThan(1)
+  expect(Math.abs(r.crackRealTop - r.crackRealDrawn - 0.006)).toBeLessThan(0.003)
   expect(r.waterCut).toBe(false)
   expect(r.leafFalls).toBe(true)
   expect(r.leafLanded).toBe(true)
