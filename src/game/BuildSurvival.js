@@ -422,6 +422,7 @@ export class BuildSurvival {
     this._won = false
     this._lifeStartWave = 0
     this._startedAt = performance.now()
+    this.bm.game?.lagWarning?.gameStarted()
     this._hurtAt = 0
     this._coinsEarned = 0
     // XP on top, for escort missions and camp sieges won (Xp.js bonusXp).

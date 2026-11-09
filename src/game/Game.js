@@ -119,6 +119,7 @@ import { META_UPGRADES, loadMetaProgress } from './MetaProgress.js'
 import { UPGRADE_PLAY, PLAY_GAME_MODES } from './PlayRules.js'
 import * as GalleryUI from './GalleryUI.js'
 import { TopBar } from './TopBar.js'
+import { LagWarning } from './LagWarning.js'
 import { setLanguage, t } from './i18n.js'
 import { CLEAN_DEFAULT_COLOR, normalizeHex, uiThemeOf, skinDesignerTheme } from './CleanTheme.js'
 import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
@@ -244,6 +245,8 @@ function loadSettings() {
       // preference silently resets to Off.
       colorblindMode: parsed.colorblindMode ?? (parsed.colorblind ? 'redgreen' : 'off'),
       performanceMode: parsed.performanceMode ?? false,
+      // "Don't ask again" on the lag warning (LagWarning.js).
+      lagWarnOff: parsed.lagWarnOff === true,
       reduceFlashing: parsed.reduceFlashing ?? false,
       clanId: typeof parsed.clanId === 'string' ? parsed.clanId : null,
       clanTag: typeof parsed.clanTag === 'string' ? parsed.clanTag : null,
@@ -1917,12 +1920,9 @@ export class Game {
     this._fpsFrameCount = 0
     this._fpsLastUpdate = performance.now()
 
-    // Auto-enable Performance Mode on genuinely bad, sustained frame rate
-    // instead of leaving it as a settings checkbox someone has to already
-    // know exists - a user reporting single-digit fps shouldn't need to
-    // dig through a menu first. Requires several consecutive bad 500ms
-    // samples (not just one dip - a single stutter shouldn't flip this)
-    // and only fires once per session.
+    // Lag warning: finds what's too slow for this player's own screen
+    // and recommends Performance Mode (LagWarning.js).
+    this.lagWarning = new LagWarning(this)
     // Graphics tab's manual Resolution slider (50-100%) - see
     // _applyRenderScale's own comment on why this is a separate
     // multiplier from the removed automatic per-frame scaler. Placeholder
@@ -2852,7 +2852,7 @@ export class Game {
 
     this.timer = new THREE.Timer()
     this.timer.connect(document)
-    this.renderer.setAnimationLoop(() => this._tick())
+    this.renderer.setAnimationLoop((time) => this._tick(time))
     // Lite Textures: shrink what's loaded now, then whatever loads later
     // (weapons, zombies, the Map Editor) every few seconds.
     if (this.settings.liteTextures) this._applyLiteTextures()
@@ -4772,7 +4772,11 @@ export class Game {
   }
 
 
-  _tick() {
+  // time: the frame's own timestamp from requestAnimationFrame. Timing
+  // every frame by it (2026-11-09, smoother movement) instead of whenever
+  // this code happens to run means each step is the screen's real frame
+  // interval, without the few-millisecond jitter that made walking hitch.
+  _tick(time) {
     // FPS Cap (Graphics tab, settings.fpsCap) - skips this frame entirely
     // (no update, no render) if not enough real time has passed since the
     // last one that actually ran. requestAnimationFrame itself still
@@ -4810,8 +4814,10 @@ export class Game {
       // returning the last homepage frame's step, so a laggy homepage
       // (0.1s frames) made every game frame move 0.1s - several times
       // real speed at 60 fps - and a smooth one happened to look right.
-      this.timer.update()
-      const dt = Math.min(this.timer.getDelta(), 0.1)
+      this.timer.update(time)
+      // Never below 0: after a tab switch the timer restarts from "now",
+      // which can be a hair after this frame's timestamp.
+      const dt = Math.min(Math.max(0, this.timer.getDelta()), 0.1)
       this.buildMode.update(dt)
       this.buildMode.render()
       this._editorJsMs = (this._editorJsMs || 0) + (performance.now() - jsStart)
@@ -4835,6 +4841,7 @@ export class Game {
         this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / js ${jsMs} ms / ${this.buildMode.lastDrawCalls} draws / ${this.buildMode.blockCount} blocks${resTag} / ${this._gpuRendererString}`
         this._topBar.setFps(fps, this.fpsEl.textContent, msPerFrame, this._gpuRendererString)
         this.buildMode.frameMs = Number(msPerFrame)
+        if (this.buildMode.survival?.active) this.lagWarning.sample(fps, nowFpsBm)
         this._updateEditorResScale(Number(msPerFrame), nowFpsBm)
         this._fpsFrameCount = 0
         this._fpsLastUpdate = nowFpsBm
@@ -4843,7 +4850,7 @@ export class Game {
     }
     // The homepage draws nothing 3D (the menu's own picture covers the
     // canvas), so only the fps readout runs here.
-    this.timer.update()
+    this.timer.update(time)
     this._fpsFrameCount++
     const nowFps = performance.now()
     const fpsElapsed = nowFps - this._fpsLastUpdate
@@ -4851,6 +4858,7 @@ export class Game {
       const fps = Math.round((this._fpsFrameCount * 1000) / fpsElapsed)
       const msPerFrame = (fpsElapsed / this._fpsFrameCount).toFixed(1)
       this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / ${this._gpuRendererString}`
+      if (!document.hidden) this.lagWarning.seen(fps)
       this._fpsFrameCount = 0
       this._fpsLastUpdate = nowFps
     }

@@ -1263,15 +1263,18 @@ export class BuildTryMode {
     // gently bobs the view up and down and sways it side to side, easing
     // in and out instead of snapping, and landing dips it (_walk). Off
     // keeps the camera perfectly still.
+    // The camera's easing runs on the real frame time (2026-11-09): on the
+    // capped step a slow device's view bob and crouch fell behind the
+    // walking itself, so the camera seemed to drag.
     const moving = this.onGround && Math.hypot(this.vel.x, this.vel.z) > 0.5
-    this._bob += moving ? dt * (sprint ? 13 : 9) : 0
+    this._bob += moving ? frameDt * (sprint ? 13 : 9) : 0
     const bobbing = this.bm.game?.settings?.viewBobbing ?? true
-    this._bobAmt = THREE.MathUtils.damp(this._bobAmt || 0, bobbing && moving ? (sprint ? 1.3 : 1) : 0, 8, dt)
+    this._bobAmt = THREE.MathUtils.damp(this._bobAmt || 0, bobbing && moving ? (sprint ? 1.3 : 1) : 0, 8, frameDt)
     const bob = Math.sin(this._bob) * BOB_UP * this._bobAmt
     const sway = Math.sin(this._bob * 0.5) * BOB_SIDE * this._bobAmt
-    this._landDip = THREE.MathUtils.damp(this._landDip || 0, 0, LAND_DIP_EASE, dt)
+    this._landDip = THREE.MathUtils.damp(this._landDip || 0, 0, LAND_DIP_EASE, frameDt)
     const dip = bobbing ? this._landDip : 0
-    this._eye = THREE.MathUtils.damp(this._eye, (crouch ? CROUCH_EYE : EYE) * size, 18, dt)
+    this._eye = THREE.MathUtils.damp(this._eye, (crouch ? CROUCH_EYE : EYE) * size, 18, frameDt)
     cam.position.set((p.x - fz * sway) * B, (p.y + this._eye + bob - dip + this._stepLag) * B, (p.z + fx * sway) * B)
     this.updateHands(dt, keys, moving, sprint)
     // Pressure plates under you (and under zombies while playing).
