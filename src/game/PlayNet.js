@@ -20,7 +20,9 @@
 // Everyone sees the same world (2026-10-26, Gaymi: "they didn't see the
 // same thing I had on my screen, please fix this from the root cause"):
 // besides the zombies, the host's sky (BuildSky.skyState) and animals
-// (PlayAnimals.snapshot) are mirrored, and every player's placed and
+// (PlayAnimals.snapshot) are mirrored - and since 2026-11-09 the Zombie
+// Train, the dragon and the UFO (their snapshot()s), and the go-kart rides
+// with your boats in `veh` (others can hop on, RemoteRides.js) - and every player's placed and
 // broken blocks are shared (queueEdit) - before, each screen rolled its
 // own weather, grew its own animals and kept its own blocks.
 //
@@ -240,7 +242,7 @@ export class PlayNet {
     const holding = s.holding
     const body = {
       ...this.auth,
-      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), veh: s.vehicles?.snapshot() || [], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null },
+      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, lane: s.escape?.lane || 0 },
       editsAfter: this._editSeq,
     }
     const edits = this._edits.splice(0, EDITS_PER_SYNC)
@@ -268,6 +270,12 @@ export class PlayNet {
       if (zone) body.zone = zone
       const td = s.td?.snapshot()
       if (td) body.td = td
+      // The Zombie Train, the dragon and the UFO (null = none now).
+      body.train = s.train?.snapshot() || null
+      body.dragon = s.dragon?.snapshot() || null
+      body.ufo = s.ufo?.snapshot() || null
+      const esc = s.escape?.snapshot?.()
+      if (esc) body.esc = esc
     } else {
       body.hits = this._hits.splice(0)
     }
@@ -326,7 +334,7 @@ export class PlayNet {
         // Not for the players already there when I joined.
         if (!this._firstSync) addChatSystemLine(this.game, t('serverPlayerJoined', { name: p.nick || 'Survivor' }))
       }
-      Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null })
+      Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))) })
       if (p.say && p.say.n !== mine.sayN) {
         mine.sayN = p.say.n
         const left = bubbleSeconds(p.say.text) - (Number(p.say.age) || 0) / 1000
@@ -365,6 +373,10 @@ export class PlayNet {
       if (res.party) s.party?.applySnapshot(res.party)
       if (res.zone) s.zone?.applySnapshot(res.zone)
       if (res.td) s.td?.applySnapshot(res.td)
+      s.train?.applySnapshot(res.train || null)
+      s.dragon?.applySnapshot(res.dragon || null)
+      s.ufo?.applySnapshot(res.ufo || null)
+      if (res.esc) s.escape?.applySnapshot?.(res.esc)
     }
     for (const amount of res.hurt || []) s._hurtPlayer(amount)
     for (const c of res.credits || []) {

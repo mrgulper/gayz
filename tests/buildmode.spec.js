@@ -6803,6 +6803,9 @@ test('Paint Wars, Build Battle and Escape Rooms', async ({ page }) => {
     out.escMade = !!e && s.cfg.noZombies && !s.party
     out.inRoom1 = Math.abs(s.bm.tryMode.pos.y - 241) < 0.5 && !!document.getElementById('escape-bar')
     out.mapSafe = s._protects(e._roomX(0), 241, e.oz)
+    // A floor to stand on and a boarded door (2026-11-09: both used block
+    // names that don't exist, so neither was there).
+    out.floorAndDoor = s.bm.getBlockAt(e._roomX(0) + 3, 240, e.oz) === 'oakplanks' && s.bm.getBlockAt(e._roomX(0) + 4, 241, e.oz - 5) === 'darkoakplanks'
     e.update(0.1)
     e.pattern.forEach((on, i) => { if (on) s.bm.gadgets.setLever(...e._levers[i], true) })
     e.update(0.1)

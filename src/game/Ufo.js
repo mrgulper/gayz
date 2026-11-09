@@ -46,6 +46,47 @@ export class Ufo {
     return !this.ufo && !this.aboard && !s.td && !s.escape && !s.party && !s.moon?.on
   }
 
+  // --- on a server (2026-11-09) ---
+  // The host runs it; everyone else sees a copy drifting the same way
+  // with its beam (snapshot() -> applySnapshot()). Only the host can be
+  // taken: the ship's fight runs where the zombies do.
+
+  snapshot() {
+    const u = this.ufo
+    if (!u || this.mirror) return null
+    return { gx: +u.gx.toFixed(2), gz: +u.gz.toFixed(2), y: +u.y.toFixed(2), t: +u.t.toFixed(2) }
+  }
+
+  applySnapshot(n) {
+    if (!n) {
+      if (this.mirror) this.clear()
+      return
+    }
+    if (this.ufo && !this.mirror) return
+    if (!this.ufo) {
+      this.mirror = true
+      this.ufo = { x: n.gx, z: n.gz, y: n.y, left: Infinity, beamIn: Infinity, grab: 0, lifting: [], t: n.t, gx: n.gx, gz: n.gz }
+      this._mesh()
+      this.s._message(t('ufoAppears'), 5)
+      try { audioEngine.playSpecial?.('hum') } catch { /* no audio */ }
+    }
+    this.ufo.netT = n.t
+  }
+
+  // A copy's frame (BuildSurvival.update).
+  mirrorUpdate(dt) {
+    const u = this.ufo
+    if (!this.mirror || !u) return
+    if (this.s.net?.isHost) return this.clear()
+    if (u.netT !== undefined) {
+      u.netT += dt
+      const gap = u.netT - u.t
+      if (Math.abs(gap) > 5) u.t = u.netT - dt
+      else u.t += gap * Math.min(1, dt * 2)
+    }
+    this._update(dt)
+  }
+
   // The world event: here it comes. -> a run.
   event(me) {
     if (!this.possible()) return null
@@ -109,7 +150,7 @@ export class Ufo {
     u.lifting = u.lifting.filter((it) => it.t < LIFT_S)
     // You in the beam: taken.
     const me = s.bodyPos()
-    const inBeam = !s.dead && !s.spectating && Math.hypot(me.x - u.x, me.z - u.z) < BEAM_R && me.y < u.y
+    const inBeam = !this.mirror && !s.dead && !s.spectating && Math.hypot(me.x - u.x, me.z - u.z) < BEAM_R && me.y < u.y
     u.grab = inBeam ? u.grab + dt : 0
     if (u.grab >= GRAB_S) {
       this._abduct(me)
@@ -299,5 +340,6 @@ export class Ufo {
     })
     this._group = null
     this.ufo = null
+    this.mirror = false
   }
 }

@@ -26,14 +26,16 @@ export const PLAY_MUTATORS = ['hordeRush', 'lootRush', 'healthRegen', 'glassHous
 // hotPotato, zombieBowling (2026-11-02, PartyModes.js): two more of them.
 // towerDefense (2026-11-02, TowerDefense.js): towers by a path on its own map.
 // paintWars, buildBattle (2026-11-02, PartyModes.js): two more party games.
-// escapeRoom (2026-11-02, EscapeRooms.js): three puzzle rooms in the sky, alone.
+// escapeRoom (2026-11-02, EscapeRooms.js): three puzzle rooms in the sky -
+// alone, or as a team on a server (2026-11-09). escapeRace (2026-11-09):
+// the same, but everyone gets their own copy and races out.
 // floorLava, laserTag, kartRace, obstacleCourse, duelArena (2026-11-02,
 // PartyLava.js, PartyLaser.js, PartyKart.js, PartyParkour.js, PartyDuel.js): more party games.
-export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'worldMap', 'infection', 'shrinkingZone', 'speedrun', 'towerDefense', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'escapeRoom', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'miniGolf', 'freezeTag', 'bombDefuse', 'werewolfNight', 'dodgeball', 'musicalChairs', 'simonSays']
+export const PLAY_GAME_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'worldMap', 'infection', 'shrinkingZone', 'speedrun', 'towerDefense', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'escapeRoom', 'escapeRace', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'miniGolf', 'freezeTag', 'bombDefuse', 'werewolfNight', 'dodgeball', 'musicalChairs', 'simonSays']
 // Game Modes with no zombies at all (2026-10-26, Gaymi: "make world map
 // not spawn zombies ... make world map just a gamemode with the world
 // map"): you just explore the real Earth.
-export const NO_ZOMBIE_MODES = ['worldMap', 'infection', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'escapeRoom', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'miniGolf', 'freezeTag', 'bombDefuse', 'werewolfNight', 'dodgeball', 'musicalChairs', 'simonSays']
+export const NO_ZOMBIE_MODES = ['worldMap', 'infection', 'hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'escapeRoom', 'escapeRace', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'miniGolf', 'freezeTag', 'bombDefuse', 'werewolfNight', 'dodgeball', 'musicalChairs', 'simonSays']
 // Its achievement, Globetrotter: a World Map run this long (seconds).
 export const GLOBETROTTER_SECONDS = 600
 
