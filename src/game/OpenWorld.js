@@ -27,6 +27,7 @@ import { t } from './i18n.js'
 import { inCityShape, cityEdgeDistance } from './CityShape.js'
 import { planStructure, planLandmark, planTown, STRUCT_GRID, STRUCTURE_NAMES } from './WorldStructures.js'
 import { EARTH_DEG, earthBiome, earthLandAmount, WATER_BIOMES } from './EarthGrid.js'
+import { countryAt } from './EarthPlaces.js'
 import { loadEarthTerrain, earthTerrainReady, earthHeight, earthLakeAt, earthLakeNear, earthRiverNear } from './EarthTerrain.js'
 import { Underground, rockAt, setUnderSeed } from './Underground.js'
 import { HeavenRealm } from './HeavenRealm.js'
@@ -1302,7 +1303,13 @@ export class OpenWorld {
       const s = sampleLand(x, z)
       return s.w > SEA && s.h < s.w ? { ...s, h: SEA - 1 } : s
     }
-    const plan = planStructure(gx, gz, { land, hash: hash2, sea: SEA, cityDistance, chunk: CHUNK })
+    // On the World Map, places follow the real country (WorldStructures).
+    const placeAt = EARTH ? (x, z) => {
+      const lat = -z / EARTH_DEG
+      const lon = x / EARTH_DEG
+      return { lat, lon, country: countryAt(lat, lon) }
+    } : null
+    const plan = planStructure(gx, gz, { land, hash: hash2, sea: SEA, cityDistance, chunk: CHUNK, placeAt })
     this._plans.set(key, plan)
     return plan
   }

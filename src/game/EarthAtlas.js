@@ -286,7 +286,9 @@ function countryLabels() {
 // Draws the atlas onto a canvas area w x h whose top-left corner is at
 // longitude `west`, latitude `north`, `dpp` degrees per pixel. Options:
 // countries (names), cities (Towns.js's, with names once close enough).
-export function drawEarthView(ctx, w, h, west, north, dpp, { countries = true, cities = true } = {}) {
+// dppY: degrees per pixel up and down, when not the same as across (the
+// spawn map's world view stretches to fill the screen).
+export function drawEarthView(ctx, w, h, west, north, dpp, { countries = true, cities = true, dppY = dpp } = {}) {
   const map = atlasCanvas()
   ctx.fillStyle = `rgb(${SEA.join(',')})`
   ctx.fillRect(0, 0, w, h)
@@ -296,17 +298,18 @@ export function drawEarthView(ctx, w, h, west, north, dpp, { countries = true, c
   const sx0 = (west + 180) * PX
   const sy0 = (90 - north) * PX
   const sw = w * dpp * PX
-  const sh = h * dpp * PX
+  const sh = h * dppY * PX
   const cx0 = Math.max(0, sx0)
   const cy0 = Math.max(0, sy0)
   const cx1 = Math.min(map.width, sx0 + sw)
   const cy1 = Math.min(map.height, sy0 + sh)
   if (cx1 > cx0 && cy1 > cy0) {
     const f = 1 / (dpp * PX)
-    ctx.drawImage(map, cx0, cy0, cx1 - cx0, cy1 - cy0, (cx0 - sx0) * f, (cy0 - sy0) * f, (cx1 - cx0) * f, (cy1 - cy0) * f)
+    const fy = 1 / (dppY * PX)
+    ctx.drawImage(map, cx0, cy0, cx1 - cx0, cy1 - cy0, (cx0 - sx0) * f, (cy0 - sy0) * fy, (cx1 - cx0) * f, (cy1 - cy0) * fy)
   }
   const deg = w * dpp
-  const at = (lat, lon) => [(lon - west) / dpp, (north - lat) / dpp]
+  const at = (lat, lon) => [(lon - west) / dpp, (north - lat) / dppY]
   // Latitude / longitude lines (every 15 degrees, every 5 closer in), drawn
   // thin at any zoom.
   const step = deg > 60 ? 15 : 5
@@ -318,8 +321,8 @@ export function drawEarthView(ctx, w, h, west, north, dpp, { countries = true, c
     ctx.moveTo(x, 0)
     ctx.lineTo(x, h)
   }
-  for (let lat = Math.floor(north / step) * step; lat >= north - h * dpp; lat -= step) {
-    const y = Math.round((north - lat) / dpp) + 0.5
+  for (let lat = Math.floor(north / step) * step; lat >= north - h * dppY; lat -= step) {
+    const y = Math.round((north - lat) / dppY) + 0.5
     ctx.moveTo(0, y)
     ctx.lineTo(w, y)
   }

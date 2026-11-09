@@ -550,12 +550,16 @@ html.ui-theme-old .audio-checkbox {
   inset: 0;
   background: rgba(196, 154, 92, 0.32);
   mix-blend-mode: multiply;
+  /* Opacity is the slow fade in/out (BuildSky SAND_FADE_MS); the pulse
+     breathes the colour instead. */
+  opacity: 0;
+  transition: opacity 12s ease;
   animation: sandstorm-pulse 4s ease-in-out infinite;
 }
 
 @keyframes sandstorm-pulse {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 1; }
+  0%, 100% { background-color: rgba(196, 154, 92, 0.22); }
+  50% { background-color: rgba(196, 154, 92, 0.32); }
 }
 
 /* Graphics-connection-lost panel - can appear over literally any other

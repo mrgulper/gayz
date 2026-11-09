@@ -164,16 +164,25 @@ export function openSpawnMap() {
   let view = null
   let to = null
   let anim = 0
+  // The whole world fills the screen edge to edge (2026-10-23, Gaymi:
+  // Antarctica floated above the bottom with sea under it): all 360
+  // degrees across and pole to pole down, stretched a little up or down to
+  // fit the screen's shape (dppY), so Antarctica sits on the bottom edge.
+  // Only on screens close to the map's own shape: a tall phone screen
+  // would stretch it far too much, so it keeps the old fit there.
   const worldView = () => {
-    const dpp = Math.max(360 / W, 170 / H)
-    return { west: -dpp * W / 2, north: 5 + dpp * H / 2, dpp }
+    const dpp = 360 / W
+    const dppY = 180 / H
+    if (dppY / dpp > 0.6 && dppY / dpp < 1.6) return { west: -180, north: 90, dpp, dppY }
+    const d = Math.max(360 / W, 170 / H)
+    return { west: -d * W / 2, north: 5 + d * H / 2, dpp: d, dppY: d }
   }
   const fit = (b, pad = 1.25) => {
     const dpp = Math.max(((b[2] - b[0]) * pad) / W, ((b[3] - b[1]) * pad) / (H * 0.78), 0.004)
     const cx = (b[0] + b[2]) / 2
     // A little room under it for the buttons.
     const cy = (b[1] + b[3]) / 2 - H * 0.04 * dpp
-    return { west: cx - (dpp * W) / 2, north: cy + (dpp * H) / 2, dpp }
+    return { west: cx - (dpp * W) / 2, north: cy + (dpp * H) / 2, dpp, dppY: dpp }
   }
   const resize = () => {
     const ratio = Math.min(window.devicePixelRatio || 1, 2)
@@ -196,20 +205,21 @@ export function openSpawnMap() {
       const e = 1 - (1 - k) ** 3
       // Zoom in log space so it doesn't rush the last part.
       const dpp = Math.exp(Math.log(from.dpp) + (Math.log(to.dpp) - Math.log(from.dpp)) * e)
+      const dppY = Math.exp(Math.log(from.dppY) + (Math.log(to.dppY) - Math.log(from.dppY)) * e)
       const cx = from.west + (from.dpp * W) / 2 + (to.west + (to.dpp * W) / 2 - from.west - (from.dpp * W) / 2) * e
-      const cy = from.north - (from.dpp * H) / 2 + (to.north - (to.dpp * H) / 2 - from.north + (from.dpp * H) / 2) * e
-      view = { west: cx - (dpp * W) / 2, north: cy + (dpp * H) / 2, dpp }
+      const cy = from.north - (from.dppY * H) / 2 + (to.north - (to.dppY * H) / 2 - from.north + (from.dppY * H) / 2) * e
+      view = { west: cx - (dpp * W) / 2, north: cy + (dppY * H) / 2, dpp, dppY }
       draw()
       if (k < 1) anim = requestAnimationFrame(step)
     }
     anim = requestAnimationFrame(step)
   }
-  const toScreen = (lon, lat) => [(lon - view.west) / view.dpp, (view.north - lat) / view.dpp]
+  const toScreen = (lon, lat) => [(lon - view.west) / view.dpp, (view.north - lat) / view.dppY]
   const fromEvent = (e) => {
     const r = canvas.getBoundingClientRect()
     const x = ((e.clientX - r.left) / r.width) * W
     const y = ((e.clientY - r.top) / r.height) * H
-    return { x, y, lon: view.west + x * view.dpp, lat: view.north - y * view.dpp }
+    return { x, y, lon: view.west + x * view.dpp, lat: view.north - y * view.dppY }
   }
   const ratio = () => W / Math.max(1, el.clientWidth)
 
@@ -230,7 +240,7 @@ export function openSpawnMap() {
   function draw() {
     if (!view) return
     const r = ratio()
-    drawEarthView(ctx, W, H, view.west, view.north, view.dpp, { countries: st.level === 'world', cities: st.level === 'world' })
+    drawEarthView(ctx, W, H, view.west, view.north, view.dpp, { countries: st.level === 'world', cities: st.level === 'world', dppY: view.dppY })
     if (st.data) {
       const { provinces, cities } = st.data
       // Everything outside the country dimmed.
@@ -354,7 +364,7 @@ export function openSpawnMap() {
     } else {
       // No states/provinces to show: zoom in around the spot and pick it.
       setLevel('country')
-      slideTo({ west: lon - 6 * (W / H), north: lat + 6, dpp: 12 / H })
+      slideTo({ west: lon - 6 * (W / H), north: lat + 6, dpp: 12 / H, dppY: 12 / H })
       pickAt(lat, lon)
     }
   }

@@ -70,6 +70,22 @@ export function townStyleAt(lat, lon, biome) {
   return 'modern'
 }
 
+// How built-up a country's towns are (2026-10-23, Gaymi: "poor countries
+// can have towns and cities can have high buildings"). Roughly the World
+// Bank's income groups: low-income countries get small rural towns (low
+// houses, dirt roads, open plots); lower-middle-income ones keep their
+// region's look but no towers (4 floors at most); everywhere else is
+// unchanged - the big rich cities keep their skyscrapers.
+const LOW_INCOME = new Set(['Afghanistan', 'Burkina Faso', 'Burundi', 'Central African Rep.', 'Chad', 'Dem. Rep. Congo', 'Eritrea', 'Ethiopia', 'Gambia', 'Guinea-Bissau', 'North Korea', 'Liberia', 'Madagascar', 'Malawi', 'Mali', 'Mozambique', 'Niger', 'Rwanda', 'Sierra Leone', 'Somalia', 'Somaliland', 'S. Sudan', 'Sudan', 'Syria', 'Togo', 'Uganda', 'Yemen'])
+const LOWER_MIDDLE = new Set(['Angola', 'Bangladesh', 'Benin', 'Bhutan', 'Bolivia', 'Cambodia', 'Cameroon', 'Congo', "Côte d'Ivoire", 'Djibouti', 'Egypt', 'Ghana', 'Guinea', 'Haiti', 'Honduras', 'India', 'Kenya', 'Kyrgyzstan', 'Laos', 'Lebanon', 'Lesotho', 'Mauritania', 'Mongolia', 'Morocco', 'Myanmar', 'Nepal', 'Nicaragua', 'Nigeria', 'Pakistan', 'Papua New Guinea', 'Philippines', 'Senegal', 'Solomon Is.', 'Sri Lanka', 'Tajikistan', 'Tanzania', 'Timor-Leste', 'Tunisia', 'Uzbekistan', 'Vanuatu', 'Vietnam', 'W. Sahara', 'Zambia', 'Zimbabwe', 'eSwatini', 'Palestine'])
+// A town's style for its country: 'rural' for low-income countries, the
+// style with '-low' (no towers) for lower-middle ones.
+export function townStyleFor(style, country) {
+  if (LOW_INCOME.has(country)) return 'rural'
+  if (LOWER_MIDDLE.has(country)) return `${style}-low`
+  return style
+}
+
 export function cityNear(lat, lon) {
   let best = null
   let bestD = NEAR_DEG
@@ -260,6 +276,12 @@ const STYLE = {
     const walls = ['smoothsandstone', 'sandstone', 'cutsandstone', 'whiteterracotta']
     return { floors: 1 + Math.floor(rand() * 3), wall: walls[Math.floor(rand() * walls.length)], trim: 'cutsandstone', glass: 'glass', roof: 'smoothsandstone', pitched: false, inset: 1, dome: rand() < 0.3 }
   },
+  // Small rural towns (townStyleFor): one- and two-storey houses of brick,
+  // clay and painted plaster under tin or thatch roofs.
+  rural(lot, { rand }) {
+    const walls = ['brick', 'terracotta', 'orangeterracotta', 'whiteterracotta', 'whiteconcrete', 'oakplanks']
+    return { floors: rand() < 0.75 ? 0 : 1, wall: walls[Math.floor(rand() * walls.length)], trim: rand() < 0.5 ? 'oakplanks' : 'terracotta', glass: 'glass', roof: rand() < 0.6 ? 'iron' : 'thatch', pitched: rand() < 0.4, inset: 1, small: true }
+  },
   latin(lot, { rand }) {
     if (rand() < 0.2) return { floors: 6 + Math.floor(rand() * 6), wall: 'whiteconcrete', trim: 'grayconcrete', glass: 'curtain', roof: 'smoothstone', pitched: false, inset: 2 }
     const walls = ['yellowconcrete', 'pinkconcrete', 'lightblueconcrete', 'orangeconcrete', 'limeconcrete', 'whiteconcrete']
@@ -273,6 +295,7 @@ const ROADS = {
   asian: ['grayconcrete', 'smoothstone'],
   desert: ['sandstone', 'smoothsandstone'],
   latin: ['grayconcrete', 'whiteconcrete'],
+  rural: ['coarsedirt', 'dirtpath'],
 }
 
 // Builds a town of `style` centred on (cx, cz) into the Builder; the
@@ -281,9 +304,12 @@ const ROADS = {
 // between neighbours, never near where you start (TOWN_SPAWN south of the
 // middle), and trees fill some of the open ground.
 export function buildTown(b, { H, cx, cz, style, plazaR, seed, earthAt }) {
-  const make = STYLE[style] || STYLE.european
+  // 'latin-low': the latin look with no towers (townStyleFor).
+  const [kind, low] = style.split('-')
+  const make = STYLE[kind] || STYLE.european
   const rand = prng(seed)
-  const [road, walk] = ROADS[style] || ROADS.european
+  const [road, walk] = ROADS[kind] || ROADS.european
+  const rural = kind === 'rural'
   const inside = outline(seed)
   const edge = (x, z, pad = 0) => inside(x * (TOWN_R / Math.max(1, TOWN_R - pad)), z * (TOWN_R / Math.max(1, TOWN_R - pad)))
   const lines = roadLines(seed, plazaR, edge)
@@ -309,9 +335,10 @@ export function buildTown(b, { H, cx, cz, style, plazaR, seed, earthAt }) {
       const nx = -(qz - pz) / len
       const nz = (qx - px) / len
       for (const side of [-1, 1]) {
-        if (rand() < 0.15) continue
-        const w = 9 + Math.floor(rand() * 9)
-        const d = 9 + Math.floor(rand() * 7)
+        // Rural towns: smaller houses with more open plots between them.
+        if (rand() < (rural ? 0.4 : 0.15)) continue
+        const w = rural ? 6 + Math.floor(rand() * 4) : 9 + Math.floor(rand() * 9)
+        const d = rural ? 6 + Math.floor(rand() * 4) : 9 + Math.floor(rand() * 7)
         const back = ROAD_HALF + 2 + Math.floor(rand() * 4) + Math.max(w, d) / 2
         const bx = Math.round(cx + px + nx * side * back)
         const bz = Math.round(cz + pz + nz * side * back)
@@ -324,6 +351,10 @@ export function buildTown(b, { H, cx, cz, style, plazaR, seed, earthAt }) {
         // The door faces the road.
         const door = Math.abs(nx) > Math.abs(nz) ? (nx * side > 0 ? 'x0' : 'x1') : (nz * side > 0 ? 'z0' : 'z1')
         const spec = make(null, { rand })
+        if (low && spec.floors > 3) {
+          spec.floors = 3
+          spec.glass = 'glass'
+        }
         // A storey taller than the old grid towns' low houses.
         building(b, H, earthAt, { x0, x1, z0, z1, rand, door, ...spec, floors: spec.floors + (spec.floors < 6 ? 1 : 0) })
         if (spec.dome) {

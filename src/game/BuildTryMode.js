@@ -42,6 +42,8 @@ import { WORLD_LIMIT, sampleLand, biomeName, inCity, isEarthWorld } from './Open
 import { EarthGlobe } from './EarthGlobe.js'
 import { EARTH_DEG } from './EarthGrid.js'
 import { placeNameAt } from './EarthPlaces.js'
+import { featureAt } from './EarthFeatures.js'
+import { earthRiverNear } from './EarthTerrain.js'
 import { t } from './i18n.js'
 import { holdWeapon, poseArms } from './HeldWeapon.js'
 import { GunFx } from './GunFx.js'
@@ -96,6 +98,10 @@ const GLOBE_MOST = 200 * EARTH_DEG
 // goes out and in slower") - smaller trackpad steps zoom less.
 const MAP_WHEEL_MAX = 1.1
 const MAP_WHEEL_RATE = 0.001
+// Big real places (EarthFeatures.js): the title stays this long, and the
+// same place doesn't title again within FEATURE_AGAIN_MS.
+const PLACE_TITLE_MS = 4000
+const FEATURE_AGAIN_MS = 60000
 const HEIGHT = 1.8
 const EYE = 1.62
 const CROUCH_HEIGHT = 1.5
@@ -486,6 +492,46 @@ export class BuildTryMode {
 
   // Out in Map 1's open world, the biome you're in (and the place, in a
   // village/castle/bridge) shows under the map.
+  // The big real place (EarthFeatures.js) at a cell, worked out again
+  // only when you step onto another cell. Arriving somewhere new shows its
+  // name as a title (not again for the same place within FEATURE_AGAIN_MS,
+  // so walking along an edge doesn't keep flashing it).
+  _featureName(cx, cz) {
+    const key = `${cx},${cz}`
+    if (this._featureKey !== key) {
+      this._featureKey = key
+      const lat = -cz / EARTH_DEG
+      const lon = cx / EARTH_DEG
+      const land = sampleLand(cx, cz)
+      const id = featureAt(lat, lon, { water: land.h < land.w, river: land.river || land.biome === 'river' || !!earthRiverNear(lat, lon) })
+      if (id !== this._featureId) {
+        this._featureId = id
+        const now = performance.now()
+        this._featureSeen ||= new Map()
+        if (id && now - (this._featureSeen.get(id) ?? -Infinity) > FEATURE_AGAIN_MS) this._showPlaceTitle(t(`feat_${id}`))
+        if (id) this._featureSeen.set(id, now)
+      }
+    }
+    return this._featureId ? t(`feat_${this._featureId}`) : ''
+  }
+
+  // A big title that fades in for a few seconds as you arrive somewhere.
+  _showPlaceTitle(text) {
+    let el = document.getElementById('build-place-title')
+    if (!el) {
+      el = document.createElement('div')
+      el.id = 'build-place-title'
+      el.setAttribute('aria-live', 'polite')
+      document.body.appendChild(el)
+    }
+    el.textContent = text
+    el.classList.remove('show')
+    void el.offsetWidth
+    el.classList.add('show')
+    clearTimeout(this._placeTitleTimer)
+    this._placeTitleTimer = setTimeout(() => el.classList.remove('show'), PLACE_TITLE_MS)
+  }
+
   _showBiome(x, z) {
     if (!this._biomeEl) {
       this._biomeEl = document.createElement('div')
@@ -497,7 +543,10 @@ export class BuildTryMode {
     // The World Map mode: "Country · Province · City" (EarthPlaces.js).
     const earth = x !== null && this.bm.world?.active && isEarthWorld() && !inCity(cx, cz) ? placeNameAt(-z / EARTH_DEG, x / EARTH_DEG) : ''
     if (earth) {
-      if (this._biomeEl.textContent !== earth) this._biomeEl.textContent = earth
+      // ...and the big real place you're in, on its own line (2026-10-23).
+      const feature = this._featureName(cx, cz)
+      const text = feature ? `${earth}\n${feature}` : earth
+      if (this._biomeEl.textContent !== text) this._biomeEl.textContent = text
       this._biomeEl.style.display = ''
       return
     }
