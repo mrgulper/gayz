@@ -158,6 +158,64 @@ class Explored {
   }
 }
 
+// The globe's fog (2026-11-09, Gaymi: "add the fog to the globe too"): the
+// same soft cloud as the flat map, as a whole-world picture (longitude
+// -180 on the left, north on top) that EarthGlobe wraps round the Earth.
+// One pixel is ~21 blocks; the cloud texture is worked out once, then
+// each redraw clears the pixels you've seen. Redrawn at most once a
+// second, and only while the globe is showing.
+const GLOBE_W = 2048
+const GLOBE_H = 1024
+const EARTH_DEG = 120 // blocks per degree (EarthGrid.js)
+
+Explored.prototype.globeCanvas = function () {
+  this._load()
+  const now = performance.now()
+  if (this._globe && (this._globeVersion === this.version || now - this._globeAt < 1000)) return this._globe
+  if (!this._globe) {
+    this._globe = document.createElement('canvas')
+    this._globe.width = GLOBE_W
+    this._globe.height = GLOBE_H
+    this._globeImg = this._globe.getContext('2d').createImageData(GLOBE_W, GLOBE_H)
+    // The cloud with nothing seen, kept to start each redraw from. Same
+    // puffs as the flat map, pinned to the same world spots.
+    const base = (this._globeBase = new Uint8ClampedArray(GLOBE_W * GLOBE_H * 4))
+    for (let j = 0; j < GLOBE_H; j++) {
+      const wz = ((j + 0.5) / GLOBE_H * 180 - 90) * EARTH_DEG
+      for (let i = 0; i < GLOBE_W; i++) {
+        const wx = ((i + 0.5) / GLOBE_W * 360 - 180) * EARTH_DEG
+        const puff = 0.5 + 0.25 * Math.sin(wx * 0.011 + Math.sin(wz * 0.007) * 2) + 0.25 * Math.sin(wz * 0.013 + Math.sin(wx * 0.005) * 3)
+        const o = (j * GLOBE_W + i) * 4
+        const shade = 222 + puff * 30
+        base[o] = base[o + 1] = shade
+        base[o + 2] = Math.min(255, shade + 8)
+        // A little lighter than the flat map, so the countries still show.
+        base[o + 3] = Math.round(255 * (0.62 + 0.2 * puff))
+      }
+    }
+  }
+  this._globeVersion = this.version
+  this._globeAt = now
+  const d = this._globeImg.data
+  d.set(this._globeBase)
+  const pxPerBlock = GLOBE_W / (360 * EARTH_DEG)
+  const W = 360 * EARTH_DEG
+  for (const k of this.cells) {
+    const cx = Math.floor(k / ROW) - OFF
+    const cz = (k % ROW) - OFF
+    // The cell's middle, in blocks; x wraps round the world.
+    let x = (cx + 0.5) * CELL + W / 2
+    x = ((x % W) + W) % W
+    const j = Math.floor(((cz + 0.5) * CELL + 90 * EARTH_DEG) * pxPerBlock)
+    if (j < 0 || j >= GLOBE_H) continue
+    d[(j * GLOBE_W + Math.floor(x * pxPerBlock)) * 4 + 3] = 0
+  }
+  this._globe.getContext('2d').putImageData(this._globeImg, 0, 0)
+  // Tells EarthGlobe the picture changed.
+  this._globe._drawnAt = now
+  return this._globe
+}
+
 export const explored = new Explored()
 // Leaving the page before the next save: keep the last few seconds too.
 if (typeof window !== 'undefined') window.addEventListener('pagehide', () => explored.save())

@@ -685,6 +685,7 @@ export class BuildTryMode {
       this.bm.survival?.pins?.draw(null)
       // The map's middle faces you; you're the arrow on it.
       this._globe.setPicture(pic)
+      this._globe.setFog(explored.globeCanvas())
       const yawNow = this.bm._yaw
       this._globe.draw(s, -(oz + span / 2) / EARTH_DEG, (ox + span / 2) / EARTH_DEG, span / EARTH_DEG, { lat: -z / EARTH_DEG, lon: x / EARTH_DEG, ang: Math.atan2(-Math.cos(yawNow), -Math.sin(yawNow)) })
       this._showBiome(x, z)
@@ -760,6 +761,7 @@ export class BuildTryMode {
       this._showBiome(x, z)
       if (globeShown) {
         this._globe.setPicture(pic)
+        this._globe.setFog(explored.globeCanvas())
         const yawNow = this.bm._yaw
         this._globe.draw(s, -(oz + span / 2) / EARTH_DEG, (ox + span / 2) / EARTH_DEG, span / EARTH_DEG, { lat: -z / EARTH_DEG, lon: x / EARTH_DEG, ang: Math.atan2(-Math.cos(yawNow), -Math.sin(yawNow)) })
         if (moving) this._mapDrawAt = 0
