@@ -283,29 +283,35 @@ function renderPlayTags(game) {
   const play = document.getElementById('play-btn')
   if (!play) return
   const wrap = play.parentElement
-  let cont = document.getElementById('home-continue-tag')
-  let fresh = document.getElementById('home-newhere-tag')
-  if (!cont) {
-    cont = document.createElement('button')
-    cont.type = 'button'
-    cont.id = 'home-continue-tag'
-    cont.className = 'home-play-tag'
+  // Both tags are in index.html (so the early paint matches); made here
+  // only if a page is missing them. Click handlers hook up once.
+  const tag = (id) => {
+    let el = document.getElementById(id)
+    if (!el) {
+      el = document.createElement('button')
+      el.type = 'button'
+      el.id = id
+      el.className = 'home-play-tag'
+      el.style.display = 'none'
+      wrap.appendChild(el)
+    }
+    return el
+  }
+  const cont = tag('home-continue-tag')
+  const fresh = tag('home-newhere-tag')
+  if (!cont.dataset.wired) {
+    cont.dataset.wired = '1'
     cont.addEventListener('click', (e) => {
       e.stopPropagation()
       continueRun(game)
     })
-    wrap.appendChild(cont)
   }
-  if (!fresh) {
-    fresh = document.createElement('button')
-    fresh.type = 'button'
-    fresh.id = 'home-newhere-tag'
-    fresh.className = 'home-play-tag'
+  if (!fresh.dataset.wired) {
+    fresh.dataset.wired = '1'
     fresh.addEventListener('click', (e) => {
       e.stopPropagation()
       game._openHowToPlayPanel()
     })
-    wrap.appendChild(fresh)
   }
   const run = savedRun()
   cont.style.display = run ? '' : 'none'
