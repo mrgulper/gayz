@@ -28,7 +28,7 @@ import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, COMING_SOON_WEAPONS, ammoFor, canPla
 import { PlayFx } from './PlayFx.js'
 import { openSpawnMap, closeSpawnMap, findSpawn } from './SpawnMap.js'
 import { LANDMARKS, LANDMARK_REACH } from './Landmarks.js'
-import { CITIES, TOWN_R, TOWN_SPAWN, townStyleAt } from './Towns.js'
+import { CITIES, TOWN_R, TOWN_SPAWN, townStyleAt, townStyleFor } from './Towns.js'
 import { PlayInventory, ARMOR_SLOTS, itemName } from './PlayInventory.js'
 import { PlayDrops } from './PlayDrops.js'
 import { PlayThrow } from './PlayThrow.js'
@@ -896,7 +896,7 @@ export class BuildSurvival {
     // walk north.
     // A city from the spawn map that isn't one of CITIES gets a town in the
     // look of its part of the world (no landmark).
-    const city = pick.city && (CITIES.find((c) => c.name === pick.city) || { name: pick.city, lat: pick.lat, lon: pick.lon, style: townStyleAt(pick.lat, pick.lon, pick.biome) })
+    const city = pick.city && (CITIES.find((c) => c.name === pick.city) || { name: pick.city, lat: pick.lat, lon: pick.lon, style: townStyleFor(townStyleAt(pick.lat, pick.lon, pick.biome), pick.country) })
     const lm = city ? (city.landmark ? Object.values(LANDMARKS).find((l) => l.kind === city.landmark) : null) : LANDMARKS[pick.country]
     let landmark = null
     let town = null

@@ -609,7 +609,7 @@ test('Map Editor weather falls in the world and fits the biome', async ({ page }
     await g._enterBuildMode()
     const sky = g.buildMode.sky
     const w3 = sky.weather3d
-    const shown = () => ['rain-overlay', 'rain-overlay-hard', 'snow-overlay', 'snow-overlay-hard', 'sandstorm-overlay'].filter((id) => document.getElementById(id).style.display === 'block')
+    const shown = () => ['rain-overlay', 'rain-overlay-hard', 'snow-overlay', 'snow-overlay-hard', 'sandstorm-overlay'].filter((id) => document.getElementById(id).style.display === 'block' && document.getElementById(id).style.opacity !== '0') // (the sandstorm haze fades out)
     const out = { defaultWeather: sky.weather }
     for (const w of ['clear', 'lightRain', 'hardRain', 'lightSnow', 'hardSnow', 'hail', 'fog', 'sandstorm', 'eclipse']) {
       sky.weather = w
@@ -2127,9 +2127,10 @@ test('spawn map, endless world, pyramids, underground cities and the top bar', a
     tm._drawMap(performance.now() + 2000)
     out.atlas = [atlas, tm._mapEl.classList.contains('atlas')]
     tm.cycleMap()
-    // A pyramid somewhere in the deserts.
+    // A pyramid in Egypt's desert (World Map pyramids are only where real
+    // ones are - Egypt is about x 3000..4200, z -2640..-3780).
     let pyramid = null
-    for (let gx = -60; gx < 60 && !pyramid; gx++) for (let gz = -60; gz < 60 && !pyramid; gz++) {
+    for (let gx = 36; gx < 54 && !pyramid; gx++) for (let gz = -48; gz < -32 && !pyramid; gz++) {
       const pl = bm.world._plan(gx, gz)
       if (pl?.kind === 'pyramid') pyramid = pl
     }
@@ -8208,4 +8209,50 @@ test('Prop Hunt, bikes and hoverboards, finds, instruments and ghost teammates',
     return out
   })
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})
+
+// Names of big real places, pyramids and castles only where real ones are,
+// and towns sized to their country (World Map mode).
+test('real place names, real-place pyramids and towns sized to their country', async ({ page }) => {
+  const { featureAt, FEATURE_IDS } = await import('../src/game/EarthFeatures.js')
+  expect([
+    featureAt(-3.1, -60, { river: true }), featureAt(30, 31.2, { river: true, water: true }), featureAt(27.98, 86.9),
+    featureAt(23, 13), featureAt(40, -30, { water: true }), featureAt(35, 18, { water: true }), featureAt(48.85, 2.35),
+  ]).toEqual(['amazonRiver', 'nile', 'everest', 'sahara', 'atlantic', 'mediterranean', ''])
+  const { STRINGS } = await import('../src/game/i18n.js')
+  for (const lang of ['en', 'zh', 'hi', 'es']) for (const id of FEATURE_IDS) expect(STRINGS[lang][`feat_${id}`], `${lang} ${id}`).toBeTruthy()
+  const { planStructure, planTown } = await import('../src/game/WorldStructures.js')
+  const hash = (a, b, s) => { const x = Math.sin(a * 127.1 + b * 311.7 + s * 74.7) * 43758.5453; return x - Math.floor(x) }
+  const kinds = (placeAt, biome) => {
+    const k = new Set()
+    for (let i = 0; i < 30; i++) for (let j = 0; j < 30; j++) k.add(planStructure(i, j, { land: () => ({ h: 5, biome, c: 0.5 }), hash, sea: 0, cityDistance: () => 1e9, chunk: 16, placeAt })?.kind)
+    return k
+  }
+  expect(kinds(null, 'desert').has('pyramid')).toBe(true)
+  expect(kinds(() => ({ country: 'China', lat: 40, lon: 85 }), 'desert').has('pyramid')).toBe(false)
+  expect(kinds(() => ({ country: 'Egypt', lat: 27, lon: 30 }), 'desert').has('pyramid')).toBe(true)
+  expect(kinds(() => ({ country: 'Kenya', lat: 0, lon: 37 }), 'savanna').has('castle')).toBe(false)
+  expect(kinds(() => ({ country: 'France', lat: 47, lon: 2 }), 'plains').has('castle')).toBe(true)
+  const { townStyleFor } = await import('../src/game/Towns.js')
+  expect([townStyleFor('latin', 'Mali'), townStyleFor('asian', 'India'), townStyleFor('modern', 'Japan')]).toEqual(['rural', 'asian-low', 'modern'])
+  const tallest = (style) => Math.max(...[...planTown(style, 0, 0, 10, 7, { land: () => ({ h: 5, biome: 'plains' }), chunk: 16 }).top.values()].map((v) => v.y))
+  expect(tallest('rural')).toBeLessThan(tallest('modern'))
+  expect(tallest('modern-low')).toBeLessThan(tallest('modern'))
+
+  // In the game: the spawn map fills the screen pole to pole, and Mount
+  // Everest's name goes under the map and up as a big title.
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => { window.__game.settings.selectedGameMode = 'worldMap'; window.__game.playBtn.click() })
+  await page.waitForFunction(() => document.getElementById('spawn-map')?.style.display === 'block', null, { timeout: 60000 })
+  const r = await page.evaluate(() => {
+    const map = document.getElementById('spawn-map')
+    const box = map.getBoundingClientRect()
+    const [, top] = map._clientAt(89.9, 0)
+    const [, bottom] = map._clientAt(-89.9, 0)
+    const tm = window.__game.buildMode.tryMode
+    const name = tm._featureName(Math.floor(86.9 * 120), Math.floor(-27.98 * 120))
+    const title = document.getElementById('build-place-title')
+    return { fills: Math.abs(top - box.top) < 4 && Math.abs(bottom - box.bottom) < 4, name, title: title?.textContent, shown: title?.classList.contains('show') }
+  })
+  expect(r).toEqual({ fills: true, name: 'Mount Everest', title: 'Mount Everest', shown: true })
 })

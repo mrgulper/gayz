@@ -48,6 +48,28 @@ function villageStyle(biome) {
 
 const CASTLE_STONE = [[0.36, 'stonebricks'], [0.16, 'mossystonebricks'], [0.14, 'crackedstonebricks'], [0.12, 'cobblestone'], [0.1, 'mossycobblestone'], [0.07, 'andesite'], [0.05, 'stonebricks']]
 
+// World Map mode (2026-10-23, Gaymi: "all nature buildings should be based
+// on where they are in real life for world map"): opts.placeAt(x, z) gives
+// the real { country, lat, lon } of a cell, and places only turn up where
+// the real thing does - stone pyramids in Egypt and Sudan, Maya step
+// pyramids in southern Mexico and Central America, grassy burial-mound
+// "pyramids" around Xi'an in China, and castles only in Europe (and the
+// crusader castles of the Levant). Villages still fit any land. Without
+// placeAt (the made-up open world) every desert can have a pyramid as before.
+const PYRAMID_STYLE = { Egypt: 'egypt', Sudan: 'egypt', Guatemala: 'maya', Belize: 'maya', Honduras: 'maya', 'El Salvador': 'maya' }
+function realPyramid(place) {
+  if (!place?.country) return null
+  if (place.country === 'Mexico') return place.lat < 22 ? 'maya' : null
+  if (place.country === 'China') return place.lat > 33.5 && place.lat < 35.8 && place.lon > 106.5 && place.lon < 110.5 ? 'mound' : null
+  return PYRAMID_STYLE[place.country] || null
+}
+const CASTLE_COUNTRIES = new Set(['Syria', 'Lebanon', 'Israel', 'Jordan', 'Palestine'])
+function realCastle(place) {
+  if (!place) return true
+  const { lat, lon, country } = place
+  return (lat > 36 && lat < 61 && lon > -11 && lon < 32) || CASTLE_COUNTRIES.has(country)
+}
+
 // A tiny seeded generator for one plan.
 function prng(seed) {
   let s = seed >>> 0
@@ -130,21 +152,26 @@ class Builder {
 // What square (i, j) would hold, from cheap checks only (its centre's
 // land, a roll, for a bridge some water nearby): { cx, cz, kind, order }
 // or null.
-function candidate(i, j, { land, hash, sea, cityDistance }) {
+function candidate(i, j, { land, hash, sea, cityDistance, placeAt }) {
   const cx = i * STRUCT_GRID + Math.floor(hash(i, j, 401) * STRUCT_GRID)
   const cz = j * STRUCT_GRID + Math.floor(hash(i, j, 409) * STRUCT_GRID)
   if (cityDistance(cx, cz) < CITY_GAP) return null
   const roll = hash(i, j, 421)
   const centre = land(cx, cz)
   let kind = null
-  // Deserts: a pyramid in some squares (2026-10-17, "add pyramids in deserts").
-  if (centre.h > sea && centre.biome === 'desert' && roll < 0.3) kind = 'pyramid'
+  let style = null
+  const place = placeAt ? placeAt(cx, cz) : null
+  // Deserts: a pyramid in some squares (2026-10-17, "add pyramids in
+  // deserts"); on the World Map only where real ones are.
+  if (placeAt) style = centre.h > sea && centre.biome !== 'river' ? realPyramid(place) : null
+  else if (centre.h > sea && centre.biome === 'desert') style = 'egypt'
+  if (style && roll < 0.3) kind = 'pyramid'
   else if (centre.h > sea && VILLAGE_BIOMES.has(centre.biome) && roll < 0.45) kind = 'village'
-  else if (centre.h > sea && CASTLE_BIOMES.has(centre.biome) && roll < 0.75) kind = 'castle'
+  else if (centre.h > sea && CASTLE_BIOMES.has(centre.biome) && roll < 0.75 && realCastle(place)) kind = 'castle'
   else {
     for (let x = cx - 32; x <= cx + 32 && !kind; x += 8) for (let z = cz - 32; z <= cz + 32; z += 8) if (land(x, z).h < sea) { kind = 'bridge'; break }
   }
-  return kind ? { cx, cz, kind, order: hash(i, j, 431) } : null
+  return kind ? { cx, cz, kind, style, order: hash(i, j, 431) } : null
 }
 
 // The plan for grid square (gx, gz), or null for plain land.
@@ -172,7 +199,7 @@ export function planStructure(gx, gz, opts) {
   }
   const rand = prng(Math.floor(hash(gx, gz, 419) * 4294967296))
   const ctx = { H, rand, sea, cx, cz }
-  const b = me.kind === 'village' ? village(ctx, H(cx, cz).biome) : me.kind === 'castle' ? castle(ctx) : me.kind === 'pyramid' ? pyramid(ctx) : bridge(ctx, cityDistance)
+  const b = me.kind === 'village' ? village(ctx, H(cx, cz).biome) : me.kind === 'castle' ? castle(ctx) : me.kind === 'pyramid' ? pyramid(ctx, me.style) : bridge(ctx, cityDistance)
   return b ? b.finish(chunk) : null
 }
 
@@ -267,13 +294,22 @@ function stepsDown(b, H, x, z, dx, dz, top, width, type) {
 // tall chamber with sandstone pillars, glowing sea lanterns and a lapis
 // altar holding gold. Full blocks only (terrain), so every step outside
 // is one jump - you can climb it.
-function pyramid({ H, rand, sea, cx, cz }) {
+// Looks by place (2026-10-23): Egypt's sandstone; the Maya's mossy grey
+// stone; China's grass-covered earth mounds.
+const PYRAMID_LOOK = {
+  egypt: { shell: (k) => (k % 4 === 2 ? 'orangeterracotta' : k % 2 ? 'smoothsandstone' : 'sandstonebricks'), floor: 'sandstonebricks', top: 'gold', ground: 'sandstone', pillar: 'chiseledsandstone' },
+  maya: { shell: (k) => (k % 4 === 2 ? 'mossystonebricks' : k % 2 ? 'stonebricks' : 'mossycobblestone'), floor: 'stonebricks', top: 'chiseledstonebricks', ground: 'stone', pillar: 'chiseledstonebricks' },
+  mound: { shell: () => 'grass', floor: 'dirt', top: 'grass', ground: 'dirt', pillar: 'stonebricks' },
+}
+
+function pyramid({ H, rand, sea, cx, cz }, style = 'egypt') {
   const R = 15
   const site = siteOf(H, sea, cx - R, cz - R, cx + R, cz + R, 2)
   if (!site.dry || site.hi - site.lo > 8) return null
   const b = new Builder('pyramid', cx, cz)
   const base = site.hi + 1
-  const shell = (k) => (k % 4 === 2 ? 'orangeterracotta' : k % 2 ? 'smoothsandstone' : 'sandstonebricks')
+  const look = PYRAMID_LOOK[style] || PYRAMID_LOOK.egypt
+  const shell = look.shell
   for (let k = 0; k <= R; k++) {
     const half = R - k
     const y = base + k
@@ -281,12 +317,12 @@ function pyramid({ H, rand, sea, cx, cz }) {
       for (let z = cz - half; z <= cz + half; z++) {
         const edge = Math.max(Math.abs(x - cx), Math.abs(z - cz))
         // Two blocks thick, solid near the top; the floor layer is whole.
-        if (k === 0 || edge >= half - 1 || half <= 3) b.set(x, y, z, k === R ? 'gold' : k === 0 && edge < half - 1 ? 'sandstonebricks' : shell(k))
+        if (k === 0 || edge >= half - 1 || half <= 3) b.set(x, y, z, k === R ? look.top : k === 0 && edge < half - 1 ? look.floor : shell(k))
       }
     }
   }
   // Ground under the bottom layer, so it never floats.
-  for (let x = cx - R; x <= cx + R; x++) for (let z = cz - R; z <= cz + R; z++) foundation(b, H, x, z, base, 'sandstone')
+  for (let x = cx - R; x <= cx + R; x++) for (let z = cz - R; z <= cz + R; z++) foundation(b, H, x, z, base, look.ground)
   // Doorway and passage on a random side, 2 wide and 3 tall.
   const side = Math.floor(rand() * 4)
   const [dx, dz] = [[1, 0], [-1, 0], [0, 1], [0, -1]][side]
@@ -299,7 +335,7 @@ function pyramid({ H, rand, sea, cx, cz }) {
   }
   // Chamber pillars, lights and the altar.
   for (const [px, pz] of [[-5, -5], [-5, 5], [5, -5], [5, 5]]) {
-    for (let y = base + 1; y <= base + 6; y++) b.set(cx + px, y, cz + pz, y === base + 6 ? 'sealantern' : 'chiseledsandstone')
+    for (let y = base + 1; y <= base + 6; y++) b.set(cx + px, y, cz + pz, y === base + 6 ? 'sealantern' : look.pillar)
   }
   b.set(cx, base + 1, cz, 'lapisblock')
   b.set(cx, base + 2, cz, 'gold')

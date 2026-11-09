@@ -110,6 +110,7 @@ const SKY_EASE = 0.6 // how fast the sky, light and fog follow the weather
 // ...and in Random, where each step gets about a minute to settle in.
 const SKY_EASE_SLOW = 0.045
 const CLIMATE_CHECK_S = 2
+const SAND_FADE_MS = 12000 // matches #sandstorm-overlay's transition
 // Which weather each climate can have, with its chance (the rest is clear).
 // Snow, hail and fog can turn up in the city too now (2026-10-25, Gaymi:
 // "add more weathers ... snowing hard snowing light snowing and also add
@@ -477,7 +478,7 @@ export class BuildSky {
     this.bodies.show(false)
     this._active = false
     this._shownKind = null
-    this._showOverlays('clear')
+    this._showOverlays('clear', true)
     this.weather3d.clear()
     this.lightning.clear()
     this.screen.clear()
@@ -488,7 +489,8 @@ export class BuildSky {
     audioEngine.setWeatherAudio(!!game?.raining && !!game?.gameStarted, !!game?.snowing && !!game?.gameStarted)
   }
 
-  _showOverlays(kind) {
+  // instant: no fade (leaving the editor / the game).
+  _showOverlays(kind, instant = false) {
     const game = this.bm.game
     game?._ensureAllWeatherParticles?.()
     const show = (el, on) => {
@@ -497,7 +499,21 @@ export class BuildSky {
     // Rain and snow fall in the world now (BuildWeather) - the old screen
     // layers stay off; only the sandstorm's haze is still one.
     for (const el of [game?.rainOverlayEl, game?.rainOverlayHardEl, game?.snowOverlayEl, game?.snowOverlayHardEl]) show(el, false)
-    show(game?.sandstormOverlayEl, kind === 'sandstorm')
+    // The sandstorm haze fades in and out slowly too (2026-10-23).
+    const sand = game?.sandstormOverlayEl
+    if (sand) {
+      clearTimeout(this._sandTimer)
+      if (kind === 'sandstorm') {
+        sand.style.display = 'block'
+        requestAnimationFrame(() => { sand.style.opacity = '1' })
+      } else if (instant) {
+        sand.style.opacity = '0'
+        sand.style.display = 'none'
+      } else if (sand.style.display === 'block') {
+        sand.style.opacity = '0'
+        this._sandTimer = setTimeout(() => { sand.style.display = 'none' }, SAND_FADE_MS)
+      }
+    }
     this.weather3d.set(kind)
   }
 
