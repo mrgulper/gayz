@@ -9,6 +9,9 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    # A normal run takes ~35 min on GitHub's machines; a stuck one stops
+    # here instead of running for hours.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
         with:
