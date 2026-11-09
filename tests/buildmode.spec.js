@@ -3374,7 +3374,7 @@ test('real-life stone and metal builds: one solid wall, metal sharper and shiny,
     const has = (id) => ch.info.has(id)
     out.stone = ['brick', 'netherbrick', 'mudbricks', 'quartz', 'purpurblock', 'prismarine', 'concrete', 'whiteconcrete', 'redterracotta', 'glazedterracotta', 'plaster', 'asphalt'].filter((id) => has(id) && I(id).build !== 'stone')
     out.metal = ['metal', 'iron', 'gold', 'copper', 'oxidizedcopper', 'netherite', 'diamondblock', 'emeraldblock', 'lapisblock', 'coalblock', 'redstoneblock'].filter((id) => has(id) && I(id).build !== 'metal')
-    out.notBuild = ['stonebricks', 'terracotta', 'tintedglass', 'redstonelamp', 'brickslab', 'irondoor', 'ironore', 'tnt', 'sealantern'].filter((id) => has(id) && I(id).build)
+    out.notBuild = ['stonebricks', 'terracotta', 'redstonelamp', 'brickslab', 'irondoor', 'ironore', 'tnt', 'sealantern'].filter((id) => has(id) && I(id).build)
     out.stillRock = !has('stonebricks') || I('stonebricks').real
     out.flatCrack = ch.lumpyTopPoints(140, 5, 140) === null
     g._applyGraphicsLevel('simple')
@@ -3401,6 +3401,101 @@ test('real-life stone and metal builds: one solid wall, metal sharper and shiny,
   }
   if (r.wallPts) expect(r.wallMiddle).toBe(0)
   if (r.mixPts) expect(r.mixPinned).toBe(true)
+  if (r.simplePts) expect(r.simpleCorner).toBe(true)
+})
+
+test('real-life soft and see-through: pillowy wool, framed glass that joins, jelly blobs', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const ch = bm._chunks
+    // A lone wool block, a 3-wide glass window, a lone honey block, honey against slime.
+    bm._placeBlockInner(140, 5, 160, 'redwool')
+    for (let dx = 0; dx < 3; dx++) bm._placeBlockInner(150 + dx, 5, 160, 'glass')
+    bm._placeBlockInner(160, 5, 160, 'honeyblock')
+    bm._placeBlockInner(170, 5, 160, 'honeyblock')
+    bm._placeBlockInner(171, 5, 160, 'slimeblock')
+    const verts = (x0, x1, y0, y1, z0, z1) => {
+      ch.flush(bm._chunkCells)
+      const v = []
+      const S = ch.blockSize
+      for (const c of ch.chunks.values()) {
+        for (const m of c.meshes) {
+          const pos = m.geometry.attributes.position
+          if (!pos?.array?.length) continue
+          const ed = m.geometry.attributes.aEdge
+          const col = m.geometry.attributes.color
+          for (let i = 0; i < pos.array.length; i += 3) {
+            const x = (pos.array[i] + m.position.x) / S
+            const y = (pos.array[i + 1] + m.position.y) / S
+            const z = (pos.array[i + 2] + m.position.z) / S
+            const a = col && col.itemSize === 4 ? col.array[(i / 3) * 4 + 3] : 1
+            if (x > x0 && x < x1 && y > y0 && y < y1 && z > z0 && z < z1) v.push([x, y, z, ed ? ed.array[i / 3] : 0, a])
+          }
+        }
+      }
+      return v
+    }
+    const near = (v, x, y, z, e = 0.002) => v.some((p) => Math.abs(p[0] - x) < e && Math.abs(p[1] - y) < e && Math.abs(p[2] - z) < e)
+    g._applyGraphicsLevel('irl')
+    bm._applyGraphicsLook()
+    const w = verts(139.9, 141.1, 4.9, 6.1, 159.9, 161.1)
+    out.woolPts = w.length
+    out.woolCorner = near(w, 141, 6, 161)
+    out.woolDrop = Math.max(...w.map((p) => 6 - p[1]).filter((d) => d < 0.4))
+    out.woolPuffs = w.some((p) => p[1] > 6.01)
+    // The window's front face (z = 160 plane): frame alpha on the outside, clearer where panes join.
+    const gl = verts(149.9, 153.1, 4.9, 6.1, 159.95, 160.05)
+    out.glassPts = gl.length
+    out.glassFrame = gl.filter((p) => p[0] < 150.001 && p[1] > 5.3 && p[1] < 5.7).every((p) => p[4] > 0.99)
+    out.glassJoined = gl.filter((p) => Math.abs(p[0] - 151) < 0.001 && p[1] > 5.3 && p[1] < 5.7).every((p) => p[4] < 0.7)
+    out.glassShiny = gl.some((p) => p[3] < -0.5)
+    const h = verts(159.9, 161.1, 4.9, 6.1, 159.9, 161.1)
+    out.honeyPts = h.length
+    out.honeyCorner = near(h, 161, 6, 161)
+    out.honeyDrop = Math.max(...h.map((p) => 6 - p[1]).filter((d) => d < 0.4))
+    out.honeyShiny = h.some((p) => p[3] < -0.5)
+    const j = verts(169.9, 172.1, 4.9, 6.1, 159.9, 161.1)
+    out.jellyPts = j.length
+    out.jellyPinned = near(j, 171, 6, 160)
+    const I = (id) => ch.info.get(id) || {}
+    const has = (id) => ch.info.has(id)
+    out.wool = ['wool', 'redwool', 'whitewool', 'lightbluewool'].filter((id) => has(id) && I(id).build !== 'wool')
+    out.glass = ['glass', 'tintedglass', 'redstainedglass', 'lightgraystainedglass'].filter((id) => has(id) && I(id).build !== 'glass')
+    out.jelly = ['honeyblock', 'slimeblock'].filter((id) => has(id) && I(id).build !== 'jelly')
+    out.notBuild = ['glasspane', 'invisible', 'honeycombblock', 'sponge', 'jukebox', 'tnt'].filter((id) => has(id) && I(id).build)
+    out.flatCrack = ch.lumpyTopPoints(140, 5, 160) === null
+    g._applyGraphicsLevel('simple')
+    bm._applyGraphicsLook()
+    const w2 = verts(139.9, 141.1, 4.9, 6.1, 159.9, 161.1)
+    out.simplePts = w2.length
+    out.simpleCorner = near(w2, 141, 6, 161)
+    g._exitBuildMode()
+    return out
+  })
+  expect(r.wool).toEqual([])
+  expect(r.glass).toEqual([])
+  expect(r.jelly).toEqual([])
+  expect(r.notBuild).toEqual([])
+  expect(r.flatCrack).toBe(true)
+  expect(r.woolPts).toBeGreaterThan(0)
+  expect(r.woolCorner).toBe(false)
+  // Wool is puffier than a stone build (0.11 bevel, flat faces).
+  expect(r.woolDrop).toBeGreaterThan(0.1)
+  expect(r.woolPuffs).toBe(true)
+  expect(r.glassPts).toBeGreaterThan(0)
+  expect(r.glassFrame).toBe(true)
+  expect(r.glassJoined).toBe(true)
+  expect(r.glassShiny).toBe(true)
+  expect(r.honeyPts).toBeGreaterThan(0)
+  expect(r.honeyCorner).toBe(false)
+  expect(r.honeyDrop).toBeGreaterThan(r.woolDrop)
+  expect(r.honeyShiny).toBe(true)
+  // Honey and slime don't melt into each other.
+  expect(r.jellyPinned).toBe(true)
   if (r.simplePts) expect(r.simpleCorner).toBe(true)
 })
 
