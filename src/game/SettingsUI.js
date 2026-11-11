@@ -19,6 +19,8 @@ import { LANGUAGES, setLanguage, t } from './i18n.js'
 import { bindHoverMenus } from './HoverMenus.js'
 import { bindSettingsLog, logSettingChange } from './SettingsLog.js'
 import { bindGameplaySettings } from './GameplaySettings.js'
+import { bindMoreSettings, buildMoreRows, quietHoursFactor } from './MoreSettings.js'
+import { moreKeysForPage } from './MoreSettingsList.js'
 import { GRAPHICS_LEVELS, LEVEL_LOOK } from './GraphicsLevels.js'
 import { applyUiTheme, cleanVars, normalizeHex, rememberCleanVars, getCleanBgImage, applyCleanBgImage, cropToScreen, CLEAN_BG_IMAGE_KEY, uiThemeOf, skinDesignerTheme } from './CleanTheme.js'
 
@@ -114,9 +116,17 @@ export function _bindEditableSliderValue(_game, valueEl, sliderEl) {
 // three volume settings changes, rather than each slider computing its
 // own effective value inline in three separate places.
 export function _applyAllVolumes(game) {
-  const master = game.settings.masterVolume / 100
-  audioEngine.setSfxVolume(master * (game.settings.sfxVolume / 100))
-  audioEngine.setAmbientVolume(master * (game.settings.ambientVolume / 100))
+  const s = game.settings
+  // Quiet Hours (MoreSettings.js) turns everything down at night.
+  const master = (s.masterVolume / 100) * quietHoursFactor(s)
+  audioEngine.setSfxVolume(master * (s.sfxVolume / 100))
+  audioEngine.setAmbientVolume(master * (s.ambientVolume / 100))
+  // Music and UI Sounds sit beside Sound Effects (under Master only);
+  // Footsteps and Weapons are parts of Sound Effects.
+  audioEngine.setMusicVolume?.(master * ((s.musicVolume ?? 100) / 100))
+  audioEngine.setUiVolume?.(master * ((s.uiVolume ?? 50) / 100))
+  audioEngine.setFootstepVolume?.((s.footstepVolume ?? 100) / 100)
+  audioEngine.setWeaponVolume?.((s.weaponVolume ?? 100) / 100)
 }
 
 export function _bindSettings(game) {
@@ -171,8 +181,10 @@ export function _bindSettings(game) {
     saveSettings(game.settings)
     if (oldLang?.code !== btn.dataset.lang) logSettingChange(t('tabLanguage'), oldLang ? t(oldLang.nameKey) : '', btn.querySelector('.lang-name')?.textContent || btn.dataset.lang)
   })
+  buildMoreRows()
   bindSettingsLog(document.getElementById('settings-panel'))
   bindGameplaySettings(game)
+  bindMoreSettings(game)
 
   for (const tab of document.querySelectorAll('.settings-tab')) {
     tab.addEventListener('click', () => {
@@ -2198,6 +2210,8 @@ export const TAB_RESET_KEYS = {
     'uiFont', 'themePreset', 'cursorTrail', 'crtScanlines', 'nicknameColor', 'accentColor', 'playBtnColor',
     'nicknameFont', 'layoutDensity', 'navOrder', 'bgMood', 'weatherParticles', 'homepageFpsCounter'],
 }
+// The 2026-11-11 settings (MoreSettingsList.js) join their tab's reset.
+for (const page of Object.keys(TAB_RESET_KEYS)) TAB_RESET_KEYS[page].push(...moreKeysForPage(page))
 
 export function _resetSettingsTab(game, page) {
   const keys = TAB_RESET_KEYS[page]

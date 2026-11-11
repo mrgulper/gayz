@@ -207,3 +207,21 @@ Gaymi: "make the edit and generating a skin smarter" - chose to stay offline (no
 - Claimed rolling quest: `_fadeOutQuestCard` (`.quest-fade-out`) instead of re-rendering; daily card swapped in place.
 - Nav badges: hover changes nothing now (`data-badge` / `::after` removed from NavBadges.js and 08-homepage.css).
 - Profile > Trophies tab (`#profile-page-trophies`, `Trophies.renderTrophies` on every `_openProfilePanel`): `.trophy-card[data-tier]` with a CSS cup (`--cup`), themed in default / Old / Simple.
+
+## Settings ideas (to do)
+Gaymi's 80-idea list (2026-11-11). Build one section at a time. New settings go in `MoreSettingsList.js` (one line each; rows, saving, reset, Settings Code and info "?" are automatic; text keys `<key>Label` / `<key>InfoText` / `<key>Opt_<value>`), hook-ups in `MoreSettings.js` via `onMoreSetting`.
+Already in the game (skip or extend): 66 muted players list (Social > muted list), 68 appear offline (status = Offline), 43 weather particles toggle (check it covers in-game rain/snow), 80 "Undo" exists for the whole session only (add "undo last").
+
+**Audio (1-10): DONE 2026-11-11.** Music, UI sounds, footsteps, weapons volumes; mono; low-health heartbeat; quiet hours; duck near zombies; chat ping; sound subtitles.
+
+**Controls (11-24):** 11 controller support (Xbox/PlayStation) · 12 controller vibration · 13 stick deadzone · 14 toggle vs hold crouch · 15 auto-run key · 16 separate aim (zoomed) sensitivity · 17 mouse smoothing · 18 left-handed mobile layout · 19 fixed vs floating joystick · 20 gyro aim (mobile) · 21 double-tap to sprint (mobile) · 22 hold-to-interact time · 23 camera smoothness · 24 default camera view (1st/3rd).
+
+**HUD (25-38):** 25 HUD size slider · 26 hide HUD completely · 27 minimap size default · 28 minimap rotates vs north up · 29 kill feed (bring back) · 30 hit marker · 31 low-ammo warning · 32 show ping on servers · 33 clock in-game · 34 coordinates · 35 compass bar · 36 chat opacity · 37 chat fades after X s · 38 health as a number.
+
+**Graphics (39-50):** 39 screen shake (bring back) · 40 particle amount · 41 grass on/off · 42 clouds on/off · 43 weather effects · 44 blood: normal/green goo/off · 45 zombie outline behind walls · 46 battery saver (mobile) · 47 gamma · 48 saturation · 49 sharpen · 50 hand/weapon FOV.
+
+**Gameplay (51-62):** 51 auto-reload · 52 auto-equip better weapon · 53 auto-sort inventory · 54 confirm before selling · 55 confirm buying above X coins · 56 loot glow/beams · 57 loading tips · 58 replay tutorials · 59 pause when tab hidden (offline) · 60 AFK auto-pause · 61 spoiler-free Story Campaign · 62 reset all tooltips/hints.
+
+**Social & Safety (63-72):** 63 chat filter strength off/light/strict · 64 hide chat · 65 friends-only chat · 66 muted players list (exists) · 67 block friend requests from non-clan · 68 appear offline (exists) · 69 hide my clan tag · 70 hide my coins/gems · 71 who can join my server · 72 who can see my postcards.
+
+**Wellbeing & Misc (73-80):** 73 break reminder · 74 session timer · 75 bedtime reminder · 76 data saver · 77 settings presets · 78 settings QR code · 79 silly setting of the day · 80 undo last setting change.

@@ -11,6 +11,7 @@
 import { t } from './i18n.js'
 import * as CloudSync from './CloudSync.js'
 import { EMOJI_CATEGORIES } from './EmojiData.js'
+import { chatPingCheck } from './MoreSettings.js'
 import { _escapeHtml, _censorText, saveSettings } from './Game.js'
 
 // Global panel chat (#server-panel) - see CloudSync.js's
@@ -280,6 +281,7 @@ export function unsubscribeServerChat(game) {
 export function renderServerChatMessages(game, msgs) {
   if (!game.serverChatMessages) return
   game._lastServerChatMsgs = msgs
+  chatPingCheck(game, 'server', msgs)
   const muted = new Set(game.settings.mutedChatPlayers)
   // Hides pre-existing history on a fresh page load (see
   // _chatSessionStartMs's own comment) - this is the only case that
@@ -469,6 +471,7 @@ export function unsubscribeChatChannel(game) {
 export function renderChatMessages(game, msgs) {
   if (!game.chatMessages) return
   game._lastChatMsgs = msgs
+  chatPingCheck(game, game._chatChannel || 'global', msgs)
   // Mute/block (Settings > Social > Muted Players) - a muted sender's
   // message stays in `visible` and renders as a "Blocked message -
   // Show" placeholder instead of being filtered out entirely (see

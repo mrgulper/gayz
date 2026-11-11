@@ -242,7 +242,7 @@ export class DanceOff {
     // The music: a drum every beat, the tune on the half beats.
     const half = 30 / BPM
     while (this.time >= this._beatAt) {
-      if (this._note % 2 === 0) try { audioEngine.playSpecial?.('drum') } catch { /* no audio */ }
+      if (this._note % 2 === 0) try { audioEngine.playSpecial?.('drum', audioEngine.musicGain || undefined) } catch { /* no audio */ }
       const hz = TUNE[this._note % TUNE.length]
       if (hz) try { audioEngine.playNote?.(hz) } catch { /* no audio */ }
       this._note++

@@ -79,6 +79,7 @@ const SPECIAL_SOUNDS = {
   turret: { noise: [0.06, 2500, 800, 0.25] },
   firework: { notes: [[300, 0, 0.5, 'sine', 0.06, 1200]], noise: [0.9, 2000, 300, 0.3] },
   drum: { notes: [[110, 0, 0.25, 'sine', 0.4, 50]], noise: [0.08, 900, 300, 0.2] },
+  chatPing: { notes: [[1175, 0, 0.09, 'sine', 0.12], [1568, 0.08, 0.14, 'sine', 0.1]] },
   honk: { notes: [[220, 0, 0.3, 'sawtooth', 0.15], [277, 0, 0.3, 'sawtooth', 0.12], [220, 0.35, 0.45, 'sawtooth', 0.15], [277, 0.35, 0.45, 'sawtooth', 0.12]] },
 }
 
@@ -93,6 +94,16 @@ class AudioEngine {
     this.ambientVolume = 1
     this.zombieVolume = 1
     this.positionalAudioEnabled = true
+    // Settings > Audio extras (2026-11-11, MoreSettings.js): music, menu
+    // sounds, footsteps and guns each get a slider; mono, ducking and
+    // sound subtitles (onCaption) hang off here too.
+    this.musicVolume = 1
+    this.uiVolume = 0.5
+    this.footstepVolume = 1
+    this.weaponVolume = 1
+    this.mono = false
+    this.duck = 1
+    this.onCaption = null
   }
 
   init() {
@@ -101,7 +112,29 @@ class AudioEngine {
     this.ctx = new Ctx()
     this.sfxGain = this.ctx.createGain()
     this.sfxGain.gain.value = this.sfxVolume
-    this.sfxGain.connect(this.ctx.destination)
+    // Everything ends here before the speakers: Mono Audio squashes this
+    // one node to one channel, so both ears hear every sound.
+    this.outGain = this.ctx.createGain()
+    this.outGain.connect(this.ctx.destination)
+    this._applyMono()
+    this.sfxGain.connect(this.outGain)
+    // Music and the ambience go through duckGain, which drops while
+    // zombies are close (Duck Music When Zombies Are Near).
+    this.duckGain = this.ctx.createGain()
+    this.duckGain.gain.value = this.duck
+    this.duckGain.connect(this.outGain)
+    this.musicGain = this.ctx.createGain()
+    this.musicGain.gain.value = this.musicVolume
+    this.musicGain.connect(this.duckGain)
+    this.uiGain = this.ctx.createGain()
+    this.uiGain.gain.value = this.uiVolume
+    this.uiGain.connect(this.outGain)
+    this.footGain = this.ctx.createGain()
+    this.footGain.gain.value = this.footstepVolume
+    this.footGain.connect(this.sfxGain)
+    this.weaponGain = this.ctx.createGain()
+    this.weaponGain.gain.value = this.weaponVolume
+    this.weaponGain.connect(this.sfxGain)
     // Separate from sfxGain - only the continuous ambient bed (drone +
     // wind, see startAmbient) routes through here, so it has its own
     // volume slider independent of weapon/UI sound effects. One-shot
@@ -109,7 +142,7 @@ class AudioEngine {
     // they're closer to immersion stingers than the ambient bed itself.
     this.ambientGain = this.ctx.createGain()
     this.ambientGain.gain.value = this.ambientVolume
-    this.ambientGain.connect(this.ctx.destination)
+    this.ambientGain.connect(this.duckGain)
     // Every zombie sound (moans, bites, deaths)
     // goes through here first: Settings > Audio > Zombie Noises, on top of
     // Sound Effects (2026-10-30).
@@ -224,7 +257,7 @@ class AudioEngine {
     noiseGain.gain.setValueAtTime(gain, now)
     noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration)
 
-    noise.connect(bandpass).connect(noiseGain).connect(this.sfxGain)
+    noise.connect(bandpass).connect(noiseGain).connect(this.weaponGain || this.sfxGain)
     noise.start(now)
     noise.stop(now + duration)
 
@@ -240,7 +273,7 @@ class AudioEngine {
       thumpGain.gain.setValueAtTime(preset.gain * 0.8, now)
       thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1)
 
-      thump.connect(thumpGain).connect(this.sfxGain)
+      thump.connect(thumpGain).connect(this.weaponGain || this.sfxGain)
       thump.start(now)
       thump.stop(now + 0.1)
     }
@@ -280,7 +313,7 @@ class AudioEngine {
       const noiseGain = ctx.createGain()
       noiseGain.gain.setValueAtTime(gain, t)
       noiseGain.gain.exponentialRampToValueAtTime(0.001, t + clackDuration)
-      noise.connect(bandpass).connect(noiseGain).connect(this.sfxGain)
+      noise.connect(bandpass).connect(noiseGain).connect(this.weaponGain || this.sfxGain)
       noise.start(t)
       noise.stop(t + clackDuration)
     }
@@ -313,7 +346,7 @@ class AudioEngine {
     noiseGain.gain.setValueAtTime(0.35, now)
     noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration)
 
-    noise.connect(bandpass).connect(noiseGain).connect(this.sfxGain)
+    noise.connect(bandpass).connect(noiseGain).connect(this.weaponGain || this.sfxGain)
     noise.start(now)
     noise.stop(now + duration)
   }
@@ -352,6 +385,7 @@ class AudioEngine {
 
   // Low-health tension cue: a "lub-dub" double thump (~1.6s cadence).
   playHeartbeat() {
+    this._caption('heartbeat', 0)
     if (!this.ctx) return
     const ctx = this.ctx
     const now = ctx.currentTime
@@ -417,6 +451,7 @@ class AudioEngine {
   // are quieter), soft (a flash inside the clouds - no crack, just a long
   // low roll).
   playThunder(opts = {}) {
+    this._caption('thunder', 0)
     if (!this.ctx) return
     const ctx = this.ctx
     const now = ctx.currentTime
@@ -458,6 +493,7 @@ class AudioEngine {
 
   // Low boom for the exploder zombie's detonation.
   playExplosion() {
+    this._caption('explosion', 0)
     if (!this.ctx) return
     const ctx = this.ctx
     const now = ctx.currentTime
@@ -538,6 +574,7 @@ class AudioEngine {
   }
 
   playGlassBreak() {
+    this._caption('glass', 0)
     if (!this.ctx) return
     const now = this.ctx.currentTime
     this._glassNoise(0.45, 2200, 0.7, now)
@@ -558,6 +595,7 @@ class AudioEngine {
   // Uses a triangle tone (not sawtooth) through vowel-like formant filters
   // so it reads as a vocal "aaahh" rather than a buzzy raspberry.
   playZombieMoan(scale, pan = 0) {
+    this._caption('growl', pan)
     if (!this.ctx) return
     if (this._playZombieSample('moan', 0.45, this._pitchForScale(scale), pan)) return
     const ctx = this.ctx
@@ -628,6 +666,7 @@ class AudioEngine {
   // Short death rattle when a zombie is killed (not used for the exploder,
   // which has its own detonation sound).
   playZombieDeath(scale, pan = 0) {
+    this._caption('zombieDeath', pan)
     if (!this.ctx) return
     if (this._playZombieSample('death', 0.5, this._pitchForScale(scale), pan)) return
     const ctx = this.ctx
@@ -819,6 +858,7 @@ class AudioEngine {
   // A screamer's scream (ZombieTricks.js): close and loud, unlike the
   // muffled distant one above - a rising shriek over a raspy noise burst.
   playZombieScream(pan = 0) {
+    this._caption('scream', pan)
     if (!this.ctx) return
     const ctx = this.ctx
     const now = ctx.currentTime
@@ -1221,7 +1261,7 @@ class AudioEngine {
     gain.gain.setValueAtTime((muffled ? 0.1 : 0.16) * (onGrass ? 0.85 : 1), now)
     gain.gain.exponentialRampToValueAtTime(0.001, now + duration)
 
-    noise.connect(filter).connect(gain).connect(this.sfxGain)
+    noise.connect(filter).connect(gain).connect(this.footGain || this.sfxGain)
     noise.start(now)
     noise.stop(now + duration)
   }
@@ -1263,6 +1303,7 @@ class AudioEngine {
   // A burp or a hiccup instead of a moan (FunnyZombies.js), on the
   // zombie sound slider like the moans, panned to where it came from.
   playZombieGoof(kind, pan = 0) {
+    this._caption(kind === 'burp' ? 'burp' : 'hiccup', pan)
     if (!this.ctx) return
     this.playSpecial(kind, this.zombieGain, pan)
   }
@@ -1327,7 +1368,7 @@ class AudioEngine {
       const g = ctx.createGain()
       g.gain.setValueAtTime(gain, now)
       g.gain.exponentialRampToValueAtTime(0.0001, now + 0.9)
-      osc.connect(g).connect(this.sfxGain)
+      osc.connect(g).connect(this.musicGain || this.sfxGain)
       osc.start(now)
       osc.stop(now + 0.92)
     }
@@ -1344,10 +1385,79 @@ class AudioEngine {
     const gain = ctx.createGain()
     gain.gain.setValueAtTime(0.12, now)
     gain.gain.exponentialRampToValueAtTime(0.001, now + duration)
-    osc.connect(gain).connect(this.sfxGain)
+    osc.connect(gain).connect(this.uiGain || this.sfxGain)
     osc.start(now)
     osc.stop(now + duration)
   }
+  setMusicVolume(volume) {
+    this.musicVolume = Math.max(0, Math.min(1, volume))
+    if (this.musicGain) this.musicGain.gain.value = this.musicVolume
+  }
+
+  setUiVolume(volume) {
+    this.uiVolume = Math.max(0, Math.min(1, volume))
+    if (this.uiGain) this.uiGain.gain.value = this.uiVolume
+  }
+
+  setFootstepVolume(volume) {
+    this.footstepVolume = Math.max(0, Math.min(1, volume))
+    if (this.footGain) this.footGain.gain.value = this.footstepVolume
+  }
+
+  setWeaponVolume(volume) {
+    this.weaponVolume = Math.max(0, Math.min(1, volume))
+    if (this.weaponGain) this.weaponGain.gain.value = this.weaponVolume
+  }
+
+  // Mono Audio: one channel out, so a left-only sound plays in both ears.
+  setMono(on) {
+    this.mono = !!on
+    this._applyMono()
+  }
+
+  _applyMono() {
+    if (!this.outGain) return
+    this.outGain.channelCountMode = 'explicit'
+    this.outGain.channelInterpretation = 'speakers'
+    this.outGain.channelCount = this.mono ? 1 : 2
+  }
+
+  // 1 = normal, lower = music and ambience pushed down (zombies near).
+  setDuck(level) {
+    const v = Math.max(0, Math.min(1, level))
+    if (v === this.duck) return
+    this.duck = v
+    if (this.duckGain && this.ctx) this.duckGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.4)
+  }
+
+  // Sound Subtitles: tell the caption box what was heard and where
+  // (pan -1 left .. 1 right).
+  _caption(kind, pan = 0) {
+    try { this.onCaption?.(kind, pan) } catch { /* captions are extra */ }
+  }
+
+  // A soft tick when a menu button is pressed (UI Sounds slider).
+  playUiClick() {
+    if (!this.ctx || !this.uiGain || this.uiVolume <= 0.001) return
+    const now = this.ctx.currentTime
+    const osc = this.ctx.createOscillator()
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(1400, now)
+    osc.frequency.exponentialRampToValueAtTime(700, now + 0.04)
+    const g = this.ctx.createGain()
+    g.gain.setValueAtTime(0.12, now)
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.05)
+    osc.connect(g).connect(this.uiGain)
+    osc.start(now)
+    osc.stop(now + 0.06)
+  }
+
+  // Two quick high notes when someone else's chat message arrives.
+  playChatPing() {
+    if (!this.ctx) return
+    this.playSpecial('chatPing', this.uiGain || this.sfxGain)
+  }
+
 }
 
 export const audioEngine = new AudioEngine()
