@@ -20,6 +20,8 @@
 // reads the variables Game saved last time (CLEAN_VARS_KEY), so the very
 // first paint is already right without a second copy of the colour maths.
 
+import { MONTH_THEMES, PICTURE_VARS_KEY, pictureThemeFor, pictureVars } from './MonthThemes.js'
+
 export const CLEAN_DEFAULT_COLOR = '#f5f5f7'
 // The last colour's variables, for index.html's first paint. Device-only
 // (CloudMerge.DEVICE_ONLY_KEYS); written on picks and once at start, never
@@ -40,7 +42,7 @@ export function normalizeHex(value) {
 
 export function uiThemeOf(settings) {
   const t = settings && settings.uiTheme
-  if (t === 'sakura') return 'sakura'
+  if (t === 'sakura' || t === 'monthly') return t
   return t === 'clean' || t === 'golden' ? 'clean' : 'old'
 }
 
@@ -48,34 +50,30 @@ export function uiThemeOf(settings) {
 // gameplay and homepage name it as Sakura Dream theme", with their own
 // cherry-blossom street picture as the background and the cute bubbly
 // letters on every single text). Built on Simple's styling
-// (html.ui-theme-clean + html.ui-theme-sakura), so every box keeps its
+// (html.ui-theme-clean + html.ui-theme-picture), so every box keeps its
 // size and place; its colours are fixed soft pinks with plum ink instead
 // of a picked colour (Simple's opposite-colour maths would write pink in
-// green). html.sakura-font stays on in games even when the game screens
+// green). html.picture-font stays on in games even when the game screens
 // follow the biome, so the biome look still gets the cute letters.
-export const SAKURA_IMAGE = '/images/sakura-dream.webp'
-const SAKURA_PAGE = '#ffd3e6'
-const SAKURA_VARS = {
-  '--clean-bg': SAKURA_PAGE,
-  '--clean-fg': 'rgb(122, 36, 92)',
-  '--clean-fg-rgb': '122, 36, 92',
-  '--clean-panel': 'rgb(255, 236, 244)',
-  '--clean-surface': 'rgb(255, 222, 236)',
-  '--clean-hover': 'rgb(253, 200, 224)',
-  '--clean-page': SAKURA_PAGE,
-  '--clean-card': 'rgba(255, 242, 248, 0.92)',
-  '--clean-card-fg': 'rgb(122, 36, 92)',
-}
+// Since 2026-11-11 its values live in MonthThemes.js (April's entry),
+// next to the eleven other monthly looks (uiTheme: 'monthly').
 // What Design a Skin (its own site, only knows Old and Simple) is told:
-// Sakura Dream shows there as Simple in its pink.
+// a picture theme shows there as Simple in its page colour.
 export function skinDesignerTheme(settings) {
   const theme = uiThemeOf(settings)
   if (theme === 'old') return { theme: 'old', color: settings.cleanColor }
-  return { theme: 'clean', color: theme === 'sakura' ? SAKURA_PAGE : settings.cleanColor }
+  const pic = pictureThemeFor(theme)
+  return { theme: 'clean', color: pic ? pic.page : settings.cleanColor }
 }
 
-export function sakuraVars() {
-  return { ...SAKURA_VARS, '--clean-check': cleanVars('#ffecf4')['--clean-check'] }
+export function pictureThemeVars(pic) {
+  return { ...pictureVars(pic), '--clean-check': cleanVars(pic.page)['--clean-check'] }
+}
+
+// All twelve looks' variables, for index.html's first paint (it picks the
+// month itself, so a new month is right from the very first frame).
+export function rememberPictureThemes() {
+  try { localStorage.setItem(PICTURE_VARS_KEY, JSON.stringify(MONTH_THEMES.map((p) => ({ id: p.id, vars: pictureVars(p) })))) } catch { /* storage full or blocked */ }
 }
 
 // Hue on the screen's colour wheel (0-360) -> the painter's wheel, where
@@ -168,23 +166,28 @@ export function setBiomeTheme(on, settings, root = document.documentElement) {
 
 export function applyUiTheme(settings, root = document.documentElement) {
   const theme = uiThemeOf(settings)
-  const sakura = theme === 'sakura'
-  const clean = theme === 'clean' || sakura
+  const pic = pictureThemeFor(theme)
+  const clean = theme === 'clean' || !!pic
   root.classList.toggle('ui-theme-old', !clean && !biomeTheme)
   root.classList.toggle('ui-theme-clean', clean && !biomeTheme)
-  root.classList.toggle('ui-theme-sakura', sakura && !biomeTheme)
-  root.classList.toggle('sakura-font', sakura)
-  const vars = sakura ? sakuraVars() : cleanVars(settings && settings.cleanColor)
+  // html.ui-theme-picture: any of the twelve picture looks (Sakura Dream
+  // and Monthly); data-picture-theme says which. html.picture-font stays
+  // on in games even when the game screens follow the biome.
+  root.classList.toggle('ui-theme-picture', !!pic && !biomeTheme)
+  root.classList.toggle('picture-font', !!pic)
+  if (pic) root.dataset.pictureTheme = pic.id
+  else delete root.dataset.pictureTheme
+  const vars = pic ? pictureThemeVars(pic) : cleanVars(settings && settings.cleanColor)
+  for (const k of Object.keys(pictureVars(MONTH_THEMES[0]))) if (!(k in vars)) root.style.removeProperty(k)
   for (const [k, v] of Object.entries(vars)) {
     if (clean) root.style.setProperty(k, v)
     else root.style.removeProperty(k)
   }
-  if (sakura) root.style.setProperty('--clean-bg-image', `url("${SAKURA_IMAGE}")`)
-  else applyCleanBgImage(root)
+  if (!pic) applyCleanBgImage(root)
 }
 
 export function rememberCleanVars(settings) {
-  if (uiThemeOf(settings) === 'sakura') return
+  if (pictureThemeFor(uiThemeOf(settings))) { rememberPictureThemes(); return }
   const color = normalizeHex(settings && settings.cleanColor) || CLEAN_DEFAULT_COLOR
   const vars = cleanVars(color)
   delete vars['--clean-check']
