@@ -219,6 +219,103 @@ test('Team page lists catches, picks the team, and a battle plays to a win or lo
   expect(await page.textContent('#team-record')).toMatch(/Wins: [01] · Losses: [01]/)
 })
 
+test('levels, evolution, level 5 trigger powers and types', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'onLine', { get: () => false, configurable: true })
+    localStorage.setItem('gayz-creatures', JSON.stringify({
+      list: [
+        // Level 9, one battle from level 10 (1080 XP): evolves Common -> Uncommon.
+        { id: 1, t: 'a', k: 'wolf', r: 'common', at: 1, x: 1079 },
+        // Level 5 (280 XP): a plain zombie, so Last Groan.
+        { id: 2, t: 'z', k: null, r: 'common', n: 3, b: false, at: 2, x: 280 },
+        // Level 1: no trigger yet.
+        { id: 3, t: 'z', k: 'minion', r: 'common', n: 4, b: false, at: 3 },
+      ],
+      team: [1, 2, 3],
+      wins: 0,
+      losses: 0,
+      nextId: 4,
+    }))
+  })
+  await page.click('#menu-inventory-btn')
+  await page.click('#inventory-tab-pets')
+  const page1 = await page.evaluate(() => {
+    const card = (id) => document.querySelector(`#team-slots .team-card[data-id="${id}"]`)
+    return {
+      lv1: card(1).querySelector('.team-card-level').textContent,
+      lv2: card(2).querySelector('.team-card-level').textContent,
+      trig2: card(2).querySelector('.team-card-power.trig').textContent,
+      locked3: card(3).querySelector('.team-card-power.trig').classList.contains('locked'),
+      type3: card(3).querySelector('.team-card-type').textContent,
+      guide: document.getElementById('team-guide').textContent,
+    }
+  })
+  expect(page1.lv1).toBe('Lv 9')
+  expect(page1.lv2).toBe('Lv 5')
+  expect(page1.trig2).toBe('Last Groan')
+  expect(page1.locked3).toBe(true)
+  expect(page1.type3).toContain('Skeleton')
+  expect(page1.guide).toContain('Zombies beat Animals')
+  expect(page1.guide).toContain('Last Groan')
+
+  await page.click('#team-battle-btn')
+  await page.waitForSelector('#team-battle canvas')
+  const battle = await page.evaluate(async () => {
+    const b = window.__game._teamBattle
+    const mine = b.fighters.filter((f) => f.side === 'mine')
+    const out = { trigs: mine.map((f) => f.trig) }
+    // Type: a skeleton hits a plain zombie for 30% more than an animal of the same attack.
+    const skel = mine.find((f) => f.c.id === 3)
+    const zom = mine.find((f) => f.c.id === 2)
+    const wolf = mine.find((f) => f.c.id === 1)
+    const rand = Math.random
+    Math.random = () => 0.5
+    const hpZ = zom.hp
+    const hpW = wolf.hp
+    zom.power = null
+    wolf.power = null
+    skel.atkMul = 1
+    b._hit(skel, zom)
+    b._hit(skel, wolf)
+    Math.random = rand
+    out.toZombie = hpZ - zom.hp
+    out.toAnimal = hpW - wolf.hp
+    zom.hp = hpZ
+    wolf.hp = hpW
+    // Last Groan: the zombie falls and a mini zombie gets up on my side.
+    const before = b.fighters.length
+    zom.hp = 0
+    b._down(zom)
+    const mini = b.fighters[b.fighters.length - 1]
+    out.spawned = b.fighters.length - before
+    out.mini = { side: mini.side, mini: mini.mini, alive: mini.alive, hp: mini.s.hp, of: zom.s.hp, power: mini.power, trig: mini.trig }
+    for (let i = 0; i < 4000 && !b.over; i++) {
+      b._draw()
+      b._step(0.05)
+      if (i % 40 === 0) await new Promise((r) => setTimeout(r, 0))
+    }
+    await new Promise((r) => setTimeout(r, 900))
+    out.title = document.querySelector('#team-battle .tb-result-title').textContent
+    out.news = [...document.querySelectorAll('#team-battle .tb-result-news li')].map((li) => li.textContent)
+    return out
+  })
+  expect(battle.trigs).toEqual(['second', 'groan', null])
+  expect(battle.toZombie).toBe(Math.round(battle.toAnimal * 1.3) === battle.toZombie ? battle.toZombie : -1)
+  expect(battle.spawned).toBe(1)
+  expect(battle.mini).toEqual({ side: 'mine', mini: true, alive: true, hp: Math.round(battle.mini.of * 0.5), of: battle.mini.of, power: null, trig: null })
+  const won = battle.title === 'You won!'
+  expect(battle.news[0]).toBe(`+${won ? 30 : 12} XP for every creature on your team`)
+  expect(battle.news).toContain('Wolf reached level 10!')
+  expect(battle.news).toContain('Wolf evolved to Uncommon!')
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gayz-creatures')).list)
+  expect(saved.find((c) => c.id === 1)).toMatchObject({ r: 'uncommon', x: 1079 + (won ? 30 : 12) })
+  expect(saved.find((c) => c.id === 3).x).toBe(won ? 30 : 12)
+  await page.click('#team-battle .tb-back')
+  expect(await page.textContent('#team-slots .team-card[data-id="1"] .team-card-level')).toBe('Lv 10')
+})
+
 test('on a server a guest\'s trap waits for the host, and the host rolls it', async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 900 })
   await gotoAndWaitForGame(page)

@@ -25,7 +25,7 @@ import { START_TRAPS, ITEMS } from './PlayInventory.js'
 import { RECIPES, GOO_CHANCE } from './PlayCrafting.js'
 import { FARM_GROW_S } from './CampFarm.js'
 import { CAMP_MAX, MAX_HELPERS } from './Survivors.js'
-import { TEAM_SIZE, MAX_CREATURES } from './Creatures.js'
+import { TEAM_SIZE, MAX_CREATURES, MAX_LEVEL, TRIGGER_LEVEL, WIN_XP, LOSS_XP, EVOLVE_AT, TYPE_MULT } from './Creatures.js'
 import { WIN_COINS, LOSS_COINS } from './TeamUI.js'
 import { ROUND_S } from './TeamBattle.js'
 import { BOOK_IDS, BOOK_COINS, BOOK_DONE_COINS } from './ZombieBook.js'
@@ -374,6 +374,13 @@ export function _featureValues(_game) {
     startTraps: START_TRAPS,
     teamSize: TEAM_SIZE,
     maxCreatures: MAX_CREATURES,
+    teamMaxLevel: MAX_LEVEL,
+    teamTrigLevel: TRIGGER_LEVEL,
+    teamWinXp: WIN_XP,
+    teamLossXp: LOSS_XP,
+    teamEvolveA: EVOLVE_AT[0],
+    teamEvolveB: EVOLVE_AT[1],
+    teamTypeBonus: Math.round((TYPE_MULT - 1) * 100),
     teamWinCoins: WIN_COINS,
     teamLossCoins: LOSS_COINS,
     teamRoundSeconds: ROUND_S,

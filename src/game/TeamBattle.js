@@ -4,7 +4,10 @@
 // "it auto battles for you"; it used to be "you control one creature"),
 // going for the nearest enemy, and every creature has a special power
 // (Creatures.powerOf: Horde, Bone Throw, Rage, Stomp, Pounce, Roar, Thick
-// Hide, Heal Friends - the numbers are below). Last team standing wins;
+// Hide, Heal Friends - the numbers are below). From level 5 it also has a
+// trigger power (Creatures.triggerOf, 2026-11-11), and types matter:
+// Zombies beat Animals beat Skeletons beat Zombies (Creatures.beats). My
+// team earns XP when a battle ends (Creatures.giveTeamXP). Last team standing wins;
 // after ROUND_S the one with more health left wins. Speed x1/x2/x4 and
 // Leave buttons; Esc leaves too.
 //
@@ -19,7 +22,7 @@
 // underneath. Opened from Inventory's Pets tab (TeamUI.js).
 import * as THREE from 'three'
 import { PlayAnimals } from './PlayAnimals.js'
-import { stats, creatureName, creatureIconURL, tierColor, powerOf, powerName, powerInfo } from './Creatures.js'
+import { stats, creatureName, creatureIconURL, tierColor, powerOf, powerName, powerInfo, hasTrigger, triggerOf, triggerName, triggerInfo, beats, TYPE_MULT, levelOf, giveTeamXP, rarityName } from './Creatures.js'
 import { MONSTER_KINDS } from './ZombieKinds.js'
 import { SKELETON_KINDS } from './SkeletonModels.js'
 import { audioEngine } from './Audio.js'
@@ -53,6 +56,18 @@ const ROAR_MULT = 0.85 // Roar: the other team's attack at the start
 const HIDE_CUT = 0.2 // Thick Hide: takes this much less
 const HEAL_EVERY = 5 // Heal Friends: seconds between heals...
 const HEAL_SHARE = 0.12 // ...each this share of the friend's health
+// Trigger powers (Creatures.triggerOf, from level 5).
+const GROAN_SHARE = 0.5 // Last Groan: the mini zombie's health and attack
+const GROAN_SCALE = 0.7 // ...and size
+const GIFT_MULT = 1.25 // Bone Gift: the nearest friend's attack
+const REVENGE_MULT = 1.1 // Revenge: per friend fallen...
+const REVENGE_MAX = 3 // ...up to this many times
+const QUAKE_S = 1.5 // Ground Shake: the other team waits this long
+const SECOND_AT = 0.25 // Second Wind: under this share of health...
+const SECOND_HEAL = 0.3 // ...heals this share, once
+const CRY_MULT = 1.1 // Battle Cry: the whole team's attack
+const GUARD_CUT = 0.2 // Guard: the nearest friend takes this much less
+const MEND_SHARE = 0.15 // Last Gift: every friend heals this share
 
 // Escaped text for innerHTML (names come from other players' saves).
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
@@ -174,7 +189,9 @@ export class TeamBattle {
   // onEnd(won | null): null when left before the end. view: '3d' | '2d';
   // onView(view) when the battle's own button changes it.
   // againKey(won): the again button's text (the tournament's own).
-  constructor({ mine, theirs, foe, ghost, onEnd, onAgain, againKey, view = '3d', onView }) {
+  // xp: my team earns XP (Creatures.giveTeamXP) when it ends.
+  constructor({ mine, theirs, foe, ghost, onEnd, onAgain, againKey, view = '3d', onView, xp = true }) {
+    this.xp = xp
     this.mine = mine
     this.theirs = theirs
     this.foe = foe
@@ -213,6 +230,7 @@ export class TeamBattle {
         <div class="panel-box tb-result-box">
           <h2 class="tb-result-title"></h2>
           <p class="tb-result-text"></p>
+          <ul class="tb-result-news"></ul>
           <div class="tb-result-btns">
             <button type="button" class="tb-again"></button>
             <button type="button" class="tb-back"></button>
@@ -270,8 +288,8 @@ export class TeamBattle {
     loop()
   }
 
-  _fighter(c, side, i, n) {
-    const s = stats(c)
+  _fighter(c, side, i, n, opts = {}) {
+    const s = opts.s || stats(c)
     const row = Math.floor(i / ROW)
     const inRow = Math.min(ROW, n - row * ROW)
     const x = ((i % ROW) - (inRow - 1) / 2) * SPREAD
@@ -280,15 +298,17 @@ export class TeamBattle {
     const heading = side === 'mine' ? Math.PI : 0
     const label = document.createElement('div')
     label.className = `tb-label ${side}`
-    label.innerHTML = `<span class="tb-label-name" style="color: ${tierColor(c.r)}">${esc(creatureName(c))}</span><span class="tb-label-bar"><span></span></span>`
+    const lv = levelOf(c)
+    label.innerHTML = `<span class="tb-label-name" style="color: ${tierColor(c.r)}">${esc(creatureName(c))}${lv > 1 ? ` <small>${esc(t('teamLevel', { n: lv }))}</small>` : ''}</span><span class="tb-label-bar"><span></span></span>`
     this.root.querySelector('.tb-labels').appendChild(label)
-    const power = powerOf(c)
+    const power = opts.noPowers ? null : powerOf(c)
     const icon = new Image()
     icon.src = creatureIconURL(c)
     return {
       c, s, side, x, z, heading, vx: 0, vz: 0, hp: s.hp, cd: 0.5 + Math.random() * 0.4, walk: 0, hop: 0, fall: 0, flash: 0,
       alive: true, label, icon, power, atkMul: 1, hits: 0, raged: false, pounced: false, healCd: HEAL_EVERY,
-      reach: power === 'bones' ? BONE_REACH : s.reach,
+      trig: opts.noPowers ? null : hasTrigger(c) ? triggerOf(c) : null, guard: 1, revenge: 0, winded: false, mini: !!opts.mini,
+      reach: power === 'bones' && !opts.noPowers ? BONE_REACH : s.reach,
       // The 3D model, ring and height are made by _build3d() when first needed.
       group: null, height: 2,
     }
@@ -336,26 +356,30 @@ export class TeamBattle {
     sun.position.set(6, 14, 8)
     this.scene.add(sun)
     buildArena(this.scene)
-    for (const f of this.fighters) {
-      const built = f.c.t === 'a' ? animalModel(f.c.k) : zombieModel(f.c)
-      Object.assign(f, built)
-      f.group.position.set(f.x, 0, f.z)
-      f.group.rotation.y = f.heading
-      this.scene.add(f.group)
-      // A ring on the ground in the team's colour.
-      f.ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.7, 24), new THREE.MeshBasicMaterial({ color: f.side === 'mine' ? MINE : FOE, side: THREE.DoubleSide }))
-      f.ring.rotation.x = -Math.PI / 2
-      f.ring.position.set(f.x, 0.02, f.z)
-      f.ring.visible = f.alive
-      this.scene.add(f.ring)
-      const k = f.c.t === 'a' ? PlayAnimals.KINDS[f.c.k] : null
-      f.height = k ? Math.max(k.leg + k.body[1], (k.headAt ? k.headAt[0] : k.leg + k.body[1]) + k.head[1] / 2) : 2 * f.group.scale.y
-      if (!f.alive) f.group.rotation.z = Math.PI / 2
-    }
+    for (const f of this.fighters) this._add3d(f)
     this._boneGeo = new THREE.BoxGeometry(0.22, 0.22, 0.22)
     this._boneMat = new THREE.MeshLambertMaterial({ color: 0xf2ecdc })
     this._resize?.()
     this.camera.position.set(0, CAM.up, CAM.back)
+  }
+
+  // One fighter's model and ring in the 3D scene.
+  _add3d(f) {
+    const built = f.c.t === 'a' ? animalModel(f.c.k) : zombieModel(f.c)
+    Object.assign(f, built)
+    if (f.mini) f.group.scale.multiplyScalar(GROAN_SCALE)
+    f.group.position.set(f.x, 0, f.z)
+    f.group.rotation.y = f.heading
+    this.scene.add(f.group)
+    // A ring on the ground in the team's colour.
+    f.ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.7, 24), new THREE.MeshBasicMaterial({ color: f.side === 'mine' ? MINE : FOE, side: THREE.DoubleSide }))
+    f.ring.rotation.x = -Math.PI / 2
+    f.ring.position.set(f.x, 0.02, f.z)
+    f.ring.visible = f.alive
+    this.scene.add(f.ring)
+    const k = f.c.t === 'a' ? PlayAnimals.KINDS[f.c.k] : null
+    f.height = k ? Math.max(k.leg + k.body[1], (k.headAt ? k.headAt[0] : k.leg + k.body[1]) + k.head[1] / 2) : 2 * f.group.scale.y
+    if (!f.alive) f.group.rotation.z = Math.PI / 2
   }
 
   _setView(view, remember = true) {
@@ -449,6 +473,11 @@ export class TeamBattle {
     let dmg = from.s.atk * (0.85 + Math.random() * 0.3) * (crit ? CRIT_MULT : 1) * m
     // Thick Hide takes less.
     if (to.power === 'hide') dmg *= 1 - HIDE_CUT
+    // Guard (a Thick Hide friend's trigger) takes less too.
+    dmg *= to.guard
+    // Types: Zombies beat Animals, Animals beat Skeletons, Skeletons beat Zombies.
+    const strong = beats(from.c, to.c)
+    if (strong) dmg *= TYPE_MULT
     dmg = Math.max(1, Math.round(dmg))
     to.hp = Math.max(0, to.hp - dmg)
     const dx = to.x - from.x
@@ -459,13 +488,21 @@ export class TeamBattle {
     to.hop = 0.15
     to.flash = 0.12
     if (to.mats) for (const mat of to.mats) if (mat.emissive) mat.emissive.setHex(0x661111)
-    this._number(to, dmg, crit ? 'crit' : '')
+    this._number(to, dmg, crit ? 'crit' : strong ? 'strong' : '')
     audioEngine.playMelee?.()
     // Rage: under half health it hits half as hard again.
     if (to.alive && to.power === 'rage' && !to.raged && to.hp > 0 && to.hp < to.s.hp / 2) {
       to.raged = true
       to.atkMul *= RAGE_MULT
       this._powerText(to)
+    }
+    // Second Wind: the first time it gets low, it gets some back.
+    if (to.alive && to.trig === 'second' && !to.winded && to.hp > 0 && to.hp < to.s.hp * SECOND_AT) {
+      to.winded = true
+      const add = Math.round(to.s.hp * SECOND_HEAL)
+      to.hp = Math.min(to.s.hp, to.hp + add)
+      this._trigText(to)
+      this._number(to, `+${add}`, 'heal')
     }
     if (to.hp <= 0) this._down(to)
     // Stomp: every few hits shakes everyone near the one it hit.
@@ -482,6 +519,7 @@ export class TeamBattle {
     if (f.ring) f.ring.visible = false
     f.label.style.display = 'none'
     audioEngine.playZombieDeath?.(0.8, 0)
+    if (!this.over) this._onFaint(f)
     const mineLeft = this.fighters.some((o) => o.alive && o.side === 'mine')
     const foesLeft = this.fighters.some((o) => o.alive && o.side === 'foe')
     if (!mineLeft || !foesLeft) setTimeout(() => this._finish(mineLeft), 700)
@@ -516,6 +554,59 @@ export class TeamBattle {
     this._float(f, `${powerName(f.c)}!`, 'power')
   }
 
+  _trigText(f) {
+    this._float(f, `${triggerName(f.trig)}!`, 'power trig')
+  }
+
+  _friendsOf(f) {
+    return this.fighters.filter((o) => o.alive && o !== f && o.side === f.side)
+  }
+
+  // Trigger powers that go off when one of them faints.
+  _onFaint(f) {
+    const friends = this._friendsOf(f)
+    if (f.trig === 'groan') {
+      // Last Groan: a mini zombie gets up where it fell.
+      this._trigText(f)
+      const c = { t: 'z', k: f.c.k, r: 'common', n: f.c.n, b: false }
+      const s = { ...f.s, hp: Math.max(1, Math.round(f.s.hp * GROAN_SHARE)), atk: Math.max(1, Math.round(f.s.atk * GROAN_SHARE)) }
+      const mini = this._fighter(c, f.side, 0, 1, { s, mini: true, noPowers: true })
+      mini.x = f.x
+      mini.z = f.z
+      mini.heading = f.heading
+      mini.cd = 0.8
+      this.fighters.push(mini)
+      if (this.scene) this._add3d(mini)
+    } else if (f.trig === 'gift') {
+      // Bone Gift: the nearest friend hits harder.
+      const n = this._nearest(f, friends)
+      if (n) {
+        this._trigText(f)
+        n.o.atkMul *= GIFT_MULT
+      }
+    } else if (f.trig === 'cry' && friends.length) {
+      // Battle Cry: the whole team hits harder.
+      this._trigText(f)
+      for (const o of friends) o.atkMul *= CRY_MULT
+    } else if (f.trig === 'mend' && friends.length) {
+      // Last Gift: every friend heals a bit.
+      this._trigText(f)
+      for (const o of friends) {
+        const add = Math.max(1, Math.round(o.s.hp * MEND_SHARE))
+        o.hp = Math.min(o.s.hp, o.hp + add)
+        this._number(o, `+${add}`, 'heal')
+      }
+    }
+    // Revenge: friends with it get angrier for every friend that falls.
+    for (const o of friends) {
+      if (o.trig !== 'revenge' || o.revenge >= REVENGE_MAX) continue
+      o.revenge++
+      o.atkMul *= REVENGE_MULT
+      this._trigText(o)
+    }
+    this._renderCards()
+  }
+
   _step(dt) {
     if (!this.over) this.time += dt
     const started = this.time >= START_S
@@ -526,6 +617,25 @@ export class TeamBattle {
         if (f.power !== 'roar' || !f.alive) continue
         this._powerText(f)
         for (const o of this._enemiesOf(f)) o.atkMul *= ROAR_MULT
+      }
+      // Trigger powers that go off at the start.
+      for (const f of this.fighters) {
+        if (!f.alive) continue
+        if (f.trig === 'quake') {
+          // Ground Shake: the other team stands still for a moment.
+          this._trigText(f)
+          for (const o of this._enemiesOf(f)) {
+            o.cd += QUAKE_S
+            o.stun = QUAKE_S
+          }
+        } else if (f.trig === 'guard') {
+          // Guard: the nearest friend takes less all battle.
+          const n = this._nearest(f, this._friendsOf(f))
+          if (n) {
+            this._trigText(f)
+            n.o.guard *= 1 - GUARD_CUT
+          }
+        }
       }
     }
     const clock = this.root.querySelector('.tb-clock')
@@ -541,9 +651,10 @@ export class TeamBattle {
         continue
       }
       f.cd = Math.max(0, f.cd - dt)
+      if (f.stun > 0) f.stun -= dt
       let mx = 0
       let mz = 0
-      if (started && !this.over) {
+      if (started && !this.over && !(f.stun > 0)) {
         // Heal Friends: every few seconds patches up the most hurt friend.
         if (f.power === 'heal') {
           f.healCd -= dt
@@ -681,7 +792,7 @@ export class TeamBattle {
       const cx = px(f.x)
       const cy = px(f.z)
       const lift = f.hop > 0 ? Math.sin((f.hop / 0.18) * Math.PI) * 0.35 : 0
-      const sz = b.cell * (1.7 + lift) * (f.c.b ? 1.25 : 1)
+      const sz = b.cell * (1.7 + lift) * (f.c.b ? 1.25 : 1) * (f.mini ? GROAN_SCALE : 1)
       g.save()
       if (!f.alive) {
         g.globalAlpha = 0.25 + 0.75 * (f.fall / FALL_S)
@@ -744,7 +855,7 @@ export class TeamBattle {
       const el = this.root?.querySelector(side === 'mine' ? '.tb-mine' : '.tb-foe')
       if (!el) continue
       el.innerHTML = this.fighters.filter((f) => f.side === side).map((f) => `
-        <div class="tb-card${f.alive ? '' : ' down'}" style="border-color: ${tierColor(f.c.r)}" title="${esc(`${powerName(f.c)}: ${powerInfo(f.c)}`)}">
+        <div class="tb-card${f.alive ? '' : ' down'}${f.mini ? ' mini' : ''}" style="border-color: ${tierColor(f.c.r)}" title="${esc(f.power ? `${powerName(f.c)}: ${powerInfo(f.c)}${f.trig ? ` · ${triggerName(f.trig)}: ${triggerInfo(f.trig)}` : ''}` : '')}">
           <img src="${creatureIconURL(f.c)}" alt="" draggable="false" />
           <span class="tb-card-bar"><span style="width: ${(f.hp / f.s.hp) * 100}%"></span></span>
         </div>`).join('')
@@ -762,10 +873,19 @@ export class TeamBattle {
   _finish(won) {
     if (this.over || !this.root) return
     this.over = true
+    // XP for my team first, so onEnd's Team page shows the new levels.
+    const xp = this.xp ? giveTeamXP(this.mine.map((c) => c.id).filter(Number.isInteger), won) : null
     const reward = this.onEnd?.(won) || 0
     const box = this.root.querySelector('.tb-result')
     box.querySelector('.tb-result-title').textContent = t(won ? 'teamBattleWon' : 'teamBattleLost')
     box.querySelector('.tb-result-text').textContent = t('teamBattleReward', { n: reward })
+    const news = box.querySelector('.tb-result-news')
+    news.innerHTML = !xp ? '' : [t('teamXpGained', { n: xp.gain }), ...xp.news.map((e) => {
+      const name = creatureName(e.c)
+      if (e.kind === 'level') return t('teamLevelUp', { name, n: e.n })
+      if (e.kind === 'trigger') return t('teamTrigUnlocked', { name, power: triggerName(e.n) })
+      return t('teamEvolved', { name, rarity: rarityName(e.n) })
+    })].map((line, i) => `<li${i ? ' class="tb-news-big"' : ''}>${esc(line)}</li>`).join('')
     box.querySelector('.tb-again').textContent = t(this.againKey?.(won) || 'teamBattleAgain')
     box.querySelector('.tb-back').textContent = t('teamBattleBack')
     box.style.display = 'flex'
