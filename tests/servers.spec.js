@@ -838,6 +838,9 @@ test('servers: karts, the train, the dragon, the UFO and Escape Rooms go through
   const rc = await syncServer(db, { ...c, esc: { ...esc, c: '12<3' } }, t0 + 40)
   expect(rc.hits.map((h) => h.id)).toEqual(['es1', 'ew2'])
   expect(rc.players[d.playerId].lane).toBe(3)
+  // ...and whether they're out yet (Escape Race's "escaped first" news).
+  await syncServer(db, { ...c, state: { x: 0, y: 241, z: 0, esc: 1 } }, t0 + 45)
+  expect((await syncServer(db, { ...d }, t0 + 46)).players[c.playerId].esc).toBe(1)
   // Escape Race servers: a guest's burst door asks the host for zombies.
   const e = await createServer(db, { nickname: 'Ed', mode: 'escapeSolo' }, t0)
   const f = await joinServer(db, { serverId: e.serverId, nickname: 'Fi' }, t0 + 10)
@@ -1062,6 +1065,24 @@ test('Escape Rooms: a team shares the puzzles; a race gives everyone their own r
     return { lane: e.lane, shell: s.bm.getBlockAt(e._roomX(0) + 3, 240, 14) }
   })
   expect(rh).toEqual({ lane: 0, shell: 'oakplanks' })
+  // In the world the wind/drone bed is on (setAmbientBed via BuildSky).
+  expect(await race.a.evaluate(() => { const au = window.__audioEngine; return { started: au.ambientStarted, on: au._bedOn } })).toEqual({ started: true, on: true })
+  // The guest gets out first: they're told they won, the host hears it.
+  const out = await race.b.evaluate(() => {
+    const e = window.__game.buildMode.survival.escape
+    e._escaped()
+    return e._myPlace
+  })
+  expect(out).toBe(1)
+  await race.sync(race.b)
+  await race.sync(race.a)
+  const news = await race.a.evaluate(() => {
+    const e = window.__game.buildMode.survival.escape
+    e.update(0.05)
+    const e2 = window.__game.buildMode.survival.escape
+    return { seen: e2._outOrder.length, chat: [...document.querySelectorAll('*')].some((el) => el.children.length === 0 && /escaped first!/.test(el.textContent || '')) }
+  })
+  expect(news).toEqual({ seen: 1, chat: true })
 })
 
 test('servers: Tug of War pulls and jet skis go through the server', async () => {

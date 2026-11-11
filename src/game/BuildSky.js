@@ -478,6 +478,8 @@ export class BuildSky {
     this.bodies.show(true)
     this._active = true
     this._shownKind = null
+    // The wind/drone bed (silent since the block city became Map 1).
+    try { audioEngine.setAmbientBed(true) } catch { /* no audio */ }
     this._pickWeather()
     this.apply()
   }
@@ -494,6 +496,7 @@ export class BuildSky {
     this._thunder = []
     this.bm.grassTufts?.clear()
     const game = this.bm.game
+    try { audioEngine.setAmbientBed(false) } catch { /* no audio */ }
     audioEngine.setWeatherAudio(!!game?.raining && !!game?.gameStarted, !!game?.snowing && !!game?.gameStarted)
   }
 
