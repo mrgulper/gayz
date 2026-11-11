@@ -7,7 +7,8 @@
 //
 // Saved in localStorage (CREATURES_KEY), so Cloud Save carries it like the
 // rest of the save. A creature is { id, t: 'z' | 'a', k: kind, r: tier,
-// n: name number (zombies), b: boss, at: when caught }. Its battle stats
+// n: name number (zombies), b: boss, at: when caught, x: battle XP }. A
+// ghost team's creatures carry l: level instead of x. Its battle stats
 // come from what it was in the game (stats()), never stored, so a balance
 // change reaches creatures already caught.
 import { PlayAnimals, animalNameKey, animalIconURL } from './PlayAnimals.js'
@@ -72,15 +73,89 @@ export function saveCreatures(data) {
 export function cleanCreature(c) {
   if (!c || typeof c !== 'object') return null
   const r = ZOMBIE_TIER_IDS.includes(c.r) ? c.r : 'common'
+  // Levels (2026-11-11): XP for my own, a plain level for a ghost team's.
+  const grow = {}
+  if (Number.isInteger(c.x) && c.x > 0) grow.x = Math.min(c.x, MAX_XP)
+  else if (Number.isInteger(c.l) && c.l > 1) grow.l = Math.min(c.l, MAX_LEVEL)
   if (c.t === 'a') {
     if (typeof c.k !== 'string' || !Object.hasOwn(KINDS(), c.k)) return null
-    return { t: 'a', k: c.k, r, at: Number.isFinite(c.at) ? c.at : 0 }
+    return { t: 'a', k: c.k, r, at: Number.isFinite(c.at) ? c.at : 0, ...grow }
   }
   if (c.t !== 'z') return null
   const k = typeof c.k === 'string' && (Object.hasOwn(MONSTER_KINDS, c.k) || Object.hasOwn(SKELETON_KINDS, c.k)) ? c.k : null
   const n = Number.isInteger(c.n) && c.n >= 0 && c.n < NAME_COUNT ? c.n : 0
-  return { t: 'z', k, r, n, b: !!c.b, at: Number.isFinite(c.at) ? c.at : 0 }
+  return { t: 'z', k, r, n, b: !!c.b, at: Number.isFinite(c.at) ? c.at : 0, ...grow }
 }
+
+// --- Levels and evolution (2026-11-11, Gaymi picked: max level 20, up one
+// rarity at levels 10 and 20, a second power at level 5) ---
+
+export const MAX_LEVEL = 20
+export const EVOLVE_AT = [10, 20]
+export const TRIGGER_LEVEL = 5
+export const LEVEL_BOOST = 0.04 // +4% health and attack per level past 1
+export const WIN_XP = 30
+export const LOSS_XP = 12
+// XP to go from level L to L+1.
+export const xpToNext = (L) => 40 + 20 * (L - 1)
+const XP_AT = [0, 0] // XP_AT[L]: total XP to reach level L
+for (let L = 2; L <= MAX_LEVEL; L++) XP_AT[L] = XP_AT[L - 1] + xpToNext(L - 1)
+export const MAX_XP = XP_AT[MAX_LEVEL]
+
+export function levelOf(c) {
+  if (Number.isInteger(c.x)) {
+    let L = 1
+    while (L < MAX_LEVEL && c.x >= XP_AT[L + 1]) L++
+    return L
+  }
+  return Number.isInteger(c.l) && c.l >= 1 ? Math.min(c.l, MAX_LEVEL) : 1
+}
+
+// { have, need } towards the next level (need 0 at the top).
+export function xpProgress(c) {
+  const L = levelOf(c)
+  if (L >= MAX_LEVEL) return { have: 0, need: 0 }
+  return { have: (c.x || 0) - XP_AT[L], need: xpToNext(L) }
+}
+
+// After a finished battle: every creature on my team (by id) gets XP,
+// levels up and maybe evolves. Returns what happened, for the result box:
+// [{ kind: 'level' | 'evolve' | 'trigger', c, n }] (n: level or rarity).
+export function giveTeamXP(ids, won) {
+  const data = loadCreatures()
+  const gain = won ? WIN_XP : LOSS_XP
+  const news = []
+  for (const id of ids) {
+    const c = data.list.find((o) => o.id === id)
+    if (!c) continue
+    const before = levelOf(c)
+    c.x = Math.min(MAX_XP, (c.x || 0) + gain)
+    const after = levelOf(c)
+    if (after === before) continue
+    news.push({ kind: 'level', c, n: after })
+    if (before < TRIGGER_LEVEL && after >= TRIGGER_LEVEL) news.push({ kind: 'trigger', c, n: triggerOf(c) })
+    for (const at of EVOLVE_AT) {
+      const i = ZOMBIE_TIER_IDS.indexOf(c.r)
+      if (before < at && after >= at && i < ZOMBIE_TIER_IDS.length - 1) {
+        c.r = ZOMBIE_TIER_IDS[i + 1]
+        news.push({ kind: 'evolve', c, n: c.r })
+      }
+    }
+  }
+  saveCreatures(data)
+  return { gain, news }
+}
+
+// --- Types (2026-11-11): Zombies beat Animals, Animals beat Skeletons,
+// Skeletons beat Zombies, for TYPE_MULT damage ---
+
+export const TYPE_MULT = 1.3
+const BEATS = { zombie: 'animal', animal: 'skeleton', skeleton: 'zombie' }
+export function typeOf(c) {
+  if (c.t === 'a') return 'animal'
+  return SKELETON_KINDS[c.k] ? 'skeleton' : 'zombie'
+}
+export const beats = (a, b) => BEATS[typeOf(a)] === typeOf(b)
 
 // Adds a catch. false when there's no room left.
 export function addCreature(c) {
@@ -102,6 +177,12 @@ export function creatureCount() {
 // Battle numbers: hp, atk (a hit), speed (blocks a second), reach (blocks)
 // and rate (seconds between hits).
 export function stats(c) {
+  const s = baseStats(c)
+  const grow = 1 + LEVEL_BOOST * (levelOf(c) - 1)
+  return { ...s, hp: Math.round(s.hp * grow), atk: Math.round(s.atk * grow) }
+}
+
+function baseStats(c) {
   const tier = ZOMBIE_TIERS[c.r] || ZOMBIE_TIERS.common
   if (c.t === 'a') {
     const k = KINDS()[c.k]
@@ -157,6 +238,17 @@ export function powerInfo(c) {
   return t(`teamPowerInfo${id[0].toUpperCase()}${id.slice(1)}`)
 }
 
+// Trigger powers (2026-11-11): a second power, unlocked at TRIGGER_LEVEL,
+// that goes off when something happens - the battle starts, it faints, a
+// friend faints, it gets low. One for each first power. What each does is
+// in TeamBattle.js; i18n teamTrig<Id> / teamTrigInfo<Id>.
+export const TRIGGERS = { horde: 'groan', bones: 'gift', rage: 'revenge', stomp: 'quake', pounce: 'second', roar: 'cry', hide: 'guard', heal: 'mend' }
+export const triggerOf = (c) => TRIGGERS[powerOf(c)]
+export const hasTrigger = (c) => levelOf(c) >= TRIGGER_LEVEL
+const cap = (id) => id[0].toUpperCase() + id.slice(1)
+export const triggerName = (id) => t(`teamTrig${cap(id)}`)
+export const triggerInfo = (id) => t(`teamTrigInfo${cap(id)}`)
+
 // How strong a whole team is (for matching ghost teams fairly).
 export function power(team) {
   return Math.round(team.reduce((sum, c) => {
@@ -173,6 +265,7 @@ export function creatureName(c) {
 // What it is, for the card under its name ("Zombie", "Boss Zombie", "Cow").
 export function creatureType(c) {
   if (c.t === 'a') return t('teamTypeAnimal')
+  if (SKELETON_KINDS[c.k] && !c.b) return t('teamTypeSkeleton')
   return t(c.b ? 'teamTypeBoss' : 'teamTypeZombie')
 }
 
@@ -249,7 +342,12 @@ export function botTeam(target, size = TEAM_SIZE, rand = Math.random) {
 
 // The short form sent to Firestore for a ghost team (ghostTeams/{uid}).
 export function packTeam(team) {
-  return team.map((c) => (c.t === 'a' ? { t: 'a', k: c.k, r: c.r } : { t: 'z', k: c.k || '', r: c.r, n: c.n, b: !!c.b }))
+  return team.map((c) => {
+    const L = levelOf(c)
+    const out = c.t === 'a' ? { t: 'a', k: c.k, r: c.r } : { t: 'z', k: c.k || '', r: c.r, n: c.n, b: !!c.b }
+    if (L > 1) out.l = L
+    return out
+  })
 }
 
 export function unpackTeam(list) {

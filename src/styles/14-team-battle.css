@@ -519,3 +519,87 @@ html.ui-theme-clean #tourney-bracket li.me { background: transparent; border-wid
 @media (max-width: 560px) {
   #tourney-bracket { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Levels, XP, trigger powers and the Powers & types guide (2026-11-11). */
+.team-card-level {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  opacity: 0.9;
+}
+.team-card-xp {
+  display: block;
+  width: 80%;
+  height: 4px;
+  margin: 1px auto;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+.team-card-xp > span {
+  display: block;
+  height: 100%;
+  background: #7dc8ff;
+}
+.team-card-power.trig {
+  color: #d9a8ff;
+}
+.team-card-power.trig.locked {
+  opacity: 0.45;
+}
+#team-guide {
+  margin: 8px auto;
+  max-width: 560px;
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.4;
+}
+#team-guide summary {
+  cursor: pointer;
+  text-align: center;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 6px;
+}
+#team-guide h4 {
+  margin: 8px 0 2px;
+  font-size: 12px;
+}
+#team-guide ul {
+  margin: 0;
+  padding-left: 18px;
+}
+#team-guide p {
+  margin: 4px 0;
+}
+.tb-number.strong {
+  color: #ffa04a;
+  font-size: 20px;
+}
+.tb-number.power.trig {
+  color: #ff9ad5;
+}
+.tb-label-name small {
+  font-size: 0.8em;
+  opacity: 0.8;
+}
+.tb-result-news {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.tb-result-news .tb-news-big {
+  color: var(--menu-gold, #ffd84a);
+  font-weight: 700;
+}
+.tb-card.mini {
+  transform: scale(0.75);
+}
+/* Room above the picture for the level tag (no overlap on phones). */
+#team-page .team-card img {
+  margin-top: 8px;
+}

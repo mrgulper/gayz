@@ -10,7 +10,7 @@
 // Starting a battle while signed in saves your own team as a ghost team
 // for others to fight.
 import * as CloudSync from './CloudSync.js'
-import { loadCreatures, saveCreatures, stats, power, powerName, powerInfo, creatureName, creatureType, rarityName, creatureIconURL, tierColor, botTeam, packTeam, unpackTeam, TEAM_SIZE } from './Creatures.js'
+import { loadCreatures, saveCreatures, stats, power, powerName, powerInfo, creatureName, creatureType, rarityName, creatureIconURL, tierColor, botTeam, packTeam, unpackTeam, TEAM_SIZE, POWERS, TRIGGERS, TRIGGER_LEVEL, TYPE_MULT, MAX_LEVEL, EVOLVE_AT, levelOf, xpProgress, triggerOf, hasTrigger, triggerName, triggerInfo } from './Creatures.js'
 import { TeamBattle } from './TeamBattle.js'
 import { renderTournament, playTournament } from './TeamTournament.js'
 import { saveShopProgress, saveSettings } from './Game.js'
@@ -28,14 +28,38 @@ const byId = (id) => document.getElementById(id)
 
 function card(c, slot = 0) {
   const s = stats(c)
-  return `<button type="button" class="perk-option team-card${slot ? ' picked' : ''}" data-id="${c.id}" style="--tier: ${tierColor(c.r)}" title="${esc(powerInfo(c))}">
+  const lv = levelOf(c)
+  const xp = xpProgress(c)
+  const trig = triggerOf(c)
+  const on = hasTrigger(c)
+  const tip = `${powerName(c)}: ${powerInfo(c)}\n${on ? '' : `${t('teamTrigLocked', { n: TRIGGER_LEVEL, name: '' }).trim()} `}${triggerName(trig)}: ${triggerInfo(trig)}`
+  return `<button type="button" class="perk-option team-card${slot ? ' picked' : ''}" data-id="${c.id}" style="--tier: ${tierColor(c.r)}" title="${esc(tip)}">
     ${slot ? `<span class="team-card-slot">${slot}</span>` : ''}
+    <span class="team-card-level">${esc(t('teamLevel', { n: lv }))}</span>
     <img src="${creatureIconURL(c)}" alt="" draggable="false" />
     <span class="team-card-name">${esc(creatureName(c))}</span>
     <span class="team-card-type">${esc(rarityName(c.r))} ${esc(creatureType(c))}</span>
     <span class="team-card-stats">${esc(t('teamStats', { hp: s.hp, atk: s.atk }))}</span>
+    <span class="team-card-xp" title="${esc(xp.need ? `${xp.have} / ${xp.need} XP` : 'MAX')}"><span style="width: ${xp.need ? (xp.have / xp.need) * 100 : 100}%"></span></span>
     <span class="team-card-power">${esc(powerName(c))}</span>
+    <span class="team-card-power trig${on ? '' : ' locked'}">${esc(on ? triggerName(trig) : t('teamTrigLocked', { n: TRIGGER_LEVEL, name: triggerName(trig) }))}</span>
   </button>`
+}
+
+// The "Powers & types" guide under the team (a <details>, so it opens with a
+// tap on phones too - card tooltips don't show there).
+function renderGuide() {
+  const el = byId('team-guide')
+  if (!el) return
+  const cap = (id) => id[0].toUpperCase() + id.slice(1)
+  const row = (name, info) => `<li><b>${esc(name)}</b> - ${esc(info)}</li>`
+  el.innerHTML = `<summary>${esc(t('teamGuideTitle'))}</summary>
+    <p>${esc(t('teamTypeChart', { n: Math.round((TYPE_MULT - 1) * 100) }))}</p>
+    <p>${esc(t('teamLevelHow', { max: MAX_LEVEL, a: EVOLVE_AT[0], b: EVOLVE_AT[1], p: TRIGGER_LEVEL }))}</p>
+    <h4>${esc(t('teamGuidePowers'))}</h4>
+    <ul>${POWERS.map((id) => row(t(`teamPower${cap(id)}`), t(`teamPowerInfo${cap(id)}`))).join('')}</ul>
+    <h4>${esc(t('teamGuideTriggers', { n: TRIGGER_LEVEL }))}</h4>
+    <ul>${POWERS.map((id) => row(`${t(`teamPower${cap(id)}`)} → ${triggerName(TRIGGERS[id])}`, triggerInfo(TRIGGERS[id]))).join('')}</ul>`
 }
 
 export function renderTeamPanel(game) {
@@ -57,6 +81,7 @@ export function renderTeamPanel(game) {
     grid.innerHTML = [...data.list].reverse().map((c) => card(c, data.team.indexOf(c.id) + 1)).join('')
   }
   renderHomePetPicker(game, data)
+  renderGuide()
   const empty = byId('team-empty')
   if (empty) empty.style.display = data.list.length ? 'none' : ''
   // The Weekly Team Tournament (TeamTournament.js).
