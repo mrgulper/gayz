@@ -1282,3 +1282,20 @@ html.ui-theme-old #settings-panel h2 {
   background: rgba(var(--ui-gold-accent-rgb), 0.8);
 }
 
+
+/* Settings > Social (2026-11-11, SocialSettings.js). Hide Chat: the
+   in-game chat and the homepage Global chat are gone (bubbles too, in
+   PlayNet). Hide My Coins: amounts in the top currency bar are blurred
+   until tapped (peek for a few seconds). */
+html.hide-chat #chat-panel,
+html.hide-chat #server-chat-wrap {
+  display: none !important;
+}
+html.hide-currency #menu-currency-bar .currency-item > span[id$='-amount'] {
+  filter: blur(6px);
+  cursor: pointer;
+  user-select: none;
+}
+html.hide-currency #menu-currency-bar.currency-peek .currency-item > span[id$='-amount'] {
+  filter: none;
+}

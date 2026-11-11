@@ -144,7 +144,7 @@ test('a photo can be sent as a postcard and read in the mailbox', async ({ page 
     g.settings.nickname = 'Tester'
     g.settings.savedFriends = [{ name: 'Pal', uid: 'friend123' }, { name: 'NoId' }]
     const sent = []
-    let inbox = [{ id: 'c1', fromNickname: '<i>Pal</i>', note: 'Hi <b>there</b>', image, sentAt: Date.now() - 60000 }]
+    let inbox = [{ id: 'c1', fromUid: 'friend123', fromNickname: '<i>Pal</i>', note: 'Hi <b>there</b>', image, sentAt: Date.now() - 60000 }]
     g.__galleryBackendForTests = {
       async fetchGalleryPosts(kind) { return kind === 'photo' ? [{ id: 'p1', kind: 'photo', title: 'Sunset', creatorUid: 'me1234', creatorNickname: 'Tester', image, likes: 0, createdAt: Date.now() }] : [] },
       async hasLikedGalleryPost() { return false },

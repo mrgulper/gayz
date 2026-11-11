@@ -345,8 +345,11 @@ export function _renderPublicProfileSection(game) {
   const regionKey = REGION_LABEL_KEYS[game.settings.region]
   if (game.profilePublicRegionRow) game.profilePublicRegionRow.style.display = regionKey ? 'flex' : 'none'
   if (regionKey && game.profilePublicRegionValue) game.profilePublicRegionValue.textContent = t(regionKey)
-  if (game.profilePublicClanRow) game.profilePublicClanRow.style.display = game.settings.clanTag ? 'flex' : 'none'
-  if (game.settings.clanTag && game.profilePublicClanValue) game.profilePublicClanValue.textContent = game.settings.clanTag
+  // Clan tags went away (clans only have names); Hide My Clan
+  // (Settings > Social) takes it off what others see.
+  const clanShown = !game.settings.hideClan && (game.settings.clanName || game.settings.clanTag)
+  if (game.profilePublicClanRow) game.profilePublicClanRow.style.display = clanShown ? 'flex' : 'none'
+  if (clanShown && game.profilePublicClanValue) game.profilePublicClanValue.textContent = clanShown
 }
 
 // Profile bio - free text, capped at 250 chars (enforced both by the

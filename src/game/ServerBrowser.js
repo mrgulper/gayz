@@ -10,6 +10,7 @@
 //
 // Same module shape as ChatUI.js / CloudSaveUI.js: plain functions taking
 // `game`, all state on the game (game._serverList, game._serverTab...).
+import { serverAccess } from './SocialSettings.js'
 import { t } from './i18n.js'
 import { PARTY_SERVER_MODES } from './PartyModes.js'
 import { _escapeHtml } from './Game.js'
@@ -195,7 +196,7 @@ async function createServer(game) {
   const name = (document.getElementById('server-create-name')?.value || '').trim()
   setBusy(game, true)
   try {
-    const info = await serverApi(game).create({ ...(await myDetails(game)), name, mode: TAB_MODES[game._serverTab] || 'main' })
+    const info = await serverApi(game).create({ ...(await myDetails(game)), name, mode: TAB_MODES[game._serverTab] || 'main', access: serverAccess(game.settings) })
     enterServer(game, { ...info, name: name || info.name })
   } catch {
     game._showHomepageToast(t('serverCreateFailed'))
@@ -211,7 +212,7 @@ async function joinServer(game, serverId) {
     const info = await serverApi(game).join({ ...(await myDetails(game)), serverId })
     enterServer(game, info)
   } catch (err) {
-    game._showHomepageToast(t(err?.code === 'full' ? 'serverFullToast' : err?.code === 'gone' ? 'serverGoneToast' : 'serverJoinFailed'))
+    game._showHomepageToast(t(err?.code === 'full' ? 'serverFullToast' : err?.code === 'gone' ? 'serverGoneToast' : err?.code === 'locked' ? 'serverLockedToast' : 'serverJoinFailed'))
     refreshServerList(game)
   } finally {
     setBusy(game, false)
@@ -259,7 +260,7 @@ export async function makeGameJoinable(game, survival, id = newServerId()) {
     return lobby
   }
   const world = game.buildMode?.world?.active ? { seed: worldSeed(), earth: isEarthWorld(), pick: survival._spawnPick || null } : null
-  const info = await serverApi(game).create({ ...(await myDetails(game)), name: '', mode: serverMode(survival), world, id })
+  const info = await serverApi(game).create({ ...(await myDetails(game)), name: '', mode: serverMode(survival), world, id, access: serverAccess(game.settings) })
   const net = new PlayNet(game, { ...info, world })
   survival.net = net
   net.attach(survival)
@@ -274,7 +275,7 @@ export async function openLobby(game, survival) {
   if (survival.net || survival.lobby || (typeof navigator !== 'undefined' && navigator.onLine === false)) return null
   const world = game.buildMode?.world?.active ? { seed: worldSeed(), earth: isEarthWorld(), pick: survival._spawnPick || null } : null
   const api = serverApi(game)
-  const info = await api.create({ ...(await myDetails(game)), name: '', mode: serverMode(survival), world, id: newServerId(), hidden: true })
+  const info = await api.create({ ...(await myDetails(game)), name: '', mode: serverMode(survival), world, id: newServerId(), hidden: true, access: serverAccess(game.settings) })
   if (!info?.serverId || !info.token) return null
   // The game ended (or got a server another way) while this was made.
   if (!survival.active || survival.net || survival.lobby) {

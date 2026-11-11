@@ -43,6 +43,7 @@ import { holdWeapon, holdBlock, poseArms } from './HeldWeapon.js'
 import { addChatSystemLine, clearChatSystemLines } from './ChatUI.js'
 import { MOB_HEIGHT } from './PlayRules.js'
 import { _censorText } from './Game.js'
+import { bubbleShows, shownChatText, serverAccess } from './SocialSettings.js'
 import { worldSeed, isEarthWorld } from './OpenWorld.js'
 import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './SpeechBubble.js'
 import { drawRemote, disposeRemote, cleanRemote } from './Vehicles.js'
@@ -251,6 +252,8 @@ export class PlayNet {
       state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, kills: s.kills || 0, lane: s.escape?.lane || 0, gh: s.ghosts?.snapshot() || null, jam: s.music?.snapshot() || null, fog: bm.world?.active && isEarthWorld() ? explored.shareState() : null },
       editsAfter: this._editSeq,
     }
+    // Who Can Join My Server (Settings > Social): the host's choice.
+    if (this.isHost) body.access = serverAccess(this.game.settings)
     const edits = this._edits.splice(0, EDITS_PER_SYNC)
     if (edits.length) body.edits = edits
     const said = this._say
@@ -361,7 +364,7 @@ export class PlayNet {
       if (p.say && p.say.n !== mine.sayN) {
         mine.sayN = p.say.n
         const left = bubbleSeconds(p.say.text) - (Number(p.say.age) || 0) / 1000
-        if (left > 0.3 && !this.game.settings?.mutedChatPlayers?.includes(p.nick)) this._setBubble(mine, _censorText(String(p.say.text || '')), left)
+        if (left > 0.3 && !this.game.settings?.mutedChatPlayers?.includes(p.nick) && bubbleShows(this.game.settings, p.nick)) this._setBubble(mine, shownChatText(this.game.settings, _censorText(String(p.say.text || ''))), left)
       }
       if (!mine.seen) {
         mine.x = p.x
@@ -432,7 +435,7 @@ export class PlayNet {
       if (err?.code !== 'gone') throw err
       // Nobody left in it: open it again under the same id, so the invite
       // link still works and the others get back into it too.
-      info = await this.api.create({ ...me, name: this.name, mode: this.mode, world: this.world, id: this.serverId, ...(this.lobby ? { hidden: true } : {}) })
+      info = await this.api.create({ ...me, name: this.name, mode: this.mode, world: this.world, id: this.serverId, access: serverAccess(this.game.settings), ...(this.lobby ? { hidden: true } : {}) })
       reopened = true
       if (info.serverId !== this.serverId) {
         // Someone else opened it again first: into theirs.

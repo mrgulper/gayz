@@ -10,6 +10,7 @@ import { ensureGyro } from './ControlSettings.js'
 import { applyHudLook } from './HudSettings.js'
 import { bindGraphicsSettings, applyBatterySaver } from './GraphicsSettings.js'
 import { onGameplayButton, bindPauseHelpers, bindSpoilerReveal } from './GameplayAssist.js'
+import { applySocialLook } from './SocialSettings.js'
 
 const listeners = new Map()
 
@@ -138,7 +139,20 @@ export function bindMoreSettings(game) {
   bindPauseHelpers(game)
   bindSpoilerReveal()
   onMoreSetting('spoilerFreeStory', (on) => document.documentElement.classList.toggle('spoiler-free', !!on))
+  // Social & Safety (ideas 63-72): read where they're used (SocialSettings.js).
+  for (const key of ['hideChat', 'hideCurrency']) onMoreSetting(key, (v, g) => applySocialLook(g.settings))
+  for (const key of ['chatFilter', 'friendsOnlyChat']) {
+    onMoreSetting(key, (v, g) => {
+      import('./ChatUI.js').then((c) => {
+        if (g._lastChatMsgs) c.renderChatMessages(g, g._lastChatMsgs)
+        if (g._lastServerChatMsgs) c.renderServerChatMessages(g, g._lastServerChatMsgs)
+      }).catch(() => {})
+    })
+  }
+  // Public profile bits: send the leaderboard doc again.
+  for (const key of ['hideClan', 'hideCurrency']) onMoreSetting(key, (v, g) => { if (g._moreSettingsReady) g._pushOnlineStats?.() })
   for (const def of MORE_SETTINGS) if (def.type !== 'button') emit(game, def.key)
+  game._moreSettingsReady = true
 }
 
 // ---------- Audio (ideas 1-10) ----------

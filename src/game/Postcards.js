@@ -20,6 +20,7 @@
 import * as CloudSync from './CloudSync.js'
 import { t } from './i18n.js'
 import { _escapeHtml, _censorText, _formatRelativeTime } from './Game.js'
+import { postcardShows, shownChatText } from './SocialSettings.js'
 
 export const NOTE_MAX = 80
 export const MAX_CARDS = 30
@@ -177,7 +178,10 @@ async function openInbox(game, setView) {
     if (empty) empty.textContent = t('galleryLoadFailed')
     return
   }
-  game._postcards = cards.filter((c) => c && typeof c.id === 'string').sort((a, b) => (Number(b.sentAt) || 0) - (Number(a.sentAt) || 0))
+  // Postcards From (Settings > Social): friends only, or nobody.
+  const all = cards.filter((c) => c && typeof c.id === 'string')
+  game._postcardsHidden = all.length - all.filter((c) => postcardShows(game.settings, c)).length
+  game._postcards = all.filter((c) => postcardShows(game.settings, c)).sort((a, b) => (Number(b.sentAt) || 0) - (Number(a.sentAt) || 0))
   renderInbox(game)
 }
 
@@ -191,7 +195,7 @@ function renderInbox(game) {
       <div class="postcard-side">
         <p class="postcard-from">${_escapeHtml(t('postcardFrom', { name: String(c.fromNickname || '?').slice(0, 24) }))}</p>
         <p class="postcard-when">${_escapeHtml(_formatRelativeTime(Math.max(0, Date.now() - (Number(c.sentAt) || 0))))}</p>
-        <p class="postcard-note">${_escapeHtml(String(c.note || '').slice(0, NOTE_MAX))}</p>
+        <p class="postcard-note">${_escapeHtml(shownChatText(game.settings, String(c.note || '').slice(0, NOTE_MAX)))}</p>
         <button type="button" class="mini-action-btn" data-delete-postcard="${_escapeHtml(c.id)}">${_escapeHtml(t('galleryDeleteBtn'))}</button>
       </div>
     </div>`).join('')
@@ -201,8 +205,9 @@ function renderInbox(game) {
     if (img && src) img.src = src
   }
   if (empty) {
-    empty.hidden = game._postcards.length > 0
-    empty.textContent = t('postcardsEmpty')
+    const hidden = game._postcardsHidden || 0
+    empty.hidden = game._postcards.length > 0 && !hidden
+    empty.textContent = game._postcards.length ? t('postcardsHiddenNote', { n: hidden }) : hidden ? `${t('postcardsEmpty')} ${t('postcardsHiddenNote', { n: hidden })}` : t('postcardsEmpty')
   }
 }
 

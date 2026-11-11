@@ -256,6 +256,13 @@ Already in the game (skip or extend): 66 muted players list (Social > muted list
 - Spoiler-Free Story: hides The Cure recipe until chapter 5 starts; `html.spoiler-free .feature-spoiler` blurs the Features Story card until clicked.
 - Test: settings "the Gameplay settings (ideas 51-62) work in a game".
 
-**Social & Safety (63-72):** 63 chat filter strength off/light/strict · 64 hide chat · 65 friends-only chat · 66 muted players list (exists) · 67 block friend requests from non-clan · 68 appear offline (exists) · 69 hide my clan tag · 70 hide my coins/gems · 71 who can join my server · 72 who can see my postcards.
+**Social & Safety (63-72): DONE 2026-11-11.** Rows in General > Social (before Homepage). `SocialSettings.js` (no imports; helpers asked where used). Gaymi's picks: filter Normal/Strict (no Off - `_censorText` runs before sending); Hide My Coins = own screen AND public profile; Who Can Join = Anyone/Link Only/Nobody; #72 became Postcards From (Friends/Nobody) since postcards were already private. #66/#68 already existed.
+- Chat Filter Strict: `strictClean` (mean words, links -> `[link]`, mostly-caps -> lowercase, `#ID`s kept) in `ChatUI.renderChatMessageText`, server bubbles (PlayNet) and postcard notes. Display only.
+- Hide Chat: `html.hide-chat` hides `#chat-panel` + `#server-chat-wrap` (set at first paint in index.html's boot script); Enter doesn't open chat; `bubbleShows` drops bubbles. Friends-Only: `chatShows` (own + `savedFriends` by uid/name) in both chat renders and bubbles.
+- Friend Requests From Clan: `keepFriendRequests` in CloudSaveUI's request subscription declines non-members (`fetchClanMembers`; no clan = all). The old Auto-Decline toggle still means "nobody".
+- Hide My Clan / Coins: `applyPublicPrivacy` on the leaderboard doc (`hideClan`, `hideCoins`, coins fields left out; clanId stays for clan boards). Other profile now shows a Clan row (`fetchClanById`, skipped when `hideClan`); coins show `•••`. No Firestore rule change needed (leaderboard rules don't use hasOnly). On screen: `html.hide-currency` blurs `#menu-currency-bar` amounts (tap = `.currency-peek` 3 s), `money()` in the in-game wave line and Shop.
+- Who Can Join: server field `access` ('link'/'nobody'); `listServers` skips it, `joinServer` throws 403 `locked` (toast `serverLockedToast`), the host's `sync` body sends `access` so it changes mid-game; create calls send it too. Whoever is host decides (a new host's own setting takes over).
+- Postcards From: `postcardShows` in `Postcards.openInbox`, with a "N hidden" note.
+- Tests: settings "the Social & Safety settings (ideas 63-72) work" + "Social & Safety: public profile..."; servers "the host decides who can join".
 
 **Wellbeing & Misc (73-80):** 73 break reminder · 74 session timer · 75 bedtime reminder · 76 data saver · 77 settings presets · 78 settings QR code · 79 silly setting of the day · 80 undo last setting change.

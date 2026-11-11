@@ -9,6 +9,7 @@ import * as CloudSync from './CloudSync.js'
 import { FRIEND_OFFLINE_THRESHOLD_MS, FRIEND_ONLINE_THRESHOLD_MS, FRIEND_STATUS_LABEL_KEYS, _escapeHtml, _formatRelativeTime, _safeStatNumber, formatTime, saveSettings, todayDateString } from './Game.js'
 import { t } from './i18n.js'
 import { setNavBadge } from './NavBadges.js'
+import { MONEY_HIDDEN } from './SocialSettings.js'
 
 // "Your Friends" list - now populated only by accepting an incoming
 // friend request (see _respondToFriendRequest), not by manually typing a
@@ -96,9 +97,9 @@ export function _showOtherProfileLoading(game, fallbackName) {
 }
 
 // Same field set as the Profile panel's own "Shown to Public" tab (see
-// _renderPublicProfileSection) minus Clan - a leaderboard entry only
-// carries the other player's clanId, not a resolvable tag/name, and
-// showing a raw id wouldn't mean anything to whoever's looking.
+// _renderPublicProfileSection). Clan (2026-11-11): the entry only carries
+// the clanId, so the clan's name is looked up - unless they turned on
+// Hide My Clan (Settings > Social, entry.hideClan).
 export function _renderOtherProfileEntry(game, entry, fallbackName) {
   game.otherProfileLoading.style.display = 'none'
   if (!entry) {
@@ -124,8 +125,27 @@ export function _renderOtherProfileEntry(game, entry, fallbackName) {
   const regionKey = REGION_LABEL_KEYS[entry.region]
   if (game.otherProfileRegionRow) game.otherProfileRegionRow.style.display = regionKey ? 'flex' : 'none'
   if (regionKey && game.otherProfileRegionValue) game.otherProfileRegionValue.textContent = t(regionKey)
+  renderOtherProfileClan(entry)
   game._renderOtherProfilePublicFields(entry)
   game.otherProfileStats.style.display = 'block'
+}
+
+let clanLookup = 0
+function renderOtherProfileClan(entry) {
+  const row = document.getElementById('other-profile-clan-row')
+  if (!row) return
+  row.style.display = 'none'
+  const label = document.getElementById('other-profile-clan-label')
+  if (label) label.textContent = t('otherProfileClanLabel')
+  const id = typeof entry.clanId === 'string' ? entry.clanId : ''
+  if (!id || entry.hideClan === true) return
+  const mine = ++clanLookup
+  CloudSync.fetchClanById(id).then((clan) => {
+    if (mine !== clanLookup || !clan?.name) return
+    const value = document.getElementById('other-profile-clan-value')
+    if (value) value.textContent = String(clan.name).slice(0, 24)
+    row.style.display = 'flex'
+  }).catch(() => {})
 }
 
 // The read side of moving Bio/Motto/Your Stats to Shown to Public (see
@@ -150,7 +170,7 @@ export function _renderOtherProfilePublicFields(game, entry) {
   }
   if (game.otherProfileLastRunValue) {
     game.otherProfileLastRunValue.textContent = ('lastRunNight' in entry)
-      ? t(entry.lastRunSurvived ? 'runHistorySurvived' : 'runHistoryDied', { night: _safeStatNumber(entry.lastRunNight), kills: _safeStatNumber(entry.lastRunKills), coins: _safeStatNumber(entry.lastRunCoins) })
+      ? t(entry.lastRunSurvived ? 'runHistorySurvived' : 'runHistoryDied', { night: _safeStatNumber(entry.lastRunNight), kills: _safeStatNumber(entry.lastRunKills), coins: entry.hideCoins === true ? MONEY_HIDDEN : _safeStatNumber(entry.lastRunCoins) })
       : '--'
   }
   if (game.otherProfileAnniversaryLine) {
@@ -186,7 +206,7 @@ export function _renderOtherProfilePublicFields(game, entry) {
       game.otherProfileBestRunLine.textContent = t('profileBestRunLine', {
         night: _safeStatNumber(entry.bestRunNight),
         kills: _safeStatNumber(entry.bestRunKills),
-        coins: _safeStatNumber(entry.bestRunCoins),
+        coins: entry.hideCoins === true ? MONEY_HIDDEN : _safeStatNumber(entry.bestRunCoins),
         difficulty: diffBtn ? diffBtn.textContent : (entry.bestRunDifficulty || '?'),
       })
       game.otherProfileBestRunCard.style.display = ''

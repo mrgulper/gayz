@@ -126,6 +126,7 @@ import { noteBoss } from './CampMuseum.js'
 import { WaterGun, SOAK_SLOW } from './WaterGun.js'
 import { closeScreen as closeCampScreen } from './CampScreen.js'
 import { RunPerks, perksFor } from './RunPerks.js'
+import { money } from './SocialSettings.js'
 import { nextUnlock, nextUnlockText, newlyUnlocked, cosmeticName, COSMETICS, makeCape, isUnlocked, needText } from './Cosmetics.js'
 
 export const CHEST_LOOT = { ammo: 60, health: 35 }
@@ -1346,7 +1347,7 @@ export class BuildSurvival {
     // World Map: no waves - where you are and how long you've explored.
     if (this.cfg?.noZombies) {
       const s = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
-      set('build-play-wave-text', this.infection ? this.infection.hudText() : this.party ? this.party.hudText() : this.escape ? `${this.escape.hudText()} · ${t('campCoins', { n: this.coins })} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}` : `${t('topBarModeWorldMap')} · ${t('campCoins', { n: this.coins })} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}`)
+      set('build-play-wave-text', this.infection ? this.infection.hudText() : this.party ? this.party.hudText() : this.escape ? `${this.escape.hudText()} · ${t('campCoins', { n: money(this.bm.game?.settings, this.coins) })} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}` : `${t('topBarModeWorldMap')} · ${t('campCoins', { n: money(this.bm.game?.settings, this.coins) })} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}`)
     }
     const waveText = mode === 'zombieDefense' || this.speedrun || this.td ? t('buildPlayWaveOf', { n: Math.max(1, this.wave), max: this.speedrun ? SPEEDRUN_WAVES : this.td ? TD_WAVES : DEFENSE_WAVES }) : t('buildPlayWave', { n: Math.max(1, this.wave) })
     const secs = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
@@ -1368,7 +1369,7 @@ export class BuildSurvival {
     // Between waves: when the next one comes, not "0 left" (that read as
     // a wave over with nothing killed).
     const leftText = alive === 0 && this._breakTimer > 0 ? t('buildPlayNextWaveIn', { n: Math.ceil(this._breakTimer) }) : t('buildPlayZombiesLeft', { n: alive })
-    if (!this.cfg?.noZombies) set('build-play-wave-text', `${waveText} · ${leftText} · ${t('buildPlayKills', { n: this.kills })}${this.camp || this.td ? ` · ${t('campCoins', { n: this.coins })}` : ''}${timeText}${extractText}${serverText}`)
+    if (!this.cfg?.noZombies) set('build-play-wave-text', `${waveText} · ${leftText} · ${t('buildPlayKills', { n: this.kills })}${this.camp || this.td ? ` · ${t('campCoins', { n: money(this.bm.game?.settings, this.coins) })}` : ''}${timeText}${extractText}${serverText}`)
     const fill = document.getElementById('build-play-health-fill')
     if (fill) fill.style.width = `${Math.max(0, Math.min(100, (this.health / (this.maxHealth || 100)) * 100))}%`
     set('build-play-health-text', `${Math.max(0, Math.ceil(this.health))}${this.armor > 0 ? ` + ${Math.ceil(this.armor)}` : ''}`)
