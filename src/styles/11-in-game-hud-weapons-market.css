@@ -1753,3 +1753,92 @@ body.tp-lefty #touch-play .tp-emote { left: auto; right: max(16px, env(safe-area
   mask: radial-gradient(circle, transparent 15px, #000 16px);
   filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.7));
 }
+
+/* ---------- Settings > Controls > HUD (ideas 25-38, HudSettings.js) ---------- */
+/* HUD Size: every HUD piece grows/shrinks from its own corner (the
+   `scale` property, so their own transforms - centring - still work). */
+body.build-mode-on :is(#build-play-wave, #top-bar) { scale: var(--hud-scale, 1); transform-origin: top left; }
+body.build-mode-on :is(#build-play-health, #build-hotbar, #play-pills) { scale: var(--hud-scale, 1); transform-origin: bottom center; }
+body.build-mode-on #build-play-ammo { scale: var(--hud-scale, 1); transform-origin: bottom right; }
+body.touch-play-on #build-play-ammo { transform-origin: top right; }
+body.build-mode-on #left-hud-stack { scale: var(--hud-scale, 1); transform-origin: bottom left; }
+body.build-mode-on #build-try-map:not(.interactive):not([data-size='center']) { scale: var(--hud-scale, 1); transform-origin: top right; }
+body.build-mode-on :is(#play-hud-info, #play-kill-feed) { scale: var(--hud-scale, 1); transform-origin: top right; }
+body.build-mode-on #play-compass { scale: var(--hud-scale, 1); transform-origin: top center; }
+/* Small minimap (Minimap Size: Small). */
+html.minimap-small #build-try-map[data-size='normal'] { width: 124px; height: 124px; }
+
+/* Hide HUD (F1): only what's needed to play stays - the middle messages,
+   the hurt flash, menus and phone buttons. visibility, not display, so
+   nothing re-measures itself while hidden. */
+body.hud-hidden :is(#build-play-wave, #build-play-health, #build-play-ammo, #build-hotbar, #left-hud-stack, #top-bar,
+  #build-try-crosshair, #play-pills, #play-hitmark, #fps-counter, #play-hud-info, #play-kill-feed, #play-compass, #play-npc-prompt),
+body.hud-hidden #build-try-map:not(.interactive) { visibility: hidden !important; }
+
+/* Hit Marker off: no X at the crosshair, no crosshair pulse (the hit sound stays). */
+html.no-hitmarker #play-hitmark { display: none !important; }
+html.no-hitmarker #build-try-crosshair.hit,
+html.no-hitmarker #build-try-crosshair.hit::before,
+html.no-hitmarker #build-try-crosshair.hit::after { animation: none; }
+
+/* Low-Ammo Warning: red, gently pulsing, with "Low ammo" under it. */
+#build-play-ammo.low-ammo { color: #ff5a4a; animation: hud-low-ammo 0.9s ease-in-out infinite alternate; }
+#build-play-ammo.low-ammo::after { content: attr(data-low); display: block; text-align: right; font-size: 16px; letter-spacing: 1px; }
+@keyframes hud-low-ammo { to { opacity: 0.6; } }
+body.reduce-flashing #build-play-ammo.low-ammo { animation: none; }
+
+/* Health Display: bar only, or a big number only. */
+html[data-health-display='bar'] #build-play-health-text { display: none; }
+html[data-health-display='number'] #build-play-health { width: auto; min-width: 80px; height: auto; background: none; border: none; overflow: visible; }
+html[data-health-display='number'] #build-play-health-fill { display: none; }
+html[data-health-display='number'] #build-play-health-text { position: static; display: block; font-size: 30px; line-height: 1; }
+
+/* Chat Opacity and Chat Fade. */
+#chat-panel :is(#chat-messages, #chat-channel-tabs) { opacity: var(--chat-opacity, 1); transition: opacity 0.8s; }
+#chat-panel.chat-faded :is(#chat-messages, #chat-channel-tabs) { opacity: 0; }
+
+/* Clock / coordinates / ping box and the kill feed: a column under the
+   corner map (HudSettings.place sets `top`). */
+#play-hud-info, #play-kill-feed {
+  position: fixed; right: 16px; z-index: 18; pointer-events: none;
+  font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.6px; color: #fff;
+}
+#play-hud-info {
+  padding: 4px 10px; font-size: 16px; line-height: 1.25; white-space: pre; text-align: right;
+  background: rgba(8, 8, 7, 0.72); border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.55); border-radius: 6px;
+}
+#play-kill-feed { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.kill-feed-line {
+  padding: 2px 10px; font-size: 15px; white-space: nowrap;
+  background: rgba(8, 8, 7, 0.68); border-radius: 999px; text-shadow: 0 1px 2px #000;
+  transition: opacity 0.6s;
+}
+.kill-feed-line.mine { box-shadow: inset 3px 0 0 #e8483a; }
+.kill-feed-line.fading { opacity: 0; }
+
+/* Compass bar: top middle. */
+#play-compass {
+  /* z-index under #build-play-hud (16), so a big middle message shows over it. */
+  position: fixed; top: 8px; left: 50%; translate: -50% 0; z-index: 15; pointer-events: none;
+  width: min(300px, 70vw); height: 26px; overflow: hidden;
+  font-family: 'Bebas Neue', sans-serif; color: #fff;
+  background: rgba(8, 8, 7, 0.72); border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.55); border-radius: 6px;
+}
+.compass-strip { position: absolute; inset: 0; }
+.compass-dir, .compass-tick { position: absolute; top: 0; }
+.compass-dir { translate: -50% 0; font-size: 15px; line-height: 26px; opacity: 0.8; }
+.compass-dir.main { font-size: 19px; opacity: 1; }
+.compass-tick { top: 9px; width: 1px; height: 8px; background: currentColor; opacity: 0.5; }
+.compass-mark { position: absolute; left: 50%; bottom: 0; translate: -50% 0; border: 5px solid transparent; border-bottom-color: #ffde5c; }
+
+/* Minimap that turns with you: a round map, north marked on its edge. */
+#build-try-map.map-turning { border-radius: 50%; }
+#build-try-map.map-turning canvas { border-radius: 50%; clip-path: circle(50%); }
+#map-north {
+  position: absolute; translate: -50% -50%; z-index: 1; pointer-events: none;
+  min-width: 18px; padding: 0 3px; text-align: center;
+  font: 700 12px/18px system-ui, sans-serif; color: #fff; background: #c0392b; border-radius: 999px;
+}
+
+/* Hidden with the pause menu, like the health bar. */
+html.menu-panel-open :is(#play-hud-info, #play-kill-feed, #play-compass) { display: none !important; }

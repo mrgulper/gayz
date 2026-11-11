@@ -36,6 +36,21 @@ export const MORE_SETTINGS = [
   { key: 'joystickMode', type: 'select', def: 'floating', opts: ['floating', 'fixed'], page: 'controls', before: 'settings-section-hud-2' },
   { key: 'doubleTapSprint', type: 'toggle', def: false, page: 'controls', before: 'settings-section-hud-2' },
   { key: 'gyroAim', type: 'toggle', def: false, page: 'controls', before: 'settings-section-hud-2' },
+  // --- HUD (ideas 25-38; hook-ups in HudSettings.js) ---
+  { key: 'hudScale', type: 'range', def: 100, min: 60, max: 140, step: 5, unit: '%', page: 'controls', before: 'settings-section-gameplay' },
+  { key: 'hideHud', type: 'toggle', def: false, page: 'controls', before: 'settings-section-gameplay' },
+  { key: 'minimapSize', type: 'select', def: 'normal', opts: ['small', 'normal', 'big'], page: 'controls', before: 'settings-section-gameplay' },
+  { key: 'minimapRotate', type: 'select', def: 'north', opts: ['north', 'turn'], page: 'controls', before: 'settings-section-gameplay' },
+  { key: 'killFeed', type: 'toggle', def: true, page: 'controls', before: 'settings-section-gameplay' },
+  { key: 'hitMarker', type: 'toggle', def: true, page: 'controls', before: 'settings-section-gameplay' },
+  { key: 'lowAmmoWarning', type: 'toggle', def: true, page: 'controls', before: 'settings-section-gameplay' },
+  { key: 'showPing', type: 'toggle', def: true, page: 'controls', before: 'settings-section-gameplay' },
+  { key: 'hudClock', type: 'select', def: 'off', opts: ['off', 'real', 'game'], page: 'controls', before: 'settings-section-gameplay' },
+  { key: 'showCoords', type: 'toggle', def: false, page: 'controls', before: 'settings-section-gameplay' },
+  { key: 'compassBar', type: 'toggle', def: false, page: 'controls', before: 'settings-section-gameplay' },
+  { key: 'chatOpacity', type: 'range', def: 100, min: 20, max: 100, step: 5, unit: '%', page: 'controls', before: 'settings-section-gameplay' },
+  { key: 'chatFade', type: 'select', def: 'off', opts: ['off', '5', '10', '20', '30'], page: 'controls', before: 'settings-section-gameplay' },
+  { key: 'healthDisplay', type: 'select', def: 'both', opts: ['both', 'bar', 'number'], page: 'controls', before: 'settings-section-gameplay' },
 ]
 
 export const MORE_SETTING_KEYS = MORE_SETTINGS.map((s) => s.key)

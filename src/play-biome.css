@@ -283,3 +283,9 @@ body.touch-play-on #lag-warning { top: 12px; }
 }
 html.ui-theme-biome .sound-caption { background: var(--biome-surface); color: var(--biome-ink); border: 1px solid var(--biome-edge); }
 body.touch-play-on #sound-captions { bottom: 170px; }
+
+/* Settings > HUD boxes (HudSettings.js): the biome's ground, like the corner map. */
+html.ui-theme-biome :is(#play-hud-info, #play-compass, .kill-feed-line) {
+  color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); text-shadow: none;
+}
+html.ui-theme-biome .compass-mark { border-bottom-color: var(--biome-ink); }

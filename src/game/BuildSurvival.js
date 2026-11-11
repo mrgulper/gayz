@@ -20,6 +20,7 @@ import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { SKELETON_KINDS, loadSkeletons, makeSkeleton, skeletonsReady } from './SkeletonModels.js'
 import { audioEngine } from './Audio.js'
 import { survivalAudioTick } from './MoreSettings.js'
+import { hudTick } from './HudSettings.js'
 import { xpToNextLevel } from './Xp.js'
 import { getKeyFor } from './Keybinds.js'
 import { padRumble } from './ControlSettings.js'
@@ -3366,6 +3367,7 @@ export class BuildSurvival {
   update(dt) {
     if (!this.active) return
     survivalAudioTick(this, Math.min(dt, 0.1))
+    hudTick(this, Math.min(dt, 0.1))
     this.replay?.update(dt)
     this._updateCorpses(Math.min(dt, 0.1))
     this._fx?.update(Math.min(dt, 0.1))

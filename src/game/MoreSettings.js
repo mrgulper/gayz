@@ -7,6 +7,7 @@ import { t } from './i18n.js'
 import { saveSettings } from './Game.js'
 import { audioEngine } from './Audio.js'
 import { ensureGyro } from './ControlSettings.js'
+import { applyHudLook } from './HudSettings.js'
 
 const listeners = new Map()
 
@@ -115,6 +116,8 @@ export function bindMoreSettings(game) {
   bindAudioExtras(game)
   // Gyro Aim: iPhones ask to use motion here (the toggle is a tap).
   onMoreSetting('gyroAim', (on) => ensureGyro(on))
+  // HUD (ideas 25-38): the looks that are pure CSS; the rest is HudSettings.hudTick.
+  for (const key of ['hudScale', 'chatOpacity', 'healthDisplay', 'minimapSize', 'hitMarker', 'killFeed']) onMoreSetting(key, (v, g) => applyHudLook(g.settings))
   for (const def of MORE_SETTINGS) emit(game, def.key)
 }
 

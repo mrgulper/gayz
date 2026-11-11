@@ -248,7 +248,7 @@ export class PlayNet {
     const holding = s.holding
     const body = {
       ...this.auth,
-      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, lane: s.escape?.lane || 0, gh: s.ghosts?.snapshot() || null, jam: s.music?.snapshot() || null, fog: bm.world?.active && isEarthWorld() ? explored.shareState() : null },
+      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, kills: s.kills || 0, lane: s.escape?.lane || 0, gh: s.ghosts?.snapshot() || null, jam: s.music?.snapshot() || null, fog: bm.world?.active && isEarthWorld() ? explored.shareState() : null },
       editsAfter: this._editSeq,
     }
     const edits = this._edits.splice(0, EDITS_PER_SYNC)
@@ -292,8 +292,12 @@ export class PlayNet {
     }
     this._busy = true
     try {
+      const sentAt = performance.now()
       const res = await this.api.sync(body)
       if (this.closed) return
+      // Ping (Settings > HUD > Show Ping): one sync's round trip, smoothed.
+      const rtt = performance.now() - sentAt
+      this.ping = Number.isFinite(this.ping) ? this.ping * 0.7 + rtt * 0.3 : rtt
       this._lastOk = performance.now()
       if (this._say === said) this._say = null
       if (body.world) {
@@ -346,7 +350,7 @@ export class PlayNet {
         // Not for the players already there when I joined.
         if (!this._firstSync) addChatSystemLine(this.game, t('serverPlayerJoined', { name: p.nick || 'Survivor' }))
       }
-      Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), gh: cleanGhost(p.gh), jam: cleanJam(p.jam) })
+      Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), gh: cleanGhost(p.gh), jam: cleanJam(p.jam), kills: Number.isFinite(Number(p.kills)) ? Math.max(0, Math.floor(Number(p.kills))) : undefined })
       if (sharedFog) {
         if (p.fog && typeof p.fog.c === 'string' && p.fog.n !== mine.fogN) {
           mine.fogN = p.fog.n

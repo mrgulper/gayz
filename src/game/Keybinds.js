@@ -44,6 +44,9 @@ export const ACTIONS = [
   // Keeps walking forward hands-free until Back, Forward or this key
   // again (Settings ideas list, Controls #15, 2026-11-11).
   { id: 'autoRun', defaultKey: 'KeyO', labelKey: 'actionAutoRun' },
+  // Hides the whole HUD in a game, for clean screenshots (Settings ideas
+  // list, HUD #26, 2026-11-11). Same as Settings > Controls > Hide HUD.
+  { id: 'hideHud', defaultKey: 'F1', labelKey: 'actionHideHud' },
 ]
 
 // Extra keys that also work for an action, as long as no action is bound
