@@ -423,6 +423,23 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
+    // Gauntlet teams (2026-11-11, Gauntlet.js): your Gauntlet team at each
+    // battle of a run (one doc per battle number, {uid}_{round}), for other
+    // players to meet at the same battle. Anyone reads them; only you write
+    // your own. Checked again by whoever reads it (Creatures.unpackTeam).
+    match /gauntletTeams/{id} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+        && id == request.auth.uid + '_' + string(request.resource.data.round)
+        && request.resource.data.keys().hasOnly(['nickname', 'team', 'round', 'wins', 'updatedAt'])
+        && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 24
+        && request.resource.data.team is list && request.resource.data.team.size() > 0 && request.resource.data.team.size() <= 7
+        && request.resource.data.round is int && request.resource.data.round >= 1 && request.resource.data.round <= 12
+        && request.resource.data.wins is int && request.resource.data.wins >= 0 && request.resource.data.wins <= 10
+        && request.resource.data.updatedAt is int;
+      allow delete: if false;
+    }
+
     // Build Together rooms (2026-10-04): the host's map when the room
     // opened, then every change anyone in it makes (as small edit docs, a
     // JSON string of block changes), and where each builder is.
@@ -1436,6 +1453,21 @@ export async function fetchGhostTeams(myUid, n = 30) {
   const q = fsMod.query(fsMod.collection(db, 'ghostTeams'), fsMod.orderBy('updatedAt', 'desc'), fsMod.limit(n))
   const snap = await fsMod.getDocs(q)
   return snap.docs.filter((d) => d.id !== myUid).map((d) => ({ ...d.data(), uid: d.id }))
+}
+
+// Gauntlet teams (2026-11-11, see the gauntletTeams rules above).
+export async function saveGauntletTeam(uid, entry) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'gauntletTeams', `${uid}_${entry.round}`), { ...entry, updatedAt: Date.now() })
+}
+
+// The most recently saved Gauntlet teams, from every battle number (mine
+// left out). One plain query, no special index needed.
+export async function fetchGauntletTeams(myUid, n = 40) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'gauntletTeams'), fsMod.orderBy('updatedAt', 'desc'), fsMod.limit(n))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.filter((d) => !myUid || !d.id.startsWith(`${myUid}_`)).map((d) => ({ ...d.data(), uid: d.id.split('_')[0] }))
 }
 
 // Build Together rooms (2026-10-04, see the buildRooms rules above).

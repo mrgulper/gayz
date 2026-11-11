@@ -15,6 +15,7 @@ import { TeamBattle } from './TeamBattle.js'
 import { renderTournament, playTournament } from './TeamTournament.js'
 import * as PackLeaders from './PackLeaders.js'
 import { renderLeaders, startLeaderBattle, nextLeader, badgeInfo } from './PackLeaders.js'
+import * as Gauntlet from './Gauntlet.js'
 import { saveShopProgress, saveSettings } from './Game.js'
 import { zombieName } from './ZombieNames.js'
 import { t } from './i18n.js'
@@ -153,6 +154,8 @@ export function renderTeamPanel(game) {
   renderTournament(game)
   // Pack Leaders (PackLeaders.js).
   renderLeaders()
+  // The Gauntlet (Gauntlet.js).
+  Gauntlet.renderGauntlet(game)
   const btn = byId('team-battle-btn')
   if (btn && !game._teamFinding) {
     btn.textContent = t('teamBattleBtn')
@@ -286,9 +289,11 @@ export function bindTeamUI(game) {
   game._renderTeamPanel = () => renderTeamPanel(game)
   // The ladder, for the tests (tests/team.spec.js).
   game._packLeaders = { ...PackLeaders, power }
+  game._gauntlet = { ...Gauntlet, power }
   // Drawn each time the Pets tab is looked at (a catch in a game changes it).
   byId('inventory-tab-pets')?.addEventListener('click', () => renderTeamPanel(game))
   page.addEventListener('click', (e) => {
+    if (e.target.closest('#gauntlet') && Gauntlet.gauntletClick(game, e, () => renderTeamPanel(game))) return
     const sb = e.target.closest('.team-snack[data-snack]')
     if (sb) {
       game._teamSnack = game._teamSnack === sb.dataset.snack ? null : sb.dataset.snack

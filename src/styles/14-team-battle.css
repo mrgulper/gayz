@@ -877,3 +877,38 @@ html.ui-theme-old .team-snack-cost {
 html.ui-theme-old .leader-badge.beaten img { border-color: var(--old-ink); }
 html.ui-theme-clean .leader-badge img, html.ui-theme-clean .leader-badge-q { background: transparent; }
 html.ui-theme-clean .leader-badge.beaten img { border-color: var(--clean-fg); }
+
+/* Gauntlet (Gauntlet.js, 2026-11-11): its own team (tap to sell), the shop
+   (tap to buy), stars instead of a level, and small Reroll / Give up
+   buttons. Cards are the Team page's own (.team-card). */
+#gauntlet-status { margin: 0 auto 8px; max-width: 560px; }
+#gauntlet .gt-sub { margin: 12px 0 2px; font-size: 13px; }
+#gauntlet .gt-hint { max-width: 460px; margin: 0 auto 6px; font-size: 11px; opacity: 0.85; }
+#gauntlet .gt-stars { color: var(--menu-gold); letter-spacing: 1px; }
+#gauntlet .gt-price {
+  margin-top: 2px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+}
+#gauntlet .gt-sold { min-height: 0; align-self: stretch; }
+#gauntlet .gt-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 10px; }
+#gauntlet .gt-btn {
+  padding: 6px 16px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  cursor: pointer;
+}
+#gauntlet .gt-btn:hover:not(:disabled) { border-color: var(--menu-gold); }
+#gauntlet .gt-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+html.ui-theme-old #gauntlet .gt-stars { color: var(--old-ink); }
+html.ui-theme-old #gauntlet .gt-btn { border-color: rgba(60, 40, 20, 0.35); background: rgba(60, 40, 20, 0.08); }
+html.ui-theme-clean #gauntlet .gt-stars { color: inherit; }
+html.ui-theme-clean #gauntlet .gt-btn { background: transparent; border-color: currentColor; }
