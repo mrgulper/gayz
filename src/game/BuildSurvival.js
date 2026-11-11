@@ -22,6 +22,7 @@ import { audioEngine } from './Audio.js'
 import { survivalAudioTick } from './MoreSettings.js'
 import { xpToNextLevel } from './Xp.js'
 import { getKeyFor } from './Keybinds.js'
+import { padRumble } from './ControlSettings.js'
 import { t } from './i18n.js'
 import { BuildCamp, COIN_PER_KILL, COIN_PER_WAVE } from './BuildCamp.js'
 import { PlayShop } from './PlayShop.js'
@@ -3124,6 +3125,8 @@ export class BuildSurvival {
     this.armor = (this.armor || 0) - soaked
     this.health = Math.max(0, this.health - (amount - soaked))
     audioEngine.playPlayerHurt?.()
+    // Settings > Controls > Controller Vibration: harder hits shake more.
+    padRumble(this.bm, Math.min(1, 0.35 + (amount - soaked) / 40), 180)
     const flash = document.getElementById('build-play-hurt')
     if (flash) {
       flash.classList.remove('show')

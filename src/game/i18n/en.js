@@ -3535,6 +3535,7 @@ export default {
   blimpDown: "You popped the balloon! It's going down!",
   blimpCrashed: "The Zombie Blimp crashed and spilled its loot! +{n} coins",
   actionBingo: "Zombie Bingo Card",
+  actionAutoRun: "Auto-Run",
   bingoTitle: "Zombie Bingo",
   bingoFree: "FREE",
   bingoPill: "Bingo {n}/{all} · {key}",

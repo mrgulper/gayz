@@ -6,6 +6,7 @@ import { MORE_SETTINGS } from './MoreSettingsList.js'
 import { t } from './i18n.js'
 import { saveSettings } from './Game.js'
 import { audioEngine } from './Audio.js'
+import { ensureGyro } from './ControlSettings.js'
 
 const listeners = new Map()
 
@@ -112,6 +113,8 @@ export function bindMoreSettings(game) {
     if (shown && def.type === 'range') game._bindEditableSliderValue?.(shown, el)
   }
   bindAudioExtras(game)
+  // Gyro Aim: iPhones ask to use motion here (the toggle is a tap).
+  onMoreSetting('gyroAim', (on) => ensureGyro(on))
   for (const def of MORE_SETTINGS) emit(game, def.key)
 }
 

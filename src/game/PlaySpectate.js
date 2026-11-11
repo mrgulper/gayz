@@ -359,7 +359,7 @@ export class PlaySpectate {
     if (keys.has('KeyA')) dir.sub(right)
     // Phones: the move stick (BuildTouch's bm._touchMove), jump = up and
     // crouch = down.
-    const stick = bm._touchMove
+    const stick = bm._touchMove || bm._padMove
     if (stick) dir.addScaledVector(forward, stick.y).addScaledVector(right, stick.x)
     if (keys.has('Space') || keys.has(getKeyFor('jump'))) dir.y += 1
     if (keys.has('ShiftLeft') || keys.has('ShiftRight') || keys.has(getKeyFor('crouch'))) dir.y -= 1

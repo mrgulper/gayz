@@ -4,6 +4,7 @@
 // context - only the scene/camera passed to render() changes.
 import { screenOpen as campScreenOpen } from './CampScreen.js'
 import { FIXED_KEYS, getKeyFor, keyLabel, keysFor } from './Keybinds.js'
+import { controlsTick, lookBy, startUse, endUse } from './ControlSettings.js'
 import * as THREE from 'three'
 import { setHomePaused } from './LiteHome.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
@@ -1655,7 +1656,7 @@ export class BuildMode {
           if (e.code === 'KeyP' || e.code === 'Enter') this.spectate.snap()
         } else if (!e.repeat) {
           if (e.code === getKeyFor('use') && this.spectate.hasPlayers()) this.spectate.onKey(e.code)
-          else if (e.code === getKeyFor('use')) this._tryUseFromCamera()
+          else if (e.code === getKeyFor('use')) startUse(this)
           if (this.survival.active) this.survival.onKeyDown(e.code)
           if (e.code === getKeyFor('inspectWeapon')) this.tryMode.inspect()
           if (e.code === getKeyFor('cycleMap')) this.tryMode.cycleMap()
@@ -1671,7 +1672,9 @@ export class BuildMode {
           return
         }
         if (this.survival.active && !e.repeat) this.survival.onKeyDown(e.code)
-        if (e.code === getKeyFor('use') && !e.repeat) this._tryUseFromCamera()
+        // Settings > Controls > Hold to Interact: maybe after a hold.
+        if (e.code === getKeyFor('use') && !e.repeat) startUse(this)
+        if (e.code === getKeyFor('autoRun') && !e.repeat) this.tryMode.toggleAutoRun()
         if (e.code === getKeyFor('inspectWeapon') && !e.repeat) this.tryMode.inspect()
         if (e.code === getKeyFor('cycleMap') && !e.repeat) this.tryMode.cycleMap()
         if (e.code === getKeyFor('cameraView') && !e.repeat) this.tryMode.cycleView()
@@ -1744,16 +1747,18 @@ export class BuildMode {
       this._keys.add(e.code)
       if (MOVEMENT_KEY_CODES.has(e.code)) e.preventDefault()
     }
-    this._onKeyUp = (e) => this._keys.delete(e.code)
+    this._onKeyUp = (e) => {
+      this._keys.delete(e.code)
+      if (e.code === getKeyFor('use')) endUse(this)
+    }
     this._onMouseMove = (e) => {
       if (document.pointerLockElement !== this.renderer.domElement) return
       // Settings > Controls: Mouse Sensitivity and Invert Look.
       // Aiming down the sights turns the view slower, like zooming in
       // (much slower through a scope; not at all without a gun).
       const sens = LOOK_SENSITIVITY * ((this.game?.settings?.sensitivity ?? 100) / 100) * this.tryMode.aimLookScale()
-      this._yaw -= e.movementX * sens
-      this._pitch -= e.movementY * sens * (this.game?.settings?.invertY ? -1 : 1)
-      this._pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this._pitch))
+      // Mouse Smoothing (ControlSettings.lookBy) may spread it over frames.
+      lookBy(this, -e.movementX * sens, -e.movementY * sens * (this.game?.settings?.invertY ? -1 : 1))
     }
 
     // One InstancedMesh per block type (not one Mesh per block) - keeps the
@@ -4524,6 +4529,8 @@ export class BuildMode {
       this.camera.updateProjectionMatrix()
     }
 
+    // Controller, mouse smoothing, hold-to-interact (ControlSettings.js).
+    controlsTick(this, dt)
     this.camera.rotation.set(0, 0, 0)
     this.camera.rotateY(this._yaw)
     this.camera.rotateX(this._pitch)

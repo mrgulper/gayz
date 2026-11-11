@@ -3480,6 +3480,7 @@ export default {
   blimpDown: "¡Reventaste el globo! ¡Se está cayendo!",
   blimpCrashed: "¡El Zombi Blimp se estrelló y soltó su botín! +{n} monedas",
   actionBingo: "Cartón de Bingo Zombi",
+  actionAutoRun: "Correr automático",
   bingoTitle: "Bingo Zombi",
   bingoFree: "LIBRE",
   bingoPill: "Bingo {n}/{all} · {key}",

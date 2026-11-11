@@ -3480,6 +3480,7 @@ export default {
   blimpDown: "तुमने गुब्बारा फोड़ दिया! वह नीचे गिर रहा है!",
   blimpCrashed: "ज़ॉम्बी ब्लिम्प गिर गया और उसका लूट बिखर गया! +{n} सिक्के",
   actionBingo: "ज़ॉम्बी बिंगो कार्ड",
+  actionAutoRun: "ऑटो-रन",
   bingoTitle: "ज़ॉम्बी बिंगो",
   bingoFree: "मुफ़्त",
   bingoPill: "बिंगो {n}/{all} · {key}",

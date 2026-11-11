@@ -38,6 +38,7 @@ import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from '
 import { audioEngine } from './Audio.js'
 import { addGunLights, cloneViewmodel } from './Viewmodels.js'
 import { heldAction, FIXED_KEYS } from './Keybinds.js'
+import { aimSensScale, padRumble } from './ControlSettings.js'
 import { WORLD_LIMIT, sampleLand, biomeName, inCity, isEarthWorld } from './OpenWorld.js'
 import { EarthGlobe } from './EarthGlobe.js'
 import { explored, countryAtBlock, pctText, revealFor, packKeys, unpackKeys } from './ExploredMap.js'
@@ -72,6 +73,10 @@ const MAP_SPAN_FOR = { normal: 96, big: 640 }
 // VIEW_DIST blocks away, nearer when a wall is in the way.
 const VIEWS = ['first', 'back', 'front']
 const VIEW_DIST = 4
+// Camera Smoothness: how fast (per second) the third-person camera
+// catches up at 1% and at 100%.
+const VIEW_GLIDE_FAST = 30
+const VIEW_GLIDE_SLOW = 4
 // ...and from behind, this much higher (blocks) - over your head.
 const VIEW_RISE = 0.6
 // Milliseconds per minimap draw spent on detailed open-world tiles (twice
@@ -1051,6 +1056,12 @@ export class BuildTryMode {
     this._height = HEIGHT
     this._eye = EYE
     this._stepLag = 0
+    this._autoRun = false
+    this._crouchToggled = false
+    this._crouchKeyWas = false
+    this._viewSmooth = null
+    // Settings > Controls > Starting Camera View.
+    this.view = Math.max(0, VIEWS.indexOf(this.bm.game?.settings?.defaultCameraView || 'first'))
     const p = { x: cam.position.x / B, y: cam.position.y / B - EYE, z: cam.position.z / B }
     for (let i = 0; i < 200 && this._hits(p.x, p.y, p.z); i++) p.y += 1
     this.pos.set(p.x, p.y, p.z)
@@ -1084,6 +1095,7 @@ export class BuildTryMode {
   exit() {
     this.active = false
     this.view = 0
+    this._autoRun = false
     if (this._body) this._body.group.visible = false
     this.aiming = false
     this.aimAmount = 0
@@ -1122,8 +1134,13 @@ export class BuildTryMode {
     let mx = 0
     let mz = 0
     // Settings > Controls (Keybinds.js) - W/A/S/D by default.
-    const fwd = heldAction(keys, 'moveForward')
+    // Auto-Run key (Settings > Controls): walks forward on its own until
+    // Back, a fresh Forward press or the key again.
+    const fwdKey = heldAction(keys, 'moveForward')
     const back = heldAction(keys, 'moveBack')
+    if (this._autoRun && (back || (fwdKey && !this._autoRunFwdWas))) this._autoRun = false
+    this._autoRunFwdWas = fwdKey
+    const fwd = fwdKey || !!this._autoRun
     const left = heldAction(keys, 'moveLeft')
     const right = heldAction(keys, 'moveRight')
     if (fwd) { mx += fx; mz += fz }
@@ -1131,7 +1148,8 @@ export class BuildTryMode {
     if (right) { mx -= fz; mz += fx }
     if (left) { mx += fz; mz -= fx }
     // Phone stick (BuildTouch): the same directions, but any amount.
-    const stick = this.bm._touchMove
+    // ...or a controller's left stick (ControlSettings.js).
+    const stick = this.bm._touchMove || this.bm._padMove
     if (stick) {
       mx += fx * stick.y - fz * stick.x
       mz += fz * stick.y + fx * stick.x
@@ -1295,7 +1313,14 @@ export class BuildTryMode {
     const amount = stick && !fwd && !back && !left && !right ? Math.min(1, len) : 1
     // Crouch while a crouch key is held - standing back up waits until
     // there's room overhead.
-    const crouchHeld = heldAction(keys, 'crouch')
+    // Settings > Controls > Crouch: Toggle - one press crouches, the next
+    // stands up.
+    let crouchHeld = heldAction(keys, 'crouch')
+    if (this.bm.game?.settings?.crouchMode === 'toggle') {
+      if (crouchHeld && !this._crouchKeyWas) this._crouchToggled = !this._crouchToggled
+      this._crouchKeyWas = crouchHeld
+      crouchHeld = !!this._crouchToggled
+    }
     if (crouchHeld !== this._crouch && (crouchHeld || !this._hits(p.x, p.y, p.z, HEIGHT))) {
       this._crouch = crouchHeld
       this._height = crouchHeld ? CROUCH_HEIGHT : HEIGHT
@@ -1585,6 +1610,7 @@ export class BuildTryMode {
     }
     if (play?.active && !play.tryFire()) return
     this._kick()
+    padRumble(this.bm, 0.25, 70)
     this._inspectT = -1
     audioEngine.playShot(this._gunId)
     if (play?.active && play.shoot()) return
@@ -1638,7 +1664,8 @@ export class BuildTryMode {
   aimLookScale() {
     if (!this.aimZooms()) return 1
     const scope = scopeOf(this._gunId)
-    return 1 - (scope ? 1 - 1 / scope : 0.45) * this.aimAmount
+    // Settings > Controls > Aim Sensitivity on top.
+    return (1 - (scope ? 1 - 1 / scope : 0.45) * this.aimAmount) * aimSensScale(this.bm, this.aimAmount)
   }
 
   // The scope picture over the screen (#play-scope), shown once aiming is
@@ -1788,6 +1815,7 @@ export class BuildTryMode {
     cam.position.copy(eye).addScaledVector(dir, dist * sign * B)
     // From behind, a little higher, so you look over your own head.
     if (this.view === 1) cam.position.addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(quat), VIEW_RISE * Math.min(1, dist / VIEW_DIST) * B)
+    this._smoothViewCam(cam)
     if (this.view === 2) cam.lookAt(eye)
     cam.updateMatrixWorld()
     return () => {
@@ -1795,6 +1823,29 @@ export class BuildTryMode {
       cam.quaternion.copy(quat)
       cam.updateMatrixWorld()
     }
+  }
+
+  // Settings > Controls > Camera Smoothness: the third-person camera
+  // glides after its spot instead of sticking to it.
+  _smoothViewCam(cam) {
+    const s = Number(this.bm.game?.settings?.cameraSmoothness) || 0
+    const now = performance.now()
+    const v = this._viewSmooth
+    if (s <= 0 || !v || v.view !== this.view || now - v.at > 250) {
+      this._viewSmooth = { pos: cam.position.clone(), at: now, view: this.view }
+      return
+    }
+    const dt = (now - v.at) / 1000
+    v.at = now
+    const rate = VIEW_GLIDE_FAST - (VIEW_GLIDE_FAST - VIEW_GLIDE_SLOW) * (s / 100)
+    v.pos.lerp(cam.position, 1 - Math.exp(-rate * dt))
+    cam.position.copy(v.pos)
+  }
+
+  // The Auto-Run key (BuildMode's key handler).
+  toggleAutoRun() {
+    if (!this.active) return
+    this._autoRun = !this._autoRun
   }
 
   // Inspect Weapon: turn the gun to look at it (not while aiming).
