@@ -26,9 +26,16 @@ const HEAD_TOP = 30
 
 // Which hat (or null) a zombie wears: the same answer for the same id on
 // every player's screen.
+// Silly Setting of the Day "Hats for Everyone" (Wellbeing.js): every new
+// zombie in my game wears one. Only how they look on this screen.
+let allHats = false
+export function setAllHats(on) {
+  allHats = !!on
+}
+
 export function zombieHat(id) {
   const h = Math.imul((id | 0) ^ 0x5bd1e995, 0x27d4eb2d) >>> 0
-  if (h % HAT_EVERY !== 0) return null
+  if (!allHats && h % HAT_EVERY !== 0) return null
   return HAT_KINDS[(h >>> 8) % HAT_KINDS.length]
 }
 

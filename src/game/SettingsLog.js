@@ -82,14 +82,43 @@ function tracked(el) {
   return el?.matches?.('input, select') && !SKIP_IDS.has(el.id) && !el.closest('#settings-log') && el.type !== 'file' && el.type !== 'button'
 }
 
+// Undo Last Change (Settings idea 80, Wellbeing.js): the controls just
+// changed and what they were (their raw value, not the shown text),
+// newest last. Undo puts the old value back and fires the control's own
+// input/change events, so its own handler applies and saves it.
+const UNDO_MAX = 30
+const undoStack = []
+let undoing = false
+
+// The undone setting's name, or null when there's nothing to undo.
+export function undoLastSettingChange() {
+  while (undoStack.length) {
+    const { el, raw } = undoStack.pop()
+    if (!el.isConnected) continue
+    undoing = true
+    try {
+      if (el.type === 'checkbox') el.checked = raw
+      else el.value = raw
+      el.dispatchEvent(new Event('input', { bubbles: true }))
+      el.dispatchEvent(new Event('change', { bubbles: true }))
+    } finally {
+      undoing = false
+    }
+    return labelFor(el)
+  }
+  return null
+}
+
 export function bindSettingsLog(panel) {
   if (!panel) return
   const before = new WeakMap()
+  const beforeRaw = new WeakMap()
   const remember = (e) => {
     const el = e.target
     if (!tracked(el) || before.has(el)) return
     // A checkbox's old value is simply the other one.
     before.set(el, el.type === 'checkbox' ? null : valueOf(el))
+    if (el.type !== 'checkbox') beforeRaw.set(el, el.value)
   }
   panel.addEventListener('pointerdown', remember, true)
   panel.addEventListener('focusin', remember, true)
@@ -97,6 +126,14 @@ export function bindSettingsLog(panel) {
     const el = e.target
     if (!tracked(el)) return
     const old = before.has(el) ? before.get(el) : undefined
+    if (!undoing) {
+      const raw = el.type === 'checkbox' ? !el.checked : beforeRaw.get(el)
+      if (raw !== undefined && raw !== el.value) {
+        undoStack.push({ el, raw })
+        if (undoStack.length > UNDO_MAX) undoStack.shift()
+      }
+    }
+    if (el.type !== 'checkbox') beforeRaw.set(el, el.value)
     // After the control's own handler (it may round the value or update
     // the number shown beside it).
     setTimeout(() => {

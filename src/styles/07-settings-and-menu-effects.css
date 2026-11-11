@@ -1213,3 +1213,78 @@ html.theme-lighter #app { filter: brightness(1.25); }
 .settings-log-what { display: flex; flex-wrap: wrap; gap: 2px 8px; min-width: 0; overflow-wrap: anywhere; }
 .settings-log-change { opacity: 0.8; }
 .settings-log-empty { margin: 0; padding: 10px; font-size: 13px; opacity: 0.65; }
+
+/* ---------- Settings > Wellbeing & Misc (Wellbeing.js, SettingsPresets.js,
+   2026-11-11). The break / bedtime note at the top and the Presets / QR
+   popups. Same sizes in every theme; colours follow it (in a game: the
+   biome). ---------- */
+#wellbeing-note {
+  position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+  z-index: 60; width: min(420px, calc(100vw - 32px)); box-sizing: border-box;
+  padding: 12px 14px; border-radius: 10px; text-align: center;
+  background: rgba(10, 8, 4, 0.96); color: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--menu-gold, var(--ui-gold-bright));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+  animation: wellbeing-in 0.25s ease-out;
+}
+#wellbeing-note p { margin: 0 0 10px; font-size: 14px; line-height: 1.4; }
+@keyframes wellbeing-in { from { opacity: 0; transform: translate(-50%, -8px); } }
+.wellbeing-note-btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.wellbeing-note-btns button, .wellbeing-pop-box button {
+  font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.08); color: inherit;
+  border: 1px solid var(--menu-gold, var(--ui-gold-bright));
+}
+.wellbeing-note-btns .wellbeing-ok, .wellbeing-pop-box .preset-btn { font-weight: 700; }
+.wellbeing-pop-box button:disabled { opacity: 0.45; cursor: default; }
+
+.wellbeing-pop {
+  position: fixed; inset: 0; z-index: 61; display: flex; align-items: center; justify-content: center;
+  padding: 16px; box-sizing: border-box; background: rgba(0, 0, 0, 0.5);
+}
+.wellbeing-pop-box {
+  width: min(400px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; box-sizing: border-box;
+  padding: 16px; border-radius: 10px; text-align: center;
+  background: rgba(10, 8, 4, 0.97); color: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--menu-gold, var(--ui-gold-bright));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+.wellbeing-pop-box h3 { margin: 0 0 12px; font-size: 18px; }
+.wellbeing-pop-box h4 { margin: 14px 0 8px; font-size: 14px; }
+.wellbeing-pop-note { margin: 8px 0 12px; font-size: 13px; line-height: 1.4; opacity: 0.85; }
+.preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.preset-slot { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; margin-bottom: 6px; text-align: left; font-size: 13px; }
+.wellbeing-pop-close { margin-top: 12px; }
+.settings-qr-pic { width: min(240px, 70vw); margin: 0 auto; background: #fff; border-radius: 6px; padding: 6px; }
+.settings-qr-pic svg { display: block; width: 100%; height: auto; }
+
+html.ui-theme-old :is(#wellbeing-note, .wellbeing-pop-box) {
+  background: #ead6ac; color: var(--old-ink); border: 2px solid var(--menu-bronze);
+  font-family: Georgia, 'Times New Roman', serif; box-shadow: 0 6px 18px rgba(46, 29, 14, 0.45);
+}
+html.ui-theme-old :is(.wellbeing-note-btns, .wellbeing-pop-box) button { border-color: var(--menu-bronze); background: rgba(46, 29, 14, 0.06); }
+html.ui-theme-clean :is(#wellbeing-note, .wellbeing-pop-box) {
+  background: var(--clean-surface); color: var(--clean-fg); border: 1px solid var(--clean-line); font-family: var(--clean-font);
+}
+html.ui-theme-clean :is(.wellbeing-note-btns, .wellbeing-pop-box) button { border-color: var(--clean-line); background: var(--clean-card, transparent); }
+html.ui-theme-biome :is(#wellbeing-note, .wellbeing-pop-box) {
+  background: var(--biome-surface); color: var(--biome-ink); border: 1px solid var(--biome-edge);
+}
+html.ui-theme-biome :is(.wellbeing-note-btns, .wellbeing-pop-box) button { border-color: var(--biome-edge); }
+
+/* Silly Setting of the Day (Wellbeing.SILLY): html.silly-<id>. */
+@keyframes silly-rainbow {
+  0% { background: #ff4d4d; } 17% { background: #ffa64d; } 33% { background: #ffee4d; }
+  50% { background: #4dff88; } 67% { background: #4dc3ff; } 83% { background: #b04dff; } 100% { background: #ff4d4d; }
+}
+html.silly-rainbowCrosshair #build-try-crosshair::before,
+html.silly-rainbowCrosshair #build-try-crosshair::after { animation: silly-rainbow 1.6s linear infinite; }
+html.silly-upsideChat .chat-message-text { display: inline-block; transform: rotate(180deg); }
+html.silly-comicFont body, html.silly-comicFont button, html.silly-comicFont input, html.silly-comicFont select {
+  font-family: 'Comic Sans MS', 'Comic Sans', 'Chalkboard SE', 'Comic Neue', cursive !important;
+}
+@keyframes silly-boing { 0%, 100% { transform: scale(1); } 30% { transform: scale(1.12, 0.9); } 60% { transform: scale(0.95, 1.06); } }
+html.silly-bouncyButtons button:hover, html.silly-bouncyButtons button:active { animation: silly-boing 0.4s ease; }
+@media (prefers-reduced-motion: reduce) {
+  html.silly-bouncyButtons button:hover, html.silly-bouncyButtons button:active { animation: none; }
+}

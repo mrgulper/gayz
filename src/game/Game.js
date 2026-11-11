@@ -1532,6 +1532,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'settings-section-accessibility': 'settingsSectionAccessibility',
   'settings-section-accessibility-2': 'settingsSectionAccessibility',
   'settings-section-misc': 'settingsSectionMisc',
+  'settings-section-wellbeing': 'settingsSectionWellbeing',
   'settings-section-performance': 'settingsSectionPerformance',
   'settings-section-rendering': 'settingsSectionRendering',
   'settings-section-effects': 'settingsSectionEffects',
@@ -2895,7 +2896,10 @@ export class Game {
     // (Generating Map 1's city here as well was tried: on a slow device it
     // kept the page busy long enough to drop a player who had just joined
     // a server, so the city is still generated when Play is pressed.)
-    idle(() => this._preloadBuildMode().then(({ BuildMode }) => {
+    // Data Saver (Settings idea 76): neither of these downloads ahead -
+    // Play and Design a Skin load when opened.
+    const saveData = !!this.settings.dataSaver
+    if (!saveData) idle(() => this._preloadBuildMode().then(({ BuildMode }) => {
       idle(() => {
         if (typeof this.buildMode.enter !== 'function' && !this._enteringBuildMode) this.buildMode = new BuildMode(this.renderer, this)
       })
@@ -2910,7 +2914,7 @@ export class Game {
     // And Design a Skin (2026-10-16, "when you reload the design a skin is
     // already reloaded for you"): its page loads in the hidden panel, so
     // opening it shows the finished tool at once.
-    setTimeout(() => idle(() => this._preloadSkinDesigner()), SKIN_DESIGNER_PRELOAD_MS)
+    if (!saveData) setTimeout(() => idle(() => this._preloadSkinDesigner()), SKIN_DESIGNER_PRELOAD_MS)
     // (The weapon pictures aren't drawn here: drawn one per break as blob
     // URLs they no longer freeze anything, so they start when the weapon
     // picker or Inventory first needs them - drawing them at page load

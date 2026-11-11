@@ -88,6 +88,16 @@ export const MORE_SETTINGS = [
   { key: 'hideCurrency', type: 'toggle', def: false, page: 'general', before: 'settings-section-homepage' },
   { key: 'serverAccess', type: 'select', def: 'anyone', opts: ['anyone', 'link', 'nobody'], page: 'general', before: 'settings-section-homepage' },
   { key: 'postcardsFrom', type: 'select', def: 'friends', opts: ['friends', 'nobody'], page: 'general', before: 'settings-section-homepage' },
+  // --- Wellbeing & Misc (ideas 73-80; hook-ups in Wellbeing.js and
+  // SettingsPresets.js). Wellbeing has its own heading in index.html. ---
+  { key: 'breakReminder', type: 'select', def: 'off', opts: ['off', '30', '45', '60', '90', '120'], page: 'general', before: 'settings-section-misc' },
+  { key: 'sessionTimer', type: 'toggle', def: false, page: 'general', before: 'settings-section-misc' },
+  { key: 'bedtimeReminder', type: 'select', def: 'off', opts: ['off', '20', '21', '22', '23', '0'], page: 'general', before: 'settings-section-misc' },
+  { key: 'dataSaver', type: 'toggle', def: false, page: 'general', before: 'reset-general-defaults-btn' },
+  { key: 'sillyOfDay', type: 'toggle', def: false, page: 'general', before: 'reset-general-defaults-btn' },
+  { key: 'settingsPresets', type: 'button', page: 'general', before: 'reset-general-defaults-btn' },
+  { key: 'settingsQr', type: 'button', page: 'general', before: 'reset-general-defaults-btn' },
+  { key: 'undoSettingChange', type: 'button', page: 'general', before: 'reset-general-defaults-btn' },
 ]
 
 const VALUED = MORE_SETTINGS.filter((s) => s.type !== 'button')
