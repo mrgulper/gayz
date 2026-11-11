@@ -64,10 +64,26 @@ export const MORE_SETTINGS = [
   { key: 'saturation', type: 'range', def: 100, min: 0, max: 200, step: 5, unit: '%', page: 'graphics', before: 'reset-graphics-defaults-btn' },
   { key: 'sharpen', type: 'range', def: 0, min: 0, max: 100, step: 5, unit: '%', page: 'graphics', before: 'reset-graphics-defaults-btn' },
   { key: 'handFov', type: 'range', def: 70, min: 50, max: 110, step: 1, unit: '°', page: 'graphics', before: 'reset-graphics-defaults-btn' },
+  // --- Gameplay (ideas 51-62, #52 skipped; hook-ups in GameplayAssist.js) ---
+  { key: 'autoReload', type: 'toggle', def: true, page: 'controls', before: 'settings-section-accessibility-2' },
+  { key: 'autoSortInventory', type: 'toggle', def: false, page: 'controls', before: 'settings-section-accessibility-2' },
+  { key: 'confirmSell', type: 'toggle', def: true, page: 'controls', before: 'settings-section-accessibility-2' },
+  { key: 'confirmBuyOver', type: 'select', def: '100', opts: ['always', '50', '100', '250', '500', '1000', 'never'], page: 'controls', before: 'settings-section-accessibility-2' },
+  { key: 'lootHighlight', type: 'select', def: 'off', opts: ['off', 'glow', 'beam'], page: 'controls', before: 'settings-section-accessibility-2' },
+  { key: 'gameTips', type: 'select', def: 'silly', opts: ['off', 'silly', 'helpful', 'both'], page: 'controls', before: 'settings-section-accessibility-2' },
+  { key: 'pauseWhenHidden', type: 'toggle', def: true, page: 'controls', before: 'settings-section-accessibility-2' },
+  { key: 'afkPause', type: 'select', def: 'off', opts: ['off', '1', '2', '5', '10'], page: 'controls', before: 'settings-section-accessibility-2' },
+  { key: 'spoilerFreeStory', type: 'toggle', def: false, page: 'controls', before: 'settings-section-accessibility-2' },
+  // type 'button': a row with one button (text key <key>Btn) - no value,
+  // so not saved, reset or in the Settings Code.
+  { key: 'replayTutorial', type: 'button', page: 'controls', before: 'settings-section-accessibility-2' },
+  { key: 'resetHints', type: 'button', page: 'controls', before: 'settings-section-accessibility-2' },
 ]
 
-export const MORE_SETTING_KEYS = MORE_SETTINGS.map((s) => s.key)
+const VALUED = MORE_SETTINGS.filter((s) => s.type !== 'button')
+
+export const MORE_SETTING_KEYS = VALUED.map((s) => s.key)
 
 export function moreKeysForPage(page) {
-  return MORE_SETTINGS.filter((s) => s.page === page).map((s) => s.key)
+  return VALUED.filter((s) => s.page === page).map((s) => s.key)
 }

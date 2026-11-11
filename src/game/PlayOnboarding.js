@@ -16,6 +16,7 @@
 // Owned by BuildSurvival (`s.onboard`).
 import { t } from './i18n.js'
 import { isTouchDevice } from './BuildTouch.js'
+import { wantsTutorial, setTutorialReplay } from './GameplayAssist.js'
 
 export const STARTER_MIN = 8
 export const STARTER_MAX = 16
@@ -29,9 +30,10 @@ function cellOf(key) {
   return [Math.floor(xz / 65536) - 32768, (key % 512) - 256, (xz % 65536) - 32768]
 }
 
-// A first game: nothing played to the end yet.
+// A first game: nothing played to the end yet - or Settings > Gameplay >
+// Replay Tutorial was pressed (cleared once that game begins).
 export function isFirstGame(game) {
-  return !(Number(game?.careerStats?.totalRuns) > 0)
+  return wantsTutorial() || !(Number(game?.careerStats?.totalRuns) > 0)
 }
 
 export class PlayOnboarding {
@@ -45,6 +47,7 @@ export class PlayOnboarding {
   // From BuildSurvival.start, before the camera is handed to Try Map.
   // zone: the camp (Map3Generator safeZone). Returns true if it moved you.
   begin(zone) {
+    setTutorialReplay(false)
     this.active = true
     this.starter = null
     this._hintLeft = 0

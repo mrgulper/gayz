@@ -25,6 +25,7 @@
 import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
+import { hintOk } from './GameplayAssist.js'
 
 const ENTER_REACH = 3
 const HINT_REACH = 5
@@ -192,7 +193,7 @@ export class GoKart {
       const me = this.s.bodyPos()
       if (!this._hinted && !this.s.dead && Math.hypot(me.x - this.x, me.z - this.z) < HINT_REACH && Math.abs(me.y - this.y) < 3) {
         this._hinted = true
-        this.s._message(t('buildPlayKartHint'), 4)
+        if (hintOk('kart')) this.s._message(t('buildPlayKartHint'), 4)
       }
     }
   }

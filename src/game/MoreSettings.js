@@ -9,6 +9,7 @@ import { audioEngine } from './Audio.js'
 import { ensureGyro } from './ControlSettings.js'
 import { applyHudLook } from './HudSettings.js'
 import { bindGraphicsSettings, applyBatterySaver } from './GraphicsSettings.js'
+import { onGameplayButton, bindPauseHelpers, bindSpoilerReveal } from './GameplayAssist.js'
 
 const listeners = new Map()
 
@@ -39,20 +40,21 @@ function clean(def, raw) {
 // Saved values are untrusted: anything odd falls back to the default.
 export function parseMoreSettings(parsed) {
   const out = {}
-  for (const def of MORE_SETTINGS) out[def.key] = clean(def, parsed?.[def.key])
+  for (const def of MORE_SETTINGS) if (def.type !== 'button') out[def.key] = clean(def, parsed?.[def.key])
   return out
 }
 
 export function moreDefaults() {
   const out = {}
-  for (const def of MORE_SETTINGS) out[def.key] = def.def
+  for (const def of MORE_SETTINGS) if (def.type !== 'button') out[def.key] = def.def
   return out
 }
 
 function rowHtml(def) {
   const id = rowId(def.key)
   let control
-  if (def.type === 'toggle') control = `<input type="checkbox" id="${id}" class="audio-checkbox" />`
+  if (def.type === 'button') control = `<button type="button" id="${id}" class="mini-action-btn"></button>`
+  else if (def.type === 'toggle') control = `<input type="checkbox" id="${id}" class="audio-checkbox" />`
   else if (def.type === 'select') control = `<select id="${id}">${def.opts.map((v) => `<option value="${v}"></option>`).join('')}</select>`
   else control = `<input type="range" id="${id}" min="${def.min}" max="${def.max}" step="${def.step || 1}" value="${def.def}" /><span id="${id}-value" class="audio-value"></span>`
   return `<button type="button" class="settings-info-btn" data-info="${def.key}" aria-label="What does this do?">?</button><label for="${id}" id="${id}-label"></label>${control}`
@@ -86,6 +88,10 @@ export function applyMoreText() {
     const id = rowId(def.key)
     const label = document.getElementById(`${id}-label`)
     if (label) label.textContent = t(`${def.key}Label`)
+    if (def.type === 'button') {
+      const btn = document.getElementById(id)
+      if (btn) btn.textContent = t(`${def.key}Btn`)
+    }
     if (def.type === 'select') {
       const sel = document.getElementById(id)
       if (sel) for (const opt of sel.options) opt.textContent = t(`${def.key}Opt_${opt.value}`)
@@ -98,6 +104,10 @@ export function bindMoreSettings(game) {
   for (const def of MORE_SETTINGS) {
     const el = document.getElementById(rowId(def.key))
     if (!el) continue
+    if (def.type === 'button') {
+      el.addEventListener('click', () => onGameplayButton(def.key, game))
+      continue
+    }
     const shown = document.getElementById(`${rowId(def.key)}-value`)
     const show = () => {
       if (def.type === 'toggle') el.checked = !!game.settings[def.key]
@@ -124,7 +134,11 @@ export function bindMoreSettings(game) {
   bindGraphicsSettings(game)
   for (const key of ['gamma', 'saturation', 'sharpen']) onMoreSetting(key, (v, g) => g._applyGraphicsFilters?.())
   onMoreSetting('batterySaver', (v, g) => applyBatterySaver(g))
-  for (const def of MORE_SETTINGS) emit(game, def.key)
+  // Gameplay (ideas 51-62): read where they're used (GameplayAssist.js).
+  bindPauseHelpers(game)
+  bindSpoilerReveal()
+  onMoreSetting('spoilerFreeStory', (on) => document.documentElement.classList.toggle('spoiler-free', !!on))
+  for (const def of MORE_SETTINGS) if (def.type !== 'button') emit(game, def.key)
 }
 
 // ---------- Audio (ideas 1-10) ----------

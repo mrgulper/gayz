@@ -11,6 +11,7 @@ import { PlayNet } from './PlayNet.js'
 import { loadEarthTerrain } from './EarthTerrain.js'
 import { playConfig } from './PlayRules.js'
 import { t } from './i18n.js'
+import { fadeTip } from './GameplayAssist.js'
 import { GRAPHICS_LEVELS } from './GraphicsLevels.js'
 
 export function _bindDifficulty(game) {
@@ -232,6 +233,9 @@ export async function _fadeScreen(game, to, ms = PLAY_FADE_MS) {
   }
   const frame = () => new Promise((r) => requestAnimationFrame((t) => r(t)))
   if (to) {
+    // A tip on the black while a game loads (Settings > Gameplay > Game Tips).
+    if (ms === PLAY_FADE_MS) fadeTip(el, game.settings)
+    else el.querySelector('.play-fade-tip')?.replaceChildren()
     el.style.transitionDuration = ms + 'ms'
     el.style.display = 'block'
     void el.offsetWidth

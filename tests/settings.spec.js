@@ -606,3 +606,125 @@ test('the Graphics settings (ideas 39-50) work in a game', async ({ page }) => {
   expect(r.blood).toEqual([0x6fbf3a])
   expect(r.outlineOnDraws).toBeGreaterThan(0)
 })
+
+test('the Gameplay settings (ideas 51-62) work in a game', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    const set = (id, v) => {
+      const el = document.getElementById(id)
+      if (el.type === 'checkbox') { el.checked = v; el.dispatchEvent(new Event('change')) } else { el.value = v; el.dispatchEvent(new Event('change')) }
+    }
+    out.rows = ['ms-auto-reload', 'ms-auto-sort-inventory', 'ms-confirm-sell', 'ms-confirm-buy-over', 'ms-loot-highlight', 'ms-game-tips',
+      'ms-pause-when-hidden', 'ms-afk-pause', 'ms-spoiler-free-story', 'ms-replay-tutorial', 'ms-reset-hints']
+      .filter((id) => document.getElementById(id)?.closest('#settings-page-controls')).length
+    out.btnText = document.getElementById('ms-reset-hints').textContent
+    // Spoiler-Free: the html class blurs the Story card.
+    set('ms-spoiler-free-story', true)
+    out.spoilerClass = document.documentElement.classList.contains('spoiler-free')
+    set('ms-spoiler-free-story', false)
+    // Replay Tutorial / Reset Hints buttons.
+    localStorage.setItem('gayz-hint-counts', JSON.stringify({ kart: 3 }))
+    document.getElementById('ms-replay-tutorial').click()
+    out.replayFlag = localStorage.getItem('gayz-replay-tutorial')
+    out.hintsCleared = localStorage.getItem('gayz-hint-counts')
+    localStorage.removeItem('gayz-replay-tutorial')
+    // Buttons aren't settings.
+    out.notSaved = !('resetHints' in g.settings) && !('replayTutorial' in g.settings)
+
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    b.update(0.016)
+    b.survival.start()
+    const s = b.survival
+    const step = (n = 1, dt = 0.05) => { for (let i = 0; i < n; i++) b.update(dt) }
+    step(4)
+    // Auto-Reload: the last bullet starts a reload; off, it doesn't.
+    s.holding = null
+    s._equipWeapon('pistol')
+    s.holding = null
+    const lastShot = () => { s._reloadLeft = 0; s.mag = 1; s.reserve = 20; s._nextShotAt = 0; s.tryFire(); return s._reloadLeft > 0 }
+    out.autoReloadOn = lastShot()
+    set('ms-auto-reload', false)
+    out.autoReloadOff = lastShot()
+    set('ms-auto-reload', true)
+    s._reloadLeft = 0
+    // Auto-Sort: armor goes before blocks in the bag.
+    s.inv.grid.fill(null)
+    s.inv.hotbar.fill(null)
+    s.inv.hotbar[0] = { kind: 'gun', id: 'pistol', n: 1 }
+    for (let i = 1; i < 10; i++) s.inv.hotbar[i] = { kind: 'block', id: 'stone', n: 999 }
+    s.inv.grid[5] = { kind: 'block', id: 'dirt', n: 3 }
+    set('ms-auto-sort-inventory', true)
+    s.inv.add({ kind: 'item', id: 'helmet', n: 1 })
+    out.sorted = s.inv.grid.slice(0, 3).map((it) => it?.id || null)
+    set('ms-auto-sort-inventory', false)
+    // Confirm Buying Over 100: a 120-coin upgrade needs two clicks; Never: one.
+    s.coins = 1000
+    s.shop.openPanel()
+    s.shop.tab = 'upgrades'
+    s.shop._panelKey = ''
+    set('ms-confirm-buy-over', '100')
+    s.shop._click('upgrade', 'damage')
+    out.afterOneClick = s.coins
+    out.sureShown = !!document.querySelector('#play-npc-panel button.buy-sure')
+    s.shop._click('upgrade', 'damage')
+    out.afterTwoClicks = s.coins
+    set('ms-confirm-buy-over', 'never')
+    s.shop._click('buy', 'medkit')
+    out.afterNever = s.coins
+    set('ms-confirm-buy-over', '100')
+    s.shop.closePanel(false)
+    // Loot Glow / Beams on a Loot Chest next to you.
+    const p = s.bodyPos()
+    b.placeBlock(Math.floor(p.x) + 2, Math.floor(p.y), Math.floor(p.z), 'lootchest')
+    set('ms-loot-highlight', 'beam')
+    step(2)
+    out.marks = s.lootMarks.shown
+    out.beamVisible = !!s.lootMarks.marks[0]?.beam.visible
+    set('ms-loot-highlight', 'off')
+    step()
+    out.marksOff = s.lootMarks.shown
+    // Game Tips: Off shows none on the pause screen.
+    s.fromMenu = true
+    set('ms-game-tips', 'off')
+    b.toggleMenu()
+    out.tipOff = document.getElementById('play-pause-tip').textContent
+    b.toggleMenu()
+    set('ms-game-tips', 'helpful')
+    b.toggleMenu()
+    out.tipHelpful = document.getElementById('play-pause-tip').textContent
+    b.toggleMenu()
+    set('ms-game-tips', 'silly')
+    // Pause When Tab Is Hidden.
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
+    document.dispatchEvent(new Event('visibilitychange'))
+    delete document.visibilityState
+    out.pausedHidden = b.menuOpen
+    out.pauseNote = document.getElementById('play-pause-status').textContent
+    if (b.menuOpen) b.toggleMenu()
+    // AFK Pause after 1 minute.
+    set('ms-afk-pause', '1')
+    g._testIdle(61000)
+    b._keys.clear()
+    step()
+    out.pausedAfk = b.menuOpen
+    out.afkNote = document.getElementById('play-pause-status').textContent
+    if (b.menuOpen) b.toggleMenu()
+    set('ms-afk-pause', 'off')
+    s.stop()
+    step(2)
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toMatchObject({
+    rows: 11, btnText: 'Reset', spoilerClass: true, replayFlag: '1', hintsCleared: null, notSaved: true,
+    autoReloadOn: true, autoReloadOff: false, sorted: ['helmet', 'dirt', null],
+    afterOneClick: 1000, sureShown: true, afterTwoClicks: 880, afterNever: 840,
+    beamVisible: true, marksOff: 0, tipOff: '', pausedHidden: true, pauseNote: 'Paused while you were in another tab.',
+    pausedAfk: true, afkNote: 'Paused - no input for 1 min.',
+  })
+  expect(r.marks).toBeGreaterThan(0)
+  expect(r.tipHelpful).toMatch(/^Tip: /)
+})

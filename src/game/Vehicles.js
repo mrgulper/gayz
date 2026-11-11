@@ -44,6 +44,7 @@ import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
 import { makeKart } from './GoKart.js'
 import { REALM_KINDS } from './ZombieKinds.js'
+import { hintOk } from './GameplayAssist.js'
 
 const ENTER_REACH = 3
 const HINT_REACH = 5
@@ -370,7 +371,7 @@ export class Vehicles {
       else this._moveHeli(v, dt, {})
       if (!this._hinted && !this.s.dead && Math.hypot(me.x - v.x, me.z - v.z) < HINT_REACH) {
         this._hinted = true
-        this.s._message(t('vehicleHint'), 4)
+        if (hintOk('vehicle')) this.s._message(t('vehicleHint'), 4)
       }
     }
   }

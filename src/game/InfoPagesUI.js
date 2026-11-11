@@ -113,6 +113,8 @@ import { SPEEDRUN_WAVES, TOP_N as SPEEDRUN_TOP } from './Speedrun.js'
 import * as Party from './PartyModes.js'
 import { SIZE as DUNGEON_SIZE } from './Dungeons.js'
 import { SILLY_TIP_COUNT } from './SillyTips.js'
+import { HINT_MAX } from './GameplayAssist.js'
+import { MORE_SETTINGS } from './MoreSettingsList.js'
 import { COSMETIC_IDS } from './Cosmetics.js'
 import { MIN_FPS } from './PlayEntryUI.js'
 import { EMOTES } from './Emotes.js'
@@ -709,6 +711,9 @@ export function _featureValues(_game) {
     photoFilters: PHOTO_FILTERS.length - 1,
     jokeSigns: JOKE_SIGN_COUNT,
     sillyTips: SILLY_TIP_COUNT,
+    hintMax: HINT_MAX,
+    afkMin: Math.min(...afkMinutes()),
+    afkMax: Math.max(...afkMinutes()),
     cosmetics: COSMETIC_IDS.length,
     minFps: MIN_FPS,
     emotes: EMOTES.length,
@@ -987,4 +992,9 @@ export function _fadeOutWhatsNewDigest(game) {
   clearTimeout(game._whatsNewDigestFadeTimer)
   game.whatsNewDigest.classList.add('fading')
   setTimeout(() => { game.whatsNewDigest.style.display = 'none' }, 600)
+}
+
+// Settings > Gameplay > AFK Pause's choices, in minutes (GayZ Features).
+function afkMinutes() {
+  return MORE_SETTINGS.find((d) => d.key === 'afkPause').opts.filter((v) => v !== 'off').map(Number)
 }

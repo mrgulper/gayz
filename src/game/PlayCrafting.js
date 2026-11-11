@@ -13,6 +13,7 @@
 //   A Crop Plot is a block too: placed in the camp it stays there between
 //   games and keeps growing (CampFarm.js).
 import { t } from './i18n.js'
+import { loadStory, CHAPTERS } from './Campaign.js'
 import { ITEMS, itemName } from './PlayInventory.js'
 import { winterOn } from './Snowballs.js'
 
@@ -162,7 +163,15 @@ export class PlayCrafting {
   html() {
     const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;')
     const winter = winterOn(this.bm.game?.settings)
-    const rows = RECIPES.filter((r) => (r.kind === 'item' ? ITEMS[r.id] : this.bm.isBlockType(r.id)) && (!r.winter || winter)).map((r) => {
+    // Settings > Gameplay > Spoiler-Free Story: The Cure stays hidden until
+    // its chapter starts.
+    let spoiler = false
+    if (this.bm.game?.settings?.spoilerFreeStory) {
+      const st = loadStory()
+      const cure = CHAPTERS.indexOf('cure')
+      spoiler = st.ch < cure || (st.ch === cure && !st.started)
+    }
+    const rows = RECIPES.filter((r) => (r.kind === 'item' ? ITEMS[r.id] : this.bm.isBlockType(r.id)) && (!r.winter || winter) && !(spoiler && r.id === 'theCure')).map((r) => {
       const ok = this.canCraft(r)
       const icon = this.inv._icon({ kind: r.kind, id: r.id })
       const needs = r.needs.map((need) => {

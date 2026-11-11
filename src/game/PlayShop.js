@@ -22,6 +22,11 @@
 import { ammoFor } from './PlayWeapons.js'
 import { t } from './i18n.js'
 import { ROD_COST } from './Fishing.js'
+import { needsBuyConfirm } from './GameplayAssist.js'
+
+// Settings > Gameplay > Confirm Buying Over: the first click turns the
+// button into "Sure? N" for this long; a second click buys.
+const SURE_MS = 3000
 
 export const AMMO_FILL_COOLDOWN = 30
 export const SHOP_ITEMS = [
@@ -169,7 +174,7 @@ export class PlayShop {
         return
       }
       const btn = e.target.closest('button[data-act]')
-      if (btn && !btn.disabled) this._act(btn.dataset.act, btn.dataset.id)
+      if (btn && !btn.disabled) this._click(btn.dataset.act, btn.dataset.id)
     }
     this._panel.querySelector('#play-npc-close').onclick = () => this.closePanel()
   }
@@ -180,7 +185,8 @@ export class PlayShop {
     const now = performance.now() / 1000
     const ammoWait = Math.max(0, Math.ceil(this._ammoReadyAt - now))
     // Only redraw when something shown changed (it's called every frame).
-    const key = [id, s.coins, s.health, s.armor, s.mag, s.reserve, JSON.stringify(s.upgrades), ammoWait, this.quests.map((q) => q.claimed).join(), this.activeQuests().map((q) => this._statValue(q.stat)).join()].join('|')
+    const sure = this._sureNow()
+    const key = [id, s.coins, s.health, s.armor, s.mag, s.reserve, JSON.stringify(s.upgrades), ammoWait, sure ? `${sure.act}:${sure.id}` : '', this.quests.map((q) => q.claimed).join(), this.activeQuests().map((q) => this._statValue(q.stat)).join()].join('|')
     if (key === this._panelKey) return
     this._panelKey = key
     const set = (sel, text) => {
@@ -192,7 +198,11 @@ export class PlayShop {
     this._panel.querySelector('#play-npc-close').setAttribute('aria-label', t('communityBuildsCloseBtn'))
     this._panel.querySelector('#play-shop-tabs').innerHTML = this.tabs().map((tab) => `<button type="button" role="tab" class="play-shop-tab${tab === id ? ' active' : ''}" data-shop-tab="${tab}" aria-selected="${tab === id}">${t(`shopTab_${tab}`)}</button>`).join('')
     const rows = []
-    const row = (name, detail, btnText, act, itemId, disabled) => `<div class="play-npc-row"><div class="play-npc-info"><b>${name}</b><span>${detail}</span></div><button type="button" data-act="${act}" data-id="${itemId}" ${disabled ? 'disabled' : ''}>${btnText}</button></div>`
+    const row = (name, detail, btnText, act, itemId, disabled) => {
+      const asking = !disabled && sure?.act === act && sure.id === itemId
+      if (asking) btnText = t('buyConfirmSure', { n: this._costOf(act, itemId) })
+      return `<div class="play-npc-row"><div class="play-npc-info"><b>${name}</b><span>${detail}</span></div><button type="button" data-act="${act}" data-id="${itemId}"${asking ? ' class="buy-sure"' : ''} ${disabled ? 'disabled' : ''}>${btnText}</button></div>`
+    }
     const buying = id === 'items' || id === 'traps' || id === 'towers' || id === 'upgrades'
     // Iron Mode (a Game Mode mutator): no buying in the shop.
     const iron = !!s.cfg?.ironMode && buying
@@ -242,6 +252,42 @@ export class PlayShop {
   // A price after the Trader Discount upgrade (PlayRules.js).
   _price(item) {
     return Math.round(item.cost * (1 - (this.s.cfg?.discount || 0)))
+  }
+
+  // What a buy button costs (0 for free ones: ammo fill, quest claims).
+  _costOf(act, id) {
+    const s = this.s
+    if (act === 'buy') {
+      const item = SHOP_ITEMS.find((i) => i.id === id)
+      return item ? this._price(item) : 0
+    }
+    if (act === 'trap') {
+      const trap = [...SHOP_TRAPS, ...(s.td ? SHOP_TOWERS : [])].find((x) => x.id === id)
+      return trap ? this._price(trap) : 0
+    }
+    if (act === 'upgrade') {
+      const up = UPGRADES.find((u) => u.id === id)
+      return up?.costs[s.upgrades[id] || 0] || 0
+    }
+    return 0
+  }
+
+  _sureNow() {
+    return this._sure && performance.now() < this._sure.until ? this._sure : null
+  }
+
+  _click(act, id) {
+    const cost = this._costOf(act, id)
+    const sure = this._sureNow()
+    if (cost > 0 && needsBuyConfirm(this.bm.game?.settings, cost) && !(sure?.act === act && sure.id === id)) {
+      this._sure = { act, id, until: performance.now() + SURE_MS }
+      clearTimeout(this._sureTimer)
+      this._sureTimer = setTimeout(() => { if (this.panelOpen) this._renderPanel() }, SURE_MS + 50)
+      this._renderPanel()
+      return
+    }
+    this._sure = null
+    this._act(act, id)
   }
 
   _act(act, id) {

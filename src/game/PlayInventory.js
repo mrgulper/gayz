@@ -35,6 +35,7 @@ import { OPEN_H as WING_OPEN_H } from './Wingsuit.js'
 import { QUIET_HEAR } from './Rides.js'
 import { MIN_DROP as BUNGEE_MIN_DROP } from './Bungee.js'
 import { noteItem as noteMuseumItem } from './CampMuseum.js'
+import { hintOk } from './GameplayAssist.js'
 
 // How long the item card stays after a finger lets go (phones).
 const TIP_TOUCH_MS = 1600
@@ -303,6 +304,8 @@ export class PlayInventory {
         left -= k
       }
     }
+    // Settings > Gameplay > Auto-Sort (not while you're dragging).
+    if (this.s.bm?.game?.settings?.autoSortInventory && !this._drag) this.sortGrid()
     this.renderHotbar()
     if (this.open) this.render()
     return left
@@ -310,6 +313,34 @@ export class PlayInventory {
 
   selected() {
     return this.hotbar[this.active]
+  }
+
+  // Settings > Gameplay > Auto-Sort: the bag (not the hotbar or armor)
+  // in order - guns, armor, other items, then blocks, each A-Z - with
+  // stacks of the same thing joined up. A locked stack stays locked.
+  sortGrid() {
+    const rank = (it) => (it.kind === 'gun' ? 0 : ITEMS[it.id]?.armor ? 1 : it.kind === 'item' ? 2 : 3)
+    const name = (it) => (it.kind === 'item' ? itemName(it.id) : it.kind === 'block' ? this.bm.blockName?.(it.id) || it.id : it.id)
+    const merged = []
+    for (const it of this.grid) {
+      if (!it) continue
+      const max = stackOf(it)
+      let left = it.n
+      for (const m of merged) {
+        if (left <= 0) break
+        if (same(m, it) && m.n < max) {
+          const k = Math.min(left, max - m.n)
+          m.n += k
+          left -= k
+          if (it.lk) m.lk = 1
+        }
+      }
+      if (left > 0) merged.push({ ...it, n: left })
+    }
+    merged.sort((a, b) => rank(a) - rank(b) || String(name(a)).localeCompare(String(name(b))))
+    this.grid.fill(null)
+    merged.forEach((it, i) => { if (i < this.grid.length) this.grid[i] = it })
+    if (this.open) this.render()
   }
 
   // Keys 1-0 / the wheel / a hotbar click.
@@ -720,6 +751,10 @@ export class PlayInventory {
   // --- the panel ---
 
   show(on) {
+    // The two hint lines show the first HINT_MAX times it opens
+    // (Settings > Gameplay > Reset Hints brings them back).
+    if (on && !this.open) this._hints = hintOk('inventory')
+    if (on && !this.open && this.s.bm?.game?.settings?.autoSortInventory) this.sortGrid()
     this.open = on
     if (!this._el) this._build()
     this._el.style.display = on ? 'flex' : 'none'
@@ -767,7 +802,7 @@ export class PlayInventory {
       ${tabs}
       <div class="inv-split ${craft ? 'show-craft' : 'show-bag'}">
         <section class="inv-col inv-craft-col">
-          <div class="inv-col-head"><b>${t('invTabCraft')}</b><span>${t('craftHint')}</span></div>
+          <div class="inv-col-head"><b>${t('invTabCraft')}</b>${this._hints ? `<span>${t('craftHint')}</span>` : ''}</div>
           ${this.crafting.html()}
         </section>
         <section class="inv-col inv-bag-col">
@@ -777,7 +812,7 @@ export class PlayInventory {
           <div class="inv-hotbar">${bar}</div>
         </section>
       </div>
-      <p class="inv-hint">${t('invHint', { drop: keyLabel(getKeyFor('dropItem')) })}</p>
+      ${this._hints ? `<p class="inv-hint">${t('invHint', { drop: keyLabel(getKeyFor('dropItem')) })}</p>` : ''}
     </div>`
   }
 

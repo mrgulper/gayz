@@ -84,7 +84,8 @@ import { MapPins } from './MapPins.js'
 import { ZombieRadio } from './ZombieRadio.js'
 import { Sprays } from './Sprays.js'
 import { DeathReplay } from './DeathReplay.js'
-import { sillyTip } from './SillyTips.js'
+import { gameTip, afkTick, hintOk } from './GameplayAssist.js'
+import { LootMarks } from './LootMarks.js'
 import { JokeSigns } from './JokeSigns.js'
 import { Emotes } from './Emotes.js'
 import { PINATA_CANDY, PINATA_COINS, ZOMBIE_TIERS, NAME_COUNT, TAG_W, TAG_H, rollZombieTier, rollZombieName, zombieTagMaterial, zombieGlow, pulseZombieGlows, zombieName, ZOMBIE_SHINES, rollZombieShine, shineCoins, shineBody, glowShineBody, shineTagMaterial, zombieShineFx, animateShineFx, pulseShines } from './ZombieNames.js'
@@ -846,6 +847,7 @@ export class BuildSurvival {
     }
     this.inv?.show(false)
     this._drops?.clear()
+    this.lootMarks?.dispose()
     this.holding = null
     this.bm.sky?.forGame(false)
     this.bm.world?.setEarth?.(false)
@@ -975,7 +977,11 @@ export class BuildSurvival {
     const text = town ? t('spawnArrivedCity', { city: town, n }) : landmark ? t('spawnArrivedLandmark', { biome: name, n, name: landmark }) : t('spawnArrived', { biome: name, n })
     this._message(text, landmark || town ? 6 : undefined)
     // Then a silly tip (SillyTips.js) once you've had a look round.
-    setTimeout(() => this.active && !this.dead && this._message(sillyTip(), 5), 9000)
+    // (Settings > Gameplay > Game Tips picks which, or none.)
+    setTimeout(() => {
+      const tip = gameTip(this.bm.game?.settings)
+      if (tip && this.active && !this.dead) this._message(tip, 5)
+    }, 9000)
     return true
   }
 
@@ -1405,6 +1411,8 @@ export class BuildSurvival {
       return false
     }
     this.mag--
+    // Settings > Gameplay > Auto-Reload: the last bullet starts a reload.
+    if (this.mag <= 0 && this.reserve > 0 && this.bm.game?.settings?.autoReload !== false) this.reload()
     this._renderHud()
     return true
   }
@@ -3386,6 +3394,9 @@ export class BuildSurvival {
     if (!this.active) return
     survivalAudioTick(this, Math.min(dt, 0.1))
     hudTick(this, Math.min(dt, 0.1))
+    afkTick(this)
+    if (!this.lootMarks) this.lootMarks = new LootMarks(this)
+    this.lootMarks.update(Math.min(dt, 0.1))
     this.replay?.update(dt)
     this._updateCorpses(Math.min(dt, 0.1))
     this._fx?.update(Math.min(dt, 0.1))
@@ -3679,7 +3690,7 @@ export class BuildSurvival {
     this.dance?.update(dt)
     if (!this._trainTried && this.train && !this.dead) {
       this._trainTried = true
-      if (this.train.setup(this.bodyPos())) this._message(t('trainIntro'), 5)
+      if (this.train.setup(this.bodyPos()) && hintOk('train')) this._message(t('trainIntro'), 5)
     }
     this.train?.update(dt)
     // The minecart ride, and the zombies on the cart stay on it (Minecarts.js).
