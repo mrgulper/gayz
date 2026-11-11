@@ -40,6 +40,7 @@ import * as THREE from 'three'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
 import { zombieHealth } from './BuildSurvival.js'
+import { addChatSystemLine } from './ChatUI.js'
 
 export const ESC_Y = 240
 export const ROOMS = 3
@@ -350,6 +351,7 @@ export class EscapeRooms {
 
   update(dt) {
     const s = this.s
+    this._raceNews()
     if (!s.active || this.done) return
     if (this.waiting) {
       // Race: as soon as the others' lanes are known (the first sync).
@@ -446,13 +448,38 @@ export class EscapeRooms {
     }
   }
 
+  // Race on a server: who got out, in order (each player's `esc` in the
+  // sync). The first one is news for everyone still inside; the rest go
+  // in the chat with their place.
+  _raceNews() {
+    const net = this.s.net
+    if (!this.race || this.waiting || !net || net.closed || !net.players) return
+    if (!this._outOrder) this._outOrder = []
+    for (const [pid, p] of net.players) {
+      if (!p.esc || this._outOrder.includes(pid)) continue
+      this._outOrder.push(pid)
+      const name = p.nick || 'Survivor'
+      const n = this._outOrder.length + (this._myPlace ? 1 : 0) // I got out before them
+      if (n === 1) {
+        if (!this.done) this.s._message(t('escapeRaceFirst', { name }), 5)
+        addChatSystemLine(this.s.bm.game, t('escapeRaceFirst', { name }))
+      } else addChatSystemLine(this.s.bm.game, t('escapeRacePlace', { name, n }))
+    }
+  }
+
   _escaped() {
     if (this.done) return
     this.done = true
     const s = this.s
     s.coins = (s.coins || 0) + ESC_COINS
     this._bar.remove()
-    s._message(t('escapeWinMsg', { n: ESC_COINS }), 5)
+    const online = this.race && s.net && !s.net.closed
+    if (online) {
+      this._raceNews()
+      this._myPlace = (this._outOrder?.length || 0) + 1
+    }
+    s._message(online && this._myPlace === 1 ? t('escapeRaceYouFirst', { n: ESC_COINS }) : t('escapeWinMsg', { n: ESC_COINS }), 5)
+    if (online) addChatSystemLine(s.bm.game, this._myPlace === 1 ? t('escapeRaceYouFirst', { n: ESC_COINS }) : t('escapeRaceYouPlace', { n: this._myPlace }))
     try { audioEngine.playSpecial?.('firework') } catch { /* no audio */ }
     s._win()
   }

@@ -958,6 +958,8 @@ class AudioEngine {
     const delay = 14000 + Math.random() * 22000
     setTimeout(() => {
       if (!this.ambientStarted) return
+      // Only while the world's bed is on (not on the homepage).
+      if (!this._bedOn) return this._scheduleAmbientScare()
       const roll = Math.random()
       if (roll < 0.45) this.playDistantCreak()
       else if (roll < 0.75) this.playDistantScream()
@@ -978,8 +980,15 @@ class AudioEngine {
     // the density-scaled boost route through this shared panner, so a
     // nearby horde shifts the whole ambient bed toward its direction
     // instead of needing a second, competing drone system.
+    // The drone + wind (not rain/snow) go through bedGain, so
+    // setAmbientBed can fade them out on the homepage and back in the world.
+    const bedGain = ctx.createGain()
+    bedGain.gain.value = this._bedOn ? 1 : 0
+    bedGain.connect(this.ambientGain)
+    this._bedGain = bedGain
+
     const dronePanner = ctx.createStereoPanner()
-    dronePanner.connect(this.ambientGain)
+    dronePanner.connect(bedGain)
 
     const droneGain = ctx.createGain()
     droneGain.gain.value = 0.065
@@ -1030,7 +1039,7 @@ class AudioEngine {
     windLfo.connect(windLfoGain).connect(windGain.gain)
     windLfo.start(now)
 
-    wind.connect(windFilter).connect(windGain).connect(this.ambientGain)
+    wind.connect(windFilter).connect(windGain).connect(bedGain)
     wind.start(now)
 
     // Ambient variety by zone (see updateAmbientZone). Kept as
@@ -1063,6 +1072,20 @@ class AudioEngine {
     this._startWeatherSource('snow')
 
     this._scheduleAmbientScare()
+  }
+
+  // The world opened (on) or closed (off): starts the drone + wind bed the
+  // first time, then fades it in/out. Rain and snow have their own
+  // switch (setWeatherAudio). Called from BuildSky.onEnter/onExit.
+  setAmbientBed(on) {
+    this._bedOn = !!on
+    if (on) {
+      this.init()
+      this.resume()
+      this.startAmbient()
+    }
+    if (!this.ctx || !this._bedGain) return
+    this._bedGain.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, on ? 1.2 : 0.4)
   }
 
   // Attaches the decoded rain/snow buffer to its (already-connected) gain
