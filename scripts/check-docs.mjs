@@ -72,6 +72,8 @@ function touchedLines(diff) {
 const ALLOWED_NUMBERS = [
   /AK-47/g, /Glock 18/g, /M1911/g, /MP5-SD/g, /\bC4\b/g, /64x64/g, /\bMap [13]\b/g, /\b3D\b/g, /\b2D\b/g,
   /\b2x\b/g, /\b1 HP\b/g, /1–10/g, /1–3/g, /4–0/g, /\b16x16\b/g,
+  // Key names (the HUD's Hide HUD key).
+  /\bF1\b/g,
 ]
 
 const MARKER_REASON = (name) => new RegExp(`\\[${name}:\\s*[^\\]\\s][^\\]]{7,}\\]`, 'i')

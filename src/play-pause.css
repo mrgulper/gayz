@@ -1550,3 +1550,9 @@ html.ui-theme-biome #ghost-hud .ghost-bar { background: var(--biome-line); }
   body.touch-play-on #music-pad,
   body.touch-play-on #ghost-hud { top: 128px; }
 }
+
+/* Settings > HUD boxes (HudSettings.js), like the corner map. */
+html.ui-theme-old :is(#play-hud-info, #play-compass, .kill-feed-line) {
+  color: #2e1d0e; background: #ecd6aa; border: 2px solid #6b3f17; text-shadow: none;
+}
+html.ui-theme-old .compass-mark { border-bottom-color: #6b3f17; }

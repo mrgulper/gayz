@@ -1125,3 +1125,9 @@ html.ui-theme-sakura #menu {
 /* The bubbly letters sit tighter than the system font: the tagline keeps
    Simple's line height so Play and everything under it stay put. */
 html.ui-theme-sakura #menu-tagline { line-height: 1.178; }
+
+/* Settings > HUD boxes (HudSettings.js), like the corner map. */
+html.ui-theme-clean :is(#play-hud-info, #play-compass, .kill-feed-line) {
+  color: var(--clean-fg); background: var(--clean-bg); border: 2px solid var(--clean-fg); text-shadow: none;
+}
+html.ui-theme-clean .compass-mark { border-bottom-color: var(--clean-fg); }

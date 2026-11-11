@@ -406,3 +406,81 @@ test('the Controls settings (ideas 11-24) work in a game', async ({ page }) => {
   })
   expect(r.rumbles).toBeGreaterThan(0)
 })
+
+test('the HUD settings (ideas 25-38) work in a game', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    const set = (id, v) => {
+      const el = document.getElementById(id)
+      if (el.type === 'checkbox') { el.checked = v; el.dispatchEvent(new Event('change')) } else { el.value = v; el.dispatchEvent(new Event(el.type === 'range' ? 'input' : 'change')) }
+    }
+    out.rows = ['ms-hud-scale', 'ms-hide-hud', 'ms-minimap-size', 'ms-minimap-rotate', 'ms-kill-feed', 'ms-hit-marker', 'ms-low-ammo-warning',
+      'ms-show-ping', 'ms-hud-clock', 'ms-show-coords', 'ms-compass-bar', 'ms-chat-opacity', 'ms-chat-fade', 'ms-health-display']
+      .filter((id) => document.getElementById(id)?.closest('#settings-page-controls')).length
+    out.hideKey = !!document.querySelector('#controls-grid')?.textContent.includes('Hide HUD')
+    set('ms-hud-clock', 'real')
+    set('ms-show-coords', true)
+    set('ms-compass-bar', true)
+    set('ms-minimap-size', 'big')
+    set('ms-health-display', 'number')
+    set('ms-hud-scale', 120)
+    set('ms-hit-marker', false)
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    b.update(0.016)
+    b.survival.start()
+    const s = b.survival
+    const step = (n = 1, dt = 0.05) => { for (let i = 0; i < n; i++) b.update(dt) }
+    step(8)
+    out.mapBig = b.tryMode._mapEl.dataset.size
+    out.info = document.getElementById('play-hud-info')?.textContent || ''
+    out.compass = getComputedStyle(document.getElementById('play-compass')).display
+    out.healthText = getComputedStyle(document.getElementById('build-play-health-fill')).display
+    out.scale = getComputedStyle(document.getElementById('build-play-ammo')).scale
+    out.noHit = document.documentElement.classList.contains('no-hitmarker')
+    // F1 hides the HUD and saves it; again shows it.
+    const key = (code) => { b._onKeyDown({ code, repeat: false, target: null, preventDefault() {} }); b._onKeyUp({ code, repeat: false, target: null, preventDefault() {} }) }
+    key('F1'); step()
+    out.hidden = document.body.classList.contains('hud-hidden') && g.settings.hideHud && getComputedStyle(document.getElementById('build-play-ammo')).visibility === 'hidden'
+    key('F1'); step()
+    out.shown = !document.body.classList.contains('hud-hidden')
+    // A kill of mine shows in the kill feed.
+    s.kills++
+    step()
+    out.feed = [...document.querySelectorAll('.kill-feed-line')].map((e) => e.textContent)
+    // Low ammo.
+    s._reloadLeft = 0
+    s.mag = 1
+    step()
+    out.lowAmmo = document.getElementById('build-play-ammo').dataset.low || ''
+    s.mag = s.magSize()
+    step()
+    out.lowGone = !document.getElementById('build-play-ammo').classList.contains('low-ammo')
+    // Chat fades 5 s after the newest message.
+    set('ms-chat-fade', '5')
+    const realNow = performance.now
+    performance.now = () => realNow.call(performance) + 6000
+    try { step() } finally { performance.now = realNow }
+    out.chatFaded = document.getElementById('chat-panel').classList.contains('chat-faded')
+    // (A real-time frame again, so the clean-up below sees the game stop.)
+    set('ms-chat-fade', 'off')
+    step()
+    // Placed clear of the corner map (under it, or beside it when the big map fills the right edge).
+    const m = b.tryMode._mapEl.getBoundingClientRect()
+    const i = document.getElementById('play-hud-info').getBoundingClientRect()
+    out.infoClearOfMap = i.top >= m.bottom || i.right <= m.left
+    s.stop()
+    step(2)
+    await new Promise((res) => setTimeout(res, 700))
+    out.cleanedUp = document.getElementById('play-hud-info').style.display === 'none' && !document.body.classList.contains('hud-hidden')
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toMatchObject({
+    rows: 14, hideKey: true, mapBig: 'big', compass: 'block', healthText: 'none', scale: '1.2', noHit: true,
+    hidden: true, shown: true, feed: ['You took down a zombie'], lowAmmo: 'Low ammo', lowGone: true, chatFaded: true, infoClearOfMap: true, cleanedUp: true,
+  })
+  expect(r.info).toMatch(/Time .+\nX -?\d+ {2}Y -?\d+ {2}Z -?\d+/)
+})

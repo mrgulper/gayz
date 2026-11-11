@@ -593,6 +593,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     [`${base}/players/${playerId}/gh`]: cleanGhost(s.gh),
     [`${base}/players/${playerId}/jam`]: cleanJam(s.jam),
     [`${base}/players/${playerId}/fog`]: cleanFog(s.fog),
+    // This game's kill count, for the others' kill feed (src/game/HudSettings.js).
+    [`${base}/players/${playerId}/kills`]: Math.round(num(s.kills, 0, 1e6)),
     [`${base}/players/${playerId}/t`]: now,
   }
   // Drop players who went quiet; take over as host if the host did.
@@ -747,7 +749,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p) continue
-    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, gh: p.gh || null, jam: p.jam || null, fog: p.fog || null }
+    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, gh: p.gh || null, jam: p.jam || null, fog: p.fog || null, kills: Number(p.kills) || 0 }
     // A chat bubble: its number (new one = new bubble) and how long ago.
     if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }

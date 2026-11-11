@@ -5,6 +5,7 @@
 import { screenOpen as campScreenOpen } from './CampScreen.js'
 import { FIXED_KEYS, getKeyFor, keyLabel, keysFor } from './Keybinds.js'
 import { controlsTick, lookBy, startUse, endUse } from './ControlSettings.js'
+import { toggleHideHud } from './HudSettings.js'
 import * as THREE from 'three'
 import { setHomePaused } from './LiteHome.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
@@ -1660,7 +1661,9 @@ export class BuildMode {
           if (this.survival.active) this.survival.onKeyDown(e.code)
           if (e.code === getKeyFor('inspectWeapon')) this.tryMode.inspect()
           if (e.code === getKeyFor('cycleMap')) this.tryMode.cycleMap()
+          if (e.code === getKeyFor('hideHud')) toggleHideHud(this.game)
         }
+        if (e.code === getKeyFor('hideHud')) e.preventDefault()
         this._keys.add(e.code)
         if (MOVEMENT_KEY_CODES.has(e.code) || TRY_MOVE_ACTIONS.some((a) => keysFor(a).includes(e.code))) e.preventDefault()
         return
@@ -1678,6 +1681,11 @@ export class BuildMode {
         if (e.code === getKeyFor('inspectWeapon') && !e.repeat) this.tryMode.inspect()
         if (e.code === getKeyFor('cycleMap') && !e.repeat) this.tryMode.cycleMap()
         if (e.code === getKeyFor('cameraView') && !e.repeat) this.tryMode.cycleView()
+        // Hide HUD (F1, which would open the browser's help without preventDefault).
+        if (e.code === getKeyFor('hideHud')) {
+          e.preventDefault()
+          if (!e.repeat && this.survival.active) toggleHideHud(this.game)
+        }
         this._keys.add(e.code)
         if (MOVEMENT_KEY_CODES.has(e.code) || TRY_MOVE_ACTIONS.some((a) => keysFor(a).includes(e.code))) e.preventDefault()
         return
