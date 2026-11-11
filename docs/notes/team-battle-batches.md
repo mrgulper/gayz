@@ -20,8 +20,15 @@ Mix of auto-battle team building and creature raising.
   - Snacks: feed one creature an item before a battle (steak +attack, bandage = one
     revive), bought with coins, used up after the battle.
   - Shiny: 1 in 200 catches is a recolour with a sparkle; shows on cards and in battle.
-- [ ] **Batch 3 - Pack Leaders.** One boss trainer per biome with a themed team.
-  Beat them for a badge on the Team page.
+- [x] **Batch 3 - Pack Leaders** (shipped 2026-11-11). Gaymi picked: all 26 biomes,
+  fought from the Pets tab AND met in their biome, fixed ladder unlocked in order,
+  badge + bigger first-win prize (no rematches). Built as: PackLeaders.js (LEADERS
+  easiest first, leaderTeam tuned to a rising power curve 70 -> 3000 - always
+  stronger than the one before; dinos from leader 8, boss zombie from 22; prize
+  100 + 10 per step, loss 5; save `gayz-pack-leaders`), PackLeaderWorld.js
+  (s.leaders: the biome's leader 12-30 blocks away, beam in badge colour, raft on
+  water, Use to battle; no damage while battling). TeamBattle againKey -> false
+  hides the again button.
 - [ ] **Batch 4 - Gauntlet mode.** Separate run: start with coins, buy random
   creatures from a small shop each round, 3 copies merge into a stronger one,
   win 10 battles before your lives run out. Doesn't touch caught creatures.

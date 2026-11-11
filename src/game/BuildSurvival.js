@@ -68,6 +68,7 @@ import { ZombieLearning } from './ZombieLearning.js'
 import { DragonBoss } from './DragonBoss.js'
 import { Graveyard } from './Graveyard.js'
 import { Lighthouse } from './Lighthouse.js'
+import { PackLeaderWorld } from './PackLeaderWorld.js'
 import { Heist, SHOT_NOISE as HEIST_SHOT } from './Heist.js'
 import { ThemePark } from './ThemePark.js'
 import { TimeMachine } from './TimeMachine.js'
@@ -578,6 +579,9 @@ export class BuildSurvival {
     this.graveyard.clear()
     if (!this.lighthouse) this.lighthouse = new Lighthouse(this)
     this.lighthouse.clear()
+    // Pack Leaders standing in their biomes (PackLeaderWorld.js).
+    if (!this.leaders) this.leaders = new PackLeaderWorld(this)
+    this.leaders.clear()
     // The Vault Heist (a world event), the open world's Theme Park and the
     // Time Machine (Heist.js, ThemePark.js, TimeMachine.js).
     if (!this.heist) this.heist = new Heist(this)
@@ -816,6 +820,7 @@ export class BuildSurvival {
     this.learn?.clear()
     this.graveyard?.clear()
     this.lighthouse?.clear()
+    this.leaders?.clear()
     this.heist?.clear()
     this.park?.clear()
     this.time?.clear()
@@ -3133,6 +3138,8 @@ export class BuildSurvival {
     // Spectating: flying about, nothing can hurt you. Nor on board the
     // escape helicopter (_updateExtraction).
     if (this.dead || this.spectating || this._ride) return
+    // In a Pack Leader's battle (PackLeaderWorld.js).
+    if (this.leaders?.battling) return
     // Protected by an Infection Cleanser; less behind sandbags (BuildSpecials.js).
     if (this.bm.specials.shielded()) return
     amount *= this.bm.specials.hurtMult()
@@ -3424,6 +3431,7 @@ export class BuildSurvival {
     this.springs?.update(Math.min(dt, 0.1))
     this.carts?.update(Math.min(dt, 0.1))
     this.lighthouse?.update(Math.min(dt, 0.1))
+    this.leaders?.update(Math.min(dt, 0.1))
     this.water?.update(Math.min(dt, 0.1))
     this.wing?.update(Math.min(dt, 0.1))
     this.park?.update(Math.min(dt, 0.1))

@@ -554,3 +554,102 @@ test('Weekly Team Tournament: enter, win three rounds for the Champion badge', a
   })
   expect(r).toEqual({ enter: 'Enter Tournament', foes: 3, next: 'Next Round', last: 'Back to Bracket', entrants: 8, place: 'champion', badges: ['champion'], coins: 320, btn: true, bracketCols: 4, badgeShown: true })
 })
+
+// Pack Leaders (2026-11-11, PackLeaders.js / PackLeaderWorld.js).
+test('Pack Leaders: a ladder of 26, beat the next for a badge and coins; met in the world too', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    localStorage.setItem('gayz-creatures', JSON.stringify({ list: [{ id: 1, t: 'a', k: 'wolf', r: 'rare', at: 1 }, { id: 2, t: 'z', k: null, r: 'common', n: 3, at: 1 }], team: [1, 2], wins: 0, losses: 0, nextId: 3 }))
+    localStorage.removeItem('gayz-pack-leaders')
+    window.__game._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-pets').click()
+  })
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const P = g._packLeaders
+    const C = P
+    const byId = (id) => document.getElementById(id)
+    const out = {}
+    const powers = P.LEADERS.map((L, i) => C.power(P.leaderTeam(i)))
+    out.count = P.LEADERS.length
+    out.rising = powers.every((p, i) => !i || p > powers[i - 1])
+    out.sizes = [P.leaderTeam(0).length, P.leaderTeam(25).length]
+    out.title = byId('leaders-title').textContent
+    out.btn = byId('leaders-btn').textContent
+    out.badges = [...document.querySelectorAll('.leader-badge')].map((b) => b.className.replace('leader-badge ', ''))
+    out.states = [out.badges[0], out.badges[1]]
+    delete out.badges
+    // Lose first: no badge, 5 coins.
+    let coins = g.coins
+    byId('leaders-btn').click()
+    out.foe = document.querySelector('#team-battle .tb-foe-name').textContent
+    g._teamBattle._finish(false)
+    out.lostCoins = g.coins - coins
+    out.lostAgain = document.querySelector('#team-battle .tb-again').textContent
+    document.querySelector('#team-battle .tb-back').click()
+    out.afterLoss = P.loadLeaders().beaten.length
+    // Then win: badge, 100 coins, a Next Leader button.
+    coins = g.coins
+    byId('leaders-btn').click()
+    g._teamBattle._finish(true)
+    out.wonCoins = g.coins - coins
+    out.nextBtn = document.querySelector('#team-battle .tb-again').textContent
+    document.querySelector('#team-battle .tb-again').click()
+    out.nextFoe = document.querySelector('#team-battle .tb-foe-name').textContent
+    g._teamBattle._leave()
+    out.beaten = P.loadLeaders().beaten
+    out.title2 = byId('leaders-title').textContent
+    out.states2 = [...document.querySelectorAll('.leader-badge')].slice(0, 3).map((b) => b.className.replace('leader-badge ', ''))
+    // A locked leader can't be fought.
+    out.locked = P.startLeaderBattle(g, 5) === null
+    return out
+  })
+  expect(r).toEqual({
+    count: 26, rising: true, sizes: [2, 10],
+    title: 'Pack Leaders · 0/26 badges', btn: 'Challenge Hank!', states: ['next', 'locked'],
+    foe: 'Hank, Leader of the Plains', lostCoins: 5, lostAgain: 'Battle Again', afterLoss: 0,
+    wonCoins: 100, nextBtn: 'Next Leader', nextFoe: 'Coral, Leader of the Beach',
+    beaten: ['plains'], title2: 'Pack Leaders · 1/26 badges', states2: ['beaten', 'next', 'locked'], locked: true,
+  })
+
+  // In a game: Coral stands on the beach; Use next to her starts the battle,
+  // nothing hurts you while it's up, and winning gives her badge.
+  await page.evaluate(() => {
+    document.getElementById('inventory-panel')?.querySelector('.close-btn, .panel-close')?.click()
+    window.__game.playBtn.click()
+  })
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  const w = await page.evaluate(async () => {
+    const g = window.__game
+    const s = g.buildMode.survival
+    const out = {}
+    const me = s.bodyPos()
+    s.leaders.clear()
+    s.leaders._place(1, { x: me.x + 1, y: me.y, z: me.z }, false)
+    out.tag = !!s.leaders.leader.person.group
+    s.leaders.update(0.05)
+    out.pill = document.getElementById('pill-leader')?.textContent || ''
+    out.used = s.leaders.use()
+    out.battling = s.leaders.battling
+    out.open = !!g._teamBattle?.root
+    out.mouseFree = g.buildMode.mouseScreenOpen()
+    const hp = s.health
+    s._hurtPlayer(20)
+    out.hurt = hp - s.health
+    g._teamBattle._finish(true)
+    out.again = getComputedStyle(document.querySelector('#team-battle .tb-again')).display
+    document.querySelector('#team-battle .tb-back').click()
+    s.leaders.update(0.05)
+    out.after = s.leaders.battling
+    out.beaten = JSON.parse(localStorage.getItem('gayz-pack-leaders')).beaten
+    // Now she says you have her badge.
+    s.leaders.update(0.05)
+    out.pill2 = document.getElementById('pill-leader')?.textContent || ''
+    return out
+  })
+  expect(w).toEqual({
+    tag: true, pill: expect.stringContaining('Coral, Leader of the Beach · press'), used: true, battling: true, open: true, mouseFree: true,
+    hurt: 0, again: 'none', after: false, beaten: ['plains', 'beach'], pill2: 'Coral, Leader of the Beach · you have this badge',
+  })
+})
