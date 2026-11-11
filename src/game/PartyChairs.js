@@ -211,7 +211,7 @@ export class PartyChairs {
       this._noteIn -= dt
       if (this._noteIn <= 0) {
         this._noteIn = 0.9
-        try { audioEngine.playSpecial?.('tune') } catch { /* no audio */ }
+        try { audioEngine.playSpecial?.('tune', audioEngine.musicGain || undefined) } catch { /* no audio */ }
       }
     }
     const want = pm.phase === 'play' ? this.n : 0

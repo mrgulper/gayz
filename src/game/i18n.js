@@ -15,6 +15,10 @@ import id from './i18n/id.js'
 import de from './i18n/de.js'
 import ja from './i18n/ja.js'
 import vi from './i18n/vi.js'
+import moreEn from './i18n/more-settings-en.js'
+import moreZh from './i18n/more-settings-zh.js'
+import moreHi from './i18n/more-settings-hi.js'
+import moreEs from './i18n/more-settings-es.js'
 
 // nameKey points at a languageName* string (see each language's own
 // STRINGS block below) - the Settings > Language grid's bold label reads
@@ -43,6 +47,11 @@ export const LANGUAGES = [
   { code: 'pt-BR', name: 'Brazilian Portuguese', native: 'Português (Brasil)', nameKey: 'languageNamePtBr' },
 ]
 
+// The 2026-11-11 settings keep their text in their own files.
+Object.assign(en, moreEn)
+Object.assign(zh, moreZh)
+Object.assign(hi, moreHi)
+Object.assign(es, moreEs)
 const STRINGS = { en, zh, hi, es, fr, ru, id, de, ja, vi }
 
 // Read by scripts/check-docs.mjs (typed key letters) - not used at runtime.

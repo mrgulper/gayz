@@ -273,3 +273,39 @@ test('homepage settings live in General, and General lists your settings changes
   })
   expect(r).toMatchObject({ inGeneral: 7, inControls: 0, keyHeading: true, dropKey: true, fpsRow: true, moodRow: true, saved: 2, cleared: true })
 })
+
+test('the extra Audio settings save, work and reset with the Audio tab', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const live = await page.evaluate(async () => {
+    const a = window.__audioEngine
+    a.init()
+    const set = (id, v) => {
+      const el = document.getElementById(id)
+      if (el.type === 'checkbox') { el.checked = v; el.dispatchEvent(new Event('change')) } else { el.value = v; el.dispatchEvent(new Event(el.type === 'range' ? 'input' : 'change')) }
+    }
+    set('ms-music-volume', 30)
+    set('ms-mono-audio', true)
+    set('ms-quiet-hours', '22')
+    set('ms-sound-subtitles', true)
+    a.playZombieMoan(1, 0.9)
+    return {
+      music: Math.round(a.musicGain.gain.value * 100) / 100,
+      channels: a.outGain.channelCount,
+      caption: document.querySelector('.sound-caption')?.textContent,
+    }
+  })
+  expect(live.channels).toBe(1)
+  expect(live.caption).toBe('[zombie growl, right]')
+  await page.reload()
+  await waitForGame(page)
+  await hideAssetLoader(page)
+  const saved = await page.evaluate(() => {
+    const s = window.__game.settings
+    return [s.musicVolume, s.monoAudio, s.quietHours, document.getElementById('ms-music-volume').value]
+  })
+  expect(saved).toEqual([30, true, '22', '30'])
+  await page.evaluate(() => window.__game._resetSettingsTab('audio'))
+  await waitForGame(page)
+  const reset = await page.evaluate(() => [window.__game.settings.musicVolume, window.__game.settings.monoAudio])
+  expect(reset).toEqual([100, false])
+})

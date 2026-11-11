@@ -41,7 +41,7 @@ function noiseBuffer(ctx) {
 export function playInstrument(i, n, vol = 1) {
   const ctx = audioEngine.ctx
   if (!ctx || vol <= 0.01) return
-  const out = audioEngine.sfxGain
+  const out = audioEngine.musicGain || audioEngine.sfxGain
   const now = ctx.currentTime
   const tone = (hz, type, gain, len, endHz = hz) => {
     const o = ctx.createOscillator()
