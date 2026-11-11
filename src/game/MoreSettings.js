@@ -11,6 +11,9 @@ import { applyHudLook } from './HudSettings.js'
 import { bindGraphicsSettings, applyBatterySaver } from './GraphicsSettings.js'
 import { onGameplayButton, bindPauseHelpers, bindSpoilerReveal } from './GameplayAssist.js'
 import { applySocialLook } from './SocialSettings.js'
+import { bindWellbeing, onWellbeingButton, applySilly, applyDataSaver, sillyLabel } from './Wellbeing.js'
+
+const WELLBEING_BUTTONS = new Set(['settingsPresets', 'settingsQr', 'undoSettingChange'])
 
 const listeners = new Map()
 
@@ -88,7 +91,8 @@ export function applyMoreText() {
   for (const def of MORE_SETTINGS) {
     const id = rowId(def.key)
     const label = document.getElementById(`${id}-label`)
-    if (label) label.textContent = t(`${def.key}Label`)
+    // Silly Setting of the Day names today's silly thing.
+    if (label) label.textContent = def.key === 'sillyOfDay' ? sillyLabel() : t(`${def.key}Label`)
     if (def.type === 'button') {
       const btn = document.getElementById(id)
       if (btn) btn.textContent = t(`${def.key}Btn`)
@@ -106,7 +110,7 @@ export function bindMoreSettings(game) {
     const el = document.getElementById(rowId(def.key))
     if (!el) continue
     if (def.type === 'button') {
-      el.addEventListener('click', () => onGameplayButton(def.key, game))
+      el.addEventListener('click', () => (WELLBEING_BUTTONS.has(def.key) ? onWellbeingButton(def.key, game) : onGameplayButton(def.key, game)))
       continue
     }
     const shown = document.getElementById(`${rowId(def.key)}-value`)
@@ -151,6 +155,10 @@ export function bindMoreSettings(game) {
   }
   // Public profile bits: send the leaderboard doc again.
   for (const key of ['hideClan', 'hideCurrency']) onMoreSetting(key, (v, g) => { if (g._moreSettingsReady) g._pushOnlineStats?.() })
+  // Wellbeing & Misc (ideas 73-80): reminders + timer run in Wellbeing.js.
+  onMoreSetting('sillyOfDay', (v, g) => applySilly(g.settings))
+  onMoreSetting('dataSaver', (on) => applyDataSaver(on))
+  bindWellbeing(game)
   for (const def of MORE_SETTINGS) if (def.type !== 'button') emit(game, def.key)
   game._moreSettingsReady = true
 }

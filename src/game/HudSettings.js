@@ -11,6 +11,7 @@
 //     (spectating too), and goes away when it stops.
 import { t } from './i18n.js'
 import { saveSettings } from './Game.js'
+import { sessionText } from './Wellbeing.js'
 
 // Kill feed: lines shown at once, and how long each stays.
 const FEED_MAX = 5
@@ -169,6 +170,7 @@ function infoTick(s, set) {
       lines.push(t('hudClockGame', { t: timeText(d, set) }))
     }
   }
+  if (set.sessionTimer) lines.push(t('hudSessionTimer', { t: sessionText() }))
   if (set.showCoords) {
     const p = s.bm?.tryMode?.pos
     if (p) lines.push(t('hudCoords', { x: Math.floor(p.x), y: Math.floor(p.y), z: Math.floor(p.z) }))

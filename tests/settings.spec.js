@@ -803,3 +803,126 @@ test('Social & Safety: public profile, postcards and the strict filter', async (
   expect(strictClean('class assassin')).toBe('class assassin')
   expect(chatShows({ friendsOnlyChat: true, nickname: 'Me', savedFriends: friends }, { nickname: 'Me' })).toBe(true)
 })
+
+test('the Wellbeing & Misc settings (ideas 73-80) work', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const w = g._wellbeing
+    const out = {}
+    const tick = (ms = 400) => new Promise((res) => setTimeout(res, ms))
+    const set = async (id, v) => {
+      const el = document.getElementById(id)
+      el.dispatchEvent(new Event('focusin'))
+      if (el.type === 'checkbox') el.checked = v
+      else el.value = v
+      el.dispatchEvent(new Event('change'))
+      await tick()
+    }
+    const general = document.getElementById('settings-page-general')
+    out.rows = ['ms-break-reminder', 'ms-session-timer', 'ms-bedtime-reminder', 'ms-data-saver', 'ms-silly-of-day',
+      'ms-settings-presets', 'ms-settings-qr', 'ms-undo-setting-change']
+      .filter((id) => document.getElementById(id)?.closest('#settings-page-general')).length
+    const heads = [...general.querySelectorAll('.settings-section-heading')].map((h) => h.id)
+    out.wellbeingBeforeMisc = heads.indexOf('settings-section-wellbeing') === heads.indexOf('settings-section-misc') - 1
+    out.breakUnderWellbeing = document.getElementById('settings-section-wellbeing').nextElementSibling?.dataset.more
+    out.sillyLabel = document.getElementById('ms-silly-of-day-label').textContent
+    // 73 Break Reminder: the note, and "10 more minutes" closes it.
+    await set('ms-break-reminder', '30')
+    w.test({ played: 31 * 60000 })
+    await tick(1600)
+    out.breakNote = document.getElementById('wellbeing-note')?.textContent || ''
+    document.querySelector('#wellbeing-note .wellbeing-later')?.click()
+    out.breakGone = !document.getElementById('wellbeing-note')
+    await set('ms-break-reminder', 'off')
+    // 75 Bedtime: from the chosen hour until 5 in the morning.
+    out.bed = [
+      w.isBedtime({ bedtimeReminder: '22' }, new Date(2026, 0, 1, 22, 30)),
+      w.isBedtime({ bedtimeReminder: '22' }, new Date(2026, 0, 2, 3, 0)),
+      w.isBedtime({ bedtimeReminder: '22' }, new Date(2026, 0, 2, 12, 0)),
+      w.isBedtime({ bedtimeReminder: '0' }, new Date(2026, 0, 1, 23, 0)),
+      w.isBedtime({ bedtimeReminder: 'off' }, new Date(2026, 0, 1, 23, 0)),
+    ]
+    // 74 Session Timer text.
+    w.test({ session: 3725000 })
+    out.session = w.sessionText()
+    // 79 Silly of the Day: today's class on <html>, gone when off.
+    await set('ms-silly-of-day', true)
+    await tick(1200)
+    out.sillyClass = document.documentElement.classList.contains(`silly-${w.sillyToday()}`)
+    await set('ms-silly-of-day', false)
+    await tick(1200)
+    out.sillyOff = [...document.documentElement.classList].some((c) => c.startsWith('silly-'))
+    // 80 Undo Last Change: one control back, then nothing left.
+    await set('ms-session-timer', true)
+    await set('ms-bedtime-reminder', '23')
+    document.getElementById('ms-undo-setting-change').click()
+    await tick()
+    out.undoBed = g.settings.bedtimeReminder
+    out.undoToast = g.loreToast.textContent
+    document.getElementById('ms-undo-setting-change').click()
+    await tick()
+    out.undoTimer = g.settings.sessionTimer
+    // 77 Presets popup + a save slot.
+    document.getElementById('ms-settings-presets').click()
+    await tick(1500)
+    out.presets = document.querySelectorAll('#settings-presets-pop .preset-btn').length
+    document.querySelector('#settings-presets-pop .preset-slot[data-slot="0"] .preset-save').click()
+    await tick()
+    out.slot = document.querySelector('#settings-presets-pop .preset-slot[data-slot="0"] .preset-slot-name').textContent
+    out.slotLoadOn = !document.querySelector('#settings-presets-pop .preset-slot[data-slot="0"] .preset-load').disabled
+    document.querySelector('#settings-presets-pop .wellbeing-pop-close').click()
+    // 78 QR code.
+    g.settings.screenShake = 40
+    document.getElementById('ms-settings-qr').click()
+    await tick(1500)
+    out.qr = !!document.querySelector('#settings-qr-pop .settings-qr-pic svg')
+    out.qrHelp = document.querySelector('#settings-qr-pop .wellbeing-pop-note').textContent
+    document.querySelector('#settings-qr-pop .wellbeing-pop-close').click()
+    g.settings.screenShake = 100
+    return out
+  })
+  expect(r.rows).toBe(8)
+  expect(r.wellbeingBeforeMisc).toBe(true)
+  expect(r.breakUnderWellbeing).toBe('breakReminder')
+  expect(r.sillyLabel).toMatch(/^Silly of the Day: \S/)
+  expect(r.breakNote).toContain('31 minutes')
+  expect(r.breakGone).toBe(true)
+  expect(r.bed).toEqual([true, true, false, false, false])
+  expect(r.session).toMatch(/^1:02:0\d$/)
+  expect(r.sillyClass).toBe(true)
+  expect(r.sillyOff).toBe(false)
+  expect(r.undoBed).toBe('off')
+  expect(r.undoToast).toContain('Bedtime Reminder')
+  expect(r.undoTimer).toBe(false)
+  expect(r.presets).toBe(5)
+  expect(r.slot).toContain('saved')
+  expect(r.slotLoadOn).toBe(true)
+  expect(r.qr).toBe(true)
+  expect(r.qrHelp).toContain('Scan')
+
+  // A preset saves and reloads; Undo brings the old values back.
+  await page.evaluate(() => document.getElementById('ms-settings-presets').click())
+  let loaded = page.waitForEvent('load')
+  await page.locator('#settings-presets-pop .preset-btn[data-preset="calm"]').click()
+  await loaded
+  await waitForGame(page)
+  await hideAssetLoader(page)
+  expect(await page.evaluate(() => window.__game.settings.screenShake)).toBe(0)
+  loaded = page.waitForEvent('load')
+  await page.evaluate(() => { setTimeout(() => document.getElementById('ms-undo-setting-change').click(), 0) })
+  await loaded
+  await waitForGame(page)
+  await page.waitForFunction(() => window.__game?.settings?.screenShake === 100)
+
+  // Opening a settings QR link asks first, then copies them.
+  const code = Buffer.from(JSON.stringify({ screenShake: 40, sessionTimer: true })).toString('base64')
+  await gotoAndWaitForGame(page, `/#sc=${encodeURIComponent(code)}`)
+  await expect(page.locator('#settings-qr-offer')).toBeVisible({ timeout: 15000 })
+  loaded = page.waitForEvent('load')
+  await page.locator('#settings-qr-offer .wellbeing-ok').click()
+  await loaded
+  await waitForGame(page)
+  await page.waitForFunction(() => window.__game?.settings?.screenShake === 40 && window.__game.settings.sessionTimer === true)
+  expect(await page.evaluate(() => location.hash)).toBe('')
+})

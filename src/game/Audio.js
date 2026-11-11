@@ -161,6 +161,9 @@ class AudioEngine {
   // the buffer, setWeatherAudio) attaches the real source whenever the
   // buffer becomes available.
   _loadWeatherSounds() {
+    // Data Saver (Settings idea 76): no weather files - rain and snow keep
+    // the built-in soft noise.
+    if (this.dataSaver) return
     fetch(RAIN_AMBIENCE_URL)
       .then((res) => res.arrayBuffer())
       .then((data) => this.ctx.decodeAudioData(data))
@@ -174,7 +177,9 @@ class AudioEngine {
   }
 
   _loadZombieSounds() {
-    for (const [pool, files] of Object.entries(ZOMBIE_SOUND_FILES)) {
+    for (const [pool, all] of Object.entries(ZOMBIE_SOUND_FILES)) {
+      // Data Saver: two sounds of each kind instead of all 24 files.
+      const files = this.dataSaver ? all.slice(0, 2) : all
       for (const file of files) {
         fetch(ZOMBIE_SOUND_DIR + file)
           .then((res) => res.arrayBuffer())
@@ -1264,6 +1269,19 @@ class AudioEngine {
     noise.connect(filter).connect(gain).connect(this.footGain || this.sfxGain)
     noise.start(now)
     noise.stop(now + duration)
+    // Silly Setting of the Day "Squeaky Shoes": a little rubber-duck chirp.
+    if (this.squeaky && !muffled) {
+      const osc = ctx.createOscillator()
+      const sq = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(900 + Math.random() * 300, now)
+      osc.frequency.exponentialRampToValueAtTime(1700 + Math.random() * 400, now + 0.08)
+      sq.gain.setValueAtTime(0.06, now)
+      sq.gain.exponentialRampToValueAtTime(0.001, now + 0.12)
+      osc.connect(sq).connect(this.footGain || this.sfxGain)
+      osc.start(now)
+      osc.stop(now + 0.13)
+    }
   }
 
   // Directional zombie presence (see startAmbient's own doc comment for the
