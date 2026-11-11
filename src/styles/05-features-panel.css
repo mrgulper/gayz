@@ -315,3 +315,11 @@ section.category.hidden-search {
   100% { opacity: 0; transform: translate(-50%, -6px); }
 }
 
+
+/* Settings > Gameplay > Spoiler-Free Story: the Story Campaign card is
+   blurred until clicked (GameplayAssist.bindSpoilerReveal). */
+html.spoiler-free .feature-spoiler:not(.revealed) {
+  filter: blur(6px);
+  cursor: pointer;
+  user-select: none;
+}

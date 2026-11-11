@@ -1619,6 +1619,14 @@ html.menu-panel-open #build-play-health { display: none; }
 .play-npc-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 13px; color: rgba(241, 230, 200, 0.75); }
 .play-npc-info b { font-size: 16px; color: #fff; }
 .play-npc-row button { flex: none; }
+/* Settings > Gameplay > Confirm Buying Over: "Sure?" waits for a 2nd click. */
+.play-npc-row button.buy-sure {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  animation: buy-sure-pulse 0.7s ease-in-out infinite alternate;
+}
+@keyframes buy-sure-pulse { to { outline-offset: 4px; } }
+@media (prefers-reduced-motion: reduce) { .play-npc-row button.buy-sure { animation: none; } }
 .play-npc-empty { text-align: center; }
 /* The Shop's tabs (PlayShop.js, 2026-11-01): Items, Traps, Upgrades, Ammo,
    Quests. The list keeps one height so switching tabs never resizes it. */

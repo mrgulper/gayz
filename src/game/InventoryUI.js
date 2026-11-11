@@ -525,6 +525,11 @@ export function _closeInventorySkinMenu(game) {
 export function _openSellDialog(game, id) {
   const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
   if (!entry?.sell || !(entry.count(game) > 0) || _isSkinLocked(game, 'character', id)) return
+  // Settings > Gameplay > Confirm Before Selling off: sold straight away.
+  if (game.settings.confirmSell === false) {
+    game._sellSkinToGame(id)
+    return
+  }
   const name = entry.nameKey ? t(entry.nameKey) : entry.name
   game._openTradeDialog('sell', { id, name, priceLabel: game._formatSkinPrice(entry.sell.currency, entry.sell.amount) })
 }

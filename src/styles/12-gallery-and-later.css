@@ -465,6 +465,20 @@ button {
 #play-fade.on {
   opacity: 1;
 }
+/* A tip while a game loads (Settings > Gameplay > Game Tips). The cover is
+   black in every theme, so the text is always light. */
+#play-fade .play-fade-tip {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  width: min(90vw, 640px);
+  margin: 0;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 1.05rem;
+  line-height: 1.4;
+}
 
 /* Every sign-in button - the Google button on the Welcome to GayZ page,
    and the "Sign up or login to use..." buttons at the bottom of Friend List,

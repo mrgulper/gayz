@@ -246,7 +246,15 @@ Already in the game (skip or extend): 66 muted players list (Social > muted list
 - Hand / Weapon FOV: `BuildTryMode._renderOnTop` (`handFov()`, portrait keeps its wide-view formula with fov/2).
 - Test: settings "the Graphics settings (ideas 39-50) work in a game".
 
-**Gameplay (51-62):** 51 auto-reload · 52 auto-equip better weapon · 53 auto-sort inventory · 54 confirm before selling · 55 confirm buying above X coins · 56 loot glow/beams · 57 loading tips · 58 replay tutorials · 59 pause when tab hidden (offline) · 60 AFK auto-pause · 61 spoiler-free Story Campaign · 62 reset all tooltips/hints.
+**Gameplay (51-62): DONE 2026-11-11.** Rows in Controls > Gameplay (before Accessibility). `GameplayAssist.js` (kept light - homepage Settings loads it) + `LootMarks.js`. #52 auto-equip skipped (Gaymi: you only carry one gun). MoreSettingsList now has `type: 'button'` rows (text `<key>Btn`; not saved/reset/in the Settings Code). Gaymi's picks: tips Off/Silly/Helpful/Both; hints show 3x then reset; buy confirm covers Shop + Market.
+- Auto-Reload (default on): `BuildSurvival.tryFire` calls `reload()` after the last bullet. Auto-Sort: `PlayInventory.sortGrid` (bag only; guns, armor, items, blocks, A-Z, stacks merged) on `add()` (not while dragging) and on opening.
+- Confirm Before Selling: `_openSellDialog` sells straight away when off. Confirm Buying Over (`needsBuyConfirm`, default 100): in-game Shop's first click sets `PlayShop._sure` -> button "Sure? N" (`.buy-sure`) for 3 s; Market (SettingsUI) skips the buy box under the price. Gem shop skin buy still always asks.
+- Loot Glow (Off/Glow/Glow + Beams): `LootMarks` scans +-16 blocks (y +-8) for `lootchest` every 1 s (not in `_chestsUsed`), plus `isRareItem` drops; up to 12 additive sprites/cylinders, never a light.
+- Game Tips: `gameTip(settings)` in the pause screen, the 9 s tip and `#play-fade .play-fade-tip` (fades into a Play game only). Helpful = `helpTip1..12` with key names.
+- Hints: `hintOk(id)` counts in localStorage `gayz-hint-counts`, max `HINT_MAX` = 3: vehicle, kart, train, inventory (craftHint + invHint per open). Item-use replies (jetpack, wingsuit...) stay always. Replay Tutorial sets `gayz-replay-tutorial` -> `isFirstGame` true until `PlayOnboarding.begin` (also resets hints).
+- Pause When Tab Is Hidden (default on) / AFK Pause (Off/1/2/5/10 min): solo `fromMenu` games only; opens the pause screen with a note in `#play-pause-status`. AFK input = key/pointer/wheel/touch + held keys, pad stick, trigger. `game._testIdle(ms)` for tests.
+- Spoiler-Free Story: hides The Cure recipe until chapter 5 starts; `html.spoiler-free .feature-spoiler` blurs the Features Story card until clicked.
+- Test: settings "the Gameplay settings (ideas 51-62) work in a game".
 
 **Social & Safety (63-72):** 63 chat filter strength off/light/strict · 64 hide chat · 65 friends-only chat · 66 muted players list (exists) · 67 block friend requests from non-clan · 68 appear offline (exists) · 69 hide my clan tag · 70 hide my coins/gems · 71 who can join my server · 72 who can see my postcards.
 

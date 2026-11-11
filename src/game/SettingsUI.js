@@ -23,6 +23,7 @@ import { bindGameplaySettings } from './GameplaySettings.js'
 import { bindMoreSettings, buildMoreRows, quietHoursFactor } from './MoreSettings.js'
 import { moreKeysForPage } from './MoreSettingsList.js'
 import { GRAPHICS_LEVELS, LEVEL_LOOK } from './GraphicsLevels.js'
+import { needsBuyConfirm } from './GameplayAssist.js'
 import { applyUiTheme, cleanVars, normalizeHex, rememberCleanVars, getCleanBgImage, applyCleanBgImage, cropToScreen, CLEAN_BG_IMAGE_KEY, uiThemeOf, skinDesignerTheme } from './CleanTheme.js'
 
 // Swaps a slider's value label for a temporary <input type="number"> on
@@ -449,6 +450,11 @@ export function _bindSettings(game) {
     const price = _safeStatNumber(listing.price)
     if (game.coins < price) {
       game._showHomepageToast(t('skinNeedCoins', { need: Math.ceil(price - game.coins).toLocaleString() }))
+      return
+    }
+    // Settings > Gameplay > Confirm Buying Over: cheaper ones buy straight away.
+    if (!needsBuyConfirm(game.settings, price)) {
+      game._buyMarketListing(listing)
       return
     }
     game._openTradeDialog('buy', { listing, name, seller: String(listing.sellerName || '').slice(0, 24), priceLabel: game._formatSkinPrice('coins', price) })

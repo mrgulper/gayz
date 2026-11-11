@@ -32,7 +32,7 @@
 //                    and goes to the homepage.
 // On a server there's nothing to save: Save Progress is hidden.
 import { t } from './i18n.js'
-import { sillyTip } from './SillyTips.js'
+import { gameTip } from './GameplayAssist.js'
 import { inviteLink, makeGameJoinable, newServerId } from './ServerBrowser.js'
 import { SPRAY_SIZE, SPRAY_COLORS, loadSpray, saveSpray, sprayCanvas } from './Sprays.js'
 import { getKeyFor, keyLabel } from './Keybinds.js'
@@ -107,8 +107,8 @@ export class PlayPauseMenu {
     set('play-pause-save-label', t('playPauseSave'))
     set('play-pause-leave-label', t('playPauseLeave'))
     set('play-pause-hint', t('playPauseHint'))
-    // A silly tip each time (SillyTips.js).
-    set('play-pause-tip', sillyTip())
+    // A tip each time (Settings > Gameplay > Game Tips; GameplayAssist.js).
+    set('play-pause-tip', gameTip(this.bm.game?.settings))
     set('play-pause-status', '')
     const save = document.getElementById('play-pause-save-btn')
     if (save) save.style.display = s.net ? 'none' : ''
