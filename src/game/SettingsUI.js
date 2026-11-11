@@ -24,6 +24,7 @@ import { bindMoreSettings, buildMoreRows, quietHoursFactor } from './MoreSetting
 import { moreKeysForPage } from './MoreSettingsList.js'
 import { GRAPHICS_LEVELS, LEVEL_LOOK } from './GraphicsLevels.js'
 import { needsBuyConfirm } from './GameplayAssist.js'
+import { MONTH_THEMES, monthIndex } from './MonthThemes.js'
 import { applyUiTheme, cleanVars, normalizeHex, rememberCleanVars, getCleanBgImage, applyCleanBgImage, cropToScreen, CLEAN_BG_IMAGE_KEY, uiThemeOf, skinDesignerTheme } from './CleanTheme.js'
 
 // Swaps a slider's value label for a temporary <input type="number"> on
@@ -983,6 +984,13 @@ export function _bindSettings(game) {
       game.themePickerClean.classList.toggle('active', theme === 'clean')
       game.themePickerOld.classList.toggle('active', theme === 'old')
       game.themePickerSakura?.classList.toggle('active', theme === 'sakura')
+      game.themePickerMonthly?.classList.toggle('active', theme === 'monthly')
+      // The Monthly card: this month's picture and name.
+      const month = MONTH_THEMES[monthIndex()]
+      const monthImg = document.getElementById('theme-picker-monthly-img')
+      if (monthImg && monthImg.getAttribute('src') !== month.preview) monthImg.setAttribute('src', month.preview)
+      const monthName = document.getElementById('theme-picker-monthly-month')
+      if (monthName) monthName.textContent = `· ${t(month.nameKey)}`
       game.themePickerClean.style.setProperty('--clean-preview', game.settings.cleanColor)
       game.themePickerClean.style.setProperty('--clean-preview-fg', cleanVars(game.settings.cleanColor)['--clean-fg'])
       if (game.themeCleanColorInput) game.themeCleanColorInput.value = game.settings.cleanColor
@@ -1010,6 +1018,17 @@ export function _bindSettings(game) {
     game.themePickerClean.addEventListener('click', () => pick('clean'))
     game.themePickerOld.addEventListener('click', () => pick('old'))
     game.themePickerSakura?.addEventListener('click', () => pick('sakura'))
+    game.themePickerMonthly?.addEventListener('click', () => pick('monthly'))
+    // Monthly changes by itself: a look every 10 minutes (and when the tab
+    // comes back) for a new month - cheap, nothing per frame.
+    let shownMonth = monthIndex()
+    const checkMonth = () => {
+      if (monthIndex() === shownMonth) return
+      shownMonth = monthIndex()
+      syncUiTheme()
+    }
+    setInterval(checkMonth, 10 * 60 * 1000)
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkMonth() })
     // Picking a colour also switches to Clean - it's Clean's colour.
     const setColor = (value, save) => {
       const hex = normalizeHex(value)

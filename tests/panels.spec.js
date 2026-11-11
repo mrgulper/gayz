@@ -861,3 +861,32 @@ test('homepage extras: cards, Today panel, Play tags, emote', async ({ page }) =
   const d = new Date()
   expect(r.holiday).toBe(d.getMonth() === 11 ? 'winter' : '')
 })
+
+// Monthly theme (2026-11-11): the look follows the month by itself - from
+// the very first paint - and Sakura Dream is April's look all year.
+test('Monthly theme picks the look of the current month, from the first paint', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('gayz-settings', JSON.stringify({ uiTheme: 'monthly' }))
+    Date.prototype.getMonth = function () { return 9 }
+  })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(() => {
+    const root = document.documentElement
+    return {
+      pic: root.dataset.pictureTheme,
+      picture: root.classList.contains('ui-theme-picture'),
+      image: root.style.getPropertyValue('--clean-bg-image'),
+      font: getComputedStyle(document.getElementById('play-btn')).fontFamily,
+      card: document.getElementById('theme-picker-monthly-img').getAttribute('src'),
+      saved: JSON.parse(localStorage.getItem('gayz-picture-themes') || '[]').map((p) => p.id).length,
+    }
+  })
+  expect(r).toEqual({ pic: 'bloodmoon', picture: true, image: 'url("/images/month-10-bloodmoon.webp")', font: expect.stringContaining('Creepster'), card: '/images/month-10-bloodmoon-preview.jpg', saved: 12 })
+  // A reload now paints straight from the saved looks (index.html), before Game runs.
+  await page.goto(page.url())
+  const first = await page.evaluate(() => document.documentElement.dataset.pictureTheme)
+  expect(first).toBe('bloodmoon')
+  // Sakura Dream stays April's look whatever the month.
+  await page.evaluate(() => document.getElementById('theme-picker-sakura').click())
+  expect(await page.evaluate(() => document.documentElement.dataset.pictureTheme)).toBe('sakura')
+})

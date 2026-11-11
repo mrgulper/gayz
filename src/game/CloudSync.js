@@ -114,6 +114,18 @@ service cloud.firestore {
 
     match /leaderboard/{userId} {
       allow read: if true;
+      // The online heartbeat (updateLastActive, 2026-11-11): a write that
+      // only touches lastActiveAt/doNotDisturb/manualIdle is allowed on its
+      // own, even before the player's first finished game has created the
+      // full doc with bestNight etc. Before this, a brand-new signed-in
+      // player's heartbeat was rejected, so the homepage "players online"
+      // counter skipped them. A presence-only doc has no bestNight, so the
+      // leaderboard's orderBy queries never list it.
+      allow write: if request.auth != null && request.auth.uid == userId
+        && request.resource.data.diff(resource == null ? {} : resource.data).affectedKeys().hasOnly(['lastActiveAt', 'doNotDisturb', 'manualIdle'])
+        && request.resource.data.lastActiveAt is int
+        && (!('doNotDisturb' in request.resource.data) || request.resource.data.doNotDisturb is bool)
+        && (!('manualIdle' in request.resource.data) || request.resource.data.manualIdle is bool);
       allow write: if request.auth != null && request.auth.uid == userId
         && request.resource.data.bestNight is int && request.resource.data.bestNight >= 0 && request.resource.data.bestNight < 1000
         && request.resource.data.bestKills is int && request.resource.data.bestKills >= 0 && request.resource.data.bestKills < 1000000

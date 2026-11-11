@@ -33,12 +33,20 @@
         // Hide My Coins / Hide Chat (Settings > Social): hidden from the first paint.
         if (__s && __s.hideCurrency === true) document.documentElement.classList.add('hide-currency')
         if (__s && __s.hideChat === true) document.documentElement.classList.add('hide-chat')
-        // Sakura Dream: fixed pinks, the cherry-blossom picture and the
-        // cute letters (same values as CleanTheme.js SAKURA_VARS).
-        if (__t === 'sakura') {
-          document.documentElement.classList.add('ui-theme-clean', 'ui-theme-sakura', 'sakura-font')
-          var __sv = { '--clean-bg': '#ffd3e6', '--clean-fg': 'rgb(122, 36, 92)', '--clean-fg-rgb': '122, 36, 92', '--clean-panel': 'rgb(255, 236, 244)', '--clean-surface': 'rgb(255, 222, 236)', '--clean-hover': 'rgb(253, 200, 224)', '--clean-page': '#ffd3e6', '--clean-card': 'rgba(255, 242, 248, 0.92)', '--clean-card-fg': 'rgb(122, 36, 92)', '--clean-bg-image': 'url("/images/sakura-dream.webp")' }
-          for (var __sk in __sv) document.documentElement.style.setProperty(__sk, __sv[__sk])
+        // Picture themes - Sakura Dream (April's look) and Monthly (this
+        // month's look, MonthThemes.js): fixed colours, the picture and the
+        // look's letters. The twelve looks' variables are the ones Game
+        // saved last time (CleanTheme.rememberPictureThemes); Sakura has its
+        // own copy here in case they're missing.
+        if (__t === 'sakura' || __t === 'monthly') {
+          document.documentElement.classList.add('ui-theme-clean', 'ui-theme-picture', 'picture-font')
+          var __pl = null
+          try { __pl = JSON.parse(localStorage.getItem('gayz-picture-themes') || 'null') } catch (e) { __pl = null }
+          var __pi = __t === 'sakura' ? 3 : new Date().getMonth()
+          var __pv = __pl && __pl[__pi] && __pl[__pi].vars
+          if (__pv) document.documentElement.dataset.pictureTheme = __pl[__pi].id
+          else if (__t === 'sakura') __pv = { '--clean-bg': '#ffd3e6', '--clean-fg': 'rgb(122, 36, 92)', '--clean-fg-rgb': '122, 36, 92', '--clean-panel': 'rgb(255, 236, 244)', '--clean-surface': 'rgb(255, 222, 236)', '--clean-hover': 'rgb(253, 200, 224)', '--clean-page': '#ffd3e6', '--clean-card': 'rgba(255, 242, 248, 0.92)', '--clean-card-fg': 'rgb(122, 36, 92)', '--clean-bg-image': 'url("/images/sakura-dream.webp")', '--pic-font': "'Luckiest Guy', 'Bebas Neue', sans-serif", '--pic-weight': '400', '--pic-line': 'rgba(214, 92, 150, 0.32)', '--pic-glow': '236, 112, 170', '--pic-text-glow': 'rgba(255, 244, 250, 0.95)' }
+          if (__pv) for (var __sk in __pv) document.documentElement.style.setProperty(__sk, __pv[__sk])
         } else if (__t === 'clean' || __t === 'golden') {
           document.documentElement.classList.add('ui-theme-clean')
           var __h = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(__s.cleanColor || '').trim())
@@ -1411,6 +1419,15 @@ Escape before dawn.</p>
               <div class="theme-picker-head"><span class="theme-picker-name" id="theme-picker-sakura-label">Sakura Dream</span></div>
               <button type="button" class="theme-picker-card" id="theme-picker-sakura" data-theme="sakura" aria-labelledby="theme-picker-sakura-label">
                 <img src="/images/theme-preview-sakura.jpg" alt="" draggable="false" loading="lazy" />
+              </button>
+            </div>
+            <!-- Monthly (2026-11-11): a picture look for every month that
+                 changes by itself (MonthThemes.js); the card shows this
+                 month's picture and name (SettingsUI fills both). -->
+            <div class="theme-picker-item">
+              <div class="theme-picker-head"><span class="theme-picker-name"><span id="theme-picker-monthly-label">Monthly</span><span id="theme-picker-monthly-month"></span></span></div>
+              <button type="button" class="theme-picker-card" id="theme-picker-monthly" data-theme="monthly" aria-labelledby="theme-picker-monthly-label">
+                <img id="theme-picker-monthly-img" src="" alt="" draggable="false" loading="lazy" />
               </button>
             </div>
           </div>
@@ -3244,8 +3261,8 @@ Escape before dawn.</p>
         <h2>Customization</h2>
 
         <div class="feature" data-code="uiTheme">
-          <h3>Old, Simple &amp; Sakura Dream Themes</h3>
-          <p>Three complete looks for the menus and pause screens, picked in Settings &gt; Theme (its own tab after Graphics): Old (the default - rusty metal, torn paper panels, worn profile card, and rain falling over the homepage street with splashes on the cobbles) and Simple (flat, no rain - the whole game in one plain colour you pick with the colour circle beside its name, a soft light grey to start, with the text in that colour's opposite - pick yellow and it turns purple - made dark or light enough to stay readable; the homepage is a shade darker than your colour - light grey for white - with Play, Game Mode, Settings, the right-side buttons, profile card, coins bar and clock as boxes in your colour that grow a little when you point at them, and a small gap between the profile card and the buttons under it; the right-side number circles are in the text colour so they read on any colour, panels close with a plain X, and the Profile's boxes are light like the rest of the panel; the picture icon puts a picture from your computer behind the homepage, cut to fit the screen and kept on that device only, and the bin icon beside it removes it) and Sakura Dream (Simple's shapes in soft pinks with plum writing, a cherry-blossom shopping street behind the homepage and cute bubbly letters on every single word - in games too, whether the game screens follow the biome or keep the theme). Every screen follows the theme you pick - the panels, the Inventory and Market cards and dropdowns, the Inspect window, the Equip/Sell menu and price window, the Friendship status list and the Map Editor's pause screen. Both rearrange themselves to fit phones and tablets. Every panel fits above the bottom links even on short laptop screens, and Coming Soon badges stay readable in any Simple colour. The GayZ logo shows on iPhone, iPad and Mac Safari too, at every logo level.</p>
+          <h3>Old, Simple, Sakura Dream &amp; Monthly Themes</h3>
+          <p>Four complete looks for the menus and pause screens, picked in Settings &gt; Theme (its own tab after Graphics): Old (the default - rusty metal, torn paper panels, worn profile card, and rain falling over the homepage street with splashes on the cobbles) and Simple (flat, no rain - the whole game in one plain colour you pick with the colour circle beside its name, a soft light grey to start, with the text in that colour's opposite - pick yellow and it turns purple - made dark or light enough to stay readable; the homepage is a shade darker than your colour - light grey for white - with Play, Game Mode, Settings, the right-side buttons, profile card, coins bar and clock as boxes in your colour that grow a little when you point at them, and a small gap between the profile card and the buttons under it; the right-side number circles are in the text colour so they read on any colour, panels close with a plain X, and the Profile's boxes are light like the rest of the panel; the picture icon puts a picture from your computer behind the homepage, cut to fit the screen and kept on that device only, and the bin icon beside it removes it) Sakura Dream (Simple's shapes in soft pinks with plum writing, a cherry-blossom street with pagodas behind the homepage and cute bubbly letters on every single word - in games too, whether the game screens follow the biome or keep the theme) and Monthly (a different picture look for every month that changes by itself when a new month starts: January Frostbound Kingdom, February Sweetheart Boulevard, March Emerald Awakening, April Sakura Dream, May Enchanted Garden, June Azure Coast, July Tropical Paradise, August Golden Kingdom, September Autumn Hollow, October Blood Moon Hollow, November Amberfrost Haven and December Winter Wonderland - each with its own street picture, matching colours and its own letters on every word, in games too; its card in Settings shows this month's picture and name). Every screen follows the theme you pick - the panels, the Inventory and Market cards and dropdowns, the Inspect window, the Equip/Sell menu and price window, the Friendship status list and the Map Editor's pause screen. Both rearrange themselves to fit phones and tablets. Every panel fits above the bottom links even on short laptop screens, and Coming Soon badges stay readable in any Simple colour. The GayZ logo shows on iPhone, iPad and Mac Safari too, at every logo level.</p>
         </div>
         <div class="feature" data-code="bindHoverMenus">
           <h3>Homepage Hover Menus</h3>

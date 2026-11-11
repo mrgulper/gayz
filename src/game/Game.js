@@ -1357,6 +1357,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'theme-clean-color-label': 'themeCleanColorLabel',
   'theme-picker-old-label': 'optUiThemeOld',
   'theme-picker-sakura-label': 'optUiThemeSakura',
+  'theme-picker-monthly-label': 'optUiThemeMonthly',
   'play-biome-look-label': 'playBiomeLookLabel',
   'coming-soon-close-btn': 'comingSoonCloseBtn',
   // Friendship's tabs (Clan moved there from General, 2026-10-24).
@@ -2287,6 +2288,7 @@ export class Game {
     this.themeCleanBgFile = document.getElementById('theme-clean-bg-file')
     this.themePickerOld = document.getElementById('theme-picker-old')
     this.themePickerSakura = document.getElementById('theme-picker-sakura')
+    this.themePickerMonthly = document.getElementById('theme-picker-monthly')
     this.playBiomeLookToggle = document.getElementById('play-biome-look-toggle')
     this.cursorTrailToggle = document.getElementById('cursor-trail-toggle')
     this.crtScanlinesToggle = document.getElementById('crt-scanlines-toggle')

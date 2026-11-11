@@ -46,7 +46,10 @@ function writeVersionFilePlugin() {
 // with this build's id and the list of every file the game can need, so the
 // service worker can keep them all on the device after one online visit.
 // Left out: the old-browser (legacy) bundles and files nothing loads.
-const SW_SKIP = [/-legacy[-.]/, /^benchmark\.html$/, /^version\.json$/, /^sw\.js$/, /\.(txt|map)$/, /(^|\/)LICENSE/]
+// images/month-*: the eleven Monthly theme pictures (~450 KB each) aren't
+// pre-saved for offline - only the month's own one is ever shown, and it's
+// saved the first time it loads like any other file.
+const SW_SKIP = [/^images\/month-/, /-legacy[-.]/, /^benchmark\.html$/, /^version\.json$/, /^sw\.js$/, /\.(txt|map)$/, /(^|\/)LICENSE/]
 // Design a Skin (public/skin-designer/index.html, its own page) imports
 // three.js through an import map - from the game itself rather than a CDN,
 // so it works offline: these files are copied from node_modules into

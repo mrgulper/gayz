@@ -9,6 +9,19 @@ http://scripts.sil.org/OFL
 
 
 -----------------------------------------------------------
+==== monthly theme fonts (2026-11-11) ====
+Cinzel: Copyright its authors, SIL Open Font License 1.1 - https://fonts.google.com/specimen/Cinzel
+Fredoka: Copyright its authors, SIL Open Font License 1.1 - https://fonts.google.com/specimen/Fredoka
+Uncial Antiqua: Copyright its authors, SIL Open Font License 1.1 - https://fonts.google.com/specimen/Uncial+Antiqua
+Mystery Quest: Copyright its authors, SIL Open Font License 1.1 - https://fonts.google.com/specimen/Mystery+Quest
+Comfortaa: Copyright its authors, SIL Open Font License 1.1 - https://fonts.google.com/specimen/Comfortaa
+Lilita One: Copyright its authors, SIL Open Font License 1.1 - https://fonts.google.com/specimen/Lilita+One
+Marcellus SC: Copyright its authors, SIL Open Font License 1.1 - https://fonts.google.com/specimen/Marcellus+SC
+Fondamento: Copyright its authors, SIL Open Font License 1.1 - https://fonts.google.com/specimen/Fondamento
+Creepster: Copyright its authors, SIL Open Font License 1.1 - https://fonts.google.com/specimen/Creepster
+Yeseva One: Copyright its authors, SIL Open Font License 1.1 - https://fonts.google.com/specimen/Yeseva+One
+Mountains of Christmas: Copyright its authors, SIL Open Font License 1.1 - https://fonts.google.com/specimen/Mountains+of+Christmas
+
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
 -----------------------------------------------------------
 
