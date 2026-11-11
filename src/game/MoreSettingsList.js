@@ -78,6 +78,16 @@ export const MORE_SETTINGS = [
   // so not saved, reset or in the Settings Code.
   { key: 'replayTutorial', type: 'button', page: 'controls', before: 'settings-section-accessibility-2' },
   { key: 'resetHints', type: 'button', page: 'controls', before: 'settings-section-accessibility-2' },
+  // --- Social & Safety (ideas 63-72; #66 muted list and #68 appear
+  // offline were already there; hook-ups in SocialSettings.js) ---
+  { key: 'chatFilter', type: 'select', def: 'normal', opts: ['normal', 'strict'], page: 'general', before: 'settings-section-homepage' },
+  { key: 'hideChat', type: 'toggle', def: false, page: 'general', before: 'settings-section-homepage' },
+  { key: 'friendsOnlyChat', type: 'toggle', def: false, page: 'general', before: 'settings-section-homepage' },
+  { key: 'friendRequestsFrom', type: 'select', def: 'everyone', opts: ['everyone', 'clan'], page: 'general', before: 'settings-section-homepage' },
+  { key: 'hideClan', type: 'toggle', def: false, page: 'general', before: 'settings-section-homepage' },
+  { key: 'hideCurrency', type: 'toggle', def: false, page: 'general', before: 'settings-section-homepage' },
+  { key: 'serverAccess', type: 'select', def: 'anyone', opts: ['anyone', 'link', 'nobody'], page: 'general', before: 'settings-section-homepage' },
+  { key: 'postcardsFrom', type: 'select', def: 'friends', opts: ['friends', 'nobody'], page: 'general', before: 'settings-section-homepage' },
 ]
 
 const VALUED = MORE_SETTINGS.filter((s) => s.type !== 'button')

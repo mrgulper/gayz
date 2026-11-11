@@ -16,6 +16,7 @@ import { ACHIEVEMENTS } from './Achievements.js'
 import { GLOBAL_KILLS_MILESTONE_STEP, POLL_ID, POLL_OPTIONS, _escapeHtml, _safeStatNumber, _thisWeekStr, saveShopProgress } from './Game.js'
 import { t } from './i18n.js'
 import { clanMonthKey, currentClanXp } from './Xp.js'
+import { applyPublicPrivacy } from './SocialSettings.js'
 
 // Cloud Save panel open/close - a normal modal, same shared z-index/
 // display:flex rule every other panel uses.
@@ -421,6 +422,8 @@ export async function _pushOnlineStats(game) {
   }
   entry.todayKills = _safeStatNumber(game._sessionKills)
   entry.todayMinutes = Math.round((performance.now() - game._sessionStartTime) / 60000)
+  // Hide My Coins / Hide My Clan (Settings > Social, SocialSettings.js).
+  applyPublicPrivacy(game.settings, entry)
   CloudSync.pushLeaderboardEntry(game._cloudUid, entry).catch(() => {})
   CloudSync.pushWeeklyLeaderboardEntry(_thisWeekStr(), game._cloudUid, {
     name,

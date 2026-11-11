@@ -13,6 +13,7 @@ import * as CloudSync from './CloudSync.js'
 import { EMOJI_CATEGORIES } from './EmojiData.js'
 import { chatPingCheck } from './MoreSettings.js'
 import { _escapeHtml, _censorText, saveSettings } from './Game.js'
+import { shownChatText, chatShows } from './SocialSettings.js'
 
 // Global panel chat (#server-panel) - see CloudSync.js's
 // sendServerChatMessage for why this is a separate chat room from the
@@ -289,7 +290,8 @@ export function renderServerChatMessages(game, msgs) {
   // `visible` and renders as a "Blocked message - Show" placeholder
   // instead (see renderChatMessageRow) rather than disappearing
   // outright.
-  const visible = msgs.filter((m) => !(m.createdAt && m.createdAt <= game._chatSessionStartMs))
+  // Friends-Only Chat (Settings > Social) leaves strangers out.
+  const visible = msgs.filter((m) => !(m.createdAt && m.createdAt <= game._chatSessionStartMs) && chatShows(game.settings, m))
   // Always linkify here (unlike the in-game HUD chat's channel-gated
   // version) - this panel IS the global channel, always, no tabs to
   // gate on (see bindServerChat's own comment).
@@ -421,7 +423,8 @@ export function bindChatWidget(game) {
       e.stopImmediatePropagation()
       return
     }
-    if (e.code === 'Enter' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+    // Hide Chat (Settings > Social): Enter does nothing chat-wise.
+    if (e.code === 'Enter' && !game.settings.hideChat && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
       e.preventDefault()
       e.stopImmediatePropagation()
       game.chatInput.focus()
@@ -488,7 +491,8 @@ export function renderChatMessages(game, msgs) {
   // own comment) - only filters messages that actually carry a
   // createdAt, so Party chat (no createdAt field, see its own comment
   // below) passes through unaffected.
-  const visible = msgs.filter((m) => !(m.createdAt && m.createdAt <= game._chatSessionStartMs))
+  // Friends-Only Chat (Settings > Social) leaves strangers out.
+  const visible = msgs.filter((m) => !(m.createdAt && m.createdAt <= game._chatSessionStartMs) && chatShows(game.settings, m))
   // Global-only for now (see the design conversation) - Party chat's
   // ephemeral multiplayer players have no Player ID at all, and Clan
   // chat wasn't asked for yet. renderChatMessageText no-ops back to
@@ -529,6 +533,8 @@ export function clearChatSystemLines(game) {
 // can't match '<', '>', or quotes, so the id itself never needs its own
 // escaping to be safe in an attribute or as text.
 export function renderChatMessageText(game, text, linkifyIds) {
+  // Chat Filter: Strict (Settings > Social, SocialSettings.js).
+  text = shownChatText(game.settings, text)
   if (!linkifyIds) return _escapeHtml(text)
   const idPattern = /#[A-Z0-9]{6}/g
   let out = ''

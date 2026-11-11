@@ -1097,3 +1097,25 @@ test('servers: Prop Hunt hits, ghosts, boos and jams go through the server', asy
   const ra2 = await syncServer(db, { ...a }, t0 + 70)
   expect([ra2.players[b.playerId].gh, ra2.players[b.playerId].jam]).toEqual([null, null])
 })
+
+// Settings > Social > Who Can Join My Server (2026-11-11).
+test('servers: the host decides who can join (anyone / link only / nobody)', async () => {
+  const db = fakeServerDb()
+  const a = await createServer(db, { nickname: 'Ann', access: 'link' }, 0)
+  expect(await listServers(db, 10)).toEqual([])
+  // Link only: off the list, but the link still works.
+  const b = await joinServer(db, { serverId: a.serverId, nickname: 'Bo' }, 20)
+  expect(b.serverId).toBe(a.serverId)
+  // The host locks it mid-game: nobody new gets in.
+  await syncServer(db, { ...a, state: {}, access: 'nobody' }, 30)
+  await expect(joinServer(db, { serverId: a.serverId, nickname: 'Cy' }, 40)).rejects.toMatchObject({ status: 403, code: 'locked' })
+  // A guest can't change it.
+  await syncServer(db, { ...b, state: {}, access: '' }, 50)
+  await expect(joinServer(db, { serverId: a.serverId, nickname: 'Cy' }, 60)).rejects.toMatchObject({ code: 'locked' })
+  // Back to Anyone: listed again and open; junk values mean Anyone.
+  await syncServer(db, { ...a, state: {}, access: '' }, 70)
+  expect((await listServers(db, 80)).map((s) => s.id)).toEqual([a.serverId])
+  await joinServer(db, { serverId: a.serverId, nickname: 'Cy' }, 90)
+  const c = await createServer(db, { nickname: 'Dee', access: '<b>' }, 100)
+  expect((await listServers(db, 110)).map((s) => s.id)).toContain(c.serverId)
+})

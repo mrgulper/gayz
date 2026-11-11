@@ -11,6 +11,7 @@
 // much larger, more deeply interconnected cluster and a separate future
 // slice; renderCloudSaveState below still calls back into it via
 // game._renderCloudOnlineSection() same as before.
+import { keepFriendRequests } from './SocialSettings.js'
 import { t } from './i18n.js'
 import * as CloudSync from './CloudSync.js'
 import * as ChatUI from './ChatUI.js'
@@ -101,11 +102,14 @@ export function restoreCloudSession(game) {
           for (const r of requests) CloudSync.respondToFriendRequest(session.uid, r.fromUid).catch(() => {})
           requests = []
         }
-        game._incomingFriendRequests = requests
-        game._updateFriendsDot()
-        if (game.friendsPanel && getComputedStyle(game.friendsPanel).display !== 'none') {
-          game._renderFriendRequests()
-        }
+        // Friend Requests From: Clan Members Only (SocialSettings.js).
+        keepFriendRequests(game, session.uid, requests, CloudSync).then((kept) => {
+          game._incomingFriendRequests = kept
+          game._updateFriendsDot()
+          if (game.friendsPanel && getComputedStyle(game.friendsPanel).display !== 'none') {
+            game._renderFriendRequests()
+          }
+        })
       })
       // See _checkForNewerCloudSave's own comment (Game.js) for why this
       // exists - without it, a device that's already signed in never

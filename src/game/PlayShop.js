@@ -19,6 +19,7 @@
 // opens this shop on their tab.
 // Coins come from kills (COIN_PER_KILL) and cleared waves (COIN_PER_WAVE),
 // and only last for that game of Play.
+import { money } from './SocialSettings.js'
 import { ammoFor } from './PlayWeapons.js'
 import { t } from './i18n.js'
 import { ROD_COST } from './Fishing.js'
@@ -194,7 +195,7 @@ export class PlayShop {
       if (el) el.textContent = text
     }
     set('#play-npc-title', t('shopTitle'))
-    set('#play-npc-coins', t('campCoins', { n: s.coins }))
+    set('#play-npc-coins', t('campCoins', { n: money(this.bm.game?.settings, s.coins) }))
     this._panel.querySelector('#play-npc-close').setAttribute('aria-label', t('communityBuildsCloseBtn'))
     this._panel.querySelector('#play-shop-tabs').innerHTML = this.tabs().map((tab) => `<button type="button" role="tab" class="play-shop-tab${tab === id ? ' active' : ''}" data-shop-tab="${tab}" aria-selected="${tab === id}">${t(`shopTab_${tab}`)}</button>`).join('')
     const rows = []

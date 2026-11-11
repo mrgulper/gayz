@@ -728,3 +728,78 @@ test('the Gameplay settings (ideas 51-62) work in a game', async ({ page }) => {
   expect(r.marks).toBeGreaterThan(0)
   expect(r.tipHelpful).toMatch(/^Tip: /)
 })
+
+test('the Social & Safety settings (ideas 63-72) work', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    const tick = () => new Promise((res) => setTimeout(res, 400))
+    const set = async (id, v) => {
+      const el = document.getElementById(id)
+      if (el.type === 'checkbox') el.checked = v
+      else el.value = v
+      el.dispatchEvent(new Event('change'))
+      await tick()
+    }
+    out.rows = ['ms-chat-filter', 'ms-hide-chat', 'ms-friends-only-chat', 'ms-friend-requests-from', 'ms-hide-clan',
+      'ms-hide-currency', 'ms-server-access', 'ms-postcards-from']
+      .filter((id) => document.getElementById(id)?.closest('#settings-page-general')).length
+    out.label = document.getElementById('ms-server-access-label').textContent
+    // Chat Filter + Friends-Only redraw the in-game chat list.
+    const saved = g.settings.savedFriends
+    g.settings.savedFriends = [{ name: 'Pal', uid: 'u-pal' }]
+    g._chatSessionStartMs = 0
+    // Pinned: the (offline) chat feed would swap in its own empty list.
+    const msgs = [{ nickname: 'Pal', uid: 'u-pal', text: 'you are stupid', createdAt: 5 }, { nickname: 'Stranger', text: 'hi www.spam.com', createdAt: 6 }]
+    Object.defineProperty(g, '_lastChatMsgs', { configurable: true, get: () => msgs, set: () => {} })
+    // ...and its empty redraws clear the list, so keep the last real one.
+    let drawn = ''
+    const inner = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML')
+    Object.defineProperty(g.chatMessages, 'innerHTML', { configurable: true, get() { return inner.get.call(this) }, set(v) { if (v) drawn = v; inner.set.call(this, v) } })
+    const shown = () => { const d = document.createElement('div'); d.innerHTML = drawn; return d.textContent }
+    await set('ms-chat-filter', 'normal')
+    out.normal = shown()
+    await set('ms-chat-filter', 'strict')
+    out.strict = shown()
+    await set('ms-friends-only-chat', true)
+    out.friendsOnly = shown()
+    await set('ms-friends-only-chat', false)
+    await set('ms-chat-filter', 'normal')
+    g.settings.savedFriends = saved
+    delete g._lastChatMsgs
+    delete g.chatMessages.innerHTML
+    // Hide Chat and Hide My Coins are html classes.
+    await set('ms-hide-chat', true)
+    out.chatHidden = getComputedStyle(document.getElementById('chat-panel')).display
+    await set('ms-hide-chat', false)
+    await set('ms-hide-currency', true)
+    out.coinBlur = getComputedStyle(document.getElementById('currency-coins-amount')).filter
+    await set('ms-hide-currency', false)
+    out.coinBlurOff = getComputedStyle(document.getElementById('currency-coins-amount')).filter
+    return out
+  })
+  expect(r.rows).toBe(8)
+  expect(r.label).toBe('Who Can Join My Server')
+  expect(r.normal).toContain('you are stupid')
+  expect(r.strict).toContain('you are ******')
+  expect(r.strict).toContain('[link]')
+  expect(r.friendsOnly).toContain('Pal')
+  expect(r.friendsOnly).not.toContain('Stranger')
+  expect(r.chatHidden).toBe('none')
+  expect(r.coinBlur).toContain('blur')
+  expect(r.coinBlurOff).toBe('none')
+})
+
+test('Social & Safety: public profile, postcards and the strict filter', async () => {
+  const { applyPublicPrivacy, postcardShows, strictClean, chatShows } = await import('../src/game/SocialSettings.js')
+  expect(applyPublicPrivacy({ hideCurrency: true, hideClan: true }, { lastRunCoins: 5, bestRunCoins: 9, clanId: 'c1' })).toEqual({ clanId: 'c1', hideCoins: true, hideClan: true })
+  expect(applyPublicPrivacy({}, { lastRunCoins: 5 })).toEqual({ lastRunCoins: 5 })
+  const friends = [{ name: 'Pal', uid: 'u-pal' }]
+  expect(postcardShows({ postcardsFrom: 'friends', savedFriends: friends }, { fromUid: 'u-pal' })).toBe(true)
+  expect(postcardShows({ postcardsFrom: 'friends', savedFriends: friends }, { fromUid: 'u-x', fromNickname: 'X' })).toBe(false)
+  expect(postcardShows({ postcardsFrom: 'nobody', savedFriends: friends }, { fromUid: 'u-pal' })).toBe(false)
+  expect(strictClean('GET OVER HERE #AB12CD')).toBe('get over here #AB12CD')
+  expect(strictClean('class assassin')).toBe('class assassin')
+  expect(chatShows({ friendsOnlyChat: true, nickname: 'Me', savedFriends: friends }, { nickname: 'Me' })).toBe(true)
+})

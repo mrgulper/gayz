@@ -132,6 +132,9 @@ export async function listServers(db, now = Date.now()) {
     }
     // A solo game ready for friends (PlayNet lobby): joined by its link only.
     if (server.hidden) continue
+    // The host's Who Can Join setting (Settings > Social, 2026-11-11):
+    // Link Only and Nobody keep it off the list.
+    if (server.access) continue
     out.push(summary(id, server, now))
   }
   if (Object.keys(gone).length) await db.update(gone)
@@ -157,9 +160,14 @@ function cleanWorld(w) {
   return out
 }
 
+// Who can join (the host's Settings > Social > Who Can Join My Server):
+// nothing = anyone, 'link' = only with the invite link, 'nobody' = locked.
+const ACCESS = ['link', 'nobody']
+const cleanAccess = (v) => (ACCESS.includes(v) ? v : null)
+
 // hidden: a solo game made ready for friends the moment it starts (its
 // address is the invite link) - left out of the Global list.
-export async function createServer(db, { name, mode, nickname, skin, world, id: wanted, hidden } = {}, now = Date.now()) {
+export async function createServer(db, { name, mode, nickname, skin, world, id: wanted, hidden, access } = {}, now = Date.now()) {
   const m = MODES.includes(mode) ? mode : 'main'
   // Invite Friends picks the id itself so its link shows at once; taken or
   // malformed, a new one is made (the reply says which). A server nobody is
@@ -179,6 +187,7 @@ export async function createServer(db, { name, mode, nickname, skin, world, id: 
       players: { [pid]: newPlayer(nickname, now) },
       ...(cleanWorld(world) ? { world: cleanWorld(world) } : {}),
       ...(hidden === true ? { hidden: true } : {}),
+      ...(cleanAccess(access) ? { access: cleanAccess(access) } : {}),
     },
     // Whole, so an old server's players and skins under this id go too.
     [`serverSecrets/${id}`]: { [pid]: token },
@@ -196,6 +205,7 @@ export async function joinServer(db, { serverId, nickname, skin } = {}, now = Da
   const live = livePlayers(server, now)
   if (!live.length) throw new ServerError(404, 'gone')
   if (live.length >= MAX_PLAYERS) throw new ServerError(409, 'full')
+  if (server.access === 'nobody') throw new ServerError(403, 'locked')
   const pid = newId(10)
   const token = randomUUID().replace(/-/g, '')
   const updates = {
@@ -614,6 +624,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     updates[`${base}/host`] = host
   }
   const isHost = host === playerId
+  // The host's Who Can Join setting, changed mid-game.
+  if (isHost && 'access' in body && cleanAccess(body.access) !== (server.access || null)) updates[`${base}/access`] = cleanAccess(body.access)
   const out = { host, isHost, wave: server.wave || 0, players: {}, zombies: {}, hurt: [], credits: [], caught: [], hits: [], edits: [], editSeq: server.editSeq || 0 }
 
   // Something I said in chat: a bubble over my head for the others.
