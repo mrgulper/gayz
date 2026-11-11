@@ -25,7 +25,7 @@ import { START_TRAPS, ITEMS } from './PlayInventory.js'
 import { RECIPES, GOO_CHANCE } from './PlayCrafting.js'
 import { FARM_GROW_S } from './CampFarm.js'
 import { CAMP_MAX, MAX_HELPERS } from './Survivors.js'
-import { TEAM_SIZE, MAX_CREATURES, MAX_LEVEL, TRIGGER_LEVEL, WIN_XP, LOSS_XP, EVOLVE_AT, TYPE_MULT } from './Creatures.js'
+import { TEAM_SIZE, MAX_CREATURES, MAX_LEVEL, TRIGGER_LEVEL, WIN_XP, LOSS_XP, EVOLVE_AT, TYPE_MULT, SHINY_ODDS, SHINY_BOOST, SNACKS, COMBOS } from './Creatures.js'
 import { WIN_COINS, LOSS_COINS } from './TeamUI.js'
 import { ROUND_S } from './TeamBattle.js'
 import { BOOK_IDS, BOOK_COINS, BOOK_DONE_COINS } from './ZombieBook.js'
@@ -381,6 +381,17 @@ export function _featureValues(_game) {
     teamEvolveA: EVOLVE_AT[0],
     teamEvolveB: EVOLVE_AT[1],
     teamTypeBonus: Math.round((TYPE_MULT - 1) * 100),
+    // Team combos: how many of a group it takes ("3, 5 or 7").
+    ...Object.fromEntries(COMBOS.map((k) => [`combo${k.id[0].toUpperCase()}${k.id.slice(1)}At`, `${k.at.slice(0, -1).join(', ')} or ${k.at[k.at.length - 1]}`])),
+    teamShinyOdds: SHINY_ODDS,
+    teamShinyBoost: Math.round(SHINY_BOOST * 100),
+    snackSteakCost: SNACKS.steak.cost,
+    snackBandageCost: SNACKS.bandage.cost,
+    snackCandyCost: SNACKS.candy.cost,
+    snackCookieCost: SNACKS.cookie.cost,
+    snackSteak: SNACKS.steak.n,
+    snackBandage: SNACKS.bandage.n,
+    snackCandy: SNACKS.candy.n,
     teamWinCoins: WIN_COINS,
     teamLossCoins: LOSS_COINS,
     teamRoundSeconds: ROUND_S,
