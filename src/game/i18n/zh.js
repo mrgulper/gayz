@@ -3483,6 +3483,7 @@ export default {
   blimpDown: "你打爆了气囊！它要坠落了！",
   blimpCrashed: "僵尸飞艇坠毁，战利品撒了一地！+{n} 金币",
   actionBingo: "僵尸宾果卡",
+  actionAutoRun: "自动前进",
   bingoTitle: "僵尸宾果",
   bingoFree: "免费",
   bingoPill: "宾果 {n}/{all} · {key}",

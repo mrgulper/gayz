@@ -41,6 +41,9 @@ export const ACTIONS = [
   { id: 'spray', defaultKey: 'KeyY', labelKey: 'actionSpray' },
   // Shows this run's Zombie Bingo card (ZombieBingo.js, 2026-11-09).
   { id: 'bingo', defaultKey: 'KeyJ', labelKey: 'actionBingo' },
+  // Keeps walking forward hands-free until Back, Forward or this key
+  // again (Settings ideas list, Controls #15, 2026-11-11).
+  { id: 'autoRun', defaultKey: 'KeyO', labelKey: 'actionAutoRun' },
 ]
 
 // Extra keys that also work for an action, as long as no action is bound

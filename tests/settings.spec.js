@@ -309,3 +309,100 @@ test('the extra Audio settings save, work and reset with the Audio tab', async (
   const reset = await page.evaluate(() => [window.__game.settings.musicVolume, window.__game.settings.monoAudio])
   expect(reset).toEqual([100, false])
 })
+
+test('the Controls settings (ideas 11-24) work in a game', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    const set = (id, v) => {
+      const el = document.getElementById(id)
+      if (el.type === 'checkbox') { el.checked = v; el.dispatchEvent(new Event('change')) } else { el.value = v; el.dispatchEvent(new Event(el.type === 'range' ? 'input' : 'change')) }
+    }
+    out.rows = ['ms-crouch-mode', 'ms-aim-sensitivity', 'ms-mouse-smoothing', 'ms-camera-smoothness', 'ms-default-camera-view', 'ms-hold-to-interact',
+      'ms-controller-support', 'ms-controller-vibration', 'ms-stick-deadzone', 'ms-left-handed-mobile', 'ms-joystick-mode', 'ms-double-tap-sprint', 'ms-gyro-aim']
+      .filter((id) => document.getElementById(id)?.closest('#settings-page-controls')).length
+    out.autoRunKey = !!document.querySelector('#controls-grid')?.textContent.includes('Auto-Run')
+    set('ms-crouch-mode', 'toggle')
+    set('ms-hold-to-interact', '0.6')
+    set('ms-default-camera-view', 'back')
+    await g._enterBuildMode()
+    const b = g.buildMode
+    b.toggleTryMode()
+    b.update(0.016)
+    const tm = b.tryMode
+    out.view = tm.view
+    const key = (code, down) => (down ? b._onKeyDown : b._onKeyUp)({ code, repeat: false, target: null, preventDefault() {} })
+    const step = (n = 1, dt = 0.05) => { for (let i = 0; i < n; i++) b.update(dt) }
+    // Crouch: Toggle - a tap crouches, the next tap stands.
+    key('KeyC', true); step(); key('KeyC', false); step(4)
+    out.crouchAfterTap = tm._crouch
+    key('KeyC', true); step(); key('KeyC', false); step(4)
+    out.crouchAfterSecondTap = tm._crouch
+    // Auto-Run: on with its key, off with Back.
+    key('KeyO', true); key('KeyO', false); step()
+    out.autoRunOn = !!tm._autoRun
+    key('KeyS', true); step(); key('KeyS', false)
+    out.autoRunOffByBack = !tm._autoRun
+    // Hold to Interact 0.6 s: nothing at 0.3 s, used by 0.7 s, ring shown meanwhile.
+    let used = 0
+    const realUse = b._tryUseFromCamera
+    b._tryUseFromCamera = () => { used++ }
+    key('KeyE', true); step(6)
+    out.useEarly = used
+    out.ring = document.getElementById('use-hold-ring')?.style.display
+    step(8)
+    out.useLate = used
+    key('KeyE', false)
+    b._tryUseFromCamera = realUse
+    // A pretend controller: left stick forward, right stick right, then A and Start.
+    let rumbles = 0
+    const pad = { index: 0, connected: true, mapping: 'standard', axes: [0, -1, 0.6, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })), vibrationActuator: { playEffect() { rumbles++; return Promise.resolve() } } }
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [pad], configurable: true })
+    const yaw0 = b._yaw
+    step()
+    out.padMoveY = Math.round((b._padMove?.y || 0) * 100) / 100
+    out.padTurned = b._yaw < yaw0
+    pad.buttons[0] = { pressed: true, value: 1 }
+    step()
+    out.padJumpKey = b._keys.has('Space')
+    pad.buttons[0] = { pressed: false, value: 0 }
+    step()
+    out.padJumpReleased = !b._keys.has('Space')
+    // Deadzone: a small push (under 15%) does nothing.
+    pad.axes = [0.1, 0, 0, 0]
+    step()
+    out.deadzoneIgnores = b._padMove === null
+    pad.buttons[9] = { pressed: true, value: 1 }
+    step()
+    out.startPauses = b.menuOpen
+    pad.buttons[9] = { pressed: false, value: 0 }
+    step()
+    pad.buttons[9] = { pressed: true, value: 1 }
+    step()
+    out.startResumes = !b.menuOpen
+    pad.buttons[9] = { pressed: false, value: 0 }
+    step()
+    // RT shoots, and the controller rumbles with each shot.
+    pad.buttons[7] = { pressed: true, value: 1 }
+    step()
+    out.rtFires = b._fireHeld === true
+    out.rumbles = rumbles
+    pad.buttons[7] = { pressed: false, value: 0 }
+    step()
+    out.rtReleased = b._fireHeld === false
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [], configurable: true })
+    step()
+    out.padGone = b._padMove === null
+    return out
+  })
+  expect(r).toMatchObject({
+    rows: 13, autoRunKey: true, view: 1,
+    crouchAfterTap: true, crouchAfterSecondTap: false,
+    autoRunOn: true, autoRunOffByBack: true,
+    useEarly: 0, ring: 'block', useLate: 1,
+    padMoveY: 1, padTurned: true, padJumpKey: true, padJumpReleased: true, deadzoneIgnores: true,
+    startPauses: true, startResumes: true, padGone: true, rtFires: true, rtReleased: true,
+  })
+  expect(r.rumbles).toBeGreaterThan(0)
+})

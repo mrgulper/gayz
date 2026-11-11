@@ -13,6 +13,7 @@
 // _tryUseFromCamera(), toggleMenu()), so nothing behaves differently.
 
 import { getKeyFor } from './Keybinds.js'
+import { startUse, endUse, ensureGyro, gyroLook } from './ControlSettings.js'
 
 // The stick's reach in px, and how far out (0-1) counts as running.
 const STICK_RADIUS = 56
@@ -21,6 +22,19 @@ const RUN_AT = 0.92
 const LOOK_PER_PX = 0.0055
 // Held Fire shoots this often.
 const FIRE_REPEAT_S = 0.16
+// Settings > Controls (2026-11-11): Joystick: Fixed keeps the stick's
+// middle FIXED_X px in from the side and FIXED_Y px up from the bottom
+// sideways; upright the buttons fill the bottom edge, so it sits above
+// the health bar instead (FIXED_UP_X / FIXED_UP_Y; measured clear of every
+// button, Emote and the bar at 375x812), and a thumb within FIXED_GRAB px
+// of its middle takes it; Double-Tap to Sprint counts two stick touches
+// this close together.
+const FIXED_X = 110
+const FIXED_Y = 76
+const FIXED_UP_X = 130
+const FIXED_UP_Y = 216
+const FIXED_GRAB = STICK_RADIUS * 1.7
+const DOUBLE_TAP_MS = 320
 
 const ICONS = {
   bag: '<svg viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
@@ -52,7 +66,22 @@ export class BuildTouch {
     this._fireIn = 0
     this._jumpId = null
     this._crouch = false
+    this._useId = null
+    this._stickRun = false
+    this._lastStickAt = 0
     this._el = null
+  }
+
+  _set() {
+    return this.bm.game?.settings || {}
+  }
+
+  // Joystick: Fixed - where the stick sits (mirrored for left-handed).
+  _fixedSpot() {
+    const left = !this._set().leftHandedMobile
+    const upright = window.innerHeight > window.innerWidth
+    const fx = upright ? FIXED_UP_X : FIXED_X
+    return { x: left ? fx : window.innerWidth - fx, y: window.innerHeight - (upright ? FIXED_UP_Y : FIXED_Y) }
   }
 
   // Builds the overlay the first time it's needed.
@@ -92,19 +121,40 @@ export class BuildTouch {
 
   _onStart(e) {
     e.preventDefault()
+    const set = this._set()
+    // iPhones only allow the gyro after a tap.
+    if (set.gyroAim) ensureGyro(true)
     for (const tch of e.changedTouches) {
       const btn = tch.target.closest?.('[data-tp]')
       if (btn) {
         this._press(btn.dataset.tp, tch.identifier, btn)
         continue
       }
-      // Left 45% of the screen moves; the rest looks.
-      if (!this._stick && tch.clientX < window.innerWidth * 0.45) {
-        this._stick = { id: tch.identifier, x0: tch.clientX, y0: tch.clientY, dx: 0, dy: 0 }
-        this._stickEl.style.left = `${tch.clientX}px`
-        this._stickEl.style.top = `${tch.clientY}px`
+      // Left 45% of the screen moves; the rest looks (the other way round
+      // with Left-Handed Layout). Joystick: Fixed only takes a thumb on
+      // the stick.
+      const lefty = !!set.leftHandedMobile
+      const fixed = set.joystickMode === 'fixed'
+      const spot = fixed ? this._fixedSpot() : null
+      const onSide = lefty ? tch.clientX > window.innerWidth * 0.55 : tch.clientX < window.innerWidth * 0.45
+      const wantsStick = fixed ? Math.hypot(tch.clientX - spot.x, tch.clientY - spot.y) < FIXED_GRAB : onSide
+      if (!this._stick && wantsStick) {
+        const x0 = fixed ? spot.x : tch.clientX
+        const y0 = fixed ? spot.y : tch.clientY
+        this._stick = { id: tch.identifier, x0, y0, dx: 0, dy: 0 }
+        if (fixed) {
+          this._stick.dx = tch.clientX - x0
+          this._stick.dy = tch.clientY - y0
+        }
+        this._stickEl.style.left = `${x0}px`
+        this._stickEl.style.top = `${y0}px`
         this._stickEl.classList.add('on')
         this._knobEl.style.transform = 'translate(-50%, -50%)'
+        // Double-Tap to Sprint: a second stick touch soon after the first
+        // runs until the thumb lifts.
+        const now = performance.now()
+        this._stickRun = !!set.doubleTapSprint && now - this._lastStickAt < DOUBLE_TAP_MS
+        this._lastStickAt = now
       } else if (!this._look) {
         this._look = { id: tch.identifier, x: tch.clientX, y: tch.clientY }
       }
@@ -139,7 +189,13 @@ export class BuildTouch {
       const id = tch.identifier
       if (this._stick?.id === id) {
         this._stick = null
-        this._stickEl.classList.remove('on')
+        this._stickRun = false
+        if (this._set().joystickMode !== 'fixed') this._stickEl.classList.remove('on')
+        this._knobEl.style.transform = 'translate(-50%, -50%)'
+      }
+      if (this._useId === id) {
+        this._useId = null
+        endUse(this.bm)
       }
       if (this._look?.id === id) this._look = null
       if (this._fireId === id) this._fireId = null
@@ -168,7 +224,9 @@ export class BuildTouch {
     } else if (action === 'reload') {
       if (bm.survival.active) bm.survival.reload()
     } else if (action === 'use') {
-      bm._tryUseFromCamera()
+      // Hold to Interact may want the button held (ControlSettings.js).
+      this._useId = id
+      startUse(bm)
     } else if (action === 'emote') {
       // The Emote key (Z) for phones: the emote wheel, tap one (Emotes.js).
       if (bm.survival.active) bm.survival.emotes?.toggleBar()
@@ -188,7 +246,9 @@ export class BuildTouch {
     } else if (action === 'crouch') {
       this._crouch = !this._crouch
       this._crouchEl.classList.toggle('on', this._crouch)
-      if (this._crouch) bm._keys.add(getKeyFor('crouch'))
+      // Crouch: Toggle reads key presses, so the button sets it directly.
+      if (bm.game?.settings?.crouchMode === 'toggle') bm.tryMode._crouchToggled = this._crouch
+      else if (this._crouch) bm._keys.add(getKeyFor('crouch'))
       else bm._keys.delete(getKeyFor('crouch'))
     } else if (action === 'scope') {
       // Phones have no right-click: a tap looks through the scope, another
@@ -216,6 +276,9 @@ export class BuildTouch {
     this._look = null
     this._fireId = null
     this._jumpId = null
+    this._stickRun = false
+    if (this._useId !== null) endUse(this.bm)
+    this._useId = null
     this.bm._keys.delete(getKeyFor('jump'))
     this.bm._touchMove = null
     if (this._el) {
@@ -245,10 +308,23 @@ export class BuildTouch {
       if (!want && this._crouch) {
         this._crouch = false
         bm._keys.delete(getKeyFor('crouch'))
+        bm.tryMode._crouchToggled = false
         this._crouchEl?.classList.remove('on')
       }
     }
     if (!want) return
+    const set = this._set()
+    // Left-Handed Layout mirrors the buttons (CSS: body.tp-lefty).
+    document.body.classList.toggle('tp-lefty', !!set.leftHandedMobile)
+    // Joystick: Fixed - always showing at its spot.
+    const fixed = set.joystickMode === 'fixed'
+    if (fixed && !this._stick) {
+      const spot = this._fixedSpot()
+      this._stickEl.style.left = `${spot.x}px`
+      this._stickEl.style.top = `${spot.y}px`
+      this._stickEl.classList.add('on')
+    } else if (!fixed && !this._stick) this._stickEl.classList.remove('on')
+    gyroLook(bm, dt)
     // The scope button: only with a scoped gun (the AWP) in hand.
     const scoped = bm.tryMode.hasScope()
     if (scoped !== this._scopeShown) {
@@ -261,7 +337,7 @@ export class BuildTouch {
     const st = this._stick
     if (st && (st.dx || st.dy)) {
       const r = Math.hypot(st.dx, st.dy) / STICK_RADIUS
-      bm._touchMove = { x: st.dx / STICK_RADIUS, y: -st.dy / STICK_RADIUS, run: r >= RUN_AT }
+      bm._touchMove = { x: st.dx / STICK_RADIUS, y: -st.dy / STICK_RADIUS, run: r >= RUN_AT || this._stickRun }
     } else {
       bm._touchMove = null
     }
