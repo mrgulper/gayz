@@ -316,6 +316,137 @@ test('levels, evolution, level 5 trigger powers and types', async ({ page }) => 
   expect(await page.textContent('#team-slots .team-card[data-id="1"] .team-card-level')).toBe('Lv 10')
 })
 
+test('team combos, snacks and shiny creatures', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'onLine', { get: () => false, configurable: true })
+    localStorage.setItem('gayz-creatures', JSON.stringify({
+      list: [
+        // 3 skeletons: Bone Crew (+10% speed). One is shiny.
+        { id: 1, t: 'z', k: 'minion', r: 'common', n: 1, b: false, at: 1, s: true },
+        { id: 2, t: 'z', k: 'minion', r: 'common', n: 2, b: false, at: 2 },
+        { id: 3, t: 'z', k: 'minion', r: 'common', n: 3, b: false, at: 3 },
+        // 2 plain zombies: Zombie Pack not on yet (2/3).
+        { id: 4, t: 'z', k: null, r: 'common', n: 4, b: false, at: 4 },
+        { id: 5, t: 'z', k: null, r: 'common', n: 5, b: false, at: 5 },
+        // Not on the team: can't eat.
+        { id: 6, t: 'a', k: 'cow', r: 'common', at: 6, s: 'yes' },
+      ],
+      team: [1, 2, 3, 4, 5],
+      wins: 0,
+      losses: 0,
+      nextId: 7,
+    }))
+    window.__game.coins = 200
+  })
+  await page.click('#menu-inventory-btn')
+  await page.click('#inventory-tab-pets')
+  const p1 = await page.evaluate(() => {
+    const card = (id) => document.querySelector(`#team-slots .team-card[data-id="${id}"]`)
+    return {
+      combos: [...document.querySelectorAll('#team-combos .team-combo')].map((el) => ({ on: el.classList.contains('on'), text: el.querySelector('b').textContent, count: el.querySelector('.team-combo-count').textContent })),
+      shiny1: card(1).classList.contains('shiny') && !!card(1).querySelector('.team-card-shiny'),
+      shiny2: card(2).classList.contains('shiny'),
+      // Only true counts as shiny (a hand-edited save can't fake it).
+      shiny6: document.querySelector('#team-grid .team-card[data-id="6"]').classList.contains('shiny'),
+      snacks: document.querySelectorAll('#team-snacks .team-snack').length,
+      guide: document.getElementById('team-guide').textContent,
+    }
+  })
+  expect(p1.combos).toEqual([
+    { on: true, text: 'Bone Crew ★', count: '3/5' },
+    { on: false, text: 'Zombie Pack', count: '2/3' },
+  ])
+  expect(p1.shiny1).toBe(true)
+  expect(p1.shiny2).toBe(false)
+  expect(p1.shiny6).toBe(false)
+  expect(p1.snacks).toBe(4)
+  expect(p1.guide).toContain('Bone Crew (3 / 5 / 7)')
+  expect(p1.guide).toContain('Shield Cookie')
+  expect(p1.guide).toContain('1 in 200')
+
+  // Feed: Steak to 4, Shield Cookie to 5, Bandage to 1 (50 + 60 + 80 = 190).
+  const feed = async (snack, id) => {
+    await page.click(`#team-snacks .team-snack[data-snack="${snack}"]`)
+    await page.click(`.team-card[data-id="${id}"]`)
+  }
+  await feed('steak', 4)
+  await feed('cookie', 5)
+  await feed('bandage', 1)
+  // Not on the team, already fed, not enough coins left: nothing happens
+  // (Candy stays picked through all three).
+  await feed('candy', 6)
+  await page.click('#team-slots .team-card[data-id="4"]')
+  await page.click('#team-slots .team-card[data-id="2"]')
+  await page.click('#team-snacks .team-snack[data-snack="candy"]') // un-pick
+  const p2 = await page.evaluate(() => ({
+    coins: window.__game.coins,
+    sn: JSON.parse(localStorage.getItem('gayz-creatures')).list.map((c) => c.sn || null),
+    icon4: !!document.querySelector('#team-slots .team-card[data-id="4"] .team-card-snack'),
+    armed: document.querySelectorAll('#team-snacks .team-snack.armed').length,
+  }))
+  expect(p2).toEqual({ coins: 10, sn: ['bandage', null, null, 'steak', 'cookie', null], icon4: true, armed: 0 })
+  // Clicking a card with no snack picked still takes it on and off the team.
+  await page.click('#team-slots .team-card[data-id="3"]')
+  await page.click('#team-grid .team-card[data-id="3"]')
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gayz-creatures')).team)).toEqual([1, 2, 4, 5, 3])
+
+  await page.click('#team-battle-btn')
+  await page.waitForSelector('#team-battle canvas')
+  const b1 = await page.evaluate(() => {
+    const b = window.__game._teamBattle
+    const f = (id) => b.fighters.find((o) => o.side === 'mine' && o.c.id === id)
+    const out = {}
+    // Snacks are eaten as soon as the battle starts.
+    out.saved = JSON.parse(localStorage.getItem('gayz-creatures')).list.map((c) => c.sn || null)
+    out.combos = document.querySelector('#team-battle .tb-combos-mine').textContent.trim()
+    out.speed2 = f(2).s.speed
+    out.atk4 = +f(4).atkMul.toFixed(3)
+    out.shinyLabel = !!f(1).label.querySelector('.tb-label-shiny')
+    out.shinyCard = document.querySelectorAll('#team-battle .tb-mine .tb-card.shiny').length
+    out.snackCards = document.querySelectorAll('#team-battle .tb-mine .tb-card-snack').length
+    // Shield Cookie: the first hit does nothing, the second hurts.
+    const foe = b.fighters.find((o) => o.side === 'foe')
+    const hp5 = f(5).hp
+    b._hit(foe, f(5))
+    out.cookieBlocked = f(5).hp === hp5 && f(5).snack === null
+    b._hit(foe, f(5))
+    out.cookieGone = f(5).hp < hp5
+    // Bandage: falls, gets back up at half health, then falls for real.
+    const one = f(1)
+    one.hp = 0
+    b._down(one)
+    out.bandage = { alive: one.alive, hp: one.hp, half: Math.round(one.s.hp * 0.5), snack: one.snack }
+    one.hp = 0
+    b._down(one)
+    out.downAfter = one.alive
+    return out
+  })
+  expect(b1.saved).toEqual([null, null, null, null, null, null])
+  expect(b1.combos).toBe('Bone Crew ★')
+  expect(b1.atk4).toBeCloseTo(1.25 * (1 + 0.06), 3) // Steak, and Horde for the other plain zombie
+  expect(b1.shinyLabel).toBe(true)
+  expect(b1.shinyCard).toBe(1)
+  expect(b1.snackCards).toBe(3)
+  expect(b1.cookieBlocked).toBe(true)
+  expect(b1.cookieGone).toBe(true)
+  expect(b1.bandage).toEqual({ alive: true, hp: b1.bandage.half, half: b1.bandage.half, snack: null })
+  expect(b1.downAfter).toBe(false)
+  await page.click('#team-battle .tb-leave')
+  // Bone Crew: with only 2 skeletons left it's off, and they're 10% slower.
+  await page.click('#team-slots .team-card[data-id="3"]')
+  await page.click('#team-battle-btn')
+  await page.waitForSelector('#team-battle canvas')
+  const b2 = await page.evaluate(() => {
+    const b = window.__game._teamBattle
+    return { speed2: b.fighters.find((o) => o.side === 'mine' && o.c.id === 2).s.speed, combos: document.querySelector('#team-battle .tb-combos-mine').textContent.trim() }
+  })
+  expect(b2.combos).toBe('')
+  expect(b1.speed2 / b2.speed2).toBeCloseTo(1.1, 5)
+  await page.click('#team-battle .tb-leave')
+})
+
 test('on a server a guest\'s trap waits for the host, and the host rolls it', async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 900 })
   await gotoAndWaitForGame(page)

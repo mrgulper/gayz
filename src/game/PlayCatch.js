@@ -13,9 +13,12 @@
 // out of the game if caught (hostCatch), and the answer comes back to the
 // thrower (remoteResult), who keeps the creature.
 import * as THREE from 'three'
-import { addCreature, creatureCount, creatureName, MAX_CREATURES } from './Creatures.js'
+import { addCreature, creatureCount, creatureName, MAX_CREATURES, SHINY_ODDS } from './Creatures.js'
 import { animalRarity } from './PlayAnimals.js'
 import { t } from './i18n.js'
+
+// "Caught it!" - or, 1 in SHINY_ODDS times, "Shiny caught!" (2026-11-11).
+const caughtText = (c) => (c.s ? t('catchShiny', { name: creatureName(c), n: SHINY_ODDS }) : t('catchCaught', { name: creatureName(c) }))
 
 const SPEED = 22 // blocks per second
 const GRAVITY = 16
@@ -229,8 +232,7 @@ export class PlayCatch {
     if (this._full()) return this._drop(tr)
     const c = this._zombieCreature(z)
     if (!this._rollZombie(z)) return this._brokeFree(tr, c)
-    addCreature(c)
-    this._caught(tr, z.x, z.y, z.z, c)
+    this._caught(tr, z.x, z.y, z.z, addCreature(c) || c)
   }
 
   _tryAnimal(tr, a) {
@@ -239,8 +241,7 @@ export class PlayCatch {
     const c = this._animalCreature(a)
     const { x, y, z } = a
     if (!this._rollAnimal(a)) return this._brokeFree(tr, c)
-    addCreature(c)
-    this._caught(tr, x, y, z, c)
+    this._caught(tr, x, y, z, addCreature(c) || c)
   }
 
   // The host: another player's trap hit one of mine (h: { id, by }). The
@@ -268,14 +269,15 @@ export class PlayCatch {
     const live = tr && this.list.includes(tr)
     const c = r?.t ? { t: r.t, k: r.k || null, r: r.r, n: r.n, b: r.b } : null
     if (r?.ok && c) {
-      if (!addCreature(c)) {
+      const kept = addCreature(c)
+      if (!kept) {
         this.s._message(t('catchFull', { n: MAX_CREATURES }))
         if (live) this._drop(tr)
         return
       }
       this.s.stats.caught = (this.s.stats.caught || 0) + 1
       this.s.bingo?.note('catch')
-      this.s._message(t('catchCaught', { name: creatureName(c) }))
+      this.s._message(caughtText(kept))
       if (live) {
         tr.wait = 0
         tr.shake = SHAKE_S
@@ -293,7 +295,7 @@ export class PlayCatch {
     tr.shake = SHAKE_S
     this.s.stats.caught = (this.s.stats.caught || 0) + 1
     this.s.bingo?.note('catch')
-    this.s._message(t('catchCaught', { name: creatureName(c) }))
+    this.s._message(caughtText(c))
   }
 
   _brokeFree(tr, c) {

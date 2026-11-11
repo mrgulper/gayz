@@ -7,7 +7,9 @@
 //
 // Saved in localStorage (CREATURES_KEY), so Cloud Save carries it like the
 // rest of the save. A creature is { id, t: 'z' | 'a', k: kind, r: tier,
-// n: name number (zombies), b: boss, at: when caught, x: battle XP }. A
+// n: name number (zombies), b: boss, at: when caught, x: battle XP,
+// s: shiny (2026-11-11, only when true), sn: snack for the next battle
+// (only my own) }. A
 // ghost team's creatures carry l: level instead of x. Its battle stats
 // come from what it was in the game (stats()), never stored, so a balance
 // change reaches creatures already caught.
@@ -77,6 +79,9 @@ export function cleanCreature(c) {
   const grow = {}
   if (Number.isInteger(c.x) && c.x > 0) grow.x = Math.min(c.x, MAX_XP)
   else if (Number.isInteger(c.l) && c.l > 1) grow.l = Math.min(c.l, MAX_LEVEL)
+  // Shiny and snack (2026-11-11).
+  if (c.s === true || c.s === 1) grow.s = true
+  if (typeof c.sn === 'string' && Object.hasOwn(SNACKS, c.sn)) grow.sn = c.sn
   if (c.t === 'a') {
     if (typeof c.k !== 'string' || !Object.hasOwn(KINDS(), c.k)) return null
     return { t: 'a', k: c.k, r, at: Number.isFinite(c.at) ? c.at : 0, ...grow }
@@ -157,17 +162,126 @@ export function typeOf(c) {
 }
 export const beats = (a, b) => BEATS[typeOf(a)] === typeOf(b)
 
-// Adds a catch. false when there's no room left.
-export function addCreature(c) {
+// --- Shiny catches (2026-11-11, Gaymi picked a small boost): 1 in
+// SHINY_ODDS catches is a recolour with a sparkle and SHINY_BOOST more
+// health and attack. Rolled on the catcher's own side when it's added. ---
+
+export const SHINY_ODDS = 200
+export const SHINY_BOOST = 0.05
+// The recolour: a hue turn (CSS filter for pictures, HSL shift for 3D).
+export const SHINY_HUE = 150
+export const SHINY_FILTER = `hue-rotate(${SHINY_HUE}deg) saturate(1.4)`
+
+// Adds a catch: the creature as kept (shiny or not), or false when there's
+// no room left.
+export function addCreature(c, rand = Math.random) {
   const data = loadCreatures()
   if (data.list.length >= MAX_CREATURES) return false
-  const clean = cleanCreature({ ...c, at: Date.now() })
+  const clean = cleanCreature({ ...c, s: rand() < 1 / SHINY_ODDS, sn: null, x: 0, l: 0, at: Date.now() })
   if (!clean) return false
-  data.list.push({ ...clean, id: data.nextId++ })
+  const kept = { ...clean, id: data.nextId++ }
+  data.list.push(kept)
   // The first ones caught fill the team by themselves.
-  if (data.team.length < TEAM_SIZE) data.team.push(data.nextId - 1)
+  if (data.team.length < TEAM_SIZE) data.team.push(kept.id)
   saveCreatures(data)
-  return true
+  return kept
+}
+
+// --- Snacks (2026-11-11, Gaymi picked 4 snacks, any number per team):
+// bought with coins on the Team page, fed to one creature on the team,
+// eaten in its next battle. What each does is in TeamBattle.js. ---
+
+export const SNACKS = {
+  steak: { cost: 50, n: 25 }, // +25% attack
+  bandage: { cost: 80, n: 50 }, // gets back up once at 50% health
+  candy: { cost: 40, n: 20 }, // +20% speed
+  cookie: { cost: 60, n: 0 }, // the first hit on it does nothing
+}
+// Their pictures: 10x10 pixel art, like the zombie faces (no emoji in the UI).
+const SNACK_PIX = {
+  steak: { c: { r: '#b8323a', d: '#7a1e24', f: '#f2e6d0', w: '#ffffff' }, rows: [
+    '..........', '...rrrr...', '..rrrrrr..', '.rrdrrrrr.', '.rrrrfrrr.', '.rrrrrrdr.', '..rrrrrrww', '...rrrr.ww', '..........', '..........'] },
+  bandage: { c: { b: '#e8c8a0', p: '#f8f0e8', o: '#b89870' }, rows: [
+    '.......bb.', '......bbbb', '.....bbbbo', '....bppbo.', '...bppbb..', '..bppbb...', '.bbbbb....','bbbbo.....', '.bbo......', '..........'] },
+  candy: { c: { k: '#ff5aa8', s: '#ffffff', e: '#c83a80' }, rows: [
+    '..........', '..........', 'e........e', 'ee.kkkk.ee', 'eekkskskee', 'eeksksskee', 'ee.kkkk.ee', 'e........e', '..........', '..........'] },
+  cookie: { c: { t: '#d8a058', o: '#a8743a', d: '#4a2a14', s: '#6ac8ff' }, rows: [
+    '..ssssss..', '.sttttttts', 'stttdtttts', 'sttttttdts', 'stdtttttts', 'sttttdttts', 'stttttttds', 'stdttttts.', '.stttttts.', '..ssssss..'] },
+}
+const _snackIcons = new Map()
+export function snackIconURL(id) {
+  if (_snackIcons.has(id)) return _snackIcons.get(id)
+  const pix = SNACK_PIX[id]
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = 10
+  const g = cv.getContext('2d')
+  pix.rows.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (ch === '.') return
+    g.fillStyle = pix.c[ch]
+    g.fillRect(x, y, 1, 1)
+  }))
+  const url = cv.toDataURL()
+  _snackIcons.set(id, url)
+  return url
+}
+export const snackImg = (id, cls) => `<img class="${cls}" src="${snackIconURL(id)}" alt="" draggable="false" />`
+export const SNACK_IDS = Object.keys(SNACKS)
+export const snackName = (id) => t(`snack${cap(id)}`)
+export const snackInfo = (id) => t(`snackInfo${cap(id)}`, { n: SNACKS[id].n })
+
+// Feeds a snack to creature id. 'ok' | 'has' (already has one) | 'gone'.
+export function feedSnack(id, snack) {
+  const data = loadCreatures()
+  const c = data.list.find((o) => o.id === id)
+  if (!c || !SNACKS[snack]) return 'gone'
+  if (c.sn) return 'has'
+  c.sn = snack
+  saveCreatures(data)
+  return 'ok'
+}
+
+// A battle started: these creatures (ids) eat their snacks.
+export function eatSnacks(ids) {
+  const data = loadCreatures()
+  let ate = false
+  for (const c of data.list) {
+    if (c.sn && ids.includes(c.id)) {
+      delete c.sn
+      ate = true
+    }
+  }
+  if (ate) saveCreatures(data)
+}
+
+// --- Team combos (2026-11-11, Gaymi picked tiers): enough of one group
+// on a team gives that group's members a bonus, bigger at each step.
+// A creature can be in more than one group (a dinosaur is an Animal too).
+// n: the bonus in % at each step. ---
+
+const kindOf = (c) => (c.t === 'a' ? KINDS()[c.k] || {} : {})
+export const COMBOS = [
+  { id: 'zombie', has: (c) => typeOf(c) === 'zombie', at: [3, 5, 7], n: [8, 16, 25] }, // health
+  { id: 'skeleton', has: (c) => typeOf(c) === 'skeleton', at: [3, 5, 7], n: [10, 20, 30] }, // speed
+  { id: 'animal', has: (c) => c.t === 'a', at: [3, 5, 7], n: [8, 16, 25] }, // attack
+  { id: 'dino', has: (c) => !!kindOf(c).dino, at: [2, 4], n: [10, 20] }, // take less damage
+  { id: 'flyer', has: (c) => !!kindOf(c).fly, at: [2, 4], n: [10, 20] }, // dodge
+  { id: 'boss', has: (c) => !!c.b, at: [2, 3], n: [8, 15] }, // health and attack
+]
+export const comboName = (id) => t(`teamCombo${cap(id)}`)
+export const comboInfo = (id, n) => t(`teamComboInfo${cap(id)}`, { n })
+
+// Every group with at least one member on the team: [{ id, have, step
+// (0 = not on yet), next (how many for the next step, or 0), n (the
+// bonus now, %) }], the ones that are on first.
+export function combosOf(team) {
+  const out = []
+  for (const k of COMBOS) {
+    const have = team.filter(k.has).length
+    if (!have) continue
+    const step = k.at.filter((a) => have >= a).length
+    out.push({ id: k.id, have, step, next: k.at[step] || 0, n: step ? k.n[step - 1] : 0, members: k.has })
+  }
+  return out.sort((a, b) => (b.step > 0) - (a.step > 0) || b.have - a.have)
 }
 
 export function creatureCount() {
@@ -178,7 +292,7 @@ export function creatureCount() {
 // and rate (seconds between hits).
 export function stats(c) {
   const s = baseStats(c)
-  const grow = 1 + LEVEL_BOOST * (levelOf(c) - 1)
+  const grow = (1 + LEVEL_BOOST * (levelOf(c) - 1)) * (c.s ? 1 + SHINY_BOOST : 1)
   return { ...s, hp: Math.round(s.hp * grow), atk: Math.round(s.atk * grow) }
 }
 
@@ -346,6 +460,7 @@ export function packTeam(team) {
     const L = levelOf(c)
     const out = c.t === 'a' ? { t: 'a', k: c.k, r: c.r } : { t: 'z', k: c.k || '', r: c.r, n: c.n, b: !!c.b }
     if (L > 1) out.l = L
+    if (c.s) out.s = true
     return out
   })
 }
@@ -353,4 +468,6 @@ export function packTeam(team) {
 export function unpackTeam(list) {
   if (!Array.isArray(list)) return []
   return list.slice(0, TEAM_SIZE).map((c) => cleanCreature(c && c.t === 'z' && c.k === '' ? { ...c, k: null } : c)).filter(Boolean)
+    // Snacks are only ever my own (Gaymi, 2026-11-11).
+    .map(({ sn: _sn, ...c }) => c)
 }

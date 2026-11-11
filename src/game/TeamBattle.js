@@ -7,7 +7,10 @@
 // Hide, Heal Friends - the numbers are below). From level 5 it also has a
 // trigger power (Creatures.triggerOf, 2026-11-11), and types matter:
 // Zombies beat Animals beat Skeletons beat Zombies (Creatures.beats). My
-// team earns XP when a battle ends (Creatures.giveTeamXP). Last team standing wins;
+// team earns XP when a battle ends (Creatures.giveTeamXP). Team combos
+// (Creatures.combosOf) boost a group's members on both sides, my snacks
+// (Creatures.SNACKS) are eaten when it starts, and shiny ones sparkle
+// (2026-11-11). Last team standing wins;
 // after ROUND_S the one with more health left wins. Speed x1/x2/x4 and
 // Leave buttons; Esc leaves too.
 //
@@ -22,7 +25,7 @@
 // underneath. Opened from Inventory's Pets tab (TeamUI.js).
 import * as THREE from 'three'
 import { PlayAnimals } from './PlayAnimals.js'
-import { stats, creatureName, creatureIconURL, tierColor, powerOf, powerName, powerInfo, hasTrigger, triggerOf, triggerName, triggerInfo, beats, TYPE_MULT, levelOf, giveTeamXP, rarityName } from './Creatures.js'
+import { stats, creatureName, creatureIconURL, tierColor, powerOf, powerName, powerInfo, hasTrigger, triggerOf, triggerName, triggerInfo, beats, TYPE_MULT, levelOf, giveTeamXP, rarityName, combosOf, comboName, comboInfo, SNACKS, snackName, snackInfo, eatSnacks, snackImg, SHINY_HUE, SHINY_FILTER } from './Creatures.js'
 import { MONSTER_KINDS } from './ZombieKinds.js'
 import { SKELETON_KINDS } from './SkeletonModels.js'
 import { audioEngine } from './Audio.js'
@@ -218,6 +221,7 @@ export class TeamBattle {
         <div class="tb-side tb-mine"></div>
         <div class="tb-vs"><span class="tb-vs-word">${esc(t('teamBattleVs'))}</span><span class="tb-foe-name">${esc(this.foe)}</span><span class="tb-clock"></span></div>
         <div class="tb-side tb-foe"></div>
+        <div class="tb-combos"><div class="tb-combos-mine"></div><div class="tb-combos-foe"></div></div>
       </div>
       <div class="tb-msg" aria-live="polite"></div>
       <p class="tb-hint">${esc(t('teamBattleAutoHint'))}</p>
@@ -250,6 +254,8 @@ export class TeamBattle {
       const others = this.fighters.filter((o) => o !== f && o.side === f.side && o.power === 'horde').length
       f.atkMul *= 1 + HORDE_EACH * others
     }
+    this._applyCombos()
+    this._applySnacks()
     this._renderCards()
 
     this._resize = () => {
@@ -288,6 +294,57 @@ export class TeamBattle {
     loop()
   }
 
+  // Team combos (Creatures.combosOf): each group that's on boosts its members.
+  _applyCombos() {
+    this.combos = {}
+    for (const side of ['mine', 'foe']) {
+      const list = this.fighters.filter((f) => f.side === side)
+      const on = combosOf(list.map((f) => f.c)).filter((k) => k.step)
+      this.combos[side] = on
+      for (const k of on) {
+        const v = k.n / 100
+        for (const f of list) {
+          if (!k.members(f.c)) continue
+          if (k.id === 'zombie' || k.id === 'boss') {
+            f.s = { ...f.s, hp: Math.round(f.s.hp * (1 + v)) }
+            f.hp = f.s.hp
+          }
+          if (k.id === 'animal' || k.id === 'boss') f.atkMul *= 1 + v
+          if (k.id === 'skeleton') f.s = { ...f.s, speed: f.s.speed * (1 + v) }
+          if (k.id === 'dino') f.skin *= 1 - v
+          if (k.id === 'flyer') f.dodge = Math.max(f.dodge, v)
+        }
+      }
+      const el = this.root.querySelector(`.tb-combos-${side}`)
+      if (el) {
+        el.innerHTML = on.map((k) => `<span class="tb-combo" title="${esc(comboInfo(k.id, k.n))}">${esc(comboName(k.id))} ${'★'.repeat(k.step)}</span>`).join('')
+      }
+    }
+  }
+
+  // My snacks (Creatures.SNACKS), eaten now whatever happens next.
+  _applySnacks() {
+    const ids = []
+    for (const f of this.fighters) {
+      if (f.side !== 'mine' || !f.c.sn || !SNACKS[f.c.sn]) continue
+      f.snack = f.c.sn
+      if (Number.isInteger(f.c.id)) ids.push(f.c.id)
+      const v = SNACKS[f.snack].n / 100
+      if (f.snack === 'steak') f.atkMul *= 1 + v
+      else if (f.snack === 'candy') f.s = { ...f.s, speed: f.s.speed * (1 + v) }
+      else if (f.snack === 'cookie') f.shield = true
+      f.label.querySelector('.tb-label-name').insertAdjacentHTML('beforeend', ` ${snackImg(f.snack, 'tb-label-snack')}`)
+    }
+    if (ids.length) eatSnacks(ids)
+  }
+
+  // A snack that only works once (Bandage, Shield Cookie) is gone.
+  _snackUsed(f) {
+    this._float(f, `${snackName(f.snack)}!`, 'power snack')
+    f.snack = null
+    f.label.querySelector('.tb-label-snack')?.remove()
+  }
+
   _fighter(c, side, i, n, opts = {}) {
     const s = opts.s || stats(c)
     const row = Math.floor(i / ROW)
@@ -299,7 +356,7 @@ export class TeamBattle {
     const label = document.createElement('div')
     label.className = `tb-label ${side}`
     const lv = levelOf(c)
-    label.innerHTML = `<span class="tb-label-name" style="color: ${tierColor(c.r)}">${esc(creatureName(c))}${lv > 1 ? ` <small>${esc(t('teamLevel', { n: lv }))}</small>` : ''}</span><span class="tb-label-bar"><span></span></span>`
+    label.innerHTML = `<span class="tb-label-name" style="color: ${tierColor(c.r)}">${c.s ? '<span class="tb-label-shiny">✦</span> ' : ''}${esc(creatureName(c))}${lv > 1 ? ` <small>${esc(t('teamLevel', { n: lv }))}</small>` : ''}</span><span class="tb-label-bar"><span></span></span>`
     this.root.querySelector('.tb-labels').appendChild(label)
     const power = opts.noPowers ? null : powerOf(c)
     const icon = new Image()
@@ -308,6 +365,8 @@ export class TeamBattle {
       c, s, side, x, z, heading, vx: 0, vz: 0, hp: s.hp, cd: 0.5 + Math.random() * 0.4, walk: 0, hop: 0, fall: 0, flash: 0,
       alive: true, label, icon, power, atkMul: 1, hits: 0, raged: false, pounced: false, healCd: HEAL_EVERY,
       trig: opts.noPowers ? null : hasTrigger(c) ? triggerOf(c) : null, guard: 1, revenge: 0, winded: false, mini: !!opts.mini,
+      // Combos and snacks (2026-11-11): damage taken x skin, a dodge chance.
+      skin: 1, dodge: 0, snack: null, shield: false, sparkle: Math.random(),
       reach: power === 'bones' && !opts.noPowers ? BONE_REACH : s.reach,
       // The 3D model, ring and height are made by _build3d() when first needed.
       group: null, height: 2,
@@ -368,6 +427,7 @@ export class TeamBattle {
     const built = f.c.t === 'a' ? animalModel(f.c.k) : zombieModel(f.c)
     Object.assign(f, built)
     if (f.mini) f.group.scale.multiplyScalar(GROAN_SCALE)
+    if (f.c.s) this._shinyColours(f)
     f.group.position.set(f.x, 0, f.z)
     f.group.rotation.y = f.heading
     this.scene.add(f.group)
@@ -380,6 +440,24 @@ export class TeamBattle {
     const k = f.c.t === 'a' ? PlayAnimals.KINDS[f.c.k] : null
     f.height = k ? Math.max(k.leg + k.body[1], (k.headAt ? k.headAt[0] : k.leg + k.body[1]) + k.head[1] / 2) : 2 * f.group.scale.y
     if (!f.alive) f.group.rotation.z = Math.PI / 2
+  }
+
+  // Shiny: the model's colours turned round the colour wheel. Animal
+  // materials are shared per kind, so those are copied first.
+  _shinyColours(f) {
+    this._shinyMats ||= []
+    const turn = (m) => m?.color?.offsetHSL(SHINY_HUE / 360, 0.1, 0)
+    if (f.mats) {
+      f.mats.forEach(turn)
+      return
+    }
+    f.group.traverse((o) => {
+      if (!o.isMesh || !o.material || Array.isArray(o.material)) return
+      o.material = o.material.clone()
+      if (o.material.map) o.material.color.set(0xb0ffe0)
+      else turn(o.material)
+      this._shinyMats.push(o.material)
+    })
   }
 
   _setView(view, remember = true) {
@@ -462,6 +540,18 @@ export class TeamBattle {
   _hit(from, to, mult = 1) {
     if (!to.alive) return
     from.hits++
+    // Shield Cookie: the first hit does nothing.
+    if (to.shield) {
+      to.shield = false
+      this._snackUsed(to)
+      this._renderCards()
+      return
+    }
+    // Flock combo: a chance to dodge.
+    if (to.dodge && Math.random() < to.dodge) {
+      this._float(to, t('teamDodge'), 'power')
+      return
+    }
     let m = mult * from.atkMul
     // Pounce: its first hit lands twice as hard.
     if (from.power === 'pounce' && !from.pounced) {
@@ -475,6 +565,8 @@ export class TeamBattle {
     if (to.power === 'hide') dmg *= 1 - HIDE_CUT
     // Guard (a Thick Hide friend's trigger) takes less too.
     dmg *= to.guard
+    // Thick Skin combo (dinosaurs).
+    dmg *= to.skin
     // Types: Zombies beat Animals, Animals beat Skeletons, Skeletons beat Zombies.
     const strong = beats(from.c, to.c)
     if (strong) dmg *= TYPE_MULT
@@ -514,6 +606,14 @@ export class TeamBattle {
   }
 
   _down(f) {
+    // Bandage: gets back up once.
+    if (f.snack === 'bandage' && !this.over) {
+      f.hp = Math.max(1, Math.round(f.s.hp * SNACKS.bandage.n / 100))
+      this._snackUsed(f)
+      this._number(f, `+${f.hp}`, 'heal')
+      this._renderCards()
+      return
+    }
     f.alive = false
     f.fall = FALL_S
     if (f.ring) f.ring.visible = false
@@ -652,6 +752,11 @@ export class TeamBattle {
       }
       f.cd = Math.max(0, f.cd - dt)
       if (f.stun > 0) f.stun -= dt
+      // Shiny ones sparkle now and then.
+      if (f.c.s && (f.sparkle -= dt) <= 0) {
+        f.sparkle = 1.4
+        this._float(f, '✦', 'sparkle')
+      }
       let mx = 0
       let mz = 0
       if (started && !this.over && !(f.stun > 0)) {
@@ -811,7 +916,9 @@ export class TeamBattle {
       const flip = Math.sin(f.heading) < -0.1 ? -1 : 1
       g.translate(cx, cy)
       g.scale(flip, 1)
+      if (f.c.s) g.filter = SHINY_FILTER
       if (f.icon.complete && f.icon.naturalWidth) g.drawImage(f.icon, -sz / 2, -sz / 2, sz, sz)
+      g.filter = 'none'
       if (f.flash > 0) {
         g.globalAlpha = 0.5
         g.fillStyle = '#ff2a1a'
@@ -855,8 +962,8 @@ export class TeamBattle {
       const el = this.root?.querySelector(side === 'mine' ? '.tb-mine' : '.tb-foe')
       if (!el) continue
       el.innerHTML = this.fighters.filter((f) => f.side === side).map((f) => `
-        <div class="tb-card${f.alive ? '' : ' down'}${f.mini ? ' mini' : ''}" style="border-color: ${tierColor(f.c.r)}" title="${esc(f.power ? `${powerName(f.c)}: ${powerInfo(f.c)}${f.trig ? ` · ${triggerName(f.trig)}: ${triggerInfo(f.trig)}` : ''}` : '')}">
-          <img src="${creatureIconURL(f.c)}" alt="" draggable="false" />
+        <div class="tb-card${f.alive ? '' : ' down'}${f.mini ? ' mini' : ''}${f.c.s ? ' shiny' : ''}" style="border-color: ${tierColor(f.c.r)}" title="${esc(f.power ? `${powerName(f.c)}: ${powerInfo(f.c)}${f.trig ? ` · ${triggerName(f.trig)}: ${triggerInfo(f.trig)}` : ''}${f.snack ? ` · ${snackName(f.snack)}: ${snackInfo(f.snack)}` : ''}` : '')}">
+          <img src="${creatureIconURL(f.c)}" alt="" draggable="false" />${f.snack ? snackImg(f.snack, 'tb-card-snack') : ''}
           <span class="tb-card-bar"><span style="width: ${(f.hp / f.s.hp) * 100}%"></span></span>
         </div>`).join('')
     }
@@ -913,6 +1020,7 @@ export class TeamBattle {
           o.geometry?.dispose?.()
         }
       })
+      for (const m of this._shinyMats || []) m.dispose()
       this.renderer.dispose()
       this.renderer.forceContextLoss?.()
     }
