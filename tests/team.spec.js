@@ -653,3 +653,82 @@ test('Pack Leaders: a ladder of 26, beat the next for a badge and coins; met in 
     hurt: 0, again: 'none', after: false, beaten: ['plains', 'beach'], pill2: 'Coral, Leader of the Beach · you have this badge',
   })
 })
+
+// Gauntlet (2026-11-11, Gauntlet.js): its own run with a shop, merges and
+// 3 lives; caught creatures are never touched.
+test('Gauntlet: buy, merge, sell, reroll, win for coins, three losses end the run', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    localStorage.setItem('gayz-creatures', JSON.stringify({ list: [{ id: 1, t: 'a', k: 'wolf', r: 'rare', at: 1 }], team: [1], wins: 0, losses: 0, nextId: 2 }))
+    localStorage.removeItem('gayz-gauntlet')
+    window.__game._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-pets').click()
+  })
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const G = g._gauntlet
+    const byId = (id) => document.getElementById(id)
+    const out = {}
+    const creatures = localStorage.getItem('gayz-creatures')
+    // Merging: 3 of a kind -> 2 stars, one rarity above the best.
+    const tm = [{ t: 'a', k: 'wolf', r: 'common' }, { t: 'a', k: 'wolf', r: 'uncommon' }, { t: 'a', k: 'wolf', r: 'common' }, { t: 'a', k: 'bear', r: 'common' }]
+    G.mergeAll(tm)
+    out.merged = tm.map((c) => `${c.k}:${c.r}:${G.starsOf(c)}`)
+    out.slots = [1, 2, 3, 9, 12].map(G.slots)
+    out.botSizes = [1, 10].map((b) => G.botRun(b).length)
+    out.botStronger = G.power(G.botRun(10)) > G.power(G.botRun(1))
+    // A run through the buttons.
+    out.start = byId('gauntlet-btn').textContent
+    byId('gauntlet-btn').click()
+    out.shop = document.querySelectorAll('#gauntlet [data-gt-buy]').length
+    document.querySelector('#gauntlet [data-gt-buy]').click()
+    document.querySelector('#gauntlet [data-gt-buy]').click()
+    out.gold = G.loadGauntlet().run.gold
+    document.querySelector('#gauntlet [data-gt-sell]').click()
+    byId('gauntlet-reroll').click()
+    out.gold2 = G.loadGauntlet().run.gold
+    const wait = async () => { for (let i = 0; i < 80 && !(g._teamBattle?.root && !g._teamBattle.over); i++) await new Promise((res) => setTimeout(res, 100)) }
+    const coins = g.coins
+    byId('gauntlet-btn').click()
+    await wait()
+    const foe = document.querySelector('#team-battle .tb-foe-name').textContent
+    g._teamBattle._leave()
+    byId('gauntlet-btn').click()
+    await wait()
+    out.sameFoe = foe === document.querySelector('#team-battle .tb-foe-name').textContent
+    g._teamBattle._finish(true)
+    out.again = document.querySelector('#team-battle .tb-again').style.display
+    document.querySelector('#team-battle .tb-back').click()
+    out.coins = g.coins - coins
+    const run = G.loadGauntlet().run
+    out.after = [run.battle, run.wins, run.lives, run.gold]
+    for (let i = 0; i < 3; i++) {
+      byId('gauntlet-btn').click()
+      await wait()
+      g._teamBattle._finish(false)
+      document.querySelector('#team-battle .tb-back').click()
+    }
+    const d = G.loadGauntlet()
+    out.end = [d.run, d.best, d.last.wins]
+    out.endBtn = byId('gauntlet-btn').textContent
+    out.untouched = creatures === localStorage.getItem('gayz-creatures')
+    return out
+  })
+  expect(r).toEqual({
+    merged: ['wolf:rare:2', 'bear:common:1'],
+    slots: [3, 3, 4, 7, 7],
+    botSizes: [3, 7],
+    botStronger: true,
+    start: 'Start a Gauntlet run',
+    shop: 5,
+    gold: 4,
+    gold2: 4,
+    sameFoe: true,
+    again: 'none',
+    coins: 15,
+    after: [2, 1, 3, 14],
+    end: [null, 1, 1],
+    endBtn: 'Start a Gauntlet run',
+    untouched: true,
+  })
+})

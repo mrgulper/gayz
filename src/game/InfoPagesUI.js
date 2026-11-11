@@ -133,6 +133,7 @@ import { STAMP_COINS } from './Passport.js'
 import { TRAVEL_BASE, TRAVEL_PER_BLOCKS, TRAVEL_MOST, TRAVEL_WAIT_S } from './FastTravel.js'
 import { SIZE as TOURNEY_SIZE, ROUND_COINS as TOURNEY_ROUND_COINS, CHAMP_COINS as TOURNEY_CHAMP_COINS } from './TeamTournament.js'
 import { LEADERS, leaderCoins, LOSS_COINS as LEADER_LOSS_COINS } from './PackLeaders.js'
+import * as GT from './Gauntlet.js'
 
 // Update-available check - only ever called from _exitBuildMode (back
 // at the homepage), never mid-game, so a fresh deploy
@@ -438,6 +439,19 @@ export function _featureValues(_game) {
     leaderFirstCoins: leaderCoins(0),
     leaderLastCoins: leaderCoins(LEADERS.length - 1),
     leaderLossCoins: LEADER_LOSS_COINS,
+    gauntletWins: GT.WINS_NEEDED,
+    gauntletLives: GT.LIVES,
+    gauntletGold: GT.ROUND_GOLD,
+    gauntletShop: GT.SHOP_SIZE,
+    gauntletPrice: GT.PRICE,
+    gauntletReroll: GT.REROLL,
+    gauntletSlots: GT.MAX_SLOTS,
+    gauntletStartSlots: GT.slots(1),
+    gauntletDinoFrom: GT.DINO_FROM,
+    gauntletStar2: GT.STAR_LEVEL[1],
+    gauntletStar3: GT.STAR_LEVEL[2],
+    gauntletWinCoins: GT.WIN_COINS,
+    gauntletDoneCoins: GT.DONE_COINS,
     tourneyChampCoins: TOURNEY_CHAMP_COINS,
     zoneFinalR: ZONE_STAGES[ZONE_STAGES.length - 1].r,
     pinataOdds: Math.round(1 / ZOMBIE_SHINES.pinata.chance),

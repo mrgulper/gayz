@@ -2593,7 +2593,7 @@ Escape before dawn.</p>
             <p>If you believe something in GayZ infringes your copyright, contact us using the details in Section 14 with: (a) a description of the copyrighted work, (b) where the infringing material appears in GayZ, and (c) your contact information. Valid, good-faith notices will be reviewed and acted on.</p>
 
             <h3>9. Termination</h3>
-            <p>Access to online features (Cloud Save, leaderboards, chat, friend lists, clans, the Market, the Gallery, servers, shared maps, Team Battle ghost teams, and similar) may be suspended or terminated, without notice, for violating Section 5, or for any other reason at the developer's discretion, including discontinuing the game entirely. The core offline game itself isn't something an account can be "banned" from, since it runs in your own browser.</p>
+            <p>Access to online features (Cloud Save, leaderboards, chat, friend lists, clans, the Market, the Gallery, servers, shared maps, Team Battle ghost teams and Gauntlet teams, and similar) may be suspended or terminated, without notice, for violating Section 5, or for any other reason at the developer's discretion, including discontinuing the game entirely. The core offline game itself isn't something an account can be "banned" from, since it runs in your own browser.</p>
 
             <h3>10. No warranty, no guarantees</h3>
             <p>GayZ is provided "as is" and "as available," built and maintained in spare time. It can have bugs, go down, change significantly, or be discontinued entirely, at any time, without notice. To the maximum extent permitted by law, GayZ is offered with no warranties of any kind, express or implied, including no warranty that it will be uninterrupted, error-free, or fit for any particular purpose.</p>
@@ -2644,6 +2644,7 @@ Escape before dawn.</p>
             <p>Your nickname, Player ID, bio, and stats shown on your public profile (Profile panel &gt; Shown to Public) are visible to other players wherever public features (leaderboards, chat, friend lookups) show them. Please don't put personal information (real name, contact details, etc.) in any field, since a field that's private today could become visible in a future update.</p>
             <p>If you're signed in, starting a Team Battle saves your battle team as a "ghost team" that other players can see and battle: your nickname, which zombies and animals are on it, their rarity, how strong the team is and how many battles you've won. It's replaced each time you start another battle.</p>
             <p>When you enter the Weekly Team Tournament, the ghost teams in your bracket (each player's nickname and the creatures on their team) are copied into your save for that week, so your bracket stays the same. Nothing new about you is shared by entering.</p>
+            <p>If you're signed in, starting a Gauntlet battle saves your Gauntlet team at that battle number so other players can meet it at the same point in their own run: your nickname, the creatures on it (their kind, rarity and stars) and how many Gauntlet battles you've won so far. You keep one per battle number, each replaced by your next run. The creatures you've caught aren't part of it.</p>
             <p>If you're signed in and play Speedrun mode, your best time goes on the leaderboard with your nickname, so other players can see the fastest runs. The ghost of your best run (where you went) stays on your device.</p>
             <p>The same goes for the Obstacle Course: signed in, your best time on it goes on the leaderboard with your nickname. And once you've fought a duel in the Duel Arena, your duel rating and number of wins go on it too.</p>
 
@@ -2925,6 +2926,10 @@ Escape before dawn.</p>
         <div class="feature" data-code="PackLeaders leaderTeam startLeaderBattle PackLeaderWorld">
           <h3>Pack Leaders</h3>
           <p>On the Team page (Inventory, Pets tab), under the Weekly Tournament: <span data-feature-value="leaderCount">26</span> Pack Leaders, one boss trainer for every biome, each with a team themed on where they live - farm animals and a plain zombie on the plains, crabs and crawlers on the beach, dinosaurs in the jungle and savanna, sharkmen and anglers in the ocean, angels and demons on the snowy peaks. They form a ladder: start with Hank of the Plains, and beating a leader unlocks the next one, each a bit stronger than the last (bigger teams, higher levels, rarer creatures, and boss zombies near the top). The page shows the next leader's team so you can plan your types and combos, and a Challenge button; it's a normal team battle with your team earning XP. Win for the leader's badge and <span data-feature-value="leaderFirstCoins">100</span> coins for the first one, up to <span data-feature-value="leaderLastCoins">350</span> for the last; a loss pays <span data-feature-value="leaderLossCoins">5</span> and you can try again. All the badges sit in a grid in their biome's colours - won ones with a gold ring, the next one dashed, locked ones a grey "?" - and tapping one says who it is. In a game the leaders also stand out in the open world: walk into a biome and its leader turns up nearby under a beam of light in their badge colour (on a raft out on the water). Walk up and press Use to battle them right there - nothing can hurt you while the battle is on - or to hear who to beat first, or that you already have their badge.</p>
+        </div>
+        <div class="feature" data-code="Gauntlet botRun mergeAll fetchGauntletTeams">
+          <h3>Gauntlet</h3>
+          <p>On the Team page (Inventory, Pets tab), under the Pack Leaders: a run of its own where the creatures you've caught stay safe and aren't used. Every round you get <span data-feature-value="gauntletGold">10</span> gold (leftover gold is kept) and a shop of <span data-feature-value="gauntletShop">5</span> random zombies, skeletons and animals at <span data-feature-value="gauntletPrice">3</span> gold each - rarer ones turn up later in the run, dinosaurs from battle <span data-feature-value="gauntletDinoFrom">5</span>, and kinds already on your team turn up more often. Tap one to buy it onto your Gauntlet team, tap one on your team to sell it for half back, or pay <span data-feature-value="gauntletReroll">1</span> gold to reroll the shop. Your team starts with <span data-feature-value="gauntletStartSlots">3</span> slots and grows to <span data-feature-value="gauntletSlots">7</span>. Three copies of the same creature with the same stars merge into one with a star more: two stars is level <span data-feature-value="gauntletStar2">10</span> and three stars level <span data-feature-value="gauntletStar3">20</span>, and each merge also makes it one rarity higher (two stars unlocks its level <span data-feature-value="teamTrigLevel">5</span> trigger power). Then fight: a normal team battle (no XP) against another player's Gauntlet team saved at the same battle number, or a bot team that played the same shop for as many rounds. Win <span data-feature-value="gauntletWins">10</span> battles before you lose <span data-feature-value="gauntletLives">3</span> lives. Every win pays <span data-feature-value="gauntletWinCoins">15</span> coins and the last one <span data-feature-value="gauntletDoneCoins">100</span> more. Leave a battle before it ends and you meet the same team again. Your run is saved, so you can stop and come back, give it up with a double tap, and the page remembers your last run and your best.</p>
         </div>
         <div class="feature" data-code="ZombieBook BOOK_IDS bookIdFor renderBook">
           <h3>Zombie Book</h3>
@@ -4254,6 +4259,14 @@ Escape before dawn.</p>
               <div id="leaders-team"></div>
               <button type="button" id="leaders-btn" class="team-battle-btn"></button>
               <div id="leaders-badges"></div>
+              <!-- Gauntlet (Gauntlet.js, 2026-11-11): a run of its own with
+                   a shop - your caught creatures aren't used. -->
+              <section id="gauntlet">
+                <h3 id="gauntlet-title" class="team-section-title"></h3>
+                <p id="gauntlet-status" class="menu-best-stats"></p>
+                <div id="gauntlet-run"></div>
+                <button type="button" id="gauntlet-btn" class="team-battle-btn"></button>
+              </section>
               <h3 id="team-caught-title" class="team-section-title"></h3>
               <p id="team-empty"><span id="team-how"></span></p>
               <div id="team-grid" class="team-cards"></div>

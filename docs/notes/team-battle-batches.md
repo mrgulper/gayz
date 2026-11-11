@@ -29,6 +29,12 @@ Mix of auto-battle team building and creature raising.
   (s.leaders: the biome's leader 12-30 blocks away, beam in badge colour, raft on
   water, Use to battle; no damage while battling). TeamBattle againKey -> false
   hides the again button.
-- [ ] **Batch 4 - Gauntlet mode.** Separate run: start with coins, buy random
-  creatures from a small shop each round, 3 copies merge into a stronger one,
-  win 10 battles before your lives run out. Doesn't touch caught creatures.
+- [x] **Batch 4 - Gauntlet mode** (shipped 2026-11-11). Gaymi picked: coins only,
+  3 lives, buy + sell + reroll, both bots and real players. Built as: Gauntlet.js
+  (Pets tab section under Pack Leaders; 10 gold a round, leftovers kept; shop of 5
+  at 3 gold, reroll 1, sell half back; slots 3 -> 7; 3 same kind + same stars ->
+  +1 star = level 1/10/20 and +1 rarity; 15 coins a win, +100 for the 10th; no XP;
+  bots = botRun, the same shop played greedily for as many rounds; players =
+  gauntletTeams/{uid}_{round} in Firestore, fetched once per 10 min, 40 newest,
+  matched by battle number; save `gayz-gauntlet`). Online part needs the rules
+  paste (firestore-rules-2026-11-11-gauntlet.txt); until then always bots.
