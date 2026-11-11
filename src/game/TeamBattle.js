@@ -993,7 +993,10 @@ export class TeamBattle {
       if (e.kind === 'trigger') return t('teamTrigUnlocked', { name, power: triggerName(e.n) })
       return t('teamEvolved', { name, rarity: rarityName(e.n) })
     })].map((line, i) => `<li${i ? ' class="tb-news-big"' : ''}>${esc(line)}</li>`).join('')
-    box.querySelector('.tb-again').textContent = t(this.againKey?.(won) || 'teamBattleAgain')
+    // againKey returning false: no again button (a Pack Leader beaten in a game).
+    const again = this.againKey?.(won)
+    box.querySelector('.tb-again').style.display = again === false ? 'none' : ''
+    box.querySelector('.tb-again').textContent = t(again || 'teamBattleAgain')
     box.querySelector('.tb-back').textContent = t('teamBattleBack')
     box.style.display = 'flex'
     if (won) audioEngine.playLevelUp?.()

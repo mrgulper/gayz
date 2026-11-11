@@ -13,6 +13,8 @@ import * as CloudSync from './CloudSync.js'
 import { loadCreatures, saveCreatures, stats, power, powerName, powerInfo, creatureName, creatureType, rarityName, creatureIconURL, tierColor, botTeam, packTeam, unpackTeam, TEAM_SIZE, POWERS, TRIGGERS, TRIGGER_LEVEL, TYPE_MULT, MAX_LEVEL, EVOLVE_AT, levelOf, xpProgress, triggerOf, hasTrigger, triggerName, triggerInfo, COMBOS, combosOf, comboName, comboInfo, SNACKS, SNACK_IDS, snackImg, snackName, snackInfo, feedSnack, SHINY_ODDS, SHINY_BOOST } from './Creatures.js'
 import { TeamBattle } from './TeamBattle.js'
 import { renderTournament, playTournament } from './TeamTournament.js'
+import * as PackLeaders from './PackLeaders.js'
+import { renderLeaders, startLeaderBattle, nextLeader, badgeInfo } from './PackLeaders.js'
 import { saveShopProgress, saveSettings } from './Game.js'
 import { zombieName } from './ZombieNames.js'
 import { t } from './i18n.js'
@@ -149,6 +151,8 @@ export function renderTeamPanel(game) {
   if (empty) empty.style.display = data.list.length ? 'none' : ''
   // The Weekly Team Tournament (TeamTournament.js).
   renderTournament(game)
+  // Pack Leaders (PackLeaders.js).
+  renderLeaders()
   const btn = byId('team-battle-btn')
   if (btn && !game._teamFinding) {
     btn.textContent = t('teamBattleBtn')
@@ -278,6 +282,10 @@ function renderHomePetPicker(game, data) {
 export function bindTeamUI(game) {
   const page = byId('team-page')
   if (!page) return
+  // For a battle started elsewhere (a Pack Leader met in a game).
+  game._renderTeamPanel = () => renderTeamPanel(game)
+  // The ladder, for the tests (tests/team.spec.js).
+  game._packLeaders = { ...PackLeaders, power }
   // Drawn each time the Pets tab is looked at (a catch in a game changes it).
   byId('inventory-tab-pets')?.addEventListener('click', () => renderTeamPanel(game))
   page.addEventListener('click', (e) => {
@@ -285,6 +293,11 @@ export function bindTeamUI(game) {
     if (sb) {
       game._teamSnack = game._teamSnack === sb.dataset.snack ? null : sb.dataset.snack
       renderTeamPanel(game)
+      return
+    }
+    const lb = e.target.closest('.leader-badge[data-leader]')
+    if (lb) {
+      game._showHomepageToast(badgeInfo(Number(lb.dataset.leader)))
       return
     }
     const c = e.target.closest('.team-card[data-id]')
@@ -299,4 +312,8 @@ export function bindTeamUI(game) {
   })
   byId('team-battle-btn')?.addEventListener('click', () => startTeamBattle(game))
   byId('tourney-btn')?.addEventListener('click', () => playTournament(game, renderTeamPanel))
+  byId('leaders-btn')?.addEventListener('click', () => {
+    const n = nextLeader()
+    if (n >= 0) startLeaderBattle(game, n)
+  })
 }

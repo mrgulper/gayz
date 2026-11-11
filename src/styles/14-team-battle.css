@@ -829,3 +829,51 @@ html.ui-theme-old .team-snack-cost {
     height: 10px;
   }
 }
+
+/* Pack Leaders (PackLeaders.js, 2026-11-11): the next leader's team, then
+   all 26 badges - won ones in full colour with a gold ring, the next one
+   with a dashed ring, locked ones a grey "?". Each badge is its biome's
+   colour (--leader-color). */
+#leaders-status { margin: 0 auto 8px; max-width: 560px; }
+#leaders-team { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 0 auto 4px; max-width: 560px; }
+.leader-mon { display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 10px; }
+.leader-mon img, .leader-badge img { width: 28px; height: 28px; image-rendering: pixelated; }
+#leaders-badges {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 8px;
+  max-width: 640px;
+  margin: 12px auto 0;
+}
+.leader-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 6px 4px;
+  font: inherit;
+  font-size: 10px;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.leader-badge img, .leader-badge-q {
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  padding: 6px;
+  border: 3px solid var(--leader-color);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--leader-color) 30%, transparent);
+}
+.leader-badge-q { display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; }
+.leader-badge-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.leader-badge.beaten img { border-color: var(--menu-gold); box-shadow: 0 0 0 2px var(--leader-color); }
+.leader-badge.beaten .leader-badge-name { font-weight: 800; }
+.leader-badge.next img { border-style: dashed; }
+.leader-badge.locked { opacity: 0.45; filter: grayscale(1); }
+html.ui-theme-old .leader-badge.beaten img { border-color: var(--old-ink); }
+html.ui-theme-clean .leader-badge img, html.ui-theme-clean .leader-badge-q { background: transparent; }
+html.ui-theme-clean .leader-badge.beaten img { border-color: var(--clean-fg); }

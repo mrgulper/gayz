@@ -2427,6 +2427,8 @@ export class BuildMode {
     if (this.survival?.active && this.survival.park?.use()) return true
     // Cooking and serving at the Zombie Diner (ZombieDiner.js).
     if (this.survival?.active && this.survival.diner?.use()) return true
+    // Battle a Pack Leader standing next to you (PackLeaderWorld.js).
+    if (this.survival?.active && this.survival.leaders?.use()) return true
     // Playing on Map 3: talk to the camp NPC you're looking at.
     if (this.survival?.camp?.use()) return true
     // Give a rescued survivor an order: follow me / hold here (Survivors.js).
@@ -3815,6 +3817,7 @@ export class BuildMode {
   // Share or Play Together, or the big map.
   mouseScreenOpen() {
     if (this.menuOpen || this.pickerOpen || this.share?.isOpen || this.together?.isOpen) return true
+    if (this.survival?.leaders?.battling) return true
     if (this.survival?.shop?.panelOpen || this.survival?.emotes?.open || this.survival?.time?.pickOpen || campScreenOpen() || this.tryMode?._mapInteractive?.()) return true
     if (['play-weapon-pick', 'play-perk-pick', 'build-play-over', 'spawn-map'].some((id) => {
       const el = document.getElementById(id)
