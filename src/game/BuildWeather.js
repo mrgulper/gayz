@@ -43,6 +43,7 @@
 // and sand storms whose dust blows through the world (look 3: soft puffs
 // racing along with the wind).
 import * as THREE from 'three'
+import { weatherOn } from './GraphicsSettings.js'
 import { ROOF_GRID } from './BlockChunks.js'
 
 const BOX = 34 // blocks across the box of weather around the camera
@@ -459,9 +460,11 @@ export class BuildWeather {
     }
     if (this.kind) this._useKind(KINDS[this.kind], !this._slow, dt)
     const on = !!this.kind && this._density > 0.002
-    this.points.visible = on
+    // Settings > Graphics > Weather Effects off: no falling rain/snow/hail
+    // or splashes (the sky, sounds and wet ground still change).
+    this.points.visible = on && weatherOn()
     const look = this.kind ? lookOf(KINDS[this.kind]) : 3
-    this.splash.visible = on && !this._lite && (look === 0 || look === 2)
+    this.splash.visible = on && weatherOn() && !this._lite && (look === 0 || look === 2)
     const groundLeft = this._updateGround(dt)
     if (!on && !groundLeft) {
       this._scanRow = ROOF

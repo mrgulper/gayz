@@ -7,6 +7,7 @@ import { FIXED_KEYS, getKeyFor, keyLabel, keysFor } from './Keybinds.js'
 import { controlsTick, lookBy, startUse, endUse } from './ControlSettings.js'
 import { toggleHideHud } from './HudSettings.js'
 import * as THREE from 'three'
+import { grassOn, drawZombieOutlines } from './GraphicsSettings.js'
 import { setHomePaused } from './LiteHome.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
@@ -4687,7 +4688,7 @@ export class BuildMode {
     }
     this._chunks.setEffects(look, 1 - (this.sky?.clearness ?? 1))
     this.sky?.weather3d?.setLite(!!look.lite)
-    this.grassTufts?.setAmount(look.tufts || 0)
+    this.grassTufts?.setAmount(grassOn() ? look.tufts || 0 : 0)
     this.airMotes?.setAmount(look.motes || 0)
     this.fallingLeaves?.setAmount(look.lite ? 0 : 1)
     // Softer shadow edges on the higher levels, like real sunlight
@@ -4774,6 +4775,8 @@ export class BuildMode {
     // An earthquake (or an impact) shakes the view (Disasters.js).
     const restoreShake = this.sky.disasters?.beforeRender(this.camera)
     this.renderer.render(this.scene, this.camera)
+    // Settings > Graphics > Zombie Outline: zombies behind walls (solo).
+    drawZombieOutlines(this)
     restoreShake?.()
     restoreView?.()
     this.lastDrawCalls = this.renderer.info.render.calls

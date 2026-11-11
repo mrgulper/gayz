@@ -5,6 +5,7 @@
 // Moved out of Game.js (2026-10-16, bit by bit - see CLAUDE.md). Same convention as
 // ChatUI.js/CloudSaveUI.js: plain functions taking `game`, all state on the Game
 // instance; Game.js keeps a one-line stand-in for each, so callers are unchanged.
+import { fpsCapMs, graphicsFilterCss } from './GraphicsSettings.js'
 import * as CloudSaveUI from './CloudSaveUI.js'
 import * as CloudSync from './CloudSync.js'
 import * as GalleryUI from './GalleryUI.js'
@@ -1694,11 +1695,12 @@ export function _bindGraphicsSettings(game) {
   // want or need every frame their monitor can show.
   if (game.fpsCapSelect) {
     game.fpsCapSelect.value = String(game.settings.fpsCap)
-    game._fpsCapMinFrameMs = game.settings.fpsCap > 0 ? 1000 / game.settings.fpsCap : 0
+    // fpsCapMs: this cap, or Battery Saver's 30 when lower (GraphicsSettings.js).
+    game._fpsCapMinFrameMs = fpsCapMs(game)
     game.fpsCapSelect.addEventListener('change', () => {
       const value = Number(game.fpsCapSelect.value)
       game.settings.fpsCap = value
-      game._fpsCapMinFrameMs = value > 0 ? 1000 / value : 0
+      game._fpsCapMinFrameMs = fpsCapMs(game)
       saveSettings(game.settings)
     })
   }
@@ -2233,8 +2235,11 @@ export function _applyGraphicsFilters(game) {
   // No filter at all at the defaults - even an identity CSS filter
   // (brightness(100%) contrast(100%)) makes the browser run the whole
   // canvas through an extra filter pass every frame (2026-09-30).
+  // Gamma / Saturation / Sharpen (Effects, GraphicsSettings.js) join in.
+  const extra = graphicsFilterCss(game.settings)
   const neutral = Number(game.settings.brightness) === 100 && Number(game.settings.contrast) === 100
-  game.canvas.style.filter = neutral ? 'none' : `brightness(${game.settings.brightness}%) contrast(${game.settings.contrast}%)`
+  const base = neutral ? '' : `brightness(${game.settings.brightness}%) contrast(${game.settings.contrast}%)`
+  game.canvas.style.filter = [base, extra].filter(Boolean).join(' ') || 'none'
 }
 
 // Shadows are forced off by Performance Mode/LOW_QUALITY_MODE regardless

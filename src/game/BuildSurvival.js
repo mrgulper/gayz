@@ -16,6 +16,7 @@
 // PATH_REFRESH seconds; each zombie walks to whichever neighboring cell is
 // one step closer to you.
 import * as THREE from 'three'
+import { shakeScale, bleed } from './GraphicsSettings.js'
 import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { SKELETON_KINDS, loadSkeletons, makeSkeleton, skeletonsReady } from './SkeletonModels.js'
 import { audioEngine } from './Audio.js'
@@ -1590,6 +1591,7 @@ export class BuildSurvival {
       if (this.net && !this.net.isHost) {
         this.net.queueHit(`z${z.id}`, amount)
         z.flash = 0.12
+        this._bleedZombie(z)
       } else this.damageZombie(z, amount, center.direction)
       biggest = Math.max(biggest, amount)
       if (!this.zombies.includes(z)) {
@@ -1632,11 +1634,20 @@ export class BuildSurvival {
   // Reduce Flashing.
   _shake(px) {
     if (document.body.classList.contains('reduce-flashing')) return
+    // Settings > Graphics > Screen Shake (0-200%).
+    px *= shakeScale()
+    if (px < 0.3) return
     const view = this.bm.renderer.domElement
     view.style.setProperty('--boom', `${px.toFixed(1)}px`)
     view.classList.remove('boom-shake')
     void view.offsetWidth
     view.classList.add('boom-shake')
+  }
+
+  // Settings > Graphics > Blood: goo out of a hit zombie's middle.
+  _bleedZombie(z) {
+    const h = ZOMBIE_HEIGHT * (z.size || 1) * (z.tall || 1)
+    bleed(this._fx, z, 'zombie', z.x, z.y + h * 0.6, z.z, Math.min(1.6, z.size || 1))
   }
 
   // One hit from something other than shoot()'s rays (a thrown knife or
@@ -1653,6 +1664,7 @@ export class BuildSurvival {
     if (this.net && !this.net.isHost) {
       this.net.queueHit(`z${z.id}`, amount)
       z.flash = 0.12
+      this._bleedZombie(z)
     } else this.damageZombie(z, amount, dir)
     this._hitFeedback({ head, kill: !this.zombies.includes(z), boss: !!z.boss, amount })
   }
@@ -1816,6 +1828,7 @@ export class BuildSurvival {
     z.flash = 0.12
     // Hit by something (not just sunburn) - a hiding lurker leaps out.
     if (amount > 0) z.hit = true
+    if (amount > 0) this._bleedZombie(z)
     if (z.skel && z.health > 0 && !z.rise && amount > 0) z.hitAnim = z.skel.play('hit', { once: true, fade: 0.05, timeScale: 1.6 })
     // Knocked back a little - a bit more by a big hit (and less for a
     // boss, which is heavy).
@@ -3126,6 +3139,11 @@ export class BuildSurvival {
     this.armor = (this.armor || 0) - soaked
     this.health = Math.max(0, this.health - (amount - soaked))
     audioEngine.playPlayerHurt?.()
+    // Settings > Graphics > Blood: red drops just in front of you.
+    if (amount - soaked > 0) {
+      const dir = this.bm.camera.getWorldDirection(new THREE.Vector3())
+      bleed(this._fx, this, 'red', p.x + dir.x * 0.7, p.y + 1.25, p.z + dir.z * 0.7, 0.8)
+    }
     // Settings > Controls > Controller Vibration: harder hits shake more.
     padRumble(this.bm, Math.min(1, 0.35 + (amount - soaked) / 40), 180)
     const flash = document.getElementById('build-play-hurt')

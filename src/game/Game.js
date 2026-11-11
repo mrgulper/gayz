@@ -1,3 +1,4 @@
+import { batteryResScale } from './GraphicsSettings.js'
 import * as THREE from 'three'
 import { LOW_QUALITY_MODE } from './QualitySettings.js'
 import { WeaponCatalog } from './WeaponCatalog.js'
@@ -1533,6 +1534,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'settings-section-misc': 'settingsSectionMisc',
   'settings-section-performance': 'settingsSectionPerformance',
   'settings-section-rendering': 'settingsSectionRendering',
+  'settings-section-effects': 'settingsSectionEffects',
   'settings-section-movement-aim': 'settingsSectionMovementAim',
   'settings-section-personalization': 'settingsSectionPersonalization',
   'settings-section-theme': 'settingsSectionTheme',
@@ -3327,7 +3329,8 @@ export class Game {
     // chunk-meshed editor (see BlockChunks.js) is cheap enough without
     // them, and on a 2x Retina screen they left it at ~1/3 of the real
     // pixels, stretched up. The Resolution slider still applies.
-    const ratio = this.buildMode.active ? this._editorPixelRatio(this._editorResScale ?? 1) : this._basePixelRatio() * this._userResScale
+    // Battery Saver (GraphicsSettings.js) draws at 75% while it's on.
+    const ratio = (this.buildMode.active ? this._editorPixelRatio(this._editorResScale ?? 1) : this._basePixelRatio() * this._userResScale) * batteryResScale()
     // Setting the same ratio again still resizes the canvas, and a resize
     // clears it - that's what flashed the map editor black ~5 times on
     // entry (2026-09-30 report) while its auto resolution kept "stepping"

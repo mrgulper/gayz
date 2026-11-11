@@ -8,6 +8,7 @@ import { saveSettings } from './Game.js'
 import { audioEngine } from './Audio.js'
 import { ensureGyro } from './ControlSettings.js'
 import { applyHudLook } from './HudSettings.js'
+import { bindGraphicsSettings, applyBatterySaver } from './GraphicsSettings.js'
 
 const listeners = new Map()
 
@@ -118,6 +119,11 @@ export function bindMoreSettings(game) {
   onMoreSetting('gyroAim', (on) => ensureGyro(on))
   // HUD (ideas 25-38): the looks that are pure CSS; the rest is HudSettings.hudTick.
   for (const key of ['hudScale', 'chatOpacity', 'healthDisplay', 'minimapSize', 'hitMarker', 'killFeed']) onMoreSetting(key, (v, g) => applyHudLook(g.settings))
+  // Graphics > Effects (ideas 39-50): most are read where they're used
+  // (GraphicsSettings.js); these three redo the canvas filter.
+  bindGraphicsSettings(game)
+  for (const key of ['gamma', 'saturation', 'sharpen']) onMoreSetting(key, (v, g) => g._applyGraphicsFilters?.())
+  onMoreSetting('batterySaver', (v, g) => applyBatterySaver(g))
   for (const def of MORE_SETTINGS) emit(game, def.key)
 }
 
