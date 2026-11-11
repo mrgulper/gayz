@@ -31,6 +31,7 @@
 // it and later shots fly through the hole. Broken windows come back when
 // you stop trying the map and are never saved.
 import * as THREE from 'three'
+import { handFov } from './GraphicsSettings.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { wearCosmetics, myWorn } from './Cosmetics.js'
 import { poseEmote, poseSit, sitDrop } from './Emotes.js'
@@ -2561,7 +2562,9 @@ export class BuildTryMode {
     // sliver wide, so the gun sat off the right edge and the arm filled
     // the corner as a big wedge - keep it at least as wide as a square
     // screen's view instead.
-    this._gunCamera.fov = cam.aspect >= 1 ? 70 : THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(35)) / cam.aspect))
+    // Settings > Graphics > Hand / Weapon FOV (70 = the old look).
+    const fov = handFov()
+    this._gunCamera.fov = cam.aspect >= 1 ? fov : THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(fov / 2)) / cam.aspect))
     this._gunCamera.updateProjectionMatrix()
     const autoClear = renderer.autoClear
     renderer.autoClear = false

@@ -22,6 +22,7 @@
 // Sprites only - never a THREE.Light (the block world has none, see the
 // notes' traps), and nothing here touches localStorage.
 import * as THREE from 'three'
+import { particleKeep } from './GraphicsSettings.js'
 
 const POOL = 220
 
@@ -99,6 +100,8 @@ function getTextures() {
     void: blobTexture([[0, 'rgba(240,210,255,1)'], [0.35, 'rgba(170,80,255,0.85)'], [1, 'rgba(60,0,120,0)']]),
     // White, tinted per particle (the special blocks' sparkles, SpecialBlocks.js).
     dot: blobTexture([[0, 'rgba(255,255,255,1)'], [0.4, 'rgba(255,255,255,0.7)'], [1, 'rgba(255,255,255,0)']]),
+    // A solid round drop, tinted per drop (blood and goo, bleed()).
+    drop: blobTexture([[0, 'rgba(255,255,255,1)'], [0.6, 'rgba(255,255,255,0.95)'], [1, 'rgba(255,255,255,0)']]),
     // Explosions (2026-10-25): the first blinding flash, the shock wave's
     // ring and bits of dirt and rubble thrown out.
     flash: blobTexture([[0, 'rgba(255,255,255,1)'], [0.25, 'rgba(255,245,200,0.9)'], [1, 'rgba(255,200,120,0)']]),
@@ -141,14 +144,17 @@ export class PlayFx {
   // rises by `rise` blocks a second and wobbles sideways.
   // `gravity` (blocks/s²) pulls non-flame particles down (debris).
   _emit(kind, x, y, z, { life, from, to, alpha = 1, vel = null, delay = 0, rise = 0, drag = 2.2, stretch = 1.35, wobble = 14, gravity = 0, color = null }) {
+    // Settings > Graphics > Particle Amount (and Battery Saver): fewer
+    // bits. A blast's flash and ring always show.
+    if (kind !== 'flash' && kind !== 'ring' && Math.random() > particleKeep()) return
     const s = this._sprites[this._next]
     this._next = (this._next + 1) % POOL
     const d = s.userData
     const tex = getTextures()
-    const add = kind !== 'smoke' && kind !== 'debris' && kind !== 'confetti'
+    const add = kind !== 'smoke' && kind !== 'debris' && kind !== 'confetti' && kind !== 'drop'
     d.flame = kind === 'flame'
     d.gravity = gravity * this.B
-    d.solid = kind === 'debris' || kind === 'confetti'
+    d.solid = kind === 'debris' || kind === 'confetti' || kind === 'drop'
     d.rise = rise * this.B
     d.wob = Math.random() * 10
     d.wobble = wobble
@@ -319,6 +325,21 @@ export class PlayFx {
   // A blob of slime flung up (a bloater's burst, ZombieTricks.js).
   slime(x, y, z) {
     this._emit('debris', x, y, z, { life: 0.9, from: 0.3, to: 0.15, gravity: 14, color: 0x8bbf55, vel: new THREE.Vector3((Math.random() - 0.5) * 3 * this.B, (3 + Math.random() * 3) * this.B, (Math.random() - 0.5) * 3 * this.B) })
+  }
+
+  // Blood or goo from a hit (Settings > Graphics > Blood, GraphicsSettings
+  // bleed): drops flung out that fall (x, y, z in world units).
+  blood(x, y, z, color, size = 1) {
+    const B = this.B
+    const n = Math.round(5 + 3 * Math.min(1.5, size))
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2
+      const out = 0.8 + Math.random() * 1.6
+      this._emit('drop', x, y, z, {
+        life: 0.45 + Math.random() * 0.35, from: (0.09 + Math.random() * 0.09) * size, to: 0.06 * size, gravity: 16, drag: 0.5, color,
+        vel: new THREE.Vector3(Math.cos(a) * out * B, (1.2 + Math.random() * 2.2) * B, Math.sin(a) * out * B),
+      })
+    }
   }
 
   voidHit(pos) {

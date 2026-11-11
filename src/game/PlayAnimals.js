@@ -28,6 +28,7 @@
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { t, STRINGS } from './i18n.js'
+import { bleed } from './GraphicsSettings.js'
 import { sampleLand, inCity } from './OpenWorld.js'
 import { MORE_KINDS, MORE_BIOME_ANIMALS } from './AnimalKinds.js'
 import { DINO_KINDS, DINO_BIOMES, DINO_CHANCE } from './DinoKinds.js'
@@ -1036,6 +1037,7 @@ export class PlayAnimals {
       // The host's animal: it takes the hit there (and tells everyone).
       net.queueAnimalHit(a.netId, damage)
       a.hurt = 0.25
+      this._bleed(a)
       a.myHitAt = performance.now()
       return true
     }
@@ -1044,8 +1046,15 @@ export class PlayAnimals {
   }
 
   // by: on a server, the other player whose shot this was (they get the meat).
+  // Settings > Graphics > Blood: red drops from a hit animal.
+  _bleed(a) {
+    const k = KINDS[a.kind]
+    bleed(this.s._fx, a, 'red', a.x, a.y + k.leg + k.body[1] * 0.5, a.z, Math.min(1.5, Math.max(0.6, k.body[1])))
+  }
+
   damage(a, amount, by = null) {
     if (a.dying || a.tamed) return
+    if (amount > 0) this._bleed(a)
     a.health -= amount
     a.hurt = 0.25
     // A meat-eating dinosaur gets angry instead of running.

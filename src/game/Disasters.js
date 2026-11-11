@@ -22,6 +22,7 @@
 // World changes only happen in a game (never to a map in the editor), a
 // limited number of blocks each, and never inside the camp.
 import * as THREE from 'three'
+import { shakeScale } from './GraphicsSettings.js'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
 import { sampleLand, inCity } from './OpenWorld.js'
@@ -426,8 +427,9 @@ export class Disasters {
 
   // The camera shake, for this frame's drawing only (BuildMode._render).
   beforeRender(camera) {
-    if (this.shake <= 0.001) return null
-    const s = this.shake * this.B
+    // Settings > Graphics > Screen Shake scales it (0 = none).
+    const s = this.shake * this.B * shakeScale()
+    if (s <= 0.001 * this.B) return null
     const now = performance.now() / 1000
     // Rough, uneven shaking (several sines), heavier side to side.
     this._shakeOff.set(

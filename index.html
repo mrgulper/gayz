@@ -1366,6 +1366,7 @@ Escape before dawn.</p>
 
 
 
+          <h3 class="settings-section-heading" id="settings-section-effects">Effects</h3>
           <button id="reset-graphics-defaults-btn" class="settings-reset-btn" type="button">Reset Graphics to Defaults</button>
         </div>
 
@@ -2642,7 +2643,7 @@ Escape before dawn.</p>
             </ul>
 
             <h3>Stored only on your device</h3>
-            <p>Your settings, keybinds, theme colour, any homepage picture you upload and the list of settings you've changed (Settings &gt; General &gt; Your Settings Changes) stay in your own browser and aren't sent anywhere unless you sign in to Cloud Save (which copies your settings - including which inventory items you've locked - not the picture or the changes list). The parts of the World Map you've walked (which squares of the map are cleared of fog), your passport stamps and your travel journal (trail, where you died, where you found loot) are also kept only in your browser. The one exception: when you play the World Map mode on a server with other players, the squares you've cleared are sent through our server to the players in that game so you share one explored map - they're passed along while you play together and not kept on the server after the game.</p>
+            <p>Your settings, keybinds, theme colour, any homepage picture you upload and the list of settings you've changed (Settings &gt; General &gt; Your Settings Changes) stay in your own browser and aren't sent anywhere unless you sign in to Cloud Save (which copies your settings - including which inventory items you've locked - not the picture or the changes list). The parts of the World Map you've walked (which squares of the map are cleared of fog), your passport stamps and your travel journal (trail, where you died, where you found loot) are also kept only in your browser. The one exception: when you play the World Map mode on a server with other players, the squares you've cleared are sent through our server to the players in that game so you share one explored map - they're passed along while you play together and not kept on the server after the game. Battery Saver's Auto setting (Settings &gt; Graphics) reads your device's battery level and whether it's charging, only inside the game on your device, to switch itself on; that's never saved or sent anywhere.</p>
 
             <h3>Anonymous usage counters</h3>
             <p>A few features track simple aggregate counts (like how often a setting gets opened) to understand what's actually used. These are just totals - they aren't tied to your account or identity in any readable way.</p>
@@ -3361,7 +3362,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="autoQuality _updateEditorResScale stepAutoView fpsCap">
           <h3>Auto Quality &amp; FPS Cap</h3>
-          <p>Auto Quality (on by default) first draws a little less far away when the game slows down, and only then makes the picture less sharp (on In Real Life never below your screen's own pixels) - sharpness comes back first when it can - and if a game is still too slow after that, a graphics level the game picked steps down one (see Graphics Levels); an FPS Cap setting limits the frame rate. Both are in Settings &gt; Graphics. Behind the scenes the game is built to stay smooth on slower devices: weapon pictures come ready-made, blocks are found quickly, new land is built with little work, zombies and skeletons are prepared before they appear, and the homepage's animations rest while you play. On a slow device new land is built in smaller pieces each frame, so walking into it stutters less, and moving runs in steady steps, so you walk, jump and fall at full speed even at a low frame rate instead of in slow motion.</p>
+          <p>Auto Quality (on by default) first draws a little less far away when the game slows down, and only then makes the picture less sharp (on In Real Life never below your screen's own pixels) - sharpness comes back first when it can - and if a game is still too slow after that, a graphics level the game picked steps down one (see Graphics Levels); an FPS Cap setting limits the frame rate (Battery Saver lowers it further while it's on). Both are in Settings &gt; Graphics. Behind the scenes the game is built to stay smooth on slower devices: weapon pictures come ready-made, blocks are found quickly, new land is built with little work, zombies and skeletons are prepared before they appear, and the homepage's animations rest while you play. On a slow device new land is built in smaller pieces each frame, so walking into it stutters less, and moving runs in steady steps, so you walk, jump and fall at full speed even at a low frame rate instead of in slow motion.</p>
         </div>
         <div class="feature" data-code="VIEW_DISTANCES stepAutoView">
           <h3>View Distance</h3>
@@ -3398,6 +3399,10 @@ Escape before dawn.</p>
         <div class="feature" data-code="hudTick applyHudLook toggleHideHud">
           <h3>HUD Settings</h3>
           <p>Settings &gt; Controls &gt; HUD sets up your game screen: a HUD Size slider, Hide HUD for clean screenshots (also F1 in a game; phone buttons stay), the corner map's starting size (Small, Normal or Big) and whether it keeps north up or turns with you (a round map with a red N on its edge), a Kill Feed under the map for your kills and your server friends' kills, the hit marker on or off, a Low-Ammo Warning that turns your ammo red, your Ping on servers, a clock (real time or game time), your X/Y/Z coordinates, a Compass Bar along the top, how see-through the chat is, chat that fades a few seconds after the last message, and health as a bar, a number or both. Everything finds its own free spot, on phones too, upright or sideways.</p>
+        </div>
+        <div class="feature" data-code="bleed drawZombieOutlines graphicsFilterCss batteryActive">
+          <h3>Graphics Effects Settings</h3>
+          <p>Settings &gt; Graphics &gt; Effects tunes how the game looks: Screen Shake (from none up to double, for explosions, big hits and earthquakes), Particle Amount (Low, Medium or High), Grass, Clouds and Weather Effects on or off, Blood (Normal: green goo from zombies and red from animals and you; all Green Goo; or Off), a Zombie Outline that shows zombies hidden behind walls as a red shape in your own games (never on servers), Battery Saver (a lower frame rate and resolution and fewer particles; Auto switches it on when your battery runs low and tells you), Gamma, Saturation, Sharpen and the Hand / Weapon FOV.</p>
         </div>
         <div class="feature" data-code="HOWTOPLAY_STEPS">
           <h3>How to Play</h3>

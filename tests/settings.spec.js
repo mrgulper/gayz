@@ -484,3 +484,125 @@ test('the HUD settings (ideas 25-38) work in a game', async ({ page }) => {
   })
   expect(r.info).toMatch(/Time .+\nX -?\d+ {2}Y -?\d+ {2}Z -?\d+/)
 })
+
+test('the Graphics settings (ideas 39-50) work in a game', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    const set = (id, v) => {
+      const el = document.getElementById(id)
+      if (el.type === 'checkbox') { el.checked = v; el.dispatchEvent(new Event('change')) } else { el.value = v; el.dispatchEvent(new Event(el.type === 'range' ? 'input' : 'change')) }
+    }
+    out.rows = ['ms-screen-shake', 'ms-particle-amount', 'ms-grass-tufts', 'ms-clouds-enabled', 'ms-weather-effects', 'ms-blood-style',
+      'ms-zombie-outline', 'ms-battery-saver', 'ms-gamma', 'ms-saturation', 'ms-sharpen', 'ms-hand-fov']
+      .filter((id) => document.getElementById(id)?.closest('#settings-page-graphics')).length
+    out.heading = document.getElementById('settings-section-effects')?.textContent
+    // Gamma / saturation / sharpen go on the canvas's filter; nothing at the defaults.
+    out.filterDefault = g.canvas.style.filter
+    set('ms-saturation', 150)
+    set('ms-gamma', 120)
+    out.filter = g.canvas.style.filter
+    set('ms-saturation', 100)
+    set('ms-gamma', 100)
+    out.filterBack = g.canvas.style.filter
+    // Battery Saver On: 30 fps cap; Off: back to the FPS Cap setting.
+    set('ms-battery-saver', 'on')
+    out.saverMs = Math.round(g._fpsCapMinFrameMs)
+    set('ms-battery-saver', 'off')
+    out.saverOffMs = g._fpsCapMinFrameMs
+    set('ms-battery-saver', 'auto')
+
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    b.update(0.016)
+    b.survival.start()
+    const s = b.survival
+    const step = (n = 1, dt = 0.05) => { for (let i = 0; i < n; i++) b.update(dt) }
+    step(8)
+    // Screen shake: 0% none, 200% double.
+    const view = b.renderer.domElement
+    set('ms-screen-shake', 0)
+    view.classList.remove('boom-shake')
+    s._shake(5)
+    out.shakeOff = !view.classList.contains('boom-shake')
+    set('ms-screen-shake', 200)
+    s._shake(5)
+    out.shakeDouble = view.style.getPropertyValue('--boom')
+    set('ms-screen-shake', 100)
+    // Particles: Low makes far fewer than High.
+    const Vec = b.camera.position.constructor
+    const made = () => {
+      const n0 = s._fx._next
+      s._fx.explode(new Vec(0, 50, 0), 2)
+      return (s._fx._next - n0 + 220) % 220
+    }
+    out.particlesHigh = made()
+    set('ms-particle-amount', 'low')
+    out.particlesLow = made()
+    set('ms-particle-amount', 'high')
+    // Blood: green goo from a zombie; Off: nothing.
+    const colors = []
+    const realBlood = s._fx.blood.bind(s._fx)
+    s._fx.blood = (x, y, z, c, size) => { colors.push(c); realBlood(x, y, z, c, size) }
+    let z = null
+    for (let i = 0; i < 20 && !z; i++) { s._spawnZombie(); z = s.zombies[0] }
+    if (z) {
+      z.health = 9999
+      s.damageZombie(z, 1)
+      z._bledAt = 0
+      set('ms-blood-style', 'off')
+      s.damageZombie(z, 1)
+      set('ms-blood-style', 'normal')
+    }
+    out.blood = colors
+    // Clouds off: the cloud layer goes see-through.
+    set('ms-clouds-enabled', false)
+    step(2)
+    out.cloudOpacity = b.sky.bodies.cloudMat.uniforms.opacity.value
+    set('ms-clouds-enabled', true)
+    // Weather off: no falling rain.
+    const w = b.sky.weather3d
+    w.set('hardRain')
+    step(4)
+    out.rainOn = w.points.visible
+    set('ms-weather-effects', false)
+    step()
+    out.rainHidden = !w.points.visible
+    set('ms-weather-effects', true)
+    // Zombie outline: a zombie behind a wall is drawn again on layer 7.
+    let outlineDraws = 0
+    const realRender = b.renderer.render.bind(b.renderer)
+    b.renderer.render = (sc, cam) => { if (cam.layers.mask === 1 << 7) outlineDraws++; return realRender(sc, cam) }
+    if (z) {
+      const B = s.B
+      const cx = Math.floor(b.camera.position.x / B)
+      const cy = Math.floor(b.camera.position.y / B)
+      const cz = Math.floor(b.camera.position.z / B)
+      for (let dy = -3; dy <= 4; dy++) for (let dz = -3; dz <= 3; dz++) b.placeBlock(cx + 4, cy + dy, cz + dz, 'stone')
+      z.x = cx + 8.5
+      z.z = cz + 0.5
+      z.y = cy - 1
+      b.render()
+      out.outlineOffDraws = outlineDraws
+      set('ms-zombie-outline', true)
+      b.render()
+      out.outlineOnDraws = outlineDraws
+      set('ms-zombie-outline', false)
+    }
+    b.renderer.render = realRender
+    s.stop()
+    step(2)
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toMatchObject({
+    rows: 12, heading: 'Effects', filterDefault: 'none', filterBack: 'none', saverMs: 33, saverOffMs: 0,
+    shakeOff: true, shakeDouble: '10.0px', cloudOpacity: 0, rainOn: true, rainHidden: true, outlineOffDraws: 0,
+  })
+  expect(r.filter).toContain('saturate(150%)')
+  expect(r.filter).toContain('#gfx-post')
+  expect(r.particlesLow).toBeLessThan(r.particlesHigh * 0.6)
+  expect(r.blood).toEqual([0x6fbf3a])
+  expect(r.outlineOnDraws).toBeGreaterThan(0)
+})

@@ -235,7 +235,16 @@ Already in the game (skip or extend): 66 muted players list (Social > muted list
 - Chat Opacity: `--chat-opacity` on messages + tabs. Chat Fade: `.chat-faded` X s after the newest message (`_lastChatMsgs`/system lines), back while typing.
 - Themes: boxes follow biome / Simple / Old like the corner map. Test: settings "the HUD settings (ideas 25-38) work in a game".
 
-**Graphics (39-50):** 39 screen shake (bring back) · 40 particle amount · 41 grass on/off · 42 clouds on/off · 43 weather effects · 44 blood: normal/green goo/off · 45 zombie outline behind walls · 46 battery saver (mobile) · 47 gamma · 48 saturation · 49 sharpen · 50 hand/weapon FOV.
+**Graphics (39-50): DONE 2026-11-11.** Rows in Graphics > Effects (heading `#settings-section-effects`, before Reset). `GraphicsSettings.js` holds readers asked where used (no state to undo) plus blood, outline, filters and Battery Saver. Gaymi's picks: blood Normal = goo for zombies, red for animals and you; outline solo only; Battery Saver Off/On/Auto (default Auto) with a toast when Auto turns on.
+- Screen Shake (0-200%): `shakeScale()` in `BuildSurvival._shake` and `Disasters.beforeRender`. Reduce Flashing still wins for explosions.
+- Particle Amount: `PlayFx._emit` skips a share (`particleKeep`: 0.3/0.6/1; Battery Saver caps at medium). Blast flash + ring always show.
+- Grass: `BuildMode._applyGraphicsLook` sets tufts 0 (tufts only exist on Realistic+). Clouds: `SkyBodies` cloud opacity 0 + low clouds hidden (`clouds.visible` stays: it's the sky's "showing" flag). Weather: `BuildWeather` hides points + splash only.
+- Blood: `bleed(fx, thing, kind, x,y,z)` -> `PlayFx.blood` ('drop' texture, normal blending), max once per 0.15 s per thing (`_bledAt`). Zombies: `_bleedZombie` in `damageZombie` and the non-host hit branches. Animals: `PlayAnimals._bleed` in `damage` + non-host `hitRay`. You: `_hurtPlayer`, 0.7 block in front at chest height.
+- Zombie Outline: `drawZombieOutlines(bm)` right after the main render (same shaken camera): every 0.2 s a block-step line check from the camera to each zombie's head and middle (48 blocks); hidden ones get layer 7 on their meshes, drawn again with an override `MeshBasicMaterial` (depthTest off, red, 50%), background off. `!s.net` only.
+- Gamma/Saturation/Sharpen: `graphicsFilterCss` adds `saturate()` and an inline SVG filter `#gfx-post` (feComponentTransfer gamma + 3x3 feConvolveMatrix) to `_applyGraphicsFilters`; nothing at defaults.
+- Battery Saver: `fpsCapMs` (min with FPS Cap, used by SettingsUI) and `batteryResScale` in `Game._applyRenderScale`; Auto via `navigator.getBattery` (Chrome/Android; Safari/iPhone gives nothing, so Auto never fires there). `_testBattery(level)` for tests.
+- Hand / Weapon FOV: `BuildTryMode._renderOnTop` (`handFov()`, portrait keeps its wide-view formula with fov/2).
+- Test: settings "the Graphics settings (ideas 39-50) work in a game".
 
 **Gameplay (51-62):** 51 auto-reload · 52 auto-equip better weapon · 53 auto-sort inventory · 54 confirm before selling · 55 confirm buying above X coins · 56 loot glow/beams · 57 loading tips · 58 replay tutorials · 59 pause when tab hidden (offline) · 60 AFK auto-pause · 61 spoiler-free Story Campaign · 62 reset all tooltips/hints.
 

@@ -51,6 +51,19 @@ export const MORE_SETTINGS = [
   { key: 'chatOpacity', type: 'range', def: 100, min: 20, max: 100, step: 5, unit: '%', page: 'controls', before: 'settings-section-gameplay' },
   { key: 'chatFade', type: 'select', def: 'off', opts: ['off', '5', '10', '20', '30'], page: 'controls', before: 'settings-section-gameplay' },
   { key: 'healthDisplay', type: 'select', def: 'both', opts: ['both', 'bar', 'number'], page: 'controls', before: 'settings-section-gameplay' },
+  // --- Graphics (ideas 39-50; hook-ups in GraphicsSettings.js) ---
+  { key: 'screenShake', type: 'range', def: 100, min: 0, max: 200, step: 10, unit: '%', page: 'graphics', before: 'reset-graphics-defaults-btn' },
+  { key: 'particleAmount', type: 'select', def: 'high', opts: ['low', 'medium', 'high'], page: 'graphics', before: 'reset-graphics-defaults-btn' },
+  { key: 'grassTufts', type: 'toggle', def: true, page: 'graphics', before: 'reset-graphics-defaults-btn' },
+  { key: 'cloudsEnabled', type: 'toggle', def: true, page: 'graphics', before: 'reset-graphics-defaults-btn' },
+  { key: 'weatherEffects', type: 'toggle', def: true, page: 'graphics', before: 'reset-graphics-defaults-btn' },
+  { key: 'bloodStyle', type: 'select', def: 'normal', opts: ['normal', 'goo', 'off'], page: 'graphics', before: 'reset-graphics-defaults-btn' },
+  { key: 'zombieOutline', type: 'toggle', def: false, page: 'graphics', before: 'reset-graphics-defaults-btn' },
+  { key: 'batterySaver', type: 'select', def: 'auto', opts: ['off', 'on', 'auto'], page: 'graphics', before: 'reset-graphics-defaults-btn' },
+  { key: 'gamma', type: 'range', def: 100, min: 50, max: 150, step: 5, unit: '%', page: 'graphics', before: 'reset-graphics-defaults-btn' },
+  { key: 'saturation', type: 'range', def: 100, min: 0, max: 200, step: 5, unit: '%', page: 'graphics', before: 'reset-graphics-defaults-btn' },
+  { key: 'sharpen', type: 'range', def: 0, min: 0, max: 100, step: 5, unit: '%', page: 'graphics', before: 'reset-graphics-defaults-btn' },
+  { key: 'handFov', type: 'range', def: 70, min: 50, max: 110, step: 1, unit: '°', page: 'graphics', before: 'reset-graphics-defaults-btn' },
 ]
 
 export const MORE_SETTING_KEYS = MORE_SETTINGS.map((s) => s.key)

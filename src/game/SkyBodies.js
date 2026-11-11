@@ -15,6 +15,7 @@
 //   fades out (shader) so you never see where it ends. In bad weather the
 //   clouds thicken and turn grey; at night they go dark.
 import * as THREE from 'three'
+import { cloudsOn } from './GraphicsSettings.js'
 
 const SKY_R = 140 // world units: just inside the stars (150) and the camera's far plane
 const DOME_R = 120 // the sky dome (drawn first, behind everything)
@@ -576,10 +577,12 @@ export class SkyBodies {
     // rain and snow clouds stay, dark shapes against the night.
     const dayFade = Math.max(THREE.MathUtils.smoothstep(daylight, 0.15, 0.7), THREE.MathUtils.smoothstep(cover, 0.3, 0.7) * 0.9)
     if (sky) this.cloudMat.uniforms.rim.value.setRGB(Math.min(1, sky.r * 1.35 + 0.04), Math.min(1, sky.g * 1.35 + 0.04), Math.min(1, sky.b * 1.35 + 0.05))
-    this.cloudMat.uniforms.opacity.value = (0.85 + cover * 0.15) * dayFade
+    // Settings > Graphics > Clouds off: see-through (the layer itself stays,
+    // it's how the sky knows it's showing).
+    this.cloudMat.uniforms.opacity.value = cloudsOn() ? (0.85 + cover * 0.15) * dayFade : 0
     // Low rain clouds: only when it's properly overcast.
     const low = this._lite ? 0 : THREE.MathUtils.smoothstep(cover, 0.5, 0.85)
-    this.lowClouds.visible = low > 0.01
+    this.lowClouds.visible = low > 0.01 && cloudsOn()
     if (this.lowClouds.visible) {
       this._lowWind += dt * LOW_CLOUD_WIND
       this.lowClouds.position.set(cam.x, cam.y + LOW_CLOUD_HEIGHT, cam.z)
