@@ -30,6 +30,7 @@
 //    from the Firestore Security Rules (step 3), which is why those matter
 //    much more than keeping this object private.
 import { clanMonthKey, entryClanXp } from './Xp.js'
+import { isHidden } from './LiveConfig.js'
 
 export const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyCCA9e3NAWk6MQJS-pnl-Lzq1Yn3nCZwVY',
@@ -1368,7 +1369,8 @@ export async function fetchCommunityBuilds() {
   const { db, fsMod } = await ensureApp()
   const q = fsMod.query(fsMod.collection(db, 'communityBuilds'), fsMod.orderBy('createdAt', 'desc'), fsMod.limit(50))
   const snap = await fsMod.getDocs(q)
-  return snap.docs.map((d) => ({ ...d.data(), buildId: d.id }))
+  // Builds the Console hid (LiveConfig.js) stay out of the list.
+  return snap.docs.filter((d) => !isHidden('build', d.id)).map((d) => ({ ...d.data(), buildId: d.id }))
 }
 
 // Shared maps (2026-10-04, see the sharedMaps rules above). The code is the
@@ -1398,6 +1400,8 @@ export async function shareMap(uid, nickname, name, base, data, blockCount) {
 
 export async function fetchSharedMap(code) {
   const { db, fsMod } = await ensureApp()
+  // A map the Console hid (LiveConfig.js) opens like a deleted one.
+  if (isHidden('map', code)) return null
   const snap = await fsMod.getDoc(fsMod.doc(db, 'sharedMaps', code))
   return snap.exists() ? { ...snap.data(), code: snap.id } : null
 }
@@ -1408,7 +1412,7 @@ export async function fetchSharedMaps(sort) {
   const field = sort === 'likes' ? 'likes' : sort === 'plays' ? 'plays' : 'createdAt'
   const q = fsMod.query(fsMod.collection(db, 'sharedMaps'), fsMod.orderBy(field, 'desc'), fsMod.limit(30))
   const snap = await fsMod.getDocs(q)
-  return snap.docs.map((d) => {
+  return snap.docs.filter((d) => !isHidden('map', d.id)).map((d) => {
     const row = { ...d.data(), code: d.id }
     delete row.data
     return row

@@ -12,6 +12,7 @@
 // the saved run); only the top 3 goes online, once, a few
 // seconds after the homepage is ready, so it never slows the first paint.
 import { t } from './i18n.js'
+import { holidayDate } from './LiveConfig.js'
 import { _escapeHtml, _safeStatNumber, saveSettings, saveCareerStats, saveShopProgress, FRIEND_OFFLINE_THRESHOLD_MS } from './Game.js'
 import { EMOTES } from './Emotes.js'
 
@@ -90,8 +91,9 @@ export function tipOfDayKey(date = new Date()) {
 }
 
 // Halloween (Oct 20-31) or winter (all of December), else null. Only
-// winter draws anything on the homepage now.
-export function holidayFor(date = new Date()) {
+// winter draws anything on the homepage now. The Console's Holiday switch
+// moves the date into its season (LiveConfig.js).
+export function holidayFor(date = holidayDate()) {
   const m = date.getMonth()
   const d = date.getDate()
   if (m === 9 && d >= 20) return 'halloween'
@@ -531,6 +533,8 @@ const SNOW_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-widt
 function applyHoliday(game) {
   const kind = holidayFor() === 'winter' ? 'winter' : null
   document.documentElement.dataset.holiday = kind || ''
+  // The Console's Holiday switch can turn it off again on an open page.
+  document.getElementById('home-holiday')?.classList.toggle('off', !kind)
   if (!kind || document.getElementById('home-holiday')) return
   const layer = document.createElement('div')
   layer.id = 'home-holiday'
@@ -585,4 +589,6 @@ export function bindHomeExtras(game) {
   bindZombiePeek(game)
   celebrateBirthday(game)
   applyHoliday(game)
+  // The Console's Holiday switch changed (LiveConfig.js).
+  window.addEventListener('gayz-live', () => applyHoliday(game))
 }

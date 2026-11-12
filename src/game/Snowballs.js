@@ -14,6 +14,7 @@
 import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
+import { holidayDate } from './LiveConfig.js'
 
 const SPEED = 24 // blocks per second
 const GRAVITY = 16
@@ -25,8 +26,9 @@ export const START_SNOWBALLS = 8
 export const WAVE_SNOWBALLS = 4
 export const CHEST_SNOWBALLS = [3, 6]
 
-// Is it snowball season? December, January, February - or the setting.
-export function winterOn(settings, now = new Date()) {
+// Is it snowball season? December, January, February - or the setting,
+// or the Console's Holiday switch on Christmas (LiveConfig.js).
+export function winterOn(settings, now = holidayDate()) {
   if (settings?.snowballsAllYear) return true
   const m = now.getMonth()
   return m === 11 || m === 0 || m === 1

@@ -7,6 +7,7 @@
 // taking `game`, all state on the Game instance; Game.js keeps a one-line
 // stand-in for each, so callers are unchanged.
 import * as ChatUI from './ChatUI.js'
+import { HORDE_MULT } from './LiveConfig.js'
 import { ACHIEVEMENTS } from './Achievements.js'
 import { CHANGELOG_LAST_VIEWED_KEY, Game, HOWTOPLAY_STEPS, LOGIN_CALENDAR_DAYS, MARKET_FEE_RATE, MAX_GOALS, PLAY_META_UPGRADES, PRESTIGE_BONUS_PERCENT, PRESTIGE_COST_STEP, SUPPORTED_LANGUAGE_CODES, UPDATE_BANNER_FADE_MS, UPDATE_BANNER_SHOW_MS, WHATS_NEW_SEEN_KEY, WHATS_NEW_VERSION, saveSettings } from './Game.js'
 import { BIOMES } from './OpenWorld.js'
@@ -371,6 +372,8 @@ export function _featureValues(_game) {
   const supported = LANGUAGES.filter((l) => SUPPORTED_LANGUAGE_CODES.has(l.code)).map((l) => l.name)
   const coming = LANGUAGES.filter((l) => !SUPPORTED_LANGUAGE_CODES.has(l.code)).map((l) => l.name)
   return {
+    // The Console's Horde Night switch (LiveConfig.js).
+    hordeNightPercent: Math.round((HORDE_MULT - 1) * 100),
     constellations: CONSTELLATION_COUNT,
     goals: MAX_GOALS,
     startTraps: START_TRAPS,

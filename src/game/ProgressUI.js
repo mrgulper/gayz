@@ -15,6 +15,7 @@ import { QUESTS } from './Quests.js'
 import { SKIN_RARITIES } from './InventorySkins.js'
 import { EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQuests.js'
 import { t } from './i18n.js'
+import { rewardMult } from './LiveConfig.js'
 import { setNavBadge } from './NavBadges.js'
 import { addClanXp, levelFromXp, levelUpCoins, xpForGame } from './Xp.js'
 
@@ -211,7 +212,8 @@ export function _onPlayEvent(game, type, data) {
   // XP (Xp.js) - never spent; sets your level, and counts for your clan
   // this month while you're signed in and in one. Saved by _recordRunEnd
   // (career stats) and pushed with the online stats it sends.
-  const xp = xpForGame({ kills: data.kills, waves: data.waves, seconds: data.seconds, won: data.won, difficulty: data.difficulty, bonusXp: data.bonusXp })
+  // x2 while the Console's Double XP switch is on (LiveConfig.js).
+  const xp = xpForGame({ kills: data.kills, waves: data.waves, seconds: data.seconds, won: data.won, difficulty: data.difficulty, bonusXp: data.bonusXp }) * rewardMult()
   const xpBefore = _safeStatNumber(game.careerStats.xp)
   game.careerStats.xp = xpBefore + xp
   // Level up (2026-10-26, Gaymi: like kirka.io): every level reached in
@@ -568,10 +570,12 @@ export function _claimDailyChallenge(game) {
   const reward = game.dailyChallenge.claim()
   if (!reward) return
   // Coins and XP the same way as a rolling quest's claim.
-  game.coins += reward.coins
-  game.xp += reward.xp
+  // x2 while the Double XP / rewards switch is on.
+  const m = rewardMult()
+  game.coins += reward.coins * m
+  game.xp += reward.xp * m
   saveShopProgress(game)
-  game._showHomepageToast(t('dailyChallengeClaimedToast', { coins: reward.coins, xp: reward.xp, n: reward.streak }))
+  game._showHomepageToast(t('dailyChallengeClaimedToast', { coins: reward.coins * m, xp: reward.xp * m, n: reward.streak }))
   // Just this card changes (now "Done for today"), not the whole list.
   const card = game.rollingQuestsOptions?.querySelector('button[data-daily]')
   if (card) {
@@ -612,8 +616,11 @@ function _fadeOutQuestCard(game, card) {
 
 export function _claimQuest(game, id) {
   if (!game.quests.claim(id, game)) return
+  // Double XP / rewards switch: the same reward again on top.
+  const coins = QUESTS.find((q) => q.id === id)?.rewardCoins || 0
+  game.coins += coins * (rewardMult() - 1)
   saveShopProgress(game)
-  game._showHomepageToast(t('questClaimedToast', { n: QUESTS.find((q) => q.id === id)?.rewardCoins || 0 }))
+  game._showHomepageToast(t('questClaimedToast', { n: coins * rewardMult() }))
   game._renderQuestsPanel()
   game._updateQuestsDot()
   game._updateFaviconQuestBadge()
@@ -629,9 +636,12 @@ export function _claimRollingQuest(game, spawnedAt) {
   // claiming from the homepage just banks the XP toward the next
   // level-up, which gets caught for real the next time xp is gained
   // during real play.
-  game.xp += reward.xp
+  // Double XP / rewards switch: x2 (claim() already paid the coins once).
+  const m = rewardMult()
+  game.coins += reward.coins * (m - 1)
+  game.xp += reward.xp * m
   saveShopProgress(game)
-  game._showHomepageToast(t('rollingQuestClaimedToast', { coins: reward.coins, xp: reward.xp }))
+  game._showHomepageToast(t('rollingQuestClaimedToast', { coins: reward.coins * m, xp: reward.xp * m }))
   _fadeOutQuestCard(game, game.rollingQuestsOptions?.querySelector(`button[data-spawned-at="${Number(spawnedAt)}"]`))
   game._updateQuestsDot()
   game._updateFaviconQuestBadge()

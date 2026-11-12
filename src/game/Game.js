@@ -2328,6 +2328,7 @@ export class Game {
     this.chatIdPopupName = document.getElementById('chat-id-popup-name')
     this.chatIdPopupIdBtn = document.getElementById('chat-id-popup-id-btn')
     this.chatIdPopupMuteBtn = document.getElementById('chat-id-popup-mute-btn')
+    this.chatIdPopupReportBtn = document.getElementById('chat-id-popup-report-btn')
     this.chatPanel = document.getElementById('chat-panel')
     this.chatMessages = document.getElementById('chat-messages')
     this.chatMutedNotice = document.getElementById('chat-muted-notice')

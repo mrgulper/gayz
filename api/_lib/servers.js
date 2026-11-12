@@ -17,6 +17,8 @@
 //                       edits: { "x,y,z": { b, s, by } } }
 //   serverSecrets/{id}/{pid}  the player's token (never sent to others)
 //   serverSkins/{id}/{pid}    the player's skin picture (sent once on ask)
+//   serverPids/{id}/{pid}     the player's own Player ID (the Console's
+//                             kick/ban, admin.js; never sent to others)
 //
 // A player is a public id (seen by everyone, keys their avatar) plus a
 // secret token only they hold - every write needs both, so knowing
@@ -36,6 +38,7 @@
 // (one per cell, the latest wins, numbered so each player only gets the
 // ones they haven't had yet).
 import { randomUUID, randomInt } from 'node:crypto'
+import { isBanned } from './admin.js'
 
 export const MAX_PLAYERS = 8
 // No sync for this long = gone (closed the tab, lost connection).
@@ -128,6 +131,7 @@ export async function listServers(db, now = Date.now()) {
       gone[`servers/${id}`] = null
       gone[`serverSecrets/${id}`] = null
       gone[`serverSkins/${id}`] = null
+      gone[`serverPids/${id}`] = null
       continue
     }
     // A solo game ready for friends (PlayNet lobby): joined by its link only.
@@ -167,7 +171,8 @@ const cleanAccess = (v) => (ACCESS.includes(v) ? v : null)
 
 // hidden: a solo game made ready for friends the moment it starts (its
 // address is the invite link) - left out of the Global list.
-export async function createServer(db, { name, mode, nickname, skin, world, id: wanted, hidden, access } = {}, now = Date.now()) {
+export async function createServer(db, { name, mode, nickname, skin, world, id: wanted, hidden, access, pid: playerPid } = {}, now = Date.now()) {
+  if (await isBanned(db, playerPid, now)) throw new ServerError(403, 'banned')
   const m = MODES.includes(mode) ? mode : 'main'
   // Invite Friends picks the id itself so its link shows at once; taken or
   // malformed, a new one is made (the reply says which). A server nobody is
@@ -191,6 +196,7 @@ export async function createServer(db, { name, mode, nickname, skin, world, id: 
     },
     // Whole, so an old server's players and skins under this id go too.
     [`serverSecrets/${id}`]: { [pid]: token },
+    [`serverPids/${id}`]: typeof playerPid === 'string' && /^[A-Za-z0-9]{4,40}$/.test(playerPid) ? { [pid]: playerPid } : null,
   }
   const s = skinOf(skin)
   updates[`serverSkins/${id}`] = s ? { [pid]: s } : null
@@ -198,8 +204,9 @@ export async function createServer(db, { name, mode, nickname, skin, world, id: 
   return { serverId: id, playerId: pid, token, host: pid, mode: m }
 }
 
-export async function joinServer(db, { serverId, nickname, skin } = {}, now = Date.now()) {
+export async function joinServer(db, { serverId, nickname, skin, pid: playerPid } = {}, now = Date.now()) {
   if (!validId(serverId)) throw new ServerError(400, 'bad-request')
+  if (await isBanned(db, playerPid, now)) throw new ServerError(403, 'banned')
   const server = await db.get(`servers/${serverId}`)
   if (!server) throw new ServerError(404, 'gone')
   const live = livePlayers(server, now)
@@ -212,6 +219,7 @@ export async function joinServer(db, { serverId, nickname, skin } = {}, now = Da
     [`servers/${serverId}/players/${pid}`]: newPlayer(nickname, now),
     [`serverSecrets/${serverId}/${pid}`]: token,
   }
+  if (validId(playerPid)) updates[`serverPids/${serverId}/${pid}`] = playerPid
   // A host that went quiet hands over to whoever is still here.
   const hostLive = live.some(([p]) => p === server.host)
   if (!hostLive) updates[`servers/${serverId}/host`] = live[0][0]
@@ -234,15 +242,18 @@ export async function leaveServer(db, { serverId, playerId, token } = {}, now = 
     [`servers/${serverId}/players/${playerId}`]: null,
     [`serverSecrets/${serverId}/${playerId}`]: null,
     [`serverSkins/${serverId}/${playerId}`]: null,
+    [`serverPids/${serverId}/${playerId}`]: null,
   }
   const others = livePlayers(server, now).filter(([p]) => p !== playerId)
   if (!others.length) {
     updates[`servers/${serverId}`] = null
     updates[`serverSecrets/${serverId}`] = null
     updates[`serverSkins/${serverId}`] = null
+    updates[`serverPids/${serverId}`] = null
     delete updates[`servers/${serverId}/players/${playerId}`]
     delete updates[`serverSecrets/${serverId}/${playerId}`]
     delete updates[`serverSkins/${serverId}/${playerId}`]
+    delete updates[`serverPids/${serverId}/${playerId}`]
   } else if (server?.host === playerId) {
     updates[`servers/${serverId}/host`] = others[0][0]
   }
@@ -617,6 +628,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     updates[`${base}/players/${pid}`] = null
     updates[`serverSecrets/${serverId}/${pid}`] = null
     updates[`serverSkins/${serverId}/${pid}`] = null
+    updates[`serverPids/${serverId}/${pid}`] = null
   }
   // A host whose tab is hidden runs nothing (hidden tabs don't draw), so
   // anyone who is actually playing takes the zombies over.
