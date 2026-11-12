@@ -434,6 +434,8 @@ export class PlayNet {
       if (err?.code === 'full') return this._lost('serverFullToast')
       // Kicked or banned from the Console (api/_lib/admin.js).
       if (err?.code === 'banned') return this._lost('serverBannedToast')
+      // Online servers switched off, or maintenance (Console).
+      if (err?.code === 'switched-off') return this._lost('liveOnlineClosed')
       if (err?.code !== 'gone') throw err
       // Nobody left in it: open it again under the same id, so the invite
       // link still works and the others get back into it too.

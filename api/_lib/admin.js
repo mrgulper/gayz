@@ -20,6 +20,11 @@
 //                  Console last pressed Dismiss on it
 //   serverPids/{serverId}/{slot}  the Player ID behind a server slot
 //                  (servers.js writes it on create/join)
+//   liveConfig.off { online|chat|market|sharing|gallery|leaderboards: true }
+//                  feature off-switches (Console batch 5, "Safety")
+//   liveConfig.maintenance { on, text, at }  maintenance screen
+//   adminLog/{id}  { at, text } - the Console's action history, newest
+//                  LOG_KEPT kept
 import { ServerError } from './servers.js'
 
 export const EVENT_IDS = ['doubleCoins', 'doubleXp', 'hordeNight']
@@ -34,6 +39,19 @@ export const KICK_MINUTES = 2
 // One report per player per target per this long.
 export const REPORT_GAP_MS = 6 * 60 * 60 * 1000
 const REPORTS_KEPT = 200
+// Feature off-switches: each one pauses a part of the game for everyone
+// (LiveConfig.switchedOff on the page; `online` is also enforced below in
+// createServer/joinServer).
+export const SWITCH_IDS = ['online', 'chat', 'market', 'sharing', 'gallery', 'leaderboards']
+export const MAINT_TEXT_MAX = 200
+const LOG_KEPT = 300
+// What a backup holds and Restore puts back (servers come and go, so
+// they're left out).
+export const BACKUP_PATHS = ['liveConfig', 'bans', 'playerReports', 'reportsSeen', 'adminLog']
+// Restore leaves the history alone: it stays a true record (including the
+// Restore itself).
+const RESTORE_PATHS = BACKUP_PATHS.filter((p) => p !== 'adminLog')
+const BACKUP_MAX_CHARS = 2_000_000
 
 // A Player ID (Game.js _generatePlayerId) or a server slot id.
 export function validPid(v) {
@@ -68,6 +86,22 @@ function cleanEvents(e) {
   return out
 }
 
+function cleanOff(o) {
+  return SWITCH_IDS.filter((id) => o?.[id] === true)
+}
+
+function liveMaintenance(m) {
+  if (!m || typeof m !== 'object' || m.on !== true) return null
+  return { text: cleanText(m.text, MAINT_TEXT_MAX), at: Number(m.at) || 0 }
+}
+
+// Servers are closed while Online is switched off or during maintenance
+// (servers.js createServer/joinServer).
+export async function onlineClosed(db) {
+  const cfg = await db.get('liveConfig')
+  return cfg?.off?.online === true || !!liveMaintenance(cfg?.maintenance)
+}
+
 // What every player's page gets (api/live.js). Only the asker's own ban,
 // never the list.
 export async function publicConfig(db, { pid } = {}, now = Date.now()) {
@@ -80,6 +114,8 @@ export async function publicConfig(db, { pid } = {}, now = Date.now()) {
       builds: Object.keys(cfg?.hidden?.builds || {}),
     },
     ban: activeBan(ban, now),
+    off: cleanOff(cfg?.off),
+    maintenance: liveMaintenance(cfg?.maintenance),
   }
 }
 
@@ -153,7 +189,7 @@ async function contentReports(db, fs, hidden) {
 }
 
 export async function adminState(db, fs, now = Date.now()) {
-  const [cfg, bans, reports, players] = await Promise.all([db.get('liveConfig'), db.get('bans'), db.get('playerReports'), serverPlayers(db, now)])
+  const [cfg, bans, reports, players, log] = await Promise.all([db.get('liveConfig'), db.get('bans'), db.get('playerReports'), serverPlayers(db, now), db.get('adminLog')])
   const content = await contentReports(db, fs, cfg?.hidden)
   return {
     banner: cfg?.banner || null,
@@ -168,6 +204,11 @@ export async function adminState(db, fs, now = Date.now()) {
     contentReports: content.list,
     contentReportsError: content.error,
     players,
+    off: cleanOff(cfg?.off),
+    maintenance: liveMaintenance(cfg?.maintenance),
+    history: Object.values(log || {})
+      .map((e) => ({ at: Number(e?.at) || 0, text: cleanText(e?.text, 300) }))
+      .sort((a, b) => b.at - a.at),
   }
 }
 
@@ -243,7 +284,86 @@ export async function hideContent(db, { kind, id, hide } = {}) {
   return { ok: true }
 }
 
-export const ADMIN_ACTIONS = {
+// Feature off-switches: `off` lists the ids to switch off; every other one
+// is switched back on.
+export async function setSwitches(db, { off } = {}) {
+  const list = Array.isArray(off) ? off : []
+  const out = {}
+  for (const id of SWITCH_IDS) if (list.includes(id)) out[id] = true
+  await db.update({ 'liveConfig/off': Object.keys(out).length ? out : null })
+  return { ok: true }
+}
+
+export async function setMaintenance(db, { on, text } = {}, now = Date.now()) {
+  await db.update({ 'liveConfig/maintenance': on === true ? { on: true, text: cleanText(text, MAINT_TEXT_MAX), at: now } : null })
+  return { ok: true }
+}
+
+// One line in the action history; the oldest drop off past LOG_KEPT.
+export async function logAction(db, text, now = Date.now()) {
+  const clean = cleanText(text, 300)
+  if (!clean) return
+  await db.update({ [`adminLog/${now}${Math.random().toString(36).slice(2, 6)}`]: { at: now, text: clean } })
+  const all = (await db.get('adminLog')) || {}
+  const ids = Object.keys(all).sort((a, b) => (all[a]?.at || 0) - (all[b]?.at || 0))
+  if (ids.length > LOG_KEPT) {
+    const drop = {}
+    for (const old of ids.slice(0, ids.length - LOG_KEPT)) drop[`adminLog/${old}`] = null
+    await db.update(drop)
+  }
+}
+
+export async function backup(db, now = Date.now()) {
+  const values = await Promise.all(BACKUP_PATHS.map((p) => db.get(p)))
+  const data = {}
+  BACKUP_PATHS.forEach((p, i) => { data[p] = values[i] ?? null })
+  return { gayzBackup: 1, at: now, data }
+}
+
+// Puts a backup file back exactly: every RESTORE_PATHS part is replaced
+// (a part the file doesn't have is emptied). The Console downloads a fresh
+// backup of what's there first, so a Restore can itself be undone.
+export async function restore(db, { file } = {}) {
+  if (!file || typeof file !== 'object' || file.gayzBackup !== 1 || !file.data || typeof file.data !== 'object') throw new ServerError(400, 'bad-backup')
+  if (JSON.stringify(file).length > BACKUP_MAX_CHARS) throw new ServerError(400, 'bad-backup')
+  const updates = {}
+  for (const p of RESTORE_PATHS) {
+    const v = file.data[p]
+    if (v != null && (typeof v !== 'object' || Array.isArray(v))) throw new ServerError(400, 'bad-backup')
+    updates[p] = v ?? null
+  }
+  await db.update(updates)
+  return { ok: true, at: Number(file.at) || 0 }
+}
+
+const FEATURE_NAMES = { online: 'Online servers', chat: 'Chat', market: 'Market', sharing: 'Map & build sharing', gallery: 'Gallery', leaderboards: 'Leaderboards' }
+const BAN_NAMES = { '-1': 'Kicked', 60: 'Banned 1 hour', 1440: 'Banned 1 day', 10080: 'Banned 7 days', 0: 'Banned forever' }
+const day = (ms) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ')
+
+// The history line for each change (reads like state/backup log nothing).
+const LOG_TEXT = {
+  banner: (b) => (cleanText(b.text, BANNER_MAX) ? `Banner shown: "${cleanText(b.text, 80)}"` : 'Banner removed'),
+  events: (b) => {
+    const e = cleanEvents(b.events)
+    const on = EVENT_IDS.filter((id) => e[id]).concat(e.holiday ? [`Holiday: ${e.holiday}`] : [])
+    return `Events saved: ${on.length ? on.join(', ') : 'all off'}`
+  },
+  kick: (b) => `${BAN_NAMES[Number(b.minutes)] || 'Kicked'}: ${cleanText(b.nick, 24) || '?'}${validPid(b.pid) ? ` #${b.pid}` : ''}${cleanText(b.reason, 60) ? ` ("${cleanText(b.reason, 60)}")` : ''}`,
+  unban: (b) => `Unbanned #${b.pid}`,
+  dismissPlayerReport: () => 'Dismissed a player report',
+  dismissContentReport: (b) => `Dismissed reports on ${b.kind} ${b.id}`,
+  hide: (b) => `${b.hide === false ? 'Unhid' : 'Hid'} ${b.kind} ${b.id}`,
+  switches: (b) => {
+    const off = SWITCH_IDS.filter((id) => Array.isArray(b.off) && b.off.includes(id))
+    return off.length ? `Switched off: ${off.map((id) => FEATURE_NAMES[id]).join(', ')}` : 'Every feature switched on'
+  },
+  maintenance: (b) => (b.on === true ? `Maintenance ON${cleanText(b.text, 80) ? `: "${cleanText(b.text, 80)}"` : ''}` : 'Maintenance OFF'),
+  backup: () => 'Downloaded a backup',
+  // `label`: the backup's time in the Console's own time zone.
+  restore: (b) => `Restored the backup from ${cleanText(b.label, 40) || (Number(b.file?.at) ? `${day(Number(b.file.at))} UTC` : '?')}`,
+}
+
+const ACTION_FNS = {
   state: (db, body, fs) => adminState(db, fs),
   banner: (db, body) => setBanner(db, body),
   events: (db, body) => setEvents(db, body.events),
@@ -252,4 +372,21 @@ export const ADMIN_ACTIONS = {
   dismissPlayerReport: (db, body) => dismissPlayerReport(db, body),
   dismissContentReport: (db, body) => dismissContentReport(db, body),
   hide: (db, body) => hideContent(db, body),
+  switches: (db, body) => setSwitches(db, body),
+  maintenance: (db, body) => setMaintenance(db, body),
+  backup: (db) => backup(db),
+  restore: (db, body) => restore(db, body),
 }
+
+// Every change also adds its line to the history - after it worked, and
+// a history hiccup never undoes or fails the change itself.
+export const ADMIN_ACTIONS = Object.fromEntries(
+  Object.entries(ACTION_FNS).map(([name, fn]) => [
+    name,
+    async (db, body, fs) => {
+      const result = await fn(db, body, fs)
+      if (LOG_TEXT[name]) await logAction(db, LOG_TEXT[name](body || {})).catch(() => {})
+      return result
+    },
+  ])
+)

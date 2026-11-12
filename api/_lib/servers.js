@@ -38,7 +38,7 @@
 // (one per cell, the latest wins, numbered so each player only gets the
 // ones they haven't had yet).
 import { randomUUID, randomInt } from 'node:crypto'
-import { isBanned } from './admin.js'
+import { isBanned, onlineClosed } from './admin.js'
 
 export const MAX_PLAYERS = 8
 // No sync for this long = gone (closed the tab, lost connection).
@@ -173,6 +173,7 @@ const cleanAccess = (v) => (ACCESS.includes(v) ? v : null)
 // address is the invite link) - left out of the Global list.
 export async function createServer(db, { name, mode, nickname, skin, world, id: wanted, hidden, access, pid: playerPid } = {}, now = Date.now()) {
   if (await isBanned(db, playerPid, now)) throw new ServerError(403, 'banned')
+  if (await onlineClosed(db)) throw new ServerError(503, 'switched-off')
   const m = MODES.includes(mode) ? mode : 'main'
   // Invite Friends picks the id itself so its link shows at once; taken or
   // malformed, a new one is made (the reply says which). A server nobody is
@@ -207,6 +208,7 @@ export async function createServer(db, { name, mode, nickname, skin, world, id: 
 export async function joinServer(db, { serverId, nickname, skin, pid: playerPid } = {}, now = Date.now()) {
   if (!validId(serverId)) throw new ServerError(400, 'bad-request')
   if (await isBanned(db, playerPid, now)) throw new ServerError(403, 'banned')
+  if (await onlineClosed(db)) throw new ServerError(503, 'switched-off')
   const server = await db.get(`servers/${serverId}`)
   if (!server) throw new ServerError(404, 'gone')
   const live = livePlayers(server, now)
