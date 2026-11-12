@@ -52,21 +52,28 @@ function getOffset(el) {
   return el.dataset.gzcOffset ? JSON.parse(el.dataset.gzcOffset) : { x: 0, y: 0 }
 }
 
+// CSS translate (not position/left/top) - leaves the element's own
+// positioning alone, and it's exactly how a saved move is applied for real
+// (src/game/ConsoleChanges.js), so the preview matches what ships.
 function setOffset(el, x, y) {
   el.dataset.gzcOffset = JSON.stringify({ x, y })
-  el.style.position = 'relative'
-  el.style.left = `${x}px`
-  el.style.top = `${y}px`
+  el.style.translate = `${x}px ${y}px`
 }
 
 function elementId(el) {
   if (el.id) return `#${el.id}`
-  // Fallback for un-id'd elements - an nth-child path good enough to
-  // re-find the same element within this same page session (not meant to
-  // be stable across reloads/builds).
+  // Fallback for un-id'd elements - an nth-child path from the nearest
+  // element that HAS an id ("#play-btn > span:nth-child(2)"), short enough
+  // to still find the same element after a rebuild, so the Console's Save
+  // button can keep it. Only falls back to a whole-page path (not saveable)
+  // when no parent has an id at all.
   const parts = []
   let node = el
   while (node && node.nodeType === 1 && node !== document.body) {
+    if (node.id) {
+      parts.unshift(`#${node.id}`)
+      break
+    }
     const parent = node.parentElement
     if (!parent) break
     const idx = Array.prototype.indexOf.call(parent.children, node) + 1
@@ -187,9 +194,16 @@ const undoStack = []
 // undoing a change here doesn't retroactively "unrecord" it, since a
 // snapshot is a best-effort convenience, not a true source of truth.
 const sessionEdits = new Map()
+// The value each element+prop had BEFORE its first edit this page life -
+// an edit (or Undo) that puts it back drops it from sessionEdits, so the
+// Console's Save never saves a "change" that isn't one.
+const originalValues = new Map()
 
-function recordSessionEdit(id, prop, value) {
-  sessionEdits.set(`${id}::${prop}`, { id, prop, value })
+function recordSessionEdit(id, prop, value, original) {
+  const key = `${id}::${prop}`
+  if (!originalValues.has(key) && original !== undefined) originalValues.set(key, original)
+  if (originalValues.has(key) && String(originalValues.get(key)) === String(value)) sessionEdits.delete(key)
+  else sessionEdits.set(key, { id, prop, value })
 }
 
 // elementId() above produces either a real #id or a synthetic
@@ -478,10 +492,11 @@ window.addEventListener('message', (event) => {
   } else if (msg.type === 'gzc-edit' && selectedEls.length) {
     // One undo entry per action, covering every element it touched (see
     // undoStack's own comment) - captured before applying, not after.
-    undoStack.push(selectedEls.map((el) => ({ el, prop: msg.prop, prevValue: getPropValue(el, msg.prop) })))
-    for (const el of selectedEls) {
+    const batch = selectedEls.map((el) => ({ el, prop: msg.prop, prevValue: getPropValue(el, msg.prop) }))
+    undoStack.push(batch)
+    for (const { el, prevValue } of batch) {
       setPropValue(el, msg.prop, msg.value)
-      recordSessionEdit(elementId(el), msg.prop, msg.value)
+      recordSessionEdit(elementId(el), msg.prop, msg.value, prevValue)
     }
   } else if (msg.type === 'gzc-get-session-edits') {
     window.parent.postMessage({ type: 'gzc-session-edits', edits: [...sessionEdits.values()] }, TRUSTED_CONSOLE_ORIGIN)
@@ -501,7 +516,10 @@ window.addEventListener('message', (event) => {
   } else if (msg.type === 'gzc-undo') {
     const batch = undoStack.pop()
     if (batch) {
-      for (const { el, prop, prevValue } of batch) setPropValue(el, prop, prevValue)
+      for (const { el, prop, prevValue } of batch) {
+        setPropValue(el, prop, prevValue)
+        recordSessionEdit(elementId(el), prop, prevValue)
+      }
       // Refresh the sidebar's own fields so they reflect the reverted
       // value instead of continuing to show the just-undone one.
       if (selectedEls.length) broadcastSelection()

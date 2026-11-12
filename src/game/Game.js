@@ -154,6 +154,7 @@ import { MARKET_PRICES } from './MarketSkins.js'
 import { INVENTORY_SKINS, SKIN_RARITIES, skinFrontIconURL } from './InventorySkins.js'
 export { INVENTORY_SKINS, SKIN_RARITIES, skinFrontIconURL }
 import { shrinkTextures, restoreTextures } from './LiteTextures.js'
+import { applyConsoleChanges } from './ConsoleChanges.js'
 
 
 // Starting stat tradeoffs, picked once on the main menu and applied a
@@ -4029,6 +4030,9 @@ export class Game {
     document.getElementById('nickname-color-label').textContent = t('nicknameColorLabel')
 
     this._updateBestStatsDisplay()
+    // Homepage edits saved from the Console - last, so a language switch
+    // can't write over them (text ones are English only).
+    applyConsoleChanges(this.settings.language)
   }
 
   _renderCurrencyBar() { return HomeUI._renderCurrencyBar(this) }
