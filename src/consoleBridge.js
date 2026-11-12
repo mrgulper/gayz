@@ -13,6 +13,23 @@
 
 import { applyUiTheme } from './game/CleanTheme.js'
 
+// Preview of the newer homepage parts (online counter in the clock's pill,
+// Map of the Week card): the real values when the game already has them,
+// otherwise sample ones, just in this tab (nothing is saved or fetched).
+// The sample map is marked so its Play button does nothing.
+function showHomeParts() {
+  const game = window.__game
+  if (!game) return
+  const realOnline = Number.isFinite(game._homeOnlineTotal)
+  const realMap = !!(game._homeMapWeek && !game._homeMapWeek.sample)
+  if (!realOnline) game._homeOnlineTotal = 128
+  if (!realMap) game._homeMapWeek = { code: 'SAMPLE', title: 'Sample Map', by: 'GayZ', likes: 12, image: '', sample: true }
+  game._clockShown = null
+  game._updateHomepageClock?.()
+  game._renderHomeExtras?.()
+  window.parent.postMessage({ type: 'gzc-home-parts', online: realOnline ? 'real' : 'sample', onlineValue: game._homeOnlineTotal, mapWeek: realMap ? 'real' : 'sample', mapTitle: game._homeMapWeek.title || game._homeMapWeek.code }, TRUSTED_CONSOLE_ORIGIN)
+}
+
 // Only GayzConsole's real deployed origin may talk to this bridge -
 // checked on every inbound message, and used as the explicit target for
 // every outbound one (instead of '*') so selected-element data is never
@@ -490,6 +507,11 @@ window.addEventListener('message', (event) => {
       if (selectedEls.length) broadcastSelection()
     }
   } else if (msg.type === 'gzc-set-theme') {
-    applyUiTheme({ uiTheme: msg.theme === 'old' ? 'old' : 'clean', cleanColor: msg.color })
+    // Every homepage theme: old, clean (golden = clean, its old name),
+    // sakura, and monthly with an optional month (0-11) to preview.
+    const uiTheme = ['old', 'sakura', 'monthly'].includes(msg.theme) ? msg.theme : 'clean'
+    applyUiTheme({ uiTheme, cleanColor: msg.color, previewMonth: msg.month })
+  } else if (msg.type === 'gzc-show-home-parts') {
+    showHomeParts()
   }
 })

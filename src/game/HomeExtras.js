@@ -427,7 +427,8 @@ function loadMapWeekLater(game) {
 
 async function playMapOfWeek(game) {
   const m = game._homeMapWeek
-  if (!m || !MAP_CODE_RE.test(m.code)) return
+  // m.sample: the Console's preview card (consoleBridge.js), not a real map.
+  if (!m || m.sample || !MAP_CODE_RE.test(m.code)) return
   closeTodayPanel()
   await game._enterBuildMode()
   game.buildMode?.share?.openCode(m.code, true)
