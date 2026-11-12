@@ -110,6 +110,21 @@ service cloud.firestore {
   }
 
   match /databases/{database}/documents {
+    // Chat mute from the Console (2026-11-12, api/_lib/admin.js
+    // mutePlayer): chatMutes/{uid} is written only by the game's server
+    // (service account, skips these rules). While its until is 0 (forever)
+    // or still ahead, that account's chat messages are refused.
+    function chatMuted() {
+      return exists(/databases/$(database)/documents/chatMutes/$(request.auth.uid))
+        && (get(/databases/$(database)/documents/chatMutes/$(request.auth.uid)).data.until == 0
+          || get(/databases/$(database)/documents/chatMutes/$(request.auth.uid)).data.until > request.time.toMillis());
+    }
+
+    match /chatMutes/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
     match /saves/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
@@ -278,7 +293,8 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 16
         && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 300
-        && request.resource.data.createdAt is int;
+        && request.resource.data.createdAt is int
+        && !chatMuted();
       allow update, delete: if false;
     }
 
@@ -291,7 +307,8 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 16
         && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 300
-        && request.resource.data.createdAt is int;
+        && request.resource.data.createdAt is int
+        && !chatMuted();
       allow update, delete: if false;
     }
 
@@ -304,7 +321,8 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 16
         && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 300
-        && request.resource.data.createdAt is int;
+        && request.resource.data.createdAt is int
+        && !chatMuted();
       allow update, delete: if false;
     }
 

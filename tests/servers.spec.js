@@ -3,7 +3,7 @@ import { gotoAndWaitForGame } from './helpers.js'
 import { fakeServerDb } from './fakeServerDb.js'
 import { PROVIDERS, isCallback, missingKeys, firebaseUid, cleanProfile, sameState, resultPage, siteOrigin } from '../api/_lib/oauth.js'
 import { createServer, joinServer, listServers, syncServer, leaveServer, MAX_PLAYERS, STALE_MS, JOIN_GRACE_MS } from '../api/_lib/servers.js'
-import { publicConfig, reportPlayer, adminState, setBanner, setEvents, kickPlayer, unban, hideContent, dismissContentReport, dismissPlayerReport, REPORT_GAP_MS, ADMIN_ACTIONS } from '../api/_lib/admin.js'
+import { publicConfig, reportPlayer, adminState, setBanner, setEvents, kickPlayer, unban, hideContent, dismissContentReport, dismissPlayerReport, seenWarning, REPORT_GAP_MS, ADMIN_ACTIONS } from '../api/_lib/admin.js'
 
 // The servers' own rules (api/_lib/servers.js), on an in-memory database.
 test('servers: create, join, sync, host hand-over, leave', async () => {
@@ -1308,4 +1308,121 @@ test('live config: paused features and maintenance screen', async ({ page }) => 
   expect(r.toast).toContain('Market is paused')
   expect(r.shown).toEqual({ visible: true, text: 'Back at 5pm', pausedLeft: 0, offNow: false })
   expect(r.gone).toBe(true)
+})
+
+// The Console's Players batch: lookup card, warnings, chat mute (server
+// bubbles + Firestore chatMutes), private notes (api/_lib/admin.js), on an
+// in-memory database with a fake Firestore.
+test('admin players: lookup, warnings, chat mute and notes', async () => {
+  const db = fakeServerDb()
+  const t0 = 9_000_000
+  const muted = {}
+  const fs = {
+    accountsByPid: async (pid) => (pid === 'BAD123' ? [{ uid: 'uidBad', nickname: 'Rude', playerId: 'BAD123', bestNight: 7, lastActiveAt: t0 }] : []),
+    accountsByName: async (name) => (name === 'Rude' ? [{ uid: 'uidBad', nickname: 'Rude', playerId: 'BAD123' }] : []),
+    setChatMute: async (uid, until) => { muted[uid] = until },
+    clearChatMute: async (uid) => { delete muted[uid] },
+  }
+  const run = (action, body = {}) => ADMIN_ACTIONS[action](db, { action, ...body }, fs)
+  await reportPlayer(db, { target: 'BAD123', targetName: 'Rude', by: 'ME0001', byName: 'Me', text: 'mean' }, t0)
+  // Lookup by name (part of it), by #Player ID, and a name shared by two.
+  let r = await run('lookup', { query: 'rud' })
+  expect(r.card).toMatchObject({ pid: 'BAD123', nicks: ['Rude'], accounts: [expect.objectContaining({ uid: 'uidBad', bestNight: 7 })] })
+  expect(r.card.reportsAgainst.length).toBe(1)
+  expect((await run('lookup', { query: '#ME0001' })).card.reportsBy.length).toBe(1)
+  await reportPlayer(db, { target: 'RUD999', targetName: 'Rudolf', by: 'ME0001' }, t0 + 1)
+  r = await run('lookup', { query: 'Rud' })
+  expect(r.matches.map((m) => m.pid).sort()).toEqual(['BAD123', 'RUD999'])
+  expect((await run('lookup', { query: 'NEW777' })).card).toMatchObject({ pid: 'NEW777', warnings: [], mute: null })
+
+  // Warnings: the player gets unseen ones; OK marks it seen.
+  await run('warn', { pid: 'BAD123', text: 'Please be <nice>', nick: 'Rude' })
+  let cfg = await publicConfig(db, { pid: 'BAD123' })
+  expect(cfg.warnings).toEqual([expect.objectContaining({ text: 'Please be nice' })])
+  expect((await publicConfig(db, { pid: 'ME0001' })).warnings).toEqual([])
+  await seenWarning(db, { pid: 'BAD123', id: cfg.warnings[0].id })
+  expect((await publicConfig(db, { pid: 'BAD123' })).warnings).toEqual([])
+  const card = (await run('card', { pid: 'BAD123' }))
+  expect(card.warnings[0].seen).toBeGreaterThan(0)
+  await run('deleteWarning', { pid: 'BAD123', id: card.warnings[0].id })
+  expect((await run('card', { pid: 'BAD123' })).warnings).toEqual([])
+  await expect(run('warn', { pid: 'BAD123', text: '  ' })).rejects.toMatchObject({ status: 400 })
+
+  // Chat mute: Firestore doc for the signed-in account, the player's page
+  // knows, and server chat bubbles go out empty.
+  const host = await createServer(db, { nickname: 'Host', pid: 'HOST01' }, t0)
+  const bad = await joinServer(db, { serverId: host.serverId, nickname: 'Rude', pid: 'BAD123' }, t0 + 10)
+  const res = await run('mute', { pid: 'BAD123', minutes: 1440, reason: 'spam', nick: 'Rude' })
+  expect(res).toMatchObject({ ok: true, accounts: 1 })
+  expect(muted.uidBad).toBeGreaterThan(Date.now())
+  expect((await publicConfig(db, { pid: 'BAD123' })).mute).toMatchObject({ reason: 'spam' })
+  expect((await adminState(db, null)).mutes).toEqual([expect.objectContaining({ pid: 'BAD123', nick: 'Rude', accounts: 1 })])
+  const now = t0 + 20
+  await syncServer(db, { ...bad, state: {}, say: { n: 1, text: 'spam spam' } }, now)
+  await syncServer(db, { ...host, state: {}, say: { n: 1, text: 'hello' } }, now)
+  const seen = await syncServer(db, { ...host, state: {} }, now + 50)
+  expect(seen.players[bad.playerId].say).toBeUndefined()
+  expect((await syncServer(db, { ...bad, state: {} }, now + 50)).players[host.playerId].say.text).toBe('hello')
+  await expect(run('mute', { pid: 'BAD123', minutes: 5 })).rejects.toMatchObject({ status: 400 })
+  // Backup -> unmute -> restore puts the Firestore mute back too.
+  const file = await run('backup')
+  await run('unmute', { pid: 'BAD123' })
+  expect(muted.uidBad).toBeUndefined()
+  expect((await publicConfig(db, { pid: 'BAD123' })).mute).toBe(null)
+  await run('restore', { file: JSON.parse(JSON.stringify(file)) })
+  expect(muted.uidBad).toBeGreaterThan(Date.now())
+  await run('unmute', { pid: 'BAD123' })
+
+  // Notes: Console only (never in what players get), line breaks kept.
+  await run('note', { pid: 'BAD123', text: 'Warned twice.\nNext time: 1 day ban' })
+  expect((await run('card', { pid: 'BAD123' })).note.text).toBe('Warned twice.\nNext time: 1 day ban')
+  expect(JSON.stringify(await publicConfig(db, { pid: 'BAD123' }))).not.toContain('Warned twice')
+  await run('note', { pid: 'BAD123', text: '' })
+  expect((await run('card', { pid: 'BAD123' })).note).toBe(null)
+
+  // History lines (the note's text stays private).
+  const h = (await adminState(db, null)).history.map((e) => e.text)
+  expect(h).toEqual(expect.arrayContaining(['Warned Rude #BAD123: "Please be nice"', 'Chat-muted Rude #BAD123 for 1 day ("spam")', 'Unmuted #BAD123', 'Edited the notes on #BAD123', 'Deleted the notes on #BAD123']))
+  expect(h.join(' ')).not.toContain('Next time')
+})
+
+// A warning popup and a chat mute on the real page (LiveConfig.js +
+// ChatUI.js), with a fake /api/live.
+test('live config: warning popup and chat mute', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__seen = []
+    window.__liveCfg = { banner: null, events: {}, hidden: { maps: [], builds: [] }, ban: null, off: [], maintenance: null, mute: { until: 0, reason: 'x' }, warnings: [{ id: 'w1', text: 'Be kind in chat', at: 1 }, { id: 'w2', text: 'Second one', at: 2 }] }
+    window.__liveConfigForTests = async (body) => {
+      if (body.action === 'seenWarning') {
+        window.__seen.push(body.id)
+        return { ok: true }
+      }
+      return window.__liveCfg
+    }
+  })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g.__liveAsk()
+    const w = document.getElementById('warning-screen')
+    const first = { shown: !!w && !w.hidden, text: w?.querySelector('.maintenance-text').textContent, ok: w?.querySelector('.warning-ok').textContent }
+    w.querySelector('.warning-ok').click()
+    const second = { shown: !w.hidden, text: w.querySelector('.maintenance-text').textContent }
+    w.querySelector('.warning-ok').click()
+    await new Promise((res) => setTimeout(res, 50))
+    // Muted: the message isn't sent and the text says why.
+    g._cloudUid = 'fakeUid'
+    g._chatChannel = 'global'
+    g.chatInput.value = 'hello'
+    g.chatInputRow.dispatchEvent(new Event('submit', { cancelable: true }))
+    await new Promise((res) => setTimeout(res, 50))
+    const chat = { kept: g.chatInput.value, toast: g.loreToast.textContent }
+    return { first, second, gone: w.hidden, seen: window.__seen, stored: JSON.parse(localStorage.getItem('gayz-warnings-seen')), chat }
+  })
+  expect(r.first).toEqual({ shown: true, text: 'Be kind in chat', ok: 'OK, got it' })
+  expect(r.second).toEqual({ shown: true, text: 'Second one' })
+  expect(r.gone).toBe(true)
+  expect(r.seen).toEqual(['w1', 'w2'])
+  expect(r.stored).toEqual(['w1', 'w2'])
+  expect(r.chat).toEqual({ kept: 'hello', toast: 'The GayZ team muted your chat.' })
 })

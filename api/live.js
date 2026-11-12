@@ -2,8 +2,14 @@
 //   { pid }                     -> the banner, event switches, hidden
 //                                  maps/builds, and this player's own ban
 //   { action: 'report', ... }   -> a player report (chat's Report button)
+//   { action: 'seenWarning', pid, id } -> the player pressed OK on a
+//                                  warning from the Console
 // One function for both (Vercel's free plan caps how many there are).
 import { handle } from './_lib/handle.js'
-import { publicConfig, reportPlayer } from './_lib/admin.js'
+import { publicConfig, reportPlayer, seenWarning } from './_lib/admin.js'
 
-export default handle((db, body) => (body.action === 'report' ? reportPlayer(db, body) : publicConfig(db, body)))
+export default handle((db, body) => {
+  if (body.action === 'report') return reportPlayer(db, body)
+  if (body.action === 'seenWarning') return seenWarning(db, body)
+  return publicConfig(db, body)
+})
