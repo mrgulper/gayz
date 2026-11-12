@@ -164,9 +164,16 @@ export function setBiomeTheme(on, settings, root = document.documentElement) {
   applyUiTheme(settings, root)
 }
 
+// settings.previewMonth (0-11, the private Console's Preview Theme only,
+// never saved): Monthly shows that month's look instead of today's.
+function previewDate(settings) {
+  const m = Number(settings && settings.previewMonth)
+  return Number.isInteger(m) && m >= 0 && m <= 11 ? new Date(2026, m, 15) : new Date()
+}
+
 export function applyUiTheme(settings, root = document.documentElement) {
   const theme = uiThemeOf(settings)
-  const pic = pictureThemeFor(theme)
+  const pic = pictureThemeFor(theme, previewDate(settings))
   const clean = theme === 'clean' || !!pic
   root.classList.toggle('ui-theme-old', !clean && !biomeTheme)
   root.classList.toggle('ui-theme-clean', clean && !biomeTheme)
