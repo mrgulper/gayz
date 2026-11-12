@@ -14,6 +14,8 @@
 // soft halo that keeps words readable over the busy picture). index.html's
 // first-paint script reads them back from PICTURE_VARS_KEY.
 
+import { holidayDate } from './LiveConfig.js'
+
 export const PICTURE_VARS_KEY = 'gayz-picture-themes'
 
 // [id, i18n key, picture, preview, font, weight, dark?, colours]
@@ -50,13 +52,14 @@ export const MONTH_THEMES = [
 
 export const SAKURA_INDEX = 3
 
-// 0 = January ... 11 = December, on the player's own clock.
-export function monthIndex(date = new Date()) {
+// 0 = January ... 11 = December, on the player's own clock (or inside the
+// Console's Holiday switch's season while it's on, LiveConfig.js).
+export function monthIndex(date = holidayDate()) {
   return date.getMonth()
 }
 
 // The look a theme setting shows right now, or null for Old/Simple.
-export function pictureThemeFor(theme, date = new Date()) {
+export function pictureThemeFor(theme, date = holidayDate()) {
   if (theme === 'sakura') return MONTH_THEMES[SAKURA_INDEX]
   if (theme === 'monthly') return MONTH_THEMES[monthIndex(date)]
   return null

@@ -394,6 +394,7 @@
           <button type="button" id="chat-id-popup-id-btn"></button>
         </div>
         <button type="button" id="chat-id-popup-mute-btn" class="mini-action-btn"></button>
+        <button type="button" id="chat-id-popup-report-btn" class="mini-action-btn"></button>
       </div>
 
 
@@ -500,6 +501,12 @@
           </div>
         </div>
         <div id="homepage-clock" title="Current time"></div>
+        <!-- The Console's banner and live events (src/game/LiveConfig.js). -->
+        <div id="live-banner" role="status" hidden>
+          <span class="live-banner-text" hidden></span>
+          <span class="live-banner-chips" hidden></span>
+          <button type="button" class="live-banner-close" aria-label="Close" hidden>&times;</button>
+        </div>
 
         <div id="update-available-banner" style="display: none">
           <button type="button" id="update-available-later-btn" class="panel-close-btn" aria-label="Close">&times;</button>
@@ -2594,6 +2601,7 @@ Escape before dawn.</p>
 
             <h3>9. Termination</h3>
             <p>Access to online features (Cloud Save, leaderboards, chat, friend lists, clans, the Market, the Gallery, servers, shared maps, Team Battle ghost teams and Gauntlet teams, and similar) may be suspended or terminated, without notice, for violating Section 5, or for any other reason at the developer's discretion, including discontinuing the game entirely. The core offline game itself isn't something an account can be "banned" from, since it runs in your own browser.</p>
+            <p>Players can report each other from chat. The developer reads reports and can remove a player from a server, or ban them from chat and servers for a set time or for good, by their Player ID.</p>
 
             <h3>10. No warranty, no guarantees</h3>
             <p>GayZ is provided "as is" and "as available," built and maintained in spare time. It can have bugs, go down, change significantly, or be discontinued entirely, at any time, without notice. To the maximum extent permitted by law, GayZ is offered with no warranties of any kind, express or implied, including no warranty that it will be uninterrupted, error-free, or fit for any particular purpose.</p>
@@ -2655,6 +2663,8 @@ Escape before dawn.</p>
               <li>Friend requests, your friend list and your online status (online, in a game, or when you were last seen) are stored so your friends can see them.</li>
               <li>The homepage shows how many signed-in players are online right now. It's only a total, worked out from that same online status - no names - and choosing Offline as your status leaves you out of it.</li>
               <li>Market listings store the skin, price and seller's nickname, and who bought it once it sells.</li>
+              <li>Reporting a player (Report in the menu on their chat name) sends their nickname and Player ID, your nickname and Player ID, and their last few chat lines to the developer, who reads them to decide on a ban. Reports aren't shown to other players.</li>
+              <li>When you open GayZ, the game asks the server for the current announcement and events, sending your Player ID so it can tell you if you're banned. Joining a server sends your Player ID too (never shown to other players), so a ban or kick can find you.</li>
               <li>Settings &gt; Social lets you choose what others see: Hide My Clan keeps your clan off your profile for other players, and Hide My Coins leaves the coins from your runs off your public profile. Friends-Only Chat, the Strict chat filter and Postcards From only change what you see, on your own device. Who Can Join My Server is stored with a server you host while it's running, so the game can turn people away or keep it off the list.</li>
             </ul>
 
@@ -2953,7 +2963,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="Snowballs winterOn snowballsAllYear">
           <h3>Snowball Fights</h3>
-          <p>A winter event, from December to February: you start every game with <span data-feature-value="snowStart">8</span> Snowballs and get <span data-feature-value="snowWave">4</span> more each wave, loot chests have some, and a Snow block crafts into four. Hold one and click to throw it in an arc - the zombie it hits is frozen in a block of ice for <span data-feature-value="snowFreeze">3</span> seconds and can't move or bite. Settings &gt; Snowballs All Year turns them on all year. Snowballs from other players on a server freeze zombies too.</p>
+          <p>A winter event, from December to February (and whenever the Christmas live event is on): you start every game with <span data-feature-value="snowStart">8</span> Snowballs and get <span data-feature-value="snowWave">4</span> more each wave, loot chests have some, and a Snow block crafts into four. Hold one and click to throw it in an arc - the zombie it hits is frozen in a block of ice for <span data-feature-value="snowFreeze">3</span> seconds and can't move or bite. Settings &gt; Snowballs All Year turns them on all year. Snowballs from other players on a server freeze zombies too.</p>
         </div>
         <div class="feature" data-code="TreasureMaps PIECE_CHANCE treasureMap mapPiece">
           <h3>Treasure Maps</h3>
@@ -3347,9 +3357,13 @@ Escape before dawn.</p>
           <h3>Market</h3>
           <p>A player-to-player skin market: list a skin from your Inventory at your own price (<span data-feature-value="marketFee">5</span>% fee), browse and search everyone's listings by item (character, each weapon, or pets) and rarity, buy one, or take your own listing back. You're paid when you next open the Market or Inventory. Needs a Cloud Save sign-in.</p>
         </div>
+        <div class="feature" data-code="renderLiveBanner coinMult hordeMult rewardMult holidayDate">
+          <h3>Announcements and Live Events</h3>
+          <p>Now and then a message appears at the bottom of the homepage - news, a heads-up or a celebration - with an X to close it. Under it, "Live now" shows any event that's on for everyone: Double Coins (every coin from a run counts twice), Double XP (twice the XP from runs, and twice the coins and XP from quests and the daily challenge), Horde Night (<span data-feature-value="hordeNightPercent">50</span>% more zombies in every wave) and holiday looks (Halloween or Christmas colours, background and snow, even out of season). Events start and stop by themselves within a couple of minutes, even while you're playing.</p>
+        </div>
         <div class="feature" data-code="sendGlobalChatMessage CHAT_MUTE_MS">
           <h3>Chat</h3>
-          <p>An always-visible chat box with Global and Clan tabs, written in white with a thin dark edge so it reads on any ground, day or night (the hotbar's numbers are white too). Right-click any name to block them - their messages show as "Blocked message - Show" in every channel until you unblock them in Settings. No word filtering otherwise, but sending lots of messages within a few seconds mutes your chat for a short while - only messages that really go out count.</p>
+          <p>An always-visible chat box with Global and Clan tabs, written in white with a thin dark edge so it reads on any ground, day or night (the hotbar's numbers are white too). Right-click any name (or hold it on a touch screen) to block them - their messages show as "Blocked message - Show" in every channel until you unblock them in Settings - or to Report them, which sends their last few lines for review and can get them banned from chat and servers. No word filtering otherwise, but sending lots of messages within a few seconds mutes your chat for a short while - only messages that really go out count.</p>
         </div>
         <div class="feature" data-code="loginStreak _checkLoginStreak">
           <h3>Login Streak</h3>

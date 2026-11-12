@@ -3708,4 +3708,17 @@ export default {
   gauntletNoGold: "金币不够（需要 {n}）。",
   gauntletFull: "你的挑战队伍满了。先卖掉一个，或者买第三个来合成。",
   gauntletMerged: "合成成功！{name} 现在是 {n} 星。",
+  // The Console's admin controls (LiveConfig.js, 2026-11-12).
+  liveReportBtn: "举报",
+  liveReported: "谢谢——已举报 {name}。",
+  liveReportFailed: "举报发送失败，请稍后再试。",
+  liveBannedUntil: "你已被禁止使用聊天和服务器，直到 {when}。",
+  liveBannedForever: "你已被禁止使用聊天和服务器。",
+  serverBannedToast: "你已被移出该服务器。",
+  liveEventsOn: "正在进行：",
+  liveEvent_doubleCoins: "双倍金币",
+  liveEvent_doubleXp: "双倍经验",
+  liveEvent_hordeNight: "尸潮之夜",
+  liveEvent_halloween: "万圣节",
+  liveEvent_christmas: "圣诞节",
 }

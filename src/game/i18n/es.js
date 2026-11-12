@@ -3705,4 +3705,17 @@ export default {
   gauntletNoGold: "No tienes oro suficiente (necesitas {n}).",
   gauntletFull: "Tu equipo del Desafío está lleno. Vende una primero, o compra una tercera copia para juntarlas.",
   gauntletMerged: "¡Juntadas! {name} ahora tiene {n} estrellas.",
+  // The Console's admin controls (LiveConfig.js, 2026-11-12).
+  liveReportBtn: "Denunciar",
+  liveReported: "Gracias: se denunció a {name}.",
+  liveReportFailed: "No se pudo enviar la denuncia. Inténtalo más tarde.",
+  liveBannedUntil: "Tienes prohibido el chat y los servidores hasta {when}.",
+  liveBannedForever: "Tienes prohibido el chat y los servidores.",
+  serverBannedToast: "Te sacaron de ese servidor.",
+  liveEventsOn: "En marcha:",
+  liveEvent_doubleCoins: "Monedas dobles",
+  liveEvent_doubleXp: "XP doble",
+  liveEvent_hordeNight: "Noche de horda",
+  liveEvent_halloween: "Halloween",
+  liveEvent_christmas: "Navidad",
 }

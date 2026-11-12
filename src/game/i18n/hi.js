@@ -3705,4 +3705,17 @@ export default {
   gauntletNoGold: "सोना कम है ({n} चाहिए)।",
   gauntletFull: "तुम्हारी गौंटलेट टीम भरी है। पहले एक बेचो, या मिलाने के लिए तीसरा खरीदो।",
   gauntletMerged: "मिल गए! {name} अब {n} सितारों वाला है।",
+  // The Console's admin controls (LiveConfig.js, 2026-11-12).
+  liveReportBtn: "रिपोर्ट करें",
+  liveReported: "धन्यवाद - {name} की रिपोर्ट कर दी गई।",
+  liveReportFailed: "रिपोर्ट नहीं भेजी जा सकी। बाद में फिर कोशिश करें।",
+  liveBannedUntil: "{when} तक आप पर चैट और सर्वर से प्रतिबंध है।",
+  liveBannedForever: "आप पर चैट और सर्वर से प्रतिबंध है।",
+  serverBannedToast: "आपको उस सर्वर से हटा दिया गया।",
+  liveEventsOn: "अभी चल रहा है:",
+  liveEvent_doubleCoins: "दोगुने सिक्के",
+  liveEvent_doubleXp: "दोगुना XP",
+  liveEvent_hordeNight: "भीड़ की रात",
+  liveEvent_halloween: "हैलोवीन",
+  liveEvent_christmas: "क्रिसमस",
 }

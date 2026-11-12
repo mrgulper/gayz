@@ -201,7 +201,7 @@ html.ui-theme-clean :is(#play-btn, #gamemode-btn, #settings-btn, #menu-player-ba
   transform: none;
   transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s ease;
 }
-html.ui-theme-clean :is(#play-btn, #gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button, #menu-currency-bar, #homepage-clock) {
+html.ui-theme-clean :is(#play-btn, #gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button, #menu-currency-bar, #homepage-clock, #live-banner) {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 14px rgba(0, 0, 0, 0.06) !important;
 }
 @media (hover: hover) {
@@ -435,7 +435,7 @@ html.ui-theme-clean #menu #menu-links-row button {
 html.ui-theme-clean #menu #menu-links-row :is(a, button) * {
   font-family: inherit !important;
 }
-html.ui-theme-clean :is(#menu-currency-bar, #homepage-clock) {
+html.ui-theme-clean :is(#menu-currency-bar, #homepage-clock, #live-banner) {
   background: var(--clean-card);
   border: none;
   backdrop-filter: none;
@@ -748,8 +748,8 @@ html.ui-theme-clean #levels-bar-fill {
 /* Words and icons on the homepage boxes are --clean-card-fg (the text
    colour, 2026-10-24). After the #menu ink rule above, same weight, so
    this wins. The level star keeps its black number. */
-html.ui-theme-clean #menu :is(#play-btn, #gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button, #menu-currency-bar, #homepage-clock, #footer-menu, .hover-menu),
-html.ui-theme-clean #menu :is(#play-btn, #gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button, #menu-currency-bar, #homepage-clock, #footer-menu, .hover-menu) :not(#menu-avatar-level) {
+html.ui-theme-clean #menu :is(#play-btn, #gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button, #menu-currency-bar, #homepage-clock, #live-banner, #footer-menu, .hover-menu),
+html.ui-theme-clean #menu :is(#play-btn, #gamemode-btn, #settings-btn, #menu-player-badge, #menu-nav-buttons button, #menu-currency-bar, #homepage-clock, #live-banner, #footer-menu, .hover-menu) :not(#menu-avatar-level, .live-banner-chip) {
   color: var(--clean-card-fg) !important;
 }
 html.ui-theme-clean #menu-player-tag {
@@ -1132,3 +1132,6 @@ html.ui-theme-clean :is(#play-hud-info, #play-compass, .kill-feed-line) {
   color: var(--clean-fg); background: var(--clean-bg); border: 2px solid var(--clean-fg); text-shadow: none;
 }
 html.ui-theme-clean .compass-mark { border-bottom-color: var(--clean-fg); }
+
+/* The Console's banner keeps its coloured edge in Clean (LiveConfig.js). */
+html.ui-theme-clean #live-banner { border-left: 4px solid var(--live-accent, #4aa8ff); }

@@ -9,6 +9,7 @@
 // the clan code reads and writes some of it directly.
 
 import { t } from './i18n.js'
+import { banMessage, reportPlayer } from './LiveConfig.js'
 import * as CloudSync from './CloudSync.js'
 import { EMOJI_CATEGORIES } from './EmojiData.js'
 import { chatPingCheck } from './MoreSettings.js'
@@ -319,6 +320,11 @@ export async function sendServerChatMessage(game) {
   if (!text) return
   const now = Date.now()
   if (game._serverChatMutedUntil > now) return
+  // Banned from the Console (LiveConfig.js).
+  if (banMessage()) {
+    game._showHomepageToast(banMessage())
+    return
+  }
   if (!game._cloudUid) {
     game._showHomepageToast(t('chatSignInRequired'))
     return
@@ -604,6 +610,10 @@ export function showPlayerIdPopup(game, x, y, name, playerId) {
   const isSelf = name === game.settings.nickname
   game.chatIdPopupMuteBtn.textContent = t('muteBtn')
   game.chatIdPopupMuteBtn.style.display = isSelf ? 'none' : ''
+  if (game.chatIdPopupReportBtn) {
+    game.chatIdPopupReportBtn.textContent = t('liveReportBtn')
+    game.chatIdPopupReportBtn.style.display = isSelf ? 'none' : ''
+  }
   game.chatIdPopup.style.left = `${x}px`
   game.chatIdPopup.style.top = `${y}px`
   game.chatIdPopup.style.display = 'flex'
@@ -629,6 +639,21 @@ export function showPlayerIdPopup(game, x, y, name, playerId) {
     renderMutedChatPlayers(game)
     refreshChatAfterMuteChange(game)
     game._showHomepageToast(t('chatPlayerMuted', { name }))
+  }
+  // Report (2026-11-12): to the Console's Reports list, with their last
+  // few chat lines so it's clear what it's about (LiveConfig.js).
+  if (game.chatIdPopupReportBtn) {
+    game.chatIdPopupReportBtn.onclick = () => {
+      hide()
+      const lines = [...(game._lastServerChatMsgs || []), ...(game._lastChatMsgs || [])]
+        .filter((m) => m && m.nickname === name && typeof m.text === 'string')
+        .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+        .slice(-3)
+        .map((m) => m.text)
+      reportPlayer(game, { target: playerId, targetName: name, where: 'chat', text: lines.join(' | ') })
+        .then(() => game._showHomepageToast(t('liveReported', { name })))
+        .catch(() => game._showHomepageToast(t('liveReportFailed')))
+    }
   }
   // Deferred (setTimeout 0) so the very click that opened this popup
   // doesn't immediately bubble up and count as the "click outside" that
@@ -817,6 +842,11 @@ export async function sendChatMessage(game) {
   if (!text) return
   const now = Date.now()
   if (game._chatMutedUntil > now) return
+  // Banned from the Console (LiveConfig.js).
+  if (banMessage()) {
+    game._showHomepageToast(banMessage())
+    return
+  }
   // Spam rule (CHAT_SPAM_LIMIT): client-side only - no custom backend
   // here to enforce it server-side too (same trust model this game
   // already accepts everywhere else, see CLAUDE.md's anti-cheat note).

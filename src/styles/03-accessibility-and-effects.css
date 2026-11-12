@@ -623,7 +623,8 @@ html.ui-theme-old select {
   font-weight: 700;
 }
 
-#chat-id-popup-mute-btn {
+#chat-id-popup-mute-btn,
+#chat-id-popup-report-btn {
   width: 100%;
   text-align: center;
 }

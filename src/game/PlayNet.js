@@ -314,7 +314,7 @@ export class PlayNet {
       // blocks go again.
       for (const pid of want) this._skinAsked.delete(pid)
       this._edits.unshift(...edits)
-      if (err?.code === 'gone' || err?.code === 'not-in-server') await this._rejoin().catch(() => this._giveUpIfLong())
+      if (err?.code === 'gone' || err?.code === 'not-in-server') await this._rejoin().catch((e) => (e?.code === 'banned' ? this._lost('serverBannedToast') : this._giveUpIfLong()))
       else this._giveUpIfLong()
     } finally {
       this._busy = false
@@ -432,6 +432,8 @@ export class PlayNet {
       info = await this.api.join({ ...me, serverId: this.serverId })
     } catch (err) {
       if (err?.code === 'full') return this._lost('serverFullToast')
+      // Kicked or banned from the Console (api/_lib/admin.js).
+      if (err?.code === 'banned') return this._lost('serverBannedToast')
       if (err?.code !== 'gone') throw err
       // Nobody left in it: open it again under the same id, so the invite
       // link still works and the others get back into it too.

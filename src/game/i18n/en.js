@@ -3760,4 +3760,17 @@ export default {
   gauntletNoGold: "Not enough gold (needs {n}).",
   gauntletFull: "Your Gauntlet team is full. Sell one first, or buy a third copy to merge.",
   gauntletMerged: "Merged! {name} is now {n} stars.",
+  // The Console's admin controls (LiveConfig.js, 2026-11-12).
+  liveReportBtn: "Report",
+  liveReported: "Thanks - {name} was reported.",
+  liveReportFailed: "Couldn't send the report. Try again later.",
+  liveBannedUntil: "You're banned from chat and servers until {when}.",
+  liveBannedForever: "You're banned from chat and servers.",
+  serverBannedToast: "You were removed from that server.",
+  liveEventsOn: "Live now:",
+  liveEvent_doubleCoins: "Double Coins",
+  liveEvent_doubleXp: "Double XP",
+  liveEvent_hordeNight: "Horde Night",
+  liveEvent_halloween: "Halloween",
+  liveEvent_christmas: "Christmas",
 }

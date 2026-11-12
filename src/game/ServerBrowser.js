@@ -12,6 +12,7 @@
 // `game`, all state on the game (game._serverList, game._serverTab...).
 import { serverAccess } from './SocialSettings.js'
 import { t } from './i18n.js'
+import { banMessage } from './LiveConfig.js'
 import { PARTY_SERVER_MODES } from './PartyModes.js'
 import { _escapeHtml } from './Game.js'
 import { DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
@@ -85,7 +86,9 @@ async function serverSkin(url) {
 
 export async function myDetails(game) {
   const s = game.settings || {}
-  return { nickname: (s.nickname || '').trim() || 'Survivor', skin: await serverSkin(s.customSkinDataUrl) }
+  // pid: the Player ID, so the Console's kick/ban can find this player
+  // (api/_lib/admin.js); the server never shows it to anyone.
+  return { nickname: (s.nickname || '').trim() || 'Survivor', skin: await serverSkin(s.customSkinDataUrl), pid: s.playerId || '' }
 }
 
 export function bindServerBrowser(game) {
@@ -198,8 +201,8 @@ async function createServer(game) {
   try {
     const info = await serverApi(game).create({ ...(await myDetails(game)), name, mode: TAB_MODES[game._serverTab] || 'main', access: serverAccess(game.settings) })
     enterServer(game, { ...info, name: name || info.name })
-  } catch {
-    game._showHomepageToast(t('serverCreateFailed'))
+  } catch (err) {
+    game._showHomepageToast(err?.code === 'banned' ? banMessage() || t('serverBannedToast') : t('serverCreateFailed'))
   } finally {
     setBusy(game, false)
   }
@@ -212,7 +215,8 @@ async function joinServer(game, serverId) {
     const info = await serverApi(game).join({ ...(await myDetails(game)), serverId })
     enterServer(game, info)
   } catch (err) {
-    game._showHomepageToast(t(err?.code === 'full' ? 'serverFullToast' : err?.code === 'gone' ? 'serverGoneToast' : err?.code === 'locked' ? 'serverLockedToast' : 'serverJoinFailed'))
+    if (err?.code === 'banned') game._showHomepageToast(banMessage() || t('serverBannedToast'))
+    else game._showHomepageToast(t(err?.code === 'full' ? 'serverFullToast' : err?.code === 'gone' ? 'serverGoneToast' : err?.code === 'locked' ? 'serverLockedToast' : 'serverJoinFailed'))
     refreshServerList(game)
   } finally {
     setBusy(game, false)

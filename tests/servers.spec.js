@@ -3,6 +3,7 @@ import { gotoAndWaitForGame } from './helpers.js'
 import { fakeServerDb } from './fakeServerDb.js'
 import { PROVIDERS, isCallback, missingKeys, firebaseUid, cleanProfile, sameState, resultPage, siteOrigin } from '../api/_lib/oauth.js'
 import { createServer, joinServer, listServers, syncServer, leaveServer, MAX_PLAYERS, STALE_MS, JOIN_GRACE_MS } from '../api/_lib/servers.js'
+import { publicConfig, reportPlayer, adminState, setBanner, setEvents, kickPlayer, unban, hideContent, dismissContentReport, dismissPlayerReport, REPORT_GAP_MS } from '../api/_lib/admin.js'
 
 // The servers' own rules (api/_lib/servers.js), on an in-memory database.
 test('servers: create, join, sync, host hand-over, leave', async () => {
@@ -1139,4 +1140,105 @@ test('servers: the host decides who can join (anyone / link only / nobody)', asy
   await joinServer(db, { serverId: a.serverId, nickname: 'Cy' }, 90)
   const c = await createServer(db, { nickname: 'Dee', access: '<b>' }, 100)
   expect((await listServers(db, 110)).map((s) => s.id)).toContain(c.serverId)
+})
+
+// The Console's admin controls (api/_lib/admin.js), on an in-memory database.
+test('admin: banner, events, hide, reports, kick and ban', async () => {
+  const db = fakeServerDb()
+  const t0 = 5_000_000
+  // Banner: shown until its end time, cleaned of tags, gone when emptied.
+  await setBanner(db, { text: 'Hello <b>all</b>', style: 'celebrate', minutes: 10 }, t0)
+  let cfg = await publicConfig(db, {}, t0 + 1000)
+  expect(cfg.banner).toMatchObject({ text: 'Hello ball/b', style: 'celebrate', until: t0 + 600000 })
+  expect((await publicConfig(db, {}, t0 + 600001)).banner).toBe(null)
+  await setBanner(db, { text: '' }, t0)
+  expect((await publicConfig(db, {}, t0)).banner).toBe(null)
+
+  // Events: only the known switches, holiday only halloween/christmas.
+  await setEvents(db, { doubleCoins: true, hordeNight: 'yes', holiday: 'easter', junk: true })
+  cfg = await publicConfig(db, {}, t0)
+  expect(cfg.events).toEqual({ doubleCoins: true, doubleXp: false, hordeNight: false, holiday: null })
+  await setEvents(db, { holiday: 'christmas' })
+  expect((await publicConfig(db, {}, t0)).events.holiday).toBe('christmas')
+
+  // Hide / unhide a shared map.
+  await hideContent(db, { kind: 'map', id: 'ABC234' })
+  expect((await publicConfig(db, {}, t0)).hidden.maps).toEqual(['ABC234'])
+  await hideContent(db, { kind: 'map', id: 'ABC234', hide: false })
+  expect((await publicConfig(db, {}, t0)).hidden.maps).toEqual([])
+
+  // Player reports: one per reporter per target per REPORT_GAP_MS.
+  await reportPlayer(db, { target: 'BAD123', targetName: 'Rude', by: 'ME0001', text: 'mean words' }, t0)
+  expect(await reportPlayer(db, { target: 'BAD123', by: 'ME0001' }, t0 + 1000)).toMatchObject({ already: true })
+  await reportPlayer(db, { target: 'BAD123', by: 'ME0001' }, t0 + REPORT_GAP_MS + 1)
+  await expect(reportPlayer(db, { target: 'ME0001', by: 'ME0001' }, t0)).rejects.toMatchObject({ status: 400 })
+  let state = await adminState(db, null, t0)
+  expect(state.playerReports.length).toBe(2)
+  expect(state.playerReports[1]).toMatchObject({ target: 'BAD123', targetName: 'Rude', text: 'mean words' })
+  await dismissPlayerReport(db, { id: state.playerReports[0].id })
+  expect((await adminState(db, null, t0)).playerReports.length).toBe(1)
+
+  // Map/build reports: dismissed until a new one comes in; hidden ones stay listed.
+  let count = 2
+  const fs = { reports: async () => [{ kind: 'map', id: 'ABC234', name: 'Maze', by: 'Ann', count, latest: t0 }] }
+  expect((await adminState(db, fs, t0)).contentReports.length).toBe(1)
+  await dismissContentReport(db, { kind: 'map', id: 'ABC234', count: 2 })
+  expect((await adminState(db, fs, t0)).contentReports.length).toBe(0)
+  count = 3
+  expect((await adminState(db, fs, t0)).contentReports.length).toBe(1)
+  const broken = { reports: async () => { throw new Error('firestore 400 needs index') } }
+  expect((await adminState(db, broken, t0)).contentReportsError).toContain('needs index')
+
+  // Kick + ban: out of the server now, can't get back in, sees their ban.
+  const host = await createServer(db, { nickname: 'Host', pid: 'HOST01' }, t0)
+  const bad = await joinServer(db, { serverId: host.serverId, nickname: 'Rude', pid: 'BAD123' }, t0 + 10)
+  await syncServer(db, { ...host, state: {} }, t0 + 20)
+  await syncServer(db, { ...bad, state: {} }, t0 + 20)
+  state = await adminState(db, null, t0 + 30)
+  expect(state.players).toEqual(expect.arrayContaining([expect.objectContaining({ serverId: host.serverId, nick: 'Rude', pid: 'BAD123', slot: bad.playerId })]))
+  await kickPlayer(db, { pid: 'BAD123', minutes: 60, reason: 'spam', nick: 'Rude' }, t0 + 40)
+  await expect(syncServer(db, { ...bad, state: {} }, t0 + 50)).rejects.toMatchObject({ code: 'not-in-server' })
+  await expect(joinServer(db, { serverId: host.serverId, nickname: 'Rude', pid: 'BAD123' }, t0 + 60)).rejects.toMatchObject({ code: 'banned' })
+  await expect(createServer(db, { nickname: 'Rude', pid: 'BAD123' }, t0 + 60)).rejects.toMatchObject({ code: 'banned' })
+  expect((await publicConfig(db, { pid: 'BAD123' }, t0 + 60)).ban).toMatchObject({ until: t0 + 40 + 3600000, reason: 'spam' })
+  expect((await publicConfig(db, { pid: 'HOST01' }, t0 + 60)).ban).toBe(null)
+  expect((await adminState(db, null, t0 + 60)).bans).toEqual([expect.objectContaining({ pid: 'BAD123', nick: 'Rude' })])
+  // The ban runs out by itself; Unban ends it early.
+  expect((await publicConfig(db, { pid: 'BAD123' }, t0 + 40 + 3600001)).ban).toBe(null)
+  await unban(db, { pid: 'BAD123' })
+  const back = await joinServer(db, { serverId: host.serverId, nickname: 'Rude', pid: 'BAD123' }, t0 + 70)
+  // Just a kick keeps them out for a couple of minutes only.
+  await kickPlayer(db, { serverId: host.serverId, slot: back.playerId, pid: 'BAD123', minutes: -1 }, t0 + 80)
+  await expect(joinServer(db, { serverId: host.serverId, nickname: 'Rude', pid: 'BAD123' }, t0 + 90)).rejects.toMatchObject({ code: 'banned' })
+  await joinServer(db, { serverId: host.serverId, nickname: 'Rude', pid: 'BAD123' }, t0 + 80 + 3 * 60000).catch((e) => expect(e.code).not.toBe('banned'))
+  await expect(kickPlayer(db, { pid: 'BAD123', minutes: 7 })).rejects.toMatchObject({ status: 400 })
+  // Leaving clears the Player ID record too.
+  await leaveServer(db, host, t0 + 100)
+  expect(db.root.serverPids?.[host.serverId]?.[host.playerId]).toBeUndefined()
+})
+
+// The Console's banner, event chips, Holiday look and a ban on the real page
+// (src/game/LiveConfig.js), with a fake /api/live.
+test('live config: banner, events, holiday and a ban', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__liveCfg = { banner: { text: 'Big update tonight!', style: 'celebrate', until: 0, id: 7 }, events: { doubleCoins: true, doubleXp: false, hordeNight: true, holiday: 'christmas' }, hidden: { maps: ['HID234'], builds: [] }, ban: null }
+    window.__liveConfigForTests = async (body) => (body.action === 'report' ? { ok: true } : window.__liveCfg)
+  })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g.__liveAsk()
+    const b = document.getElementById('live-banner')
+    const shown = { hidden: b.hidden, text: b.querySelector('.live-banner-text').textContent, chips: [...b.querySelectorAll('.live-banner-chip')].map((c) => c.textContent), holiday: document.documentElement.dataset.holiday }
+    b.querySelector('.live-banner-close').click()
+    const closed = { text: b.querySelector('.live-banner-text').hidden, chips: b.querySelector('.live-banner-chips').hidden }
+    window.__liveCfg = { ...window.__liveCfg, events: {}, ban: { until: 0, reason: 'x' } }
+    await g.__liveAsk()
+    const off = { hidden: b.hidden, holiday: document.documentElement.dataset.holiday }
+    return { shown, closed, off, stored: JSON.parse(localStorage.getItem('gayz-live-config')).ban }
+  })
+  expect(r.shown).toEqual({ hidden: false, text: 'Big update tonight!', chips: ['Double Coins', 'Horde Night', 'Christmas'], holiday: 'winter' })
+  expect(r.closed).toEqual({ text: true, chips: false })
+  expect(r.off).toEqual({ hidden: true, holiday: '' })
+  expect(r.stored).toEqual({ until: 0, reason: 'x' })
 })

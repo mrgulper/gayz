@@ -1028,6 +1028,8 @@ export function _bindSettings(game) {
       syncUiTheme()
     }
     setInterval(checkMonth, 10 * 60 * 1000)
+    // ...and when the Console's Holiday switch changes it (LiveConfig.js).
+    window.addEventListener('gayz-live', checkMonth)
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkMonth() })
     // Picking a colour also switches to Clean - it's Clean's colour.
     const setColor = (value, save) => {

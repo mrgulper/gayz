@@ -16,6 +16,7 @@
 // PATH_REFRESH seconds; each zombie walks to whichever neighboring cell is
 // one step closer to you.
 import * as THREE from 'three'
+import { coinMult as liveCoinMult, hordeMult } from './LiveConfig.js'
 import { shakeScale, bleed } from './GraphicsSettings.js'
 import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { SKELETON_KINDS, loadSkeletons, makeSkeleton, skeletonsReady } from './SkeletonModels.js'
@@ -1222,9 +1223,9 @@ export class BuildSurvival {
   }
 
   // Coins come in through here, so Loot Rush doubles them all (and so
-  // does a Blood Moon).
+  // does a Blood Moon, and the Console's Double Coins switch).
   _earn(n) {
-    const got = Math.round(n * (this.cfg?.coinMult ?? 1) * (this.bloodMoon?.mult ?? 1) * (this.perks?.coinMult() ?? 1))
+    const got = Math.round(n * (this.cfg?.coinMult ?? 1) * (this.bloodMoon?.mult ?? 1) * (this.perks?.coinMult() ?? 1) * liveCoinMult())
     this.coins += got
     this._coinsEarned += got
     this.bingo?.note('coins', got)
@@ -3709,7 +3710,8 @@ export class BuildSurvival {
   _startWave(n) {
     this.perks?.onWaveStart()
     this.wave = n
-    this._toSpawn = Math.max(1, Math.round(waveSize(this.wave) * this.cfg.zombieCountMult * (this.bloodMoon?.mult ?? 1)))
+    // x the Console's Horde Night switch (LiveConfig.js).
+    this._toSpawn = Math.max(1, Math.round(waveSize(this.wave) * this.cfg.zombieCountMult * (this.bloodMoon?.mult ?? 1) * hordeMult()))
     this._bossPending = this.cfg.bossEvery && this.wave % this.cfg.bossEvery === 0 ? 1 : 0
     this._chestsUsed.clear()
     this._message(t('buildPlayWaveStart', { n: this.wave }))

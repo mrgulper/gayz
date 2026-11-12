@@ -12,6 +12,7 @@ import { setColorblindMode } from './Accessibility.js'
 import { ACHIEVEMENTS } from './Achievements.js'
 import { CAREER_RANK_TITLES, EVENT_BANNERS, GOAL_CANDIDATES, MAX_GOALS, MENU_PAINT_CACHE_KEY, MENU_PAINT_CACHE_ROOTS, MUTATOR_LABEL_KEYS, NEARLY_THERE_CANDIDATES, NEWS_TICKER_LATE_NIGHT, NEWS_TICKER_MID_NIGHT, WEEKLY_FEATURED_MUTATOR_BONUS_COINS, _escapeHtml, _safeStatNumber, _weeklyFeaturedMutatorKey, saveSettings, todayDateString } from './Game.js'
 import { setLanguage, t } from './i18n.js'
+import { holidayDate } from './LiveConfig.js'
 
 // Homepage clock (General tab, settings.timeFormat) - the only place
 // in the game that shows an absolute (not relative/countdown) local
@@ -192,7 +193,8 @@ export function _copyPlayerId(game) {
 export function _applyBgMood(game) {
   let mood = game.settings.bgMood
   if (mood === 'auto') {
-    const now = new Date()
+    // The Console's Holiday switch counts as being in its season.
+    const now = holidayDate()
     const active = EVENT_BANNERS.find((ev) => now.getMonth() === ev.month && now.getDate() >= ev.startDay && now.getDate() <= ev.endDay)
     // Outside any event: warm and sunny (2026-10-31, Gaymi: "instead of
     // looking so cold").
