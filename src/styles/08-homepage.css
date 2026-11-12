@@ -2089,3 +2089,37 @@ html.ui-theme-old .home-play-tag { color: #f3e6c8; background: var(--old-ink); b
 @media (max-width: 767px) {
   #live-banner { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); font-size: 14px; }
 }
+
+/* Console "Safety" batch (2026-11-12): paused-feature chips and the
+   maintenance screen (LiveConfig.js renderMaintenance). */
+#live-banner .live-banner-chip.paused { background: rgba(255, 255, 255, 0.22); color: rgba(255, 255, 255, 0.95); }
+#maintenance-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  background: rgba(6, 6, 10, 0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+#maintenance-screen[hidden] { display: none; }
+#maintenance-screen .maintenance-card {
+  width: min(440px, 100%);
+  padding: 28px 24px;
+  box-sizing: border-box;
+  text-align: center;
+  font-family: var(--menu-display-font);
+  color: rgba(255, 255, 255, 0.94);
+  background: rgba(20, 20, 26, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-top: 4px solid #ff9f2e;
+  border-radius: 18px;
+}
+#maintenance-screen .maintenance-title { margin: 0 0 10px; font-size: 24px; }
+#maintenance-screen .maintenance-text { margin: 0 0 12px; font-size: 17px; overflow-wrap: anywhere; }
+#maintenance-screen .maintenance-text[hidden] { display: none; }
+#maintenance-screen .maintenance-note { margin: 0; font-size: 14px; opacity: 0.7; }

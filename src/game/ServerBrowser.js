@@ -12,7 +12,7 @@
 // `game`, all state on the game (game._serverList, game._serverTab...).
 import { serverAccess } from './SocialSettings.js'
 import { t } from './i18n.js'
-import { banMessage } from './LiveConfig.js'
+import { banMessage, switchedOffText } from './LiveConfig.js'
 import { PARTY_SERVER_MODES } from './PartyModes.js'
 import { _escapeHtml } from './Game.js'
 import { DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
@@ -202,7 +202,8 @@ async function createServer(game) {
     const info = await serverApi(game).create({ ...(await myDetails(game)), name, mode: TAB_MODES[game._serverTab] || 'main', access: serverAccess(game.settings) })
     enterServer(game, { ...info, name: name || info.name })
   } catch (err) {
-    game._showHomepageToast(err?.code === 'banned' ? banMessage() || t('serverBannedToast') : t('serverCreateFailed'))
+    if (err?.code === 'switched-off') game._showHomepageToast(switchedOffText('online'))
+    else game._showHomepageToast(err?.code === 'banned' ? banMessage() || t('serverBannedToast') : t('serverCreateFailed'))
   } finally {
     setBusy(game, false)
   }
@@ -216,6 +217,7 @@ async function joinServer(game, serverId) {
     enterServer(game, info)
   } catch (err) {
     if (err?.code === 'banned') game._showHomepageToast(banMessage() || t('serverBannedToast'))
+    else if (err?.code === 'switched-off') game._showHomepageToast(switchedOffText('online'))
     else game._showHomepageToast(t(err?.code === 'full' ? 'serverFullToast' : err?.code === 'gone' ? 'serverGoneToast' : err?.code === 'locked' ? 'serverLockedToast' : 'serverJoinFailed'))
     refreshServerList(game)
   } finally {

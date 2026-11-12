@@ -30,7 +30,8 @@
 //    from the Firestore Security Rules (step 3), which is why those matter
 //    much more than keeping this object private.
 import { clanMonthKey, entryClanXp } from './Xp.js'
-import { isHidden } from './LiveConfig.js'
+// switchedOff: the Console's feature off-switches (LiveConfig.js).
+import { isHidden, switchedOff, switchedOffError } from './LiveConfig.js'
 
 export const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyCCA9e3NAWk6MQJS-pnl-Lzq1Yn3nCZwVY',
@@ -917,6 +918,7 @@ export async function fetchLeaderboardEntryByUid(uid) {
 // region: optional, one of REGION_OPTIONS (Game.js) - omitted or 'global'
 // means worldwide, no filter applied.
 export async function fetchTopLeaderboard(n, region) {
+  if (switchedOff('leaderboards', { quiet: true })) throw switchedOffError('leaderboards')
   const { db, fsMod } = await ensureApp()
   const constraints = [fsMod.orderBy('bestNight', 'desc'), fsMod.limit(n)]
   if (region && region !== 'global') constraints.unshift(fsMod.where('region', '==', region))
@@ -947,6 +949,10 @@ export async function fetchTopLeaderboard(n, region) {
 const withUid = (d) => ({ ...d.data(), uid: d.id })
 
 export function subscribeTopLeaderboard(n, region, callback) {
+  if (switchedOff('leaderboards', { quiet: true })) {
+    callback(null)
+    return () => {}
+  }
   let unsub = () => {}
   let cancelled = false
   ensureApp().then(({ db, fsMod }) => {
@@ -968,6 +974,7 @@ export function subscribeTopLeaderboard(n, region, callback) {
 // Speedrun mode's fastest times (Speedrun.js): leaderboard docs with a
 // speedrunMs, lowest first (a single-field order, no index needed).
 export async function fetchTopSpeedruns(n) {
+  if (switchedOff('leaderboards', { quiet: true })) throw switchedOffError('leaderboards')
   const { db, fsMod } = await ensureApp()
   const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('speedrunMs', 'asc'), fsMod.limit(n))
   const snap = await fsMod.getDocs(q)
@@ -976,6 +983,7 @@ export async function fetchTopSpeedruns(n) {
 
 // The Obstacle Course's fastest times (PartyParkour.js), lowest first.
 export async function fetchTopParkour(n) {
+  if (switchedOff('leaderboards', { quiet: true })) throw switchedOffError('leaderboards')
   const { db, fsMod } = await ensureApp()
   const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('parkourMs', 'asc'), fsMod.limit(n))
   const snap = await fsMod.getDocs(q)
@@ -984,6 +992,7 @@ export async function fetchTopParkour(n) {
 
 // The Duel Arena's best ratings (PartyDuel.js), highest first.
 export async function fetchTopDuels(n) {
+  if (switchedOff('leaderboards', { quiet: true })) throw switchedOffError('leaderboards')
   const { db, fsMod } = await ensureApp()
   const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('duelRating', 'desc'), fsMod.limit(n))
   const snap = await fsMod.getDocs(q)
@@ -991,6 +1000,7 @@ export async function fetchTopDuels(n) {
 }
 
 export async function fetchTopByAchievements(n) {
+  if (switchedOff('leaderboards', { quiet: true })) throw switchedOffError('leaderboards')
   const { db, fsMod } = await ensureApp()
   const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('achievementCount', 'desc'), fsMod.limit(n))
   const snap = await fsMod.getDocs(q)
@@ -1366,6 +1376,7 @@ export function subscribeClanChat(clanId, callback) {
 // these under "Older builds" so nothing anyone published disappeared.
 
 export async function fetchCommunityBuilds() {
+  if (switchedOff('sharing', { quiet: true })) throw switchedOffError('sharing')
   const { db, fsMod } = await ensureApp()
   const q = fsMod.query(fsMod.collection(db, 'communityBuilds'), fsMod.orderBy('createdAt', 'desc'), fsMod.limit(50))
   const snap = await fsMod.getDocs(q)
@@ -1384,6 +1395,7 @@ export function makeShareCode() {
 
 // -> { ok, code } - retries on the (unlikely) chance a code is taken.
 export async function shareMap(uid, nickname, name, base, data, blockCount) {
+  if (switchedOff('sharing')) throw switchedOffError('sharing')
   const { db, fsMod } = await ensureApp()
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = makeShareCode()
@@ -1399,6 +1411,7 @@ export async function shareMap(uid, nickname, name, base, data, blockCount) {
 }
 
 export async function fetchSharedMap(code) {
+  if (switchedOff('sharing')) throw switchedOffError('sharing')
   const { db, fsMod } = await ensureApp()
   // A map the Console hid (LiveConfig.js) opens like a deleted one.
   if (isHidden('map', code)) return null
@@ -1408,6 +1421,7 @@ export async function fetchSharedMap(code) {
 
 // sort: 'new' | 'likes' | 'plays'. The list rows leave out the map data.
 export async function fetchSharedMaps(sort) {
+  if (switchedOff('sharing', { quiet: true })) throw switchedOffError('sharing')
   const { db, fsMod } = await ensureApp()
   const field = sort === 'likes' ? 'likes' : sort === 'plays' ? 'plays' : 'createdAt'
   const q = fsMod.query(fsMod.collection(db, 'sharedMaps'), fsMod.orderBy(field, 'desc'), fsMod.limit(30))
@@ -1476,6 +1490,7 @@ export async function fetchGauntletTeams(myUid, n = 40) {
 
 // Build Together rooms (2026-10-04, see the buildRooms rules above).
 export async function createBuildRoom(uid, hostName, name, base, data) {
+  if (switchedOff('sharing')) throw switchedOffError('sharing')
   const { db, fsMod } = await ensureApp()
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = makeShareCode()
@@ -1548,6 +1563,7 @@ export function subscribeBuildRoomPlayers(code, callback) {
 // listings are read without an orderBy (that plus the status filter would
 // need a composite index) and sorted newest-first by the caller.
 export async function createMarketListing(uid, sellerName, skinId, price) {
+  if (switchedOff('market')) throw switchedOffError('market')
   const { db, fsMod } = await ensureApp()
   const ref = fsMod.doc(fsMod.collection(db, 'marketListings'))
   await fsMod.setDoc(ref, { sellerUid: uid, sellerName, skinId, price, createdAt: Date.now(), status: 'active', claimed: false })
@@ -1555,6 +1571,7 @@ export async function createMarketListing(uid, sellerName, skinId, price) {
 }
 
 export async function fetchActiveMarketListings() {
+  if (switchedOff('market', { quiet: true })) throw switchedOffError('market')
   const { db, fsMod } = await ensureApp()
   const q = fsMod.query(fsMod.collection(db, 'marketListings'), fsMod.where('status', '==', 'active'), fsMod.limit(300))
   const snap = await fsMod.getDocs(q)
@@ -1564,6 +1581,7 @@ export async function fetchActiveMarketListings() {
 // Transaction so two buyers can't both get the same listing - returns the
 // listing as it was bought, or null if it was already gone.
 export async function buyMarketListing(listingId, uid) {
+  if (switchedOff('market')) throw switchedOffError('market')
   const { db, fsMod } = await ensureApp()
   const ref = fsMod.doc(db, 'marketListings', listingId)
   return fsMod.runTransaction(db, async (tx) => {
@@ -1808,6 +1826,7 @@ export async function fetchPollResults(pollId, options) {
 // kind: 'character' | 'map'. No orderBy (the kind filter plus an order
 // would need a composite index) - the caller sorts.
 export async function fetchGalleryPosts(kind) {
+  if (switchedOff('gallery', { quiet: true })) throw switchedOffError('gallery')
   const { db, fsMod } = await ensureApp()
   const q = fsMod.query(fsMod.collection(db, 'gallery'), fsMod.where('kind', '==', kind), fsMod.limit(80))
   const snap = await fsMod.getDocs(q)
@@ -1816,6 +1835,7 @@ export async function fetchGalleryPosts(kind) {
 
 // post: { kind, title, creatorUid, creatorNickname, image, mapCode? } -> id
 export async function createGalleryPost(post) {
+  if (switchedOff('gallery')) throw switchedOffError('gallery')
   const { db, fsMod } = await ensureApp()
   const data = { kind: post.kind, title: post.title, creatorUid: post.creatorUid, creatorNickname: post.creatorNickname, image: post.image, createdAt: Date.now(), likes: 0 }
   if (post.mapCode) data.mapCode = post.mapCode
@@ -1868,6 +1888,7 @@ export async function fetchGalleryComments(id) {
 }
 
 export async function addGalleryComment(id, comment) {
+  if (switchedOff('gallery')) throw switchedOffError('gallery')
   const { db, fsMod } = await ensureApp()
   const ref = await fsMod.addDoc(fsMod.collection(db, 'gallery', id, 'comments'), { uid: comment.uid, nickname: comment.nickname, text: comment.text, createdAt: Date.now() })
   return ref.id

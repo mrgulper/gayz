@@ -3,7 +3,7 @@ import { gotoAndWaitForGame } from './helpers.js'
 import { fakeServerDb } from './fakeServerDb.js'
 import { PROVIDERS, isCallback, missingKeys, firebaseUid, cleanProfile, sameState, resultPage, siteOrigin } from '../api/_lib/oauth.js'
 import { createServer, joinServer, listServers, syncServer, leaveServer, MAX_PLAYERS, STALE_MS, JOIN_GRACE_MS } from '../api/_lib/servers.js'
-import { publicConfig, reportPlayer, adminState, setBanner, setEvents, kickPlayer, unban, hideContent, dismissContentReport, dismissPlayerReport, REPORT_GAP_MS } from '../api/_lib/admin.js'
+import { publicConfig, reportPlayer, adminState, setBanner, setEvents, kickPlayer, unban, hideContent, dismissContentReport, dismissPlayerReport, REPORT_GAP_MS, ADMIN_ACTIONS } from '../api/_lib/admin.js'
 
 // The servers' own rules (api/_lib/servers.js), on an in-memory database.
 test('servers: create, join, sync, host hand-over, leave', async () => {
@@ -1241,4 +1241,71 @@ test('live config: banner, events, holiday and a ban', async ({ page }) => {
   expect(r.closed).toEqual({ text: true, chips: false })
   expect(r.off).toEqual({ hidden: true, holiday: '' })
   expect(r.stored).toEqual({ until: 0, reason: 'x' })
+})
+
+// The Console's Safety batch: off-switches, maintenance, history, backup
+// and restore (api/_lib/admin.js), on an in-memory database.
+test('admin safety: switches, maintenance, history, backup and restore', async () => {
+  const db = fakeServerDb()
+  const run = (action, body = {}) => ADMIN_ACTIONS[action](db, { action, ...body }, null)
+  // Off-switches: only known ids; servers refuse while Online is off.
+  await run('switches', { off: ['chat', 'online', 'junk'] })
+  expect((await publicConfig(db, {})).off).toEqual(['online', 'chat'])
+  await expect(createServer(db, { nickname: 'Ann' })).rejects.toMatchObject({ code: 'switched-off', status: 503 })
+  await run('switches', { off: [] })
+  expect((await publicConfig(db, {})).off).toEqual([])
+  const a = await createServer(db, { nickname: 'Ann' })
+  // Maintenance: shown to players, closes servers too, text cleaned.
+  await run('maintenance', { on: true, text: 'Fixing <b>stuff</b>' })
+  expect((await publicConfig(db, {})).maintenance).toMatchObject({ text: 'Fixing bstuff/b' })
+  await expect(joinServer(db, { serverId: a.serverId, nickname: 'Bo' })).rejects.toMatchObject({ code: 'switched-off' })
+  // Backup now, then change things, then restore: back the way it was.
+  const file = await run('backup')
+  expect(file).toMatchObject({ gayzBackup: 1 })
+  expect(file.data.liveConfig.maintenance.on).toBe(true)
+  await run('maintenance', { on: false })
+  await run('banner', { text: 'Hi' })
+  expect((await publicConfig(db, {})).maintenance).toBe(null)
+  await run('restore', { file: JSON.parse(JSON.stringify(file)) })
+  const cfg = await publicConfig(db, {})
+  expect(cfg.maintenance).toMatchObject({ text: 'Fixing bstuff/b' })
+  expect(cfg.banner).toBe(null)
+  await expect(run('restore', { file: { gayzBackup: 1, data: { bans: 'nope' } } })).rejects.toMatchObject({ status: 400 })
+  await expect(run('restore', { file: { hello: 1 } })).rejects.toMatchObject({ status: 400 })
+  // History: every change has a line (Restore keeps it); reads add none.
+  const h = (await adminState(db, null)).history.map((e) => e.text)
+  expect(h.some((t) => /^Restored the backup from /.test(t))).toBe(true)
+  expect(h).toEqual(expect.arrayContaining(['Switched off: Online servers, Chat', 'Every feature switched on', 'Maintenance ON: "Fixing bstuff/b"', 'Maintenance OFF', 'Banner shown: "Hi"', 'Downloaded a backup']))
+  expect(h.filter((t) => t.startsWith('Switched') || t.startsWith('Every')).length).toBe(2)
+})
+
+// Paused chips, a switched-off action and the maintenance screen on the
+// real page (src/game/LiveConfig.js), with a fake /api/live.
+test('live config: paused features and maintenance screen', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__liveCfg = { banner: null, events: {}, hidden: { maps: [], builds: [] }, ban: null, off: ['market', 'chat'], maintenance: null }
+    window.__liveConfigForTests = async () => window.__liveCfg
+  })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g.__liveAsk()
+    const b = document.getElementById('live-banner')
+    const chips = [...b.querySelectorAll('.live-banner-chip.paused')].map((c) => c.textContent)
+    const off = { market: g.__liveSwitchedOff('market'), shop: g.__liveSwitchedOff('online', { quiet: true }) }
+    await new Promise((res) => setTimeout(res, 400))
+    const toast = g.loreToast.textContent
+    window.__liveCfg = { ...window.__liveCfg, off: [], maintenance: { text: 'Back at 5pm', at: 1 } }
+    await g.__liveAsk()
+    const m = document.getElementById('maintenance-screen')
+    const shown = { visible: !!m && !m.hidden && getComputedStyle(m).display !== 'none', text: m?.querySelector('.maintenance-text').textContent, pausedLeft: b.querySelectorAll('.live-banner-chip.paused').length, offNow: g.__liveSwitchedOff('market') }
+    window.__liveCfg = { ...window.__liveCfg, maintenance: null }
+    await g.__liveAsk()
+    return { chips, off, toast, shown, gone: m.hidden }
+  })
+  expect(r.chips).toEqual(['Chat', 'Market'])
+  expect(r.off).toEqual({ market: true, shop: false })
+  expect(r.toast).toContain('Market is paused')
+  expect(r.shown).toEqual({ visible: true, text: 'Back at 5pm', pausedLeft: 0, offNow: false })
+  expect(r.gone).toBe(true)
 })

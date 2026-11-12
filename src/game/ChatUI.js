@@ -9,7 +9,7 @@
 // the clan code reads and writes some of it directly.
 
 import { t } from './i18n.js'
-import { banMessage, reportPlayer } from './LiveConfig.js'
+import { banMessage, switchedOff, reportPlayer } from './LiveConfig.js'
 import * as CloudSync from './CloudSync.js'
 import { EMOJI_CATEGORIES } from './EmojiData.js'
 import { chatPingCheck } from './MoreSettings.js'
@@ -325,6 +325,8 @@ export async function sendServerChatMessage(game) {
     game._showHomepageToast(banMessage())
     return
   }
+  // Chat switched off from the Console (LiveConfig.js) - the text stays.
+  if (switchedOff('chat')) return
   if (!game._cloudUid) {
     game._showHomepageToast(t('chatSignInRequired'))
     return
@@ -847,6 +849,8 @@ export async function sendChatMessage(game) {
     game._showHomepageToast(banMessage())
     return
   }
+  // Chat switched off from the Console (LiveConfig.js) - the text stays.
+  if (switchedOff('chat')) return
   // Spam rule (CHAT_SPAM_LIMIT): client-side only - no custom backend
   // here to enforce it server-side too (same trust model this game
   // already accepts everywhere else, see CLAUDE.md's anti-cheat note).
