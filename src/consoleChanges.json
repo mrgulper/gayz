@@ -1,4 +1,10 @@
 {
   "note": "Homepage edits saved from the Console's Save button. Each line: which element, what changed, the new value. Delete a line to undo it.",
-  "changes": []
+  "changes": [
+    {
+      "id": "#menu-subtitle",
+      "prop": "text",
+      "value": "Broken city blo\nScavenge supplies. Survive the infected.\nEscape before dawn."
+    }
+  ]
 }
