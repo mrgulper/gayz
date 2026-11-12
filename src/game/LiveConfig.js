@@ -17,6 +17,11 @@
 // "Paused:" chips) and `maintenance` covers the homepage with a "back
 // soon" screen. Neither stops a game already running; servers are also
 // closed on the server side (api/_lib/admin.js onlineClosed).
+//
+// Players (2026-11-12, Console "Players" batch): `mute` is this player's
+// chat mute (muteMessage() - ChatUI won't send; the server and Firebase's
+// rules also refuse) and `warnings` are messages from the team, shown one
+// at a time in a popup with an OK button (renderWarning) on the homepage.
 import { t } from './i18n.js'
 
 const CACHE_KEY = 'gayz-live-config'
@@ -29,11 +34,14 @@ export const SWITCH_IDS = ['online', 'chat', 'market', 'sharing', 'gallery', 'le
 // after it ends.
 const MAINT_EVERY_MS = 30 * 1000
 const OFF_TOAST_GAP_MS = 20 * 1000
+// Warning ids this device already pressed OK on (the server is told too,
+// but this hides it at once and works offline).
+const WARN_SEEN_KEY = 'gayz-warnings-seen'
 
 // Horde Night's extra zombies per wave.
 export const HORDE_MULT = 1.5
 
-const EMPTY = { banner: null, events: {}, hidden: { maps: [], builds: [] }, ban: null, off: [], maintenance: null }
+const EMPTY = { banner: null, events: {}, hidden: { maps: [], builds: [] }, ban: null, mute: null, warnings: [], off: [], maintenance: null }
 
 function readCache() {
   try {
@@ -148,6 +156,22 @@ export function banMessage() {
   return t('liveBannedUntil', { when: new Date(b.until).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) })
 }
 
+// This player's chat mute from the Console: null, or { until (0 = forever) }.
+export function currentMute() {
+  const m = config.mute
+  if (!m) return null
+  if (m.until && m.until <= Date.now()) return null
+  return m
+}
+
+// The "you're muted" words, or null.
+export function muteMessage() {
+  const m = currentMute()
+  if (!m) return null
+  if (!m.until) return t('liveMutedForever')
+  return t('liveMutedUntil', { when: new Date(m.until).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) })
+}
+
 function liveApi() {
   if (typeof window !== 'undefined' && window.__liveConfigForTests) return window.__liveConfigForTests
   return async (body) => {
@@ -173,6 +197,7 @@ function apply(next, game) {
   } catch { /* full or blocked - the next answer still applies */ }
   renderLiveBanner(game)
   renderMaintenance(game)
+  renderWarning(game)
   window.dispatchEvent(new Event('gayz-live'))
 }
 
@@ -275,11 +300,60 @@ export function renderMaintenance(game) {
   el.hidden = false
 }
 
+function seenWarnings() {
+  try {
+    const list = JSON.parse(localStorage.getItem(WARN_SEEN_KEY) || '[]')
+    return Array.isArray(list) ? list : []
+  } catch {
+    return []
+  }
+}
+
+// A warning from the team: a popup the player has to press OK on, one at
+// a time, oldest first. Only on the homepage (a running game isn't
+// interrupted; it shows when they get back), never in the Console preview
+// and never over the maintenance screen.
+export function renderWarning(game) {
+  const seen = seenWarnings()
+  const w = (Array.isArray(config.warnings) ? config.warnings : []).find((x) => x && x.id && !seen.includes(x.id))
+  const onHome = !game?.menu || game.menu.style.display !== 'none'
+  const maintEl = document.getElementById('maintenance-screen')
+  const maintUp = !!maintEl && !maintEl.hidden
+  let el = document.getElementById('warning-screen')
+  if (!w || !onHome || maintUp || embedded()) {
+    if (el) el.hidden = true
+    return
+  }
+  if (!el) {
+    el = document.createElement('div')
+    el.id = 'warning-screen'
+    el.setAttribute('role', 'alertdialog')
+    el.setAttribute('aria-modal', 'true')
+    el.innerHTML = '<div class="maintenance-card warning-card"><h2 class="maintenance-title"></h2><p class="maintenance-text"></p><button type="button" class="warning-ok"></button></div>'
+    document.body.appendChild(el)
+    el.querySelector('.warning-ok').addEventListener('click', () => {
+      const id = el.dataset.id
+      if (!id) return
+      try {
+        localStorage.setItem(WARN_SEEN_KEY, JSON.stringify([...seenWarnings(), id].slice(-50)))
+      } catch { /* blocked - the server's "seen" still hides it next time */ }
+      liveApi()({ action: 'seenWarning', pid: game?.settings?.playerId, id }).catch(() => {})
+      renderWarning(game)
+    })
+  }
+  el.dataset.id = w.id
+  el.querySelector('.maintenance-title').textContent = t('warningTitle')
+  el.querySelector('.maintenance-text').textContent = w.text
+  el.querySelector('.warning-ok').textContent = t('warningOk')
+  el.hidden = false
+}
+
 // From main.js once the game exists.
 export function startLiveConfig(game) {
   liveGame = game
   renderLiveBanner(game)
   renderMaintenance(game)
+  renderWarning(game)
   // A ban carried over from the last visit: say so once.
   const shownBan = () => {
     const msg = banMessage()
@@ -307,6 +381,8 @@ export function startLiveConfig(game) {
   // Maintenance: ask more often while it's on, and put the screen up when
   // a running game goes back to the homepage.
   setInterval(() => {
+    // A warning waiting for the homepage (a game just ended).
+    if (config.warnings?.length) renderWarning(game)
     if (!maintenance()) return
     renderMaintenance(game)
     if (document.visibilityState === 'visible' && Date.now() - (game._maintAskedAt || 0) >= MAINT_EVERY_MS) {

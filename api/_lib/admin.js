@@ -25,6 +25,16 @@
 //   liveConfig.maintenance { on, text, at }  maintenance screen
 //   adminLog/{id}  { at, text } - the Console's action history, newest
 //                  LOG_KEPT kept
+//   warnings/{pid}/{id}  { text, at, seen } - a message from the team the
+//                  player must press OK on (Console "Players" batch)
+//   mutes/{pid}    { until (0 = forever), reason, nick, at, uids }
+//                  chat mute. Checked here for server chat bubbles
+//                  (servers.js syncServer) and by Firebase's rules for
+//                  Global/Server/Clan chat: muting also writes
+//                  chatMutes/{uid} in Firestore for every signed-in
+//                  account whose leaderboard doc has this Player ID.
+//   playerNotes/{pid}  { text, at } - the Console's private notes, never
+//                  sent to any player
 import { ServerError } from './servers.js'
 
 export const EVENT_IDS = ['doubleCoins', 'doubleXp', 'hordeNight']
@@ -47,11 +57,16 @@ export const MAINT_TEXT_MAX = 200
 const LOG_KEPT = 300
 // What a backup holds and Restore puts back (servers come and go, so
 // they're left out).
-export const BACKUP_PATHS = ['liveConfig', 'bans', 'playerReports', 'reportsSeen', 'adminLog']
+export const BACKUP_PATHS = ['liveConfig', 'bans', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes']
 // Restore leaves the history alone: it stays a true record (including the
 // Restore itself).
 const RESTORE_PATHS = BACKUP_PATHS.filter((p) => p !== 'adminLog')
 const BACKUP_MAX_CHARS = 2_000_000
+// Chat mute lengths in minutes; 0 = forever.
+export const MUTE_MINUTES = [60, 1440, 10080, 0]
+export const WARNING_MAX = 300
+const WARNINGS_KEPT = 20
+export const NOTE_MAX = 2000
 
 // A Player ID (Game.js _generatePlayerId) or a server slot id.
 export function validPid(v) {
@@ -90,6 +105,28 @@ function cleanOff(o) {
   return SWITCH_IDS.filter((id) => o?.[id] === true)
 }
 
+function activeMute(m, now) {
+  if (!m || typeof m !== 'object') return null
+  const until = Number(m.until) || 0
+  if (until && until <= now) return null
+  return { until, reason: cleanText(m.reason, 120) }
+}
+
+// Warnings the player hasn't pressed OK on yet, oldest first.
+function unseenWarnings(all) {
+  return Object.entries(all || {})
+    .filter(([id, w]) => validCode(id) && w && !w.seen && cleanText(w.text, WARNING_MAX))
+    .map(([id, w]) => ({ id, text: cleanText(w.text, WARNING_MAX), at: Number(w.at) || 0 }))
+    .sort((a, b) => a.at - b.at)
+    .slice(0, 5)
+}
+
+// Is this Player ID chat-muted right now? (servers.js, for chat bubbles)
+export async function isMuted(db, pid, now = Date.now()) {
+  if (!validPid(pid)) return false
+  return !!activeMute(await db.get(`mutes/${pid}`), now)
+}
+
 function liveMaintenance(m) {
   if (!m || typeof m !== 'object' || m.on !== true) return null
   return { text: cleanText(m.text, MAINT_TEXT_MAX), at: Number(m.at) || 0 }
@@ -105,7 +142,8 @@ export async function onlineClosed(db) {
 // What every player's page gets (api/live.js). Only the asker's own ban,
 // never the list.
 export async function publicConfig(db, { pid } = {}, now = Date.now()) {
-  const [cfg, ban] = await Promise.all([db.get('liveConfig'), validPid(pid) ? db.get(`bans/${pid}`) : null])
+  const ok = validPid(pid)
+  const [cfg, ban, mute, warnings] = await Promise.all([db.get('liveConfig'), ok ? db.get(`bans/${pid}`) : null, ok ? db.get(`mutes/${pid}`) : null, ok ? db.get(`warnings/${pid}`) : null])
   return {
     banner: liveBanner(cfg?.banner, now),
     events: cleanEvents(cfg?.events),
@@ -114,6 +152,8 @@ export async function publicConfig(db, { pid } = {}, now = Date.now()) {
       builds: Object.keys(cfg?.hidden?.builds || {}),
     },
     ban: activeBan(ban, now),
+    mute: activeMute(mute, now),
+    warnings: unseenWarnings(warnings),
     off: cleanOff(cfg?.off),
     maintenance: liveMaintenance(cfg?.maintenance),
   }
@@ -146,6 +186,14 @@ export async function reportPlayer(db, body = {}, now = Date.now()) {
     for (const old of ids.slice(0, ids.length - REPORTS_KEPT)) drop[`playerReports/${old}`] = null
     await db.update(drop)
   }
+  return { ok: true }
+}
+
+// The player pressed OK on a warning (api/live.js).
+export async function seenWarning(db, { pid, id } = {}, now = Date.now()) {
+  if (!validPid(pid) || !validCode(id)) throw new ServerError(400, 'bad-request')
+  const w = await db.get(`warnings/${pid}/${id}`)
+  if (w && !w.seen) await db.update({ [`warnings/${pid}/${id}/seen`]: now })
   return { ok: true }
 }
 
@@ -204,6 +252,7 @@ export async function adminState(db, fs, now = Date.now()) {
     contentReports: content.list,
     contentReportsError: content.error,
     players,
+    mutes: await mutedList(db, now),
     off: cleanOff(cfg?.off),
     maintenance: liveMaintenance(cfg?.maintenance),
     history: Object.values(log || {})
@@ -313,6 +362,224 @@ export async function logAction(db, text, now = Date.now()) {
   }
 }
 
+// --- Players (Console "Players" batch): lookup card, warnings, chat
+// mutes, private notes ---
+
+const validUid = (v) => typeof v === 'string' && /^[A-Za-z0-9]{1,128}$/.test(v)
+const MUTE_NAMES = { 60: '1 hour', 1440: '1 day', 10080: '7 days', 0: 'forever' }
+
+// Notes keep their line breaks (cleanText would drop them).
+function cleanNote(v) {
+  if (typeof v !== 'string') return ''
+  // eslint-disable-next-line no-control-regex -- stripping control characters is the point
+  return v.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f<>]/g, '').trim().slice(0, NOTE_MAX)
+}
+
+async function mutedList(db, now) {
+  const all = (await db.get('mutes')) || {}
+  return Object.entries(all)
+    .filter(([pid, m]) => validPid(pid) && activeMute(m, now))
+    .map(([pid, m]) => ({ pid, nick: cleanText(m.nick, 24), reason: cleanText(m.reason, 120), until: Number(m.until) || 0, at: Number(m.at) || 0, accounts: Object.keys(m.uids || {}).length }))
+    .sort((a, b) => b.at - a.at)
+}
+
+// The signed-in accounts (Firestore leaderboard docs) with this Player ID.
+// `fs` is firestoreRest.js or a fake; errors come back as text.
+async function accountsFor(fs, pid) {
+  if (!fs?.accountsByPid) return { list: [], error: null }
+  try {
+    return { list: (await fs.accountsByPid(pid)).filter((a) => validUid(a?.uid)), error: null }
+  } catch (err) {
+    return { list: [], error: String(err?.message || err).slice(0, 200) }
+  }
+}
+
+// Every Player ID the Console has seen, with the names it went by.
+async function knownPlayers(db, now) {
+  const [bans, reports, mutes, warnings, notes, players] = await Promise.all([db.get('bans'), db.get('playerReports'), db.get('mutes'), db.get('warnings'), db.get('playerNotes'), serverPlayers(db, now)])
+  const known = new Map()
+  const add = (pid, nick) => {
+    if (!validPid(pid)) return
+    if (!known.has(pid)) known.set(pid, new Set())
+    const n = cleanText(nick, 24)
+    if (n) known.get(pid).add(n)
+  }
+  for (const [pid, b] of Object.entries(bans || {})) add(pid, b?.nick)
+  for (const [pid, m] of Object.entries(mutes || {})) add(pid, m?.nick)
+  for (const r of Object.values(reports || {})) {
+    add(r?.target, r?.targetName)
+    add(r?.by, r?.byName)
+  }
+  for (const pid of Object.keys(warnings || {})) add(pid)
+  for (const pid of Object.keys(notes || {})) add(pid)
+  for (const p of players) add(p.pid, p.nick)
+  return { known, reports: reports || {}, players }
+}
+
+// Everything about one Player ID, for the Console's player card.
+export async function playerCard(db, fs, pid, now = Date.now()) {
+  if (!validPid(pid)) throw new ServerError(400, 'bad-request')
+  const [{ known, reports, players }, ban, mute, warnings, note, accounts] = await Promise.all([
+    knownPlayers(db, now),
+    db.get(`bans/${pid}`),
+    db.get(`mutes/${pid}`),
+    db.get(`warnings/${pid}`),
+    db.get(`playerNotes/${pid}`),
+    accountsFor(fs, pid),
+  ])
+  const nicks = new Set(known.get(pid) || [])
+  for (const a of accounts.list) if (cleanText(a.nickname, 24)) nicks.add(cleanText(a.nickname, 24))
+  const reportList = Object.entries(reports).map(([id, r]) => ({ id, ...r })).sort((a, b) => (b.at || 0) - (a.at || 0))
+  const liveBan = activeBan(ban, now)
+  const liveMute = activeMute(mute, now)
+  return {
+    pid,
+    nicks: [...nicks],
+    online: players.filter((p) => p.pid === pid),
+    ban: liveBan ? { ...liveBan, at: Number(ban.at) || 0 } : null,
+    mute: liveMute ? { ...liveMute, at: Number(mute.at) || 0, accounts: Object.keys(mute.uids || {}).length } : null,
+    warnings: Object.entries(warnings || {})
+      .map(([id, w]) => ({ id, text: cleanText(w?.text, WARNING_MAX), at: Number(w?.at) || 0, seen: Number(w?.seen) || 0 }))
+      .sort((a, b) => b.at - a.at),
+    note: note && typeof note === 'object' ? { text: cleanNote(note.text), at: Number(note.at) || 0 } : null,
+    reportsAgainst: reportList.filter((r) => r.target === pid),
+    reportsBy: reportList.filter((r) => r.by === pid),
+    accounts: accounts.list.map((a) => ({ uid: a.uid, nickname: cleanText(a.nickname, 24), bestNight: Number(a.bestNight) || 0, lastActiveAt: Number(a.lastActiveAt) || 0, clanId: cleanText(a.clanId, 40) })),
+    accountsError: accounts.error,
+  }
+}
+
+// The Console's search box: a Player ID (with or without #) or part of a
+// name. One match -> { card }; several -> { matches } to pick from.
+export async function lookupPlayer(db, fs, { query } = {}, now = Date.now()) {
+  const q = cleanText(query, 40).replace(/^#/, '')
+  if (!q) throw new ServerError(400, 'bad-request')
+  const { known } = await knownPlayers(db, now)
+  const found = new Map()
+  const add = (pid, nick) => {
+    if (!validPid(pid)) return
+    if (!found.has(pid)) found.set(pid, new Set(known.get(pid) || []))
+    if (cleanText(nick, 24)) found.get(pid).add(cleanText(nick, 24))
+  }
+  if (known.has(q)) add(q)
+  const lower = q.toLowerCase()
+  for (const [pid, nicks] of known) if ([...nicks].some((n) => n.toLowerCase().includes(lower))) add(pid)
+  let fsError = null
+  if (fs?.accountsByName && fs?.accountsByPid) {
+    try {
+      const [byPid, byName] = await Promise.all([validPid(q) ? fs.accountsByPid(q) : [], fs.accountsByName(q)])
+      if (byPid.length) add(q, byPid[0]?.nickname)
+      for (const a of byName) add(a?.playerId, a?.nickname)
+    } catch (err) {
+      fsError = String(err?.message || err).slice(0, 200)
+    }
+  }
+  // A Player ID nobody has seen yet still gets a card (to warn, mute or
+  // write notes ahead of time).
+  if (!found.size && validPid(q)) add(q)
+  if (found.size === 1) return { card: await playerCard(db, fs, [...found.keys()][0], now), fsError }
+  return { matches: [...found].slice(0, 30).map(([pid, nicks]) => ({ pid, nicks: [...nicks] })), fsError }
+}
+
+export async function warnPlayer(db, { pid, text, nick } = {}, now = Date.now()) {
+  const clean = cleanText(text, WARNING_MAX)
+  if (!validPid(pid) || !clean) throw new ServerError(400, 'bad-request')
+  const id = `${now}${Math.random().toString(36).slice(2, 6)}`
+  await db.update({ [`warnings/${pid}/${id}`]: { text: clean, at: now, seen: 0, nick: cleanText(nick, 24) } })
+  const all = (await db.get(`warnings/${pid}`)) || {}
+  const ids = Object.keys(all).sort((a, b) => (all[a]?.at || 0) - (all[b]?.at || 0))
+  if (ids.length > WARNINGS_KEPT) {
+    const drop = {}
+    for (const old of ids.slice(0, ids.length - WARNINGS_KEPT)) drop[`warnings/${pid}/${old}`] = null
+    await db.update(drop)
+  }
+  return { ok: true, id }
+}
+
+export async function deleteWarning(db, { pid, id } = {}) {
+  if (!validPid(pid) || !validCode(id)) throw new ServerError(400, 'bad-request')
+  await db.update({ [`warnings/${pid}/${id}`]: null })
+  return { ok: true }
+}
+
+// Chat mute: the Realtime Database record (server chat bubbles + the
+// player's own page) and a chatMutes/{uid} doc in Firestore for each
+// signed-in account with this Player ID (Firebase's rules then refuse
+// their Global/Server/Clan messages). A Firestore hiccup doesn't undo
+// the rest; it comes back as `error`.
+export async function mutePlayer(db, fs, { pid, minutes, reason, nick } = {}, now = Date.now()) {
+  const mins = Number(minutes)
+  if (!MUTE_MINUTES.includes(mins)) throw new ServerError(400, 'bad-minutes')
+  if (!validPid(pid)) throw new ServerError(400, 'bad-request')
+  const old = await db.get(`mutes/${pid}`)
+  const accounts = await accountsFor(fs, pid)
+  const uids = {}
+  for (const uid of Object.keys(old?.uids || {})) if (validUid(uid)) uids[uid] = true
+  for (const a of accounts.list) uids[a.uid] = true
+  const until = mins ? now + mins * 60000 : 0
+  await db.update({ [`mutes/${pid}`]: { until, reason: cleanText(reason, 120), nick: cleanText(nick, 24), at: now, uids: Object.keys(uids).length ? uids : null } })
+  let error = accounts.error
+  if (fs?.setChatMute) {
+    for (const uid of Object.keys(uids)) {
+      try {
+        await fs.setChatMute(uid, until, now)
+      } catch (err) {
+        error = String(err?.message || err).slice(0, 200)
+      }
+    }
+  }
+  return { ok: true, accounts: Object.keys(uids).length, error }
+}
+
+export async function unmutePlayer(db, fs, { pid } = {}) {
+  if (!validPid(pid)) throw new ServerError(400, 'bad-request')
+  const old = await db.get(`mutes/${pid}`)
+  await db.update({ [`mutes/${pid}`]: null })
+  let error = null
+  if (fs?.clearChatMute) {
+    for (const uid of Object.keys(old?.uids || {})) {
+      if (!validUid(uid)) continue
+      try {
+        await fs.clearChatMute(uid)
+      } catch (err) {
+        error = String(err?.message || err).slice(0, 200)
+      }
+    }
+  }
+  return { ok: true, error }
+}
+
+// Private notes: only ever shown in the Console. Empty text deletes them.
+export async function setNote(db, { pid, text } = {}, now = Date.now()) {
+  if (!validPid(pid)) throw new ServerError(400, 'bad-request')
+  const clean = cleanNote(text)
+  await db.update({ [`playerNotes/${pid}`]: clean ? { text: clean, at: now } : null })
+  return { ok: true }
+}
+
+// After a Restore: Firestore's chatMutes made to match the restored mutes.
+async function syncChatMutes(fs, before, after, now) {
+  if (!fs?.setChatMute || !fs?.clearChatMute) return null
+  const want = new Map()
+  for (const m of Object.values(after || {})) {
+    if (!activeMute(m, now)) continue
+    for (const uid of Object.keys(m?.uids || {})) if (validUid(uid)) want.set(uid, Number(m.until) || 0)
+  }
+  const had = new Set()
+  for (const m of Object.values(before || {})) for (const uid of Object.keys(m?.uids || {})) if (validUid(uid)) had.add(uid)
+  let error = null
+  const run = async (fn) => {
+    try {
+      await fn()
+    } catch (err) {
+      error = String(err?.message || err).slice(0, 200)
+    }
+  }
+  for (const [uid, until] of want) await run(() => fs.setChatMute(uid, until, now))
+  for (const uid of had) if (!want.has(uid)) await run(() => fs.clearChatMute(uid))
+  return error
+}
+
 export async function backup(db, now = Date.now()) {
   const values = await Promise.all(BACKUP_PATHS.map((p) => db.get(p)))
   const data = {}
@@ -323,7 +590,7 @@ export async function backup(db, now = Date.now()) {
 // Puts a backup file back exactly: every RESTORE_PATHS part is replaced
 // (a part the file doesn't have is emptied). The Console downloads a fresh
 // backup of what's there first, so a Restore can itself be undone.
-export async function restore(db, { file } = {}) {
+export async function restore(db, { file } = {}, fs = null, now = Date.now()) {
   if (!file || typeof file !== 'object' || file.gayzBackup !== 1 || !file.data || typeof file.data !== 'object') throw new ServerError(400, 'bad-backup')
   if (JSON.stringify(file).length > BACKUP_MAX_CHARS) throw new ServerError(400, 'bad-backup')
   const updates = {}
@@ -332,8 +599,10 @@ export async function restore(db, { file } = {}) {
     if (v != null && (typeof v !== 'object' || Array.isArray(v))) throw new ServerError(400, 'bad-backup')
     updates[p] = v ?? null
   }
+  const mutesBefore = await db.get('mutes')
   await db.update(updates)
-  return { ok: true, at: Number(file.at) || 0 }
+  const error = await syncChatMutes(fs, mutesBefore, updates.mutes, now)
+  return { ok: true, at: Number(file.at) || 0, error }
 }
 
 const FEATURE_NAMES = { online: 'Online servers', chat: 'Chat', market: 'Market', sharing: 'Map & build sharing', gallery: 'Gallery', leaderboards: 'Leaderboards' }
@@ -359,6 +628,12 @@ const LOG_TEXT = {
   },
   maintenance: (b) => (b.on === true ? `Maintenance ON${cleanText(b.text, 80) ? `: "${cleanText(b.text, 80)}"` : ''}` : 'Maintenance OFF'),
   backup: () => 'Downloaded a backup',
+  warn: (b) => `Warned ${cleanText(b.nick, 24) || '?'} #${b.pid}: "${cleanText(b.text, 80)}"`,
+  deleteWarning: (b) => `Deleted a warning for #${b.pid}`,
+  mute: (b) => `Chat-muted ${cleanText(b.nick, 24) || '?'} #${b.pid} for ${MUTE_NAMES[Number(b.minutes)] || '?'}${cleanText(b.reason, 60) ? ` ("${cleanText(b.reason, 60)}")` : ''}`,
+  unmute: (b) => `Unmuted #${b.pid}`,
+  // The note itself stays private - only that it changed.
+  note: (b) => `${cleanNote(b.text) ? 'Edited' : 'Deleted'} the notes on #${b.pid}`,
   // `label`: the backup's time in the Console's own time zone.
   restore: (b) => `Restored the backup from ${cleanText(b.label, 40) || (Number(b.file?.at) ? `${day(Number(b.file.at))} UTC` : '?')}`,
 }
@@ -375,7 +650,14 @@ const ACTION_FNS = {
   switches: (db, body) => setSwitches(db, body),
   maintenance: (db, body) => setMaintenance(db, body),
   backup: (db) => backup(db),
-  restore: (db, body) => restore(db, body),
+  restore: (db, body, fs) => restore(db, body, fs),
+  lookup: (db, body, fs) => lookupPlayer(db, fs, body),
+  card: (db, body, fs) => playerCard(db, fs, body.pid),
+  warn: (db, body) => warnPlayer(db, body),
+  deleteWarning: (db, body) => deleteWarning(db, body),
+  mute: (db, body, fs) => mutePlayer(db, fs, body),
+  unmute: (db, body, fs) => unmutePlayer(db, fs, body),
+  note: (db, body) => setNote(db, body),
 }
 
 // Every change also adds its line to the history - after it worked, and

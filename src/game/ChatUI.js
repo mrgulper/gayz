@@ -9,7 +9,7 @@
 // the clan code reads and writes some of it directly.
 
 import { t } from './i18n.js'
-import { banMessage, switchedOff, reportPlayer } from './LiveConfig.js'
+import { banMessage, muteMessage, switchedOff, reportPlayer } from './LiveConfig.js'
 import * as CloudSync from './CloudSync.js'
 import { EMOJI_CATEGORIES } from './EmojiData.js'
 import { chatPingCheck } from './MoreSettings.js'
@@ -323,6 +323,11 @@ export async function sendServerChatMessage(game) {
   // Banned from the Console (LiveConfig.js).
   if (banMessage()) {
     game._showHomepageToast(banMessage())
+    return
+  }
+  // Chat-muted from the Console (the server and Firebase refuse it too).
+  if (muteMessage()) {
+    game._showHomepageToast(muteMessage())
     return
   }
   // Chat switched off from the Console (LiveConfig.js) - the text stays.
@@ -847,6 +852,11 @@ export async function sendChatMessage(game) {
   // Banned from the Console (LiveConfig.js).
   if (banMessage()) {
     game._showHomepageToast(banMessage())
+    return
+  }
+  // Chat-muted from the Console (the server and Firebase refuse it too).
+  if (muteMessage()) {
+    game._showHomepageToast(muteMessage())
     return
   }
   // Chat switched off from the Console (LiveConfig.js) - the text stays.

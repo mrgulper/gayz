@@ -38,7 +38,7 @@
 // (one per cell, the latest wins, numbered so each player only gets the
 // ones they haven't had yet).
 import { randomUUID, randomInt } from 'node:crypto'
-import { isBanned, onlineClosed } from './admin.js'
+import { isBanned, isMuted, onlineClosed } from './admin.js'
 
 export const MAX_PLAYERS = 8
 // No sync for this long = gone (closed the tab, lost connection).
@@ -645,8 +645,14 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   const out = { host, isHost, wave: server.wave || 0, players: {}, zombies: {}, hurt: [], credits: [], caught: [], hits: [], edits: [], editSeq: server.editSeq || 0 }
 
   // Something I said in chat: a bubble over my head for the others.
+  // Chat-muted from the Console: the bubble is stored empty (nobody sees
+  // it, and its number stops the page's resends from being checked again).
+  // Checked only for a new bubble, so ordinary syncs cost nothing extra.
   const say = cleanSay(body.say)
-  if (say && say.n !== me.say?.n) updates[`${base}/players/${playerId}/say`] = { ...say, at: now }
+  if (say && say.n !== me.say?.n) {
+    const muted = await isMuted(db, await db.get(`serverPids/${serverId}/${playerId}`), now)
+    updates[`${base}/players/${playerId}/say`] = { ...say, text: muted ? '' : say.text, at: now }
+  }
 
   // Blocks I placed or broke since my last sync.
   const edits = server.edits || {}
