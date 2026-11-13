@@ -34,6 +34,9 @@ export function fakeServerDb() {
       set(path, next)
       return { committed: true, value: get(path) }
     },
+    async increment(paths) {
+      for (const [path, n] of Object.entries(paths)) set(path, (Number(get(path)) || 0) + n)
+    },
     async update(paths) {
       // Firebase refuses an update where one path sits inside another.
       const keys = Object.keys(paths)

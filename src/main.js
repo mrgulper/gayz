@@ -14,6 +14,7 @@ import { startMenuWater } from './game/MenuWater.js'
 import { preloadWeaponModels } from './game/Viewmodels.js'
 import { installOfflineGuards, registerServiceWorker } from './game/Offline.js'
 import { startLiveConfig } from './game/LiveConfig.js'
+import { startPlayStats } from './game/PlayStats.js'
 
 // The homepage rain and the moving water on the road start straight away -
 // they need nothing from the game.
@@ -51,8 +52,10 @@ Promise.all([
   } catch { /* unreadable settings - keep the early script's choice */ }
   const game = new Game()
   installOfflineGuards(game)
-  // The Console's banner, event switches and bans (LiveConfig.js).
+  // The banner, event switches and bans (LiveConfig.js).
   startLiveConfig(game)
+  // Anonymous play counts (PlayStats.js).
+  startPlayStats(game)
 })
 
 // Keeps the whole game on the device so it plays with no internet
