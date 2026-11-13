@@ -35,9 +35,18 @@
 // the team edited (handed to DailyChallenge.js), and Settings > Account &
 // Data > Redeem a Code asks the server (redeemGiftCode) and adds the
 // coins/skins to this save.
+//
+// Tuning and world drops (2026-11-13): `tuning` = the team's live
+// multipliers (tune(id): zombieSpeed, drops, coins, shopPrices,
+// homePrices; 1 = normal) until `tuning.until`. `worldDrop` = a world
+// event or disaster the team dropped in: every Zombie Survival game
+// running before `until` (you alone or a server's host; `who` 'servers'
+// = servers only) starts it once (tryWorldDrop). While a game is running
+// the page asks every IN_GAME_EVERY_MS so a drop lands within a minute.
 import { t } from './i18n.js'
 import { saveShopProgress } from './Game.js'
 import { setDailyOverrides } from './DailyChallenge.js'
+import { WORLD_EVENT_KINDS, DISASTER_KINDS, TUNE_LIMITS } from './LiveLists.js'
 
 const CACHE_KEY = 'gayz-live-config'
 const CLOSED_KEY = 'gayz-live-banner-closed'
@@ -55,13 +64,16 @@ const WARN_SEEN_KEY = 'gayz-warnings-seen'
 // Staff messages already popped up / gifts already claimed on this device.
 const STAFF_SEEN_KEY = 'gayz-staff-seen'
 const GIFTS_GOT_KEY = 'gayz-gifts-got'
+// World drops this device already ran.
+const DROPS_SEEN_KEY = 'gayz-world-drops-seen'
+const IN_GAME_EVERY_MS = 60 * 1000
 // Global chat's sender id for a staff message (api/_lib/admin.js STAFF_UID).
 export const STAFF_UID = 'gayzTeam'
 
 // Horde Night's extra zombies per wave.
 export const HORDE_MULT = 1.5
 
-const EMPTY = { banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, daily: {}, hidden: { maps: [], builds: [] }, ban: null, mute: null, warnings: [], off: [], maintenance: null, poll: null }
+const EMPTY = { banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, daily: {}, hidden: { maps: [], builds: [] }, ban: null, mute: null, warnings: [], off: [], maintenance: null, poll: null, tuning: null, worldDrop: null }
 
 function readCache() {
   try {
@@ -108,11 +120,12 @@ export function salePct() {
   return p > 0 && p < 100 ? p : 0
 }
 
-// What a buyer pays for a Market listing of `price` right now (the seller
-// is still paid the full price).
+// What a buyer pays for a Market listing of `price` right now: the sale
+// and the Homepage Prices tuning (the seller is still paid the full price).
 export function salePrice(price) {
   const p = salePct()
-  return p ? Math.max(1, Math.round(price * (100 - p) / 100)) : price
+  const m = tune('homePrices')
+  return p || m !== 1 ? Math.max(1, Math.round(price * m * (100 - p) / 100)) : price
 }
 
 // The Console's Map of the Week: { code, title, by } or null (automatic).
@@ -131,9 +144,26 @@ export function holidayDate(now = new Date()) {
   return d
 }
 
-// Coins multiplier from the Double Coins switch.
+// A live tuning multiplier ('zombieSpeed' | 'drops' | 'coins' |
+// 'shopPrices' | 'homePrices'): 1 unless the team changed it and it
+// hasn't run out.
+export function tune(id) {
+  const tu = config.tuning
+  const lim = TUNE_LIMITS[id]
+  if (!lim || !tu || typeof tu !== 'object') return 1
+  if (Number(tu.until) && Number(tu.until) <= Date.now()) return 1
+  const v = Number(tu[id])
+  return Number.isFinite(v) ? Math.max(lim[0], Math.min(lim[1], v)) : 1
+}
+
+// Coins multiplier from the Double Coins switch and the Coins tuning.
 export function coinMult() {
-  return eventOn('doubleCoins') ? 2 : 1
+  return (eventOn('doubleCoins') ? 2 : 1) * tune('coins')
+}
+
+// The gem skin's price with the Homepage Prices tuning.
+export function shopSkinPrice(base) {
+  return Math.max(1, Math.round(base * tune('homePrices')))
 }
 
 // XP and quest/daily rewards multiplier from the Double XP switch.
@@ -244,6 +274,41 @@ export async function reportPlayer(game, { target, targetName, where, text }) {
   return liveApi()({ action: 'report', target, targetName, where, text, by: game.settings.playerId, byName: game.settings.nickname || '' })
 }
 
+// A world event or disaster the team dropped in: started once in a
+// running Zombie Survival game (alone, or as a server's host - the others
+// see it through the host). An event that can't happen here (no sea for
+// the pirate ship, daytime for the haunted house...) becomes another
+// world event that can.
+export function tryWorldDrop(game) {
+  const d = config.worldDrop
+  if (!d || !d.id || !d.kind || embedded() || !game) return false
+  if (!(Number(d.until) > Date.now())) return false
+  const s = game.buildMode?.survival
+  if (!s?.active || !s.events) return false
+  if (readList(DROPS_SEEN_KEY).includes(d.id)) return false
+  const onServer = !!s.net
+  if (d.who === 'servers' && !onServer) return false
+  addToList(DROPS_SEEN_KEY, d.id)
+  if (onServer && !s.net.isHost) return false
+  const all = [...WORLD_EVENT_KINDS, ...DISASTER_KINDS]
+  const kind = d.kind === 'random' ? all[Math.floor(Math.random() * all.length)] : d.kind
+  let ok = false
+  if (DISASTER_KINDS.includes(kind)) {
+    const dis = game.buildMode.sky?.disasters
+    if (dis) {
+      dis.start(kind)
+      ok = !!dis.active
+    }
+  } else if (WORLD_EVENT_KINDS.includes(kind)) ok = s.events.start(kind)
+  // Plan B: another world event that can happen here.
+  for (const k of [...WORLD_EVENT_KINDS].sort(() => Math.random() - 0.5)) {
+    if (ok) break
+    ok = s.events.start(k)
+  }
+  if (ok) s._message?.(t('liveWorldDrop'), 4)
+  return ok
+}
+
 function apply(next, game) {
   const before = JSON.stringify(config)
   config = { ...EMPTY, ...next }
@@ -258,6 +323,7 @@ function apply(next, game) {
   renderWarning(game)
   showStaffMsg(game)
   claimGift(game)
+  tryWorldDrop(game)
   window.dispatchEvent(new Event('gayz-live'))
 }
 
@@ -352,7 +418,9 @@ function wireRedeemBox(game) {
   })
 }
 
+let lastAskAt = 0
 async function ask(game) {
+  lastAskAt = Date.now()
   try {
     apply(await liveApi()({ pid: game.settings?.playerId }), game)
   } catch { /* offline or no server (local dev) - keep what we had */ }
@@ -522,6 +590,8 @@ export function startLiveConfig(game) {
   // await game.__liveAsk().
   game.__liveAsk = () => ask(game)
   game.__liveSwitchedOff = switchedOff
+  game.__liveTune = tune
+  game.__liveSalePrice = salePrice
   setTimeout(() => ask(game), FIRST_ASK_MS)
   setInterval(() => {
     if (document.visibilityState === 'visible') ask(game)
@@ -536,6 +606,12 @@ export function startLiveConfig(game) {
   setInterval(() => {
     // A warning waiting for the homepage (a game just ended).
     if (config.warnings?.length) renderWarning(game)
+    // In a running game: a world drop that came while on the homepage,
+    // and asking more often so a new one lands within a minute.
+    if (game.buildMode?.survival?.active) {
+      if (config.worldDrop) tryWorldDrop(game)
+      if (document.visibilityState === 'visible' && Date.now() - lastAskAt >= IN_GAME_EVERY_MS) ask(game)
+    }
     if (!maintenance()) return
     renderMaintenance(game)
     if (document.visibilityState === 'visible' && Date.now() - (game._maintAskedAt || 0) >= MAINT_EVERY_MS) {

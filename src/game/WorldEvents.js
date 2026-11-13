@@ -39,11 +39,12 @@ import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
 import { goldenRunner } from './GoldenRunner.js'
 import { escortMission } from './EscortMission.js'
+import { WORLD_EVENT_KINDS } from './LiveLists.js'
 
 const EVENT_FROM_WAVE = 2
 const EVENT_FIRST = 90
 const EVENT_GAP = [150, 240]
-const KINDS = ['supply', 'horde', 'meteor', 'survivor', 'golden', 'escort', 'disco', 'pirate', 'haunted', 'ufo', 'dragon', 'graveyard', 'heist', 'blimp']
+const KINDS = WORLD_EVENT_KINDS
 const PLANE_HEIGHT = 32
 const PLANE_SPEED = 14
 const DROP_NEAR = 14

@@ -28,8 +28,9 @@ import { audioEngine } from './Audio.js'
 import { sampleLand, inCity } from './OpenWorld.js'
 import { luck } from './Luck.js'
 import { Emitter, Debris, WaterSheet, Wave, Aurora, Fireball, seeded } from './DisasterFx.js'
+import { DISASTER_KINDS } from './LiveLists.js'
 
-export const DISASTERS = ['flood', 'flashFlood', 'drought', 'wildfire', 'forestFire', 'avalanche', 'limnicEruption', 'earthquake', 'tsunami', 'volcanicEruption', 'landslide', 'mudslide', 'rockfall', 'sinkhole', 'subsidence', 'solarFlare', 'geomagneticStorm', 'tornado', 'meteoroid', 'asteroid', 'comet']
+export const DISASTERS = DISASTER_KINDS
 export const IMPACTS = ['meteoroid', 'asteroid', 'comet']
 const ROLL_S = 60 // one game hour
 // Rare: about one in three game days.

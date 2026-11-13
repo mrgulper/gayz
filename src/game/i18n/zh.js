@@ -3728,6 +3728,7 @@ export default {
   liveGiftGems: "{n} 宝石",
   liveGiftGot: "GayZ 团队的惊喜礼物：{what}！",
   liveGiftGotNote: "GayZ 团队的惊喜礼物：{what}！{text}",
+  liveWorldDrop: "GayZ 团队在你的世界里投放了一个惊喜事件！",
   chatStaffName: "GayZ 团队",
   livePausedNow: "暂停中：",
   liveSwitchedOff: "{what}暂时暂停，我们正在修复问题。请稍后再试！",

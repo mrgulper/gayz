@@ -24,6 +24,7 @@ import { ammoFor } from './PlayWeapons.js'
 import { t } from './i18n.js'
 import { ROD_COST } from './Fishing.js'
 import { needsBuyConfirm } from './GameplayAssist.js'
+import { tune } from './LiveConfig.js'
 
 // Settings > Gameplay > Confirm Buying Over: the first click turns the
 // button into "Sure? N" for this long; a second click buys.
@@ -211,7 +212,7 @@ export class PlayShop {
     // Settings > General > Low Coins Reminder: say so when nothing here is
     // affordable yet.
     if (!iron && buying && this.bm.game?.settings?.lowCurrencyReminder !== false) {
-      const costs = id === 'items' ? SHOP_ITEMS.map((item) => this._price(item)) : id === 'traps' || id === 'towers' ? (id === 'traps' ? SHOP_TRAPS : SHOP_TOWERS).map((trap) => this._price(trap)) : UPGRADES.map((up) => up.costs[s.upgrades[up.id] || 0]).filter((c) => c !== undefined)
+      const costs = id === 'items' ? SHOP_ITEMS.map((item) => this._price(item)) : id === 'traps' || id === 'towers' ? (id === 'traps' ? SHOP_TRAPS : SHOP_TOWERS).map((trap) => this._price(trap)) : UPGRADES.map((up) => this._upCost(up, s.upgrades[up.id] || 0)).filter((c) => c !== undefined)
       if (costs.length && s.coins < Math.min(...costs)) rows.push(`<p class="play-npc-empty">${t('campLowCoins', { n: s.coins })}</p>`)
     }
     if (id === 'items') {
@@ -228,7 +229,7 @@ export class PlayShop {
       for (const up of UPGRADES) {
         const level = s.upgrades[up.id] || 0
         const maxed = level >= up.costs.length
-        rows.push(row(`${t(`campUp_${up.id}`)} ${t('campLevel', { n: level, max: up.costs.length })}`, t(`campUp_${up.id}_about`), maxed ? t('campMaxed') : t('campBuy', { n: up.costs[level] }), 'upgrade', up.id, iron || maxed || s.coins < up.costs[level]))
+        rows.push(row(`${t(`campUp_${up.id}`)} ${t('campLevel', { n: level, max: up.costs.length })}`, t(`campUp_${up.id}_about`), maxed ? t('campMaxed') : t('campBuy', { n: this._upCost(up, level) }), 'upgrade', up.id, iron || maxed || s.coins < this._upCost(up, level)))
       }
     } else if (id === 'ammo') {
       rows.push(row(t('campFillUp'), t('campFillUp_about', { s: AMMO_FILL_COOLDOWN }), ammoWait ? t('campWait', { s: ammoWait }) : t('campFree'), 'fill', 'fill', ammoWait > 0))
@@ -250,9 +251,17 @@ export class PlayShop {
     return this.s.td ? ['towers', ...SHOP_TABS] : SHOP_TABS
   }
 
-  // A price after the Trader Discount upgrade (PlayRules.js).
+  // A price after the Trader Discount upgrade (PlayRules.js) and the
+  // team's live Shop Prices tuning (LiveConfig.js tune).
   _price(item) {
-    return Math.round(item.cost * (1 - (this.s.cfg?.discount || 0)))
+    return Math.round(item.cost * (1 - (this.s.cfg?.discount || 0)) * tune('shopPrices'))
+  }
+
+  // An upgrade's next level price (undefined once maxed), with the live
+  // Shop Prices tuning.
+  _upCost(up, level) {
+    const c = up.costs[level]
+    return c === undefined ? undefined : Math.max(1, Math.round(c * tune('shopPrices')))
   }
 
   // What a buy button costs (0 for free ones: ammo fill, quest claims).
@@ -268,7 +277,7 @@ export class PlayShop {
     }
     if (act === 'upgrade') {
       const up = UPGRADES.find((u) => u.id === id)
-      return up?.costs[s.upgrades[id] || 0] || 0
+      return (up && this._upCost(up, s.upgrades[id] || 0)) || 0
     }
     return 0
   }
@@ -317,8 +326,8 @@ export class PlayShop {
     } else if (act === 'upgrade') {
       const up = UPGRADES.find((u) => u.id === id)
       const level = s.upgrades[id] || 0
-      if (!up || level >= up.costs.length || s.coins < up.costs[level]) return
-      s.coins -= up.costs[level]
+      if (!up || level >= up.costs.length || s.coins < this._upCost(up, level)) return
+      s.coins -= this._upCost(up, level)
       s.upgrades[id] = level + 1
       if (id === 'mag') s.mag = Math.min(s.mag, s.magSize())
     } else if (act === 'fill') {

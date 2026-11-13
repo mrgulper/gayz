@@ -14,7 +14,7 @@ import { MenuAvatar3D, SHOP_SKIN_PREVIEW_DATA_URL, buildTexturedCharacter, loadS
 import { addGunLights, cloneViewmodel } from './Viewmodels.js'
 import { COMING_SOON_WEAPONS } from './PlayWeapons.js'
 import { t } from './i18n.js'
-import { salePrice } from './LiveConfig.js'
+import { salePrice, shopSkinPrice } from './LiveConfig.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
 // Inventory - homepage placeholder only for now, no functionality yet
@@ -1146,22 +1146,22 @@ function _shopConfetti() {
 export function _renderShopSkinState(game) {
   if (game.shopSkinBadge) game.shopSkinBadge.style.display = game.ownsShopSkin ? '' : 'none'
   const priceAmount = document.getElementById('shop-skin-price-amount')
-  if (priceAmount) priceAmount.textContent = Game.SHOP_SKIN_PRICE.toLocaleString()
+  if (priceAmount) priceAmount.textContent = shopSkinPrice(Game.SHOP_SKIN_PRICE).toLocaleString()
   if (!game.shopSkinBuyBtn) return
   if (game.ownsShopSkin) {
     game.shopSkinBuyBtn.style.display = 'none'
     return
   }
   game.shopSkinBuyBtn.style.display = ''
-  const short = game.gems < Game.SHOP_SKIN_PRICE
+  const short = game.gems < shopSkinPrice(Game.SHOP_SKIN_PRICE)
   game.shopSkinBuyBtn.disabled = short
-  game.shopSkinBuyBtn.textContent = short ? t('shopSkinNeedMoreGems', { need: Game.SHOP_SKIN_PRICE - game.gems }) : t('shopSkinBuyBtn')
+  game.shopSkinBuyBtn.textContent = short ? t('shopSkinNeedMoreGems', { need: shopSkinPrice(Game.SHOP_SKIN_PRICE) - game.gems }) : t('shopSkinBuyBtn')
 }
 
 export async function _buyShopSkin(game) {
-  if (game.ownsShopSkin || game.gems < Game.SHOP_SKIN_PRICE) return
+  if (game.ownsShopSkin || game.gems < shopSkinPrice(Game.SHOP_SKIN_PRICE)) return
   if (!window.confirm(t('shopSkinBuyConfirm'))) return
-  game.gems -= Game.SHOP_SKIN_PRICE
+  game.gems -= shopSkinPrice(Game.SHOP_SKIN_PRICE)
   game.ownsShopSkin = true
   saveShopProgress(game)
   game._renderCurrencyBar()

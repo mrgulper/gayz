@@ -3725,6 +3725,7 @@ export default {
   liveGiftGems: "{n} रत्न",
   liveGiftGot: "GayZ टीम की ओर से सरप्राइज़ गिफ्ट: {what}!",
   liveGiftGotNote: "GayZ टीम की ओर से सरप्राइज़ गिफ्ट: {what}! {text}",
+  liveWorldDrop: "GayZ टीम ने आपकी दुनिया में एक सरप्राइज़ इवेंट डाला!",
   chatStaffName: "GayZ टीम",
   livePausedNow: "रुका हुआ:",
   liveSwitchedOff: "{what} कुछ देर के लिए रुका है, हम कुछ ठीक कर रहे हैं। थोड़ी देर में फिर कोशिश करें!",

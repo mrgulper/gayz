@@ -3780,6 +3780,7 @@ export default {
   liveGiftGems: "{n} gems",
   liveGiftGot: "Surprise gift from the GayZ Team: {what}!",
   liveGiftGotNote: "Surprise gift from the GayZ Team: {what}! {text}",
+  liveWorldDrop: "The GayZ Team dropped a surprise event into your world!",
   chatStaffName: "GayZ Team",
   livePausedNow: "Paused:",
   liveSwitchedOff: "{what} is paused for a moment while we fix something. Try again soon!",
