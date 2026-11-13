@@ -3796,4 +3796,17 @@ export default {
   maintenanceTitle: "GayZ is getting a quick fix-up",
   maintenanceNote: "Back soon! This page checks by itself - no need to reload.",
   maintenanceSoon: "Heads up: maintenance has started. Finish this game - new games open again soon.",
+  // Settings > Redeem a Code (2026-11-13)
+  redeemCodeLabel: "Redeem a Code",
+  redeemCodeBtn: "Redeem",
+  redeemCodePlaceholder: "Gift code",
+  redeemCodeEmpty: "Type a gift code first.",
+  redeemCodeOffline: "Couldn't check the code - are you online?",
+  redeemCodeUnknown: "That code doesn't exist. Check the spelling.",
+  redeemCodeEnded: "That code has ended.",
+  redeemCodeUsedUp: "That code has been used up.",
+  redeemCodeAlready: "You already used that code.",
+  redeemCodeTooMany: "Too many wrong codes - try again in an hour.",
+  redeemCodeSkins: "{n} skin(s) (see Inventory)",
+  redeemCodeGot: "Code redeemed: {what}!",
 }

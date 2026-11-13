@@ -47,7 +47,17 @@
 //                  everyone who has the game open before `until`
 //   liveConfig.mapWeek { code, title, by } - the Console's Map of the
 //                  Week (none = the game picks the most-liked by itself)
+//   Gift codes and challenges (2026-11-13):
+//   giftCodes/{CODE} { coins, skins: [id], max (0 = no limit), uses,
+//                  until (0 = never ends), note, at } - codes players type
+//                  into Settings > Redeem a Code
+//   giftCodesUsed/{CODE}/{pid}  when that player redeemed it (once each)
+//   codeTries/{pid} { n, at }  wrong codes typed this hour (guess limit)
+//   liveConfig.daily/{YYYY-MM-DD} { type, target, coins, xp } - that
+//                  day's Daily Challenge, instead of the automatic pick
 import { ServerError } from './servers.js'
+import { DAILY_TEMPLATES, challengeFor } from '../../src/game/DailyChallenge.js'
+import { MARKET_SKINS } from '../../src/game/MarketSkins.js'
 
 export const EVENT_IDS = ['doubleCoins', 'doubleXp', 'hordeNight']
 export const HOLIDAYS = ['halloween', 'christmas']
@@ -69,7 +79,7 @@ export const MAINT_TEXT_MAX = 200
 const LOG_KEPT = 300
 // What a backup holds and Restore puts back (servers come and go, so
 // they're left out).
-export const BACKUP_PATHS = ['liveConfig', 'bans', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes']
+export const BACKUP_PATHS = ['liveConfig', 'bans', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes', 'giftCodes', 'giftCodesUsed']
 // Restore leaves the history alone: it stays a true record (including the
 // Restore itself).
 const RESTORE_PATHS = BACKUP_PATHS.filter((p) => p !== 'adminLog')
@@ -235,6 +245,7 @@ export async function publicConfig(db, { pid } = {}, now = Date.now()) {
     staffMsg: liveStaffMsg(cfg?.staffMsg, now),
     gift: liveGift(cfg?.gift, now),
     mapWeek: liveMapWeek(cfg?.mapWeek),
+    daily: liveDaily(cfg?.daily, now),
     hidden: {
       maps: Object.keys(cfg?.hidden?.maps || {}),
       builds: Object.keys(cfg?.hidden?.builds || {}),
@@ -349,6 +360,10 @@ export async function adminState(db, fs, now = Date.now()) {
     staffMsg: cfg?.staffMsg && typeof cfg.staffMsg === 'object' ? { text: cleanText(cfg.staffMsg.text, STAFF_MAX), at: Number(cfg.staffMsg.at) || 0, error: cleanText(cfg.staffMsg.error, 200) } : null,
     gift: liveGift(cfg?.gift, now),
     mapWeek: liveMapWeek(cfg?.mapWeek),
+    codes: await codeList(db, now),
+    skins: GIFT_SKINS,
+    daily: dailyDays(cfg?.daily, now),
+    dailyTypes: DAILY_TEMPLATES.map((d) => ({ type: d.type, targets: d.targets })),
     history: Object.values(log || {})
       .map((e) => ({ at: Number(e?.at) || 0, text: cleanText(e?.text, 300) }))
       .sort((a, b) => b.at - a.at),
@@ -795,6 +810,145 @@ export async function mapPosts(fs) {
   }
 }
 
+// --- Gift codes and the Daily Challenge editor ---
+export const CODE_MAX_COINS = 100000
+const CODE_MAX_SKINS = 5
+const CODE_MAX_USES = 100000
+const CODE_MAX_DAYS = 365
+const CODES_KEPT = 100
+// Wrong codes one player may type per hour (stops guessing).
+export const CODE_TRIES_PER_HOUR = 10
+// Skins a code can give: the Shop skin + every Market skin.
+export const GIFT_SKINS = [{ id: 'gaygarx', name: 'GaygarX', rarity: 'legendary' }, ...MARKET_SKINS.map((k) => ({ id: k.id, name: k.name, rarity: k.rarity }))]
+const GIFT_SKIN_IDS = new Set(GIFT_SKINS.map((k) => k.id))
+const validGiftCode = (v) => typeof v === 'string' && /^[A-Z0-9]{4,20}$/.test(v)
+const normCode = (v) => String(v || '').trim().toUpperCase().replace(/[\s-]/g, '')
+
+function cleanGiftCode(c) {
+  if (!c || typeof c !== 'object') return null
+  const coins = Math.max(0, Math.min(CODE_MAX_COINS, Math.floor(Number(c.coins) || 0)))
+  const skins = (Array.isArray(c.skins) ? c.skins : Object.values(c.skins || {})).filter((id) => GIFT_SKIN_IDS.has(id)).slice(0, CODE_MAX_SKINS)
+  if (!coins && !skins.length) return null
+  return { coins, skins, max: Math.max(0, Math.floor(Number(c.max) || 0)), uses: Math.max(0, Math.floor(Number(c.uses) || 0)), until: Number(c.until) || 0, note: cleanText(c.note, 80), at: Number(c.at) || 0 }
+}
+
+async function codeList(db, now) {
+  return Object.entries((await db.get('giftCodes')) || {})
+    .map(([code, c]) => ({ code, ...cleanGiftCode(c) }))
+    .filter((c) => validGiftCode(c.code) && c.at !== undefined)
+    .map((c) => ({ ...c, state: c.until && c.until <= now ? 'ended' : c.max && c.uses >= c.max ? 'used up' : 'live' }))
+    .sort((a, b) => b.at - a.at)
+}
+
+// A new gift code (or a random one when `code` is empty). `days` = how
+// long it works (0 = until deleted), `max` = how many players can use it
+// (0 = no limit). Each player can use a code once.
+export async function addGiftCode(db, { code, coins, skins, max, days, note } = {}, now = Date.now()) {
+  let c = normCode(code)
+  if (!c) c = Array.from({ length: 8 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('')
+  if (!validGiftCode(c)) throw new ServerError(400, 'bad-code')
+  const coinsN = Math.floor(Number(coins) || 0)
+  const list = Array.isArray(skins) ? [...new Set(skins)] : []
+  const maxN = Math.floor(Number(max) || 0)
+  const daysN = Number(days) || 0
+  if (coinsN < 0 || coinsN > CODE_MAX_COINS || list.length > CODE_MAX_SKINS || list.some((id) => !GIFT_SKIN_IDS.has(id)) || (!coinsN && !list.length)) throw new ServerError(400, 'bad-request')
+  if (maxN < 0 || maxN > CODE_MAX_USES || daysN < 0 || daysN > CODE_MAX_DAYS) throw new ServerError(400, 'bad-request')
+  if (await db.get(`giftCodes/${c}`)) throw new ServerError(409, 'code-taken')
+  const all = await db.get('giftCodes')
+  if (Object.keys(all || {}).length >= CODES_KEPT) throw new ServerError(409, 'too-many-codes')
+  await db.update({ [`giftCodes/${c}`]: { coins: coinsN, skins: list, max: maxN, uses: 0, until: daysN ? now + daysN * 86400000 : 0, note: cleanText(note, 80), at: now } })
+  return { ok: true, code: c }
+}
+
+export async function removeGiftCode(db, { code } = {}) {
+  const c = normCode(code)
+  if (!validGiftCode(c)) throw new ServerError(400, 'bad-code')
+  await db.update({ [`giftCodes/${c}`]: null, [`giftCodesUsed/${c}`]: null })
+  return { ok: true }
+}
+
+// A player types a code (Settings > Redeem a Code, via api/live.js).
+// Answers { ok, coins, skins } or { error }: unknown, ended, used-up,
+// already, too-many-tries. The player's page adds the reward to the save.
+export async function redeemCode(db, { pid, code } = {}, now = Date.now()) {
+  if (!validPid(pid)) throw new ServerError(400, 'bad-request')
+  const c = normCode(code)
+  const tries = (await db.get(`codeTries/${pid}`)) || {}
+  const recent = Number(tries.at) > now - 3600000 ? Math.floor(Number(tries.n) || 0) : 0
+  if (recent >= CODE_TRIES_PER_HOUR) return { error: 'too-many-tries' }
+  const wrong = async (error) => {
+    await db.update({ [`codeTries/${pid}`]: { n: recent + 1, at: recent ? Number(tries.at) : now } })
+    return { error }
+  }
+  if (!validGiftCode(c)) return wrong('unknown')
+  const gift = cleanGiftCode(await db.get(`giftCodes/${c}`))
+  if (!gift) return wrong('unknown')
+  if (gift.until && gift.until <= now) return { error: 'ended' }
+  if (await db.get(`giftCodesUsed/${c}/${pid}`)) return { error: 'already' }
+  // Count the use in one step, so two players at once can't both get the
+  // last one.
+  const res = await db.transaction(`giftCodes/${c}/uses`, (n) => {
+    const uses = Math.max(0, Math.floor(Number(n) || 0))
+    if (gift.max && uses >= gift.max) return undefined
+    return uses + 1
+  })
+  if (!res.committed) return { error: 'used-up' }
+  await db.update({ [`giftCodesUsed/${c}/${pid}`]: now })
+  return { ok: true, code: c, coins: gift.coins, skins: gift.skins }
+}
+
+const validDay = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`))
+const dayOf = (ms) => new Date(ms).toISOString().slice(0, 10)
+export const DAILY_MAX = { target: 10000, coins: 10000, xp: 5000 }
+
+function cleanDaily(d) {
+  if (!d || typeof d !== 'object') return null
+  const tpl = DAILY_TEMPLATES.find((x) => x.type === d.type)
+  const target = Math.floor(Number(d.target) || 0)
+  if (!tpl || target < 1 || target > DAILY_MAX.target) return null
+  return { type: tpl.type, target, coins: Math.max(0, Math.min(DAILY_MAX.coins, Math.floor(Number(d.coins) || 0))), xp: Math.max(0, Math.min(DAILY_MAX.xp, Math.floor(Number(d.xp) || 0))) }
+}
+
+// Edited days from yesterday on (players' calendar days differ by time
+// zone, so a day either side of UTC still matters).
+function liveDaily(all, now) {
+  const from = dayOf(now - 86400000)
+  const out = {}
+  for (const [day, d] of Object.entries(all && typeof all === 'object' ? all : {})) {
+    const clean = validDay(day) && day >= from ? cleanDaily(d) : null
+    if (clean) out[day] = clean
+  }
+  return out
+}
+
+// The next 14 days for the editor: the automatic pick and any edit.
+function dailyDays(all, now) {
+  const edits = liveDaily(all, now)
+  return Array.from({ length: 14 }, (_, i) => {
+    const day = dayOf(now + i * 86400000)
+    const auto = challengeFor(day)
+    return { day, auto: { type: auto.template.type, target: auto.target, coins: auto.coins, xp: auto.xp }, edit: edits[day] || null }
+  })
+}
+
+export async function setDaily(db, { day, type, target, coins, xp } = {}, now = Date.now()) {
+  if (!validDay(day) || day < dayOf(now - 86400000)) throw new ServerError(400, 'bad-day')
+  const clean = cleanDaily({ type, target, coins, xp })
+  if (!clean) throw new ServerError(400, 'bad-request')
+  // Old days drop off as new ones are saved.
+  const all = (await db.get('liveConfig/daily')) || {}
+  const updates = { [`liveConfig/daily/${day}`]: clean }
+  for (const d of Object.keys(all)) if (d !== day && (!validDay(d) || d < dayOf(now - 3 * 86400000))) updates[`liveConfig/daily/${d}`] = null
+  await db.update(updates)
+  return { ok: true }
+}
+
+export async function removeDaily(db, { day } = {}) {
+  if (!validDay(day)) throw new ServerError(400, 'bad-day')
+  await db.update({ [`liveConfig/daily/${day}`]: null })
+  return { ok: true }
+}
+
 const WHAT_NAMES = { doubleCoins: 'Double Coins', doubleXp: 'Double XP', hordeNight: 'Horde Night', halloween: 'Halloween look', christmas: 'Christmas look', sale: 'Market sale' }
 
 const FEATURE_NAMES = { online: 'Online servers', chat: 'Chat', market: 'Market', sharing: 'Map & build sharing', gallery: 'Gallery', leaderboards: 'Leaderboards' }
@@ -833,6 +987,10 @@ const LOG_TEXT = {
   staffMessage: (b) => `Staff message: "${cleanText(b.text, 80)}"`,
   gift: (b) => (b.cancel === true ? 'Surprise gift stopped' : `Surprise gift: ${Math.floor(Number(b.coins) || 0)} coins, ${Math.floor(Number(b.gems) || 0)} gems`),
   mapWeek: (b) => (b.code ? `Map of the Week set to ${String(b.code).toUpperCase()}` : 'Map of the Week back to automatic'),
+  codeAdd: (b) => `Gift code made: ${normCode(b.code) || '(random)'} - ${Math.floor(Number(b.coins) || 0)} coins${Array.isArray(b.skins) && b.skins.length ? ` + ${b.skins.length} skin(s)` : ''}`,
+  codeRemove: (b) => `Gift code deleted: ${normCode(b.code)}`,
+  dailySet: (b) => `Daily Challenge for ${b.day} set: ${b.type} x${Math.floor(Number(b.target) || 0)}`,
+  dailyRemove: (b) => `Daily Challenge for ${b.day} back to automatic`,
   restore: (b) => `Restored the backup from ${cleanText(b.label, 40) || (Number(b.file?.at) ? `${day(Number(b.file.at))} UTC` : '?')}`,
 }
 
@@ -863,6 +1021,10 @@ const ACTION_FNS = {
   gift: (db, body) => sendGift(db, body),
   mapWeek: (db, body) => setMapWeek(db, body),
   mapPosts: (db, body, fs) => mapPosts(fs),
+  codeAdd: (db, body) => addGiftCode(db, body),
+  codeRemove: (db, body) => removeGiftCode(db, body),
+  dailySet: (db, body) => setDaily(db, body),
+  dailyRemove: (db, body) => removeDaily(db, body),
 }
 
 // Every change also adds its line to the history - after it worked, and

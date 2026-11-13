@@ -1561,6 +1561,7 @@ const PLACEHOLDER_I18N_KEYS = {
   'nickname-input': 'nicknameInputPlaceholder',
   'settings-search-input': 'settingsSearchInputPlaceholder',
   'homepage-greeting-input': 'homepageGreetingInputPlaceholder',
+  'redeem-code-input': 'redeemCodePlaceholder',
   'import-keybinds-input': 'importKeybindsInputPlaceholder',
   'import-settings-code-input': 'importSettingsCodeInputPlaceholder',
   'clan-invite-id-input': 'clanInviteIdInputPlaceholder',
@@ -4007,6 +4008,8 @@ export class Game {
     document.getElementById('low-currency-label').textContent = t('lowCurrencyLabel')
     document.getElementById('backup-reminder-label').textContent = t('backupReminderLabel')
     document.getElementById('report-bug-label').textContent = t('reportBugLabel')
+    document.getElementById('redeem-code-label').textContent = t('redeemCodeLabel')
+    document.getElementById('redeem-code-btn').textContent = t('redeemCodeBtn')
     if (this.reportBugBtn) this.reportBugBtn.textContent = t('reportBugBtn')
     document.getElementById('save-size-label').textContent = t('saveSizeLabel')
     document.getElementById('clear-cache-label').textContent = t('clearCacheLabel')

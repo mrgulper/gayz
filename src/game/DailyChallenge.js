@@ -30,6 +30,14 @@ export const DAILY_TEMPLATES = [
   { type: 'streak', titleKey: 'dailyChallengeKillStreak', targets: [40, 60, 80] },
   { type: 'bosses', titleKey: 'dailyChallengeBosses', targets: [3, 5, 8] },
 ]
+// Days the team edited (sent with the live config, LiveConfig.js):
+// { 'YYYY-MM-DD': { type, target, coins, xp } } - that day's goal instead
+// of the automatic pick.
+let overrides = {}
+export function setDailyOverrides(map) {
+  overrides = map && typeof map === 'object' ? map : {}
+}
+
 const REWARDS = [{ coins: 500, xp: 160 }, { coins: 800, xp: 260 }, { coins: 1200, xp: 400 }]
 const HARD_DIFFICULTIES = new Set(['hard', 'nightmare', 'apex'])
 const RARE_TIERS = new Set(['rare', 'epic', 'legendary', 'mythic'])
@@ -55,6 +63,9 @@ function hashDay(day) {
 
 // The day's challenge: { template, level, target, coins, xp }.
 export function challengeFor(day) {
+  const o = overrides[day]
+  const custom = o && DAILY_TEMPLATES.find((x) => x.type === o.type)
+  if (custom && Number(o.target) >= 1) return { template: custom, level: 1, target: Math.floor(Number(o.target)), coins: Math.max(0, Math.floor(Number(o.coins) || 0)), xp: Math.max(0, Math.floor(Number(o.xp) || 0)), custom: true }
   const h = hashDay(day)
   const template = DAILY_TEMPLATES[h % DAILY_TEMPLATES.length]
   const level = Math.floor(h / DAILY_TEMPLATES.length) % 3
@@ -76,6 +87,7 @@ function loadState() {
         streak: Number.isInteger(parsed.streak) ? Math.max(0, parsed.streak) : 0,
         lastClaim: typeof parsed.lastClaim === 'string' ? parsed.lastClaim : null,
         v: Number.isInteger(parsed.v) ? parsed.v : 1,
+        goal: typeof parsed.goal === 'string' ? parsed.goal : null,
       }
     }
   } catch {
@@ -99,15 +111,25 @@ export class DailyChallenge {
 
   // A new day: fresh progress (the streak stays until a claim decides it).
   // New goals (VERSION) start today's progress again, unless it's claimed.
+  // A goal edited by the team mid-day (goal) also starts progress again.
   _roll() {
     const today = dayKey()
-    if (this.state.day === today && this.state.v === VERSION) return
+    const c = challengeFor(today)
+    const goal = `${c.template.type}:${c.target}`
+    if (this.state.day === today && this.state.v === VERSION && (this.state.goal === goal || this.state.claimed || this.state.goal == null)) {
+      if (this.state.goal !== goal && !this.state.claimed) {
+        this.state.goal = goal
+        this._save()
+      }
+      return
+    }
     if (this.state.day !== today || !this.state.claimed) {
       this.state.progress = 0
       this.state.claimed = false
     }
     this.state.day = today
     this.state.v = VERSION
+    this.state.goal = goal
     this._save()
   }
 

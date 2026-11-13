@@ -3741,4 +3741,17 @@ export default {
   maintenanceTitle: "GayZ está recibiendo un arreglo rápido",
   maintenanceNote: "¡Volvemos pronto! Esta página se revisa sola, no hace falta recargar.",
   maintenanceSoon: "Aviso: empezó el mantenimiento. Termina esta partida; pronto se podrán abrir nuevas.",
+  // Settings > Redeem a Code (2026-11-13)
+  redeemCodeLabel: "Canjear un código",
+  redeemCodeBtn: "Canjear",
+  redeemCodePlaceholder: "Código de regalo",
+  redeemCodeEmpty: "Escribe primero un código de regalo.",
+  redeemCodeOffline: "No se pudo comprobar el código - ¿estás en línea?",
+  redeemCodeUnknown: "Ese código no existe. Revisa cómo lo escribiste.",
+  redeemCodeEnded: "Ese código ya terminó.",
+  redeemCodeUsedUp: "Ese código ya se agotó.",
+  redeemCodeAlready: "Ya usaste ese código.",
+  redeemCodeTooMany: "Demasiados códigos incorrectos - inténtalo de nuevo en una hora.",
+  redeemCodeSkins: "{n} aspecto(s) (mira el Inventario)",
+  redeemCodeGot: "¡Código canjeado: {what}!",
 }

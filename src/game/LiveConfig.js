@@ -30,8 +30,14 @@
 // pay pct% less: salePrice), `staffMsg` = a popup from the team (once per
 // message), `gift` = coins/gems for everyone with the game open (claimed
 // once per gift), `mapWeek` = the Console's Map of the Week (HomeExtras).
+//
+// Gift codes and challenges (2026-11-13): `daily` = Daily Challenge days
+// the team edited (handed to DailyChallenge.js), and Settings > Account &
+// Data > Redeem a Code asks the server (redeemGiftCode) and adds the
+// coins/skins to this save.
 import { t } from './i18n.js'
 import { saveShopProgress } from './Game.js'
+import { setDailyOverrides } from './DailyChallenge.js'
 
 const CACHE_KEY = 'gayz-live-config'
 const CLOSED_KEY = 'gayz-live-banner-closed'
@@ -55,7 +61,7 @@ export const STAFF_UID = 'gayzTeam'
 // Horde Night's extra zombies per wave.
 export const HORDE_MULT = 1.5
 
-const EMPTY = { banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, hidden: { maps: [], builds: [] }, ban: null, mute: null, warnings: [], off: [], maintenance: null }
+const EMPTY = { banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, daily: {}, hidden: { maps: [], builds: [] }, ban: null, mute: null, warnings: [], off: [], maintenance: null }
 
 function readCache() {
   try {
@@ -67,6 +73,7 @@ function readCache() {
 }
 
 let config = readCache()
+setDailyOverrides(config.daily)
 let hiddenSets = { maps: new Set(), builds: new Set() }
 function rebuildHidden() {
   hiddenSets = {
@@ -232,6 +239,7 @@ export async function reportPlayer(game, { target, targetName, where, text }) {
 function apply(next, game) {
   const before = JSON.stringify(config)
   config = { ...EMPTY, ...next }
+  setDailyOverrides(config.daily)
   rebuildHidden()
   if (JSON.stringify(config) === before) return
   try {
@@ -288,6 +296,52 @@ export function claimGift(game) {
   game._fireConfetti?.()
   const what = [coins ? t('liveGiftCoins', { n: coins.toLocaleString() }) : '', gems ? t('liveGiftGems', { n: gems.toLocaleString() }) : ''].filter(Boolean).join(' + ')
   game._showHomepageToast?.(g.text ? t('liveGiftGotNote', { what, text: g.text }) : t('liveGiftGot', { what }))
+}
+
+// Settings > Redeem a Code. The server checks the code (each player once,
+// uses left, not ended, a few wrong guesses an hour); this adds what it
+// gives. Returns { ok, msg } (msg = the toast text).
+const REDEEM_ERRORS = { unknown: 'redeemCodeUnknown', ended: 'redeemCodeEnded', 'used-up': 'redeemCodeUsedUp', already: 'redeemCodeAlready', 'too-many-tries': 'redeemCodeTooMany' }
+export async function redeemGiftCode(game, code) {
+  const clean = String(code || '').trim().toUpperCase().replace(/[\s-]/g, '')
+  if (!clean) return { ok: false, msg: t('redeemCodeEmpty') }
+  let res
+  try {
+    res = await liveApi()({ action: 'redeem', pid: game.settings?.playerId, code: clean })
+  } catch {
+    return { ok: false, msg: t('redeemCodeOffline') }
+  }
+  if (!res?.ok) return { ok: false, msg: t(REDEEM_ERRORS[res?.error] || 'redeemCodeUnknown') }
+  const coins = Math.max(0, Math.floor(Number(res.coins) || 0))
+  const skins = (Array.isArray(res.skins) ? res.skins : []).filter((id) => typeof id === 'string')
+  game.coins = (game.coins || 0) + coins
+  for (const id of skins) game._addSkinToInventory?.(id)
+  if (game._afterTradeChange) game._afterTradeChange()
+  else saveShopProgress(game)
+  game._fireConfetti?.()
+  const what = [coins ? t('liveGiftCoins', { n: coins.toLocaleString() }) : '', skins.length ? t('redeemCodeSkins', { n: skins.length }) : ''].filter(Boolean).join(' + ')
+  return { ok: true, msg: t('redeemCodeGot', { what }) }
+}
+
+function wireRedeemBox(game) {
+  const input = document.getElementById('redeem-code-input')
+  const btn = document.getElementById('redeem-code-btn')
+  if (!input || !btn) return
+  const go = async () => {
+    if (btn.disabled) return
+    btn.disabled = true
+    try {
+      const { ok, msg } = await redeemGiftCode(game, input.value)
+      game._showHomepageToast?.(msg)
+      if (ok) input.value = ''
+    } finally {
+      btn.disabled = false
+    }
+  }
+  btn.addEventListener('click', go)
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') go()
+  })
 }
 
 async function ask(game) {
@@ -441,6 +495,7 @@ export function renderWarning(game) {
 // From main.js once the game exists.
 export function startLiveConfig(game) {
   liveGame = game
+  wireRedeemBox(game)
   renderLiveBanner(game)
   renderMaintenance(game)
   renderWarning(game)

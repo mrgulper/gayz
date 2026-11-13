@@ -3741,4 +3741,17 @@ export default {
   maintenanceTitle: "GayZ की जल्दी से मरम्मत हो रही है",
   maintenanceNote: "जल्द वापस! यह पेज खुद जाँचता रहता है - रीलोड की ज़रूरत नहीं।",
   maintenanceSoon: "ध्यान दें: मेंटेनेंस शुरू हो गया है। यह गेम पूरा करें - नए गेम जल्द फिर खुलेंगे।",
+  // Settings > Redeem a Code (2026-11-13)
+  redeemCodeLabel: "कोड रिडीम करें",
+  redeemCodeBtn: "रिडीम",
+  redeemCodePlaceholder: "गिफ्ट कोड",
+  redeemCodeEmpty: "पहले एक गिफ्ट कोड लिखें।",
+  redeemCodeOffline: "कोड जाँच नहीं हो सका - क्या आप ऑनलाइन हैं?",
+  redeemCodeUnknown: "यह कोड मौजूद नहीं है। स्पेलिंग जाँचें।",
+  redeemCodeEnded: "यह कोड खत्म हो चुका है।",
+  redeemCodeUsedUp: "यह कोड पूरा इस्तेमाल हो चुका है।",
+  redeemCodeAlready: "आप यह कोड पहले ही इस्तेमाल कर चुके हैं।",
+  redeemCodeTooMany: "बहुत सारे गलत कोड - एक घंटे बाद फिर कोशिश करें।",
+  redeemCodeSkins: "{n} स्किन (इन्वेंटरी देखें)",
+  redeemCodeGot: "कोड रिडीम हुआ: {what}!",
 }
