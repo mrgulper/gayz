@@ -3,7 +3,7 @@ import { gotoAndWaitForGame } from './helpers.js'
 import { fakeServerDb } from './fakeServerDb.js'
 import { PROVIDERS, isCallback, missingKeys, firebaseUid, cleanProfile, sameState, resultPage, siteOrigin } from '../api/_lib/oauth.js'
 import { createServer, joinServer, listServers, syncServer, leaveServer, MAX_PLAYERS, STALE_MS, JOIN_GRACE_MS } from '../api/_lib/servers.js'
-import { publicConfig, reportPlayer, adminState, setBanner, setEvents, kickPlayer, unban, hideContent, dismissContentReport, dismissPlayerReport, seenWarning, REPORT_GAP_MS, ADMIN_ACTIONS } from '../api/_lib/admin.js'
+import { publicConfig, reportPlayer, adminState, setBanner, setEvents, kickPlayer, unban, hideContent, dismissContentReport, dismissPlayerReport, seenWarning, redeemCode, CODE_TRIES_PER_HOUR, REPORT_GAP_MS, ADMIN_ACTIONS } from '../api/_lib/admin.js'
 
 // The servers' own rules (api/_lib/servers.js), on an in-memory database.
 test('servers: create, join, sync, host hand-over, leave', async () => {
@@ -1548,4 +1548,95 @@ test('live config: sale, staff message, gift, ended event, map pin', async ({ pa
     expect(r.staffRow).toContain('chat-staff-row')
     expect(r.staffRow).toContain('&lt;hi&gt;')
   }
+})
+
+test('admin gift codes and daily challenge editor', async () => {
+  const db = fakeServerDb()
+  const A = ADMIN_ACTIONS
+  const t0 = Date.now()
+  // Gift codes: coins + skins, 2 uses, 3 days.
+  await expect(A.codeAdd(db, { code: 'X', coins: 10 })).rejects.toThrow()
+  await expect(A.codeAdd(db, { code: 'NOTHING1' })).rejects.toThrow()
+  await expect(A.codeAdd(db, { code: 'BADSKIN1', skins: ['nope'] })).rejects.toThrow()
+  const made = await A.codeAdd(db, { code: 'spooky-24', coins: 1000, skins: ['lilac', 'gaygarx'], max: 2, days: 3, note: 'Halloween' })
+  expect(made.code).toBe('SPOOKY24')
+  await expect(A.codeAdd(db, { code: 'SPOOKY24', coins: 5 })).rejects.toThrow()
+  const random = await A.codeAdd(db, { coins: 50 })
+  expect(random.code).toMatch(/^[A-Z0-9]{8}$/)
+  expect(await redeemCode(db, { pid: 'player1', code: 'spooky 24' }, t0)).toEqual({ ok: true, code: 'SPOOKY24', coins: 1000, skins: ['lilac', 'gaygarx'] })
+  expect(await redeemCode(db, { pid: 'player1', code: 'SPOOKY24' }, t0)).toEqual({ error: 'already' })
+  expect((await redeemCode(db, { pid: 'player2', code: 'SPOOKY24' }, t0)).ok).toBe(true)
+  expect(await redeemCode(db, { pid: 'player3', code: 'SPOOKY24' }, t0)).toEqual({ error: 'used-up' })
+  // No limit, but ended after its days.
+  await A.codeAdd(db, { code: 'SHORT1', coins: 5, days: 1 })
+  expect(await redeemCode(db, { pid: 'player3', code: 'SHORT1' }, t0 + 2 * 86400000)).toEqual({ error: 'ended' })
+  // Guessing: a few wrong codes, then locked for an hour (even a right one).
+  for (let i = 0; i < CODE_TRIES_PER_HOUR; i++) expect(await redeemCode(db, { pid: 'guesser', code: `WRONG${i}` }, t0)).toEqual({ error: 'unknown' })
+  expect(await redeemCode(db, { pid: 'guesser', code: random.code }, t0)).toEqual({ error: 'too-many-tries' })
+  expect((await redeemCode(db, { pid: 'guesser', code: random.code }, t0 + 3600001)).ok).toBe(true)
+  let st = await adminState(db, null, t0)
+  const spooky = st.codes.find((c) => c.code === 'SPOOKY24')
+  expect(spooky).toMatchObject({ uses: 2, max: 2, state: 'used up', note: 'Halloween' })
+  expect(st.skins.find((k) => k.id === 'lilac')).toBeTruthy()
+  await A.codeRemove(db, { code: 'SPOOKY24' })
+  expect(await redeemCode(db, { pid: 'player9', code: 'SPOOKY24' }, t0)).toEqual({ error: 'unknown' })
+  // Daily Challenge: next 14 days with the automatic pick; edit one.
+  st = await adminState(db, null, t0)
+  expect(st.daily.length).toBe(14)
+  expect(st.dailyTypes.map((d) => d.type)).toContain('melee')
+  const day = st.daily[1].day
+  await expect(A.dailySet(db, { day, type: 'nope', target: 5 })).rejects.toThrow()
+  await expect(A.dailySet(db, { day: '2020-01-01', type: 'melee', target: 5 })).rejects.toThrow()
+  await A.dailySet(db, { day, type: 'melee', target: 33, coins: 2000, xp: 300 })
+  expect((await publicConfig(db, {})).daily).toEqual({ [day]: { type: 'melee', target: 33, coins: 2000, xp: 300 } })
+  st = await adminState(db, null, t0)
+  expect(st.daily[1].edit).toEqual({ type: 'melee', target: 33, coins: 2000, xp: 300 })
+  await A.dailyRemove(db, { day })
+  expect((await publicConfig(db, {})).daily).toEqual({})
+  // History lines; a backup holds the codes.
+  st = await adminState(db, null)
+  const lines = st.history.map((h) => h.text).join('\n')
+  for (const s of ['Gift code made: SPOOKY24', 'Gift code deleted: SPOOKY24', `Daily Challenge for ${day} set: melee x33`, `Daily Challenge for ${day} back to automatic`]) expect(lines).toContain(s)
+  expect(Object.keys((await A.backup(db, {})).data)).toContain('giftCodes')
+})
+
+test('redeem box and an edited daily challenge', async ({ page }) => {
+  await page.addInitScript(() => {
+    const p = (n) => String(n).padStart(2, '0')
+    const d = new Date()
+    const today = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+    window.__liveCfg = { banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, daily: { [today]: { type: 'melee', target: 7, coins: 999, xp: 55 } }, hidden: { maps: [], builds: [] }, ban: null, off: [], maintenance: null, mute: null, warnings: [] }
+    window.__redeems = []
+    window.__liveConfigForTests = async (body) => {
+      if (body.action !== 'redeem') return window.__liveCfg
+      window.__redeems.push(body)
+      return body.code === 'GOOD1' ? { ok: true, code: 'GOOD1', coins: 300, skins: ['lilac'] } : { error: 'already' }
+    }
+  })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g.__liveAsk()
+    const c = g.dailyChallenge.current()
+    const before = { coins: g.coins, lilac: Number(g.charSkins.lilac) || 0 }
+    const input = document.getElementById('redeem-code-input')
+    const btn = document.getElementById('redeem-code-btn')
+    input.value = 'good-1'
+    btn.click()
+    for (let i = 0; i < 50 && !window.__redeems.length; i++) await new Promise((res) => setTimeout(res, 20))
+    await new Promise((res) => setTimeout(res, 50))
+    const toast1 = g.loreToast.textContent
+    const after = { coins: g.coins - before.coins, lilac: (Number(g.charSkins.lilac) || 0) - before.lilac, input: input.value }
+    input.value = 'used'
+    btn.click()
+    for (let i = 0; i < 50 && window.__redeems.length < 2; i++) await new Promise((res) => setTimeout(res, 20))
+    await new Promise((res) => setTimeout(res, 50))
+    return { daily: { type: c.template.type, target: c.target, coins: c.coins, xp: c.xp }, after, toast1, toast2: g.loreToast.textContent, sent: window.__redeems.map((b) => b.code), label: document.getElementById('redeem-code-label').textContent }
+  })
+  expect(r.daily).toEqual({ type: 'melee', target: 7, coins: 999, xp: 55 })
+  expect(r.sent).toEqual(['GOOD1', 'USED'])
+  expect(r.after).toEqual({ coins: 300, lilac: 1, input: '' })
+  expect(r.toast1).toBe('Code redeemed: 300 coins + 1 skin(s) (see Inventory)!')
+  expect(r.toast2).toBe('You already used that code.')
+  expect(r.label).toBe('Redeem a Code')
 })

@@ -54,5 +54,10 @@ export function dbAdapter() {
     async update(paths) {
       if (Object.keys(paths).length) await db.ref().update(paths)
     },
+    // fn(current) -> new value, or undefined to leave it. { committed }.
+    async transaction(path, fn) {
+      const r = await db.ref(path).transaction(fn)
+      return { committed: r.committed, value: r.snapshot.val() }
+    },
   }
 }

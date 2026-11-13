@@ -182,6 +182,28 @@
   padding: 12px 4px;
 }
 
+/* Settings > Account & Data > Redeem a Code: the button sizes to its
+   text (longer in some languages). */
+#redeem-code-row {
+  grid-template-columns: 110px 1fr auto;
+}
+#redeem-code-input {
+  text-transform: uppercase;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+/* Phones / narrow panels: the label goes above the box and button. */
+@media (max-width: 520px) {
+  #redeem-code-row {
+    grid-template-columns: 1fr auto;
+    gap: 8px 10px;
+  }
+  #redeem-code-label {
+    grid-column: 1 / -1;
+  }
+}
+
 /* Advanced disclosure (Settings > Controls > Personalization) - collapsed
    by default, holding the cosmetic-only settings someone might genuinely
    want but shouldn't be first-tier UI (CRT scanlines/cursor trail/theme

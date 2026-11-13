@@ -3744,4 +3744,17 @@ export default {
   maintenanceTitle: "GayZ 正在快速维护",
   maintenanceNote: "马上回来！此页面会自动检查，无需刷新。",
   maintenanceSoon: "注意：维护已开始。请完成这局游戏，新游戏很快会重新开放。",
+  // Settings > Redeem a Code (2026-11-13)
+  redeemCodeLabel: "兑换码",
+  redeemCodeBtn: "兑换",
+  redeemCodePlaceholder: "礼品码",
+  redeemCodeEmpty: "请先输入礼品码。",
+  redeemCodeOffline: "无法验证兑换码 - 你在线吗？",
+  redeemCodeUnknown: "该兑换码不存在，请检查拼写。",
+  redeemCodeEnded: "该兑换码已过期。",
+  redeemCodeUsedUp: "该兑换码已被用完。",
+  redeemCodeAlready: "你已经使用过该兑换码。",
+  redeemCodeTooMany: "错误次数太多 - 请一小时后再试。",
+  redeemCodeSkins: "{n} 个皮肤（见物品栏）",
+  redeemCodeGot: "兑换成功：{what}！",
 }

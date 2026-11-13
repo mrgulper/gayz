@@ -28,6 +28,12 @@ export function fakeServerDb() {
     async get(path) {
       return get(path)
     },
+    async transaction(path, fn) {
+      const next = fn(get(path))
+      if (next === undefined) return { committed: false, value: get(path) }
+      set(path, next)
+      return { committed: true, value: get(path) }
+    },
     async update(paths) {
       // Firebase refuses an update where one path sits inside another.
       const keys = Object.keys(paths)
