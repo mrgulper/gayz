@@ -1853,3 +1853,45 @@ test('feedback box, poll popup and error reports on the page', async ({ page }) 
   expect(r.sent.find((b) => b.action === 'vote')).toMatchObject({ id: 'p1', choice: 1 })
   expect(r.sent.filter((b) => b.action === 'error')).toEqual([expect.objectContaining({ msg: 'boom', where: 'index-x.js:7' })])
 })
+
+test('helper accounts: login, reports, checks; language check', async () => {
+  const db = fakeServerDb()
+  const A = ADMIN_ACTIONS
+  const t0 = Date.now()
+  await reportPlayer(db, { target: 'BAD001', targetName: 'Griefer', by: 'ME0001', byName: 'Ann', where: 'chat', text: 'swearing' }, t0)
+  await reportPlayer(db, { target: 'BAD001', targetName: 'Griefer', by: 'ME0002', byName: 'Bo', text: 'again' }, t0 + 1)
+  // The owner makes a helper; the password comes back once, only a hash is kept.
+  const made = await A.helperAdd(db, { name: 'Sam' })
+  expect(made.password).toMatch(/^[a-z0-9]{6}-[A-Za-z0-9]{24}$/)
+  expect(JSON.stringify(db.root.helpers)).not.toContain(made.password.split('-')[1])
+  expect((await A.helperLogin(db, { helperPw: made.password })).name).toBe('Sam')
+  expect((await A.helperLogin(db, { helperPw: made.password.slice(0, -1) + 'x' })).ok).toBe(false)
+  expect((await A.helperLogin(db, { helperPw: 'nope' })).ok).toBe(false)
+  // What a helper sees.
+  const seen = await A.helperReports(db, { helperPw: made.password }, null)
+  expect(seen.name).toBe('Sam')
+  expect(seen.playerReports).toHaveLength(2)
+  expect(seen.playerReports[0].others).toBe(1)
+  await expect(A.helperReports(db, { helperPw: 'wrong' }, null)).rejects.toMatchObject({ status: 401 })
+  // A check shows up for the owner and in the history; dismissing the report clears it.
+  const key = seen.playerReports[0].key
+  await A.helperCheck(db, { helperPw: made.password, key, verdict: 'real', note: 'saw it myself' })
+  await expect(A.helperCheck(db, { helperPw: made.password, key, verdict: 'maybe' })).rejects.toMatchObject({ status: 400 })
+  let st = await adminState(db, null)
+  expect(st.checks[key]).toMatchObject({ verdict: 'real', by: 'Sam', note: 'saw it myself' })
+  expect(st.helpers).toHaveLength(1)
+  expect(st.history.some((h) => h.text.includes('Helper Sam checked') && h.text.includes('REAL'))).toBe(true)
+  await A.dismissPlayerReport(db, { id: key.slice(2) })
+  st = await adminState(db, null)
+  expect(st.checks[key]).toBeUndefined()
+  // Removing a helper stops their password straight away.
+  await A.helperRemove(db, { id: made.id, name: 'Sam' })
+  expect((await A.helperLogin(db, { helperPw: made.password })).ok).toBe(false)
+  // Language check: the big languages are complete with matching shapes.
+  const langs = await A.languages(db, {})
+  const es = langs.languages.find((l) => l.code === 'es')
+  expect(es.full).toBe(true)
+  expect(es.counts.missing).toBe(0)
+  expect(es.counts.lines).toBe(0)
+  expect(langs.languages.find((l) => l.code === 'fr').missing).toBeUndefined()
+})

@@ -59,6 +59,8 @@ import { ServerError } from './servers.js'
 import { DAILY_TEMPLATES, challengeFor } from '../../src/game/DailyChallenge.js'
 import { MARKET_SKINS } from '../../src/game/MarketSkins.js'
 import { statsReport } from './playStats.js'
+import { helperList, addHelper, removeHelper, helperLogin, helperReports, checkReport, reportChecks } from './helpers.js'
+import { languageReport } from './langCheck.js'
 import { livePoll, reportAlert, inboxState, setFeedbackDone, deleteFeedback, clearErrors, startPoll, endPoll, deletePoll, testAlert, POLL_HOURS } from './inbox.js'
 
 export const EVENT_IDS = ['doubleCoins', 'doubleXp', 'hordeNight']
@@ -81,7 +83,9 @@ export const MAINT_TEXT_MAX = 200
 const LOG_KEPT = 300
 // What a backup holds and Restore puts back (servers come and go, so
 // they're left out).
-export const BACKUP_PATHS = ['liveConfig', 'bans', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes', 'giftCodes', 'giftCodesUsed']
+// Helper accounts are left out on purpose: restoring an old file must
+// never bring back a helper the owner removed.
+export const BACKUP_PATHS = ['liveConfig', 'bans', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes', 'giftCodes', 'giftCodesUsed', 'reportChecks']
 // Restore leaves the history alone: it stays a true record (including the
 // Restore itself).
 const RESTORE_PATHS = BACKUP_PATHS.filter((p) => p !== 'adminLog')
@@ -97,7 +101,7 @@ export function validPid(v) {
   return typeof v === 'string' && /^[A-Za-z0-9]{4,40}$/.test(v)
 }
 
-function cleanText(v, max) {
+export function cleanText(v, max) {
   if (typeof v !== 'string') return ''
   // eslint-disable-next-line no-control-regex -- stripping control characters is the point
   return v.replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max)
@@ -323,7 +327,7 @@ async function serverPlayers(db, now) {
 
 // Map/build reports from Firestore, grouped. `fs` is firestoreRest.js
 // (or a fake in tests); null skips them.
-async function contentReports(db, fs, hidden) {
+export async function contentReports(db, fs, hidden) {
   if (!fs) return { list: [], error: null }
   try {
     const [rows, seen] = await Promise.all([fs.reports(), db.get('reportsSeen')])
@@ -368,6 +372,8 @@ export async function adminState(db, fs, now = Date.now()) {
     skins: GIFT_SKINS,
     daily: dailyDays(cfg?.daily, now),
     dailyTypes: DAILY_TEMPLATES.map((d) => ({ type: d.type, targets: d.targets })),
+    checks: await reportChecks(db),
+    helpers: await helperList(db),
     history: Object.values(log || {})
       .map((e) => ({ at: Number(e?.at) || 0, text: cleanText(e?.text, 300) }))
       .sort((a, b) => b.at - a.at),
@@ -427,14 +433,14 @@ export async function unban(db, { pid } = {}) {
 
 export async function dismissPlayerReport(db, { id } = {}) {
   if (!validCode(id)) throw new ServerError(400, 'bad-request')
-  await db.update({ [`playerReports/${id}`]: null })
+  await db.update({ [`playerReports/${id}`]: null, [`reportChecks/p_${id}`]: null })
   return { ok: true }
 }
 
 // Dismiss on a map/build: out of the list until a new report comes in.
 export async function dismissContentReport(db, { kind, id, count } = {}) {
   if (!['map', 'build'].includes(kind) || !validCode(id)) throw new ServerError(400, 'bad-request')
-  await db.update({ [`reportsSeen/${kind}_${id}`]: Math.max(0, Math.floor(Number(count) || 0)) })
+  await db.update({ [`reportsSeen/${kind}_${id}`]: Math.max(0, Math.floor(Number(count) || 0)), [`reportChecks/${kind}_${id}`]: null })
   return { ok: true }
 }
 
@@ -1000,6 +1006,8 @@ const LOG_TEXT = {
   pollStart: (b) => `Poll started (${POLL_HOURS.includes(Number(b.hours)) ? Number(b.hours) : 72} h): "${cleanText(b.q, 80)}"`,
   pollEnd: () => 'Poll ended',
   pollDelete: () => 'Deleted a poll and its votes',
+  helperAdd: (b) => `Helper account made: ${cleanText(b.name, 24).replace(/\n/g, ' ')}`,
+  helperRemove: (b) => `Helper account removed${cleanText(b.name, 24) ? `: ${cleanText(b.name, 24)}` : ''}`,
   restore: (b) => `Restored the backup from ${cleanText(b.label, 40) || (Number(b.file?.at) ? `${day(Number(b.file.at))} UTC` : '?')}`,
 }
 
@@ -1043,6 +1051,14 @@ const ACTION_FNS = {
   pollEnd: (db) => endPoll(db),
   pollDelete: (db, body) => deletePoll(db, body),
   alertTest: (db) => testAlert(db),
+  helperAdd: (db, body) => addHelper(db, body),
+  helperRemove: (db, body) => removeHelper(db, body),
+  languages: () => languageReport(),
+  // A helper's own buttons: each checks the helper's password itself
+  // (helpers.js), so they only ever work for a real helper.
+  helperLogin: (db, body) => helperLogin(db, body),
+  helperReports: (db, body, fs) => helperReports(db, fs, body),
+  helperCheck: (db, body) => checkReport(db, body),
 }
 
 // Every change also adds its line to the history - after it worked, and
