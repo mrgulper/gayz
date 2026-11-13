@@ -4,7 +4,7 @@ Browser Three.js block-world zombie game (Vite, no framework) at gayz.vercel.app
 
 **Read on every message - keep it short.** Full wording and history live in `docs/notes/`; read an area's file before changing it, add detail there.
 
-Notes files: `map-and-world.md` (Map 1, Map Editor, world, Play, zombies, weapons) · `ui-and-menu.md` (homepage, panels, themes, Inventory/Market, skins, Profile, Settings, i18n) · `online.md` (Cloud Save, Firestore, leaderboards, chat, offline) · `bugs-and-testing.md` · `rules-detail.md` (full rule text) · `codebase.md` (tests/CI, file splits).
+Notes files (big ones are indexes - open the index, then only the topic file you need): `map-and-world.md` -> `map-and-world/*.md` (Map 1, Map Editor, world, Play, zombies, weapons) · `ui-and-menu.md` -> `ui-and-menu/*.md` (homepage, panels, themes, Inventory/Market, skins, Profile, Settings, i18n) · `online.md` -> `online/*.md` (Cloud Save, Firestore, leaderboards, chat, offline) · `bugs-and-testing.md` · `rules-detail.md` -> `rules/*.md` (full rule text) · `codebase.md` (tests/CI, file splits).
 
 ## Tests and shipping
 - Always `npm run lint` + `npm run build`. Tests: `CI=1 npx playwright test <spec>` (always `CI=1`, foreground, long timeout; full suite ~12 min).

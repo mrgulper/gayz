@@ -1,5 +1,5 @@
 // Settings > Controls > HUD (ideas 25-38 of the 2026-11-11 settings list,
-// docs/notes/ui-and-menu.md > "Settings ideas (to do)"). The rows come from
+// docs/notes/ui-and-menu/settings-ideas-todo.md). The rows come from
 // MoreSettingsList.js; this file is what they do in a game:
 //   - looks that are pure CSS (HUD size, health display, chat opacity, hit
 //     marker, small minimap) are classes/variables on <html>/<body>
