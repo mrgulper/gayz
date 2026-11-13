@@ -9,7 +9,7 @@
 // the clan code reads and writes some of it directly.
 
 import { t } from './i18n.js'
-import { banMessage, muteMessage, switchedOff, reportPlayer } from './LiveConfig.js'
+import { banMessage, muteMessage, switchedOff, reportPlayer, STAFF_UID } from './LiveConfig.js'
 import * as CloudSync from './CloudSync.js'
 import { EMOJI_CATEGORIES } from './EmojiData.js'
 import { chatPingCheck } from './MoreSettings.js'
@@ -572,6 +572,11 @@ export function renderChatMessageText(game, text, linkifyIds) {
 // listener), rather than looking the text up again at click time - one
 // render pass, no index/id bookkeeping needed to find it later.
 export function renderChatMessageRow(game, m, linkifyIds, isMuted) {
+  // A message from the Console (api/_lib/admin.js staffMessage): a gold
+  // "GayZ Team" line with no name button (no player behind it).
+  if (m.uid === STAFF_UID) {
+    return `<div class="chat-message-row chat-staff-row"><span class="chat-staff-name">${_escapeHtml(t('chatStaffName'))}:</span> <span class="chat-message-text">${_escapeHtml(String(m.text || ''))}</span></div>`
+  }
   const nameBtn = `<button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}" data-uid="${_escapeHtml(m.uid || '')}">${_escapeHtml(m.nickname)}:</button>`
   if (isMuted) {
     return `<div class="chat-message-row chat-message-row-blocked">${nameBtn}<span class="chat-message-text chat-blocked-text"><span class="chat-blocked-label">${t('chatBlockedMessage')}</span> - <button type="button" class="chat-blocked-show-btn">${t('chatBlockedShowBtn')}</button><span class="chat-blocked-real-text" style="display: none">${renderChatMessageText(game, m.text, linkifyIds)}</span></span></div>`

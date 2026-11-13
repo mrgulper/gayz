@@ -22,7 +22,16 @@
 // chat mute (muteMessage() - ChatUI won't send; the server and Firebase's
 // rules also refuse) and `warnings` are messages from the team, shown one
 // at a time in a popup with an OK button (renderWarning) on the homepage.
+//
+// Live events (2026-11-13, Console "Live events" batch): the Console's
+// calendar turns events on/off by itself (the server merges it into
+// `events`; `ends` says when a calendar-only one stops, so a cached answer
+// never shows an event that already ended). `sale` = Market sale (buyers
+// pay pct% less: salePrice), `staffMsg` = a popup from the team (once per
+// message), `gift` = coins/gems for everyone with the game open (claimed
+// once per gift), `mapWeek` = the Console's Map of the Week (HomeExtras).
 import { t } from './i18n.js'
+import { saveShopProgress } from './Game.js'
 
 const CACHE_KEY = 'gayz-live-config'
 const CLOSED_KEY = 'gayz-live-banner-closed'
@@ -37,11 +46,16 @@ const OFF_TOAST_GAP_MS = 20 * 1000
 // Warning ids this device already pressed OK on (the server is told too,
 // but this hides it at once and works offline).
 const WARN_SEEN_KEY = 'gayz-warnings-seen'
+// Staff messages already popped up / gifts already claimed on this device.
+const STAFF_SEEN_KEY = 'gayz-staff-seen'
+const GIFTS_GOT_KEY = 'gayz-gifts-got'
+// Global chat's sender id for a staff message (api/_lib/admin.js STAFF_UID).
+export const STAFF_UID = 'gayzTeam'
 
 // Horde Night's extra zombies per wave.
 export const HORDE_MULT = 1.5
 
-const EMPTY = { banner: null, events: {}, hidden: { maps: [], builds: [] }, ban: null, mute: null, warnings: [], off: [], maintenance: null }
+const EMPTY = { banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, hidden: { maps: [], builds: [] }, ban: null, mute: null, warnings: [], off: [], maintenance: null }
 
 function readCache() {
   try {
@@ -62,14 +76,42 @@ function rebuildHidden() {
 }
 rebuildHidden()
 
+// A calendar event that has already ended (the cached answer can be old).
+function ended(id) {
+  const end = Number(config.ends?.[id]) || 0
+  return !!end && end <= Date.now()
+}
+
 export function eventOn(id) {
-  return config.events?.[id] === true
+  return config.events?.[id] === true && !ended(id)
 }
 
 // 'halloween' | 'christmas' | null
 export function holiday() {
   const h = config.events?.holiday
-  return h === 'halloween' || h === 'christmas' ? h : null
+  return (h === 'halloween' || h === 'christmas') && !ended('holiday') ? h : null
+}
+
+// Market sale: the percent off right now, or 0.
+export function salePct() {
+  const s = config.sale
+  if (!s || typeof s !== 'object') return 0
+  if (Number(s.until) && Number(s.until) <= Date.now()) return 0
+  const p = Number(s.pct)
+  return p > 0 && p < 100 ? p : 0
+}
+
+// What a buyer pays for a Market listing of `price` right now (the seller
+// is still paid the full price).
+export function salePrice(price) {
+  const p = salePct()
+  return p ? Math.max(1, Math.round(price * (100 - p) / 100)) : price
+}
+
+// The Console's Map of the Week: { code, title, by } or null (automatic).
+export function mapWeekPin() {
+  const m = config.mapWeek
+  return m && typeof m === 'object' && /^[A-Z0-9]{6}$/.test(m.code || '') ? m : null
 }
 
 // The date seasonal looks should go by: a day inside the Holiday switch's
@@ -198,7 +240,54 @@ function apply(next, game) {
   renderLiveBanner(game)
   renderMaintenance(game)
   renderWarning(game)
+  showStaffMsg(game)
+  claimGift(game)
   window.dispatchEvent(new Event('gayz-live'))
+}
+
+function readList(key) {
+  try {
+    const list = JSON.parse(localStorage.getItem(key) || '[]')
+    return Array.isArray(list) ? list : []
+  } catch {
+    return []
+  }
+}
+
+function addToList(key, id) {
+  try {
+    localStorage.setItem(key, JSON.stringify([...readList(key), id].slice(-30)))
+  } catch { /* blocked - may show once more next visit */ }
+}
+
+// A staff message: one toast per message (on the homepage or mid-game),
+// never in the Console preview.
+export function showStaffMsg(game) {
+  const m = config.staffMsg
+  if (!m || !m.id || !m.text || embedded() || !game) return
+  if (readList(STAFF_SEEN_KEY).includes(m.id)) return
+  addToList(STAFF_SEEN_KEY, m.id)
+  game._showHomepageToast?.(t('liveStaffMsg', { text: m.text }))
+}
+
+// A surprise gift: added once per gift (this device's list), with
+// confetti. Not in the Console preview.
+export function claimGift(game) {
+  const g = config.gift
+  if (!g || !g.id || embedded() || !game) return
+  if (Number(g.until) && Number(g.until) <= Date.now()) return
+  if (readList(GIFTS_GOT_KEY).includes(g.id)) return
+  const coins = Math.max(0, Math.min(100000, Math.floor(Number(g.coins) || 0)))
+  const gems = Math.max(0, Math.min(1000, Math.floor(Number(g.gems) || 0)))
+  if (!coins && !gems) return
+  addToList(GIFTS_GOT_KEY, g.id)
+  game.coins = (game.coins || 0) + coins
+  game.gems = (game.gems || 0) + gems
+  saveShopProgress(game)
+  game._renderCurrencyBar?.()
+  game._fireConfetti?.()
+  const what = [coins ? t('liveGiftCoins', { n: coins.toLocaleString() }) : '', gems ? t('liveGiftGems', { n: gems.toLocaleString() }) : ''].filter(Boolean).join(' + ')
+  game._showHomepageToast?.(g.text ? t('liveGiftGotNote', { what, text: g.text }) : t('liveGiftGot', { what }))
 }
 
 async function ask(game) {
@@ -219,6 +308,7 @@ export function renderLiveBanner(game) {
   const showText = !!b && String(b.id) !== closed
   const chips = EVENT_IDS.filter(eventOn).map((id) => t(`liveEvent_${id}`))
   if (holiday()) chips.push(t(`liveEvent_${holiday()}`))
+  if (salePct()) chips.push(t('liveEvent_sale', { pct: salePct() }))
   const paused = SWITCH_IDS.filter(featureOff).map((id) => t(`liveFeature_${id}`))
   el.dataset.style = b?.style || 'info'
   const text = el.querySelector('.live-banner-text')

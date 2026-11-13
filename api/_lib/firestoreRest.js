@@ -120,3 +120,35 @@ export async function setChatMute(uid, until, now = Date.now()) {
 export async function clearChatMute(uid) {
   await call(`/chatMutes/${encodeURIComponent(uid)}`, undefined, 'DELETE')
 }
+
+// --- Live events (Console "Live events" batch) ---
+
+// A staff message into both Global chat rooms (in-game globalChat and the
+// homepage's serverChat), same fields a player's message has. The service
+// account isn't held to the security rules; the game shows uid STAFF_UID
+// as a gold "GayZ Team" line.
+export async function postStaffChat(uid, nickname, text, now = Date.now()) {
+  const fields = { uid: { stringValue: uid }, nickname: { stringValue: nickname }, text: { stringValue: text }, createdAt: { integerValue: String(now) } }
+  await Promise.all(['globalChat', 'serverChat'].map((c) => call(`/${c}`, { fields })))
+}
+
+// The Gallery's map posts (at most 80, the same the homepage reads), for
+// the Map of the Week picker: [{ id, mapCode, title, by, likes, createdAt }].
+export async function galleryMaps() {
+  const rows = await call(':runQuery', {
+    structuredQuery: {
+      from: [{ collectionId: 'gallery' }],
+      where: { fieldFilter: { field: { fieldPath: 'kind' }, op: 'EQUAL', value: { stringValue: 'map' } } },
+      select: { fields: ['mapCode', 'title', 'creatorNickname', 'likes', 'createdAt'].map((f) => ({ fieldPath: f })) },
+      limit: 80,
+    },
+  })
+  const out = []
+  for (const r of rows || []) {
+    const d = r.document
+    if (!d?.name) continue
+    const f = d.fields || {}
+    out.push({ id: d.name.split('/').pop(), mapCode: str(f.mapCode), title: str(f.title), by: str(f.creatorNickname), likes: int(f.likes), createdAt: int(f.createdAt) })
+  }
+  return out.sort((a, b) => b.likes - a.likes || b.createdAt - a.createdAt)
+}

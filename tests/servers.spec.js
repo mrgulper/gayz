@@ -1426,3 +1426,126 @@ test('live config: warning popup and chat mute', async ({ page }) => {
   expect(r.stored).toEqual(['w1', 'w2'])
   expect(r.chat).toEqual({ kept: 'hello', toast: 'The GayZ team muted your chat.' })
 })
+
+// The Console's Live events batch: calendar, Market sale, staff message,
+// surprise gift and Map of the Week (api/_lib/admin.js), in memory.
+test('admin live events: calendar, sale, staff message, gift, map pin', async () => {
+  const db = fakeServerDb()
+  const H = 3600000
+  const t0 = Date.now()
+  const chat = []
+  const fs = { postStaffChat: async (uid, nick, text) => chat.push({ uid, nick, text }), galleryMaps: async () => [{ id: 'p1', mapCode: 'ABC123', title: 'Big', by: 'Zed', likes: 3 }, { id: 'p2', mapCode: 'bad', title: 'x' }] }
+  const A = ADMIN_ACTIONS
+  // Calendar: Double Coins from +1h to +3h, a 20% sale now, Halloween now.
+  await A.scheduleAdd(db, { what: 'doubleCoins', start: t0 + H, end: t0 + 3 * H }, fs)
+  await A.scheduleAdd(db, { what: 'sale', pct: 20, start: t0 - H, end: t0 + H }, fs)
+  await A.scheduleAdd(db, { what: 'halloween', start: t0 - H, end: t0 + 2 * H }, fs)
+  await expect(A.scheduleAdd(db, { what: 'sale', pct: 15, start: t0, end: t0 + H }, fs)).rejects.toThrow()
+  await expect(A.scheduleAdd(db, { what: 'doubleXp', start: t0 - 2 * H, end: t0 - H }, fs)).rejects.toThrow()
+  let pub = await publicConfig(db, {}, t0)
+  expect(pub.events.doubleCoins).toBe(false)
+  expect(pub.events.holiday).toBe('halloween')
+  expect(pub.ends.holiday).toBe(t0 + 2 * H)
+  expect(pub.sale).toEqual({ pct: 20, until: t0 + H })
+  pub = await publicConfig(db, {}, t0 + 2 * H)
+  expect(pub.events.doubleCoins).toBe(true)
+  expect(pub.ends.doubleCoins).toBe(t0 + 3 * H)
+  expect(pub.sale).toBe(null)
+  // A switch that's on has no end; the calendar can't turn it off.
+  await A.events(db, { events: { doubleCoins: true } }, fs)
+  pub = await publicConfig(db, {}, t0 + 4 * H)
+  expect(pub.events.doubleCoins).toBe(true)
+  expect(pub.ends.doubleCoins).toBeUndefined()
+  // Manual sale beats a smaller calendar one; 0 stops it.
+  await A.sale(db, { pct: 50, minutes: 60 }, fs)
+  pub = await publicConfig(db, {})
+  expect(pub.sale.pct).toBe(50)
+  await A.sale(db, { pct: 0 }, fs)
+  // Admin state lists the calendar with live/soon.
+  let st = await adminState(db, null, t0 + 30 * 60000)
+  expect(st.schedule.map((e) => `${e.what}:${e.state}`)).toEqual(['sale:live', 'halloween:live', 'doubleCoins:soon'])
+  await A.scheduleRemove(db, { id: st.schedule[0].id }, fs)
+  st = await adminState(db, null, t0 + 30 * 60000)
+  expect(st.schedule.length).toBe(2)
+  // Staff message: chat + popup, cleaned.
+  await A.staffMessage(db, { text: 'Hi <b>all</b>' }, fs)
+  expect(chat).toEqual([{ uid: 'gayzTeam', nick: 'GayZ Team', text: 'Hi ball/b' }])
+  pub = await publicConfig(db, {})
+  expect(pub.staffMsg.text).toBe('Hi ball/b')
+  expect((await publicConfig(db, {}, Date.now() + 31 * 60000)).staffMsg).toBe(null)
+  // Gift: limits, then ends.
+  await expect(A.gift(db, { coins: 0, gems: 0, minutes: 15 }, fs)).rejects.toThrow()
+  await expect(A.gift(db, { coins: 10, minutes: 7 }, fs)).rejects.toThrow()
+  await A.gift(db, { coins: 500, gems: 5, minutes: 15, text: 'Thanks!' }, fs)
+  pub = await publicConfig(db, {})
+  expect(pub.gift).toMatchObject({ coins: 500, gems: 5, text: 'Thanks!' })
+  expect((await publicConfig(db, {}, Date.now() + 16 * 60000)).gift).toBe(null)
+  await A.gift(db, { cancel: true }, fs)
+  expect((await publicConfig(db, {})).gift).toBe(null)
+  // Map of the Week.
+  expect((await A.mapPosts(db, {}, fs)).list.map((p) => p.mapCode)).toEqual(['ABC123'])
+  await expect(A.mapWeek(db, { code: 'no!' }, fs)).rejects.toThrow()
+  await A.mapWeek(db, { code: 'abc123', title: 'Big', by: 'Zed' }, fs)
+  expect((await publicConfig(db, {})).mapWeek).toEqual({ code: 'ABC123', title: 'Big', by: 'Zed' })
+  await A.mapWeek(db, { code: '' }, fs)
+  expect((await publicConfig(db, {})).mapWeek).toBe(null)
+  // Every change made a history line.
+  st = await adminState(db, null)
+  const lines = st.history.map((h) => h.text).join('\n')
+  for (const s of ['Planned Double Coins', 'Market sale ON: 50% off', 'Staff message', 'Surprise gift: 500 coins, 5 gems', 'Map of the Week set to ABC123', 'Map of the Week back to automatic']) expect(lines).toContain(s)
+})
+
+test('live config: sale, staff message, gift, ended event, map pin', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__liveCfg = { banner: null, events: { doubleCoins: true, doubleXp: true }, ends: { doubleXp: Date.now() - 1000 }, sale: { pct: 20, until: 0 }, staffMsg: { id: 's1', text: 'Server restart in 5 min' }, gift: { id: 'g1', coins: 250, gems: 3, text: '', until: Date.now() + 600000 }, mapWeek: { code: 'ABC123', title: 'Pinned map', by: 'Zed' }, hidden: { maps: [], builds: [] }, ban: null, off: [], maintenance: null, mute: null, warnings: [] }
+    window.__liveConfigForTests = async () => window.__liveCfg
+  })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const before = { coins: g.coins, gems: g.gems }
+    await g.__liveAsk()
+    const toast = g.loreToast.textContent
+    const got = { coins: g.coins - before.coins, gems: g.gems - before.gems }
+    // Asking again doesn't give the gift twice.
+    window.__liveCfg = { ...window.__liveCfg, banner: { text: 'x', id: 2 } }
+    await g.__liveAsk()
+    const again = { coins: g.coins - before.coins }
+    const chips = [...document.querySelectorAll('#live-banner .live-banner-chip')].map((c) => c.textContent)
+    // Market card: sale price with the old one struck through.
+    g._marketListings = [{ id: 'L1', skinId: 'lilac', price: 1000, sellerName: 'Bob', sellerUid: 'other' }]
+    g._renderShopMarket()
+    const card = g.shopMarketGrid.querySelector('[data-market-listing="L1"]')
+    const market = { sale: card?.classList.contains('on-sale'), was: card?.querySelector('.market-card-was')?.textContent || '', price: card?.querySelector('.inv-skin-card-price')?.textContent || '' }
+    const LC = await import('/src/game/LiveConfig.js').catch(() => null)
+    const HE = await import('/src/game/HomeExtras.js').catch(() => null)
+    const ChatUI = await import('/src/game/ChatUI.js').catch(() => null)
+    return {
+      market,
+      toast,
+      got,
+      again,
+      chips,
+      price: LC ? LC.salePrice(1000) : null,
+      pin: HE ? HE.pickMapOfWeek([{ mapCode: 'ZZZ999', likes: 9, createdAt: Date.now() }], Date.now(), LC.mapWeekPin()) : null,
+      staffRow: ChatUI ? ChatUI.renderChatMessageRow(g, { uid: 'gayzTeam', nickname: 'GayZ Team', text: '<hi>' }, false, false) : null,
+      seen: JSON.parse(localStorage.getItem('gayz-staff-seen')),
+      gifts: JSON.parse(localStorage.getItem('gayz-gifts-got')),
+    }
+  })
+  expect(r.market.sale).toBe(true)
+  expect(r.market.was).toContain('1,000')
+  expect(r.market.price).toContain('800')
+  expect(r.got).toEqual({ coins: 250, gems: 3 })
+  expect(r.again).toEqual({ coins: 250 })
+  expect(r.toast).toBe('Surprise gift from the GayZ Team: 250 coins + 3 gems!')
+  expect(r.chips).toEqual(['Double Coins', 'Market sale -20%'])
+  expect(r.seen).toEqual(['s1'])
+  expect(r.gifts).toEqual(['g1'])
+  if (r.price !== null) {
+    expect(r.price).toBe(800)
+    expect(r.pin).toMatchObject({ code: 'ABC123', title: 'Pinned map', by: 'Zed', image: '' })
+    expect(r.staffRow).toContain('chat-staff-row')
+    expect(r.staffRow).toContain('&lt;hi&gt;')
+  }
+})

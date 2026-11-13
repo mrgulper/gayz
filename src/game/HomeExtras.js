@@ -12,7 +12,7 @@
 // the saved run); only the top 3 goes online, once, a few
 // seconds after the homepage is ready, so it never slows the first paint.
 import { t } from './i18n.js'
-import { holidayDate } from './LiveConfig.js'
+import { holidayDate, mapWeekPin } from './LiveConfig.js'
 import { _escapeHtml, _safeStatNumber, saveSettings, saveCareerStats, saveShopProgress, FRIEND_OFFLINE_THRESHOLD_MS } from './Game.js'
 import { EMOTES } from './Emotes.js'
 
@@ -66,11 +66,19 @@ export function birthdayYears(firstPlayedDate, now = new Date()) {
   return Math.max(0, now.getFullYear() - y)
 }
 
-// The pick from a list of Gallery map posts (untrusted), or null.
-export function pickMapOfWeek(posts, now = Date.now()) {
+// The pick from a list of Gallery map posts (untrusted), or null. `pin`
+// is the Console's own pick ({ code, title, by }, LiveConfig.mapWeekPin):
+// its Gallery post when there is one (for the picture), else its words.
+export function pickMapOfWeek(posts, now = Date.now(), pin = null) {
   const n = (v) => Math.max(0, Math.floor(Number(v) || 0))
   const ok = (Array.isArray(posts) ? posts : []).filter((p) => p && MAP_CODE_RE.test(p.mapCode || ''))
   const byLikes = (a, b) => n(b.likes) - n(a.likes) || n(b.createdAt) - n(a.createdAt)
+  if (pin && MAP_CODE_RE.test(pin.code || '')) {
+    const post = ok.filter((p) => p.mapCode === pin.code).sort(byLikes)[0]
+    if (!post) return { code: pin.code, title: String(pin.title || '').slice(0, 40), by: String(pin.by || '').slice(0, 24), likes: 0, image: '' }
+    ok.length = 0
+    ok.push(post)
+  }
   const fresh = ok.filter((p) => n(p.createdAt) >= now - WEEK_MS).sort(byLikes)
   const p = fresh[0] || ok.sort(byLikes)[0]
   if (!p) return null
@@ -393,6 +401,8 @@ function loadOnlineLater(game) {
 // Map of the Week, once, a few seconds after the homepage is ready.
 function loadMapWeekLater(game) {
   if (game._homeMapWeek !== undefined || game._homeMapWeekPending) return
+  const pin = mapWeekPin()
+  game._homeMapWeekPin = pin?.code || ''
   // After a failed lookup (offline, read limit reached) wait a while.
   if (Date.now() - (game._homeMapWeekFailedAt || 0) < MAPWEEK_RETRY_MS) return
   try {
@@ -400,27 +410,40 @@ function loadMapWeekLater(game) {
     // An empty answer is only kept a short while (2026-11-09): one saved
     // while the database was turning reads away hid the card for 12 hours.
     const keepFor = cached?.list?.length ? MAPWEEK_CACHE_MS : MAPWEEK_RETRY_MS
-    if (cached && Date.now() - cached.at < keepFor && Date.now() >= cached.at) {
-      game._homeMapWeek = pickMapOfWeek(cached.list)
+    // A cache from before the Console changed its pick doesn't count.
+    if (cached && (cached.pin || '') === game._homeMapWeekPin && Date.now() - cached.at < keepFor && Date.now() >= cached.at) {
+      game._homeMapWeek = pickMapOfWeek(cached.list, Date.now(), pin)
       if (game._homeMapWeek) renderHomeExtras(game)
       return
     }
   } catch { /* no cache - fetch below */ }
-  if (navigator.onLine === false) return
+  if (navigator.onLine === false) {
+    if (pin) {
+      game._homeMapWeek = pickMapOfWeek([], Date.now(), pin)
+      renderHomeExtras(game)
+    }
+    return
+  }
   game._homeMapWeekPending = true
   setTimeout(async () => {
     try {
       const CloudSync = await import('./CloudSync.js')
       if (!CloudSync.isConfigured()) return
       const posts = await CloudSync.fetchGalleryPosts('map')
-      const pick = pickMapOfWeek(posts)
+      const pick = pickMapOfWeek(posts, Date.now(), pin)
       game._homeMapWeek = pick
       const keep = pick ? [{ mapCode: pick.code, title: pick.title, creatorNickname: pick.by, likes: pick.likes, createdAt: Date.now(), image: pick.image.length <= MAPWEEK_CACHE_IMAGE_MAX ? pick.image : '' }] : []
-      try { localStorage.setItem(MAPWEEK_CACHE_KEY, JSON.stringify({ at: Date.now(), list: keep })) } catch { /* no room - fetched again next visit */ }
+      try { localStorage.setItem(MAPWEEK_CACHE_KEY, JSON.stringify({ at: Date.now(), pin: game._homeMapWeekPin, list: keep })) } catch { /* no room - fetched again next visit */ }
       if (pick) renderHomeExtras(game)
     } catch {
       game._homeMapWeek = undefined
       game._homeMapWeekFailedAt = Date.now()
+      // The Gallery couldn't be read (or is paused): the Console's pick
+      // still shows, just without its picture.
+      if (pin) {
+        game._homeMapWeek = pickMapOfWeek([], Date.now(), pin)
+        renderHomeExtras(game)
+      }
     } finally {
       game._homeMapWeekPending = false
     }
@@ -590,5 +613,14 @@ export function bindHomeExtras(game) {
   celebrateBirthday(game)
   applyHoliday(game)
   // The Console's Holiday switch changed (LiveConfig.js).
-  window.addEventListener('gayz-live', () => applyHoliday(game))
+  window.addEventListener('gayz-live', () => {
+    applyHoliday(game)
+    // The Console picked another Map of the Week (or went back to auto).
+    if (game._homeMapWeekPin !== undefined && (mapWeekPin()?.code || '') !== game._homeMapWeekPin && !game._homeMapWeekPending) {
+      game._homeMapWeek = undefined
+      game._homeMapWeekFailedAt = 0
+      loadMapWeekLater(game)
+      if (!game._homeMapWeek) renderHomeExtras(game)
+    }
+  })
 }

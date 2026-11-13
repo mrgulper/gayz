@@ -17,6 +17,7 @@ import { CHANGELOG_LAST_VIEWED_KEY, LAST_LOCAL_CHANGE_KEY, NAV_ID_RENAMES, CRATE
 import { DEVICE_ONLY_KEYS } from './CloudMerge.js'
 import { ACTIONS, getAllBindings, getKeyFor, keyLabel, resetBindings, setAllBindings, setBinding } from './Keybinds.js'
 import { LANGUAGES, setLanguage, t } from './i18n.js'
+import { salePrice } from './LiveConfig.js'
 import { bindHoverMenus } from './HoverMenus.js'
 import { bindSettingsLog, logSettingChange } from './SettingsLog.js'
 import { bindGameplaySettings } from './GameplaySettings.js'
@@ -437,6 +438,10 @@ export function _bindSettings(game) {
       game._renderInventorySkins()
     })
   }
+  // A Market sale starting or ending re-prices the open Market.
+  window.addEventListener('gayz-live', () => {
+    if (game.marketPanel && game.marketPanel.style.display !== 'none') game._renderShopMarket?.()
+  })
   game.shopMarketGrid?.addEventListener('click', (e) => {
     const card = e.target.closest('[data-market-listing]')
     if (!card || !Array.isArray(game._marketListings)) return
@@ -448,7 +453,7 @@ export function _bindSettings(game) {
       game._openTradeDialog('cancel', { listing, name })
       return
     }
-    const price = _safeStatNumber(listing.price)
+    const price = salePrice(_safeStatNumber(listing.price))
     if (game.coins < price) {
       game._showHomepageToast(t('skinNeedCoins', { need: Math.ceil(price - game.coins).toLocaleString() }))
       return
