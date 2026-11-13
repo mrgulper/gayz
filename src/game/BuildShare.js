@@ -258,6 +258,8 @@ export class BuildShare {
       const uid = this._uid()
       if (!uid) return this._toast(t('shareSignInRequired'))
       await this.api().reportSharedMap(code, uid).catch(() => {})
+      // A heads-up to the team (api/_lib/inbox.js contentReportAlert).
+      fetch('/api/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'contentReport', kind: 'map', code }) }).catch(() => {})
       btn.disabled = true
       this._toast(t('buildReportSent'))
     } else if (act === 'delete') {

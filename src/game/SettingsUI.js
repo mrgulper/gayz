@@ -1447,7 +1447,6 @@ export function _bindSettings(game) {
     })
   }
   if (game.profileCareerPortraitBtn) game.profileCareerPortraitBtn.addEventListener('click', () => game._generateCareerPortrait())
-  if (game.reportBugBtn) game.reportBugBtn.addEventListener('click', () => game._reportBug())
   game.creditsBtn.addEventListener('click', () => trackAndOpen(() => game._openCreditsPanel()))
   if (game.termsBtn) game.termsBtn.addEventListener('click', () => trackAndOpen(() => game._openTermsPanel()))
   const navPrivacyLink = document.getElementById('nav-privacy-link')

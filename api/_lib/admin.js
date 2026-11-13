@@ -59,6 +59,7 @@ import { ServerError } from './servers.js'
 import { DAILY_TEMPLATES, challengeFor } from '../../src/game/DailyChallenge.js'
 import { MARKET_SKINS } from '../../src/game/MarketSkins.js'
 import { statsReport } from './playStats.js'
+import { livePoll, reportAlert, inboxState, setFeedbackDone, deleteFeedback, clearErrors, startPoll, endPoll, deletePoll, testAlert, POLL_HOURS } from './inbox.js'
 
 export const EVENT_IDS = ['doubleCoins', 'doubleXp', 'hordeNight']
 export const HOLIDAYS = ['halloween', 'christmas']
@@ -256,6 +257,7 @@ export async function publicConfig(db, { pid } = {}, now = Date.now()) {
     warnings: unseenWarnings(warnings),
     off: cleanOff(cfg?.off),
     maintenance: liveMaintenance(cfg?.maintenance),
+    poll: livePoll(cfg?.poll, now),
   }
 }
 
@@ -279,6 +281,7 @@ export async function reportPlayer(db, body = {}, now = Date.now()) {
     },
     [`reportLimits/${by}/${target}`]: now,
   })
+  await reportAlert(db, { target, targetName: body.targetName, by, byName: body.byName, where: body.where, text: body.text }, now)
   const all = (await db.get('playerReports')) || {}
   const ids = Object.keys(all).sort((a, b) => (all[a]?.at || 0) - (all[b]?.at || 0))
   if (ids.length > REPORTS_KEPT) {
@@ -992,6 +995,11 @@ const LOG_TEXT = {
   codeRemove: (b) => `Gift code deleted: ${normCode(b.code)}`,
   dailySet: (b) => `Daily Challenge for ${b.day} set: ${b.type} x${Math.floor(Number(b.target) || 0)}`,
   dailyRemove: (b) => `Daily Challenge for ${b.day} back to automatic`,
+  feedbackDelete: () => 'Deleted a feedback message',
+  errorsClear: (b) => (b.key ? 'Cleared one error from the inbox' : 'Cleared every error from the inbox'),
+  pollStart: (b) => `Poll started (${POLL_HOURS.includes(Number(b.hours)) ? Number(b.hours) : 72} h): "${cleanText(b.q, 80)}"`,
+  pollEnd: () => 'Poll ended',
+  pollDelete: () => 'Deleted a poll and its votes',
   restore: (b) => `Restored the backup from ${cleanText(b.label, 40) || (Number(b.file?.at) ? `${day(Number(b.file.at))} UTC` : '?')}`,
 }
 
@@ -1027,6 +1035,14 @@ const ACTION_FNS = {
   dailySet: (db, body) => setDaily(db, body),
   dailyRemove: (db, body) => removeDaily(db, body),
   stats: (db, body) => statsReport(db, body),
+  inbox: (db) => inboxState(db),
+  feedbackDone: (db, body) => setFeedbackDone(db, body),
+  feedbackDelete: (db, body) => deleteFeedback(db, body),
+  errorsClear: (db, body) => clearErrors(db, body),
+  pollStart: (db, body) => startPoll(db, body),
+  pollEnd: (db) => endPoll(db),
+  pollDelete: (db, body) => deletePoll(db, body),
+  alertTest: (db) => testAlert(db),
 }
 
 // Every change also adds its line to the history - after it worked, and

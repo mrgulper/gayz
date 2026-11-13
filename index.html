@@ -746,6 +746,7 @@ Escape before dawn.</p>
           <button id="credits-btn" type="button"><span>Credits</span></button>
           <button id="terms-btn" type="button"><span>Terms of Use</span></button>
           <button id="nav-privacy-link" type="button"><span>Privacy Policy</span></button>
+          <button id="nav-feedback-link" type="button"><span>Feedback</span></button>
           <a id="nav-discord-link" href="https://discord.gg/kukR72Euj6" target="_blank" rel="noopener noreferrer">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
             <span>Discord</span>
@@ -1080,10 +1081,6 @@ Escape before dawn.</p>
           </div>
 
           <h3 class="settings-section-heading" id="settings-section-account-data">Account &amp; Data</h3>
-          <div class="audio-row">
-            <label id="report-bug-label">Found a bug?</label>
-            <button id="report-bug-btn" class="mini-action-btn" type="button">Copy Bug Report</button>
-          </div>
           <div class="audio-row" id="redeem-code-row">
             <label for="redeem-code-input" id="redeem-code-label">Redeem a Code</label>
             <input type="text" id="redeem-code-input" class="nickname-input search-bar" maxlength="24" placeholder="Gift code" autocomplete="off" spellcheck="false" />
@@ -2688,6 +2685,13 @@ Escape before dawn.</p>
             <p>A few features track simple aggregate counts (like how often a setting gets opened) to understand what's actually used. These are just totals - they aren't tied to your account or identity in any readable way.</p>
             <p>The game also adds to daily totals so the developer can see how GayZ is played: how many players and visits there were that day and in which hour, whether it was played on a phone, tablet or computer, the language picked, the game mode, map type, skin and guns used in each game, where in the game players closed it (for example the homepage or a wave number), and whether the player was signed in or a guest. Only the totals are kept - no Player ID, nickname, account or IP address is stored with them, so they can't be traced back to you. You can turn this off any time in Settings with "Share Anonymous Usage Stats".</p>
 
+            <h3>Feedback, polls and error reports</h3>
+            <ul>
+              <li>Feedback you send (the Feedback link on the homepage) stores your message, whether it's an idea, bug or other, your nickname, Player ID and when you sent it, so the developer can read it and know who to follow up with. A Bug message also stores your device type, browser, screen size, language, theme and game version. Messages are kept until the developer deletes them (the newest few hundred), and a short copy may be sent as a private notification to the developer.</li>
+              <li>Voting in a quick poll stores your answer with your Player ID, so each player votes once. The developer only sees the totals for each answer.</li>
+              <li>When something in the game crashes, the error message, where in the game's code it happened, the game version and whether it was a phone or computer are sent and added to a count. No Player ID, nickname, account or IP address is stored with it. "Share Anonymous Usage Stats" in Settings turns this off too.</li>
+            </ul>
+
             <h3>What GayZ does not do</h3>
             <ul>
               <li>No ads, no ad tracking, no selling data to anyone.</li>
@@ -3387,9 +3391,9 @@ Escape before dawn.</p>
           <h3>Export/Import Save &amp; Settings Sharing</h3>
           <p>Settings &gt; Controls &gt; Save &amp; Backup: Export/Import Save to a file, plus separate Settings and Keybind codes to copy just your preferences to another device.</p>
         </div>
-        <div class="feature" data-code="POLL_ID">
-          <h3>Community Poll &amp; Bug Report Tool</h3>
-          <p>One developer-authored poll with one-vote-per-account, plus a Copy Bug Report button for sharing diagnostics.</p>
+        <div class="feature" data-code="POLL_ID openFeedback renderPoll reportError">
+          <h3>Feedback, Polls &amp; Bug Reports</h3>
+          <p>Feedback at the bottom of the homepage opens a box to send the GayZ team an Idea, a Bug or anything else (up to <span data-feature-value="feedbackMax">1000</span> characters). A Bug message adds your device, browser, screen size, language and game version by itself, so you only need to say what happened. Now and then the GayZ team asks a quick poll: it pops up once on the homepage - tap an answer to vote (one vote per player) or Not now to skip it. The Cloud Save panel also has a community poll on the next big feature, one vote per account. If something in the game crashes, a short error report (what went wrong and where in the game's code - nothing about you) is sent so it can be fixed; Settings' Share Anonymous Usage Stats turns this off too.</p>
         </div>
       </section>
 

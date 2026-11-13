@@ -61,7 +61,7 @@ export const STAFF_UID = 'gayzTeam'
 // Horde Night's extra zombies per wave.
 export const HORDE_MULT = 1.5
 
-const EMPTY = { banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, daily: {}, hidden: { maps: [], builds: [] }, ban: null, mute: null, warnings: [], off: [], maintenance: null }
+const EMPTY = { banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, daily: {}, hidden: { maps: [], builds: [] }, ban: null, mute: null, warnings: [], off: [], maintenance: null, poll: null }
 
 function readCache() {
   try {
@@ -182,6 +182,14 @@ export function switchedOffError(id) {
   const err = new Error(`switched-off:${id}`)
   err.code = 'switched-off'
   return err
+}
+
+// The team's quick poll: { id, q, options, until } or null (PlayerVoice.js
+// shows it).
+export function currentPoll() {
+  const p = config.poll
+  if (!p || typeof p !== 'object' || !p.id || !p.q || !Array.isArray(p.options) || p.options.length < 2) return null
+  return Number(p.until) && Number(p.until) <= Date.now() ? null : p
 }
 
 // Maintenance: { text, at } or null.

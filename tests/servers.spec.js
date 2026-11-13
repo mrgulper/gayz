@@ -1715,3 +1715,141 @@ test('play stats: the page counts a visit once a day and respects the setting', 
   // No Player ID or name goes out.
   expect(JSON.stringify(r.first)).not.toMatch(/pid|nickname|playerId/)
 })
+
+// Feedback, polls, error reports and alerts (api/_lib/inbox.js), in memory.
+test('inbox: feedback, polls, errors and alerts', async () => {
+  const { sendFeedback, votePoll, recordError, inboxState, startPoll, endPoll, deletePoll, setFeedbackDone, deleteFeedback, clearErrors, sendAlert, contentReportAlert, FEEDBACK_PER_HOUR, ALERTS_PER_HOUR, ERROR_SPIKES } = await import('../api/_lib/inbox.js')
+  const db = fakeServerDb()
+  const t0 = 5_000_000_000
+  // Feedback: kinds, a bug's device details, the hourly limit.
+  await sendFeedback(db, { pid: 'ME0001', nick: 'Ann', kind: 'bug', text: 'Fell through <the> floor', info: { device: 'phone', browser: 'Safari on iOS', junk: 'x' } }, t0)
+  await sendFeedback(db, { pid: 'ME0001', kind: 'idea', text: 'More pets please', info: { device: 'phone' } }, t0 + 1)
+  await expect(sendFeedback(db, { pid: 'ME0001', text: 'no' }, t0 + 2)).rejects.toMatchObject({ status: 400 })
+  for (let i = 2; i < FEEDBACK_PER_HOUR; i++) await sendFeedback(db, { pid: 'ME0001', text: `msg ${i}` }, t0 + 10 + i)
+  await expect(sendFeedback(db, { pid: 'ME0001', text: 'one too many' }, t0 + 100)).rejects.toMatchObject({ status: 429 })
+  await sendFeedback(db, { pid: 'ME0001', text: 'an hour later' }, t0 + 60 * 60 * 1000 + 1)
+  let s = await inboxState(db, t0 + 60 * 60 * 1000 + 2)
+  expect(s.feedback).toHaveLength(FEEDBACK_PER_HOUR + 1)
+  const bug = s.feedback.find((f) => f.kind === 'bug')
+  expect(bug).toMatchObject({ text: 'Fell through the floor', nick: 'Ann', pid: 'ME0001', info: { device: 'phone', browser: 'Safari on iOS' }, done: false })
+  expect(bug.info.junk).toBeUndefined()
+  expect(s.feedback.find((f) => f.kind === 'idea').info).toBeNull()
+  await setFeedbackDone(db, { id: bug.id })
+  await deleteFeedback(db, { id: s.feedback[0].id })
+  s = await inboxState(db, t0)
+  expect(s.feedback.find((f) => f.id === bug.id).done).toBe(true)
+  expect(s.feedback).toHaveLength(FEEDBACK_PER_HOUR)
+  expect(s.alertsSetUp).toBe(false)
+
+  // Polls: shown to players while on, one vote each, results by answer.
+  await expect(startPoll(db, { q: 'Best?', options: ['Only one'] }, t0)).rejects.toMatchObject({ status: 400 })
+  const { id } = await startPoll(db, { q: 'Next update?', options: ['Pets', 'Cars', ''], hours: 24 }, t0)
+  let cfg = await publicConfig(db, {}, t0 + 1)
+  expect(cfg.poll).toEqual({ id, q: 'Next update?', options: ['Pets', 'Cars'], until: t0 + 24 * 3600000 })
+  expect(await votePoll(db, { pid: 'AAA111', id, choice: 1 }, t0 + 2)).toEqual({ ok: true, already: false })
+  expect(await votePoll(db, { pid: 'AAA111', id, choice: 0 }, t0 + 3)).toEqual({ ok: true, already: true })
+  await votePoll(db, { pid: 'BBB222', id, choice: 1 }, t0 + 4)
+  await expect(votePoll(db, { pid: 'CCC333', id, choice: 5 }, t0 + 5)).rejects.toMatchObject({ status: 400 })
+  s = await inboxState(db, t0 + 6)
+  expect(s.polls[0]).toMatchObject({ id, q: 'Next update?', live: true, counts: [0, 2] })
+  await endPoll(db, t0 + 7)
+  expect((await publicConfig(db, {}, t0 + 8)).poll).toBeNull()
+  await expect(votePoll(db, { pid: 'DDD444', id, choice: 0 }, t0 + 9)).rejects.toMatchObject({ status: 409 })
+  s = await inboxState(db, t0 + 10)
+  expect(s.polls[0]).toMatchObject({ live: false, until: t0 + 7, counts: [0, 2] })
+  // A poll runs out by itself.
+  const p2 = await startPoll(db, { q: 'Again?', options: ['Yes', 'No'], hours: 24 }, t0 + 20)
+  expect((await publicConfig(db, {}, t0 + 20 + 24 * 3600000)).poll).toBeNull()
+  await deletePoll(db, { id: p2.id })
+  await deletePoll(db, { id })
+  expect((await inboxState(db, t0)).polls).toEqual([])
+  expect(db.root.pollVotes || {}).toEqual({})
+
+  // Errors: one row per kind, counted by device; numbers don't split rows.
+  await recordError(db, { msg: 'x is undefined at 123456', where: 'index-abc.js:10', device: 'phone', build: 'index-abc' }, t0)
+  await recordError(db, { msg: 'x is undefined at 999999', where: 'index-abc.js:10', device: 'computer' }, t0 + 1)
+  await recordError(db, { msg: 'other', where: 'index-abc.js:20' }, t0 + 2)
+  await expect(recordError(db, { msg: '' }, t0)).rejects.toMatchObject({ status: 400 })
+  s = await inboxState(db, t0 + 3)
+  expect(s.errors).toHaveLength(2)
+  expect(s.errors.find((e) => e.where === 'index-abc.js:10')).toMatchObject({ msg: 'x is undefined at N', count: 2, phone: 1, computer: 1, build: 'index-abc', first: t0, last: t0 + 1 })
+  await clearErrors(db, { key: s.errors[0].key })
+  expect((await inboxState(db, t0)).errors).toHaveLength(1)
+  await clearErrors(db, {})
+  expect((await inboxState(db, t0)).errors).toEqual([])
+
+  // Alerts: nothing without the webhook; with it, never pings anyone, a
+  // limit an hour, a spike once, a reported map once an hour.
+  const sent = []
+  const realFetch = globalThis.fetch
+  process.env.DISCORD_ALERT_WEBHOOK = 'https://discord.com/api/webhooks/1/abc'
+  globalThis.fetch = async (url, opts) => {
+    sent.push(JSON.parse(opts.body))
+    return { ok: true }
+  }
+  try {
+    const db2 = fakeServerDb()
+    await reportPlayer(db2, { target: 'BAD123', targetName: 'Rude', by: 'ME0001', byName: 'Me', where: 'global', text: '@everyone mean' }, t0)
+    expect(sent[0].content).toContain('Rude #BAD123')
+    expect(sent[0].allowed_mentions).toEqual({ parse: [] })
+    await contentReportAlert(db2, { kind: 'map', code: 'abc234' }, t0)
+    await contentReportAlert(db2, { kind: 'map', code: 'ABC234' }, t0 + 1000)
+    expect(sent.filter((m) => m.content.includes('ABC234'))).toHaveLength(1)
+    for (let i = 0; i < ERROR_SPIKES[0]; i++) await recordError(db2, { msg: 'boom', where: 'a.js:1' }, t0 + 2000 + i)
+    expect(sent.filter((m) => m.content.includes('New error'))).toHaveLength(1)
+    expect(sent.filter((m) => m.content.includes('Error spike'))).toHaveLength(1)
+    await sendFeedback(db2, { pid: 'ME0001', kind: 'idea', text: 'Cool idea' }, t0 + 5000)
+    expect(sent.at(-1).content).toContain('Cool idea')
+    for (let i = 0; i < ALERTS_PER_HOUR + 5; i++) await sendAlert(db2, `spam ${i}`, t0 + 6000)
+    expect(sent).toHaveLength(ALERTS_PER_HOUR)
+    expect((await ADMIN_ACTIONS.inbox(db2, {})).alertsSetUp).toBe(true)
+  } finally {
+    globalThis.fetch = realFetch
+    delete process.env.DISCORD_ALERT_WEBHOOK
+  }
+})
+
+test('feedback box, poll popup and error reports on the page', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__sent = []
+    window.__liveCfg = { banner: null, events: {}, hidden: { maps: [], builds: [] }, ban: null, off: [], maintenance: null, warnings: [], poll: { id: 'p1', q: 'Which next?', options: ['Pets', 'Cars'], until: 0 } }
+    window.__liveConfigForTests = async () => window.__liveCfg
+    window.__playerVoiceForTests = async (body) => {
+      window.__sent.push(body)
+      return { ok: true }
+    }
+  })
+  await gotoAndWaitForGame(page)
+  // The old Settings button is gone.
+  expect(await page.locator('#report-bug-btn').count()).toBe(0)
+  await page.locator('#nav-feedback-link').click()
+  const box = page.locator('#feedback-screen')
+  await expect(box).toBeVisible()
+  await box.locator('.voice-kind[data-kind="bug"]').click()
+  await page.locator('#feedback-text').fill('The zombie got stuck')
+  await page.locator('#feedback-send').click()
+  await expect(box).toBeHidden()
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g.__liveAsk()
+    g.__renderPoll()
+    const p = document.getElementById('poll-screen')
+    const shown = { visible: !!p && !p.hidden, q: p?.querySelector('.maintenance-text').textContent, options: [...(p?.querySelectorAll('.poll-option') || [])].map((b) => b.textContent) }
+    p.querySelectorAll('.poll-option')[1].click()
+    await new Promise((res) => setTimeout(res, 50))
+    g.__renderPoll()
+    // Errors: our own code is sent once; other sites' scripts never.
+    g.__reportError('boom', `${location.origin}/assets/index-x.js`, 7)
+    g.__reportError('boom', `${location.origin}/assets/index-x.js`, 7)
+    g.__reportError('addon', 'chrome-extension://abc/x.js', 1)
+    return { shown, after: p.hidden, sent: window.__sent, seen: JSON.parse(localStorage.getItem('gayz-polls-seen')) }
+  })
+  const fb = r.sent.find((b) => b.action === 'feedback')
+  expect(fb).toMatchObject({ kind: 'bug', text: 'The zombie got stuck' })
+  expect(fb.info).toMatchObject({ device: expect.any(String), browser: expect.any(String), build: expect.any(String) })
+  expect(r.shown).toEqual({ visible: true, q: 'Which next?', options: ['Pets', 'Cars'] })
+  expect(r.after).toBe(true)
+  expect(r.seen).toEqual(['p1'])
+  expect(r.sent.find((b) => b.action === 'vote')).toMatchObject({ id: 'p1', choice: 1 })
+  expect(r.sent.filter((b) => b.action === 'error')).toEqual([expect.objectContaining({ msg: 'boom', where: 'index-x.js:7' })])
+})
