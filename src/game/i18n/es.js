@@ -3773,4 +3773,12 @@ export default {
   pollThanks: "¡Gracias por votar!",
   pollEnded: "Esa encuesta ya terminó.",
   pollOffline: "No se pudo enviar tu voto: ¿tienes conexión?",
+  hofTitle: "Salón de la Fama",
+  hofHelp: "Jugadores que el equipo de GayZ honra por algo especial.",
+  hofLoading: "Cargando...",
+  hofEmpty: "Aún no hay nadie aquí: ¡quizá seas el primero!",
+  hofOffline: "No se pudo cargar el Salón de la Fama: ¿tienes conexión?",
+  ownerTag: "DUEÑO",
+  ownerJoinedVisible: "Entraste como el Dueño: no te pueden herir y vuelas (Saltar = subir, Agacharse = bajar).",
+  ownerJoinedGhost: "Entraste invisible: nadie te ve. Vuela y observa; Pausa abre el menú.",
 }

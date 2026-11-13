@@ -16,6 +16,7 @@ import { installOfflineGuards, registerServiceWorker } from './game/Offline.js'
 import { startLiveConfig } from './game/LiveConfig.js'
 import { startPlayStats } from './game/PlayStats.js'
 import { startPlayerVoice } from './game/PlayerVoice.js'
+import { bindHallOfFame } from './game/HallOfFame.js'
 
 // The homepage rain and the moving water on the road start straight away -
 // they need nothing from the game.
@@ -59,6 +60,8 @@ Promise.all([
   startPlayStats(game)
   // Feedback box, polls and error reports (PlayerVoice.js).
   startPlayerVoice(game)
+  // The Hall of Fame (homepage link + General tab).
+  bindHallOfFame(game)
 })
 
 // Keeps the whole game on the device so it plays with no internet

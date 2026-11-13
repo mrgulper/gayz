@@ -49,6 +49,7 @@ import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './Speech
 import { drawRemote, disposeRemote, cleanRemote } from './Vehicles.js'
 import { cleanPins } from './MapPins.js'
 import { explored, unpackKeys } from './ExploredMap.js'
+import { ownerTag, ownerCrown, startOwnerMode } from './OwnerDropIn.js'
 
 // Seconds between syncs.
 export const SYNC_EVERY = 0.16
@@ -88,6 +89,10 @@ export class PlayNet {
     // a party mode ('hide', 'ctf', 'koth', 'soccer' - PartyModes.js) or
     // 'td' (Tower Defense, TowerDefense.js).
     this.mode = info.mode || 'main'
+    // The owner dropping in (OwnerDropIn.js): 'own' (seen with a gold
+    // Owner tag) or 'ghost' (invisible), and the pass that let them in.
+    this.owner = info.owner === 'own' || info.owner === 'ghost' ? info.owner : null
+    this.drop = this.owner ? info.drop || null : null
     this.wave = 0
     this.players = new Map()
     this.survival = null
@@ -123,6 +128,7 @@ export class PlayNet {
 
   attach(survival) {
     this.survival = survival
+    survival.ownerMode = this.owner
     // Blocks changed before this game had a server go out too.
     this._queueMyEdits()
   }
@@ -381,6 +387,11 @@ export class PlayNet {
       explored.forgetOther(pid)
     }
     this._firstSync = false
+    // The owner dropping in: powers on once the game is running.
+    if (this.owner && !this._ownerStarted) {
+      this._ownerStarted = true
+      startOwnerMode(this.game, s, this.owner)
+    }
     if (sharedFog && newcomer) explored.startShare()
     // Their spray tags (Sprays.js), and the notes they played (Instruments.js).
     s.sprays?.syncRemote(this.players)
@@ -429,8 +440,10 @@ export class PlayNet {
     let info
     let reopened = false
     try {
-      info = await this.api.join({ ...me, serverId: this.serverId })
+      info = await this.api.join({ ...me, serverId: this.serverId, ...(this.drop ? { drop: this.drop } : {}) })
     } catch (err) {
+      // The owner never opens a server again by themselves.
+      if (this.owner) return this._lost(err?.code === 'gone' ? 'serverGoneToast' : 'serverJoinFailed')
       if (err?.code === 'full') return this._lost('serverFullToast')
       // Kicked or banned from the Console (api/_lib/admin.js).
       if (err?.code === 'banned') return this._lost('serverBannedToast')
@@ -476,7 +489,10 @@ export class PlayNet {
   _addPlayer(pid, p) {
     const B = this.survival.B
     const group = new THREE.Group()
-    group.add(nameTag(p.nick || 'Survivor', B))
+    // The owner (OwnerDropIn.js): a gold tag and a crown only the server
+    // can give.
+    if (p.own) group.add(ownerTag(p.nick || 'Survivor', B), ownerCrown(B))
+    else group.add(nameTag(p.nick || 'Survivor', B))
     this.survival.bm.scene.add(group)
     const player = { pid, nick: p.nick, group, body: null, x: 0, y: 0, z: 0, yaw: 0, tx: 0, ty: 0, tz: 0, tyaw: 0, walk: 0, seen: false, dead: false }
     this.players.set(pid, player)

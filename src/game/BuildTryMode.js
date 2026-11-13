@@ -147,6 +147,8 @@ const STEP_UP = 0.55
 const STAIR_STEP = 1.05
 const STEP_GLIDE = 14 // how fast the view catches up after stepping up
 const CLIMB = 3.4
+// Up/down speed of the owner's flying (OwnerDropIn.js), blocks per second.
+const OWNER_FLY = 9
 const MAX_FALL = 60
 const SPRINT_FOV = 8 // degrees added while sprinting
 // View Bobbing (blocks): how far walking bobs the view up and sways it
@@ -1407,6 +1409,10 @@ export class BuildTryMode {
       }
       if (spaceDown) this.vel.y = Math.max(SWIM_UP, this.vel.y - GRAVITY * 0.6 * dt)
       else this.vel.y = Math.max(this.vel.y - GRAVITY * (this.vel.y > 0 ? 0.6 : 0.2) * dt, -SWIM_SINK)
+    } else if (this.bm.survival?.active && this.bm.survival.ownerMode === 'own') {
+      // The owner dropping in flies (OwnerDropIn.js): Jump up, Crouch
+      // down, and stays put in the air otherwise.
+      this.vel.y = spaceDown ? OWNER_FLY : crouch ? -OWNER_FLY : 0
     } else {
       // Holding Space keeps hopping: jumps again the moment you land.
       if ((this._jumpBuffer > 0 || (spaceDown && this.onGround)) && this._coyote > 0) {
