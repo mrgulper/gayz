@@ -6,7 +6,7 @@
 // multiplayer moved to this setup too).
 import crypto from 'node:crypto'
 import { initializeApp, cert, getApps, getApp } from 'firebase-admin/app'
-import { getDatabase } from 'firebase-admin/database'
+import { getDatabase, ServerValue } from 'firebase-admin/database'
 
 const DATABASE_URL = 'https://gayz-aa69c-default-rtdb.firebaseio.com'
 
@@ -53,6 +53,11 @@ export function dbAdapter() {
     },
     async update(paths) {
       if (Object.keys(paths).length) await db.ref().update(paths)
+    },
+    // { path: n } -> adds n to each number in one write (missing = 0).
+    async increment(paths) {
+      const keys = Object.keys(paths)
+      if (keys.length) await db.ref().update(Object.fromEntries(keys.map((k) => [k, ServerValue.increment(paths[k])])))
     },
     // fn(current) -> new value, or undefined to leave it. { committed }.
     async transaction(path, fn) {

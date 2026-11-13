@@ -58,6 +58,7 @@
 import { ServerError } from './servers.js'
 import { DAILY_TEMPLATES, challengeFor } from '../../src/game/DailyChallenge.js'
 import { MARKET_SKINS } from '../../src/game/MarketSkins.js'
+import { statsReport } from './playStats.js'
 
 export const EVENT_IDS = ['doubleCoins', 'doubleXp', 'hordeNight']
 export const HOLIDAYS = ['halloween', 'christmas']
@@ -1025,6 +1026,7 @@ const ACTION_FNS = {
   codeRemove: (db, body) => removeGiftCode(db, body),
   dailySet: (db, body) => setDaily(db, body),
   dailyRemove: (db, body) => removeDaily(db, body),
+  stats: (db, body) => statsReport(db, body),
 }
 
 // Every change also adds its line to the history - after it worked, and

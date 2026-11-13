@@ -29,6 +29,8 @@ export const CLOUD_BASE_KEY = 'gayz-cloud-base'
 export const CLOUD_BASE_UID_KEY = 'gayz-cloud-base-uid'
 export const DEVICE_ONLY_KEYS = new Set([
   'gayz-cloud-last-sync',
+  // PlayStats.js: the day this device was last counted.
+  'gayz-stats-day',
   'gayz-last-local-change',
   CLOUD_BASE_KEY,
   CLOUD_BASE_UID_KEY,

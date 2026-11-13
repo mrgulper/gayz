@@ -404,6 +404,8 @@ export class BuildSurvival {
     if (bm.tryMode.active) bm.toggleTryMode()
     if (bm.menuOpen) bm.toggleMenu()
     this.fromMenu = fromMenu
+    // Anonymous play counts (PlayStats.js).
+    if (fromMenu) bm.game?._playStats?.countRun(this)
     const start = this._findBlocks('playerstart')[0] || this._defaultStart()
     if (start) {
       const [x, y, z] = start
@@ -1057,6 +1059,7 @@ export class BuildSurvival {
     if (switching) this._ammoByWeapon[this.weaponId] = { mag: this.mag, reserve: this.reserve }
     this.weaponId = id
     this.bm.game?._setPlayWeapon?.(id)
+    if (this.fromMenu) this.bm.game?._playStats?.countWeapon(id)
     this._nextShotAt = 0
     this._reloadLeft = 0
     // Knives never run out, so there's nothing to keep for them.

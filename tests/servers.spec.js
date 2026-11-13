@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { gotoAndWaitForGame } from './helpers.js'
 import { fakeServerDb } from './fakeServerDb.js'
+import { recordStats } from '../api/_lib/playStats.js'
 import { PROVIDERS, isCallback, missingKeys, firebaseUid, cleanProfile, sameState, resultPage, siteOrigin } from '../api/_lib/oauth.js'
 import { createServer, joinServer, listServers, syncServer, leaveServer, MAX_PLAYERS, STALE_MS, JOIN_GRACE_MS } from '../api/_lib/servers.js'
 import { publicConfig, reportPlayer, adminState, setBanner, setEvents, kickPlayer, unban, hideContent, dismissContentReport, dismissPlayerReport, seenWarning, redeemCode, CODE_TRIES_PER_HOUR, REPORT_GAP_MS, ADMIN_ACTIONS } from '../api/_lib/admin.js'
@@ -1639,4 +1640,78 @@ test('redeem box and an edited daily challenge', async ({ page }) => {
   expect(r.toast1).toBe('Code redeemed: 300 coins + 1 skin(s) (see Inventory)!')
   expect(r.toast2).toBe('You already used that code.')
   expect(r.label).toBe('Redeem a Code')
+})
+
+test('play stats: only known counts are kept, the owner report adds days', async () => {
+  const db = fakeServerDb()
+  const t0 = Date.parse('2026-11-13T15:00:00Z')
+  await expect(recordStats(db, { who: 'x', hits: [['sum', 'visits']] }, t0)).rejects.toThrow()
+  await expect(recordStats(db, { who: 'g', hits: [] }, t0)).rejects.toThrow()
+  await expect(recordStats(db, { who: 'g', hits: Array(41).fill(['sum', 'visits']) }, t0)).rejects.toThrow()
+  await recordStats(db, { who: 'g', hits: [['sum', 'visits'], ['sum', 'visits'], ['sum', 'players'], ['hour', '15'], ['device', 'phone'], ['lang', 'es'], ['mode', 'classic'], ['map', 'city'], ['skin', 'alisa'], ['weapon', 'rifle'], ['weapon', 'rifle'], ['quit', 'w3'], ['mode', 'hackerMode'], ['lang', '../x'], ['nope', 'x'], 'junk'] }, t0)
+  await recordStats(db, { who: 's', hits: [['sum', 'visits'], ['mode', 'classic']] }, t0)
+  await recordStats(db, { who: 'g', hits: [['sum', 'visits']] }, t0 - 86400000)
+  const g = db.root.stats['2026-11-13'].g
+  // "visits" counts once per message; guns can add up within one.
+  expect(g).toEqual({ sum: { visits: 1, players: 1 }, hour: { 15: 1 }, device: { phone: 1 }, lang: { es: 1 }, mode: { classic: 1 }, map: { city: 1 }, skin: { alisa: 1 }, weapon: { rifle: 2 }, quit: { w3: 1 } })
+  expect(db.root.stats['2026-11-13'].s).toEqual({ sum: { visits: 1 }, mode: { classic: 1 } })
+  const rep = await ADMIN_ACTIONS.stats(db, { days: 7 })
+  expect(rep.days.length).toBe(7)
+  expect(rep.days[6].day).toBe(new Date().toISOString().slice(0, 10))
+  const r2 = await (await import('../api/_lib/playStats.js')).statsReport(db, { days: 7 }, t0)
+  expect(r2.days.map((d) => d.day)).toEqual(['2026-11-07', '2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13'])
+  expect(r2.days[5].g.sum.visits).toBe(1)
+  expect(r2.days[6].s.sum.visits).toBe(1)
+  expect(r2.cats.mode).toContain('classic')
+})
+
+test('play stats: the page counts a visit once a day and respects the setting', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__statsSent = []
+    window.__playStatsForTests = (body) => window.__statsSent.push(body)
+    try { localStorage.removeItem('gayz-stats-day') } catch { /* fresh page */ }
+  })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    window.__statsSent.length = 0
+    g.__statsHello()
+    const first = window.__statsSent.splice(0)
+    g.__statsHello()
+    const second = window.__statsSent.splice(0)
+    g._playStats.countWeapon('rifle')
+    g.__statsFlush()
+    const gun = window.__statsSent.splice(0)
+    g._playStats.countRun({ cfg: { mode: 'bossHunt' }, bm: { activeSlot: 'map3' }, net: null })
+    g._playStats.countRun({ cfg: { mode: 'infection' }, bm: { activeSlot: 'map3' }, net: {} })
+    g.__statsFlush()
+    const runs = window.__statsSent.splice(0)
+    g.settings.shareTelemetry = false
+    g.__statsHello()
+    g._playStats.countWeapon('rifle')
+    g.__statsFlush()
+    const off = window.__statsSent.splice(0)
+    g.settings.shareTelemetry = true
+    return { first, second, gun, off, runs, place: g.__statsQuitPlace(), day: localStorage.getItem('gayz-stats-day') }
+  })
+  expect(r.first.length).toBe(1)
+  expect(r.first[0].action).toBe('stats')
+  expect(r.first[0].who).toBe('g')
+  const keys = r.first[0].hits.map((h) => h.join(':'))
+  expect(keys).toContain('sum:visits')
+  expect(keys).toContain('sum:players')
+  expect(keys).toContain('device:computer')
+  expect(keys).toContain('lang:en')
+  expect(keys.some((k) => /^hour:\d+$/.test(k))).toBe(true)
+  // Same day again: a visit, not another player.
+  const keys2 = r.second[0].hits.map((h) => h.join(':'))
+  expect(keys2).toContain('sum:visits')
+  expect(keys2).not.toContain('sum:players')
+  expect(r.gun[0].hits).toEqual([['weapon', 'rifle']])
+  expect(r.off).toEqual([])
+  expect(r.runs[0].hits).toEqual([['sum', 'runs'], ['mode', 'bossHunt'], ['map', 'city'], ['skin', 'default'], ['sum', 'runs'], ['mode', 'infection'], ['map', 'server'], ['skin', 'default']])
+  expect(r.place).toBe('home')
+  expect(r.day).toBe(new Date().toISOString().slice(0, 10))
+  // No Player ID or name goes out.
+  expect(JSON.stringify(r.first)).not.toMatch(/pid|nickname|playerId/)
 })
