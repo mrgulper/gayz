@@ -3725,6 +3725,7 @@ export default {
   liveGiftGems: "{n} gemas",
   liveGiftGot: "¡Regalo sorpresa del Equipo GayZ: {what}!",
   liveGiftGotNote: "¡Regalo sorpresa del Equipo GayZ: {what}! {text}",
+  liveWorldDrop: "¡El Equipo GayZ soltó un evento sorpresa en tu mundo!",
   chatStaffName: "Equipo GayZ",
   livePausedNow: "En pausa:",
   liveSwitchedOff: "{what} está en pausa un momento mientras arreglamos algo. ¡Inténtalo pronto!",

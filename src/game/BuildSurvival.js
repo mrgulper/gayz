@@ -16,7 +16,7 @@
 // PATH_REFRESH seconds; each zombie walks to whichever neighboring cell is
 // one step closer to you.
 import * as THREE from 'three'
-import { coinMult as liveCoinMult, hordeMult } from './LiveConfig.js'
+import { coinMult as liveCoinMult, hordeMult, tune } from './LiveConfig.js'
 import { shakeScale, bleed } from './GraphicsSettings.js'
 import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { SKELETON_KINDS, loadSkeletons, makeSkeleton, skeletonsReady } from './SkeletonModels.js'
@@ -1883,9 +1883,9 @@ export class BuildSurvival {
       this._wornByZombie(z)
       this.onboard?.onKill()
       // Zombie Goo for crafting (PlayCrafting.js).
-      if (Math.random() < GOO_CHANCE) this._drops?.spawnItem('zombieGoo', z.x, z.y + 1, z.z)
+      if (Math.random() < GOO_CHANCE * tune('drops')) this._drops?.spawnItem('zombieGoo', z.x, z.y + 1, z.z)
       // A torn Map Piece now and then (TreasureMaps.js).
-      if (Math.random() < PIECE_CHANCE) this._drops?.spawnItem('mapPiece', z.x, z.y + 1.2, z.z)
+      if (Math.random() < PIECE_CHANCE * tune('drops')) this._drops?.spawnItem('mapPiece', z.x, z.y + 1.2, z.z)
       this.damageNumbers?.coinsAt(z, this._coinsEarned - coins, ZOMBIE_HEIGHT)
     }
     this.bm.specials.onKill(z)
@@ -2916,6 +2916,8 @@ export class BuildSurvival {
       speed *= zb.speedMult || 1
     }
     if (zb.monster) speed *= zb.speedMult || 1
+    // The team's live Zombie Speed tuning (LiveConfig.js tune).
+    speed *= tune('zombieSpeed')
     // Out in Shrinking Zone's toxic fog they run faster (ShrinkZone.js).
     if (this.zone) speed *= this.zone.zombieMult(zb)
     if (zb.burn > 0) {

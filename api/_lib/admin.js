@@ -55,9 +55,17 @@
 //   codeTries/{pid} { n, at }  wrong codes typed this hour (guess limit)
 //   liveConfig.daily/{YYYY-MM-DD} { type, target, coins, xp } - that
 //                  day's Daily Challenge, instead of the automatic pick
+//   Tuning and world drops (2026-11-13):
+//   liveConfig.tuning { zombieSpeed, drops, coins, shopPrices, homePrices,
+//                  until (0 = until reset), at } - live multipliers
+//                  (1 = normal, limits in src/game/LiveLists.js)
+//   liveConfig.worldDrop { id, kind, who ('all' | 'servers'), until, at }
+//                  - a world event / disaster (or 'random') every running
+//                  Zombie Survival game starts once before `until`
 import { ServerError } from './servers.js'
 import { DAILY_TEMPLATES, challengeFor } from '../../src/game/DailyChallenge.js'
 import { MARKET_SKINS } from '../../src/game/MarketSkins.js'
+import { WORLD_EVENT_KINDS, DISASTER_KINDS, TUNE_LIMITS } from '../../src/game/LiveLists.js'
 import { statsReport } from './playStats.js'
 import { helperList, addHelper, removeHelper, helperLogin, helperReports, checkReport, reportChecks } from './helpers.js'
 import { languageReport } from './langCheck.js'
@@ -237,6 +245,73 @@ export async function onlineClosed(db) {
   return cfg?.off?.online === true || !!liveMaintenance(cfg?.maintenance)
 }
 
+// ---- Tuning and world drops ----
+export const TUNE_IDS = Object.keys(TUNE_LIMITS)
+// Timers: up to 90 days (0 = until reset); a drop reaches games for up to
+// a day.
+export const TUNE_MAX_MINUTES = 90 * 1440
+export const DROP_MAX_MINUTES = 1440
+export const DROP_KINDS = ['random', ...WORLD_EVENT_KINDS, ...DISASTER_KINDS]
+
+function tuneValue(id, v) {
+  const n = Math.round(Number(v) * 100) / 100
+  const [lo, hi] = TUNE_LIMITS[id]
+  return Number.isFinite(n) && n >= lo && n <= hi ? n : null
+}
+
+// The tuning players get: null when off, ended or all normal.
+function liveTuning(tu, now) {
+  if (!tu || typeof tu !== 'object') return null
+  const until = Number(tu.until) || 0
+  if (until && until <= now) return null
+  const out = { until }
+  let any = false
+  for (const id of TUNE_IDS) {
+    const v = tuneValue(id, tu[id])
+    out[id] = v ?? 1
+    if (out[id] !== 1) any = true
+  }
+  return any ? out : null
+}
+
+function liveWorldDrop(d, now) {
+  if (!d || typeof d !== 'object' || !(Number(d.until) > now) || !validCode(String(d.id)) || !DROP_KINDS.includes(d.kind)) return null
+  return { id: String(d.id), kind: d.kind, who: d.who === 'servers' ? 'servers' : 'all', until: Number(d.until), at: Number(d.at) || 0 }
+}
+
+// Save the tuning ({ zombieSpeed, ... } multipliers, `minutes` 0 = until
+// reset), or `reset: true` for everything back to normal.
+export async function setTuning(db, { values, minutes, reset } = {}, now = Date.now()) {
+  if (reset === true) {
+    await db.update({ 'liveConfig/tuning': null })
+    return { ok: true }
+  }
+  const mins = Math.floor(Number(minutes))
+  if (!Number.isFinite(mins) || mins < 0 || mins > TUNE_MAX_MINUTES || (mins > 0 && mins < 5)) throw new ServerError(400, 'bad-time')
+  const tu = { until: mins ? now + mins * 60000 : 0, at: now }
+  for (const id of TUNE_IDS) {
+    const v = tuneValue(id, values?.[id] ?? 1)
+    if (v === null) throw new ServerError(400, 'bad-tuning')
+    tu[id] = v
+  }
+  await db.update({ 'liveConfig/tuning': tu })
+  return { ok: true }
+}
+
+// Drop a world event / disaster into running games for `minutes`, or
+// `cancel: true` to stop it reaching more games.
+export async function worldDrop(db, { kind, who, minutes, cancel } = {}, now = Date.now()) {
+  if (cancel === true) {
+    await db.update({ 'liveConfig/worldDrop': null })
+    return { ok: true }
+  }
+  const mins = Math.floor(Number(minutes))
+  if (!DROP_KINDS.includes(kind)) throw new ServerError(400, 'bad-kind')
+  if (!Number.isFinite(mins) || mins < 1 || mins > DROP_MAX_MINUTES) throw new ServerError(400, 'bad-time')
+  await db.update({ 'liveConfig/worldDrop': { id: `${now}`, kind, who: who === 'servers' ? 'servers' : 'all', until: now + mins * 60000, at: now } })
+  return { ok: true }
+}
+
 // What every player's page gets (api/live.js). Only the asker's own ban,
 // never the list.
 export async function publicConfig(db, { pid } = {}, now = Date.now()) {
@@ -262,6 +337,8 @@ export async function publicConfig(db, { pid } = {}, now = Date.now()) {
     off: cleanOff(cfg?.off),
     maintenance: liveMaintenance(cfg?.maintenance),
     poll: livePoll(cfg?.poll, now),
+    tuning: liveTuning(cfg?.tuning, now),
+    worldDrop: liveWorldDrop(cfg?.worldDrop, now),
   }
 }
 
@@ -368,6 +445,10 @@ export async function adminState(db, fs, now = Date.now()) {
     staffMsg: cfg?.staffMsg && typeof cfg.staffMsg === 'object' ? { text: cleanText(cfg.staffMsg.text, STAFF_MAX), at: Number(cfg.staffMsg.at) || 0, error: cleanText(cfg.staffMsg.error, 200) } : null,
     gift: liveGift(cfg?.gift, now),
     mapWeek: liveMapWeek(cfg?.mapWeek),
+    tuning: liveTuning(cfg?.tuning, now),
+    tuneLimits: TUNE_LIMITS,
+    worldDrop: liveWorldDrop(cfg?.worldDrop, now),
+    dropKinds: { events: WORLD_EVENT_KINDS, disasters: DISASTER_KINDS },
     codes: await codeList(db, now),
     skins: GIFT_SKINS,
     daily: dailyDays(cfg?.daily, now),
@@ -963,6 +1044,8 @@ const WHAT_NAMES = { doubleCoins: 'Double Coins', doubleXp: 'Double XP', hordeNi
 
 const FEATURE_NAMES = { online: 'Online servers', chat: 'Chat', market: 'Market', sharing: 'Map & build sharing', gallery: 'Gallery', leaderboards: 'Leaderboards' }
 const BAN_NAMES = { '-1': 'Kicked', 60: 'Banned 1 hour', 1440: 'Banned 1 day', 10080: 'Banned 7 days', 0: 'Banned forever' }
+const TUNE_NAMES = { zombieSpeed: 'Zombie speed', drops: 'Drops', coins: 'Coins', shopPrices: 'In-game shop', homePrices: 'Homepage shop' }
+const minutesText = (m) => (m % 1440 === 0 ? `${m / 1440} d` : m % 60 === 0 ? `${m / 60} h` : `${m} min`)
 const day = (ms) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ')
 
 // The history line for each change (reads like state/backup log nothing).
@@ -1007,6 +1090,8 @@ const LOG_TEXT = {
   pollEnd: () => 'Poll ended',
   pollDelete: () => 'Deleted a poll and its votes',
   helperAdd: (b) => `Helper account made: ${cleanText(b.name, 24).replace(/\n/g, ' ')}`,
+  tuning: (b) => (b.reset === true ? 'Tuning back to normal' : `Tuning saved: ${TUNE_IDS.map((id) => `${TUNE_NAMES[id]} ${Math.round((Number(b.values?.[id] ?? 1) || 0) * 100)}%`).join(', ')}${Number(b.minutes) ? ` for ${minutesText(Number(b.minutes))}` : ' until reset'}`),
+  worldDrop: (b) => (b.cancel === true ? 'World event drop stopped' : `Dropped ${b.kind === 'random' ? 'a random event' : b.kind} into ${b.who === 'servers' ? 'every server' : 'every game'} (for ${minutesText(Number(b.minutes))})`),
   helperRemove: (b) => `Helper account removed${cleanText(b.name, 24) ? `: ${cleanText(b.name, 24)}` : ''}`,
   restore: (b) => `Restored the backup from ${cleanText(b.label, 40) || (Number(b.file?.at) ? `${day(Number(b.file.at))} UTC` : '?')}`,
 }
@@ -1052,6 +1137,8 @@ const ACTION_FNS = {
   pollDelete: (db, body) => deletePoll(db, body),
   alertTest: (db) => testAlert(db),
   helperAdd: (db, body) => addHelper(db, body),
+  tuning: (db, body) => setTuning(db, body),
+  worldDrop: (db, body) => worldDrop(db, body),
   helperRemove: (db, body) => removeHelper(db, body),
   languages: () => languageReport(),
   // A helper's own buttons: each checks the helper's password itself
