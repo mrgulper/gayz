@@ -8,6 +8,7 @@
 // stand-in for each, so callers are unchanged.
 import * as ChatUI from './ChatUI.js'
 import { HORDE_MULT } from './LiveConfig.js'
+import { FEEDBACK_MAX } from './PlayerVoice.js'
 import { ACHIEVEMENTS } from './Achievements.js'
 import { CHANGELOG_LAST_VIEWED_KEY, Game, HOWTOPLAY_STEPS, LOGIN_CALENDAR_DAYS, MARKET_FEE_RATE, MAX_GOALS, PLAY_META_UPGRADES, PRESTIGE_BONUS_PERCENT, PRESTIGE_COST_STEP, SUPPORTED_LANGUAGE_CODES, UPDATE_BANNER_FADE_MS, UPDATE_BANNER_SHOW_MS, WHATS_NEW_SEEN_KEY, WHATS_NEW_VERSION, saveSettings } from './Game.js'
 import { BIOMES } from './OpenWorld.js'
@@ -374,6 +375,7 @@ export function _featureValues(_game) {
   return {
     // The Console's Horde Night switch (LiveConfig.js).
     hordeNightPercent: Math.round((HORDE_MULT - 1) * 100),
+    feedbackMax: FEEDBACK_MAX,
     constellations: CONSTELLATION_COUNT,
     goals: MAX_GOALS,
     startTraps: START_TRAPS,

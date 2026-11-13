@@ -2360,7 +2360,6 @@ export class Game {
     this.importSettingsCodeInput = document.getElementById('import-settings-code-input')
     this.importSettingsCodeApplyBtn = document.getElementById('import-settings-code-apply-btn')
     this.printStatsSheet = document.getElementById('print-stats-sheet')
-    this.reportBugBtn = document.getElementById('report-bug-btn')
     this.rebindingAction = null
     this.settingsOpen = false
     this.settings = loadSettings()
@@ -3160,29 +3159,6 @@ export class Game {
   _updateStorageUsageLine() { return OnlineUI._updateStorageUsageLine(this) }
 
 
-  // In-game bug report (batch feature) - copies a plain-text report to the
-  // clipboard (same navigator.clipboard pattern as the other Copy
-  // buttons) with real live state auto-attached, so a player doesn't have to
-  // remember to describe what they were doing - reads it straight off the
-  // game/kill-feed rather than needing a new "recent actions" log of its
-  // own. No backend - the player pastes it into Discord themselves (see
-  // the game's own Terms/Credits, same support channel already listed
-  // there), not a silent submission anywhere.
-  _reportBug() {
-    const report = [
-      `GayZ bug report`,
-      `Coins: ${this.coins}  Page: ${location.pathname}  Map Editor open: ${this.buildMode.active ? 'yes' : 'no'}`,
-      `--- describe what happened above this line ---`,
-    ].join('\n')
-    if (!navigator.clipboard) {
-      this._showLoreToast(t('clipboardCopyUnsupported'))
-      return
-    }
-    navigator.clipboard.writeText(report)
-      .then(() => this._showLoreToast(t('bugReportCopied')))
-      .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
-  }
-
   _renderControlsGrid() { return SettingsUI._renderControlsGrid(this) }
 
   _startRebind(btn, action) { return SettingsUI._startRebind(this, btn, action) }
@@ -3947,6 +3923,8 @@ export class Game {
     if (termsBtnEl) termsBtnEl.querySelector('span').textContent = t('termsBtn')
     const navPrivacyEl = document.getElementById('nav-privacy-link')
     if (navPrivacyEl) navPrivacyEl.querySelector('span').textContent = t('creditsPrivacyLink')
+    const navFeedbackEl = document.getElementById('nav-feedback-link')
+    if (navFeedbackEl) navFeedbackEl.querySelector('span').textContent = t('navLinkFeedback')
     if (this.friendsBtn) this.friendsBtn.querySelector('span').textContent = t('friendsBtn')
     if (this.friendsSignedOutDesc) this.friendsSignedOutDesc.textContent = t('friendsSignedOutDesc')
     if (this.friendsSigninBtn) this.friendsSigninBtn.textContent = t('signInToUseFriends')
@@ -4007,10 +3985,8 @@ export class Game {
     document.getElementById('weekly-reminder-label').textContent = t('weeklyReminderLabel')
     document.getElementById('low-currency-label').textContent = t('lowCurrencyLabel')
     document.getElementById('backup-reminder-label').textContent = t('backupReminderLabel')
-    document.getElementById('report-bug-label').textContent = t('reportBugLabel')
     document.getElementById('redeem-code-label').textContent = t('redeemCodeLabel')
     document.getElementById('redeem-code-btn').textContent = t('redeemCodeBtn')
-    if (this.reportBugBtn) this.reportBugBtn.textContent = t('reportBugBtn')
     document.getElementById('save-size-label').textContent = t('saveSizeLabel')
     document.getElementById('clear-cache-label').textContent = t('clearCacheLabel')
     document.getElementById('clear-cache-btn').textContent = t('clearCacheLabel')

@@ -1,0 +1,68 @@
+# Site check: every 10 minutes, makes sure gayz.vercel.app answers (the
+# homepage and its live data). When it stops answering, and again when it
+# comes back, it posts once to a private Discord channel through the
+# DISCORD_ALERT_WEBHOOK repository secret (Settings > Secrets and
+# variables > Actions). Without the secret it only checks.
+#
+# The last result ("up" or "down") is remembered in the Actions cache,
+# saved only when it changes, so each outage sends one "down" and one
+# "back up" message.
+name: Site check
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Last result
+        uses: actions/cache/restore@v4
+        with:
+          path: .site-state
+          key: site-state-${{ github.run_id }}
+          restore-keys: site-state-
+
+      - name: Check the site
+        id: check
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_ALERT_WEBHOOK }}
+        run: |
+          prev=$(cat .site-state 2>/dev/null || echo up)
+          now=down
+          why=''
+          # Three tries 30 seconds apart, so one slow answer isn't an outage.
+          for i in 1 2 3; do
+            page=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://gayz.vercel.app/ || true)
+            api=$(curl -s -o live.json -w '%{http_code}' --max-time 20 -X POST -H 'content-type: application/json' -d '{}' https://gayz.vercel.app/api/live || true)
+            if [ "$page" = 200 ] && [ "$api" = 200 ] && grep -q '"events"' live.json; then now=up; break; fi
+            why="homepage answered $page, live data answered $api"
+            [ "$i" -lt 3 ] && sleep 30
+          done
+          echo "Was $prev, now $now. $why"
+          send() {
+            [ -z "$WEBHOOK" ] && return 0
+            curl -s -o /dev/null --max-time 15 -X POST -H 'content-type: application/json' \
+              -d "{\"content\":\"$1\",\"allowed_mentions\":{\"parse\":[]}}" "$WEBHOOK" || true
+          }
+          if [ "$now" = down ] && [ "$prev" = up ]; then send "🔴 **GayZ is DOWN** - $why. Checking again every 10 minutes."; fi
+          if [ "$now" = up ] && [ "$prev" = down ]; then send "🟢 **GayZ is back up.**"; fi
+          echo "$now" > .site-state
+          if [ "$now" != "$prev" ]; then echo "changed=yes" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Remember the result
+        if: steps.check.outputs.changed == 'yes'
+        uses: actions/cache/save@v4
+        with:
+          path: .site-state
+          key: site-state-${{ github.run_id }}
