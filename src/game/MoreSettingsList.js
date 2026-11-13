@@ -1,5 +1,5 @@
 // Settings added from Gaymi's 80-idea list (2026-11-11; the list is in
-// docs/notes/ui-and-menu.md > "Settings ideas (to do)"). One line each:
+// docs/notes/ui-and-menu/settings-ideas-todo.md). One line each:
 // MoreSettings.js builds the row in Settings, loads/saves the value,
 // adds it to that tab's Reset and to the Settings Code, and calls the
 // hook-ups registered with onMoreSetting. No imports here on purpose -

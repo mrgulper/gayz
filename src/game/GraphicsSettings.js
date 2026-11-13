@@ -1,5 +1,5 @@
 // Settings > Graphics > Effects (ideas 39-50 of the 2026-11-11 settings
-// list, docs/notes/ui-and-menu.md > "Settings ideas (to do)"). The rows
+// list, docs/notes/ui-and-menu/settings-ideas-todo.md). The rows
 // come from MoreSettingsList.js; this file is what they do:
 //   - small readers the game asks every time it needs one (shakeScale,
 //     particleKeep, grassOn, cloudsOn, weatherOn, handFov), so a change
