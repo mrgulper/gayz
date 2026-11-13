@@ -20,6 +20,14 @@
 //   serverPids/{id}/{pid}     the player's own Player ID (the Console's
 //                             kick/ban, admin.js; never sent to others)
 //
+// The owner dropping in (2026-11-13): a join with a valid `drop` pass
+// (admin.js dropTicket - only the owner's tools can make one) skips the
+// ban / full / locked checks and marks the player `own` (seen by everyone
+// with a gold Owner tag and crown, which nobody can fake) or `ghost`
+// (invisible: never sent to the others, never counted, never the host
+// while a real player is there, and its blocks, shots and chat bubbles
+// are dropped).
+//
 // A player is a public id (seen by everyone, keys their avatar) plus a
 // secret token only they hold - every write needs both, so knowing
 // someone's id isn't enough to move them or speak for them.
@@ -38,7 +46,7 @@
 // (one per cell, the latest wins, numbered so each player only gets the
 // ones they haven't had yet).
 import { randomUUID, randomInt } from 'node:crypto'
-import { isBanned, isMuted, onlineClosed } from './admin.js'
+import { isBanned, isMuted, onlineClosed, dropTicket } from './admin.js'
 
 export const MAX_PLAYERS = 8
 // No sync for this long = gone (closed the tab, lost connection).
@@ -108,13 +116,18 @@ function livePlayers(server, now) {
   return Object.entries(server?.players || {}).filter(([, p]) => p && now - (p.t || 0) < STALE_MS)
 }
 
+// The live players everyone can see (an invisible owner isn't one).
+function realPlayers(server, now) {
+  return livePlayers(server, now).filter(([, p]) => !p.ghost)
+}
+
 export function summary(id, server, now) {
   const live = livePlayers(server, now)
   return {
     id,
     name: server.name,
     mode: server.mode,
-    players: live.length,
+    players: live.filter(([, p]) => !p.ghost).length,
     max: MAX_PLAYERS,
     wave: server.wave || 0,
     createdAt: server.createdAt || 0,
@@ -136,6 +149,8 @@ export async function listServers(db, now = Date.now()) {
     }
     // A solo game ready for friends (PlayNet lobby): joined by its link only.
     if (server.hidden) continue
+    // Only an invisible owner left in it: not listed.
+    if (!realPlayers(server, now).length) continue
     // The host's Who Can Join setting (Settings > Social, 2026-11-11):
     // Link Only and Nobody keep it off the list.
     if (server.access) continue
@@ -205,30 +220,38 @@ export async function createServer(db, { name, mode, nickname, skin, world, id: 
   return { serverId: id, playerId: pid, token, host: pid, mode: m }
 }
 
-export async function joinServer(db, { serverId, nickname, skin, pid: playerPid } = {}, now = Date.now()) {
+export async function joinServer(db, { serverId, nickname, skin, pid: playerPid, drop } = {}, now = Date.now()) {
   if (!validId(serverId)) throw new ServerError(400, 'bad-request')
-  if (await isBanned(db, playerPid, now)) throw new ServerError(403, 'banned')
-  if (await onlineClosed(db)) throw new ServerError(503, 'switched-off')
+  // The owner dropping in (see the header): 'own' or 'ghost', else null.
+  const owner = drop ? await dropTicket(db, drop, serverId, now) : null
+  if (!owner && (await isBanned(db, playerPid, now))) throw new ServerError(403, 'banned')
+  if (!owner && (await onlineClosed(db))) throw new ServerError(503, 'switched-off')
   const server = await db.get(`servers/${serverId}`)
   if (!server) throw new ServerError(404, 'gone')
   const live = livePlayers(server, now)
   if (!live.length) throw new ServerError(404, 'gone')
-  if (live.length >= MAX_PLAYERS) throw new ServerError(409, 'full')
-  if (server.access === 'nobody') throw new ServerError(403, 'locked')
+  const real = live.filter(([, p]) => !p.ghost)
+  if (!owner && real.length >= MAX_PLAYERS) throw new ServerError(409, 'full')
+  if (!owner && server.access === 'nobody') throw new ServerError(403, 'locked')
   const pid = newId(10)
   const token = randomUUID().replace(/-/g, '')
+  const player = newPlayer(nickname, now)
+  if (owner === 'ghost') player.ghost = true
+  if (owner === 'own') player.own = true
   const updates = {
-    [`servers/${serverId}/players/${pid}`]: newPlayer(nickname, now),
+    [`servers/${serverId}/players/${pid}`]: player,
     [`serverSecrets/${serverId}/${pid}`]: token,
   }
-  if (validId(playerPid)) updates[`serverPids/${serverId}/${pid}`] = playerPid
-  // A host that went quiet hands over to whoever is still here.
+  if (validId(playerPid) && owner !== 'ghost') updates[`serverPids/${serverId}/${pid}`] = playerPid
+  // A host that went quiet hands over to whoever is still here (a real
+  // player first).
   const hostLive = live.some(([p]) => p === server.host)
-  if (!hostLive) updates[`servers/${serverId}/host`] = live[0][0]
+  const newHost = (real[0] || live[0])[0]
+  if (!hostLive) updates[`servers/${serverId}/host`] = newHost
   const s = skinOf(skin)
-  if (s) updates[`serverSkins/${serverId}/${pid}`] = s
+  if (s && owner !== 'ghost') updates[`serverSkins/${serverId}/${pid}`] = s
   await db.update(updates)
-  return { serverId, playerId: pid, token, host: hostLive ? server.host : live[0][0], name: server.name, mode: server.mode, world: server.world || null }
+  return { serverId, playerId: pid, token, host: hostLive ? server.host : newHost, name: server.name, mode: server.mode, world: server.world || null, owner }
 }
 
 async function checkToken(db, serverId, playerId, token) {
@@ -589,6 +612,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   const me = server.players?.[playerId]
   if (!me) throw new ServerError(403, 'not-in-server')
   const base = `servers/${serverId}`
+  // An invisible owner (see the header) changes nothing anyone can see.
+  const ghost = !!me.ghost
   const s = body.state || {}
   const updates = {
     [`${base}/players/${playerId}/x`]: num(s.x, -1e5, 1e5),
@@ -634,8 +659,15 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   // A host whose tab is hidden runs nothing (hidden tabs don't draw), so
   // anyone who is actually playing takes the zombies over.
+  // An invisible owner only takes over when no real player is left, and
+  // hands back to the first real player who syncs.
   let host = server.host
-  if (!live.has(host) || (host !== playerId && server.players?.[host]?.away && !s.away)) {
+  const hostP = server.players?.[host]
+  const realLeft = [...live].some((pid) => pid !== playerId && !server.players?.[pid]?.ghost)
+  const takeOver = ghost
+    ? !live.has(host) && !realLeft
+    : !live.has(host) || (host !== playerId && ((hostP?.away && !s.away) || hostP?.ghost))
+  if (takeOver) {
     host = playerId
     updates[`${base}/host`] = host
   }
@@ -648,7 +680,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   // Chat-muted from the Console: the bubble is stored empty (nobody sees
   // it, and its number stops the page's resends from being checked again).
   // Checked only for a new bubble, so ordinary syncs cost nothing extra.
-  const say = cleanSay(body.say)
+  const say = ghost ? null : cleanSay(body.say)
   if (say && say.n !== me.say?.n) {
     const muted = await isMuted(db, await db.get(`serverPids/${serverId}/${playerId}`), now)
     updates[`${base}/players/${playerId}/say`] = { ...say, text: muted ? '' : say.text, at: now }
@@ -658,7 +690,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   const edits = server.edits || {}
   let count = Object.keys(edits).length
   let seq = server.editSeq || 0
-  for (const raw of [].concat(body.edits || []).slice(0, MAX_EDITS_PER_SYNC)) {
+  for (const raw of ghost ? [] : [].concat(body.edits || []).slice(0, MAX_EDITS_PER_SYNC)) {
     const e = cleanEdit(raw)
     if (!e) continue
     if (!edits[e.key]) {
@@ -754,7 +786,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     out.ufo = server.ufo || null
     if (server.esc) out.esc = server.esc
     // Shots on the host's zombies (z...) and animals (a..., or taming one).
-    for (const h of [].concat(body.hits || []).slice(0, MAX_HITS_PER_SYNC)) {
+    for (const h of ghost ? [] : [].concat(body.hits || []).slice(0, MAX_HITS_PER_SYNC)) {
       // z/a: a zombie or animal; s: a stun shot in Infection (s + who).
       // p: a Paint Wars splat (p + x_z); v: Build Battle stars (v + whose plot, dmg = stars).
       // k: a Kart Racing banana (k + x_z, tenths); f: an Obstacle Course finish (f + ms).
@@ -782,8 +814,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     updates[`${base}/players/${playerId}/caught/${key}`] = null
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
-    if (pid === playerId || !live.has(pid) || !p) continue
-    out.players[pid] = { nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, esc: p.esc ? 1 : 0, gh: p.gh || null, jam: p.jam || null, fog: p.fog || null, kills: Number(p.kills) || 0 }
+    if (pid === playerId || !live.has(pid) || !p || p.ghost) continue
+    out.players[pid] = { own: p.own ? 1 : 0, nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, esc: p.esc ? 1 : 0, gh: p.gh || null, jam: p.jam || null, fog: p.fog || null, kills: Number(p.kills) || 0 }
     // A chat bubble: its number (new one = new bubble) and how long ago.
     if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }

@@ -10,9 +10,10 @@
 //                                  the Feedback box, a poll vote, an error
 //                                  report, a Gallery report alert
 //                                  (PlayerVoice.js, api/_lib/inbox.js)
+//   { action: 'hof' }           -> the Hall of Fame cards (HallOfFame.js)
 // One function for both (Vercel's free plan caps how many there are).
 import { handle } from './_lib/handle.js'
-import { publicConfig, reportPlayer, seenWarning, redeemCode } from './_lib/admin.js'
+import { publicConfig, reportPlayer, seenWarning, redeemCode, publicHallOfFame } from './_lib/admin.js'
 import { recordStats } from './_lib/playStats.js'
 import { sendFeedback, votePoll, recordError, contentReportAlert } from './_lib/inbox.js'
 
@@ -25,5 +26,6 @@ export default handle((db, body) => {
   if (body.action === 'vote') return votePoll(db, body)
   if (body.action === 'error') return recordError(db, body)
   if (body.action === 'contentReport') return contentReportAlert(db, body)
+  if (body.action === 'hof') return publicHallOfFame(db)
   return publicConfig(db, body)
 })

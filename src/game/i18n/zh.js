@@ -3776,4 +3776,12 @@ export default {
   pollThanks: "感谢投票！",
   pollEnded: "这个投票已经结束了。",
   pollOffline: "投票发送失败——你联网了吗？",
+  hofTitle: "名人堂",
+  hofHelp: "GayZ 团队因特别之事而表彰的玩家。",
+  hofLoading: "加载中...",
+  hofEmpty: "这里还没有人——也许你会是第一个！",
+  hofOffline: "无法加载名人堂——你在线吗？",
+  ownerTag: "所有者",
+  ownerJoinedVisible: "你以所有者身份进入：你不会受伤，并且可以飞行（跳跃 = 上升，蹲下 = 下降）。",
+  ownerJoinedGhost: "你以隐身方式进入：没有人能看到你。四处飞行观看；暂停可打开菜单。",
 }

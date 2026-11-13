@@ -108,6 +108,21 @@ async function accountsWhere(field, value) {
 }
 
 export const accountsByPid = (pid) => accountsWhere('playerId', pid)
+
+// A signed-in player's skin picture by Player ID (the Hall of Fame cards):
+// only their cloud save's settings line is fetched, and only the skin (and
+// nickname) is kept from it. { skin: data URL or '', nickname }.
+const SKIN_MAX = 3000000
+export async function skinByPid(pid) {
+  const [acc] = await accountsByPid(pid)
+  if (!acc) return { skin: '', nickname: '', noAccount: true }
+  const doc = await call(`/saves/${encodeURIComponent(acc.uid)}?mask.fieldPaths=${encodeURIComponent('data.`gayz-settings`')}`, undefined, 'GET')
+  let settings = null
+  try { settings = JSON.parse(doc?.fields?.data?.mapValue?.fields?.['gayz-settings']?.stringValue || 'null') } catch { /* not JSON */ }
+  const url = settings?.customSkinDataUrl
+  const skin = typeof url === 'string' && url.startsWith('data:image/') && url.length <= SKIN_MAX ? url : ''
+  return { skin, nickname: acc.nickname || '' }
+}
 export const accountsByName = (name) => accountsWhere('nickname', name)
 
 // chatMutes/{uid}: Firebase's rules refuse that account's chat messages

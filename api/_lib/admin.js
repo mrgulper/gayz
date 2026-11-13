@@ -62,6 +62,13 @@
 //   liveConfig.worldDrop { id, kind, who ('all' | 'servers'), until, at }
 //                  - a world event / disaster (or 'random') every running
 //                  Zombie Survival game starts once before `until`
+//   Owner fun (2026-11-13):
+//   dropTickets/{ticket} { serverId, mode ('own' | 'ghost'), until } - a
+//                  pass that lets the owner join that one server as the
+//                  Owner (servers.js joinServer), for DROP_HOURS
+//   hallOfFame/{id} { name, title, date, icon, pid, skin, order, at } -
+//                  the Hall of Fame (players read it through /api/live)
+import { randomBytes } from 'node:crypto'
 import { ServerError } from './servers.js'
 import { DAILY_TEMPLATES, challengeFor } from '../../src/game/DailyChallenge.js'
 import { MARKET_SKINS } from '../../src/game/MarketSkins.js'
@@ -93,7 +100,7 @@ const LOG_KEPT = 300
 // they're left out).
 // Helper accounts are left out on purpose: restoring an old file must
 // never bring back a helper the owner removed.
-export const BACKUP_PATHS = ['liveConfig', 'bans', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes', 'giftCodes', 'giftCodesUsed', 'reportChecks']
+export const BACKUP_PATHS = ['liveConfig', 'bans', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes', 'giftCodes', 'giftCodesUsed', 'reportChecks', 'hallOfFame']
 // Restore leaves the history alone: it stays a true record (including the
 // Restore itself).
 const RESTORE_PATHS = BACKUP_PATHS.filter((p) => p !== 'adminLog')
@@ -395,7 +402,7 @@ async function serverPlayers(db, now) {
   const out = []
   for (const [serverId, s] of Object.entries(servers || {})) {
     for (const [slot, p] of Object.entries(s?.players || {})) {
-      if (!p || now - (p.t || 0) >= 10000) continue
+      if (!p || p.ghost || now - (p.t || 0) >= 10000) continue
       out.push({ serverId, name: cleanText(s.name, 24), mode: s.mode || 'main', slot, nick: cleanText(p.nick, 20), pid: pids?.[serverId]?.[slot] || null })
     }
   }
@@ -1040,6 +1047,161 @@ export async function removeDaily(db, { day } = {}) {
   return { ok: true }
 }
 
+// --- Owner fun (2026-11-13) ---
+
+// Every server with players in it, for the live map: where each player
+// and zombie is (x/z only, in blocks), and the server's world.
+const MAP_ZOMBIES = 300
+export async function liveMap(db, now = Date.now()) {
+  const [servers, pids] = await Promise.all([db.get('servers'), db.get('serverPids')])
+  const out = []
+  for (const [id, s] of Object.entries(servers || {})) {
+    if (!s || typeof s !== 'object') continue
+    const players = Object.entries(s.players || {})
+      .filter(([, p]) => p && now - (Number(p.t) || 0) < 10000)
+      .map(([slot, p]) => ({
+        slot,
+        nick: cleanText(p.nick, 20) || 'Survivor',
+        x: Math.round(Number(p.x) || 0),
+        y: Math.round(Number(p.y) || 0),
+        z: Math.round(Number(p.z) || 0),
+        dead: !!p.dead,
+        away: !!p.away,
+        own: !!p.own,
+        ghost: !!p.ghost,
+        host: slot === s.host,
+        kills: Math.max(0, Math.floor(Number(p.kills) || 0)),
+        pid: pids?.[id]?.[slot] || null,
+      }))
+    if (!players.some((p) => !p.ghost)) continue
+    const w = s.world && typeof s.world === 'object' ? s.world : null
+    out.push({
+      id,
+      name: cleanText(s.name, 24),
+      mode: typeof s.mode === 'string' ? s.mode : 'main',
+      solo: !!s.hidden,
+      access: s.access === 'link' || s.access === 'nobody' ? s.access : '',
+      wave: Math.max(0, Math.floor(Number(s.wave) || 0)),
+      world: w ? { earth: !!w.earth, city: cleanText(w.pick?.city, 60), country: cleanText(w.pick?.country, 60), biome: cleanText(w.pick?.biome, 30) } : null,
+      players,
+      zombies: Object.values(s.zombies || {}).slice(0, MAP_ZOMBIES).filter((z) => z && typeof z === 'object').map((z) => [Math.round(Number(z.x) || 0), Math.round(Number(z.z) || 0), z.boss ? 1 : 0]),
+    })
+  }
+  out.sort((a, b) => b.players.length - a.players.length || a.id.localeCompare(b.id))
+  return { at: now, servers: out }
+}
+
+// A pass for the owner to join one server as the Owner (visible, with a
+// gold tag and crown) or invisible. It keeps working for DROP_HOURS so a
+// dropped connection can get back in the same way.
+export const DROP_HOURS = 6
+const TICKET_RE = /^[A-Za-z0-9_-]{32}$/
+export async function dropIn(db, { serverId, visible } = {}, now = Date.now()) {
+  if (typeof serverId !== 'string' || !/^[A-Za-z0-9]{4,40}$/.test(serverId)) throw new ServerError(400, 'bad-request')
+  const server = await db.get(`servers/${serverId}`)
+  const live = Object.values(server?.players || {}).some((p) => p && !p.ghost && now - (Number(p.t) || 0) < 10000)
+  if (!live) throw new ServerError(404, 'gone')
+  const ticket = randomBytes(24).toString('base64url')
+  const all = (await db.get('dropTickets')) || {}
+  const updates = { [`dropTickets/${ticket}`]: { serverId, mode: visible === true ? 'own' : 'ghost', until: now + DROP_HOURS * 3600000 } }
+  for (const [k, v] of Object.entries(all)) if (!(Number(v?.until) > now)) updates[`dropTickets/${k}`] = null
+  await db.update(updates)
+  return { ok: true, path: `/?join=${encodeURIComponent(serverId)}&drop=${ticket}`, mode: visible === true ? 'own' : 'ghost' }
+}
+
+// servers.js: the pass's mode for this server, or null.
+export async function dropTicket(db, ticket, serverId, now = Date.now()) {
+  if (typeof ticket !== 'string' || !TICKET_RE.test(ticket)) return null
+  const t = await db.get(`dropTickets/${ticket}`)
+  if (!t || t.serverId !== serverId || !(Number(t.until) > now)) return null
+  return t.mode === 'own' ? 'own' : 'ghost'
+}
+
+// The Hall of Fame. icon: one of HOF_ICONS (the game draws each one).
+export const HOF_ICONS = ['trophy', 'gold', 'silver', 'bronze', 'star', 'crown', 'skull', 'heart', 'fire', 'zombie']
+export const HOF_MAX = 60
+export const HOF_NAME_MAX = 24
+export const HOF_TITLE_MAX = 80
+export const HOF_SKIN_MAX = 40000
+const HOF_ID_RE = /^[a-z0-9]{8}$/
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+function cleanHof(id, h) {
+  if (!h || typeof h !== 'object') return null
+  const name = cleanText(h.name, HOF_NAME_MAX)
+  if (!name) return null
+  return {
+    id,
+    name,
+    title: cleanText(h.title, HOF_TITLE_MAX),
+    date: typeof h.date === 'string' && DATE_RE.test(h.date) ? h.date : '',
+    icon: HOF_ICONS.includes(h.icon) ? h.icon : 'trophy',
+    pid: validPid(h.pid) ? h.pid : '',
+    skin: typeof h.skin === 'string' && h.skin.startsWith('data:image/png;base64,') && h.skin.length <= HOF_SKIN_MAX ? h.skin : '',
+    order: Number(h.order) || 0,
+  }
+}
+
+export async function hallOfFame(db) {
+  const all = (await db.get('hallOfFame')) || {}
+  return Object.entries(all)
+    .map(([id, h]) => cleanHof(id, h))
+    .filter(Boolean)
+    .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))
+}
+
+// Players' copy (/api/live): no Player IDs.
+export async function publicHallOfFame(db) {
+  return { list: (await hallOfFame(db)).map((h) => ({ name: h.name, title: h.title, date: h.date, icon: h.icon, skin: h.skin })) }
+}
+
+// Add (no id) or change (id) a card. New cards go first.
+export async function saveHof(db, { id, name, title, date, icon, pid, skin } = {}, now = Date.now()) {
+  const list = await hallOfFame(db)
+  const old = id ? list.find((h) => h.id === id) : null
+  if (id && !old) throw new ServerError(404, 'gone')
+  if (!id && list.length >= HOF_MAX) throw new ServerError(409, 'full')
+  const key = old ? old.id : randomBytes(4).toString('hex')
+  if (!HOF_ID_RE.test(key)) throw new ServerError(400, 'bad-request')
+  const card = cleanHof(key, { name, title, date, icon, pid, skin, order: old ? old.order : (list[0]?.order ?? 0) - 1 })
+  if (!card) throw new ServerError(400, 'bad-request')
+  const data = { ...card, at: now }
+  delete data.id
+  await db.update({ [`hallOfFame/${key}`]: data })
+  return { ok: true, id: key }
+}
+
+export async function removeHof(db, { id } = {}) {
+  if (typeof id !== 'string' || !HOF_ID_RE.test(id)) throw new ServerError(400, 'bad-request')
+  await db.update({ [`hallOfFame/${id}`]: null })
+  return { ok: true }
+}
+
+// Up (dir -1) or down (dir 1) one place.
+export async function moveHof(db, { id, dir } = {}) {
+  const list = await hallOfFame(db)
+  const i = list.findIndex((h) => h.id === id)
+  const j = i + (Number(dir) < 0 ? -1 : 1)
+  if (i < 0 || j < 0 || j >= list.length) return { ok: true }
+  ;[list[i], list[j]] = [list[j], list[i]]
+  const updates = {}
+  list.forEach((h, n) => { updates[`hallOfFame/${h.id}/order`] = n })
+  await db.update(updates)
+  return { ok: true }
+}
+
+// A signed-in player's skin by Player ID, for a card: read from their
+// cloud save's settings (only the skin leaves this function).
+export async function hofSkin(db, fs, { pid } = {}) {
+  if (!validPid(pid)) throw new ServerError(400, 'bad-request')
+  if (!fs?.skinByPid) return { skin: '', nickname: '' }
+  try {
+    return await fs.skinByPid(pid)
+  } catch (err) {
+    return { skin: '', nickname: '', error: String(err?.message || err).slice(0, 200) }
+  }
+}
+
 const WHAT_NAMES = { doubleCoins: 'Double Coins', doubleXp: 'Double XP', hordeNight: 'Horde Night', halloween: 'Halloween look', christmas: 'Christmas look', sale: 'Market sale' }
 
 const FEATURE_NAMES = { online: 'Online servers', chat: 'Chat', market: 'Market', sharing: 'Map & build sharing', gallery: 'Gallery', leaderboards: 'Leaderboards' }
@@ -1092,6 +1254,9 @@ const LOG_TEXT = {
   helperAdd: (b) => `Helper account made: ${cleanText(b.name, 24).replace(/\n/g, ' ')}`,
   tuning: (b) => (b.reset === true ? 'Tuning back to normal' : `Tuning saved: ${TUNE_IDS.map((id) => `${TUNE_NAMES[id]} ${Math.round((Number(b.values?.[id] ?? 1) || 0) * 100)}%`).join(', ')}${Number(b.minutes) ? ` for ${minutesText(Number(b.minutes))}` : ' until reset'}`),
   worldDrop: (b) => (b.cancel === true ? 'World event drop stopped' : `Dropped ${b.kind === 'random' ? 'a random event' : b.kind} into ${b.who === 'servers' ? 'every server' : 'every game'} (for ${minutesText(Number(b.minutes))})`),
+  dropIn: (b) => `Dropped in to server ${cleanText(b.serverId, 40)} ${b.visible === true ? 'as the Owner' : 'invisible'}`,
+  hofSave: (b) => `Hall of Fame: ${b.id ? 'edited' : 'added'} ${cleanText(b.name, HOF_NAME_MAX) || '?'}${cleanText(b.title, 60) ? ` - "${cleanText(b.title, 60)}"` : ''}`,
+  hofRemove: (b) => `Hall of Fame: removed a card${cleanText(b.name, HOF_NAME_MAX) ? ` (${cleanText(b.name, HOF_NAME_MAX)})` : ''}`,
   helperRemove: (b) => `Helper account removed${cleanText(b.name, 24) ? `: ${cleanText(b.name, 24)}` : ''}`,
   restore: (b) => `Restored the backup from ${cleanText(b.label, 40) || (Number(b.file?.at) ? `${day(Number(b.file.at))} UTC` : '?')}`,
 }
@@ -1141,6 +1306,13 @@ const ACTION_FNS = {
   worldDrop: (db, body) => worldDrop(db, body),
   helperRemove: (db, body) => removeHelper(db, body),
   languages: () => languageReport(),
+  liveMap: (db) => liveMap(db),
+  dropIn: (db, body) => dropIn(db, body),
+  hof: async (db) => ({ list: await hallOfFame(db), icons: HOF_ICONS, max: HOF_MAX }),
+  hofSave: (db, body) => saveHof(db, body),
+  hofRemove: (db, body) => removeHof(db, body),
+  hofMove: (db, body) => moveHof(db, body),
+  hofSkin: (db, body, fs) => hofSkin(db, fs, body),
   // A helper's own buttons: each checks the helper's password itself
   // (helpers.js), so they only ever work for a real helper.
   helperLogin: (db, body) => helperLogin(db, body),

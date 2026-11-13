@@ -747,6 +747,7 @@ Escape before dawn.</p>
           <button id="terms-btn" type="button"><span>Terms of Use</span></button>
           <button id="nav-privacy-link" type="button"><span>Privacy Policy</span></button>
           <button id="nav-feedback-link" type="button"><span>Feedback</span></button>
+          <button id="nav-halloffame-link" type="button"><span>Hall of Fame</span></button>
           <a id="nav-discord-link" href="https://discord.gg/kukR72Euj6" target="_blank" rel="noopener noreferrer">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
             <span>Discord</span>
@@ -1804,6 +1805,11 @@ Escape before dawn.</p>
              own Settings tab (2026-10-26), leaving Leaderboard. -->
         <div class="general-tabs">
           <button class="general-tab active" data-general-page="general" id="general-tab-general">Leaderboard</button>
+          <button class="general-tab" data-general-page="halloffame" id="general-tab-halloffame">Hall of Fame</button>
+        </div>
+        <!-- Hall of Fame (HallOfFame.js) - shown signed in or not. -->
+        <div class="general-tab-page" id="general-page-halloffame" style="display: none">
+          <div id="general-hof-list" class="hof-list"></div>
         </div>
         <div class="general-tab-page" id="general-page-general">
           <!-- Cloud Save lives here (2026-10-23) - it used to be its own
@@ -2676,6 +2682,7 @@ Escape before dawn.</p>
               <li>Photo Postcards you send to a friend store the photo, your short note, its title, your nickname and when you sent it, in that friend's mailbox. Only they can read it, and they can delete it.</li>
               <li>Maps you share get a code and are stored online so anyone can play them; Build Together rooms store the edits and each player's spot while you build.</li>
               <li>When you play on a server, your position, skin and nickname are sent to the other players in it while you play, along with what you hold, the hat and cape you wear, the emote you play, whether you're sitting in a vehicle, the boats, helicopters, hot-air balloons and jet skis you put down, the map pins you share (where they are and whether they're for everyone or friends only; pins for friends only are sent only to the players in the server who are on your friends list), the spray tags you spray (your drawing and where it is), the blocks you place and break, where your shots splat paint in Paint Wars, the stars you give other players' builds in Build Battle, your putts in Zombie Mini-Golf, your votes (and, if you're the Werewolf, your knock-outs) in Werewolf Night, your disguise and finds in Prop Hunt, how fast you pull in Tug of War, the notes you play on a Guitar or Drums, your gravestone and the zombies you mark while you're a ghost, how many zombies you've taken down this game (for their kill feed), and what you say in Global chat (shown over your head). A game you start from the homepage is a private server from the start, so friends can join it by its link; nobody sees it in the server list, and it's deleted when you leave.</li>
+               <li>The developer can join any server to check on it or say hi: shown with a gold OWNER tag and crown, or without showing up to the players at all (to watch for cheating and bad behavior). Either way, they see the same things the players in that server see.</li>
             </ul>
 
             <h3>Stored only on your device</h3>
@@ -2690,6 +2697,7 @@ Escape before dawn.</p>
               <li>Feedback you send (the Feedback link on the homepage) stores your message, whether it's an idea, bug or other, your nickname, Player ID and when you sent it, so the developer can read it and know who to follow up with. A Bug message also stores your device type, browser, screen size, language, theme and game version. Messages are kept until the developer deletes them (the newest few hundred), and a short copy may be sent as a private notification to the developer.</li>
               <li>Voting in a quick poll stores your answer with your Player ID, so each player votes once. The developer only sees the totals for each answer.</li>
               <li>When something in the game crashes, the error message, where in the game's code it happened, the game version and whether it was a phone or computer are sent and added to a count. No Player ID, nickname, account or IP address is stored with it. "Share Anonymous Usage Stats" in Settings turns this off too.</li>
+               <li>The Hall of Fame (homepage and General) shows players the developer chooses to honor: the nickname, a short title, a date and the player's skin. Want your card changed or removed? Send a message with Feedback.</li>
             </ul>
 
             <h3>What GayZ does not do</h3>
@@ -3391,6 +3399,14 @@ Escape before dawn.</p>
           <h3>Export/Import Save &amp; Settings Sharing</h3>
           <p>Settings &gt; Controls &gt; Save &amp; Backup: Export/Import Save to a file, plus separate Settings and Keybind codes to copy just your preferences to another device.</p>
         </div>
+        <div class="feature" data-code="renderHallOfFame openHallOfFame">
+          <h3>Hall of Fame</h3>
+          <p>Hall of Fame at the bottom of the homepage (and its own tab in General) shows the players the GayZ team honors for something special - each card has the player's skin, name, a short title, a date and a trophy, medal, star, crown or other picture. Works in every theme and on phones.</p>
+        </div>
+        <div class="feature" data-code="ownerTag ownerCrown startOwnerMode">
+          <h3>The Owner Visits</h3>
+          <p>Now and then the game's owner drops into a server to say hi. They show up with a gold OWNER name tag and a crown that no one else can get, can't be hurt and fly around.</p>
+        </div>
         <div class="feature" data-code="POLL_ID openFeedback renderPoll reportError">
           <h3>Feedback, Polls &amp; Bug Reports</h3>
           <p>Feedback at the bottom of the homepage opens a box to send the GayZ team an Idea, a Bug or anything else (up to <span data-feature-value="feedbackMax">1000</span> characters). A Bug message adds your device, browser, screen size, language and game version by itself, so you only need to say what happened. Now and then the GayZ team asks a quick poll: it pops up once on the homepage - tap an answer to vote (one vote per player) or Not now to skip it. The Cloud Save panel also has a community poll on the next big feature, one vote per account. If something in the game crashes, a short error report (what went wrong and where in the game's code - nothing about you) is sent so it can be fixed; Settings' Share Anonymous Usage Stats turns this off too.</p>
@@ -3921,6 +3937,16 @@ Escape before dawn.</p>
             <div class="changelog-entry"><span class="changelog-date">v0.01 · Sep 22, 2026</span><div class="changelog-text"><div class="changelog-group changelog-changed"><span class="changelog-group-label">Changed</span><ul><li>Polish pass on yesterday's new crate stock counter - it's now a bigger, tilted gold star badge overlapping the card's top-right corner, with the count shown as "x3" inside.</li><li>Shop crate cards are bigger overall too, and the "Crates" heading now matches the GaygarX skin name's size.</li><li>Profile's "Shown to Public" tab now includes your Bio, Motto, and full stats (Longest Survival, Total Kills, Runs Played, Favorite Class, Last Run, Best Run, Most Played Difficulty, Today, and Created) - other players can see these when they look up your Player ID, same as your name and best stats already could.</li><li>Performance: cleaned up the 6 heaviest always-loaded character models and made the game's code/model files cache in your browser instead of re-downloading every visit - should make reloading a bit faster. This What's New list now has version numbers (starting today, v0.01) and a bigger, restyled layout, and its heading is now "Changelogs" instead of "Update Logs".</li></ul></div><div class="changelog-group changelog-fixed"><span class="changelog-group-label">Fixed</span><ul><li>Fixed the "General" sidebar button's text overlapping its plaque art.</li><li>Chat: fixed a real bug where clicking a name in Global chat to copy their Player ID silently failed if that player had ever changed their nickname; a muted player's messages now show as a dimmed "Blocked message - Show" instead of just vanishing, with a click to reveal them anyway; Global/in-game chat no longer shows old message history after you reload the page (only new messages from that point on); removed the underline that appeared when hovering a name; and the "look up a player" popup is wider, better organized into two columns, and colors its stats to match your own Profile.</li></ul></div></div></div>
           </div> <!-- end changelog-list (scripts/check-docs.mjs) -->
           </div>
+        </div>
+      </div>
+
+      <!-- Hall of Fame (HallOfFame.js), from the homepage's bottom link. -->
+      <div id="hof-panel">
+        <div class="panel-box">
+          <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
+          <h2 id="hof-panel-title">Hall of Fame</h2>
+          <p id="hof-panel-help" class="hof-note"></p>
+          <div id="hof-panel-list" class="hof-list"></div>
         </div>
       </div>
 

@@ -1982,6 +1982,18 @@ html.ui-theme-old .home-x-mapweek-img { border-color: rgba(74, 44, 16, 0.6); }
 #today-panel-list .home-x-top3 .home-x-name { max-width: 150px; }
 @media (max-width: 520px) { #today-panel-list { grid-template-columns: 1fr; } }
 
+/* Hall of Fame (HallOfFame.js): the same cards, a skin picture on the left. */
+.hof-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.hof-card { flex-direction: row; align-items: center; gap: 12px; padding: 12px 14px; font-size: 14px; }
+.hof-skin { flex: none; width: 40px; height: 80px; object-fit: contain; image-rendering: pixelated; }
+.hof-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hof-card .home-x-big { font-size: 17px; overflow-wrap: anywhere; }
+.hof-icon { width: 20px; height: 20px; margin-right: 6px; vertical-align: -5px; }
+.hof-title { overflow-wrap: anywhere; }
+.hof-note { margin: 6px 0 0; text-align: center; opacity: 0.85; }
+#general-page-halloffame .hof-list { margin-top: 4px; }
+@media (max-width: 520px) { .hof-list { grid-template-columns: 1fr; } }
+
 /* Continue / New here? tags on the Play button's top corners. */
 #hero-play-buttons { position: relative; }
 .home-play-tag {

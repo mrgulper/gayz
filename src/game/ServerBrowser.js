@@ -209,11 +209,14 @@ async function createServer(game) {
   }
 }
 
-async function joinServer(game, serverId) {
+async function joinServer(game, serverId, drop = null) {
   if (game._serverBusy) return
   setBusy(game, true)
   try {
-    const info = await serverApi(game).join({ ...(await myDetails(game)), serverId })
+    const info = await serverApi(game).join({ ...(await myDetails(game)), serverId, ...(drop ? { drop } : {}) })
+    // The owner dropping in (OwnerDropIn.js): the pass goes along so a
+    // dropped connection gets back in the same way.
+    if (drop && info.owner) info.drop = drop
     enterServer(game, info)
   } catch (err) {
     if (err?.code === 'banned') game._showHomepageToast(banMessage() || t('serverBannedToast'))
@@ -295,15 +298,23 @@ export async function openLobby(game, survival) {
 }
 
 // Opened with ?join=CODE (an invite link): join that server once the game
-// has loaded, and take the code out of the address bar.
+// has loaded, and take the code out of the address bar. &drop=PASS: the
+// owner dropping in (the server checks the pass; OwnerDropIn.js).
 export function joinFromLink(game) {
   let code = null
-  try { code = new URLSearchParams(location.search).get('join') } catch { /* no URL */ }
+  let drop = null
+  try {
+    const q = new URLSearchParams(location.search)
+    code = q.get('join')
+    drop = q.get('drop')
+  } catch { /* no URL */ }
   if (!code || !/^[A-Za-z0-9]{4,40}$/.test(code)) return
+  if (drop && !/^[A-Za-z0-9_-]{32}$/.test(drop)) drop = null
   try {
     const url = new URL(location.href)
     url.searchParams.delete('join')
+    url.searchParams.delete('drop')
     history.replaceState(history.state, '', url.pathname + url.search + url.hash)
   } catch { /* leave the address alone */ }
-  joinServer(game, code)
+  joinServer(game, code, drop)
 }

@@ -383,6 +383,8 @@ export class BuildSurvival {
     // one-connection rule).
     if (this.net && this.net !== net) this.net.leave()
     this.net = net
+    // The owner dropping in (OwnerDropIn.js) - set by PlayNet.attach.
+    this.ownerMode = null
     this.lobby?.leave()
     this.lobby = null
     // Blocks placed (id) and broken ('') this game, by cell - sent to a
@@ -3144,6 +3146,8 @@ export class BuildSurvival {
     // Spectating: flying about, nothing can hurt you. Nor on board the
     // escape helicopter (_updateExtraction).
     if (this.dead || this.spectating || this._ride) return
+    // The owner dropping in (OwnerDropIn.js) can't be hurt.
+    if (this.ownerMode) return
     // In a Pack Leader's battle (PackLeaderWorld.js).
     if (this.leaders?.battling) return
     // Protected by an Infection Cleanser; less behind sandbags (BuildSpecials.js).

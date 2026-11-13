@@ -4,7 +4,78 @@ import { fakeServerDb } from './fakeServerDb.js'
 import { recordStats } from '../api/_lib/playStats.js'
 import { PROVIDERS, isCallback, missingKeys, firebaseUid, cleanProfile, sameState, resultPage, siteOrigin } from '../api/_lib/oauth.js'
 import { createServer, joinServer, listServers, syncServer, leaveServer, MAX_PLAYERS, STALE_MS, JOIN_GRACE_MS } from '../api/_lib/servers.js'
-import { publicConfig, reportPlayer, adminState, setBanner, setEvents, kickPlayer, unban, hideContent, dismissContentReport, dismissPlayerReport, seenWarning, redeemCode, CODE_TRIES_PER_HOUR, REPORT_GAP_MS, ADMIN_ACTIONS } from '../api/_lib/admin.js'
+import { publicConfig, reportPlayer, adminState, setBanner, setEvents, kickPlayer, unban, hideContent, dismissContentReport, dismissPlayerReport, seenWarning, redeemCode, CODE_TRIES_PER_HOUR, REPORT_GAP_MS, ADMIN_ACTIONS, publicHallOfFame } from '../api/_lib/admin.js'
+
+// The owner dropping in (OwnerDropIn.js): a pass from the owner's tools
+// lets them in visible (gold tag) or invisible (sent to nobody, changes
+// nothing), past full / locked / banned.
+test('servers: the owner drops in visible or invisible', async () => {
+  const db = fakeServerDb()
+  // The pass is made on the real clock (ADMIN_ACTIONS.dropIn).
+  const t0 = Date.now()
+  const a = await createServer(db, { nickname: 'Ann', access: 'nobody' }, t0)
+  for (let i = 1; i < MAX_PLAYERS; i++) await db.update({ [`servers/${a.serverId}/players/p${i}xx`]: { nick: `P${i}`, t: t0 } })
+  // No pass (or a made-up one): locked and full as usual.
+  await expect(joinServer(db, { serverId: a.serverId, nickname: 'X' }, t0 + 1)).rejects.toMatchObject({ status: 409 })
+  await expect(joinServer(db, { serverId: a.serverId, nickname: 'X', drop: 'A'.repeat(32) }, t0 + 1)).rejects.toMatchObject({ status: 409 })
+  // A pass for another server doesn't work here.
+  const other = await createServer(db, { nickname: 'Zed' }, t0)
+  const wrong = await ADMIN_ACTIONS.dropIn(db, { serverId: other.serverId, visible: true })
+  const wrongPass = new URLSearchParams(wrong.path.slice(2)).get('drop')
+  await expect(joinServer(db, { serverId: a.serverId, nickname: 'X', drop: wrongPass }, t0 + 1)).rejects.toMatchObject({ status: 409 })
+
+  const now = Date.now()
+  await db.update({ [`servers/${a.serverId}/players/${a.playerId}/t`]: now })
+  for (let i = 1; i < MAX_PLAYERS; i++) await db.update({ [`servers/${a.serverId}/players/p${i}xx/t`]: now })
+  const ghostPath = (await ADMIN_ACTIONS.dropIn(db, { serverId: a.serverId })).path
+  const ghostPass = new URLSearchParams(ghostPath.slice(2)).get('drop')
+  expect(ghostPath.startsWith(`/?join=${a.serverId}&drop=`)).toBe(true)
+  const g = await joinServer(db, { serverId: a.serverId, nickname: 'Boss', drop: ghostPass }, now + 1)
+  expect(g.owner).toBe('ghost')
+  // Invisible: never sent to the others, never counted, its blocks, shots and bubbles dropped.
+  await syncServer(db, { ...g, state: { x: 9, y: 1, z: 9 }, edits: [{ x: 1, y: 2, z: 3, b: 'stone' }], hits: [{ id: 'z1', dmg: 99 }], say: { n: 1, text: 'boo' } }, now + 2)
+  const ra = await syncServer(db, { ...a }, now + 3)
+  expect(ra.players[g.playerId]).toBeUndefined()
+  expect(ra.edits).toEqual([])
+  expect(ra.hits).toEqual([])
+  expect(ra.isHost).toBe(true)
+  const map = await ADMIN_ACTIONS.liveMap(db)
+  const row = map.servers.find((s) => s.id === a.serverId)
+  expect(row.players.find((p) => p.slot === g.playerId)).toMatchObject({ ghost: true, nick: 'Boss', x: 9, z: 9 })
+
+  // Visible: everyone gets the Owner mark.
+  await leaveServer(db, g)
+  const own = await ADMIN_ACTIONS.dropIn(db, { serverId: a.serverId, visible: true })
+  const o = await joinServer(db, { serverId: a.serverId, nickname: 'Boss', drop: new URLSearchParams(own.path.slice(2)).get('drop') }, Date.now())
+  expect(o.owner).toBe('own')
+  await syncServer(db, { ...o, state: { x: 1, y: 1, z: 1 } }, Date.now())
+  const ra2 = await syncServer(db, { ...a }, Date.now())
+  expect(ra2.players[o.playerId]).toMatchObject({ own: 1, nick: 'Boss' })
+  expect(ra2.players.p1xx.own).toBe(0)
+  // An ended game can't be dropped into.
+  await expect(ADMIN_ACTIONS.dropIn(db, { serverId: 'NOPE22' })).rejects.toMatchObject({ status: 404 })
+})
+
+// The Hall of Fame cards (admin.js saveHof ... /api/live 'hof').
+test('hall of fame: add, edit, order, remove; players never get Player IDs', async () => {
+  const db = fakeServerDb()
+  const skin = 'data:image/png;base64,AAAA'
+  const first = await ADMIN_ACTIONS.hofSave(db, { name: 'Zed <b>', title: 'First to beat the Dragon', date: '2026-11-13', icon: 'crown', pid: 'ABC123', skin })
+  await ADMIN_ACTIONS.hofSave(db, { name: 'Amy', icon: 'nope', date: 'yesterday', skin: 'javascript:alert(1)' })
+  let list = (await ADMIN_ACTIONS.hof(db)).list
+  expect(list.map((h) => h.name)).toEqual(['Amy', 'Zed b'])
+  expect(list[0]).toMatchObject({ icon: 'trophy', date: '', skin: '' })
+  expect(list[1]).toMatchObject({ icon: 'crown', pid: 'ABC123', skin })
+  await ADMIN_ACTIONS.hofMove(db, { id: first.id, dir: -1 })
+  await ADMIN_ACTIONS.hofSave(db, { id: first.id, name: 'Zed', title: 'Dragon slayer', icon: 'gold', pid: 'ABC123', skin })
+  const pub = await publicHallOfFame(db)
+  expect(pub.list.map((h) => h.name)).toEqual(['Zed', 'Amy'])
+  expect(pub.list[0]).toEqual({ name: 'Zed', title: 'Dragon slayer', date: '', icon: 'gold', skin })
+  await ADMIN_ACTIONS.hofRemove(db, { id: first.id })
+  list = (await ADMIN_ACTIONS.hof(db)).list
+  expect(list.map((h) => h.name)).toEqual(['Amy'])
+  await expect(ADMIN_ACTIONS.hofSave(db, { name: '' })).rejects.toMatchObject({ status: 400 })
+})
 
 // The servers' own rules (api/_lib/servers.js), on an in-memory database.
 test('servers: create, join, sync, host hand-over, leave', async () => {
@@ -421,6 +492,78 @@ test('two players play Map 1 together on a server', async ({ browser }) => {
   expect(list).toEqual([expect.objectContaining({ name: 'Night Shift', players: 1 })])
   await a.close()
   await b.close()
+})
+
+// The owner drops into a real game (OwnerDropIn.js): visible = gold tag
+// + crown for the others, can't be hurt, flies; invisible = Spectate's free
+// camera and never seen by the host.
+test('the owner drops into a game, visible and invisible', async ({ browser }) => {
+  test.setTimeout(240000)
+  const db = fakeServerDb()
+  const fns = { list: () => listServers(db), create: (b) => createServer(db, b), join: (b) => joinServer(db, b), leave: (b) => leaveServer(db, b), sync: (b) => syncServer(db, b) }
+  const open = async (path = '/') => {
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await page.exposeFunction('__srv', async (name, body) => {
+      try {
+        return { ok: await fns[name](body) }
+      } catch (err) {
+        return { err: err.code || 'server' }
+      }
+    })
+    await page.addInitScript(() => {
+      const call = async (name, body) => {
+        const r = await window.__srv(name, body)
+        if (r.err) throw Object.assign(new Error(r.err), { code: r.err })
+        return r.ok
+      }
+      window.__serversBackendForTests = { list: () => call('list'), create: (b) => call('create', b), join: (b) => call('join', b), leave: (b) => call('leave', b), sync: (b) => call('sync', b) }
+    })
+    await gotoAndWaitForGame(page, path)
+    await page.evaluate(() => { window.__game.__testNoDraw = true })
+    return page
+  }
+  const a = await open()
+  await a.evaluate(() => window.__game.playBtn.click())
+  await a.waitForFunction(() => window.__game.buildMode?.survival?.lobby && location.search.startsWith('?join='), null, { timeout: 60000 })
+  const serverId = await a.evaluate(() => new URLSearchParams(location.search).get('join'))
+
+  const visible = await ADMIN_ACTIONS.dropIn(db, { serverId, visible: true })
+  const o = await open(visible.path)
+  await o.waitForFunction(() => window.__game.buildMode?.survival?.active && window.__game.buildMode.survival.net?._ownerStarted, null, { timeout: 60000 })
+  // The pass is gone from the address bar.
+  expect(await o.evaluate(() => location.search.includes('drop='))).toBe(false)
+  const powers = await o.evaluate(async () => {
+    const s = window.__game.buildMode.survival
+    const before = s.health
+    s._hurtPlayer(50)
+    const tm = s.bm.tryMode
+    const y0 = tm.pos.y
+    tm.vel.y = 0
+    for (let i = 0; i < 20; i++) tm.update(0.05, new Set(['Space']))
+    const y1 = tm.pos.y
+    for (let i = 0; i < 20; i++) tm.update(0.05, new Set())
+    return { mode: s.ownerMode, hurt: before - s.health, rose: y1 - y0, fell: y1 - tm.pos.y, chat: document.body.textContent.includes("You're in as the Owner") }
+  })
+  expect(powers.mode).toBe('own')
+  expect(powers.hurt).toBe(0)
+  expect(powers.chat).toBe(true)
+  // Jump flies up; let go and it hovers (no falling).
+  expect(powers.rose).toBeGreaterThan(3)
+  expect(Math.abs(powers.fell)).toBeLessThan(0.01)
+  // The host sees the owner with the gold tag and crown.
+  await a.evaluate(() => window.__game.buildMode.survival.lobby?._sync())
+  await a.waitForFunction(() => [...(window.__game.buildMode.survival.net?.players.values() || [])].length === 1, null, { timeout: 20000 })
+  expect(await a.evaluate(() => [...window.__game.buildMode.survival.net.players.values()][0].group.children.length >= 2)).toBe(true)
+
+  const hidden = await ADMIN_ACTIONS.dropIn(db, { serverId })
+  const g = await open(hidden.path)
+  await g.waitForFunction(() => window.__game.buildMode?.survival?.spectating, null, { timeout: 60000 })
+  expect(await g.evaluate(() => window.__game.buildMode.survival.ownerMode)).toBe('ghost')
+  await g.evaluate(() => window.__game.buildMode.survival.net._sync())
+  await a.evaluate(() => window.__game.buildMode.survival.net._sync())
+  // Still only the visible owner for the host.
+  expect(await a.evaluate(() => window.__game.buildMode.survival.net.players.size)).toBe(1)
 })
 
 // Invite Friends (2026-10-18): a solo World Map game becomes a server from

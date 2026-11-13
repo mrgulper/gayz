@@ -1367,6 +1367,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   // General's Leaderboard tab, Settings' Theme tab (Theme moved there
   // from General, 2026-10-26), and Inventory's Pets tab (Coming Soon).
   'general-tab-general': 'cloudsaveLeaderboardTitle',
+  'general-tab-halloffame': 'hofTitle',
   'tab-theme': 'tabTheme',
   'inventory-tab-pets': 'inventoryPetsTitle',
   'inventory-tab-cosmetics': 'inventoryCosmeticsTitle',
@@ -3407,7 +3408,7 @@ export class Game {
       { slug: 'global', panel: this.serverPanel, open: () => this._openServerPanel() },
       {
         slug: 'general', panel: this.clanPanel, open: () => this._openClanPanel(),
-        subTabs: this._subTabsFor('general-tab-', ['general']),
+        subTabs: this._subTabsFor('general-tab-', ['general', 'halloffame']),
       },
       {
         slug: 'settings', panel: this.settingsPanel, open: () => this._toggleSettings(true),
@@ -3511,6 +3512,8 @@ export class Game {
     if (this.upgradesPanel) this.upgradesPanel.style.display = 'none'
     if (this.howtoplayPanel) this.howtoplayPanel.style.display = 'none'
     HomeExtras.closeTodayPanel()
+    const hofPanel = document.getElementById('hof-panel')
+    if (hofPanel) hofPanel.style.display = 'none'
     if (this.settingsPanel && this.settingsOpen) {
       this.settingsOpen = false
       this.settingsPanel.style.display = 'none'
@@ -3925,6 +3928,8 @@ export class Game {
     if (navPrivacyEl) navPrivacyEl.querySelector('span').textContent = t('creditsPrivacyLink')
     const navFeedbackEl = document.getElementById('nav-feedback-link')
     if (navFeedbackEl) navFeedbackEl.querySelector('span').textContent = t('navLinkFeedback')
+    const navHofEl = document.getElementById('nav-halloffame-link')
+    if (navHofEl) navHofEl.querySelector('span').textContent = t('hofTitle')
     if (this.friendsBtn) this.friendsBtn.querySelector('span').textContent = t('friendsBtn')
     if (this.friendsSignedOutDesc) this.friendsSignedOutDesc.textContent = t('friendsSignedOutDesc')
     if (this.friendsSigninBtn) this.friendsSigninBtn.textContent = t('signInToUseFriends')

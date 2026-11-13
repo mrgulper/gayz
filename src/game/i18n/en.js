@@ -3828,4 +3828,12 @@ export default {
   pollThanks: "Thanks for voting!",
   pollEnded: "That poll has already ended.",
   pollOffline: "Couldn't send your vote - are you online?",
+  hofTitle: "Hall of Fame",
+  hofHelp: "Players the GayZ team honors for something special.",
+  hofLoading: "Loading...",
+  hofEmpty: "No one here yet - maybe you will be the first!",
+  hofOffline: "Couldn't load the Hall of Fame - are you online?",
+  ownerTag: "OWNER",
+  ownerJoinedVisible: "You're in as the Owner: you can't be hurt, and you fly (Jump = up, Crouch = down).",
+  ownerJoinedGhost: "You're in invisibly: nobody can see you. Fly around and watch; Pause opens the menu.",
 }
