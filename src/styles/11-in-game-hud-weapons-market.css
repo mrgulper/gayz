@@ -1850,3 +1850,6 @@ html[data-health-display='number'] #build-play-health-text { position: static; d
 
 /* Hidden with the pause menu, like the health bar. */
 html.menu-panel-open :is(#play-hud-info, #play-kill-feed, #play-compass) { display: none !important; }
+/* Market sale (Console): the old price struck through before the new one. */
+.inv-skin-card-price .market-card-was { opacity: 0.6; font-weight: 400; margin-right: 2px; }
+.inv-skin-card.on-sale .inv-skin-card-price { box-shadow: 0 0 0 1px #6fdc8c inset; }

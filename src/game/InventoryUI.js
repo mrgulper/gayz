@@ -14,6 +14,7 @@ import { MenuAvatar3D, SHOP_SKIN_PREVIEW_DATA_URL, buildTexturedCharacter, loadS
 import { addGunLights, cloneViewmodel } from './Viewmodels.js'
 import { COMING_SOON_WEAPONS } from './PlayWeapons.js'
 import { t } from './i18n.js'
+import { salePrice } from './LiveConfig.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
 // Inventory - homepage placeholder only for now, no functionality yet
@@ -167,15 +168,20 @@ export function _renderShopMarket(game) {
   game.shopMarketGrid.innerHTML = entries.map((skin) => {
     const rarity = SKIN_RARITIES[skin.rarity] || SKIN_RARITIES.common
     const classes = ['inv-skin-card']
+    // Market sale (Console): buyers see the lower price, the old one struck.
+    const pay = salePrice(skin.price)
+    const onSale = !skin.mine && pay < skin.price
     if (skin.mine) classes.push('owned')
-    else if (game.coins < skin.price) classes.push('cant-afford')
-    const label = skin.mine ? t('marketYours') : game._formatSkinPrice('coins', skin.price)
+    else if (game.coins < pay) classes.push('cant-afford')
+    if (onSale) classes.push('on-sale')
+    const label = skin.mine ? t('marketYours') : game._formatSkinPrice('coins', pay)
+    const was = onSale ? `<s class="market-card-was">${_escapeHtml(game._formatSkinPrice('coins', skin.price))}</s> ` : ''
     const listingId = String(skin.listing.id).replace(/[^A-Za-z0-9_-]/g, '')
     return `<button type="button" class="${classes.join(' ')}" data-market-listing="${listingId}" style="--rarity: ${rarity.color}" title="${_escapeHtml(`${skin.name} - ${t(rarity.key)}`)}">`
       + `<span class="inv-skin-card-name">${_escapeHtml(skin.name)}</span>`
       + '<img class="inv-skin-card-img" alt="" draggable="false" />'
       + `<span class="market-card-seller">${_escapeHtml(t('marketSellerBy', { name: String(skin.listing.sellerName || '').slice(0, 24) }))}</span>`
-      + `<span class="inv-skin-card-price">${_escapeHtml(skin.mine ? `${label} · ${game._formatSkinPrice('coins', skin.price)}` : label)}</span>`
+      + `<span class="inv-skin-card-price">${was}${_escapeHtml(skin.mine ? `${label} · ${game._formatSkinPrice('coins', skin.price)}` : label)}</span>`
       + '</button>'
   }).join('')
   for (const skin of entries) {
@@ -293,7 +299,9 @@ export async function _listSkinOnMarket(game, id, price) {
 
 export async function _buyMarketListing(game, listing) {
   const entry = INVENTORY_SKINS.find((skin) => skin.id === listing.skinId)
-  const price = _safeStatNumber(listing.price)
+  // A Market sale lowers what the buyer pays; the seller's payout reads
+  // the listing's own price, so they still get all of it.
+  const price = salePrice(_safeStatNumber(listing.price))
   if (!entry || !(price > 0)) return
   if (game.coins < price) {
     game._showHomepageToast(t('skinNeedCoins', { need: Math.ceil(price - game.coins).toLocaleString() }))

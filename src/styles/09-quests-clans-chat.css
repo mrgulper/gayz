@@ -1299,3 +1299,8 @@ html.hide-currency #menu-currency-bar .currency-item > span[id$='-amount'] {
 html.hide-currency #menu-currency-bar.currency-peek .currency-item > span[id$='-amount'] {
   filter: none;
 }
+/* A message from the GayZ Team (Console staff message): gold, every theme. */
+.chat-message-row.chat-staff-row { background: rgba(242, 193, 78, 0.14); border-left: 3px solid #f2c14e; padding-left: 6px; border-radius: 3px; }
+.chat-staff-row .chat-staff-name { color: #f2c14e; font-weight: 800; }
+html.ui-theme-old .chat-staff-row .chat-staff-name { color: #8a5a00; }
+html.ui-theme-clean .chat-staff-row .chat-staff-name { color: #b07800; }

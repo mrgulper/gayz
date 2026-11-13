@@ -35,6 +35,18 @@
 //                  account whose leaderboard doc has this Player ID.
 //   playerNotes/{pid}  { text, at } - the Console's private notes, never
 //                  sent to any player
+//   Live events (Console "Live events" batch), all inside liveConfig:
+//   liveConfig.schedule/{id} { what, start, end, pct } - the event
+//                  calendar: `what` (an EVENT_IDS id, a holiday or 'sale')
+//                  is on between start and end by itself
+//   liveConfig.sale { pct, until (0 = until stopped) } - Market sale:
+//                  buyers pay pct% less, sellers still get their full price
+//   liveConfig.staffMsg { id, text, at, until } - the latest staff message
+//                  (a popup on open games; also posted to Global chat)
+//   liveConfig.gift { id, coins, gems, text, until } - a surprise gift for
+//                  everyone who has the game open before `until`
+//   liveConfig.mapWeek { code, title, by } - the Console's Map of the
+//                  Week (none = the game picks the most-liked by itself)
 import { ServerError } from './servers.js'
 
 export const EVENT_IDS = ['doubleCoins', 'doubleXp', 'hordeNight']
@@ -101,6 +113,76 @@ function cleanEvents(e) {
   return out
 }
 
+// --- Live events: calendar, Market sale, staff message, gift, Map of
+// the Week ---
+export const SCHEDULE_WHAT = [...EVENT_IDS, ...HOLIDAYS, 'sale']
+export const SALE_PCTS = [10, 20, 30, 50]
+const SCHEDULE_MAX = 50
+const SCHEDULE_MAX_DAYS = 31
+// Ended calendar entries stay listed (as "ended") this long, then drop.
+const SCHEDULE_KEEP_MS = 24 * 60 * 60 * 1000
+export const STAFF_MAX = 200
+// How long a staff message pops up on games opened after it was sent.
+export const STAFF_POPUP_MS = 30 * 60 * 1000
+// The Global chat sender id of a staff message (no sign-in account can
+// have it: real ids are 28 random characters or start with a provider).
+export const STAFF_UID = 'gayzTeam'
+export const STAFF_NAME = 'GayZ Team'
+export const GIFT_MINUTES = [15, 60, 1440]
+export const GIFT_MAX = { coins: 100000, gems: 1000 }
+const validMapCode = (v) => typeof v === 'string' && /^[A-Z0-9]{6}$/.test(v)
+
+function cleanSchedule(all) {
+  return Object.entries(all && typeof all === 'object' ? all : {})
+    .filter(([id, e]) => validCode(id) && e && SCHEDULE_WHAT.includes(e.what) && Number(e.end) > Number(e.start))
+    .map(([id, e]) => ({ id, what: e.what, start: Number(e.start), end: Number(e.end), pct: e.what === 'sale' && SALE_PCTS.includes(Number(e.pct)) ? Number(e.pct) : 0 }))
+    .sort((a, b) => a.start - b.start)
+}
+
+// The switches + calendar together: { events, ends, sale }. `ends` holds
+// when a calendar-only event stops (a Console switch has no end).
+function liveEvents(cfg, now) {
+  const events = cleanEvents(cfg?.events)
+  const ends = {}
+  let sale = null
+  const s = cfg?.sale
+  if (s && SALE_PCTS.includes(Number(s.pct)) && (!Number(s.until) || Number(s.until) > now)) sale = { pct: Number(s.pct), until: Number(s.until) || 0 }
+  for (const e of cleanSchedule(cfg?.schedule)) {
+    if (!(e.start <= now && now < e.end)) continue
+    if (EVENT_IDS.includes(e.what)) {
+      if (!events[e.what]) {
+        events[e.what] = true
+        ends[e.what] = e.end
+      } else if (ends[e.what]) ends[e.what] = Math.max(ends[e.what], e.end)
+    } else if (HOLIDAYS.includes(e.what)) {
+      if (!events.holiday) {
+        events.holiday = e.what
+        ends.holiday = e.end
+      }
+    } else if (e.what === 'sale' && e.pct && (!sale || e.pct > sale.pct)) sale = { pct: e.pct, until: e.end }
+  }
+  return { events, ends, sale }
+}
+
+function liveStaffMsg(m, now) {
+  if (!m || typeof m !== 'object' || !(Number(m.until) > now)) return null
+  const text = cleanText(m.text, STAFF_MAX)
+  return text && validCode(String(m.id)) ? { id: String(m.id), text } : null
+}
+
+function liveGift(g, now) {
+  if (!g || typeof g !== 'object' || !(Number(g.until) > now) || !validCode(String(g.id))) return null
+  const coins = Math.max(0, Math.min(GIFT_MAX.coins, Math.floor(Number(g.coins) || 0)))
+  const gems = Math.max(0, Math.min(GIFT_MAX.gems, Math.floor(Number(g.gems) || 0)))
+  if (!coins && !gems) return null
+  return { id: String(g.id), coins, gems, text: cleanText(g.text, 120), until: Number(g.until) }
+}
+
+function liveMapWeek(m) {
+  if (!m || typeof m !== 'object' || !validMapCode(m.code)) return null
+  return { code: m.code, title: cleanText(m.title, 40), by: cleanText(m.by, 24) }
+}
+
 function cleanOff(o) {
   return SWITCH_IDS.filter((id) => o?.[id] === true)
 }
@@ -144,9 +226,15 @@ export async function onlineClosed(db) {
 export async function publicConfig(db, { pid } = {}, now = Date.now()) {
   const ok = validPid(pid)
   const [cfg, ban, mute, warnings] = await Promise.all([db.get('liveConfig'), ok ? db.get(`bans/${pid}`) : null, ok ? db.get(`mutes/${pid}`) : null, ok ? db.get(`warnings/${pid}`) : null])
+  const live = liveEvents(cfg, now)
   return {
     banner: liveBanner(cfg?.banner, now),
-    events: cleanEvents(cfg?.events),
+    events: live.events,
+    ends: live.ends,
+    sale: live.sale,
+    staffMsg: liveStaffMsg(cfg?.staffMsg, now),
+    gift: liveGift(cfg?.gift, now),
+    mapWeek: liveMapWeek(cfg?.mapWeek),
     hidden: {
       maps: Object.keys(cfg?.hidden?.maps || {}),
       builds: Object.keys(cfg?.hidden?.builds || {}),
@@ -255,6 +343,12 @@ export async function adminState(db, fs, now = Date.now()) {
     mutes: await mutedList(db, now),
     off: cleanOff(cfg?.off),
     maintenance: liveMaintenance(cfg?.maintenance),
+    liveNow: liveEvents(cfg, now),
+    schedule: cleanSchedule(cfg?.schedule).filter((e) => e.end > now - SCHEDULE_KEEP_MS).map((e) => ({ ...e, state: e.end <= now ? 'ended' : e.start <= now ? 'live' : 'soon' })),
+    sale: cfg?.sale && SALE_PCTS.includes(Number(cfg.sale.pct)) && (!Number(cfg.sale.until) || Number(cfg.sale.until) > now) ? { pct: Number(cfg.sale.pct), until: Number(cfg.sale.until) || 0 } : null,
+    staffMsg: cfg?.staffMsg && typeof cfg.staffMsg === 'object' ? { text: cleanText(cfg.staffMsg.text, STAFF_MAX), at: Number(cfg.staffMsg.at) || 0, error: cleanText(cfg.staffMsg.error, 200) } : null,
+    gift: liveGift(cfg?.gift, now),
+    mapWeek: liveMapWeek(cfg?.mapWeek),
     history: Object.values(log || {})
       .map((e) => ({ at: Number(e?.at) || 0, text: cleanText(e?.text, 300) }))
       .sort((a, b) => b.at - a.at),
@@ -605,6 +699,104 @@ export async function restore(db, { file } = {}, fs = null, now = Date.now()) {
   return { ok: true, at: Number(file.at) || 0, error }
 }
 
+// --- Live events (the Console's side) ---
+
+// A calendar entry: `what` turns on at `start` and off at `end` by itself.
+export async function addSchedule(db, { what, start, end, pct } = {}, now = Date.now()) {
+  const st = Math.floor(Number(start))
+  const en = Math.floor(Number(end))
+  if (!SCHEDULE_WHAT.includes(what) || !(st > 0) || !(en > st) || en <= now) throw new ServerError(400, 'bad-request')
+  if (en - st > SCHEDULE_MAX_DAYS * 86400000) throw new ServerError(400, 'too-long')
+  if (what === 'sale' && !SALE_PCTS.includes(Number(pct))) throw new ServerError(400, 'bad-request')
+  const all = (await db.get('liveConfig/schedule')) || {}
+  const updates = {}
+  // Long-ended ones are tidied away on each add.
+  for (const [id, e] of Object.entries(all)) if (!(Number(e?.end) > now - SCHEDULE_KEEP_MS)) updates[`liveConfig/schedule/${id}`] = null
+  if (Object.keys(all).length - Object.keys(updates).length >= SCHEDULE_MAX) throw new ServerError(400, 'too-many')
+  const id = `${now}${Math.random().toString(36).slice(2, 6)}`
+  updates[`liveConfig/schedule/${id}`] = { what, start: st, end: en, ...(what === 'sale' ? { pct: Number(pct) } : {}) }
+  await db.update(updates)
+  return { ok: true, id }
+}
+
+export async function removeSchedule(db, { id } = {}) {
+  if (!validCode(id)) throw new ServerError(400, 'bad-request')
+  await db.update({ [`liveConfig/schedule/${id}`]: null })
+  return { ok: true }
+}
+
+// Market sale now: pct 0 stops it; minutes 0 = until stopped.
+export async function setSale(db, { pct, minutes } = {}, now = Date.now()) {
+  const p = Number(pct)
+  if (!p) {
+    await db.update({ 'liveConfig/sale': null })
+    return { ok: true }
+  }
+  if (!SALE_PCTS.includes(p)) throw new ServerError(400, 'bad-request')
+  const mins = Math.max(0, Math.min(SCHEDULE_MAX_DAYS * 1440, Number(minutes) || 0))
+  await db.update({ 'liveConfig/sale': { pct: p, until: mins ? now + mins * 60000 : 0 } })
+  return { ok: true }
+}
+
+// A staff message: a popup on every open game (and ones opened in the
+// next STAFF_POPUP_MS) plus a gold line in Global chat (both the in-game
+// and the homepage rooms). A chat hiccup doesn't stop the popup; it comes
+// back as `error`.
+export async function staffMessage(db, fs, { text } = {}, now = Date.now()) {
+  const clean = cleanText(text, STAFF_MAX)
+  if (!clean) throw new ServerError(400, 'bad-request')
+  let error = null
+  if (fs?.postStaffChat) {
+    try {
+      await fs.postStaffChat(STAFF_UID, STAFF_NAME, clean, now)
+    } catch (err) {
+      error = String(err?.message || err).slice(0, 200)
+    }
+  }
+  await db.update({ 'liveConfig/staffMsg': { id: `${now}`, text: clean, at: now, until: now + STAFF_POPUP_MS, ...(error ? { error } : {}) } })
+  return { ok: true, error }
+}
+
+// A surprise gift: everyone who has the game open before it ends gets it
+// once. `cancel` takes it back off (anyone who already got it keeps it).
+export async function sendGift(db, { coins, gems, minutes, text, cancel } = {}, now = Date.now()) {
+  if (cancel === true) {
+    await db.update({ 'liveConfig/gift': null })
+    return { ok: true }
+  }
+  const c = Math.floor(Number(coins) || 0)
+  const g = Math.floor(Number(gems) || 0)
+  const mins = Number(minutes)
+  if (c < 0 || g < 0 || c > GIFT_MAX.coins || g > GIFT_MAX.gems || (!c && !g) || !GIFT_MINUTES.includes(mins)) throw new ServerError(400, 'bad-request')
+  await db.update({ 'liveConfig/gift': { id: `${now}`, coins: c, gems: g, text: cleanText(text, 120), until: now + mins * 60000, at: now } })
+  return { ok: true }
+}
+
+// Map of the Week: a map code (title/by shown when the Gallery has no
+// post for it), or an empty code for "pick by itself".
+export async function setMapWeek(db, { code, title, by } = {}) {
+  if (!code) {
+    await db.update({ 'liveConfig/mapWeek': null })
+    return { ok: true }
+  }
+  const c = String(code).trim().toUpperCase()
+  if (!validMapCode(c)) throw new ServerError(400, 'bad-code')
+  await db.update({ 'liveConfig/mapWeek': { code: c, title: cleanText(title, 40), by: cleanText(by, 24) } })
+  return { ok: true }
+}
+
+// The Gallery's map posts, for the Console's picker.
+export async function mapPosts(fs) {
+  if (!fs?.galleryMaps) return { list: [], error: null }
+  try {
+    return { list: (await fs.galleryMaps()).filter((p) => validMapCode(p?.mapCode)), error: null }
+  } catch (err) {
+    return { list: [], error: String(err?.message || err).slice(0, 200) }
+  }
+}
+
+const WHAT_NAMES = { doubleCoins: 'Double Coins', doubleXp: 'Double XP', hordeNight: 'Horde Night', halloween: 'Halloween look', christmas: 'Christmas look', sale: 'Market sale' }
+
 const FEATURE_NAMES = { online: 'Online servers', chat: 'Chat', market: 'Market', sharing: 'Map & build sharing', gallery: 'Gallery', leaderboards: 'Leaderboards' }
 const BAN_NAMES = { '-1': 'Kicked', 60: 'Banned 1 hour', 1440: 'Banned 1 day', 10080: 'Banned 7 days', 0: 'Banned forever' }
 const day = (ms) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ')
@@ -635,6 +827,12 @@ const LOG_TEXT = {
   // The note itself stays private - only that it changed.
   note: (b) => `${cleanNote(b.text) ? 'Edited' : 'Deleted'} the notes on #${b.pid}`,
   // `label`: the backup's time in the Console's own time zone.
+  scheduleAdd: (b) => `Planned ${WHAT_NAMES[b.what] || '?'}${b.what === 'sale' ? ` ${Number(b.pct)}%` : ''}: ${day(Number(b.start) || 0)} to ${day(Number(b.end) || 0)} UTC`,
+  scheduleRemove: () => 'Removed a planned event',
+  sale: (b) => (Number(b.pct) ? `Market sale ON: ${Number(b.pct)}% off${Number(b.minutes) ? ` for ${Math.round(Number(b.minutes) / 60)} h` : ''}` : 'Market sale OFF'),
+  staffMessage: (b) => `Staff message: "${cleanText(b.text, 80)}"`,
+  gift: (b) => (b.cancel === true ? 'Surprise gift stopped' : `Surprise gift: ${Math.floor(Number(b.coins) || 0)} coins, ${Math.floor(Number(b.gems) || 0)} gems`),
+  mapWeek: (b) => (b.code ? `Map of the Week set to ${String(b.code).toUpperCase()}` : 'Map of the Week back to automatic'),
   restore: (b) => `Restored the backup from ${cleanText(b.label, 40) || (Number(b.file?.at) ? `${day(Number(b.file.at))} UTC` : '?')}`,
 }
 
@@ -658,6 +856,13 @@ const ACTION_FNS = {
   mute: (db, body, fs) => mutePlayer(db, fs, body),
   unmute: (db, body, fs) => unmutePlayer(db, fs, body),
   note: (db, body) => setNote(db, body),
+  scheduleAdd: (db, body) => addSchedule(db, body),
+  scheduleRemove: (db, body) => removeSchedule(db, body),
+  sale: (db, body) => setSale(db, body),
+  staffMessage: (db, body, fs) => staffMessage(db, fs, body),
+  gift: (db, body) => sendGift(db, body),
+  mapWeek: (db, body) => setMapWeek(db, body),
+  mapPosts: (db, body, fs) => mapPosts(fs),
 }
 
 // Every change also adds its line to the history - after it worked, and
