@@ -734,9 +734,12 @@ export class BuildSurvival {
     // Couch Co-op (CouchCoop.js): started from the homepage's tag; a
     // game on one computer, so never a hidden server.
     // (Play Again carries on in couch mode, with the same controller.)
-    const lastCouch = this.couch
-    lastCouch?.dispose()
-    this.couch = fromMenu && !net && (bm.game?._couchNext || lastCouch) ? new CouchCoop(this, { padIndex: lastCouch?.padIndex }) : null
+    this.couch?.dispose()
+    const lastCouch = this._couchAgain || null
+    this._couchAgain = null
+    // _couchNext: 'buddy' or 'equal' (the tag's pick); Play Again keeps the last kind.
+    const couchKind = bm.game?._couchNext
+    this.couch = fromMenu && !net && (couchKind || lastCouch) ? new CouchCoop(this, { padIndex: lastCouch?.padIndex, equal: couchKind ? couchKind === 'equal' : !!lastCouch?.equal, skinId: couchKind ? null : lastCouch?.skinId }) : null
     if (bm.game) bm.game._couchNext = false
     if (fromMenu && !net && !this.couch) openLobby(bm.game, this).catch(() => { /* offline: just solo */ })
   }
@@ -1255,10 +1258,16 @@ export class BuildSurvival {
   // Coins come in through here, so Loot Rush doubles them all (and so
   // does a Blood Moon, and the Console's Double Coins switch).
   _earn(n) {
-    const got = Math.round(n * (this.cfg?.coinMult ?? 1) * (this.bloodMoon?.mult ?? 1) * (this.perks?.coinMult() ?? 1) * liveCoinMult())
+    const got = Math.round(n * this._coinMult())
     this.coins += got
     this._coinsEarned += got
     this.bingo?.note('coins', got)
+  }
+
+  // What every coin earned is multiplied by. perks = false leaves out my
+  // run perks (Couch Co-op's equal Player 2, CouchGear.earn).
+  _coinMult(perks = true) {
+    return (this.cfg?.coinMult ?? 1) * (this.bloodMoon?.mult ?? 1) * (perks ? (this.perks?.coinMult() ?? 1) : 1) * liveCoinMult()
   }
 
   // Tells Game.js about a homepage run (stats, quests, achievements).
@@ -1314,6 +1323,7 @@ export class BuildSurvival {
         <p id="build-play-over-text"></p>
         <p id="build-play-over-joke"></p>
         <p id="build-play-over-best"></p>
+        <p id="build-play-over-p2" hidden></p>
         <p id="build-play-over-speedrun" hidden></p>
         <p id="build-play-over-unlock"></p>
         <div id="build-play-xp" style="display: none">
@@ -1346,7 +1356,10 @@ export class BuildSurvival {
         return
       }
       const fromMenu = this.fromMenu
+      // Couch Co-op carries on: same kind, same controller (stop() drops it).
+      const couch = this.couch ? { padIndex: this.couch.padIndex, equal: this.couch.equal, skinId: this.couch.gear?.skinId } : null
       this.stop()
+      this._couchAgain = couch
       this.start({ fromMenu })
       try { this.bm.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available */ }
     })
@@ -1910,12 +1923,20 @@ export class BuildSurvival {
     // no coins (2026-10-31 check-up: a new player read "Kills: 7" before
     // firing a shot).
     const sunOnly = amount === 0 && z.sunlit && !z.hit
+    // Couch Co-op's equal Player 2 shot it (CouchCoop._shoot): their kill,
+    // their coins - a guest, so none of my stats, quests or rewards.
+    const p2Gear = !by && !sunOnly && this._p2Shot ? this.couch?.gear : null
     // A mutant (a meteor's, WorldEvents.js) pays extra.
-    if (z.mutant && !by && !sunOnly) this._earn(MUTANT_COINS)
+    if (z.mutant && !by && !sunOnly && !p2Gear) this._earn(MUTANT_COINS)
     audioEngine.playZombieDeath?.(1, this._panTo(z.x, z.z))
     const skeleton = SKELETON_KINDS[z.kind] ? z.kind : null
     if (by) this.net?.queueCredit(by, z.boss, skeleton, z.tier, false, z.shine)
-    else if (!sunOnly) {
+    else if (p2Gear) {
+      const paid = COIN_PER_KILL * (ZOMBIE_TIERS[z.tier]?.coins ?? 1) * shineCoins(z.shine) + (z.boss ? BOSS_COINS : 0) + (z.mutant ? MUTANT_COINS : 0)
+      const got = p2Gear.earn(paid)
+      p2Gear.onKill()
+      this.damageNumbers?.coinsAt(z, got, ZOMBIE_HEIGHT)
+    } else if (!sunOnly) {
       const coins = this._coinsEarned
       // A boss beaten goes in the Museum's Hall of Bosses (CampMuseum.js).
       if (z.boss && this.active) noteBoss(z.cave ? 'dungeonBoss' : 'waveBoss')
@@ -1929,7 +1950,7 @@ export class BuildSurvival {
       this.damageNumbers?.coinsAt(z, this._coinsEarned - coins, ZOMBIE_HEIGHT)
     }
     this.bm.specials.onKill(z)
-    if (!by && !sunOnly) this.perks?.onKillAt(z)
+    if (!by && !sunOnly && !p2Gear) this.perks?.onKillAt(z)
     if (!sunOnly) this._creditAssists(z, by || '')
     // A bloater bursts instead of falling over.
     if (MONSTER_KINDS[z.kind]?.burst) this._burst(z)
@@ -3364,6 +3385,12 @@ export class BuildSurvival {
     this._showSpeedrunResult()
     set('build-play-over-title', t(extracted ? 'extractionWinTitle' : zoned ? 'zoneWinTitle' : td ? `${td}Title` : won ? 'buildPlayOverWinTitle' : 'buildPlayOverTitle'))
     set('build-play-over-text', t(extracted ? 'extractionWinText' : zoned ? 'zoneWinText' : td ? `${td}Text` : won ? 'buildPlayOverWinText' : 'buildPlayOverText', { waves: td === 'tdLost' ? Math.max(1, this.wave) : waves, kills: this.kills }))
+    // Couch Co-op's equal Player 2 (a guest): their game, shown not saved.
+    const p2Line = document.getElementById('build-play-over-p2')
+    if (p2Line) {
+      p2Line.hidden = !this.couch?.gear
+      p2Line.textContent = this.couch?.gear?.resultsLine() || ''
+    }
     set('build-play-over-best', `${t('buildPlayOverBest', { n: best })}${reward?.legacy ? ` · ${t('buildPlayOverLegacy', { n: reward.legacy })}` : ''}${reward?.xp ? ` · ${t('buildPlayOverXp', { n: reward.xp })}` : ''}`)
     // Dying: the run goes on from a fresh spawn or you leave, so say that
     // A silly line about who got you (DeathJokes.js) - a zombie that bit

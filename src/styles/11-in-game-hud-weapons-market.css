@@ -1914,3 +1914,33 @@ body.reduce-flashing #couch-p2-hurt.show { opacity: 0.45; }
 #couch-hud:not(.joined) #couch-p2-ammo,
 #couch-hud.p2-down #couch-p2-crosshair { display: none; }
 html.menu-panel-open #couch-hud { display: none; }
+/* Couch Co-op equal Player 2 (CouchGear.js, 2026-11-14): coins under the
+   top edge of their half, and their own menu (Backpack / Shop / Skin) -
+   the Shop panel's look, centred in their half, driven by the controller
+   only (so no pointer events). */
+#couch-p2-coins { position: absolute; top: 48px; left: 50%; transform: translateX(-50%); text-align: center; white-space: pre-line; font-size: 20px; letter-spacing: 1px; text-shadow: 0 1px 3px #000; }
+#couch-hud:not(.joined) #couch-p2-coins,
+#couch-hud.p2-menu #couch-p2-crosshair { display: none; }
+#couch-menu { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 56px 16px 16px; box-sizing: border-box; background: radial-gradient(ellipse at center, rgba(10, 8, 5, 0.35), rgba(5, 4, 2, 0.7)); color: #f1e6c8; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+#couch-menu .build-share-box { width: min(440px, 100%); max-height: 100%; }
+#couch-menu h2 { margin: 0; text-align: center; font-family: 'Bebas Neue', sans-serif; letter-spacing: 1px; }
+.couch-menu-coins { margin: 0; text-align: center; }
+.couch-menu-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.couch-menu-tabs .play-shop-tab { padding: 4px 12px; font-size: 13px; font-weight: 700; border: 1px solid rgba(232, 194, 90, 0.35); border-radius: 999px; background: rgba(255, 255, 255, 0.06); }
+.couch-menu-tabs .play-shop-tab.active { color: #1a1408; background: #ffd75e; border-color: #ffd75e; }
+.couch-menu-list { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; }
+.couch-row { border-width: 2px; }
+.couch-row.focus { border-color: #ffd75e; box-shadow: 0 0 0 2px rgba(255, 215, 94, 0.35); }
+.couch-row.off .couch-row-btn { opacity: 0.45; }
+.couch-row-btn { flex: none; padding: 4px 12px; font-weight: 700; font-size: 13px; border: 1px solid rgba(232, 194, 90, 0.35); border-radius: 999px; background: rgba(255, 255, 255, 0.08); }
+.couch-skin-icon { flex: none; width: 32px; height: 32px; image-rendering: pixelated; }
+.couch-menu-hint { margin: 0; text-align: center; font-size: 12px; opacity: 0.75; }
+html.ui-theme-biome #couch-menu { color: var(--biome-ink); }
+html.ui-theme-biome #couch-menu .build-share-box { color: var(--biome-ink); background: var(--biome-surface); border: 2px solid var(--biome-edge); text-shadow: none; }
+html.ui-theme-biome #couch-menu h2 { color: var(--biome-accent); }
+html.ui-theme-biome #couch-menu .play-npc-row { background: rgba(var(--biome-ink-rgb), 0.06); border-color: var(--biome-line); }
+html.ui-theme-biome #couch-menu .play-npc-row.focus { border-color: var(--biome-accent); box-shadow: 0 0 0 2px rgba(var(--biome-accent-rgb), 0.35); }
+html.ui-theme-biome #couch-menu .play-npc-info { color: rgba(var(--biome-ink-rgb), 0.75); }
+html.ui-theme-biome #couch-menu .play-npc-info b { color: var(--biome-ink); }
+html.ui-theme-biome #couch-menu :is(.couch-row-btn, .play-shop-tab) { color: var(--biome-ink); background: rgba(var(--biome-ink-rgb), 0.08); border-color: var(--biome-line); }
+html.ui-theme-biome #couch-menu .play-shop-tab.active { color: rgb(var(--biome-bg-rgb)); background: var(--biome-ink); border-color: var(--biome-ink); }

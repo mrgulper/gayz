@@ -73,5 +73,13 @@ Gaymi: "make gayz more funny based instead of looking so cold" - did all 13 idea
 - Player 2 = a `_targets()` entry with `hurt()`; P1 knocked down = `couch.p1Fall()` in `_hurtPlayer`, `couch.p1Down` blocks walking (BuildMode NO_KEYS), firing (tryFire) and zombie targeting. Revive = stand within 2.2 blocks for 3 s. Both down = `_die()`.
 - Controller: `ControlSettings.setCouchPad` - 'waiting' (P1 uses no pad until P2 picks one) or P2's pad index (P1 may use any other pad).
 - Player 2's shots go straight down their crosshair from level with their head (no parallax). Own simplified physics (no ladders, vehicles, specials).
-- Next: 4c-2 = a fully equal Player 2 (own inventory, coins, shop, building, vehicles) + a "Buddy or Equal?" choice on the tag.
+- Play Again: the over screen's button snapshots `{ padIndex, equal, skinId }` into `survival._couchAgain` before `stop()` (which drops `this.couch`), and `start` uses it. (Before 4c-2a, Play Again silently ended couch mode.)
+
+## Couch Co-op: equal Player 2 (2026-11-14, Batch 4c-2a)
+- Tag pick: `#home-couch-pick` (HomeExtras.renderPlayTags) swaps in for the tag with Buddy / Equal; `game._couchNext` = 'buddy' | 'equal'. A click elsewhere puts the tag back.
+- `CouchGear.js` (`couch.gear`, only when equal): own coins (`earn` uses `survival._coinMult(false)` - no P1 run perks), kills, headshots, armor (`soak` in `hurtP2`), upgrades (damage/reload/mag via `CouchCoop._magSize`, `gear.reloadTime`, `gear.damageMult`), Backpack (`pack`: medkit/armor/ammobox, used with A), quests (no chests), skin (owned `INVENTORY_SKINS`, picked on join unless kept by Play Again).
+- Kill credit: `CouchCoop._shoot` sets `survival._p2Shot` around `damageZombie`; the kill branch pays `gear` (tier/shine/boss/mutant coins) and skips `_countKill`, P1's perks and `_report` - P2 is a guest, nothing saved. Results: `#build-play-over-p2`.
+- Controller menu (no mouse): Back opens the wheel (Backpack / Shop / Skin); D-pad up/down moves, left/right or LB/RB tabs, A picks, B back. While open, P2 stands still and can't fire. Drawn in `#couch-menu` inside `#couch-p2` (biome themed in the CSS file).
+- Not yet (4c-2b): P2 building, traps/towers, vehicles, picking up ground drops, chests.
+- Tests: `tests/couch.spec.js` (both kinds).
 - Test: `tests/couch.spec.js`.

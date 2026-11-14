@@ -19,8 +19,8 @@ test('couch co-op: split screen, Player 2 joins, fights, revives', async ({ page
     const pad = { index: 0, id: 'test pad', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons }
     Object.defineProperty(navigator, 'getGamepads', { value: () => [pad], configurable: true })
     const hold = (i, on) => { buttons[i].pressed = on; buttons[i].value = on ? 1 : 0 }
-    // The tag's own path, without waiting for the real Play loading.
-    g._couchNext = true
+    // The tag's own path (Buddy), without waiting for the real Play loading.
+    g._couchNext = 'buddy'
     await g._enterBuildMode({ map: 'map3' })
     const b = g.buildMode
     b.update(0.016)
@@ -131,4 +131,140 @@ test('couch co-op: split screen, Player 2 joins, fights, revives', async ({ page
     over: true, oneScreen: true, cleaned: true,
   })
   expect([true, 'no zombie yet']).toContain(r.hit)
+})
+
+// Equal Player 2 (CouchGear.js, Batch 4c-2a): the tag asks Buddy or Equal;
+// Player 2 picks a skin on joining, earns their own coins (Player 1's kills
+// untouched), and uses their own Shop and Backpack with the controller.
+test('couch co-op: equal Player 2 has their own coins, shop and backpack', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    // The tag turns into two tags, Buddy and Equal, in the same spot.
+    const tag = document.getElementById('home-couch-tag')
+    const play = document.getElementById('play-btn')
+    let played = 0
+    const count = () => { played++ }
+    play.addEventListener('click', count, true)
+    tag.click()
+    const pick = document.getElementById('home-couch-pick')
+    out.pickShown = !pick.hidden && pick.querySelectorAll('[data-couch]').length === 2
+    const pr = pick.getBoundingClientRect()
+    out.pickCentre = Math.round((pr.left + pr.right) / 2 - innerWidth / 2)
+    out.pickTexts = [...pick.querySelectorAll('[data-couch]')].every((b) => b.textContent.length > 0 && b.title.length > 0)
+    document.body.click()
+    out.pickClosed = pick.hidden && tag.style.visibility === ''
+    out.notStarted = played === 0
+    play.removeEventListener('click', count, true)
+
+    const buttons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }))
+    const pad = { index: 0, id: 'test pad', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons }
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [pad], configurable: true })
+    const hold = (i, on) => { buttons[i].pressed = on; buttons[i].value = on ? 1 : 0 }
+    g._couchNext = 'equal'
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    b.update(0.016)
+    b.survival.start({ fromMenu: true })
+    const s = b.survival
+    if (s._picking) s._pickWeapon('rifle')
+    const step = (n = 1, dt = 0.05) => { for (let i = 0; i < n; i++) b.update(dt) }
+    const press = (i) => { hold(i, true); step(1); hold(i, false); step(1) }
+    step(4)
+    const c = s.couch
+    const gear = c.gear
+    out.equal = c.equal && !!gear
+    press(0)
+    out.joined = c.joined
+    // Joining: pick a skin (every account owns Gaymi and Alisa).
+    const menu = document.getElementById('couch-menu')
+    out.skinPick = gear.menu?.screen === 'skin' && menu.style.display !== 'none' && menu.querySelectorAll('.couch-row').length >= 2
+    const mr = menu.getBoundingClientRect()
+    out.menuInRightHalf = mr.left >= innerWidth / 2 - 1
+    press(13)
+    press(0)
+    out.skinPicked = gear.skinId !== 'default' && !gear.menuOpen
+    // A kill by Player 2 pays Player 2, not Player 1.
+    const p1Kills = s.kills
+    const p1Coins = s.coins
+    const p2Coins = gear.coins
+    c.p2.pitch = 0
+    c._placeCamera()
+    const zz = s.zombies.find((o) => !o.boss && (o.tall || 1) >= 1)
+    if (zz) {
+      const cam = c.camera.position.clone().divideScalar(s.B)
+      const dir = c.camera.getWorldDirection(c.camera.position.clone())
+      const at = cam.addScaledVector(dir, 7)
+      zz.x = at.x
+      zz.z = at.z
+      zz.y = at.y - 1
+      zz.health = 1
+      c._shoot({ damage: 50 })
+      out.p2Kill = gear.kills === 1 && gear.coins > p2Coins && s.kills === p1Kills && s.coins === p1Coins
+    } else out.p2Kill = 'no zombie yet'
+    // Back opens the wheel; down + A = the Shop; A buys a Med Kit.
+    gear.coins = 1000
+    press(8)
+    out.wheel = gear.menu?.screen === 'wheel'
+    press(13)
+    press(0)
+    out.shop = gear.menu?.screen === 'shop' && gear.menu.tab === 'items'
+    press(0)
+    out.bought = gear.pack.some((x) => x.id === 'medkit' && x.n === 1) && gear.coins < 1000
+    // RB: Upgrades tab; A buys Damage.
+    press(5)
+    press(0)
+    out.upgraded = gear.upgrades.damage === 1
+    // The stick doesn't walk Player 2 while their menu is open.
+    const p2At = { x: c.p2.x, z: c.p2.z }
+    pad.axes[1] = -1
+    step(10)
+    pad.axes[1] = 0
+    out.stoodStill = Math.hypot(c.p2.x - p2At.x, c.p2.z - p2At.z) < 0.2
+    // B back to the wheel, A on Backpack, down to the Med Kit, A uses it.
+    press(1)
+    out.backToWheel = gear.menu?.screen === 'wheel'
+    press(12)
+    press(0)
+    out.pack = gear.menu?.screen === 'pack'
+    for (let i = 0; i < c.weapons.length; i++) press(13)
+    c.p2.health = 30
+    press(0)
+    out.healed = c.p2.health === 80 && !gear.pack.length
+    press(1)
+    press(1)
+    out.closed = !gear.menuOpen && menu.style.display === 'none'
+    out.coinsShown = document.getElementById('couch-p2-coins').textContent.length > 0
+    // Game over: the results say what Player 2 did (not saved).
+    const safe = s._campSafe
+    s._campSafe = () => false
+    try {
+      s.armor = 0
+      s.health = 1
+      s._hurtPlayer(50)
+      c.hurtP2(1000)
+      step(2)
+      const line = document.getElementById('build-play-over-p2')
+      out.results = s.dead && !line.hidden && line.textContent.length > 0
+    } finally {
+      s._campSafe = safe
+    }
+    // Play Again keeps Equal, the controller and the skin.
+    const skin = gear.skinId
+    document.getElementById('build-play-again-btn').click()
+    if (s._picking) s._pickWeapon('rifle')
+    step(4)
+    out.againEqual = !!s.couch?.gear && s.couch.joined && s.couch.gear.skinId === skin && !s.couch.gear.menuOpen
+    s.stop()
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [], configurable: true })
+    return out
+  })
+  expect(r).toMatchObject({
+    pickShown: true, pickCentre: 0, pickTexts: true, pickClosed: true, notStarted: true,
+    equal: true, joined: true, skinPick: true, menuInRightHalf: true, skinPicked: true,
+    wheel: true, shop: true, bought: true, upgraded: true, stoodStill: true, backToWheel: true,
+    pack: true, healed: true, closed: true, coinsShown: true, results: true, againEqual: true,
+  })
+  expect([true, 'no zombie yet']).toContain(r.p2Kill)
 })

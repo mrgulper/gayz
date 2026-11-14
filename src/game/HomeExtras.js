@@ -312,12 +312,38 @@ function renderPlayTags(game) {
   const couch = tag('home-couch-tag')
   // Couch Co-op (CouchCoop.js): a new game split in two, Player 2 on a
   // controller. Computers only - it needs a mouse and a controller.
+  // The tag asks "Buddy or Equal?" (Batch 4c-2a): a click swaps it for two
+  // small tags; picking one starts the game, a click anywhere else puts
+  // the tag back.
+  let pick = document.getElementById('home-couch-pick')
+  if (!pick) {
+    pick = document.createElement('div')
+    pick.id = 'home-couch-pick'
+    pick.setAttribute('role', 'group')
+    pick.hidden = true
+    pick.innerHTML = '<button type="button" class="home-play-tag" data-couch="buddy"></button><button type="button" class="home-play-tag" data-couch="equal"></button>'
+    wrap.appendChild(pick)
+  }
   if (!couch.dataset.wired) {
     couch.dataset.wired = '1'
+    const showPick = (on) => {
+      pick.hidden = !on
+      couch.style.visibility = on ? 'hidden' : ''
+    }
     couch.addEventListener('click', (e) => {
       e.stopPropagation()
-      game._couchNext = true
+      showPick(true)
+    })
+    pick.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const btn = e.target.closest('[data-couch]')
+      if (!btn) return
+      showPick(false)
+      game._couchNext = btn.dataset.couch
       document.getElementById('play-btn')?.click()
+    })
+    document.addEventListener('click', (e) => {
+      if (!pick.hidden && !pick.contains(e.target)) showPick(false)
     })
     // Pressing Play itself (a real click) is a normal one-player game.
     play.addEventListener('click', (e) => {
@@ -326,6 +352,12 @@ function renderPlayTags(game) {
   }
   couch.style.display = matchMedia('(any-pointer: fine)').matches ? '' : 'none'
   couch.textContent = t('couchTag')
+  pick.setAttribute('aria-label', t('couchModeAsk'))
+  for (const b of pick.querySelectorAll('[data-couch]')) {
+    const equal = b.dataset.couch === 'equal'
+    b.textContent = t(equal ? 'couchModeEqual' : 'couchModeBuddy')
+    b.title = t(equal ? 'couchModeEqualAbout' : 'couchModeBuddyAbout')
+  }
   if (!cont.dataset.wired) {
     cont.dataset.wired = '1'
     cont.addEventListener('click', (e) => {
