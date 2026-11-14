@@ -7165,25 +7165,55 @@ test('Laser Tag, Kart Racing, the Obstacle Course, minecarts and the haunted hou
     out.parkourDone = P.done > 0 && pm.phase === 'end' && Number(localStorage.getItem('gayz-parkour-best')) === P.done
     await stop()
     localStorage.removeItem('gayz-parkour-best')
-    // Minecarts: a line through the rock, a ride to the end, zombies hop on.
+    // Minecarts: the world's own mine lines (MineTracks.js) get rails and a
+    // cart when you come near; a ride to the end pays; nothing is dug.
     s = await start('classic')
     const me = s.bodyPos()
-    let tr = null
-    // Away from the camp (tracks never cut through it).
-    for (const [ox, oz] of [[-70, 0], [70, 0], [0, 70], [0, -70]]) for (const dir of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!tr) tr = s.carts.lay(Math.floor(me.x + ox), Math.floor(me.y) - 10, Math.floor(me.z + oz), dir)
-    out.cartLaid = !!tr && tr.len >= 18 && s.bm.getBlockAt(Math.floor(tr.x0 + tr.dx * 5), tr.y - 1, Math.floor(tr.z0 + tr.dz * 5)) === 'stonebricks'
+    for (let r = 0; r < 8 && !s.carts.tracks.length; r++) for (const [ox, oz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) if (!s.carts.tracks.length) s.carts.sync({ x: me.x + ox * r * 100, z: me.z + oz * r * 100 })
+    const tr = s.carts.tracks[0]
     if (tr) {
+      const under = s.bm.world.under
+      const at = (dy, k = 5) => [Math.floor(tr.x0 + tr.dx * k), tr.y + dy, Math.floor(tr.z0 + tr.dz * k)]
+      const solid = (c) => under.implicitSolid(c[0], c[1], c[2], c.join(','))
+      // A bed under it, room to stand, deep underground.
+      out.cartLaid = tr.len >= 30 && tr.y < -20 && solid(at(-1)) && !solid(at(0)) && !solid(at(2))
+      // The same line comes back for the same world.
+      const again = s.carts.tracks.map((o) => o.id).join()
+      s.carts.clear()
+      s.carts.sync({ x: tr.mid.x, z: tr.mid.z })
+      out.cartSameAgain = s.carts.tracks.some((o) => o.id === tr.id && o.x0 === tr.x0 && o.len === tr.len) && !!again
+      const t2 = s.carts.tracks.find((o) => o.id === tr.id)
       const coins = s.coins
-      tr.armed = true
-      tm.pos.set(tr.x0, tr.y, tr.z0)
+      t2.armed = true
+      tm.pos.set(t2.x0, t2.y, t2.z0)
       s.carts.update(0.05)
       out.cartRiding = !!s.carts.riding
       for (let i = 0; i < 200 && s.carts.riding; i++) s.carts.ride(0.05)
-      out.cartArrived = !s.carts.riding && tr.at === tr.len && s.coins > coins && !s._ride
-      const key = [Math.floor(tr.x0 + tr.dx * 5), tr.y - 1, Math.floor(tr.z0 + tr.dz * 5)]
+      out.cartArrived = !s.carts.riding && t2.at === t2.len && s.coins > coins && !s._ride
       s.carts.clear()
-      out.cartRestored = s.carts.tracks.length === 0 && s.bm.getBlockAt(...key) !== 'stonebricks'
+      out.cartCleared = s.carts.tracks.length === 0
     }
+    // Heavy guns slow you a bit (PlayWeapons `heavy`); others don't.
+    // On a stone block high in the sky (nothing else up there).
+    const px = Math.floor(me.x)
+    const pz = Math.floor(me.z)
+    s.bm.placeBlock(px, 200, pz, 'stone')
+    const pad = { x: px + 0.5, y: 201, z: pz + 0.5 }
+    const topSpeed = (gun) => {
+      s.weaponId = gun
+      s.holding = null
+      tm.vel.set(0, 0, 0)
+      // Back on the pad each step, so it never walks off.
+      for (let i = 0; i < 40; i++) tm.pos.set(pad.x, pad.y, pad.z), tm._walk(0.05, new Set(), { fwd: true, back: false, left: false, right: false, stick: null, mx: 0, mz: -1 })
+      return Math.hypot(tm.vel.x, tm.vel.z)
+    }
+    const light = topSpeed('rifle')
+    const heavy = topSpeed('minigun')
+    out.heavySlower = light > 3.9 && heavy < light * 0.9 && heavy > light * 0.8
+    // Letting go stops you quickly (no sliding on).
+    for (let i = 0; i < 4; i++) tm.pos.set(pad.x, pad.y, pad.z), tm._walk(0.05, new Set(), { fwd: false, back: false, left: false, right: false, stick: null, mx: 0, mz: 0 })
+    out.quickStop = tm.onGround && Math.hypot(tm.vel.x, tm.vel.z) < 0.05
+    s.weaponId = 'rifle'
     // The haunted house: only at night, ghosts, the attic chest pays.
     s.haunted.clear()
     const gy = s._groundUnder(me.x + 25, me.y + 15, me.z)

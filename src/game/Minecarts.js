@@ -1,41 +1,38 @@
 // Minecarts (2026-11-02, Gaymi's idea list 6: "rails through caves and
 // underground cities that you ride at speed, with zombies hopping on").
-// Owned by BuildSurvival (`s.carts`), on every map.
+// Owned by BuildSurvival (`s.carts`), on every map with an underground.
 //
-// While you're underground (land over your head), every CHECK_S seconds,
-// if there's no track within GAP blocks, an old mine line is found running
-// straight ahead of you, LEN_MIN..LEN blocks through the rock, caves and
-// underground cities: a tunnel three wide and three high, a stone-brick bed
-// and rails, with a minecart at the near end. At most MAX_TRACKS a game.
+// The old mine lines are part of the world (MineTracks.js, since
+// 2026-11-13 - before, a tunnel was dug out in front of you as you went).
+// Every CHECK_S seconds the lines within NEAR blocks of you get their
+// rails and a minecart at the near end (meshes only), and lines more
+// than FAR away drop theirs again. Coming within NOTICE blocks of one
+// tells you it's there.
 //
 // Walk into the cart to hop in: it rolls to the other end at CART_SPEED
 // (you can look round and shoot, nothing else) and you hop out there;
 // walk in again to ride back. Every HOP_EVERY seconds of a ride a zombie
 // jumps onto the back of the cart (not part of the wave; only where the
 // game runs) and bites (BITE) every BITE_EVERY until you shoot it off.
-// Reach the end for CART_COINS coins. The tunnels go back to rock when the
-// game ends (TempBlocks.js). Meshes only (rails, cart), never a light.
+// Reach the end for CART_COINS coins. Never a light.
 import * as THREE from 'three'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
-import { TempBlocks } from './TempBlocks.js'
+import { minesOver } from './MineTracks.js'
 
-export const MAX_TRACKS = 4
-const CHECK_S = 3
-export const GAP = 50
-export const LEN = 60
-const LEN_MIN = 18
+const CHECK_S = 1
+const NEAR = 64
+const FAR = 120
+const NOTICE = 14
 export const CART_SPEED = 13
 export const HOP_EVERY = 3
 export const BITE = 5
 const BITE_EVERY = 1.3
 export const CART_COINS = 12
-const ROOF = 4 // land this many blocks over your head = underground
 
 export class Minecarts {
   constructor(survival) {
     this.s = survival
-    this.cells = new TempBlocks(survival)
     this.tracks = []
     this.riding = null
     this.riders = []
@@ -55,12 +52,6 @@ export class Minecarts {
     return this._group
   }
 
-  // Land well over (x, y, z)'s head: underground.
-  _roofed(x, y, z) {
-    const top = this.s._groundUnder(x, y + 60, z)
-    return top > y + ROOF
-  }
-
   // Before the zombies move (BuildSurvival.update): find tracks, hop in.
   update(dt) {
     const s = this.s
@@ -77,58 +68,56 @@ export class Minecarts {
         if (tr.armed && d < 1.1 && Math.abs(me.y - c.y) < 1.5) return this._hopIn(tr)
       }
     }
-    if (this.tracks.length >= MAX_TRACKS || s.dead) return
+    // Coming up on a line: say so, once.
+    for (const tr of this.tracks) {
+      if (tr.noticed || Math.abs(me.y - tr.y) > 6) continue
+      const k = Math.max(0, Math.min(tr.len, (me.x - tr.x0) * tr.dx + (me.z - tr.z0) * tr.dz))
+      if (Math.hypot(tr.x0 + tr.dx * k - me.x, tr.z0 + tr.dz * k - me.z) > NOTICE) continue
+      tr.noticed = true
+      s._message(t('cartFound'), 4)
+    }
     this._in -= dt
     if (this._in > 0) return
     this._in = CHECK_S
-    if (!this._roofed(me.x, me.y, me.z) || this.tracks.some((tr) => Math.hypot(tr.mid.x - me.x, tr.mid.z - me.z) < GAP)) return
-    // Straight ahead, along x or z.
-    const yaw = s.bm._yaw
-    const fx = -Math.sin(yaw)
-    const fz = -Math.cos(yaw)
-    const dir = Math.abs(fx) > Math.abs(fz) ? [Math.sign(fx), 0] : [0, Math.sign(fz)]
-    this.lay(Math.floor(me.x), Math.floor(me.y + 0.01), Math.floor(me.z), dir)
+    this.sync(me)
   }
 
-  // A track from (x0, y, z0) going `dir` ([dx, dz]). -> the track, or null.
-  lay(x0, y, z0, [dx, dz]) {
-    const s = this.s
-    const bm = s.bm
-    // How far it can go: through rock and caves, not into water, lava or the open air.
-    let len = 0
-    for (let k = 1; k <= LEN; k++) {
-      const x = x0 + dx * k
-      const z = z0 + dz * k
-      let wet = false
-      for (let h = -1; h <= 2; h++) for (let w = -1; w <= 1; w++) {
-        const b = bm.getBlockAt(x + dz * w, y + h, z + dx * w)
-        if (b === 'water' || b === 'lava') wet = true
-      }
-      if (wet || !this._roofed(x + 0.5, y, z + 0.5) || s.camp?.inside?.(x + 0.5, z + 0.5, 2)) break
-      len = k
+  // Rails and carts for the lines near `me`; far ones are let go.
+  sync(me) {
+    if (!this.s.bm.world?.under) return
+    const keep = []
+    for (const tr of this.tracks) {
+      if (Math.hypot(tr.mid.x - me.x, tr.mid.z - me.z) - tr.len / 2 > FAR) this._drop(tr)
+      else keep.push(tr)
     }
-    if (len < LEN_MIN) return null
-    const sx = dz
-    const sz = dx
-    for (let k = 0; k <= len; k++) {
-      const x = x0 + dx * k
-      const z = z0 + dz * k
-      for (let w = -1; w <= 1; w++) {
-        const cx = x + sx * w
-        const cz = z + sz * w
-        this.cells.put(cx, y - 1, cz, w ? 'cobblestone' : 'stonebricks')
-        for (let h = 0; h <= 2; h++) this.cells.clear(cx, y + h, cz)
-      }
+    this.tracks = keep
+    const have = new Set(keep.map((tr) => tr.id))
+    for (const m of minesOver(me.x - NEAR, me.z - NEAR, me.x + NEAR, me.z + NEAR)) {
+      if (!have.has(m.id)) this.add(m)
     }
+  }
+
+  // A line (MineTracks.mineIn) gets its rails and cart. -> the track.
+  add(m) {
     const tr = {
-      x0: x0 + 0.5, z0: z0 + 0.5, y, dx, dz, len,
+      id: m.id, x0: m.x0 + 0.5, z0: m.z0 + 0.5, y: m.floor + 1, dx: m.dx, dz: m.dz, len: m.len,
       at: 0, // the cart: 0 at the start, len at the far end
-      mid: { x: x0 + 0.5 + (dx * len) / 2, z: z0 + 0.5 + (dz * len) / 2 },
+      mid: { x: m.x0 + 0.5 + (m.dx * m.len) / 2, z: m.z0 + 0.5 + (m.dz * m.len) / 2 },
     }
     this._meshes(tr)
     this.tracks.push(tr)
-    s._message(t('cartFound'), 4)
     return tr
+  }
+
+  _drop(tr) {
+    for (const g of [tr.rails, tr.cart]) {
+      g?.removeFromParent()
+      g?.traverse((o) => {
+        if (!o.isMesh) return
+        o.geometry.dispose()
+        o.material.dispose()
+      })
+    }
   }
 
   _cartPos(tr) {
@@ -249,7 +238,6 @@ export class Minecarts {
 
   clear() {
     if (this.riding) this._hopOut(false)
-    this.cells.restore()
     this._group?.removeFromParent()
     this._group?.traverse((o) => {
       if (!o.isMesh) return

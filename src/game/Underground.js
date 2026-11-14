@@ -32,6 +32,7 @@
 import { inCityShape, cityEdgeDistance } from './CityShape.js'
 import { cityAt, citiesOver, cityYRange, setUnderCitySeed } from './UnderCity.js'
 import { dungeonsOver, setDungeonSeed } from './Dungeons.js'
+import { minesOver, setMineSeed } from './MineTracks.js'
 
 const CHUNK = 16
 // The last layer: bedrock from BOTTOM + 4 down to BOTTOM (always solid).
@@ -97,12 +98,13 @@ export function setUnderSeed(seed) {
   SALT = seed | 0
   setUnderCitySeed(seed)
   setDungeonSeed(seed)
+  setMineSeed(seed)
 }
 
-// Cities (and dungeons, Dungeons.js) reaching into a box, and the block
+// Cities (and dungeons, Dungeons.js, and mine lines, MineTracks.js) reaching into a box, and the block
 // (or rock) at one cell.
 function citiesNear(x0, y0, z0, x1, y1, z1) {
-  return [...citiesOver(x0, z0, x1, z1), ...dungeonsOver(x0, z0, x1, z1)].filter((c) => {
+  return [...citiesOver(x0, z0, x1, z1), ...dungeonsOver(x0, z0, x1, z1), ...minesOver(x0, z0, x1, z1)].filter((c) => {
     const [lo, hi] = cityYRange(c)
     return hi >= y0 && lo <= y1
   })
