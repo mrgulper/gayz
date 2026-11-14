@@ -2007,6 +2007,8 @@ html.ui-theme-old .home-x-mapweek-img { border-color: rgba(74, 44, 16, 0.6); }
 }
 #home-continue-tag { right: 6px; }
 #home-newhere-tag { left: 6px; }
+/* Couch Co-op (CouchCoop.js): under the buttons, in the middle. */
+#home-couch-tag { top: auto; bottom: -12px; left: 50%; transform: translateX(-50%); }
 .home-play-tag:hover { filter: brightness(1.1); }
 @keyframes home-tag-bob { 50% { translate: 0 -3px; } }
 html.ui-theme-old .home-play-tag { color: #f3e6c8; background: var(--old-ink); border-color: var(--menu-gold, #d9bc4a); }

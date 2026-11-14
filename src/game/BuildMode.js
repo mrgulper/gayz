@@ -46,6 +46,8 @@ import { PlayAnimals, ANIMAL_IDS, MAX_PLACED, animalIconURL, animalNameKey } fro
 // physical size (GROUND_SIZE * BLOCK_SIZE) stays close to what it was
 // before rather than shrinking just because each cell got smaller.
 const GROUND_SIZE = 128
+// Couch Co-op: a knocked-down Player 1 holds no keys.
+const NO_KEYS = new Set()
 // The sun's shadows follow you in steps of this many blocks (_placeSun).
 const SUN_SNAP = 16
 // Down from 1, then 0.85, then 0.5 - still read as too large up close in
@@ -4568,7 +4570,8 @@ export class BuildMode {
       return
     }
     if (this.tryMode.active) {
-      this.tryMode.update(dt, this._keys)
+      // Knocked down in Couch Co-op (CouchCoop.js): no walking until revived.
+      this.tryMode.update(dt, this.survival.couch?.p1Down ? NO_KEYS : this._keys)
       this.survival.update(dt)
       return
     }
@@ -4736,7 +4739,15 @@ export class BuildMode {
     this._shadowsDirty = true
   }
 
+  // Couch Co-op (CouchCoop.js) splits the screen: this frame's normal
+  // drawing goes on the left half, Player 2's view on the right.
   render() {
+    const couch = this.survival?.active && !this.survival.dead && this.tryMode.active && !this.game?.__testNoDraw ? this.survival.couch : null
+    if (couch?.active) couch.drawFrame(this.renderer, () => this._renderFrame())
+    else this._renderFrame()
+  }
+
+  _renderFrame() {
     // Chunk meshes are rebuilt here, once per frame, however many blocks
     // changed since the last one (a paste or a load touches thousands).
     const focus = this.tryMode.active ? this.tryMode.pos : { x: this.camera.position.x / BLOCK_SIZE, z: this.camera.position.z / BLOCK_SIZE }

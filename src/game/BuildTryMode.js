@@ -1726,7 +1726,8 @@ export class BuildTryMode {
   // Your own body, seen in the third-person views: your skin, holding the
   // gun you have, walking with you.
   _updateBody(dt) {
-    const show = this.active && !!this.view && !!this._armSkin
+    // Couch Co-op: Player 2 sees you (CouchCoop.drawFrame hides it from your own eyes).
+    const show = this.active && (!!this.view || !!this.bm.survival?.couch?.joined) && !!this._armSkin
     if (show && (!this._body || this._bodySkin !== this._armSkin)) this._buildBody()
     if (!this._body) return
     this._body.group.visible = show

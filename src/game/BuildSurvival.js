@@ -21,6 +21,7 @@ import { shakeScale, bleed } from './GraphicsSettings.js'
 import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { SKELETON_KINDS, loadSkeletons, makeSkeleton, skeletonsReady } from './SkeletonModels.js'
 import { audioEngine } from './Audio.js'
+import { CouchCoop } from './CouchCoop.js'
 import { survivalAudioTick } from './MoreSettings.js'
 import { hudTick } from './HudSettings.js'
 import { xpToNextLevel } from './Xp.js'
@@ -730,7 +731,14 @@ export class BuildSurvival {
     loadSkeletons().then((ok) => { if (ok) this._warmShaders(true) })
     // A solo game from the homepage is ready for friends straight away: its
     // address is the invite link (PlayNet's lobby).
-    if (fromMenu && !net) openLobby(bm.game, this).catch(() => { /* offline: just solo */ })
+    // Couch Co-op (CouchCoop.js): started from the homepage's tag; a
+    // game on one computer, so never a hidden server.
+    // (Play Again carries on in couch mode, with the same controller.)
+    const lastCouch = this.couch
+    lastCouch?.dispose()
+    this.couch = fromMenu && !net && (bm.game?._couchNext || lastCouch) ? new CouchCoop(this, { padIndex: lastCouch?.padIndex }) : null
+    if (bm.game) bm.game._couchNext = false
+    if (fromMenu && !net && !this.couch) openLobby(bm.game, this).catch(() => { /* offline: just solo */ })
   }
 
   // Gets the graphics card ready to draw zombies (and skeletons) while the
@@ -763,6 +771,8 @@ export class BuildSurvival {
     // Leaving a run before dying still counts it (stats, quests).
     if (!this.dead && !suspend) this._endRun(false)
     this.active = false
+    this.couch?.dispose()
+    this.couch = null
     this.infection?.dispose()
     this.infection = null
     this.speedrun?.dispose()
@@ -1418,7 +1428,7 @@ export class BuildSurvival {
   // false when the gun is empty or reloading (no shot happens).
   tryFire() {
     if (!this.active || this.dead) return true
-    if (this._picking) return false
+    if (this._picking || this.couch?.p1Down) return false
     // Holding a block or an item instead of a gun: no shot (a health pack
     // or ammo box is used instead).
     if (this.holding) {
@@ -1944,7 +1954,8 @@ export class BuildSurvival {
       const d = Math.hypot(p.x - z.x, p.y + 1 - mid, p.z - z.z)
       if (d >= r) continue
       const amount = hit * (1 - d / r)
-      if (p.remote) {
+      if (p.hurt) p.hurt(amount)
+      else if (p.remote) {
         if (!this.camp?.inside(p.x, p.z)) this.net?.queueHurt(p.remote, amount)
       } else {
         this._lastBiter = { nameIdx: z.nameIdx, at: performance.now() }
@@ -3182,6 +3193,8 @@ export class BuildSurvival {
     // Spectating: flying about, nothing can hurt you. Nor on board the
     // escape helicopter (_updateExtraction).
     if (this.dead || this.spectating || this._ride) return
+    // Knocked down in Couch Co-op: waiting for Player 2 (CouchCoop.js).
+    if (this.couch?.p1Down) return
     // The owner dropping in (OwnerDropIn.js) can't be hurt.
     if (this.ownerMode) return
     // In a Pack Leader's battle (PackLeaderWorld.js).
@@ -3220,6 +3233,11 @@ export class BuildSurvival {
     // Skill tree: Not Today, once a game.
     if (this.health <= 0) this.skills?.cheatDeath()
     if (this.health > 0) this.skills?.onHurt()
+    // Couch Co-op: knocked down for Player 2 to revive, not the end.
+    if (this.health <= 0 && this.couch?.p1Fall()) {
+      this._renderHud()
+      return
+    }
     this._renderHud()
     if (this.health <= 0) this._die()
   }
@@ -3474,6 +3492,7 @@ export class BuildSurvival {
     this.bungee?.update(Math.min(dt, 0.1))
     this.diner?.update(Math.min(dt, 0.1))
     this.learn?.update(Math.min(dt, 0.1))
+    this.couch?.update(Math.min(dt, 0.1))
     // A new run's Bingo card, once the run is set up (ZombieBingo.js).
     if (this.bingo && !this.bingo.card && this.bingo.allowed && !this.dead) this.bingo.deal()
     this.music?.update(Math.min(dt, 0.1))
@@ -3644,11 +3663,14 @@ export class BuildSurvival {
   _targets() {
     const out = []
     // Wearing the goo disguise: zombies don't see you (GooDisguise.js).
-    if (!this.dead && !this._picking && !this.disguise?.active) {
+    if (!this.dead && !this._picking && !this.disguise?.active && !this.couch?.p1Down) {
       const p = this.bodyPos()
       out.push({ x: p.x, y: p.y, z: p.z, remote: null })
     }
     if (this.net && !this.net.closed) out.push(...this.net.targets())
+    // Couch Co-op's Player 2 (CouchCoop.js).
+    const p2 = this.couch?.target()
+    if (p2) out.push(p2)
     return out
   }
 
