@@ -1082,7 +1082,7 @@ class AudioEngine {
     const now = ctx.currentTime
 
     // Directional zombie presence (see updateZombiePresence, called
-    // periodically from Game.js) - both the constant base drone below and
+    // about 10 times a second from AmbientCues.js) - both the constant base drone below and
     // the density-scaled boost route through this shared panner, so a
     // nearby horde shifts the whole ambient bed toward its direction
     // instead of needing a second, competing drone system.
@@ -1344,6 +1344,14 @@ class AudioEngine {
     const now = this.ctx.currentTime
     this._windFilter.frequency.setTargetAtTime(freq, now, 0.5)
     this._windGainNode.gain.setTargetAtTime(gain, now, 0.5)
+  }
+
+  // Back to open air and no horde rumble (AmbientCues.js, leaving the world).
+  resetAmbientCues() {
+    if (!this.ctx) return
+    this._ambientIndoorAmount = 0
+    this.updateAmbientZone(false)
+    this.updateZombiePresence(0, 0)
   }
 
   setSfxVolume(volume) {
