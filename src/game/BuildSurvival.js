@@ -67,6 +67,7 @@ import { PizzaDelivery } from './PizzaDelivery.js'
 import { Bungee } from './Bungee.js'
 import { ZombieDiner } from './ZombieDiner.js'
 import { ZombieLearning } from './ZombieLearning.js'
+import { PaceTuning } from './PaceTuning.js'
 import { DragonBoss } from './DragonBoss.js'
 import { Graveyard } from './Graveyard.js'
 import { Lighthouse } from './Lighthouse.js'
@@ -579,6 +580,10 @@ export class BuildSurvival {
     this.diner.clear()
     if (!this.learn) this.learn = new ZombieLearning(this)
     this.learn.clear()
+    // Hidden pace tuning: a little tougher when it's easy for you, a
+    // little easier when it's hard (PaceTuning.js).
+    if (!this.pace) this.pace = new PaceTuning(this)
+    this.pace.clear()
     // The graveyard (a night world event) and the lighthouse on the coast
     // (Graveyard.js, Lighthouse.js).
     if (!this.graveyard) this.graveyard = new Graveyard(this)
@@ -824,6 +829,7 @@ export class BuildSurvival {
     this.bungee?.clear()
     this.diner?.clear()
     this.learn?.clear()
+    this.pace?.clear()
     this.graveyard?.clear()
     this.lighthouse?.clear()
     this.leaders?.clear()
@@ -1686,7 +1692,15 @@ export class BuildSurvival {
       this.net.queueHit(`z${z.id}`, amount)
       z.flash = 0.12
       this._bleedZombie(z)
-    } else this.damageZombie(z, amount, dir)
+    } else {
+      // A headshot, for visored zombies and their lesson (ZombieLearning.js).
+      this._hitHead = head
+      try {
+        this.damageZombie(z, amount, dir)
+      } finally {
+        this._hitHead = false
+      }
+    }
     this._hitFeedback({ head, kill: !this.zombies.includes(z), boss: !!z.boss, amount })
   }
 
@@ -2366,6 +2380,7 @@ export class BuildSurvival {
     const zb = this._makeZombie(++this._zid, x + 0.5, y, z + 0.5, health, boss, kind, { tier, name: rollZombieName(), shine })
     if (shine) this._announceShine(zb)
     this.learn?.dress(zb)
+    this.pace?.apply(zb)
     if (cave) {
       zb.cave = true
       zb.damageMult *= CAVE_DAMAGE_MULT
@@ -2403,6 +2418,7 @@ export class BuildSurvival {
     const zb = this._makeZombie(++this._zid, x, y, z, health, false, kind)
     zb.extra = true
     this.learn?.dress(zb)
+    this.pace?.apply(zb)
     return zb
   }
 
@@ -2919,6 +2935,8 @@ export class BuildSurvival {
       speed *= zb.speedMult || 1
     }
     if (zb.monster) speed *= zb.speedMult || 1
+    // Hidden pace tuning (PaceTuning.js).
+    speed *= zb.paceMult || 1
     // The team's live Zombie Speed tuning (LiveConfig.js tune).
     speed *= tune('zombieSpeed')
     // Out in Shrinking Zone's toxic fog they run faster (ShrinkZone.js).
@@ -3166,6 +3184,7 @@ export class BuildSurvival {
     const soaked = Math.min(this.armor || 0, amount)
     this.armor = (this.armor || 0) - soaked
     this.health = Math.max(0, this.health - (amount - soaked))
+    this.pace?.onHurt(amount - soaked)
     audioEngine.playPlayerHurt?.()
     // Settings > Graphics > Blood: red drops just in front of you.
     if (amount - soaked > 0) {
@@ -3720,6 +3739,7 @@ export class BuildSurvival {
 
   _startWave(n) {
     this.perks?.onWaveStart()
+    this.pace?.onWaveStart(n)
     this.wave = n
     // x the Console's Horde Night switch (LiveConfig.js).
     this._toSpawn = Math.max(1, Math.round(waveSize(this.wave) * this.cfg.zombieCountMult * (this.bloodMoon?.mult ?? 1) * hordeMult()))

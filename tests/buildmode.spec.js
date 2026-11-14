@@ -8487,6 +8487,58 @@ test('Bungee Jump, the Jet Ski, the Zombie Diner and zombies that learn', async 
     L.forgetIn = 0
     L.update(0.05)
     out.learnForgets = L.level.gun === 2
+    // Headshots -> steel visors (headshots on them do half).
+    L.clear()
+    L.level.melee = 3
+    s._hitHead = true
+    for (let i = 0; i < 20; i++) L.onKill()
+    s._hitHead = false
+    out.learnHead = L.level.head === 1 && /Visors 1/.test(document.getElementById('pill-learn')?.textContent || '')
+    L.level.melee = 0
+    L.level.head = 3
+    let visored = null
+    for (let i = 0; i < 40 && !visored; i++) {
+      const z = s._extraZombie(me.x + 3, s._groundUnder(me.x + 3, me.y + 10, me.z), me.z)
+      if (z?.visor) visored = z
+    }
+    visored.health = 1000
+    s._hitHead = true
+    s.damageZombie(visored, 100)
+    s._hitHead = false
+    out.learnVisorHalf = Math.abs(visored.health - 950) < 1
+    s.damageZombie(visored, 100)
+    out.learnVisorBody = Math.abs(visored.health - 850) < 1
+    // Camping in one spot -> ladders that climb walls.
+    L.clear()
+    for (let i = 0; i < 620 && !L.level.camp; i++) L.update(0.1)
+    out.learnCamp = L.level.camp === 1 && /Ladders 1/.test(document.getElementById('pill-learn')?.textContent || '')
+    L.level.camp = 3
+    let laddered = null
+    for (let i = 0; i < 40 && !laddered; i++) {
+      const z = s._extraZombie(me.x + 3, s._groundUnder(me.x + 3, me.y + 10, me.z), me.z)
+      if (z?.ladder) laddered = z
+    }
+    out.learnLadder = !!laddered && laddered.climbs === true
+    // Moved away: they forget the ladders.
+    tm.pos.x += 20
+    L.forgetIn = 0
+    L.update(0.05)
+    out.learnCampForgets = L.level.camp === 2
+    L.clear()
+    // Hidden pace tuning: easy wave -> a bit tougher, hard wave -> easier.
+    const P = s.pace
+    P.clear()
+    s.health = s.maxHealth
+    P.onWaveStart(2)
+    const fake = { health: 100, maxHealth: 100 }
+    P.apply(fake)
+    out.paceUp = Math.abs(P.level - 0.05) < 1e-6 && Math.abs(fake.maxHealth - 105) < 1e-6 && Math.abs(fake.paceMult - 1.025) < 1e-6
+    P.onHurt(s.maxHealth * 0.7)
+    P.onWaveStart(3)
+    out.paceDown = Math.abs(P.level + 0.03) < 1e-6
+    for (let i = 0; i < 20; i++) P.onWaveStart(4 + i)
+    out.paceCapped = Math.abs(P.level - 0.15) < 1e-6
+    P.clear()
     s.stop?.()
     g._exitBuildMode?.()
     return out
