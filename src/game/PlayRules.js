@@ -151,6 +151,26 @@ export const UPGRADE_PLAY = {
   sharpEye: { headshot: 0.25 },
   hardenedHide: { toughness: 0.1 },
   haggler: { discount: 0.25 },
+  // Skill tree (2026-11-14, Batch 4b). Plain numbers here; `skill: true`
+  // ones react to what happens in a game (TreeSkills.js reads cfg.skills).
+  bigHeart: { health: 25 },
+  tank: { health: 60, speed: -0.1 },
+  ironGut: { hunger: 0.4 },
+  extendedMags: { mag: 0.25 },
+  fleetFoot: { speed: 0.1 },
+  starterPack: { coins: 150 },
+  bargainHunter: { discount: 0.35 },
+  bottomless: { ammo: 0.5 },
+  quickPatch: { campHeal: 0.5 },
+  // (Paid out in ProgressUI's Points for a game - MetaProgress LEGACY_BOOST.)
+  legacyBoost: { legacy: true },
+  ...Object.fromEntries([
+    'armorRefill', 'shrugOff', 'notToday', 'regenerator', 'patchUp',
+    'giantKiller', 'finisher', 'firstStrike', 'closeQuarters', 'longShot', 'onARoll', 'brawler', 'lastRounds', 'recycler',
+    'hitAndRun', 'secondBreath', 'adrenaline', 'dodgeStep', 'breakRunner',
+    'interest', 'streakCash', 'wavePay', 'goldenTouch', 'bossBounty', 'luckyChest', 'tipJar',
+    'restock', 'scrounger', 'packedLunch', 'trapKit',
+  ].map((id) => [id, { skill: true }])),
 }
 
 // Legacy Points for a run: this share of its points (DEATH_POINTS_CONVERSION
@@ -178,6 +198,9 @@ export const PLAY_DEFAULTS = {
   discount: 0,
   ammoMult: 1,
   headshotMult: 1,
+  magMult: 1,
+  hungerMult: 1,
+  skills: [],
   mutators: [],
 }
 
@@ -202,6 +225,8 @@ export function playConfig({ difficulty, gameMode, mutators = {}, purchased = ne
   let speed = 0
   let coinBonus = 0
   let toughness = 0
+  let hungerCut = 0
+  const skills = []
   for (const id of purchased) {
     const up = UPGRADE_PLAY[id]
     if (!up) continue
@@ -218,7 +243,12 @@ export function playConfig({ difficulty, gameMode, mutators = {}, purchased = ne
     cfg.headshotMult += up.headshot || 0
     toughness += up.toughness || 0
     if (up.regen) cfg.regen = true
+    cfg.magMult += up.mag || 0
+    hungerCut += up.hunger || 0
+    if (up.skill) skills.push(id)
   }
+  cfg.skills = skills
+  cfg.hungerMult = Math.max(0.2, 1 - hungerCut)
   cfg.moveMult *= 1 + speed
   cfg.coinMult += coinBonus
   cfg.maxHealth = PLAY_DEFAULTS.maxHealth + health

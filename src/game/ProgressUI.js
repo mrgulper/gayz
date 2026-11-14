@@ -9,7 +9,8 @@
 import * as CloudSaveUI from './CloudSaveUI.js'
 import { ACHIEVEMENTS } from './Achievements.js'
 import { ACHIEVEMENTS_SEEN_IDS_KEY, ACHIEVEMENT_CHAINS, ACHIEVEMENT_TOAST_GAP_MS, APEX_PREDATOR_WAVES, BONE_COLLECTOR_SKELETONS, BOSS_HUNTER_BOSSES, DEEP_POCKETS_COINS, ENDGAME_ACHIEVEMENT, EXTERMINATOR_CAREER_KILLS, FORTUNE_HUNTER_COINS, FULLY_LOADED_UPGRADES, HARDENED_WAVES, HEADHUNTER_HEADSHOTS, LEADERBOARD_MAX_ENTRIES, LOGIN_CALENDAR_DAYS, LOGIN_STREAK_COIN_PER_DAY, LOGIN_STREAK_MAX_BONUS_DAYS, LOGIN_STREAK_MAX_FREEZES, MARATHON_SECONDS, MASSACRE_KILLS, MEAT_GRINDER_STREAK, MUTATOR_CHALLENGE_WAVES, PLAYTIME_MILESTONES, PLAY_META_UPGRADES, PRESTIGE_BONUS_PERCENT, PRESTIGE_COST_STEP, QUESTS_SEEN_IDS_KEY, RATTLED_SKELETONS, REGULAR_CAREER_RUNS, RUN_HISTORY_MAX, SHARPSHOOTER_HEADSHOTS, SURVIVOR_20_WAVES, SURVIVOR_30_WAVES, TREASURE_HUNTER_CHESTS, UNTOUCHABLE_STREAK, UPGRADES_SEEN_IDS_KEY, UP_CLOSE_KNIFE_KILLS, VETERAN_PERKS, WEEKLY_FEATURED_MUTATOR_BONUS_COINS, _escapeHtml, _formatDurationShort, _loadSeenIds, _safeStatNumber, _saveSeenIds, _weeklyFeaturedMutatorKey, careerRankTitleKey, formatTime, saveBestRunPace, saveBestStats, saveCareerStats, saveLeaderboard, saveLoginStreak, saveRunHistory, saveSettings, saveShopProgress, todayDateString, yesterdayDateString } from './Game.js'
-import { DEATH_POINTS_CONVERSION, META_UPGRADES, saveMetaProgress } from './MetaProgress.js'
+import { DEATH_POINTS_CONVERSION, LEGACY_BOOST, META_UPGRADES, maxOwnable, saveMetaProgress, upgradeState } from './MetaProgress.js'
+import { renderSkillTree } from './SkillTreeUI.js'
 import { GLOBETROTTER_SECONDS, POINTS_PER_KILL, POINTS_PER_WAVE } from './PlayRules.js'
 import { QUESTS } from './Quests.js'
 import { SKIN_RARITIES } from './InventorySkins.js'
@@ -206,7 +207,8 @@ export function _onPlayEvent(game, type, data) {
   if (data.coins >= 15000) game.achievements.unlock('jackpot')
   if (data.seconds >= 90 * 60) game.achievements.unlock('all_nighter')
   // +10% per Prestige level, as the Prestige line promises.
-  const legacy = Math.floor(points * DEATH_POINTS_CONVERSION * (1 + (PRESTIGE_BONUS_PERCENT / 100) * Math.floor(_safeStatNumber(game.metaProgress.prestigeLevel))))
+  // (+10% more with the skill tree's Legacy upgrade.)
+  const legacy = Math.floor(points * DEATH_POINTS_CONVERSION * (1 + (PRESTIGE_BONUS_PERCENT / 100) * Math.floor(_safeStatNumber(game.metaProgress.prestigeLevel))) * (game.metaProgress.purchased.has('legacyBoost') ? 1 + LEGACY_BOOST : 1))
   game.metaProgress.legacyPoints += legacy
   saveMetaProgress(game.metaProgress)
   // XP (Xp.js) - never spent; sets your level, and counts for your clan
@@ -268,7 +270,8 @@ const WELL_EQUIPPED_UPGRADES = 10
 function _checkUpgradeAchievements(game) {
   const owned = PLAY_META_UPGRADES.filter((u) => game.metaProgress.purchased.has(u.id)).length
   if (owned >= WELL_EQUIPPED_UPGRADES) game.achievements.unlock('well_equipped')
-  if (owned >= PLAY_META_UPGRADES.length) game.achievements.unlock('maxed_out')
+  // (A fork lets you own only one of its two, so "all" = maxOwnable.)
+  if (owned >= maxOwnable(PLAY_META_UPGRADES)) game.achievements.unlock('maxed_out')
 }
 
 // A skeleton kill (kind: minion/rogue/warrior/mage) - career totals for
@@ -305,42 +308,8 @@ export function _renderUpgradesOptions(game) {
   // buy, respec and prestige (it used to only update after a run).
   game._renderCurrencyBar()
   game.upgradesPointsLine.textContent = t('legacyScrapLabel', { n: game.metaProgress.legacyPoints })
-  game.upgradesOptions.innerHTML = ''
-  for (const upgrade of PLAY_META_UPGRADES) {
-    const owned = game.metaProgress.purchased.has(upgrade.id)
-    const locked = !!upgrade.requires && !game.metaProgress.purchased.has(upgrade.requires)
-    // Veteran's Cache pair moved here from the Coin Shop keeps its
-    // lifetime-earned-coins gate (see MetaProgress.js's own comment on
-    // requiresLifetimeCoins) - a second, different kind of lock from
-    // `requires` above, shown with the same "locked" treatment but its
-    // own distinct label (you have the Legacy Points, you just haven't
-    // played long enough yet).
-    const lifetimeLocked = !!upgrade.requiresLifetimeCoins && game.careerStats.lifetimeCoinsEarned < upgrade.requiresLifetimeCoins
-    const btn = document.createElement('button')
-    btn.className = (locked || lifetimeLocked) ? 'perk-option locked' : 'perk-option'
-    btn.disabled = owned || locked || lifetimeLocked || game.metaProgress.legacyPoints < upgrade.cost
-    const costLine = owned
-      ? t('upgradesOwned')
-      : locked
-        ? t('upgradesRequires', { name: t(META_UPGRADES.find((u) => u.id === upgrade.requires)?.titleKey) })
-        : lifetimeLocked
-          ? t('cacheLifetimeLocked', { have: _safeStatNumber(game.careerStats.lifetimeCoinsEarned), need: upgrade.requiresLifetimeCoins })
-          : t('perkCostLabel', { n: upgrade.cost })
-    btn.innerHTML = `
-      <span class="perk-name">${t(upgrade.titleKey)}</span>
-      <span class="perk-cost">${costLine}</span>
-    `
-    btn.addEventListener('click', () => {
-      if (owned || locked || lifetimeLocked || game.metaProgress.legacyPoints < upgrade.cost) return
-      game.metaProgress.legacyPoints -= upgrade.cost
-      game.metaProgress.purchased.add(upgrade.id)
-      saveMetaProgress(game.metaProgress)
-      _checkUpgradeAchievements(game)
-      game._renderUpgradesOptions()
-      game._updateUpgradesDot()
-    })
-    game.upgradesOptions.appendChild(btn)
-  }
+  // The skill tree (SkillTreeUI.js): Branches and Map, both from here.
+  renderSkillTree(game, PLAY_META_UPGRADES, (upgrade) => _buyMetaUpgrade(game, upgrade))
 
   // Gated behind the same milestone as Nightmare difficulty (see the
   // constructor's diff-nightmare toggle) - both read as "you've actually
@@ -364,6 +333,21 @@ export function _renderUpgradesOptions(game) {
     game.respecSection.style.display = canRespec ? 'block' : 'none'
     if (canRespec) game.respecBtn.textContent = t('respecBtn')
   }
+}
+
+// Buys one skill tree spot if it can be bought right now (MetaProgress's
+// upgradeState: owned, fork partner bought, locked, lifetime, too dear).
+export function _buyMetaUpgrade(game, upgrade) {
+  if (upgradeState(game.metaProgress, game.careerStats.lifetimeCoinsEarned, upgrade) !== 'buy') return false
+  game.metaProgress.legacyPoints -= upgrade.cost
+  game.metaProgress.purchased.add(upgrade.id)
+  saveMetaProgress(game.metaProgress)
+  // The "we gave your Points back" note goes once you've bought something.
+  try { localStorage.removeItem('gayz-skill-tree-refund') } catch { /* fine */ }
+  _checkUpgradeAchievements(game)
+  game._renderUpgradesOptions()
+  game._updateUpgradesDot()
+  return true
 }
 
 // Irreversible from the player's side (wipes Legacy Points and every
@@ -864,9 +848,7 @@ export function _updateUpgradesDot(game) {
   // The number is how many upgrades are new or affordable right now.
   const count = PLAY_META_UPGRADES.filter((u) => {
     if (!seen.has(u.id)) return true
-    if (game.metaProgress.purchased.has(u.id)) return false
-    if (u.requires && !game.metaProgress.purchased.has(u.requires)) return false
-    return game.metaProgress.legacyPoints >= u.cost
+    return upgradeState(game.metaProgress, game.careerStats?.lifetimeCoinsEarned, u) === 'buy'
   }).length
   setNavBadge(game.upgradesDot, count)
 }

@@ -282,7 +282,7 @@ test('the 2026-10-17 upgrades and achievements work', async ({ page }) => {
     g.metaProgress.legacyPoints = 1e7
     g.careerStats.lifetimeCoinsEarned = 1e6
     g._renderUpgradesOptions()
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 120; i++) {
       const btn = [...document.querySelectorAll('#upgrades-options .perk-option')].find((b) => !b.disabled)
       if (!btn) break
       btn.click()
@@ -299,6 +299,98 @@ test('the 2026-10-17 upgrades and achievements work', async ({ page }) => {
 // XP (2026-10-23): every finished game earns XP (never spent, not the
 // Points currency), XP sets your endless level, and clan XP only counts
 // for the clan it was earned in, this month.
+// Upgrades skill tree (2026-11-14, Batch 4b): upgrades bought before the
+// tree are refunded once, each branch unlocks in order, a fork locks its
+// partner, the Map view buys too, and the new upgrades reach the game.
+test('Upgrades skill tree: refund, order, forks, Map and new effects', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('tree-test-seeded')) return
+    sessionStorage.setItem('tree-test-seeded', '1')
+    localStorage.setItem('gayz-meta-progress', JSON.stringify({ legacyPoints: 100, purchased: ['vitality', 'ironwill', 'fortune'], prestigeLevel: 0 }))
+  })
+  await gotoAndWaitForGame(page)
+  const first = await page.evaluate(() => {
+    const g = window.__game
+    return { pts: g.metaProgress.legacyPoints, owned: g.metaProgress.purchased.size, saved: JSON.parse(localStorage.getItem('gayz-meta-progress')).legacyPoints }
+  })
+  // 400 + 350 + 250 given back, and saved.
+  expect(first).toEqual({ pts: 1100, owned: 0, saved: 1100 })
+  await page.reload()
+  await waitForGame(page)
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const out = { afterReload: g.metaProgress.legacyPoints }
+    g.settings.difficulty = 'normal'
+    g.settings.mutators = Object.fromEntries(Object.keys(g.settings.mutators).map((k) => [k, false]))
+    g.metaProgress.legacyPoints = 100000
+    g._openUpgradesPanel()
+    document.getElementById('skill-view-columns').click()
+    const q = (id) => document.querySelector(`#upgrades-options [data-upgrade="${id}"]`)
+    out.columns = document.querySelectorAll('.skill-col').length
+    out.cards = document.querySelectorAll('#upgrades-options .skill-node').length
+    // In order: Iron Will waits for +50 Max Health.
+    out.ironLocked = q('ironwill').disabled
+    for (const id of ['vitality', 'ironwill', 'juggernaut']) q(id).click()
+    q('tank').click()
+    out.forkLocked = q('regenerator').disabled && q('regenerator').classList.contains('is-fork')
+    // The Map buys the same way.
+    document.getElementById('skill-view-map').click()
+    out.mapShown = document.getElementById('skill-map').style.display !== 'none' && document.getElementById('upgrades-options').style.display === 'none'
+    document.querySelector('.skill-map-node[data-upgrade="swiftfoot"]').click()
+    document.getElementById('skill-map-buy').click()
+    out.mapBought = g.metaProgress.purchased.has('swiftfoot') && document.querySelector('.skill-map-node[data-upgrade="swiftfoot"]').classList.contains('is-owned')
+    out.saved = JSON.parse(localStorage.getItem('gayz-meta-progress')).tree.includes('tank')
+    document.getElementById('skill-view-columns').click()
+    // Numbers and reacting skills reach the game's config.
+    for (const id of ['extendedMags', 'ironGut', 'finisher', 'notToday']) g.metaProgress.purchased.add(id)
+    const cfg = g._playConfig()
+    out.cfg = { mag: cfg.magMult, hunger: +cfg.hungerMult.toFixed(2), skills: [...cfg.skills].sort() }
+    return out
+  })
+  expect(r).toEqual({
+    afterReload: 1100, columns: 5, cards: 76, ironLocked: true, forkLocked: true, mapShown: true, mapBought: true, saved: true,
+    cfg: { mag: 1.25, hunger: 0.6, skills: ['finisher', 'notToday'] },
+  })
+})
+
+// TreeSkills.js in a real game: damage bonuses, a saved life, wave rewards.
+test('skill tree upgrades work in a real game', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    const g = window.__game
+    g.careerStats.totalRuns = Math.max(1, g.careerStats.totalRuns)
+    g.settings.selectedGameMode = 'classic'
+    g.settings.mutators = Object.fromEntries(Object.keys(g.settings.mutators).map((k) => [k, false]))
+    g.metaProgress.purchased = new Set(['giantKiller', 'firstStrike', 'finisher', 'notToday', 'shrugOff', 'armorRefill', 'patchUp', 'restock', 'packedLunch'])
+    g.playBtn.click()
+  })
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  const r = await page.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const k = s.skills
+    const z = { boss: true, health: 100, maxHealth: 100, x: 0, z: 0 }
+    const out = { fresh: k.shotDamage(z, 10, s.weapon) }
+    z.health = 10
+    out.low = k.shotDamage(z, 10, s.weapon)
+    let blocked = 0
+    for (let i = 0; i < 5; i++) if (k.blocksHit()) blocked++
+    out.shrug = blocked
+    s.health = 0
+    out.saved = k.cheatDeath() && s.health === 25 && !k.cheatDeath()
+    s.health = 40
+    s.armor = 0
+    s.cfg.armor = 50
+    const reserve = s.reserve
+    k.onWaveCleared(25)
+    out.wave = { health: s.health, armor: s.armor, restocked: s.reserve - reserve === s.magSize() }
+    k.giveStartItems()
+    out.lunch = [...s.inv.hotbar, ...s.inv.grid].filter((x) => x?.id === 'cookedMeat').reduce((n, x) => n + x.n, 0) >= 3
+    return out
+  })
+  // Boss + unhurt: x1.7; boss + under a quarter health: x1.8.
+  expect(r).toEqual({ fresh: 17, low: 18, shrug: 1, saved: true, wave: { health: 60, armor: 15, restocked: true }, lunch: true })
+})
+
 test('a finished game earns XP, levels come from XP, clan XP is per clan and month', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(() => {
