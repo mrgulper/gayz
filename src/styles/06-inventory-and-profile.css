@@ -1288,3 +1288,355 @@ html.ui-theme-old #prestige-history-list {
 .trophy-next { font-size: 11px; color: rgba(255, 255, 255, 0.5); }
 html.ui-theme-old .trophy-card { background: rgba(122, 78, 36, 0.1); border-color: rgba(74, 44, 16, 0.4); }
 html.ui-theme-old :is(#profile-trophies-hint, #profile-trophies-count, .trophy-tier, .trophy-next) { color: inherit; }
+
+/* ---- Upgrades skill tree (2026-11-14, Batch 4b; SkillTreeUI.js) ----
+   Two views of one tree: Branches (#upgrades-options as five outline
+   columns) and Map (#skill-map, drag + zoom). Each branch has its own
+   colour (--branch), used only for lines, edges and dots - text and card
+   backgrounds follow the theme like every other panel. */
+#upgrades-page-upgrades [data-branch="survival"] { --branch: #e0605a; }
+#upgrades-page-upgrades [data-branch="combat"] { --branch: #e8913a; }
+#upgrades-page-upgrades [data-branch="speed"] { --branch: #4fa3e3; }
+#upgrades-page-upgrades [data-branch="loot"] { --branch: #d9b23a; }
+#upgrades-page-upgrades [data-branch="gear"] { --branch: #5fb766; }
+
+.skill-views {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+.skill-view-btn {
+  padding: 6px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 20px;
+  cursor: pointer;
+}
+.skill-view-btn.active {
+  color: #0c130c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
+}
+html.ui-theme-old .skill-view-btn {
+  border-color: rgba(46, 29, 14, 0.4);
+  background: rgba(46, 29, 14, 0.06);
+}
+html.ui-theme-old .skill-view-btn.active {
+  background: rgba(46, 29, 14, 0.2);
+  border-color: var(--old-ink);
+}
+#skill-tree-hint,
+#skill-refund-note {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.75;
+  text-align: center;
+  max-width: 640px;
+}
+#skill-refund-note {
+  opacity: 1;
+  font-weight: 600;
+  padding: 6px 12px;
+  border: 1px dashed currentColor;
+  border-radius: 10px;
+}
+
+/* Branches: columns side by side, wrapping onto a new row when there's
+   no room (nothing in a panel scrolls sideways - Gaymi, 2026-10-04). */
+#upgrades-options.skill-columns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  padding-bottom: 6px;
+  /* The page around it scrolls up and down. */
+  flex-shrink: 0;
+}
+#skill-map {
+  flex-shrink: 0;
+}
+#upgrades-options .skill-node.locked {
+  opacity: 0.5;
+}
+.skill-col {
+  flex: 1 1 200px;
+  min-width: 0;
+  max-width: 320px;
+  border-top: 3px solid var(--branch);
+  border-radius: 8px;
+  padding: 8px 6px 10px;
+  background: rgba(127, 127, 127, 0.06);
+}
+.skill-col-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+.skill-col-title::before {
+  content: '';
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--branch);
+}
+.skill-outline,
+.skill-outline ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* Each child list hangs off a line in the branch colour, with a small
+   tick into every card - the "what unlocks what" lines. */
+.skill-outline ul {
+  margin-left: 10px;
+  padding-left: 12px;
+  border-left: 2px solid color-mix(in srgb, var(--branch) 55%, transparent);
+}
+.skill-outline li {
+  position: relative;
+  margin-top: 6px;
+}
+.skill-outline ul > li::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 22px;
+  width: 11px;
+  border-top: 2px solid color-mix(in srgb, var(--branch) 55%, transparent);
+}
+#upgrades-options .skill-node {
+  position: relative;
+  width: 100%;
+  padding: 8px 10px;
+  gap: 3px;
+  align-items: flex-start;
+  text-align: left;
+  border-left: 4px solid var(--branch);
+}
+#upgrades-options .skill-node:hover {
+  transform: scale(1.03);
+}
+#upgrades-options .skill-node .perk-name {
+  font-size: 12px;
+  line-height: 1.3;
+}
+#upgrades-options .skill-node .perk-cost {
+  font-size: 11px;
+}
+/* (#upgrades-options: outranks the Simple theme's flat panel buttons.) */
+#upgrades-options .skill-node.is-buy {
+  box-shadow: 0 0 0 1px var(--branch), 0 0 10px color-mix(in srgb, var(--branch) 45%, transparent);
+  cursor: pointer;
+}
+.skill-node.is-owned,
+.skill-map-node.is-owned {
+  background: color-mix(in srgb, var(--branch) 22%, transparent) !important;
+  opacity: 1 !important;
+}
+.skill-node.is-owned .perk-cost::before,
+.skill-map-node.is-owned::before {
+  content: '\2713  ';
+}
+.skill-node.is-fork .perk-name,
+.skill-map-node.is-fork {
+  text-decoration: line-through;
+}
+.skill-fork-tag {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid var(--branch);
+}
+
+/* Map: a window onto one big tree that you drag and zoom. */
+#skill-map {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#skill-map-view {
+  position: relative;
+  width: 100%;
+  height: min(60vh, 520px);
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid rgba(127, 127, 127, 0.3);
+  background: rgba(127, 127, 127, 0.07);
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+#skill-map-view:active {
+  cursor: grabbing;
+}
+#skill-map-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+.skill-map-lines {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+}
+.skill-line {
+  fill: none;
+  stroke: var(--branch, #888);
+  stroke-opacity: 0.6;
+  stroke-dasharray: 6 5;
+  stroke-width: 2.5;
+}
+.skill-line.owned {
+  stroke-opacity: 1;
+  stroke-dasharray: none;
+  stroke-width: 4;
+}
+.skill-map-start,
+.skill-map-node {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4px 8px;
+  font-size: 11px;
+  line-height: 1.25;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.skill-map-start {
+  font-size: 15px;
+  font-weight: 700;
+  border: 3px solid currentColor;
+  border-radius: 50%;
+}
+.skill-map-node {
+  color: inherit;
+  background: rgba(20, 20, 20, 0.55);
+  border: 2px solid var(--branch);
+  cursor: pointer;
+}
+html.ui-theme-old .skill-map-node {
+  background: rgba(255, 248, 230, 0.75);
+}
+html.ui-theme-clean #upgrades-page-upgrades .skill-map-node {
+  background: var(--clean-bg);
+  border: 2px solid var(--branch);
+}
+.skill-map-node.is-locked,
+.skill-map-node.is-lifetime,
+.skill-map-node.is-fork {
+  opacity: 0.4;
+  border-style: dashed;
+}
+.skill-map-node.is-poor {
+  opacity: 0.75;
+}
+#skill-map-stage .skill-map-node.is-buy {
+  box-shadow: 0 0 12px color-mix(in srgb, var(--branch) 70%, transparent);
+}
+.skill-map-node.selected {
+  outline: 3px solid var(--ui-gold-bright, #ffde5c);
+  outline-offset: 2px;
+}
+.skill-map-node.is-root {
+  overflow: visible;
+  font-weight: 700;
+  border-width: 3px;
+}
+.skill-map-branch {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 4px);
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  border-bottom: 3px solid var(--branch);
+  pointer-events: none;
+}
+.skill-map-zoom {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.skill-map-zoom button {
+  width: 34px;
+  height: 34px;
+  font-size: 18px;
+  font-weight: 700;
+  color: inherit;
+  border-radius: 50%;
+  border: 1px solid rgba(127, 127, 127, 0.5);
+  background: rgba(20, 20, 20, 0.6);
+  cursor: pointer;
+}
+html.ui-theme-old .skill-map-zoom button {
+  background: rgba(255, 248, 230, 0.9);
+}
+#skill-map-info {
+  min-height: 46px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 14px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border-left: 4px solid var(--branch, transparent);
+  background: rgba(127, 127, 127, 0.07);
+  font-size: 13px;
+  text-align: center;
+}
+#skill-map-info.empty {
+  opacity: 0.7;
+}
+.skill-info-name {
+  font-weight: 700;
+}
+.skill-info-status {
+  font-size: 12px;
+  opacity: 0.85;
+}
+.skill-info-buy {
+  padding: 6px 18px;
+  font-weight: 700;
+  color: #0c130c;
+  background: var(--ui-gold-bright);
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+}
+.skill-info-buy:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+@media (max-width: 700px) {
+  .skill-col {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+  #skill-map-view {
+    height: 52vh;
+  }
+}

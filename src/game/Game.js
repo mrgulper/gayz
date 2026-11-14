@@ -2592,6 +2592,14 @@ export class Game {
     this.weeklyChallenge = loadWeeklyChallenge()
     this.weeklyDef = WEEKLY_CHALLENGES[_weeklyChallengeIndex(this.weeklyChallenge.week)]
     this.metaProgress = loadMetaProgress()
+    // Upgrades became a skill tree (2026-11-14): everything bought before
+    // was refunded once (MetaProgress.js). Say so on the homepage, and keep
+    // a note in the Upgrades panel until something new is bought there.
+    if (this.metaProgress.refundedNow > 0) {
+      const n = this.metaProgress.refundedNow
+      try { localStorage.setItem('gayz-skill-tree-refund', String(n + (Number(localStorage.getItem('gayz-skill-tree-refund')) || 0))) } catch { /* note only */ }
+      setTimeout(() => this._showHomepageToast?.(t('skillTreeRefund', { n: n.toLocaleString() })), 2500)
+    }
     this.achievements = new Achievements((def) => this._showAchievementToast(def))
     this.quests = new Quests()
     this.rollingQuests = new RollingQuests()

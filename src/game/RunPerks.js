@@ -158,7 +158,7 @@ export class RunPerks {
   }
 
   applySpeed() {
-    this.s.bm.tryMode.speedMult = (this.s.cfg?.moveMult ?? 1) * this.moveMult()
+    this.s.bm.tryMode.speedMult = (this.s.cfg?.moveMult ?? 1) * this.moveMult() * (this.s.skills?.speedMult() ?? 1)
   }
 
   close() {

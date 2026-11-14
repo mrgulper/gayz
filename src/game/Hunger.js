@@ -103,7 +103,8 @@ export class Hunger {
       return
     }
     if (!s.dead && !s.spectating && !s.bm.menuOpen) {
-      this.food = Math.max(0, this.food - (HUNGER_MAX / (HUNGER_MINUTES * 60)) * dt)
+      // (Slower with the Iron Gut upgrade, cfg.hungerMult.)
+      this.food = Math.max(0, this.food - (HUNGER_MAX / (HUNGER_MINUTES * 60)) * (s.cfg?.hungerMult ?? 1) * dt)
       if (this.food <= 0) {
         if (this._warned !== 'starve') s._message(t('hungerStarving'), 4)
         this._warned = 'starve'

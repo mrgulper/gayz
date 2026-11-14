@@ -2194,7 +2194,25 @@ Escape before dawn.</p>
 
           <div class="upgrades-tab-page" id="upgrades-page-upgrades">
             <div id="upgrades-points-line"></div>
+            <p id="skill-refund-note" style="display: none"></p>
+            <!-- The skill tree, two ways (SkillTreeUI.js). -->
+            <div class="skill-views" role="group">
+              <button type="button" class="skill-view-btn active" data-skill-view="columns" id="skill-view-columns" aria-pressed="true">Branches</button>
+              <button type="button" class="skill-view-btn" data-skill-view="map" id="skill-view-map" aria-pressed="false">Map</button>
+            </div>
+            <p id="skill-tree-hint"></p>
             <div class="perk-options" id="upgrades-options"></div>
+            <div id="skill-map" style="display: none">
+              <div id="skill-map-view">
+                <div id="skill-map-stage"></div>
+                <div class="skill-map-zoom">
+                  <button type="button" id="skill-map-in" aria-label="Zoom in">+</button>
+                  <button type="button" id="skill-map-out" aria-label="Zoom out">&minus;</button>
+                  <button type="button" id="skill-map-fit" aria-label="Show all">&#x2922;</button>
+                </div>
+              </div>
+              <div id="skill-map-info" class="empty"></div>
+            </div>
 
             <div id="prestige-section" style="display: none">
               <p id="prestige-level-line"></p>
@@ -2757,7 +2775,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="UPGRADE_PLAY PLAY_META_UPGRADES DEATH_POINTS_CONVERSION PRESTIGE_COST_STEP">
           <h3>Upgrades &amp; Points</h3>
-          <p>Every Map 1 run earns Points (the blue star next to your coins) from its kills and waves. Spend them in Upgrades' Zombie Survival tab on boosts that last for every run after: more health and armor, more gun damage and headshot damage, faster reloads, more speed, starting coins, more coins from kills, more spare ammo, softer zombie hits, slow healing (Second Wind), a cheaper Shop and faster healing in the camp (each card grows a little when you point at it), with third picks after many of them (Kevlar Vest, Berserker, Gold Rush, Haggler and more) - <span data-feature-value="upgrades">26</span> in all. Once you've survived to wave ten, Prestige trades your Points and Upgrades for <span data-feature-value="prestigeBonus">10</span>% more Points from every run, per level - and each level costs more: <span data-feature-value="prestigeStep">100,000</span> Points for the first, <span data-feature-value="prestigeStep2">200,000</span> for the second, and so on.</p>
+          <p>Every Map 1 run earns Points (the blue star next to your coins) from its kills and waves. Spend them in Upgrades' Zombie Survival tab on a skill tree of boosts that last for every run after - <span data-feature-value="upgrades">76</span> in all, in five branches: Survival (health, armor, softer hits, healing after waves, one save from death a game), Combat (damage, headshots, reloads, bigger magazines, extra damage to bosses, hurt zombies or fresh ones, free bullets), Speed (move speed, bursts after a kill, at low health or between waves, a moment nothing can hurt you), Loot (starting coins, more coins from kills, waves, chests and bosses, a cheaper Shop, more Points per game) and Gear (spare ammo, ammo refills, faster camp healing, starting food and traps). Each upgrade unlocks the ones after it, and a few spots make you pick one of two (Tank or Regenerator, Close Quarters or Long Shot, Hit and Run or Second Breath, Interest or Streak Cash) - Respec lets you change your mind. See it as Branches (a column per branch) or as a Map (one big round tree from Start - drag, zoom, tap an upgrade to buy it). When the tree arrived, every Point already spent on upgrades was given back once. Once you've survived to wave ten, Prestige trades your Points and Upgrades for <span data-feature-value="prestigeBonus">10</span>% more Points from every run, per level - and each level costs more: <span data-feature-value="prestigeStep">100,000</span> Points for the first, <span data-feature-value="prestigeStep2">200,000</span> for the second, and so on.</p>
         </div>
         <div class="feature" data-code="QUESTS ROLLING_QUEST_EXPIRE_MS _onPlayEvent">
           <h3>Quests</h3>
@@ -2861,7 +2879,7 @@ Escape before dawn.</p>
         </div>
         <div class="feature" data-code="Hunger HUNGER_MINUTES STARVE_DPS COOK_R FOOD RAW_FOOD COOKED_FOOD hardcore cookedMeat cookedFish">
           <h3>Hardcore Survival</h3>
-          <p>A mutator in Game Mode, off unless you turn it on. A Hunger meter starts full and empties over <span data-feature-value="hungerMinutes">12</span> minutes; eat to fill it - raw meat and fish only a little (<span data-feature-value="hungerRaw">15</span>), Vegetables from the Camp Farm and fish from Fishing more, cooked food the most (<span data-feature-value="hungerCooked">45</span> for Cooked Meat). You can eat at full health while you're hungry. If it runs out you lose <span data-feature-value="hungerStarve">1</span> health a second (even in camp) until you eat. Hardcore games start with a Campfire block to put down. Cooking works in every game: hold raw meat or a fish within <span data-feature-value="hungerCookR">3</span> blocks of a Campfire, or inside the camp, and use it to turn it into Cooked Meat or Cooked Fish, which heal more too.</p>
+          <p>A mutator in Game Mode, off unless you turn it on. A Hunger meter starts full and empties over <span data-feature-value="hungerMinutes">12</span> minutes (slower with the Iron Gut upgrade); eat to fill it - raw meat and fish only a little (<span data-feature-value="hungerRaw">15</span>), Vegetables from the Camp Farm and fish from Fishing more, cooked food the most (<span data-feature-value="hungerCooked">45</span> for Cooked Meat). You can eat at full health while you're hungry. If it runs out you lose <span data-feature-value="hungerStarve">1</span> health a second (even in camp) until you eat. Hardcore games start with a Campfire block to put down. Cooking works in every game: hold raw meat or a fish within <span data-feature-value="hungerCookR">3</span> blocks of a Campfire, or inside the camp, and use it to turn it into Cooked Meat or Cooked Fish, which heal more too.</p>
         </div>
         <div class="feature" data-code="CampMuseum EXHIBITS BOSSES noteItem noteBoss">
           <h3>Zombie Museum</h3>

@@ -130,6 +130,7 @@ import { noteBoss } from './CampMuseum.js'
 import { WaterGun, SOAK_SLOW } from './WaterGun.js'
 import { closeScreen as closeCampScreen } from './CampScreen.js'
 import { RunPerks, perksFor } from './RunPerks.js'
+import { TreeSkills } from './TreeSkills.js'
 import { money } from './SocialSettings.js'
 import { nextUnlock, nextUnlockText, newlyUnlocked, cosmeticName, COSMETICS, makeCape, isUnlocked, needText } from './Cosmetics.js'
 
@@ -615,6 +616,8 @@ export class BuildSurvival {
     if (!this.hunger) this.hunger = new Hunger(this)
     this.hunger.clear()
     this._hungerStart = true
+    // Packed Lunch / Trap Kit items (not again for a resumed run).
+    this._skillStart = true
     // Reefs and ruins, the pirate ship, the train and the Moon
     // (Reefs.js, PirateShip.js, ZombieTrain.js, MoonTrip.js).
     if (!this.reefs) this.reefs = new Reefs(this)
@@ -654,6 +657,9 @@ export class BuildSurvival {
     // Run perks between waves (RunPerks.js).
     if (!this.perks) this.perks = new RunPerks(this)
     this.perks.reset(perksFor(this.cfg))
+    // Skill tree upgrades that react to the game (TreeSkills.js).
+    if (!this.skills) this.skills = new TreeSkills(this)
+    this.skills.reset()
     // Fishing, Zombie Radios and spray tags (2026-11-01).
     if (!this.fishing) this.fishing = new Fishing(this)
     this.fishing.clear()
@@ -919,7 +925,7 @@ export class BuildSurvival {
   magSize() {
     const base = this.weapon.mag
     if (!Number.isFinite(base)) return Infinity
-    return Math.round((base + Math.max(1, Math.round(base / 3)) * (this.upgrades?.mag || 0)) * (this.perks?.magMult() ?? 1))
+    return Math.round((base + Math.max(1, Math.round(base / 3)) * (this.upgrades?.mag || 0)) * (this.perks?.magMult() ?? 1) * (this.cfg?.magMult ?? 1))
   }
 
   _reloadTime() {
@@ -1198,6 +1204,8 @@ export class BuildSurvival {
   }
 
   _resumeRun(r) {
+    // (Its inventory comes back as it was - no Packed Lunch again.)
+    this._skillStart = false
     this.weaponId = r.weaponId
     this._ammoByWeapon = r.ammoByWeapon || {}
     if (r.inv && this.inv.restore(r.inv)) {
@@ -1429,7 +1437,8 @@ export class BuildSurvival {
       else this._message(t('buildPlayNoAmmo'))
       return false
     }
-    this.mag--
+    // Ammo Recycler (skill tree): now and then a free bullet.
+    if (!this.skills?.saveBullet()) this.mag--
     // Settings > Gameplay > Auto-Reload: the last bullet starts a reload.
     if (this.mag <= 0 && this.reserve > 0 && this.bm.game?.settings?.autoReload !== false) this.reload()
     this._renderHud()
@@ -1602,6 +1611,10 @@ export class BuildSurvival {
     let killed = false
     let boss = false
     let biggest = 0
+    // Skill tree: Finisher, First Strike, Long Shot... (TreeSkills.js).
+    if (this.skills) {
+      for (const [z, amount] of hits) hits.set(z, this.skills.shotDamage(z, amount, w))
+    }
     // Run perks: a lucky x3, and Bounce passing hits on (RunPerks.js).
     if (this.perks) {
       for (const [z, amount] of hits) hits.set(z, this.perks.shotDamage(amount))
@@ -2008,6 +2021,8 @@ export class BuildSurvival {
       this._earn(BOSS_COINS)
       this._message(t('buildPlayBossDown', { n: Math.round(BOSS_COINS * (this.cfg?.coinMult ?? 1)) }))
     }
+    // Skill tree: Golden Touch, Boss Bounty, Streak Cash, Tip Jar.
+    this.skills?.onKill({ shine: ZOMBIE_SHINES[shine] ? shine : null, paid, boss: !!boss, bossCoins: BOSS_COINS })
     this._report('kill', { boss: !!boss, streak: this.streak, weapon: this.weaponId, skeleton, melee: !!this.weapon.melee, tier, shine, runKills: this.kills, difficulty: this.cfg.difficulty || 'normal' })
     this._renderHud()
   }
@@ -2067,7 +2082,8 @@ export class BuildSurvival {
     // World Map: a chest on the map's travel journal.
     if (this.bm.world?.active && isEarthWorld()) journal.loot(x, z)
     // Ammo in this gun's own amounts (PlayWeapons.ammoFor).
-    const ammo = ammoFor(this.weaponId, CHEST_LOOT.ammo)
+    // (More with Scrounger; Lucky Chest adds coins - TreeSkills.js.)
+    const ammo = this.skills ? this.skills.chestAmmo(ammoFor(this.weaponId, CHEST_LOOT.ammo)) : ammoFor(this.weaponId, CHEST_LOOT.ammo)
     this.reserve += ammo
     this.health = Math.min(this.maxHealth, this.health + CHEST_LOOT.health)
     this._message(t('buildPlayChestLoot', { ammo, health: CHEST_LOOT.health }))
@@ -3178,6 +3194,8 @@ export class BuildSurvival {
     const p = this.bm.tryMode.pos
     // Nothing reaches you inside the camp (except in a siege).
     if (this._campSafe(p.x, p.z)) return
+    // Skill tree: Untouchable's moment after a hit, Shrug It Off's free bite.
+    if (this.skills?.blocksHit()) return
     this.streak = 0
     this._hurtAt = performance.now()
     // Armor (from the camp's Trader) takes the hit first.
@@ -3199,6 +3217,9 @@ export class BuildSurvival {
       void flash.offsetWidth
       flash.classList.add('show')
     }
+    // Skill tree: Not Today, once a game.
+    if (this.health <= 0) this.skills?.cheatDeath()
+    if (this.health > 0) this.skills?.onHurt()
     this._renderHud()
     if (this.health <= 0) this._die()
   }
@@ -3510,6 +3531,11 @@ export class BuildSurvival {
       this._hungerStart = false
       this.hunger?.start()
     }
+    if (playing && this._skillStart) {
+      this._skillStart = false
+      this.skills?.giveStartItems()
+    }
+    if (playing) this.skills?.update(Math.min(dt, 0.1))
     this.hunger?.update(dt)
     if (playing && this.fromMenu) this.radios?.update(dt)
     this.sprays?.update(dt)
@@ -3659,6 +3685,7 @@ export class BuildSurvival {
         this._breakTimer = this.td ? TD_BREAK : rush ? RUSH_WAVE_BREAK : WAVE_BREAK
         if (this.wave > 0) {
           this._earn(COIN_PER_WAVE)
+          this.skills?.onWaveCleared(COIN_PER_WAVE)
           // Zombie Defense: the last wave held is a win.
           if (this.cfg.mode === 'zombieDefense' && this.wave >= DEFENSE_WAVES) {
             this._win()
@@ -3979,6 +4006,7 @@ export class BuildSurvival {
       const cleared = wave > this.wave && this.wave > 0
       if (cleared) {
         this._earn(COIN_PER_WAVE)
+        this.skills?.onWaveCleared(COIN_PER_WAVE)
         this._message(this._trapSupplies())
       }
       if (wave > 0) this._startWave(wave)
