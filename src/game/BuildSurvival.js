@@ -2153,7 +2153,9 @@ export class BuildSurvival {
   }
 
   // A block broken by hand in a game goes into the inventory.
-  onBlockMined(type, x, y, z) {
+  // gear: Couch Co-op's equal Player 2 broke it (CouchHands.js) - if it
+  // can't pop out as a drop, it goes in their hotbar instead.
+  onBlockMined(type, x, y, z, gear = null) {
     if (!this.active || !this.inv || !type) return
     this._recordEdit(x, y, z, '')
     const bm = this.bm
@@ -2165,7 +2167,7 @@ export class BuildSurvival {
     // Leaves drop a leaf block LEAF_DROP_CHANCE of the time.
     if (/leaves$/.test(type) && Math.random() >= LEAF_DROP_CHANCE) return
     // It pops out as a little block you pick up by walking near (PlayDrops).
-    if (!this._drops.spawn(type, x, y, z) && this.inv.add({ kind: 'block', id: type, n: 1 }) > 0) this._message(t('invFull'))
+    if (!this._drops.spawn(type, x, y, z) && (gear || this.inv).add({ kind: 'block', id: type, n: 1 }) > 0) this._message(t('invFull'))
   }
 
   // Right-click while holding a block: put it where you're looking.
@@ -2178,7 +2180,17 @@ export class BuildSurvival {
     const hit = bm._raycastGridAligned()
     if (!hit?.placeAt || hit.t > PLACE_REACH * this.B) return false
     const [x, y, z] = hit.placeAt
-    if (bm.getBlockAt(x, y, z)) return false
+    if (!this.placeBlockAt(x, y, z, held.id)) return false
+    this.inv.usedBlock()
+    return true
+  }
+
+  // Puts block `id` at cell (x, y, z) if it's allowed there: Player 1's
+  // right-click (placeHeldBlock) and Couch Co-op's equal Player 2
+  // (CouchHands.js) both come here. true if it went down.
+  placeBlockAt(x, y, z, id) {
+    const bm = this.bm
+    if (!this.active || this.dead || bm.getBlockAt(x, y, z)) return false
     // Tower Defense: not on the zombies' path.
     if (this.td?.protects(x, y, z)) {
       this._message(t('tdNoBuildPath'), 2)
@@ -2186,17 +2198,17 @@ export class BuildSurvival {
     }
     // Build Battle: only on your own plot; Escape Rooms: not at all.
     if (this._protects(x, y, z)) return false
-    // Not inside you or a zombie.
+    // Not inside you, Couch Co-op's Player 2 or a zombie.
     const p = bm.tryMode.pos
     const inBox = (bx, by, bz) => Math.floor(bx) === x && Math.floor(bz) === z && y >= Math.floor(by) && y <= Math.floor(by + 1.7)
-    if (inBox(p.x, p.y, p.z) || this.zombies.some((zb) => inBox(zb.x, zb.y, zb.z))) return false
+    const p2 = this.couch?.joined ? this.couch.p2 : null
+    if (inBox(p.x, p.y, p.z) || (p2 && inBox(p2.x, p2.y, p2.z)) || this.zombies.some((zb) => inBox(zb.x, zb.y, zb.z))) return false
     bm._suppressUndoRecording = true
-    bm.placeBlock(x, y, z, held.id, false)
+    bm.placeBlock(x, y, z, id, false)
     bm._suppressUndoRecording = false
-    this._placed.set(bm._key(x, y, z), held.id)
-    this._recordEdit(x, y, z, held.id)
-    if (!this.net) this.farm?.onPlaced(held.id, x, y, z)
-    this.inv.usedBlock()
+    this._placed.set(bm._key(x, y, z), id)
+    this._recordEdit(x, y, z, id)
+    if (!this.net) this.farm?.onPlaced(id, x, y, z)
     audioEngine.playPlace?.()
     return true
   }

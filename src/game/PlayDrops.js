@@ -35,7 +35,9 @@ export class PlayDrops {
   // A drop of `type` from the block at cell (x, y, z). `toss` ({ dx, dz },
   // the way you face) throws it forward instead - an item you dropped with
   // the Drop key (Q), which waits TOSS_PICKUP_S before it comes back.
-  spawn(type, x, y, z, toss) {
+  // mine: false for a block Couch Co-op's Player 2 threw (it isn't Player
+  // 1's, so it never goes to their Lost & Found).
+  spawn(type, x, y, z, toss, mine = !!toss) {
     const parts = this.bm._heldBlockParts?.(type)
     if (!parts) return false
     const mesh = new THREE.Mesh(parts.geometry, parts.material)
@@ -43,14 +45,14 @@ export class PlayDrops {
     this.bm.scene.add(mesh)
     // mine: thrown out with the Drop key - if it's never picked up again it
     // goes to the Lost & Found box (LostFound.js).
-    this.list.push({ type, mesh, ...this._hop(x, y, z, toss), age: 0, spin: Math.random() * 6, onGround: false, mine: !!toss })
+    this.list.push({ type, mesh, ...this._hop(x, y, z, toss), age: 0, spin: Math.random() * 6, onGround: false, mine })
     while (this.list.length > MAX_DROPS) this._evict(this.list[0])
     return true
   }
 
   // An item (not a block) lying on the ground - Meat from an animal
   // (PlayAnimals.js): its inventory picture, always facing you.
-  spawnItem(id, x, y, z, toss) {
+  spawnItem(id, x, y, z, toss, mine = !!toss) {
     if (!this._itemMats) this._itemMats = new Map()
     let mat = this._itemMats.get(id)
     if (!mat) {
@@ -63,7 +65,7 @@ export class PlayDrops {
     const mesh = new THREE.Sprite(mat)
     mesh.scale.setScalar(DROP_SCALE * 1.4 * this.s.B)
     this.bm.scene.add(mesh)
-    this.list.push({ type: id, kind: 'item', mesh, ...this._hop(x, y, z, toss), age: 0, spin: 0, onGround: false, mine: !!toss })
+    this.list.push({ type: id, kind: 'item', mesh, ...this._hop(x, y, z, toss), age: 0, spin: 0, onGround: false, mine })
     while (this.list.length > MAX_DROPS) this._evict(this.list[0])
     return true
   }
@@ -92,9 +94,9 @@ export class PlayDrops {
     if (!this.list.length) return
     const B = this.s.B
     const p = this.bm.tryMode.pos
-    const px = p.x
-    const py = p.y + 0.4 // around your middle, so drops in a hole you dug still come
-    const pz = p.z
+    // Couch Co-op's equal Player 2 picks drops up too: each drop goes to
+    // whichever of you is nearer (CouchHands.js).
+    const p2 = this.s.couch?.hands?.collector() || null
     // Settings > Controls > Auto Pick-Up off: drops wait until you press
     // Use near them (pickUpNear).
     const auto = this.bm.game?.settings?.autoPickup !== false
@@ -105,22 +107,39 @@ export class PlayDrops {
         this._remove(d)
         continue
       }
-      const dist = Math.hypot(px - d.x, py - d.y, pz - d.z)
-      if (dist < PICKUP_R && d.age > d.wait && !d.full && !this.s.dead && (auto || d.grab)) {
+      let px = p.x
+      let py = p.y + 0.4 // around your middle, so drops in a hole you dug still come
+      let pz = p.z
+      let dist = Math.hypot(px - d.x, py - d.y, pz - d.z)
+      let to = this.s.inv
+      if (p2) {
+        const d2 = Math.hypot(p2.x - d.x, p2.y + 0.4 - d.y, p2.z - d.z)
+        if (d2 < dist) {
+          px = p2.x
+          py = p2.y + 0.4
+          pz = p2.z
+          dist = d2
+          to = p2.gear
+        }
+      }
+      // A drop only Player 2 asked for (their Use) goes to them.
+      const asked = auto || (d.grab && (!d.grabBy || d.grabBy === to))
+      if (dist < PICKUP_R && d.age > d.wait && !d.full && !this.s.dead && asked) {
         // Flies into you.
         const k = Math.min(1, dt * 10)
         d.x += (px - d.x) * k
         d.y += (py - d.y) * k
         d.z += (pz - d.z) * k
         if (dist < COLLECT_R) {
-          const left = this.s.inv?.add({ kind: d.kind || 'block', id: d.type, n: 1 }) ?? 1
+          const left = to?.add({ kind: d.kind || 'block', id: d.type, n: 1 }) ?? 1
           if (left === 0) {
             this._remove(d)
             continue
           }
           // Inventory full: stays put until there's room.
           d.full = true
-          this.s._message(t('invFull'))
+          if (to === this.s.inv) this.s._message(t('invFull'))
+          else this.s.couch?.p2Message(t('invFull'))
         }
       } else {
         if (d.full && dist > PICKUP_R * 1.5) d.full = false
@@ -150,13 +169,14 @@ export class PlayDrops {
 
   // The Use key with Auto Pick-Up off: everything lying within reach
   // flies to you. True when there was something to pick up.
-  pickUpNear() {
+  // p / by: Couch Co-op's Player 2 pressing Use (their spot and gear).
+  pickUpNear(p = this.bm.tryMode.pos, by = null) {
     if (this.bm.game?.settings?.autoPickup !== false || this.s.dead) return false
-    const p = this.bm.tryMode.pos
     let any = false
     for (const d of this.list) {
       if (d.age > d.wait && Math.hypot(p.x - d.x, p.y + 0.4 - d.y, p.z - d.z) < PICKUP_R) {
         d.grab = true
+        d.grabBy = by || this.s.inv
         any = true
       }
     }

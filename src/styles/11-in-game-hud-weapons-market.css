@@ -1944,3 +1944,23 @@ html.ui-theme-biome #couch-menu .play-npc-info { color: rgba(var(--biome-ink-rgb
 html.ui-theme-biome #couch-menu .play-npc-info b { color: var(--biome-ink); }
 html.ui-theme-biome #couch-menu :is(.couch-row-btn, .play-shop-tab) { color: var(--biome-ink); background: rgba(var(--biome-ink-rgb), 0.08); border-color: var(--biome-line); }
 html.ui-theme-biome #couch-menu .play-shop-tab.active { color: rgb(var(--biome-bg-rgb)); background: var(--biome-ink); border-color: var(--biome-ink); }
+/* Equal Player 2's hotbar, dig bar and fuel (CouchGear / CouchHands,
+   Batch 4c-2b): the same look as Player 1's hotbar (#build-hotbar, scaled
+   like it is in split screen), along the bottom of their half. The gun
+   name and ammo move up out of its way. */
+#couch-p2-hotbar { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; padding: 5px; }
+.couch-hot-slot { position: relative; width: 37px; height: 37px; box-sizing: border-box; border-radius: 4px; border: 2px solid transparent; image-rendering: pixelated; }
+.couch-hot-slot img { position: absolute; inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); object-fit: contain; image-rendering: pixelated; }
+.couch-hot-slot.selected { border-color: #000; }
+.couch-hot-slot .inv-slot-count { right: 3px; bottom: 1px; }
+html.ui-theme-biome .couch-hot-slot.selected { border-color: var(--biome-ink); }
+#couch-hud.p2-equal #couch-p2-ammo { bottom: 84px; }
+#couch-p2-dig { display: none; position: absolute; top: calc(50% + 18px); left: 50%; transform: translateX(-50%); width: 60px; height: 5px; background: rgba(0, 0, 0, 0.55); border-radius: 999px; overflow: hidden; }
+#couch-p2-dig.show { display: block; }
+#couch-p2-dig-fill { height: 100%; width: 0; background: #f1e6c8; }
+html.ui-theme-biome #couch-p2-dig-fill { background: var(--biome-accent); }
+#couch-p2-ride { position: absolute; bottom: 160px; right: 24px; font-size: 20px; letter-spacing: 1px; text-shadow: 0 1px 3px #000; }
+#couch-hud:not(.joined) #couch-p2-hotbar,
+#couch-hud:not(.joined) #couch-p2-ride,
+#couch-hud:not(.joined) #couch-p2-dig,
+#couch-hud.p2-down #couch-p2-dig { display: none; }

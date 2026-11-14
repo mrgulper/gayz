@@ -6,8 +6,9 @@
 //   - Buddy: the shop, building, the inventory and vehicles stay Player
 //     1's, and Player 2's kills and coins go to Player 1.
 //   - Equal (Batch 4c-2a, CouchGear.js): Player 2 also has their own coins,
-//     shop, backpack and skin (a guest: nothing saved). Building and
-//     vehicles for Player 2 are the next batch (4c-2b).
+//     shop, backpack, hotbar and skin (a guest: nothing saved), and (Batch
+//     4c-2b, CouchHands.js) digs, builds, places traps, drives vehicles
+//     and picks up drops with a normal player's controller buttons.
 //
 // Started from the homepage's Couch Co-op tag (HomeExtras.js), which sets
 // game._couchNext before pressing Play; BuildSurvival.start makes one of
@@ -25,6 +26,7 @@ import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from '
 import { holdWeapon, poseArms } from './HeldWeapon.js'
 import { nameTag, COIN_PER_WAVE } from './BuildCamp.js'
 import { CouchGear } from './CouchGear.js'
+import { CouchHands } from './CouchHands.js'
 import { PLAY_WEAPONS, canPlayWeapon, DEFAULT_PLAY_WEAPON } from './PlayWeapons.js'
 import { MOB_HEIGHT } from './PlayRules.js'
 import { applyDeadzone, setCouchPad } from './ControlSettings.js'
@@ -37,6 +39,8 @@ const HEIGHT = 1.8
 const EYE = 1.62
 const WALK = 4
 const SPRINT = 7
+// Equal Player 2 holding B (Crouch) sneaks.
+const SNEAK = 0.4
 const GRAVITY = 30
 const JUMP = 8.8
 const MAX_FALL = 60
@@ -117,6 +121,7 @@ export class CouchCoop {
     this.bm.scene.add(this.group)
     this.setSkin(DEFAULT_SKIN_DATA_URL)
     this.gear = this.equal ? new CouchGear(this, skinId) : null
+    this.hands = this.equal ? new CouchHands(this) : null
     this._note = null
     // P1 never borrows a controller until Player 2 has picked theirs.
     setCouchPad(padIndex >= 0 ? padIndex : 'waiting')
@@ -208,6 +213,7 @@ export class CouchCoop {
       this.s._die()
       return
     }
+    this.hands?.leave(true)
     p.isDown = true
     p.vx = p.vz = 0
     this.reviveP2 = 0
@@ -224,6 +230,7 @@ export class CouchCoop {
     if (this.hud) this.hud.style.display = over ? 'none' : ''
     if (over) {
       this._wasOver = true
+      this.hands?.leave(true)
       return
     }
     // Respawned after a game over: both of you back up, side by side.
@@ -257,14 +264,21 @@ export class CouchCoop {
     const busy = !!this.gear?.menuOpen
     if (!paused) {
       if (gp && !p.isDown && !busy) this._sticks(gp, dt)
-      this._physics(dt, !p.isDown && gp && !busy ? this._move : null)
+      else this._move = null
+      // Equal Player 2 in a vehicle drives it instead of walking.
+      if (this.hands?.ride) this.hands.drive(dt)
+      else this._physics(dt, !p.isDown && gp && !busy ? this._move : null)
       this._reload(dt)
-      if (!p.isDown && gp && !busy && this.down.has(B_RT) && this._weapon().auto) this._fire()
+      const trigger = !p.isDown && !!gp && !busy && this.down.has(B_RT)
+      // Holding RT on a block breaks it (CouchHands.js).
+      this.hands?.update(dt, trigger)
+      if (trigger && this._weapon().auto && (!this.gear || this.gear.holdingGun())) this._fire()
       this._revives(dt)
       this._leash()
     }
     this._drawBody(dt)
     this.gear?.render()
+    this.gear?.renderHotbar()
     this._renderHud()
   }
 
@@ -301,6 +315,7 @@ export class CouchCoop {
   }
 
   _spawnNearP1() {
+    this.hands?.leave(true)
     const p = this.p2
     const p1 = this.s.bodyPos()
     const tm = this.bm.tryMode
@@ -351,6 +366,8 @@ export class CouchCoop {
       return
     }
     if (p.isDown) return
+    // Equal Player 2's hotbar, building, items and vehicles (CouchHands.js).
+    if (this.hands?.onPress(i)) return
     if (i === B_A) this._jumpPressed = true
     else if (i === B_X) this._startReload()
     else if (i === B_RB || i === B_Y) this._switch(1)
@@ -367,7 +384,8 @@ export class CouchCoop {
     const mv = applyDeadzone(gp.axes[0] || 0, gp.axes[1] || 0, dz)
     if (mv.m <= 0) p.run = false
     this._move = mv.m > 0 ? { x: mv.x, y: -mv.y, m: mv.m } : null
-    p.aim = this._pressed(gp, B_LT) ? 1 : 0
+    // Aiming is for a held gun on foot (LT also gets in, out and places).
+    p.aim = this._pressed(gp, B_LT) && !this.hands?.ride && (!this.gear || this.gear.holdingGun()) ? 1 : 0
     const lk = applyDeadzone(gp.axes[2] || 0, gp.axes[3] || 0, dz)
     if (lk.m > 0) {
       const rate = LOOK * ((set.sensitivity ?? 100) / 100) * (p.aim ? 0.55 : 1) * dt * lk.m
@@ -393,6 +411,7 @@ export class CouchCoop {
     const inLiquid = this.bm._cellIsLiquid(Math.floor(p.x), Math.floor(p.y + 0.5), Math.floor(p.z))
     let speed = (p.run && move && move.y > 0.3 ? SPRINT : WALK) * (inLiquid ? 0.7 : 1)
     if (PLAY_WEAPONS[this._weaponId()]?.heavy) speed *= PLAY_WEAPONS[this._weaponId()].heavy
+    if (this.hands?.sneaking()) speed *= SNEAK
     const want = len ? (speed * Math.min(1, move.m)) / len : 0
     const grip = p.onGround ? GRIP : AIR_GRIP
     p.vx = THREE.MathUtils.damp(p.vx, mx * want, grip, dt)
@@ -682,7 +701,8 @@ export class CouchCoop {
     body.char.rotation.x = p.isDown ? -Math.PI / 2 : 0
     const lp = body.char.limbPivots
     if (!lp) return
-    const id = this._weaponId()
+    // Equal Player 2 holding a block or an item: no gun in hand.
+    const id = this.gear && !this.gear.holdingGun() ? null : this._weaponId()
     if (body.gunId !== id) {
       const held = holdWeapon(this.bm.game, body.char, id, body.gun)
       body.gun = held.gun
@@ -797,6 +817,9 @@ export class CouchCoop {
         <div id="couch-p2-name"></div>
         <div id="couch-p2-health"><div id="couch-p2-health-fill"></div><span id="couch-p2-health-text"></span></div>
         <div id="couch-p2-ammo"><span id="couch-p2-weapon"></span><span id="couch-p2-count"></span></div>
+        <div id="couch-p2-dig"><div id="couch-p2-dig-fill"></div></div>
+        <div id="couch-p2-ride"></div>
+        <div id="couch-p2-hotbar"></div>
         <div id="couch-menu" style="display: none"></div>
       </div>`
     document.body.appendChild(el)
@@ -822,10 +845,16 @@ export class CouchCoop {
           ? `${t('couchGoRevive')}\n${this._reviveText(this.reviveP1)}`
           : this._note && performance.now() < this._note.until ? this._note.text : ''
     const p1Msg = this.p1Down ? `${t('couchYouAreDown')}\n${this._reviveText(this.reviveP1)}` : p.isDown ? `${t('couchGoRevive')}\n${this._reviveText(this.reviveP2)}` : ''
-    const count = !a ? '' : p.reloadLeft > 0 ? t('buildPlayReloading') : Number.isFinite(a.mag) ? `${a.mag} / ${a.reserve}` : ''
     const g = this.gear
+    // Equal Player 2 holding a block or an item: its name and how many.
+    const held = g && !g.holdingGun() ? g.held() : null
+    const heldOther = !!g && !g.holdingGun()
+    const count = !a ? '' : heldOther ? (held && held.n > 1 ? `×${held.n}` : '') : p.reloadLeft > 0 ? t('buildPlayReloading') : Number.isFinite(a.mag) ? `${a.mag} / ${a.reserve}` : ''
+    const heldName = heldOther ? g.label(held) : nameKey ? t(nameKey) : ''
+    const dig = this.hands ? Math.round(this.hands.digProgress() * 20) : 0
+    const ride = this.hands?.rideText() || ''
     const coins = g && this.joined ? `${t('campCoins', { n: money(this.bm.game?.settings, g.coins) })}${g.armor > 0 ? ` · ${t('couchArmor', { n: Math.ceil(g.armor) })}` : ''}\n${t('couchMenuOpen')}` : ''
-    const key = [this.joined, Math.ceil(p.health), p2Msg, p1Msg, id, count, p.hurtFlash > 0, p.aim, p.hitFlash > 0, coins, !!g?.menuOpen].join('|')
+    const key = [this.joined, Math.ceil(p.health), p2Msg, p1Msg, heldName, count, p.hurtFlash > 0, p.aim, p.hitFlash > 0, coins, !!g?.menuOpen, dig, ride].join('|')
     if (key === this._hudKey) return
     this._hudKey = key
     const $ = (sel) => this.hud.querySelector(sel)
@@ -838,8 +867,12 @@ export class CouchCoop {
     $('#couch-p2-name').textContent = t('couchPlayer2')
     $('#couch-p2-health-fill').style.width = `${Math.max(0, Math.min(100, (p.health / MAX_HEALTH) * 100))}%`
     $('#couch-p2-health-text').textContent = String(Math.max(0, Math.ceil(p.health)))
-    $('#couch-p2-weapon').textContent = nameKey ? t(nameKey) : ''
+    $('#couch-p2-weapon').textContent = heldName
     $('#couch-p2-count').textContent = count
+    this.hud.classList.toggle('p2-equal', !!g)
+    $('#couch-p2-dig').classList.toggle('show', dig > 0)
+    $('#couch-p2-dig-fill').style.width = `${dig * 5}%`
+    $('#couch-p2-ride').textContent = ride
     $('#couch-p2-hurt').classList.toggle('show', p.hurtFlash > 0)
     $('#couch-p2-crosshair').classList.toggle('aim', !!p.aim)
     $('#couch-p2-crosshair').classList.toggle('hit', p.hitFlash > 0)
@@ -849,6 +882,7 @@ export class CouchCoop {
     if (!this.active) return
     this.active = false
     setCouchPad(null)
+    this.hands?.dispose()
     document.body.classList.remove('couch-split')
     this.hud?.remove()
     this.hud = null
