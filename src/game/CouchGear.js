@@ -38,6 +38,8 @@ import { SHOP_TRAPS, SHOP_TOWERS } from './PlayShop.js'
 import { ITEMS, ARMOR_SLOTS } from './PlayInventory.js'
 import { PlayCrafting } from './PlayCrafting.js'
 import { EMOTES, EMOTE_S } from './Emotes.js'
+import { toyKind } from './CouchToys.js'
+import { POTION_S } from './Potions.js'
 
 // Standard gamepad buttons (the same numbers as CouchCoop.js).
 const B_A = 0
@@ -162,6 +164,17 @@ export class CouchGear {
   // Is one of these anywhere in the hotbar or bag?
   has(id) {
     return [...this.hot, ...this.bag].some((it) => it?.id === id)
+  }
+
+  // Takes one `id` item from anywhere (the bag first). -> true if there was one.
+  takeItem(id) {
+    for (const list of [this.bag, this.hot]) {
+      const i = list.findIndex((it) => it?.kind === 'item' && it.id === id)
+      if (i < 0) continue
+      this._takeFrom(list, i)
+      return true
+    }
+    return false
   }
 
   // LB / RB: the next / last hotbar slot.
@@ -309,7 +322,7 @@ export class CouchGear {
   // ---------- Player 2's own upgrades (like BuildSurvival's) ----------
 
   damageMult() {
-    return (1 + 0.25 * this.upgrades.damage) * (this.s.cfg?.damageMult ?? 1) * (this.bm.specials?.damageMult?.() ?? 1)
+    return (1 + 0.25 * this.upgrades.damage) * (this.s.cfg?.damageMult ?? 1) * (this.bm.specials?.damageMult?.() ?? 1) * (this.c.toys?.damageMult() ?? 1)
   }
 
   magSize(w) {
@@ -444,11 +457,15 @@ export class CouchGear {
     })
     const add = (where, list) => list.forEach((it, i) => {
       if (!it || it.kind === 'gun') return
-      const def = this._useDef(it)
+      let def = this._useDef(it)
       const held = where === 'hot' && i === this.active
+      // A kite, board, sled or ride is held, then used with RT (CouchToys.js).
+      const holdIt = def?.toy && this.c.toys.heldKind(it.id)
+      const about = def ? this._itemAbout(def) : it.kind === 'block' ? t('couchBlockTip') : ''
+      if (holdIt) def = null
       rows.push({
         name: `${this.label(it)} ×${it.n}`,
-        detail: def ? this._itemAbout(def) : it.kind === 'block' ? t('couchBlockTip') : '',
+        detail: about,
         btn: def ? t('couchUse') : held ? t('couchEquipped') : t('couchHold'),
         off: def ? !this._canUse(def) : held,
         act: () => (def ? this._useAt(list, i) : this.hold(where, i)),
@@ -471,12 +488,15 @@ export class CouchGear {
     if (def.vehicle) return { id: it.id, vehicle: def.vehicle, picked: true }
     if (def.fuel) return { id: it.id, fuel: true, picked: true }
     if (ARMOR_SLOTS.includes(it.id)) return { id: it.id, armor: ARMOR_PIECE, picked: true }
-    // Potions, the jetpack, kites...: their code is Player 1's.
+    // Potions, the jetpack, kites, boards, rides (CouchToys.js).
+    if (this.c.toys && toyKind(it.id)) return { id: it.id, toy: true, picked: true }
+    // The rest (snowballs, music, the rocket...): their code is Player 1's.
     return { id: it.id, p1Only: true, picked: true }
   }
 
   _itemAbout(item) {
     if (item.p1Only) return t('couchP1Only')
+    if (item.toy) return this.c.toys.passive(item.id) ? t('couchToyInBag') : this.c.toys.heldKind(item.id) ? t('couchToyHold') : t(`couchToy_${toyKind(item.id)}`, { n: POTION_S })
     if (item.vehicle) return t('couchPlaceVehicle')
     if (item.fuel) return t('couchFuelUp')
     if (item.picked && item.armor) return t('couchArmorPiece', { n: item.armor })
@@ -490,6 +510,7 @@ export class CouchGear {
     if (item.armor) return this.armor < MAX_ARMOR
     if (item.ammo) return Number.isFinite(PLAY_WEAPONS[this.c._weaponId()]?.reserve)
     if (item.vehicle || item.fuel) return !!this.s.vehicles && !this.c.hands?.ride
+    if (item.toy) return this.c.toys.canUse(item.id)
     return false
   }
 
@@ -504,7 +525,14 @@ export class CouchGear {
   _useAt(list, i) {
     const it = list[i]
     const item = this._useDef(it)
-    if (!item || !this._canUse(item)) return false
+    if (!item) return false
+    // Potions, fuel, kites... (CouchToys.js): only some are used up.
+    if (item.toy) {
+      const used = this.c.toys.use(item.id)
+      if (used === 'take') this._takeFrom(list, i)
+      return !!used
+    }
+    if (!this._canUse(item)) return false
     const p = this.c.p2
     if (item.vehicle && !this.s.vehicles.place(item.vehicle, this._who())) return false
     if (item.fuel && !this.s.vehicles.addFuel(this._who())) return false
