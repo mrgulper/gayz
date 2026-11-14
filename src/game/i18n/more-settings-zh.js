@@ -2,6 +2,8 @@
 export default {
   musicVolumeLabel: '音乐',
   musicVolumeInfoText: '游戏中音乐的音量：乐器、钢琴方块、斗舞和抢椅子的曲子。主音量仍然控制所有声音。',
+  menuMusicLabel: '主页音乐',
+  menuMusicInfoText: '在主页时播放舒缓的音乐。开始游戏时会慢慢淡出。音乐滑块控制音量。',
   uiVolumeLabel: '界面音效',
   uiVolumeInfoText: '按下菜单按钮时轻微“嗒”声的音量，以及悬停音效和聊天提示音。0% 即关闭。与游戏音效分开。',
   footstepVolumeLabel: '脚步声',

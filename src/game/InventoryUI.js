@@ -16,6 +16,7 @@ import { COMING_SOON_WEAPONS } from './PlayWeapons.js'
 import { t } from './i18n.js'
 import { salePrice, shopSkinPrice } from './LiveConfig.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { audioEngine } from './Audio.js'
 
 // Inventory - homepage placeholder only for now, no functionality yet
 // (distinct from the in-game Tab inventory - #inventory-panel - which
@@ -304,6 +305,7 @@ export async function _buyMarketListing(game, listing) {
   const price = salePrice(_safeStatNumber(listing.price))
   if (!entry || !(price > 0)) return
   if (game.coins < price) {
+    try { audioEngine.playUi?.('error') } catch { /* no audio */ }
     game._showHomepageToast(t('skinNeedCoins', { need: Math.ceil(price - game.coins).toLocaleString() }))
     return
   }
@@ -321,6 +323,7 @@ export async function _buyMarketListing(game, listing) {
     game._showHomepageToast(t('marketAlreadySold'))
   } else {
     game.coins -= price
+    try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
     game._addSkinToInventory(entry.id)
     game._afterTradeChange()
     game._showHomepageToast(t('skinBoughtToast', { name: entry.nameKey ? t(entry.nameKey) : entry.name }))
@@ -750,10 +753,12 @@ export function _openCrate(game, tier) {
   const tierConfig = CRATE_TIERS[tier]
   if (!tierConfig) return
   if (game.coins < tierConfig.cost) {
+    try { audioEngine.playUi?.('error') } catch { /* no audio */ }
     game._showHomepageToast(t('crateNotEnoughCoins'))
     return
   }
   game.coins -= tierConfig.cost
+  try { audioEngine.playUi?.('unbox') } catch { /* no audio */ }
   game.crateStock[tier] = (game.crateStock[tier] || 0) + 1
   game._showHomepageToast(t('crateBought', { n: 1, name: t(`crateTier${tier.charAt(0).toUpperCase()}${tier.slice(1)}`) }))
   saveShopProgress(game)
@@ -769,6 +774,7 @@ export function _openCratePurchaseModal(game, tier) {
   const tierConfig = CRATE_TIERS[tier]
   if (!tierConfig || !game.cratePurchaseModal) return
   if (game.coins < tierConfig.cost) {
+    try { audioEngine.playUi?.('error') } catch { /* no audio */ }
     game._showHomepageToast(t('crateNotEnoughCoins'))
     return
   }
@@ -825,10 +831,12 @@ export function _confirmCratePurchase(game) {
   const qty = game._cratePurchaseQty
   const totalCost = tierConfig.cost * qty
   if (game.coins < totalCost) {
+    try { audioEngine.playUi?.('error') } catch { /* no audio */ }
     game._showHomepageToast(t('crateNotEnoughCoins'))
     return
   }
   game.coins -= totalCost
+  try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
   game.crateStock[tier] = (game.crateStock[tier] || 0) + qty
   game._showHomepageToast(t('crateBought', { n: qty, name: t(`crateTier${tier.charAt(0).toUpperCase()}${tier.slice(1)}`) }))
   saveShopProgress(game)
@@ -1162,6 +1170,7 @@ export async function _buyShopSkin(game) {
   if (game.ownsShopSkin || game.gems < shopSkinPrice(Game.SHOP_SKIN_PRICE)) return
   if (!window.confirm(t('shopSkinBuyConfirm'))) return
   game.gems -= shopSkinPrice(Game.SHOP_SKIN_PRICE)
+  try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
   game.ownsShopSkin = true
   saveShopProgress(game)
   game._renderCurrencyBar()

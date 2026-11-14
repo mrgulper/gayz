@@ -2,6 +2,8 @@
 export default {
   musicVolumeLabel: 'Música',
   musicVolumeInfoText: 'El volumen de la música del juego: instrumentos, el Bloque de Piano y las melodías de Duelo de Baile y Sillas Musicales. Maestro sigue subiendo o bajando todo.',
+  menuMusicLabel: 'Música del inicio',
+  menuMusicInfoText: 'Música tranquila mientras estás en la página de inicio. Se apaga poco a poco al empezar a jugar. El control de Música ajusta el volumen.',
   uiVolumeLabel: 'Sonidos de la interfaz',
   uiVolumeInfoText: 'El volumen del clic suave al pulsar un botón del menú, más el sonido al pasar el ratón y el aviso del chat. 0% los apaga. Aparte de los sonidos del juego.',
   footstepVolumeLabel: 'Pasos',

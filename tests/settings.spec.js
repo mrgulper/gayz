@@ -926,3 +926,33 @@ test('the Wellbeing & Misc settings (ideas 73-80) work', async ({ page }) => {
   await page.waitForFunction(() => window.__game?.settings?.screenShake === 40 && window.__game.settings.sessionTimer === true)
   expect(await page.evaluate(() => location.hash)).toBe('')
 })
+
+test('recorded sounds: every file is there, plays, and the homepage music switches off', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  // A real click: browsers only start sound after one.
+  await page.mouse.click(20, 400)
+  const r = await page.evaluate(async () => {
+    const a = window.__audioEngine
+    a.init()
+    if (a.outGain) a.outGain.gain.value = 0
+    const missing = []
+    for (const [name, n] of Object.entries(a.sfxList)) {
+      for (let i = 1; i <= n; i++) {
+        const res = await fetch(`/audio/sfx/${name}-${i}.mp3`, { method: 'HEAD' })
+        if (!res.ok) missing.push(`${name}-${i}`)
+      }
+    }
+    const music = await fetch('/audio/music/menu-calm.mp3', { method: 'HEAD' })
+    a.setMenuMusic(false)
+    const offPlaying = a.menuMusicPlaying
+    a.startMenuMusic()
+    const stillOff = !a.menuMusicPlaying
+    a.setMenuMusic(true)
+    return { missing, musicOk: music.ok, offPlaying, stillOff, setting: typeof window.__game.settings.menuMusic }
+  })
+  expect(r.missing).toEqual([])
+  expect(r.musicOk).toBe(true)
+  expect(r.offPlaying).toBe(false)
+  expect(r.stillOff).toBe(true)
+  expect(r.setting).toBe('boolean')
+})

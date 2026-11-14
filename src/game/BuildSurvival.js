@@ -2134,7 +2134,7 @@ export class BuildSurvival {
     this._recordEdit(x, y, z, held.id)
     if (!this.net) this.farm?.onPlaced(held.id, x, y, z)
     this.inv.usedBlock()
-    audioEngine.playFootstep?.(false, 'default')
+    audioEngine.playPlace?.()
     return true
   }
 
@@ -3082,6 +3082,7 @@ export class BuildSurvival {
         if (!this._campSafe(player.x, player.z)) this.net?.queueHurt(player.remote, bite)
       } else {
         this._lastBiter = { nameIdx: zb.nameIdx, at: performance.now() }
+        audioEngine.playZombieAttack?.(zb.size || 1, this._panTo(zb.x, zb.z))
         this._hurtPlayer(bite)
         // A Mirror Block nearby bounces some of it back (BuildSpecials.js).
         this.bm.specials.onBitten(zb, bite)

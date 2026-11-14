@@ -1999,7 +1999,7 @@ export class BuildTryMode {
     const glass = bm._isWindowType(type)
     this._spawnShards(x, y, z, type, glass ? null : Math.floor(Math.random() * BREAK_LOOKS.length))
     if (glass) audioEngine.playGlassBreak()
-    else audioEngine.playFootstep(false, bm.breakSeconds(type) < 1 ? 'grass' : 'default')
+    else if (!audioEngine.playBlockBreak?.(bm.breakSeconds(type) < 1)) audioEngine.playFootstep(false, bm.breakSeconds(type) < 1 ? 'grass' : 'default')
   }
 
   // Another player broke it (a server's shared blocks): gone here too, and

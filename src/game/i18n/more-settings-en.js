@@ -2,6 +2,8 @@
 export default {
   musicVolumeLabel: 'Music',
   musicVolumeInfoText: 'How loud music in the game is: instruments, the Piano Block, Dance-Off and Musical Chairs tunes. Master still turns everything up or down.',
+  menuMusicLabel: 'Homepage Music',
+  menuMusicInfoText: 'Calm music while you are on the homepage. It fades out when you start playing. The Music slider sets how loud.',
   uiVolumeLabel: 'UI Sounds',
   uiVolumeInfoText: 'How loud the soft tick is when you press a menu button, plus the hover sound and the chat ping. 0% turns them off. Separate from game sounds.',
   footstepVolumeLabel: 'Footsteps',
