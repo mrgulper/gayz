@@ -475,15 +475,15 @@ test('couch co-op: equal Player 2 crafts, opens chests, fishes, farms and emotes
     press(1)
     press(1)
 
-    // Items: a crafted helmet is worn (armour), a kite is Player 1's.
+    // Items: a crafted helmet is worn (armour), a guitar is Player 1's.
     gear.add({ kind: 'item', id: 'helmet', n: 1 })
     gear.select(gear.hot.findIndex((x) => x?.id === 'helmet'))
     press(7)
     out.helmet = gear.armor === 25 && p2Has('helmet') === 0
-    gear.add({ kind: 'item', id: 'kite', n: 1 })
-    gear.select(gear.hot.findIndex((x) => x?.id === 'kite'))
+    gear.add({ kind: 'item', id: 'guitar', n: 1 })
+    gear.select(gear.hot.findIndex((x) => x?.id === 'guitar'))
     press(7)
-    out.p1Only = p2Has('kite') === 1 && msg().length > 0
+    out.p1Only = p2Has('guitar') === 1 && msg().length > 0
     // A crafted helicopter goes down in front of Player 2 (if there's room).
     gear.add({ kind: 'item', id: 'helicopter', n: 1 })
     gear.select(gear.hot.findIndex((x) => x?.id === 'helicopter'))
@@ -589,4 +589,144 @@ test('couch co-op: equal Player 2 crafts, opens chests, fishes, farms and emotes
     emoteList: true, emoting: true, emoteStopped: true, cleaned: true,
   })
   expect([true, 'no room']).toContain(r.heli)
+})
+
+// Batch 5a (CouchToys.js): equal Player 2's potions, jetpack, wingsuit,
+// kite, skateboard, sled, bike and hoverboard - their own, never Player 1's.
+test('couch co-op: equal Player 2 drinks potions, flies and rides', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    const buttons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }))
+    const pad = { index: 0, id: 'test pad', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons }
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [pad], configurable: true })
+    const hold = (i, on) => { buttons[i].pressed = on; buttons[i].value = on ? 1 : 0 }
+    g._couchNext = 'equal'
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    b.update(0.016)
+    b.survival.start({ fromMenu: true })
+    const s = b.survival
+    if (s._picking) s._pickWeapon('rifle')
+    const step = (n = 1, dt = 0.05) => { for (let i = 0; i < n; i++) b.update(dt) }
+    const press = (i) => { hold(i, true); step(1); hold(i, false); step(1) }
+    step(4)
+    const c = s.couch
+    const gear = c.gear
+    const toys = c.toys
+    press(0)
+    if (gear.menuOpen) press(1)
+    const count = (list, id) => list.filter((x) => x?.id === id).reduce((n, x) => n + x.n, 0)
+    const p2Has = (id) => count([...gear.hot, ...gear.bag], id)
+    const holdItem = (id) => {
+      gear.add({ kind: 'item', id, n: 1 })
+      gear.select(gear.hot.findIndex((x) => x?.id === id))
+    }
+    // Zombies stay away while we look (only the items are tested here).
+    for (const z of s.zombies || []) z.hp = 0
+
+    // Potions: Speed is Player 2's own (Player 1 gets no buff).
+    holdItem('potionSpeed')
+    press(7)
+    out.speedOn = toys.speedMult() > 1 && !b.specials._buff('speed') && p2Has('potionSpeed') === 0
+    out.potionPill = (document.getElementById('couch-p2-ride')?.textContent || '').length > 0
+    // Giant: bigger body and harder hits; Tiny cancels it.
+    holdItem('potionGiant')
+    press(7)
+    step(20)
+    out.giant = toys.size > 1.5 && c.group.scale.x > 1.3 && gear.damageMult() > 1 && c._height() > 2.5
+    holdItem('potionTiny')
+    press(7)
+    out.tiny = toys.size < 1 && !toys.buffs.grow
+    // Invisible: no longer a zombie target.
+    holdItem('potionInvis')
+    press(7)
+    out.invisible = c.target() === null && toys.invisible
+    // They wear off.
+    step(Math.ceil(31 / 0.1), 0.1)
+    out.wornOff = toys.speedMult() === 1 && toys.size === 1 && !!c.target()
+
+    // Jetpack in the bag: A held in the air flies Player 2 up.
+    gear.select(0)
+    gear.add({ kind: 'item', id: 'jetpack', n: 1 })
+    c.p2.y += 4
+    c.p2.vy = 0
+    c.p2.onGround = false
+    const y0 = c.p2.y
+    hold(0, true)
+    step(20)
+    hold(0, false)
+    out.jetpack = c.p2.y > y0 && toys.jet.fuel < 1 && s.jetpack.fuel === 1
+    gear.add({ kind: 'item', id: 'jetFuel', n: 1 })
+    gear.select(gear.hot.findIndex((x) => x?.id === 'jetFuel'))
+    press(7)
+    out.refuel = toys.jet.fuel === 1 && p2Has('jetFuel') === 0
+    step(30)
+
+    // Kite: held and used with RT; Player 1's stays down.
+    holdItem('kite')
+    press(7)
+    step(2)
+    out.kite = toys.kite.up && !s.kite?.up && !!toys.kite.mesh
+    gear.select(0)
+    step(2)
+    out.kiteReeled = !toys.kite.up
+
+    // Skateboard: faster on it, coins for tricks go to Player 2.
+    holdItem('skateboard')
+    press(7)
+    out.skate = toys.skate.on && !s.skate?.on && !!toys.glide(true)?.speed
+    const coins = gear.coins
+    toys.skate.landed = ['kickflip']
+    toys.skate._air = true
+    c.p2.onGround = true
+    step(1)
+    out.trickCoins = gear.coins > coins
+    gear.select(0)
+    step(2)
+    out.skateOff = !toys.skate.on
+
+    // Sled, bike and hoverboard.
+    holdItem('sled')
+    press(7)
+    out.sled = toys.sled.on && !s.sled?.on
+    gear.select(0)
+    step(2)
+    holdItem('bike')
+    press(7)
+    out.bike = toys.rides.on === 'bike' && !s.rides?.on && c.target()?.quiet === true
+    gear.select(0)
+    step(2)
+    holdItem('hoverboard')
+    press(7)
+    out.hover = toys.rides.on === 'hover'
+    gear.select(0)
+    step(2)
+    out.ridesOff = !toys.rides.on && !c.target()?.quiet
+
+    // Wingsuit: falling from high up opens it and glides Player 2 forward.
+    gear.add({ kind: 'item', id: 'wingsuit', n: 1 })
+    c.p2.y += 40
+    c.p2.vy = -20
+    c.p2.onGround = false
+    step(3)
+    out.wing = toys.wing.open && !s.wing?.open
+    toys.stop()
+
+    // The Backpack: a kite says "hold it", the jetpack "works from the bag".
+    const rows = gear._packRows()
+    const about = (id) => rows.find((row) => row.name.startsWith(gear.label({ kind: 'item', id })))?.detail || ''
+    out.packText = about('kite').length > 0 && about('jetpack').length > 0 && about('kite') !== about('jetpack')
+
+    s.stop()
+    out.cleaned = !document.getElementById('couch-hud') && !toys.kite.mesh
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [], configurable: true })
+    return out
+  })
+  expect(r).toEqual({
+    speedOn: true, potionPill: true, giant: true, tiny: true, invisible: true, wornOff: true,
+    jetpack: true, refuel: true, kite: true, kiteReeled: true, skate: true, trickCoins: true, skateOff: true,
+    sled: true, bike: true, hover: true, ridesOff: true, wing: true, packText: true, cleaned: true,
+  })
 })

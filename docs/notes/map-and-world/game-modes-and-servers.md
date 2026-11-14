@@ -103,3 +103,11 @@ Gaymi: "make gayz more funny based instead of looking so cold" - did all 13 idea
 - Emotes: D-pad left -> list; `gear.emote = { id, left }`; `_drawBody` uses `poseEmote` (+bob from `body.baseY`); stops on move, RT, hurt, down, riding.
 - Test: `tests/couch.spec.js` fourth test (aim stubbed via `hands._aim`).
 
+## Couch Co-op: equal Player 2's potions, flying, rides (2026-11-14, Batch 5a)
+- Gaymi: "player 2 should be able to do everything player 1 can"; world-changing items (Rocket, Time Machine): only whoever climbs in goes. Split in 3: 5a here (potions, Jetpack + fuel, Wingsuit, Kite, Skateboard, Sled, Bike, Hoverboard), 5b = snowball, water gun, music, boombox, detector, treasure map, disguise, cure, brain snack, catch trap, bungee; 5c = Rocket + Time Machine/Time Pass per player.
+- `CouchToys.js` (`couch.toys`, equal only): runs Player 1's own classes (Jetpack, Kites, Skateboards, Sleds, Rides, Wingsuit) a second time on a Proxy "view" of BuildSurvival: `bm.tryMode` = P2 body (pos/vel/onGround/_spaceWasDown linked to `p2`), `bm._yaw/_pitch` = P2's, `inv` = gear (selected/has/takeItem/add), coins/_earn/_message/bodyPos = P2's, bingo null, `jetpack`/`skate` = P2's. Everything else reads the real game; functions are bound to the real object so writes land there.
+- Potions are P2's own (`toys.buffs`, never `bm.specials`): speedMult in `_physics`, `size` scales `group` + `_height()` + eye, `damageMult()` (GROW_DAMAGE, now exported) in `gear.damageMult`, invisible -> `target()` null.
+- `target()` now carries `p2: true, quiet`; `BuildSpecials.zombieTarget` uses P2's own quiet and ignores P1's invisibility for P2 (it used to hide P2 too).
+- `_physics` mirrors BuildTryMode: glide mods (sled/rides/skate), kite pull, `toys.air()` (jet thrust, kite fall, wing fly; B = crouch), skate ramp on slab step-up, wing.land in water. Jetpack pill -> P2's `#couch-p2-ride` line (`statusText`), never P1's pills.
+- Pack rows: held kinds show Hold (RT uses), passive (jet/wing) say "works from your backpack". Test: `tests/couch.spec.js` fifth test (4th now checks `guitar` as P1-only).
+

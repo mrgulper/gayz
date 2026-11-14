@@ -1759,10 +1759,13 @@ export class BuildSpecials {
       }
     }
     // Invisible (Invisibility Pad): zombies can't find you.
-    if (target && !target.remote && !target.lure && this._buff('invisible')) return { x: zb.x, y: zb.y, z: zb.z, idle: true, lure: true }
-    // Riding a Bike or Hoverboard is quiet (Rides.js): zombies far off lose you.
+    // Couch Co-op's Player 2 has their own potions (CouchToys.js): Player 1's
+    // don't hide them.
+    if (target && !target.remote && !target.lure && !target.p2 && this._buff('invisible')) return { x: zb.x, y: zb.y, z: zb.z, idle: true, lure: true }
+    // Riding a Bike or Hoverboard is quiet (Rides.js): zombies far off lose you
+    // (Player 2's own ride for Player 2 - CouchToys.js).
     const rides = this.bm.survival?.rides
-    if (target && !target.remote && !target.lure && rides?.quiet && Math.hypot(target.x - zb.x, target.z - zb.z) > QUIET_HEAR) return { x: zb.x, y: zb.y, z: zb.z, idle: true, lure: true }
+    if (target && !target.remote && !target.lure && (target.p2 ? target.quiet : rides?.quiet) && Math.hypot(target.x - zb.x, target.z - zb.z) > QUIET_HEAR) return { x: zb.x, y: zb.y, z: zb.z, idle: true, lure: true }
     // Near a Silence Block you can't be heard: zombies far off lose you.
     if (target && !target.lure) {
       for (const e of this.kind('silence')) {
@@ -2485,7 +2488,7 @@ const FLOWER_COLORS = [0xf04060, 0xf0d040, 0x6080f0, 0xf080d0, 0xffffff, 0xf0803
 const RACE_KEY = 'gayz-race-best' // best Start/Finish time per map slot
 const MAIL_KEY = 'gayz-mailbox' // + map slot + block spot (Mailbox)
 const SLOT_SYMBOLS = ['7', '$', '*', '@']
-const GROW_DAMAGE = 1.3 // damage while big (Grow Pad)
+export const GROW_DAMAGE = 1.3 // damage while big (Grow Pad)
 const BENCH_STEP = 0.1 // damage added per Workbench Upgrade
 const POWER_STEP = 0.1 // seconds between power updates
 const GATE_MODES = ['AND', 'OR', 'NOT']

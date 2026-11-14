@@ -28,6 +28,7 @@ import { poseEmote } from './Emotes.js'
 import { nameTag, COIN_PER_WAVE } from './BuildCamp.js'
 import { CouchGear } from './CouchGear.js'
 import { CouchHands } from './CouchHands.js'
+import { CouchToys } from './CouchToys.js'
 import { PLAY_WEAPONS, canPlayWeapon, DEFAULT_PLAY_WEAPON } from './PlayWeapons.js'
 import { MOB_HEIGHT } from './PlayRules.js'
 import { applyDeadzone, setCouchPad } from './ControlSettings.js'
@@ -123,6 +124,8 @@ export class CouchCoop {
     this.setSkin(DEFAULT_SKIN_DATA_URL)
     this.gear = this.equal ? new CouchGear(this, skinId) : null
     this.hands = this.equal ? new CouchHands(this) : null
+    // Potions, jetpack, kite, boards, rides (CouchToys.js).
+    this.toys = this.equal ? new CouchToys(this) : null
     this._note = null
     // P1 never borrows a controller until Player 2 has picked theirs.
     setCouchPad(padIndex >= 0 ? padIndex : 'waiting')
@@ -177,7 +180,9 @@ export class CouchCoop {
   target() {
     const p = this.p2
     if (!this.joined || p.isDown) return null
-    return { x: p.x, y: p.y, z: p.z, remote: null, hurt: (amount) => this.hurtP2(amount) }
+    // An Invisibility Potion: zombies can't find Player 2 (CouchToys.js).
+    if (this.toys?.invisible) return null
+    return { x: p.x, y: p.y, z: p.z, remote: null, p2: true, quiet: !!this.toys?.quiet, hurt: (amount) => this.hurtP2(amount) }
   }
 
   hurtP2(amount) {
@@ -216,6 +221,7 @@ export class CouchCoop {
       return
     }
     this.hands?.leave(true)
+    this.toys?.stop()
     p.isDown = true
     p.vx = p.vz = 0
     this.reviveP2 = 0
@@ -233,6 +239,7 @@ export class CouchCoop {
     if (over) {
       this._wasOver = true
       this.hands?.leave(true)
+      this.toys?.stop()
       return
     }
     // Respawned after a game over: both of you back up, side by side.
@@ -271,6 +278,7 @@ export class CouchCoop {
       if (this.hands?.ride) this.hands.drive(dt)
       else this._physics(dt, !p.isDown && gp && !busy ? this._move : null)
       this._reload(dt)
+      this.toys?.update(dt)
       const trigger = !p.isDown && !!gp && !busy && this.down.has(B_RT)
       // Holding RT on a block breaks it (CouchHands.js).
       this.hands?.update(dt, trigger)
@@ -413,18 +421,29 @@ export class CouchCoop {
     const inLiquid = this.bm._cellIsLiquid(Math.floor(p.x), Math.floor(p.y + 0.5), Math.floor(p.z))
     let speed = (p.run && move && move.y > 0.3 ? SPRINT : WALK) * (inLiquid ? 0.7 : 1)
     if (PLAY_WEAPONS[this._weaponId()]?.heavy) speed *= PLAY_WEAPONS[this._weaponId()].heavy
-    if (this.hands?.sneaking()) speed *= SNEAK
+    const crouch = !!this.hands?.sneaking()
+    if (crouch) speed *= SNEAK
+    // Equal Player 2's potions and rides (CouchToys.js), like BuildTryMode's.
+    const toys = this.toys
+    if (toys) speed *= toys.speedMult()
+    const glide = toys && !inLiquid ? toys.glide(p.onGround) : null
+    if (glide) speed *= glide.speed
     const want = len ? (speed * Math.min(1, move.m)) / len : 0
-    const grip = p.onGround ? GRIP : AIR_GRIP
-    p.vx = THREE.MathUtils.damp(p.vx, mx * want, grip, dt)
-    p.vz = THREE.MathUtils.damp(p.vz, mz * want, grip, dt)
+    const grip = (p.onGround ? GRIP : AIR_GRIP) * (glide?.grip ?? 1)
+    const kite = toys && !inLiquid ? toys.kite.pull() : null
+    p.vx = THREE.MathUtils.damp(p.vx, mx * want + (kite?.x || 0), grip, dt)
+    p.vz = THREE.MathUtils.damp(p.vz, mz * want + (kite?.z || 0), grip, dt)
     const jumpHeld = this.down.has(B_A)
     if (inLiquid) {
       p.vy = jumpHeld ? SWIM_UP : Math.max(p.vy - GRAVITY * 0.2 * dt, -2)
+      toys?.wing.land()
     } else {
       if (this._jumpPressed && p.onGround) p.vy = JUMP
       p.vy = Math.max(p.vy - GRAVITY * dt, -MAX_FALL)
+      // Jetpack, kite and wingsuit in the air.
+      toys?.air(dt, jumpHeld, crouch)
     }
+    const HEIGHT = this._height()
     this._jumpPressed = false
     // Sideways, one axis at a time; walking into a one-block step hops up it.
     let bumped = false
@@ -440,6 +459,8 @@ export class CouchCoop {
         if (p.onGround && !tm._hits(q.x, q.y + 0.55, q.z, HEIGHT) && !tm._hits(p.x, p.y + 0.55, p.z, HEIGHT)) {
           p.y += 0.55
           p[axis] = q[axis]
+          // Rolling up it on a skateboard: a ramp launches Player 2.
+          this.toys?.skate.ramp(this.toys.body)
         } else if (axis === 'x') p.vx = 0
         else p.vz = 0
       }
@@ -467,6 +488,15 @@ export class CouchCoop {
     }
     // Fell out of the world: back next to Player 1.
     if (p.y < -64) this._spawnNearP1()
+  }
+
+  // Giant / Tiny Potion (CouchToys.js): Player 2's size, and how tall they are.
+  _size() {
+    return this.toys?.size || 1
+  }
+
+  _height() {
+    return HEIGHT * this._size()
   }
 
   _leash() {
@@ -601,7 +631,7 @@ export class CouchCoop {
     // starting level with their head so nothing behind them is hit.
     const camAt = this.camera.position.clone().divideScalar(B)
     const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion)
-    const head = new THREE.Vector3(p.x, p.y + EYE, p.z)
+    const head = new THREE.Vector3(p.x, p.y + EYE * this._size(), p.z)
     const eye = camAt.addScaledVector(dir, Math.max(0, head.sub(camAt).dot(dir)))
     const range = Math.min(Number.isFinite(w.range) ? w.range : MAX_RANGE, MAX_RANGE)
     const reach = this._wallDistance(eye, dir, range)
@@ -698,6 +728,8 @@ export class CouchCoop {
     this.group.visible = this.joined
     this.group.position.set(p.x * B, p.y * B, p.z * B)
     this.group.rotation.y = p.yaw + Math.PI
+    const size = this._size()
+    if (Math.abs(this.group.scale.x - size) > 0.001) this.group.scale.setScalar(THREE.MathUtils.damp(this.group.scale.x, size, 8, dt))
     const body = this.body
     if (!body) return
     body.char.rotation.x = p.isDown ? -Math.PI / 2 : 0
@@ -736,7 +768,7 @@ export class CouchCoop {
     const cam = this.camera
     cam.rotation.set(p.isDown ? -0.6 : p.pitch, p.yaw, 0, 'YXZ')
     cam.updateMatrixWorld()
-    const eye = new THREE.Vector3(p.x, p.y + (p.isDown ? 0.6 : EYE), p.z)
+    const eye = new THREE.Vector3(p.x, p.y + (p.isDown ? 0.6 : EYE * this._size()), p.z)
     const back = new THREE.Vector3(0, 0, 1).applyQuaternion(cam.quaternion)
     const side = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
     const want = eye.clone().addScaledVector(side, CAM_SIDE).addScaledVector(back, CAM_BACK)
@@ -863,7 +895,7 @@ export class CouchCoop {
     const count = !a ? '' : heldOther ? (held && held.n > 1 ? `×${held.n}` : '') : p.reloadLeft > 0 ? t('buildPlayReloading') : Number.isFinite(a.mag) ? `${a.mag} / ${a.reserve}` : ''
     const heldName = heldOther ? g.label(held) : nameKey ? t(nameKey) : ''
     const dig = this.hands ? Math.round(this.hands.digProgress() * 20) : 0
-    const ride = this.hands?.rideText() || ''
+    const ride = [this.hands?.rideText(), this.toys?.statusText()].filter(Boolean).join(' · ')
     const coins = g && this.joined ? `${t('campCoins', { n: money(this.bm.game?.settings, g.coins) })}${g.armor > 0 ? ` · ${t('couchArmor', { n: Math.ceil(g.armor) })}` : ''}\n${t('couchMenuOpen')}` : ''
     const key = [this.joined, Math.ceil(p.health), p2Msg, p1Msg, heldName, count, p.hurtFlash > 0, p.aim, p.hitFlash > 0, coins, !!g?.menuOpen, dig, ride].join('|')
     if (key === this._hudKey) return
@@ -894,6 +926,7 @@ export class CouchCoop {
     this.active = false
     setCouchPad(null)
     this.hands?.dispose()
+    this.toys?.dispose()
     document.body.classList.remove('couch-split')
     this.hud?.remove()
     this.hud = null
