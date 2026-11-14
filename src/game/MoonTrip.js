@@ -15,17 +15,23 @@
 //   down. The waves go on: zombies come out of the craters wearing glass
 //   space helmets and air tanks.
 // - Use the rocket home to fly back to where you took off.
+// - Couch Co-op (Batch 5c): only whoever climbs in goes. An equal Player 2
+//   can place and fly the rocket too (Y beside it); the countdown is
+//   COUCH_COUNTDOWN_S then, so the other player can run over and climb in.
+//   Gravity and the starry sky follow each player (viewSky, gravityAt).
 // Meshes only, never a light.
 import * as THREE from 'three'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
 import { TempBlocks } from './TempBlocks.js'
+import { traveller, travellerIds } from './Travellers.js'
 
 export const MOON_Y = 300
 export const MOON_R = 26
 export const MOON_G = 0.3
 export const COUNTDOWN_S = 3
 export const LIFT_S = 4
+export const COUCH_COUNTDOWN_S = 6
 const SKY_R = 160
 const ENTER_REACH = 3
 const ON_MOON = 25 // within this many blocks of MOON_Y you're on the Moon
@@ -36,7 +42,7 @@ export class MoonTrip {
     this.cells = new TempBlocks(survival)
     this.rocket = null // the one on Earth: { x, y, z, group }
     this.home = null // the one on the Moon
-    this.trip = null // { t, from, to, up }
+    this.trip = null // { t, r, up, riders: Set('p1' | 'p2'), said }
     this.built = false
     this.back = null // where you took off from
   }
@@ -54,24 +60,36 @@ export class MoonTrip {
     return 0.5
   }
 
+  // Player 1 on the Moon (the rest of the game asks this).
   get on() {
-    if (!this.built) return false
-    const p = this.s.bm.tryMode.pos
+    return this.onAt(this.s.bm.tryMode.pos)
+  }
+
+  // Is a body at p on the Moon? (Couch Co-op's Player 2 too, Batch 5c.)
+  onAt(p) {
+    if (!this.built || !p) return false
     return Math.abs(p.y - MOON_Y) < ON_MOON && Math.hypot(p.x - this.cx, p.z - this.cz) < SKY_R * 0.8
   }
 
-  // Holding the Rocket and using it (PlayInventory.useHeld). -> true if
-  // it went down (then it's used up).
-  place() {
+  // Couch Co-op (Batch 5c, Gaymi: "longer countdown"): the other player
+  // gets time to run over and climb in too.
+  get countdown() {
+    return traveller(this.s, 'p2') ? COUCH_COUNTDOWN_S : COUNTDOWN_S
+  }
+
+  // Holding the Rocket and using it (PlayInventory.useHeld, or Couch
+  // Co-op's Player 2 - CouchGear). -> true if it went down (then it's used up).
+  place(who = 'p1') {
     const s = this.s
-    if (s.dead || this.trip) return false
-    if (this.on) {
-      s._message(t('moonAlreadyHere'), 3)
+    const me = traveller(s, who)
+    if (!me || s.dead || this.trip) return false
+    if (this.onAt(me.pos())) {
+      me.say(t('moonAlreadyHere'), 3)
       return false
     }
-    const spot = s.vehicles?._groundAhead('balloon')
+    const spot = s.vehicles?._groundAhead('balloon', me.pos(), me.yaw())
     if (!spot) {
-      s._message(t('vehicleNeedRoom'), 3)
+      me.say(t('vehicleNeedRoom'), 3)
       return false
     }
     this._dropRocket('rocket')
@@ -79,7 +97,7 @@ export class MoonTrip {
     g.position.set(spot.x * this.B, spot.y * this.B, spot.z * this.B)
     s.bm.scene.add(g)
     this.rocket = { ...spot, group: g }
-    s._message(t('moonRocketPlaced'), 4)
+    me.say(t('moonRocketPlaced'), 4)
     try { audioEngine.playPlace?.() } catch { /* no audio */ }
     return true
   }
@@ -92,23 +110,58 @@ export class MoonTrip {
     this[which] = null
   }
 
-  // The Use key beside a rocket: lift off.
-  use() {
+  _near(r, p) {
+    return !!r && Math.hypot(p.x - r.x, p.z - r.z) < ENTER_REACH && Math.abs(p.y - r.y) < 3
+  }
+
+  // The Use key beside a rocket (Player 2: Y): lift off - or, during the
+  // countdown, climb in too.
+  use(who = 'p1') {
     const s = this.s
-    if (this.trip || s.dead || s.spectating) return false
-    const me = s.bodyPos()
-    const near = (r) => r && Math.hypot(me.x - r.x, me.z - r.z) < ENTER_REACH && Math.abs(me.y - r.y) < 3
-    if (near(this.rocket)) this._launch(this.rocket, true)
-    else if (near(this.home)) this._launch(this.home, false)
+    const me = traveller(s, who)
+    if (!me || s.dead || (who === 'p1' && s.spectating)) return false
+    if (who === 'p2' && s.couch?.p2.isDown) return false
+    const at = me.pos()
+    const tr = this.trip
+    if (tr) {
+      if (tr.t >= 0 || tr.riders.has(who) || !this._near(tr.r, at)) return false
+      this._climbIn(who)
+      me.say(t('moonClimbedIn'), 2)
+      return true
+    }
+    if (this._near(this.rocket, at)) this._launch(this.rocket, true, who)
+    else if (this._near(this.home, at)) this._launch(this.home, false, who)
     else return false
     return true
   }
 
-  _launch(r, up) {
-    const s = this.s
-    s.kart?.leave()
+  _climbIn(who) {
+    traveller(this.s, who)?.leaveRide()
+    this.trip.riders.add(who)
+  }
+
+  _launch(r, up, who) {
     if (up) this.back = { x: r.x, y: r.y, z: r.z }
-    this.trip = { t: -COUNTDOWN_S, r, up, said: COUNTDOWN_S + 1 }
+    const n = this.countdown
+    this.trip = { t: -n, r, up, said: n + 1, riders: new Set() }
+    this._climbIn(who)
+    // The other player, if they're close: there's time to climb in.
+    for (const id of travellerIds(this.s)) {
+      if (id === who) continue
+      const other = traveller(this.s, id)
+      const p = other.pos()
+      if (Math.hypot(p.x - r.x, p.z - r.z) < 24 && Math.abs(p.y - r.y) < 12) other.say(t(`${up ? 'moonJoinUp' : 'moonJoinHome'}${id === 'p2' ? 'P2' : ''}`, { n }), 3)
+    }
+  }
+
+  // Riders still in the game (Player 2 can leave mid-trip).
+  _riders() {
+    return [...this.trip.riders].map((id) => traveller(this.s, id)).filter(Boolean)
+  }
+
+  // Is this player riding the rocket right now?
+  riding(who) {
+    return !!this.trip?.riders.has(who)
   }
 
   update(dt) {
@@ -116,11 +169,26 @@ export class MoonTrip {
     if (!s.active) return
     if (this.trip) this._fly(dt)
     // Gravity and the sky.
-    const on = this.on && !this.trip
-    s.bm.tryMode.gravityMult = on ? MOON_G : 1
-    if (this._sky) this._sky.visible = on || (this.trip && this.trip.t > LIFT_S * 0.6)
-    if (this._sky?.visible) this._sky.position.copy(s.bm.camera.position)
-    if (on) this._suits()
+    s.bm.tryMode.gravityMult = this.on && !this.riding('p1') ? MOON_G : 1
+    this.viewSky('p1', s.bm.camera)
+    if (this.built && (this.on || this.onAt(s.couch?.joined && s.couch.p2))) this._suits()
+  }
+
+  // Player 2's gravity (CouchCoop._physics): the Moon's, up there.
+  gravityAt(p) {
+    return this.onAt(p) ? MOON_G : 1
+  }
+
+  // The starry sky shows for whoever is on the Moon (or nearly up), and
+  // only on their half of a split screen (CouchCoop.drawFrame).
+  viewSky(who, camera) {
+    if (!this._sky) return
+    const me = traveller(this.s, who)
+    const p = me?.pos()
+    const tr = this.trip
+    const show = !!p && ((this.onAt(p) && !this.riding(who)) || (!!tr && tr.riders.has(who) && tr.t > LIFT_S * 0.6))
+    this._sky.visible = show
+    if (show) this._sky.position.copy(camera.position)
   }
 
   // The countdown, then up you go.
@@ -129,20 +197,31 @@ export class MoonTrip {
     const tr = this.trip
     tr.t += dt
     const r = tr.r
+    const riders = this._riders()
+    if (!riders.length) {
+      this.trip = null
+      return
+    }
+    const seat = (id, climb) => {
+      const i = [...tr.riders].indexOf(id)
+      const spot = { x: r.x + (i ? 0.35 : 0), y: r.y + 0.9 + climb, z: r.z }
+      if (id === 'p1') s._ride = { ...spot, eye: 1.4 }
+      else if (s.couch) s.couch.p2.lockedTo = spot
+    }
     if (tr.t < 0) {
       const n = Math.ceil(-tr.t)
       if (n < tr.said) {
         tr.said = n
-        s._message(t('moonCountdown', { n }), 1)
+        for (const me of riders) me.say(t('moonCountdown', { n }), 1)
         try { audioEngine.playSpecial?.('chime') } catch { /* no audio */ }
       }
-      s._ride = { x: r.x, y: r.y + 0.9, z: r.z, eye: 1.4 }
+      for (const id of tr.riders) seat(id, 0)
       return
     }
     if (!tr.boom) {
       tr.boom = true
       try { audioEngine.playSpecial?.('jetpack') } catch { /* no audio */ }
-      s._message(t(tr.up ? 'moonLiftOff' : 'moonGoingHome'), 3)
+      for (const me of riders) me.say(t(tr.up ? 'moonLiftOff' : 'moonGoingHome'), 3)
     }
     // Speeding up as it climbs; the flame shows.
     const climb = 4 * tr.t * tr.t
@@ -151,37 +230,45 @@ export class MoonTrip {
       r.group.userData.flame.visible = true
       r.group.userData.flame.scale.y = 1 + Math.sin(performance.now() / 40) * 0.25
     }
-    s._ride = { x: r.x, y: r.y + 0.9 + climb, z: r.z, eye: 1.4 }
-    s.bm.sky?.disasters && (s.bm.sky.disasters.shake = Math.max(s.bm.sky.disasters.shake, 0.05 * Math.max(0, 1 - tr.t / LIFT_S)))
+    for (const id of tr.riders) seat(id, climb)
+    if (tr.riders.has('p1')) s.bm.sky?.disasters && (s.bm.sky.disasters.shake = Math.max(s.bm.sky.disasters.shake, 0.05 * Math.max(0, 1 - tr.t / LIFT_S)))
     if (tr.t < LIFT_S) return
     // Arrived.
-    s._ride = null
+    this._unseat()
     this.trip = null
     r.group.position.y = r.y * this.B
     if (r.group.userData.flame) r.group.userData.flame.visible = false
-    if (tr.up) this._arrive()
-    else this._home()
+    if (tr.up) this._arrive(riders)
+    else this._home(riders)
   }
 
-  _arrive() {
+  _unseat() {
+    if (this.trip?.riders.has('p1')) this.s._ride = null
+    if (this.s.couch) this.s.couch.p2.lockedTo = null
+  }
+
+  _arrive(riders) {
     const s = this.s
     if (!this.built) this._build()
-    const tm = s.bm.tryMode
-    tm.pos.set(this.cx + 3, this._top(this.cx + 3, this.cz) , this.cz)
-    tm.vel?.set(0, 0, 0)
-    // Waves follow you: the zombies on Earth are left behind.
-    s._message(t('moonArrived'), 6)
+    riders.forEach((me, i) => {
+      const z = this.cz + i * 1.2
+      me.put(this.cx + 3, this._top(this.cx + 3, z), z)
+      // Waves follow you: the zombies on Earth are left behind.
+      me.say(t('moonArrived'), 6)
+    })
     try { audioEngine.playSpecial?.('bell') } catch { /* no audio */ }
+    s._renderHud?.()
   }
 
-  _home() {
+  _home(riders) {
     const s = this.s
     const b = this.back || this.rocket || { x: s.bm.tryMode._spawn?.x ?? 0, y: s.bm.tryMode._spawn?.y ?? 80, z: s.bm.tryMode._spawn?.z ?? 0 }
-    const x = b.x + 2
-    const z = b.z
-    s.bm.tryMode.pos.set(x, s._groundUnder(x, b.y + 4, z), z)
-    s.bm.tryMode.vel?.set(0, 0, 0)
-    s._message(t('moonHome'), 4)
+    riders.forEach((me, i) => {
+      const x = b.x + 2
+      const z = b.z + i * 1.2
+      me.put(x, s._groundUnder(x, b.y + 4, z), z)
+      me.say(t('moonHome'), 4)
+    })
   }
 
   // The Moon's ground height at a column (the y you stand at).
@@ -308,7 +395,7 @@ export class MoonTrip {
       disposeTree(this._sky)
       this._sky = null
     }
-    if (this.trip) this.s._ride = null
+    if (this.trip) this._unseat()
     this.trip = null
     this.built = false
     this.back = null

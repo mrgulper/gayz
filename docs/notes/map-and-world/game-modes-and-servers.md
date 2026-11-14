@@ -117,5 +117,13 @@ Gaymi: "make gayz more funny based instead of looking so cold" - did all 13 idea
 - P1 classes got small hooks: WaterGun/MetalDetector `pill` ({ show, hide }; P2's go to `toys._pills` -> `statusText`), DanceOff `keys` (false = no keyboard listener; D-pad via `CouchHands.onPress` -> `toys.dancePress`) and `uiHost` (P2's arrows inside `#couch-p2`, class `p2`), `Campaign.near(p)`.
 - Brain Snack: `toys.tame()` swaps `s.pet.s` to the view for the call. Treasure gems go to P1's `game.gems`. Goo Disguise is P2's own (`toys.goo`, `target()` null, `breakGoo` from `CouchCoop._shoot` - which no longer breaks P1's disguise). The Cure: Y -> `toys.handInCure()` (lab near P2, chapter 'cure' started) -> `lab._finish`.
 - Winter/summer: `toys.onWave(n)` from CouchCoop's wave block (START/WAVE_SNOWBALLS, one water gun).
-- Still P1-only: Rocket, Time Machine, Time Pass (Batch 5c). Test: `tests/couch.spec.js` sixth test.
+- Rocket, Time Machine, Time Pass: Batch 5c (below). Test: `tests/couch.spec.js` sixth test.
+
+## Couch Co-op: equal Player 2's Rocket and Time Machine (2026-11-14, Batch 5c)
+- Gaymi's picks: only whoever climbs in goes; waves shared out between both places while split ("both places"); a longer countdown (`COUCH_COUNTDOWN_S` = 6, only when an equal P2 has joined) so the other can climb in; each pays their own Time Pass; TWO ERAS AT ONCE (P1 in one, P2 in another, each its own clock) - picking the era the other is in joins them with its time left.
+- `Travellers.js`: `traveller(s, 'p1'|'p2')` = { pos, yaw, put, say, take, count, pay, leaveRide } so MoonTrip/TimeMachine take a `who`. P2's coins = `gear.coins` (guest); era-seen + all-eras bonus are P1's only.
+- `MoonTrip`: `trip.riders` Set; Use/Y beside the rocket during the countdown climbs in. P1 seat = `s._ride`, P2 seat = `couch.p2.lockedTo` (CouchCoop `_seat` skips physics). `onAt(p)`, `gravityAt(p)` (P2's `_physics`), `viewSky(who, cam)`. `on` still means P1.
+- `TimeMachine`: `trips` Map era -> { cells (own TempBlocks), zombies, dinos, ice, sky, home, who, backs, left }; `where.p1/p2`; each era at `eraCenter(era)` (x 2000.5 + i*400). `era`/`away`/`cx`/`left` = P1's; `anyAway` for OpenWorld's Heaven guard; `eraAt(p)`. P2 picks via CouchGear screen 'time' (`_timeRows`), B closes it. Flash on the traveller's half (`.couch-time-flash`, `#time-flash.couch-left`).
+- `BuildSurvival._placeOf(p)` -> 'moon' | 'era:<id>' | 'home'; `_spawnSpots` picks one of the two places 50/50 when split, home spots filtered to home. CouchCoop `_leash` skipped (equal only) while places differ; BuildMode `_updateWorld` adds P2 as a land-loading point. Split-screen skies: `drawFrame` calls `viewSky('p2')` before P2's half, `viewSky('p1')` after.
+- CouchHands Y: Cure, then `moon.use('p2')`, `time.use('p2')`, then vehicles/blocks. CouchGear `_useDef`: rocket/timeMachine -> `world` (placed in front of P2), timePass -> hint. Test: `tests/couch.spec.js` seventh test.
 

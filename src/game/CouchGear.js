@@ -391,7 +391,8 @@ export class CouchGear {
       if (row && !row.off) row.act()
     } else if (i === B_B || i === B_BACK) {
       // Back up to the wheel, then closed. (The skin pick on joining just closes.)
-      if (m.screen === 'wheel' || this._joinPick) this.close()
+      // (The Time Machine's picker was opened at the machine: it just closes.)
+      if (m.screen === 'wheel' || m.screen === 'time' || this._joinPick) this.close()
       else this.open('wheel')
       this._joinPick = false
       return
@@ -411,6 +412,7 @@ export class CouchGear {
     if (m.screen === 'craft') return this._craftRows()
     if (m.screen === 'emote') return this._emoteRows()
     if (m.screen === 'pack') return this._packRows()
+    if (m.screen === 'time') return this._timeRows()
     return this._shopRows(m.tab)
   }
 
@@ -492,12 +494,20 @@ export class CouchGear {
     if (ARMOR_SLOTS.includes(it.id)) return { id: it.id, armor: ARMOR_PIECE, picked: true }
     // Potions, the jetpack, kites, boards, rides (CouchToys.js).
     if (this.c.toys && toyKind(it.id)) return { id: it.id, toy: true, picked: true }
-    // The rest (the Rocket, the Time Machine...): their code is Player 1's.
+    // The Rocket and the Time Machine stand on the ground in front (Batch
+    // 5c); a Time Pass is used at the machine.
+    if (def.rocket || def.timeMachine) return { id: it.id, world: def.rocket ? 'moon' : 'time', picked: true }
+    if (def.timePass) return { id: it.id, pass: true, picked: true }
+    // Crafting materials and junk aren't used by anyone - just held.
+    if (def.material || def.junk) return null
+    // Anything else: its code is Player 1's.
     return { id: it.id, p1Only: true, picked: true }
   }
 
   _itemAbout(item) {
     if (item.p1Only) return t('couchP1Only')
+    if (item.world) return t(item.world === 'moon' ? 'couchRocketAbout' : 'couchTimeAbout')
+    if (item.pass) return t('timePassHint')
     if (item.toy) return this.c.toys.passive(item.id) ? t('couchToyInBag') : this.c.toys.heldKind(item.id) ? t('couchToyHold') : t(`couchToy_${toyKind(item.id)}`, { n: ITEMS[item.id]?.disguise || POTION_S })
     if (item.vehicle) return t('couchPlaceVehicle')
     if (item.fuel) return t('couchFuelUp')
@@ -513,6 +523,7 @@ export class CouchGear {
     if (item.ammo) return Number.isFinite(PLAY_WEAPONS[this.c._weaponId()]?.reserve)
     if (item.vehicle || item.fuel) return !!this.s.vehicles && !this.c.hands?.ride
     if (item.toy) return this.c.toys.canUse(item.id)
+    if (item.world) return !this.c.hands?.ride && !this.c.p2.lockedTo
     return false
   }
 
@@ -534,7 +545,18 @@ export class CouchGear {
       if (used === 'take') this._takeFrom(list, i)
       return !!used
     }
+    // A Time Pass: only a trip uses it (TimeMachine.go).
+    if (item.pass) {
+      this.c.p2Message(t('timePassHint'), 3)
+      return false
+    }
     if (!this._canUse(item)) return false
+    // The Rocket / Time Machine: down in front of Player 2 (Batch 5c).
+    if (item.world) {
+      if (!this.s[item.world]?.place('p2')) return false
+      this._takeFrom(list, i)
+      return true
+    }
     const p = this.c.p2
     if (item.vehicle && !this.s.vehicles.place(item.vehicle, this._who())) return false
     if (item.fuel && !this.s.vehicles.addFuel(this._who())) return false
@@ -700,7 +722,19 @@ export class CouchGear {
   }
 
   _titleKey(screen) {
-    return { wheel: 'couchPlayer2', shop: 'shopTitle', pack: 'couchMenuPack', skin: 'couchPickSkin', craft: 'couchMenuCraft', emote: 'couchMenuEmote' }[screen]
+    return { wheel: 'couchPlayer2', shop: 'shopTitle', pack: 'couchMenuPack', skin: 'couchPickSkin', craft: 'couchMenuCraft', emote: 'couchMenuEmote', time: 'couchTimePick' }[screen]
+  }
+
+  // The Time Machine's era picker on Player 2's half (Batch 5c): each era,
+  // A to go (one of Player 2's own Time Passes).
+  _timeRows() {
+    const tm = this.s.time
+    if (!tm) return []
+    const passes = tm._passes('p2')
+    return [
+      { name: t('couchTimePasses', { n: passes }), note: true, off: true, act: () => {} },
+      ...tm.pickRows('p2').map((row) => ({ name: row.name, detail: row.desc, btn: t('couchTimeGo'), off: passes < 1, act: () => tm.go(row.era, 'p2') })),
+    ]
   }
 
   _buy(item) {

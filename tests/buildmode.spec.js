@@ -7704,19 +7704,21 @@ test('the Vault Heist, the Theme Park, the Time Machine and Werewolf Night', asy
     s.inv.add({ kind: 'item', id: 'timePass', n: 1 })
     const zb0 = s.zombies.length
     out.timeGo = T.go('ice') === true && T.away && !T.pickOpen && Math.abs(tm.pos.y - 421) < 1 && !s.inv.has('timePass')
-    out.timeEraWorld = !!bm.getBlockAt(Math.floor(T.cx), 419, Math.floor(T.cz)) && T._sky?.visible !== undefined
-    out.timeIceZombies = s.zombies.length - zb0 === 5 && T.zombies.every((zb) => zb.frozen > 0 && zb.era === 'ice')
+    const trip = T.trips.get('ice')
+    const ec = { x: T.cx, z: T.cz }
+    out.timeEraWorld = !!bm.getBlockAt(Math.floor(T.cx), 419, Math.floor(T.cz)) && trip?.sky?.visible !== undefined
+    out.timeIceZombies = s.zombies.length - zb0 === 5 && trip.zombies.every((zb) => zb.frozen > 0 && zb.era === 'ice')
     out.timeSpawnSpots = s._spawnSpots().every(([, y]) => y === 421)
-    const zx = Math.floor(T.zombies[0].x)
-    const zz = Math.floor(T.zombies[0].z)
+    const zx = Math.floor(trip.zombies[0].x)
+    const zz = Math.floor(trip.zombies[0].z)
     out.timeIceBlock = bm.getBlockAt(zx, 421, zz) === 'ice'
-    for (let i = 0; i < 40; i++) T._iceStep(0.1)
+    for (let i = 0; i < 40; i++) T._iceStep(trip, 0.1)
     out.timeIceBreaks = bm.getBlockAt(zx, 421, zz) !== 'ice'
     coins = s.coins
-    T.left = 0.01
+    trip.left = 0.01
     T.update(0.05)
     out.timeHome = !T.away && Math.abs(tm.pos.y - T.machine.y) < 1 && s.coins === coins + 60 && JSON.parse(localStorage.getItem('gayz-time-eras')).includes('ice')
-    out.timeEraGone = !bm.getBlockAt(Math.floor(T.cx), 419, Math.floor(T.cz)) && T.zombies.length === 0
+    out.timeEraGone = !bm.getBlockAt(Math.floor(ec.x), 419, Math.floor(ec.z)) && T.trips.size === 0 && trip.zombies.every((zb) => !s.zombies.includes(zb))
     localStorage.removeItem('gayz-time-eras')
     await stop()
     // Werewolf Night: a secret Werewolf, a knock-out at night, the day's vote.
