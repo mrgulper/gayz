@@ -1,10 +1,13 @@
 // Couch Co-op (2026-11-14, Batch 4c-1): two players on one computer, the
 // screen split down the middle. Player 1 plays as normal with the mouse
-// and keyboard on the left half; Player 2 is a fighting buddy on the
-// right half with a controller - their own body, health, guns and ammo.
-// They walk, jump, aim, shoot, reload and switch guns; the shop,
-// building, the inventory and vehicles stay Player 1's (a fully equal
-// Player 2 is the next batch).
+// and keyboard on the left half; Player 2 is on the right half with a
+// controller - their own body, health, guns and ammo. They walk, jump,
+// aim, shoot, reload and switch guns. Two kinds, picked on the homepage tag:
+//   - Buddy: the shop, building, the inventory and vehicles stay Player
+//     1's, and Player 2's kills and coins go to Player 1.
+//   - Equal (Batch 4c-2a, CouchGear.js): Player 2 also has their own coins,
+//     shop, backpack and skin (a guest: nothing saved). Building and
+//     vehicles for Player 2 are the next batch (4c-2b).
 //
 // Started from the homepage's Couch Co-op tag (HomeExtras.js), which sets
 // game._couchNext before pressing Play; BuildSurvival.start makes one of
@@ -20,12 +23,14 @@
 import * as THREE from 'three'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { holdWeapon, poseArms } from './HeldWeapon.js'
-import { nameTag } from './BuildCamp.js'
+import { nameTag, COIN_PER_WAVE } from './BuildCamp.js'
+import { CouchGear } from './CouchGear.js'
 import { PLAY_WEAPONS, canPlayWeapon, DEFAULT_PLAY_WEAPON } from './PlayWeapons.js'
 import { MOB_HEIGHT } from './PlayRules.js'
 import { applyDeadzone, setCouchPad } from './ControlSettings.js'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
+import { money } from './SocialSettings.js'
 
 // Player 2's body, in blocks (the same as Player 1's, BuildTryMode.js).
 const HEIGHT = 1.8
@@ -65,6 +70,7 @@ const MAX_RANGE = 120
 const TRIGGER_AT = 0.4
 // Standard controller buttons.
 const B_A = 0
+const B_BACK = 8
 const B_X = 2
 const B_Y = 3
 const B_LB = 4
@@ -78,10 +84,14 @@ const playable = () => Object.keys(PLAY_WEAPONS).filter(canPlayWeapon)
 
 export class CouchCoop {
   // padIndex: Play Again keeps Player 2's controller (no need to rejoin).
-  constructor(survival, { padIndex = -1 } = {}) {
+  // equal: Player 2 has their own coins, shop and backpack (CouchGear.js).
+  // skinId: Play Again keeps equal Player 2's skin (no pick again).
+  constructor(survival, { padIndex = -1, equal = false, skinId = null } = {}) {
     this.s = survival
     this.bm = survival.bm
     this.active = true
+    this.equal = !!equal
+    this.maxHealth = MAX_HEALTH
     this.padIndex = padIndex
     this.joined = false
     this.down = new Set()
@@ -105,20 +115,54 @@ export class CouchCoop {
     this.group.add(this.tag)
     this.group.visible = false
     this.bm.scene.add(this.group)
-    loadSkinTexture(DEFAULT_SKIN_DATA_URL).then((skin) => {
-      if (!this.active) return
+    this.setSkin(DEFAULT_SKIN_DATA_URL)
+    this.gear = this.equal ? new CouchGear(this, skinId) : null
+    this._note = null
+    // P1 never borrows a controller until Player 2 has picked theirs.
+    setCouchPad(padIndex >= 0 ? padIndex : 'waiting')
+    this._buildHud()
+    document.body.classList.add('couch-split')
+  }
+
+  // Player 2's body in a skin (a data URL). A newer pick wins over a
+  // slower older one.
+  setSkin(dataUrl) {
+    const ticket = (this._skinTicket = (this._skinTicket || 0) + 1)
+    loadSkinTexture(dataUrl).then((skin) => {
+      if (!this.active || ticket !== this._skinTicket) return
       const B = this.s.B
       const char = buildTexturedCharacter(skin)
       const sc = (MOB_HEIGHT * B) / 32
       char.scale.setScalar(sc)
       char.position.y = 2 * sc
+      const old = this.body?.char
+      if (old) {
+        if (this.body.gun) this.body.gun.parent?.remove(this.body.gun)
+        this.group.remove(old)
+        old.traverse((o) => {
+          if (!o.isMesh) return
+          o.geometry?.dispose?.()
+          for (const m of [].concat(o.material)) m?.dispose?.()
+        })
+      }
       this.group.add(char)
       this.body = { char, gun: null, gunId: null, melee: false }
-    }).catch(() => { /* no picture: just the name tag */ })
-    // P1 never borrows a controller until Player 2 has picked theirs.
-    setCouchPad(padIndex >= 0 ? padIndex : 'waiting')
-    this._buildHud()
-    document.body.classList.add('couch-split')
+    }).catch(() => { /* no picture: keep the last one */ })
+  }
+
+  // A short note on Player 2's half (a finished quest...).
+  p2Message(text, secs = 2.5) {
+    this._note = { text, until: performance.now() + secs * 1000 }
+    this._renderHud()
+  }
+
+  // Equal Player 2 picks a gun from their Backpack.
+  holdWeapon(idx) {
+    const p = this.p2
+    if (idx < 0 || idx >= this.weapons.length) return
+    p.weaponIdx = idx
+    p.reloadLeft = 0
+    p.nextShotAt = performance.now() + 250
   }
 
   // ---------- Who the zombies chase ----------
@@ -134,6 +178,8 @@ export class CouchCoop {
     const p = this.p2
     if (!this.joined || p.isDown || this.s.dead) return
     if (this.s._campSafe(p.x, p.z)) return
+    // Equal Player 2's own armor takes its share first.
+    if (this.gear) amount = this.gear.soak(amount)
     p.health = Math.max(0, p.health - amount)
     p.hurtFlash = 0.45
     this._rumble(Math.min(1, 0.35 + amount / 40), 180)
@@ -199,21 +245,26 @@ export class CouchCoop {
     p.hitFlash = Math.max(0, (p.hitFlash || 0) - dt)
     // A new wave: a little health and full spare ammo.
     if (this.s.wave !== this._wave) {
+      // Equal Player 2 is paid for a cleared wave too.
+      if (this.gear && this._wave > 0 && this.s.wave > this._wave) this.gear.earn(COIN_PER_WAVE)
       this._wave = this.s.wave
       if (!p.isDown) p.health = Math.min(MAX_HEALTH, p.health + WAVE_HEAL)
       for (const id of Object.keys(p.ammo)) p.ammo[id].reserve = PLAY_WEAPONS[id].reserve
     }
     const paused = this.bm.menuOpen || this.bm.pickerOpen || this.s._picking
     if (gp) this._buttons(gp, paused)
+    // Player 2's own menu open: they stand still (the game goes on).
+    const busy = !!this.gear?.menuOpen
     if (!paused) {
-      if (gp && !p.isDown) this._sticks(gp, dt)
-      this._physics(dt, !p.isDown && gp ? this._move : null)
+      if (gp && !p.isDown && !busy) this._sticks(gp, dt)
+      this._physics(dt, !p.isDown && gp && !busy ? this._move : null)
       this._reload(dt)
-      if (!p.isDown && gp && this.down.has(B_RT) && this._weapon().auto) this._fire()
+      if (!p.isDown && gp && !busy && this.down.has(B_RT) && this._weapon().auto) this._fire()
       this._revives(dt)
       this._leash()
     }
     this._drawBody(dt)
+    this.gear?.render()
     this._renderHud()
   }
 
@@ -246,6 +297,7 @@ export class CouchCoop {
     this._spawnNearP1()
     this.s._message(t('couchJoined'), 2.5)
     this._rumble(0.4, 150)
+    this.gear?.pickSkinOnJoin()
   }
 
   _spawnNearP1() {
@@ -291,7 +343,14 @@ export class CouchCoop {
       this.bm.toggleMenu?.()
       return
     }
-    if (paused || p.isDown) return
+    if (paused) return
+    // Equal Player 2: Back opens their menu; while it's open, the buttons
+    // move around it (CouchGear.js).
+    if (this.gear && (this.gear.menuOpen || (i === B_BACK && !p.isDown))) {
+      this.gear.onPress(i)
+      return
+    }
+    if (p.isDown) return
     if (i === B_A) this._jumpPressed = true
     else if (i === B_X) this._startReload()
     else if (i === B_RB || i === B_Y) this._switch(1)
@@ -437,7 +496,12 @@ export class CouchCoop {
   _ammo() {
     const id = this._weaponId()
     const w = PLAY_WEAPONS[id]
-    return (this.p2.ammo[id] ||= { mag: w.mag, reserve: w.reserve })
+    return (this.p2.ammo[id] ||= { mag: this._magSize(w), reserve: w.reserve })
+  }
+
+  // Equal Player 2's own Bigger Magazine and Reload Speed upgrades.
+  _magSize(w) {
+    return this.gear ? this.gear.magSize(w) : w.mag
   }
 
   _switch(dir) {
@@ -451,8 +515,8 @@ export class CouchCoop {
   _startReload() {
     const a = this._ammo()
     const w = this._weapon()
-    if (!Number.isFinite(a.mag) || this.p2.reloadLeft > 0 || a.mag >= w.mag || a.reserve <= 0) return
-    this.p2.reloadLeft = w.reload
+    if (!Number.isFinite(a.mag) || this.p2.reloadLeft > 0 || a.mag >= this._magSize(w) || a.reserve <= 0) return
+    this.p2.reloadLeft = this.gear ? this.gear.reloadTime(w) : w.reload
     try { audioEngine.playReload?.() } catch { /* no audio */ }
   }
 
@@ -464,7 +528,7 @@ export class CouchCoop {
     p.reloadLeft = 0
     const a = this._ammo()
     const w = this._weapon()
-    const take = Math.min(w.mag - a.mag, a.reserve)
+    const take = Math.min(this._magSize(w) - a.mag, a.reserve)
     a.mag += take
     a.reserve -= take
   }
@@ -520,7 +584,8 @@ export class CouchCoop {
     const eye = camAt.addScaledVector(dir, Math.max(0, head.sub(camAt).dot(dir)))
     const range = Math.min(Number.isFinite(w.range) ? w.range : MAX_RANGE, MAX_RANGE)
     const reach = this._wallDistance(eye, dir, range)
-    const damage = w.damage * (s._damageMult?.() ?? 1)
+    // Equal Player 2 hits with their own Damage upgrade, not Player 1's.
+    const damage = w.damage * (this.gear ? this.gear.damageMult() : (s._damageMult?.() ?? 1))
     const hits = new Map()
     const heads = new Set()
     const add = (z, amount) => hits.set(z, (hits.get(z) || 0) + amount)
@@ -578,13 +643,19 @@ export class CouchCoop {
       if (w.burn) z.burn = w.burn
       if (w.slow) z.slow = w.slow
       const head = heads.has(z)
-      if (head) s.stats.headshots++
+      if (head) {
+        if (this.gear) this.gear.onHeadshot()
+        else s.stats.headshots++
+      }
       s.damageNumbers?.atZombie(z, amount, this._weaponId(), ZOMBIE_HEIGHT)
       s._hitHead = head
+      // Equal Player 2's kills pay them (BuildSurvival.damageZombie).
+      s._p2Shot = !!this.gear
       try {
         s.damageZombie(z, amount, push)
       } finally {
         s._hitHead = false
+        s._p2Shot = false
       }
       this.p2.hitFlash = s.zombies.includes(z) ? 0.15 : 0.3
     }
@@ -722,9 +793,11 @@ export class CouchCoop {
         <div id="couch-p2-hurt"></div>
         <div id="couch-p2-crosshair"></div>
         <div id="couch-p2-msg" class="couch-msg"></div>
+        <div id="couch-p2-coins"></div>
         <div id="couch-p2-name"></div>
         <div id="couch-p2-health"><div id="couch-p2-health-fill"></div><span id="couch-p2-health-text"></span></div>
         <div id="couch-p2-ammo"><span id="couch-p2-weapon"></span><span id="couch-p2-count"></span></div>
+        <div id="couch-menu" style="display: none"></div>
       </div>`
     document.body.appendChild(el)
     this.hud = el
@@ -747,15 +820,19 @@ export class CouchCoop {
         ? `${t('couchYouAreDown')}\n${this._reviveText(this.reviveP2)}`
         : this.p1Down
           ? `${t('couchGoRevive')}\n${this._reviveText(this.reviveP1)}`
-          : ''
+          : this._note && performance.now() < this._note.until ? this._note.text : ''
     const p1Msg = this.p1Down ? `${t('couchYouAreDown')}\n${this._reviveText(this.reviveP1)}` : p.isDown ? `${t('couchGoRevive')}\n${this._reviveText(this.reviveP2)}` : ''
     const count = !a ? '' : p.reloadLeft > 0 ? t('buildPlayReloading') : Number.isFinite(a.mag) ? `${a.mag} / ${a.reserve}` : ''
-    const key = [this.joined, Math.ceil(p.health), p2Msg, p1Msg, id, count, p.hurtFlash > 0, p.aim, p.hitFlash > 0].join('|')
+    const g = this.gear
+    const coins = g && this.joined ? `${t('campCoins', { n: money(this.bm.game?.settings, g.coins) })}${g.armor > 0 ? ` · ${t('couchArmor', { n: Math.ceil(g.armor) })}` : ''}\n${t('couchMenuOpen')}` : ''
+    const key = [this.joined, Math.ceil(p.health), p2Msg, p1Msg, id, count, p.hurtFlash > 0, p.aim, p.hitFlash > 0, coins, !!g?.menuOpen].join('|')
     if (key === this._hudKey) return
     this._hudKey = key
     const $ = (sel) => this.hud.querySelector(sel)
     this.hud.classList.toggle('joined', this.joined)
     this.hud.classList.toggle('p2-down', p.isDown)
+    this.hud.classList.toggle('p2-menu', !!g?.menuOpen)
+    $('#couch-p2-coins').textContent = coins
     $('#couch-p2-msg').textContent = p2Msg
     $('#couch-p1-msg').textContent = p1Msg
     $('#couch-p2-name').textContent = t('couchPlayer2')
