@@ -211,8 +211,9 @@ test('couch co-op: equal Player 2 has their own coins, shop and backpack', async
     press(0)
     out.shop = gear.menu?.screen === 'shop' && gear.menu.tab === 'items'
     press(0)
-    out.bought = gear.pack.some((x) => x.id === 'medkit' && x.n === 1) && gear.coins < 1000
-    // RB: Upgrades tab; A buys Damage.
+    out.bought = gear.hot.some((x) => x?.id === 'medkit' && x.n === 1) && gear.coins < 1000
+    // RB twice (past Traps): Upgrades tab; A buys Damage.
+    press(5)
     press(5)
     press(0)
     out.upgraded = gear.upgrades.damage === 1
@@ -231,7 +232,7 @@ test('couch co-op: equal Player 2 has their own coins, shop and backpack', async
     for (let i = 0; i < c.weapons.length; i++) press(13)
     c.p2.health = 30
     press(0)
-    out.healed = c.p2.health === 80 && !gear.pack.length
+    out.healed = c.p2.health === 80 && !gear.hot.some((x) => x?.id === 'medkit')
     press(1)
     press(1)
     out.closed = !gear.menuOpen && menu.style.display === 'none'
@@ -267,4 +268,157 @@ test('couch co-op: equal Player 2 has their own coins, shop and backpack', async
     pack: true, healed: true, closed: true, coinsShown: true, results: true, againEqual: true,
   })
   expect([true, 'no zombie yet']).toContain(r.p2Kill)
+})
+
+// Equal Player 2 builds, digs, drives and picks things up (CouchHands.js,
+// Batch 4c-2b) with a normal controller player's buttons.
+test('couch co-op: equal Player 2 builds, digs, drives and picks up drops', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    const buttons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }))
+    const pad = { index: 0, id: 'test pad', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons }
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [pad], configurable: true })
+    const hold = (i, on) => { buttons[i].pressed = on; buttons[i].value = on ? 1 : 0 }
+    g._couchNext = 'equal'
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    b.update(0.016)
+    b.survival.start({ fromMenu: true })
+    const s = b.survival
+    if (s._picking) s._pickWeapon('rifle')
+    const step = (n = 1, dt = 0.05) => { for (let i = 0; i < n; i++) b.update(dt) }
+    const press = (i) => { hold(i, true); step(1); hold(i, false); step(1) }
+    step(4)
+    const c = s.couch
+    const gear = c.gear
+    const hands = c.hands
+    press(0)
+    if (gear.menuOpen) press(1)
+    out.ready = c.joined && !!hands && !gear.menuOpen
+    // The hotbar: 10 slots on Player 2's half, the gun in slot 1, nothing
+    // on top of the health bar or the ammo.
+    const bar = document.getElementById('couch-p2-hotbar')
+    out.slots = bar.querySelectorAll('.couch-hot-slot').length
+    out.gunFirst = gear.hot[0]?.kind === 'gun' && gear.holdingGun()
+    const box = (id) => document.getElementById(id).getBoundingClientRect()
+    const hit = (a, z) => a.width && z.width && a.left < z.right && z.left < a.right && a.top < z.bottom && z.top < a.bottom
+    out.barInRightHalf = box('couch-p2-hotbar').left >= innerWidth / 2 - 1
+    out.noOverlap = !hit(box('couch-p2-hotbar'), box('couch-p2-ammo')) && !hit(box('couch-p2-hotbar'), box('couch-p2-health')) && !hit(box('couch-p2-ammo'), box('couch-p2-health'))
+    // D-pad right opens the Shop; RB to Traps; A buys a pack of spikes.
+    gear.coins = 1000
+    press(15)
+    out.shop = gear.menu?.screen === 'shop'
+    press(5)
+    out.trapsTab = gear.menu?.tab === 'traps'
+    press(0)
+    const spikes = gear.hot.findIndex((x) => x?.kind === 'block' && x.id === 'spikeblock')
+    out.bought = spikes > 0 && gear.hot[spikes].n === 4 && gear.coins < 1000
+    press(1)
+    press(1)
+    // RB holds the spikes: no gun in hand, the HUD names them.
+    while (gear.active !== spikes) press(5)
+    out.holdingBlock = gear.held()?.id === 'spikeblock' && !c.body?.gun && document.getElementById('couch-p2-weapon').textContent.length > 0
+    // RT puts one down where Player 2 aims (a few looks down until one fits).
+    const placedBefore = s._placed.size
+    let placed = null
+    for (const pitch of [-0.35, -0.3, -0.4, -0.25, -0.45, -0.5, -0.2]) {
+      c.p2.pitch = pitch
+      c._placeCamera()
+      const aim = hands._aim()
+      press(7)
+      if (s._placed.size > placedBefore) {
+        placed = aim?.placeAt
+        break
+      }
+    }
+    out.placed = !!placed && gear.hot[spikes].n === 3 && b.getBlockAt(...placed) === 'spikeblock'
+    // A dirt block put down the same way (traps can't be broken, by
+    // anyone), then LB back to the gun and holding RT on it breaks it.
+    gear.add({ kind: 'block', id: 'dirt', n: 1 })
+    gear.select(gear.hot.findIndex((x) => x?.id === 'dirt'))
+    placed = null
+    const before2 = s._placed.size
+    for (const pitch of [-0.35, -0.3, -0.4, -0.25, -0.45, -0.5, -0.2, -0.15]) {
+      c.p2.pitch = pitch
+      c._placeCamera()
+      const aim = hands._aim()
+      press(7)
+      if (s._placed.size > before2) {
+        placed = aim?.placeAt
+        break
+      }
+    }
+    while (gear.active !== 0) press(4)
+    if (placed) {
+      c.p2.ammo = {}
+      let progress = 0
+      hold(7, true)
+      for (let i = 0; i < 400 && b.getBlockAt(...placed); i++) {
+        step(1)
+        progress = Math.max(progress, hands.digProgress())
+      }
+      hold(7, false)
+      step(1)
+      out.dug = !b.getBlockAt(...placed) && progress > 0
+    } else out.dug = 'not placed'
+    // A drop at Player 2's feet flies to them, not Player 1.
+    const p1Dirt = () => [...s.inv.hotbar, ...s.inv.grid].filter((x) => x?.id === 'dirt').reduce((n, x) => n + x.n, 0)
+    const p2Dirt = () => [...gear.hot, ...gear.bag].filter((x) => x?.id === 'dirt').reduce((n, x) => n + x.n, 0)
+    const p1Had = p1Dirt()
+    const p2Had = p2Dirt()
+    s._drops.spawn('dirt', Math.floor(c.p2.x), Math.floor(c.p2.y), Math.floor(c.p2.z))
+    step(40)
+    out.pickedUp = p2Dirt() === p2Had + 1 && p1Dirt() === p1Had
+    // D-pad down throws the held block (not Player 1's: no Lost & Found).
+    gear.select(spikes)
+    const n = gear.hot[spikes]?.n || 0
+    const drops = s._drops.list.length
+    press(13)
+    out.dropped = (gear.hot[spikes]?.n || 0) === n - 1 && s._drops.list.length === drops + 1 && s._drops.list.at(-1).mine === false
+    // The go-kart: Y next to it gets in; the stick drives; Player 1 can't
+    // take it; Y gets out beside it.
+    gear.select(0)
+    s.kart.park(s.bodyPos())
+    c.p2.x = s.kart.x + 1.2
+    c.p2.z = s.kart.z
+    c.p2.y = s.kart.y
+    press(3)
+    out.inKart = hands.ride?.kind === 'kart' && s.kart.p2 === true
+    out.p1CantTake = s.kart.use() === false && !s.kart.driving
+    const k0 = { x: s.kart.x, z: s.kart.z }
+    pad.axes[1] = -1
+    step(30)
+    pad.axes[1] = 0
+    step(5)
+    out.drove = Math.hypot(s.kart.x - k0.x, s.kart.z - k0.z) > 1 && Math.hypot(c.p2.x - s.kart.x, c.p2.z - s.kart.z) < 0.01
+    press(3)
+    out.outOfKart = !hands.ride && !s.kart.p2
+    // A helicopter Player 1 put down: Player 2 gets in with Y (if there was
+    // room for one here).
+    if (s.vehicles.place('heli')) {
+      const v = s.vehicles.list.at(-1)
+      c.p2.x = v.x + 1.5
+      c.p2.z = v.z
+      c.p2.y = v.y
+      press(3)
+      out.inHeli = hands.ride?.v === v && s.vehicles.p2Riding === v && !s.vehicles.riding
+      out.fuelShown = document.getElementById('couch-p2-ride').textContent.length > 0
+      hands.leave(true)
+      out.outOfHeli = !hands.ride && !s.vehicles.p2Riding
+    } else {
+      out.inHeli = out.fuelShown = out.outOfHeli = 'no room'
+    }
+    s.stop()
+    out.cleaned = !s.kart?.p2 && !document.getElementById('couch-hud')
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [], configurable: true })
+    return out
+  })
+  expect(r).toMatchObject({
+    ready: true, slots: 10, gunFirst: true, barInRightHalf: true, noOverlap: true, shop: true, trapsTab: true, bought: true,
+    holdingBlock: true, placed: true, dug: true, pickedUp: true, dropped: true,
+    inKart: true, p1CantTake: true, drove: true, outOfKart: true, cleaned: true,
+  })
+  for (const k of ['inHeli', 'fuelShown', 'outOfHeli']) expect([true, 'no room']).toContain(r[k])
 })

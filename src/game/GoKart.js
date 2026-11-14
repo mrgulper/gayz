@@ -51,6 +51,9 @@ export class GoKart {
     this.s = survival
     this.group = null
     this.driving = false
+    // Couch Co-op's equal Player 2 is driving it (CouchHands.js) - then
+    // Player 1 can't get in, and the other way round.
+    this.p2 = false
   }
 
   get B() {
@@ -131,7 +134,7 @@ export class GoKart {
   // off it" - right-click got you in but did nothing after).
   rightClick() {
     if (this.driving) return this.use()
-    if (!this.group || this.s.dead || this.s.spectating) return false
+    if (!this.group || this.s.dead || this.s.spectating || this.p2) return false
     const me = this.s.bm.tryMode.pos
     if (Math.hypot(me.x - this.x, me.z - this.z) > ENTER_REACH + 0.5 || Math.abs(me.y - this.y) > 2) return false
     const cam = this.s.bm.camera
@@ -155,6 +158,7 @@ export class GoKart {
       this.leave()
       return true
     }
+    if (this.p2) return false
     const me = this.s.bm.tryMode.pos
     if (Math.hypot(me.x - this.x, me.z - this.z) > ENTER_REACH || Math.abs(me.y - this.y) > 2) return false
     this.driving = true
@@ -168,6 +172,12 @@ export class GoKart {
     if (!this.driving || this.lockedIn) return
     this.driving = false
     this.speed = 0
+    const at = this.exitSpot()
+    this.s.bm.tryMode.pos.set(at.x, at.y, at.z)
+  }
+
+  // Where you stand after getting out.
+  exitSpot() {
     const tm = this.s.bm.tryMode
     const sx = Math.cos(this.heading)
     const sz = -Math.sin(this.heading)
@@ -175,19 +185,33 @@ export class GoKart {
       const x = this.x + sx * side
       const z = this.z + sz * side
       const y = this.s._groundUnder(x, this.y + 1.5, z)
-      if (!tm._hits(x, y + 0.01, z)) {
-        tm.pos.set(x, y + 0.01, z)
-        return
-      }
+      if (!tm._hits(x, y + 0.01, z)) return { x, y: y + 0.01, z }
     }
-    tm.pos.set(this.x, this.y + 1.2, this.z)
+    return { x: this.x, y: this.y + 1.2, z: this.z }
+  }
+
+  // Couch Co-op's equal Player 2 at `at` gets in (true) - near enough, and
+  // Player 1 isn't driving it.
+  enterP2(at) {
+    if (!this.group || this.driving || this.p2 || this.s.dead) return false
+    if (Math.hypot(at.x - this.x, at.z - this.z) > ENTER_REACH || Math.abs(at.y - this.y) > 2) return false
+    this.p2 = true
+    this.speed = 0
+    return true
+  }
+
+  // ...and out: where they stand.
+  leaveP2() {
+    this.p2 = false
+    this.speed = 0
+    return this.exitSpot()
   }
 
   // Every frame (BuildSurvival): the "hop in" hint, and parked physics.
   update(dt) {
     if (!this.group) return
     if (this.driving && (this.s.dead || this.s.spectating)) this.leave()
-    if (!this.driving) {
+    if (!this.driving && !this.p2) {
       // Rolls to a stop, and falls if the ground goes.
       this._move(dt, 0, 0)
       const me = this.s.bodyPos()
@@ -293,6 +317,7 @@ export class GoKart {
 
   dispose() {
     this.driving = false
+    this.p2 = false
     this.lockedIn = false
     if (!this.group) return
     this.group.removeFromParent()

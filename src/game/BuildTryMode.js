@@ -217,7 +217,7 @@ const DIG_LOOKS = 10
 const DIG_STAGES = 6
 // Breaking blocks while playing (_updateDigging): how near (blocks) a block
 // has to be.
-const DIG_REACH = 5
+export const DIG_REACH = 5
 const BREAK_LOOKS = [
   { name: 'burst', count: 1, out: 2, up: 2.5, spread: 2.5, sizes: [1, 1.3], spin: 12 },
   { name: 'collapse', count: 1.2, out: 0.5, up: 0.4, spread: 1, sizes: [0.9, 1.4], spin: 6 },

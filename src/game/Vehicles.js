@@ -134,6 +134,9 @@ export class Vehicles {
     this.s = survival
     this.list = []
     this.riding = null
+    // The one Couch Co-op's equal Player 2 is in (CouchHands.js): Player 1
+    // can't get in it, and the other way round.
+    this.p2Riding = null
     this._n = 0
   }
 
@@ -147,6 +150,7 @@ export class Vehicles {
 
   clear() {
     this.riding = null
+    this.p2Riding = null
     for (const v of this.list) disposeGroup(v.group)
     this.list = []
     this._hinted = false
@@ -166,7 +170,7 @@ export class Vehicles {
       return false
     }
     // Too many out: the oldest one you're not in goes.
-    const mine = this.list.filter((v) => v !== this.riding)
+    const mine = this.list.filter((v) => v !== this.riding && v !== this.p2Riding)
     if (this.list.length >= MAX_OUT && mine.length) this._remove(mine[0])
     const v = {
       id: ++this._n,
@@ -193,6 +197,7 @@ export class Vehicles {
 
   _remove(v) {
     if (this.riding === v) this.leave(true)
+    if (this.p2Riding === v) this.p2Riding = null
     disposeGroup(v.group)
     this.list = this.list.filter((o) => o !== v)
   }
@@ -267,11 +272,11 @@ export class Vehicles {
     return false
   }
 
-  _nearest(reach) {
-    const me = this.bm.tryMode.pos
+  _nearest(reach, me = this.bm.tryMode.pos) {
     let best = null
     let bestD = reach
     for (const v of this.list) {
+      if (v === this.p2Riding || v === this.riding) continue
       const d = Math.hypot(me.x - v.x, me.z - v.z)
       if (d <= bestD && Math.abs(me.y - v.y) < 2.5) {
         best = v
@@ -335,24 +340,79 @@ export class Vehicles {
     v.side = 0
     v.burner = false
     this._renderFuel()
+    const at = this._exitSpot(v)
+    tm.pos.set(at.x, at.y, at.z)
+  }
+
+  // Where you stand after getting out of `v`.
+  _exitSpot(v) {
+    const tm = this.bm.tryMode
     const sx = Math.cos(v.heading)
     const sz = -Math.sin(v.heading)
     for (const side of [1.8, -1.8, 2.6, -2.6]) {
       const x = v.x + sx * side
       const z = v.z + sz * side
       const y = this.s._groundUnder(x, v.y + 1.5, z)
-      if (Math.abs(y - v.y) < 3 && !tm._hits(x, y + 0.01, z)) {
-        tm.pos.set(x, y + 0.01, z)
-        return
-      }
+      if (Math.abs(y - v.y) < 3 && !tm._hits(x, y + 0.01, z)) return { x, y: y + 0.01, z }
     }
     // Open water all round: you drop in beside the boat.
-    tm.pos.set(v.x + sx * 1.6, v.y - 0.4, v.z + sz * 1.6)
+    return { x: v.x + sx * 1.6, y: v.y - 0.4, z: v.z + sz * 1.6 }
+  }
+
+  // ---------- Couch Co-op's equal Player 2 (CouchHands.js) ----------
+
+  // Player 2 at `at` gets in the nearest free one: it, or null.
+  enterP2(at) {
+    if (this.s.dead || this.p2Riding) return null
+    const v = this._nearest(ENTER_REACH, at)
+    if (!v) return null
+    this.p2Riding = v
+    if (v.kind === 'jetski') v.seaIn = JET_SEA_EVERY
+    v.speed = 0
+    v.side = 0
+    return v
+  }
+
+  // Player 2 gets out: where they stand, or null (a helicopter or balloon
+  // up high has to land first, unless `force`).
+  leaveP2(force = false) {
+    const v = this.p2Riding
+    if (!v) return null
+    if (v.kind !== 'boat' && v.kind !== 'sub' && v.kind !== 'jetski' && !force) {
+      const ground = this.s._groundUnder(v.x, v.y + 0.5, v.z)
+      if (v.y - ground > HELI_EXIT_HIGH) return null
+    }
+    this.p2Riding = null
+    v.speed = 0
+    v.side = 0
+    v.burner = false
+    return this._exitSpot(v)
+  }
+
+  // Player 2 drives theirs: the same as Player 1's drive(), steering by
+  // Player 2's look (`yaw`) and with its notes on Player 2's half (`note`).
+  driveP2(dt, yaw, input, note) {
+    const v = this.p2Riding
+    if (!v) return
+    const riding = this.riding
+    const bmYaw = this.bm._yaw
+    const message = this.s._message
+    this.riding = v
+    this.bm._yaw = yaw
+    this._asP2 = true
+    this.s._message = note
+    try {
+      this.drive(dt, input)
+    } finally {
+      this.riding = riding
+      this.bm._yaw = bmYaw
+      this._asP2 = false
+      this.s._message = message
+    }
   }
 
   // Where you sit and see from while riding (BuildTryMode).
-  seat() {
-    const v = this.riding
+  seat(v = this.riding) {
     if (!v) return null
     const eye = v.kind === 'jetski' ? JET_EYE : v.kind === 'boat' ? BOAT_EYE : v.kind === 'sub' ? SUB_EYE : v.kind === 'balloon' ? BALLOON_EYE : HELI_EYE
     return { x: v.x, y: v.y + 0.01, z: v.z, eye: eye + (v.bob || 0) }
@@ -364,7 +424,7 @@ export class Vehicles {
     if (this.riding && (this.s.dead || this.s.spectating)) this.leave(true)
     const me = this.s.bodyPos()
     for (const v of this.list) {
-      if (v === this.riding) continue
+      if (v === this.riding || v === this.p2Riding) continue
       if (v.kind === 'boat' || v.kind === 'jetski') this._moveBoat(v, dt, 0, 0)
       else if (v.kind === 'sub') this._moveSub(v, dt, 0, 0, 0)
       else if (v.kind === 'balloon') this._moveBalloon(v, dt, {})
@@ -676,6 +736,8 @@ export class Vehicles {
   // The fuel left, under the crosshair while you fly one (a balloon: and
   // how high you are, since height is all you steer).
   _renderFuel() {
+    // Player 2's fuel shows on their own half (CouchHands.js).
+    if (this._asP2) return
     const v = this.riding
     const on = !!FUEL_FOR[v?.kind]
     if (!this._fuelEl) {
