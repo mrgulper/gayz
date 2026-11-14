@@ -142,9 +142,9 @@ export class Campaign {
     return t(`storyGoal_${CHAPTERS[st.ch]}`)
   }
 
-  near() {
+  // p: someone's feet (Couch Co-op's Player 2 - CouchToys.handInCure), else Player 1's.
+  near(p = this.camp.bm.tryMode.pos) {
     if (!this.group || !this.door) return false
-    const p = this.camp.bm.tryMode.pos
     return Math.hypot(p.x - this.door.x, p.z - this.door.z) < USE_R && p.y < 3
   }
 

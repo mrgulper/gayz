@@ -111,3 +111,11 @@ Gaymi: "make gayz more funny based instead of looking so cold" - did all 13 idea
 - `_physics` mirrors BuildTryMode: glide mods (sled/rides/skate), kite pull, `toys.air()` (jet thrust, kite fall, wing fly; B = crouch), skate ramp on slab step-up, wing.land in water. Jetpack pill -> P2's `#couch-p2-ride` line (`statusText`), never P1's pills.
 - Pack rows: held kinds show Hold (RT uses), passive (jet/wing) say "works from your backpack". Test: `tests/couch.spec.js` fifth test (4th now checks `guitar` as P1-only).
 
+## Couch Co-op: equal Player 2's throwables, digging, dancing, the Cure (2026-11-14, Batch 5b)
+- Gaymi's picks: what P2 catches (Catch Trap) or tames (Brain Snack) is P1's to keep (Creatures store / `s.pet`); The Cure handed in by P2 finishes P1's story; both can dance at once. Guitar & Drums were removed from the whole game the same day (Gaymi: "fully remove"), so they aren't in this batch.
+- `CouchToys.js` runs a second copy of Snowballs, WaterGun, PlayCatch, MetalDetector, TreasureMaps, Bungee and DanceOff on the P2 view. The view now also has `bm.camera` = P2's camera (throws/squirts start at P2's eyes), `damageZombie` (wrapped in `s._p2Shot` so snowball kills pay P2), `_coinsEarned` (= gear.coins), `stats` (= `gear.stats`, guest only), `holding`. Body `pos`/`vel` have `set()` (Bungee) and a `speedMult` (Dance-Off stands P2 still, read by `toys.speedMult()`).
+- P1 classes got small hooks: WaterGun/MetalDetector `pill` ({ show, hide }; P2's go to `toys._pills` -> `statusText`), DanceOff `keys` (false = no keyboard listener; D-pad via `CouchHands.onPress` -> `toys.dancePress`) and `uiHost` (P2's arrows inside `#couch-p2`, class `p2`), `Campaign.near(p)`.
+- Brain Snack: `toys.tame()` swaps `s.pet.s` to the view for the call. Treasure gems go to P1's `game.gems`. Goo Disguise is P2's own (`toys.goo`, `target()` null, `breakGoo` from `CouchCoop._shoot` - which no longer breaks P1's disguise). The Cure: Y -> `toys.handInCure()` (lab near P2, chapter 'cure' started) -> `lab._finish`.
+- Winter/summer: `toys.onWave(n)` from CouchCoop's wave block (START/WAVE_SNOWBALLS, one water gun).
+- Still P1-only: Rocket, Time Machine, Time Pass (Batch 5c). Test: `tests/couch.spec.js` sixth test.
+

@@ -256,7 +256,7 @@ export class PlayNet {
     const holding = s.holding
     const body = {
       ...this.auth,
-      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, kills: s.kills || 0, lane: s.escape?.lane || 0, esc: s.escape?.race && s.escape.done ? 1 : 0, gh: s.ghosts?.snapshot() || null, jam: s.music?.snapshot() || null, fog: bm.world?.active && isEarthWorld() ? explored.shareState() : null },
+      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, kills: s.kills || 0, lane: s.escape?.lane || 0, esc: s.escape?.race && s.escape.done ? 1 : 0, gh: s.ghosts?.snapshot() || null, fog: bm.world?.active && isEarthWorld() ? explored.shareState() : null },
       editsAfter: this._editSeq,
     }
     // Who Can Join My Server (Settings > Social): the host's choice.
@@ -361,7 +361,7 @@ export class PlayNet {
         if (!this._firstSync) addChatSystemLine(this.game, t('serverPlayerJoined', { name: p.nick || 'Survivor' }))
       }
       setTarget(mine, p.x, p.y, p.z)
-      Object.assign(mine, { tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), esc: !!p.esc, gh: cleanGhost(p.gh), jam: cleanJam(p.jam), kills: Number.isFinite(Number(p.kills)) ? Math.max(0, Math.floor(Number(p.kills))) : undefined })
+      Object.assign(mine, { tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), esc: !!p.esc, gh: cleanGhost(p.gh), kills: Number.isFinite(Number(p.kills)) ? Math.max(0, Math.floor(Number(p.kills))) : undefined })
       if (sharedFog) {
         if (p.fog && typeof p.fog.c === 'string' && p.fog.n !== mine.fogN) {
           mine.fogN = p.fog.n
@@ -395,9 +395,8 @@ export class PlayNet {
       startOwnerMode(this.game, s, this.owner)
     }
     if (sharedFog && newcomer) explored.startShare()
-    // Their spray tags (Sprays.js), and the notes they played (Instruments.js).
+    // Their spray tags (Sprays.js).
     s.sprays?.syncRemote(this.players)
-    s.music?.syncRemote(this.players)
     if (seen.size !== this._lastCount) {
       this._lastCount = seen.size
       s._renderHud()
@@ -631,8 +630,3 @@ function cleanGhost(v) {
   return { g: v.g, m: [].concat(v.m || []).filter(Number.isInteger).slice(0, 4) }
 }
 
-// The notes someone just played (Instruments.js).
-function cleanJam(v) {
-  if (!v || typeof v !== 'object' || !['g', 'd'].includes(v.i) || !Number.isInteger(v.n) || typeof v.k !== 'string' || !/^[1-8]{0,16}$/.test(v.k)) return null
-  return { i: v.i, n: v.n, k: v.k }
-}

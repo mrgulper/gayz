@@ -99,11 +99,9 @@ export const ITEMS = {
   sled: { key: 'invSled', sled: true },
   boombox: { key: 'invBoombox', boombox: true },
   // Found lying about the world (WorldFinds.js), never used up: Bike and
-  // Hoverboard (Rides.js), Guitar and Drums (Instruments.js).
+  // Hoverboard (Rides.js).
   bike: { key: 'invBike', ride: true },
   hoverboard: { key: 'invHoverboard', ride: true },
-  guitar: { key: 'invGuitar', music: true },
-  drums: { key: 'invDrums', music: true },
   // Submarine (Vehicles.js) and Rocket (MoonTrip.js).
   submarine: { key: 'invSubmarine', vehicle: 'sub' },
   // Jet Ski (Vehicles.js) and Bungee Cord (Bungee.js), 2026-11-09.
@@ -196,8 +194,6 @@ const ICON_PIXELS = {
   skateboard: ['................', '................', '................', '................', '................', '.kkkkkkkkkkkkkk.', 'kooooooooooooook', '.kkkkkkkkkkkkkk.', '..ii........ii..', '..yy........yy..', '..yy........yy..'],
   bike: ['................', '................', '................', '..........dd....', '...rr.....r.....', '....rrrrrrr.....', '....r.r..r......', '..ddd..r.ddd....', '.d...d.rd...d...', '.d.i.d..d.i.d...', '.d...d..d...d...', '..ddd....ddd....'],
   hoverboard: ['................', '................', '................', '................', '................', '.dddddddddddddd.', 'dwwddddddddddwwd', '.cccccccccccccc.', '................', '..c..c..c..c..c.', '................'],
-  guitar: ['...........kk...', '..........kk....', '.........kk.....', '........kk......', '.......kk.......', '..ooo.kk........', '.oooookk........', 'oooddooo........', 'oood#ooo........', 'oooddoooo.......', '.oooooo.........', '..oooo..........'],
-  drums: ['................', '..i..........i..', '.iiii......iiii.', '................', '....wwwwwwww....', '...rwwwwwwwwr...', '...rrrrrrrrrr...', '...ryyyyyyyyr...', '...rrrrrrrrrr...', '...rrrrrrrrrr...', '...r........r...'],
   jetSki: ['................', '................', '................', '................', '.......d........', '......ddd.......', '.......d........', '....kkkkk.......', '.wwwwwwwwwwwwr..', 'wwrrrrrrrrrrrrr.', '.wwwwwwwwwwwww..', '..cccccccccc....'],
   bungeeCord: ['......dddd......', '.....d....d.....', '.....d....d.....', '......dddd......', '.......gg.......', '......g..g......', '.......gg.......', '......g..g......', '.......gg.......', '......g..g......', '.......gg.......', '......ffff......'],
   sled: ['................', '................', '................', '................', '..rrrrrrrrrrrr..', '.rkrkrkrkrkrkr..', '..rrrrrrrrrrrr..', '...i........i...', '..iiiiiiiiiiiii.', '.i..............', '..ii............'],
@@ -449,9 +445,6 @@ export class PlayInventory {
     } else if (def?.bungee) {
       s.bungee?.use()
       return true
-    } else if (def?.music) {
-      s.music?.use()
-      return true
     } else if (def?.sled) {
       s.sled?.use()
       return true
@@ -663,7 +656,6 @@ export class PlayInventory {
     if (item.skate) return t('invTipSkateboard')
     if (item.sled) return t('invTipSled')
     if (item.ride) return t(it.id === 'bike' ? 'invTipBike' : 'invTipHoverboard', { n: QUIET_HEAR })
-    if (item.music) return t('invTipInstrument')
     if (item.boombox) return t('invTipBoombox')
     if (item.junk) return t('invTipJunk')
     return t(it.id === 'meat' || it.id === 'veggies' || it.id === 'fish' || it.id === 'goldenFish' || ITEMS[it.id]?.animalKey ? 'invTipMeat' : 'invTipHealthPack', { n: item.heal })

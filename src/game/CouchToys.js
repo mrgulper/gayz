@@ -19,6 +19,16 @@
 // Player 2's. CouchCoop._physics asks these the same things BuildTryMode
 // asks Player 1's. Coins earned (tricks, sled runs, wingsuit rings) are
 // Player 2's.
+//
+// Batch 5b (2026-11-14) added, the same way: Snowballs, Water Gun, Catch
+// Trap, Brain Snack, Metal Detector, Treasure Map, Bungee Cord and the
+// Boombox Dance-Off (hold one, RT uses it), the Goo Disguise (Player 2's
+// own, zombies ignore Player 2) and The Cure (Y at Dr. Goo's lab). What
+// Player 2 tames or catches is Player 1's to keep (Gaymi: like their fish
+// in the Aquarium), and so are a Treasure Map's gems; The Cure finishes
+// Player 1's story. Player 2 dances with the D-pad, arrows on their half;
+// both can dance at once. Winter / summer: snowballs every wave and a
+// water gun, like Player 1.
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
 import { ITEMS, itemName } from './PlayInventory.js'
@@ -30,11 +40,21 @@ import { Skateboards } from './Skateboards.js'
 import { Sleds } from './Sleds.js'
 import { Rides } from './Rides.js'
 import { Wingsuit, OPEN_H as WING_OPEN_H } from './Wingsuit.js'
+import { Snowballs, START_SNOWBALLS, WAVE_SNOWBALLS } from './Snowballs.js'
+import { WaterGun, summerOn } from './WaterGun.js'
+import { PlayCatch } from './PlayCatch.js'
+import { MetalDetector } from './MetalDetector.js'
+import { TreasureMaps } from './TreasureMaps.js'
+import { Bungee } from './Bungee.js'
+import { DanceOff } from './DanceOff.js'
+import { CHAPTERS } from './Campaign.js'
 
 const B_A = 0
 // Items held and used with RT (the rest work from the backpack).
-const HELD = ['kite', 'skate', 'sled', 'ride']
-const KINDS = ['potion', 'jet', 'refill', 'wing', ...HELD]
+const HELD = ['kite', 'skate', 'sled', 'ride', 'snowball', 'water', 'trap', 'petTreat', 'detector', 'treasure', 'bungee', 'boombox']
+const KINDS = ['potion', 'jet', 'refill', 'wing', 'disguise', 'cure', ...HELD]
+// D-pad (standard controller): the Dance-Off's four lanes.
+const DPAD_LANE = { 14: 0, 13: 1, 12: 2, 15: 3 }
 
 // Which of these an item is ('potion', 'kite'...), or ''.
 export function toyKind(id) {
@@ -58,6 +78,27 @@ export class CouchToys {
     this.sled = new Sleds(v)
     this.rides = new Rides(v)
     this.wing = new Wingsuit(v)
+    // Batch 5b.
+    this.snow = new Snowballs(v)
+    this.water = new WaterGun(v)
+    this.catcher = new PlayCatch(v)
+    this.detector = new MetalDetector(v)
+    this.treasure = new TreasureMaps(v)
+    this.bungee = new Bungee(v)
+    this.dance = new DanceOff(v)
+    this.dance.keys = false
+    this.dance.uiHost = () => couch.hud?.querySelector('#couch-p2')
+    // Pills (the water tank, the detector's signal): Player 2's status line.
+    this._pills = {}
+    const pill = {
+      show: (id, text) => { this._pills[id] = text },
+      hide: (id) => { delete this._pills[id] },
+    }
+    this.water.pill = pill
+    this.detector.pill = pill
+    // The Goo Disguise: seconds left (zombies leave Player 2 alone).
+    this.goo = 0
+    this._seasonWave = 0
   }
 
   get gear() {
@@ -77,9 +118,14 @@ export class CouchToys {
     }
     const pos = link({ x: 'x', y: 'y', z: 'z' })
     const vel = link({ x: 'vx', y: 'vy', z: 'vz' })
+    // Bungee.js moves the body with set().
+    pos.set = (x, y, z) => Object.assign(p(), { x, y, z })
+    vel.set = (x, y, z) => Object.assign(p(), { vx: x, vy: y, vz: z })
     return {
       pos,
       vel,
+      // The Dance-Off stands Player 2 still (0) - toys.speedMult().
+      speedMult: 1,
       get onGround() { return p().onGround },
       set onGround(v) { p().onGround = v },
       get _spaceWasDown() { return c.down.has(B_A) },
@@ -106,6 +152,8 @@ export class CouchToys {
       tryMode: () => body,
       _yaw: () => c.p2.yaw,
       _pitch: () => c.p2.pitch,
+      // Thrown and squirted from Player 2's eyes (Snowballs, WaterGun...).
+      camera: () => c.camera,
     }
     const bmView = new Proxy(bm, {
       get: (target, key) => (key in bmOver ? bmOver[key]() : real(target, key)),
@@ -128,6 +176,20 @@ export class CouchToys {
       jetpack: () => toys.jet,
       skate: () => toys.skate,
       _earn: () => (n) => toys.gear?.earn(n),
+      // Coins found (detector, treasure): counted on Player 2's purse.
+      _coinsEarned: () => toys.gear?.coins || 0,
+      // Player 2 is a guest: their counts are only for this game.
+      stats: () => toys.gear?.stats || {},
+      holding: () => toys.gear?.held() || null,
+      // A snowball's freeze damage: a kill is Player 2's (coins, quests).
+      damageZombie: () => (...args) => {
+        s._p2Shot = !!toys.gear
+        try {
+          return s.damageZombie(...args)
+        } finally {
+          s._p2Shot = false
+        }
+      },
       _message: () => (text, secs) => c.p2Message(text, secs),
       _renderHud: () => () => {},
       bodyPos: () => () => ({ x: c.p2.x, y: c.p2.y, z: c.p2.z }),
@@ -161,6 +223,7 @@ export class CouchToys {
     const k = toyKind(id)
     if (k === 'refill') return this.jet.fuel < 1
     if (k === 'potion') return true
+    if (k === 'disguise') return this.goo <= 0
     return HELD.includes(k)
   }
 
@@ -187,11 +250,101 @@ export class CouchToys {
       this.c.p2Message(t('jetpackRefuel'), 2)
       return 'take'
     }
+    if (k === 'disguise') return this.putGoo(ITEMS[id].disguise) ? 'take' : false
+    if (k === 'cure') {
+      this.c.p2Message(t('couchCureHint'), 3)
+      return false
+    }
+    if (k === 'snowball') return this.snow.throw() ? 'take' : false
+    if (k === 'trap') return this.catcher.throw() ? 'take' : false
+    if (k === 'petTreat') return this.tame() ? 'take' : false
+    if (k === 'water') return !!this.water.squirt()
+    if (k === 'detector') return !!this.detector.use()
+    // Only digging the chest up uses the map.
+    if (k === 'treasure') return this.treasure.use() ? 'take' : true
+    if (k === 'boombox') return !!this.dance.useBoombox()
     if (k === 'kite') this.kite.use()
     else if (k === 'skate') this.skate.use()
     else if (k === 'sled') this.sled.use()
     else if (k === 'ride') this.rides.use()
+    else if (k === 'bungee') this.bungee.use()
     return true
+  }
+
+  // ---------- Batch 5b ----------
+
+  // A Brain Snack: Player 1's pet code (PetZombie.js) looks through Player
+  // 2's eyes and talks on their half for the call. The pet is Player 1's.
+  tame() {
+    const pet = this.s.pet
+    if (!pet) return false
+    const was = pet.s
+    pet.s = this.view
+    try {
+      return !!pet.tame()
+    } finally {
+      pet.s = was
+    }
+  }
+
+  // The Goo Disguise, Player 2's own. -> true if put on.
+  putGoo(seconds) {
+    if (this.goo > 0) {
+      this.c.p2Message(t('gooAlreadyOn'), 2)
+      return false
+    }
+    this.goo = seconds
+    this.c.p2Message(t('gooOn', { s: seconds }), 3)
+    return true
+  }
+
+  // Player 2 attacked something: the goo washes off.
+  breakGoo() {
+    if (this.goo <= 0) return
+    this.goo = 0
+    this.c.p2Message(t('gooBroken'), 2.5)
+  }
+
+  get disguised() {
+    return this.goo > 0
+  }
+
+  // Y at Dr. Goo's lab with The Cure: Player 1's story is finished
+  // (Campaign.js). true if handed in.
+  handInCure() {
+    const lab = this.s.camp?.lab
+    const st = lab?.story
+    const p = this.c.p2
+    if (!lab || !st || !this.gear?.has('theCure') || !lab.near(p)) return false
+    if (CHAPTERS[st.ch] !== 'cure' || !st.started) return false
+    this.gear.takeItem('theCure')
+    if (!lab._finish(st.ch)) {
+      this.gear.add({ kind: 'item', id: 'theCure', n: 1 })
+      return false
+    }
+    this.c.p2Message(t('couchCureGiven'), 4)
+    return true
+  }
+
+  // A D-pad press while dancing: a lane. true if it was one.
+  dancePress(i) {
+    if (!this.dance.on || !(i in DPAD_LANE)) return false
+    this.dance.press(DPAD_LANE[i])
+    return true
+  }
+
+  // A new wave (CouchCoop.update): winter snowballs and a summer water gun
+  // for Player 2 too.
+  onWave(n) {
+    const g = this.gear
+    if (!g || n <= this._seasonWave) return
+    const first = !this._seasonWave
+    this._seasonWave = n
+    if (this.snow.on) {
+      g.add({ kind: 'item', id: 'snowball', n: first ? START_SNOWBALLS : WAVE_SNOWBALLS })
+      if (first) this.c.p2Message(t('snowballSeason'), 4)
+    }
+    if (first && summerOn() && !g.has('waterGun')) g.add({ kind: 'item', id: 'waterGun', n: 1 })
   }
 
   // ---------- Potions ----------
@@ -222,7 +375,7 @@ export class CouchToys {
   }
 
   speedMult() {
-    return this._buff('speed') || 1
+    return (this._buff('speed') || 1) * (this.body.speedMult ?? 1)
   }
 
   damageMult() {
@@ -258,6 +411,17 @@ export class CouchToys {
     this.sled.update(dt)
     this.rides.update(dt)
     this.wing.update(dt)
+    const step = Math.min(dt, 0.1)
+    this.snow.update(step)
+    this.water.update(step)
+    this.catcher.update(step)
+    this.detector.update(dt)
+    this.bungee.update(step)
+    this.dance.update(dt)
+    if (this.goo > 0) {
+      this.goo = Math.max(0, this.goo - dt)
+      if (!this.goo) this.c.p2Message(t('gooWoreOff'), 2.5)
+    }
   }
 
   // Player 2's half: the jetpack's tank and potions still going.
@@ -267,6 +431,12 @@ export class CouchToys {
     for (const id of POTION_IDS) {
       const b = this.buffs[POTIONS[id].buff]
       if (b && b.mult === POTIONS[id].mult && b.until > this._time) out.push(`${itemName(id)} ${Math.ceil(b.until - this._time)}s`)
+    }
+    if (this.goo > 0) out.push(t('gooHud', { s: Math.ceil(this.goo) }))
+    out.push(...Object.values(this._pills))
+    if (this.treasure.spot) {
+      const p = this.c.p2
+      out.push(t('couchTreasureX', { n: Math.round(Math.hypot(this.treasure.spot.x - p.x, this.treasure.spot.z - p.z)) }))
     }
     return out.join(' · ')
   }
@@ -278,6 +448,9 @@ export class CouchToys {
     this.sled.off()
     this.rides.off()
     this.wing.land()
+    this.dance.stop(false)
+    this.bungee._unclip()
+    this.goo = 0
   }
 
   dispose() {
@@ -286,6 +459,9 @@ export class CouchToys {
     this.sled.clear()
     this.rides.clear()
     this.wing.clear()
+    for (const it of [this.snow, this.water, this.catcher, this.detector, this.treasure, this.bungee, this.dance]) it.clear()
+    this._pills = {}
+    this.goo = 0
     this.buffs = {}
   }
 }

@@ -30,6 +30,8 @@ export class MetalDetector {
     this.s = survival
     this.spot = null
     this._beepIn = 0
+    // Where the signal pill shows (Couch Co-op's Player 2: on their half).
+    this.pill = { show: showPill, hide: hidePill }
   }
 
   get holding() {
@@ -101,13 +103,13 @@ export class MetalDetector {
 
   update(dt) {
     if (!this.holding || !this.s.active || this.s.dead) {
-      hidePill('detector')
+      this.pill.hide('detector')
       return
     }
     if (!this.spot) this.hide()
     const sig = this.signal()
     const on = Math.round(sig * BARS)
-    showPill('detector', `${t('detectorSignal')} ${'▮'.repeat(on)}${'▯'.repeat(BARS - on)}`)
+    this.pill.show('detector', `${t('detectorSignal')} ${'▮'.repeat(on)}${'▯'.repeat(BARS - on)}`)
     if (sig <= 0) return
     this._beepIn -= dt
     if (this._beepIn <= 0) {
@@ -118,6 +120,6 @@ export class MetalDetector {
 
   clear() {
     this.spot = null
-    hidePill('detector')
+    this.pill.hide('detector')
   }
 }
