@@ -280,6 +280,8 @@ export class CouchCoop {
       else this._move = null
       // Equal Player 2 in a vehicle drives it instead of walking.
       if (this.hands?.ride) this.hands.drive(dt)
+      // In the Rocket (MoonTrip.js): it carries Player 2.
+      else if (p.lockedTo) this._seat(p.lockedTo)
       else this._physics(dt, !p.isDown && gp && !busy ? this._move : null)
       this._reload(dt)
       this.toys?.update(dt)
@@ -443,7 +445,8 @@ export class CouchCoop {
       toys?.wing.land()
     } else {
       if (this._jumpPressed && p.onGround) p.vy = JUMP
-      p.vy = Math.max(p.vy - GRAVITY * dt, -MAX_FALL)
+      // On the Moon its low gravity (MoonTrip.js, Batch 5c).
+      p.vy = Math.max(p.vy - GRAVITY * (this.s.moon?.gravityAt(p) ?? 1) * dt, -MAX_FALL)
       // Jetpack, kite and wingsuit in the air.
       toys?.air(dt, jumpHeld, crouch)
     }
@@ -503,9 +506,22 @@ export class CouchCoop {
     return HEIGHT * this._size()
   }
 
+  // Sitting in the Rocket: it holds Player 2 still.
+  _seat(spot) {
+    const p = this.p2
+    p.x = spot.x
+    p.y = spot.y
+    p.z = spot.z
+    p.vx = p.vy = p.vz = 0
+    p.onGround = true
+  }
+
   _leash() {
     const p = this.p2
     const p1 = this.s.bodyPos()
+    // An equal Player 2 on the Moon or in an era while Player 1 isn't (or
+    // the other way round) stays where they are (Batch 5c).
+    if (this.gear && this.s._placeOf?.(p) !== this.s._placeOf?.(p1)) return
     if (Math.hypot(p.x - p1.x, p.z - p1.z) > LEASH) {
       this._spawnNearP1()
       this.s._message(t('couchTooFar'), 2.5)
@@ -822,6 +838,9 @@ export class CouchCoop {
         this.camera.far = cam1.far
         this.camera.updateProjectionMatrix()
         this._placeCamera()
+        // The Moon's / an era's sky only shows on the half of whoever's there.
+        this.s.moon?.viewSky('p2', this.camera)
+        this.s.time?.viewSky('p2', this.camera)
         const toneMapping = renderer.toneMapping
         renderer.toneMapping = THREE.NoToneMapping
         const shadowMap = renderer.shadowMap
@@ -839,6 +858,10 @@ export class CouchCoop {
         renderer.clear(true, true, false)
       }
     } finally {
+      if (this.joined) {
+        this.s.moon?.viewSky('p1', cam1)
+        this.s.time?.viewSky('p1', cam1)
+      }
       this.tag.visible = tagShown
       if (p1Body) p1Body.visible = p1BodyShown
       renderer.setScissorTest(false)

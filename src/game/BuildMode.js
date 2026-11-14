@@ -4518,6 +4518,10 @@ export class BuildMode {
     const points = [this.tryMode.active ? this.tryMode.pos : { x: this.camera.position.x / BLOCK_SIZE, y: this.camera.position.y / BLOCK_SIZE, z: this.camera.position.z / BLOCK_SIZE }]
     const net = this.survival?.active && this.survival.net
     if (net && !net.closed) for (const p of net.targets()) points.push(p)
+    // Couch Co-op's Player 2: they can be far from Player 1 while one of
+    // them is on the Moon or in an era (Batch 5c).
+    const couch = this.survival?.active && this.survival.couch
+    if (couch?.joined) points.push(couch.p2)
     // A bug in the land must never stop the game's frame loop.
     try {
       this.world.update(points, this.workShare())

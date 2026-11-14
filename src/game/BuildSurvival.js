@@ -2406,12 +2406,21 @@ export class BuildSurvival {
   _spawnSpots() {
     // Tower Defense: out of the portal at the start of the path.
     if (this.td) return this.td.spawnSpots()
+    // Couch Co-op (Batch 5c): Player 1 and Player 2 can be in different
+    // places (the Moon, an era, home) - the wave is shared out between
+    // them, each zombie going to one or the other (Gaymi: "both places").
+    const p2 = this.couch?.joined ? this.couch.p2 : null
+    const mine = this._placeOf(this.bodyPos())
+    const theirs = p2 ? this._placeOf(p2) : mine
+    const place = mine === theirs || Math.random() < 0.5 ? mine : theirs
     // On the Moon: out of its craters (MoonTrip.js).
-    if (this.moon?.on) return this.moon.spawnSpots()
+    if (place === 'moon') return this.moon.spawnSpots()
     // Off in another era: round its edge (TimeMachine.js).
-    if (this.time?.away) return this.time.spawnSpots()
+    if (place.startsWith('era:')) return this.time.spawnSpots(place.slice(4))
+    const split = mine !== theirs
     const spots = []
-    const players = [this.bodyPos(), ...(this.net && !this.net.closed ? this.net.targets() : [])]
+    const players = [...(mine === 'home' ? [this.bodyPos()] : []), ...(split && theirs === 'home' ? [p2] : []), ...(this.net && !this.net.closed ? this.net.targets() : [])]
+    if (!players.length) players.push(this.bodyPos())
     for (const [x, y, z] of this._findBlocks('zombiespawner')) {
       if (!players.some((p) => Math.hypot(p.x - x, p.z - z) < SPAWNER_RANGE)) continue
       // On top of it or right beside it.
@@ -2439,10 +2448,22 @@ export class BuildSurvival {
         best = cell
       }
     }
-    if (good.length) return good
-    if (far.length) return far
+    // Split up: the path map reaches the Moon / an era too - home spots only.
+    const atHome = (list) => (split ? list.filter((c) => this._placeOf({ x: c[0] + 0.5, y: c[1], z: c[2] + 0.5 }) === 'home') : list)
+    const goodHome = atHome(good)
+    if (goodHome.length) return goodHome
+    const farHome = atHome(far)
+    if (farHome.length) return farHome
     // A small space: the furthest reachable spot.
-    return best ? [best] : []
+    return best ? atHome([best]) : []
+  }
+
+  // Where a body is: 'moon' (MoonTrip.js), 'era:<id>' (TimeMachine.js) or
+  // 'home'. Couch Co-op's two players can be in different ones (Batch 5c).
+  _placeOf(p) {
+    if (this.moon?.onAt(p)) return 'moon'
+    const era = this.time?.eraAt(p)
+    return era ? `era:${era}` : 'home'
   }
 
   // spots: where it may appear (a Grave, BuildSpecials.js), else the usual.

@@ -475,15 +475,15 @@ test('couch co-op: equal Player 2 crafts, opens chests, fishes, farms and emotes
     press(1)
     press(1)
 
-    // Items: a crafted helmet is worn (armour), a Rocket is still Player 1's (Batch 5c).
+    // Items: a crafted helmet is worn (armour); a Time Pass waits for the machine.
     gear.add({ kind: 'item', id: 'helmet', n: 1 })
     gear.select(gear.hot.findIndex((x) => x?.id === 'helmet'))
     press(7)
     out.helmet = gear.armor === 25 && p2Has('helmet') === 0
-    gear.add({ kind: 'item', id: 'rocket', n: 1 })
-    gear.select(gear.hot.findIndex((x) => x?.id === 'rocket'))
+    gear.add({ kind: 'item', id: 'timePass', n: 1 })
+    gear.select(gear.hot.findIndex((x) => x?.id === 'timePass'))
     press(7)
-    out.p1Only = p2Has('rocket') === 1 && msg().length > 0
+    out.passHint = p2Has('timePass') === 1 && msg().length > 0 && gear._useDef({ kind: 'item', id: 'zombieGoo' }) === null
     // A crafted helicopter goes down in front of Player 2 (if there's room).
     gear.add({ kind: 'item', id: 'helicopter', n: 1 })
     gear.select(gear.hot.findIndex((x) => x?.id === 'helicopter'))
@@ -583,7 +583,7 @@ test('couch co-op: equal Player 2 crafts, opens chests, fishes, farms and emotes
   })
   expect(r.wheel).toHaveLength(5)
   expect(r).toMatchObject({
-    craftScreen: true, crafted: true, craftShown: true, helmet: true, p1Only: true,
+    craftScreen: true, crafted: true, craftShown: true, helmet: true, passHint: true,
     chest: true, chestOnce: true, p1Chest: true, chestQuest: true, planted: true, harvested: true,
     rodBought: true, oneRod: true, cast: true, bite: true, caught: true, aquarium: true,
     emoteList: true, emoting: true, emoteStopped: true, cleaned: true,
@@ -894,4 +894,140 @@ test('couch co-op: equal Player 2 throws, squirts, tames, digs, dances and hands
     treasureX: true, treasureDug: true, pet: true, bungeeNoEdge: true, bungee: true,
     dance: true, danceDpad: true, danceOff: true, cureHint: true, cure: true, winter: true, cleaned: true,
   })
+})
+
+// Batch 5c (2026-11-14): the equal Player 2 flies the Rocket and uses the
+// Time Machine. Only whoever climbs in goes; waves are shared out while
+// you're apart; two eras can be open at once.
+test('couch co-op: equal Player 2 flies to the Moon and travels in time', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    const buttons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }))
+    const pad = { index: 0, id: 'test pad', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons }
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [pad], configurable: true })
+    const hold = (i, on) => { buttons[i].pressed = on; buttons[i].value = on ? 1 : 0 }
+    g._couchNext = 'equal'
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    b.update(0.016)
+    b.survival.start({ fromMenu: true })
+    const s = b.survival
+    if (s._picking) s._pickWeapon('rifle')
+    const step = (n = 1, dt = 0.05) => { for (let i = 0; i < n; i++) b.update(dt) }
+    const press = (i) => { hold(i, true); step(1); hold(i, false); step(1) }
+    step(4)
+    const c = s.couch
+    const gear = c.gear
+    const tm = b.tryMode
+    press(0)
+    if (gear.menuOpen) press(1)
+    // Nobody gets knocked down during the long flights.
+    s._hurtPlayer = () => {}
+    c.hurtP2 = () => {}
+    const p2Has = (id) => [...gear.hot, ...gear.bag].filter((x) => x?.id === id).reduce((n, x) => n + x.n, 0)
+    const holdItem = (id) => {
+      gear.add({ kind: 'item', id, n: 1 })
+      gear.select(gear.hot.findIndex((x) => x?.id === id))
+    }
+    const p1 = () => ({ x: tm.pos.x, y: tm.pos.y, z: tm.pos.z })
+    // Player 2 on open ground a little way from Player 1, facing away.
+    const standP2 = (dx) => {
+      const x = tm.pos.x + dx
+      const z = tm.pos.z
+      Object.assign(c.p2, { x, y: s._groundUnder(x, tm.pos.y + 6, z), z, vx: 0, vy: 0, vz: 0, yaw: Math.PI / 2 })
+    }
+    const fly = () => { for (let i = 0; i < 400 && s.moon.trip; i++) step(1) }
+
+    // The Rocket: Player 2 stands it up and flies alone; Player 1 stays home.
+    standP2(-6)
+    holdItem('rocket')
+    press(7)
+    const rk = s.moon.rocket
+    out.rocketPlaced = !!rk && p2Has('rocket') === 0
+    if (!rk) return { ...out, why: document.getElementById('couch-p2-msg')?.textContent }
+    Object.assign(c.p2, { x: rk.x + 1, y: rk.y, z: rk.z })
+    const home1 = p1()
+    press(3)
+    out.p2Launch = !!s.moon.trip && s.moon.riding('p2') && !s.moon.riding('p1') && s.moon.trip.t < -5
+    fly()
+    out.p2OnMoon = s.moon.onAt(c.p2) && !s.moon.on && Math.hypot(tm.pos.x - home1.x, tm.pos.z - home1.z) < 2 && !c.p2.lockedTo
+    out.gravity = s.moon.gravityAt(c.p2) === 0.3 && tm.gravityMult === 1
+    step(5)
+    out.noLeash = s.moon.onAt(c.p2)
+    s.moon.viewSky('p2', c.camera)
+    const skyP2 = s.moon._sky.visible
+    s.moon.viewSky('p1', b.camera)
+    out.skyHalves = skyP2 && !s.moon._sky.visible
+    // The wave is shared between the Moon and home.
+    const places = new Set()
+    for (let i = 0; i < 60; i++) for (const [, y] of s._spawnSpots().slice(0, 1)) places.add(y > 250 ? 'moon' : 'home')
+    out.splitWaves = places.has('moon') && places.has('home')
+    // Home again on the Moon's rocket.
+    const hm = s.moon.home
+    Object.assign(c.p2, { x: hm.x + 1, y: hm.y, z: hm.z })
+    press(3)
+    fly()
+    out.p2Home = s._placeOf(c.p2) === 'home' && Math.abs(c.p2.y - rk.y) < 4
+
+    // Both go: Player 2 starts it, Player 1 climbs in during the countdown.
+    Object.assign(c.p2, { x: rk.x + 1, y: rk.y, z: rk.z })
+    press(3)
+    tm.pos.set(rk.x - 1, rk.y, rk.z)
+    out.p1ClimbsIn = s.moon.use() && s.moon.riding('p1') && s.moon.riding('p2')
+    fly()
+    out.bothOnMoon = s.moon.on && s.moon.onAt(c.p2) && tm.gravityMult === 0.3
+    Object.assign(c.p2, { x: hm.x + 1, y: hm.y, z: hm.z })
+    press(3)
+    tm.pos.set(hm.x - 1, hm.y, hm.z)
+    s.moon.use()
+    fly()
+    out.bothHome = !s.moon.on && s._placeOf(c.p2) === 'home'
+
+    // The Time Machine: Player 2 stands it up and picks an era on their half.
+    const T = s.time
+    holdItem('timeMachine')
+    for (const dx of [6, -6, 10, -10, 14, -14, 3]) {
+      standP2(dx)
+      press(7)
+      if (T.machine) break
+      c.p2.yaw = -Math.PI / 2
+      press(7)
+      if (T.machine) break
+    }
+    out.machinePlaced = !!T.machine && p2Has('timeMachine') === 0
+    if (!T.machine) return { ...out, why: document.getElementById('couch-p2-msg')?.textContent }
+    Object.assign(c.p2, { x: T.machine.x + 1, y: T.machine.y, z: T.machine.z })
+    press(3)
+    out.p2Picker = gear.menu?.screen === 'time' && gear._rows().length === 6
+    press(13)
+    press(0)
+    out.needsPass = !T.where.p2 && gear.menuOpen
+    gear.add({ kind: 'item', id: 'timePass', n: 1 })
+    press(0)
+    out.p2Era = T.where.p2 === 'dino' && !T.away && Math.abs(c.p2.y - 421) < 1 && p2Has('timePass') === 0 && !gear.menuOpen
+    // Player 1 off to another era at the same time.
+    s.inv.add({ kind: 'item', id: 'timePass', n: 1 })
+    out.p1Era = T.go('west') === true && T.era === 'west' && T.trips.size === 2 && T.cx !== c.p2.x
+    T.viewSky('p2', c.camera)
+    out.eraSkies = T.trips.get('dino').sky.visible && !T.trips.get('west').sky.visible
+    out.eraPlaces = s._placeOf(p1()) === 'era:west' && s._placeOf(c.p2) === 'era:dino'
+    // Player 2 heads home early: their era goes, Player 1's stays.
+    const coins = gear.coins
+    const dc = { x: 2000.5, z: 2000.5 } // Dino Past's middle (eraCenter)
+    Object.assign(c.p2, { x: dc.x + 1, y: 421, z: dc.z })
+    press(3)
+    out.p2EraHome = !T.where.p2 && T.trips.size === 1 && T.away && gear.coins === coins + 60 && s._placeOf(c.p2) === 'home'
+    T.trips.get('west').left = 0.01
+    T.update(0.05)
+    out.p1EraHome = !T.away && T.trips.size === 0
+
+    s.stop()
+    out.cleaned = !s.moon.trip && T.trips.size === 0 && !c.p2.lockedTo
+    localStorage.removeItem('gayz-time-eras')
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [], configurable: true })
+    return out
+  })
+  expect(Object.keys(r).filter((k) => r[k] !== true)).toEqual([])
 })

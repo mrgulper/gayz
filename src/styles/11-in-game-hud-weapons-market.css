@@ -1964,3 +1964,8 @@ html.ui-theme-biome #couch-p2-dig-fill { background: var(--biome-accent); }
 #couch-hud:not(.joined) #couch-p2-ride,
 #couch-hud:not(.joined) #couch-p2-dig,
 #couch-hud.p2-down #couch-p2-dig { display: none; }
+/* Couch Co-op (Batch 5c): the Time Machine's white flash only on the
+   traveller's half - Player 2's inside #couch-p2, Player 1's on the left. */
+.couch-time-flash { position: absolute; inset: 0; pointer-events: none; background: #fff; opacity: 0; }
+.couch-time-flash.on { animation: time-flash 0.9s ease-out; }
+#time-flash.couch-left { right: 50%; }

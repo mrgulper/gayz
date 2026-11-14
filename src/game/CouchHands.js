@@ -121,7 +121,8 @@ export class CouchHands {
     if (i === B_Y) {
       if (this.ride) this.leave()
       // The Cure to Dr. Goo first (CouchToys.handInCure).
-      else if (!this.c.toys?.handInCure() && !this.enter(false) && !this.useBlock()) this.s._drops?.pickUpNear(this.p, g)
+      // The Rocket and the Time Machine (Batch 5c) next.
+      else if (!this.c.toys?.handInCure() && !this.s.moon?.use('p2') && !this.s.time?.use('p2') && !this.enter(false) && !this.useBlock()) this.s._drops?.pickUpNear(this.p, g)
       return true
     }
     if (i === LEFT) {

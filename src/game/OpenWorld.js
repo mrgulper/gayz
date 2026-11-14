@@ -852,7 +852,8 @@ export class OpenWorld {
     // Heaven's clouds and islands while you're up high (HeavenRealm.js) -
     // not while you're off in a Time Machine era, which is built at a
     // height inside Heaven's (2026-11-09 visual check: islands hung over it).
-    if (this.bm.survival?.time?.away) {
+    // (Anyone's: Couch Co-op's Player 2 can be in one alone.)
+    if (this.bm.survival?.time?.anyAway) {
       if (this.heaven.cols.size) this.heaven.dropAll()
     } else this.heaven.update(points[0])
     // Drop columns well past every point (the player's own changes stay).
