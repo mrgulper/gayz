@@ -2120,20 +2120,56 @@ export class BuildSurvival {
     this.health = Math.min(this.maxHealth, this.health + CHEST_LOOT.health)
     this._message(t('buildPlayChestLoot', { ammo, health: CHEST_LOOT.health }))
     // Items for the inventory too: health packs, ammo boxes, armor, blocks.
+    const got = this._rollChestItems(this.inv)
+    if (got.length) setTimeout(() => this.active && this._message(t('invChestItems', { items: got.join(', ') })), 1800)
+    this._renderHud()
+    return true
+  }
+
+  // Couch Co-op's equal Player 2 opening a Loot Chest (CouchHands.js,
+  // 2026-11-14 Batch 4c-2c). Gaymi's pick: each player gets their own - a
+  // chest Player 1 emptied still has loot for Player 2, and the other way
+  // round, once per wave each. Player 2's gun gets ammo, their health and
+  // Backpack the rest. (The pirate ship's, haunted house's... extra prizes
+  // stay Player 1's.)
+  useChestP2(x, y, z, couch) {
+    const gear = couch?.gear
+    if (!this.active || this.dead || !gear) return false
+    const key = this.bm._key(x, y, z)
+    if (this.bm._blocks.get(key) !== 'lootchest') return false
+    if (gear.chestsUsed.has(key)) {
+      couch.p2Message(t('buildPlayChestEmpty'))
+      return true
+    }
+    gear.chestsUsed.add(key)
+    gear.onChest()
+    const ammo = ammoFor(couch._weaponId(), CHEST_LOOT.ammo)
+    couch._ammo().reserve += ammo
+    couch.p2.health = Math.min(couch.maxHealth, couch.p2.health + CHEST_LOOT.health)
+    couch.p2Message(t('buildPlayChestLoot', { ammo, health: CHEST_LOOT.health }), 3)
+    const got = this._rollChestItems(gear)
+    if (got.length) setTimeout(() => this.active && couch.joined && couch.p2Message(t('invChestItems', { items: got.join(', ') }), 3), 1800)
+    return true
+  }
+
+  // A Loot Chest's items, put in `bag` (Player 1's inventory, or Player
+  // 2's CouchGear - both have add() -> left over, and has(id)). -> the
+  // names of what fitted.
+  _rollChestItems(bag) {
     const got = []
     const give = (item) => {
-      if (this.inv.add(item) < item.n) got.push(item.kind === 'block' ? this.bm.blockName(item.id) : itemName(item.id))
+      if (bag.add(item) < item.n) got.push(item.kind === 'block' ? this.bm.blockName(item.id) : itemName(item.id))
     }
     if (Math.random() < 0.6) give({ kind: 'item', id: 'healthpack', n: 1 })
     if (Math.random() < 0.4) give({ kind: 'item', id: 'ammobox', n: 1 })
     if (Math.random() < CATCH_TRAP_CHANCE) give({ kind: 'item', id: 'catchTrap', n: 1 + Math.floor(Math.random() * 2) })
     // Now and then a Fishing Rod, for worlds without the camp's Trader (Fishing.js).
-    if (Math.random() < CHEST_ROD_CHANCE && !this.inv.has('fishingRod')) give({ kind: 'item', id: 'fishingRod', n: 1 })
-    if (Math.random() < CHEST_DETECTOR_CHANCE && !this.inv.has('metalDetector')) give({ kind: 'item', id: 'metalDetector', n: 1 })
+    if (Math.random() < CHEST_ROD_CHANCE && !bag.has('fishingRod')) give({ kind: 'item', id: 'fishingRod', n: 1 })
+    if (Math.random() < CHEST_DETECTOR_CHANCE && !bag.has('metalDetector')) give({ kind: 'item', id: 'metalDetector', n: 1 })
     // Potions, the jetpack and its fuel (Potions.js, Jetpack.js).
     if (Math.random() < CHEST_POTION_CHANCE) give({ kind: 'item', id: POTION_IDS[Math.floor(Math.random() * POTION_IDS.length)], n: 1 })
-    if (Math.random() < CHEST_JETPACK_CHANCE && !this.inv.has('jetpack')) give({ kind: 'item', id: 'jetpack', n: 1 })
-    if (Math.random() < CHEST_JET_FUEL_CHANCE && this.inv.has('jetpack')) give({ kind: 'item', id: 'jetFuel', n: 1 })
+    if (Math.random() < CHEST_JETPACK_CHANCE && !bag.has('jetpack')) give({ kind: 'item', id: 'jetpack', n: 1 })
+    if (Math.random() < CHEST_JET_FUEL_CHANCE && bag.has('jetpack')) give({ kind: 'item', id: 'jetFuel', n: 1 })
     if (Math.random() < CHEST_FIND_CHANCE) {
       const id = this.finds?.pick()
       if (id) give({ kind: 'item', id, n: 1 })
@@ -2147,9 +2183,7 @@ export class BuildSurvival {
       const [id, n] = TRAP_SUPPLIES[Math.floor(Math.random() * TRAP_SUPPLIES.length)]
       give({ kind: 'block', id, n })
     }
-    if (got.length) setTimeout(() => this.active && this._message(t('invChestItems', { items: got.join(', ') })), 1800)
-    this._renderHud()
-    return true
+    return got
   }
 
   // A block broken by hand in a game goes into the inventory.
@@ -3833,6 +3867,7 @@ export class BuildSurvival {
     this._toSpawn = Math.max(1, Math.round(waveSize(this.wave) * this.cfg.zombieCountMult * (this.bloodMoon?.mult ?? 1) * hordeMult()))
     this._bossPending = this.cfg.bossEvery && this.wave % this.cfg.bossEvery === 0 ? 1 : 0
     this._chestsUsed.clear()
+    this.couch?.gear?.chestsUsed.clear()
     this._message(t('buildPlayWaveStart', { n: this.wave }))
     this.snowballs?.onWave(n)
     if (n <= 1) this.water?.start()

@@ -15,6 +15,10 @@
 //
 // Owned by BuildSurvival (`s.fishing`). Each player's own (nothing to
 // sync). Meshes and one line, never a light.
+// Couch Co-op's equal Player 2 (2026-11-14, Batch 4c-2c) has a second one
+// (CouchHands.js) with their own `angler`: their camera, body, rod, coins,
+// Backpack and half of the screen. Their fish count for Player 1's camp
+// Aquarium too (Gaymi's pick).
 import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
@@ -51,9 +55,31 @@ export function rollCatch(r = Math.random()) {
 }
 
 export class Fishing {
-  constructor(survival) {
+  // angler: who's fishing - null = Player 1. Otherwise { camera, body(),
+  // holdingRod(), dead(), say(text, secs), add(item) -> left over, earn(n) -> got }.
+  constructor(survival, angler = null) {
     this.s = survival
     this.bob = null
+    this.angler = angler || this._player1()
+  }
+
+  _player1() {
+    const s = this.s
+    return {
+      p1: true,
+      get camera() { return s.bm.camera },
+      body: () => s.bodyPos(),
+      holdingRod: () => s.holding?.kind === 'item' && s.holding.id === 'fishingRod',
+      dead: () => s.dead,
+      say: (text, secs) => s._message(text, secs),
+      add: (item) => s.inv.add(item),
+      earn: (n) => {
+        const before = s._coinsEarned
+        s._earn(n)
+        s._renderHud()
+        return s._coinsEarned - before
+      },
+    }
   }
 
   get bm() {
@@ -82,7 +108,7 @@ export class Fishing {
     }
     const spot = this._waterInView()
     if (!spot) {
-      this.s._message(t('fishNeedWater'))
+      this.angler.say(t('fishNeedWater'))
       return true
     }
     this._cast(spot)
@@ -94,10 +120,11 @@ export class Fishing {
   _waterInView() {
     const bm = this.bm
     const B = this.B
-    bm.camera.updateMatrixWorld()
-    const from = bm.camera.position.clone().divideScalar(B)
+    const cam = this.angler.camera
+    cam.updateMatrixWorld()
+    const from = cam.position.clone().divideScalar(B)
     const dir = new THREE.Vector3()
-    bm.camera.getWorldDirection(dir)
+    cam.getWorldDirection(dir)
     for (let d = 0.5; d <= CAST_REACH; d += RAY_STEP) {
       const x = from.x + dir.x * d
       const y = from.y + dir.y * d
@@ -130,7 +157,7 @@ export class Fishing {
     const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xf2f0ea }))
     line.frustumCulled = false
     scene.add(line)
-    const me = this.s.bodyPos()
+    const me = this.angler.body()
     this.bob = { ...spot, from: { x: me.x, y: me.y + 1.4, z: me.z }, fly: 0, wait: between(WAIT_S), bite: 0, group, line }
     try { audioEngine.playSpecial?.('whoosh') } catch { /* no audio */ }
   }
@@ -138,56 +165,53 @@ export class Fishing {
   _reel() {
     const b = this.bob
     if (b.bite > 0) this._land()
-    else this.s._message(t('fishReeledEmpty'))
+    else this.angler.say(t('fishReeledEmpty'))
     this.clear()
   }
 
   // Something on the line: what is it?
   _land() {
     const s = this.s
+    const a = this.angler
     const b = this.bob
     let id = rollCatch()
-    s.bingo?.note('fish')
+    if (a.p1) s.bingo?.note('fish')
     const zombiesOk = !s.cfg?.noZombies && (!s.net || s.net.isHost)
     if (id === 'zombieFish' && !zombiesOk) id = 'fish'
     try { audioEngine.playSpecial?.('pop') } catch { /* no audio */ }
     if (id === 'zombieFish') {
       // It leaps out of the water and lands beside you.
-      const me = s.bodyPos()
-      const a = Math.atan2(b.x - me.x, b.z - me.z)
-      const x = me.x + Math.sin(a) * 2.5
-      const z = me.z + Math.cos(a) * 2.5
+      const me = a.body()
+      const ang = Math.atan2(b.x - me.x, b.z - me.z)
+      const x = me.x + Math.sin(ang) * 2.5
+      const z = me.z + Math.cos(ang) * 2.5
       const zb = s._extraZombie(x, s._groundUnder(x, me.y + 3, z), z)
-      s._message(t(zb ? 'fishZombie' : 'fishGotAway'), 3)
+      a.say(t(zb ? 'fishZombie' : 'fishGotAway'), 3)
       if (zb) try { audioEngine.playZombieScream?.(0) } catch { /* no audio */ }
       return
     }
     if (id === 'treasure') {
-      const n = Math.round(between(TREASURE_COINS))
-      const before = s._coinsEarned
-      s._earn(n)
+      const got = a.earn(Math.round(between(TREASURE_COINS)))
       const item = TREASURE_ITEMS[Math.floor(Math.random() * TREASURE_ITEMS.length)]
-      const fits = s.inv.add({ kind: 'item', id: item, n: 1 }) === 0
-      s._message(t('fishTreasure', { n: s._coinsEarned - before, item: fits ? itemName(item) : t('invFull') }), 4)
-      s._renderHud()
+      const fits = a.add({ kind: 'item', id: item, n: 1 }) === 0
+      a.say(t('fishTreasure', { n: got, item: fits ? itemName(item) : t('invFull') }), 4)
       return
     }
-    const fits = s.inv.add({ kind: 'item', id, n: 1 }) === 0
+    const fits = a.add({ kind: 'item', id, n: 1 }) === 0
     // Counted for the camp's Aquarium (CampAquarium.js).
     recordFish(id)
-    s._message(fits ? t(id === 'goldenFish' ? 'fishCaughtGolden' : 'fishCaught', { item: itemName(id) }) : t('invFull'), 3)
+    a.say(fits ? t(id === 'goldenFish' ? 'fishCaughtGolden' : 'fishCaught', { item: itemName(id) }) : t('invFull'), 3)
     if (id === 'goldenFish') try { audioEngine.playSpecial?.('goldZombie') } catch { /* no audio */ }
   }
 
   update(dt) {
     const b = this.bob
     if (!b) return
-    const s = this.s
+    const a = this.angler
     const B = this.B
-    const held = s.holding
-    const me = s.bodyPos()
+    const me = a.body()
     // Put the rod away, died, or walked off: it reels itself in.
-    if (s.dead || held?.kind !== 'item' || held.id !== 'fishingRod' || Math.hypot(me.x - b.x, me.z - b.z) > LEAVE_R) {
+    if (a.dead() || !a.holdingRod() || Math.hypot(me.x - b.x, me.z - b.z) > LEAVE_R) {
       this.clear()
       return
     }
@@ -204,7 +228,7 @@ export class Fishing {
       b.bite -= dt
       y -= 0.22 + Math.sin(time * 30) * 0.05
       if (b.bite <= 0) {
-        s._message(t('fishGotAway'))
+        a.say(t('fishGotAway'))
         b.wait = between(WAIT_S)
       }
       b.group.position.set(b.x * B, y * B, b.z * B)
@@ -213,13 +237,13 @@ export class Fishing {
       y += Math.sin(time * 2.5) * 0.04
       if (b.wait <= 0) {
         b.bite = BITE_S
-        s._message(t('fishBite'), BITE_S)
+        a.say(a.biteText?.() || t('fishBite'), BITE_S)
         try { audioEngine.playSpecial?.('twang') } catch { /* no audio */ }
       }
       b.group.position.set(b.x * B, y * B, b.z * B)
     }
     // The line: from just below and right of your eye to the bobber.
-    const cam = this.bm.camera
+    const cam = a.camera
     const start = new THREE.Vector3(0.35 * B, -0.3 * B, -0.6 * B).applyQuaternion(cam.quaternion).add(cam.position)
     const pos = b.line.geometry.attributes.position
     pos.setXYZ(0, start.x, start.y, start.z)

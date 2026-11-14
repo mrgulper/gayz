@@ -83,7 +83,7 @@ Gaymi: "make gayz more funny based instead of looking so cold" - did all 13 idea
 - Tests: `tests/couch.spec.js` (both kinds).
 
 ## Couch Co-op: equal Player 2 builds, digs, drives (2026-11-14, Batch 4c-2b)
-- Gaymi: equal P2 does "everything player 1 is able to do", with a normal controller player's buttons (ControlSettings `PAD_KEYS`). Split again: 4c-2b here; **4c-2c next = crafting, chests, fishing, farming, emotes** (still P1-only).
+- Gaymi: equal P2 does "everything player 1 is able to do", with a normal controller player's buttons (ControlSettings `PAD_KEYS`). Split again: 4c-2b here; 4c-2c (below) = crafting, chests, fishing, farming, emotes.
 - Hotbar (`CouchGear.hot`, 10 slots, `bag` up to 90 behind it): `{ kind: 'gun'|'block'|'item', id, n }`, gun in slot 1. `add()` stacks, then empty hotbar slots, then bag. LB/RB `cycle`; holding a gun slot sets `CouchCoop.p2.weaponIdx`. Backpack = every gun (`equipGun` swaps the one gun carried) + hotbar + bag (A holds, or uses an item). Old `pack` is gone. Drawn in `#couch-p2-hotbar` (P1 hotbar look); gun name/ammo move up (`.p2-equal`).
 - Equal buttons (`CouchHands.onPress`, before the old ones): RT shoot / place block / use item; RT held on a block digs it (`_digStep`, `bm.breakSeconds`, `DIG_REACH`, own bar `#couch-p2-dig`, no crack mesh); LT get in/out of a vehicle in front, else place; Y nearest vehicle in/out, else `pickUpNear` (Auto Pick-Up off); B sneak (`SNEAK`), out of kart/boat; D-pad down `dropHeld` (not the gun or P2's own shop items; `mine=false` so never P1's Lost & Found); D-pad right = Shop. Buddy keeps the old buttons (RB/Y switch guns).
 - Aim = P2's camera ray (`_aim`: `bm._raycaster.setFromCamera(..., couch.camera)` + `_raycastGridAligned`); reach measured from P2's eyes. Placing goes through `BuildSurvival.placeBlockAt` (shared with P1's `placeHeldBlock`; also refuses P2's own cell). Breaking: `tryMode.breakBlock` + `onBlockMined(type, x, y, z, gear)`.
@@ -91,3 +91,15 @@ Gaymi: "make gayz more funny based instead of looking so cold" - did all 13 idea
 - Drops (`PlayDrops.update`): each drop flies to the nearer of P1 / `couch.hands.collector()`; `grabBy` keeps a Use-grab for whoever pressed.
 - Vehicles: `GoKart.p2` + `enterP2/leaveP2/exitSpot`; `Vehicles.p2Riding` + `enterP2/leaveP2/driveP2` (`driveP2` swaps `riding`, `bm._yaw` (heli flies where P2 looks) and `s._message` -> P2's half for the call; `_renderFuel` skips). One driver each; P1's `_nearest`/`use` skip P2's. P2 can't craft/place vehicles. Seat: `p.y = seat.y + seat.eye - EYE`. Kart rams pay P2 (`s._p2Shot`). Knocked down / game over / leash / respawn = forced out.
 - Test: `tests/couch.spec.js` third test (hotbar, traps, place, dig, pickup, drop, kart, heli if there's room).
+
+## Couch Co-op: equal Player 2 crafts, fishes, farms, emotes (2026-11-14, Batch 4c-2c)
+- Gaymi's picks: chests = each player their own (once per wave each); P2's Crop Plots in camp join P1's saved farm and P2 harvests P1's; P2 crafts AND places vehicles ("can do everything"); P2's fish count for P1's Aquarium.
+- Wheel (Back): Backpack, Shop, Crafting, Emotes, Skin (`CouchGear.WHEEL`; Shop kept 2nd so the old test/muscle memory works).
+- Crafting: `CouchGear.crafter()` = `PlayCrafting` on a stand-in inv (hot = hotbar, bag = grid; spent slots nulled, bag compacted before `add`). `PlayCrafting.shown()` / `needsText()` shared; `inv.dropAt()` = where overflow drops. Ready recipes listed first.
+- Items (`_useDef`): heal, vehicle (`Vehicles.place(kind, who)`), fuel (`addFuel(who)`), armour pieces (+25 `gear.armor`), rod (held, RT = `CouchHands.fish()`). Everything else = `p1Only` ("drop it for Player 1"). Shop sells one Fishing Rod (`P2_USE` = the used-up ones).
+- Y order: vehicle -> `CouchHands.useBlock()` (aim, `PLACE_REACH`) -> `BuildSurvival.useChestP2` (gear.chestsUsed, cleared in `_startWave`; P1's pirate/haunted/etc. bonus prizes skipped) -> gadgets/specials with `s.inv` + `s._message` swapped to P2's for the call (crop harvest -> P2's bag) -> door -> pickUpNear.
+- Chest loot shared roller: `BuildSurvival._rollChestItems(bag)` (bag has add/has). P2 quests now include chests (`gear.chests`).
+- Fishing: `Fishing(survival, angler)`; P1's angler from `_player1()` (`p1: true` -> bingo). P2's in `CouchHands.fishing` (camera, body = p2, holdingRod, say, add, earn, biteText "Press RT"). Holding the rod, RT doesn't dig.
+- Emotes: D-pad left -> list; `gear.emote = { id, left }`; `_drawBody` uses `poseEmote` (+bob from `body.baseY`); stops on move, RT, hurt, down, riding.
+- Test: `tests/couch.spec.js` fourth test (aim stubbed via `hands._aim`).
+
