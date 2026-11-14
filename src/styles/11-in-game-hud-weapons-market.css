@@ -1853,3 +1853,64 @@ html.menu-panel-open :is(#play-hud-info, #play-kill-feed, #play-compass) { displ
 /* Market sale (Console): the old price struck through before the new one. */
 .inv-skin-card-price .market-card-was { opacity: 0.6; font-weight: 400; margin-right: 2px; }
 .inv-skin-card.on-sale .inv-skin-card-price { box-shadow: 0 0 0 1px #6fdc8c inset; }
+
+/* Couch Co-op (CouchCoop.js, 2026-11-14): the screen split down the
+   middle. Player 1's HUD keeps to the left half, Player 2's (#couch-p2)
+   is the right half, with a dark line between them. */
+body.couch-split #build-play-hud { right: 50%; }
+body.couch-split #build-try-crosshair { left: 25%; }
+body.couch-split #play-pause-invite-btn { display: none; }
+/* Player 1's other bits move into the left half too (sizes unchanged
+   except the hotbar, a little smaller so it fits). */
+body.couch-split #build-hotbar { left: 25%; transform: translateX(-50%) scale(0.8); transform-origin: bottom center; }
+body.couch-split #build-try-map { top: 50px; right: calc(50% + 12px); }
+body.couch-split #build-play-msg { max-width: 46vw; white-space: normal; }
+body.couch-split #play-pills,
+body.couch-split #play-first-hint,
+body.couch-split #lore-toast { left: 25%; max-width: 46vw; white-space: normal; }
+#couch-hud { position: fixed; inset: 0; z-index: 16; pointer-events: none; font-family: 'Bebas Neue', sans-serif; color: #fff; }
+#couch-p2 { position: absolute; top: 0; bottom: 0; left: 50%; right: 0; border-left: 3px solid rgba(0, 0, 0, 0.8); }
+.couch-msg {
+  position: absolute; top: 38%; left: 50%; transform: translateX(-50%);
+  width: max-content; max-width: 90%; text-align: center; white-space: pre-line;
+  font-size: 30px; letter-spacing: 1px; text-shadow: 0 2px 8px #000, 0 0 3px #000;
+}
+#couch-p1-msg { left: 25%; max-width: 45vw; }
+html.caption-background .couch-msg:not(:empty) { background: rgba(0, 0, 0, 0.6); padding: 4px 16px; border-radius: 8px; }
+#couch-p2-crosshair {
+  position: absolute; left: 50%; top: 50%;
+  width: calc(18px * var(--crosshair-size, 1)); height: calc(18px * var(--crosshair-size, 1));
+  transform: translate(-50%, -50%); transition: width 0.15s, height 0.15s;
+}
+#couch-p2-crosshair::before,
+#couch-p2-crosshair::after {
+  content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  background: var(--crosshair-color, rgba(255, 255, 255, 0.92)); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+#couch-p2-crosshair::before { width: 100%; height: 2px; }
+#couch-p2-crosshair::after { width: 2px; height: 100%; }
+#couch-p2-crosshair.aim { width: calc(10px * var(--crosshair-size, 1)); height: calc(10px * var(--crosshair-size, 1)); }
+#couch-p2-crosshair.hit::before,
+#couch-p2-crosshair.hit::after { background: #ff4a3a; }
+#couch-p2-name { position: absolute; bottom: 156px; left: 50%; transform: translateX(-50%); font-size: 20px; letter-spacing: 1px; text-shadow: 0 1px 3px #000; }
+#couch-p2-health {
+  position: absolute; bottom: 132px; left: 50%; transform: translateX(-50%);
+  width: 220px; height: 18px; background: rgba(10, 10, 10, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 999px; overflow: hidden;
+}
+#couch-p2-health-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #b8261c, #e8483a); transition: width 0.2s; }
+html[data-colorblind="redgreen"] #couch-p2-health-fill { background: linear-gradient(90deg, #0b5f99, #2b9be0); }
+html[data-colorblind="blueyellow"] #couch-p2-health-fill { background: linear-gradient(90deg, #a8306f, #d86aa6); }
+#couch-p2-health-text { position: absolute; inset: 0; text-align: center; font-size: 16px; line-height: 18px; text-shadow: 0 1px 2px #000; }
+#couch-p2-ammo { position: absolute; bottom: 28px; right: 24px; display: flex; flex-direction: column; align-items: flex-end; text-shadow: 0 2px 6px #000; }
+#couch-p2-weapon { font-size: 18px; letter-spacing: 1px; opacity: 0.9; }
+#couch-p2-count { font-size: 34px; }
+#couch-p2-hurt { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(200, 0, 0, 0.55)); opacity: 0; transition: opacity 0.4s; }
+#couch-p2-hurt.show { opacity: 1; transition: none; }
+body.reduce-flashing #couch-p2-hurt.show { opacity: 0.45; }
+#couch-hud:not(.joined) #couch-p2-crosshair,
+#couch-hud:not(.joined) #couch-p2-name,
+#couch-hud:not(.joined) #couch-p2-health,
+#couch-hud:not(.joined) #couch-p2-ammo,
+#couch-hud.p2-down #couch-p2-crosshair { display: none; }
+html.menu-panel-open #couch-hud { display: none; }

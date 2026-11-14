@@ -75,12 +75,23 @@ const PAD_LOOK = 3.4
 
 const pad = { index: -1, down: new Set(), run: false, wasActive: false }
 
+// Couch Co-op (CouchCoop.js): Player 2's controller is theirs alone.
+// 'waiting' = no controller for Player 1 until Player 2 has picked one;
+// a number = Player 2's controller (Player 1 may use any other one).
+let couchPad = null
+
+export function setCouchPad(v) {
+  couchPad = v
+  pad.index = -1
+}
+
 function findPad() {
+  if (couchPad === 'waiting') return null
   let list
   try { list = navigator.getGamepads?.() || [] } catch { return null }
-  if (pad.index >= 0 && list[pad.index]?.connected) return list[pad.index]
+  if (pad.index >= 0 && pad.index !== couchPad && list[pad.index]?.connected) return list[pad.index]
   for (const gp of list) {
-    if (gp?.connected) {
+    if (gp?.connected && gp.index !== couchPad) {
       pad.index = gp.index
       return gp
     }

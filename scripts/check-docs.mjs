@@ -74,6 +74,8 @@ const ALLOWED_NUMBERS = [
   /\b2x\b/g, /\b1 HP\b/g, /1–10/g, /1–3/g, /4–0/g, /\b16x16\b/g,
   // Key names (the HUD's Hide HUD key).
   /\bF1\b/g,
+  // Couch Co-op's two players.
+  /\bPlayer [12]\b/g,
 ]
 
 const MARKER_REASON = (name) => new RegExp(`\\[${name}:\\s*[^\\]\\s][^\\]]{7,}\\]`, 'i')

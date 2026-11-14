@@ -309,6 +309,23 @@ function renderPlayTags(game) {
   }
   const cont = tag('home-continue-tag')
   const fresh = tag('home-newhere-tag')
+  const couch = tag('home-couch-tag')
+  // Couch Co-op (CouchCoop.js): a new game split in two, Player 2 on a
+  // controller. Computers only - it needs a mouse and a controller.
+  if (!couch.dataset.wired) {
+    couch.dataset.wired = '1'
+    couch.addEventListener('click', (e) => {
+      e.stopPropagation()
+      game._couchNext = true
+      document.getElementById('play-btn')?.click()
+    })
+    // Pressing Play itself (a real click) is a normal one-player game.
+    play.addEventListener('click', (e) => {
+      if (e.isTrusted) game._couchNext = false
+    }, true)
+  }
+  couch.style.display = matchMedia('(any-pointer: fine)').matches ? '' : 'none'
+  couch.textContent = t('couchTag')
   if (!cont.dataset.wired) {
     cont.dataset.wired = '1'
     cont.addEventListener('click', (e) => {
