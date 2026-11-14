@@ -75,7 +75,8 @@ import { WIN as TUG_WIN, ROUND as TUG_ROUND, MAX_TAPS as TUG_TAPS } from './Part
 import { MIN_DROP as BUNGEE_DROP, HANG_S as BUNGEE_HANG, BAG_COINS as BUNGEE_COINS, BAG_ITEMS as BUNGEE_ITEMS, GUARDS as BUNGEE_GUARDS } from './Bungee.js'
 import { JET_SEA_EVERY, JET_SEA_MAX, JET_GRAB_S } from './Vehicles.js'
 import { DISHES as DINER_DISHES, SEATS as DINER_SEATS, DISH_COINS as DINER_COINS, TIP_COINS as DINER_TIP, TIP_S as DINER_TIP_S, SPOT_COINS as DINER_SPOT, PATIENCE_S as DINER_PATIENCE, REVEAL_S as DINER_REVEAL } from './ZombieDiner.js'
-import { WINDOW as LEARN_WINDOW, SHARE as LEARN_SHARE, MAX_LEVEL as LEARN_MAX, LEVEL_CHANCE as LEARN_CHANCE, GEAR_MULT as LEARN_GEAR, FORGET_S as LEARN_FORGET } from './ZombieLearning.js'
+import { WINDOW as LEARN_WINDOW, SHARE as LEARN_SHARE, MAX_LEVEL as LEARN_MAX, LEVEL_CHANCE as LEARN_CHANCE, GEAR_MULT as LEARN_GEAR, FORGET_S as LEARN_FORGET, HEAD_SHARE as LEARN_HEAD_SHARE, CAMP_R as LEARN_CAMP_R, CAMP_S as LEARN_CAMP_S } from './ZombieLearning.js'
+import { MAX as PACE_MAX } from './PaceTuning.js'
 import { FIND_FIRST_S, FIND_EVERY_S, FIND_LIFE_S } from './WorldFinds.js'
 import { NOTES as MUSIC_NOTES, HEAR_R as MUSIC_HEAR, JAM_R as MUSIC_JAM } from './Instruments.js'
 import { BOO_S, BOO_CD, MARK_S, REVIVE_S, GHOST_WAIT_S } from './Ghosts.js'
@@ -641,6 +642,10 @@ export function _featureValues(_game) {
     learnChance: Math.round(LEARN_CHANCE * 100),
     learnGear: Math.round(LEARN_GEAR * 100),
     learnForget: LEARN_FORGET,
+    learnHeadShare: Math.round(LEARN_HEAD_SHARE * 100),
+    learnCampR: LEARN_CAMP_R,
+    learnCampS: LEARN_CAMP_S,
+    paceMax: Math.round(PACE_MAX * 100),
     findFirst: FIND_FIRST_S,
     // World Map travel (Passport.js, FastTravel.js).
     stampCoins: STAMP_COINS,
