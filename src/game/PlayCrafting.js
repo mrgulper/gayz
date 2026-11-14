@@ -137,7 +137,8 @@ export class PlayCrafting {
     const lost = inv.add({ kind: r.kind, id: r.id, n: r.n })
     // No room: what didn't fit goes on the ground at your feet.
     if (lost > 0) {
-      const p = this.bm.tryMode.pos
+      // (Couch Co-op's Player 2 crafts with CouchGear's stand-in `inv`.)
+      const p = inv.dropAt?.() || this.bm.tryMode.pos
       for (let i = 0; i < lost; i++) {
         if (r.kind === 'item') inv.s._drops?.spawnItem(r.id, p.x, p.y + 1, p.z)
         else inv.s._drops?.spawn(r.id, p.x, p.y + 1, p.z)
@@ -159,9 +160,9 @@ export class PlayCrafting {
     return t(GROUPS[need.group].key)
   }
 
-  // The Crafting tab's rows (PlayInventory.render).
-  html() {
-    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;')
+  // The recipes shown: not winter ones out of winter, not The Cure while
+  // it's a spoiler. (Also Couch Co-op's Player 2's Crafting list.)
+  shown() {
     const winter = winterOn(this.bm.game?.settings)
     // Settings > Gameplay > Spoiler-Free Story: The Cure stays hidden until
     // its chapter starts.
@@ -171,7 +172,18 @@ export class PlayCrafting {
       const cure = CHAPTERS.indexOf('cure')
       spoiler = st.ch < cure || (st.ch === cure && !st.started)
     }
-    const rows = RECIPES.filter((r) => (r.kind === 'item' ? ITEMS[r.id] : this.bm.isBlockType(r.id)) && (!r.winter || winter) && !(spoiler && r.id === 'theCure')).map((r) => {
+    return RECIPES.filter((r) => (r.kind === 'item' ? ITEMS[r.id] : this.bm.isBlockType(r.id)) && (!r.winter || winter) && !(spoiler && r.id === 'theCure'))
+  }
+
+  // "2/3 Zombie Goo · 1/1 Glass" (Player 2's Crafting list).
+  needsText(r) {
+    return r.needs.map((need) => `${Math.min(this.have(need), need.n)}/${need.n} ${this._needName(need)}`).join(' · ')
+  }
+
+  // The Crafting tab's rows (PlayInventory.render).
+  html() {
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;')
+    const rows = this.shown().map((r) => {
       const ok = this.canCraft(r)
       const icon = this.inv._icon({ kind: r.kind, id: r.id })
       const needs = r.needs.map((need) => {

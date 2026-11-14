@@ -11,7 +11,15 @@
 //     doesn't fit goes in their bag;
 //   - Backpack: every gun to pick from, and everything in the hotbar and
 //     bag - A holds it (or uses an item straight away);
-//   - skin: picked from the account's owned skins when they join.
+//   - skin: picked from the account's owned skins when they join;
+//   - (2026-11-14, Batch 4c-2c) Crafting - every recipe Player 1 has,
+//     made from their own hotbar and bag (PlayCrafting.js); Emotes (the
+//     D-pad left, like a normal controller player's Emote button); their
+//     own Loot Chest opens (BuildSurvival.useChestP2); a Fishing Rod from
+//     their shop (CouchHands.js fishes with it). Crafted boats,
+//     helicopters... go down in front of them, armour pieces add to their
+//     armour. Items only Player 1's code knows (potions, jetpack, kite...)
+//     say so - drop them (D-pad down) for Player 1.
 // Player 2 is a guest (Gaymi's pick): their coins, kills and headshots only
 // last for the game and show on the results screen - nothing is saved to
 // the account, and Player 1's stats and quests don't get Player 2's kills.
@@ -27,7 +35,9 @@ import { audioEngine } from './Audio.js'
 import { SHOP_ITEMS, UPGRADES, CAMP_QUESTS, AMMO_FILL_COOLDOWN } from './PlayShop.js'
 import { INVENTORY_SKINS, skinFrontIconURL } from './InventorySkins.js'
 import { SHOP_TRAPS, SHOP_TOWERS } from './PlayShop.js'
-import { ITEMS } from './PlayInventory.js'
+import { ITEMS, ARMOR_SLOTS } from './PlayInventory.js'
+import { PlayCrafting } from './PlayCrafting.js'
+import { EMOTES, EMOTE_S } from './Emotes.js'
 
 // Standard gamepad buttons (the same numbers as CouchCoop.js).
 const B_A = 0
@@ -40,13 +50,19 @@ const DOWN = 13
 const LEFT = 14
 const RIGHT = 15
 
-// What Player 2's shop sells: the Shop's own items minus the Fishing Rod
-// (Player 2 can't fish). They go in the Backpack, used with A.
-const P2_ITEMS = SHOP_ITEMS.filter((i) => !i.item)
-// Player 2's quests: no chests (only Player 1 opens them).
-const P2_QUESTS = CAMP_QUESTS.filter((q) => q.stat !== 'chests')
+// What Player 2's shop sells: the Shop's own items (the Fishing Rod too,
+// 2026-11-14 Batch 4c-2c). They go in the Backpack.
+const P2_ITEMS = SHOP_ITEMS
+// The ones that are used up (A / RT): medkit, armor, ammo box.
+const P2_USE = SHOP_ITEMS.filter((i) => !i.item)
+// Player 2's quests (chests too, now they open their own).
+const P2_QUESTS = CAMP_QUESTS
 const QUESTS_SHOWN = 3
 export const P2_TABS = ['items', 'traps', 'upgrades', 'ammo', 'quests']
+// The menu wheel's screens (Back).
+const WHEEL = ['pack', 'shop', 'craft', 'emote', 'skin']
+// A crafted armour piece (helmet, shield...) worn by Player 2: this much armour.
+const ARMOR_PIECE = 25
 const ITEM_STACK = 99
 const BLOCK_STACK = 999
 const MAX_ARMOR = 100
@@ -76,6 +92,12 @@ export class CouchGear {
     this.bag = []
     this.active = 0
     this.quests = P2_QUESTS.map((q) => ({ ...q, claimed: false }))
+    // Loot Chests Player 2 opened this wave (BuildSurvival.useChestP2) and in all.
+    this.chestsUsed = new Set()
+    this.chests = 0
+    // Playing an emote: { id, left } (CouchHands.update, CouchCoop._drawBody).
+    this.emote = null
+    this._crafter = null
     this._noted = new Set()
     this._ammoReadyAt = 0
     // The open menu: null, or { screen: 'wheel'|'shop'|'pack'|'skin', tab, focus }.
@@ -135,6 +157,11 @@ export class CouchGear {
       left -= k
     }
     return left
+  }
+
+  // Is one of these anywhere in the hotbar or bag?
+  has(id) {
+    return [...this.hot, ...this.bag].some((it) => it?.id === id)
   }
 
   // LB / RB: the next / last hotbar slot.
@@ -253,10 +280,16 @@ export class CouchGear {
     this.headshots++
   }
 
+  onChest() {
+    this.chests++
+    this._checkQuests()
+  }
+
   _statValue(stat) {
     if (stat === 'wave') return this.s.wave
     if (stat === 'kills') return this.kills
     if (stat === 'headshots') return this.headshots
+    if (stat === 'chests') return this.chests
     return 0
   }
 
@@ -356,13 +389,12 @@ export class CouchGear {
     const m = this.menu
     if (!m) return []
     if (m.screen === 'wheel') {
-      return [
-        { name: t('couchMenuPack'), act: () => this.open('pack') },
-        { name: t('couchMenuShop'), act: () => this.open('shop') },
-        { name: t('couchMenuSkin'), act: () => this.open('skin') },
-      ]
+      const names = { pack: 'couchMenuPack', craft: 'couchMenuCraft', shop: 'couchMenuShop', emote: 'couchMenuEmote', skin: 'couchMenuSkin' }
+      return WHEEL.map((screen) => ({ name: t(names[screen]), act: () => this.open(screen) }))
     }
     if (m.screen === 'skin') return this._skinRows()
+    if (m.screen === 'craft') return this._craftRows()
+    if (m.screen === 'emote') return this._emoteRows()
     if (m.screen === 'pack') return this._packRows()
     return this._shopRows(m.tab)
   }
@@ -431,13 +463,23 @@ export class CouchGear {
   // a health pack picked up (it heals). null: it's held, not used.
   _useDef(it) {
     if (it?.kind !== 'item') return null
-    const own = P2_ITEMS.find((x) => x.id === it.id)
+    const own = P2_USE.find((x) => x.id === it.id)
     if (own) return own
-    const heal = ITEMS[it.id]?.heal
-    return heal ? { id: it.id, health: heal, picked: true } : null
+    const def = ITEMS[it.id]
+    if (!def || def.rod) return null
+    if (def.heal) return { id: it.id, health: def.heal, picked: true }
+    if (def.vehicle) return { id: it.id, vehicle: def.vehicle, picked: true }
+    if (def.fuel) return { id: it.id, fuel: true, picked: true }
+    if (ARMOR_SLOTS.includes(it.id)) return { id: it.id, armor: ARMOR_PIECE, picked: true }
+    // Potions, the jetpack, kites...: their code is Player 1's.
+    return { id: it.id, p1Only: true, picked: true }
   }
 
   _itemAbout(item) {
+    if (item.p1Only) return t('couchP1Only')
+    if (item.vehicle) return t('couchPlaceVehicle')
+    if (item.fuel) return t('couchFuelUp')
+    if (item.picked && item.armor) return t('couchArmorPiece', { n: item.armor })
     if (item.picked) return t('couchHeals', { n: item.health })
     return t(`campItem_${item.id}_about`, { n: item.health || item.armor || ammoFor(this.c._weaponId(), item.ammo) })
   }
@@ -447,7 +489,15 @@ export class CouchGear {
     if (item.health) return p.health < this.c.maxHealth
     if (item.armor) return this.armor < MAX_ARMOR
     if (item.ammo) return Number.isFinite(PLAY_WEAPONS[this.c._weaponId()]?.reserve)
+    if (item.vehicle || item.fuel) return !!this.s.vehicles && !this.c.hands?.ride
     return false
+  }
+
+  // Where Player 2 is, which way they face, and their half's message line
+  // (Vehicles.place / addFuel).
+  _who() {
+    const p = this.c.p2
+    return { pos: p, yaw: p.yaw, say: (text, secs) => this.c.p2Message(text, secs) }
   }
 
   // Uses one of list[i] (a hotbar slot or the bag).
@@ -456,6 +506,8 @@ export class CouchGear {
     const item = this._useDef(it)
     if (!item || !this._canUse(item)) return false
     const p = this.c.p2
+    if (item.vehicle && !this.s.vehicles.place(item.vehicle, this._who())) return false
+    if (item.fuel && !this.s.vehicles.addFuel(this._who())) return false
     if (item.health) p.health = Math.min(this.c.maxHealth, p.health + item.health)
     if (item.armor) this.armor = Math.min(MAX_ARMOR, this.armor + item.armor)
     if (item.ammo) this.c._ammo().reserve += ammoFor(this.c._weaponId(), item.ammo)
@@ -464,8 +516,16 @@ export class CouchGear {
     return true
   }
 
-  // Right trigger with an item held.
+  // Right trigger with an item held: a Fishing Rod casts / reels in
+  // (CouchHands.js), others are used.
   useHeld() {
+    const it = this.held()
+    if (it?.kind === 'item' && ITEMS[it.id]?.rod) return !!this.c.hands?.fish()
+    const def = this._useDef(it)
+    if (def?.p1Only) {
+      this.c.p2Message(t('couchP1Only'), 3)
+      return false
+    }
     return this._useAt(this.hot, this.active)
   }
 
@@ -479,7 +539,7 @@ export class CouchGear {
       this.c.p2Message(t('invDropGun'))
       return false
     }
-    if (it.kind === 'item' && (P2_ITEMS.some((x) => x.id === it.id) || !ITEMS[it.id])) {
+    if (it.kind === 'item' && (P2_USE.some((x) => x.id === it.id) || !ITEMS[it.id])) {
       this.c.p2Message(t('couchNoDrop'))
       return false
     }
@@ -501,7 +561,9 @@ export class CouchGear {
     if (tab === 'items') {
       for (const item of P2_ITEMS) {
         const cost = this._price(item)
-        rows.push({ name: t(`campItem_${item.id}`), detail: this._itemAbout(item), btn: t('campBuy', { n: cost }), off: iron || this.coins < cost, act: () => this._buy(item) })
+        // One Fishing Rod is all anyone needs (it's never used up).
+        const owned = !!item.item && this.has(item.item)
+        rows.push({ name: t(`campItem_${item.id}`), detail: item.item ? t(`campItem_${item.id}_about`) : this._itemAbout(item), btn: owned ? t('couchOwned') : t('campBuy', { n: cost }), off: iron || owned || this.coins < cost, act: () => this._buy(item) })
       }
     } else if (tab === 'traps' || tab === 'towers') {
       for (const trap of tab === 'traps' ? SHOP_TRAPS : SHOP_TOWERS) {
@@ -530,10 +592,91 @@ export class CouchGear {
     return rows
   }
 
+  // ---------- Crafting (the same recipes as Player 1's) ----------
+
+  // PlayCrafting works on an inventory: this stand-in is Player 2's hotbar
+  // and bag. Spent slots are left empty while it takes, then the bag's
+  // gaps close up before the result goes in.
+  crafter() {
+    if (this._crafter) return this._crafter
+    const g = this
+    const pack = () => {
+      g.bag = g.bag.filter(Boolean)
+    }
+    const inv = {
+      get bm() { return g.bm },
+      get hotbar() { return g.hot },
+      get grid() { return g.bag },
+      _take(list, i, k) {
+        const it = list[i]
+        if (!it) return
+        it.n -= k
+        if (it.n <= 0) list[i] = null
+      },
+      add(item) {
+        pack()
+        return g.add(item)
+      },
+      apply() {
+        pack()
+        g._apply()
+      },
+      _icon: (it) => g.icon(it),
+      dropAt: () => g.c.p2,
+      s: {
+        get _drops() { return g.s._drops },
+        _message: (text) => g.c.p2Message(text, 3),
+        bingo: null,
+      },
+    }
+    this._crafter = new PlayCrafting(inv)
+    return this._crafter
+  }
+
+  _craftRows() {
+    const cr = this.crafter()
+    // Ready ones first, then the rest (each in Player 1's order).
+    const list = cr.shown().map((r) => ({ r, ok: cr.canCraft(r) }))
+    list.sort((a, b) => Number(b.ok) - Number(a.ok))
+    return list.map(({ r, ok }) => ({
+      name: r.n > 1 ? `${cr.name(r)} ×${r.n}` : cr.name(r),
+      detail: cr.needsText(r),
+      btn: t('craftBtn'),
+      off: !ok,
+      act: () => {
+        if (cr.craft(r.id)) try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
+      },
+    }))
+  }
+
+  // ---------- Emotes (D-pad left) ----------
+
+  _emoteRows() {
+    return EMOTES.map((id) => ({
+      name: t(`emote${id.charAt(0).toUpperCase()}${id.slice(1)}`),
+      btn: this.emote?.id === id ? t('couchEquipped') : t('couchUse'),
+      act: () => this.playEmote(id),
+    }))
+  }
+
+  playEmote(id) {
+    if (!EMOTES.includes(id) || this.c.p2.isDown) return
+    this.emote = { id, left: EMOTE_S }
+    this.close()
+  }
+
+  stopEmote() {
+    this.emote = null
+  }
+
+  _titleKey(screen) {
+    return { wheel: 'couchPlayer2', shop: 'shopTitle', pack: 'couchMenuPack', skin: 'couchPickSkin', craft: 'couchMenuCraft', emote: 'couchMenuEmote' }[screen]
+  }
+
   _buy(item) {
     const cost = this._price(item)
-    if (this.s.cfg?.ironMode || this.coins < cost) return
-    if (this.add({ kind: 'item', id: item.id, n: 1 }) > 0) {
+    if (this.s.cfg?.ironMode || this.coins < cost || (item.item && this.has(item.item))) return
+    if (this.add({ kind: 'item', id: item.item || item.id, n: 1 }) > 0) {
       this.c.p2Message(t('invFull'))
       return
     }
@@ -608,7 +751,7 @@ export class CouchGear {
     if (key === this._key) return
     this._key = key
     el.style.display = ''
-    const title = m.screen === 'wheel' ? t('couchPlayer2') : m.screen === 'shop' ? t('shopTitle') : m.screen === 'pack' ? t('couchMenuPack') : t('couchPickSkin')
+    const title = t(this._titleKey(m.screen))
     const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch])
     const tabs = m.screen === 'shop' ? `<div class="couch-menu-tabs">${this.tabs().map((tab) => `<span class="play-shop-tab${tab === m.tab ? ' active' : ''}">${esc(t(`shopTab_${tab}`))}</span>`).join('')}</div>` : ''
     const list = rows.length

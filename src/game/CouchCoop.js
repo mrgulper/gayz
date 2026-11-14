@@ -24,6 +24,7 @@
 import * as THREE from 'three'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { holdWeapon, poseArms } from './HeldWeapon.js'
+import { poseEmote } from './Emotes.js'
 import { nameTag, COIN_PER_WAVE } from './BuildCamp.js'
 import { CouchGear } from './CouchGear.js'
 import { CouchHands } from './CouchHands.js'
@@ -185,6 +186,7 @@ export class CouchCoop {
     if (this.s._campSafe(p.x, p.z)) return
     // Equal Player 2's own armor takes its share first.
     if (this.gear) amount = this.gear.soak(amount)
+    this.gear?.stopEmote()
     p.health = Math.max(0, p.health - amount)
     p.hurtFlash = 0.45
     this._rumble(Math.min(1, 0.35 + amount / 40), 180)
@@ -708,6 +710,15 @@ export class CouchCoop {
       body.gun = held.gun
       body.melee = held.melee
       body.gunId = id
+    }
+    // Equal Player 2's emote (CouchGear.playEmote): posed like Player 1's.
+    if (body.baseY === undefined) body.baseY = body.char.position.y
+    body.char.position.y = body.baseY
+    const emote = this.gear?.emote
+    const bob = emote && !p.isDown ? poseEmote(lp, emote.id, performance.now() / 1000) : null
+    if (bob !== null) {
+      body.char.position.y += bob * body.char.scale.y
+      return
     }
     const speed = Math.hypot(p.vx, p.vz)
     p.walk += dt * speed * 3.2

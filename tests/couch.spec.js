@@ -422,3 +422,171 @@ test('couch co-op: equal Player 2 builds, digs, drives and picks up drops', asyn
   })
   for (const k of ['inHeli', 'fuelShown', 'outOfHeli']) expect([true, 'no room']).toContain(r[k])
 })
+
+// Batch 4c-2c: equal Player 2 crafts, opens their own chests, fishes,
+// farms and emotes. Aiming at a block is covered above, so here Player 2's
+// aim is pointed straight at the block under test (hands._aim).
+test('couch co-op: equal Player 2 crafts, opens chests, fishes, farms and emotes', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    const buttons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }))
+    const pad = { index: 0, id: 'test pad', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons }
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [pad], configurable: true })
+    const hold = (i, on) => { buttons[i].pressed = on; buttons[i].value = on ? 1 : 0 }
+    g._couchNext = 'equal'
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    b.update(0.016)
+    b.survival.start({ fromMenu: true })
+    const s = b.survival
+    if (s._picking) s._pickWeapon('rifle')
+    const step = (n = 1, dt = 0.05) => { for (let i = 0; i < n; i++) b.update(dt) }
+    const press = (i) => { hold(i, true); step(1); hold(i, false); step(1) }
+    step(4)
+    const c = s.couch
+    const gear = c.gear
+    const hands = c.hands
+    press(0)
+    if (gear.menuOpen) press(1)
+    const count = (list, id) => list.filter((x) => x?.id === id).reduce((n, x) => n + x.n, 0)
+    const p2Has = (id) => count([...gear.hot, ...gear.bag], id)
+    const p1Has = (id) => count([...s.inv.hotbar, ...s.inv.grid], id)
+    const aimAt = (x, y, z) => { hands._aim = () => ({ existingBlock: [x, y, z] }) }
+    const msg = () => document.getElementById('couch-p2-msg')?.textContent || ''
+
+    // The menu wheel (Back) now has Crafting and Emotes.
+    press(8)
+    out.wheel = gear._rows().map((row) => row.name)
+    // Crafting: two logs -> planks, from Player 2's own bag.
+    gear.add({ kind: 'block', id: 'oaklog', n: 2 })
+    press(13)
+    press(13)
+    press(0)
+    out.craftScreen = gear.menu?.screen === 'craft'
+    const rows = gear._rows()
+    const planks = rows.findIndex((row) => row.name.includes(b.blockName('oakplanks')))
+    gear.menu.focus = planks
+    const p1Logs = p1Has('oaklog')
+    press(0)
+    out.crafted = p2Has('oakplanks') === 4 && p2Has('oaklog') === 1 && p1Has('oaklog') === p1Logs
+    out.craftShown = !!document.querySelector('#couch-menu .couch-row')
+    press(1)
+    press(1)
+
+    // Items: a crafted helmet is worn (armour), a kite is Player 1's.
+    gear.add({ kind: 'item', id: 'helmet', n: 1 })
+    gear.select(gear.hot.findIndex((x) => x?.id === 'helmet'))
+    press(7)
+    out.helmet = gear.armor === 25 && p2Has('helmet') === 0
+    gear.add({ kind: 'item', id: 'kite', n: 1 })
+    gear.select(gear.hot.findIndex((x) => x?.id === 'kite'))
+    press(7)
+    out.p1Only = p2Has('kite') === 1 && msg().length > 0
+    // A crafted helicopter goes down in front of Player 2 (if there's room).
+    gear.add({ kind: 'item', id: 'helicopter', n: 1 })
+    gear.select(gear.hot.findIndex((x) => x?.id === 'helicopter'))
+    const vehicles = s.vehicles.list.length
+    press(7)
+    out.heli = s.vehicles.list.length === vehicles + 1 ? p2Has('helicopter') === 0 : 'no room'
+    // (Taken away again: Y next to a vehicle gets in before it opens a chest.)
+    if (s.vehicles.list.length > vehicles) s.vehicles._remove(s.vehicles.list.at(-1))
+
+    // Loot chest: Player 2's own loot, once a wave; Player 1 still gets theirs.
+    const cx = Math.floor(c.p2.x) + 2
+    const cz = Math.floor(c.p2.z)
+    let cy = Math.floor(c.p2.y)
+    while (b.getBlockAt(cx, cy, cz) && cy < c.p2.y + 3) cy++
+    b.placeBlock(cx, cy, cz, 'lootchest', false)
+    aimAt(cx, cy, cz)
+    gear.select(0)
+    const reserve = c._ammo().reserve
+    press(3)
+    out.chest = gear.chests === 1 && c._ammo().reserve > reserve && !s._chestsUsed.has(b._key(cx, cy, cz))
+    press(3)
+    out.chestOnce = gear.chests === 1
+    out.p1Chest = s.useChest(cx, cy, cz) && s._chestsUsed.has(b._key(cx, cy, cz))
+    out.chestQuest = gear.quests.some((q) => q.stat === 'chests')
+    b.removeBlock?.(cx, cy, cz)
+
+    // Farming: a Crop Plot placed in the camp joins Player 1's saved farm;
+    // Player 2 plants it, and the harvest goes in Player 2's Backpack.
+    const zn = s.camp.zone
+    let plot = null
+    for (let dx = 2; dx < 12 && !plot; dx++) {
+      for (let dz = 2; dz < 12 && !plot; dz++) {
+        const x = Math.floor((zn.x0 + zn.x1) / 2) + dx
+        const z = Math.floor((zn.z0 + zn.z1) / 2) + dz
+        if (!s.camp.inside(x + 0.5, z + 0.5)) continue
+        const y = Math.floor(s._groundUnder(x + 0.5, 80, z + 0.5))
+        const before = s.farm.plots.length
+        if (s.placeBlockAt(x, y, z, 'cropplot') && s.farm.plots.length === before + 1) plot = [x, y, z]
+      }
+    }
+    if (plot) {
+      Object.assign(c.p2, { x: plot[0] + 1.5, y: plot[1], z: plot[2] + 0.5 })
+      aimAt(...plot)
+      press(3)
+      const fp = s.farm._plotAt(...plot)
+      out.planted = !!fp?.at
+      fp.at = Date.now() - 3600 * 1000
+      s.farm._sync()
+      const p1Veg = p1Has('veggies')
+      press(3)
+      out.harvested = p2Has('veggies') > 0 && p2Has('plantFiber') > 0 && p1Has('veggies') === p1Veg && fp.at === 0
+    } else out.planted = out.harvested = 'no spot'
+    delete hands._aim
+
+    // Fishing: the rod from Player 2's Shop, RT casts, RT on the bite reels in.
+    gear.coins = 1000
+    press(15)
+    while (gear.menu.tab !== 'items') press(5)
+    gear.menu.focus = gear._rows().findIndex((row) => row.name === gear.label({ kind: 'item', id: 'fishingRod' }))
+    press(0)
+    out.rodBought = p2Has('fishingRod') === 1
+    out.oneRod = gear._rows()[gear.menu.focus].off === true
+    press(1)
+    press(1)
+    gear.select(gear.hot.findIndex((x) => x?.id === 'fishingRod'))
+    hands.fishing._waterInView = () => ({ x: c.p2.x + 4, y: c.p2.y, z: c.p2.z, cx: Math.floor(c.p2.x + 4), cz: Math.floor(c.p2.z) })
+    press(7)
+    out.cast = hands.fishing.out && !s.fishing.out
+    for (let i = 0; i < 300 && !(hands.fishing.bob?.bite > 0); i++) step(1)
+    out.bite = hands.fishing.bob?.bite > 0 && msg().length > 0
+    const aq = JSON.parse(localStorage.getItem('gayz-aquarium') || '{}').fish || 0
+    const rand = Math.random
+    Math.random = () => 0.1
+    try { press(7) } finally { Math.random = rand }
+    out.caught = p2Has('fish') === 1 && p1Has('fish') === 0 && !hands.fishing.out
+    out.aquarium = (JSON.parse(localStorage.getItem('gayz-aquarium') || '{}').fish || 0) === aq + 1
+
+    // Emotes: D-pad left, A plays one; walking stops it.
+    gear.select(0)
+    press(14)
+    out.emoteList = gear.menu?.screen === 'emote' && gear._rows().length === 6
+    press(0)
+    // (Player 2's body loads its skin first.)
+    for (let i = 0; i < 60 && !c.body; i++) await new Promise((res) => setTimeout(res, 50))
+    step(3)
+    out.emoting = gear.emote?.id === 'dance' && !gear.menuOpen && Math.abs(c.body.char.limbPivots.armR.rotation.x) > 0.2
+    pad.axes[1] = -1
+    step(10)
+    pad.axes[1] = 0
+    step(2)
+    out.emoteStopped = !gear.emote
+
+    s.stop()
+    out.cleaned = !document.getElementById('couch-hud')
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [], configurable: true })
+    return out
+  })
+  expect(r.wheel).toHaveLength(5)
+  expect(r).toMatchObject({
+    craftScreen: true, crafted: true, craftShown: true, helmet: true, p1Only: true,
+    chest: true, chestOnce: true, p1Chest: true, chestQuest: true, planted: true, harvested: true,
+    rodBought: true, oneRod: true, cast: true, bite: true, caught: true, aquarium: true,
+    emoteList: true, emoting: true, emoteStopped: true, cleaned: true,
+  })
+  expect([true, 'no room']).toContain(r.heli)
+})

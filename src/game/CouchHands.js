@@ -10,12 +10,19 @@
 //     place it; otherwise aim (CouchCoop._sticks).
 //   - LB / RB: the hotbar slot (CouchGear.js). D-pad down: drop the held
 //     thing. D-pad right: Player 2's Shop.
-//   - Y (Use): get in / out of the nearest vehicle, or with Auto Pick-Up
-//     off, pick up drops near you.
+//   - Y (Use): get in / out of the nearest vehicle; else use the block
+//     you're looking at (2026-11-14, Batch 4c-2c: open a Loot Chest - your
+//     own loot, BuildSurvival.useChestP2 - plant / harvest a Crop Plot,
+//     ring a doorbell, open a door...); else, with Auto Pick-Up off, pick
+//     up drops near you.
+//   - D-pad left (Emote): the emote list (CouchGear.js). Moving, shooting
+//     or getting hurt stops it.
+//   - RT holding a Fishing Rod: cast / reel in (Fishing.js, Player 2's
+//     own `fishing` - "Something's biting! Press RT!").
 //   - B (Crouch): sneak (slower); gets out of the go-kart and boats.
 // Vehicles: the go-kart and any boat, helicopter, hot-air balloon,
-// submarine or jet ski Player 1 has put down - one driver each, Player 2
-// can't craft new ones. The left stick drives, A climbs, B goes down (the
+// submarine or jet ski either of you has put down - one driver each
+// (since 4c-2c Player 2 crafts and puts down their own too). The left stick drives, A climbs, B goes down (the
 // same as Player 1's Jump and Crouch), and a helicopter flies where Player
 // 2 looks. Vehicles keep their own code (GoKart.js / Vehicles.js
 // enterP2 / driveP2 / leaveP2).
@@ -25,6 +32,8 @@ import * as THREE from 'three'
 import { t } from './i18n.js'
 import { DIG_REACH } from './BuildTryMode.js'
 import { KART_EYE } from './GoKart.js'
+import { Fishing } from './Fishing.js'
+import { ITEMS } from './PlayInventory.js'
 
 // Controller buttons (the same numbers as CouchCoop.js).
 const B_A = 0
@@ -35,6 +44,7 @@ const B_RB = 5
 const B_LT = 6
 const B_RT = 7
 const DOWN = 13
+const LEFT = 14
 const RIGHT = 15
 // Player 2's eyes above their feet (CouchCoop.js EYE).
 const EYE = 1.62
@@ -55,6 +65,29 @@ export class CouchHands {
     this.dig = null
     // In a vehicle: { kind: 'kart' } or { kind: 'veh', v }.
     this.ride = null
+    // Player 2's own fishing line (Fishing.js with them as the angler).
+    const c = couch
+    const gear = this.gear
+    this.fishing = new Fishing(this.s, {
+      get camera() { return c.camera },
+      body: () => c.p2,
+      holdingRod: () => {
+        const it = gear.held()
+        return it?.kind === 'item' && !!ITEMS[it.id]?.rod && !this.ride
+      },
+      dead: () => !c.joined || c.p2.isDown || this.s.dead,
+      say: (text, secs) => c.p2Message(text, secs),
+      add: (item) => gear.add(item),
+      earn: (n) => gear.earn(n),
+      biteText: () => t('couchFishBite'),
+    })
+  }
+
+  // RT with the Fishing Rod held.
+  fish() {
+    if (this.ride) return false
+    this.c._placeCamera()
+    return this.fishing.use()
   }
 
   get bm() {
@@ -85,7 +118,11 @@ export class CouchHands {
     }
     if (i === B_Y) {
       if (this.ride) this.leave()
-      else if (!this.enter(false)) this.s._drops?.pickUpNear(this.p, g)
+      else if (!this.enter(false) && !this.useBlock()) this.s._drops?.pickUpNear(this.p, g)
+      return true
+    }
+    if (i === LEFT) {
+      g.open('emote')
       return true
     }
     if (i === B_B) {
@@ -108,6 +145,7 @@ export class CouchHands {
       return true
     }
     if (i === B_RT) {
+      g.stopEmote()
       const it = g.held()
       if (!it || it.kind === 'gun') this.c._fire()
       else if (it.kind === 'block') {
@@ -123,12 +161,44 @@ export class CouchHands {
   // ---------- Every frame (CouchCoop.update, while Player 2 can act) ----------
 
   update(dt, triggerHeld) {
+    this.fishing.update(dt)
+    const em = this.gear.emote
+    if (em && ((em.left -= dt) <= 0 || this.p.isDown || this.ride || Math.hypot(this.p.vx, this.p.vz) > 0.5)) this.gear.stopEmote()
     if (this.ride) {
       this.dig = null
       return
     }
-    if (triggerHeld) this._digStep(dt)
+    // (Holding the rod, RT is for fishing, not digging.)
+    if (triggerHeld && !this.fishing.angler.holdingRod()) this._digStep(dt)
     else this.dig = null
+  }
+
+  // Y on the block Player 2 is looking at: their own Loot Chest, a Crop
+  // Plot (what's harvested goes in their Backpack), a doorbell, radio...
+  // (BuildSpecials.use), a door. true if something happened.
+  useBlock() {
+    const s = this.s
+    const bm = this.bm
+    const hit = this._aim()
+    if (!hit) return false
+    const [x, y, z] = hit.existingBlock
+    if (this._reach(x, y, z) > PLACE_REACH) return false
+    if (s.useChestP2(x, y, z, this.c)) return true
+    // Special blocks talk to Player 1's inventory and message line: for
+    // this one call they're Player 2's.
+    const inv = s.inv
+    const message = s._message
+    s.inv = { add: (item) => this.gear.add(item), has: (id) => this.gear.has(id) }
+    s._message = (text, secs) => this.c.p2Message(text, secs)
+    let used
+    try {
+      used = !!bm.gadgets?.use(x, y, z, true) || !!bm.specials?.use(x, y, z)
+    } finally {
+      s.inv = inv
+      s._message = message
+    }
+    if (used) return true
+    return !!bm.toggleDoor?.(x, y, z)
   }
 
   // B held on foot: sneaking (CouchCoop._physics).
@@ -307,6 +377,7 @@ export class CouchHands {
   }
 
   dispose() {
+    this.fishing.clear()
     const s = this.s
     if (s.kart?.p2) s.kart.p2 = false
     if (s.vehicles) s.vehicles.p2Riding = null

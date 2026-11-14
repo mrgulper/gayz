@@ -159,14 +159,18 @@ export class Vehicles {
   }
 
   // Holding a Boat / Helicopter and using it (PlayInventory.useHeld).
-  // -> true if one was put down.
-  place(kind) {
+  // -> true if one was put down. who: Couch Co-op's equal Player 2
+  // ({ pos, yaw, say }, CouchGear.js) - put down in front of them.
+  place(kind, who = null) {
     const s = this.s
-    if (s.dead || s.spectating || this.riding) return false
+    if (s.dead || (!who && (s.spectating || this.riding))) return false
+    const say = who ? who.say : (text, secs) => s._message(text, secs)
+    const pos = who ? who.pos : this.bm.tryMode.pos
+    const yaw = who ? who.yaw : this.bm._yaw
     const wet = kind === 'boat' || kind === 'sub' || kind === 'jetski'
-    const spot = wet ? this._waterAhead() : this._groundAhead(kind)
+    const spot = wet ? this._waterAhead(pos, yaw) : this._groundAhead(kind, pos, yaw)
     if (!spot) {
-      s._message(t(wet ? 'vehicleNeedWater' : 'vehicleNeedRoom'), 3)
+      say(t(wet ? 'vehicleNeedWater' : 'vehicleNeedRoom'), 3)
       return false
     }
     // Too many out: the oldest one you're not in goes.
@@ -178,7 +182,7 @@ export class Vehicles {
       x: spot.x,
       y: spot.y,
       z: spot.z,
-      heading: this.bm._yaw + Math.PI,
+      heading: yaw + Math.PI,
       speed: 0,
       side: 0,
       vy: 0,
@@ -190,7 +194,7 @@ export class Vehicles {
     this.bm.scene.add(v.group)
     this.list.push(v)
     this._place(v, 0)
-    s._message(t(KEYS[kind].placed), 4)
+    say(t(KEYS[kind].placed), 4)
     try { audioEngine.playPlace?.() } catch { /* no audio */ }
     return true
   }
@@ -203,9 +207,7 @@ export class Vehicles {
   }
 
   // Water within a few blocks in front of you: its top.
-  _waterAhead() {
-    const p = this.bm.tryMode.pos
-    const yaw = this.bm._yaw
+  _waterAhead(p = this.bm.tryMode.pos, yaw = this.bm._yaw) {
     for (let d = 1; d <= 5; d += 0.5) {
       const x = p.x - Math.sin(yaw) * d
       const z = p.z - Math.cos(yaw) * d
@@ -229,9 +231,7 @@ export class Vehicles {
 
   // Open ground 2..4 blocks in front of you with room for the rotor (a
   // balloon: a little further, with open sky for the envelope).
-  _groundAhead(kind = 'heli') {
-    const p = this.bm.tryMode.pos
-    const yaw = this.bm._yaw
+  _groundAhead(kind = 'heli', p = this.bm.tryMode.pos, yaw = this.bm._yaw) {
     const from = kind === 'balloon' ? 3 : 2.5
     for (let d = from; d <= from + 2; d += 0.5) {
       const x = Math.floor(p.x - Math.sin(yaw) * d) + 0.5
@@ -716,19 +716,23 @@ export class Vehicles {
 
   // Using Heli Fuel (PlayInventory.useHeld): fills the helicopter or
   // balloon you're in or standing next to. -> true if used.
-  addFuel() {
+  // who: Couch Co-op's equal Player 2 ({ pos, say }) - their ride, or one near them.
+  addFuel(who = null) {
     const fuels = (o) => !!FUEL_FOR[o?.kind]
-    const v = fuels(this.riding) ? this.riding : this.list.find((o) => fuels(o) && Math.hypot(o.x - this.bm.tryMode.pos.x, o.z - this.bm.tryMode.pos.z) < ENTER_REACH + 1)
+    const say = who ? who.say : (text, secs) => this.s._message(text, secs)
+    const pos = who ? who.pos : this.bm.tryMode.pos
+    const mine = who ? this.p2Riding : this.riding
+    const v = fuels(mine) ? mine : this.list.find((o) => fuels(o) && Math.hypot(o.x - pos.x, o.z - pos.z) < ENTER_REACH + 1)
     if (!v) {
-      this.s._message(t('vehicleFuelNoHeli'), 3)
+      say(t('vehicleFuelNoHeli'), 3)
       return false
     }
     if (v.fuel >= FUEL_FOR[v.kind] - 0.5) {
-      this.s._message(t('vehicleFuelFull'), 2)
+      say(t('vehicleFuelFull'), 2)
       return false
     }
     v.fuel = FUEL_FOR[v.kind]
-    this.s._message(t(KEYS[v.kind].refueled), 3)
+    say(t(KEYS[v.kind].refueled), 3)
     this._renderFuel()
     return true
   }
