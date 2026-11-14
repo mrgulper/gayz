@@ -14,6 +14,7 @@
 // reaches them; you find one by caving or digging down.
 
 import { dungeonCell, dungeonYRange } from './Dungeons.js'
+import { mineCell, mineYRange } from './MineTracks.js'
 
 const UC_GRID = 320
 const UC_CHANCE = 0.55
@@ -71,9 +72,10 @@ export function citiesOver(x0, z0, x1, z1) {
 }
 
 // Vertical range a city uses (floor's underside .. dome top). Dungeons
-// (Dungeons.js) ride along in the same lists.
+// (Dungeons.js) and mine lines (MineTracks.js) ride along in the same lists.
 export function cityYRange(c) {
   if (c.dungeon) return dungeonYRange(c)
+  if (c.mine) return mineYRange(c)
   return [c.floor - 2, c.floor + DOME_H + 1]
 }
 
@@ -144,7 +146,7 @@ export function cityCell(c, x, y, z) {
 // What a cell is across a list of cities (citiesOver): see cityCell.
 export function cityAt(cities, x, y, z) {
   for (const c of cities) {
-    const v = c.dungeon ? dungeonCell(c, x, y, z) : cityCell(c, x, y, z)
+    const v = c.dungeon ? dungeonCell(c, x, y, z) : c.mine ? mineCell(c, x, y, z) : cityCell(c, x, y, z)
     if (v !== undefined) return v
   }
   return undefined

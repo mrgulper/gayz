@@ -130,7 +130,12 @@ const CROUCH = 2
 // going; each link speeds you up (bloxd.io's numbers).
 const BHOP_WINDOW = 0.12
 const BHOP_MULT = [1, 1.15, 1.225, 1.3]
-const GROUND_GRIP = 15 // how fast speed follows the keys on the ground (26 felt like a snap)
+// How fast speed follows the keys on the ground (2026-11-13, Gaymi: "it
+// feels like there's a rock on you when you're moving"): 15 before was
+// sluggish, 26 felt like a snap. Letting go stops quicker (STOP_GRIP) so
+// you don't slide on.
+const GROUND_GRIP = 20
+const STOP_GRIP = 30
 const AIR_GRIP = 11 // ...and in the air (bloxd steers well mid-jump)
 const GRAVITY = 30
 const JUMP = 8.8 // ~1.3 blocks high
@@ -1358,6 +1363,9 @@ export class BuildTryMode {
     // Special blocks underfoot (sticky floor, speed pads...) change it too.
     let speed = (crouch ? CROUCH : sprint ? SPRINT : WALK) * (this.speedMult ?? 1) * this.bm.specials.speedMult
     speed *= BHOP_MULT[this._hopChain]
+    // Lugging one of the biggest guns (PlayWeapons `heavy`) slows you a bit.
+    const play = this.bm.survival
+    if (play?.active && !play.holding) speed *= PLAY_WEAPONS[play.weaponId]?.heavy ?? 1
     // Slower in water - unless you took a boat from a Boat Dock.
     if (inLiquid) speed *= 0.7 * (this.bm.specials._buff('boat') || 1)
     // Wading through flood water (Disasters.js).
@@ -1371,7 +1379,7 @@ export class BuildTryMode {
     const want = len ? (speed * amount) / len : 0
     // Freezing rain glazes the ground: you slide about (BuildWeather.glaze).
     const glaze = this.onGround ? this.bm.sky?.weather3d?.glaze() || 0 : 0
-    const grip = (this.onGround ? GROUND_GRIP : AIR_GRIP) * this.bm.specials.gripMult * (1 - glaze * 0.75) * (glide?.grip ?? 1)
+    const grip = (this.onGround ? (len ? GROUND_GRIP : STOP_GRIP) : AIR_GRIP) * this.bm.specials.gripMult * (1 - glaze * 0.75) * (glide?.grip ?? 1)
     // The wind (stronger in worse weather) and a disaster's push - a
     // flood's current, an avalanche, a shockwave - carry you along a
     // little (2026-10-30, Gaymi: "wind effects that could blow you

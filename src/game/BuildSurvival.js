@@ -59,6 +59,7 @@ import { Sleds } from './Sleds.js'
 import { HotSprings } from './HotSprings.js'
 import { HauntedHouse } from './HauntedHouse.js'
 import { Minecarts } from './Minecarts.js'
+import { setTarget, ahead } from './NetSmooth.js'
 import { Ufo } from './Ufo.js'
 import { ZombieBlimp } from './ZombieBlimp.js'
 import { ZombieBingo } from './ZombieBingo.js'
@@ -3932,9 +3933,7 @@ export class BuildSurvival {
         if (z.shine) this._announceShine(z)
         z.group.position.set(d.x * this.B, d.y * this.B, d.z * this.B)
       }
-      z.tx = d.x
-      z.ty = d.y
-      z.tz = d.z
+      setTarget(z, d.x, d.y, d.z)
       z.tr = d.r
       if (d.hp < z.health) {
         z.flash = 0.12
@@ -3976,6 +3975,8 @@ export class BuildSurvival {
     const B = this.B
     for (const z of this.zombies) {
       if (z.tx === undefined) continue
+      // Between syncs it keeps going the way it was (NetSmooth.js).
+      ahead(z, dt)
       const ox = z.x
       const oz = z.z
       z.x += (z.tx - z.x) * k

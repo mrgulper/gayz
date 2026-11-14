@@ -50,6 +50,7 @@ import { drawRemote, disposeRemote, cleanRemote } from './Vehicles.js'
 import { cleanPins } from './MapPins.js'
 import { explored, unpackKeys } from './ExploredMap.js'
 import { ownerTag, ownerCrown, startOwnerMode } from './OwnerDropIn.js'
+import { setTarget, ahead } from './NetSmooth.js'
 
 // Seconds between syncs.
 export const SYNC_EVERY = 0.16
@@ -359,7 +360,8 @@ export class PlayNet {
         // Not for the players already there when I joined.
         if (!this._firstSync) addChatSystemLine(this.game, t('serverPlayerJoined', { name: p.nick || 'Survivor' }))
       }
-      Object.assign(mine, { tx: p.x, ty: p.y, tz: p.z, tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), esc: !!p.esc, gh: cleanGhost(p.gh), jam: cleanJam(p.jam), kills: Number.isFinite(Number(p.kills)) ? Math.max(0, Math.floor(Number(p.kills))) : undefined })
+      setTarget(mine, p.x, p.y, p.z)
+      Object.assign(mine, { tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), esc: !!p.esc, gh: cleanGhost(p.gh), jam: cleanJam(p.jam), kills: Number.isFinite(Number(p.kills)) ? Math.max(0, Math.floor(Number(p.kills))) : undefined })
       if (sharedFog) {
         if (p.fog && typeof p.fog.c === 'string' && p.fog.n !== mine.fogN) {
           mine.fogN = p.fog.n
@@ -546,6 +548,8 @@ export class PlayNet {
 
   _drawPlayer(p, dt) {
     if (!p.seen) return
+    // Between syncs they keep going the way they were (NetSmooth.js).
+    ahead(p, dt)
     const k = 1 - Math.exp(-FOLLOW * dt)
     const ox = p.x
     const oz = p.z

@@ -44,7 +44,8 @@ import { GRID as LAVA_GRID, WARN_S as LAVA_WARN, REGROW_S as LAVA_REGROW } from 
 import { KO_S as LASER_KO } from './PartyLaser.js'
 import { LAPS as KART_LAPS, BOOST_S as KART_BOOST } from './PartyKart.js'
 import { CHECKPOINTS as PARKOUR_CPS } from './PartyParkour.js'
-import { MAX_TRACKS as CART_TRACKS, HOP_EVERY as CART_HOP, CART_COINS } from './Minecarts.js'
+import { HOP_EVERY as CART_HOP, CART_COINS } from './Minecarts.js'
+import { LEN_MIN as CART_LEN_MIN, LEN_MAX as CART_LEN_MAX } from './MineTracks.js'
 import { GHOSTS as HAUNT_GHOSTS, HAUNT_COINS } from './HauntedHouse.js'
 import { GRAB_S as UFO_GRAB, ALIENS as UFO_ALIENS, UFO_COINS } from './Ufo.js'
 import { FROM_WAVE as DRAGON_WAVE, FIRE_DMG as DRAGON_FIRE, DRAGON_HP, HOARD_COINS, HOARD_GEMS } from './DragonBoss.js'
@@ -122,7 +123,7 @@ import { MIN_FPS } from './PlayEntryUI.js'
 import { EMOTES } from './Emotes.js'
 import { SHOP_TABS, AMMO_FILL_COOLDOWN } from './PlayShop.js'
 import { GRASS_GROW_SECONDS } from './GrassTufts.js'
-import { PLAY_WEAPONS } from './PlayWeapons.js'
+import { PLAY_WEAPONS, HEAVY } from './PlayWeapons.js'
 import { LANGUAGES, t, tHtml } from './i18n.js'
 import { SPECIAL_BLOCKS } from './SpecialBlocks.js'
 import { levelUpCoins } from './Xp.js'
@@ -526,9 +527,11 @@ export function _featureValues(_game) {
     kartLaps: KART_LAPS,
     kartBoost: KART_BOOST,
     parkourCheckpoints: PARKOUR_CPS.length - 1,
-    cartTracks: CART_TRACKS,
+    cartLenMin: CART_LEN_MIN,
+    cartLenMax: CART_LEN_MAX,
     cartHop: CART_HOP,
     cartCoins: CART_COINS,
+    heavyPct: Math.round(HEAVY * 100),
     hauntGhosts: HAUNT_GHOSTS,
     hauntCoins: HAUNT_COINS,
     ufoGrab: UFO_GRAB,
