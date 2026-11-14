@@ -37,12 +37,16 @@ import { NEW_KINDS, NEW_BIOME_ANIMALS, RARITIES, rarityOf } from './NewAnimalKin
 import { WILD_KINDS, WILD_BIOME_ANIMALS, WILD_TIERS, HUNTERS } from './WildAnimalKinds.js'
 import { CREATURE_KINDS, CREATURE_BIOME_ANIMALS, CREATURE_TIERS } from './CreatureKinds.js'
 import { addAnimalMeat } from './PlayInventory.js'
+import { audioEngine } from './Audio.js'
+import { animalVoice } from './AnimalSounds.js'
 
 export const MAX_WILD = 12
 // Animals a server's sync carries at most (api/_lib/servers.js MAX_ANIMALS).
 export const MAX_SHARED = 24
 // A kill whose last shot was mine this recently gives me the meat.
 const MY_KILL_MS = 3000
+const VOICE_RANGE = 28 // blocks: animals farther than this are silent
+const CALL_MIN_S = 10 // each animal calls out every 10-30 s
 const SPAWN_EVERY_S = 1.5
 const SPAWN_MIN = 24 // blocks from you
 const SPAWN_MAX = 56
@@ -516,6 +520,7 @@ export class PlayAnimals {
     this.s = survival
     this.list = []
     this._spawnIn = 0
+    this._lastCallAt = 0
     this._parts = {}
     this._aid = 0
   }
@@ -699,6 +704,7 @@ export class PlayAnimals {
         if (a.dieT > DIE_S) this._remove(a)
         continue
       }
+      this._maybeCall(a, dt)
       if (!a.tamed && !a.placed && centers.every((c) => Math.hypot(a.x - c.x, a.z - c.z) > DESPAWN)) {
         this._remove(a)
         continue
@@ -1037,6 +1043,7 @@ export class PlayAnimals {
       // The host's animal: it takes the hit there (and tells everyone).
       net.queueAnimalHit(a.netId, damage)
       a.hurt = 0.25
+      this._voice(a, 'hurt')
       this._bleed(a)
       a.myHitAt = performance.now()
       return true
@@ -1057,6 +1064,7 @@ export class PlayAnimals {
     if (amount > 0) this._bleed(a)
     a.health -= amount
     a.hurt = 0.25
+    this._voice(a, a.health > 0 ? 'hurt' : 'death')
     // A meat-eating dinosaur gets angry instead of running.
     if (KINDS[a.kind].hunts) a.angry = ANGRY_S
     else a.flee = FLEE_S
@@ -1065,6 +1073,35 @@ export class PlayAnimals {
     a.legs.forEach((leg) => { leg.rotation.x = 0 })
     // Meat pops out where it fell.
     if (!by) this._dropMeat(a)
+  }
+
+  // Sounds (2026-11-13): an animal calls out now and then when you're near,
+  // and cries when hit or killed. Quieter the farther away, panned to
+  // where it is; nothing past VOICE_RANGE blocks.
+  _voice(a, mode) {
+    const cam = this.bm?.camera
+    if (!cam) return
+    const B = this.s.B || 1
+    const dx = a.x * B - cam.position.x
+    const dz = a.z * B - cam.position.z
+    const dist = Math.hypot(dx, dz, a.y * B - cam.position.y) / B
+    if (dist > VOICE_RANGE) return
+    const gain = Math.max(0, 1 - dist / VOICE_RANGE) ** 1.5
+    // Left/right: which side of where the camera is looking.
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
+    const pan = Math.max(-1, Math.min(1, (dx * right.x + dz * right.z) / Math.max(B, dist * B)))
+    try { audioEngine.playAnimal?.(animalVoice(a.kind, KINDS[a.kind]), mode, pan, gain) } catch { /* no audio */ }
+  }
+
+  // Now and then a living, wild-or-pet animal calls out (not two at once).
+  _maybeCall(a, dt) {
+    a.callIn = (a.callIn ?? 4 + Math.random() * 20) - dt
+    if (a.callIn > 0) return
+    a.callIn = CALL_MIN_S + Math.random() * CALL_MIN_S * 2
+    const now = performance.now()
+    if (now - this._lastCallAt < 1500 || !animalVoice(a.kind, KINDS[a.kind]).calls) return
+    this._lastCallAt = now
+    this._voice(a, 'idle')
   }
 
   _dropMeat(a) {
@@ -1179,7 +1216,11 @@ export class PlayAnimals {
       a.ty = d.y
       a.tz = d.z
       a.th = d.h
-      if (d.hp < a.health) a.hurt = 0.25
+      if (d.hp < a.health) {
+        a.hurt = 0.25
+        // Someone else's hit (mine already cried out).
+        if (!(a.myHitAt && performance.now() - a.myHitAt < 300) && d.hp > 0) this._voice(a, 'hurt')
+      }
       a.health = d.hp
       a.tamed = !!d.t
       a.collar.visible = !!d.t
@@ -1196,6 +1237,7 @@ export class PlayAnimals {
 
   _mirrorDies(a) {
     a.dying = true
+    this._voice(a, 'death')
     a.legs.forEach((leg) => { leg.rotation.x = 0 })
     if (a.myHitAt && performance.now() - a.myHitAt < MY_KILL_MS) this._dropMeat(a)
   }
@@ -1211,6 +1253,7 @@ export class PlayAnimals {
         if (a.dieT > DIE_S) this._remove(a)
         continue
       }
+      this._maybeCall(a, dt)
       if (a.tx === undefined) continue
       const ox = a.x
       const oz = a.z

@@ -197,6 +197,15 @@ function bindAudioExtras(game) {
   window.addEventListener('keydown', wake, true)
   for (const key of ['musicVolume', 'uiVolume', 'footstepVolume', 'weaponVolume', 'quietHours']) onMoreSetting(key, volumes)
   onMoreSetting('monoAudio', (on) => audioEngine.setMono?.(on))
+  // Homepage Music (2026-11-13): calm music on the homepage only - it
+  // fades out when a game or the Map Editor opens and back in after.
+  onMoreSetting('menuMusic', (on) => audioEngine.setMenuMusic?.(on !== false))
+  setInterval(() => {
+    if (!audioEngine.ctx) return
+    const home = !game.buildMode?.active && !document.hidden
+    if (home && !audioEngine.menuMusicPlaying) audioEngine.startMenuMusic?.()
+    else if (!home && audioEngine.menuMusicPlaying) audioEngine.stopMenuMusic?.()
+  }, 500)
   onMoreSetting('duckNearZombies', (on) => { if (!on) audioEngine.setDuck?.(1) })
   onMoreSetting('soundSubtitles', (on) => { if (!on) clearCaptions() })
   // Quiet hours start and end on their own: check the clock every minute.
@@ -211,8 +220,16 @@ function bindAudioExtras(game) {
   // buttons are rare and the guns are louder anyway).
   document.addEventListener('click', (e) => {
     if (!e.isTrusted) return
-    if (!e.target.closest?.('button, .settings-tab, [role="button"], select, input[type="checkbox"]')) return
-    audioEngine.playUiClick?.()
+    const el = e.target.closest?.('button, .settings-tab, [role="button"], select, input[type="checkbox"]')
+    if (!el) return
+    // Homepage / store / market sounds (2026-11-13): the right-side
+    // buttons open with a swoosh, X closes, tabs flick, the rest click.
+    // (Buying and crates play their own from where the coins change.)
+    const cls = typeof el.className === 'string' ? el.className : ''
+    if (el.closest('#menu-nav-buttons, #menu-player-badge') || /^(store|market|menu-inventory|settings|gamemode)-btn$/.test(el.id)) audioEngine.playUi?.('open')
+    else if (/close/i.test(cls) || /close/i.test(el.id)) audioEngine.playUi?.('close')
+    else if (/(^|[\s-])tab(\b|-)/i.test(cls) || el.getAttribute('role') === 'tab') audioEngine.playUi?.('tab')
+    else audioEngine.playUiClick?.()
   }, true)
   audioEngine.onCaption = (kind, pan) => {
     if (game.settings.soundSubtitles) showCaption(kind, pan)

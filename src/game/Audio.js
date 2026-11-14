@@ -8,15 +8,53 @@ const SHOT_PRESETS = {
   minigun: { toneFreq: 1300, toneQ: 0.5, duration: 0.06, gain: 0.38, thumpFreq: 130 },
 }
 
-// "Zombies Sound Pack" by artisticdude (CC0, opengameart.org/content/zombies-sound-pack).
-// Split by clip length into snarl/moan/death pools since the pack ships with
-// no per-file categorization.
-const ZOMBIE_SOUND_DIR = '/audio/zombies/'
-const ZOMBIE_SOUND_FILES = {
-  attack: ['zombie-24.wav', 'zombie-5.wav', 'zombie-11.wav', 'zombie-6.wav', 'zombie-13.wav', 'zombie-3.wav', 'zombie-7.wav'],
-  moan: ['zombie-14.wav', 'zombie-22.wav', 'zombie-2.wav', 'zombie-4.wav', 'zombie-10.wav', 'zombie-8.wav', 'zombie-23.wav', 'zombie-1.wav', 'zombie-9.wav', 'zombie-15.wav', 'zombie-12.wav', 'zombie-20.wav', 'zombie-19.wav'],
-  death: ['zombie-21.wav', 'zombie-18.wav', 'zombie-16.wav', 'zombie-17.wav'],
+// Recorded sounds (2026-11-13 sound upgrade). All CC0 / public domain:
+// Kenney.nl packs (Interface, UI, Impact, RPG, Casino, Digital, Jingles,
+// Sci-Fi), BigSoundBank.com, and Wikimedia Commons public-domain/CC0
+// recordings (US National Park Service Yellowstone library and others).
+// Trimmed to the loudest part, mono mp3, in /audio/sfx/<name>-<n>.mp3.
+// The number is how many takes each has (one is picked at random).
+// Every sound keeps its old synthesized version as a backup for when the
+// file hasn't loaded yet (or Data Saver is on).
+const SFX_DIR = '/audio/sfx/'
+const SFX = {
+  shot_pistol: 1, shot_rifle: 1, shot_shotgun: 1, reload_out: 1, reload_in: 1, cock: 2, swing: 2,
+  hit_body: 3, hit_kill: 2, hit_head: 2, hurt: 1, heart: 2, ammo_tick: 1, thunder: 2, explosion: 1,
+  explosion_crunch: 2, boom: 1, glass_crack: 2, glass_break: 2, zmoan: 10, zattack: 7, zdeath: 4,
+  foot_concrete: 5, foot_grass: 5, foot_snow: 5, foot_wood: 5, levelup: 1,
+  ui_click: 2, ui_hover: 2, ui_open: 3, ui_close: 2, ui_tab: 2, ui_coin: 2, ui_chips: 3, ui_confirm: 2,
+  ui_error: 2, ui_unbox: 2, ui_ping: 1,
+  sp_bell: 2, sp_pop: 2, sp_chime: 3, sp_thud: 2, sp_clank: 2, sp_crumble: 3, sp_zap: 2, sp_jetpack: 2,
+  sp_hum: 1, splash: 2, wings: 1,
+  a_dog: 3, a_wolf: 1, a_cat: 3, a_catgrowl: 1, a_bigcat: 3, a_bear: 2, a_cow: 3, a_pig: 2, a_sheep: 3,
+  a_goat: 2, a_horse: 2, a_donkey: 1, a_chicken: 2, a_rooster: 1, a_duck: 3, a_crow: 2, a_owl: 2,
+  a_parrot: 2, a_gull: 2, a_peacock: 2, a_deer: 1, a_elephant: 1, a_hippo: 2, a_orca: 2, a_frog: 2,
+  a_buzz: 2, a_cricket: 1, a_squeak: 3,
 }
+// Loaded as soon as sound starts (they're needed in the first seconds of
+// play); everything else loads the first time it's asked for.
+const SFX_EARLY = ['shot_pistol', 'shot_rifle', 'shot_shotgun', 'reload_out', 'reload_in', 'cock', 'swing',
+  'hit_body', 'hit_kill', 'hit_head', 'hurt', 'zmoan', 'zattack', 'zdeath', 'foot_concrete', 'foot_grass',
+  'ui_click', 'ui_hover', 'ui_open', 'ui_close', 'ui_tab', 'ui_coin', 'ui_chips', 'ui_confirm', 'ui_error']
+// Which recording each gun uses, and how it's played: rate (pitch/speed),
+// gain, len (cut short for fast guns, seconds).
+const GUN_SOUNDS = {
+  pistol: ['shot_pistol', 1.05, 0.8], revolver: ['shot_pistol', 0.85, 1], rifle: ['shot_rifle', 1, 0.75, 0.35],
+  minigun: ['shot_rifle', 1.15, 0.6, 0.16], gpmg: ['shot_rifle', 0.9, 0.75, 0.22],
+  suppressedsmg: ['shot_rifle', 1.2, 0.5, 0.2], shotgun: ['shot_shotgun', 1, 0.9], awp: ['shot_shotgun', 0.8, 1],
+  launcher: ['explosion_crunch', 1.3, 0.6, 0.4], rocket: ['sp_jetpack', 0.8, 0.9], voidripper: ['sp_zap', 0.8, 0.8],
+  crossbow: ['swing', 1.4, 0.8], tomahawk: ['swing', 0.9, 0.9], flamethrower: ['sp_jetpack', 1.1, 0.5, 0.25],
+}
+// playSpecial kinds that have a recording now: [sound, rate, gain].
+const SPECIAL_SAMPLES = {
+  bell: ['sp_bell', 1, 0.8], whoosh: ['swing', 0.8, 0.7], pop: ['sp_pop', 1, 0.7], chime: ['sp_chime', 1, 0.6],
+  warn: ['ui_error', 0.9, 0.6], thud: ['sp_thud', 1, 0.8], clank: ['sp_clank', 1, 0.7], crumble: ['sp_crumble', 0.9, 0.8],
+  zap: ['sp_zap', 1, 0.6], jetpack: ['sp_jetpack', 1, 0.5], hum: ['sp_hum', 1, 0.5], turret: ['shot_rifle', 1.25, 0.35, 0.15],
+  snowSplat: ['foot_snow', 1, 0.8], snowThrow: ['swing', 1.5, 0.4], chatPing: ['ui_ping', 1.2, 0.5],
+  detectorFound: ['ui_confirm', 1, 0.6], potionGulp: ['splash', 1.6, 0.4], squirt: ['splash', 1.8, 0.35],
+}
+// Calm homepage music: "Calm and simple title music" (CC0, opengameart.org).
+const MENU_MUSIC_URL = '/audio/music/menu-calm.mp3'
 
 // Weather ambience (batch 2026-08-20, at the user's request - the rain/snow
 // bandpassed-noise bed in startAmbient was too quiet/thin to actually read
@@ -87,7 +125,9 @@ class AudioEngine {
   constructor() {
     this.ctx = null
     this.ambientStarted = false
-    this.zombieBuffers = { attack: [], moan: [], death: [] }
+    this._sfx = {} // name -> decoded takes
+    this._sfxLoading = {}
+    this.menuMusicOn = true
     this._rainBuffer = null
     this._snowBuffer = null
     this.sfxVolume = 1
@@ -149,7 +189,7 @@ class AudioEngine {
     this.zombieGain = this.ctx.createGain()
     this.zombieGain.gain.value = this.zombieVolume
     this.zombieGain.connect(this.sfxGain)
-    this._loadZombieSounds()
+    this._preloadSfx()
     this._loadWeatherSounds()
   }
 
@@ -176,47 +216,73 @@ class AudioEngine {
       .catch(() => {})
   }
 
-  _loadZombieSounds() {
-    for (const [pool, all] of Object.entries(ZOMBIE_SOUND_FILES)) {
-      // Data Saver: two sounds of each kind instead of all 24 files.
-      const files = this.dataSaver ? all.slice(0, 2) : all
-      for (const file of files) {
-        fetch(ZOMBIE_SOUND_DIR + file)
-          .then((res) => res.arrayBuffer())
-          .then((data) => this.ctx.decodeAudioData(data))
-          .then((buffer) => this.zombieBuffers[pool].push(buffer))
-          .catch(() => {})
-      }
+  _preloadSfx() {
+    for (const name of SFX_EARLY) this._loadSfx(name)
+  }
+
+  // Fetches every take of one recorded sound (once). Data Saver: zombies
+  // get two takes each, everything else keeps its built-in synth sound.
+  _loadSfx(name) {
+    if (this._sfxLoading[name] || !SFX[name] || !this.ctx) return
+    const zombie = name[0] === 'z'
+    if (this.dataSaver && !zombie) return
+    this._sfxLoading[name] = true
+    const list = this._sfx[name] = []
+    const count = this.dataSaver ? Math.min(2, SFX[name]) : SFX[name]
+    for (let i = 1; i <= count; i++) {
+      fetch(`${SFX_DIR}${name}-${i}.mp3`)
+        .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error('no file'))))
+        .then((data) => this.ctx.decodeAudioData(data))
+        .then((buffer) => list.push(buffer))
+        .catch(() => {})
     }
   }
 
-  // Plays a random sample from the given zombie sound pool with slight pitch
-  // jitter so 4-13 clips per pool don't sound like an obvious loop, times an
-  // optional per-type pitchMult (see _pitchForScale) so a titan doesn't
-  // sound identical to a feral dog. pan (-1 left to 1 right, camera-
-  // relative) is only actually applied when settings.positionalAudio is
-  // on (see setPositionalAudio) - centered otherwise.
-  _playZombieSample(pool, gain, pitchMult = 1, pan = 0) {
-    const buffers = this.zombieBuffers[pool]
-    if (!buffers.length) return false
-
+  // Plays one random take of a recorded sound. False when it isn't loaded
+  // yet (starts loading it) so the caller can play its synth backup.
+  // opts: out (gain node), gain, rate (pitch), pan (-1..1), len (cut
+  // short, seconds), jitter (random pitch wobble so repeats differ).
+  _playSfx(name, { out = this.sfxGain, gain = 1, rate = 1, pan = 0, len = 0, jitter = 0.06, at = 0 } = {}) {
+    if (!this.ctx) return false
+    const takes = this._sfx[name]
+    if (!takes?.length) { this._loadSfx(name); return false }
     const ctx = this.ctx
-    const source = ctx.createBufferSource()
-    source.buffer = buffers[Math.floor(Math.random() * buffers.length)]
-    source.playbackRate.value = (0.9 + Math.random() * 0.2) * pitchMult
-
-    const gainNode = ctx.createGain()
-    gainNode.gain.value = gain
-
-    if (this.positionalAudioEnabled && pan !== 0) {
-      const panner = ctx.createStereoPanner()
-      panner.pan.value = Math.max(-1, Math.min(1, pan))
-      source.connect(gainNode).connect(panner).connect(this.zombieGain)
-    } else {
-      source.connect(gainNode).connect(this.zombieGain)
+    const src = ctx.createBufferSource()
+    src.buffer = takes[Math.floor(Math.random() * takes.length)]
+    src.playbackRate.value = Math.max(0.3, rate * (1 + (Math.random() * 2 - 1) * jitter))
+    const g = ctx.createGain()
+    g.gain.value = gain
+    const now = ctx.currentTime + at
+    if (len) {
+      g.gain.setValueAtTime(gain, now + len * 0.7)
+      g.gain.linearRampToValueAtTime(0.0001, now + len)
     }
-    source.start()
+    let node = src.connect(g)
+    if (pan && this.positionalAudioEnabled && ctx.createStereoPanner) {
+      const p = ctx.createStereoPanner()
+      p.pan.value = Math.max(-1, Math.min(1, pan))
+      node = node.connect(p)
+    }
+    node.connect(out || this.sfxGain)
+    src.start(now)
+    if (len) src.stop(now + len + 0.02)
     return true
+  }
+
+  // Zombie voices: same as before (a random take, slight pitch wobble,
+  // bigger zombies deeper) but from the newer recordings.
+  _playZombieSample(pool, gain, pitchMult = 1, pan = 0) {
+    const name = { moan: 'zmoan', attack: 'zattack', death: 'zdeath' }[pool]
+    return this._playSfx(name, { out: this.zombieGain, gain, rate: pitchMult * (pool === 'death' ? 0.85 : 1), pan, jitter: 0.1 })
+  }
+
+  // A zombie's snarl as it bites you.
+  playZombieAttack(scale = 1, pan = 0) {
+    if (!this.ctx) return
+    const now = this.ctx.currentTime
+    if (now - (this._lastBiteAt || 0) < 0.6) return
+    this._lastBiteAt = now
+    this._playZombieSample('attack', 0.55, this._pitchForScale(scale), pan)
   }
 
   resume() {
@@ -237,6 +303,9 @@ class AudioEngine {
   // shot.
   playShot(weaponId, suppressed = false) {
     if (!this.ctx) return
+    const gun = GUN_SOUNDS[weaponId] || GUN_SOUNDS.pistol
+    const muffle = suppressed || weaponId === 'suppressedsmg'
+    if (this._playSfx(gun[0], { out: this.weaponGain, rate: gun[1] * (muffle ? 1.35 : 1), gain: gun[2] * (muffle ? 0.3 : 1), len: suppressed ? 0.12 : gun[3] || 0, jitter: 0.04 })) return
     const preset = SHOT_PRESETS[weaponId] || SHOT_PRESETS.pistol
     const ctx = this.ctx
     const now = ctx.currentTime
@@ -292,6 +361,16 @@ class AudioEngine {
   // needing to author a table by hand.
   playReload(weapon) {
     if (!this.ctx) return
+    {
+      const big = Math.max(0.75, Math.min(1.2, 8 / (weapon.magSize || 8) + 0.5))
+      const gap = Math.max(0.2, Math.min(0.8, (weapon.reloadTime || 1.5) * 0.45))
+      const out = this.weaponGain
+      if (this._playSfx('reload_out', { out, rate: big, gain: 0.7 })) {
+        this._playSfx('reload_in', { out, rate: big, gain: 0.8, at: gap })
+        this._playSfx('cock', { out, rate: big, gain: 0.6, at: gap + 0.25 })
+        return
+      }
+    }
     const ctx = this.ctx
     const now = ctx.currentTime
     // Bigger mags -> lower-pitched, slightly longer clacks (a bigger
@@ -330,6 +409,7 @@ class AudioEngine {
   // Blade whoosh for the melee swing.
   playMelee() {
     if (!this.ctx) return
+    if (this._playSfx('swing', { out: this.weaponGain, gain: 0.7, jitter: 0.12 })) return
     const ctx = this.ctx
     const now = ctx.currentTime
     const duration = 0.16
@@ -362,6 +442,12 @@ class AudioEngine {
   // shorter, downward-swept "oof" instead of a swing whoosh.
   playPlayerHurt() {
     if (!this.ctx) return
+    const t0 = this.ctx.currentTime
+    // Several hits at once (a crowd biting) make one grunt, not a pile-up.
+    if (t0 - (this._lastHurtAt || 0) < 0.35 && this._sfx.hurt?.length) return
+    this._lastHurtAt = t0
+    this._playSfx('hit_kill', { gain: 0.45, rate: 0.85 })
+    if (this._playSfx('hurt', { gain: 0.55, jitter: 0.12 })) return
     const ctx = this.ctx
     const now = ctx.currentTime
     const duration = 0.22
@@ -392,6 +478,7 @@ class AudioEngine {
   playHeartbeat() {
     this._caption('heartbeat', 0)
     if (!this.ctx) return
+    if (this._playSfx('heart', { gain: 0.8, jitter: 0 })) return
     const ctx = this.ctx
     const now = ctx.currentTime
 
@@ -420,6 +507,10 @@ class AudioEngine {
   // instead of blurring into one generic "danger" sound.
   playLowAmmoTick() {
     if (!this.ctx) return
+    if (this._playSfx('ammo_tick', { gain: 0.6 })) {
+      this._playSfx('ammo_tick', { gain: 0.5, at: 0.09 })
+      return
+    }
     const ctx = this.ctx
     const now = ctx.currentTime
 
@@ -458,6 +549,10 @@ class AudioEngine {
   playThunder(opts = {}) {
     this._caption('thunder', 0)
     if (!this.ctx) return
+    {
+      const loud = opts.gain ?? 1
+      if (this._playSfx('thunder', { gain: (opts.soft ? 0.35 : 0.5 + 0.5 * loud) * loud, rate: opts.soft ? 0.7 : 1 - (1 - loud) * 0.25, jitter: 0.08 })) return
+    }
     const ctx = this.ctx
     const now = ctx.currentTime
     const loud = opts.gain ?? 1
@@ -500,6 +595,10 @@ class AudioEngine {
   playExplosion() {
     this._caption('explosion', 0)
     if (!this.ctx) return
+    if (this._playSfx('explosion', { gain: 0.9, jitter: 0.1 })) {
+      this._playSfx('explosion_crunch', { gain: 0.5, rate: 0.8 })
+      return
+    }
     const ctx = this.ctx
     const now = ctx.currentTime
     const duration = 0.6
@@ -573,6 +672,7 @@ class AudioEngine {
 
   playGlassCrack() {
     if (!this.ctx) return
+    if (this._playSfx('glass_crack', { gain: 0.6 })) return
     const now = this.ctx.currentTime
     this._glassNoise(0.08, 3200, 0.5, now)
     this._glassTink(2600 + Math.random() * 600, now, 0.12)
@@ -581,6 +681,7 @@ class AudioEngine {
   playGlassBreak() {
     this._caption('glass', 0)
     if (!this.ctx) return
+    if (this._playSfx('glass_break', { gain: 0.7 })) return
     const now = this.ctx.currentTime
     this._glassNoise(0.45, 2200, 0.7, now)
     for (let i = 0; i < 7; i++) this._glassTink(2400 + Math.random() * 3000, now + 0.03 + Math.random() * 0.35, 0.06 + Math.random() * 0.06)
@@ -708,6 +809,10 @@ class AudioEngine {
   // 'kill' (a heavier crunch).
   playHit(kind = 'body') {
     if (!this.ctx) return
+    if (this._playSfx(kind === 'kill' ? 'hit_kill' : 'hit_body', { gain: kind === 'kill' ? 0.75 : 0.55, jitter: 0.12 })) {
+      if (kind === 'head') this._playSfx('hit_head', { gain: 0.45, rate: 1.3 })
+      return
+    }
     const ctx = this.ctx
     const now = ctx.currentTime
     const THUDS = [[210, 0.07], [160, 0.09], [260, 0.06]]
@@ -865,6 +970,7 @@ class AudioEngine {
   playZombieScream(pan = 0) {
     this._caption('scream', pan)
     if (!this.ctx) return
+    if (this._playSfx('zattack', { out: this.zombieGain, gain: 0.8, rate: 1.35, pan, jitter: 0.05 })) return
     const ctx = this.ctx
     const now = ctx.currentTime
     const duration = 1.3
@@ -1190,6 +1296,7 @@ class AudioEngine {
   // blast, a sonic boom (gain 0..1; far ones are quieter and duller).
   playBoom(gain = 1) {
     if (!this.ctx) return
+    if (this._playSfx('boom', { gain: 0.4 + gain * 0.6, rate: 0.85 + (1 - gain) * -0.15 })) return
     const ctx = this.ctx
     const now = ctx.currentTime
     const duration = 1.2 + gain * 3
@@ -1272,6 +1379,11 @@ class AudioEngine {
     const ctx = this.ctx
     const now = ctx.currentTime
     const onGrass = surface === 'grass'
+    const step = { grass: 'foot_grass', snow: 'foot_snow', wood: 'foot_wood' }[surface] || 'foot_concrete'
+    if (this._playSfx(step, { out: this.footGain || this.sfxGain, gain: muffled ? 0.35 : 0.55, rate: muffled ? 0.8 : 1, jitter: 0.08 })) {
+      if (this.squeaky && !muffled) this._playSfx('ui_hover', { out: this.footGain || this.sfxGain, gain: 0.4, rate: 1.6 })
+      return
+    }
     const duration = onGrass ? 0.13 : 0.09
 
     const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate)
@@ -1307,6 +1419,60 @@ class AudioEngine {
     }
   }
 
+  // An animal's voice (AnimalSounds.js picks it): mode 'idle' (calling
+  // out), 'hurt' (higher, cut short) or 'death' (lower, full). gain falls
+  // off with distance (the caller works it out); pan -1..1.
+  playAnimal(voice, mode = 'idle', pan = 0, gain = 1) {
+    if (!this.ctx || !voice || gain <= 0.01) return
+    const name = mode === 'idle' ? voice.idle : voice.hurt
+    const rate = voice.rate * (mode === 'hurt' ? 1.15 : mode === 'death' ? 0.85 : 1)
+    const len = mode === 'hurt' ? 0.6 : 0
+    if (name === 'chirp') { if (mode === 'idle' || Math.random() < 0.7) this.playBirdChirp(pan); return }
+    if (name === 'hiss') { this._hiss(pan, gain * (mode === 'idle' ? 0.5 : 0.8), mode === 'death' ? 1.1 : 0.6); return }
+    if (name === 'tiny') { this._playSfx('sp_pop', { gain: 0.35 * gain, rate: 1.6, pan }); return }
+    const g = name === 'splash' ? 0.5 : name === 'a_buzz' || name === 'a_cricket' ? 0.35 : 0.7
+    this._playSfx(name, { gain: g * gain, rate, pan, len, jitter: 0.08 })
+    if (mode === 'death' && name !== 'splash') this._playSfx('sp_thud', { gain: 0.3 * gain, rate: 0.8, pan, at: 0.35 })
+  }
+
+  // A snake's or lizard's hiss: a soft rush of high noise.
+  _hiss(pan = 0, gain = 0.6, len = 0.6) {
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate)
+    const d = buf.getChannelData(0)
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    const hp = ctx.createBiquadFilter()
+    hp.type = 'highpass'
+    hp.frequency.value = 3500
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(0.0001, now)
+    g.gain.linearRampToValueAtTime(0.12 * gain, now + 0.08)
+    g.gain.linearRampToValueAtTime(0.0001, now + len)
+    let node = src.connect(hp).connect(g)
+    if (pan && this.positionalAudioEnabled && ctx.createStereoPanner) {
+      const p = ctx.createStereoPanner()
+      p.pan.value = Math.max(-1, Math.min(1, pan))
+      node = node.connect(p)
+    }
+    node.connect(this.sfxGain)
+    src.start(now)
+  }
+
+  // A block put down (also vehicles/props being placed).
+  playPlace() {
+    if (!this._playSfx('sp_thud', { gain: 0.45, rate: 1.25, jitter: 0.1 })) this.playFootstep(false, 'default')
+  }
+
+  // A block broken: a soft crunch (dirt, leaves) or a stony crumble.
+  // False if the recordings aren't loaded yet.
+  playBlockBreak(soft = false) {
+    if (soft) return this._playSfx('foot_grass', { gain: 0.8, rate: 0.8, jitter: 0.1 })
+    return this._playSfx('sp_crumble', { gain: 0.6, jitter: 0.1 })
+  }
+
   // Directional zombie presence (see startAmbient's own doc comment for the
   // gain/panner nodes this reads) - a boost layered on top of the always-on
   // base drone rather than a second parallel drone system, scaled by nearby
@@ -1325,6 +1491,7 @@ class AudioEngine {
   // Level up (2026-10-26): a short rising four-note fanfare.
   playLevelUp() {
     if (!this.ctx) return
+    if (this._playSfx('levelup', { gain: 0.6, jitter: 0 })) return
     const now = this.ctx.currentTime
     ;[523, 659, 784, 1047].forEach((freq, i) => {
       const at = now + i * 0.11
@@ -1355,6 +1522,8 @@ class AudioEngine {
   // out: where it plays (the effects slider unless said); pan: -1..1.
   playSpecial(kind, out = this.sfxGain, pan = 0) {
     if (!this.ctx) return
+    const sample = SPECIAL_SAMPLES[kind]
+    if (sample && this._playSfx(sample[0], { out, rate: sample[1], gain: sample[2], len: sample[3] || 0, pan })) return
     const recipe = SPECIAL_SOUNDS[kind]
     if (!recipe) return
     const ctx = this.ctx
@@ -1417,6 +1586,7 @@ class AudioEngine {
 
   playUiHover() {
     if (!this.ctx) return
+    if (this._playSfx('ui_hover', { out: this.uiGain || this.sfxGain, gain: 0.5, jitter: 0.03 })) return
     const ctx = this.ctx
     const now = ctx.currentTime
     const duration = 0.05
@@ -1480,6 +1650,7 @@ class AudioEngine {
   // A soft tick when a menu button is pressed (UI Sounds slider).
   playUiClick() {
     if (!this.ctx || !this.uiGain || this.uiVolume <= 0.001) return
+    if (this._playSfx('ui_click', { out: this.uiGain, gain: 0.7, jitter: 0.03 })) return
     const now = this.ctx.currentTime
     const osc = this.ctx.createOscillator()
     osc.type = 'triangle'
@@ -1493,6 +1664,86 @@ class AudioEngine {
     osc.stop(now + 0.06)
   }
 
+  // Homepage / store / market sounds (2026-11-13): kind is 'open' (a
+  // panel slides in), 'close', 'tab', 'buy' (coins + a happy ding),
+  // 'error' (can't afford it), 'unbox' (a crate or gift opening),
+  // 'confirm'. On the UI Sounds slider; quiet if that's at zero.
+  playUi(kind) {
+    if (!this.ctx || !this.uiGain || this.uiVolume <= 0.001) return
+    const now = this.ctx.currentTime
+    // The same sound twice in a blink (two handlers on one click) plays once.
+    if (this._lastUi === kind && now - (this._lastUiAt || 0) < 0.08) return
+    this._lastUi = kind
+    this._lastUiAt = now
+    const out = this.uiGain
+    if (kind === 'buy') {
+      this._playSfx('ui_coin', { out, gain: 0.8 })
+      this._playSfx('ui_chips', { out, gain: 0.6, at: 0.05 })
+      this._playSfx('ui_confirm', { out, gain: 0.55, at: 0.12 })
+      return
+    }
+    if (kind === 'unbox') {
+      this._playSfx('ui_unbox', { out, gain: 0.6, jitter: 0 })
+      this._playSfx('sp_chime', { out, gain: 0.4, at: 0.25 })
+      return
+    }
+    const name = { open: 'ui_open', close: 'ui_close', tab: 'ui_tab', error: 'ui_error', confirm: 'ui_confirm' }[kind]
+    if (name && !this._playSfx(name, { out, gain: kind === 'tab' ? 0.5 : 0.6, jitter: 0.03 })) this.playUiClick()
+  }
+
+  // Calm homepage music (Settings > Audio > Homepage Music turns it off;
+  // the Music slider sets how loud). Fades in on the homepage and out when
+  // a game starts. Loaded the first time it's needed, then kept.
+  startMenuMusic() {
+    this._menuWanted = true
+    if (!this.ctx || !this.menuMusicOn || this.dataSaver || this._menuSrc) return
+    if (!this._menuBuffer) {
+      if (this._menuLoading) return
+      this._menuLoading = true
+      fetch(MENU_MUSIC_URL)
+        .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error('no file'))))
+        .then((data) => this.ctx.decodeAudioData(data))
+        .then((buffer) => { this._menuBuffer = buffer; if (this._menuWanted) this.startMenuMusic() })
+        .catch(() => {})
+        .finally(() => { this._menuLoading = false })
+      return
+    }
+    const ctx = this.ctx
+    const src = ctx.createBufferSource()
+    src.buffer = this._menuBuffer
+    src.loop = true
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(0.0001, ctx.currentTime)
+    g.gain.linearRampToValueAtTime(0.45, ctx.currentTime + 2.5)
+    src.connect(g).connect(this.musicGain || this.sfxGain)
+    src.start()
+    this._menuSrc = src
+    this._menuGain = g
+  }
+
+  stopMenuMusic(fade = 1.2) {
+    this._menuWanted = false
+    const src = this._menuSrc
+    if (!src || !this.ctx) return
+    this._menuSrc = null
+    const now = this.ctx.currentTime
+    this._menuGain.gain.cancelScheduledValues(now)
+    this._menuGain.gain.setValueAtTime(this._menuGain.gain.value, now)
+    this._menuGain.gain.linearRampToValueAtTime(0.0001, now + fade)
+    try { src.stop(now + fade + 0.05) } catch { /* already stopped */ }
+  }
+
+  get menuMusicPlaying() { return !!this._menuSrc }
+
+  setMenuMusic(on) {
+    this.menuMusicOn = !!on
+    if (!on) {
+      const wanted = this._menuWanted
+      this.stopMenuMusic(0.4)
+      this._menuWanted = wanted
+    } else if (this._menuWanted) this.startMenuMusic()
+  }
+
   // Two quick high notes when someone else's chat message arrives.
   playChatPing() {
     if (!this.ctx) return
@@ -1502,6 +1753,8 @@ class AudioEngine {
 }
 
 export const audioEngine = new AudioEngine()
+// The recorded sounds and their take counts (tests check every file is there).
+audioEngine.sfxList = SFX
 // Same debug-hook convention as Game.js's own `window.__game = this` (see
 // that file's comment) - lets tests/tools drive or inspect real audio state
 // (e.g. this.sfxVolume) without reaching into module scope.

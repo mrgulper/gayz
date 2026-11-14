@@ -25,6 +25,7 @@ import { t } from './i18n.js'
 import { ROD_COST } from './Fishing.js'
 import { needsBuyConfirm } from './GameplayAssist.js'
 import { tune } from './LiveConfig.js'
+import { audioEngine } from './Audio.js'
 
 // Settings > Gameplay > Confirm Buying Over: the first click turns the
 // button into "Sure? N" for this long; a second click buys.
@@ -307,6 +308,7 @@ export class PlayShop {
       const item = SHOP_ITEMS.find((i) => i.id === id)
       if (!item || s.coins < this._price(item)) return
       s.coins -= this._price(item)
+      try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
       if (item.health) s.health = Math.min(s.maxHealth, s.health + item.health)
       if (item.armor) s.armor = Math.min(100, s.armor + item.armor)
       // Ammo in the picked gun's own amounts (PlayWeapons.ammoFor).
@@ -322,12 +324,16 @@ export class PlayShop {
       // add() hands back what didn't fit; nothing fit -> the coins back.
       const left = s.inv?.add({ kind: 'block', id: trap.id, n: trap.n }) ?? trap.n
       if (left >= trap.n) s._message(t('invFull'))
-      else s.coins -= this._price(trap)
+      else {
+        s.coins -= this._price(trap)
+        try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
+      }
     } else if (act === 'upgrade') {
       const up = UPGRADES.find((u) => u.id === id)
       const level = s.upgrades[id] || 0
       if (!up || level >= up.costs.length || s.coins < this._upCost(up, level)) return
       s.coins -= this._upCost(up, level)
+      try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
       s.upgrades[id] = level + 1
       if (id === 'mag') s.mag = Math.min(s.mag, s.magSize())
     } else if (act === 'fill') {

@@ -19,6 +19,7 @@ import * as Gauntlet from './Gauntlet.js'
 import { saveShopProgress, saveSettings } from './Game.js'
 import { zombieName } from './ZombieNames.js'
 import { t } from './i18n.js'
+import { audioEngine } from './Audio.js'
 
 export const WIN_COINS = 30
 export const LOSS_COINS = 5
@@ -118,6 +119,7 @@ function feed(game, id) {
   if ((game.coins || 0) < cost) return game._showHomepageToast(t('teamSnackCoins', { n: cost }))
   if (feedSnack(id, snack) !== 'ok') return
   game.coins -= cost
+  try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
   saveShopProgress(game)
   game._renderCurrencyBar?.()
   game._teamSnack = null
