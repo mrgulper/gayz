@@ -52,6 +52,10 @@ export class DanceOff {
     this._mesh = null
     this._disco = null
     this._el = null
+    // Couch Co-op's Player 2 dances with the D-pad (CouchHands -> press),
+    // not the keyboard, with the arrows on their half (CouchToys.js).
+    this.keys = true
+    this.uiHost = null
   }
 
   get B() {
@@ -175,8 +179,8 @@ export class DanceOff {
       e.stopPropagation()
       this.press(lane)
     }
-    window.addEventListener('keydown', this._onKey, true)
-    s._message(t('danceStart', { n: DANCE_S }), 3)
+    if (this.keys) window.addEventListener('keydown', this._onKey, true)
+    s._message(t(this.keys ? 'danceStart' : 'couchDanceStart', { n: DANCE_S }), 3)
   }
 
   // Arrows on the beat (and now and then on the half beat), random lanes,
@@ -336,7 +340,8 @@ export class DanceOff {
         this.press(Number(b.dataset.lane))
       })
     }
-    document.body.appendChild(el)
+    if (!this.keys) el.classList.add('p2')
+    ;(this.uiHost?.() || document.body).appendChild(el)
     this._el = el
     this._lanes = [...el.querySelectorAll('.dance-lane')]
     this._arrows = new Map()

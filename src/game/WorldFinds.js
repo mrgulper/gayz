@@ -1,5 +1,5 @@
 // Finds lying about the world (2026-11-09, Gaymi's idea list 9 - "find
-// them in the world" for the new Bike, Hoverboard, Guitar and Drums).
+// them in the world" for the new Bike and Hoverboard).
 // Now and then (FIND_FIRST_S, then every FIND_EVERY_S) one of them you
 // don't have yet turns up on the ground FIND_MIN..FIND_MAX blocks from you,
 // spinning over a tall shimmering beam you can spot from far off. Walk into
@@ -14,7 +14,7 @@ import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
 import { itemIconCanvas, itemName } from './PlayInventory.js'
 
-export const FIND_IDS = ['bike', 'hoverboard', 'guitar', 'drums', 'bungeeCord']
+export const FIND_IDS = ['bike', 'hoverboard', 'bungeeCord']
 export const FIND_FIRST_S = 45
 export const FIND_EVERY_S = 120
 export const FIND_LIFE_S = 180

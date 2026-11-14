@@ -1252,16 +1252,16 @@ test('servers: Prop Hunt hits, ghosts, boos and jams go through the server', asy
   // A guest's find (s + who) and new disguise (q + prop) reach the host; junk doesn't.
   await syncServer(db, { ...b, hits: [{ id: `s${a.playerId}`, dmg: 0 }, { id: 'q3', dmg: 0 }, { id: 'q<x>', dmg: 0 }, { id: 'p1_1', dmg: 0 }] }, t0 + 20)
   expect((await syncServer(db, { ...a }, t0 + 30)).hits.map((h) => h.id)).toEqual([`s${a.playerId}`, 'q3'])
-  // A ghost's grave and marks, a jam and a boo on a zombie.
+  // A ghost's grave and marks and a boo on a zombie; a jam (Guitar/Drums, removed) isn't passed on.
   await syncServer(db, { ...b, hits: [{ id: 'z12', dmg: 0, boo: true }, { id: 'a3', dmg: 0, boo: true }], state: { x: 1, y: 2, z: 3, dead: true, gh: { g: [4, 5, 6], m: [12, 'x', 13], junk: 1 }, jam: { i: 'g', n: 7, k: '1358' } } }, t0 + 40)
   const ra = await syncServer(db, { ...a }, t0 + 50)
   expect(ra.players[b.playerId].gh).toEqual({ g: [4, 5, 6], m: [12, 13] })
-  expect(ra.players[b.playerId].jam).toEqual({ i: 'g', n: 7, k: '1358' })
+  expect(ra.players[b.playerId].jam).toBeUndefined()
   expect(ra.hits).toEqual([{ id: 'z12', dmg: 0, by: b.playerId, boo: true }, { id: 'a3', dmg: 0, by: b.playerId }])
-  // Bad jams and ghosts are dropped.
+  // Bad ghosts are dropped.
   await syncServer(db, { ...b, state: { x: 1, y: 2, z: 3, gh: { g: [1, 2] }, jam: { i: 'x', n: 1, k: '99' } } }, t0 + 60)
   const ra2 = await syncServer(db, { ...a }, t0 + 70)
-  expect([ra2.players[b.playerId].gh, ra2.players[b.playerId].jam]).toEqual([null, null])
+  expect(ra2.players[b.playerId].gh).toBe(null)
 })
 
 // Settings > Social > Who Can Join My Server (2026-11-11).

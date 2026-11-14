@@ -581,12 +581,6 @@ function cleanGhost(v) {
   return { g, m }
 }
 
-// Notes just played on a Guitar or Drums (src/game/Instruments.js).
-function cleanJam(v) {
-  if (!v || typeof v !== 'object' || !['g', 'd'].includes(v.i) || typeof v.k !== 'string' || !/^[1-8]{0,16}$/.test(v.k)) return null
-  return { i: v.i, n: Math.round(num(v.n, 0, 1e6)), k: v.k }
-}
-
 // A piece of the explored map a player is sharing (World Map mode,
 // src/game/ExploredMap.js shareState): its number and the cells, sorted,
 // as base-36 gaps.
@@ -639,9 +633,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     [`${base}/players/${playerId}/lane`]: Math.round(num(s.lane, 0, 15)),
     // ...and whether they're already out (the "escaped first" news).
     [`${base}/players/${playerId}/esc`]: s.esc ? 1 : 0,
-    // A ghost's grave and marks, and the notes just played (src/game/Ghosts.js, Instruments.js).
+    // A ghost's grave and marks (src/game/Ghosts.js).
     [`${base}/players/${playerId}/gh`]: cleanGhost(s.gh),
-    [`${base}/players/${playerId}/jam`]: cleanJam(s.jam),
     [`${base}/players/${playerId}/fog`]: cleanFog(s.fog),
     // This game's kill count, for the others' kill feed (src/game/HudSettings.js).
     [`${base}/players/${playerId}/kills`]: Math.round(num(s.kills, 0, 1e6)),
@@ -815,7 +808,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p || p.ghost) continue
-    out.players[pid] = { own: p.own ? 1 : 0, nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, esc: p.esc ? 1 : 0, gh: p.gh || null, jam: p.jam || null, fog: p.fog || null, kills: Number(p.kills) || 0 }
+    out.players[pid] = { own: p.own ? 1 : 0, nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, esc: p.esc ? 1 : 0, gh: p.gh || null, fog: p.fog || null, kills: Number(p.kills) || 0 }
     // A chat bubble: its number (new one = new bubble) and how long ago.
     if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }

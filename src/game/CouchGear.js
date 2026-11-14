@@ -83,6 +83,8 @@ export class CouchGear {
     this.s = couch.s
     this.coins = this.s.cfg?.startCoins || 0
     this.kills = 0
+    // Counts only for this game (dug, caught, treasures - CouchToys.js).
+    this.stats = {}
     this.headshots = 0
     this.armor = 0
     this.upgrades = { damage: 0, reload: 0, mag: 0 }
@@ -490,13 +492,13 @@ export class CouchGear {
     if (ARMOR_SLOTS.includes(it.id)) return { id: it.id, armor: ARMOR_PIECE, picked: true }
     // Potions, the jetpack, kites, boards, rides (CouchToys.js).
     if (this.c.toys && toyKind(it.id)) return { id: it.id, toy: true, picked: true }
-    // The rest (snowballs, music, the rocket...): their code is Player 1's.
+    // The rest (the Rocket, the Time Machine...): their code is Player 1's.
     return { id: it.id, p1Only: true, picked: true }
   }
 
   _itemAbout(item) {
     if (item.p1Only) return t('couchP1Only')
-    if (item.toy) return this.c.toys.passive(item.id) ? t('couchToyInBag') : this.c.toys.heldKind(item.id) ? t('couchToyHold') : t(`couchToy_${toyKind(item.id)}`, { n: POTION_S })
+    if (item.toy) return this.c.toys.passive(item.id) ? t('couchToyInBag') : this.c.toys.heldKind(item.id) ? t('couchToyHold') : t(`couchToy_${toyKind(item.id)}`, { n: ITEMS[item.id]?.disguise || POTION_S })
     if (item.vehicle) return t('couchPlaceVehicle')
     if (item.fuel) return t('couchFuelUp')
     if (item.picked && item.armor) return t('couchArmorPiece', { n: item.armor })

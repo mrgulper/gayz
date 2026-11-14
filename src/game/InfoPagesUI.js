@@ -78,7 +78,6 @@ import { DISHES as DINER_DISHES, SEATS as DINER_SEATS, DISH_COINS as DINER_COINS
 import { WINDOW as LEARN_WINDOW, SHARE as LEARN_SHARE, MAX_LEVEL as LEARN_MAX, LEVEL_CHANCE as LEARN_CHANCE, GEAR_MULT as LEARN_GEAR, FORGET_S as LEARN_FORGET, HEAD_SHARE as LEARN_HEAD_SHARE, CAMP_R as LEARN_CAMP_R, CAMP_S as LEARN_CAMP_S } from './ZombieLearning.js'
 import { MAX as PACE_MAX } from './PaceTuning.js'
 import { FIND_FIRST_S, FIND_EVERY_S, FIND_LIFE_S } from './WorldFinds.js'
-import { NOTES as MUSIC_NOTES, HEAR_R as MUSIC_HEAR, JAM_R as MUSIC_JAM } from './Instruments.js'
 import { BOO_S, BOO_CD, MARK_S, REVIVE_S, GHOST_WAIT_S } from './Ghosts.js'
 import { CHAPTERS as STORY_CHAPTERS, CHAPTER_COINS as STORY_COINS, FINALE_COINS as STORY_FINALE } from './Campaign.js'
 import { HUNGER_MINUTES, RAW_FOOD, COOKED_FOOD, STARVE_DPS, COOK_R } from './Hunger.js'
@@ -655,9 +654,6 @@ export function _featureValues(_game) {
     travelWaitMin: TRAVEL_WAIT_S / 60,
     findEveryMinutes: Math.round(FIND_EVERY_S / 60),
     findLifeMinutes: Math.round(FIND_LIFE_S / 60),
-    musicNotes: MUSIC_NOTES,
-    musicHear: MUSIC_HEAR,
-    musicJam: MUSIC_JAM,
     booS: BOO_S,
     booCd: BOO_CD,
     markS: MARK_S,

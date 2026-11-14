@@ -8092,7 +8092,7 @@ test('Hardcore Survival and cooking, the Zombie Museum and the Story Campaign', 
   expect(Object.keys(r).filter((k) => r[k] !== true)).toEqual([])
 })
 
-test('Prop Hunt, bikes and hoverboards, finds, instruments and ghost teammates', async ({ page }) => {
+test('Prop Hunt, bikes and hoverboards, finds and ghost teammates', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
     const g = window.__game
@@ -8151,7 +8151,7 @@ test('Prop Hunt, bikes and hoverboards, finds, instruments and ghost teammates',
     P.run(pm._people(), 0.05)
     out.propSeekersWin = pm.phase === 'end' && pm.winner === 's'
     await stop()
-    // --- Bike / hoverboard / finds / instruments in a normal game ---
+    // --- Bike / hoverboard / finds in a normal game ---
     s = await start('classic')
     const hold = (id) => {
       s.inv.hotbar[1] = { kind: 'item', id, n: 1 }
@@ -8177,24 +8177,12 @@ test('Prop Hunt, bikes and hoverboards, finds, instruments and ghost teammates',
     s.finds.next = 0
     s.finds.update(0.05)
     const f = s.finds.find
-    out.findPlaced = !!f && ['bike', 'hoverboard', 'guitar', 'drums'].includes(f.id) && !s.inv.has(f.id) && Math.hypot(f.x - s.bodyPos().x, f.z - s.bodyPos().z) >= 13
+    out.findPlaced = !!f && ['bike', 'hoverboard', 'bungeeCord'].includes(f.id) && !s.inv.has(f.id) && Math.hypot(f.x - s.bodyPos().x, f.z - s.bodyPos().z) >= 13
     if (f) {
       tm.pos.set(f.x, f.y, f.z)
       s.finds.update(0.05)
       out.findPicked = !s.finds.find && s.inv.has(f.id)
     }
-    // Instruments: keys play notes, the sync carries them.
-    hold('guitar')
-    s.inv.useHeld()
-    const pad = document.getElementById('music-pad')
-    out.musicOn = s.music.on === 'g' && pad.classList.contains('on') && pad.querySelectorAll('button').length === 8
-    out.musicKey = s.music.key('Digit3') === true && s.music.key('Digit9') === false
-    s.music.play(0)
-    const jam = s.music.snapshot()
-    out.musicSnap = jam?.i === 'g' && jam.k === '31' && s.music.snapshot().n === jam.n
-    out.musicFloats = s.music._floaters.length >= 2
-    s.inv.useHeld()
-    out.musicOff = !s.music.on && !pad.classList.contains('on')
     // --- Ghosts (a stand-in server with one friend alive) ---
     const friendGroup = s.bm.scene.clone(false)
     const friend = { seen: true, dead: false, x: 0, y: 0, z: 0, nick: 'Pal', group: friendGroup }

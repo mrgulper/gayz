@@ -41,6 +41,8 @@ export class WaterGun {
     this._nextAt = 0
     this._geo = null
     this._mat = null
+    // Where the tank pill shows (Couch Co-op's Player 2: on their half).
+    this.pill = { show: showPill, hide: hidePill }
   }
 
   // A new game: a full tank, and in summer a gun to go with it.
@@ -125,8 +127,8 @@ export class WaterGun {
       }
     }
     const holding = s.active && s.holding?.kind === 'item' && s.holding.id === 'waterGun'
-    if (holding) showPill('waterGun', t('waterPill', { n: Math.floor(this.tank), max: TANK }), this.tank < 4)
-    else hidePill('waterGun')
+    if (holding) this.pill.show('waterGun', t('waterPill', { n: Math.floor(this.tank), max: TANK }), this.tank < 4)
+    else this.pill.hide('waterGun')
     if (!this.list.length) return
     const box = new THREE.Box3()
     const ray = new THREE.Ray()
@@ -187,6 +189,6 @@ export class WaterGun {
   clear() {
     for (const b of [...this.list]) this._drop(b)
     this.tank = TANK
-    hidePill('waterGun')
+    this.pill.hide('waterGun')
   }
 }

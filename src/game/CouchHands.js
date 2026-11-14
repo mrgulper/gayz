@@ -111,6 +111,8 @@ export class CouchHands {
   // true when the press was Player 2's building / driving / item button.
   onPress(i) {
     const g = this.gear
+    // Dancing (a Boombox): the D-pad hits the arrows (CouchToys.js).
+    if (this.c.toys?.dancePress(i)) return true
     if (i === B_RB || i === B_LB) {
       g.cycle(i === B_RB ? 1 : -1)
       this.dig = null
@@ -118,7 +120,8 @@ export class CouchHands {
     }
     if (i === B_Y) {
       if (this.ride) this.leave()
-      else if (!this.enter(false) && !this.useBlock()) this.s._drops?.pickUpNear(this.p, g)
+      // The Cure to Dr. Goo first (CouchToys.handInCure).
+      else if (!this.c.toys?.handInCure() && !this.enter(false) && !this.useBlock()) this.s._drops?.pickUpNear(this.p, g)
       return true
     }
     if (i === LEFT) {

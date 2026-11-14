@@ -54,7 +54,6 @@ import { Kites } from './Kites.js'
 import { Skateboards } from './Skateboards.js'
 import { Rides } from './Rides.js'
 import { WorldFinds } from './WorldFinds.js'
-import { Instruments } from './Instruments.js'
 import { Ghosts } from './Ghosts.js'
 import { Sleds } from './Sleds.js'
 import { HotSprings } from './HotSprings.js'
@@ -142,7 +141,7 @@ const CHEST_ROD_CHANCE = 0.1
 const CHEST_DETECTOR_CHANCE = 0.06
 const CHEST_JETPACK_CHANCE = 0.04
 const CHEST_JET_FUEL_CHANCE = 0.15
-// A Bike, Hoverboard, Guitar or Drums you don't have yet (WorldFinds.js).
+// A Bike, Hoverboard or Bungee Cord you don't have yet (WorldFinds.js).
 const CHEST_FIND_CHANCE = 0.12
 // Zombies that wake with a dungeon's boss (_checkDungeon).
 const DUNGEON_GUARDS = 2
@@ -540,12 +539,10 @@ export class BuildSurvival {
     // Skateboards, frozen lakes and the Dance-Off (Skateboards.js, DanceOff.js).
     if (!this.skate) this.skate = new Skateboards(this)
     this.skate.clear()
-    // Bikes, hoverboards, instruments, the finds lying about and ghosts
-    // (Rides.js, Instruments.js, WorldFinds.js, Ghosts.js).
+    // Bikes, hoverboards, the finds lying about and ghosts
+    // (Rides.js, WorldFinds.js, Ghosts.js).
     if (!this.rides) this.rides = new Rides(this)
     this.rides.clear()
-    if (!this.music) this.music = new Instruments(this)
-    this.music.clear()
     if (!this.finds) this.finds = new WorldFinds(this)
     this.finds.clear()
     if (!this.ghosts) this.ghosts = new Ghosts(this)
@@ -833,7 +830,6 @@ export class BuildSurvival {
     this.kite?.clear()
     this.skate?.clear()
     this.rides?.clear()
-    this.music?.clear()
     this.finds?.clear()
     this.ghosts?.clear()
     this.sled?.clear()
@@ -3568,7 +3564,6 @@ export class BuildSurvival {
     this.couch?.update(Math.min(dt, 0.1))
     // A new run's Bingo card, once the run is set up (ZombieBingo.js).
     if (this.bingo && !this.bingo.card && this.bingo.allowed && !this.dead) this.bingo.deal()
-    this.music?.update(Math.min(dt, 0.1))
     this.finds?.update(Math.min(dt, 0.1))
     this.ghosts?.update(Math.min(dt, 0.1))
     this.sled?.update(Math.min(dt, 0.1))

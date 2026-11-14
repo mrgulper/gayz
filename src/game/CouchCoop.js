@@ -182,6 +182,8 @@ export class CouchCoop {
     if (!this.joined || p.isDown) return null
     // An Invisibility Potion: zombies can't find Player 2 (CouchToys.js).
     if (this.toys?.invisible) return null
+    // Player 2's Goo Disguise: zombies wander past them (CouchToys.js).
+    if (this.toys?.disguised) return null
     return { x: p.x, y: p.y, z: p.z, remote: null, p2: true, quiet: !!this.toys?.quiet, hurt: (amount) => this.hurtP2(amount) }
   }
 
@@ -266,6 +268,8 @@ export class CouchCoop {
       this._wave = this.s.wave
       if (!p.isDown) p.health = Math.min(MAX_HEALTH, p.health + WAVE_HEAL)
       for (const id of Object.keys(p.ammo)) p.ammo[id].reserve = PLAY_WEAPONS[id].reserve
+      // Winter snowballs, a summer water gun (CouchToys.js).
+      this.toys?.onWave(this.s.wave)
     }
     const paused = this.bm.menuOpen || this.bm.pickerOpen || this.s._picking
     if (gp) this._buttons(gp, paused)
@@ -626,7 +630,8 @@ export class CouchCoop {
     const s = this.s
     const p = this.p2
     const B = s.B
-    s.disguise?.break?.()
+    // Attacking washes Player 2's own Goo Disguise off (not Player 1's).
+    this.toys?.breakGoo()
     // Straight down the middle of Player 2's screen (the crosshair),
     // starting level with their head so nothing behind them is hit.
     const camAt = this.camera.position.clone().divideScalar(B)

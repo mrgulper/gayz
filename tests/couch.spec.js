@@ -475,15 +475,15 @@ test('couch co-op: equal Player 2 crafts, opens chests, fishes, farms and emotes
     press(1)
     press(1)
 
-    // Items: a crafted helmet is worn (armour), a guitar is Player 1's.
+    // Items: a crafted helmet is worn (armour), a Rocket is still Player 1's (Batch 5c).
     gear.add({ kind: 'item', id: 'helmet', n: 1 })
     gear.select(gear.hot.findIndex((x) => x?.id === 'helmet'))
     press(7)
     out.helmet = gear.armor === 25 && p2Has('helmet') === 0
-    gear.add({ kind: 'item', id: 'guitar', n: 1 })
-    gear.select(gear.hot.findIndex((x) => x?.id === 'guitar'))
+    gear.add({ kind: 'item', id: 'rocket', n: 1 })
+    gear.select(gear.hot.findIndex((x) => x?.id === 'rocket'))
     press(7)
-    out.p1Only = p2Has('guitar') === 1 && msg().length > 0
+    out.p1Only = p2Has('rocket') === 1 && msg().length > 0
     // A crafted helicopter goes down in front of Player 2 (if there's room).
     gear.add({ kind: 'item', id: 'helicopter', n: 1 })
     gear.select(gear.hot.findIndex((x) => x?.id === 'helicopter'))
@@ -728,5 +728,170 @@ test('couch co-op: equal Player 2 drinks potions, flies and rides', async ({ pag
     speedOn: true, potionPill: true, giant: true, tiny: true, invisible: true, wornOff: true,
     jetpack: true, refuel: true, kite: true, kiteReeled: true, skate: true, trickCoins: true, skateOff: true,
     sled: true, bike: true, hover: true, ridesOff: true, wing: true, packText: true, cleaned: true,
+  })
+})
+
+test('couch co-op: equal Player 2 throws, squirts, tames, digs, dances and hands in the Cure', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    const buttons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }))
+    const pad = { index: 0, id: 'test pad', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons }
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [pad], configurable: true })
+    const hold = (i, on) => { buttons[i].pressed = on; buttons[i].value = on ? 1 : 0 }
+    g._couchNext = 'equal'
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    b.update(0.016)
+    b.survival.start({ fromMenu: true })
+    const s = b.survival
+    if (s._picking) s._pickWeapon('rifle')
+    const step = (n = 1, dt = 0.05) => { for (let i = 0; i < n; i++) b.update(dt) }
+    const press = (i) => { hold(i, true); step(1); hold(i, false); step(1) }
+    step(4)
+    const c = s.couch
+    const gear = c.gear
+    const toys = c.toys
+    press(0)
+    if (gear.menuOpen) press(1)
+    const count = (list, id) => list.filter((x) => x?.id === id).reduce((n, x) => n + x.n, 0)
+    const p2Has = (id) => count([...gear.hot, ...gear.bag], id)
+    const holdItem = (id) => {
+      gear.add({ kind: 'item', id, n: 1 })
+      gear.select(gear.hot.findIndex((x) => x?.id === id))
+    }
+    const msg = () => document.getElementById('couch-p2-msg')?.textContent || ''
+    const status = () => document.getElementById('couch-p2-ride')?.textContent || ''
+    const near = (pos) => Math.hypot(pos.x / s.B - c.p2.x, pos.z / s.B - c.p2.z) < 3
+    for (const z of s.zombies || []) z.hp = 0
+
+    // Snowball and Catch Trap: thrown from Player 2, used up; Player 1's own stay idle.
+    holdItem('snowball')
+    press(7)
+    // (It may hit something close straight away, so check it left Player 2's hand.)
+    out.snowball = toys.snow._nextAt > 0 && !s.snowballs._nextAt && (!toys.snow.list.length || near(toys.snow.list[0].pos)) && p2Has('snowball') === 0
+    holdItem('catchTrap')
+    press(7)
+    out.trap = toys.catcher.list.length === 1 && near(toys.catcher.list[0].pos) && !s.catcher.list.length && p2Has('catchTrap') === 0
+    // Water Gun: Player 2's own tank, shown on their half; never used up.
+    holdItem('waterGun')
+    press(7)
+    step(1)
+    // (Standing in water or rain refills it at once, so check it squirted.)
+    out.water = toys.water._nextAt > 0 && !s.water._nextAt && p2Has('waterGun') === 1 && !!toys._pills.waterGun && status().length > 0
+
+    // Goo Disguise: zombies leave Player 2 alone until they attack.
+    holdItem('gooDisguise')
+    press(7)
+    out.goo = c.target() === null && !s.disguise?.active && p2Has('gooDisguise') === 0
+    c._shoot(c._weapon())
+    out.gooBroken = !!c.target() && toys.goo === 0
+
+    // Metal Detector: a spot near Player 2; standing on it digs (Player 2's coins).
+    holdItem('metalDetector')
+    step(2)
+    const spot = toys.detector.spot
+    out.detectorPill = !!spot && !!toys._pills.detector
+    if (spot) {
+      Object.assign(c.p2, { x: spot.x, y: spot.y, z: spot.z, vx: 0, vy: 0, vz: 0 })
+      const coins = gear.coins
+      gear.select(gear.hot.findIndex((x) => x?.id === 'metalDetector'))
+      toys.detector.use()
+      out.dug = gear.coins > coins && gear.stats.dug === 1 && !s.stats.dug
+    }
+
+    // Treasure Map: marks an X, then dug up there (the map's used up, gems are Player 1's).
+    holdItem('treasureMap')
+    press(7)
+    const x = toys.treasure.spot
+    out.treasureX = !!x && p2Has('treasureMap') === 1 && !s.treasure.spot && status().includes('X')
+    if (x) {
+      Object.assign(c.p2, { x: x.x, y: x.y, z: x.z, vx: 0, vy: 0, vz: 0 })
+      const gems = g.gems || 0
+      gear.select(gear.hot.findIndex((it) => it?.id === 'treasureMap'))
+      press(7)
+      out.treasureDug = p2Has('treasureMap') === 0 && gear.stats.treasures === 1 && (g.gems || 0) > gems
+    }
+
+    // Brain Snack: the zombie Player 2 looks at becomes Player 1's pet.
+    const p = c.p2
+    const z = s._extraZombie?.(p.x + 2, p.y, p.z)
+    const hadPet = !!s.pet.data
+    if (z && !hadPet) {
+      const aimed = s.pet._aimed
+      s.pet._aimed = () => z
+      holdItem('brainSnack')
+      press(7)
+      s.pet._aimed = aimed
+      out.pet = !!s.pet.data && !s.zombies.includes(z) && p2Has('brainSnack') === 0 && msg().length > 0
+      s.pet.release()
+    } else out.pet = hadPet ? 'had one' : 'no zombie'
+
+    // Bungee: needs a high edge in front; up high it clips on (Player 2's own).
+    holdItem('bungeeCord')
+    const below = toys.bungee._below
+    toys.bungee._below = () => ({ x: p.x, y: p.y - 1, z: p.z - 2, drop: 1 })
+    p.onGround = true
+    press(7)
+    out.bungeeNoEdge = toys.bungee.state === '' && msg().length > 0
+    // (A high edge in front, whatever the random world has there.)
+    toys.bungee._below = () => ({ x: p.x, y: p.y - 20, z: p.z - 2, drop: 20 })
+    p.vy = 0
+    p.onGround = true
+    hold(7, true)
+    step(1)
+    hold(7, false)
+    out.bungee = toys.bungee.state !== '' && !s.bungee.state
+    toys.bungee._below = below
+    toys.stop()
+    c._spawnNearP1()
+    step(2)
+
+    // Boombox: Player 2 dances with the D-pad, arrows on their half, standing still.
+    holdItem('boombox')
+    press(7)
+    out.dance = toys.dance.on && !s.dance.on && !!document.querySelector('#couch-p2 #dance-off.p2')
+    const groove = toys.dance.groove
+    press(14)
+    out.danceDpad = toys.dance.groove !== groove && !gear.menuOpen && toys.speedMult() === 0
+    toys.dance.stop(false)
+    out.danceOff = !document.querySelector('#dance-off') && toys.speedMult() === 1
+
+    // The Cure: RT says where to take it; Y at Dr. Goo's lab finishes Player 1's story.
+    holdItem('theCure')
+    press(7)
+    out.cureHint = p2Has('theCure') === 1 && msg().length > 0
+    const lab = s.camp?.lab
+    if (lab) {
+      const story = lab.story
+      const { near, _finish } = lab
+      let finished = -1
+      lab.story = { ch: 4, started: true, done: false }
+      lab.near = () => true
+      lab._finish = (ch) => { finished = ch; return true }
+      press(3)
+      out.cure = finished === 4 && p2Has('theCure') === 0
+      Object.assign(lab, { story, near, _finish })
+    } else out.cure = 'no lab'
+
+    // Winter: snowballs for Player 2 on a new wave too.
+    const allYear = g.settings.snowballsAllYear
+    g.settings.snowballsAllYear = true
+    toys._seasonWave = 0
+    const snow = p2Has('snowball')
+    toys.onWave(1)
+    out.winter = p2Has('snowball') > snow
+    g.settings.snowballsAllYear = allYear
+
+    s.stop()
+    out.cleaned = !document.getElementById('couch-hud') && !toys.snow.list.length && !toys.catcher.list.length
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [], configurable: true })
+    return out
+  })
+  expect(r).toEqual({
+    snowball: true, trap: true, water: true, goo: true, gooBroken: true, detectorPill: true, dug: true,
+    treasureX: true, treasureDug: true, pet: true, bungeeNoEdge: true, bungee: true,
+    dance: true, danceDpad: true, danceOff: true, cureHint: true, cure: true, winter: true, cleaned: true,
   })
 })
