@@ -58,6 +58,7 @@ import { MOB_HEIGHT } from './PlayRules.js'
 import { PLAY_WEAPONS } from './PlayWeapons.js'
 import { BOTTOM } from './Underground.js'
 import { KART_EYE } from './GoKart.js'
+import { tickAmbientCues, resetAmbientCues } from './AmbientCues.js'
 
 const HALF_WIDTH = 0.3
 // How bright the gun in your hands is lit, against its picture's light
@@ -1102,6 +1103,7 @@ export class BuildTryMode {
 
   exit() {
     this.active = false
+    resetAmbientCues(this)
     this.view = 0
     this._autoRun = false
     if (this._body) this._body.group.visible = false
@@ -1133,6 +1135,8 @@ export class BuildTryMode {
     dt = Math.min(dt, 1 / 30)
     // The World Map mode: where you've walked clears the map's fog.
     if (this.bm.world?.active && isEarthWorld()) this._worldTravel(frameDt)
+    // Wind dulls under a roof; a quiet rumble leans toward nearby zombies.
+    tickAmbientCues(this, frameDt)
     const B = this.B
     const p = { x: this.pos.x, y: this.pos.y, z: this.pos.z }
     const cam = this.bm.camera
