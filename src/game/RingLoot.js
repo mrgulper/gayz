@@ -118,6 +118,7 @@ export class RingLoot {
   _collect(d) {
     this._remove(d)
     addToBag(d.key)
+    this.s.ringTutorial?.did('pickup')
     const rare = rarityIndex(parseKey(d.key).rarity) >= 2
     if (!this._told) {
       // The first pick-up of a game: how to use what you find.

@@ -2046,6 +2046,39 @@ body.touch-play-on #play-ring-bar .ring-slot { width: 38px; height: 38px; }
 /* Phones: above the touch layer (#touch-play, z 17) so a tap reaches it. */
 body.touch-play-on #play-ring-bar { z-index: 18; }
 #play-ring-bar .ring-slot-empty { border-style: dashed; opacity: 0.7; }
+/* The ring tutorial (RingTutorial.js): one tip at a time at the top, above
+   the Ring Bag so the "pick an item" step still reads while it's open. */
+#play-ring-tutorial {
+  position: fixed; left: 50%; top: 86px; transform: translateX(-50%);
+  z-index: 22; pointer-events: none; display: flex; align-items: center; gap: 12px;
+  width: max-content; max-width: min(720px, calc(100vw - 32px)); box-sizing: border-box;
+  padding: 8px 10px 8px 18px; border-radius: 999px;
+  font: 20px 'Bebas Neue', sans-serif; letter-spacing: 1px; color: #fff;
+  background: rgba(10, 12, 16, 0.82); border: 2px solid rgba(255, 255, 255, 0.3);
+  transition: border-color 0.2s, background 0.2s;
+}
+#play-ring-tutorial .ring-tut-step { opacity: 0.7; font-size: 16px; }
+#play-ring-tutorial .ring-tut-step:empty { display: none; }
+#play-ring-tutorial .ring-tut-text { flex: 1 1 auto; text-align: center; }
+#play-ring-tutorial .ring-tut-skip {
+  pointer-events: auto; cursor: pointer; flex: none; min-height: 32px; padding: 2px 14px;
+  font: inherit; font-size: 16px; color: inherit; background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 999px;
+}
+#play-ring-tutorial .ring-tut-skip:hover { background: rgba(255, 255, 255, 0.24); }
+#play-ring-tutorial.ring-tut-ticked { border-color: #6fdc6f; background: rgba(30, 90, 40, 0.88); }
+/* Phones: under the wave counter, left of the minimap and ring bar. */
+body.touch-play-on #play-ring-tutorial {
+  top: 108px; left: max(16px, env(safe-area-inset-left)); right: calc(max(12px, env(safe-area-inset-right)) + 108px);
+  transform: none; width: auto; max-width: 520px; margin: 0 auto;
+  font-size: 16px; border-radius: 18px; padding: 6px 8px 6px 14px;
+}
+/* Upright phones: under the row of top buttons, left of the ring bar's column. */
+@media (orientation: portrait) {
+  body.touch-play-on #play-ring-tutorial { top: 210px; right: calc(max(12px, env(safe-area-inset-right)) + 92px); }
+}
+body.couch-split #play-ring-tutorial { left: 25%; max-width: 46vw; }
+body.hud-hidden #play-ring-tutorial { display: none !important; }
 #play-ring-editor {
   position: fixed; inset: 0; z-index: 21;
   display: flex; align-items: center; justify-content: center;

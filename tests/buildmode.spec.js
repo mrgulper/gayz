@@ -8901,6 +8901,105 @@ test('Spin ring items: drops for every zombie, the bag, the ring editor, item tr
 })
 
 // Spin ring Batch 3: merge 5 -> 1, the Shop's Ring tab (Points), slots 3 -> 10.
+test('Spin ring tutorial: step by step, waits for each, Skip, once only, balance numbers', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    window.__ringTutorialForTests = true
+    localStorage.removeItem('gayz-ring-tutorial')
+    localStorage.removeItem('gayz-ring-bag')
+    localStorage.removeItem('gayz-ring-loadout')
+  })
+  await startRingGame(page)
+  const r = await page.evaluate(() => {
+    const bm = window.__game.buildMode
+    const s = bm.survival
+    const tut = s.ringTutorial
+    const out = { steps: [] }
+    const el = () => document.getElementById('play-ring-tutorial')
+    const run = (sec) => { for (let i = 0; i < sec * 30; i++) tut.update(1 / 30) }
+    out.on = !!tut?.active && getComputedStyle(el()).display === 'flex'
+    out.steps.push(tut.name)
+    out.text1 = el().querySelector('.ring-tut-text').textContent
+    // Waits: nothing pressed, nothing moves on.
+    bm._fireHeld = false
+    bm._ringPull = false
+    run(3)
+    out.waits = tut.name === 'spread'
+    // Hold attack: spread done.
+    bm._fireHeld = true
+    run(1)
+    out.ticked = el().classList.contains('ring-tut-ticked')
+    run(1)
+    bm._fireHeld = false
+    out.steps.push(tut.name)
+    // Hold defend: pull done.
+    bm._ringPull = true
+    run(2)
+    bm._ringPull = false
+    out.steps.push(tut.name)
+    // A wrong-step hook does nothing.
+    tut.did('swap')
+    out.wrongIgnored = tut.name === 'pickup'
+    // Pick up a drop.
+    const RI = s.ring.constructor.lib
+    const p = s.bodyPos()
+    const z = s._makeZombie(++s._zid, p.x + 3, p.y, p.z, 100, false)
+    s.zombies.push(z)
+    z.tier = 'common'
+    s.damageZombie(z, 99999, null)
+    const d = s.ringLoot.list[s.ringLoot.list.length - 1]
+    d.x = p.x + 0.3
+    d.z = p.z
+    d.y = p.y + 0.8
+    d.age = 5
+    for (let i = 0; i < 20; i++) s.ringLoot.update(1 / 30)
+    run(1)
+    out.steps.push(tut.name)
+    // Open the bag.
+    s.onKeyDown('KeyI')
+    run(1)
+    out.steps.push(tut.name)
+    out.aboveBag = Number(getComputedStyle(el()).zIndex) > Number(getComputedStyle(document.getElementById('play-ring-editor')).zIndex)
+    // Swap an item in.
+    RI.addToBag('icecube:rare', 1)
+    s.ringEditor.render()
+    document.querySelector('.ring-ed-slot[data-i="1"]').click()
+    document.querySelector('.ring-ed-item[data-key="icecube:rare"]').click()
+    run(1)
+    out.steps.push(tut.name)
+    out.saved = localStorage.getItem('gayz-ring-tutorial')
+    out.noSkipLast = getComputedStyle(el().querySelector('.ring-tut-skip')).display === 'none'
+    s.onKeyDown('KeyI')
+    run(7)
+    out.gone = !tut.active && !el()
+    // Skip: a fresh one, the Skip button ends it for good.
+    localStorage.removeItem('gayz-ring-tutorial')
+    const t2 = new tut.constructor(s)
+    s.ringTutorial = t2
+    el().querySelector('.ring-tut-skip').click()
+    out.skipped = !t2.active && !el() && localStorage.getItem('gayz-ring-tutorial') === '1'
+    // Balance pass numbers.
+    out.slot4 = RI.SLOT_COSTS[0]
+    out.weights = Math.round(RI.DROP_WEIGHTS.reduce((a, b) => a + b, 0))
+    out.box = RI.BOX_COST
+    return out
+  })
+  expect(r.on).toBe(true)
+  expect(r.text1).toContain('Left Click')
+  expect(r.waits).toBe(true)
+  expect(r.ticked).toBe(true)
+  expect(r.wrongIgnored).toBe(true)
+  expect(r.steps).toEqual(['spread', 'pull', 'pickup', 'bag', 'swap', 'done'])
+  expect(r.aboveBag).toBe(true)
+  expect(r.saved).toBe('1')
+  expect(r.noSkipLast).toBe(true)
+  expect(r.gone).toBe(true)
+  expect(r.skipped).toBe(true)
+  expect(r.slot4).toBe(250)
+  expect(r.weights).toBe(1000)
+  expect(r.box).toBe(300)
+})
+
 test('Spin ring merge, Ring Shop for Points, more slots, Spectate', async ({ page }) => {
   await gotoAndWaitForGame(page)
   await page.evaluate(() => {
@@ -9097,5 +9196,41 @@ test.describe('spin ring on a phone', () => {
       return { open: s.shop.panelOpen, fits: box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight, itemsFit: items.right <= box.right }
     })
     expect(shop).toEqual({ open: true, fits: true, itemsFit: true })
+  })
+
+  test('ring tutorial: phone wording, clear of the HUD both ways, Skip by tap', async ({ page }) => {
+    await gotoAndWaitForGame(page)
+    await page.evaluate(() => {
+      window.__ringTutorialForTests = true
+      localStorage.removeItem('gayz-ring-tutorial')
+    })
+    await startRingGame(page)
+    await page.waitForFunction(() => getComputedStyle(document.getElementById('touch-play') || document.body).display === 'block', null, { timeout: 30000 })
+    const check = () => page.evaluate(() => {
+      const el = document.getElementById('play-ring-tutorial')
+      const t = el.getBoundingClientRect()
+      const hit = (r) => r.width > 0 && !(r.right <= t.left || r.left >= t.right || r.bottom <= t.top || r.top >= t.bottom)
+      const others = [...document.querySelectorAll('#touch-play .tp-btn'), document.getElementById('play-ring-bar'), document.getElementById('build-try-map'), document.getElementById('build-play-health'), document.getElementById('build-play-wave')]
+      return {
+        shown: getComputedStyle(el).display === 'flex',
+        onScreen: t.left >= 0 && t.right <= innerWidth && t.top >= 0 && t.bottom <= innerHeight,
+        overlaps: others.filter((o) => o && getComputedStyle(o).display !== 'none' && hit(o.getBoundingClientRect())).map((o) => o.id || o.className),
+        touchText: el.textContent.includes('Spread button'),
+      }
+    })
+    const want = { shown: true, onScreen: true, overlaps: [], touchText: true }
+    expect(await check()).toEqual(want)
+    await page.setViewportSize({ width: 375, height: 812 })
+    await page.waitForTimeout(500)
+    expect(await check()).toEqual(want)
+    const cdp = await page.context().newCDPSession(page)
+    const skip = await page.evaluate(() => {
+      const r = document.querySelector('#play-ring-tutorial .ring-tut-skip').getBoundingClientRect()
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+    })
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: skip.x, y: skip.y, id: 1 }] })
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    await page.waitForTimeout(300)
+    expect(await page.evaluate(() => ({ gone: !document.getElementById('play-ring-tutorial'), saved: localStorage.getItem('gayz-ring-tutorial') }))).toEqual({ gone: true, saved: '1' })
   })
 })

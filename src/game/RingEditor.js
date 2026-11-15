@@ -67,6 +67,7 @@ export class RingEditor {
     this.shown = s.ring.keys[this.pick] || ''
     this.el.style.display = 'flex'
     this.render()
+    s.ringTutorial?.did('bag')
     try { audioEngine.playUi?.('open') } catch { /* no audio */ }
   }
 
@@ -189,6 +190,7 @@ export class RingEditor {
     const fitted = fitLoadout(keys)
     saveLoadout(fitted)
     this.s.ring.setLoadout(fitted)
+    this.s.ringTutorial?.did('swap')
     try { audioEngine.playUi?.('confirm') } catch { /* no audio */ }
   }
 

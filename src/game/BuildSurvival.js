@@ -25,6 +25,7 @@ import { SpinRing, RING_MODES } from './SpinRing.js'
 import { RingLoot } from './RingLoot.js'
 import { rewardMult } from './LobbyRules.js'
 import { RingEditor } from './RingEditor.js'
+import { RingTutorial, wantsRingTutorial } from './RingTutorial.js'
 import { CouchCoop } from './CouchCoop.js'
 import { survivalAudioTick } from './MoreSettings.js'
 import { hudTick } from './HudSettings.js'
@@ -484,6 +485,9 @@ export class BuildSurvival {
     this.ringLoot?.clear()
     this.ringLoot = this.ring ? new RingLoot(this) : null
     if (!this.ringEditor) this.ringEditor = new RingEditor(this)
+    // Batch 5: your first ring game teaches it step by step (RingTutorial.js).
+    this.ringTutorial?.end()
+    this.ringTutorial = this.ring && wantsRingTutorial() ? new RingTutorial(this) : null
     // Ammo left in each gun you've switched away from (pause > Switch
     // Weapon), so switching never refills a gun.
     this._ammoByWeapon = {}
@@ -795,6 +799,8 @@ export class BuildSurvival {
     this.ring = null
     this.ringLoot?.clear()
     this.ringLoot = null
+    this.ringTutorial?.end()
+    this.ringTutorial = null
     this.couch?.dispose()
     this.couch = null
     this.infection?.dispose()
@@ -3731,6 +3737,7 @@ export class BuildSurvival {
     this.hpBars?.update(Math.min(dt, 0.1))
     this.ring?.update(Math.min(dt, 0.1))
     this.ringEditor?.update()
+    this.ringTutorial?.update(Math.min(dt, 0.1))
     // On a server the world goes on while you're dead or in the menu.
     const net = this.net && !this.net.closed ? this.net : null
     if (net) net.update(Math.min(dt, 0.25))
