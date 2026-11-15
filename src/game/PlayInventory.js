@@ -138,9 +138,9 @@ export const ITEMS = {
 
 // Each animal's own drop, a body part ('meat_<kind>', PlayAnimals.js): eaten
 // like Meat. key names it ({animal} = its translated animal name), icon is
-// which picture it uses.
-export function addAnimalMeat(id, { key, animalKey, icon }) {
-  ITEMS[id] = { key, animalKey, icon, heal: ITEMS.meat.heal }
+// which picture it uses, tint the animal's colour (a 0xRRGGBB number).
+export function addAnimalMeat(id, { key, animalKey, icon, tint }) {
+  ITEMS[id] = { key, animalKey, icon, tint, heal: ITEMS.meat.heal }
 }
 
 // Worth a second press before dropping (Confirm Before Dropping Rare
@@ -163,9 +163,6 @@ const ICON_PIXELS = {
   healthpack: ['................', '..############..', '.#wwwwwwwwwwww#.', '.#wwwwwrrwwwww#.', '.#wwwwwrrwwwww#.', '.#wwwrrrrrrwww#.', '.#wwwrrrrrrwww#.', '.#wwwwwrrwwwww#.', '.#wwwwwrrwwwww#.', '.#wwwwwwwwwwww#.', '..############..'],
   veggies: ['................', '.......gg.g.....', '......gggg......', '.......gg.......', '......oooo......', '.....oooooo.....', '.....oooooo.....', '......oooo......', '......oooo......', '.......oo.......', '.......oo.......'],
   meat: ['................', '..........ww....', '.........wwww...', '........wwww....', '.....mmmmww.....', '....mmmmmm......', '...mmmmmmmm.....', '...mmmmmmmm.....', '...mmmmmmmm.....', '....mmmmmm......', '.....mmmm.......'],
-  poultry: ['................', '...........ww...', '..........wwww..', '.........wwww...', '.....ppppww.....', '....pppppp......', '...pppppppp.....', '...pppppppp.....', '....pppppp......', '.....pppp.......'],
-  fishMeat: ['................', '................', '..fffffffff.....', '.ffwfffwfffff...', '.fffffffffffff..', '.ffwfffwffffff..', '..ffffffffff....', '................'],
-  bugMeat: ['................', '.....nn..nn.....', '......nnnn......', '....nnnnnnnn....', '...nnwnnnnwnn...', '...nnnnnnnnnn...', '....nnnnnnnn....', '......nnnn......'],
   ammobox: ['................', '................', '...yy.yy.yy.....', '...yy.yy.yy.....', '...yy.yy.yy.....', '.##############.', '.#gggggggggggg#.', '.#ggg######ggg#.', '.#gggggggggggg#.', '.#gggggggggggg#.', '.##############.'],
   helmet: ['................', '....########....', '...#iiiiiiii#...', '..#iiiiiiiiii#..', '..#iiiiiiiiii#..', '..#ii######ii#..', '..#i#......#i#..', '..##........##..'],
   chestplate: ['..###....###....', '.#iii#..#iii#...', '.#iiii##iiii#...', '..#iiiiiiii#....', '..#iiiiiiii#....', '..#iiiiiiii#....', '..#iiiiiiii#....', '..##########....'],
@@ -213,8 +210,55 @@ const ICON_PIXELS = {
   snowball: ['................', '................', '................', '.....wwwww......', '....wwwwwww.....', '...wwwwwwiww....', '...wwwwwwwww....', '...wwwiwwwww....', '...wwwwwwwww....', '....wwwwwww.....', '.....wwwww......'],
   candy: ['................', '................', '................', '..p..........p..', '.ppp.yyyyyy.ppp.', '..ppyrryrryypp..', '...pyyrryrrrp...', '..ppyrryrryypp..', '.ppp.yyyyyy.ppp.', '..p..........p..'],
   shield: ['....########....', '...#bbbbbbbb#...', '...#bbbyybbb#...', '...#byyyyyyb#...', '...#bbbyybbb#...', '....#bbyybb#....', '.....#bbbb#.....', '......####......'],
+  // Body-part drops (PlayAnimals.js BODY_PARTS), one picture per part.
+  // z = the animal's own colour, x = a darker shade of it.
+  partTusk: ['................', '..#.............', '.#e#............', '.#ee#...........', '..#ee#..........', '..#eee#.........', '...#eee#........', '...#eeee#.......', '....#eeee##.....', '.....#eeeee#....', '......##eeee#...', '........#kkk#...', '........#####...'],
+  partHorn: ['.............#..', '............#a#.', '...........#aa#.', '..........#aaa#.', '.........#akaa#.', '........#aaaa#..', '.......#akaa#...', '......#aaaaa#...', '.....#kaaaa#....', '....#aaaaka#....', '...#kkkkkkk#....', '...#########....'],
+  partAntler: ['................', '.a.....a....a...', '.aa....aa..aa...', '..aa..aa..aa....', '..aa.aa..aa.....', '...aaa..aa......', '....aaaaa.......', '.....aaa..a.....', '.....aaa.aa.....', '.....aaaaa......', '......aak.......', '......kkk.......'],
+  partHoof: ['.....zzzzzz.....', '.....zzzzzz.....', '.....zzzzzz.....', '.....zzzzzz.....', '....zzzzzzzz....', '....xxxxxxxx....', '...#dddd#dddd#..', '...#dddd#dddd#..', '...#dddd#dddd#..', '..#ddddd#ddddd#.', '..#############.'],
+  partSnout: ['................', '....########....', '...#zzzzzzzz#...', '..#zzzzzzzzzz#..', '..#zz##zz##zz#..', '..#zz##zz##zz#..', '..#zzzzzzzzzz#..', '...#zzzzzzzz#...', '....########....'],
+  partLeg: ['.......zzzz.....', '......zzzzzz....', '......zzzzzz....', '.......zzzz.....', '........zz......', '........zz......', '........zz......', '........zx......', '........zx......', '........zx......', '.......xxxx.....', '......xx..xx....'],
+  partHump: ['................', '......zzzz......', '.....zzzzzz.....', '....zzzzzzzz....', '...zzzzzzzzzz...', '..zzzzzzzzzzzz..', '.zzzzzzzzzzzzzz.', '.xxxxxxxxxxxxxx.'],
+  partNeck: ['.........zz.zz..', '.........zzzzzz.', '.........z#zzzzz', '.........zzzz...', '........zzz.....', '........zxz.....', '.......zzz......', '.......zzx......', '......zzz.......', '......xzz.......', '.....zzz........', '.....zzx........', '....zzzz........', '....xxxx........'],
+  partTongue: ['................', '...ssssssssss...', '..ssssssssssss..', '..sssssmssssss..', '..sssssmssssss..', '..sssssmssssss..', '...ssssmsssss...', '...ssssssssss...', '....ssssssss....', '.....ssssss.....'],
+  partScale: ['....########....', '...#zzzzzzzz#...', '..#zwzzzzzzzx#..', '..#zwzzzzzzzx#..', '..#zzzzzzzzzx#..', '..#zzzzzzzzxx#..', '...#zzzzzzxx#...', '....#zzzzxx#....', '.....#zzxx#.....', '......#xx#......', '.......##.......'],
+  partTail: ['...........ww...', '..........wwww..', '.........zzwww..', '........zzzzw...', '.......zzzzz....', '......zzzzz.....', '.....zzzzz......', '....zzzzz.......', '...xzzzz........', '..xxzz..........', '..xx............'],
+  partPouch: ['......kk..kk....', '......kkkkkk....', '.....kk#kk#k....', '......kkkkkk....', '..zzzzzkkkkzzz..', '..xxxxxxxxxxxx..', '..zzzzzzzzzzzz..', '..zzzzzzzzzzzz..', '...zzzzzzzzzz...', '....zzzzzzzz....', '......zzzz......'],
+  partShell: ['.....######.....', '...##zzxxzz##...', '..#zzxzzzzxzz#..', '.#zxzzzxxzzzxz#.', '.#zxzzxzzxzzxz#.', '.#zzxxzzzzxxzz#.', '.#zxzzxxxxzzxz#.', '..#zxzzzzzzxz#..', '...##########...'],
+  partClaw: ['...w....w....w..', '..ww...ww...ww..', '..wi...wi...wi..', '..wi...wi...wi..', '..zwi..zwi..zwi.', '.zzzzzzzzzzzzzz.', '.zzzzzzzzzzzzzz.', '.zzzzzzzzzzzzzz.', '..zzzzzzzzzzzz..', '...xxxxxxxxxx...'],
+  partFang: ['...##########...', '...#ssssssss#...', '...#wwwwwwww#...', '....#wwwwwww#...', '....#wwwwww#....', '.....#wwwww#....', '.....#wwww#.....', '......#www#.....', '......#ww#......', '.......#w#......', '.......##.......'],
+  partMane: ['....oo.oo.oo....', '..ookooooookoo..', '.ooookkkkkkoooo.', '.okoozzzzzzooko.', 'ooooz#zzzz#zoooo', 'okoozzzzzzzzooko', '.ooozzz##zzzooo.', '.okoozzzzzzooko.', '..ooookkkkoooo..', '...oo.oo.oo.oo..'],
+  partEar: ['......zzz.......', '.....zzzzz......', '.....zsszz......', '.....zsszz......', '.....zsszz......', '.....zsszz......', '.....zsszz......', '.....zsszz......', '.....zsszz......', '......zssz......', '......zzzz......', '.......xx.......'],
+  partFlipper: ['......xx........', '.....zzzz.......', '.....zzzz.......', '......zzzz......', '......zzzzz.....', '.......zzzzz....', '.......zzzzzz...', '......zzzzzzzz..', '.....zzxzzxzzz..', '.....zxzzxzzxz..', '......xx.xx.xx..'],
+  partBlubber: ['..zzzzzzzzzzzz..', '..xxxxxxxxxxxx..', '..wwwwwwwwwwww..', '..wwwwwwwwwwww..', '..sswwwwwwwwss..', '..wwwwwwwwwwww..', '..ssssssssssss..', '..mmmmmmmmmmmm..'],
+  partFin: ['......#.........', '......##........', '......#z#.......', '......#zz#......', '......#zzz#.....', '......#zzzz#....', '.....#zzzzzz#...', '.....#zzzzzzz#..', '....#zzzzzzzzz#.', '...#zzzzzzzzzzz#', '..##############'],
+  partTentacle: ['..........zzz...', '.........zzzzz..', '.........zw..zz.', '........zzz...z.', '........zwz.....', '.......zzz......', '.......zwz......', '......zzz.......', '......zwz.......', '.....zzz........', '....zzwz........', '...zzzz.........'],
+  partArm: ['..zzzz..........', '..zzzzz.........', '...zzzzz........', '....zzzzz.......', '.....zzzzz......', '......zzzzz.....', '.......zzzz.....', '.......xxxxx....', '......xxxxxxx...', '......x.x.x.x...'],
+  partQuill: ['..............w.', '.............ww.', '............wd..', '...........dd...', '..........ww....', '.........dd.....', '........ww......', '.......dd.......', '......ww........', '.....dd.........', '....ww..........', '...dd...........', '..ww............'],
+  partStinger: ['....yyyyyyyy....', '....########....', '.....yyyyyy.....', '.....######.....', '......yyyy......', '......####......', '.......##.......', '.......##.......', '.......#........', '.......#........', '................', '.......c........'],
+  partMandible: ['..###......###..', '.#zzz#....#zzz#.', '.#zz##....##zz#.', '.#zz#......#zz#.', '.#zzz#....#zzz#.', '..#zzz#..#zzz#..', '...#zzz##zzz#...', '....#zzzzzz#....', '.....######.....'],
+  partAntenna: ['.d..........d...', '..d........d....', '..d........d....', '...d......d.....', '...d......d.....', '....d....d......', '....d....d......', '.....zzzzz......', '....zzzzzzz.....', '....z#zzz#z.....', '.....zzzzz......'],
+  partBeak: ['.zzzz...........', 'zzzzzyyyyyy.....', 'zz#zzyyyyyyyyy..', 'zzzzzoooooooooo.', 'zzzzzrrrrrrr....', '.zzzzrrrrr......'],
+  partFeather: ['.............zz.', '...........zzzz.', '..........zzzzw.', '.........zzzzwz.', '........zzzzwzz.', '.......zzzzwzz..', '......zzzzwzz...', '.....zzzzwzz....', '....zzzzwzz.....', '....zzzwzz......', '.....zwzz.......', '....w...........', '...w............', '..w.............'],
+  partTalon: ['.......yy.......', '.......yy.......', '.......yy.......', '.......yy.......', '......yyyy......', '.....yyyyyy.....', '....yy.yy.yy....', '...yy..yy..yy...', '..yy...yy...yy..', '..#....##....#..', '.##....#.....##.'],
+  partCrest: ['....r.r.r.......', '...rrrrrrr......', '...rrrrrrrr.....', '....zzzzzzz.....', '...zzzzzzzzz....', '...zz#zzzzzzyyy.', '...zzzzzzzzzyy..', '....zzzzzzz.....'],
+  partFrill: ['....zzzzzzzz....', '..zzxzzxzzxzzz..', '.zzzzxzxzxzzzzz.', '.zxzzzxxxzzzxzz.', 'zzzxxzzzzzxxzzzz', 'zzzzzz#zz#zzzzzz', '.....zzzzzz.....', '......zzzz......', '.......rr.......'],
+  partHead: ['...##########...', '..#zzzzzzzzzz#..', '..#zwwzzzzwwz#..', '..#zw#zzzzw#z#..', '..#zzzzzzzzzz#..', '..#zzzzzzzzzz#..', '..#z########z#..', '..#z#w#ww#w#z#..', '..#zzzzzzzzzz#..', '...##########...'],
+  partWhisker: ['.w....zzzz....w.', '..ww.zzzzzz.ww..', '....wzz##zzw....', '.wwwzzz##zzzwww.', '....wzzzzzzw....', '..ww.zxxxxz.ww..', '.w....zzzz....w.'],
+  partSpike: ['.......#........', '.......#........', '......#z#.......', '......#z#.......', '.....#zzz#......', '.....#zxz#......', '....#zzzxz#.....', '....#zzzxz#.....', '...#zzzzxzz#....', '...#zzzzxzz#....', '..#zzzzzzxzz#...', '..###########...'],
+  partPlate: ['.......##.......', '......#zz#......', '.....#zzzz#.....', '....#zzzzzz#....', '...#zzzxzzzz#...', '..#zzzzxzzzzz#..', '..#zzzzxzzzzz#..', '..#zzzzxzzzzz#..', '...#zzzxzzzz#...', '....#zzxzzz#....', '....########....'],
+  partSail: ['.....x.x.x......', '....xzxzxzx.....', '...xzzxzxzzx....', '..xzzzxzxzzzx...', '..xzzzxzxzzzx...', '.xzzzzxzxzzzzx..', '.xzzzzxzxzzzzx..', '.xzzzzxzxzzzzx..', '.xxxxxxxxxxxxx..'],
+  partClub: ['.........######.', '........#xzzzzx#', 'zzzzzzzz#zzzzzz#', 'xxxxxxxx#zzzzzz#', '........#xzzzzx#', '.........######.'],
+  partSlime: ['......zzzz......', '....zzzzzzzz....', '...zzwzzzzzzz...', '..zzwzzzzzzzzz..', '..zzzzzzzzzzzz..', '.zzzzzzzzzzzzzz.', '.zzzzzzzzzzzzzz.', '..xxzz.zzz.zxx..', '....x...z...x...'],
+  partLantern: ['.......y........', '..y....y....y...', '...y.......y....', '.....yyyyy......', '....yylllyy.....', 'y..yylwwwlyy..y.', '...yylwwwlyy....', '....yylllyy.....', '.....yyyyy......', '...y.......y....', '..y....y....y...', '.......y........'],
+  partRattle: ['.......##.......', '......#aa#......', '......#kk#......', '.....#aaaa#.....', '.....#kkkk#.....', '....#aaaaaa#....', '....#kkkkkk#....', '....#aaaaaa#....', '.....#kkkk#.....', '......#zz#......', '......#zz#......'],
+  partFinger: ['.......w........', '.......w........', '.......z........', '.......z........', '.......z........', '.......x........', '.......z........', '.......z........', '..z.z..z.z.z....', '..z.z..zxz.z....', '..zzzzzzzzzz....', '..zzzzzzzzzz....', '...zzzzzzzz.....', '....zzzzzz......'],
+  partFoot: ['....zz.zz.......', '...zz.zz.zz.....', '................', '....zzzzzzz.....', '...zzzzzzzzz....', '...zzzzzzzzz....', '...zzzzzzzz.....', '....zzzzzz......', '....zzzzzz......', '....zzzzzzz.....', '....zzzzzzz.....', '.....zzzzz......'],
+  partGill: ['s..............s', '.s.s........s.s.', '..ss.s....s.ss..', '.sssszzzzzzssss.', 's...zzzzzzzz...s', '..sszz#zz#zzss..', '.s..zzzzzzzz..s.', 's...zzzxxzzz...s', '.....zzzzzz.....'],
+  partWing: ['...........zzz..', '.........zzzzzz.', '.......zzzzzzzz.', '.....zzzzzzzzzz.', '...zzzzzzzzzzzz.', '..zzzzzzzzzzzzz.', '.xzxzxzxzzzzzz..', '.x.xzxzxzxzzz...', '...x.xzxzxzx....', '.....x.x.x......'],
+  partPaw: ['.....zz...zz....', '....zzzz.zzzz...', '....zzzz.zzzz...', '.zz..zz...zz.zz.', 'zzzz.......zzzz.', 'zzzz.zzzzz.zzzz.', '.zz.zzzzzzz.zz..', '...zzzzzzzzz....', '...zzzzzzzzz....', '....zzzzzzz.....', '.....zz..zz.....'],
 }
-const ICON_COLORS = { v: '#6fc23a', l: '#b8f06a', p: '#e8b49a', f: '#f08a5a', n: '#8aa83a', o: '#e8862a', m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8', c: '#5aa7d8', k: '#8a5a2a', d: '#4a4a4a', a: '#e3cf9a' }
+const ICON_COLORS = { v: '#6fc23a', l: '#b8f06a', p: '#e8b49a', f: '#f08a5a', n: '#8aa83a', o: '#e8862a', m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8', c: '#5aa7d8', k: '#8a5a2a', d: '#4a4a4a', a: '#e3cf9a', s: '#e8829a', e: '#efe3c0' }
 const iconCache = new Map()
 function itemIcon(id) {
   if (iconCache.has(id)) return iconCache.get(id)
@@ -223,16 +267,28 @@ function itemIcon(id) {
   return url
 }
 
+// An animal's colour for the z/x pixels, lifted when very dark so it still
+// shows on a dark slot (a black panther's claw is dark grey, not black).
+function tintColors(n) {
+  let rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+  const lum = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
+  if (lum < 70) rgb = rgb.map((v) => Math.round(v + (70 - lum) * 1.2))
+  const hex = (a) => `#${a.map((v) => Math.min(255, v).toString(16).padStart(2, '0')).join('')}`
+  return { z: hex(rgb), x: hex(rgb.map((v) => v * 0.65)) }
+}
+
 // The same picture as a canvas (for an item lying on the ground, PlayDrops).
 export function itemIconCanvas(id) {
-  const rows = ICON_PIXELS[ITEMS[id]?.icon || id] || []
+  const def = ITEMS[id]
+  const rows = ICON_PIXELS[def?.icon || id] || []
+  const colors = def?.tint == null ? ICON_COLORS : { ...ICON_COLORS, ...tintColors(def.tint) }
   const c = document.createElement('canvas')
   c.width = c.height = 16
   const g = c.getContext('2d')
   const top = Math.floor((16 - rows.length) / 2)
   rows.forEach((row, y) => [...row].forEach((ch, x) => {
     if (ch === '.') return
-    g.fillStyle = ICON_COLORS[ch]
+    g.fillStyle = colors[ch]
     g.fillRect(x, top + y, 1, 1)
   }))
   return c
