@@ -17,6 +17,7 @@
 // _stairFacing map; this file keeps the rest of their state.
 import * as THREE from 'three'
 import { t } from './i18n.js'
+import { SPECIAL_BY_ID } from './SpecialBlocks.js'
 
 export const LINK_RANGE = 8 // blocks from a lever/plate to the doors it opens
 export const SIGN_MAX_CHARS = 40
@@ -78,10 +79,20 @@ export class BuildGadgets {
   // Where and how a faced block is drawn: turned to its facing, a lever
   // that's on turned the other way (so its stick leans the other side), a
   // plate that's stood on pressed down.
-  matrixAt(key, x, y, z, shape) {
+  // A Train Track half (twoWide) is turned round when needed so its rail
+  // (drawn on its local +x side) sits on the side away from its pair cell
+  // - the two rails then lie about 1.4 blocks apart, like a real track
+  // (BuildMode.twoWideCell): turning by facing f puts local +x at world
+  // +x, -z, -x, +z for f = 0..3.
+  matrixAt(key, x, y, z, shape, type = this._typeAt(key)) {
     const B = this.B
     const f = this.bm._stairFacing.get(key) || 0
-    const on = shape === 'lever' && this.leverOn.has(key)
+    let on = shape === 'lever' && this.leverOn.has(key)
+    if (shape === 'pad' && SPECIAL_BY_ID.get(type)?.twoWide) {
+      const railSide = f === 0 || f === 3 ? 1 : -1
+      const pairSide = ((f % 2 === 0 ? x : z) & 1) === 0 ? 1 : -1
+      on = railSide === pairSide
+    }
     this._q.setFromAxisAngle(this._up, f * (Math.PI / 2) + (on ? Math.PI : 0))
     const down = shape === 'pad' && this._plateDown.has(key)
     const pos = new THREE.Vector3((x + 0.5) * B, (y + 0.5) * B - (down ? B / 64 : 0), (z + 0.5) * B)
@@ -96,7 +107,7 @@ export class BuildGadgets {
     if (index < 0) return
     const [x, y, z] = key.split(',').map(Number)
     const shape = mesh && type && this.bm.constructor.blockShape(type)
-    mesh.setMatrixAt(index, this.matrixAt(key, x, y, z, shape))
+    mesh.setMatrixAt(index, this.matrixAt(key, x, y, z, shape, type))
     mesh.instanceMatrix.needsUpdate = true
     bm._shadowsDirty = true
   }

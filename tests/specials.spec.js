@@ -1407,3 +1407,83 @@ test('special blocks batch 15: voting, gravity flip, shrink and grow pads, mirro
     ghost: true, sky: true, invisible: true, skyBack: true,
   })
 })
+
+// Train Track (2026-11-15): one piece fills the aimed cell and its pair
+// cell (BuildMode.twoWideCell), the two rails about 1.4 blocks apart,
+// one Undo / one break takes both, and it carries you like a Rail Track.
+test('train track: 2 blocks wide, placed and broken as one piece, carries you', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    const B = bm.gadgets.B
+    const V = bm.camera.position.constructor
+    const railAt = (x, y, z) => {
+      const m = bm.gadgets.matrixAt(bm._key(x, y, z), x, y, z, 'pad')
+      const v = new V((3.5 * B) / 16, 0, 0).applyMatrix4(m)
+      return [Math.round((v.x / B) * 100) / 100, Math.round((v.z / B) * 100) / 100]
+    }
+    bm.placeBlock(0, 0, -20, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 90, 'zombiespawner')
+    const out = {}
+    out.inPicker = bm.isBlockType('trainrail') && !!bm.blockTypeOf('trainrail').desc && bm.blockIcon('trainrail').startsWith('data:')
+    const lay = (x, y, z, f) => bm._undoGroupDo(() => {
+      bm.placeBlock(x, y, z, 'trainrail', false, { facing: f })
+      bm._placeTwoWideMate(x, y, z, 'trainrail')
+    })
+    // Even aimed cell pairs with the next one, odd with the one before.
+    for (let z = 0; z < 6; z++) lay(4, 0, z, 0)
+    lay(9, 0, 0, 0)
+    lay(20, 0, -7, 3)
+    out.cells = [bm.getBlockAt(5, 0, 0), bm.getBlockAt(8, 0, 0), bm.getBlockAt(20, 0, -8), bm.getBlockAt(3, 0, 0)]
+    out.rails = [railAt(4, 0, 0), railAt(5, 0, 0), railAt(8, 0, 0), railAt(9, 0, 0), railAt(20, 0, -8), railAt(20, 0, -7)]
+    // One Undo takes the whole piece back.
+    lay(30, 0, 30, 0)
+    bm.undo()
+    out.undone = [bm.getBlockAt(30, 0, 30), bm.getBlockAt(31, 0, 30)]
+    // No room beside it: only the aimed half goes down.
+    bm.placeBlock(41, 0, 40, 'stone')
+    lay(40, 0, 40, 0)
+    out.blocked = bm.getBlockAt(41, 0, 40)
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    s._toSpawn = 0
+    s._breakTimer = 999
+    const tm = bm.tryMode
+    // Carries you along the track (facing 0 runs along z, like Rail Track).
+    tm.pos.set(5, 0, 2.5)
+    for (let i = 0; i < 3; i++) bm.specials.update(0.1, tm.pos)
+    out.carried = Math.abs(tm.pos.z - 2.5) > 1 && Math.abs(tm.pos.x - 5) < 0.01
+    // In a game: one from the hotbar makes both halves...
+    const f = bm._stairFacingFromCamera()
+    const mate = bm.twoWideCell(10, 0, 10, f)
+    out.placed = s.placeBlockAt(10, 0, 10, 'trainrail') && bm.getBlockAt(...mate) === 'trainrail'
+    // ...only if both cells are free...
+    s.placeBlockAt(...bm.twoWideCell(14, 0, 14, f), 'stone')
+    out.refused = s.placeBlockAt(14, 0, 14, 'trainrail') === false && !bm.getBlockAt(14, 0, 14)
+    // ...and digging one half breaks both (BuildTryMode._updateDigging).
+    tm.pos.set(10.5, 0, 6.5)
+    bm.camera.position.set(10.5 * B, 1.6 * B, 6.5 * B)
+    bm._fireHeld = true
+    tm._digTarget = () => ({ x: 10, y: 0, z: 10, key: bm._key(10, 0, 10), type: 'trainrail', need: 0.01 })
+    tm._updateDigging(0.1)
+    bm._fireHeld = false
+    out.broken = !bm.getBlockAt(10, 0, 10) && !bm.getBlockAt(...mate) && s._edits.get(bm._key(...mate)) === ''
+    s.stop()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({
+    inPicker: true,
+    cells: ['trainrail', 'trainrail', 'trainrail', null],
+    rails: [[4.28, 0.5], [5.72, 0.5], [8.28, 0.5], [9.72, 0.5], [20.5, -7.72], [20.5, -6.28]],
+    undone: [null, null],
+    blocked: 'stone',
+    carried: true,
+    placed: true,
+    refused: true,
+    broken: true,
+  })
+})

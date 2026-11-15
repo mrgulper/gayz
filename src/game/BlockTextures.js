@@ -975,6 +975,31 @@ function signParts(px, base, r) {
   for (let y = 8; y < S; y++) for (let x = 0; x < S; x++) px.set(x, y, mul(base, 0.6 + r() * 0.12))
 }
 
+// Train Track (SpecialBlocks 'trainrail', BuildMode's 'track' geometry):
+// the top half paints the steel rail (a bright worn head over a darker
+// web), the bottom half the wooden sleepers it sits on.
+function trackParts(px, base, r) {
+  for (let y = 0; y < 8; y++) {
+    for (let x = 0; x < S; x++) {
+      const steel = y < 2 ? [176, 178, 184] : y < 5 ? [92, 90, 92] : [70, 64, 60]
+      px.set(x, y, mul(steel, 0.92 + r() * 0.12))
+    }
+  }
+  for (let y = 8; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      let f = 0.88 + r() * 0.16
+      if (y === 8 || y === S - 1) f *= 0.75
+      px.set(x, y, mul(base, f))
+    }
+  }
+}
+
+let trackCanvas = null
+export function trackPartsCanvas() {
+  if (!trackCanvas) trackCanvas = paint((px) => trackParts(px, hex(0x6a5038), rng(hashStr('trainrail'))))
+  return trackCanvas
+}
+
 const OVERRIDE = {
   playerstart: (base, r) => {
     const top = paint((px) => startPadTop(px, base, r))
@@ -1985,7 +2010,16 @@ export function gadgetIconURL(id, size = 64) {
     ctx.fillStyle = '#c8281e'
     ctx.fillRect(-1.3 * u, -10 * u, 2.6 * u, 2.4 * u)
     ctx.restore()
-  } else {
+  } else if (id === 'track') {
+    // Train Track: sleepers across, two steel rails along.
+    ctx.fillStyle = '#6a5038'
+    for (let y = 1; y < 16; y += 4) ctx.fillRect(1 * u, y * u, 14 * u, 2 * u)
+    ctx.fillStyle = '#4a3624'
+    for (let y = 1; y < 16; y += 4) ctx.fillRect(1 * u, (y + 1.5) * u, 14 * u, 0.5 * u)
+    ctx.fillStyle = '#5c5a5c'
+    for (const x of [3.5, 10.5]) ctx.fillRect(x * u, 0, 2 * u, 16 * u)
+    ctx.fillStyle = '#c4c6cc'
+    for (const x of [3.5, 10.5]) ctx.fillRect((x + 0.5) * u, 0, 1 * u, 16 * u)
     ctx.fillStyle = '#6b4a2c'
     ctx.fillRect(7 * u, 9 * u, 2 * u, 6 * u)
     ctx.fillStyle = '#b4864a'
