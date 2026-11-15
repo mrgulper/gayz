@@ -86,6 +86,9 @@ export class PlayPauseMenu {
 
   _refresh() {
     const s = this.bm.survival
+    // Spin ring games have no guns to switch to (SpinRing.js).
+    const weaponBtn = document.getElementById('play-pause-weapon-btn')
+    if (weaponBtn) weaponBtn.style.display = s?.ring ? 'none' : ''
     const set = (id, text) => {
       const el = document.getElementById(id)
       if (el) el.textContent = text
@@ -274,7 +277,7 @@ export class PlayPauseMenu {
   // waits while _picking), except on a server, where the world goes on.
   switchWeapon() {
     const s = this.bm.survival
-    if (!s?.active || s.dead) return
+    if (!s?.active || s.dead || s.ring) return
     this.bm.closeMenuQuietly()
     s._openWeaponPicker(true)
   }

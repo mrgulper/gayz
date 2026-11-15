@@ -21,6 +21,7 @@ import { shakeScale, bleed } from './GraphicsSettings.js'
 import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { SKELETON_KINDS, loadSkeletons, makeSkeleton, skeletonsReady } from './SkeletonModels.js'
 import { audioEngine } from './Audio.js'
+import { SpinRing, RING_MODES } from './SpinRing.js'
 import { CouchCoop } from './CouchCoop.js'
 import { survivalAudioTick } from './MoreSettings.js'
 import { hudTick } from './HudSettings.js'
@@ -466,13 +467,21 @@ export class BuildSurvival {
     // uses the rifle.
     const saved = bm.game?.settings?.playWeapon
     this.weaponId = fromMenu && canPlayWeapon(saved) ? saved : DEFAULT_PLAY_WEAPON
+    // The spin ring (SpinRing.js): the zombie modes from the homepage or a
+    // server have no guns (no knife either) - items spin round you instead.
+    // The Map Editor's own Play keeps its gun.
+    this.ring?.dispose()
+    // (Automated tests - navigator.webdriver - keep the guns their older
+    // checks shoot with, unless a test asks for the ring: __ringForTests.)
+    const testGuns = typeof navigator !== 'undefined' && navigator.webdriver && !window.__ringForTests
+    this.ring = (fromMenu || net) && RING_MODES.includes(this.cfg.mode) && !testGuns ? new SpinRing(this) : null
     // Ammo left in each gun you've switched away from (pause > Switch
     // Weapon), so switching never refills a gun.
     this._ammoByWeapon = {}
     // The inventory (PlayInventory.js): filled when the gun is picked (or
     // from a saved game); blocks placed this game go again when it ends.
     if (!this.inv) this.inv = new PlayInventory(this)
-    this.inv.reset(this.weaponId)
+    this.inv.reset(this.ring ? null : this.weaponId)
     this._invRestored = false
     this.holding = null
     this._placed = new Map()
@@ -720,7 +729,8 @@ export class BuildSurvival {
         if (isEarthWorld()) loadEarthTerrain().then(() => { if (this.active) this._spawnAt(pick) })
         else this._spawnAt(pick)
       }
-      if (this.onboard.active) this._pickWeapon(this.weaponId)
+      if (this.ring) this._startRing()
+      else if (this.onboard.active) this._pickWeapon(this.weaponId)
       else this._openWeaponPicker()
     }
     else this._message(t('buildPlayGetReady'))
@@ -771,6 +781,8 @@ export class BuildSurvival {
     // Leaving a run before dying still counts it (stats, quests).
     if (!this.dead && !suspend) this._endRun(false)
     this.active = false
+    this.ring?.dispose()
+    this.ring = null
     this.couch?.dispose()
     this.couch = null
     this.infection?.dispose()
@@ -952,7 +964,27 @@ export class BuildSurvival {
     if (!this.active) return
     if (pick) this._spawnAt(pick)
     // (A weapon may already have been picked while the map was open.)
-    if (this._picking) this._openWeaponPicker()
+    if (this._picking) {
+      if (this.ring) this._startRing()
+      else this._openWeaponPicker()
+    }
+  }
+
+  // A spin ring game starts straight away: no weapon picker, nothing in
+  // your hand (SpinRing.js).
+  _startRing() {
+    if (this._spawnPicking) closeSpawnMap()
+    this._picking = false
+    this._closeWeaponPicker()
+    if (!this._invRestored) this.inv?.reset(null)
+    this.inv?.apply()
+    if (this.bm.tryMode._gun) this.bm.tryMode._gun.visible = false
+    const touch = this.bm.touch?.enabled
+    this._message(t(touch ? 'ringHintTouch' : 'ringHint'), 5)
+    this._renderHud()
+    if (!this.bm.pickerOpen && !touch) {
+      try { this.bm.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available */ }
+    }
   }
 
   // Moves you to the nearest world spot like the picked Earth place.
@@ -1076,7 +1108,7 @@ export class BuildSurvival {
   }
 
   _pickWeapon(id) {
-    if (!canPlayWeapon(id) || !this.active) return
+    if (!canPlayWeapon(id) || !this.active || this.ring) return
     if (this._spawnPicking) closeSpawnMap()
     const switching = this._switching
     const oldId = this.weaponId
@@ -1221,7 +1253,11 @@ export class BuildSurvival {
       this._invRestored = true
       this.inv.apply()
       this.inv.renderHotbar()
-    } else this.inv.reset(r.weaponId)
+    } else this.inv.reset(this.ring ? null : r.weaponId)
+    if (this.ring) {
+      this.inv.stripGuns()
+      this.inv.apply()
+    }
     this.bm.tryMode._showGun()
     this.wave = r.wave - 1
     this.kills = r.kills
@@ -1438,6 +1474,9 @@ export class BuildSurvival {
   tryFire() {
     if (!this.active || this.dead) return true
     if (this._picking || this.couch?.p1Down) return false
+    // Spin ring games have no gun: the click spreads the ring (SpinRing.js)
+    // and still digs; a held item is used as normal.
+    if (this.ring && (!this.holding || this.holding.kind !== 'item')) return false
     // Holding a block or an item instead of a gun: no shot (a health pack
     // or ammo box is used instead).
     if (this.holding) {
@@ -2051,7 +2090,7 @@ export class BuildSurvival {
     }
     // Skill tree: Golden Touch, Boss Bounty, Streak Cash, Tip Jar.
     this.skills?.onKill({ shine: ZOMBIE_SHINES[shine] ? shine : null, paid, boss: !!boss, bossCoins: BOSS_COINS })
-    this._report('kill', { boss: !!boss, streak: this.streak, weapon: this.weaponId, skeleton, melee: !!this.weapon.melee, tier, shine, runKills: this.kills, difficulty: this.cfg.difficulty || 'normal' })
+    this._report('kill', { boss: !!boss, streak: this.streak, weapon: this.ring ? '' : this.weaponId, skeleton, melee: !this.ring && !!this.weapon.melee, tier, shine, runKills: this.kills, difficulty: this.cfg.difficulty || 'normal' })
     this._renderHud()
   }
 
@@ -2080,7 +2119,7 @@ export class BuildSurvival {
   }
 
   reload() {
-    if (!this.active || this.dead || this._reloadLeft > 0 || this.mag >= this.magSize() || this.reserve <= 0) return
+    if (!this.active || this.dead || this.ring || this._reloadLeft > 0 || this.mag >= this.magSize() || this.reserve <= 0) return
     this._reloadLeft = this._reloadTime()
     try { audioEngine.playReload({ magSize: this.magSize() }) } catch { /* no audio */ }
     this._renderHud()
@@ -3650,6 +3689,7 @@ export class BuildSurvival {
     this.pins?.update(dt)
     this.catcher?.update(Math.min(dt, 0.1))
     this.hpBars?.update(Math.min(dt, 0.1))
+    this.ring?.update(Math.min(dt, 0.1))
     // On a server the world goes on while you're dead or in the menu.
     const net = this.net && !this.net.closed ? this.net : null
     if (net) net.update(Math.min(dt, 0.25))

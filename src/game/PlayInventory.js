@@ -323,7 +323,8 @@ export class PlayInventory {
     this.hotbar.fill(null)
     this.armor.fill(null)
     this.active = 0
-    this.hotbar[0] = { kind: 'gun', id: weaponId, n: 1 }
+    // (Spin ring games have no gun - SpinRing.js.)
+    if (weaponId) this.hotbar[0] = { kind: 'gun', id: weaponId, n: 1 }
     // A few Catch Traps to start with, in the last slot (PlayCatch.js).
     this.hotbar[this.hotbar.length - 1] = { kind: 'item', id: 'catchTrap', n: START_TRAPS }
     this.renderHotbar()
@@ -332,6 +333,8 @@ export class PlayInventory {
   // Puts items in: the hotbar first (filling stacks, then empty slots),
   // then the grid. Returns how many didn't fit.
   add(item) {
+    // Spin ring games carry no guns (SpinRing.js).
+    if (item.kind === 'gun' && this.s.ring) return 0
     // A rare find for the Museum's glass cases (CampMuseum.js).
     if (item.kind === 'item') noteMuseumItem(item.id)
     let left = item.n
@@ -361,6 +364,13 @@ export class PlayInventory {
     this.renderHotbar()
     if (this.open) this.render()
     return left
+  }
+
+  // Takes every gun out (a saved game resumed as a spin ring game).
+  stripGuns() {
+    for (const list of [this.hotbar, this.grid]) list.forEach((it, i) => { if (it?.kind === 'gun') list[i] = null })
+    this.renderHotbar()
+    if (this.open) this.render()
   }
 
   selected() {
@@ -407,7 +417,7 @@ export class PlayInventory {
   apply() {
     const it = this.selected()
     const s = this.s
-    if (it?.kind === 'gun') {
+    if (it?.kind === 'gun' && !s.ring) {
       s.holding = null
       if (it.id !== s.weaponId) s._equipWeapon(it.id)
     } else s.holding = it ? { ...it } : { kind: 'none' }

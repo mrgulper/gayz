@@ -8665,3 +8665,144 @@ test('a held animal drop is a 3D model in the hands, bitten while eaten', async 
   })
   expect(r).toEqual({ whole: true, used: true, eating: true, bites: true, bitten: true, lifted: true, whole2: true, gun: true })
 })
+
+// The spin ring (SpinRing.js, 2026-11-15): zombie modes have no guns - items
+// spin round you, spread with attack, pull in with defend, hurt zombies and
+// heal you. (Tests keep guns unless they set window.__ringForTests.)
+async function startRingGame(page) {
+  await page.evaluate(() => {
+    const g = window.__game
+    window.__ringForTests = true
+    localStorage.removeItem('gayz-play-saved-run')
+    g.careerStats.totalRuns = 1
+    g.settings.selectedGameMode = 'classic'
+    g.playBtn.click()
+  })
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+}
+
+test('Spin ring: no guns in zombie modes, spread / pull in, hits, heals, works in Spectate', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await startRingGame(page)
+  const r = await page.evaluate(() => {
+    const bm = window.__game.buildMode
+    const s = bm.survival
+    const ring = s.ring
+    const out = {}
+    out.ring = !!ring && ring.items.map((it) => it.id).join(',')
+    out.noPicker = !s._picking && getComputedStyle(document.getElementById('play-weapon-pick') || document.body).display !== 'flex'
+    out.noGun = ![...s.inv.hotbar, ...s.inv.grid].some((it) => it?.kind === 'gun') && s.holding?.kind === 'none'
+    out.gunAdd = s.inv.add({ kind: 'gun', id: 'rifle', n: 1 }) === 0 && ![...s.inv.hotbar, ...s.inv.grid].some((it) => it?.kind === 'gun')
+    out.noShot = s.tryFire() === false
+    out.bar = getComputedStyle(document.getElementById('play-ring-bar')).display === 'flex' && document.querySelectorAll('#play-ring-bar .ring-slot svg').length === 3
+    out.ammoHidden = getComputedStyle(document.getElementById('build-play-ammo')).display === 'none'
+    // Overlaps on a computer: the ring bar is clear of the hotbar.
+    const a = document.getElementById('play-ring-bar').getBoundingClientRect()
+    const h = document.getElementById('build-hotbar').getBoundingClientRect()
+    out.clearOfHotbar = a.left >= h.right - 1 && a.right <= innerWidth
+    // Spread, pull in, back to normal.
+    const step = (n) => { for (let i = 0; i < n; i++) ring.update(1 / 30) }
+    bm._fireHeld = true
+    step(45)
+    out.spread = +ring.radius.toFixed(2)
+    bm._fireHeld = false
+    bm._ringPull = true
+    step(45)
+    out.pulled = +ring.radius.toFixed(2)
+    bm._onPointerUp({ button: 2 })
+    step(45)
+    out.normal = +ring.radius.toFixed(2)
+    // A zombie standing in the ring's path gets hit.
+    const p = s.bodyPos()
+    const z = s.zombies[0] || s._makeZombie(++s._zid, p.x + 5, p.y, p.z, 100, false)
+    if (!s.zombies.includes(z)) s.zombies.push(z)
+    z.health = z.maxHealth = 1000
+    for (let i = 0; i < 90; i++) {
+      z.x = p.x + ring.radius
+      z.z = p.z
+      z.y = p.y
+      ring.update(1 / 30)
+    }
+    out.hurtZombie = z.health < 1000
+    // The Bandage heals you when you're hurt, then grows back.
+    s.health = 40
+    step(30)
+    out.healed = s.health > 40
+    out.bandageCd = ring.items.find((it) => it.id === 'bandage').cd > 0
+    // Spectate: the ring stays round your body, not the camera.
+    bm.toggleMenu()
+    out.noSwitch = getComputedStyle(document.getElementById('play-pause-weapon-btn')).display === 'none'
+    document.getElementById('play-pause-spectate-btn').click()
+    bm._keys.add('KeyW')
+    for (let i = 0; i < 30; i++) bm.update(1 / 30)
+    bm._keys.clear()
+    step(5)
+    const body = s.bodyPos()
+    const it = ring.items[0]
+    out.spectateBody = Math.abs(Math.hypot(it.wx - body.x, it.wz - body.z) - it.r) < 0.05 && bm.tryMode.pos.distanceTo(body) > 2
+    out.spectateShown = ring.group.visible
+    return out
+  })
+  expect(r).toEqual({
+    ring: 'brick,sawblade,bandage', noPicker: true, noGun: true, gunAdd: true, noShot: true, bar: true, ammoHidden: true, clearOfHotbar: true,
+    spread: 3.4, pulled: 1, normal: 1.8, hurtZombie: true, healed: true, bandageCd: true, noSwitch: true, spectateBody: true, spectateShown: true,
+  })
+  // Party games keep their guns.
+  const party = await page.evaluate(async () => {
+    const g = window.__game
+    const s = g.buildMode.survival
+    s.stop()
+    await g._exitBuildMode?.()
+    g.settings.selectedGameMode = 'laserTag'
+    g.playBtn.click()
+    for (let i = 0; i < 600 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    return { active: s.active, ring: !!s.ring, bar: !!document.getElementById('play-ring-bar') }
+  })
+  expect(party).toEqual({ active: true, ring: false, bar: false })
+})
+
+test.describe('spin ring on a phone', () => {
+  test.use({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true })
+
+  test('Spread and Pull In buttons, ring bar clear of the buttons both ways', async ({ page }) => {
+    await gotoAndWaitForGame(page)
+    await startRingGame(page)
+    await page.waitForFunction(() => getComputedStyle(document.getElementById('touch-play') || document.body).display === 'block', null, { timeout: 30000 })
+    await page.waitForFunction(() => document.querySelector('#touch-play .tp-fire.tp-ring'), null, { timeout: 10000 })
+    const cdp = await page.context().newCDPSession(page)
+    const touch = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points })
+    const center = (sel) => page.evaluate((sel) => {
+      const r = document.querySelector(sel).getBoundingClientRect()
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+    }, sel)
+    const flags = () => page.evaluate(() => ({ spread: !!window.__game.buildMode._ringSpreadTouch, pull: !!window.__game.buildMode._ringPull }))
+    const fire = await center('.tp-fire')
+    await touch('touchStart', [{ x: fire.x, y: fire.y, id: 1 }])
+    const spreading = await flags()
+    await touch('touchEnd', [])
+    const afterSpread = await flags()
+    const pull = await center('.tp-reload')
+    await touch('touchStart', [{ x: pull.x, y: pull.y, id: 2 }])
+    const pulling = await flags()
+    await touch('touchEnd', [])
+    const afterPull = await flags()
+    expect({ spreading, afterSpread, pulling, afterPull }).toEqual({
+      spreading: { spread: true, pull: false }, afterSpread: { spread: false, pull: false },
+      pulling: { spread: false, pull: true }, afterPull: { spread: false, pull: false },
+    })
+    const overlaps = () => page.evaluate(() => {
+      const bar = document.getElementById('play-ring-bar').getBoundingClientRect()
+      const hit = (r) => r.width > 0 && !(r.right <= bar.left || r.left >= bar.right || r.bottom <= bar.top || r.top >= bar.bottom)
+      const others = [...document.querySelectorAll('#touch-play .tp-btn'), document.getElementById('build-try-map'), document.getElementById('build-play-health'), document.getElementById('build-play-wave')]
+      return {
+        shown: bar.width > 0 && getComputedStyle(document.getElementById('play-ring-bar')).display === 'flex',
+        onScreen: bar.left >= 0 && bar.right <= innerWidth && bar.top >= 0 && bar.bottom <= innerHeight,
+        overlaps: others.filter((el) => el && getComputedStyle(el).display !== 'none' && hit(el.getBoundingClientRect())).map((el) => el.id || el.className),
+      }
+    })
+    expect(await overlaps()).toEqual({ shown: true, onScreen: true, overlaps: [] })
+    await page.setViewportSize({ width: 375, height: 812 })
+    await page.waitForTimeout(500)
+    expect(await overlaps()).toEqual({ shown: true, onScreen: true, overlaps: [] })
+  })
+})
