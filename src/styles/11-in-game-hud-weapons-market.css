@@ -1969,3 +1969,45 @@ html.ui-theme-biome #couch-p2-dig-fill { background: var(--biome-accent); }
 .couch-time-flash { position: absolute; inset: 0; pointer-events: none; background: #fff; opacity: 0; }
 .couch-time-flash.on { animation: time-flash 0.9s ease-out; }
 #time-flash.couch-left { right: 50%; }
+
+/* Owner powers (OwnerPowers.js): the gold crown button, the Owner menu
+   (the dark-and-gold pause look; biome-themed in the Biome theme) and the
+   big announcement everyone sees. */
+#owner-powers-btn { position: fixed; top: 50%; right: 10px; z-index: 20; width: 46px; height: 46px; padding: 9px; transform: translateY(-50%); color: #1a1408; background: #ffd23a; border: 2px solid #8a6300; border-radius: 50%; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45); cursor: pointer; }
+#owner-powers-btn svg { display: block; width: 100%; height: 100%; }
+#owner-powers-btn:hover { filter: brightness(1.08); }
+#owner-panel { position: fixed; inset: 0; z-index: 22; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; background: radial-gradient(ellipse at center, rgba(10, 8, 5, 0.45), rgba(5, 4, 2, 0.8)); color: #f1e6c8; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+#owner-panel .owner-box { width: min(560px, 100%); max-height: 100%; overflow-y: auto; gap: 8px; }
+#owner-panel h3 { margin: 6px 0 0; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: #e8c25a; }
+.owner-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.owner-row input, .owner-row select { margin: 0; min-width: 0; height: 34px; box-sizing: border-box; padding: 0 12px; font-size: 13px; color: inherit; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(232, 194, 90, 0.4); border-radius: 999px; }
+.owner-row select option { color: #111; }
+.owner-row input[type='number'] { width: 92px; }
+.owner-row input[type='text'] { flex: 1 1 180px; }
+.owner-list { display: flex; flex-direction: column; gap: 6px; max-height: 190px; overflow-y: auto; }
+.owner-player { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: space-between; padding: 6px 8px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; }
+.owner-player span { display: flex; flex-wrap: wrap; gap: 6px; }
+.owner-list p, .owner-hint { margin: 0; font-size: 12px; opacity: 0.75; }
+.owner-bottom { justify-content: space-between; margin-top: 6px; }
+#owner-panel .owner-danger { border-color: #d0393b; color: #ffb3b3; }
+#owner-panel .owner-danger:hover { background: rgba(208, 57, 59, 0.25); border-color: #ff5a5c; }
+#owner-announcement { position: fixed; top: 18%; left: 50%; z-index: 23; display: flex; flex-direction: column; align-items: center; gap: 4px; width: min(720px, calc(100% - 32px)); padding: 14px 20px; box-sizing: border-box; transform: translateX(-50%); text-align: center; color: #fff; background: rgba(12, 10, 6, 0.82); border: 2px solid #ffd23a; border-radius: 12px; pointer-events: none; }
+#owner-announcement[hidden] { display: none; }
+#owner-announcement small { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #ffd23a; }
+#owner-announcement b { font-size: clamp(20px, 4vw, 34px); line-height: 1.2; overflow-wrap: anywhere; }
+html.ui-theme-biome #owner-panel { color: var(--biome-ink); }
+html.ui-theme-biome #owner-panel .build-share-box { color: var(--biome-ink); background: var(--biome-surface); border: 2px solid var(--biome-edge); }
+html.ui-theme-biome #owner-panel .build-share-box button, html.ui-theme-biome .owner-row :is(input, select) { color: var(--biome-ink); border-color: var(--biome-edge); }
+html.ui-theme-biome #owner-panel :is(h2, h3) { color: var(--biome-ink); }
+html.ui-theme-biome #owner-announcement { color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); }
+html.ui-theme-biome #owner-announcement small { color: var(--biome-ink); }
+@media (max-width: 600px) {
+  #owner-powers-btn { top: 38%; width: 40px; height: 40px; padding: 7px; }
+  #owner-panel .owner-box { padding: 14px; }
+}
+#owner-panel .owner-row :is(input, select) { width: auto; flex: 0 1 auto; }
+#owner-panel .owner-row input[type='number'] { width: 92px; }
+#owner-panel .owner-row input[type='text'] { flex: 1 1 180px; }
+#owner-panel .owner-row input::placeholder { color: inherit; opacity: 0.6; }
+html.ui-theme-biome #owner-panel p { color: var(--biome-ink); }
+html.ui-theme-biome #owner-panel .build-share-box button.owner-danger { border-color: #d0393b; color: #b3191c; }

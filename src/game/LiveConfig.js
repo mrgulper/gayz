@@ -73,7 +73,7 @@ export const STAFF_UID = 'gayzTeam'
 // Horde Night's extra zombies per wave.
 export const HORDE_MULT = 1.5
 
-const EMPTY = { banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, daily: {}, hidden: { maps: [], builds: [] }, ban: null, mute: null, warnings: [], off: [], maintenance: null, poll: null, tuning: null, worldDrop: null }
+const EMPTY = { myGifts: [], banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, daily: {}, hidden: { maps: [], builds: [] }, ban: null, mute: null, warnings: [], off: [], maintenance: null, poll: null, tuning: null, worldDrop: null }
 
 function readCache() {
   try {
@@ -323,6 +323,7 @@ function apply(next, game) {
   renderWarning(game)
   showStaffMsg(game)
   claimGift(game)
+  claimMyGifts(game)
   tryWorldDrop(game)
   window.dispatchEvent(new Event('gayz-live'))
 }
@@ -370,6 +371,43 @@ export function claimGift(game) {
   game._fireConfetti?.()
   const what = [coins ? t('liveGiftCoins', { n: coins.toLocaleString() }) : '', gems ? t('liveGiftGems', { n: gems.toLocaleString() }) : ''].filter(Boolean).join(' + ')
   game._showHomepageToast?.(g.text ? t('liveGiftGotNote', { what, text: g.text }) : t('liveGiftGot', { what }))
+}
+
+// A gift from the owner for this player alone (OwnerPowers.js in a
+// server, or left for this Player ID): coins, gems and skins added to the
+// save, with confetti. key: the toast's words.
+export function receiveGift(game, g, key = 'ownerGiftGot') {
+  if (!game || !g) return
+  const coins = Math.max(0, Math.min(100000, Math.floor(Number(g.coins) || 0)))
+  const gems = Math.max(0, Math.min(1000, Math.floor(Number(g.gems) || 0)))
+  const skins = (Array.isArray(g.skins) ? g.skins : []).filter((id) => typeof id === 'string').slice(0, 5)
+  if (!coins && !gems && !skins.length) return
+  game.coins = (game.coins || 0) + coins
+  game.gems = (game.gems || 0) + gems
+  for (const id of skins) game._addSkinToInventory?.(id)
+  if (game._afterTradeChange) game._afterTradeChange()
+  else saveShopProgress(game)
+  game._renderCurrencyBar?.()
+  game._fireConfetti?.()
+  const what = [coins ? t('liveGiftCoins', { n: coins.toLocaleString() }) : '', gems ? t('liveGiftGems', { n: gems.toLocaleString() }) : '', skins.length ? t('redeemCodeSkins', { n: skins.length }) : ''].filter(Boolean).join(' + ')
+  const text = typeof g.text === 'string' ? g.text.slice(0, 120) : ''
+  game._showHomepageToast?.(t(key, { what }) + (text ? ` ${text}` : ''))
+}
+
+// Gifts the team left for this Player ID: each picked up once (the server
+// takes it off the list as it hands it over). Not in the owner's preview.
+const claiming = new Set()
+function claimMyGifts(game) {
+  if (embedded() || !game?.settings?.playerId) return
+  for (const g of config.myGifts || []) {
+    if (!g?.id || claiming.has(g.id)) continue
+    claiming.add(g.id)
+    liveApi()({ action: 'claimGift', pid: game.settings.playerId, id: g.id })
+      .then((res) => {
+        if (res?.ok) receiveGift(game, res, 'ownerGiftGot')
+      })
+      .catch(() => claiming.delete(g.id))
+  }
 }
 
 // Settings > Redeem a Code. The server checks the code (each player once,

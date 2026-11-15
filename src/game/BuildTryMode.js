@@ -1171,6 +1171,15 @@ export class BuildTryMode {
     // no walking or jumping; looking round, shooting and the rest go on.
     // On board Helicopter Escape's helicopter (BuildSurvival._updateExtraction):
     // you sit in it as it climbs - look round, nothing else.
+    // Frozen by the owner (OwnerPowers.js): stuck where you are - you can
+    // still look round and shoot, not move.
+    if (this.bm.survival?.active && this.bm.survival.adminFrozen && !this.bm.survival.spectating) {
+      this.vel.set(0, 0, 0)
+      cam.position.set(p.x * B, (p.y + this._eye) * B, p.z * B)
+      this.updateHands(dt, keys, false, false)
+      this._drawMap(performance.now())
+      return
+    }
     const ride = this.bm.survival?.active ? this.bm.survival._ride : null
     if (ride) {
       this.vel.set(0, 0, 0)
