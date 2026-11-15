@@ -8761,6 +8761,145 @@ test('Spin ring: no guns in zombie modes, spread / pull in, hits, heals, works i
   expect(party).toEqual({ active: true, ring: false, bar: false })
 })
 
+// Spin ring Batch 2 (RingItems.js, RingLoot.js, RingEditor.js): 9 items x 6
+// rarities, every zombie drops one, the bag saves, the editor swaps items.
+test('Spin ring items: drops for every zombie, the bag, the ring editor, item tricks, Spectate', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    localStorage.removeItem('gayz-ring-bag')
+    localStorage.removeItem('gayz-ring-loadout')
+  })
+  await startRingGame(page)
+  const r = await page.evaluate(async () => {
+    const bm = window.__game.buildMode
+    const s = bm.survival
+    const out = {}
+    const RI = s.ring.constructor.lib
+    out.items = RI.ITEM_IDS.length
+    out.rarities = RI.RARITIES.join(',')
+    // Rarer = stronger.
+    out.stronger = RI.itemStats('brick', 'mythic').damage > RI.itemStats('brick', 'rare').damage && RI.itemStats('brick', 'rare').damage > RI.itemStats('brick', 'common').damage
+    // Rolls: always something; bosses Rare or better.
+    let rolls = 0
+    let bossOk = true
+    for (let i = 0; i < 300; i++) {
+      if (RI.parseKey(RI.rollDrop(false))) rolls++
+      if (RI.rarityIndex(RI.parseKey(RI.rollDrop(true)).rarity) < 2) bossOk = false
+    }
+    out.rolls = rolls
+    out.bossOk = bossOk
+    // Kill a zombie: a drop appears, and walking into it puts it in the bag.
+    const p = s.bodyPos()
+    const z = s._makeZombie(++s._zid, p.x + 3, p.y, p.z, 100, false)
+    s.zombies.push(z)
+    z.tier = 'common'
+    const before = s.ringLoot.list.length
+    s.damageZombie(z, 99999, null)
+    out.dropped = s.ringLoot.list.length === before + 1
+    const d = s.ringLoot.list[s.ringLoot.list.length - 1]
+    const key = d.key
+    d.x = p.x + 0.3
+    d.z = p.z
+    d.y = p.y + 0.8
+    d.age = 5
+    for (let i = 0; i < 20; i++) s.ringLoot.update(1 / 30)
+    out.picked = !s.ringLoot.list.includes(d) && RI.owned(key) >= 1
+    out.saved = JSON.parse(localStorage.getItem('gayz-ring-bag'))[key] >= 1
+    // The editor: open with the key, put a Rare Ice Cube in slot 2.
+    RI.addToBag('icecube:rare', 1)
+    s.onKeyDown('KeyI')
+    const ed = s.ringEditor
+    out.open = ed.isOpen && getComputedStyle(document.getElementById('play-ring-editor')).display === 'flex'
+    out.mouseScreen = bm.mouseScreenOpen()
+    out.bagShows = !!document.querySelector('.ring-ed-item[data-key="icecube:rare"]')
+    document.querySelector('.ring-ed-slot[data-i="1"]').click()
+    document.querySelector('.ring-ed-item[data-key="icecube:rare"]').click()
+    out.swapped = s.ring.keys.join(',')
+    out.ringItems = s.ring.items.map((it) => it.key).join(',')
+    out.savedRing = localStorage.getItem('gayz-ring-loadout')
+    out.info = document.querySelector('.ring-ed-info').textContent.includes('Ice Cube')
+    // Can't add a 2nd copy you don't own: it moves instead.
+    document.querySelector('.ring-ed-slot[data-i="2"]').click()
+    document.querySelector('.ring-ed-item[data-key="icecube:rare"]').click()
+    out.oneCopy = s.ring.keys.filter((k) => k === 'icecube:rare').length
+    // Take out.
+    document.querySelector('.ring-ed-out').click()
+    out.emptied = s.ring.keys[2] === '' && s.ring.items.length === 2
+    out.emptyBarSlot = !!document.querySelector('#play-ring-bar .ring-slot-empty')
+    s.onKeyDown('KeyI')
+    out.closed = !ed.isOpen
+    // Item tricks.
+    const zz = s._makeZombie(++s._zid, p.x + 9, p.y, p.z, 100, false)
+    s.zombies.push(zz)
+    zz.health = zz.maxHealth = 5000
+    // Ice Cube slows.
+    s.ring.setLoadout(['icecube:rare', '', ''])
+    const ice = s.ring.items[0]
+    ice.wx = zz.x; ice.wy = zz.y + 1; ice.wz = zz.z
+    s.ring._touch(ice)
+    out.slowed = zz.slow > 0 && ice.cd > 0
+    // Shield soaks a bite (out of the camp, where nothing can hurt you).
+    s._campSafe = () => false
+    if (s.skills) s.skills.blocksHit = () => false
+    s.ring.setLoadout(['shield:common', '', ''])
+    s.health = 100
+    s._hurtPlayer(10)
+    out.shielded = s.health === 100 && s.ring.items[0].cd > 0
+    s._hurtPlayer(10)
+    out.thenHurt = s.health < 100
+    // Cactus pricks back.
+    s.ring.setLoadout(['cactus:common', '', ''])
+    const h0 = zz.health
+    s.ring.onBitten(zz)
+    out.thorns = zz.health < h0
+    // Battery jumps to a neighbour.
+    const z2 = s._makeZombie(++s._zid, zz.x + 1.5, zz.y, zz.z, 100, false)
+    s.zombies.push(z2)
+    z2.health = z2.maxHealth = 5000
+    s.ring.setLoadout(['battery:common', '', ''])
+    const bat = s.ring.items[0]
+    bat.wx = zz.x; bat.wy = zz.y + 1; bat.wz = zz.z
+    s.ring._touch(bat)
+    out.zapped = z2.health < 5000
+    // Firecracker hurts both.
+    const a0 = zz.health
+    const b0 = z2.health
+    s.ring.setLoadout(['firecracker:common', '', ''])
+    const fc = s.ring.items[0]
+    fc.wx = zz.x; fc.wy = zz.y + 1; fc.wz = zz.z
+    s.ring._touch(fc)
+    out.blast = zz.health < a0 && z2.health < b0
+    // Magnet: pulls from further.
+    s.ring.setLoadout(['magnet:common', '', ''])
+    out.magnet = s.ring.pullRange(2.2) >= 6
+    // Ring bar click opens the editor; the pause menu has Ring & Bag.
+    document.getElementById('play-ring-bar').click()
+    out.barOpens = ed.isOpen
+    ed.close(false)
+    bm.toggleMenu()
+    const ringBtn = document.getElementById('play-pause-ring-btn')
+    out.pauseBtn = getComputedStyle(ringBtn).display !== 'none' && ringBtn.textContent.trim() === 'Ring & Bag'
+    // Spectate: the editor still opens.
+    document.getElementById('play-pause-spectate-btn').click()
+    out.spectating = !!bm.spectate.active
+    s.onKeyDown('KeyI')
+    out.spectateEditor = ed.isOpen
+    ed.close(false)
+    // Game over: drops cleared.
+    s.stop()
+    out.cleared = !document.querySelector('#play-ring-bar') && !s.ringLoot
+    return out
+  })
+  expect(r).toEqual({
+    items: 9, rarities: 'common,uncommon,rare,epic,legendary,mythic', stronger: true, rolls: 300, bossOk: true,
+    dropped: true, picked: true, saved: true, open: true, mouseScreen: true, bagShows: true,
+    swapped: 'brick:common,icecube:rare,bandage:common', ringItems: 'brick:common,icecube:rare,bandage:common',
+    savedRing: '["brick:common","icecube:rare","bandage:common"]', info: true, oneCopy: 1, emptied: true, emptyBarSlot: true, closed: true,
+    slowed: true, shielded: true, thenHurt: true, thorns: true, zapped: true, blast: true, magnet: true,
+    barOpens: true, pauseBtn: true, spectating: true, spectateEditor: true, cleared: true,
+  })
+})
+
 test.describe('spin ring on a phone', () => {
   test.use({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true })
 
@@ -8804,5 +8943,20 @@ test.describe('spin ring on a phone', () => {
     await page.setViewportSize({ width: 375, height: 812 })
     await page.waitForTimeout(500)
     expect(await overlaps()).toEqual({ shown: true, onScreen: true, overlaps: [] })
+    // Tapping the ring bar opens the Ring Bag, which fits the upright phone.
+    const bar = await center('#play-ring-bar')
+    await touch('touchStart', [{ x: bar.x, y: bar.y, id: 3 }])
+    await touch('touchEnd', [])
+    await page.waitForTimeout(300)
+    const ed = await page.evaluate(() => {
+      const box = document.querySelector('#play-ring-editor .build-share-box').getBoundingClientRect()
+      return {
+        open: !!window.__game.buildMode.survival.ringEditor?.isOpen,
+        fits: box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight,
+        touchHidden: getComputedStyle(document.getElementById('touch-play')).display === 'none',
+        hint: document.querySelector('.ring-ed-hint').textContent.includes('tap'),
+      }
+    })
+    expect(ed).toEqual({ open: true, fits: true, touchHidden: true, hint: true })
   })
 })

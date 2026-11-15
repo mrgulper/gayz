@@ -22,6 +22,8 @@ import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { SKELETON_KINDS, loadSkeletons, makeSkeleton, skeletonsReady } from './SkeletonModels.js'
 import { audioEngine } from './Audio.js'
 import { SpinRing, RING_MODES } from './SpinRing.js'
+import { RingLoot } from './RingLoot.js'
+import { RingEditor } from './RingEditor.js'
 import { CouchCoop } from './CouchCoop.js'
 import { survivalAudioTick } from './MoreSettings.js'
 import { hudTick } from './HudSettings.js'
@@ -475,6 +477,11 @@ export class BuildSurvival {
     // checks shoot with, unless a test asks for the ring: __ringForTests.)
     const testGuns = typeof navigator !== 'undefined' && navigator.webdriver && !window.__ringForTests
     this.ring = (fromMenu || net) && RING_MODES.includes(this.cfg.mode) && !testGuns ? new SpinRing(this) : null
+    // Batch 2: every zombie drops a ring item (RingLoot.js) for the bag, and
+    // the ring editor (RingEditor.js) swaps items in and out.
+    this.ringLoot?.clear()
+    this.ringLoot = this.ring ? new RingLoot(this) : null
+    if (!this.ringEditor) this.ringEditor = new RingEditor(this)
     // Ammo left in each gun you've switched away from (pause > Switch
     // Weapon), so switching never refills a gun.
     this._ammoByWeapon = {}
@@ -781,8 +788,11 @@ export class BuildSurvival {
     // Leaving a run before dying still counts it (stats, quests).
     if (!this.dead && !suspend) this._endRun(false)
     this.active = false
+    this.ringEditor?.close(false)
     this.ring?.dispose()
     this.ring = null
+    this.ringLoot?.clear()
+    this.ringLoot = null
     this.couch?.dispose()
     this.couch = null
     this.infection?.dispose()
@@ -1980,6 +1990,8 @@ export class BuildSurvival {
       this.onboard?.onKill()
       // Zombie Goo for crafting (PlayCrafting.js).
       if (Math.random() < GOO_CHANCE * tune('drops')) this._drops?.spawnItem('zombieGoo', z.x, z.y + 1, z.z)
+      // Spin ring games: every zombie drops a ring item (RingLoot.js).
+      this.ringLoot?.dropFrom(z)
       // A torn Map Piece now and then (TreasureMaps.js).
       if (Math.random() < PIECE_CHANCE * tune('drops')) this._drops?.spawnItem('mapPiece', z.x, z.y + 1.2, z.z)
       this.damageNumbers?.coinsAt(z, this._coinsEarned - coins, ZOMBIE_HEIGHT)
@@ -2329,6 +2341,7 @@ export class BuildSurvival {
     else if (code === getKeyFor('shop')) this.shop?.toggle()
     else if (code === getKeyFor('spray')) this.sprays?.spray()
     else if (code === getKeyFor('bingo')) this.bingo?.toggle()
+    else if (code === getKeyFor('ringBag') && this.ring) this.ringEditor?.toggle()
   }
 
   // --- the world: who can stand where ---
@@ -3299,6 +3312,8 @@ export class BuildSurvival {
         this._lastBiter = { nameIdx: zb.nameIdx, at: performance.now() }
         audioEngine.playZombieAttack?.(zb.size || 1, this._panTo(zb.x, zb.z))
         this._hurtPlayer(bite)
+        // A Cactus in the spin ring pricks it back (SpinRing.onBitten).
+        this.ring?.onBitten(zb)
         // A Mirror Block nearby bounces some of it back (BuildSpecials.js).
         this.bm.specials.onBitten(zb, bite)
         this.perks?.onBitten(zb)
@@ -3378,6 +3393,11 @@ export class BuildSurvival {
     if (this._campSafe(p.x, p.z)) return
     // Skill tree: Untouchable's moment after a hit, Shrug It Off's free bite.
     if (this.skills?.blocksHit()) return
+    // A Shield Plate in the spin ring soaks up the hit (SpinRing.absorb).
+    if (this.ring) {
+      amount = this.ring.absorb(amount)
+      if (amount <= 0) return
+    }
     this.streak = 0
     this._hurtAt = performance.now()
     // Armor (from the camp's Trader) takes the hit first.
@@ -3690,10 +3710,12 @@ export class BuildSurvival {
     this.catcher?.update(Math.min(dt, 0.1))
     this.hpBars?.update(Math.min(dt, 0.1))
     this.ring?.update(Math.min(dt, 0.1))
+    this.ringEditor?.update()
     // On a server the world goes on while you're dead or in the menu.
     const net = this.net && !this.net.closed ? this.net : null
     if (net) net.update(Math.min(dt, 0.25))
     if (!net && (this.dead || this.bm.menuOpen)) return
+    this.ringLoot?.update(Math.min(dt, 0.1))
     // Nothing happens until a weapon has been picked.
     if (this._picking && !net) return
     dt = Math.min(dt, 1 / 20)

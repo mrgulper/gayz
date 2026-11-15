@@ -2021,7 +2021,7 @@ html.ui-theme-biome #owner-panel .build-share-box button.owner-danger { border-c
   display: none; gap: 6px; padding: 6px;
   transform: translateX(calc(263px * var(--hud-scale, 1) + 18px));
 }
-#play-ring-bar .ring-slot { cursor: default; overflow: hidden; border-color: rgba(255, 255, 255, 0.45); border-radius: 50%; }
+#play-ring-bar .ring-slot { cursor: pointer; overflow: hidden; border-color: rgba(255, 255, 255, 0.45); border-radius: 50%; }
 #play-ring-bar .ring-slot svg { position: absolute; inset: 5px; width: calc(100% - 10px); height: calc(100% - 10px); filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6)); }
 #play-ring-bar .ring-cd { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(0, 0, 0, 0.55); pointer-events: none; }
 body.play-ring-on #build-play-ammo { display: none; }
@@ -2037,3 +2037,56 @@ body.touch-play-on #play-ring-bar .ring-slot { width: 38px; height: 38px; }
 }
 #touch-play .tp-btn.tp-ring.tp-fire { border-color: rgba(255, 170, 80, 0.8); }
 #touch-play .tp-btn.tp-ring.tp-reload { width: 64px; height: 64px; border-color: rgba(120, 190, 255, 0.8); }
+
+/* The ring editor and item bag (RingEditor.js, 2026-11-15): the Shop's
+   overlay look; ring slots on top, what the item does, then the bag grid.
+   Each item's border is its rarity colour (inline style). The game keeps
+   running behind it. */
+#play-ring-bar { pointer-events: auto; }
+/* Phones: above the touch layer (#touch-play, z 17) so a tap reaches it. */
+body.touch-play-on #play-ring-bar { z-index: 18; }
+#play-ring-bar .ring-slot-empty { border-style: dashed; opacity: 0.7; }
+#play-ring-editor {
+  position: fixed; inset: 0; z-index: 21;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px; box-sizing: border-box;
+  background: radial-gradient(ellipse at center, rgba(10, 8, 5, 0.35), rgba(5, 4, 2, 0.7));
+  color: #f1e6c8;
+}
+#play-ring-editor .build-share-box { position: relative; width: min(480px, 100%); max-height: calc(100dvh - 32px); box-sizing: border-box; display: flex; flex-direction: column; }
+#play-ring-editor .build-share-box h2 { padding: 0 34px; margin-bottom: 4px; }
+#play-ring-editor .panel-close-btn {
+  top: 10px; right: 12px; padding: 0; min-width: 0;
+  background: none; border: none; border-radius: 0; box-shadow: none;
+  color: #e05252; font-size: 26px; font-weight: 700;
+}
+#play-ring-editor .panel-close-btn:hover { color: #ff6b6b; background: none; }
+.ring-ed-hint { margin: 0 0 10px; font-size: 13px; opacity: 0.8; text-align: center; }
+.ring-ed-slots { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.ring-ed-slot, .ring-ed-item {
+  position: relative; flex: none; padding: 0; min-width: 0;
+  background: rgba(0, 0, 0, 0.45); border: 2px solid rgba(255, 255, 255, 0.35); box-shadow: none; cursor: pointer;
+}
+.ring-ed-slot { width: 58px; height: 58px; border-radius: 50%; }
+.ring-ed-slot:not([style*="border-color"]) { border-style: dashed; }
+.ring-ed-slot.picked { outline: 3px solid #ffd75e; outline-offset: 3px; }
+.ring-ed-slot svg, .ring-ed-item svg { position: absolute; inset: 7px; width: calc(100% - 14px); height: calc(100% - 14px); filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6)); pointer-events: none; }
+.ring-ed-out { padding: 6px 14px; min-width: 0; font: inherit; font-size: 13px; font-weight: 700; border-radius: 999px; }
+.ring-ed-out:disabled { opacity: 0.45; cursor: default; }
+.ring-ed-info {
+  display: flex; flex-direction: column; gap: 3px; margin: 12px 0 6px; padding: 8px 12px; min-height: 64px; box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.35); border-radius: 8px; font-size: 13px; color: rgba(241, 230, 200, 0.85);
+}
+.ring-ed-info b { font-size: 16px; color: #fff; }
+.ring-ed-rarity { font-weight: 700; }
+.ring-ed-nums { opacity: 0.85; }
+.ring-ed-bag-title { margin: 6px 0; font-size: 15px; }
+.ring-ed-bag { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 8px; overflow-y: auto; min-height: 120px; max-height: 40dvh; padding: 2px; }
+.ring-ed-item { width: 100%; aspect-ratio: 1; border-radius: 10px; }
+.ring-ed-item.shown { outline: 2px solid #fff; outline-offset: 2px; }
+.ring-ed-item.in-ring::after { content: ''; position: absolute; top: 4px; left: 4px; width: 8px; height: 8px; border-radius: 50%; background: #ffd75e; }
+.ring-ed-count { position: absolute; right: 4px; bottom: 2px; font-size: 11px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px #000; pointer-events: none; }
+@media (orientation: portrait) {
+  .ring-ed-slot { width: 52px; height: 52px; }
+  .ring-ed-bag { max-height: 36dvh; }
+}
