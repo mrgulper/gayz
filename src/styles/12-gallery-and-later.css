@@ -432,6 +432,124 @@ html.ui-theme-old .server-row {
 .server-join-btn {
   flex: 0 0 auto;
 }
+/* Custom lobbies (2026-11-15, CustomLobbyUI.js): the row's mode and rule
+   chips and password box, and the Create Custom Lobby form. */
+.lobby-row-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.lobby-chip {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--ui-gold-bright-rgb, 217, 188, 74), 0.35);
+  white-space: nowrap;
+  opacity: 0.85;
+}
+html.ui-theme-old .lobby-chip {
+  border-color: rgba(90, 60, 30, 0.45);
+}
+.lobby-mode-chip {
+  font-weight: 700;
+  opacity: 1;
+}
+.server-pass {
+  width: 110px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+#custom-lobby-form {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 4px 8px 0;
+}
+#custom-lobby-form[hidden],
+#server-list[hidden],
+#server-count-line[hidden],
+.lobby-number[hidden],
+#server-create-name[hidden] {
+  display: none;
+}
+.lobby-title,
+.lobby-sub {
+  margin: 4px 0 0;
+  text-align: center;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.lobby-title {
+  font-size: 15px;
+}
+.lobby-sub {
+  font-size: 13px;
+  opacity: 0.8;
+}
+.lobby-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.lobby-field > span:first-child {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.lobby-field > input,
+.lobby-field > select,
+.lobby-pick {
+  flex: 0 1 200px;
+  min-width: 0;
+  max-width: 200px;
+  border-radius: 999px;
+}
+.lobby-pick {
+  display: flex;
+  gap: 6px;
+}
+.lobby-pick > select,
+.lobby-pick > input {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 999px;
+}
+.lobby-check {
+  justify-content: flex-start;
+}
+.lobby-field.lobby-check > input {
+  flex: 0 0 auto;
+  max-width: none;
+  border-radius: revert-layer;
+}
+.lobby-reward {
+  margin: 4px 0 0;
+  font-size: 13px;
+  text-align: center;
+  opacity: 0.85;
+}
+.lobby-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+@media (max-width: 520px) {
+  .server-row {
+    flex-wrap: wrap;
+  }
+  .lobby-field > input,
+  .lobby-field > select,
+  .lobby-pick {
+    flex-basis: 150px;
+  }
+}
 .server-empty {
   text-align: center;
   opacity: 0.75 !important;

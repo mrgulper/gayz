@@ -38,11 +38,16 @@ export const RING_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush',
 const R_PULL = 1.0
 const R_NORMAL = 1.8
 const R_SPREAD = 3.4
-const R_EASE = 7
-const SPIN = 3.4
+export const R_EASE = 7
+export const SPIN = 3.4
 // Height of the ring above your feet (blocks), and each item's touch size.
-const RING_Y = 1.0
+export const RING_Y = 1.0
 const ITEM_R = 0.28
+// Friendly fire (a custom lobby's rule): how often one item can hurt the
+// same player, at most (seconds) - and how big a player is to touch.
+const PVP_GAP_S = 0.5
+const PLAYER_HALF = 0.3
+const PLAYER_TALL = 2
 // How tall a zombie is (blocks; mobs are 2 blocks tall).
 const ZOMBIE_TALL = 2
 const ZOMBIE_HALF = 0.3
@@ -140,6 +145,7 @@ export class SpinRing {
       m.rotation.y = -a
       if (it.id === 'sawblade') m.rotation.y = this.spin * 6
       if (!frozen && it.cd <= 0) this._touch(it)
+      if (!frozen && it.cd <= 0 && net && s.net.rules?.ff) this._touchPlayers(it)
     })
     this._renderBar()
   }
@@ -218,7 +224,38 @@ export class SpinRing {
       }
     }
     // Forget zombies that are gone (bite times).
-    if (it.bitAt.size > 20) for (const z of it.bitAt.keys()) if (!s.zombies.includes(z)) it.bitAt.delete(z)
+    if (it.bitAt.size > 20) for (const z of it.bitAt.keys()) if (typeof z !== 'string' && !s.zombies.includes(z)) it.bitAt.delete(z)
+  }
+
+  // Friendly fire on (a custom lobby): a damaging item touching another
+  // player hurts them - the hit goes through the server (PlayNet.queuePvp)
+  // and lands like a zombie bite on their screen.
+  _touchPlayers(it) {
+    const def = it.def
+    if (!def.damage) return
+    const net = this.s.net
+    const now = performance.now() / 1000
+    for (const [pid, p] of net.players) {
+      if (p.dead || !p.seen) continue
+      const dx = p.x - it.wx
+      const dz = p.z - it.wz
+      const half = PLAYER_HALF + ITEM_R
+      if (dx * dx + dz * dz > half * half || it.wy < p.y - ITEM_R || it.wy > p.y + PLAYER_TALL + ITEM_R) continue
+      const key = `p:${pid}`
+      if (now - (it.bitAt.get(key) || 0) < Math.max(PVP_GAP_S, def.bite || 0)) continue
+      it.bitAt.set(key, now)
+      net.queuePvp(pid, Math.round(def.damage * (this.s.cfg?.damageMult ?? 1)))
+      if (def.breaks) {
+        it.cd = def.reload
+        return
+      }
+    }
+  }
+
+  // What the other players on a server need to draw my ring
+  // (RemoteRings.js): the items, and how far out it sits.
+  netState() {
+    return { k: this.keys.slice(), r: Math.round(this.radius * 10) / 10 }
   }
 
   // Firecracker: every zombie close by is hurt.

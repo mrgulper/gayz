@@ -684,6 +684,136 @@ test('the owner drops into a game, visible and invisible', async ({ browser }) =
 // Invite Friends (2026-10-18): a solo World Map game becomes a server from
 // the pause menu, its link is shown, and a friend opening the link joins
 // the same world (same land, Earth) and starts where the host did.
+// Custom lobbies on the page (spin ring plan Batch 4): the Custom tab's
+// form makes one with the host's rules (a typed Custom value too), a
+// friend types the password in its row and joins, both play by those
+// rules, see each other's spin ring, and friendly fire hurts.
+test('custom lobby: the host sets the rules, a friend joins with the password', async ({ browser }) => {
+  test.setTimeout(240000)
+  const db = fakeServerDb()
+  const fns = { list: () => listServers(db), create: (b) => createServer(db, b), join: (b) => joinServer(db, b), leave: (b) => leaveServer(db, b), sync: (b) => syncServer(db, b) }
+  const open = async () => {
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await page.exposeFunction('__srv', async (name, body) => {
+      try {
+        return { ok: await fns[name](body) }
+      } catch (err) {
+        return { err: err.code || 'server' }
+      }
+    })
+    await page.addInitScript(() => { window.__ringForTests = true })
+    await gotoAndWaitForGame(page)
+    await page.evaluate(() => {
+      window.__game.__testNoDraw = true
+      const call = async (name, body) => {
+        const r = await window.__srv(name, body)
+        if (r.err) throw Object.assign(new Error(r.err), { code: r.err })
+        return r.ok
+      }
+      window.__game.__serversBackendForTests = { list: () => call('list'), create: (b) => call('create', b), join: (b) => call('join', b), leave: (b) => call('leave', b), sync: (b) => call('sync', b) }
+    })
+    return page
+  }
+
+  const a = await open()
+  await a.evaluate(() => { window.__game.settings.nickname = 'Ann' })
+  await a.evaluate(() => window.__game._openServerPanel())
+  await a.click('#server-tab-custom')
+  await expect(a.locator('#server-create-btn')).toHaveText('Create Custom Lobby')
+  await a.click('#server-create-btn')
+  await expect(a.locator('#custom-lobby-form')).toBeVisible()
+  await expect(a.locator('#server-list')).toBeHidden()
+  await a.fill('#lobby-name', 'Ring Party')
+  await a.fill('#lobby-password', 'tacos')
+  // Zombie health: Custom, typed 2.5.
+  await a.selectOption('[data-pick="zh"]', 'custom')
+  await expect(a.locator('[data-pick-num="zh"]')).toBeVisible()
+  await a.fill('[data-pick-num="zh"]', '2.5')
+  await a.selectOption('[data-pick="dmg"]', '3')
+  await a.check('#lobby-ff')
+  // Triple damage against 2.5x zombies is easier than normal: less reward.
+  await expect(a.locator('#lobby-reward')).toContainText('rewards at')
+  await a.click('#lobby-create-btn')
+  await a.waitForFunction(() => window.__game.buildMode?.survival?.active && window.__game.buildMode.survival.net, null, { timeout: 60000 })
+
+  const b = await open()
+  await a.evaluate(() => window.__game.buildMode.survival.net._sync())
+  await b.evaluate(() => { window.__game.settings.nickname = 'Bo' })
+  await b.evaluate(() => window.__game._openServerPanel())
+  // Not on the Zombie Survival tab; on Custom with its mode and rules.
+  await expect(b.locator('#server-list .server-row')).toHaveCount(0)
+  await b.click('#server-tab-custom')
+  await expect(b.locator('#server-list .server-row')).toHaveCount(1)
+  await expect(b.locator('#server-list')).toContainText('Ring Party')
+  await expect(b.locator('#server-list')).toContainText('Zombie health 2.5x')
+  await expect(b.locator('#server-list')).toContainText('Friendly fire')
+  await b.click('#server-list .server-join-btn')
+  expect(await b.evaluate(() => window.__game.loreToast.textContent)).toContain('password')
+  await b.fill('#server-list .server-pass', 'tacos')
+  await b.click('#server-list .server-join-btn')
+  await b.waitForFunction(() => window.__game.buildMode?.survival?.active && window.__game.buildMode.survival.net, null, { timeout: 60000 })
+
+  const sync = (page) => page.evaluate(() => window.__game.buildMode.survival.net._sync())
+  for (let i = 0; i < 3; i++) {
+    await sync(a)
+    await sync(b)
+  }
+  // Both play by the host's rules, with the ring, and less reward.
+  for (const pg of [a, b]) {
+    const r = await pg.evaluate(() => {
+      const s = window.__game.buildMode.survival
+      return { zh: s.cfg.zombieHealthMult, dmg: s.cfg.damageMult, ring: !!s.ring, reward: s.rewardMult }
+    })
+    expect(r).toMatchObject({ zh: 2.5, dmg: 3, ring: true })
+    expect(r.reward).toBeLessThan(1)
+  }
+  await expect(b.locator('#chat-messages .chat-system-row').first()).toContainText('Custom rules')
+  // Bo sees Ann's ring spinning round her.
+  await b.evaluate(() => window.__game.buildMode.survival.net.update(0.05))
+  const ring = await b.evaluate(() => {
+    const p = [...window.__game.buildMode.survival.net.players.values()][0]
+    return { items: p.ringView?.items.length || 0, shown: !!p.ringView?.group.visible, want: p.ring?.k.length || 0 }
+  })
+  expect(ring.items).toBeGreaterThan(0)
+  expect(ring.items).toBe(ring.want)
+  expect(ring.shown).toBe(true)
+  // Friendly fire: Ann's ring item touching Bo hurts him (outside the
+  // camp - nothing hurts you inside it - and without a Shield Plate).
+  const before = await b.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    s._campSafe = () => false
+    s.ring.absorb = (n) => n
+    return s.health
+  })
+  await a.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const p = [...s.net.players.values()][0]
+    const it = s.ring.items.find((o) => o.def.damage)
+    Object.assign(it, { wx: p.x, wy: p.y + 1, wz: p.z, cd: 0 })
+    s.ring._touchPlayers(it)
+  })
+  await sync(a)
+  await sync(b)
+  expect(await b.evaluate(() => window.__game.buildMode.survival.health)).toBeLessThan(before)
+  // Bo's kill on Ann's zombie: Bo gets the ring-item drop where it fell
+  // (rewards pinned to full here - easy rules drop by chance).
+  const drops = await b.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    s.rewardMult = 1
+    return s.ringLoot.list.length
+  })
+  await a.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const [pid, p] = [...s.net.players.entries()][0]
+    s.net.queueCredit(pid, false, null, 'rare', false, null, [p.x + 2, p.y, p.z])
+  })
+  await sync(a)
+  await sync(b)
+  expect(await b.evaluate(() => window.__game.buildMode.survival.ringLoot.list.length)).toBe(drops + 1)
+  for (const pg of [a, b]) await pg.context().close()
+})
+
 test('Invite Friends makes a solo game joinable and the link joins it', async ({ browser }) => {
   test.setTimeout(240000)
   const db = fakeServerDb()
@@ -1399,6 +1529,44 @@ test('servers: the host decides who can join (anyone / link only / nobody)', asy
   await joinServer(db, { serverId: a.serverId, nickname: 'Cy' }, 90)
   const c = await createServer(db, { nickname: 'Dee', access: '<b>' }, 100)
   expect((await listServers(db, 110)).map((s) => s.id)).toContain(c.serverId)
+})
+
+// Custom lobbies (spin ring plan Batch 4, src/game/LobbyRules.js): the
+// host's rules go to everyone, a password keeps others out (only its hash
+// is stored), the lobby's own player limit, rings seen by others, ring
+// hits on players only with friendly fire, and kill credits carry the spot.
+test('servers: custom lobbies - rules, password, limit, rings and friendly fire', async () => {
+  const db = fakeServerDb()
+  const a = await createServer(db, { nickname: 'Ann', mode: 'main', custom: true, password: 'tacos', rules: { max: 2, zh: 2, dmg: 9, hp: 'x', ring: true, ff: true } }, 0)
+  expect(a.custom).toBe(true)
+  // Out-of-range values are kept inside the limits; junk is the default.
+  expect(a.rules).toMatchObject({ max: 2, zh: 2, dmg: 5, hp: 100, ring: true, ff: true })
+  expect(JSON.stringify(db.root)).not.toContain('tacos')
+  const list = await listServers(db, 10)
+  expect(list).toEqual([expect.objectContaining({ id: a.serverId, custom: true, locked: true, max: 2 })])
+  expect(list[0]).not.toHaveProperty('passHash')
+  await expect(joinServer(db, { serverId: a.serverId, nickname: 'Bo' }, 20)).rejects.toMatchObject({ status: 403, code: 'password' })
+  await expect(joinServer(db, { serverId: a.serverId, nickname: 'Bo', password: 'nachos' }, 20)).rejects.toMatchObject({ code: 'password' })
+  const b = await joinServer(db, { serverId: a.serverId, nickname: 'Bo', password: 'tacos' }, 30)
+  expect(b.rules).toMatchObject({ zh: 2, ff: true })
+  // Its own limit: 2 players.
+  await expect(joinServer(db, { serverId: a.serverId, nickname: 'Cy', password: 'tacos' }, 40)).rejects.toMatchObject({ code: 'full' })
+
+  // My ring goes to the others; my ring hit on Bo reaches him as a bite.
+  await syncServer(db, { ...a, state: { x: 1, y: 1, z: 1, ring: { k: ['brick:rare', '', '<b>:x', 'sawblade:mythic'], r: 3.44 } }, pvp: [{ to: b.playerId, dmg: 30 }, { to: a.playerId, dmg: 99 }], credits: [{ to: b.playerId, tier: 'rare', at: [1.23, 2, 3] }] }, 50)
+  const rb = await syncServer(db, { ...b, state: {} }, 60)
+  expect(rb.players[a.playerId].ring).toEqual({ k: ['brick:rare', '', '', 'sawblade:mythic'], r: 3.4 })
+  expect(rb.hurt).toEqual([30])
+  expect(rb.credits).toEqual([{ boss: false, tier: 'rare', at: [1.2, 2, 3] }])
+
+  // Friendly fire off (a normal server): ring hits on players go nowhere.
+  const c = await createServer(db, { nickname: 'Dee' }, 100)
+  const d = await joinServer(db, { serverId: c.serverId, nickname: 'Eve' }, 110)
+  expect(d.custom).toBeUndefined()
+  await syncServer(db, { ...c, state: {}, pvp: [{ to: d.playerId, dmg: 30 }] }, 120)
+  expect((await syncServer(db, { ...d, state: {} }, 130)).hurt).toEqual([])
+  // Custom lobbies only show on the Custom tab, normal ones elsewhere.
+  expect((await listServers(db, 140)).map((s) => !!s.custom).sort()).toEqual([false, true])
 })
 
 // The Console's admin controls (api/_lib/admin.js), on an in-memory database.

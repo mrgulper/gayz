@@ -23,6 +23,7 @@ import { SKELETON_KINDS, loadSkeletons, makeSkeleton, skeletonsReady } from './S
 import { audioEngine } from './Audio.js'
 import { SpinRing, RING_MODES } from './SpinRing.js'
 import { RingLoot } from './RingLoot.js'
+import { rewardMult } from './LobbyRules.js'
 import { RingEditor } from './RingEditor.js'
 import { CouchCoop } from './CouchCoop.js'
 import { survivalAudioTick } from './MoreSettings.js'
@@ -407,6 +408,7 @@ export class BuildSurvival {
       this.cfg.mode = net.mode === 'infection' ? 'infection' : net.mode === 'zone' ? 'shrinkingZone' : net.mode === 'td' ? 'towerDefense' : net.mode === 'escape' ? 'escapeRoom' : net.mode === 'escapeSolo' ? 'escapeRace' : party || 'classic'
       this.cfg.noZombies = this.cfg.mode === 'infection' || !!party || this.cfg.mode === 'escapeRoom' || this.cfg.mode === 'escapeRace'
     }
+    this._applyLobbyRules(net?.rules || null)
     this._zid = 0
     this._disposeExtraction()
     if (bm.tryMode.active) bm.toggleTryMode()
@@ -476,7 +478,7 @@ export class BuildSurvival {
     // (Automated tests - navigator.webdriver - keep the guns their older
     // checks shoot with, unless a test asks for the ring: __ringForTests.)
     const testGuns = typeof navigator !== 'undefined' && navigator.webdriver && !window.__ringForTests
-    this.ring = (fromMenu || net) && RING_MODES.includes(this.cfg.mode) && !testGuns ? new SpinRing(this) : null
+    this.ring = (fromMenu || net) && RING_MODES.includes(this.cfg.mode) && !testGuns && this.lobbyRules?.ring !== false ? new SpinRing(this) : null
     // Batch 2: every zombie drops a ring item (RingLoot.js) for the bag, and
     // the ring editor (RingEditor.js) swaps items in and out.
     this.ringLoot?.clear()
@@ -1313,6 +1315,23 @@ export class BuildSurvival {
   }
 
   // Tells Game.js about a homepage run (stats, quests, achievements).
+  // A custom lobby (LobbyRules.js): everyone plays by the host's rules, not
+  // their own Game Mode settings - and easy rules earn less (rewardMult:
+  // coins here, Legacy Points in ProgressUI, ring drops in RingLoot).
+  _applyLobbyRules(rules) {
+    this.lobbyRules = rules
+    this.rewardMult = rewardMult(rules)
+    if (!rules) return
+    this.cfg = { ...PLAY_DEFAULTS, mode: this.cfg.mode, noZombies: this.cfg.noZombies }
+    this.cfg.zombieHealthMult = rules.zh
+    this.cfg.zombieCountMult = rules.zc
+    if (rules.boss) this.cfg.bossEvery = rules.boss
+    this.cfg.maxHealth = rules.hp
+    this.cfg.damageMult = rules.dmg
+    this.cfg.moveMult = rules.spd
+    this.cfg.coinMult = this.rewardMult
+  }
+
   _report(type, data) {
     if (!this.fromMenu) return null
     return this.bm.game?._onPlayEvent?.(type, data) || null
@@ -1975,7 +1994,7 @@ export class BuildSurvival {
     if (z.mutant && !by && !sunOnly && !p2Gear) this._earn(MUTANT_COINS)
     audioEngine.playZombieDeath?.(1, this._panTo(z.x, z.z))
     const skeleton = SKELETON_KINDS[z.kind] ? z.kind : null
-    if (by) this.net?.queueCredit(by, z.boss, skeleton, z.tier, false, z.shine)
+    if (by) this.net?.queueCredit(by, z.boss, skeleton, z.tier, false, z.shine, [z.x, z.y, z.z])
     else if (p2Gear) {
       const paid = COIN_PER_KILL * (ZOMBIE_TIERS[z.tier]?.coins ?? 1) * shineCoins(z.shine) + (z.boss ? BOSS_COINS : 0) + (z.mutant ? MUTANT_COINS : 0)
       const got = p2Gear.earn(paid)
@@ -3458,6 +3477,7 @@ export class BuildSurvival {
       seconds: (performance.now() - this._startedAt) / 1000,
       coins: this._coinsEarned,
       bonusXp: this._bonusXp || 0,
+      rewardMult: this.rewardMult ?? 1,
     })
   }
 

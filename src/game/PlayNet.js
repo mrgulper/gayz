@@ -52,6 +52,9 @@ import { explored, unpackKeys } from './ExploredMap.js'
 import { ownerTag, ownerCrown, startOwnerMode } from './OwnerDropIn.js'
 import { OwnerPanel, applyOwnerDeliveries } from './OwnerPowers.js'
 import { setTarget, ahead } from './NetSmooth.js'
+import { cleanLobbyRules } from './LobbyRules.js'
+import { rulesMessage } from './CustomLobbyUI.js'
+import { drawRemoteRing, disposeRemoteRing, cleanRemoteRing } from './RemoteRings.js'
 
 // Seconds between syncs.
 export const SYNC_EVERY = 0.16
@@ -95,6 +98,12 @@ export class PlayNet {
     // Owner tag) or 'ghost' (invisible), and the pass that let them in.
     this.owner = info.owner === 'own' || info.owner === 'ghost' ? info.owner : null
     this.drop = this.owner ? info.drop || null : null
+    // A custom lobby (LobbyRules.js): the host's rules, and the password
+    // it was joined with (for getting back in after a drop).
+    this.custom = !!info.custom
+    this.rules = this.custom ? cleanLobbyRules(info.rules) : null
+    this.password = typeof info.password === 'string' ? info.password : ''
+    this._pvp = []
     this.wave = 0
     this.players = new Map()
     this.survival = null
@@ -186,6 +195,12 @@ export class PlayNet {
     this._hits.push({ id, dmg })
   }
 
+  // My spin ring hit another player (friendly fire in a custom lobby,
+  // SpinRing._touchPlayers).
+  queuePvp(to, dmg) {
+    if (this.rules?.ff && this._pvp.length < 10) this._pvp.push({ to, dmg })
+  }
+
   // A ghost's boo on one of the host's zombies (Ghosts.js).
   queueBoo(id) {
     this._hits.push({ id, dmg: 0, boo: true })
@@ -203,8 +218,9 @@ export class PlayNet {
 
   // tier: the zombie's rarity (its coins); assist: they helped, someone
   // else finished it (BuildSurvival._creditAssists).
-  queueCredit(to, boss, skeleton = null, tier = 'common', assist = false, shine = null) {
-    this._credits.push({ to, boss: !!boss, skeleton, tier, ...(assist ? { assist: true } : {}), ...(shine ? { shine } : {}) })
+  // at: where it went down, for their ring-item drop (RingLoot.js).
+  queueCredit(to, boss, skeleton = null, tier = 'common', assist = false, shine = null, at = null) {
+    this._credits.push({ to, boss: !!boss, skeleton, tier, ...(assist ? { assist: true } : {}), ...(shine ? { shine } : {}), ...(at ? { at: at.map((n) => Math.round(n * 10) / 10) } : {}) })
   }
 
   // A guest's shot on one of the host's animals (a<id>), or taming it.
@@ -262,7 +278,7 @@ export class PlayNet {
     const holding = s.holding
     const body = {
       ...this.auth,
-      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding || s.ring ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, kills: s.kills || 0, lane: s.escape?.lane || 0, esc: s.escape?.race && s.escape.done ? 1 : 0, gh: s.ghosts?.snapshot() || null, fog: bm.world?.active && isEarthWorld() ? explored.shareState() : null },
+      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding || s.ring ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, kills: s.kills || 0, lane: s.escape?.lane || 0, esc: s.escape?.race && s.escape.done ? 1 : 0, gh: s.ghosts?.snapshot() || null, fog: bm.world?.active && isEarthWorld() ? explored.shareState() : null, ring: s.ring?.netState() || null },
       editsAfter: this._editSeq,
     }
     // Who Can Join My Server (Settings > Social): the host's choice.
@@ -271,6 +287,8 @@ export class PlayNet {
     if (edits.length) body.edits = edits
     const said = this._say
     if (said) body.say = said
+    const pvp = this._pvp.splice(0)
+    if (pvp.length) body.pvp = pvp
     const oc = this.owner ? this._oc.splice(0, 5) : []
     if (oc.length) body.oc = oc
     // Where the host spawned (World Map mode picks it after the game began).
@@ -330,6 +348,7 @@ export class PlayNet {
       for (const pid of want) this._skinAsked.delete(pid)
       this._edits.unshift(...edits)
       this._oc.unshift(...oc)
+      this._pvp.unshift(...pvp)
       // Closed by the owner (OwnerPowers.js): back to the homepage.
       if (err?.code === 'closed') return this._lost('serverClosedToast')
       if (err?.code === 'gone' || err?.code === 'not-in-server') await this._rejoin().catch((e) => (e?.code === 'banned' ? this._lost('serverBannedToast') : this._giveUpIfLong()))
@@ -372,7 +391,7 @@ export class PlayNet {
         if (!this._firstSync) addChatSystemLine(this.game, t('serverPlayerJoined', { name: p.nick || 'Survivor' }))
       }
       setTarget(mine, p.x, p.y, p.z)
-      Object.assign(mine, { tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), esc: !!p.esc, gh: cleanGhost(p.gh), kills: Number.isFinite(Number(p.kills)) ? Math.max(0, Math.floor(Number(p.kills))) : undefined })
+      Object.assign(mine, { tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), esc: !!p.esc, gh: cleanGhost(p.gh), kills: Number.isFinite(Number(p.kills)) ? Math.max(0, Math.floor(Number(p.kills))) : undefined, ring: cleanRemoteRing(p.ring) })
       if (sharedFog) {
         if (p.fog && typeof p.fog.c === 'string' && p.fog.n !== mine.fogN) {
           mine.fogN = p.fog.n
@@ -399,6 +418,8 @@ export class PlayNet {
       this._removePlayer(pid)
       explored.forgetOther(pid)
     }
+    // A custom lobby says its rules once, in the chat.
+    if (this._firstSync && this.rules) addChatSystemLine(this.game, rulesMessage(this.rules))
     this._firstSync = false
     // The owner dropping in: powers on once the game is running.
     if (this.owner && !this._ownerStarted) {
@@ -435,7 +456,11 @@ export class PlayNet {
     for (const amount of res.hurt || []) s._hurtPlayer(amount)
     for (const c of res.credits || []) {
       if (c.assist) s._countAssist(!!c.boss, c.tier, c.shine)
-      else s._countKill(!!c.boss, c.skeleton || null, c.tier, c.shine)
+      else {
+        s._countKill(!!c.boss, c.skeleton || null, c.tier, c.shine)
+        // My kill on the host's zombie: my ring-item drop, where it fell.
+        if (Array.isArray(c.at)) s.ringLoot?.dropFrom({ x: c.at[0], y: c.at[1], z: c.at[2], boss: !!c.boss, tier: c.tier })
+      }
     }
     for (const c of res.caught || []) s.catcher?.remoteResult(c)
     applyOwnerDeliveries(this, res)
@@ -460,7 +485,7 @@ export class PlayNet {
     let info
     let reopened = false
     try {
-      info = await this.api.join({ ...me, serverId: this.serverId, ...(this.drop ? { drop: this.drop } : {}) })
+      info = await this.api.join({ ...me, serverId: this.serverId, ...(this.drop ? { drop: this.drop } : {}), ...(this.password ? { password: this.password } : {}) })
     } catch (err) {
       // The owner never opens a server again by themselves.
       if (err?.code === 'closed') return this._lost('serverClosedToast')
@@ -473,12 +498,12 @@ export class PlayNet {
       if (err?.code !== 'gone') throw err
       // Nobody left in it: open it again under the same id, so the invite
       // link still works and the others get back into it too.
-      info = await this.api.create({ ...me, name: this.name, mode: this.mode, world: this.world, id: this.serverId, access: serverAccess(this.game.settings), ...(this.lobby ? { hidden: true } : {}) })
+      info = await this.api.create({ ...me, name: this.name, mode: this.mode, world: this.world, id: this.serverId, access: serverAccess(this.game.settings), ...(this.lobby ? { hidden: true } : {}), ...(this.custom ? { custom: true, rules: this.rules, password: this.password } : {}) })
       reopened = true
       if (info.serverId !== this.serverId) {
         // Someone else opened it again first: into theirs.
         this.api.leave(info).catch(() => { /* it'll time out on its own */ })
-        info = await this.api.join({ ...me, serverId: this.serverId })
+        info = await this.api.join({ ...me, serverId: this.serverId, ...(this.password ? { password: this.password } : {}) })
         reopened = false
       }
     }
@@ -551,6 +576,7 @@ export class PlayNet {
     this.survival?.bm.scene.remove(player.group)
     // Their boats and helicopters (Vehicles.js), and spray tags (Sprays.js).
     disposeRemote(player)
+    disposeRemoteRing(this.survival, player)
     this.survival?.sprays?.dropRemote(pid)
     // The held weapon and block share the game's own geometry - never disposed.
     if (player.gun) player.gun.parent?.remove(player.gun)
@@ -582,8 +608,9 @@ export class PlayNet {
     const B = this.survival.B
     p.group.position.set(p.x * B, p.y * B, p.z * B)
     p.group.rotation.y = p.yaw + Math.PI
-    // Their boats and helicopters (Vehicles.js).
+    // Their boats and helicopters (Vehicles.js), and their spin ring.
     drawRemote(this.survival, p, dt)
+    drawRemoteRing(this.survival, p, dt)
     if (p.bubble && (p.bubbleLeft -= dt) <= 0) {
       disposeBubble(p.bubble)
       p.bubble = null
