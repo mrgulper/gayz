@@ -28,6 +28,12 @@
 // while a real player is there, and its blocks, shots and chat bubbles
 // are dropped).
 //
+// Owner powers (2026-11-15, ownerPowers.js): an owner player's sync may
+// carry `oc` commands (pull / freeze / give / zombies / sky / announce /
+// close); every sync hands out what's queued for that player (`oq`,
+// `frz`), the host's queue (`hq`) and the announcement (`ann`). A closed
+// server (`closed`) refuses every sync and join with 'closed'.
+//
 // A player is a public id (seen by everyone, keys their avatar) plus a
 // secret token only they hold - every write needs both, so knowing
 // someone's id isn't enough to move them or speak for them.
@@ -46,7 +52,8 @@
 // (one per cell, the latest wins, numbered so each player only gets the
 // ones they haven't had yet).
 import { randomUUID, randomInt } from 'node:crypto'
-import { isBanned, isMuted, onlineClosed, dropTicket } from './admin.js'
+import { isBanned, isMuted, onlineClosed, dropTicket, GIFT_SKIN_IDS } from './admin.js'
+import { ownerCommand, ownerDeliveries, OwnerError } from './ownerPowers.js'
 
 export const MAX_PLAYERS = 8
 // No sync for this long = gone (closed the tab, lost connection).
@@ -149,6 +156,8 @@ export async function listServers(db, now = Date.now()) {
     }
     // A solo game ready for friends (PlayNet lobby): joined by its link only.
     if (server.hidden) continue
+    // Closed by the owner (ownerPowers.js).
+    if (server.closed) continue
     // Only an invisible owner left in it: not listed.
     if (!realPlayers(server, now).length) continue
     // The host's Who Can Join setting (Settings > Social, 2026-11-11):
@@ -228,6 +237,7 @@ export async function joinServer(db, { serverId, nickname, skin, pid: playerPid,
   if (!owner && (await onlineClosed(db))) throw new ServerError(503, 'switched-off')
   const server = await db.get(`servers/${serverId}`)
   if (!server) throw new ServerError(404, 'gone')
+  if (server.closed) throw new ServerError(410, 'closed')
   const live = livePlayers(server, now)
   if (!live.length) throw new ServerError(404, 'gone')
   const real = live.filter(([, p]) => !p.ghost)
@@ -603,6 +613,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   await checkToken(db, serverId, playerId, token)
   const server = await db.get(`servers/${serverId}`)
   if (!server) throw new ServerError(404, 'gone')
+  if (server.closed) throw new ServerError(410, 'closed')
   const me = server.players?.[playerId]
   if (!me) throw new ServerError(403, 'not-in-server')
   const base = `servers/${serverId}`
@@ -668,6 +679,21 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   // The host's Who Can Join setting, changed mid-game.
   if (isHost && 'access' in body && cleanAccess(body.access) !== (server.access || null)) updates[`${base}/access`] = cleanAccess(body.access)
   const out = { host, isHost, wave: server.wave || 0, players: {}, zombies: {}, hurt: [], credits: [], caught: [], hits: [], edits: [], editSeq: server.editSeq || 0 }
+
+  // Owner powers (ownerPowers.js): only a player the server itself marked
+  // as the owner may send commands; a bad one is skipped, never fatal.
+  if ((me.own || me.ghost) && Array.isArray(body.oc)) {
+    out.ocDone = 0
+    for (const cmd of body.oc.slice(0, 5)) {
+      try {
+        await ownerCommand(db, serverId, cmd, { skinIds: GIFT_SKIN_IDS, now })
+        out.ocDone++
+      } catch (err) {
+        if (!(err instanceof OwnerError)) throw err
+      }
+    }
+  }
+  Object.assign(out, ownerDeliveries(server, base, playerId, isHost, updates, now))
 
   // Something I said in chat: a bubble over my head for the others.
   // Chat-muted from the Console: the bubble is stored empty (nobody sees

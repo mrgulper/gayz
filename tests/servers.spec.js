@@ -4,7 +4,7 @@ import { fakeServerDb } from './fakeServerDb.js'
 import { recordStats } from '../api/_lib/playStats.js'
 import { PROVIDERS, isCallback, missingKeys, firebaseUid, cleanProfile, sameState, resultPage, siteOrigin } from '../api/_lib/oauth.js'
 import { createServer, joinServer, listServers, syncServer, leaveServer, MAX_PLAYERS, STALE_MS, JOIN_GRACE_MS } from '../api/_lib/servers.js'
-import { publicConfig, reportPlayer, adminState, setBanner, setEvents, kickPlayer, unban, hideContent, dismissContentReport, dismissPlayerReport, seenWarning, redeemCode, CODE_TRIES_PER_HOUR, REPORT_GAP_MS, ADMIN_ACTIONS, publicHallOfFame } from '../api/_lib/admin.js'
+import { publicConfig, reportPlayer, adminState, setBanner, setEvents, kickPlayer, unban, hideContent, dismissContentReport, dismissPlayerReport, seenWarning, redeemCode, CODE_TRIES_PER_HOUR, REPORT_GAP_MS, ADMIN_ACTIONS, publicHallOfFame, claimGiftFor } from '../api/_lib/admin.js'
 
 // The owner dropping in (OwnerDropIn.js): a pass from the owner's tools
 // lets them in visible (gold tag) or invisible (sent to nobody, changes
@@ -222,6 +222,66 @@ test('servers: a full server turns new players away', async () => {
   for (let i = 1; i < MAX_PLAYERS; i++) await joinServer(db, { serverId: a.serverId, nickname: `P${i}` }, i)
   await expect(joinServer(db, { serverId: a.serverId, nickname: 'Late' }, 50)).rejects.toMatchObject({ status: 409, code: 'full' })
   await expect(joinServer(db, { serverId: 'NOPE42', nickname: 'X' }, 50)).rejects.toMatchObject({ status: 404 })
+})
+
+// Owner powers (ownerPowers.js): only a player the server marked as the
+// owner can send them; they reach the right people on their next syncs.
+test('servers: owner powers - pull, freeze, give, host orders, announce, close', async () => {
+  const db = fakeServerDb()
+  const now = Date.now()
+  const a = await createServer(db, { nickname: 'Ann', pid: 'ANNPID1' }, now)
+  const b = await joinServer(db, { serverId: a.serverId, nickname: 'Bo', pid: 'BOPID22' }, now + 1)
+  await syncServer(db, { ...a, state: { x: 1, y: 2, z: 3 } }, now + 2)
+  await syncServer(db, { ...b, state: { x: 5, y: 2, z: 5 } }, now + 2)
+  // A normal player's commands are ignored.
+  const sneaky = await syncServer(db, { ...b, oc: [{ k: 'freeze', to: a.playerId }, { k: 'close' }] }, now + 3)
+  expect(sneaky.ocDone).toBeUndefined()
+  expect((await syncServer(db, { ...a }, now + 4)).frz).toBe(0)
+
+  const pass = new URLSearchParams((await ADMIN_ACTIONS.dropIn(db, { serverId: a.serverId })).path.slice(2)).get('drop')
+  const o = await joinServer(db, { serverId: a.serverId, nickname: 'Boss', drop: pass }, now + 5)
+  const r = await syncServer(db, { ...o, state: { x: 50, y: 30, z: 50 }, oc: [
+    { k: 'pull', to: b.playerId, x: 50, y: 30, z: 50 },
+    { k: 'freeze', to: b.playerId, on: true },
+    { k: 'give', to: b.playerId, coins: 500, gems: 3, skins: ['gaygarx', 'not-a-skin'] },
+    { k: 'horde', n: 10, x: 50, y: 30, z: 50 },
+    { k: 'ann', text: 'Hello <b>all</b>' },
+  ] }, now + 6)
+  expect(r.ocDone).toBe(5)
+  const rb = await syncServer(db, { ...b }, now + 7)
+  expect(rb.frz).toBe(1)
+  expect(rb.oq).toEqual(expect.arrayContaining([{ k: 'tp', x: 50, y: 30, z: 50 }, { k: 'give', coins: 500, gems: 3, skins: ['gaygarx'], text: '' }]))
+  expect(rb.ann.text).toBe('Hello ball/b')
+  expect(rb.hq).toEqual([])
+  // Handed over once.
+  expect((await syncServer(db, { ...b }, now + 8)).oq).toEqual([])
+  // The host gets the horde.
+  const ra = await syncServer(db, { ...a }, now + 9)
+  expect(ra.hq).toEqual([expect.objectContaining({ k: 'horde', n: 10, x: 50 })])
+  // From the owner's tools: unfreeze, sky; a bad one is refused.
+  await ADMIN_ACTIONS.serverCmd(db, { serverId: a.serverId, cmd: { k: 'freeze', to: b.playerId, on: false } })
+  await ADMIN_ACTIONS.serverCmd(db, { serverId: a.serverId, cmd: { k: 'sky', time: 'night', weather: 'blizzard' } })
+  await expect(ADMIN_ACTIONS.serverCmd(db, { serverId: a.serverId, cmd: { k: 'sky', weather: 'lava' } })).rejects.toMatchObject({ status: 400 })
+  expect((await syncServer(db, { ...b }, now + 10)).frz).toBe(0)
+  expect((await syncServer(db, { ...a }, now + 10)).hq).toEqual([expect.objectContaining({ k: 'sky', time: 'night', weather: 'blizzard' })])
+  // The map shows who's frozen; closing sends everyone out and keeps them out.
+  await ADMIN_ACTIONS.serverCmd(db, { serverId: a.serverId, cmd: { k: 'close' } })
+  await expect(syncServer(db, { ...b }, now + 11)).rejects.toMatchObject({ code: 'closed' })
+  await expect(joinServer(db, { serverId: a.serverId, nickname: 'New' }, now + 11)).rejects.toMatchObject({ code: 'closed' })
+  expect((await listServers(db, now + 11)).map((x) => x.id)).not.toContain(a.serverId)
+})
+
+test('servers: a gift left for a Player ID is picked up once', async () => {
+  const db = fakeServerDb()
+  await ADMIN_ACTIONS.giveTo(db, { pid: 'GIFTME1', coins: 250, skins: ['gaygarx'], text: 'thanks!' })
+  await expect(ADMIN_ACTIONS.giveTo(db, { pid: 'GIFTME1' })).rejects.toMatchObject({ status: 400 })
+  const cfg = await publicConfig(db, { pid: 'GIFTME1' })
+  expect(cfg.myGifts).toHaveLength(1)
+  expect((await publicConfig(db, { pid: 'SOMEONE' })).myGifts).toEqual([])
+  const got = await claimGiftFor(db, { pid: 'GIFTME1', id: cfg.myGifts[0].id })
+  expect(got).toMatchObject({ ok: true, coins: 250, gems: 0, skins: ['gaygarx'], text: 'thanks!' })
+  expect(await claimGiftFor(db, { pid: 'GIFTME1', id: cfg.myGifts[0].id })).toEqual({ error: 'gone' })
+  expect((await publicConfig(db, { pid: 'GIFTME1' })).myGifts).toEqual([])
 })
 
 test('servers: a server everyone dropped out of opens again under its id', async () => {
@@ -564,6 +624,61 @@ test('the owner drops into a game, visible and invisible', async ({ browser }) =
   await a.evaluate(() => window.__game.buildMode.survival.net._sync())
   // Still only the visible owner for the host.
   expect(await a.evaluate(() => window.__game.buildMode.survival.net.players.size)).toBe(1)
+
+  // Owner powers (OwnerPowers.js): the crown button opens the menu (the
+  // others have none), and its buttons reach the host.
+  expect(await a.evaluate(() => !!document.getElementById('owner-powers-btn'))).toBe(false)
+  const menu = await o.evaluate(() => {
+    document.getElementById('owner-powers-btn').click()
+    const panel = document.getElementById('owner-panel')
+    const s = window.__game.buildMode.survival
+    const rows = panel.querySelectorAll('.owner-player').length
+    const click = (sel) => panel.querySelector(sel).click()
+    click('[data-act="freeze"]')
+    click('[data-act="horde"][data-n="5"]')
+    panel.querySelector('#owner-give-coins').value = '321'
+    click('[data-act="give"]')
+    panel.querySelector('#owner-ann-text').value = 'Party time'
+    click('[data-act="ann"]')
+    click('[data-act="time"][data-time="night"]')
+    return { open: s.ownerPanel.open, shown: panel.style.display, rows, queued: s.net._oc.length, mouseFree: s.bm.mouseScreenOpen() }
+  })
+  expect(menu).toEqual({ open: true, shown: 'flex', rows: 1, queued: 5, mouseFree: true })
+  await o.evaluate(() => window.__game.buildMode.survival.net._sync())
+  expect(await o.evaluate(() => window.__game.buildMode.survival.net._oc.length)).toBe(0)
+  const got = await a.evaluate(async () => {
+    const g = window.__game
+    const s = g.buildMode.survival
+    const coins = g.coins
+    const zombies = s.zombies.length
+    await s.net._sync()
+    await s.net._sync()
+    const tm = s.bm.tryMode
+    const x0 = tm.pos.x
+    const z0 = tm.pos.z
+    for (let i = 0; i < 20; i++) tm.update(0.05, new Set(['KeyW', 'KeyD']))
+    const ann = document.getElementById('owner-announcement')
+    return { frozen: !!s.adminFrozen, moved: Math.hypot(tm.pos.x - x0, tm.pos.z - z0), extra: s.zombies.length - zombies, coins: g.coins - coins, ann: ann && !ann.hidden ? ann.textContent : '', night: s.bm.sky.nightAmount() > 0.5 }
+  })
+  expect(got.frozen).toBe(true)
+  expect(got.moved).toBeLessThan(0.01)
+  expect(got.extra).toBeGreaterThanOrEqual(4)
+  // (Plus anything the game itself paid meanwhile.)
+  expect(got.coins).toBeGreaterThanOrEqual(321)
+  expect(got.ann).toContain('Party time')
+  // Unfreeze, then close the server: the host is sent back home.
+  await o.evaluate(async () => {
+    const panel = document.getElementById('owner-panel')
+    panel.querySelector('[data-act="freeze"]').click()
+    const shut = panel.querySelector('[data-act="shut"]')
+    shut.click()
+    shut.click()
+    await window.__game.buildMode.survival.net._sync()
+  })
+  await a.evaluate(() => window.__game.buildMode.survival.net._sync())
+  expect(await a.evaluate(() => window.__game.buildMode.survival.adminFrozen)).toBe(false)
+  await a.evaluate(() => window.__game.buildMode.survival.net?._sync())
+  await a.waitForFunction(() => !window.__game.buildMode.survival.net || window.__game.buildMode.survival.net.closed, null, { timeout: 20000 })
 })
 
 // Invite Friends (2026-10-18): a solo World Map game becomes a server from

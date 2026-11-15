@@ -2563,6 +2563,22 @@ export class BuildSurvival {
     return zb
   }
 
+  // The owner's Boss button (OwnerPowers.js): a boss right here, as tough
+  // as a wave boss.
+  _ownerBoss(x, y, z) {
+    if (!Number.isFinite(y)) return null
+    const tier = rollZombieTier(true)
+    const health = zombieHealth(Math.max(1, this.wave), this.cfg.escalation) * this.cfg.zombieHealthMult * BOSS_HEALTH_MULT * ZOMBIE_TIERS[tier].hp
+    this._message(t('buildPlayBossComing'))
+    return this._makeZombie(++this._zid, x, y, z, health, true, null, { tier, name: rollZombieName() })
+  }
+
+  // The owner's Clear button: every zombie gone at once (no coins).
+  _ownerClearZombies() {
+    for (const z of this.zombies) this._removeZombie(z)
+    this.zombies = []
+  }
+
   // Ammo for this gun from a loot chest (or a supply crate, WorldEvents.js).
   _chestAmmo() {
     return ammoFor(this.weaponId, CHEST_LOOT.ammo)

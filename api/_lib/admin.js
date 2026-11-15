@@ -68,6 +68,9 @@
 //                  Owner (servers.js joinServer), for DROP_HOURS
 //   hallOfFame/{id} { name, title, date, icon, pid, skin, order, at } -
 //                  the Hall of Fame (players read it through /api/live)
+//   Owner powers (2026-11-15): see ownerPowers.js - serverCmd runs one
+//   command on a server, giveTo leaves a gift for a Player ID
+//   (playerGifts/{pid}), which their page picks up (claimGift).
 import { randomBytes } from 'node:crypto'
 import { ServerError } from './servers.js'
 import { DAILY_TEMPLATES, challengeFor } from '../../src/game/DailyChallenge.js'
@@ -76,6 +79,7 @@ import { WORLD_EVENT_KINDS, DISASTER_KINDS, TUNE_LIMITS } from '../../src/game/L
 import { statsReport } from './playStats.js'
 import { helperList, addHelper, removeHelper, helperLogin, helperReports, checkReport, reportChecks } from './helpers.js'
 import { languageReport } from './langCheck.js'
+import { ownerCommand, giveToPid, waitingGifts, claimPidGift, OwnerError, HORDE_SIZES, OWNER_TIMES, OWNER_WEATHERS, GIVE_MAX } from './ownerPowers.js'
 import { livePoll, reportAlert, inboxState, setFeedbackDone, deleteFeedback, clearErrors, startPoll, endPoll, deletePoll, testAlert, POLL_HOURS } from './inbox.js'
 
 export const EVENT_IDS = ['doubleCoins', 'doubleXp', 'hordeNight']
@@ -323,7 +327,7 @@ export async function worldDrop(db, { kind, who, minutes, cancel } = {}, now = D
 // never the list.
 export async function publicConfig(db, { pid } = {}, now = Date.now()) {
   const ok = validPid(pid)
-  const [cfg, ban, mute, warnings] = await Promise.all([db.get('liveConfig'), ok ? db.get(`bans/${pid}`) : null, ok ? db.get(`mutes/${pid}`) : null, ok ? db.get(`warnings/${pid}`) : null])
+  const [cfg, ban, mute, warnings, gifts] = await Promise.all([db.get('liveConfig'), ok ? db.get(`bans/${pid}`) : null, ok ? db.get(`mutes/${pid}`) : null, ok ? db.get(`warnings/${pid}`) : null, ok ? db.get(`playerGifts/${pid}`) : null])
   const live = liveEvents(cfg, now)
   return {
     banner: liveBanner(cfg?.banner, now),
@@ -346,6 +350,7 @@ export async function publicConfig(db, { pid } = {}, now = Date.now()) {
     poll: livePoll(cfg?.poll, now),
     tuning: liveTuning(cfg?.tuning, now),
     worldDrop: liveWorldDrop(cfg?.worldDrop, now),
+    myGifts: waitingGifts(gifts, GIFT_SKIN_IDS),
   }
 }
 
@@ -918,7 +923,7 @@ const CODES_KEPT = 100
 export const CODE_TRIES_PER_HOUR = 10
 // Skins a code can give: the Shop skin + every Market skin.
 export const GIFT_SKINS = [{ id: 'gaygarx', name: 'GaygarX', rarity: 'legendary' }, ...MARKET_SKINS.map((k) => ({ id: k.id, name: k.name, rarity: k.rarity }))]
-const GIFT_SKIN_IDS = new Set(GIFT_SKINS.map((k) => k.id))
+export const GIFT_SKIN_IDS = new Set(GIFT_SKINS.map((k) => k.id))
 const validGiftCode = (v) => typeof v === 'string' && /^[A-Z0-9]{4,20}$/.test(v)
 const normCode = (v) => String(v || '').trim().toUpperCase().replace(/[\s-]/g, '')
 
@@ -1071,9 +1076,10 @@ export async function liveMap(db, now = Date.now()) {
         ghost: !!p.ghost,
         host: slot === s.host,
         kills: Math.max(0, Math.floor(Number(p.kills) || 0)),
+        frozen: !!p.frz,
         pid: pids?.[id]?.[slot] || null,
       }))
-    if (!players.some((p) => !p.ghost)) continue
+    if (!players.some((p) => !p.ghost) || s.closed) continue
     const w = s.world && typeof s.world === 'object' ? s.world : null
     out.push({
       id,
@@ -1088,7 +1094,44 @@ export async function liveMap(db, now = Date.now()) {
     })
   }
   out.sort((a, b) => b.players.length - a.players.length || a.id.localeCompare(b.id))
-  return { at: now, servers: out }
+  return { at: now, servers: out, powers: { hordes: HORDE_SIZES, times: OWNER_TIMES, weathers: OWNER_WEATHERS, give: GIVE_MAX, skins: GIFT_SKINS } }
+}
+
+// Owner powers from the owner's tools (ownerPowers.js).
+const POWER_NAMES = { pull: 'Brought a player over', freeze: 'Froze', give: 'Gave', horde: 'Sent a horde into', boss: 'Sent a boss into', clear: 'Cleared the zombies in', sky: 'Changed the sky in', ann: 'Announced in', close: 'Closed' }
+export async function serverCmd(db, { serverId, cmd } = {}, now = Date.now()) {
+  try {
+    return await ownerCommand(db, serverId, cmd, { skinIds: GIFT_SKIN_IDS, now })
+  } catch (err) {
+    if (err instanceof OwnerError) throw new ServerError(err.code === 'gone' ? 404 : 400, err.code)
+    throw err
+  }
+}
+export async function giveTo(db, { pid, coins, gems, skins, text } = {}, now = Date.now()) {
+  try {
+    return await giveToPid(db, pid, { coins, gems, skins, text }, GIFT_SKIN_IDS, now)
+  } catch (err) {
+    if (err instanceof OwnerError) throw new ServerError(400, err.code)
+    throw err
+  }
+}
+// A player's page picking up a gift (api/live.js).
+export async function claimGiftFor(db, body = {}) {
+  try {
+    return await claimPidGift(db, body, GIFT_SKIN_IDS)
+  } catch (err) {
+    if (err instanceof OwnerError) throw new ServerError(400, err.code)
+    throw err
+  }
+}
+function powerLog(b) {
+  const c = b.cmd || {}
+  const what = POWER_NAMES[c.k] || 'Owner power on'
+  const extra = c.k === 'freeze' && c.on === false ? ' (unfroze)' : c.k === 'horde' ? ` (${Number(c.n) || 5} zombies)` : c.k === 'sky' ? ` (${[c.time, c.weather].filter(Boolean).join(', ')})` : c.k === 'ann' ? `: "${cleanText(c.text, 80)}"` : c.k === 'give' ? `: ${giftWords(c)}` : ''
+  return `${what} server ${cleanText(b.serverId, 40)}${extra}`
+}
+function giftWords(g) {
+  return [Number(g.coins) ? `${Math.floor(Number(g.coins))} coins` : '', Number(g.gems) ? `${Math.floor(Number(g.gems))} gems` : '', Array.isArray(g.skins) && g.skins.length ? `${g.skins.length} skin(s)` : ''].filter(Boolean).join(' + ') || 'nothing'
 }
 
 // A pass for the owner to join one server as the Owner (visible, with a
@@ -1258,6 +1301,8 @@ const LOG_TEXT = {
   hofSave: (b) => `Hall of Fame: ${b.id ? 'edited' : 'added'} ${cleanText(b.name, HOF_NAME_MAX) || '?'}${cleanText(b.title, 60) ? ` - "${cleanText(b.title, 60)}"` : ''}`,
   hofRemove: (b) => `Hall of Fame: removed a card${cleanText(b.name, HOF_NAME_MAX) ? ` (${cleanText(b.name, HOF_NAME_MAX)})` : ''}`,
   helperRemove: (b) => `Helper account removed${cleanText(b.name, 24) ? `: ${cleanText(b.name, 24)}` : ''}`,
+  serverCmd: (b) => powerLog(b),
+  giveTo: (b) => `Gift for #${cleanText(b.pid, 40)}: ${giftWords(b)}`,
   restore: (b) => `Restored the backup from ${cleanText(b.label, 40) || (Number(b.file?.at) ? `${day(Number(b.file.at))} UTC` : '?')}`,
 }
 
@@ -1308,6 +1353,8 @@ const ACTION_FNS = {
   languages: () => languageReport(),
   liveMap: (db) => liveMap(db),
   dropIn: (db, body) => dropIn(db, body),
+  serverCmd: (db, body) => serverCmd(db, body),
+  giveTo: (db, body) => giveTo(db, body),
   hof: async (db) => ({ list: await hallOfFame(db), icons: HOF_ICONS, max: HOF_MAX }),
   hofSave: (db, body) => saveHof(db, body),
   hofRemove: (db, body) => removeHof(db, body),

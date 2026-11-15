@@ -107,6 +107,8 @@ export const CYCLE_SECONDS = 1440
 const GAME_START_PHASE = 0.85
 const PREF_KEY = 'buildmode-sky'
 const RANDOM_REROLL_S = 240
+// How long weather the owner picked stays before random rolls again.
+const OWNER_WEATHER_S = 600
 // Bumped to switch every saved Weather choice to Random once (2026-10-17).
 const PREF_VERSION = 2
 const SKY_EASE = 0.6 // how fast the sky, light and fog follow the weather
@@ -427,6 +429,23 @@ export class BuildSky {
   // with each sync (PlayNet) and the others follow() it.
   skyState() {
     return { c: +this._clock.toFixed(1), n: this._now, g: this._goal, r: +Math.max(0, this._rainbowIn).toFixed(1), d: this.disasters.state(), b: this.bloodMoon ? 1 : 0 }
+  }
+
+  // The owner's Sky buttons (OwnerPowers.js, on the host): jump to the
+  // next noon or midnight, and/or hold a weather for a while before the
+  // random rolls take over again. The others see it through the host.
+  ownerSet({ time, weather } = {}) {
+    if ((time === 'day' || time === 'night') && this.time === 'cycle') {
+      const want = time === 'night' ? 0.5 : 0
+      let c = Math.floor(this._clock / CYCLE_SECONDS) * CYCLE_SECONDS + want * CYCLE_SECONDS
+      if (c < this._clock) c += CYCLE_SECONDS
+      this._clock = c
+    }
+    if (typeof weather === 'string' && weather !== 'random' && SKY_WEATHERS.includes(weather)) {
+      this._now = this._goal = weather
+      this._rerollIn = OWNER_WEATHER_S
+    }
+    this.apply()
   }
 
   // The host's sky (null: back to rolling our own, e.g. we became the host).

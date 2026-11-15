@@ -3,6 +3,7 @@
 // Reuses Game.js's existing renderer/canvas rather than a second WebGL
 // context - only the scene/camera passed to render() changes.
 import { screenOpen as campScreenOpen } from './CampScreen.js'
+import { OWNER_KEY } from './OwnerPowers.js'
 import { FIXED_KEYS, getKeyFor, keyLabel, keysFor } from './Keybinds.js'
 import { controlsTick, lookBy, startUse, endUse } from './ControlSettings.js'
 import { toggleHideHud } from './HudSettings.js'
@@ -1668,6 +1669,15 @@ export class BuildMode {
       // Typing in a text box over the game (Settings from the pause
       // screen) doesn't move you or press game keys.
       if (e.target?.closest?.('input, textarea, select')) return
+      // The owner's menu (OwnerPowers.js): its key or Escape closes it,
+      // and no game keys while it's open.
+      const ownerPanel = this.survival?.ownerPanel
+      if (ownerPanel && !e.repeat && (e.code === OWNER_KEY || (ownerPanel.open && e.code === 'Escape'))) {
+        e.preventDefault()
+        ownerPanel.toggle()
+        return
+      }
+      if (ownerPanel?.open) return
       // (Not while playing a game from the homepage - that would drop you
       // into the Map Editor.)
       if (e.code === FIXED_KEYS.buildTry && !e.repeat && !e.ctrlKey && !e.metaKey && !this.gameMenu.forGame) {
@@ -3895,6 +3905,7 @@ export class BuildMode {
   mouseScreenOpen() {
     if (this.menuOpen || this.pickerOpen || this.share?.isOpen || this.together?.isOpen) return true
     if (this.survival?.leaders?.battling) return true
+    if (this.survival?.ownerPanel?.open) return true
     if (this.survival?.shop?.panelOpen || this.survival?.emotes?.open || this.survival?.time?.pickOpen || campScreenOpen() || this.tryMode?._mapInteractive?.()) return true
     if (['play-weapon-pick', 'play-perk-pick', 'build-play-over', 'spawn-map'].some((id) => {
       const el = document.getElementById(id)

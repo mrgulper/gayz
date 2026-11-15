@@ -50,6 +50,7 @@ import { drawRemote, disposeRemote, cleanRemote } from './Vehicles.js'
 import { cleanPins } from './MapPins.js'
 import { explored, unpackKeys } from './ExploredMap.js'
 import { ownerTag, ownerCrown, startOwnerMode } from './OwnerDropIn.js'
+import { OwnerPanel, applyOwnerDeliveries } from './OwnerPowers.js'
 import { setTarget, ahead } from './NetSmooth.js'
 
 // Seconds between syncs.
@@ -103,6 +104,11 @@ export class PlayNet {
     this._hurt = []
     this._credits = []
     this._catches = []
+    // Owner powers (OwnerPowers.js): commands waiting to go out, and the
+    // last announcement shown.
+    this._oc = []
+    this._annN = 0
+    this.ownerPanel = null
     this._skinAsked = new Set()
     this._firstSync = true
     this.lobby = lobby
@@ -265,6 +271,8 @@ export class PlayNet {
     if (edits.length) body.edits = edits
     const said = this._say
     if (said) body.say = said
+    const oc = this.owner ? this._oc.splice(0, 5) : []
+    if (oc.length) body.oc = oc
     // Where the host spawned (World Map mode picks it after the game began).
     const world = this.isHost && bm.world?.active && s._spawnPick ? { seed: worldSeed(), earth: isEarthWorld(), pick: s._spawnPick } : null
     const worldKey = world ? JSON.stringify(world) : ''
@@ -321,6 +329,9 @@ export class PlayNet {
       // blocks go again.
       for (const pid of want) this._skinAsked.delete(pid)
       this._edits.unshift(...edits)
+      this._oc.unshift(...oc)
+      // Closed by the owner (OwnerPowers.js): back to the homepage.
+      if (err?.code === 'closed') return this._lost('serverClosedToast')
       if (err?.code === 'gone' || err?.code === 'not-in-server') await this._rejoin().catch((e) => (e?.code === 'banned' ? this._lost('serverBannedToast') : this._giveUpIfLong()))
       else this._giveUpIfLong()
     } finally {
@@ -393,6 +404,8 @@ export class PlayNet {
     if (this.owner && !this._ownerStarted) {
       this._ownerStarted = true
       startOwnerMode(this.game, s, this.owner)
+      this.ownerPanel = new OwnerPanel(this.game, s, this)
+      s.ownerPanel = this.ownerPanel
     }
     if (sharedFog && newcomer) explored.startShare()
     // Their spray tags (Sprays.js).
@@ -425,6 +438,12 @@ export class PlayNet {
       else s._countKill(!!c.boss, c.skeleton || null, c.tier, c.shine)
     }
     for (const c of res.caught || []) s.catcher?.remoteResult(c)
+    applyOwnerDeliveries(this, res)
+  }
+
+  // An owner power to send with the next sync (OwnerPowers.js).
+  ownerCommand(cmd) {
+    if (this.owner && !this.closed && this._oc.length < 20) this._oc.push(cmd)
   }
 
   _giveUpIfLong() {
@@ -444,6 +463,7 @@ export class PlayNet {
       info = await this.api.join({ ...me, serverId: this.serverId, ...(this.drop ? { drop: this.drop } : {}) })
     } catch (err) {
       // The owner never opens a server again by themselves.
+      if (err?.code === 'closed') return this._lost('serverClosedToast')
       if (this.owner) return this._lost(err?.code === 'gone' ? 'serverGoneToast' : 'serverJoinFailed')
       if (err?.code === 'full') return this._lost('serverFullToast')
       // Kicked or banned from the Console (api/_lib/admin.js).
@@ -619,6 +639,12 @@ export class PlayNet {
     this._clearAddressBar()
     clearInterval(this._interval)
     window.removeEventListener('pagehide', this._onPageHide)
+    if (this.ownerPanel) {
+      this.ownerPanel.dispose()
+      if (this.survival?.ownerPanel === this.ownerPanel) this.survival.ownerPanel = null
+      this.ownerPanel = null
+    }
+    if (this.survival) this.survival.adminFrozen = false
     for (const pid of [...this.players.keys()]) this._removePlayer(pid)
     clearChatSystemLines(this.game)
   }
