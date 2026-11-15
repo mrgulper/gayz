@@ -6918,6 +6918,48 @@ test('Submarine, sunken ruins, the ghost pirate ship, the Zombie Train and the M
     let laid = tr.on
     for (let i = 0; i < 8 && !laid; i++) laid = tr.setup({ x: 300 * Math.cos(i), y: 70, z: 300 * Math.sin(i) })
     out.trainLaid = laid && tr.stations.length === 3 && tr._cars.length === 4
+    // It never runs through a building the game made: none of the places
+    // round it has a block column on (or right beside) the rail.
+    const near = bm.world._plansOver(tr.cx - 90, tr.cz - 90, tr.cx + 90, tr.cz + 90)
+    let hits = 0
+    for (let d = 0; d < tr.perim; d += 0.5) {
+      const p = tr.at(d)
+      for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const k = `${Math.floor(p.x + p.nx * dx * 1.5)},${Math.floor(p.z + p.nz * dz * 1.5)}`
+        if (near.some((pl) => pl.top?.has(k))) hits++
+      }
+    }
+    out.trainMissesPlaces = hits === 0
+    // A building put right where the plain circle runs: the loop goes round it.
+    const bx = Math.round(tr.cx + 55)
+    const bz = Math.round(tr.cz)
+    const top = new Map()
+    for (let x = bx - 5; x <= bx + 5; x++) for (let z = bz - 6; z <= bz + 6; z++) top.set(`${x},${z}`, { y: 70, type: 'stone' })
+    const fake = { kind: 'test', cx: bx, cz: bz, x0: bx - 5, x1: bx + 5, z0: bz - 6, z1: bz + 6, top }
+    bm.world._landmarks.push(fake)
+    const t0 = performance.now()
+    const radii = tr._route(tr.cx, tr.cz)
+    const routeMs = performance.now() - t0
+    console.log(`train route ${Math.round(routeMs)} ms`)
+    out.routeQuick = routeMs < 2000
+    bm.world._landmarks.splice(bm.world._landmarks.indexOf(fake), 1)
+    const r0 = radii ? radii[0] : 55
+    out.trainGoesRound = !!radii && (tr.cx + r0 < bx - 5 - 3 || tr.cx + r0 > bx + 5 + 3)
+    // Buildings that pop up later keep off it.
+    const p0 = tr.at(tr.perim / 2)
+    out.trackSaysTaken = tr.overlaps(p0.x - 2, p0.z - 2, p0.x + 2, p0.z + 2) && !tr.overlaps(tr.cx - 3, tr.cz - 3, tr.cx + 3, tr.cz + 3)
+    // Detailed graphics and up: the real-looking track; lower: the plain one.
+    const lvlWas = g.settings.graphicsLevel
+    g.settings.graphicsLevel = 'ultra'
+    tr._lookIn = 0
+    tr.update(0.01)
+    const realKids = tr._track.children.length
+    out.realTrack = tr._trackReal === true && realKids >= 9
+    g.settings.graphicsLevel = 'simple'
+    tr._lookIn = 0
+    tr.update(0.01)
+    out.plainTrack = tr._trackReal === false && tr._track.children.length < realKids
+    g.settings.graphicsLevel = lvlWas
     const startHead = tr.head
     tr.wait = 0
     for (let i = 0; i < 20; i++) tr.update(0.05)

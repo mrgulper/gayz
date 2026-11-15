@@ -71,6 +71,8 @@ export class Graveyard {
   // The top of the ground if it's roughly flat and dry, else null.
   _flat(x0, z0, nearY) {
     const s = this.s
+    // Never on the train's track (ZombieTrain.overlaps).
+    if (s.train?.overlaps(x0 - 1, z0 - 1, x0 + SIZE, z0 + SIZE)) return null
     let lo = Infinity
     let hi = -Infinity
     for (let x = x0; x < x0 + SIZE; x += 2) {
