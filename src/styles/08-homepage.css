@@ -2274,3 +2274,19 @@ html.ui-theme-old .home-play-tag { color: #f3e6c8; background: var(--old-ink); b
 .voice-card .voice-actions > button { flex: 1 1 0; min-width: 0; }
 #poll-screen .poll-options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 #poll-screen .poll-option { width: 100%; overflow-wrap: anywhere; }
+
+/* Homepage unlock ladder (HomeUnlocks.js, 2026-11-15). html[data-home-tier]
+   is set from <head> for brand-new players only; each locked element has
+   data-unlock="1|3|5" in index.html. */
+html[data-home-tier="0"] [data-unlock],
+html[data-home-tier="1"] [data-unlock="3"],
+html[data-home-tier="1"] [data-unlock="5"],
+html[data-home-tier="3"] [data-unlock="5"] {
+  display: none !important;
+}
+#menu-nav-buttons #menu-more-btn {
+  display: none;
+}
+html[data-home-tier] #menu-nav-buttons #menu-more-btn {
+  display: flex;
+}

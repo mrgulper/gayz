@@ -2392,7 +2392,7 @@ export function _applyShadowQuality(game) {
 // here (and keeps its index.html spot) without anyone updating a list.
 function _navButtons() {
   const nav = document.getElementById('menu-nav-buttons')
-  return nav ? [...nav.children].filter((el) => el.tagName === 'BUTTON' && el.id) : []
+  return nav ? [...nav.children].filter((el) => el.tagName === 'BUTTON' && el.id && el.id !== 'menu-more-btn') : []
 }
 
 // The saved order (ids) merged with the buttons that really exist: ids

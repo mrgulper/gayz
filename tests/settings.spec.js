@@ -124,7 +124,8 @@ test('nav order lists every homepage button and old saves still work', async ({ 
   await gotoAndWaitForGame(page)
   const result = await page.evaluate(() => {
     const g = window.__game
-    const navIds = [...document.querySelectorAll('#menu-nav-buttons > button')].map((b) => b.id)
+    // (The unlock ladder's More... button isn't in Nav Order - HomeUnlocks.js.)
+    const navIds = [...document.querySelectorAll('#menu-nav-buttons > button')].map((b) => b.id).filter((id) => id !== 'menu-more-btn')
     g._renderNavOrderList()
     const listed = [...document.querySelectorAll('#nav-order-list .nav-order-row')].map((r) => r.dataset.id)
     document.querySelector('#nav-order-list .nav-order-row[data-id="build-mode-btn"] .nav-order-up').click()
