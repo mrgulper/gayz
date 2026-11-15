@@ -34,6 +34,8 @@ export class RingLoot {
 
   // A zombie went down: its drop.
   dropFrom(z) {
+    // A custom lobby with easy rules drops less often (LobbyRules.rewardMult).
+    if (Math.random() >= (this.s.rewardMult ?? 1)) return null
     return this.spawn(rollDrop(!!z.boss, z.tier || 'common'), z.x, (z.y || 0) + 1, z.z)
   }
 

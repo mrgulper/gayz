@@ -51,7 +51,8 @@
 // its zombies, and every player's placed and broken blocks go in `edits`
 // (one per cell, the latest wins, numbered so each player only gets the
 // ones they haven't had yet).
-import { randomUUID, randomInt } from 'node:crypto'
+import { randomUUID, randomInt, createHash } from 'node:crypto'
+import { cleanLobbyRules, defaultLobbyRules, PASSWORD_MAX } from '../../src/game/LobbyRules.js'
 import { isBanned, isMuted, onlineClosed, dropTicket, GIFT_SKIN_IDS } from './admin.js'
 import { ownerCommand, ownerDeliveries, OwnerError } from './ownerPowers.js'
 
@@ -135,11 +136,26 @@ export function summary(id, server, now) {
     name: server.name,
     mode: server.mode,
     players: live.filter(([, p]) => !p.ghost).length,
-    max: MAX_PLAYERS,
+    max: maxOf(server),
     wave: server.wave || 0,
     createdAt: server.createdAt || 0,
+    // A custom lobby (src/game/LobbyRules.js): its rules, and whether it
+    // needs a password (never the password itself).
+    ...(server.custom ? { custom: true, rules: cleanLobbyRules(server.rules) || defaultLobbyRules(), locked: !!server.passHash } : {}),
   }
 }
+
+// A custom lobby's own player limit (2 up to MAX_PLAYERS).
+function maxOf(server) {
+  const m = Math.floor(Number(server?.rules?.max))
+  return server?.custom && m >= 2 && m <= MAX_PLAYERS ? m : MAX_PLAYERS
+}
+
+// A custom lobby's password is kept only as a hash, salted with its id.
+function passHash(serverId, password) {
+  return createHash('sha256').update(`${serverId}:${password}`).digest('hex')
+}
+const cleanPassword = (v) => (typeof v === 'string' ? v.slice(0, PASSWORD_MAX) : '')
 
 // Every server with someone still in it. Empty ones are deleted on the way.
 export async function listServers(db, now = Date.now()) {
@@ -195,7 +211,9 @@ const cleanAccess = (v) => (ACCESS.includes(v) ? v : null)
 
 // hidden: a solo game made ready for friends the moment it starts (its
 // address is the invite link) - left out of the Global list.
-export async function createServer(db, { name, mode, nickname, skin, world, id: wanted, hidden, access, pid: playerPid } = {}, now = Date.now()) {
+// custom: a custom lobby (Global > Custom) - `rules` from its host and an
+// optional `password`.
+export async function createServer(db, { name, mode, nickname, skin, world, id: wanted, hidden, access, pid: playerPid, custom, rules, password } = {}, now = Date.now()) {
   if (await isBanned(db, playerPid, now)) throw new ServerError(403, 'banned')
   if (await onlineClosed(db)) throw new ServerError(503, 'switched-off')
   const m = MODES.includes(mode) ? mode : 'main'
@@ -218,6 +236,7 @@ export async function createServer(db, { name, mode, nickname, skin, world, id: 
       ...(cleanWorld(world) ? { world: cleanWorld(world) } : {}),
       ...(hidden === true ? { hidden: true } : {}),
       ...(cleanAccess(access) ? { access: cleanAccess(access) } : {}),
+      ...(custom === true ? { custom: true, rules: cleanLobbyRules(rules) || defaultLobbyRules(), ...(cleanPassword(password) ? { passHash: passHash(id, cleanPassword(password)) } : {}) } : {}),
     },
     // Whole, so an old server's players and skins under this id go too.
     [`serverSecrets/${id}`]: { [pid]: token },
@@ -226,10 +245,15 @@ export async function createServer(db, { name, mode, nickname, skin, world, id: 
   const s = skinOf(skin)
   updates[`serverSkins/${id}`] = s ? { [pid]: s } : null
   await db.update(updates)
-  return { serverId: id, playerId: pid, token, host: pid, mode: m }
+  return { serverId: id, playerId: pid, token, host: pid, mode: m, ...lobbyInfo(updates[`servers/${id}`]) }
 }
 
-export async function joinServer(db, { serverId, nickname, skin, pid: playerPid, drop } = {}, now = Date.now()) {
+// What a player in a custom lobby needs to know: its rules.
+function lobbyInfo(server) {
+  return server?.custom ? { custom: true, rules: cleanLobbyRules(server.rules) || defaultLobbyRules() } : {}
+}
+
+export async function joinServer(db, { serverId, nickname, skin, pid: playerPid, drop, password } = {}, now = Date.now()) {
   if (!validId(serverId)) throw new ServerError(400, 'bad-request')
   // The owner dropping in (see the header): 'own' or 'ghost', else null.
   const owner = drop ? await dropTicket(db, drop, serverId, now) : null
@@ -241,8 +265,10 @@ export async function joinServer(db, { serverId, nickname, skin, pid: playerPid,
   const live = livePlayers(server, now)
   if (!live.length) throw new ServerError(404, 'gone')
   const real = live.filter(([, p]) => !p.ghost)
-  if (!owner && real.length >= MAX_PLAYERS) throw new ServerError(409, 'full')
+  if (!owner && real.length >= maxOf(server)) throw new ServerError(409, 'full')
   if (!owner && server.access === 'nobody') throw new ServerError(403, 'locked')
+  // A custom lobby with a password (the owner's pass gets in without one).
+  if (!owner && server.passHash && passHash(serverId, cleanPassword(password)) !== server.passHash) throw new ServerError(403, 'password')
   const pid = newId(10)
   const token = randomUUID().replace(/-/g, '')
   const player = newPlayer(nickname, now)
@@ -261,7 +287,7 @@ export async function joinServer(db, { serverId, nickname, skin, pid: playerPid,
   const s = skinOf(skin)
   if (s && owner !== 'ghost') updates[`serverSkins/${serverId}/${pid}`] = s
   await db.update(updates)
-  return { serverId, playerId: pid, token, host: hostLive ? server.host : newHost, name: server.name, mode: server.mode, world: server.world || null, owner }
+  return { serverId, playerId: pid, token, host: hostLive ? server.host : newHost, name: server.name, mode: server.mode, world: server.world || null, owner, ...lobbyInfo(server) }
 }
 
 async function checkToken(db, serverId, playerId, token) {
@@ -311,7 +337,18 @@ function cleanCredit(c) {
     ...(ZOMBIE_TIER_IDS.has(c?.tier) ? { tier: c.tier } : {}),
     ...(c?.assist ? { assist: true } : {}),
     ...(ZOMBIE_SHINE_IDS.has(c?.shine) ? { shine: c.shine } : {}),
+    // Where it went down, for the killer's ring-item drop (RingLoot.js).
+    ...(Array.isArray(c?.at) && c.at.length === 3 && c.at.every(Number.isFinite) ? { at: c.at.map((n) => Math.round(num(n, -1e5, 1e5) * 10) / 10) } : {}),
   }
+}
+
+// The spin ring someone is wearing (src/game/SpinRing.js netState), so the
+// others can see it: its items ("id:rarity", '' = empty slot) and how far
+// out it sits (blocks).
+const RING_KEY_RE = /^[a-z]{1,16}:[a-z]{1,10}$/
+function cleanRing(v) {
+  if (!v || typeof v !== 'object' || !Array.isArray(v.k)) return null
+  return { k: v.k.slice(0, 10).map((k) => (typeof k === 'string' && RING_KEY_RE.test(k) ? k : '')), r: Math.round(num(v.r, 0, 5) * 10) / 10 }
 }
 // A Catch Trap's answer (PlayCatch.hostCatch): caught or not, and what it
 // was ({ t: 'z' | 'a', k: kind, r: tier, n: name, b: boss }). Checked again
@@ -649,6 +686,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     [`${base}/players/${playerId}/fog`]: cleanFog(s.fog),
     // This game's kill count, for the others' kill feed (src/game/HudSettings.js).
     [`${base}/players/${playerId}/kills`]: Math.round(num(s.kills, 0, 1e6)),
+    // The spin ring, for the others to see.
+    [`${base}/players/${playerId}/ring`]: cleanRing(s.ring),
     [`${base}/players/${playerId}/t`]: now,
   }
   // Drop players who went quiet; take over as host if the host did.
@@ -819,6 +858,14 @@ export async function syncServer(db, body = {}, now = Date.now()) {
       updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId, ...(h.tame === true && h.id[0] === 'a' ? { tame: true } : {}), ...(h.catch === true ? { catch: true } : {}), ...(h.freeze === true && h.id[0] === 'z' ? { freeze: true } : {}), ...(h.boo === true && h.id[0] === 'z' ? { boo: true } : {}) }
     }
   }
+  // A custom lobby with friendly fire on: my ring hit another player
+  // (SpinRing._touchPlayers) - it reaches them like a zombie bite.
+  if (!ghost && server.custom && server.rules?.ff) {
+    for (const h of [].concat(body.pvp || []).slice(0, 10)) {
+      if (!h || !live.has(h.to) || h.to === playerId || server.players?.[h.to]?.ghost) continue
+      updates[`${base}/players/${h.to}/hurt/${newId(8)}`] = num(h.dmg, 0, 500)
+    }
+  }
   // What was queued for me.
   for (const [key, amount] of Object.entries(me.hurt || {})) {
     out.hurt.push(Number(amount) || 0)
@@ -834,7 +881,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p || p.ghost) continue
-    out.players[pid] = { own: p.own ? 1 : 0, nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, esc: p.esc ? 1 : 0, gh: p.gh || null, fog: p.fog || null, kills: Number(p.kills) || 0 }
+    out.players[pid] = { own: p.own ? 1 : 0, nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, esc: p.esc ? 1 : 0, gh: p.gh || null, fog: p.fog || null, kills: Number(p.kills) || 0, ring: p.ring || null }
     // A chat bubble: its number (new one = new bubble) and how long ago.
     if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }

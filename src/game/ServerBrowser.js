@@ -18,9 +18,14 @@ import { _escapeHtml } from './Game.js'
 import { DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { PlayNet } from './PlayNet.js'
 import { isEarthWorld, worldSeed } from './OpenWorld.js'
+import { bindLobbyForm, showLobbyForm, modeName, ruleChip } from './CustomLobbyUI.js'
+import { changedRules } from './LobbyRules.js'
 
 // Each live tab's server mode.
 const TAB_MODES = { main: 'main', parkour: 'parkour', deathmatch: 'duel' }
+// The Custom tab (2026-11-15): every custom lobby, whatever its mode
+// (CustomLobbyUI.js) - and custom lobbies are only listed there.
+const isCustomTab = (tab) => tab === 'custom'
 
 // How often the open list refreshes itself.
 const LIST_REFRESH_MS = 5000
@@ -100,18 +105,30 @@ export function bindServerBrowser(game) {
     const tab = e.target.closest('[data-server-tab]')
     if (tab) {
       game._serverTab = tab.dataset.serverTab
+      showLobbyForm(game, false)
       renderServerList(game)
       return
     }
     const join = e.target.closest('[data-server-join]')
     if (join && !join.disabled) {
-      joinServer(game, join.dataset.serverJoin)
+      // A locked custom lobby: the password typed in its row goes along.
+      const pass = join.closest('.server-row')?.querySelector('.server-pass')
+      if (pass && !pass.value) {
+        pass.focus()
+        game._showHomepageToast(t('lobbyPasswordNeeded'))
+        return
+      }
+      joinServer(game, join.dataset.serverJoin, null, pass?.value || '')
       return
     }
-    if (e.target.closest('#server-create-btn')) createServer(game)
+    if (e.target.closest('#server-create-btn')) {
+      if (isCustomTab(game._serverTab)) showLobbyForm(game, true)
+      else createServer(game)
+    }
     else if (e.target.closest('#server-refresh-btn')) refreshServerList(game)
   })
   document.getElementById('server-search')?.addEventListener('input', () => renderServerList(game))
+  bindLobbyForm(game, (form) => createLobby(game, form))
   document.getElementById('server-create-name')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') createServer(game)
   })
@@ -152,8 +169,15 @@ export function renderServerList(game) {
   const line = document.getElementById('server-count-line')
   const tools = document.getElementById('server-tools')
   if (!list) return
-  const soon = !TAB_MODES[tab]
-  if (tools) tools.style.display = soon ? 'none' : ''
+  const custom = isCustomTab(tab)
+  const soon = !TAB_MODES[tab] && !custom
+  if (tools) tools.style.display = soon || game._lobbyFormOpen ? 'none' : ''
+  // The Custom tab's button makes a custom lobby (the form), not a plain server.
+  const createBtn = document.getElementById('server-create-btn')
+  if (createBtn) createBtn.textContent = t(custom ? 'lobbyCreateBtn' : 'serverCreateBtn')
+  const nameBox = document.getElementById('server-create-name')
+  if (nameBox) nameBox.hidden = custom
+  if (game._lobbyFormOpen) return
   if (soon) {
     if (line) line.textContent = ''
     const soonKey = { deathmatch: 'serverDeathmatchSoon', parkour: 'serverParkourSoon' }[tab] || 'serverCustomSoon'
@@ -161,7 +185,7 @@ export function renderServerList(game) {
     return
   }
   const q = (document.getElementById('server-search')?.value || '').trim().toLowerCase()
-  const all = (game._serverList || []).filter((s) => s.mode === TAB_MODES[tab])
+  const all = (game._serverList || []).filter((s) => (custom ? s.custom : !s.custom && s.mode === TAB_MODES[tab]))
   const shown = all.filter((s) => !q || String(s.name).toLowerCase().includes(q) || String(s.id).toLowerCase().includes(q))
   if (line) line.textContent = game._serverListError ? '' : t('serverCountLine', { n: all.length })
   if (game._serverListError) {
@@ -179,10 +203,18 @@ export function renderServerList(game) {
       <span class="server-name">${_escapeHtml(s.name)}</span>
       <span class="server-id">${_escapeHtml(s.id)}</span>
       ${s.wave ? `<span class="server-wave">${_escapeHtml(t('buildPlayWave', { n: Number(s.wave) || 0 }))}</span>` : ''}
+      ${custom ? lobbyBits(s) : ''}
       <span class="server-players">${Number(s.players) || 0} / ${Number(s.max) || 0}</span>
       <button type="button" class="mini-action-btn server-join-btn" data-server-join="${_escapeHtml(s.id)}"${full ? ' disabled' : ''}>${_escapeHtml(t(full ? 'serverFull' : 'serverJoin'))}</button>
     </div>`
   }).join('')
+}
+
+// A custom lobby's row: its mode, the rules that aren't normal, and a
+// password box if it's locked.
+function lobbyBits(s) {
+  const chips = changedRules(s.rules).map((r) => `<span class="lobby-chip">${_escapeHtml(ruleChip(r))}</span>`).join('')
+  return `<span class="lobby-row-info"><span class="lobby-chip lobby-mode-chip">${_escapeHtml(modeName(s.mode))}</span>${chips}</span>${s.locked ? `<input type="password" class="nickname-input server-pass" maxlength="24" autocomplete="off" placeholder="${_escapeHtml(t('lobbyPassword'))}" aria-label="${_escapeHtml(t('lobbyPassword'))}" />` : ''}`
 }
 
 function setBusy(game, busy) {
@@ -209,11 +241,30 @@ async function createServer(game) {
   }
 }
 
-async function joinServer(game, serverId, drop = null) {
+// The Create Custom Lobby form's Create button (CustomLobbyUI.js).
+async function createLobby(game, form) {
   if (game._serverBusy) return
   setBusy(game, true)
   try {
-    const info = await serverApi(game).join({ ...(await myDetails(game)), serverId, ...(drop ? { drop } : {}) })
+    const info = await serverApi(game).create({ ...(await myDetails(game)), name: form.name, mode: form.mode, custom: true, rules: form.rules, password: form.password, access: serverAccess(game.settings) })
+    game._lobbyDraft = null
+    showLobbyForm(game, false)
+    enterServer(game, { ...info, name: form.name || info.name, password: form.password })
+  } catch (err) {
+    if (err?.code === 'switched-off') game._showHomepageToast(switchedOffText('online'))
+    else game._showHomepageToast(err?.code === 'banned' ? banMessage() || t('serverBannedToast') : t('serverCreateFailed'))
+  } finally {
+    setBusy(game, false)
+  }
+}
+
+async function joinServer(game, serverId, drop = null, password = '') {
+  if (game._serverBusy) return
+  setBusy(game, true)
+  try {
+    const info = await serverApi(game).join({ ...(await myDetails(game)), serverId, ...(drop ? { drop } : {}), ...(password ? { password } : {}) })
+    // Kept so a dropped connection gets back in (PlayNet._rejoin).
+    if (password) info.password = password
     // The owner dropping in (OwnerDropIn.js): the pass goes along so a
     // dropped connection gets back in the same way.
     if (drop && info.owner) info.drop = drop
@@ -221,7 +272,7 @@ async function joinServer(game, serverId, drop = null) {
   } catch (err) {
     if (err?.code === 'banned') game._showHomepageToast(banMessage() || t('serverBannedToast'))
     else if (err?.code === 'switched-off') game._showHomepageToast(switchedOffText('online'))
-    else game._showHomepageToast(t(err?.code === 'full' ? 'serverFullToast' : err?.code === 'gone' ? 'serverGoneToast' : err?.code === 'locked' ? 'serverLockedToast' : 'serverJoinFailed'))
+    else game._showHomepageToast(t(err?.code === 'full' ? 'serverFullToast' : err?.code === 'gone' ? 'serverGoneToast' : err?.code === 'locked' ? 'serverLockedToast' : err?.code === 'password' ? 'lobbyWrongPassword' : 'serverJoinFailed'))
     refreshServerList(game)
   } finally {
     setBusy(game, false)

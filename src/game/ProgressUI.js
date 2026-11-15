@@ -209,7 +209,7 @@ export function _onPlayEvent(game, type, data) {
   if (data.seconds >= 90 * 60) game.achievements.unlock('all_nighter')
   // +10% per Prestige level, as the Prestige line promises.
   // (+10% more with the skill tree's Legacy upgrade.)
-  const legacy = Math.floor(points * DEATH_POINTS_CONVERSION * (1 + (PRESTIGE_BONUS_PERCENT / 100) * Math.floor(_safeStatNumber(game.metaProgress.prestigeLevel))) * (game.metaProgress.purchased.has('legacyBoost') ? 1 + LEGACY_BOOST : 1))
+  const legacy = Math.floor(points * DEATH_POINTS_CONVERSION * (1 + (PRESTIGE_BONUS_PERCENT / 100) * Math.floor(_safeStatNumber(game.metaProgress.prestigeLevel))) * (game.metaProgress.purchased.has('legacyBoost') ? 1 + LEGACY_BOOST : 1) * (Number(data.rewardMult) > 0 ? Math.min(1, Number(data.rewardMult)) : 1))
   game.metaProgress.legacyPoints += legacy
   saveMetaProgress(game.metaProgress)
   // XP (Xp.js) - never spent; sets your level, and counts for your clan
