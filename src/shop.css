@@ -469,3 +469,97 @@ html.ui-theme-clean #inventory-skins-list .inv-skin-card:not(.inv-weapon-card):h
   border-left-color: var(--rarity, #9aa0a6);
   box-shadow: none;
 }
+
+/* Name & ID (ShopIdentity.js): two buyable cards that share the Coming
+   Soon card look, but solid and full-strength since they're for sale.
+   Same sizes in every theme; only colours change below. */
+.shop-identity-card {
+  width: 210px;
+  padding-top: 16px;
+  border-style: solid;
+  opacity: 1;
+}
+
+.shop-identity-price {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #2a1606;
+  background: #fff4d6;
+  border: 2px dashed #e0145a;
+  border-radius: 8px;
+}
+
+.shop-identity-price .currency-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.shop-identity-input {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+#shop-id-input {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.shop-identity-buy-btn {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(180deg, #5ee86a, #1fa83a);
+  border: 1px solid #0f6b22;
+  border-radius: 6px;
+  cursor: pointer;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+}
+
+.shop-identity-buy-btn:hover {
+  filter: brightness(1.1);
+}
+
+.shop-identity-buy-btn:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.6) brightness(0.8);
+}
+
+.shop-identity-status {
+  min-height: 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.shop-identity-status.shop-identity-error {
+  color: #ff6b6b;
+}
+
+html.ui-theme-old .shop-identity-status,
+html.ui-theme-clean .shop-identity-status { color: rgba(36, 21, 7, 0.85) !important; }
+html.ui-theme-old .shop-identity-status.shop-identity-error,
+html.ui-theme-clean .shop-identity-status.shop-identity-error { color: #b3001b !important; }
+html.ui-theme-old .shop-identity-buy-btn,
+html.ui-theme-clean .shop-identity-buy-btn { color: #fff !important; }
+html.ui-theme-clean .shop-identity-card { border-style: solid !important; }
+
+/* Little "100 gems" reminder next to the pencil-edit name box. */
+.nickname-price-hint {
+  flex: none;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ff7f97;
+  white-space: nowrap;
+}
+
+#shop-id-input::placeholder {
+  text-transform: none;
+  letter-spacing: normal;
+}

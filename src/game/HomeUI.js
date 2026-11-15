@@ -13,6 +13,7 @@ import { ACHIEVEMENTS } from './Achievements.js'
 import { CAREER_RANK_TITLES, EVENT_BANNERS, GOAL_CANDIDATES, MAX_GOALS, MENU_PAINT_CACHE_KEY, MENU_PAINT_CACHE_ROOTS, MUTATOR_LABEL_KEYS, NEARLY_THERE_CANDIDATES, NEWS_TICKER_LATE_NIGHT, NEWS_TICKER_MID_NIGHT, WEEKLY_FEATURED_MUTATOR_BONUS_COINS, _escapeHtml, _safeStatNumber, _weeklyFeaturedMutatorKey, saveSettings, todayDateString } from './Game.js'
 import { setLanguage, t } from './i18n.js'
 import { holidayDate } from './LiveConfig.js'
+import { buyNameChange } from './ShopIdentity.js'
 
 // Homepage clock (General tab, settings.timeFormat) - the only place
 // in the game that shows an absolute (not relative/countdown) local
@@ -86,16 +87,17 @@ export function _renderRecentlyChangedList(game) {
 }
 
 // Confirms whatever's currently in the nickname box (typed or a Random
-// preview) as the real saved nickname, then closes the editor row.
+// preview), then closes the editor row. Name changes cost gems since
+// 2026-11-15 (ShopIdentity.buyNameChange asks first, and does nothing if
+// the name didn't change). Either way the box goes back to the saved name.
 export function _confirmNicknameEdit(game) {
   if (!game.nicknameRow || !game.nicknameInput) return
-  // .trim() - see the live 'input' listener's own comment on game same
-  // fix, right below #nickname-input's other binding.
-  game.settings.nickname = game.nicknameInput.value.trim()
-  saveSettings(game.settings)
-  game._renderPlayerTag()
+  const typed = game.nicknameInput.value
   game.nicknameRow.style.display = 'none'
   game.nicknameInput.blur()
+  game.nicknameInput.value = game.settings.nickname || ''
+  buyNameChange(game, typed)
+  game.nicknameInput.value = game.settings.nickname || ''
 }
 
 // Homepage corner currency bar (Coins/Points/Gems) - piggybacks on the

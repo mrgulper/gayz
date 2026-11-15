@@ -23,10 +23,10 @@ export function strictClean(text) {
   let out = String(text || '').replace(LINK_RE, '[link]').replace(STRICT_RE, (m) => '*'.repeat(m.replace(/\s+/g, '').length))
   // SHOUTING: most of the letters are capitals. A pasted Player ID
   // (#ABC123) stays as it is.
-  const letters = out.replace(/#[A-Z0-9]{6}/g, '').replace(/[^A-Za-z]/g, '')
+  const letters = out.replace(/#[A-Z0-9]{5,10}(?![A-Za-z0-9])/g, '').replace(/[^A-Za-z]/g, '')
   const caps = letters.replace(/[^A-Z]/g, '').length
   if (letters.length >= SHOUT_MIN && caps / letters.length > 0.7) {
-    out = out.replace(/(#[A-Z0-9]{6})|[^#]+?(?=#[A-Z0-9]{6}|$)/g, (m, id) => (id ? m : m.toLowerCase()))
+    out = out.replace(/(#[A-Z0-9]{5,10}(?![A-Za-z0-9]))|[^#]+?(?=#[A-Z0-9]{5,10}(?![A-Za-z0-9])|$)/g, (m, id) => (id ? m : m.toLowerCase()))
   }
   return out
 }

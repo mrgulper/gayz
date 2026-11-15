@@ -129,6 +129,21 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Custom Player IDs bought in the Shop (2026-11-15, ShopIdentity.js):
+    // playerIds/{ID} says which account owns that ID. Only "create" is
+    // allowed, never "update", so a taken ID can't be claimed by anyone
+    // else - that is what makes custom IDs unique. The owner may delete
+    // their old claim when they buy a new ID.
+    match /playerIds/{id} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && id.matches('[A-Z0-9]{5,10}')
+        && request.resource.data.keys().hasOnly(['uid', 'at'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.at is int;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+
     match /leaderboard/{userId} {
       allow read: if true;
       // The online heartbeat (updateLastActive, 2026-11-11): a write that
@@ -149,7 +164,7 @@ service cloud.firestore {
         && request.resource.data.bestKillStreak is int && request.resource.data.bestKillStreak >= 0 && request.resource.data.bestKillStreak < 100000
         && request.resource.data.achievementCount is int && request.resource.data.achievementCount >= 0 && request.resource.data.achievementCount <= 1000
         && (!('region' in request.resource.data) || request.resource.data.region in ['na', 'eu', 'asia', 'sa', 'oceania', 'africa'])
-        && (!('playerId' in request.resource.data) || (request.resource.data.playerId is string && request.resource.data.playerId.size() >= 6 && request.resource.data.playerId.size() <= 10))
+        && (!('playerId' in request.resource.data) || (request.resource.data.playerId is string && request.resource.data.playerId.matches('[A-Z0-9]{5,10}')))
         && (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is int)
         && (!('doNotDisturb' in request.resource.data) || request.resource.data.doNotDisturb is bool)
         && (!('manualIdle' in request.resource.data) || request.resource.data.manualIdle is bool)
@@ -1084,6 +1099,39 @@ export async function searchLeaderboardByName(text, n = 8) {
 // Game.js, same as every other field on this doc) - a brand new signed-in
 // account with zero runs can't be found by ID yet, same existing
 // limitation nickname lookup already has.
+// Custom Player ID (Shop, ShopIdentity.js). isPlayerIdTaken checks both
+// the claimed-ID list and the leaderboard (random IDs from before custom
+// IDs existed are only on the leaderboard). claimPlayerId creates the
+// playerIds/{id} doc in a transaction; the rules only allow creating it,
+// so if someone else got there first it fails with 'taken'.
+export async function isPlayerIdTaken(playerId, myUid) {
+  const { db, fsMod } = await ensureApp()
+  const claim = await fsMod.getDoc(fsMod.doc(db, 'playerIds', playerId))
+  if (claim.exists() && claim.data().uid !== myUid) return true
+  const entry = await fetchLeaderboardEntryByPlayerId(playerId)
+  return !!(entry && entry.uid !== myUid)
+}
+
+export async function claimPlayerId(uid, playerId) {
+  const { db, fsMod } = await ensureApp()
+  const ref = fsMod.doc(db, 'playerIds', playerId)
+  await fsMod.runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (snap.exists()) {
+      if (snap.data().uid === uid) return
+      throw new Error('taken')
+    }
+    tx.set(ref, { uid, at: Date.now() })
+  })
+}
+
+export async function releasePlayerId(uid, playerId) {
+  const { db, fsMod } = await ensureApp()
+  const ref = fsMod.doc(db, 'playerIds', playerId)
+  const snap = await fsMod.getDoc(ref)
+  if (snap.exists() && snap.data().uid === uid) await fsMod.deleteDoc(ref)
+}
+
 export async function fetchLeaderboardEntryByPlayerId(playerId) {
   const { db, fsMod } = await ensureApp()
   const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('playerId', '==', playerId), fsMod.limit(1))

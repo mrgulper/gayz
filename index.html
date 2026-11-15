@@ -547,6 +547,7 @@
                 <div id="nickname-row" style="display: none">
                   <input type="text" id="nickname-input" class="nickname-input" placeholder="Your nickname" maxlength="16" />
                   <button id="random-nickname-btn" class="mini-action-btn" type="button" title="Random nickname">Random</button>
+                  <span id="nickname-price-hint" class="nickname-price-hint">100 gems</span>
                 </div>
               </div>
               <div id="setup-avatar-wrap" title="Drag to spin">
@@ -2735,6 +2736,7 @@ Escape before dawn.</p>
             <ul>
               <li>Feedback you send (the Feedback link on the homepage) stores your message, whether it's an idea, bug or other, your nickname, Player ID and when you sent it, so the developer can read it and know who to follow up with. A Bug message also stores your device type, browser, screen size, language, theme and game version. Messages are kept until the developer deletes them (the newest few hundred), and a short copy may be sent as a private notification to the developer.</li>
               <li>Voting in a quick poll stores your answer with your Player ID, so each player votes once. The developer only sees the totals for each answer.</li>
+              <li>Buying a custom Player ID in the Shop (you need to be signed in) stores that ID with your account, so no one else can take it. Anyone can see that the ID is in use, but not which account owns it. When you buy a different ID later, your old one is freed.</li>
               <li>When something in the game crashes, the error message, where in the game's code it happened, the game version and whether it was a phone or computer are sent and added to a count. No Player ID, nickname, account or IP address is stored with it. "Share Anonymous Usage Stats" in Settings turns this off too.</li>
                <li>The Hall of Fame (homepage and General) shows players the developer chooses to honor: the nickname, a short title, a date and the player's skin. Want your card changed or removed? Send a message with Feedback.</li>
             </ul>
@@ -3039,6 +3041,26 @@ Escape before dawn.</p>
                   <button type="button" id="shop-skin-buy-btn">Buy</button>
                 </div>
                 <div id="shop-skin-badge" style="display: none">Owned</div>
+              </div>
+              <h3 class="crate-section-heading" id="shop-identity-heading">Name &amp; ID</h3>
+              <div class="shop-soon-grid shop-identity-grid">
+                <div class="shop-soon-card shop-identity-card" style="--soon-color: #5ee86a">
+                  <svg class="shop-soon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" fill="var(--soon-color)"/></svg>
+                  <span class="shop-soon-name" id="shop-name-title">Change Name</span>
+                  <span class="shop-soon-text" id="shop-name-text">Pick a new nickname.</span>
+                  <div class="shop-price-tag shop-identity-price"><svg class="currency-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h10l5 5.5-10 11.5L2 9z" fill="url(#shop-gem-body)" stroke="#6e0018" stroke-width="0.9" stroke-linejoin="round"/><path d="M7 3.5l2.2 5.5h5.6L17 3.5z" fill="#ffb3c2" opacity="0.85"/><path d="M9.2 9L12 20.5 14.8 9z" fill="#ff4d6d"/></svg><span id="shop-name-price-amount">100</span></div>
+                  <input type="text" id="shop-name-input" class="nickname-input shop-identity-input" maxlength="16" placeholder="New nickname" autocomplete="off" />
+                  <button type="button" id="shop-name-buy-btn" class="shop-identity-buy-btn">Change Name</button>
+                </div>
+                <div class="shop-soon-card shop-identity-card" style="--soon-color: #ffc53d">
+                  <svg class="shop-soon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18" fill="none" stroke="var(--soon-color)" stroke-width="2.6" stroke-linecap="round"/></svg>
+                  <span class="shop-soon-name" id="shop-id-title">Custom ID</span>
+                  <span class="shop-soon-text" id="shop-id-current">Your ID: #</span>
+                  <div class="shop-price-tag shop-identity-price"><svg class="currency-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h10l5 5.5-10 11.5L2 9z" fill="url(#shop-gem-body)" stroke="#6e0018" stroke-width="0.9" stroke-linejoin="round"/><path d="M7 3.5l2.2 5.5h5.6L17 3.5z" fill="#ffb3c2" opacity="0.85"/><path d="M9.2 9L12 20.5 14.8 9z" fill="#ff4d6d"/></svg><span id="shop-id-price-amount">10,000</span></div>
+                  <input type="text" id="shop-id-input" class="nickname-input shop-identity-input" maxlength="10" placeholder="5-10 letters or numbers" autocomplete="off" spellcheck="false" />
+                  <button type="button" id="shop-id-buy-btn" class="shop-identity-buy-btn">Buy ID</button>
+                  <span class="shop-identity-status" id="shop-id-status" aria-live="polite"></span>
+                </div>
               </div>
               <h3 class="crate-section-heading" id="shop-soon-heading">Coming Soon</h3>
               <div class="shop-soon-grid">
