@@ -456,6 +456,8 @@ export class PlayInventory {
       }
       s.health = Math.min(s.maxHealth, s.health + def.heal)
       const fed = s.hunger?.eat(it.id) || 0
+      // An animal drop: lifted to your mouth and bitten (HeldFood.js).
+      s.bm?.tryMode?.eatFood?.(it.id)
       s.bingo?.note('eat')
       s._message(fed ? t('hungerAte', { n: def.heal, f: fed }) : t('invHealed', { n: def.heal }))
     } else if (def?.ammo) {

@@ -4888,7 +4888,10 @@ export class BuildMode {
     if (this.survival?.replay?.active) {
       // A death replay: no hand.
     } else if (held?.kind === 'block') this.tryMode.drawHand(this.renderer, held.id, true)
-    else if (this.tryMode.active && !held) this.tryMode.drawGun(this.renderer)
+    // An animal's drop (or one being eaten): its little 3D model (HeldFood.js).
+    else if (this.tryMode.active && this.survival?.active && this.tryMode.drawFood(this.renderer, held?.kind === 'item' ? held.id : null)) {
+      // drawn
+    } else if (this.tryMode.active && !held) this.tryMode.drawGun(this.renderer)
     else if (!this.menuOpen && !this.pickerOpen && !this._noHand) this.tryMode.drawHand(this.renderer, this.selectedType)
     // The minimap shows while building too (Try Map draws its own).
     if (!this.tryMode.active) this.tryMode.drawBuildMap(performance.now(), this.active && !this.menuOpen && !this.pickerOpen)

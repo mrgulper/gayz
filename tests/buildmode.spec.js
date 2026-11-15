@@ -8621,3 +8621,47 @@ test('real place names, real-place pyramids and towns sized to their country', a
   })
   expect(r).toEqual({ fills: true, name: 'Mount Everest', title: 'Mount Everest', shown: true })
 })
+
+// 2026-11-15: an animal's body-part drop shows as a little 3D model in your
+// hands, and eating one lifts it to your mouth for 3 bites that chew
+// pieces out of it (HeldFood.js).
+test('a held animal drop is a 3D model in the hands, bitten while eaten', async ({ page }) => {
+  test.setTimeout(180000)
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await page.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    s.inv.hotbar[2] = { kind: 'item', id: 'meat_elephant', n: 2 }
+    s.inv.select(2)
+  })
+  await page.waitForFunction(() => window.__game.buildMode.tryMode._food?.group.visible, null, { timeout: 60000 })
+  const r = await page.evaluate(async () => {
+    const bm = window.__game.buildMode
+    const s = bm.survival
+    const tm = bm.tryMode
+    const food = tm._food
+    const count = () => food.mesh.geometry.attributes.position.count
+    const whole = count()
+    const out = { whole: whole > 300 }
+    // Eaten away from a fire (by one, it's cooked instead).
+    s.hunger.nearFire = () => false
+    s.health = 40
+    out.used = s.inv.useHeld() && s.inv.hotbar[2]?.n === 1
+    out.eating = food.eating?.id === 'meat_elephant'
+    // Jump to just after the last bite and draw one frame.
+    food.eating.at = performance.now() - 1300
+    tm.drawFood(bm.renderer, 'meat_elephant')
+    out.bites = food.eating?.bites === 3
+    out.bitten = count() < whole * 0.9
+    out.lifted = tm._hand.position.y > 0.01
+    // Done: the next one in the stack is whole again, crumbs gone.
+    food.eating.at = performance.now() - 5000
+    tm.drawFood(bm.renderer, 'meat_elephant')
+    out.whole2 = food._key === 'meat_elephant|0'
+    // A gun in hand: no model, no crumbs left over.
+    out.gun = tm.drawFood(bm.renderer, null) === false && food._crumbs.length === 0
+    return out
+  })
+  expect(r).toEqual({ whole: true, used: true, eating: true, bites: true, bitten: true, lifted: true, whole2: true, gun: true })
+})
