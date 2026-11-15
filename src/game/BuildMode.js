@@ -2019,6 +2019,9 @@ export class BuildMode {
         // Right-clicking the go-kart hops in (GoKart.js).
         else if (e.button === 2 && this.survival?.active && (this.survival.kart?.rightClick() || this.survival.vehicles?.rightClick())) return
         else if (e.button === 2 && this.survival?.holding?.kind === 'block') this.survival.placeHeldBlock()
+        // Spin ring games (SpinRing.js): held right-click pulls the ring in
+        // tight (left click spreads it - _fireHeld).
+        else if (e.button === 2 && this.survival?.active && this.survival.ring) this._ringPull = true
         else if (e.button === 2) this.tryMode.setAim(true)
         return
       }
@@ -2257,6 +2260,7 @@ export class BuildMode {
     document.addEventListener('click', this._onScreenClick)
     this._onPointerUp = (e) => {
       if (e.button === 0) this._fireHeld = false
+      if (e.button === 2) this._ringPull = false
       if (e.button === 2 && this.tryMode?.active) this.tryMode.setAim(false)
     }
     window.addEventListener('pointerup', this._onPointerUp)

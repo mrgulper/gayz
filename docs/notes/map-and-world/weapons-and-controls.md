@@ -39,3 +39,12 @@ Split out of the old `map-and-world.md` on 2026-11-13 (word for word, oldest fir
 
 ## Ambient cues (AmbientCues.js, 2026-11-14)
 `BuildTryMode.update` calls `tickAmbientCues` ~10x/s (also in Try mode). Indoors = any solid cell 2-13 blocks above the player's feet → `Audio.updateAmbientZone` (duller wind). Horde = survival zombies within 28 blocks, closer ones weigh more, panned to the nearest → `Audio.updateZombiePresence`, scaled to 60% and by the Zombie slider (Gaymi chose "subtle"). `exit()` resets both. Not wired: footstep muffling indoors (`playFootstep(muffled)`), riding vehicles skips nothing (tick runs before the ride code).
+
+## Spin ring, Batch 1 (2026-11-15)
+
+- `SpinRing.js` (`survival.ring`): in `RING_MODES` (classic, zombieDefense, bossHunt, zombieRush, zombieExtraction, shrinkingZone, speedrun, towerDefense) games from the homepage or a server there are no guns or blades - 3 items (`STARTER_RING`: brick, sawblade, bandage; stats in `RING_ITEMS`) circle `bodyPos()` (so Spectate keeps it round the body). Party games and the editor's own Play keep guns. Couch Co-op Player 2 still has no ring (later batch).
+- Controls: spread = `bm._fireHeld` (left click, still digs) or `bm._ringSpreadTouch` (phone Fire button, re-iconed); pull in = `bm._ringPull` (right click when not holding a block / kart; phone Reload button, re-iconed). Radii `R_PULL/R_NORMAL/R_SPREAD`.
+- Hits go through `hitZombieWith` (server-safe). Brick breaks and regrows (`reload`), Saw Blade bites each zombie every `reload` s, Bandage flies in when hurt. Kill reports send `weapon: ''` so Arsenal isn't faked.
+- Guns off: `_startRing()` instead of the weapon picker, `inv.reset(null)`, `inv.add` drops guns, `stripGuns()` on resumed saves, `tryFire`/`reload`/`_pickWeapon` no-op, `_showGun` hides the gun, pause Switch Weapon hidden, ammo hidden (`body.play-ring-on`), PlayNet sends no weapon.
+- Ring bar `#play-ring-bar` (hotbar slot look, round): right of the hotbar; on phones under the minimap (a column when upright).
+- Tests: Playwright (`navigator.webdriver`) keeps guns unless `window.__ringForTests` - older specs shoot in Classic. Ring specs: "Spin ring: ..." and "spin ring on a phone".

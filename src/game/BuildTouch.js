@@ -13,6 +13,7 @@
 // _tryUseFromCamera(), toggleMenu()), so nothing behaves differently.
 
 import { getKeyFor } from './Keybinds.js'
+import { t } from './i18n.js'
 import { startUse, endUse, ensureGyro, gyroLook } from './ControlSettings.js'
 
 // The stick's reach in px, and how far out (0-1) counts as running.
@@ -37,6 +38,9 @@ const FIXED_GRAB = STICK_RADIUS * 1.7
 const DOUBLE_TAP_MS = 320
 
 const ICONS = {
+  // Spin ring games (SpinRing.js): Fire becomes Spread, Reload becomes Pull In.
+  spread: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="7" stroke-dasharray="3 3"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M5 5l2 2M19 19l-2-2M19 5l-2 2M5 19l2-2"/></svg>',
+  pull: '<svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><circle cx="12" cy="11.5" r="2.2" fill="currentColor"/></svg>',
   bag: '<svg viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
   fire: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>',
   jump: '<svg viewBox="0 0 24 24"><path d="M12 19V6M6 12l6-6 6 6"/></svg>',
@@ -198,7 +202,14 @@ export class BuildTouch {
         endUse(this.bm)
       }
       if (this._look?.id === id) this._look = null
-      if (this._fireId === id) this._fireId = null
+      if (this._fireId === id) {
+        this._fireId = null
+        this.bm._ringSpreadTouch = false
+      }
+      if (this._pullId === id) {
+        this._pullId = null
+        this.bm._ringPull = false
+      }
       if (this._jumpId === id) {
         this._jumpId = null
         this.bm._keys.delete(getKeyFor('jump'))
@@ -215,12 +226,18 @@ export class BuildTouch {
       // Holding a block: the fire button places it.
       bm.survival.placeHeldBlock()
     } else if (action === 'fire') {
+      // Spin ring games: held, the ring spreads out (SpinRing.js).
+      if (bm.survival?.ring) bm._ringSpreadTouch = true
       this._fireId = id
       this._fireIn = FIRE_REPEAT_S
       bm.tryMode.fire()
     } else if (action === 'jump') {
       this._jumpId = id
       bm._keys.add(getKeyFor('jump'))
+    } else if (action === 'reload' && bm.survival?.ring) {
+      // Spin ring games: held, the ring pulls in tight (SpinRing.js).
+      this._pullId = id
+      bm._ringPull = true
     } else if (action === 'reload') {
       if (bm.survival.active) bm.survival.reload()
     } else if (action === 'use') {
@@ -275,6 +292,9 @@ export class BuildTouch {
     this._stick = null
     this._look = null
     this._fireId = null
+    this._pullId = null
+    this.bm._ringPull = false
+    this.bm._ringSpreadTouch = false
     this._jumpId = null
     this._stickRun = false
     if (this._useId !== null) endUse(this.bm)
@@ -325,6 +345,19 @@ export class BuildTouch {
       this._stickEl.classList.add('on')
     } else if (!fixed && !this._stick) this._stickEl.classList.remove('on')
     gyroLook(bm, dt)
+    // Spin ring games: Fire turns into Spread and Reload into Pull In.
+    const ring = !!bm.survival?.ring
+    if (ring !== this._ringShown) {
+      this._ringShown = ring
+      const fire = this._el.querySelector('.tp-fire')
+      const reload = this._el.querySelector('.tp-reload')
+      fire.innerHTML = ring ? ICONS.spread : ICONS.fire
+      reload.innerHTML = ring ? ICONS.pull : ICONS.reload
+      fire.setAttribute('aria-label', ring ? t('ringSpreadBtn') : 'Fire')
+      reload.setAttribute('aria-label', ring ? t('ringPullBtn') : 'Reload')
+      fire.classList.toggle('tp-ring', ring)
+      reload.classList.toggle('tp-ring', ring)
+    }
     // The scope button: only with a scoped gun (the AWP) in hand.
     const scoped = bm.tryMode.hasScope()
     if (scoped !== this._scopeShown) {

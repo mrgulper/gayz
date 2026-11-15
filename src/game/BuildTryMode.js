@@ -2373,6 +2373,11 @@ export class BuildTryMode {
     // Otherwise the first gun in the player's hotbar (not the knife), else
     // the rifle.
     const play = this.bm.survival
+    // Spin ring games (SpinRing.js): no gun in your hands at all.
+    if (play?.active && play.ring) {
+      if (this._gun) this._gun.visible = false
+      return
+    }
     const hotbar = this.bm.game?.settings?.hotbar || []
     const gunIds = hotbar.filter((wid) => wid && weapons.viewmodels[wid] && !/melee|knife|tomahawk/i.test(wid))
     const picked = play?.active && weapons.viewmodels[play.weaponId] ? play.weaponId : null
