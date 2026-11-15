@@ -51,6 +51,11 @@ export class PlayPauseMenu {
     })
     on('play-pause-settings-btn', () => this.openSettings())
     on('play-pause-weapon-btn', () => this.switchWeapon())
+    // Spin ring games: the ring editor and bag (RingEditor.js).
+    on('play-pause-ring-btn', () => {
+      if (bm.menuOpen) bm.toggleMenu()
+      bm.survival?.ringEditor?.open()
+    })
     on('play-pause-spectate-btn', () => this.bm.spectate?.enter())
     on('play-pause-photo-btn', () => this.bm.spectate?.enter({ photo: true }))
     on('play-pause-spray-btn', () => this.openSpray())
@@ -89,6 +94,8 @@ export class PlayPauseMenu {
     // Spin ring games have no guns to switch to (SpinRing.js).
     const weaponBtn = document.getElementById('play-pause-weapon-btn')
     if (weaponBtn) weaponBtn.style.display = s?.ring ? 'none' : ''
+    const ringBtn = document.getElementById('play-pause-ring-btn')
+    if (ringBtn) ringBtn.style.display = s?.ring ? '' : 'none'
     const set = (id, text) => {
       const el = document.getElementById(id)
       if (el) el.textContent = text
@@ -98,6 +105,7 @@ export class PlayPauseMenu {
     set('play-pause-back-label', t('playPauseBack'))
     set('play-pause-settings-label', t('playPauseSettings'))
     set('play-pause-weapon-label', t('playPauseWeapon'))
+    set('play-pause-ring-label', t('playPauseRing'))
     set('play-pause-spectate-label', t('playPauseSpectate'))
     set('play-pause-photo-label', t('playPausePhoto'))
     set('play-pause-spray-label', t('playPauseSpray'))

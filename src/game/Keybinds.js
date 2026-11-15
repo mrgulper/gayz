@@ -41,6 +41,8 @@ export const ACTIONS = [
   { id: 'spray', defaultKey: 'KeyY', labelKey: 'actionSpray' },
   // Shows this run's Zombie Bingo card (ZombieBingo.js, 2026-11-09).
   { id: 'bingo', defaultKey: 'KeyJ', labelKey: 'actionBingo' },
+  // Opens the spin ring's editor and item bag (RingEditor.js, 2026-11-15).
+  { id: 'ringBag', defaultKey: 'KeyI', labelKey: 'actionRingBag' },
   // Keeps walking forward hands-free until Back, Forward or this key
   // again (Settings ideas list, Controls #15, 2026-11-11).
   { id: 'autoRun', defaultKey: 'KeyO', labelKey: 'actionAutoRun' },

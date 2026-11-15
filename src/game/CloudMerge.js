@@ -55,6 +55,8 @@ const ADDITIVE_KEYS = new Set([
   'gayz-weapon-mastery',
   'gayz-total-spent',
   'gayz-narrative-stats',
+  // The spin ring's item bag (RingItems.js): { "id:rarity": count }.
+  'gayz-ring-bag',
 ])
 // Settings-like keys: a conflicting field goes to whichever device changed
 // more recently. Their arrays are ordered, fixed-meaning lists (hotbar

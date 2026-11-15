@@ -1696,6 +1696,11 @@ export class BuildMode {
           if (e.code === getKeyFor('shop') && !e.repeat) this.survival.shop.closePanel()
           return
         }
+        // The ring editor (RingEditor.js) is open: its key or Escape closes it.
+        if (this.survival.ringEditor?.isOpen) {
+          if ((e.code === getKeyFor('ringBag') || e.code === 'Escape') && !e.repeat) this.survival.ringEditor.close()
+          return
+        }
         if (!e.repeat && this.spectate.photo) {
           if (e.code === 'KeyP' || e.code === 'Enter') this.spectate.snap()
         } else if (!e.repeat) {
@@ -1715,6 +1720,11 @@ export class BuildMode {
         // The Shop (PlayShop.js) is open: only its own key closes it here.
         if (this.survival.shop?.panelOpen) {
           if (e.code === getKeyFor('shop') && !e.repeat) this.survival.shop.closePanel()
+          return
+        }
+        // The ring editor (RingEditor.js) is open: its key or Escape closes it.
+        if (this.survival.ringEditor?.isOpen) {
+          if ((e.code === getKeyFor('ringBag') || e.code === 'Escape') && !e.repeat) this.survival.ringEditor.close()
           return
         }
         if (this.survival.active && !e.repeat) this.survival.onKeyDown(e.code)
@@ -2189,6 +2199,10 @@ export class BuildMode {
       // An NPC's shop is open: Escape closes it, nothing else happens.
       if (this.survival?.shop?.panelOpen) {
         if (e.code === 'Escape') this.survival.shop.closePanel()
+        return
+      }
+      if (this.survival?.ringEditor?.isOpen) {
+        if (e.code === 'Escape' || e.code === getKeyFor('ringBag')) this.survival.ringEditor.close()
         return
       }
       if (e.code === 'Tab') {
@@ -3910,7 +3924,7 @@ export class BuildMode {
     if (this.menuOpen || this.pickerOpen || this.share?.isOpen || this.together?.isOpen) return true
     if (this.survival?.leaders?.battling) return true
     if (this.survival?.ownerPanel?.open) return true
-    if (this.survival?.shop?.panelOpen || this.survival?.emotes?.open || this.survival?.time?.pickOpen || campScreenOpen() || this.tryMode?._mapInteractive?.()) return true
+    if (this.survival?.shop?.panelOpen || this.survival?.ringEditor?.isOpen || this.survival?.emotes?.open || this.survival?.time?.pickOpen || campScreenOpen() || this.tryMode?._mapInteractive?.()) return true
     if (['play-weapon-pick', 'play-perk-pick', 'build-play-over', 'spawn-map'].some((id) => {
       const el = document.getElementById(id)
       return !!el && el.style.display !== 'none' && el.style.display !== ''

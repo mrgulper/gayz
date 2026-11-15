@@ -3,13 +3,18 @@
 // around you and hurt zombies (or heal you) when they touch.
 //
 //   - RING_SLOTS (3) items, shown on their own little bar (#play-ring-bar),
-//     separate from the 10-slot hotbar.
+//     separate from the 10-slot hotbar. Tapping or clicking the bar (or the
+//     Ring Bag key, I) opens the ring editor (RingEditor.js).
 //   - Hold attack (left click / the phone's attack button) = the ring
 //     spreads out wide; hold defend (right click / the phone's shield
 //     button) = it pulls in tight. Let go and it drifts back to the middle.
-//   - A Brick breaks on the zombie it hits and grows back after a moment;
-//     the Saw Blade never breaks but only bites each zombie now and then;
-//     the Bandage flies into you to heal when you're hurt, then grows back.
+//   - Items that break (Brick, Ice Cube, Battery, Firecracker) break on the
+//     zombie they hit and grow back; the Saw Blade and Cactus never break
+//     but only bite each zombie now and then; the Bandage flies into you
+//     to heal when you're hurt; the Shield Plate soaks up a bite; the
+//     Magnet pulls dropped ring items in from further away (RingLoot.js).
+//   - Batch 2: every item comes in 6 rarities (RingItems.js) - rarer is
+//     stronger, and its slot and the band under it wear the rarity colour.
 //
 // Owned by BuildSurvival (`survival.ring`, only in RING_MODES games from the
 // homepage or a server - the Map Editor's own Play keeps its gun). Hits go
@@ -19,11 +24,14 @@
 import * as THREE from 'three'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
+import * as RingItemsLib from './RingItems.js'
+import { RING_SLOTS, ICONS, parseKey, itemStats, makeItemMesh, rarityBand, rarityColor, rarityNameKey, loadLoadout } from './RingItems.js'
+
+export { RING_SLOTS }
 
 // The Game Modes with the ring and no guns (Gaymi: "zombie modes"); party
 // games keep their guns, and so do PvP modes.
 export const RING_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'shrinkingZone', 'speedrun', 'towerDefense']
-export const RING_SLOTS = 3
 
 // How far out (blocks) the ring sits: pulled in, normal, spread out; how
 // fast it gets there (per second), and how fast it turns (radians/second).
@@ -40,57 +48,20 @@ const ZOMBIE_TALL = 2
 const ZOMBIE_HALF = 0.3
 // A grown-back item pops in over this long (seconds).
 const POP_S = 0.18
+// The Battery's jolt jumps this far (blocks) and does this share of its hit.
+const ZAP_RANGE = 4
+const ZAP_SHARE = 0.6
+const ZAP_SHOW_S = 0.15
 
-// The starter items. damage = per touch; reload = seconds to grow back
-// (or, for the Saw Blade, seconds between bites on the same zombie);
-// heal = health per Bandage.
-export const RING_ITEMS = {
-  brick: { nameKey: 'ringItemBrick', aboutKey: 'ringItemBrickAbout', damage: 25, reload: 0.8, breaks: true },
-  sawblade: { nameKey: 'ringItemSaw', aboutKey: 'ringItemSawAbout', damage: 12, reload: 0.35, breaks: false },
-  bandage: { nameKey: 'ringItemBandage', aboutKey: 'ringItemBandageAbout', heal: 15, reload: 5 },
-}
-export const STARTER_RING = ['brick', 'sawblade', 'bandage']
-
-// Little pictures for the ring bar (drawn, not copied from anywhere).
-const ICONS = {
-  brick: '<svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="9" rx="1" fill="#b5523b" stroke="#5a2418" stroke-width="1.4"/><path d="M3 12.5h18M9 8v4.5M15 12.5V17" stroke="#7a3322" stroke-width="1.2"/></svg>',
-  sawblade: '<svg viewBox="0 0 24 24"><path d="M12 2l2 3 3.5-.8.5 3.5 3.2 1.6-1.6 3.2 1.6 3.2-3.2 1.6-.5 3.5-3.5-.8-2 3-2-3-3.5.8-.5-3.5L2.8 16.2l1.6-3.2-1.6-3.2L6 8.2l.5-3.5L10 5.5z" fill="#c7ccd2" stroke="#4d545c" stroke-width="1"/><circle cx="12" cy="12" r="2.6" fill="#4d545c"/></svg>',
-  bandage: '<svg viewBox="0 0 24 24"><rect x="2.5" y="8" width="19" height="8" rx="4" fill="#f4ead8" stroke="#8c7a5c" stroke-width="1.2"/><rect x="9" y="8" width="6" height="8" fill="#e9d6b4"/><path d="M12 9.6v4.8M9.6 12h4.8" stroke="#d63b3b" stroke-width="1.8"/></svg>',
-}
-
-function makeMesh(id, B) {
-  const g = new THREE.Group()
-  const lam = (color) => new THREE.MeshLambertMaterial({ color })
-  if (id === 'brick') {
-    g.add(new THREE.Mesh(new THREE.BoxGeometry(0.46 * B, 0.22 * B, 0.24 * B), lam(0xb5523b)))
-  } else if (id === 'sawblade') {
-    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.26 * B, 0.26 * B, 0.05 * B, 12), lam(0xc7ccd2))
-    g.add(disc)
-    // Teeth round the edge.
-    const toothGeo = new THREE.BoxGeometry(0.08 * B, 0.05 * B, 0.08 * B)
-    const toothMat = lam(0x8d949c)
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2
-      const tooth = new THREE.Mesh(toothGeo, toothMat)
-      tooth.position.set(Math.cos(a) * 0.29 * B, 0, Math.sin(a) * 0.29 * B)
-      tooth.rotation.y = -a + Math.PI / 4
-      g.add(tooth)
-    }
-    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.07 * B, 0.07 * B, 0.07 * B, 8), lam(0x4d545c))
-    g.add(hub)
-  } else {
-    g.add(new THREE.Mesh(new THREE.BoxGeometry(0.42 * B, 0.16 * B, 0.2 * B), lam(0xf4ead8)))
-    const red = lam(0xd63b3b)
-    const a = new THREE.Mesh(new THREE.BoxGeometry(0.03 * B, 0.17 * B, 0.12 * B), red)
-    const b = new THREE.Mesh(new THREE.BoxGeometry(0.12 * B, 0.17 * B, 0.03 * B), red)
-    a.position.y = b.position.y = 0.005 * B
-    g.add(a, b)
-  }
-  return g
+// The item's name with its rarity, for titles: "Rare Brick".
+export function itemLabel(key) {
+  const p = parseKey(key)
+  if (!p) return ''
+  return `${t(rarityNameKey(p.rarity))} ${t(itemStats(p.id, p.rarity).nameKey)}`
 }
 
 export class SpinRing {
-  constructor(survival, ids = STARTER_RING) {
+  constructor(survival, keys = loadLoadout()) {
     this.s = survival
     this.bm = survival.bm
     this.B = survival.B
@@ -99,10 +70,25 @@ export class SpinRing {
     this.group = new THREE.Group()
     this.group.name = 'spin-ring'
     this.bm.scene.add(this.group)
-    this.items = ids.slice(0, RING_SLOTS).map((id, slot) => {
-      const mesh = makeMesh(id, this.B)
+    this._zaps = []
+    this.setLoadout(keys)
+  }
+
+  // Puts a new set of items in the ring (the ring editor). keys: one
+  // "id:rarity" (or '') per slot.
+  setLoadout(keys) {
+    for (const it of this.items || []) this._disposeMesh(it.mesh)
+    this.keys = Array.from({ length: RING_SLOTS }, (_, i) => (parseKey(keys?.[i]) ? keys[i] : ''))
+    this.items = []
+    this.keys.forEach((key, slot) => {
+      const p = parseKey(key)
+      if (!p) return
+      const mesh = makeItemMesh(p.id, this.B)
+      const band = rarityBand(p.rarity, this.B)
+      band.position.y = -0.2 * this.B
+      mesh.add(band)
       this.group.add(mesh)
-      return { id, def: RING_ITEMS[id], slot, mesh, cd: 0, pop: 1, r: R_NORMAL, flying: false, bitAt: new Map(), wx: 0, wy: 0, wz: 0 }
+      this.items.push({ key, id: p.id, rarity: p.rarity, def: itemStats(p.id, p.rarity), slot, mesh, cd: 0, pop: 1, r: this.radius, flying: false, bitAt: new Map(), wx: 0, wy: 0, wz: 0 })
     })
     this._buildBar()
   }
@@ -129,6 +115,7 @@ export class SpinRing {
     const shown = s.active && !s.dead && !s.couch?.p1Down
     this.group.visible = shown
     this._showBar(shown)
+    this._updateZaps(dt)
     if (!shown) return
     // Alone, the pause menu (and Photo Mode's freeze) stops the ring too.
     const frozen = (!net && bm.menuOpen) || bm.spectate?.frozen || s._picking
@@ -138,9 +125,9 @@ export class SpinRing {
     }
     const body = s.bodyPos()
     const n = this.items.length
-    for (const it of this.items) {
+    this.items.forEach((it, idx) => {
       if (!frozen) this._tick(it, dt)
-      const a = this.spin + (it.slot / n) * Math.PI * 2
+      const a = this.spin + (idx / n) * Math.PI * 2
       if (!it.flying) it.r += (this.radius - it.r) * Math.min(1, R_EASE * dt)
       it.wx = body.x + Math.cos(a) * it.r
       it.wy = body.y + RING_Y
@@ -148,13 +135,12 @@ export class SpinRing {
       const m = it.mesh
       m.visible = it.cd <= 0
       m.position.set(it.wx * this.B, it.wy * this.B, it.wz * this.B)
-      const scale = Math.min(1, it.pop)
-      m.scale.setScalar(Math.max(0.01, scale))
+      m.scale.setScalar(Math.max(0.01, Math.min(1, it.pop)))
       // Facing along the circle; the saw blade also spins on its own.
       m.rotation.y = -a
       if (it.id === 'sawblade') m.rotation.y = this.spin * 6
       if (!frozen && it.cd <= 0) this._touch(it)
-    }
+    })
     this._renderBar()
   }
 
@@ -190,37 +176,127 @@ export class SpinRing {
     try { audioEngine.playUi?.('confirm') } catch { /* no audio */ }
   }
 
+  _touching(it, z) {
+    const size = z.size || 1
+    const half = ZOMBIE_HALF * size * (z.wide || 1) + ITEM_R
+    const dx = z.x - it.wx
+    const dz = z.z - it.wz
+    if (dx * dx + dz * dz > half * half) return false
+    return !(it.wy < z.y - ITEM_R || it.wy > z.y + ZOMBIE_TALL * size * (z.tall || 1) + ITEM_R)
+  }
+
+  _hit(z, amount) {
+    const s = this.s
+    const body = s.bodyPos()
+    const dir = new THREE.Vector3(z.x - body.x, 0, z.z - body.z)
+    if (dir.lengthSq() > 0) dir.normalize()
+    s.hitZombieWith(z, amount * (s.cfg?.damageMult ?? 1), dir)
+  }
+
   // A damaging item touching a zombie hits it.
   _touch(it) {
     const def = it.def
     if (!def.damage) return
     const s = this.s
     const now = performance.now() / 1000
-    for (const z of s.zombies) {
+    for (const z of [...s.zombies]) {
       if (z.dead || z.health <= 0) continue
-      const size = z.size || 1
-      const half = ZOMBIE_HALF * size * (z.wide || 1) + ITEM_R
-      const dx = z.x - it.wx
-      const dz = z.z - it.wz
-      if (dx * dx + dz * dz > half * half) continue
-      if (it.wy < z.y - ITEM_R || it.wy > z.y + ZOMBIE_TALL * size * (z.tall || 1) + ITEM_R) continue
+      if (!this._touching(it, z)) continue
       if (!def.breaks) {
         const last = it.bitAt.get(z) || 0
-        if (now - last < def.reload) continue
+        if (now - last < def.bite) continue
         it.bitAt.set(z, now)
       }
-      const body = s.bodyPos()
-      const dir = new THREE.Vector3(z.x - body.x, 0, z.z - body.z)
-      if (dir.lengthSq() > 0) dir.normalize()
-      const amount = def.damage * (s.cfg?.damageMult ?? 1)
-      s.hitZombieWith(z, amount, dir)
+      // Ice Cube: slowed for a while (the same slow as the Void Ripper's).
+      if (def.slow) z.slow = Math.max(z.slow || 0, def.slow)
+      if (def.blast) this._blast(it, z)
+      else this._hit(z, def.damage)
+      if (def.zap) this._zap(z, def)
       if (def.breaks) {
         it.cd = def.reload
         return
       }
     }
-    // Forget zombies that are gone (the Saw Blade's bite times).
+    // Forget zombies that are gone (bite times).
     if (it.bitAt.size > 20) for (const z of it.bitAt.keys()) if (!s.zombies.includes(z)) it.bitAt.delete(z)
+  }
+
+  // Firecracker: every zombie close by is hurt.
+  _blast(it, first) {
+    const s = this.s
+    const r = it.def.blast
+    const near = s.zombies.filter((z) => z === first || (!z.dead && z.health > 0 && Math.hypot(z.x - it.wx, z.z - it.wz) < r))
+    for (const z of near) this._hit(z, it.def.damage)
+    s._fx?.explode(new THREE.Vector3(it.wx * this.B, (it.wy - 0.5) * this.B, it.wz * this.B), 0.6)
+  }
+
+  // Battery: the jolt jumps on to the nearest few zombies.
+  _zap(from, def) {
+    const s = this.s
+    const done = new Set([from])
+    let at = from
+    for (let i = 0; i < def.zap; i++) {
+      let best = null
+      let bestD = ZAP_RANGE
+      for (const z of s.zombies) {
+        if (done.has(z) || z.dead || z.health <= 0) continue
+        const d = Math.hypot(z.x - at.x, z.z - at.z)
+        if (d < bestD) {
+          bestD = d
+          best = z
+        }
+      }
+      if (!best) break
+      this._showZap(at, best)
+      done.add(best)
+      this._hit(best, Math.round(def.damage * ZAP_SHARE))
+      at = best
+    }
+  }
+
+  _showZap(a, b) {
+    const B = this.B
+    const y = (z) => (z.y + 1.2) * B
+    const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(a.x * B, y(a), a.z * B), new THREE.Vector3(b.x * B, y(b), b.z * B)])
+    const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xffe873 }))
+    this.bm.scene.add(line)
+    this._zaps.push({ line, left: ZAP_SHOW_S })
+  }
+
+  _updateZaps(dt) {
+    for (const zp of [...this._zaps]) {
+      zp.left -= dt
+      if (zp.left > 0) continue
+      this.bm.scene.remove(zp.line)
+      zp.line.geometry.dispose()
+      zp.line.material.dispose()
+      this._zaps = this._zaps.filter((o) => o !== zp)
+    }
+  }
+
+  // BuildSurvival._hurtPlayer: a ready Shield Plate soaks up (part of) a
+  // hit, then grows back. Returns what still gets through.
+  absorb(amount) {
+    for (const it of this.items) {
+      if (amount <= 0) break
+      if (!it.def.guard || it.cd > 0) continue
+      amount = Math.max(0, amount - it.def.guard)
+      it.cd = it.def.reload
+      try { audioEngine.playUi?.('tab') } catch { /* no audio */ }
+    }
+    return amount
+  }
+
+  // A zombie bit you: the Cactus pricks it back.
+  onBitten(z) {
+    for (const it of this.items) if (it.def.thorns && it.cd <= 0 && this.s.zombies.includes(z)) this._hit(z, it.def.thorns)
+  }
+
+  // How far (blocks) dropped ring items fly to you: the best Magnet's.
+  pullRange(normal) {
+    let r = normal
+    for (const it of this.items) if (it.def.pull && it.cd <= 0) r = Math.max(r, it.def.pull)
+    return r
   }
 
   // --- the ring bar ---
@@ -233,23 +309,32 @@ export class SpinRing {
       document.body.appendChild(el)
     }
     el.innerHTML = ''
-    el.setAttribute('role', 'group')
-    el.setAttribute('aria-label', t('ringBarLabel'))
+    el.setAttribute('role', 'button')
+    el.setAttribute('aria-label', `${t('ringBarLabel')} - ${t('ringEditorOpen')}`)
+    el.title = t('ringEditorOpen')
+    // Click or tap: the ring editor (RingEditor.js).
+    el.onclick = (e) => {
+      e.stopPropagation()
+      this.s.ringEditor?.open()
+    }
+    el.onpointerdown = (e) => e.stopPropagation()
+    el.ontouchstart = (e) => e.stopPropagation()
     this._cdEls = []
     for (let i = 0; i < RING_SLOTS; i++) {
-      const it = this.items[i]
+      const it = this.items.find((o) => o.slot === i)
       const slot = document.createElement('div')
       slot.className = 'build-hotbar-slot ring-slot'
       if (it) {
         slot.innerHTML = ICONS[it.id] || ''
-        slot.title = `${t(it.def.nameKey)} - ${t(it.def.aboutKey)}`
+        slot.style.borderColor = rarityColor(it.rarity)
+        slot.title = `${itemLabel(it.key)} - ${t(it.def.aboutKey)}`
         slot.setAttribute('aria-label', slot.title)
-      }
+      } else slot.classList.add('ring-slot-empty')
       const cd = document.createElement('span')
       cd.className = 'ring-cd'
       slot.appendChild(cd)
       el.appendChild(slot)
-      this._cdEls.push(cd)
+      this._cdEls[i] = cd
     }
     this._bar = el
     this._barShown = null
@@ -263,25 +348,32 @@ export class SpinRing {
   }
 
   _renderBar() {
-    this.items.forEach((it, i) => {
-      const el = this._cdEls?.[i]
-      if (!el) return
+    for (const it of this.items) {
+      const el = this._cdEls?.[it.slot]
+      if (!el) continue
       const pct = it.cd > 0 ? Math.round((it.cd / it.def.reload) * 100) : 0
       if (el._pct !== pct) {
         el._pct = pct
         el.style.height = `${pct}%`
       }
-    })
+    }
   }
 
-  dispose() {
-    this.bm.scene.remove(this.group)
-    this.group.traverse((o) => {
+  _disposeMesh(mesh) {
+    this.group.remove(mesh)
+    mesh.traverse((o) => {
       if (o.isMesh) {
         o.geometry.dispose()
         o.material.dispose()
       }
     })
+  }
+
+  dispose() {
+    for (const it of this.items) this._disposeMesh(it.mesh)
+    this.items = []
+    this._updateZaps(Infinity)
+    this.bm.scene.remove(this.group)
     this._bar?.remove()
     this._bar = null
     document.body.classList.remove('play-ring-on')
@@ -289,3 +381,6 @@ export class SpinRing {
     this.bm._ringSpreadTouch = false
   }
 }
+
+// The item rules, reachable from a running game (automated checks).
+SpinRing.lib = RingItemsLib
