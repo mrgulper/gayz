@@ -573,6 +573,16 @@ export const SPECIAL_BLOCKS = [
     look: { base: 'metal', color: 0x4a4038, glyph: 'rails', glyphColor: 0xf0c040 },
     fx: { kind: 'conveyor', speed: 10, noZombies: true },
   },
+  // 2026-11-15 (Gaymi): a rail piece like the big train's track, 2 blocks
+  // wide. One placed fills the block you aim at and the one beside it
+  // (BuildMode.twoWideMate); each half draws one steel rail on sleepers
+  // (geo 'track'), so the pair reads as one track.
+  {
+    ...D, id: 'trainrail', name: 'Train Track', color: 0x6a5038, shape: 'pad', geo: 'track', twoWide: true,
+    desc: 'A piece of real train track, 2 blocks wide. Carries you along the way it faces; lay a line of them (turn them to make corners).',
+    look: { base: 'wood', color: 0x5a4632, glyph: 'rails', glyphColor: 0xb0b0b8 },
+    fx: { kind: 'conveyor', speed: 8, noZombies: true },
+  },
 
   // ---- Batch 10: travel extras and storage ----
   {

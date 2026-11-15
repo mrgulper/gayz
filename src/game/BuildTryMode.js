@@ -1971,9 +1971,13 @@ export class BuildTryMode {
     if (this._dig?.key !== hit.key || this._dig.type !== hit.type) this._dig = { ...hit, t: 0 }
     this._dig.t += dt
     if (this._dig.t >= this._dig.need) {
+      // A 2-wide block (Train Track) breaks as one piece: one comes back.
+      const mate = bm.twoWideMate(hit.x, hit.y, hit.z)
       this.breakBlock(hit.x, hit.y, hit.z)
+      if (mate) this.breakQuietly(...mate)
       // In a game, what you break goes into your inventory.
       if (play?.active) play.onBlockMined(hit.type, hit.x, hit.y, hit.z)
+      if (mate && play?.active) play.onMateMined(...mate)
       this._stopDig()
       return
     }

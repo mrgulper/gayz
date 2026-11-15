@@ -17,7 +17,7 @@ import { GrassTufts } from './GrassTufts.js'
 import { CastleFlags } from './CastleFlags.js'
 import { AirMotes } from './AirMotes.js'
 import { FallingLeaves } from './FallingLeaves.js'
-import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, fenceIconURL, gadgetIconURL, ladderIconURL, plantIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
+import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, fenceIconURL, gadgetIconURL, ladderIconURL, plantIconURL, stairsIconURL, textureHasAlpha, trackPartsCanvas } from './BlockTextures.js'
 import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
 import { BuildTryMode } from './BuildTryMode.js'
@@ -1126,6 +1126,10 @@ function _canvasTexture(canvas) {
 // -> { top, side, bottom } textures for a shaped block (all three the same
 // texture unless its source block has different faces, e.g. a grass slab).
 function _shapedBlockTextures(bt) {
+  if (bt.geo === 'track') {
+    const tex = _canvasTexture(trackPartsCanvas())
+    return { top: tex, side: tex, bottom: tex }
+  }
   if (bt.game) {
     const faces = blockFaceCanvases(bt)
     const side = _canvasTexture(faces.side)
@@ -1155,6 +1159,7 @@ function _blockIcon(bt) {
   if (bt.plant) return plantIconURL(bt)
   if (bt.door) return doorIconURL(bt.door)
   if (bt.shape === 'lever' || bt.shape === 'sign') return gadgetIconURL(bt.shape)
+  if (bt.geo === 'track') return gadgetIconURL('track')
   if (bt.game) return blockIconURL(bt, 64, bt.shape === 'pad' ? 0.25 : bt.shape === 'chest' ? 0.85 : 1)
   if (bt.shape === 'invisible') return _invisibleIconURL()
   const source = _shapedSource(bt)
@@ -1339,6 +1344,29 @@ function _buildSignGeometry() {
   return mergeGeometries([post.toNonIndexed(), board.toNonIndexed()])
 }
 
+// One half of a 2-wide Train Track (SpecialBlocks 'trainrail'): two
+// wooden sleepers right across the cell and one steel rail (foot + head)
+// running along it, toward the +x edge - BuildGadgets turns each half so
+// its rail sits on the outer side, the pair's rails about a real gauge
+// (1.4 blocks) apart. Bottom half
+// of the picture (trackPartsCanvas) for the wood, top half for the steel.
+function _buildTrackGeometry() {
+  const u = BLOCK_SIZE / 16
+  const floor = -BLOCK_SIZE / 2
+  const parts = []
+  for (const z of [-4, 4]) {
+    const sleeper = _halfUV(new THREE.BoxGeometry(16 * u, 1.5 * u, 3.5 * u), false)
+    sleeper.translate(0, floor + 0.75 * u, z * u)
+    parts.push(sleeper.toNonIndexed())
+  }
+  const foot = _halfUV(new THREE.BoxGeometry(3 * u, 0.5 * u, 16 * u), true)
+  foot.translate(3.5 * u, floor + 1.75 * u, 0)
+  const head = _halfUV(new THREE.BoxGeometry(1.5 * u, 2 * u, 16 * u), true)
+  head.translate(3.5 * u, floor + 3 * u, 0)
+  parts.push(foot.toNonIndexed(), head.toNonIndexed())
+  return mergeGeometries(parts)
+}
+
 function _buildLadderGeometry() {
   const geo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE * 0.12)
   return geo
@@ -1362,6 +1390,8 @@ const CUSTOM_BLOCK_GEOMETRY = {
   chest: _buildChestGeometry(),
   lever: _buildLeverGeometry(),
   sign: _buildSignGeometry(),
+  // Not a shape: picked by a block's `geo` (a pad that looks different).
+  track: _buildTrackGeometry(),
 }
 // Shaped blocks that face a way (saved as `facing`, turned with a copy).
 const FACED_SHAPES = new Set(['stairs', 'chest', 'lever', 'sign', 'cage', 'pad'])
@@ -2727,12 +2757,12 @@ export class BuildMode {
       const side = make(tex.side)
       // BoxGeometry face order: +x, -x, +y (top), -y (bottom), +z, -z.
       // A chest's latch (its front) is on -z, which faces you.
-      material = bt.shape === 'slab' || bt.shape === 'pad' || bt.shape === 'chest'
+      material = (bt.shape === 'slab' || bt.shape === 'pad' || bt.shape === 'chest') && !bt.geo
         ? [side, side, tex.top === tex.side ? side : make(tex.top), tex.bottom === tex.side ? side : make(tex.bottom), side, bt.shape === 'chest' && tex.front !== tex.side ? make(tex.front) : side]
         : side
     }
     const capacity = mesh ? Math.min(mesh.instanceMatrix.count * 2, MAX_INSTANCES_PER_TYPE) : 256
-    const geo = CUSTOM_BLOCK_GEOMETRY[bt.shape] || this._blockGeo
+    const geo = CUSTOM_BLOCK_GEOMETRY[bt.geo || bt.shape] || this._blockGeo
     const grown = new THREE.InstancedMesh(geo, material, capacity)
     grown.count = 0
     grown.castShadow = true
@@ -2882,7 +2912,7 @@ export class BuildMode {
     }
     const matrix = this._doorState.has(key) ? this._doorMatrix(x, y, z, this._doorState.get(key))
       : shape === 'ladder' ? this._ladderMatrix(x, y, z)
-        : FACED_SHAPES.has(shape) ? this.gadgets.matrixAt(key, x, y, z, shape, state)
+        : FACED_SHAPES.has(shape) ? this.gadgets.matrixAt(key, x, y, z, shape, type)
         : new THREE.Matrix4().makeTranslation((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
     mesh.setMatrixAt(index, matrix)
     // Slight per-instance brightness variation (±12%) - every block of a
@@ -2923,6 +2953,38 @@ export class BuildMode {
     this.camera.getWorldDirection(dir)
     if (Math.abs(dir.x) > Math.abs(dir.z)) return dir.x > 0 ? 1 : 3
     return dir.z > 0 ? 0 : 2
+  }
+
+  // 2-wide blocks (a Train Track, `twoWide`): the cell paired with
+  // (x, y, z) for facing f. Pairs are fixed by the grid - across the
+  // track, an even cell and the odd one after it - so a pair is always
+  // found again from the cells alone (saves, servers, undo keep only
+  // type and facing). Facing 0/2 runs along z (pairs across x), 1/3
+  // along x (pairs across z).
+  twoWideCell(x, y, z, f) {
+    return f % 2 === 0 ? [x ^ 1, y, z] : [x, y, z ^ 1]
+  }
+
+  // The other half of the 2-wide block at (x, y, z), or null: the same
+  // type in its pair cell, laid the same way along.
+  twoWideMate(x, y, z) {
+    const type = this._blocks.get(this._key(x, y, z))
+    if (!BLOCK_BY_ID.get(type)?.twoWide) return null
+    const f = this._stairFacing.get(this._key(x, y, z)) || 0
+    const [mx, my, mz] = this.twoWideCell(x, y, z, f)
+    const mk = this._key(mx, my, mz)
+    if (this._blocks.get(mk) !== type || (this._stairFacing.get(mk) || 0) % 2 !== f % 2) return null
+    return [mx, my, mz]
+  }
+
+  // Puts a 2-wide block's second half beside the one just placed at
+  // (x, y, z), facing the same way, if that cell is free.
+  _placeTwoWideMate(x, y, z, type) {
+    if (!BLOCK_BY_ID.get(type)?.twoWide || this._blocks.get(this._key(x, y, z)) !== type) return
+    const f = this._stairFacing.get(this._key(x, y, z)) || 0
+    const [mx, my, mz] = this.twoWideCell(x, y, z, f)
+    if (this._blocks.has(this._key(mx, my, mz)) || this._wouldOverlapCamera(mx, my, mz)) return
+    this.placeBlock(mx, my, mz, type, false, { facing: f })
   }
 
   _doorFacingFromCamera() {
@@ -3191,9 +3253,18 @@ export class BuildMode {
       if (text === null) return
       state = { facing: this._stairFacingFromCamera(), text }
     }
+    // A 2-wide block needs its pair cell free too.
+    if (BLOCK_BY_ID.get(this.selectedType)?.twoWide) {
+      const [mx, my, mz] = this.twoWideCell(px, py, pz, this._stairFacingFromCamera())
+      if (this._blocks.has(this._key(mx, my, mz)) || this._wouldOverlapCamera(mx, my, mz)) return
+    }
     this._undoGroupDo(() => {
       this.placeBlock(px, py, pz, this.selectedType, false, state)
-      if (this.mirrorMode) this.placeBlock(this._mirrorX(px), py, pz, this.selectedType, false, state)
+      this._placeTwoWideMate(px, py, pz, this.selectedType)
+      if (this.mirrorMode) {
+        this.placeBlock(this._mirrorX(px), py, pz, this.selectedType, false, state)
+        this._placeTwoWideMate(this._mirrorX(px), py, pz, this.selectedType)
+      }
     })
     this.tryMode.swingHand()
   }
@@ -3230,9 +3301,15 @@ export class BuildMode {
     if (this._removeAimedAnimal(hit)) return
     if (!hit || !hit.existingBlock) return
     const [rx, ry, rz] = hit.existingBlock
+    // Both halves of a 2-wide block go together.
+    const gone = (x, y, z) => {
+      const mate = this.twoWideMate(x, y, z)
+      this.removeBlock(x, y, z)
+      if (mate) this.removeBlock(...mate)
+    }
     this._undoGroupDo(() => {
-      this.removeBlock(rx, ry, rz)
-      if (this.mirrorMode) this.removeBlock(this._mirrorX(rx), ry, rz)
+      gone(rx, ry, rz)
+      if (this.mirrorMode) gone(this._mirrorX(rx), ry, rz)
     })
     this.tryMode.swingHand()
   }

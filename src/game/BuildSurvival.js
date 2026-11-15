@@ -2200,6 +2200,15 @@ export class BuildSurvival {
     if (!this._drops.spawn(type, x, y, z) && (gear || this.inv).add({ kind: 'block', id: type, n: 1 }) > 0) this._message(t('invFull'))
   }
 
+  // The second half of a 2-wide block broken with the first
+  // (BuildTryMode._updateDigging): gone for everyone, no second drop.
+  onMateMined(x, y, z) {
+    if (!this.active) return
+    this._recordEdit(x, y, z, '')
+    const key = this.bm._key(x, y, z)
+    if (this._placed?.delete(key)) this.bm.tryMode._broken?.delete(key)
+  }
+
   // Right-click while holding a block: put it where you're looking.
   placeHeldBlock() {
     const held = this.holding
@@ -2220,6 +2229,24 @@ export class BuildSurvival {
   // (CouchHands.js) both come here. true if it went down.
   placeBlockAt(x, y, z, id) {
     const bm = this.bm
+    // A 2-wide block (Train Track) fills its pair cell too, so both
+    // cells must be free; one from the hotbar makes the whole piece.
+    if (bm.blockTypeOf(id)?.twoWide) {
+      const f = bm._stairFacingFromCamera()
+      const mate = bm.twoWideCell(x, y, z, f)
+      if (!this._canPlaceAt(x, y, z) || !this._canPlaceAt(...mate)) return false
+      this._putBlock(x, y, z, id, { facing: f })
+      this._putBlock(...mate, id, { facing: f })
+      return true
+    }
+    if (!this._canPlaceAt(x, y, z)) return false
+    this._putBlock(x, y, z, id)
+    return true
+  }
+
+  // Whether a block may go at cell (x, y, z) (placeBlockAt).
+  _canPlaceAt(x, y, z) {
+    const bm = this.bm
     if (!this.active || this.dead || bm.getBlockAt(x, y, z)) return false
     // Tower Defense: not on the zombies' path.
     if (this.td?.protects(x, y, z)) {
@@ -2232,15 +2259,18 @@ export class BuildSurvival {
     const p = bm.tryMode.pos
     const inBox = (bx, by, bz) => Math.floor(bx) === x && Math.floor(bz) === z && y >= Math.floor(by) && y <= Math.floor(by + 1.7)
     const p2 = this.couch?.joined ? this.couch.p2 : null
-    if (inBox(p.x, p.y, p.z) || (p2 && inBox(p2.x, p2.y, p2.z)) || this.zombies.some((zb) => inBox(zb.x, zb.y, zb.z))) return false
+    return !(inBox(p.x, p.y, p.z) || (p2 && inBox(p2.x, p2.y, p2.z)) || this.zombies.some((zb) => inBox(zb.x, zb.y, zb.z)))
+  }
+
+  _putBlock(x, y, z, id, state = null) {
+    const bm = this.bm
     bm._suppressUndoRecording = true
-    bm.placeBlock(x, y, z, id, false)
+    bm.placeBlock(x, y, z, id, false, state)
     bm._suppressUndoRecording = false
     this._placed.set(bm._key(x, y, z), id)
     this._recordEdit(x, y, z, id)
     if (!this.net) this.farm?.onPlaced(id, x, y, z)
     audioEngine.playPlace?.()
-    return true
   }
 
   // Blocks a mode's own map keeps: never broken, never built on.
