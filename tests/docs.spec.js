@@ -2,48 +2,8 @@ import { test, expect } from '@playwright/test'
 import { gotoAndWaitForGame } from './helpers.js'
 
 // The player-facing pages that used to be typed by hand and drift from the
-// game (2026-10-04): GayZ Features' lists, How to Play's keys, and the Map
-// Editor pause screen's Shortcuts box. scripts/check-docs.mjs catches typed
-// numbers before a commit; these check the pages against the running game.
-
-test('GayZ Features lists are built from the game data, every entry described', async ({ page }) => {
-  await gotoAndWaitForGame(page)
-
-  const result = await page.evaluate(() => {
-    const g = window.__game
-    const c = g.featuresContent
-    const catalogs = g._featureCatalogs()
-    const lists = {}
-    for (const list of c.querySelectorAll('[data-feature-list]')) {
-      const key = list.dataset.featureList
-      lists[key] = {
-        shown: [...list.querySelectorAll('.detail-item[data-id]')].map((e) => e.dataset.id),
-        expected: Object.keys(catalogs[key] || {}),
-        line: c.querySelector(`[data-feature-list-line="${key}"]`)?.textContent || '',
-      }
-    }
-    const values = g._featureValues()
-    return {
-      lists,
-      catalogKeys: Object.keys(catalogs),
-      // Things in the game with no name/description in code yet (an
-      // ITEM_INFO, MUTATOR_INFO, GAME_MODE_INFO entry or an `about` field).
-      undescribed: [...c.querySelectorAll('[data-missing]')].map((e) => `${e.closest('[data-feature-list]').dataset.featureList}:${e.dataset.id}`),
-      unknownValueKeys: [...c.querySelectorAll('[data-feature-value]')].map((e) => e.dataset.featureValue).filter((k) => values[k] == null || values[k] === '' || values[k] === 0),
-      unknownCountKeys: [...c.querySelectorAll('[data-feature-count]')].map((e) => e.dataset.featureCount).filter((k) => !(g._featureCounts()[k] > 0)),
-    }
-  })
-
-  expect(Object.keys(result.lists).sort()).toEqual(result.catalogKeys.sort())
-  for (const [key, list] of Object.entries(result.lists)) {
-    expect(list.shown, `${key} list`).toEqual(list.expected)
-    expect(list.shown.length, `${key} list is empty`).toBeGreaterThan(0)
-    expect(list.line.length, `${key} summary line is empty`).toBeGreaterThan(0)
-  }
-  expect(result.undescribed, 'give these a name and description in the code').toEqual([])
-  expect(result.unknownValueKeys, 'add these keys to _featureValues()').toEqual([])
-  expect(result.unknownCountKeys, 'add these keys to _featureCounts()').toEqual([])
-})
+// game (2026-10-04): How to Play's keys and the Map Editor pause screen's
+// Shortcuts box. These check the pages against the running game.
 
 test('How to Play shows the real keys, with no unfilled placeholders', async ({ page }) => {
   await gotoAndWaitForGame(page)
@@ -145,48 +105,4 @@ test('every Map Editor shortcut on the pause screen really works', async ({ page
   })
 
   for (const [label, ok] of Object.entries(result)) expect(ok, label).toBe(true)
-})
-
-// Every "Coming Soon" thing in the game has its own GayZ Features Coming
-// Soon entry (2026-10-11, Gaymi: "the gallery and levels aren't in coming
-// soon"). A new Coming Soon spot that isn't in this map fails here - add
-// its entry to the Coming Soon section, then a line below.
-test('every Coming Soon part of the game is in GayZ Features', async ({ page }) => {
-  await gotoAndWaitForGame(page)
-  const r = await page.evaluate(() => {
-    const MAP = [
-      [/^gallery-weapon/, 'Weapon Gallery'],
-      [/^inventory-pets/, 'Pets'],
-      [/^hub-page-deathmatch$|^achievements-deathmatch|^upgrades-deathmatch/, 'Deathmatch'],
-      [/^hub-parkour|^upgrades-parkour/, 'Parkour'],
-      [/^hub-custom|^upgrades-custom/, 'Custom Games'],
-      [/^(monthly|yearly|lifetime)-quests/, 'Monthly, Yearly & Lifetime Quests'],
-      [/^crate-monthly/, 'Monthly Chest'],
-      [/^upgrades-worldmap|^worldmap-quests/, 'World Map Quests & Upgrades'],
-      [/^shop-soon-daily/, 'Daily Deals'],
-      [/^shop-soon-skins/, 'More Shop Skins'],
-      [/^shop-soon-spin/, 'Crate Spin'],
-      [/^shop-soon-heading$/, null],
-      [/^inventory-weapons-list$|^play-weapon-pick$/, 'More Weapons'],
-      // The shared "this section is being reworked" pop-up, not a feature.
-      [/^coming-soon-(title|panel)$/, null],
-      // Languages not fully translated yet - the Language entry covers them.
-      [/^language-grid$/, null],
-    ]
-    const skip = (el) => el.closest('#features-panel, #changelog-list, #whatsnew-panel, #update-available-banner, #whats-new-digest')
-    const unknown = []
-    const needed = new Set()
-    for (const el of document.querySelectorAll('body *')) {
-      if (skip(el) || el.children.length || el.matches('script, style, template')) continue
-      if (!/coming soon/i.test(el.textContent)) continue
-      const id = el.id || el.closest('[id]')?.id || ''
-      const hit = MAP.find(([re]) => re.test(id))
-      if (!hit) unknown.push(id || el.textContent.trim())
-      else if (hit[1]) needed.add(hit[1])
-    }
-    const listed = [...document.querySelectorAll('#features-main .feature.coming-soon h3')].map((h) => h.textContent.trim())
-    return { unknown, missing: [...needed].filter((t) => !listed.includes(t)) }
-  })
-  expect(r.unknown).toEqual([])
-  expect(r.missing).toEqual([])
 })

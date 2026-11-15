@@ -2780,18 +2780,9 @@ export class Game {
     this.privacyPanel = document.getElementById('privacy-panel')
     this.privacyPanelTitle = document.getElementById('privacy-panel-title')
     this.privacyContent = document.getElementById('privacy-content')
-    this.gayzFeaturesBtn = document.getElementById('nav-gayzfeatures-link')
-    this.featuresPanel = document.getElementById('features-panel')
-    this.featuresContent = document.getElementById('features-content')
-    this.featuresLayout = document.getElementById('features-layout')
-    this.featuresSearch = document.getElementById('features-search')
-    this.featuresSearchCount = document.getElementById('features-search-count')
     this.skindesignerBtn = document.getElementById('nav-designskin-link')
     this.skindesignerPanel = document.getElementById('skindesigner-panel')
     this.skindesignerFrame = document.getElementById('skindesigner-frame')
-    this.featuresToc = document.getElementById('features-toc')
-    this.featuresStatLive = document.getElementById('features-stat-live')
-    this.featuresStatSoon = document.getElementById('features-stat-soon')
     this.shopPanel = document.getElementById('shop-panel')
     this.shopPanelTitle = document.getElementById('shop-panel-title')
     this.shopSkinCanvas = document.getElementById('shop-skin-canvas')
@@ -3429,7 +3420,6 @@ export class Game {
       { slug: 'gallery', panel: this.galleryPanel, open: () => this._openGalleryPanel() },
       { slug: 'terms', panel: this.termsPanel, open: () => this._openTermsPanel() },
       { slug: 'privacy', panel: this.privacyPanel, open: () => this._openPrivacyPanel() },
-      { slug: 'features', panel: this.featuresPanel, open: () => this._openFeaturesPanel() },
       { slug: 'design-a-skin', panel: this.skindesignerPanel, open: () => this._openSkinDesignerPanel() },
       { slug: 'how-to-play', panel: this.howtoplayPanel, open: () => this._openHowToPlayPanel() },
       { slug: 'whats-new', panel: this.whatsNewPanel, open: () => this._openWhatsNewPanel() },
@@ -3542,7 +3532,6 @@ export class Game {
     if (this.galleryPanel) this._closeGalleryPanel()
     if (this.termsPanel) this._closeTermsPanel()
     if (this.privacyPanel) this._closePrivacyPanel()
-    if (this.featuresPanel) this._closeFeaturesPanel()
     if (this.skindesignerPanel) this._closeSkinDesignerPanel()
     if (this.shopPanel) this._closeShopPanel()
     if (this.marketPanel) this._closeMarketPanel()
@@ -4267,10 +4256,6 @@ export class Game {
 
   _closePrivacyPanel() { return InfoPagesUI._closePrivacyPanel(this) }
 
-  _openFeaturesPanel() { return InfoPagesUI._openFeaturesPanel(this) }
-
-  _closeFeaturesPanel() { return InfoPagesUI._closeFeaturesPanel(this) }
-
   // Embeds the standalone Skin Designer site in an iframe rather than
   // porting its own ~2000 lines of painter/3D-preview code into this
   // codebase - one tool, one place it actually lives. The iframe's src
@@ -4305,18 +4290,6 @@ export class Game {
   _closeSkinDesignerPanel() {
     this.skindesignerPanel.style.display = 'none'
   }
-
-  _featureCatalogs() { return InfoPagesUI._featureCatalogs(this) }
-
-  _featureCounts() { return InfoPagesUI._featureCounts(this) }
-
-  _featureValues() { return InfoPagesUI._featureValues(this) }
-
-  _syncFeatureLists() { return InfoPagesUI._syncFeatureLists(this) }
-
-  _refreshFeatureValues() { return InfoPagesUI._refreshFeatureValues(this) }
-
-  _bindFeaturesPanel() { return InfoPagesUI._bindFeaturesPanel(this) }
 
   // Shop - was just a Crates placeholder (see this file's git history for
   // that and the even older Weapon Attachments UI before it), then a

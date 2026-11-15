@@ -2,6 +2,8 @@
 
 Split out of the old `rules-detail.md` on 2026-11-13 (word for word, oldest first). Add new notes at the end.
 
+- **GayZ Features left the game (2026-11-15, owner's request).** The page, its menu link, its code (`_featureValues` etc.), its check-docs rules (`[no-features]`, typed numbers, `data-code` on entries) and both its tests were removed. The full list is now kept privately outside this repo. The GayZ Features notes below are history.
+
 - **Never leak the owner's GitHub username or AI/tooling names to the public Discord `#updates` feed** (2026-09-30 report). `.github/workflows/discord-update-notify.yml` posts every push to `main`; it used to post the raw first line, which for a merged PR is GitHub's `Merge pull request #N from <username>/claude/<branch>`. It now posts the PR title instead, skips branch-sync merges, and scrubs `mrgulper`/`gulper`/`claude`/`anthropic` words - don't undo that. On top of it: PR titles and commit titles are player-facing patch notes (plain description of the change, no username, no "Claude"/"AI"), and when merging a PR set the merge commit title to the PR title itself (`commit_title`) rather than GitHub's default.
 
 - **Patch Notes must always be updated with the game (standing rule, 2026-10-04).** Every player-facing update adds its bullets to the newest entry in `#changelog-list` (a new `vX.YY · Mon D, YYYY` entry for a new day) in the same change - it's hand-written HTML like GayZ Features, and it silently stopped at v0.06 (Sep 29) for five days of updates until Gaymi noticed; v0.07-v0.11 were back-filled from the git history.

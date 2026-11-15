@@ -206,7 +206,7 @@ export default {
   afkPauseOpt_5: "Tras 5 minutos",
   afkPauseOpt_10: "Tras 10 minutos",
   spoilerFreeStoryLabel: "Historia sin spoilers",
-  spoilerFreeStoryInfoText: "Mantiene la Campaña de historia como sorpresa: la receta de La Cura queda oculta hasta su capítulo, y la tarjeta de la Campaña de historia en Funciones de GayZ se ve borrosa hasta que haces clic.",
+  spoilerFreeStoryInfoText: "Mantiene la Campaña de historia como sorpresa: la receta de La Cura queda oculta hasta su capítulo.",
   replayTutorialLabel: "Repetir tutorial",
   replayTutorialInfoText: "Tu próxima partida en solitario desde Jugar empieza como la primera: sin elegir arma, empiezas en la puerta del campamento, se acerca un zombi y sale la ayuda de controles. También vuelven todas las pistas.",
   replayTutorialBtn: "Repetir",

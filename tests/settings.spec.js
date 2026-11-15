@@ -621,9 +621,9 @@ test('the Gameplay settings (ideas 51-62) work in a game', async ({ page }) => {
       'ms-pause-when-hidden', 'ms-afk-pause', 'ms-spoiler-free-story', 'ms-replay-tutorial', 'ms-reset-hints']
       .filter((id) => document.getElementById(id)?.closest('#settings-page-controls')).length
     out.btnText = document.getElementById('ms-reset-hints').textContent
-    // Spoiler-Free: the html class blurs the Story card.
+    // Spoiler-Free: the toggle saves (PlayCrafting reads it in a game).
     set('ms-spoiler-free-story', true)
-    out.spoilerClass = document.documentElement.classList.contains('spoiler-free')
+    out.spoilerSaved = window.__game.settings.spoilerFreeStory === true
     set('ms-spoiler-free-story', false)
     // Replay Tutorial / Reset Hints buttons.
     localStorage.setItem('gayz-hint-counts', JSON.stringify({ kart: 3 }))
@@ -720,7 +720,7 @@ test('the Gameplay settings (ideas 51-62) work in a game', async ({ page }) => {
     return out
   })
   expect(r).toMatchObject({
-    rows: 11, btnText: 'Reset', spoilerClass: true, replayFlag: '1', hintsCleared: null, notSaved: true,
+    rows: 11, btnText: 'Reset', spoilerSaved: true, replayFlag: '1', hintsCleared: null, notSaved: true,
     autoReloadOn: true, autoReloadOff: false, sorted: ['helmet', 'dirt', null],
     afterOneClick: 1000, sureShown: true, afterTwoClicks: 880, afterNever: 840,
     beamVisible: true, marksOff: 0, tipOff: '', pausedHidden: true, pauseNote: 'Paused while you were in another tab.',

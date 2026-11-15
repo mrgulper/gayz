@@ -15,7 +15,7 @@
 // Kept light (no game code): the homepage's Settings loads it.
 // Auto-Reload is in BuildSurvival.tryFire, Auto-Sort in PlayInventory,
 // Confirm Before Selling in InventoryUI, Spoiler-Free Story in
-// PlayCrafting + the Features page (html.spoiler-free).
+// PlayCrafting.
 import { t } from './i18n.js'
 import { getKeyFor, keyLabel } from './Keybinds.js'
 import { sillyTip } from './SillyTips.js'
@@ -147,14 +147,6 @@ export function bindPauseHelpers(game) {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && game.settings.pauseWhenHidden) pauseSolo(game, t('pausedTabHidden'))
     if (document.visibilityState === 'visible') seen()
-  })
-}
-
-// Spoiler-Free Story: a click shows the blurred Features card.
-export function bindSpoilerReveal() {
-  document.addEventListener('click', (e) => {
-    const el = e.target.closest?.('.feature-spoiler')
-    if (el && document.documentElement.classList.contains('spoiler-free')) el.classList.add('revealed')
   })
 }
 

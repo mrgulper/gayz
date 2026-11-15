@@ -1,6 +1,6 @@
 // Hover drop-down menus on the homepage (2026-10-23, Gaymi: like
 // apple.com's menus, from a picture of its iPad menu). Pointing at a
-// bottom link (How to Play, What's New, GayZ Features, Terms of Use,
+// bottom link (How to Play, What's New, Terms of Use,
 // Privacy Policy), a right-column button (General, Store, Upgrades...),
 // the profile card, Game Mode or Settings opens a card with that page's
 // name in big letters and each of its tabs or sections. Clicking the name
@@ -24,9 +24,6 @@ const FOOTER_MENUS = [
   footer('nav-whatsnew-link', (game) => game._openWhatsNewPanel(),
     () => [...document.querySelectorAll('#changelog-list .changelog-date')].slice(0, 6).map((el) => el.textContent),
     (i) => document.querySelectorAll('#changelog-list .changelog-entry')[i]),
-  footer('nav-gayzfeatures-link', (game) => game._openFeaturesPanel(),
-    () => [...document.querySelectorAll('#features-content section.category')].map((s) => s.querySelector('h2')?.textContent || ''),
-    (i) => document.querySelectorAll('#features-content section.category')[i]),
   footer('terms-btn', (game) => game._openTermsPanel(),
     () => [...document.querySelectorAll('#terms-content h3')].map((h) => h.textContent),
     (i) => document.querySelectorAll('#terms-content h3')[i]),
@@ -77,7 +74,7 @@ const CLOSE_DELAY_MS = 180
 // Only a click opens the other page (2026-10-24, Gaymi).
 const PAGE_PANELS = ['clan-panel', 'hub-panel', 'upgrades-panel', 'quests-panel', 'achievements-panel',
   'profile-panel', 'credits-panel', 'gallery-panel', 'levels-panel', 'terms-panel', 'privacy-panel',
-  'features-panel', 'skindesigner-panel', 'market-panel', 'shop-panel', 'whatsnew-panel', 'howtoplay-panel', 'today-panel',
+  'skindesigner-panel', 'market-panel', 'shop-panel', 'whatsnew-panel', 'howtoplay-panel', 'today-panel',
   'friends-panel', 'other-profile-panel', 'menu-inventory-panel', 'server-panel', 'settings-panel', 'coming-soon-panel']
 const pageOpen = () => PAGE_PANELS.some((id) => {
   const el = document.getElementById(id)

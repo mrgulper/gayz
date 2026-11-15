@@ -8,14 +8,14 @@ Notes files (big ones are indexes - open the index, then only the topic file you
 
 ## Tests and shipping
 - Always `npm run lint` + `npm run build`. Tests: `CI=1 npx playwright test <spec>` (always `CI=1`, foreground, long timeout; full suite ~12 min).
-- Small change = only its area's spec: menu/panels/themes/Inventory/Market `panels` · Settings/keys `settings` · skins `skindesigner` · Gallery `gallery` · servers/chat `servers` · saves `save` · stats/quests `progression` · Patch Notes/Features `docs` · Map 1/Editor/Play/world/weapons `buildmode` · offline `offline` · catching/Team/battles `team`. Full suite only for big shared-code changes (Game.js, BuildMode core, saves, build, service worker).
+- Small change = only its area's spec: menu/panels/themes/Inventory/Market `panels` · Settings/keys `settings` · skins `skindesigner` · Gallery `gallery` · servers/chat `servers` · saves `save` · stats/quests `progression` · Patch Notes `docs` · Map 1/Editor/Play/world/weapons `buildmode` · offline `offline` · catching/Team/battles `team`. Full suite only for big shared-code changes (Game.js, BuildMode core, saves, build, service worker).
 - Ship: branch -> commit -> push `mrgulper/gayz` -> PR -> merge once green (merge title = PR title). One PR per batch. Vercel deploys `main`. Never `--no-verify`.
 - The "main needs green CI" ruleset stays OFF until just before the CrazyGames launch (Gaymi, 2026-11-01): fix the flaky CI tests first, then remind them to turn it on (Settings > Rules > Rulesets > Enforcement: Active). Repo is public, so Actions minutes are free.
 
 ## Rules (one line each; full text in `rules-detail.md`)
 - Public text (commit/PR titles go to public Discord): no owner name, no AI/Claude mentions. Don't undo the scrubbing in `discord-update-notify.yml`.
-- `scripts/check-docs.mjs` (commit hook): player-facing changes update GayZ Features (`#features-main`, no hand-typed numbers) and Patch Notes, or say `[no-notes: why]` / `[no-features: why]`; changed `data-code` -> `[reread: <title>]`.
-- Every Coming Soon spot has a GayZ Features Coming Soon entry (+ `tests/docs.spec.js` `MAP`).
+- `scripts/check-docs.mjs` (commit hook): player-facing changes update Patch Notes, or say `[no-notes: why]`; changed `code: '...'` links -> `[reread: <key>]`.
+- GayZ Features left the game (2026-11-15): no page, no checks here. The owner's private full list is updated outside this repo.
 - New online/player-data features also get a line in Terms of Use / Privacy Policy (index.html); their "Last updated" date fills itself from `__BUILD_DATE__`.
 - New i18n keys ship in `en`, `zh`, `hi`, `es` together; player text names keys as `{key:<id>}`.
 - UI (details in `rules-detail.md` > "Moved from CLAUDE.md"): check both themes, everything themed (in-game: biome), oval search bars/inputs, equal-height panels, homepage first paint = final look, one `.nameplate`.

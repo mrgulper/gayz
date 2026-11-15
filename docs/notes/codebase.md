@@ -17,7 +17,6 @@ Browser Three.js zombie-survival FPS. Vite build, no framework. Verification is 
 - `02-profile-friends-online` - Profile account/bio, Cloud Save, Online Features, Friend List, leaderboards
 - `03-accessibility-and-effects` - Old theme base, Large Text/High Contrast/Colorblind, damage flashes, selects, What's New digest, cheat sheet, name popup
 - `04-panels-and-whats-new` - Old paper panels, close X, Credits, Patch Notes/What's New, update card
-- `05-features-panel` - GayZ Features panel
 - `06-inventory-and-profile` - Inventory/Crates/Store, theme picker, sign-in card, Profile redesign
 - `07-settings-and-menu-effects` - nav order, autosave note, Settings info popups/resets, menu backgrounds, rain, easter eggs, button size
 - `08-homepage` - homepage nav, logo, Play/Game Mode buttons, profile card/plaque, hover cards, badges
