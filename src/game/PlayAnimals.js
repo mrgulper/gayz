@@ -320,9 +320,9 @@ const meatId = (kind) => `meat_${kind}`
 for (const [kind, k] of Object.entries(KINDS)) {
   const bug = (k.legs === 6 || k.legs === 8) && !k.swim
   const bird = k.legs === 2 && !k.dino && !NOT_BIRDS.test(kind)
-  const icon = k.swim ? 'fishMeat' : bug ? 'bugMeat' : bird ? 'poultry' : 'meat'
   const part = PART_OF[kind] || (bird ? 'Wing' : k.swim && !k.legs ? 'Fin' : bug ? 'Leg' : 'Paw')
-  addAnimalMeat(meatId(kind), { key: `invPart${part}`, animalKey: nameKey(kind), icon })
+  // Its own picture (PlayInventory.js part<Part>), in the animal's colour.
+  addAnimalMeat(meatId(kind), { key: `invPart${part}`, animalKey: nameKey(kind), icon: `part${part}`, tint: k.colors.body })
 }
 // Most placed animals in one map (BuildMode.animalSpots).
 export const MAX_PLACED = 300
