@@ -143,6 +143,8 @@ export class ZombieDiner {
       const cx = Math.floor(x0 + Math.cos(a) * d)
       const cz = Math.floor(z0 + Math.sin(a) * d)
       if (s.camp?.inside?.(cx, cz, HALF + 3)) continue
+      // Never on the train's track (ZombieTrain.overlaps).
+      if (s.train?.overlaps(cx - HALF - 1, cz - HALF - 1, cx + HALF + 1, cz + HALF + 2)) continue
       const y = s._groundUnder(cx + 0.5, nearY + 24, cz + 0.5)
       if (!Number.isFinite(y) || Math.abs(y - nearY) > 20) continue
       let ok = true

@@ -75,6 +75,8 @@ export class Heist {
 
   _flat(x0, z0, nearY) {
     const s = this.s
+    // Never on the train's track (ZombieTrain.overlaps).
+    if (s.train?.overlaps(x0 - 1, z0 - 1, x0 + W, z0 + D)) return null
     let lo = Infinity
     let hi = -Infinity
     for (let x = x0; x < x0 + W; x += 2) {

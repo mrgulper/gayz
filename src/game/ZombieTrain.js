@@ -6,9 +6,19 @@
 // same train on the same track and can ride it too (2026-11-09:
 // snapshot() -> applySnapshot(), a "mirror" that follows the host's).
 //
-// The track: a circle LOOP_R blocks round, picked out in the open land
+// The track: a loop about LOOP_R blocks round, picked out in the open land
 // LOOP_FAR blocks from where you start (away from the city and the sea),
 // laid over the ground (smoothed, so hills are crossed on low bridges).
+// It never runs through a building the game made (2026-11-15, Gaymi: "the
+// rail must not go through buildings, including any added later"): where a
+// village, castle, bridge, town, landmark or the Theme Park is in the way
+// the loop swings up to BEND blocks in or out round it, keeping CLEAR
+// blocks away (_route). Buildings that pop up later (the graveyard, the
+// haunted house, the bank...) ask overlaps() first and pick another spot.
+// Anything new the game builds in the open world must do one or the other.
+// On Detailed graphics and up the track looks real (_buildRealTrack):
+// steel rails (foot, web and head), wooden sleepers on tie plates with
+// bolts, on a gravel bed.
 // STATIONS stations sit round it, each with a platform and a blue beam you
 // can see from far off. The train - an engine and CARS open wagons - runs
 // round at TRAIN_SPEED and waits STOP_S seconds at every station.
@@ -23,6 +33,8 @@ import * as THREE from 'three'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
 import { sampleLand, inCity } from './OpenWorld.js'
+import { GRAPHICS_LEVELS } from './GraphicsLevels.js'
+import { SIZE as PARK_SIZE } from './ThemePark.js'
 
 export const LOOP_R = 55
 const LOOP_FAR = 95
@@ -43,6 +55,10 @@ const BITE_EVERY = 1
 const BITE = 8
 const TRAIN_EYE = 1.62
 const SLOW_NEAR = 12 // blocks before a station it starts slowing
+export const BEND = 20 // how far the loop may swing in or out round a building
+export const CLEAR = 5 // blocks kept between the rail and any building (platforms fit)
+const STEER = 2 // what a step in or out costs the route (keeps it smooth)
+const REAL_FROM = GRAPHICS_LEVELS.indexOf('detailed') // the real-looking track from here up
 
 export class ZombieTrain {
   constructor(survival) {
@@ -70,8 +86,7 @@ export class ZombieTrain {
     if (!spot) return false
     this.cx = spot.x
     this.cz = spot.z
-    this._heights()
-    this.perim = Math.PI * 2 * LOOP_R
+    this._lay(spot.radii)
     this.stations = Array.from({ length: STATIONS }, (_, i) => (i / STATIONS) * this.perim)
     this.head = this.length + 1
     this.speed = 0
@@ -102,8 +117,8 @@ export class ZombieTrain {
       this.clear()
       this.cx = d.cx
       this.cz = d.cz
-      this._heights()
-      this.perim = Math.PI * 2 * LOOP_R
+      // The same world, so the same way round the same buildings.
+      this._lay(this._route(d.cx, d.cz) || new Array(SAMPLES).fill(LOOP_R))
       this.stations = Array.from({ length: STATIONS }, (_, i) => (i / STATIONS) * this.perim)
       this.head = d.head
       this.speed = 0
@@ -135,59 +150,227 @@ export class ZombieTrain {
     if (this.aboard && (this.s.dead || !this.s.active)) this.aboard = null
   }
 
-  // Open, dry, not too steep land LOOP_FAR away in some direction.
+  // Open, dry, not too steep land LOOP_FAR (or a bit further) away in
+  // some direction, with a way round every building there.
   _findLoop(start) {
-    let best = null
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2
-      const x = start.x + Math.cos(a) * (LOOP_FAR + LOOP_R)
-      const z = start.z + Math.sin(a) * (LOOP_FAR + LOOP_R)
-      let lo = Infinity
-      let hi = -Infinity
-      let ok = true
-      for (let k = 0; k < 36 && ok; k++) {
-        const b = (k / 36) * Math.PI * 2
-        const px = Math.floor(x + Math.cos(b) * LOOP_R)
-        const pz = Math.floor(z + Math.sin(b) * LOOP_R)
-        if (inCity(px, pz)) ok = false
-        const land = sampleLand(px, pz)
-        if (!land || /cean$|river|swamp/i.test(land.biome || '')) ok = false
-        lo = Math.min(lo, land?.h ?? 0)
-        hi = Math.max(hi, land?.h ?? 0)
+    const spots = []
+    for (const far of [LOOP_FAR, LOOP_FAR + 45]) {
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * Math.PI * 2
+        const x = Math.round(start.x + Math.cos(a) * (far + LOOP_R))
+        const z = Math.round(start.z + Math.sin(a) * (far + LOOP_R))
+        let lo = Infinity
+        let hi = -Infinity
+        let ok = true
+        for (let k = 0; k < 36 && ok; k++) {
+          const b = (k / 36) * Math.PI * 2
+          const px = Math.floor(x + Math.cos(b) * LOOP_R)
+          const pz = Math.floor(z + Math.sin(b) * LOOP_R)
+          if (inCity(px, pz)) ok = false
+          const land = sampleLand(px, pz)
+          if (!land || /cean$|river|swamp/i.test(land.biome || '')) ok = false
+          lo = Math.min(lo, land?.h ?? 0)
+          hi = Math.max(hi, land?.h ?? 0)
+        }
+        if (ok && hi - lo < 30) spots.push({ x, z, spread: hi - lo + (far - LOOP_FAR) / 3 })
       }
-      if (ok && (!best || hi - lo < best.spread)) best = { x, z, spread: hi - lo }
     }
-    return best && best.spread < 30 ? best : null
+    spots.sort((p, q) => p.spread - q.spread)
+    for (const sp of spots.slice(0, 8)) {
+      const radii = this._route(sp.x, sp.z)
+      if (radii) return { ...sp, radii }
+    }
+    return null
   }
 
-  // The rail's height all the way round: over the highest ground nearby,
-  // smoothed.
-  _heights() {
-    const raw = []
-    for (let i = 0; i < SAMPLES; i++) {
-      const a = (i / SAMPLES) * Math.PI * 2
-      raw.push((sampleLand(Math.floor(this.cx + Math.cos(a) * LOOP_R), Math.floor(this.cz + Math.sin(a) * LOOP_R))?.h ?? 0) + 1)
+  // Where nothing may go round (cx, cz): every building the game made
+  // (villages, castles, bridges, towns, landmarks, the Theme Park) and the
+  // city, CLEAR blocks wider, and the sea. -> { x0, z0, size, grid }
+  // (grid[i * size + j] = 1: blocked at (x0 + i, z0 + j)).
+  _keepOut(cx, cz) {
+    const reach = LOOP_R + BEND + CLEAR + 2
+    const x0 = Math.floor(cx - reach)
+    const z0 = Math.floor(cz - reach)
+    const size = reach * 2 + 2
+    const grid = new Uint8Array(size * size)
+    const mark = (ax0, az0, ax1, az1) => {
+      const i0 = Math.max(0, ax0 - x0)
+      const i1 = Math.min(size - 1, ax1 - x0)
+      const j0 = Math.max(0, az0 - z0)
+      const j1 = Math.min(size - 1, az1 - z0)
+      for (let i = i0; i <= i1; i++) grid.fill(1, i * size + j0, j1 >= j0 ? i * size + j1 + 1 : i * size + j0)
     }
+    for (let i = 0; i < size; i += 2) {
+      for (let j = 0; j < size; j += 2) {
+        const x = x0 + i
+        const z = z0 + j
+        if (inCity(x, z)) mark(x - CLEAR, z - CLEAR, x + 1 + CLEAR, z + 1 + CLEAR)
+        else if (/cean$/.test(sampleLand(x, z)?.biome || '')) mark(x, z, x + 1, z + 1)
+      }
+    }
+    const world = this.s.bm.world
+    for (const plan of world?._plansOver?.(x0, z0, x0 + size, z0 + size, CLEAR) || []) {
+      if (plan.top?.size) {
+        for (const k of plan.top.keys()) {
+          const c = k.indexOf(',')
+          const x = +k.slice(0, c)
+          const z = +k.slice(c + 1)
+          mark(x - CLEAR, z - CLEAR, x + CLEAR, z + CLEAR)
+        }
+      } else mark(plan.x0 - CLEAR, plan.z0 - CLEAR, plan.x1 + CLEAR, plan.z1 + CLEAR)
+    }
+    const park = this.s.park?.spot?.()
+    if (park) {
+      const r = Math.ceil(PARK_SIZE / 2) + 1 + CLEAR
+      mark(park.x - r, park.z - r, park.x + r, park.z + r)
+    }
+    return { x0, z0, size, grid }
+  }
+
+  // The loop's distance from (cx, cz) at each of SAMPLES angles: as near
+  // LOOP_R as it can be while missing everything in _keepOut, stepping in
+  // or out at most a block per sample (the cheapest way round, worked out
+  // a sample at a time), then smoothed. null: no way round.
+  _route(cx, cz) {
+    const { x0, z0, size, grid } = this._keepOut(cx, cz)
+    const K = BEND * 2 + 1
+    const N = SAMPLES
+    const radius = (k) => LOOP_R - BEND + k
+    const blocked = (i, r) => {
+      const a = (i / N) * Math.PI * 2
+      const gi = Math.floor(cx + Math.cos(a) * r) - x0
+      const gj = Math.floor(cz + Math.sin(a) * r) - z0
+      return gi < 0 || gj < 0 || gi >= size || gj >= size || grid[gi * size + gj] === 1
+    }
+    const free = new Uint8Array(N * K)
+    for (let i = 0; i < N; i++) for (let k = 0; k < K; k++) free[i * K + k] = blocked(i, radius(k)) ? 0 : 1
+    // Start (and end) a few different distances out at angle 0; keep the
+    // cheapest whole loop.
+    const starts = [...Array(K).keys()].filter((k) => free[k]).sort((p, q) => Math.abs(p - BEND) - Math.abs(q - BEND)).slice(0, 6)
+    let best = null
+    const from = new Int8Array((N + 1) * K)
+    for (const s0 of starts) {
+      let cost = new Float64Array(K).fill(Infinity)
+      cost[s0] = 0
+      for (let i = 1; i <= N; i++) {
+        const ii = i % N
+        const next = new Float64Array(K).fill(Infinity)
+        for (let k = 0; k < K; k++) {
+          if (!free[ii * K + k] || (i === N && k !== s0)) continue
+          for (let d = -1; d <= 1; d++) {
+            const p = k - d
+            if (p < 0 || p >= K || cost[p] === Infinity) continue
+            const c = cost[p] + (d ? STEER : 0) + Math.abs(k - BEND) * 0.05
+            if (c < next[k]) {
+              next[k] = c
+              from[i * K + k] = d
+            }
+          }
+        }
+        cost = next
+      }
+      if (cost[s0] === Infinity || (best && cost[s0] >= best.cost)) continue
+      const ks = new Array(N)
+      let k = s0
+      for (let i = N; i >= 1; i--) {
+        ks[i % N] = k
+        k -= from[i * K + k]
+      }
+      best = { cost: cost[s0], radii: ks.map(radius) }
+    }
+    if (!best) return null
+    // Smoothed, if the smooth one still misses everything.
+    for (const w of [10, 4]) {
+      const smooth = best.radii.map((_, i) => {
+        let sum = 0
+        for (let k = -w; k <= w; k++) sum += best.radii[(i + k + N) % N]
+        return sum / (w * 2 + 1)
+      })
+      if (smooth.every((r, i) => !blocked(i, r))) return smooth
+    }
+    return best.radii
+  }
+
+  // Lays the loop out from its radii: the points, how far round each is,
+  // which way it runs there, and the rail's height all the way round (over
+  // the highest ground nearby, smoothed).
+  _lay(radii) {
+    const N = SAMPLES
+    this.radii = radii
+    this.px = new Float64Array(N)
+    this.pz = new Float64Array(N)
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2
+      this.px[i] = this.cx + Math.cos(a) * radii[i]
+      this.pz[i] = this.cz + Math.sin(a) * radii[i]
+    }
+    this.cum = new Float64Array(N + 1)
+    for (let i = 0; i < N; i++) this.cum[i + 1] = this.cum[i] + Math.hypot(this.px[(i + 1) % N] - this.px[i], this.pz[(i + 1) % N] - this.pz[i])
+    this.perim = this.cum[N]
+    this.tx = new Float64Array(N)
+    this.tz = new Float64Array(N)
+    for (let i = 0; i < N; i++) {
+      const dx = this.px[(i + 1) % N] - this.px[(i - 1 + N) % N]
+      const dz = this.pz[(i + 1) % N] - this.pz[(i - 1 + N) % N]
+      const l = Math.hypot(dx, dz) || 1
+      this.tx[i] = dx / l
+      this.tz[i] = dz / l
+    }
+    const raw = []
+    for (let i = 0; i < N; i++) raw.push((sampleLand(Math.floor(this.px[i]), Math.floor(this.pz[i]))?.h ?? 0) + 1)
     const top = raw.map((_, i) => {
       let m = -Infinity
-      for (let k = -3; k <= 3; k++) m = Math.max(m, raw[(i + k + SAMPLES) % SAMPLES])
+      for (let k = -3; k <= 3; k++) m = Math.max(m, raw[(i + k + N) % N])
       return m
     })
     this.h = top.map((_, i) => {
       let sum = 0
-      for (let k = -8; k <= 8; k++) sum += top[(i + k + SAMPLES) % SAMPLES]
+      for (let k = -8; k <= 8; k++) sum += top[(i + k + N) % N]
       return sum / 17
     })
+    // The cells the track and its platforms cover (overlaps()).
+    this._cells = new Set()
+    for (let i = 0; i < N; i++) {
+      for (let dx = -CLEAR + 1; dx <= CLEAR - 1; dx++) for (let dz = -CLEAR + 1; dz <= CLEAR - 1; dz++) this._cells.add(`${Math.floor(this.px[i]) + dx},${Math.floor(this.pz[i]) + dz}`)
+    }
   }
 
-  // A spot `d` blocks along the loop: where, which way along, and the side.
+  // Does the box (cells, inclusive) touch the track? Anything the game
+  // builds in the open world after the track is laid asks this first.
+  overlaps(x0, z0, x1, z1) {
+    if (!this.on || !this._cells) return false
+    for (let x = Math.floor(Math.min(x0, x1)); x <= Math.floor(Math.max(x0, x1)); x++) {
+      for (let z = Math.floor(Math.min(z0, z1)); z <= Math.floor(Math.max(z0, z1)); z++) if (this._cells.has(`${x},${z}`)) return true
+    }
+    return false
+  }
+
+  // A spot `d` blocks along the loop: where, which way along, and the side
+  // (n: out of the loop).
   at(d) {
+    const N = SAMPLES
     const p = ((d % this.perim) + this.perim) % this.perim
-    const a = p / LOOP_R
-    const f = (a / (Math.PI * 2)) * SAMPLES
-    const i = Math.floor(f)
-    const h = this.h[i % SAMPLES] + (this.h[(i + 1) % SAMPLES] - this.h[i % SAMPLES]) * (f - i)
-    return { x: this.cx + Math.cos(a) * LOOP_R, y: h, z: this.cz + Math.sin(a) * LOOP_R, dx: -Math.sin(a), dz: Math.cos(a), nx: Math.cos(a), nz: Math.sin(a) }
+    let lo = 0
+    let hi = N
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1
+      if (this.cum[mid] <= p) lo = mid
+      else hi = mid
+    }
+    const i = lo
+    const j = (i + 1) % N
+    const f = (p - this.cum[i]) / (this.cum[i + 1] - this.cum[i] || 1)
+    let dx = this.tx[i] + (this.tx[j] - this.tx[i]) * f
+    let dz = this.tz[i] + (this.tz[j] - this.tz[i]) * f
+    const l = Math.hypot(dx, dz) || 1
+    dx /= l
+    dz /= l
+    return {
+      x: this.px[i] + (this.px[j] - this.px[i]) * f,
+      y: this.h[i] + (this.h[j] - this.h[i]) * f,
+      z: this.pz[i] + (this.pz[j] - this.pz[i]) * f,
+      dx, dz, nx: dz, nz: -dx,
+    }
   }
 
   // --- meshes ---
@@ -197,36 +380,7 @@ export class ZombieTrain {
     const g = new THREE.Group()
     this._group = g
     this.s.bm.scene.add(g)
-    // Sleepers and two rails, one of each per block.
-    const n = Math.ceil(this.perim)
-    const sleepers = new THREE.InstancedMesh(new THREE.BoxGeometry(2.2 * B, 0.15 * B, 0.35 * B), new THREE.MeshLambertMaterial({ color: 0x5a3d24 }), n)
-    const rails = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12 * B, 0.15 * B, 1.02 * B), new THREE.MeshLambertMaterial({ color: 0x9a9aa4 }), n * 2)
-    const posts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5 * B, 1, 0.5 * B), new THREE.MeshLambertMaterial({ color: 0x6a6a70 }), Math.ceil(n / 4))
-    const m = new THREE.Matrix4()
-    const q = new THREE.Quaternion()
-    const up = new THREE.Vector3(0, 1, 0)
-    const one = new THREE.Vector3(1, 1, 1)
-    let pi = 0
-    for (let i = 0; i < n; i++) {
-      const p = this.at(i)
-      q.setFromAxisAngle(up, Math.atan2(p.dx, p.dz))
-      m.compose(new THREE.Vector3(p.x * B, (p.y + 0.07) * B, p.z * B), q, one)
-      sleepers.setMatrixAt(i, m)
-      for (const side of [0, 1]) {
-        const o = side ? 0.7 : -0.7
-        m.compose(new THREE.Vector3((p.x + p.nx * o) * B, (p.y + 0.2) * B, (p.z + p.nz * o) * B), q, one)
-        rails.setMatrixAt(i * 2 + side, m)
-      }
-      // A post down to the ground every few blocks where it runs high.
-      const ground = (sampleLand(Math.floor(p.x), Math.floor(p.z))?.h ?? p.y) + 1
-      if (i % 4 === 0 && p.y - ground > 1.5) {
-        const hgt = (p.y - ground) * B
-        m.compose(new THREE.Vector3(p.x * B, ground * B + hgt / 2, p.z * B), q, new THREE.Vector3(1, hgt, 1))
-        posts.setMatrixAt(pi++, m)
-      }
-    }
-    posts.count = pi
-    g.add(sleepers, rails, posts)
+    this._buildTrack()
     // Stations: a stone platform on the outside, a roof and a beam.
     for (const d of this.stations) {
       const p = this.at(d)
@@ -258,6 +412,137 @@ export class ZombieTrain {
     }
   }
 
+  // Detailed graphics and up (not Performance Mode): the real-looking track.
+  _real() {
+    const set = this.s.bm.game?.settings
+    const lvl = GRAPHICS_LEVELS.indexOf(set?.graphicsLevel)
+    return !set?.performanceMode && (lvl < 0 ? REAL_FROM : lvl) >= REAL_FROM
+  }
+
+  // The track itself (rails, sleepers, its posts), in its own group so a
+  // graphics change swaps it without touching the train.
+  _buildTrack() {
+    this._dropTrack()
+    const g = new THREE.Group()
+    this._track = g
+    this._trackReal = this._real()
+    this._group.add(g)
+    if (this._trackReal) this._buildRealTrack(g)
+    else this._buildPlainTrack(g)
+    this._buildPosts(g)
+  }
+
+  _dropTrack() {
+    if (!this._track) return
+    this._track.removeFromParent()
+    disposeAll(this._track)
+    this._track = null
+  }
+
+  // Lower graphics: one sleeper and two plain rails per block.
+  _buildPlainTrack(g) {
+    const B = this.B
+    const n = Math.ceil(this.perim)
+    const sleepers = new THREE.InstancedMesh(new THREE.BoxGeometry(2.2 * B, 0.15 * B, 0.35 * B), new THREE.MeshLambertMaterial({ color: 0x5a3d24 }), n)
+    const rails = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12 * B, 0.15 * B, 1 * B), new THREE.MeshLambertMaterial({ color: 0x9a9aa4 }), n * 2)
+    const step = this.perim / n
+    for (let i = 0; i < n; i++) {
+      const p = this.at(i * step)
+      place(sleepers, i, B, p.x, p.y + 0.07, p.z, p.dx, 0, p.dz, 1)
+      for (const side of [0, 1]) {
+        const o = side ? 0.7 : -0.7
+        this._segment(rails, i * 2 + side, i * step, step, o, 0.2, 1.04)
+      }
+    }
+    g.add(sleepers, rails)
+  }
+
+  // Detailed and up: a gravel bed with sloped shoulders, two weathered
+  // wooden sleepers per block, a steel tie plate with two bolts under each
+  // rail, and steel rails shaped like real ones (a wide foot, a thin web, a
+  // shiny rounded head), laid in short lengths so curves and slopes are
+  // smooth. Rail top stays where the wagons' wheels run.
+  _buildRealTrack(g) {
+    const B = this.B
+    const n = Math.ceil(this.perim * 2) // half-block steps
+    const step = this.perim / n
+    const gravelMat = new THREE.MeshLambertMaterial({ map: gravelTexture() })
+    const bed = new THREE.InstancedMesh(new THREE.BoxGeometry(2.9 * B, 0.26 * B, 1 * B), gravelMat, n)
+    const shoulder = new THREE.InstancedMesh(new THREE.BoxGeometry(3.7 * B, 0.16 * B, 1 * B), gravelMat, n)
+    const sleepers = new THREE.InstancedMesh(new THREE.BoxGeometry(2.5 * B, 0.14 * B, 0.26 * B), new THREE.MeshLambertMaterial({ map: woodTexture() }), n)
+    const plates = new THREE.InstancedMesh(new THREE.BoxGeometry(0.34 * B, 0.03 * B, 0.22 * B), new THREE.MeshStandardMaterial({ color: 0x3e3834, roughness: 0.85, metalness: 0.3 }), n * 2)
+    const bolts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.05 * B, 0.05 * B, 0.05 * B), new THREE.MeshStandardMaterial({ color: 0x2a2624, roughness: 0.7, metalness: 0.5 }), n * 4)
+    const rustMat = new THREE.MeshStandardMaterial({ color: 0x6a4e3e, roughness: 0.9, metalness: 0.25 })
+    const foot = new THREE.InstancedMesh(new THREE.BoxGeometry(0.15 * B, 0.025 * B, 1 * B), rustMat, n * 2)
+    const web = new THREE.InstancedMesh(new THREE.BoxGeometry(0.045 * B, 0.075 * B, 1 * B), rustMat, n * 2)
+    const head = new THREE.InstancedMesh(new THREE.BoxGeometry(0.085 * B, 0.05 * B, 1 * B), new THREE.MeshStandardMaterial({ color: 0xb4b8c0, roughness: 0.3, metalness: 0.55 }), n * 2)
+    const c = new THREE.Color()
+    for (let i = 0; i < n; i++) {
+      const d = i * step
+      const p = this.at(d)
+      this._segment(bed, i, d, step, 0, -0.1, 1.02)
+      this._segment(shoulder, i, d, step, 0, -0.14, 1.02)
+      // Each sleeper a little different: tone, a hair off square.
+      const r = hashNum(i)
+      const skew = (r - 0.5) * 0.06
+      place(sleepers, i, B, p.x, p.y + 0.07, p.z, p.dx + p.nx * skew, 0, p.dz + p.nz * skew, 1)
+      c.setHSL(0.07 + r * 0.02, 0.25 + r * 0.15, 0.55 + hashNum(i + 7919) * 0.25)
+      sleepers.setColorAt(i, c)
+      for (const side of [0, 1]) {
+        const o = side ? 0.7 : -0.7
+        place(plates, i * 2 + side, B, p.x + p.nx * o, p.y + 0.155, p.z + p.nz * o, p.dx, 0, p.dz, 1)
+        for (const b of [0, 1]) {
+          const bo = o + (b ? 0.12 : -0.12)
+          place(bolts, i * 4 + side * 2 + b, B, p.x + p.nx * bo, p.y + 0.18, p.z + p.nz * bo, p.dx, 0, p.dz, 1)
+        }
+        this._segment(foot, i * 2 + side, d, step, o, 0.18, 1.03)
+        this._segment(web, i * 2 + side, d, step, o, 0.225, 1.03)
+        this._segment(head, i * 2 + side, d, step, o, 0.28, 1.03)
+      }
+    }
+    sleepers.instanceColor.needsUpdate = true
+    g.add(shoulder, bed, sleepers, plates, bolts, foot, web, head)
+  }
+
+  // One straight length of something laid along the track: from `d` to
+  // `d + len`, `side` blocks out, `up` over the rail's height, following
+  // the bends and the slopes (stretched by `over` so lengths meet).
+  _segment(mesh, idx, d, len, side, up, over) {
+    const a = this.at(d)
+    const b = this.at(d + len)
+    const ax = a.x + a.nx * side
+    const az = a.z + a.nz * side
+    const bx = b.x + b.nx * side
+    const bz = b.z + b.nz * side
+    const l = Math.hypot(bx - ax, b.y - a.y, bz - az) || len
+    _o.position.set(((ax + bx) / 2) * this.B, ((a.y + b.y) / 2 + up) * this.B, ((az + bz) / 2) * this.B)
+    _o.lookAt(bx * this.B, (b.y + up) * this.B, bz * this.B)
+    _o.scale.set(1, 1, l * over)
+    _o.updateMatrix()
+    mesh.setMatrixAt(idx, _o.matrix)
+  }
+
+  // A post down to the ground every few blocks where the track runs high.
+  _buildPosts(g) {
+    const B = this.B
+    const n = Math.ceil(this.perim)
+    const posts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5 * B, 1, 0.5 * B), new THREE.MeshLambertMaterial({ color: 0x6a6a70 }), Math.ceil(n / 4))
+    let pi = 0
+    for (let i = 0; i < n; i += 4) {
+      const p = this.at(i)
+      const ground = (sampleLand(Math.floor(p.x), Math.floor(p.z))?.h ?? p.y) + 1
+      if (p.y - ground <= 1.5) continue
+      const hgt = (p.y - ground) * B
+      _o.position.set(p.x * B, ground * B + hgt / 2, p.z * B)
+      _o.rotation.set(0, Math.atan2(p.dx, p.dz), 0)
+      _o.scale.set(1, hgt, 1)
+      _o.updateMatrix()
+      posts.setMatrixAt(pi++, _o.matrix)
+    }
+    posts.count = pi
+    g.add(posts)
+  }
+
   // --- running ---
 
   // How far along the next station is (blocks).
@@ -273,6 +558,12 @@ export class ZombieTrain {
 
   update(dt) {
     if (!this.on) return
+    // Graphics changed: the other look for the track.
+    this._lookIn = (this._lookIn || 0) - dt
+    if (this._lookIn <= 0 && this._group) {
+      this._lookIn = 1
+      if (this._real() !== this._trackReal) this._buildTrack()
+    }
     if (this.mirror) return this._follow(dt)
     const s = this.s
     if (this.wait > 0) {
@@ -445,14 +736,94 @@ export class ZombieTrain {
     this.riders = []
     if (this._group) {
       this._group.removeFromParent()
-      this._group.traverse((o) => {
-        if (!o.isMesh) return
-        o.geometry.dispose()
-        for (const m of [].concat(o.material)) m.dispose()
-      })
+      disposeAll(this._group)
       this._group = null
+      this._track = null
     }
   }
+}
+
+const _o = new THREE.Object3D()
+
+// Instance `i` of `mesh` at (x, y, z) blocks, its length along (dx, dy, dz).
+function place(mesh, i, B, x, y, z, dx, dy, dz, scale) {
+  _o.position.set(x * B, y * B, z * B)
+  _o.lookAt((x + dx) * B, (y + dy) * B, (z + dz) * B)
+  _o.scale.set(scale, scale, scale)
+  _o.updateMatrix()
+  mesh.setMatrixAt(i, _o.matrix)
+}
+
+function disposeAll(group) {
+  const seen = new Set()
+  group.traverse((o) => {
+    if (!o.isMesh) return
+    o.geometry.dispose()
+    for (const m of [].concat(o.material)) {
+      if (seen.has(m)) continue
+      seen.add(m)
+      m.map?.dispose()
+      m.dispose()
+    }
+  })
+}
+
+// 0..1, the same every time for the same i.
+// A copy of a drawn texture (each material gets its own to dispose).
+function copyOf(tex) {
+  const c = tex.clone()
+  c.needsUpdate = true
+  return c
+}
+
+function hashNum(i) {
+  const x = Math.sin(i * 127.1 + 311.7) * 43758.5453
+  return x - Math.floor(x)
+}
+
+// Gravel: grey-brown stones of all sizes, drawn once (no image to load).
+let _gravel = null
+function gravelTexture() {
+  if (_gravel) return copyOf(_gravel)
+  const c = document.createElement('canvas')
+  c.width = c.height = 64
+  const x = c.getContext('2d')
+  x.fillStyle = '#6e6862'
+  x.fillRect(0, 0, 64, 64)
+  for (let i = 0; i < 420; i++) {
+    const v = 70 + Math.floor(hashNum(i) * 90)
+    const warm = Math.floor(hashNum(i + 50) * 14)
+    x.fillStyle = `rgb(${v + warm},${v + Math.floor(warm / 2)},${v})`
+    const sz = 1 + Math.floor(hashNum(i + 99) * 4)
+    x.fillRect(Math.floor(hashNum(i + 3) * 64), Math.floor(hashNum(i + 5) * 64), sz, sz)
+  }
+  _gravel = new THREE.CanvasTexture(c)
+  _gravel.colorSpace = THREE.SRGBColorSpace
+  _gravel.wrapS = _gravel.wrapT = THREE.RepeatWrapping
+  return copyOf(_gravel)
+}
+
+// Wood grain for the sleepers: long darker streaks and a crack or two
+// (light, so each sleeper's own colour tints it).
+let _wood = null
+function woodTexture() {
+  if (_wood) return copyOf(_wood)
+  const c = document.createElement('canvas')
+  c.width = 64
+  c.height = 16
+  const x = c.getContext('2d')
+  x.fillStyle = '#e8e0d4'
+  x.fillRect(0, 0, 64, 16)
+  for (let i = 0; i < 26; i++) {
+    const v = 150 + Math.floor(hashNum(i + 200) * 70)
+    x.fillStyle = `rgb(${v},${v - 12},${v - 26})`
+    x.fillRect(Math.floor(hashNum(i + 300) * 40), Math.floor(hashNum(i + 400) * 16), 10 + Math.floor(hashNum(i + 500) * 30), 1)
+  }
+  x.fillStyle = '#6a5a4a'
+  x.fillRect(18, 7, 22, 1)
+  _wood = new THREE.CanvasTexture(c)
+  _wood.colorSpace = THREE.SRGBColorSpace
+  return copyOf(_wood)
 }
 
 function boxIn(g, B, w, h, d, color, x, y, z) {

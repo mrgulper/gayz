@@ -85,6 +85,8 @@ export class HotSprings {
   _flatSnow(cx, cz, nearY) {
     const s = this.s
     const R = Math.ceil(POOL_R) + 1
+    // Never on the train's track (ZombieTrain.overlaps).
+    if (s.train?.overlaps(cx - R - 1, cz - R - 1, cx + R + 1, cz + R + 1)) return null
     const top = (x, z) => {
       const g = s._groundUnder(x + 0.5, nearY + 12, z + 0.5)
       return g === nearY + 12 ? null : g - 1

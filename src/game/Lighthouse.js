@@ -101,6 +101,8 @@ export class Lighthouse {
   // The 3x3 base is dry and within a block of level -> its floor y, or null.
   _flat(x, z, nearY) {
     const s = this.s
+    // Never on the train's track (ZombieTrain.overlaps).
+    if (s.train?.overlaps(x - 3, z - 3, x + 3, z + 3)) return null
     let lo = Infinity
     let hi = -Infinity
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
