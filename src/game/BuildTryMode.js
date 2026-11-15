@@ -59,6 +59,7 @@ import { PLAY_WEAPONS } from './PlayWeapons.js'
 import { BOTTOM } from './Underground.js'
 import { KART_EYE } from './GoKart.js'
 import { tickAmbientCues, resetAmbientCues } from './AmbientCues.js'
+import { HeldFood, isHeldFood } from './HeldFood.js'
 
 const HALF_WIDTH = 0.3
 // How bright the gun in your hands is lit, against its picture's light
@@ -2507,7 +2508,8 @@ export class BuildTryMode {
   // inPlay: a block held from a game's inventory (2026-10-18, Gaymi: "I'm
   // holding a leaf but I can't see it") - without it this returned while
   // playing, so no held block was ever drawn.
-  drawHand(renderer, type, inPlay = false) {
+  // foodId: an animal drop held instead of a block (drawFood).
+  drawHand(renderer, type, inPlay = false, foodId = null) {
     if (this.active && !inPlay) return
     this._ensureGunScene()
     if (this._gun) this._gun.visible = false
@@ -2534,11 +2536,60 @@ export class BuildTryMode {
       if (this._swingT >= 1) this._swingT = null
       else swing = Math.sin(this._swingT * Math.PI)
     }
-    this._hand.rotation.set(-swing * 0.55, swing * 0.35, 0)
-    this._hand.position.set(-swing * 0.06, -swing * 0.03, 0)
+    if (foodId) {
+      this._ensureFood()
+      const food = this._food.group
+      if (food.parent !== this._hand) {
+        // A little higher than a block, so the hands don't hide it.
+        food.position.set(HAND_BLOCK_POS[0], HAND_BLOCK_POS[1] + 0.07, HAND_BLOCK_POS[2])
+        food.scale.setScalar(1.15)
+        this._hand.add(food)
+      }
+      food.visible = true
+      this._handHeld.visible = false
+      this._food.update(dt, foodId, this._hand, this._gunScene)
+    } else {
+      if (this._food) this._food.group.visible = false
+      this._handHeld.visible = true
+      this._hand.rotation.set(-swing * 0.55, swing * 0.35, 0)
+      this._hand.position.set(-swing * 0.06, -swing * 0.03, 0)
+    }
     this._hand.visible = true
     this._renderOnTop(renderer)
     this._hand.visible = false
+  }
+
+  // Playing and holding an animal's body-part drop (HeldFood.js): its
+  // little 3D model between the hands, and the bites while one's being
+  // eaten. -> true if it drew (BuildMode.render then skips the gun/block).
+  drawFood(renderer, heldId) {
+    if (!this.active || this.view) return false
+    const id = this._food ? this._food.showing(heldId) : isHeldFood(heldId) ? heldId : null
+    if (!id) {
+      this._food?.clearCrumbs(this._gunScene)
+      return false
+    }
+    // (drawHand hides the gun; a gun picked mid-bite comes back after.)
+    const gunShown = this._gun?.visible
+    this.drawHand(renderer, null, true, id)
+    if (this._gun) this._gun.visible = !!gunShown
+    return true
+  }
+
+  // Eating one (PlayInventory.useHeld).
+  eatFood(id) {
+    if (!isHeldFood(id)) return
+    this._ensureFood().eat(id)
+  }
+
+  _ensureFood() {
+    if (!this._food) {
+      this._food = new HeldFood()
+      this._food.onBite = () => {
+        try { audioEngine.playSpecial?.('crumble') } catch { /* no audio */ }
+      }
+    }
+    return this._food
   }
 
   _setHeldBlock(type) {
