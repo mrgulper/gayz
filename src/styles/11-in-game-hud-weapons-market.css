@@ -2090,3 +2090,42 @@ body.touch-play-on #play-ring-bar { z-index: 18; }
   .ring-ed-slot { width: 52px; height: 52px; }
   .ring-ed-bag { max-height: 36dvh; }
 }
+
+/* Spin ring Batch 3 (2026-11-15): up to 10 ring slots. Over 5, the bar
+   wraps into rows of 5 with smaller slots (desktop, sideways phones), so
+   it never runs off the
+   screen or over the thumbs. Upright phones keep one column (the top
+   button row is right beside it) with smaller slots - it still ends well
+   above the attack buttons. */
+#play-ring-bar.ring-many { flex-wrap: wrap; width: 260px; box-sizing: border-box; }
+#play-ring-bar.ring-many .ring-slot { width: 40px; height: 40px; }
+body.touch-play-on #play-ring-bar.ring-many { width: 206px; }
+body.touch-play-on #play-ring-bar.ring-many .ring-slot { width: 34px; height: 34px; }
+@media (orientation: portrait) {
+  body.touch-play-on #play-ring-bar.ring-many { flex-direction: column; flex-wrap: nowrap; width: auto; gap: 3px; }
+  body.touch-play-on #play-ring-bar.ring-many .ring-slot { width: 30px; height: 30px; }
+}
+/* The Ring Bag's Merge row and Shop button. */
+.ring-ed-merge { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; min-height: 34px; margin: 0 0 6px; }
+.ring-ed-merge button, .ring-ed-shop { padding: 6px 14px; min-width: 0; font: inherit; font-size: 13px; font-weight: 700; border-radius: 999px; }
+.ring-ed-merge-note { font-size: 12px; opacity: 0.75; text-align: center; }
+.ring-ed-shop { align-self: center; margin-top: 10px; }
+/* The Shop's Ring tab: item picker, amount picker, one row per rarity. */
+.ring-shop-note, .ring-shop-about { margin: 0; font-size: 13px; text-align: center; opacity: 0.85; }
+.ring-shop-got { color: #ffd75e; font-weight: 700; }
+.ring-shop-items { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 5px; }
+/* Narrow phones: 5 + 4. */
+@media (max-width: 420px) { .ring-shop-items { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.ring-shop-item {
+  position: relative; aspect-ratio: 1; padding: 0; min-width: 0;
+  background: rgba(0, 0, 0, 0.45); border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 10px; box-shadow: none; cursor: pointer;
+}
+.ring-shop-item svg { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); pointer-events: none; }
+.ring-shop-item.picked { border-color: #ffd75e; outline: 2px solid #ffd75e; outline-offset: 1px; }
+.ring-shop-qty { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; font-size: 13px; }
+.ring-shop-qty .play-shop-tab { padding: 4px 12px; min-width: 0; font: inherit; font-size: 13px; font-weight: 700; color: inherit; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(232, 194, 90, 0.35); border-radius: 999px; box-shadow: none; cursor: pointer; }
+.ring-shop-qty .play-shop-tab.active { color: #1a1408; background: #ffd75e; border-color: #ffd75e; }
+.ring-shop-qty input { width: 64px; padding: 4px 10px; font: inherit; font-size: 13px; border-radius: 999px; border: 1px solid rgba(232, 194, 90, 0.5); background: rgba(0, 0, 0, 0.4); color: inherit; }
+.ring-shop-row b span { font-weight: 700; }
+html.ui-theme-old .ring-shop-qty .play-shop-tab { background: rgba(107, 63, 23, 0.1); border-color: rgba(107, 63, 23, 0.45); }
+html.ui-theme-old .ring-shop-qty .play-shop-tab.active { color: #f6e7c4; background: #6b3f17; border-color: #6b3f17; }

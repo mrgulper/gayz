@@ -2,7 +2,7 @@
 // modes there are no guns any more - instead a few items spin in a circle
 // around you and hurt zombies (or heal you) when they touch.
 //
-//   - RING_SLOTS (3) items, shown on their own little bar (#play-ring-bar),
+//   - ringSlots() items (3, up to 10 bought in the Shop - Batch 3), shown on their own little bar (#play-ring-bar),
 //     separate from the 10-slot hotbar. Tapping or clicking the bar (or the
 //     Ring Bag key, I) opens the ring editor (RingEditor.js).
 //   - Hold attack (left click / the phone's attack button) = the ring
@@ -25,7 +25,7 @@ import * as THREE from 'three'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
 import * as RingItemsLib from './RingItems.js'
-import { RING_SLOTS, ICONS, parseKey, itemStats, makeItemMesh, rarityBand, rarityColor, rarityNameKey, loadLoadout } from './RingItems.js'
+import { RING_SLOTS, ringSlots, ICONS, parseKey, itemStats, makeItemMesh, rarityBand, rarityColor, rarityNameKey, loadLoadout } from './RingItems.js'
 
 export { RING_SLOTS }
 
@@ -78,7 +78,7 @@ export class SpinRing {
   // "id:rarity" (or '') per slot.
   setLoadout(keys) {
     for (const it of this.items || []) this._disposeMesh(it.mesh)
-    this.keys = Array.from({ length: RING_SLOTS }, (_, i) => (parseKey(keys?.[i]) ? keys[i] : ''))
+    this.keys = Array.from({ length: ringSlots() }, (_, i) => (parseKey(keys?.[i]) ? keys[i] : ''))
     this.items = []
     this.keys.forEach((key, slot) => {
       const p = parseKey(key)
@@ -320,7 +320,10 @@ export class SpinRing {
     el.onpointerdown = (e) => e.stopPropagation()
     el.ontouchstart = (e) => e.stopPropagation()
     this._cdEls = []
-    for (let i = 0; i < RING_SLOTS; i++) {
+    // More than 5 slots: the bar wraps into two rows (two columns on an
+    // upright phone) so it never runs off the screen.
+    el.classList.toggle('ring-many', this.keys.length > 5)
+    for (let i = 0; i < this.keys.length; i++) {
       const it = this.items.find((o) => o.slot === i)
       const slot = document.createElement('div')
       slot.className = 'build-hotbar-slot ring-slot'
