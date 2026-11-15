@@ -29,6 +29,8 @@ import { nameTag, COIN_PER_WAVE } from './BuildCamp.js'
 import { CouchGear } from './CouchGear.js'
 import { CouchHands } from './CouchHands.js'
 import { CouchToys } from './CouchToys.js'
+import { CouchKeys, P2_KEYS } from './CouchKeys.js'
+import { setBlockedKeys } from './Keybinds.js'
 import { PLAY_WEAPONS, canPlayWeapon, DEFAULT_PLAY_WEAPON } from './PlayWeapons.js'
 import { MOB_HEIGHT } from './PlayRules.js'
 import { applyDeadzone, setCouchPad } from './ControlSettings.js'
@@ -127,8 +129,16 @@ export class CouchCoop {
     // Potions, jetpack, kite, boards, rides (CouchToys.js).
     this.toys = this.equal ? new CouchToys(this) : null
     this._note = null
-    // P1 never borrows a controller until Player 2 has picked theirs.
-    setCouchPad(padIndex >= 0 ? padIndex : 'waiting')
+    // No controller? Player 2 can play on the arrows and number pad
+    // (CouchKeys.js). padIndex -2 = the keyboard (kept by Play Again).
+    this.keys = new CouchKeys(this)
+    if (padIndex === -2) {
+      this.keys.joined = true
+      setBlockedKeys(P2_KEYS)
+    }
+    // P1 never borrows a controller until Player 2 has picked theirs (on
+    // the keyboard, Player 1 may use any controller).
+    setCouchPad(padIndex >= 0 ? padIndex : padIndex === -2 ? -2 : 'waiting')
     this._buildHud()
     document.body.classList.add('couch-split')
   }
@@ -299,6 +309,17 @@ export class CouchCoop {
   }
 
   _findPad() {
+    if (this.keys.joined) {
+      if (this.padIndex !== -2) {
+        this.padIndex = -2
+        setCouchPad(-2)
+        // The key that joined doesn't also jump or fire.
+        const gp = this.keys.pad()
+        gp.buttons.forEach((b, i) => { if (b.pressed) this.down.add(i) })
+      }
+      const dpad = !!this.gear?.menuOpen || !!this.toys?.dance?.on
+      return this.keys.pad({ dpad, steer: !!this.hands?.ride })
+    }
     let list
     try { list = navigator.getGamepads?.() || [] } catch { return null }
     if (this.padIndex >= 0) {
@@ -325,7 +346,7 @@ export class CouchCoop {
   _join() {
     this.joined = true
     this._spawnNearP1()
-    this.s._message(t('couchJoined'), 2.5)
+    this.s._message(this.keys.joined ? t('couchJoinedKeys') : t('couchJoined'), this.keys.joined ? 5 : 2.5)
     this._rumble(0.4, 150)
     this.gear?.pickSkinOnJoin()
   }
@@ -399,6 +420,8 @@ export class CouchCoop {
     const dz = Math.max(0, Math.min(0.9, (Number.isFinite(dzRaw) ? dzRaw : 15) / 100))
     const mv = applyDeadzone(gp.axes[0] || 0, gp.axes[1] || 0, dz)
     if (mv.m <= 0) p.run = false
+    // Keyboard Player 2 runs while Right Shift is held.
+    if (gp.keyboard) p.run = gp.run && mv.m > 0
     this._move = mv.m > 0 ? { x: mv.x, y: -mv.y, m: mv.m } : null
     // Aiming is for a held gun on foot (LT also gets in, out and places).
     p.aim = this._pressed(gp, B_LT) && !this.hands?.ride && (!this.gear || this.gear.holdingGun()) ? 1 : 0
@@ -408,6 +431,53 @@ export class CouchCoop {
       p.yaw -= lk.x * rate
       p.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, p.pitch - lk.y * rate * (set.invertY ? -1 : 1)))
     }
+    if (gp.keyboard) this._autoPitch(dt)
+  }
+
+  // Keyboard Player 2 has no stick to look up and down with: with a gun
+  // out, look at the nearest zombie in front; holding a block or tool,
+  // look a little down at the ground ahead (digging and placing).
+  _autoPitch(dt) {
+    const p = this.p2
+    let want = 0
+    if (this.gear && !this.gear.holdingGun()) want = -0.6
+    else {
+      const eyeY = p.y + EYE * this._size()
+      const fx = -Math.sin(p.yaw)
+      const fz = -Math.cos(p.yaw)
+      let best = Infinity
+      let yawTo = null
+      for (const z of this.s.zombies || []) {
+        if (!Number.isFinite(z?.x) || z.dead) continue
+        const dx = z.x - p.x
+        const dz = z.z - p.z
+        const flat = Math.hypot(dx, dz)
+        if (flat < 0.5 || flat > 40) continue
+        // In front: within about 25 degrees of where Player 2 faces.
+        if ((dx * fx + dz * fz) / flat < 0.9) continue
+        if (flat < best) {
+          best = flat
+          want = Math.atan2(z.y + ZOMBIE_HEIGHT * (z.size || 1) * (z.tall || 1) * 0.6 - eyeY, flat)
+          yawTo = Math.atan2(-dx, -dz)
+        }
+      }
+      // Not turning: swing gently onto that zombie too.
+      const turning = this.keys.held.has('ArrowLeft') || this.keys.held.has('ArrowRight')
+      if (yawTo !== null && !turning && !this.hands?.ride) {
+        const diff = Math.atan2(Math.sin(yawTo - p.yaw), Math.cos(yawTo - p.yaw))
+        p.yaw += diff * Math.min(1, dt * 5)
+      }
+    }
+    want = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, want))
+    p.pitch += (want - p.pitch) * Math.min(1, dt * 8)
+  }
+
+  // Keyboard Player 2's number pad 1-8: that hotbar slot (Buddy: that gun).
+  pickSlot(i) {
+    if (!this.joined || this.p2.isDown || this.gear?.menuOpen) return
+    if (this.bm.menuOpen || this.bm.pickerOpen || this.s._picking) return
+    if (this.gear) this.gear.select(i)
+    else this.holdWeapon(i)
   }
 
   // Walking, jumping and falling, bumping into blocks like Player 1.
@@ -924,7 +994,7 @@ export class CouchCoop {
     const heldName = heldOther ? g.label(held) : nameKey ? t(nameKey) : ''
     const dig = this.hands ? Math.round(this.hands.digProgress() * 20) : 0
     const ride = [this.hands?.rideText(), this.toys?.statusText()].filter(Boolean).join(' · ')
-    const coins = g && this.joined ? `${t('campCoins', { n: money(this.bm.game?.settings, g.coins) })}${g.armor > 0 ? ` · ${t('couchArmor', { n: Math.ceil(g.armor) })}` : ''}\n${t('couchMenuOpen')}` : ''
+    const coins = g && this.joined ? `${t('campCoins', { n: money(this.bm.game?.settings, g.coins) })}${g.armor > 0 ? ` · ${t('couchArmor', { n: Math.ceil(g.armor) })}` : ''}\n${t(this.keys.joined ? 'couchMenuOpenKeys' : 'couchMenuOpen')}` : ''
     const key = [this.joined, Math.ceil(p.health), p2Msg, p1Msg, heldName, count, p.hurtFlash > 0, p.aim, p.hitFlash > 0, coins, !!g?.menuOpen, dig, ride].join('|')
     if (key === this._hudKey) return
     this._hudKey = key
@@ -953,6 +1023,7 @@ export class CouchCoop {
     if (!this.active) return
     this.active = false
     setCouchPad(null)
+    this.keys.dispose()
     this.hands?.dispose()
     this.toys?.dispose()
     document.body.classList.remove('couch-split')

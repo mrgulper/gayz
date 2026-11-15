@@ -811,7 +811,9 @@ export class CouchGear {
     }
     const rows = this._rows()
     m.focus = Math.min(m.focus, Math.max(0, rows.length - 1))
-    const key = [m.screen, m.tab, m.focus, this.coins, ...rows.map((r) => `${r.name}|${r.detail}|${r.btn}|${r.off}`)].join('~')
+    // Keyboard Player 2 (CouchKeys.js) sees the keys, not the buttons.
+    const kb = !!this.c.keys?.joined
+    const key = [m.screen, m.tab, m.focus, this.coins, kb, ...rows.map((r) => `${r.name}|${r.detail}|${r.btn}|${r.off}`)].join('~')
     if (key === this._key) return
     this._key = key
     el.style.display = ''
@@ -828,7 +830,7 @@ export class CouchGear {
       <p class="couch-menu-coins">${esc(t('campCoins', { n: money(this.bm.game?.settings, this.coins) }))}</p>
       ${tabs}
       <div class="couch-menu-list">${list}</div>
-      <p class="couch-menu-hint">${esc(m.screen === 'shop' ? t('couchMenuHintTabs') : t('couchMenuHint'))}</p>
+      <p class="couch-menu-hint">${esc(m.screen === 'shop' ? t(kb ? 'couchMenuHintTabsKeys' : 'couchMenuHintTabs') : t(kb ? 'couchMenuHintKeys' : 'couchMenuHint'))}</p>
     </div>`
     // Skin pictures: the flat front view (cached).
     for (const img of el.querySelectorAll('img[data-skin]')) {

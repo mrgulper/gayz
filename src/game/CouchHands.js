@@ -308,7 +308,7 @@ export class CouchHands {
     this.ride = got
     this.dig = null
     p.vx = p.vy = p.vz = 0
-    this.c.p2Message(t('couchRideHint'), 4)
+    this.c.p2Message(t(this.c.keys?.joined ? 'couchRideHintKeys' : 'couchRideHint'), 4)
     return true
   }
 

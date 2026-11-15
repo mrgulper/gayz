@@ -127,3 +127,10 @@ Gaymi: "make gayz more funny based instead of looking so cold" - did all 13 idea
 - `BuildSurvival._placeOf(p)` -> 'moon' | 'era:<id>' | 'home'; `_spawnSpots` picks one of the two places 50/50 when split, home spots filtered to home. CouchCoop `_leash` skipped (equal only) while places differ; BuildMode `_updateWorld` adds P2 as a land-loading point. Split-screen skies: `drawFrame` calls `viewSky('p2')` before P2's half, `viewSky('p1')` after.
 - CouchHands Y: Cure, then `moon.use('p2')`, `time.use('p2')`, then vehicles/blocks. CouchGear `_useDef`: rocket/timeMachine -> `world` (placed in front of P2), timePass -> hint. Test: `tests/couch.spec.js` seventh test.
 
+
+## Couch Co-op: keyboard Player 2 (2026-11-15)
+- `CouchKeys.js` (`couch.keys`): no controller -> any Numpad key joins; `_findPad` returns `keys.pad()`, a fake Gamepad (buttons + axes), so Gear/Hands/Toys work unchanged. `padIndex = -2` = keyboard (Play Again keeps it; `setCouchPad(-2)` lets P1 use any real pad).
+- Keys: arrows up/down walk (axes[1]), left/right turn (axes[2] x0.75) / steer in a ride (axes[0]) / D-pad when the menu is open or dancing. Num1-8 `couch.pickSlot`, Num9 RB, Num0 RT, `.` LT, Enter A, `/` B, `-` X, `+` Y, `*` Back, End D-pad down, Right Shift run (held).
+- No stick to look up/down: `CouchCoop._autoPitch` (gun: nearest zombie within ~25 deg ahead, + gentle yaw assist when not turning; block/tool: -0.6 rad).
+- `Keybinds.setBlockedKeys(P2_KEYS)` removes P1's arrow / Right Shift fallbacks while keyboard P2 is in; `dispose()` clears it.
+- Hints switch to key names: `couch*Keys` i18n keys. Test: `tests/couch.spec.js` last test.

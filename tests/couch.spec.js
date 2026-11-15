@@ -1031,3 +1031,93 @@ test('couch co-op: equal Player 2 flies to the Moon and travels in time', async 
   })
   expect(Object.keys(r).filter((k) => r[k] !== true)).toEqual([])
 })
+
+// No controller: Player 2 plays on the arrows and number pad (CouchKeys.js,
+// 2026-11-15) and Player 1's arrow-key walking stops.
+test('couch co-op: keyboard Player 2 joins, walks, turns, picks slots and shoots', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [], configurable: true })
+    const key = (code, down) => window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { code, bubbles: true }))
+    g._couchNext = 'equal'
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    b.update(0.016)
+    b.survival.start({ fromMenu: true })
+    const s = b.survival
+    if (s._picking) s._pickWeapon('rifle')
+    const step = (n = 1, dt = 0.05) => { for (let i = 0; i < n; i++) b.update(dt) }
+    const tap = (code) => { key(code, true); step(1); key(code, false); step(1) }
+    step(4)
+    const c = s.couch
+    const gear = c.gear
+    out.hint = /number pad/.test(document.getElementById('couch-p2-msg').textContent)
+    // An arrow before joining is still Player 1's; a number pad key joins.
+    tap('ArrowUp')
+    out.notYet = !c.joined
+    tap('Numpad5')
+    out.joined = c.joined && c.padIndex === -2
+    // Equal: pick a skin with the keyboard (arrows + Num Enter).
+    out.skinMenu = gear.menu?.screen === 'skin' && /Num/.test(document.querySelector('#couch-menu .couch-menu-hint')?.textContent || '')
+    // (The first skin is the one worn now: down one, then pick.)
+    tap('ArrowDown')
+    tap('NumpadEnter')
+    out.menuClosed = !gear.menuOpen
+    // Up arrow walks Player 2, not Player 1.
+    const p1 = { ...s.bodyPos() }
+    const p2 = { x: c.p2.x, z: c.p2.z }
+    key('ArrowUp', true)
+    step(20)
+    key('ArrowUp', false)
+    step(2)
+    out.p2Walked = Math.hypot(c.p2.x - p2.x, c.p2.z - p2.z) > 1
+    out.p1Stayed = Math.hypot(s.bodyPos().x - p1.x, s.bodyPos().z - p1.z) < 0.3
+    // Right arrow turns.
+    const yaw = c.p2.yaw
+    key('ArrowRight', true)
+    step(10)
+    key('ArrowRight', false)
+    out.turned = c.p2.yaw < yaw - 0.3
+    // Number pad 3 picks hotbar slot 3, then 1 goes back to the gun.
+    tap('Numpad3')
+    out.slot3 = gear.active === 2
+    tap('Numpad1')
+    out.slot1 = gear.active === 0 && gear.holdingGun()
+    // Number pad 0 shoots.
+    const a = c._ammo()
+    const mag = a.mag
+    c.p2.nextShotAt = 0
+    tap('Numpad0')
+    out.shot = !Number.isFinite(mag) || c._ammo().mag < mag
+    // Number pad * opens Player 2's menu; / closes it.
+    tap('NumpadMultiply')
+    out.menuOpens = gear.menuOpen
+    tap('NumpadDivide')
+    if (gear.menuOpen) tap('NumpadDivide')
+    out.menuCloses = !gear.menuOpen
+    // Play Again keeps the keyboard Player 2.
+    const safe = s._campSafe
+    s._campSafe = () => false
+    try {
+      s.armor = 0
+      s.health = 1
+      s._hurtPlayer(50)
+      c.hurtP2(1000)
+      step(2)
+    } finally {
+      s._campSafe = safe
+    }
+    document.getElementById('build-play-again-btn').click()
+    if (s._picking) s._pickWeapon('rifle')
+    step(4)
+    out.againKeys = !!s.couch?.joined && s.couch.padIndex === -2
+    s.stop()
+    return out
+  })
+  expect(r).toMatchObject({
+    hint: true, notYet: true, joined: true, skinMenu: true, menuClosed: true, p2Walked: true, p1Stayed: true,
+    turned: true, slot3: true, slot1: true, shot: true, menuOpens: true, menuCloses: true, againKeys: true,
+  })
+})

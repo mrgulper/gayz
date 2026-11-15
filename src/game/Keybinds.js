@@ -153,7 +153,14 @@ export function setAllBindings(map) {
 // fallback key.
 export function keysFor(action) {
   const bound = new Set(Object.values(bindings))
-  return [bindings[action], ...(FALLBACK_KEYS[action] || []).filter((k) => !bound.has(k))].filter(Boolean)
+  return [bindings[action], ...(FALLBACK_KEYS[action] || []).filter((k) => !bound.has(k))].filter((k) => k && !blockedKeys.has(k))
+}
+
+// Couch Co-op's keyboard Player 2 (CouchKeys.js) owns the arrows, the
+// number pad and Right Shift while playing: Player 1 doesn't also move.
+let blockedKeys = new Set()
+export function setBlockedKeys(list) {
+  blockedKeys = new Set(list)
 }
 
 // Is the action held, given the set of key codes currently down?
