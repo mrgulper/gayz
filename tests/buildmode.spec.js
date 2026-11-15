@@ -4944,9 +4944,9 @@ test('sun-burning zombies, cave zombies, own meat drops, new creatures, scary hu
     out.caveRarer = skipped > 60 && skipped < 160
     for (const z of [...s.zombies]) s._removeZombie(z)
     s.zombies = []
-    // Every animal its own meat, named for it.
+    // Every animal drops its own body part, named for it.
     const label = (kind) => s.inv._label({ kind: 'item', id: `meat_${kind}` })
-    out.meats = ['cow', 'pig', 'sheep', 'chicken', 'deer', 'lion', 'salmon', 'duck', 'dragon'].map(label)
+    out.meats = ['cow', 'pig', 'elephant', 'chicken', 'deer', 'lion', 'shark', 'turtle', 'dragon'].map(label)
     const A = s.animals
     const K = A.constructor.KINDS
     out.allMeat = Object.keys(K).every((kind) => !label(kind).includes('{'))
@@ -4965,7 +4965,7 @@ test('sun-burning zombies, cave zombies, own meat drops, new creatures, scary hu
   expect(r).toEqual({
     sunny: true, rain: true, snow: true, night: true, shade: true,
     inCave: true, caveTougher: true, caveRarer: true,
-    meats: ['Raw Beef', 'Raw Pork', 'Raw Mutton', 'Raw Chicken', 'Raw Venison', 'Raw Lion Meat', 'Raw Salmon', 'Raw Duck', 'Raw Dragon Meat'],
+    meats: ['Cow Hoof', 'Pig Snout', 'Elephant Tusk', 'Chicken Wing', 'Deer Antler', 'Lion Mane', 'Shark Fin', 'Turtle Shell', 'Dragon Scale'],
     allMeat: true, creatures: 30, yetiTall: 2, dragonEyes: 2, scary: true, bigRex: true,
   })
 })

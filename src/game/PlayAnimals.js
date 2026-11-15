@@ -260,21 +260,60 @@ for (const table of Object.values(BIOME_ANIMALS)) {
 }
 export const animalNameKey = (kind) => `animal${kind[0].toUpperCase()}${kind.slice(1)}`
 const nameKey = animalNameKey
-// Every animal drops its own raw meat (2026-10-30, Gaymi: "every animal
-// must have their own drop like a cow might drop beef"): an item per kind
-// (PlayInventory.addAnimalMeat) - beef, pork, mutton, chicken, venison and
-// rabbit by their real names, fish and birds as "Raw <animal>", the rest
-// as "Raw <animal> Meat". The look: fish, poultry, bug or red meat.
-const MEAT_NAMES = {
-  invRawBeef: 'cow bull ox bison yak waterBuffalo muskox',
-  invRawPork: 'pig boar warthog peccary babirusa',
-  invRawMutton: 'sheep bighornSheep goat mountainGoat',
-  invRawChicken: 'chicken rooster',
-  invRawVenison: 'deer elk moose reindeer muntjac',
-  invRawRabbit: 'rabbit hare',
+// Every animal drops a body part named for it (2026-11-15, Gaymi: drops
+// named like Tusk, Horn, Fin, Claw, Shell - "Elephant Tusk"), still eaten
+// like Meat. Animals not listed fall back by shape: birds a Wing, fish a
+// Fin, bugs a Leg, everything else a Paw. Key: invPart<Part>, a template
+// with {animal} in every language. Item ids stay 'meat_<kind>' (saves,
+// Hunger.js).
+const BODY_PARTS = {
+  Tusk: 'elephant walrus warthog babirusa mammoth narwhal boar peccary hippo pygmyHippo',
+  Horn: 'rhino bull ox bison yak waterBuffalo muskox goat bighornSheep mountainGoat ibex markhor chamois takin saiga pronghorn oryx kudu eland bongo nyala springbok dikDik impala gazelle wildebeest unicorn triceratops carnotaurus rhinoBeetle',
+  Antler: 'deer elk moose reindeer muntjac jackalope',
+  Hoof: 'cow horse zebra donkey pony mule przewalskiHorse llama alpaca guanaco vicuna',
+  Snout: 'pig tapir aardvark mole proboscisMonkey elephantShrew gharial sawfish',
+  Leg: 'sheep turkey frog toad bullfrog treeFrog poisonDartFrog grasshopper cricket stickInsect centipede millipede caterpillar waterStrider ostrich emu rhea roadrunner secretaryBird flamingo crane heron stork compsognathus',
+  Hump: 'camel',
+  Neck: 'giraffe gerenuk brachiosaurus diplodocus apatosaurus brontosaurus lakeMonster',
+  Tongue: 'chameleon anteater okapi numbat',
+  Scale: 'pangolin lizard iguana gecko komodoDragon monitorLizard gilaMonster snake boa python anaconda seaSnake dragon',
+  Tail: 'muskrat salamander newt shrimp seahorse fox arcticFox redPanda raccoon squirrel flyingSquirrel beaver skunk opossum lemur ringTailedLemur monkey spiderMonkey howlerMonkey capuchin marmoset tamarin colobus wallaby quokka jerboa crocodile alligator caiman rat chipmunk sugarGlider binturong kinkajou coati civet',
+  Pouch: 'kangaroo',
+  Shell: 'turtle seaTurtle tortoise snappingTurtle armadillo snail conch nautilus hermitCrab ladybug darkLadybug',
+  Claw: 'tiger cheetah leopard jaguar snowLeopard cougar blackPanther cloudedLeopard crab lobster crayfish mantisShrimp mantis bear grizzlyBear kodiakBear blackBear sunBear spectacledBear slothBear polarBear panda wolverine honeyBadger badger sloth velociraptor griffin',
+  Fang: 'wolf greyWolf hyena tasmanianDevil sabertooth cobra spider tarantula tRex giganotosaurus allosaurus megalosaurus piranha dhole africanWildDog dingo jackal',
+  Mane: 'lion manedWolf gelada',
+  Ear: 'rabbit hare fennecFox bilby serval caracal lynx chinchilla',
+  Flipper: 'seal seaLion elephantSeal leopardSeal manatee dugong penguin',
+  Blubber: 'whale humpbackWhale spermWhale blueWhale belugaWhale',
+  Fin: 'orca dolphin',
+  Tentacle: 'octopus squid jellyfish cuttlefish kraken',
+  Arm: 'starfish gorilla chimpanzee orangutan bonobo gibbon',
+  Quill: 'porcupine hedgehog echidna',
+  Stinger: 'bee wasp hornet scorpion manticore stingray mosquito',
+  Mandible: 'ant queenAnt soldierAnt termite beetle stagBeetle',
+  Antenna: 'cockroach',
+  Beak: 'toucan hornbill pelican brownPelican shoebill kiwi spoonbill ibis puffin kookaburra woodpecker platypus',
+  Feather: 'peacock phoenix quetzal parrot macaw cockatoo pheasant lovebird budgie canary blueJay cardinal',
+  Talon: 'eagle hawk falcon kestrel osprey harpyEagle condor vulture',
+  Crest: 'cassowary basilisk parasaurolophus dilophosaurus rooster hoopoe',
+  Frill: 'frilledLizard',
+  Head: 'hydra cerberus pachycephalosaurus',
+  Whisker: 'seaOtter cat mouse catfish',
+  Spike: 'seaUrchin pufferfish lionfish stonefish tuatara iguanodon',
+  Plate: 'stegosaurus',
+  Sail: 'spinosaurus',
+  Club: 'ankylosaurus',
+  Slime: 'slug earthworm leech seaCucumber sponge blobfish nudibranch',
+  Lantern: 'firefly glowworm anglerfish',
+  Rattle: 'rattlesnake',
+  Finger: 'ayeAye',
+  Foot: 'yeti sasquatch',
+  Gill: 'axolotl',
+  Wing: 'chicken bat pteranodon pegasus butterfly moth dragonfly fly cicada',
 }
-const MEAT_KEY_OF = {}
-for (const [key, ids] of Object.entries(MEAT_NAMES)) for (const id of ids.split(' ')) MEAT_KEY_OF[id] = key
+const PART_OF = {}
+for (const [part, ids] of Object.entries(BODY_PARTS)) for (const id of ids.split(' ')) PART_OF[id] = part
 // Two-legged but not birds.
 const NOT_BIRDS = /monkey|ape$|gorilla|chimp|bonobo|orangutan|gibbon|baboon|mandrill|lemur|capuchin|marmoset|tamarin|colobus|gelada|tarsier|loris|ayeAye|kangaroo|wallaby|meerkat|yeti|sasquatch/i
 const meatId = (kind) => `meat_${kind}`
@@ -282,7 +321,8 @@ for (const [kind, k] of Object.entries(KINDS)) {
   const bug = (k.legs === 6 || k.legs === 8) && !k.swim
   const bird = k.legs === 2 && !k.dino && !NOT_BIRDS.test(kind)
   const icon = k.swim ? 'fishMeat' : bug ? 'bugMeat' : bird ? 'poultry' : 'meat'
-  addAnimalMeat(meatId(kind), { key: MEAT_KEY_OF[kind] || (k.swim || bird ? 'invRawOf' : 'invRawMeatOf'), animalKey: nameKey(kind), icon })
+  const part = PART_OF[kind] || (bird ? 'Wing' : k.swim && !k.legs ? 'Fin' : bug ? 'Leg' : 'Paw')
+  addAnimalMeat(meatId(kind), { key: `invPart${part}`, animalKey: nameKey(kind), icon })
 }
 // Most placed animals in one map (BuildMode.animalSpots).
 export const MAX_PLACED = 300

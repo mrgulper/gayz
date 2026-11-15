@@ -136,8 +136,8 @@ export const ITEMS = {
   shield: { key: 'invShield', armor: 2, slot: 4 },
 }
 
-// Each animal's own raw meat ('meat_<kind>', PlayAnimals.js): eaten like
-// Meat. key names it ({animal} = its translated animal name), icon is
+// Each animal's own drop, a body part ('meat_<kind>', PlayAnimals.js): eaten
+// like Meat. key names it ({animal} = its translated animal name), icon is
 // which picture it uses.
 export function addAnimalMeat(id, { key, animalKey, icon }) {
   ITEMS[id] = { key, animalKey, icon, heal: ITEMS.meat.heal }
