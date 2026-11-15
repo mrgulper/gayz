@@ -142,6 +142,9 @@ export class PlayOnboarding {
 
   _showHint() {
     this._hintShown = true
+    // A ring game: the ring tutorial (RingTutorial.js) teaches the
+    // controls instead - this hint is about guns.
+    if (this.s.ringTutorial?.active) return
     let el = document.getElementById('play-first-hint')
     if (!el) {
       el = document.createElement('div')

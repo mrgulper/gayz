@@ -189,6 +189,8 @@ body.touch-play-on #emote-wheel kbd { display: none; }
 }
 html.ui-theme-biome #play-first-hint { color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); }
 #play-first-hint.gone { opacity: 0; }
+html.ui-theme-biome #play-ring-tutorial:not(.ring-tut-ticked) { color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); }
+html.ui-theme-biome #play-ring-tutorial .ring-tut-skip { border-color: var(--biome-line); background: rgba(var(--biome-ink-rgb), 0.08); }
 body.touch-play-on #play-first-hint { bottom: auto; top: 34%; font-size: 18px; white-space: normal; width: max-content; }
 
 /* The Use prompts under the crosshair (camp NPCs, survivors' orders). */

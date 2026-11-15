@@ -19,6 +19,7 @@
 import { t } from './i18n.js'
 import { getKeyFor, keyLabel } from './Keybinds.js'
 import { sillyTip } from './SillyTips.js'
+import { resetRingTutorial } from './RingTutorial.js'
 
 // ---------- Confirm Buying Over (55) ----------
 
@@ -110,6 +111,7 @@ export function setTutorialReplay(on) {
 export function onGameplayButton(key, game) {
   if (key === 'replayTutorial') {
     setTutorialReplay(true)
+    resetRingTutorial()
     resetHints()
     game._showHomepageToast?.(t('replayTutorialDone'))
   } else if (key === 'resetHints') {

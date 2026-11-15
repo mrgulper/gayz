@@ -18,8 +18,10 @@ import { SKIN_RARITIES } from './InventorySkins.js'
 export const RING_SLOTS = 3
 export const MAX_SLOTS = 10
 const META_KEY = 'gayz-meta-progress'
-// Points for slot 4, 5, ... 10.
-export const SLOT_COSTS = [500, 1000, 2000, 3500, 5500, 8000, 12000]
+// Points for slot 4, 5, ... 10. Batch 5 balance pass: a game earns
+// roughly 100-150 Points (PlayRules POINTS_PER_KILL/WAVE x 0.2), so slot 4
+// comes after 2-3 games and all 10 after a long while (was 500 ... 12000).
+export const SLOT_COSTS = [250, 600, 1200, 2200, 3600, 5500, 8000]
 export const RARITIES = Object.keys(SKIN_RARITIES) // common ... mythic
 export const BAG_KEY = 'gayz-ring-bag'
 export const LOADOUT_KEY = 'gayz-ring-loadout'
@@ -78,8 +80,12 @@ export function itemStats(id, rarity) {
 // --- which rarity a zombie drops ---
 
 // Every zombie drops one item (Gaymi: "each zombie must drop something").
-// Out of 1000: mostly Common, Mythic one in a thousand.
-const DROP_WEIGHTS = [600, 250, 100, 40, 9, 1]
+// Out of 1000: mostly Common, Mythic one in five thousand. Batch 5
+// balance pass: every kill drops, so with the old 4% Epic a usual game
+// (~30 kills) gave an Epic each time and a Legendary every few games -
+// faster than the Shop or merging could ever matter. Now an Epic about
+// every 2-3 games, a Legendary every ~20 (was 600/250/100/40/9/1).
+export const DROP_WEIGHTS = [700, 220, 65, 13, 1.8, 0.2]
 
 // tier: the zombie's own rarity (ZombieNames.js) - a rarer zombie drops at
 // least one step below its own; a boss drops two steps up, Rare at least.
@@ -211,7 +217,9 @@ export function mergeItem(key, times = 1) {
 
 // Points for one item at each rarity: x4 a step (a merge takes 5, so
 // buying the rarer one straight away is a little cheaper).
-export const SHOP_PRICES = [40, 160, 640, 2560, 10240, 40960]
+// Batch 5 balance pass: a bit cheaper, so one good game buys an
+// Uncommon and an Epic is a goal of a dozen games (was 40 ... 40960).
+export const SHOP_PRICES = [30, 120, 500, 2000, 8000, 30000]
 // Common, Uncommon and Rare are always for sale. Epic and up only some
 // days (Gaymi: "make higher rarities rarer"): each item's Epic is in stock
 // 40% of days, Legendary 15%, Mythic 4% - and only one each that day.
@@ -219,7 +227,8 @@ const DAILY_CHANCE = [1, 1, 1, 0.4, 0.15, 0.04]
 export const ALWAYS_STOCKED = 3
 const SHOP_DAY_KEY = 'gayz-ring-shop'
 // The Mystery Box: one random item, rarer ones less often (out of 1000).
-export const BOX_COST = 350
+// (Worth ~290 Points on average at Shop prices.)
+export const BOX_COST = 300
 const BOX_WEIGHTS = [550, 280, 120, 40, 9, 1]
 
 export function shopPrice(rarity) {

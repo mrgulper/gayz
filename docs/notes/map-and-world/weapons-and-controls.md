@@ -49,6 +49,11 @@ Split out of the old `map-and-world.md` on 2026-11-13 (word for word, oldest fir
 - Ring bar `#play-ring-bar` (hotbar slot look, round): right of the hotbar; on phones under the minimap (a column when upright).
 - Tests: Playwright (`navigator.webdriver`) keeps guns unless `window.__ringForTests` - older specs shoot in Classic. Ring specs: "Spin ring: ..." and "spin ring on a phone".
 
+## Spin ring, Batch 5 (2026-11-15): tutorial + balance pass
+- `RingTutorial.js` (`survival.ringTutorial`): first ring game for everyone (flag `gayz-ring-tutorial`='1' when finished or skipped; Replay Tutorial clears it). Steps spread -> pull -> pickup -> bag -> swap -> done; spread/pull = `ring._push()` held `HOLD_S`; hooks `did()` in RingLoot._collect, RingEditor.open, RingEditor._apply. Green tick + `GAP_S` between steps. Skip button (pointer-events only on it). PlayOnboarding's gun hint is skipped while it runs. Tests: off under webdriver unless `__ringTutorialForTests`.
+- `#play-ring-tutorial` z 22 (above the Ring Bag, z 21). Phones: landscape top 108px between left edge and minimap; portrait top 210px (under the top button row), left of the ring bar column.
+- Balance (guesses, tune after real play): a game earns ~100-150 Points (kills x10 + waves x50, x0.2). SLOT_COSTS 250..8000 (was 500..12000); DROP_WEIGHTS 700/220/65/13/1.8/0.2 (was 600/250/100/40/9/1 = an Epic every game); SHOP_PRICES 30/120/500/2000/8000/30000; BOX_COST 300 (EV ~290). Item damage and LobbyRules.rewardMult unchanged (looked fine on paper).
+
 ## Spin ring, Batch 2 (2026-11-15): items, drops, bag, ring editor
 - `RingItems.js`: 9 items (brick, sawblade, bandage, icecube, battery, shield, firecracker, magnet, cactus) x 6 rarities (SKIN_RARITIES order). Keys are `id:rarity`. Each rarity step = x1.5 damage/heal/guard/thorns, 6% faster reload; slow/zap/blast/pull grow too (`itemStats`). Gaymi asked to copy florr's items; kept florr's *pattern* only (own items, names, art).
 - Drops (`RingLoot.js`): every kill of mine in a ring game drops one item (Gaymi: "each zombie must drop something"). `rollDrop`: 60/25/10/4/0.9/0.1 %; at least one tier under the zombie's own; bosses +2, Rare minimum. 90 s life, max 60 on the ground. Pickup range 2.2 blocks, the Magnet's `pull` widens it. Remote kills / Couch P2 kills drop nothing (Batch 4 = multiplayer).
