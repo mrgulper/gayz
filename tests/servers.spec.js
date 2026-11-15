@@ -4,7 +4,7 @@ import { fakeServerDb } from './fakeServerDb.js'
 import { recordStats } from '../api/_lib/playStats.js'
 import { PROVIDERS, isCallback, missingKeys, firebaseUid, cleanProfile, sameState, resultPage, siteOrigin } from '../api/_lib/oauth.js'
 import { createServer, joinServer, listServers, syncServer, leaveServer, MAX_PLAYERS, STALE_MS, JOIN_GRACE_MS } from '../api/_lib/servers.js'
-import { publicConfig, reportPlayer, adminState, setBanner, setEvents, kickPlayer, unban, hideContent, dismissContentReport, dismissPlayerReport, seenWarning, redeemCode, CODE_TRIES_PER_HOUR, REPORT_GAP_MS, ADMIN_ACTIONS, publicHallOfFame, claimGiftFor } from '../api/_lib/admin.js'
+import { publicConfig, reportPlayer, adminState, setBanner, setEvents, kickPlayer, unban, hideContent, dismissContentReport, dismissPlayerReport, seenWarning, redeemCode, CODE_TRIES_PER_HOUR, REPORT_GAP_MS, ADMIN_ACTIONS, publicHallOfFame, claimGiftFor, ipBan, ipUnban, changeId, warnPlayer, playerCard } from '../api/_lib/admin.js'
 
 // The owner dropping in (OwnerDropIn.js): a pass from the owner's tools
 // lets them in visible (gold tag) or invisible (sent to nobody, changes
@@ -2320,4 +2320,90 @@ test('helper accounts: login, reports, checks; language check', async () => {
   expect(es.counts.missing).toBe(0)
   expect(es.counts.lines).toBe(0)
   expect(langs.languages.find((l) => l.code === 'fr').missing).toBeUndefined()
+})
+
+test('IP bans, the Shop custom-ID block and Console ID changes (admin.js)', async () => {
+  const db = fakeServerDb()
+  const t0 = 1_800_000_000_000
+  const IP_A = 'aaaaaaaaaaaaaaaaaaaaaaaa'
+  const IP_B = 'bbbbbbbbbbbbbbbbbbbbbbbb'
+  // The page checking in remembers the (scrambled) address, once an hour.
+  await publicConfig(db, { pid: 'BAD123', _ip: IP_A }, t0)
+  expect(db.root.pidIps.BAD123[IP_A]).toBe(t0)
+  await publicConfig(db, { pid: 'BAD123', _ip: IP_A }, t0 + 1000)
+  expect(db.root.pidIps.BAD123[IP_A]).toBe(t0)
+  // A made-up `_ip` shape is ignored.
+  await publicConfig(db, { pid: 'BAD123', _ip: '<x>' }, t0)
+  expect(Object.keys(db.root.pidIps.BAD123)).toEqual([IP_A])
+  // No address seen yet: nothing to IP-ban.
+  await expect(ipBan(db, { pid: 'NEW999', minutes: 60 }, t0)).rejects.toMatchObject({ code: 'no-ip' })
+  await expect(ipBan(db, { pid: 'BAD123', minutes: -5 }, t0)).rejects.toMatchObject({ code: 'bad-minutes' })
+  // Custom length (90 min): a brand-new Player ID on the same address is out too.
+  expect(await ipBan(db, { pid: 'BAD123', minutes: 90, reason: 'alts', nick: 'Rude' }, t0)).toMatchObject({ ok: true, count: 1 })
+  await expect(createServer(db, { nickname: 'Alt', pid: 'ALT777', _ip: IP_A }, t0 + 10)).rejects.toMatchObject({ code: 'banned' })
+  const fresh = await createServer(db, { nickname: 'Other', pid: 'OTHER1', _ip: IP_B }, t0 + 10)
+  await expect(joinServer(db, { serverId: fresh.serverId, nickname: 'Alt', pid: 'ALT777', _ip: IP_A }, t0 + 20)).rejects.toMatchObject({ code: 'banned' })
+  expect((await publicConfig(db, { pid: 'ALT777', _ip: IP_A }, t0 + 20)).ban).toMatchObject({ until: t0 + 90 * 60000, reason: 'alts' })
+  expect((await publicConfig(db, { pid: 'ALT777', _ip: IP_A }, t0 + 20)).idShopBlocked).toBe(true)
+  expect((await adminState(db, null, t0 + 20)).ipBans).toEqual([expect.objectContaining({ pid: 'BAD123', count: 1, nick: 'Rude' })])
+  expect((await playerCard(db, null, 'BAD123', t0 + 20)).ipBan).toMatchObject({ pid: 'BAD123' })
+  // It runs out by itself; Lift ends it early.
+  expect((await publicConfig(db, { pid: 'ALT777', _ip: IP_A }, t0 + 90 * 60000 + 1)).ban).toBe(null)
+  await ipUnban(db, { pid: 'BAD123' })
+  expect(db.root.ipBans || {}).toEqual({})
+  await createServer(db, { nickname: 'Alt', pid: 'ALT777', _ip: IP_A }, t0 + 30)
+
+  // Shop block: a warning in the last 30 days, not older.
+  expect((await publicConfig(db, { pid: 'WARN01' }, t0)).idShopBlocked).toBe(false)
+  await warnPlayer(db, { pid: 'WARN01', text: 'Be nice' }, t0)
+  expect((await publicConfig(db, { pid: 'WARN01' }, t0 + 1000)).idShopBlocked).toBe(true)
+  expect((await publicConfig(db, { pid: 'WARN01' }, t0 + 31 * 86400000)).idShopBlocked).toBe(false)
+  await kickPlayer(db, { pid: 'BANNED', minutes: 60 }, t0)
+  expect((await publicConfig(db, { pid: 'BANNED' }, t0 + 1)).idShopBlocked).toBe(true)
+
+  // Change ID: claimed for their account, their page is told the new one.
+  const claims = { TAKEN1: 'someone-else' }
+  const boards = { 'uidme': 'OLD123', 'uidx': 'USED22' }
+  const fs = {
+    playerIdOwner: async (id) => claims[id] || null,
+    accountsByPid: async (pid) => Object.entries(boards).filter(([, p]) => p === pid).map(([uid]) => ({ uid, lastActiveAt: 1 })),
+    claimPlayerIdFor: async (uid, id) => { if (claims[id] && claims[id] !== uid) throw new Error('taken'); claims[id] = uid },
+    setLeaderboardPid: async (uid, id) => { boards[uid] = id },
+  }
+  await expect(changeId(db, fs, { pid: 'OLD123', newId: 'taken1' }, t0)).rejects.toMatchObject({ code: 'taken' })
+  await expect(changeId(db, fs, { pid: 'OLD123', newId: 'USED22' }, t0)).rejects.toMatchObject({ code: 'taken' })
+  await expect(changeId(db, fs, { pid: 'OLD123', newId: 'ab' }, t0)).rejects.toMatchObject({ code: 'bad-id' })
+  await expect(changeId(db, fs, { pid: 'OLD123', newId: 'old123' }, t0)).rejects.toMatchObject({ code: 'same-id' })
+  expect(await changeId(db, fs, { pid: 'OLD123', newId: 'cool-1', nick: 'Me' }, t0)).toMatchObject({ ok: true, to: 'COOL1', signedIn: true })
+  expect(claims.COOL1).toBe('uidme')
+  expect(boards['uidme']).toBe('COOL1')
+  expect((await publicConfig(db, { pid: 'OLD123' }, t0 + 1)).newId).toBe('COOL1')
+  expect((await publicConfig(db, { pid: 'COOL1' }, t0 + 1)).newId).toBe(null)
+  expect((await playerCard(db, null, 'OLD123', t0 + 1)).movedTo).toBe('COOL1')
+  // A guest (no signed-in account) just gets switched.
+  expect(await changeId(db, fs, { pid: 'GUEST1', newId: 'GUEST2' }, t0)).toMatchObject({ ok: true, signedIn: false })
+  // Nobody else can be given an ID that is waiting to be picked up.
+  await expect(changeId(db, fs, { pid: 'OTHER9', newId: 'GUEST2' }, t0)).rejects.toMatchObject({ code: 'taken' })
+  // Logged in the Console's history.
+  await ADMIN_ACTIONS.changeId(db, { pid: 'OLD999', newId: 'FINE12' }, fs)
+  expect(Object.values(db.root.adminLog).some((e) => e.text.includes('#FINE12'))).toBe(true)
+})
+
+// The Console changed this player's Player ID: the real page switches to
+// it, saves it and says so (LiveConfig.applyNewId).
+test('live config: a Player ID change from the team switches the page', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__liveConfigForTests = async (body) => ({ banner: null, events: {}, hidden: { maps: [], builds: [] }, newId: body.pid === 'NEWID7' ? null : 'NEWID7' })
+  })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g.__liveAsk()
+    await new Promise((res) => setTimeout(res, 300))
+    return { id: g.settings.playerId, saved: JSON.parse(localStorage.getItem('gayz-settings')).playerId, tag: g.menuPlayerTag.textContent, toast: g.loreToast.textContent }
+  })
+  expect(r.id).toBe('NEWID7')
+  expect(r.saved).toBe('NEWID7')
+  expect(r.tag).toBe('#NEWID7')
+  expect(r.toast).toContain('#NEWID7')
 })

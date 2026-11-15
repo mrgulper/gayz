@@ -6,10 +6,13 @@
 //   CUSTOM_ID_PRICE gems. Needs sign-in: the ID is claimed online
 //   (CloudSync.claimPlayerId, Firestore playerIds/{ID}) so no two players
 //   can own the same one. Gems are only taken after the claim worked.
+//   Banned players, and anyone warned in the last 30 days, can't buy one
+//   (asked fresh from /api/live each time, LiveConfig.checkIdShopBlocked).
 import * as CloudSync from './CloudSync.js'
 import { PLAYER_ID_MAX, isValidPlayerId, saveSettings, saveShopProgress } from './Game.js'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
+import { checkIdShopBlocked } from './LiveConfig.js'
 
 export const NAME_CHANGE_PRICE = 100
 export const CUSTOM_ID_PRICE = 10000
@@ -70,6 +73,8 @@ export async function buyCustomId(game, rawId) {
   renderShopIdentity(game)
   status('shopIdChecking')
   try {
+    const blocked = game.__idBackendForTests ? !!(await game.__idBackendForTests.isIdShopBlocked?.()) : await checkIdShopBlocked(game)
+    if (blocked) return status('shopIdBlocked')
     if (await cloud.isPlayerIdTaken(id, uid)) return status('shopIdTaken')
     setIdStatus('', false)
     if (!window.confirm(t('shopIdConfirm', { id, price: CUSTOM_ID_PRICE.toLocaleString() }))) return

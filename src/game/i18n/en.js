@@ -912,6 +912,8 @@ export default {
   shopIdSame: 'That is already your ID.',
   shopIdNeedGems: 'You need {need} more Gems.',
   shopIdSignIn: 'Sign in first (Profile) so we can check the ID is free.',
+  shopIdBlocked: 'You can\'t buy a custom ID while you\'re banned or had a warning in the last 30 days.',
+  liveIdChanged: 'The GayZ team changed your Player ID to #{id}.',
   shopIdChecking: 'Checking...',
   shopIdTaken: 'This ID is already taken',
   shopIdConfirm: 'Make #{id} your ID for {price} Gems?',

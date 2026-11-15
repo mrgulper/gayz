@@ -71,6 +71,15 @@
 //   Owner powers (2026-11-15): see ownerPowers.js - serverCmd runs one
 //   command on a server, giveTo leaves a gift for a Player ID
 //   (playerGifts/{pid}), which their page picks up (claimGift).
+//   IP bans and ID changes (2026-11-15):
+//   pidIps/{pid}/{ipKey}  when this Player ID last asked from that
+//                  scrambled internet address (handle.js ipKey - never the
+//                  real address); the newest IPS_KEPT are kept
+//   ipBans/{ipKey} { until (0 = forever), reason, nick, pid, at } - nobody
+//                  on that address can make/join servers (like bans/{pid})
+//   idChanges/{oldPid} { to, at, nick } - the Console gave this player a
+//                  new Player ID; any of their devices still on the old one
+//                  switches (publicConfig `newId`) for ID_CHANGE_MS
 import { randomBytes } from 'node:crypto'
 import { ServerError } from './servers.js'
 import { DAILY_TEMPLATES, challengeFor } from '../../src/game/DailyChallenge.js'
@@ -104,7 +113,7 @@ const LOG_KEPT = 300
 // they're left out).
 // Helper accounts are left out on purpose: restoring an old file must
 // never bring back a helper the owner removed.
-export const BACKUP_PATHS = ['liveConfig', 'bans', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes', 'giftCodes', 'giftCodesUsed', 'reportChecks', 'hallOfFame']
+export const BACKUP_PATHS = ['liveConfig', 'bans', 'ipBans', 'idChanges', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes', 'giftCodes', 'giftCodesUsed', 'reportChecks', 'hallOfFame']
 // Restore leaves the history alone: it stays a true record (including the
 // Restore itself).
 const RESTORE_PATHS = BACKUP_PATHS.filter((p) => p !== 'adminLog')
@@ -127,6 +136,19 @@ export function cleanText(v, max) {
 }
 
 const validCode = (v) => typeof v === 'string' && /^[A-Za-z0-9_-]{1,60}$/.test(v)
+
+// --- IP bans, the Shop's custom-ID block, ID changes (2026-11-15) ---
+// A scrambled address from handle.js ipKey.
+const validIp = (v) => typeof v === 'string' && /^[A-Za-z0-9_-]{16,40}$/.test(v)
+// A Player ID the Shop could sell (Game.js isValidPlayerId).
+const validNewId = (v) => typeof v === 'string' && /^[A-Z0-9]{5,10}$/.test(v)
+export const IPS_KEPT = 5
+const IP_SEEN_EVERY_MS = 60 * 60 * 1000
+// The Console picks any IP ban length up to a year (0 = forever).
+export const IP_BAN_MAX_MINUTES = 365 * 24 * 60
+const ID_CHANGE_MS = 30 * 24 * 60 * 60 * 1000
+// Banned, or warned this recently: no buying a custom ID in the Shop.
+export const ID_SHOP_WARN_MS = 30 * 24 * 60 * 60 * 1000
 
 function activeBan(ban, now) {
   if (!ban || typeof ban !== 'object') return null
@@ -325,10 +347,22 @@ export async function worldDrop(db, { kind, who, minutes, cancel } = {}, now = D
 
 // What every player's page gets (api/live.js). Only the asker's own ban,
 // never the list.
-export async function publicConfig(db, { pid } = {}, now = Date.now()) {
+export async function publicConfig(db, { pid, _ip } = {}, now = Date.now()) {
   const ok = validPid(pid)
-  const [cfg, ban, mute, warnings, gifts] = await Promise.all([db.get('liveConfig'), ok ? db.get(`bans/${pid}`) : null, ok ? db.get(`mutes/${pid}`) : null, ok ? db.get(`warnings/${pid}`) : null, ok ? db.get(`playerGifts/${pid}`) : null])
+  const okIp = validIp(_ip)
+  const [cfg, ban, mute, warnings, gifts, ipBanRec, ips, change] = await Promise.all([
+    db.get('liveConfig'),
+    ok ? db.get(`bans/${pid}`) : null,
+    ok ? db.get(`mutes/${pid}`) : null,
+    ok ? db.get(`warnings/${pid}`) : null,
+    ok ? db.get(`playerGifts/${pid}`) : null,
+    okIp ? db.get(`ipBans/${_ip}`) : null,
+    ok && okIp ? db.get(`pidIps/${pid}`) : null,
+    ok ? db.get(`idChanges/${pid}`) : null,
+  ])
+  await noteIp(db, pid, _ip, ips, now).catch(() => {})
   const live = liveEvents(cfg, now)
+  const myBan = activeBan(ban, now) || activeBan(ipBanRec, now)
   return {
     banner: liveBanner(cfg?.banner, now),
     events: live.events,
@@ -342,9 +376,13 @@ export async function publicConfig(db, { pid } = {}, now = Date.now()) {
       maps: Object.keys(cfg?.hidden?.maps || {}),
       builds: Object.keys(cfg?.hidden?.builds || {}),
     },
-    ban: activeBan(ban, now),
+    ban: myBan,
     mute: activeMute(mute, now),
     warnings: unseenWarnings(warnings),
+    // The Shop won't sell this player a custom Player ID (ShopIdentity.js).
+    idShopBlocked: !!myBan || recentWarning(warnings, now),
+    // The Console changed this player's Player ID: their page switches.
+    newId: liveIdChange(change, now),
     off: cleanOff(cfg?.off),
     maintenance: liveMaintenance(cfg?.maintenance),
     poll: livePoll(cfg?.poll, now),
@@ -393,10 +431,31 @@ export async function seenWarning(db, { pid, id } = {}, now = Date.now()) {
   return { ok: true }
 }
 
-// Is this Player ID banned right now? (servers.js, on create/join)
-export async function isBanned(db, pid, now = Date.now()) {
-  if (!validPid(pid)) return false
-  return !!activeBan(await db.get(`bans/${pid}`), now)
+// Is this Player ID (or the address they're asking from) banned right
+// now? (servers.js, on create/join)
+export async function isBanned(db, pid, now = Date.now(), ip = null) {
+  if (validPid(pid) && activeBan(await db.get(`bans/${pid}`), now)) return true
+  return validIp(ip) && !!activeBan(await db.get(`ipBans/${ip}`), now)
+}
+
+function recentWarning(warnings, now) {
+  return Object.values(warnings || {}).some((w) => w && now - (Number(w.at) || 0) < ID_SHOP_WARN_MS)
+}
+
+function liveIdChange(c, now) {
+  if (!c || typeof c !== 'object' || !validNewId(c.to)) return null
+  return now - (Number(c.at) || 0) < ID_CHANGE_MS ? c.to : null
+}
+
+// Remembers which (scrambled) addresses a Player ID plays from, so the
+// Console can IP-ban them. At most once an hour per address.
+async function noteIp(db, pid, ip, seen, now) {
+  if (!validPid(pid) || !validIp(ip)) return
+  if (now - (Number(seen?.[ip]) || 0) < IP_SEEN_EVERY_MS) return
+  const updates = { [`pidIps/${pid}/${ip}`]: now }
+  const others = Object.entries(seen || {}).filter(([k]) => k !== ip).sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0))
+  for (const [k] of others.slice(IPS_KEPT - 1)) updates[`pidIps/${pid}/${k}`] = null
+  await db.update(updates)
 }
 
 // --- The Console's side (api/admin.js) ---
@@ -433,7 +492,7 @@ export async function contentReports(db, fs, hidden) {
 }
 
 export async function adminState(db, fs, now = Date.now()) {
-  const [cfg, bans, reports, players, log] = await Promise.all([db.get('liveConfig'), db.get('bans'), db.get('playerReports'), serverPlayers(db, now), db.get('adminLog')])
+  const [cfg, bans, reports, players, log, ipBans] = await Promise.all([db.get('liveConfig'), db.get('bans'), db.get('playerReports'), serverPlayers(db, now), db.get('adminLog'), db.get('ipBans')])
   const content = await contentReports(db, fs, cfg?.hidden)
   return {
     banner: cfg?.banner || null,
@@ -442,6 +501,8 @@ export async function adminState(db, fs, now = Date.now()) {
     bans: Object.entries(bans || {})
       .filter(([, b]) => activeBan(b, now))
       .map(([pid, b]) => ({ pid, nick: cleanText(b.nick, 24), reason: cleanText(b.reason, 120), until: Number(b.until) || 0, at: Number(b.at) || 0, kick: b.kick === true })),
+    ipBans: ipBanList(ipBans, now),
+    ipBanMaxMinutes: IP_BAN_MAX_MINUTES,
     playerReports: Object.entries(reports || {})
       .map(([id, r]) => ({ id, ...r }))
       .sort((a, b) => (b.at || 0) - (a.at || 0)),
@@ -491,6 +552,90 @@ export async function setEvents(db, events = {}) {
   return { ok: true }
 }
 
+function outOfServer(updates, sid, sl) {
+  updates[`servers/${sid}/players/${sl}`] = null
+  updates[`serverSecrets/${sid}/${sl}`] = null
+  updates[`serverSkins/${sid}/${sl}`] = null
+  updates[`serverPids/${sid}/${sl}`] = null
+}
+
+// Adds "out of every server this Player ID is in" to `updates`.
+async function outOfServers(db, pid, updates) {
+  const all = (await db.get('serverPids')) || {}
+  for (const [sid, slots] of Object.entries(all)) {
+    for (const [sl, p] of Object.entries(slots || {})) if (p === pid) outOfServer(updates, sid, sl)
+  }
+}
+
+// IP ban: every address this Player ID was seen on (pidIps) is banned
+// from making/joining servers for `minutes` (any length the Console
+// picks, 0 = forever), and they're taken out of servers now. Catches a
+// new Player ID on the same internet - and anyone else sharing it.
+export async function ipBan(db, { pid, minutes, reason, nick } = {}, now = Date.now()) {
+  if (!validPid(pid)) throw new ServerError(400, 'bad-request')
+  const mins = Math.floor(Number(minutes))
+  if (!Number.isFinite(mins) || mins < 0 || mins > IP_BAN_MAX_MINUTES) throw new ServerError(400, 'bad-minutes')
+  const ips = Object.keys((await db.get(`pidIps/${pid}`)) || {}).filter(validIp)
+  if (!ips.length) throw new ServerError(404, 'no-ip')
+  const updates = {}
+  await outOfServers(db, pid, updates)
+  const rec = { until: mins ? now + mins * 60000 : 0, reason: cleanText(reason, 120), nick: cleanText(nick, 24), pid, at: now }
+  for (const ip of ips) updates[`ipBans/${ip}`] = rec
+  await db.update(updates)
+  return { ok: true, count: ips.length }
+}
+
+// Lifts every IP ban that was made from this Player ID's card.
+export async function ipUnban(db, { pid } = {}) {
+  if (!validPid(pid)) throw new ServerError(400, 'bad-request')
+  const all = (await db.get('ipBans')) || {}
+  const updates = {}
+  for (const [ip, b] of Object.entries(all)) if (b?.pid === pid) updates[`ipBans/${ip}`] = null
+  if (Object.keys(updates).length) await db.update(updates)
+  return { ok: true }
+}
+
+// Live IP bans, one row per Player ID they were made from.
+function ipBanList(all, now) {
+  const rows = new Map()
+  for (const [ip, b] of Object.entries(all || {})) {
+    if (!validIp(ip) || !validPid(b?.pid) || !activeBan(b, now)) continue
+    const row = rows.get(b.pid) || { pid: b.pid, nick: cleanText(b.nick, 24), reason: cleanText(b.reason, 120), until: Number(b.until) || 0, at: Number(b.at) || 0, count: 0 }
+    row.count++
+    rows.set(b.pid, row)
+  }
+  return [...rows.values()].sort((a, b) => b.at - a.at)
+}
+
+// The Console gives a player a new Player ID, the same as buying one in
+// the Shop but free: claimed online for their signed-in account (so
+// nobody else can buy it) and put on their leaderboard entry; their game
+// switches to it the next time it checks in (publicConfig newId). The
+// old ID stays reserved to their account so nobody else can take it (a
+// device still on the old ID would otherwise switch them). Guests (no
+// signed-in account) just get switched.
+export async function changeId(db, fs, { pid, newId, nick } = {}, now = Date.now()) {
+  const to = String(newId || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  if (!validPid(pid) || !validNewId(to)) throw new ServerError(400, 'bad-id')
+  if (to === pid) throw new ServerError(400, 'same-id')
+  if (!fs?.playerIdOwner || !fs?.accountsByPid) throw new ServerError(503, 'no-firestore')
+  const [owner, users, accounts, pending] = await Promise.all([fs.playerIdOwner(to), fs.accountsByPid(to), fs.accountsByPid(pid), db.get('idChanges')])
+  const mine = accounts.filter((a) => validUid(a?.uid)).sort((a, b) => (Number(b.lastActiveAt) || 0) - (Number(a.lastActiveAt) || 0))[0]
+  const uid = mine?.uid || null
+  if ((owner && owner !== uid) || users.some((a) => a?.uid !== uid) || Object.entries(pending || {}).some(([from, c]) => from !== pid && liveIdChange(c, now) === to)) throw new ServerError(409, 'taken')
+  if (uid) {
+    try {
+      await fs.claimPlayerIdFor(uid, to, now)
+    } catch (err) {
+      if (String(err?.message) === 'taken') throw new ServerError(409, 'taken')
+      throw err
+    }
+    await fs.setLeaderboardPid(uid, to).catch(() => {})
+  }
+  await db.update({ [`idChanges/${pid}`]: { to, at: now, nick: cleanText(nick, 24) } })
+  return { ok: true, to, signedIn: !!uid }
+}
+
 // Out of every server they're in now (by Player ID, or just the one slot
 // when the old page didn't send its Player ID), and banned for `minutes`
 // (0 forever, -1 just a kick, see BAN_MINUTES).
@@ -499,18 +644,9 @@ export async function kickPlayer(db, { pid, serverId, slot, minutes, reason, nic
   if (!BAN_MINUTES.includes(mins)) throw new ServerError(400, 'bad-minutes')
   if (!validPid(pid) && !(validPid(serverId) && validPid(slot))) throw new ServerError(400, 'bad-request')
   const updates = {}
-  const out = (sid, sl) => {
-    updates[`servers/${sid}/players/${sl}`] = null
-    updates[`serverSecrets/${sid}/${sl}`] = null
-    updates[`serverSkins/${sid}/${sl}`] = null
-    updates[`serverPids/${sid}/${sl}`] = null
-  }
-  if (validPid(serverId) && validPid(slot)) out(serverId, slot)
+  if (validPid(serverId) && validPid(slot)) outOfServer(updates, serverId, slot)
   if (validPid(pid)) {
-    const all = (await db.get('serverPids')) || {}
-    for (const [sid, slots] of Object.entries(all)) {
-      for (const [sl, p] of Object.entries(slots || {})) if (p === pid) out(sid, sl)
-    }
+    await outOfServers(db, pid, updates)
     const len = mins === -1 ? KICK_MINUTES : mins
     updates[`bans/${pid}`] = { until: len ? now + len * 60000 : 0, reason: cleanText(reason, 120) || (mins === -1 ? 'Kicked' : ''), nick: cleanText(nick, 24), at: now, ...(mins === -1 ? { kick: true } : {}) }
   }
@@ -631,13 +767,16 @@ async function knownPlayers(db, now) {
 // Everything about one Player ID, for the Console's player card.
 export async function playerCard(db, fs, pid, now = Date.now()) {
   if (!validPid(pid)) throw new ServerError(400, 'bad-request')
-  const [{ known, reports, players }, ban, mute, warnings, note, accounts] = await Promise.all([
+  const [{ known, reports, players }, ban, mute, warnings, note, accounts, ips, ipBans, change] = await Promise.all([
     knownPlayers(db, now),
     db.get(`bans/${pid}`),
     db.get(`mutes/${pid}`),
     db.get(`warnings/${pid}`),
     db.get(`playerNotes/${pid}`),
     accountsFor(fs, pid),
+    db.get(`pidIps/${pid}`),
+    db.get('ipBans'),
+    db.get(`idChanges/${pid}`),
   ])
   const nicks = new Set(known.get(pid) || [])
   for (const a of accounts.list) if (cleanText(a.nickname, 24)) nicks.add(cleanText(a.nickname, 24))
@@ -658,6 +797,10 @@ export async function playerCard(db, fs, pid, now = Date.now()) {
     reportsBy: reportList.filter((r) => r.by === pid),
     accounts: accounts.list.map((a) => ({ uid: a.uid, nickname: cleanText(a.nickname, 24), bestNight: Number(a.bestNight) || 0, lastActiveAt: Number(a.lastActiveAt) || 0, clanId: cleanText(a.clanId, 40) })),
     accountsError: accounts.error,
+    ipsSeen: Object.keys(ips || {}).filter(validIp).length,
+    ipBan: ipBanList(ipBans, now).find((r) => r.pid === pid) || null,
+    movedTo: liveIdChange(change, now),
+    shopBlocked: !!liveBan || recentWarning(warnings, now),
   }
 }
 
@@ -1303,6 +1446,9 @@ const LOG_TEXT = {
   helperRemove: (b) => `Helper account removed${cleanText(b.name, 24) ? `: ${cleanText(b.name, 24)}` : ''}`,
   serverCmd: (b) => powerLog(b),
   giveTo: (b) => `Gift for #${cleanText(b.pid, 40)}: ${giftWords(b)}`,
+  ipBan: (b) => `IP-banned ${cleanText(b.nick, 24) || '?'} #${cleanText(b.pid, 40)} ${Number(b.minutes) ? `for ${minutesText(Number(b.minutes))}` : 'forever'}`,
+  ipUnban: (b) => `Lifted the IP ban on #${cleanText(b.pid, 40)}`,
+  changeId: (b) => `Changed Player ID #${cleanText(b.pid, 40)} to #${String(b.newId || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)}`,
   restore: (b) => `Restored the backup from ${cleanText(b.label, 40) || (Number(b.file?.at) ? `${day(Number(b.file.at))} UTC` : '?')}`,
 }
 
@@ -1355,6 +1501,9 @@ const ACTION_FNS = {
   dropIn: (db, body) => dropIn(db, body),
   serverCmd: (db, body) => serverCmd(db, body),
   giveTo: (db, body) => giveTo(db, body),
+  ipBan: (db, body) => ipBan(db, body),
+  ipUnban: (db, body) => ipUnban(db, body),
+  changeId: (db, body, fs) => changeId(db, fs, body),
   hof: async (db) => ({ list: await hallOfFame(db), icons: HOF_ICONS, max: HOF_MAX }),
   hofSave: (db, body) => saveHof(db, body),
   hofRemove: (db, body) => removeHof(db, body),

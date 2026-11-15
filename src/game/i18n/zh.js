@@ -887,6 +887,8 @@ export default {
   shopIdSame: '这已经是你的ID了。',
   shopIdNeedGems: '还差 {need} 颗宝石。',
   shopIdSignIn: '请先登录（个人资料），以便检查ID是否可用。',
+  shopIdBlocked: '你被封禁或在过去30天内收到过警告时，无法购买自定义ID。',
+  liveIdChanged: 'GayZ团队已将你的玩家ID改为 #{id}。',
   shopIdChecking: '检查中...',
   shopIdTaken: '这个ID已被占用',
   shopIdConfirm: '花 {price} 颗宝石把 #{id} 设为你的ID？',

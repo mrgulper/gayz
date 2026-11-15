@@ -222,8 +222,8 @@ const cleanAccess = (v) => (ACCESS.includes(v) ? v : null)
 // address is the invite link) - left out of the Global list.
 // custom: a custom lobby (Global > Custom) - `rules` from its host and an
 // optional `password`.
-export async function createServer(db, { name, mode, nickname, skin, world, id: wanted, hidden, access, pid: playerPid, custom, rules, password } = {}, now = Date.now()) {
-  if (await isBanned(db, playerPid, now)) throw new ServerError(403, 'banned')
+export async function createServer(db, { name, mode, nickname, skin, world, id: wanted, hidden, access, pid: playerPid, custom, rules, password, _ip } = {}, now = Date.now()) {
+  if (await isBanned(db, playerPid, now, _ip)) throw new ServerError(403, 'banned')
   if (await onlineClosed(db)) throw new ServerError(503, 'switched-off')
   const m = MODES.includes(mode) ? mode : 'main'
   // Invite Friends picks the id itself so its link shows at once; taken or
@@ -262,11 +262,11 @@ function lobbyInfo(server) {
   return server?.custom ? { custom: true, rules: cleanLobbyRules(server.rules) || defaultLobbyRules() } : {}
 }
 
-export async function joinServer(db, { serverId, nickname, skin, pid: playerPid, drop, password } = {}, now = Date.now()) {
+export async function joinServer(db, { serverId, nickname, skin, pid: playerPid, drop, password, _ip } = {}, now = Date.now()) {
   if (!validId(serverId)) throw new ServerError(400, 'bad-request')
   // The owner dropping in (see the header): 'own' or 'ghost', else null.
   const owner = drop ? await dropTicket(db, drop, serverId, now) : null
-  if (!owner && (await isBanned(db, playerPid, now))) throw new ServerError(403, 'banned')
+  if (!owner && (await isBanned(db, playerPid, now, _ip))) throw new ServerError(403, 'banned')
   if (!owner && (await onlineClosed(db))) throw new ServerError(503, 'switched-off')
   const server = await db.get(`servers/${serverId}`)
   if (!server) throw new ServerError(404, 'gone')

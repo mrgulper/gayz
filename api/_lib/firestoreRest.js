@@ -167,3 +167,33 @@ export async function galleryMaps() {
   }
   return out.sort((a, b) => b.likes - a.likes || b.createdAt - a.createdAt)
 }
+
+// --- Player ID changes from the Console (2026-11-15, admin.js changeId) ---
+
+// Who owns playerIds/{id}: their uid, or null when nobody claimed it.
+export async function playerIdOwner(id) {
+  try {
+    const doc = await call(`/playerIds/${encodeURIComponent(id)}`, undefined, 'GET')
+    return str(doc?.fields?.uid) || 'unknown'
+  } catch (err) {
+    if (/^firestore 404/.test(String(err?.message))) return null
+    throw err
+  }
+}
+
+// The same claim the Shop makes (CloudSync.claimPlayerId), for this uid.
+// Only creates: an ID someone else owns fails with 'taken'.
+export async function claimPlayerIdFor(uid, id, now = Date.now()) {
+  try {
+    await call(`/playerIds?documentId=${encodeURIComponent(id)}`, { fields: { uid: { stringValue: uid }, at: { integerValue: String(now) } } })
+  } catch (err) {
+    if (!/^firestore 409/.test(String(err?.message))) throw err
+    if ((await playerIdOwner(id)) !== uid) throw new Error('taken', { cause: err })
+  }
+}
+
+// Their leaderboard doc's Player ID, so the leaderboard and the Console
+// show the new one at once (their game also sends it next time).
+export async function setLeaderboardPid(uid, pid) {
+  await call(`/leaderboard/${encodeURIComponent(uid)}?updateMask.fieldPaths=playerId&currentDocument.exists=true`, { fields: { playerId: { stringValue: pid } } }, 'PATCH')
+}

@@ -884,6 +884,8 @@ export default {
   shopIdSame: 'यह पहले से आपकी ID है।',
   shopIdNeedGems: '{need} और जेम्स चाहिए।',
   shopIdSignIn: 'पहले साइन इन करें (प्रोफ़ाइल), ताकि ID खाली है यह जाँचा जा सके।',
+  shopIdBlocked: 'अगर आप पर बैन है या पिछले 30 दिनों में आपको चेतावनी मिली है, तो आप कस्टम ID नहीं खरीद सकते।',
+  liveIdChanged: 'GayZ टीम ने आपकी प्लेयर ID बदलकर #{id} कर दी है।',
   shopIdChecking: 'जाँच रहे हैं...',
   shopIdTaken: 'यह ID पहले से ली जा चुकी है',
   shopIdConfirm: '{price} जेम्स में #{id} को अपनी ID बनाएँ?',
