@@ -5,6 +5,7 @@
 // Moved out of Game.js (2026-10-16, bit by bit - see CLAUDE.md). Same convention as
 // ChatUI.js/CloudSaveUI.js: plain functions taking `game`, all state on the Game
 // instance; Game.js keeps a one-line stand-in for each, so callers are unchanged.
+import { bindShopIdentity } from './ShopIdentity.js'
 import { fpsCapMs, graphicsFilterCss } from './GraphicsSettings.js'
 import * as CloudSaveUI from './CloudSaveUI.js'
 import * as CloudSync from './CloudSync.js'
@@ -1242,22 +1243,8 @@ export function _bindSettings(game) {
     // strips emoji/other unicode a player might paste in.
     const filtered = game.nicknameInput.value.replace(/[^\x20-\x7E]/g, '')
     if (filtered !== game.nicknameInput.value) game.nicknameInput.value = filtered
-    // .trim() only on the SAVED value, not the input box itself - a
-    // trailing space while still mid-typing is harmless and shouldn't
-    // be yanked out from under the cursor, but a leading/trailing
-    // space that makes it into settings.nickname (what actually gets
-    // synced/displayed/used for chat lookups elsewhere) is a real,
-    // silent footgun - caught 2026-09-22 live-debugging a "can't
-    // copy/block a friend in chat" report: their chat nickname
-    // rendered as "Tazbot " (trailing space, from not having game
-    // trim), which would break the by-NAME lookup fallback specifically
-    // if it's ever reached. Not confirmed as the actual cause of that
-    // report (their by-UID lookup failing first is equally explained by
-    // them not having completed a run yet - no leaderboard doc to find
-    // by either key) but worth fixing regardless, on its own merits.
-    game.settings.nickname = game.nicknameInput.value.trim()
-    saveSettings(game.settings)
-    game._renderPlayerTag()
+    // Name is saved (and paid for) only on confirm - see
+    // HomeUI._confirmNicknameEdit / ShopIdentity.buyNameChange.
   })
 
   game.settingsBtn.addEventListener('click', () => game._toggleSettings(!game.settingsOpen))
@@ -1416,7 +1403,7 @@ export function _bindSettings(game) {
     // first - a plain synchronous hide would swallow that click.
     game.nicknameInput.addEventListener('blur', () => {
       setTimeout(() => {
-        if (document.activeElement !== game.nicknameInput) game.nicknameRow.style.display = 'none'
+        if (document.activeElement !== game.nicknameInput && game.nicknameRow.style.display !== 'none') game._confirmNicknameEdit()
       }, 150)
     })
     game.nicknameInput.addEventListener('keydown', (e) => {
@@ -1631,6 +1618,7 @@ export function _bindSettings(game) {
     if (e.target === game.marketPanel) game._closeMarketPanel()
   })
   if (game.shopSkinBuyBtn) game.shopSkinBuyBtn.addEventListener('click', () => game._buyShopSkin())
+  bindShopIdentity(game)
   // Inspect (was Try On, 2026-10-24): GaygarX big in the Inspect window.
   document.getElementById('shop-skin-tryon-btn')?.addEventListener('click', () => game._openInspectDialog('character', 'gaygarx'))
   document.getElementById('shop-tryon-back-btn')?.addEventListener('click', () => game._endShopTryOn(true))

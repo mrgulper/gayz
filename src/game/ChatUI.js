@@ -535,8 +535,8 @@ export function clearChatSystemLines(game) {
   renderChatMessages(game, game._lastChatMsgs || [])
 }
 
-// Splits on a pasted Player ID (see _generatePlayerId - always exactly
-// '#' + 6 uppercase letters/digits) and wraps just that piece as a
+// Splits on a pasted Player ID (see _generatePlayerId - '#' + 5-10
+// uppercase letters/digits) and wraps just that piece as a
 // clickable lookup link, escaping every other piece of the message
 // exactly as before. Matching against the RAW text (before any escaping)
 // and only ever inserting either escaped plain text or an element built
@@ -549,7 +549,7 @@ export function renderChatMessageText(game, text, linkifyIds) {
   // Chat Filter: Strict (Settings > Social, SocialSettings.js).
   text = shownChatText(game.settings, text)
   if (!linkifyIds) return _escapeHtml(text)
-  const idPattern = /#[A-Z0-9]{6}/g
+  const idPattern = /#[A-Z0-9]{5,10}(?![A-Za-z0-9])/g
   let out = ''
   let lastIndex = 0
   let match

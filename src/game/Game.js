@@ -205,15 +205,22 @@ export const DIFFICULTY_PRESETS = {
 
 const SETTINGS_STORAGE_KEY = 'gayz-settings'
 
-// Corner-badge player ID - 6-10 uppercase letters/digits, generated once
-// and kept stable for that account. Distinct from the nickname (still
-// editable, still used for companion naming/leaderboards/friend search
-// elsewhere) - this is only what the corner badge itself displays now.
-const PLAYER_ID_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-const PLAYER_ID_LENGTH = 6
+// Corner-badge player ID - 5-10 uppercase letters/digits (random length
+// since 2026-11-15; it was always exactly 6 before, and those old 6-letter
+// IDs still count as valid, so nobody's ID changes). Generated once and kept
+// stable for that account. A player can buy a custom one in the Shop
+// (ShopIdentity.js). Distinct from the nickname.
+export const PLAYER_ID_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+export const PLAYER_ID_MIN = 5
+export const PLAYER_ID_MAX = 10
+export const PLAYER_ID_RE = /^[A-Z0-9]{5,10}$/
+export function isValidPlayerId(id) {
+  return typeof id === 'string' && PLAYER_ID_RE.test(id)
+}
 function _generatePlayerId() {
+  const length = PLAYER_ID_MIN + Math.floor(Math.random() * (PLAYER_ID_MAX - PLAYER_ID_MIN + 1))
   let id = ''
-  for (let i = 0; i < PLAYER_ID_LENGTH; i++) id += PLAYER_ID_CHARS[Math.floor(Math.random() * PLAYER_ID_CHARS.length)]
+  for (let i = 0; i < length; i++) id += PLAYER_ID_CHARS[Math.floor(Math.random() * PLAYER_ID_CHARS.length)]
   return id
 }
 
@@ -335,7 +342,7 @@ function loadSettings() {
       // never persisted, until some unrelated settings change happened to
       // save it - found live 2026-09-11 from a player reporting their
       // corner-badge id kept changing on every plain refresh.
-      playerId: parsed.playerId && parsed.playerId.length === PLAYER_ID_LENGTH ? parsed.playerId : _generatePlayerId(),
+      playerId: isValidPlayerId(parsed.playerId) ? parsed.playerId : _generatePlayerId(),
       nickname: parsed.nickname || defaultNickname,
       // Nickname color (see nickname display sites - Hardcore Memorial, kill
       // feed) - a plain hex string like crosshairColor above, not tied to
@@ -540,7 +547,7 @@ function loadSettings() {
     // above), so every reload for an old-format account rolled a brand
     // new id that never saved, forever, until some unrelated setting
     // change happened to catch it.
-    if (!raw || !parsed.playerId || parsed.playerId.length !== PLAYER_ID_LENGTH) localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+    if (!raw || !isValidPlayerId(parsed.playerId)) localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
     // Settings from the 2026-11-11 list (MoreSettingsList.js).
     Object.assign(settings, parseMoreSettings(parsed))
     return settings
@@ -1470,6 +1477,11 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'shop-skin-new-ribbon': 'shopNewRibbon',
   'shop-skin-rarity': 'skinRarityLegendary',
   'shop-soon-heading': 'comingSoonTitle',
+  'shop-identity-heading': 'shopIdentityHeading',
+  'shop-name-title': 'shopNameTitle',
+  'shop-name-text': 'shopNameText',
+  'shop-id-title': 'shopIdTitle',
+  'nickname-price-hint': 'nicknamePriceHint',
   'shop-soon-daily-name': 'shopSoonDailyDeals',
   'shop-soon-daily-text': 'shopSoonDailyDealsText',
   'shop-soon-daily-tag': 'crateComingSoonTag',
@@ -1564,6 +1576,8 @@ const PLACEHOLDER_I18N_KEYS = {
   'settings-search-input': 'settingsSearchInputPlaceholder',
   'homepage-greeting-input': 'homepageGreetingInputPlaceholder',
   'redeem-code-input': 'redeemCodePlaceholder',
+  'shop-name-input': 'shopNamePlaceholder',
+  'shop-id-input': 'shopIdPlaceholder',
   'import-keybinds-input': 'importKeybindsInputPlaceholder',
   'import-settings-code-input': 'importSettingsCodeInputPlaceholder',
   'clan-invite-id-input': 'clanInviteIdInputPlaceholder',

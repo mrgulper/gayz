@@ -957,3 +957,126 @@ test('homepage unlock ladder: new players see fewer buttons, games unlock the re
   const after = await page.evaluate(() => ({ tier: document.documentElement.dataset.homeTier ?? null, market: !!document.getElementById('market-btn').offsetParent }))
   expect(after).toEqual({ tier: null, market: true })
 })
+
+// Shop > Name & ID (2026-11-15): changing your name costs 100 Gems (Shop
+// card and the pencil box both charge), a custom ID costs 10,000 and is
+// checked online first ("This ID is already taken"). New random IDs are
+// 5-10 letters/numbers; an old 6-letter ID is kept.
+test('shop name change costs 100 gems and custom IDs are 5-10 characters and blocked when taken', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem('seeded')) {
+      sessionStorage.setItem('seeded', '1')
+      const s = JSON.parse(localStorage.getItem('gayz-settings') || '{}')
+      localStorage.setItem('gayz-settings', JSON.stringify({ ...s, playerId: 'OLD123', nickname: 'Tester' }))
+    }
+  })
+  await gotoAndWaitForGame(page)
+  const dialogs = []
+  page.on('dialog', (d) => { dialogs.push(d.message()); d.accept() })
+
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    const out = { keptOldId: g.settings.playerId }
+    g._openShopPanel()
+    await wait(100)
+    const status = () => document.getElementById('shop-id-status').textContent
+    out.cardsShown = !!document.getElementById('shop-name-buy-btn').offsetParent && !!document.getElementById('shop-id-buy-btn').offsetParent
+    out.currentIdText = document.getElementById('shop-id-current').textContent
+
+    // Pencil box with too few gems: nothing changes.
+    g.gems = 50
+    g._renderShopSkinState()
+    g._revealNicknameEditor()
+    g.nicknameInput.value = 'Cheapo'
+    g._confirmNicknameEdit()
+    out.poorName = g.settings.nickname
+    out.poorGems = g.gems
+    out.nameBtnDisabledWhenPoor = document.getElementById('shop-name-buy-btn').disabled
+
+    // Pencil box with enough gems: confirm is accepted, 100 gems spent.
+    g.gems = 500
+    g._renderShopSkinState()
+    g._revealNicknameEditor()
+    g.nicknameInput.value = 'Richie'
+    g._confirmNicknameEdit()
+    out.paidName = g.settings.nickname
+    out.paidGems = g.gems
+    // Same name again costs nothing.
+    g._revealNicknameEditor()
+    g._confirmNicknameEdit()
+    out.sameNameGems = g.gems
+
+    // Shop card.
+    document.getElementById('shop-name-input').value = 'CardName'
+    document.getElementById('shop-name-buy-btn').click()
+    out.cardName = g.settings.nickname
+    out.cardGems = g.gems
+
+    // Custom ID.
+    const idInput = document.getElementById('shop-id-input')
+    const buy = async (text) => {
+      idInput.value = text
+      idInput.dispatchEvent(new Event('input'))
+      document.getElementById('shop-id-buy-btn').disabled = false
+      document.getElementById('shop-id-buy-btn').click()
+      await wait(50)
+      return { status: status(), id: g.settings.playerId, gems: g.gems, typed: idInput.value }
+    }
+    g.gems = 25000
+    g._renderShopSkinState()
+    g._cloudUid = null
+    out.signedOut = await buy('GAYMI')
+    const claimed = []
+    g._cloudUid = 'test-uid'
+    g.__idBackendForTests = {
+      isConfigured: () => true,
+      isPlayerIdTaken: async (id) => id === 'TAKEN1',
+      claimPlayerId: async (uid, id) => { claimed.push(id) },
+      releasePlayerId: async () => {},
+    }
+    out.tooShort = await buy('ab1')
+    out.cleanedInput = (idInput.value = 'ab-c!d', idInput.dispatchEvent(new Event('input')), idInput.value)
+    out.taken = await buy('taken1')
+    out.bought = await buy('gaymi')
+    out.claimed = claimed
+    out.badgeText = g.menuPlayerTag.textContent
+    out.saved = JSON.parse(localStorage.getItem('gayz-settings')).playerId
+    out.ten = await buy('ABCDE12345')
+    out.tooPoor = await buy('ZZZZZ')
+    g._closeAllMenuPanels()
+    return out
+  })
+
+  expect(r.keptOldId).toBe('OLD123')
+  expect(r.cardsShown).toBe(true)
+  expect(r.currentIdText).toContain('#OLD123')
+  expect(r.poorName).toBe('Tester')
+  expect(r.poorGems).toBe(50)
+  expect(r.nameBtnDisabledWhenPoor).toBe(true)
+  expect(r.paidName).toBe('Richie')
+  expect(r.paidGems).toBe(400)
+  expect(r.sameNameGems).toBe(400)
+  expect(r.cardName).toBe('CardName')
+  expect(r.cardGems).toBe(300)
+  expect(r.signedOut).toMatchObject({ id: 'OLD123', gems: 25000 })
+  expect(r.signedOut.status).toMatch(/Sign in/)
+  expect(r.tooShort).toMatchObject({ id: 'OLD123', gems: 25000 })
+  expect(r.tooShort.status).toMatch(/5-10/)
+  expect(r.cleanedInput).toBe('ABCD')
+  expect(r.taken).toMatchObject({ id: 'OLD123', gems: 25000, status: 'This ID is already taken' })
+  expect(r.bought).toMatchObject({ id: 'GAYMI', gems: 15000, typed: '' })
+  expect(r.claimed).toContain('GAYMI')
+  expect(r.badgeText).toBe('#GAYMI')
+  expect(r.saved).toBe('GAYMI')
+  expect(r.ten).toMatchObject({ id: 'ABCDE12345', gems: 5000 })
+  expect(r.tooPoor).toMatchObject({ id: 'ABCDE12345', gems: 5000 })
+  expect(dialogs.some((m) => m.includes('100'))).toBe(true)
+  expect(dialogs.some((m) => m.includes('10,000'))).toBe(true)
+})
+
+test('a brand new player gets a random 5-10 character ID', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const id = await page.evaluate(() => window.__game.settings.playerId)
+  expect(id).toMatch(/^[A-Z0-9]{5,10}$/)
+})
