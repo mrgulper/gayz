@@ -742,11 +742,13 @@ export class BlockChunks {
           vec2 d = 0.5 - abs(f - 0.5);
           float r = length(max(vec2(0.5) - d, 0.0));
           float corner = sx * sz;
-          float shallow = corner * smoothstep(0.47, 0.56, r);
-          float foam = corner * (1.0 - smoothstep(0.0, 0.035, abs(r - 0.5)));
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.6, 0.48), shallow * 0.55);
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.92, 0.95, 0.97), foam * 0.6);
-          diffuseColor.a = max(diffuseColor.a, shallow * 0.85);
+          // Soft, not a hard grey ring: the corner fades into clear,
+          // lighter shallows with a gentle wash of foam that moves.
+          float shallow = corner * smoothstep(0.42, 0.62, r);
+          float wob = 0.025 * sin(uTime * 1.6 + (vCell.x + vCell.y) / uBlock * 3.0);
+          float foam = corner * (1.0 - smoothstep(0.0, 0.09, abs(r - 0.5 - wob)));
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.25 + vec3(0.04, 0.08, 0.06), shallow * 0.6);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.95, 0.97), foam * 0.3);
         }`)
         .replace('#include <fog_fragment>', `if (uReflect > 0.0) {
           float fres = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.0);
@@ -1311,11 +1313,15 @@ export class BlockChunks {
         // Water's top rounds off where the shore turns a corner (2026-10-26,
         // Gaymi: "never make the water square") - same bits, the water
         // shader cuts the corner into a curve.
+        // Only a low bank counts (nothing solid on top of it): against a
+        // wall that rises over the water the corner stays square, like the
+        // wall (2026-11-15, Gaymi: the curve "looks nothing like water").
         if (info.liquid === 'water' && ny === 1) {
-          if (opaqueAt(x - 1, y, z)) edge |= 1
-          if (opaqueAt(x + 1, y, z)) edge |= 2
-          if (opaqueAt(x, y, z - 1)) edge |= 4
-          if (opaqueAt(x, y, z + 1)) edge |= 8
+          const bank = (a, c) => opaqueAt(a, y, c) && !opaqueAt(a, y + 1, c)
+          if (bank(x - 1, z)) edge |= 1
+          if (bank(x + 1, z)) edge |= 2
+          if (bank(x, z - 1)) edge |= 4
+          if (bank(x, z + 1)) edge |= 8
         }
         if (shapes && info.cutout) {
           this._leafPuff(buf, x, y, z, bx, by, bz, face, [u0, v0, u1, v1], ao.map((a) => AO_LEVELS[a] * face.shade * tint))
