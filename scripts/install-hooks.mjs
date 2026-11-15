@@ -1,5 +1,5 @@
 // npm install runs this (the "prepare" script): points git at the repo's
-// own hooks in .githooks (the Patch Notes / GayZ Features check). Quietly
+// own hooks in .githooks (the Patch Notes / player-text check). Quietly
 // does nothing where there's no git checkout (e.g. a deploy build).
 import { execFileSync } from 'node:child_process'
 

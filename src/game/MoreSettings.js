@@ -9,7 +9,7 @@ import { audioEngine } from './Audio.js'
 import { ensureGyro } from './ControlSettings.js'
 import { applyHudLook } from './HudSettings.js'
 import { bindGraphicsSettings, applyBatterySaver } from './GraphicsSettings.js'
-import { onGameplayButton, bindPauseHelpers, bindSpoilerReveal } from './GameplayAssist.js'
+import { onGameplayButton, bindPauseHelpers } from './GameplayAssist.js'
 import { applySocialLook } from './SocialSettings.js'
 import { bindWellbeing, onWellbeingButton, applySilly, applyDataSaver, sillyLabel } from './Wellbeing.js'
 
@@ -141,8 +141,6 @@ export function bindMoreSettings(game) {
   onMoreSetting('batterySaver', (v, g) => applyBatterySaver(g))
   // Gameplay (ideas 51-62): read where they're used (GameplayAssist.js).
   bindPauseHelpers(game)
-  bindSpoilerReveal()
-  onMoreSetting('spoilerFreeStory', (on) => document.documentElement.classList.toggle('spoiler-free', !!on))
   // Social & Safety (ideas 63-72): read where they're used (SocialSettings.js).
   for (const key of ['hideChat', 'hideCurrency']) onMoreSetting(key, (v, g) => applySocialLook(g.settings))
   for (const key of ['chatFilter', 'friendsOnlyChat']) {

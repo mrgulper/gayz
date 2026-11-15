@@ -364,7 +364,7 @@ const NATURAL = /^(grass|dirt|sand|snow|stone|gravel|mud|clay|moss|mycelium|podz
 // Inside points sit at least ~0.23 from each other and ~0.28 from the
 // edge, so the steepest bit stays under 20 degrees (tan 20 = 0.36):
 // 0.08 / 0.23 and 0.1 / 0.28 are both about 0.35.
-// The steepest a bump gets (degrees) - GayZ Features shows it.
+// The steepest a bump gets (degrees).
 export const BUMP_MAX_DEGREES = 20
 const BUMP_MIN = 0.02
 const BUMP_RANGE = 0.08

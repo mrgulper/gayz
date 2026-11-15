@@ -206,7 +206,7 @@ export default {
   afkPauseOpt_5: "5 分钟后",
   afkPauseOpt_10: "10 分钟后",
   spoilerFreeStoryLabel: "无剧透剧情",
-  spoilerFreeStoryInfoText: "让剧情战役保持惊喜：解药的配方在它的章节前一直隐藏，GayZ 功能里的剧情战役卡片会模糊，点一下才显示。",
+  spoilerFreeStoryInfoText: "让剧情战役保持惊喜：解药的配方在它的章节前一直隐藏。",
   replayTutorialLabel: "重玩教程",
   replayTutorialInfoText: "你下一局从“开始游戏”进入的单人游戏会像第一局一样：没有武器选择，从营地大门出发，一只僵尸走过来，并显示操作提示。也会让所有提示重新出现。",
   replayTutorialBtn: "重玩",

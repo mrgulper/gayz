@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Full history, so the Patch Notes / GayZ Features check below can
+          # Full history, so the Patch Notes check below can
           # diff the whole PR against main.
           fetch-depth: 0
 
@@ -30,9 +30,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # A game change must update Patch Notes and GayZ Features (or say why
-      # not with [no-notes] / [no-features]) - see scripts/check-docs.mjs.
-      - name: Patch Notes and GayZ Features are up to date
+      # A game change must update Patch Notes (or say why not with
+      # [no-notes: why]) - see scripts/check-docs.mjs.
+      - name: Patch Notes are up to date
         if: github.event_name == 'pull_request'
         run: node scripts/check-docs.mjs --range "origin/${{ github.base_ref }}...HEAD"
 

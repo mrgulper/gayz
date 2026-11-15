@@ -98,7 +98,7 @@ export default [
     },
   },
   {
-    // The standalone GayZ Features microsite - plain <script src="app.js">
+    // Plain <script src="..."> files in public/
     // (no bundler, no `type="module"`), so it's classic-script scope, not
     // a module.
     files: ['public/**/*.js'],

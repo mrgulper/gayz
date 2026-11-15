@@ -1,14 +1,16 @@
-// Keeps the two hand-written player pages in step with the game.
+// Keeps the hand-written player text in step with the game.
 //
-// Patch Notes (#changelog-list) and GayZ Features (#features-main) are plain
-// HTML in index.html - nothing generates them from the code, so they only
-// change when someone remembers. They silently fell behind for days
-// (2026-10-04). This check makes it impossible to forget: any change to the
-// game (src/, public/, index.html) must also edit Patch Notes and GayZ
-// Features, or say in its commit message why it doesn't need to:
+// Patch Notes (#changelog-list) are plain HTML in index.html - nothing
+// generates them from the code, so they only change when someone remembers.
+// They silently fell behind for days (2026-10-04). This check makes it
+// impossible to forget: any change to the game (src/, public/, index.html)
+// must also edit Patch Notes, or say in its commit message why it doesn't
+// need to:
 //
 //   [no-notes: <why>]     nothing a player would notice (refactor, tests)
-//   [no-features: <why>]  no feature was added, removed or changed
+//
+// (The full features list moved out of the game on 2026-11-15; a leftover
+// [no-features: ...] marker in a commit message is simply ignored.)
 //
 // The reason is required (a bare [no-notes] fails): it makes skipping a
 // written decision someone can read back and question, not a reflex. A
@@ -18,15 +20,8 @@
 // Put the markers in the commit body, not the title - titles are the
 // player-facing patch-note line posted to Discord.
 //
-// It also fails on any number typed straight into GayZ Features: counts and
-// numbers there go in <span data-feature-count|data-feature-value="key">,
-// filled from the game's own constants by Game.js's _featureCounts() /
-// _featureValues(), so they can't go stale ("15 firearms" when there were 14).
-// Numbers that are part of a name (AK-47, Map 3) are in ALLOWED_NUMBERS.
-//
 // Hand-written sentences can't be checked by a script, but they can be tied
-// to the code they describe: every GayZ Features entry carries
-// data-code="identifiers", and How to Play steps (HOWTOPLAY_STEPS, Game.js)
+// to the code they describe: How to Play steps (HOWTOPLAY_STEPS, Game.js)
 // and Map Editor tips (MENU_TIPS, BuildMode.js) a `code: '...'` field. When
 // a change touches a line using one of those identifiers, that text has to
 // be edited in the same change or confirmed as still right with
@@ -68,33 +63,7 @@ function touchedLines(diff) {
   return out
 }
 
-// Numbers that belong to a name or a fixed fact, not a count that can drift.
-const ALLOWED_NUMBERS = [
-  /AK-47/g, /Glock 18/g, /M1911/g, /MP5-SD/g, /\bC4\b/g, /64x64/g, /\bMap [13]\b/g, /\b3D\b/g, /\b2D\b/g,
-  /\b2x\b/g, /\b1 HP\b/g, /1–10/g, /1–3/g, /4–0/g, /\b16x16\b/g,
-  // Key names (the HUD's Hide HUD key).
-  /\bF1\b/g,
-  // Couch Co-op's two players.
-  /\bPlayer [12]\b/g,
-]
-
 const MARKER_REASON = (name) => new RegExp(`\\[${name}:\\s*[^\\]\\s][^\\]]{7,}\\]`, 'i')
-
-// Every digit left in #features-main once the generated spans, tags and
-// allowed names are taken out - each one is a hand-typed number.
-function typedNumbers(indexContent) {
-  const start = indexContent.indexOf('id="features-main"')
-  const end = indexContent.indexOf('end features-main')
-  if (start < 0 || end < 0) return []
-  let text = indexContent.slice(start, end)
-    .replace(/<span data-feature-(?:count|value)="[^"]*">[^<]*<\/span>/g, '')
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&[a-z#0-9]+;/gi, ' ')
-  for (const re of ALLOWED_NUMBERS) text = text.replace(re, '')
-  const found = []
-  for (const m of text.matchAll(/[^.\n]{0,40}\d[^.\n]{0,30}/g)) found.push(m[0].replace(/\s+/g, ' ').trim())
-  return found
-}
 
 // In-game text names keys as {key:interact} / {key:healthPack} (filled
 // from the player's real bindings - see i18n.js), never as a typed letter:
@@ -154,21 +123,9 @@ async function typedKeys() {
 
 const norm = (t) => t.replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim().toLowerCase()
 
-// Every hand-written text tied to code: {label, ids, lines? (index.html
-// line range), textKey? (i18n key)}.
-function linkedTexts(indexContent, read) {
+// Every hand-written text tied to code: {label, ids, textKey (i18n key)}.
+function linkedTexts(read) {
   const out = []
-  const lines = indexContent.split('\n')
-  const end = lines.findIndex((l) => l.includes('end features-main'))
-  lines.forEach((line, i) => {
-    const m = line.match(/<div class="feature[^"]*" data-code="([^"]*)">/)
-    if (!m) return
-    let next = lines.findIndex((l, j) => j > i && /<div class="feature[\s"]|<\/section>/.test(l))
-    if (next < 0 || next > end) next = end
-    const h3 = lines.slice(i, next).join(' ').match(/<h3>(.*?)<\/h3>/)
-    const label = (h3 ? h3[1] : '').replace(/<span data-feature-count="[^"]*">[^<]*<\/span>/g, '').replace(/<[^>]+>/g, '').replace('▸', '').replace(/&amp;/g, '&').trim()
-    out.push({ label, ids: m[1].split(/\s+/).filter(Boolean), lines: [i + 1, next] })
-  })
   for (const file of ['src/game/Game.js', 'src/game/BuildMode.js']) {
     for (const m of read(file).matchAll(/\{ key: '(\w+)'(?:, headingKey: '\w+')?, code: '([^']*)' \}/g)) {
       out.push({ label: m[1], ids: m[2].split(/\s+/).filter(Boolean), textKey: m[1] })
@@ -213,17 +170,9 @@ function changedCode(diff) {
   return out
 }
 
-function linkProblems({ indexContent, indexTouched, srcDiff, i18nDiff, message, read, srcText }) {
+function linkProblems({ srcDiff, i18nDiff, message, read, srcText }) {
   const problems = []
-  const texts = linkedTexts(indexContent, read)
-  const featuresStart = indexContent.split('\n').findIndex((l) => l.includes('id="features-main"'))
-  const comingSoon = indexContent.split('\n').findIndex((l) => l.includes('id="coming-soon"'))
-  // Every live GayZ Features entry must be tied to code.
-  indexContent.split('\n').forEach((l, i) => {
-    if (i > featuresStart && i < comingSoon && /<div class="feature[\s"]/.test(l) && !/data-code="[^"]+"/.test(l)) {
-      problems.push(`GayZ Features entry at index.html:${i + 1} has no data-code="..." - list the functions/constants it describes, so changes to them ask for it to be re-read.`)
-    }
-  })
+  const texts = linkedTexts(read)
   for (const t of texts) {
     for (const id of t.ids) {
       if (!new RegExp(`\\b${id}\\b`).test(srcText)) problems.push(`"${t.label}" is tied to ${id}, which no longer exists in src/. Check the text still describes the game, then update its code link.`)
@@ -235,9 +184,9 @@ function linkProblems({ indexContent, indexTouched, srcDiff, i18nDiff, message, 
   for (const t of texts) {
     const hit = t.ids.find((id) => code.some((l) => new RegExp(`\\b${id}\\b`).test(l)))
     if (!hit) continue
-    const edited = t.lines ? indexTouched.some((n) => n >= t.lines[0] && n <= t.lines[1]) : new RegExp(`^\\s*${t.textKey}:`, 'm').test(i18nChanged)
+    const edited = new RegExp(`^\\s*${t.textKey}:`, 'm').test(i18nChanged)
     if (edited || reread.has(norm(t.label))) continue
-    const where = t.lines ? `GayZ Features entry "${t.label}" (index.html:${t.lines[0]})` : `${t.textKey} (src/game/i18n/)`
+    const where = `${t.textKey} (src/game/i18n/)`
     problems.push(`This change touches ${hit}, which ${where} describes. Re-read it: fix it if it's now wrong, or confirm it with [reread: ${t.label}] in the commit message.`)
   }
   return problems
@@ -245,22 +194,16 @@ function linkProblems({ indexContent, indexTouched, srcDiff, i18nDiff, message, 
 
 function check({ files, indexDiff, indexContent, message, srcDiff = '', i18nDiff = '', read, srcText = '' }) {
   if (!files.some((f) => GAME_PATH.test(f))) return []
-  const problems = typedNumbers(indexContent).map((t) => `GayZ Features has a typed number in "${t}". Wrap it in <span data-feature-value="key">, add that key to _featureValues() in Game.js, or add it to ALLOWED_NUMBERS here if it's part of a name.`)
-  for (const name of ['no-notes', 'no-features']) {
-    if (new RegExp(`\\[${name}\\]`, 'i').test(message)) problems.push(`[${name}] needs a reason now, e.g. [${name}: only tests changed].`)
-  }
+  const problems = []
+  if (/\[no-notes\]/i.test(message)) problems.push('[no-notes] needs a reason now, e.g. [no-notes: only tests changed].')
   const lines = indexContent.split('\n')
   const notes = lineRange(lines, 'id="changelog-list"', 'end changelog-list')
-  const features = lineRange(lines, 'id="features-main"', 'end features-main')
   const touched = touchedLines(indexDiff)
   const inRange = (r) => r && touched.some((n) => n >= r[0] && n <= r[1])
   if (!inRange(notes) && !MARKER_REASON('no-notes').test(message)) {
     problems.push('Patch Notes were not updated. Add a line to the newest entry in #changelog-list (index.html), or put [no-notes: <why>] in the commit message if players won\'t notice this change.')
   }
-  if (!inRange(features) && !MARKER_REASON('no-features').test(message)) {
-    problems.push('GayZ Features was not updated. Add or fix the entry in #features-main (index.html), or put [no-features: <why>] in the commit message if no feature was added, removed or changed.')
-  }
-  problems.push(...linkProblems({ indexContent, indexTouched: touched, srcDiff, i18nDiff, message, read, srcText }))
+  problems.push(...linkProblems({ srcDiff, i18nDiff, message, read, srcText }))
   return problems
 }
 
@@ -307,7 +250,7 @@ const [mode, arg] = process.argv.slice(2)
 const keyProblems = await typedKeys()
 const problems = mode === '--commit-msg' ? fromCommitMsg(arg)
   : mode === '--range' ? fromRange(arg)
-  : mode === '--page' ? check({ files: ['index.html'], indexDiff: '@@ -1 +1 @@', indexContent: readFileSync('index.html', 'utf8'), message: '[no-notes: page check only] [no-features: page check only]', read: (f) => readFileSync(f, 'utf8'), srcText: workingSrcText() })
+  : mode === '--page' ? check({ files: ['index.html'], indexDiff: '@@ -1 +1 @@', indexContent: readFileSync('index.html', 'utf8'), message: '[no-notes: page check only]', read: (f) => readFileSync(f, 'utf8'), srcText: workingSrcText() })
   : null
 if (problems !== null) problems.push(...keyProblems)
 if (problems === null) {
@@ -315,7 +258,7 @@ if (problems === null) {
   process.exit(2)
 }
 if (problems.length) {
-  console.error('\nPlayer-text check failed (Patch Notes / GayZ Features / in-game text):\n')
+  console.error('\nPlayer-text check failed (Patch Notes / in-game text):\n')
   for (const p of problems) console.error(`  - ${p}`)
   console.error('')
   process.exit(1)

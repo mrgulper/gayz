@@ -1,5 +1,5 @@
-// Photo Mode's filters (PlaySpectate.js) - on their own so GayZ Features
-// can count them without loading the game.
+// Photo Mode's filters (PlaySpectate.js), in their own file
+// so they can be read without loading the game.
 // The filters: [id, 4x5 colour matrix (rows r, g, b; the last number of
 // each row is added, 0-1)] - the same numbers as an SVG feColorMatrix.
 export const PHOTO_FILTERS = [

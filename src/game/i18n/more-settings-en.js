@@ -206,7 +206,7 @@ export default {
   afkPauseOpt_5: "After 5 Minutes",
   afkPauseOpt_10: "After 10 Minutes",
   spoilerFreeStoryLabel: "Spoiler-Free Story",
-  spoilerFreeStoryInfoText: "Keeps the Story Campaign a surprise: The Cure's recipe stays hidden until its chapter, and the Story Campaign card in GayZ Features is blurred until you click it.",
+  spoilerFreeStoryInfoText: "Keeps the Story Campaign a surprise: The Cure's recipe stays hidden until its chapter.",
   replayTutorialLabel: "Replay Tutorial",
   replayTutorialInfoText: "Your next solo game from Play starts like a first game again: no weapon picker, you start at the camp gate, one zombie walks up and the controls hint shows. Also brings back all hints.",
   replayTutorialBtn: "Replay",

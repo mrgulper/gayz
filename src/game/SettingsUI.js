@@ -1453,10 +1453,8 @@ export function _bindSettings(game) {
   if (navPrivacyLink) navPrivacyLink.addEventListener('click', () => trackAndOpen(() => game._openPrivacyPanel()))
   if (game.creditsTermsLink) game.creditsTermsLink.addEventListener('click', () => trackAndOpen(() => game._openTermsPanel()))
   if (game.creditsPrivacyLink) game.creditsPrivacyLink.addEventListener('click', () => trackAndOpen(() => game._openPrivacyPanel()))
-  if (game.gayzFeaturesBtn) game.gayzFeaturesBtn.addEventListener('click', () => trackAndOpen(() => game._openFeaturesPanel()))
   if (game.skindesignerBtn) game.skindesignerBtn.addEventListener('click', () => trackAndOpen(() => game._openSkinDesignerPanel()))
   game._bindSkinDesignerMessages()
-  game._bindFeaturesPanel()
   // Cross-reference links inside the Terms/Privacy body text themselves
   // (event delegation - each doc only has 1-3 of these, but delegating
   // keeps game binding in one place rather than querying per-instance).
@@ -1619,11 +1617,6 @@ export function _bindSettings(game) {
   if (game.privacyPanel) {
     game.privacyPanel.addEventListener('click', (e) => {
       if (e.target === game.privacyPanel) game._closePrivacyPanel()
-    })
-  }
-  if (game.featuresPanel) {
-    game.featuresPanel.addEventListener('click', (e) => {
-      if (e.target === game.featuresPanel) game._closeFeaturesPanel()
     })
   }
   if (game.skindesignerPanel) {

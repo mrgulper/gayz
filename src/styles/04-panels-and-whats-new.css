@@ -165,7 +165,6 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
 #credits-panel,
 #terms-panel,
 #privacy-panel,
-#features-panel,
 #skindesigner-panel,
 #gallery-panel,
 #levels-panel,
@@ -673,3 +672,10 @@ html.ui-theme-old #update-available-refresh-btn {
   color: rgba(255, 255, 255, 0.6);
 }
 
+
+/* Credits' Discord / Privacy / Terms links row. */
+.credits-links-row {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+}
