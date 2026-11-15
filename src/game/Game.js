@@ -133,6 +133,7 @@ import * as CloudSaveUI from './CloudSaveUI.js'
 import * as ChatUI from './ChatUI.js'
 import * as HomeUI from './HomeUI.js'
 import * as HomeExtras from './HomeExtras.js'
+import * as HomeUnlocks from './HomeUnlocks.js'
 import * as PlayEntryUI from './PlayEntryUI.js'
 import * as InfoPagesUI from './InfoPagesUI.js'
 import * as ProgressUI from './ProgressUI.js'
@@ -2868,6 +2869,7 @@ export class Game {
     this._bindPanelRouting()
     this._bindControlsTab()
     this._applyLanguage()
+    HomeUnlocks.initHomeUnlocks(this)
     this._onResize()
     window.addEventListener('resize', () => this._onResize())
     this._checkLoginStreak()
@@ -3953,6 +3955,7 @@ export class Game {
     document.getElementById('tab-controls').textContent = t('tabControls')
     document.getElementById('tab-graphics').textContent = t('tabGraphics')
     if (this.buildModeBtn) this.buildModeBtn.querySelector('span').textContent = t('mapEditorBtn')
+    HomeUnlocks.translateHomeUnlocks()
     this._renderControlsGrid()
     // Local Sharing batch - static settings-panel labels.
     this.exportSaveBtn.textContent = t('exportSaveBtn')
@@ -4150,6 +4153,8 @@ export class Game {
   _bindHomepageBatch() { return HomeUI._bindHomepageBatch(this) }
   _bindHomeExtras() { return HomeExtras.bindHomeExtras(this) }
   _renderHomeExtras() { return HomeExtras.renderHomeExtras(this) }
+
+  _refreshHomeUnlocks(opts) { return HomeUnlocks.refreshHomeUnlocks(this, opts) }
 
 
   _updateMenuNewsTicker() { return HomeUI._updateMenuNewsTicker(this) }

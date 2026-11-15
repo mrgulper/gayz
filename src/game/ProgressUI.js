@@ -18,6 +18,7 @@ import { EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQuests.js'
 import { t } from './i18n.js'
 import { rewardMult } from './LiveConfig.js'
 import { setNavBadge } from './NavBadges.js'
+import { refreshHomeUnlocks } from './HomeUnlocks.js'
 import { addClanXp, levelFromXp, levelUpCoins, xpForGame } from './Xp.js'
 
 // Personal stats dashboard (batch feature) - a simple bar chart of kills
@@ -1018,6 +1019,7 @@ export function _recordRunEnd(game, survived) {
   game._sessionKills += game.kills
   game.careerStats.totalKills += game.kills
   game.careerStats.totalRuns += 1
+  refreshHomeUnlocks(game, { announce: true })
   if (!game.careerStats.firstPlayedDate) game.careerStats.firstPlayedDate = todayDateString()
   // Most-used mutator (Profile panel) - one increment per active mutator
   // per completed run, same settings.mutators flags the Coin Shop/Play

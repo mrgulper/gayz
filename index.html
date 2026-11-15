@@ -33,6 +33,19 @@
         // Hide My Coins / Hide Chat (Settings > Social): hidden from the first paint.
         if (__s && __s.hideCurrency === true) document.documentElement.classList.add('hide-currency')
         if (__s && __s.hideChat === true) document.documentElement.classList.add('hide-chat')
+        // Homepage unlock ladder (HomeUnlocks.js - keep in step): a brand-new
+        // device (no settings, no finished game) starts with a short homepage;
+        // finished games unlock the rest, 5 = everything.
+        try {
+          var __lad = localStorage.getItem('gayz-home-ladder')
+          var __cs = JSON.parse(localStorage.getItem('gayz-career-stats') || 'null')
+          var __runs = Number(__cs && __cs.totalRuns) || 0
+          if (__lad === null && !__s && __runs === 0 && !navigator.webdriver) {
+            __lad = 'on'
+            localStorage.setItem('gayz-home-ladder', 'on')
+          }
+          if (__lad === 'on' && __runs < 5) document.documentElement.dataset.homeTier = __runs >= 3 ? '3' : __runs >= 1 ? '1' : '0'
+        } catch (e) {}
         // Picture themes - Sakura Dream (April's look) and Monthly (this
         // month's look, MonthThemes.js): fixed colours, the picture and the
         // look's letters. The twelve looks' variables are the ones Game
@@ -580,7 +593,7 @@ Escape before dawn.</p>
               <button id="howtoplay-btn" aria-label="How to play">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 1.9-2.4 3.3"/><line x1="12" y1="17" x2="12" y2="17.1"/></svg>
               </button>
-              <button id="quick-cloud-btn" aria-label="Cloud save">
+              <button id="quick-cloud-btn" data-unlock="3" aria-label="Cloud save">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.5 4.5 0 0 1-1-8.9 5.5 5.5 0 0 1 10.7-1.9A4.5 4.5 0 0 1 17 18z"/></svg>
                 <span class="nav-badge-dot" id="cloud-signed-in-dot" style="display: none"></span>
               </button>
@@ -648,37 +661,37 @@ Escape before dawn.</p>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="5" cy="19" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg>
                 <span>General</span>
               </button>
-              <button id="store-btn">
+              <button id="store-btn" data-unlock="1">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M2 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L21 7H6"/></svg>
                 <span>Store</span>
                 <span class="nav-badge-dot" id="store-new-dot" style="display: none"></span>
               </button>
-              <button id="market-btn">
+              <button id="market-btn" data-unlock="5">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" stroke="none"/></svg>
                 <span>Market</span>
               </button>
-              <button id="upgrades-btn">
+              <button id="upgrades-btn" data-unlock="1">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6,11 12,5 18,11"/></svg>
                 <span>Upgrades</span>
                 <span class="nav-badge-dot" id="upgrades-dot" style="display: none"></span>
               </button>
-              <button id="server-btn">
+              <button id="server-btn" data-unlock="3">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15 15 0 0 1 0 20a15 15 0 0 1 0-20"/></svg>
                 <span>Global</span>
               </button>
-              <button id="friends-btn">
+              <button id="friends-btn" data-unlock="3">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 <span>Friendship</span>
                 <span class="nav-badge-dot gold" id="friends-accepted-dot" style="display: none"></span>
                 <span class="nav-badge-dot" id="friends-request-dot" style="display: none"></span>
               </button>
-              <button id="quests-btn">
+              <button id="quests-btn" data-unlock="1">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 <span>Quests</span>
                 <span class="nav-badge-dot" id="quests-new-dot" style="display: none"></span>
                 <span class="nav-badge-dot gold" id="quests-claim-dot" style="display: none"></span>
               </button>
-              <button id="menu-inventory-btn">
+              <button id="menu-inventory-btn" data-unlock="1">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8H4a1 1 0 0 0-1 1v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a1 1 0 0 0-1-1z"/><path d="M16 8V6a4 4 0 0 0-8 0v2"/></svg>
                 <span>Inventory</span>
               </button>
@@ -687,9 +700,15 @@ Escape before dawn.</p>
                 <span>Achievements</span>
                 <span class="nav-badge-dot gold" id="achievements-new-dot" style="display: none"></span>
               </button>
-              <button id="build-mode-btn">
+              <button id="build-mode-btn" data-unlock="5">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 <span>Map Editor</span>
+              </button>
+              <!-- Homepage unlock ladder (HomeUnlocks.js): only shown while
+                   html[data-home-tier] is set; not part of Nav Order. -->
+              <button id="menu-more-btn" type="button" style="order: 99">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>
+                <span>More…</span>
               </button>
             </nav>
             <script>
@@ -717,7 +736,7 @@ Escape before dawn.</p>
                 __saved = __saved.map(function (id) { return id === 'coinshop-btn' ? 'store-btn' : id })
                 var __dom = []
                 var __kids = document.getElementById('menu-nav-buttons').children
-                for (var __i = 0; __i < __kids.length; __i++) if (__kids[__i].tagName === 'BUTTON' && __kids[__i].id) __dom.push(__kids[__i].id)
+                for (var __i = 0; __i < __kids.length; __i++) if (__kids[__i].tagName === 'BUTTON' && __kids[__i].id && __kids[__i].id !== 'menu-more-btn') __dom.push(__kids[__i].id)
                 var __order = []
                 __saved.forEach(function (id) { if (__dom.indexOf(id) >= 0 && __order.indexOf(id) < 0) __order.push(id) })
                 __dom.forEach(function (id, i) {
@@ -741,14 +760,14 @@ Escape before dawn.</p>
             <span>What's New</span>
             <span class="nav-badge-dot" id="whats-new-dot" style="display: none"></span>
           </button>
-          <button id="nav-gayzfeatures-link" type="button"><span>GayZ Features</span></button>
-          <button id="nav-designskin-link" type="button"><span>Design a Skin</span></button>
-          <button id="nav-gallery-link" type="button"><span>Gallery</span></button>
-          <button id="credits-btn" type="button"><span>Credits</span></button>
+          <button id="nav-gayzfeatures-link" data-unlock="1" type="button"><span>GayZ Features</span></button>
+          <button id="nav-designskin-link" data-unlock="5" type="button"><span>Design a Skin</span></button>
+          <button id="nav-gallery-link" data-unlock="5" type="button"><span>Gallery</span></button>
+          <button id="credits-btn" data-unlock="1" type="button"><span>Credits</span></button>
           <button id="terms-btn" type="button"><span>Terms of Use</span></button>
           <button id="nav-privacy-link" type="button"><span>Privacy Policy</span></button>
-          <button id="nav-feedback-link" type="button"><span>Feedback</span></button>
-          <button id="nav-halloffame-link" type="button"><span>Hall of Fame</span></button>
+          <button id="nav-feedback-link" data-unlock="1" type="button"><span>Feedback</span></button>
+          <button id="nav-halloffame-link" data-unlock="3" type="button"><span>Hall of Fame</span></button>
           <a id="nav-discord-link" href="https://discord.gg/kukR72Euj6" target="_blank" rel="noopener noreferrer">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
             <span>Discord</span>
@@ -2789,6 +2808,10 @@ Escape before dawn.</p>
         <div class="feature" data-code="HomeExtras renderHomeExtras homeExtrasLayout pickMapOfWeek birthdayYears">
           <h3>Homepage Extras</h3>
           <p>Small cards on the homepage: your last run and best wave, a tip of the day (<span data-feature-value="tipCount">12</span> of them, a new one each day), the top <span data-feature-value="topPlayers">3</span> players by best wave, Map of the Week - a map picked by the GayZ team, or else the most liked map posted to the Gallery in the last <span data-feature-value="mapWeekDays">7</span> days, with a Play button - and an Invite a friend button that copies the game's link (or opens your phone's share menu). Pick how they show in Settings &gt; General &gt; Homepage: Cards puts them in the bottom corners (as many as fit your screen), Today Panel keeps the homepage clean and puts them all behind one Today button. Play gets a Continue tag when you left a run halfway (it picks it up on the same mode and difficulty), and a New here? tag that opens How to Play before your first run. Tap your character for a dance, wave or flex; now and then a zombie peeks in from the side, and snow falls in December. Next to the clock in the top corner: how many survivors are online right now (signed-in players, plus you). On your GayZ birthday - the date you finished your first run, every year after - confetti falls and a birthday card counting your years surviving gives a gift of <span data-feature-value="birthdayCoins">100</span> coins for every year, once per birthday. Your login streak is on your Profile, and the Daily Challenge lives in the Quests.</p>
+        </div>
+        <div class="feature" data-code="HomeUnlocks refreshHomeUnlocks tierForRuns menu-more-btn">
+          <h3>A Homepage That Grows With You</h3>
+          <p>Brand-new players start with a short homepage - Play, Game Mode, Settings, General, Achievements, How to Play, What's New and Discord - so it isn't a wall of buttons on day one. Finishing games brings the rest in, with a message saying what just arrived: after <span data-feature-value="homeUnlock1">1</span> game the Store, Upgrades, Inventory and Quests (plus GayZ Features, Credits and Feedback); after <span data-feature-value="homeUnlock3">3</span> Global chat, Friendship, Cloud Save and the Hall of Fame; after <span data-feature-value="homeUnlock5">5</span> the Market, Map Editor, Design a Skin and the Gallery - the whole homepage. The More... button under the menu shows everything straight away, for good. Discord and the Terms and Privacy pages are always there, and anyone who played GayZ before this keeps the full homepage.</p>
         </div>
       </section>
 

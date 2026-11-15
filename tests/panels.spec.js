@@ -890,3 +890,70 @@ test('Monthly theme picks the look of the current month, from the first paint', 
   await page.evaluate(() => document.getElementById('theme-picker-sakura').click())
   expect(await page.evaluate(() => document.documentElement.dataset.pictureTheme)).toBe('sakura')
 })
+
+// Homepage unlock ladder (HomeUnlocks.js, 2026-11-15): a brand-new player
+// starts with a short homepage, finished games unlock the rest (1 / 3 / 5),
+// More... opens everything for good, Discord never hides. Automated
+// browsers are never enrolled, so this test turns the ladder on itself.
+test('homepage unlock ladder: new players see fewer buttons, games unlock the rest', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem('ladder-seeded')) {
+      sessionStorage.setItem('ladder-seeded', '1')
+      localStorage.setItem('gayz-home-ladder', 'on')
+    }
+  })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const seen = (ids) => ids.map((id) => !!document.getElementById(id)?.offsetParent)
+    const g = window.__game
+    const ids = ['hub-btn', 'store-btn', 'server-btn', 'market-btn', 'build-mode-btn', 'nav-discord-link', 'menu-more-btn']
+    const out = { firstTier: document.documentElement.dataset.homeTier }
+    out.tier0 = seen(ids)
+    const toasts = []
+    const orig = g._showLoreToast.bind(g)
+    g._showLoreToast = (msg) => { toasts.push(msg); orig(msg) }
+    const finishGame = () => {
+      g.careerStats.totalRuns += 1
+      g._refreshHomeUnlocks({ announce: true })
+    }
+    await finishGame()
+    out.tier1 = seen(ids)
+    await finishGame(); await finishGame()
+    out.tier3 = seen(ids)
+    await finishGame(); await finishGame()
+    out.tier5 = seen(ids)
+    out.ladderAfter5 = localStorage.getItem('gayz-home-ladder')
+    out.toasts = toasts.length
+    // Nav Order never lists the More button.
+    g._renderNavOrderList()
+    out.navOrderHasMore = !!document.querySelector('.nav-order-row[data-id="menu-more-btn"]')
+    out.navOrderRows = document.querySelectorAll('.nav-order-row').length
+    return out
+  })
+  expect(r.firstTier).toBe('0')
+  //            hub   store  server market editor discord more
+  expect(r.tier0).toEqual([true, false, false, false, false, true, true])
+  expect(r.tier1).toEqual([true, true, false, false, false, true, true])
+  expect(r.tier3).toEqual([true, true, true, false, false, true, true])
+  expect(r.tier5).toEqual([true, true, true, true, true, true, false])
+  expect(r.ladderAfter5).toBe('off')
+  expect(r.toasts).toBe(3)
+  expect(r.navOrderHasMore).toBe(false)
+  expect(r.navOrderRows).toBe(10)
+
+  // More... opens everything and it stays that way after a reload.
+  await page.evaluate(() => {
+    localStorage.setItem('gayz-home-ladder', 'on')
+    const s = JSON.parse(localStorage.getItem('gayz-career-stats') || '{}')
+    s.totalRuns = 0
+    localStorage.setItem('gayz-career-stats', JSON.stringify(s))
+  })
+  await page.reload()
+  await page.waitForFunction(() => window.__game)
+  expect(await page.evaluate(() => document.documentElement.dataset.homeTier)).toBe('0')
+  await page.evaluate(() => document.getElementById('menu-more-btn').click())
+  await page.reload()
+  await page.waitForFunction(() => window.__game)
+  const after = await page.evaluate(() => ({ tier: document.documentElement.dataset.homeTier ?? null, market: !!document.getElementById('market-btn').offsetParent }))
+  expect(after).toEqual({ tier: null, market: true })
+})
