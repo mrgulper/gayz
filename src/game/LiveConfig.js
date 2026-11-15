@@ -44,7 +44,7 @@
 // = servers only) starts it once (tryWorldDrop). While a game is running
 // the page asks every IN_GAME_EVERY_MS so a drop lands within a minute.
 import { t } from './i18n.js'
-import { saveShopProgress } from './Game.js'
+import { saveShopProgress, saveSettings } from './Game.js'
 import { setDailyOverrides } from './DailyChallenge.js'
 import { WORLD_EVENT_KINDS, DISASTER_KINDS, TUNE_LIMITS } from './LiveLists.js'
 
@@ -73,7 +73,7 @@ export const STAFF_UID = 'gayzTeam'
 // Horde Night's extra zombies per wave.
 export const HORDE_MULT = 1.5
 
-const EMPTY = { myGifts: [], banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, daily: {}, hidden: { maps: [], builds: [] }, ban: null, mute: null, warnings: [], off: [], maintenance: null, poll: null, tuning: null, worldDrop: null }
+const EMPTY = { myGifts: [], banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, daily: {}, hidden: { maps: [], builds: [] }, ban: null, mute: null, warnings: [], idShopBlocked: false, newId: null, off: [], maintenance: null, poll: null, tuning: null, worldDrop: null }
 
 function readCache() {
   try {
@@ -325,6 +325,7 @@ function apply(next, game) {
   claimGift(game)
   claimMyGifts(game)
   tryWorldDrop(game)
+  applyNewId(game)
   window.dispatchEvent(new Event('gayz-live'))
 }
 
@@ -457,6 +458,30 @@ function wireRedeemBox(game) {
 }
 
 let lastAskAt = 0
+// The Shop asks fresh before selling a custom Player ID (ShopIdentity.js):
+// true = this player is banned or was warned in the last 30 days.
+// Throws when the server can't be reached.
+export async function checkIdShopBlocked(game) {
+  lastAskAt = Date.now()
+  apply(await liveApi()({ pid: game.settings?.playerId }), game)
+  return config.idShopBlocked === true
+}
+
+// The team changed this player's Player ID (2026-11-15): switch to it,
+// like buying one in the Shop, then ask again so the new ID's own
+// ban/mute/warnings apply.
+function applyNewId(game) {
+  const id = config.newId
+  if (typeof id !== 'string' || !/^[A-Z0-9]{5,10}$/.test(id) || embedded() || !game?.settings) return
+  if (id === game.settings.playerId) return
+  game.settings.playerId = id
+  saveSettings(game.settings)
+  game._renderPlayerTag?.()
+  game._pushOnlineStats?.()
+  game._showHomepageToast?.(t('liveIdChanged', { id }))
+  setTimeout(() => ask(game), 0)
+}
+
 async function ask(game) {
   lastAskAt = Date.now()
   try {

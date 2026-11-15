@@ -1038,6 +1038,10 @@ test('shop name change costs 100 gems and custom IDs are 5-10 characters and blo
     out.tooShort = await buy('ab1')
     out.cleanedInput = (idInput.value = 'ab-c!d', idInput.dispatchEvent(new Event('input')), idInput.value)
     out.taken = await buy('taken1')
+    // Banned / warned in the last 30 days: the Shop says no, nothing spent.
+    g.__idBackendForTests.isIdShopBlocked = async () => true
+    out.blocked = await buy('gaymi')
+    g.__idBackendForTests.isIdShopBlocked = async () => false
     out.bought = await buy('gaymi')
     out.claimed = claimed
     out.badgeText = g.menuPlayerTag.textContent
@@ -1065,6 +1069,8 @@ test('shop name change costs 100 gems and custom IDs are 5-10 characters and blo
   expect(r.tooShort.status).toMatch(/5-10/)
   expect(r.cleanedInput).toBe('ABCD')
   expect(r.taken).toMatchObject({ id: 'OLD123', gems: 25000, status: 'This ID is already taken' })
+  expect(r.blocked).toMatchObject({ id: 'OLD123', gems: 25000 })
+  expect(r.blocked.status).toMatch(/banned|warning/i)
   expect(r.bought).toMatchObject({ id: 'GAYMI', gems: 15000, typed: '' })
   expect(r.claimed).toContain('GAYMI')
   expect(r.badgeText).toBe('#GAYMI')

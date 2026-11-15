@@ -854,6 +854,8 @@ export default {
   shopIdSame: 'Ese ya es tu ID.',
   shopIdNeedGems: 'Te faltan {need} gemas.',
   shopIdSignIn: 'Inicia sesión primero (Perfil) para comprobar que el ID está libre.',
+  shopIdBlocked: 'No puedes comprar un ID personalizado si estás baneado o recibiste una advertencia en los últimos 30 días.',
+  liveIdChanged: 'El equipo de GayZ cambió tu ID de jugador a #{id}.',
   shopIdChecking: 'Comprobando...',
   shopIdTaken: 'Este ID ya está en uso',
   shopIdConfirm: '¿Hacer #{id} tu ID por {price} gemas?',
