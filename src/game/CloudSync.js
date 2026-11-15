@@ -164,7 +164,9 @@ service cloud.firestore {
         && request.resource.data.bestKillStreak is int && request.resource.data.bestKillStreak >= 0 && request.resource.data.bestKillStreak < 100000
         && request.resource.data.achievementCount is int && request.resource.data.achievementCount >= 0 && request.resource.data.achievementCount <= 1000
         && (!('region' in request.resource.data) || request.resource.data.region in ['na', 'eu', 'asia', 'sa', 'oceania', 'africa'])
-        && (!('playerId' in request.resource.data) || (request.resource.data.playerId is string && request.resource.data.playerId.matches('[A-Z0-9]{5,10}')))
+        && (!('playerId' in request.resource.data) || (request.resource.data.playerId is string && request.resource.data.playerId.matches('[A-Z0-9]{5,10}')
+          && (!exists(/databases/$(database)/documents/playerIds/$(request.resource.data.playerId))
+            || get(/databases/$(database)/documents/playerIds/$(request.resource.data.playerId)).data.uid == request.auth.uid)))
         && (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is int)
         && (!('doNotDisturb' in request.resource.data) || request.resource.data.doNotDisturb is bool)
         && (!('manualIdle' in request.resource.data) || request.resource.data.manualIdle is bool)
