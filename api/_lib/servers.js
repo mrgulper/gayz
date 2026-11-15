@@ -51,7 +51,7 @@
 // its zombies, and every player's placed and broken blocks go in `edits`
 // (one per cell, the latest wins, numbered so each player only gets the
 // ones they haven't had yet).
-import { randomUUID, randomInt, createHash } from 'node:crypto'
+import { randomUUID, randomInt, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { cleanLobbyRules, defaultLobbyRules, PASSWORD_MAX } from '../../src/game/LobbyRules.js'
 import { isBanned, isMuted, onlineClosed, dropTicket, GIFT_SKIN_IDS } from './admin.js'
 import { ownerCommand, ownerDeliveries, OwnerError } from './ownerPowers.js'
@@ -151,9 +151,18 @@ function maxOf(server) {
   return server?.custom && m >= 2 && m <= MAX_PLAYERS ? m : MAX_PLAYERS
 }
 
-// A custom lobby's password is kept only as a hash, salted with its id.
-function passHash(serverId, password) {
-  return createHash('sha256').update(`${serverId}:${password}`).digest('hex')
+// A custom lobby's password is kept only as a slow salted hash
+// ("salt:hash", scrypt), checked in constant time.
+function passHash(password) {
+  const salt = randomBytes(16).toString('hex')
+  return `${salt}:${scryptSync(password, salt, 32).toString('hex')}`
+}
+function passMatches(stored, password) {
+  const [salt, hash] = String(stored || '').split(':')
+  if (!salt || !hash) return false
+  const want = Buffer.from(hash, 'hex')
+  const got = scryptSync(password, salt, 32)
+  return want.length === got.length && timingSafeEqual(want, got)
 }
 const cleanPassword = (v) => (typeof v === 'string' ? v.slice(0, PASSWORD_MAX) : '')
 
@@ -236,7 +245,7 @@ export async function createServer(db, { name, mode, nickname, skin, world, id: 
       ...(cleanWorld(world) ? { world: cleanWorld(world) } : {}),
       ...(hidden === true ? { hidden: true } : {}),
       ...(cleanAccess(access) ? { access: cleanAccess(access) } : {}),
-      ...(custom === true ? { custom: true, rules: cleanLobbyRules(rules) || defaultLobbyRules(), ...(cleanPassword(password) ? { passHash: passHash(id, cleanPassword(password)) } : {}) } : {}),
+      ...(custom === true ? { custom: true, rules: cleanLobbyRules(rules) || defaultLobbyRules(), ...(cleanPassword(password) ? { passHash: passHash(cleanPassword(password)) } : {}) } : {}),
     },
     // Whole, so an old server's players and skins under this id go too.
     [`serverSecrets/${id}`]: { [pid]: token },
@@ -268,7 +277,7 @@ export async function joinServer(db, { serverId, nickname, skin, pid: playerPid,
   if (!owner && real.length >= maxOf(server)) throw new ServerError(409, 'full')
   if (!owner && server.access === 'nobody') throw new ServerError(403, 'locked')
   // A custom lobby with a password (the owner's pass gets in without one).
-  if (!owner && server.passHash && passHash(serverId, cleanPassword(password)) !== server.passHash) throw new ServerError(403, 'password')
+  if (!owner && server.passHash && !passMatches(server.passHash, cleanPassword(password))) throw new ServerError(403, 'password')
   const pid = newId(10)
   const token = randomUUID().replace(/-/g, '')
   const player = newPlayer(nickname, now)
