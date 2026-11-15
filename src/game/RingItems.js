@@ -5,7 +5,7 @@
 //
 // An item in the bag or the ring is written "id:rarity" (e.g. "brick:rare").
 // The bag (gayz-ring-bag) is { "id:rarity": count } and the ring
-// (gayz-ring-loadout) is a list of RING_SLOTS of those (or '' for an empty
+// (gayz-ring-loadout) is a list of ringSlots() of those (or '' for an empty
 // slot). Both are gayz-* keys, so Cloud Save carries them like coins and
 // skins; the bag's counts add up across devices (CloudMerge ADDITIVE_KEYS).
 // The three common starters (brick, saw blade, bandage) are always yours,
@@ -13,7 +13,13 @@
 import * as THREE from 'three'
 import { SKIN_RARITIES } from './InventorySkins.js'
 
+// Batch 3: everyone has 3 slots; more (up to 10) are bought with Points in
+// the Shop's Ring tab and kept forever (gayz-meta-progress ringSlotsBought).
 export const RING_SLOTS = 3
+export const MAX_SLOTS = 10
+const META_KEY = 'gayz-meta-progress'
+// Points for slot 4, 5, ... 10.
+export const SLOT_COSTS = [500, 1000, 2000, 3500, 5500, 8000, 12000]
 export const RARITIES = Object.keys(SKIN_RARITIES) // common ... mythic
 export const BAG_KEY = 'gayz-ring-bag'
 export const LOADOUT_KEY = 'gayz-ring-loadout'
@@ -142,7 +148,7 @@ export function loadLoadout(bag = loadBag()) {
 export function fitLoadout(list, bag = loadBag()) {
   const used = {}
   const out = []
-  for (let i = 0; i < RING_SLOTS; i++) {
+  for (let i = 0; i < ringSlots(); i++) {
     const k = typeof list[i] === 'string' ? list[i] : ''
     if (k && parseKey(k) && (used[k] || 0) < owned(k, bag)) {
       used[k] = (used[k] || 0) + 1
@@ -154,6 +160,115 @@ export function fitLoadout(list, bag = loadBag()) {
 
 export function saveLoadout(list) {
   try { localStorage.setItem(LOADOUT_KEY, JSON.stringify(list)) } catch { /* storage full or blocked */ }
+}
+
+// --- ring slots (Batch 3) ---
+
+// How many slots your ring has right now (3 to 10).
+export function ringSlots() {
+  let bought
+  try { bought = Math.floor(Number(JSON.parse(localStorage.getItem(META_KEY) || '{}').ringSlotsBought) || 0) } catch { bought = 0 }
+  return Math.max(RING_SLOTS, Math.min(MAX_SLOTS, RING_SLOTS + bought))
+}
+
+// Points for the next slot (undefined once you have all 10).
+export function nextSlotCost(slots = ringSlots()) {
+  return SLOT_COSTS[slots - RING_SLOTS]
+}
+
+// --- merging (Batch 3): 5 of the same item -> 1 of the next rarity ---
+
+export const MERGE_N = 5
+
+export function nextRarity(rarity) {
+  return RARITIES[rarityIndex(rarity) + 1] || null
+}
+
+// How many merges the bag has for an item (the free starter copy never
+// counts - only copies in the bag).
+export function mergesAvailable(key, bag = loadBag()) {
+  const p = parseKey(key)
+  if (!p || !nextRarity(p.rarity)) return 0
+  return Math.floor((bag[key] || 0) / MERGE_N)
+}
+
+// Merges up to `times` (Infinity = all). Always works (Gaymi's pick).
+// Returns { made, key } - how many of which item came out.
+export function mergeItem(key, times = 1) {
+  const p = parseKey(key)
+  const bag = loadBag()
+  const n = Math.min(times, mergesAvailable(key, bag))
+  if (!p || n <= 0) return { made: 0, key: '' }
+  const up = `${p.id}:${nextRarity(p.rarity)}`
+  bag[key] -= n * MERGE_N
+  if (bag[key] <= 0) delete bag[key]
+  bag[up] = (bag[up] || 0) + n
+  saveBag(bag)
+  return { made: n, key: up }
+}
+
+// --- the Shop's ring items (Batch 3, paid in Points) ---
+
+// Points for one item at each rarity: x4 a step (a merge takes 5, so
+// buying the rarer one straight away is a little cheaper).
+export const SHOP_PRICES = [40, 160, 640, 2560, 10240, 40960]
+// Common, Uncommon and Rare are always for sale. Epic and up only some
+// days (Gaymi: "make higher rarities rarer"): each item's Epic is in stock
+// 40% of days, Legendary 15%, Mythic 4% - and only one each that day.
+const DAILY_CHANCE = [1, 1, 1, 0.4, 0.15, 0.04]
+export const ALWAYS_STOCKED = 3
+const SHOP_DAY_KEY = 'gayz-ring-shop'
+// The Mystery Box: one random item, rarer ones less often (out of 1000).
+export const BOX_COST = 350
+const BOX_WEIGHTS = [550, 280, 120, 40, 9, 1]
+
+export function shopPrice(rarity) {
+  return SHOP_PRICES[rarityIndex(rarity)]
+}
+
+export function todayKey(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// A steady 0-1 number from a text (same day + item = same answer).
+function hash01(text) {
+  let h = 2166136261
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619)
+  return ((h >>> 0) % 100000) / 100000
+}
+
+function boughtToday(day = todayKey()) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SHOP_DAY_KEY) || '{}')
+    if (raw?.day === day && Array.isArray(raw.bought)) return raw.bought.filter((k) => typeof k === 'string')
+  } catch { /* broken save: nothing bought */ }
+  return []
+}
+
+// 'always' (buy as many as you like), 'today' (one left today),
+// 'sold' (bought today) or 'none' (not in stock today).
+export function stockOf(key, day = todayKey()) {
+  const p = parseKey(key)
+  if (!p) return 'none'
+  const i = rarityIndex(p.rarity)
+  if (i < ALWAYS_STOCKED) return 'always'
+  if (hash01(`${day}|${key}`) >= DAILY_CHANCE[i]) return 'none'
+  return boughtToday(day).includes(key) ? 'sold' : 'today'
+}
+
+// Marks a rare-stock item bought for today.
+export function markBought(key, day = todayKey()) {
+  const list = boughtToday(day)
+  if (!list.includes(key)) list.push(key)
+  try { localStorage.setItem(SHOP_DAY_KEY, JSON.stringify({ day, bought: list })) } catch { /* storage blocked */ }
+}
+
+export function rollBox(rand = Math.random) {
+  let roll = rand() * 1000
+  let i = 0
+  while (i < BOX_WEIGHTS.length - 1 && roll >= BOX_WEIGHTS[i]) roll -= BOX_WEIGHTS[i++]
+  const id = ITEM_IDS[Math.floor(rand() * ITEM_IDS.length) % ITEM_IDS.length]
+  return `${id}:${RARITIES[i]}`
 }
 
 // --- pictures (drawn here, not copied from anywhere) ---

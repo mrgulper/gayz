@@ -173,17 +173,21 @@ export function loadMetaProgress() {
       // prestige, forward-only same as Achievements.js's unlockTimes (no
       // backfilled history for resets before this shipped).
       prestigeHistory: Array.isArray(parsed.prestigeHistory) ? parsed.prestigeHistory : [],
+      // Spin ring slots bought with Points in the Shop (RingItems.js
+      // ringSlots): 0-7 on top of the 3 everyone has. Kept here so Cloud
+      // Save adds both devices' buys like it does Points.
+      ringSlotsBought: Math.max(0, Math.floor(Number(parsed.ringSlotsBought) || 0)),
     }
     if (refund.points) saveMetaProgress(meta)
     return meta
   } catch {
-    return { legacyPoints: 0, purchased: new Set(), oldPurchased: [], refunded: new Set(), refundedNow: 0, prestigeLevel: 0, prestigeHistory: [] }
+    return { legacyPoints: 0, purchased: new Set(), oldPurchased: [], refunded: new Set(), refundedNow: 0, prestigeLevel: 0, prestigeHistory: [], ringSlotsBought: 0 }
   }
 }
 
 export function saveMetaProgress(meta) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ legacyPoints: meta.legacyPoints, tree: [...meta.purchased], purchased: meta.oldPurchased || [], refunded: [...(meta.refunded || [])], prestigeLevel: meta.prestigeLevel, prestigeHistory: meta.prestigeHistory }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ legacyPoints: meta.legacyPoints, tree: [...meta.purchased], purchased: meta.oldPurchased || [], refunded: [...(meta.refunded || [])], prestigeLevel: meta.prestigeLevel, prestigeHistory: meta.prestigeHistory, ringSlotsBought: meta.ringSlotsBought || 0 }))
   } catch {
     // Storage unavailable (e.g. private browsing) - progress just won't persist.
   }

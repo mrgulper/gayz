@@ -3,16 +3,20 @@
 // pause menu's Ring & Bag button. The game keeps running underneath (Gaymi
 // picked "anytime", no pause) - and it works in Spectate too.
 //
-//   Top: your RING_SLOTS ring slots. Tap one to pick it (it glows).
+//   Top: your ring slots (3, up to 10 - more in the Shop's Ring tab). Tap one to pick it (it glows).
 //   Middle: the item you last tapped - name, rarity, what it does, numbers.
 //   Bottom: the bag - everything you own, rarest first, with how many.
 //   Tap a bag item = it goes into the picked slot (then the next slot is
 //   picked). "Take Out" empties the picked slot.
 //
 // You can't put in more copies of an item than you own (RingItems.fitLoadout).
+//
+// Batch 3: with 5 or more of the shown item in the bag, Merge turns 5 into
+// 1 of the next rarity (always works); Merge All does every 5 at once. The
+// Shop button opens the Shop's Ring tab (items, Mystery Box, more slots).
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
-import { RING_SLOTS, ICONS, parseKey, itemStats, owned, ownedList, loadBag, saveLoadout, fitLoadout, rarityColor, rarityNameKey } from './RingItems.js'
+import { ICONS, parseKey, itemStats, owned, ownedList, loadBag, saveLoadout, fitLoadout, rarityColor, rarityNameKey, mergesAvailable, mergeItem, nextRarity, MERGE_N, MAX_SLOTS } from './RingItems.js'
 import { itemLabel } from './SpinRing.js'
 import { getKeyFor, keyLabel } from './Keybinds.js'
 
@@ -100,8 +104,10 @@ export class RingEditor {
         <p class="ring-ed-hint"></p>
         <div class="ring-ed-slots"></div>
         <div class="ring-ed-info"></div>
+        <div class="ring-ed-merge"></div>
         <h3 class="ring-ed-bag-title"></h3>
         <div class="ring-ed-bag"></div>
+        <button type="button" class="ring-ed-shop" data-ring="shop"></button>
       </div>`
       document.body.appendChild(this.el)
     }
@@ -114,13 +120,18 @@ export class RingEditor {
       else if (act === 'slot') this.pickSlot(Number(btn.dataset.i))
       else if (act === 'bag') this.putIn(btn.dataset.key)
       else if (act === 'out') this.takeOut()
+      else if (act === 'merge') this.merge(btn.dataset.all === '1' ? Infinity : 1)
+      else if (act === 'shop') {
+        this.close(false)
+        this.s.shop?.openPanel('', 'ring')
+      }
     }
     // Clicks and taps here never reach the game behind it.
     for (const ev of ['pointerdown', 'mousedown', 'touchstart', 'wheel']) this.el.addEventListener(ev, (e) => e.stopPropagation())
   }
 
   pickSlot(i) {
-    this.pick = Math.max(0, Math.min(RING_SLOTS - 1, i))
+    this.pick = Math.max(0, Math.min(this.s.ring.keys.length - 1, i))
     this.shown = this.s.ring.keys[this.pick] || this.shown
     try { audioEngine.playUi?.('tab') } catch { /* no audio */ }
     this.render()
@@ -156,6 +167,24 @@ export class RingEditor {
     this.render()
   }
 
+  // Merge the shown item: 5 -> 1 of the next rarity (times = Infinity: all).
+  merge(times) {
+    const key = this.shown
+    const res = mergeItem(key, times)
+    if (!res.made) return
+    // The new one is shown; the ring keeps only copies you still own.
+    this.shown = res.key
+    const ring = this.s.ring
+    const fitted = fitLoadout(ring.keys)
+    if (fitted.join() !== ring.keys.join()) {
+      saveLoadout(fitted)
+      ring.setLoadout(fitted)
+    }
+    this.s._message(t('ringMerged', { n: res.made, name: itemLabel(res.key) }), 2.5)
+    try { audioEngine.playUi?.('unbox') } catch { /* no audio */ }
+    this.render()
+  }
+
   _apply(keys) {
     const fitted = fitLoadout(keys)
     saveLoadout(fitted)
@@ -175,7 +204,7 @@ export class RingEditor {
     // The ring's slots.
     const slots = q('.ring-ed-slots')
     slots.textContent = ''
-    for (let i = 0; i < RING_SLOTS; i++) {
+    for (let i = 0; i < ring.keys.length; i++) {
       const key = ring.keys[i]
       const p = parseKey(key)
       const b = document.createElement('button')
@@ -219,6 +248,37 @@ export class RingEditor {
       head.append(name, ' ', rar)
       info.append(head, about, nums)
     } else info.textContent = t('ringEditorPickInfo')
+    // Merge (Batch 3).
+    const merge = q('.ring-ed-merge')
+    merge.textContent = ''
+    if (sp) {
+      const up = nextRarity(sp.rarity)
+      const can = mergesAvailable(this.shown, bag)
+      const note = document.createElement('span')
+      note.className = 'ring-ed-merge-note'
+      if (!up) note.textContent = t('ringMergeTop')
+      else if (!can) note.textContent = t('ringMergeNeed', { n: MERGE_N, have: bag[this.shown] || 0 })
+      if (note.textContent) merge.appendChild(note)
+      if (up && can) {
+        const upName = itemLabel(`${sp.id}:${up}`)
+        const one = document.createElement('button')
+        one.type = 'button'
+        one.dataset.ring = 'merge'
+        one.textContent = t('ringMergeOne', { n: MERGE_N, name: upName })
+        merge.appendChild(one)
+        if (can > 1) {
+          const all = document.createElement('button')
+          all.type = 'button'
+          all.dataset.ring = 'merge'
+          all.dataset.all = '1'
+          all.textContent = t('ringMergeAll', { n: can })
+          merge.appendChild(all)
+        }
+      }
+    }
+    const shop = q('.ring-ed-shop')
+    shop.textContent = t('ringEditorShop', { n: ring.keys.length, max: MAX_SLOTS })
+    shop.hidden = !this.s.shop
     // The bag.
     q('.ring-ed-bag-title').textContent = t('ringEditorBag')
     const grid = q('.ring-ed-bag')

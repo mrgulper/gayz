@@ -8900,6 +8900,119 @@ test('Spin ring items: drops for every zombie, the bag, the ring editor, item tr
   })
 })
 
+// Spin ring Batch 3: merge 5 -> 1, the Shop's Ring tab (Points), slots 3 -> 10.
+test('Spin ring merge, Ring Shop for Points, more slots, Spectate', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    localStorage.removeItem('gayz-ring-bag')
+    localStorage.removeItem('gayz-ring-loadout')
+    localStorage.removeItem('gayz-ring-shop')
+  })
+  await startRingGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const bm = g.buildMode
+    const s = bm.survival
+    const RI = s.ring.constructor.lib
+    g.settings.confirmBuyOver = 'never'
+    const out = {}
+    // Merge: 12 Common Bricks -> Merge = 7 + 1 Uncommon; Merge All = 2 + 2.
+    RI.addToBag('brick:common', 12)
+    s.onKeyDown('KeyI')
+    const ed = s.ringEditor
+    document.querySelector('.ring-ed-item[data-key="brick:common"]').click()
+    const btns = () => [...document.querySelectorAll('.ring-ed-merge button')]
+    out.mergeBtns = btns().length
+    btns()[0].click()
+    out.afterOne = [RI.loadBag()['brick:common'], RI.loadBag()['brick:uncommon']].join()
+    document.querySelector('.ring-ed-item[data-key="brick:common"]').click()
+    out.noAll = btns().length
+    btns()[0].click()
+    out.afterTwo = [RI.loadBag()['brick:common'], RI.loadBag()['brick:uncommon']].join()
+    out.direct = RI.mergeItem('brick:common', Infinity).made
+    RI.addToBag('cactus:mythic', 7)
+    out.mythicNo = RI.mergesAvailable('cactus:mythic')
+    // Shop button in the Ring Bag -> Shop on the Ring tab.
+    document.querySelector('.ring-ed-shop').click()
+    out.shopRing = s.shop.panelOpen && s.shop.tab === 'ring' && !ed.isOpen
+    out.tabs = s.shop.tabs()[0]
+    // Points.
+    g.metaProgress.legacyPoints = 100000
+    g.metaProgress.ringSlotsBought = 0
+    s.shop._panelKey = ''
+    s.shop._renderPanel()
+    out.pointsLine = document.getElementById('play-npc-coins').textContent.includes('100,000')
+    // Buy x5 Common Saw Blades.
+    document.querySelector('[data-act="ringQty"][data-id="5"]').click()
+    document.querySelector('[data-act="ringPick"][data-id="sawblade"]').click()
+    document.querySelector('[data-act="ringBuy"][data-id="sawblade:common"]').click()
+    out.bought5 = RI.loadBag()['sawblade:common']
+    out.paid = g.metaProgress.legacyPoints === 100000 - 5 * RI.SHOP_PRICES[0]
+    out.savedPoints = JSON.parse(localStorage.getItem('gayz-meta-progress')).legacyPoints === g.metaProgress.legacyPoints
+    // Custom amount.
+    document.querySelector('[data-act="ringQty"][data-id="custom"]').click()
+    const inp = document.getElementById('ring-shop-qty')
+    inp.value = '3'
+    inp.dispatchEvent(new Event('change', { bubbles: true }))
+    document.querySelector('[data-act="ringBuy"][data-id="sawblade:common"]').click()
+    out.boughtCustom = RI.loadBag()['sawblade:common']
+    // Epic and up: in stock some days, one each, then sold out.
+    const day = RI.todayKey()
+    const stocked = RI.ITEM_IDS.map((id) => `${id}:epic`).find((k) => RI.stockOf(k, day) === 'today')
+    if (stocked) {
+      document.querySelector(`[data-act="ringPick"][data-id="${stocked.split(':')[0]}"]`).click()
+      document.querySelector(`[data-act="ringBuy"][data-id="${stocked}"]`).click()
+      out.rareOnce = RI.stockOf(stocked, day) === 'sold' && RI.loadBag()[stocked] === 1 && document.querySelector(`[data-act="ringBuy"][data-id="${stocked}"]`).disabled
+    } else out.rareOnce = true
+    // Over 30 days, Mythic is in stock less often than Epic.
+    let epic = 0
+    let myth = 0
+    for (let d = 1; d <= 30; d++) for (const id of RI.ITEM_IDS) {
+      if (RI.stockOf(`${id}:epic`, `2026-01-${d}`) !== 'none') epic++
+      if (RI.stockOf(`${id}:mythic`, `2026-01-${d}`) !== 'none') myth++
+    }
+    out.rarer = epic > myth
+    // Mystery Box.
+    const bagSize = () => Object.values(RI.loadBag()).reduce((a, b) => a + b, 0)
+    const before = bagSize()
+    document.querySelector('[data-act="ringBox"]').click()
+    out.box = bagSize() === before + 1 && !!document.querySelector('.ring-shop-got')
+    // Slots: buy up to 10, the ring and its bar grow, then maxed.
+    for (let i = 0; i < 7; i++) document.querySelector('[data-act="ringSlot"]').click()
+    out.slots = RI.ringSlots()
+    out.ringKeys = s.ring.keys.length
+    out.barSlots = document.querySelectorAll('#play-ring-bar .ring-slot').length
+    out.barMany = document.getElementById('play-ring-bar').classList.contains('ring-many')
+    out.maxed = document.querySelector('[data-act="ringSlot"]').disabled
+    out.savedSlots = JSON.parse(localStorage.getItem('gayz-meta-progress')).ringSlotsBought
+    s.shop.closePanel(false)
+    // The editor shows 10 slots, and slot 10 takes an item.
+    s.onKeyDown('KeyI')
+    out.edSlots = document.querySelectorAll('.ring-ed-slot').length
+    document.querySelector('.ring-ed-slot[data-i="9"]').click()
+    document.querySelector('.ring-ed-item[data-key="sawblade:common"]').click()
+    out.slot10 = s.ring.keys[9] === 'sawblade:common' && s.ring.items.some((it) => it.slot === 9)
+    ed.close(false)
+    // Desktop bar stays on screen with 10 slots.
+    const bar = document.getElementById('play-ring-bar').getBoundingClientRect()
+    out.barOnScreen = bar.right <= innerWidth && bar.top >= 0
+    // Spectate: the Shop opens, Ring tab only.
+    bm.toggleMenu()
+    document.getElementById('play-pause-spectate-btn').click()
+    s.onKeyDown('KeyB')
+    out.spectateShop = s.shop.panelOpen && s.shop.tabs().join() === 'ring'
+    s.shop.closePanel(false)
+    return out
+  })
+  expect(r).toEqual({
+    mergeBtns: 2, afterOne: '7,1', noAll: 1, afterTwo: '2,2', direct: 0, mythicNo: 0,
+    shopRing: true, tabs: 'ring', pointsLine: true, bought5: 5, paid: true, savedPoints: true, boughtCustom: 8,
+    rareOnce: true, rarer: true, box: true,
+    slots: 10, ringKeys: 10, barSlots: 10, barMany: true, maxed: true, savedSlots: 7, edSlots: 10, slot10: true, barOnScreen: true,
+    spectateShop: true,
+  })
+})
+
 test.describe('spin ring on a phone', () => {
   test.use({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true })
 
@@ -8958,5 +9071,31 @@ test.describe('spin ring on a phone', () => {
       }
     })
     expect(ed).toEqual({ open: true, fits: true, touchHidden: true, hint: true })
+    // Batch 3: 10 slots still clear of everything, both ways; the Shop's
+    // Ring tab fits the upright phone.
+    await page.evaluate(() => {
+      const g = window.__game
+      const s = g.buildMode.survival
+      s.ringEditor.close(false)
+      g.metaProgress.ringSlotsBought = 7
+      localStorage.setItem('gayz-meta-progress', JSON.stringify({ ...JSON.parse(localStorage.getItem('gayz-meta-progress') || '{}'), ringSlotsBought: 7 }))
+      s.ring.setLoadout(s.ring.constructor.lib.fitLoadout(s.ring.keys))
+    })
+    await page.waitForTimeout(300)
+    expect(await page.evaluate(() => document.querySelectorAll('#play-ring-bar .ring-slot').length)).toBe(10)
+    expect(await overlaps()).toEqual({ shown: true, onScreen: true, overlaps: [] })
+    await page.setViewportSize({ width: 844, height: 390 })
+    await page.waitForTimeout(500)
+    expect(await overlaps()).toEqual({ shown: true, onScreen: true, overlaps: [] })
+    await page.setViewportSize({ width: 375, height: 812 })
+    await page.waitForTimeout(300)
+    const shop = await page.evaluate(() => {
+      const s = window.__game.buildMode.survival
+      s.shop.openPanel('', 'ring')
+      const box = document.querySelector('#play-npc-panel .build-share-box').getBoundingClientRect()
+      const items = document.querySelector('.ring-shop-items').getBoundingClientRect()
+      return { open: s.shop.panelOpen, fits: box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight, itemsFit: items.right <= box.right }
+    })
+    expect(shop).toEqual({ open: true, fits: true, itemsFit: true })
   })
 })

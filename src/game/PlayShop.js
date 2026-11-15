@@ -17,6 +17,12 @@
 //     one takes their place.
 // The camp's four people (BuildCamp.js) still stand there; talking to one
 // opens this shop on their tab.
+//   - Ring (spin ring games only, 2026-11-15, Batch 3 of the spin ring
+//     plan): ring items for Points (kept forever, not this game's coins) -
+//     pick an item, then a rarity. Common, Uncommon and Rare are always for
+//     sale (buy 1, 5 or a Custom amount); Epic and up only some days, one
+//     each (RingItems.stockOf). Also the Mystery Box and more ring slots
+//     (3 -> 10). It's the only tab in Spectate (the ring keeps going).
 // Coins come from kills (COIN_PER_KILL) and cleared waves (COIN_PER_WAVE),
 // and only last for that game of Play.
 import { money } from './SocialSettings.js'
@@ -26,6 +32,13 @@ import { ROD_COST } from './Fishing.js'
 import { needsBuyConfirm } from './GameplayAssist.js'
 import { tune } from './LiveConfig.js'
 import { audioEngine } from './Audio.js'
+import { saveMetaProgress } from './MetaProgress.js'
+import { ITEM_IDS, RARITIES, ICONS, MAX_SLOTS, BOX_COST, ALWAYS_STOCKED, parseKey, itemStats, shopPrice, stockOf, markBought, rollBox, addToBag, ringSlots, nextSlotCost, fitLoadout, saveLoadout, rarityColor, rarityIndex, todayKey } from './RingItems.js'
+import { itemLabel } from './SpinRing.js'
+
+// The Ring tab's amount picker (Common to Rare): 1, 5 or Custom (1-99).
+const RING_QTYS = ['1', '5', 'custom']
+const RING_QTY_MAX = 99
 
 // Settings > Gameplay > Confirm Buying Over: the first click turns the
 // button into "Sure? N" for this long; a second click buys.
@@ -76,6 +89,10 @@ export class PlayShop {
     this.s = survival
     this.panelOpen = false
     this.tab = 'items'
+    this._ringPick = ITEM_IDS[0]
+    this._ringQty = '1'
+    this._ringCustom = 10
+    this._ringLast = ''
     this.reset()
   }
 
@@ -86,7 +103,8 @@ export class PlayShop {
   // A new game: quests from the start, the ammo refill ready.
   reset() {
     this.closePanel(false)
-    this.tab = this.s.td ? 'towers' : 'items'
+    this.tab = this.s.td ? 'towers' : this.s.ring ? 'ring' : 'items'
+    this._ringLast = ''
     this.quests = CAMP_QUESTS.map((q) => ({ ...q, claimed: false }))
     this._notified = new Set()
     this._ammoReadyAt = 0
@@ -118,14 +136,19 @@ export class PlayShop {
   // The Shop key: open, or close if it's open.
   toggle() {
     if (this.panelOpen) return this.closePanel()
-    if (!this.s.active || this.s.dead || this.s.spectating) return
+    // Spectate: only the Ring tab (spin ring games), nothing else.
+    if (!this.s.active || this.s.dead || (this.s.spectating && !this.s.ring)) return
     this.openPanel()
   }
 
-  // npcId: a camp person was talked to - open on their tab.
-  openPanel(npcId = '') {
+  // npcId: a camp person was talked to - open on their tab. tab: open on
+  // that tab (the Ring Bag's Shop button opens 'ring').
+  openPanel(npcId = '', tab = '') {
+    if (!this.s.active || this.s.dead) return
     this._ensureDom()
     if (NPC_TAB[npcId]) this.tab = NPC_TAB[npcId]
+    if (tab) this.tab = tab
+    if (!this.tabs().includes(this.tab)) this.tab = this.tabs()[0]
     this.panelOpen = true
     this._panelKey = ''
     this.bm._keys.clear()
@@ -180,11 +203,24 @@ export class PlayShop {
       if (btn && !btn.disabled) this._click(btn.dataset.act, btn.dataset.id)
     }
     this._panel.querySelector('#play-npc-close').onclick = () => this.closePanel()
+    // The Ring tab's Custom amount: kept when you finish typing.
+    this._panel.onchange = (e) => {
+      if (e.target.id !== 'ring-shop-qty') return
+      this._ringCustom = Math.max(1, Math.min(RING_QTY_MAX, Math.floor(Number(e.target.value) || 1)))
+      this._panelKey = ''
+      this._renderPanel()
+    }
+    // Typing a number never moves you or opens anything behind the panel.
+    this._panel.onkeydown = (e) => {
+      if (e.target.id === 'ring-shop-qty') e.stopPropagation()
+    }
   }
 
   _renderPanel() {
     const s = this.s
+    if (!this.tabs().includes(this.tab)) this.tab = this.tabs()[0]
     const id = this.tab
+    if (id === 'ring') return this._renderRing()
     const now = performance.now() / 1000
     const ammoWait = Math.max(0, Math.ceil(this._ammoReadyAt - now))
     // Only redraw when something shown changed (it's called every frame).
@@ -247,9 +283,128 @@ export class PlayShop {
     this._panel.querySelector('#play-npc-list').innerHTML = rows.join('')
   }
 
-  // The tabs: Towers first in Tower Defense.
+  // The tabs: Towers first in Tower Defense; Ring in spin ring games (and
+  // only Ring while you spectate).
   tabs() {
-    return this.s.td ? ['towers', ...SHOP_TABS] : SHOP_TABS
+    if (this.s.ring && this.s.spectating) return ['ring']
+    const ring = this.s.ring ? ['ring'] : []
+    return this.s.td ? ['towers', ...ring, ...SHOP_TABS] : [...ring, ...SHOP_TABS]
+  }
+
+  // --- the Ring tab (Batch 3) ---
+
+  get points() {
+    return Math.max(0, Math.floor(Number(this.bm.game?.metaProgress?.legacyPoints) || 0))
+  }
+
+  _spendPoints(cost) {
+    const meta = this.bm.game?.metaProgress
+    if (!meta || this.points < cost) return false
+    meta.legacyPoints -= cost
+    saveMetaProgress(meta)
+    return true
+  }
+
+  // How many one Buy click gets (Common to Rare; rarer ones are one each).
+  _ringQtyFor(key) {
+    const p = parseKey(key)
+    if (!p || rarityIndex(p.rarity) >= ALWAYS_STOCKED) return 1
+    return this._ringQty === 'custom' ? this._ringCustom : Number(this._ringQty)
+  }
+
+  _ringCost(act, id) {
+    if (act === 'ringBuy') return shopPrice(parseKey(id)?.rarity) * this._ringQtyFor(id)
+    if (act === 'ringBox') return BOX_COST
+    if (act === 'ringSlot') return nextSlotCost() || 0
+    return 0
+  }
+
+  _renderRing() {
+    const day = todayKey()
+    const slots = ringSlots()
+    const sure = this._sureNow()
+    const stocks = RARITIES.map((r) => stockOf(`${this._ringPick}:${r}`, day)).join()
+    const key = ['ring', this.points, slots, this._ringPick, this._ringQty, this._ringCustom, this._ringLast, stocks, sure ? `${sure.act}:${sure.id}` : '', this.tabs().join()].join('|')
+    if (key === this._panelKey) return
+    this._panelKey = key
+    const q = (sel) => this._panel.querySelector(sel)
+    q('#play-npc-title').textContent = t('shopTitle')
+    q('#play-npc-coins').textContent = t('legacyScrapLabel', { n: this.points.toLocaleString() })
+    q('#play-npc-close').setAttribute('aria-label', t('communityBuildsCloseBtn'))
+    q('#play-shop-tabs').innerHTML = this.tabs().map((tab) => `<button type="button" role="tab" class="play-shop-tab${tab === 'ring' ? ' active' : ''}" data-shop-tab="${tab}" aria-selected="${tab === 'ring'}">${t(`shopTab_${tab}`)}</button>`).join('')
+    const pts = (n) => t('ringShopPoints', { n: n.toLocaleString() })
+    const row = (name, detail, btnText, act, itemId, disabled, extra = '') => {
+      const asking = !disabled && sure?.act === act && sure.id === itemId
+      if (asking) btnText = t('buyConfirmSure', { n: pts(this._ringCost(act, itemId)) })
+      return `<div class="play-npc-row${extra}"><div class="play-npc-info"><b>${name}</b><span>${detail}</span></div><button type="button" data-act="${act}" data-id="${itemId}"${asking ? ' class="buy-sure"' : ''} ${disabled ? 'disabled' : ''}>${btnText}</button></div>`
+    }
+    const rows = [`<p class="ring-shop-note">${t('ringShopNote')}</p>`]
+    // More slots.
+    const slotCost = nextSlotCost(slots)
+    rows.push(row(t('ringShopSlots', { n: slots, max: MAX_SLOTS }), slotCost ? t('ringShopSlotsAbout', { n: slots + 1 }) : t('ringShopSlotsMaxed'), slotCost ? pts(slotCost) : t('campMaxed'), 'ringSlot', 'slot', !slotCost || this.points < slotCost))
+    // The Mystery Box (and what the last one gave).
+    const last = this._ringLast ? `<br><span class="ring-shop-got">${t('ringBoxGot', { name: itemLabel(this._ringLast) })}</span>` : ''
+    rows.push(row(t('ringBox'), t('ringBoxAbout') + last, pts(BOX_COST), 'ringBox', 'box', this.points < BOX_COST))
+    // Pick an item...
+    rows.push(`<div class="ring-shop-items" role="group" aria-label="${t('ringShopPick')}">${ITEM_IDS.map((id) => `<button type="button" class="ring-shop-item${id === this._ringPick ? ' picked' : ''}" data-act="ringPick" data-id="${id}" aria-pressed="${id === this._ringPick}" title="${t(itemStats(id, 'common').nameKey)}" aria-label="${t(itemStats(id, 'common').nameKey)}">${ICONS[id] || ''}</button>`).join('')}</div>`)
+    rows.push(`<p class="ring-shop-about"><b>${t(itemStats(this._ringPick, 'common').nameKey)}</b> - ${t(itemStats(this._ringPick, 'common').aboutKey)}</p>`)
+    // ...how many (Common to Rare)...
+    const custom = this._ringQty === 'custom'
+    rows.push(`<div class="ring-shop-qty" role="group" aria-label="${t('ringShopQty')}"><span>${t('ringShopQty')}</span>${RING_QTYS.map((v) => `<button type="button" class="play-shop-tab${v === this._ringQty ? ' active' : ''}" data-act="ringQty" data-id="${v}" aria-pressed="${v === this._ringQty}">${v === 'custom' ? t('ringShopCustom') : `×${v}`}</button>`).join('')}${custom ? `<input id="ring-shop-qty" type="number" inputmode="numeric" min="1" max="${RING_QTY_MAX}" value="${this._ringCustom}" aria-label="${t('ringShopCustom')}">` : ''}</div>`)
+    // ...and a rarity.
+    for (const r of RARITIES) {
+      const k = `${this._ringPick}:${r}`
+      const st = stockOf(k, day)
+      const n = this._ringQtyFor(k)
+      const cost = shopPrice(r) * n
+      const out = st === 'none' || st === 'sold'
+      const name = `<span style="color:${rarityColor(r)}">${itemLabel(k)}</span>${n > 1 ? ` ×${n}` : ''}`
+      rows.push(row(name, t(`ringStock_${st}`), out ? t('ringShopSoldOut') : pts(cost), 'ringBuy', k, out || this.points < cost, ' ring-shop-row'))
+    }
+    q('#play-npc-list').innerHTML = rows.join('')
+  }
+
+  _ringAct(act, id) {
+    const s = this.s
+    if (act === 'ringPick') {
+      if (ITEM_IDS.includes(id)) this._ringPick = id
+    } else if (act === 'ringQty') {
+      if (RING_QTYS.includes(id)) this._ringQty = id
+    } else if (act === 'ringSlot') {
+      const cost = nextSlotCost()
+      const meta = this.bm.game?.metaProgress
+      if (!cost || !meta || !this._spendPoints(cost)) return
+      meta.ringSlotsBought = (meta.ringSlotsBought || 0) + 1
+      saveMetaProgress(meta)
+      if (s.ring) {
+        const keys = fitLoadout(s.ring.keys)
+        saveLoadout(keys)
+        s.ring.setLoadout(keys)
+      }
+      s._message(t('ringSlotBought', { n: ringSlots() }), 2.5)
+      try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
+    } else if (act === 'ringBox') {
+      if (!this._spendPoints(BOX_COST)) return
+      const key = rollBox()
+      addToBag(key)
+      this._ringLast = key
+      const rare = rarityIndex(parseKey(key).rarity) >= 2
+      s._message(t(rare ? 'ringLootRare' : 'ringLootGot', { name: itemLabel(key) }), rare ? 3 : 1.5)
+      try { audioEngine.playUi?.('unbox') } catch { /* no audio */ }
+    } else if (act === 'ringBuy') {
+      const p = parseKey(id)
+      const st = stockOf(id)
+      if (!p || st === 'none' || st === 'sold') return
+      const n = this._ringQtyFor(id)
+      if (!this._spendPoints(shopPrice(p.rarity) * n)) return
+      addToBag(id, n)
+      if (st === 'today') markBought(id)
+      s._message(t('ringLootGot', { name: `${itemLabel(id)}${n > 1 ? ` ×${n}` : ''}` }), 1.5)
+      try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
+    }
+    s.ringEditor?.refresh()
+    this._panelKey = ''
+    if (this.panelOpen) this._renderPanel()
   }
 
   // A price after the Trader Discount upgrade (PlayRules.js) and the
@@ -268,6 +423,7 @@ export class PlayShop {
   // What a buy button costs (0 for free ones: ammo fill, quest claims).
   _costOf(act, id) {
     const s = this.s
+    if (act.startsWith('ring')) return this._ringCost(act, id)
     if (act === 'buy') {
       const item = SHOP_ITEMS.find((i) => i.id === id)
       return item ? this._price(item) : 0
@@ -303,6 +459,7 @@ export class PlayShop {
 
   _act(act, id) {
     const s = this.s
+    if (act.startsWith('ring')) return this._ringAct(act, id)
     if ((act === 'buy' || act === 'trap' || act === 'upgrade') && s.cfg?.ironMode) return
     if (act === 'buy') {
       const item = SHOP_ITEMS.find((i) => i.id === id)
