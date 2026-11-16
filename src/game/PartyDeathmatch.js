@@ -219,6 +219,8 @@ export class PartyDeathmatch {
   _hit(id, amount, by) {
     const pm = this.pm
     if (pm.phase !== 'play' || !this.hp.has(id) || !this.hp.has(by) || !this._foe(by, id) || this.prot.has(id)) return
+    // Spectating: nothing can hurt you (PlaySpectate.js).
+    if (id === pm.myId && this.s.spectating) return
     this.hp.set(id, Math.max(0, this.hp.get(id) - amount))
     if (this.hp.get(id) <= 0) this._kill(id, by)
   }
@@ -611,6 +613,11 @@ export class PartyDeathmatch {
     tm.vel?.set(0, 0, 0)
     s.bm.camera.position.set(at.x * this.B, (at.y + 1.62) * this.B, at.z * this.B)
     s.bm._yaw = this._faceMiddle(at)
+  }
+
+  // A spawn point (PartyModes _enter: the wait before a round).
+  enter() {
+    this._goTo(this._spawnFor(this.pm.myId))
   }
 
   events(was) {

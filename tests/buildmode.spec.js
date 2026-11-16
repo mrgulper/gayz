@@ -7466,6 +7466,63 @@ test('Deathmatch: bots, kills, respawns and the winner', async ({ page }) => {
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })
 
+// Sky-arena modes start IN their arena, never in the zombie camp first;
+// no animals in Deathmatch; spectating keeps its own camera (2026-11-16).
+test('Arena modes start in the arena, Deathmatch has no animals, spectate camera holds', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    const start = async (mode) => {
+      localStorage.removeItem('gayz-play-saved-run')
+      g.settings.selectedGameMode = mode
+      await g._enterBuildMode({ map: 'map3', play: true })
+      const s = g.buildMode.survival
+      for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+      return s
+    }
+    // Straight after start - gun picker still open, round not begun.
+    for (const [mode, y] of [['floorLava', 230], ['musicalChairs', 220], ['deathmatch', 186]]) {
+      const s = await start(mode)
+      const tm = s.bm.tryMode
+      out[`${mode}InArena`] = s.party.phase === 'wait' && tm.pos.y > y && s.bm.camera.position.y / s.B > y && s._groundUnder(tm.pos.x, tm.pos.y + 0.5, tm.pos.z) > y - 1
+      if (mode !== 'deathmatch') s.stop()
+    }
+    const s = g.buildMode.survival
+    s._pickWeapon('rifle')
+    const pm = s.party
+    const D = pm.ext
+    for (let i = 0; i < 40; i++) s.update(0.05)
+    out.noAnimals = s._noAnimals && s.animals.list.length === 0
+    out.sameArena = pm.phase === 'play' && s.bm.tryMode.pos.y > 186 && D._inside(s.bm.tryMode.pos.x, s.bm.tryMode.pos.z)
+    // Spectate: fly off; a respawn (or a fall check) can't pull the camera back.
+    const sp = s.bm.spectate
+    sp.enter()
+    s.bm.camera.position.set(0, 300 * s.B, 0)
+    D.prot.clear()
+    const bot = [...pm.bots.keys()][0]
+    D._hit(pm.myId, 999, bot)
+    out.notHurt = D.hp.get(pm.myId) === 100
+    // Killed anyway (a hit sent before I started spectating): the kill cam
+    // and respawn want the camera - the free camera keeps it.
+    s.spectating = false
+    D._hit(pm.myId, 999, bot)
+    s.spectating = true
+    let jumps = 0
+    for (let i = 0; i < 40; i++) {
+      const was = s.bm.camera.position.clone()
+      s.bm.update(0.05)
+      if (s.bm.camera.position.distanceTo(was) > 0.01) jumps++
+    }
+    out.camHeld = jumps === 0 && Math.abs(s.bm.camera.position.y / s.B - 300) < 1 && Math.abs(s.bm.camera.position.x) < 1
+    sp.exit()
+    s.stop()
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})
+
 // Deathmatch's Small Town (2026-11-16): an 81 x 81 named map, bots that
 // hold and fire a real gun, find their way round buildings, and the
 // minimap drawing the arena (not the camp far below).

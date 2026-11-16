@@ -178,16 +178,21 @@ export class PartyDodge {
     return null
   }
 
+  // The middle of my team's half.
+  enter() {
+    const pm = this.pm
+    const tm = this.s.bm.tryMode
+    const hf = this.half(pm.myTeam || 'r')
+    tm.pos.set((hf.lo + hf.hi) / 2, DB_Y + 1, pm.home.z + 0.5)
+    tm.vel?.set(0, 0, 0)
+    this.s.bm._yaw = pm.myTeam === 'b' ? Math.PI / 2 : -Math.PI / 2
+  }
+
   events(was) {
     const pm = this.pm
     const s = this.s
     const tm = s.bm.tryMode
-    if (pm.phase === 'play' && (was.phase !== 'play' || was.round !== pm.round)) {
-      const hf = this.half(pm.myTeam || 'r')
-      tm.pos.set((hf.lo + hf.hi) / 2, DB_Y + 1, pm.home.z + 0.5)
-      tm.vel?.set(0, 0, 0)
-      s.bm._yaw = pm.myTeam === 'b' ? Math.PI / 2 : -Math.PI / 2
-    }
+    if (pm.phase === 'play' && (was.phase !== 'play' || was.round !== pm.round)) this.enter()
     // Your own half only (the middle line).
     if (pm.phase === 'play' && pm.myTeam && Math.abs(tm.pos.y - (DB_Y + 1)) < 4) {
       const hf = this.half(pm.myTeam)

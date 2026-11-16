@@ -256,6 +256,12 @@ export class PartyParkour {
     else s.net?.queueHit(`f${ms}`, 0)
   }
 
+  // The start.
+  enter() {
+    this.cp = 0
+    this._toCheckpoint()
+  }
+
   events(was) {
     const pm = this.pm
     if (pm.phase === 'play' && (was.phase !== 'play' || was.round !== pm.round)) {

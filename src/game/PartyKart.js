@@ -415,6 +415,17 @@ export class PartyKart {
     this._bananaMeshes = []
   }
 
+  // On the starting grid, on foot (the round's start puts me in my kart).
+  enter() {
+    const g = this.grid(Math.floor(Math.random() * 6))
+    const s = this.s
+    const tm = s.bm.tryMode
+    tm.pos.set(g.x, KART_Y + 1, g.z)
+    tm.vel?.set(0, 0, 0)
+    s.bm.camera.position.set(g.x * this.B, (KART_Y + 1 + 1.62) * this.B, g.z * this.B)
+    s.bm._yaw = g.heading + Math.PI
+  }
+
   events(was) {
     const pm = this.pm
     if (pm.phase === 'play' && (was.phase !== 'play' || was.round !== pm.round)) {

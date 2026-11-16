@@ -272,15 +272,17 @@ export class PartyLava {
     this._lava = sea
   }
 
+  // Onto a tile.
+  enter() {
+    const m = this.tileMid(Math.floor(Math.random() * GRID * GRID))
+    this._tp(m.x, m.z)
+  }
+
   events(was) {
     const pm = this.pm
     const s = this.s
     // A new round: everyone onto a tile.
-    if (pm.phase === 'play' && (was.phase !== 'play' || was.round !== pm.round)) {
-      const i = Math.floor(Math.random() * GRID * GRID)
-      const m = this.tileMid(i)
-      this._tp(m.x, m.z)
-    }
+    if (pm.phase === 'play' && (was.phase !== 'play' || was.round !== pm.round)) this.enter()
     if (pm.phase !== 'play') return
     for (const id of pm.out) {
       if (was.out.has(id)) continue

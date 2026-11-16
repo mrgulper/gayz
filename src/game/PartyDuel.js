@@ -224,17 +224,24 @@ export class PartyDuel {
     bm._suppressUndoRecording = false
   }
 
+  // My fighting spot, or the stand if I'm not fighting (or it's the wait).
+  enter() {
+    const pm = this.pm
+    const s = this.s
+    const i = pm.phase === 'play' ? this.fighters.indexOf(pm.myId) : -1
+    const at = i >= 0 ? { ...this.spotOf(i), y: DUEL_Y + 1 } : this.stand()
+    const tm = s.bm.tryMode
+    tm.pos.set(at.x, at.y, at.z)
+    tm.vel?.set(0, 0, 0)
+    s.bm.camera.position.set(at.x * this.B, (at.y + 1.62) * this.B, at.z * this.B)
+    s.bm._yaw = i === 1 ? Math.PI / 2 : -Math.PI / 2
+  }
+
   events(was) {
     const pm = this.pm
     const s = this.s
     if (pm.phase === 'play' && (was.phase !== 'play' || was.round !== pm.round)) {
-      const i = this.fighters.indexOf(pm.myId)
-      const at = i >= 0 ? { ...this.spotOf(i), y: DUEL_Y + 1 } : this.stand()
-      const tm = s.bm.tryMode
-      tm.pos.set(at.x, at.y, at.z)
-      tm.vel?.set(0, 0, 0)
-      s.bm.camera.position.set(at.x * this.B, (at.y + 1.62) * this.B, at.z * this.B)
-      s.bm._yaw = i === 1 ? Math.PI / 2 : -Math.PI / 2
+      this.enter()
       this._myHp = DUEL_HP
     }
     // Hit: a thump.

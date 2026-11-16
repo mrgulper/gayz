@@ -201,6 +201,17 @@ export class PartyTug {
     return false
   }
 
+  // On the red side, where the rope starts.
+  enter() {
+    const h = this.pm.home
+    const s = this.s
+    const tm = s.bm.tryMode
+    const x = h.x + 0.5 - GAP - 2
+    tm.pos.set(x, TUG_Y + 1, h.z + 0.5)
+    tm.vel?.set(0, 0, 0)
+    s.bm.camera.position.set(x * s.B, (TUG_Y + 1 + 1.62) * s.B, (h.z + 0.5) * s.B)
+  }
+
   events(was) {
     const pm = this.pm
     const s = this.s

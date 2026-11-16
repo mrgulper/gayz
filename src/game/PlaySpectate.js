@@ -317,6 +317,27 @@ export class PlaySpectate {
     if (this._floor) this._floor.visible = on
   }
 
+  // BuildMode: where the camera (and the spot it carries "me" at) was
+  // before the game's frame, and putting them back after it.
+  hold() {
+    const bm = this.bm
+    const k = this._keep || (this._keep = { cam: new THREE.Vector3(), pos: new THREE.Vector3(), yaw: 0, pitch: 0 })
+    k.cam.copy(bm.camera.position)
+    k.pos.copy(bm.tryMode.pos)
+    k.yaw = bm._yaw
+    k.pitch = bm._pitch
+    return k
+  }
+
+  restore(k) {
+    const bm = this.bm
+    bm.camera.position.copy(k.cam)
+    bm.tryMode.pos.copy(k.pos)
+    bm.tryMode.vel?.set(0, 0, 0)
+    bm._yaw = k.yaw
+    bm._pitch = k.pitch
+  }
+
   // dir: +1 next player, -1 previous; past either end is the free camera.
   cycle(dir) {
     const players = this._players()

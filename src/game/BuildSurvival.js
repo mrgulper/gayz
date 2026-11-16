@@ -667,6 +667,10 @@ export class BuildSurvival {
     this.hpBars.clear()
     if (!this.animals) this.animals = new PlayAnimals(this)
     this.animals.clear()
+    // No animals at all in Deathmatch and Team Deathmatch (2026-11-16,
+    // Gaymi: "remove all the animals in the death match") - not wild ones,
+    // not tamed ones following you.
+    this._noAnimals = this.cfg.mode === 'deathmatch' || this.cfg.mode === 'teamDeathmatch'
     if (!this.signs) this.signs = new JokeSigns(this)
     this.signs.clear()
     if (!this.emotes) this.emotes = new Emotes(this)
@@ -702,6 +706,9 @@ export class BuildSurvival {
     this._flowJob = null
     this._flowAt = 0
     bm.toggleTryMode()
+    // A mode with its own sky arena puts you in it now, before the first
+    // frame - never a look at the camp first (PartyModes.js stage()).
+    this.party?.stage()
     // Map 3's walled camp is a safe zone with NPCs (BuildCamp.js).
     this.camp?.dispose()
     const zone = bm.activeSlot === 'map3' ? bm._map3Base().map.safeZone : null
@@ -3768,14 +3775,14 @@ export class BuildSurvival {
     if (playing) this._updateKart(dt)
     // On a server the host runs the animals for everyone (even while dead
     // or in the menu); the others mirror them.
-    if (net && !net.isHost) this.animals?.updateMirror(dt)
+    if (net && !net.isHost && !this._noAnimals) this.animals?.updateMirror(dt)
     // ...and the train, the dragon and the UFO (copies of the host's).
     if (net && !net.isHost) {
       if (this.train?.mirror) this.train.update(dt)
       this.dragon?.mirrorUpdate(dt)
       this.ufo?.mirrorUpdate(dt)
     }
-    else if (playing || net) this.animals?.update(dt)
+    else if ((playing || net) && !this._noAnimals) this.animals?.update(dt)
     if (playing) this.signs?.update(dt)
     if (playing) this.fishing?.update(dt)
     if (playing) this.pet?.update(dt)

@@ -163,17 +163,21 @@ export class PartyBomb {
     return this.pm.stunned.has(this.pm.myId) ? 0.3 : 1
   }
 
+  // To my team's end (PartyModes _enter / a round's start).
+  enter() {
+    const pm = this.pm
+    const at = this.base(pm.myTeam || 'r')
+    const s = this.s
+    const tm = s.bm.tryMode
+    tm.pos.set(at.x, BD_Y + 1, at.z)
+    tm.vel?.set(0, 0, 0)
+    s.bm.camera.position.set(at.x * this.B, (BD_Y + 1 + 1.62) * this.B, at.z * this.B)
+    s.bm._yaw = pm.myTeam === 'b' ? Math.PI / 2 : -Math.PI / 2
+  }
+
   events(was) {
     const pm = this.pm
-    if (pm.phase === 'play' && (was.phase !== 'play' || was.round !== pm.round)) {
-      const at = this.base(pm.myTeam || 'r')
-      const s = this.s
-      const tm = s.bm.tryMode
-      tm.pos.set(at.x, BD_Y + 1, at.z)
-      tm.vel?.set(0, 0, 0)
-      s.bm.camera.position.set(at.x * this.B, (BD_Y + 1 + 1.62) * this.B, at.z * this.B)
-      s.bm._yaw = pm.myTeam === 'b' ? Math.PI / 2 : -Math.PI / 2
-    }
+    if (pm.phase === 'play' && (was.phase !== 'play' || was.round !== pm.round)) this.enter()
     // A beep from the bomb, faster near the end.
     if (pm.phase === 'play' && this.planted >= 0) {
       const gap = this.bombT < 10 ? 0.35 : this.bombT < 20 ? 0.7 : 1.2

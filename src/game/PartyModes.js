@@ -230,6 +230,47 @@ export class PartyMode {
     return !n || n.isHost
   }
 
+  // Modes with their own arena in the sky (every ext with a home(), and
+  // Build Battle). They start IN the arena: no stop in the zombie camp
+  // first (2026-11-16, Gaymi: "when you first join any gamemode like the
+  // death match i see the camp for zombie survival ... fix from the root
+  // cause"). Before, the arena was only put in when the first round
+  // began, so everyone stood in the camp through the wait (and behind the
+  // gun picker, which holds the wait).
+  get sky() {
+    return !!this.ext?.home || this.kind === 'buildBattle'
+  }
+
+  // Called by BuildSurvival.start() before the first frame: the arena goes
+  // in now and I'm put in it. A guest waits for the host's arena
+  // (applySnapshot), so two arenas never go in.
+  stage() {
+    if (!this.sky || !this.runs) return
+    const me = this.s.bodyPos()
+    if (this.kind === 'buildBattle') this.home = this._bbHome || (this._bbHome = { x: Math.round(me.x), y: BB_Y + 1, z: Math.round(me.z) })
+    else this.home = this.ext.home(me)
+    this._enter()
+  }
+
+  // Into the arena while waiting for a round (the round's own start puts
+  // everyone at their start spot, as before).
+  _enter() {
+    if (!this.home) return
+    this._enteredFor = `${this.home.x},${this.home.z}`
+    if (this.kind === 'buildBattle') {
+      this._platform()
+      this._bbAt = ''
+      this._bbPlace()
+      return
+    }
+    this._drawArena(0)
+    this.ext.enter?.()
+    // The camera with me (some modes only move my feet).
+    const tm = this.s.bm.tryMode
+    const B = this.s.B
+    this.s.bm.camera.position.set(tm.pos.x * B, (tm.pos.y + 1.62) * B, tm.pos.z * B)
+  }
+
   get myId() {
     const id = (this.s.net || this.s.lobby)?.playerId || 'me'
     if (id !== this._myId) {
@@ -365,10 +406,13 @@ export class PartyMode {
 
   _begin() {
     const me = this.s.bodyPos()
-    this.home = { x: Math.round(me.x * 10) / 10, y: Math.round(me.y * 10) / 10, z: Math.round(me.z * 10) / 10 }
-    // Build Battle: the same platform in the sky, round after round.
-    if (this.kind === 'buildBattle') this.home = this._bbHome || (this._bbHome = { x: Math.round(me.x), y: BB_Y + 1, z: Math.round(me.z) })
-    if (this.ext?.home) this.home = this.ext.home(me)
+    // A sky-arena mode keeps the arena it started in (see stage()).
+    if (!(this.sky && this.home)) {
+      this.home = { x: Math.round(me.x * 10) / 10, y: Math.round(me.y * 10) / 10, z: Math.round(me.z * 10) / 10 }
+      // Build Battle: the same platform in the sky, round after round.
+      if (this.kind === 'buildBattle') this.home = this._bbHome || (this._bbHome = { x: Math.round(me.x), y: BB_Y + 1, z: Math.round(me.z) })
+      if (this.ext?.home) this.home = this.ext.home(me)
+    }
     this.phase = 'play'
     this.left = ROUND_S[this.kind]
     this.stunned.clear()
@@ -1447,7 +1491,7 @@ export class PartyMode {
 
   _drawArena(dt = 1 / 60) {
     const B = this.s.B
-    const show = !!this.home && this.phase !== 'wait'
+    const show = !!this.home && (this.phase !== 'wait' || this.sky)
     this.arena.visible = show
     if (!show) return
     if (!this._built || this._builtFor !== `${this.home.x},${this.home.z}`) this._build()
@@ -1923,6 +1967,8 @@ export class PartyMode {
       this.plots = new Map(Object.entries(d.pl || {}).filter(([id, n]) => ok(id) && Number.isInteger(n) && n >= 0 && n < PLOTS))
     }
     if (this.ext?.apply && d.x && typeof d.x === 'object') this.ext.apply(d.x)
+    // A guest's first look at the host's sky arena (or a new one): in at once.
+    if (this.sky && this.home && this.phase === 'wait' && this._enteredFor !== `${this.home.x},${this.home.z}`) this._enter()
     const pd = Number(d.pd) || 0
     for (let i = 0; i < PINS; i++) this.pinsDown[i] = !!(pd & (1 << i))
     if (Array.isArray(d.ball) && d.ball.every(Number.isFinite)) {
