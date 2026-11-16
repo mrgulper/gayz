@@ -1185,7 +1185,7 @@ export class PartyMode {
   _addBot(id, { x, y, z, n }) {
     const B = this.s.B
     const group = new THREE.Group()
-    group.add(nameTag(`${BOT_NAMES[(n - 1) % BOT_NAMES.length]} (${t('infectionBot')})`, B))
+    group.add(nameTag(BOT_NAMES[(n - 1) % BOT_NAMES.length], B))
     this.s.bm.scene.add(group)
     const bot = { id, n, x, y, z, tx: x, ty: y, tz: z, vy: 0, yaw: 0, tyaw: 0, walk: 0, heading: Math.random() * Math.PI * 2, turnIn: 0, group, body: null, hideAt: null, shotIn: 3 }
     this.bots.set(id, bot)

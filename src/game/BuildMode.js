@@ -1841,6 +1841,7 @@ export class BuildMode {
     this._invisShadowDirty = false
     this._invisShadowMesh = null
     this._doorState = new Map() // "x,y,z" (both halves) -> { facing: 0-3, open }
+    this._boundsDirty = new Set() // shaped meshes a bulk fill added to (_flushBounds)
     this._stairFacing = new Map() // "x,y,z" -> 0-3, the side the high step faces (0 +z, 1 +x, 2 -z, 3 -x)
     // Undo/Redo - every real placeBlock()/removeBlock() call (not a no-op
     // on an already-occupied/already-empty cell) pushes one entry here,
@@ -2959,7 +2960,13 @@ export class BuildMode {
     // automatically as instances are added/moved - left stale, blocks
     // would flicker in and out of view depending on camera angle,
     // independent of whether they're actually on-screen.
+    // A bulk fill still gets its bounds fixed - once, just before the next
+    // drawing (_flushBounds). Left stale, a shaped block built far from
+    // the mesh's old bounds was culled: a Deathmatch map's stairs showed
+    // as the plain blocks under them until something else refreshed them
+    // (2026-11-16, Gaymi: "the stairs go in to stairs").
     if (!skipBoundsUpdate) mesh.computeBoundingSphere()
+    else this._boundsDirty.add(mesh)
     this._blocks.setAt(key, x, y, z, type)
     this._instanceKeyByIndex[type][index] = key
     // A shaped block doesn't hide its neighbors' faces, but it does change
@@ -2970,7 +2977,9 @@ export class BuildMode {
       this._placingDoorTop = true
       this.placeBlock(x, y + 1, z, `${type}top`, true)
       this._placingDoorTop = false
-      if (!skipBoundsUpdate) this._instancedMeshes[`${type}top`]?.computeBoundingSphere()
+      const top = this._instancedMeshes[`${type}top`]
+      if (!skipBoundsUpdate) top?.computeBoundingSphere()
+      else if (top) this._boundsDirty.add(top)
     }
   }
 
@@ -2978,6 +2987,14 @@ export class BuildMode {
   // camera: 0 = -z, 1 = -x, 2 = +z, 3 = +x (the -z panel turned k*90deg).
   // Stairs climb the way you're looking, like Minecraft: the high step
   // goes on the far side (facing 0 = +z, 1 = +x, 2 = -z, 3 = -x).
+  // Shaped meshes a bulk fill (skipBoundsUpdate) added to get their
+  // bounds once, before drawing - not once a block.
+  _flushBounds() {
+    if (!this._boundsDirty.size) return
+    for (const mesh of this._boundsDirty) mesh.computeBoundingSphere()
+    this._boundsDirty.clear()
+  }
+
   _stairFacingFromCamera() {
     const dir = new THREE.Vector3()
     this.camera.getWorldDirection(dir)
@@ -4903,6 +4920,7 @@ export class BuildMode {
       shadowMap.needsUpdate = true
       this._shadowsDirty = false
     }
+    this._flushBounds()
     this.renderer.info.reset()
     // Third person: the camera steps out for this drawing only (and a
     // death replay circles your body - DeathReplay.js).

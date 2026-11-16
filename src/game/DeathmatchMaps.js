@@ -35,6 +35,11 @@
 // Past it is empty void (2026-11-16, replaced the wall/cliff/trees/water
 // edge): fall off and you die and respawn.
 //
+// Bigger (2026-11-16, Gaymi: "make both maps even bigger and more
+// detailed"): every map is 121 x 121 now (half 60, was 81 x 81). The old
+// map stays in the middle and a ring of new places goes round it (see
+// the *Outer builders). New maps get this size too.
+//
 // Coordinates are blocks round the arena's middle: x east, z south, y up
 // from the floor (y 0 is the floor, people stand at y 1).
 
@@ -44,6 +49,9 @@ const TOWN_SPAWNS = [
   [0, -34, 0], [0, 35, 0], [-34, 0, 0], [34, 0, 0],
   [-12, -24, 0], [12, -30, 0], [12, 29, 0], [-17, 14, 0], [27, 26, 0],
   [14, -11, 6], [-13, 16, 7],
+  // The outer ring (2026-11-16): the ring road, the school roof.
+  [43, -20, 0], [43, 20, 0], [-43, -20, 0], [-43, 20, 0],
+  [20, 43, 0], [-20, 43, 0], [20, -43, 0], [-20, -43, 0], [-20, -49, 6], [49, -26, 0],
 ]
 
 const BASE_SPAWNS = [
@@ -51,6 +59,8 @@ const BASE_SPAWNS = [
   [33, -18, 0], [31, 7, 0], [17, 38, 0], [-5, 18, 0], [6, -15, 0],
   [-15, 4, 0], [15, -4, 0], [-11, 12, 0], [11, -12, 0],
   [-3, -28, 9], [27, -2, 4],
+  [-43, -30, 0], [-43, 30, 0], [43, -35, 0], [43, 22, 0],
+  [-30, 44, 0], [30, 44, 0], [-25, -44, 0], [25, -44, 0],
 ]
 
 const DOCKS_SPAWNS = [
@@ -58,12 +68,14 @@ const DOCKS_SPAWNS = [
   [-5, -22, 0], [-5, 8, 0], [-14, 30, 0], [-21, -30, 0],
   [12, -27, 0], [17, 0, 0], [12, 12, 0], [28, -6, 2], [29, 5, 2],
   [20, 37, 0], [3, 18, 0],
+  [-43, -25, 0], [-43, 35, 0], [-30, -44, 0], [-30, 44, 0],
+  [12, -44, 0], [12, 44, 0], [18, -44, 0], [45, 4, 0],
 ]
 
 export const DM_MAPS = {
   smallTown: {
     key: 'dmMapSmallTown',
-    half: 40,
+    half: 60,
     wallH: 12,
     spawns: TOWN_SPAWNS,
     // Team Deathmatch: Red starts in the west half, Blue in the east.
@@ -72,20 +84,20 @@ export const DM_MAPS = {
       b: TOWN_SPAWNS.filter(([x]) => x > 0),
     },
     // Where a stuck bot walks to instead: the streets.
-    waypoints: [[0, 10], [0, -10], [10, 0], [-10, 0], [0, 30], [0, -30], [30, 0], [-30, 0]],
+    waypoints: [[0, 10], [0, -10], [10, 0], [-10, 0], [0, 30], [0, -30], [30, 0], [-30, 0], [43, 43], [-43, -43], [43, -43], [-43, 43]],
     // The edge: how far it comes in (waves round the middle) and where
     // the corners are cut; past it is void.
     edge: {
       base: 3,
       max: 8,
       waves: [[3, 3, 0.7], [2, 5, 2.1], [1, 7, 4]],
-      corner: 68,
+      corner: 102,
     },
     build: buildSmallTown,
   },
   militaryBase: {
     key: 'dmMapMilitaryBase',
-    half: 40,
+    half: 60,
     wallH: 12,
     spawns: BASE_SPAWNS,
     teamSpawns: {
@@ -93,18 +105,18 @@ export const DM_MAPS = {
       b: BASE_SPAWNS.filter(([x]) => x > 0),
     },
     // The ring road round the helipad.
-    waypoints: [[15, 0], [-15, 0], [0, 15], [0, -15], [15, 15], [-15, -15], [15, -15], [-15, 15]],
+    waypoints: [[15, 0], [-15, 0], [0, 15], [0, -15], [15, 15], [-15, -15], [15, -15], [-15, 15], [43, 0], [-43, 0], [0, 43], [0, -44]],
     edge: {
       base: 3,
       max: 8,
       waves: [[3, 2, 1.9], [2, 5, 0.3], [1.2, 6, 3.3]],
-      corner: 69,
+      corner: 103,
     },
     build: buildMilitaryBase,
   },
   docks: {
     key: 'dmMapDocks',
-    half: 40,
+    half: 60,
     wallH: 12,
     spawns: DOCKS_SPAWNS,
     teamSpawns: {
@@ -112,12 +124,12 @@ export const DM_MAPS = {
       b: DOCKS_SPAWNS.filter(([x]) => x > 0),
     },
     // The road, the yard lanes and the quay.
-    waypoints: [[8, 0], [8, -20], [8, 20], [-6, 0], [-6, -28], [18, -24], [18, 6], [-20, 28]],
+    waypoints: [[8, 0], [8, -20], [8, 20], [-6, 0], [-6, -28], [18, -24], [18, 6], [-20, 28], [8, -44], [8, 44], [-43, 0], [45, 4]],
     edge: {
       base: 3,
       max: 8,
       waves: [[2.5, 3, 2.4], [1.5, 5, 1.1], [1, 7, 0.2]],
-      corner: 68,
+      corner: 102,
     },
     build: buildDocks,
   },
@@ -393,7 +405,7 @@ function hedge(b, x0, x1, z, g0, g1) {
 // --- Small Town ---
 
 function buildSmallTown(b) {
-  const H = 41
+  const H = 61
   // Ground: grass, then the streets.
   b.box(-H, -H, 2 * H + 1, 2 * H + 1, 0, 0, (x, z) => {
     const ax = Math.abs(x)
@@ -409,6 +421,10 @@ function buildSmallTown(b) {
       if (ns && x === 0 && az > 7 && (z + H) % 4 < 2) return 'yellowconcrete'
       return 'asphalt'
     }
+    // The ring road round the old town (2026-11-16, the map grew).
+    const m = Math.max(ax, az)
+    if (m >= 42 && m <= 44) return m === 43 && (ax === m ? z : x) % 6 === 0 ? 'yellowconcrete' : 'asphalt'
+    if (m === 41 || m === 45) return 'smoothstone'
     if (az === 3 || ax === 3) return 'smoothstone'
     return 'grass'
   })
@@ -614,6 +630,7 @@ function buildSmallTown(b) {
   for (const [x, z] of [[0, -9], [0, 9], [9, 0], [-9, 0]]) b.put(x, 1, z, 'speedpad')
   // The parking lot end of the park's Teleporter Pad.
   b.put(35, 1, -27, 'teleporterpad')
+  smallTownOuter(b)
 }
 
 // --- Military Base ---
@@ -683,7 +700,7 @@ function fuelTank(b, cx, cz) {
 }
 
 function buildMilitaryBase(b) {
-  const H = 41
+  const H = 61
   // Ground: grass with worn dirt, a gravel ring road and the helipad.
   b.box(-H, -H, 2 * H + 1, 2 * H + 1, 0, 0, (x, z) => {
     const m = Math.max(Math.abs(x), Math.abs(z))
@@ -850,6 +867,7 @@ function buildMilitaryBase(b) {
 
   // Pines round the back.
   for (const [x, z] of [[-17, -34], [14, -28], [15, 36], [-25, 36]]) pine(b, x, z)
+  militaryBaseOuter(b)
 }
 
 // --- Docks ---
@@ -894,7 +912,7 @@ function pier(b, x0, x1, z0, d) {
 }
 
 function buildDocks(b) {
-  const H = 41
+  const H = 61
   // Ground: concrete with gravel, the quay apron (yellow line at its edge),
   // a road and the container yard. Past x 22 is the sea.
   b.box(-H, -H, 2 * H + 1, 2 * H + 1, 0, 0, (x, z) => {
@@ -1080,4 +1098,284 @@ function buildDocks(b) {
   for (const z of [-24, 0, 22]) b.put(8, 1, z, 'speedpad')
   b.put(-30, 1, -14, 'teleporterpad')
   b.put(20, 1, 32, 'teleporterpad')
+  docksOuter(b)
+}
+
+// --- the outer rings (2026-11-16, Gaymi: "make both maps even bigger and
+// more detailed" - all three went from 81 x 81 to 121 x 121, about 1.5x).
+// The old maps stay in the middle; each gets a ring of new places round
+// them (x or z from about 45 out to 52 - past that the uneven edge).
+
+// A jeep: 2 wide, 3 long along z, a windscreen.
+function jeep(b, x, z) {
+  b.box(x, z, 2, 3, 1, 1, 'greenconcrete')
+  b.put(x, 2, z, 'blackstainedglass')
+  b.put(x + 1, 2, z, 'blackstainedglass')
+}
+
+// An army tent along z: green canvas sloping to a ridge, open at both ends
+// (5 wide, `d` deep).
+function tent(b, x0, z0, d = 6) {
+  for (let z = z0; z < z0 + d; z++) {
+    for (let k = 0; k < 2; k++) {
+      b.put(x0 + k, 1 + k, z, 'greenwool')
+      b.put(x0 + 4 - k, 1 + k, z, 'greenwool')
+    }
+    b.put(x0 + 2, 3, z, 'greenwool')
+  }
+}
+
+function smallTownOuter(b) {
+  // --- north: a school and its playground, a fire station, a court ---
+  building(b, { x0: -30, z0: -52, w: 20, d: 7, h: 5, wall: 'yellowterracotta', trim: 'whiteconcrete', roof: 'smoothstone', floor: 'oakplanks', doors: [['s', 9, 2], ['e', 3, 2]], parapet: { type: 'whiteconcrete', gaps: [[-30, -49]] } })
+  ladder(b, -31, -49, 1, 6)
+  // Desks and a blackboard.
+  for (let x = -28; x <= -13; x += 3) for (const z of [-50, -48]) b.put(x, 1, z, slabOf('oakplanks'))
+  b.box(-24, -51, 5, 1, 2, 3, 'blackconcrete')
+  // The playground: a slide, swings.
+  b.box(-8, -52, 5, 7, 0, 0, 'sand')
+  stairs(b, -8, -47, 0, -1, 3, 1, 'oakplanks')
+  b.box(-8, -50, 1, 1, 1, 3, 'oakplanks')
+  b.put(-8, 1, -51, 'quartz')
+  b.put(-8, 2, -51, stairsOf('quartz'), 0)
+  b.put(-8, 1, -52, stairsOf('quartz'), 0)
+  for (const z of [-52, -48]) b.box(-5, z, 1, 1, 1, 3, 'oakfence')
+  b.box(-5, -52, 1, 5, 4, 4, 'sprucelog')
+  for (const z of [-51, -49]) {
+    b.box(-5, z, 1, 1, 2, 3, 'oakfence')
+    b.put(-5, 1, z, slabOf('oakplanks'))
+  }
+  // The fire station: two big bays, a fire engine, a hose tower to climb.
+  building(b, { x0: 6, z0: -52, w: 14, d: 7, h: 6, wall: 'redterracotta', trim: 'whiteconcrete', roof: 'grayconcrete', floor: 'polishedandesite', doors: [['s', 2, 4, 4], ['s', 8, 4, 4], ['w', 3, 1]] })
+  b.box(9, -51, 2, 5, 1, 2, (x, z, y) => (z === -47 && y === 2 ? 'blackstainedglass' : 'redconcrete'))
+  b.box(9, -51, 2, 3, 3, 3, 'whiteconcrete')
+  b.box(15, -51, 2, 2, 1, 1, 'barrel')
+  building(b, { x0: 20, z0: -52, w: 4, d: 4, h: 11, wall: 'brick', trim: 'stonebricks', roof: 'smoothstone', floor: 'polishedandesite', windows: 'open', doors: [['s', 1, 1]], parapet: { type: 'stonebricks' } })
+  ladder(b, 21, -51, 1, 12)
+  b.put(21, 12, -51, 'air')
+  // A basketball court.
+  b.box(28, -52, 17, 7, 0, 0, (x, z) => (x === 28 || x === 44 || z === -52 || z === -46 || x === 36 ? 'whiteconcrete' : 'cyanterracotta'))
+  for (const [x, rim] of [[28, 29], [44, 43]]) {
+    b.box(x, -49, 1, 1, 1, 4, 'polishedblackstone')
+    b.put(x, 5, -49, 'whiteconcrete')
+    b.put(rim, 4, -49, 'orangeterracotta')
+  }
+  for (const [x, z] of [[-40, -48], [-46, -46], [-48, -40], [-36, -50], [48, -45]]) pine(b, x, z)
+
+  // --- west: a farm - barn, silo, fields, a windmill, a sheep pen ---
+  building(b, { x0: -52, z0: -22, w: 7, d: 12, h: 5, wall: 'redterracotta', trim: 'whiteconcrete', roof: 'oakplanks', floor: 'spruceplanks', windows: null, doors: [['e', 4, 4, 4]] })
+  gable(b, { x0: -52, z0: -22, w: 7, d: 12, h: 5, type: 'darkoakplanks', end: 'redterracotta', ridge: 'z' })
+  b.box(-51, -21, 2, 3, 1, 2, 'haybale')
+  b.box(-51, -14, 5, 3, 3, 3, slabOf('spruceplanks'))
+  ladder(b, -51, -15, 1, 3)
+  // The silo: climb the ladder for a long look over the fields.
+  b.box(-52, -33, 7, 7, 1, 12, (x, z, y) => (Math.hypot(x + 49, z + 30) > 2.5 ? null : y === 12 ? 'grayconcrete' : 'lightgrayconcrete'))
+  b.box(-51, -32, 5, 5, 13, 13, (x, z) => (Math.hypot(x + 49, z + 30) > 1.5 ? null : 'grayconcrete'))
+  ladder(b, -49, -27, 1, 13)
+  // Fields: rows of hay with paths between (the street runs through).
+  for (const [z0, z1] of [[-9, -4], [4, 15]]) {
+    b.box(-52, z0, 7, z1 - z0 + 1, 0, 0, 'coarsedirt')
+    for (let x = -52; x <= -46; x += 2) for (let z = z0; z <= z1; z++) if (z !== 9) b.put(x, 1, z, 'haybale')
+  }
+  // A scarecrow.
+  b.box(-49, 9, 1, 1, 1, 2, 'oakfence')
+  b.put(-49, 3, 9, 'jackolantern')
+  for (const z of [8, 10]) b.put(-49, 2, z, 'oakfence')
+  // The windmill.
+  b.box(-51, 26, 3, 3, 1, 9, 'cobblestone')
+  b.box(-51, 26, 3, 3, 10, 10, 'spruceplanks')
+  for (let i = -4; i <= 4; i++) {
+    b.put(-50 + i, 8, 25, 'whitewool')
+    b.put(-50, 8 + i, 25, 'whitewool')
+  }
+  b.put(-50, 8, 25, 'sprucelog')
+  // A sheep pen with hay in it.
+  for (let x = -52; x <= -46; x++) for (const z of [32, 40]) b.put(x, 1, z, 'oakfence')
+  for (let z = 33; z <= 39; z++) if (z !== 36) b.put(-46, 1, z, 'oakfence')
+  b.box(-51, 35, 2, 2, 1, 1, 'haybale')
+
+  // --- east: a pond with a jetty, a radio tower, three houses ---
+  b.box(46, -38, 7, 13, -1, 0, (x, z, y) => (Math.hypot((x - 50) / 4, (z + 32) / 6) > 1 ? null : y === -1 ? 'sand' : 'water'))
+  b.box(46, -32, 4, 1, 0, 0, 'oakplanks')
+  b.put(49, 1, -32, 'oakfence')
+  building(b, { x0: 46, z0: -24, w: 5, d: 4, h: 3, wall: 'spruceplanks', trim: 'sprucelog', roof: 'spruceplanks', floor: 'spruceplanks', doors: [['w', 1, 1]] })
+  // The radio tower: a ladder up its spine to a railed platform.
+  for (const [x, z] of [[47, -14], [50, -14], [47, -11], [50, -11]]) b.box(x, z, 1, 1, 1, 14, 'metal')
+  for (const y of [5, 9]) b.box(47, -14, 4, 4, y, y, (x, z) => (x === 47 || x === 50 || z === -14 || z === -11 ? 'metal' : null))
+  b.box(47, -13, 1, 1, 1, 13, 'metal')
+  b.box(47, -14, 4, 4, 14, 14, 'smoothstone')
+  for (let x = 47; x <= 50; x++) for (let z = -14; z <= -11; z++) if ((x === 47 || x === 50 || z === -14 || z === -11) && !(x === 47 && z === -13)) b.put(x, 15, z, 'oakfence')
+  b.box(49, -12, 1, 1, 15, 19, 'metal')
+  b.put(49, 20, -12, 'redstonelamp')
+  ladder(b, 46, -13, 1, 14)
+  // Three houses, picket fences in front.
+  const houses = [
+    [5, 8, 'whiteterracotta', 'oaklog', 'roofshingles'],
+    [16, 8, 'mudbricks', 'darkoaklog', 'thatch'],
+    [27, 9, 'cyanterracotta', 'whiteconcrete', 'slateshingles'],
+  ]
+  for (const [z0, d, wall, trim, roof] of houses) {
+    building(b, { x0: 46, z0, w: 7, d, h: 4, wall, trim, roof: 'oakplanks', floor: 'oakplanks', doors: [['w', 3, 2]] })
+    gable(b, { x0: 46, z0, w: 7, d, h: 4, type: roof, end: wall, ridge: 'z' })
+    b.put(51, 1, z0 + 1, 'bookshelf')
+    b.put(47, 1, z0 + d - 2, slabOf('oakplanks'))
+  }
+  for (let z = 5; z <= 35; z++) if (![8, 9, 19, 20, 30, 31].includes(z)) b.put(45, 1, z, 'oakfence')
+
+  // --- south: a motel, a cinema, a gazebo ---
+  building(b, { x0: -40, z0: 46, w: 26, d: 7, h: 4, wall: 'pinkterracotta', trim: 'whiteconcrete', roof: 'smoothstone', floor: 'oakplanks', doors: [['n', 2, 1], ['n', 7, 1], ['n', 12, 1], ['n', 17, 1], ['n', 22, 1]], parapet: { type: 'whiteconcrete', gaps: [[-15, 48]] } })
+  for (const x of [-35, -30, -25, -20]) b.box(x, 47, 1, 5, 1, 4, 'pinkterracotta')
+  for (const x of [-38, -33, -28, -23, -18]) {
+    b.box(x, 50, 2, 2, 1, 1, (bx) => (bx === x ? 'whitewool' : 'redwool'))
+  }
+  stairs(b, -14, 52, 0, -1, 5, 1, 'whiteconcrete')
+  building(b, { x0: 6, z0: 46, w: 16, d: 7, h: 7, wall: 'redconcrete', trim: 'blackconcrete', roof: 'blackconcrete', floor: 'redwool', windows: null, doors: [['n', 6, 4, 3]] })
+  b.box(10, 45, 8, 1, 4, 4, (x) => (x % 2 ? 'glowstone' : 'yellowconcrete'))
+  b.box(9, 51, 10, 1, 2, 5, 'whiteconcrete')
+  for (const z of [48, 49]) bench(b, 8, z, 12, 'x', 'n', 'darkoakplanks')
+  b.box(30, 46, 5, 5, 0, 0, 'spruceplanks')
+  for (const [x, z] of [[30, 46], [34, 46], [30, 50], [34, 50]]) b.box(x, z, 1, 1, 1, 3, 'oakfence')
+  b.box(30, 46, 5, 5, 4, 4, slabOf('spruceplanks'))
+  bench(b, 31, 48, 3, 'x', 's', 'spruceplanks')
+  for (const [x, z] of [[47, 47], [40, 50], [-46, 46], [-50, 44]]) tree(b, x, z)
+  // Street lamps round the ring road.
+  for (const [x, z] of [[41, 20], [41, -20], [-41, 20], [-41, -20], [20, 41], [-20, 41], [20, -41], [-20, -41]]) lamp(b, x, z)
+}
+
+function militaryBaseOuter(b) {
+  // --- north: the airstrip, a cargo plane you walk through, the tower ---
+  b.box(-40, -52, 71, 7, 0, 0, (x, z) => (z === -49 && x % 6 < 3 ? 'whiteconcrete' : z === -52 || z === -46 ? 'yellowconcrete' : 'asphalt'))
+  b.box(-12, -50, 14, 3, 1, 4, (x, z, y) => {
+    if (x > -12 && x < 1 && z === -49 && (y === 2 || y === 3)) return null
+    if (y === 3 && x % 2 === 0 && z !== -49) return 'lightbluestainedglass'
+    return 'lightgrayconcrete'
+  })
+  for (const y of [2, 3]) {
+    b.put(-12, y, -49, 'air')
+    b.put(-8, y, -48, 'air')
+  }
+  b.put(2, 2, -49, 'blackstainedglass')
+  b.box(-6, -56, 4, 13, 2, 2, (x, z) => (z >= -50 && z <= -48 ? null : 'lightgrayconcrete'))
+  // A step up into the back and the side door.
+  b.put(-13, 1, -49, slabOf('smoothstone'))
+  b.put(-8, 1, -47, slabOf('smoothstone'))
+  b.box(-12, -49, 1, 1, 5, 7, 'lightgrayconcrete')
+  b.box(-12, -52, 2, 7, 4, 4, 'lightgrayconcrete')
+  b.box(34, -52, 5, 5, 0, 0, 'polishedandesite')
+  building(b, { x0: 34, z0: -52, w: 5, d: 5, h: 10, wall: 'lightgrayconcrete', trim: 'grayconcrete', roof: 'smoothstone', floor: 'polishedandesite', windows: 'lightbluestainedglass', doors: [['w', 2, 1]], parapet: { type: 'grayconcrete' } })
+  ladder(b, 35, -51, 1, 11)
+  b.put(35, 11, -51, 'air')
+  b.box(36, -50, 1, 1, 12, 15, 'metal')
+  b.put(36, 16, -50, 'redstonelamp')
+
+  // --- west: an obstacle course ---
+  b.box(-52, -36, 7, 73, 0, 0, (x, z) => (hash(x, z) < 0.4 ? 'coarsedirt' : 'dirt'))
+  for (const z of [-30, -8, 14]) b.box(-52, z, 7, 1, 1, 1, 'spruceplanks')
+  for (const z of [-24, 6]) {
+    b.box(-52, z, 7, 1, 1, 3, 'spruceplanks')
+    ladder(b, -49, z - 1, 1, 3)
+    ladder(b, -49, z + 1, 1, 3)
+  }
+  for (let x = -52; x <= -46; x += 2) for (let z = -18; z <= -13; z += 2) b.put(x + ((z / 2) & 1), 1, z, 'blackconcrete')
+  for (const x of [-51, -48]) {
+    b.box(x, 20, 1, 7, 2, 2, 'sprucelog')
+    for (const z of [20, 26]) b.put(x, 1, z, 'sprucelog')
+  }
+  watchtower(b, -51, 31)
+
+  // --- east: the motor pool, a second helipad, more containers ---
+  building(b, { x0: 46, z0: -30, w: 7, d: 20, h: 5, wall: 'metal', trim: 'grayconcrete', roof: 'grayconcrete', floor: 'smoothstone', windows: null, doors: [['w', 3, 4, 4], ['w', 12, 4, 4]], parapet: { type: 'grayconcrete', gaps: [[46, -20]] } })
+  ladder(b, 45, -20, 1, 6)
+  jeep(b, 48, -27)
+  jeep(b, 48, -17)
+  b.box(50, -22, 2, 2, 1, 2, 'crate')
+  tank(b, 41, -6)
+  b.box(44, 8, 9, 9, 0, 0, (x, z) => {
+    if (Math.hypot(x - 48, z - 12) > 4.5) return null
+    if ((Math.abs(x - 48) === 2 && Math.abs(z - 12) <= 2) || (z === 12 && Math.abs(x - 48) <= 2)) return 'yellowconcrete'
+    return 'smoothstone'
+  })
+  b.box(44, 18, 2, 2, 1, 1, 'crate')
+  container(b, 45, 30, 1, 'greenconcrete')
+  container(b, 45, 33, 1, 'redconcrete')
+  container(b, 45, 33, 4, 'blueconcrete')
+  ladder(b, 44, 34, 1, 6)
+  sandbags(b, 42, 24, 4, 1)
+
+  // --- south: tents, the mess hall and a firing range ---
+  for (const x of [-42, -34, -26]) tent(b, x, 46)
+  building(b, { x0: -18, z0: 46, w: 16, d: 7, h: 4, wall: 'spruceplanks', trim: 'sprucelog', roof: 'spruceplanks', floor: 'oakplanks', doors: [['n', 7, 2], ['e', 3, 1]] })
+  gable(b, { x0: -18, z0: 46, w: 16, d: 7, h: 4, type: 'greenconcrete', end: 'spruceplanks', ridge: 'x' })
+  for (let x = -16; x <= -5; x += 4) b.box(x, 48, 3, 1, 1, 1, slabOf('oakplanks'))
+  b.box(-16, 51, 3, 1, 1, 1, 'furnace')
+  for (const [x0, len] of [[8, 10], [22, 10]]) sandbags(b, x0, 46, len, 1)
+  for (let x = 10; x <= 36; x += 4) b.box(x, 51, 1, 1, 1, 2, 'target')
+  for (const [x, z] of [[-48, -46], [46, 46], [-48, 44]]) pine(b, x, z)
+}
+
+function docksOuter(b) {
+  // --- north: the truck depot and the gate on the road ---
+  for (const [x, color] of [[-40, 'redconcrete'], [-28, 'blueconcrete'], [-16, 'orangeconcrete'], [-4, 'greenconcrete']]) {
+    container(b, x, -50, 1, color)
+    b.box(x + 6, -50, 2, 2, 1, 2, (bx, bz, y) => (y === 2 && bx === x + 7 ? 'blackstainedglass' : 'whiteconcrete'))
+  }
+  container(b, -28, -47, 1, 'yellowconcrete')
+  container(b, -28, -47, 4, 'redconcrete')
+  ladder(b, -29, -46, 1, 6)
+  building(b, { x0: 12, z0: -50, w: 4, d: 4, h: 3, wall: 'whiteconcrete', trim: 'blackconcrete', roof: 'smoothstone', floor: 'polishedandesite', doors: [['w', 1, 1]] })
+  b.box(11, -45, 1, 1, 1, 3, 'whiteconcrete')
+  b.box(6, -45, 5, 1, 3, 3, (x) => (x % 2 ? 'redconcrete' : 'whiteconcrete'))
+  for (let x = -40; x <= 0; x += 8) b.put(x, 1, -46, 'barrel')
+
+  // --- west: coal heaps and a row of brick houses ---
+  for (const [cx, cz] of [[-49, -38], [-49, -30]]) {
+    for (let y = 1; y <= 3; y++) b.box(cx - 3 + y, cz - 3 + y, 7 - 2 * y, 7 - 2 * y, y, y, 'coalblock')
+  }
+  for (const [z0, wall] of [[6, 'brick'], [14, 'mudbricks'], [22, 'brick']]) {
+    building(b, { x0: -52, z0, w: 7, d: 7, h: 5, wall, trim: 'stonebricks', roof: 'spruceplanks', floor: 'oakplanks', doors: [['e', 2, 2]] })
+    gable(b, { x0: -52, z0, w: 7, d: 7, h: 5, type: 'slateshingles', end: wall, ridge: 'z' })
+    b.put(-50, 1, z0 + 5, 'bookshelf')
+    b.box(-51, z0 + 1, 2, 1, 1, 1, slabOf('oakplanks'))
+  }
+
+  // --- south: a seafood restaurant, boat sheds and stacked lobster pots ---
+  building(b, { x0: -10, z0: 46, w: 12, d: 7, h: 4, wall: 'whiteterracotta', trim: 'blueconcrete', roof: 'oakplanks', floor: 'birchplanks', doors: [['n', 5, 2]] })
+  gable(b, { x0: -10, z0: 46, w: 12, d: 7, h: 4, type: 'blueterracotta', end: 'whiteterracotta', ridge: 'x' })
+  for (const x of [-8, -4, 0]) b.put(x, 1, 49, slabOf('birchplanks'))
+  for (const x of [-7, -2, 3]) {
+    b.put(x, 1, 44, slabOf('oakplanks'))
+    b.put(x - 1, 1, 44, stairsOf('oakplanks'), 3)
+  }
+  for (const x0 of [-40, -30]) {
+    building(b, { x0, z0: 46, w: 8, d: 7, h: 4, wall: 'spruceplanks', trim: 'sprucelog', roof: 'spruceplanks', floor: 'spruceplanks', windows: null, doors: [['n', 2, 4, 3]] })
+    b.box(x0 + 2, 49, 3, 2, 1, 1, 'oakplanks')
+  }
+  b.box(10, 47, 3, 2, 1, 2, 'crate')
+  b.put(11, 3, 47, 'crate')
+
+  // --- east: a long pier out to a sea fort ---
+  pier(b, 35, 43, 23, 3)
+  b.box(42, 9, 3, 14, 0, 0, 'oakplanks')
+  for (let z = 10; z <= 22; z += 4) for (const x of [42, 44]) b.box(x, z, 1, 1, -3, -1, 'oaklog')
+  b.box(42, -8, 11, 17, -3, 0, (x, z, y) => (y === 0 ? 'sand' : 'stone'))
+  b.box(42, -8, 11, 17, 1, 4, (x, z) => {
+    const rim = x === 42 || x === 52 || z === -8 || z === 8
+    if (!rim) return null
+    // The gate (north of the pier) and arrow slits.
+    if (z === 8 && x >= 42 && x <= 44) return null
+    return 'stonebricks'
+  })
+  for (let x = 42; x <= 52; x++) for (let z = -8; z <= 8; z++) {
+    const rim = x === 42 || x === 52 || z === -8 || z === 8
+    if (rim && (x + z) % 2 === 0 && !(z === 8 && x <= 44)) b.put(x, 5, z, 'stonebricks')
+  }
+  // The walk round the top of the wall, a keep in the middle.
+  b.box(43, -7, 9, 15, 4, 4, (x, z) => (x === 43 || x === 51 || z === -7 || z === 7 ? slabOf('stonebricks') : null))
+  building(b, { x0: 46, z0: -2, w: 4, d: 4, h: 8, wall: 'stonebricks', trim: 'chiseledstonebricks', roof: 'stonebricks', floor: 'stone', windows: 'open', doors: [['w', 1, 2]], parapet: { type: 'stonebricks' } })
+  ladder(b, 47, -1, 1, 9)
+  b.put(47, 9, -1, 'air')
+  stairs(b, 44, 5, 0, -1, 3, 1, 'stonebricks')
+  b.box(49, 5, 2, 1, 1, 1, 'barrel')
+  b.put(38, 0, -30, 'redconcrete')
+  b.put(38, 0, 36, 'redconcrete')
 }

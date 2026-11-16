@@ -330,7 +330,7 @@ export class BuildSky {
     // An impact (2026-10-30, Gaymi: "make them very rare the impact
     // events like 0.01 make it same as the eclipse"): rolled alongside it,
     // any time of day, only in a game.
-    if (this._inGame && !this._following && !this.disasters.active && Math.random() < ECLIPSE_CHANCE) this.disasters.start(IMPACTS[Math.floor(Math.random() * IMPACTS.length)])
+    if (this._inGame && this.disasters.inGame() && !this._following && !this.disasters.active && Math.random() < ECLIPSE_CHANCE) this.disasters.start(IMPACTS[Math.floor(Math.random() * IMPACTS.length)])
     if (this.nightAmount() < 0.3 && Math.random() < ECLIPSE_CHANCE) goal = 'eclipse'
     else {
       let roll = Math.random()

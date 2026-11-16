@@ -1850,7 +1850,8 @@ export class BuildTryMode {
   // drawing only (BuildMode.render) - everything else (shooting, using
   // doors) still works from your eyes. Returns how to put it back.
   applyView() {
-    if (!this.active || !this.view) return null
+    // A kill cam holds the camera (camHeld): third person stays out of it.
+    if (!this.active || !this.view || this.camHeld) return null
     const cam = this.bm.camera
     const B = this.B
     const eye = cam.position.clone()

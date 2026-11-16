@@ -81,8 +81,11 @@ export class Disasters {
     return { x: p.x / this.B, y: p.y / this.B - 1.6, z: p.z / this.B }
   }
 
+  // Not in a Party / Deathmatch arena (2026-11-16): a quake or rock slide
+  // there shook the screen and broke the arena's blocks.
   inGame() {
-    return !!this.bm.survival?.active
+    const play = this.bm.survival
+    return !!play?.active && !play.party
   }
 
   breakAll() {
@@ -379,6 +382,14 @@ export class Disasters {
     this._auroraAlpha += (auroraGoal - this._auroraAlpha) * Math.min(1, dt * 0.15)
     if (this._auroraAlpha > 0.003 && !this.aurora) this.aurora = new Aurora(this.scene)
     this.aurora?.update(dt, camera, this._auroraAlpha)
+    // The shake always dies down unless something keeps it up each frame
+    // (2026-11-16, Gaymi: "my screen just starts shaking"): a rocket
+    // launch, an Escape Room bang or a rock hit set it with no disaster
+    // running, and nothing ever took it away again.
+    if (!run || run.done) {
+      this.shake *= Math.exp(-dt * 4)
+      if (this.shake < 0.001) this.shake = 0
+    }
     if (!run) return
     run.t += dt
     const R = RUN[run.kind]
