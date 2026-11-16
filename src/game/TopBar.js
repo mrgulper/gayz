@@ -34,6 +34,7 @@ const MODE_KEYS = {
   obstacleCourse: 'topBarModeObstacleCourse',
   duelArena: 'topBarModeDuelArena',
   deathmatch: 'topBarModeDeathmatch',
+  teamDeathmatch: 'topBarModeTeamDeathmatch',
   miniGolf: 'topBarModeMiniGolf',
   freezeTag: 'topBarModeFreezeTag',
   bombDefuse: 'topBarModeBombDefuse',

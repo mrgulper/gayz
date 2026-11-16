@@ -7448,6 +7448,88 @@ test('Deathmatch: bots, kills, respawns and the winner', async ({ page }) => {
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })
 
+// Team Deathmatch (2026-11-16): Red against Blue, 2v2 / 4v4 / Custom,
+// bots fill both teams, no team damage, team kills win.
+test('Team Deathmatch: size picker, even teams, no team damage, team wins', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    // The size row on Game Mode > Deathmatch: 4v4, then Custom 3, then 2v2.
+    const btn = (v) => document.querySelector(`#tdm-size-row [data-tdm-size="${v}"]`)
+    btn('4').click()
+    out.pick4 = g.settings.tdmSize === 4 && g.settings.selectedGameMode === 'teamDeathmatch' && btn('4').classList.contains('active')
+    btn('custom').click()
+    const box = document.getElementById('tdm-size-input')
+    box.value = '9'
+    box.dispatchEvent(new Event('change'))
+    out.customClamped = !box.hidden && g.settings.tdmSize === 4 && btn('custom').classList.contains('active')
+    box.value = '3'
+    box.dispatchEvent(new Event('change'))
+    out.custom3 = g.settings.tdmSize === 3
+    btn('2').click()
+    out.pick2 = g.settings.tdmSize === 2 && box.hidden
+    localStorage.removeItem('gayz-play-saved-run')
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    const pm = s.party
+    const D = pm.ext
+    out.endlessAmmo = s.reserve === Infinity
+    for (let i = 0; i < 200 && pm.phase === 'wait'; i++) pm.update(0.05)
+    pm.update(0.05)
+    const me = pm.myId
+    const count = () => { const n = { r: 0, b: 0 }; for (const p of pm._people()) n[pm.teams.get(p.id)]++; return n }
+    let n = count()
+    out.twoVsTwo = pm.phase === 'play' && pm.bots.size === 3 && n.r === 2 && n.b === 2 && D.hp.size === 4
+    // My side of the arena: Red west, Blue east.
+    const dx = s.bm.tryMode.pos.x - pm.home.x
+    out.mySide = pm.myTeam === 'r' ? dx < 0 : dx > 0
+    const mate = [...pm.bots.keys()].find((id) => pm.teams.get(id) === pm.myTeam)
+    const foe = [...pm.bots.keys()].find((id) => pm.teams.get(id) !== pm.myTeam)
+    out.markColors = D.markColor(mate) === D.markColor(me) && D.markColor(foe) !== D.markColor(me)
+    // No team damage; an enemy kill counts for my team.
+    D.prot.clear()
+    D._hit(mate, 50, me)
+    out.noTeamDamage = D.hp.get(mate) === 100
+    D._hit(foe, 100, me)
+    pm.update(0.05)
+    out.teamKill = pm.score[pm.myTeam] === 1 && D.kills[me] === 1 && D.deaths[foe] === 1 && pm.hudText().includes(pm.myTeam === 'r' ? 'Red 1 - 0 Blue' : 'Red 0 - 1 Blue')
+    // A real player joining takes a bot's place and teams stay even.
+    const realPeople = pm._people
+    pm._people = function () {
+      const list = realPeople.call(this)
+      return [...list, { id: 'Guest1', x: list[0].x, y: list[0].y, z: list[0].z }]
+    }
+    pm.update(0.05)
+    n = count()
+    out.joinEven = pm.bots.size === 2 && n.r === 2 && n.b === 2 && pm.teams.has('Guest1')
+    pm._people = realPeople
+    pm.update(0.05)
+    // The host's sync carries size, kills and teams.
+    const snap = JSON.parse(JSON.stringify(pm.snapshot()))
+    const copy = new D.constructor(pm)
+    copy.size = 4
+    copy.apply(snap.x)
+    out.snap = copy.size === 2 && copy.kills[me] === 1
+    copy.dispose()
+    // Time's up: the team with more kills wins.
+    pm.score = { r: 3, b: 7 }
+    pm.left = 0.01
+    pm.update(0.05)
+    out.teamWins = pm.phase === 'end' && pm.winner === 'b' && pm._won() === (pm.myTeam === 'b') && document.getElementById('dm-board')?.classList.contains('on')
+    out.boardTitle = document.querySelector('#dm-board h3')?.textContent === 'Red 3 - 7 Blue'
+    s.stop?.()
+    g._exitBuildMode?.()
+    await new Promise((res) => setTimeout(res, 200))
+    out.cleanedUp = !document.getElementById('dm-feed')
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})
+
 // Idea list 7, batch 1 (2026-11-06): Zombie Mini-Golf, Freeze Tag and the
 // camp's Daily Lucky Wheel.
 test('Zombie Mini-Golf, Freeze Tag and the Lucky Wheel', async ({ page }) => {

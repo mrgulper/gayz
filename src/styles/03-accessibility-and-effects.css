@@ -342,10 +342,19 @@ html.ui-theme-old select {
   gap: 6px;
 }
 
+/* Team Deathmatch's size row (Game Mode > Deathmatch): 2v2 / 4v4 /
+   Custom pills like the difficulty ones, and Custom's number box. */
+#tdm-size-input {
+  flex: 0 0 72px;
+  width: 72px;
+  text-align: center;
+}
+
 /* .role-btn/.loadout-btn keep their base cursor/font from .class-btn (see
    the main layout block) - only .difficulty-btn needs the plain pill
    style here, since Easy/Normal/Hard has no icon-grid treatment. */
-.difficulty-btn {
+.difficulty-btn,
+.tdm-size-btn {
   flex: 1;
   padding: 12px 22px;
   font-size: 16px;
@@ -360,11 +369,13 @@ html.ui-theme-old select {
   cursor: pointer;
 }
 
-.difficulty-btn:hover {
+.difficulty-btn:hover,
+.tdm-size-btn:hover {
   border-color: rgba(var(--ui-gold-accent-rgb), 0.5);
 }
 
-.difficulty-btn.active {
+.difficulty-btn.active,
+.tdm-size-btn.active {
   color: #0c130c;
   background: var(--ui-gold-bright);
   border-color: var(--ui-gold-bright);
