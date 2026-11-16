@@ -21,6 +21,15 @@
 // nest, a radar dish, a hangar with a tank, a fuel depot and a yard of
 // shipping containers, four watchtowers and sandbag nests.
 //
+// Docks (2026-11-16, Gaymi picked shipping containers, a big warehouse,
+// cranes + a ship and water on one side): same size. The sea along the
+// east with a quay wall, two piers, a rowing boat and a cargo ship you
+// walk onto up a gangway (a hold under the deck, containers on it, a
+// bridge with a funnel); two gantry cranes with booms out over the water;
+// a lighthouse; a container yard in the north; a big warehouse in the
+// west with racks and a catwalk; a harbour office and a fish market in
+// the south. Water is 2 deep with ladders up the quay wall.
+//
 // The edge (2026-11-16, Gaymi: "make the border not just a square more
 // irregular"): the play area bends in and out and its corners are cut.
 // Past it is empty void (2026-11-16, replaced the wall/cliff/trees/water
@@ -42,6 +51,13 @@ const BASE_SPAWNS = [
   [33, -18, 0], [31, 7, 0], [17, 38, 0], [-5, 18, 0], [6, -15, 0],
   [-15, 4, 0], [15, -4, 0], [-11, 12, 0], [11, -12, 0],
   [-3, -28, 9], [27, -2, 4],
+]
+
+const DOCKS_SPAWNS = [
+  [-30, -12, 0], [-29, 11, 0], [-17, 20, 0], [-30, 30, 0], [-12, -32, 0],
+  [-5, -22, 0], [-5, 8, 0], [-14, 30, 0], [-21, -30, 0],
+  [12, -27, 0], [17, 0, 0], [12, 12, 0], [28, -6, 2], [29, 5, 2],
+  [20, 37, 0], [3, 18, 0],
 ]
 
 export const DM_MAPS = {
@@ -85,6 +101,25 @@ export const DM_MAPS = {
       corner: 69,
     },
     build: buildMilitaryBase,
+  },
+  docks: {
+    key: 'dmMapDocks',
+    half: 40,
+    wallH: 12,
+    spawns: DOCKS_SPAWNS,
+    teamSpawns: {
+      r: DOCKS_SPAWNS.filter(([x]) => x < 0),
+      b: DOCKS_SPAWNS.filter(([x]) => x > 0),
+    },
+    // The road, the yard lanes and the quay.
+    waypoints: [[8, 0], [8, -20], [8, 20], [-6, 0], [-6, -28], [18, -24], [18, 6], [-20, 28]],
+    edge: {
+      base: 3,
+      max: 8,
+      waves: [[2.5, 3, 2.4], [1.5, 5, 1.1], [1, 7, 0.2]],
+      corner: 68,
+    },
+    build: buildDocks,
   },
 }
 
@@ -815,4 +850,234 @@ function buildMilitaryBase(b) {
 
   // Pines round the back.
   for (const [x, z] of [[-17, -34], [14, -28], [15, 36], [-25, 36]]) pine(b, x, z)
+}
+
+// --- Docks ---
+
+// A shipping container along z: 2 wide, 6 long, 3 high, doors at the
+// north end (the ship's deck runs north-south).
+function containerZ(b, x, z, y, color) {
+  b.box(x, z, 2, 6, y, y + 2, (sx, sz) => (sz === z ? 'grayconcrete' : color))
+}
+
+// A gantry crane on the quay: four yellow legs, a frame on top and a long
+// boom out over the water you can walk along (ladder up the north-west
+// leg), with a hook hanging off its end.
+function gantry(b, z0) {
+  for (const [x, z] of [[14, z0], [20, z0], [14, z0 + 6], [20, z0 + 6]]) b.box(x, z, 1, 1, 1, 13, 'yellowconcrete')
+  b.box(14, z0, 7, 7, 13, 13, (x, z) => (x === 14 || x === 20 || z === z0 || z === z0 + 6 ? 'yellowconcrete' : null))
+  b.box(10, z0 + 2, 25, 3, 14, 14, (x, z) => (z === z0 + 3 ? 'metal' : 'yellowconcrete'))
+  // A rail along both sides of the boom.
+  for (let x = 10; x <= 34; x++) for (const z of [z0 + 2, z0 + 4]) if (x % 2 === 0) b.put(x, 15, z, 'oakfence')
+  // The driver's cab under the boom.
+  b.box(17, z0 + 2, 3, 3, 11, 12, (x, z, y) => (y === 12 && x === 19 ? 'blackstainedglass' : 'yellowconcrete'))
+  // The hook on its cable.
+  b.box(32, z0 + 3, 1, 1, 9, 13, 'polishedblackstone')
+  b.put(32, 8, z0 + 3, 'grayconcrete')
+  ladder(b, 13, z0, 1, 14)
+}
+
+// A forklift facing east: body, seat, mast and forks.
+function forklift(b, x, z) {
+  b.box(x, z, 3, 2, 1, 1, 'yellowconcrete')
+  b.put(x, 2, z, 'blackconcrete')
+  b.put(x + 1, 2, z, stairsOf('oakplanks'), 3)
+  b.box(x + 3, z, 1, 2, 1, 3, 'grayconcrete')
+  b.box(x + 4, z, 1, 2, 1, 1, slabOf('smoothstone'))
+}
+
+// A wooden pier out over the water at y 0 from the quay, on log posts.
+function pier(b, x0, x1, z0, d) {
+  b.box(x0, z0, x1 - x0 + 1, d, 0, 0, 'oakplanks')
+  for (let x = x0 + 1; x <= x1; x += 4) for (const z of [z0, z0 + d - 1]) b.box(x, z, 1, 1, -3, -1, 'oaklog')
+  for (let x = x0 + 1; x <= x1; x += 2) for (const z of [z0, z0 + d - 1]) b.put(x, 1, z, 'oakfence')
+}
+
+function buildDocks(b) {
+  const H = 41
+  // Ground: concrete with gravel, the quay apron (yellow line at its edge),
+  // a road and the container yard. Past x 22 is the sea.
+  b.box(-H, -H, 2 * H + 1, 2 * H + 1, 0, 0, (x, z) => {
+    if (x >= 23) return null
+    if (x === 22) return 'yellowconcrete'
+    if (x >= 14) return hash(x, z) < 0.08 ? 'gravel' : 'smoothstone'
+    if (x >= 6 && x <= 10) return x === 8 && (z + H) % 4 < 2 ? 'whiteconcrete' : 'asphalt'
+    if (x >= -16 && x <= 4 && z >= -37 && z <= -19) return hash(x, z) < 0.12 ? 'gravel' : 'smoothstone'
+    if (x <= -30 && z >= 27) return hash(x, z) < 0.2 ? 'coarsedirt' : 'grass'
+    return hash(x, z) < 0.18 ? 'gravel' : 'lightgrayconcrete'
+  })
+
+  // --- east: the sea, the quay wall, piers and the ship ---
+  b.box(23, -H, H - 22, 2 * H + 1, -3, -3, 'sand')
+  b.box(23, -H, H - 22, 2 * H + 1, -2, -1, 'water')
+  b.box(22, -H, 1, 2 * H + 1, -3, -1, 'stonebricks')
+  // Ladders up the quay wall out of the water.
+  for (const z of [-26, -15, 4, 18, 32]) ladder(b, 23, z, -2, 0)
+  // Bollards along the quay.
+  for (let z = -36; z <= 36; z += 6) b.put(21, 1, z, 'polishedblackstone')
+  pier(b, 23, 32, -32, 3)
+  pier(b, 23, 34, 23, 3)
+  // A rowing boat tied to the south pier.
+  b.box(28, 27, 6, 3, -1, -1, (x, z) => (x === 28 || x === 33 || z === 27 || z === 29 ? 'spruceplanks' : 'oakplanks'))
+  b.box(28, 27, 6, 3, 0, 0, (x, z) => (x === 28 || x === 33 || z === 27 || z === 29 ? 'spruceplanks' : null))
+  b.box(30, 27, 1, 3, 0, 0, slabOf('oakplanks'))
+
+  // The cargo ship: hull x 26-32 from z -24 (a pointed bow) to z 14, red
+  // under the water line, dark blue above, a white rail; a hold below the
+  // deck (y 2) with two hatches down into it.
+  const hullW = (z) => (z >= -20 ? 3 : z >= -22 ? 2 : z === -23 ? 1 : 0)
+  for (let z = -24; z <= 14; z++) {
+    const w = hullW(z)
+    for (let x = 29 - w; x <= 29 + w; x++) {
+      // The hull's skin: its outer ring, plus any cell sticking out past
+      // the row in front of it (the bow's steps).
+      const side = Math.abs(x - 29) === w || z === -24 || z === 14 || Math.abs(x - 29) > hullW(z - 1)
+      b.put(x, -3, z, 'blackconcrete')
+      for (let y = -2; y <= 1; y++) b.put(x, y, z, side ? (y <= -1 ? 'redconcrete' : 'blueconcrete') : 'air')
+      b.put(x, 2, z, side ? 'blueconcrete' : 'spruceplanks')
+      const gangway = x === 26 && (z === -6 || z === -5)
+      if (side && !gangway) b.put(x, 3, z, 'whiteconcrete')
+    }
+  }
+  // Hatches: one with a ladder down the hull side, one open in the middle
+  // (climb out by the ladder on the east wall).
+  b.box(27, -12, 2, 3, 2, 2, 'air')
+  ladder(b, 27, -11, -2, 2)
+  b.box(30, 0, 2, 3, 2, 2, 'air')
+  ladder(b, 31, 1, -2, 2)
+  // Crates in the hold.
+  for (const [x, z] of [[27, -18], [31, -15], [28, -4], [30, 6], [27, 10]]) b.box(x, z, 1, 2, -2, -1, 'crate')
+  b.box(28, -8, 3, 1, -2, -2, 'barrel')
+  // Containers on the deck, one stacked (ladder between them).
+  containerZ(b, 27, -19, 3, 'orangeconcrete')
+  containerZ(b, 30, -19, 3, 'blueconcrete')
+  containerZ(b, 30, -19, 6, 'greenconcrete')
+  ladder(b, 29, -16, 3, 8)
+  containerZ(b, 30, -8, 3, 'redconcrete')
+  containerZ(b, 27, -3, 3, 'yellowconcrete')
+  // The mast at the bow.
+  b.box(29, -22, 1, 1, 3, 9, 'sprucelog')
+  b.put(29, 10, -22, 'sealantern')
+  // The bridge at the stern: a white cabin with a window band, a ladder up
+  // to its roof and a red funnel.
+  b.box(27, 8, 5, 6, 3, 8, (x, z, y) => {
+    const ring = x === 27 || x === 31 || z === 8 || z === 13
+    if (!ring) return null
+    if (z === 8 && x === 29 && y <= 4) return null
+    return y === 7 ? 'glass' : 'whiteconcrete'
+  })
+  b.box(26, 7, 7, 8, 9, 9, 'whiteconcrete')
+  for (let x = 26; x <= 32; x++) for (const z of [7, 14]) b.put(x, 10, z, 'whiteconcrete')
+  for (let z = 7; z <= 14; z++) for (const x of [26, 32]) b.put(x, 10, z, 'whiteconcrete')
+  ladder(b, 30, 12, 3, 9)
+  b.box(28, 11, 2, 2, 10, 12, (x, z, y) => (y === 12 ? 'blackconcrete' : 'redconcrete'))
+  b.box(28, 9, 3, 1, 3, 3, slabOf('darkoakplanks'))
+  // The gangway from the quay up to the deck.
+  b.box(23, -6, 1, 2, 0, 0, 'spruceplanks')
+  stairs(b, 24, -6, 1, 0, 2, 2, 'spruceplanks')
+  for (let x = 23; x <= 25; x++) for (const z of [-7, -4]) b.put(x, 1, z, 'oakfence')
+
+  // Two gantry cranes over the quay and the water.
+  gantry(b, -15)
+  gantry(b, 16)
+
+  // The lighthouse on the north-east point: red and white rings, a ladder
+  // up the inside to a lamp room with an open balcony.
+  b.box(15, -36, 5, 5, 1, 13, (x, z, y) => {
+    const r = Math.hypot(x - 17, z + 34)
+    if (r > 2.3) return null
+    if (r < 1.5) return null
+    if (x === 17 && z === -32 && y <= 2) return null
+    return y === 13 ? 'smoothstone' : Math.floor((y - 1) / 3) % 2 ? 'whiteconcrete' : 'redconcrete'
+  })
+  b.box(14, -37, 7, 7, 13, 13, (x, z) => (Math.hypot(x - 17, z + 34) <= 3.3 ? 'smoothstone' : null))
+  b.box(14, -37, 7, 7, 14, 14, (x, z) => {
+    const r = Math.hypot(x - 17, z + 34)
+    return r > 2.5 && r <= 3.3 && (x + z) % 2 === 0 ? 'oakfence' : null
+  })
+  b.box(16, -35, 3, 3, 14, 15, (x, z) => (x === 17 && z === -34 ? 'sealantern' : x === 17 || z === -34 ? null : 'glass'))
+  b.box(16, -35, 3, 3, 16, 16, 'redconcrete')
+  ladder(b, 17, -35, 1, 13)
+
+  // --- north: the container yard (rows with lanes between, stacks to
+  // climb by ladder, a Jump Pad onto the tallest) ---
+  container(b, -16, -35, 1, 'redconcrete')
+  container(b, -9, -35, 1, 'blueconcrete')
+  container(b, -9, -35, 4, 'orangeconcrete')
+  container(b, -2, -35, 1, 'greenconcrete')
+  container(b, -2, -35, 4, 'redconcrete')
+  container(b, -2, -35, 7, 'blueconcrete')
+  ladder(b, 4, -35, 1, 9)
+  container(b, -14, -30, 1, 'orangeconcrete')
+  container(b, -7, -30, 1, 'yellowconcrete')
+  container(b, 0, -30, 1, 'blueconcrete')
+  container(b, 0, -30, 4, 'greenconcrete')
+  container(b, -16, -25, 1, 'blueconcrete')
+  container(b, -16, -25, 4, 'redconcrete')
+  ladder(b, -10, -25, 1, 6)
+  container(b, -8, -25, 1, 'greenconcrete')
+  container(b, -1, -25, 1, 'redconcrete')
+  container(b, -12, -21, 1, 'cyanconcrete')
+  b.put(-4, 1, -32, 'jumppad')
+  steps(b, -8, -27, 1, 0, 3, 1, 'crate')
+  // A forklift and pallets by the yard.
+  forklift(b, -3, -18)
+  b.box(1, -18, 2, 2, 1, 1, slabOf('oakplanks'))
+  b.box(1, -18, 2, 2, 2, 2, 'crate')
+  // A trailer truck on the road.
+  truck(b, 4, -10)
+
+  // --- west: the big warehouse (racks of crates, a catwalk round two
+  // walls, stairs and ladders up, a ladder on to the roof) ---
+  building(b, { x0: -36, z0: -2, w: 24, d: 26, h: 9, wall: 'brick', trim: 'stonebricks', roof: 'grayconcrete', floor: 'smoothstone', doors: [['e', 9, 6, 5], ['n', 6, 2], ['s', 16, 2]], parapet: { type: 'stonebricks', gaps: [] } })
+  for (let z = 7; z <= 12; z++) b.put(-13, 6, z, z % 2 ? 'yellowconcrete' : 'blackconcrete')
+  // Racks: log posts, slab shelves, crates and barrels on them.
+  for (const x of [-31, -27, -23, -19]) {
+    for (let z = 4; z <= 18; z++) {
+      if (z === 11) continue
+      const post = z === 4 || z === 10 || z === 12 || z === 18
+      for (let y = 1; y <= 4; y++) {
+        if (post) b.put(x, y, z, 'sprucelog')
+        else if (y === 2 || y === 4) b.put(x, y, z, slabOf('spruceplanks'))
+        else if (hash(x * 7 + y, z) < 0.55) b.put(x, y, z, hash(z, x + y) < 0.3 ? 'barrel' : 'crate')
+      }
+    }
+  }
+  // The catwalk: along the north wall (3 wide) and the west wall (2 wide)
+  // at y 5, with a fence on its open side.
+  b.box(-35, -1, 22, 3, 5, 5, 'spruceplanks')
+  b.box(-35, 2, 2, 21, 5, 5, 'spruceplanks')
+  for (let x = -33; x <= -16; x++) b.put(x, 6, 2, 'oakfence')
+  for (let z = 3; z <= 22; z++) b.put(-33, 6, z, 'oakfence')
+  stairs(b, -15, 6, 0, -1, 5, 2, 'spruceplanks')
+  ladder(b, -35, 20, 1, 5)
+  ladder(b, -35, 10, 6, 10)
+  // A loading dock outside the big door: a truck backed up to it.
+  truck(b, -10, 12)
+  b.box(-12, 4, 1, 2, 1, 2, 'crate')
+  b.box(-12, 17, 2, 1, 1, 1, 'barrel')
+
+  // --- south: the harbour office (two floors) and the fish market ---
+  building(b, { x0: -8, z0: 26, w: 11, d: 9, h: 8, wall: 'whiteconcrete', trim: 'blueconcrete', roof: 'blueconcrete', floor: 'oakplanks', doors: [['n', 4, 2], ['w', 3, 2]], parapet: { type: 'whiteconcrete', gaps: [] } })
+  b.box(-7, 27, 9, 7, 4, 4, (x, z) => (x >= 0 && z <= 29 ? null : 'oakplanks'))
+  stairs(b, 1, 32, 0, -1, 3, 1, 'oakplanks')
+  b.box(-6, 32, 3, 1, 1, 1, slabOf('darkoakplanks'))
+  b.put(-5, 1, 31, stairsOf('oakplanks'), 2)
+  ladder(b, -7, 33, 5, 9)
+  // The fish market: a striped awning on posts over slab stalls.
+  for (const [x, z] of [[6, 28], [17, 28], [6, 35], [17, 35]]) b.box(x, z, 1, 1, 1, 3, 'sprucelog')
+  b.box(6, 28, 12, 8, 4, 4, (x) => (x % 2 ? 'bluewool' : 'whitewool'))
+  for (const z of [30, 33]) b.box(8, z, 8, 1, 1, 1, slabOf('spruceplanks'))
+  for (let x = 8; x <= 15; x += 3) b.put(x, 1, 34, 'barrel')
+  // Stacks of crates and barrels round the south quay.
+  for (const [x, z, h] of [[14, 6, 2], [18, 9, 1], [15, 26, 1], [-3, 12, 2], [-20, 30, 1]]) b.box(x, z, 2, 2, 1, h, 'crate')
+  for (const [x, z] of [[19, 3], [12, -4], [-24, -6], [-8, 20]]) b.box(x, z, 2, 1, 1, 1, 'barrel')
+  // Trees by the office lawn and a bench.
+  for (const [x, z] of [[-31, 30], [-25, 34], [-19, 31]]) tree(b, x, z)
+  bench(b, -30, 29, 3, 'x', 'n')
+  // Speed Pads down the road, Teleporter Pads between the far west and
+  // the south quay.
+  for (const z of [-24, 0, 22]) b.put(8, 1, z, 'speedpad')
+  b.put(-30, 1, -14, 'teleporterpad')
+  b.put(20, 1, 32, 'teleporterpad')
 }

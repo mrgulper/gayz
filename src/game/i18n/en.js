@@ -3446,6 +3446,7 @@ export default {
   dmMapLine: "Map: {name}",
   dmMapSmallTown: "Small Town",
   dmMapMilitaryBase: "Military Base",
+  dmMapDocks: "Docks",
   dmMapPick: "Map for Deathmatch and Team Deathmatch:",
   dmKilledBy: "Killed by {name}",
   dmKillCamBy: "Killed by",

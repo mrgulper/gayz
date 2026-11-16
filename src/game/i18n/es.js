@@ -3391,6 +3391,7 @@ export default {
   dmMapLine: "Mapa: {name}",
   dmMapSmallTown: "Pueblo Pequeño",
   dmMapMilitaryBase: "Base Militar",
+  dmMapDocks: "Muelles",
   dmMapPick: "Mapa para Todos contra Todos y Combate por Equipos:",
   dmKilledBy: "Te eliminó {name}",
   dmKillCamBy: "Te eliminó",
