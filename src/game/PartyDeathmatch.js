@@ -8,7 +8,7 @@
 // just between rounds); timer only; endless ammo (you still reload); swap
 // guns any time from the pause menu (Escape > Switch Weapon).
 //
-// The arena is a named map (DeathmatchMaps.js - Small Town first, 81 x 81
+// The arena is a named map (DeathmatchMaps.js - Small Town first, 121 x 121
 // blocks) of real blocks high in the sky (DM_Y), empty void all round
 // (walk off the edge and you fall: a death, nobody's kill - _fell).
 // Built on every screen (BuildSurvival `_placed`, gone when the game ends).
@@ -732,6 +732,7 @@ export class PartyDeathmatch {
     this._cam = { by: by || '', start: performance.now(), from: cam.position.clone(), dead: { x: at.x, z: at.z }, k: null, shown: '' }
     this._streak = 0
     s.bm.tryMode.hideGun = true
+    s.bm.tryMode.camHeld = true
     this._camEl.classList.add('on')
     this._camEl.querySelector('.dm-kc-by').textContent = by ? t('dmKillCamBy') : ''
     this._park()
@@ -802,6 +803,7 @@ export class PartyDeathmatch {
   _endCam(respawn) {
     this._cam = null
     this.s.bm.tryMode.hideGun = false
+    this.s.bm.tryMode.camHeld = false
     this._camEl.classList.remove('on')
     if (respawn) this._goTo(this._spawnFor(this.pm.myId))
   }

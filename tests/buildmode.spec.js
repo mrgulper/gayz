@@ -7555,7 +7555,7 @@ test('Arena modes start in the arena, Deathmatch has no animals, spectate camera
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })
 
-// Deathmatch's Small Town (2026-11-16): an 81 x 81 named map, bots that
+// Deathmatch's Small Town (2026-11-16): a 121 x 121 named map, bots that
 // hold and fire a real gun, find their way round buildings, and the
 // minimap drawing the arena (not the camp far below).
 test('Deathmatch: Small Town map, bots hold guns, minimap shows the arena', async ({ page }) => {
@@ -7575,12 +7575,12 @@ test('Deathmatch: Small Town map, bots hold guns, minimap shows the arena', asyn
     pm.update(0.05)
     pm.update(0.05)
     out.named = D.mapId === 'smallTown' && D.mapName() === 'Small Town' && D.startText().startsWith('Map: Small Town')
-    // 81 x 81: floor out to near the sides, void past the uneven edge
+    // 121 x 121 (was 81 x 81): floor out to near the sides, void past the uneven edge
     // (2026-11-16, was trees and a wall).
     const hx = Math.floor(pm.home.x)
     const hz = Math.floor(pm.home.z)
     const bm = s.bm
-    out.bigFloor = !!bm.getBlockAt(hx + 33, 186, hz) && !!bm.getBlockAt(hx - 33, 186, hz) && !!bm.getBlockAt(hx, 186, hz + 33) && !bm.getBlockAt(hx + 41, 186, hz) && !bm.getBlockAt(hx + 41, 192, hz) && !bm.getBlockAt(hx, 192, hz + 41) && !bm.getBlockAt(hx + 40, 186, hz + 40) && D._inside(hx + 40, hz - 40)
+    out.bigFloor = !!bm.getBlockAt(hx + 33, 186, hz) && !!bm.getBlockAt(hx - 33, 186, hz) && !!bm.getBlockAt(hx, 186, hz + 33) && !!bm.getBlockAt(hx + 48, 186, hz) && !bm.getBlockAt(hx + 61, 186, hz) && !bm.getBlockAt(hx + 61, 192, hz) && !bm.getBlockAt(hx, 192, hz + 61) && !bm.getBlockAt(hx + 60, 186, hz + 60) && D._inside(hx + 60, hz - 60)
     out.streets = bm.getBlockAt(hx + 20, 186, hz + 1) === 'asphalt' && bm.getBlockAt(hx + 1, 186, hz - 20) === 'asphalt'
     // Every bot carries a gun from the list, held in its right hand.
     const bots = [...pm.bots.values()]
@@ -7613,7 +7613,7 @@ test('Deathmatch: Small Town map, bots hold guns, minimap shows the arena', asyn
     // The minimap: the arena from above, its name where the biome shows.
     const tm = s.bm.tryMode
     tm._drawMap(performance.now() + 1e6)
-    out.skyMap = !!tm._skyMap?._layer && tm._skyMap._layer.w >= 70 && tm._skyMap._layer.w <= 81 && document.getElementById('build-try-biome')?.textContent === 'Small Town'
+    out.skyMap = !!tm._skyMap?._layer && tm._skyMap._layer.w >= 100 && tm._skyMap._layer.w <= 121 && document.getElementById('build-try-biome')?.textContent === 'Small Town'
     s.stop?.()
     g._exitBuildMode?.()
     return out
@@ -7657,20 +7657,20 @@ test('Deathmatch: map picker, Military Base, void edge, falling off is a death',
     // outer ring and the cut corners are empty from under the floor up.
     let water = 0
     let ring = 0
-    for (let x = -41; x <= 41; x++) {
-      for (let z = -41; z <= 41; z++) {
+    for (let x = -61; x <= 61; x++) {
+      for (let z = -61; z <= 61; z++) {
         if (at(x, 0, z) === 'water') water++
-        if (Math.abs(x) !== 41 && Math.abs(z) !== 41) continue
+        if (Math.abs(x) !== 61 && Math.abs(z) !== 61) continue
         for (let y = -3; y <= 17; y++) if (at(x, y, z)) ring++
       }
     }
-    out.edge = water === 0 && ring === 0 && !at(-40, 0, -38) && !at(40, 0, 38) && !!at(15, 0, 0)
+    out.edge = water === 0 && ring === 0 && !at(-60, 0, -58) && !at(60, 0, 58) && !!at(15, 0, 0) && !!at(-25, 0, -49)
     // Falling off: a death for nobody, "fell" in the feed, the fall view.
     pm.update(0.05)
     const me = pm.myId
     D.prot.clear()
     const tm = bm.tryMode
-    tm.pos.set(pm.home.x + 45, 186 - 12, pm.home.z)
+    tm.pos.set(pm.home.x + 65, 186 - 12, pm.home.z)
     pm.update(0.05)
     pm.update(0.05)
     const f = D.feed.at(-1)
@@ -9791,4 +9791,83 @@ test.describe('spin ring on a phone', () => {
     await page.waitForTimeout(300)
     expect(await page.evaluate(() => ({ gone: !document.getElementById('play-ring-tutorial'), saved: localStorage.getItem('gayz-ring-tutorial') }))).toEqual({ gone: true, saved: '1' })
   })
+})
+
+// Deathmatch fixes (2026-11-16): the maps' stairs show straight away (a
+// bulk build left their bounds stale, so they were culled), no random
+// disasters in an arena and a shake always dies down, bots' names have no
+// "(bot)", and every map grew to 121 x 121 with an outer ring of places.
+test('Deathmatch: stairs show, no stuck shake, plain bot names, bigger maps', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'deathmatch'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    const pm = s.party
+    const D = pm.ext
+    pm.update(0.05)
+    pm.update(0.05)
+    const bm = s.bm
+    const B = s.B
+    const hx = Math.floor(pm.home.x)
+    const hz = Math.floor(pm.home.z)
+    const at = (x, y, z) => bm.getBlockAt(hx + x, 186 + y, hz + z)
+    // Every stair in the arena sits inside its mesh's bounds once drawn.
+    bm._flushBounds()
+    const THREE = bm.camera.position.constructor
+    let stairs = 0
+    let outside = 0
+    for (const [type, mesh] of Object.entries(bm._instancedMeshes)) {
+      if (!type.endsWith('stairs') || !mesh.count) continue
+      const keys = bm._instanceKeyByIndex[type] || []
+      for (let i = 0; i < mesh.count; i++) {
+        const [x, y, z] = String(keys[i]).split(',').map(Number)
+        if (y < 186) continue
+        stairs++
+        const c = new THREE((x + 0.5) * B, (y + 0.5) * B, (z + 0.5) * B)
+        if (!mesh.boundingSphere || mesh.boundingSphere.distanceToPoint(c) > 0.01) outside++
+      }
+    }
+    out.stairsInBounds = stairs > 100 && outside === 0
+    // No disaster rolls in an arena; a leftover shake fades on its own.
+    const dis = bm.sky.disasters
+    out.noDisasters = dis.inGame() === false
+    dis.shake = 0.05
+    for (let i = 0; i < 60; i++) dis.update(1 / 30, bm.camera)
+    out.shakeFades = dis.shake === 0
+    // The kill cam holds the camera: third person can't pull it away.
+    bm.tryMode.view = 1
+    bm.tryMode.camHeld = true
+    out.camHeld = bm.tryMode.applyView() === null
+    bm.tryMode.camHeld = false
+    bm.tryMode.view = 0
+    // Bot name tags are just the name.
+    const tags = []
+    for (const b of pm.bots.values()) b.group.traverse((o) => { if (o.userData?.text) tags.push(o.userData.text) })
+    const names = [...pm.bots.values()].map((b) => pm._name(b.id))
+    out.plainNames = names.length === 7 && names.every((n) => !/bot/i.test(n)) && tags.every((t) => !/\(bot\)/i.test(t))
+    // 121 x 121: Small Town's ring road and outer places.
+    out.townRing = D.map.half === 60 && at(43, 0, 10) === 'asphalt' && at(-49, 12, -28) === 'grayconcrete' && at(-22, 1, -50) === 'oakslab' && !!at(9, 1, -51) && at(50, 0, -32) === 'water'
+    // Military Base: the plane you walk through, the control tower.
+    D.mapId = 'militaryBase'
+    D.draw()
+    out.baseRing = !at(-5, 2, -49) && !at(-5, 3, -49) && at(-5, 1, -49) === 'lightgrayconcrete' && at(-5, 2, -45) === 'lightgrayconcrete' && at(34, 10, -52) === 'grayconcrete' && at(-40, 3, 47) === 'greenwool' && at(36, 12, -50) === 'metal'
+    out.tagsSeen = tags.length === 7
+    // Docks: the sea fort out on its island, reached by the long pier.
+    D.mapId = 'docks'
+    D.draw()
+    out.docksRing = at(43, 0, 15) === 'oakplanks' && at(45, 0, 0) === 'sand' && at(52, 2, 0) === 'stonebricks' && !at(43, 1, 8) && at(-49, 3, -38) === 'coalblock'
+    const sp = D.map.spawns
+    out.spawnsOpen = sp.every(([x, z, y]) => !at(x, y + 1, z) && !at(x, y + 2, z) && !!at(x, y, z))
+    s.stop?.()
+    g._exitBuildMode?.()
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })

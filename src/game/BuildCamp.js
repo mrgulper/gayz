@@ -71,6 +71,7 @@ export function nameTag(text, B) {
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }))
   sprite.scale.set(1.7 * B, 0.42 * B, 1)
   sprite.position.y = (MOB_HEIGHT + 0.4) * B
+  sprite.userData.text = text
   return sprite
 }
 

@@ -224,7 +224,7 @@ export class Infection {
 
   _addBot(id, { x, y, z, n }) {
     const B = this.s.B
-    const name = `${BOT_NAMES[(n - 1) % BOT_NAMES.length]} (${t('infectionBot')})`
+    const name = BOT_NAMES[(n - 1) % BOT_NAMES.length]
     const group = new THREE.Group()
     group.add(nameTag(name, B))
     this.s.bm.scene.add(group)
