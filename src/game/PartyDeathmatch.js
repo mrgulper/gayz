@@ -9,7 +9,8 @@
 // guns any time from the pause menu (Escape > Switch Weapon).
 //
 // The arena is a named map (DeathmatchMaps.js - Small Town first, 81 x 81
-// blocks) of real blocks high in the sky (DM_Y), a town wall all round.
+// blocks) of real blocks high in the sky (DM_Y), empty void all round
+// (walk off the edge and you fall: a death, nobody's kill - _fell).
 // Built on every screen (BuildSurvival `_placed`, gone when the game ends).
 // Bots find their way round the buildings on a grid of the ground (_nav).
 //
@@ -55,6 +56,7 @@ const CAM_FLY = 0.6 // seconds the kill cam takes to reach the killer
 const CAM_BACK = 3.2 // blocks the kill cam stays from the killer
 const PARK_DROP = 30 // blocks under the floor your body waits during it
 const FEED_N = 5
+const VOID_DROP = 10 // blocks under the floor that count as fallen into the void
 // A bot's gun: seconds between shots, damage a hit, how far it reaches,
 // and its chance to hit (null: less the further away). Guesses, tuned to
 // about what the one bot gun did before.
@@ -91,6 +93,8 @@ export class PartyDeathmatch {
     this.feedN = 0
     this._builtFor = ''
     this._myDeaths = 0
+    this._fellSent = 0
+    this._fellAt = null
     this._seenFeed = 0
     this._feedKey = ''
     this._feedEl = document.createElement('div')
@@ -240,6 +244,22 @@ export class PartyDeathmatch {
     if (b) this.placeBot(b)
   }
 
+  // `id` fell into the void past the edge (2026-11-16, Gaymi: "falling
+  // off = you die and respawn"): a death, nobody's kill. In the feed the
+  // faller is both sides of the line (k === v), shown as "fell".
+  _fell(id) {
+    const pm = this.pm
+    if (pm.phase !== 'play' || !this.hp.has(id) || this.prot.has(id)) return
+    if (id === pm.myId && this.s.spectating) return
+    this.deaths[id] = (this.deaths[id] || 0) + 1
+    this.hp.set(id, DM_HP)
+    const b = pm.bots.get(id)
+    this.prot.set(id, b ? SPAWN_SAFE : RESPAWN_S + SPAWN_SAFE)
+    this.feed.push({ n: ++this.feedN, k: id, v: id })
+    this.feed = this.feed.slice(-FEED_N)
+    if (b) this.placeBot(b)
+  }
+
   // A kill by `by` (Team Deathmatch adds it to their team).
   _scored() {}
 
@@ -283,8 +303,13 @@ export class PartyDeathmatch {
     for (const p of people) {
       const b = p.bot
       if (!b) continue
-      // Fell out somehow: back in.
-      if (b.y < DM_Y - 3 || !this._inside(b.x, b.z)) {
+      // Fell into the void: a death, like anyone's.
+      if (b.y < DM_Y - VOID_DROP) {
+        this._fell(b.id)
+        continue
+      }
+      // Out past the island somehow: back in.
+      if (!this._inside(b.x, b.z)) {
         this.placeBot(b)
         continue
       }
@@ -542,6 +567,8 @@ export class PartyDeathmatch {
 
   remoteHit(h) {
     const id = String(h.id)
+    // A guest fell into the void (only ever about themselves).
+    if (id === 'dfell') return this._fell(String(h.by || ''))
     if (id[0] === 'd') this._hit(id.slice(1), Math.max(0, Math.min(DMG_MAX, Number(h.dmg) || 0)), String(h.by || ''))
   }
 
@@ -638,13 +665,35 @@ export class PartyDeathmatch {
       // I died: the kill cam, then back in at a spawn point.
       if (deaths > this._myDeaths) {
         const by = [...this.feed].reverse().find((f) => f.v === me)?.k
-        this._startCam(by)
+        this._fellSent = 0
+        this._startCam(by === me ? '' : by)
         this._myHp = DM_HP
       }
       if (this._cam) this._runCam()
-      // Fell out somehow.
+      // Fell into the void: a death (the host counts it; a guest tells
+      // the host once and waits under the floor for the answer).
       const at = s.bodyPos()
-      if (!this._cam && pm.home && (at.y < DM_Y - 3 || !this._inside(at.x, at.z))) this._goTo(this._spawnFor(me))
+      if (!this._cam && pm.home && at.y < DM_Y - VOID_DROP && !s.spectating) {
+        if (!this._fellSent) this._fellAt = { x: at.x, z: at.z }
+        if (pm.runs) {
+          const before = this.deaths[me] || 0
+          this._fell(me)
+          // Still spawn-safe (not a death): just back in.
+          if ((this.deaths[me] || 0) === before) {
+            this._fellAt = null
+            this._goTo(this._spawnFor(me))
+          }
+        } else if (!this._fellSent) {
+          this._fellSent = performance.now()
+          s.net?.queueHit('dfell', 0)
+        } else if (performance.now() - this._fellSent > 2500) {
+          // No answer (spawn-safe, or the message got lost): just back in.
+          this._fellSent = 0
+          this._fellAt = null
+          this._goTo(this._spawnFor(me))
+        }
+        if (this._fellSent) this._park()
+      }
     }
     this._myDeaths = deaths
     // Hit: a thump, and the health bar moves.
@@ -677,12 +726,13 @@ export class PartyDeathmatch {
   _startCam(by) {
     const s = this.s
     const cam = s.bm.camera
-    const at = s.bodyPos()
+    const at = this._fellAt || s.bodyPos()
+    this._fellAt = null
     this._cam = { by: by || '', start: performance.now(), from: cam.position.clone(), dead: { x: at.x, z: at.z }, k: null, shown: '' }
     this._streak = 0
     s.bm.tryMode.hideGun = true
     this._camEl.classList.add('on')
-    this._camEl.querySelector('.dm-kc-by').textContent = t('dmKillCamBy')
+    this._camEl.querySelector('.dm-kc-by').textContent = by ? t('dmKillCamBy') : ''
     this._park()
   }
 
@@ -718,6 +768,20 @@ export class PartyDeathmatch {
       const a = Math.min(1, gone / CAM_FLY)
       cam.position.lerpVectors(c.from, end, a * a * (3 - 2 * a))
       cam.lookAt(c.k.x * B, (c.k.y + MOB_HEIGHT * 0.75) * B, c.k.z * B)
+    } else if (!c.by && pm.home) {
+      // Fell into the void: the camera rises above the edge where I went
+      // off and looks back over the arena.
+      const h = pm.home
+      let dx = c.dead.x - h.x
+      let dz = c.dead.z - h.z
+      const len = Math.hypot(dx, dz) || 1
+      const r = Math.min(len, this.map.half - 4)
+      dx /= len
+      dz /= len
+      const end = new THREE.Vector3((h.x + dx * r) * B, (DM_Y + 9) * B, (h.z + dz * r) * B)
+      const a = Math.min(1, gone / CAM_FLY)
+      cam.position.lerpVectors(c.from, end, a * a * (3 - 2 * a))
+      cam.lookAt(h.x * B, DM_Y * B, h.z * B)
     } else {
       cam.position.copy(c.from)
     }
@@ -728,7 +792,7 @@ export class PartyDeathmatch {
     if (key === c.shown) return
     c.shown = key
     const name = this._camEl.querySelector('.dm-kc-name')
-    name.textContent = c.by ? pm._name(c.by) : '?'
+    name.textContent = c.by ? pm._name(c.by) : t('dmFellVoid')
     name.className = `dm-kc-name${this._teamOf(c.by) ? ` team-${this._teamOf(c.by)}` : ''}`
     this._camEl.querySelector('.dm-kc-hp i').style.width = `${Math.max(0, Math.min(100, (hp / DM_HP) * 100))}%`
     this._camEl.querySelector('.dm-kc-time').textContent = t('dmRespawnIn', { n: left })
@@ -794,7 +858,7 @@ export class PartyDeathmatch {
       const row = document.createElement('div')
       const tm = this._teamOf(f.k)
       row.className = `dm-feed-row${f.k === pm.myId || f.v === pm.myId ? ' mine' : ''}${tm ? ` team-${tm}` : ''}`
-      row.textContent = t('dmFeedLine', { a: pm._name(f.k), b: pm._name(f.v) })
+      row.textContent = f.k === f.v ? t('dmFeedFell', { b: pm._name(f.v) }) : t('dmFeedLine', { a: pm._name(f.k), b: pm._name(f.v) })
       return row
     }))
   }

@@ -47,6 +47,8 @@ import { PlayAnimals, ANIMAL_IDS, MAX_PLACED, animalIconURL, animalNameKey } fro
 // physical size (GROUND_SIZE * BLOCK_SIZE) stays close to what it was
 // before rather than shrinking just because each cell got smaller.
 const GROUND_SIZE = 128
+// A new Plain map's platform (cells a side), void all round it.
+const PLAIN_GROUND = 32
 // Couch Co-op: a knocked-down Player 1 holds no keys.
 const NO_KEYS = new Set()
 // The sun's shadows follow you in steps of this many blocks (_placeSun).
@@ -4389,7 +4391,7 @@ export class BuildMode {
   // it at all). Refilling it on every load was what kept bringing the
   // grass back over broken or replaced ground.
   _applyBuild(parsed) {
-    // Endless flat grass around it (OpenWorld.js, setFlatWorld).
+    // Void around it (OpenWorld.js, setFlatWorld).
     setFlatWorld(true)
     this.world.start()
     this._applyParsedData(parsed)
@@ -4591,8 +4593,10 @@ export class BuildMode {
   // overwriting a cell the player (or a saved build) already explicitly
   // placed something in - placeBlock already no-ops on an occupied cell,
   // so this is just "call it for every cell and let that guard do the work."
+  // A fresh Plain map is a PLAIN_GROUND x PLAIN_GROUND platform in the
+  // void (2026-11-16, was the whole 128x128); saved maps keep their own.
   _ensureGroundLayer() {
-    const half = GROUND_SIZE / 2
+    const half = PLAIN_GROUND / 2
     for (let x = -half; x < half; x++) {
       for (let z = -half; z < half; z++) {
         this.placeBlock(x, GROUND_LAYER_Y, z, GROUND_BLOCK_TYPE, true)
