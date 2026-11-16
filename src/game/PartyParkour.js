@@ -5,10 +5,10 @@
 // racing the same course (no bots).
 //
 // The course is high in the sky (PK_Y) and the same for everyone: stepping
-// stones, steps up, a narrow beam, zigzag jumps, two moving platforms (one
-// sliding along, one sideways; they move by the clock, so everyone sees
-// them in the same place, and carry you while you stand on them) and a
-// finish pad under a glowing arch. Touch a gold checkpoint pad to save your
+// stones, steps up, a narrow beam, zigzag jumps, two runs of purple
+// stepping stones (one climbing along, one cutting sideways) and a finish
+// pad under a glowing arch. Nothing moves (2026-11-16, Gaymi: "parkour, no
+// moving blocks" - the two sliding platforms became fixed stones). Touch a gold checkpoint pad to save your
 // spot; fall off and you're back on the last one. Your time runs from the
 // start of the round; the first to finish wins the round. Your best time
 // is kept (BEST_KEY) and, signed in, goes on the leaderboard (`parkourMs`,
@@ -34,23 +34,18 @@ const PADS = [
   [28, 3, 0, 10, 1, 'quartz'], // the beam
   [40, 3, 1, 1, 1, 'orangeconcrete'], [43, 4, -1, 1, 1, 'orangeconcrete'], [46, 4, 1, 1, 1, 'orangeconcrete'], [49, 5, 0, 1, 1, 'orangeconcrete'],
   [52, 5, 0, 3, 3, 'yellowconcrete'], // checkpoint 2
-  [67, 5, 0, 3, 3, 'pinkconcrete'], // after the sliding platform
+  [57, 5, 0, 1, 1, 'purpurblock'], [60, 6, 1, 1, 1, 'purpurblock'], [63, 6, -1, 2, 1, 'purpurblock'],
+  [67, 5, 0, 3, 3, 'pinkconcrete'],
   [72, 6, 0, 2, 1, 'magentaconcrete'], [75, 7, 0, 2, 1, 'magentaconcrete'], [78, 8, 0, 2, 1, 'magentaconcrete'],
   [81, 8, 0, 3, 3, 'yellowconcrete'], // checkpoint 3
-  [89, 8, 6, 3, 3, 'pinkconcrete'], // after the sideways platform
+  [86, 8, 1, 1, 1, 'purpurblock'], [86, 9, 4, 1, 1, 'purpurblock'],
+  [89, 8, 6, 3, 3, 'pinkconcrete'],
   [94, 8, 4, 1, 1, 'limeconcrete'], [97, 9, 2, 1, 1, 'limeconcrete'], [100, 9, 0, 1, 1, 'limeconcrete'],
   [103, 9, 0, 5, 5, 'yellowconcrete'], // the finish
 ]
 // Checkpoints: where you come back (x, y, z of the pad's middle).
 export const CHECKPOINTS = [[2, 0, 0], [26, 3, 0], [53, 5, 0], [82, 8, 0]]
 const FINISH = { x: 103, y: 9, z: 0, w: 5, d: 5 }
-// Moving platforms: 3 x 3, from -> to (x, y, z of their corner) and back
-// every `period` seconds.
-const MOVERS = [
-  { from: [56, 5, -1], to: [63, 5, -1], period: 7 },
-  { from: [85, 8, -1], to: [85, 8, 5], period: 6 },
-]
-const MOVER = 'purpurblock'
 
 export function loadParkourBest() {
   try {
@@ -76,7 +71,6 @@ export class PartyParkour {
     this.best = loadParkourBest()
     this.top = null
     this._builtFor = ''
-    this._movers = MOVERS.map(() => null)
     this._loadTop()
   }
 
@@ -154,44 +148,6 @@ export class PartyParkour {
     for (const dz of [-2, 2]) for (let y = 1; y <= 4; y++) this._pad(f.x + 2, f.y + y, f.z + dz, 1, 1, 'glowstone')
     for (let dz = -2; dz <= 2; dz++) this._pad(f.x + 2, f.y + 5, f.z + dz, 1, 1, 'glowstone')
     bm._suppressUndoRecording = false
-    this._movers = MOVERS.map(() => null)
-  }
-
-  // Where a moving platform's corner is now (whole blocks, by the clock).
-  moverAt(i, now = Date.now()) {
-    const m = MOVERS[i]
-    const k = ((now / 1000) % m.period) / m.period
-    const f = k < 0.5 ? k * 2 : 2 - k * 2
-    return m.from.map((a, j) => Math.round(a + (m.to[j] - a) * f))
-  }
-
-  _moveMovers() {
-    const s = this.s
-    const bm = s.bm
-    const tm = bm.tryMode
-    bm._suppressUndoRecording = true
-    MOVERS.forEach((_, i) => {
-      const at = this.moverAt(i)
-      const was = this._movers[i]
-      if (was && was.every((v, j) => v === at[j])) return
-      // Standing on it: carried along.
-      if (was && tm?.active) {
-        const c = this._at(...was)
-        const p = tm.pos
-        if (p.x >= c.x && p.x < c.x + 3 && p.z >= c.z && p.z < c.z + 3 && Math.abs(p.y - (c.y + 1)) < 0.3) {
-          p.x += at[0] - was[0]
-          p.z += at[2] - was[2]
-        }
-      }
-      if (was) {
-        const c = this._at(...was)
-        for (let x = 0; x < 3; x++) for (let z = 0; z < 3; z++) this._take(c.x + x, c.y, c.z + z)
-      }
-      const c = this._at(...at)
-      for (let x = 0; x < 3; x++) for (let z = 0; z < 3; z++) this._put(c.x + x, c.y, c.z + z, MOVER)
-      this._movers[i] = at
-    })
-    bm._suppressUndoRecording = false
   }
 
   draw() {
@@ -202,7 +158,6 @@ export class PartyParkour {
       this._builtFor = key
       this._blocks()
     }
-    this._moveMovers()
     this._mine()
   }
 
