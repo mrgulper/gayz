@@ -958,6 +958,8 @@ export class BuildSurvival {
   // The spare ammo a gun starts with - more with the Ammo Belt / Bandolier
   // upgrades (cfg.ammoMult). Melee's is Infinity, which stays Infinity.
   _startReserve() {
+    // Deathmatch: endless ammo (you still reload).
+    if (this.party?.ext?.endlessAmmo) return Infinity
     return Math.round(this.weapon.reserve * (this.cfg?.ammoMult ?? 1))
   }
 
@@ -1486,20 +1488,24 @@ export class BuildSurvival {
     // a wave over with nothing killed).
     const leftText = alive === 0 && this._breakTimer > 0 ? t('buildPlayNextWaveIn', { n: Math.ceil(this._breakTimer) }) : t('buildPlayZombiesLeft', { n: alive })
     if (!this.cfg?.noZombies) set('build-play-wave-text', `${waveText} · ${leftText} · ${t('buildPlayKills', { n: this.kills })}${this.camp || this.td ? ` · ${t('campCoins', { n: money(this.bm.game?.settings, this.coins) })}` : ''}${timeText}${extractText}${serverText}`)
+    // A mode's own health (Deathmatch, PartyDeathmatch.myHp) shows instead.
+    const modeHp = this.party?.ext?.myHp?.() ?? null
+    const hpNow = modeHp ?? this.health
+    const hpMax = modeHp !== null ? 100 : this.maxHealth || 100
     const fill = document.getElementById('build-play-health-fill')
-    if (fill) fill.style.width = `${Math.max(0, Math.min(100, (this.health / (this.maxHealth || 100)) * 100))}%`
-    set('build-play-health-text', `${Math.max(0, Math.ceil(this.health))}${this.armor > 0 ? ` + ${Math.ceil(this.armor)}` : ''}`)
+    if (fill) fill.style.width = `${Math.max(0, Math.min(100, (hpNow / hpMax) * 100))}%`
+    set('build-play-health-text', `${Math.max(0, Math.ceil(hpNow))}${modeHp === null && this.armor > 0 ? ` + ${Math.ceil(this.armor)}` : ''}`)
     // The Flamethrower burns fuel, not bullets (2026-10-17): a fuel tank
     // bar and how many spare tanks are left instead of "99 / 300".
     const ammoEl = document.getElementById('build-play-ammo')
     if (this.weapon.fuel && ammoEl) {
       const pct = Math.max(0, Math.min(100, (this.mag / (this.magSize() || 1)) * 100))
-      const tanks = Math.floor(this.reserve / (this.weapon.mag || 1))
+      const tanks = Number.isFinite(this.reserve) ? Math.floor(this.reserve / (this.weapon.mag || 1)) : '∞'
       const label = this._reloadLeft > 0 ? t('buildPlayRefueling') : t('buildPlayFuel')
       ammoEl.innerHTML = `<span class="fuel-tank"><span class="fuel-label">${label}</span><span class="fuel-bar"><span style="width:${pct.toFixed(1)}%"></span></span><span class="fuel-spare">${t('buildPlayFuelSpare', { n: tanks })}</span></span>`
       return
     }
-    const ammo = Number.isFinite(this.mag) ? `${this.mag} / ${this.reserve}` : t(this.bm.game?.weapons?.getSummary?.().find((w) => w.id === this.weaponId)?.nameKey || 'weaponMelee')
+    const ammo = Number.isFinite(this.mag) ? `${this.mag} / ${Number.isFinite(this.reserve) ? this.reserve : '∞'}` : t(this.bm.game?.weapons?.getSummary?.().find((w) => w.id === this.weaponId)?.nameKey || 'weaponMelee')
     set('build-play-ammo', this._reloadLeft > 0 ? t('buildPlayReloading') : ammo)
   }
 
@@ -4330,9 +4336,9 @@ export class BuildSurvival {
         this.escape?.remoteHit(h)
         continue
       }
-      // Paint Wars' splats, Build Battle's stars, Prop Hunt's disguises and
-      // Tug of War's pulls (PartyModes.js).
-      if (/^[pvqu]/.test(String(h.id))) {
+      // Paint Wars' splats, Build Battle's stars, Prop Hunt's disguises,
+      // Tug of War's pulls and Duel Arena / Deathmatch hits (PartyModes.js).
+      if (/^[pvqud]/.test(String(h.id))) {
         this.party?.remoteHit(h)
         continue
       }
