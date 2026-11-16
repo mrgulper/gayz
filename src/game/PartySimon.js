@@ -182,13 +182,18 @@ export class PartySimon {
     return this.simon ? t('simonSays', { order }) : order
   }
 
+  // The middle of the floor.
+  enter() {
+    const h = this.pm.home
+    this.s.bm.tryMode.pos.set(h.x + 0.5, SS_Y + 1, h.z + 0.5)
+    this.s.bm.tryMode.vel?.set(0, 0, 0)
+  }
+
   events(was) {
     const pm = this.pm
     const s = this.s
     if (pm.phase === 'play' && (was.phase !== 'play' || was.round !== pm.round)) {
-      const h = pm.home
-      s.bm.tryMode.pos.set(h.x + 0.5, SS_Y + 1, h.z + 0.5)
-      s.bm.tryMode.vel?.set(0, 0, 0)
+      this.enter()
       this._shown = ''
     }
     const key = pm.phase === 'play' && this.sub === 'cmd' ? `${this.count}` : ''

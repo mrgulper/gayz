@@ -229,17 +229,21 @@ export class PartyLaser {
     bm._suppressUndoRecording = false
   }
 
+  // To my team's end (PartyModes _enter / a round's start).
+  enter() {
+    const pm = this.pm
+    const at = this.base(pm.myTeam || 'r')
+    const s = this.s
+    const tm = s.bm.tryMode
+    tm.pos.set(at.x, LT_Y + 1, at.z)
+    tm.vel?.set(0, 0, 0)
+    s.bm.camera.position.set(at.x * this.B, (LT_Y + 1 + 1.62) * this.B, at.z * this.B)
+    s.bm._yaw = pm.myTeam === 'b' ? Math.PI / 2 : -Math.PI / 2
+  }
+
   events(was) {
     const pm = this.pm
-    if (pm.phase === 'play' && (was.phase !== 'play' || was.round !== pm.round)) {
-      const at = this.base(pm.myTeam || 'r')
-      const s = this.s
-      const tm = s.bm.tryMode
-      tm.pos.set(at.x, LT_Y + 1, at.z)
-      tm.vel?.set(0, 0, 0)
-      s.bm.camera.position.set(at.x * this.B, (LT_Y + 1 + 1.62) * this.B, at.z * this.B)
-      s.bm._yaw = pm.myTeam === 'b' ? Math.PI / 2 : -Math.PI / 2
-    }
+    if (pm.phase === 'play' && (was.phase !== 'play' || was.round !== pm.round)) this.enter()
     if (pm.phase === 'play' && pm.stunned.has(pm.myId) && !this._ko) this.s._message(t('laserYouKo', { n: KO_S }), 2)
     this._ko = pm.stunned.has(pm.myId)
   }

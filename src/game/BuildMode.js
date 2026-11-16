@@ -4674,7 +4674,16 @@ export class BuildMode {
     if (this.spectate.active) {
       this.spectate.update(dt, this._keys)
       // Photo Mode alone: everything holds still for the picture.
-      if (!this.spectate.frozen) this.survival.update(dt)
+      if (!this.spectate.frozen) {
+        // The game can't move the spectating camera (2026-11-16, Gaymi:
+        // "when spectating it just keep glitching"): a mode's respawn,
+        // kill cam or fall check used to pull it back every frame and the
+        // free camera pulled it away again. Whatever the game does to
+        // the camera or "me" this frame is undone - the camera is yours.
+        const keep = this.spectate.hold()
+        this.survival.update(dt)
+        if (this.spectate.active) this.spectate.restore(keep)
+      }
       return
     }
     if (this.tryMode.active) {

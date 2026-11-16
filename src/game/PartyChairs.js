@@ -164,14 +164,19 @@ export class PartyChairs {
     return false
   }
 
+  // Just outside the ring of chairs.
+  enter() {
+    const tm = this.s.bm.tryMode
+    const h = this.pm.home
+    tm.pos.set(h.x + 0.5 + RING_R + 1.5, MC_Y + 1, h.z + 0.5)
+    tm.vel?.set(0, 0, 0)
+  }
+
   events(was) {
     const pm = this.pm
     const s = this.s
     if (pm.phase === 'play' && (was.phase !== 'play' || was.round !== pm.round)) {
-      const tm = s.bm.tryMode
-      const h = pm.home
-      tm.pos.set(h.x + 0.5 + RING_R + 1.5, MC_Y + 1, h.z + 0.5)
-      tm.vel?.set(0, 0, 0)
+      this.enter()
       this._sub = ''
     }
     const key = pm.phase === 'play' ? `${this.sub}${this.n}` : ''

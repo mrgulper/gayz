@@ -282,6 +282,11 @@ export class PartyGolf {
     s.bm._yaw = Math.PI
   }
 
+  // The first tee.
+  enter() {
+    this._goTo(this.tee())
+  }
+
   events(was) {
     const pm = this.pm
     if (pm.phase === 'play' && (was.phase !== 'play' || was.round !== pm.round)) this._goTo(this.tee())
