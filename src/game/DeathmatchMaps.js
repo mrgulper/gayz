@@ -1,7 +1,7 @@
 // Deathmatch maps (2026-11-16, Gaymi: "make the death match bigger and
 // more realistic ... we could make map names lets start with the small
 // town streets"). Each map has a name (shown when the round starts and on
-// the minimap), a size, spawn points, an uneven edge and a build() that
+// the minimap), a size, spawn points, an uneven void edge and a build() that
 // puts its blocks. Picked under Game Mode > Deathmatch (settings.dmMap);
 // Small Town when nothing was picked.
 //
@@ -22,9 +22,9 @@
 // shipping containers, four watchtowers and sandbag nests.
 //
 // The edge (2026-11-16, Gaymi: "make the border not just a square more
-// irregular", picked a mixed natural edge): the play area bends in and
-// out and its corners are cut; round it, by direction, a wall, a cliff,
-// thick trees, or water with a cliff behind it. All too tall to climb.
+// irregular"): the play area bends in and out and its corners are cut.
+// Past it is empty void (2026-11-16, replaced the wall/cliff/trees/water
+// edge): fall off and you die and respawn.
 //
 // Coordinates are blocks round the arena's middle: x east, z south, y up
 // from the floor (y 0 is the floor, people stand at y 1).
@@ -57,22 +57,13 @@ export const DM_MAPS = {
     },
     // Where a stuck bot walks to instead: the streets.
     waypoints: [[0, 10], [0, -10], [10, 0], [-10, 0], [0, 30], [0, -30], [30, 0], [-30, 0]],
-    // The edge: how far it comes in (waves round the middle), where the
-    // corners are cut, and what it is in each direction (degrees from
-    // east, turning south: 90 south, 180 west, 270 north).
+    // The edge: how far it comes in (waves round the middle) and where
+    // the corners are cut; past it is void.
     edge: {
       base: 3,
       max: 8,
       waves: [[3, 3, 0.7], [2, 5, 2.1], [1, 7, 4]],
       corner: 68,
-      sectors: [[0, 'trees'], [55, 'wall'], [125, 'cliff'], [165, 'water'], [210, 'wall'], [300, 'trees']],
-      look: {
-        ground: 'grass',
-        wall: (x, y, z, h) => (y === 4 && (x + z) % 6 === 0 ? 'sealantern' : y === h ? 'stonebricks' : 'brick'),
-        wallFoot: 'stonebricks',
-        log: 'oaklog',
-        leaf: 'leaves',
-      },
     },
     build: buildSmallTown,
   },
@@ -92,14 +83,6 @@ export const DM_MAPS = {
       max: 8,
       waves: [[3, 2, 1.9], [2, 5, 0.3], [1.2, 6, 3.3]],
       corner: 69,
-      sectors: [[0, 'wall'], [70, 'trees'], [135, 'cliff'], [195, 'water'], [235, 'wall'], [330, 'trees']],
-      look: {
-        ground: 'coarsedirt',
-        wall: (x, y, z, h) => (y === h ? 'polishedandesite' : (x + z) % 8 === 0 ? 'lightgrayconcrete' : 'grayconcrete'),
-        wallFoot: 'grayconcrete',
-        log: 'sprucelog',
-        leaf: 'spruceleaves',
-      },
     },
     build: buildMilitaryBase,
   },
@@ -183,58 +166,19 @@ export function inPlay(map, x, z) {
   return edgeGrid(map).at(x, z) === 0
 }
 
-function sectorAt(e, x, z) {
-  const deg = ((Math.atan2(z, x) * 180) / Math.PI + 360) % 360
-  let kind = e.sectors[0][1]
-  for (const [from, k] of e.sectors) if (deg >= from) kind = k
-  return kind
-}
-
-// A cliff: grass on top, dirt, then stone; steeper the further out, at
-// least 3 blocks higher each step so nobody climbs it.
-function cliffAt(b, x, z, d, top) {
-  const h = Math.min(top, 6 + 3 * d + (hash(x, z) < 0.5 ? 0 : 1))
-  for (let y = 1; y <= h; y++) {
-    const r = hash(x * 7 + y, z * 3 - y)
-    b.put(x, y, z, y === h ? 'grass' : y >= h - 2 ? 'dirt' : r < 0.25 ? 'andesite' : r < 0.35 ? 'gravel' : 'stone')
-  }
-}
-
-// Puts the edge round the play area: run after the map's own build, so
-// it wins over anything that strays into it.
+// Puts the void round the play area: run after the map's own build, so
+// it clears anything that strays past the edge. Every cell outside the
+// play area is emptied, floor and all (2026-11-16, Gaymi: "outside the
+// map should be empty void"), so the arena floats like an island with an
+// uneven shore; walk off and you fall (PartyDeathmatch: a death).
 export function buildEdge(map, b) {
-  const e = map.edge
-  const look = e.look
   const g = edgeGrid(map)
   const W = map.half + 1
-  const top = map.wallH + 3
+  const top = map.wallH + 5
   for (let x = -W; x <= W; x++) {
     for (let z = -W; z <= W; z++) {
-      const d = g.at(x, z)
-      if (d <= 0) continue
-      // Clear what the map put here, then the ground.
-      for (let y = 1; y <= top + 2; y++) b.put(x, y, z, 'air')
-      b.put(x, 0, z, look.ground)
-      const kind = sectorAt(e, x, z)
-      const ring = Math.abs(x) === W || Math.abs(z) === W
-      if (kind === 'wall') {
-        if (d !== 1 && !ring) {
-          if (hash(x, z) < 0.12) b.put(x, 1, z, look.leaf)
-          continue
-        }
-        b.put(x, 0, z, look.wallFoot)
-        for (let y = 1; y <= map.wallH; y++) b.put(x, y, z, look.wall(x, y, z, map.wallH))
-      } else if (kind === 'trees') {
-        // Thick bushes at the front, tall trunks and leaves behind.
-        const h = d === 1 ? 8 + (hash(x, z) < 0.5 ? 0 : 1) : Math.min(top, map.wallH - 1 + Math.floor(hash(z, x) * 3))
-        const trunk = d > 1 && hash(x + 11, z - 5) < 0.3
-        for (let y = 1; y <= h; y++) b.put(x, y, z, trunk && y < h - 1 ? look.log : look.leaf)
-      } else if (kind === 'water' && d <= 2 && !ring) {
-        b.put(x, -1, z, 'sand')
-        b.put(x, 0, z, 'water')
-      } else {
-        cliffAt(b, x, z, kind === 'water' ? d - 2 : d, top)
-      }
+      if (g.at(x, z) <= 0) continue
+      for (let y = -3; y <= top; y++) b.put(x, y, z, 'air')
     }
   }
 }

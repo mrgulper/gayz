@@ -40,7 +40,7 @@ import { audioEngine } from './Audio.js'
 import { addGunLights, cloneViewmodel } from './Viewmodels.js'
 import { heldAction, FIXED_KEYS } from './Keybinds.js'
 import { aimSensScale, padRumble } from './ControlSettings.js'
-import { WORLD_LIMIT, sampleLand, biomeName, inCity, isEarthWorld } from './OpenWorld.js'
+import { WORLD_LIMIT, sampleLand, biomeName, inCity, isEarthWorld, isFlatWorld } from './OpenWorld.js'
 import { EarthGlobe } from './EarthGlobe.js'
 import { explored, countryAtBlock, pctText, revealFor, packKeys, unpackKeys } from './ExploredMap.js'
 import { passport } from './Passport.js'
@@ -1565,7 +1565,9 @@ export class BuildTryMode {
     const half = this.bm.world?.active ? WORLD_LIMIT : 64
     p.x = Math.max(-half + HALF_WIDTH, Math.min(half - HALF_WIDTH, p.x))
     p.z = Math.max(-half + HALF_WIDTH, Math.min(half - HALF_WIDTH, p.z))
-    if (p.y < BOTTOM - 16) {
+    // A Plain map is a platform in the void (OpenWorld setFlatWorld):
+    // fall off it and you're back at the start much sooner.
+    if (p.y < (isFlatWorld() && this.bm.world?.active ? -40 : BOTTOM - 16)) {
       Object.assign(p, { x: this._spawn.x, y: this._spawn.y, z: this._spawn.z })
       this.vel.set(0, 0, 0)
     }

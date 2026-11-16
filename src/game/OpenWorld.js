@@ -200,20 +200,20 @@ const lerp = (a, b, k) => a + (b - a) * k
 // How far a cell is outside the city's outline (0 inside it).
 export const cityDistance = cityEdgeDistance
 
-// A Plain map (2026-10-24, Gaymi: "plain where its all grass no void"):
-// the player's own slots get endless flat grass instead of the biomes -
-// the same growing/dropping columns, just one flat layer at the slot's
-// ground height, no trees, caves or buildings. The slot's own 128x128
-// ground (BuildMode GROUND_SIZE) is its "city": nothing grows over it.
+// A Plain map: the player's own slots. Since 2026-11-16 (Gaymi: "Plain
+// becomes a 32x32 platform with void all around") nothing grows round
+// them at all - the whole world counts as the slot's own "city", so no
+// land is ever made and past the slot's ground (BuildMode
+// _ensureGroundLayer) is empty void. You can still build out into it.
+// (Before, 2026-10-24: endless flat grass round a 128x128 ground.)
 let FLAT = false
-const FLAT_HALF = 64
 export function setFlatWorld(on) {
   FLAT = !!on
 }
 export function isFlatWorld() {
   return FLAT
 }
-export const inCity = (x, z) => (FLAT ? x >= -FLAT_HALF && x < FLAT_HALF && z >= -FLAT_HALF && z < FLAT_HALF : inCityShape(x, z))
+export const inCity = (x, z) => (FLAT ? true : inCityShape(x, z))
 
 // The land at one cell: its surface height (the top block's y), biome and
 // the few numbers the surface needs. Pure - the same cell always gives the
@@ -868,7 +868,7 @@ export class OpenWorld {
   }
 
   _isCityColumn(cx, cz) {
-    if (FLAT) return cx >= -FLAT_HALF / CHUNK && cx < FLAT_HALF / CHUNK && cz >= -FLAT_HALF / CHUNK && cz < FLAT_HALF / CHUNK
+    if (FLAT) return true
     return FULL_CITY_COLUMNS.has(`${cx},${cz}`)
   }
 

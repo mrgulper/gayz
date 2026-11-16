@@ -242,14 +242,14 @@ test('malformed save data does not crash Build Mode - starts with just the defau
     const g = window.__game
     await g._enterBuildMode()
     // No player-built blocks survive a malformed save, but the ground
-    // layer (see _ensureGroundLayer) still backfills every cell - a full
-    // GROUND_SIZE x GROUND_SIZE (128x128) layer, none of it player-placed.
+    // layer (see _ensureGroundLayer) still backfills every cell - a
+    // PLAIN_GROUND x PLAIN_GROUND (32x32) platform, none of it player-placed.
     const blockCount = g.buildMode._blocks.size
     g._exitBuildMode()
     return { blockCount }
   })
 
-  expect(result.blockCount).toBe(128 * 128)
+  expect(result.blockCount).toBe(32 * 32)
   expect(errors).toEqual([])
 })
 
@@ -2727,11 +2727,12 @@ test('the World Map mode has real land, no zombies and a block map at every zoom
   expect(r).toEqual({ lat: 49, steppe: true, everest: 'snowyPeaks', balkhash: true, nile: true, noZombies: true, hud: true, size: 'center', views: ['blocks', 'globe'], ahead: true })
 })
 
-// 2026-10-24: the Map Editor button asks Worlds or Plain; Plain is endless
-// flat grass (never saved); the Tab panel's storage is 10 x 10; animals
+// 2026-10-24: the Map Editor button asks Worlds or Plain; Plain is a 32x32
+// platform in the void (2026-11-16, was endless grass) - you can build out
+// into it, and falling off puts you back; the Tab panel's storage is 10 x 10; animals
 // from the picker's Animals list are put down with right-click, walk about,
 // come off with left-click and are saved with the map.
-test('Map Editor: Worlds/Plain choice, endless grass, 10x10 storage, placed animals', async ({ page }) => {
+test('Map Editor: Worlds/Plain choice, void platform, 10x10 storage, placed animals', async ({ page }) => {
   await gotoAndWaitForGame(page)
   await page.click('#build-mode-btn')
   await expect(page.locator('#editor-pick-dialog')).toBeVisible()
@@ -2744,9 +2745,26 @@ test('Map Editor: Worlds/Plain choice, endless grass, 10x10 storage, placed anim
     out.slot = bm.activeSlot
     bm.camera.position.set(300 * 0.35, 4 * 0.35, 300 * 0.35)
     for (let i = 0; i < 400; i++) bm._updateWorld()
-    // Grass far outside the slot's own 128 x 128 ground, never saved.
-    out.farGrass = bm.getBlockAt(300, -1, 300)
-    out.notSaved = !bm._snapshot().blocks.some((b) => b.x === 300 && b.z === 300)
+    // Nothing grows far out: void.
+    out.far = bm.getBlockAt(300, -1, 300)
+    // The platform: 32 x 32 round the middle, void just past it.
+    out.platform = [bm.getBlockAt(-16, -1, -16), bm.getBlockAt(15, -1, 15), bm.getBlockAt(16, -1, 0), bm.getBlockAt(0, -1, -17)]
+    // You can build out into the void.
+    bm.placeBlock(40, -1, 40, 'stone')
+    out.builtOut = bm.getBlockAt(40, -1, 40)
+    bm.removeBlock(40, -1, 40)
+    // Walk off the edge in Try Map: back at the start soon after.
+    bm.toggleTryMode()
+    const tm = bm.tryMode
+    tm.pos.set(30.5, 1, 30.5)
+    tm.vel.set(0, 0, 0)
+    let back = false
+    for (let i = 0; i < 400 && !back; i++) {
+      tm.update(0.05, new Set())
+      back = Math.abs(tm.pos.x - 30.5) > 5
+    }
+    out.fellBack = back && tm.pos.y > -5
+    bm.toggleTryMode()
     bm.togglePicker()
     out.storage = document.querySelectorAll('#build-picker .bp-store .bp-slot').length
     bm._pickerCategorySelect.value = 'animals'
@@ -2786,8 +2804,10 @@ test('Map Editor: Worlds/Plain choice, endless grass, 10x10 storage, placed anim
     return out
   })
   expect(r.slot).not.toBe('map3')
-  expect(r.farGrass).toBe('grass')
-  expect(r.notSaved).toBe(true)
+  expect(r.far ?? null).toBe(null)
+  expect(r.platform.map((b) => b ?? null)).toEqual(['grass', 'grass', null, null])
+  expect(r.builtOut).toBe('stone')
+  expect(r.fellBack).toBe(true)
   expect(r.storage).toBe(100)
   expect(r.animalsListed).toBeGreaterThan(130)
   expect(r.placing).toBe('lion')
@@ -4565,17 +4585,6 @@ test('far grass, cracks on bumpy tops, puffy and falling leaves, dinosaurs', asy
     const K = A.constructor.KINDS
     out.dinos = Object.values(K).filter((k) => k.dino).length
     out.newAnimals = ['bison', 'yak', 'llama', 'alpaca', 'capybara', 'sloth', 'anteater', 'redPanda', 'jaguar', 'lynx', 'snowLeopard', 'gazelle', 'wildebeest', 'boar', 'tapir', 'mouse'].every((id) => K[id])
-    // Dinosaurs are rare: about 1 in 100 picks in a dino biome.
-    let dinoPicks = 0
-    let picks = 0
-    for (let i = 0; i < 40000; i++) {
-      const id = A.kindAt((i * 137) % 6000 - 3000, Math.floor(i / 44) * 7 - 3000)
-      if (!id) continue
-      picks++
-      if (K[id].dino) dinoPicks++
-    }
-    out.dinoShare = dinoPicks / picks
-    out.dinoSeen = dinoPicks > 0
     // Leaf blocks always drop (2026-10-30).
     s._drops.clear?.()
     let drops = 0
@@ -4613,6 +4622,24 @@ test('far grass, cracks on bumpy tops, puffy and falling leaves, dinosaurs', asy
     out.brachioTall = tallOf('brachiosaurus')
     return out
   })
+  // Dinosaurs are rare: about 1 in 100 picks in a dino biome. Picked on
+  // Map 1's land (a Plain map is void since 2026-11-16 - no biomes).
+  Object.assign(r, await page.evaluate(async () => {
+    const g = window.__game
+    g._exitBuildMode?.()
+    await g._enterBuildMode({ map: 'map3' })
+    const A = g.buildMode.survival.animals
+    const K = A.constructor.KINDS
+    let dinoPicks = 0
+    let picks = 0
+    for (let i = 0; i < 40000; i++) {
+      const id = A.kindAt((i * 137) % 6000 - 3000, Math.floor(i / 44) * 7 - 3000)
+      if (!id) continue
+      picks++
+      if (K[id].dino) dinoPicks++
+    }
+    return { dinoShare: dinoPicks / picks, dinoSeen: dinoPicks > 0 }
+  }))
   expect(r.grassFar).toBeGreaterThan(55)
   expect(r.bareAtFirst).toBeLessThan(r.grown * 0.03)
   expect(r.sprouting).toBeGreaterThan(r.bareAtFirst)
@@ -7543,12 +7570,12 @@ test('Deathmatch: Small Town map, bots hold guns, minimap shows the arena', asyn
     pm.update(0.05)
     pm.update(0.05)
     out.named = D.mapId === 'smallTown' && D.mapName() === 'Small Town' && D.startText().startsWith('Map: Small Town')
-    // 81 x 81: the far corners are floor, the uneven edge (trees to the
-    // east, a wall to the south) just past the play area.
+    // 81 x 81: floor out to near the sides, void past the uneven edge
+    // (2026-11-16, was trees and a wall).
     const hx = Math.floor(pm.home.x)
     const hz = Math.floor(pm.home.z)
     const bm = s.bm
-    out.bigFloor = !!bm.getBlockAt(hx + 40, 186, hz + 40) && !!bm.getBlockAt(hx - 40, 186, hz - 40) && /leaves|oaklog/.test(bm.getBlockAt(hx + 41, 192, hz) || '') && bm.getBlockAt(hx, 192, hz + 41) === 'brick' && D._inside(hx + 40, hz - 40)
+    out.bigFloor = !!bm.getBlockAt(hx + 33, 186, hz) && !!bm.getBlockAt(hx - 33, 186, hz) && !!bm.getBlockAt(hx, 186, hz + 33) && !bm.getBlockAt(hx + 41, 186, hz) && !bm.getBlockAt(hx + 41, 192, hz) && !bm.getBlockAt(hx, 192, hz + 41) && !bm.getBlockAt(hx + 40, 186, hz + 40) && D._inside(hx + 40, hz - 40)
     out.streets = bm.getBlockAt(hx + 20, 186, hz + 1) === 'asphalt' && bm.getBlockAt(hx + 1, 186, hz - 20) === 'asphalt'
     // Every bot carries a gun from the list, held in its right hand.
     const bots = [...pm.bots.values()]
@@ -7581,7 +7608,7 @@ test('Deathmatch: Small Town map, bots hold guns, minimap shows the arena', asyn
     // The minimap: the arena from above, its name where the biome shows.
     const tm = s.bm.tryMode
     tm._drawMap(performance.now() + 1e6)
-    out.skyMap = !!tm._skyMap?._layer && tm._skyMap._layer.w === 83 && document.getElementById('build-try-biome')?.textContent === 'Small Town'
+    out.skyMap = !!tm._skyMap?._layer && tm._skyMap._layer.w >= 70 && tm._skyMap._layer.w <= 81 && document.getElementById('build-try-biome')?.textContent === 'Small Town'
     s.stop?.()
     g._exitBuildMode?.()
     return out
@@ -7593,7 +7620,7 @@ test('Deathmatch: Small Town map, bots hold guns, minimap shows the arena', asyn
 // map (Small Town unless picked); the Military Base builds with its
 // helipad and uneven edge, every spawn has room to stand, and switching
 // maps (a guest learning the host's pick) clears the old map's blocks.
-test('Deathmatch: map picker, Military Base, uneven edge', async ({ page }) => {
+test('Deathmatch: map picker, Military Base, void edge, falling off is a death', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
     const g = window.__game
@@ -7621,11 +7648,38 @@ test('Deathmatch: map picker, Military Base, uneven edge', async ({ page }) => {
     const at = (x, y, z) => bm.getBlockAt(hx + x, 186 + y, hz + z)
     // The helipad's H and the helicopter on it.
     out.helipad = at(3, 0, 2) === 'whiteconcrete' && at(0, 0, 0) === 'whiteconcrete' && at(0, 4, 3) === 'blackconcrete'
-    // The edge: a concrete wall east, water then a cliff west-north-west,
-    // and the corners cut (solid and tall).
+    // The edge is void (2026-11-16): no wall, cliff, trees or water - the
+    // outer ring and the cut corners are empty from under the floor up.
     let water = 0
-    for (let x = -41; x <= 41; x++) for (let z = -41; z <= 41; z++) if (at(x, 0, z) === 'water') water++
-    out.edge = /concrete/.test(at(41, 6, 0) || '') && water > 20 && !!at(-41, 8, -36) && !!at(41, 8, 38)
+    let ring = 0
+    for (let x = -41; x <= 41; x++) {
+      for (let z = -41; z <= 41; z++) {
+        if (at(x, 0, z) === 'water') water++
+        if (Math.abs(x) !== 41 && Math.abs(z) !== 41) continue
+        for (let y = -3; y <= 17; y++) if (at(x, y, z)) ring++
+      }
+    }
+    out.edge = water === 0 && ring === 0 && !at(-40, 0, -38) && !at(40, 0, 38) && !!at(15, 0, 0)
+    // Falling off: a death for nobody, "fell" in the feed, the fall view.
+    pm.update(0.05)
+    const me = pm.myId
+    D.prot.clear()
+    const tm = bm.tryMode
+    tm.pos.set(pm.home.x + 45, 186 - 12, pm.home.z)
+    pm.update(0.05)
+    pm.update(0.05)
+    const f = D.feed.at(-1)
+    out.fellDeath = D.deaths[me] === 1 && f?.k === me && f?.v === me && !pm.score[me]
+    out.fellFeed = /fell$/.test(document.querySelector('#dm-feed .dm-feed-row:last-child')?.textContent || '')
+    out.fellCam = !!D._cam && document.querySelector('#dm-killcam .dm-kc-name')?.textContent === 'You fell into the void'
+    D._endCam(true)
+    out.backIn = tm.pos.y > 186
+    // A bot that falls: a death too, straight back in.
+    const bot = [...pm.bots.values()][0]
+    D.prot.clear()
+    bot.y = 186 - 12
+    pm.update(0.05)
+    out.botFell = D.deaths[bot.id] === 1 && bot.y > 186
     // Every spawn: floor under, room for a body above.
     out.spawns = D.map.spawns.every(([x, z, h]) => s._solid(hx + x, 186 + h, hz + z) && !s._solid(hx + x, 187 + h, hz + z) && !s._solid(hx + x, 188 + h, hz + z))
     // Bots find their way across the base.
