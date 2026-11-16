@@ -4,7 +4,8 @@
 // Custom tabs (Custom is Coming Soon; the first tab's internal id is still
 // 'main'; since 2026-11-02 Parkour lists Obstacle Course servers, mode
 // 'parkour', and Deathmatch lists Deathmatch servers, mode 'dm' - and
-// Duel Arena ones, 'duel' - and makes 'dm' ones), a search box, a
+// Duel Arena ones, 'duel', and Team Deathmatch ones, 'tdm' - and makes
+// 'dm' or 'tdm' ones), a search box, a
 // Create Server button and one row per server with its player count and
 // Join. Joining or creating one starts Map 1 with the other players
 // (PlayNet.js); the rules live in api/_lib/servers.js.
@@ -25,7 +26,7 @@ import { changedRules } from './LobbyRules.js'
 // Each live tab's server mode.
 const TAB_MODES = { main: 'main', parkour: 'parkour', deathmatch: 'dm' }
 // Server modes a tab lists besides its own (Duel Arena sits on Deathmatch).
-const TAB_ALSO = { deathmatch: ['duel'] }
+const TAB_ALSO = { deathmatch: ['duel', 'tdm'] }
 // The Custom tab (2026-11-15): every custom lobby, whatever its mode
 // (CustomLobbyUI.js) - and custom lobbies are only listed there.
 const isCustomTab = (tab) => tab === 'custom'
@@ -129,6 +130,10 @@ export function bindServerBrowser(game) {
       else createServer(game)
     }
     else if (e.target.closest('#server-refresh-btn')) refreshServerList(game)
+    else if (e.target.closest('[data-dm-kind]')) {
+      game._dmKind = e.target.closest('[data-dm-kind]').dataset.dmKind
+      renderDmKind(game, game._serverTab)
+    }
   })
   document.getElementById('server-search')?.addEventListener('input', () => renderServerList(game))
   bindLobbyForm(game, (form) => createLobby(game, form))
@@ -180,6 +185,7 @@ export function renderServerList(game) {
   if (createBtn) createBtn.textContent = t(custom ? 'lobbyCreateBtn' : 'serverCreateBtn')
   const nameBox = document.getElementById('server-create-name')
   if (nameBox) nameBox.hidden = custom
+  renderDmKind(game, tab)
   if (game._lobbyFormOpen) return
   if (soon) {
     if (line) line.textContent = ''
@@ -207,6 +213,7 @@ export function renderServerList(game) {
       <span class="server-id">${_escapeHtml(s.id)}</span>
       ${s.wave ? `<span class="server-wave">${_escapeHtml(t('buildPlayWave', { n: Number(s.wave) || 0 }))}</span>` : ''}
       ${custom ? lobbyBits(s) : ''}
+      ${tab === 'deathmatch' ? `<span class="lobby-row-info"><span class="lobby-chip lobby-mode-chip">${_escapeHtml(modeName(s.mode))}</span></span>` : ''}
       <span class="server-players">${Number(s.players) || 0} / ${Number(s.max) || 0}</span>
       <button type="button" class="mini-action-btn server-join-btn" data-server-join="${_escapeHtml(s.id)}"${full ? ' disabled' : ''}>${_escapeHtml(t(full ? 'serverFull' : 'serverJoin'))}</button>
     </div>`
@@ -229,12 +236,36 @@ function setBusy(game, busy) {
   }
 }
 
+// Global > Deathmatch: Create Server makes a free-for-all ('dm') or a
+// Team Deathmatch ('tdm') server - the Team one at your team size (Game
+// Mode > Deathmatch, settings.tdmSize). Starts on whichever Deathmatch
+// you last picked in Game Mode.
+function dmKind(game) {
+  if (!game._dmKind) game._dmKind = game.settings.selectedGameMode === 'teamDeathmatch' ? 'tdm' : 'dm'
+  return game._dmKind
+}
+
+function renderDmKind(game, tab) {
+  const wrap = document.getElementById('server-dm-kind')
+  if (!wrap) return
+  wrap.hidden = tab !== 'deathmatch'
+  if (wrap.hidden) return
+  const kind = dmKind(game)
+  for (const b of wrap.querySelectorAll('[data-dm-kind]')) b.classList.toggle('active', b.dataset.dmKind === kind)
+  const ffa = document.getElementById('server-kind-ffa')
+  if (ffa) ffa.textContent = t('dmKindFfa')
+  const team = document.getElementById('server-kind-team')
+  const n = game.settings.tdmSize || 4
+  if (team) team.textContent = t('dmKindTeam', { n })
+}
+
 async function createServer(game) {
   if (game._serverBusy) return
   const name = (document.getElementById('server-create-name')?.value || '').trim()
   setBusy(game, true)
   try {
-    const info = await serverApi(game).create({ ...(await myDetails(game)), name, mode: TAB_MODES[game._serverTab] || 'main', access: serverAccess(game.settings) })
+    const mode = game._serverTab === 'deathmatch' ? dmKind(game) : TAB_MODES[game._serverTab] || 'main'
+    const info = await serverApi(game).create({ ...(await myDetails(game)), name, mode, access: serverAccess(game.settings) })
     enterServer(game, { ...info, name: name || info.name })
   } catch (err) {
     if (err?.code === 'switched-off') game._showHomepageToast(switchedOffText('online'))

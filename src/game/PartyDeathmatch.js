@@ -82,6 +82,31 @@ export class PartyDeathmatch {
     return DM_TOTAL
   }
 
+  // Everyone's own kills (here the round's score; Team Deathmatch keeps
+  // them apart from the team score).
+  _kills() {
+    return this.pm.score
+  }
+
+  // Someone's team ('r' / 'b'), or '' (free for all).
+  _teamOf() {
+    return ''
+  }
+
+  // Can `a` hurt `b`? (Team Deathmatch: not a teammate.)
+  _foe(a, b) {
+    return a !== b
+  }
+
+  // Bots fill the empty spots; a player who joins takes a bot's place.
+  _fill(people) {
+    const pm = this.pm
+    const real = people.filter((p) => !p.bot).length
+    const before = pm.bots.size
+    pm._fillBots(Math.max(0, this.total - real))
+    return pm.bots.size !== before ? pm._people() : people
+  }
+
   // The same arena round after round (it's where everyone already is).
   home(me) {
     return this.pm.home && Math.abs(this.pm.home.y - (DM_Y + 1)) < 0.5 ? this.pm.home : { x: Math.round(me.x), y: DM_Y + 1, z: Math.round(me.z) }
@@ -120,7 +145,8 @@ export class PartyDeathmatch {
     this.deaths = {}
     this.prot.clear()
     this.feed = []
-    for (const p of people) this.pm.score[p.id] = 0
+    const k = this._kills()
+    for (const p of people) k[p.id] = 0
   }
 
   placeBot(b) {
@@ -136,14 +162,16 @@ export class PartyDeathmatch {
   // A hit on `id` by `by` (where it runs).
   _hit(id, amount, by) {
     const pm = this.pm
-    if (pm.phase !== 'play' || !this.hp.has(id) || !this.hp.has(by) || id === by || this.prot.has(id)) return
+    if (pm.phase !== 'play' || !this.hp.has(id) || !this.hp.has(by) || !this._foe(by, id) || this.prot.has(id)) return
     this.hp.set(id, Math.max(0, this.hp.get(id) - amount))
     if (this.hp.get(id) <= 0) this._kill(id, by)
   }
 
   _kill(id, by) {
     const pm = this.pm
-    pm.score[by] = (pm.score[by] || 0) + 1
+    const k = this._kills()
+    k[by] = (k[by] || 0) + 1
+    this._scored(by)
     this.deaths[id] = (this.deaths[id] || 0) + 1
     this.hp.set(id, DM_HP)
     this.prot.set(id, SPAWN_SAFE)
@@ -153,15 +181,19 @@ export class PartyDeathmatch {
     if (b) this.placeBot(b)
   }
 
+  // A kill by `by` (Team Deathmatch adds it to their team).
+  _scored() {}
+
   run(people, dt) {
     const pm = this.pm
+    const k = this._kills()
     // A solo game got its server id ('me' -> the real one): keep my kills.
     const myId = pm.myId
     if (myId !== 'me' && this.hp.has('me')) {
       this.hp.set(myId, this.hp.get('me'))
       this.hp.delete('me')
-      pm.score[myId] = (pm.score[myId] || 0) + (pm.score.me || 0)
-      delete pm.score.me
+      k[myId] = (k[myId] || 0) + (k.me || 0)
+      delete k.me
       if (this.deaths.me) this.deaths[myId] = (this.deaths[myId] || 0) + this.deaths.me
       delete this.deaths.me
       for (const f of this.feed) {
@@ -169,22 +201,18 @@ export class PartyDeathmatch {
         if (f.v === 'me') f.v = myId
       }
     }
-    // Bots fill the empty spots; a player who joins takes a bot's place.
-    const real = people.filter((p) => !p.bot).length
-    const before = pm.bots.size
-    pm._fillBots(Math.max(0, DM_TOTAL - real))
-    if (pm.bots.size !== before) people = pm._people()
+    people = this._fill(people)
     const ids = new Set(people.map((p) => p.id))
     for (const id of [...this.hp.keys()]) {
       if (ids.has(id)) continue
       this.hp.delete(id)
-      delete pm.score[id]
+      delete k[id]
       delete this.deaths[id]
     }
     for (const p of people) {
       if (this.hp.has(p.id)) continue
       this.hp.set(p.id, DM_HP)
-      pm.score[p.id] = pm.score[p.id] || 0
+      k[p.id] = k[p.id] || 0
       this.prot.set(p.id, SPAWN_SAFE)
       if (p.bot) this.placeBot(p.bot)
     }
@@ -239,7 +267,7 @@ export class PartyDeathmatch {
     let best = null
     let bestD = BOT_RANGE
     for (const p of people) {
-      if (p.id === b.id || !this.hp.has(p.id) || this.prot.has(p.id)) continue
+      if (!this._foe(b.id, p.id) || !this.hp.has(p.id) || this.prot.has(p.id)) continue
       const d = Math.hypot(p.x - b.x, p.z - b.z)
       if (d < bestD && this._sees(b, p)) {
         bestD = d
@@ -273,7 +301,7 @@ export class PartyDeathmatch {
     let foe = null
     let fd = Infinity
     for (const p of people) {
-      if (p.id === b.id || !this.hp.has(p.id)) continue
+      if (!this._foe(b.id, p.id) || !this.hp.has(p.id)) continue
       const d = Math.hypot(p.x - b.x, p.z - b.z)
       if (d < fd) {
         fd = d
@@ -297,7 +325,7 @@ export class PartyDeathmatch {
 
   _leader() {
     let best = null
-    for (const [id, n] of Object.entries(this.pm.score)) if (!best || n > best.n) best = { id, n }
+    for (const [id, n] of Object.entries(this._kills())) if (!best || n > best.n) best = { id, n }
     return best
   }
 
@@ -312,7 +340,7 @@ export class PartyDeathmatch {
     let bestD = Math.min(reach, wall ? wall.t : Infinity)
     let head = false
     for (const p of pm._people()) {
-      if (p.id === pm.myId || !this.hp.has(p.id)) continue
+      if (!this._foe(pm.myId, p.id) || !this.hp.has(p.id)) continue
       box.min.set((p.x - 0.4) * B, p.y * B, (p.z - 0.4) * B)
       box.max.set((p.x + 0.4) * B, (p.y + MOB_HEIGHT) * B, (p.z + 0.4) * B)
       if (!ray.intersectBox(box, hit)) continue
@@ -468,7 +496,8 @@ export class PartyDeathmatch {
     this._feedKey = key
     this._feedEl.replaceChildren(...(show ? this.feed : []).map((f) => {
       const row = document.createElement('div')
-      row.className = `dm-feed-row${f.k === pm.myId || f.v === pm.myId ? ' mine' : ''}`
+      const tm = this._teamOf(f.k)
+      row.className = `dm-feed-row${f.k === pm.myId || f.v === pm.myId ? ' mine' : ''}${tm ? ` team-${tm}` : ''}`
       row.textContent = t('dmFeedLine', { a: pm._name(f.k), b: pm._name(f.v) })
       return row
     }))
@@ -479,8 +508,8 @@ export class PartyDeathmatch {
     const pm = this.pm
     const show = pm.phase === 'end'
     this._boardEl.classList.toggle('on', show)
-    const rows = show ? Object.entries(pm.score).map(([id, k]) => ({ id, k, d: this.deaths[id] || 0 })).sort((a, b) => b.k - a.k || a.d - b.d) : []
-    const key = rows.map((r) => `${r.id}:${r.k}:${r.d}`).join(',')
+    const rows = show ? this._boardRows() : []
+    const key = `${show ? this._boardTitle() : ''}|${rows.map((r) => `${r.id}:${r.k}:${r.d}`).join(',')}`
     if (key === this._boardKey) return
     this._boardKey = key
     if (!show) return this._boardEl.replaceChildren()
@@ -495,8 +524,17 @@ export class PartyDeathmatch {
       return row
     }
     const title = document.createElement('h3')
-    title.textContent = t('dmBoardTitle')
-    this._boardEl.replaceChildren(title, line(['', t('dmBoardKills'), t('dmBoardDeaths')], 'dm-board-row dm-board-head'), ...rows.map((r, i) => line([`${i + 1}. ${pm._name(r.id)}`, String(r.k), String(r.d)], `dm-board-row${r.id === pm.myId ? ' mine' : ''}`)))
+    title.textContent = this._boardTitle()
+    this._boardEl.replaceChildren(title, line(['', t('dmBoardKills'), t('dmBoardDeaths')], 'dm-board-row dm-board-head'), ...rows.map((r, i) => line([`${i + 1}. ${pm._name(r.id)}`, String(r.k), String(r.d)], `dm-board-row${r.id === pm.myId ? ' mine' : ''}${r.cls ? ` ${r.cls}` : ''}`)))
+  }
+
+  // The board's rows, best first.
+  _boardRows() {
+    return Object.entries(this._kills()).map(([id, k]) => ({ id, k, d: this.deaths[id] || 0 })).sort((a, b) => b.k - a.k || a.d - b.d)
+  }
+
+  _boardTitle() {
+    return t('dmBoardTitle')
   }
 
   // "You win!" rather than "You wins!".
@@ -510,7 +548,7 @@ export class PartyDeathmatch {
 
   hud() {
     const pm = this.pm
-    let out = t('dmHudKills', { n: pm.score[pm.myId] || 0 })
+    let out = t('dmHudKills', { n: this._kills()[pm.myId] || 0 })
     const lead = this._leader()
     if (lead && lead.n > 0) out += ` · ${t('dmHudLeader', { name: pm._name(lead.id), n: lead.n })}`
     return out

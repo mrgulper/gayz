@@ -192,7 +192,8 @@
    currentColor picks up each button's own accent color (set per class/
    difficulty below), so this one rule covers all of them. */
 .class-btn.active,
-.difficulty-btn.active {
+.difficulty-btn.active,
+.tdm-size-btn.active {
   box-shadow: 0 0 4px 1px currentColor, inset 0 0 12px -3px currentColor;
 }
 

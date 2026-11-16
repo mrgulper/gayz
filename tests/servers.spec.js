@@ -1194,6 +1194,21 @@ test('servers: Paint Wars splats and Build Battle stars go through the server', 
   expect([rd.party.sb, rd.party.th, rd.party.vi, rd.party.pl]).toEqual(['vote', 3, 1, { [c.playerId]: 0, b1: 7 }])
 })
 
+// Team Deathmatch (2026-11-16): 'tdm' servers, a guest's hit (d + who)
+// reaches the host, and the host's team size and kills reach the guest.
+test('servers: Team Deathmatch hits and the team size go through the server', async () => {
+  const db = fakeServerDb()
+  const t0 = 1_000_000
+  const a = await createServer(db, { nickname: 'Ann', mode: 'tdm' }, t0)
+  expect(a.mode).toBe('tdm')
+  const b = await joinServer(db, { serverId: a.serverId, nickname: 'Bo' }, t0 + 10)
+  await syncServer(db, { ...b, hits: [{ id: `d${a.playerId}`, dmg: 30 }] }, t0 + 20)
+  const ra = await syncServer(db, { ...a, party: { k: 'teamDeathmatch', ph: 'play', tm: { [a.playerId]: 'r', [b.playerId]: 'b' }, x: { sz: 2, ki: { [a.playerId]: 3, b1: 1 } } } }, t0 + 30)
+  expect(ra.hits).toEqual([{ id: `d${a.playerId}`, dmg: 30, by: b.playerId }])
+  const rb = await syncServer(db, { ...b }, t0 + 40)
+  expect([rb.party.x.sz, rb.party.x.ki[a.playerId], rb.party.tm[b.playerId]]).toEqual([2, 3, 'b'])
+})
+
 // 2026-11-09 (Gaymi: others see the Zombie Train, karts, dragon and UFO and
 // can hop on as passengers; Escape Rooms on servers, as a team and a race).
 test('servers: karts, the train, the dragon, the UFO and Escape Rooms go through the server', async () => {

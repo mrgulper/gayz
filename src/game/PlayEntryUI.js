@@ -67,6 +67,47 @@ export function _bindGameModeSelect(game) {
       for (const b of game.gameModeSelectBtns) b.classList.toggle('active', b === btn)
     })
   }
+  _bindTdmSize(game)
+}
+
+// Team Deathmatch's size row (Game Mode > Deathmatch): 2v2, 4v4, or
+// Custom - a box for 1 to 4 players a side. Picking one also picks Team
+// Deathmatch. Saved as settings.tdmSize (players a side).
+function _bindTdmSize(game) {
+  const row = document.getElementById('tdm-size-row')
+  const box = document.getElementById('tdm-size-input')
+  if (!row || !box || row.dataset.bound) return
+  row.dataset.bound = '1'
+  const btns = row.querySelectorAll('.tdm-size-btn')
+  let custom = ![2, 4].includes(game.settings.tdmSize)
+  const show = () => {
+    const n = game.settings.tdmSize
+    for (const b of btns) b.classList.toggle('active', b.dataset.tdmSize === 'custom' ? custom : !custom && Number(b.dataset.tdmSize) === n)
+    box.hidden = !custom
+    box.value = String(n)
+    box.setAttribute('aria-label', t('tdmSizeAria'))
+  }
+  const pickMode = () => {
+    if (game.settings.selectedGameMode !== 'teamDeathmatch') document.getElementById('game-mode-team-deathmatch')?.click()
+  }
+  for (const b of btns) {
+    b.addEventListener('click', () => {
+      custom = b.dataset.tdmSize === 'custom'
+      if (!custom) game.settings.tdmSize = Number(b.dataset.tdmSize)
+      saveSettings(game.settings)
+      show()
+      pickMode()
+      if (custom) box.focus()
+    })
+  }
+  box.addEventListener('change', () => {
+    const n = Math.round(Number(box.value))
+    game.settings.tdmSize = Number.isFinite(n) ? Math.max(1, Math.min(4, n)) : 4
+    saveSettings(game.settings)
+    show()
+    pickMode()
+  })
+  show()
 }
 
 // The editor's code (BuildMode.js and everything it imports) - one

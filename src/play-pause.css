@@ -1569,6 +1569,11 @@ html.ui-theme-old .compass-mark { border-bottom-color: #6b3f17; }
 .dm-board-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dm-board-head { opacity: 0.7; font-size: 12px; }
 .dm-board-row.mine { background: rgba(255, 210, 63, 0.22); }
+/* Team Deathmatch (PartyTeamDeathmatch.js): a red or blue edge on the
+   left of each kill-feed line and board row - the killer's / player's team. */
+.dm-feed-row.team-r, .dm-board-row.team-r { box-shadow: inset 4px 0 0 #e8443a; }
+.dm-feed-row.team-b, .dm-board-row.team-b { box-shadow: inset 4px 0 0 #3a7be8; }
+.dm-board-row.team-r, .dm-board-row.team-b { padding-left: 10px; }
 @media (max-width: 600px) {
   #dm-feed { top: 56px; right: 8px; }
   .dm-feed-row { font-size: 11px; padding: 2px 7px; }

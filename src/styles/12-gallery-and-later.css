@@ -471,6 +471,22 @@ html.ui-theme-old .lobby-chip {
   gap: 8px;
   padding: 2px 4px 8px 0;
 }
+/* Global > Deathmatch: Free for All / Team, which kind Create Server makes. */
+#server-dm-kind {
+  display: inline-flex;
+  gap: 4px;
+}
+.server-kind-btn {
+  opacity: 0.7;
+}
+.server-kind-btn.active {
+  opacity: 1;
+  box-shadow: inset 0 0 0 2px rgba(var(--ui-gold-bright-rgb, 217, 188, 74), 0.9);
+}
+html.ui-theme-old .server-kind-btn.active {
+  box-shadow: inset 0 0 0 2px rgba(90, 60, 30, 0.85);
+}
+#server-dm-kind[hidden],
 #custom-lobby-form[hidden],
 #server-list[hidden],
 #server-count-line[hidden],
