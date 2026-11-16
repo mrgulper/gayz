@@ -1515,6 +1515,8 @@ export class BuildSurvival {
   tryFire() {
     if (!this.active || this.dead) return true
     if (this._picking || this.couch?.p1Down) return false
+    // Deathmatch's kill cam: no shooting until you respawn.
+    if (this.party?.ext?.noFire?.()) return false
     // Spin ring games have no gun: the click spreads the ring (SpinRing.js)
     // and still digs; a held item is used as normal.
     if (this.ring && (!this.holding || this.holding.kind !== 'item')) return false
@@ -1569,7 +1571,8 @@ export class BuildSurvival {
     // The party modes: a stun, a kicked ball, or nothing (PartyModes.js).
     if (this.party) {
       const hit = this.party.shoot(center, reach, wall, w.damage * this._damageMult())
-      if (hit) this._hitFeedback({ amount: 0 })
+      // Deathmatch says if it was a headshot or a kill (gold / red marker).
+      if (hit) this._hitFeedback({ amount: 0, head: !!hit.head, kill: !!hit.kill })
       return hit
     }
     if (this.infection) {
