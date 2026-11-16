@@ -7802,6 +7802,57 @@ test('Deathmatch buildings: stairs, slabs, ladders and working pads', async ({ p
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })
 
+// Docks (2026-11-16): the third Deathmatch map - picked from Game Mode >
+// Deathmatch; the sea along the east (water, not void), the ship you walk
+// onto, the cranes and the warehouse catwalk; every spawn has room.
+test('Deathmatch: Docks map, sea, ship, cranes, warehouse', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    document.getElementById('dm-map-docks').click()
+    out.picked = g.settings.dmMap === 'docks' && document.getElementById('dm-map-docks').classList.contains('active') && document.getElementById('dm-map-docks').textContent === 'Docks'
+    localStorage.removeItem('gayz-play-saved-run')
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    const pm = s.party
+    const D = pm.ext
+    const t0 = performance.now()
+    pm.update(0.05)
+    out.buildMs = Math.round(performance.now() - t0)
+    pm.update(0.05)
+    out.named = D.mapId === 'docks' && D.mapName() === 'Docks' && pm.snapshot().x.mp === 'docks'
+    const hx = Math.floor(pm.home.x)
+    const hz = Math.floor(pm.home.z)
+    const bm = s.bm
+    const at = (x, y, z) => bm.getBlockAt(hx + x, 186 + y, hz + z)
+    // The sea: water over sand past the yellow quay line, a quay wall.
+    out.sea = at(24, -1, 20) === 'water' && at(24, -3, 20) === 'sand' && !at(24, 0, 20) && at(22, 0, 20) === 'yellowconcrete' && at(22, -2, 20) === 'stonebricks' && at(23, 0, 18) === 'ladder'
+    // The ship: deck, gangway stairs, a hold under it, the bridge ladder.
+    out.ship = at(29, 2, -10) === 'spruceplanks' && at(25, 2, -6) === 'spruceplanksstairs' && !at(29, 0, -10) && at(29, -3, -10) === 'blackconcrete' && at(27, 0, -11) === 'ladder' && at(30, 5, 12) === 'ladder'
+    // A crane's ladder and boom, the warehouse catwalk and its stairs.
+    out.cranes = at(13, 10, -15) === 'ladder' && at(30, 14, -12) === 'metal' && at(30, 14, 19) === 'metal'
+    out.warehouse = at(-20, 5, 0) === 'spruceplanks' && at(-15, 5, 2) === 'spruceplanksstairs' && at(-35, 3, 20) === 'ladder' && at(-36, 4, 5) === 'brick'
+    out.specials = bm.specials.entryAt(hx - 30, 187, hz - 14)?.def.id === 'teleporterpad' && bm.specials.entryAt(hx - 4, 187, hz - 32)?.def.id === 'jumppad'
+    let missing = 0
+    for (const key of D._arenaKeys) {
+      const [x, y, z] = key.split(',').map(Number)
+      if (bm.getBlockAt(x, y, z) !== s._placed.get(key)) missing++
+    }
+    out.allPlaced = missing === 0
+    out.spawns = D.map.spawns.every(([x, z, h]) => s._solid(hx + x, 186 + h, hz + z) && !s._solid(hx + x, 187 + h, hz + z) && !s._solid(hx + x, 188 + h, hz + z))
+    s.stop?.()
+    g._exitBuildMode?.()
+    g.settings.dmMap = 'smallTown'
+    return out
+  })
+  console.log('docks build ms', r.buildMs)
+  delete r.buildMs
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})
+
 // Team Deathmatch (2026-11-16): Red against Blue, 2v2 / 4v4 / Custom,
 // bots fill both teams, no team damage, team kills win.
 test('Team Deathmatch: size picker, even teams, no team damage, team wins', async ({ page }) => {

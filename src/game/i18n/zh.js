@@ -3394,6 +3394,7 @@ export default {
   dmMapLine: "地图：{name}",
   dmMapSmallTown: "小镇",
   dmMapMilitaryBase: "军事基地",
+  dmMapDocks: "码头",
   dmMapPick: "死亡竞赛和团队死亡竞赛的地图：",
   dmKilledBy: "被 {name} 击杀",
   dmKillCamBy: "击杀你的是",

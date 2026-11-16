@@ -3391,6 +3391,7 @@ export default {
   dmMapLine: "मैप: {name}",
   dmMapSmallTown: "छोटा कस्बा",
   dmMapMilitaryBase: "सैन्य अड्डा",
+  dmMapDocks: "बंदरगाह",
   dmMapPick: "डेथमैच और टीम डेथमैच का मैप:",
   dmKilledBy: "{name} ने मारा",
   dmKillCamBy: "आपको मारने वाला",

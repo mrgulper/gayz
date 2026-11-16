@@ -1439,6 +1439,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'hub-dm-map-hint': 'dmMapPick',
   'dm-map-smallTown': 'dmMapSmallTown',
   'dm-map-militaryBase': 'dmMapMilitaryBase',
+  'dm-map-docks': 'dmMapDocks',
   'hub-tab-custom': 'hubTabCustom',
   'server-tab-main': 'hubTabSurvival',
   'server-tab-deathmatch': 'hubTabDeathmatch',
