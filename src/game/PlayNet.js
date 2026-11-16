@@ -26,11 +26,12 @@
 // broken blocks are shared (queueEdit) - before, each screen rolled its
 // own weather, grew its own animals and kept its own blocks.
 //
-// A solo game from the homepage is a hidden server from the start (a
+// A solo game from the homepage is a server from the start (a
 // "lobby", ServerBrowser.openLobby, 2026-10-26: "it still says
 // gayz.vercel.app/map-editor until I click the invite link"), so the
 // address bar is its invite link right away. It syncs slowly and plays
-// exactly like a solo game until someone opens the link - then it becomes
+// exactly like a solo game until someone joins (its link, or Global's list
+// since 2026-11-16) - then it becomes
 // a normal server game (_promote), the same as Invite Friends.
 import * as THREE from 'three'
 import { wearCosmetics, cleanWorn, myWorn } from './Cosmetics.js'
@@ -498,7 +499,7 @@ export class PlayNet {
       if (err?.code !== 'gone') throw err
       // Nobody left in it: open it again under the same id, so the invite
       // link still works and the others get back into it too.
-      info = await this.api.create({ ...me, name: this.name, mode: this.mode, world: this.world, id: this.serverId, access: serverAccess(this.game.settings), ...(this.lobby ? { hidden: true } : {}), ...(this.custom ? { custom: true, rules: this.rules, password: this.password } : {}) })
+      info = await this.api.create({ ...me, name: this.name, mode: this.mode, world: this.world, id: this.serverId, access: serverAccess(this.game.settings), ...(this.custom ? { custom: true, rules: this.rules, password: this.password } : {}) })
       reopened = true
       if (info.serverId !== this.serverId) {
         // Someone else opened it again first: into theirs.

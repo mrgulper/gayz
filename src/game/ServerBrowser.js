@@ -27,6 +27,11 @@ import { changedRules } from './LobbyRules.js'
 const TAB_MODES = { main: 'main', parkour: 'parkour', deathmatch: 'dm' }
 // Server modes a tab lists besides its own (Duel Arena sits on Deathmatch).
 const TAB_ALSO = { deathmatch: ['duel', 'tdm'] }
+// Every mode some other tab lists - the Zombie Survival tab lists all the
+// rest (2026-11-16, Gaymi: Play games show in Global, "all modes and future
+// gamemodes"), so a new mode needs no tab of its own to be listed.
+const OWN_TAB_MODES = new Set(Object.entries(TAB_MODES).filter(([k]) => k !== 'main').flatMap(([k, m]) => [m, ...(TAB_ALSO[k] || [])]))
+const onTab = (s, tab) => (tab === 'main' ? !OWN_TAB_MODES.has(s.mode) : s.mode === TAB_MODES[tab] || TAB_ALSO[tab]?.includes(s.mode))
 // The Custom tab (2026-11-15): every custom lobby, whatever its mode
 // (CustomLobbyUI.js) - and custom lobbies are only listed there.
 const isCustomTab = (tab) => tab === 'custom'
@@ -194,7 +199,7 @@ export function renderServerList(game) {
     return
   }
   const q = (document.getElementById('server-search')?.value || '').trim().toLowerCase()
-  const all = (game._serverList || []).filter((s) => (custom ? s.custom : !s.custom && (s.mode === TAB_MODES[tab] || TAB_ALSO[tab]?.includes(s.mode))))
+  const all = (game._serverList || []).filter((s) => (custom ? s.custom : !s.custom && onTab(s, tab)))
   const shown = all.filter((s) => !q || String(s.name).toLowerCase().includes(q) || String(s.id).toLowerCase().includes(q))
   if (line) line.textContent = game._serverListError ? '' : t('serverCountLine', { n: all.length })
   if (game._serverListError) {
@@ -213,7 +218,7 @@ export function renderServerList(game) {
       <span class="server-id">${_escapeHtml(s.id)}</span>
       ${s.wave ? `<span class="server-wave">${_escapeHtml(t('buildPlayWave', { n: Number(s.wave) || 0 }))}</span>` : ''}
       ${custom ? lobbyBits(s) : ''}
-      ${tab === 'deathmatch' ? `<span class="lobby-row-info"><span class="lobby-chip lobby-mode-chip">${_escapeHtml(modeName(s.mode))}</span></span>` : ''}
+      ${tab === 'deathmatch' || (tab === 'main' && s.mode !== 'main') ? `<span class="lobby-row-info"><span class="lobby-chip lobby-mode-chip">${_escapeHtml(modeName(s.mode))}</span></span>` : ''}
       <span class="server-players">${Number(s.players) || 0} / ${Number(s.max) || 0}</span>
       <button type="button" class="mini-action-btn server-join-btn" data-server-join="${_escapeHtml(s.id)}"${full ? ' disabled' : ''}>${_escapeHtml(t(full ? 'serverFull' : 'serverJoin'))}</button>
     </div>`
@@ -361,15 +366,18 @@ export async function makeGameJoinable(game, survival, id = newServerId()) {
   return net
 }
 
-// A solo game from the homepage is a hidden server from the start, so the
+// A solo game from the homepage is a server from the start, so the
 // address bar is its invite link right away (2026-10-26, Gaymi: "it still
 // says gayz.vercel.app (map editor) until I click the invite link") - see
-// PlayNet's header. Offline, or if it can't be made, the game stays solo.
+// PlayNet's header. Since 2026-11-16 it's listed in Global too (Gaymi:
+// "when you click play button on homepage it should auto create a server in
+// the global"), unless Who Can Join is Link Only or Nobody (`access`).
+// Offline, or if it can't be made, the game stays solo.
 export async function openLobby(game, survival) {
   if (survival.net || survival.lobby || (typeof navigator !== 'undefined' && navigator.onLine === false)) return null
   const world = game.buildMode?.world?.active ? { seed: worldSeed(), earth: isEarthWorld(), pick: survival._spawnPick || null } : null
   const api = serverApi(game)
-  const info = await api.create({ ...(await myDetails(game)), name: '', mode: serverMode(survival), world, id: newServerId(), hidden: true, access: serverAccess(game.settings) })
+  const info = await api.create({ ...(await myDetails(game)), name: '', mode: serverMode(survival), world, id: newServerId(), access: serverAccess(game.settings) })
   if (!info?.serverId || !info.token) return null
   // The game ended (or got a server another way) while this was made.
   if (!survival.active || survival.net || survival.lobby) {
