@@ -7703,6 +7703,105 @@ test('Deathmatch: map picker, Military Base, void edge, falling off is a death',
   for (const [k, v] of Object.entries(r)) if (k !== 'buildMs') expect(v, k).toBe(true)
 })
 
+// Detailed buildings (2026-11-16): the Deathmatch maps use real stairs
+// (turned the right way), slabs and ladders, and their Jump Pads, Speed
+// Pads, Teleporter Pads and Wind Tunnels work in a round.
+test('Deathmatch buildings: stairs, slabs, ladders and working pads', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'deathmatch'
+    g.settings.dmMap = 'smallTown'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    const pm = s.party
+    const D = pm.ext
+    pm.update(0.05)
+    pm.update(0.05)
+    const bm = s.bm
+    const hx = Math.floor(pm.home.x)
+    const hz = Math.floor(pm.home.z)
+    const at = (x, y, z) => bm.getBlockAt(hx + x, 186 + y, hz + z)
+    const face = (x, y, z) => bm._stairFacing.get(bm._key(hx + x, 186 + y, hz + z))
+    const check = (name) => {
+      // Every block the map asked for is really there (no unknown ids).
+      let missing = 0
+      for (const key of D._arenaKeys) {
+        const [x, y, z] = key.split(',').map(Number)
+        if (bm.getBlockAt(x, y, z) !== s._placed.get(key)) missing++
+      }
+      out[name + 'AllPlaced'] = missing === 0 && D._arenaKeys.size > 5000
+      // Every spawn still has floor under and room above.
+      out[name + 'Spawns'] = D.map.spawns.every(([x, z, h]) => s._solid(hx + x, 186 + h, hz + z) && !s._solid(hx + x, 187 + h, hz + z) && !s._solid(hx + x, 188 + h, hz + z))
+    }
+    check('town')
+    // Pews face away from the door, the roofs are stairs rising to the
+    // ridge, the store's steps go up northward, a ladder up the tower.
+    out.pew = at(9, 1, -31) === 'darkoakplanksstairs' && face(9, 1, -31) === 0
+    out.roof = at(-19, 5, -16) === 'thatchstairs' && face(-19, 5, -16) === 0 && at(-19, 5, -6) === 'thatchstairs' && face(-19, 5, -6) === 2
+    out.storeSteps = at(22, 1, -11) === 'stonestairs' && face(22, 1, -11) === 2 && at(22, 2, -12) === 'stonestairs'
+    out.ladders = at(-10, 5, -31) === 'ladder' && at(12, 5, -23) === 'ladder'
+    out.slabs = at(12, 1, -33) === 'gold' && at(10, 1, -33) === 'quartzslab'
+    // The pads are live special blocks.
+    const tm = bm.tryMode
+    const sp = bm.specials
+    out.specialsOn = sp.active && sp.entryAt(hx - 20, 187, hz - 3)?.def.id === 'jumppad' && sp.entryAt(hx - 6, 186, hz + 18)?.def.id === 'windtunnel'
+    D.prot.clear()
+    // Jump Pad: launched up.
+    tm.pos.set(hx - 19.5, 187.01, hz - 2.5)
+    tm.vel.set(0, 0, 0)
+    sp._onPadKey = null
+    sp._padCd = 0
+    sp.update(0.02, tm.pos)
+    out.jumpPad = tm.vel.y >= 15
+    // Teleporter Pad in the park: off to the parking lot.
+    tm.pos.set(hx - 25.5, 187.01, hz + 32.5)
+    tm.vel.set(0, 0, 0)
+    sp._onPadKey = null
+    sp._padCd = 0
+    sp.update(0.02, tm.pos)
+    out.teleport = Math.floor(tm.pos.x) === hx + 35 && Math.floor(tm.pos.z) === hz - 27
+    // Wind Tunnel by the Town Hall: floats you up.
+    tm.pos.set(hx - 5.5, 187.01, hz + 18.5)
+    tm.vel.set(0, 0, 0)
+    sp.update(0.02, tm.pos)
+    out.tunnel = tm.vel.y > 3
+    // The Military Base: ladders up the watchtowers, stairs to the HQ roof.
+    s.stop?.()
+    g._exitBuildMode?.()
+    g.settings.dmMap = 'militaryBase'
+    localStorage.removeItem('gayz-play-saved-run')
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s2 = g.buildMode.survival
+    for (let i = 0; i < 100 && !s2.active; i++) await new Promise((res) => setTimeout(res, 100))
+    const pm2 = s2.party
+    const D2 = pm2.ext
+    pm2.update(0.05)
+    pm2.update(0.05)
+    const hx2 = Math.floor(pm2.home.x)
+    const hz2 = Math.floor(pm2.home.z)
+    const at2 = (x, y, z) => bm.getBlockAt(hx2 + x, 186 + y, hz2 + z)
+    out.base = D2.mapId === 'militaryBase' && at2(-23, 4, -22) === 'ladder' && at2(9, 1, -23) === 'grayconcretestairs' && at2(-34, 9, -28) !== undefined
+    out.baseSpecials = bm.specials.entryAt(hx2 + 30, 187, hz2 - 14)?.def.id === 'teleporterpad' && bm.specials.entryAt(hx2 + 22, 187, hz2 + 34)?.def.id === 'jumppad'
+    let missing = 0
+    for (const key of D2._arenaKeys) {
+      const [x, y, z] = key.split(',').map(Number)
+      if (bm.getBlockAt(x, y, z) !== s2._placed.get(key)) missing++
+    }
+    out.baseAllPlaced = missing === 0
+    out.baseSpawns = D2.map.spawns.every(([x, z, h]) => s2._solid(hx2 + x, 186 + h, hz2 + z) && !s2._solid(hx2 + x, 187 + h, hz2 + z) && !s2._solid(hx2 + x, 188 + h, hz2 + z))
+    s2.stop?.()
+    g._exitBuildMode?.()
+    g.settings.dmMap = 'smallTown'
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})
+
 // Team Deathmatch (2026-11-16): Red against Blue, 2v2 / 4v4 / Custom,
 // bots fill both teams, no team damage, team kills win.
 test('Team Deathmatch: size picker, even teams, no team damage, team wins', async ({ page }) => {
