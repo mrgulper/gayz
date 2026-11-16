@@ -234,19 +234,26 @@ function building(b, o) {
   }
 }
 
-// A pitched roof on a building (same x0, z0, w, d, h): rows of blocks
-// stepping up from both long sides to a ridge, one block of overhang, the
-// two ends closed with `end`. ridge 'x': the ridge runs east-west.
+// A pitched roof on a building (same x0, z0, w, d, h): rows of stairs
+// stepping up from both long sides to a ridge of full blocks, one block of
+// overhang, the two ends closed with `end`. ridge 'x': the ridge runs
+// east-west. (Stairs, not plain blocks, since 2026-11-16: Gaymi wanted
+// "slabs, stairs, ladders" in the buildings - and you can climb them.)
 function gable(b, { x0, z0, w, d, h, type, end, ridge = 'x' }) {
   const span = ridge === 'x' ? d : w
   const len = ridge === 'x' ? w : d
   const at = (l, s) => (ridge === 'x' ? [x0 + l, z0 + s] : [x0 + s, z0 + l])
+  const st = stairsOf(type)
   for (let k = 0; 2 * k <= span + 1; k++) {
     const y = h + 1 + k
+    const top = 2 * (k + 1) > span + 1
     for (let l = -1; l <= len; l++) {
       for (const s of [k - 1, span - k]) {
         const [x, z] = at(l, s)
-        b.put(x, y, z, type)
+        // The low side rises toward the ridge.
+        const up = s === k - 1 ? (ridge === 'x' ? 0 : 1) : ridge === 'x' ? 2 : 3
+        if (top) b.put(x, y, z, type)
+        else b.put(x, y, z, st, up)
       }
     }
     if (k === 0) continue
@@ -257,6 +264,46 @@ function gable(b, { x0, z0, w, d, h, type, end, ridge = 'x' }) {
       }
     }
   }
+}
+
+// The stairs and slab cut from a block (a few old ones keep their own ids).
+const HAND_STAIRS = { oakplanks: 'oakstairs', stonebricks: 'stonestairs', brick: 'brickstairs', cobblestone: 'cobblestonestairs' }
+const HAND_SLAB = {
+  oakplanks: 'oakslab', spruceplanks: 'spruceslab', birchplanks: 'birchslab', darkoakplanks: 'darkoakslab',
+  smoothstone: 'stoneslab', cobblestone: 'cobblestoneslab', brick: 'brickslab', stonebricks: 'stonebrickslab',
+  sandstone: 'sandstoneslab', quartz: 'quartzslab', blackstone: 'blackstoneslab', prismarine: 'prismarineslab',
+}
+const stairsOf = (id) => HAND_STAIRS[id] || `${id}stairs`
+const slabOf = (id) => HAND_SLAB[id] || `${id}slab`
+
+// Which way a stair faces when you walk up it going (dx, dz): the side its
+// high step is on (BuildMode._stairFacing: 0 +z, 1 +x, 2 -z, 3 -x).
+const faceUp = (dx, dz) => (dz > 0 ? 0 : dx > 0 ? 1 : dz < 0 ? 2 : 3)
+
+// A real staircase: n steps from (x, z) going (dx, dz), the first at
+// height y0 + 1, each a stair block on top of full blocks, `width` wide.
+function stairs(b, x, z, dx, dz, n, width, type, y0 = 0) {
+  const st = stairsOf(type)
+  for (let i = 0; i < n; i++) {
+    for (let k = 0; k < width; k++) {
+      const sx = x + dx * i + (dz ? k : 0)
+      const sz = z + dz * i + (dx ? k : 0)
+      for (let y = y0 + 1; y <= y0 + i; y++) b.put(sx, y, sz, type)
+      b.put(sx, y0 + i + 1, sz, st, faceUp(dx, dz))
+    }
+  }
+}
+
+// A ladder from y0 to y1 (it hangs on the wall next to it, so put the wall
+// first).
+function ladder(b, x, z, y0, y1) {
+  for (let y = y0; y <= y1; y++) b.put(x, y, z, 'ladder')
+}
+
+// A bench: stairs with their backs to `back` ('n', 's', 'w', 'e').
+function bench(b, x, z, len, along, back, type = 'oakplanks') {
+  const f = { s: 0, e: 1, n: 2, w: 3 }[back]
+  for (let i = 0; i < len; i++) b.put(along === 'x' ? x + i : x, 1, along === 'x' ? z : z + i, stairsOf(type), f)
 }
 
 // Steps of full blocks: n steps from (x, z) going (dx, dz), each one block
@@ -338,13 +385,20 @@ function buildSmallTown(b) {
   // A striped awning over the front.
   for (let x = 6; x <= 21; x++) b.put(x, 4, -5, x % 2 ? 'redwool' : 'whitewool')
   for (let x = 9; x <= 18; x += 3) b.box(x, -14, 2, 1, 1, 2, 'bookshelf')
-  b.box(8, -9, 3, 1, 1, 1, 'oakplanks')
-  steps(b, 22, -11, 0, -1, 6, 2, 'stonebricks')
+  stairs(b, 22, -11, 0, -1, 6, 2, 'stonebricks')
+  // A counter of slabs and stools at the till.
+  b.box(8, -9, 3, 1, 1, 1, slabOf('oakplanks'))
+  for (const x of [8, 10]) b.put(x, 1, -8, 'oakfence')
   // Gas station: a canopy on four posts, two pumps, a tall price sign.
   b.box(26, -16, 12, 10, 0, 0, 'smoothstone')
   for (const [x, z] of [[27, -15], [36, -15], [27, -8], [36, -8]]) b.box(x, z, 1, 1, 1, 4, 'whiteconcrete')
   b.box(27, -15, 10, 8, 5, 5, (x, z) => (x === 27 || x === 36 || z === -15 || z === -8 ? 'redconcrete' : 'whiteconcrete'))
   for (const x of [30, 33]) b.box(x, -12, 1, 1, 1, 2, 'redconcrete')
+  for (const x of [30, 33]) b.put(x, 3, -12, slabOf('whiteconcrete'))
+  // A ladder up the back post to the canopy roof.
+  ladder(b, 37, -15, 1, 5)
+  // Kerbs of slabs round the pumps' island.
+  b.box(29, -13, 6, 3, 1, 1, (x, z) => (x === 30 || x === 33) && z === -12 ? null : slabOf('smoothstone'))
   b.box(25, -5, 1, 1, 1, 6, 'polishedblackstone')
   b.box(24, -5, 3, 1, 7, 8, (x, z, y) => (y === 8 ? 'redconcrete' : 'sealantern'))
   // Parking lot.
@@ -361,7 +415,18 @@ function buildSmallTown(b) {
   b.box(11, -24, 3, 3, 13, 13, 'slateshingles')
   b.put(12, 14, -23, 'slateshingles')
   b.put(12, 15, -23, 'gold')
-  for (let z = -31; z <= -26; z += 2) b.box(9, z, 7, 1, 1, 1, (x) => (x === 12 ? null : 'darkoakplanks'))
+  // Pews (backs to the door) and an altar of quartz slabs.
+  for (let z = -31; z <= -26; z += 2) {
+    bench(b, 9, z, 3, 'x', 's', 'darkoakplanks')
+    bench(b, 13, z, 3, 'x', 's', 'darkoakplanks')
+  }
+  b.box(10, -33, 5, 1, 1, 1, slabOf('quartz'))
+  b.put(12, 1, -33, 'gold')
+  // A way in through the steeple, and a ladder up its middle to the
+  // belfry's four arches.
+  for (const z of [-22, -24]) b.box(12, z, 1, 1, 1, 2, 'air')
+  ladder(b, 12, -23, 1, 10)
+  b.put(12, 11, -23, slabOf('stonebricks'))
   tree(b, 21, -28)
   tree(b, 21, -20)
 
@@ -373,18 +438,27 @@ function buildSmallTown(b) {
   b.box(-18, -14, 2, 1, 1, 1, 'redwool')
   b.put(-11, 1, -9, 'craftingtable')
   b.box(-10, -14, 1, 1, 5, 10, 'brick')
+  b.put(-10, 11, -14, slabOf('stonebricks'))
+  // Flower boxes under the front windows.
+  for (const x of [-17, -12]) b.put(x, 1, -6, slabOf('spruceplanks'))
   // A blue house with a porch on posts and a shingle roof.
   building(b, { x0: -35, z0: -15, w: 11, d: 8, h: 4, wall: 'lightblueterracotta', trim: 'whiteconcrete', roof: 'oakplanks', floor: 'oakplanks', doors: [['s', 4, 2], ['e', 3, 2]] })
   gable(b, { x0: -35, z0: -15, w: 11, d: 8, h: 4, type: 'roofshingles', end: 'whiteconcrete', ridge: 'x' })
   for (const x of [-35, -31, -29, -25]) b.box(x, -6, 1, 1, 1, 3, 'oakfence')
-  b.box(-35, -6, 11, 1, 4, 4, 'spruceplanks')
+  b.box(-35, -6, 11, 1, 4, 4, slabOf('spruceplanks'))
+  b.box(-34, -6, 9, 1, 0, 0, 'spruceplanks')
+  bench(b, -34, -6, 2, 'x', 'n', 'oakplanks')
   hedge(b, -35, -25, -4, -32, -29)
   b.box(-33, -14, 3, 1, 1, 2, 'bookshelf')
   b.put(-14, 1, -4, 'blueconcrete')
   // A two-storey brick house with stairs inside and a dark gable roof.
   building(b, { x0: -32, z0: -32, w: 14, d: 11, h: 8, wall: 'brick', trim: 'stonebricks', roof: 'spruceplanks', floor: 'spruceplanks', doors: [['s', 6, 2], ['w', 5, 2]] })
   b.box(-31, -31, 12, 9, 4, 4, (x, z) => (x <= -28 && z <= -30 ? null : 'spruceplanks'))
-  steps(b, -30, -31, 1, 0, 3, 2, 'spruceplanks')
+  stairs(b, -30, -31, 1, 0, 3, 2, 'spruceplanks')
+  // A balcony on the upper floor, with a fence rail.
+  b.box(-29, -21, 6, 2, 4, 4, 'spruceplanks')
+  for (let x = -29; x <= -24; x++) b.put(x, 5, -20, 'oakfence')
+  b.box(-27, -22, 2, 1, 5, 6, 'air')
   gable(b, { x0: -32, z0: -32, w: 14, d: 11, h: 8, type: 'darkoakplanks', end: 'brick', ridge: 'x' })
   b.box(-23, -24, 2, 1, 5, 5, 'redwool')
   // A shed, a gravel path behind the houses, and a water tower.
@@ -394,18 +468,27 @@ function buildSmallTown(b) {
   b.box(-9, -34, 7, 7, 8, 11, (x, z) => (Math.abs(x + 6) + Math.abs(z + 31) > 4 ? null : 'spruceplanks'))
   b.box(-8, -33, 5, 5, 12, 12, (x, z) => (Math.abs(x + 6) + Math.abs(z + 31) > 3 ? null : 'darkoakplanks'))
   b.put(-6, 13, -31, 'darkoakplanks')
+  // A post under the tank and a ladder up it to the top: a lookout.
+  b.box(-9, -31, 1, 1, 1, 7, 'sprucelog')
+  ladder(b, -10, -31, 1, 11)
   tree(b, -10, -22)
   tree(b, -23, -18)
   tree(b, -38, -18)
 
   // --- south-west: the Town Hall and the park ---
-  building(b, { x0: -27, z0: 7, w: 21, d: 15, h: 6, wall: 'quartz', trim: 'chiseledstonebricks', roof: 'smoothstone', floor: 'polisheddiorite', windows: 'open', doors: [['n', 9, 3], ['s', 9, 3], ['e', 6, 2], ['w', 3, 2]], parapet: { type: 'quartz', gaps: [[-27, 14], [-27, 15]] } })
+  building(b, { x0: -27, z0: 7, w: 21, d: 15, h: 6, wall: 'quartz', trim: 'chiseledstonebricks', roof: 'smoothstone', floor: 'polisheddiorite', windows: 'open', doors: [['n', 9, 3], ['s', 9, 3], ['e', 6, 2], ['w', 3, 2]], parapet: { type: 'quartz', gaps: [[-27, 14], [-27, 15], [-7, 18]] } })
   // Columns along the front holding up a porch roof.
   b.box(-27, 5, 21, 2, 7, 7, 'smoothstone')
   for (const x of [-25, -21, -13, -9]) b.box(x, 5, 1, 1, 1, 6, 'quartz')
   for (const [x, z] of [[-23, 11], [-11, 11], [-23, 17], [-11, 17]]) b.box(x, z, 1, 1, 1, 6, 'quartz')
   b.box(-20, 19, 7, 1, 1, 1, 'darkoakplanks')
-  steps(b, -29, 20, 0, -1, 7, 2, 'chiseledstonebricks')
+  stairs(b, -29, 20, 0, -1, 7, 2, 'chiseledstonebricks')
+  // Benches under the porch.
+  bench(b, -24, 6, 3, 'x', 's', 'quartz')
+  bench(b, -12, 6, 3, 'x', 's', 'quartz')
+  // A Wind Tunnel in the floor by the east wall floats you up to the
+  // roof (a gap in the low wall there).
+  b.box(-6, 17, 2, 3, 0, 0, (x, z) => (x === -6 && z === 18 ? 'windtunnel' : 'yellowconcrete'))
   // A clock tower on the roof: a white face on each side, its hand at 12.
   b.box(-19, 12, 3, 3, 8, 12, (x, z, y) => {
     const mid = (x === -18) !== (z === 13)
@@ -422,14 +505,22 @@ function buildSmallTown(b) {
   b.box(-14, 33, 4, 3, 0, 0, 'water')
   b.box(-14, 33, 4, 3, -1, -1, 'sand')
   for (const [x, z] of [[-33, 27], [-28, 35], [-14, 27], [-8, 36], [-30, 33]]) tree(b, x, z)
-  b.box(-27, 29, 3, 1, 1, 1, 'oakslab')
-  b.box(-19, 34, 3, 1, 1, 1, 'oakslab')
+  bench(b, -27, 29, 3, 'x', 'n')
+  bench(b, -19, 34, 3, 'x', 's')
+  // A pond rim of slabs and a Teleporter Pad (its other end is in the
+  // parking lot, across the town).
+  for (let x = -15; x <= -10; x++) for (const z of [32, 36]) b.put(x, 1, z, slabOf('stonebricks'))
+  for (let z = 33; z <= 35; z++) for (const x of [-15, -10]) b.put(x, 1, z, slabOf('stonebricks'))
+  b.put(-26, 1, 32, 'teleporterpad')
 
   // --- south-east: the diner, houses and the workshop ---
   b.box(6, 4, 15, 3, 0, 0, 'smoothstone')
   building(b, { x0: 6, z0: 7, w: 15, d: 10, h: 4, wall: 'whiteconcrete', trim: 'redconcrete', roof: 'redconcrete', floor: (x, z) => ((x + z) % 2 ? 'whiteconcrete' : 'blackconcrete'), doors: [['n', 6, 2], ['s', 3, 2]] })
   for (let x = 7; x <= 19; x += 2) b.put(x, 4, 7, 'sealantern')
-  b.box(9, 13, 9, 1, 1, 1, 'oakplanks')
+  b.box(9, 13, 9, 1, 1, 1, slabOf('quartz'))
+  for (let x = 10; x <= 16; x += 2) b.put(x, 1, 12, 'oakfence')
+  // A ladder up the back wall to the roof.
+  ladder(b, 19, 17, 1, 5)
   b.box(8, 9, 1, 2, 1, 1, 'redwool')
   b.box(17, 9, 1, 2, 1, 1, 'redwool')
   // The diner's tall sign.
@@ -439,18 +530,25 @@ function buildSmallTown(b) {
   building(b, { x0: 26, z0: 7, w: 11, d: 9, h: 4, wall: 'smoothsandstone', trim: 'cutsandstone', roof: 'oakplanks', floor: 'oakplanks', doors: [['n', 4, 2], ['w', 3, 2]] })
   gable(b, { x0: 26, z0: 7, w: 11, d: 9, h: 4, type: 'redterracotta', end: 'smoothsandstone', ridge: 'x' })
   hedge(b, 26, 36, 5, 29, 32)
+  bench(b, 28, 16, 3, 'x', 'n', 'cutsandstone')
   // A farmhouse with a porch rail and a shingle roof.
   building(b, { x0: 7, z0: 24, w: 11, d: 11, h: 4, wall: 'birchplanks', trim: 'oaklog', roof: 'oakplanks', floor: 'oakplanks', doors: [['n', 4, 2], ['e', 4, 2]] })
   gable(b, { x0: 7, z0: 24, w: 11, d: 11, h: 4, type: 'roofshingles', end: 'birchplanks', ridge: 'z' })
   for (let x = 7; x <= 17; x++) if (x < 10 || x > 13) b.put(x, 1, 22, 'oakfence')
   b.box(7, 22, 11, 2, 0, 0, 'oakplanks')
   b.put(9, 1, 32, 'craftingtable')
+  bench(b, 8, 23, 2, 'x', 's')
+  bench(b, 15, 23, 2, 'x', 's')
   // The workshop: a wide door with warning stripes, crates, a car and a
   // catwalk up the back.
   building(b, { x0: 23, z0: 21, w: 13, d: 12, h: 6, wall: 'metal', trim: 'grayconcrete', roof: 'grayconcrete', floor: 'concrete', windows: null, doors: [['n', 4, 6, 4], ['w', 7, 2]] })
   for (let x = 26; x <= 33; x++) b.put(x, 5, 21, x % 2 ? 'yellowconcrete' : 'blackconcrete')
   b.box(24, 30, 11, 2, 3, 3, 'spruceplanks')
-  steps(b, 25, 29, 1, 0, 3, 1, 'spruceplanks')
+  stairs(b, 25, 29, 1, 0, 3, 1, 'spruceplanks')
+  ladder(b, 34, 29, 1, 3)
+  // A rail along the catwalk, and a Jump Pad up to its end.
+  for (let x = 28; x <= 32; x++) b.put(x, 4, 29, 'oakfence')
+  b.put(33, 1, 28, 'jumppad')
   for (const [x, z, h] of [[32, 24, 2], [33, 26, 1], [30, 27, 2], [25, 25, 1]]) b.box(x, z, 2, 2, 1, h, h > 1 ? 'spruceplanks' : 'oakplanks')
   car(b, 29, 23, 'z', 'orangeconcrete')
   for (const [x, z] of [[14, 20], [21, 37], [21, 29], [38, 19]]) tree(b, x, z)
@@ -474,6 +572,13 @@ function buildSmallTown(b) {
     }
   }
   for (const [x, z] of [[16, 3], [-16, -3], [3, -16], [-3, 18]]) b.put(x, 1, z, 'redconcrete')
+  // Bus roof seats of slabs; a Jump Pad on the pavement gets you up there.
+  b.box(-23, -2, 6, 2, 4, 4, (x) => (x % 2 ? slabOf('grayconcrete') : null))
+  b.put(-20, 1, -3, 'jumppad')
+  // Speed Pads on the four roads into the crossing.
+  for (const [x, z] of [[0, -9], [0, 9], [9, 0], [-9, 0]]) b.put(x, 1, z, 'speedpad')
+  // The parking lot end of the park's Teleporter Pad.
+  b.put(35, 1, -27, 'teleporterpad')
 }
 
 // --- Military Base ---
@@ -513,8 +618,8 @@ function truck(b, x, z) {
   b.box(x + 2, z, 5, 2, 2, 3, 'greenwool')
 }
 
-// A watchtower on four legs (a 4 x 4 platform at y 6), steps up its west
-// side, sandbags round the top and a roof.
+// A watchtower on four legs (a 4 x 4 platform at y 6), a ladder up its
+// west side to the gap in the sandbags round the top, and a roof.
 function watchtower(b, x, z) {
   for (const [dx, dz] of [[0, 0], [3, 0], [0, 3], [3, 3]]) b.box(x + dx, z + dz, 1, 1, 1, 9, 'sprucelog')
   b.box(x, z, 4, 4, 6, 6, 'spruceplanks')
@@ -526,7 +631,10 @@ function watchtower(b, x, z) {
     }
   }
   b.box(x - 1, z - 1, 6, 6, 10, 10, 'spruceplanks')
-  steps(b, x - 1, z + 6, 0, -1, 6, 1, 'spruceplanks')
+  b.box(x, z + 1, 1, 1, 1, 5, 'sprucelog')
+  ladder(b, x - 1, z + 1, 1, 7)
+  // A slab bench up top.
+  b.put(x + 2, 7, z + 2, slabOf('spruceplanks'))
 }
 
 // A shipping container along x: 2 wide, 6 long, 3 high, doors at one end.
@@ -567,15 +675,24 @@ function buildMilitaryBase(b) {
   nest(b, -13, 10, 'e')
   b.box(-12, -5, 1, 2, 1, 2, 'crate')
   b.box(11, 3, 2, 1, 1, 1, 'crate')
+  // Speed Pads on the ring road, and a pair of Teleporter Pads between
+  // the west and east sides.
+  for (const [x, z] of [[15, 0], [-15, 0], [0, 15], [0, -15]]) b.put(x, 1, z, 'speedpad')
+  b.put(-26, 1, 13, 'teleporterpad')
+  b.put(30, 1, -14, 'teleporterpad')
 
   // --- north: the HQ, the flag and the radar ---
   b.box(-12, -21, 21, 2, 0, 0, 'smoothstone')
   building(b, { x0: -12, z0: -34, w: 21, d: 13, h: 8, wall: 'lightgrayconcrete', trim: 'grayconcrete', roof: 'smoothstone', floor: 'polishedandesite', doors: [['s', 9, 3], ['w', 5, 2]], parapet: { type: 'cutsandstone', gaps: [[8, -31], [8, -32]] } })
   b.box(-11, -33, 19, 11, 4, 4, (x, z) => (x <= -8 && z <= -31 ? null : 'polishedandesite'))
-  steps(b, -10, -33, 1, 0, 3, 2, 'grayconcrete')
-  for (let x = -9; x <= 5; x += 4) b.box(x, -27, 2, 1, 1, 1, 'oakplanks')
+  stairs(b, -10, -33, 1, 0, 3, 2, 'grayconcrete')
+  // Desks of slabs with chairs.
+  for (let x = -9; x <= 5; x += 4) {
+    b.box(x, -27, 2, 1, 1, 1, slabOf('darkoakplanks'))
+    b.put(x, 1, -26, stairsOf('oakplanks'), 0)
+  }
   b.box(-2, -33, 3, 1, 5, 6, 'bookshelf')
-  steps(b, 9, -23, 0, -1, 9, 2, 'grayconcrete')
+  stairs(b, 9, -23, 0, -1, 9, 2, 'grayconcrete')
   // A radio mast on the roof.
   b.box(-9, -31, 1, 1, 10, 15, 'polishedblackstone')
   b.put(-9, 16, -31, 'redconcrete')
@@ -590,6 +707,8 @@ function buildMilitaryBase(b) {
     return (y === 7 && r <= 1.5) || (y === 8 && r > 1.5 && r <= 3.2) ? 'whiteconcrete' : null
   })
   b.box(29, -29, 1, 1, 8, 9, 'grayconcrete')
+  // A Wind Tunnel on a block beside the dish floats you up into it.
+  b.put(29, 1, -25, 'windtunnel')
 
   // --- north-west: the curved metal barracks ---
   const arch = [3, 5, 6, 7, 7, 7, 6, 5, 3]
@@ -622,12 +741,15 @@ function buildMilitaryBase(b) {
   // The firing line's roof on posts.
   for (const z of [-10, -4, 4, 10]) b.box(-20, z, 1, 1, 1, 3, 'sprucelog')
   b.box(-21, -10, 3, 21, 4, 4, 'spruceplanks')
-  b.box(-19, -9, 1, 19, 1, 1, (x, z) => (z % 4 === 0 ? 'crate' : null))
+  b.box(-19, -9, 1, 19, 1, 1, (x, z) => (z % 4 === 0 ? 'crate' : z % 4 === 2 || z % 4 === -2 ? slabOf('spruceplanks') : null))
 
   // --- south-west: the two-storey wooden barracks and a medical tent ---
   building(b, { x0: -33, z0: 20, w: 13, d: 11, h: 8, wall: 'spruceplanks', trim: 'sprucelog', roof: 'spruceplanks', floor: 'oakplanks', doors: [['n', 5, 2], ['e', 4, 2]] })
   b.box(-32, 21, 11, 9, 4, 4, (x, z) => (x <= -29 && z <= 22 ? null : 'oakplanks'))
-  steps(b, -31, 21, 1, 0, 3, 2, 'oakplanks')
+  stairs(b, -31, 21, 1, 0, 3, 2, 'oakplanks')
+  // A slab porch roof over the front door, on fence posts.
+  b.box(-30, 18, 6, 2, 3, 3, slabOf('spruceplanks'))
+  for (const x of [-30, -25]) b.box(x, 18, 1, 1, 1, 2, 'oakfence')
   gable(b, { x0: -33, z0: 20, w: 13, d: 11, h: 8, type: 'darkoakplanks', end: 'spruceplanks', ridge: 'x' })
   for (let x = -31; x <= -23; x += 3) b.box(x, 28, 2, 1, 1, 1, 'greenwool')
   // The medical tent: white canvas with a red cross.
@@ -649,7 +771,10 @@ function buildMilitaryBase(b) {
   tank(b, -6, 25)
   truck(b, 2, 30)
   b.box(-7, 33, 17, 2, 3, 3, 'spruceplanks')
-  steps(b, 7, 32, -1, 0, 3, 1, 'spruceplanks')
+  stairs(b, 7, 32, -1, 0, 3, 1, 'spruceplanks')
+  // A rail along the catwalk with a gap over a Jump Pad.
+  for (let x = -4; x <= 4; x++) if (x < -3 || x > -1) b.put(x, 4, 32, 'oakfence')
+  b.put(-2, 1, 32, 'jumppad')
   for (const [x, z, h] of [[6, 23, 2], [8, 26, 1], [-6, 31, 2]]) b.box(x, z, 2, 2, 1, h, 'crate')
   tank(b, -14, 23)
   truck(b, 12, 18)
@@ -670,12 +795,15 @@ function buildMilitaryBase(b) {
   steps(b, 26, 34, 1, 0, 1, 1, 'crate')
   b.box(26, 33, 1, 1, 1, 2, 'crate')
   b.box(27, 33, 1, 1, 1, 3, 'crate')
+  // A Jump Pad onto the green container and a ladder up the tall stack.
+  b.put(22, 1, 34, 'jumppad')
+  ladder(b, 22, 30, 1, 6)
 
   // --- east: the bunker ---
   building(b, { x0: 22, z0: -6, w: 11, d: 11, h: 3, wall: 'grayconcrete', trim: 'grayconcrete', roof: 'grayconcrete', floor: 'polishedandesite', windows: 'open', doors: [['w', 4, 3], ['e', 4, 2]], parapet: { type: 'cutsandstone', gaps: [[27, -6], [28, -6]] } })
   b.box(24, -4, 2, 2, 1, 1, 'crate')
   b.box(29, 1, 2, 1, 1, 1, 'barrel')
-  steps(b, 27, -10, 0, 1, 4, 2, 'grayconcrete')
+  stairs(b, 27, -10, 0, 1, 4, 2, 'grayconcrete')
   sandbags(b, 20, -9, 1, 5)
   sandbags(b, 20, 6, 1, 5)
 

@@ -602,8 +602,9 @@ export class PartyDeathmatch {
       s._placed.delete(key)
     }
     this._arenaKeys.clear()
-    // type 'air' clears the cell.
-    const put = (x, y, z, type) => {
+    // type 'air' clears the cell; facing turns stairs (0-3, see
+    // BuildMode._stairFacing).
+    const put = (x, y, z, type, facing = null) => {
       if (!type) return
       const ax = hx + x
       const az = hz + z
@@ -619,7 +620,7 @@ export class PartyDeathmatch {
       this._arenaKeys.add(key)
       if (bm.getBlockAt(ax, ay, az) === type) return
       if (bm.getBlockAt(ax, ay, az)) bm.removeBlock(ax, ay, az)
-      bm.placeBlock(ax, ay, az, type, true)
+      bm.placeBlock(ax, ay, az, type, true, facing === null ? null : { facing })
       s._placed.set(key, type)
     }
     // type: a block, or (x, z, y) -> a block (null: leave it).
@@ -628,7 +629,7 @@ export class PartyDeathmatch {
     }
     const map = this.map
     map.build({ put, box })
-    // The uneven edge all round: wall, cliff, trees or water.
+    // The void round the uneven edge.
     buildEdge(map, { put, box })
     bm._suppressUndoRecording = false
   }

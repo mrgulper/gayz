@@ -753,7 +753,8 @@ export class BuildSurvival {
       else if (this.onboard.active) this._pickWeapon(this.weaponId)
       else this._openWeaponPicker()
     }
-    else this._message(t('buildPlayGetReady'))
+    // (Not in modes without zombies, like Deathmatch.)
+    else if (!this.cfg.noZombies) this._message(t('buildPlayGetReady'))
     zombieSkin().then((skin) => { this._skin = skin; this._warmShaders() }).catch(() => { this._skin = null })
     loadSkeletons().then((ok) => { if (ok) this._warmShaders(true) })
     // A solo game from the homepage is ready for friends straight away: its
@@ -1157,7 +1158,8 @@ export class BuildSurvival {
     this.bm.tryMode._showGun()
     if (this.bm.tryMode._gun) this.bm.tryMode._gun.visible = true
     const name = t(this.bm.game?.weapons?.getSummary?.().find((w) => w.id === id)?.nameKey || 'weaponRifle')
-    if (switching || !this._spawnedFar) this._message(switching ? t('playWeaponSwitched', { name }) : t('buildPlayGetReady'))
+    if (switching) this._message(t('playWeaponSwitched', { name }))
+    else if (!this._spawnedFar && !this.cfg.noZombies) this._message(t('buildPlayGetReady'))
     this._spawnedFar = false
     this._renderHud()
     // This click is a real user gesture, so the mouse can be captured again
