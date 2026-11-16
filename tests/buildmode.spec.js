@@ -7220,9 +7220,14 @@ test('Laser Tag, Kart Racing, the Obstacle Course, minecarts and the haunted hou
     const P = pm.ext
     const tm = s.bm.tryMode
     out.parkourStart = pm.phase === 'play' && pm.bots.size === 0 && Math.abs(tm.pos.y - 261) < 0.5
-    out.parkourMoves = JSON.stringify(P.moverAt(0, 0)) !== JSON.stringify(P.moverAt(0, 3500))
     const hx = Math.floor(pm.home.x)
     const hz = Math.floor(pm.home.z)
+    // No moving blocks: fixed purple stones where the sliding platforms were.
+    pm.update(0.05)
+    const stone = () => [[57, 5, 0], [60, 6, 1], [63, 6, -1], [86, 8, 1], [86, 9, 4]].every(([x, y, z]) => s.bm.getBlockAt(hx + x, 260 + y, hz + z) === 'purpurblock')
+    const stoneBefore = stone()
+    for (let i = 0; i < 80; i++) pm.update(0.05)
+    out.parkourStill = stoneBefore && stone() && P.moverAt === undefined
     tm.pos.set(hx + 26.5, 264, hz + 0.5)
     pm.update(0.05)
     out.parkourCheckpoint = P.cp === 1
