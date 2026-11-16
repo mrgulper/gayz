@@ -854,6 +854,9 @@ test('Invite Friends makes a solo game joinable and the link joins it', async ({
   })
   await a.waitForFunction(() => window.__game.buildMode.survival.lobby && location.search.startsWith('?join='), null, { timeout: 20000 })
   const lobbySearch = await a.evaluate(() => location.search)
+  // Listed in Global too, so anyone can join (2026-11-16).
+  await a.evaluate(() => window.__game.buildMode.survival.lobby._sync())
+  expect((await listServers(db)).map((s) => s.id)).toContain(lobbySearch.slice('?join='.length))
   expect(await a.evaluate(() => !window.__game.buildMode.survival.net)).toBe(true)
   await a.keyboard.press('Escape')
   await a.waitForFunction(() => document.getElementById('play-pause-menu')?.style.display === 'flex', null, { timeout: 10000 })
@@ -2421,4 +2424,26 @@ test('live config: a Player ID change from the team switches the page', async ({
   expect(r.saved).toBe('NEWID7')
   expect(r.tag).toBe('#NEWID7')
   expect(r.toast).toContain('#NEWID7')
+})
+
+// 2026-11-16 (Gaymi: Play games show in Global, "all modes and future
+// gamemodes"): the Zombie Survival tab lists every mode no other tab lists,
+// with its mode on the row; Deathmatch modes stay on Deathmatch.
+test('servers: Zombie Survival tab lists modes without a tab of their own', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    const row = (id, name, mode) => ({ id, name, mode, players: 1, max: 8, wave: 0, createdAt: 1 })
+    const list = [row('AAAAAA', 'Main One', 'main'), row('BBBBBB', 'Infect One', 'infection'), row('CCCCCC', 'Future One', 'someNewMode'), row('DDDDDD', 'DM One', 'dm'), row('EEEEEE', 'Parkour One', 'parkour')]
+    window.__game.__serversBackendForTests = { list: async () => list, create: async () => { throw new Error('no') }, join: async () => { throw new Error('no') }, leave: async () => ({}), sync: async () => ({}) }
+    window.__game._openServerPanel()
+  })
+  const rows = page.locator('#server-list .server-row')
+  await expect(rows).toHaveCount(3)
+  await expect(page.locator('#server-list')).toContainText('Main One')
+  await expect(page.locator('#server-list')).toContainText('Infect One')
+  await expect(page.locator('#server-list')).toContainText('Future One')
+  await expect(page.locator('#server-list')).not.toContainText('DM One')
+  await expect(page.locator('#server-list')).not.toContainText('Parkour One')
+  // Only the non-main rows carry a mode chip.
+  await expect(page.locator('#server-list .lobby-mode-chip')).toHaveCount(2)
 })

@@ -15,7 +15,7 @@ import { LOBBY_PICKS, LOBBY_ZOMBIE_MODES, LOBBY_PARTY_MODES, LOBBY_RING_MODES, P
 // A server mode -> the game mode it plays (BuildSurvival.start does the same).
 const PARTY_BY_SERVER = Object.fromEntries(Object.entries(PARTY_SERVER_MODES).map(([k, v]) => [v, k]))
 export function gameModeOf(serverMode) {
-  return { main: 'classic', zone: 'shrinkingZone', td: 'towerDefense', infection: 'infection' }[serverMode] || PARTY_BY_SERVER[serverMode] || 'classic'
+  return { main: 'classic', zone: 'shrinkingZone', td: 'towerDefense', infection: 'infection', escape: 'escapeRoom', escapeSolo: 'escapeRace' }[serverMode] || PARTY_BY_SERVER[serverMode] || 'classic'
 }
 export function modeName(serverMode) {
   const m = gameModeOf(serverMode)
