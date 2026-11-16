@@ -78,6 +78,8 @@ import { nameTag } from './BuildCamp.js'
 import { MOB_HEIGHT } from './PlayRules.js'
 import { saveShopProgress } from './Game.js'
 import { audioEngine } from './Audio.js'
+import { holdWeapon, poseArms } from './HeldWeapon.js'
+import { PLAY_WEAPONS } from './PlayWeapons.js'
 import { t } from './i18n.js'
 import { PartyLava } from './PartyLava.js'
 import { PartyLaser } from './PartyLaser.js'
@@ -1153,6 +1155,9 @@ export class PartyMode {
     this.teams.delete(id)
     this.seekers.delete(id)
     b.group.removeFromParent()
+    // The held gun shares the game's own gun model: never disposed.
+    this._dropFlash(b)
+    b.gun?.removeFromParent()
     disposeTree(b.group)
   }
 
@@ -1306,7 +1311,8 @@ export class PartyMode {
       b.y = under
       b.vy = 0
     }
-    if (dx || dz) b.tyaw = Math.atan2(dx, dz)
+    // Facing whoever it just shot at (Deathmatch), else where it walks.
+    if ((dx || dz) && !(b.faceT > 0)) b.tyaw = Math.atan2(dx, dz)
     b.tx = b.x
     b.ty = b.y
     b.tz = b.z
@@ -1345,8 +1351,57 @@ export class PartyMode {
       const swing = Math.sin(b.walk) * Math.min(1, speed / 2) * 0.7
       lp.legR.rotation.x = swing
       lp.legL.rotation.x = -swing
-      lp.armR.rotation.x = -swing
-      lp.armL.rotation.x = swing
+      // A bot with a gun (Deathmatch) holds it like a player does, raised
+      // while it shoots; the others swing their arms.
+      const w = this.ext?.botGuns ? b.w || '' : ''
+      if (b.gunId !== w && (!b.gunRetry || (b.gunRetry -= dt) <= 0)) {
+        const held = holdWeapon(this.s.bm.game, b.body, w, b.gun)
+        this._dropFlash(b)
+        b.gun = held.gun
+        // The gun models may still be loading: try again in a second.
+        b.gunId = held.gun || !w ? w : ''
+        b.gunRetry = held.gun || !w ? 0 : 1
+      }
+      b.fireT = Math.max(0, (b.fireT || 0) - dt)
+      if (b.gun) poseArms(lp, { holding: true, melee: false, firing: b.fireT > 0 || b.faceT > 0, swing })
+      else {
+        lp.armR.rotation.x = -swing
+        lp.armL.rotation.x = swing
+      }
+      if (b.flash) b.flash.visible = b.fireT > 0.12
+    }
+  }
+
+  _dropFlash(b) {
+    if (!b.flash) return
+    b.flash.removeFromParent()
+    b.flash.geometry.dispose()
+    b.flash.material.dispose()
+    b.flash = null
+  }
+
+  // A bot fired (where the game runs, or a guest seeing the host's count
+  // go up): the muzzle flash, the gun's sound when it's near me, and a
+  // count the guests watch (\`fs\` in the bots' snapshot).
+  _botFired(b, me = this._people().find((p) => p.id === this.myId)) {
+    if (this.runs) b.fireN = ((b.fireN || 0) + 1) % 1000
+    b.fireT = 0.2
+    if (!b.flash && b.gun) {
+      // At the end of the barrel: the gun's far end along its own -z (the
+      // way a gun model points).
+      const B = this.s.B
+      b.gun.updateWorldMatrix(true, true)
+      const box = new THREE.Box3().setFromObject(b.gun).applyMatrix4(b.gun.matrixWorld.clone().invert())
+      const scale = b.gun.getWorldScale(new THREE.Vector3()).x || 1
+      b.flash = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffd36a, transparent: true, opacity: 0.9, depthWrite: false }))
+      b.flash.scale.setScalar((0.24 * B) / scale)
+      b.flash.position.set((box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, box.min.z)
+      b.flash.visible = false
+      b.gun.add(b.flash)
+    }
+    if (b.flash) b.flash.rotation.z = Math.random() * Math.PI
+    if (me && Math.hypot(me.x - b.x, me.z - b.z) < 22) {
+      try { audioEngine.playShot?.(b.w || 'rifle') } catch { /* no audio */ }
     }
   }
 
@@ -1792,7 +1847,7 @@ export class PartyMode {
 
   snapshot() {
     const bots = {}
-    for (const b of this.bots.values()) bots[b.id] = { x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), h: +b.tyaw.toFixed(2), n: b.n }
+    for (const b of this.bots.values()) bots[b.id] = { x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), h: +b.tyaw.toFixed(2), n: b.n, ...(b.w ? { w: b.w, fs: b.fireN || 0 } : {}) }
     const st = {}
     for (const [id, left] of this.stunned) st[this._out(id)] = +left.toFixed(1)
     const tm = {}
@@ -1886,6 +1941,11 @@ export class PartyMode {
       b.ty = v.y
       b.tz = v.z
       b.tyaw = Number(v.h) || 0
+      // Their gun, and a shot when the host's count of them goes up.
+      b.w = typeof v.w === 'string' && PLAY_WEAPONS[v.w] ? v.w : ''
+      const fs = Number(v.fs) || 0
+      if (b.w && b.fireN !== undefined && fs !== b.fireN) this._botFired(b)
+      b.fireN = fs
       this._botN = Math.max(this._botN, Number(id.slice(1)))
     }
     for (const id of [...this.bots.keys()]) if (!seen.has(id)) this._removeBot(id)

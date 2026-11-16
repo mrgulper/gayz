@@ -3388,6 +3388,8 @@ export default {
   topBarModeDeathmatch: "Todos contra Todos",
   dmHint: "Cada uno por su cuenta en una arena en el cielo. Gana quien más elimine en 5 minutos. Los bots llenan los huecos.",
   dmStart: "¡Todos contra Todos! Gana quien más elimine en {n} minutos. Escape > Cambiar arma para cambiar de arma.",
+  dmMapLine: "Mapa: {name}",
+  dmMapSmallTown: "Pueblo Pequeño",
   dmKilledBy: "Te eliminó {name}",
   dmKillCamBy: "Te eliminó",
   dmRespawnIn: "Reapareces en {n}",

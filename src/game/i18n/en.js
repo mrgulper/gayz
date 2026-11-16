@@ -3443,6 +3443,8 @@ export default {
   topBarModeDeathmatch: "Deathmatch",
   dmHint: "Everyone for themselves in an arena in the sky. Most kills in 5 minutes wins. Bots fill empty spots.",
   dmStart: "Deathmatch! Most kills in {n} minutes wins. Escape > Switch Weapon to change guns.",
+  dmMapLine: "Map: {name}",
+  dmMapSmallTown: "Small Town",
   dmKilledBy: "Killed by {name}",
   dmKillCamBy: "Killed by",
   dmRespawnIn: "Respawning in {n}",
