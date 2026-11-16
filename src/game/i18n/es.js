@@ -3390,6 +3390,8 @@ export default {
   dmStart: "¡Todos contra Todos! Gana quien más elimine en {n} minutos. Escape > Cambiar arma para cambiar de arma.",
   dmMapLine: "Mapa: {name}",
   dmMapSmallTown: "Pueblo Pequeño",
+  dmMapMilitaryBase: "Base Militar",
+  dmMapPick: "Mapa para Todos contra Todos y Combate por Equipos:",
   dmKilledBy: "Te eliminó {name}",
   dmKillCamBy: "Te eliminó",
   dmRespawnIn: "Reapareces en {n}",

@@ -68,6 +68,32 @@ export function _bindGameModeSelect(game) {
     })
   }
   _bindTdmSize(game)
+  _bindDmMap(game)
+}
+
+// Deathmatch's map row (Game Mode > Deathmatch): Small Town or Military
+// Base, for both Deathmatches. Picking one also picks Deathmatch unless a
+// Deathmatch is already picked. Saved as settings.dmMap.
+function _bindDmMap(game) {
+  const row = document.getElementById('dm-map-row')
+  if (!row || row.dataset.bound) return
+  row.dataset.bound = '1'
+  // (The buttons are the map list - DeathmatchMaps.js stays out of the
+  // homepage's download; an unknown saved id shows Small Town.)
+  const btns = [...row.querySelectorAll('[data-dm-map]')]
+  const show = () => {
+    const id = btns.some((b) => b.dataset.dmMap === game.settings.dmMap) ? game.settings.dmMap : 'smallTown'
+    for (const b of btns) b.classList.toggle('active', b.dataset.dmMap === id)
+  }
+  for (const b of btns) {
+    b.addEventListener('click', () => {
+      game.settings.dmMap = b.dataset.dmMap
+      saveSettings(game.settings)
+      show()
+      if (!['deathmatch', 'teamDeathmatch'].includes(game.settings.selectedGameMode)) document.getElementById('game-mode-deathmatch')?.click()
+    })
+  }
+  show()
 }
 
 // Team Deathmatch's size row (Game Mode > Deathmatch): 2v2, 4v4, or

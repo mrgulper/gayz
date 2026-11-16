@@ -3390,6 +3390,8 @@ export default {
   dmStart: "डेथमैच! {n} मिनट में सबसे ज़्यादा किल वाला जीतेगा। बंदूक बदलने के लिए Escape > हथियार बदलें।",
   dmMapLine: "मैप: {name}",
   dmMapSmallTown: "छोटा कस्बा",
+  dmMapMilitaryBase: "सैन्य अड्डा",
+  dmMapPick: "डेथमैच और टीम डेथमैच का मैप:",
   dmKilledBy: "{name} ने मारा",
   dmKillCamBy: "आपको मारने वाला",
   dmRespawnIn: "{n} में फिर से शुरू",

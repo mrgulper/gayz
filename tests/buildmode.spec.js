@@ -7486,11 +7486,12 @@ test('Deathmatch: Small Town map, bots hold guns, minimap shows the arena', asyn
     pm.update(0.05)
     pm.update(0.05)
     out.named = D.mapId === 'smallTown' && D.mapName() === 'Small Town' && D.startText().startsWith('Map: Small Town')
-    // 81 x 81: the far corners are floor, the town wall just past them.
+    // 81 x 81: the far corners are floor, the uneven edge (trees to the
+    // east, a wall to the south) just past the play area.
     const hx = Math.floor(pm.home.x)
     const hz = Math.floor(pm.home.z)
     const bm = s.bm
-    out.bigFloor = !!bm.getBlockAt(hx + 40, 186, hz + 40) && !!bm.getBlockAt(hx - 40, 186, hz - 40) && bm.getBlockAt(hx + 41, 192, hz) === 'brick' && D._inside(hx + 40, hz - 40)
+    out.bigFloor = !!bm.getBlockAt(hx + 40, 186, hz + 40) && !!bm.getBlockAt(hx - 40, 186, hz - 40) && /leaves|oaklog/.test(bm.getBlockAt(hx + 41, 192, hz) || '') && bm.getBlockAt(hx, 192, hz + 41) === 'brick' && D._inside(hx + 40, hz - 40)
     out.streets = bm.getBlockAt(hx + 20, 186, hz + 1) === 'asphalt' && bm.getBlockAt(hx + 1, 186, hz - 20) === 'asphalt'
     // Every bot carries a gun from the list, held in its right hand.
     const bots = [...pm.bots.values()]
@@ -7529,6 +7530,61 @@ test('Deathmatch: Small Town map, bots hold guns, minimap shows the arena', asyn
     return out
   })
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})
+
+// Deathmatch map picker (2026-11-16): Game Mode > Deathmatch picks the
+// map (Small Town unless picked); the Military Base builds with its
+// helipad and uneven edge, every spawn has room to stand, and switching
+// maps (a guest learning the host's pick) clears the old map's blocks.
+test('Deathmatch: map picker, Military Base, uneven edge', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    out.defaultTown = g.settings.dmMap === 'smallTown' && document.getElementById('dm-map-smallTown').classList.contains('active')
+    g.settings.selectedGameMode = 'classic'
+    document.getElementById('dm-map-militaryBase').click()
+    out.picked = g.settings.dmMap === 'militaryBase' && g.settings.selectedGameMode === 'deathmatch' && document.getElementById('dm-map-militaryBase').classList.contains('active') && !document.getElementById('dm-map-smallTown').classList.contains('active')
+    out.label = document.getElementById('dm-map-militaryBase').textContent === 'Military Base'
+    localStorage.removeItem('gayz-play-saved-run')
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    const pm = s.party
+    const D = pm.ext
+    const t0 = performance.now()
+    pm.update(0.05)
+    out.buildMs = Math.round(performance.now() - t0)
+    pm.update(0.05)
+    out.named = D.mapId === 'militaryBase' && D.mapName() === 'Military Base' && D.startText().startsWith('Map: Military Base') && pm.snapshot().x.mp === 'militaryBase'
+    const hx = Math.floor(pm.home.x)
+    const hz = Math.floor(pm.home.z)
+    const bm = s.bm
+    const at = (x, y, z) => bm.getBlockAt(hx + x, 186 + y, hz + z)
+    // The helipad's H and the helicopter on it.
+    out.helipad = at(3, 0, 2) === 'whiteconcrete' && at(0, 0, 0) === 'whiteconcrete' && at(0, 4, 3) === 'blackconcrete'
+    // The edge: a concrete wall east, water then a cliff west-north-west,
+    // and the corners cut (solid and tall).
+    let water = 0
+    for (let x = -41; x <= 41; x++) for (let z = -41; z <= 41; z++) if (at(x, 0, z) === 'water') water++
+    out.edge = /concrete/.test(at(41, 6, 0) || '') && water > 20 && !!at(-41, 8, -36) && !!at(41, 8, 38)
+    // Every spawn: floor under, room for a body above.
+    out.spawns = D.map.spawns.every(([x, z, h]) => s._solid(hx + x, 186 + h, hz + z) && !s._solid(hx + x, 187 + h, hz + z) && !s._solid(hx + x, 188 + h, hz + z))
+    // Bots find their way across the base.
+    const grid = D._navGrid()
+    out.nav = !!grid && grid.reduce((a, v) => a + v, 0) > 2500
+    // Switching to Small Town clears the base's blocks.
+    D.mapId = 'smallTown'
+    D.draw()
+    out.switched = !at(0, 4, 3) && at(20, 0, 1) === 'asphalt' && !at(3, 0, 2)?.includes('white')
+    s.stop?.()
+    g._exitBuildMode?.()
+    g.settings.dmMap = 'smallTown'
+    return out
+  })
+  console.log('Military Base build ms:', r.buildMs)
+  for (const [k, v] of Object.entries(r)) if (k !== 'buildMs') expect(v, k).toBe(true)
 })
 
 // Team Deathmatch (2026-11-16): Red against Blue, 2v2 / 4v4 / Custom,

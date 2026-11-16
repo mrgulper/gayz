@@ -3393,6 +3393,8 @@ export default {
   dmStart: "死亡竞赛开始！{n}分钟内击杀最多者获胜。按 Esc > 切换武器 来换枪。",
   dmMapLine: "地图：{name}",
   dmMapSmallTown: "小镇",
+  dmMapMilitaryBase: "军事基地",
+  dmMapPick: "死亡竞赛和团队死亡竞赛的地图：",
   dmKilledBy: "被 {name} 击杀",
   dmKillCamBy: "击杀你的是",
   dmRespawnIn: "{n} 秒后复活",

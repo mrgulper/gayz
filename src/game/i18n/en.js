@@ -3445,6 +3445,8 @@ export default {
   dmStart: "Deathmatch! Most kills in {n} minutes wins. Escape > Switch Weapon to change guns.",
   dmMapLine: "Map: {name}",
   dmMapSmallTown: "Small Town",
+  dmMapMilitaryBase: "Military Base",
+  dmMapPick: "Map for Deathmatch and Team Deathmatch:",
   dmKilledBy: "Killed by {name}",
   dmKillCamBy: "Killed by",
   dmRespawnIn: "Respawning in {n}",

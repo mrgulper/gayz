@@ -40,7 +40,7 @@ import * as THREE from 'three'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
 import { MOB_HEIGHT } from './PlayRules.js'
-import { DM_MAPS, DEFAULT_DM_MAP } from './DeathmatchMaps.js'
+import { DM_MAPS, DEFAULT_DM_MAP, dmMapId, buildEdge } from './DeathmatchMaps.js'
 
 export const DM_Y = 186
 export const DM_HP = 100
@@ -74,7 +74,10 @@ export class PartyDeathmatch {
   constructor(pm) {
     this.pm = pm
     this.s = pm.s
-    this.mapId = DEFAULT_DM_MAP
+    // The map picked under Game Mode > Deathmatch (settings.dmMap) when
+    // this screen runs the game; a guest gets the host's from the sync.
+    this.mapId = pm.runs ? dmMapId(pm.s?.bm?.game?.settings?.dmMap) : DEFAULT_DM_MAP
+    this._arenaKeys = new Set()
     this.botGuns = true
     this.endlessAmmo = true
     this.waitS = 0
@@ -559,32 +562,45 @@ export class PartyDeathmatch {
     const bm = s.bm
     const hx = Math.floor(pm.home.x)
     const hz = Math.floor(pm.home.z)
+    bm._suppressUndoRecording = true
+    // A different map than before (a guest learning the host's pick):
+    // the old one's blocks go first.
+    for (const key of this._arenaKeys) {
+      const type = s._placed.get(key)
+      if (!type) continue
+      const [x, y, z] = key.split(',').map(Number)
+      if (bm.getBlockAt(x, y, z) === type) bm.removeBlock(x, y, z)
+      s._placed.delete(key)
+    }
+    this._arenaKeys.clear()
+    // type 'air' clears the cell.
     const put = (x, y, z, type) => {
       if (!type) return
       const ax = hx + x
       const az = hz + z
       const ay = DM_Y + y
+      const key = bm._key(ax, ay, az)
+      if (type === 'air') {
+        const was = s._placed.get(key)
+        if (was && bm.getBlockAt(ax, ay, az) === was) bm.removeBlock(ax, ay, az)
+        s._placed.delete(key)
+        this._arenaKeys.delete(key)
+        return
+      }
+      this._arenaKeys.add(key)
       if (bm.getBlockAt(ax, ay, az) === type) return
       if (bm.getBlockAt(ax, ay, az)) bm.removeBlock(ax, ay, az)
       bm.placeBlock(ax, ay, az, type, true)
-      s._placed.set(bm._key(ax, ay, az), type)
+      s._placed.set(key, type)
     }
     // type: a block, or (x, z, y) -> a block (null: leave it).
     const box = (x0, z0, w, d, y0, y1, type) => {
       for (let x = x0; x < x0 + w; x++) for (let z = z0; z < z0 + d; z++) for (let y = y0; y <= y1; y++) put(x, y, z, typeof type === 'function' ? type(x, z, y) : type)
     }
-    bm._suppressUndoRecording = true
     const map = this.map
-    const W = map.half
-    // The town wall all round, lamps along it.
-    for (let x = -W - 1; x <= W + 1; x++) {
-      for (let z = -W - 1; z <= W + 1; z++) {
-        if (Math.abs(x) !== W + 1 && Math.abs(z) !== W + 1) continue
-        put(x, 0, z, 'stonebricks')
-        for (let y = 1; y <= map.wallH; y++) put(x, y, z, y === 4 && (x + z) % 6 === 0 ? 'sealantern' : y === map.wallH ? 'stonebricks' : 'brick')
-      }
-    }
     map.build({ put, box })
+    // The uneven edge all round: wall, cliff, trees or water.
+    buildEdge(map, { put, box })
     bm._suppressUndoRecording = false
   }
 
@@ -830,7 +846,7 @@ export class PartyDeathmatch {
   protects(x, y, z) {
     const pm = this.pm
     const half = this.map.half
-    if (!pm.home || y < DM_Y - 1 || y > DM_Y + this.map.wallH + 2) return false
+    if (!pm.home || y < DM_Y - 2 || y > DM_Y + this.map.wallH + 6) return false
     return Math.abs(x - Math.floor(pm.home.x)) <= half + 2 && Math.abs(z - Math.floor(pm.home.z)) <= half + 2
   }
 
