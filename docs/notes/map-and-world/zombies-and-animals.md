@@ -17,7 +17,7 @@ Split out of the old `map-and-world.md` on 2026-11-13 (word for word, oldest fir
 - CreatureKinds.js: 30 kinds (17 real, 13 made-up, made-up ones Legendary) from `PLANS` exported by WildAnimalKinds. Yeti/sasquatch 2 blocks tall.
 - DinoKinds BULK: 7 big meat-eaters x1.45-1.6, extra WIDE 1.35, thighs/jaw/chest boxes, health x2 (T. rex ~7.7 tall).
 - Scary: every `hunts` kind gets `scary`: colours x0.8, angry brows + scar (faceTexture), teeth (snoutTexture), unlit red eye boxes + fang boxes (_build). Looks only.
-- Test: buildmode "sun-burning zombies, cave zombies, own meat drops, new creatures, scary hunters". buildmode + docs 74/74.
+- Test: zombies "sun-burning zombies, cave zombies, own meat drops, new creatures, scary hunters". zombies + docs 74/74.
 
 ## Golden/Diamond zombies, Photo Mode, death jokes (2026-10-30)
 - ZombieNames.js `ZOMBIE_SHINES` (gold 1/200 x10 coins, diamond 1/1000 x50), rolled on top of the tier (`rollZombieShine`, `_spawnZombie`). A shiny zombie is NOT batched: `shineBody` gives the template's parts their own cloned materials (tint + emissive, `glowShineBody` per frame from `_sizeZombieTags`; red flash handled there too), `zombieShineFx` adds halo/sparkles/ring (+ sky beam for diamond), all `userData.shared`; `_removeZombie` disposes `shineMats`. Synced as snapshot `sh` and credit `shine` (api/_lib/servers.js `ZOMBIE_SHINE_IDS`). Kill/assist coins x `shineCoins`; stats `goldKills`/`diamondKills`; sounds `goldZombie`/`diamondZombie` in Audio SPECIAL_SOUNDS.
