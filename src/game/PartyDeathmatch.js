@@ -22,6 +22,15 @@
 // SPAWN_SAFE seconds. The host keeps everyone's health; a guest's hit
 // travels like Duel Arena's (`d` + who). Kill feed top right; the board
 // with everyone's kills and deaths shows when the round ends.
+//
+// Kirka style (2026-11-16, Gaymi: "make it more kirka style but dont
+// change the movement"): no wait in the camp first - you start in the
+// arena (waitS = 0, PartyModes.js). Dying shows a kill cam: the camera
+// flies to whoever killed you and watches them, with their name and
+// health, for RESPAWN_S seconds (no moving or shooting; your body waits
+// under the floor, safe), then you respawn. Kill streaks get a big banner,
+// a bar at the top shows the time left and your place, and a headshot or
+// kill turns the hit marker gold / red (BuildSurvival._hitFeedback).
 // Meshes only, never a light.
 import * as THREE from 'three'
 import { t } from './i18n.js'
@@ -37,6 +46,10 @@ export const DMG_MIN = 6
 export const DMG_MAX = 100
 export const HEAD_MULT = 1.5
 export const SPAWN_SAFE = 1.5
+export const RESPAWN_S = 5
+const CAM_FLY = 0.6 // seconds the kill cam takes to reach the killer
+const CAM_BACK = 3.2 // blocks the kill cam stays from the killer
+const PARK_DROP = 30 // blocks under the floor your body waits during it
 const WALL_H = 9
 const DECK = 4 // the side decks' and the tower's height
 const FEED_N = 5
@@ -57,6 +70,10 @@ export class PartyDeathmatch {
     this.pm = pm
     this.s = pm.s
     this.endlessAmmo = true
+    this.waitS = 0
+    this._cam = null
+    this._streak = 0
+    this._topKey = ''
     this.hp = new Map()
     this.deaths = {}
     this.prot = new Map()
@@ -72,6 +89,19 @@ export class PartyDeathmatch {
     this._boardEl = document.createElement('div')
     this._boardEl.id = 'dm-board'
     document.body.appendChild(this._boardEl)
+    // The kill cam's card: "Killed by", their name, their health, the
+    // countdown.
+    this._camEl = document.createElement('div')
+    this._camEl.id = 'dm-killcam'
+    this._camEl.innerHTML = '<div class="dm-kc-by"></div><div class="dm-kc-name"></div><div class="dm-kc-hp"><i></i></div><div class="dm-kc-time"></div>'
+    document.body.appendChild(this._camEl)
+    this._streakEl = document.createElement('div')
+    this._streakEl.id = 'dm-streak'
+    document.body.appendChild(this._streakEl)
+    this._topEl = document.createElement('div')
+    this._topEl.id = 'dm-top'
+    this._topEl.innerHTML = '<b></b><span></span>'
+    document.body.appendChild(this._topEl)
   }
 
   get B() {
@@ -174,10 +204,11 @@ export class PartyDeathmatch {
     this._scored(by)
     this.deaths[id] = (this.deaths[id] || 0) + 1
     this.hp.set(id, DM_HP)
-    this.prot.set(id, SPAWN_SAFE)
+    const b = pm.bots.get(id)
+    // A bot is straight back in; a player watches the kill cam first.
+    this.prot.set(id, b ? SPAWN_SAFE : RESPAWN_S + SPAWN_SAFE)
     this.feed.push({ n: ++this.feedN, k: by, v: id })
     this.feed = this.feed.slice(-FEED_N)
-    const b = pm.bots.get(id)
     if (b) this.placeBot(b)
   }
 
@@ -332,7 +363,7 @@ export class PartyDeathmatch {
   // My shot: the nearest fighter on the ray.
   shoot(ray, reach, wall, damage) {
     const pm = this.pm
-    if (pm.phase !== 'play' || !this.hp.has(pm.myId)) return false
+    if (pm.phase !== 'play' || !this.hp.has(pm.myId) || this._cam) return false
     const B = this.B
     const box = new THREE.Box3()
     const hit = new THREE.Vector3()
@@ -355,10 +386,22 @@ export class PartyDeathmatch {
     // A shotgun's pellets all count (the shot only sends the middle ray).
     const pellets = Math.min(4, this.s.weapon?.pellets || 1)
     const amount = Math.round(Math.max(DMG_MIN, Math.min(DMG_MAX, damage * pellets * DMG_SHARE * (head ? HEAD_MULT : 1))))
+    const before = this.deaths[best.id] || 0
     if (pm.runs) this._hit(best.id, amount, pm.myId)
     else this.s.net?.queueHit(`d${best.id}`, amount)
     this.s.damageNumbers?.show(best.x, best.y + MOB_HEIGHT, best.z, amount)
-    return true
+    // For the hit marker: gold on a headshot, red on a kill (a guest's
+    // kill only shows once the host has it - "You killed").
+    return { head, kill: (this.deaths[best.id] || 0) > before }
+  }
+
+  // No shooting or walking while the kill cam is on.
+  noFire() {
+    return !!this._cam
+  }
+
+  speed() {
+    return this._cam ? 0 : 1
   }
 
   remoteHit(h) {
@@ -441,23 +484,26 @@ export class PartyDeathmatch {
     const s = this.s
     const me = pm.myId
     const deaths = this.deaths[me] || 0
+    if (this._cam && pm.phase !== 'play') this._endCam(false)
     if (pm.phase === 'play' && (was.phase !== 'play' || was.round !== pm.round)) {
+      if (this._cam) this._endCam(false)
+      this._streak = 0
       this._goTo(this._spawnFor(me))
       this._myDeaths = deaths
       this._seenFeed = this.feedN
       this._myHp = DM_HP
     }
     if (pm.phase === 'play') {
-      // I died: back in at a spawn point.
+      // I died: the kill cam, then back in at a spawn point.
       if (deaths > this._myDeaths) {
-        this._goTo(this._spawnFor(me))
         const by = [...this.feed].reverse().find((f) => f.v === me)?.k
-        s._message(t('dmKilledBy', { name: by ? pm._name(by) : '?' }), 2)
+        this._startCam(by)
         this._myHp = DM_HP
       }
+      if (this._cam) this._runCam()
       // Fell out somehow.
       const at = s.bodyPos()
-      if (pm.home && (at.y < DM_Y - 3 || !this._inside(at.x, at.z))) this._goTo(this._spawnFor(me))
+      if (!this._cam && pm.home && (at.y < DM_Y - 3 || !this._inside(at.x, at.z))) this._goTo(this._spawnFor(me))
     }
     this._myDeaths = deaths
     // Hit: a thump, and the health bar moves.
@@ -475,11 +521,120 @@ export class PartyDeathmatch {
       if (f.k === me) {
         s._message(t('dmYouKilled', { name: pm._name(f.v) }), 1.5)
         try { audioEngine.playSpecial?.('chime') } catch { /* no audio */ }
+        this._streak++
+        if (this._streak >= 2) this._showStreak(this._streak)
       }
     }
     this._seenFeed = Math.max(this._seenFeed, this.feedN)
     this._renderFeed()
     this._renderBoard()
+    this._renderTop()
+  }
+
+  // --- the kill cam (my screen only) ---
+
+  _startCam(by) {
+    const s = this.s
+    const cam = s.bm.camera
+    const at = s.bodyPos()
+    this._cam = { by: by || '', start: performance.now(), from: cam.position.clone(), dead: { x: at.x, z: at.z }, k: null, shown: '' }
+    this._streak = 0
+    s.bm.tryMode.hideGun = true
+    this._camEl.classList.add('on')
+    this._camEl.querySelector('.dm-kc-by').textContent = t('dmKillCamBy')
+    this._park()
+  }
+
+  // My body waits under the arena floor, out of sight and out of reach.
+  _park() {
+    const tm = this.s.bm.tryMode
+    const h = this.pm.home
+    if (!h) return
+    tm.pos.set(h.x, DM_Y - PARK_DROP, h.z)
+    tm.vel?.set(0, 0, 0)
+  }
+
+  _runCam() {
+    const c = this._cam
+    const pm = this.pm
+    const B = this.B
+    const gone = (performance.now() - c.start) / 1000
+    if (gone >= RESPAWN_S) return this._endCam(true)
+    this._park()
+    const k = pm._people().find((p) => p.id === c.by)
+    if (k) c.k = { x: k.x, y: k.y, z: k.z }
+    const cam = this.s.bm.camera
+    if (c.k) {
+      // From the killer back towards where I fell (that way was clear -
+      // they shot me along it), a bit above their head.
+      let dx = c.dead.x - c.k.x
+      let dz = c.dead.z - c.k.z
+      const len = Math.hypot(dx, dz) || 1
+      const back = Math.min(CAM_BACK, len)
+      dx /= len
+      dz /= len
+      const end = new THREE.Vector3((c.k.x + dx * back) * B, (c.k.y + 2.4) * B, (c.k.z + dz * back) * B)
+      const a = Math.min(1, gone / CAM_FLY)
+      cam.position.lerpVectors(c.from, end, a * a * (3 - 2 * a))
+      cam.lookAt(c.k.x * B, (c.k.y + MOB_HEIGHT * 0.75) * B, c.k.z * B)
+    } else {
+      cam.position.copy(c.from)
+    }
+    // The card: their name (in their team colour), health, the countdown.
+    const hp = this.hp.get(c.by) ?? DM_HP
+    const left = Math.ceil(RESPAWN_S - gone)
+    const key = `${c.by}|${hp}|${left}`
+    if (key === c.shown) return
+    c.shown = key
+    const name = this._camEl.querySelector('.dm-kc-name')
+    name.textContent = c.by ? pm._name(c.by) : '?'
+    name.className = `dm-kc-name${this._teamOf(c.by) ? ` team-${this._teamOf(c.by)}` : ''}`
+    this._camEl.querySelector('.dm-kc-hp i').style.width = `${Math.max(0, Math.min(100, (hp / DM_HP) * 100))}%`
+    this._camEl.querySelector('.dm-kc-time').textContent = t('dmRespawnIn', { n: left })
+  }
+
+  _endCam(respawn) {
+    this._cam = null
+    this.s.bm.tryMode.hideGun = false
+    this._camEl.classList.remove('on')
+    if (respawn) this._goTo(this._spawnFor(this.pm.myId))
+  }
+
+  // "Double Kill!" and up, big in the middle for a moment.
+  _showStreak(n) {
+    const el = this._streakEl
+    el.textContent = n === 2 ? t('dmDoubleKill') : n === 3 ? t('dmTripleKill') : t('dmKillStreak', { n })
+    el.classList.remove('on')
+    void el.offsetWidth
+    el.classList.add('on')
+  }
+
+  // The bar at the top: time left and my place ("#2 of 8").
+  _renderTop() {
+    const pm = this.pm
+    const show = pm.phase === 'play'
+    let key = ''
+    let place = ''
+    let time = ''
+    if (show) {
+      const rows = this._boardRows()
+      const i = rows.findIndex((r) => r.id === pm.myId)
+      const left = Math.max(0, Math.floor(pm.left))
+      time = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`
+      place = t('dmPlace', { n: i < 0 ? rows.length : i + 1, total: rows.length })
+      key = `${time}|${place}`
+    }
+    if (key === this._topKey) return
+    this._topKey = key
+    // Just under the mode's line at the top (the stats strip covers the
+    // very top).
+    const line = document.getElementById('build-play-wave-text')
+    const box = line && line.getClientRects().length ? line.getBoundingClientRect() : null
+    const y = box && box.bottom > 0 ? `${Math.round(box.bottom + 8)}px` : ''
+    if (this._topEl.style.top !== y) this._topEl.style.top = y
+    this._topEl.classList.toggle('on', show)
+    this._topEl.firstChild.textContent = time
+    this._topEl.lastChild.textContent = place
   }
 
   _renderFeed() {
@@ -580,7 +735,11 @@ export class PartyDeathmatch {
   }
 
   dispose() {
+    if (this._cam) this._endCam(false)
     this._feedEl.remove()
     this._boardEl.remove()
+    this._camEl.remove()
+    this._streakEl.remove()
+    this._topEl.remove()
   }
 }

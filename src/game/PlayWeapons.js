@@ -24,7 +24,8 @@
 //          (BuildTryMode._updateScope)
 // heavy    walking speed while holding it (2026-11-13, Gaymi: "only make it
 //          like holding a rock when they're holding something actually
-//          heavy") - the biggest guns only; everything else is full speed
+//          heavy") - since 2026-11-16 only the Minigun and GPMG (Gaymi:
+//          "just the minigun and gpmg"); everything else is full speed
 // Ammo is what the real gun holds and what someone would carry for it
 // (2026-10-30, Gaymi: "make the ammo based on how much ammo they would
 // actually have irl") - the comment above each gun says which real gun.
@@ -43,13 +44,13 @@ export const PLAY_WEAPONS = {
   // Farsight - a .338 sniper rifle (AWM): 5 a magazine, 40 rounds carried
   awp: { damage: 180, rate: 1.25, mag: 5, reserve: 40, reload: 2.6, pierce: 4, scope: 4 },
   // Dragonbreath - a backpack flamethrower: one tank is ~6 seconds of fire, one spare
-  flamethrower: { damage: 11, rate: 0.06, auto: true, mag: 100, reserve: 100, reload: 2.4, range: 7, pellets: 3, spread: 0.06, burn: 3, fuel: true, heavy: HEAVY },
+  flamethrower: { damage: 11, rate: 0.06, auto: true, mag: 100, reserve: 100, reload: 2.4, range: 7, pellets: 3, spread: 0.06, burn: 3, fuel: true },
   // Skybreaker - an RPG-7: one rocket loaded, 4 carried
-  rocket: { damage: 200, rate: 1.4, mag: 1, reserve: 4, reload: 2.4, blast: 3, heavy: HEAVY },
+  rocket: { damage: 200, rate: 1.4, mag: 1, reserve: 4, reload: 2.4, blast: 3 },
   // Quill - a crossbow: one bolt, a quiver of 12
   crossbow: { damage: 120, rate: 0.9, mag: 1, reserve: 12, reload: 0.9, pierce: 3 },
   // Thumper - a 6-shot revolver grenade launcher (M32): 6 loaded, 18 carried
-  launcher: { damage: 130, rate: 0.7, mag: 6, reserve: 18, reload: 2.6, blast: 2.5, heavy: HEAVY },
+  launcher: { damage: 130, rate: 0.7, mag: 6, reserve: 18, reload: 2.6, blast: 2.5 },
   // Whisper - an MP5-SD: 30-round magazine, 5 spare
   suppressedsmg: { damage: 22, rate: 0.07, auto: true, mag: 30, reserve: 150, reload: 1.5 },
   // Void Ripper - made up, no real gun

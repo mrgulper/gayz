@@ -7252,6 +7252,9 @@ test('Laser Tag, Kart Racing, the Obstacle Course, minecarts and the haunted hou
     const light = topSpeed('rifle')
     const heavy = topSpeed('minigun')
     out.heavySlower = light > 3.9 && heavy < light * 0.9 && heavy > light * 0.8
+    // Only the Minigun and GPMG are heavy (2026-11-16) - the Rocket and
+    // Flamethrower go full speed.
+    out.onlyTwoHeavy = topSpeed('gpmg') < light * 0.9 && topSpeed('rocket') > light * 0.98 && topSpeed('flamethrower') > light * 0.98
     // Letting go stops you quickly (no sliding on).
     for (let i = 0; i < 4; i++) tm.pos.set(pad.x, pad.y, pad.z), tm._walk(0.05, new Set(), { fwd: false, back: false, left: false, right: false, stick: null, mx: 0, mz: 0 })
     out.quickStop = tm.onGround && Math.hypot(tm.vel.x, tm.vel.z) < 0.05
@@ -7394,9 +7397,12 @@ test('Deathmatch: bots, kills, respawns and the winner', async ({ page }) => {
     const pm = s.party
     const D = pm.ext
     out.endlessAmmo = s.reserve === Infinity && document.getElementById('build-play-ammo')?.textContent.includes('∞')
-    for (let i = 0; i < 200 && pm.phase === 'wait'; i++) pm.update(0.05)
+    // Straight into the arena - no wait in the camp first.
+    pm.update(0.05)
+    out.noWait = pm.phase === 'play'
     pm.update(0.05)
     const me = pm.myId
+    out.topBar = document.getElementById('dm-top')?.classList.contains('on') && /#\d+ of 8/.test(document.getElementById('dm-top').textContent)
     out.eightFighters = pm.phase === 'play' && pm.bots.size === 7 && D.hp.size === 8 && D.hp.get(me) === 100
     out.inArena = s.bm.tryMode.pos.y > 186 && D._inside(s.bm.tryMode.pos.x, s.bm.tryMode.pos.z)
     out.healthBar = document.getElementById('build-play-health-text')?.textContent === '100'
@@ -7409,6 +7415,12 @@ test('Deathmatch: bots, kills, respawns and the winner', async ({ page }) => {
     pm.update(0.05)
     out.kill = pm.score[me] === 1 && D.deaths[bot] === 1 && D.hp.get(bot) === 100 && D.feed.at(-1)?.k === me && document.querySelectorAll('#dm-feed .dm-feed-row').length === 1
     out.spawnSafe = D.prot.has(bot)
+    // A second kill straight after: "Double Kill!".
+    D.prot.clear()
+    D._hit([...pm.bots.keys()][2], 100, me)
+    pm.update(0.05)
+    out.streak = document.getElementById('dm-streak')?.textContent === 'Double Kill!' && document.getElementById('dm-streak').classList.contains('on')
+    pm.score[me] = 1
     // A bot gets me: I respawn at a spawn point with full health.
     D.prot.clear()
     const other = [...pm.bots.keys()][1]
@@ -7417,7 +7429,13 @@ test('Deathmatch: bots, kills, respawns and the winner', async ({ page }) => {
     out.myHealthShown = document.getElementById('build-play-health-text')?.textContent === '30'
     D._hit(me, 70, other)
     pm.update(0.05)
-    out.iRespawned = D.deaths[me] === 1 && D.hp.get(me) === 100 && pm.score[other] === 1 && s.bm.tryMode.pos.y > 186
+    // The kill cam: their name, no moving or shooting, my body safe under
+    // the floor; RESPAWN_S later I'm back in the arena.
+    const cam = document.getElementById('dm-killcam')
+    out.killCam = !!D._cam && cam.classList.contains('on') && cam.textContent.includes(pm._name(other)) && s.bm.tryMode.hideGun === true && s.bm.tryMode.speedMult === 0 && s.tryFire() === false && s.bm.tryMode.pos.y < 186 && D.prot.has(me)
+    D._cam.start -= 6000
+    pm.update(0.05)
+    out.iRespawned = !D._cam && !cam.classList.contains('on') && !s.bm.tryMode.hideGun && D.deaths[me] === 1 && D.hp.get(me) === 100 && pm.score[other] === 1 && s.bm.tryMode.pos.y > 186
     // A player joining takes a bot's place.
     const realPeople = pm._people
     pm._people = function () {
@@ -7432,7 +7450,7 @@ test('Deathmatch: bots, kills, respawns and the winner', async ({ page }) => {
     const snap = JSON.parse(JSON.stringify(pm.snapshot()))
     const copy = new D.constructor(pm)
     copy.apply(snap.x)
-    out.snap = copy.hp.get(me) === 100 && copy.deaths[me] === 1 && copy.feed.length === 2 && copy.feedN === D.feedN
+    out.snap = copy.hp.get(me) === 100 && copy.deaths[me] === 1 && copy.feed.length === 3 && copy.feedN === D.feedN
     copy.dispose()
     // Time's up: the most kills wins.
     pm.score[me] = 5
@@ -7442,7 +7460,7 @@ test('Deathmatch: bots, kills, respawns and the winner', async ({ page }) => {
     s.stop?.()
     g._exitBuildMode?.()
     await new Promise((res) => setTimeout(res, 200))
-    out.cleanedUp = !document.getElementById('dm-feed') && !document.getElementById('dm-board')
+    out.cleanedUp = !document.getElementById('dm-feed') && !document.getElementById('dm-board') && !document.getElementById('dm-killcam') && !document.getElementById('dm-top')
     return out
   })
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)

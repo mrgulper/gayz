@@ -219,6 +219,8 @@ export class PartyMode {
     survival.bm.scene.add(this.arena)
     this._marks = new Map() // id -> team mark mesh over their head
     this.ext = PARTY_EXT[kind] ? new PARTY_EXT[kind](this) : null
+    // An ext's own wait before a round (Deathmatch: none - straight in).
+    if (this.ext?.waitS != null) this.left = this.ext.waitS
   }
 
   get runs() {
@@ -327,7 +329,7 @@ export class PartyMode {
       this.left -= dt
       if (this.left <= 0) {
         this.phase = 'wait'
-        this.left = WAIT_S
+        this.left = this.ext?.waitS ?? WAIT_S
         this.round++
         this.winner = ''
       }

@@ -1578,3 +1578,86 @@ html.ui-theme-old .compass-mark { border-bottom-color: #6b3f17; }
   #dm-feed { top: 56px; right: 8px; }
   .dm-feed-row { font-size: 11px; padding: 2px 7px; }
 }
+/* Deathmatch, Kirka style (PartyDeathmatch.js, 2026-11-16): the kill cam's
+   card low in the middle, the kill streak banner, and the time + place bar
+   at the top. Biome colours in the biome theme, dark glass otherwise. */
+#dm-killcam {
+  position: fixed;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: none;
+  width: min(86vw, 300px);
+  padding: 10px 16px 12px;
+  border-radius: 12px;
+  text-align: center;
+  font: 600 14px/1.3 system-ui, sans-serif;
+  color: var(--biome-ink, #fff);
+  background: var(--biome-surface, rgba(10, 10, 14, 0.78));
+  border: 1px solid var(--biome-edge, rgba(255, 255, 255, 0.18));
+  pointer-events: none;
+}
+#dm-killcam.on { display: block; }
+/* No crosshair while the kill cam watches someone else. */
+body:has(#dm-killcam.on) #build-try-crosshair { visibility: hidden; }
+.dm-kc-by { font-size: 12px; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.08em; }
+.dm-kc-name {
+  margin: 2px 0 8px;
+  font-family: 'Luckiest Guy', 'Bebas Neue', sans-serif;
+  font-weight: 400;
+  font-size: 26px;
+  color: #ff5a4e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dm-kc-name.team-r { color: #e8443a; }
+.dm-kc-name.team-b { color: #3a7be8; }
+.dm-kc-hp { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.18); overflow: hidden; }
+.dm-kc-hp i { display: block; height: 100%; width: 100%; background: #4cd964; transition: width 0.2s; }
+.dm-kc-time { margin-top: 8px; font-size: 13px; opacity: 0.85; }
+#dm-streak {
+  position: fixed;
+  left: 50%;
+  top: 38%;
+  transform: translate(-50%, -50%);
+  z-index: 7;
+  opacity: 0;
+  font-family: 'Luckiest Guy', 'Bebas Neue', sans-serif;
+  font-size: clamp(28px, 6vw, 48px);
+  color: #ffd23f;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.55), 0 0 16px rgba(255, 140, 0, 0.6);
+  white-space: nowrap;
+  pointer-events: none;
+}
+#dm-streak.on { animation: dm-streak-pop 1.8s ease-out forwards; }
+@keyframes dm-streak-pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+  12% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  75% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -60%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #dm-streak.on { animation-name: dm-streak-fade; }
+  @keyframes dm-streak-fade { 0%, 75% { opacity: 1; } 100% { opacity: 0; } }
+}
+#dm-top {
+  position: fixed;
+  left: 50%;
+  top: 86px;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  color: var(--biome-ink, #fff);
+  background: var(--biome-surface, rgba(10, 10, 14, 0.7));
+  border: 1px solid var(--biome-edge, rgba(255, 255, 255, 0.18));
+  pointer-events: none;
+}
+#dm-top.on { display: flex; }
+#dm-top b { font-family: 'Luckiest Guy', 'Bebas Neue', sans-serif; font-weight: 400; font-size: 22px; line-height: 1.1; }
+#dm-top span { font: 700 14px/1 system-ui, sans-serif; opacity: 0.85; }

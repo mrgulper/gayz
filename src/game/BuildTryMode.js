@@ -2644,6 +2644,8 @@ export class BuildTryMode {
   }
 
   _renderOnTop(renderer) {
+    // Deathmatch's kill cam (PartyDeathmatch.js) watches someone else.
+    if (this.hideGun) return
     const cam = this.bm.camera
     this._gunCamera.aspect = cam.aspect
     // Portrait phones (2026-10-27): at 70 degrees tall the view is only a
