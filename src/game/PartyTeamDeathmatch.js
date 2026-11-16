@@ -16,20 +16,13 @@
 // (PartyMode._mark). The host picks the size (its own setting) and sends
 // it with the round (`sz`), so everyone on a server plays the same size.
 import { t } from './i18n.js'
-import { PartyDeathmatch, DM_Y } from './PartyDeathmatch.js'
+import { PartyDeathmatch } from './PartyDeathmatch.js'
 
 export const TDM_SIZES = [2, 4]
 export const TDM_MIN = 1
 export const TDM_MAX = 4
-const DECK = 4
 const COLORS = { r: 0xe8443a, b: 0x3a7be8 }
 // Each team's spawn points: [x, z, floor height] round home.
-const SIDE_SPAWNS = {
-  r: [[-17, -17, 0], [-17, 17, 0], [-9, 0, 0], [-18.5, 0, DECK], [-13, -8, 0], [-13, 8, 0]],
-  b: [[17, 17, 0], [17, -17, 0], [9, 0, 0], [18.5, 0, DECK], [13, 8, 0], [13, -8, 0]],
-}
-
-// A team size from a setting (1 to 4 a side, 4 if it's missing).
 export function tdmSize(v) {
   const n = Math.round(Number(v))
   return Number.isFinite(n) && n >= TDM_MIN ? Math.min(TDM_MAX, n) : TDM_MAX
@@ -107,22 +100,19 @@ export class PartyTeamDeathmatch extends PartyDeathmatch {
   }
 
   // My team's spawn point furthest from the other team.
-  _spawnFor(id) {
+  // Spawn points for `id`: their side's (DeathmatchMaps.js teamSpawns),
+  // the furthest from their enemies (the base _spawnFor only counts foes).
+  _spawnList(id) {
     const tm = this._teamOf(id)
-    if (!tm) return super._spawnFor(id)
-    const foes = this.pm._people().filter((p) => this._foe(id, p.id) && this.hp.has(p.id))
-    let best = null
-    let bestD = -1
-    for (const [sx, sz, sy] of SIDE_SPAWNS[tm]) {
-      const a = this._abs(sx, sz)
-      const d = foes.length ? Math.min(...foes.map((p) => Math.hypot(p.x - a.x - 0.5, p.z - a.z - 0.5))) : Math.random() * 10
-      const score = d + Math.random() * 4
-      if (score > bestD) {
-        bestD = score
-        best = { x: a.x + 0.5, y: DM_Y + 1 + sy, z: a.z + 0.5 }
-      }
-    }
-    return best
+    return (tm && this.map.teamSpawns?.[tm]) || this.map.spawns
+  }
+
+  // My teammates on the minimap.
+  mapDots() {
+    const pm = this.pm
+    const mine = pm.myTeam
+    if (!mine || pm.phase !== 'play') return []
+    return pm._people().filter((p) => p.id !== pm.myId && this._teamOf(p.id) === mine && this.hp.has(p.id)).map((p) => ({ x: p.x, z: p.z, color: COLORS[mine] }))
   }
 
   markColor(id) {

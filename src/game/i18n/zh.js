@@ -3391,6 +3391,8 @@ export default {
   topBarModeDeathmatch: "死亡竞赛",
   dmHint: "在空中竞技场里人人为敌。5分钟内击杀最多者获胜。空位由机器人补上。",
   dmStart: "死亡竞赛开始！{n}分钟内击杀最多者获胜。按 Esc > 切换武器 来换枪。",
+  dmMapLine: "地图：{name}",
+  dmMapSmallTown: "小镇",
   dmKilledBy: "被 {name} 击杀",
   dmKillCamBy: "击杀你的是",
   dmRespawnIn: "{n} 秒后复活",

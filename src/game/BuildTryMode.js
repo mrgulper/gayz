@@ -57,6 +57,7 @@ import { GunFx } from './GunFx.js'
 import { MOB_HEIGHT } from './PlayRules.js'
 import { PLAY_WEAPONS } from './PlayWeapons.js'
 import { BOTTOM } from './Underground.js'
+import { SkyMap } from './SkyMap.js'
 import { KART_EYE } from './GoKart.js'
 import { tickAmbientCues, resetAmbientCues } from './AmbientCues.js'
 import { HeldFood, isHeldFood } from './HeldFood.js'
@@ -811,6 +812,10 @@ export class BuildTryMode {
     // world - a window of the land around you, you in the middle.
     this._freeMouseForMap()
     const world = this.bm.world?.active ? this.bm.world : null
+    // Up in a game mode's arena: that arena from above, not the land far
+    // below it (SkyMap.js).
+    if (!this._skyMap) this._skyMap = new SkyMap(this.bm)
+    const sky = world && this.active ? this._skyMap.layer(x, this.pos.y, z, now) : null
     const moved = this._mapZoom !== 1 || this._mapPan.x || this._mapPan.z
     const windowed = world || moved
     const span = windowed ? this._mapSpan() : cells
@@ -818,7 +823,7 @@ export class BuildTryMode {
     const oz = windowed ? (world ? z : 0) + this._mapPan.z - span / 2 : -cells / 2
     const k = s / span
     // The World Map mode's big map zoomed far out: the globe.
-    const earth = !!world && isEarthWorld()
+    const earth = !!world && !sky && isEarthWorld()
     const pic = earth ? world.earthPicture() : null
     const globeView = earth && this._mapInteractive() && span > GLOBE_FROM
     // Between GLOBE_FADE_FROM and GLOBE_FROM: both, the globe fading in.
@@ -836,7 +841,16 @@ export class BuildTryMode {
     // The flat map fades out over the second half.
     const flat = globeView ? '' : fade > 0.4 ? String(1 - THREE.MathUtils.smoothstep(fade, 0.4, 1)) : ''
     if (c.style.opacity !== flat) c.style.opacity = flat
-    if (!world && windowed) {
+    if (sky) {
+      ctx.fillStyle = '#16202c'
+      ctx.fillRect(0, 0, s, s)
+      ctx.drawImage(sky.canvas, (sky.x0 - ox) * k, (sky.z0 - oz) * k, sky.w * k, sky.h * k)
+      // The arena's name where the biome usually shows ("Small Town").
+      const name = this.bm.survival?.party?.ext?.mapName?.() || ''
+      if (!this._biomeEl) this._showBiome(null)
+      if (this._biomeEl.textContent !== name) this._biomeEl.textContent = name
+      this._biomeEl.style.display = name ? '' : 'none'
+    } else if (!world && windowed) {
       ctx.fillStyle = '#1d2a1a'
       ctx.fillRect(0, 0, s, s)
       ctx.drawImage(this._mapImage, (-cells / 2 - ox) * k, (-cells / 2 - oz) * k, cells * k, cells * k)
@@ -972,6 +986,16 @@ export class BuildTryMode {
     }
     // Map pins, yours and the ones shared with you (MapPins.js).
     if (this.bm.survival?.active) this.bm.survival.pins?.draw(ctx, ox, oz, k, s, this._mapEl)
+    // A game mode's own dots (Team Deathmatch: your teammates).
+    for (const d of this.bm.survival?.party?.ext?.mapDots?.() || []) {
+      ctx.beginPath()
+      ctx.arc((d.x - ox) * k, (d.z - oz) * k, Math.max(3, s / 45), 0, Math.PI * 2)
+      ctx.fillStyle = `#${d.color.toString(16).padStart(6, '0')}`
+      ctx.strokeStyle = '#fff'
+      ctx.lineWidth = Math.max(1, s / 160)
+      ctx.fill()
+      ctx.stroke()
+    }
     // Where you are, and which way you're looking.
     const px = (x - ox) * k
     const pz = (z - oz) * k

@@ -8,11 +8,15 @@
 // just between rounds); timer only; endless ammo (you still reload); swap
 // guns any time from the pause menu (Escape > Switch Weapon).
 //
-// The arena (about 41 x 41 blocks, a guess at a Kirka map's size) is real
-// blocks high in the sky (DM_Y): walls all round, a tower in the middle
-// with stairs up both sides, a raised deck along each side wall, and crates
-// for cover. Built on every screen (BuildSurvival `_placed`, gone when the
-// game ends).
+// The arena is a named map (DeathmatchMaps.js - Small Town first, 81 x 81
+// blocks) of real blocks high in the sky (DM_Y), a town wall all round.
+// Built on every screen (BuildSurvival `_placed`, gone when the game ends).
+// Bots find their way round the buildings on a grid of the ground (_nav).
+//
+// Bots carry a real gun (2026-11-16, Gaymi: "you dont see bots hold gun
+// for shooting you"): each gets one from BOT_GUNS, holds it like a player
+// does (HeldWeapon.js), turns to face whoever they shoot, flashes at the
+// muzzle and makes that gun's sound; their damage and range go by it.
 //
 // Everyone has DM_HP health of their own (your real health and gear aren't
 // touched; the health bar shows this one - BuildSurvival._renderHud
@@ -36,11 +40,11 @@ import * as THREE from 'three'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
 import { MOB_HEIGHT } from './PlayRules.js'
+import { DM_MAPS, DEFAULT_DM_MAP } from './DeathmatchMaps.js'
 
 export const DM_Y = 186
 export const DM_HP = 100
 export const DM_TOTAL = 8
-export const DM_HALF = 20 // the floor runs -DM_HALF..DM_HALF round home
 export const DMG_SHARE = 0.65
 export const DMG_MIN = 6
 export const DMG_MAX = 100
@@ -50,18 +54,19 @@ export const RESPAWN_S = 5
 const CAM_FLY = 0.6 // seconds the kill cam takes to reach the killer
 const CAM_BACK = 3.2 // blocks the kill cam stays from the killer
 const PARK_DROP = 30 // blocks under the floor your body waits during it
-const WALL_H = 9
-const DECK = 4 // the side decks' and the tower's height
 const FEED_N = 5
-const BOT_SHOT = [0.35, 0.75]
-const BOT_RANGE = 26
-const BOT_DMG = [8, 14]
-// Spawn points: [x, z, height of the floor under them] round home.
-const SPAWNS = [[-17, -17, 0], [17, 17, 0], [-17, 17, 0], [17, -17, 0], [0, -18, 0], [0, 18, 0], [-9, 0, 0], [9, 0, 0], [-18.5, 0, DECK], [18.5, 0, DECK]]
-// Cover: [x, z, width, depth, height].
-const COVER = [[-10, -10, 2, 2, 2], [9, 9, 2, 2, 2], [-10, 9, 3, 1, 2], [9, -11, 1, 3, 2], [-2, -14, 4, 1, 2], [-2, 13, 4, 1, 2], [-14, -3, 1, 2, 1], [13, 2, 1, 2, 1], [-6, -6, 1, 1, 1], [6, 6, 1, 1, 1], [-6, 6, 1, 1, 3], [6, -6, 1, 1, 3]]
-// Where a bot that's stuck walks to instead: stair feet and open floor.
-const WAYPOINTS = [[0, 8], [0, -8], [18.5, 14], [18.5, -14], [-18.5, 14], [-18.5, -14], [-12, 0], [12, 0], [0, 17], [0, -17]]
+// A bot's gun: seconds between shots, damage a hit, how far it reaches,
+// and its chance to hit (null: less the further away). Guesses, tuned to
+// about what the one bot gun did before.
+export const BOT_GUNS = {
+  rifle: { every: [0.3, 0.6], dmg: [8, 13], range: 34, hit: null },
+  pistol: { every: [0.45, 0.8], dmg: [10, 15], range: 26, hit: null },
+  shotgun: { every: [0.8, 1.2], dmg: [18, 28], range: 12, hit: 0.55 },
+  awp: { every: [1.4, 2], dmg: [35, 50], range: 60, hit: 0.4 },
+  gpmg: { every: [0.25, 0.5], dmg: [7, 11], range: 34, hit: null },
+}
+const BOT_GUN_IDS = Object.keys(BOT_GUNS)
+const NAV_EVERY = 0.4 // seconds between a bot's path checks
 
 const rand = ([a, b]) => a + Math.random() * (b - a)
 
@@ -69,6 +74,8 @@ export class PartyDeathmatch {
   constructor(pm) {
     this.pm = pm
     this.s = pm.s
+    this.mapId = DEFAULT_DM_MAP
+    this.botGuns = true
     this.endlessAmmo = true
     this.waitS = 0
     this._cam = null
@@ -106,6 +113,20 @@ export class PartyDeathmatch {
 
   get B() {
     return this.s.B
+  }
+
+  get map() {
+    return DM_MAPS[this.mapId] || DM_MAPS[DEFAULT_DM_MAP]
+  }
+
+  // The map's name ("Small Town"), for the minimap and the round's start.
+  mapName() {
+    return t(this.map.key)
+  }
+
+  // Spawn points for `id` (Team Deathmatch: their side's).
+  _spawnList() {
+    return this.map.spawns
   }
 
   get total() {
@@ -150,10 +171,10 @@ export class PartyDeathmatch {
   // The spawn point furthest from everyone else (a little random so two
   // deaths at once don't land on the same spot).
   _spawnFor(id) {
-    const others = this.pm._people().filter((p) => p.id !== id && this.hp.has(p.id))
+    const others = this.pm._people().filter((p) => this._foe(id, p.id) && this.hp.has(p.id))
     let best = null
     let bestD = -1
-    for (const [sx, sz, sy] of SPAWNS) {
+    for (const [sx, sz, sy] of this._spawnList(id)) {
       const a = this._abs(sx, sz)
       const d = others.length ? Math.min(...others.map((p) => Math.hypot(p.x - a.x - 0.5, p.z - a.z - 0.5))) : Math.random() * 10
       const score = d + Math.random() * 4
@@ -185,8 +206,10 @@ export class PartyDeathmatch {
     b.y = b.ty = at.y
     b.z = b.tz = at.z
     b.vy = 0
-    b.shotIn = rand(BOT_SHOT) + 1
+    if (!BOT_GUNS[b.w]) b.w = BOT_GUN_IDS[Math.floor(Math.random() * BOT_GUN_IDS.length)]
+    b.shotIn = rand(BOT_GUNS[b.w].every) + 1
     b.dmIn = true
+    b.nav = null
   }
 
   // A hit on `id` by `by` (where it runs).
@@ -260,24 +283,28 @@ export class PartyDeathmatch {
         this.placeBot(b)
         continue
       }
+      b.faceT = Math.max(0, (b.faceT || 0) - dt)
+      const gun = BOT_GUNS[b.w] || BOT_GUNS.rifle
       b.shotIn -= dt
       if (b.shotIn > 0) continue
-      b.shotIn = rand(BOT_SHOT)
-      const foe = this._target(b, people)
+      b.shotIn = rand(gun.every)
+      const foe = this._target(b, people, gun.range)
       if (!foe) continue
       b.aim = foe.id
+      // Turns to face them (and keeps facing them a moment, walking or not).
       b.tyaw = Math.atan2(foe.x - b.x, foe.z - b.z)
+      b.faceT = 0.7
       const d = Math.hypot(foe.x - b.x, foe.z - b.z)
-      if (foe.id === pm.myId || (me && Math.hypot(me.x - b.x, me.z - b.z) < 14)) {
-        try { audioEngine.playSpecial?.('turret') } catch { /* no audio */ }
-      }
-      if (Math.random() < Math.max(0.15, Math.min(0.5, 0.55 - d / 60))) this._hit(foe.id, Math.round(rand(BOT_DMG)), b.id)
+      pm._botFired(b, me)
+      const chance = gun.hit ?? Math.max(0.15, Math.min(0.5, 0.55 - d / 60))
+      if (Math.random() < chance) this._hit(foe.id, Math.round(rand(gun.dmg)), b.id)
     }
   }
 
   _inside(x, z) {
     const h = this.pm.home
-    return Math.abs(x - h.x) < DM_HALF + 1.5 && Math.abs(z - h.z) < DM_HALF + 1.5
+    const half = this.map.half
+    return Math.abs(x - h.x) < half + 1.5 && Math.abs(z - h.z) < half + 1.5
   }
 
   // Nothing solid between two people's eyes.
@@ -294,9 +321,9 @@ export class PartyDeathmatch {
   }
 
   // The nearest enemy a bot can see.
-  _target(b, people) {
+  _target(b, people, range) {
     let best = null
-    let bestD = BOT_RANGE
+    let bestD = range
     for (const p of people) {
       if (!this._foe(b.id, p.id) || !this.hp.has(p.id) || this.prot.has(p.id)) continue
       const d = Math.hypot(p.x - b.x, p.z - b.z)
@@ -319,7 +346,8 @@ export class PartyDeathmatch {
     b._lz = b.z
     b._stuck = moved < 0.01 ? (b._stuck || 0) + dt : 0
     if (b._stuck > 0.8) {
-      const [wx, wz] = WAYPOINTS[Math.floor(Math.random() * WAYPOINTS.length)]
+      const ways = this.map.waypoints
+      const [wx, wz] = ways[Math.floor(Math.random() * ways.length)]
       const a = this._abs(wx, wz)
       b.way = { x: a.x + 0.5, z: a.z + 0.5, left: 2.5 }
       b._stuck = 0
@@ -329,11 +357,13 @@ export class PartyDeathmatch {
       if (b.way.left > 0 && Math.hypot(b.way.x - b.x, b.way.z - b.z) > 1) return b.way
       b.way = null
     }
+    // The nearest enemy - one on the ground first (bots don't climb up
+    // to the roofs).
     let foe = null
     let fd = Infinity
     for (const p of people) {
       if (!this._foe(b.id, p.id) || !this.hp.has(p.id)) continue
-      const d = Math.hypot(p.x - b.x, p.z - b.z)
+      const d = Math.hypot(p.x - b.x, p.z - b.z) + (p.y > DM_Y + 3 ? 1000 : 0)
       if (d < fd) {
         fd = d
         foe = p
@@ -345,7 +375,108 @@ export class PartyDeathmatch {
       const a = Math.atan2(b.z - foe.z, b.x - foe.x) + 0.6 * (b.side || 1)
       return { x: foe.x + Math.cos(a) * 7, z: foe.z + Math.sin(a) * 7 }
     }
-    return foe
+    return this._navStep(b, foe, dt) || foe
+  }
+
+  // --- finding the way round the buildings (bots, where the game runs) ---
+
+  // Which ground cells can be walked: floor under, room for a body above.
+  // Built once the arena's blocks are there.
+  _navGrid() {
+    if (this._grid && this._gridFor === this._builtFor) return this._grid
+    const h = this.pm.home
+    if (!h || !this._builtFor) return null
+    const half = this.map.half
+    const n = half * 2 + 1
+    const s = this.s
+    const g = new Uint8Array(n * n)
+    const hx = Math.floor(h.x)
+    const hz = Math.floor(h.z)
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        const x = hx + i - half
+        const z = hz + j - half
+        g[i * n + j] = s._solid(x, DM_Y, z) && !s._solid(x, DM_Y + 1, z) && !s._solid(x, DM_Y + 2, z) ? 1 : 0
+      }
+    }
+    this._grid = g
+    this._gridFor = this._builtFor
+    return g
+  }
+
+  _cell(x, z) {
+    const h = this.pm.home
+    const half = this.map.half
+    const i = Math.floor(x) - Math.floor(h.x) + half
+    const j = Math.floor(z) - Math.floor(h.z) + half
+    const n = half * 2 + 1
+    return i < 0 || j < 0 || i >= n || j >= n ? -1 : i * n + j
+  }
+
+  // Where a bot should walk next to reach `foe` the short way round: a
+  // few cells along the path (worked out from the foe's cell outwards).
+  _navStep(b, foe, dt) {
+    if (b.y > DM_Y + 2) return null
+    const g = this._navGrid()
+    if (!g) return null
+    b.navIn = (b.navIn || 0) - dt
+    if (b.nav && b.navIn > 0 && b.nav.foe === foe.id) {
+      if (Math.hypot(b.nav.x - b.x, b.nav.z - b.z) > 0.6) return b.nav
+    }
+    b.navIn = NAV_EVERY
+    const half = this.map.half
+    const n = half * 2 + 1
+    const from = this._cell(b.x, b.z)
+    const to = this._cell(foe.x, foe.z)
+    if (from < 0 || to < 0 || !g[to]) return null
+    const dist = new Int16Array(n * n).fill(-1)
+    const queue = new Int32Array(n * n)
+    let head = 0
+    let tail = 0
+    dist[to] = 0
+    queue[tail++] = to
+    while (head < tail && dist[from] < 0) {
+      const c = queue[head++]
+      const i = Math.floor(c / n)
+      const j = c % n
+      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const ni = i + di
+        const nj = j + dj
+        if (ni < 0 || nj < 0 || ni >= n || nj >= n) continue
+        const k = ni * n + nj
+        if (dist[k] >= 0 || !g[k]) continue
+        dist[k] = dist[c] + 1
+        queue[tail++] = k
+      }
+    }
+    if (dist[from] < 0) return null
+    // Down the path up to 3 cells.
+    let c = from
+    for (let step = 0; step < 3 && dist[c] > 0; step++) {
+      const i = Math.floor(c / n)
+      const j = c % n
+      let next = c
+      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const ni = i + di
+        const nj = j + dj
+        if (ni < 0 || nj < 0 || ni >= n || nj >= n) continue
+        const k = ni * n + nj
+        if (dist[k] >= 0 && dist[k] < dist[next]) next = k
+      }
+      if (next === c) break
+      c = next
+    }
+    const h = this.pm.home
+    const ci = Math.floor(c / n)
+    const cj = c % n
+    b.nav = { x: Math.floor(h.x) + ci - half + 0.5, z: Math.floor(h.z) + cj - half + 0.5, foe: foe.id }
+    return b.nav
+  }
+
+  // The minimap's dots besides me: my teammates (Team Deathmatch) - never
+  // the enemies (Gaymi's pick).
+  mapDots() {
+    return []
   }
 
   // The leader wears a gold diamond.
@@ -421,7 +552,7 @@ export class PartyDeathmatch {
   draw() {
     const pm = this.pm
     if (!pm.home) return
-    const key = `${pm.home.x},${pm.home.z}`
+    const key = `${pm.home.x},${pm.home.z},${this.mapId}`
     if (this._builtFor === key) return
     this._builtFor = key
     const s = this.s
@@ -429,6 +560,7 @@ export class PartyDeathmatch {
     const hx = Math.floor(pm.home.x)
     const hz = Math.floor(pm.home.z)
     const put = (x, y, z, type) => {
+      if (!type) return
       const ax = hx + x
       const az = hz + z
       const ay = DM_Y + y
@@ -437,36 +569,22 @@ export class PartyDeathmatch {
       bm.placeBlock(ax, ay, az, type, true)
       s._placed.set(bm._key(ax, ay, az), type)
     }
+    // type: a block, or (x, z, y) -> a block (null: leave it).
     const box = (x0, z0, w, d, y0, y1, type) => {
-      for (let x = x0; x < x0 + w; x++) for (let z = z0; z < z0 + d; z++) for (let y = y0; y <= y1; y++) put(x, y, z, typeof type === 'function' ? type(x, y, z) : type)
+      for (let x = x0; x < x0 + w; x++) for (let z = z0; z < z0 + d; z++) for (let y = y0; y <= y1; y++) put(x, y, z, typeof type === 'function' ? type(x, z, y) : type)
     }
     bm._suppressUndoRecording = true
-    const W = DM_HALF
-    // Floor and walls.
+    const map = this.map
+    const W = map.half
+    // The town wall all round, lamps along it.
     for (let x = -W - 1; x <= W + 1; x++) {
       for (let z = -W - 1; z <= W + 1; z++) {
-        const edge = Math.abs(x) === W + 1 || Math.abs(z) === W + 1
-        put(x, 0, z, edge ? 'stonebricks' : (Math.floor(x / 3) + Math.floor(z / 3)) % 2 ? 'redsandstone' : 'terracotta')
-        if (edge) for (let y = 1; y <= WALL_H; y++) put(x, y, z, y === 3 && (x + z) % 4 === 0 ? 'sealantern' : y === WALL_H ? 'glowstone' : 'stonebricks')
+        if (Math.abs(x) !== W + 1 && Math.abs(z) !== W + 1) continue
+        put(x, 0, z, 'stonebricks')
+        for (let y = 1; y <= map.wallH; y++) put(x, y, z, y === 4 && (x + z) % 6 === 0 ? 'sealantern' : y === map.wallH ? 'stonebricks' : 'brick')
       }
     }
-    // The tower in the middle, with stairs up the north and south sides.
-    box(-3, -3, 7, 7, 1, DECK, (x, y) => (y === DECK ? 'quartz' : 'stonebricks'))
-    for (let step = 1; step <= DECK; step++) {
-      box(-1, 3 + step, 3, 1, 1, DECK - step + 1, 'quartz')
-      box(-1, -3 - step, 3, 1, 1, DECK - step + 1, 'quartz')
-    }
-    // A raised deck along each side wall, with stairs at both ends.
-    for (const sx of [-1, 1]) {
-      const x0 = sx < 0 ? -W : W - 3
-      box(x0, -10, 4, 21, 1, DECK, (x, y) => (y === DECK ? 'oak' : 'stonebricks'))
-      for (let step = 1; step < DECK; step++) {
-        box(x0, 10 + step, 4, 1, 1, DECK - step, 'oak')
-        box(x0, -10 - step, 4, 1, 1, DECK - step, 'oak')
-      }
-    }
-    // Crates.
-    for (const [x, z, w, d, h] of COVER) box(x, z, w, d, 1, h, (cx, y) => (y === h ? 'oaklog' : 'oak'))
+    map.build({ put, box })
     bm._suppressUndoRecording = false
   }
 
@@ -698,7 +816,7 @@ export class PartyDeathmatch {
   }
 
   startText() {
-    return t('dmStart', { n: Math.round(this.pm.left / 60) || 5 })
+    return `${t('dmMapLine', { name: this.mapName() })} · ${t('dmStart', { n: Math.round(this.pm.left / 60) || 5 })}`
   }
 
   hud() {
@@ -711,8 +829,9 @@ export class PartyDeathmatch {
 
   protects(x, y, z) {
     const pm = this.pm
-    if (!pm.home || y < DM_Y - 1 || y > DM_Y + WALL_H + 2) return false
-    return Math.abs(x - Math.floor(pm.home.x)) <= DM_HALF + 2 && Math.abs(z - Math.floor(pm.home.z)) <= DM_HALF + 2
+    const half = this.map.half
+    if (!pm.home || y < DM_Y - 1 || y > DM_Y + this.map.wallH + 2) return false
+    return Math.abs(x - Math.floor(pm.home.x)) <= half + 2 && Math.abs(z - Math.floor(pm.home.z)) <= half + 2
   }
 
   snap() {
@@ -721,11 +840,12 @@ export class PartyDeathmatch {
     for (const [id, n] of this.hp) hp[out(id)] = Math.round(n)
     const de = {}
     for (const [id, n] of Object.entries(this.deaths)) de[out(id)] = n
-    return { hp, de, kn: this.feedN, kf: this.feed.map((f) => `${f.n},${out(f.k)},${out(f.v)}`).join(';') }
+    return { mp: this.mapId, hp, de, kn: this.feedN, kf: this.feed.map((f) => `${f.n},${out(f.k)},${out(f.v)}`).join(';') }
   }
 
   apply(d) {
     const ok = (id) => /^(?:b\d{1,4}|[A-Za-z0-9]{4,40}|me)$/.test(id)
+    if (typeof d.mp === 'string' && DM_MAPS[d.mp]) this.mapId = d.mp
     if (d.hp && typeof d.hp === 'object') this.hp = new Map(Object.entries(d.hp).filter(([id, n]) => ok(id) && Number.isFinite(n)))
     if (d.de && typeof d.de === 'object') this.deaths = Object.fromEntries(Object.entries(d.de).filter(([id, n]) => ok(id) && Number.isFinite(n)))
     if (Number.isFinite(d.kn)) this.feedN = d.kn

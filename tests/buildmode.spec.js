@@ -7466,6 +7466,71 @@ test('Deathmatch: bots, kills, respawns and the winner', async ({ page }) => {
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })
 
+// Deathmatch's Small Town (2026-11-16): an 81 x 81 named map, bots that
+// hold and fire a real gun, find their way round buildings, and the
+// minimap drawing the arena (not the camp far below).
+test('Deathmatch: Small Town map, bots hold guns, minimap shows the arena', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'deathmatch'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    const pm = s.party
+    const D = pm.ext
+    pm.update(0.05)
+    pm.update(0.05)
+    out.named = D.mapId === 'smallTown' && D.mapName() === 'Small Town' && D.startText().startsWith('Map: Small Town')
+    // 81 x 81: the far corners are floor, the town wall just past them.
+    const hx = Math.floor(pm.home.x)
+    const hz = Math.floor(pm.home.z)
+    const bm = s.bm
+    out.bigFloor = !!bm.getBlockAt(hx + 40, 186, hz + 40) && !!bm.getBlockAt(hx - 40, 186, hz - 40) && bm.getBlockAt(hx + 41, 192, hz) === 'brick' && D._inside(hx + 40, hz - 40)
+    out.streets = bm.getBlockAt(hx + 20, 186, hz + 1) === 'asphalt' && bm.getBlockAt(hx + 1, 186, hz - 20) === 'asphalt'
+    // Every bot carries a gun from the list, held in its right hand.
+    const bots = [...pm.bots.values()]
+    // (their skins load first)
+    for (let i = 0; i < 100 && !bots.every((b) => b.gun); i++) {
+      pm.update(0.05)
+      await new Promise((res) => setTimeout(res, 50))
+    }
+    out.botsHoldGuns = bots.length === 7 && bots.every((b) => b.w && b.gun && b.gunId === b.w && b.gun.parent === b.body.limbPivots.armR)
+    // A bot shooting: turns to its target, raises the gun, flashes, and
+    // the shot count reaches guests with its gun.
+    const b = bots[0]
+    const before = b.fireN || 0
+    pm._botFired(b)
+    b.faceT = 1
+    pm.update(0.01)
+    out.firePose = b.fireN === before + 1 && !!b.flash && b.flash.parent === b.gun && b.body.limbPivots.armR.rotation.x < -1.3
+    const snap = JSON.parse(JSON.stringify(pm.snapshot()))
+    out.snapGun = snap.bots[b.id].w === b.w && snap.bots[b.id].fs === b.fireN && snap.x.mp === 'smallTown'
+    // Bots find a way round buildings: a path step towards a target
+    // across the town, on walkable ground.
+    const grid = D._navGrid()
+    const target = { id: 'X', x: hx + 12.5, y: 187, z: hz + 29.5 }
+    b.x = hx - 30.5
+    b.z = hz + 0.5
+    b.y = 187
+    b.nav = null
+    const step = D._navStep(b, target, 0.05)
+    out.nav = !!grid && grid.reduce((a, v) => a + v, 0) > 3000 && !!step && Math.hypot(step.x - b.x, step.z - b.z) <= 4
+    // The minimap: the arena from above, its name where the biome shows.
+    const tm = s.bm.tryMode
+    tm._drawMap(performance.now() + 1e6)
+    out.skyMap = !!tm._skyMap?._layer && tm._skyMap._layer.w === 83 && document.getElementById('build-try-biome')?.textContent === 'Small Town'
+    s.stop?.()
+    g._exitBuildMode?.()
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})
+
 // Team Deathmatch (2026-11-16): Red against Blue, 2v2 / 4v4 / Custom,
 // bots fill both teams, no team damage, team kills win.
 test('Team Deathmatch: size picker, even teams, no team damage, team wins', async ({ page }) => {
