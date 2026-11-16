@@ -2153,11 +2153,14 @@ Escape before dawn.</p>
                   <span id="game-mode-duel-arena-label">Duel Arena</span>
                 </button>
               </div>
-              <label class="mode-toggle locked" for="pvp-ffa-toggle">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"/><line x1="19" y1="19" x2="5" y2="5"/></svg>
-                <input type="checkbox" id="pvp-ffa-toggle" disabled />
-                <span>FFA (Coming Soon)</span>
-              </label>
+              <!-- Deathmatch (2026-11-16, PartyDeathmatch.js): free for all, up to 8 with bots. -->
+              <p class="menu-hint-line" id="hub-dm-hint">Everyone for themselves in an arena in the sky. Most kills in 5 minutes wins. Bots fill empty spots.</p>
+              <div class="class-grid" id="dm-select-grid">
+                <button class="mode-select-btn class-btn" data-game-mode="deathmatch" id="game-mode-deathmatch" type="button">
+                  <div class="class-icon-badge"><span class="class-icon-emoji">🎯</span></div>
+                  <span id="game-mode-deathmatch-label">Deathmatch</span>
+                </button>
+              </div>
               <label class="mode-toggle locked" for="pvp-team-toggle">
                 <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 21c0-3.5 2.7-6.3 6-6.3s6 2.8 6 6.3"/><path d="M13.5 15c2.3 0.4 4 2.6 4 6"/></svg>
                 <input type="checkbox" id="pvp-team-toggle" disabled />

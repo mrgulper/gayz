@@ -33,6 +33,7 @@ const MODE_KEYS = {
   kartRace: 'topBarModeKartRace',
   obstacleCourse: 'topBarModeObstacleCourse',
   duelArena: 'topBarModeDuelArena',
+  deathmatch: 'topBarModeDeathmatch',
   miniGolf: 'topBarModeMiniGolf',
   freezeTag: 'topBarModeFreezeTag',
   bombDefuse: 'topBarModeBombDefuse',

@@ -7377,6 +7377,77 @@ test('UFO abduction, the dragon boss and the Duel Arena', async ({ page }) => {
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })
 
+// Deathmatch (2026-11-16): free for all with bots up to 8, endless ammo,
+// kills, deaths and respawns, the kill feed, and the most kills winning.
+test('Deathmatch: bots, kills, respawns and the winner', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'deathmatch'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    const pm = s.party
+    const D = pm.ext
+    out.endlessAmmo = s.reserve === Infinity && document.getElementById('build-play-ammo')?.textContent.includes('∞')
+    for (let i = 0; i < 200 && pm.phase === 'wait'; i++) pm.update(0.05)
+    pm.update(0.05)
+    const me = pm.myId
+    out.eightFighters = pm.phase === 'play' && pm.bots.size === 7 && D.hp.size === 8 && D.hp.get(me) === 100
+    out.inArena = s.bm.tryMode.pos.y > 186 && D._inside(s.bm.tryMode.pos.x, s.bm.tryMode.pos.z)
+    out.healthBar = document.getElementById('build-play-health-text')?.textContent === '100'
+    // Shoot a bot down: a kill, a line in the feed, the bot back at full health.
+    D.prot.clear()
+    const bot = [...pm.bots.keys()][0]
+    D._hit(bot, 40, me)
+    out.botHit = D.hp.get(bot) === 60
+    D._hit(bot, 100, me)
+    pm.update(0.05)
+    out.kill = pm.score[me] === 1 && D.deaths[bot] === 1 && D.hp.get(bot) === 100 && D.feed.at(-1)?.k === me && document.querySelectorAll('#dm-feed .dm-feed-row').length === 1
+    out.spawnSafe = D.prot.has(bot)
+    // A bot gets me: I respawn at a spawn point with full health.
+    D.prot.clear()
+    const other = [...pm.bots.keys()][1]
+    D._hit(me, 70, other)
+    pm.update(0.05)
+    out.myHealthShown = document.getElementById('build-play-health-text')?.textContent === '30'
+    D._hit(me, 70, other)
+    pm.update(0.05)
+    out.iRespawned = D.deaths[me] === 1 && D.hp.get(me) === 100 && pm.score[other] === 1 && s.bm.tryMode.pos.y > 186
+    // A player joining takes a bot's place.
+    const realPeople = pm._people
+    pm._people = function () {
+      const list = realPeople.call(this)
+      return [...list, { id: 'Guest1', x: list[0].x, y: list[0].y, z: list[0].z }]
+    }
+    pm.update(0.05)
+    out.botLeavesForPlayer = pm.bots.size === 6 && D.hp.has('Guest1')
+    pm._people = realPeople
+    pm.update(0.05)
+    // The host's sync carries it to a guest.
+    const snap = JSON.parse(JSON.stringify(pm.snapshot()))
+    const copy = new D.constructor(pm)
+    copy.apply(snap.x)
+    out.snap = copy.hp.get(me) === 100 && copy.deaths[me] === 1 && copy.feed.length === 2 && copy.feedN === D.feedN
+    copy.dispose()
+    // Time's up: the most kills wins.
+    pm.score[me] = 5
+    pm.left = 0.01
+    pm.update(0.05)
+    out.winner = pm.phase === 'end' && pm.winner === me && document.getElementById('dm-board')?.classList.contains('on')
+    s.stop?.()
+    g._exitBuildMode?.()
+    await new Promise((res) => setTimeout(res, 200))
+    out.cleanedUp = !document.getElementById('dm-feed') && !document.getElementById('dm-board')
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})
+
 // Idea list 7, batch 1 (2026-11-06): Zombie Mini-Golf, Freeze Tag and the
 // camp's Daily Lucky Wheel.
 test('Zombie Mini-Golf, Freeze Tag and the Lucky Wheel', async ({ page }) => {

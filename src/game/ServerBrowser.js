@@ -3,7 +3,8 @@
 // servers on the right with Zombie Survival / Deathmatch / Parkour /
 // Custom tabs (Custom is Coming Soon; the first tab's internal id is still
 // 'main'; since 2026-11-02 Parkour lists Obstacle Course servers, mode
-// 'parkour', and Deathmatch lists Duel Arena servers, mode 'duel'), a search box, a
+// 'parkour', and Deathmatch lists Deathmatch servers, mode 'dm' - and
+// Duel Arena ones, 'duel' - and makes 'dm' ones), a search box, a
 // Create Server button and one row per server with its player count and
 // Join. Joining or creating one starts Map 1 with the other players
 // (PlayNet.js); the rules live in api/_lib/servers.js.
@@ -22,7 +23,9 @@ import { bindLobbyForm, showLobbyForm, modeName, ruleChip } from './CustomLobbyU
 import { changedRules } from './LobbyRules.js'
 
 // Each live tab's server mode.
-const TAB_MODES = { main: 'main', parkour: 'parkour', deathmatch: 'duel' }
+const TAB_MODES = { main: 'main', parkour: 'parkour', deathmatch: 'dm' }
+// Server modes a tab lists besides its own (Duel Arena sits on Deathmatch).
+const TAB_ALSO = { deathmatch: ['duel'] }
 // The Custom tab (2026-11-15): every custom lobby, whatever its mode
 // (CustomLobbyUI.js) - and custom lobbies are only listed there.
 const isCustomTab = (tab) => tab === 'custom'
@@ -185,7 +188,7 @@ export function renderServerList(game) {
     return
   }
   const q = (document.getElementById('server-search')?.value || '').trim().toLowerCase()
-  const all = (game._serverList || []).filter((s) => (custom ? s.custom : !s.custom && s.mode === TAB_MODES[tab]))
+  const all = (game._serverList || []).filter((s) => (custom ? s.custom : !s.custom && (s.mode === TAB_MODES[tab] || TAB_ALSO[tab]?.includes(s.mode))))
   const shown = all.filter((s) => !q || String(s.name).toLowerCase().includes(q) || String(s.id).toLowerCase().includes(q))
   if (line) line.textContent = game._serverListError ? '' : t('serverCountLine', { n: all.length })
   if (game._serverListError) {
