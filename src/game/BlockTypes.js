@@ -1,0 +1,413 @@
+// Every block type the Map Editor and Play know about (moved out of
+// BuildMode.js as-is, 2026-11-16). BuildMode.js re-exports BLOCK_TYPES.
+import { SPECIAL_BLOCKS } from './SpecialBlocks.js'
+
+export const BLOCK_TYPES = [
+  { id: 'concrete', name: 'Concrete', color: 0x9a9a92, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'brick', name: 'Brick', color: 0xa8503a, pattern: 'brick', roughness: 0.85, metalness: 0 },
+  { id: 'wood', name: 'Wood', color: 0x8a5a34, pattern: 'wood', roughness: 0.7, metalness: 0 },
+  { id: 'metal', name: 'Metal', color: 0xb0b8bd, pattern: 'metal', roughness: 0.35, metalness: 0.7 },
+  { id: 'grass', name: 'Grass', color: 0x5fa84a, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'dirt', name: 'Dirt', color: 0x6b4a30, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'glass', name: 'Glass', color: 0xaee0e8, pattern: 'glass', roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.55 },
+  { id: 'asphalt', name: 'Asphalt', color: 0x3a3a3c, pattern: 'speckle', roughness: 0.95, metalness: 0 },
+  { id: 'stone', name: 'Stone', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'sand', name: 'Sand', color: 0xd9c48f, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'snow', name: 'Snow', color: 0xf0f0f5, pattern: 'speckle', roughness: 0.95, metalness: 0 },
+  { id: 'planks', name: 'Planks', color: 0xb98a52, pattern: 'wood', roughness: 0.6, metalness: 0 },
+  { id: 'gold', name: 'Gold', color: 0xf4c430, pattern: 'metal', roughness: 0.2, metalness: 1 },
+  { id: 'obsidian', name: 'Obsidian', color: 0x1c1024, pattern: 'speckle', roughness: 0.3, metalness: 0.1 },
+  { id: 'water', name: 'Water', color: 0x3f8ef0, pattern: 'liquid', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.62 },
+  { id: 'ice', name: 'Ice', color: 0xaee4f0, pattern: 'crack', roughness: 0.05, metalness: 0, transparent: true, opacity: 0.7 },
+  { id: 'leaves', name: 'Leaves', color: 0x3f7d3a, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
+  { id: 'lava', name: 'Lava', color: 0xff5a1f, pattern: 'liquid', roughness: 0.8, metalness: 0, emissive: 0xff3300, emissiveIntensity: 0.9 },
+  { id: 'granite', name: 'Granite', color: 0x8a5a52, pattern: 'speckle', roughness: 0.85, metalness: 0 },
+  { id: 'marble', name: 'Marble', color: 0xe4e0da, pattern: 'brick', roughness: 0.3, metalness: 0 },
+  { id: 'copper', name: 'Copper', color: 0xc17a4a, pattern: 'metal', roughness: 0.3, metalness: 0.85 },
+  { id: 'iron', name: 'Iron', color: 0xd8d8d2, pattern: 'metal', roughness: 0.4, metalness: 0.9 },
+  { id: 'clay', name: 'Clay', color: 0xb5654a, pattern: 'speckle', roughness: 0.95, metalness: 0 },
+  { id: 'moss', name: 'Moss', color: 0x3d6b32, pattern: 'speckle', roughness: 1, metalness: 0 },
+  // Most-common-blocks pass (matched against Minecraft's own most-placed
+  // types) - fills real gaps the original 24 left, like there being no log/
+  // wool pattern at all, and several blocks players expect (cobblestone,
+  // ore blocks) missing entirely.
+  { id: 'cobblestone', name: 'Cobblestone', color: 0x7d7d7d, pattern: 'speckle', roughness: 0.95, metalness: 0 },
+  { id: 'oaklog', name: 'Oak Log', color: 0x6b4423, pattern: 'log', roughness: 0.8, metalness: 0 },
+  { id: 'bookshelf', name: 'Bookshelf', color: 0x8a6239, pattern: 'spine', roughness: 0.75, metalness: 0 },
+  { id: 'wool', name: 'Wool', color: 0xe8e4d8, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'netherrack', name: 'Netherrack', color: 0x723232, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'diamondblock', name: 'Diamond Block', color: 0x5fd4d4, pattern: 'metal', roughness: 0.15, metalness: 0.9 },
+  { id: 'redstoneblock', name: 'Redstone Block', color: 0xa61b1b, pattern: 'metal', roughness: 0.3, metalness: 0.6, emissive: 0x8a0000, emissiveIntensity: 0.4 },
+  { id: 'coalblock', name: 'Coal Block', color: 0x1c1c1c, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'pumpkin', name: 'Pumpkin', color: 0xd9761a, pattern: 'ridged', roughness: 0.8, metalness: 0 },
+  // C4 replaced TNT (2026-09-30) - old saves' 'tnt' loads as C4, see LEGACY_TYPE_IDS.
+  { id: 'c4', name: 'C4', color: 0xc8bc94, pattern: 'stripe', roughness: 0.85, metalness: 0 },
+  { id: 'quartz', name: 'Quartz Block', color: 0xe8e4dc, pattern: 'brick', roughness: 0.4, metalness: 0 },
+  { id: 'andesite', name: 'Andesite', color: 0x888888, pattern: 'speckle', roughness: 0.85, metalness: 0 },
+  // Second common-blocks pass.
+  { id: 'ironore', name: 'Iron Ore', color: 0x8a8570, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'goldore', name: 'Gold Ore', color: 0x9c8a4a, pattern: 'ore', roughness: 0.85, metalness: 0 },
+  { id: 'diamondore', name: 'Diamond Ore', color: 0x7ba8a0, pattern: 'ore', roughness: 0.85, metalness: 0 },
+  { id: 'coalore', name: 'Coal Ore', color: 0x3a3a38, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'emeraldblock', name: 'Emerald Block', color: 0x1a9850, pattern: 'metal', roughness: 0.2, metalness: 0.8 },
+  { id: 'lapisblock', name: 'Lapis Block', color: 0x1f4d9c, pattern: 'metal', roughness: 0.25, metalness: 0.75 },
+  { id: 'bedrock', name: 'Bedrock', color: 0x2a2a2a, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'endstone', name: 'End Stone', color: 0xdcd7a0, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'sandstone', name: 'Sandstone', color: 0xc9b183, pattern: 'brick', roughness: 0.85, metalness: 0 },
+  { id: 'cactus', name: 'Cactus', color: 0x3f8f3a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'netherbrick', name: 'Nether Bricks', color: 0x35181c, pattern: 'brick', roughness: 0.8, metalness: 0 },
+  { id: 'haybale', name: 'Hay Bale', color: 0xd4b03c, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  // Third pass - fills in stone variants (polished/smooth finishes, extra
+  // natural terrain blocks) and a set of dyed concrete/wool colors, the
+  // two categories most requested-but-missing after the first two passes.
+  { id: 'gravel', name: 'Gravel', color: 0x8f8f88, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'mud', name: 'Mud', color: 0x4a3728, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'deepslate', name: 'Deepslate', color: 0x3a3a40, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'blackstone', name: 'Blackstone', color: 0x2b2530, pattern: 'speckle', roughness: 0.85, metalness: 0 },
+  { id: 'diorite', name: 'Diorite', color: 0xd0d0d0, pattern: 'speckle', roughness: 0.85, metalness: 0 },
+  { id: 'polishedgranite', name: 'Polished Granite', color: 0x9c5548, pattern: 'metal', roughness: 0.4, metalness: 0.05 },
+  { id: 'polishedandesite', name: 'Polished Andesite', color: 0x9a9a9a, pattern: 'metal', roughness: 0.4, metalness: 0.05 },
+  { id: 'smoothstone', name: 'Smooth Stone', color: 0xa8a8a0, pattern: 'metal', roughness: 0.5, metalness: 0 },
+  { id: 'prismarine', name: 'Prismarine', color: 0x4f9e94, pattern: 'metal', roughness: 0.35, metalness: 0.2 },
+  { id: 'sealantern', name: 'Sea Lantern', color: 0xc8e8e0, pattern: 'metal', roughness: 0.3, metalness: 0.1, emissive: 0xa0e8d8, emissiveIntensity: 0.5 },
+  { id: 'amethystblock', name: 'Amethyst Block', color: 0x9a5fd4, pattern: 'crystal', roughness: 0.25, metalness: 0.3 },
+  { id: 'honeyblock', name: 'Honey Block', color: 0xe8a723, pattern: 'glass', roughness: 0.2, metalness: 0, transparent: true, opacity: 0.85 },
+  { id: 'slimeblock', name: 'Slime Block', color: 0x6fcc3f, pattern: 'glass', roughness: 0.25, metalness: 0, transparent: true, opacity: 0.75 },
+  { id: 'purpurblock', name: 'Purpur Block', color: 0xa374b5, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'terracotta', name: 'Terracotta', color: 0x9c5232, pattern: 'brick', roughness: 0.85, metalness: 0 },
+  { id: 'redconcrete', name: 'Red Concrete', color: 0xa32424, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'blueconcrete', name: 'Blue Concrete', color: 0x2451a3, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'yellowconcrete', name: 'Yellow Concrete', color: 0xd4c020, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'greenconcrete', name: 'Green Concrete', color: 0x3f7d3a, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'blackconcrete', name: 'Black Concrete', color: 0x1c1c1e, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'whiteconcrete', name: 'White Concrete', color: 0xe8e8e4, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'redwool', name: 'Red Wool', color: 0xa8382a, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'bluewool', name: 'Blue Wool', color: 0x2c4fa0, pattern: 'wool', roughness: 1, metalness: 0 },
+  // Fourth pass - rounds out wool to a full dyed set (only red/blue existed
+  // before), adds a few stained-glass colors alongside honey/slime's
+  // existing transparent 'glass' pattern, and 3 wood plank tones plus 2
+  // more metal-pattern ore/alloy blocks.
+  { id: 'yellowwool', name: 'Yellow Wool', color: 0xd4c020, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'greenwool', name: 'Green Wool', color: 0x3f7d3a, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'blackwool', name: 'Black Wool', color: 0x1c1c1e, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'whitewool', name: 'White Wool', color: 0xe8e8e4, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'purplewool', name: 'Purple Wool', color: 0x7a3fa8, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'orangewool', name: 'Orange Wool', color: 0xd47a28, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'pinkwool', name: 'Pink Wool', color: 0xe89ab8, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'cyanwool', name: 'Cyan Wool', color: 0x2a9c9c, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'graywool', name: 'Gray Wool', color: 0x5c5c5c, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'brownwool', name: 'Brown Wool', color: 0x6b4a2c, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'limewool', name: 'Lime Wool', color: 0x7dd42a, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'bluestainedglass', name: 'Blue Stained Glass', color: 0x3a6fc8, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'greenstainedglass', name: 'Green Stained Glass', color: 0x3f9c4a, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'redstainedglass', name: 'Red Stained Glass', color: 0xc03a3a, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'oakplanks', name: 'Oak Planks', color: 0xb4864a, pattern: 'wood', roughness: 0.85, metalness: 0 },
+  { id: 'spruceplanks', name: 'Spruce Planks', color: 0x6b4a2c, pattern: 'wood', roughness: 0.85, metalness: 0 },
+  { id: 'birchplanks', name: 'Birch Planks', color: 0xd8c898, pattern: 'wood', roughness: 0.85, metalness: 0 },
+  { id: 'copperblock', name: 'Copper Block', color: 0xb87043, pattern: 'metal', roughness: 0.35, metalness: 0.7 },
+  { id: 'netherite', name: 'Netherite Block', color: 0x3c3438, pattern: 'metal', roughness: 0.3, metalness: 0.6 },
+  // Fifth pass - rounds concrete and wool out to the full 16-color dyed
+  // set (only 6 and 13 of 16 existed respectively), a few more stained-
+  // glass colors, more wood/log variants, a handful of natural stone
+  // types, and some glowing/decorative specials that were missing.
+  { id: 'orangeconcrete', name: 'Orange Concrete', color: 0xd87a1a, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'magentaconcrete', name: 'Magenta Concrete', color: 0xb44ac2, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'lightblueconcrete', name: 'Light Blue Concrete', color: 0x6bb9d9, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'limeconcrete', name: 'Lime Concrete', color: 0x7cc82a, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'pinkconcrete', name: 'Pink Concrete', color: 0xe08fab, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'grayconcrete', name: 'Gray Concrete', color: 0x4a4a4e, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'lightgrayconcrete', name: 'Light Gray Concrete', color: 0x9a9a96, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'cyanconcrete', name: 'Cyan Concrete', color: 0x1a7f8c, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'purpleconcrete', name: 'Purple Concrete', color: 0x7a2fa8, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'brownconcrete', name: 'Brown Concrete', color: 0x5a3a24, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'magentawool', name: 'Magenta Wool', color: 0xc74ebd, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'lightbluewool', name: 'Light Blue Wool', color: 0x6cb0d6, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'lightgraywool', name: 'Light Gray Wool', color: 0x9d9d97, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'yellowstainedglass', name: 'Yellow Stained Glass', color: 0xd4c020, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'purplestainedglass', name: 'Purple Stained Glass', color: 0x7a3fa8, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'blackstainedglass', name: 'Black Stained Glass', color: 0x2a2a2c, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'whitestainedglass', name: 'White Stained Glass', color: 0xe8e8e4, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'darkoakplanks', name: 'Dark Oak Planks', color: 0x4a3524, pattern: 'wood', roughness: 0.85, metalness: 0 },
+  { id: 'jungleplanks', name: 'Jungle Planks', color: 0xb5895a, pattern: 'wood', roughness: 0.85, metalness: 0 },
+  { id: 'acaciaplanks', name: 'Acacia Planks', color: 0xb85a3a, pattern: 'wood', roughness: 0.85, metalness: 0 },
+  { id: 'sprucelog', name: 'Spruce Log', color: 0x4a3324, pattern: 'log', roughness: 0.8, metalness: 0 },
+  { id: 'birchlog', name: 'Birch Log', color: 0xd8cba8, pattern: 'log', roughness: 0.8, metalness: 0 },
+  { id: 'basalt', name: 'Basalt', color: 0x4a4a4e, pattern: 'speckle', roughness: 0.85, metalness: 0 },
+  { id: 'tuff', name: 'Tuff', color: 0x6a6a5e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'calcite', name: 'Calcite', color: 0xe0dcd0, pattern: 'speckle', roughness: 0.7, metalness: 0 },
+  { id: 'mossycobblestone', name: 'Mossy Cobblestone', color: 0x6a7d5a, pattern: 'speckle', roughness: 0.95, metalness: 0 },
+  { id: 'mossystonebricks', name: 'Mossy Stone Bricks', color: 0x6a7d5a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'glowstone', name: 'Glowstone', color: 0xe8c060, pattern: 'metal', roughness: 0.5, metalness: 0, emissive: 0xe8a020, emissiveIntensity: 0.7 },
+  { id: 'magmablock', name: 'Magma Block', color: 0xc23a1f, pattern: 'speckle', roughness: 0.8, metalness: 0, emissive: 0xff4400, emissiveIntensity: 0.6 },
+  { id: 'cryingobsidian', name: 'Crying Obsidian', color: 0x2f1440, pattern: 'speckle', roughness: 0.3, metalness: 0.1, emissive: 0x9a2fd4, emissiveIntensity: 0.5 },
+  { id: 'boneblock', name: 'Bone Block', color: 0xe8e0c8, pattern: 'stripe', roughness: 0.7, metalness: 0 },
+  { id: 'spongeblock', name: 'Sponge', color: 0xc9c024, pattern: 'porous', roughness: 0.9, metalness: 0 },
+  { id: 'jackolantern', name: "Jack o'Lantern", color: 0xd9761a, pattern: 'ridged', roughness: 0.8, metalness: 0, emissive: 0xff8800, emissiveIntensity: 0.6 },
+  // Minecraft block batch 2 (2026-09-29) - textures in BlockTextures.js.
+  { id: 'craftingtable', name: 'Crafting Table', color: 0xa0703c, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'furnace', name: 'Furnace', color: 0x7a7a7a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'jukebox', name: 'Jukebox', color: 0x7a4a2e, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'noteblock', name: 'Note Block', color: 0x7a4a2e, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'melon', name: 'Melon', color: 0x6aa33a, pattern: 'ridged', roughness: 0.9, metalness: 0 },
+  { id: 'mycelium', name: 'Mycelium', color: 0x7a6a78, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'podzol', name: 'Podzol', color: 0x6a4a28, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'coarsedirt', name: 'Coarse Dirt', color: 0x6b4a30, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'redsand', name: 'Red Sand', color: 0xb4642a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'redsandstone', name: 'Red Sandstone', color: 0xa8582a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'smoothsandstone', name: 'Smooth Sandstone', color: 0xd8c89a, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'cutsandstone', name: 'Cut Sandstone', color: 0xd0bc8a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'chiseledstonebricks', name: 'Chiseled Stone Bricks', color: 0x7a7a74, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'crackedstonebricks', name: 'Cracked Stone Bricks', color: 0x78786f, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'polisheddiorite', name: 'Polished Diorite', color: 0xd8d8d8, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'polishedblackstone', name: 'Polished Blackstone', color: 0x322c36, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'polishedblackstonebricks', name: 'Polished Blackstone Bricks', color: 0x2f2a33, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'netherquartzore', name: 'Nether Quartz Ore', color: 0x722f2f, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'redstoneore', name: 'Redstone Ore', color: 0x808078, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'lapisore', name: 'Lapis Ore', color: 0x808078, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'emeraldore', name: 'Emerald Ore', color: 0x808078, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'copperore', name: 'Copper Ore', color: 0x808078, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'deepslatediamondore', name: 'Deepslate Diamond Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'packedice', name: 'Packed Ice', color: 0x8cb4f0, pattern: 'crack', roughness: 0.9, metalness: 0 },
+  { id: 'blueice', name: 'Blue Ice', color: 0x74a8f5, pattern: 'crack', roughness: 0.9, metalness: 0 },
+  { id: 'redmushroomblock', name: 'Red Mushroom Block', color: 0xc02a26, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'brownmushroomblock', name: 'Brown Mushroom Block', color: 0x946a4a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'driedkelpblock', name: 'Dried Kelp Block', color: 0x3a4a2a, pattern: 'stripe', roughness: 0.9, metalness: 0 },
+  { id: 'soulsand', name: 'Soul Sand', color: 0x5a4636, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'soulsoil', name: 'Soul Soil', color: 0x4c3a2e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'crimsonnylium', name: 'Crimson Nylium', color: 0x8a1f1f, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'warpednylium', name: 'Warped Nylium', color: 0x2b7a6a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'crimsonplanks', name: 'Crimson Planks', color: 0x6a3448, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'warpedplanks', name: 'Warped Planks', color: 0x2b6a64, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'mangroveplanks', name: 'Mangrove Planks', color: 0x7a3a34, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'cherryplanks', name: 'Cherry Planks', color: 0xe4b4ac, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'bambooplanks', name: 'Bamboo Planks', color: 0xc8b04a, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'darkoaklog', name: 'Dark Oak Log', color: 0x3a2a1a, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'junglelog', name: 'Jungle Log', color: 0x5a4420, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'acacialog', name: 'Acacia Log', color: 0x6a625a, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'cherrylog', name: 'Cherry Log', color: 0x3a2430, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'strippedoaklog', name: 'Stripped Oak Log', color: 0xb08448, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'endstonebricks', name: 'End Stone Bricks', color: 0xdcd7a0, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'prismarinebricks', name: 'Prismarine Bricks', color: 0x63ab9e, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'darkprismarine', name: 'Dark Prismarine', color: 0x335b4c, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'purpurpillar', name: 'Purpur Pillar', color: 0xa87aac, pattern: 'stripe', roughness: 0.9, metalness: 0 },
+  { id: 'quartzpillar', name: 'Quartz Pillar', color: 0xebe5dc, pattern: 'stripe', roughness: 0.9, metalness: 0 },
+  { id: 'chiseledquartz', name: 'Chiseled Quartz', color: 0xe8e2d8, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'exposedcopper', name: 'Exposed Copper', color: 0xa87a64, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'weatheredcopper', name: 'Weathered Copper', color: 0x6a9a7a, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'oxidizedcopper', name: 'Oxidized Copper', color: 0x4fa88a, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'glazedterracotta', name: 'Blue Glazed Terracotta', color: 0x3a6aa8, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'whiteterracotta', name: 'White Terracotta', color: 0xd2b2a1, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'orangeterracotta', name: 'Orange Terracotta', color: 0xa05426, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'blueterracotta', name: 'Blue Terracotta', color: 0x4a3c5a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'blackterracotta', name: 'Black Terracotta', color: 0x251710, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'honeycombblock', name: 'Honeycomb Block', color: 0xe8a02a, pattern: 'crystal', roughness: 0.9, metalness: 0 },
+  { id: 'target', name: 'Target', color: 0xe8dcc8, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'dripstone', name: 'Dripstone Block', color: 0x866a5a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'sculk', name: 'Sculk', color: 0x0f2a33, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'shroomlight', name: 'Shroomlight', color: 0xf09a48, pattern: 'metal', roughness: 0.6, metalness: 0, emissive: 0xff9a40, emissiveIntensity: 0.6 },
+  { id: 'redstonelamp', name: 'Redstone Lamp', color: 0xc8783a, pattern: 'metal', roughness: 0.6, metalness: 0, emissive: 0xffb060, emissiveIntensity: 0.6 },
+  // Block batch 3 (2026-09-30) - textures in BlockTextures.js.
+  { id: 'cobbleddeepslate', name: 'Cobbled Deepslate', color: 0x4a4a50, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'deepslatebricks', name: 'Deepslate Bricks', color: 0x505056, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'deepslatetiles', name: 'Deepslate Tiles', color: 0x3a3a3e, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'polisheddeepslate', name: 'Polished Deepslate', color: 0x505058, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'mudbricks', name: 'Mud Bricks', color: 0x8a6a4e, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'packedmud', name: 'Packed Mud', color: 0x8e6a4a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'quartzbricks', name: 'Quartz Bricks', color: 0xebe5dc, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'smoothquartz', name: 'Smooth Quartz', color: 0xece6dd, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'chiseledsandstone', name: 'Chiseled Sandstone', color: 0xd0bc8a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'rednetherbricks', name: 'Red Nether Bricks', color: 0x4a0f0f, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'netherwartblock', name: 'Nether Wart Block', color: 0x7a0e0e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'warpedwartblock', name: 'Warped Wart Block', color: 0x167a78, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'crimsonstem', name: 'Crimson Stem', color: 0x5a1e2e, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'warpedstem', name: 'Warped Stem', color: 0x3b5a6a, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'mangrovelog', name: 'Mangrove Log', color: 0x5a4636, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'strippedsprucelog', name: 'Stripped Spruce Log', color: 0x7a5a38, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'strippedbirchlog', name: 'Stripped Birch Log', color: 0xc8b47a, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'bambooblock', name: 'Block of Bamboo', color: 0x9aa83a, pattern: 'stripe', roughness: 0.9, metalness: 0 },
+  { id: 'rawironblock', name: 'Raw Iron Block', color: 0xa8866a, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'rawgoldblock', name: 'Raw Gold Block', color: 0xd8a82a, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'rawcopperblock', name: 'Raw Copper Block', color: 0x9a5a3a, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'cutcopper', name: 'Cut Copper', color: 0xc06a48, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'ancientdebris', name: 'Ancient Debris', color: 0x5e4238, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'gildedblackstone', name: 'Gilded Blackstone', color: 0x2b2530, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'lodestone', name: 'Lodestone', color: 0x8a8a8e, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'barrel', name: 'Barrel', color: 0x8a6038, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'ochrefroglight', name: 'Ochre Froglight', color: 0xf0e0a0, pattern: 'metal', roughness: 0.6, metalness: 0, emissive: 0xffe080, emissiveIntensity: 0.6 },
+  { id: 'verdantfroglight', name: 'Verdant Froglight', color: 0xd8f0c0, pattern: 'metal', roughness: 0.6, metalness: 0, emissive: 0xb0ff90, emissiveIntensity: 0.6 },
+  { id: 'pearlescentfroglight', name: 'Pearlescent Froglight', color: 0xf0d8e8, pattern: 'metal', roughness: 0.6, metalness: 0, emissive: 0xffb0f0, emissiveIntensity: 0.6 },
+  { id: 'tintedglass', name: 'Tinted Glass', color: 0x2a2230, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.8 },
+  { id: 'orangestainedglass', name: 'Orange Stained Glass', color: 0xd87a1a, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'limestainedglass', name: 'Lime Stained Glass', color: 0x7cc82a, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'pinkstainedglass', name: 'Pink Stained Glass', color: 0xe08fab, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'cyanstainedglass', name: 'Cyan Stained Glass', color: 0x1a8f9c, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'lightbluestainedglass', name: 'Light Blue Stained Glass', color: 0x6bb9d9, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'redterracotta', name: 'Red Terracotta', color: 0x8e3c2e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'yellowterracotta', name: 'Yellow Terracotta', color: 0xba8524, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'greenterracotta', name: 'Green Terracotta', color: 0x4c532a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'purpleterracotta', name: 'Purple Terracotta', color: 0x764656, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'cyanterracotta', name: 'Cyan Terracotta', color: 0x565b5b, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  // Supply crates (2026-10-03) - scattered around Map 3; empty for now.
+  { id: 'crate', name: 'Crate', color: 0x9c7442, pattern: 'wood', roughness: 0.85, metalness: 0 },
+  // More Minecraft blocks (2026-10-03) - each also gets its own slab and
+  // stairs from the generators below, like every full block.
+  { id: 'limeterracotta', name: 'Lime Terracotta', color: 0x677534, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'pinkterracotta', name: 'Pink Terracotta', color: 0xa14e4e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'magentaterracotta', name: 'Magenta Terracotta', color: 0x95576c, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'lightblueterracotta', name: 'Light Blue Terracotta', color: 0x716c89, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'grayterracotta', name: 'Gray Terracotta', color: 0x392a23, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'lightgrayterracotta', name: 'Light Gray Terracotta', color: 0x876a61, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'brownterracotta', name: 'Brown Terracotta', color: 0x4d3323, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'deepslateironore', name: 'Deepslate Iron Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'deepslategoldore', name: 'Deepslate Gold Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'deepslatecoalore', name: 'Deepslate Coal Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'deepslateemeraldore', name: 'Deepslate Emerald Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'deepslateredstoneore', name: 'Deepslate Redstone Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'deepslatelapisore', name: 'Deepslate Lapis Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'deepslatecopperore', name: 'Deepslate Copper Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'polishedtuff', name: 'Polished Tuff', color: 0x626a63, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'tuffbricks', name: 'Tuff Bricks', color: 0x5e665f, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'chiseledtuff', name: 'Chiseled Tuff', color: 0x5e665f, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'polishedbasalt', name: 'Polished Basalt', color: 0x5a5a5e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'smoothbasalt', name: 'Smooth Basalt', color: 0x48484e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'chiseleddeepslate', name: 'Chiseled Deepslate', color: 0x36363a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'crackeddeepslatebricks', name: 'Cracked Deepslate Bricks', color: 0x46464a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'crackeddeepslatetiles', name: 'Cracked Deepslate Tiles', color: 0x36363a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'cutredsandstone', name: 'Cut Red Sandstone', color: 0xb05c2c, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'smoothredsandstone', name: 'Smooth Red Sandstone', color: 0xb5622e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'chiseledredsandstone', name: 'Chiseled Red Sandstone', color: 0xa8582a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'crackednetherbricks', name: 'Cracked Nether Bricks', color: 0x2e161a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'chiselednetherbricks', name: 'Chiseled Nether Bricks', color: 0x30171b, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'chiseledpolishedblackstone', name: 'Chiseled Polished Blackstone', color: 0x35303a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'crackedpolishedblackstonebricks', name: 'Cracked Polished Blackstone Bricks', color: 0x2f2a33, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'tubecoralblock', name: 'Tube Coral Block', color: 0x3157cf, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'braincoralblock', name: 'Brain Coral Block', color: 0xcf5b9f, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'bubblecoralblock', name: 'Bubble Coral Block', color: 0xa318a0, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'firecoralblock', name: 'Fire Coral Block', color: 0xa3232e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'horncoralblock', name: 'Horn Coral Block', color: 0xd8c742, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'rooteddirt', name: 'Rooted Dirt', color: 0x90684c, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'chiseledcopper', name: 'Chiseled Copper', color: 0xb8643f, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'reinforceddeepslate', name: 'Reinforced Deepslate', color: 0x50555a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'magentastainedglass', name: 'Magenta Stained Glass', color: 0xb24cd8, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'graystainedglass', name: 'Gray Stained Glass', color: 0x4c4c4c, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'lightgraystainedglass', name: 'Light Gray Stained Glass', color: 0x999999, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'brownstainedglass', name: 'Brown Stained Glass', color: 0x664c33, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  // Villages, castles and nature (2026-10-16) - building blocks for the
+  // open world's places, more kinds of leaves, and bamboo that's a thin
+  // stalk (`inset`: drawn narrower than its cell, BlockChunks.js) instead
+  // of a whole block. Full ones get a slab and stairs like every block;
+  // inset ones don't (they aren't full blocks).
+  { id: 'stonebricks', name: 'Stone Bricks', color: 0x8a8a86, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'sandstonebricks', name: 'Sandstone Bricks', color: 0xd8c690, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'plaster', name: 'White Plaster', color: 0xe6e0d2, pattern: 'speckle', roughness: 0.95, metalness: 0 },
+  { id: 'timberframe', name: 'Timber Frame', color: 0xe2dccb, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'thatch', name: 'Thatch', color: 0xc9a85a, pattern: 'stripe', roughness: 1, metalness: 0 },
+  { id: 'roofshingles', name: 'Red Roof Shingles', color: 0xa4473a, pattern: 'brick', roughness: 0.85, metalness: 0 },
+  { id: 'slateshingles', name: 'Slate Shingles', color: 0x56606e, pattern: 'brick', roughness: 0.85, metalness: 0 },
+  { id: 'dirtpath', name: 'Dirt Path', color: 0x947245, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'paperlantern', name: 'Paper Lantern', color: 0xf3b25a, pattern: 'speckle', roughness: 0.8, metalness: 0, emissive: 0xffa040, emissiveIntensity: 0.9 },
+  { id: 'bamboo', name: 'Bamboo', color: 0x7fa83a, pattern: 'stripe', roughness: 0.9, metalness: 0, inset: 6 / 16 },
+  { id: 'bambooleaves', name: 'Bamboo Leaves', color: 0x5f9a34, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88, inset: 4 / 16 },
+  // Coral that grows like a plant (2026-10-26, Gaymi: "the coral and
+  // stuff in the sea make it more skinnier"): two crossed see-through
+  // pictures (`plant`, BlockChunks.js) you can swim through, instead of
+  // whole blocks. The warm ocean grows these; the Coral Blocks stay for
+  // building. Not full blocks, so no slab/stairs.
+  { id: 'tubecoral', name: 'Tube Coral', color: 0x3157cf, pattern: 'coral', roughness: 1, metalness: 0, transparent: true, plant: 'tube' },
+  { id: 'braincoral', name: 'Brain Coral', color: 0xcf5b9f, pattern: 'coral', roughness: 1, metalness: 0, transparent: true, plant: 'branch' },
+  { id: 'bubblecoral', name: 'Bubble Coral', color: 0xa318a0, pattern: 'coral', roughness: 1, metalness: 0, transparent: true, plant: 'bubble' },
+  { id: 'firecoral', name: 'Fire Coral', color: 0xc22a35, pattern: 'coral', roughness: 1, metalness: 0, transparent: true, plant: 'branch' },
+  { id: 'horncoral', name: 'Horn Coral', color: 0xd8c742, pattern: 'coral', roughness: 1, metalness: 0, transparent: true, plant: 'fan' },
+  { id: 'seagrass', name: 'Seagrass', color: 0x3f9a4a, pattern: 'coral', roughness: 1, metalness: 0, transparent: true, plant: 'grass' },
+  { id: 'birchleaves', name: 'Birch Leaves', color: 0x7aa04a, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
+  { id: 'spruceleaves', name: 'Spruce Leaves', color: 0x3d5e3a, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
+  { id: 'jungleleaves', name: 'Jungle Leaves', color: 0x3f8a2a, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
+  { id: 'cherryleaves', name: 'Cherry Leaves', color: 0xe9a6c4, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
+  { id: 'mangroveleaves', name: 'Mangrove Leaves', color: 0x5a8a2c, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
+  { id: 'azalealeaves', name: 'Flowering Azalea Leaves', color: 0x5d7f2e, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
+  // Shaped blocks (see CUSTOM_BLOCK_GEOMETRY) - every block above is a full
+  // 1x1x1 cube; these use their own geometry instead (a stair-stepped
+  // silhouette, a post-and-rail fence, a thin ladder panel). `shape` picks
+  // the geometry; `pattern`/`color` still drive the texture exactly like
+  // any cube block - a stair or fence just wears its material on a
+  // different-shaped mesh.
+  // Invisible Block (2026-10-01): a full solid cube that draws nothing - you
+  // only see it by the shadow it casts (with the Shadows setting on). It
+  // shows as a faint ghost while you hold it, so you can find it to build
+  // on or break it (see _updateInvisibleGhost).
+  { id: 'invisible', name: 'Invisible Block', color: 0xbfe6ff, pattern: 'glass', roughness: 1, metalness: 0, shape: 'invisible' },
+  // Game blocks (2026-10-04, BuildGadgets.js / BuildSurvival.js): where
+  // Play starts you, where zombies come from, chests of ammo and health,
+  // levers and pressure plates that open the doors near them, and signs
+  // you write on. All shaped, so they get no slab/stairs (like the
+  // Invisible Block) - a "Zombie Spawner Stairs" would make no sense.
+  { id: 'playerstart', name: 'Player Start', color: 0x3fae4a, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'pad', game: true },
+  { id: 'zombiespawner', name: 'Zombie Spawner', color: 0x2c2c34, pattern: 'metal', roughness: 0.6, metalness: 0, shape: 'cage', game: true, emissive: 0xff5020, emissiveIntensity: 0.1 },
+  { id: 'lootchest', name: 'Loot Chest', color: 0xa8743a, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'chest', game: true },
+  { id: 'lever', name: 'Lever', color: 0x7d7d7d, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'lever', game: true },
+  { id: 'pressureplate', name: 'Pressure Plate', color: 0xa8a8a0, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'pad', game: true },
+  { id: 'sign', name: 'Glowing Sign', color: 0x5a3f28, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'sign', game: true, emissive: 0xffd890, emissiveIntensity: 0.12 },
+  // Working special blocks (bell, teleporter, traps...) - SpecialBlocks.js.
+  ...SPECIAL_BLOCKS,
+  { id: 'ladder', name: 'Ladder', color: 0x8a6239, pattern: 'ladder', roughness: 0.7, metalness: 0, shape: 'ladder' },
+  { id: 'oakstairs', name: 'Oak Stairs', color: 0xb4864a, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'stairs' },
+  { id: 'stonestairs', name: 'Stone Stairs', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'stairs' },
+  { id: 'brickstairs', name: 'Brick Stairs', color: 0xa8503a, pattern: 'brick', roughness: 0.85, metalness: 0, shape: 'stairs' },
+  { id: 'cobblestonestairs', name: 'Cobblestone Stairs', color: 0x7d7d7d, pattern: 'speckle', roughness: 0.95, metalness: 0, shape: 'stairs' },
+  { id: 'oakfence', name: 'Oak Fence', color: 0xb4864a, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'fence' },
+  { id: 'stonefence', name: 'Stone Fence', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'fence' },
+  { id: 'netherbrickfence', name: 'Nether Brick Fence', color: 0x35181c, pattern: 'brick', roughness: 0.8, metalness: 0, shape: 'fence' },
+  // Doors (2026-09-30) - two blocks tall; right-click opens/closes. The
+  // top half is its own hidden type (`${id}top`, generated below) so each
+  // half shows its own half of the door texture (doorCanvas).
+  { id: 'oakdoor', name: 'Oak Door', color: 0xb4864a, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'door', door: 'oak' },
+  { id: 'sprucedoor', name: 'Spruce Door', color: 0x6b4a2c, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'door', door: 'spruce' },
+  { id: 'birchdoor', name: 'Birch Door', color: 0xd8c898, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'door', door: 'birch' },
+  { id: 'darkoakdoor', name: 'Dark Oak Door', color: 0x4a3524, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'door', door: 'darkoak' },
+  { id: 'acaciadoor', name: 'Acacia Door', color: 0xb85a3a, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'door', door: 'acacia' },
+  { id: 'irondoor', name: 'Iron Door', color: 0xd2d2ce, pattern: 'metal', roughness: 0.4, metalness: 0.6, shape: 'door', door: 'iron' },
+  // Slabs - half-height blocks (CUSTOM_BLOCK_GEOMETRY.slab), textured like the full block they're cut from (SHAPED_TEXTURE_FROM).
+  { id: 'oakslab', name: 'Oak Slab', color: 0xb4864a, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'spruceslab', name: 'Spruce Slab', color: 0x6b4a2c, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'birchslab', name: 'Birch Slab', color: 0xd8c898, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'darkoakslab', name: 'Dark Oak Slab', color: 0x4a3524, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'stoneslab', name: 'Smooth Stone Slab', color: 0xa8a8a0, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'cobblestoneslab', name: 'Cobblestone Slab', color: 0x7d7d7d, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'brickslab', name: 'Brick Slab', color: 0xa8503a, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'stonebrickslab', name: 'Stone Brick Slab', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'sandstoneslab', name: 'Sandstone Slab', color: 0xc9b183, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'quartzslab', name: 'Quartz Slab', color: 0xe8e4dc, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'blackstoneslab', name: 'Blackstone Slab', color: 0x2b2530, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'prismarineslab', name: 'Prismarine Slab', color: 0x4f9e94, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+]
+// A slab for every full block (2026-09-30 request), cut from that block
+// and textured like it (top/side/bottom). The 12 hand-named slabs above
+// keep their own ids - saved builds use them - so their source blocks are
+// skipped here. No water/lava slabs (Minecraft has none either).
+const HAND_SLAB_SOURCES = new Set(['oakplanks', 'spruceplanks', 'birchplanks', 'darkoakplanks', 'smoothstone', 'cobblestone', 'brick', 'stone', 'sandstone', 'quartz', 'blackstone', 'prismarine'])
+for (const src of BLOCK_TYPES.slice()) {
+  if (src.shape || src.game || src.inset || src.plant || src.id === 'water' || src.id === 'lava' || HAND_SLAB_SOURCES.has(src.id)) continue
+  BLOCK_TYPES.push({
+    ...src,
+    id: `${src.id}slab`,
+    name: `${src.name} Slab`,
+    shape: 'slab',
+    slabOf: src.id,
+  })
+}
+// And stairs for every full block, Minecraft-style (2026-10-03 request) -
+// the 4 hand-made stairs above keep their ids, so their sources are
+// skipped. Standing rule: every new full block gets a slab AND stairs,
+// which these two loops do automatically.
+const HAND_STAIRS_SOURCES = new Set(['oakplanks', 'stone', 'brick', 'cobblestone'])
+for (const src of BLOCK_TYPES.filter((b) => !b.shape)) {
+  if (src.game || src.inset || src.plant || src.id === 'water' || src.id === 'lava' || HAND_STAIRS_SOURCES.has(src.id)) continue
+  BLOCK_TYPES.push({ ...src, id: `${src.id}stairs`, name: `${src.name} Stairs`, shape: 'stairs', stairsOf: src.id })
+}
+// Top halves of doors - never in the picker, only ever placed together
+// with their bottom half (see placeBlock).
+for (const src of BLOCK_TYPES.filter((b) => b.shape === 'door')) {
+  BLOCK_TYPES.push({ ...src, id: `${src.id}top`, name: src.name, shape: 'doortop', hidden: true, doorBottom: src.id })
+}
+export const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
+export const BLOCK_BY_ID = new Map(BLOCK_TYPES.map((b) => [b.id, b]))

@@ -28,3 +28,5 @@ Browser Three.js zombie-survival FPS. Vite build, no framework. Verification is 
 Translations: `src/game/i18n.js` keeps `LANGUAGES`, `t()`, `tHtml()`; each language's strings are in `src/game/i18n/<code>.js` (`en`, `zh`, `hi`, `es` full; the rest small). `scripts/check-docs.mjs` reads both.
 
 **Zombie facts feed (2026-11-15).** `npm run build` also runs `scripts/build-zombie-facts.mjs`, which writes `dist/zombie-facts.json` (served at `/zombie-facts.json`) from `MONSTER_KINDS` and `FunnyZombies.js`. The Discord bot reads it for `/zombiefact`, so new zombie kinds get a fact automatically; add a line to `GAME_LINES` for a funnier one. The script never fails the build.
+
+**`BuildMode.js` split (2026-11-16, Batch 1)**: pure move, no behavior change. `BlockTypes.js` = the block list (`BLOCK_TYPES` + the auto slab/stairs/door-top loops, `VALID_TYPE_IDS`, `BLOCK_BY_ID`); BuildMode.js still re-exports `BLOCK_TYPES` for `PlaySpectate.js`/`SkyMap.js`. `BlockArt.js` = pattern drawers, block textures/canvases, shaped-block textures, block icons, the Invisible Block icon.
