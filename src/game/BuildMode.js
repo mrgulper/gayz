@@ -3,10 +3,9 @@
 // Reuses Game.js's existing renderer/canvas rather than a second WebGL
 // context - only the scene/camera passed to render() changes.
 import { screenOpen as campScreenOpen } from './CampScreen.js'
-import { OWNER_KEY } from './OwnerPowers.js'
-import { FIXED_KEYS, getKeyFor, keyLabel, keysFor } from './Keybinds.js'
-import { controlsTick, lookBy, startUse, endUse } from './ControlSettings.js'
-import { toggleHideHud } from './HudSettings.js'
+import { FIXED_KEYS, getKeyFor, keyLabel } from './Keybinds.js'
+import { controlsTick } from './ControlSettings.js'
+import { setupBuildInput } from './BuildInput.js'
 import * as THREE from 'three'
 import { grassOn, drawZombieOutlines } from './GraphicsSettings.js'
 import { setHomePaused } from './LiteHome.js'
@@ -68,7 +67,6 @@ const FLY_SPEED = 8
 // speed instead (THREE.MathUtils.damp), giving a real accelerate-then-coast
 // feel rather than an on/off toggle.
 const FLY_ACCEL_LERP_SPEED = 8
-const LOOK_SENSITIVITY = 0.0022
 // Underground the fog turns this colour, from the ground's bottom down to
 // CAVE_FOG_DEPTH cells below it, and comes this close (blocks).
 const CAVE_FOG_COLOR = new THREE.Color(0x1b1d22)
@@ -125,9 +123,6 @@ const AUTOSAVE_DELAY_MS = 1500
 // Trying the map: how far away (in blocks) a door can be opened from.
 const TRY_REACH_BLOCKS = 5
 const LIQUID_TYPES = new Set(['water', 'lava'])
-// Walking keys (Settings > Controls) whose browser default (scrolling the
-// page on Space/arrows) is blocked while trying the map.
-const TRY_MOVE_ACTIONS = ['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch']
 const MENU_SHORTCUTS = [
   [['T'], 'buildModeTryBtn'],
   // Rebindable (Settings > Controls), so their keys are looked up when the
@@ -186,13 +181,6 @@ const FOV_LERP_SPEED = 10
 // this radius only stops the camera from passing through a placed block,
 // treating the camera as a small sphere rather than a zero-size point.
 const COLLISION_RADIUS = 0.35
-// Minecraft-style hotbar key mapping - Digit1-9 are slots 0-8, Digit0 is
-// slot 9 (the 10th slot), matching the real keyboard row's left-to-right
-// order rather than numeric value.
-const DIGIT_KEY_TO_HOTBAR_INDEX = {
-  Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4,
-  Digit6: 5, Digit7: 6, Digit8: 7, Digit9: 8, Digit0: 9,
-}
 
 const PICKER_TYPES = BLOCK_TYPES.filter((b) => !b.hidden)
 // Special blocks (_blockCategory) lead the picker's list.
@@ -497,193 +485,8 @@ export class BuildMode {
     this._velocity = new THREE.Vector3()
     this._yaw = 0
     this._pitch = 0
-    // preventDefault on the movement keys specifically - Space's browser
-    // default is "scroll the page down a viewport height", which was never
-    // suppressed here. It fired right alongside the camera's own upward
-    // movement, so the page (with the canvas inside it) could visibly
-    // scroll out from under the camera - easy to misread as "falling" when
-    // flying high enough that the drop is dramatic, and confusing to
-    // recover from since a second Space press scrolls further rather than
-    // undoing the first.
-    const MOVEMENT_KEY_CODES = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft'])
-    // Double-tap Space hops the camera straight up exactly one block -
-    // instant, not a held/continuous ascend (a hands-free continuous-fly
-    // toggle was tried here first and explicitly asked to be removed: it
-    // kept climbing until double-tapped again, which read as "flying away"
-    // rather than a quick vertical nudge). Each Space press within
-    // DOUBLE_TAP_WINDOW_MS of the previous one triggers the hop; a slow,
-    // isolated tap never does, same detection window as before.
-    const DOUBLE_TAP_WINDOW_MS = 300
-    this._lastSpaceTapAt = 0
-    this._onKeyDown = (e) => {
-      // Without this, typing a block name into the picker's search box
-      // (see _pickerSearchInput) both flew the camera around on every W/A/
-      // S/D keystroke and silently ate the character itself, since
-      // preventDefault() on a movement key stops the input from ever
-      // receiving it - this guard was needed even before the search box
-      // existed (the picker's Tab-toggle key handling never blocked
-      // movement input while open), the search box just made it obvious.
-      // The Drop key with a game's inventory open: the item under the pointer.
-      if (this.pickerOpen && this.survival.active && this.survival.inv?.open && e.code === getKeyFor('dropItem') && !e.repeat) {
-        this.survival.inv.dropHovered()
-        return
-      }
-      if (this.pickerOpen) return
-      // Typing in a text box over the game (Settings from the pause
-      // screen) doesn't move you or press game keys.
-      if (e.target?.closest?.('input, textarea, select')) return
-      // The owner's menu (OwnerPowers.js): its key or Escape closes it,
-      // and no game keys while it's open.
-      const ownerPanel = this.survival?.ownerPanel
-      if (ownerPanel && !e.repeat && (e.code === OWNER_KEY || (ownerPanel.open && e.code === 'Escape'))) {
-        e.preventDefault()
-        ownerPanel.toggle()
-        return
-      }
-      if (ownerPanel?.open) return
-      // (Not while playing a game from the homepage - that would drop you
-      // into the Map Editor.)
-      if (e.code === FIXED_KEYS.buildTry && !e.repeat && !e.ctrlKey && !e.metaKey && !this.gameMenu.forGame) {
-        this.toggleTryMode()
-        return
-      }
-      // While trying the map, keys move the player (see BuildTryMode) -
-      // the building tools stay off.
-      // Spectating works like playing (2026-10-18, Gaymi: "every feature
-      // that works regularly in game should work in spectating"): reload,
-      // Use (doors, chests - or the next player on a server), inspect and
-      // the map key all still work while flying.
-      if (this.spectate.active) {
-        // The Shop (PlayShop.js) is open: only its own key closes it here.
-        if (this.survival.shop?.panelOpen) {
-          if (e.code === getKeyFor('shop') && !e.repeat) this.survival.shop.closePanel()
-          return
-        }
-        // The ring editor (RingEditor.js) is open: its key or Escape closes it.
-        if (this.survival.ringEditor?.isOpen) {
-          if ((e.code === getKeyFor('ringBag') || e.code === 'Escape') && !e.repeat) this.survival.ringEditor.close()
-          return
-        }
-        if (!e.repeat && this.spectate.photo) {
-          if (e.code === 'KeyP' || e.code === 'Enter') this.spectate.snap()
-        } else if (!e.repeat) {
-          if (e.code === getKeyFor('use') && this.spectate.hasPlayers()) this.spectate.onKey(e.code)
-          else if (e.code === getKeyFor('use')) startUse(this)
-          if (this.survival.active) this.survival.onKeyDown(e.code)
-          if (e.code === getKeyFor('inspectWeapon')) this.tryMode.inspect()
-          if (e.code === getKeyFor('cycleMap')) this.tryMode.cycleMap()
-          if (e.code === getKeyFor('hideHud')) toggleHideHud(this.game)
-        }
-        if (e.code === getKeyFor('hideHud')) e.preventDefault()
-        this._keys.add(e.code)
-        if (MOVEMENT_KEY_CODES.has(e.code) || TRY_MOVE_ACTIONS.some((a) => keysFor(a).includes(e.code))) e.preventDefault()
-        return
-      }
-      if (this.tryMode.active) {
-        // The Shop (PlayShop.js) is open: only its own key closes it here.
-        if (this.survival.shop?.panelOpen) {
-          if (e.code === getKeyFor('shop') && !e.repeat) this.survival.shop.closePanel()
-          return
-        }
-        // The ring editor (RingEditor.js) is open: its key or Escape closes it.
-        if (this.survival.ringEditor?.isOpen) {
-          if ((e.code === getKeyFor('ringBag') || e.code === 'Escape') && !e.repeat) this.survival.ringEditor.close()
-          return
-        }
-        if (this.survival.active && !e.repeat) this.survival.onKeyDown(e.code)
-        // Settings > Controls > Hold to Interact: maybe after a hold.
-        if (e.code === getKeyFor('use') && !e.repeat) startUse(this)
-        if (e.code === getKeyFor('autoRun') && !e.repeat) this.tryMode.toggleAutoRun()
-        if (e.code === getKeyFor('inspectWeapon') && !e.repeat) this.tryMode.inspect()
-        if (e.code === getKeyFor('cycleMap') && !e.repeat) this.tryMode.cycleMap()
-        if (e.code === getKeyFor('cameraView') && !e.repeat) this.tryMode.cycleView()
-        // Hide HUD (F1, which would open the browser's help without preventDefault).
-        if (e.code === getKeyFor('hideHud')) {
-          e.preventDefault()
-          if (!e.repeat && this.survival.active) toggleHideHud(this.game)
-        }
-        this._keys.add(e.code)
-        if (MOVEMENT_KEY_CODES.has(e.code) || TRY_MOVE_ACTIONS.some((a) => keysFor(a).includes(e.code))) e.preventDefault()
-        return
-      }
-      // Ctrl/Cmd shortcuts (shown in the Escape menu's Shortcuts box).
-      if ((e.ctrlKey || e.metaKey) && !e.repeat) {
-        if (e.code === 'KeyZ') {
-          e.preventDefault()
-          if (e.shiftKey) this.redo()
-          else this.undo()
-          return
-        }
-        if (e.code === 'KeyY') {
-          e.preventDefault()
-          this.redo()
-          return
-        }
-        if (e.code === 'KeyS') {
-          e.preventDefault()
-          this.save()
-          this.game?._showHomepageToast?.(t('buildMenuSavedToast'))
-          if (this.menuOpen) this._refreshMenuInfo()
-          return
-        }
-        return
-      }
-      if (e.code === FIXED_KEYS.buildMirror && !e.repeat) {
-        this.toggleMirror()
-        return
-      }
-      if (e.code === 'KeyL' && !e.repeat) {
-        this.toggleLineTool()
-        return
-      }
-      if (e.code === 'KeyC' && !e.repeat) {
-        this.toggleCopyTool()
-        return
-      }
-      if (e.code === 'KeyP' && !e.repeat) {
-        this.pasteClipboard()
-        return
-      }
-      if (!e.repeat && (e.code === FIXED_KEYS.buildFill || e.code === FIXED_KEYS.buildReplace)) {
-        this.tools.setMode(e.code === FIXED_KEYS.buildFill ? 'fill' : 'replace')
-        return
-      }
-      if (e.code === FIXED_KEYS.buildShape && !e.repeat) {
-        this.tools.cycleShape()
-        return
-      }
-      if (e.code === FIXED_KEYS.buildRotate && !e.repeat) {
-        this.tools.rotateClipboard()
-        return
-      }
-      if (e.code === 'Space' && !e.repeat) {
-        const now = performance.now()
-        if (now - this._lastSpaceTapAt < DOUBLE_TAP_WINDOW_MS) this._hopUp()
-        this._lastSpaceTapAt = now
-      }
-      // "V" for a zoomed-in "look further" view (narrows FOV, doesn't
-      // change render distance) - hold to zoom in, release to smoothly
-      // return to normal, same feel as a scope. No special-case handling
-      // needed here beyond the generic _keys.add(e.code) below - update()
-      // reads _keys.has('KeyV') every frame and damps the FOV toward
-      // whichever target that implies, the same way it already damps
-      // movement velocity toward its own target.
-      this._keys.add(e.code)
-      if (MOVEMENT_KEY_CODES.has(e.code)) e.preventDefault()
-    }
-    this._onKeyUp = (e) => {
-      this._keys.delete(e.code)
-      if (e.code === getKeyFor('use')) endUse(this)
-    }
-    this._onMouseMove = (e) => {
-      if (document.pointerLockElement !== this.renderer.domElement) return
-      // Settings > Controls: Mouse Sensitivity and Invert Look.
-      // Aiming down the sights turns the view slower, like zooming in
-      // (much slower through a scope; not at all without a gun).
-      const sens = LOOK_SENSITIVITY * ((this.game?.settings?.sensitivity ?? 100) / 100) * this.tryMode.aimLookScale()
-      // Mouse Smoothing (ControlSettings.lookBy) may spread it over frames.
-      lookBy(this, -e.movementX * sens, -e.movementY * sens * (this.game?.settings?.invertY ? -1 : 1))
-    }
+    // Keyboard, mouse and scroll-wheel handlers (BuildInput.js).
+    setupBuildInput(this)
 
     // One InstancedMesh per block type (not one Mesh per block) - keeps the
     // scene graph at a fixed 9 objects regardless of how many blocks are
@@ -854,59 +657,6 @@ export class BuildMode {
     this._tryCrosshairEl.id = 'build-try-crosshair'
     this._tryCrosshairEl.style.display = 'none'
     document.body.appendChild(this._tryCrosshairEl)
-    this._onPointerDown = (e) => {
-      if (document.pointerLockElement !== this.renderer.domElement) {
-        if (this.mouseScreenOpen()) return
-        // Cursor is free (Build Mode no longer auto-locks the instant you
-        // enter, see Game.js's _enterBuildMode - it was disorienting to
-        // have the mouse captured before you'd even gotten oriented).
-        // Clicking into the viewport re-acquires it instead of placing/
-        // removing a block, so this first click is never mistaken for a
-        // build action.
-        try { this.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available in this environment */ }
-        return
-      }
-      // Trying the map: clicks shoot (and, held on a block, break it -
-      // BuildTryMode._updateDigging); nothing gets built.
-      // Spectating: on a server a click watches the next player; alone it
-      // shoots like normal.
-      // Photo Mode: a click takes the picture (once the mouse is locked).
-      if (this.spectate.active && this.spectate.photo) {
-        if (e.button === 0 && document.pointerLockElement === this.renderer.domElement) this.spectate.snap()
-        return
-      }
-      if (this.spectate.active && this.spectate.hasPlayers() && e.button === 0) {
-        this.spectate.cycle(1)
-        return
-      }
-      if (this.tryMode.active) {
-        if (e.button === 0) {
-          // Held down, an automatic gun keeps firing (BuildSurvival.update).
-          this._fireHeld = true
-          this.tryMode.fire()
-        }
-        // Right-click aims down the sights while it's held and stops when
-        // it's let go (2026-10-17, Gaymi: "if you stop clicking right
-        // click it stops aiming") - doors, chests and NPCs are on the Use
-        // key (E).
-        // Holding a block from the inventory: right-click places it.
-        // Right-clicking the go-kart hops in (GoKart.js).
-        else if (e.button === 2 && this.survival?.active && (this.survival.kart?.rightClick() || this.survival.vehicles?.rightClick())) return
-        else if (e.button === 2 && this.survival?.holding?.kind === 'block') this.survival.placeHeldBlock()
-        // Spin ring games (SpinRing.js): held right-click pulls the ring in
-        // tight (left click spreads it - _fireHeld).
-        else if (e.button === 2 && this.survival?.active && this.survival.ring) this._ringPull = true
-        else if (e.button === 2) this.tryMode.setAim(true)
-        return
-      }
-      if (e.button === 2) {
-        if (this.tools.mode) this.tools.click()
-        else if (this.lineToolMode) this._lineToolClick()
-        else if (this.copyToolMode) this._copyToolClick()
-        else this._placeFromCamera()
-      } else if (e.button === 0) this._removeFromCamera()
-    }
-    this._onContextMenu = (e) => { if (this.active) e.preventDefault() }
 
     // Tab picker overlay - a plain DOM grid (not part of the 3D scene) of
     // every block type, toggled with Tab. The search input is built once
@@ -1020,80 +770,6 @@ export class BuildMode {
     })
 
 
-    this._onKeyDownHotbar = (e) => {
-      // Same reasoning as _onKeyDown's guard - without it, typing a digit
-      // while searching the picker (e.g. "TNT" has none, but plenty of
-      // names could) would also switch the active hotbar slot underneath.
-      if (this.pickerOpen) return
-      const digitIndex = DIGIT_KEY_TO_HOTBAR_INDEX[e.code]
-      if (digitIndex === undefined) return
-      // With the emote bar open, 1-3 pick an emote instead (Emotes.js).
-      if (this.survival?.active && this.survival.emotes?.pick(e.code)) return
-      if (this.survival?.active && this.survival.inv) this.survival.inv.select(digitIndex)
-      else this._selectHotbarSlot(digitIndex)
-    }
-
-    // Mouse wheel / trackpad scroll steps through the hotbar like
-    // Minecraft (down = next slot). Trackpads send many small deltas, so
-    // they're added up and one slot moves per ~one wheel notch.
-    this._wheelAccum = 0
-    this._onWheel = (e) => {
-      if (!this.active || this.pickerOpen || this.menuOpen) return
-      if (e.target?.closest?.('#build-picker, #build-menu, #community-maps-panel, #build-together-panel, #build-try-map')) return
-      this._wheelAccum += e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY
-      const steps = Math.trunc(this._wheelAccum / 60)
-      if (!steps) return
-      this._wheelAccum -= steps * 60
-      const dir = Math.sign(steps) * (this.game?.settings?.invertScrollWeaponSwitch ? -1 : 1)
-      if (this.survival?.active && this.survival.inv) {
-        const inv = this.survival.inv
-        inv.select((((inv.active + dir) % 10) + 10) % 10)
-        return
-      }
-      const next = (((this.activeHotbarIndex + dir) % 10) + 10) % 10
-      this._selectHotbarSlot(next)
-    }
-
-    this._onKeyDownPicker = (e) => {
-      // The emote wheel is up (Emotes.js): Escape closes it.
-      if (e.code === 'Escape' && this.survival?.emotes?.open) {
-        this.survival.emotes.close()
-        return
-      }
-      // An NPC's shop is open: Escape closes it, nothing else happens.
-      if (this.survival?.shop?.panelOpen) {
-        if (e.code === 'Escape') this.survival.shop.closePanel()
-        return
-      }
-      if (this.survival?.ringEditor?.isOpen) {
-        if (e.code === 'Escape' || e.code === getKeyFor('ringBag')) this.survival.ringEditor.close()
-        return
-      }
-      if (e.code === 'Tab') {
-        e.preventDefault()
-        this.togglePicker()
-      } else if (e.code === 'Escape' && this.pickerOpen) {
-        this.togglePicker()
-      } else if (e.code === 'Escape' && this.gameMenu.settingsOpen) {
-        // Settings over the game's pause screen: back to the pause screen
-        // (unless Escape was cancelling a key change in it).
-        if (!e.defaultPrevented) this.gameMenu.closeSettings()
-      } else if (e.code === 'Escape') {
-        // Opens/closes the action menu (see toggleMenu) - which also
-        // releases/reacquires pointer lock as part of that, so this
-        // replaces what used to be a bare exitPointerLock() call here.
-        this.toggleMenu()
-      }
-    }
-
-    // Click anywhere outside the picker's own grid to close it - the
-    // picker has no backdrop element of its own (it's just the centered
-    // grid, position:fixed with nothing behind it), so this listens on
-    // document and checks the click target instead of adding one.
-    this._onPickerBackdropClick = (e) => {
-      if (!this.pickerOpen || !this._pickerEl) return
-      if (!this._pickerEl.contains(e.target)) this.togglePicker()
-    }
   }
 
   // slot: open on this slot (a number, or 'map3'); omitted keeps the
@@ -2513,7 +2189,7 @@ export class BuildMode {
   }
 
   // 10 slots, empty until assigned from the picker above - see
-  // DIGIT_KEY_TO_HOTBAR_INDEX for the matching Digit1-9/0 key handling.
+  // DIGIT_KEY_TO_HOTBAR_INDEX (BuildInput.js) for the matching Digit1-9/0 key handling.
   _renderHotbar() {
     if (!this._hotbarEl) return
     // A game shows the inventory's hotbar.
