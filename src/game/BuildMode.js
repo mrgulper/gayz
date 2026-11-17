@@ -6,6 +6,8 @@ import { screenOpen as campScreenOpen } from './CampScreen.js'
 import { FIXED_KEYS, getKeyFor, keyLabel } from './Keybinds.js'
 import { controlsTick } from './ControlSettings.js'
 import { setupBuildInput } from './BuildInput.js'
+import { setupBuildScene } from './BuildScene.js'
+import { setupBuildButtons } from './BuildButtons.js'
 import * as THREE from 'three'
 import { grassOn, drawZombieOutlines } from './GraphicsSettings.js'
 import { setHomePaused } from './LiteHome.js'
@@ -197,26 +199,6 @@ const _isDoorType = (type) => { const shape = BLOCK_BY_ID.get(type)?.shape; retu
 // the old 6 always-on light proxies cost ~35% of every frame).
 const LIGHT_BLOCK_COLORS = new Map(BLOCK_TYPES.filter((bt) => bt.emissive).map((bt) => [bt.id, bt.emissive]))
 
-// The picker's block-type dropdown (2026-10-03). Special is first - just
-// the Invisible Block for now - and its blocks lead the All list too.
-const PICKER_CATEGORIES = [
-  ['special', 'Special'],
-  ['wood', 'Wood'],
-  ['stone', 'Stone'],
-  ['ore', 'Ores & Metals'],
-  ['nature', 'Dirt & Nature'],
-  ['glass', 'Glass'],
-  ['color', 'Wool & Concrete'],
-  ['terracotta', 'Terracotta'],
-  ['nether', 'Nether & End'],
-  ['light', 'Light & Liquids'],
-  ['slab', 'Slabs'],
-  ['stairs', 'Stairs'],
-  ['parts', 'Doors, Fences & Ladders'],
-  ['other', 'Other'],
-  // Not blocks: animals to put down (placingAnimal, 2026-10-24).
-  ['animals', 'Animals'],
-]
 // BuildMode.breakSeconds: seconds to break a block while playing, by its
 // picker category, with a few blocks picked out by name first.
 const BREAK_SECONDS = { glass: 0.35, light: 0.5, nature: 0.6, color: 0.8, wood: 1.2, other: 1, terracotta: 1.6, stone: 2.2, nether: 2.4, ore: 3 }
@@ -429,54 +411,8 @@ export class BuildMode {
     this.renderer = renderer
     this.active = false
 
-    this.scene = new THREE.Scene()
-    this.scene.background = new THREE.Color(0x87ceeb)
-    // Always present (adding/removing fog later would recompile every
-    // material); render() keeps its color on the sky and its distance on
-    // the view distance.
-    this.scene.fog = new THREE.Fog(0x87ceeb, 1e5, 1e6)
-
-    // Bright, even daylight (2026-09-29, Kirka-style pass) - at 1.2/1.0
-    // a flat-lit top face came out at about 60% of its texture color, so
-    // every block read dark and muddy. Sides/bottoms get their darker
-    // Minecraft-style shading from BlockChunks' per-face shade instead.
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0xb8b0a0, 2.0)
-    this.scene.add(hemiLight)
-    this._hemiLight = hemiLight
-    const sunLight = new THREE.DirectionalLight(0xfff4e0, 1.5)
-    sunLight.position.set(20, 30, 10)
-    // Real cast shadows (not just per-face lighting) are what actually
-    // reads as "3D" from a distance - a flat-shaded cube and a shadowed
-    // one look very different even with the same geometry.
-    sunLight.castShadow = true
-    // Graphics > Shadow Quality picks the shadow map size (Game.js
-    // _applyShadowQuality changes it live).
-    const shadowSize = { low: 512, medium: 1024, high: 2048 }[game?.settings?.shadowQuality] || 1024
-    sunLight.shadow.mapSize.set(shadowSize, shadowSize)
-    this.sunLight = sunLight
-    // GROUND_SIZE is a cell count, not world units (see its own comment) -
-    // the shadow frustum needs to cover the ground's actual physical size.
-    const shadowSpan = (GROUND_SIZE * BLOCK_SIZE) / 2 + 8
-    sunLight.shadow.camera.left = -shadowSpan
-    sunLight.shadow.camera.right = shadowSpan
-    sunLight.shadow.camera.top = shadowSpan
-    sunLight.shadow.camera.bottom = -shadowSpan
-    sunLight.shadow.camera.near = 1
-    sunLight.shadow.camera.far = 100
-    // Without a bias, faces at a low angle to the sun shadowed themselves
-    // (shadow acne) and read as near-black.
-    sunLight.shadow.bias = -0.0005
-    sunLight.shadow.normalBias = 0.03
-    this.scene.add(sunLight)
-    this._sunLight = sunLight
-
-    this.camera = new THREE.PerspectiveCamera(this._normalFov(), window.innerWidth / window.innerHeight, 0.1, 500)
-    // Standing eye height (1.7, matching PlayerController's real-game eye
-    // height) rather than floating well above it - the old y=5 spawn made
-    // 1-unit blocks read as small/distant the instant Build Mode opened,
-    // since everything was seen from a bird's-eye vantage before the
-    // player had a chance to fly down to a natural scale reference.
-    this.camera.position.set(0, 1.7, 10)
+    // Sky colour, fog, sun + sky light with shadows, and the camera (BuildScene.js).
+    setupBuildScene(this, game, GROUND_SIZE)
 
     // Free-fly input state - WASD + Space/Shift for up/down, mouse look
     // while pointer-locked. No gravity, no collision (see spec's "why this
@@ -636,11 +572,6 @@ export class BuildMode {
     } catch {
       // Not opened one yet.
     }
-    document.getElementById('build-mode-together-btn')?.addEventListener('click', () => this.together.openPanel())
-    document.getElementById('build-mode-play-btn')?.addEventListener('click', () => {
-      if (this.survival.active) this.survival.stop()
-      else this.survival.start()
-    })
     // Time of day and weather (BuildSky.js).
     this.sky = new BuildSky(this, BLOCK_SIZE)
     // 3D grass on grass blocks on the realistic levels (GrassTufts.js).
@@ -667,96 +598,9 @@ export class BuildMode {
     // put down next.
     this.animalSpots = []
     this.placingAnimal = null
-    this._pickerEl = document.getElementById('build-picker')
-    if (this._pickerEl) {
-      this._pickerEl.innerHTML = ''
-      // Search bar and a block-type dropdown side by side, inside the
-      // picker's frame (the same oval search bar as everywhere else).
-      const toolbar = document.createElement('div')
-      toolbar.className = 'build-picker-toolbar'
-      this._pickerSearchInput = document.createElement('input')
-      this._pickerSearchInput.type = 'text'
-      this._pickerSearchInput.className = 'nickname-input search-bar build-picker-search'
-      this._pickerSearchInput.placeholder = 'Search blocks...'
-      this._pickerSearchInput.addEventListener('click', (e) => e.stopPropagation())
-      this._pickerSearchInput.addEventListener('input', () => this._renderPickerGrid())
-      toolbar.appendChild(this._pickerSearchInput)
-      this._pickerCategorySelect = document.createElement('select')
-      this._pickerCategorySelect.className = 'nickname-input build-picker-category'
-      for (const [value, label] of [['all', 'All blocks'], ...PICKER_CATEGORIES]) {
-        const opt = document.createElement('option')
-        opt.value = value
-        opt.textContent = label
-        this._pickerCategorySelect.appendChild(opt)
-      }
-      this._pickerCategorySelect.addEventListener('click', (e) => e.stopPropagation())
-      this._pickerCategorySelect.addEventListener('change', () => this._renderPickerGrid())
-      toolbar.appendChild(this._pickerCategorySelect)
-      this._pickerEl.appendChild(toolbar)
-      this._pickerGridEl = document.createElement('div')
-      this._pickerGridEl.className = 'build-picker-grid'
-      this._pickerEl.appendChild(this._pickerGridEl)
-    }
-    // The grid is drawn when the picker opens (togglePicker), not here -
-    // drawing its ~400 block icons while BuildMode was being made in the
-    // background was a hitch on whatever the player clicked meanwhile.
-
-    // Always-on-screen quick-select bar (Minecraft-style, Digit1-9/0) - 10
-    // slots you assign yourself from the Tab picker (see
-    // _assignToActiveSlot), not pre-filled.
-    this._hotbarEl = document.getElementById('build-hotbar')
-    this._renderHotbar()
-
-    // Save-slot picker (see switchSlot) - a small always-visible row of
-    // SAVE_SLOT_COUNT buttons, not tucked inside a menu, since switching
-    // slots is meant to be a quick one-click action mid-build.
-    this._slotsEl = document.getElementById('build-slots')
-    this._renderSlots()
-
-    // Mirror toggle button (see toggleMirror) - the N key does the same
-    // thing, this is just the discoverable/clickable equivalent.
-    this._mirrorBtnEl = document.getElementById('build-mode-mirror-btn')
-    if (this._mirrorBtnEl) this._mirrorBtnEl.addEventListener('click', () => this.toggleMirror())
-
-    // Line tool toggle button (see toggleLineTool) - the L key does the
-    // same thing.
-    this._lineToolBtnEl = document.getElementById('build-mode-line-btn')
-    if (this._lineToolBtnEl) this._lineToolBtnEl.addEventListener('click', () => this.toggleLineTool())
-
-    // Copy tool + Paste buttons (see toggleCopyTool/pasteClipboard) - C and
-    // P keys do the same things.
-    this._copyToolBtnEl = document.getElementById('build-mode-copy-btn')
-    if (this._copyToolBtnEl) this._copyToolBtnEl.addEventListener('click', () => this.toggleCopyTool())
-    this._pasteBtnEl = document.getElementById('build-mode-paste-btn')
-    if (this._pasteBtnEl) this._pasteBtnEl.addEventListener('click', () => this.pasteClipboard())
-    document.getElementById('build-mode-rotate-btn')?.addEventListener('click', () => this.tools.rotateClipboard())
-    document.getElementById('build-mode-fill-btn')?.addEventListener('click', () => this.tools.setMode('fill'))
-    document.getElementById('build-mode-replace-btn')?.addEventListener('click', () => this.tools.setMode('replace'))
-    document.getElementById('build-mode-shape-btn')?.addEventListener('click', () => this.tools.cycleShape())
-
-    // Undo/Redo buttons (see undo()/redo() and _updateUndoRedoButtons) -
-    // disabled whenever their stack is empty rather than a silent no-op.
-    this._undoBtnEl = document.getElementById('build-mode-undo-btn')
-    if (this._undoBtnEl) this._undoBtnEl.addEventListener('click', () => this.undo())
-    this._redoBtnEl = document.getElementById('build-mode-redo-btn')
-    if (this._redoBtnEl) this._redoBtnEl.addEventListener('click', () => this.redo())
-    this._updateUndoRedoButtons()
-
-    // Reset Map - confirms first (same window.confirm convention as
-    // Import/Download, both of which also replace the current build with
-    // no way back), then wipes to a bare ground layer, matching
-    // importMapFile's own clear-then-repopulate-ground-then-save sequence.
-    this._resetBtnEl = document.getElementById('build-mode-reset-btn')
-    if (this._resetBtnEl) {
-      this._resetBtnEl.addEventListener('click', () => {
-        if (!window.confirm(t(this.activeSlot === MAP3_SLOT ? 'buildResetMap3Confirm' : 'buildResetConfirm'))) return
-        this.clearAllBlocks()
-        // Map 3 resets back to the generated city, a slot to bare ground.
-        if (this.activeSlot === MAP3_SLOT) this._applyMap3({ removed: [], placed: [] })
-        else this._ensureGroundLayer()
-        this.save()
-      })
-    }
+    // Toolbar buttons, the block picker's search bar + dropdown, the hotbar and
+    // save-slot row (BuildButtons.js).
+    setupBuildButtons(this)
 
     // Action menu (Exit/Save/Export/Import/Mirror/Line/Copy/Paste) - see
     // toggleMenu, opened with Escape.
@@ -764,10 +608,6 @@ export class BuildMode {
     this._menuEl = document.getElementById('build-menu')
     // ...and the pause screen while playing a game from the homepage.
     this.gameMenu = new PlayPauseMenu(this)
-    document.getElementById('build-mode-try-btn')?.addEventListener('click', () => this.toggleTryMode())
-    document.getElementById('build-menu-close')?.addEventListener('click', () => {
-      if (this.menuOpen) this.toggleMenu()
-    })
 
 
   }
