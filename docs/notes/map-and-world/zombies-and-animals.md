@@ -51,3 +51,4 @@ Split out of the old `map-and-world.md` on 2026-11-13 (word for word, oldest fir
 
 ## Save Clip (2026-11-19, big-ideas plan Clip Maker Batch 1)
 - `ClipMaker.js`, made in `BuildSurvival.start` (`begin`), `end` in `stop`, `update` each frame, `setPaused` from `PlayPauseMenu.show`. Details and next batches: `docs/notes/big-ideas-plan.md`. Tests skip recording (webdriver) unless `window.__clipTest = true` before Play.
+- Batch 2 (Clip Options): options in `clips.options` (localStorage `gayz-clip-options`, `setOptions` restarts recording). GIF mode = `ClipGif.js` + `ClipGifWorker.js` (gifenc): a hidden `<video>` of the canvas stream, a picture every 0.1 s encoded in a worker as a stand-alone GIF frame (own palette), last `len` s kept, glued with a header on save. Sound = `audioEngine.outGain` -> MediaStreamDestination. Video length = `len` to `len + stagger` (stagger = len/2, 5-15 s).

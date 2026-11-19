@@ -8,8 +8,11 @@ Gaymi picked 3 big ideas, in this order, in small batches (one batch per session
 
 ## Clip Maker (Gaymi: let players pick the clip type)
 - [x] Batch 1: `ClipMaker.js` (`s.clips`): overlapping MediaRecorders on `canvas.captureStream(30)` (new one every 15 s, each lives 45 s; save = youngest >= 30 s old, so clips are 30-45 s). K key (`saveClip`) + pause-menu Save Clip. MP4 if the browser can, else WebM. Video only, no HUD. Paused with the pause screen / hidden tab. Skipped under `navigator.webdriver` unless `window.__clipTest`. Test in `play.spec.js`. For Batch 2: length option = pick the recorder by age; stagger may need to shrink to 10 s for a 10 s option.
-- [ ] Batch 2: options - Video or GIF, length (10/20/30 s), with or without sound, Custom (rule: always a Custom option).
+- [x] Batch 2: Clip Options on the pause screen (Gaymi's pick, not Gallery: options are needed mid-game). Video or GIF; length 10/20/30 s or Custom 5-60 s; sound on/off (videos); GIF Small 320 px / Big 480 px (Gaymi: "make both they get to pick"). localStorage `gayz-clip-options`, this device only. Test in `play.spec.js`.
 - [ ] Batch 3: slow-mo and camera angles (replay-style), phone support check.
+
+## GayZ TV (idea, after Clip Maker 3 - Gaymi 2026-11-19)
+- [ ] Watch and share clips online (maybe in Gallery). Not planned yet: video storage costs money, needs reporting bad clips, and Terms/Privacy lines. Ask Gaymi before planning batches.
 
 ## Firebase check, then World Goal (Gaymi: reward changes each week)
 - [ ] Batch 1: check everything Firebase (rules file vs code, every collection read/written, read-limit risks, sign-in, Cloud Save, Gallery/Postcards, chat, clans, market). Report + fix what's broken. Rules changes need Gaymi to paste them (hard to undo - ask first).

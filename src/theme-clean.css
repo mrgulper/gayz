@@ -657,6 +657,23 @@ html.ui-theme-clean #play-spray-colors button.on {
   border-color: var(--clean-fg);
   box-shadow: 0 0 0 2px var(--clean-fg);
 }
+html.ui-theme-clean #play-clip :is(.play-clip-row, .play-clip-done-row) button {
+  color: var(--clean-fg);
+  background: var(--clean-surface);
+  border-color: transparent;
+}
+html.ui-theme-clean #play-clip :is(.play-clip-row button.on, #play-clip-done) {
+  color: var(--clean-bg);
+  background: var(--clean-fg);
+}
+html.ui-theme-clean #play-clip .play-clip-label {
+  color: var(--clean-fg);
+}
+html.ui-theme-clean #play-clip #play-clip-custom {
+  color: var(--clean-fg);
+  background: var(--clean-surface);
+  border-color: var(--clean-line);
+}
 html.ui-theme-clean #play-inventory .inv-box,
 html.ui-theme-clean #build-picker :is(.bp-title, .build-picker-label, .build-picker-empty) {
   color: var(--clean-fg);

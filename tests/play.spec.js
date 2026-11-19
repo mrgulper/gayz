@@ -1548,3 +1548,123 @@ test('Save Clip keeps the last ~30 s and saves a video (K and the pause screen)'
   })
   expect(end).toEqual({ on: false, recs: 0 })
 })
+
+test('Clip Options: Video or GIF, length, Custom, sound, GIF size - and a GIF saves', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    window.__clipTest = true
+    localStorage.removeItem('gayz-play-saved-run')
+    localStorage.removeItem('gayz-clip-options')
+    window.__game.playBtn.click()
+  })
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 90000 })
+  // The pause screen's Clip Options: pick 10 s, then Custom 7 s, sound off.
+  const a = await page.evaluate(() => {
+    const c = window.__game.buildMode.survival.clips
+    const out = { mode: c.mode, keep: c.keep, sound: c._stream?.getAudioTracks().length === (window.__audioEngine?.ctx ? 1 : 0) }
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', bubbles: true }))
+    document.getElementById('play-pause-clipopts-btn').click()
+    out.panel = !document.getElementById('play-clip').hidden && document.getElementById('play-pause-buttons').hidden
+    const chip = (opt, val) => document.querySelector(`#play-clip-rows button[data-opt="${opt}"][data-val="${val}"]`)
+    out.labels = [...document.querySelectorAll('#play-clip-rows button')].map((b) => b.textContent)
+    chip('len', '10').click()
+    out.tenOn = chip('len', '10').classList.contains('on')
+    chip('len', 'custom').click()
+    document.getElementById('play-clip-custom').value = '7'
+    chip('sound', 'off').click()
+    out.customKept = document.getElementById('play-clip-custom').value
+    document.getElementById('play-clip-done').click()
+    out.after = { ...c.options, keep: c.keep, stagger: c.stagger, life: c.life, paused: c.paused, recs: c._recs.length }
+    out.status = document.getElementById('play-pause-status').textContent
+    out.stored = JSON.parse(localStorage.getItem('gayz-clip-options'))
+    // Out of range: kept between 5 and 60.
+    c.setOptions({ ...c.options, len: 999 })
+    out.capped = c.keep
+    return out
+  })
+  expect(a.mode).toBe('video')
+  expect(a.keep).toBe(30)
+  expect(a.sound).toBe(true)
+  expect(a.panel).toBe(true)
+  expect(a.labels).toEqual(['Video', 'GIF', '10 s', '20 s', '30 s', 'Custom', 'On', 'Off'])
+  expect(a.tenOn).toBe(true)
+  expect(a.customKept).toBe('7')
+  expect(a.after).toMatchObject({ type: 'video', len: 7, sound: false, keep: 7, stagger: 5, life: 12, paused: true, recs: 1 })
+  expect(a.status).toBe('Clip options saved - recording starts fresh')
+  expect(a.stored).toEqual({ type: 'video', len: 7, sound: false, gifSize: 'small' })
+  expect(a.capped).toBe(60)
+  // GIF, 10 s, Big.
+  const b = await page.evaluate(() => {
+    const c = window.__game.buildMode.survival.clips
+    document.getElementById('play-pause-clipopts-btn').click()
+    const chip = (opt, val) => document.querySelector(`#play-clip-rows button[data-opt="${opt}"][data-val="${val}"]`)
+    chip('type', 'gif').click()
+    const out = { soundRow: !!chip('sound', 'on'), sizeRow: !!chip('gifSize', 'big'), note: document.querySelector('#play-clip .play-clip-note')?.textContent }
+    chip('gifSize', 'big').click()
+    chip('len', '10').click()
+    document.getElementById('play-clip-done').click()
+    out.mode = c.mode
+    out.recs = c._recs.length
+    out.opts = c.options
+    // Back to the game.
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', bubbles: true }))
+    out.paused = c.paused
+    return out
+  })
+  expect(b).toMatchObject({ soundRow: false, sizeRow: true, mode: 'gif', recs: 0, paused: false })
+  expect(b.note).toMatch(/^GIFs have no sound/)
+  expect(b.opts).toEqual({ type: 'gif', len: 10, sound: false, gifSize: 'big' })
+  await page.waitForFunction(() => window.__game.buildMode.survival.clips._gif?.video.videoWidth > 0, null, { timeout: 30000 })
+  // 25 pictures (2.5 s), each made into GIF bytes by the worker; the slow
+  // test machine's frame rate doesn't matter, they're grabbed here.
+  await page.waitForFunction(() => window.__game.buildMode.survival.clips._gif?.frames.length > 0, null, { timeout: 30000 })
+  const c1 = await page.evaluate(async () => {
+    const c = window.__game.buildMode.survival.clips
+    const g = c._gif
+    // Hold the game's own grabbing still so only these count.
+    c.paused = true
+    if (g.pending) await new Promise((resolve) => g.flushers.push(resolve))
+    const out0 = g.frames.length
+    g.frames = []
+    for (let i = 0; i < 25; i++) {
+      c._grabGif(0.1)
+      if (g.pending) await new Promise((resolve) => g.flushers.push(resolve))
+    }
+    const f = g.frames[0]
+    const out = { grabbedByGame: out0 > 0, frames: g.frames.length, w: f.w, h: f.h, worker: !!g.worker }
+    // Only the last 10 s (100 pictures) are kept.
+    for (let i = 0; i < 120; i++) c._gifDone(g, g.frames[g.frames.length - 1])
+    out.capped = g.frames.length
+    g.frames.splice(0, 75)
+    return out
+  })
+  expect(c1.grabbedByGame).toBe(true)
+  expect(c1.frames).toBe(25)
+  expect(Math.max(c1.w, c1.h)).toBe(480)
+  expect(c1.worker).toBe(true)
+  expect(c1.capped).toBe(100)
+  const [download, saved] = await Promise.all([
+    page.waitForEvent('download', { timeout: 30000 }),
+    page.evaluate(async () => {
+      const c = window.__game.buildMode.survival.clips
+      const r = await c.save()
+      const head = new TextDecoder().decode(new Uint8Array(await r.blob.slice(0, 6).arrayBuffer()))
+      const img = new Image()
+      img.src = URL.createObjectURL(r.blob)
+      await img.decode()
+      return { head, seconds: r.seconds, type: r.blob.type, w: img.naturalWidth, h: img.naturalHeight, cw: c.lastClip.w, ch: c.lastClip.h, pill: document.getElementById('pill-clip')?.textContent, kept: c._gif.frames.length }
+    }),
+  ])
+  expect(download.suggestedFilename()).toMatch(/^gayz-clip-\d{4}-\d\d-\d\d-\d{6}\.gif$/)
+  expect(saved).toMatchObject({ head: 'GIF89a', seconds: 3, type: 'image/gif', kept: 25 })
+  expect([saved.w, saved.h]).toEqual([saved.cw, saved.ch])
+  expect(saved.pill).toBe('GIF saved! (3 s)')
+  // Leaving stops the GIF side too.
+  const end = await page.evaluate(() => {
+    const c = window.__game.buildMode.survival.clips
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', bubbles: true }))
+    document.getElementById('play-pause-leave-btn').click()
+    return { on: c.on, gif: c._gif }
+  })
+  expect(end).toEqual({ on: false, gif: null })
+})
