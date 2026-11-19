@@ -45,3 +45,6 @@ Split out of the old `map-and-world.md` on 2026-11-13 (word for word, oldest fir
 - Headshot flag: `BuildSurvival.hitZombieWith` sets `this._hitHead` around `damageZombie` (host/alone only).
 - Forgetting now waits for MIN_FORGET kills since the lesson (before, a level could drop 45 s after learning it).
 - `PaceTuning.js` (`s.pace`): at each wave start, last wave's damage taken vs max health -> `level` +-, within +-MAX. New zombies: health x(1+level), speed/bite x(1+level/2) (`z.paceMult`, `z.damageMult`). No UI on purpose (Gaymi: "you never see it"). Off in Speedrun/TD/party/Escape; host-only on servers. Not saved with a run.
+
+## Nemesis Zombie (2026-11-19, big-ideas plan Batch 1)
+- `NemesisZombie.js` (`s.nemesis`, made/cleared next to `s.learn`). `allowed` = same rule as ZombieLearning (alone or host, zombie modes). `_lastBiter` now also carries `tier` and `nemesis` (level, 0 = not one). `_die` -> `nemesis.onDeath(bitBy)` returns a line appended to the death joke (also shown in the replay). `damageZombie` -> `onKilled(z, mine)`. `update()` spawns it once a run from `FROM_WAVE` via `_makeZombie` (extra = not part of the wave), `_nemesisBaseHealth()` for its health. Own tag material (`_tagMat`, disposed on clear). Plan for later batches: `docs/notes/big-ideas-plan.md`.

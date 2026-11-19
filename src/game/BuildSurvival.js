@@ -72,6 +72,7 @@ import { PizzaDelivery } from './PizzaDelivery.js'
 import { Bungee } from './Bungee.js'
 import { ZombieDiner } from './ZombieDiner.js'
 import { ZombieLearning } from './ZombieLearning.js'
+import { NemesisZombie } from './NemesisZombie.js'
 import { PaceTuning } from './PaceTuning.js'
 import { DragonBoss } from './DragonBoss.js'
 import { Graveyard } from './Graveyard.js'
@@ -601,6 +602,9 @@ export class BuildSurvival {
     this.diner.clear()
     if (!this.learn) this.learn = new ZombieLearning(this)
     this.learn.clear()
+    // The zombie that last killed you comes back for you (NemesisZombie.js).
+    if (!this.nemesis) this.nemesis = new NemesisZombie(this)
+    this.nemesis.clear()
     // Hidden pace tuning: a little tougher when it's easy for you, a
     // little easier when it's hard (PaceTuning.js).
     if (!this.pace) this.pace = new PaceTuning(this)
@@ -882,6 +886,7 @@ export class BuildSurvival {
     this.bungee?.clear()
     this.diner?.clear()
     this.learn?.clear()
+    this.nemesis?.clear()
     this.pace?.clear()
     this.graveyard?.clear()
     this.lighthouse?.clear()
@@ -2042,6 +2047,8 @@ export class BuildSurvival {
     this.bm.specials.onKill(z)
     if (!by && !sunOnly && !p2Gear) this.perks?.onKillAt(z)
     if (!sunOnly) this._creditAssists(z, by || '')
+    // My Nemesis: beaten by me, or it got away (NemesisZombie.js).
+    if (z.nemesis) this.nemesis?.onKilled(z, !by && !sunOnly && !p2Gear)
     // A bloater bursts instead of falling over.
     if (MONSTER_KINDS[z.kind]?.burst) this._burst(z)
     else this._spawnCorpse(z, dir)
@@ -2069,7 +2076,7 @@ export class BuildSurvival {
       else if (p.remote) {
         if (!this.camp?.inside(p.x, p.z)) this.net?.queueHurt(p.remote, amount)
       } else {
-        this._lastBiter = { nameIdx: z.nameIdx, at: performance.now() }
+        this._lastBiter = { nameIdx: z.nameIdx, tier: z.tier, nemesis: z.nemesis || 0, at: performance.now() }
         this._hurtPlayer(amount)
       }
     }
@@ -3352,7 +3359,7 @@ export class BuildSurvival {
       else if (player.remote) {
         if (!this._campSafe(player.x, player.z)) this.net?.queueHurt(player.remote, bite)
       } else {
-        this._lastBiter = { nameIdx: zb.nameIdx, at: performance.now() }
+        this._lastBiter = { nameIdx: zb.nameIdx, tier: zb.tier, nemesis: zb.nemesis || 0, at: performance.now() }
         audioEngine.playZombieAttack?.(zb.size || 1, this._panTo(zb.x, zb.z))
         this._hurtPlayer(bite)
         // A Cactus in the spin ring pricks it back (SpinRing.onBitten).
@@ -3607,8 +3614,11 @@ export class BuildSurvival {
     // Dying: the run goes on from a fresh spawn or you leave, so say that
     // A silly line about who got you (DeathJokes.js) - a zombie that bit
     // you in the last few seconds, or a "nobody did it" one.
-    const biter = this._lastBiter && performance.now() - this._lastBiter.at < DEATH_JOKE_BITE_MS ? zombieName(this._lastBiter.nameIdx) : null
-    const joke = won ? '' : deathJoke(biter)
+    const bitBy = this._lastBiter && performance.now() - this._lastBiter.at < DEATH_JOKE_BITE_MS ? this._lastBiter : null
+    const biter = bitBy ? zombieName(bitBy.nameIdx) : null
+    // ...and whether it's now your Nemesis (NemesisZombie.js).
+    const grudge = won ? '' : this.nemesis?.onDeath(bitBy) || ''
+    const joke = won ? '' : [deathJoke(biter), grudge].filter(Boolean).join(' ')
     set('build-play-over-joke', joke)
     this._lastBiter = null
     set('build-play-again-btn', t(won || this.td?.over ? 'buildPlayAgainBtn' : 'buildPlayRespawnBtn'))
@@ -3731,6 +3741,7 @@ export class BuildSurvival {
     this.bungee?.update(Math.min(dt, 0.1))
     this.diner?.update(Math.min(dt, 0.1))
     this.learn?.update(Math.min(dt, 0.1))
+    this.nemesis?.update()
     this.couch?.update(Math.min(dt, 0.1))
     // A new run's Bingo card, once the run is set up (ZombieBingo.js).
     if (this.bingo && !this.bingo.card && this.bingo.allowed && !this.dead) this.bingo.deal()
@@ -4026,6 +4037,11 @@ export class BuildSurvival {
     this.train?.update(dt)
     // The minecart ride, and the zombies on the cart stay on it (Minecarts.js).
     this.carts?.ride(dt)
+  }
+
+  // A plain zombie's health this wave (NemesisZombie scales it up).
+  _nemesisBaseHealth() {
+    return zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult
   }
 
   _startWave(n) {
