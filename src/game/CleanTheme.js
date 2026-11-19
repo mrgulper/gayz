@@ -145,12 +145,21 @@ const toHex = (rgb) => `#${rgb.map((v) => v.toString(16).padStart(2, '0')).join(
 // are their own colour since 2026-11-19 (Gaymi: "add a custom for changing
 // background and they get to pick the button colours"); --clean-card stays
 // the background colour for the other boxes (profile, coins, clock).
-const BTN_KEYS = ['--clean-btn', '--clean-btn-fg', '--clean-btn-check']
+const BTN_KEYS = ['--clean-btn', '--clean-btn-fg', '--clean-btn-fg-rgb', '--clean-btn-check', '--clean-btn-check-inv']
 function buttonVars(btnColor) {
   const hex = normalizeHex(btnColor) || BRAND_PINK
   const rgb = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
   const ink = buttonInk(rgb)
-  return { '--clean-btn': hex, '--clean-btn-fg': `rgb(${ink.join(', ')})`, '--clean-btn-check': tick(toHex(ink)) }
+  // -fg-rgb and -check-inv are for the pink panels (brand.css), where the
+  // button colour is the page and its ink is the text: a ticked box there
+  // is filled with the ink and ticked in the button colour.
+  return {
+    '--clean-btn': hex,
+    '--clean-btn-fg': `rgb(${ink.join(', ')})`,
+    '--clean-btn-fg-rgb': ink.join(', '),
+    '--clean-btn-check': tick(toHex(ink)),
+    '--clean-btn-check-inv': tick(hex),
+  }
 }
 
 export function cleanVars(color, btnColor) {
