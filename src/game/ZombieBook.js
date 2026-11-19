@@ -14,6 +14,8 @@ import { SKELETON_KINDS, loadSkeletons, makeSkeleton } from './SkeletonModels.js
 import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { saveShopProgress } from './Game.js'
 import { t } from './i18n.js'
+import { loadNemesis, loadNemesisLog, NEMESIS_COINS, FROM_WAVE } from './NemesisZombie.js'
+import { zombieName } from './ZombieNames.js'
 
 export const BOOK_KEY = 'gayz-zombie-book'
 export const BOOK_COINS = 10
@@ -205,6 +207,7 @@ export function renderBook() {
   const how = byId('zombie-book-how')
   if (how) how.textContent = t('bookHow', { n: BOOK_COINS, done: BOOK_DONE_COINS })
   const pics = _pics || {}
+  renderNemesisCard(pics)
   const grid = byId('zombie-book-grid')
   if (grid) {
     grid.innerHTML = BOOK_IDS.map((id) => {
@@ -218,6 +221,32 @@ export function renderBook() {
     }).join('')
   }
   if (!_pics) bookPictures().then(() => { if (page.offsetParent) renderBook() })
+}
+
+// The Nemesis card at the top of the book (Nemesis Batch 2, 2026-11-19):
+// who it is, its level, how many times it got me, what beating it pays,
+// and how many I've beaten.
+export function renderNemesisCard(pics = _pics || {}) {
+  const box = byId('zombie-book-nemesis')
+  if (!box) return
+  const v = loadNemesis()
+  const log = loadNemesisLog()
+  const beaten = log.beaten ? `<span class="zombie-book-nemesis-beaten">${esc(t('nemesisCardBeaten', { n: log.beaten, b: log.best }))}</span>` : ''
+  const img = pics.zombie ? `<img src="${pics.zombie}" alt="" draggable="false" />` : '<span class="zombie-book-blank"></span>'
+  box.classList.toggle('none', !v)
+  box.innerHTML = v
+    ? `${img}<div class="zombie-book-nemesis-text">
+        <span class="zombie-book-nemesis-title">${esc(t('nemesisCardTitle'))}</span>
+        <span class="team-card-name">${esc(zombieName(v.name))}</span>
+        <span class="zombie-book-nemesis-level">${'&#9760;'.repeat(v.level)} ${esc(t('nemesisCardLevel', { n: v.level, k: v.kills }))}</span>
+        <span class="team-card-type">${esc(t('nemesisCardBounty', { n: NEMESIS_COINS * v.level, w: FROM_WAVE }))}</span>
+        ${beaten}
+      </div>`
+    : `<div class="zombie-book-nemesis-text">
+        <span class="zombie-book-nemesis-title">${esc(t('nemesisCardTitle'))}</span>
+        <span class="team-card-type">${esc(t('nemesisCardNone'))}</span>
+        ${beaten}
+      </div>`
 }
 
 export function bindBookUI() {

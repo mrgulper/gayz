@@ -3741,7 +3741,7 @@ export class BuildSurvival {
     this.bungee?.update(Math.min(dt, 0.1))
     this.diner?.update(Math.min(dt, 0.1))
     this.learn?.update(Math.min(dt, 0.1))
-    this.nemesis?.update()
+    this.nemesis?.update(Math.min(dt, 0.1))
     this.couch?.update(Math.min(dt, 0.1))
     // A new run's Bingo card, once the run is set up (ZombieBingo.js).
     if (this.bingo && !this.bingo.card && this.bingo.allowed && !this.dead) this.bingo.deal()
