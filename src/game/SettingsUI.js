@@ -27,7 +27,7 @@ import { moreKeysForPage } from './MoreSettingsList.js'
 import { GRAPHICS_LEVELS, LEVEL_LOOK } from './GraphicsLevels.js'
 import { needsBuyConfirm } from './GameplayAssist.js'
 import { MONTH_THEMES, monthIndex } from './MonthThemes.js'
-import { applyUiTheme, cleanVars, normalizeHex, rememberCleanVars, getCleanBgImage, applyCleanBgImage, cropToScreen, CLEAN_BG_IMAGE_KEY, uiThemeOf, skinDesignerTheme } from './CleanTheme.js'
+import { applyUiTheme, cleanVars, normalizeHex, BRAND_PINK, rememberCleanVars, getCleanBgImage, applyCleanBgImage, cropToScreen, CLEAN_BG_IMAGE_KEY, uiThemeOf, skinDesignerTheme } from './CleanTheme.js'
 
 // Swaps a slider's value label for a temporary <input type="number"> on
 // click, so a precise number can be typed in instead of fighting the
@@ -721,7 +721,7 @@ export function _bindSettings(game) {
   // #play-btn gradient reads, independent of the accent color above so
   // the two can be set separately.
   if (game.playBtnColorPicker) {
-    const defaultPlayColor = '#d9bc4a'
+    const defaultPlayColor = BRAND_PINK
     game.playBtnColorPicker.value = game.settings.playBtnColor || defaultPlayColor
     if (game.settings.playBtnColor) document.documentElement.style.setProperty('--play-btn-color', game.settings.playBtnColor)
     game.playBtnColorPicker.addEventListener('input', () => {
@@ -998,8 +998,15 @@ export function _bindSettings(game) {
       const monthName = document.getElementById('theme-picker-monthly-month')
       if (monthName) monthName.textContent = `· ${t(month.nameKey)}`
       game.themePickerClean.style.setProperty('--clean-preview', game.settings.cleanColor)
-      game.themePickerClean.style.setProperty('--clean-preview-fg', cleanVars(game.settings.cleanColor)['--clean-fg'])
+      const previewVars = cleanVars(game.settings.cleanColor, game.settings.cleanBtnColor)
+      game.themePickerClean.style.setProperty('--clean-preview-fg', previewVars['--clean-fg'])
+      game.themePickerClean.style.setProperty('--clean-preview-btn', previewVars['--clean-btn'])
       if (game.themeCleanColorInput) game.themeCleanColorInput.value = game.settings.cleanColor
+      if (game.themeCleanBtnColorInput) game.themeCleanBtnColorInput.value = previewVars['--clean-btn']
+      // The two circles' names on hover (they have no words of their own).
+      for (const [input, key] of [[game.themeCleanColorInput, 'themeCleanColorLabel'], [game.themeCleanBtnColorInput, 'themeCleanBtnColorLabel']]) {
+        if (input) input.title = t(key)
+      }
       if (game.themeCleanBgClear) game.themeCleanBgClear.style.display = getCleanBgImage() ? '' : 'none'
       // The picture icons' names (they have no words of their own).
       for (const [btn, key] of [[game.themeCleanBgBtn, 'themeCleanBgUpload'], [game.themeCleanBgClear, 'themeCleanBgRemove']]) {
@@ -1052,6 +1059,20 @@ export function _bindSettings(game) {
     }
     game.themeCleanColorInput?.addEventListener('input', () => setColor(game.themeCleanColorInput.value, false))
     game.themeCleanColorInput?.addEventListener('change', () => setColor(game.themeCleanColorInput.value, true))
+    // The buttons' colour (Simple only) - picking it switches to Simple too.
+    const setBtnColor = (value, save) => {
+      const hex = normalizeHex(value)
+      if (!hex) return
+      game.settings.cleanBtnColor = hex
+      game.settings.uiTheme = 'clean'
+      syncUiTheme()
+      if (save) {
+        saveSettings(game.settings)
+        rememberCleanVars(game.settings)
+      }
+    }
+    game.themeCleanBtnColorInput?.addEventListener('input', () => setBtnColor(game.themeCleanBtnColorInput.value, false))
+    game.themeCleanBtnColorInput?.addEventListener('change', () => setBtnColor(game.themeCleanBtnColorInput.value, true))
     game.themeCleanBgBtn?.addEventListener('click', () => game.themeCleanBgFile?.click())
     game.themeCleanBgFile?.addEventListener('change', async () => {
       const file = game.themeCleanBgFile.files && game.themeCleanBgFile.files[0]

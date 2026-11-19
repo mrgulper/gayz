@@ -1,0 +1,93 @@
+/* GayZ's own colour: hot pink (2026-11-19, Gaymi: a default colour that
+   stays when the theme changes, "lets use hot pink"). Loaded last
+   (main.js) so it wins over every theme file.
+   - The Play button is pink in every theme (Old: its plate picture is
+     turned pink with a colour filter; Simple and the picture looks: a
+     pink pill).
+   - Picked tabs and ticked boxes are pink in every theme.
+   - In Simple, the player's Button colour (settings.cleanBtnColor,
+     CleanTheme.js -> --clean-btn / --clean-btn-fg / --clean-btn-check)
+     takes pink's place and also colours Game Mode, Settings and the right
+     column's buttons. The picture looks have no --clean-btn, so they get
+     plain pink. Only colour changes here - never size or place. */
+
+:root {
+  --gayz-pink: #ff2e88;
+  --gayz-accent: var(--clean-btn, var(--gayz-pink));
+  --gayz-accent-fg: var(--clean-btn-fg, #ffffff);
+  --gayz-accent-check: var(--clean-btn-check, url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.2 8.4l3 3 6.6-6.8' fill='none' stroke='%23ffffff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"));
+}
+
+/* ---- Play ---- */
+
+/* Old: the gold plate picture turned pink (hue-rotate moves gold to pink,
+   the dark steel face has almost no colour so it stays steel). The glow
+   comes after the filter so it's the real pink, or the player's own
+   Play Button Color. */
+html.ui-theme-old #play-btn {
+  filter: hue-rotate(-55deg) saturate(2.6) brightness(1.05) drop-shadow(0 0 16px color-mix(in srgb, var(--play-btn-color, var(--gayz-pink)) 75%, transparent));
+}
+html.ui-theme-old #play-btn:hover {
+  filter: hue-rotate(-55deg) saturate(2.6) brightness(1.05) drop-shadow(0 0 22px color-mix(in srgb, var(--play-btn-color, var(--gayz-pink)) 90%, transparent));
+}
+html.ui-theme-old #play-btn:active {
+  filter: hue-rotate(-55deg) saturate(2.6) brightness(1.05) drop-shadow(0 0 12px color-mix(in srgb, var(--play-btn-color, var(--gayz-pink)) 60%, transparent));
+}
+
+/* Simple and the picture looks: a pink pill with white words. #play-btn twice so
+   it beats theme-clean.css's card-words rule. */
+html.ui-theme-clean #play-btn {
+  background: var(--gayz-accent);
+}
+html.ui-theme-clean #menu #play-btn#play-btn {
+  color: var(--gayz-accent-fg) !important;
+}
+
+/* Simple only: Game Mode, Settings and the right column take the Button
+   colour too (the profile card, coins and clock stay the background
+   colour). */
+html.ui-theme-clean:not(.ui-theme-picture) :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button, #menu-nav-buttons button:hover, #menu-nav-buttons button.nav-hover) {
+  background: var(--gayz-accent);
+}
+html.ui-theme-clean:not(.ui-theme-picture) #menu :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button),
+html.ui-theme-clean:not(.ui-theme-picture) #menu :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button) :not(#menu-avatar-level, .nav-badge-dot) {
+  color: var(--gayz-accent-fg) !important;
+}
+/* Number badges on those buttons: the words colour with the button colour
+   for the number, so they still read. */
+html.ui-theme-clean:not(.ui-theme-picture) #menu #menu-nav-buttons .nav-badge-dot:is(#upgrades-dot, #friends-request-dot, #quests-new-dot, #store-new-dot, #quests-claim-dot, #achievements-new-dot, #friends-accepted-dot) {
+  background: var(--gayz-accent-fg);
+  color: var(--gayz-accent) !important;
+  border-color: var(--gayz-accent);
+}
+
+/* ---- Picked tabs ---- */
+/* :root twice and .active twice so it beats Simple's own picked-button
+   rule (.panel-box :is(button.active, ...)). */
+
+html:root:root :is(.settings-tab, .quest-tab, .upgrades-tab, .inventory-tab, .general-tab, .clan-tab, .clan-subtab, .hub-tab, .achievements-mode-tab, .profile-tab, .gallery-tab, .chat-tab-btn, .inv-tab).active.active,
+html:root:root :is(.settings-tab, .quest-tab, .upgrades-tab, .inventory-tab, .general-tab, .clan-tab, .clan-subtab, .hub-tab, .achievements-mode-tab, .profile-tab, .gallery-tab, .chat-tab-btn, .inv-tab).active.active:hover {
+  background: var(--gayz-accent) !important;
+  border-color: var(--gayz-accent) !important;
+  color: var(--gayz-accent-fg) !important;
+  text-shadow: none !important;
+}
+html:root:root :is(.settings-tab, .quest-tab, .upgrades-tab, .inventory-tab, .general-tab, .clan-tab, .clan-subtab, .hub-tab, .achievements-mode-tab, .profile-tab, .gallery-tab, .chat-tab-btn, .inv-tab).active.active * {
+  color: var(--gayz-accent-fg) !important;
+}
+
+/* ---- Ticked boxes ---- */
+
+:root .audio-checkbox:checked {
+  --cb-on: var(--gayz-accent);
+  --cb-on-top: color-mix(in srgb, var(--gayz-accent) 80%, #ffffff);
+  --cb-check: var(--gayz-accent-check);
+  border-color: var(--gayz-accent) !important;
+}
+
+/* ---- Settings > Theme ---- */
+
+/* The tiny drawn homepage on Simple's card: its pill is the Button colour. */
+.theme-clean-preview b:nth-child(2) {
+  background: var(--clean-preview-btn, var(--gayz-pink));
+}

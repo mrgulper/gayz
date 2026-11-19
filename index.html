@@ -1432,11 +1432,15 @@ Escape before dawn.</p>
             <div class="theme-picker-item">
               <div class="theme-picker-head" id="theme-clean-color-row">
                 <span class="theme-picker-name" id="theme-picker-clean-label">Simple</span>
-                <label for="theme-clean-color" id="theme-clean-color-label" class="theme-picker-sr">Simple colour</label>
+                <label for="theme-clean-color" id="theme-clean-color-label" class="theme-picker-sr">Background colour</label>
                 <!-- A homepage picture from the player's computer (Clean only). Order: remove, upload, colour. -->
                 <button type="button" id="theme-clean-bg-clear" class="theme-icon-btn" aria-label="Remove picture" title="Remove picture" style="display: none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button>
                 <button type="button" id="theme-clean-bg-btn" class="theme-icon-btn" aria-label="Upload picture" title="Upload picture"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5-8 9"/><path d="M17 2v6M14 5l3-3 3 3"/></svg></button>
                 <input type="color" id="theme-clean-color" value="#f5f5f7" aria-labelledby="theme-clean-color-label" />
+                <!-- The homepage buttons' colour (2026-11-19, hot pink to
+                     start); a pill-shaped circle so it reads as "buttons". -->
+                <label for="theme-clean-btn-color" id="theme-clean-btn-color-label" class="theme-picker-sr">Button colour</label>
+                <input type="color" id="theme-clean-btn-color" value="#ff2e88" aria-labelledby="theme-clean-btn-color-label" />
                 <input type="file" id="theme-clean-bg-file" accept="image/*" hidden />
               </div>
               <button type="button" class="theme-picker-card" id="theme-picker-clean" data-theme="clean" aria-labelledby="theme-picker-clean-label">
@@ -1729,7 +1733,7 @@ Escape before dawn.</p>
           <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="playBtnColor" aria-label="What does this do?">?</button>
             <label for="play-btn-color-picker" id="play-btn-color-label">Play Button Color</label>
-            <input type="color" id="play-btn-color-picker" value="#d9a34a" />
+            <input type="color" id="play-btn-color-picker" value="#ff2e88" />
           </div>
           <button id="play-btn-color-reset-btn" class="settings-reset-btn" type="button">Reset Play Button Color</button>
           <div class="audio-row">

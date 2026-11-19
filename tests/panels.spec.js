@@ -268,12 +268,46 @@ test('Simple theme: homepage boxes are the picked colour on a darker page', asyn
     const general = document.getElementById('hub-btn').getBoundingClientRect()
     return { boxes, page: getComputedStyle(document.body).backgroundColor, gap: general.top - badge.bottom, name: document.getElementById('theme-picker-clean-label').textContent, icons: ['theme-clean-bg-btn', 'theme-clean-bg-clear'].map((id) => [document.getElementById(id).textContent.trim(), !!document.querySelector(`#${id} svg`)]) }
   })
-  for (const b of r.boxes) expect(b).toEqual(['rgb(128, 171, 48)', true])
+  // Play, Store, Game Mode and Settings are the Button colour (hot pink to
+  // start, white words, 2026-11-19); the profile, coins and clock stay the
+  // picked colour.
+  for (const b of r.boxes.slice(0, 4)) expect(b).toEqual(['rgb(255, 46, 136)', false])
+  for (const b of r.boxes.slice(4)) expect(b).toEqual(['rgb(128, 171, 48)', true])
   expect(r.page).not.toBe('rgb(128, 171, 48)')
   // The profile card no longer sits on top of General.
   expect(r.gap).toBeGreaterThan(0)
   expect(r.name).toBe('Simple')
   expect(r.icons).toEqual([['', true], ['', true]])
+})
+
+// GayZ's hot pink (2026-11-19): Play and the picked tab are pink in every
+// theme; Simple's Button colour circle changes its homepage buttons.
+test('hot pink Play and tabs in every theme; Simple picks its button colour', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = () => new Promise((res) => setTimeout(res, 200))
+    const bg = (el) => getComputedStyle(el).backgroundColor
+    document.getElementById('settings-btn').click()
+    await wait()
+    const out = {}
+    for (const theme of ['old', 'clean', 'sakura']) {
+      document.getElementById(`theme-picker-${theme}`).click()
+      await wait()
+      out[theme] = [bg(document.querySelector('.settings-tab.active')), getComputedStyle(document.querySelector('.audio-checkbox:checked')).backgroundColor, theme === 'old' ? getComputedStyle(document.getElementById('play-btn')).filter.includes('hue-rotate') : bg(document.getElementById('play-btn'))]
+    }
+    const sw = document.getElementById('theme-clean-btn-color')
+    sw.value = '#2255ff'
+    sw.dispatchEvent(new Event('input'))
+    sw.dispatchEvent(new Event('change'))
+    out.picked = [g.settings.uiTheme, JSON.parse(localStorage.getItem('gayz-settings')).cleanBtnColor, bg(document.getElementById('play-btn')), bg(document.getElementById('store-btn')), bg(document.querySelector('.settings-tab.active'))]
+    return out
+  })
+  const pink = 'rgb(255, 46, 136)'
+  expect(r.old).toEqual([pink, pink, true])
+  expect(r.clean).toEqual([pink, pink, pink])
+  expect(r.sakura).toEqual([pink, pink, pink])
+  expect(r.picked).toEqual(['clean', '#2255ff', 'rgb(34, 85, 255)', 'rgb(34, 85, 255)', 'rgb(34, 85, 255)'])
 })
 
 // The picked tab stays filled while the pointer is on it (Clean's hover

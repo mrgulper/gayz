@@ -376,6 +376,21 @@ html.ui-theme-clean .panel-box hr {
 #theme-clean-color::-webkit-color-swatch-wrapper { padding: 0; }
 #theme-clean-color::-webkit-color-swatch { border: none; border-radius: 50%; }
 #theme-clean-color::-moz-color-swatch { border: none; border-radius: 50%; }
+/* Button colour (2026-11-19): the same circle stretched into a pill, so
+   it reads as "buttons" next to the round Background colour. */
+#theme-clean-btn-color {
+  width: 44px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid var(--ui-gold-bright);
+  border-radius: 999px;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+#theme-clean-btn-color::-webkit-color-swatch-wrapper { padding: 0; }
+#theme-clean-btn-color::-webkit-color-swatch { border: none; border-radius: 999px; }
+#theme-clean-btn-color::-moz-color-swatch { border: none; border-radius: 999px; }
 /* The picture icons can wrap under the name on a phone. */
 #theme-clean-color-row {
   flex-wrap: wrap;
