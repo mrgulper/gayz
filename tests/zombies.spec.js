@@ -720,3 +720,58 @@ test('Zombie Book: meeting a new kind of zombie pays once and fills its page', a
   expect(r.bruteName).toBe('Brute')
   expect(r.pics).toBe(27)
 })
+
+// Nemesis Zombie (NemesisZombie.js): the zombie that kills you comes back
+// next run with a red tag, levels up when it gets you again, and pays out
+// (then is gone) when you beat it.
+test('Nemesis: the zombie that kills you comes back stronger, beat it for coins', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game._enterBuildMode({ play: true }))
+  const r = await page.evaluate(async () => {
+    const bm = window.__game.buildMode
+    const s = bm.survival
+    for (let i = 0; i < 40 && !s.active; i++) await new Promise((res) => setTimeout(res, 250))
+    s._pickWeapon('rifle')
+    localStorage.removeItem('gayz-nemesis')
+    const out = {}
+    const p = bm.tryMode.pos
+    // Bitten by a named zombie, then dying: it becomes my Nemesis.
+    const z = s._makeZombie(9001, p.x, p.y, p.z - 3, 50, false, null, { tier: 'rare', name: 42 })
+    s._lastBiter = { nameIdx: z.nameIdx, tier: z.tier, nemesis: 0, at: performance.now() }
+    s.health = 0
+    s._die()
+    s.replay.stop()
+    out.saved = JSON.parse(localStorage.getItem('gayz-nemesis'))
+    out.joke = document.getElementById('build-play-over-joke').textContent.includes('Nemesis')
+    // Next run: from wave 2 it comes back, once.
+    document.getElementById('build-play-again-btn').click()
+    s._pickWeapon('rifle')
+    s.nemesis.clear()
+    s.wave = 1
+    s.nemesis.update()
+    out.earlyCame = s.nemesis.came
+    s.wave = 2
+    let nz = null
+    for (let i = 0; i < 20 && !nz; i++) { s.nemesis.update(); nz = s.nemesis.zombie; if (!nz) s.nemesis.came = false }
+    nz = nz || s.nemesis.spawnAt({ ...JSON.parse(localStorage.getItem('gayz-nemesis')), level: 1 }, p.x, p.y, p.z - 4)
+    out.came = !!nz && s.zombies.includes(nz)
+    out.sameName = nz.nameIdx === 42 && nz.tier === 'rare'
+    out.tougher = nz.maxHealth > s._nemesisBaseHealth() * 2
+    out.tagSwapped = nz.tag.material === s.nemesis._tagMat
+    // It gets me again: level 2.
+    s._lastBiter = { nameIdx: nz.nameIdx, tier: nz.tier, nemesis: nz.nemesis, at: performance.now() }
+    out.levelLine = s.nemesis.onDeath(s._lastBiter).includes('2')
+    out.level = JSON.parse(localStorage.getItem('gayz-nemesis')).level
+    // Beating it: coins, and it's gone for good.
+    const c = s.coins
+    s.damageZombie(nz, 1e9)
+    out.paid = s.coins - c >= 100
+    out.cleared = localStorage.getItem('gayz-nemesis')
+    return out
+  })
+  expect(r).toEqual({
+    saved: { name: 42, tier: 'rare', level: 1 }, joke: true, earlyCame: false,
+    came: true, sameName: true, tougher: true, tagSwapped: true,
+    levelLine: true, level: 2, paid: true, cleared: null,
+  })
+})
