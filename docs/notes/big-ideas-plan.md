@@ -4,7 +4,7 @@ Gaymi picked 3 big ideas, in this order, in small batches (one batch per session
 
 ## Nemesis Zombie (Gaymi: any zombie can become it)
 - [x] Batch 1: the zombie that kills you becomes your Nemesis (localStorage `gayz-nemesis`), comes back once a run from wave 2 with a red tag, levels 1-5, beat it for coins. `NemesisZombie.js`, test in `zombies.spec.js`.
-- [ ] Batch 2: looks + memory - scars/bigger body per level, a taunt speech bubble when it arrives, a Nemesis card (Zombie Book or Profile), Cloud Save carries `gayz-nemesis`, a pointer/arrow so you can find it.
+- [x] Batch 2: looks + memory - wider body (not taller: 2-block rule) + one red scar per level, a taunt speech bubble when it arrives, a Nemesis card at the top of the Zombie Book (Gaymi's pick), Cloud Save carries `gayz-nemesis` + new `gayz-nemesis-log` (beaten count, adds across devices), a red edge-of-screen arrow (Gaymi's pick). Gaymi doesn't hand-test.
 
 ## Clip Maker (Gaymi: let players pick the clip type)
 - [ ] Batch 1: keep the last ~30 s of the game canvas (MediaRecorder), a Save Clip key/button + pause-menu button, saves a video file.

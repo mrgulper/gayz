@@ -2162,3 +2162,9 @@ body.touch-play-on #play-ring-bar.ring-many .ring-slot { width: 34px; height: 34
 .ring-shop-row b span { font-weight: 700; }
 html.ui-theme-old .ring-shop-qty .play-shop-tab { background: rgba(107, 63, 23, 0.1); border-color: rgba(107, 63, 23, 0.45); }
 html.ui-theme-old .ring-shop-qty .play-shop-tab.active { color: #f6e7c4; background: #6b3f17; border-color: #6b3f17; }
+
+/* Nemesis Zombie (NemesisZombie._pointAt): a red arrow at the screen edge
+   pointing to it while it's off-screen. Moved by transform each frame. */
+#nemesis-arrow { position: absolute; left: 0; top: 0; width: 46px; height: 46px; display: none; pointer-events: none; }
+#nemesis-arrow .nemesis-arrow-head { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 34px; color: #ff3b3b; text-shadow: 0 0 6px rgba(0, 0, 0, 0.9), 0 0 2px #000; }
+#nemesis-arrow .nemesis-arrow-skull { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #fff; text-shadow: 0 0 3px #000; }

@@ -733,6 +733,7 @@ test('Nemesis: the zombie that kills you comes back stronger, beat it for coins'
     for (let i = 0; i < 40 && !s.active; i++) await new Promise((res) => setTimeout(res, 250))
     s._pickWeapon('rifle')
     localStorage.removeItem('gayz-nemesis')
+    localStorage.removeItem('gayz-nemesis-log')
     const out = {}
     const p = bm.tryMode.pos
     // Bitten by a named zombie, then dying: it becomes my Nemesis.
@@ -758,6 +759,19 @@ test('Nemesis: the zombie that kills you comes back stronger, beat it for coins'
     out.sameName = nz.nameIdx === 42 && nz.tier === 'rare'
     out.tougher = nz.maxHealth > s._nemesisBaseHealth() * 2
     out.tagSwapped = nz.tag.material === s.nemesis._tagMat
+    // Batch 2: wider (not taller), one scar per level, a taunt bubble.
+    out.scars = nz.body?.getObjectByName('nemesisScars')?.children.length ?? -1
+    out.wider = nz.body ? nz.body.scale.x > nz.body.scale.y * 1.05 : true
+    out.taunt = !!s.nemesis.bubble && s.nemesis.bubble.parent === nz.group
+    // Off-screen (behind me): the red edge arrow shows.
+    s._ensureHud()
+    const cam = bm.camera
+    const fwd = new cam.position.constructor()
+    cam.getWorldDirection(fwd)
+    nz.x = cam.position.x / s.B - fwd.x * 6
+    nz.z = cam.position.z / s.B - fwd.z * 6
+    s.nemesis.update(0.016)
+    out.arrow = document.getElementById('nemesis-arrow')?.style.display === ''
     // It gets me again: level 2.
     s._lastBiter = { nameIdx: nz.nameIdx, tier: nz.tier, nemesis: nz.nemesis, at: performance.now() }
     out.levelLine = s.nemesis.onDeath(s._lastBiter).includes('2')
@@ -767,11 +781,29 @@ test('Nemesis: the zombie that kills you comes back stronger, beat it for coins'
     s.damageZombie(nz, 1e9)
     out.paid = s.coins - c >= 100
     out.cleared = localStorage.getItem('gayz-nemesis')
+    out.bubbleGone = !s.nemesis.bubble
+    out.log = JSON.parse(localStorage.getItem('gayz-nemesis-log'))
+    // The Zombie Book card: none now, with the beaten count.
+    const tab = document.getElementById('inventory-tab-zombiebook')
+    tab.click()
+    const card = document.getElementById('zombie-book-nemesis')
+    out.cardNone = card.classList.contains('none') && card.textContent.includes('1')
+    localStorage.setItem('gayz-nemesis', JSON.stringify({ name: 42, tier: 'rare', level: 3, kills: 7 }))
+    tab.click()
+    out.cardShows = !card.classList.contains('none') && card.textContent.includes('7') && card.textContent.includes('300')
+    localStorage.removeItem('gayz-nemesis')
     return out
   })
   expect(r).toEqual({
-    saved: { name: 42, tier: 'rare', level: 1 }, joke: true, earlyCame: false,
+    saved: { name: 42, tier: 'rare', level: 1, kills: 1 }, joke: true, earlyCame: false,
     came: true, sameName: true, tougher: true, tagSwapped: true,
-    levelLine: true, level: 2, paid: true, cleared: null,
+    scars: 1, wider: true, taunt: true, arrow: true,
+    levelLine: true, level: 2, paid: true, cleared: null, bubbleGone: true,
+    log: { beaten: 1, best: 1 }, cardNone: true, cardShows: true,
   })
+  // Cloud Save carries both keys; two devices' beaten counts add up.
+  const cm = await import('../src/game/CloudMerge.js')
+  expect(cm.isSyncedKey('gayz-nemesis') && cm.isSyncedKey('gayz-nemesis-log')).toBe(true)
+  const m = cm.mergeSaves({ 'gayz-nemesis-log': '{"beaten":1,"best":2}' }, { 'gayz-nemesis-log': '{"beaten":2,"best":2}' }, { 'gayz-nemesis-log': '{"beaten":3,"best":4}' }, true)
+  expect(JSON.parse(m['gayz-nemesis-log'])).toEqual({ beaten: 4, best: 4 })
 })

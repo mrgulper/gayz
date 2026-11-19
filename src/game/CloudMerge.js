@@ -57,6 +57,8 @@ const ADDITIVE_KEYS = new Set([
   'gayz-narrative-stats',
   // The spin ring's item bag (RingItems.js): { "id:rarity": count }.
   'gayz-ring-bag',
+  // Nemeses beaten (NemesisZombie.js): { beaten, best } - `best` is a record.
+  'gayz-nemesis-log',
 ])
 // Settings-like keys: a conflicting field goes to whichever device changed
 // more recently. Their arrays are ordered, fixed-meaning lists (hotbar

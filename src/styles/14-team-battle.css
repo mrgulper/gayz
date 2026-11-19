@@ -479,6 +479,51 @@ html.ui-theme-clean #team-page .team-card.empty {
 html.ui-theme-clean #zombie-book-page .team-card {
   border-color: rgba(0, 0, 0, 0.18);
 }
+/* The Nemesis card (ZombieBook.renderNemesisCard): picture left, words
+   right, a red edge; greyed when there's no Nemesis right now. */
+.zombie-book-nemesis {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 460px;
+  margin: 0 auto 12px;
+  padding: 10px 16px;
+  border: 2px solid rgba(255, 70, 70, 0.7);
+  border-radius: 12px;
+  background: rgba(120, 0, 0, 0.22);
+  text-align: left;
+}
+.zombie-book-nemesis.none {
+  justify-content: center;
+  text-align: center;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.15);
+}
+.zombie-book-nemesis img,
+.zombie-book-nemesis .zombie-book-blank {
+  flex: none;
+  width: 72px;
+  height: 84px;
+  object-fit: contain;
+  filter: sepia(1) saturate(4) hue-rotate(-50deg) brightness(0.85);
+}
+.zombie-book-nemesis-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.zombie-book-nemesis-title {
+  color: #ff6b6b;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+}
+.zombie-book-nemesis-level { color: #ff8a8a; }
+.zombie-book-nemesis-beaten { opacity: 0.8; font-size: 0.85em; }
+html.ui-theme-clean .zombie-book-nemesis { background: rgba(200, 0, 0, 0.07); }
+html.ui-theme-clean .zombie-book-nemesis.none { border-color: rgba(0, 0, 0, 0.18); background: rgba(0, 0, 0, 0.04); }
+html.ui-theme-clean .zombie-book-nemesis-title,
+html.ui-theme-clean .zombie-book-nemesis-level { color: #b3261e; }
 
 /* The Weekly Team Tournament (TeamTournament.js, 2026-11-02): the bracket
    in four columns (Quarterfinal, Semifinal, Final, Winner), you in gold,
