@@ -429,7 +429,12 @@ export async function _pushOnlineStats(game) {
     name,
     progress: _safeStatNumber(game.weeklyChallenge.progress),
   }).catch(() => {})
-  CloudSync.incrementGlobalKills(_safeStatNumber(game.kills)).catch(() => {})
+  // Only a finished run's kills (_recordRunEnd sets this). Editing your bio
+  // or buying a name also pushes these stats, and used to count the last
+  // run's kills again each time.
+  const runKills = _safeStatNumber(game._unsentGlobalKills)
+  game._unsentGlobalKills = 0
+  if (runKills) CloudSync.incrementGlobalKills(runKills).catch(() => {})
 }
 
 // Popup-based (see CloudSync.signIn's own comment for why the

@@ -3,6 +3,7 @@ import { gotoAndWaitForGame, waitForGame } from './helpers.js'
 import * as Xp from '../src/game/Xp.js'
 import { DAILY_TEMPLATES, challengeFor } from '../src/game/DailyChallenge.js'
 import en from '../src/game/i18n/en.js'
+import * as WG from '../src/game/WorldGoal.js'
 
 test('careerStats.totalKills persists after a completed run', async ({ page }) => {
   await gotoAndWaitForGame(page)
@@ -605,4 +606,42 @@ test('daily challenge is hard with run rules; a claimed quest fades away', async
   expect(r.midOpacity).toBeLessThan(1)
   expect(r.removed).toBe(true)
   expect(r.sameOthers).toBe(true)
+})
+
+// World Goal (WorldGoal.js): a finished game goes on a "still to send"
+// pile; sending goes in rule-sized steps and keeps what failed.
+test('World Goal: a finished game adds to the weekly pile, sent in small steps', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const inGame = await page.evaluate(() => {
+    const g = window.__game
+    g.settings.guestMode = false
+    localStorage.removeItem('gayz-world-goal-pending')
+    const end = { waves: 12, kills: 1234, headshots: 300, bosses: 2, coins: 900, meleeKills: 7, bestStreak: 5, won: false, died: true, mode: 'zombieRush', seconds: 300 }
+    g._onPlayEvent('end', end)
+    return { end, pile: JSON.parse(localStorage.getItem('gayz-world-goal-pending') || '{}') }
+  })
+  const weeks = Object.keys(inGame.pile)
+  expect(weeks.length).toBe(1)
+  const goal = WG.worldGoalForWeek(weeks[0])
+  expect(inGame.pile[weeks[0]]).toBe(inGame.end[goal.stat])
+
+  // The sending part, here in the test with a fake storage and sender.
+  const store = {}
+  globalThis.localStorage = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v) }, removeItem: (k) => { delete store[k] } }
+  try {
+    store['gayz-world-goal-pending'] = JSON.stringify({ '2026-W47': 1234 })
+    const got = []
+    let calls = 0
+    // The first two steps land, the third fails (offline).
+    const sent = await WG.sendWorldGoalPending(async (w, n) => { if (++calls === 3) throw new Error('offline'); got.push(n) }, { force: true })
+    expect(sent).toBe(1000)
+    expect(got).toEqual([500, 500])
+    expect(WG.loadWorldGoalPending()['2026-W47']).toBe(234)
+    // Too soon after a send: nothing goes out.
+    expect(await WG.sendWorldGoalPending(async () => { throw new Error('should not send') })).toBe(0)
+  } finally {
+    delete globalThis.localStorage
+  }
+  expect(WG.worldGoalSteps(1234)).toEqual([500, 500, 234])
+  expect(WG.worldGoalForWeek('2026-W47').id).not.toBe(WG.worldGoalForWeek('2026-W48').id)
 })

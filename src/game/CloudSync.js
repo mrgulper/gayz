@@ -76,6 +76,10 @@ export const FIREBASE_CONFIG = {
 //   fetchPollResults), never by downloading every vote, so read access
 //   can stay public without leaking who voted for what beyond "a doc
 //   with their uid exists."
+// - worldGoal/{week}: the World Goal (WorldGoal.js) - one doc per week,
+//   only a `count` that can only go up, by at most 500 per write, from
+//   anyone (signed in or not). The first write of a week creates it, so no
+//   Console setup is needed.
 // - stats/telemetry: same increment-only shape as stats/global, but
 //   deliberately does NOT require request.auth != null - unlike the kill
 //   counter, this is meant to capture usage from every visitor, not just
@@ -538,6 +542,21 @@ service cloud.firestore {
         && request.resource.data.totalKills is int
         && request.resource.data.totalKills > resource.data.totalKills
         && request.resource.data.totalKills <= resource.data.totalKills + 500;
+    }
+
+    match /worldGoal/{week} {
+      allow read: if true;
+      allow create: if week.matches('^20[0-9][0-9]-W[0-9]{1,2}$')
+        && request.resource.data.keys().hasOnly(['count'])
+        && request.resource.data.count is int
+        && request.resource.data.count > 0
+        && request.resource.data.count <= 500;
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count'])
+        && resource.data.count is int
+        && request.resource.data.count is int
+        && request.resource.data.count > resource.data.count
+        && request.resource.data.count <= resource.data.count + 500;
+      allow delete: if false;
     }
 
     match /stats/telemetry {
@@ -1852,6 +1871,19 @@ export async function fetchGlobalKills() {
   const { db, fsMod } = await ensureApp()
   const snap = await fsMod.getDoc(fsMod.doc(db, 'stats', 'global'))
   return snap.exists() ? snap.data().totalKills : null
+}
+
+// World Goal (WorldGoal.js). setDoc + merge + increment: creates the
+// week's doc on its first write, adds to it after that, never a read.
+export async function addWorldGoalCount(week, n) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'worldGoal', week), { count: fsMod.increment(n) }, { merge: true })
+}
+
+export async function fetchWorldGoalCount(week) {
+  const { db, fsMod } = await ensureApp()
+  const snap = await fsMod.getDoc(fsMod.doc(db, 'worldGoal', week))
+  return snap.exists() ? snap.data().count : 0
 }
 
 // Anonymous usage telemetry - Foundation Update: coarse counters (how many
