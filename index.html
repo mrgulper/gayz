@@ -2555,6 +2555,7 @@ Escape before dawn.</p>
             <button type="button" class="gallery-tab" id="gallery-tab-weapon" data-gallery-kind="weapon"><span class="gallery-tab-label">Weapon</span> <span class="gallery-soon-tag" id="gallery-weapon-soon-tag">Coming Soon</span></button>
             <button type="button" class="gallery-tab" id="gallery-tab-map" data-gallery-kind="map"><span class="gallery-tab-label">Map</span></button>
             <button type="button" class="gallery-tab" id="gallery-tab-photo" data-gallery-kind="photo"><span class="gallery-tab-label">Photo</span></button>
+            <button type="button" class="gallery-tab" id="gallery-tab-tv" data-gallery-kind="tv"><span class="gallery-tab-label">TV</span></button>
           </div>
           <div id="gallery-content">
             <div id="gallery-list-view">
@@ -2570,6 +2571,44 @@ Escape before dawn.</p>
               </div>
               <div id="gallery-grid"></div>
               <p id="gallery-empty" hidden></p>
+            </div>
+            <div id="gallery-tv-view" hidden>
+              <div id="tv-list">
+                <div class="tv-toolbar">
+                  <p id="tv-how"></p>
+                  <button type="button" id="tv-post-btn" class="mini-action-btn">Post a Clip</button>
+                </div>
+                <div id="tv-grid"></div>
+                <p id="tv-empty" hidden></p>
+              </div>
+              <div id="tv-post-form" hidden>
+                <h3 id="tv-post-heading">Post to GayZ TV</h3>
+                <div class="tv-kinds">
+                  <button type="button" class="gallery-tab active" id="tv-kind-youtube">YouTube link</button>
+                  <button type="button" class="gallery-tab" id="tv-kind-gif">GIF</button>
+                </div>
+                <input type="text" id="tv-post-link" class="nickname-input search-bar" maxlength="200" autocomplete="off" />
+                <input type="file" id="tv-post-file" accept="image/gif" hidden />
+                <button type="button" id="tv-pick-gif" class="mini-action-btn" hidden>Pick a GIF</button>
+                <img id="tv-post-preview" alt="" hidden />
+                <input type="text" id="tv-post-title" class="nickname-input search-bar" maxlength="40" autocomplete="off" />
+                <div class="gallery-post-btns">
+                  <button type="button" id="tv-post-submit" class="mini-action-btn">Post</button>
+                  <button type="button" id="tv-post-cancel" class="mini-action-btn">Cancel</button>
+                </div>
+                <p id="tv-post-status"></p>
+              </div>
+              <div id="tv-detail" hidden>
+                <button type="button" id="tv-back-btn" class="mini-action-btn">Back</button>
+                <div id="tv-player"></div>
+                <h3 id="tv-detail-title"></h3>
+                <p id="tv-detail-by"></p>
+                <div class="gallery-detail-actions">
+                  <button type="button" id="tv-report-btn" class="mini-action-btn">Report</button>
+                  <button type="button" id="tv-delete-btn" class="mini-action-btn" hidden>Delete</button>
+                </div>
+                <p id="tv-detail-status"></p>
+              </div>
             </div>
             <div id="gallery-weapon-page" class="coming-soon-content" hidden>
               <svg class="coming-soon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5-9 9"/></svg>
@@ -2675,7 +2714,7 @@ Escape before dawn.</p>
             </ul>
 
             <h3>5. Acceptable use</h3>
-            <p>Some things you make in GayZ are seen by other players: your nickname, bio and Player ID, chat messages (Global, server and clan chat), clan names, Market listings, Gallery posts and comments, Photo Postcards (seen by the friend you send them to), maps you share or build together with others, the spray tags you draw and spray in a server, and - in the World Map mode on a server - the parts of the map you've explored, which the other players in that game get added to their own map. When using GayZ, you agree not to:</p>
+            <p>Some things you make in GayZ are seen by other players: your nickname, bio and Player ID, chat messages (Global, server and clan chat), clan names, Market listings, Gallery posts and comments, GayZ TV clips (YouTube links and GIFs), Photo Postcards (seen by the friend you send them to), maps you share or build together with others, the spray tags you draw and spray in a server, and - in the World Map mode on a server - the parts of the map you've explored, which the other players in that game get added to their own map. When using GayZ, you agree not to:</p>
             <ul>
               <li>Use your nickname, bio, chat, clan name, posts, comments, shared maps, spray tags or any other field to harass anyone, impersonate someone else, or post personal information (yours or anyone else's);</li>
               <li>Post anything hateful, sexual, violent toward real people, or that you don't have the right to share (like someone else's artwork in a skin or Gallery post);</li>
@@ -2683,7 +2722,7 @@ Escape before dawn.</p>
               <li>Attempt to disrupt, overload, or gain unauthorized access to the game, its accounts, or the systems behind it;</li>
               <li>Use GayZ for anything unlawful, or in a way that infringes someone else's rights.</li>
             </ul>
-            <p>If cloud saves or leaderboards can be gamed unfairly, obviously-cheated entries or accounts may be reset, hidden, or removed without notice. Chat messages, clans, Market listings, Gallery posts, comments and shared maps that break these rules may be removed the same way, and anyone can report a shared map.</p>
+            <p>If cloud saves or leaderboards can be gamed unfairly, obviously-cheated entries or accounts may be reset, hidden, or removed without notice. Chat messages, clans, Market listings, Gallery posts, comments and shared maps that break these rules may be removed the same way, and anyone can report a shared map. Signed-in players can report a GayZ TV clip; a clip with 10 reports is hidden until it is checked, and posting clips can be taken away from players who break these rules. A YouTube link plays the video from YouTube, under YouTube's own terms.</p>
 
             <h3>6. Market trades</h3>
             <p>The Market lets players trade skins with each other for in-game coins. The game itself doesn't sell skins there and takes a small fee in coins on each sale. During a Market sale buyers pay less and the game covers the difference, so the seller still gets their full price; sales, price changes, surprise gifts, gift codes and events can start, change or end at any time. In a server, the game's owner can move or freeze players, add or clear zombies, change the time and weather, show a message to everyone, give gifts, or close the server. In a custom lobby, its host sets the rules (for example how strong zombies and players are, or whether spin rings hurt other players), and easy rules earn smaller rewards. A trade can't be undone once it's bought, and skins, like coins, have no real-money value. Buying or selling skins for real money outside the game isn't allowed.</p>
@@ -2769,6 +2808,7 @@ Escape before dawn.</p>
             <h3>Gallery, shared maps and servers</h3>
             <ul>
               <li>Gallery posts (skins, maps and photos you take in Photo Mode) store the picture you post, its title, your nickname, likes, dislikes and comments - anyone can see them. Each like or dislike is saved under your account so you can only vote once per post.</li>
+              <li>GayZ TV clips store the YouTube video link (just its video ID) or the GIF you post, a small picture of it, its title, your nickname and when you posted it - anyone can see them. We also keep how many clips you posted today (for the daily limit) and each report, saved under the reporting account so each player can report a clip once. Watching a YouTube clip loads it from YouTube (youtube-nocookie.com), which has its own privacy policy.</li>
               <li>Photo Postcards you send to a friend store the photo, your short note, its title, your nickname and when you sent it, in that friend's mailbox. Only they can read it, and they can delete it.</li>
               <li>Maps you share get a code and are stored online so anyone can play them; Build Together rooms store the edits and each player's spot while you build.</li>
               <li>When you play on a server, your position, skin and nickname are sent to the other players in it while you play, along with what you hold, the hat and cape you wear, the emote you play, whether you're sitting in a vehicle, the boats, helicopters, hot-air balloons and jet skis you put down, the map pins you share (where they are and whether they're for everyone or friends only; pins for friends only are sent only to the players in the server who are on your friends list), the spray tags you spray (your drawing and where it is), the blocks you place and break, where your shots splat paint in Paint Wars, the stars you give other players' builds in Build Battle, your putts in Zombie Mini-Golf, your votes (and, if you're the Werewolf, your knock-outs) in Werewolf Night, your disguise and finds in Prop Hunt, how fast you pull in Tug of War, your gravestone and the zombies you mark while you're a ghost, how many zombies you've taken down this game (for their kill feed), the items in your spin ring and how far out it spins, your ring's hits on other players when a custom lobby has friendly fire on, and what you say in Global chat (shown over your head). A game you start from the homepage is a server from the start: friends can join it by its link, and it's listed in the Global server list (with your nickname in its name) so other players can join too - unless Who Can Join My Server is set to Link Only or Nobody. It's deleted when you leave.</li>
@@ -2801,7 +2841,7 @@ Escape before dawn.</p>
             </ul>
 
             <h3>Your choices</h3>
-            <p>You can play entirely without signing in. You can delete your own Gallery posts, comments and shared maps, delete postcards sent to you, take back Market listings, and leave or delete your clan at any time. If you have signed in and want your cloud save or account data deleted, or have any other question about your data, reach out on Discord (link below) and it'll be handled directly.</p>
+            <p>You can play entirely without signing in. You can delete your own Gallery posts, GayZ TV clips, comments and shared maps, delete postcards sent to you, take back Market listings, and leave or delete your clan at any time. If you have signed in and want your cloud save or account data deleted, or have any other question about your data, reach out on Discord (link below) and it'll be handled directly.</p>
 
             <h3>Contact</h3>
             <p>Discord: <a href="https://discord.gg/kukR72Euj6" target="_blank" rel="noopener noreferrer">discord.gg/kukR72Euj6</a></p>

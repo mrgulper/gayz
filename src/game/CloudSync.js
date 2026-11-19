@@ -2016,6 +2016,75 @@ export async function deleteGalleryComment(id, commentId) {
   await fsMod.deleteDoc(fsMod.doc(db, 'gallery', id, 'comments', commentId))
 }
 
+// --- GayZ TV (GayzTV.js, 2026-11-19, see firestore-rules-2026-11-19-tv.txt) ---
+// tvClips = small docs for the list; tvGifs/{id} = a GIF's bytes (read on
+// tap); tvDaily/{uid} = { day (UTC days since 1970), count, at } for the
+// daily cap; tvBans/{uid} = set by the owner, blocks posting.
+const tvDay = () => Math.floor(Date.now() / 86400000)
+
+export async function fetchTvClips() {
+  if (switchedOff('gallery', { quiet: true })) throw switchedOffError('gallery')
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'tvClips'), fsMod.orderBy('createdAt', 'desc'), fsMod.limit(30))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id }))
+}
+
+export async function fetchTvGif(id) {
+  const { db, fsMod } = await ensureApp()
+  const snap = await fsMod.getDoc(fsMod.doc(db, 'tvGifs', id))
+  return snap.exists() ? snap.data().gif : ''
+}
+
+// clip: { kind, title, creatorUid, creatorNickname, youtubeId? | thumb + gif }.
+// Throws 'tv-daily-cap' or 'tv-banned' before writing.
+export async function createTvClip(clip, cap) {
+  if (switchedOff('gallery')) throw switchedOffError('gallery')
+  const { db, fsMod } = await ensureApp()
+  const uid = clip.creatorUid
+  if ((await fsMod.getDoc(fsMod.doc(db, 'tvBans', uid))).exists()) throw new Error('tv-banned')
+  const dailyRef = fsMod.doc(db, 'tvDaily', uid)
+  const old = (await fsMod.getDoc(dailyRef)).data()
+  const day = tvDay()
+  const count = old && old.day === day ? (Number(old.count) || 0) + 1 : 1
+  if (count > cap) throw new Error('tv-daily-cap')
+  const now = Math.max(Date.now(), (Number(old?.at) || 0) + 1)
+  const ref = fsMod.doc(fsMod.collection(db, 'tvClips'))
+  const data = { kind: clip.kind, title: clip.title, creatorUid: uid, creatorNickname: clip.creatorNickname, createdAt: now, reports: 0 }
+  if (clip.kind === 'youtube') data.youtubeId = clip.youtubeId
+  else data.thumb = clip.thumb
+  const batch = fsMod.writeBatch(db)
+  batch.set(dailyRef, { day, count, at: now })
+  batch.set(ref, data)
+  if (clip.kind === 'gif') batch.set(fsMod.doc(db, 'tvGifs', ref.id), { creatorUid: uid, gif: clip.gif })
+  await batch.commit()
+  return ref.id
+}
+
+export async function deleteTvClip(id, kind) {
+  const { db, fsMod } = await ensureApp()
+  const batch = fsMod.writeBatch(db)
+  if (kind === 'gif') batch.delete(fsMod.doc(db, 'tvGifs', id))
+  batch.delete(fsMod.doc(db, 'tvClips', id))
+  await batch.commit()
+}
+
+export async function reportTvClip(id, uid) {
+  const { db, fsMod } = await ensureApp()
+  const ref = fsMod.doc(db, 'tvClips', id, 'reports', uid)
+  if ((await fsMod.getDoc(ref)).exists()) return false
+  const batch = fsMod.writeBatch(db)
+  batch.set(ref, { reportedAt: Date.now() })
+  batch.update(fsMod.doc(db, 'tvClips', id), { reports: fsMod.increment(1) })
+  await batch.commit()
+  return true
+}
+
+export async function hasReportedTvClip(id, uid) {
+  const { db, fsMod } = await ensureApp()
+  return (await fsMod.getDoc(fsMod.doc(db, 'tvClips', id, 'reports', uid))).exists()
+}
+
 // Photo Postcards (Postcards.js): card = { fromUid, fromNickname, postId,
 // image, note, title }.
 // The card's id is sender_post (the rules allow one per photo per friend).

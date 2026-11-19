@@ -188,3 +188,112 @@ test('a photo can be sent as a postcard and read in the mailbox', async ({ page 
   await page.click('#gallery-tab-character')
   await expect(page.locator('#gallery-postcards-btn')).toBeHidden()
 })
+
+// GayZ TV (2026-11-19): post a YouTube link and a GIF, watch them, report
+// one (hidden at 10 reports), the daily cap, and delete - against an
+// in-memory backend (game.__tvBackendForTests, the same functions as
+// CloudSync's tv ones).
+test('GayZ TV: post YouTube links and GIFs, watch, report, daily cap, delete', async ({ page }) => {
+  await page.route(/youtube-nocookie\.com|ytimg\.com/, (route) => route.fulfill({ status: 204, body: '' }))
+  await page.goto('/')
+  await page.waitForFunction(() => !!window.__game, null, { timeout: 60000 })
+  await page.evaluate(() => {
+    const g = window.__game
+    Object.defineProperty(g, '_cloudUid', { get: () => 'me', set: () => {}, configurable: true })
+    g.settings.nickname = 'Tester'
+    const clips = new Map([
+      ['old', { id: 'old', kind: 'youtube', youtubeId: 'AAAAAAAAAAA', title: 'Someone else', creatorUid: 'them', creatorNickname: 'Them', createdAt: Date.now() - 1000, reports: 9 }],
+      ['bad', { id: 'bad', kind: 'youtube', youtubeId: 'BBBBBBBBBBB', title: 'Hidden one', creatorUid: 'them', creatorNickname: 'Them', createdAt: Date.now() - 2000, reports: 10 }],
+    ])
+    const gifs = new Map()
+    const reports = new Set()
+    let today = 0
+    let next = 1
+    g.__tvBackendForTests = {
+      async fetchTvClips() { return [...clips.values()].map((c) => ({ ...c })) },
+      async fetchTvGif(id) { return gifs.get(id) || '' },
+      async createTvClip(clip, cap) {
+        if (today >= cap) throw new Error('tv-daily-cap')
+        today++
+        const id = `c${next++}`
+        const { gif, ...rest } = clip
+        clips.set(id, { ...rest, id, createdAt: Date.now(), reports: 0 })
+        if (gif) gifs.set(id, gif)
+        return id
+      },
+      async deleteTvClip(id) { clips.delete(id); gifs.delete(id) },
+      async reportTvClip(id, uid) { if (reports.has(id + uid)) return false; reports.add(id + uid); clips.get(id).reports++; return true },
+      async hasReportedTvClip(id, uid) { return reports.has(id + uid) },
+      _clips: clips,
+      _gifs: gifs,
+    }
+    window.confirm = () => true
+  })
+
+  await page.click('#nav-gallery-link')
+  await page.click('#gallery-tab-tv')
+  await expect(page.locator('#gallery-tv-view')).toBeVisible()
+  await expect(page.locator('#gallery-list-view')).toBeHidden()
+  // 10 reports = hidden; 9 still shows.
+  await expect(page.locator('.tv-card')).toHaveCount(1)
+
+  // A YouTube Shorts link: only the video id is kept.
+  await page.click('#tv-post-btn')
+  await expect(page.locator('#tv-post-form')).toBeVisible()
+  await page.fill('#tv-post-link', 'not a link')
+  await page.fill('#tv-post-title', 'My run')
+  await page.click('#tv-post-submit')
+  await expect(page.locator('#tv-post-status')).not.toBeEmpty()
+  await page.fill('#tv-post-link', 'https://youtube.com/shorts/dQw4w9WgXcQ?si=abc')
+  await page.click('#tv-post-submit')
+  await expect(page.locator('#tv-list')).toBeVisible()
+  await expect(page.locator('.tv-card')).toHaveCount(2)
+  expect(await page.evaluate(() => [...window.__game.__tvBackendForTests._clips.values()].some((c) => c.youtubeId === 'dQw4w9WgXcQ'))).toBe(true)
+
+  // A GIF file (a real 2x2 GIF): gets a small JPEG thumb, plays on tap.
+  const gif = Buffer.from('R0lGODlhAgACAPAAAP8AAAAAACH5BAAAAAAALAAAAAACAAIAAAIChFEAOw==', 'base64')
+  await page.click('#tv-post-btn')
+  await page.click('#tv-kind-gif')
+  await expect(page.locator('#tv-pick-gif')).toBeVisible()
+  await expect(page.locator('#tv-post-link')).toBeHidden()
+  await page.setInputFiles('#tv-post-file', { name: 'clip.gif', mimeType: 'image/gif', buffer: gif })
+  await expect(page.locator('#tv-post-preview')).toBeVisible()
+  await page.fill('#tv-post-title', 'My GIF')
+  await page.click('#tv-post-submit')
+  await expect(page.locator('.tv-card')).toHaveCount(3)
+  await page.locator('.tv-card', { hasText: 'My GIF' }).click()
+  await expect(page.locator('#tv-detail')).toBeVisible()
+  await expect(page.locator('#tv-player img.tv-gif')).toHaveAttribute('src', /^data:image\/gif;base64,/)
+  // My own clip: Delete, no Report.
+  await expect(page.locator('#tv-delete-btn')).toBeVisible()
+  await expect(page.locator('#tv-report-btn')).toBeHidden()
+  await page.click('#tv-back-btn')
+
+  // Someone else's clip plays in a YouTube frame; reporting its 10th time hides it.
+  await page.locator('.tv-card', { hasText: 'Someone else' }).click()
+  await expect(page.locator('#tv-player iframe.tv-frame')).toHaveAttribute('src', /youtube-nocookie\.com\/embed\/AAAAAAAAAAA/)
+  await page.click('#tv-report-btn')
+  await expect(page.locator('#tv-report-btn')).toBeDisabled()
+  await page.click('#tv-back-btn')
+  await expect(page.locator('#tv-player iframe')).toHaveCount(0)
+  await expect(page.locator('.tv-card')).toHaveCount(2)
+
+  // Third post is fine, a fourth hits the daily cap.
+  await page.click('#tv-post-btn')
+  await page.fill('#tv-post-link', 'https://youtu.be/dQw4w9WgXcQ')
+  await page.fill('#tv-post-title', 'Third')
+  await page.click('#tv-post-submit')
+  await expect(page.locator('.tv-card')).toHaveCount(3)
+  await page.click('#tv-post-btn')
+  await page.fill('#tv-post-link', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+  await page.fill('#tv-post-title', 'Fourth')
+  await page.click('#tv-post-submit')
+  await expect(page.locator('#tv-post-status')).toContainText('3')
+  await page.click('#tv-post-cancel')
+
+  // Delete my GIF clip (its GIF goes too).
+  await page.locator('.tv-card', { hasText: 'My GIF' }).click()
+  await page.click('#tv-delete-btn')
+  await expect(page.locator('.tv-card')).toHaveCount(2)
+  expect(await page.evaluate(() => window.__game.__tvBackendForTests._gifs.size)).toBe(0)
+})

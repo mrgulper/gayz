@@ -47,7 +47,7 @@ const PANEL_MENUS = [
   { link: 'gamemode-btn', panel: 'hub-panel', tabs: '.hub-tab', place: 'beside' },
   { link: 'settings-btn', panel: 'settings-panel', tabs: '.settings-tab', place: 'beside' },
   // Gallery's sections, like the other bottom links (2026-10-30).
-  { link: 'nav-gallery-link', panel: 'gallery-panel', tabs: '.gallery-tab', place: 'footer' },
+  { link: 'nav-gallery-link', panel: 'gallery-panel', tabs: '.gallery-tabs .gallery-tab', place: 'footer' },
 ].map((m) => {
   const panel = () => document.getElementById(m.panel)
   // Tabs/sections the page shows right now (e.g. Friends' lists only
