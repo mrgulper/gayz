@@ -268,11 +268,9 @@ test('Simple theme: homepage boxes are the picked colour on a darker page', asyn
     const general = document.getElementById('hub-btn').getBoundingClientRect()
     return { boxes, page: getComputedStyle(document.body).backgroundColor, gap: general.top - badge.bottom, name: document.getElementById('theme-picker-clean-label').textContent, icons: ['theme-clean-bg-btn', 'theme-clean-bg-clear'].map((id) => [document.getElementById(id).textContent.trim(), !!document.querySelector(`#${id} svg`)]) }
   })
-  // Play, Store, Game Mode and Settings are the Button colour (hot pink to
-  // start, white words, 2026-11-19); the profile, coins and clock stay the
-  // picked colour.
-  for (const b of r.boxes.slice(0, 4)) expect(b).toEqual(['rgb(255, 46, 136)', false])
-  for (const b of r.boxes.slice(4)) expect(b).toEqual(['rgb(128, 171, 48)', true])
+  // Every homepage box is the Button colour (hot pink to start, white
+  // words - 2026-11-19, "everything on homepage must be the new pink").
+  for (const b of r.boxes) expect(b).toEqual(['rgb(255, 46, 136)', false])
   expect(r.page).not.toBe('rgb(128, 171, 48)')
   // The profile card no longer sits on top of General.
   expect(r.gap).toBeGreaterThan(0)
@@ -831,12 +829,11 @@ test('homepage extras: cards, Today panel, Play tags, emote', async ({ page }) =
     g.careerStats.xp = 600
     g.runHistory = [{ night: 7, kills: 43, ts: Date.now() }]
     g.bestStats.bestWave = 12
-    g._homeTop3 = [{ name: '<b>x</b>', wave: 20 }]
     g._renderHomeExtras()
     const text = (id) => document.getElementById(id).textContent
     out.left = text('home-extras-left')
     out.right = text('home-extras-right')
-    out.escaped = !document.querySelector('#home-extras-right .home-x-top3 b')
+    out.noTop3 = !document.querySelector('[data-card="top3"]')
     // Nothing in the corners covers the character, the nav or the links.
     const box = (sel) => document.querySelector(sel).getBoundingClientRect()
     const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
@@ -880,13 +877,13 @@ test('homepage extras: cards, Today panel, Play tags, emote', async ({ page }) =
   expect(r.left).toMatch(/Best: Wave 12/)
   expect(r.right).not.toMatch(/streak/i)
   expect(r.right).toMatch(/Invite a friend/)
-  expect(r.escaped).toBe(true)
-  expect(r.cards).toBeGreaterThan(2)
+  expect(r.noTop3).toBe(true)
+  expect(r.cards).toBeGreaterThan(1)
   expect(r.overlaps).toBe(0)
   expect(r.panelCorner).toMatch(/Today/)
   expect(r.leftEmpty).toBe(0)
   expect(r.panelOpen).toBe('flex')
-  expect(r.panelCards).toBe(4)
+  expect(r.panelCards).toBe(3)
   expect(r.panelClosed).toBe('none')
   expect(r.newHere).toEqual([true, false])
   expect(r.cont).toEqual([false, true, '▶ Continue Wave 6 · Hard'])

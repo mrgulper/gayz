@@ -1940,11 +1940,6 @@ html.ui-theme-old #menu-nav-buttons .nav-badge-dot {
 .home-x-card .home-x-big { font-size: 13px; font-weight: 800; }
 .home-x-card .home-x-bar { height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
 .home-x-card .home-x-bar i { display: block; height: 100%; background: linear-gradient(90deg, #a8781f, #e8c25a); }
-.home-x-top3 { margin: 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 1px; }
-.home-x-top3 li { display: list-item; }
-.home-x-top3 li > span { display: inline-block; }
-.home-x-top3 .home-x-name { max-width: 104px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; vertical-align: bottom; margin-right: 6px; }
-.home-x-top3 .home-x-muted { list-style: none; margin-left: -18px; opacity: 0.75; }
 button.home-x-card { cursor: pointer; align-items: center; text-align: center; font-size: 13px; font-weight: 800; transition: filter 0.15s ease; }
 button.home-x-card:hover { filter: brightness(1.12); }
 .home-x-icon { display: inline-block; width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; }
@@ -1980,7 +1975,6 @@ html.ui-theme-old .home-x-mapweek-img { border-color: rgba(74, 44, 16, 0.6); }
 #today-panel-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
 #today-panel-list .home-x-card { font-size: 14px; padding: 12px 14px; }
 #today-panel-list .home-x-card .home-x-big { font-size: 16px; }
-#today-panel-list .home-x-top3 .home-x-name { max-width: 150px; }
 @media (max-width: 520px) { #today-panel-list { grid-template-columns: 1fr; } }
 
 /* Hall of Fame (HallOfFame.js): the same cards, a skin picture on the left. */

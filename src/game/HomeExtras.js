@@ -17,11 +17,10 @@ import { _escapeHtml, _safeStatNumber, saveSettings, saveCareerStats, saveShopPr
 import { EMOTES } from './Emotes.js'
 
 const SAVED_RUN_KEY = 'gayz-play-saved-run' // BuildSurvival.SAVED_RUN_KEY
-const TOP3_CACHE_KEY = 'gayz-home-top3'
-const TOP3_CACHE_MS = 10 * 60 * 1000
-const TOP3_DELAY_MS = 5000
+// How long after the homepage is ready the online count and Map of the
+// Week are first looked up (Firebase loads then, not at startup).
+const LOAD_DELAY_MS = 5000
 export const TIP_COUNT = 12
-export const TOP_PLAYERS = 3
 const PEEK_MIN_MS = 45000
 const PEEK_MAX_MS = 90000
 const PEEK_SHOW_MS = 2600
@@ -31,7 +30,8 @@ const PEEK_SHOW_MS = 2600
 // (2026-11-07) The birthday card leads the left stack on your GayZ
 // birthday; Map of the Week leads the right one once a map is found.
 const LEFT_CARDS = ['birthday', 'lastrun', 'tip']
-const RIGHT_CARDS = ['mapweek', 'top3', 'invite']
+// (2026-11-19, Gaymi: Top players card removed from the homepage.)
+const RIGHT_CARDS = ['mapweek', 'invite']
 
 // Players online now (in the clock's pill): refreshed this often, only while
 // the homepage itself is on screen. Kept slow on purpose - the database's
@@ -175,26 +175,13 @@ function cardHtml(game, id) {
       <span class="home-x-line">${_escapeHtml(t(tipOfDayKey()))}</span>
     </div>`
   }
-  if (id === 'top3') {
-    return `<div class="home-x-card" data-card="top3">
-      <span class="home-x-tag">${_escapeHtml(t('homeExtrasTop3'))}</span>
-      <ol class="home-x-top3">${top3Rows(game)}</ol>
-    </div>`
-  }
   if (id === 'invite') {
     return `<button type="button" class="home-x-card home-x-invite" data-card="invite">${_escapeHtml(t('homeExtrasInvite'))}</button>`
   }
   return ''
 }
 
-function top3Rows(game) {
-  const list = game._homeTop3
-  if (!list) return `<li class="home-x-muted">${_escapeHtml(t(navigator.onLine === false ? 'homeExtrasTop3Offline' : 'homeExtrasTop3Loading'))}</li>`
-  if (!list.length) return `<li class="home-x-muted">${_escapeHtml(t('homeExtrasTop3None'))}</li>`
-  return list.map((e) => `<li><span class="home-x-name">${_escapeHtml(e.name)}</span><span>${_escapeHtml(t('homeExtrasTop3Row', { n: e.wave }))}</span></li>`).join('')
-}
-
-// "128 survivors online", shown in the homepage clock's pill (HomeUI's
+// "128 players online", shown in the homepage clock's pill (HomeUI's
 // _updateHomepageClock). Signed-in players' heartbeats only; you're added
 // when your own isn't one of them (signed out / appearing offline).
 export function onlineTotal(count, signedIn, statusMode) {
@@ -224,7 +211,6 @@ export function renderHomeExtras(game) {
   right.classList.remove('pending')
   renderPlayTags(game)
   fitHomeExtras()
-  loadTop3Later(game)
   loadOnlineLater(game)
   loadMapWeekLater(game)
 }
@@ -394,36 +380,6 @@ function continueRun(game) {
   document.getElementById('play-btn')?.click()
 }
 
-// The top 3 by best wave, read once a few seconds after the homepage is
-// ready (Firebase loads then, not at startup), and kept for 10 minutes.
-function loadTop3Later(game) {
-  if (game._homeTop3 || game._homeTop3Pending) return
-  try {
-    const cached = JSON.parse(sessionStorage.getItem(TOP3_CACHE_KEY) || 'null')
-    if (cached && Date.now() - cached.at < TOP3_CACHE_MS && Array.isArray(cached.list)) {
-      game._homeTop3 = cached.list
-      refreshTop3(game)
-      return
-    }
-  } catch { /* no cache - fetch below */ }
-  if (navigator.onLine === false) return
-  game._homeTop3Pending = true
-  setTimeout(async () => {
-    try {
-      const CloudSync = await import('./CloudSync.js')
-      if (!CloudSync.isConfigured()) return
-      const rows = await CloudSync.fetchTopLeaderboard(TOP_PLAYERS)
-      game._homeTop3 = rows.map((r) => ({ name: String(r.name || '?').slice(0, 24), wave: _safeStatNumber(r.bestNight) }))
-      try { sessionStorage.setItem(TOP3_CACHE_KEY, JSON.stringify({ at: Date.now(), list: game._homeTop3 })) } catch { /* fine */ }
-      refreshTop3(game)
-    } catch {
-      game._homeTop3 = null
-    } finally {
-      game._homeTop3Pending = false
-    }
-  }, TOP3_DELAY_MS)
-}
-
 // The online number, a few seconds after the homepage is ready and then
 // every ONLINE_REFRESH_MS while the tab is visible.
 function loadOnlineLater(game) {
@@ -444,7 +400,7 @@ function loadOnlineLater(game) {
   game._homeOnlineTimer = setTimeout(function again() {
     tick()
     game._homeOnlineTimer = setTimeout(again, ONLINE_REFRESH_MS)
-  }, TOP3_DELAY_MS)
+  }, LOAD_DELAY_MS)
 }
 
 // Map of the Week, once, a few seconds after the homepage is ready.
@@ -496,7 +452,7 @@ function loadMapWeekLater(game) {
     } finally {
       game._homeMapWeekPending = false
     }
-  }, TOP3_DELAY_MS + 1500)
+  }, LOAD_DELAY_MS + 1500)
 }
 
 async function playMapOfWeek(game) {
@@ -529,11 +485,6 @@ function celebrateBirthday(game) {
   if (game._birthdayCelebrated || !birthdayYears(game.careerStats?.firstPlayedDate)) return
   game._birthdayCelebrated = true
   setTimeout(() => game._fireConfetti?.(), 1200)
-}
-
-function refreshTop3(game) {
-  for (const ol of document.querySelectorAll('[data-card="top3"] .home-x-top3')) ol.innerHTML = top3Rows(game)
-  fitHomeExtras()
 }
 
 export function openTodayPanel(game) {
@@ -656,7 +607,6 @@ export function bindHomeExtras(game) {
   }
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeTodayPanel() })
   window.addEventListener('resize', () => fitHomeExtras())
-  window.addEventListener('online', () => { if (!game._homeTop3) loadTop3Later(game) })
   bindAvatarEmote(game)
   bindZombiePeek(game)
   celebrateBirthday(game)
