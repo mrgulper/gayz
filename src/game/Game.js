@@ -4274,6 +4274,8 @@ export class Game {
 
   _closeGalleryPanel() {
     this.galleryPanel.style.display = 'none'
+    // GayZ TV: stop a playing clip.
+    document.getElementById('tv-player')?.replaceChildren()
   }
 
   _renderAuthCard() { return ProfileUI._renderAuthCard(this) }

@@ -1898,3 +1898,51 @@ html.ui-theme-clean .postcard {
   min-width: 0;
   max-width: 100%;
 }
+
+/* GayZ TV (2026-11-19): the Gallery's TV tab - clip cards like the other
+   sections, a post form like Post to the Gallery, and a 16:9 player. */
+.tv-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+#tv-how { flex: 1 1 220px; margin: 0; opacity: 0.85; font-size: 13px; }
+#tv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 12px;
+}
+.tv-card-pic { position: relative; }
+.tv-card-kind {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+}
+#tv-empty { text-align: center; opacity: 0.75; margin-top: 40px; }
+#tv-post-form { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 10px; }
+#tv-post-heading { margin: 0; }
+.tv-kinds { display: flex; gap: 8px; }
+#tv-post-link, #tv-post-title { margin: 0 auto; }
+#tv-post-preview { max-width: min(320px, 90%); max-height: 200px; border-radius: 10px; }
+#tv-post-status, #tv-detail-status { margin: 0; min-height: 1em; font-size: 13px; }
+#tv-back-btn { margin-bottom: 10px; }
+#tv-player {
+  width: min(640px, 100%);
+  aspect-ratio: 16 / 9;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+}
+#tv-player:empty { display: none; }
+.tv-frame { width: 100%; height: 100%; border: 0; }
+.tv-gif { max-width: 100%; max-height: 100%; }
+#tv-detail-title { margin: 0 0 4px; overflow-wrap: anywhere; }
+#tv-detail-by { margin: 0 0 12px; opacity: 0.8; }
+#gallery-tv-view .mini-action-btn { border-radius: 999px; padding-left: 16px; padding-right: 16px; }
+#gallery-tv-view [hidden] { display: none !important; }
