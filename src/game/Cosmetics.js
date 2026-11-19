@@ -13,8 +13,11 @@ import * as THREE from 'three'
 import { makeHat, disposeHat, HAT_BOX_COLORS } from './FunnyZombies.js'
 import { levelFromXp } from './Xp.js'
 import { t } from './i18n.js'
+import { ownedWorldGoalRewards } from './WorldGoal.js'
 
 // need: { level | kills | runs | deaths: n } - reach it to unlock.
+// need: { worldGoal: id } - a World Goal reward (WorldGoal.js, 2026-11-19):
+// help the world finish that weekly goal, then claim it on the homepage.
 export const COSMETICS = {
   propeller: { slot: 'hat', need: { runs: 3 } },
   party: { slot: 'hat', need: { level: 3 } },
@@ -24,6 +27,12 @@ export const COSMETICS = {
   redCape: { slot: 'cape', need: { runs: 10 }, colors: [0xc8282e, 0xe0484c] },
   rainbowCape: { slot: 'cape', need: { level: 8 }, colors: [0xff5ca8, 0xffd23f, 0x7dff8a, 0x5cc8ff, 0xa98bff] },
   goldCape: { slot: 'cape', need: { kills: 1000 }, colors: [0xf2c94c, 0xd4a52c] },
+  hunterHat: { slot: 'hat', need: { worldGoal: 'kills' } },
+  nightCape: { slot: 'cape', need: { worldGoal: 'nights' }, colors: [0x141a3a, 0x1f2a5c, 0xf2e27a, 0x1f2a5c, 0x141a3a] },
+  targetHat: { slot: 'hat', need: { worldGoal: 'headshots' } },
+  bossCape: { slot: 'cape', need: { worldGoal: 'bosses' }, colors: [0x2a0f3a, 0x6a1f8a, 0xb43cff] },
+  coinHat: { slot: 'hat', need: { worldGoal: 'coins' } },
+  bladeCape: { slot: 'cape', need: { worldGoal: 'knifeKills' }, colors: [0x8a929c, 0xc8d0d8, 0x5a626c] },
 }
 export const COSMETIC_IDS = Object.keys(COSMETICS)
 
@@ -40,6 +49,7 @@ function progress(career = {}) {
 export function isUnlocked(id, career) {
   const c = COSMETICS[id]
   if (!c) return false
+  if (c.need.worldGoal) return ownedWorldGoalRewards(career).has(id)
   const have = progress(career)
   return Object.entries(c.need).every(([k, n]) => have[k] >= n)
 }
@@ -47,6 +57,7 @@ export function isUnlocked(id, career) {
 // "Reach level 3", "Kill 250 zombies"... -> the unlock line.
 export function needText(id) {
   const [k, n] = Object.entries(COSMETICS[id].need)[0]
+  if (k === 'worldGoal') return t('cosmeticNeedWorldGoal')
   return t(`cosmeticNeed${k.charAt(0).toUpperCase()}${k.slice(1)}`, { n })
 }
 
@@ -59,6 +70,7 @@ export function nextUnlock(career) {
   for (const id of COSMETIC_IDS) {
     if (isUnlocked(id, career)) continue
     const [kind, need] = Object.entries(COSMETICS[id].need)[0]
+    if (kind === 'worldGoal') continue // not earned by playing more
     const frac = have[kind] / need
     if (!best || frac > best.frac) best = { id, kind, need, left: need - have[kind], frac }
   }

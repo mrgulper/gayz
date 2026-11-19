@@ -13,7 +13,9 @@
 // seconds after the homepage is ready, so it never slows the first paint.
 import { t } from './i18n.js'
 import { holidayDate, mapWeekPin } from './LiveConfig.js'
-import { _escapeHtml, _safeStatNumber, saveSettings, saveCareerStats, saveShopProgress, FRIEND_OFFLINE_THRESHOLD_MS } from './Game.js'
+import { _escapeHtml, _safeStatNumber, saveSettings, saveCareerStats, saveShopProgress, FRIEND_OFFLINE_THRESHOLD_MS, _thisWeekStr, _daysUntilWeekReset } from './Game.js'
+import { getWorldGoal, worldGoalForWeek, loadWorldGoalPending, myWorldGoalPart, worldGoalClaimed, worldGoalRewardReady, claimWorldGoalReward, ownedWorldGoalRewards, WORLD_GOAL_COINS } from './WorldGoal.js'
+import { cosmeticName } from './Cosmetics.js'
 import { EMOTES } from './Emotes.js'
 
 const SAVED_RUN_KEY = 'gayz-play-saved-run' // BuildSurvival.SAVED_RUN_KEY
@@ -31,7 +33,8 @@ const PEEK_SHOW_MS = 2600
 // birthday; Map of the Week leads the right one once a map is found.
 const LEFT_CARDS = ['birthday', 'lastrun', 'tip']
 // (2026-11-19, Gaymi: Top players card removed from the homepage.)
-const RIGHT_CARDS = ['mapweek', 'invite']
+// (2026-11-19) The World Goal card (WorldGoal.js) leads the right stack.
+const RIGHT_CARDS = ['worldgoal', 'mapweek', 'invite']
 
 // Players online now (in the clock's pill): refreshed this often, only while
 // the homepage itself is on screen. Kept slow on purpose - the database's
@@ -43,6 +46,11 @@ const ONLINE_REFRESH_MS = 5 * 60 * 1000
 // Gallery posts, so it mustn't run on every visit.
 const MAPWEEK_CACHE_KEY = 'gayz-home-mapweek'
 const MAPWEEK_CACHE_MS = 12 * 60 * 60 * 1000
+// World Goal: the world's count is read a few seconds after the homepage
+// is ready, then again at most every WORLDGOAL_REFRESH_MS while it stays
+// up (getWorldGoal also caches each read for 10 minutes on this device).
+const WORLDGOAL_REFRESH_MS = 10 * 60 * 1000
+const WEEK_BACK_MS = 7 * 24 * 60 * 60 * 1000
 // A picture bigger than this isn't kept in the cache (the card shows none).
 const MAPWEEK_CACHE_IMAGE_MAX = 150000
 const MAPWEEK_RETRY_MS = 30 * 60 * 1000
@@ -157,6 +165,7 @@ function cardHtml(game, id) {
       <button type="button" class="home-x-btn" data-mapweek-play>${_escapeHtml(t('galleryPlayBtn'))}</button>
     </div>`
   }
+  if (id === 'worldgoal') return worldGoalCardHtml(game)
   if (id === 'lastrun') {
     const last = Array.isArray(game.runHistory) ? game.runHistory[0] : null
     const best = _safeStatNumber(game.bestStats?.bestWave)
@@ -213,6 +222,112 @@ export function renderHomeExtras(game) {
   fitHomeExtras()
   loadOnlineLater(game)
   loadMapWeekLater(game)
+  loadWorldGoalLater(game)
+}
+
+// The World Goal card (2026-11-19, big-ideas plan World Goal Batch 3):
+// this week's goal, a bar of the world's count (plus my own games not
+// sent yet, so the bar moves right after I play), days left, the reward,
+// my part, and a Claim button once the world reached it and I helped.
+// Last week's reward can still be claimed for a week (Claim last week's).
+function worldGoalCardHtml(game) {
+  const week = _thisWeekStr()
+  const wg = game._homeWorldGoal?.week === week ? game._homeWorldGoal : { ...getWorldGoalSync(week), count: null }
+  const career = game.careerStats || {}
+  const pendingMine = loadWorldGoalPending()[week] || 0
+  const count = Number.isFinite(wg.count) ? wg.count + pendingMine : null
+  const target = wg.target
+  const done = count !== null && count >= target
+  const fmt = (n) => Math.floor(n).toLocaleString()
+  const mine = myWorldGoalPart(career, week)
+  const days = _daysUntilWeekReset()
+  const owned = ownedWorldGoalRewards(career).has(wg.reward)
+  const goalKey = `worldGoal${wg.id.charAt(0).toUpperCase()}${wg.id.slice(1)}`
+  const pct = count === null ? 0 : Math.min(100, (count / target) * 100)
+  const line = (key, vars) => `<span class="home-x-line">${_escapeHtml(t(key, vars))}</span>`
+  let status
+  if (worldGoalClaimed(career, week)) status = line('worldGoalClaimed')
+  else if (done && mine > 0 && worldGoalRewardReady(career, { ...wg, count })) status = `<button type="button" class="home-x-btn" data-worldgoal-claim="this">${_escapeHtml(t('worldGoalClaim'))}</button>`
+  else if (done) status = line(mine > 0 ? 'worldGoalDone' : 'worldGoalDoneHelp')
+  else status = mine > 0 ? line('worldGoalMine', { n: fmt(mine) }) : line('worldGoalHelp')
+  const last = game._homeWorldGoalLast
+  const lastBtn = last && worldGoalRewardReady(career, last)
+    ? `<button type="button" class="home-x-btn" data-worldgoal-claim="last">${_escapeHtml(t('worldGoalClaimLast'))}</button>`
+    : ''
+  return `<div class="home-x-card home-x-worldgoal" data-card="worldgoal">
+    <span class="home-x-tag">${_escapeHtml(t('homeWorldGoalTag'))}</span>
+    <span class="home-x-line home-x-big">${_escapeHtml(t(goalKey, { n: fmt(target) }))}</span>
+    ${count === null
+      ? line('worldGoalNoCount')
+      : `<span class="home-x-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${target}" aria-valuenow="${Math.min(count, target)}"><i style="width:${pct.toFixed(1)}%"></i></span>
+    <span class="home-x-line">${_escapeHtml(t('worldGoalProgress', { count: fmt(Math.min(count, target)), target: fmt(target) }))} · ${_escapeHtml(days <= 1 ? t('worldGoalDayLeft') : t('worldGoalDaysLeft', { n: days }))}</span>`}
+    ${line(owned ? 'worldGoalRewardCoins' : 'worldGoalReward', { name: cosmeticName(wg.reward), coins: WORLD_GOAL_COINS })}
+    ${status}
+    ${lastBtn}
+  </div>`
+}
+
+// The week's goal with no count yet (before the first look-up finishes).
+function getWorldGoalSync(week) {
+  return { ...worldGoalForWeek(week), week }
+}
+
+// Reads this week's count (cache first, then one read after LOAD_DELAY_MS,
+// then every WORLDGOAL_REFRESH_MS while the homepage is up), and last
+// week's only when I helped then and haven't claimed it.
+function loadWorldGoalLater(game) {
+  const week = _thisWeekStr()
+  if (game._homeWorldGoalWeek === week) return
+  game._homeWorldGoalWeek = week
+  clearTimeout(game._homeWorldGoalTimer)
+  const lastWeek = _thisWeekStr(new Date(Date.now() - WEEK_BACK_MS))
+  const update = async (online) => {
+    let fetch = null
+    if (online && navigator.onLine !== false) {
+      try {
+        const CloudSync = await import('./CloudSync.js')
+        if (CloudSync.isConfigured()) fetch = CloudSync.fetchWorldGoalCount
+      } catch { /* offline build - cache only */ }
+    }
+    if (game._homeWorldGoalWeek !== week) return
+    const before = JSON.stringify([game._homeWorldGoal, game._homeWorldGoalLast])
+    game._homeWorldGoal = await getWorldGoal(week, fetch)
+    const career = game.careerStats || {}
+    if (lastWeek !== week && myWorldGoalPart(career, lastWeek) > 0 && !worldGoalClaimed(career, lastWeek)) {
+      game._homeWorldGoalLast = await getWorldGoal(lastWeek, fetch)
+    } else game._homeWorldGoalLast = null
+    if (JSON.stringify([game._homeWorldGoal, game._homeWorldGoalLast]) !== before) renderHomeExtras(game)
+  }
+  update(false)
+  const tick = () => {
+    // Only while the homepage's cards are on screen (not in a game).
+    const stack = document.getElementById('home-extras-right')
+    if (document.visibilityState !== 'hidden' && stack && stack.getClientRects().length) update(true)
+    game._homeWorldGoalTimer = setTimeout(tick, WORLDGOAL_REFRESH_MS)
+  }
+  game._homeWorldGoalTimer = setTimeout(tick, LOAD_DELAY_MS + 3000)
+}
+
+// The Claim button: the week's hat or cape (if I don't have it yet) and
+// WORLD_GOAL_COINS coins, once per week.
+function claimWorldGoal(game, which) {
+  const wg = which === 'last' ? game._homeWorldGoalLast : game._homeWorldGoal
+  if (!wg) return
+  // The bar counts my unsent games too, so the button can show a moment
+  // before the cloud's number gets there - same count for the claim.
+  const pendingMine = which === 'last' ? 0 : (loadWorldGoalPending()[wg.week] || 0)
+  const got = claimWorldGoalReward(game.careerStats, { ...wg, count: (wg.count || 0) + pendingMine })
+  if (!got) return
+  saveCareerStats(game.careerStats)
+  game.coins += got.coins
+  saveShopProgress(game)
+  game._renderCurrencyBar?.()
+  game._fireConfetti?.()
+  game._showHomepageToast(got.cosmetic
+    ? t('worldGoalGotBoth', { name: cosmeticName(got.cosmetic), coins: got.coins })
+    : t('worldGoalGotCoins', { coins: got.coins }))
+  if (which === 'last') game._homeWorldGoalLast = null
+  renderHomeExtras(game)
 }
 
 // Hides cards from the bottom of a corner stack up while it would run into
@@ -580,6 +695,7 @@ export function bindHomeExtras(game) {
     if (e.target.closest('#home-today-btn')) openTodayPanel(game)
     else if (e.target.closest('[data-card="invite"]')) invite(game)
     else if (e.target.closest('[data-mapweek-play]')) playMapOfWeek(game)
+    else if (e.target.closest('[data-worldgoal-claim]')) claimWorldGoal(game, e.target.closest('[data-worldgoal-claim]').dataset.worldgoalClaim)
   })
   document.getElementById('home-extras-left')?.addEventListener('click', (e) => {
     if (e.target.closest('[data-birthday-claim]')) claimBirthday(game)
@@ -591,6 +707,7 @@ export function bindHomeExtras(game) {
       else if (e.target.closest('[data-card="invite"]')) invite(game)
       else if (e.target.closest('[data-mapweek-play]')) playMapOfWeek(game)
       else if (e.target.closest('[data-birthday-claim]')) claimBirthday(game)
+      else if (e.target.closest('[data-worldgoal-claim]')) claimWorldGoal(game, e.target.closest('[data-worldgoal-claim]').dataset.worldgoalClaim)
     })
   }
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeTodayPanel() })

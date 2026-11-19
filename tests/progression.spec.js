@@ -645,3 +645,74 @@ test('World Goal: a finished game adds to the weekly pile, sent in small steps',
   expect(WG.worldGoalSteps(1234)).toEqual([500, 500, 234])
   expect(WG.worldGoalForWeek('2026-W47').id).not.toBe(WG.worldGoalForWeek('2026-W48').id)
 })
+
+// World Goal Batch 3: the homepage card and the reward. Helping (a
+// finished game that adds to the goal) is kept in careerStats; once the
+// world's count reaches the target, Claim gives the week's hat or cape
+// plus coins, once. The second time a goal comes round it's coins only.
+test('World Goal: homepage card, helpers claim the hat or cape + coins once', async ({ page }) => {
+  // The rules part, here in the test.
+  const career = {}
+  WG.noteMyWorldGoalPart(career, '2026-W46', 10)
+  WG.noteMyWorldGoalPart(career, '2026-W47', 5)
+  WG.noteMyWorldGoalPart(career, '2026-W47', 7)
+  WG.noteMyWorldGoalPart(career, '2026-W48', 3)
+  expect(career.worldGoalMine).toEqual({ '2026-W47': 12, '2026-W48': 3 })
+  const g47 = { ...WG.worldGoalForWeek('2026-W47'), week: '2026-W47' }
+  expect(WG.worldGoalRewardReady(career, { ...g47, count: g47.target - 1 })).toBe(false)
+  expect(WG.worldGoalRewardReady({}, { ...g47, count: g47.target })).toBe(false) // didn't help
+  const got = WG.claimWorldGoalReward(career, { ...g47, count: g47.target })
+  expect(got).toEqual({ cosmetic: g47.reward, coins: WG.WORLD_GOAL_COINS })
+  expect(WG.claimWorldGoalReward(career, { ...g47, count: g47.target })).toBe(null) // only once
+  expect(WG.ownedWorldGoalRewards(career).has(g47.reward)).toBe(true)
+  // Six goals later the same goal comes back: already owned -> coins only.
+  const again = ['2026-W53', '2027-W6', '2027-W7', '2027-W1', '2026-W51', '2026-W52'].map((w) => ({ ...WG.worldGoalForWeek(w), week: w })).find((g) => g.id === g47.id)
+  expect(again).toBeTruthy()
+  WG.noteMyWorldGoalPart(career, again.week, 1)
+  expect(WG.claimWorldGoalReward(career, { ...again, count: again.target })).toEqual({ cosmetic: '', coins: WG.WORLD_GOAL_COINS })
+
+  // In the game: finish a game, the card says my part; reach the target,
+  // Claim, coins go up and the reward is mine.
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.settings.guestMode = false
+    g.careerStats.worldGoalMine = {}
+    g.careerStats.worldGoalClaimed = []
+    localStorage.removeItem('gayz-world-goal-pending')
+    localStorage.removeItem('gayz-world-goal-cache')
+    g._onPlayEvent('end', { waves: 12, kills: 1234, headshots: 300, bosses: 2, coins: 900, meleeKills: 7, bestStreak: 5, won: false, died: true, mode: 'zombieRush', seconds: 300 })
+    const week = Object.keys(g.careerStats.worldGoalMine)[0]
+    const mine = g.careerStats.worldGoalMine[week]
+    g._homeWorldGoalWeek = undefined
+    g._updateQuestsDot()
+    const wait = async (fn) => { for (let i = 0; i < 100 && !fn(); i++) await new Promise((res) => setTimeout(res, 50)); return fn() }
+    const card = () => document.querySelector('#home-extras-right [data-card="worldgoal"]')
+    await wait(card)
+    const before = card()?.textContent.replace(/\s+/g, ' ') || ''
+    // The world reaches the target (the cached count, as if just read).
+    localStorage.setItem('gayz-world-goal-cache', JSON.stringify({ [week]: { count: 99999999, at: Date.now() } }))
+    g._homeWorldGoalWeek = undefined
+    g._updateQuestsDot()
+    const btn = await wait(() => document.querySelector('[data-worldgoal-claim="this"]'))
+    const coins = g.coins
+    btn?.click()
+    const after = card()?.textContent.replace(/\s+/g, ' ') || ''
+    return { week, mine, before, hadBtn: !!btn, gained: g.coins - coins, claimed: g.careerStats.worldGoalClaimed, after, saved: JSON.parse(localStorage.getItem('gayz-career-stats') || '{}').worldGoalClaimed }
+  })
+  expect(r.mine).toBeGreaterThan(0)
+  expect(r.before).toContain('World Goal')
+  expect(r.before).toContain(`Your part: ${r.mine.toLocaleString('en-US')}`)
+  expect(r.hadBtn).toBe(true)
+  expect(r.gained).toBe(WG.WORLD_GOAL_COINS)
+  expect(r.claimed).toEqual([r.week])
+  expect(r.saved).toEqual([r.week])
+  expect(r.after).toContain('Reward claimed')
+  // The hat or cape now shows as unlocked in Inventory > Hats & Capes.
+  const reward = WG.worldGoalForWeek(r.week).reward
+  const locked = await page.evaluate(async (id) => {
+    document.getElementById('inventory-tab-cosmetics')?.click()
+    return document.querySelector(`[data-cosmetic="${id}"]`)?.classList.contains('locked')
+  }, reward)
+  expect(locked).toBe(false)
+})

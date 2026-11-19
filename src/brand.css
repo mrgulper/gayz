@@ -77,8 +77,11 @@ html.ui-theme-clean #menu .home-x-card {
 }
 html.ui-theme-clean #menu .home-x-card .home-x-bar { background: color-mix(in srgb, var(--gayz-accent-fg) 25%, transparent); }
 html.ui-theme-clean #menu .home-x-card .home-x-bar i { background: var(--gayz-accent-fg); }
-html.ui-theme-clean #menu#menu .home-x-card .home-x-btn,
-html.ui-theme-clean #menu#menu .home-x-card .home-x-btn * {
+/* #menu x4: the "every word on a card is the text colour" rule above has
+   4 ids (its :is/:not count too), which made a card's Claim / Play button
+   white on white (2026-11-19). */
+html.ui-theme-clean #menu#menu#menu#menu .home-x-card .home-x-btn,
+html.ui-theme-clean #menu#menu#menu#menu .home-x-card .home-x-btn * {
   color: var(--gayz-accent) !important;
   background: var(--gayz-accent-fg);
   border-color: var(--gayz-accent-fg);

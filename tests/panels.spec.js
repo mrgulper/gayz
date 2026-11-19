@@ -901,7 +901,7 @@ test('homepage extras: cards, Today panel, Play tags, emote', async ({ page }) =
   expect(r.panelCorner).toMatch(/Today/)
   expect(r.leftEmpty).toBe(0)
   expect(r.panelOpen).toBe('flex')
-  expect(r.panelCards).toBe(3)
+  expect(r.panelCards).toBe(4) // last run, tip, World Goal, invite
   expect(r.panelClosed).toBe('none')
   expect(r.newHere).toEqual([true, false])
   expect(r.cont).toEqual([false, true, '▶ Continue Wave 6 · Hard'])
