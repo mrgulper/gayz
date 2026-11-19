@@ -94,6 +94,7 @@ import { MapPins } from './MapPins.js'
 import { ZombieRadio } from './ZombieRadio.js'
 import { Sprays } from './Sprays.js'
 import { DeathReplay } from './DeathReplay.js'
+import { ClipMaker } from './ClipMaker.js'
 import { gameTip, afkTick, hintOk } from './GameplayAssist.js'
 import { LootMarks } from './LootMarks.js'
 import { JokeSigns } from './JokeSigns.js'
@@ -592,6 +593,9 @@ export class BuildSurvival {
     this.blimp.clear()
     if (!this.bingo) this.bingo = new ZombieBingo(this)
     this.bingo.clear()
+    // The last ~30 s of the picture, for Save Clip (ClipMaker.js).
+    if (!this.clips) this.clips = new ClipMaker(this)
+    this.clips.begin()
     if (!this.pizza) this.pizza = new PizzaDelivery(this)
     this.pizza.clear()
     // ...Bungee Jump, the Zombie Diner and zombies that learn (Bungee.js,
@@ -882,6 +886,7 @@ export class BuildSurvival {
     this.dragon?.clear()
     this.blimp?.clear()
     this.bingo?.clear()
+    this.clips?.end()
     this.pizza?.clear()
     this.bungee?.clear()
     this.diner?.clear()
@@ -2391,6 +2396,7 @@ export class BuildSurvival {
     else if (code === getKeyFor('shop')) this.shop?.toggle()
     else if (code === getKeyFor('spray')) this.sprays?.spray()
     else if (code === getKeyFor('bingo')) this.bingo?.toggle()
+    else if (code === getKeyFor('saveClip')) this.clips?.save()
     else if (code === getKeyFor('ringBag') && this.ring) this.ringEditor?.toggle()
   }
 
@@ -3743,6 +3749,7 @@ export class BuildSurvival {
     this.learn?.update(Math.min(dt, 0.1))
     this.nemesis?.update(Math.min(dt, 0.1))
     this.couch?.update(Math.min(dt, 0.1))
+    this.clips?.update()
     // A new run's Bingo card, once the run is set up (ZombieBingo.js).
     if (this.bingo && !this.bingo.card && this.bingo.allowed && !this.dead) this.bingo.deal()
     this.finds?.update(Math.min(dt, 0.1))

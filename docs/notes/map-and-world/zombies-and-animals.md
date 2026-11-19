@@ -48,3 +48,6 @@ Split out of the old `map-and-world.md` on 2026-11-13 (word for word, oldest fir
 
 ## Nemesis Zombie (2026-11-19, big-ideas plan Batch 1)
 - `NemesisZombie.js` (`s.nemesis`, made/cleared next to `s.learn`). `allowed` = same rule as ZombieLearning (alone or host, zombie modes). `_lastBiter` now also carries `tier` and `nemesis` (level, 0 = not one). `_die` -> `nemesis.onDeath(bitBy)` returns a line appended to the death joke (also shown in the replay). `damageZombie` -> `onKilled(z, mine)`. `update()` spawns it once a run from `FROM_WAVE` via `_makeZombie` (extra = not part of the wave), `_nemesisBaseHealth()` for its health. Own tag material (`_tagMat`, disposed on clear). Plan for later batches: `docs/notes/big-ideas-plan.md`.
+
+## Save Clip (2026-11-19, big-ideas plan Clip Maker Batch 1)
+- `ClipMaker.js`, made in `BuildSurvival.start` (`begin`), `end` in `stop`, `update` each frame, `setPaused` from `PlayPauseMenu.show`. Details and next batches: `docs/notes/big-ideas-plan.md`. Tests skip recording (webdriver) unless `window.__clipTest = true` before Play.

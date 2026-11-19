@@ -20,6 +20,8 @@
 //                    the world frozen (alone - a server keeps going) and a
 //                    click / P / the shutter button saving a picture
 //                    (PlaySpectate.js, 2026-10-30).
+//   Save Clip      - the last ~30 s of the game as a video file
+//                    (ClipMaker.js, 2026-11-19; also the K key).
 //   Spray Paint    - draw your 16 x 16 spray tag (Sprays.js, 2026-11-01):
 //                    the buttons make way for a drawing pad, a row of
 //                    paints (the first is the eraser), Clear and Done.
@@ -36,6 +38,7 @@ import { gameTip } from './GameplayAssist.js'
 import { inviteLink, makeGameJoinable, newServerId } from './ServerBrowser.js'
 import { SPRAY_SIZE, SPRAY_COLORS, loadSpray, saveSpray, sprayCanvas } from './Sprays.js'
 import { getKeyFor, keyLabel } from './Keybinds.js'
+import { clipsSupported } from './ClipMaker.js'
 
 export class PlayPauseMenu {
   constructor(bm) {
@@ -58,6 +61,8 @@ export class PlayPauseMenu {
     })
     on('play-pause-spectate-btn', () => this.bm.spectate?.enter())
     on('play-pause-photo-btn', () => this.bm.spectate?.enter({ photo: true }))
+    // Save Clip: the last ~30 s as a video file (ClipMaker.js).
+    on('play-pause-clip-btn', () => this.bm.survival?.clips?.save())
     on('play-pause-spray-btn', () => this.openSpray())
     on('play-spray-done', () => this.closeSpray())
     on('play-spray-clear', () => {
@@ -86,6 +91,8 @@ export class PlayPauseMenu {
     if (!this.el) return
     if (!on && this._spray) this.closeSpray()
     this.el.style.display = on ? 'flex' : 'none'
+    // No pause screen in the clip (ClipMaker.js).
+    this.bm.survival?.clips?.setPaused(on)
     if (on) this._refresh()
   }
 
@@ -108,6 +115,9 @@ export class PlayPauseMenu {
     set('play-pause-ring-label', t('playPauseRing'))
     set('play-pause-spectate-label', t('playPauseSpectate'))
     set('play-pause-photo-label', t('playPausePhoto'))
+    set('play-pause-clip-label', t('playPauseClip'))
+    const clipBtn = document.getElementById('play-pause-clip-btn')
+    if (clipBtn) clipBtn.style.display = clipsSupported() ? '' : 'none'
     set('play-pause-spray-label', t('playPauseSpray'))
     set('play-spray-clear', t('sprayClear'))
     set('play-spray-done', t('sprayDone'))

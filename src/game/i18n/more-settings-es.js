@@ -134,6 +134,7 @@ export default {
   killFeedOther: "{name} derribó a un zombi",
   compassDirs: "N,NE,E,SE,S,SO,O,NO",
   actionHideHud: "Ocultar HUD",
+  actionSaveClip: "Guardar clip (últimos 30 s)",
   settingsSectionEffects: "Efectos",
   screenShakeLabel: "Temblor de pantalla",
   screenShakeInfoText: "Cuánto tiembla la vista con explosiones, golpes fuertes y terremotos. 0% lo apaga; 200% es el doble. Reducir destellos sigue apagando el temblor de las explosiones.",

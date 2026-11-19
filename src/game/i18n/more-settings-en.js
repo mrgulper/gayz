@@ -134,6 +134,7 @@ export default {
   killFeedOther: "{name} took down a zombie",
   compassDirs: "N,NE,E,SE,S,SW,W,NW",
   actionHideHud: "Hide HUD",
+  actionSaveClip: "Save Clip (last 30 s)",
   settingsSectionEffects: "Effects",
   screenShakeLabel: "Screen Shake",
   screenShakeInfoText: "How hard the view shakes from explosions, big hits and earthquakes. 0% turns it off; 200% is double. Reduce Flashing still turns explosion shakes off.",
