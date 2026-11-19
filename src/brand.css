@@ -7,9 +7,15 @@
    - Picked tabs and ticked boxes are pink in every theme.
    - In Simple, the player's Button colour (settings.cleanBtnColor,
      CleanTheme.js -> --clean-btn / --clean-btn-fg / --clean-btn-check)
-     takes pink's place and also colours Game Mode, Settings and the right
-     column's buttons. The picture looks have no --clean-btn, so they get
-     plain pink. Only colour changes here - never size or place. */
+     takes pink's place. The picture looks and Old have no --clean-btn, so
+     they get plain pink.
+   - The whole homepage is pink in every theme (2026-11-19, Gaymi: "make
+     everything pink the gamemode settings whole right side panel and
+     bottom panel everything on homepage"): Game Mode, Settings, the right
+     column (profile card + buttons), the coins bar, the clock, the corner
+     cards and the bottom links. Old keeps its metal and paper pictures,
+     turned pink with the same colour filter as Play.
+   Only colour changes here - never size or place. */
 
 :root {
   --gayz-pink: #ff2e88;
@@ -43,19 +49,82 @@ html.ui-theme-clean #menu #play-btn#play-btn {
   color: var(--gayz-accent-fg) !important;
 }
 
-/* Simple only: Game Mode, Settings and the right column take the Button
-   colour too (the profile card, coins and clock stay the background
-   colour). */
-html.ui-theme-clean:not(.ui-theme-picture) :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button, #menu-nav-buttons button:hover, #menu-nav-buttons button.nav-hover) {
+/* ---- The rest of the homepage ---- */
+
+/* Simple and the picture looks: every homepage box reads --clean-card /
+   --clean-card-fg, so pointing them at pink inside #menu turns Game Mode,
+   Settings, the profile card, the right column, the coins bar and the
+   clock pink at once. */
+html.ui-theme-clean #menu {
+  --clean-card: var(--gayz-accent);
+  --clean-card-fg: var(--gayz-accent-fg);
+}
+html.ui-theme-clean :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button, #menu-nav-buttons button:hover, #menu-nav-buttons button.nav-hover) {
   background: var(--gayz-accent);
 }
-html.ui-theme-clean:not(.ui-theme-picture) #menu :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button),
-html.ui-theme-clean:not(.ui-theme-picture) #menu :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button) :not(#menu-avatar-level, .nav-badge-dot) {
+/* #menu#menu: beats theme-clean.css's "every word in #menu is the text
+   colour" rule. */
+html.ui-theme-clean #menu#menu :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button, .home-x-card, #menu-links-row),
+html.ui-theme-clean #menu#menu :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button, .home-x-card, #menu-links-row) :not(#menu-avatar-level, .nav-badge-dot) {
   color: var(--gayz-accent-fg) !important;
 }
-/* Number badges on those buttons: the words colour with the button colour
-   for the number, so they still read. */
-html.ui-theme-clean:not(.ui-theme-picture) #menu #menu-nav-buttons .nav-badge-dot:is(#upgrades-dot, #friends-request-dot, #quests-new-dot, #store-new-dot, #quests-claim-dot, #achievements-new-dot, #friends-accepted-dot) {
+html.ui-theme-clean #menu#menu #menu-player-tag {
+  background: color-mix(in srgb, var(--gayz-accent-fg) 18%, transparent);
+}
+html.ui-theme-clean #menu .home-x-card {
+  background: var(--gayz-accent);
+  border-color: transparent;
+}
+html.ui-theme-clean #menu .home-x-card .home-x-bar { background: color-mix(in srgb, var(--gayz-accent-fg) 25%, transparent); }
+html.ui-theme-clean #menu .home-x-card .home-x-bar i { background: var(--gayz-accent-fg); }
+html.ui-theme-clean #menu#menu .home-x-card .home-x-btn,
+html.ui-theme-clean #menu#menu .home-x-card .home-x-btn * {
+  color: var(--gayz-accent) !important;
+  background: var(--gayz-accent-fg);
+  border-color: var(--gayz-accent-fg);
+}
+
+/* The bottom links: one pink bar (every theme). */
+#menu #menu-links-row {
+  background: var(--gayz-accent);
+  border-radius: 18px;
+}
+#menu#menu #menu-links-row :is(a, button),
+#menu#menu #menu-links-row :is(a, button) * {
+  color: var(--gayz-accent-fg) !important;
+  text-shadow: none !important;
+}
+#menu #menu-links-row :is(a, button):is(:hover, :focus-visible, .footer-menu-on) {
+  background: color-mix(in srgb, var(--gayz-accent-fg) 18%, transparent);
+  border-radius: 999px;
+}
+
+/* Old: the metal plates, the gear and the paper cards keep their
+   pictures, tinted pink (their grey steel has almost no colour, so
+   sepia first gives the filter something to turn pink). */
+html.ui-theme-old #menu :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button, .home-x-card),
+html.ui-theme-old #menu :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button, .home-x-card):is(:hover, .nav-hover) {
+  filter: sepia(1) saturate(3.5) hue-rotate(290deg) brightness(1.15);
+}
+/* The profile plate: pink laid over the picture instead, so your
+   picture and character face keep their real colours. */
+html.ui-theme-old #menu #menu-player-badge {
+  background: linear-gradient(var(--gayz-pink), var(--gayz-pink)), url('./menu-art/old-profile-plate.webp') center / 100% 100% no-repeat;
+  background-blend-mode: hard-light;
+}
+html.ui-theme-old #menu :is(#menu-currency-bar, #homepage-clock) {
+  background: color-mix(in srgb, var(--gayz-pink) 88%, transparent);
+  border-color: transparent;
+}
+html.ui-theme-old #menu#menu :is(#menu-currency-bar, #homepage-clock),
+html.ui-theme-old #menu#menu :is(#menu-currency-bar, #homepage-clock) * {
+  color: #ffffff !important;
+}
+
+/* Number badges on the right column: the words colour with the button
+   colour for the number, so they still read (Old's plates are turned pink
+   by a filter, so its badges stay as they were). */
+html.ui-theme-clean #menu#menu #menu-nav-buttons .nav-badge-dot:is(#upgrades-dot, #friends-request-dot, #quests-new-dot, #store-new-dot, #quests-claim-dot, #achievements-new-dot, #friends-accepted-dot) {
   background: var(--gayz-accent-fg);
   color: var(--gayz-accent) !important;
   border-color: var(--gayz-accent);
