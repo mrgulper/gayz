@@ -1819,15 +1819,32 @@ export async function fetchTopWeeklyLeaderboard(weekStr, n) {
 // comment on the one-time manual setup) - silently no-ops if it doesn't,
 // since a missing global counter shouldn't ever block a real run from
 // ending.
+// The rules let one write add at most 500 (stats/global). A run with more
+// kills used to send them all at once, so the whole run was refused and
+// counted 0 (Firebase check, 2026-11-19). Now it goes in steps of 500,
+// at most GLOBAL_KILL_STEPS of them.
+export const GLOBAL_KILL_STEP = 500
+const GLOBAL_KILL_STEPS = 40
+export function globalKillSteps(amount) {
+  const out = []
+  let left = Math.floor(Number(amount) || 0)
+  while (left > 0 && out.length < GLOBAL_KILL_STEPS) {
+    const n = Math.min(left, GLOBAL_KILL_STEP)
+    out.push(n)
+    left -= n
+  }
+  return out
+}
+
 export async function incrementGlobalKills(amount) {
-  if (amount <= 0) return
+  const steps = globalKillSteps(amount)
+  if (!steps.length) return
   const { db, fsMod } = await ensureApp()
   try {
-    await fsMod.updateDoc(fsMod.doc(db, 'stats', 'global'), { totalKills: fsMod.increment(amount) })
+    for (const n of steps) await fsMod.updateDoc(fsMod.doc(db, 'stats', 'global'), { totalKills: fsMod.increment(n) })
   } catch {
-    // Doc doesn't exist yet, or this single call exceeded the per-write
-    // sanity cap in the security rules - either way, not worth surfacing
-    // to the player over a flavor counter.
+    // Doc doesn't exist yet, or a write was refused - either way, not
+    // worth surfacing to the player over a flavor counter.
   }
 }
 
