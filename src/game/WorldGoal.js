@@ -1,7 +1,18 @@
 // World Goal (big-ideas plan, World Goal Batch 2, 2026-11-19): every
 // player in the world adds to one shared number each week. What it counts
 // changes each week (WORLD_GOALS, picked from the week number), so every
-// week is a fresh goal. Batch 3 adds the homepage bar and the reward.
+// week is a fresh goal. Batch 3 (2026-11-19) added the homepage card (a
+// bar, HomeExtras.js) and the reward (Gaymi's picks): when the world
+// reaches the week's target, everyone who helped that week (finished at
+// least one game that added to it) claims that goal's hat or cape plus
+// WORLD_GOAL_COINS coins. Six goals = six World Goal cosmetics; the second
+// time a goal comes round you already own its cosmetic, so it's coins.
+//
+// Kept in careerStats (Cloud Save carries it, CloudMerge adds numbers and
+// joins lists across devices):
+// - worldGoalMine { "2026-W47": n } - my part per week (newest 2 weeks).
+// - worldGoalClaimed ["2026-W47", ...] - weeks whose reward I claimed.
+//   The cosmetics I own are worked out from these weeks' goals.
 //
 // Cheap on purpose (same lesson as the world kill counter):
 // - One Firestore doc per week: worldGoal/{week} = { count }. Nothing else.
@@ -23,16 +34,18 @@ const READ_CACHE_MS = 10 * 60 * 1000
 const PENDING_KEY = 'gayz-world-goal-pending'
 const LAST_SEND_KEY = 'gayz-world-goal-last-send'
 const CACHE_KEY = 'gayz-world-goal-cache'
+// The reward's coins (a guess - the birthday gift is 100 a year).
+export const WORLD_GOAL_COINS = 500
 
 // stat = the field of the game's 'end' report it adds up. Targets are big
 // (Gaymi's pick) and a guess - nobody knows yet how many people play a week.
 export const WORLD_GOALS = [
-  { id: 'kills', stat: 'kills', target: 100000 },
-  { id: 'nights', stat: 'waves', target: 5000 },
-  { id: 'headshots', stat: 'headshots', target: 25000 },
-  { id: 'bosses', stat: 'bosses', target: 1000 },
-  { id: 'coins', stat: 'coins', target: 1000000 },
-  { id: 'knifeKills', stat: 'meleeKills', target: 10000 },
+  { id: 'kills', stat: 'kills', target: 100000, reward: 'hunterHat' },
+  { id: 'nights', stat: 'waves', target: 5000, reward: 'nightCape' },
+  { id: 'headshots', stat: 'headshots', target: 25000, reward: 'targetHat' },
+  { id: 'bosses', stat: 'bosses', target: 1000, reward: 'bossCape' },
+  { id: 'coins', stat: 'coins', target: 1000000, reward: 'coinHat' },
+  { id: 'knifeKills', stat: 'meleeKills', target: 10000, reward: 'bladeCape' },
 ]
 
 // weekStr is _thisWeekStr()'s "2026-W47". Same week -> same goal for
@@ -136,21 +149,70 @@ export async function sendWorldGoalPending(send, { force = false, now = Date.now
   return sent
 }
 
-// This week's goal with its count, for Batch 3's bar. `fetch(week)` is
-// CloudSync.fetchWorldGoalCount. One read per READ_CACHE_MS per device.
+// A week's goal with its count, for the homepage card. `fetch(week)` is
+// CloudSync.fetchWorldGoalCount, or null = only what's cached (no read).
+// One read per READ_CACHE_MS per week per device; the cache keeps the
+// newest 2 weeks ({ "2026-W47": { count, at } }).
 export async function getWorldGoal(weekStr, fetch, { now = Date.now() } = {}) {
   const goal = worldGoalForWeek(weekStr)
   const cache = readJson(CACHE_KEY, {})
-  let count = null
-  if (cache.week === weekStr && now - (Number(cache.at) || 0) < READ_CACHE_MS && Number.isFinite(cache.count)) {
-    count = cache.count
-  } else {
+  const hit = cache[weekStr] && Number.isFinite(cache[weekStr].count) ? cache[weekStr] : null
+  let count = hit ? hit.count : null
+  if (fetch && !(hit && now - (Number(hit.at) || 0) < READ_CACHE_MS && now >= (Number(hit.at) || 0))) {
     try {
       count = Math.max(0, Math.floor(Number(await fetch(weekStr)) || 0))
-      writeJson(CACHE_KEY, { week: weekStr, count, at: now })
-    } catch {
-      if (cache.week === weekStr && Number.isFinite(cache.count)) count = cache.count
-    }
+      const next = {}
+      for (const w of Object.keys(cache).filter((k) => /^\d{4}-W\d{1,2}$/.test(k) && k !== weekStr)) next[w] = cache[w]
+      next[weekStr] = { count, at: now }
+      const keep = Object.keys(next).sort(byWeek).slice(-2)
+      writeJson(CACHE_KEY, Object.fromEntries(keep.map((w) => [w, next[w]])))
+    } catch { /* offline / refused - the cached number (if any) stays */ }
   }
   return { ...goal, week: weekStr, count }
+}
+
+// My part of a week's goal (careerStats.worldGoalMine), 0 if I didn't help.
+export function myWorldGoalPart(career, weekStr) {
+  const v = Math.floor(Number(career?.worldGoalMine?.[weekStr]) || 0)
+  return v > 0 ? v : 0
+}
+
+// After a finished game: adds `amount` to my part of the week, keeping
+// only the newest 2 weeks. Changes `career`; the caller saves it.
+export function noteMyWorldGoalPart(career, weekStr, amount) {
+  if (!career || !(amount > 0)) return
+  const mine = career.worldGoalMine && typeof career.worldGoalMine === 'object' ? { ...career.worldGoalMine } : {}
+  mine[weekStr] = myWorldGoalPart(career, weekStr) + Math.floor(amount)
+  const keep = Object.keys(mine).filter((w) => /^\d{4}-W\d{1,2}$/.test(w)).sort(byWeek).slice(-2)
+  career.worldGoalMine = Object.fromEntries(keep.map((w) => [w, mine[w]]))
+}
+
+export function worldGoalClaimed(career, weekStr) {
+  return Array.isArray(career?.worldGoalClaimed) && career.worldGoalClaimed.includes(weekStr)
+}
+
+// The World Goal cosmetics I own: the reward of every week I claimed.
+export function ownedWorldGoalRewards(career) {
+  const out = new Set()
+  for (const w of Array.isArray(career?.worldGoalClaimed) ? career.worldGoalClaimed : []) {
+    if (/^\d{4}-W\d{1,2}$/.test(String(w))) out.add(worldGoalForWeek(w).reward)
+  }
+  return out
+}
+
+// Can I claim this week's reward? The world reached the target, I helped,
+// and I haven't claimed it yet. `wg` is getWorldGoal's answer.
+export function worldGoalRewardReady(career, wg) {
+  return !!wg && Number.isFinite(wg.count) && wg.count >= wg.target &&
+    myWorldGoalPart(career, wg.week) > 0 && !worldGoalClaimed(career, wg.week)
+}
+
+// Claims a week's reward: marks it claimed and says what it gave -
+// { cosmetic: id or '' (already owned), coins }. Changes `career`; the
+// caller adds the coins and saves.
+export function claimWorldGoalReward(career, wg) {
+  if (!worldGoalRewardReady(career, wg)) return null
+  const had = ownedWorldGoalRewards(career).has(wg.reward)
+  career.worldGoalClaimed = [...(Array.isArray(career.worldGoalClaimed) ? career.worldGoalClaimed : []), wg.week]
+  return { cosmetic: had ? '' : wg.reward, coins: WORLD_GOAL_COINS }
 }

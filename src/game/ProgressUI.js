@@ -16,7 +16,7 @@ import { QUESTS } from './Quests.js'
 import { SKIN_RARITIES } from './InventorySkins.js'
 import { EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQuests.js'
 import { t } from './i18n.js'
-import { addToWorldGoal, sendWorldGoalPending } from './WorldGoal.js'
+import { addToWorldGoal, sendWorldGoalPending, noteMyWorldGoalPart } from './WorldGoal.js'
 import * as CloudSync from './CloudSync.js'
 import { rewardMult } from './LiveConfig.js'
 import { setNavBadge } from './NavBadges.js'
@@ -235,7 +235,14 @@ export function _onPlayEvent(game, type, data) {
   game._recordRunEnd(!data.died)
   // World Goal (WorldGoal.js): this game's part goes on the pile; the pile
   // is sent now and then, not after every game.
-  addToWorldGoal(_thisWeekStr(), data)
+  // My own part is kept too (careerStats.worldGoalMine): helping is what
+  // lets me claim the week's reward on the homepage.
+  const wgWeek = _thisWeekStr()
+  const wgAdded = addToWorldGoal(wgWeek, data)
+  if (wgAdded) {
+    noteMyWorldGoalPart(game.careerStats, wgWeek, wgAdded)
+    saveCareerStats(game.careerStats)
+  }
   if (CloudSync.isConfigured()) sendWorldGoalPending(CloudSync.addWorldGoalCount).catch(() => {})
   // Added after the run is recorded, so the run's own coins stay just
   // what it earned.

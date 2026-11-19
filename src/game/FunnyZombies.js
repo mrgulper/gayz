@@ -72,6 +72,19 @@ const HAT_BOXES = {
     [7, 4, 7, 2, 0xf6f4ee], [1.4, 1.6, 4, 4.8, 0xe0284f], [2, 1, 2, 2.5, 0xf2b234, 0, 4.4],
     [1, 1, 1, 3.2, 0x1a1a1a, -2.4, 3.2], [1, 1, 1, 3.2, 0x1a1a1a, 2.4, 3.2],
   ],
+  // World Goal rewards (Cosmetics.js, 2026-11-19) - players only, not in
+  // HAT_KINDS, so zombies never wear them.
+  hunterHat: [
+    [10, 0.8, 10, 0.4, 0x5a3a1e], [7, 3, 7, 2.3, 0x7a5230], [7.2, 0.8, 7.2, 1.2, 0x2a1a0e],
+  ],
+  targetHat: [
+    [8.4, 2.4, 8.4, 1.2, 0xe0284f], [6.2, 1.6, 6.2, 3.2, 0xffffff], [4, 1.6, 4, 4.8, 0xe0284f],
+    [1.8, 1.4, 1.8, 6.3, 0xffffff],
+  ],
+  coinHat: [
+    [7, 1, 7, 0.5, 0xd4a52c], [6.6, 1, 6.6, 1.5, 0xf2c94c], [7, 1, 7, 2.5, 0xd4a52c],
+    [6.6, 1, 6.6, 3.5, 0xf2c94c], [7, 1, 7, 4.5, 0xd4a52c], [6.6, 1, 6.6, 5.5, 0xf8d870],
+  ],
 }
 // The boxes of a hat, for its Inventory picture (Cosmetics.cosmeticIcon).
 export const HAT_BOX_COLORS = (kind) => HAT_BOXES[kind] || []

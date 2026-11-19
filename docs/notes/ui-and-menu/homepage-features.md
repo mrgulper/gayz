@@ -54,3 +54,7 @@ Split out of the old `ui-and-menu.md` on 2026-11-13 (word for word, oldest first
 - Couch Co-op is no longer a tag under Play: Settings > General > Couch Co-op has Buddy / Equal buttons (`#couch-settings`, `HomeExtras.renderCouchSettings`); they close Settings, set `game._couchNext` and press Play. Hidden on touch-only devices.
 - `src/brand.css`: GayZ logo, tagline lines, Play tags and the level number are pink; the bottom links have no bar - white words with a dark outline, hover underlines.
 - `#lore-toast` (`_showHomepageToast`) had no z-index, so `#menu` covered it and every homepage message (e.g. Invite "Link copied") was invisible. Now `z-index: 60`, and a pink pill with white words while the homepage is up.
+
+## 2026-11-19: World Goal card
+- `HomeExtras.worldGoalCardHtml` leads `RIGHT_CARDS` (bottom-right / Today panel): this week's goal (`WorldGoal.js`), `.home-x-bar`, count / target + days left, reward, my part or Claim (`data-worldgoal-claim="this|last"`). Rules and storage: `docs/notes/big-ideas-plan.md` World Goal Batch 3.
+- Simple theme: `.home-x-btn` needs `#menu#menu#menu#menu` in `brand.css` to beat the 4-id "card text colour" rule above it, or it's white on white.
