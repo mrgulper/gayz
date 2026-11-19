@@ -23,6 +23,11 @@
 import { MONTH_THEMES, PICTURE_VARS_KEY, pictureThemeFor, pictureVars } from './MonthThemes.js'
 
 export const CLEAN_DEFAULT_COLOR = '#f5f5f7'
+// GayZ's own colour (2026-11-19, Gaymi: a default colour like other games
+// have, "lets use hot pink"). The Play button and picked tabs/ticked boxes
+// wear it in every theme (brand.css). In Simple the player can change the
+// homepage buttons' colour (settings.cleanBtnColor), which starts here.
+export const BRAND_PINK = '#ff2e88'
 // The last colour's variables, for index.html's first paint. Device-only
 // (CloudMerge.DEVICE_ONLY_KEYS); written on picks and once at start, never
 // while the swatch is being dragged.
@@ -127,7 +132,28 @@ export function oppositeInk(bg) {
   return fg
 }
 
-export function cleanVars(color) {
+// Words on a button colour: white when it reads well enough on it (3:1,
+// fine for big bold button words - white on hot pink), else near-black.
+export function buttonInk(rgb) {
+  return (1.05 / (luminance(rgb) + 0.05)) >= 3 ? [255, 255, 255] : [29, 29, 31]
+}
+
+const tick = (hex) => `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.2 8.4l3 3 6.6-6.8' fill='none' stroke='%23${hex.slice(1)}' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`
+const toHex = (rgb) => `#${rgb.map((v) => v.toString(16).padStart(2, '0')).join('')}`
+
+// Simple's homepage buttons (Play, Game Mode, Settings, the right column)
+// are their own colour since 2026-11-19 (Gaymi: "add a custom for changing
+// background and they get to pick the button colours"); --clean-card stays
+// the background colour for the other boxes (profile, coins, clock).
+const BTN_KEYS = ['--clean-btn', '--clean-btn-fg', '--clean-btn-check']
+function buttonVars(btnColor) {
+  const hex = normalizeHex(btnColor) || BRAND_PINK
+  const rgb = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+  const ink = buttonInk(rgb)
+  return { '--clean-btn': hex, '--clean-btn-fg': `rgb(${ink.join(', ')})`, '--clean-btn-check': tick(toHex(ink)) }
+}
+
+export function cleanVars(color, btnColor) {
   const hex = normalizeHex(color) || CLEAN_DEFAULT_COLOR
   const bg = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
   const fg = oppositeInk(bg)
@@ -147,7 +173,8 @@ export function cleanVars(color) {
     '--clean-card-fg': `rgb(${fg.join(', ')})`,
     // The tick on a checked box, in the page colour (sits on --clean-fg).
     // Not needed for the first paint, so index.html's copy skips it.
-    '--clean-check': `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.2 8.4l3 3 6.6-6.8' fill='none' stroke='%23${hex.slice(1)}' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+    '--clean-check': tick(hex),
+    ...buttonVars(btnColor),
   }
 }
 
@@ -184,8 +211,9 @@ export function applyUiTheme(settings, root = document.documentElement) {
   root.classList.toggle('picture-font', !!pic)
   if (pic) root.dataset.pictureTheme = pic.id
   else delete root.dataset.pictureTheme
-  const vars = pic ? pictureThemeVars(pic) : cleanVars(settings && settings.cleanColor)
-  for (const k of Object.keys(pictureVars(MONTH_THEMES[0]))) if (!(k in vars)) root.style.removeProperty(k)
+  const vars = pic ? pictureThemeVars(pic) : cleanVars(settings && settings.cleanColor, settings && settings.cleanBtnColor)
+  // Picture looks keep their own button colours (only Play turns pink).
+  for (const k of [...Object.keys(pictureVars(MONTH_THEMES[0])), ...BTN_KEYS]) if (!(k in vars)) root.style.removeProperty(k)
   for (const [k, v] of Object.entries(vars)) {
     if (clean) root.style.setProperty(k, v)
     else root.style.removeProperty(k)
@@ -196,7 +224,7 @@ export function applyUiTheme(settings, root = document.documentElement) {
 export function rememberCleanVars(settings) {
   if (pictureThemeFor(uiThemeOf(settings))) { rememberPictureThemes(); return }
   const color = normalizeHex(settings && settings.cleanColor) || CLEAN_DEFAULT_COLOR
-  const vars = cleanVars(color)
+  const vars = cleanVars(color, settings && settings.cleanBtnColor)
   delete vars['--clean-check']
   try { localStorage.setItem(CLEAN_VARS_KEY, JSON.stringify({ color, vars })) } catch { /* storage full or blocked */ }
 }
