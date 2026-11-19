@@ -64,8 +64,8 @@ html.ui-theme-clean :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button, 
 }
 /* #menu#menu: beats theme-clean.css's "every word in #menu is the text
    colour" rule. */
-html.ui-theme-clean #menu#menu :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button, .home-x-card, #menu-links-row),
-html.ui-theme-clean #menu#menu :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button, .home-x-card, #menu-links-row) :not(#menu-avatar-level, .nav-badge-dot) {
+html.ui-theme-clean #menu#menu :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button, .home-x-card),
+html.ui-theme-clean #menu#menu :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button, .home-x-card) :not(#menu-avatar-level, .nav-badge-dot) {
   color: var(--gayz-accent-fg) !important;
 }
 html.ui-theme-clean #menu#menu #menu-player-tag {
@@ -84,19 +84,58 @@ html.ui-theme-clean #menu#menu .home-x-card .home-x-btn * {
   border-color: var(--gayz-accent-fg);
 }
 
-/* The bottom links: one pink bar (every theme). */
+/* The bottom links: white words, no bar behind them (2026-11-19, Gaymi:
+   "keep the words as white and remove the pink around them"), with a
+   soft dark outline so they read on light backgrounds too. Hover just
+   underlines. */
 #menu #menu-links-row {
-  background: var(--gayz-accent);
-  border-radius: 18px;
+  background: none;
+  border: none;
+  box-shadow: none;
 }
 #menu#menu #menu-links-row :is(a, button),
 #menu#menu #menu-links-row :is(a, button) * {
-  color: var(--gayz-accent-fg) !important;
-  text-shadow: none !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.85), 0 1px 4px rgba(0, 0, 0, 0.7) !important;
+}
+#menu #menu-links-row :is(a, button) {
+  background: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 #menu #menu-links-row :is(a, button):is(:hover, :focus-visible, .footer-menu-on) {
-  background: color-mix(in srgb, var(--gayz-accent-fg) 18%, transparent);
-  border-radius: 999px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+#menu #menu-links-row svg { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)); }
+
+/* The GayZ logo, the lines under it, the tags on Play and your level
+   number: pink too (2026-11-19). */
+html.ui-theme-clean #menu#menu #menu-title-img::after {
+  color: var(--gayz-accent) !important;
+}
+html.ui-theme-clean #menu#menu :is(#menu-tagline, #menu-subtitle, #menu-subhint, #homepage-greeting) {
+  color: var(--gayz-accent) !important;
+}
+html:not(.ui-theme-clean) #menu :is(#menu-tagline, #menu-subtitle, #menu-subhint, #homepage-greeting) {
+  color: var(--gayz-pink) !important;
+  -webkit-text-fill-color: var(--gayz-pink);
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.9), 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+html.ui-theme-old #menu#menu #menu-title-img:is(*, .logo-tier-3, .logo-tier-4, .logo-tier-5) {
+  filter: hue-rotate(-55deg) saturate(2.6) drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+}
+html:root:root #menu .home-play-tag {
+  background: var(--gayz-accent) !important;
+  color: var(--gayz-accent-fg) !important;
+  -webkit-text-fill-color: var(--gayz-accent-fg);
+  border-color: var(--gayz-accent-fg) !important;
+}
+html:root:root #menu .nameplate-level {
+  background: var(--gayz-accent) !important;
+  color: var(--gayz-accent-fg) !important;
+  -webkit-text-fill-color: var(--gayz-accent-fg);
 }
 
 /* Old: the metal plates, the gear and the paper cards keep their
@@ -159,4 +198,19 @@ html:root:root :is(.settings-tab, .quest-tab, .upgrades-tab, .inventory-tab, .ge
 /* The tiny drawn homepage on Simple's card: its pill is the Button colour. */
 .theme-clean-preview b:nth-child(2) {
   background: var(--clean-preview-btn, var(--gayz-pink));
+}
+
+/* ---- Homepage messages ---- */
+/* "Link copied" and other homepage messages: a pink bubble with white
+   words while the homepage is up (the plain pale in-game text was almost
+   invisible on light homepages). In a game it keeps its own look. */
+#app:not(:has(> #menu[style*="none"])) > #lore-toast {
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: var(--gayz-accent);
+  color: var(--gayz-accent-fg);
+  font-style: normal;
+  font-weight: 700;
+  text-shadow: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }

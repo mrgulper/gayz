@@ -669,6 +669,9 @@ html.ui-theme-old select {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   opacity: 0;
   pointer-events: none;
+  /* Above the homepage (#menu comes later in the page and used to cover
+     it, so homepage messages like "Link copied" never showed). */
+  z-index: 60;
 }
 
 #lore-toast.show {

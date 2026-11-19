@@ -2905,6 +2905,8 @@ export default {
   couchModeEqual: "Equal",
   couchModeBuddyAbout: "Player 2 fights beside you. Their kills and coins go to Player 1.",
   couchModeEqualAbout: "Player 2 has their own coins, shop, hotbar, building, vehicles, crafting, fishing, chests, emotes and skin (a guest - nothing is saved).",
+  couchSettingsAbout: "Split screen on one computer - Player 2 plays with a controller. Pick a way to play to start.",
+  couchSettingsStart: "Start Couch Co-op",
   couchMenuPack: "Backpack",
   couchMenuShop: "Shop",
   couchMenuSkin: "Skin",

@@ -575,7 +575,6 @@ Escape before dawn.</p>
                      HTML so the early paint's leaf count matches the loaded page. -->
                 <button type="button" id="home-continue-tag" class="home-play-tag" style="display: none"></button>
                 <button type="button" id="home-newhere-tag" class="home-play-tag" style="display: none"></button>
-                <button type="button" id="home-couch-tag" class="home-play-tag" style="display: none"></button>
               </div>
             </div>
 
@@ -1169,6 +1168,20 @@ Escape before dawn.</p>
           </div>
           <p class="menu-hint-line">Right-click (or long-press) a name in chat to block them - their messages show as "Blocked message - Show" in every channel until you unblock them here.</p>
           <div id="muted-chat-players-list"></div>
+
+          <!-- Couch Co-op (CouchCoop.js; moved here from the homepage tag 2026-11-19).
+               Computers only - HomeExtras.renderCouchSettings hides it on touch. -->
+          <div id="couch-settings">
+            <h3 class="settings-section-heading" id="settings-section-couch">Couch Co-op</h3>
+            <p class="menu-hint-line" id="couch-settings-about">Split screen on one computer - Player 2 plays with a controller. Pick a way to play to start.</p>
+            <div class="audio-row">
+              <label id="couch-settings-label">Start Couch Co-op</label>
+              <span class="couch-settings-btns">
+                <button type="button" class="mini-action-btn" data-couch="buddy">Buddy</button>
+                <button type="button" class="mini-action-btn" data-couch="equal">Equal</button>
+              </span>
+            </div>
+          </div>
 
           <h3 class="settings-section-heading" id="settings-section-homepage">Homepage</h3>
           <div class="audio-row">
