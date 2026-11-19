@@ -118,6 +118,26 @@
 html.ui-theme-old #play-spray .play-spray-row button { font-family: 'Rye', Georgia, serif; }
 html.ui-theme-old #play-spray #play-spray-done { color: #f6e9c8; }
 html.ui-theme-old #play-spray-pad { background-color: rgba(255, 248, 230, 0.5); }
+/* Clip Options (PlayPauseMenu.openClipOptions, ClipMaker.js): rows of
+   choices, the picked one filled in gold, and Done. */
+#play-clip { text-align: center; }
+#play-clip[hidden] { display: none; }
+#play-clip-hint { margin: 0 0 12px; font-size: 13px; opacity: 0.85; }
+#play-clip .play-clip-group { margin: 0 0 12px; }
+#play-clip .play-clip-label { display: block; margin: 0 0 6px; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--pp-gold); }
+#play-clip .play-clip-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+#play-clip .play-clip-row button,
+#play-clip .play-clip-done-row button { min-width: 64px; padding: 8px 16px; font: inherit; font-size: 15px; font-weight: 700; color: var(--pp-text); background: rgba(var(--pp-gold-rgb), 0.08); border: 1px solid rgba(var(--pp-gold-rgb), 0.5); border-radius: 999px; cursor: pointer; }
+#play-clip .play-clip-row button.on,
+#play-clip #play-clip-done { color: #1a1206; background: var(--pp-gold); border-color: var(--pp-gold); }
+#play-clip .play-clip-custom-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; font-size: 13px; opacity: 0.9; }
+#play-clip #play-clip-custom { width: 90px; padding: 6px 14px; font: inherit; font-size: 15px; text-align: center; color: inherit; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(var(--pp-gold-rgb), 0.5); border-radius: 999px; }
+#play-clip .play-clip-note { margin: 6px 0 0; font-size: 12px; opacity: 0.75; }
+#play-clip .play-clip-done-row { margin-top: 14px; }
+html.ui-theme-old #play-clip :is(.play-clip-row, .play-clip-done-row) button { font-family: 'Rye', Georgia, serif; }
+html.ui-theme-old #play-clip :is(.play-clip-row button.on, #play-clip-done) { color: #f6e9c8; background: #6b3f17; border-color: #6b3f17; }
+html.ui-theme-old #play-clip .play-clip-label { color: #6b3f17; }
+html.ui-theme-old #play-clip #play-clip-custom { background: rgba(255, 248, 230, 0.6); border-color: rgba(107, 63, 23, 0.6); }
 /* Invite Friends' link box (PlayPauseMenu.invite). */
 #play-invite { margin-top: 12px; text-align: center; }
 #play-invite[hidden] { display: none; }

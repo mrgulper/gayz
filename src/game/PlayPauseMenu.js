@@ -22,6 +22,9 @@
 //                    (PlaySpectate.js, 2026-10-30).
 //   Save Clip      - the last ~30 s of the game as a video file
 //                    (ClipMaker.js, 2026-11-19; also the K key).
+//   Clip Options   - Video or GIF, length 10/20/30 s or Custom, sound on
+//                    or off, GIF size (2026-11-19): the buttons make way
+//                    for rows of choices and Done, like Spray Paint.
 //   Spray Paint    - draw your 16 x 16 spray tag (Sprays.js, 2026-11-01):
 //                    the buttons make way for a drawing pad, a row of
 //                    paints (the first is the eraser), Clear and Done.
@@ -38,7 +41,7 @@ import { gameTip } from './GameplayAssist.js'
 import { inviteLink, makeGameJoinable, newServerId } from './ServerBrowser.js'
 import { SPRAY_SIZE, SPRAY_COLORS, loadSpray, saveSpray, sprayCanvas } from './Sprays.js'
 import { getKeyFor, keyLabel } from './Keybinds.js'
-import { clipsSupported } from './ClipMaker.js'
+import { clipsSupported, CLIP_LENGTHS, CLIP_LEN_MIN, CLIP_LEN_MAX, cleanClipOptions } from './ClipMaker.js'
 
 export class PlayPauseMenu {
   constructor(bm) {
@@ -63,6 +66,9 @@ export class PlayPauseMenu {
     on('play-pause-photo-btn', () => this.bm.spectate?.enter({ photo: true }))
     // Save Clip: the last ~30 s as a video file (ClipMaker.js).
     on('play-pause-clip-btn', () => this.bm.survival?.clips?.save())
+    on('play-pause-clipopts-btn', () => this.openClipOptions())
+    on('play-clip-done', () => this.closeClipOptions())
+    this._bindClipOptions()
     on('play-pause-spray-btn', () => this.openSpray())
     on('play-spray-done', () => this.closeSpray())
     on('play-spray-clear', () => {
@@ -90,6 +96,7 @@ export class PlayPauseMenu {
   show(on) {
     if (!this.el) return
     if (!on && this._spray) this.closeSpray()
+    if (!on && this._clipOpts) this.closeClipOptions()
     this.el.style.display = on ? 'flex' : 'none'
     // No pause screen in the clip (ClipMaker.js).
     this.bm.survival?.clips?.setPaused(on)
@@ -118,6 +125,11 @@ export class PlayPauseMenu {
     set('play-pause-clip-label', t('playPauseClip'))
     const clipBtn = document.getElementById('play-pause-clip-btn')
     if (clipBtn) clipBtn.style.display = clipsSupported() ? '' : 'none'
+    set('play-pause-clipopts-label', t('playPauseClipOptions'))
+    const clipOptsBtn = document.getElementById('play-pause-clipopts-btn')
+    if (clipOptsBtn) clipOptsBtn.style.display = clipsSupported() ? '' : 'none'
+    set('play-clip-hint', t('clipOptHint'))
+    set('play-clip-done', t('sprayDone'))
     set('play-pause-spray-label', t('playPauseSpray'))
     set('play-spray-clear', t('sprayClear'))
     set('play-spray-done', t('sprayDone'))
@@ -136,9 +148,80 @@ export class PlayPauseMenu {
     this._showInvite()
   }
 
+  // --- Clip Options ---
+
+  openClipOptions() {
+    if (this._spray) this.closeSpray()
+    const clips = this.bm.survival?.clips
+    this._clipOpts = { ...(clips?.options || cleanClipOptions(null)) }
+    // Custom: a length that isn't one of the buttons, or Custom tapped.
+    this._clipCustom = !CLIP_LENGTHS.includes(this._clipOpts.len)
+    document.getElementById('play-pause-buttons')?.setAttribute('hidden', '')
+    document.getElementById('play-invite')?.setAttribute('hidden', '')
+    const box = document.getElementById('play-clip')
+    if (box) box.hidden = false
+    this._drawClipOptions()
+  }
+
+  closeClipOptions() {
+    if (!this._clipOpts) return
+    const input = document.getElementById('play-clip-custom')
+    if (this._clipCustom && input) this._clipOpts.len = Number(input.value)
+    const clips = this.bm.survival?.clips
+    const same = clips ? clips.setOptions(this._clipOpts) : true
+    this._clipOpts = null
+    document.getElementById('play-pause-buttons')?.removeAttribute('hidden')
+    const box = document.getElementById('play-clip')
+    if (box) box.hidden = true
+    this._showInvite()
+    const status = document.getElementById('play-pause-status')
+    if (status && !same) status.textContent = t('clipOptSaved')
+  }
+
+  // The rows: Type, Length (+ Custom box), Sound (videos) or GIF Size.
+  _drawClipOptions() {
+    const rows = document.getElementById('play-clip-rows')
+    const o = this._clipOpts
+    if (!rows || !o) return
+    const chip = (opt, val, label, on) => `<button type="button" data-opt="${opt}" data-val="${val}" class="${on ? 'on' : ''}" aria-pressed="${on}">${label}</button>`
+    const row = (label, chips, extra = '') => `<div class="play-clip-group"><span class="play-clip-label">${label}</span><div class="play-clip-row">${chips}</div>${extra}</div>`
+    const lens = CLIP_LENGTHS.map((n) => chip('len', n, t('clipOptSeconds', { n }), !this._clipCustom && o.len === n)).join('') + chip('len', 'custom', t('clipOptCustom'), this._clipCustom)
+    const custom = this._clipCustom ? `<label class="play-clip-custom-row"><input type="number" id="play-clip-custom" class="nickname-input" min="${CLIP_LEN_MIN}" max="${CLIP_LEN_MAX}" step="1" inputmode="numeric" value="${Math.round(o.len)}" /><span>${t('clipOptCustomHint', { min: CLIP_LEN_MIN, max: CLIP_LEN_MAX })}</span></label>` : ''
+    const gif = o.type === 'gif'
+    rows.innerHTML =
+      row(t('clipOptType'), chip('type', 'video', t('clipOptVideo'), !gif) + chip('type', 'gif', t('clipOptGif'), gif)) +
+      row(t('clipOptLength'), lens, custom) +
+      (gif ? row(t('clipOptGifSize'), chip('gifSize', 'small', t('clipOptSmall'), o.gifSize === 'small') + chip('gifSize', 'big', t('clipOptBig'), o.gifSize === 'big'), `<p class="play-clip-note">${t('clipOptGifNoSound')}</p>`) : row(t('clipOptSound'), chip('sound', 'on', t('clipOptOn'), o.sound) + chip('sound', 'off', t('clipOptOff'), !o.sound)))
+  }
+
+  _bindClipOptions() {
+    const rows = document.getElementById('play-clip-rows')
+    rows?.addEventListener('click', (e) => {
+      const btn = e.target.closest?.('button[data-opt]')
+      const o = this._clipOpts
+      if (!btn || !o) return
+      const { opt, val } = btn.dataset
+      // Keep whatever's typed in the Custom box when another row redraws.
+      const input = document.getElementById('play-clip-custom')
+      if (this._clipCustom && input) o.len = Number(input.value) || o.len
+      if (opt === 'type') o.type = val
+      else if (opt === 'sound') o.sound = val === 'on'
+      else if (opt === 'gifSize') o.gifSize = val
+      else if (opt === 'len' && val === 'custom') {
+        this._clipCustom = true
+      } else if (opt === 'len') {
+        this._clipCustom = false
+        o.len = Number(val)
+      }
+      this._drawClipOptions()
+      if (opt === 'len' && val === 'custom') document.getElementById('play-clip-custom')?.focus()
+    })
+  }
+
   // --- Spray Paint ---
 
   openSpray() {
+    if (this._clipOpts) this.closeClipOptions()
     this._spray = loadSpray()
     this._paint = this._paint || 3
     const buttons = document.getElementById('play-pause-buttons')
