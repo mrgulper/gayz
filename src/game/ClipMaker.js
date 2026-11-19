@@ -19,16 +19,30 @@
 // localStorage 'gayz-clip-options'. A video is the length you picked up
 // to half as long again (see above); a GIF is exactly it (ClipGif.js).
 // Changing an option starts the recording fresh.
+//
+// Batch 3 (2026-11-19): Speed (1x, 0.5x, 0.25x or Custom 0.1-1x) and
+// Replay Clip. A slow GIF just waits longer on each picture; a slow video
+// is played back slowly in a hidden player and recorded again (so it
+// takes clip length / speed to make, and has no sound). Replay Clip
+// (solo only) rewinds the last seconds with DeathReplay.js and films them
+// from the Replay Camera you picked: circle, behind, top-down, side or
+// custom. Both kinds are at most REPLAY_MAX_FILM seconds of film.
 import { t } from './i18n.js'
 import { showPill, hidePill } from './PlayPills.js'
 import { audioEngine } from './Audio.js'
-import { GIF_FPS, encodeGifFrame, gifBlob } from './ClipGif.js'
+import { GIF_FPS, encodeGifFrame, gifBlob, slowGifFrame } from './ClipGif.js'
+import { REPLAY_ANGLES } from './DeathReplay.js'
 
 export const KEEP = 30 // the default length (seconds)
 export const CLIP_LENGTHS = [10, 20, 30]
 export const CLIP_LEN_MIN = 5
 export const CLIP_LEN_MAX = 60
 export const GIF_SIZES = { small: 320, big: 480 } // the long side, in pixels
+export const CLIP_SPEEDS = [1, 0.5, 0.25]
+export const CLIP_SPEED_MIN = 0.1
+export const CLIP_SPEED_MAX = 1
+export const CAM_LIMITS = { dist: [2, 15], height: [0, 15], turn: [0, 355] }
+export const REPLAY_MAX_FILM = 60 // seconds of film a replay can make
 const OPTIONS_KEY = 'gayz-clip-options'
 const MIN_AGE = 2 // shorter than this isn't worth a file
 const FPS = 30
@@ -48,7 +62,12 @@ function videoSupported() {
 }
 
 export function defaultClipOptions() {
-  return { type: 'video', len: KEEP, sound: true, gifSize: 'small' }
+  return { type: 'video', len: KEEP, sound: true, gifSize: 'small', speed: 1, angle: 'circle', cam: { dist: 5, height: 2, turn: 45 } }
+}
+
+const clamp = (v, [lo, hi], d) => {
+  const n = Number(v)
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d
 }
 
 // Anything odd in storage falls back to the defaults.
@@ -56,11 +75,20 @@ export function cleanClipOptions(o) {
   const d = defaultClipOptions()
   if (!o || typeof o !== 'object') return d
   const len = Math.round(Number(o.len))
+  const cam = o.cam && typeof o.cam === 'object' ? o.cam : {}
   return {
     type: o.type === 'gif' ? 'gif' : 'video',
     len: Number.isFinite(len) ? Math.min(CLIP_LEN_MAX, Math.max(CLIP_LEN_MIN, len)) : d.len,
     sound: o.sound !== false,
     gifSize: o.gifSize === 'big' ? 'big' : 'small',
+    // Hundredths are plenty (0.35x).
+    speed: Math.round(clamp(o.speed ?? 1, [CLIP_SPEED_MIN, CLIP_SPEED_MAX], 1) * 100) / 100,
+    angle: REPLAY_ANGLES.includes(o.angle) ? o.angle : d.angle,
+    cam: {
+      dist: Math.round(clamp(cam.dist, CAM_LIMITS.dist, d.cam.dist)),
+      height: Math.round(clamp(cam.height, CAM_LIMITS.height, d.cam.height)),
+      turn: Math.round(clamp(cam.turn, CAM_LIMITS.turn, d.cam.turn)),
+    },
   }
 }
 
@@ -160,7 +188,7 @@ export class ClipMaker {
     // Sound: everything the game plays meets at audioEngine.outGain on its
     // way to the speakers; a copy of it goes into the clip too.
     const ae = audioEngine
-    if (this.options.sound && ae.ctx && ae.outGain && typeof ae.ctx.createMediaStreamDestination === 'function') {
+    if (this.options.sound && this.options.speed >= 1 && ae.ctx && ae.outGain && typeof ae.ctx.createMediaStreamDestination === 'function') {
       try {
         this._audioDest = ae.ctx.createMediaStreamDestination()
         ae.outGain.connect(this._audioDest)
@@ -187,13 +215,18 @@ export class ClipMaker {
   // turned into GIF bytes (in a worker when the browser has them) and kept
   // for the last `len` seconds.
   _startGif() {
+    this._gif = this._newGif(this._stream, Math.round(this.keep * GIF_FPS))
+  }
+
+  // A GIF maker for a live video: its pictures, at most max of them.
+  _newGif(stream, max) {
     const video = document.createElement('video')
     video.muted = true
     video.playsInline = true
-    video.srcObject = this._stream
+    video.srcObject = stream
     video.play?.()?.catch?.(() => {})
     const canvas = document.createElement('canvas')
-    const g = { video, canvas, ctx: canvas.getContext('2d', { willReadFrequently: true }), frames: [], pending: 0, wait: 0, nextId: 0, worker: null, flushers: [] }
+    const g = { video, canvas, ctx: canvas.getContext('2d', { willReadFrequently: true }), frames: [], pending: 0, wait: 0, nextId: 0, worker: null, flushers: [], max }
     try {
       g.worker = new Worker(new URL('./ClipGifWorker.js', import.meta.url), { type: 'module' })
       g.worker.onmessage = (e) => {
@@ -211,7 +244,7 @@ export class ClipMaker {
     } catch {
       g.worker = null
     }
-    this._gif = g
+    return g
   }
 
   _gifDone(g, bytes) {
@@ -220,7 +253,7 @@ export class ClipMaker {
     // file with the others: start over from it.
     if (g.frames.length && (g.frames[0].w !== bytes.w || g.frames[0].h !== bytes.h)) g.frames = []
     g.frames.push(bytes)
-    const max = Math.round(this.keep * GIF_FPS)
+    const max = g.max ?? Math.round(this.keep * GIF_FPS)
     if (g.frames.length > max) g.frames.splice(0, g.frames.length - max)
     this._gifFlushed(g)
   }
@@ -230,8 +263,7 @@ export class ClipMaker {
     for (const f of g.flushers.splice(0)) f()
   }
 
-  _grabGif(d) {
-    const g = this._gif
+  _grabGif(d, g = this._gif) {
     if (!g) return
     g.wait += d
     if (g.wait < 1 / GIF_FPS) return
@@ -266,8 +298,7 @@ export class ClipMaker {
     }
   }
 
-  _stopGif() {
-    const g = this._gif
+  _stopGif(g = this._gif) {
     if (!g) return
     g.worker?.terminate()
     try {
@@ -277,7 +308,7 @@ export class ClipMaker {
       // Already stopped.
     }
     for (const f of g.flushers.splice(0)) f()
-    this._gif = null
+    if (g === this._gif) this._gif = null
   }
 
   async _saveGif() {
@@ -290,11 +321,12 @@ export class ClipMaker {
     this._say(t('clipMakingGif'), 0)
     // The last few pictures still being made.
     if (g.pending) await new Promise((resolve) => g.flushers.push(resolve))
-    const frames = g.frames.slice()
-    const { w, h } = frames[frames.length - 1]
+    const speed = this.options.speed
+    const frames = speed < 1 ? g.frames.map((f) => slowGifFrame(f, speed)) : g.frames.slice()
+    const { w, h } = g.frames[g.frames.length - 1]
     const blob = gifBlob(frames, w, h)
     this.saving = false
-    const seconds = Math.round(frames.length / GIF_FPS)
+    const seconds = Math.round(frames.length / GIF_FPS / speed)
     const name = this._fileName('gif')
     this._download(blob, name)
     this._say(t('clipSavedGif', { n: seconds }))
@@ -337,6 +369,14 @@ export class ClipMaker {
   // Every frame of the run (BuildSurvival.update). Ages are real seconds
   // of recording, not game time (a slow machine's game time runs slow).
   update() {
+    // A Replay Clip being filmed as a GIF (it plays while the pause
+    // screen is up, so before the pause check).
+    const film = this._film
+    if (film?.g) {
+      const t0 = performance.now()
+      this._grabGif(Math.min((t0 - film.last) / 1000, 0.5), film.g)
+      film.last = t0
+    }
     if (!this.on) return
     const now = performance.now()
     const d = Math.min((now - this._last) / 1000, 0.5)
@@ -383,8 +423,8 @@ export class ClipMaker {
     // Something always keeps recording for the next clip.
     if (!this._recs.length) this._spawn()
     this._say(t('clipSaving'), 0)
-    const seconds = Math.round(r.age)
-    const blob = await new Promise((resolve) => {
+    let seconds = Math.round(r.age)
+    let blob = await new Promise((resolve) => {
       r.rec.onstop = () => resolve(new Blob(r.chunks, { type: r.rec.mimeType || this._type || 'video/webm' }))
       try {
         if (r.rec.state === 'paused') r.rec.resume()
@@ -393,6 +433,11 @@ export class ClipMaker {
         resolve(null)
       }
     })
+    const speed = this.options.speed
+    if (blob?.size && speed < 1) {
+      blob = await this._slowVideo(blob, speed, seconds)
+      seconds = Math.round(seconds / speed)
+    }
     this.saving = false
     if (!blob || !blob.size) {
       this._say(t('clipNotYet'))
@@ -402,6 +447,170 @@ export class ClipMaker {
     this._download(blob, name)
     this._say(t('clipSaved', { n: seconds }))
     this.lastClip = { size: blob.size, seconds, name, type: blob.type }
+    return { blob, seconds, name }
+  }
+
+  // Slow-mo for a video: it's played at `speed` in a hidden player, drawn
+  // onto a canvas and recorded again (no sound - slowed sound is a
+  // growl). Takes seconds / speed to make; the pill counts it up. Resolves
+  // to the slow video, or null when the browser can't.
+  async _slowVideo(blob, speed, seconds) {
+    const url = URL.createObjectURL(blob)
+    const video = document.createElement('video')
+    video.muted = true
+    video.playsInline = true
+    // Some phones only play a video that's on the page.
+    video.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none'
+    document.body.appendChild(video)
+    let rec = null
+    let stream = null
+    let timer = 0
+    const done = () => {
+      clearInterval(timer)
+      stream?.getTracks().forEach((tr) => tr.stop())
+      video.pause()
+      video.remove()
+      URL.revokeObjectURL(url)
+    }
+    try {
+      video.src = url
+      await new Promise((resolve, reject) => {
+        video.onloadeddata = resolve
+        video.onerror = reject
+      })
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth || 640
+      canvas.height = video.videoHeight || 360
+      const ctx = canvas.getContext('2d')
+      stream = canvas.captureStream(FPS)
+      const type = pickType(TYPES)
+      rec = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: BITRATE } : { videoBitsPerSecond: BITRATE })
+      const chunks = []
+      rec.ondataavailable = (e) => {
+        if (e.data?.size) chunks.push(e.data)
+      }
+      const stopped = new Promise((resolve) => (rec.onstop = resolve))
+      video.defaultPlaybackRate = speed
+      video.playbackRate = speed
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      rec.start()
+      await video.play()
+      const total = Math.max(1, seconds / speed)
+      const t0 = performance.now()
+      // A timer, not animation frames: those stop in a hidden tab.
+      await new Promise((resolve) => {
+        video.onended = resolve
+        timer = setInterval(() => {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+          const gone = (performance.now() - t0) / 1000
+          this._say(t('clipMakingSlow', { p: Math.min(99, Math.round((gone / total) * 100)) }), 0)
+          // A video that never says it ended.
+          if (gone > total + 10) resolve()
+        }, 1000 / FPS)
+      })
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      rec.stop()
+      await stopped
+      done()
+      const out = new Blob(chunks, { type: rec.mimeType || type || 'video/webm' })
+      return out.size ? out : null
+    } catch {
+      try {
+        if (rec && rec.state !== 'inactive') rec.stop()
+      } catch {
+        // Already stopped.
+      }
+      done()
+      return null
+    }
+  }
+
+  // Replay Clip (solo games, from the pause screen): the last seconds are
+  // rewound and played back slowly (DeathReplay.js) from the Replay
+  // Camera, and that is filmed - as a video, or a GIF if that's picked.
+  // Escape, Space, Enter or a tap cancels. Resolves like save().
+  async saveReplay() {
+    const s = this.s
+    if (!clipsSupported()) {
+      this._say(t('clipNoSupport'))
+      return null
+    }
+    if (this.saving || this._film || s.replay?.active) return null
+    const online = (s.net && !s.net.closed) || (s.lobby && !s.lobby.closed)
+    if (online || s.dead || !s.replay) {
+      this._say(t('clipReplaySolo'))
+      return null
+    }
+    if (s.replay.recorded() < MIN_AGE) {
+      this._say(t('clipNotYet'))
+      return null
+    }
+    const o = this.options
+    const span = Math.min(o.len, REPLAY_MAX_FILM * o.speed)
+    const canvas = s.bm.renderer?.domElement
+    let stream
+    try {
+      stream = canvas.captureStream(FPS)
+    } catch {
+      this._say(t('clipNoSupport'))
+      return null
+    }
+    const film = { stream, last: performance.now(), g: null, rec: null, chunks: [] }
+    if (o.type === 'gif' || !videoSupported()) {
+      film.g = this._newGif(stream, REPLAY_MAX_FILM * GIF_FPS)
+    } else {
+      try {
+        const type = pickType(TYPES)
+        film.rec = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: BITRATE } : { videoBitsPerSecond: BITRATE })
+        film.rec.ondataavailable = (e) => {
+          if (e.data?.size) film.chunks.push(e.data)
+        }
+        film.rec.start()
+      } catch {
+        stream.getTracks().forEach((tr) => tr.stop())
+        this._say(t('clipNoSupport'))
+        return null
+      }
+    }
+    this.saving = true
+    this._film = film
+    // The world holds still behind the (hidden) pause screen.
+    if (!s.bm.menuOpen) s.bm.toggleMenu()
+    const finished = await new Promise((resolve) => {
+      if (!s.replay.start((ok) => resolve(ok), '', { span, speed: o.speed, angle: o.angle, cam: o.cam, clip: true })) resolve(null)
+    })
+    this._film = null
+    let blob = null
+    if (film.rec) {
+      const stopped = new Promise((resolve) => (film.rec.onstop = resolve))
+      try {
+        film.rec.stop()
+        await stopped
+      } catch {
+        // Already stopped.
+      }
+      if (finished) blob = new Blob(film.chunks, { type: film.rec.mimeType || 'video/webm' })
+    } else if (finished && film.g.frames.length) {
+      if (film.g.pending) await new Promise((resolve) => film.g.flushers.push(resolve))
+      const last = film.g.frames[film.g.frames.length - 1]
+      blob = gifBlob(film.g.frames, last.w, last.h)
+    }
+    if (film.g) this._stopGif(film.g)
+    stream.getTracks().forEach((tr) => tr.stop())
+    this.saving = false
+    if (finished === false) {
+      this._say(t('clipReplayCancelled'))
+      return null
+    }
+    if (!blob || !blob.size) {
+      this._say(t('clipNotYet'))
+      return null
+    }
+    const seconds = Math.round(span / o.speed)
+    const name = this._fileName(blob.type === 'image/gif' ? 'gif' : /mp4/.test(blob.type) ? 'mp4' : 'webm').replace('gayz-clip-', 'gayz-replay-')
+    this._download(blob, name)
+    this._say(t('clipReplaySaved', { n: seconds }))
+    this.lastClip = { size: blob.size, seconds, name, type: blob.type, replay: true }
     return { blob, seconds, name }
   }
 

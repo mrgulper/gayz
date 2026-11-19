@@ -1586,12 +1586,12 @@ test('Clip Options: Video or GIF, length, Custom, sound, GIF size - and a GIF sa
   expect(a.keep).toBe(30)
   expect(a.sound).toBe(true)
   expect(a.panel).toBe(true)
-  expect(a.labels).toEqual(['Video', 'GIF', '10 s', '20 s', '30 s', 'Custom', 'On', 'Off'])
+  expect(a.labels).toEqual(['Video', 'GIF', '10 s', '20 s', '30 s', 'Custom', '1x', '0.5x', '0.25x', 'Custom', 'On', 'Off', 'Circle', 'Behind', 'Top-down', 'Side', 'Custom'])
   expect(a.tenOn).toBe(true)
   expect(a.customKept).toBe('7')
   expect(a.after).toMatchObject({ type: 'video', len: 7, sound: false, keep: 7, stagger: 5, life: 12, paused: true, recs: 1 })
   expect(a.status).toBe('Clip options saved - recording starts fresh')
-  expect(a.stored).toEqual({ type: 'video', len: 7, sound: false, gifSize: 'small' })
+  expect(a.stored).toMatchObject({ type: 'video', len: 7, sound: false, gifSize: 'small', speed: 1, angle: 'circle' })
   expect(a.capped).toBe(60)
   // GIF, 10 s, Big.
   const b = await page.evaluate(() => {
@@ -1613,7 +1613,7 @@ test('Clip Options: Video or GIF, length, Custom, sound, GIF size - and a GIF sa
   })
   expect(b).toMatchObject({ soundRow: false, sizeRow: true, mode: 'gif', recs: 0, paused: false })
   expect(b.note).toMatch(/^GIFs have no sound/)
-  expect(b.opts).toEqual({ type: 'gif', len: 10, sound: false, gifSize: 'big' })
+  expect(b.opts).toMatchObject({ type: 'gif', len: 10, sound: false, gifSize: 'big', speed: 1 })
   await page.waitForFunction(() => window.__game.buildMode.survival.clips._gif?.video.videoWidth > 0, null, { timeout: 30000 })
   // 25 pictures (2.5 s), each made into GIF bytes by the worker; the slow
   // test machine's frame rate doesn't matter, they're grabbed here.
@@ -1667,4 +1667,188 @@ test('Clip Options: Video or GIF, length, Custom, sound, GIF size - and a GIF sa
     return { on: c.on, gif: c._gif }
   })
   expect(end).toEqual({ on: false, gif: null })
+})
+
+test('Clip Maker 3: Speed, slow-mo GIF and video, Replay Clip camera angles and cancel', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    window.__clipTest = true
+    localStorage.removeItem('gayz-play-saved-run')
+    localStorage.removeItem('gayz-clip-options')
+    window.__game.playBtn.click()
+  })
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 90000 })
+  // Clip Options: Speed Custom 0.35x, Replay Camera Custom with sliders.
+  const a = await page.evaluate(() => {
+    const c = window.__game.buildMode.survival.clips
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', bubbles: true }))
+    const out = { replayBtn: getComputedStyle(document.getElementById('play-pause-replay-btn')).display, replayLabel: document.getElementById('play-pause-replay-label').textContent }
+    document.getElementById('play-pause-clipopts-btn').click()
+    const chip = (opt, val) => document.querySelector(`#play-clip-rows button[data-opt="${opt}"][data-val="${val}"]`)
+    chip('speed', '0.5').click()
+    out.halfOn = chip('speed', '0.5').classList.contains('on')
+    out.soundRowWhenSlow = !!chip('sound', 'on')
+    out.slowNote = document.querySelector('#play-clip .play-clip-note')?.textContent
+    chip('speed', 'custom').click()
+    document.getElementById('play-clip-speed-custom').value = '0.35'
+    chip('angle', 'custom').click()
+    out.sliders = document.querySelectorAll('#play-clip-rows input[type=range]').length
+    const turn = document.querySelector('#play-clip-rows input[data-cam="turn"]')
+    turn.value = '90'
+    turn.dispatchEvent(new Event('input', { bubbles: true }))
+    out.turnLabel = document.querySelector('[data-cam-val="turn"]').textContent
+    out.speedKept = document.getElementById('play-clip-speed-custom').value
+    document.getElementById('play-clip-done').click()
+    out.opts = c.options
+    // Odd values are kept in range.
+    c.setOptions({ ...c.options, speed: 0.01, cam: { dist: 99, height: -4, turn: 'x' } })
+    out.capped = { speed: c.options.speed, cam: c.options.cam }
+    return out
+  })
+  expect(a.replayBtn).not.toBe('none')
+  expect(a.replayLabel).toBe('Replay Clip')
+  expect(a.halfOn).toBe(true)
+  expect(a.soundRowWhenSlow).toBe(false)
+  expect(a.slowNote).toMatch(/^Slow-mo clips have no sound/)
+  expect(a.sliders).toBe(3)
+  expect(a.turnLabel).toBe('90°')
+  expect(a.speedKept).toBe('0.35')
+  expect(a.opts).toMatchObject({ speed: 0.35, angle: 'custom', cam: { dist: 5, height: 2, turn: 90 } })
+  expect(a.capped).toEqual({ speed: 0.1, cam: { dist: 15, height: 0, turn: 45 } })
+
+  // Slow-mo GIF: each picture waits twice as long at 0.5x (checked in
+  // the saved file below).
+  await page.evaluate(() => {
+    const c = window.__game.buildMode.survival.clips
+    c.setOptions({ ...c.options, type: 'gif', speed: 0.5, len: 5 })
+  })
+  await page.waitForFunction(() => window.__game.buildMode.survival.clips._gif?.video.videoWidth > 0, null, { timeout: 30000 })
+  const [gifDl, gifSaved] = await Promise.all([
+    page.waitForEvent('download', { timeout: 30000 }),
+    page.evaluate(async () => {
+      const c = window.__game.buildMode.survival.clips
+      const gg = c._gif
+      c.paused = true
+      if (gg.pending) await new Promise((resolve) => gg.flushers.push(resolve))
+      gg.frames = []
+      for (let i = 0; i < 25; i++) {
+        c._grabGif(0.1)
+        if (gg.pending) await new Promise((resolve) => gg.flushers.push(resolve))
+      }
+      const r = await c.save()
+      const buf = new Uint8Array(await r.blob.arrayBuffer())
+      // The first picture's timing note sits right after the 32-byte head.
+      return { seconds: r.seconds, delay: buf[19 + 13 + 4] + buf[19 + 13 + 5] * 256, pill: document.getElementById('pill-clip')?.textContent }
+    }),
+  ])
+  expect(gifDl.suggestedFilename()).toMatch(/\.gif$/)
+  expect(gifSaved).toEqual({ seconds: 5, delay: 20, pill: 'GIF saved! (5 s)' })
+
+  // Slow-mo video: about 1.5 s of real video at 0.5x is played back and
+  // recorded again (so ~3 s to make), with a % pill on the way.
+  await page.evaluate(() => {
+    const c = window.__game.buildMode.survival.clips
+    c.setOptions({ ...c.options, type: 'video', speed: 0.5, len: 5 })
+    c.setPaused(false)
+  })
+  await page.waitForTimeout(1500)
+  const [vidDl, vid] = await Promise.all([
+    page.waitForEvent('download', { timeout: 60000 }),
+    page.evaluate(async () => {
+      const c = window.__game.buildMode.survival.clips
+      c._recs.forEach((r) => (r.age = Math.max(r.age, 3)))
+      const pills = new Set()
+      const watch = setInterval(() => pills.add(document.getElementById('pill-clip')?.textContent || ''), 100)
+      const r = await c.save()
+      clearInterval(watch)
+      return { seconds: r?.seconds, size: r?.blob.size || 0, type: r?.blob.type, making: [...pills].some((p) => /^Making slow-mo clip\.\.\. \d+%$/.test(p)), pill: document.getElementById('pill-clip')?.textContent }
+    }),
+  ])
+  expect(vidDl.suggestedFilename()).toMatch(/^gayz-clip-.*\.(mp4|webm)$/)
+  expect(vid.seconds).toBe(6)
+  expect(vid.size).toBeGreaterThan(0)
+  expect(vid.making).toBe(true)
+  expect(vid.pill).toBe('Clip saved! (6 s)')
+
+  // Replay Clip: the world rewinds while the pause screen is up (hidden),
+  // the camera sits where the Replay Camera says, and a file comes out.
+  const replayDl = page.waitForEvent('download', { timeout: 60000 })
+  const r1 = await page.evaluate(async () => {
+    const s = window.__game.buildMode.survival
+    const c = s.clips
+    c.setOptions({ ...c.options, type: 'video', speed: 1, len: 5, angle: 'side' })
+    // Five seconds "recorded" where I stand.
+    s.replay._frames = []
+    for (let i = 0; i < 120; i++) {
+      s.replay._acc = 1
+      s.replay.record(0.05)
+    }
+    if (!s.bm.menuOpen) s.bm.toggleMenu()
+    const menu = s.bm.menuOpen
+    document.getElementById('play-pause-replay-btn').click()
+    await new Promise((r) => setTimeout(r, 300))
+    const rp = s.replay
+    const out = { menu, active: rp.active, recorded: Math.round(rp.recorded()), cls: document.body.classList.contains('play-replay'), pauseHidden: getComputedStyle(document.getElementById('play-pause-card')).visibility, tag: document.querySelector('#play-replay-tag b').textContent, cancel: document.getElementById('play-replay-skip').textContent }
+    // Side: the camera is 5 blocks to my right, looking at me.
+    const cam = s.bm.camera
+    const restore = rp.applyView(cam)
+    const cx = rp._cam.center
+    const B = s.B
+    const fx = -Math.sin(rp._camYaw)
+    const fz = -Math.cos(rp._camYaw)
+    out.side = Math.round(((cam.position.x - cx.x) * -fz + (cam.position.z - cx.z) * fx) / B)
+    restore()
+    // Skip ahead to the end so the slow test machine doesn't wait.
+    rp._t = rp._len - 0.05
+    return out
+  })
+  expect(r1).toMatchObject({ menu: true, active: true, recorded: 6, cls: true, pauseHidden: 'hidden', cancel: 'Cancel', side: 5 })
+  expect(r1.tag).toMatch(/^REPLAY CLIP \d+%$/)
+  expect((await replayDl).suggestedFilename()).toMatch(/^gayz-replay-.*\.(mp4|webm)$/)
+  await page.waitForFunction(() => !window.__game.buildMode.survival.clips.saving, null, { timeout: 30000 })
+  const r2 = await page.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    return { active: s.replay.active, cls: document.body.classList.contains('play-replay'), menu: s.bm.menuOpen, status: document.getElementById('play-pause-status').textContent, last: s.clips.lastClip, kept: s.replay.recorded() > 0 }
+  })
+  expect(r2).toMatchObject({ active: false, cls: false, menu: true, status: 'Replay clip saved! (5 s)', kept: true })
+  expect(r2.last.replay).toBe(true)
+  expect(r2.last.size).toBeGreaterThan(0)
+
+  // Cancel with Escape: no file, zombies back, still paused.
+  const r3 = await page.evaluate(async () => {
+    const s = window.__game.buildMode.survival
+    const c = s.clips
+    c.setOptions({ ...c.options, angle: 'top' })
+    let downloads = 0
+    const click = HTMLAnchorElement.prototype.click
+    HTMLAnchorElement.prototype.click = function () {
+      if (this.download) downloads++
+    }
+    const p = c.saveReplay()
+    await new Promise((r) => setTimeout(r, 200))
+    const cam = s.bm.camera
+    const restore = s.replay.applyView(cam)
+    const above = Math.round((cam.position.y - s.replay._cam.center.y) / s.B)
+    restore()
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', bubbles: true }))
+    const res = await p
+    HTMLAnchorElement.prototype.click = click
+    return { above, res, downloads, active: s.replay.active, menu: s.bm.menuOpen, status: document.getElementById('play-pause-status').textContent }
+  })
+  expect(r3).toEqual({ above: 14, res: null, downloads: 0, active: false, menu: true, status: 'Replay clip cancelled' })
+
+  // Not on a server: the button hides and it says why.
+  const r4 = await page.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    // All in one go, so no game frame sees the pretend server.
+    s.net = { closed: false }
+    s.bm.gameMenu._refresh()
+    const btn = getComputedStyle(document.getElementById('play-pause-replay-btn')).display
+    s.clips.saveReplay()
+    const pill = document.getElementById('pill-clip')?.textContent
+    s.net = null
+    s.bm.gameMenu._refresh()
+    return { btn, pill }
+  })
+  expect(r4).toEqual({ btn: 'none', pill: 'Replay Clip works in solo games only' })
 })
