@@ -272,6 +272,34 @@ function leftLimit(col) {
   return canvas.getBoundingClientRect().bottom + 8
 }
 
+// Couch Co-op (CouchCoop.js) in Settings > General (2026-11-19, moved
+// off the homepage): a new game split in two, Player 2 on a controller.
+// Computers only - it needs a mouse and a controller. Buddy or Equal
+// closes Settings and starts the game.
+function renderCouchSettings(game) {
+  const box = document.getElementById('couch-settings')
+  if (!box) return
+  box.style.display = matchMedia('(any-pointer: fine)').matches ? '' : 'none'
+  const set = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = t(key) }
+  set('settings-section-couch', 'couchTag')
+  set('couch-settings-about', 'couchSettingsAbout')
+  set('couch-settings-label', 'couchSettingsStart')
+  for (const b of box.querySelectorAll('[data-couch]')) {
+    const equal = b.dataset.couch === 'equal'
+    b.textContent = t(equal ? 'couchModeEqual' : 'couchModeBuddy')
+    b.title = t(equal ? 'couchModeEqualAbout' : 'couchModeBuddyAbout')
+  }
+  if (box.dataset.wired) return
+  box.dataset.wired = '1'
+  box.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-couch]')
+    if (!btn) return
+    game._closeAllMenuPanels?.()
+    game._couchNext = btn.dataset.couch
+    document.getElementById('play-btn')?.click()
+  })
+}
+
 // Continue (a run is saved: pick it up, on its own mode and difficulty)
 // and New here? (no finished runs yet: opens How to Play) - small tags on
 // the Play button's corners, so nothing else moves.
@@ -295,55 +323,15 @@ function renderPlayTags(game) {
   }
   const cont = tag('home-continue-tag')
   const fresh = tag('home-newhere-tag')
-  const couch = tag('home-couch-tag')
-  // Couch Co-op (CouchCoop.js): a new game split in two, Player 2 on a
-  // controller. Computers only - it needs a mouse and a controller.
-  // The tag asks "Buddy or Equal?" (Batch 4c-2a): a click swaps it for two
-  // small tags; picking one starts the game, a click anywhere else puts
-  // the tag back.
-  let pick = document.getElementById('home-couch-pick')
-  if (!pick) {
-    pick = document.createElement('div')
-    pick.id = 'home-couch-pick'
-    pick.setAttribute('role', 'group')
-    pick.hidden = true
-    pick.innerHTML = '<button type="button" class="home-play-tag" data-couch="buddy"></button><button type="button" class="home-play-tag" data-couch="equal"></button>'
-    wrap.appendChild(pick)
-  }
-  if (!couch.dataset.wired) {
-    couch.dataset.wired = '1'
-    const showPick = (on) => {
-      pick.hidden = !on
-      couch.style.visibility = on ? 'hidden' : ''
-    }
-    couch.addEventListener('click', (e) => {
-      e.stopPropagation()
-      showPick(true)
-    })
-    pick.addEventListener('click', (e) => {
-      e.stopPropagation()
-      const btn = e.target.closest('[data-couch]')
-      if (!btn) return
-      showPick(false)
-      game._couchNext = btn.dataset.couch
-      document.getElementById('play-btn')?.click()
-    })
-    document.addEventListener('click', (e) => {
-      if (!pick.hidden && !pick.contains(e.target)) showPick(false)
-    })
-    // Pressing Play itself (a real click) is a normal one-player game.
+  // Pressing Play itself (a real click) is a normal one-player game -
+  // Couch Co-op is started from Settings (renderCouchSettings).
+  if (!play.dataset.couchReset) {
+    play.dataset.couchReset = '1'
     play.addEventListener('click', (e) => {
       if (e.isTrusted) game._couchNext = false
     }, true)
   }
-  couch.style.display = matchMedia('(any-pointer: fine)').matches ? '' : 'none'
-  couch.textContent = t('couchTag')
-  pick.setAttribute('aria-label', t('couchModeAsk'))
-  for (const b of pick.querySelectorAll('[data-couch]')) {
-    const equal = b.dataset.couch === 'equal'
-    b.textContent = t(equal ? 'couchModeEqual' : 'couchModeBuddy')
-    b.title = t(equal ? 'couchModeEqualAbout' : 'couchModeBuddyAbout')
-  }
+  renderCouchSettings(game)
   if (!cont.dataset.wired) {
     cont.dataset.wired = '1'
     cont.addEventListener('click', (e) => {

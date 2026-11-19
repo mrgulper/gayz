@@ -2850,6 +2850,8 @@ export default {
   couchModeEqual: "Igual",
   couchModeBuddyAbout: "El Jugador 2 lucha a tu lado. Sus muertes y monedas van al Jugador 1.",
   couchModeEqualAbout: "El Jugador 2 tiene sus propias monedas, tienda, barra rápida, construcción, vehículos, fabricación, pesca, cofres, gestos y aspecto (invitado - no se guarda nada).",
+  couchSettingsAbout: "Pantalla dividida en un ordenador - el Jugador 2 juega con un mando. Elige un modo para empezar.",
+  couchSettingsStart: "Empezar Cooperativo Local",
   couchMenuPack: "Mochila",
   couchMenuShop: "Tienda",
   couchMenuSkin: "Aspecto",

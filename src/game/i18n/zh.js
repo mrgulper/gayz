@@ -2853,6 +2853,8 @@ export default {
   couchModeEqual: "平等",
   couchModeBuddyAbout: "玩家 2 在你身边战斗。他们的击杀和金币归玩家 1。",
   couchModeEqualAbout: "玩家 2 有自己的金币、商店、快捷栏、建造、载具、合成、钓鱼、宝箱、表情和皮肤（访客 - 不会保存）。",
+  couchSettingsAbout: "一台电脑分屏 - 玩家 2 用手柄。选一种玩法即可开始。",
+  couchSettingsStart: "开始同屏合作",
   couchMenuPack: "背包",
   couchMenuShop: "商店",
   couchMenuSkin: "皮肤",

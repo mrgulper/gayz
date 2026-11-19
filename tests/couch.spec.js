@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { gotoAndWaitForGame } from './helpers.js'
 
-// Couch Co-op (CouchCoop.js, 2026-11-14): the homepage tag starts a game
+// Couch Co-op (CouchCoop.js, 2026-11-14): Settings' Buddy / Equal starts a game
 // split in two; Player 2 joins with a controller, walks, shoots, gets
 // knocked down and revived. Game time is stepped by hand (b.update), so
 // a slow test machine runs it the same.
@@ -10,16 +10,16 @@ test('couch co-op: split screen, Player 2 joins, fights, revives', async ({ page
   const r = await page.evaluate(async () => {
     const g = window.__game
     const out = {}
-    const tag = document.getElementById('home-couch-tag')
-    out.tagShown = tag.style.display !== 'none' && tag.textContent.length > 0
-    const tr = tag.getBoundingClientRect()
-    out.tagCentre = Math.round((tr.left + tr.right) / 2 - innerWidth / 2)
+    // Started from Settings > General (moved off the homepage 2026-11-19).
+    out.noHomeTag = !document.getElementById('home-couch-tag')
+    const box = document.getElementById('couch-settings')
+    out.settingsBtns = box.style.display !== 'none' && [...box.querySelectorAll('[data-couch]')].every((b) => b.textContent.length > 0)
     // A fake controller (the browser only lists real ones after a press).
     const buttons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }))
     const pad = { index: 0, id: 'test pad', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons }
     Object.defineProperty(navigator, 'getGamepads', { value: () => [pad], configurable: true })
     const hold = (i, on) => { buttons[i].pressed = on; buttons[i].value = on ? 1 : 0 }
-    // The tag's own path (Buddy), without waiting for the real Play loading.
+    // The Settings button's own path (Buddy), without waiting for the real Play loading.
     g._couchNext = 'buddy'
     await g._enterBuildMode({ map: 'map3' })
     const b = g.buildMode
@@ -125,7 +125,7 @@ test('couch co-op: split screen, Player 2 joins, fights, revives', async ({ page
     return out
   })
   expect(r).toMatchObject({
-    tagShown: true, tagCentre: 0, couch: true, noLobby: true, split: true, waiting: true, p1PadFree: true,
+    noHomeTag: true, settingsBtns: true, couch: true, noLobby: true, split: true, waiting: true, p1PadFree: true,
     joined: true, leftHud: [], rightHud: [], twoTargets: 2, p2Walked: true, p1Stayed: true, fired: true, switched: true,
     p2Down: true, p2NotChased: true, p2Revived: true, p1Down: true, p1CantShoot: true, p1Revived: true,
     over: true, oneScreen: true, cleaned: true,
@@ -141,21 +141,19 @@ test('couch co-op: equal Player 2 has their own coins, shop and backpack', async
   const r = await page.evaluate(async () => {
     const g = window.__game
     const out = {}
-    // The tag turns into two tags, Buddy and Equal, in the same spot.
-    const tag = document.getElementById('home-couch-tag')
+    // Settings > General: Buddy and Equal buttons; Equal closes Settings
+    // and presses Play for a split-screen game (the real Play load is
+    // stopped here - the game below is started by hand).
+    const box = document.getElementById('couch-settings')
     const play = document.getElementById('play-btn')
     let played = 0
-    const count = () => { played++ }
+    const count = (e) => { played++; e.stopImmediatePropagation() }
     play.addEventListener('click', count, true)
-    tag.click()
-    const pick = document.getElementById('home-couch-pick')
-    out.pickShown = !pick.hidden && pick.querySelectorAll('[data-couch]').length === 2
-    const pr = pick.getBoundingClientRect()
-    out.pickCentre = Math.round((pr.left + pr.right) / 2 - innerWidth / 2)
-    out.pickTexts = [...pick.querySelectorAll('[data-couch]')].every((b) => b.textContent.length > 0 && b.title.length > 0)
-    document.body.click()
-    out.pickClosed = pick.hidden && tag.style.visibility === ''
-    out.notStarted = played === 0
+    out.pickTexts = [...box.querySelectorAll('[data-couch]')].every((b) => b.textContent.length > 0 && b.title.length > 0)
+    document.getElementById('settings-btn').click()
+    box.querySelector('[data-couch="equal"]').click()
+    out.started = played === 1 && g._couchNext === 'equal'
+    out.settingsClosed = !g.settingsOpen
     play.removeEventListener('click', count, true)
 
     const buttons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }))
@@ -262,7 +260,7 @@ test('couch co-op: equal Player 2 has their own coins, shop and backpack', async
     return out
   })
   expect(r).toMatchObject({
-    pickShown: true, pickCentre: 0, pickTexts: true, pickClosed: true, notStarted: true,
+    pickTexts: true, started: true, settingsClosed: true,
     equal: true, joined: true, skinPick: true, menuInRightHalf: true, skinPicked: true,
     wheel: true, shop: true, bought: true, upgraded: true, stoodStill: true, backToWheel: true,
     pack: true, healed: true, closed: true, coinsShown: true, results: true, againEqual: true,
