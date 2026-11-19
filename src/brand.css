@@ -214,3 +214,121 @@ html:root:root :is(.settings-tab, .quest-tab, .upgrades-tab, .inventory-tab, .ge
   text-shadow: none;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
+
+/* ---- Panels: pink too (2026-11-19, Pink plan batch 2) ----
+   Every panel and everything that opens from one (the price window,
+   Inspect, "Are you sure?", the crate buy box, the skin menu, dropdowns).
+   In-game screens keep the biome look (Gaymi: "homepage panels only").
+
+   Simple and the picture looks: the whole box is pink with white words
+   (Gaymi: "Pink box, white words"). Every Simple panel rule reads the
+   --clean-* colours, so they're pointed at pink inside these boxes: the
+   box = the button colour, words = its ink, buttons = a little lighter.
+   The picked tab / ticked box is then the ink (white) with pink on it,
+   so --gayz-accent swaps inside. --gayz-panel* hold the real colours
+   (set on :root) so the swap doesn't point at itself. */
+:root {
+  --gayz-panel: var(--gayz-accent);
+  --gayz-panel-fg: var(--gayz-accent-fg);
+  --gayz-panel-fg-rgb: var(--clean-btn-fg-rgb, 255, 255, 255);
+  --gayz-panel-check-inv: var(--clean-btn-check-inv, url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.2 8.4l3 3 6.6-6.8' fill='none' stroke='%23ff2e88' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"));
+}
+html.ui-theme-clean :is(.panel-box, #trade-dialog-box, #inspect-box, #editor-pick-box, #chat-id-popup, #settings-info-overlay, #inv-skin-menu) {
+  --clean-bg: var(--gayz-panel);
+  --clean-fg: var(--gayz-panel-fg);
+  --clean-fg-rgb: var(--gayz-panel-fg-rgb);
+  --clean-panel: color-mix(in srgb, var(--gayz-panel), var(--gayz-panel-fg) 8%);
+  --clean-surface: color-mix(in srgb, var(--gayz-panel), var(--gayz-panel-fg) 18%);
+  --clean-hover: color-mix(in srgb, var(--gayz-panel), var(--gayz-panel-fg) 30%);
+  --clean-line: color-mix(in srgb, var(--gayz-panel-fg) 28%, transparent);
+  --clean-dim: color-mix(in srgb, var(--gayz-panel-fg) 75%, transparent);
+  --clean-check: var(--gayz-panel-check-inv);
+  --clean-card: var(--gayz-panel);
+  --clean-card-fg: var(--gayz-panel-fg);
+  --gayz-accent: var(--gayz-panel-fg);
+  --gayz-accent-fg: var(--gayz-panel);
+  --gayz-accent-check: var(--gayz-panel-check-inv);
+  --menu-panel-border: var(--clean-line);
+  --menu-text-dim: var(--clean-dim);
+  background-color: var(--gayz-panel);
+  color: var(--gayz-panel-fg);
+  border-color: var(--clean-line);
+}
+/* Light badges keep dark words on the pink box (the panel-wide "every
+   word is the ink" rule turned them white on cream). */
+html.ui-theme-clean .panel-box.panel-box :is(.shop-identity-price, .shop-identity-price *) {
+  color: #2a1a10 !important;
+}
+html.ui-theme-clean .panel-box.panel-box .gfx-level-tag {
+  background: #2e8b3a;
+  color: #ffffff !important;
+}
+
+/* Old: the torn paper stays (Gaymi: "Paper stays, pink trim"). The
+   title, headings, the X, tabs, action buttons, borders and inputs go
+   pink. Words in pink on the paper use a deeper pink so they read on the
+   light paper. .panel-box twice to beat the paper's "all words are dark
+   ink" rule (04-panels-and-whats-new.css). */
+:root { --gayz-pink-ink: #c4005c; }
+html.ui-theme-old #app .panel-box.panel-box > :is(h2, h3),
+html.ui-theme-old #app .panel-box.panel-box > h2 *,
+html.ui-theme-old #app .panel-box.panel-box :is(.settings-section-title, .panel-section-title, h3):not(.crate-card *, .inv-skin-card *, .shop-soon-card *, .achievement-card *, .quest-card *) {
+  color: var(--gayz-pink-ink) !important;
+}
+html.ui-theme-old #app .panel-box.panel-box > .panel-close-btn,
+html.ui-theme-old :is(#trade-dialog-close, #inspect-close, #editor-pick-close) {
+  color: var(--gayz-pink-ink) !important;
+}
+/* Tabs that aren't picked: pink outline and words (the picked one is
+   already filled pink above). */
+html.ui-theme-old #app .panel-box.panel-box :is(.settings-tab, .quest-tab, .upgrades-tab, .inventory-tab, .general-tab, .clan-tab, .clan-subtab, .hub-tab, .achievements-mode-tab, .profile-tab, .gallery-tab, .inv-tab):not(.active) {
+  border-color: var(--gayz-pink) !important;
+  color: var(--gayz-pink-ink) !important;
+}
+html.ui-theme-old #app .panel-box.panel-box :is(.settings-tab, .quest-tab, .upgrades-tab, .inventory-tab, .general-tab, .clan-tab, .clan-subtab, .hub-tab, .achievements-mode-tab, .profile-tab, .gallery-tab, .inv-tab):not(.active) * {
+  color: var(--gayz-pink-ink) !important;
+}
+/* Action buttons: pink with white words. */
+html.ui-theme-old #app .panel-box.panel-box :is(.mini-action-btn, .settings-reset-btn, .auth-btn, .clan-list-join-btn, .shop-identity-buy-btn, #reset-confirm-actions button) {
+  background: var(--gayz-pink) !important;
+  border-color: var(--gayz-pink-ink) !important;
+  filter: none;
+}
+html.ui-theme-old #app .panel-box.panel-box :is(.mini-action-btn, .settings-reset-btn, .auth-btn, .clan-list-join-btn, .shop-identity-buy-btn, #reset-confirm-actions button),
+html.ui-theme-old #app .panel-box.panel-box :is(.mini-action-btn, .settings-reset-btn, .auth-btn, .clan-list-join-btn, .shop-identity-buy-btn, #reset-confirm-actions button) * {
+  color: #ffffff !important;
+}
+html.ui-theme-old #app .panel-box.panel-box :is(.mini-action-btn, .settings-reset-btn, .auth-btn, .clan-list-join-btn, .shop-identity-buy-btn, #reset-confirm-actions button):is(:hover, :focus-visible) {
+  background: var(--gayz-pink-ink) !important;
+}
+/* Picker buttons (Game Mode, difficulty, language, keys, sizes) and the
+   info (i) buttons: pink edge. */
+html.ui-theme-old #app .panel-box.panel-box :is(.mode-select-btn, .difficulty-btn, .language-btn, .control-key-btn, .tdm-size-btn, .settings-info-btn, .gfx-level-card, .theme-picker-card) {
+  border-color: var(--gayz-pink) !important;
+}
+html.ui-theme-old #app .panel-box.panel-box :is(.mode-select-btn, .difficulty-btn, .language-btn, .tdm-size-btn).active {
+  background: var(--gayz-pink) !important;
+}
+html.ui-theme-old #app .panel-box.panel-box :is(.mode-select-btn, .difficulty-btn, .language-btn, .tdm-size-btn).active,
+html.ui-theme-old #app .panel-box.panel-box :is(.mode-select-btn, .difficulty-btn, .language-btn, .tdm-size-btn).active * {
+  color: #ffffff !important;
+}
+/* Search boxes, text boxes and dropdowns: pink edge. */
+html.ui-theme-old #app .panel-box.panel-box :is(input[type="text"], input[type="search"], input[type="number"], textarea, select, .search-bar, .market-filter-btn, .nickname-input) {
+  border-color: var(--gayz-pink) !important;
+}
+html.ui-theme-old #app .panel-box.panel-box :is(input[type="range"], input[type="radio"]) {
+  accent-color: var(--gayz-pink);
+}
+/* The popups that open from a panel and aren't paper (price window,
+   Inspect, Map Editor pick): pink edge and title. */
+html.ui-theme-old :is(#trade-dialog-box, #inspect-box, #editor-pick-box) {
+  border-color: var(--gayz-pink) !important;
+}
+html.ui-theme-old :is(#trade-dialog-title, #inspect-title, #editor-pick-title) {
+  color: var(--gayz-pink) !important;
+}
+html.ui-theme-old #trade-dialog-action {
+  background: var(--gayz-pink) !important;
+  color: #ffffff !important;
+}

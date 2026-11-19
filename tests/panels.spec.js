@@ -164,19 +164,29 @@ test('Theme is a Settings tab, Inventory has Pets, and the menus follow Simple',
     out.friendsPageKept = document.getElementById('general-page-friends').style.display !== 'none'
     document.getElementById('theme-picker-clean').click()
     out.marketItems = g._marketItemOptions().map((i) => i.id).slice(-1)
-    const bg = getComputedStyle(document.documentElement).getPropertyValue('--clean-bg').trim()
-    const surface = getComputedStyle(document.documentElement).getPropertyValue('--clean-surface').trim()
-    const hex = (h) => `rgb(${[1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).join(', ')})`
+    // Panels and their popups are the button colour (pink) with its ink
+    // (Pink plan batch 2): read their own colours through a probe.
+    const resolved = (inside, prop) => {
+      const probe = document.createElement('i')
+      probe.style.background = `var(${prop})`
+      inside.appendChild(probe)
+      const c = getComputedStyle(probe).backgroundColor
+      probe.remove()
+      return c
+    }
     g._openMenuInventoryPanel()
     document.getElementById('inventory-tab-weapons').click()
     await new Promise((res) => setTimeout(res, 300))
+    const invBox = document.querySelector('#menu-inventory-panel .panel-box')
+    const pink = 'rgb(255, 46, 136)'
+    out.panelPink = getComputedStyle(invBox).backgroundColor === pink
     const card = document.querySelector('#inventory-weapons-list .inv-weapon-card')
-    out.cardMatches = getComputedStyle(card).backgroundImage.includes(surface)
-    out.cardName = getComputedStyle(card.querySelector('.inv-skin-card-name')).color === getComputedStyle(document.documentElement).getPropertyValue('--clean-fg').trim()
-    out.inspectBox = getComputedStyle(document.getElementById('inspect-box')).backgroundColor === hex(bg)
-    out.marketMenu = getComputedStyle(document.getElementById('market-item-filter-menu')).backgroundColor === hex(bg)
-    out.statusList = getComputedStyle(document.getElementById('status-picker-options')).backgroundColor === hex(bg)
-    out.tradeBox = getComputedStyle(document.getElementById('trade-dialog-box')).backgroundColor === hex(bg)
+    out.cardMatches = getComputedStyle(card).backgroundImage.includes(resolved(invBox, '--clean-surface'))
+    out.cardName = getComputedStyle(card.querySelector('.inv-skin-card-name')).color === resolved(invBox, '--clean-fg')
+    out.inspectBox = getComputedStyle(document.getElementById('inspect-box')).backgroundColor === pink
+    out.marketMenu = getComputedStyle(document.getElementById('market-item-filter-menu')).backgroundColor === pink
+    out.statusList = getComputedStyle(document.getElementById('status-picker-options')).backgroundColor === pink
+    out.tradeBox = getComputedStyle(document.getElementById('trade-dialog-box')).backgroundColor === pink
     return out
   })
   expect(r).toEqual({
@@ -187,6 +197,7 @@ test('Theme is a Settings tab, Inventory has Pets, and the menus follow Simple',
     afterClick: ['settings-page-theme'],
     friendsPageKept: true,
     marketItems: ['pets'],
+    panelPink: true,
     cardMatches: true,
     cardName: true,
     inspectBox: true,
@@ -298,14 +309,21 @@ test('hot pink Play and tabs in every theme; Simple picks its button colour', as
     sw.value = '#2255ff'
     sw.dispatchEvent(new Event('input'))
     sw.dispatchEvent(new Event('change'))
-    out.picked = [g.settings.uiTheme, JSON.parse(localStorage.getItem('gayz-settings')).cleanBtnColor, bg(document.getElementById('play-btn')), bg(document.getElementById('store-btn')), bg(document.querySelector('.settings-tab.active'))]
+    out.picked = [g.settings.uiTheme, JSON.parse(localStorage.getItem('gayz-settings')).cleanBtnColor, bg(document.getElementById('play-btn')), bg(document.getElementById('store-btn')), bg(document.querySelector('.settings-tab.active')), bg(document.querySelector('#settings-panel .panel-box'))]
     return out
   })
   const pink = 'rgb(255, 46, 136)'
+  const white = 'rgb(255, 255, 255)'
   expect(r.old).toEqual([pink, pink, true])
-  expect(r.clean).toEqual([pink, pink, pink])
-  expect(r.sakura).toEqual([pink, pink, pink])
-  expect(r.picked).toEqual(['clean', '#2255ff', 'rgb(34, 85, 255)', 'rgb(34, 85, 255)', 'rgb(34, 85, 255)'])
+  // Simple and picture looks: the panel itself is pink, so its picked tab
+  // and ticked boxes are white (Pink plan batch 2).
+  const nearWhite = /^rgb\(25\d, 25\d, 25\d\)$/
+  for (const t of [r.clean, r.sakura]) {
+    expect(t[0]).toBe(white)
+    expect(t[1]).toMatch(nearWhite)
+    expect(t[2]).toBe(pink)
+  }
+  expect(r.picked).toEqual(['clean', '#2255ff', 'rgb(34, 85, 255)', 'rgb(34, 85, 255)', white, 'rgb(34, 85, 255)'])
 })
 
 // The picked tab stays filled while the pointer is on it (Clean's hover
