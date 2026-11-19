@@ -15,9 +15,14 @@
   box-sizing: border-box;
   background: radial-gradient(ellipse at center, rgba(10, 8, 5, 0.5), rgba(5, 4, 2, 0.85));
   color: var(--pp-text);
+  /* A phone on its side: a tall card (Clip Options) scrolls. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 #play-pause-card {
   position: relative;
+  /* Centred, but the top never slides off-screen when it's too tall. */
+  margin-block: auto;
   box-sizing: border-box;
   width: min(420px, 100%);
   padding: 30px 34px 24px;
@@ -131,13 +136,18 @@ html.ui-theme-old #play-spray-pad { background-color: rgba(255, 248, 230, 0.5); 
 #play-clip .play-clip-row button.on,
 #play-clip #play-clip-done { color: #1a1206; background: var(--pp-gold); border-color: var(--pp-gold); }
 #play-clip .play-clip-custom-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; font-size: 13px; opacity: 0.9; }
-#play-clip #play-clip-custom { width: 90px; padding: 6px 14px; font: inherit; font-size: 15px; text-align: center; color: inherit; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(var(--pp-gold-rgb), 0.5); border-radius: 999px; }
+#play-clip :is(#play-clip-custom, #play-clip-speed-custom) { width: 90px; padding: 6px 14px; font: inherit; font-size: 15px; text-align: center; color: inherit; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(var(--pp-gold-rgb), 0.5); border-radius: 999px; }
 #play-clip .play-clip-note { margin: 6px 0 0; font-size: 12px; opacity: 0.75; }
 #play-clip .play-clip-done-row { margin-top: 14px; }
+#play-clip .play-clip-sliders { display: grid; gap: 6px; max-width: 320px; margin: 10px auto 0; }
+#play-clip .play-clip-slider { display: grid; grid-template-columns: 80px 1fr 44px; align-items: center; gap: 10px; font-size: 13px; text-align: left; }
+#play-clip .play-clip-slider input { width: 100%; min-height: 28px; accent-color: var(--pp-gold); }
+#play-clip .play-clip-slider b { text-align: right; font-variant-numeric: tabular-nums; }
+html.ui-theme-old #play-clip .play-clip-slider input { accent-color: #6b3f17; }
 html.ui-theme-old #play-clip :is(.play-clip-row, .play-clip-done-row) button { font-family: 'Rye', Georgia, serif; }
 html.ui-theme-old #play-clip :is(.play-clip-row button.on, #play-clip-done) { color: #f6e9c8; background: #6b3f17; border-color: #6b3f17; }
 html.ui-theme-old #play-clip .play-clip-label { color: #6b3f17; }
-html.ui-theme-old #play-clip #play-clip-custom { background: rgba(255, 248, 230, 0.6); border-color: rgba(107, 63, 23, 0.6); }
+html.ui-theme-old #play-clip :is(#play-clip-custom, #play-clip-speed-custom) { background: rgba(255, 248, 230, 0.6); border-color: rgba(107, 63, 23, 0.6); }
 /* Invite Friends' link box (PlayPauseMenu.invite). */
 #play-invite { margin-top: 12px; text-align: center; }
 #play-invite[hidden] { display: none; }

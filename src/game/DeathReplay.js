@@ -13,12 +13,22 @@
 // player's game doesn't run alone), so the zombies are only moved for the
 // drawing and put back after. Zombies that died in those seconds are gone
 // and aren't shown.
+//
+// Clip Maker Batch 3 (2026-11-19): the same rewind makes Replay Clips
+// (ClipMaker.saveReplay). The last MAX_SPAN seconds are kept, and
+// start() takes { span, speed, angle, cam, clip }: how far back, how slow,
+// and the camera - circle (the death one), behind, top-down, side or
+// custom (distance, height and turn around you, in blocks and degrees).
+// A clip replay is played while the pause screen is open (so the world
+// is still) but hidden; it keeps the recording afterwards.
 import * as THREE from 'three'
 import { poseZombieLimbs } from './FunnyZombies.js'
 import { t } from './i18n.js'
 
 export const SPAN = 3 // seconds kept
 export const SLOW = 0.45 // playback speed
+export const MAX_SPAN = 60 // seconds kept for Replay Clips
+export const REPLAY_ANGLES = ['circle', 'behind', 'top', 'side', 'custom']
 const SAMPLE_HZ = 20
 const MIN_FRAMES = 6
 const ORBIT_DIST = 4.5 // blocks
@@ -54,23 +64,40 @@ export class DeathReplay {
       yaw: this.s.bm._yaw,
       zs: this.s.zombies.map((z) => [z, z.group.position.x, z.group.position.y, z.group.position.z, z.group.rotation.y]),
     })
-    if (this._frames.length > SPAN * SAMPLE_HZ) this._frames.shift()
+    if (this._frames.length > MAX_SPAN * SAMPLE_HZ) this._frames.shift()
   }
 
-  // Plays it, then onDone(). false (and nothing played) when there's too
-  // little recorded.
-  start(onDone, joke = '') {
+  // Seconds recorded so far.
+  recorded() {
+    return Math.max(0, this._frames.length - 1) / SAMPLE_HZ
+  }
+
+  // 0 to 1: how far through the replay is.
+  get progress() {
+    return this.active && this._len ? Math.min(1, this._t / this._len) : 0
+  }
+
+  // Plays it, then onDone(true) - or onDone(false) when skipped. false
+  // (and nothing played) when there's too little recorded.
+  start(onDone, joke = '', opts = {}) {
     if (this.active || this._frames.length < MIN_FRAMES) return false
+    const span = opts.span || SPAN
+    this._play = this._frames.slice(-Math.round(span * SAMPLE_HZ) - 1)
     this.active = true
     this._onDone = onDone
+    this._clip = !!opts.clip
+    this._speed = opts.speed || SLOW
+    this._angle = REPLAY_ANGLES.includes(opts.angle) ? opts.angle : 'circle'
+    this._camOpts = opts.cam || { dist: 5, height: 2, turn: 45 }
+    this._camYaw = this._play[0].yaw
     this._t = 0
-    this._len = (this._frames.length - 1) / SAMPLE_HZ
+    this._len = (this._play.length - 1) / SAMPLE_HZ
     // Where everything is now, to put it back after.
     this._kept = this.s.zombies.map((z) => [z, z.group.position.clone(), z.group.rotation.y])
-    this._turn0 = this._frames[0].yaw + Math.PI * 0.75
+    this._turn0 = this._play[0].yaw + Math.PI * 0.75
     const tm = this.s.bm.tryMode
     if (!tm._body && tm._armSkin) tm._buildBody()
-    this._showUi(true, joke)
+    this._showUi(true, this._clip ? '' : joke)
     if (document.pointerLockElement) document.exitPointerLock()
     return true
   }
@@ -78,14 +105,15 @@ export class DeathReplay {
   // Each frame of the replay (BuildSurvival.update, before anything else).
   update(dt) {
     if (!this.active) return
-    this._t += Math.min(dt, 0.1) * SLOW
+    this._t += Math.min(dt, 0.1) * this._speed
     if (this._t >= this._len) {
-      this.stop()
+      this.stop(true)
       return
     }
     const f = this._t * SAMPLE_HZ
-    const a = this._frames[Math.floor(f)]
-    const b = this._frames[Math.min(this._frames.length - 1, Math.floor(f) + 1)]
+    const frames = this._play
+    const a = frames[Math.floor(f)]
+    const b = frames[Math.min(frames.length - 1, Math.floor(f) + 1)]
     const k = f - Math.floor(f)
     const lerp = (x, y) => x + (y - x) * k
     const B = this.s.B
@@ -115,6 +143,15 @@ export class DeathReplay {
       }
     }
     this._cam.center.set(me[0] * B, (me[1] + 1.1) * B, me[2] * B)
+    // Behind and side follow the way I faced, smoothed (a quick flick of
+    // the mouse would whip the camera round).
+    let dy = a.yaw - this._camYaw
+    dy = Math.atan2(Math.sin(dy), Math.cos(dy))
+    this._camYaw += dy * Math.min(1, Math.min(dt, 0.1) * 4)
+    if (this._clip) {
+      const tag = document.querySelector('#play-replay-tag b')
+      if (tag) tag.textContent = t('clipReplayTag', { p: Math.round(this.progress * 100) })
+    }
     const joke = document.getElementById('play-replay-joke')
     if (joke && this._t / this._len > JOKE_AT) joke.classList.add('show')
   }
@@ -125,10 +162,36 @@ export class DeathReplay {
     const B = this.s.B
     this._cam.pos.copy(cam.position)
     this._cam.quat.copy(cam.quaternion)
-    const ang = this._turn0 + this._t * ORBIT_TURN / SLOW
     const c = this._cam.center
-    cam.position.set(c.x + Math.sin(ang) * ORBIT_DIST * B, c.y + ORBIT_RISE * B, c.z + Math.cos(ang) * ORBIT_DIST * B)
-    cam.lookAt(c)
+    // Which way I face (yaw 0 looks down -z) and my right hand.
+    const fx = -Math.sin(this._camYaw)
+    const fz = -Math.cos(this._camYaw)
+    const at = (x, y, z) => cam.position.set(c.x + x * B, c.y + y * B, c.z + z * B)
+    if (this._angle === 'behind') {
+      at(-fx * 4, 1.4, -fz * 4)
+      cam.lookAt(c.x + fx * 2 * B, c.y, c.z + fz * 2 * B)
+    } else if (this._angle === 'top') {
+      // A hair behind, so "up" on the screen is the way I face.
+      at(-fx * 0.6, 14, -fz * 0.6)
+      cam.lookAt(c)
+    } else if (this._angle === 'side') {
+      at(-fz * 5, 0.8, fx * 5)
+      cam.lookAt(c)
+    } else if (this._angle === 'custom') {
+      const o = this._camOpts
+      // turn 0 = straight behind me, going round to my right.
+      const turn = (Number(o.turn) || 0) * Math.PI / 180
+      const bx = -fx * Math.cos(turn) - fz * Math.sin(turn)
+      const bz = -fz * Math.cos(turn) + fx * Math.sin(turn)
+      const dist = Number(o.dist) || 5
+      at(bx * dist, Number(o.height) || 0, bz * dist)
+      if (Math.hypot(bx * dist, bz * dist) < 0.05) cam.position.z += 0.01
+      cam.lookAt(c)
+    } else {
+      const ang = this._turn0 + this._t * ORBIT_TURN / SLOW
+      at(Math.sin(ang) * ORBIT_DIST, ORBIT_RISE, Math.cos(ang) * ORBIT_DIST)
+      cam.lookAt(c)
+    }
     cam.updateMatrixWorld()
     return () => {
       cam.position.copy(this._cam.pos)
@@ -137,10 +200,12 @@ export class DeathReplay {
     }
   }
 
-  // Ends it (played out or skipped): everything back where it is now.
-  stop() {
+  // Ends it (played out = finished, or skipped): everything back where it
+  // is now.
+  stop(finished = false) {
     if (!this.active) return
     this.active = false
+    this._play = null
     for (const [z, pos, ry] of this._kept || []) {
       z.group.position.copy(pos)
       z.group.rotation.y = ry
@@ -148,11 +213,12 @@ export class DeathReplay {
     this._kept = null
     const tm = this.s.bm.tryMode
     if (tm._body) tm._body.group.visible = !!tm.view
-    this._frames = []
+    // A clip replay goes back to the game, still recording.
+    if (!this._clip) this._frames = []
     this._showUi(false)
     const done = this._onDone
     this._onDone = null
-    done?.()
+    done?.(finished)
   }
 
   _showUi(on, joke = '') {
@@ -175,7 +241,8 @@ export class DeathReplay {
       this._onKey = (e) => {
         if (!this.active || !['Space', 'Enter', 'Escape'].includes(e.code)) return
         e.preventDefault()
-        e.stopPropagation()
+        // Not the pause screen too (it listens on window as well).
+        e.stopImmediatePropagation()
         this.stop()
       }
       window.addEventListener('keydown', this._onKey, true)
@@ -183,8 +250,8 @@ export class DeathReplay {
     if (!ui) return
     ui.style.display = on ? '' : 'none'
     if (!on) return
-    ui.querySelector('#play-replay-tag b').textContent = t('deathReplayTag')
-    ui.querySelector('#play-replay-skip').textContent = t('deathReplaySkip')
+    ui.querySelector('#play-replay-tag b').textContent = this._clip ? t('clipReplayTag', { p: 0 }) : t('deathReplayTag')
+    ui.querySelector('#play-replay-skip').textContent = this._clip ? t('clipReplayCancel') : t('deathReplaySkip')
     const jokeEl = ui.querySelector('#play-replay-joke')
     jokeEl.textContent = joke
     jokeEl.classList.remove('show')

@@ -41,7 +41,8 @@ import { gameTip } from './GameplayAssist.js'
 import { inviteLink, makeGameJoinable, newServerId } from './ServerBrowser.js'
 import { SPRAY_SIZE, SPRAY_COLORS, loadSpray, saveSpray, sprayCanvas } from './Sprays.js'
 import { getKeyFor, keyLabel } from './Keybinds.js'
-import { clipsSupported, CLIP_LENGTHS, CLIP_LEN_MIN, CLIP_LEN_MAX, cleanClipOptions } from './ClipMaker.js'
+import { clipsSupported, CLIP_LENGTHS, CLIP_LEN_MIN, CLIP_LEN_MAX, CLIP_SPEEDS, CLIP_SPEED_MIN, CLIP_SPEED_MAX, CAM_LIMITS, cleanClipOptions } from './ClipMaker.js'
+import { REPLAY_ANGLES } from './DeathReplay.js'
 
 export class PlayPauseMenu {
   constructor(bm) {
@@ -67,6 +68,8 @@ export class PlayPauseMenu {
     // Save Clip: the last ~30 s as a video file (ClipMaker.js).
     on('play-pause-clip-btn', () => this.bm.survival?.clips?.save())
     on('play-pause-clipopts-btn', () => this.openClipOptions())
+    // Replay Clip (Batch 3): rewound and filmed from the Replay Camera.
+    on('play-pause-replay-btn', () => this.bm.survival?.clips?.saveReplay())
     on('play-clip-done', () => this.closeClipOptions())
     this._bindClipOptions()
     on('play-pause-spray-btn', () => this.openSpray())
@@ -128,6 +131,11 @@ export class PlayPauseMenu {
     set('play-pause-clipopts-label', t('playPauseClipOptions'))
     const clipOptsBtn = document.getElementById('play-pause-clipopts-btn')
     if (clipOptsBtn) clipOptsBtn.style.display = clipsSupported() ? '' : 'none'
+    set('play-pause-replay-label', t('playPauseReplay'))
+    // Solo games only: on a server the world can't be rewound.
+    const replayBtn = document.getElementById('play-pause-replay-btn')
+    const online = (s?.net && !s.net.closed) || (s?.lobby && !s.lobby.closed)
+    if (replayBtn) replayBtn.style.display = clipsSupported() && !online ? '' : 'none'
     set('play-clip-hint', t('clipOptHint'))
     set('play-clip-done', t('sprayDone'))
     set('play-pause-spray-label', t('playPauseSpray'))
@@ -156,6 +164,8 @@ export class PlayPauseMenu {
     this._clipOpts = { ...(clips?.options || cleanClipOptions(null)) }
     // Custom: a length that isn't one of the buttons, or Custom tapped.
     this._clipCustom = !CLIP_LENGTHS.includes(this._clipOpts.len)
+    this._speedCustom = !CLIP_SPEEDS.includes(this._clipOpts.speed)
+    this._clipOpts.cam = { ...this._clipOpts.cam }
     document.getElementById('play-pause-buttons')?.setAttribute('hidden', '')
     document.getElementById('play-invite')?.setAttribute('hidden', '')
     const box = document.getElementById('play-clip')
@@ -165,8 +175,7 @@ export class PlayPauseMenu {
 
   closeClipOptions() {
     if (!this._clipOpts) return
-    const input = document.getElementById('play-clip-custom')
-    if (this._clipCustom && input) this._clipOpts.len = Number(input.value)
+    this._readClipInputs()
     const clips = this.bm.survival?.clips
     const same = clips ? clips.setOptions(this._clipOpts) : true
     this._clipOpts = null
@@ -178,7 +187,18 @@ export class PlayPauseMenu {
     if (status && !same) status.textContent = t('clipOptSaved')
   }
 
-  // The rows: Type, Length (+ Custom box), Sound (videos) or GIF Size.
+  // What's typed in the Custom boxes (kept when a row redraws).
+  _readClipInputs() {
+    const o = this._clipOpts
+    if (!o) return
+    const len = document.getElementById('play-clip-custom')
+    if (this._clipCustom && len) o.len = Number(len.value) || o.len
+    const speed = document.getElementById('play-clip-speed-custom')
+    if (this._speedCustom && speed) o.speed = Number(speed.value) || o.speed
+  }
+
+  // The rows: Type, Length (+ Custom box), Speed (+ Custom box), Sound
+  // (full-speed videos) or GIF Size, Replay Camera (+ Custom sliders).
   _drawClipOptions() {
     const rows = document.getElementById('play-clip-rows')
     const o = this._clipOpts
@@ -188,10 +208,20 @@ export class PlayPauseMenu {
     const lens = CLIP_LENGTHS.map((n) => chip('len', n, t('clipOptSeconds', { n }), !this._clipCustom && o.len === n)).join('') + chip('len', 'custom', t('clipOptCustom'), this._clipCustom)
     const custom = this._clipCustom ? `<label class="play-clip-custom-row"><input type="number" id="play-clip-custom" class="nickname-input" min="${CLIP_LEN_MIN}" max="${CLIP_LEN_MAX}" step="1" inputmode="numeric" value="${Math.round(o.len)}" /><span>${t('clipOptCustomHint', { min: CLIP_LEN_MIN, max: CLIP_LEN_MAX })}</span></label>` : ''
     const gif = o.type === 'gif'
+    const slow = o.speed < 1
+    const speeds = CLIP_SPEEDS.map((n) => chip('speed', n, t('clipOptSpeedX', { n }), !this._speedCustom && o.speed === n)).join('') + chip('speed', 'custom', t('clipOptCustom'), this._speedCustom)
+    const speedCustom = this._speedCustom ? `<label class="play-clip-custom-row"><input type="number" id="play-clip-speed-custom" class="nickname-input" min="${CLIP_SPEED_MIN}" max="${CLIP_SPEED_MAX}" step="0.05" inputmode="decimal" value="${o.speed}" /><span>${t('clipOptSpeedHint', { min: CLIP_SPEED_MIN, max: CLIP_SPEED_MAX })}</span></label>` : ''
+    const speedNote = slow && !gif ? `<p class="play-clip-note">${t('clipOptSlowNoSound')}</p>` : ''
+    const angleKey = { circle: 'clipOptCamCircle', behind: 'clipOptCamBehind', top: 'clipOptCamTop', side: 'clipOptCamSide', custom: 'clipOptCustom' }
+    const angles = REPLAY_ANGLES.map((a) => chip('angle', a, t(angleKey[a]), o.angle === a)).join('')
+    const slider = (k, label) => `<label class="play-clip-slider"><span>${label}</span><input type="range" data-cam="${k}" min="${CAM_LIMITS[k][0]}" max="${CAM_LIMITS[k][1]}" step="${k === 'turn' ? 5 : 1}" value="${o.cam[k]}" /><b data-cam-val="${k}">${o.cam[k]}${k === 'turn' ? '°' : ''}</b></label>`
+    const camCustom = o.angle === 'custom' ? `<div class="play-clip-sliders">${slider('dist', t('clipOptCamDist'))}${slider('height', t('clipOptCamHeight'))}${slider('turn', t('clipOptCamTurn'))}</div>` : ''
     rows.innerHTML =
       row(t('clipOptType'), chip('type', 'video', t('clipOptVideo'), !gif) + chip('type', 'gif', t('clipOptGif'), gif)) +
       row(t('clipOptLength'), lens, custom) +
-      (gif ? row(t('clipOptGifSize'), chip('gifSize', 'small', t('clipOptSmall'), o.gifSize === 'small') + chip('gifSize', 'big', t('clipOptBig'), o.gifSize === 'big'), `<p class="play-clip-note">${t('clipOptGifNoSound')}</p>`) : row(t('clipOptSound'), chip('sound', 'on', t('clipOptOn'), o.sound) + chip('sound', 'off', t('clipOptOff'), !o.sound)))
+      row(t('clipOptSpeed'), speeds, speedCustom + speedNote) +
+      (gif ? row(t('clipOptGifSize'), chip('gifSize', 'small', t('clipOptSmall'), o.gifSize === 'small') + chip('gifSize', 'big', t('clipOptBig'), o.gifSize === 'big'), `<p class="play-clip-note">${t('clipOptGifNoSound')}</p>`) : slow ? '' : row(t('clipOptSound'), chip('sound', 'on', t('clipOptOn'), o.sound) + chip('sound', 'off', t('clipOptOff'), !o.sound))) +
+      row(t('clipOptCamera'), angles, camCustom + `<p class="play-clip-note">${t('clipOptCamNote')}</p>`)
   }
 
   _bindClipOptions() {
@@ -201,10 +231,15 @@ export class PlayPauseMenu {
       const o = this._clipOpts
       if (!btn || !o) return
       const { opt, val } = btn.dataset
-      // Keep whatever's typed in the Custom box when another row redraws.
-      const input = document.getElementById('play-clip-custom')
-      if (this._clipCustom && input) o.len = Number(input.value) || o.len
+      // Keep whatever's typed in the Custom boxes when another row redraws.
+      this._readClipInputs()
       if (opt === 'type') o.type = val
+      else if (opt === 'angle') o.angle = val
+      else if (opt === 'speed' && val === 'custom') this._speedCustom = true
+      else if (opt === 'speed') {
+        this._speedCustom = false
+        o.speed = Number(val)
+      }
       else if (opt === 'sound') o.sound = val === 'on'
       else if (opt === 'gifSize') o.gifSize = val
       else if (opt === 'len' && val === 'custom') {
@@ -215,6 +250,16 @@ export class PlayPauseMenu {
       }
       this._drawClipOptions()
       if (opt === 'len' && val === 'custom') document.getElementById('play-clip-custom')?.focus()
+      if (opt === 'speed' && val === 'custom') document.getElementById('play-clip-speed-custom')?.focus()
+    })
+    // The Custom camera's sliders: their number follows as they move.
+    rows?.addEventListener('input', (e) => {
+      const k = e.target?.dataset?.cam
+      const o = this._clipOpts
+      if (!k || !o) return
+      o.cam[k] = Number(e.target.value)
+      const val = rows.querySelector(`[data-cam-val="${k}"]`)
+      if (val) val.textContent = `${o.cam[k]}${k === 'turn' ? '°' : ''}`
     })
   }
 

@@ -29,3 +29,17 @@ export function gifBlob(frames, w, h) {
   ])
   return new Blob([head, ...frames, new Uint8Array([0x3b])], { type: 'image/gif' })
 }
+
+// Slow-mo (Batch 3): the same picture shown longer. A picture's bytes
+// start with its timing note (0x21 0xF9 0x04 flags, then the wait in
+// hundredths of a second), so only those two bytes change.
+export function slowGifFrame(bytes, speed) {
+  if (bytes[0] !== 0x21 || bytes[1] !== 0xf9) return bytes
+  const out = bytes.slice()
+  const wait = Math.min(65535, Math.round(DELAY_MS / 10 / speed))
+  out[4] = wait & 255
+  out[5] = wait >> 8
+  out.w = bytes.w
+  out.h = bytes.h
+  return out
+}
