@@ -134,6 +134,7 @@ export default {
   killFeedOther: "{name} ने एक ज़ॉम्बी गिराया",
   compassDirs: "उ,उपू,पू,दपू,द,दप,प,उप",
   actionHideHud: "HUD छिपाएँ",
+  actionSaveClip: "क्लिप सेव करें (आख़िरी 30 सेकंड)",
   settingsSectionEffects: "इफ़ेक्ट्स",
   screenShakeLabel: "स्क्रीन हिलना",
   screenShakeInfoText: "धमाकों, बड़े वार और भूकंप से नज़ारा कितना हिलता है। 0% बंद करता है; 200% दोगुना है। चमक कम करें अब भी धमाकों का हिलना बंद करता है।",

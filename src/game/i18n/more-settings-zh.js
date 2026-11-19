@@ -134,6 +134,7 @@ export default {
   killFeedOther: "{name} 打倒了一只僵尸",
   compassDirs: "北,东北,东,东南,南,西南,西,西北",
   actionHideHud: "隐藏界面",
+  actionSaveClip: "保存片段(最近 30 秒)",
   settingsSectionEffects: "效果",
   screenShakeLabel: "屏幕震动",
   screenShakeInfoText: "爆炸、重击和地震时画面震动的强度。0% 为关闭，200% 为两倍。“减少闪烁”仍会关闭爆炸震动。",

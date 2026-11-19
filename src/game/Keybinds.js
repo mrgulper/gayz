@@ -49,6 +49,9 @@ export const ACTIONS = [
   // Hides the whole HUD in a game, for clean screenshots (Settings ideas
   // list, HUD #26, 2026-11-11). Same as Settings > Controls > Hide HUD.
   { id: 'hideHud', defaultKey: 'F1', labelKey: 'actionHideHud' },
+  // Saves the last ~30 seconds of the game as a video (ClipMaker.js,
+  // 2026-11-19). Also on the pause screen.
+  { id: 'saveClip', defaultKey: 'KeyK', labelKey: 'actionSaveClip' },
 ]
 
 // Extra keys that also work for an action, as long as no action is bound

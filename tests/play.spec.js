@@ -558,7 +558,7 @@ test('Settings > Controls keys drive walking in Map 1', async ({ page }) => {
       g.controlsGrid.querySelector(`[data-action="${action}"]`).click()
       window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }))
     }
-    rebind('moveForward', 'KeyI')
+    rebind('moveForward', 'KeyH')
     await g._enterBuildMode()
     const bm = g.buildMode
     bm.toggleTryMode()
@@ -571,15 +571,16 @@ test('Settings > Controls keys drive walking in Map 1', async ({ page }) => {
       return Math.hypot(bm.tryMode.vel.x, bm.tryMode.vel.z)
     }
     const withW = speedWith('KeyW')
-    const withI = speedWith('KeyI')
+    const withI = speedWith('KeyH')
     const withArrow = speedWith('ArrowUp')
     bm.toggleTryMode()
     g._exitBuildMode()
     rebind('moveForward', 'KeyW')
     return { ids, withW, withI, withArrow }
   })
-  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap', 'cameraView', 'dropItem', 'emote', 'shop', 'spray', 'bingo', 'autoRun', 'hideHud'])
-  expect(result.withW).toBeLessThan(0.01)
+  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap', 'cameraView', 'dropItem', 'emote', 'shop', 'spray', 'bingo', 'ringBag', 'autoRun', 'hideHud', 'saveClip'])
+  // W no longer walks (a tiny slide on uneven ground is fine; walking is ~4).
+  expect(result.withW).toBeLessThan(0.5)
   expect(result.withI).toBeGreaterThan(2)
   expect(result.withArrow).toBeGreaterThan(2)
 })
@@ -1475,4 +1476,75 @@ test('a held animal drop is a 3D model in the hands, bitten while eaten', async 
     return out
   })
   expect(r).toEqual({ whole: true, used: true, eating: true, bites: true, bitten: true, lifted: true, whole2: true, gun: true })
+})
+
+test('Save Clip keeps the last ~30 s and saves a video (K and the pause screen)', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    window.__clipTest = true
+    localStorage.removeItem('gayz-play-saved-run')
+    window.__game.playBtn.click()
+  })
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 90000 })
+  const a = await page.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const c = s.clips
+    const out = { on: c.on, recs: c._recs.length }
+    // Too young to save: K says so.
+    c._recs[0].age = 0.5
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyK', bubbles: true }))
+    out.tooYoung = document.getElementById('pill-clip')?.textContent
+    // Overlapping recordings: a new one every 15 s, thrown away at 45 s,
+    // and a save uses the youngest that's 30 s or older.
+    c._recs[0].age = 16
+    c.update()
+    out.afterStagger = c._recs.length
+    c._recs[0].age = 31
+    c._recs[1].age = 16
+    c.update()
+    out.three = c._recs.length
+    out.pickAge = Math.floor(c._pick().age)
+    c._recs[0].age = 46
+    c.update()
+    out.afterLife = c._recs.length
+    return out
+  })
+  expect(a.on).toBe(true)
+  expect(a.recs).toBe(1)
+  expect(a.tooYoung).toBe('Nothing to save yet - play a few seconds first')
+  expect(a.afterStagger).toBe(2)
+  expect(a.three).toBe(3)
+  expect(a.pickAge).toBe(31)
+  expect(a.afterLife).toBe(2)
+  // A real second of video, then Save Clip from the pause screen.
+  await page.waitForTimeout(1500)
+  const paused = await page.evaluate(() => {
+    const c = window.__game.buildMode.survival.clips
+    c._recs.forEach((r) => (r.age = Math.max(r.age, 3)))
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', bubbles: true }))
+    return { paused: c.paused, states: c._recs.map((r) => r.rec.state), btn: getComputedStyle(document.getElementById('play-pause-clip-btn')).display }
+  })
+  expect(paused.paused).toBe(true)
+  expect(paused.states.every((st) => st === 'paused')).toBe(true)
+  expect(paused.btn).not.toBe('none')
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 30000 }),
+    page.evaluate(() => document.getElementById('play-pause-clip-btn').click()),
+  ])
+  expect(download.suggestedFilename()).toMatch(/^gayz-clip-\d{4}-\d\d-\d\d-\d{6}\.(mp4|webm)$/)
+  const b = await page.evaluate(() => {
+    const c = window.__game.buildMode.survival.clips
+    return { size: c.lastClip?.size || 0, left: c._recs.length, status: document.getElementById('play-pause-status').textContent }
+  })
+  expect(b.size).toBeGreaterThan(0)
+  expect(b.left).toBeGreaterThan(0)
+  expect(b.status).toMatch(/^Clip saved!/)
+  // Leaving the game stops every recording.
+  const end = await page.evaluate(() => {
+    const g = window.__game
+    const s = g.buildMode.survival
+    document.getElementById('play-pause-leave-btn').click()
+    return { on: s.clips.on, recs: s.clips._recs.length }
+  })
+  expect(end).toEqual({ on: false, recs: 0 })
 })
