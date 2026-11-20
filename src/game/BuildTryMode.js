@@ -34,7 +34,7 @@ import * as THREE from 'three'
 import { handFov } from './GraphicsSettings.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { wearCosmetics, myWorn } from './Cosmetics.js'
-import { poseEmote, poseSit, sitDrop } from './Emotes.js'
+import { poseEmote, poseSit, sitDrop, endEmote } from './Emotes.js'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { audioEngine } from './Audio.js'
 import { addGunLights, cloneViewmodel } from './Viewmodels.js'
@@ -1787,12 +1787,13 @@ export class BuildTryMode {
     // the seat - no walking or emotes.
     if (this._seatEye && lp) {
       emotes?.stop()
+      endEmote(body.char)
       body.char.position.y = body.lift + sitDrop(this._seatEye, B)
       poseSit(lp)
       this._poseHeld(body, lp, 0)
       return
     }
-    const bob = emotes?.current ? poseEmote(lp, emotes.current, performance.now() / 1000) : null
+    const bob = poseEmote(lp, emotes?.current || '', performance.now() / 1000)
     if (bob !== null) {
       body.char.position.y += bob * body.char.scale.y
       return

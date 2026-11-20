@@ -562,7 +562,7 @@ test('couch co-op: equal Player 2 crafts, opens chests, fishes, farms and emotes
     // Emotes: D-pad left, A plays one; walking stops it.
     gear.select(0)
     press(14)
-    out.emoteList = gear.menu?.screen === 'emote' && gear._rows().length === 6
+    out.emoteList = gear.menu?.screen === 'emote' && gear._rows().length === 14
     press(0)
     // (Player 2's body loads its skin first.)
     for (let i = 0; i < 60 && !c.body; i++) await new Promise((res) => setTimeout(res, 50))

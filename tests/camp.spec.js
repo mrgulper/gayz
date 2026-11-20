@@ -289,8 +289,26 @@ test('Shop on B, emote wheel on Z, sitting in and getting off vehicles', async (
     key('KeyZ')
     out.wheelOpen = s.emotes.open
     out.wheelButtons = document.querySelectorAll('#emote-wheel [data-emote]').length
-    document.querySelector('#emote-wheel [data-emote="cheer"]').click()
+    // (Slices are SVG: a real click event, not .click().)
+    document.querySelector('#emote-wheel [data-emote="cheer"] path').dispatchEvent(new MouseEvent('click', { bubbles: true }))
     out.cheer = s.emotes.current === 'cheer' && !s.emotes.open
+    // The 10th emote is on 0; the 11th+ have no key.
+    key('KeyZ')
+    out.key0 = s.emotes.pick('Digit0') && s.emotes.current === 'heart'
+    // Your face changes while emoting, and goes back after.
+    const tmv = bm.tryMode
+    const view = tmv.view
+    tmv.view = 1 // third person, so your body is drawn
+    tmv.vel?.set?.(0, 0, 0)
+    s.emotes.current = 'laugh'
+    s.emotes._left = 5
+    tmv._updateBody(0.016)
+    const face = tmv._body?.char.userData.emoteFace
+    out.faceOn = !!face?.pivot.visible
+    s.emotes.stop()
+    tmv._updateBody(0.016)
+    out.faceOff = face ? !face.pivot.visible : 'no face'
+    tmv.view = view
     // --- the go-kart: sit in it, right-click out, Crouch out
     const k = s.kart
     const tm = bm.tryMode
@@ -314,7 +332,7 @@ test('Shop on B, emote wheel on Z, sitting in and getting off vehicles', async (
   })
   expect(r).toEqual({
     shopOpen: true, tabs: 'items,traps,upgrades,ammo,quests', trapRows: 5, boughtMine: true, shopClosed: true, npcTab: 'upgrades',
-    noWaveTraps: true, wheelOpen: true, wheelButtons: 6, cheer: true,
+    noWaveTraps: true, wheelOpen: true, wheelButtons: 14, cheer: true, key0: true, faceOn: true, faceOff: true,
     in: true, seated: true, legsOut: true, rightClickOut: true, crouchOut: true, standing: true,
   })
 })

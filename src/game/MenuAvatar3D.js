@@ -13,7 +13,7 @@
 // spin either way, auto or manual, not two.
 import * as THREE from 'three'
 import { LITE_HOME, onHomeFrame } from './LiteHome.js'
-import { EMOTE_S, poseEmote } from './Emotes.js'
+import { EMOTE_S, poseEmote, endEmote } from './Emotes.js'
 
 // How often a preview that doesn't spin on its own redraws while nobody
 // drags it.
@@ -710,6 +710,7 @@ export class MenuAvatar3D {
     const time = (now - this._emote.at) / 1000
     if (time > EMOTE_S) {
       for (const k of ['armR', 'armL', 'legR', 'legL']) lp[k].rotation.set(0, 0, 0)
+      endEmote(this.character)
       this.character.position.y = 0
       this._emote = null
       return
