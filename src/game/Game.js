@@ -146,6 +146,7 @@ import * as ClanUI from './ClanUI.js'
 import { levelFromXp, starterXp } from './Xp.js'
 import * as OnlineUI from './OnlineUI.js'
 import * as FriendsUI from './FriendsUI.js'
+import { loadFriendMail } from './FriendMail.js'
 import * as SettingsUI from './SettingsUI.js'
 import { parseMoreSettings, moreDefaults, applyMoreText } from './MoreSettings.js'
 import { MORE_SETTING_KEYS } from './MoreSettingsList.js'
@@ -3690,6 +3691,7 @@ export class Game {
     // though the account was still actually signed in.
     CloudSaveUI.renderCloudSaveState(this)
     this._renderFriendRequests()
+    loadFriendMail(this).catch(() => {})
     this._renderFriendsCount()
     this._renderStatusPicker()
     if (this.friendsOwnId) this.friendsOwnId.textContent = this.settings.playerId ? `#${this.settings.playerId}` : ''

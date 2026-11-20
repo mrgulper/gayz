@@ -594,6 +594,90 @@ html.ui-theme-old .panel-box #cloudsave-region-select {
   border-radius: 4px;
 }
 
+/* Gift Box + Friend Challenges (FriendMail.js): same look as a friend
+   request row, stacked (line, optional note, buttons). */
+.friend-mail-heading {
+  margin: 12px 0 4px;
+  font-size: 15px;
+}
+#friend-mail-list,
+#friend-challenges-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto 8px;
+}
+.friend-mail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+.friend-mail-row[data-kind="gift"] {
+  border-color: rgba(var(--ui-gold-bright-rgb, 255, 215, 0), 0.45);
+}
+.friend-mail-line,
+.friend-mail-note,
+.friend-mail-empty {
+  margin: 0;
+}
+.friend-mail-note {
+  opacity: 0.8;
+  font-style: italic;
+}
+.friend-mail-empty {
+  font-size: 13px;
+  opacity: 0.7;
+}
+.friend-mail-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+#friend-mail-actions {
+  width: 100%;
+  margin-top: 10px;
+}
+.friend-mail-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 320px;
+  margin: 8px auto 0;
+}
+.friend-mail-form label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+.friend-mail-form input[type="number"] {
+  width: 110px;
+}
+.friend-mail-form select {
+  max-width: 190px;
+}
+#friend-mail-actions[hidden],
+.friend-mail-form[hidden] {
+  display: none;
+}
+#friend-mail-status {
+  min-height: 1em;
+  margin: 6px 0 0;
+  font-size: 13px;
+  text-align: center;
+}
+
 .saved-friend-remove {
   color: var(--menu-red, #c9564a);
   font-weight: 700;

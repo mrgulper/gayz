@@ -17,6 +17,7 @@ import { SKIN_RARITIES } from './InventorySkins.js'
 import { EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQuests.js'
 import { t } from './i18n.js'
 import { addToWorldGoal, sendWorldGoalPending, noteMyWorldGoalPart } from './WorldGoal.js'
+import { checkFriendChallenges } from './FriendMail.js'
 import * as CloudSync from './CloudSync.js'
 import { rewardMult } from './LiveConfig.js'
 import { setNavBadge } from './NavBadges.js'
@@ -247,6 +248,8 @@ export function _onPlayEvent(game, type, data) {
   // Added after the run is recorded, so the run's own coins stay just
   // what it earned.
   game.coins += levelCoins
+  // Friend Challenges (FriendMail.js): any accepted challenge this game reached pays out.
+  checkFriendChallenges(game, data)
   // Career totals (_recordRunEnd just added game run to them).
   if (_safeStatNumber(game.careerStats.totalKills) >= EXTERMINATOR_CAREER_KILLS) game.achievements.unlock('exterminator')
   if (_safeStatNumber(game.careerStats.totalRuns) >= REGULAR_CAREER_RUNS) game.achievements.unlock('regular')

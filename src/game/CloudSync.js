@@ -781,6 +781,39 @@ service cloud.firestore {
         && request.resource.data.sentAt is int;
       allow update: if false;
     }
+
+    // Friend Mail (FriendMail.js, 2026-11-20): gifts (coins + ring items)
+    // and challenges between friends, in one inbox so opening it is one
+    // read. Like postcards: anyone signed in can drop one in someone
+    // else's box (never their own), only the receiver reads or deletes,
+    // nobody edits. The id is kind_sender_day, so each friend gets at most
+    // one gift and one challenge from you per day. Every doc carries every
+    // field (gifts send stat '' / target 0, challenges coins 0 / item '').
+    match /friendMail/{toUid}/inbox/{mailId} {
+      allow read, delete: if request.auth != null && request.auth.uid == toUid;
+      allow create: if request.auth != null && request.auth.uid != toUid
+        && request.resource.data.keys().hasOnly(['kind', 'fromUid', 'fromNickname', 'day', 'coins', 'item', 'itemCount', 'stat', 'target', 'note', 'sentAt'])
+        && request.resource.data.keys().hasAll(['kind', 'fromUid', 'fromNickname', 'day', 'coins', 'item', 'itemCount', 'stat', 'target', 'note', 'sentAt'])
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.day is string && request.resource.data.day.size() == 10
+        && request.resource.data.kind in ['gift', 'challenge']
+        && mailId == request.resource.data.kind + '_' + request.auth.uid + '_' + request.resource.data.day
+        && request.resource.data.fromNickname is string && request.resource.data.fromNickname.size() > 0 && request.resource.data.fromNickname.size() <= 24
+        && request.resource.data.note is string && request.resource.data.note.size() <= 80
+        && request.resource.data.sentAt is int
+        && request.resource.data.coins is int && request.resource.data.coins >= 0 && request.resource.data.coins <= 500
+        && request.resource.data.item is string && request.resource.data.item.size() <= 32
+        && request.resource.data.itemCount is int && request.resource.data.itemCount >= 0 && request.resource.data.itemCount <= 5
+        && request.resource.data.stat is string && request.resource.data.target is int
+        && ((request.resource.data.kind == 'gift'
+              && (request.resource.data.coins > 0 || (request.resource.data.itemCount > 0 && request.resource.data.item.size() > 0))
+              && request.resource.data.stat == '' && request.resource.data.target == 0)
+          || (request.resource.data.kind == 'challenge'
+              && request.resource.data.coins == 0 && request.resource.data.item == '' && request.resource.data.itemCount == 0
+              && request.resource.data.stat in ['waves', 'kills']
+              && request.resource.data.target >= 1 && request.resource.data.target <= 100000));
+      allow update: if false;
+    }
   }
 }`
 
@@ -2240,4 +2273,40 @@ export async function fetchPostcards(uid, n = 30) {
 export async function deletePostcard(uid, id) {
   const { db, fsMod } = await ensureApp()
   await fsMod.deleteDoc(fsMod.doc(db, 'postcards', uid, 'inbox', id))
+}
+
+// Friend Mail (FriendMail.js): gifts and challenges in one inbox.
+// mail = { kind, fromUid, fromNickname, day, coins, item, itemCount, stat,
+// target, note }. The id is kind_sender_day (the rules allow one of each
+// kind per friend per day; sending again the same day fails).
+export async function sendFriendMail(toUid, mail) {
+  const { db, fsMod } = await ensureApp()
+  const data = {
+    kind: mail.kind,
+    fromUid: mail.fromUid,
+    fromNickname: mail.fromNickname,
+    day: mail.day,
+    coins: mail.coins || 0,
+    item: mail.item || '',
+    itemCount: mail.itemCount || 0,
+    stat: mail.stat || '',
+    target: mail.target || 0,
+    note: mail.note || '',
+    sentAt: Date.now(),
+  }
+  const ref = fsMod.doc(db, 'friendMail', toUid, 'inbox', `${data.kind}_${data.fromUid}_${data.day}`)
+  await fsMod.setDoc(ref, data)
+}
+
+// My Friend Mail, newest first.
+export async function fetchFriendMail(uid, n = 20) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'friendMail', uid, 'inbox'), fsMod.orderBy('sentAt', 'desc'), fsMod.limit(n))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id }))
+}
+
+export async function deleteFriendMail(uid, id) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'friendMail', uid, 'inbox', id))
 }
