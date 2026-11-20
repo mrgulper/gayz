@@ -16,7 +16,7 @@ Gaymi's answers:
 | Batch | Features | Status |
 |---|---|---|
 | 1 | Gift Box + Friend Challenges (FriendMail.js, `friendMail/{toUid}/inbox`, tests/friend-mail.spec.js) | done |
-| 2 | Clan War + Share codes (spin-ring loadout, custom lobby rules) | todo |
+| 2 | Clan War + Share codes (ClanWar.js, ShareCodes.js, tests/clan-war.spec.js) | done |
 | 3 | Profile Guestbook + Message in a Bottle | todo |
 | 4 | Rules file + paste walk-through | todo |
 
@@ -28,3 +28,16 @@ its doc is deleted (no double open). Accepted challenges: localStorage `gayz-fri
 (Cloud Save carries it), paid in ProgressUI's 'end' handler. Guesses: 500-coin / 5-item cap,
 150-coin challenge reward, 7 days, 5 at once. Coins are client-side, so a cheater could send
 coins they don't have - capped by the rules at 500 per friend per day.
+
+Batch 2 notes (Gaymi's answers): real player kill in Deathmatch / Team Deathmatch = 1 point;
+zombies AND bots 0.01-0.99 by toughness (zombie: full health / 1000, so wave-1 = 0.10; bot: its
+gun's damage per second x 0.02). Weekly + monthly races at once, weekly prizes smaller. Board =
+the existing Clan panel > Clans list, now with Month XP / War: Week / War: Month buttons.
+Points ride on the player's own leaderboard doc (cw* fields, hundredths) like clan XP, so the
+board costs no extra reads; the doc also keeps last week/month so prizes still work after the
+reset. Weeks = Monday, months = 1st, LA clock. Prizes (guesses): week 300/150/75, month
+1500/750/400 coins for #1-3, only for members who scored for that clan that period, claimed once
+(localStorage `gayz-clan-war-claimed`). The leaderboard rule has no hasOnly, so cw* fields
+already save before the paste; Batch 4 adds their bounds. Easy custom-lobby rules lower zombie
+points (rewardMult). Share codes: GZR1-<id.rarity_...> (ring, only owned items go in) and
+GZL1-<base64> (lobby rules; name/password not included). No Firebase.

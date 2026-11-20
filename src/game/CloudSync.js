@@ -32,6 +32,7 @@
 import { clanMonthKey, entryClanXp } from './Xp.js'
 // switchedOff: the Console's feature off-switches (LiveConfig.js).
 import { isHidden, switchedOff, switchedOffError } from './LiveConfig.js'
+import { entryWar } from './ClanWar.js'
 
 export const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyCCA9e3NAWk6MQJS-pnl-Lzq1Yn3nCZwVY',
@@ -198,6 +199,16 @@ service cloud.firestore {
         && (!('clanXp' in request.resource.data) || (request.resource.data.clanXp is int && request.resource.data.clanXp >= 0 && request.resource.data.clanXp < 100000000))
         && (!('clanXpClan' in request.resource.data) || (request.resource.data.clanXpClan is string && request.resource.data.clanXpClan.size() > 0 && request.resource.data.clanXpClan.size() <= 40))
         && (!('clanXpMonth' in request.resource.data) || (request.resource.data.clanXpMonth is string && request.resource.data.clanXpMonth.size() == 7))
+        // Clan War points in hundredths, this and last week / month (ClanWar.js, 2026-11-20).
+        && (!('cwClan' in request.resource.data) || (request.resource.data.cwClan is string && request.resource.data.cwClan.size() > 0 && request.resource.data.cwClan.size() <= 40))
+        && (!('cwW' in request.resource.data) || (request.resource.data.cwW is string && request.resource.data.cwW.size() == 10))
+        && (!('cwPW' in request.resource.data) || (request.resource.data.cwPW is string && request.resource.data.cwPW.size() == 10))
+        && (!('cwM' in request.resource.data) || (request.resource.data.cwM is string && request.resource.data.cwM.size() == 7))
+        && (!('cwPM' in request.resource.data) || (request.resource.data.cwPM is string && request.resource.data.cwPM.size() == 7))
+        && (!('cwWP' in request.resource.data) || (request.resource.data.cwWP is int && request.resource.data.cwWP >= 0 && request.resource.data.cwWP < 100000000))
+        && (!('cwPWP' in request.resource.data) || (request.resource.data.cwPWP is int && request.resource.data.cwPWP >= 0 && request.resource.data.cwPWP < 100000000))
+        && (!('cwMP' in request.resource.data) || (request.resource.data.cwMP is int && request.resource.data.cwMP >= 0 && request.resource.data.cwMP < 100000000))
+        && (!('cwPMP' in request.resource.data) || (request.resource.data.cwPMP is int && request.resource.data.cwPMP >= 0 && request.resource.data.cwPMP < 100000000))
         // Bio/Motto/Your Stats (2026-09-22) - moved from a Hidden-only tab
         // to Shown to Public, so these are now real public fields, not
         // just a display-only tab label. bio/motto are the only genuinely
@@ -1542,8 +1553,18 @@ export async function fetchClanCombinedStats(clanId) {
   // (2026-10-23, kirka-style) - every clan is back at 0 on the 1st.
   const month = clanMonthKey()
   let monthXp = 0
-  for (const d of snap.docs) monthXp += entryClanXp(d.data(), clanId, month)
-  return { memberCount: snap.size, monthXp }
+  // Clan War (ClanWar.js): the same docs, so no extra reads.
+  const war = { weekPts: 0, monthPts: 0, lastWeekPts: 0, lastMonthPts: 0 }
+  const now = Date.now()
+  for (const d of snap.docs) {
+    monthXp += entryClanXp(d.data(), clanId, month)
+    const w = entryWar(d.data(), clanId, now)
+    war.weekPts += w.week
+    war.monthPts += w.month
+    war.lastWeekPts += w.lastWeek
+    war.lastMonthPts += w.lastMonth
+  }
+  return { memberCount: snap.size, monthXp, ...war }
 }
 
 // Chat - Global and Clan channels both live in Firestore (Party channel

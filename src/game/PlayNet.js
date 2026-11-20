@@ -220,8 +220,8 @@ export class PlayNet {
   // tier: the zombie's rarity (its coins); assist: they helped, someone
   // else finished it (BuildSurvival._creditAssists).
   // at: where it went down, for their ring-item drop (RingLoot.js).
-  queueCredit(to, boss, skeleton = null, tier = 'common', assist = false, shine = null, at = null) {
-    this._credits.push({ to, boss: !!boss, skeleton, tier, ...(assist ? { assist: true } : {}), ...(shine ? { shine } : {}), ...(at ? { at: at.map((n) => Math.round(n * 10) / 10) } : {}) })
+  queueCredit(to, boss, skeleton = null, tier = 'common', assist = false, shine = null, at = null, hp = null) {
+    this._credits.push({ to, boss: !!boss, skeleton, tier, ...(assist ? { assist: true } : {}), ...(shine ? { shine } : {}), ...(at ? { at: at.map((n) => Math.round(n * 10) / 10) } : {}), ...(Number.isFinite(hp) ? { hp: Math.round(hp) } : {}) })
   }
 
   // A guest's shot on one of the host's animals (a<id>), or taming it.
@@ -458,7 +458,7 @@ export class PlayNet {
     for (const c of res.credits || []) {
       if (c.assist) s._countAssist(!!c.boss, c.tier, c.shine)
       else {
-        s._countKill(!!c.boss, c.skeleton || null, c.tier, c.shine)
+        s._countKill(!!c.boss, c.skeleton || null, c.tier, c.shine, c.hp || 100)
         // My kill on the host's zombie: my ring-item drop, where it fell.
         if (Array.isArray(c.at)) s.ringLoot?.dropFrom({ x: c.at[0], y: c.at[1], z: c.at[2], boss: !!c.boss, tier: c.tier })
       }

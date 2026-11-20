@@ -347,6 +347,8 @@ function cleanCredit(c) {
     ...(c?.assist ? { assist: true } : {}),
     ...(ZOMBIE_SHINE_IDS.has(c?.shine) ? { shine: c.shine } : {}),
     // Where it went down, for the killer's ring-item drop (RingLoot.js).
+    // Its full health, for the killer's Clan War points (ClanWar.js).
+    ...(Number.isFinite(c?.hp) ? { hp: Math.round(num(c.hp, 1, 1e7)) } : {}),
     ...(Array.isArray(c?.at) && c.at.length === 3 && c.at.every(Number.isFinite) ? { at: c.at.map((n) => Math.round(num(n, -1e5, 1e5) * 10) / 10) } : {}),
   }
 }

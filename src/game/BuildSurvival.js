@@ -24,6 +24,7 @@ import { audioEngine } from './Audio.js'
 import { SpinRing, RING_MODES } from './SpinRing.js'
 import { RingLoot } from './RingLoot.js'
 import { rewardMult } from './LobbyRules.js'
+import { addWarPoints, zombiePts } from './ClanWar.js'
 import { RingEditor } from './RingEditor.js'
 import { RingTutorial, wantsRingTutorial } from './RingTutorial.js'
 import { CouchCoop } from './CouchCoop.js'
@@ -2028,7 +2029,7 @@ export class BuildSurvival {
     if (z.mutant && !by && !sunOnly && !p2Gear) this._earn(MUTANT_COINS)
     audioEngine.playZombieDeath?.(1, this._panTo(z.x, z.z))
     const skeleton = SKELETON_KINDS[z.kind] ? z.kind : null
-    if (by) this.net?.queueCredit(by, z.boss, skeleton, z.tier, false, z.shine, [z.x, z.y, z.z])
+    if (by) this.net?.queueCredit(by, z.boss, skeleton, z.tier, false, z.shine, [z.x, z.y, z.z], z.maxHealth)
     else if (p2Gear) {
       const paid = COIN_PER_KILL * (ZOMBIE_TIERS[z.tier]?.coins ?? 1) * shineCoins(z.shine) + (z.boss ? BOSS_COINS : 0) + (z.mutant ? MUTANT_COINS : 0)
       const got = p2Gear.earn(paid)
@@ -2038,7 +2039,7 @@ export class BuildSurvival {
       const coins = this._coinsEarned
       // A boss beaten goes in the Museum's Hall of Bosses (CampMuseum.js).
       if (z.boss && this.active) noteBoss(z.cave ? 'dungeonBoss' : 'waveBoss')
-      this._countKill(z.boss, skeleton, z.tier, z.shine)
+      this._countKill(z.boss, skeleton, z.tier, z.shine, z.maxHealth)
       this._wornByZombie(z)
       this.onboard?.onKill()
       // Zombie Goo for crafting (PlayCrafting.js).
@@ -2118,9 +2119,12 @@ export class BuildSurvival {
     }
   }
 
-  _countKill(boss, skeleton = null, tier = 'common', shine = null) {
+  // hp: its full health, for Clan War (ClanWar.js: tougher = more points;
+  // easy custom-lobby rules give less).
+  _countKill(boss, skeleton = null, tier = 'common', shine = null, hp = 100) {
     this.kills++
     this.stats.kills++
+    addWarPoints(this.bm.game, zombiePts(hp) * Math.min(1, this.rewardMult || 1))
     this.perks?.onKill()
     // A rescued survivor's quest counts it (Survivors.js).
     this.survivors?.onKill()

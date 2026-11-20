@@ -10,6 +10,7 @@
 import { t } from './i18n.js'
 import { _escapeHtml } from './Game.js'
 import { PARTY_SERVER_MODES } from './PartyModes.js'
+import { lobbyCode, readLobbyCode, copyText } from './ShareCodes.js'
 import { LOBBY_PICKS, LOBBY_ZOMBIE_MODES, LOBBY_PARTY_MODES, LOBBY_RING_MODES, PASSWORD_MAX, cleanLobbyRules, defaultLobbyRules, rewardMult, changedRules } from './LobbyRules.js'
 
 // A server mode -> the game mode it plays (BuildSurvival.start does the same).
@@ -65,7 +66,10 @@ export function showLobbyForm(game, on) {
   form.hidden = !on
   if (list) list.hidden = !!on
   if (line) line.hidden = !!on
-  if (on) renderLobbyForm(game)
+  if (on) {
+    game._lobbyCodeMsg = ''
+    renderLobbyForm(game)
+  }
 }
 
 export function renderLobbyForm(game) {
@@ -87,6 +91,15 @@ export function renderLobbyForm(game) {
     <h4 class="lobby-sub">${_escapeHtml(t('lobbyPlayersHeading'))}</h4>
     ${pickerHtml('hp', r.hp)}${pickerHtml('dmg', r.dmg)}${pickerHtml('spd', r.spd)}
     <p class="lobby-reward" id="lobby-reward">${_escapeHtml(rewardLine(r))}</p>
+    <div class="share-code-box lobby-share">
+      <h4 class="lobby-sub">${_escapeHtml(t('shareCodeLobbyTitle'))}</h4>
+      <div class="share-code-row">
+        <input type="text" class="nickname-input share-code-input" id="lobby-code-input" maxlength="600" autocomplete="off" spellcheck="false" placeholder="${_escapeHtml(t('shareCodePaste'))}" aria-label="${_escapeHtml(t('shareCodePaste'))}" />
+        <button type="button" class="mini-action-btn" id="lobby-code-use">${_escapeHtml(t('shareCodeUse'))}</button>
+        <button type="button" class="mini-action-btn" id="lobby-code-copy">${_escapeHtml(t('shareCodeCopy'))}</button>
+      </div>
+      <p class="share-code-status" id="lobby-code-status" aria-live="polite">${_escapeHtml(game._lobbyCodeMsg || '')}</p>
+    </div>
     <div class="lobby-buttons">
       <button type="button" class="mini-action-btn" id="lobby-cancel-btn">${_escapeHtml(t('lobbyCancel'))}</button>
       <button type="button" class="mini-action-btn" id="lobby-create-btn">${_escapeHtml(t('lobbyCreate'))}</button>
@@ -120,6 +133,7 @@ export function bindLobbyForm(game, create) {
   if (!form || form._bound) return
   form._bound = true
   form.addEventListener('change', (e) => {
+    if (e.target.id === 'lobby-code-input') return
     const sel = e.target.closest('[data-pick]')
     if (sel) {
       const num = form.querySelector(`[data-pick-num="${sel.dataset.pick}"]`)
@@ -133,6 +147,9 @@ export function bindLobbyForm(game, create) {
     if (e.target.id === 'lobby-mode' || e.target.id === 'lobby-ring') renderLobbyForm(game)
     else document.getElementById('lobby-reward').textContent = rewardLine(game._lobbyDraft.rules)
   })
+  form.addEventListener('keydown', (e) => {
+    if (e.target.id === 'lobby-code-input' && e.key === 'Enter') useLobbyCode(game)
+  })
   form.addEventListener('input', (e) => {
     if (!e.target.matches('[data-pick-num]')) return
     game._lobbyDraft = readLobbyForm()
@@ -141,6 +158,8 @@ export function bindLobbyForm(game, create) {
   form.addEventListener('click', (e) => {
     if (e.target.closest('#lobby-cancel-btn')) showLobbyForm(game, false)
     else if (e.target.closest('#lobby-create-btn')) create(readLobbyForm())
+    else if (e.target.closest('#lobby-code-copy')) copyLobbyCode(game)
+    else if (e.target.closest('#lobby-code-use')) useLobbyCode(game)
   })
 }
 
@@ -149,4 +168,35 @@ export function rulesMessage(rules) {
   const chips = changedRules(rules).map(ruleChip)
   const m = rewardMult(rules)
   return [t('lobbyRulesInGame', { list: chips.length ? chips.join(', ') : t('lobbyRulesNormal') }), m < 1 ? t('lobbyRewardLess', { n: Math.round(m * 100) }) : ''].filter(Boolean).join(' ')
+}
+
+// Share codes (ShareCodes.js): the form's rules as a code, or a code into the form.
+function codeSay(game, key) {
+  game._lobbyCodeMsg = t(key)
+  const el = document.getElementById('lobby-code-status')
+  if (el) el.textContent = game._lobbyCodeMsg
+}
+
+async function copyLobbyCode(game) {
+  const d = readLobbyForm()
+  const code = lobbyCode(d.mode, d.rules)
+  if (await copyText(code)) codeSay(game, 'shareCodeCopiedFriend')
+  else {
+    const input = document.getElementById('lobby-code-input')
+    if (input) {
+      input.value = code
+      input.select()
+    }
+    codeSay(game, 'shareCodeCopyByHand')
+  }
+}
+
+// Fills the form from a code (name and password stay as typed).
+function useLobbyCode(game) {
+  const got = readLobbyCode(document.getElementById('lobby-code-input')?.value)
+  if (!got) return codeSay(game, 'shareCodeBad')
+  const now = readLobbyForm()
+  game._lobbyDraft = { ...now, mode: got.mode, rules: got.rules }
+  game._lobbyCodeMsg = t('shareCodeLobbyUsed')
+  renderLobbyForm(game)
 }

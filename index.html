@@ -2732,7 +2732,7 @@ Escape before dawn.</p>
             <p>The weekly World Goal is shared by all players. Its goal, target, reward and how long it runs can change at any time; the reward goes to players who helped (finished at least one game that added to it) once the world reaches the target, and can be claimed once per week. Its targets are guesses that may be too high to reach in a given week. Rewards, like coins, have no real-money value, and rewards gained by cheating or by changing the game or its save may be removed.</p>
 
             <h3>7. Clans</h3>
-            <p>A clan's leader can invite, accept, promote, remove members, or delete the clan. Clan XP and rankings reset every month. Clan names follow the same rules as everything else in Section 5.</p>
+            <p>A clan's leader can invite, accept, promote, remove members, or delete the clan. Clan XP and rankings reset every month. In Clan War every clan races on one board, each week and each month; the top clans can claim coin prizes once, prizes and points can change at any time, and cheating to win them isn't allowed. Clan names follow the same rules as everything else in Section 5.</p>
 
             <h3>8. Intellectual property and copyright</h3>
             <p>GayZ's code, artwork, and content are the developer's own work or used under licenses that permit it. You may play the game for personal, non-commercial use; you may not copy, redistribute, or claim GayZ's own code or original assets as your own.</p>
@@ -2799,7 +2799,7 @@ Escape before dawn.</p>
             <h3>Chat, clans, friends and the Market</h3>
             <ul>
               <li>Chat messages you send (Global, server and clan chat) are stored online with your nickname so other players can read them.</li>
-              <li>Clans store their name, members and roles, and the XP members earn this month.</li>
+              <li>Clans store their name, members and roles, and the XP members earn this month. In Clan War, the points you score for your clan this week and this month (and last week's and last month's, for the prizes) go on your public leaderboard entry so every clan's total can be added up.</li>
               <li>Friend requests, your friend list and your online status (online, in a game, or when you were last seen) are stored so your friends can see them.</li>
               <li>The homepage shows how many signed-in players are online right now. It's only a total, worked out from that same online status - no names - and choosing Offline as your status leaves you out of it.</li>
               <li>Market listings store the skin, price and seller's nickname, and who bought it once it sells.</li>
@@ -3374,7 +3374,13 @@ Escape before dawn.</p>
           </div>
           <div class="clan-subtab-page" id="clan-subpage-ranking">
             <h5 id="clan-ranking-heading">Clans</h5>
+            <div class="clan-board-tabs" id="clan-board-tabs" role="group">
+              <button type="button" class="mini-action-btn clan-board-btn active" data-clan-board="xp">Month XP</button>
+              <button type="button" class="mini-action-btn clan-board-btn" data-clan-board="week">War: Week</button>
+              <button type="button" class="mini-action-btn clan-board-btn" data-clan-board="month">War: Month</button>
+            </div>
             <p id="clan-reset-note"></p>
+            <div id="clan-war-top" hidden></div>
             <div id="clan-all-list"></div>
           </div>
         </div>

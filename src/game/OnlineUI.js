@@ -17,6 +17,7 @@ import { GLOBAL_KILLS_MILESTONE_STEP, POLL_ID, POLL_OPTIONS, _escapeHtml, _safeS
 import { t } from './i18n.js'
 import { clanMonthKey, currentClanXp } from './Xp.js'
 import { applyPublicPrivacy } from './SocialSettings.js'
+import { flushWarPoints, entryFields as clanWarFields } from './ClanWar.js'
 
 // Cloud Save panel open/close - a normal modal, same shared z-index/
 // display:flex rule every other panel uses.
@@ -348,6 +349,13 @@ export async function _pushOnlineStats(game) {
     entry.clanXp = currentClanXp(game.settings.clanXp, game.settings.clanId)
     entry.clanXpClan = game.settings.clanId
     entry.clanXpMonth = clanMonthKey()
+  }
+  // Clan War points this week / month (and the ones before, for the
+  // prizes) - ClanWar.js; the clan board adds these up like clan XP.
+  if (game.settings.clanId) {
+    flushWarPoints(game)
+    const cw = clanWarFields(game.settings.clanId)
+    if (cw) Object.assign(entry, cw)
   }
   entry.xp = _safeStatNumber(game.careerStats.xp)
   // Bio/Motto/Your Stats moved from Hidden to Shown to Public

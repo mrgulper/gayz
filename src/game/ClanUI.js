@@ -9,6 +9,7 @@ import * as CloudSync from './CloudSync.js'
 import { CLAN_RANKING_CACHE_MS, _escapeHtml, saveSettings } from './Game.js'
 import { t } from './i18n.js'
 import { currentClanXp, daysUntilClanReset } from './Xp.js'
+import { myPoints, fmtPts, daysLeftInWeek, claimablePrizes, markClaimed, lastWinner, flushWarPoints } from './ClanWar.js'
 
 export function _showClanSuggestions(game, list) {
   const box = document.getElementById('clan-invite-suggestions')
@@ -571,7 +572,7 @@ export function _fetchClanRanking(game) {
     }
     await Promise.all(Array.from({ length: Math.min(CLAN_FETCH_AT_ONCE, clans.length) }, worker))
     return clans
-      .map((c, i) => ({ ...c, memberCount: counts[i] ?? stats[i]?.memberCount ?? null, monthXp: stats[i]?.monthXp ?? 0 }))
+      .map((c, i) => ({ ...c, memberCount: counts[i] ?? stats[i]?.memberCount ?? null, monthXp: stats[i]?.monthXp ?? 0, weekPts: stats[i]?.weekPts ?? 0, monthPts: stats[i]?.monthPts ?? 0, lastWeekPts: stats[i]?.lastWeekPts ?? 0, lastMonthPts: stats[i]?.lastMonthPts ?? 0 }))
       .sort((a, b) => b.monthXp - a.monthXp)
   })()
   game._clanRankingCache = { at: Date.now(), promise }
@@ -598,8 +599,16 @@ function fmt(n) {
 // Game's idle preloads), then the fresh one if it had to be fetched again.
 export async function _renderClanRanking(game) {
   if (!game.clanAllList) return
+  bindClanBoardTabs(game)
+  // Fresh Clan War points of mine count on the next load.
+  if (game._clanWarDirty) {
+    flushWarPoints(game)
+    game._clanWarDirty = false
+    game._clanRankingDirty = true
+    game._clanRankingCache = null
+  }
   const resetNote = document.getElementById('clan-reset-note')
-  if (resetNote) resetNote.textContent = t('clanResetNote', { n: daysUntilClanReset() })
+  if (resetNote) resetNote.textContent = boardNote(game)
   const shown = game._clanRankingLast
   if (shown) fillClanRanking(game, shown)
   else game.clanAllList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveConnecting')}</p>`
@@ -608,11 +617,81 @@ export async function _renderClanRanking(game) {
   fillClanRanking(game, ranked)
 }
 
+// The ranking's three boards (2026-11-20, Clan War - ClanWar.js): this
+// month's XP (the old board), the Clan War week, the Clan War month.
+const BOARDS = { xp: 'monthXp', week: 'weekPts', month: 'monthPts' }
+function boardOf(game) {
+  return BOARDS[game._clanBoard] ? game._clanBoard : 'xp'
+}
+
+function boardNote(game) {
+  const b = boardOf(game)
+  if (b === 'xp') return t('clanResetNote', { n: daysUntilClanReset() })
+  const mine = myPoints(game.settings.clanId)
+  const left = b === 'week' ? t('clanWarWeekNote', { n: daysLeftInWeek() }) : t('clanWarMonthNote', { n: daysUntilClanReset() })
+  return game.settings.clanId ? `${left} ${t('clanWarYourPts', { n: fmtPts(b === 'week' ? mine.week : mine.month) })}` : left
+}
+
+function bindClanBoardTabs(game) {
+  const box = document.getElementById('clan-board-tabs')
+  if (!box) return
+  const names = { xp: 'clanBoardXp', week: 'clanBoardWeek', month: 'clanBoardMonth' }
+  for (const btn of box.querySelectorAll('[data-clan-board]')) {
+    btn.classList.toggle('active', btn.dataset.clanBoard === boardOf(game))
+    btn.setAttribute('aria-pressed', String(btn.dataset.clanBoard === boardOf(game)))
+    btn.textContent = t(names[btn.dataset.clanBoard])
+  }
+  if (box._bound) return
+  box._bound = true
+  box.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-clan-board]')
+    if (!btn) return
+    game._clanBoard = btn.dataset.clanBoard
+    game._renderClanRanking()
+  })
+}
+
+// Last week's / last month's winner, and my prize to claim (if any).
+function fillWarTop(game, ranked) {
+  const top = document.getElementById('clan-war-top')
+  if (!top) return
+  const b = boardOf(game)
+  if (b === 'xp') {
+    top.hidden = true
+    top.innerHTML = ''
+    return
+  }
+  const field = b === 'week' ? 'lastWeekPts' : 'lastMonthPts'
+  const win = lastWinner(ranked, field)
+  const prizes = claimablePrizes(ranked, game.settings.clanId).filter((p) => p.kind === b)
+  const line = win ? `<p class="clan-war-winner">${_escapeHtml(t(b === 'week' ? 'clanWarLastWeekWinner' : 'clanWarLastMonthWinner', { name: win.name, n: fmtPts(win[field]) }))}</p>` : ''
+  const claim = prizes.map((p) => `<button type="button" class="mini-action-btn clan-war-claim" data-prize="${_escapeHtml(p.id)}" data-coins="${p.coins}">${_escapeHtml(t('clanWarClaim', { place: p.place, n: p.coins }))}</button>`).join('')
+  top.innerHTML = line + claim
+  top.hidden = !line && !claim
+  if (!top._bound) {
+    top._bound = true
+    top.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-prize]')
+      if (!btn || !markClaimed(btn.dataset.prize)) return
+      const coins = Number(btn.dataset.coins) || 0
+      game.coins += coins
+      game._afterTradeChange?.()
+      game._renderCurrencyBar?.()
+      game._showHomepageToast?.(t('clanWarClaimed', { n: coins }))
+      btn.remove()
+    })
+  }
+}
+
 function fillClanRanking(game, ranked) {
+  fillWarTop(game, ranked)
   if (!ranked.length) {
     game.clanAllList.innerHTML = `<p>${t('clanListEmpty')}</p>`
     return
   }
+  const board = boardOf(game)
+  const field = BOARDS[board]
+  if (board !== 'xp') ranked = ranked.slice().sort((a, b) => (b[field] || 0) - (a[field] || 0))
   // Already in a clan - no server-side rule stops sending a join request to
   // a DIFFERENT clan while still a member of your own (sendJoinRequest just
   // writes a pending request doc), which would be a confusing way to end up
@@ -632,7 +711,7 @@ function fillClanRanking(game, ranked) {
         <span class="clan-list-rank">#${i + 1}</span>
         <span class="clan-list-name">${_escapeHtml(c.name)}${countLabel}</span>
         ${isMine ? action : ''}
-        <span class="clan-list-kills">${t('clanRankingXpLabel', { n: fmt(c.monthXp) })}</span>
+        <span class="clan-list-kills">${board === 'xp' ? t('clanRankingXpLabel', { n: fmt(c.monthXp) }) : t('clanWarPtsLabel', { n: fmtPts(c[field]) })}</span>
         ${isMine ? '' : action}
       </div>
     `

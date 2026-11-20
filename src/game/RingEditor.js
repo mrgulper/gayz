@@ -19,6 +19,7 @@ import { audioEngine } from './Audio.js'
 import { ICONS, parseKey, itemStats, owned, ownedList, loadBag, saveLoadout, fitLoadout, rarityColor, rarityNameKey, mergesAvailable, mergeItem, nextRarity, MERGE_N, MAX_SLOTS } from './RingItems.js'
 import { itemLabel } from './SpinRing.js'
 import { getKeyFor, keyLabel } from './Keybinds.js'
+import { ringCode, readRingCode, copyText } from './ShareCodes.js'
 
 // Numbers shown for an item, as i18n keys with their value.
 function statLines(st) {
@@ -109,6 +110,15 @@ export class RingEditor {
         <h3 class="ring-ed-bag-title"></h3>
         <div class="ring-ed-bag"></div>
         <button type="button" class="ring-ed-shop" data-ring="shop"></button>
+        <div class="share-code-box ring-ed-share">
+          <h3 class="ring-ed-share-title"></h3>
+          <div class="share-code-row">
+            <input type="text" class="nickname-input share-code-input" maxlength="400" autocomplete="off" spellcheck="false" />
+            <button type="button" class="mini-action-btn" data-ring="code-use"></button>
+            <button type="button" class="mini-action-btn" data-ring="code-copy"></button>
+          </div>
+          <p class="share-code-status" aria-live="polite"></p>
+        </div>
       </div>`
       document.body.appendChild(this.el)
     }
@@ -122,6 +132,8 @@ export class RingEditor {
       else if (act === 'bag') this.putIn(btn.dataset.key)
       else if (act === 'out') this.takeOut()
       else if (act === 'merge') this.merge(btn.dataset.all === '1' ? Infinity : 1)
+      else if (act === 'code-copy') this.copyCode()
+      else if (act === 'code-use') this.useCode()
       else if (act === 'shop') {
         this.close(false)
         this.s.shop?.openPanel('', 'ring')
@@ -129,6 +141,16 @@ export class RingEditor {
     }
     // Clicks and taps here never reach the game behind it.
     for (const ev of ['pointerdown', 'mousedown', 'touchstart', 'wheel']) this.el.addEventListener(ev, (e) => e.stopPropagation())
+    // Typing a code never moves you or closes the window.
+    const input = this.el.querySelector('.share-code-input')
+    if (input && !input._bound) {
+      input._bound = true
+      for (const ev of ['keydown', 'keyup']) input.addEventListener(ev, (e) => {
+        e.stopPropagation()
+        if (ev === 'keydown' && e.key === 'Enter') this.useCode()
+        if (ev === 'keydown' && e.key === 'Escape') this.close()
+      })
+    }
   }
 
   pickSlot(i) {
@@ -186,6 +208,40 @@ export class RingEditor {
     this.render()
   }
 
+  // Share codes (ShareCodes.js): copy my ring, or use a friend's.
+  _codeSay(key, params) {
+    const el = this.el?.querySelector('.share-code-status')
+    if (el) el.textContent = t(key, params)
+  }
+
+  async copyCode() {
+    const code = ringCode(this.s.ring.keys)
+    const input = this.el.querySelector('.share-code-input')
+    if (await copyText(code)) this._codeSay('shareCodeCopiedFriend')
+    else {
+      // No clipboard: the code goes in the box, picked, to copy by hand.
+      input.value = code
+      input.select()
+      this._codeSay('shareCodeCopyByHand')
+    }
+  }
+
+  useCode() {
+    const input = this.el.querySelector('.share-code-input')
+    const wanted = readRingCode(input.value)
+    if (!wanted) return this._codeSay('shareCodeBad')
+    // Only as many slots as I have; only items I own.
+    const want = wanted.slice(0, this.s.ring.keys.length)
+    while (want.length < this.s.ring.keys.length) want.push('')
+    const fitted = fitLoadout(want)
+    this._apply(fitted)
+    const asked = want.filter(Boolean).length
+    const got = fitted.filter(Boolean).length
+    input.value = ''
+    this._codeSay(got < asked ? 'shareCodeRingSome' : 'shareCodeRingAll', { n: got, of: asked })
+    this.render()
+  }
+
   _apply(keys) {
     const fitted = fitLoadout(keys)
     saveLoadout(fitted)
@@ -203,6 +259,11 @@ export class RingEditor {
     q('#ring-ed-title').textContent = t('ringEditorTitle')
     q('.ring-ed-hint').textContent = this.bm.touch?.enabled ? t('ringEditorHintTouch') : t('ringEditorHint', { key: keyLabel(getKeyFor('ringBag')) })
     q('.panel-close-btn').setAttribute('aria-label', t('ringEditorClose'))
+    q('.ring-ed-share-title').textContent = t('shareCodeRingTitle')
+    q('.share-code-input').placeholder = t('shareCodePaste')
+    q('.share-code-input').setAttribute('aria-label', t('shareCodePaste'))
+    q('[data-ring="code-use"]').textContent = t('shareCodeUse')
+    q('[data-ring="code-copy"]').textContent = t('shareCodeCopy')
     // The ring's slots.
     const slots = q('.ring-ed-slots')
     slots.textContent = ''

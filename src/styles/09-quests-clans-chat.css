@@ -1305,3 +1305,55 @@ html.hide-currency #menu-currency-bar.currency-peek .currency-item > span[id$='-
 .chat-staff-row .chat-staff-name { color: #f2c14e; font-weight: 800; }
 html.ui-theme-old .chat-staff-row .chat-staff-name { color: #8a5a00; }
 html.ui-theme-clean .chat-staff-row .chat-staff-name { color: #b07800; }
+
+/* Clan ranking boards: Month XP / Clan War week / month (ClanWar.js, 2026-11-20). */
+.clan-board-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+.clan-board-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  opacity: 0.7;
+}
+.clan-board-btn.active {
+  opacity: 1;
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+#clan-war-top {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+#clan-war-top[hidden] {
+  display: none;
+}
+.clan-war-winner {
+  margin: 0;
+  font-weight: 700;
+}
+
+/* Share codes: ring loadout and custom lobby rules (ShareCodes.js). */
+.share-code-box {
+  margin-top: 12px;
+}
+.share-code-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.share-code-row .share-code-input {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.share-code-status {
+  min-height: 1.2em;
+  margin: 6px 0 0;
+  font-size: 13px;
+  opacity: 0.85;
+}
