@@ -12,6 +12,7 @@
 import * as THREE from 'three'
 import { makeHat, disposeHat, HAT_BOX_COLORS } from './FunnyZombies.js'
 import { levelFromXp } from './Xp.js'
+import { BODY_WIDE } from './MenuAvatar3D.js'
 import { t } from './i18n.js'
 import { ownedWorldGoalRewards } from './WorldGoal.js'
 
@@ -112,12 +113,13 @@ export function makeCape(id) {
   const colors = COSMETICS[id]?.colors
   if (!colors) return null
   if (!capeGeo) {
-    capeGeo = new THREE.BoxGeometry(8, 1, 0.6)
+    capeGeo = new THREE.BoxGeometry(BODY_WIDE * 8, 1, 0.6)
     capeGeo.translate(0, -0.5, 0)
   }
   const cape = new THREE.Group()
   cape.name = 'cosmeticCape'
-  cape.position.set(0, 22, -2.4)
+  // Just behind the (widened) body's back.
+  cape.position.set(0, 22, -BODY_WIDE * 2 - 0.4)
   cape.rotation.x = 0.18
   const rows = 14
   for (let i = 0; i < rows; i++) {

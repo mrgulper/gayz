@@ -34,7 +34,7 @@ import * as THREE from 'three'
 import { handFov } from './GraphicsSettings.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { wearCosmetics, myWorn } from './Cosmetics.js'
-import { poseEmote, poseSit, sitDrop, endEmote } from './Emotes.js'
+import { poseEmote, poseSit, sitDrop, endEmote, walkLegs } from './Emotes.js'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { audioEngine } from './Audio.js'
 import { addGunLights, cloneViewmodel } from './Viewmodels.js'
@@ -83,6 +83,11 @@ const VIEW_GLIDE_FAST = 30
 const VIEW_GLIDE_SLOW = 4
 // ...and from behind, this much higher (blocks) - over your head.
 const VIEW_RISE = 0.6
+// The emote camera: how fast it glides round (per second) and how far
+// above your face it looks down from (radians).
+const EMOTE_CAM_RATE = 5
+const EMOTE_CAM_PITCH = 0.25
+const smoothStep = (k) => k * k * (3 - 2 * k)
 // Milliseconds per minimap draw spent on detailed open-world tiles (twice
 // that on the big map).
 const MAP_TILE_BUDGET_MS = 3
@@ -1763,7 +1768,13 @@ export class BuildTryMode {
   // gun you have, walking with you.
   _updateBody(dt) {
     // Couch Co-op: Player 2 sees you (CouchCoop.drawFrame hides it from your own eyes).
-    const show = this.active && (!!this.view || !!this.bm.survival?.couch?.joined) && !!this._armSkin
+    // The emote camera (applyView) glides round to your front while you
+    // emote standing still, and back when it ends or you walk.
+    const em = this.bm.survival?.active ? this.bm.survival.emotes : null
+    const camOn = !!em?.current && !this._seatEye && !this.camHeld && this.view !== 2 && Math.hypot(this.vel.x, this.vel.z) < 0.5
+    this._emoteCam = (this._emoteCam || 0) + ((camOn ? 1 : 0) - (this._emoteCam || 0)) * (1 - Math.exp(-EMOTE_CAM_RATE * dt))
+    if (this._emoteCam < 0.002) this._emoteCam = 0
+    const show = this.active && (!!this.view || this._emoteCam > 0.02 || !!this.bm.survival?.couch?.joined) && !!this._armSkin
     if (show && (!this._body || this._bodySkin !== this._armSkin)) this._buildBody()
     if (!this._body) return
     this._body.group.visible = show
@@ -1780,9 +1791,8 @@ export class BuildTryMode {
     // Hats & Capes (Cosmetics.js), in a game.
     const playing = this.bm.survival?.active
     wearCosmetics(body.char, playing ? myWorn(this.bm.game, 'hat') : '', playing ? myWorn(this.bm.game, 'cape') : '')
-    // An emote (Emotes.js) plays until you walk off.
+    // An emote (Emotes.js) keeps playing while you walk (legs walk).
     const emotes = playing ? this.bm.survival.emotes : null
-    if (emotes?.current && speed > 0.5) emotes.stop()
     // Sitting in a vehicle or on an animal (poseSit): legs out, hips on
     // the seat - no walking or emotes.
     if (this._seatEye && lp) {
@@ -1794,11 +1804,12 @@ export class BuildTryMode {
       return
     }
     const bob = poseEmote(lp, emotes?.current || '', performance.now() / 1000)
+    body.walk += dt * speed * 3.2
     if (bob !== null) {
       body.char.position.y += bob * body.char.scale.y
+      if (lp && speed > 0.5) walkLegs(lp, Math.sin(body.walk) * Math.min(1, speed / 2) * 0.7)
       return
     }
-    body.walk += dt * speed * 3.2
     const swing = Math.sin(body.walk) * Math.min(1, speed / 2) * 0.7
     if (lp) {
       lp.legR.rotation.x = swing
@@ -1850,15 +1861,48 @@ export class BuildTryMode {
   // Third person: moves the camera out to its spot for this frame's
   // drawing only (BuildMode.render) - everything else (shooting, using
   // doors) still works from your eyes. Returns how to put it back.
+  // While you emote, the camera glides round in front of you, looking
+  // back at your face (2026-11-20, Gaymi: "make it go to the like third
+  // person but looking back"), whatever view you were in.
   applyView() {
     // A kill cam holds the camera (camHeld): third person stays out of it.
-    if (!this.active || !this.view || this.camHeld) return null
+    const k = smoothStep(Math.min(1, this._emoteCam || 0))
+    if (!this.active || this.camHeld || (!this.view && k <= 0.001)) return null
     const cam = this.bm.camera
-    const B = this.B
     const eye = cam.position.clone()
     const quat = cam.quaternion.clone()
+    if (this.view) {
+      this._placeViewCam(cam, eye, quat, this.view)
+      this._smoothViewCam(cam)
+      if (this.view === 2) cam.lookAt(eye)
+    }
+    if (k > 0.001 && this.view !== 2) {
+      const fromPos = cam.position.clone()
+      const fromQuat = cam.quaternion.clone()
+      // Level with your face, a little above it (not tipped with where
+      // you were looking).
+      const e = new THREE.Euler().setFromQuaternion(quat, 'YXZ')
+      const front = new THREE.Quaternion().setFromEuler(new THREE.Euler(EMOTE_CAM_PITCH, e.y, 0, 'YXZ'))
+      this._placeViewCam(cam, eye, front, 2)
+      cam.lookAt(eye)
+      const toQuat = cam.quaternion.clone()
+      cam.position.lerpVectors(fromPos, cam.position, k)
+      cam.quaternion.slerpQuaternions(fromQuat, toQuat, k)
+    }
+    cam.updateMatrixWorld()
+    return () => {
+      cam.position.copy(eye)
+      cam.quaternion.copy(quat)
+      cam.updateMatrixWorld()
+    }
+  }
+
+  // Puts the camera at a third-person spot (view 1 behind, 2 in front)
+  // from your eyes, stopping short of a wall.
+  _placeViewCam(cam, eye, quat, view) {
+    const B = this.B
     const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(quat)
-    const sign = this.view === 1 ? -1 : 1
+    const sign = view === 1 ? -1 : 1
     // Stop short of the first solid block between your head and the spot.
     let dist = VIEW_DIST
     for (let d = 0.3; d <= VIEW_DIST; d += 0.1) {
@@ -1872,15 +1916,7 @@ export class BuildTryMode {
     }
     cam.position.copy(eye).addScaledVector(dir, dist * sign * B)
     // From behind, a little higher, so you look over your own head.
-    if (this.view === 1) cam.position.addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(quat), VIEW_RISE * Math.min(1, dist / VIEW_DIST) * B)
-    this._smoothViewCam(cam)
-    if (this.view === 2) cam.lookAt(eye)
-    cam.updateMatrixWorld()
-    return () => {
-      cam.position.copy(eye)
-      cam.quaternion.copy(quat)
-      cam.updateMatrixWorld()
-    }
+    if (view === 1) cam.position.addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(quat), VIEW_RISE * Math.min(1, dist / VIEW_DIST) * B)
   }
 
   // Settings > Controls > Camera Smoothness: the third-person camera
@@ -2673,7 +2709,8 @@ export class BuildTryMode {
 
   _renderOnTop(renderer) {
     // Deathmatch's kill cam (PartyDeathmatch.js) watches someone else.
-    if (this.hideGun) return
+    // The emote camera is out in front of you: no gun in your eyes.
+    if (this.hideGun || (this._emoteCam || 0) > 0.05) return
     const cam = this.bm.camera
     this._gunCamera.aspect = cam.aspect
     // Portrait phones (2026-10-27): at 70 degrees tall the view is only a

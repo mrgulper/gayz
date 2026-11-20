@@ -335,6 +335,10 @@ function _rankOverlay(mesh, rank) {
   mesh.material.polygonOffsetUnits = -rank
 }
 
+// How much wider (and deeper) the body, arms and legs are than a plain
+// Minecraft-shaped skin. Capes (Cosmetics.makeCape) follow it.
+export const BODY_WIDE = 1.25
+
 export function buildTexturedCharacter(skin) {
   const { texture, width, height } = skin
   const legacy = height <= 32
@@ -346,10 +350,12 @@ export function buildTexturedCharacter(skin) {
 
   const head = _texturedBoxMesh(8, 8, 8, 0, 0, texture, width, height, false)
   head.position.y = 26
+  head.userData.isHead = true
   group.add(head)
   if (overlayFor('head')) {
     const hat = _texturedBoxMesh(8, 8, 8, OVERLAY_ORIGINS.head[0], OVERLAY_ORIGINS.head[1], texture, width, height, false, HAT_INFLATE, true)
     hat.position.y = 26
+    hat.userData.isHead = true
     group.add(hat)
   }
 
@@ -392,6 +398,20 @@ export function buildTexturedCharacter(skin) {
     ? _buildLimbPivot(4, 12, 4, 0, 16, texture, width, height, true, -2, 10)
     : _buildLimbPivot(4, 12, 4, 16, 48, texture, width, height, false, -2, 10, overlayFor('leftLeg'), 3)
   group.add(legL)
+
+  // Chunkier body (2026-11-20, Gaymi: "the character is very skinny
+  // compared to bloxd"): the torso, arms and legs are BODY_WIDE times
+  // wider and deeper; the head and the height stay. Each limb's box is
+  // widened inside its pivot (not the pivot itself), so a gun held in the
+  // hand keeps its shape; the pivots move out to stay flush.
+  for (const part of group.children) {
+    if (part.userData.isHead) continue
+    if (part.isMesh) part.scale.set(BODY_WIDE, 1, BODY_WIDE)
+    else {
+      part.position.x *= BODY_WIDE
+      for (const box of part.children) box.scale.set(BODY_WIDE, 1, BODY_WIDE)
+    }
+  }
 
   // Exposed for a caller that wants to animate a walk cycle (third-person
   // bodies, other players, camp NPCs) - each is that limb's OWN pivot, so rotating
