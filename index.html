@@ -2717,7 +2717,7 @@ Escape before dawn.</p>
             </ul>
 
             <h3>5. Acceptable use</h3>
-            <p>Some things you make in GayZ are seen by other players: your nickname, bio and Player ID, chat messages (Global, server and clan chat), clan names, Market listings, Gallery posts and comments, GayZ TV clips (YouTube links and GIFs), Photo Postcards (seen by the friend you send them to), maps you share or build together with others, the spray tags you draw and spray in a server, and - in the World Map mode on a server - the parts of the map you've explored, which the other players in that game get added to their own map. When using GayZ, you agree not to:</p>
+            <p>Some things you make in GayZ are seen by other players: your nickname, bio and Player ID, chat messages (Global, server and clan chat), clan names, Market listings, Gallery posts and comments, GayZ TV clips (YouTube links and GIFs), Photo Postcards, gifts and challenges (seen by the friend you send them to), maps you share or build together with others, the spray tags you draw and spray in a server, and - in the World Map mode on a server - the parts of the map you've explored, which the other players in that game get added to their own map. When using GayZ, you agree not to:</p>
             <ul>
               <li>Use your nickname, bio, chat, clan name, posts, comments, shared maps, spray tags or any other field to harass anyone, impersonate someone else, or post personal information (yours or anyone else's);</li>
               <li>Post anything hateful, sexual, violent toward real people, or that you don't have the right to share (like someone else's artwork in a skin or Gallery post);</li>
@@ -2814,6 +2814,7 @@ Escape before dawn.</p>
               <li>Gallery posts (skins, maps and photos you take in Photo Mode) store the picture you post, its title, your nickname, likes, dislikes and comments - anyone can see them. Each like or dislike is saved under your account so you can only vote once per post.</li>
               <li>GayZ TV clips store the YouTube video link (just its video ID) or the GIF you post, a small picture of it, its title, your nickname and when you posted it - anyone can see them. We also keep how many clips you posted today (for the daily limit) and each report, saved under the reporting account so each player can report a clip once. Watching a YouTube clip loads it from YouTube (youtube-nocookie.com), which has its own privacy policy.</li>
               <li>Photo Postcards you send to a friend store the photo, your short note, its title, your nickname and when you sent it, in that friend's mailbox. Only they can read it, and they can delete it.</li>
+              <li>Gifts and challenges you send to a friend store what you sent (coins, a ring item and how many, or the challenge's goal), your short note, your nickname and the day you sent it, in that friend's Gifts &amp; Challenges box until they open, accept or turn it down. Only they can read it. Challenges you accept are kept on your device and in your Cloud Save.</li>
               <li>Maps you share get a code and are stored online so anyone can play them; Build Together rooms store the edits and each player's spot while you build.</li>
               <li>When you play on a server, your position, skin and nickname are sent to the other players in it while you play, along with what you hold, the hat and cape you wear, the emote you play, whether you're sitting in a vehicle, the boats, helicopters, hot-air balloons and jet skis you put down, the map pins you share (where they are and whether they're for everyone or friends only; pins for friends only are sent only to the players in the server who are on your friends list), the spray tags you spray (your drawing and where it is), the blocks you place and break, where your shots splat paint in Paint Wars, the stars you give other players' builds in Build Battle, your putts in Zombie Mini-Golf, your votes (and, if you're the Werewolf, your knock-outs) in Werewolf Night, your disguise and finds in Prop Hunt, how fast you pull in Tug of War, your gravestone and the zombies you mark while you're a ghost, how many zombies you've taken down this game (for their kill feed), the items in your spin ring and how far out it spins, your ring's hits on other players when a custom lobby has friendly fire on, and what you say in Global chat (shown over your head). A game you start from the homepage is a server from the start: friends can join it by its link, and it's listed in the Global server list (with your nickname in its name) so other players can join too - unless Who Can Join My Server is set to Link Only or Nobody. It's deleted when you leave.</li>
                <li>The developer can join any server to check on it or say hi: shown with a gold OWNER tag and crown, or without showing up to the players at all (to watch for cheating and bad behavior). Either way, they see the same things the players in that server see.</li>
@@ -3295,6 +3296,11 @@ Escape before dawn.</p>
                   <button id="delete-all-requests-btn" class="mini-action-btn" type="button" style="display: none">Delete All</button>
                 </div>
                 <div id="friend-requests-list"></div>
+                <!-- Gift Box + Friend Challenges (FriendMail.js) -->
+                <h3 id="friend-mail-heading" class="friend-mail-heading">Gifts &amp; Challenges</h3>
+                <div id="friend-mail-list"></div>
+                <h3 id="friend-challenges-heading" class="friend-mail-heading">Your Challenges</h3>
+                <div id="friend-challenges-list"></div>
               </div>
               <div id="friends-col-list">
                 <div id="friends-list-header">
@@ -3413,6 +3419,33 @@ Escape before dawn.</p>
               <p id="other-profile-notes-hint">Only you can see this.</p>
               <textarea id="other-profile-notes-input" maxlength="250" placeholder="Write a private note about this player..."></textarea>
             </div>
+          </div>
+          <!-- Gift Box + Friend Challenges (FriendMail.js): only on a friend's profile, signed in. -->
+          <div id="friend-mail-actions" hidden>
+            <div class="friend-mail-buttons">
+              <button type="button" id="friend-gift-btn" class="mini-action-btn">Send Gift</button>
+              <button type="button" id="friend-challenge-btn" class="mini-action-btn">Challenge</button>
+            </div>
+            <div id="friend-gift-form" class="friend-mail-form" hidden>
+              <label><span id="friend-gift-coins-label">Coins</span><input type="number" id="friend-gift-coins" class="nickname-input" min="0" max="500" inputmode="numeric" /></label>
+              <label><span id="friend-gift-item-label">Ring item</span><select id="friend-gift-item"></select></label>
+              <label><span id="friend-gift-count-label">How many</span><input type="number" id="friend-gift-count" class="nickname-input" min="0" max="5" inputmode="numeric" /></label>
+              <input type="text" id="friend-gift-note" class="nickname-input" maxlength="80" />
+              <div class="friend-mail-buttons">
+                <button type="button" id="friend-gift-send" class="mini-action-btn">Send</button>
+                <button type="button" id="friend-gift-cancel" class="mini-action-btn">Cancel</button>
+              </div>
+            </div>
+            <div id="friend-challenge-form" class="friend-mail-form" hidden>
+              <label><span id="friend-challenge-stat-label">Goal</span><select id="friend-challenge-stat"></select></label>
+              <label><span id="friend-challenge-target-label">Number to beat</span><input type="number" id="friend-challenge-target" class="nickname-input" min="1" max="100000" inputmode="numeric" /></label>
+              <input type="text" id="friend-challenge-note" class="nickname-input" maxlength="80" />
+              <div class="friend-mail-buttons">
+                <button type="button" id="friend-challenge-send" class="mini-action-btn">Send</button>
+                <button type="button" id="friend-challenge-cancel" class="mini-action-btn">Cancel</button>
+              </div>
+            </div>
+            <p id="friend-mail-status"></p>
           </div>
         </div>
       </div>

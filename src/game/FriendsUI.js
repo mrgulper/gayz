@@ -10,6 +10,7 @@ import { FRIEND_OFFLINE_THRESHOLD_MS, FRIEND_ONLINE_THRESHOLD_MS, FRIEND_STATUS_
 import { t } from './i18n.js'
 import { setNavBadge } from './NavBadges.js'
 import { MONEY_HIDDEN } from './SocialSettings.js'
+import { showFriendMailActions } from './FriendMail.js'
 
 // "Your Friends" list - now populated only by accepting an incoming
 // friend request (see _respondToFriendRequest), not by manually typing a
@@ -94,6 +95,8 @@ export function _showOtherProfileLoading(game, fallbackName) {
   // _renderOtherProfileEntry's own !entry branch), only shown once
   // there's an actual entry+playerId to attach a Notes key to.
   if (game.otherProfileBioMotto) game.otherProfileBioMotto.style.display = 'none'
+  // Send Gift / Challenge (FriendMail.js) - shown again once the entry says whose profile this is.
+  showFriendMailActions(game, null)
 }
 
 // Same field set as the Profile panel's own "Shown to Public" tab (see
@@ -126,6 +129,7 @@ export function _renderOtherProfileEntry(game, entry, fallbackName) {
   if (game.otherProfileRegionRow) game.otherProfileRegionRow.style.display = regionKey ? 'flex' : 'none'
   if (regionKey && game.otherProfileRegionValue) game.otherProfileRegionValue.textContent = t(regionKey)
   renderOtherProfileClan(entry)
+  showFriendMailActions(game, entry.uid)
   game._renderOtherProfilePublicFields(entry)
   game.otherProfileStats.style.display = 'block'
 }
