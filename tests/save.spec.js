@@ -267,3 +267,150 @@ test('sign-in question opens on General; keeping this device uploads it', async 
   expect(r.questionHidden).toBe(true)
   expect(r.cloudCoins).toBe(7)
 })
+
+// Map Editor builds in Cloud Save (CloudBuilds.js, 2026-11-20): pure rules
+// with an in-memory "two devices + one cloud" setup - no browser needed.
+test('cloud builds: two devices end up with every build, none lost', async () => {
+  const { syncBuilds, decideBuildKey, mergePlayBest, mergeMap3Edits, hashValue } = await import('../src/game/CloudBuilds.js')
+  expect(decideBuildKey('a', 'a', undefined)).toBe('same')
+  expect(decideBuildKey('a', 'b', 'a')).toBe('pull')
+  expect(decideBuildKey('b', 'a', 'a')).toBe('push')
+  expect(decideBuildKey(null, 'a', undefined)).toBe('pull')
+  expect(decideBuildKey('a', null, undefined)).toBe('push')
+  expect(decideBuildKey('a', 'b', undefined)).toBe('clash')
+  expect(JSON.parse(mergePlayBest('{"1":5,"2":9}', '{"1":7,"3":2}'))).toEqual({ 1: 7, 2: 9, 3: 2 })
+  const m3 = JSON.parse(mergeMap3Edits(
+    JSON.stringify({ removed: ['1,1,1'], placed: [{ x: 0, y: 0, z: 0, type: 'stone' }] }),
+    JSON.stringify({ removed: ['2,2,2'], placed: [{ x: 0, y: 0, z: 0, type: 'dirt' }, { x: 5, y: 0, z: 5, type: 'wood' }] }),
+  ))
+  expect(m3.removed.sort()).toEqual(['1,1,1', '2,2,2'])
+  expect(m3.placed).toEqual([{ x: 0, y: 0, z: 0, type: 'stone' }, { x: 5, y: 0, z: 5, type: 'wood' }])
+
+  // One fake cloud, two fake devices.
+  const cloud = { index: {}, docs: {} }
+  const backend = {
+    fetchBuildIndex: async () => JSON.parse(JSON.stringify(cloud.index)),
+    fetchBuildDocs: async (_uid, keys) => Object.fromEntries(keys.map((k) => [k, cloud.docs[k] ?? null])),
+    pushBuild: async (_uid, key, value, expected, h) => {
+      if ((cloud.index[key]?.h ?? null) !== expected) return false
+      const at = Date.now()
+      cloud.index[key] = { h: value === null ? null : h, at }
+      if (value === null) delete cloud.docs[key]
+      else cloud.docs[key] = value
+      return at
+    },
+  }
+  const device = (init) => {
+    const m = new Map(Object.entries(init))
+    const storage = { get length() { return m.size }, key: (i) => [...m.keys()][i], getItem: (k) => (m.has(k) ? m.get(k) : null) }
+    const io = { storage, setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k), uid: 'alice', backend }
+    return { m, sync: (opts = {}) => syncBuilds({ ...io, ...opts }) }
+  }
+  // Both devices had a build in slot 0 before syncing existed, plus best waves.
+  const pc = device({ 'buildmode-slot-0': 'PC castle', 'buildmode-thumb-0': 'pc.jpg', 'buildmode-play-best': '{"0":4}', 'gayz-coins': '1' })
+  const phone = device({ 'buildmode-slot-0': 'Phone house', 'buildmode-thumb-0': 'phone.jpg', 'buildmode-play-best': '{"0":9}' })
+  const r1 = await pc.sync()
+  expect(r1.pushed).toBe(3)
+  expect(Object.keys(cloud.docs).sort()).toEqual(['buildmode-play-best', 'buildmode-slot-0', 'buildmode-thumb-0'])
+  // The phone keeps both castles: the cloud's in slot 0, its own moved to slot 1.
+  await phone.sync()
+  expect(phone.m.get('buildmode-slot-0')).toBe('PC castle')
+  expect(phone.m.get('buildmode-thumb-0')).toBe('pc.jpg')
+  expect(phone.m.get('buildmode-slot-1')).toBe('Phone house')
+  expect(phone.m.get('buildmode-thumb-1')).toBe('phone.jpg')
+  expect(JSON.parse(phone.m.get('buildmode-play-best'))).toEqual({ 0: 9 })
+  expect(cloud.docs['buildmode-slot-1']).toBe('Phone house')
+  // Back on the PC: the phone's house and best wave arrive.
+  await pc.sync()
+  expect(pc.m.get('buildmode-slot-1')).toBe('Phone house')
+  expect(JSON.parse(pc.m.get('buildmode-play-best'))).toEqual({ 0: 9 })
+  // Upload-only (background) syncs never write into the device.
+  phone.m.set('buildmode-slot-2', 'Phone tower')
+  await phone.sync()
+  pc.m.delete('buildmode-slot-1')
+  const bg = await pc.sync({ apply: false })
+  expect(bg.applied).toBe(0)
+  expect(pc.m.has('buildmode-slot-2')).toBe(false)
+  // ...and deleting a slot on one device deletes it everywhere.
+  expect(cloud.docs['buildmode-slot-1']).toBeUndefined()
+  await phone.sync()
+  expect(phone.m.has('buildmode-slot-1')).toBe(false)
+  // Download-only (before the game starts) never uploads.
+  pc.m.set('buildmode-sky', 'night')
+  const pre = await pc.sync({ push: false })
+  expect(pre.pushed).toBe(0)
+  expect(pc.m.get('buildmode-slot-2')).toBe('Phone tower')
+  expect(cloud.docs['buildmode-sky']).toBeUndefined()
+  // Too big for one cloud doc: stays on the device, reported.
+  pc.m.set('buildmode-slot-3', 'x'.repeat(950000))
+  expect((await pc.sync()).tooBig).toEqual(['buildmode-slot-3'])
+  // Non-build keys are never touched by this sync.
+  expect(cloud.docs['gayz-coins']).toBeUndefined()
+  expect(hashValue('abc')).toBe(hashValue('abc'))
+})
+
+// In the real game: a signed-in player's build change is uploaded by the
+// normal background sync, and the signed-out warning sits on the
+// character only while signed out.
+test('cloud builds: a saved build uploads; warning only when signed out', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const warn = await page.evaluate(async () => {
+    const g = window.__game
+    await g._authReadyPromise
+    g._renderSignInFooters()
+    const el = document.getElementById('home-signin-warning')
+    return { hidden: el.hidden, text: el.textContent }
+  })
+  // The test page is signed out.
+  expect(warn.hidden).toBe(false)
+  expect(warn.text).toContain('Not signed in')
+  await installFakeCloud(page, 'alice', null)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const cloud = { index: {}, docs: {} }
+    Object.assign(g.__cloudBackendForTests, {
+      fetchBuildIndex: async () => JSON.parse(JSON.stringify(cloud.index)),
+      fetchBuildDocs: async (_u, keys) => Object.fromEntries(keys.map((k) => [k, cloud.docs[k] ?? null])),
+      pushBuild: async (_u, key, value, expected, h) => {
+        if ((cloud.index[key]?.h ?? null) !== expected) return false
+        cloud.index[key] = { h, at: Date.now() }
+        cloud.docs[key] = value
+        return Date.now()
+      },
+    })
+    localStorage.setItem('buildmode-slot-4', 'my build')
+    clearTimeout(g._changeSyncTimer)
+    const dirty = JSON.parse(localStorage.getItem('gayz-build-sync')).dirty['buildmode-slot-4'] > 0
+    // The same upload-only sync a signed-in page runs in the background.
+    await g._checkForNewerCloudSave()
+    g._renderSignInFooters()
+    return { dirty, uploaded: cloud.docs['buildmode-slot-4'], meta: JSON.parse(localStorage.getItem('gayz-build-sync')), warnHidden: document.getElementById('home-signin-warning').hidden, synced: Object.keys(window.__fakeCloud.cloud.data || {}).includes('gayz-build-sync') }
+  })
+  expect(r.dirty).toBe(true)
+  expect(r.uploaded).toBe('my build')
+  expect(r.meta.dirty['buildmode-slot-4']).toBeUndefined()
+  // Signed in now: no warning; the bookkeeping key never goes into the main save.
+  expect(r.warnHidden).toBe(true)
+  expect(r.synced).toBe(false)
+})
+
+// Another device's build arrives when the page loads (before the game is
+// built), with nothing uploaded during that pull.
+test('cloud builds: page load brings in another device\'s build', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('seeded')) return
+    sessionStorage.setItem('seeded', '1')
+    localStorage.setItem('gayz-cloud-last-sync', '1')
+    window.__buildPushes = 0
+    window.__cloudPreBootBackendForTests = {
+      getUid: async () => 'alice',
+      fetchCloudSave: async () => null,
+      fetchBuildIndex: async () => ({ 'buildmode-slot-7': { h: 'from-phone', at: 5 } }),
+      fetchBuildDocs: async (_u, keys) => Object.fromEntries(keys.map((k) => [k, k === 'buildmode-slot-7' ? 'phone build' : null])),
+      pushBuild: async () => { window.__buildPushes++; return 1 },
+    }
+  })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(() => ({ slot: localStorage.getItem('buildmode-slot-7'), pushes: window.__buildPushes, base: JSON.parse(localStorage.getItem('gayz-build-sync')).base['buildmode-slot-7'] }))
+  expect(r).toEqual({ slot: 'phone build', pushes: 0, base: 'from-phone' })
+})

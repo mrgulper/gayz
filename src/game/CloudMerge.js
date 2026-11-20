@@ -41,6 +41,8 @@ export const DEVICE_ONLY_KEYS = new Set([
   // Settings > General > Your Settings Changes (SettingsLog.js): this
   // browser's own list.
   'gayz-settings-log',
+  // CloudBuilds.js: this device's build-sync bookkeeping.
+  'gayz-build-sync',
 ])
 
 // Keys whose numeric fields are running totals/balances - when both devices

@@ -15,6 +15,7 @@
 // the game module's own state is touched.
 import * as CloudSync from './CloudSync.js'
 import { mergeSaves, readBase, stripDeviceOnly, syncableSnapshot, writeBase } from './CloudMerge.js'
+import { syncBuilds } from './CloudBuilds.js'
 
 const CLOUD_LAST_SYNC_KEY = 'gayz-cloud-last-sync'
 const LAST_LOCAL_CHANGE_KEY = 'gayz-last-local-change'
@@ -82,7 +83,8 @@ export function hasStoredFirebaseSession() {
 
 // Resolves once finished, skipped or timed out - never rejects, never
 // blocks longer than PRE_BOOT_TIMEOUT_MS. `backend` is a test seam
-// (window.__cloudPreBootBackendForTests: { getUid, fetchCloudSave }).
+// (window.__cloudPreBootBackendForTests: { getUid, fetchCloudSave }, plus
+// CloudBuilds' fetchBuildIndex/fetchBuildDocs to test builds).
 export function preBootCloudSync() {
   const testBackend = window.__cloudPreBootBackendForTests
   if (!testBackend && !CloudSync.isConfigured()) return Promise.resolve('skipped')
@@ -105,8 +107,24 @@ export function preBootCloudSync() {
     // to this device's save (OnlineUI._afterCloudSignIn), not a silent merge.
     const { base, foreign } = readBase(localStorage, uid)
     if (foreign) return 'other-account'
-    const cloud = await (testBackend || CloudSync).fetchCloudSave(uid)
-    if (!cloud || cancelled) return 'no-cloud'
+    const backend = testBackend || CloudSync
+    // Map Editor builds (CloudBuilds.js), downloaded alongside - download
+    // only; uploads happen in the normal syncs after boot.
+    const buildsPull = syncBuilds({
+      storage: localStorage,
+      setItem: (k, v) => localStorage.setItem(k, v),
+      removeItem: (k) => localStorage.removeItem(k),
+      uid,
+      backend,
+      apply: true,
+      push: false,
+      isCancelled: () => cancelled,
+    }).catch(() => null)
+    const cloud = await backend.fetchCloudSave(uid)
+    if (!cloud || cancelled) {
+      await buildsPull
+      return 'no-cloud'
+    }
     const local = syncableSnapshot(localStorage)
     const remote = stripDeviceOnly(cloud.data)
     const localChangeTime = Number(localStorage.getItem(LAST_LOCAL_CHANGE_KEY)) || 0
@@ -123,6 +141,7 @@ export function preBootCloudSync() {
     // made here, so the first sync after boot uploads them (and totals
     // are only added once - see CloudMerge.js).
     writeBase(localStorage, remote, uid)
+    await buildsPull
     return 'ok'
   })().catch(() => 'failed')
   const timeout = new Promise((resolve) => setTimeout(() => {

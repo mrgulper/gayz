@@ -1968,12 +1968,10 @@ export function _bindGeneralSettings(game) {
     game.backupReminderToggle.addEventListener('change', () => {
       game.settings.backupReminder = game.backupReminderToggle.checked
       saveSettings(game.settings)
+      game._renderSignInFooters?.()
     })
-    // Nudges at most once a week - lastExportAt is set by _exportSave().
-    const DAYS_MS = 7 * 24 * 60 * 60 * 1000
-    if (game.settings.backupReminder && Date.now() - (game.settings.lastExportAt || 0) > DAYS_MS) {
-      game._showHomepageToast(t('backupReminderToast'))
-    }
+    // The old "back up your save" pop-up lived here; it's now the
+    // signed-out warning on the homepage character (renderSignInFooters).
   }
 
   if (game.saveSizeValueEl) {
