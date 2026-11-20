@@ -40,6 +40,7 @@
 import * as THREE from 'three'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
+import { addWarPoints, botPts, PLAYER_PTS } from './ClanWar.js'
 import { MOB_HEIGHT } from './PlayRules.js'
 import { DM_MAPS, DEFAULT_DM_MAP, dmMapId, buildEdge } from './DeathmatchMaps.js'
 
@@ -258,6 +259,11 @@ export class PartyDeathmatch {
     this.feed.push({ n: ++this.feedN, k: id, v: id })
     this.feed = this.feed.slice(-FEED_N)
     if (b) this.placeBot(b)
+  }
+
+  // A bot (ids b1, b2...), for Clan War points.
+  _isBot(id) {
+    return this.pm.bots.has(id) || /^b\d+$/.test(String(id))
   }
 
   // A kill by `by` (Team Deathmatch adds it to their team).
@@ -710,6 +716,8 @@ export class PartyDeathmatch {
     for (const f of this.feed) {
       if (f.n <= this._seenFeed) continue
       if (f.k === me) {
+        // Clan War (ClanWar.js): a real player = 1 point, a bot by its gun.
+        if (f.v !== me) addWarPoints(s.bm.game, this._isBot(f.v) ? botPts(BOT_GUNS[pm.bots.get(f.v)?.w]) : PLAYER_PTS)
         s._message(t('dmYouKilled', { name: pm._name(f.v) }), 1.5)
         try { audioEngine.playSpecial?.('chime') } catch { /* no audio */ }
         this._streak++
