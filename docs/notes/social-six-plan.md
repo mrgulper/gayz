@@ -18,7 +18,7 @@ Gaymi's answers:
 | 1 | Gift Box + Friend Challenges (FriendMail.js, `friendMail/{toUid}/inbox`, tests/friend-mail.spec.js) | done |
 | 2 | Clan War + Share codes (ClanWar.js, ShareCodes.js, tests/clan-war.spec.js) | done |
 | 3 | Profile Guestbook + Message in a Bottle (SocialNotes.js, `guestbook/{owner}/entries`, `bottles`, tests/social-notes.spec.js) | done |
-| 4 | Rules file + paste walk-through | todo |
+| 4 | Rules file + paste walk-through (`~/Desktop/GayZ/firestore-rules-2026-11-20-social.txt` = CloudSync.js rules, checked equal) | file written, paste waiting |
 
 Read-cost guard: every list loads only on click, small `limit()`s, bottles a few per day.
 
@@ -50,3 +50,9 @@ throw cap; the find cap is local (`gayz-bottles`, also keeps the last 10 found).
 `rnd >= random` query (limit 5), wraps to 0, skips own/reported/already seen. Report = anyone can
 flip `reported` false -> true (Gaymi: reported = hidden, so 1 report hides). Normal swear filter
 before send, Strict on show, 100 letters. Old bottles are never cleaned up (fine for now).
+
+Batch 4 notes: the social file = live 11-20-builds file + cw* bounds + friendMail + guestbook +
+bottles, byte-for-byte the same as FIRESTORE_SECURITY_RULES (brackets balanced; no local rules
+compiler, so the Console's Publish is the syntax check). Known gap: once a gift is opened (doc
+deleted) the same sender can send another that day, so the 500-coin cap is per unopened gift,
+not strictly per day. Low stakes - coins are client-side anyway.
