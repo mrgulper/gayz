@@ -133,6 +133,13 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Map Editor builds (CloudBuilds.js, 2026-11-20): one doc per build
+    // key plus a small '_index' of every key's hash - only the owner.
+    match /saves/{userId}/builds/{key} {
+      allow read, write: if request.auth != null && request.auth.uid == userId
+        && (key == '_index' || key.matches('buildmode-[a-z0-9-]+'));
+    }
+
     // Custom Player IDs bought in the Shop (2026-11-15, ShopIdentity.js):
     // playerIds/{ID} says which account owns that ID. Only "create" is
     // allowed, never "update", so a taken ID can't be claimed by anyone
@@ -167,6 +174,9 @@ service cloud.firestore {
         && request.resource.data.bestKills is int && request.resource.data.bestKills >= 0 && request.resource.data.bestKills < 1000000
         && request.resource.data.bestKillStreak is int && request.resource.data.bestKillStreak >= 0 && request.resource.data.bestKillStreak < 100000
         && request.resource.data.achievementCount is int && request.resource.data.achievementCount >= 0 && request.resource.data.achievementCount <= 1000
+        // The shown name (2026-11-19 Firebase check): was never checked, so
+        // anyone could write a huge one. Nicknames are 16 at most.
+        && (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 24))
         && (!('region' in request.resource.data) || request.resource.data.region in ['na', 'eu', 'asia', 'sa', 'oceania', 'africa'])
         && (!('playerId' in request.resource.data) || (request.resource.data.playerId is string && request.resource.data.playerId.matches('[A-Z0-9]{5,10}')
           && (!exists(/databases/$(database)/documents/playerIds/$(request.resource.data.playerId))
@@ -530,7 +540,8 @@ service cloud.firestore {
     match /weeklyLeaderboard/{week}/entries/{userId} {
       allow read: if true;
       allow write: if request.auth != null && request.auth.uid == userId
-        && request.resource.data.progress is int && request.resource.data.progress >= 0 && request.resource.data.progress < 1000000;
+        && request.resource.data.progress is int && request.resource.data.progress >= 0 && request.resource.data.progress < 1000000
+        && (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 24));
     }
 
     match /stats/global {
@@ -670,6 +681,82 @@ service cloud.firestore {
       allow delete: if request.auth != null && (request.auth.uid == resource.data.uid
         || request.auth.uid == get(/databases/$(database)/documents/gallery/$(postId)).data.creatorUid);
       allow update: if false;
+    }
+
+    // GayZ TV (GayzTV.js, 2026-11-19): YouTube links (video id only) and
+    // small GIFs. tvClips = small list docs; tvGifs/{id} = a GIF's bytes;
+    // tvDaily/{uid} = today's post count (max 3, day = UTC days since 1970);
+    // tvBans/{uid} = { until (0 = forever) } players the owner stopped from
+    // posting until then (set from the server side, which skips these rules). Reports: one per account,
+    // counter only +1 with it; the game hides a clip at 10.
+    match /tvDaily/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['day', 'count', 'at'])
+        && request.resource.data.day == math.floor(request.time.toMillis() / 86400000)
+        && request.resource.data.at is int
+        && request.resource.data.count is int
+        && (resource == null
+          ? request.resource.data.count == 1
+          : request.resource.data.at > resource.data.at
+            && (resource.data.day == request.resource.data.day
+              ? request.resource.data.count == resource.data.count + 1 && request.resource.data.count <= 3
+              : request.resource.data.count == 1));
+      allow delete: if false;
+    }
+
+    match /tvBans/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /tvClips/{clipId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && (!exists(/databases/$(database)/documents/tvBans/$(request.auth.uid))
+          || (get(/databases/$(database)/documents/tvBans/$(request.auth.uid)).data.until != 0
+            && get(/databases/$(database)/documents/tvBans/$(request.auth.uid)).data.until < request.time.toMillis()))
+        && request.resource.data.creatorUid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/tvDaily/$(request.auth.uid)).data.at == request.resource.data.createdAt
+        && request.resource.data.createdAt is int
+        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 40
+        && request.resource.data.creatorNickname is string && request.resource.data.creatorNickname.size() > 0 && request.resource.data.creatorNickname.size() <= 24
+        && request.resource.data.reports == 0
+        && ((request.resource.data.kind == 'youtube'
+            && request.resource.data.keys().hasOnly(['kind', 'title', 'creatorUid', 'creatorNickname', 'createdAt', 'reports', 'youtubeId'])
+            && request.resource.data.youtubeId is string && request.resource.data.youtubeId.matches('^[A-Za-z0-9_-]{11}$'))
+          || (request.resource.data.kind == 'gif'
+            && request.resource.data.keys().hasOnly(['kind', 'title', 'creatorUid', 'creatorNickname', 'createdAt', 'reports', 'thumb'])
+            && request.resource.data.thumb is string && request.resource.data.thumb.size() <= 40000
+            && request.resource.data.thumb.matches('^data:image/jpeg;base64,.*')
+            && existsAfter(/databases/$(database)/documents/tvGifs/$(clipId))));
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reports'])
+        && request.resource.data.reports == resource.data.reports + 1
+        && !exists(/databases/$(database)/documents/tvClips/$(clipId)/reports/$(request.auth.uid))
+        && existsAfter(/databases/$(database)/documents/tvClips/$(clipId)/reports/$(request.auth.uid));
+      allow delete: if request.auth != null && request.auth.uid == resource.data.creatorUid;
+    }
+
+    match /tvGifs/{clipId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['creatorUid', 'gif'])
+        && request.resource.data.creatorUid == request.auth.uid
+        && request.resource.data.gif is string && request.resource.data.gif.size() <= 900000
+        && request.resource.data.gif.matches('^data:image/gif;base64,.*')
+        && getAfter(/databases/$(database)/documents/tvClips/$(clipId)).data.creatorUid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/tvClips/$(clipId)).data.kind == 'gif';
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.creatorUid;
+    }
+
+    match /tvClips/{clipId}/reports/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['reportedAt'])
+        && request.resource.data.reportedAt is int;
+      allow update, delete: if false;
     }
 
     // Photo Postcards (Postcards.js, 2026-11-06): a Gallery photo sent to a
@@ -893,6 +980,51 @@ export async function pushCloudSaveIfUnchanged(uid, dataObj, expectedUpdatedAt) 
     const updatedAt = Date.now()
     tx.set(ref, { data: dataObj, updatedAt })
     return updatedAt
+  })
+}
+
+// Map Editor builds (CloudBuilds.js): saves/{uid}/builds/{key} = { v, at },
+// and saves/{uid}/builds/_index = { keys: { key: { h, at } } } (h null =
+// deleted). Values are untrusted, same as the main save.
+const BUILD_INDEX_ID = '_index'
+
+export async function fetchBuildIndex(uid) {
+  const { db, fsMod } = await ensureApp()
+  const snap = await fsMod.getDoc(fsMod.doc(db, 'saves', uid, 'builds', BUILD_INDEX_ID))
+  const keys = snap.exists() ? snap.data().keys : null
+  return keys && typeof keys === 'object' ? keys : {}
+}
+
+export async function fetchBuildDocs(uid, keys) {
+  const { db, fsMod } = await ensureApp()
+  const out = {}
+  await Promise.all(keys.map(async (key) => {
+    const snap = await fsMod.getDoc(fsMod.doc(db, 'saves', uid, 'builds', key))
+    const v = snap.exists() ? snap.data().v : null
+    out[key] = typeof v === 'string' ? v : null
+  }))
+  return out
+}
+
+// Compare-and-set on the index entry: writes only if the cloud's hash for
+// this key is still `expectedHash`. value null = delete. Returns the new
+// `at`, or false if another device got there first.
+export async function pushBuild(uid, key, value, expectedHash, hash) {
+  const { db, fsMod } = await ensureApp()
+  const idxRef = fsMod.doc(db, 'saves', uid, 'builds', BUILD_INDEX_ID)
+  const ref = fsMod.doc(db, 'saves', uid, 'builds', key)
+  return fsMod.runTransaction(db, async (tx) => {
+    const snap = await tx.get(idxRef)
+    const keys = (snap.exists() && snap.data().keys) || {}
+    const current = keys[key] && typeof keys[key].h === 'string' ? keys[key].h : null
+    if (current !== expectedHash) return false
+    const at = Date.now()
+    if (value === null) tx.delete(ref)
+    else tx.set(ref, { v: value, at })
+    const entry = { h: value === null ? null : hash, at }
+    if (snap.exists()) tx.update(idxRef, new fsMod.FieldPath('keys', key), entry)
+    else tx.set(idxRef, { keys: { [key]: entry } })
+    return at
   })
 }
 

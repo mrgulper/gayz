@@ -17,6 +17,7 @@ import * as CloudSync from './CloudSync.js'
 import * as ChatUI from './ChatUI.js'
 import { CLOUD_LAST_SYNC_KEY, LAST_LOCAL_CHANGE_KEY, _formatRelativeTime, _safeStatNumber, saveSettings } from './Game.js'
 import { isSyncedKey, mergeSaves, readBase, sameData, stripDeviceOnly, syncableSnapshot, writeBase } from './CloudMerge.js'
+import { isBuildKey, markBuildChanged, syncBuilds } from './CloudBuilds.js'
 
 // Cloud Save lives on General's General tab (2026-10-23) - "opening" it
 // opens General there and scrolls it into view.
@@ -80,6 +81,8 @@ export function restoreCloudSession(game) {
   CloudSync.onAuthChange((session) => {
     game._cloudProfile = session ? session.profile : null
     game._cloudUid = session ? session.uid : null
+    // The first auth answer is in - the signed-out warning may show now.
+    game._authKnown = true
     // Resolves game._authReadyPromise on the first call only (a promise's
     // resolve function is a no-op on every call after the first) - see
     // that field's own comment in Game.js's constructor.
@@ -145,6 +148,21 @@ export function renderSignInFooters(game) {
     const btn = document.getElementById(`${id}-signin-btn`)
     if (btn) btn.textContent = t(id === 'market' ? 'signInToUseMarket' : 'signInToUseGallery')
   }
+  // The homepage warning on the character (replaced the old "back up your
+  // save" pop-up, 2026-11-20 - it showed on every load, even to players
+  // whose save was already in the cloud). Only signed-out players see it,
+  // on every load; Settings > "Warn Me When I'm Not Signed In" hides it.
+  const warn = document.getElementById('home-signin-warning')
+  if (warn) {
+    warn.hidden = !game._authKnown || !!game._cloudUid || !CloudSync.isConfigured() || game.settings?.backupReminder === false
+    warn.textContent = t('signInWarningHome')
+    if (!warn.__bound) {
+      warn.__bound = true
+      // Don't start spinning the character when the button is pressed.
+      warn.addEventListener('pointerdown', (e) => e.stopPropagation())
+      warn.addEventListener('click', () => openCloudSavePanel(game))
+    }
+  }
 }
 
 export function updateCloudQuickIcon(game, signedIn) {
@@ -200,6 +218,7 @@ export function renderCloudSyncStatus(game) {
     ? t('cloudsaveLastSynced', { time: _formatRelativeTime(Math.max(0, Date.now() - Number(last))) })
     : t('cloudsaveNeverSynced'))
     + (game._cloudPendingConflict ? ` - ${t('cloudsaveChoosePending')}` : game._cloudSyncFailed ? ` - ${t('cloudsaveLastSyncFailed')}` : '')
+    + (game._cloudBuildsTooBig ? ` - ${t('cloudsaveBuildTooBig')}` : '')
   // Also on the homepage cloud icon itself (see #7 of the Online Features
   // ask - a "glance" without permanent new homepage UI).
   if (game.quickCloudBtn) {
@@ -317,6 +336,58 @@ export async function syncWithCloud(game, { manual = false, allowApply = true } 
   if (game._cloudPendingConflict) return 'deferred'
   if (allowApply && reloadedBySyncRecently()) allowApply = false
   game._cloudSyncInFlight = (async () => {
+    const status = await syncMainSave(game, backend, { manual, allowApply })
+    // Map Editor builds (CloudBuilds.js) - their own docs, after the main
+    // save. Not while the page is reloading or a keep-which-save question
+    // is open.
+    if ((status === 'ok' || status === 'deferred') && !game._importingSave && !game._cloudPendingConflict) {
+      await syncBuildsNow(game, backend, allowApply)
+    }
+    return status
+  })().finally(() => {
+    game._cloudSyncInFlight = null
+  })
+  return game._cloudSyncInFlight
+}
+
+async function syncBuildsNow(game, backend, allowApply) {
+  try {
+    // Only the sync's own writes are hidden from change tracking - the
+    // game keeps saving normally while builds upload.
+    const quiet = (fn) => {
+      game._cloudSyncing = true
+      try {
+        fn()
+      } finally {
+        game._cloudSyncing = false
+      }
+    }
+    const r = await syncBuilds({
+      storage: localStorage,
+      setItem: (k, v) => quiet(() => localStorage.setItem(k, v)),
+      removeItem: (k) => quiet(() => localStorage.removeItem(k)),
+      uid: game._cloudUid,
+      backend,
+      apply: allowApply,
+    })
+    game._cloudBuildsTooBig = r.tooBig.length
+    renderCloudSyncStatus(game)
+    // Builds from another device were written here (explicit sync only):
+    // reload so the Map Editor reads them - same as the main save.
+    if (allowApply && r.applied > 0) {
+      game._importingSave = true
+      if (game._autoSaveTimer) clearInterval(game._autoSaveTimer)
+      markSyncReload()
+      window.location.reload()
+    }
+  } catch (err) {
+    game._lastCloudSyncError = String(err && (err.stack || err.message || err))
+  }
+}
+
+async function syncMainSave(game, backend, { manual, allowApply }) {
+  {
+    // (Block kept so the body below stays as it was before the split.)
     try {
       for (let attempt = 0; attempt < 3; attempt++) {
         const uid = game._cloudUid
@@ -395,11 +466,8 @@ export async function syncWithCloud(game, { manual = false, allowApply = true } 
       game._cloudSyncFailed = true
       renderCloudSyncStatus(game)
       return 'failed'
-    } finally {
-      game._cloudSyncInFlight = null
     }
-  })()
-  return game._cloudSyncInFlight
+  }
 }
 
 // Change tracking - every localStorage write of synced data (not just
@@ -443,7 +511,15 @@ export function installChangeTracking(game) {
   const origSet = Storage.prototype.setItem
   const origRemove = Storage.prototype.removeItem
   const onChange = (storage, key) => {
-    if (storage !== window.localStorage || !isSyncedKey(key) || game._cloudSyncing || game._importingSave) return
+    if (storage !== window.localStorage || game._cloudSyncing || game._importingSave) return
+    if (isBuildKey(key)) {
+      // A Map Editor build changed (CloudBuilds.js): note when, and upload
+      // it a few seconds later like any other change.
+      markBuildChanged(storage, (k, v) => origSet.call(storage, k, v), key)
+      if (game._cloudUid) scheduleSyncWhenIdle(game)
+      return
+    }
+    if (!isSyncedKey(key)) return
     try {
       origSet.call(storage, LAST_LOCAL_CHANGE_KEY, String(Date.now()))
     } catch {

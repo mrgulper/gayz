@@ -4020,6 +4020,7 @@ export class Game {
     document.getElementById('weekly-reminder-label').textContent = t('weeklyReminderLabel')
     document.getElementById('low-currency-label').textContent = t('lowCurrencyLabel')
     document.getElementById('backup-reminder-label').textContent = t('backupReminderLabel')
+    this._renderSignInFooters()
     document.getElementById('redeem-code-label').textContent = t('redeemCodeLabel')
     document.getElementById('redeem-code-btn').textContent = t('redeemCodeBtn')
     document.getElementById('save-size-label').textContent = t('saveSizeLabel')
