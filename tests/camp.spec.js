@@ -309,6 +309,34 @@ test('Shop on B, emote wheel on Z, sitting in and getting off vehicles', async (
     tmv._updateBody(0.016)
     out.faceOff = face ? !face.pivot.visible : 'no face'
     tmv.view = view
+    // No dark backdrop; held keys survive opening the wheel (keep walking).
+    bm._keys.add('KeyW')
+    key('KeyZ')
+    out.wheelClear = getComputedStyle(document.getElementById('emote-wheel')).backgroundImage === 'none'
+    out.keysKept = bm._keys.has('KeyW')
+    s.emotes.close(false)
+    bm._keys.delete('KeyW')
+    // Emoting in first person: the camera glides round to your front and
+    // your body shows; walking keeps the emote going with walking legs.
+    tmv.view = 0
+    tmv._emoteCam = 0
+    tmv.vel.set(0, 0, 0)
+    s.emotes.play('wave')
+    for (let i = 0; i < 40; i++) tmv._updateBody(0.05)
+    out.camFront = tmv._emoteCam > 0.9 && !!tmv._body?.group.visible
+    const eye = bm.camera.position.clone()
+    const back = tmv.applyView()
+    out.camMoved = bm.camera.position.distanceTo(eye) > 2 * tmv.B
+    back?.()
+    tmv.vel.set(3, 0, 0)
+    for (let i = 0; i < 5; i++) tmv._updateBody(0.05)
+    out.walkEmote = s.emotes.current === 'wave' && Math.abs(tmv._body.char.limbPivots.legR.rotation.x) > 0.01
+    for (let i = 0; i < 40; i++) tmv._updateBody(0.05)
+    out.camBack = tmv._emoteCam < 0.05
+    tmv.vel.set(0, 0, 0)
+    s.emotes.stop()
+    // A chunkier body: arms out past a plain Minecraft body's 8 wide.
+    out.wide = Math.abs(tmv._body.char.limbPivots.armR.position.x) > 7
     // --- the go-kart: sit in it, right-click out, Crouch out
     const k = s.kart
     const tm = bm.tryMode
@@ -333,6 +361,7 @@ test('Shop on B, emote wheel on Z, sitting in and getting off vehicles', async (
   expect(r).toEqual({
     shopOpen: true, tabs: 'items,traps,upgrades,ammo,quests', trapRows: 5, boughtMine: true, shopClosed: true, npcTab: 'upgrades',
     noWaveTraps: true, wheelOpen: true, wheelButtons: 14, cheer: true, key0: true, faceOn: true, faceOff: true,
+    wheelClear: true, keysKept: true, camFront: true, camMoved: true, walkEmote: true, camBack: true, wide: true,
     in: true, seated: true, legsOut: true, rightClickOut: true, crouchOut: true, standing: true,
   })
 })

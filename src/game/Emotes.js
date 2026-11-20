@@ -7,6 +7,10 @@
 // it in third person (P), and on a server everyone sees it: the emote's
 // id rides along with your position (PlayNet state `emote`).
 //
+// 2026-11-20 (Gaymi): emoting swings the camera round to the front so
+// you see yourself (BuildTryMode.applyView), and walking keeps it going
+// with walking legs (walkLegs) - the camera glides back while you move.
+//
 // Owned by BuildSurvival (`s.emotes`). poseEmote() is shared by your own
 // body (BuildTryMode._updateBody) and other players' (PlayNet._drawPlayer).
 //
@@ -234,6 +238,12 @@ function _pose(lp, emote, time, age, head, g) {
   return Math.abs(Math.sin(time * 3)) * 0.5
 }
 
+// Walking during an emote: the legs walk, the rest keeps emoting.
+export function walkLegs(lp, swing) {
+  lp.legR.rotation.set(swing, 0, 0)
+  lp.legL.rotation.set(-swing, 0, 0)
+}
+
 // Puts a body's face, head and spin back to normal after an emote.
 export function endEmote(g) {
   const ud = g?.userData
@@ -415,8 +425,9 @@ export class Emotes {
     void this._wheel.offsetWidth
     this._wheel.classList.add('opening')
     this._hover('')
-    // The real mouse, to click one.
-    this.s.bm._keys?.clear()
+    // The real mouse, to click one. Keys you're holding stay held, so you
+    // keep walking while you pick (2026-11-20, Gaymi: "you can keep doing
+    // what you were doing").
     if (document.pointerLockElement) document.exitPointerLock()
   }
 
@@ -455,7 +466,8 @@ export class Emotes {
     this.close()
   }
 
-  // Moving, shooting or getting hurt stops it, like any game.
+  // Ends it (it runs out, you die, or you sit in a seat). Walking no
+  // longer stops it (2026-11-20): your legs walk and the rest keeps going.
   stop() {
     this.current = ''
     this._left = 0

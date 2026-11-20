@@ -35,7 +35,7 @@
 // a normal server game (_promote), the same as Invite Friends.
 import * as THREE from 'three'
 import { wearCosmetics, cleanWorn, myWorn } from './Cosmetics.js'
-import { poseEmote, poseSit, sitDrop, EMOTES, emoteSound } from './Emotes.js'
+import { poseEmote, poseSit, sitDrop, walkLegs, EMOTES, emoteSound } from './Emotes.js'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { nameTag } from './BuildCamp.js'
 import { serverApi, myDetails } from './ServerBrowser.js'
@@ -644,8 +644,10 @@ export class PlayNet {
         wearCosmetics(p.body, p.hat, p.cape)
         const bob = poseEmote(lp, !p.dead && p.emote ? p.emote : '', performance.now() / 1000)
         p.body.position.y = p.bodyY ?? (p.bodyY = p.body.position.y)
-        if (bob !== null) p.body.position.y += bob * p.body.scale.y
-        else if (p.sit && !p.dead) {
+        if (bob !== null) {
+          p.body.position.y += bob * p.body.scale.y
+          if (Math.abs(swing) > 0.01) walkLegs(lp, swing)
+        } else if (p.sit && !p.dead) {
           // Sitting in their vehicle (Emotes.poseSit).
           p.body.position.y += sitDrop(p.sit, B)
           poseSit(lp)
