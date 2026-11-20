@@ -2431,6 +2431,14 @@ Escape before dawn.</p>
           <button type="button" class="profile-tab active" data-profile-page="public" id="profile-tab-public">Shown to Public</button>
           <button type="button" class="profile-tab" data-profile-page="hidden" id="profile-tab-hidden">Hidden</button>
           <button type="button" class="profile-tab" data-profile-page="trophies" id="profile-tab-trophies">Trophies</button>
+          <button type="button" class="profile-tab" data-profile-page="guestbook" id="profile-tab-guestbook">Guestbook</button>
+        </div>
+
+        <!-- Your Guestbook (SocialNotes.js, 2026-11-20): lines other players
+             signed on your profile. Loads when the tab is opened. -->
+        <div class="profile-tab-page" id="profile-page-guestbook" style="display: none">
+          <p id="my-guestbook-hint">What other players wrote on your profile. You can delete any line.</p>
+          <div id="my-guestbook-list" class="social-note-list"></div>
         </div>
 
         <!-- Trophies (Trophies.js, 2026-11-01): bronze / silver / gold from
@@ -2717,7 +2725,7 @@ Escape before dawn.</p>
             </ul>
 
             <h3>5. Acceptable use</h3>
-            <p>Some things you make in GayZ are seen by other players: your nickname, bio and Player ID, chat messages (Global, server and clan chat), clan names, Market listings, Gallery posts and comments, GayZ TV clips (YouTube links and GIFs), Photo Postcards, gifts and challenges (seen by the friend you send them to), maps you share or build together with others, the spray tags you draw and spray in a server, and - in the World Map mode on a server - the parts of the map you've explored, which the other players in that game get added to their own map. When using GayZ, you agree not to:</p>
+            <p>Some things you make in GayZ are seen by other players: your nickname, bio and Player ID, chat messages (Global, server and clan chat), clan names, Market listings, Gallery posts and comments, GayZ TV clips (YouTube links and GIFs), Photo Postcards, gifts and challenges (seen by the friend you send them to), Guestbook lines you write on someone's profile, Messages in a Bottle (read by random players), maps you share or build together with others, the spray tags you draw and spray in a server, and - in the World Map mode on a server - the parts of the map you've explored, which the other players in that game get added to their own map. When using GayZ, you agree not to:</p>
             <ul>
               <li>Use your nickname, bio, chat, clan name, posts, comments, shared maps, spray tags or any other field to harass anyone, impersonate someone else, or post personal information (yours or anyone else's);</li>
               <li>Post anything hateful, sexual, violent toward real people, or that you don't have the right to share (like someone else's artwork in a skin or Gallery post);</li>
@@ -2815,6 +2823,8 @@ Escape before dawn.</p>
               <li>GayZ TV clips store the YouTube video link (just its video ID) or the GIF you post, a small picture of it, its title, your nickname and when you posted it - anyone can see them. We also keep how many clips you posted today (for the daily limit) and each report, saved under the reporting account so each player can report a clip once. Watching a YouTube clip loads it from YouTube (youtube-nocookie.com), which has its own privacy policy.</li>
               <li>Photo Postcards you send to a friend store the photo, your short note, its title, your nickname and when you sent it, in that friend's mailbox. Only they can read it, and they can delete it.</li>
               <li>Gifts and challenges you send to a friend store what you sent (coins, a ring item and how many, or the challenge's goal), your short note, your nickname and the day you sent it, in that friend's Gifts &amp; Challenges box until they open, accept or turn it down. Only they can read it. Challenges you accept are kept on your device and in your Cloud Save.</li>
+              <li>Guestbook lines you write on someone's profile store your text (up to 100 letters), your nickname and the day you wrote it. Any signed-in player can read them. The profile's owner or you can delete a line, and anyone can report it, which hides it.</li>
+              <li>Messages in a Bottle you throw store your text (up to 100 letters), your nickname, the day and a random number used to hand it to a random player. Any signed-in player may find it. Anyone can report it, which hides it. Bottles you find are kept on your device.</li>
               <li>Maps you share get a code and are stored online so anyone can play them; Build Together rooms store the edits and each player's spot while you build.</li>
               <li>When you play on a server, your position, skin and nickname are sent to the other players in it while you play, along with what you hold, the hat and cape you wear, the emote you play, whether you're sitting in a vehicle, the boats, helicopters, hot-air balloons and jet skis you put down, the map pins you share (where they are and whether they're for everyone or friends only; pins for friends only are sent only to the players in the server who are on your friends list), the spray tags you spray (your drawing and where it is), the blocks you place and break, where your shots splat paint in Paint Wars, the stars you give other players' builds in Build Battle, your putts in Zombie Mini-Golf, your votes (and, if you're the Werewolf, your knock-outs) in Werewolf Night, your disguise and finds in Prop Hunt, how fast you pull in Tug of War, your gravestone and the zombies you mark while you're a ghost, how many zombies you've taken down this game (for their kill feed), the items in your spin ring and how far out it spins, your ring's hits on other players when a custom lobby has friendly fire on, and what you say in Global chat (shown over your head). A game you start from the homepage is a server from the start: friends can join it by its link, and it's listed in the Global server list (with your nickname in its name) so other players can join too - unless Who Can Join My Server is set to Link Only or Nobody. It's deleted when you leave.</li>
                <li>The developer can join any server to check on it or say hi: shown with a gold OWNER tag and crown, or without showing up to the players at all (to watch for cheating and bad behavior). Either way, they see the same things the players in that server see.</li>
@@ -3301,6 +3311,21 @@ Escape before dawn.</p>
                 <div id="friend-mail-list"></div>
                 <h3 id="friend-challenges-heading" class="friend-mail-heading">Your Challenges</h3>
                 <div id="friend-challenges-list"></div>
+                <!-- Message in a Bottle (SocialNotes.js) -->
+                <h3 id="bottle-heading" class="friend-mail-heading">Message in a Bottle</h3>
+                <div id="bottle-box">
+                  <p id="bottle-hint" class="friend-mail-empty">Throw a note into the sea for a stranger, or fish one out.</p>
+                  <input type="text" id="bottle-input" class="nickname-input" maxlength="100" />
+                  <p id="bottle-count" class="social-note-count">0/100</p>
+                  <div class="friend-mail-buttons">
+                    <button type="button" id="bottle-throw-btn" class="mini-action-btn">Throw a Bottle</button>
+                    <button type="button" id="bottle-find-btn" class="mini-action-btn">Find a Bottle</button>
+                  </div>
+                  <p id="bottle-left" class="friend-mail-empty"></p>
+                  <p id="bottle-status" class="social-note-status"></p>
+                  <h4 id="bottle-kept-heading" class="friend-mail-heading">Bottles you found</h4>
+                  <div id="bottle-list" class="social-note-list"></div>
+                </div>
               </div>
               <div id="friends-col-list">
                 <div id="friends-list-header">
@@ -3452,6 +3477,20 @@ Escape before dawn.</p>
               </div>
             </div>
             <p id="friend-mail-status"></p>
+          </div>
+          <!-- Profile Guestbook (SocialNotes.js): loads only on Open Guestbook. -->
+          <div id="guestbook-box" hidden>
+            <h3 id="guestbook-heading">Guestbook</h3>
+            <button type="button" id="guestbook-open-btn" class="mini-action-btn">Open Guestbook</button>
+            <div id="guestbook-body" hidden>
+              <div id="guestbook-list" class="social-note-list"></div>
+              <div id="guestbook-write">
+                <input type="text" id="guestbook-input" class="nickname-input" maxlength="100" />
+                <p id="guestbook-count" class="social-note-count">0/100</p>
+                <div class="friend-mail-buttons"><button type="button" id="guestbook-sign-btn" class="mini-action-btn">Sign</button></div>
+              </div>
+              <p id="guestbook-status" class="social-note-status"></p>
+            </div>
           </div>
         </div>
       </div>
