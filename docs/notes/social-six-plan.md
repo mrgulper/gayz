@@ -18,7 +18,7 @@ Gaymi's answers:
 | 1 | Gift Box + Friend Challenges (FriendMail.js, `friendMail/{toUid}/inbox`, tests/friend-mail.spec.js) | done |
 | 2 | Clan War + Share codes (ClanWar.js, ShareCodes.js, tests/clan-war.spec.js) | done |
 | 3 | Profile Guestbook + Message in a Bottle (SocialNotes.js, `guestbook/{owner}/entries`, `bottles`, tests/social-notes.spec.js) | done |
-| 4 | Rules file + paste walk-through (`~/Desktop/GayZ/firestore-rules-2026-11-20-social.txt` = CloudSync.js rules, checked equal) | file written, paste waiting |
+| 4 | Rules file + paste walk-through (`~/Desktop/GayZ/firestore-rules-2026-11-20-social.txt` = CloudSync.js rules, checked equal) | done - pasted + published 2026-11-20 4:04 PM |
 
 Read-cost guard: every list loads only on click, small `limit()`s, bottles a few per day.
 
@@ -56,3 +56,5 @@ bottles, byte-for-byte the same as FIRESTORE_SECURITY_RULES (brackets balanced; 
 compiler, so the Console's Publish is the syntax check). Known gap: once a gift is opened (doc
 deleted) the same sender can send another that day, so the 500-coin cap is per unopened gift,
 not strictly per day. Low stakes - coins are client-side anyway.
+
+All six live after the 4:04 PM paste. Not yet checked live with real accounts: gift + challenge send, Clan War board, guestbook sign/report, bottle throw/find.
