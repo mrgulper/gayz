@@ -2019,7 +2019,8 @@ export async function deleteGalleryComment(id, commentId) {
 // --- GayZ TV (GayzTV.js, 2026-11-19, see firestore-rules-2026-11-19-tv.txt) ---
 // tvClips = small docs for the list; tvGifs/{id} = a GIF's bytes (read on
 // tap); tvDaily/{uid} = { day (UTC days since 1970), count, at } for the
-// daily cap; tvBans/{uid} = set by the owner, blocks posting.
+// daily cap; tvBans/{uid} = { until (0 = forever), at, nick }, set by the
+// owner, blocks posting until it ends.
 const tvDay = () => Math.floor(Date.now() / 86400000)
 
 export async function fetchTvClips() {
@@ -2042,7 +2043,9 @@ export async function createTvClip(clip, cap) {
   if (switchedOff('gallery')) throw switchedOffError('gallery')
   const { db, fsMod } = await ensureApp()
   const uid = clip.creatorUid
-  if ((await fsMod.getDoc(fsMod.doc(db, 'tvBans', uid))).exists()) throw new Error('tv-banned')
+  // A TV-ban: until 0 = forever, else a time it ends (tvAdmin.js).
+  const ban = (await fsMod.getDoc(fsMod.doc(db, 'tvBans', uid))).data()
+  if (ban && (!Number(ban.until) || Number(ban.until) > Date.now())) throw new Error('tv-banned')
   const dailyRef = fsMod.doc(db, 'tvDaily', uid)
   const old = (await fsMod.getDoc(dailyRef)).data()
   const day = tvDay()

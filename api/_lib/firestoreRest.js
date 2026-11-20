@@ -48,38 +48,111 @@ async function call(path, body, method = 'POST') {
 const str = (f) => f?.stringValue || ''
 const int = (f) => Number(f?.integerValue ?? f?.doubleValue ?? 0)
 
-// Every report on a shared map or community build (both live in a
-// `reports` sub-collection, one doc per reporter), grouped per map/build:
-// [{ kind: 'map'|'build', id, name, by, count, latest }].
+// Every report on a shared map, community build or GayZ TV clip (each in a
+// `reports` sub-collection, one doc per reporter), grouped per item:
+// [{ kind: 'map'|'build'|'tv', id, name, by, count, latest }]. TV clips
+// also carry creatorUid, clipKind, youtubeId, thumb, hidden (owner-hidden),
+// total (the clip's own counter) and reporters (uids).
+const TV_THUMB_RE = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/
+const KINDS = { sharedMaps: 'map', communityBuilds: 'build', tvClips: 'tv' }
 export async function reports() {
   const rows = await call(':runQuery', { structuredQuery: { from: [{ collectionId: 'reports', allDescendants: true }], limit: 500 } })
   const groups = new Map()
   for (const r of rows || []) {
     const name = r.document?.name
     if (!name) continue
-    const m = name.match(/\/documents\/(sharedMaps|communityBuilds)\/([^/]+)\/reports\//)
+    const m = name.match(/\/documents\/(sharedMaps|communityBuilds|tvClips)\/([^/]+)\/reports\/([^/]+)$/)
     if (!m) continue
     const parent = name.slice(0, name.indexOf('/reports/'))
-    const g = groups.get(parent) || { kind: m[1] === 'sharedMaps' ? 'map' : 'build', id: m[2], parent, name: '', by: '', count: 0, latest: 0 }
+    const g = groups.get(parent) || { kind: KINDS[m[1]], id: m[2], parent, name: '', by: '', count: 0, latest: 0 }
     g.count++
     g.latest = Math.max(g.latest, int(r.document.fields?.reportedAt))
+    if (g.kind === 'tv') (g.reporters ||= []).push(m[3])
     groups.set(parent, g)
   }
   if (groups.size) {
-    const got = await call(':batchGet', { documents: [...groups.keys()], mask: { fieldPaths: ['name', 'creatorNickname'] } })
+    const fieldPaths = ['name', 'title', 'creatorNickname', 'creatorUid', 'kind', 'youtubeId', 'thumb', 'hidden', 'reports']
+    const got = await call(':batchGet', { documents: [...groups.keys()], mask: { fieldPaths } })
     for (const d of got || []) {
       const g = d.found && groups.get(d.found.name)
-      if (g) {
-        g.name = str(d.found.fields?.name)
-        g.by = str(d.found.fields?.creatorNickname)
+      if (!g) continue
+      const f = d.found.fields || {}
+      g.by = str(f.creatorNickname)
+      if (g.kind !== 'tv') {
+        g.name = str(f.name)
+        continue
       }
+      g.name = str(f.title)
+      g.creatorUid = str(f.creatorUid)
+      g.clipKind = str(f.kind) === 'gif' ? 'gif' : 'youtube'
+      g.youtubeId = /^[A-Za-z0-9_-]{11}$/.test(str(f.youtubeId)) ? str(f.youtubeId) : ''
+      g.thumb = TV_THUMB_RE.test(str(f.thumb)) ? str(f.thumb) : ''
+      g.hidden = f.hidden?.booleanValue === true
+      g.total = int(f.reports)
+      g.found = true
     }
   }
-  return [...groups.values()].map((g) => {
-    const out = { ...g }
-    delete out.parent
-    return out
-  })
+  return [...groups.values()]
+    // A deleted TV clip can leave its reports behind - not worth listing.
+    .filter((g) => g.kind !== 'tv' || g.found)
+    .map((g) => {
+      const out = { ...g }
+      delete out.parent
+      delete out.found
+      return out
+    })
+}
+
+// --- GayZ TV (owner's TV reports) ---
+const DOCS = `projects/${PROJECT}/databases/(default)/documents`
+const enc = (id) => encodeURIComponent(id)
+async function commit(writes) {
+  if (writes.length) await call(':commit', { writes })
+}
+// The uids that reported this clip (one doc each).
+export async function tvReporters(id) {
+  const data = await call(`/tvClips/${enc(id)}/reports?pageSize=300&mask.fieldPaths=reportedAt`, undefined, 'GET')
+  return (data?.documents || []).map((d) => d.name.split('/').pop())
+}
+// Hide or show a clip (the game leaves out `hidden: true` clips).
+export async function tvSetHidden(id, hidden) {
+  await call(`/tvClips/${enc(id)}?updateMask.fieldPaths=hidden&currentDocument.exists=true`, { fields: { hidden: { booleanValue: !!hidden } } }, 'PATCH')
+}
+// Clears every report on a clip: report docs gone, counter 0, shown again.
+export async function tvClearReports(id, uids) {
+  await commit([
+    ...uids.map((uid) => ({ delete: `${DOCS}/tvClips/${id}/reports/${uid}` })),
+    { update: { name: `${DOCS}/tvClips/${id}`, fields: { reports: { integerValue: '0' }, hidden: { booleanValue: false } } }, updateMask: { fieldPaths: ['reports', 'hidden'] }, currentDocument: { exists: true } },
+  ])
+}
+// Deletes a clip for good: its reports, its GIF and the clip.
+export async function tvDeleteClip(id, uids) {
+  await commit([
+    ...uids.map((uid) => ({ delete: `${DOCS}/tvClips/${id}/reports/${uid}` })),
+    { delete: `${DOCS}/tvGifs/${id}` },
+    { delete: `${DOCS}/tvClips/${id}` },
+  ])
+}
+// tvBans/{uid} { until (0 = forever), at, nick }: the rules refuse new
+// clips from that account while it's there and not over.
+export async function tvBanSet(uid, until, nick, now = Date.now()) {
+  await call(`/tvBans/${enc(uid)}`, { fields: { until: { integerValue: String(Math.max(0, Math.floor(until))) }, at: { integerValue: String(now) }, nick: { stringValue: String(nick || '').slice(0, 24) } } }, 'PATCH')
+}
+export async function tvBanClear(uid) {
+  await call(`/tvBans/${enc(uid)}`, undefined, 'DELETE')
+}
+export async function tvBans() {
+  const data = await call('/tvBans?pageSize=300', undefined, 'GET')
+  return (data?.documents || []).map((d) => ({ uid: d.name.split('/').pop(), until: int(d.fields?.until), at: int(d.fields?.at), nick: str(d.fields?.nick) }))
+}
+// A signed-in account's Player ID and name (its leaderboard doc).
+export async function accountByUid(uid) {
+  try {
+    const d = await call(`/leaderboard/${enc(uid)}?mask.fieldPaths=playerId&mask.fieldPaths=nickname`, undefined, 'GET')
+    return { pid: str(d?.fields?.playerId), nickname: str(d?.fields?.nickname) }
+  } catch {
+    return { pid: '', nickname: '' }
+  }
 }
 
 // --- Players (Console "Players" batch) ---

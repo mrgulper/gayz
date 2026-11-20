@@ -39,7 +39,8 @@ export function youtubeIdFromLink(text) {
   return YT_ID_RE.test(id) ? id : ''
 }
 
-const shown = (clip) => clip && typeof clip.id === 'string' && (Number(clip.reports) || 0) < TV_HIDE_AT
+// Left out: 10+ reports, or hidden by the owner (`hidden`, set server-side).
+const shown = (clip) => clip && typeof clip.id === 'string' && clip.hidden !== true && (Number(clip.reports) || 0) < TV_HIDE_AT
   && ((clip.kind === 'youtube' && YT_ID_RE.test(clip.youtubeId || '')) || (clip.kind === 'gif' && THUMB_RE.test(clip.thumb || '')))
 const ytThumb = (id) => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`
 const name = (c) => String(c.creatorNickname || '').slice(0, 24)
