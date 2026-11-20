@@ -12,6 +12,7 @@ import { loadSkinTexture } from './MenuAvatar3D.js'
 import { t } from './i18n.js'
 import { levelFromXp } from './Xp.js'
 import { renderTrophies } from './Trophies.js'
+import { bindSocialNotes, loadMyGuestbook } from './SocialNotes.js'
 
 // Levels panel - opened by the level coin on the profile card: your XP
 // level, the bar to the next one and how XP is earned (Xp.js, 2026-10-23;
@@ -198,6 +199,9 @@ export async function _openProfilePanel(game) {
     game._renderAuthCard()
     return
   }
+  // Guestbook tab (SocialNotes.js): loads when its tab is clicked, or now if it's the open tab.
+  bindSocialNotes(game)
+  if (document.getElementById('profile-tab-guestbook')?.classList.contains('active')) loadMyGuestbook(game)
   if (game.profileContent) game.profileContent.style.display = ''
   // The Trophies tab (Trophies.js).
   renderTrophies(game)

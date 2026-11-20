@@ -17,7 +17,7 @@ Gaymi's answers:
 |---|---|---|
 | 1 | Gift Box + Friend Challenges (FriendMail.js, `friendMail/{toUid}/inbox`, tests/friend-mail.spec.js) | done |
 | 2 | Clan War + Share codes (ClanWar.js, ShareCodes.js, tests/clan-war.spec.js) | done |
-| 3 | Profile Guestbook + Message in a Bottle | todo |
+| 3 | Profile Guestbook + Message in a Bottle (SocialNotes.js, `guestbook/{owner}/entries`, `bottles`, tests/social-notes.spec.js) | done |
 | 4 | Rules file + paste walk-through | todo |
 
 Read-cost guard: every list loads only on click, small `limit()`s, bottles a few per day.
@@ -41,3 +41,12 @@ reset. Weeks = Monday, months = 1st, LA clock. Prizes (guesses): week 300/150/75
 already save before the paste; Batch 4 adds their bounds. Easy custom-lobby rules lower zombie
 points (rewardMult). Share codes: GZR1-<id.rarity_...> (ring, only owned items go in) and
 GZL1-<base64> (lobby rules; name/password not included). No Firebase.
+
+Batch 3 notes: Guestbook = every player's profile (signed in, not your own), loads only on Open
+Guestbook (one query, limit 20, shows 10 not-reported). Your own = Profile panel > Guestbook tab,
+delete any line. Id writer_day (UTC days, server clock) = one line a day per guestbook. Bottles =
+Friends panel, 3 throws + 3 finds a day (guess). Throw id uid_day_n (n 1-3) so the rules hold the
+throw cap; the find cap is local (`gayz-bottles`, also keeps the last 10 found). Find = one
+`rnd >= random` query (limit 5), wraps to 0, skips own/reported/already seen. Report = anyone can
+flip `reported` false -> true (Gaymi: reported = hidden, so 1 report hides). Normal swear filter
+before send, Strict on show, 100 letters. Old bottles are never cleaned up (fine for now).

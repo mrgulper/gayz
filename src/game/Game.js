@@ -147,6 +147,7 @@ import { levelFromXp, starterXp } from './Xp.js'
 import * as OnlineUI from './OnlineUI.js'
 import * as FriendsUI from './FriendsUI.js'
 import { loadFriendMail } from './FriendMail.js'
+import { renderBottles } from './SocialNotes.js'
 import * as SettingsUI from './SettingsUI.js'
 import { parseMoreSettings, moreDefaults, applyMoreText } from './MoreSettings.js'
 import { MORE_SETTING_KEYS } from './MoreSettingsList.js'
@@ -1523,6 +1524,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'profile-public-clan-label': 'profilePublicClanLabel',
   'profile-tab-hidden': 'profilePrivateHeading',
   'profile-tab-trophies': 'profileTabTrophies',
+  'profile-tab-guestbook': 'guestbookHeading',
   'profile-trophies-hint': 'profileTrophiesHint',
   'profile-private-hint': 'profilePrivateHint',
   'stats-dashboard-heading': 'statsDashboardHeadingLabel',
@@ -3692,6 +3694,7 @@ export class Game {
     CloudSaveUI.renderCloudSaveState(this)
     this._renderFriendRequests()
     loadFriendMail(this).catch(() => {})
+    renderBottles(this)
     this._renderFriendsCount()
     this._renderStatusPicker()
     if (this.friendsOwnId) this.friendsOwnId.textContent = this.settings.playerId ? `#${this.settings.playerId}` : ''

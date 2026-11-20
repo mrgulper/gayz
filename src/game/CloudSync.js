@@ -825,6 +825,54 @@ service cloud.firestore {
               && request.resource.data.target >= 1 && request.resource.data.target <= 100000));
       allow update: if false;
     }
+
+    // Profile Guestbook (SocialNotes.js, 2026-11-20): anyone signed in can
+    // read a guestbook and sign someone else's (never their own). The id is
+    // writer_day (UTC days since 1970, checked against the server clock),
+    // so one line a day per guestbook. Text is 1-100 letters. Anyone can
+    // report a line (reported false -> true, nothing else), which hides it.
+    // The owner or the writer can delete it.
+    match /guestbook/{ownerUid}/entries/{entryId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid != ownerUid
+        && request.resource.data.keys().hasOnly(['fromUid', 'fromNickname', 'text', 'day', 'sentAt', 'reported'])
+        && request.resource.data.keys().hasAll(['fromUid', 'fromNickname', 'text', 'day', 'sentAt', 'reported'])
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.day == math.floor(request.time.toMillis() / 86400000)
+        && entryId == request.auth.uid + '_' + string(request.resource.data.day)
+        && request.resource.data.fromNickname is string && request.resource.data.fromNickname.size() > 0 && request.resource.data.fromNickname.size() <= 24
+        && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 100
+        && request.resource.data.sentAt is int
+        && request.resource.data.reported == false;
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reported'])
+        && request.resource.data.reported == true;
+      allow delete: if request.auth != null && (request.auth.uid == ownerUid || request.auth.uid == resource.data.fromUid);
+    }
+
+    // Message in a Bottle (SocialNotes.js, 2026-11-20): a note for a random
+    // stranger. The id is uid_day_n with n 1-3 (day checked against the
+    // server clock), so 3 throws a day. rnd = a random 0-1 number the game
+    // uses to pick one. Report = reported false -> true, which hides it.
+    match /bottles/{bottleId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['fromUid', 'fromNickname', 'text', 'day', 'n', 'rnd', 'sentAt', 'reported'])
+        && request.resource.data.keys().hasAll(['fromUid', 'fromNickname', 'text', 'day', 'n', 'rnd', 'sentAt', 'reported'])
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.day == math.floor(request.time.toMillis() / 86400000)
+        && request.resource.data.n is int && request.resource.data.n >= 1 && request.resource.data.n <= 3
+        && bottleId == request.auth.uid + '_' + string(request.resource.data.day) + '_' + string(request.resource.data.n)
+        && request.resource.data.rnd is number && request.resource.data.rnd >= 0 && request.resource.data.rnd < 1
+        && request.resource.data.fromNickname is string && request.resource.data.fromNickname.size() > 0 && request.resource.data.fromNickname.size() <= 24
+        && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 100
+        && request.resource.data.sentAt is int
+        && request.resource.data.reported == false;
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reported'])
+        && request.resource.data.reported == true;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.fromUid;
+    }
   }
 }`
 
@@ -2330,4 +2378,52 @@ export async function fetchFriendMail(uid, n = 20) {
 export async function deleteFriendMail(uid, id) {
   const { db, fsMod } = await ensureApp()
   await fsMod.deleteDoc(fsMod.doc(db, 'friendMail', uid, 'inbox', id))
+}
+
+// Profile Guestbook (SocialNotes.js). entry = { fromUid, fromNickname,
+// text, day }. The id is writer_day (the rules allow one a day per
+// guestbook; signing again the same day fails).
+export async function signGuestbook(ownerUid, entry) {
+  const { db, fsMod } = await ensureApp()
+  const data = { fromUid: entry.fromUid, fromNickname: entry.fromNickname, text: entry.text, day: entry.day, sentAt: Date.now(), reported: false }
+  await fsMod.setDoc(fsMod.doc(db, 'guestbook', ownerUid, 'entries', `${entry.fromUid}_${entry.day}`), data)
+}
+
+// Newest first. Reported lines come back too - the game leaves them out.
+export async function fetchGuestbook(ownerUid, n = 20) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'guestbook', ownerUid, 'entries'), fsMod.orderBy('sentAt', 'desc'), fsMod.limit(n))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id }))
+}
+
+export async function reportGuestbookEntry(ownerUid, id) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.updateDoc(fsMod.doc(db, 'guestbook', ownerUid, 'entries', id), { reported: true })
+}
+
+export async function deleteGuestbookEntry(ownerUid, id) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'guestbook', ownerUid, 'entries', id))
+}
+
+// Message in a Bottle (SocialNotes.js). bottle = { fromUid, fromNickname,
+// text, day, n, rnd }. The id is uid_day_n (n 1-3 a day).
+export async function throwBottle(bottle) {
+  const { db, fsMod } = await ensureApp()
+  const data = { fromUid: bottle.fromUid, fromNickname: bottle.fromNickname, text: bottle.text, day: bottle.day, n: bottle.n, rnd: bottle.rnd, sentAt: Date.now(), reported: false }
+  await fsMod.setDoc(fsMod.doc(db, 'bottles', `${bottle.fromUid}_${bottle.day}_${bottle.n}`), data)
+}
+
+// A few bottles from a random spot (rnd >= r), one small query.
+export async function fetchBottles(r, n = 5) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'bottles'), fsMod.where('rnd', '>=', r), fsMod.orderBy('rnd'), fsMod.limit(n))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id }))
+}
+
+export async function reportBottle(id) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.updateDoc(fsMod.doc(db, 'bottles', id), { reported: true })
 }

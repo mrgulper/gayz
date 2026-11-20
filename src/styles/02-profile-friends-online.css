@@ -921,3 +921,60 @@ html.ui-theme-old .panel-box #cloudsave-region-select {
   --menu-display-font: 'Bebas Neue', 'Segoe UI', sans-serif;
 }
 
+
+/* Profile Guestbook + Message in a Bottle (SocialNotes.js): rows reuse
+   .friend-mail-row; inputs full width so they fit a phone. */
+.social-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-width: 420px;
+  margin: 6px auto 8px;
+}
+#guestbook-box {
+  width: 100%;
+  margin-top: 10px;
+  text-align: center;
+}
+#guestbook-box[hidden],
+#guestbook-body[hidden],
+#guestbook-write[hidden],
+#guestbook-open-btn[hidden] {
+  display: none;
+}
+#guestbook-heading {
+  margin: 4px 0 6px;
+  font-size: 15px;
+}
+#guestbook-write,
+#bottle-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+#guestbook-input,
+#bottle-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.social-note-count {
+  margin: 0;
+  font-size: 11px;
+  opacity: 0.6;
+  text-align: right;
+}
+.social-note-status {
+  min-height: 1em;
+  margin: 2px 0 0;
+  font-size: 13px;
+  text-align: center;
+}
+#profile-page-guestbook {
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
