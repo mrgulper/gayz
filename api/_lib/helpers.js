@@ -11,7 +11,7 @@
 // Realtime Database:
 //   helpers/{id}       { name, hash, at, seen }
 //   reportChecks/{key} { verdict: 'real'|'fake', note, by, hid, at }
-//                      key = p_<player report id> or map_<id> / build_<id>
+//                      key = p_<player report id> or map_<id> / build_<id> / tv_<clip id>
 import crypto from 'node:crypto'
 import { ServerError } from './servers.js'
 import { contentReports, cleanText, logAction } from './admin.js'
@@ -23,7 +23,7 @@ export const CHECK_NOTE_MAX = 300
 const VERDICTS = ['real', 'fake']
 
 const validHelperId = (v) => typeof v === 'string' && /^[a-z0-9]{6}$/.test(v)
-export const validCheckKey = (v) => typeof v === 'string' && /^(p|map|build)_[A-Za-z0-9_-]{1,60}$/.test(v)
+export const validCheckKey = (v) => typeof v === 'string' && /^(p|map|build|tv)_[A-Za-z0-9_-]{1,60}$/.test(v)
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex')
 
 function randomText(n, letters) {
@@ -126,7 +126,7 @@ export async function helperReports(db, fs, { helperPw } = {}, now = Date.now())
   return {
     name: who.name,
     playerReports: list.map((r) => ({ ...r, others: perTarget[r.target] - 1 })).sort((a, b) => b.at - a.at),
-    contentReports: content.list.filter((r) => !r.hidden).map((r) => ({ kind: r.kind, id: r.id, key: r.key, name: r.name, by: r.by, count: r.count, latest: r.latest })),
+    contentReports: content.list.filter((r) => !r.hidden).map((r) => ({ kind: r.kind, id: r.id, key: r.key, name: r.name, by: r.by, count: r.count, latest: r.latest, ...(r.kind === 'tv' ? { clipKind: r.clipKind, youtubeId: r.youtubeId, thumb: r.thumb } : {}) })),
     contentReportsError: content.error,
     checks,
   }
@@ -137,7 +137,7 @@ export async function helperReports(db, fs, { helperPw } = {}, now = Date.now())
 export async function checkReport(db, { helperPw, key, verdict, note } = {}, now = Date.now()) {
   const who = await mustBeHelper(db, helperPw, now)
   if (!validCheckKey(key) || !(VERDICTS.includes(verdict) || verdict === 'none')) throw new ServerError(400, 'bad-request')
-  let what = key.startsWith('p_') ? 'a player report' : `${key.startsWith('map_') ? 'map' : 'build'} ${key.slice(key.indexOf('_') + 1)}`
+  let what = key.startsWith('p_') ? 'a player report' : `${key.startsWith('map_') ? 'map' : key.startsWith('tv_') ? 'TV clip' : 'build'} ${key.slice(key.indexOf('_') + 1)}`
   if (key.startsWith('p_')) {
     const r = await db.get(`playerReports/${key.slice(2)}`)
     if (!r) throw new ServerError(404, 'gone')

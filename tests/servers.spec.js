@@ -2447,3 +2447,79 @@ test('servers: Zombie Survival tab lists modes without a tab of their own', asyn
   // Only the non-main rows carry a mode chip.
   await expect(page.locator('#server-list .lobby-mode-chip')).toHaveCount(2)
 })
+
+// GayZ TV reports for the owner (tvAdmin.js, 2026-11-20): Fake clears +
+// warns the reporters, Hide / Unhide, Delete for good, TV-ban (timed or
+// forever) with an optional full IP ban, Unban - against a fake Firestore.
+test('GayZ TV reports: fake, hide, delete, TV-ban and full ban (tvAdmin.js)', async () => {
+  const db = fakeServerDb()
+  const t0 = 1_800_000_000_000
+  const IP = 'cccccccccccccccccccccccc'
+  await publicConfig(db, { pid: 'BAD123', _ip: IP }, t0)
+  const clips = new Map([['clip1', { title: 'Rude', creatorUid: 'maker', reports: ['u1', 'u2', 'u3'], hidden: false }]])
+  const bans = new Map()
+  const accounts = { u1: { pid: 'REP001', nickname: 'Ann' }, u2: { pid: 'REP002', nickname: 'Bo' }, maker: { pid: 'BAD123', nickname: 'Maker' } }
+  const fs = {
+    async reports() {
+      return [...clips].map(([id, c]) => ({ kind: 'tv', id, name: c.title, by: 'Maker', count: c.reports.length, latest: t0, creatorUid: c.creatorUid, clipKind: 'youtube', youtubeId: 'AAAAAAAAAAA', thumb: '', hidden: c.hidden, total: c.reports.length, reporters: c.reports }))
+    },
+    async tvReporters(id) { return [...(clips.get(id)?.reports || [])] },
+    async tvSetHidden(id, h) { clips.get(id).hidden = h },
+    async tvClearReports(id) { const c = clips.get(id); c.reports = []; c.hidden = false },
+    async tvDeleteClip(id) { clips.delete(id) },
+    async tvBanSet(uid, until, nick, at) { bans.set(uid, { uid, until, nick, at }) },
+    async tvBanClear(uid) { bans.delete(uid) },
+    async tvBans() { return [...bans.values()] },
+    async accountByUid(uid) { return accounts[uid] || { pid: '', nickname: '' } },
+  }
+  const A = ADMIN_ACTIONS
+  let state = await adminState(db, fs, t0)
+  expect(state.contentReports).toHaveLength(1)
+  expect(state.contentReports[0]).toMatchObject({ kind: 'tv', key: 'tv_clip1', hidden: false, count: 3 })
+
+  // Helpers can mark a TV clip's reports (tv_ keys are allowed now).
+  const helper = await A.helperAdd(db, { name: 'Kim' })
+  await A.helperCheck(db, { helperPw: helper.password, key: 'tv_clip1', verdict: 'fake', note: 'just a funny clip' })
+  expect((await adminState(db, fs, t0)).checks.tv_clip1).toMatchObject({ verdict: 'fake', by: 'Kim' })
+  expect((await A.helperReports(db, { helperPw: helper.password }, fs)).contentReports[0]).toMatchObject({ kind: 'tv', youtubeId: 'AAAAAAAAAAA' })
+
+  // Fake: reports wiped, check cleared, reporters with a Player ID warned (u3 has none).
+  const fake = await A.tvFake(db, { id: 'clip1', title: 'Rude' }, fs)
+  expect(fake).toMatchObject({ ok: true, reports: 3, warned: 2 })
+  expect(clips.get('clip1').reports).toEqual([])
+  expect(Object.values(db.root.warnings.REP001)[0].text).toContain('Fake reports')
+  expect(Object.values(db.root.warnings.REP002)).toHaveLength(1)
+  state = await adminState(db, fs, t0)
+  expect(state.contentReports).toHaveLength(0)
+  expect(state.checks.tv_clip1).toBeUndefined()
+  expect(state.history[0].text).toContain('fake')
+
+  // Hide, then Unhide (which also clears new reports).
+  clips.get('clip1').reports = ['u1']
+  await A.tvHide(db, { id: 'clip1' }, fs)
+  expect((await adminState(db, fs, t0)).contentReports[0].hidden).toBe(true)
+  await A.tvHide(db, { id: 'clip1', hide: false }, fs)
+  expect(clips.get('clip1')).toMatchObject({ hidden: false, reports: [] })
+
+  // TV-ban for 7 days, listed until it ends; Unban lifts it.
+  await A.tvBan(db, { uid: 'maker', minutes: 10080, nick: 'Maker' }, fs)
+  expect(bans.get('maker').until).toBeGreaterThan(Date.now())
+  expect((await adminState(db, fs)).tvBans).toHaveLength(1)
+  expect((await adminState(db, fs, Date.now() + 8 * 24 * 3600 * 1000)).tvBans).toHaveLength(0)
+  await A.tvUnban(db, { uid: 'maker', nick: 'Maker' }, fs)
+  expect(bans.size).toBe(0)
+  await expect(A.tvBan(db, { uid: 'maker', minutes: -5 }, fs)).rejects.toMatchObject({ status: 400 })
+
+  // Full ban: TV-ban forever + the IP ban from their Player ID.
+  const full = await A.tvBan(db, { uid: 'maker', minutes: 0, nick: 'Maker', full: true }, fs)
+  expect(full).toMatchObject({ ok: true, full: true, pid: 'BAD123' })
+  expect(bans.get('maker').until).toBe(0)
+  expect(db.root.ipBans[IP]).toMatchObject({ pid: 'BAD123', until: 0 })
+  // No Player ID: the TV-ban still holds, the full ban says why.
+  expect(await A.tvBan(db, { uid: 'u3', minutes: 60, full: true }, fs)).toMatchObject({ ok: true, fullError: 'no-pid' })
+
+  // Delete for good.
+  await A.tvDelete(db, { id: 'clip1', title: 'Rude' }, fs)
+  expect(clips.size).toBe(0)
+  await expect(A.tvDelete(db, { id: '../x' }, fs)).rejects.toMatchObject({ status: 400 })
+})

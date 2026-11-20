@@ -88,6 +88,7 @@ import { WORLD_EVENT_KINDS, DISASTER_KINDS, TUNE_LIMITS } from '../../src/game/L
 import { statsReport } from './playStats.js'
 import { helperList, addHelper, removeHelper, helperLogin, helperReports, checkReport, reportChecks } from './helpers.js'
 import { languageReport } from './langCheck.js'
+import { tvHide, tvFake, tvDelete, tvBan, tvUnban, tvBanList } from './tvAdmin.js'
 import { ownerCommand, giveToPid, waitingGifts, claimPidGift, OwnerError, HORDE_SIZES, OWNER_TIMES, OWNER_WEATHERS, GIVE_MAX } from './ownerPowers.js'
 import { livePoll, reportAlert, inboxState, setFeedbackDone, deleteFeedback, clearErrors, startPoll, endPoll, deletePoll, testAlert, POLL_HOURS } from './inbox.js'
 
@@ -482,7 +483,8 @@ export async function contentReports(db, fs, hidden) {
     return {
       error: null,
       list: rows
-        .map((r) => ({ ...r, key: `${r.kind}_${r.id}`, hidden: !!hidden?.[r.kind === 'map' ? 'maps' : 'builds']?.[r.id] }))
+        // A TV clip's own `hidden` flag (tvAdmin.js); maps/builds: liveConfig.hidden.
+        .map((r) => ({ ...r, key: `${r.kind}_${r.id}`, hidden: r.kind === 'tv' ? !!r.hidden : !!hidden?.[r.kind === 'map' ? 'maps' : 'builds']?.[r.id] }))
         .filter((r) => r.count > (Number(seen?.[r.key]) || 0) || r.hidden)
         .sort((a, b) => b.latest - a.latest),
     }
@@ -493,8 +495,10 @@ export async function contentReports(db, fs, hidden) {
 
 export async function adminState(db, fs, now = Date.now()) {
   const [cfg, bans, reports, players, log, ipBans] = await Promise.all([db.get('liveConfig'), db.get('bans'), db.get('playerReports'), serverPlayers(db, now), db.get('adminLog'), db.get('ipBans')])
-  const content = await contentReports(db, fs, cfg?.hidden)
+  const [content, tvBans] = await Promise.all([contentReports(db, fs, cfg?.hidden), tvBanList(fs, now)])
   return {
+    tvBans: tvBans.list,
+    tvBansError: tvBans.error,
     banner: cfg?.banner || null,
     bannerLive: !!liveBanner(cfg?.banner, now),
     events: cleanEvents(cfg?.events),
@@ -1408,6 +1412,11 @@ const LOG_TEXT = {
   unban: (b) => `Unbanned #${b.pid}`,
   dismissPlayerReport: () => 'Dismissed a player report',
   dismissContentReport: (b) => `Dismissed reports on ${b.kind} ${b.id}`,
+  tvHide: (b) => `${b.hide === false ? 'Unhid' : 'Hid'} TV clip "${cleanText(b.title, 40) || b.id}"`,
+  tvFake: (b) => `Marked reports on TV clip "${cleanText(b.title, 40) || b.id}" fake (reporters warned)`,
+  tvDelete: (b) => `Deleted TV clip "${cleanText(b.title, 40) || b.id}" for good`,
+  tvBan: (b) => `${b.full ? 'TV-banned + IP-banned' : 'TV-banned'} ${cleanText(b.nick, 24) || '?'} ${Number(b.minutes) ? `for ${minutesText(Number(b.minutes))}` : 'forever'}`,
+  tvUnban: (b) => `Lifted the TV-ban on ${cleanText(b.nick, 24) || '?'}`,
   hide: (b) => `${b.hide === false ? 'Unhid' : 'Hid'} ${b.kind} ${b.id}`,
   switches: (b) => {
     const off = SWITCH_IDS.filter((id) => Array.isArray(b.off) && b.off.includes(id))
@@ -1460,6 +1469,11 @@ const ACTION_FNS = {
   unban: (db, body) => unban(db, body),
   dismissPlayerReport: (db, body) => dismissPlayerReport(db, body),
   dismissContentReport: (db, body) => dismissContentReport(db, body),
+  tvHide: (db, body, fs) => tvHide(db, fs, body),
+  tvFake: (db, body, fs) => tvFake(db, fs, body),
+  tvDelete: (db, body, fs) => tvDelete(db, fs, body),
+  tvBan: (db, body, fs) => tvBan(db, fs, body),
+  tvUnban: (db, body, fs) => tvUnban(db, fs, body),
   hide: (db, body) => hideContent(db, body),
   switches: (db, body) => setSwitches(db, body),
   maintenance: (db, body) => setMaintenance(db, body),

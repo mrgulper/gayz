@@ -204,6 +204,7 @@ test('GayZ TV: post YouTube links and GIFs, watch, report, daily cap, delete', a
     const clips = new Map([
       ['old', { id: 'old', kind: 'youtube', youtubeId: 'AAAAAAAAAAA', title: 'Someone else', creatorUid: 'them', creatorNickname: 'Them', createdAt: Date.now() - 1000, reports: 9 }],
       ['bad', { id: 'bad', kind: 'youtube', youtubeId: 'BBBBBBBBBBB', title: 'Hidden one', creatorUid: 'them', creatorNickname: 'Them', createdAt: Date.now() - 2000, reports: 10 }],
+      ['taken', { id: 'taken', kind: 'youtube', youtubeId: 'CCCCCCCCCCC', title: 'Taken down', creatorUid: 'them', creatorNickname: 'Them', createdAt: Date.now() - 3000, reports: 0, hidden: true }],
     ])
     const gifs = new Map()
     const reports = new Set()
@@ -234,7 +235,7 @@ test('GayZ TV: post YouTube links and GIFs, watch, report, daily cap, delete', a
   await page.click('#gallery-tab-tv')
   await expect(page.locator('#gallery-tv-view')).toBeVisible()
   await expect(page.locator('#gallery-list-view')).toBeHidden()
-  // 10 reports = hidden; 9 still shows.
+  // 10 reports or hidden by the owner = left out; 9 still shows.
   await expect(page.locator('.tv-card')).toHaveCount(1)
 
   // A YouTube Shorts link: only the video id is kept.
