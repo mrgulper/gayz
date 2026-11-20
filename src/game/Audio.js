@@ -30,6 +30,7 @@ const SFX = {
   a_goat: 2, a_horse: 2, a_donkey: 1, a_chicken: 2, a_rooster: 1, a_duck: 3, a_crow: 2, a_owl: 2,
   a_parrot: 2, a_gull: 2, a_peacock: 2, a_deer: 1, a_elephant: 1, a_hippo: 2, a_orca: 2, a_frog: 2,
   a_buzz: 2, a_cricket: 1, a_squeak: 3,
+  em_clap: 1, em_cheer: 1, em_cry: 1, em_laugh: 1, em_vogue: 1,
 }
 // Loaded as soon as sound starts (they're needed in the first seconds of
 // play); everything else loads the first time it's asked for.
@@ -52,6 +53,16 @@ const SPECIAL_SAMPLES = {
   zap: ['sp_zap', 1, 0.6], jetpack: ['sp_jetpack', 1, 0.5], hum: ['sp_hum', 1, 0.5], turret: ['shot_rifle', 1.25, 0.35, 0.15],
   snowSplat: ['foot_snow', 1, 0.8], snowThrow: ['swing', 1.5, 0.4], chatPing: ['ui_ping', 1.2, 0.5],
   detectorFound: ['ui_confirm', 1, 0.6], potionGulp: ['splash', 1.6, 0.4], squirt: ['splash', 1.8, 0.35],
+}
+// Emote sounds (Emotes.js, 2026-11-20): [sound, rate, gain], or a
+// playSpecial recipe's name. Recordings: clapping, "hurray" and a cry from
+// Wikimedia Commons (public domain / CC0), a camera shutter for Vogue
+// (public domain), a group giggle from OpenGameArt (CC0).
+const EMOTE_SOUNDS = {
+  dance: 'tune', wave: ['sp_chime', 1.4, 0.35], flex: ['sp_bell', 1.5, 0.3], cheer: ['em_cheer', 1, 0.75],
+  point: ['ui_ping', 1, 0.5], sit: ['sp_thud', 1.3, 0.3], kiss: 'kiss', vogue: ['em_vogue', 1, 0.85],
+  hairflip: ['swing', 1.35, 0.5], heart: ['sp_chime', 1.1, 0.55], clap: ['em_clap', 1, 0.75],
+  spin: ['swing', 0.7, 0.6], laugh: ['em_laugh', 1, 0.75], cry: ['em_cry', 1, 0.6],
 }
 // Calm homepage music: "Calm and simple title music" (CC0, opengameart.org).
 const MENU_MUSIC_URL = '/audio/music/menu-calm.mp3'
@@ -118,6 +129,8 @@ const SPECIAL_SOUNDS = {
   firework: { notes: [[300, 0, 0.5, 'sine', 0.06, 1200]], noise: [0.9, 2000, 300, 0.3] },
   drum: { notes: [[110, 0, 0.25, 'sine', 0.4, 50]], noise: [0.08, 900, 300, 0.2] },
   chatPing: { notes: [[1175, 0, 0.09, 'sine', 0.12], [1568, 0.08, 0.14, 'sine', 0.1]] },
+  // Blowing a kiss (Emotes.js): a little lip smack and a rising "mwah".
+  kiss: { noise: [0.05, 2600, 1400, 0.22], notes: [[700, 0.04, 0.22, 'sine', 0.12, 1400]] },
   honk: { notes: [[220, 0, 0.3, 'sawtooth', 0.15], [277, 0, 0.3, 'sawtooth', 0.12], [220, 0.35, 0.45, 'sawtooth', 0.15], [277, 0.35, 0.45, 'sawtooth', 0.12]] },
 }
 
@@ -1522,6 +1535,24 @@ class AudioEngine {
     this._caption(kind === 'burp' ? 'burp' : 'hiccup', pan)
     if (!this.ctx) return
     this.playSpecial(kind, this.zombieGain, pan)
+  }
+
+  // An emote's sound (Emotes.emoteSound): gain 0..1 (quieter when it's
+  // someone further away), pan -1..1.
+  // Starts loading them when the emote wheel first opens.
+  loadEmoteSounds() {
+    for (const s of Object.values(EMOTE_SOUNDS)) if (Array.isArray(s)) this._loadSfx(s[0])
+  }
+
+  playEmote(id, pan = 0, gain = 1) {
+    if (!this.ctx || gain <= 0.02) return
+    const s = EMOTE_SOUNDS[id]
+    if (!s) return
+    const out = this.ctx.createGain()
+    out.gain.value = gain
+    out.connect(this.sfxGain)
+    if (typeof s === 'string') return this.playSpecial(s, out, pan)
+    if (!this._playSfx(s[0], { out, rate: s[1], gain: s[2], pan, jitter: 0.03 })) this.playSpecial('pop', out, pan)
   }
 
   // The special blocks' sounds (SpecialBlocks.js): each a few synth

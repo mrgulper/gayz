@@ -838,7 +838,7 @@ export class CouchCoop {
     if (body.baseY === undefined) body.baseY = body.char.position.y
     body.char.position.y = body.baseY
     const emote = this.gear?.emote
-    const bob = emote && !p.isDown ? poseEmote(lp, emote.id, performance.now() / 1000) : null
+    const bob = poseEmote(lp, emote && !p.isDown ? emote.id : '', performance.now() / 1000)
     if (bob !== null) {
       body.char.position.y += bob * body.char.scale.y
       return

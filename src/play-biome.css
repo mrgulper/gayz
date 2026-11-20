@@ -160,27 +160,56 @@ html.ui-theme-biome #build-play-health { border-color: var(--biome-edge); }
   font-weight: 400 !important;
 }
 
-/* The emote wheel (Emotes.js, 2026-11-01): a ring of round buttons in the
-   middle of the screen, the hovered one's name in the centre - dark glass
-   in any theme, the biome's frame round it. */
-#emote-wheel { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.2); }
+/* The emote wheel (Emotes.js; pink pie since 2026-11-20, Gaymi: "smoother
+   and nicer, more pink"): dark plum glass cut into slices, the pointed-at
+   slice hot pink and nudged out, its icon and name in the middle. Pops in
+   (slices one after another) and fades out. Same look in every theme. */
+#emote-wheel { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(60, 0, 40, 0.25), rgba(0, 0, 0, 0.35)); }
 #emote-wheel[hidden] { display: none; }
 #emote-wheel .emote-ring {
-  position: relative; width: 300px; height: 300px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(10, 12, 16, 0.55) 0 26%, rgba(10, 12, 16, 0.78) 27% 100%);
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  position: relative; width: min(400px, 90vmin); aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, rgba(40, 6, 34, 0.7) 0 37%, rgba(52, 8, 42, 0.86) 38% 100%);
+  box-shadow: 0 0 0 3px #ff6fb5, 0 0 26px 4px rgba(255, 95, 168, 0.55), inset 0 0 30px rgba(255, 95, 168, 0.18);
 }
-#emote-wheel button {
-  position: absolute; width: 80px; height: 80px; margin: -40px 0 0 -40px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0;
-  font: 15px 'Luckiest Guy', 'Bebas Neue', sans-serif; color: #fff;
-  background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 50%; cursor: pointer;
+#emote-wheel svg { display: block; width: 100%; height: 100%; overflow: visible; }
+#emote-wheel .emote-slice { cursor: pointer; outline: none; transition: transform 0.16s cubic-bezier(0.3, 1.4, 0.5, 1); }
+#emote-wheel .emote-slice path {
+  fill: rgba(255, 95, 168, 0.1); stroke: rgba(255, 140, 200, 0.55); stroke-width: 0.8;
+  transition: fill 0.16s ease, stroke 0.16s ease;
 }
-#emote-wheel button:hover, #emote-wheel button:focus-visible { background: rgba(255, 207, 92, 0.35); border-color: #ffcf5c; }
-#emote-wheel kbd { font: 11px sans-serif; padding: 1px 5px; border-radius: 4px; background: rgba(255, 255, 255, 0.2); }
-#emote-wheel .emote-mid { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: 90px; font: 18px 'Luckiest Guy', 'Bebas Neue', sans-serif; color: #ffcf5c; text-align: center; pointer-events: none; }
-html.ui-theme-biome #emote-wheel .emote-ring { border-color: var(--biome-edge); }
-body.touch-play-on #emote-wheel kbd { display: none; }
+#emote-wheel .emote-icon { pointer-events: none; }
+#emote-wheel .emote-fig { fill: #fff; }
+#emote-wheel .emote-pink { fill: #ff5fa8; }
+#emote-wheel .emote-tear { fill: #6fd0ff; }
+#emote-wheel .emote-line { fill: none; stroke: #ffb3d9; stroke-width: 1.3; stroke-linecap: round; }
+#emote-wheel .emote-ha { font: bold 6px sans-serif; fill: #ff5fa8; text-anchor: middle; }
+#emote-wheel .emote-key { font: bold 7px sans-serif; fill: #ffb8dc; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+#emote-wheel .emote-slice.is-hot, #emote-wheel .emote-slice:focus-visible { transform: translate(var(--dx), var(--dy)); }
+#emote-wheel .emote-slice.is-hot path, #emote-wheel .emote-slice:focus-visible path { fill: url(#emote-pink); stroke: #ffd6ea; stroke-width: 1.4; }
+#emote-wheel .emote-slice.is-hot .emote-pink { fill: #fff; }
+#emote-wheel .emote-slice.is-hot .emote-line { stroke: #fff; }
+#emote-wheel .emote-slice.is-hot .emote-key { fill: #fff; }
+#emote-wheel .emote-mid {
+  position: absolute; left: 50%; top: 50%; width: 34%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  background: radial-gradient(circle, rgba(70, 14, 55, 0.9), rgba(34, 8, 30, 0.95)); box-shadow: inset 0 0 0 2px rgba(255, 111, 181, 0.7);
+  font: clamp(13px, 4vmin, 18px) 'Luckiest Guy', 'Bebas Neue', sans-serif; color: #ff9fd0; text-align: center; pointer-events: none;
+  text-shadow: 0 2px 6px rgba(255, 60, 150, 0.5);
+}
+#emote-wheel .emote-mid-icon { width: 48%; height: auto; display: none; overflow: visible; }
+#emote-wheel .emote-mid.has-icon .emote-mid-icon { display: block; animation: emote-mid-pop 0.2s cubic-bezier(0.3, 1.6, 0.5, 1); }
+#emote-wheel .emote-mid.has-icon span { color: #fff; }
+#emote-wheel.opening .emote-ring { animation: emote-ring-in 0.24s cubic-bezier(0.3, 1.4, 0.5, 1); }
+#emote-wheel.opening .emote-slice path, #emote-wheel.opening .emote-icon { animation: emote-slice-in 0.28s ease-out both; animation-delay: calc(var(--i) * 14ms); }
+#emote-wheel.closing { animation: emote-out 0.15s ease-in forwards; pointer-events: none; }
+@keyframes emote-ring-in { from { transform: scale(0.75) rotate(-12deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes emote-slice-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes emote-mid-pop { from { transform: scale(0.4); } to { transform: none; } }
+@keyframes emote-out { to { opacity: 0; transform: scale(0.94); } }
+@media (prefers-reduced-motion: reduce) {
+  #emote-wheel *, #emote-wheel.closing { animation: none !important; transition: none !important; }
+}
+body.touch-play-on #emote-wheel .emote-key { display: none; }
 
 /* A new player's first game (PlayOnboarding.js, 2026-10-31): the controls
    in one line above the health bar, fading on their own. The biome's box

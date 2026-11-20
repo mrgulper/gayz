@@ -35,7 +35,7 @@
 // a normal server game (_promote), the same as Invite Friends.
 import * as THREE from 'three'
 import { wearCosmetics, cleanWorn, myWorn } from './Cosmetics.js'
-import { poseEmote, poseSit, sitDrop, EMOTES } from './Emotes.js'
+import { poseEmote, poseSit, sitDrop, EMOTES, emoteSound } from './Emotes.js'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { nameTag } from './BuildCamp.js'
 import { serverApi, myDetails } from './ServerBrowser.js'
@@ -392,6 +392,12 @@ export class PlayNet {
         if (!this._firstSync) addChatSystemLine(this.game, t('serverPlayerJoined', { name: p.nick || 'Survivor' }))
       }
       setTarget(mine, p.x, p.y, p.z)
+      // Their emote's sound when they start one, quieter further off.
+      const emote = EMOTES.includes(p.emote) ? p.emote : ''
+      if (emote && emote !== mine.emote && !this._firstSync && !p.dead) {
+        const me = s.bodyPos?.()
+        emoteSound(emote, s._panTo?.(p.x, p.z) || 0, me ? Math.hypot(p.x - me.x, p.y - me.y, p.z - me.z) : 0)
+      }
       Object.assign(mine, { tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), esc: !!p.esc, gh: cleanGhost(p.gh), kills: Number.isFinite(Number(p.kills)) ? Math.max(0, Math.floor(Number(p.kills))) : undefined, ring: cleanRemoteRing(p.ring) })
       if (sharedFog) {
         if (p.fog && typeof p.fog.c === 'string' && p.fog.n !== mine.fogN) {
@@ -636,7 +642,7 @@ export class PlayNet {
         }
         // Their Hats & Capes and emote (Cosmetics.js, Emotes.js).
         wearCosmetics(p.body, p.hat, p.cape)
-        const bob = !p.dead && p.emote ? poseEmote(lp, p.emote, performance.now() / 1000) : null
+        const bob = poseEmote(lp, !p.dead && p.emote ? p.emote : '', performance.now() / 1000)
         p.body.position.y = p.bodyY ?? (p.bodyY = p.body.position.y)
         if (bob !== null) p.body.position.y += bob * p.body.scale.y
         else if (p.sit && !p.dead) {

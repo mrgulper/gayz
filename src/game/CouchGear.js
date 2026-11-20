@@ -37,7 +37,7 @@ import { INVENTORY_SKINS, skinFrontIconURL } from './InventorySkins.js'
 import { SHOP_TRAPS, SHOP_TOWERS } from './PlayShop.js'
 import { ITEMS, ARMOR_SLOTS } from './PlayInventory.js'
 import { PlayCrafting } from './PlayCrafting.js'
-import { EMOTES, EMOTE_S } from './Emotes.js'
+import { EMOTES, EMOTE_S, emoteSound } from './Emotes.js'
 import { toyKind } from './CouchToys.js'
 import { POTION_S } from './Potions.js'
 
@@ -714,6 +714,7 @@ export class CouchGear {
   playEmote(id) {
     if (!EMOTES.includes(id) || this.c.p2.isDown) return
     this.emote = { id, left: EMOTE_S }
+    emoteSound(id)
     this.close()
   }
 
