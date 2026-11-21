@@ -338,6 +338,14 @@ function _rankOverlay(mesh, rank) {
 // How much wider (and deeper) the body, arms and legs are than a plain
 // Minecraft-shaped skin. Capes (Cosmetics.makeCape) follow it.
 export const BODY_WIDE = 1.25
+// The head grows with the body (2026-11-20, Gaymi: "the body got bigger
+// good but the face is still tiny"): HEAD_BIG times bigger every way,
+// growing up from the neck (y 22), so its middle sits at HEAD_Y and its
+// top at HEAD_TOP_Y. Hats (Cosmetics.wearCosmetics) and the emote face
+// (Emotes.js) follow these.
+export const HEAD_BIG = 1.25
+export const HEAD_Y = 22 + 4 * HEAD_BIG
+export const HEAD_TOP_Y = 22 + 8 * HEAD_BIG
 
 export function buildTexturedCharacter(skin) {
   const { texture, width, height } = skin
@@ -349,12 +357,14 @@ export function buildTexturedCharacter(skin) {
   const group = new THREE.Group()
 
   const head = _texturedBoxMesh(8, 8, 8, 0, 0, texture, width, height, false)
-  head.position.y = 26
+  head.position.y = HEAD_Y
+  head.scale.setScalar(HEAD_BIG)
   head.userData.isHead = true
   group.add(head)
   if (overlayFor('head')) {
     const hat = _texturedBoxMesh(8, 8, 8, OVERLAY_ORIGINS.head[0], OVERLAY_ORIGINS.head[1], texture, width, height, false, HAT_INFLATE, true)
-    hat.position.y = 26
+    hat.position.y = HEAD_Y
+    hat.scale.setScalar(HEAD_BIG)
     hat.userData.isHead = true
     group.add(hat)
   }
@@ -401,7 +411,7 @@ export function buildTexturedCharacter(skin) {
 
   // Chunkier body (2026-11-20, Gaymi: "the character is very skinny
   // compared to bloxd"): the torso, arms and legs are BODY_WIDE times
-  // wider and deeper; the head and the height stay. Each limb's box is
+  // wider and deeper; the height stays (the head has its own HEAD_BIG). Each limb's box is
   // widened inside its pivot (not the pivot itself), so a gun held in the
   // hand keeps its shape; the pivots move out to stay flush.
   for (const part of group.children) {
@@ -439,8 +449,8 @@ function buildCharacter(skin) {
 // x=+-8) - used by _resize() to keep the camera far enough back to fit
 // the WHOLE character regardless of the canvas's aspect ratio, not just
 // its height. Bumped slightly (was 16/8) to cover the added hair/shoes.
-const CHAR_HALF_HEIGHT = 17
-const CHAR_HALF_WIDTH = 8.5
+const CHAR_HALF_HEIGHT = 18 // the bigger head (HEAD_BIG) reaches ~y 32.5
+const CHAR_HALF_WIDTH = 10.5 // the wider arms (BODY_WIDE) reach x +-10
 const CHAR_FIT_MARGIN = 0.85 // leaves ~15% breathing room on whichever axis is tightest
 // Homepage pet (HomePet.js): stands a little behind and to the right of
 // the character, so the frame widens and slides right to fit both.

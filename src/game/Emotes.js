@@ -22,6 +22,7 @@
 import * as THREE from 'three'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
+import { HEAD_BIG, HEAD_Y } from './MenuAvatar3D.js'
 
 // The first 10 are on keys 1-9 and 0 (keep their order); the rest are
 // mouse / tap only.
@@ -285,11 +286,11 @@ function _faceFor(emote, time) {
   }[emote] || 'smile'
 }
 
-// The front of the head (+z) and its hat shell: the meshes at head
-// height (MenuAvatar3D.buildTexturedCharacter puts them at y 26).
+// The head and its hat shell (MenuAvatar3D.buildTexturedCharacter marks
+// them isHead).
 function _headParts(g) {
   const ud = g.userData
-  if (!ud.emoteHead) ud.emoteHead = g.children.filter((c) => c.isMesh && c.position.y === 26 && c.geometry?.type === 'BoxGeometry' && c.geometry.parameters.width === c.geometry.parameters.height)
+  if (!ud.emoteHead) ud.emoteHead = g.children.filter((c) => c.isMesh && c.userData.isHead)
   return ud.emoteHead
 }
 
@@ -341,9 +342,11 @@ function _makeFace(g) {
     mat.transparent = false
     mat.alphaTest = 0
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), mat)
-    mesh.position.z = 4.03
+    // Just in front of the (HEAD_BIG times bigger) head's face.
+    mesh.position.z = 4.03 * HEAD_BIG
+    mesh.scale.setScalar(HEAD_BIG)
     const pivot = new THREE.Group()
-    pivot.position.y = 26
+    pivot.position.y = HEAD_Y
     pivot.add(mesh)
     pivot.visible = false
     g.add(pivot)
@@ -505,7 +508,12 @@ export class Emotes {
       const [kx, ky] = pt(87, mid).split(' ')
       const key = i < 10 ? `<text class="emote-key" x="${kx}" y="${ky}">${(i + 1) % 10}</text>` : ''
       return `<g class="emote-slice" data-emote="${id}" role="button" tabindex="0" style="--i:${i}; --dx:${(Math.sin(mid) * 4).toFixed(2)}px; --dy:${(-Math.cos(mid) * 4).toFixed(2)}px">`
-        + `<path d="${d}"/><g class="emote-icon" transform="translate(${ix} ${iy}) scale(0.82)">${iconSvg(id)}</g>${key}</g>`
+        // The see-through .emote-hit is what the mouse points at, and it
+        // never moves; only .emote-look slides out. When the whole slice
+        // slid, a mouse near its edge was left pointing at nothing, so it
+        // un-lit, slid back under the mouse, lit again... a flicker
+        // (2026-11-20). Rule: what you hover must not move away.
+        + `<path class="emote-hit" d="${d}"/><g class="emote-look"><path d="${d}"/><g class="emote-icon" transform="translate(${ix} ${iy}) scale(0.82)">${iconSvg(id)}</g>${key}</g></g>`
     }).join('')
     const wheel = document.createElement('div')
     wheel.id = 'emote-wheel'

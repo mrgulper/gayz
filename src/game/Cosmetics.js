@@ -12,7 +12,7 @@
 import * as THREE from 'three'
 import { makeHat, disposeHat, HAT_BOX_COLORS } from './FunnyZombies.js'
 import { levelFromXp } from './Xp.js'
-import { BODY_WIDE } from './MenuAvatar3D.js'
+import { BODY_WIDE, HEAD_BIG, HEAD_TOP_Y } from './MenuAvatar3D.js'
 import { t } from './i18n.js'
 import { ownedWorldGoalRewards } from './WorldGoal.js'
 
@@ -145,7 +145,12 @@ export function wearCosmetics(char, hat, cape) {
       disposeHat(worn.hatObj)
     }
     worn.hatObj = hat ? makeHat(hat) : null
-    if (worn.hatObj) char.add(worn.hatObj)
+    if (worn.hatObj) {
+      // Sized and placed for the player's bigger head (MenuAvatar3D).
+      worn.hatObj.scale.multiplyScalar(HEAD_BIG)
+      worn.hatObj.position.y = HEAD_TOP_Y
+      char.add(worn.hatObj)
+    }
     worn.hat = hat
   }
   if (worn.cape !== cape) {

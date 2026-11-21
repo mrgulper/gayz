@@ -2481,9 +2481,12 @@ export class Game {
     const antialias = !LOW_QUALITY_MODE && !this.settings.performanceMode && !highDpiTouch
     const glAttrs = { alpha: false, depth: true, stencil: false, antialias, premultipliedAlpha: true, preserveDrawingBuffer: false, powerPreference: 'high-performance' }
     const opaqueContext = this.canvas.getContext('webgl2', glAttrs)
+    // Sharp depth at every distance, so surfaces that sit close together
+    // stop shimmering (ThreeFixes.js says why; 2026-11-20).
+    const logarithmicDepthBuffer = true
     this.renderer = opaqueContext
-      ? new THREE.WebGLRenderer({ canvas: this.canvas, context: opaqueContext, alpha: false, antialias, powerPreference: 'high-performance' })
-      : new THREE.WebGLRenderer({ canvas: this.canvas, alpha: false, antialias, powerPreference: 'high-performance' })
+      ? new THREE.WebGLRenderer({ canvas: this.canvas, context: opaqueContext, alpha: false, antialias, powerPreference: 'high-performance', logarithmicDepthBuffer })
+      : new THREE.WebGLRenderer({ canvas: this.canvas, alpha: false, antialias, powerPreference: 'high-performance', logarithmicDepthBuffer })
     // Graphics-connection-lost handling (2026-09-19, extended same day) -
     // the multi-tab GPU-contention scenario documented above (several
     // GPU-heavy tabs open at once) can make the browser actually drop this

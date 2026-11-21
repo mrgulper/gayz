@@ -8,7 +8,7 @@
     "build": "vite build && node scripts/build-zombie-facts.mjs",
     "preview": "vite preview",
     "test": "playwright test",
-    "lint": "eslint .",
+    "lint": "eslint . && node scripts/check-hover-moves.mjs",
     "prepare": "node scripts/install-hooks.mjs",
     "check:docs": "node scripts/check-docs.mjs --range origin/main..HEAD"
   },

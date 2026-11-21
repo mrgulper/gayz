@@ -467,7 +467,7 @@ html.ui-theme-old .chat-system-row .chat-message-text {
 }
 .inv-skin-card:hover {
   background: rgba(40, 31, 18, 0.9);
-  transform: translateY(-1px);
+  transform: scale(1.02);
 }
 html.ui-theme-old .inv-skin-card {
   background: rgba(120, 80, 40, 0.14);

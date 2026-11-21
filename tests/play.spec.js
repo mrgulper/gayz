@@ -1852,3 +1852,32 @@ test('Clip Maker 3: Speed, slow-mo GIF and video, Replay Clip camera angles and 
   })
   expect(r4).toEqual({ btn: 'none', pill: 'Replay Clip works in solo games only' })
 })
+
+// PC pause screen (2026-11-20): wide, two columns, Back/Leave full width,
+// no scrolling on a small laptop; a phone keeps one column.
+test('the pause screen uses two columns on PC and one on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'classic'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    g.buildMode.toggleMenu()
+  })
+  const measure = () => page.evaluate(() => {
+    const shown = [...document.querySelectorAll('#play-pause-buttons > button')].filter((b) => b.offsetParent)
+    const lefts = new Set(shown.map((b) => Math.round(b.getBoundingClientRect().left)))
+    const width = (id) => Math.round(document.getElementById(id).getBoundingClientRect().width)
+    const menu = document.getElementById('play-pause-menu')
+    return { columns: lefts.size, backFull: width('play-pause-back-btn') === width('play-pause-leave-btn'), cardWide: width('play-pause-card') >= 700, scrolls: menu.scrollHeight > menu.clientHeight + 1 }
+  })
+  expect(await measure()).toEqual({ columns: 2, backFull: true, cardWide: true, scrolls: false })
+  await page.setViewportSize({ width: 390, height: 844 })
+  const phone = await measure()
+  expect(phone.columns).toBe(1)
+  expect(phone.cardWide).toBe(false)
+})

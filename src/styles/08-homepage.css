@@ -647,7 +647,7 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
 }
 
 #play-btn:hover {
-  transform: translateY(-3px);
+  transform: scale(1.04);
   filter: drop-shadow(0 0 22px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 90%, transparent));
 }
 
@@ -676,7 +676,7 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
 }
 #gamemode-btn:hover {
   filter: brightness(1.18);
-  transform: translateY(-1px);
+  transform: scale(1.02);
 }
 
 /* Old theme's own plate art, swapped in on top of the shared rules above -
@@ -734,7 +734,7 @@ html.ui-theme-old #gamemode-btn {
 }
 
 #play-btn.play-btn-centered:hover {
-  transform: translateY(-3px);
+  transform: scale(1.04);
 }
 
 #play-btn.play-btn-centered:active {
@@ -1561,7 +1561,7 @@ html.ui-theme-clean #menu-nav-buttons button {
      (harmless, still-worth-keeping) fix for a real but separate issue. */
   filter: brightness(1.18) drop-shadow(0 0 10px rgba(var(--ui-gold-accent-rgb), 0.45));
   color: #fff;
-  transform: translateX(2px);
+  transform: scale(1.03);
 }
 
 /* These buttons never got the same outline:none-on-click treatment
@@ -1907,8 +1907,10 @@ html.ui-theme-old #menu-nav-buttons .nav-badge-dot {
 @keyframes gayz-press {
   to { scale: 0.92; }
 }
+/* Starts at full size: starting smaller pulled the edge out from under the
+   mouse, so the hover ended and restarted - a flicker (2026-11-20). */
 @keyframes gayz-pop {
-  0% { scale: 0.92; }
+  0% { scale: 1; }
   55% { scale: 1.05; }
   100% { scale: 1; }
 }
@@ -1925,7 +1927,7 @@ html.ui-theme-old #menu-nav-buttons .nav-badge-dot {
    the rightside panel"), a beat after the card, so it reads as its own
    little tick. */
 #menu-player-badge:hover #menu-avatar-level {
-  animation: gayz-wobble 0.45s ease-in-out 0.08s, gayz-pop 0.3s ease-out 0.08s;
+  animation: gayz-wobble 0.45s ease-in-out 0.08s both, gayz-pop 0.3s ease-out 0.08s both;
 }
 #menu button:active,
 #menu-nav-buttons button:active,
