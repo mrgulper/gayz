@@ -416,7 +416,7 @@ html.ui-theme-clean .panel-box hr {
 /* The preview card shows the uploaded picture too, so picking one
    changes something right in front of you. */
 #theme-picker-clean .theme-clean-preview {
-  background: var(--clean-bg-image, none) center / cover no-repeat, var(--clean-preview, #ffffff);
+  background: var(--clean-preview-image, none) center / cover no-repeat, var(--clean-preview, #ffffff);
 }
 html.ui-theme-clean .theme-picker-card {
   border: 2px solid var(--clean-line);
