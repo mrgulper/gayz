@@ -1648,3 +1648,34 @@ test('real place names, real-place pyramids and towns sized to their country', a
   })
   expect(r).toEqual({ fills: true, name: 'Mount Everest', title: 'Mount Everest', shown: true })
 })
+
+// 3D flicker fixes (ThreeFixes.js): moved instances keep being drawn, and
+// our own shaders join the sharper (logarithmic) depth.
+test('moved things stay drawn and close surfaces get sharp depth', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode({ map: 'map3' })
+    const bm = g.buildMode
+    const THREE = window.__three
+    const out = { logDepth: g.renderer.capabilities.logarithmicDepthBuffer }
+    if (!THREE) return { ...out, noThree: true }
+    // An instance moved far away, after it was first drawn.
+    const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial(), 1)
+    mesh.setMatrixAt(0, new THREE.Matrix4())
+    bm.scene.add(mesh)
+    g.renderer.render(bm.scene, bm.camera)
+    mesh.setMatrixAt(0, new THREE.Matrix4().makeTranslation(500, 0, 0))
+    mesh.instanceMatrix.needsUpdate = true
+    g.renderer.render(bm.scene, bm.camera)
+    out.boundsFollow = mesh.boundingSphere.center.x > 400
+    bm.scene.remove(mesh)
+    // A plain ShaderMaterial picks up the depth code.
+    const mat = new THREE.ShaderMaterial({ vertexShader: 'void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }', fragmentShader: 'void main() { gl_FragColor = vec4(1.0); }' })
+    const shader = { vertexShader: mat.vertexShader, fragmentShader: mat.fragmentShader }
+    mat.onBeforeCompile(shader, g.renderer)
+    out.shaderDepth = shader.vertexShader.includes('vFragDepth') && shader.fragmentShader.includes('logdepthbuf_fragment')
+    return out
+  })
+  expect(r).toEqual({ logDepth: true, boundsFollow: true, shaderDepth: true })
+})

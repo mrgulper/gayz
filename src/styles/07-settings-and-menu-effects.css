@@ -1283,7 +1283,8 @@ html.silly-upsideChat .chat-message-text { display: inline-block; transform: rot
 html.silly-comicFont body, html.silly-comicFont button, html.silly-comicFont input, html.silly-comicFont select {
   font-family: 'Comic Sans MS', 'Comic Sans', 'Chalkboard SE', 'Comic Neue', cursive !important;
 }
-@keyframes silly-boing { 0%, 100% { transform: scale(1); } 30% { transform: scale(1.12, 0.9); } 60% { transform: scale(0.95, 1.06); } }
+/* Never below full size, or it shrinks away from the mouse and flickers (check-hover-moves.mjs). */
+@keyframes silly-boing { 0%, 100% { transform: scale(1); } 30% { transform: scale(1.14, 1); } 60% { transform: scale(1, 1.08); } }
 html.silly-bouncyButtons button:hover, html.silly-bouncyButtons button:active { animation: silly-boing 0.4s ease; }
 @media (prefers-reduced-motion: reduce) {
   html.silly-bouncyButtons button:hover, html.silly-bouncyButtons button:active { animation: none; }

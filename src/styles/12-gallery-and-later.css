@@ -214,7 +214,7 @@
   border: 1px solid rgba(232, 194, 90, 0.25); border-radius: 8px;
   transition: border-color 0.15s ease, transform 0.12s ease, background 0.15s ease;
 }
-:is(#play-weapon-pick, #play-perk-pick) .pwp-weapon:hover { border-color: #e8c25a; transform: translateY(-2px); }
+:is(#play-weapon-pick, #play-perk-pick) .pwp-weapon:hover { border-color: #e8c25a; transform: scale(1.03); }
 :is(#play-weapon-pick, #play-perk-pick) .pwp-weapon.active { border-color: #e8c25a; box-shadow: 0 0 0 1px #e8c25a inset, 0 0 14px rgba(232, 194, 90, 0.25); }
 :is(#play-weapon-pick, #play-perk-pick) .pwp-name { font-weight: 700; font-size: 14px; }
 :is(#play-weapon-pick, #play-perk-pick) .pwp-soon { position: relative; cursor: not-allowed; }
@@ -1381,7 +1381,7 @@ html.ui-theme-old #trade-dialog-action.trade-action-cancel { background: #a8321f
 }
 .editor-pick-option:hover,
 .editor-pick-option:focus-visible {
-  transform: translateY(-2px);
+  transform: scale(1.03);
   border-color: currentColor;
 }
 .editor-pick-art {
@@ -1443,7 +1443,7 @@ html.ui-theme-old .editor-pick-option:focus-visible { border-color: #6b3f17; }
   transition: transform 0.12s, border-color 0.12s;
 }
 .gfx-level-card:hover,
-.gfx-level-card:focus-visible { transform: translateY(-2px); border-color: currentColor; }
+.gfx-level-card:focus-visible { transform: scale(1.03); border-color: currentColor; }
 .gfx-level-card.active { border-color: #e6b422; box-shadow: 0 0 0 2px #e6b422; }
 .gfx-level-pic {
   height: 84px;

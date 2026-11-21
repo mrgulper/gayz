@@ -337,6 +337,21 @@ test('Shop on B, emote wheel on Z, sitting in and getting off vehicles', async (
     s.emotes.stop()
     // A chunkier body: arms out past a plain Minecraft body's 8 wide.
     out.wide = Math.abs(tmv._body.char.limbPivots.armR.position.x) > 7
+    // The head grows with the body, from the neck up, and the emote face
+    // sits on its front.
+    const head = tmv._body.char.children.find((c) => c.isMesh && c.userData.isHead)
+    out.bigHead = head.scale.x === 1.25 && head.position.y === 27 && tmv._body.char.userData.emoteFace?.pivot.position.y === 27
+    // The wheel's hover target stays put while the lit slice slides out
+    // (a sliding target flickered under a mouse near its edge).
+    key('KeyZ')
+    await new Promise((res) => setTimeout(res, 400)) // the pop-in is done
+    const slice = document.querySelector('#emote-wheel .emote-slice')
+    s.emotes._hover(slice.dataset.emote)
+    const hitBox = slice.querySelector('.emote-hit').getBoundingClientRect()
+    await new Promise((res) => setTimeout(res, 300))
+    const hitAfter = slice.querySelector('.emote-hit').getBoundingClientRect()
+    out.hitStill = hitBox.x === hitAfter.x && hitBox.y === hitAfter.y && getComputedStyle(slice.querySelector('.emote-look')).transform !== 'none'
+    s.emotes.close(false)
     // --- the go-kart: sit in it, right-click out, Crouch out
     const k = s.kart
     const tm = bm.tryMode
@@ -361,7 +376,7 @@ test('Shop on B, emote wheel on Z, sitting in and getting off vehicles', async (
   expect(r).toEqual({
     shopOpen: true, tabs: 'items,traps,upgrades,ammo,quests', trapRows: 5, boughtMine: true, shopClosed: true, npcTab: 'upgrades',
     noWaveTraps: true, wheelOpen: true, wheelButtons: 14, cheer: true, key0: true, faceOn: true, faceOff: true,
-    wheelClear: true, keysKept: true, camFront: true, camMoved: true, walkEmote: true, camBack: true, wide: true,
+    wheelClear: true, keysKept: true, camFront: true, camMoved: true, walkEmote: true, camBack: true, wide: true, bigHead: true, hitStill: true,
     in: true, seated: true, legsOut: true, rightClickOut: true, crouchOut: true, standing: true,
   })
 })

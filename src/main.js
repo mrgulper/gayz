@@ -1,3 +1,4 @@
+import './game/ThreeFixes.js'
 import './style.css'
 import './shop.css'
 import './play-pause.css'

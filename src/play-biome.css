@@ -173,7 +173,8 @@ html.ui-theme-biome #build-play-health { border-color: var(--biome-edge); }
   box-shadow: 0 0 0 3px #ff6fb5, 0 0 26px 4px rgba(255, 95, 168, 0.55), inset 0 0 30px rgba(255, 95, 168, 0.18);
 }
 #emote-wheel svg { display: block; width: 100%; height: 100%; overflow: visible; }
-#emote-wheel .emote-slice { cursor: pointer; outline: none; transition: transform 0.16s cubic-bezier(0.3, 1.4, 0.5, 1); }
+#emote-wheel .emote-slice { cursor: pointer; outline: none; }
+#emote-wheel .emote-look { pointer-events: none; transition: transform 0.16s cubic-bezier(0.3, 1.4, 0.5, 1); }
 #emote-wheel .emote-slice path {
   fill: rgba(255, 95, 168, 0.1); stroke: rgba(255, 140, 200, 0.55); stroke-width: 0.8;
   transition: fill 0.16s ease, stroke 0.16s ease;
@@ -185,7 +186,9 @@ html.ui-theme-biome #build-play-health { border-color: var(--biome-edge); }
 #emote-wheel .emote-line { fill: none; stroke: #ffb3d9; stroke-width: 1.3; stroke-linecap: round; }
 #emote-wheel .emote-ha { font: bold 6px sans-serif; fill: #ff5fa8; text-anchor: middle; }
 #emote-wheel .emote-key { font: bold 7px sans-serif; fill: #ffb8dc; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
-#emote-wheel .emote-slice.is-hot, #emote-wheel .emote-slice:focus-visible { transform: translate(var(--dx), var(--dy)); }
+#emote-wheel .emote-slice.is-hot .emote-look, #emote-wheel .emote-slice:focus-visible .emote-look { transform: translate(var(--dx), var(--dy)); }
+/* The still, see-through hover target (Emotes.js says why). */
+#emote-wheel .emote-slice path.emote-hit, #emote-wheel .emote-slice.is-hot path.emote-hit, #emote-wheel .emote-slice:focus-visible path.emote-hit { fill: transparent; stroke: none; animation: none; }
 #emote-wheel .emote-slice.is-hot path, #emote-wheel .emote-slice:focus-visible path { fill: url(#emote-pink); stroke: #ffd6ea; stroke-width: 1.4; }
 #emote-wheel .emote-slice.is-hot .emote-pink { fill: #fff; }
 #emote-wheel .emote-slice.is-hot .emote-line { stroke: #fff; }
