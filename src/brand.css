@@ -90,7 +90,7 @@ html.ui-theme-clean #menu#menu#menu#menu .home-x-card .home-x-btn * {
 /* The bottom links: white words, no bar behind them (2026-11-19, Gaymi:
    "keep the words as white and remove the pink around them"), with a
    soft dark outline so they read on light backgrounds too. Hover just
-   underlines. */
+   glows - no line under them (2026-11-20, Gaymi). */
 #menu #menu-links-row {
   background: none;
   border: none;
@@ -107,9 +107,10 @@ html.ui-theme-clean #menu#menu#menu#menu .home-x-card .home-x-btn * {
   border-color: transparent !important;
   box-shadow: none !important;
 }
-#menu #menu-links-row :is(a, button):is(:hover, :focus-visible, .footer-menu-on) {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+#menu#menu #menu-links-row :is(a, button):is(:hover, :focus-visible, .footer-menu-on),
+#menu#menu #menu-links-row :is(a, button):is(:hover, :focus-visible, .footer-menu-on) * {
+  text-decoration: none;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.7), 0 0 3px rgba(0, 0, 0, 0.85), 0 1px 4px rgba(0, 0, 0, 0.7) !important;
 }
 #menu #menu-links-row svg { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)); }
 
@@ -149,10 +150,18 @@ html.ui-theme-old #menu :is(#gamemode-btn, #settings-btn, #menu-nav-buttons butt
   filter: sepia(1) saturate(3.5) hue-rotate(290deg) brightness(1.15);
 }
 /* The profile plate: pink laid over the picture instead, so your
-   picture and character face keep their real colours. */
-html.ui-theme-old #menu #menu-player-badge {
-  background: linear-gradient(var(--gayz-pink), var(--gayz-pink)), url('./menu-art/old-profile-plate.webp') center / 100% 100% no-repeat;
-  background-blend-mode: hard-light;
+   picture and character face keep their real colours. The pink sits on
+   its own layer cut to the plate's shape (2026-11-20, Gaymi: no pink
+   square around it - like General and the other plaques). */
+html.ui-theme-old #menu #menu-player-badge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gayz-pink);
+  mix-blend-mode: hard-light;
+  -webkit-mask: url('./menu-art/old-profile-plate.webp') center / 100% 100% no-repeat;
+  mask: url('./menu-art/old-profile-plate.webp') center / 100% 100% no-repeat;
+  pointer-events: none;
 }
 html.ui-theme-old #menu :is(#menu-currency-bar, #homepage-clock) {
   background: color-mix(in srgb, var(--gayz-pink) 88%, transparent);
@@ -334,4 +343,72 @@ html.ui-theme-old :is(#trade-dialog-title, #inspect-title, #editor-pick-title) {
 html.ui-theme-old #trade-dialog-action {
   background: var(--gayz-pink) !important;
   color: #ffffff !important;
+}
+
+/* ---- Feedback box and quick polls: pink like the panels ----
+   (2026-11-20, Gaymi: the inside should be pink like Design a Skin, in
+   every theme). The box is the button colour with its ink for words;
+   the picked kind and Send swap to ink-with-pink, like a picked tab. */
+html:root :is(#feedback-screen, #poll-screen) .voice-card {
+  color: var(--gayz-panel-fg);
+  background: var(--gayz-panel);
+  border: 1px solid color-mix(in srgb, var(--gayz-panel-fg) 28%, transparent);
+  border-top: 4px solid var(--gayz-panel-fg);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+html:root .voice-card :is(.maintenance-title, .maintenance-text, .voice-help, .voice-small) {
+  color: var(--gayz-panel-fg);
+}
+html:root .voice-card .voice-kind {
+  color: var(--gayz-panel-fg);
+  background: color-mix(in srgb, var(--gayz-panel), var(--gayz-panel-fg) 18%);
+  border-color: color-mix(in srgb, var(--gayz-panel-fg) 35%, transparent);
+}
+html:root .voice-card .voice-kind:hover {
+  background: color-mix(in srgb, var(--gayz-panel), var(--gayz-panel-fg) 30%);
+}
+html:root .voice-card .voice-kind[aria-checked="true"],
+html:root .voice-card .voice-primary {
+  color: var(--gayz-panel);
+  background: var(--gayz-panel-fg);
+  border-color: var(--gayz-panel-fg);
+}
+html:root .voice-card .voice-secondary {
+  color: var(--gayz-panel-fg);
+  border-color: color-mix(in srgb, var(--gayz-panel-fg) 45%, transparent);
+}
+html:root .voice-card .voice-secondary:hover {
+  background: color-mix(in srgb, var(--gayz-panel), var(--gayz-panel-fg) 18%);
+}
+html:root #feedback-text {
+  color: var(--gayz-panel-fg);
+  background: color-mix(in srgb, var(--gayz-panel), #000000 18%);
+  border-color: color-mix(in srgb, var(--gayz-panel-fg) 35%, transparent);
+}
+html:root #feedback-text::placeholder {
+  color: color-mix(in srgb, var(--gayz-panel-fg) 65%, transparent);
+}
+html:root #feedback-text:focus {
+  border-color: var(--gayz-panel-fg);
+}
+
+/* Bigger on a computer (Gaymi: "not like small for mobile"). Phones keep
+   the small card. */
+@media (min-width: 900px) and (min-height: 600px) {
+  #feedback-screen .voice-card,
+  #poll-screen .voice-card {
+    width: min(680px, 100%);
+    padding: 34px 36px;
+    border-radius: 22px;
+  }
+  .voice-card .maintenance-title { font-size: 30px; margin-bottom: 12px; }
+  .voice-card .voice-help { font-size: 17px; margin-bottom: 20px; }
+  .voice-card .voice-small { font-size: 14px; }
+  .voice-card .voice-kinds { gap: 12px; margin-bottom: 16px; }
+  .voice-card .voice-kind { min-height: 50px; font-size: 18px; }
+  #feedback-text { min-height: 200px; padding: 16px 18px; font-size: 18px; border-radius: 16px; }
+  .voice-card .voice-actions { gap: 14px; }
+  .voice-card .voice-primary,
+  .voice-card .voice-secondary { min-height: 54px; font-size: 19px; border-radius: 14px; }
+  #poll-screen .poll-options { gap: 10px; }
 }

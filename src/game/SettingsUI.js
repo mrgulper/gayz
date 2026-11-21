@@ -998,6 +998,10 @@ export function _bindSettings(game) {
       const monthName = document.getElementById('theme-picker-monthly-month')
       if (monthName) monthName.textContent = `· ${t(month.nameKey)}`
       game.themePickerClean.style.setProperty('--clean-preview', game.settings.cleanColor)
+      // Simple's card shows only Simple's own uploaded picture - never the
+      // Sakura/Monthly art those themes put on <html> (--clean-bg-image).
+      const ownImg = getCleanBgImage()
+      game.themePickerClean.style.setProperty('--clean-preview-image', /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(ownImg) ? `url("${ownImg}")` : 'none')
       const previewVars = cleanVars(game.settings.cleanColor, game.settings.cleanBtnColor)
       game.themePickerClean.style.setProperty('--clean-preview-fg', previewVars['--clean-fg'])
       game.themePickerClean.style.setProperty('--clean-preview-btn', previewVars['--clean-btn'])
