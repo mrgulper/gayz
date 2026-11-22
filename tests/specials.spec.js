@@ -809,9 +809,10 @@ test('special blocks batch 9: fan, elevator, zipline, bounce, slide, rope, rails
     bm.placeBlock(0, 3, 40, 'ziplinepost')
     bm.placeBlock(20, 0, 20, 'bounceblock')
     bm.placeBlock(-20, 0, 20, 'slideblock')
-    // A ledge 5 high with the rope anchor on its edge.
-    for (let y = 0; y < 5; y++) bm.placeBlock(30, y, -30, 'stone')
-    bm.placeBlock(30, 5, -30, 'ropeanchor')
+    // A ledge 5 high with the rope anchor on its edge. On the 32x32 Plain
+    // platform (cells -16..15) - off it there's no ground to climb down to.
+    for (let y = 0; y < 5; y++) bm.placeBlock(8, y, 8, 'stone')
+    bm.placeBlock(8, 5, 8, 'ropeanchor')
     bm.placeBlock(10, 0, -10, 'railtrack', false, { facing: 0 })
     bm.placeBlock(12, 0, -10, 'speedrail', false, { facing: 0 })
     bm.placeBlock(-30, 0, -30, 'launchcannon')
@@ -850,9 +851,9 @@ test('special blocks batch 9: fan, elevator, zipline, bounce, slide, rope, rails
     sp.update(0.02, at(-19.5, 1, 20.5))
     out.slide = sp.speedMult === 1.4 && sp.gripMult === 0.15
     // Rope: down to the ground beside the ledge.
-    at(30.5, 6, -30.5)
-    sp.use(30, 5, -30)
-    out.rope = Math.floor(tm.pos.y) === 0 && Math.abs(tm.pos.x - 30.5) + Math.abs(tm.pos.z + 29.5) === 1
+    at(8.5, 6, 8.5)
+    sp.use(8, 5, 8)
+    out.rope = Math.floor(tm.pos.y) === 0 && Math.abs(tm.pos.x - 8.5) + Math.abs(tm.pos.z - 8.5) === 1
     // Rails: carry you along (-z for facing 0); the speed rail faster.
     at(10.5, 0.07, -9.5)
     sp._onPadKey = null

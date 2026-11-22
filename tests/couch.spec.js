@@ -546,7 +546,11 @@ test('couch co-op: equal Player 2 crafts, opens chests, fishes, farms and emotes
     out.oneRod = gear._rows()[gear.menu.focus].off === true
     press(1)
     press(1)
-    gear.select(gear.hot.findIndex((x) => x?.id === 'fishingRod'))
+    // A full hotbar (random chest loot earlier) sends the rod to the
+    // Backpack - hold it from there, like a player would.
+    const rodHot = gear.hot.findIndex((x) => x?.id === 'fishingRod')
+    if (rodHot >= 0) gear.select(rodHot)
+    else gear.hold('bag', gear.bag.findIndex((x) => x?.id === 'fishingRod'))
     hands.fishing._waterInView = () => ({ x: c.p2.x + 4, y: c.p2.y, z: c.p2.z, cx: Math.floor(c.p2.x + 4), cz: Math.floor(c.p2.z) })
     press(7)
     out.cast = hands.fishing.out && !s.fishing.out
@@ -567,6 +571,10 @@ test('couch co-op: equal Player 2 crafts, opens chests, fishes, farms and emotes
     // (Player 2's body loads its skin first.)
     for (let i = 0; i < 60 && !c.body; i++) await new Promise((res) => setTimeout(res, 50))
     step(3)
+    // The pose eases in over 0.22 real seconds (Emotes.js BLEND_S, it runs on
+    // the real clock), so give it that before checking the arm.
+    await new Promise((res) => setTimeout(res, 350))
+    step(1)
     out.emoting = gear.emote?.id === 'dance' && !gear.menuOpen && Math.abs(c.body.char.limbPivots.armR.rotation.x) > 0.2
     pad.axes[1] = -1
     step(10)
