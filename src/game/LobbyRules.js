@@ -33,7 +33,8 @@ export const LOBBY_RING_MODES = ['main', 'zone', 'td']
 export const PASSWORD_MAX = 24
 
 export function defaultLobbyRules() {
-  const out = { ring: true, ff: false }
+  // Guns by default since 2026-11-22 (the ring is in testing).
+  const out = { ring: false, ff: false }
   for (const [k, p] of Object.entries(LOBBY_PICKS)) out[k] = p.def
   return out
 }
@@ -49,7 +50,7 @@ function clampPick(k, v) {
 // Anything sent in (the form, the server, a stored lobby) -> safe rules.
 export function cleanLobbyRules(r) {
   if (!r || typeof r !== 'object') return null
-  const out = { ring: r.ring !== false, ff: r.ring !== false && r.ff === true }
+  const out = { ring: r.ring === true, ff: r.ring === true && r.ff === true }
   for (const k of Object.keys(LOBBY_PICKS)) out[k] = clampPick(k, r[k])
   return out
 }
@@ -69,7 +70,7 @@ export function changedRules(r) {
   if (!r) return []
   const d = defaultLobbyRules()
   const out = []
-  if (!r.ring) out.push(['ring', false])
+  if (r.ring) out.push(['ring', true])
   if (r.ff) out.push(['ff', true])
   for (const k of ['zh', 'zc', 'boss', 'hp', 'dmg', 'spd']) if (r[k] !== d[k]) out.push([k, r[k]])
   return out

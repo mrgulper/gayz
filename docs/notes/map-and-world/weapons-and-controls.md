@@ -61,3 +61,10 @@ Split out of the old `map-and-world.md` on 2026-11-13 (word for word, oldest fir
 - Editor (`RingEditor.js`): key `ringBag` (I - B was the Shop), tapping/clicking `#play-ring-bar` (z 18 on phones, above `#touch-play`), or pause menu "Ring & Bag" (replaces the hidden Switch Weapon). Game keeps running (Gaymi: "anytime"). Works in Spectate. `mouseScreenOpen` counts it.
 - Hooks in BuildSurvival: shield `ring.absorb` in `_hurtPlayer` (after camp/skills checks), cactus `ring.onBitten(zb)` after a bite. `audioEngine.playUi` only knows open/close/tab/error/confirm/buy/unbox.
 - Spec: "Spin ring items: ..." (+ the phone spec taps the ring bar). `SpinRing.lib` = RingItems for tests (the preview build can't import source).
+
+## Spin ring moved to Testing (2026-11-22)
+- Gaymi: "lets move ring to testing and change all back to gun for now". `RING_MODES` (SpinRing.js) is just `spinRing`, a new mode in `PLAY_GAME_MODES` that plays like Classic. Its card `#game-mode-spin-ring` is on a new Game Mode tab `#hub-tab-testing` / `#hub-page-testing` (after Parkour; `_openHubPanel` opens it when Spin Ring is picked). Every other mode has guns again.
+- `BuildSurvival.start`: ring = homepage + `RING_MODES`, or a server whose `lobbyRules.ring === true` and mode is classic/shrinkingZone/towerDefense. The `__ringForTests` / webdriver guns switch is gone (tests pick `spinRing`).
+- Custom lobbies: `defaultLobbyRules().ring` = false, `cleanLobbyRules` keeps ring only if `=== true`; the select lists Guns first and "Spin Ring (Testing)"; the chip now shows when the ring is ON (`lobbyRingChip`). Bag, loadout and tutorial saves are untouched.
+- How to Play `htpWavesShoot` rewritten (guns first, ring in Testing). Couch P2 ring waits until the ring leaves testing (Gaymi's picks for then: Buddy = P1's bag, Equal = own guest bag, shared drops, swap screen on P2's half).
+- Test: spin-ring "Spin ring lives in Game Mode > Testing; Classic is back to guns".

@@ -6,14 +6,14 @@ import { gotoAndWaitForGame } from './helpers.js'
 
 // The spin ring (SpinRing.js, 2026-11-15): zombie modes have no guns - items
 // spin round you, spread with attack, pull in with defend, hurt zombies and
-// heal you. (Tests keep guns unless they set window.__ringForTests.)
+// heal you. Since 2026-11-22 only the Spin Ring mode (Game Mode > Testing)
+// has it; every other mode has guns.
 async function startRingGame(page) {
   await page.evaluate(() => {
     const g = window.__game
-    window.__ringForTests = true
     localStorage.removeItem('gayz-play-saved-run')
     g.careerStats.totalRuns = 1
-    g.settings.selectedGameMode = 'classic'
+    g.settings.selectedGameMode = 'spinRing'
     g.playBtn.click()
   })
   await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
@@ -97,6 +97,32 @@ test('Spin ring: no guns in zombie modes, spread / pull in, hits, heals, works i
     return { active: s.active, ring: !!s.ring, bar: !!document.getElementById('play-ring-bar') }
   })
   expect(party).toEqual({ active: true, ring: false, bar: false })
+})
+
+// 2026-11-22: the ring moved to Game Mode > Testing; Classic has guns again.
+test('Spin ring lives in Game Mode > Testing; Classic is back to guns', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game._openHubPanel())
+  await page.click('#hub-tab-testing')
+  await expect(page.locator('#hub-page-testing')).toBeVisible()
+  await expect(page.locator('#game-mode-spin-ring')).toContainText('Spin Ring')
+  await page.click('#game-mode-spin-ring')
+  expect(await page.evaluate(() => window.__game.settings.selectedGameMode)).toBe('spinRing')
+  // Reopening the panel lands on Testing.
+  await page.evaluate(() => { window.__game._closeHubPanel(); document.getElementById('hub-tab-survival').click(); window.__game._openHubPanel() })
+  await expect(page.locator('#hub-page-testing')).toBeVisible()
+  const classic = await page.evaluate(async () => {
+    const g = window.__game
+    g._closeHubPanel()
+    localStorage.removeItem('gayz-play-saved-run')
+    g.careerStats.totalRuns = 1
+    g.settings.selectedGameMode = 'classic'
+    g.playBtn.click()
+    for (let i = 0; i < 600 && !g.buildMode?.survival?.active; i++) await new Promise((res) => setTimeout(res, 100))
+    const s = g.buildMode.survival
+    return { active: s.active, ring: !!s.ring }
+  })
+  expect(classic).toEqual({ active: true, ring: false })
 })
 
 // Spin ring Batch 2 (RingItems.js, RingLoot.js, RingEditor.js): 9 items x 6

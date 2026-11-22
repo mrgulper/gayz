@@ -29,9 +29,11 @@ import { RING_SLOTS, ringSlots, ICONS, parseKey, itemStats, makeItemMesh, rarity
 
 export { RING_SLOTS }
 
-// The Game Modes with the ring and no guns (Gaymi: "zombie modes"); party
-// games keep their guns, and so do PvP modes.
-export const RING_MODES = ['classic', 'zombieDefense', 'bossHunt', 'zombieRush', 'zombieExtraction', 'shrinkingZone', 'speedrun', 'towerDefense']
+// The Game Modes with the ring and no guns. Since 2026-11-22 (Gaymi: "move
+// ring to testing and change all back to gun for now") that's only Spin
+// Ring - Game Mode > Testing - which plays like Classic. Every other mode
+// has guns again; custom lobbies can still pick the ring (LobbyRules.js).
+export const RING_MODES = ['spinRing']
 
 // How far out (blocks) the ring sits: pulled in, normal, spread out; how
 // fast it gets there (per second), and how fast it turns (radians/second).
