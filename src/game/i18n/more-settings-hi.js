@@ -323,7 +323,7 @@ export default {
   settingsQrInfoText: "आपकी सेटिंग्स का QR कोड दिखाता है। फ़ोन कैमरा से स्कैन करें: फ़ोन पर GayZ खुलता है और कॉपी करने से पहले पूछता है।",
   settingsQrBtn: "दिखाएँ",
   settingsQrHelp: "अपनी सेटिंग्स वहाँ कॉपी करने के लिए फ़ोन कैमरा से स्कैन करें ({n} डिफ़ॉल्ट से बदली हुई)।",
-  settingsQrTooBig: "QR कोड के लिए बहुत ज़्यादा बदली हुई सेटिंग्स - इसकी जगह Controls > Save & Backup में Copy Settings Code इस्तेमाल करें।",
+  settingsQrTooBig: "QR कोड के लिए बहुत ज़्यादा बदली हुई सेटिंग्स - इसकी जगह सामान्य > Save & Backup में Copy Settings Code इस्तेमाल करें।",
   settingsQrOfferTitle: "सेटिंग्स कॉपी करें?",
   settingsQrOfferText: "इस लिंक में दूसरे डिवाइस की {n} सेटिंग्स हैं। यहाँ इस्तेमाल करें? (Settings > General में Undo Last Change आपकी वाली वापस लाता है।)",
   settingsQrOfferYes: "इस्तेमाल करें",

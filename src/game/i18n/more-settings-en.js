@@ -323,7 +323,7 @@ export default {
   settingsQrInfoText: "Shows a QR code of your settings. Scan it with a phone camera: GayZ opens on the phone and asks before copying them.",
   settingsQrBtn: "Show",
   settingsQrHelp: "Scan with your phone camera to copy your settings there ({n} changed from the defaults).",
-  settingsQrTooBig: "Too many changed settings for a QR code - use Copy Settings Code in Controls > Save & Backup instead.",
+  settingsQrTooBig: "Too many changed settings for a QR code - use Copy Settings Code in General > Save & Backup instead.",
   settingsQrOfferTitle: "Copy Settings?",
   settingsQrOfferText: "This link has {n} settings from another device. Use them here? (Undo Last Change in Settings > General brings yours back.)",
   settingsQrOfferYes: "Use Them",

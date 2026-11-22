@@ -1061,6 +1061,7 @@ Escape before dawn.</p>
           <button class="settings-tab" data-page="language" id="tab-language">Language</button>
           <button class="settings-tab" data-page="audio" id="tab-audio">Audio</button>
           <button class="settings-tab" data-page="controls" id="tab-controls">Controls</button>
+          <button class="settings-tab" data-page="gameplay" id="tab-gameplay">Gameplay</button>
           <button class="settings-tab" data-page="graphics" id="tab-graphics">Graphics</button>
           <button class="settings-tab" data-page="theme" id="tab-theme">Theme</button>
         </div>
@@ -1554,6 +1555,8 @@ Escape before dawn.</p>
               <option value="display">Display</option>
             </select>
           </div>
+
+          <button id="reset-theme-defaults-btn" class="settings-reset-btn" type="button">Reset Theme to Defaults</button>
         </div>
 
         <div class="settings-page" id="settings-page-controls" style="display: none">
@@ -1580,10 +1583,37 @@ Escape before dawn.</p>
             <label for="invert-scroll-toggle" id="invert-scroll-label">Invert Scroll-Wheel Weapon Switch</label>
             <input type="checkbox" id="invert-scroll-toggle" class="audio-checkbox" />
           </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="sprintMode" aria-label="What does this do?">?</button>
+            <label for="sprint-mode-select" id="sprint-mode-label">Sprint</label>
+            <select id="sprint-mode-select">
+              <option value="hold">Hold to Sprint</option>
+              <option value="toggle">Tap to Sprint</option>
+            </select>
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="autoJump" aria-label="What does this do?">?</button>
+            <label for="auto-jump-toggle" id="auto-jump-label">Auto Jump</label>
+            <input type="checkbox" id="auto-jump-toggle" class="audio-checkbox" />
+          </div>
 
 
           <p id="touch-controls-override-hint" class="menu-hint-line">Changing this reloads the page.</p>
 
+          <h3 class="settings-section-heading" id="settings-section-key-bindings">Key Bindings</h3>
+          <div id="controls-grid" class="controls-grid"></div>
+          <div class="settings-btn-row">
+            <button id="export-keybinds-btn" type="button">Copy Keybinds Code</button>
+            <button id="import-keybinds-btn" type="button">Paste Keybinds Code</button>
+          </div>
+          <div class="settings-btn-row">
+            <input type="text" id="import-keybinds-input" class="nickname-input" placeholder="Paste keybinds code" style="display: none" />
+            <button id="import-keybinds-apply-btn" type="button" style="display: none">Apply Keybinds Code</button>
+          </div>
+
+        </div>
+
+        <div class="settings-page" id="settings-page-gameplay" style="display: none">
           <h3 class="settings-section-heading" id="settings-section-hud">HUD</h3>
           <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="hudFps" aria-label="What does this do?">?</button>
@@ -1628,19 +1658,6 @@ Escape before dawn.</p>
           </div>
 
           <h3 class="settings-section-heading" id="settings-section-gameplay">Gameplay</h3>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="sprintMode" aria-label="What does this do?">?</button>
-            <label for="sprint-mode-select" id="sprint-mode-label">Sprint</label>
-            <select id="sprint-mode-select">
-              <option value="hold">Hold to Sprint</option>
-              <option value="toggle">Tap to Sprint</option>
-            </select>
-          </div>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="autoJump" aria-label="What does this do?">?</button>
-            <label for="auto-jump-toggle" id="auto-jump-label">Auto Jump</label>
-            <input type="checkbox" id="auto-jump-toggle" class="audio-checkbox" />
-          </div>
           <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="viewBobbing" aria-label="What does this do?">?</button>
             <label for="view-bobbing-toggle" id="view-bobbing-label">View Bobbing</label>
@@ -1794,17 +1811,7 @@ Escape before dawn.</p>
             <span id="toast-duration-value" class="audio-value">100%</span>
           </div>
 
-          <h3 class="settings-section-heading" id="settings-section-key-bindings">Key Bindings</h3>
-          <div id="controls-grid" class="controls-grid"></div>
-          <div class="settings-btn-row">
-            <button id="export-keybinds-btn" type="button">Copy Keybinds Code</button>
-            <button id="import-keybinds-btn" type="button">Paste Keybinds Code</button>
-          </div>
-          <div class="settings-btn-row">
-            <input type="text" id="import-keybinds-input" class="nickname-input" placeholder="Paste keybinds code" style="display: none" />
-            <button id="import-keybinds-apply-btn" type="button" style="display: none">Apply Keybinds Code</button>
-          </div>
-
+          <button id="reset-gameplay-defaults-btn" class="settings-reset-btn" type="button">Reset Gameplay to Defaults</button>
         </div>
 
         <div id="settings-status-row">

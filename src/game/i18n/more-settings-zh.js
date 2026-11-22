@@ -323,7 +323,7 @@ export default {
   settingsQrInfoText: "显示你设置的二维码。用手机相机扫描:手机上会打开 GayZ,并在复制前先询问。",
   settingsQrBtn: "显示",
   settingsQrHelp: "用手机相机扫描,把你的设置复制过去(有 {n} 项和默认不同)。",
-  settingsQrTooBig: "改动的设置太多,二维码放不下 —— 请改用 操作 > 保存与备份 里的复制设置代码。",
+  settingsQrTooBig: "改动的设置太多,二维码放不下 —— 请改用 通用 > 保存与备份 里的复制设置代码。",
   settingsQrOfferTitle: "复制设置?",
   settingsQrOfferText: "这个链接带有另一台设备的 {n} 项设置。在这里使用吗?(设置 > 常规 里的撤销上次更改可以换回你的设置。)",
   settingsQrOfferYes: "使用",
