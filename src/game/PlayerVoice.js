@@ -1,8 +1,8 @@
 // Feedback, polls and error reports (2026-11-13). Server side:
 // api/_lib/inbox.js through /api/live.
 //
-// - Feedback: the homepage's bottom "Feedback" link opens a small box
-//   (Idea / Bug / Other + a message). A bug also sends this device's
+// - Feedback: the homepage's bottom "Feedback" link opens a full page
+//   (Idea / Bug / Report a Player / Other + a message and pictures). A bug also sends this device's
 //   details (device, browser, screen, language, build) - what the old
 //   Settings "Copy Bug Report" button used to copy. A few per hour.
 // - Polls: a quick poll from the team pops up once on the homepage (vote
@@ -17,7 +17,7 @@ import { deviceKind } from './PlayStats.js'
 
 const POLLS_SEEN_KEY = 'gayz-polls-seen'
 const FEEDBACK_KIND_IDS = ['idea', 'bug', 'other']
-export const FEEDBACK_MAX = 1000
+export const FEEDBACK_MAX = 10000
 const ERRORS_PER_PAGE = 5
 
 let game = null
@@ -69,83 +69,277 @@ export function deviceInfo() {
   }
 }
 
-// --- Feedback box ---
+// --- Feedback page ---
+// A full page like the other panels (2026-11-22, was a small popup):
+// Idea / Bug / Report a Player / Other, up to FEEDBACK_MAX letters and
+// PICS_MAX pictures. Pictures are shrunk here to a JPEG and go only to the
+// team's Discord (api/_lib/inbox.js). Report a Player searches names like
+// Add a Friend (game._searchPlayerNames) and sends a normal player report
+// (where: 'feedback').
+
+const PICS_MAX = 3
+const PIC_SIDE = 1600
+// Data-URL length; the server takes up to 700 KB of picture each.
+const PIC_DATA_MAX = 900000
+const ID_RE = /^[A-Za-z0-9]{4,40}$/
+
+let pics = []
+let reportTarget = null
+let reportResults = []
+
+const $ = (id) => document.getElementById(id)
 
 function feedbackEl() {
-  let el = document.getElementById('feedback-screen')
-  if (el) return el
-  el = document.createElement('div')
-  el.id = 'feedback-screen'
-  el.hidden = true
-  el.setAttribute('role', 'dialog')
-  el.setAttribute('aria-modal', 'true')
-  el.setAttribute('aria-labelledby', 'feedback-title')
-  el.innerHTML = `<div class="maintenance-card voice-card">
-    <h2 class="maintenance-title" id="feedback-title"></h2>
-    <p class="voice-help" id="feedback-help"></p>
-    <div class="voice-kinds" role="radiogroup">${FEEDBACK_KIND_IDS.map((k) => `<button type="button" class="voice-kind" role="radio" data-kind="${k}"></button>`).join('')}</div>
-    <textarea id="feedback-text" maxlength="${FEEDBACK_MAX}" rows="5"></textarea>
-    <p class="voice-small" id="feedback-note"></p>
-    <div class="voice-actions">
-      <button type="button" class="voice-secondary" id="feedback-cancel"></button>
-      <button type="button" class="voice-primary" id="feedback-send"></button>
-    </div>
-  </div>`
-  document.body.appendChild(el)
+  const el = $('feedback-panel')
+  if (!el || el.dataset.bound) return el
+  el.dataset.bound = '1'
   el.addEventListener('click', (e) => {
-    if (e.target === el) closeFeedback()
+    if (e.target === el || e.target.closest('.panel-close-btn')) return closeFeedback()
     const kind = e.target.closest?.('.voice-kind')
     if (kind) setKind(kind.dataset.kind)
+    const rm = e.target.closest?.('.feedback-pic-remove')
+    if (rm) {
+      pics.splice(Number(rm.dataset.index), 1)
+      renderPics()
+    }
+    const row = e.target.closest?.('.friend-suggest-row')
+    if (row && reportResults[Number(row.dataset.index)]) pickTarget(reportResults[Number(row.dataset.index)])
+    if (!e.target.closest('#feedback-report-search')) showResults([])
   })
-  el.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeFeedback()
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && feedbackOpen()) closeFeedback()
   })
-  el.querySelector('#feedback-cancel').addEventListener('click', closeFeedback)
-  el.querySelector('#feedback-send').addEventListener('click', sendFeedback)
-  el.querySelector('#feedback-text').addEventListener('input', fillNote)
+  $('feedback-cancel').addEventListener('click', closeFeedback)
+  $('feedback-send').addEventListener('click', sendFeedback)
+  $('feedback-text').addEventListener('input', fillNote)
+  $('feedback-text').addEventListener('paste', (e) => {
+    const files = [...(e.clipboardData?.files || [])].filter((f) => f.type.startsWith('image/'))
+    if (files.length) {
+      e.preventDefault()
+      addPics(files)
+    }
+  })
+  $('feedback-pic-btn').addEventListener('click', () => $('feedback-pic-input').click())
+  $('feedback-pic-input').addEventListener('change', (e) => {
+    addPics([...e.target.files])
+    e.target.value = ''
+  })
+  let timer = null
+  $('feedback-report-input').addEventListener('input', () => {
+    reportTarget = null
+    fillPicked()
+    clearTimeout(timer)
+    timer = setTimeout(searchNames, 300)
+  })
+  $('feedback-report-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation()
+      showResults([])
+    }
+  })
   return el
+}
+
+function feedbackOpen() {
+  const el = $('feedback-panel')
+  return !!el && el.style.display === 'flex'
 }
 
 function setKind(kind) {
   const el = feedbackEl()
-  el.dataset.kind = FEEDBACK_KIND_IDS.includes(kind) ? kind : 'idea'
+  el.dataset.kind = [...FEEDBACK_KIND_IDS, 'report'].includes(kind) ? kind : 'idea'
   for (const b of el.querySelectorAll('.voice-kind')) b.setAttribute('aria-checked', String(b.dataset.kind === el.dataset.kind))
-  el.querySelector('#feedback-text').placeholder = t(`feedbackPlaceholder_${el.dataset.kind}`)
+  $('feedback-text').placeholder = t(`feedbackPlaceholder_${el.dataset.kind}`)
+  $('feedback-report-row').hidden = el.dataset.kind !== 'report'
   fillNote()
 }
 
 function fillNote() {
   const el = feedbackEl()
-  const n = el.querySelector('#feedback-text').value.length
+  const n = $('feedback-text').value.length
   const bug = el.dataset.kind === 'bug' ? `${t('feedbackBugNote')} ` : ''
-  el.querySelector('#feedback-note').textContent = `${bug}${n} / ${FEEDBACK_MAX}`
+  $('feedback-note').textContent = `${bug}${n} / ${FEEDBACK_MAX}`
+}
+
+// --- Report a Player: who ---
+
+async function searchNames() {
+  const text = $('feedback-report-input').value.trim()
+  if (!game?._cloudUid) {
+    showResults([])
+    fillPicked()
+    return
+  }
+  const found = await game._searchPlayerNames(text, 'report')
+  if (found !== null) showResults(found.filter((m) => typeof m.playerId === 'string'))
+}
+
+function showResults(list) {
+  reportResults = list
+  const box = $('feedback-report-suggestions')
+  if (!box) return
+  box.textContent = ''
+  list.forEach((m, i) => {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.className = 'friend-suggest-row'
+    b.dataset.index = String(i)
+    b.setAttribute('role', 'option')
+    const name = document.createElement('span')
+    name.className = 'friend-suggest-name'
+    name.textContent = m.name
+    const id = document.createElement('span')
+    id.className = 'friend-id'
+    id.textContent = `#${m.playerId}`
+    b.append(name, id)
+    box.appendChild(b)
+  })
+  box.classList.toggle('open', list.length > 0)
+}
+
+function pickTarget(m) {
+  reportTarget = { playerId: m.playerId, name: m.name || '' }
+  $('feedback-report-input').value = `${m.name} #${m.playerId}`
+  showResults([])
+  fillPicked()
+}
+
+// Picked from the list, or a #ID typed straight in.
+function currentTarget() {
+  if (reportTarget) return reportTarget
+  const typed = $('feedback-report-input').value.trim().replace(/^#/, '')
+  return ID_RE.test(typed) && $('feedback-report-input').value.trim().startsWith('#') ? { playerId: typed.toUpperCase(), name: '' } : null
+}
+
+function fillPicked() {
+  const p = $('feedback-report-picked')
+  if (!p) return
+  const tg = currentTarget()
+  if (tg) p.textContent = t('feedbackReportPicked', { name: tg.name ? `${tg.name} #${tg.playerId}` : `#${tg.playerId}` })
+  else p.textContent = game?._cloudUid ? t('feedbackReportHint') : t('feedbackReportSignIn')
+}
+
+// --- Pictures ---
+
+function shrinkPicture(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      try {
+        const scale = Math.min(1, PIC_SIDE / Math.max(img.naturalWidth, img.naturalHeight))
+        const c = document.createElement('canvas')
+        c.width = Math.max(1, Math.round(img.naturalWidth * scale))
+        c.height = Math.max(1, Math.round(img.naturalHeight * scale))
+        const ctx = c.getContext('2d')
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, c.width, c.height)
+        ctx.drawImage(img, 0, 0, c.width, c.height)
+        for (const q of [0.85, 0.7, 0.55, 0.4]) {
+          const d = c.toDataURL('image/jpeg', q)
+          if (d.length <= PIC_DATA_MAX) return resolve(d)
+        }
+        resolve(null)
+      } catch {
+        resolve(null)
+      } finally {
+        URL.revokeObjectURL(url)
+      }
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      resolve(null)
+    }
+    img.src = url
+  })
+}
+
+async function addPics(files) {
+  const imgs = files.filter((f) => f && /^image\//.test(f.type))
+  if (pics.length + imgs.length > PICS_MAX) game?._showHomepageToast?.(t('feedbackPicTooMany', { n: PICS_MAX }))
+  for (const f of imgs.slice(0, PICS_MAX - pics.length)) {
+    const d = await shrinkPicture(f)
+    if (d && pics.length < PICS_MAX) pics.push(d)
+    else if (!d) game?._showHomepageToast?.(t('feedbackPicBad'))
+  }
+  renderPics()
+}
+
+function renderPics() {
+  const box = $('feedback-pics')
+  if (!box) return
+  box.textContent = ''
+  pics.forEach((d, i) => {
+    const wrap = document.createElement('div')
+    wrap.className = 'feedback-pic'
+    const img = document.createElement('img')
+    img.src = d
+    img.alt = ''
+    const rm = document.createElement('button')
+    rm.type = 'button'
+    rm.className = 'feedback-pic-remove'
+    rm.dataset.index = String(i)
+    rm.setAttribute('aria-label', t('feedbackPicRemove'))
+    rm.textContent = '×'
+    wrap.append(img, rm)
+    box.appendChild(wrap)
+  })
+  $('feedback-pic-btn').disabled = pics.length >= PICS_MAX
+  $('feedback-pics-note').textContent = t('feedbackPicHelp', { n: pics.length, max: PICS_MAX })
 }
 
 export function openFeedback(kind = 'idea') {
+  game?._closeAllMenuPanels?.()
   const el = feedbackEl()
-  el.querySelector('#feedback-title').textContent = t('feedbackTitle')
-  el.querySelector('#feedback-help').textContent = t('feedbackHelp')
+  if (!el) return
+  $('feedback-title').textContent = t('feedbackTitle')
+  $('feedback-help').textContent = t('feedbackHelp')
   for (const b of el.querySelectorAll('.voice-kind')) b.textContent = t(`feedbackKind_${b.dataset.kind}`)
-  el.querySelector('#feedback-cancel').textContent = t('feedbackCancel')
-  el.querySelector('#feedback-send').textContent = t('feedbackSend')
-  el.querySelector('#feedback-send').disabled = false
+  $('feedback-report-label').textContent = t('feedbackReportLabel')
+  $('feedback-report-input').placeholder = t('feedbackReportSearch')
+  $('feedback-pic-btn').textContent = t('feedbackPicAdd')
+  $('feedback-cancel').textContent = t('feedbackCancel')
+  $('feedback-send').textContent = t('feedbackSend')
+  $('feedback-send').disabled = false
   setKind(kind)
-  el.hidden = false
-  el.querySelector('#feedback-text').focus()
+  fillPicked()
+  renderPics()
+  el.style.display = 'flex'
+  $('feedback-text').focus()
 }
 
 export function closeFeedback() {
-  const el = document.getElementById('feedback-screen')
-  if (el) el.hidden = true
+  const el = $('feedback-panel')
+  if (el) el.style.display = 'none'
+  showResults([])
 }
 
 const FEEDBACK_ERRORS = { 'too-many': 'feedbackTooMany', 'bad-request': 'feedbackTooShort' }
 
+function resetForm() {
+  $('feedback-text').value = ''
+  $('feedback-report-input').value = ''
+  reportTarget = null
+  pics = []
+  renderPics()
+}
+
 async function sendFeedback() {
   const el = feedbackEl()
-  const box = el.querySelector('#feedback-text')
-  const btn = el.querySelector('#feedback-send')
+  const box = $('feedback-text')
+  const btn = $('feedback-send')
   const text = box.value.trim()
+  const kind = el.dataset.kind
+  const target = kind === 'report' ? currentTarget() : null
+  if (kind === 'report' && !target) {
+    game?._showHomepageToast?.(t('feedbackReportNone'))
+    $('feedback-report-input').focus()
+    return
+  }
+  if (target && target.playerId === game?.settings?.playerId) {
+    game?._showHomepageToast?.(t('feedbackReportSelf'))
+    return
+  }
   if (text.length < 3) {
     game?._showHomepageToast?.(t('feedbackTooShort'))
     box.focus()
@@ -153,12 +347,19 @@ async function sendFeedback() {
   }
   if (btn.disabled) return
   btn.disabled = true
-  const kind = el.dataset.kind
+  const images = pics.slice()
   try {
-    await api({ action: 'feedback', kind, text, pid: game?.settings?.playerId, nick: game?.settings?.nickname || '', info: kind === 'bug' ? deviceInfo() : null })
-    box.value = ''
-    closeFeedback()
-    game?._showHomepageToast?.(t('feedbackThanks'))
+    if (kind === 'report') {
+      const r = await api({ action: 'report', target: target.playerId, targetName: target.name, where: 'feedback', text, by: game?.settings?.playerId, byName: game?.settings?.nickname || '', images })
+      resetForm()
+      closeFeedback()
+      game?._showHomepageToast?.(t(r?.already ? 'feedbackReportAlready' : 'feedbackReportThanks'))
+    } else {
+      await api({ action: 'feedback', kind, text, pid: game?.settings?.playerId, nick: game?.settings?.nickname || '', info: kind === 'bug' ? deviceInfo() : null, images })
+      resetForm()
+      closeFeedback()
+      game?._showHomepageToast?.(t('feedbackThanks'))
+    }
   } catch (err) {
     game?._showHomepageToast?.(t(FEEDBACK_ERRORS[err?.message] || 'feedbackOffline'))
   } finally {
@@ -192,7 +393,7 @@ export function renderPoll() {
   const p = currentPoll()
   const onHome = !game?.menu || game.menu.style.display !== 'none'
   let el = document.getElementById('poll-screen')
-  const blocked = overlayUp('maintenance-screen') || overlayUp('warning-screen') || overlayUp('feedback-screen')
+  const blocked = overlayUp('maintenance-screen') || overlayUp('warning-screen') || feedbackOpen()
   if (!p || seenPolls().includes(p.id) || !onHome || blocked || embedded()) {
     if (el && (!p || seenPolls().includes(p?.id) || embedded())) el.hidden = true
     return

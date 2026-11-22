@@ -5,7 +5,8 @@
 // in-memory copy.
 //
 // Layout in the Realtime Database (no daily read limit):
-//   feedback/{id}   { kind: idea|bug|other, text, pid, nick, info, at, done }
+//   feedback/{id}   { kind: idea|bug|other, text, pid, nick, info, pics, at, done }
+//                   `pics` = how many pictures went to Discord with it
 //                   `info` (bugs only) = device, browser, screen, language,
 //                   build - what the old "Copy Bug Report" button gave
 //   feedbackLimits/{pid} { n, at }  messages sent this hour (spam limit)
@@ -24,7 +25,11 @@ import crypto from 'node:crypto'
 import { ServerError } from './servers.js'
 
 export const FEEDBACK_KINDS = ['idea', 'bug', 'other']
-export const FEEDBACK_MAX = 1000
+export const FEEDBACK_MAX = 10000
+// Pictures added to feedback or a report (2026-11-22): sent straight on to
+// the Discord alert channel as files, never saved in the database.
+export const IMAGES_MAX = 3
+export const IMAGE_BYTES_MAX = 700 * 1024
 export const FEEDBACK_PER_HOUR = 5
 const FEEDBACK_KEPT = 300
 export const POLL_Q_MAX = 150
@@ -58,7 +63,24 @@ export function alertsSetUp() {
 // One message to the owner's private Discord channel. Never pings anyone
 // (player words could hold @everyone), at most ALERTS_PER_HOUR an hour,
 // and a failure never breaks what the player was doing.
-export async function sendAlert(db, text, now = Date.now()) {
+// Up to IMAGES_MAX pictures sent as data URLs (jpeg/png/webp), each at
+// most IMAGE_BYTES_MAX. Anything else is dropped.
+export function cleanImages(list) {
+  if (!Array.isArray(list)) return []
+  const out = []
+  for (const v of list.slice(0, IMAGES_MAX)) {
+    if (typeof v !== 'string' || v.length > IMAGE_BYTES_MAX * 1.4) continue
+    const m = v.match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+=*)$/)
+    if (!m) continue
+    const buf = Buffer.from(m[2], 'base64')
+    if (!buf.length || buf.length > IMAGE_BYTES_MAX) continue
+    out.push({ name: `picture-${out.length + 1}.${m[1] === 'jpeg' ? 'jpg' : m[1]}`, type: `image/${m[1]}`, buf })
+  }
+  return out
+}
+
+// `files` ({ name, type, buf }) go along as Discord attachments.
+export async function sendAlert(db, text, now = Date.now(), files = []) {
   if (!alertsSetUp()) return false
   const hour = Math.floor(now / HOUR)
   try {
@@ -68,12 +90,17 @@ export async function sendAlert(db, text, now = Date.now()) {
       return { hour, n: n + 1 }
     })
     if (!r.committed) return false
-    const res = await fetch(process.env.DISCORD_ALERT_WEBHOOK.trim(), {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ content: String(text).slice(0, 1900), allowed_mentions: { parse: [] } }),
-      signal: AbortSignal.timeout(4000),
-    })
+    const payload = { content: String(text).slice(0, 1900), allowed_mentions: { parse: [] } }
+    let init
+    if (files.length) {
+      const form = new FormData()
+      form.append('payload_json', JSON.stringify(payload))
+      files.forEach((f, i) => form.append(`files[${i}]`, new Blob([f.buf], { type: f.type }), f.name))
+      init = { method: 'POST', body: form, signal: AbortSignal.timeout(10000) }
+    } else {
+      init = { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload), signal: AbortSignal.timeout(4000) }
+    }
+    const res = await fetch(process.env.DISCORD_ALERT_WEBHOOK.trim(), init)
     return res.ok
   } catch {
     return false
@@ -92,9 +119,15 @@ async function alertOnce(db, what, gapMs, text, now) {
 const who = (name, pid) => `${oneLine(name, 24) || '?'} #${pid}`
 
 // A player report (admin.js reportPlayer calls this after saving it).
-export function reportAlert(db, r, now = Date.now()) {
-  const text = oneLine(r.text, 300)
-  return sendAlert(db, `🚩 **Player report** (${oneLine(r.where, 20) || 'chat'}): ${who(r.targetName, r.target)} reported by ${who(r.byName, r.by)}${text ? `\n> ${text}` : ''}`, now)
+export function reportAlert(db, r, now = Date.now(), files = []) {
+  const text = oneLine(r.text, 600)
+  return sendAlert(db, `🚩 **Player report** (${oneLine(r.where, 20) || 'chat'}): ${who(r.targetName, r.target)} reported by ${who(r.byName, r.by)}${text ? `\n> ${text}` : ''}`, now, files)
+}
+
+// A long message's full words ride along as a text file (Discord shows
+// only the first part of a message).
+function fullTextFile(text, shown) {
+  return text.length > shown ? [{ name: 'message.txt', type: 'text/plain', buf: Buffer.from(text, 'utf8') }] : []
 }
 
 // A map reported in the Gallery (the report itself is saved in Firestore
@@ -131,7 +164,7 @@ export async function sendFeedback(db, body = {}, now = Date.now()) {
   const nick = oneLine(body.nick, 24)
   const info = kind === 'bug' ? cleanInfo(body.info) : null
   await db.update({
-    [`feedback/${id}`]: { kind, text, pid, nick, info, at: now, done: false },
+    [`feedback/${id}`]: { kind, text, pid, nick, info, pics: Array.isArray(body.images) ? Math.min(body.images.length, IMAGES_MAX) : 0, at: now, done: false },
     [`feedbackLimits/${pid}`]: { n: n + 1, at: n ? Number(lim.at) : now },
   })
   const all = (await db.get('feedback')) || {}
@@ -142,7 +175,8 @@ export async function sendFeedback(db, body = {}, now = Date.now()) {
     await db.update(drop)
   }
   const label = { idea: '💡 Idea', bug: '🐞 Bug', other: '💬 Feedback' }[kind]
-  await sendAlert(db, `${label} from ${who(nick, pid)}\n> ${oneLine(text, 600)}`, now)
+  const files = [...cleanImages(body.images), ...fullTextFile(text, 600)]
+  await sendAlert(db, `${label} from ${who(nick, pid)}\n> ${oneLine(text, 600)}`, now, files)
   return { ok: true }
 }
 

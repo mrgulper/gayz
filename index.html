@@ -2863,7 +2863,7 @@ Escape before dawn.</p>
 
             <h3>Feedback, polls and error reports</h3>
             <ul>
-              <li>Feedback you send (the Feedback link on the homepage) stores your message, whether it's an idea, bug or other, your nickname, Player ID and when you sent it, so the developer can read it and know who to follow up with. A Bug message also stores your device type, browser, screen size, language, theme and game version. Messages are kept until the developer deletes them (the newest few hundred), and a short copy may be sent as a private notification to the developer.</li>
+              <li>Feedback you send (the Feedback link on the homepage) stores your message, whether it's an idea, bug or other, your nickname, Player ID and when you sent it, so the developer can read it and know who to follow up with. Pictures you add (up to 3) are shrunk on your device and sent only as a private notification to the developer - they are not stored by the game. Reporting a player the same way stores who you reported, your reason and your Player ID, like a report from chat. A Bug message also stores your device type, browser, screen size, language, theme and game version. Messages are kept until the developer deletes them (the newest few hundred), and a short copy may be sent as a private notification to the developer.</li>
               <li>Voting in a quick poll stores your answer with your Player ID, so each player votes once. The developer only sees the totals for each answer.</li>
               <li>Buying a custom Player ID in the Shop (you need to be signed in) stores that ID with your account, so no one else can take it. Anyone can see that the ID is in use, but not which account owns it. When you buy a different ID later, your old one is freed.</li>
               <li>When something in the game crashes, the error message, where in the game's code it happened, the game version and whether it was a phone or computer are sent and added to a count. No Player ID, nickname, account or IP address is stored with it. "Share Anonymous Usage Stats" in Settings turns this off too.</li>
@@ -3258,6 +3258,46 @@ Escape before dawn.</p>
           <h2 id="hof-panel-title">Hall of Fame</h2>
           <p id="hof-panel-help" class="hof-note"></p>
           <div id="hof-panel-list" class="hof-list"></div>
+        </div>
+      </div>
+
+      <!-- Feedback (2026-11-22, PlayerVoice.js): a full page like the
+           others - Idea / Bug / Report a Player / Other, up to 10,000
+           letters and 3 pictures (sent to the team's Discord). Report a
+           Player searches names like Add a Friend. -->
+      <div id="feedback-panel">
+        <div class="panel-box">
+          <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
+          <h2 id="feedback-title">Send Feedback</h2>
+          <div class="voice-card" id="feedback-form">
+            <p class="voice-help" id="feedback-help"></p>
+            <div class="voice-kinds" role="radiogroup">
+              <button type="button" class="voice-kind" role="radio" data-kind="idea"></button>
+              <button type="button" class="voice-kind" role="radio" data-kind="bug"></button>
+              <button type="button" class="voice-kind" role="radio" data-kind="report"></button>
+              <button type="button" class="voice-kind" role="radio" data-kind="other"></button>
+            </div>
+            <div id="feedback-report-row" hidden>
+              <label id="feedback-report-label" for="feedback-report-input"></label>
+              <div id="feedback-report-search">
+                <input type="text" id="feedback-report-input" maxlength="40" autocomplete="off" spellcheck="false">
+                <div id="feedback-report-suggestions" role="listbox"></div>
+              </div>
+              <p class="voice-small" id="feedback-report-picked"></p>
+            </div>
+            <textarea id="feedback-text" maxlength="10000" rows="8"></textarea>
+            <p class="voice-small" id="feedback-note"></p>
+            <div id="feedback-pics-row">
+              <button type="button" class="voice-secondary" id="feedback-pic-btn"></button>
+              <input type="file" id="feedback-pic-input" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
+              <div id="feedback-pics"></div>
+            </div>
+            <p class="voice-small" id="feedback-pics-note"></p>
+            <div class="voice-actions">
+              <button type="button" class="voice-secondary" id="feedback-cancel"></button>
+              <button type="button" class="voice-primary" id="feedback-send"></button>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -149,18 +149,20 @@ html.ui-theme-old #menu :is(#gamemode-btn, #settings-btn, #menu-nav-buttons butt
 html.ui-theme-old #menu :is(#gamemode-btn, #settings-btn, #menu-nav-buttons button, .home-x-card):is(:hover, .nav-hover) {
   filter: sepia(1) saturate(3.5) hue-rotate(290deg) brightness(1.15);
 }
-/* The profile plate: pink laid over the picture instead, so your
-   picture and character face keep their real colours. The pink sits on
-   its own layer cut to the plate's shape (2026-11-20, Gaymi: no pink
-   square around it - like General and the other plaques). */
+/* The profile plate: its picture moves onto its own layer under the
+   face and level coin, and gets the exact same pink filter as General
+   and the other plaques (2026-11-22, Gaymi: "why is it so red compared
+   to the general" - the old pink colour laid on top came out red). The
+   face and coin sit above that layer, so they keep their real colours. */
+html.ui-theme-old #menu #menu-player-badge {
+  background: none;
+}
 html.ui-theme-old #menu #menu-player-badge::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--gayz-pink);
-  mix-blend-mode: hard-light;
-  -webkit-mask: url('./menu-art/old-profile-plate.webp') center / 100% 100% no-repeat;
-  mask: url('./menu-art/old-profile-plate.webp') center / 100% 100% no-repeat;
+  background: url('./menu-art/old-profile-plate.webp') center / 100% 100% no-repeat;
+  filter: sepia(1) saturate(3.5) hue-rotate(290deg) brightness(1.15);
   pointer-events: none;
 }
 html.ui-theme-old #menu :is(#menu-currency-bar, #homepage-clock) {

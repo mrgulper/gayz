@@ -2169,7 +2169,7 @@ test('play stats: the page counts a visit once a day and respects the setting', 
 
 // Feedback, polls, error reports and alerts (api/_lib/inbox.js), in memory.
 test('inbox: feedback, polls, errors and alerts', async () => {
-  const { sendFeedback, votePoll, recordError, inboxState, startPoll, endPoll, deletePoll, setFeedbackDone, deleteFeedback, clearErrors, sendAlert, contentReportAlert, FEEDBACK_PER_HOUR, ALERTS_PER_HOUR, ERROR_SPIKES } = await import('../api/_lib/inbox.js')
+  const { sendFeedback, votePoll, recordError, inboxState, startPoll, endPoll, deletePoll, setFeedbackDone, deleteFeedback, clearErrors, sendAlert, contentReportAlert, cleanImages, IMAGE_BYTES_MAX, FEEDBACK_PER_HOUR, ALERTS_PER_HOUR, ERROR_SPIKES } = await import('../api/_lib/inbox.js')
   const db = fakeServerDb()
   const t0 = 5_000_000_000
   // Feedback: kinds, a bug's device details, the hourly limit.
@@ -2191,6 +2191,13 @@ test('inbox: feedback, polls, errors and alerts', async () => {
   expect(s.feedback.find((f) => f.id === bug.id).done).toBe(true)
   expect(s.feedback).toHaveLength(FEEDBACK_PER_HOUR)
   expect(s.alertsSetUp).toBe(false)
+  // Pictures (2026-11-22): at most 3 real images, each small enough; junk dropped.
+  const pic = `data:image/jpeg;base64,${Buffer.from('fakejpeg').toString('base64')}`
+  const big = `data:image/png;base64,${Buffer.alloc(IMAGE_BYTES_MAX + 10).toString('base64')}`
+  const kept = cleanImages([pic, 'data:text/html;base64,AAAA', big, pic, pic, pic])
+  expect(kept.map((f) => f.name)).toEqual(['picture-1.jpg', 'picture-2.jpg', 'picture-3.jpg'].slice(0, kept.length))
+  expect(kept).toHaveLength(1) // only the first 3 entries are looked at: pic, junk, too big
+  expect(cleanImages('nope')).toEqual([])
 
   // Polls: shown to players while on, one vote each, results by answer.
   await expect(startPoll(db, { q: 'Best?', options: ['Only one'] }, t0)).rejects.toMatchObject({ status: 400 })
@@ -2274,10 +2281,32 @@ test('feedback box, poll popup and error reports on the page', async ({ page }) 
   // The old Settings button is gone.
   expect(await page.locator('#report-bug-btn').count()).toBe(0)
   await page.locator('#nav-feedback-link').click()
-  const box = page.locator('#feedback-screen')
+  // A full page now (2026-11-22), with 10,000 letters and pictures.
+  const box = page.locator('#feedback-panel')
   await expect(box).toBeVisible()
+  expect(await page.locator('#feedback-text').getAttribute('maxlength')).toBe('10000')
   await box.locator('.voice-kind[data-kind="bug"]').click()
   await page.locator('#feedback-text').fill('The zombie got stuck')
+  // A tiny PNG made on the page, picked like a real file.
+  const png = await page.evaluate(() => {
+    const c = document.createElement('canvas')
+    c.width = 40
+    c.height = 30
+    c.getContext('2d').fillRect(0, 0, 20, 20)
+    return c.toDataURL('image/png').split(',')[1]
+  })
+  await page.locator('#feedback-pic-input').setInputFiles({ name: 'shot.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') })
+  await expect(page.locator('#feedback-pics .feedback-pic')).toHaveCount(1)
+  await page.locator('#feedback-send').click()
+  await expect(box).toBeHidden()
+  // Report a Player: a #ID typed straight in, and a reason.
+  await page.locator('#nav-feedback-link').click()
+  await box.locator('.voice-kind[data-kind="report"]').click()
+  await expect(page.locator('#feedback-report-row')).toBeVisible()
+  await page.locator('#feedback-text').fill('Spamming chat')
+  await page.locator('#feedback-send').click()
+  await expect(box).toBeVisible() // nobody picked yet
+  await page.locator('#feedback-report-input').fill('#BAD001')
   await page.locator('#feedback-send').click()
   await expect(box).toBeHidden()
   const r = await page.evaluate(async () => {
@@ -2298,6 +2327,9 @@ test('feedback box, poll popup and error reports on the page', async ({ page }) 
   const fb = r.sent.find((b) => b.action === 'feedback')
   expect(fb).toMatchObject({ kind: 'bug', text: 'The zombie got stuck' })
   expect(fb.info).toMatchObject({ device: expect.any(String), browser: expect.any(String), build: expect.any(String) })
+  expect(fb.images).toHaveLength(1)
+  expect(fb.images[0]).toMatch(/^data:image\/jpeg;base64,/)
+  expect(r.sent.find((b) => b.action === 'report')).toMatchObject({ target: 'BAD001', where: 'feedback', text: 'Spamming chat', images: [] })
   expect(r.shown).toEqual({ visible: true, q: 'Which next?', options: ['Pets', 'Cars'] })
   expect(r.after).toBe(true)
   expect(r.seen).toEqual(['p1'])
