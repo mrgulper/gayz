@@ -628,6 +628,10 @@ test('the owner drops into a game, visible and invisible', async ({ browser }) =
   // Owner powers (OwnerPowers.js): the crown button opens the menu (the
   // others have none), and its buttons reach the host.
   expect(await a.evaluate(() => !!document.getElementById('owner-powers-btn'))).toBe(false)
+  // Count the host's horde zombies and coins BEFORE the buttons are
+  // clicked: both pages' own background syncs can deliver the orders any
+  // moment after, and wave zombies keep spawning (so count only extras).
+  await a.evaluate(() => { const g = window.__game; window.__before = { coins: g.coins, extras: g.buildMode.survival.zombies.filter((z) => z.extra).length } })
   const menu = await o.evaluate(() => {
     document.getElementById('owner-powers-btn').click()
     const panel = document.getElementById('owner-panel')
@@ -649,8 +653,7 @@ test('the owner drops into a game, visible and invisible', async ({ browser }) =
   const got = await a.evaluate(async () => {
     const g = window.__game
     const s = g.buildMode.survival
-    const coins = g.coins
-    const zombies = s.zombies.length
+    const { coins, extras } = window.__before
     await s.net._sync()
     await s.net._sync()
     const tm = s.bm.tryMode
@@ -658,7 +661,7 @@ test('the owner drops into a game, visible and invisible', async ({ browser }) =
     const z0 = tm.pos.z
     for (let i = 0; i < 20; i++) tm.update(0.05, new Set(['KeyW', 'KeyD']))
     const ann = document.getElementById('owner-announcement')
-    return { frozen: !!s.adminFrozen, moved: Math.hypot(tm.pos.x - x0, tm.pos.z - z0), extra: s.zombies.length - zombies, coins: g.coins - coins, ann: ann && !ann.hidden ? ann.textContent : '', night: s.bm.sky.nightAmount() > 0.5 }
+    return { frozen: !!s.adminFrozen, moved: Math.hypot(tm.pos.x - x0, tm.pos.z - z0), extra: s.zombies.filter((z) => z.extra).length - extras, coins: g.coins - coins, ann: ann && !ann.hidden ? ann.textContent : '', night: s.bm.sky.nightAmount() > 0.5 }
   })
   expect(got.frozen).toBe(true)
   expect(got.moved).toBeLessThan(0.01)
@@ -675,8 +678,10 @@ test('the owner drops into a game, visible and invisible', async ({ browser }) =
     shut.click()
     await window.__game.buildMode.survival.net._sync()
   })
-  await a.evaluate(() => window.__game.buildMode.survival.net._sync())
-  expect(await a.evaluate(() => window.__game.buildMode.survival.adminFrozen)).toBe(false)
+  // (The host's own background sync may already have got the close and
+  // dropped its server link - so `net?.`.)
+  await a.evaluate(() => window.__game.buildMode.survival.net?._sync())
+  expect(await a.evaluate(() => !!window.__game.buildMode.survival.adminFrozen)).toBe(false)
   await a.evaluate(() => window.__game.buildMode.survival.net?._sync())
   await a.waitForFunction(() => !window.__game.buildMode.survival.net || window.__game.buildMode.survival.net.closed, null, { timeout: 20000 })
 })

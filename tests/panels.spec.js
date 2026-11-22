@@ -295,7 +295,12 @@ test('hot pink Play and tabs in every theme; Simple picks its button colour', as
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
     const g = window.__game
-    const wait = () => new Promise((res) => setTimeout(res, 200))
+    // Colours fade in over 0.2s (CSS transitions): finish every fade before
+    // reading, so a busy machine never catches one halfway.
+    const wait = async () => {
+      await new Promise((res) => setTimeout(res, 200))
+      for (const a of document.getAnimations()) { try { a.finish() } catch { /* endless */ } }
+    }
     const bg = (el) => getComputedStyle(el).backgroundColor
     document.getElementById('settings-btn').click()
     await wait()
@@ -309,6 +314,7 @@ test('hot pink Play and tabs in every theme; Simple picks its button colour', as
     sw.value = '#2255ff'
     sw.dispatchEvent(new Event('input'))
     sw.dispatchEvent(new Event('change'))
+    await wait()
     out.picked = [g.settings.uiTheme, JSON.parse(localStorage.getItem('gayz-settings')).cleanBtnColor, bg(document.getElementById('play-btn')), bg(document.getElementById('store-btn')), bg(document.querySelector('.settings-tab.active')), bg(document.querySelector('#settings-panel .panel-box'))]
     return out
   })
