@@ -2726,6 +2726,7 @@ export default {
   settingsSectionTheme: 'Tema',
   settingsSectionSaveBackup: 'Partida y Copia de Seguridad',
   settingsSectionDangerZone: 'Zona de Peligro',
+  settingsJumpChipsLabel: 'Ir a la sección',
   communityBuildsTitle: 'Mapas de la Comunidad',
   chatTabGlobal: 'Global',
   chatTabClan: 'Clan',

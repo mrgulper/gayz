@@ -252,6 +252,85 @@
   text-align: left;
 }
 
+/* Settings headings fold their section away on click (SettingsSections.js);
+   the arrow is drawn here because _updateTexts() replaces the heading's
+   text and would wipe a child element. */
+#settings-panel .settings-page .settings-section-heading {
+  position: relative;
+  padding-right: 22px;
+  cursor: pointer;
+  user-select: none;
+}
+#settings-panel .settings-page .settings-section-heading::after {
+  content: '';
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-70%) rotate(45deg);
+  transition: transform 0.15s;
+}
+#settings-panel .settings-page .settings-section-heading.folded::after {
+  transform: translateY(-50%) rotate(-45deg);
+}
+#settings-panel .settings-page .settings-section-heading:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+#settings-panel:not(.settings-searching) .settings-fold-hidden {
+  display: none !important;
+}
+
+/* Jump-to-section chips: rows under the tabs that stay put while the page
+   scrolls. They wrap (nothing in a panel scrolls sideways - Gaymi,
+   2026-10-04); the page below fills what's left, so the box keeps one size
+   whatever the chip count (09-quests-clans-chat.css). Theme colours come
+   from the tab lists in brand.css / theme-clean.css. */
+.settings-jump-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px 6px;
+  margin: -6px 0 8px;
+}
+.settings-jump-chips.empty {
+  display: none;
+}
+.settings-jump-chip {
+  flex: 0 0 auto;
+  padding: 3px 11px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  cursor: pointer;
+}
+.settings-jump-chip.active {
+  color: #0c130c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
+}
+/* Phones: smaller chips so General's ten fit in fewer rows. */
+@media (max-width: 520px) {
+  .settings-jump-chips {
+    gap: 4px;
+    margin: -4px 0 6px;
+  }
+  .settings-jump-chip {
+    padding: 2px 8px;
+    font-size: 10.5px;
+    letter-spacing: 0;
+  }
+}
+
 .settings-section-heading:first-child {
   margin-top: 4px;
 }

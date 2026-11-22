@@ -1064,6 +1064,8 @@ Escape before dawn.</p>
           <button class="settings-tab" data-page="graphics" id="tab-graphics">Graphics</button>
           <button class="settings-tab" data-page="theme" id="tab-theme">Theme</button>
         </div>
+        <!-- Jump-to-section chips for the open tab (SettingsSections.js). -->
+        <nav id="settings-jump-chips" class="settings-jump-chips empty" aria-label="Jump to section"></nav>
 
         <div class="settings-page" id="settings-page-general">
           <h3 class="settings-section-heading" id="settings-section-settings-log">Your Settings Changes</h3>
@@ -1074,13 +1076,6 @@ Escape before dawn.</p>
               <button id="settings-log-more" class="settings-reset-btn" type="button" hidden>Show More</button>
               <button id="settings-log-clear" class="settings-reset-btn" type="button">Clear List</button>
             </div>
-          </div>
-
-          <h3 class="settings-section-heading" id="settings-section-hud">HUD</h3>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="hudFps" aria-label="What does this do?">?</button>
-            <label for="hud-fps-toggle" id="hud-fps-label">Show FPS Counter During Gameplay</label>
-            <input type="checkbox" id="hud-fps-toggle" class="audio-checkbox" checked />
           </div>
 
           <h3 class="settings-section-heading" id="settings-section-notifications">Notifications</h3>
@@ -1167,6 +1162,25 @@ Escape before dawn.</p>
             <button type="button" class="settings-info-btn" data-info="shareTelemetry" aria-label="What does this do?">?</button>
             <label for="share-telemetry-toggle" id="share-telemetry-label">Share Anonymous Usage Stats</label>
             <input type="checkbox" id="share-telemetry-toggle" class="audio-checkbox" checked />
+          </div>
+
+          <h3 class="settings-section-heading" id="settings-section-save-backup">Save &amp; Backup</h3>
+          <div id="local-sharing-section">
+            <p id="storage-usage-line"></p>
+            <p id="storage-quota-warning" class="danger-text" style="display: none">Storage is getting full - export your save as a backup soon.</p>
+            <div class="settings-btn-row">
+              <button id="export-save-btn" type="button">Export Save</button>
+              <button id="import-save-btn" type="button">Import Save</button>
+              <input type="file" id="import-save-input" accept="application/json" style="display: none" />
+            </div>
+            <div class="settings-btn-row">
+              <button id="export-settings-code-btn" type="button">Copy Settings Code</button>
+              <button id="import-settings-code-btn" type="button">Paste Settings Code</button>
+            </div>
+            <div class="settings-btn-row">
+              <input type="text" id="import-settings-code-input" class="nickname-input" placeholder="Paste settings code" style="display: none" />
+              <button id="import-settings-code-apply-btn" type="button" style="display: none">Apply Settings Code</button>
+            </div>
           </div>
 
           <h3 class="settings-section-heading" id="settings-section-social">Social</h3>
@@ -1265,13 +1279,6 @@ Escape before dawn.</p>
             <input type="checkbox" id="cursor-trail-toggle" class="audio-checkbox" />
           </div>
 
-          <h3 class="settings-section-heading" id="settings-section-accessibility">Accessibility</h3>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="oneHanded" aria-label="What does this do?">?</button>
-            <label for="one-handed-toggle" id="one-handed-label">One-Handed Key Layout</label>
-            <input type="checkbox" id="one-handed-toggle" class="audio-checkbox" />
-          </div>
-
           <h3 class="settings-section-heading" id="settings-section-wellbeing">Wellbeing</h3>
 
           <h3 class="settings-section-heading" id="settings-section-misc">Misc</h3>
@@ -1292,9 +1299,10 @@ Escape before dawn.</p>
 
           <button id="reset-general-defaults-btn" class="settings-reset-btn" type="button">Reset General to Defaults</button>
 
-          <h3 class="settings-section-heading" id="settings-section-danger-zone-general">Danger Zone</h3>
+          <h3 class="settings-section-heading" id="settings-section-danger-zone">Danger Zone</h3>
           <div class="settings-btn-row">
             <button id="restore-defaults-btn" class="settings-reset-btn" type="button">Reset All Settings</button>
+            <button id="reset-controls-defaults-btn" class="settings-reset-btn" type="button">Reset All Controls</button>
           </div>
         </div>
 
@@ -1495,6 +1503,57 @@ Escape before dawn.</p>
             <label for="play-biome-look-toggle" id="play-biome-look-label">Game Screens Follow the Biome</label>
             <input type="checkbox" id="play-biome-look-toggle" class="audio-checkbox" checked />
           </div>
+
+          <h3 class="settings-section-heading" id="settings-section-personalization">Personalization</h3>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="uiFont" aria-label="What does this do?">?</button>
+            <label for="ui-font-select" id="ui-font-label">UI Font</label>
+            <select id="ui-font-select">
+              <option value="default">Default</option>
+              <option value="mono">Monospace</option>
+              <option value="serif">Serif</option>
+              <option value="display">Display</option>
+            </select>
+          </div>
+          <details class="settings-advanced">
+            <summary>Advanced</summary>
+            <div class="audio-row">
+              <button type="button" class="settings-info-btn" data-info="themePreset" aria-label="What does this do?">?</button>
+              <label for="theme-preset-select" id="theme-preset-label">Theme Preset</label>
+              <select id="theme-preset-select">
+                <option value="none">Default</option>
+                <option value="sepia">Sepia</option>
+                <option value="darker">Darker</option>
+                <option value="lighter">Lighter</option>
+              </select>
+            </div>
+            <div class="audio-row">
+              <button type="button" class="settings-info-btn" data-info="crtScanlines" aria-label="What does this do?">?</button>
+              <label for="crt-scanlines-toggle" id="crt-scanlines-label">Retro CRT Scanlines</label>
+              <input type="checkbox" id="crt-scanlines-toggle" class="audio-checkbox" />
+            </div>
+          </details>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="nicknameColor" aria-label="What does this do?">?</button>
+            <label for="nickname-color-picker" id="nickname-color-label">Nickname Color</label>
+            <input type="color" id="nickname-color-picker" value="#ffffff" />
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="playBtnColor" aria-label="What does this do?">?</button>
+            <label for="play-btn-color-picker" id="play-btn-color-label">Play Button Color</label>
+            <input type="color" id="play-btn-color-picker" value="#ff2e88" />
+          </div>
+          <button id="play-btn-color-reset-btn" class="settings-reset-btn" type="button">Reset Play Button Color</button>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="nicknameFont" aria-label="What does this do?">?</button>
+            <label for="nickname-font-select" id="nickname-font-label">Nickname Font</label>
+            <select id="nickname-font-select">
+              <option value="default">Default</option>
+              <option value="mono">Monospace</option>
+              <option value="serif">Serif</option>
+              <option value="display">Display</option>
+            </select>
+          </div>
         </div>
 
         <div class="settings-page" id="settings-page-controls" style="display: none">
@@ -1525,7 +1584,12 @@ Escape before dawn.</p>
 
           <p id="touch-controls-override-hint" class="menu-hint-line">Changing this reloads the page.</p>
 
-          <h3 class="settings-section-heading" id="settings-section-hud-2">HUD</h3>
+          <h3 class="settings-section-heading" id="settings-section-hud">HUD</h3>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="hudFps" aria-label="What does this do?">?</button>
+            <label for="hud-fps-toggle" id="hud-fps-label">Show FPS Counter During Gameplay</label>
+            <input type="checkbox" id="hud-fps-toggle" class="audio-checkbox" checked />
+          </div>
           <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="crosshairColor" aria-label="What does this do?">?</button>
             <label for="crosshair-color-picker" id="crosshair-color-label">Crosshair Color</label>
@@ -1611,7 +1675,12 @@ Escape before dawn.</p>
             <label for="snowballs-all-year-toggle" id="snowballs-all-year-label">Snowballs All Year</label>
             <input type="checkbox" id="snowballs-all-year-toggle" class="audio-checkbox" />
           </div>
-          <h3 class="settings-section-heading" id="settings-section-accessibility-2">Accessibility</h3>
+          <h3 class="settings-section-heading" id="settings-section-accessibility">Accessibility</h3>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="oneHanded" aria-label="What does this do?">?</button>
+            <label for="one-handed-toggle" id="one-handed-label">One-Handed Key Layout</label>
+            <input type="checkbox" id="one-handed-toggle" class="audio-checkbox" />
+          </div>
           <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="colorblindMode" aria-label="What does this do?">?</button>
             <label for="colorblind-mode-select" id="colorblind-label">Colorblind Mode</label>
@@ -1725,57 +1794,6 @@ Escape before dawn.</p>
             <span id="toast-duration-value" class="audio-value">100%</span>
           </div>
 
-          <h3 class="settings-section-heading" id="settings-section-personalization">Personalization</h3>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="uiFont" aria-label="What does this do?">?</button>
-            <label for="ui-font-select" id="ui-font-label">UI Font</label>
-            <select id="ui-font-select">
-              <option value="default">Default</option>
-              <option value="mono">Monospace</option>
-              <option value="serif">Serif</option>
-              <option value="display">Display</option>
-            </select>
-          </div>
-          <details class="settings-advanced">
-            <summary>Advanced</summary>
-            <div class="audio-row">
-              <button type="button" class="settings-info-btn" data-info="themePreset" aria-label="What does this do?">?</button>
-              <label for="theme-preset-select" id="theme-preset-label">Theme Preset</label>
-              <select id="theme-preset-select">
-                <option value="none">Default</option>
-                <option value="sepia">Sepia</option>
-                <option value="darker">Darker</option>
-                <option value="lighter">Lighter</option>
-              </select>
-            </div>
-            <div class="audio-row">
-              <button type="button" class="settings-info-btn" data-info="crtScanlines" aria-label="What does this do?">?</button>
-              <label for="crt-scanlines-toggle" id="crt-scanlines-label">Retro CRT Scanlines</label>
-              <input type="checkbox" id="crt-scanlines-toggle" class="audio-checkbox" />
-            </div>
-          </details>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="nicknameColor" aria-label="What does this do?">?</button>
-            <label for="nickname-color-picker" id="nickname-color-label">Nickname Color</label>
-            <input type="color" id="nickname-color-picker" value="#ffffff" />
-          </div>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="playBtnColor" aria-label="What does this do?">?</button>
-            <label for="play-btn-color-picker" id="play-btn-color-label">Play Button Color</label>
-            <input type="color" id="play-btn-color-picker" value="#ff2e88" />
-          </div>
-          <button id="play-btn-color-reset-btn" class="settings-reset-btn" type="button">Reset Play Button Color</button>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="nicknameFont" aria-label="What does this do?">?</button>
-            <label for="nickname-font-select" id="nickname-font-label">Nickname Font</label>
-            <select id="nickname-font-select">
-              <option value="default">Default</option>
-              <option value="mono">Monospace</option>
-              <option value="serif">Serif</option>
-              <option value="display">Display</option>
-            </select>
-          </div>
-
           <h3 class="settings-section-heading" id="settings-section-key-bindings">Key Bindings</h3>
           <div id="controls-grid" class="controls-grid"></div>
           <div class="settings-btn-row">
@@ -1787,29 +1805,6 @@ Escape before dawn.</p>
             <button id="import-keybinds-apply-btn" type="button" style="display: none">Apply Keybinds Code</button>
           </div>
 
-          <h3 class="settings-section-heading" id="settings-section-save-backup">Save &amp; Backup</h3>
-          <div id="local-sharing-section">
-            <p id="storage-usage-line"></p>
-            <p id="storage-quota-warning" class="danger-text" style="display: none">Storage is getting full - export your save as a backup soon.</p>
-            <div class="settings-btn-row">
-              <button id="export-save-btn" type="button">Export Save</button>
-              <button id="import-save-btn" type="button">Import Save</button>
-              <input type="file" id="import-save-input" accept="application/json" style="display: none" />
-            </div>
-            <div class="settings-btn-row">
-              <button id="export-settings-code-btn" type="button">Copy Settings Code</button>
-              <button id="import-settings-code-btn" type="button">Paste Settings Code</button>
-            </div>
-            <div class="settings-btn-row">
-              <input type="text" id="import-settings-code-input" class="nickname-input" placeholder="Paste settings code" style="display: none" />
-              <button id="import-settings-code-apply-btn" type="button" style="display: none">Apply Settings Code</button>
-            </div>
-          </div>
-
-          <h3 class="settings-section-heading" id="settings-section-danger-zone">Danger Zone</h3>
-          <div class="settings-btn-row">
-            <button id="reset-controls-defaults-btn" class="settings-reset-btn" type="button">Reset All Controls</button>
-          </div>
         </div>
 
         <div id="settings-status-row">

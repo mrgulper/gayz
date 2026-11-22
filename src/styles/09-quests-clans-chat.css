@@ -1264,22 +1264,31 @@ html.ui-theme-old #settings-panel h2 {
   scrollbar-color: rgba(var(--ui-gold-accent-rgb), 0.6) transparent;
 }
 
-/* Phones: the fixed height above left ~110px of empty paper under the
-   list (two rows of tabs eat more than the formula expects). Let the
-   open page fill whatever the box has left instead, and trim a few gaps. */
+/* The open page fills whatever the box has left (phones since 2026-11-22's
+   polish; every size since the jump chips the same day, whose row count
+   changes per tab and language). The box itself keeps its shared
+   min-height, so it stays What's New's size. */
+#settings-panel .panel-box {
+  display: flex;
+  flex-direction: column;
+}
+#settings-panel .panel-box > * {
+  flex-shrink: 0;
+}
+#settings-panel .panel-box > .settings-page {
+  flex: 1 1 0;
+  min-height: 0;
+  height: auto;
+}
+/* The title's empty icon line (.panel-box > h2::after, 8px margin) folded
+   into the gap in block layout; as a flex item it adds 8px, which would
+   push the search bar and tabs down. */
+#settings-panel .panel-box > #settings-title:not([data-icon])::after {
+  margin-top: 0;
+}
+
+/* Phones: trim a few gaps. */
 @media (max-width: 520px) {
-  #settings-panel .panel-box {
-    display: flex;
-    flex-direction: column;
-  }
-  #settings-panel .panel-box > * {
-    flex-shrink: 0;
-  }
-  #settings-panel .panel-box > .settings-page {
-    flex: 1 1 0;
-    min-height: 0;
-    height: auto;
-  }
   #settings-panel #settings-title {
     margin-bottom: 8px;
   }

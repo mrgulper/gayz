@@ -2726,6 +2726,7 @@ export default {
   settingsSectionTheme: 'थीम',
   settingsSectionSaveBackup: 'सेव और बैकअप',
   settingsSectionDangerZone: 'खतरे का क्षेत्र',
+  settingsJumpChipsLabel: 'सेक्शन पर जाएँ',
   communityBuildsTitle: 'कम्युनिटी मैप',
   chatTabGlobal: 'ग्लोबल',
   chatTabClan: 'क्लैन',

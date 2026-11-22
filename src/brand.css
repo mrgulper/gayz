@@ -185,14 +185,14 @@ html.ui-theme-clean #menu#menu #menu-nav-buttons .nav-badge-dot:is(#upgrades-dot
 /* :root twice and .active twice so it beats Simple's own picked-button
    rule (.panel-box :is(button.active, ...)). */
 
-html:root:root :is(.settings-tab, .quest-tab, .upgrades-tab, .inventory-tab, .general-tab, .clan-tab, .clan-subtab, .hub-tab, .achievements-mode-tab, .profile-tab, .gallery-tab, .chat-tab-btn, .inv-tab).active.active,
-html:root:root :is(.settings-tab, .quest-tab, .upgrades-tab, .inventory-tab, .general-tab, .clan-tab, .clan-subtab, .hub-tab, .achievements-mode-tab, .profile-tab, .gallery-tab, .chat-tab-btn, .inv-tab).active.active:hover {
+html:root:root :is(.settings-tab, .settings-jump-chip, .quest-tab, .upgrades-tab, .inventory-tab, .general-tab, .clan-tab, .clan-subtab, .hub-tab, .achievements-mode-tab, .profile-tab, .gallery-tab, .chat-tab-btn, .inv-tab).active.active,
+html:root:root :is(.settings-tab, .settings-jump-chip, .quest-tab, .upgrades-tab, .inventory-tab, .general-tab, .clan-tab, .clan-subtab, .hub-tab, .achievements-mode-tab, .profile-tab, .gallery-tab, .chat-tab-btn, .inv-tab).active.active:hover {
   background: var(--gayz-accent) !important;
   border-color: var(--gayz-accent) !important;
   color: var(--gayz-accent-fg) !important;
   text-shadow: none !important;
 }
-html:root:root :is(.settings-tab, .quest-tab, .upgrades-tab, .inventory-tab, .general-tab, .clan-tab, .clan-subtab, .hub-tab, .achievements-mode-tab, .profile-tab, .gallery-tab, .chat-tab-btn, .inv-tab).active.active * {
+html:root:root :is(.settings-tab, .settings-jump-chip, .quest-tab, .upgrades-tab, .inventory-tab, .general-tab, .clan-tab, .clan-subtab, .hub-tab, .achievements-mode-tab, .profile-tab, .gallery-tab, .chat-tab-btn, .inv-tab).active.active * {
   color: var(--gayz-accent-fg) !important;
 }
 
@@ -293,11 +293,11 @@ html.ui-theme-old :is(#trade-dialog-close, #inspect-close, #editor-pick-close) {
 }
 /* Tabs that aren't picked: pink outline and words (the picked one is
    already filled pink above). */
-html.ui-theme-old #app .panel-box.panel-box :is(.settings-tab, .quest-tab, .upgrades-tab, .inventory-tab, .general-tab, .clan-tab, .clan-subtab, .hub-tab, .achievements-mode-tab, .profile-tab, .gallery-tab, .inv-tab):not(.active) {
+html.ui-theme-old #app .panel-box.panel-box :is(.settings-tab, .settings-jump-chip, .quest-tab, .upgrades-tab, .inventory-tab, .general-tab, .clan-tab, .clan-subtab, .hub-tab, .achievements-mode-tab, .profile-tab, .gallery-tab, .inv-tab):not(.active) {
   border-color: var(--gayz-pink) !important;
   color: var(--gayz-pink-ink) !important;
 }
-html.ui-theme-old #app .panel-box.panel-box :is(.settings-tab, .quest-tab, .upgrades-tab, .inventory-tab, .general-tab, .clan-tab, .clan-subtab, .hub-tab, .achievements-mode-tab, .profile-tab, .gallery-tab, .inv-tab):not(.active) * {
+html.ui-theme-old #app .panel-box.panel-box :is(.settings-tab, .settings-jump-chip, .quest-tab, .upgrades-tab, .inventory-tab, .general-tab, .clan-tab, .clan-subtab, .hub-tab, .achievements-mode-tab, .profile-tab, .gallery-tab, .inv-tab):not(.active) * {
   color: var(--gayz-pink-ink) !important;
 }
 /* Action buttons: pink with white words. */
