@@ -95,7 +95,6 @@ test('Clan War points from zombie kills; ring loadout share code', async ({ page
   await page.evaluate(() => {
     const g = window.__game
     g.__testNoDraw = true
-    window.__ringForTests = true
     localStorage.removeItem('gayz-play-saved-run')
     localStorage.removeItem('gayz-clan-war')
     localStorage.setItem('gayz-ring-bag', JSON.stringify({ 'icecube:rare': 1 }))
@@ -103,7 +102,7 @@ test('Clan War points from zombie kills; ring loadout share code', async ({ page
     Object.defineProperty(g, '_cloudUid', { get: () => 'me1234', set: () => {}, configurable: true })
     g.settings.clanId = 'c1'
     g.careerStats.totalRuns = 1
-    g.settings.selectedGameMode = 'classic'
+    g.settings.selectedGameMode = 'spinRing'
     g.playBtn.click()
   })
   await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })

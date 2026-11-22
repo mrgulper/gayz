@@ -22,6 +22,8 @@ import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { SKELETON_KINDS, loadSkeletons, makeSkeleton, skeletonsReady } from './SkeletonModels.js'
 import { audioEngine } from './Audio.js'
 import { SpinRing, RING_MODES } from './SpinRing.js'
+// Lobby modes with waves (LobbyRules LOBBY_RING_MODES), as game modes.
+const LOBBY_RING_GAME_MODES = ['classic', 'shrinkingZone', 'towerDefense']
 import { RingLoot } from './RingLoot.js'
 import { rewardMult } from './LobbyRules.js'
 import { addWarPoints, zombiePts } from './ClanWar.js'
@@ -475,14 +477,13 @@ export class BuildSurvival {
     // uses the rifle.
     const saved = bm.game?.settings?.playWeapon
     this.weaponId = fromMenu && canPlayWeapon(saved) ? saved : DEFAULT_PLAY_WEAPON
-    // The spin ring (SpinRing.js): the zombie modes from the homepage or a
-    // server have no guns (no knife either) - items spin round you instead.
-    // The Map Editor's own Play keeps its gun.
+    // The spin ring (SpinRing.js), in testing since 2026-11-22: only the
+    // Spin Ring mode from the homepage (Game Mode > Testing), or a custom
+    // lobby whose host picked "Spin Ring (Testing)", has no guns (no knife
+    // either) - items spin round you instead. Everything else has guns.
     this.ring?.dispose()
-    // (Automated tests - navigator.webdriver - keep the guns their older
-    // checks shoot with, unless a test asks for the ring: __ringForTests.)
-    const testGuns = typeof navigator !== 'undefined' && navigator.webdriver && !window.__ringForTests
-    this.ring = (fromMenu || net) && RING_MODES.includes(this.cfg.mode) && !testGuns && this.lobbyRules?.ring !== false ? new SpinRing(this) : null
+    const ringGame = (fromMenu && RING_MODES.includes(this.cfg.mode)) || (!!net && this.lobbyRules?.ring === true && LOBBY_RING_GAME_MODES.includes(this.cfg.mode))
+    this.ring = ringGame ? new SpinRing(this) : null
     // Batch 2: every zombie drops a ring item (RingLoot.js) for the bag, and
     // the ring editor (RingEditor.js) swaps items in and out.
     this.ringLoot?.clear()

@@ -1435,6 +1435,10 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'hub-tab-parkour': 'hubTabParkour',
   'hub-section-parkour': 'hubTabParkour',
   'hub-parkour-hint': 'parkourHint',
+  'hub-tab-testing': 'hubTabTesting',
+  'hub-section-testing': 'hubTabTesting',
+  'hub-testing-hint': 'testingHint',
+  'game-mode-spin-ring-label': 'topBarModeSpinRing',
   'game-mode-obstacle-course-label': 'topBarModeObstacleCourse',
   'game-mode-duel-arena-label': 'topBarModeDuelArena',
   'hub-duel-hint': 'duelHint',
@@ -3638,6 +3642,7 @@ export class Game {
     // Opens on the World Map tab when that's the picked mode.
     if (this.settings.selectedGameMode === 'worldMap') document.getElementById('hub-tab-worldmap')?.click()
     if (this.settings.selectedGameMode === 'obstacleCourse') document.getElementById('hub-tab-parkour')?.click()
+    if (this.settings.selectedGameMode === 'spinRing') document.getElementById('hub-tab-testing')?.click()
     if (['duelArena', 'deathmatch', 'teamDeathmatch'].includes(this.settings.selectedGameMode)) document.getElementById('hub-tab-deathmatch')?.click()
   }
 

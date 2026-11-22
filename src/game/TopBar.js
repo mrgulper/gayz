@@ -32,6 +32,7 @@ const MODE_KEYS = {
   laserTag: 'topBarModeLaserTag',
   kartRace: 'topBarModeKartRace',
   obstacleCourse: 'topBarModeObstacleCourse',
+  spinRing: 'topBarModeSpinRing',
   duelArena: 'topBarModeDuelArena',
   deathmatch: 'topBarModeDeathmatch',
   teamDeathmatch: 'topBarModeTeamDeathmatch',

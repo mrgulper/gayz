@@ -33,7 +33,7 @@ export function pickText(k, v) {
 
 // One rule that differs from normal, as a short chip: "Zombie health 2x".
 export function ruleChip([k, v]) {
-  if (k === 'ring') return t('lobbyGunsChip')
+  if (k === 'ring') return t('lobbyRingChip')
   if (k === 'ff') return t('lobbyFfChip')
   return `${t(`lobbyRule_${k}`)} ${pickText(k, v)}`
 }
@@ -85,7 +85,7 @@ export function renderLobbyForm(game) {
     <label class="lobby-field"><span>${_escapeHtml(t('lobbyMode'))}</span><select class="nickname-input lobby-select" id="lobby-mode">${modeOptions(mode)}</select></label>
     ${pickerHtml('max', r.max)}
     <label class="lobby-field"><span>${_escapeHtml(t('lobbyPassword'))}</span><input type="text" class="nickname-input" id="lobby-password" maxlength="${PASSWORD_MAX}" autocomplete="off" placeholder="${_escapeHtml(t('lobbyPasswordNone'))}" value="${_escapeHtml(game._lobbyDraft?.password || '')}" /></label>
-    ${ringMode ? `<label class="lobby-field"><span>${_escapeHtml(t('lobbyWeapons'))}</span><select class="nickname-input lobby-select" id="lobby-ring"><option value="ring"${r.ring ? ' selected' : ''}>${_escapeHtml(t('lobbyRingChoice'))}</option><option value="guns"${r.ring ? '' : ' selected'}>${_escapeHtml(t('lobbyGunsChoice'))}</option></select></label>` : ''}
+    ${ringMode ? `<label class="lobby-field"><span>${_escapeHtml(t('lobbyWeapons'))}</span><select class="nickname-input lobby-select" id="lobby-ring"><option value="guns"${r.ring ? '' : ' selected'}>${_escapeHtml(t('lobbyGunsChoice'))}</option><option value="ring"${r.ring ? ' selected' : ''}>${_escapeHtml(t('lobbyRingChoice'))}</option></select></label>` : ''}
     ${ringMode && r.ring ? `<label class="lobby-field lobby-check"><input type="checkbox" class="audio-checkbox" id="lobby-ff"${r.ff ? ' checked' : ''} /><span>${_escapeHtml(t('lobbyFf'))}</span></label>` : ''}
     ${zombies ? `<h4 class="lobby-sub">${_escapeHtml(t('lobbyZombiesHeading'))}</h4>${pickerHtml('zh', r.zh)}${pickerHtml('zc', r.zc)}${pickerHtml('boss', r.boss)}` : ''}
     <h4 class="lobby-sub">${_escapeHtml(t('lobbyPlayersHeading'))}</h4>

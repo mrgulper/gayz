@@ -702,7 +702,6 @@ test('custom lobby: the host sets the rules, a friend joins with the password', 
         return { err: err.code || 'server' }
       }
     })
-    await page.addInitScript(() => { window.__ringForTests = true })
     await gotoAndWaitForGame(page)
     await page.evaluate(() => {
       window.__game.__testNoDraw = true
@@ -731,6 +730,9 @@ test('custom lobby: the host sets the rules, a friend joins with the password', 
   await expect(a.locator('[data-pick-num="zh"]')).toBeVisible()
   await a.fill('[data-pick-num="zh"]', '2.5')
   await a.selectOption('[data-pick="dmg"]', '3')
+  // Guns by default; the ring is a testing pick (2026-11-22).
+  await expect(a.locator('#lobby-ring')).toHaveValue('guns')
+  await a.selectOption('#lobby-ring', 'ring')
   await a.check('#lobby-ff')
   // Triple damage against 2.5x zombies is easier than normal: less reward.
   await expect(a.locator('#lobby-reward')).toContainText('rewards at')
