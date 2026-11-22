@@ -20,6 +20,19 @@ html.ui-theme-old .panel-box {
     padding: 40px 30px 46px;
   }
 }
+/* Sideways phones (2026-11-22): the full 68/80px rim plus Old's bigger
+   --panel-chrome left a 375px-tall window a NEGATIVE content height, so
+   Game Mode's mode list (and every other tab page) squashed to 0. Slimmer
+   rim on short windows, and --panel-chrome shrinks to match, so the paper
+   is the same size as Simple's box and the content gets the room back. */
+@media (max-height: 500px) {
+  html.ui-theme-old {
+    --panel-chrome: 138px;
+  }
+  html.ui-theme-old .panel-box {
+    padding: 32px 44px 40px;
+  }
+}
 
 /* The red close X sits in the middle of the paper's curled-over top-right
    flap (2026-10-09, Gaymi: "the middle of that corner of the old paper") -
