@@ -2310,3 +2310,65 @@ html[data-home-tier="3"] [data-unlock="5"] {
 html[data-home-tier] #menu-nav-buttons #menu-more-btn {
   display: flex;
 }
+
+/* Feedback page (2026-11-22, PlayerVoice.js): a normal panel now. The
+   form keeps the .voice-card buttons (pink in brand.css) without the old
+   popup's card box. */
+#feedback-panel .panel-box { width: min(720px, calc(100vw - 32px)); }
+#feedback-form { text-align: left; font-family: var(--menu-display-font); }
+#feedback-form .voice-help { text-align: center; }
+#feedback-form .voice-kinds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+#feedback-form .voice-kind { min-width: 0; }
+@media (max-width: 560px) { #feedback-form .voice-kinds { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Filled, like an unpicked kind, so they show on every panel background. */
+html:root #feedback-form .voice-secondary {
+  background: color-mix(in srgb, var(--gayz-panel), var(--gayz-panel-fg) 18%);
+}
+#feedback-form #feedback-text { min-height: 180px; }
+#feedback-report-row { margin-bottom: 12px; }
+#feedback-report-row[hidden] { display: none; }
+#feedback-report-label { display: block; margin: 0 0 6px; font-size: 14px; }
+#feedback-report-search { position: relative; }
+#feedback-report-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 42px;
+  padding: 8px 18px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--gayz-panel-fg, #fff);
+  background: color-mix(in srgb, var(--gayz-panel, #222), #000000 18%);
+  border: 1px solid color-mix(in srgb, var(--gayz-panel-fg, #fff) 35%, transparent);
+  border-radius: 999px;
+}
+#feedback-report-input::placeholder { color: color-mix(in srgb, var(--gayz-panel-fg, #fff) 65%, transparent); }
+#feedback-report-input:focus { outline: none; border-color: var(--gayz-panel-fg, #fff); }
+#feedback-form #feedback-report-picked { text-align: left; margin: 6px 0 0; }
+#feedback-pics-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+#feedback-pics-row #feedback-pic-btn { min-width: 0; flex: 0 0 auto; }
+#feedback-pics-row #feedback-pic-btn:disabled { opacity: 0.5; cursor: default; }
+#feedback-pics { display: flex; flex-wrap: wrap; gap: 8px; }
+.feedback-pic { position: relative; width: 72px; height: 72px; }
+.feedback-pic img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--gayz-panel-fg, #fff) 35%, transparent);
+}
+.feedback-pic-remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--gayz-panel, #222);
+  background: var(--gayz-panel-fg, #fff);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+#feedback-form #feedback-pics-note { text-align: left; }

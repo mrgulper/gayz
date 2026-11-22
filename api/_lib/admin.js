@@ -90,7 +90,7 @@ import { helperList, addHelper, removeHelper, helperLogin, helperReports, checkR
 import { languageReport } from './langCheck.js'
 import { tvHide, tvFake, tvDelete, tvBan, tvUnban, tvBanList } from './tvAdmin.js'
 import { ownerCommand, giveToPid, waitingGifts, claimPidGift, OwnerError, HORDE_SIZES, OWNER_TIMES, OWNER_WEATHERS, GIVE_MAX } from './ownerPowers.js'
-import { livePoll, reportAlert, inboxState, setFeedbackDone, deleteFeedback, clearErrors, startPoll, endPoll, deletePoll, testAlert, POLL_HOURS } from './inbox.js'
+import { livePoll, reportAlert, inboxState, setFeedbackDone, deleteFeedback, clearErrors, startPoll, endPoll, deletePoll, testAlert, POLL_HOURS, cleanImages, IMAGES_MAX } from './inbox.js'
 
 export const EVENT_IDS = ['doubleCoins', 'doubleXp', 'hordeNight']
 export const HOLIDAYS = ['halloween', 'christmas']
@@ -408,12 +408,13 @@ export async function reportPlayer(db, body = {}, now = Date.now()) {
       by,
       byName: cleanText(body.byName, 24),
       where: cleanText(body.where, 20),
-      text: cleanText(body.text, 600),
+      text: cleanText(body.text, 1000),
+      pics: Array.isArray(body.images) ? Math.min(body.images.length, IMAGES_MAX) : 0,
       at: now,
     },
     [`reportLimits/${by}/${target}`]: now,
   })
-  await reportAlert(db, { target, targetName: body.targetName, by, byName: body.byName, where: body.where, text: body.text }, now)
+  await reportAlert(db, { target, targetName: body.targetName, by, byName: body.byName, where: body.where, text: body.text }, now, cleanImages(body.images))
   const all = (await db.get('playerReports')) || {}
   const ids = Object.keys(all).sort((a, b) => (all[a]?.at || 0) - (all[b]?.at || 0))
   if (ids.length > REPORTS_KEPT) {

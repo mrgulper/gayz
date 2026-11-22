@@ -3556,6 +3556,8 @@ export class Game {
     HomeExtras.closeTodayPanel()
     const hofPanel = document.getElementById('hof-panel')
     if (hofPanel) hofPanel.style.display = 'none'
+    const feedbackPanel = document.getElementById('feedback-panel')
+    if (feedbackPanel) feedbackPanel.style.display = 'none'
     if (this.settingsPanel && this.settingsOpen) {
       this.settingsOpen = false
       this.settingsPanel.style.display = 'none'

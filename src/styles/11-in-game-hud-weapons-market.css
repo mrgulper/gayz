@@ -1316,7 +1316,8 @@ html.ui-theme-old #status-picker-toggle {
   color: #2b1a0c;
 }
 html.ui-theme-old #status-picker-options,
-html.ui-theme-old #cloudsave-friend-suggestions {
+html.ui-theme-old #cloudsave-friend-suggestions,
+html.ui-theme-old #feedback-report-suggestions {
   background: #f1e0b8;
   border: 1px solid #7a4e24;
   box-shadow: 0 10px 24px rgba(43, 26, 12, 0.45);

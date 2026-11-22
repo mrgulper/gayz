@@ -494,7 +494,8 @@ html.ui-theme-old .panel-box #cloudsave-region-select {
    floats over what's below (2026-10-11, "dont let the background move
    down when it pops up") - inside #cloudsave-friend-row, which is
    position: relative. */
-#cloudsave-friend-suggestions {
+#cloudsave-friend-suggestions,
+#feedback-report-suggestions {
   display: none;
   position: absolute;
   top: calc(100% + 6px);
@@ -511,7 +512,8 @@ html.ui-theme-old .panel-box #cloudsave-region-select {
   border-radius: 12px;
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
 }
-#cloudsave-friend-suggestions.open { display: flex; }
+#cloudsave-friend-suggestions.open,
+#feedback-report-suggestions.open { display: flex; }
 .friend-suggest-row {
   display: flex;
   align-items: center;
