@@ -262,6 +262,8 @@ export default {
   postcardsHiddenNote: "{n} सेटिंग्स > पोस्टकार्ड किससे के कारण छिपे हैं।",
   // Wellbeing & Misc (ideas 73-80)
   settingsSectionWellbeing: "सेहत",
+  settingsSectionVolume: "आवाज़ का स्तर",
+  settingsSectionSoundOptions: "साउंड विकल्प",
   breakReminderLabel: "ब्रेक रिमाइंडर",
   breakReminderInfoText: "इतनी देर खेलने के बाद, ऊपर एक छोटा नोट स्ट्रेच करने और पानी पीने का सुझाव देता है। 5 मिनट दूर रहना ब्रेक गिना जाता है और गिनती फिर से शुरू होती है।",
   breakReminderOpt_off: "बंद",

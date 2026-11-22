@@ -11,11 +11,11 @@
 // page: the Settings tab; before: the element the row goes in front of.
 export const MORE_SETTINGS = [
   // --- Audio (ideas 1-10) ---
-  { key: 'musicVolume', type: 'range', def: 100, min: 0, max: 100, unit: '%', page: 'audio', before: 'mute-on-blur-toggle' },
-  { key: 'menuMusic', type: 'toggle', def: true, page: 'audio', before: 'mute-on-blur-toggle' },
-  { key: 'uiVolume', type: 'range', def: 50, min: 0, max: 100, unit: '%', page: 'audio', before: 'mute-on-blur-toggle' },
-  { key: 'footstepVolume', type: 'range', def: 100, min: 0, max: 100, unit: '%', page: 'audio', before: 'mute-on-blur-toggle' },
-  { key: 'weaponVolume', type: 'range', def: 100, min: 0, max: 100, unit: '%', page: 'audio', before: 'mute-on-blur-toggle' },
+  { key: 'musicVolume', type: 'range', def: 100, min: 0, max: 100, unit: '%', page: 'audio', before: 'settings-section-sound-options' },
+  { key: 'menuMusic', type: 'toggle', def: true, page: 'audio', before: 'settings-section-sound-options' },
+  { key: 'uiVolume', type: 'range', def: 50, min: 0, max: 100, unit: '%', page: 'audio', before: 'settings-section-sound-options' },
+  { key: 'footstepVolume', type: 'range', def: 100, min: 0, max: 100, unit: '%', page: 'audio', before: 'settings-section-sound-options' },
+  { key: 'weaponVolume', type: 'range', def: 100, min: 0, max: 100, unit: '%', page: 'audio', before: 'settings-section-sound-options' },
   { key: 'monoAudio', type: 'toggle', def: false, page: 'audio', before: 'reset-audio-defaults-btn' },
   { key: 'lowHealthHeartbeat', type: 'toggle', def: true, page: 'audio', before: 'reset-audio-defaults-btn' },
   { key: 'duckNearZombies', type: 'toggle', def: false, page: 'audio', before: 'reset-audio-defaults-btn' },
@@ -81,14 +81,14 @@ export const MORE_SETTINGS = [
   { key: 'resetHints', type: 'button', page: 'controls', before: 'settings-section-accessibility-2' },
   // --- Social & Safety (ideas 63-72; #66 muted list and #68 appear
   // offline were already there; hook-ups in SocialSettings.js) ---
-  { key: 'chatFilter', type: 'select', def: 'normal', opts: ['normal', 'strict'], page: 'general', before: 'settings-section-homepage' },
-  { key: 'hideChat', type: 'toggle', def: false, page: 'general', before: 'settings-section-homepage' },
-  { key: 'friendsOnlyChat', type: 'toggle', def: false, page: 'general', before: 'settings-section-homepage' },
-  { key: 'friendRequestsFrom', type: 'select', def: 'everyone', opts: ['everyone', 'clan'], page: 'general', before: 'settings-section-homepage' },
-  { key: 'hideClan', type: 'toggle', def: false, page: 'general', before: 'settings-section-homepage' },
-  { key: 'hideCurrency', type: 'toggle', def: false, page: 'general', before: 'settings-section-homepage' },
-  { key: 'serverAccess', type: 'select', def: 'anyone', opts: ['anyone', 'link', 'nobody'], page: 'general', before: 'settings-section-homepage' },
-  { key: 'postcardsFrom', type: 'select', def: 'friends', opts: ['friends', 'nobody'], page: 'general', before: 'settings-section-homepage' },
+  { key: 'chatFilter', type: 'select', def: 'normal', opts: ['normal', 'strict'], page: 'general', before: 'couch-settings' },
+  { key: 'hideChat', type: 'toggle', def: false, page: 'general', before: 'couch-settings' },
+  { key: 'friendsOnlyChat', type: 'toggle', def: false, page: 'general', before: 'couch-settings' },
+  { key: 'friendRequestsFrom', type: 'select', def: 'everyone', opts: ['everyone', 'clan'], page: 'general', before: 'couch-settings' },
+  { key: 'hideClan', type: 'toggle', def: false, page: 'general', before: 'couch-settings' },
+  { key: 'hideCurrency', type: 'toggle', def: false, page: 'general', before: 'couch-settings' },
+  { key: 'serverAccess', type: 'select', def: 'anyone', opts: ['anyone', 'link', 'nobody'], page: 'general', before: 'couch-settings' },
+  { key: 'postcardsFrom', type: 'select', def: 'friends', opts: ['friends', 'nobody'], page: 'general', before: 'couch-settings' },
   // --- Wellbeing & Misc (ideas 73-80; hook-ups in Wellbeing.js and
   // SettingsPresets.js). Wellbeing has its own heading in index.html. ---
   { key: 'breakReminder', type: 'select', def: 'off', opts: ['off', '30', '45', '60', '90', '120'], page: 'general', before: 'settings-section-misc' },

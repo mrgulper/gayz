@@ -1180,6 +1180,11 @@ Escape before dawn.</p>
             <label for="exact-lastseen-toggle" id="exact-lastseen-label">Show Exact Last-Seen Time</label>
             <input type="checkbox" id="exact-lastseen-toggle" class="audio-checkbox" />
           </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="confirmRemoveFriend" aria-label="What does this do?">?</button>
+            <label for="confirm-remove-friend-toggle" id="confirm-remove-friend-label">Confirm Before Removing a Friend</label>
+            <input type="checkbox" id="confirm-remove-friend-toggle" class="audio-checkbox" />
+          </div>
           <p class="menu-hint-line">Right-click (or long-press) a name in chat to block them - their messages show as "Blocked message - Show" in every channel until you unblock them here.</p>
           <div id="muted-chat-players-list"></div>
 
@@ -1199,24 +1204,9 @@ Escape before dawn.</p>
 
           <h3 class="settings-section-heading" id="settings-section-homepage">Homepage</h3>
           <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="rememberSettingsTab" aria-label="What does this do?">?</button>
-            <label for="remember-settings-tab-toggle" id="remember-settings-tab-label">Reopen Settings to Last-Used Tab</label>
-            <input type="checkbox" id="remember-settings-tab-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="confirmRemoveFriend" aria-label="What does this do?">?</button>
-            <label for="confirm-remove-friend-toggle" id="confirm-remove-friend-label">Confirm Before Removing a Friend</label>
-            <input type="checkbox" id="confirm-remove-friend-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="reduceBgEffects" aria-label="What does this do?">?</button>
             <label for="reduce-bg-effects-toggle" id="reduce-bg-effects-label">Reduce Homepage Background Effects</label>
             <input type="checkbox" id="reduce-bg-effects-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="disasterBreakAll" aria-label="What does this do?">?</button>
-            <label for="disaster-break-all-toggle" id="disaster-break-all-label">Disasters Can Break Anything</label>
-            <input type="checkbox" id="disaster-break-all-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="homepageGreeting" aria-label="What does this do?">?</button>
@@ -1286,6 +1276,11 @@ Escape before dawn.</p>
 
           <h3 class="settings-section-heading" id="settings-section-misc">Misc</h3>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="rememberSettingsTab" aria-label="What does this do?">?</button>
+            <label for="remember-settings-tab-toggle" id="remember-settings-tab-label">Reopen Settings to Last-Used Tab</label>
+            <input type="checkbox" id="remember-settings-tab-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
             <label for="fullscreen-btn" id="fullscreen-label">Fullscreen</label>
             <button type="button" id="fullscreen-btn" class="mini-action-btn">Enter Fullscreen</button>
           </div>
@@ -1309,6 +1304,7 @@ Escape before dawn.</p>
         </div>
 
         <div class="settings-page" id="settings-page-audio" style="display: none">
+          <h3 class="settings-section-heading" id="settings-section-volume">Volume</h3>
           <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="masterVolume" aria-label="What does this do?">?</button>
             <label for="master-volume" id="master-volume-label">Master</label>
@@ -1334,6 +1330,7 @@ Escape before dawn.</p>
             <input type="range" id="zombie-volume" min="0" max="100" value="100" />
             <span id="zombie-volume-value" class="audio-value">100%</span>
           </div>
+          <h3 class="settings-section-heading" id="settings-section-sound-options">Sound Options</h3>
           <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="muteOnBlur" aria-label="What does this do?">?</button>
             <label for="mute-on-blur-toggle" id="mute-on-blur-label">Mute When Tab Loses Focus</label>
@@ -1565,11 +1562,6 @@ Escape before dawn.</p>
             <label for="show-other-sprays-toggle" id="show-other-sprays-label">Show Other Players' Sprays</label>
             <input type="checkbox" id="show-other-sprays-toggle" class="audio-checkbox" />
           </div>
-          <div class="audio-row">
-            <button type="button" class="settings-info-btn" data-info="snowballsAllYear" aria-label="What does this do?">?</button>
-            <label for="snowballs-all-year-toggle" id="snowballs-all-year-label">Snowballs All Year</label>
-            <input type="checkbox" id="snowballs-all-year-toggle" class="audio-checkbox" />
-          </div>
 
           <h3 class="settings-section-heading" id="settings-section-gameplay">Gameplay</h3>
           <div class="audio-row">
@@ -1609,6 +1601,16 @@ Escape before dawn.</p>
             <input type="checkbox" id="confirm-rare-drop-toggle" class="audio-checkbox" />
           </div>
 
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="disasterBreakAll" aria-label="What does this do?">?</button>
+            <label for="disaster-break-all-toggle" id="disaster-break-all-label">Disasters Can Break Anything</label>
+            <input type="checkbox" id="disaster-break-all-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="snowballsAllYear" aria-label="What does this do?">?</button>
+            <label for="snowballs-all-year-toggle" id="snowballs-all-year-label">Snowballs All Year</label>
+            <input type="checkbox" id="snowballs-all-year-toggle" class="audio-checkbox" />
+          </div>
           <h3 class="settings-section-heading" id="settings-section-accessibility-2">Accessibility</h3>
           <div class="audio-row">
             <button type="button" class="settings-info-btn" data-info="colorblindMode" aria-label="What does this do?">?</button>

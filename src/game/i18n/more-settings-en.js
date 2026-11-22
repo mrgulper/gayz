@@ -262,6 +262,8 @@ export default {
   postcardsHiddenNote: "{n} hidden by Settings > Postcards From.",
   // Wellbeing & Misc (ideas 73-80)
   settingsSectionWellbeing: "Wellbeing",
+  settingsSectionVolume: "Volume",
+  settingsSectionSoundOptions: "Sound Options",
   breakReminderLabel: "Break Reminder",
   breakReminderInfoText: "After this much playing, a small note at the top suggests a stretch and some water. Being away for 5 minutes counts as a break and starts the count again.",
   breakReminderOpt_off: "Off",

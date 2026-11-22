@@ -1264,6 +1264,37 @@ html.ui-theme-old #settings-panel h2 {
   scrollbar-color: rgba(var(--ui-gold-accent-rgb), 0.6) transparent;
 }
 
+/* Phones: the fixed height above left ~110px of empty paper under the
+   list (two rows of tabs eat more than the formula expects). Let the
+   open page fill whatever the box has left instead, and trim a few gaps. */
+@media (max-width: 520px) {
+  #settings-panel .panel-box {
+    display: flex;
+    flex-direction: column;
+  }
+  #settings-panel .panel-box > * {
+    flex-shrink: 0;
+  }
+  #settings-panel .panel-box > .settings-page {
+    flex: 1 1 0;
+    min-height: 0;
+    height: auto;
+  }
+  #settings-panel #settings-title {
+    margin-bottom: 8px;
+  }
+  #settings-panel #settings-search-input {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  #settings-panel .settings-tabs {
+    margin-bottom: 10px;
+  }
+  #settings-panel #settings-status-row {
+    margin-top: 4px;
+  }
+}
+
 /* Chrome/Safari default to a stark white scrollbar track+thumb that clashes
    hard with this dark panel - match the gold accent instead. */
 .settings-page::-webkit-scrollbar {
