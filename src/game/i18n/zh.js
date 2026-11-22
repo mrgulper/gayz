@@ -2729,6 +2729,7 @@ export default {
   settingsSectionTheme: '主题',
   settingsSectionSaveBackup: '存档与备份',
   settingsSectionDangerZone: '危险区域',
+  settingsJumpChipsLabel: '跳转到分区',
   communityBuildsTitle: '社区地图',
   chatTabGlobal: '全球',
   chatTabClan: '战队',

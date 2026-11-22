@@ -180,6 +180,71 @@ test('a tab reset only resets that tab', async ({ page }) => {
   expect(after).toEqual({ vol: 100, sens: 40, tf: '24h' })
 })
 
+// 2026-11-22: one HUD / Accessibility / Danger Zone, Personalization on the
+// Theme tab, Save & Backup in General, jump chips, folding headings.
+test('settings sections: merged, moved, jump chips and remembered folds', async ({ page }) => {
+  test.setTimeout(240000)
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const pageOf = (id) => document.getElementById(id)?.closest('.settings-page')?.id
+    const count = (sel) => document.querySelectorAll(sel).length
+    g._toggleSettings(true)
+    document.getElementById('tab-general').click()
+    const out = {
+      hud: [count('[id^="settings-section-hud"]'), pageOf('hud-fps-toggle')],
+      access: [count('[id^="settings-section-accessibility"]'), pageOf('one-handed-toggle')],
+      danger: [count('[id^="settings-section-danger-zone"]'), pageOf('reset-controls-defaults-btn'), pageOf('restore-defaults-btn')],
+      theme: ['ui-font-select', 'theme-preset-select', 'play-btn-color-picker', 'crt-scanlines-toggle', 'nickname-color-picker', 'nickname-font-select'].map(pageOf),
+      save: pageOf('export-save-btn'),
+      chips: document.querySelectorAll('.settings-jump-chip').length >= 9,
+    }
+    // Fold Notifications: its rows hide, search still finds them.
+    const heading = document.getElementById('settings-section-notifications')
+    const row = () => document.getElementById('achievement-toast-toggle').getClientRects().length > 0
+    heading.click()
+    out.folded = [row(), JSON.parse(localStorage.getItem('gayz-settings-folds'))]
+    g.settingsSearchInput.value = 'achievement'
+    g.settingsSearchInput.dispatchEvent(new Event('input'))
+    out.searchShows = row()
+    g.settingsSearchInput.value = ''
+    g.settingsSearchInput.dispatchEvent(new Event('input'))
+    // A chip jumps to its heading (page scrolls, tabs stay put).
+    const tabsTop = document.querySelector('.settings-tabs').getBoundingClientRect().top
+    const general = document.getElementById('settings-page-general')
+    document.querySelector('.settings-jump-chip[data-target="settings-section-danger-zone"]').click()
+    await new Promise((res) => setTimeout(res, 1200))
+    out.jumped = general.scrollTop > 0
+    out.tabsStill = document.querySelector('.settings-tabs').getBoundingClientRect().top === tabsTop
+    // Language has nothing to jump between; the row keeps its place.
+    document.getElementById('tab-language').click()
+    out.languageEmpty = document.getElementById('settings-jump-chips').classList.contains('empty')
+    return out
+  })
+  expect(r).toEqual({
+    hud: [1, 'settings-page-controls'],
+    access: [1, 'settings-page-controls'],
+    danger: [1, 'settings-page-general', 'settings-page-general'],
+    theme: Array(6).fill('settings-page-theme'),
+    save: 'settings-page-general',
+    chips: true,
+    folded: [false, ['settings-section-notifications']],
+    searchShows: true,
+    jumped: true,
+    tabsStill: true,
+    languageEmpty: true,
+  })
+  // The fold is remembered after a reload.
+  await page.reload()
+  await waitForGame(page)
+  const kept = await page.evaluate(() => {
+    window.__game._toggleSettings(true)
+    document.getElementById('tab-general').click()
+    return document.getElementById('settings-section-notifications').classList.contains('folded')
+  })
+  expect(kept).toBe(true)
+})
+
 // 2026-10-24: Settings > Graphics level cards. The game picks a level for
 // the device once; a card sets the level and the options it owns, and the
 // Map Editor follows it (plain or detailed blocks, waves, swaying leaves).

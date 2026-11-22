@@ -5,6 +5,7 @@
 // Moved out of Game.js (2026-10-16, bit by bit - see CLAUDE.md). Same convention as
 // ChatUI.js/CloudSaveUI.js: plain functions taking `game`, all state on the Game
 // instance; Game.js keeps a one-line stand-in for each, so callers are unchanged.
+import { bindSettingsSections, showSettingsSections, setSettingsSearching } from './SettingsSections.js'
 import { bindShopIdentity } from './ShopIdentity.js'
 import { fpsCapMs, graphicsFilterCss } from './GraphicsSettings.js'
 import * as CloudSaveUI from './CloudSaveUI.js'
@@ -190,6 +191,7 @@ export function _bindSettings(game) {
   bindSettingsLog(document.getElementById('settings-panel'))
   bindGameplaySettings(game)
   bindMoreSettings(game)
+  bindSettingsSections()
 
   for (const tab of document.querySelectorAll('.settings-tab')) {
     tab.addEventListener('click', () => {
@@ -197,6 +199,7 @@ export function _bindSettings(game) {
       for (const page of document.querySelectorAll('.settings-page')) {
         page.style.display = page.id === `settings-page-${tab.dataset.page}` ? 'block' : 'none'
       }
+      showSettingsSections(document.getElementById(`settings-page-${tab.dataset.page}`))
       // Reopen Settings to Last-Used Tab (General tab) - recorded on
       // every click regardless of whether the setting is on, so turning
       // it on later immediately has a real tab to restore rather than
@@ -2230,22 +2233,21 @@ export function _applyGrainIntensity(game) {
 // when a setting is added to or moved between tabs). Saves then reloads,
 // same reload-to-resync reason as _restoreDefaultSettings below.
 export const TAB_RESET_KEYS = {
-  general: ['hudFpsCounter', 'friendPresenceNotify', 'achievementToasts', 'rankUpToasts', 'leaderboardRankAlerts',
+  general: ['friendPresenceNotify', 'achievementToasts', 'rankUpToasts', 'leaderboardRankAlerts',
     'weeklyChallengeReminder', 'lowCurrencyReminder', 'timeFormat', 'autoSaveFrequencySec', 'backupReminder',
     'confirmSignOut', 'stayEmbedSignedIn', 'anonymousLeaderboard', 'shareTelemetry', 'autoDeclineFriendRequests',
     'exactLastSeen', 'rememberSettingsTab', 'confirmRemoveFriend', 'reduceBgEffects', 'homepageGreeting',
-    'oneHandedLayout', 'whatsNewEveryLaunch'],
+    'whatsNewEveryLaunch'],
   audio: ['masterVolume', 'sfxVolume', 'ambientVolume', 'zombieVolume', 'muteOnTabBlur', 'positionalAudio', 'mutedBeforeVolumes'],
   graphics: ['performanceMode', 'renderResolution', 'fpsCap', 'autoQuality', 'brightness', 'contrast', 'shadowsEnabled',
     'shadowQuality', 'viewDistance', 'grainIntensity', 'panelFlickerEnabled', 'liteTextures', 'graphicsLevel'],
-  controls: ['sensitivity', 'invertY', 'fov', 'invertScrollWeaponSwitch', 'crosshairColor', 'crosshairSize',
+  controls: ['hudFpsCounter', 'oneHandedLayout', 'sensitivity', 'invertY', 'fov', 'invertScrollWeaponSwitch', 'crosshairColor', 'crosshairSize',
     'crosshairStyle', 'damageNumbers', 'zombieNameTags', 'showOtherSprays', 'snowballsAllYear', 'disasterBreakAll', 'sprintMode', 'autoJump', 'viewBobbing', 'battleView', 'autoPickup', 'confirmRareDrop',
     'skinDesignerHighContrast', 'darkAreaBoost', 'colorblindRarity',
     'colorblindMode', 'largeTextMode', 'dyslexiaFont',
     'highContrastMode', 'focusRingMode', 'underlineLinks', 'textSpacing', 'buttonSize', 'reduceTransparency',
     'hoverAudioCue', 'highVisCursor', 'captionBackground', 'reduceFlashing', 'streamSafeMode', 'toastDuration',
-    'uiFont', 'themePreset', 'cursorTrail', 'crtScanlines', 'nicknameColor', 'accentColor', 'playBtnColor',
-    'nicknameFont', 'layoutDensity', 'navOrder', 'bgMood', 'weatherParticles', 'homepageFpsCounter'],
+    'cursorTrail', 'accentColor', 'layoutDensity', 'navOrder', 'bgMood', 'weatherParticles', 'homepageFpsCounter'],
 }
 // The 2026-11-11 settings (MoreSettingsList.js) join their tab's reset.
 for (const page of Object.keys(TAB_RESET_KEYS)) TAB_RESET_KEYS[page].push(...moreKeysForPage(page))
@@ -2469,6 +2471,7 @@ export function _bindSettingsSearch(game) {
   game.settingsSearchInput.addEventListener('click', (e) => e.stopPropagation())
   game.settingsSearchInput.addEventListener('input', () => {
     const filter = game.settingsSearchInput.value.trim().toLowerCase()
+    setSettingsSearching(!!filter)
     const activePage = document.querySelector('.settings-page:not([style*="display: none"])')
     if (!activePage) return
     for (const row of activePage.querySelectorAll('.audio-row')) {

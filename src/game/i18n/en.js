@@ -2781,6 +2781,7 @@ export default {
   settingsSectionTheme: 'Theme',
   settingsSectionSaveBackup: 'Save & Backup',
   settingsSectionDangerZone: 'Danger Zone',
+  settingsJumpChipsLabel: 'Jump to section',
   communityBuildsTitle: 'Community Maps',
   chatTabGlobal: 'Global',
   chatTabClan: 'Clan',
