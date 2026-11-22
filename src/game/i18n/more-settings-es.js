@@ -262,6 +262,8 @@ export default {
   postcardsHiddenNote: "{n} ocultas por Ajustes > Postales de.",
   // Wellbeing & Misc (ideas 73-80)
   settingsSectionWellbeing: "Bienestar",
+  settingsSectionVolume: "Volumen",
+  settingsSectionSoundOptions: "Opciones de sonido",
   breakReminderLabel: "Recordatorio de descanso",
   breakReminderInfoText: "Tras jugar este tiempo, una pequeña nota arriba te sugiere estirarte y beber agua. Estar 5 minutos fuera cuenta como descanso y reinicia la cuenta.",
   breakReminderOpt_off: "No",

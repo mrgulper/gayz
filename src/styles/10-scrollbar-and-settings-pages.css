@@ -169,9 +169,12 @@
   color: #f4da70;
 }
 
+/* Label column grows with the panel (up to 40%) so long names like
+   "Show FPS Counter During Gameplay" stay on 1-2 lines on PC instead of
+   4; never below the old 110px on phones. */
 .audio-row {
   display: grid;
-  grid-template-columns: 110px 1fr 48px;
+  grid-template-columns: minmax(110px, 40%) minmax(0, 1fr) 48px;
   align-items: center;
   gap: 14px;
   padding: 12px 4px;
@@ -180,7 +183,7 @@
 /* Settings > Account & Data > Redeem a Code: the button sizes to its
    text (longer in some languages). */
 #redeem-code-row {
-  grid-template-columns: 110px 1fr auto;
+  grid-template-columns: minmax(110px, 40%) minmax(0, 1fr) auto;
 }
 #redeem-code-input {
   text-transform: uppercase;

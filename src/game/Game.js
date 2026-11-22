@@ -1567,6 +1567,8 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'settings-section-accessibility-2': 'settingsSectionAccessibility',
   'settings-section-misc': 'settingsSectionMisc',
   'settings-section-wellbeing': 'settingsSectionWellbeing',
+  'settings-section-volume': 'settingsSectionVolume',
+  'settings-section-sound-options': 'settingsSectionSoundOptions',
   'settings-section-performance': 'settingsSectionPerformance',
   'settings-section-rendering': 'settingsSectionRendering',
   'settings-section-effects': 'settingsSectionEffects',

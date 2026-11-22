@@ -439,6 +439,11 @@ html.ui-theme-old #settings-info-text {
   border-radius: 6px;
   cursor: pointer;
 }
+/* `display: block` above beat the hidden attribute (Settings Changes'
+   "Show More (0)" showed with nothing more to show). */
+.settings-reset-btn[hidden] {
+  display: none;
+}
 .settings-reset-btn:hover {
   border-color: color-mix(in srgb, currentColor 75%, transparent);
 }

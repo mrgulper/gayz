@@ -262,6 +262,8 @@ export default {
   postcardsHiddenNote: "{n} 张被 设置 > 明信片来自 隐藏。",
   // Wellbeing & Misc (ideas 73-80)
   settingsSectionWellbeing: "健康",
+  settingsSectionVolume: "音量",
+  settingsSectionSoundOptions: "声音选项",
   breakReminderLabel: "休息提醒",
   breakReminderInfoText: "玩了这么久之后,顶部会出现一条小提示,建议你伸伸懒腰、喝点水。离开 5 分钟算作休息,会重新计时。",
   breakReminderOpt_off: "关闭",
