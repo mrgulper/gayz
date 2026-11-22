@@ -51,6 +51,10 @@ export function toggleHideHud(game) {
 // ---------- each frame of a game ----------
 
 let lastGame = null
+// Which game run we last set up. Kept when the game stops ticking for a
+// moment (pause, a lag spike), so coming back isn't mistaken for a new game
+// that resets the map size picked with M.
+let startedGame = null
 let lastStart = null
 let lastTick = 0
 let placeIn = 0
@@ -65,8 +69,9 @@ export function hudTick(s, dt) {
   if (!set) return
   lastTick = performance.now()
   // A new game: start counting kills from here and pick the map size.
-  if (s !== lastGame || s._startedAt !== lastStart) {
-    lastGame = s
+  lastGame = s
+  if (s !== startedGame || s._startedAt !== lastStart) {
+    startedGame = s
     lastStart = s._startedAt
     lastKills = s.kills || 0
     clearFeed()

@@ -1089,3 +1089,31 @@ test('recorded sounds: every file is there, plays, and the homepage music switch
   expect(r.stillOff).toBe(true)
   expect(r.setting).toBe('boolean')
 })
+
+// 2026-11-22: a short freeze (lag spike, pause) used to look like a new game
+// and put the corner map back to its starting size, undoing M.
+test('a short freeze keeps the map size picked with M', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => { const g = window.__game; g.settings.guestMode = false; g.settings.selectedGameMode = 'classic'; g.playBtn.click() })
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  const r = await page.evaluate(async () => {
+    const tm = window.__game.buildMode.tryMode
+    const el = document.getElementById('build-try-map')
+    const frame = () => new Promise((d) => requestAnimationFrame(() => requestAnimationFrame(d)))
+    await frame()
+    tm.cycleMap()
+    await frame()
+    const before = el.dataset.size
+    // The game stops updating for longer than the "game stopped" check
+    // (400 ms, looked at every 500 ms), like a pause or a long hitch.
+    const s = window.__game.buildMode.survival
+    const update = s.update
+    s.update = () => {}
+    await new Promise((d) => setTimeout(d, 1200))
+    s.update = update
+    await frame()
+    await frame()
+    return { before, after: el.dataset.size }
+  })
+  expect(r).toEqual({ before: 'big', after: 'big' })
+})
