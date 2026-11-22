@@ -323,7 +323,7 @@ export default {
   settingsQrInfoText: "Muestra un código QR de tus ajustes. Escanéalo con la cámara de un móvil: GayZ se abre en el móvil y pregunta antes de copiarlos.",
   settingsQrBtn: "Mostrar",
   settingsQrHelp: "Escanéalo con la cámara del móvil para copiar allí tus ajustes ({n} cambiados respecto a los predeterminados).",
-  settingsQrTooBig: "Demasiados ajustes cambiados para un código QR: usa Copiar código de ajustes en Controles > Guardado y copia de seguridad.",
+  settingsQrTooBig: "Demasiados ajustes cambiados para un código QR: usa Copiar código de ajustes en General > Guardado y copia de seguridad.",
   settingsQrOfferTitle: "¿Copiar ajustes?",
   settingsQrOfferText: "Este enlace trae {n} ajustes de otro dispositivo. ¿Usarlos aquí? (Deshacer último cambio en Ajustes > General recupera los tuyos.)",
   settingsQrOfferYes: "Usarlos",

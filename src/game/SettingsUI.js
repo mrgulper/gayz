@@ -2237,17 +2237,23 @@ export const TAB_RESET_KEYS = {
     'weeklyChallengeReminder', 'lowCurrencyReminder', 'timeFormat', 'autoSaveFrequencySec', 'backupReminder',
     'confirmSignOut', 'stayEmbedSignedIn', 'anonymousLeaderboard', 'shareTelemetry', 'autoDeclineFriendRequests',
     'exactLastSeen', 'rememberSettingsTab', 'confirmRemoveFriend', 'reduceBgEffects', 'homepageGreeting',
-    'whatsNewEveryLaunch'],
+    'whatsNewEveryLaunch', 'cursorTrail', 'accentColor', 'layoutDensity', 'navOrder', 'bgMood', 'weatherParticles', 'homepageFpsCounter'],
   audio: ['masterVolume', 'sfxVolume', 'ambientVolume', 'zombieVolume', 'muteOnTabBlur', 'positionalAudio', 'mutedBeforeVolumes'],
   graphics: ['performanceMode', 'renderResolution', 'fpsCap', 'autoQuality', 'brightness', 'contrast', 'shadowsEnabled',
     'shadowQuality', 'viewDistance', 'grainIntensity', 'panelFlickerEnabled', 'liteTextures', 'graphicsLevel'],
-  controls: ['hudFpsCounter', 'oneHandedLayout', 'sensitivity', 'invertY', 'fov', 'invertScrollWeaponSwitch', 'crosshairColor', 'crosshairSize',
-    'crosshairStyle', 'damageNumbers', 'zombieNameTags', 'showOtherSprays', 'snowballsAllYear', 'disasterBreakAll', 'sprintMode', 'autoJump', 'viewBobbing', 'battleView', 'autoPickup', 'confirmRareDrop',
+  // Controls = Movement & Aim + Key Bindings; HUD, Gameplay and
+  // Accessibility have their own Gameplay tab (2026-11-22).
+  controls: ['sensitivity', 'invertY', 'fov', 'invertScrollWeaponSwitch', 'sprintMode', 'autoJump'],
+  gameplay: ['hudFpsCounter', 'oneHandedLayout', 'crosshairColor', 'crosshairSize',
+    'crosshairStyle', 'damageNumbers', 'zombieNameTags', 'showOtherSprays', 'snowballsAllYear', 'disasterBreakAll', 'viewBobbing', 'battleView', 'autoPickup', 'confirmRareDrop',
     'skinDesignerHighContrast', 'darkAreaBoost', 'colorblindRarity',
     'colorblindMode', 'largeTextMode', 'dyslexiaFont',
     'highContrastMode', 'focusRingMode', 'underlineLinks', 'textSpacing', 'buttonSize', 'reduceTransparency',
-    'hoverAudioCue', 'highVisCursor', 'captionBackground', 'reduceFlashing', 'streamSafeMode', 'toastDuration',
-    'cursorTrail', 'accentColor', 'layoutDensity', 'navOrder', 'bgMood', 'weatherParticles', 'homepageFpsCounter'],
+    'hoverAudioCue', 'highVisCursor', 'captionBackground', 'reduceFlashing', 'streamSafeMode', 'toastDuration'],
+  // Theme's picker + Personalization. The Simple theme's uploaded
+  // picture is kept (it is the player's own file).
+  theme: ['uiTheme', 'cleanColor', 'cleanBtnColor', 'playBiomeLook', 'uiFont', 'themePreset', 'crtScanlines',
+    'nicknameColor', 'nicknameFont', 'playBtnColor'],
 }
 // The 2026-11-11 settings (MoreSettingsList.js) join their tab's reset.
 for (const page of Object.keys(TAB_RESET_KEYS)) TAB_RESET_KEYS[page].push(...moreKeysForPage(page))
@@ -2527,6 +2533,9 @@ export function _bindControlsTab(game) {
   if (game.resetGeneralDefaultsBtn) game.resetGeneralDefaultsBtn.addEventListener('click', () => game._resetSettingsTab('general'))
   if (game.resetAudioDefaultsBtn) game.resetAudioDefaultsBtn.addEventListener('click', () => game._resetSettingsTab('audio'))
   if (game.resetControlsDefaultsBtn) game.resetControlsDefaultsBtn.addEventListener('click', () => game._resetSettingsTab('controls'))
+  for (const page of ['gameplay', 'theme']) {
+    document.getElementById(`reset-${page}-defaults-btn`)?.addEventListener('click', () => game._resetSettingsTab(page))
+  }
   bindResetConfirms()
   game._updateStorageUsageLine()
   game.exportSaveBtn.addEventListener('click', () => game._exportSave())
@@ -2765,6 +2774,8 @@ const RESET_CONFIRMS = {
   'reset-audio-defaults-btn': 'resetConfirmAudio',
   'reset-graphics-defaults-btn': 'resetConfirmGraphics',
   'reset-controls-defaults-btn': 'resetConfirmControls',
+  'reset-gameplay-defaults-btn': 'resetConfirmGameplay',
+  'reset-theme-defaults-btn': 'resetConfirmTheme',
   'restore-defaults-btn': 'resetConfirmAll',
   'accent-color-reset-btn': 'resetConfirmAccent',
   'play-btn-color-reset-btn': 'resetConfirmPlayBtn',

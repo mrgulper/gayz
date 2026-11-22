@@ -329,6 +329,16 @@
     font-size: 10.5px;
     letter-spacing: 0;
   }
+  /* Seven tabs since Gameplay split from Controls (2026-11-22): a little
+     tighter so they still fit in two rows on a phone in every language
+     and theme (three rows cost ~55px of the settings list). */
+  #settings-panel .settings-tabs {
+    gap: 4px;
+  }
+  #settings-panel .settings-tab {
+    padding: 6px 8px;
+    letter-spacing: 0;
+  }
 }
 
 .settings-section-heading:first-child {

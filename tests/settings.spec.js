@@ -222,8 +222,8 @@ test('settings sections: merged, moved, jump chips and remembered folds', async 
     return out
   })
   expect(r).toEqual({
-    hud: [1, 'settings-page-controls'],
-    access: [1, 'settings-page-controls'],
+    hud: [1, 'settings-page-gameplay'],
+    access: [1, 'settings-page-gameplay'],
     danger: [1, 'settings-page-general', 'settings-page-general'],
     theme: Array(6).fill('settings-page-theme'),
     save: 'settings-page-general',
@@ -243,6 +243,73 @@ test('settings sections: merged, moved, jump chips and remembered folds', async 
     return document.getElementById('settings-section-notifications').classList.contains('folded')
   })
   expect(kept).toBe(true)
+})
+
+// 2026-11-22: HUD, Gameplay and Accessibility got their own Gameplay tab
+// (Controls keeps Movement & Aim + keys); Gameplay and Theme have resets.
+test('gameplay tab: split from Controls, its own reset and a Theme reset', async ({ page }) => {
+  test.setTimeout(240000)
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const pageOf = (id) => document.getElementById(id)?.closest('.settings-page')?.id
+    g._toggleSettings(true)
+    document.getElementById('tab-gameplay').click()
+    const heads = (id) => [...document.querySelectorAll(`#${id} .settings-section-heading`)].map((h) => h.id)
+    return {
+      tab: document.getElementById('tab-gameplay').classList.contains('active'),
+      shown: document.getElementById('settings-page-gameplay').style.display,
+      gameplayHeads: heads('settings-page-gameplay'),
+      controlsHeads: heads('settings-page-controls'),
+      chips: document.querySelectorAll('.settings-jump-chip').length,
+      moved: ['sprint-mode-select', 'auto-jump-toggle', 'ms-crouch-mode', 'ms-gyro-aim', 'hud-fps-toggle', 'ms-hud-scale', 'ms-auto-reload', 'toast-duration-slider'].map(pageOf),
+      resets: [pageOf('reset-gameplay-defaults-btn'), pageOf('reset-theme-defaults-btn')],
+    }
+  })
+  expect(r).toEqual({
+    tab: true,
+    shown: 'block',
+    gameplayHeads: ['settings-section-hud', 'settings-section-gameplay', 'settings-section-accessibility'],
+    controlsHeads: ['settings-section-movement-aim', 'settings-section-key-bindings'],
+    chips: 3,
+    moved: ['settings-page-controls', 'settings-page-controls', 'settings-page-controls', 'settings-page-controls',
+      'settings-page-gameplay', 'settings-page-gameplay', 'settings-page-gameplay', 'settings-page-gameplay'],
+    resets: ['settings-page-gameplay', 'settings-page-theme'],
+  })
+  // Reset Theme: only Theme settings go back (asks first, then reloads).
+  await page.evaluate(() => {
+    const g = window.__game
+    Object.assign(g.settings, { uiFont: 'mono', nicknameFont: 'serif', crosshairSize: 150, sensitivity: 40 })
+    localStorage.setItem('gayz-settings', JSON.stringify(g.settings))
+  })
+  try {
+    await page.evaluate(() => {
+      document.getElementById('reset-theme-defaults-btn').click()
+      document.getElementById('reset-confirm-ok-btn').click()
+    })
+  } catch {
+    // Expected - the reset reloads the page.
+  }
+  await page.waitForTimeout(1500)
+  await waitForGame(page)
+  const afterTheme = await page.evaluate(() => {
+    const s = window.__game.settings
+    return [s.uiFont, s.nicknameFont, s.crosshairSize, s.sensitivity]
+  })
+  expect(afterTheme).toEqual(['default', 'default', 150, 40])
+  // Reset Gameplay: crosshair goes back, sensitivity (Controls) stays.
+  try {
+    await page.evaluate(() => {
+      document.getElementById('reset-gameplay-defaults-btn').click()
+      document.getElementById('reset-confirm-ok-btn').click()
+    })
+  } catch {
+    // Expected - the reset reloads the page.
+  }
+  await page.waitForTimeout(1500)
+  await waitForGame(page)
+  const afterGameplay = await page.evaluate(() => [window.__game.settings.crosshairSize, window.__game.settings.sensitivity])
+  expect(afterGameplay).toEqual([100, 40])
 })
 
 // 2026-10-24: Settings > Graphics level cards. The game picks a level for
@@ -484,7 +551,7 @@ test('the HUD settings (ideas 25-38) work in a game', async ({ page }) => {
     }
     out.rows = ['ms-hud-scale', 'ms-hide-hud', 'ms-minimap-size', 'ms-minimap-rotate', 'ms-kill-feed', 'ms-hit-marker', 'ms-low-ammo-warning',
       'ms-show-ping', 'ms-hud-clock', 'ms-show-coords', 'ms-compass-bar', 'ms-chat-opacity', 'ms-chat-fade', 'ms-health-display']
-      .filter((id) => document.getElementById(id)?.closest('#settings-page-controls')).length
+      .filter((id) => document.getElementById(id)?.closest('#settings-page-gameplay')).length
     out.hideKey = !!document.querySelector('#controls-grid')?.textContent.includes('Hide HUD')
     set('ms-hud-clock', 'real')
     set('ms-show-coords', true)
@@ -684,7 +751,7 @@ test('the Gameplay settings (ideas 51-62) work in a game', async ({ page }) => {
     }
     out.rows = ['ms-auto-reload', 'ms-auto-sort-inventory', 'ms-confirm-sell', 'ms-confirm-buy-over', 'ms-loot-highlight', 'ms-game-tips',
       'ms-pause-when-hidden', 'ms-afk-pause', 'ms-spoiler-free-story', 'ms-replay-tutorial', 'ms-reset-hints']
-      .filter((id) => document.getElementById(id)?.closest('#settings-page-controls')).length
+      .filter((id) => document.getElementById(id)?.closest('#settings-page-gameplay')).length
     out.btnText = document.getElementById('ms-reset-hints').textContent
     // Spoiler-Free: the toggle saves (PlayCrafting reads it in a game).
     set('ms-spoiler-free-story', true)

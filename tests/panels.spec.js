@@ -192,7 +192,7 @@ test('Theme is a Settings tab, Inventory has Pets, and the menus follow Simple',
   expect(r).toEqual({
     inventoryTabs: ['character', 'crates', 'weapons', 'pets', 'cosmetics', 'zombiebook'],
     themeInSettings: true,
-    settingsTabs: ['general', 'language', 'audio', 'controls', 'graphics', 'theme'],
+    settingsTabs: ['general', 'language', 'audio', 'controls', 'gameplay', 'graphics', 'theme'],
     generalOpensOn: ['general-page-general'],
     afterClick: ['settings-page-theme'],
     friendsPageKept: true,
@@ -250,7 +250,7 @@ test('homepage buttons show their tabs; the right column stays lit over a panel'
   const menu = page.locator('#footer-menu')
   await page.hover('#settings-btn')
   await expect(menu).toHaveAttribute('data-place', 'beside')
-  await expect(menu.locator('.footer-menu-sections button')).toHaveText(['General', 'Language', 'Audio', 'Controls', 'Graphics', 'Theme'])
+  await expect(menu.locator('.footer-menu-sections button')).toHaveText(['General', 'Language', 'Audio', 'Controls', 'Gameplay', 'Graphics', 'Theme'])
   await page.hover('#play-btn')
   await expect(menu).not.toHaveClass(/open/)
   await page.hover('#hub-btn')
