@@ -412,3 +412,46 @@ html:root #feedback-text:focus {
   .voice-card .voice-secondary { min-height: 54px; font-size: 19px; border-radius: 14px; }
   #poll-screen .poll-options { gap: 10px; }
 }
+
+/* ---- Homepage polish (2026-11-22) ---- */
+
+/* The words under the logo: 12px lower so the tagline clears the logo's
+   drips (still position:relative, so nothing else moves), and a stronger
+   dark glow so the pink reads on the dark street. Phones show only the
+   tagline - the 3-line story took 6 lines there. */
+#menu #menu-tagline,
+#menu #menu-subtitle {
+  top: -28px;
+}
+html:not(.ui-theme-clean) #menu :is(#menu-tagline, #menu-subtitle) {
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.95), 0 0 10px rgba(0, 0, 0, 0.85), 0 0 18px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+html:not(.ui-theme-clean) #menu #menu-subtitle {
+  opacity: 1 !important;
+}
+@media (max-width: 600px) {
+  #menu #menu-subtitle {
+    display: none;
+  }
+}
+
+/* Old: the plaque picture has a see-through strip on its right (about
+   6% of its width), so the number badge floated in empty space. Its
+   middle now sits on the plaque's visible corner. */
+html.ui-theme-old #menu-nav-buttons .nav-badge-dot,
+html.ui-theme-old #menu-nav-buttons .nav-badge-dot:is(#quests-new-dot, #friends-accepted-dot) {
+  right: calc(6.25% - 10px);
+}
+
+/* Phones: homepage messages ("You haven't tried this week's Challenge
+   yet", "Link copied") stuck to the screen's bottom, on top of
+   everything - in the page's flow they landed on the settings gear or
+   under your name. */
+@media (max-width: 600px) {
+  #app:not(:has(> #menu[style*="none"])) > #lore-toast {
+    position: fixed;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100vw - 32px);
+    z-index: 1000;
+  }
+}

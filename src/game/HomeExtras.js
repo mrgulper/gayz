@@ -167,7 +167,11 @@ function cardHtml(game, id) {
   }
   if (id === 'worldgoal') return worldGoalCardHtml(game)
   if (id === 'lastrun') {
-    const last = Array.isArray(game.runHistory) ? game.runHistory[0] : null
+    // (2026-11-22) A run left at wave 0 with no kills isn't shown -
+    // "Wave 0 · 0 kills" read like a fail to new players.
+    const last = Array.isArray(game.runHistory)
+      ? game.runHistory.find(r => _safeStatNumber(r?.night) > 0 || _safeStatNumber(r?.kills) > 0) || null
+      : null
     const best = _safeStatNumber(game.bestStats?.bestWave)
     const line = last
       ? t('homeExtrasLastRunLine', { wave: _safeStatNumber(last.night), kills: _safeStatNumber(last.kills).toLocaleString() })
