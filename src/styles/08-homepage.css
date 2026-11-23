@@ -2407,3 +2407,132 @@ html:root #feedback-form .voice-secondary {
   cursor: pointer;
 }
 #feedback-form #feedback-pics-note { text-align: left; }
+
+/* ---- Character in the middle (2026-11-22) ----
+   Gaymi: "move the spinning character to the middle of the screen above
+   the play button" + the logo shrinks so it all fits. The middle stack is
+   now logo, name, character, Play, Game Mode, Settings - one column,
+   dead-center, no scrolling. Three ids so these beat every height tier in
+   09-quests-clans-chat.css and the tablet rule in 12-gallery-and-later.css.
+   The left column now holds the World Goal box (#home-worldgoal). */
+#menu #menu-hero #player-showcase-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+}
+#menu #menu-hero #player-showcase-header {
+  width: min(340px, 92%);
+}
+#menu-hero #setup-avatar-wrap {
+  margin: 4px auto 0;
+}
+@media (min-width: 701px) and (min-height: 501px) and (orientation: landscape), (min-width: 1101px) and (min-height: 501px) {
+  #menu-layout {
+    --mid-logo-h: clamp(80px, 19vh, 230px);
+    --mid-char-h: clamp(150px, calc(100vh - 560px), 440px);
+  }
+  #menu #menu-hero #menu-title-img {
+    width: calc(var(--mid-logo-h) * 825 / 482);
+    max-width: 96%;
+    height: auto;
+  }
+  #menu #menu-hero #setup-avatar-wrap {
+    height: var(--mid-char-h);
+    width: calc(var(--mid-char-h) * 0.55);
+  }
+  #menu #menu-layout #menu-col-left {
+    justify-content: flex-start;
+    padding-top: 112px;
+  }
+}
+/* Phones and tablets (the one scrolling column): a smaller character
+   between the logo and Play. */
+@media (max-width: 700px), (orientation: portrait) and (max-width: 1100px), (max-height: 500px) {
+  #menu #menu-hero #setup-avatar-wrap {
+    height: min(340px, 80vw);
+    width: min(187px, 44vw);
+  }
+  #menu #menu-layout #home-worldgoal {
+    width: min(340px, 92vw);
+    align-self: center;
+  }
+  #menu #menu-layout #menu-col-left {
+    padding-left: 0;
+  }
+}
+
+/* World Goal box (HomeExtras.js). Two looks to pick from with the tiny
+   switch on its top edge: "card" (the small pink card) or "frame" (the
+   profile card's metal plate). */
+#home-worldgoal {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+}
+#home-worldgoal.pending { visibility: hidden; }
+#home-worldgoal:empty { display: none; }
+.home-goal-look-btn {
+  position: absolute;
+  top: -9px;
+  right: 10px;
+  z-index: 2;
+  padding: 1px 8px;
+  font: 800 10px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  letter-spacing: 0.5px;
+  color: var(--gayz-accent-fg, #fff);
+  background: var(--gayz-accent, #e0479e);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.home-goal-look-btn:hover { filter: brightness(1.12); }
+#home-worldgoal .home-x-card { font-size: 13px; padding: 10px 14px 11px; }
+#home-worldgoal .home-x-card .home-x-big { font-size: 15px; }
+/* Look B: the profile card's frame. */
+#menu #home-worldgoal.goal-look-frame .home-x-card {
+  position: relative;
+  isolation: isolate;
+  padding: 30px 28px 28px;
+  gap: 5px;
+  border-radius: 22px;
+}
+html.ui-theme-old #menu #home-worldgoal.goal-look-frame .home-x-card,
+html.ui-theme-old #menu #home-worldgoal.goal-look-frame .home-x-card:is(:hover, .nav-hover) {
+  background: none;
+  border: none;
+  border-radius: 0;
+  filter: none;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+html.ui-theme-old #menu #home-worldgoal.goal-look-frame .home-x-card .home-x-tag { color: #ffd6ec; }
+html.ui-theme-old #menu #home-worldgoal.goal-look-frame .home-x-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: url('../menu-art/old-profile-plate.webp') center / 100% 100% no-repeat;
+  filter: sepia(1) saturate(3.5) hue-rotate(290deg) brightness(1.15);
+  pointer-events: none;
+}
+html.ui-theme-clean #menu #home-worldgoal.goal-look-frame .home-x-card {
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--gayz-accent-fg, #fff) 35%, transparent), 0 6px 14px rgba(0, 0, 0, 0.3);
+}
+/* The plate's middle (the profile picture's slot) sits behind the words:
+   a dark window over it keeps them readable, like the profile card's. */
+html.ui-theme-old #menu #home-worldgoal.goal-look-frame .home-x-card::after {
+  content: '';
+  position: absolute;
+  inset: 20px;
+  z-index: -1;
+  background: rgba(14, 8, 12, 0.88);
+  border-radius: 4px;
+  border: none;
+  box-shadow: none;
+  opacity: 1;
+  width: auto;
+  height: auto;
+  pointer-events: none;
+}

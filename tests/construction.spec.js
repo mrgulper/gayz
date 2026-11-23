@@ -27,6 +27,9 @@ test('the homepage renders with zero horizontal/vertical scroll at 1920x1080', a
   // this test exists to catch it getting meaningfully worse, not to
   // enforce a number nobody has actually hit.
   const overflow = await page.evaluate(() => {
+    // The intro slide-ins / spin-out move things for a moment: measure
+    // where they land.
+    document.getAnimations().filter((a) => /^gz-(in-|spin-out)/.test(a.animationName || '')).forEach((a) => a.finish())
     const menu = document.getElementById('menu')
     return menu.scrollHeight - menu.clientHeight
   })
@@ -51,6 +54,9 @@ test('the homepage paints its final layout before the game has loaded', async ({
   await page.reload()
   await page.waitForFunction(() => window.__game, null, { timeout: 60000 })
   const snap = () => {
+    // The intro moves (slide-ins, the middle's spin-out) are on purpose:
+    // measure where everything lands.
+    document.getAnimations().filter((a) => /^gz-(in-|spin-out)/.test(a.animationName || '')).forEach((a) => a.finish())
     const box = (id) => {
       const r = document.getElementById(id).getBoundingClientRect()
       return [Math.round(r.left), Math.round(r.top), Math.round(r.width)]

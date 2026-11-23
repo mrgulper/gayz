@@ -857,6 +857,7 @@ test('homepage extras: cards, Today panel, Play tags, emote', async ({ page }) =
     const text = (id) => document.getElementById(id).textContent
     out.left = text('home-extras-left')
     out.right = text('home-extras-right')
+    out.goal = text('home-worldgoal')
     out.noTop3 = !document.querySelector('[data-card="top3"]')
     // Nothing in the corners covers the character, the nav or the links.
     const box = (sel) => document.querySelector(sel).getBoundingClientRect()
@@ -897,17 +898,18 @@ test('homepage extras: cards, Today panel, Play tags, emote', async ({ page }) =
     return out
   })
   expect(r.left).not.toMatch(/Level/)
-  expect(r.left).toMatch(/Wave 7 · 43 kills/)
-  expect(r.left).toMatch(/Best: Wave 12/)
-  expect(r.right).not.toMatch(/streak/i)
-  expect(r.right).toMatch(/Invite a friend/)
+  // Last Run and Invite a friend were removed (2026-11-22); World Goal
+  // has its own box at the top-left.
+  expect(r.left).not.toMatch(/Wave 7 · 43 kills/)
+  expect(r.right).not.toMatch(/streak|Invite a friend/i)
+  expect(r.goal).toMatch(/World Goal/i)
   expect(r.noTop3).toBe(true)
-  expect(r.cards).toBeGreaterThan(1)
+  expect(r.cards).toBeGreaterThan(0)
   expect(r.overlaps).toBe(0)
   expect(r.panelCorner).toMatch(/Today/)
   expect(r.leftEmpty).toBe(0)
   expect(r.panelOpen).toBe('flex')
-  expect(r.panelCards).toBe(4) // last run, tip, World Goal, invite
+  expect(r.panelCards).toBe(2) // World Goal, tip
   expect(r.panelClosed).toBe('none')
   expect(r.newHere).toEqual([true, false])
   expect(r.cont).toEqual([false, true, '▶ Continue Wave 6 · Hard'])
