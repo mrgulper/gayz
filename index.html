@@ -190,11 +190,8 @@
          drops in from the top with the coins (2026-11-23, Gaymi: "make the
          time also go in from edges"). The big GayZ logo is just there, ready
          (2026-11-22, Gaymi: "when refreshing dont make the gayz logo spin").
-         Play, Game Mode and Settings spin out from the middle of the screen to its spot
-         (2026-11-22, Gaymi: "make it like come spinning out from the middle
-         to out"; replaces "the middle part ... just have it ready"). The
-         small script after #menu-hero sets each one's --gz-from-y (how far
-         its own centre is from the screen's middle). On phones HomeExtras.js moves both extras stacks inside
+         Play, Game Mode and Settings are just there too - no spin (2026-11-23,
+         Gaymi: "make the middle part no longer spin"). On phones HomeExtras.js moves both extras stacks inside
          #menu-col-right, so there they ride along with the column instead of
          running their own slide (the left one's slide used to cancel the
          column's and sit still while everything else moved). Uses the separate `translate`/`scale`
@@ -209,19 +206,10 @@
       #menu-col-right, #home-extras-right { animation: gz-in-right 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
       #menu-currency-bar, #homepage-clock { animation: gz-in-top 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
       #menu-links-row { animation: gz-in-bottom 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-      @keyframes gz-spin-out { from { translate: 0 var(--gz-from-y, 0px); scale: 0.05; rotate: -1turn; } }
-      /* Only until html.menu-spun (set ~1.2s in by the script after
-         #menu-hero): otherwise a hover's wobble ending would start the spin
-         over, and coming back from a game would spin again. */
-      html:not(.menu-spun) :is(#play-btn, #gamemode-btn, #hero-quick-actions) { animation: gz-spin-out 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-      html:not(.menu-spun) #play-btn { animation-delay: 0.05s; }
-      html:not(.menu-spun) #gamemode-btn { animation-delay: 0.1s; }
-      html:not(.menu-spun) #hero-quick-actions { animation-delay: 0.15s; }
       #menu-col-right :is(#home-extras-left, #home-extras-right) { animation: none; }
       @media (prefers-reduced-motion: reduce) {
         #menu-col-left, #home-extras-left, #menu-col-right, #home-extras-right,
-        #menu-currency-bar, #homepage-clock, #menu-links-row,
-        html:not(.menu-spun) :is(#play-btn, #gamemode-btn, #hero-quick-actions) { animation: none; }
+        #menu-currency-bar, #homepage-clock, #menu-links-row { animation: none; }
       }
     </style>
     <script>
@@ -661,17 +649,6 @@
             <p id="round-mode-hint">Easy &amp; Normal: kill the wave to advance, no timer. Hard &amp; Nightmare: 90s timed nights.</p>
           </div>
 
-          <script>
-            // Spin-out start point (see gz-spin-out in <head>): each part
-            // starts at the screen's middle, so it spins out from there.
-            ;['play-btn', 'gamemode-btn', 'hero-quick-actions'].forEach(function (id) {
-              var el = document.getElementById(id)
-              if (!el) return
-              var r = el.getBoundingClientRect()
-              el.style.setProperty('--gz-from-y', Math.round(window.innerHeight / 2 - (r.top + r.height / 2)) + 'px')
-            })
-            setTimeout(function () { document.documentElement.classList.add('menu-spun') }, 1200)
-          </script>
 
           <div id="menu-col-right">
             <div id="menu-player-badge" role="button" tabindex="0" aria-label="Open profile">
@@ -890,8 +867,66 @@
             // (2026-10-11, "the right side panel still has a big gap on the
             // very top" on an iPad).
             if (zoom < 0.999 && room / need > zoom * 1.02) col.style.justifyContent = 'flex-start'
-            col.style.zoom = zoom < 0.999 ? String(Math.floor(zoom * 1000) / 1000) : ''
-            return zoom
+            // Then up to RIGHT_GROW times that size, as far as the window
+            // allows (2026-11-23, Gaymi: "make it slightly bigger 0.5 times
+            // bigger", then "as big as fits"): it may run past the layout's
+            // own box down to the window's bottom (less the Map of the Week
+            // card's room), but never into the logo/Play in the middle.
+            var grown = Math.min(zoom * RIGHT_GROW, (onScreen - 6 - rightCardsRoom()) / need, sideRoom(col, zoom))
+            var base = zoom
+            if (grown > zoom) { zoom = grown; col.style.justifyContent = 'flex-start' }
+            col.style.zoom = Math.abs(zoom - 1) > 0.001 ? String(Math.floor(zoom * 1000) / 1000) : ''
+            // The coins bar and clock keep the old size (they follow `base`).
+            return base
+          }
+          var RIGHT_GROW = 1.5
+
+          // Where an element sits once its load-time slide-in is over: the
+          // slide is jumped to its end just for the measurement and put back
+          // in the same frame, so nothing visible changes.
+          function restingRect(el) {
+            var anims = el.getAnimations ? el.getAnimations() : []
+            var at = []
+            for (var a = 0; a < anims.length; a++) {
+              at.push(anims[a].currentTime)
+              try { anims[a].currentTime = anims[a].effect.getComputedTiming().endTime } catch (e) {}
+            }
+            var r = el.getBoundingClientRect()
+            for (var b = 0; b < anims.length; b++) {
+              try { anims[b].currentTime = at[b] } catch (e) {}
+            }
+            return r
+          }
+
+          // Height the bottom-right card stack (Map of the Week) needs under
+          // the column, with every card showing.
+          function rightCardsRoom() {
+            var stack = document.getElementById('home-extras-right')
+            if (!stack || getComputedStyle(stack).position !== 'absolute') return 0
+            var h = 0
+            for (var i = 0; i < stack.children.length; i++) {
+              var c = stack.children[i]
+              var was = c.style.display
+              c.style.display = ''
+              h += c.getBoundingClientRect().height + 6
+              c.style.display = was
+            }
+            return h ? h + 12 : 0
+          }
+
+          // The biggest zoom that keeps the column clear of the middle stack
+          // (logo, Play, Game Mode, Settings) - it grows to the left.
+          function sideRoom(col, zoom) {
+            var right = restingRect(col).right
+            var mid = 0
+            var ids = ['menu-title', 'play-btn', 'gamemode-btn', 'hero-quick-actions']
+            for (var i = 0; i < ids.length; i++) {
+              var el = document.getElementById(ids[i])
+              if (el && el.offsetParent) mid = Math.max(mid, el.getBoundingClientRect().right)
+            }
+            var width = col.offsetWidth
+            if (!mid || !width) return zoom
+            return (right - mid - 24) / width
           }
 
           // The coins bar and the clock in the top-left corner scale with the
