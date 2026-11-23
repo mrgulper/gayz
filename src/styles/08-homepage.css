@@ -2314,7 +2314,9 @@ html[data-home-tier] #menu-nav-buttons #menu-more-btn {
 /* Feedback page (2026-11-22, PlayerVoice.js): a normal panel now. The
    form keeps the .voice-card buttons (pink in brand.css) without the old
    popup's card box. */
-#feedback-panel .panel-box { width: min(720px, calc(100vw - 32px)); }
+/* The panel is the shared size (2026-11-22, every panel the same size);
+   only the form inside stays a readable width, centered. */
+#feedback-form { max-width: 720px; margin-left: auto; margin-right: auto; }
 #feedback-form { text-align: left; font-family: var(--menu-display-font); }
 #feedback-form .voice-help { text-align: center; }
 #feedback-form .voice-kinds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }

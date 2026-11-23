@@ -178,6 +178,15 @@
       html.menu-fitting #homepage-clock {
         visibility: hidden;
       }
+      /* Soft fade-in on every load/refresh (2026-11-22, Gaymi: "refreshing
+         ... like kirka has it ... smoother"). Pure CSS from the very first
+         paint - it never waits for the game (a dark "wait until loaded"
+         screen was rejected 2026-10-09). The page starts dark and the whole
+         homepage, already in its final look, fades in once. */
+      html { background: #050507; }
+      @keyframes gz-page-in { from { opacity: 0; } to { opacity: 1; } }
+      body { animation: gz-page-in 0.7s ease-out both; }
+      @media (prefers-reduced-motion: reduce) { body { animation: none; } }
     </style>
     <script>
       document.documentElement.classList.add('menu-fitting')
@@ -780,7 +789,7 @@ Escape before dawn.</p>
           <button id="credits-btn" data-unlock="1" type="button"><span>Credits</span></button>
           <button id="terms-btn" type="button"><span>Terms of Use</span></button>
           <button id="nav-privacy-link" type="button"><span>Privacy Policy</span></button>
-          <button id="nav-feedback-link" data-unlock="1" type="button"><span>Feedback</span></button>
+          <button id="nav-feedback-link" data-unlock="1" type="button"><span>Make a Report</span></button>
           <button id="nav-halloffame-link" data-unlock="3" type="button"><span>Hall of Fame</span></button>
           <a id="nav-discord-link" href="https://discord.gg/kukR72Euj6" target="_blank" rel="noopener noreferrer">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
@@ -2290,14 +2299,9 @@ Escape before dawn.</p>
           <div class="upgrades-tab-page" id="upgrades-page-upgrades">
             <div id="upgrades-points-line"></div>
             <p id="skill-refund-note" style="display: none"></p>
-            <!-- The skill tree, two ways (SkillTreeUI.js). -->
-            <div class="skill-views" role="group">
-              <button type="button" class="skill-view-btn active" data-skill-view="columns" id="skill-view-columns" aria-pressed="true">Branches</button>
-              <button type="button" class="skill-view-btn" data-skill-view="map" id="skill-view-map" aria-pressed="false">Map</button>
-            </div>
+            <!-- The skill tree: one florr-style map (SkillTreeUI.js). -->
             <p id="skill-tree-hint"></p>
-            <div class="perk-options" id="upgrades-options"></div>
-            <div id="skill-map" style="display: none">
+            <div id="skill-map">
               <div id="skill-map-view">
                 <div id="skill-map-stage"></div>
                 <div class="skill-map-zoom">
@@ -2863,11 +2867,11 @@ Escape before dawn.</p>
 
             <h3>Feedback, polls and error reports</h3>
             <ul>
-              <li>Feedback you send (the Feedback link on the homepage) stores your message, whether it's an idea, bug or other, your nickname, Player ID and when you sent it, so the developer can read it and know who to follow up with. Pictures you add (up to 3) are shrunk on your device and sent only as a private notification to the developer - they are not stored by the game. Reporting a player the same way stores who you reported, your reason and your Player ID, like a report from chat. A Bug message also stores your device type, browser, screen size, language, theme and game version. Messages are kept until the developer deletes them (the newest few hundred), and a short copy may be sent as a private notification to the developer.</li>
+              <li>Feedback you send (the Make a Report link on the homepage) stores your message, whether it's an idea, bug or other, your nickname, Player ID and when you sent it, so the developer can read it and know who to follow up with. Pictures you add (up to 3) are shrunk on your device and sent only as a private notification to the developer - they are not stored by the game. Reporting a player the same way stores who you reported, your reason and your Player ID, like a report from chat. A Bug message also stores your device type, browser, screen size, language, theme and game version. Messages are kept until the developer deletes them (the newest few hundred), and a short copy may be sent as a private notification to the developer.</li>
               <li>Voting in a quick poll stores your answer with your Player ID, so each player votes once. The developer only sees the totals for each answer.</li>
               <li>Buying a custom Player ID in the Shop (you need to be signed in) stores that ID with your account, so no one else can take it. Anyone can see that the ID is in use, but not which account owns it. When you buy a different ID later, your old one is freed.</li>
               <li>When something in the game crashes, the error message, where in the game's code it happened, the game version and whether it was a phone or computer are sent and added to a count. No Player ID, nickname, account or IP address is stored with it. "Share Anonymous Usage Stats" in Settings turns this off too.</li>
-               <li>The Hall of Fame (homepage and General) shows players the developer chooses to honor: the nickname, a short title, a date and the player's skin. Want your card changed or removed? Send a message with Feedback.</li>
+               <li>The Hall of Fame (homepage and General) shows players the developer chooses to honor: the nickname, a short title, a date and the player's skin. Want your card changed or removed? Send a message with Make a Report.</li>
             </ul>
 
             <h3>What GayZ does not do</h3>
@@ -3268,7 +3272,7 @@ Escape before dawn.</p>
       <div id="feedback-panel">
         <div class="panel-box">
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
-          <h2 id="feedback-title">Send Feedback</h2>
+          <h2 id="feedback-title">Make a Report</h2>
           <div class="voice-card" id="feedback-form">
             <p class="voice-help" id="feedback-help"></p>
             <div class="voice-kinds" role="radiogroup">

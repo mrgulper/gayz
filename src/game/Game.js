@@ -2667,7 +2667,6 @@ export class Game {
     this.upgradesPanel = document.getElementById('upgrades-panel')
     this.upgradesPanelTitle = document.getElementById('upgrades-panel-title')
     this.upgradesPointsLine = document.getElementById('upgrades-points-line')
-    this.upgradesOptions = document.getElementById('upgrades-options')
     this.prestigeSection = document.getElementById('prestige-section')
     this.prestigeLevelLine = document.getElementById('prestige-level-line')
     this.prestigeCostLine = document.getElementById('prestige-cost-line')

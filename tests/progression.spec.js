@@ -150,7 +150,7 @@ test('new Zombie Survival upgrades change the run', async ({ page }) => {
     for (const id of ['swiftfoot', 'sprinter', 'scavenger', 'treasureHunter', 'warChest', 'secondWind', 'ammoBelt', 'bandolier', 'headhunter', 'thickSkin', 'lastStand']) g.metaProgress.purchased.add(id)
     const cfg = g._playConfig()
     g._openUpgradesPanel()
-    const names = [...document.querySelectorAll('#upgrades-options .perk-name')].map((n) => n.textContent)
+    const names = [...document.querySelectorAll('#skill-map-stage .skill-map-node .skill-map-name')].map((n) => n.textContent)
     return {
       speed: +(cfg.moveMult / base.moveMult).toFixed(2),
       coins: +(cfg.coinMult - base.coinMult).toFixed(2),
@@ -266,8 +266,8 @@ test('the 2026-10-17 upgrades and achievements work', async ({ page }) => {
     // Locked until the upgrade before it is bought.
     g.metaProgress.purchased = new Set()
     g._openUpgradesPanel()
-    const kevlar = [...document.querySelectorAll('#upgrades-options .perk-option')].find((b) => b.textContent.includes('Kevlar Vest'))
-    const locked = kevlar.classList.contains('locked')
+    const kevlar = document.querySelector('.skill-map-node[data-upgrade="kevlar"]')
+    const locked = kevlar.classList.contains('is-locked')
     const ids = ['survivor_40', 'survivor_50', 'endurance', 'tycoon', 'slaughterhouse', 'unstoppable', 'dead_center', 'blade_master', 'boss_slayer', 'bone_breaker', 'apocalypse', 'veteran', 'well_equipped', 'maxed_out']
     const has = (id) => g.achievements.unlocked.has(id)
     const before = ids.filter(has)
@@ -284,9 +284,10 @@ test('the 2026-10-17 upgrades and achievements work', async ({ page }) => {
     g.careerStats.lifetimeCoinsEarned = 1e6
     g._renderUpgradesOptions()
     for (let i = 0; i < 120; i++) {
-      const btn = [...document.querySelectorAll('#upgrades-options .perk-option')].find((b) => !b.disabled)
+      const btn = document.querySelector('.skill-map-node.is-buy')
       if (!btn) break
       btn.click()
+      document.getElementById('skill-map-buy').click()
     }
     return { up, locked, before, afterRun: afterRun.length, missing: ids.filter((id) => !has(id)) }
   })
@@ -325,23 +326,26 @@ test('Upgrades skill tree: refund, order, forks, Map and new effects', async ({ 
     g.settings.mutators = Object.fromEntries(Object.keys(g.settings.mutators).map((k) => [k, false]))
     g.metaProgress.legacyPoints = 100000
     g._openUpgradesPanel()
-    document.getElementById('skill-view-columns').click()
-    const q = (id) => document.querySelector(`#upgrades-options [data-upgrade="${id}"]`)
-    out.columns = document.querySelectorAll('.skill-col').length
-    out.cards = document.querySelectorAll('#upgrades-options .skill-node').length
+    // One florr-style map (2026-11-22): round icon spots with a price
+    // badge, your skin in the middle, a hover card with the stats.
+    const q = (id) => document.querySelector(`.skill-map-node[data-upgrade="${id}"]`)
+    const buy = (id) => { q(id).click(); document.getElementById('skill-map-buy').click() }
+    out.oldViewsGone = !document.getElementById('upgrades-options') && !document.querySelector('.skill-view-btn')
+    out.cards = document.querySelectorAll('#skill-map-stage .skill-map-node').length
+    out.icons = [...document.querySelectorAll('#skill-map-stage .skill-map-node')].every((n) => n.querySelector('.skill-map-icon svg') && n.querySelector('.skill-map-cost').textContent)
+    out.me = !!document.querySelector('.skill-map-start .skill-map-me')
+    q('vitality').dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }))
+    const tip = document.getElementById('skill-map-tip')
+    out.tip = tip.classList.contains('show') && tip.textContent.includes('Max Health')
     // In order: Iron Will waits for +50 Max Health.
-    out.ironLocked = q('ironwill').disabled
-    for (const id of ['vitality', 'ironwill', 'juggernaut']) q(id).click()
-    q('tank').click()
-    out.forkLocked = q('regenerator').disabled && q('regenerator').classList.contains('is-fork')
-    // The Map buys the same way.
-    document.getElementById('skill-view-map').click()
-    out.mapShown = document.getElementById('skill-map').style.display !== 'none' && document.getElementById('upgrades-options').style.display === 'none'
-    document.querySelector('.skill-map-node[data-upgrade="swiftfoot"]').click()
-    document.getElementById('skill-map-buy').click()
-    out.mapBought = g.metaProgress.purchased.has('swiftfoot') && document.querySelector('.skill-map-node[data-upgrade="swiftfoot"]').classList.contains('is-owned')
+    out.ironLocked = q('ironwill').classList.contains('is-locked')
+    for (const id of ['vitality', 'ironwill', 'juggernaut', 'tank']) buy(id)
+    q('regenerator').click()
+    out.forkLocked = q('regenerator').classList.contains('is-fork') && !document.getElementById('skill-map-buy')
+    buy('swiftfoot')
+    out.mapBought = g.metaProgress.purchased.has('swiftfoot') && q('swiftfoot').classList.contains('is-owned') && q('swiftfoot').querySelector('.skill-map-cost').textContent === '\u2713'
+    out.owned = document.getElementById('skill-map-owned').textContent.includes('5 / 76')
     out.saved = JSON.parse(localStorage.getItem('gayz-meta-progress')).tree.includes('tank')
-    document.getElementById('skill-view-columns').click()
     // Numbers and reacting skills reach the game's config.
     for (const id of ['extendedMags', 'ironGut', 'finisher', 'notToday']) g.metaProgress.purchased.add(id)
     const cfg = g._playConfig()
@@ -349,7 +353,7 @@ test('Upgrades skill tree: refund, order, forks, Map and new effects', async ({ 
     return out
   })
   expect(r).toEqual({
-    afterReload: 1100, columns: 5, cards: 76, ironLocked: true, forkLocked: true, mapShown: true, mapBought: true, saved: true,
+    afterReload: 1100, oldViewsGone: true, cards: 76, icons: true, me: true, tip: true, ironLocked: true, forkLocked: true, mapBought: true, owned: true, saved: true,
     cfg: { mag: 1.25, hunger: 0.6, skills: ['finisher', 'notToday'] },
   })
 })

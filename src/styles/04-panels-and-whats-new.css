@@ -63,7 +63,7 @@ html.ui-theme-old .panel-box > .panel-close-btn {
    text has its own ID-level color rule; anything sitting on its own dark
    background (cards, inputs, dropdowns, dark buttons) is left out by the
    :not() list so it keeps its light text. */
-html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-title, .inv-skin-card, .crate-card, #shop-skin-buy-btn, #shop-skin-tryon-btn, .shop-new-ribbon, .shop-rarity-pill, #shop-skin-price, .shop-confetti, .shop-soon-card) *, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-title, .inv-skin-card, .crate-card, #shop-skin-buy-btn, #shop-skin-tryon-btn, .shop-new-ribbon, .shop-rarity-pill, #shop-skin-price, .shop-confetti, .shop-soon-card)) {
+html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-title, .inv-skin-card, .crate-card, #shop-skin-buy-btn, #shop-skin-tryon-btn, .shop-new-ribbon, .shop-rarity-pill, #shop-skin-price, .shop-confetti, .shop-soon-card, #skill-map-stage .skill-map-node) *, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview-title, .inv-skin-card, .crate-card, #shop-skin-buy-btn, #shop-skin-tryon-btn, .shop-new-ribbon, .shop-rarity-pill, #shop-skin-price, .shop-confetti, .shop-soon-card, #skill-map-stage .skill-map-node)) {
   color: var(--old-ink) !important;
   text-shadow: none !important;
 }
@@ -106,8 +106,8 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
      Played/Favorite Class/Last Run/Today/Favorite Difficulty/Best Run/
      Created, see _renderOtherProfilePublicFields), so the old width
      read as cramped/tall for what's now shown. */
-  width: min(860px, 92vw);
-  min-height: 580px;
+  /* Size: the shared panel-box rule (2026-11-22, every panel the same
+     size - Gaymi). */
   /* Column flex so the two-column area below can grow to the bottom of
      the panel (2026-10-01: Bio/Notes should fill the whole right side). */
   display: flex;
@@ -214,14 +214,8 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
    with room to spare at the shared 32px size. These few don't - nudged
    individually rather than reserving space on every title, which would
    wrap several shorter titles onto an unwanted second line for no reason. */
-#terms-panel-title {
-  font-size: 28px !important;
-}
 #howtoplay-panel-title {
   padding-right: 12px;
-}
-#achievements-panel-title {
-  font-size: 26px !important;
 }
 
 .panel-box > h2::after {
