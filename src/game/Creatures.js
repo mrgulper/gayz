@@ -82,6 +82,13 @@ export function cleanCreature(c) {
   // Shiny and snack (2026-11-11).
   if (c.s === true || c.s === 1) grow.s = true
   if (typeof c.sn === 'string' && Object.hasOwn(SNACKS, c.sn)) grow.sn = c.sn
+  // Nickname (2026-11-23): up to NICK_MAX letters, bad words swapped
+  // (setNickFilter). nk: also show what kind it is under the name.
+  const nm = cleanNick(c.nm)
+  if (nm) {
+    grow.nm = nm
+    if (c.nk === true) grow.nk = true
+  }
   if (c.t === 'a') {
     if (typeof c.k !== 'string' || !Object.hasOwn(KINDS(), c.k)) return null
     return { t: 'a', k: c.k, r, at: Number.isFinite(c.at) ? c.at : 0, ...grow }
@@ -376,9 +383,66 @@ export function power(team) {
   }, 0))
 }
 
+// --- Nicknames (2026-11-23, Gaymi picked: everyone sees them, up to 50
+// letters, each creature picks if its kind shows too) ---
+
+export const NICK_MAX = 50
+// The chat bad-word swap, handed in by TeamUI (Game.js's _censorText) so
+// this file doesn't pull in Game.js. Ghost teams go through it too.
+let _nickFilter = (s) => s
+export function setNickFilter(fn) {
+  if (typeof fn === 'function') _nickFilter = fn
+}
+// A typed nickname made safe: no control characters, single spaces,
+// bad words swapped, at most NICK_MAX letters. '' = no nickname.
+export function cleanNick(s) {
+  if (typeof s !== 'string') return ''
+  // eslint-disable-next-line no-control-regex
+  const plain = s.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim()
+  if (!plain) return ''
+  return Array.from(String(_nickFilter(plain) || '')).slice(0, NICK_MAX).join('').trim()
+}
+
+// Its nickname if it has one, else what it is ("Rotten Rick", "Cow").
 export function creatureName(c) {
+  if (c.nm) return c.nm
+  return kindName(c)
+}
+
+// What it is, ignoring any nickname.
+export function kindName(c) {
   if (c.t === 'a') return t(animalNameKey(c.k))
   return zombieName(c.n)
+}
+
+// The small "what it is" line under a nickname - '' when it shouldn't show.
+export function kindNote(c) {
+  return c.nm && c.nk ? kindName(c) : ''
+}
+
+// For tight spots (a 3D name tag): cut with "..." past max letters.
+export function shortName(c, max = 20) {
+  const a = Array.from(creatureName(c))
+  return a.length > max ? `${a.slice(0, max - 1).join('').trim()}…` : a.join('')
+}
+
+// Give one of my creatures a nickname (or clear it with ''). Returns the
+// saved creature, or null when there's no creature with that id.
+export function renameCreature(id, name, showKind) {
+  const data = loadCreatures()
+  const c = data.list.find((o) => o.id === id)
+  if (!c) return null
+  const nm = cleanNick(name)
+  if (nm) {
+    c.nm = nm
+    if (showKind) c.nk = true
+    else delete c.nk
+  } else {
+    delete c.nm
+    delete c.nk
+  }
+  saveCreatures(data)
+  return c
 }
 
 // What it is, for the card under its name ("Zombie", "Boss Zombie", "Cow").
@@ -466,6 +530,10 @@ export function packTeam(team) {
     const out = c.t === 'a' ? { t: 'a', k: c.k, r: c.r } : { t: 'z', k: c.k || '', r: c.r, n: c.n, b: !!c.b }
     if (L > 1) out.l = L
     if (c.s) out.s = true
+    if (c.nm) {
+      out.nm = c.nm
+      if (c.nk) out.nk = true
+    }
     return out
   })
 }

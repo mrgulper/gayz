@@ -72,3 +72,28 @@ realistic arena textures. Two batches, shop stuff first.
   a guess. Arena: TeamBattle floorCanvas/dirtCanvas/woodCanvas, 16 px per
   block, seeded, drawn once; worn dirt in the middle, flowers, wood grain;
   rails are 1-block instances; 2D caches the board picture (board2d).
+
+# Pet battles round 3 (picked 2026-11-23)
+
+Gaymi: "do them all". One batch per session, questions first. Order is
+mine (smallest first, live online last).
+
+- [x] **Batch C - Nicknames** (shipped 2026-11-23). Gaymi picked: everyone
+  sees them, up to 50 letters, each creature picks if its kind shows.
+  Creatures.js: c.nm (name) + c.nk (show kind), cleanNick (no control/bidi
+  characters, chat bad-word swap via setNickFilter(_censorText) from
+  TeamUI, NICK_MAX 50), creatureName = nickname first, kindName/kindNote,
+  shortName for the camp zoo's 3D tag, renameCreature; packTeam sends nm/nk
+  (Firestore team list isn't field-checked, no rules paste). TeamUI
+  "Nicknames" under the snacks: Rename a creature -> tap a card -> box
+  (Enter saves, Esc closes). Cards clamp the name to 2 lines; battle labels
+  cut at 130px. Terms + Privacy lines added. Test: team.spec "nicknames".
+- [ ] **Batch D - Held items.** One item per creature that stays on (e.g.
+  Spiked Collar hits back, Lucky Bone one dodge a battle). Drops from Pack
+  Leaders + tournament. Works in every mode.
+- [ ] **Batch E - Arena hazards.** Some battles get something extra in the
+  arena (lava cracks, slow puddle, bounce pad). Builds on Batch B textures.
+- [ ] **Batch F - Eggs + hatching.** Rare egg found in the world, hatches
+  after walking a set distance; rare eggs can be shiny.
+- [ ] **Batch G - Friend battles (live).** Challenge an online friend, both
+  teams fight at the same time. Biggest: Firebase rules paste, hard on CI.

@@ -13,7 +13,7 @@
 import * as THREE from 'three'
 import { t } from './i18n.js'
 import { findWallStrip, makeLabel } from './CampTrophies.js'
-import { loadCreatures, creatureName, tierColor } from './Creatures.js'
+import { loadCreatures, shortName, tierColor } from './Creatures.js'
 import { zombieModel } from './TeamBattle.js'
 
 export const MAX_ZOO = 8
@@ -62,7 +62,7 @@ export class CampZoo {
     for (const c of caught.slice(0, MAX_ZOO)) {
       const m = zombieModel(c)
       m.group.scale.multiplyScalar(B)
-      const tag = makeLabel(creatureName(c), 256, 30, tierColor(c.r))
+      const tag = makeLabel(shortName(c), 256, 30, tierColor(c.r))
       tag.scale.set(1.4, 0.2, 1)
       tag.position.y = 2.25
       m.group.add(tag)

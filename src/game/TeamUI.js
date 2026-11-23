@@ -10,7 +10,7 @@
 // Starting a battle while signed in saves your own team as a ghost team
 // for others to fight.
 import * as CloudSync from './CloudSync.js'
-import { loadCreatures, saveCreatures, stats, power, powerName, powerInfo, creatureName, creatureType, rarityName, creatureIconURL, tierColor, botTeam, packTeam, unpackTeam, TEAM_SIZE, POWERS, TRIGGERS, TRIGGER_LEVEL, TYPE_MULT, MAX_LEVEL, EVOLVE_AT, levelOf, xpProgress, triggerOf, hasTrigger, triggerName, triggerInfo, COMBOS, combosOf, comboName, comboInfo, SNACKS, SNACK_IDS, snackImg, snackName, snackInfo, feedSnack, SHINY_ODDS, SHINY_BOOST } from './Creatures.js'
+import { loadCreatures, saveCreatures, stats, power, powerName, powerInfo, creatureName, creatureType, rarityName, creatureIconURL, tierColor, botTeam, packTeam, unpackTeam, TEAM_SIZE, POWERS, TRIGGERS, TRIGGER_LEVEL, TYPE_MULT, MAX_LEVEL, EVOLVE_AT, levelOf, xpProgress, triggerOf, hasTrigger, triggerName, triggerInfo, COMBOS, combosOf, comboName, comboInfo, SNACKS, SNACK_IDS, snackImg, snackName, snackInfo, feedSnack, SHINY_ODDS, SHINY_BOOST, kindName, kindNote, renameCreature, setNickFilter, NICK_MAX } from './Creatures.js'
 import { TeamBattle } from './TeamBattle.js'
 import { renderTournament, playTournament } from './TeamTournament.js'
 import * as PackLeaders from './PackLeaders.js'
@@ -18,7 +18,7 @@ import { renderLeaders, startLeaderBattle, nextLeader, badgeInfo } from './PackL
 import * as Gauntlet from './Gauntlet.js'
 import * as PetShop from './PetShop.js'
 import { bindReorder } from './Reorder.js'
-import { saveShopProgress, saveSettings } from './Game.js'
+import { saveShopProgress, saveSettings, _censorText } from './Game.js'
 import { zombieName } from './ZombieNames.js'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
@@ -38,7 +38,8 @@ function card(c, slot = 0) {
   const xp = xpProgress(c)
   const trig = triggerOf(c)
   const on = hasTrigger(c)
-  const tip = `${powerName(c)}: ${powerInfo(c)}\n${on ? '' : `${t('teamTrigLocked', { n: TRIGGER_LEVEL, name: '' }).trim()} `}${triggerName(trig)}: ${triggerInfo(trig)}${c.sn ? `\n${snackName(c.sn)}: ${snackInfo(c.sn)}` : ''}`
+  const note = kindNote(c)
+  const tip = `${c.nm ? `${c.nm} - ${kindName(c)}\n` : ''}${powerName(c)}: ${powerInfo(c)}\n${on ? '' : `${t('teamTrigLocked', { n: TRIGGER_LEVEL, name: '' }).trim()} `}${triggerName(trig)}: ${triggerInfo(trig)}${c.sn ? `\n${snackName(c.sn)}: ${snackInfo(c.sn)}` : ''}`
   return `<button type="button" class="perk-option team-card${slot ? ' picked' : ''}${c.s ? ' shiny' : ''}" data-id="${c.id}" style="--tier: ${tierColor(c.r)}" title="${esc(tip)}">
     ${slot ? `<span class="team-card-slot">${slot}</span>` : ''}
     ${c.s ? `<span class="team-card-shiny" title="${esc(t('teamShiny'))}">✦</span>` : ''}
@@ -46,6 +47,7 @@ function card(c, slot = 0) {
     <span class="team-card-level">${esc(t('teamLevel', { n: lv }))}</span>
     <img src="${creatureIconURL(c)}" alt="" draggable="false" />
     <span class="team-card-name">${esc(creatureName(c))}</span>
+    ${note ? `<span class="team-card-kind">${esc(note)}</span>` : ''}
     <span class="team-card-type">${esc(rarityName(c.r))} ${esc(creatureType(c))}</span>
     <span class="team-card-stats">${esc(t('teamStats', { hp: s.hp, atk: s.atk }))}</span>
     <span class="team-card-xp" title="${esc(xp.need ? `${xp.have} / ${xp.need} XP` : 'MAX')}"><span style="width: ${xp.need ? (xp.have / xp.need) * 100 : 100}%"></span></span>
@@ -111,6 +113,63 @@ function renderSnacks(game) {
     </button>`).join('')}</div>`
 }
 
+// Nicknames (2026-11-23): "Rename a creature", tap any card, type a name.
+// game._teamRename: null, 'pick' (waiting for a card) or the creature's id
+// (its name box is open).
+function renderRename(game) {
+  const el = byId('team-rename')
+  if (!el) return
+  let st = game._teamRename
+  const c = typeof st === 'number' ? loadCreatures().list.find((o) => o.id === st) : null
+  if (typeof st === 'number' && !c) st = game._teamRename = null
+  const title = `<h3 class="team-section-title">${esc(t('teamRenameTitle'))}</h3>`
+  if (c) {
+    el.innerHTML = `${title}
+      <p class="team-snack-hint">${esc(t('teamRenameFor', { name: kindName(c) }))}</p>
+      <div class="team-rename-box">
+        <input type="text" id="team-rename-input" maxlength="${NICK_MAX}" value="${esc(c.nm || '')}" placeholder="${esc(kindName(c))}" autocomplete="off" spellcheck="false" aria-label="${esc(t('teamRenameTitle'))}" />
+        <label class="team-rename-kind"><input type="checkbox" id="team-rename-kind"${c.nk ? ' checked' : ''} /> ${esc(t('teamRenameShowKind'))}</label>
+        <div class="team-rename-btns">
+          <button type="button" class="team-snack team-rename-btn" data-rename="save">${esc(t('teamRenameSave'))}</button>
+          ${c.nm ? `<button type="button" class="team-snack team-rename-btn" data-rename="clear">${esc(t('teamRenameClear'))}</button>` : ''}
+          <button type="button" class="team-snack team-rename-btn" data-rename="cancel">${esc(t('teamRenameCancel'))}</button>
+        </div>
+      </div>`
+    return
+  }
+  el.innerHTML = `${title}
+    <p class="team-snack-hint">${esc(t(st === 'pick' ? 'teamRenamePick' : 'teamRenameHint'))}</p>
+    <div class="team-snack-row"><button type="button" class="team-snack team-rename-btn${st === 'pick' ? ' armed' : ''}" data-rename="arm" aria-pressed="${st === 'pick'}">${esc(t('teamRenameBtn'))}</button></div>`
+}
+
+function renameAction(game, what) {
+  const id = game._teamRename
+  if (what === 'arm') {
+    game._teamRename = id === 'pick' ? null : 'pick'
+    game._teamSnack = null
+  } else if (what === 'cancel') {
+    game._teamRename = null
+  } else if (typeof id === 'number' && (what === 'save' || what === 'clear')) {
+    const name = what === 'clear' ? '' : (byId('team-rename-input')?.value || '')
+    const c = renameCreature(id, name, !!byId('team-rename-kind')?.checked)
+    game._teamRename = null
+    if (c) game._showHomepageToast(c.nm ? t('teamRenamed', { name: c.nm }) : t('teamRenameCleared', { name: kindName(c) }))
+  }
+  renderTeamPanel(game)
+}
+
+// A card tapped while "Rename a creature" is on: open its name box.
+function pickToRename(game, id) {
+  game._teamRename = id
+  renderTeamPanel(game)
+  const input = byId('team-rename-input')
+  if (input) {
+    input.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+    input.focus({ preventScroll: true })
+    input.select()
+  }
+}
+
 // A team card tapped with a snack picked: feed it, if there are coins.
 function feed(game, id) {
   const snack = game._teamSnack
@@ -148,6 +207,7 @@ export function renderTeamPanel(game) {
   }
   set('team-combos-title', t('teamCombosTitle'))
   renderSnacks(game)
+  renderRename(game)
   const grid = byId('team-grid')
   if (grid) {
     // Newest first.
@@ -294,12 +354,15 @@ function renderHomePetPicker(game, data) {
 export function bindTeamUI(game) {
   const page = byId('team-page')
   if (!page) return
+  // Nicknames other players typed go through the chat bad-word swap too.
+  setNickFilter(_censorText)
   // For a battle started elsewhere (a Pack Leader met in a game).
   game._renderTeamPanel = () => renderTeamPanel(game)
   // The ladder, for the tests (tests/team.spec.js).
   game._packLeaders = { ...PackLeaders, power }
   game._gauntlet = { ...Gauntlet, power }
   game._petShop = PetShop
+  game._creatures = { packTeam, unpackTeam }
   // Drawn each time the Pets tab is looked at (a catch in a game changes it).
   byId('inventory-tab-pets')?.addEventListener('click', () => renderTeamPanel(game))
   // Drag to reorder (Reorder.js): the picked team, and the Gauntlet team.
@@ -326,9 +389,15 @@ export function bindTeamUI(game) {
     if (game._teamDragged) return
     if (e.target.closest('#pet-shop') && PetShop.petShopClick(game, e, () => renderTeamPanel(game))) return
     if (e.target.closest('#gauntlet') && Gauntlet.gauntletClick(game, e, () => renderTeamPanel(game))) return
+    const rb = e.target.closest('[data-rename]')
+    if (rb) {
+      renameAction(game, rb.dataset.rename)
+      return
+    }
     const sb = e.target.closest('.team-snack[data-snack]')
     if (sb) {
       game._teamSnack = game._teamSnack === sb.dataset.snack ? null : sb.dataset.snack
+      if (game._teamSnack) game._teamRename = null
       renderTeamPanel(game)
       return
     }
@@ -339,8 +408,15 @@ export function bindTeamUI(game) {
     }
     const c = e.target.closest('.team-card[data-id]')
     if (!c) return
-    if (game._teamSnack) feed(game, Number(c.dataset.id))
+    if (game._teamRename === 'pick') pickToRename(game, Number(c.dataset.id))
+    else if (game._teamSnack) feed(game, Number(c.dataset.id))
     else toggle(game, Number(c.dataset.id))
+  })
+  // In the name box: Enter saves, Escape closes.
+  page.addEventListener('keydown', (e) => {
+    if (e.target.id !== 'team-rename-input') return
+    if (e.key === 'Enter') { e.preventDefault(); renameAction(game, 'save') }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); renameAction(game, 'cancel') }
   })
   byId('home-pet-select')?.addEventListener('change', (e) => {
     game.settings.homePet = e.target.value

@@ -820,3 +820,65 @@ test('Gauntlet food, freeze, tiers, reorder; daily Pet Shop', async ({ page }) =
     sameDay: true,
   })
 })
+
+// Nicknames (2026-11-23, TeamUI.renderRename / Creatures.renameCreature).
+test('nicknames: rename a creature, show its kind, bad words swapped, sent with the team', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const byId = (id) => document.getElementById(id)
+    const saved = () => JSON.parse(localStorage.getItem('gayz-creatures')).list
+    const out = {}
+    localStorage.setItem('gayz-creatures', JSON.stringify({
+      list: [
+        { id: 1, t: 'a', k: 'cow', r: 'common', at: 1 },
+        { id: 2, t: 'z', k: null, r: 'rare', n: 3, b: false, at: 2 },
+      ],
+      team: [1, 2], wins: 0, losses: 0, nextId: 3,
+    }))
+    g._openMenuInventoryPanel()
+    byId('inventory-tab-pets').click()
+    const rename = (id, name, kind) => {
+      document.querySelector('#team-rename [data-rename=arm]').click()
+      document.querySelector(`#team-slots .team-card[data-id="${id}"]`).click()
+      byId('team-rename-input').value = name
+      byId('team-rename-kind').checked = kind
+      document.querySelector('[data-rename=save]').click()
+    }
+    rename(1, `  Sir Moo ${'a'.repeat(80)}`, true)
+    out.long = saved()[0].nm.length
+    out.nk = saved()[0].nk
+    out.team = JSON.parse(localStorage.getItem('gayz-creatures')).team
+    out.kindShown = document.querySelector('#team-slots .team-card[data-id="1"] .team-card-kind')?.textContent
+    rename(2, 'shit head', false)
+    out.swapped = saved()[1].nm
+    out.noKind = !document.querySelector('#team-slots .team-card[data-id="2"] .team-card-kind')
+    // Remove nickname.
+    document.querySelector('#team-rename [data-rename=arm]').click()
+    document.querySelector('#team-slots .team-card[data-id="2"]').click()
+    document.querySelector('[data-rename=clear]').click()
+    out.cleared = saved()[1].nm === undefined
+    out.boxClosed = !byId('team-rename-input')
+    return out
+  })
+  expect(r.long).toBe(50)
+  expect(r.nk).toBe(true)
+  expect(r.team).toEqual([1, 2]) // tapping to rename doesn't change the team
+  expect(r.kindShown).toBe('Cow')
+  expect(r.swapped).toBe('crap head')
+  expect(r.noKind).toBe(true)
+  expect(r.cleared).toBe(true)
+  expect(r.boxClosed).toBe(true)
+  // Ghost teams carry the nickname; one from another player gets cleaned.
+  const t = await page.evaluate(() => {
+    const { packTeam, unpackTeam } = window.__game._creatures
+    return {
+      packed: packTeam([{ t: 'a', k: 'cow', r: 'common', nm: 'Bob', nk: true }])[0],
+      ghost: unpackTeam([{ t: 'a', k: 'cow', r: 'common', nm: `fuck‮ ${'x'.repeat(80)}` }])[0].nm,
+    }
+  })
+  expect(t.packed.nm).toBe('Bob')
+  expect(t.packed.nk).toBe(true)
+  expect(t.ghost.startsWith('fudge x')).toBe(true)
+  expect([...t.ghost].length).toBe(50)
+})
