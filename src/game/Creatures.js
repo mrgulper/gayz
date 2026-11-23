@@ -10,7 +10,8 @@
 // n: name number (zombies), b: boss, at: when caught, x: battle XP,
 // s: shiny (2026-11-11, only when true), sn: snack for the next battle
 // (only my own), hi: held item (2026-11-23, ITEMS) }. The save's items:
-// { id: count } held items found but not being held. A
+// { id: count } held items found but not being held; eggs: [{ r, d }]
+// eggs found, d = blocks walked (PetEggs.js, 2026-11-23). A
 // ghost team's creatures carry l: level instead of x. Its battle stats
 // come from what it was in the game (stats()), never stored, so a balance
 // change reaches creatures already caught.
@@ -22,6 +23,8 @@ import { t } from './i18n.js'
 
 export const CREATURES_KEY = 'gayz-creatures'
 export const MAX_CREATURES = 200
+// Eggs kept at once (PetEggs.js: EGG_WARM warming + the rest waiting).
+export const EGG_MAX = 13
 // Gaymi (2026-10-31): "make it 10 slots" (was 3).
 export const TEAM_SIZE = 10
 
@@ -36,7 +39,7 @@ const DINO = { hp: 1.5, atk: 1.3 }
 const KINDS = () => PlayAnimals.KINDS
 
 function blank() {
-  return { list: [], team: [], wins: 0, losses: 0, nextId: 1, items: {} }
+  return { list: [], team: [], wins: 0, losses: 0, nextId: 1, items: {}, eggs: [] }
 }
 
 // Never trusted (it came from localStorage, maybe a shared save file).
@@ -65,6 +68,14 @@ export function loadCreatures() {
     for (const id of ITEM_IDS) {
       const n = data.items[id]
       if (Number.isInteger(n) && n > 0) out.items[id] = Math.min(ITEM_MAX, n)
+    }
+  }
+  // Eggs (Batch F): a rarity and blocks walked so far.
+  if (Array.isArray(data.eggs)) {
+    for (const e of data.eggs.slice(0, EGG_MAX)) {
+      if (!e || !ZOMBIE_TIER_IDS.includes(e.r)) continue
+      const d = Number.isFinite(e.d) && e.d > 0 ? Math.min(Math.floor(e.d), 100000) : 0
+      out.eggs.push({ r: e.r, d })
     }
   }
   return out
@@ -191,10 +202,11 @@ export const SHINY_FILTER = `hue-rotate(${SHINY_HUE}deg) saturate(1.4)`
 
 // Adds a catch: the creature as kept (shiny or not), or false when there's
 // no room left.
-export function addCreature(c, rand = Math.random) {
+// odds: 1 in this many is shiny (an egg's are better - PetEggs.js).
+export function addCreature(c, rand = Math.random, odds = SHINY_ODDS) {
   const data = loadCreatures()
   if (data.list.length >= MAX_CREATURES) return false
-  const clean = cleanCreature({ ...c, s: rand() < 1 / SHINY_ODDS, sn: null, x: 0, l: 0, at: Date.now() })
+  const clean = cleanCreature({ ...c, s: rand() < 1 / odds, sn: null, x: 0, l: 0, at: Date.now() })
   if (!clean) return false
   const kept = { ...clean, id: data.nextId++ }
   data.list.push(kept)

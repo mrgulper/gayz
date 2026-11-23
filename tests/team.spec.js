@@ -1131,3 +1131,96 @@ test('arena hazards: rolled 1 in 3, fair layout, lava / mud / bounce / flowers, 
   expect(r.bounce.batAir).toBe(0)
   expect(r.none).toEqual({ banner: false, slow: 1 })
 })
+
+// Pet eggs (Batch F, PetEggs.js): found in Loot Chests, the first 3 warm up
+// as you walk, rarer ones walk further, a ready one hatches into a creature.
+test('pet eggs: chest finds, walking warms the first 3, hatching, Eggs section', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    localStorage.setItem('gayz-creatures', JSON.stringify({
+      list: [], team: [], wins: 0, losses: 0, nextId: 1,
+      // A made-up rarity is dropped; d is clamped to a whole number.
+      eggs: [{ r: 'common', d: 295.7 }, { r: 'nope', d: 1 }, { r: 'rare', d: 0 }, { r: 'epic', d: 10 }, { r: 'mythic', d: 0 }],
+    }))
+  })
+  const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('gayz-creatures')))
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
+  await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
+  const r = await page.evaluate(() => {
+    const s = window.__game.buildMode.survival
+    const b = window.__game.buildMode
+    const out = {}
+    const p = b.tryMode.pos
+    const msgs = []
+    const say = s._message.bind(s)
+    s._message = (text, sec) => { msgs.push(text); say(text, sec) }
+    // Walk 10 blocks in 1-block steps (no real moving: CI is slow).
+    s.eggs.last = null
+    for (let i = 0; i <= 10; i++) {
+      p.x += i ? 1 : 0
+      s.eggs.update()
+    }
+    // A 50-block jump is a teleport: it doesn't count.
+    p.x += 50
+    s.eggs.update()
+    s.eggs.flush()
+    out.eggs = JSON.parse(localStorage.getItem('gayz-creatures')).eggs
+    out.list = JSON.parse(localStorage.getItem('gayz-creatures')).list
+    out.hatchSaid = msgs.length
+    // A Loot Chest with a lucky roll gives an egg.
+    const cx = Math.floor(p.x) + 2
+    const cz = Math.floor(p.z)
+    let cy = Math.floor(p.y)
+    while (b.getBlockAt(cx, cy, cz) && cy < p.y + 3) cy++
+    b.placeBlock(cx, cy, cz, 'lootchest', false)
+    const rand = Math.random
+    Math.random = () => 0.01
+    try { out.chest = s.useChest(cx, cy, cz) } finally { Math.random = rand }
+    out.afterChest = JSON.parse(localStorage.getItem('gayz-creatures')).eggs.length
+    b.removeBlock?.(cx, cy, cz)
+    return out
+  })
+  // Saved every 5 blocks: the common egg hatched after the first 5 (295 +
+  // 5 = 300), the bad one is gone, rare and epic warmed all 10; the mythic
+  // waited, then took the common's place for the last 5.
+  expect(r.list.length).toBe(1)
+  expect(r.list[0].r).toBe('common')
+  expect(r.eggs).toEqual([{ r: 'rare', d: 10 }, { r: 'epic', d: 20 }, { r: 'mythic', d: 5 }])
+  expect(r.chest).toBe(true)
+  expect(r.afterChest).toBe(4)
+
+  // The Eggs section on Inventory > Pets.
+  await page.evaluate(() => {
+    const d = JSON.parse(localStorage.getItem('gayz-creatures'))
+    d.eggs = [{ r: 'rare', d: 600 }, { r: 'epic', d: 20 }, { r: 'common', d: 0 }, { r: 'mythic', d: 0 }]
+    localStorage.setItem('gayz-creatures', JSON.stringify(d))
+    window.__game.buildMode.survival._message = () => {}
+  })
+  await page.evaluate(() => {
+    window.__game._openMenuInventoryPanel?.()
+    document.getElementById('inventory-tab-pets').click()
+  })
+  await page.waitForSelector('#team-eggs .team-egg')
+  const ui = await page.evaluate(() => ({
+    title: document.querySelector('#team-eggs .team-section-title').textContent,
+    warm: [...document.querySelectorAll('#team-eggs .team-egg')].map((e) => e.classList.contains('warm')),
+    ready: document.querySelector('#team-eggs .team-egg[data-egg="0"]').classList.contains('armed'),
+  }))
+  expect(ui.title).toContain('4/13')
+  expect(ui.warm).toEqual([true, true, true, false])
+  expect(ui.ready).toBe(true)
+  // Tap the waiting mythic: it takes the last warming place.
+  await page.click('#team-eggs .team-egg[data-egg="3"]')
+  let s = await saved()
+  expect(s.eggs.map((e) => e.r)).toEqual(['rare', 'epic', 'mythic', 'common'])
+  // Tap the ready rare egg: it hatches into a rare creature.
+  const before = s.list.length
+  await page.click('#team-eggs .team-egg[data-egg="0"]')
+  s = await saved()
+  expect(s.list.length).toBe(before + 1)
+  expect(s.list[s.list.length - 1].r).toBe('rare')
+  expect(s.eggs.map((e) => e.r)).toEqual(['epic', 'mythic', 'common'])
+})

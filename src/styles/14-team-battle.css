@@ -1163,6 +1163,31 @@ html.ui-theme-clean #pet-shop .ps-price { color: inherit; }
 html.ui-theme-old .team-item-count {
   color: var(--old-ink);
 }
+/* Pet eggs (TeamUI.renderEggs, Batch F): a walk bar in the egg's rarity
+   colour; a warming egg gets a rarity border. */
+.team-egg {
+  min-height: 132px;
+}
+.team-egg.warm {
+  border-color: var(--tier);
+}
+.team-egg-bar {
+  display: block;
+  width: 90%;
+  height: 6px;
+  margin: 2px 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+.team-egg-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--tier);
+}
+html.ui-theme-old .team-egg-bar {
+  background: rgba(60, 40, 20, 0.2);
+}
 .team-item-none {
   text-align: center;
   opacity: 0.8;
