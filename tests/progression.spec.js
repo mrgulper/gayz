@@ -479,7 +479,7 @@ test('printing achievements puts all of them on one page', async ({ page }) => {
     g.printAchievementsBtn.click()
     return document.querySelectorAll('#print-stats-sheet .print-ach-row').length
   })
-  expect(count).toBe(72)
+  expect(count).toBe(73)
   await page.emulateMedia({ media: 'print' })
   const pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true })
   const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length

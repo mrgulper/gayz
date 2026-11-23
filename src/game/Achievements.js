@@ -86,6 +86,8 @@ export const ACHIEVEMENTS = [
   { id: 'food_chain', titleKey: 'achFoodChain', tag: 'FC', color: '#c9564a', hintKey: 'achHintFoodChain', category: 'survival' },
   { id: 'rush_hour', titleKey: 'achRushHour', tag: 'RH', color: '#7fb069', hintKey: 'achHintRushHour', category: 'survival' },
   { id: 'globetrotter', titleKey: 'achGlobetrotter', tag: 'GT', color: '#7fb069', hintKey: 'achHintGlobetrotter', category: 'survival', mode: 'worldMap' },
+  // 2026-11-23: finish the Training Ground (TrainingGround.js).
+  { id: 'trained', titleKey: 'achTrained', tag: 'TG', color: '#7fb069', hintKey: 'achHintTrained', category: 'survival' },
   { id: 'horde_breaker', titleKey: 'achHordeBreaker', tag: 'HB', color: '#c9564a', hintKey: 'achHintHordeBreaker', category: 'survival' },
   { id: 'escalated', titleKey: 'achEscalated', tag: 'EQ', color: '#c9564a', hintKey: 'achHintEscalated', category: 'survival' },
   { id: 'boss_parade', titleKey: 'achBossParade', tag: 'BP', color: '#c9564a', hintKey: 'achHintBossParade', category: 'combat' },

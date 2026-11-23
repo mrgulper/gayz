@@ -18,6 +18,7 @@ import { _escapeHtml, _safeStatNumber, saveSettings, saveCareerStats, saveShopPr
 import { getWorldGoal, worldGoalForWeek, loadWorldGoalPending, myWorldGoalPart, worldGoalClaimed, worldGoalRewardReady, claimWorldGoalReward, ownedWorldGoalRewards, WORLD_GOAL_COINS } from './WorldGoal.js'
 import { cosmeticName } from './Cosmetics.js'
 import { EMOTES } from './Emotes.js'
+import { maybeInviteToTraining } from './TrainingEntry.js'
 
 const SAVED_RUN_KEY = 'gayz-play-saved-run' // BuildSurvival.SAVED_RUN_KEY
 // How long after the homepage is ready the online count and Map of the
@@ -513,6 +514,8 @@ function renderPlayTags(game) {
   const isNew = _safeStatNumber(game.careerStats?.totalRuns) === 0 && !run
   fresh.style.display = isNew ? '' : 'none'
   fresh.textContent = t('homeNewHere')
+  // A first visit: "New here? Try the Training Ground" (TrainingEntry.js).
+  maybeInviteToTraining(game, !!run)
 }
 
 // Puts the saved run's mode and difficulty back, then presses Play (which

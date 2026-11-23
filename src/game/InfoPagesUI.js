@@ -7,6 +7,7 @@
 // stand-in for each, so callers are unchanged.
 import { CHANGELOG_LAST_VIEWED_KEY, HOWTOPLAY_STEPS, UPDATE_BANNER_FADE_MS, UPDATE_BANNER_SHOW_MS, WHATS_NEW_SEEN_KEY, WHATS_NEW_VERSION, saveSettings } from './Game.js'
 import { t, tHtml } from './i18n.js'
+import { howToPlayTrainingHtml, bindHowToPlayTraining } from './TrainingEntry.js'
 
 // Update-available check - only ever called from _exitBuildMode (back
 // at the homepage), never mid-game, so a fresh deploy
@@ -147,7 +148,9 @@ export function _openHowToPlayPanel(game) {
   game._closeAllMenuPanels()
   game.howtoplayPanel.style.display = 'flex'
   game.howtoplayPanelTitle.textContent = t('howtoplayPanelTitle')
-  game.howtoplayContent.innerHTML = HOWTOPLAY_STEPS.map((step) => `<h3>${t(step.headingKey)}</h3><p>${tHtml(step.key)}</p>`).join('')
+  // The Training Ground button first (TrainingEntry.js), then the steps.
+  game.howtoplayContent.innerHTML = howToPlayTrainingHtml() + HOWTOPLAY_STEPS.map((step) => `<h3>${t(step.headingKey)}</h3><p>${tHtml(step.key)}</p>`).join('')
+  bindHowToPlayTraining(game, game.howtoplayContent)
 }
 
 export function _closeHowToPlayPanel(game) {

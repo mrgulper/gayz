@@ -266,7 +266,7 @@
     position: static !important;
     background: #fff !important;
   }
-  /* Achievements: all of them as 8 across x 9 down on one landscape page,
+  /* Achievements: all of them as 9 across x 9 down (room for 81) on one landscape page,
      with a thin title line. Small page margins also leave no room for the
      browser's own date/title/address lines. */
   html.print-achievements #print-stats-sheet {
@@ -279,7 +279,7 @@
     border-bottom-width: 1px;
   }
   html.print-achievements #print-stats-sheet .print-ach-grid {
-    grid-template-columns: repeat(8, 1fr);
+    grid-template-columns: repeat(9, 1fr);
     gap: 3px;
   }
   html.print-achievements #print-stats-sheet .print-ach-row {
@@ -451,7 +451,7 @@ html.ui-theme-old #settings-info-text {
   margin: 18px auto 4px;
 }
 
-#reset-confirm-modal {
+#reset-confirm-modal, #training-invite-modal {
   position: fixed;
   inset: 0;
   z-index: 60;
@@ -460,10 +460,10 @@ html.ui-theme-old #settings-info-text {
   justify-content: center;
   background: rgba(6, 8, 6, 0.75);
 }
-#reset-confirm-modal.open {
+#reset-confirm-modal.open, #training-invite-modal.open {
   display: flex;
 }
-#reset-confirm-box {
+#reset-confirm-box, #training-invite-box {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -473,23 +473,23 @@ html.ui-theme-old #settings-info-text {
   padding: 26px 22px 20px;
   text-align: center;
 }
-#reset-confirm-title {
+#reset-confirm-title, #training-invite-title {
   margin: 0;
   font-size: 18px;
 }
-#reset-confirm-text {
+#reset-confirm-text, #training-invite-text {
   margin: 0;
   font-size: 14px;
   line-height: 1.4;
 }
-#reset-confirm-actions {
+#reset-confirm-actions, #training-invite-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
   width: 100%;
 }
-#reset-confirm-actions .settings-reset-btn {
+#reset-confirm-actions .settings-reset-btn, #training-invite-actions .settings-reset-btn {
   width: 130px;
   margin: 8px 0 0;
 }
@@ -497,6 +497,25 @@ html.ui-theme-old #settings-info-text {
   background: rgba(200, 60, 60, 0.22);
   border-color: rgba(200, 60, 60, 0.8);
 }
+/* The Training Ground popup (TrainingEntry.js): "Let's go" in green. */
+#training-invite-yes-btn {
+  background: rgba(70, 170, 90, 0.22);
+  border-color: rgba(70, 170, 90, 0.8);
+}
+#training-invite-yes-btn:hover {
+  background: rgba(70, 170, 90, 0.36);
+}
+/* How to Play's Training Ground button, above the steps. */
+.howtoplay-training {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 14px;
+  text-align: center;
+}
+.howtoplay-training p { margin: 0; }
+.howtoplay-training .settings-reset-btn { margin: 0; }
 #reset-confirm-ok-btn:hover {
   background: rgba(200, 60, 60, 0.36);
 }
