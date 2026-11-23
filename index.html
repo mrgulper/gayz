@@ -149,7 +149,6 @@
          ever hidden - equivalent to the original display=swap flash, not
          a regression. -->
     <style>
-      .fonts-loading #menu-tagline,
       .fonts-loading .hero-stat-value,
       .fonts-loading .menu-card-title,
       .fonts-loading .menu-panel-title,
@@ -175,9 +174,15 @@
          them with the real fonts (or after MENU_FIT_MAX_MS at most). */
       html.menu-fitting #menu-col-right,
       html.menu-fitting #menu-currency-bar,
-      html.menu-fitting #homepage-clock {
+      html.menu-fitting #homepage-clock,
+      html.menu-fitting #menu-links-row {
         visibility: hidden;
       }
+      /* The bottom links too (2026-11-22, Gaymi: "when refreshing page the
+         words are wider spaced and when its fully done it goes back to
+         normal"): fitLinksRow decides their tight spacing (.links-compact)
+         only once the right column's real fonts are in, so before that
+         they showed at the wide spacing for a moment. */
       /* Slide-in on every load/refresh (2026-11-22, replaces the soft fade;
          Gaymi: "like kirka ... everything goes out to in", "no fade"). Pure
          CSS from the first paint, never waits for the game. Each homepage
@@ -601,10 +606,6 @@
 
           <div id="menu-hero">
             <h1 id="menu-title"><span id="menu-title-img" role="img" aria-label="GayZ"></span></h1>
-            <p id="menu-tagline">Survive. Scavenge. Discover the truth.</p>
-            <p id="menu-subtitle">Broken city block.
-Scavenge supplies. Survive the infected.
-Escape before dawn.</p>
             <p class="menu-subhint" id="menu-subhint">Look for lookout platforms up staircases along the avenue &mdash; chests inside</p>
             <p class="menu-news-ticker" id="menu-news-ticker"></p>
             <p class="menu-news-ticker" id="weekly-featured-mutator-line"></p>
@@ -917,8 +918,26 @@ Escape before dawn.</p>
             if (!row || row.offsetParent === null) return
             var lefts = []
             var buttons = document.querySelectorAll('#menu-nav-buttons button')
+            // Where the buttons END UP, not where the right column's
+            // slide-in has them this frame: measured mid-slide they were
+            // still off-screen, so the links got their wide spacing and
+            // only tightened once the slide ended (2026-11-22, Gaymi: "when
+            // refreshing page the words are wider spaced and when its fully
+            // done refreshing it goes back to normal").
+            // The slide is jumped to its end just for this measurement and
+            // put back in the same frame, so nothing visible changes.
+            var rightCol = document.getElementById('menu-col-right')
+            var slides = rightCol && rightCol.getAnimations ? rightCol.getAnimations() : []
+            var slideAt = []
+            for (var a = 0; a < slides.length; a++) {
+              slideAt.push(slides[a].currentTime)
+              try { slides[a].currentTime = slides[a].effect.getComputedTiming().endTime } catch (e) {}
+            }
             for (var i = 0; i < buttons.length; i++) {
               if (buttons[i].offsetParent) lefts.push(buttons[i].getBoundingClientRect().left)
+            }
+            for (var b = 0; b < slides.length; b++) {
+              try { slides[b].currentTime = slideAt[b] } catch (e) {}
             }
             if (!lefts.length) return
             row.classList.remove('links-compact')
@@ -1067,14 +1086,21 @@ Escape before dawn.</p>
         // that way until the next resize.
         if (window.ResizeObserver) {
           var __fitQueued = false
-          new ResizeObserver(function () {
+          var __heroObserver = new ResizeObserver(function () {
             // Next frame, not inside the observer: changing the hero's size
             // from in here (PLAY centering) made the browser report a
             // "ResizeObserver loop" error.
             if (__fitQueued) return
             __fitQueued = true
             requestAnimationFrame(function () { __fitQueued = false; window.__menuLayout.fit() })
-          }).observe(document.getElementById('menu-hero'))
+          })
+          __heroObserver.observe(document.getElementById('menu-hero'))
+          // The right column and the bottom links as well: a button or link
+          // appearing later (unlocks, translated words) refits the row.
+          ;['menu-nav-buttons', 'menu-links-row'].forEach(function (id) {
+            var el = document.getElementById(id)
+            if (el) __heroObserver.observe(el)
+          })
         }
       </script>
       </div>
