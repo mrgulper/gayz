@@ -88,9 +88,22 @@ mine (smallest first, live online last).
   "Nicknames" under the snacks: Rename a creature -> tap a card -> box
   (Enter saves, Esc closes). Cards clamp the name to 2 lines; battle labels
   cut at 130px. Terms + Privacy lines added. Test: team.spec "nicknames".
-- [ ] **Batch D - Held items.** One item per creature that stays on (e.g.
-  Spiked Collar hits back, Lucky Bone one dodge a battle). Drops from Pack
-  Leaders + tournament. Works in every mode.
+- [x] **Batch D - Held items** (shipped 2026-11-23). Gaymi picked: 10
+  items, random drops, ghost teams keep theirs, Gauntlet sells them for
+  gold. Creatures.ITEMS (n = number, w = drop weight; fang, feather,
+  helmet, charm, collar, claws, tooth, bone, horn, totem), c.hi on the
+  creature (cleanCreature checks it, packTeam sends it - team list isn't
+  field-checked, no rules paste), save `items` { id: count } = the bag.
+  holdItem (old one back to bag) / takeItem / giveItem / dropItem /
+  rollItem. ITEM_DROP: Pack Leader win 50%, tournament round won 30%,
+  champion 100% (guess). Battle onEnd may return { coins, item } -> a
+  "Found a held item" news line. TeamBattle._applyItems (both sides),
+  _itemsAfterHit (tooth, horn, collar), Lucky Bone + claws in _hit, totem
+  in _down, charm in _step (CHARM_EVERY 4). TeamUI "Held items" under the
+  snacks (game._teamItem: id | 'off'). Gauntlet: items added to FOODS
+  (held: true, ITEM_GOLD 4) but NOT in FOOD_IDS; rollFood: from tier
+  ITEM_TIER 2 a slot is an item ITEM_ODDS 25%; merge keeps one; bots
+  don't buy them. Privacy lines updated. Test: team.spec "held items".
 - [ ] **Batch E - Arena hazards.** Some battles get something extra in the
   arena (lava cracks, slow puddle, bounce pad). Builds on Batch B textures.
 - [ ] **Batch F - Eggs + hatching.** Rare egg found in the world, hatches

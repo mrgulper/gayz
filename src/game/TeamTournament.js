@@ -18,7 +18,7 @@
 // badge. The badges stay on the Team page (BADGES_KEPT). Saved in
 // localStorage (TOURNEY_KEY), so Cloud Save carries it.
 import * as CloudSync from './CloudSync.js'
-import { loadCreatures, power, botTeam, packTeam, unpackTeam } from './Creatures.js'
+import { loadCreatures, power, botTeam, packTeam, unpackTeam, dropItem, ITEM_DROP } from './Creatures.js'
 import { TeamBattle } from './TeamBattle.js'
 import { saveShopProgress, saveSettings } from './Game.js'
 import { t } from './i18n.js'
@@ -253,6 +253,9 @@ export async function playTournament(game, renderTeam) {
       if (!c || myRound(c) !== r) return 0
       settleRound(c, won)
       let reward = won ? ROUND_COINS : 0
+      // Held items (Batch D): a chance for each round won, one for sure
+      // for the champion.
+      const item = won ? dropItem(r === ROUNDS - 1 ? 1 : ITEM_DROP.round) : null
       if (!won) {
         c.out = true
         c.place = r === 2 ? 'finalist' : r === 1 ? 'top4' : 'top8'
@@ -268,7 +271,7 @@ export async function playTournament(game, renderTeam) {
         game._renderCurrencyBar?.()
       }
       renderTeam?.(game)
-      return reward
+      return item ? { coins: reward, item } : reward
     },
     onAgain: () => playTournament(game, renderTeam),
     // "Next Round" after a win that isn't the Final, else back to the bracket.

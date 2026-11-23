@@ -9,7 +9,8 @@
 // rest of the save. A creature is { id, t: 'z' | 'a', k: kind, r: tier,
 // n: name number (zombies), b: boss, at: when caught, x: battle XP,
 // s: shiny (2026-11-11, only when true), sn: snack for the next battle
-// (only my own) }. A
+// (only my own), hi: held item (2026-11-23, ITEMS) }. The save's items:
+// { id: count } held items found but not being held. A
 // ghost team's creatures carry l: level instead of x. Its battle stats
 // come from what it was in the game (stats()), never stored, so a balance
 // change reaches creatures already caught.
@@ -35,7 +36,7 @@ const DINO = { hp: 1.5, atk: 1.3 }
 const KINDS = () => PlayAnimals.KINDS
 
 function blank() {
-  return { list: [], team: [], wins: 0, losses: 0, nextId: 1 }
+  return { list: [], team: [], wins: 0, losses: 0, nextId: 1, items: {} }
 }
 
 // Never trusted (it came from localStorage, maybe a shared save file).
@@ -59,6 +60,13 @@ export function loadCreatures() {
   out.wins = Number.isInteger(data.wins) && data.wins >= 0 ? data.wins : 0
   out.losses = Number.isInteger(data.losses) && data.losses >= 0 ? data.losses : 0
   out.nextId = Math.max(1, ...out.list.map((c) => c.id + 1), Number.isInteger(data.nextId) ? data.nextId : 1)
+  // Held items in the bag (Batch D).
+  if (data.items && typeof data.items === 'object') {
+    for (const id of ITEM_IDS) {
+      const n = data.items[id]
+      if (Number.isInteger(n) && n > 0) out.items[id] = Math.min(ITEM_MAX, n)
+    }
+  }
   return out
 }
 
@@ -82,6 +90,8 @@ export function cleanCreature(c) {
   // Shiny and snack (2026-11-11).
   if (c.s === true || c.s === 1) grow.s = true
   if (typeof c.sn === 'string' && Object.hasOwn(SNACKS, c.sn)) grow.sn = c.sn
+  // Held item (2026-11-23): stays on, other players' teams carry theirs.
+  if (typeof c.hi === 'string' && Object.hasOwn(ITEMS, c.hi)) grow.hi = c.hi
   // Nickname (2026-11-23): up to NICK_MAX letters, bad words swapped
   // (setNickFilter). nk: also show what kind it is under the name.
   const nm = cleanNick(c.nm)
@@ -260,6 +270,115 @@ export function eatSnacks(ids) {
     }
   }
   if (ate) saveCreatures(data)
+}
+
+// --- Held items (Batch D, 2026-11-23; Gaymi picked 10 items, random
+// drops, other players' teams keep theirs, Gauntlet sells them for gold).
+// One per creature, never used up. Found by winning Pack Leader and
+// tournament battles (rollItem); kept in the save's bag (data.items) until
+// a creature holds one. What each does is in TeamBattle.js; n is its
+// number (%, or seconds for the horn). w: how often it drops (bigger =
+// more often). The numbers are a guess. ---
+
+export const ITEMS = {
+  fang: { n: 10, w: 3 }, // Fang Necklace: +n% attack
+  feather: { n: 15, w: 3 }, // Swift Feather: +n% speed
+  helmet: { n: 15, w: 3 }, // Iron Helmet: takes n% less
+  charm: { n: 3, w: 3 }, // Healing Charm: heals n% of its health every 4s
+  collar: { n: 20, w: 2 }, // Spiked Collar: whoever hits it takes n% back
+  claws: { n: 15, w: 2 }, // Sharp Claws: +n% chance of a big hit
+  tooth: { n: 15, w: 2 }, // Vampire Tooth: heals n% of the damage it does
+  bone: { n: 0, w: 1 }, // Lucky Bone: once a battle, dodges the hit that would knock it out
+  horn: { n: 2, w: 1 }, // Stun Horn: its first hit stuns for n seconds
+  totem: { n: 30, w: 1 }, // Spirit Totem: gets back up once with n% health
+}
+export const ITEM_IDS = Object.keys(ITEMS)
+export const ITEM_MAX = 99
+// Their pictures: 10x10 pixel art, like the snacks.
+const ITEM_PIX = {
+  fang: { c: { s: '#8a6a3a', w: '#f4f0e0', d: '#c8c0a8' }, rows: [
+    's........s', '.s......s.', '..ssssss..', '..w.ww.w..', '..w.ww.w..', '..d.wd.d..', '.....d....', '..........', '..........', '..........'] },
+  feather: { c: { b: '#5ab8f0', l: '#a8e0ff', d: '#2a78b0', q: '#f0f0f0' }, rows: [
+    '.......bb.', '......blbb', '.....blbbd', '....blbbd.', '...blbbd..', '..blbbd...', '.blbbd....', '.qbd......', 'q.........', '..........'] },
+  helmet: { c: { g: '#9aa4b0', l: '#d0d8e0', d: '#5a6470', k: '#2a2a2a' }, rows: [
+    '..........', '...gggg...', '..glllgg..', '.gglggggg.', '.gggggggd.', '.gddddddd.', '.gkkgkkgd.', '.gk.g.kgd.', '.gg.g.ggd.', '..........'] },
+  charm: { c: { r: '#e83a5a', l: '#ff9ab0', d: '#a01e3a', s: '#c8a040' }, rows: [
+    '....ss....', '...s..s...', '....ss....', '.rr....rr.', 'rlrr..rrrd', 'rlrrrrrrrd', '.rrrrrrrd.', '..rrrrrd..', '...rrrd...', '....dd....'] },
+  collar: { c: { b: '#6a3a1a', l: '#9a5a2a', s: '#d0d8e0', g: '#f0c040' }, rows: [
+    '..........', '..s.s.s...', '.bbbbbbbb.', 'blllllllbb', 'bb......bb', 'bb......bb', 'bbb....bbb', '.bbbgbbbb.', '....gg....', '..........'] },
+  claws: { c: { w: '#f0ece0', d: '#a8a090', b: '#5a3a2a' }, rows: [
+    '.w..w..w..', '.ww.ww.ww.', '..w..w..w.', '..wd.wd.wd', '..bb.bb.bb', '..bbbbbbbb', '..bbbbbbb.', '...bbbbb..', '..........', '..........'] },
+  tooth: { c: { w: '#f4f0f0', d: '#c8c0c0', r: '#c81e2a' }, rows: [
+    '..........', '.wwwwwwww.', '.wwwwwwwd.', '.wwwwwwwd.', '..ww..wd..', '..ww..wd..', '..wr..wd..', '..r...r...', '..r.......', '..........'] },
+  bone: { c: { w: '#f4ecd8', d: '#c8b890', g: '#7ad070' }, rows: [
+    'g.........', '.ww....ww.', 'wwww..wwwd', '.wwwwwwwd.', '..wwwwwd..', '.wwwwwwwd.', 'wwwd..wwwd', '.wd....wd.', '.........g', '..........'] },
+  horn: { c: { h: '#e8d8a8', d: '#a88a50', b: '#6a4a2a' }, rows: [
+    '..........', '........hh', '......hhhd', '....hhhhd.', '..hhhhdd..', '.bhhhd....', 'bbbhd.....', 'bbbd......', '.bb.......', '..........'] },
+  totem: { c: { t: '#3a9a7a', l: '#7ad0b0', d: '#1e5a4a', y: '#f0d040', k: '#1a1a1a' }, rows: [
+    '...tttt...', '..tllttt..', '..tykkyt..', '..tttttd..', '..tkkkkd..', '.ttttttdd.', '..tyttyd..', '..ttttdd..', '..tddddd..', '..........'] },
+}
+export const itemIconURL = (id) => pixelIconURL(`item-${id}`, ITEM_PIX[id])
+export const itemImg = (id, cls) => `<img class="${cls}" src="${itemIconURL(id)}" alt="" draggable="false" />`
+export const itemName = (id) => t(`item${cap(id)}`)
+export const itemInfo = (id) => t(`itemInfo${cap(id)}`, { n: ITEMS[id].n })
+
+// A random held item, the common ones more often.
+export function rollItem(rand = Math.random) {
+  const total = ITEM_IDS.reduce((n, id) => n + ITEMS[id].w, 0)
+  let r = rand() * total
+  for (const id of ITEM_IDS) {
+    r -= ITEMS[id].w
+    if (r < 0) return id
+  }
+  return ITEM_IDS[0]
+}
+
+// Drop chances (a guess): a Pack Leader beaten, a tournament round won.
+// The tournament's champion always gets one.
+export const ITEM_DROP = { leader: 0.5, round: 0.3 }
+
+// Rolls a drop at this chance: the item found (now in the bag), or null.
+export function dropItem(chance, rand = Math.random) {
+  if (rand() >= chance) return null
+  const id = rollItem(rand)
+  giveItem(id)
+  return id
+}
+
+// A held item found: into the bag.
+export function giveItem(id) {
+  if (!ITEMS[id]) return
+  const data = loadCreatures()
+  data.items[id] = Math.min(ITEM_MAX, (data.items[id] || 0) + 1)
+  saveCreatures(data)
+}
+
+// Creature id holds item (from the bag); what it held goes back in the
+// bag. 'ok' | 'none' (none left) | 'same' | 'gone'.
+export function holdItem(id, item) {
+  const data = loadCreatures()
+  const c = data.list.find((o) => o.id === id)
+  if (!c || !ITEMS[item]) return 'gone'
+  if (c.hi === item) return 'same'
+  if (!data.items[item]) return 'none'
+  data.items[item]--
+  if (!data.items[item]) delete data.items[item]
+  if (c.hi) data.items[c.hi] = Math.min(ITEM_MAX, (data.items[c.hi] || 0) + 1)
+  c.hi = item
+  saveCreatures(data)
+  return 'ok'
+}
+
+// Creature id's item back into the bag. -> the item, or null.
+export function takeItem(id) {
+  const data = loadCreatures()
+  const c = data.list.find((o) => o.id === id)
+  if (!c?.hi) return null
+  const item = c.hi
+  data.items[item] = Math.min(ITEM_MAX, (data.items[item] || 0) + 1)
+  delete c.hi
+  saveCreatures(data)
+  return item
 }
 
 // --- Team combos (2026-11-11, Gaymi picked tiers): enough of one group
@@ -530,6 +649,7 @@ export function packTeam(team) {
     const out = c.t === 'a' ? { t: 'a', k: c.k, r: c.r } : { t: 'z', k: c.k || '', r: c.r, n: c.n, b: !!c.b }
     if (L > 1) out.l = L
     if (c.s) out.s = true
+    if (c.hi) out.hi = c.hi
     if (c.nm) {
       out.nm = c.nm
       if (c.nk) out.nk = true

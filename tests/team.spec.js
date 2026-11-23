@@ -882,3 +882,152 @@ test('nicknames: rename a creature, show its kind, bad words swapped, sent with 
   expect(t.ghost.startsWith('fudge x')).toBe(true)
   expect([...t.ghost].length).toBe(50)
 })
+
+test('held items: give, swap, take off, what they do in battle, drops, ghost teams, Gauntlet shop', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'onLine', { get: () => false, configurable: true })
+    localStorage.removeItem('gayz-pack-leaders')
+    localStorage.setItem('gayz-creatures', JSON.stringify({
+      list: [
+        { id: 1, t: 'a', k: 'cow', r: 'common', at: 1 },
+        { id: 2, t: 'z', k: null, r: 'common', n: 2, b: false, at: 2 },
+        { id: 3, t: 'a', k: 'wolf', r: 'common', at: 3, hi: 'not-an-item' },
+      ],
+      team: [1, 2, 3], wins: 0, losses: 0, nextId: 4,
+      items: { fang: 1, collar: 1, bone: 1, nope: 4, horn: -2 },
+    }))
+    window.__game._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-pets').click()
+  })
+  const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('gayz-creatures')))
+  const give = async (item, id) => {
+    await page.click(`#team-items .team-snack[data-item="${item}"]`)
+    await page.click(`#team-slots .team-card[data-id="${id}"]`)
+  }
+  const p1 = await page.evaluate(() => ({
+    bag: [...document.querySelectorAll('#team-items .team-snack[data-item]')].map((b) => b.dataset.item),
+    guide: document.getElementById('team-guide').textContent,
+  }))
+  expect(p1.bag).toEqual(['fang', 'collar', 'bone', 'off']) // bad ones dropped
+  expect(p1.guide).toContain('Spirit Totem')
+  await give('fang', 1)
+  let s = await saved()
+  expect(s.list[0].hi).toBe('fang')
+  expect(s.items).toEqual({ collar: 1, bone: 1 })
+  expect(s.list[2].hi).toBeUndefined() // a made-up item is dropped
+  // Swap: the old one goes back in the bag.
+  await give('collar', 1)
+  s = await saved()
+  expect(s.list[0].hi).toBe('collar')
+  expect(s.items).toEqual({ bone: 1, fang: 1 })
+  // Take off.
+  await give('off', 1)
+  s = await saved()
+  expect(s.list[0].hi).toBeUndefined()
+  expect(s.items).toEqual({ bone: 1, fang: 1, collar: 1 })
+  expect(s.team).toEqual([1, 2, 3]) // tapping to give doesn't change the team
+  await give('fang', 1)
+  await give('collar', 2)
+  await give('bone', 3)
+  s = await saved()
+  expect(s.list.map((c) => c.hi)).toEqual(['fang', 'collar', 'bone'])
+  expect(s.items).toEqual({})
+  expect(await page.evaluate(() => ({
+    icons: document.querySelectorAll('#team-slots .team-card-item').length,
+    none: !!document.querySelector('#team-items .team-item-none'),
+  }))).toEqual({ icons: 3, none: true })
+
+  await page.click('#team-battle-btn')
+  await page.waitForSelector('#team-battle canvas')
+  const b = await page.evaluate(() => {
+    const B = window.__game._teamBattle
+    const f = (id) => B.fighters.find((o) => o.side === 'mine' && o.c.id === id)
+    const foe = B.fighters.find((o) => o.side === 'foe')
+    foe.item = null
+    foe.hp = foe.s.hp = 100000
+    const out = {}
+    out.items = [f(1).item, f(2).item, f(3).item]
+    out.labels = document.querySelectorAll('#team-battle .tb-label-item').length
+    out.cards = document.querySelectorAll('#team-battle .tb-mine .tb-card-item').length
+    // Spiked Collar: the hitter takes 20% back.
+    let before = f(2).hp
+    let foeBefore = foe.hp
+    B._hit(foe, f(2))
+    const dmg = before - f(2).hp
+    out.collar = { back: foeBefore - foe.hp, want: Math.max(1, Math.round(dmg * 0.2)) }
+    // Lucky Bone: the knock-out hit misses once, the next one lands.
+    f(3).hp = 1
+    B._hit(foe, f(3))
+    out.bone1 = { alive: f(3).alive, hp: f(3).hp }
+    B._hit(foe, f(3))
+    out.bone2 = f(3).alive
+    // Spirit Totem: back up once with 30%.
+    const one = f(1)
+    one.item = 'totem'
+    one.hp = 0
+    B._down(one)
+    out.totem = { alive: one.alive, hp: one.hp, want: Math.round(one.s.hp * 0.3) }
+    // Vampire Tooth heals the hitter; Stun Horn's first hit stuns.
+    foe.item = 'tooth'
+    foe.hp = 10
+    one.hp = one.s.hp
+    B._hit(foe, one)
+    out.tooth = foe.hp > 10
+    foe.item = 'horn'
+    foe.itemUsed = false
+    B._hit(foe, one)
+    out.horn = one.stun
+    return out
+  })
+  expect(b.items).toEqual(['fang', 'collar', 'bone'])
+  expect(b.labels).toBe(3)
+  expect(b.cards).toBe(3)
+  expect(b.collar.back).toBe(b.collar.want)
+  expect(b.bone1).toEqual({ alive: true, hp: 1 })
+  expect(b.bone2).toBe(false)
+  expect(b.totem).toEqual({ alive: true, hp: b.totem.want, want: b.totem.want })
+  expect(b.tooth).toBe(true)
+  expect(b.horn).toBe(2)
+  await page.click('#team-battle .tb-leave')
+
+  // A Pack Leader win can drop one (Math.random 0: always, the first item).
+  const d = await page.evaluate(() => {
+    document.getElementById('leaders-btn').click()
+    const real = Math.random
+    Math.random = () => 0
+    try { window.__game._teamBattle._finish(true) } finally { Math.random = real }
+    const news = document.querySelector('#team-battle .tb-result-news').textContent
+    document.querySelector('#team-battle .tb-back').click()
+    return { news, bag: JSON.parse(localStorage.getItem('gayz-creatures')).items }
+  })
+  expect(d.news).toContain('Found a held item: Fang Necklace!')
+  expect(d.bag).toEqual({ fang: 1 })
+
+  // Ghost teams carry held items; a bad one from another player is dropped.
+  const g = await page.evaluate(() => {
+    const { packTeam, unpackTeam } = window.__game._creatures
+    const G = window.__game._gauntlet
+    const wolf = { t: 'a', k: 'wolf', r: 'common' }
+    return {
+      packed: packTeam([{ ...wolf, hi: 'bone' }])[0].hi,
+      kept: unpackTeam([{ ...wolf, hi: 'horn' }])[0].hi,
+      bad: unpackTeam([{ ...wolf, hi: 'rocket' }])[0].hi ?? null,
+      // Gauntlet: items in the food row from tier 2, never in tier 1.
+      food3: G.rollFood(3, () => 0),
+      food1: G.rollFood(1, () => 0).some((id) => G.FOODS[id].held),
+      foodOnly: G.FOOD_IDS.every((id) => !G.FOODS[id].held),
+      name: G.foodName('fang'),
+      merged: G.mergeAll([{ ...wolf }, { ...wolf, hi: 'claws' }, { ...wolf }])[0].hi,
+    }
+  })
+  expect(g.packed).toBe('bone')
+  expect(g.kept).toBe('horn')
+  expect(g.bad).toBe(null)
+  expect(g.food3).toEqual(['fang', 'fang'])
+  expect(g.food1).toBe(false)
+  expect(g.foodOnly).toBe(true)
+  expect(g.name).toBe('Fang Necklace')
+  expect(g.merged).toBe('claws')
+})
