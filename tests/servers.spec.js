@@ -2569,3 +2569,113 @@ test('GayZ TV reports: fake, hide, delete, TV-ban and full ban (tvAdmin.js)', as
   expect(clips.size).toBe(0)
   await expect(A.tvDelete(db, { id: '../x' }, fs)).rejects.toMatchObject({ status: 400 })
 })
+
+// Skin Trades (SkinTrade.js, 2026-11-23): Kirka-style /trade in Global chat.
+// Two players share one page (uid + skins swapped in and out) and an
+// in-memory stand-in for Firestore.
+test('chat: /trade posts, accepts, confirms and swaps skins', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const docs = {}
+    const chat = []
+    const copy = (d) => (d ? { ...d } : null)
+    const step = (code, check, change) => {
+      const d = docs[code]
+      if (!d || !check(d)) return null
+      const before = { ...d }
+      Object.assign(d, change(d))
+      return before
+    }
+    g.__tradeBackendForTests = {
+      async createSkinTrade(uid, fromName, give, want) {
+        const code = String(10000 + Object.keys(docs).length)
+        docs[code] = { code, fromUid: uid, fromName, give, want, status: 'open', createdAt: Date.now(), acceptorUid: '', acceptorName: '', acceptedAt: 0, doneAt: 0, acceptorPaid: false }
+        return code
+      },
+      async getSkinTrade(code) { return copy(docs[code]) },
+      async acceptSkinTrade(code, uid, name) { return step(code, (d) => d.status === 'open' && d.fromUid !== uid, () => ({ status: 'accepted', acceptorUid: uid, acceptorName: name })) },
+      async unacceptSkinTrade(code, uid) { return step(code, (d) => d.status === 'accepted' && d.acceptorUid === uid, () => ({ status: 'open', acceptorUid: '', acceptorName: '' })) },
+      async confirmSkinTrade(code, uid) { return step(code, (d) => d.status === 'accepted' && d.fromUid === uid, () => ({ status: 'done' })) },
+      async cancelSkinTrade(code, uid) { return step(code, (d) => ['open', 'accepted'].includes(d.status) && d.fromUid === uid, () => ({ status: 'cancelled' })) },
+      async claimSkinTrade(code, uid) { return step(code, (d) => ['done', 'cancelled'].includes(d.status) && d.acceptorUid === uid && !d.acceptorPaid, () => ({ acceptorPaid: true })) },
+      async fetchMySkinTrades(uid) { return Object.values(docs).filter((d) => d.fromUid === uid).map(copy) },
+      async fetchTradesIAccepted(uid) { return Object.values(docs).filter((d) => d.acceptorUid === uid && !d.acceptorPaid).map(copy) },
+      async fetchTradesAwaitingMe(uid) { return Object.values(docs).filter((d) => d.fromUid === uid && d.status === 'accepted').map(copy) },
+      async postTradeChat(uid, nickname, text) { chat.push({ uid, nickname, text }) },
+    }
+    const skins = { a: { fox: 1 }, b: { wolf: 1, panda: 1 } }
+    const as = (who) => {
+      g._cloudUid = who === 'a' ? 'uidAAAAAAA' : 'uidBBBBBBB'
+      g.settings.nickname = who === 'a' ? 'Ann' : 'Ben'
+      g.charSkins = skins[who]
+      g._lastTradeCmdAt = 0
+    }
+    const lines = () => (g._chatSystemLines || []).map((l) => l.text)
+    const type = async (who, text) => {
+      as(who)
+      g.chatInput.value = text
+      g.chatInputRow.requestSubmit()
+      await new Promise((res) => setTimeout(res, 50))
+      return lines().at(-1)
+    }
+    const out = {}
+    out.typo = await type('a', '/trade foxx for wolff')
+    out.notOwned = await type('a', '/trade panda for wolf')
+    await type('a', '/trade Fox for Wolf')
+    out.posted = chat.at(-1)
+    out.inputCleared = g.chatInput.value
+    out.twice = await type('a', '/trade fox for panda')
+    out.ownAccept = await type('a', '/trade accept 10000')
+    await type('b', '/trade accept #10000')
+    out.bHeld = skins.b.wolf
+    out.secondAccept = await type('b', '/trade accept 10000')
+    // Ann's game notices Ben accepted and shows a confirm button.
+    as('a')
+    await g._checkSkinTrades()
+    out.awaiting = [...g._tradesAwaitingConfirm]
+    await type('a', '/trade confirm 10000')
+    out.aSkins = { ...skins.a }
+    // Ben's game collects the Fox once, even if it checks twice.
+    as('b')
+    await g._checkSkinTrades()
+    await g._checkSkinTrades()
+    out.bSkins = { ...skins.b }
+    out.chatKinds = chat.map((m) => m.text.split(' ')[2])
+    // Backing out and cancelling give held skins back.
+    await type('b', '/trade panda for wolf')
+    await type('a', '/trade accept 10001')
+    out.aHeldWolf = skins.a.wolf
+    await type('b', '/trade cancel 10001')
+    as('a')
+    await g._checkSkinTrades()
+    out.aWolfBack = skins.a.wolf
+    // The chat line is drawn as a trade with an accept pill.
+    g._cloudUid = 'someoneElse1'
+    g._lastServerChatMsgs = [{ uid: 'uidBBBBBBB', nickname: 'Ben', text: '[trade] 10001 offer panda wolf', createdAt: Date.now() + 5 }]
+    g._rerenderServerChat()
+    const pill = g.serverChatMessages.querySelector('.chat-trade-fill')
+    out.pill = pill?.textContent
+    pill?.click()
+    out.filled = g.serverChatInput.value
+    out.rowText = g.serverChatMessages.querySelector('.chat-trade-row')?.textContent
+    return out
+  })
+  expect(r.typo).toContain('Fox')
+  expect(r.notOwned).toContain("don't have Panda")
+  expect(r.posted.text).toBe('[trade] 10000 offer fox wolf')
+  expect(r.inputCleared).toBe('')
+  expect(r.twice).toContain('already in another open trade')
+  expect(r.ownAccept).toContain('your own trade')
+  expect(r.bHeld).toBe(0)
+  expect(r.secondAccept).toContain("isn't open")
+  expect(r.awaiting).toEqual(['10000'])
+  expect(r.aSkins).toEqual({ fox: 0, wolf: 1 })
+  expect(r.bSkins).toEqual({ wolf: 0, panda: 1, fox: 1 })
+  expect(r.chatKinds).toEqual(['offer', 'accepted', 'done'])
+  expect(r.aHeldWolf).toBe(0)
+  expect(r.aWolfBack).toBe(1)
+  expect(r.pill).toBe('/trade accept 10001')
+  expect(r.filled).toBe('/trade accept 10001')
+  expect(r.rowText).toContain('Panda')
+})
