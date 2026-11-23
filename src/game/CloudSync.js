@@ -427,6 +427,55 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == resource.data.sellerUid && resource.data.status != 'active';
     }
 
+    // Skin Trades (SkinTrade.js, 2026-11-23): Kirka-style /trade in Global
+    // chat. The doc id is the 5-digit trade code. Anyone reads; the poster
+    // creates it open. Then only these moves: someone else accepts (open ->
+    // accepted, as themselves), the accepter backs out (accepted -> open),
+    // the poster confirms (accepted -> done) or cancels (open/accepted ->
+    // cancelled), and the accepter collects once (acceptorPaid false ->
+    // true, after done or cancelled). Never deleted, so a code is never
+    // reused. Skins themselves live in each player's own save.
+    match /skinTrades/{code} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && code.matches('^[0-9]{5}$')
+        && request.resource.data.keys().hasOnly(['code', 'fromUid', 'fromName', 'give', 'want', 'status', 'createdAt', 'acceptorUid', 'acceptorName', 'acceptedAt', 'doneAt', 'acceptorPaid'])
+        && request.resource.data.keys().hasAll(['code', 'fromUid', 'fromName', 'give', 'want', 'status', 'createdAt', 'acceptorUid', 'acceptorName', 'acceptedAt', 'doneAt', 'acceptorPaid'])
+        && request.resource.data.code == code
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.fromName is string && request.resource.data.fromName.size() > 0 && request.resource.data.fromName.size() <= 24
+        && request.resource.data.give is string && request.resource.data.give.size() > 0 && request.resource.data.give.size() <= 40
+        && request.resource.data.want is string && request.resource.data.want.size() > 0 && request.resource.data.want.size() <= 40
+        && request.resource.data.give != request.resource.data.want
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdAt is int
+        && request.resource.data.acceptorUid == '' && request.resource.data.acceptorName == ''
+        && request.resource.data.acceptedAt == 0 && request.resource.data.doneAt == 0
+        && request.resource.data.acceptorPaid == false;
+      allow update: if request.auth != null && (
+        (resource.data.status == 'open' && request.auth.uid != resource.data.fromUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptorUid', 'acceptorName', 'acceptedAt'])
+          && request.resource.data.status == 'accepted'
+          && request.resource.data.acceptorUid == request.auth.uid
+          && request.resource.data.acceptorName is string && request.resource.data.acceptorName.size() > 0 && request.resource.data.acceptorName.size() <= 24
+          && request.resource.data.acceptedAt is int)
+        || (resource.data.status == 'accepted' && request.auth.uid == resource.data.acceptorUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptorUid', 'acceptorName', 'acceptedAt'])
+          && request.resource.data.status == 'open'
+          && request.resource.data.acceptorUid == '' && request.resource.data.acceptorName == '' && request.resource.data.acceptedAt == 0)
+        || (resource.data.status == 'accepted' && request.auth.uid == resource.data.fromUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'doneAt'])
+          && request.resource.data.status == 'done' && request.resource.data.doneAt is int)
+        || (resource.data.status in ['open', 'accepted'] && request.auth.uid == resource.data.fromUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          && request.resource.data.status == 'cancelled')
+        || (resource.data.status in ['done', 'cancelled'] && request.auth.uid == resource.data.acceptorUid
+          && resource.data.acceptorPaid == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['acceptorPaid'])
+          && request.resource.data.acceptorPaid == true));
+      allow delete: if false;
+    }
+
     // Shared maps (2026-10-04): a Map Editor map anyone can open by its
     // 6-letter code (the doc id), or from the Community Maps list. Likes are
     // one doc per account (create only - that's what keeps it to one like
@@ -1945,6 +1994,119 @@ export async function claimMarketSale(listingId, uid) {
     tx.update(ref, { claimed: true })
     return { ...d, id: listingId }
   })
+}
+
+// Skin Trades (SkinTrade.js, see the skinTrades rules above). The doc id
+// is the 5-digit code. Every step is a transaction that returns the trade
+// as it was before the step, or null if it couldn't happen (gone, already
+// taken, not yours).
+export async function createSkinTrade(uid, fromName, give, want) {
+  if (switchedOff('market')) throw switchedOffError('market')
+  const { db, fsMod } = await ensureApp()
+  for (let i = 0; i < 6; i++) {
+    const code = String(10000 + Math.floor(Math.random() * 90000))
+    const ref = fsMod.doc(db, 'skinTrades', code)
+    const made = await fsMod.runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref)
+      if (snap.exists()) return false
+      tx.set(ref, { code, fromUid: uid, fromName, give, want, status: 'open', createdAt: Date.now(), acceptorUid: '', acceptorName: '', acceptedAt: 0, doneAt: 0, acceptorPaid: false })
+      return true
+    })
+    if (made) return code
+  }
+  return null
+}
+
+export async function getSkinTrade(code) {
+  const { db, fsMod } = await ensureApp()
+  const snap = await fsMod.getDoc(fsMod.doc(db, 'skinTrades', code))
+  return snap.exists() ? snap.data() : null
+}
+
+async function skinTradeStep(code, check, change) {
+  const { db, fsMod } = await ensureApp()
+  const ref = fsMod.doc(db, 'skinTrades', code)
+  return fsMod.runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    const d = snap.exists() ? snap.data() : null
+    if (!d || !check(d)) return null
+    tx.update(ref, change(d))
+    return d
+  })
+}
+
+export function acceptSkinTrade(code, uid, name) {
+  if (switchedOff('market')) return Promise.reject(switchedOffError('market'))
+  return skinTradeStep(code, (d) => d.status === 'open' && d.fromUid !== uid, () => ({ status: 'accepted', acceptorUid: uid, acceptorName: name, acceptedAt: Date.now() }))
+}
+
+export function unacceptSkinTrade(code, uid) {
+  return skinTradeStep(code, (d) => d.status === 'accepted' && d.acceptorUid === uid, () => ({ status: 'open', acceptorUid: '', acceptorName: '', acceptedAt: 0 }))
+}
+
+export function confirmSkinTrade(code, uid) {
+  return skinTradeStep(code, (d) => d.status === 'accepted' && d.fromUid === uid, () => ({ status: 'done', doneAt: Date.now() }))
+}
+
+export function cancelSkinTrade(code, uid) {
+  return skinTradeStep(code, (d) => (d.status === 'open' || d.status === 'accepted') && d.fromUid === uid, () => ({ status: 'cancelled' }))
+}
+
+export function claimSkinTrade(code, uid) {
+  return skinTradeStep(code, (d) => (d.status === 'done' || d.status === 'cancelled') && d.acceptorUid === uid && d.acceptorPaid === false, () => ({ acceptorPaid: true }))
+}
+
+// Offers I posted (any status - the caller keeps open/accepted ones).
+export async function fetchMySkinTrades(uid) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'skinTrades'), fsMod.where('fromUid', '==', uid), fsMod.limit(100))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map((d) => d.data())
+}
+
+// Two equality filters each - no composite index needed.
+function acceptedByQuery(db, fsMod, uid) {
+  return fsMod.query(fsMod.collection(db, 'skinTrades'), fsMod.where('acceptorUid', '==', uid), fsMod.where('acceptorPaid', '==', false), fsMod.limit(50))
+}
+function awaitingQuery(db, fsMod, uid) {
+  return fsMod.query(fsMod.collection(db, 'skinTrades'), fsMod.where('fromUid', '==', uid), fsMod.where('status', '==', 'accepted'), fsMod.limit(50))
+}
+
+export async function fetchTradesIAccepted(uid) {
+  const { db, fsMod } = await ensureApp()
+  return (await fsMod.getDocs(acceptedByQuery(db, fsMod, uid))).docs.map((d) => d.data())
+}
+
+export async function fetchTradesAwaitingMe(uid) {
+  const { db, fsMod } = await ensureApp()
+  return (await fsMod.getDocs(awaitingQuery(db, fsMod, uid))).docs.map((d) => d.data())
+}
+
+// callback(tradesIAccepted, tradesAwaitingMyConfirm) on every change.
+export function subscribeMySkinTrades(uid, callback) {
+  let unsubs = []
+  let cancelled = false
+  let accepted = null
+  let awaiting = null
+  const fire = () => {
+    if (accepted && awaiting) callback(accepted, awaiting)
+  }
+  ensureApp().then(({ db, fsMod }) => {
+    if (cancelled) return
+    unsubs = [
+      fsMod.onSnapshot(acceptedByQuery(db, fsMod, uid), (snap) => { accepted = snap.docs.map((d) => d.data()); fire() }, () => {}),
+      fsMod.onSnapshot(awaitingQuery(db, fsMod, uid), (snap) => { awaiting = snap.docs.map((d) => d.data()); fire() }, () => {}),
+    ]
+  })
+  return () => {
+    cancelled = true
+    for (const u of unsubs) u()
+  }
+}
+
+// A trade line goes to both Global chats (in-game and homepage panel).
+export async function postTradeChat(uid, nickname, text) {
+  await Promise.all([sendGlobalChatMessage(uid, nickname, text), sendServerChatMessage(uid, nickname, text)])
 }
 
 // Friend Requests - one doc per pending request, ID'd by the SENDER's uid

@@ -152,6 +152,52 @@ html.ui-theme-old .chat-system-row .chat-message-text {
   background: #e8d264;
 }
 
+/* Skin Trades (SkinTrade.js): a trade line in Global chat. The skin names
+   take their rarity colour; the "/trade accept 12345" pill puts that
+   command in the chat box when clicked (or tapped on a phone). */
+.chat-trade-row .chat-message-text {
+  font-weight: 600;
+}
+.chat-trade-skin {
+  font-weight: 800;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.85);
+}
+.chat-trade-fill {
+  font: inherit;
+  font-size: 0.85em;
+  font-weight: 700;
+  color: #170a06;
+  background: var(--ui-gold-bright, #f2c14e);
+  border: none;
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-shadow: none;
+}
+.chat-trade-fill:hover {
+  background: #e8d264;
+}
+html.ui-theme-old .chat-trade-fill {
+  background: #7a5230;
+}
+/* Both themes force chat text to one colour with very specific rules (the
+   old theme's .panel-box ink rule counts as an id), so these win by being
+   more specific still. */
+html :is(#server-panel, #chat-panel) .chat-message-row .chat-trade-skin.chat-trade-skin.chat-trade-skin {
+  color: var(--trade-rarity) !important;
+}
+html :is(#server-panel, #chat-panel) .chat-message-row .chat-trade-fill.chat-trade-fill {
+  color: #170a06 !important;
+}
+html.ui-theme-old :is(#server-panel, #chat-panel) .chat-message-row .chat-trade-fill.chat-trade-fill {
+  color: #f8ead0 !important;
+}
+html.ui-theme-old .chat-trade-fill:hover {
+  background: #8e6238;
+}
+
 /* Muted sender's message (see ChatUI.js's renderChatMessageRow) - dimmed/italic
    placeholder instead of the message just silently not being there,
    with a small pill "Show" button matching .chat-message-id-link's own

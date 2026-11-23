@@ -15,6 +15,7 @@ import { EMOJI_CATEGORIES } from './EmojiData.js'
 import { chatPingCheck } from './MoreSettings.js'
 import { _escapeHtml, _censorText, saveSettings } from './Game.js'
 import { shownChatText, chatShows } from './SocialSettings.js'
+import { isTradeCommand, runTradeCommand, renderTradeChatRow, bindTradeFillButtons } from './SkinTrade.js'
 
 // Global panel chat (#server-panel) - see CloudSync.js's
 // sendServerChatMessage for why this is a separate chat room from the
@@ -48,6 +49,12 @@ function tooFast(game, stampsKey, mutedKey, now) {
 
 export function bindServerChat(game) {
   if (!game.serverPanel) return
+  // Skin Trades: redraw both chats (e.g. a "/trade confirm" button appears).
+  game._rerenderServerChat = () => {
+    renderServerChatMessages(game, game._lastServerChatMsgs || [])
+    renderChatMessages(game, game._lastChatMsgs || [])
+  }
+  bindTradeFillButtons(game)
   game._serverChatUnsub = null
   game._serverChatSendTimestamps = []
   game._serverChatMutedUntil = 0
@@ -296,7 +303,11 @@ export function renderServerChatMessages(game, msgs) {
   // Always linkify here (unlike the in-game HUD chat's channel-gated
   // version) - this panel IS the global channel, always, no tabs to
   // gate on (see bindServerChat's own comment).
-  game.serverChatMessages.innerHTML = visible.map((m) => renderChatMessageRow(game, m, true, muted.has(m.nickname))).join('')
+  // Lines only you see (Skin Trade replies) sit among the messages by time.
+  const rows = visible.map((m) => ({ at: m.createdAt || 0, html: renderChatMessageRow(game, m, true, muted.has(m.nickname)) }))
+  for (const line of game._serverChatSystemLines || []) rows.push({ at: line.at, html: `<div class="chat-message-row chat-system-row"><span class="chat-message-text">${_escapeHtml(line.text)}</span></div>` })
+  rows.sort((a, b) => a.at - b.at)
+  game.serverChatMessages.innerHTML = rows.map((r) => r.html).join('')
   game.serverChatMessages.scrollTop = game.serverChatMessages.scrollHeight
 }
 
@@ -332,6 +343,13 @@ export async function sendServerChatMessage(game) {
   }
   // Chat switched off from the Console (LiveConfig.js) - the text stays.
   if (switchedOff('chat')) return
+  // Skin Trades (SkinTrade.js): /trade ... never goes out as a message.
+  if (isTradeCommand(game.serverChatInput.value)) {
+    const cmd = game.serverChatInput.value.trim()
+    game.serverChatInput.value = ''
+    runTradeCommand(game, cmd, 'server')
+    return
+  }
   if (!game._cloudUid) {
     game._showHomepageToast(t('chatSignInRequired'))
     return
@@ -581,6 +599,9 @@ export function renderChatMessageRow(game, m, linkifyIds, isMuted) {
   if (isMuted) {
     return `<div class="chat-message-row chat-message-row-blocked">${nameBtn}<span class="chat-message-text chat-blocked-text"><span class="chat-blocked-label">${t('chatBlockedMessage')}</span> - <button type="button" class="chat-blocked-show-btn">${t('chatBlockedShowBtn')}</button><span class="chat-blocked-real-text" style="display: none">${renderChatMessageText(game, m.text, linkifyIds)}</span></span></div>`
   }
+  // A Skin Trade line ("[trade] 48213 offer fox wolf"), drawn in your language.
+  const trade = renderTradeChatRow(game, m, nameBtn)
+  if (trade) return trade
   return `<div class="chat-message-row">${nameBtn}<span class="chat-message-text">${renderChatMessageText(game, m.text, linkifyIds)}</span></div>`
 }
 
@@ -866,6 +887,14 @@ export async function sendChatMessage(game) {
   }
   // Chat switched off from the Console (LiveConfig.js) - the text stays.
   if (switchedOff('chat')) return
+  // Skin Trades (SkinTrade.js): /trade ... works from any chat tab and never
+  // goes out as a message.
+  if (isTradeCommand(game.chatInput.value)) {
+    const cmd = game.chatInput.value.trim()
+    game.chatInput.value = ''
+    runTradeCommand(game, cmd, 'hud')
+    return
+  }
   // Spam rule (CHAT_SPAM_LIMIT): client-side only - no custom backend
   // here to enforce it server-side too (same trust model this game
   // already accepts everywhere else, see CLAUDE.md's anti-cheat note).

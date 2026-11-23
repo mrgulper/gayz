@@ -19,6 +19,10 @@ import moreEn from './i18n/more-settings-en.js'
 import moreZh from './i18n/more-settings-zh.js'
 import moreHi from './i18n/more-settings-hi.js'
 import moreEs from './i18n/more-settings-es.js'
+import tradeEn from './i18n/trade-en.js'
+import tradeZh from './i18n/trade-zh.js'
+import tradeHi from './i18n/trade-hi.js'
+import tradeEs from './i18n/trade-es.js'
 
 // nameKey points at a languageName* string (see each language's own
 // STRINGS block below) - the Settings > Language grid's bold label reads
@@ -52,6 +56,11 @@ Object.assign(en, moreEn)
 Object.assign(zh, moreZh)
 Object.assign(hi, moreHi)
 Object.assign(es, moreEs)
+// Skin Trades (SkinTrade.js, 2026-11-23).
+Object.assign(en, tradeEn)
+Object.assign(zh, tradeZh)
+Object.assign(hi, tradeHi)
+Object.assign(es, tradeEs)
 const STRINGS = { en, zh, hi, es, fr, ru, id, de, ja, vi }
 
 // Read by scripts/check-docs.mjs (typed key letters) - not used at runtime.
