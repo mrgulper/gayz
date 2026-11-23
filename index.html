@@ -188,10 +188,12 @@
          CSS from the first paint, never waits for the game. Each homepage
          part starts just off its own edge and glides to its spot. The clock
          drops in from the top with the coins (2026-11-23, Gaymi: "make the
-         time also go in from edges"). The middle stack (logo, tagline, PLAY)
-         does NOT move - it is just there, ready, on every refresh (2026-11-23,
-         Gaymi: "the middle part dont make that part load just have it
-         ready"). On phones HomeExtras.js moves both extras stacks inside
+         time also go in from edges"). The middle stack - logo, Play, Game Mode
+         and Settings - spins out from the middle of the screen to its spot
+         (2026-11-22, Gaymi: "make it like come spinning out from the middle
+         to out"; replaces "the middle part ... just have it ready"). The
+         small script after #menu-hero sets each one's --gz-from-y (how far
+         its own centre is from the screen's middle). On phones HomeExtras.js moves both extras stacks inside
          #menu-col-right, so there they ride along with the column instead of
          running their own slide (the left one's slide used to cancel the
          column's and sit still while everything else moved). Uses the separate `translate`/`scale`
@@ -206,10 +208,19 @@
       #menu-col-right, #home-extras-right { animation: gz-in-right 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
       #menu-currency-bar, #homepage-clock { animation: gz-in-top 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
       #menu-links-row { animation: gz-in-bottom 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+      @keyframes gz-spin-out { from { translate: 0 var(--gz-from-y, 0px); scale: 0.05; rotate: -1turn; } }
+      /* Only until html.menu-spun (set ~1.2s in by the script after
+         #menu-hero): otherwise a hover's wobble ending would start the spin
+         over, and coming back from a game would spin again. */
+      html:not(.menu-spun) :is(#menu-title, #play-btn, #gamemode-btn, #hero-quick-actions) { animation: gz-spin-out 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+      html:not(.menu-spun) #play-btn { animation-delay: 0.05s; }
+      html:not(.menu-spun) #gamemode-btn { animation-delay: 0.1s; }
+      html:not(.menu-spun) #hero-quick-actions { animation-delay: 0.15s; }
       #menu-col-right :is(#home-extras-left, #home-extras-right) { animation: none; }
       @media (prefers-reduced-motion: reduce) {
         #menu-col-left, #home-extras-left, #menu-col-right, #home-extras-right,
-        #menu-currency-bar, #homepage-clock, #menu-links-row { animation: none; }
+        #menu-currency-bar, #homepage-clock, #menu-links-row,
+        html:not(.menu-spun) :is(#menu-title, #play-btn, #gamemode-btn, #hero-quick-actions) { animation: none; }
       }
     </style>
     <script>
@@ -580,6 +591,17 @@
         <div id="home-extras-right" class="home-extras pending"></div>
         <div id="menu-layout">
           <div id="menu-col-left">
+            <!-- World Goal box (HomeExtras.js renderHomeExtras), where the
+                 character used to stand (2026-11-22). -->
+            <div id="home-worldgoal" class="pending"></div>
+
+          </div>
+
+          <div id="menu-hero">
+            <h1 id="menu-title"><span id="menu-title-img" role="img" aria-label="GayZ"></span></h1>
+            <!-- The spinning character, in the middle above Play (2026-11-22,
+                 Gaymi: "move the spinning character to the middle of the
+                 screen above the play button"). -->
             <section class="menu-panel" id="player-showcase-panel">
               <div id="player-showcase-header">
                 <div id="player-showcase-title-wrap">
@@ -601,11 +623,6 @@
                 <button type="button" id="home-signin-warning" hidden></button>
               </div>
             </section>
-
-          </div>
-
-          <div id="menu-hero">
-            <h1 id="menu-title"><span id="menu-title-img" role="img" aria-label="GayZ"></span></h1>
             <p class="menu-subhint" id="menu-subhint">Look for lookout platforms up staircases along the avenue &mdash; chests inside</p>
             <p class="menu-news-ticker" id="menu-news-ticker"></p>
             <p class="menu-news-ticker" id="weekly-featured-mutator-line"></p>
@@ -648,6 +665,18 @@
 
             <p id="round-mode-hint">Easy &amp; Normal: kill the wave to advance, no timer. Hard &amp; Nightmare: 90s timed nights.</p>
           </div>
+
+          <script>
+            // Spin-out start point (see gz-spin-out in <head>): each part
+            // starts at the screen's middle, so it spins out from there.
+            ;['menu-title', 'play-btn', 'gamemode-btn', 'hero-quick-actions'].forEach(function (id) {
+              var el = document.getElementById(id)
+              if (!el) return
+              var r = el.getBoundingClientRect()
+              el.style.setProperty('--gz-from-y', Math.round(window.innerHeight / 2 - (r.top + r.height / 2)) + 'px')
+            })
+            setTimeout(function () { document.documentElement.classList.add('menu-spun') }, 1200)
+          </script>
 
           <div id="menu-col-right">
             <div id="menu-player-badge" role="button" tabindex="0" aria-label="Open profile">
@@ -889,25 +918,12 @@
             for (var k = 0; k < els.length; k++) els[k].style.zoom = value
           }
 
-          // Whether #play-btn can go dead-center in the window (its
-          // .play-btn-centered rule) without overlapping the hero column -
-          // measured live, since the hero's text above it varies in length.
-          // #settings-btn is the last visible hero element (a display:none
-          // one would measure as all zeros).
+          // #play-btn used to jump to the window's dead-center when it fit
+          // (.play-btn-centered). Since 2026-11-22 the character stands
+          // right above it, so Play stays in the middle stack's flow.
           function centerPlayBtn() {
             var play = document.getElementById('play-btn')
-            var settingsBtn = document.getElementById('settings-btn')
-            if (!play || !settingsBtn) return
-            play.classList.remove('play-btn-centered')
-            var btnHeight = play.getBoundingClientRect().height
-            var prevDisplay = play.style.display
-            play.style.display = 'none'
-            var safeTop = settingsBtn.getBoundingClientRect().bottom
-            play.style.display = prevDisplay
-            var centerY = window.innerHeight / 2
-            var margin = 20
-            var fits = (centerY - btnHeight / 2) > (safeTop + margin) && (centerY + btnHeight / 2) < (window.innerHeight - margin)
-            play.classList.toggle('play-btn-centered', fits)
+            if (play) play.classList.remove('play-btn-centered')
           }
 
           // The footer links stay clear of the right column's buttons and on

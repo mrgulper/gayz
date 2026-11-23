@@ -742,7 +742,7 @@ body.reduce-bg-effects #menu-bg-rain {
 
 /* Idle animation - a subtle nudge on the Play
    button after 30s of no interaction, not a new element. */
-.menu-idle #play-btn.play-btn-centered {
+.menu-idle #play-btn {
   animation: idlePulse 2s ease-in-out infinite;
 }
 
@@ -899,7 +899,7 @@ html.crt-scanlines #app::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .menu-idle #play-btn.play-btn-centered {
+  .menu-idle #play-btn {
     animation: none;
   }
 }

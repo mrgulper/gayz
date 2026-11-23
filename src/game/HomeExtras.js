@@ -1,6 +1,6 @@
 // Homepage extras (2026-10-31, Gaymi: "add everything you just said"):
-// small cards with your last run, the top 3 players, a tip of the day and
-// an Invite button. Two layouts to compare (Settings > General > Homepage >
+// small cards with a tip of the day, Map of the Week and the World Goal.
+// (2026-11-22, Gaymi: Last Run and Invite a friend removed for good.) Two layouts to compare (Settings > General > Homepage >
 // Homepage Extras Layout): "cards" puts them in the bottom corners,
 // "panel" puts them all in a Today panel behind one button.
 //
@@ -31,10 +31,14 @@ const PEEK_SHOW_MS = 2600
 // layout the first two sit bottom-left, the rest bottom-right.
 // (2026-11-07) The birthday card leads the left stack on your GayZ
 // birthday; Map of the Week leads the right one once a map is found.
-const LEFT_CARDS = ['birthday', 'lastrun', 'tip']
+const LEFT_CARDS = ['birthday', 'tip']
 // (2026-11-19, Gaymi: Top players card removed from the homepage.)
-// (2026-11-19) The World Goal card (WorldGoal.js) leads the right stack.
-const RIGHT_CARDS = ['worldgoal', 'mapweek', 'invite']
+// (2026-11-22) The World Goal card (WorldGoal.js) has its own box at the
+// top-left, where the character used to stand (#home-worldgoal); the
+// character moved to the middle, above Play.
+const RIGHT_CARDS = ['mapweek']
+// World Goal box looks to pick from (the small switch on its top edge).
+const GOAL_LOOKS = ['card', 'frame']
 
 // Players online now (in the clock's pill): refreshed this often, only while
 // the homepage itself is on screen. Kept slow on purpose - the database's
@@ -166,30 +170,11 @@ function cardHtml(game, id) {
     </div>`
   }
   if (id === 'worldgoal') return worldGoalCardHtml(game)
-  if (id === 'lastrun') {
-    // (2026-11-22) A run left at wave 0 with no kills isn't shown -
-    // "Wave 0 · 0 kills" read like a fail to new players.
-    const last = Array.isArray(game.runHistory)
-      ? game.runHistory.find(r => _safeStatNumber(r?.night) > 0 || _safeStatNumber(r?.kills) > 0) || null
-      : null
-    const best = _safeStatNumber(game.bestStats?.bestWave)
-    const line = last
-      ? t('homeExtrasLastRunLine', { wave: _safeStatNumber(last.night), kills: _safeStatNumber(last.kills).toLocaleString() })
-      : t('homeExtrasNoRuns')
-    return `<div class="home-x-card" data-card="lastrun">
-      <span class="home-x-tag">${_escapeHtml(t('homeExtrasLastRun'))}</span>
-      <span class="home-x-line home-x-big">${_escapeHtml(line)}</span>
-      ${best ? `<span class="home-x-line">${_escapeHtml(t('homeExtrasBest', { n: best }))}</span>` : ''}
-    </div>`
-  }
   if (id === 'tip') {
     return `<div class="home-x-card" data-card="tip">
       <span class="home-x-tag">${_escapeHtml(t('homeExtrasTip'))}</span>
       <span class="home-x-line">${_escapeHtml(t(tipOfDayKey()))}</span>
     </div>`
-  }
-  if (id === 'invite') {
-    return `<button type="button" class="home-x-card home-x-invite" data-card="invite">${_escapeHtml(t('homeExtrasInvite'))}</button>`
   }
   return ''
 }
@@ -207,18 +192,26 @@ export function onlineTotal(count, signedIn, statusMode) {
 export function renderHomeExtras(game) {
   const left = document.getElementById('home-extras-left')
   const right = document.getElementById('home-extras-right')
+  const goal = document.getElementById('home-worldgoal')
   const list = document.getElementById('today-panel-list')
   if (!left || !right) return
   const panel = game.settings.homeExtrasLayout === 'panel'
   document.documentElement.classList.toggle('home-extras-panel', panel)
   if (panel) {
     left.innerHTML = ''
+    if (goal) goal.innerHTML = ''
     right.innerHTML = `<button type="button" class="home-x-card home-x-today" id="home-today-btn"><svg class="home-x-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg> ${_escapeHtml(t('homeExtrasToday'))}</button>`
-    if (list) list.innerHTML = [...LEFT_CARDS, ...RIGHT_CARDS].map((id) => cardHtml(game, id)).join('')
+    if (list) list.innerHTML = ['worldgoal', ...LEFT_CARDS, ...RIGHT_CARDS].map((id) => cardHtml(game, id)).join('')
   } else {
     left.innerHTML = LEFT_CARDS.map((id) => cardHtml(game, id)).join('')
     right.innerHTML = RIGHT_CARDS.map((id) => cardHtml(game, id)).join('')
+    if (goal) goal.innerHTML = goalLookSwitchHtml(game) + cardHtml(game, 'worldgoal')
     if (list) list.innerHTML = ''
+  }
+  if (goal) {
+    const look = GOAL_LOOKS.includes(game.settings.worldGoalLook) ? game.settings.worldGoalLook : 'card'
+    goal.classList.toggle('goal-look-frame', look === 'frame')
+    goal.classList.remove('pending')
   }
   left.classList.remove('pending')
   right.classList.remove('pending')
@@ -227,6 +220,14 @@ export function renderHomeExtras(game) {
   loadOnlineLater(game)
   loadMapWeekLater(game)
   loadWorldGoalLater(game)
+}
+
+// The tiny switch on the World Goal box's top edge (2026-11-22, Gaymi:
+// "make both and add a tiny switch at top i pick"): flips between the
+// small pink card and the profile card's metal frame. Saved on this device.
+function goalLookSwitchHtml(game) {
+  const frame = game.settings.worldGoalLook === 'frame'
+  return `<button type="button" class="home-goal-look-btn" data-goal-look title="${_escapeHtml(t('worldGoalLookSwitch'))}" aria-label="${_escapeHtml(t('worldGoalLookSwitch'))}">${frame ? 'B' : 'A'} ⇄</button>`
 }
 
 // The World Goal card (2026-11-19, big-ideas plan World Goal Batch 3):
@@ -305,7 +306,7 @@ function loadWorldGoalLater(game) {
   update(false)
   const tick = () => {
     // Only while the homepage's cards are on screen (not in a game).
-    const stack = document.getElementById('home-extras-right')
+    const stack = document.getElementById('home-worldgoal')
     if (document.visibilityState !== 'hidden' && stack && stack.getClientRects().length) update(true)
     game._homeWorldGoalTimer = setTimeout(tick, WORLDGOAL_REFRESH_MS)
   }
@@ -338,7 +339,7 @@ function claimWorldGoal(game, which) {
 // what's above it (the character or the nav buttons) on a short screen.
 export function fitHomeExtras() {
   placeStacks()
-  const pairs = [['home-extras-left', 'menu-col-left'], ['home-extras-right', 'menu-nav-buttons']]
+  const pairs = [['home-extras-left', 'home-worldgoal'], ['home-extras-right', 'menu-nav-buttons']]
   for (const [stackId, aboveId] of pairs) {
     const stack = document.getElementById(stackId)
     const above = document.getElementById(aboveId)
@@ -348,7 +349,7 @@ export function fitHomeExtras() {
     stack.style.bottom = ''
     if (getComputedStyle(stack).position !== 'absolute') continue
     liftAboveLinks(stack)
-    const limit = stackId === 'home-extras-left' ? leftLimit(above) : above.getBoundingClientRect().bottom + 8
+    const limit = above.getBoundingClientRect().bottom + 8
     for (let i = cards.length - 1; i > 0 && stack.getBoundingClientRect().top < limit; i--) cards[i].style.display = 'none'
     if (stack.getBoundingClientRect().top < limit) cards[0].style.display = 'none'
   }
@@ -382,13 +383,6 @@ function liftAboveLinks(stack) {
   if (l.left < s.right && s.left < l.right && l.top < s.bottom) {
     stack.style.bottom = `${Math.round(menu.getBoundingClientRect().bottom - l.top + 8)}px`
   }
-}
-
-// The left stack sits under the character: its limit is where the
-// character's canvas ends.
-function leftLimit(col) {
-  const canvas = col.querySelector('#setup-avatar-wrap') || col
-  return canvas.getBoundingClientRect().bottom + 8
 }
 
 // Couch Co-op (CouchCoop.js) in Settings > General (2026-11-19, moved
@@ -607,23 +601,6 @@ export function closeTodayPanel() {
   if (panel) panel.style.display = 'none'
 }
 
-async function invite(game) {
-  const url = location.origin + '/'
-  const text = t('homeExtrasInviteText')
-  try {
-    if (navigator.share && matchMedia('(pointer: coarse)').matches) {
-      await navigator.share({ title: 'GayZ', text, url })
-      return
-    }
-  } catch { /* closed the share sheet - copy instead */ }
-  try {
-    await navigator.clipboard.writeText(`${text} ${url}`)
-    game._showHomepageToast(t('homeExtrasInviteCopied'))
-  } catch {
-    game._showHomepageToast(url)
-  }
-}
-
 // A blocky zombie face peeks in from the left or right edge now and then
 // while you're on the homepage. Tap it and it ducks away.
 function bindZombiePeek(game) {
@@ -697,18 +674,23 @@ function bindAvatarEmote(game) {
 export function bindHomeExtras(game) {
   document.getElementById('home-extras-right')?.addEventListener('click', (e) => {
     if (e.target.closest('#home-today-btn')) openTodayPanel(game)
-    else if (e.target.closest('[data-card="invite"]')) invite(game)
     else if (e.target.closest('[data-mapweek-play]')) playMapOfWeek(game)
     else if (e.target.closest('[data-worldgoal-claim]')) claimWorldGoal(game, e.target.closest('[data-worldgoal-claim]').dataset.worldgoalClaim)
   })
   document.getElementById('home-extras-left')?.addEventListener('click', (e) => {
     if (e.target.closest('[data-birthday-claim]')) claimBirthday(game)
   })
+  document.getElementById('home-worldgoal')?.addEventListener('click', (e) => {
+    if (e.target.closest('[data-goal-look]')) {
+      game.settings.worldGoalLook = game.settings.worldGoalLook === 'frame' ? 'card' : 'frame'
+      saveSettings(game.settings)
+      renderHomeExtras(game)
+    } else if (e.target.closest('[data-worldgoal-claim]')) claimWorldGoal(game, e.target.closest('[data-worldgoal-claim]').dataset.worldgoalClaim)
+  })
   const panel = document.getElementById('today-panel')
   if (panel) {
     panel.addEventListener('click', (e) => {
       if (e.target === panel || e.target.closest('.panel-close-btn')) closeTodayPanel()
-      else if (e.target.closest('[data-card="invite"]')) invite(game)
       else if (e.target.closest('[data-mapweek-play]')) playMapOfWeek(game)
       else if (e.target.closest('[data-birthday-claim]')) claimBirthday(game)
       else if (e.target.closest('[data-worldgoal-claim]')) claimWorldGoal(game, e.target.closest('[data-worldgoal-claim]').dataset.worldgoalClaim)
