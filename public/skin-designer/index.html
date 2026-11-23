@@ -304,7 +304,7 @@
      Plain white was tried first and came back "too bright"; each theme's
      own accent (old's tan, clean's ink, the light default's amber) reads
      as part of that theme instead of a flat white or a flat dark panel. */
-  .stage-canvas-wrap { position: relative; flex: 1; min-height: 0; background: var(--accent); }
+  .stage-canvas-wrap { position: relative; flex: 1; min-height: 0; background: var(--stage-bg, var(--accent)); }
   canvas#stage3d { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
   canvas#stage3d:active { cursor: grabbing; }
   /* Visible from the very first frame (three.js itself is a large CDN
@@ -319,7 +319,7 @@
        text sitting on var(--accent) elsewhere in this file - that accent
        is a light/mid warm tone in every theme, so dark text reads reliably
        against it without needing a separate color per theme. */
-    background: var(--accent); color: #16130f; font-size: 0.82rem; letter-spacing: 0.02em;
+    background: var(--stage-bg, var(--accent)); color: #16130f; font-size: 0.82rem; letter-spacing: 0.02em;
     pointer-events: none; animation: stage-loading-pulse 1.4s ease-in-out infinite;
   }
   .stage-loading[hidden] { display: none; }
@@ -431,6 +431,47 @@
   .color-well::-moz-color-swatch { border-radius: 6px; }
   .hex-input { width: 88px; }
   .hex-input, .prompt-input { padding-left: 12px; padding-right: 12px; }
+  /* Old theme = pink like every other GayZ panel (2026-11-22, Gaymi: "the
+     design a skin is not pink panel"): pink title, pink-outlined buttons
+     and tabs with pink words, the picked/main ones filled pink with white
+     words, pink box edges. The 3D backdrop keeps its light parchment
+     (--stage-bg) so the character still reads. Kept last so it beats the
+     older brown old-theme rules above. */
+  :root[data-theme="old"] {
+    --line: rgba(255, 46, 136, 0.55);
+    --panel: rgba(255, 46, 136, 0.06);
+    --text-dim: #8a1a4c;
+    --accent: #ff2e88;
+    --accent-rgb: 255, 46, 136;
+    --stage-bg: #e1c189;
+  }
+  :root[data-theme="old"] header h1,
+  :root[data-theme="old"] .slot-bar-label,
+  :root[data-theme="old"] .weapon-soon h2 { color: #c4005c; }
+  :root[data-theme="old"] header,
+  :root[data-theme="old"] .slot-bar { border-bottom-color: rgba(255, 46, 136, 0.45); }
+  :root[data-theme="old"] button.tbtn,
+  :root[data-theme="old"] .btn,
+  :root[data-theme="old"] .kind-tabs button.tbtn {
+    color: #c4005c; border-color: #ff2e88; box-shadow: none;
+  }
+  :root[data-theme="old"] button.tbtn:hover,
+  :root[data-theme="old"] .btn:hover,
+  :root[data-theme="old"] .kind-tabs button.tbtn:hover { border-color: #c4005c; }
+  :root[data-theme="old"] button.tbtn.active,
+  :root[data-theme="old"] button.tbtn.primary,
+  :root[data-theme="old"] .btn.primary,
+  :root[data-theme="old"] .kind-tabs button.tbtn.active {
+    color: #ffffff; background: #ff2e88; border-color: #ff2e88; box-shadow: none;
+  }
+  :root[data-theme="old"] .slot-card button.tbtn:hover,
+  :root[data-theme="old"] .theme-note b,
+  :root[data-theme="old"] .save-indicator { color: #c4005c; }
+  :root[data-theme="old"] :is(.hex-input, .prompt-input, select) { border-color: rgba(255, 46, 136, 0.55); }
+  :root[data-theme="old"] .stage-loading { color: #2b1a0c; }
+  :root[data-theme="old"] body.high-contrast button.tbtn.active,
+  :root[data-theme="old"] body.high-contrast button.tbtn.primary,
+  :root[data-theme="old"] body.high-contrast .btn.primary { background: #c4005c; border-color: #c4005c; color: #ffffff; }
 </style>
 </head>
 <body>
@@ -4496,7 +4537,8 @@ if (savedStageBg) {
   // "#d4a068" - CSS custom properties return as-authored, unlike a real
   // background property which read-back converts to rgb(...)) so opening
   // this for the first time shows no visible change until touched.
-  const themeAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  const rootStyle = getComputedStyle(document.documentElement);
+  const themeAccent = rootStyle.getPropertyValue('--stage-bg').trim() || rootStyle.getPropertyValue('--accent').trim();
   if (themeAccent) stageBgWell.value = themeAccent;
 }
 stageBgWell.addEventListener('input', () => {

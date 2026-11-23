@@ -1370,8 +1370,9 @@ html.ui-theme-old #homepage-greeting {
      I'm full screen" - it used to jump from 504px to 720px tall the moment
      a window passed 960px, e.g. a MacBook going full screen). Width keeps
      the character's own ~0.48 shape. */
-  height: clamp(240px, 54vh, 620px);
-  width: clamp(115px, 26vh, 298px);
+  /* ~11% bigger (2026-11-22, Gaymi: "make it bigger"). */
+  height: clamp(260px, 60vh, 690px);
+  width: clamp(125px, 29vh, 331px);
   /* No auto side margins: in the column's flex box they'd turn to 0 once
      the character is wider than the column and pin it to the left edge. */
   margin: 10px 0 0;
@@ -2317,7 +2318,7 @@ html[data-home-tier] #menu-nav-buttons #menu-more-btn {
 /* The panel is the shared size (2026-11-22, every panel the same size);
    only the form inside stays a readable width, centered. */
 #feedback-form { max-width: 720px; margin-left: auto; margin-right: auto; }
-#feedback-form { text-align: left; font-family: var(--menu-display-font); }
+#feedback-form { text-align: left; }
 #feedback-form .voice-help { text-align: center; }
 #feedback-form .voice-kinds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 #feedback-form .voice-kind { min-width: 0; }
@@ -2328,6 +2329,38 @@ html:root #feedback-form .voice-secondary {
 }
 #feedback-form #feedback-text { min-height: 180px; }
 #feedback-report-row { margin-bottom: 12px; }
+/* Same sizes as every other panel (2026-11-22, Gaymi: "the make a report
+   panel is bigger than other sections ... the sections and text"): the
+   panels' body font and 13px text, kind pills the size of Gallery's
+   tabs, buttons the size of Settings' action buttons. The bigger
+   desktop sizes in brand.css stay for the poll pop-up only. */
+#feedback-form,
+#feedback-form :is(.voice-kind, .voice-primary, .voice-secondary, #feedback-text) { font-family: inherit; }
+#feedback-form .voice-help { font-size: 13px; margin: 0 0 12px; }
+#feedback-form .voice-small { font-size: 12px; margin: 6px 0 12px; }
+#feedback-form .voice-kinds { gap: 8px; margin-bottom: 12px; }
+#feedback-form .voice-kind {
+  min-height: 32px;
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  border-radius: 20px;
+}
+#feedback-form #feedback-text {
+  min-height: 160px;
+  padding: 12px 14px;
+  font-size: 13px;
+  border-radius: 14px;
+}
+#feedback-form .voice-actions { gap: 10px; }
+#feedback-form :is(.voice-primary, .voice-secondary) {
+  min-height: 34px;
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 20px;
+}
 #feedback-report-row[hidden] { display: none; }
 #feedback-report-label { display: block; margin: 0 0 6px; font-size: 14px; }
 #feedback-report-search { position: relative; }

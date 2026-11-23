@@ -453,6 +453,18 @@ function buildCharacter(skin) {
 const CHAR_HALF_HEIGHT = 17 // Minecraft size again (2026-11-22): head top ~y 31.4
 const CHAR_HALF_WIDTH = 9 // arms reach x +-8
 const CHAR_FIT_MARGIN = 0.85 // leaves ~15% breathing room on whichever axis is tightest
+// While an emote plays the camera eases back just enough to fit that pose
+// (2026-11-22, Gaymi: "when its doing a pose the hands are hidden").
+// [reach from the middle at any spin angle, highest point], measured over
+// each whole emote; the look target is y 16.
+const EMOTE_REACH = {
+  dance: [15.2, 35.3], wave: [16.9, 33.7], flex: [18.2, 31.4], cheer: [15.3, 35.6],
+  point: [14.5, 30.5], sit: [12.9, 30.5], kiss: [16.8, 32.7], vogue: [18.2, 34.6],
+  hairflip: [16.6, 32.7], heart: [12.3, 31.4], clap: [14.0, 30.8], spin: [18.3, 31.0],
+  laugh: [10.0, 32.1], cry: [13.1, 33.3],
+}
+const EMOTE_FIT_MARGIN = 0.92
+const EMOTE_ZOOM_S = 0.3 // ease out/in time
 // Homepage pet (HomePet.js): stands a little behind and to the right of
 // the character, so the frame widens and slides right to fit both.
 const PET_X = 13
@@ -720,6 +732,10 @@ export class MenuAvatar3D {
     this.camera.position.z = Math.max(distForHeight, distForWidth, 20)
     this.camera.position.x = cx
     this._baseDist = this.camera.position.z
+    this._fitTan = Math.tan(halfVFov)
+    this._fitCx = cx
+    this._setEmoteDist()
+    this._applyEmoteZoom()
     // Moving along z while x/y stay fixed changes the angle to the look
     // target, so the camera has to re-aim itself - lookAt isn't "sticky"
     // across a later position change, it only orients at call time.
@@ -732,11 +748,45 @@ export class MenuAvatar3D {
   // (2026-10-31: tapping your character on the homepage).
   playEmote(id) {
     this._emote = { id, at: performance.now() }
+    if (!this._emoteBlend) this._emoteZoomAt = performance.now()
+    // Only ever widens mid-zoom, so a new pose never pops in closer.
+    const prev = this._emoteBlend ? this._emoteDist : 0
+    this._emoteFitId = id
+    this._setEmoteDist()
+    if (prev > this._emoteDist) this._emoteDist = prev
+  }
+
+  // How far back the camera goes for the current (or last) emote.
+  _setEmoteDist() {
+    if (!this._baseDist || !this._fitTan) return
+    const fit = EMOTE_REACH[this._emoteFitId]
+    if (!fit) { this._emoteDist = this._baseDist; return }
+    const forHeight = ((fit[1] + 1 - 16) / EMOTE_FIT_MARGIN) / this._fitTan
+    const forWidth = ((fit[0] + 0.5 + Math.abs(this._fitCx || 0)) / EMOTE_FIT_MARGIN) / (this._fitTan * this.camera.aspect)
+    this._emoteDist = Math.max(this._baseDist, forHeight, forWidth)
+  }
+
+  // Camera distance for the emote zoom: _baseDist when standing, eased
+  // out to _emoteDist while a pose plays. Inspect (Shop) keeps its own
+  // orbit camera and never zooms for emotes.
+  _applyEmoteZoom() {
+    if (this._inspect || !this._baseDist) return
+    const b = this._emoteBlend || 0
+    const e = b * b * (3 - 2 * b)
+    this.camera.position.z = this._baseDist + ((this._emoteDist || this._baseDist) - this._baseDist) * e
   }
 
   // Poses this frame's emote, and stands the character back up after it.
   _updateEmote(now) {
     const lp = this.character?.limbPivots
+    const step = Math.min(0.1, Math.max(0, (now - (this._emoteZoomAt || now)) / 1000)) / EMOTE_ZOOM_S
+    this._emoteZoomAt = now
+    const target = this._emote && lp ? 1 : 0
+    const blend = this._emoteBlend || 0
+    if (blend !== target) {
+      this._emoteBlend = target > blend ? Math.min(1, blend + step) : Math.max(0, blend - step)
+      this._applyEmoteZoom()
+    }
     if (!this._emote || !lp) return
     const time = (now - this._emote.at) / 1000
     if (time > EMOTE_S) {
@@ -758,7 +808,7 @@ export class MenuAvatar3D {
     // (LiteHome.js onHomeFrame), or every frame while being dragged.
     const loop = (now, due) => {
       if (!this._running) return
-      if (!due && !this._dragging && !this._emote && !this._forceDraw) return
+      if (!due && !this._dragging && !this._emote && !this._emoteBlend && !this._forceDraw) return
       this._forceDraw = false
       // A still preview (Inventory) only needs a fresh picture now and
       // then (a new skin, a resize) unless it's being dragged.

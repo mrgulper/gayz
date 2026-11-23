@@ -131,8 +131,8 @@
   }
 
   #setup-avatar-wrap {
-    width: min(220px, 50vw);
-    height: min(460px, 105vw);
+    width: min(240px, 55vw);
+    height: min(500px, 115vw);
     margin: 6px auto 0;
   }
 
@@ -156,8 +156,8 @@
   }
 
   #setup-avatar-wrap {
-    width: 150px;
-    height: 300px;
+    width: 160px;
+    height: 320px;
   }
 }
 
@@ -177,10 +177,10 @@
      "the spinning character was extremely big and How to Play, What's
      New... aren't even seen"). Width follows the height. */
   #setup-avatar-wrap {
-    width: min(345px, 21vw, calc((100vh - 340px) * 0.48));
-    height: min(720px, 44vw, calc(100vh - 340px));
-    width: min(345px, 21vw, calc((100dvh - 340px) * 0.48));
-    height: min(720px, 44vw, calc(100dvh - 340px));
+    width: min(375px, 23vw, calc((100vh - 310px) * 0.48));
+    height: min(780px, 48vw, calc(100vh - 310px));
+    width: min(375px, 23vw, calc((100dvh - 310px) * 0.48));
+    height: min(780px, 48vw, calc(100dvh - 310px));
   }
 
   /* The footer links sit a little up from the bottom edge here too
