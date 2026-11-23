@@ -11,7 +11,7 @@
 // for others to fight.
 import * as CloudSync from './CloudSync.js'
 import { loadCreatures, saveCreatures, stats, power, powerName, powerInfo, creatureName, creatureType, rarityName, creatureIconURL, tierColor, botTeam, packTeam, unpackTeam, TEAM_SIZE, POWERS, TRIGGERS, TRIGGER_LEVEL, TYPE_MULT, MAX_LEVEL, EVOLVE_AT, levelOf, xpProgress, triggerOf, hasTrigger, triggerName, triggerInfo, COMBOS, combosOf, comboName, comboInfo, SNACKS, SNACK_IDS, snackImg, snackName, snackInfo, feedSnack, SHINY_ODDS, SHINY_BOOST, kindName, kindNote, renameCreature, setNickFilter, NICK_MAX, ITEM_IDS, itemImg, itemName, itemInfo, holdItem, takeItem } from './Creatures.js'
-import { TeamBattle } from './TeamBattle.js'
+import { TeamBattle, HAZARD_IDS, HAZARD_EVERY, hazardName, hazardInfo } from './TeamBattle.js'
 import { renderTournament, playTournament } from './TeamTournament.js'
 import * as PackLeaders from './PackLeaders.js'
 import { renderLeaders, startLeaderBattle, nextLeader, badgeInfo } from './PackLeaders.js'
@@ -79,6 +79,9 @@ function renderGuide() {
     <ul>${SNACK_IDS.map((id) => row(snackName(id), snackInfo(id))).join('')}</ul>
     <h4>${esc(t('itemsTitle'))}</h4>
     <ul>${ITEM_IDS.map((id) => row(itemName(id), itemInfo(id))).join('')}</ul>
+    <h4>${esc(t('hazardTitle'))}</h4>
+    <p>${esc(t('hazardHow', { n: HAZARD_EVERY }))}</p>
+    <ul>${HAZARD_IDS.map((id) => row(hazardName(id), hazardInfo(id))).join('')}</ul>
     <p>${esc(t('teamShinyHow', { n: SHINY_ODDS, p: Math.round(SHINY_BOOST * 100) }))}</p>`
 }
 

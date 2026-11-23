@@ -387,6 +387,8 @@ export function takeItem(id) {
 // n: the bonus in % at each step. ---
 
 const kindOf = (c) => (c.t === 'a' ? KINDS()[c.k] || {} : {})
+// Flyers float over the arena's floor hazards (TeamBattle, Batch E).
+export const flies = (c) => !!kindOf(c).fly
 export const COMBOS = [
   { id: 'zombie', has: (c) => typeOf(c) === 'zombie', at: [3, 5, 7], n: [8, 16, 25] }, // health
   { id: 'skeleton', has: (c) => typeOf(c) === 'skeleton', at: [3, 5, 7], n: [10, 20, 30] }, // speed

@@ -25,7 +25,7 @@
 // underneath. Opened from Inventory's Pets tab (TeamUI.js).
 import * as THREE from 'three'
 import { PlayAnimals } from './PlayAnimals.js'
-import { stats, creatureName, kindNote, creatureIconURL, tierColor, powerOf, powerName, powerInfo, hasTrigger, triggerOf, triggerName, triggerInfo, beats, TYPE_MULT, levelOf, giveTeamXP, rarityName, combosOf, comboName, comboInfo, SNACKS, snackName, snackInfo, eatSnacks, snackImg, ITEMS, itemName, itemInfo, itemImg, SHINY_HUE, SHINY_FILTER } from './Creatures.js'
+import { stats, creatureName, kindNote, creatureIconURL, tierColor, powerOf, powerName, powerInfo, hasTrigger, triggerOf, triggerName, triggerInfo, beats, TYPE_MULT, levelOf, giveTeamXP, rarityName, combosOf, comboName, comboInfo, SNACKS, snackName, snackInfo, eatSnacks, snackImg, ITEMS, itemName, itemInfo, itemImg, SHINY_HUE, SHINY_FILTER, flies } from './Creatures.js'
 import { MONSTER_KINDS } from './ZombieKinds.js'
 import { SKELETON_KINDS } from './SkeletonModels.js'
 import { audioEngine } from './Audio.js'
@@ -294,7 +294,7 @@ function buildArena(scene) {
 
 // 2D: the arena drawn once at this size (dirt, grass, fence from above),
 // then copied each frame.
-function board2d(w, h, ratio, b) {
+function board2d(w, h, ratio, b, hazard = null, cells = null) {
   const cv = document.createElement('canvas')
   cv.width = Math.max(1, Math.round(w * ratio))
   cv.height = Math.max(1, Math.round(h * ratio))
@@ -306,6 +306,16 @@ function board2d(w, h, ratio, b) {
   const oy = b.y % b.cell - b.cell
   for (let y = oy; y < h; y += b.cell) for (let x = ox; x < w; x += b.cell) g.drawImage(dirt, x, y, b.cell + 0.5, b.cell + 0.5)
   g.drawImage(floorCanvas(), b.x, b.y, b.size, b.size)
+  if (hazard && cells) {
+    const tile = hazardCanvas(hazard)
+    const inset = hazard === 'bounce' ? b.cell * 0.07 : 0
+    for (const k of cells) {
+      const [x, z] = k.split(',').map(Number)
+      const px = b.x + (x + ARENA) * b.cell + inset
+      const py = b.y + (z + ARENA) * b.cell + inset
+      g.drawImage(tile, px, py, b.cell - inset * 2 + 0.5, b.cell - inset * 2 + 0.5)
+    }
+  }
   // Rails along each side, posts at every block.
   const wood = woodCanvas()
   const rail = Math.max(3, b.cell * 0.22)
@@ -331,14 +341,163 @@ function board2d(w, h, ratio, b) {
   return cv
 }
 
+// --- Arena hazards (Batch E, 2026-11-23) ---
+// About 1 battle in HAZARD_EVERY gets one hazard on the floor, laid out the
+// same for both halves (turned round the middle), so it's fair. Flyers
+// float over all of them. Numbers are a guess.
+export const HAZARD_EVERY = 3
+export const HAZARDS = {
+  lava: { n: 6 }, // % health a second, in two burns
+  mud: { n: 50 }, // walks at this % speed
+  bounce: {},
+  flowers: { n: 4 }, // % health a second
+}
+export const HAZARD_IDS = Object.keys(HAZARDS)
+const LAVA_TICK = 0.5
+const FLOWER_TICK = 1
+const BOUNCE_PUSH = 12 // how hard a pad throws...
+const BOUNCE_AIR = 0.5 // ...how long it's in the air...
+const BOUNCE_HIGH = 1.2 // ...how high...
+const BOUNCE_CD = 1.2 // ...and how soon the same one can bounce again
+const capId = (id) => id[0].toUpperCase() + id.slice(1)
+export const hazardName = (id) => t(`hazard${capId(id)}`)
+export const hazardInfo = (id) => t(`hazardInfo${capId(id)}`, { n: HAZARDS[id].n })
+
+// Which hazard a battle gets: null most of the time.
+export function rollHazard(rand = Math.random) {
+  if (rand() >= 1 / HAZARD_EVERY) return null
+  return HAZARD_IDS[Math.floor(rand() * HAZARD_IDS.length)] || null
+}
+
+// The hazard's blocks, as "x,z" of each block's corner (a block covers x to
+// x + 1). Laid out on my half (z 0 to 5, between the two teams), then turned
+// round the middle onto theirs.
+export function hazardCells(id, rand = Math.random) {
+  const cells = new Set()
+  const ri = (a, b) => a + Math.floor(rand() * (b - a + 1))
+  const add = (x, z) => {
+    if (x < -ARENA + 1 || x > ARENA - 2 || z < -ARENA + 1 || z > ARENA - 2) return
+    cells.add(`${x},${z}`)
+    cells.add(`${-x - 1},${-z - 1}`)
+  }
+  const patch = (x, z, w, d) => {
+    for (let i = 0; i < w; i++) for (let j = 0; j < d; j++) add(x + i, z + j)
+  }
+  if (id === 'lava') {
+    // Two cracks that wander across the floor, plus one through the middle.
+    for (let k = 0; k < 2; k++) {
+      let x = ri(-8, 4)
+      let z = ri(1, 4)
+      for (let s = 0; s < 6; s++) {
+        add(x, z)
+        if (rand() < 0.7) x++
+        else z += rand() < 0.5 ? 1 : -1
+        z = Math.max(0, Math.min(5, z))
+      }
+    }
+    add(ri(-2, 1), 0)
+  } else if (id === 'mud') {
+    patch(-1, -1, 2, 1) // the middle (its other half comes from turning it)
+    patch(ri(-8, -3), ri(1, 3), 3, 2)
+    patch(ri(2, 5), ri(1, 3), 3, 2)
+  } else if (id === 'bounce') {
+    let tries = 0
+    while (cells.size < 8 && tries++ < 40) {
+      const x = ri(-8, 7)
+      const z = ri(1, 4)
+      if (![...cells].some((k) => { const [a, b] = k.split(',').map(Number); return Math.abs(a - x) < 2 && Math.abs(b - z) < 2 })) add(x, z)
+    }
+  } else if (id === 'flowers') {
+    patch(ri(-8, -4), ri(1, 3), 2, 2)
+    patch(ri(3, 6), ri(1, 3), 2, 2)
+    patch(ri(-1, 0), ri(2, 3), 2, 1)
+  }
+  return cells
+}
+
+// One block's picture for each hazard (16 x 16, drawn once).
+function hazardCanvas(id) {
+  const key = `hz-${id}`
+  if (_tex[key]) return _tex[key]
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = PX
+  const g = cv.getContext('2d')
+  const rand = seeded({ lava: 31, mud: 47, bounce: 59, flowers: 71 }[id] || 1)
+  for (let y = 0; y < PX; y++) {
+    for (let x = 0; x < PX; x++) {
+      const r = rand()
+      const edge = x === 0 || y === 0 || x === PX - 1 || y === PX - 1
+      if (id === 'lava') {
+        // Hot in the middle, dark crust round the edges.
+        const mid = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5))
+        if (mid > 6 && r < 0.55) g.fillStyle = rgb(52 + r * 30, 34 + r * 20, 28)
+        else if (r < 0.18) g.fillStyle = rgb(255, 214, 90)
+        else if (r < 0.7) g.fillStyle = rgb(240 + r * 15, 110 + r * 40, 20)
+        else g.fillStyle = rgb(190, 50 + r * 30, 12)
+      } else if (id === 'mud') {
+        const shine = r < 0.05
+        g.fillStyle = shine ? rgb(150, 120, 90) : rgb(78 + r * 22, 54 + r * 16, 34 + r * 10)
+        if (edge && r < 0.5) g.fillStyle = rgb(60, 42, 26)
+      } else if (id === 'bounce') {
+        // A slime-green spring pad with a lighter rim and a ring in the middle.
+        const ring = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5))
+        if (edge) g.fillStyle = rgb(48, 120, 40)
+        else if (ring < 1.5 || (ring > 3.5 && ring < 4.6)) g.fillStyle = rgb(160 + r * 30, 240, 120)
+        else g.fillStyle = rgb(90 + r * 25, 196 + r * 25, 70 + r * 15)
+      } else {
+        g.fillStyle = rgb(72 + r * 30, 140 + r * 40, 52 + r * 20)
+      }
+      g.fillRect(x, y, 1, 1)
+    }
+  }
+  if (id === 'flowers') {
+    // A few 2 x 2 flowers with a yellow middle pixel.
+    const cols = ['#ff7ab8', '#ffd84a', '#ffffff', '#c58cff']
+    for (let k = 0; k < 6; k++) {
+      const x = 1 + Math.floor(rand() * (PX - 3))
+      const y = 1 + Math.floor(rand() * (PX - 3))
+      g.fillStyle = cols[k % cols.length]
+      g.fillRect(x, y, 2, 2)
+      g.fillStyle = '#f4b400'
+      g.fillRect(x, y, 1, 1)
+    }
+  }
+  _tex[key] = cv
+  return cv
+}
+export const hazardIconURL = (id) => hazardCanvas(id).toDataURL()
+
+// 3D: one instanced mesh of thin blocks (raised pads for bounce).
+function buildHazard(scene, id, cells) {
+  if (!id || !cells.size) return null
+  const tall = id === 'bounce' ? 0.16 : 0.012
+  const inset = id === 'bounce' ? 0.86 : 1
+  const map = canvasTexture(hazardCanvas(id))
+  // Lava glows by itself (not lit, so it looks hot in the shade too).
+  const mat = id === 'lava' ? new THREE.MeshBasicMaterial({ map }) : new THREE.MeshLambertMaterial({ map })
+  const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(inset, tall, inset), mat, cells.size)
+  const m = new THREE.Matrix4()
+  let i = 0
+  for (const k of cells) {
+    const [x, z] = k.split(',').map(Number)
+    m.makeTranslation(x + 0.5, tall / 2, z + 0.5)
+    mesh.setMatrixAt(i++, m)
+  }
+  scene.add(mesh)
+  return mesh
+}
+
 export class TeamBattle {
   // mine, theirs: creatures (Creatures.js). foe: who the other team is.
   // onEnd(won | null): null when left before the end. view: '3d' | '2d';
   // onView(view) when the battle's own button changes it.
   // againKey(won): the again button's text (the tournament's own).
   // xp: my team earns XP (Creatures.giveTeamXP) when it ends.
-  constructor({ mine, theirs, foe, ghost, onEnd, onAgain, againKey, view = '3d', onView, xp = true }) {
+  // hazard: an arena hazard id, null for none, or left out to roll one.
+  constructor({ mine, theirs, foe, ghost, onEnd, onAgain, againKey, view = '3d', onView, xp = true, hazard }) {
     this.xp = xp
+    this.hazard = hazard === undefined ? rollHazard() : HAZARDS[hazard] ? hazard : null
+    this.hazardCells = this.hazard ? hazardCells(this.hazard) : new Set()
     this.mine = mine
     this.theirs = theirs
     this.foe = foe
@@ -368,7 +527,10 @@ export class TeamBattle {
         <div class="tb-combos"><div class="tb-combos-mine"></div><div class="tb-combos-foe"></div></div>
       </div>
       <div class="tb-msg" aria-live="polite"></div>
-      <p class="tb-hint">${esc(t('teamBattleAutoHint'))}</p>
+      <div class="tb-bottom">
+        ${this.hazard ? `<p class="tb-hazard tb-hazard-${this.hazard}"><img class="tb-hazard-icon" src="${hazardIconURL(this.hazard)}" alt="" draggable="false" />${esc(t('hazardLine', { name: hazardName(this.hazard), info: hazardInfo(this.hazard) }))}</p>` : ''}
+        <p class="tb-hint">${esc(t('teamBattleAutoHint'))}</p>
+      </div>
       <div class="tb-buttons">
         <button type="button" class="tb-btn tb-view"></button>
         <button type="button" class="tb-btn tb-speed"></button>
@@ -533,6 +695,8 @@ export class TeamBattle {
       skin: 1, dodge: 0, snack: null, shield: false, sparkle: Math.random(),
       // Held item (Batch D): which, and whether a once-a-battle one went off.
       item: null, itemUsed: false, charmCd: CHARM_EVERY,
+      // Arena hazards (Batch E): burn / heal timers, a bounce's air time.
+      flies: flies(c), lavaCd: 0, flowerCd: FLOWER_TICK, bounceCd: 0, air: 0,
       reach: power === 'bones' && !opts.noPowers ? BONE_REACH : s.reach,
       // The 3D model, ring and height are made by _build3d() when first needed.
       group: null, height: 2,
@@ -581,6 +745,7 @@ export class TeamBattle {
     sun.position.set(6, 14, 8)
     this.scene.add(sun)
     buildArena(this.scene)
+    this.hazardMesh = buildHazard(this.scene, this.hazard, this.hazardCells)
     for (const f of this.fighters) this._add3d(f)
     this._boneGeo = new THREE.BoxGeometry(0.22, 0.22, 0.22)
     this._boneMat = new THREE.MeshLambertMaterial({ color: 0xf2ecdc })
@@ -1003,9 +1168,11 @@ export class TeamBattle {
           } else if (f.cd <= 0) this._attack(f, n.o)
         }
       }
-      if (mx || mz) f.walk += dt * f.s.speed * 3
-      f.x += (mx * f.s.speed + f.vx) * dt
-      f.z += (mz * f.s.speed + f.vz) * dt
+      const slow = this._hazardStep(f, dt, started)
+      if (!f.alive) continue
+      if (mx || mz) f.walk += dt * f.s.speed * 3 * slow
+      f.x += (mx * f.s.speed * slow + f.vx) * dt
+      f.z += (mz * f.s.speed * slow + f.vz) * dt
       f.vx *= Math.max(0, 1 - dt * 6)
       f.vz *= Math.max(0, 1 - dt * 6)
     }
@@ -1045,8 +1212,63 @@ export class TeamBattle {
       f.x = Math.max(-ARENA + 0.8, Math.min(ARENA - 0.8, f.x))
       f.z = Math.max(-ARENA + 0.8, Math.min(ARENA - 0.8, f.z))
       f.hop = Math.max(0, f.hop - dt)
+      f.air = Math.max(0, f.air - dt)
     }
     this._placeCamera(dt)
+  }
+
+  // How high it is off the floor: a hit's little hop, or a bounce pad's jump.
+  _lift(f) {
+    const hop = f.hop > 0 ? Math.sin((f.hop / 0.18) * Math.PI) * 0.25 : 0
+    const air = f.air > 0 ? Math.sin((f.air / BOUNCE_AIR) * Math.PI) * BOUNCE_HIGH : 0
+    return Math.max(hop, air)
+  }
+
+  // Is it standing on one of the hazard's blocks? (Not flyers, not mid-air.)
+  _onHazard(f) {
+    return !!this.hazard && !f.flies && !(f.air > 0) && this.hazardCells.has(`${Math.floor(f.x)},${Math.floor(f.z)}`)
+  }
+
+  // The arena hazard's effect on one fighter this step. Returns its speed
+  // multiplier (mud slows it).
+  _hazardStep(f, dt, started) {
+    f.bounceCd = Math.max(0, f.bounceCd - dt)
+    if (!started || this.over || !this._onHazard(f)) {
+      f.lavaCd = 0
+      f.flowerCd = FLOWER_TICK
+      return 1
+    }
+    if (this.hazard === 'mud') return HAZARDS.mud.n / 100
+    if (this.hazard === 'lava' && (f.lavaCd -= dt) <= 0) {
+      f.lavaCd = LAVA_TICK
+      const dmg = Math.max(1, Math.round((f.s.hp * HAZARDS.lava.n * LAVA_TICK) / 100))
+      f.hp = Math.max(0, f.hp - dmg)
+      f.flash = 0.12
+      if (f.mats) for (const mat of f.mats) if (mat.emissive) mat.emissive.setHex(0x663300)
+      this._number(f, dmg, 'lava')
+      this._renderCards()
+      if (f.hp <= 0) this._down(f)
+    } else if (this.hazard === 'flowers' && (f.flowerCd -= dt) <= 0) {
+      f.flowerCd = FLOWER_TICK
+      if (f.hp < f.s.hp) {
+        const add = Math.max(1, Math.round((f.s.hp * HAZARDS.flowers.n) / 100))
+        f.hp = Math.min(f.s.hp, f.hp + add)
+        this._number(f, `+${add}`, 'heal')
+        this._renderCards()
+      }
+    } else if (this.hazard === 'bounce' && f.bounceCd <= 0) {
+      // Thrown toward its target (or the middle when nobody's left).
+      const n = this._nearest(f, this._enemiesOf(f))
+      const dx = (n ? n.o.x : 0) - f.x
+      const dz = (n ? n.o.z : 0) - f.z
+      const len = Math.hypot(dx, dz) || 1
+      f.vx = (dx / len) * BOUNCE_PUSH
+      f.vz = (dz / len) * BOUNCE_PUSH
+      f.air = BOUNCE_AIR
+      f.bounceCd = BOUNCE_CD
+      this._float(f, t('hazardBoing'), 'power bounce')
+    }
+    return 1
   }
 
   _draw() {
@@ -1056,7 +1278,7 @@ export class TeamBattle {
 
   _draw3d() {
     for (const f of this.fighters) {
-      f.group.position.set(f.x, f.hop > 0 ? Math.sin((f.hop / 0.18) * Math.PI) * 0.25 : 0, f.z)
+      f.group.position.set(f.x, this._lift(f), f.z)
       if (f.alive) {
         // Turn smoothly toward where it's heading.
         let d = f.heading - f.group.rotation.y
@@ -1075,6 +1297,7 @@ export class TeamBattle {
       s.mesh.position.set(s.x, s.y, s.z)
       s.mesh.rotation.x += 0.3
     }
+    if (this.hazard === 'lava' && this.hazardMesh) this.hazardMesh.material.color.setScalar(0.85 + 0.15 * Math.sin(this.time * 3))
     this.skyDome.position.copy(this.camera.position)
     this.skyDome.material.uniforms.height.value = this.renderer.domElement.height || 1
     this.renderer.render(this.scene, this.camera)
@@ -1098,7 +1321,7 @@ export class TeamBattle {
     const b = this._board()
     // The arena picture, made again only when the size changes.
     const key = `${this.w}x${this.h}x${r}`
-    if (this._bg?.key !== key) this._bg = { key, cv: board2d(this.w, this.h, r, b) }
+    if (this._bg?.key !== key) this._bg = { key, cv: board2d(this.w, this.h, r, b, this.hazard, this.hazardCells) }
     g.drawImage(this._bg.cv, 0, 0, this.w, this.h)
     const px = (x) => b.x + (x + ARENA) * b.cell
     // Fallen ones first, so the standing ones are drawn on top.
@@ -1106,7 +1329,7 @@ export class TeamBattle {
     for (const f of order) {
       const cx = px(f.x)
       const cy = px(f.z)
-      const lift = f.hop > 0 ? Math.sin((f.hop / 0.18) * Math.PI) * 0.35 : 0
+      const lift = this._lift(f) * 1.4
       const sz = b.cell * (1.7 + lift) * (f.c.b ? 1.25 : 1) * (f.mini ? GROAN_SCALE : 1)
       g.save()
       if (!f.alive) {
