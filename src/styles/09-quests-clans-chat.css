@@ -723,7 +723,9 @@ html.ui-theme-old #settings-panel h2 {
 /* height/overflow-y: same treatment as .general-tab-page/.upgrades-tab-page
    above - .inventory-tabs' own footprint subtracted the same way. */
 .inventory-tab-page {
-  width: min(360px, 86vw);
+  /* Fills the panel on every screen (2026-11-22, Gaymi: Hats & Capes
+     looked like the phone layout on a computer - it was locked to 360px). */
+  width: 100%;
   margin: 0 auto;
   padding: 10px 0;
   height: calc(var(--panel-h) - 45.5px);
@@ -774,7 +776,9 @@ html.ui-theme-old #settings-panel h2 {
    height, not a viewport-relative one, so it stays correct as `68vh`
    itself scales with screen size. */
 .general-tab-page {
-  width: min(360px, 86vw);
+  /* Fills the panel on every screen (2026-11-22, Gaymi: Hats & Capes
+     looked like the phone layout on a computer - it was locked to 360px). */
+  width: 100%;
   margin: 0 auto;
   padding: 10px 0;
   height: calc(var(--panel-h) - 45.5px);

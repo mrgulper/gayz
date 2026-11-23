@@ -195,15 +195,6 @@ function bindAudioExtras(game) {
   window.addEventListener('keydown', wake, true)
   for (const key of ['musicVolume', 'uiVolume', 'footstepVolume', 'weaponVolume', 'quietHours']) onMoreSetting(key, volumes)
   onMoreSetting('monoAudio', (on) => audioEngine.setMono?.(on))
-  // Homepage Music (2026-11-13): calm music on the homepage only - it
-  // fades out when a game or the Map Editor opens and back in after.
-  onMoreSetting('menuMusic', (on) => audioEngine.setMenuMusic?.(on !== false))
-  setInterval(() => {
-    if (!audioEngine.ctx) return
-    const home = !game.buildMode?.active && !document.hidden
-    if (home && !audioEngine.menuMusicPlaying) audioEngine.startMenuMusic?.()
-    else if (!home && audioEngine.menuMusicPlaying) audioEngine.stopMenuMusic?.()
-  }, 500)
   onMoreSetting('duckNearZombies', (on) => { if (!on) audioEngine.setDuck?.(1) })
   onMoreSetting('soundSubtitles', (on) => { if (!on) clearCaptions() })
   // Quiet hours start and end on their own: check the clock every minute.

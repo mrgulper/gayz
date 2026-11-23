@@ -457,3 +457,33 @@ html.ui-theme-old #menu-nav-buttons .nav-badge-dot:is(#quests-new-dot, #friends-
     z-index: 1000;
   }
 }
+
+/* ---- Old: the last gold bits in panels go pink (2026-11-22, Gaymi:
+   "the theme and style should all have and use the pinky colour - do a
+   big check"). A live check of every homepage panel and tab found these
+   still gold/brown: unticked boxes' rim, colour-picker edges, the Theme
+   colour boxes, Team Battle, "Soon" tags and the Gallery buttons' edge.
+   The shared gold names point at pink inside Old's paper panels, so any
+   later rule that reads them is pink too. Old only: Simple's panels are
+   already pink boxes, and in a game html.ui-theme-biome replaces Old.
+   Rarity/tier colours (crate tags, upgrade price rings, class badges,
+   Graphics pictures) keep their own colours on purpose. */
+html.ui-theme-old #app .panel-box {
+  --menu-gold: var(--gayz-pink);
+  --ui-gold-bright: var(--gayz-pink);
+  --ui-gold-bright-rgb: 255, 46, 136;
+  --ui-gold-accent: var(--gayz-pink);
+  --ui-gold-accent-rgb: 255, 46, 136;
+  --cb-rim: var(--gayz-pink);
+}
+html.ui-theme-old #app .panel-box.panel-box :is(.weapon-soon-tag, #team-battle-btn) {
+  background: var(--gayz-pink);
+  color: #ffffff !important;
+}
+html.ui-theme-old #app .panel-box.panel-box :is(#gallery-mine-btn, #gallery-postcards-btn, .gallery-card) {
+  border-color: var(--gayz-pink) !important;
+}
+/* The unticked box sets its own rim, so it needs its own line. */
+html.ui-theme-old #app .panel-box .audio-checkbox {
+  --cb-rim: var(--gayz-pink);
+}

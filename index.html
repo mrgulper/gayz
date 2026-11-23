@@ -178,15 +178,28 @@
       html.menu-fitting #homepage-clock {
         visibility: hidden;
       }
-      /* Soft fade-in on every load/refresh (2026-11-22, Gaymi: "refreshing
-         ... like kirka has it ... smoother"). Pure CSS from the very first
-         paint - it never waits for the game (a dark "wait until loaded"
-         screen was rejected 2026-10-09). The page starts dark and the whole
-         homepage, already in its final look, fades in once. */
+      /* Slide-in on every load/refresh (2026-11-22, replaces the soft fade;
+         Gaymi: "like kirka ... everything goes out to in", "no fade"). Pure
+         CSS from the first paint, never waits for the game. Each homepage
+         part starts just off its own edge and glides to its spot; the middle
+         stack grows into place. Uses the separate `translate`/`scale`
+         properties so no element's own `transform` is touched, and nothing
+         changes opacity. */
       html { background: #050507; }
-      @keyframes gz-page-in { from { opacity: 0; } to { opacity: 1; } }
-      body { animation: gz-page-in 0.7s ease-out both; }
-      @media (prefers-reduced-motion: reduce) { body { animation: none; } }
+      @keyframes gz-in-left { from { translate: -110vw 0; } }
+      @keyframes gz-in-right { from { translate: 110vw 0; } }
+      @keyframes gz-in-top { from { translate: 0 -40vh; } }
+      @keyframes gz-in-bottom { from { translate: 0 40vh; } }
+      @keyframes gz-in-grow { from { scale: 0.6; } }
+      #menu-col-left, #home-extras-left { animation: gz-in-left 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+      #menu-col-right, #home-extras-right { animation: gz-in-right 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+      #menu-currency-bar { animation: gz-in-top 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+      #menu-links-row { animation: gz-in-bottom 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+      #menu-hero { animation: gz-in-grow 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+      @media (prefers-reduced-motion: reduce) {
+        #menu-col-left, #home-extras-left, #menu-col-right, #home-extras-right,
+        #menu-currency-bar, #menu-links-row, #menu-hero { animation: none; }
+      }
     </style>
     <script>
       document.documentElement.classList.add('menu-fitting')
