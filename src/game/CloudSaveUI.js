@@ -13,6 +13,7 @@
 // game._renderCloudOnlineSection() same as before.
 import { keepFriendRequests } from './SocialSettings.js'
 import { t } from './i18n.js'
+import { fitHomeExtras } from './HomeExtras.js'
 import * as CloudSync from './CloudSync.js'
 import * as ChatUI from './ChatUI.js'
 import { CLOUD_LAST_SYNC_KEY, LAST_LOCAL_CHANGE_KEY, _formatRelativeTime, _safeStatNumber, saveSettings } from './Game.js'
@@ -154,8 +155,12 @@ export function renderSignInFooters(game) {
   // on every load; Settings > "Warn Me When I'm Not Signed In" hides it.
   const warn = document.getElementById('home-signin-warning')
   if (warn) {
+    const wasHidden = warn.hidden
     warn.hidden = !game._authKnown || !!game._cloudUid || !CloudSync.isConfigured() || game.settings?.backupReminder === false
     warn.textContent = t('signInWarningHome')
+    // It hangs under the character's feet on big screens: the bottom-left
+    // cards make room for it (or take back the room) when it comes or goes.
+    if (wasHidden !== warn.hidden) fitHomeExtras()
     if (!warn.__bound) {
       warn.__bound = true
       // Don't start spinning the character when the button is pressed.

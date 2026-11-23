@@ -691,7 +691,7 @@ test('World Goal: homepage card, helpers claim the hat or cape + coins once', as
     g._homeWorldGoalWeek = undefined
     g._updateQuestsDot()
     const wait = async (fn) => { for (let i = 0; i < 100 && !fn(); i++) await new Promise((res) => setTimeout(res, 50)); return fn() }
-    const card = () => document.querySelector('#home-worldgoal [data-card="worldgoal"]')
+    const card = () => document.querySelector('#home-extras-left [data-card="worldgoal"]')
     await wait(card)
     const before = card()?.textContent.replace(/\s+/g, ' ') || ''
     // The world reaches the target (the cached count, as if just read).

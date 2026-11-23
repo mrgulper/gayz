@@ -110,7 +110,8 @@ html.ui-theme-clean #menu#menu#menu#menu .home-x-card .home-x-btn * {
 #menu#menu #menu-links-row :is(a, button):is(:hover, :focus-visible, .footer-menu-on),
 #menu#menu #menu-links-row :is(a, button):is(:hover, :focus-visible, .footer-menu-on) * {
   text-decoration: none;
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.7), 0 0 3px rgba(0, 0, 0, 0.85), 0 1px 4px rgba(0, 0, 0, 0.7) !important;
+  /* The glow is GayZ pink, not white (2026-11-22, Gaymi). */
+  text-shadow: 0 0 8px var(--gayz-accent), 0 0 14px var(--gayz-accent), 0 0 3px rgba(0, 0, 0, 0.85), 0 1px 4px rgba(0, 0, 0, 0.7) !important;
 }
 #menu #menu-links-row svg { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)); }
 
@@ -382,15 +383,15 @@ html:root .voice-card .voice-secondary {
 html:root .voice-card .voice-secondary:hover {
   background: color-mix(in srgb, var(--gayz-panel), var(--gayz-panel-fg) 18%);
 }
-html:root #feedback-text {
+html:root #feedback-screen #feedback-text {
   color: var(--gayz-panel-fg);
   background: color-mix(in srgb, var(--gayz-panel), #000000 18%);
   border-color: color-mix(in srgb, var(--gayz-panel-fg) 35%, transparent);
 }
-html:root #feedback-text::placeholder {
+html:root #feedback-screen #feedback-text::placeholder {
   color: color-mix(in srgb, var(--gayz-panel-fg) 65%, transparent);
 }
-html:root #feedback-text:focus {
+html:root #feedback-screen #feedback-text:focus {
   border-color: var(--gayz-panel-fg);
 }
 
