@@ -318,11 +318,18 @@ html.ui-theme-old #team-page .team-card-name {
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
 }
-.tb-hint {
+.tb-bottom {
   position: absolute;
   bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+.tb-hint {
   margin: 0;
   padding: 6px 14px;
   font-size: 13px;
@@ -350,7 +357,43 @@ html.ui-theme-old #team-page .team-card-name {
 .tb-btn:hover {
   background: rgba(10, 12, 18, 0.8);
 }
+/* Arena hazard (Batch E): which one this battle has, above the hint. */
+.tb-hazard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 5px 14px 5px 6px;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(10, 12, 18, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.tb-hazard-lava { border-color: #ff8a2a; }
+.tb-hazard-mud { border-color: #a07a50; }
+.tb-hazard-bounce { border-color: #7ef060; }
+.tb-hazard-flowers { border-color: #ff7ab8; }
+.tb-hazard-icon {
+  width: 20px;
+  height: 20px;
+  image-rendering: pixelated;
+  border-radius: 4px;
+}
+.tb-number.lava {
+  color: #ff9a3a;
+}
+.tb-number.power.bounce {
+  color: #9cff7a;
+}
 @media (max-width: 600px) {
+  .tb-hazard {
+    white-space: normal;
+    width: calc(100vw - 32px);
+    box-sizing: border-box;
+    font-size: 12px;
+  }
   .tb-hint {
     white-space: normal;
     width: calc(100vw - 32px);

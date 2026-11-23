@@ -1031,3 +1031,103 @@ test('held items: give, swap, take off, what they do in battle, drops, ghost tea
   expect(g.name).toBe('Fang Necklace')
   expect(g.merged).toBe('claws')
 })
+
+test('arena hazards: rolled 1 in 3, fair layout, lava / mud / bounce / flowers, flyers float over, banner + guide', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'onLine', { get: () => false, configurable: true })
+    localStorage.setItem('gayz-creatures', JSON.stringify({
+      list: [
+        { id: 1, t: 'a', k: 'cow', r: 'common', at: 1 },
+        { id: 2, t: 'a', k: 'eagle', r: 'common', at: 2 },
+      ],
+      team: [1, 2], wins: 0, losses: 0, nextId: 3,
+    }))
+    window.__game._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-pets').click()
+  })
+  const guide = await page.evaluate(() => document.getElementById('team-guide').textContent)
+  expect(guide).toContain('Arena hazards')
+  expect(guide).toContain('Healing Flowers')
+  await page.click('#team-battle-btn')
+  await page.waitForSelector('#team-battle canvas')
+  const r = await page.evaluate(() => {
+    const TB = window.__game._teamBattle.constructor
+    const mine = window.__game._teamBattle.mine
+    const theirs = window.__game._teamBattle.theirs
+    window.__game._teamBattle.close()
+    const out = {}
+    // The roll: Math.random 0 -> the first hazard; 0.5 -> none.
+    const real = Math.random
+    try {
+      Math.random = () => 0
+      out.rollYes = new TB({ mine, theirs, foe: 'x' }).hazard
+      Math.random = () => 0.5
+      out.rollNo = new TB({ mine, theirs, foe: 'x' }).hazard
+    } finally { Math.random = real }
+    // Every layout is inside the fence and the same turned round the middle.
+    out.fair = ['lava', 'mud', 'bounce', 'flowers'].map((id) => {
+      const cells = new TB({ mine, theirs, foe: 'x', hazard: id }).hazardCells
+      return cells.size > 0 && [...cells].every((k) => {
+        const [x, z] = k.split(',').map(Number)
+        return cells.has(`${-x - 1},${-z - 1}`) && Math.abs(x + 0.5) < 11 && Math.abs(z + 0.5) < 11
+      })
+    })
+    out.badId = new TB({ mine, theirs, foe: 'x', hazard: 'rocket' }).hazard
+    const run = (id, fn) => {
+      const B = new TB({ mine, theirs, foe: 'x', hazard: id, onEnd: () => 0 })
+      B.open()
+      const [k] = B.hazardCells
+      const [x, z] = k.split(',').map(Number)
+      const cow = B.fighters.find((o) => o.side === 'mine' && o.c.k === 'cow')
+      const bat = B.fighters.find((o) => o.side === 'mine' && o.c.k === 'eagle')
+      for (const f of [cow, bat]) { f.x = x + 0.5; f.z = z + 0.5; f.s.hp = f.hp = 1000 }
+      const res = fn(B, cow, bat)
+      res.banner = B.root.querySelector('.tb-hazard')?.textContent || null
+      B.close()
+      return res
+    }
+    out.lava = run('lava', (B, cow, bat) => {
+      B._hazardStep(cow, 0.01, true)
+      B._hazardStep(bat, 0.01, true)
+      const before = { cow: cow.hp, bat: bat.hp }
+      B._hazardStep(cow, 0.01, false) // not before the fight starts
+      return { cow: before.cow, bat: before.bat, waited: cow.hp }
+    })
+    out.mud = run('mud', (B, cow, bat) => ({ cow: B._hazardStep(cow, 0.01, true), bat: B._hazardStep(bat, 0.01, true) }))
+    out.flowers = run('flowers', (B, cow) => {
+      cow.hp = 500
+      B._hazardStep(cow, 1, true)
+      return { hp: cow.hp }
+    })
+    out.bounce = run('bounce', (B, cow, bat) => {
+      B._hazardStep(cow, 0.01, true)
+      B._hazardStep(bat, 0.01, true)
+      const res = { air: cow.air > 0, push: Math.hypot(cow.vx, cow.vz), batAir: bat.air }
+      B._setView('2d', false)
+      B._draw() // the 2D board draws the pads without throwing
+      return res
+    })
+    out.none = (() => {
+      const B = new TB({ mine, theirs, foe: 'x', hazard: null })
+      B.open()
+      const res = { banner: !!B.root.querySelector('.tb-hazard'), slow: B._hazardStep(B.fighters[0], 0.01, true) }
+      B.close()
+      return res
+    })()
+    return out
+  })
+  expect(r.rollYes).toBe('lava')
+  expect(r.rollNo).toBe(null)
+  expect(r.fair).toEqual([true, true, true, true])
+  expect(r.badId).toBe(null)
+  expect(r.lava).toEqual({ cow: 970, bat: 1000, waited: 970, banner: 'Arena: Lava Cracks - standing on them burns 6% health a second.' })
+  expect(r.mud.cow).toBe(0.5)
+  expect(r.mud.bat).toBe(1)
+  expect(r.flowers.hp).toBe(540)
+  expect(r.bounce.air).toBe(true)
+  expect(r.bounce.push).toBeCloseTo(12, 5)
+  expect(r.bounce.batAir).toBe(0)
+  expect(r.none).toEqual({ banner: false, slow: 1 })
+})

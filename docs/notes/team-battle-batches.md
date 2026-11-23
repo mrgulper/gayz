@@ -104,8 +104,19 @@ mine (smallest first, live online last).
   (held: true, ITEM_GOLD 4) but NOT in FOOD_IDS; rollFood: from tier
   ITEM_TIER 2 a slot is an item ITEM_ODDS 25%; merge keeps one; bots
   don't buy them. Privacy lines updated. Test: team.spec "held items".
-- [ ] **Batch E - Arena hazards.** Some battles get something extra in the
-  arena (lava cracks, slow puddle, bounce pad). Builds on Batch B textures.
+- [x] **Batch E - Arena hazards** (shipped 2026-11-23). Gaymi picked: all 4
+  (lava, mud, bounce, + healing flowers), 1 in 3 battles, every kind of pet
+  battle (Leaders/Tournament/Gauntlet too), same for both teams, flyers float
+  over. TeamBattle.js: HAZARDS (lava 6%/s in 0.5 s burns, mud 50% speed,
+  bounce push 12 / 0.5 s air / 1.2 s cooldown, flowers 4%/s - all a guess),
+  rollHazard (HAZARD_EVERY 3), hazardCells = "x,z" block corners laid out on
+  my half and turned round the middle (fair). Constructor `hazard` option
+  (id / null / left out = roll) - tests use it. _hazardStep per fighter
+  (only after the start, skipped for flies(c) and mid-bounce), _lift for the
+  bounce jump. Pictures: hazardCanvas 16 px tiles, 3D InstancedMesh
+  (lava unlit + pulses), 2D drawn into board2d. Banner .tb-hazard in
+  .tb-bottom above the hint. Pets guide "Arena hazards" list. Creatures.flies.
+  Test: team.spec "arena hazards".
 - [ ] **Batch F - Eggs + hatching.** Rare egg found in the world, hatches
   after walking a set distance; rare eggs can be shiny.
 - [ ] **Batch G - Friend battles (live).** Challenge an online friend, both
