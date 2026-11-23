@@ -769,7 +769,11 @@ html.ui-theme-old .auth-note { opacity: 0.82; }
 #friends-panel-title,
 #menu-inventory-panel-title,
 #server-panel-title,
-#clan-panel-title {
+#clan-panel-title,
+#hof-panel-title,
+#feedback-title,
+#today-panel-title,
+#other-profile-name {
   margin: 0;
   /* Doubled from 15px per request - this is the title shown right after
      opening any of these panels (Hub, Store, Achievements, etc.), not
@@ -799,7 +803,12 @@ html.ui-theme-old #howtoplay-panel-title,
 html.ui-theme-old #friends-panel-title,
 html.ui-theme-old #menu-inventory-panel-title,
 html.ui-theme-old #server-panel-title,
-html.ui-theme-old #clan-panel-title {
+html.ui-theme-old #clan-panel-title,
+html.ui-theme-old #hub-panel-title,
+html.ui-theme-old #hof-panel-title,
+html.ui-theme-old #feedback-title,
+html.ui-theme-old #today-panel-title,
+html.ui-theme-old #other-profile-name {
   font-family: 'Rye', Georgia, serif;
   color: #c2a06e;
   opacity: 1;
@@ -1637,4 +1646,179 @@ html.ui-theme-old .skill-map-zoom button {
   #skill-map-view {
     height: 52vh;
   }
+}
+
+/* ---- Florr-style Upgrades map (2026-11-22, SkillTreeUI.js) ----
+   One view only: round icon spots with a price badge, your own skin in the
+   middle, and a small card while the mouse points at a spot. The spots
+   are game pieces in their branch colour (like the lines), so they read
+   the same on Old paper and every Simple colour; the hover card follows
+   the theme like the rest of the panel. */
+/* The map fills what's left of the page (it's the only view now), so
+   nothing below it needs scrolling to. */
+#upgrades-page-upgrades #skill-map {
+  flex: 1 1 0;
+  min-height: 300px;
+}
+#upgrades-page-upgrades #skill-map-view {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 240px;
+}
+#skill-map-stage .skill-map-node {
+  padding: 0;
+  overflow: visible;
+  border-radius: 50%;
+  color: #fff;
+  background: color-mix(in srgb, var(--branch) 30%, #464646);
+  border: 5px solid color-mix(in srgb, var(--branch) 40%, #2b2b2b);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25);
+  transition: transform 0.12s ease;
+}
+html.ui-theme-old #skill-map-stage .skill-map-node,
+html.ui-theme-clean #upgrades-page-upgrades #skill-map-stage .skill-map-node {
+  color: #fff;
+  background: color-mix(in srgb, var(--branch) 30%, #464646);
+  border: 5px solid color-mix(in srgb, var(--branch) 40%, #2b2b2b);
+}
+#skill-map-stage .skill-map-node:hover {
+  transform: scale(1.08);
+}
+#skill-map-stage .skill-map-node.is-owned,
+html.ui-theme-old #skill-map-stage .skill-map-node.is-owned,
+html.ui-theme-clean #upgrades-page-upgrades #skill-map-stage .skill-map-node.is-owned {
+  background: var(--branch) !important;
+  border-color: color-mix(in srgb, var(--branch) 60%, #1e1e1e);
+  border-style: solid;
+}
+#skill-map-stage .skill-map-node.is-owned::before {
+  content: none;
+}
+#skill-map-stage .skill-map-node.is-buy {
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25), 0 0 14px color-mix(in srgb, var(--branch) 80%, transparent);
+}
+#skill-map-stage .skill-map-node.is-locked,
+#skill-map-stage .skill-map-node.is-lifetime,
+#skill-map-stage .skill-map-node.is-fork {
+  opacity: 0.5;
+  border-style: dashed;
+  filter: saturate(0.4);
+  text-decoration: none;
+}
+#skill-map-stage .skill-map-node.is-fork .skill-map-icon {
+  opacity: 0.45;
+}
+#skill-map-stage .skill-map-node.selected {
+  outline: 3px solid var(--ui-gold-bright, #ffde5c);
+  outline-offset: 3px;
+}
+.skill-map-icon {
+  display: flex;
+  width: 56%;
+  height: 56%;
+  pointer-events: none;
+}
+.skill-map-icon svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.3));
+}
+.skill-map-cost {
+  position: absolute;
+  top: -9px;
+  right: -11px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  background: color-mix(in srgb, var(--branch) 25%, #2b2b2b);
+  border: 2px solid var(--branch);
+  pointer-events: none;
+}
+.skill-map-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+#skill-map-stage .skill-map-branch {
+  bottom: calc(100% + 12px);
+  color: var(--clean-fg, #fff);
+}
+/* The branch name sits on the paper, not on the spot: ink there. */
+html.ui-theme-old #skill-map-stage .skill-map-branch {
+  color: var(--old-ink, #2e1d0e) !important;
+}
+/* You, in the middle. */
+#skill-map-stage .skill-map-start {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.skill-map-me {
+  height: 100%;
+  width: auto;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
+}
+.skill-map-stats {
+  position: absolute;
+  left: calc(50% + 46px);
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font-size: 16px;
+  font-weight: 800;
+}
+/* The hover card. */
+#skill-map-tip {
+  position: absolute;
+  z-index: 3;
+  max-width: 240px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border-left: 4px solid var(--branch, #888);
+  background: rgba(20, 20, 20, 0.94);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.1s ease;
+}
+#skill-map-tip.show {
+  opacity: 1;
+  visibility: visible;
+}
+html.ui-theme-old #skill-map-tip {
+  background: rgba(255, 248, 230, 0.97);
+  color: var(--old-ink, #2e1d0e);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+html.ui-theme-clean #skill-map-tip {
+  background: var(--clean-bg);
+  color: var(--clean-fg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+.skill-tip-name {
+  font-weight: 800;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+.skill-tip-status {
+  opacity: 0.85;
 }
