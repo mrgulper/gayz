@@ -10,7 +10,7 @@
 // Starting a battle while signed in saves your own team as a ghost team
 // for others to fight.
 import * as CloudSync from './CloudSync.js'
-import { loadCreatures, saveCreatures, stats, power, powerName, powerInfo, creatureName, creatureType, rarityName, creatureIconURL, tierColor, botTeam, packTeam, unpackTeam, TEAM_SIZE, POWERS, TRIGGERS, TRIGGER_LEVEL, TYPE_MULT, MAX_LEVEL, EVOLVE_AT, levelOf, xpProgress, triggerOf, hasTrigger, triggerName, triggerInfo, COMBOS, combosOf, comboName, comboInfo, SNACKS, SNACK_IDS, snackImg, snackName, snackInfo, feedSnack, SHINY_ODDS, SHINY_BOOST, kindName, kindNote, renameCreature, setNickFilter, NICK_MAX } from './Creatures.js'
+import { loadCreatures, saveCreatures, stats, power, powerName, powerInfo, creatureName, creatureType, rarityName, creatureIconURL, tierColor, botTeam, packTeam, unpackTeam, TEAM_SIZE, POWERS, TRIGGERS, TRIGGER_LEVEL, TYPE_MULT, MAX_LEVEL, EVOLVE_AT, levelOf, xpProgress, triggerOf, hasTrigger, triggerName, triggerInfo, COMBOS, combosOf, comboName, comboInfo, SNACKS, SNACK_IDS, snackImg, snackName, snackInfo, feedSnack, SHINY_ODDS, SHINY_BOOST, kindName, kindNote, renameCreature, setNickFilter, NICK_MAX, ITEM_IDS, itemImg, itemName, itemInfo, holdItem, takeItem } from './Creatures.js'
 import { TeamBattle } from './TeamBattle.js'
 import { renderTournament, playTournament } from './TeamTournament.js'
 import * as PackLeaders from './PackLeaders.js'
@@ -39,11 +39,12 @@ function card(c, slot = 0) {
   const trig = triggerOf(c)
   const on = hasTrigger(c)
   const note = kindNote(c)
-  const tip = `${c.nm ? `${c.nm} - ${kindName(c)}\n` : ''}${powerName(c)}: ${powerInfo(c)}\n${on ? '' : `${t('teamTrigLocked', { n: TRIGGER_LEVEL, name: '' }).trim()} `}${triggerName(trig)}: ${triggerInfo(trig)}${c.sn ? `\n${snackName(c.sn)}: ${snackInfo(c.sn)}` : ''}`
+  const tip = `${c.nm ? `${c.nm} - ${kindName(c)}\n` : ''}${powerName(c)}: ${powerInfo(c)}\n${on ? '' : `${t('teamTrigLocked', { n: TRIGGER_LEVEL, name: '' }).trim()} `}${triggerName(trig)}: ${triggerInfo(trig)}${c.sn ? `\n${snackName(c.sn)}: ${snackInfo(c.sn)}` : ''}${c.hi ? `\n${itemName(c.hi)}: ${itemInfo(c.hi)}` : ''}`
   return `<button type="button" class="perk-option team-card${slot ? ' picked' : ''}${c.s ? ' shiny' : ''}" data-id="${c.id}" style="--tier: ${tierColor(c.r)}" title="${esc(tip)}">
     ${slot ? `<span class="team-card-slot">${slot}</span>` : ''}
     ${c.s ? `<span class="team-card-shiny" title="${esc(t('teamShiny'))}">✦</span>` : ''}
     ${c.sn ? snackImg(c.sn, 'team-card-snack') : ''}
+    ${c.hi ? itemImg(c.hi, 'team-card-item') : ''}
     <span class="team-card-level">${esc(t('teamLevel', { n: lv }))}</span>
     <img src="${creatureIconURL(c)}" alt="" draggable="false" />
     <span class="team-card-name">${esc(creatureName(c))}</span>
@@ -76,6 +77,8 @@ function renderGuide() {
     <ul>${COMBOS.map((k) => row(`${comboName(k.id)} (${k.at.join(' / ')})`, comboInfo(k.id, k.n.join(' / ')))).join('')}</ul>
     <h4>${esc(t('teamSnacksTitle'))}</h4>
     <ul>${SNACK_IDS.map((id) => row(snackName(id), snackInfo(id))).join('')}</ul>
+    <h4>${esc(t('itemsTitle'))}</h4>
+    <ul>${ITEM_IDS.map((id) => row(itemName(id), itemInfo(id))).join('')}</ul>
     <p>${esc(t('teamShinyHow', { n: SHINY_ODDS, p: Math.round(SHINY_BOOST * 100) }))}</p>`
 }
 
@@ -113,6 +116,48 @@ function renderSnacks(game) {
     </button>`).join('')}</div>`
 }
 
+// Held items (Batch D, 2026-11-23): the bag of items found. Pick one (it
+// lights up), then tap any creature to give it; what it held goes back in
+// the bag. "Take an item off", then a creature, puts its item back.
+// game._teamItem: null, an item id, or 'off'.
+function renderItems(game) {
+  const el = byId('team-items')
+  if (!el) return
+  const bag = loadCreatures().items
+  let armed = game._teamItem
+  if (armed && armed !== 'off' && !bag[armed]) armed = game._teamItem = null
+  const have = ITEM_IDS.filter((id) => bag[id])
+  const hint = armed === 'off' ? t('itemOffPick') : armed ? t('itemPick', { name: itemName(armed) }) : t('itemHint')
+  el.innerHTML = `<h3 class="team-section-title">${esc(t('itemsTitle'))}</h3>
+    <p class="team-snack-hint">${esc(hint)}</p>
+    <div class="team-snack-row">${have.map((id) => `<button type="button" class="team-snack${armed === id ? ' armed' : ''}" data-item="${id}" aria-pressed="${armed === id}">
+      ${itemImg(id, 'team-snack-icon')}
+      <b>${esc(itemName(id))}</b>
+      <span class="team-snack-info">${esc(itemInfo(id))}</span>
+      <span class="team-item-count">x${bag[id]}</span>
+    </button>`).join('')}
+    <button type="button" class="team-snack team-rename-btn${armed === 'off' ? ' armed' : ''}" data-item="off" aria-pressed="${armed === 'off'}">${esc(t('itemOffBtn'))}</button></div>
+    ${have.length ? '' : `<p class="team-item-none">${esc(t('itemNone'))}</p>`}`
+}
+
+// A card tapped with an item picked (or "take off").
+function giveOrTake(game, id) {
+  const item = game._teamItem
+  const c = loadCreatures().list.find((o) => o.id === id)
+  if (!c) return
+  if (item === 'off') {
+    const was = takeItem(id)
+    game._showHomepageToast(was ? t('itemTookOff', { name: creatureName(c), item: itemName(was) }) : t('itemNoneHeld', { name: creatureName(c) }))
+  } else {
+    const res = holdItem(id, item)
+    if (res === 'same') return game._showHomepageToast(t('itemSame', { name: creatureName(c) }))
+    if (res !== 'ok') return
+    game._showHomepageToast(t('itemGiven', { name: creatureName(c), item: itemName(item) }))
+  }
+  game._teamItem = null
+  renderTeamPanel(game)
+}
+
 // Nicknames (2026-11-23): "Rename a creature", tap any card, type a name.
 // game._teamRename: null, 'pick' (waiting for a card) or the creature's id
 // (its name box is open).
@@ -147,6 +192,7 @@ function renameAction(game, what) {
   if (what === 'arm') {
     game._teamRename = id === 'pick' ? null : 'pick'
     game._teamSnack = null
+    game._teamItem = null
   } else if (what === 'cancel') {
     game._teamRename = null
   } else if (typeof id === 'number' && (what === 'save' || what === 'clear')) {
@@ -207,6 +253,7 @@ export function renderTeamPanel(game) {
   }
   set('team-combos-title', t('teamCombosTitle'))
   renderSnacks(game)
+  renderItems(game)
   renderRename(game)
   const grid = byId('team-grid')
   if (grid) {
@@ -362,7 +409,7 @@ export function bindTeamUI(game) {
   game._packLeaders = { ...PackLeaders, power }
   game._gauntlet = { ...Gauntlet, power }
   game._petShop = PetShop
-  game._creatures = { packTeam, unpackTeam }
+  game._creatures = { packTeam, unpackTeam, loadCreatures, saveCreatures }
   // Drawn each time the Pets tab is looked at (a catch in a game changes it).
   byId('inventory-tab-pets')?.addEventListener('click', () => renderTeamPanel(game))
   // Drag to reorder (Reorder.js): the picked team, and the Gauntlet team.
@@ -397,7 +444,14 @@ export function bindTeamUI(game) {
     const sb = e.target.closest('.team-snack[data-snack]')
     if (sb) {
       game._teamSnack = game._teamSnack === sb.dataset.snack ? null : sb.dataset.snack
-      if (game._teamSnack) game._teamRename = null
+      if (game._teamSnack) game._teamRename = game._teamItem = null
+      renderTeamPanel(game)
+      return
+    }
+    const ib = e.target.closest('.team-snack[data-item]')
+    if (ib) {
+      game._teamItem = game._teamItem === ib.dataset.item ? null : ib.dataset.item
+      if (game._teamItem) game._teamRename = game._teamSnack = null
       renderTeamPanel(game)
       return
     }
@@ -409,6 +463,7 @@ export function bindTeamUI(game) {
     const c = e.target.closest('.team-card[data-id]')
     if (!c) return
     if (game._teamRename === 'pick') pickToRename(game, Number(c.dataset.id))
+    else if (game._teamItem) giveOrTake(game, Number(c.dataset.id))
     else if (game._teamSnack) feed(game, Number(c.dataset.id))
     else toggle(game, Number(c.dataset.id))
   })

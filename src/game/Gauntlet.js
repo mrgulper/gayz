@@ -40,7 +40,7 @@
 //
 // Saved in localStorage (GAUNTLET_KEY), so Cloud Save carries it.
 import * as CloudSync from './CloudSync.js'
-import { cleanCreature, stats, powerOf, typeOf, creatureName, creatureType, rarityName, creatureIconURL, tierColor, packTeam, unpackTeam, powerName, levelOf, snackName, snackInfo, snackImg, pixelIconURL } from './Creatures.js'
+import { cleanCreature, stats, powerOf, typeOf, creatureName, creatureType, rarityName, creatureIconURL, tierColor, packTeam, unpackTeam, powerName, levelOf, snackName, snackInfo, snackImg, pixelIconURL, ITEM_IDS, itemImg, itemName, itemInfo, rollItem } from './Creatures.js'
 import { PlayAnimals } from './PlayAnimals.js'
 import { ZOMBIE_TIER_IDS, NAME_COUNT } from './ZombieNames.js'
 import { TeamBattle } from './TeamBattle.js'
@@ -94,7 +94,16 @@ export const FOODS = {
   bandage: { cost: 3, tier: 3, snack: true },
   melon: { cost: 4, tier: 4, hp: 40 },
 }
+// Held items (Batch D, 2026-11-23; Gaymi: "shop items for gold"): from
+// shop tier ITEM_TIER a food slot is a held item ITEM_ODDS of the time
+// (rollItem: common ones more often). held: Creatures.ITEMS; it stays on
+// that run creature until the run ends, a new one swaps it. Numbers are
+// a guess. FOOD_IDS stays food only.
+export const ITEM_GOLD = 4
+export const ITEM_TIER = 2
+export const ITEM_ODDS = 0.25
 export const FOOD_IDS = Object.keys(FOODS)
+for (const id of ITEM_IDS) FOODS[id] = { cost: ITEM_GOLD, tier: ITEM_TIER, held: true }
 // Most fruit one creature can hold (a merge adds the three together).
 export const MAX_BH = 400
 export const MAX_BA = 80
@@ -161,10 +170,11 @@ export function endRound(team) {
   return went
 }
 
-export const foodImg = (id, cls) => (FOODS[id]?.snack ? snackImg(id, cls) : `<img class="${cls}" src="${pixelIconURL(`fruit-${id}`, FRUIT_PIX[id])}" alt="" draggable="false" />`)
-export const foodName = (id) => (FOODS[id].snack ? snackName(id) : t(`gtFood${id[0].toUpperCase()}${id.slice(1)}`))
+export const foodImg = (id, cls) => (FOODS[id]?.held ? itemImg(id, cls) : FOODS[id]?.snack ? snackImg(id, cls) : `<img class="${cls}" src="${pixelIconURL(`fruit-${id}`, FRUIT_PIX[id])}" alt="" draggable="false" />`)
+export const foodName = (id) => (FOODS[id].held ? itemName(id) : FOODS[id].snack ? snackName(id) : t(`gtFood${id[0].toUpperCase()}${id.slice(1)}`))
 export function foodInfo(id) {
   const f = FOODS[id]
+  if (f.held) return `${itemInfo(id)} ${t('gtItemRun')}`
   if (f.snack) return `${snackInfo(id)} ${t('gtFoodOneBattle')}`
   return t(f.all ? 'gtFoodInfoAll' : 'gtFoodInfo', { hp: f.hp || 0, atk: f.atk || 0 })
 }
@@ -208,13 +218,19 @@ export function rollShop(b, team, rand = Math.random, keep = null, frozen = []) 
 
 export function rollFood(b, rand = Math.random, keep = null, frozen = []) {
   const ids = FOOD_IDS.filter((id) => FOODS[id].tier <= shopTier(b))
-  return Array.from({ length: FOOD_SLOTS }, (_, i) => (frozen[i] && keep?.[i] ? keep[i] : ids[Math.floor(rand() * ids.length)]))
+  const one = () => (shopTier(b) >= ITEM_TIER && rand() < ITEM_ODDS ? rollItem(rand) : ids[Math.floor(rand() * ids.length)])
+  return Array.from({ length: FOOD_SLOTS }, (_, i) => (frozen[i] && keep?.[i] ? keep[i] : one()))
 }
 
 // Feeds food id to creature c (a fruit: for good; a snack: next battle).
 // -> '' when it worked, else the i18n key of why not.
 function feedOne(c, id) {
   const f = FOODS[id]
+  if (f.held) {
+    if (c.hi === id) return 'gtItemSame'
+    c.hi = id
+    return ''
+  }
   if (f.snack) {
     if (c.sn) return 'gtFoodHasSnack'
     c.sn = id
@@ -254,6 +270,10 @@ export function mergeAll(team) {
     const sn = picked.find((c) => c.sn)?.sn
     if (sn) merged.sn = sn
     else delete merged.sn
+    // A held item too (the first one's, if more than one held one).
+    const hi = picked.find((c) => c.hi)?.hi
+    if (hi) merged.hi = hi
+    else delete merged.hi
     for (const i of three.slice(0, 3).reverse()) team.splice(i, 1)
     team.splice(Math.min(three[0], team.length), 0, merged)
     made.push(merged)
@@ -569,9 +589,10 @@ function card(c, { price, sellFor, i, kind, feeding, frozen }) {
   const label = kind === 'buy' ? t('gauntletPrice', { n: price }) : feeding ? t('gtFoodFeedHere') : t('gauntletSell', { n: sellFor })
   const sp = shopPowerOf(c)
   const fruit = c.bh || c.ba ? `<span class="gt-fruit">${esc(t('gtFoodBonus', { hp: c.bh || 0, atk: c.ba || 0 }))}</span>` : ''
-  return `<button type="button" class="perk-option team-card gt-card${feeding ? ' gt-feed' : ''}${frozen ? ' gt-frozen' : ''}" data-gt-${kind}="${i}" style="--tier: ${tierColor(c.r)}" title="${esc(`${powerName(c)}\n${shopPowerName(sp)}: ${shopPowerInfo(sp, stars)}\n${label}`)}">
+  return `<button type="button" class="perk-option team-card gt-card${feeding ? ' gt-feed' : ''}${frozen ? ' gt-frozen' : ''}" data-gt-${kind}="${i}" style="--tier: ${tierColor(c.r)}" title="${esc(`${powerName(c)}\n${shopPowerName(sp)}: ${shopPowerInfo(sp, stars)}${c.hi ? `\n${itemName(c.hi)}: ${itemInfo(c.hi)}` : ''}\n${label}`)}">
     <span class="team-card-level gt-stars" aria-label="${esc(t('gauntletStars', { n: stars }))}">${'★'.repeat(stars)}</span>
     ${c.sn ? snackImg(c.sn, 'team-card-snack') : ''}
+    ${c.hi ? itemImg(c.hi, 'team-card-item') : ''}
     <img src="${creatureIconURL(c)}" alt="" draggable="false" />
     <span class="team-card-name">${esc(creatureName(c))}</span>
     <span class="team-card-type">${esc(rarityName(c.r))} ${esc(creatureType(c))}</span>
@@ -630,7 +651,7 @@ export function renderGauntlet(game) {
     const tier = shopTier(run.battle)
     box.innerHTML = `
       <h4 class="gt-sub">${esc(t('gauntletTeamTitle', { n: run.team.length, max: room }))}</h4>
-      <p class="gt-hint">${esc(armed !== null ? t('gtFoodPick', { name: foodName(run.food[armed]) }) : t('gauntletTeamHint'))}</p>
+      <p class="gt-hint">${esc(armed !== null ? t(FOODS[run.food[armed]].held ? 'gtItemPick' : 'gtFoodPick', { name: foodName(run.food[armed]) }) : t('gauntletTeamHint'))}</p>
       <div class="team-cards gt-row" id="gauntlet-team">${mine}</div>
       <h4 class="gt-sub">${esc(t('gauntletShopTitle'))} · ${esc(t('gtShopTier', { n: tier, max: MAX_TIER }))}</h4>
       <p class="gt-hint">${esc(t('gauntletShopHint', { n: PRICE }))} ${esc(tier < MAX_TIER ? t('gtTierNext', { b: tier * 2 + 1 }) : '')}</p>
@@ -760,7 +781,7 @@ export function gauntletClick(game, e, rerender) {
     const res = buyFood(game._gtFood, Number(s0.dataset.gtSell))
     if (res) toast(res, { n: id ? FOODS[id].cost : 0 })
     else {
-      toast('gtFoodFed', { name: creatureName(loadGauntlet().run.team[Number(s0.dataset.gtSell)]), food: foodName(id) })
+      toast(FOODS[id]?.held ? 'gtItemGiven' : 'gtFoodFed', { name: creatureName(loadGauntlet().run.team[Number(s0.dataset.gtSell)]), food: foodName(id) })
       game._gtFood = null
     }
     rerender()

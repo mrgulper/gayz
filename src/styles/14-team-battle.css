@@ -1082,3 +1082,57 @@ html.ui-theme-clean .team-card.reorder-over { outline-color: currentColor; }
 #pet-shop .ps-short .ps-price { opacity: 0.5; }
 html.ui-theme-old #pet-shop .ps-price { color: var(--old-ink); }
 html.ui-theme-clean #pet-shop .ps-price { color: inherit; }
+
+/* Held items (Batch D, 2026-11-23): an icon under the snack on cards,
+   in battle labels and cards, and the bag on the Team page. */
+#team-page .team-card .team-card-item {
+  position: absolute;
+  top: 46px;
+  left: 6px;
+  width: 16px;
+  height: 16px;
+  image-rendering: pixelated;
+}
+.tb-card .tb-card-item {
+  position: absolute;
+  bottom: -6px;
+  right: -6px;
+  width: 14px;
+  height: 14px;
+  image-rendering: pixelated;
+}
+.tb-label-item,
+.tb-news-icon {
+  width: 12px;
+  height: 12px;
+  vertical-align: -1px;
+  image-rendering: pixelated;
+}
+.tb-news-icon {
+  width: 18px;
+  height: 18px;
+  vertical-align: -4px;
+}
+.team-item-count {
+  font-weight: 700;
+  color: var(--menu-gold);
+}
+html.ui-theme-old .team-item-count {
+  color: var(--old-ink);
+}
+.team-item-none {
+  text-align: center;
+  opacity: 0.8;
+}
+@media (max-width: 600px) {
+  .tb-card .tb-card-item {
+    width: 10px;
+    height: 10px;
+  }
+}
+/* "Take an item off": as tall as the item buttons beside it. */
+#team-items .team-rename-btn {
+  align-self: stretch;
+  height: auto;
+  justify-content: center;
+}

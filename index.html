@@ -2942,9 +2942,9 @@
 
             <h3>Nicknames, profiles, and leaderboards</h3>
             <p>Your nickname, Player ID, bio, and stats shown on your public profile (Profile panel &gt; Shown to Public) are visible to other players wherever public features (leaderboards, chat, friend lookups) show them. Please don't put personal information (real name, contact details, etc.) in any field, since a field that's private today could become visible in a future update.</p>
-            <p>If you're signed in, starting a Team Battle saves your battle team as a "ghost team" that other players can see and battle: your nickname, which zombies and animals are on it, their rarity, any nicknames you gave them, how strong the team is and how many battles you've won. Creature nicknames are checked for strong swear words the same way chat is. It's replaced each time you start another battle.</p>
+            <p>If you're signed in, starting a Team Battle saves your battle team as a "ghost team" that other players can see and battle: your nickname, which zombies and animals are on it, their rarity, any nicknames you gave them, the held items they carry, how strong the team is and how many battles you've won. Creature nicknames are checked for strong swear words the same way chat is. It's replaced each time you start another battle.</p>
             <p>When you enter the Weekly Team Tournament, the ghost teams in your bracket (each player's nickname and the creatures on their team) are copied into your save for that week, so your bracket stays the same. Nothing new about you is shared by entering.</p>
-            <p>If you're signed in, starting a Gauntlet battle saves your Gauntlet team at that battle number so other players can meet it at the same point in their own run: your nickname, the creatures on it (their kind, rarity and stars) and how many Gauntlet battles you've won so far. You keep one per battle number, each replaced by your next run. The creatures you've caught aren't part of it.</p>
+            <p>If you're signed in, starting a Gauntlet battle saves your Gauntlet team at that battle number so other players can meet it at the same point in their own run: your nickname, the creatures on it (their kind, rarity, stars and any held item) and how many Gauntlet battles you've won so far. You keep one per battle number, each replaced by your next run. The creatures you've caught aren't part of it.</p>
             <p>If you're signed in and play Speedrun mode, your best time goes on the leaderboard with your nickname, so other players can see the fastest runs. The ghost of your best run (where you went) stays on your device.</p>
             <p>The same goes for the Obstacle Course: signed in, your best time on it goes on the leaderboard with your nickname. And once you've fought a duel in the Duel Arena, your duel rating and number of wins go on it too.</p>
 
@@ -3843,6 +3843,8 @@
               <h3 id="team-combos-title" class="team-section-title"></h3>
               <div id="team-combos"></div>
               <div id="team-snacks"></div>
+              <!-- Held items (TeamUI.renderItems, Batch D 2026-11-23). -->
+              <div id="team-items"></div>
               <!-- Nicknames (TeamUI.renderRename, 2026-11-23). -->
               <div id="team-rename"></div>
               <button type="button" id="team-battle-btn" class="team-battle-btn">Battle!</button>

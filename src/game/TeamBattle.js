@@ -25,7 +25,7 @@
 // underneath. Opened from Inventory's Pets tab (TeamUI.js).
 import * as THREE from 'three'
 import { PlayAnimals } from './PlayAnimals.js'
-import { stats, creatureName, kindNote, creatureIconURL, tierColor, powerOf, powerName, powerInfo, hasTrigger, triggerOf, triggerName, triggerInfo, beats, TYPE_MULT, levelOf, giveTeamXP, rarityName, combosOf, comboName, comboInfo, SNACKS, snackName, snackInfo, eatSnacks, snackImg, SHINY_HUE, SHINY_FILTER } from './Creatures.js'
+import { stats, creatureName, kindNote, creatureIconURL, tierColor, powerOf, powerName, powerInfo, hasTrigger, triggerOf, triggerName, triggerInfo, beats, TYPE_MULT, levelOf, giveTeamXP, rarityName, combosOf, comboName, comboInfo, SNACKS, snackName, snackInfo, eatSnacks, snackImg, ITEMS, itemName, itemInfo, itemImg, SHINY_HUE, SHINY_FILTER } from './Creatures.js'
 import { MONSTER_KINDS } from './ZombieKinds.js'
 import { SKELETON_KINDS } from './SkeletonModels.js'
 import { audioEngine } from './Audio.js'
@@ -57,6 +57,7 @@ const STOMP_REACH = 2.5 // ...also hits everyone this close to the target...
 const STOMP_MULT = 0.5 // ...this hard
 const ROAR_MULT = 0.85 // Roar: the other team's attack at the start
 const HIDE_CUT = 0.2 // Thick Hide: takes this much less
+const CHARM_EVERY = 4 // Healing Charm: seconds between heals
 const HEAL_EVERY = 5 // Heal Friends: seconds between heals...
 const HEAL_SHARE = 0.12 // ...each this share of the friend's health
 // Trigger powers (Creatures.triggerOf, from level 5).
@@ -399,6 +400,7 @@ export class TeamBattle {
     }
     this._applyCombos()
     this._applySnacks()
+    this._applyItems()
     this._renderCards()
 
     this._resize = () => {
@@ -481,6 +483,25 @@ export class TeamBattle {
     if (ids.length) eatSnacks(ids)
   }
 
+  // Held items (Creatures.ITEMS, Batch D): both teams' - other players'
+  // ghost teams keep theirs. The ones that change numbers do it now.
+  _applyItems() {
+    for (const f of this.fighters) {
+      const id = f.c.hi
+      if (!id || !ITEMS[id]) continue
+      f.item = id
+      const v = ITEMS[id].n / 100
+      if (id === 'fang') f.atkMul *= 1 + v
+      else if (id === 'feather') f.s = { ...f.s, speed: f.s.speed * (1 + v) }
+      else if (id === 'helmet') f.skin *= 1 - v
+      f.label.querySelector('.tb-label-name').insertAdjacentHTML('beforeend', ` ${itemImg(id, 'tb-label-item')}`)
+    }
+  }
+
+  _itemText(f) {
+    this._float(f, `${itemName(f.item)}!`, 'power')
+  }
+
   // A snack that only works once (Bandage, Shield Cookie) is gone.
   _snackUsed(f) {
     this._float(f, `${snackName(f.snack)}!`, 'power snack')
@@ -510,6 +531,8 @@ export class TeamBattle {
       trig: opts.noPowers ? null : hasTrigger(c) ? triggerOf(c) : null, guard: 1, revenge: 0, winded: false, mini: !!opts.mini,
       // Combos and snacks (2026-11-11): damage taken x skin, a dodge chance.
       skin: 1, dodge: 0, snack: null, shield: false, sparkle: Math.random(),
+      // Held item (Batch D): which, and whether a once-a-battle one went off.
+      item: null, itemUsed: false, charmCd: CHARM_EVERY,
       reach: power === 'bones' && !opts.noPowers ? BONE_REACH : s.reach,
       // The 3D model, ring and height are made by _build3d() when first needed.
       group: null, height: 2,
@@ -702,7 +725,8 @@ export class TeamBattle {
       m *= 2
       this._powerText(from)
     }
-    const crit = Math.random() < CRIT_CHANCE
+    // Sharp Claws: big hits more often.
+    const crit = Math.random() < CRIT_CHANCE + (from.item === 'claws' ? ITEMS.claws.n / 100 : 0)
     let dmg = from.s.atk * (0.85 + Math.random() * 0.3) * (crit ? CRIT_MULT : 1) * m
     // Thick Hide takes less.
     if (to.power === 'hide') dmg *= 1 - HIDE_CUT
@@ -714,6 +738,12 @@ export class TeamBattle {
     const strong = beats(from.c, to.c)
     if (strong) dmg *= TYPE_MULT
     dmg = Math.max(1, Math.round(dmg))
+    // Lucky Bone: once a battle, the hit that would knock it out misses.
+    if (to.item === 'bone' && !to.itemUsed && dmg >= to.hp) {
+      to.itemUsed = true
+      this._itemText(to)
+      return
+    }
     to.hp = Math.max(0, to.hp - dmg)
     const dx = to.x - from.x
     const dz = to.z - from.z
@@ -740,6 +770,7 @@ export class TeamBattle {
       this._number(to, `+${add}`, 'heal')
     }
     if (to.hp <= 0) this._down(to)
+    this._itemsAfterHit(from, to, dmg)
     // Stomp: every few hits shakes everyone near the one it hit.
     if (from.power === 'stomp' && mult === 1 && from.hits % STOMP_EVERY === 0) {
       this._powerText(from)
@@ -748,11 +779,45 @@ export class TeamBattle {
     this._renderCards()
   }
 
+  // Held items that go off once a hit lands (from hit to for dmg).
+  _itemsAfterHit(from, to, dmg) {
+    // Vampire Tooth: heals some of what it did.
+    if (from.item === 'tooth' && from.alive && from.hp < from.s.hp) {
+      const add = Math.max(1, Math.round(dmg * ITEMS.tooth.n / 100))
+      from.hp = Math.min(from.s.hp, from.hp + add)
+      this._number(from, `+${add}`, 'heal')
+    }
+    // Stun Horn: its first hit stuns.
+    if (from.item === 'horn' && !from.itemUsed && to.alive) {
+      from.itemUsed = true
+      to.stun = ITEMS.horn.n
+      to.cd += ITEMS.horn.n
+      this._itemText(from)
+    }
+    // Spiked Collar: whoever hit it gets some back (never knocks out by
+    // itself twice in a row: no hitting back a hit-back).
+    if (to.item === 'collar' && from.alive && from !== to) {
+      const back = Math.max(1, Math.round(dmg * ITEMS.collar.n / 100))
+      from.hp = Math.max(0, from.hp - back)
+      this._number(from, back, '')
+      if (from.hp <= 0) this._down(from)
+    }
+  }
+
   _down(f) {
     // Bandage: gets back up once.
     if (f.snack === 'bandage' && !this.over) {
       f.hp = Math.max(1, Math.round(f.s.hp * SNACKS.bandage.n / 100))
       this._snackUsed(f)
+      this._number(f, `+${f.hp}`, 'heal')
+      this._renderCards()
+      return
+    }
+    // Spirit Totem: gets back up once too.
+    if (f.item === 'totem' && !f.itemUsed && !this.over) {
+      f.itemUsed = true
+      f.hp = Math.max(1, Math.round(f.s.hp * ITEMS.totem.n / 100))
+      this._itemText(f)
       this._number(f, `+${f.hp}`, 'heal')
       this._renderCards()
       return
@@ -902,6 +967,16 @@ export class TeamBattle {
       }
       let mx = 0
       let mz = 0
+      // Healing Charm: a little health every few seconds.
+      if (started && !this.over && f.item === 'charm' && (f.charmCd -= dt) <= 0) {
+        f.charmCd = CHARM_EVERY
+        if (f.hp < f.s.hp) {
+          const add = Math.max(1, Math.round(f.s.hp * ITEMS.charm.n / 100))
+          f.hp = Math.min(f.s.hp, f.hp + add)
+          this._number(f, `+${add}`, 'heal')
+          this._renderCards()
+        }
+      }
       if (started && !this.over && !(f.stun > 0)) {
         // Heal Friends: every few seconds patches up the most hurt friend.
         if (f.power === 'heal') {
@@ -1097,8 +1172,8 @@ export class TeamBattle {
       const el = this.root?.querySelector(side === 'mine' ? '.tb-mine' : '.tb-foe')
       if (!el) continue
       el.innerHTML = this.fighters.filter((f) => f.side === side).map((f) => `
-        <div class="tb-card${f.alive ? '' : ' down'}${f.mini ? ' mini' : ''}${f.c.s ? ' shiny' : ''}" style="border-color: ${tierColor(f.c.r)}" title="${esc(f.power ? `${powerName(f.c)}: ${powerInfo(f.c)}${f.trig ? ` · ${triggerName(f.trig)}: ${triggerInfo(f.trig)}` : ''}${f.snack ? ` · ${snackName(f.snack)}: ${snackInfo(f.snack)}` : ''}` : '')}">
-          <img src="${creatureIconURL(f.c)}" alt="" draggable="false" />${f.snack ? snackImg(f.snack, 'tb-card-snack') : ''}
+        <div class="tb-card${f.alive ? '' : ' down'}${f.mini ? ' mini' : ''}${f.c.s ? ' shiny' : ''}" style="border-color: ${tierColor(f.c.r)}" title="${esc(f.power ? `${powerName(f.c)}: ${powerInfo(f.c)}${f.trig ? ` · ${triggerName(f.trig)}: ${triggerInfo(f.trig)}` : ''}${f.snack ? ` · ${snackName(f.snack)}: ${snackInfo(f.snack)}` : ''}` : '')}${f.item ? esc(`${f.power ? ' · ' : ''}${itemName(f.item)}: ${itemInfo(f.item)}`) : ''}">
+          <img src="${creatureIconURL(f.c)}" alt="" draggable="false" />${f.snack ? snackImg(f.snack, 'tb-card-snack') : ''}${f.item ? itemImg(f.item, 'tb-card-item') : ''}
           <span class="tb-card-bar"><span style="width: ${(f.hp / f.s.hp) * 100}%"></span></span>
         </div>`).join('')
     }
@@ -1117,7 +1192,10 @@ export class TeamBattle {
     this.over = true
     // XP for my team first, so onEnd's Team page shows the new levels.
     const xp = this.xp ? giveTeamXP(this.mine.map((c) => c.id).filter(Number.isInteger), won) : null
-    const reward = this.onEnd?.(won) || 0
+    // onEnd: the coins, or { coins, item } when a held item was found.
+    const out = this.onEnd?.(won)
+    const reward = (out && typeof out === 'object' ? out.coins : out) || 0
+    const found = out && typeof out === 'object' && ITEMS[out.item] ? out.item : null
     const box = this.root.querySelector('.tb-result')
     box.querySelector('.tb-result-title').textContent = t(won ? 'teamBattleWon' : 'teamBattleLost')
     box.querySelector('.tb-result-text').textContent = t('teamBattleReward', { n: reward })
@@ -1128,6 +1206,7 @@ export class TeamBattle {
       if (e.kind === 'trigger') return t('teamTrigUnlocked', { name, power: triggerName(e.n) })
       return t('teamEvolved', { name, rarity: rarityName(e.n) })
     })].map((line, i) => `<li${i ? ' class="tb-news-big"' : ''}>${esc(line)}</li>`).join('')
+    if (found) news.insertAdjacentHTML('afterbegin', `<li class="tb-news-big tb-news-item">${itemImg(found, 'tb-news-icon')} ${esc(t('itemFound', { name: itemName(found) }))}</li>`)
     // againKey returning false: no again button (a Pack Leader beaten in a game).
     const again = this.againKey?.(won)
     box.querySelector('.tb-again').style.display = again === false ? 'none' : ''

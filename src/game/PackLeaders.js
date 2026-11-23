@@ -15,7 +15,7 @@
 // the leaders stand in the open world (PackLeaderWorld.js).
 //
 // Saved in localStorage (LEADERS_KEY), so Cloud Save carries it.
-import { loadCreatures, saveCreatures, creatureName, creatureIconURL, levelOf, power, TEAM_SIZE, MAX_LEVEL } from './Creatures.js'
+import { loadCreatures, saveCreatures, creatureName, creatureIconURL, levelOf, power, TEAM_SIZE, MAX_LEVEL, dropItem, ITEM_DROP } from './Creatures.js'
 import { TeamBattle } from './TeamBattle.js'
 import { BIOME_ANIMALS, PlayAnimals } from './PlayAnimals.js'
 import { DINO_BIOMES } from './DinoKinds.js'
@@ -202,7 +202,10 @@ export function startLeaderBattle(game, i, { world = false, say = null } = {}) {
       else data.losses++
       saveCreatures(data)
       let reward = LOSS_COINS
+      // Held items (Batch D): a chance of one for a win.
+      let item = null
       if (won) {
+        item = dropItem(ITEM_DROP.leader)
         const d = loadLeaders()
         if (!d.beaten.includes(LEADERS[i].biome)) d.beaten.push(LEADERS[i].biome)
         saveLeaders(d)
@@ -212,7 +215,7 @@ export function startLeaderBattle(game, i, { world = false, say = null } = {}) {
       saveShopProgress(game)
       game._renderCurrencyBar?.()
       game._renderTeamPanel?.()
-      return reward
+      return item ? { coins: reward, item } : reward
     },
     // Lost: try again. Won on the Pets tab: on to the next leader.
     againKey: (won) => (!won ? 'teamBattleAgain' : world || nextLeader() < 0 ? false : 'leaderNextBtn'),
