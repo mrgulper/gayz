@@ -1060,7 +1060,7 @@ test('the Wellbeing & Misc settings (ideas 73-80) work', async ({ page }) => {
   expect(await page.evaluate(() => location.hash)).toBe('')
 })
 
-test('recorded sounds: every file is there, plays, and the homepage music switches off', async ({ page }) => {
+test('recorded sounds: every file is there and the homepage has no music', async ({ page }) => {
   await gotoAndWaitForGame(page)
   // A real click: browsers only start sound after one.
   await page.mouse.click(20, 400)
@@ -1075,19 +1075,11 @@ test('recorded sounds: every file is there, plays, and the homepage music switch
         if (!res.ok) missing.push(`${name}-${i}`)
       }
     }
-    const music = await fetch('/audio/music/menu-calm.mp3', { method: 'HEAD' })
-    a.setMenuMusic(false)
-    const offPlaying = a.menuMusicPlaying
-    a.startMenuMusic()
-    const stillOff = !a.menuMusicPlaying
-    a.setMenuMusic(true)
-    return { missing, musicOk: music.ok, offPlaying, stillOff, setting: typeof window.__game.settings.menuMusic }
+    return { missing, noMusic: typeof a.startMenuMusic === 'undefined', setting: typeof window.__game.settings.menuMusic }
   })
   expect(r.missing).toEqual([])
-  expect(r.musicOk).toBe(true)
-  expect(r.offPlaying).toBe(false)
-  expect(r.stillOff).toBe(true)
-  expect(r.setting).toBe('boolean')
+  expect(r.noMusic).toBe(true)
+  expect(r.setting).toBe('undefined')
 })
 
 // 2026-11-22: a short freeze (lag spike, pause) used to look like a new game

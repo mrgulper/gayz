@@ -64,9 +64,6 @@ const EMOTE_SOUNDS = {
   hairflip: ['swing', 1.35, 0.5], heart: ['sp_chime', 1.1, 0.55], clap: ['em_clap', 1, 0.75],
   spin: ['swing', 0.7, 0.6], laugh: ['em_laugh', 1, 0.75], cry: ['em_cry', 1, 0.6],
 }
-// Calm homepage music: "Calm and simple title music" (CC0, opengameart.org).
-const MENU_MUSIC_URL = '/audio/music/menu-calm.mp3'
-
 // Weather ambience (batch 2026-08-20, at the user's request - the rain/snow
 // bandpassed-noise bed in startAmbient was too quiet/thin to actually read
 // as rain or snow, and snow had no dedicated layer of its own at all).
@@ -140,7 +137,6 @@ class AudioEngine {
     this.ambientStarted = false
     this._sfx = {} // name -> decoded takes
     this._sfxLoading = {}
-    this.menuMusicOn = true
     this._rainBuffer = null
     this._snowBuffer = null
     this.sfxVolume = 1
@@ -1728,59 +1724,6 @@ class AudioEngine {
     }
     const name = { open: 'ui_open', close: 'ui_close', tab: 'ui_tab', error: 'ui_error', confirm: 'ui_confirm' }[kind]
     if (name && !this._playSfx(name, { out, gain: kind === 'tab' ? 0.5 : 0.6, jitter: 0.03 })) this.playUiClick()
-  }
-
-  // Calm homepage music (Settings > Audio > Homepage Music turns it off;
-  // the Music slider sets how loud). Fades in on the homepage and out when
-  // a game starts. Loaded the first time it's needed, then kept.
-  startMenuMusic() {
-    this._menuWanted = true
-    if (!this.ctx || !this.menuMusicOn || this.dataSaver || this._menuSrc) return
-    if (!this._menuBuffer) {
-      if (this._menuLoading) return
-      this._menuLoading = true
-      fetch(MENU_MUSIC_URL)
-        .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error('no file'))))
-        .then((data) => this.ctx.decodeAudioData(data))
-        .then((buffer) => { this._menuBuffer = buffer; if (this._menuWanted) this.startMenuMusic() })
-        .catch(() => {})
-        .finally(() => { this._menuLoading = false })
-      return
-    }
-    const ctx = this.ctx
-    const src = ctx.createBufferSource()
-    src.buffer = this._menuBuffer
-    src.loop = true
-    const g = ctx.createGain()
-    g.gain.setValueAtTime(0.0001, ctx.currentTime)
-    g.gain.linearRampToValueAtTime(0.45, ctx.currentTime + 2.5)
-    src.connect(g).connect(this.musicGain || this.sfxGain)
-    src.start()
-    this._menuSrc = src
-    this._menuGain = g
-  }
-
-  stopMenuMusic(fade = 1.2) {
-    this._menuWanted = false
-    const src = this._menuSrc
-    if (!src || !this.ctx) return
-    this._menuSrc = null
-    const now = this.ctx.currentTime
-    this._menuGain.gain.cancelScheduledValues(now)
-    this._menuGain.gain.setValueAtTime(this._menuGain.gain.value, now)
-    this._menuGain.gain.linearRampToValueAtTime(0.0001, now + fade)
-    try { src.stop(now + fade + 0.05) } catch { /* already stopped */ }
-  }
-
-  get menuMusicPlaying() { return !!this._menuSrc }
-
-  setMenuMusic(on) {
-    this.menuMusicOn = !!on
-    if (!on) {
-      const wanted = this._menuWanted
-      this.stopMenuMusic(0.4)
-      this._menuWanted = wanted
-    } else if (this._menuWanted) this.startMenuMusic()
   }
 
   // Two quick high notes when someone else's chat message arrives.

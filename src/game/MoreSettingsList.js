@@ -12,7 +12,6 @@
 export const MORE_SETTINGS = [
   // --- Audio (ideas 1-10) ---
   { key: 'musicVolume', type: 'range', def: 100, min: 0, max: 100, unit: '%', page: 'audio', before: 'settings-section-sound-options' },
-  { key: 'menuMusic', type: 'toggle', def: true, page: 'audio', before: 'settings-section-sound-options' },
   { key: 'uiVolume', type: 'range', def: 50, min: 0, max: 100, unit: '%', page: 'audio', before: 'settings-section-sound-options' },
   { key: 'footstepVolume', type: 'range', def: 100, min: 0, max: 100, unit: '%', page: 'audio', before: 'settings-section-sound-options' },
   { key: 'weaponVolume', type: 'range', def: 100, min: 0, max: 100, unit: '%', page: 'audio', before: 'settings-section-sound-options' },
