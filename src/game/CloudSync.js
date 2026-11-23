@@ -534,6 +534,37 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
+    // Friend pet battles (FriendBattle.js, Batch G 2026-11-23): a live
+    // battle invite. Only the two friends read it. The challenger makes it
+    // ('ask', their team in a, b empty, seed 0); the friend says yes ('go',
+    // their team in b and the dice seed) or no ('no'), once. Either one
+    // deletes it (the challenger when it's done or given up, the friend
+    // when it's old). The fight itself runs on both screens from a and b.
+    match /petDuels/{duelId} {
+      allow read: if request.auth != null && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['from', 'fromName', 'to', 'state', 'at', 'a', 'b', 'seed'])
+        && request.resource.data.keys().hasAll(['from', 'fromName', 'to', 'state', 'at', 'a', 'b', 'seed'])
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.to is string && request.resource.data.to.size() > 0 && request.resource.data.to.size() <= 128
+        && request.resource.data.to != request.auth.uid
+        && request.resource.data.fromName is string && request.resource.data.fromName.size() > 0 && request.resource.data.fromName.size() <= 24
+        && request.resource.data.state == 'ask'
+        && request.resource.data.at is int
+        && request.resource.data.a is list && request.resource.data.a.size() > 0 && request.resource.data.a.size() <= 10
+        && request.resource.data.b is list && request.resource.data.b.size() == 0
+        && request.resource.data.seed == 0;
+      allow update: if request.auth != null
+        && resource.data.state == 'ask' && request.auth.uid == resource.data.to
+        && ((request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'b', 'seed'])
+              && request.resource.data.state == 'go'
+              && request.resource.data.b is list && request.resource.data.b.size() > 0 && request.resource.data.b.size() <= 10
+              && request.resource.data.seed is int && request.resource.data.seed > 0)
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state'])
+              && request.resource.data.state == 'no'));
+      allow delete: if request.auth != null && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+    }
+
     // Gauntlet teams (2026-11-11, Gauntlet.js): your Gauntlet team at each
     // battle of a run (one doc per battle number, {uid}_{round}), for other
     // players to meet at the same battle. Anyone reads them; only you write
@@ -1841,6 +1872,63 @@ export async function fetchGhostTeams(myUid, n = 30) {
   const q = fsMod.query(fsMod.collection(db, 'ghostTeams'), fsMod.orderBy('updatedAt', 'desc'), fsMod.limit(n))
   const snap = await fsMod.getDocs(q)
   return snap.docs.filter((d) => d.id !== myUid).map((d) => ({ ...d.data(), uid: d.id }))
+}
+
+// Friend pet battles (FriendBattle.js, see the petDuels rules above).
+// A new invite from me to a friend; returns its id.
+export async function createPetDuel(from, fromName, to, team) {
+  const { db, fsMod } = await ensureApp()
+  const ref = fsMod.doc(fsMod.collection(db, 'petDuels'))
+  await fsMod.setDoc(ref, { from, fromName, to, state: 'ask', at: Date.now(), a: team, b: [], seed: 0 })
+  return ref.id
+}
+
+// The friend's answer: yes (with their team and the dice seed) or no.
+// Returns the invite as it was, or null if it was gone or already answered.
+export async function answerPetDuel(id, yes, team = [], seed = 0) {
+  const { db, fsMod } = await ensureApp()
+  const ref = fsMod.doc(db, 'petDuels', id)
+  return fsMod.runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    const d = snap.exists() ? snap.data() : null
+    if (!d || d.state !== 'ask') return null
+    tx.update(ref, yes ? { state: 'go', b: team, seed } : { state: 'no' })
+    return { ...d, id }
+  })
+}
+
+export async function deletePetDuel(id) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'petDuels', id))
+}
+
+// callback(invite | null) whenever my invite changes (null = deleted).
+export function watchPetDuel(id, callback) {
+  let unsub = () => {}
+  let cancelled = false
+  ensureApp().then(({ db, fsMod }) => {
+    if (cancelled) return
+    unsub = fsMod.onSnapshot(fsMod.doc(db, 'petDuels', id), (snap) => callback(snap.exists() ? { ...snap.data(), id } : null), () => {})
+  })
+  return () => {
+    cancelled = true
+    unsub()
+  }
+}
+
+// callback(invites) - the ones waiting for my answer, on every change.
+export function subscribePetDuelInvites(uid, callback) {
+  let unsub = () => {}
+  let cancelled = false
+  ensureApp().then(({ db, fsMod }) => {
+    if (cancelled) return
+    const q = fsMod.query(fsMod.collection(db, 'petDuels'), fsMod.where('to', '==', uid), fsMod.where('state', '==', 'ask'), fsMod.limit(20))
+    unsub = fsMod.onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ ...d.data(), id: d.id }))), () => {})
+  })
+  return () => {
+    cancelled = true
+    unsub()
+  }
 }
 
 // Gauntlet teams (2026-11-11, see the gauntletTeams rules above).

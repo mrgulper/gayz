@@ -32,6 +32,14 @@ import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
 
 export const ROUND_S = 120
+// Friend battles (FriendBattle.js, Batch G): both screens run the very same
+// fight - the same dice (a shared seed) and fixed steps this long - so only
+// the two teams and the seed travel between them.
+export const LIVE_STEP = 1 / 60
+const LIVE_MAX_STEPS = 240 // per frame, catching up after a hidden tab
+// Distance with a plain square root (exact in every browser, unlike
+// Math.hypot), so both friends' screens move everyone the same.
+const dist = (x, z) => Math.sqrt(x * x + z * z)
 const ARENA = 11 // half the arena's width, in blocks
 const START_Z = 6
 const SPREAD = 3
@@ -494,10 +502,19 @@ export class TeamBattle {
   // againKey(won): the again button's text (the tournament's own).
   // xp: my team earns XP (Creatures.giveTeamXP) when it ends.
   // hazard: an arena hazard id, null for none, or left out to roll one.
-  constructor({ mine, theirs, foe, ghost, onEnd, onAgain, againKey, view = '3d', onView, xp = true, hazard }) {
+  // live: a friend battle - { seed, me: 'mine' | 'foe', ids }. `mine` is
+  // always the challenger's team, so both screens run the same fight; me
+  // says which side this screen's player is (the view turns round for the
+  // friend who accepted), ids = this player's own creature ids (XP, snacks).
+  constructor({ mine, theirs, foe, ghost, onEnd, onAgain, againKey, view = '3d', onView, xp = true, hazard, live }) {
     this.xp = xp
-    this.hazard = hazard === undefined ? rollHazard() : HAZARDS[hazard] ? hazard : null
-    this.hazardCells = this.hazard ? hazardCells(this.hazard) : new Set()
+    this.live = live && Number.isInteger(live.seed) ? live : null
+    this.me = this.live?.me === 'foe' ? 'foe' : 'mine'
+    this._flip = this.me === 'foe'
+    // Other battles roll Math.random at the moment (the tests swap it in).
+    this.rand = this.live ? seeded(this.live.seed) : () => Math.random()
+    this.hazard = hazard === undefined ? rollHazard(this.rand) : HAZARDS[hazard] ? hazard : null
+    this.hazardCells = this.hazard ? hazardCells(this.hazard, this.rand) : new Set()
     this.mine = mine
     this.theirs = theirs
     this.foe = foe
@@ -582,6 +599,8 @@ export class TeamBattle {
       this._ratio = ratio
     }
     this._bindInput()
+    // A friend battle runs at one speed on both screens.
+    if (this.live) this.root.querySelector('.tb-speed').style.display = 'none'
     this._setView(this.view, false)
     this._resize()
     window.addEventListener('resize', this._resize)
@@ -593,8 +612,15 @@ export class TeamBattle {
       this._raf = requestAnimationFrame(loop)
       const now = performance.now()
       const dt = Math.min(0.05, (now - this._last) / 1000)
+      if (this.live) {
+        this._acc = (this._acc || 0) + Math.min(60, (now - this._last) / 1000)
+        let n = 0
+        while (this._acc >= LIVE_STEP && n++ < LIVE_MAX_STEPS) {
+          this._acc -= LIVE_STEP
+          this._step(LIVE_STEP)
+        }
+      } else for (let i = 0; i < this.speed; i++) this._step(dt)
       this._last = now
-      for (let i = 0; i < this.speed; i++) this._step(dt)
       this._draw()
       this._placeLabels()
     }
@@ -622,27 +648,37 @@ export class TeamBattle {
           if (k.id === 'flyer') f.dodge = Math.max(f.dodge, v)
         }
       }
-      const el = this.root.querySelector(`.tb-combos-${side}`)
+      const el = this.root.querySelector(`.tb-combos-${this._seen(side)}`)
       if (el) {
         el.innerHTML = on.map((k) => `<span class="tb-combo" title="${esc(comboInfo(k.id, k.n))}">${esc(comboName(k.id))} ${'★'.repeat(k.step)}</span>`).join('')
       }
     }
   }
 
-  // My snacks (Creatures.SNACKS), eaten now whatever happens next.
+  // My snacks (Creatures.SNACKS), eaten now whatever happens next. A
+  // friend battle has both friends' snacks.
   _applySnacks() {
     const ids = []
+    let ate = false
     for (const f of this.fighters) {
-      if (f.side !== 'mine' || !f.c.sn || !SNACKS[f.c.sn]) continue
+      if ((!this.live && f.side !== 'mine') || !f.c.sn || !SNACKS[f.c.sn]) continue
       f.snack = f.c.sn
-      if (Number.isInteger(f.c.id)) ids.push(f.c.id)
+      if (f.side === this.me) ate = true
+      if (!this.live && Number.isInteger(f.c.id)) ids.push(f.c.id)
       const v = SNACKS[f.snack].n / 100
       if (f.snack === 'steak') f.atkMul *= 1 + v
       else if (f.snack === 'candy') f.s = { ...f.s, speed: f.s.speed * (1 + v) }
       else if (f.snack === 'cookie') f.shield = true
       f.label.querySelector('.tb-label-name').insertAdjacentHTML('beforeend', ` ${snackImg(f.snack, 'tb-label-snack')}`)
     }
-    if (ids.length) eatSnacks(ids)
+    if (this.live && ate) eatSnacks(this.live.ids || [])
+    else if (ids.length) eatSnacks(ids)
+  }
+
+  // Which side of the screen an arena side is on: mine is always this
+  // player's (in a friend battle the friend who accepted is 'foe' inside).
+  _seen(side) {
+    return side === this.me ? 'mine' : 'foe'
   }
 
   // Held items (Creatures.ITEMS, Batch D): both teams' - other players'
@@ -680,7 +716,7 @@ export class TeamBattle {
     const z = side === 'mine' ? back : -back
     const heading = side === 'mine' ? Math.PI : 0
     const label = document.createElement('div')
-    label.className = `tb-label ${side}`
+    label.className = `tb-label ${this._seen(side)}`
     const lv = levelOf(c)
     label.innerHTML = `<span class="tb-label-name" style="color: ${tierColor(c.r)}">${c.s ? '<span class="tb-label-shiny">✦</span> ' : ''}<span class="tb-label-nick">${esc(creatureName(c))}</span>${lv > 1 ? ` <small>${esc(t('teamLevel', { n: lv }))}</small>` : ''}${kindNote(c) ? `<small class="tb-label-kind">${esc(kindNote(c))}</small>` : ''}</span><span class="tb-label-bar"><span></span></span>`
     this.root.querySelector('.tb-labels').appendChild(label)
@@ -688,11 +724,11 @@ export class TeamBattle {
     const icon = new Image()
     icon.src = creatureIconURL(c)
     return {
-      c, s, side, x, z, heading, vx: 0, vz: 0, hp: s.hp, cd: 0.5 + Math.random() * 0.4, walk: 0, hop: 0, fall: 0, flash: 0,
+      c, s, side, x, z, heading, vx: 0, vz: 0, hp: s.hp, cd: 0.5 + this.rand() * 0.4, walk: 0, hop: 0, fall: 0, flash: 0,
       alive: true, label, icon, power, atkMul: 1, hits: 0, raged: false, pounced: false, healCd: HEAL_EVERY,
       trig: opts.noPowers ? null : hasTrigger(c) ? triggerOf(c) : null, guard: 1, revenge: 0, winded: false, mini: !!opts.mini,
       // Combos and snacks (2026-11-11): damage taken x skin, a dodge chance.
-      skin: 1, dodge: 0, snack: null, shield: false, sparkle: Math.random(),
+      skin: 1, dodge: 0, snack: null, shield: false, sparkle: this.rand(),
       // Held item (Batch D): which, and whether a once-a-battle one went off.
       item: null, itemUsed: false, charmCd: CHARM_EVERY,
       // Arena hazards (Batch E): burn / heal timers, a bounce's air time.
@@ -763,7 +799,7 @@ export class TeamBattle {
     f.group.rotation.y = f.heading
     this.scene.add(f.group)
     // A ring on the ground in the team's colour.
-    f.ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.7, 24), new THREE.MeshBasicMaterial({ color: f.side === 'mine' ? MINE : FOE, side: THREE.DoubleSide }))
+    f.ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.7, 24), new THREE.MeshBasicMaterial({ color: f.side === this.me ? MINE : FOE, side: THREE.DoubleSide }))
     f.ring.rotation.x = -Math.PI / 2
     f.ring.position.set(f.x, 0.02, f.z)
     f.ring.visible = f.alive
@@ -846,7 +882,7 @@ export class TeamBattle {
     let best = null
     let bestD = Infinity
     for (const o of list) {
-      const d = Math.hypot(o.x - f.x, o.z - f.z)
+      const d = dist(o.x - f.x, o.z - f.z)
       if (d < bestD) {
         bestD = d
         best = o
@@ -857,10 +893,10 @@ export class TeamBattle {
 
   // A swing (or, for Bone Throw, a bone that lands a moment later).
   _attack(f, to) {
-    f.cd = f.s.rate * (0.9 + Math.random() * 0.25)
+    f.cd = f.s.rate * (0.9 + this.rand() * 0.25)
     f.hop = 0.18
     if (f.power === 'bones') {
-      const d = Math.hypot(to.x - f.x, to.z - f.z)
+      const d = dist(to.x - f.x, to.z - f.z)
       const shot = { from: f, to, x: f.x, z: f.z, sx: f.x, sz: f.z, t: 0, dur: Math.max(0.15, d / BONE_SPEED), mesh: null }
       this.shots.push(shot)
       return
@@ -879,7 +915,7 @@ export class TeamBattle {
       return
     }
     // Flock combo: a chance to dodge.
-    if (to.dodge && Math.random() < to.dodge) {
+    if (to.dodge && this.rand() < to.dodge) {
       this._float(to, t('teamDodge'), 'power')
       return
     }
@@ -891,8 +927,8 @@ export class TeamBattle {
       this._powerText(from)
     }
     // Sharp Claws: big hits more often.
-    const crit = Math.random() < CRIT_CHANCE + (from.item === 'claws' ? ITEMS.claws.n / 100 : 0)
-    let dmg = from.s.atk * (0.85 + Math.random() * 0.3) * (crit ? CRIT_MULT : 1) * m
+    const crit = this.rand() < CRIT_CHANCE + (from.item === 'claws' ? ITEMS.claws.n / 100 : 0)
+    let dmg = from.s.atk * (0.85 + this.rand() * 0.3) * (crit ? CRIT_MULT : 1) * m
     // Thick Hide takes less.
     if (to.power === 'hide') dmg *= 1 - HIDE_CUT
     // Guard (a Thick Hide friend's trigger) takes less too.
@@ -912,7 +948,7 @@ export class TeamBattle {
     to.hp = Math.max(0, to.hp - dmg)
     const dx = to.x - from.x
     const dz = to.z - from.z
-    const len = Math.hypot(dx, dz) || 1
+    const len = dist(dx, dz) || 1
     to.vx += (dx / len) * KNOCK * 6
     to.vz += (dz / len) * KNOCK * 6
     to.hop = 0.15
@@ -939,7 +975,7 @@ export class TeamBattle {
     // Stomp: every few hits shakes everyone near the one it hit.
     if (from.power === 'stomp' && mult === 1 && from.hits % STOMP_EVERY === 0) {
       this._powerText(from)
-      for (const o of this._enemiesOf(from)) if (o !== to && Math.hypot(o.x - to.x, o.z - to.z) < STOMP_REACH) this._hit(from, o, STOMP_MULT)
+      for (const o of this._enemiesOf(from)) if (o !== to && dist(o.x - to.x, o.z - to.z) < STOMP_REACH) this._hit(from, o, STOMP_MULT)
     }
     this._renderCards()
   }
@@ -995,7 +1031,11 @@ export class TeamBattle {
     if (!this.over) this._onFaint(f)
     const mineLeft = this.fighters.some((o) => o.alive && o.side === 'mine')
     const foesLeft = this.fighters.some((o) => o.alive && o.side === 'foe')
-    if (!mineLeft || !foesLeft) setTimeout(() => this._finish(mineLeft), 700)
+    // The first side to run out decides it (the same on both friends' screens).
+    if (!mineLeft || !foesLeft) {
+      if (this._winner === undefined) this._winner = mineLeft
+      setTimeout(() => this._finish(this._winner), 700)
+    }
   }
 
   // Where (x, y, z) in the arena is on screen, in % of the screen.
@@ -1005,7 +1045,8 @@ export class TeamBattle {
       return { left: ((p.x + 1) / 2) * 100, top: ((1 - p.y) / 2) * 100 }
     }
     const b = this._board()
-    return { left: ((b.x + (x + ARENA) * b.cell) / this.w) * 100, top: ((b.y + (z + ARENA) * b.cell - y * b.cell * 0.5) / this.h) * 100 }
+    const fl = this._flip ? -1 : 1
+    return { left: ((b.x + (x * fl + ARENA) * b.cell) / this.w) * 100, top: ((b.y + (z * fl + ARENA) * b.cell - y * b.cell * 0.5) / this.h) * 100 }
   }
 
   _float(f, text, cls) {
@@ -1198,7 +1239,7 @@ export class TeamBattle {
         const b = alive[j]
         const dx = b.x - a.x
         const dz = b.z - a.z
-        const d = Math.hypot(dx, dz)
+        const d = dist(dx, dz)
         if (d > 0 && d < GAP) {
           const push = (GAP - d) / 2
           a.x -= (dx / d) * push
@@ -1261,7 +1302,7 @@ export class TeamBattle {
       const n = this._nearest(f, this._enemiesOf(f))
       const dx = (n ? n.o.x : 0) - f.x
       const dz = (n ? n.o.z : 0) - f.z
-      const len = Math.hypot(dx, dz) || 1
+      const len = dist(dx, dz) || 1
       f.vx = (dx / len) * BOUNCE_PUSH
       f.vz = (dz / len) * BOUNCE_PUSH
       f.air = BOUNCE_AIR
@@ -1323,7 +1364,9 @@ export class TeamBattle {
     const key = `${this.w}x${this.h}x${r}`
     if (this._bg?.key !== key) this._bg = { key, cv: board2d(this.w, this.h, r, b, this.hazard, this.hazardCells) }
     g.drawImage(this._bg.cv, 0, 0, this.w, this.h)
-    const px = (x) => b.x + (x + ARENA) * b.cell
+    // A friend who accepted sees the arena turned round (their team below).
+    const fl = this._flip ? -1 : 1
+    const px = (x) => b.x + (x * fl + ARENA) * b.cell
     // Fallen ones first, so the standing ones are drawn on top.
     const order = [...this.fighters].sort((a, c) => (a.alive - c.alive) || a.z - c.z)
     for (const f of order) {
@@ -1339,14 +1382,14 @@ export class TeamBattle {
         g.translate(-cx, -cy)
       } else {
         // The team's ring under it.
-        g.strokeStyle = f.side === 'mine' ? '#4aa3ff' : '#ff4d4d'
+        g.strokeStyle = f.side === this.me ? '#4aa3ff' : '#ff4d4d'
         g.lineWidth = Math.max(2, b.cell * 0.14)
         g.beginPath()
         g.arc(cx, cy, sz * 0.55, 0, Math.PI * 2)
         g.stroke()
       }
       // Facing: the picture flips to look toward its target.
-      const flip = Math.sin(f.heading) < -0.1 ? -1 : 1
+      const flip = Math.sin(f.heading) * fl < -0.1 ? -1 : 1
       g.translate(cx, cy)
       g.scale(flip, 1)
       if (f.c.s) g.filter = SHINY_FILTER
@@ -1375,7 +1418,8 @@ export class TeamBattle {
     if (alive.length) at.multiplyScalar(0.4 / alive.length)
     // Narrow (phone) screens step back so the arena still fits across.
     const far = Math.min(2.2, Math.max(1, 1.2 / (this.camera.aspect || 1)))
-    const want = new THREE.Vector3(at.x, CAM.up * far, at.z + CAM.back * far)
+    // The friend who accepted watches from the other end.
+    const want = new THREE.Vector3(at.x, CAM.up * far, at.z + (this._flip ? -1 : 1) * CAM.back * far)
     this.camera.position.lerp(want, Math.min(1, dt * 3))
     this.camera.lookAt(at.x, 0, at.z)
   }
@@ -1392,7 +1436,7 @@ export class TeamBattle {
 
   _renderCards() {
     for (const side of ['mine', 'foe']) {
-      const el = this.root?.querySelector(side === 'mine' ? '.tb-mine' : '.tb-foe')
+      const el = this.root?.querySelector(this._seen(side) === 'mine' ? '.tb-mine' : '.tb-foe')
       if (!el) continue
       el.innerHTML = this.fighters.filter((f) => f.side === side).map((f) => `
         <div class="tb-card${f.alive ? '' : ' down'}${f.mini ? ' mini' : ''}${f.c.s ? ' shiny' : ''}" style="border-color: ${tierColor(f.c.r)}" title="${esc(f.power ? `${powerName(f.c)}: ${powerInfo(f.c)}${f.trig ? ` · ${triggerName(f.trig)}: ${triggerInfo(f.trig)}` : ''}${f.snack ? ` · ${snackName(f.snack)}: ${snackInfo(f.snack)}` : ''}` : '')}${f.item ? esc(`${f.power ? ' · ' : ''}${itemName(f.item)}: ${itemInfo(f.item)}`) : ''}">
@@ -1410,18 +1454,22 @@ export class TeamBattle {
     this._finish(share('mine') >= share('foe'))
   }
 
-  _finish(won) {
+  // mineWon: the arena's 'mine' side won (in a friend battle that's the
+  // challenger) - turned into this screen's player's win.
+  _finish(mineWon) {
     if (this.over || !this.root) return
     this.over = true
+    const won = this.me === 'mine' ? mineWon : !mineWon
     // XP for my team first, so onEnd's Team page shows the new levels.
-    const xp = this.xp ? giveTeamXP(this.mine.map((c) => c.id).filter(Number.isInteger), won) : null
+    const ids = this.live ? this.live.ids || [] : this.mine.map((c) => c.id)
+    const xp = this.xp ? giveTeamXP(ids.filter(Number.isInteger), won) : null
     // onEnd: the coins, or { coins, item } when a held item was found.
     const out = this.onEnd?.(won)
     const reward = (out && typeof out === 'object' ? out.coins : out) || 0
     const found = out && typeof out === 'object' && ITEMS[out.item] ? out.item : null
     const box = this.root.querySelector('.tb-result')
     box.querySelector('.tb-result-title').textContent = t(won ? 'teamBattleWon' : 'teamBattleLost')
-    box.querySelector('.tb-result-text').textContent = t('teamBattleReward', { n: reward })
+    box.querySelector('.tb-result-text').textContent = this.live ? t('petDuelNoCoins') : t('teamBattleReward', { n: reward })
     const news = box.querySelector('.tb-result-news')
     news.innerHTML = !xp ? '' : [t('teamXpGained', { n: xp.gain }), ...xp.news.map((e) => {
       const name = creatureName(e.c)

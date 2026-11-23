@@ -1224,3 +1224,191 @@ test('pet eggs: chest finds, walking warms the first 3, hatching, Eggs section',
   expect(s.list[s.list.length - 1].r).toBe('rare')
   expect(s.eggs.map((e) => e.r)).toEqual(['epic', 'mythic', 'common'])
 })
+
+test('friend battles: same fight on both screens, challenge, invite, yes / no, record, online list', async ({ page }) => {
+  test.setTimeout(120000)
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    const g = window.__game
+    Object.defineProperty(navigator, 'onLine', { get: () => false, configurable: true })
+    Object.defineProperty(g, '_cloudUid', { get: () => 'uB', set: () => {}, configurable: true })
+    g.settings.savedFriends = [{ name: 'Alex', uid: 'uA' }, { name: 'Sam', uid: 'uS' }]
+    localStorage.setItem('gayz-creatures', JSON.stringify({
+      list: [
+        { id: 1, t: 'a', k: 'cow', r: 'common', at: 1, sn: 'steak' },
+        { id: 2, t: 'z', k: null, r: 'epic', n: 3, b: false, at: 2, hi: 'claws' },
+        { id: 3, t: 'z', k: 'brute', r: 'common', n: 7, b: true, at: 3 },
+      ],
+      team: [1, 2, 3], wins: 4, losses: 2, nextId: 4,
+    }))
+    // A pretend Firestore: invites in memory, listeners called by hand.
+    const docs = {}
+    const watchers = {}
+    const fb = {
+      docs, calls: [], inviteCb: null,
+      createPetDuel: async (from, fromName, to, a) => { const id = `d${Object.keys(docs).length + 1}`; docs[id] = { from, fromName, to, state: 'ask', at: Date.now(), a, b: [], seed: 0 }; return id },
+      answerPetDuel: async (id, yes, b = [], seed = 0) => { fb.calls.push({ id, yes, b, seed }); const d = docs[id]; if (!d || d.state !== 'ask') return null; const was = { ...d, id }; Object.assign(d, yes ? { state: 'go', b, seed } : { state: 'no' }); return was },
+      deletePetDuel: async (id) => { delete docs[id]; fb.calls.push({ del: id }) },
+      watchPetDuel: (id, cb) => { watchers[id] = cb; return () => { delete watchers[id] } },
+      subscribePetDuelInvites: (uid, cb) => { fb.inviteCb = cb; return () => { fb.inviteCb = null } },
+      fetchPresence: async (uid) => (uid === 'uA' ? { lastActiveAt: Date.now() } : null),
+      fire: (id) => watchers[id]?.(docs[id] ? { ...docs[id], id } : null),
+    }
+    g.__petDuelBackendForTests = fb
+    window.__fb = fb
+    window.__game._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-pets').click()
+  })
+
+  // 1. The same seed and teams give the same fight, seen from either side.
+  const same = await page.evaluate(async () => {
+    const g = window.__game
+    const FB = g._friendBattle
+    const TB = FB.TeamBattle
+    const C = g._creatures
+    const d = C.loadCreatures()
+    const team = d.team.map((id) => d.list.find((c) => c.id === id))
+    const packed = FB.packLive(team)
+    const foes = FB.packLive([{ t: 'a', k: 'wolf', r: 'rare' }, { t: 'z', k: null, r: 'rare', n: 2, b: false }, { t: 'a', k: 'eagle', r: 'common' }])
+    const run = async (me) => {
+      let won = 'none'
+      const B = new TB({ mine: FB.unpackLive(packed), theirs: FB.unpackLive(foes), foe: 'x', view: '2d', live: { seed: 4242, me, ids: [] }, onEnd: (w) => { won = w; return 0 }, againKey: () => false })
+      B.open()
+      cancelAnimationFrame(B._raf)
+      const speedShown = getComputedStyle(B.root.querySelector('.tb-speed')).display !== 'none'
+      const myCards = B.root.querySelectorAll('.tb-mine .tb-card').length
+      for (let i = 0; i < 60 * 125 && B._winner === undefined && !B.over; i++) B._step(1 / 60)
+      const snap = B.fighters.map((f) => [Math.round(f.hp * 1000), Math.round(f.x * 1000), Math.round(f.z * 1000)].join(','))
+      const hazard = B.hazard
+      await new Promise((r) => setTimeout(r, 900))
+      const text = B.root.querySelector('.tb-result-text').textContent
+      const again = B.root.querySelector('.tb-again').style.display
+      B.close()
+      return { won, snap, hazard, speedShown, myCards, text, again }
+    }
+    const a = await run('mine')
+    const b = await run('foe')
+    return { a, b, snapEq: JSON.stringify(a.snap) === JSON.stringify(b.snap), snacks: FB.unpackLive(packed).map((c) => c.sn || ''), badSnack: FB.unpackLive([{ t: 'a', k: 'cow', r: 'common', sn: '__proto__' }])[0].sn }
+  })
+  expect(same.snapEq).toBe(true)
+  expect(same.a.hazard).toBe(same.b.hazard)
+  expect(typeof same.a.won).toBe('boolean')
+  expect(same.b.won).toBe(!same.a.won)
+  expect(same.a.speedShown).toBe(false)
+  // Each screen shows its own player's team as "mine" (3 vs 3 here).
+  expect(same.a.myCards).toBe(3)
+  expect(same.b.myCards).toBe(3)
+  expect(same.a.text).toContain('XP only')
+  expect(same.a.again).toBe('none')
+  expect(same.snacks).toEqual(['steak', '', ''])
+  expect(same.badSnack).toBeUndefined()
+
+  // 2. Challenging Alex: waiting box, then Alex says no.
+  const no = await page.evaluate(async () => {
+    const g = window.__game
+    const fb = window.__fb
+    await g._friendBattle.challengeFriend(g, 'uA')
+    const box = document.getElementById('pet-duel-box')
+    const waiting = !box.hidden && box.textContent
+    const sent = fb.docs.d1
+    await fb.answerPetDuel('d1', false)
+    fb.fire('d1')
+    await new Promise((r) => setTimeout(r, 50))
+    return { waiting, sentTo: sent.to, sentTeam: sent.a.length, sentSnack: sent.a[0].sn, boxHidden: box.hidden, gone: !fb.docs.d1, busy: !!g._petDuel }
+  })
+  expect(no.waiting).toContain('Waiting for Alex')
+  expect(no.sentTo).toBe('uA')
+  expect(no.sentTeam).toBe(3)
+  expect(no.sentSnack).toBe('steak')
+  expect(no.boxHidden).toBe(true)
+  expect(no.gone).toBe(true)
+  expect(no.busy).toBe(false)
+
+  // 3. Challenging again: Alex says yes - the battle starts on my side.
+  const yes = await page.evaluate(async () => {
+    const g = window.__game
+    const fb = window.__fb
+    const coins = g.coins
+    await g._friendBattle.challengeFriend(g, 'uA')
+    const id = Object.keys(fb.docs)[0]
+    await fb.answerPetDuel(id, true, g._friendBattle.packLive([{ t: 'a', k: 'wolf', r: 'rare' }]), 777)
+    fb.fire(id)
+    const B = g._teamBattle
+    const out = { open: !!B?.root, me: B?.me, seed: B?.live?.seed, foe: B?.root?.querySelector('.tb-foe-name').textContent, gone: !fb.docs[id] }
+    B._finish(true)
+    const d = g._creatures.loadCreatures()
+    out.fw = d.fw
+    out.wins = d.wins
+    out.coins = g.coins - coins
+    B.close()
+    out.record = document.getElementById('team-friend-record').textContent
+    return out
+  })
+  expect(yes.open).toBe(true)
+  expect(yes.me).toBe('mine')
+  expect(yes.seed).toBe(777)
+  expect(yes.foe).toContain('Alex')
+  expect(yes.gone).toBe(true)
+  expect(yes.fw).toBe(1)
+  expect(yes.wins).toBe(4)
+  expect(yes.coins).toBe(0)
+  expect(yes.record).toContain('1 wins, 0 losses')
+
+  // 4. An invite to me: strangers ignored, waits while playing, yes starts it turned round.
+  const inv = await page.evaluate(async () => {
+    const g = window.__game
+    const fb = window.__fb
+    const FB = g._friendBattle
+    FB.watchPetDuels(g, 'uB')
+    const team = FB.packLive([{ t: 'a', k: 'wolf', r: 'rare' }, { t: 'a', k: 'eagle', r: 'common' }])
+    fb.docs.x1 = { from: 'uStranger', fromName: 'Stranger', to: 'uB', state: 'ask', at: Date.now(), a: team, b: [], seed: 0 }
+    fb.inviteCb([{ ...fb.docs.x1, id: 'x1' }])
+    const box = () => document.getElementById('pet-duel-box')
+    const stranger = !box() || box().hidden
+    // Playing in the world: it waits.
+    g._enteringBuildMode = true
+    fb.docs.x2 = { from: 'uA', fromName: 'Alex', to: 'uB', state: 'ask', at: Date.now(), a: team, b: [], seed: 0 }
+    fb.inviteCb([{ ...fb.docs.x1, id: 'x1' }, { ...fb.docs.x2, id: 'x2' }])
+    const waitedInGame = box().hidden
+    g._enteringBuildMode = false
+    FB.inviteTick(g)
+    const text = box().hidden ? '' : box().textContent
+    box().querySelector('.pet-duel-yes').click()
+    await new Promise((r) => setTimeout(r, 50))
+    const call = fb.calls.filter((c) => c.id === 'x2').pop()
+    const B = g._teamBattle
+    const out = { stranger, waitedInGame, text, yes: call?.yes, b: call?.b.length, seedOk: Number.isInteger(call?.seed) && call.seed > 0, me: B?.me, myCards: B?.root?.querySelectorAll('.tb-mine .tb-card').length, mineInside: B?.mine.length }
+    B._finish(true) // the challenger's side won: I lost
+    out.fl = g._creatures.loadCreatures().fl
+    B.close()
+    // Old ones run out after INVITE_S.
+    fb.inviteCb([{ ...fb.docs.x1, id: 'x1' }, { ...fb.docs.x2, id: 'x3' }])
+    FB.inviteTick(g, Date.now() + (FB.INVITE_S + 1) * 1000)
+    out.expired = box().hidden && g._petInvites.length === 0
+    FB.watchPetDuels(g, null)
+    return out
+  })
+  expect(inv.stranger).toBe(true)
+  expect(inv.waitedInGame).toBe(true)
+  expect(inv.text).toContain('Alex wants a pet battle')
+  expect(inv.yes).toBe(true)
+  expect(inv.b).toBe(3)
+  expect(inv.seedOk).toBe(true)
+  expect(inv.me).toBe('foe')
+  expect(inv.myCards).toBe(3)
+  expect(inv.mineInside).toBe(2)
+  expect(inv.fl).toBe(1)
+  expect(inv.expired).toBe(true)
+
+  // 5. Pets tab: Battle a Friend lists online friends; the profile button.
+  await page.click('#friend-battle-btn')
+  await page.waitForSelector('#friend-battle-list [data-duel-uid]')
+  const list = await page.evaluate(() => ({
+    rows: [...document.querySelectorAll('#friend-battle-list .friend-battle-row')].map((r) => r.textContent),
+    profileBtn: document.getElementById('friend-petduel-btn')?.textContent,
+  }))
+  expect(list.rows.length).toBe(1)
+  expect(list.rows[0]).toContain('Alex')
+  expect(list.profileBtn).toBe('Pet Battle')
+})
