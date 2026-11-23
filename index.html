@@ -2884,6 +2884,7 @@
 
             <h3>7. Clans</h3>
             <p>A clan's leader can invite, accept, promote, remove members, or delete the clan. Clan XP and rankings reset every month. In Clan War every clan races on one board, each week and each month; the top clans can claim coin prizes once, prizes and points can change at any time, and cheating to win them isn't allowed. Clan names follow the same rules as everything else in Section 5.</p>
+            <p>Creature nicknames are shown to other players on your ghost team, so they follow the same rules as everything else in Section 5.</p>
 
             <h3>8. Intellectual property and copyright</h3>
             <p>GayZ's code, artwork, and content are the developer's own work or used under licenses that permit it. You may play the game for personal, non-commercial use; you may not copy, redistribute, or claim GayZ's own code or original assets as your own.</p>
@@ -2941,7 +2942,7 @@
 
             <h3>Nicknames, profiles, and leaderboards</h3>
             <p>Your nickname, Player ID, bio, and stats shown on your public profile (Profile panel &gt; Shown to Public) are visible to other players wherever public features (leaderboards, chat, friend lookups) show them. Please don't put personal information (real name, contact details, etc.) in any field, since a field that's private today could become visible in a future update.</p>
-            <p>If you're signed in, starting a Team Battle saves your battle team as a "ghost team" that other players can see and battle: your nickname, which zombies and animals are on it, their rarity, how strong the team is and how many battles you've won. It's replaced each time you start another battle.</p>
+            <p>If you're signed in, starting a Team Battle saves your battle team as a "ghost team" that other players can see and battle: your nickname, which zombies and animals are on it, their rarity, any nicknames you gave them, how strong the team is and how many battles you've won. Creature nicknames are checked for strong swear words the same way chat is. It's replaced each time you start another battle.</p>
             <p>When you enter the Weekly Team Tournament, the ghost teams in your bracket (each player's nickname and the creatures on their team) are copied into your save for that week, so your bracket stays the same. Nothing new about you is shared by entering.</p>
             <p>If you're signed in, starting a Gauntlet battle saves your Gauntlet team at that battle number so other players can meet it at the same point in their own run: your nickname, the creatures on it (their kind, rarity and stars) and how many Gauntlet battles you've won so far. You keep one per battle number, each replaced by your next run. The creatures you've caught aren't part of it.</p>
             <p>If you're signed in and play Speedrun mode, your best time goes on the leaderboard with your nickname, so other players can see the fastest runs. The ghost of your best run (where you went) stays on your device.</p>
@@ -3842,6 +3843,8 @@
               <h3 id="team-combos-title" class="team-section-title"></h3>
               <div id="team-combos"></div>
               <div id="team-snacks"></div>
+              <!-- Nicknames (TeamUI.renderRename, 2026-11-23). -->
+              <div id="team-rename"></div>
               <button type="button" id="team-battle-btn" class="team-battle-btn">Battle!</button>
               <!-- Powers & types guide (TeamUI.renderGuide, 2026-11-11). -->
               <details id="team-guide"></details>

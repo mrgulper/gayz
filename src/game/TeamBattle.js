@@ -25,7 +25,7 @@
 // underneath. Opened from Inventory's Pets tab (TeamUI.js).
 import * as THREE from 'three'
 import { PlayAnimals } from './PlayAnimals.js'
-import { stats, creatureName, creatureIconURL, tierColor, powerOf, powerName, powerInfo, hasTrigger, triggerOf, triggerName, triggerInfo, beats, TYPE_MULT, levelOf, giveTeamXP, rarityName, combosOf, comboName, comboInfo, SNACKS, snackName, snackInfo, eatSnacks, snackImg, SHINY_HUE, SHINY_FILTER } from './Creatures.js'
+import { stats, creatureName, kindNote, creatureIconURL, tierColor, powerOf, powerName, powerInfo, hasTrigger, triggerOf, triggerName, triggerInfo, beats, TYPE_MULT, levelOf, giveTeamXP, rarityName, combosOf, comboName, comboInfo, SNACKS, snackName, snackInfo, eatSnacks, snackImg, SHINY_HUE, SHINY_FILTER } from './Creatures.js'
 import { MONSTER_KINDS } from './ZombieKinds.js'
 import { SKELETON_KINDS } from './SkeletonModels.js'
 import { audioEngine } from './Audio.js'
@@ -499,7 +499,7 @@ export class TeamBattle {
     const label = document.createElement('div')
     label.className = `tb-label ${side}`
     const lv = levelOf(c)
-    label.innerHTML = `<span class="tb-label-name" style="color: ${tierColor(c.r)}">${c.s ? '<span class="tb-label-shiny">✦</span> ' : ''}${esc(creatureName(c))}${lv > 1 ? ` <small>${esc(t('teamLevel', { n: lv }))}</small>` : ''}</span><span class="tb-label-bar"><span></span></span>`
+    label.innerHTML = `<span class="tb-label-name" style="color: ${tierColor(c.r)}">${c.s ? '<span class="tb-label-shiny">✦</span> ' : ''}<span class="tb-label-nick">${esc(creatureName(c))}</span>${lv > 1 ? ` <small>${esc(t('teamLevel', { n: lv }))}</small>` : ''}${kindNote(c) ? `<small class="tb-label-kind">${esc(kindNote(c))}</small>` : ''}</span><span class="tb-label-bar"><span></span></span>`
     this.root.querySelector('.tb-labels').appendChild(label)
     const power = opts.noPowers ? null : powerOf(c)
     const icon = new Image()
