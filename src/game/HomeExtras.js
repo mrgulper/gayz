@@ -308,30 +308,96 @@ function claimWorldGoal(game, which) {
 // what's above it (the character or the nav buttons) on a short screen.
 export function fitHomeExtras() {
   placeStacks()
-  const pairs = [['home-extras-left', 'menu-col-left'], ['home-extras-right', 'menu-nav-buttons']]
-  for (const [stackId, aboveId] of pairs) {
-    const stack = document.getElementById(stackId)
-    const above = document.getElementById(aboveId)
-    if (!stack || !above) continue
-    const cards = [...stack.children]
-    cards.forEach((c) => { c.style.display = '' })
-    stack.style.bottom = ''
-    if (getComputedStyle(stack).position !== 'absolute') continue
-    liftAboveLinks(stack)
-    const limit = stackId === 'home-extras-left' ? leftLimit(above) : above.getBoundingClientRect().bottom + 8
-    for (let i = cards.length - 1; i > 0 && stack.getBoundingClientRect().top < limit; i--) cards[i].style.display = 'none'
-    if (stack.getBoundingClientRect().top < limit) cards[0].style.display = 'none'
+  fitLeftStack()
+  const stack = document.getElementById('home-extras-right')
+  const above = document.getElementById('menu-nav-buttons')
+  if (!stack || !above) return
+  const cards = [...stack.children]
+  cards.forEach((c) => { c.style.display = '' })
+  stack.style.bottom = ''
+  if (!cards.length || getComputedStyle(stack).position !== 'absolute') return
+  liftAboveLinks(stack)
+  const limit = above.getBoundingClientRect().bottom + 8
+  for (let i = cards.length - 1; i > 0 && stack.getBoundingClientRect().top < limit; i--) cards[i].style.display = 'none'
+  if (stack.getBoundingClientRect().top < limit) cards[0].style.display = 'none'
+}
+
+// (2026-11-23, Gaymi: "move the world goal to under the currency ... move
+// the name of the character even closer down to the character and move it
+// under the world goal".) On wide screens the left stack (World Goal)
+// sits in the top-left corner under the coins bar and clock, and the
+// character column moves down so its name starts under the stack: first
+// by lowering the whole column into the empty room at the bottom (the
+// character keeps its size), then - only if that's not enough - by making
+// the character shorter. Cards are hidden from the bottom up only if even
+// the smallest character wouldn't fit.
+const AVATAR_MIN_H = 200
+function fitLeftStack() {
+  const stack = document.getElementById('home-extras-left')
+  const col = document.getElementById('menu-col-left')
+  const wrap = document.getElementById('setup-avatar-wrap')
+  const header = document.getElementById('player-showcase-header')
+  if (!stack || !col || !wrap || !header) return
+  const cards = [...stack.children]
+  cards.forEach((c) => { c.style.display = '' })
+  stack.style.top = ''
+  col.style.marginBottom = ''
+  wrap.style.height = ''
+  wrap.style.width = ''
+  if (getComputedStyle(stack).position !== 'absolute' || !col.getClientRects().length) return
+  const clock = document.getElementById('homepage-clock')
+  const bar = document.getElementById('menu-currency-bar')
+  const corner = [clock, bar].filter((el) => el && el.getClientRects().length)
+  const parentTop = (stack.offsetParent || document.body).getBoundingClientRect().top
+  const cornerBottom = corner.length ? Math.max(...corner.map((el) => restingRect(el).bottom)) : 0
+  stack.style.top = `${Math.round(cornerBottom + 8 - parentTop)}px`
+  if (!cards.length) return
+
+  // Lower the column into the empty room under the character: down to
+  // the window's bottom, or the footer links if they reach under it.
+  const pill = col.querySelector('#home-signin-warning')
+  const feet = () => {
+    const w = restingRect(wrap)
+    const p = pill && pill.getClientRects().length ? restingRect(pill) : null
+    return { left: Math.min(w.left, p ? p.left : w.left), right: Math.max(w.right, p ? p.right : w.right), bottom: Math.max(w.bottom, p ? p.bottom : 0) }
+  }
+  const links = document.getElementById('menu-links-row')
+  const f = feet()
+  let floor = window.innerHeight - 10
+  if (links && links.getClientRects().length) {
+    const l = restingRect(links)
+    if (l.left < f.right && l.right > f.left) floor = Math.min(floor, l.top - 8)
+  }
+  const lower = Math.max(0, Math.floor(floor - f.bottom))
+  const stackBottom = () => stack.getBoundingClientRect().bottom + 4
+  const need = () => stackBottom() - restingRect(header).top
+  if (need() <= 0) return
+  col.style.marginBottom = `${-Math.min(lower, Math.ceil(need()))}px`
+  if (need() <= 0) return
+
+  // Still under the stack: a shorter character (same shape).
+  const h = wrap.getBoundingClientRect().height
+  const w = wrap.getBoundingClientRect().width
+  for (let i = cards.length; i >= 0; i--) {
+    const newH = Math.floor(h - need())
+    if (newH >= AVATAR_MIN_H) {
+      wrap.style.height = `${newH}px`
+      wrap.style.width = `${Math.round(w * newH / h)}px`
+      return
+    }
+    if (i > 0) cards[i - 1].style.display = 'none'
   }
 }
 
-// The left stack sits under the character: its limit is where the
-// character's canvas ends.
-function leftLimit(col) {
-  const canvas = col.querySelector('#setup-avatar-wrap') || col
-  // The signed-out pill hangs just under the character's feet.
-  const pill = col.querySelector('#home-signin-warning')
-  const pillBottom = pill && pill.getClientRects().length ? pill.getBoundingClientRect().bottom : 0
-  return Math.max(canvas.getBoundingClientRect().bottom, pillBottom) + 8
+// Where an element sits once its load-time slide-in is over (jumped to the
+// end just for the measurement, then put back in the same frame).
+function restingRect(el) {
+  const anims = el.getAnimations ? el.getAnimations() : []
+  const at = anims.map((a) => a.currentTime)
+  anims.forEach((a) => { try { a.currentTime = a.effect.getComputedTiming().endTime } catch { /* ignore */ } })
+  const r = el.getBoundingClientRect()
+  anims.forEach((a, i) => { try { a.currentTime = at[i] } catch { /* ignore */ } })
+  return r
 }
 
 // The stacked phone layout (index.html's STACKED_QUERY) scrolls as one

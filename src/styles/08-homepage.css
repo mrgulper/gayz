@@ -1960,7 +1960,10 @@ html.ui-theme-old #menu-nav-buttons .nav-badge-dot {
   width: 210px; display: flex; flex-direction: column; gap: 6px;
 }
 .home-extras.pending { visibility: hidden; }
-#home-extras-left { left: 16px; }
+/* Top-left, under the coins bar and clock (2026-11-23, Gaymi: "move the
+   world goal to under the currency"); fitHomeExtras() sets the exact top
+   from the clock's bottom and moves the character below it. */
+#home-extras-left { left: 16px; top: 110px; bottom: auto; }
 #home-extras-right { right: 16px; }
 .home-x-card {
   display: flex; flex-direction: column; gap: 3px; box-sizing: border-box; width: 100%;
@@ -2464,7 +2467,9 @@ html:not(.custom-name-color) #menu #player-showcase-header .nameplate-name {
    down into it. Above the canvas so the pencil still clicks. */
 #menu-col-left #player-showcase-header {
   z-index: 2;
-  margin-bottom: -5vh;
+  /* Even closer (2026-11-23, Gaymi: "move the name of the character even
+     closer down to the character"). */
+  margin-bottom: -7vh;
 }
 @media (max-width: 700px), (orientation: portrait) and (max-width: 1100px), (max-height: 500px) {
   #menu-col-left #player-showcase-header { margin-bottom: 0; }

@@ -860,11 +860,16 @@ test('homepage extras: cards, Today panel, Play tags, emote', async ({ page }) =
     out.noTip = !document.querySelector('[data-card="tip"]')
     out.noTop3 = !document.querySelector('[data-card="top3"]')
     // Nothing in the corners covers the character, the nav or the links.
+    // (2026-11-23) World Goal sits top-left with the character's name just
+    // under it - the name is pulled into the empty room above the head, so
+    // the check is against the name (the head is below it), not the box.
+    document.getAnimations().filter((a) => /^gz-in-/.test(a.animationName || '')).forEach((a) => a.finish())
     const box = (sel) => document.querySelector(sel).getBoundingClientRect()
     const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
     const visibleCards = [...document.querySelectorAll('.home-extras > *')].filter((c) => c.getClientRects().length)
     out.cards = visibleCards.length
-    out.overlaps = visibleCards.filter((c) => ['#menu-nav-buttons', '#setup-avatar-wrap', '#menu-links-row', '#play-btn'].some((s) => document.querySelector(s) && hit(c.getBoundingClientRect(), box(s)))).length
+    out.overlaps = visibleCards.filter((c) => ['#menu-nav-buttons', '#player-showcase-header', '#menu-links-row', '#play-btn'].some((s) => document.querySelector(s) && hit(c.getBoundingClientRect(), box(s)))).length
+    out.headerUnderCards = visibleCards.filter((c) => c.closest('#home-extras-left')).every((c) => c.getBoundingClientRect().bottom <= box('#player-showcase-header').top)
     // The Today panel layout.
     g.homeExtrasLayoutSelect.value = 'panel'
     g.homeExtrasLayoutSelect.dispatchEvent(new Event('change'))
@@ -899,7 +904,7 @@ test('homepage extras: cards, Today panel, Play tags, emote', async ({ page }) =
   })
   expect(r.left).not.toMatch(/Level/)
   // Last Run, Invite a friend and the tip of the day were removed
-  // (2026-11-22); World Goal sits bottom-left, where the tip was.
+  // (2026-11-22); World Goal sits top-left under the coins bar (2026-11-23).
   expect(r.left).not.toMatch(/Wave 7 · 43 kills/)
   expect(r.right).not.toMatch(/streak|Invite a friend/i)
   expect(r.left).toMatch(/World Goal/i)
@@ -907,6 +912,7 @@ test('homepage extras: cards, Today panel, Play tags, emote', async ({ page }) =
   expect(r.noTop3).toBe(true)
   expect(r.cards).toBeGreaterThan(0)
   expect(r.overlaps).toBe(0)
+  expect(r.headerUnderCards).toBe(true)
   expect(r.panelCorner).toMatch(/Today/)
   expect(r.leftEmpty).toBe(0)
   expect(r.panelOpen).toBe('flex')
