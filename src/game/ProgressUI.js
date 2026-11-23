@@ -154,6 +154,8 @@ export function _onPlayEvent(game, type, data) {
   if (type !== 'end') return null
   // World Map has no zombies or waves (2026-10-26): 10 minutes exploring.
   if (data.mode === 'worldMap' && data.seconds >= GLOBETROTTER_SECONDS) game.achievements.unlock('globetrotter')
+  // The Training Ground, finished (TrainingGround.js).
+  if (data.mode === 'training' && data.won) game.achievements.unlock('trained')
   const points = data.kills * POINTS_PER_KILL + data.waves * POINTS_PER_WAVE
   // _recordRunEnd (the old Map 1's end-of-run bookkeeping: best stats,
   // career totals, run history, leaderboards, gems, Cloud Save) reads
@@ -173,7 +175,7 @@ export function _onPlayEvent(game, type, data) {
   if (data.died) game.achievements.unlock('first_death')
   if (data.kills >= 100) game.achievements.unlock('centurion')
   if (data.bestStreak >= MEAT_GRINDER_STREAK) game.achievements.unlock('meat_grinder')
-  if (data.won && game.settings.difficulty === 'nightmare') game.achievements.unlock('nightmare_conqueror')
+  if (data.won && data.mode !== 'training' && game.settings.difficulty === 'nightmare') game.achievements.unlock('nightmare_conqueror')
   if (data.won && data.mode === 'zombieDefense') game.achievements.unlock('holding_the_line')
   if (data.headshots >= HEADHUNTER_HEADSHOTS) game.achievements.unlock('headhunter')
   if (data.meleeKills >= UP_CLOSE_KNIFE_KILLS) game.achievements.unlock('up_close')

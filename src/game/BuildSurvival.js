@@ -86,6 +86,7 @@ import { ThemePark } from './ThemePark.js'
 import { TimeMachine } from './TimeMachine.js'
 import { DanceOff } from './DanceOff.js'
 import { EscapeRooms } from './EscapeRooms.js'
+import { TrainingGround } from './TrainingGround.js'
 import { Reefs } from './Reefs.js'
 import { PirateShip } from './PirateShip.js'
 import { ZombieTrain } from './ZombieTrain.js'
@@ -392,6 +393,12 @@ export class BuildSurvival {
   start({ fromMenu = false, net = null } = {}) {
     const bm = this.bm
     this.cfg = { ...PLAY_DEFAULTS, ...(fromMenu ? bm.game?._playConfig?.() : null) }
+    // The Training Ground (TrainingGround.js): a homepage game alone, started
+    // from How to Play or the first-visit popup (TrainingEntry.js) - its own
+    // plain rules, whatever Game Mode and Challenges are picked.
+    this.trainingRun = !!(fromMenu && !net && bm.game?._trainingNext)
+    if (bm.game) bm.game._trainingNext = false
+    if (this.trainingRun) this.cfg = { ...PLAY_DEFAULTS, mode: 'training', noZombies: true, difficulty: 'normal' }
     // A game still connected to a server leaves it first (see PlayNet's
     // one-connection rule).
     if (this.net && this.net !== net) this.net.leave()
@@ -433,7 +440,7 @@ export class BuildSurvival {
     // A new player's first game (PlayOnboarding.js): no weapon picker,
     // start at the camp gate, a zombie close by straight away.
     if (!this.onboard) this.onboard = new PlayOnboarding(this)
-    if (fromMenu && !net && isFirstGame(bm.game) && !BuildSurvival.savedRun() && this.cfg.mode !== 'worldMap' && this.cfg.mode !== 'infection' && this.cfg.mode !== 'towerDefense' && this.cfg.mode !== 'escapeRoom' && this.cfg.mode !== 'escapeRace' && !PARTY_MODES.includes(this.cfg.mode)) {
+    if (fromMenu && !net && isFirstGame(bm.game) && !BuildSurvival.savedRun() && this.cfg.mode !== 'worldMap' && this.cfg.mode !== 'infection' && this.cfg.mode !== 'towerDefense' && this.cfg.mode !== 'escapeRoom' && this.cfg.mode !== 'escapeRace' && !this.trainingRun && !PARTY_MODES.includes(this.cfg.mode)) {
       this.onboard.begin(bm.activeSlot === 'map3' ? bm._map3Base().map.safeZone : null)
     } else this.onboard.end()
     this.active = true
@@ -476,7 +483,7 @@ export class BuildSurvival {
     // picker open (last pick highlighted); the editor's own Play just
     // uses the rifle.
     const saved = bm.game?.settings?.playWeapon
-    this.weaponId = fromMenu && canPlayWeapon(saved) ? saved : DEFAULT_PLAY_WEAPON
+    this.weaponId = fromMenu && canPlayWeapon(saved) && !this.trainingRun ? saved : DEFAULT_PLAY_WEAPON
     // The spin ring (SpinRing.js), in testing since 2026-11-22: only the
     // Spin Ring mode from the homepage (Game Mode > Testing), or a custom
     // lobby whose host picked "Spin Ring (Testing)", has no guns (no knife
@@ -508,6 +515,9 @@ export class BuildSurvival {
     // Escape Rooms (EscapeRooms.js): alone only, its own rooms in the sky.
     this.escape?.dispose()
     this.escape = this.cfg.mode === 'escapeRoom' || this.cfg.mode === 'escapeRace' ? new EscapeRooms(this, { race: this.cfg.mode === 'escapeRace' }) : null
+    // The Training Ground (TrainingGround.js): its rooms in the sky.
+    this.training?.dispose()
+    this.training = this.trainingRun ? new TrainingGround(this) : null
     if (this.td) this.coins = Math.max(this.coins, TD_START_COINS)
     if (!this._drops) this._drops = new PlayDrops(this)
     this._drops.clear()
@@ -740,7 +750,8 @@ export class BuildSurvival {
     document.getElementById('build-mode-play-btn-label')?.replaceChildren(t('buildModePlayStopBtn'))
     // A run saved from the pause menu carries on, if it was on the same
     // Game Mode and difficulty (otherwise it's dropped).
-    const savedRun = fromMenu && !net ? BuildSurvival.savedRun() : null
+    // (Not the Training Ground: a saved run waits for the next real game.)
+    const savedRun = fromMenu && !net && !this.training ? BuildSurvival.savedRun() : null
     const resume = savedRun && savedRun.mode === String(this.cfg.mode || '') && savedRun.difficulty === String(this.cfg.difficulty || 'normal') ? savedRun : null
     if (savedRun && !resume) BuildSurvival.clearSavedRun()
     if (resume) this._resumeRun(resume)
@@ -760,7 +771,7 @@ export class BuildSurvival {
         else this._spawnAt(pick)
       }
       if (this.ring) this._startRing()
-      else if (this.onboard.active) this._pickWeapon(this.weaponId)
+      else if (this.onboard.active || this.training) this._pickWeapon(this.weaponId)
       else this._openWeaponPicker()
     }
     // (Not in modes without zombies, like Deathmatch.)
@@ -779,7 +790,7 @@ export class BuildSurvival {
     const couchKind = bm.game?._couchNext
     this.couch = fromMenu && !net && (couchKind || lastCouch) ? new CouchCoop(this, { padIndex: lastCouch?.padIndex, equal: couchKind ? couchKind === 'equal' : !!lastCouch?.equal, skinId: couchKind ? null : lastCouch?.skinId }) : null
     if (bm.game) bm.game._couchNext = false
-    if (fromMenu && !net && !this.couch) openLobby(bm.game, this).catch(() => { /* offline: just solo */ })
+    if (fromMenu && !net && !this.couch && !this.training) openLobby(bm.game, this).catch(() => { /* offline: just solo */ })
   }
 
   // Gets the graphics card ready to draw zombies (and skeletons) while the
@@ -833,6 +844,8 @@ export class BuildSurvival {
     this.td = null
     this.escape?.dispose()
     this.escape = null
+    this.training?.dispose()
+    this.training = null
     this.net?.leave()
     this.net = null
     this.lobby?.leave()
@@ -1198,7 +1211,7 @@ export class BuildSurvival {
   // Never on a server. Counted (stats, quests) once, when the run ends. ---
   saveRun() {
     // (Not Tower Defense: its towers go when the game stops.)
-    if (!this.active || !this.fromMenu || this.net || this.dead || this.td) return false
+    if (!this.active || !this.fromMenu || this.net || this.dead || this.td || this.training) return false
     const tm = this.bm.tryMode
     const run = {
       v: 1,
@@ -1486,7 +1499,7 @@ export class BuildSurvival {
     // World Map: no waves - where you are and how long you've explored.
     if (this.cfg?.noZombies) {
       const s = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
-      set('build-play-wave-text', this.infection ? this.infection.hudText() : this.party ? this.party.hudText() : this.escape ? `${this.escape.hudText()} · ${t('campCoins', { n: money(this.bm.game?.settings, this.coins) })} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}` : `${t('topBarModeWorldMap')} · ${t('campCoins', { n: money(this.bm.game?.settings, this.coins) })} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}`)
+      set('build-play-wave-text', this.infection ? this.infection.hudText() : this.party ? this.party.hudText() : this.training ? this.training.hudText() : this.escape ? `${this.escape.hudText()} · ${t('campCoins', { n: money(this.bm.game?.settings, this.coins) })} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}` : `${t('topBarModeWorldMap')} · ${t('campCoins', { n: money(this.bm.game?.settings, this.coins) })} · ${t('buildPlayTime', { t: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })}`)
     }
     const waveText = mode === 'zombieDefense' || this.speedrun || this.td ? t('buildPlayWaveOf', { n: Math.max(1, this.wave), max: this.speedrun ? SPEEDRUN_WAVES : this.td ? TD_WAVES : DEFENSE_WAVES }) : t('buildPlayWave', { n: Math.max(1, this.wave) })
     const secs = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
@@ -2043,6 +2056,7 @@ export class BuildSurvival {
       this._countKill(z.boss, skeleton, z.tier, z.shine, z.maxHealth)
       this._wornByZombie(z)
       this.onboard?.onKill()
+      this.training?.onKill()
       // Zombie Goo for crafting (PlayCrafting.js).
       if (Math.random() < GOO_CHANCE * tune('drops')) this._drops?.spawnItem('zombieGoo', z.x, z.y + 1, z.z)
       // Spin ring games: every zombie drops a ring item (RingLoot.js).
@@ -2386,7 +2400,7 @@ export class BuildSurvival {
 
   // Blocks a mode's own map keeps: never broken, never built on.
   _protects(x, y, z) {
-    return !!(this.td?.protects(x, y, z) || this.party?.protects(x, y, z) || this.escape?.protects(x, y, z) || this.moon?.protects(x, y, z) || this.ufo?.protects(x, y, z) || this.time?.protects(x, y, z))
+    return !!(this.td?.protects(x, y, z) || this.party?.protects(x, y, z) || this.escape?.protects(x, y, z) || this.training?.protects(x, y, z) || this.moon?.protects(x, y, z) || this.ufo?.protects(x, y, z) || this.time?.protects(x, y, z))
   }
 
   // Cells zombies stand in, for pressure plates.
@@ -2649,7 +2663,7 @@ export class BuildSurvival {
     // (Not while you're off in an era, on the Moon or in the UFO, nor in a
     // party mode's arena or Escape Rooms - it parked there, 2026-11-09
     // visual check. Kart Racing puts its own karts on the grid.)
-    const away = this.time?.away || this.moon?.on || this.ufo?.aboard || this.escape || this.party
+    const away = this.time?.away || this.moon?.on || this.ufo?.aboard || this.escape || this.training || this.party
     if (!this._kartParked && !this.spectating && !this.td && !away) this._kartParked = this.kart.park(this.bm.tryMode.pos)
     this.kart.update(dt)
     this.vehicles?.update(dt)
@@ -3438,6 +3452,8 @@ export class BuildSurvival {
     // Spectating: flying about, nothing can hurt you. Nor on board the
     // escape helicopter (_updateExtraction).
     if (this.dead || this.spectating || this._ride) return
+    // The Training Ground is totally safe (TrainingGround.js).
+    if (this.training) return
     // Knocked down in Couch Co-op: waiting for Player 2 (CouchCoop.js).
     if (this.couch?.p1Down) return
     // The owner dropping in (OwnerDropIn.js) can't be hurt.
@@ -3611,7 +3627,7 @@ export class BuildSurvival {
     const extracted = won && this.cfg.mode === 'zombieExtraction'
     const zoned = won && this.cfg.mode === 'shrinkingZone'
     // Tower Defense: held every wave, or the base fell.
-    const td = this.td ? (won ? 'tdWin' : 'tdLost') : this.escape && won ? 'escapeWin' : ''
+    const td = this.td ? (won ? 'tdWin' : 'tdLost') : this.escape && won ? 'escapeWin' : this.training && won ? (this.training.firstFinish ? 'trainingWin' : 'trainingAgain') : ''
     this._showSpeedrunResult()
     set('build-play-over-title', t(extracted ? 'extractionWinTitle' : zoned ? 'zoneWinTitle' : td ? `${td}Title` : won ? 'buildPlayOverWinTitle' : 'buildPlayOverTitle'))
     set('build-play-over-text', t(extracted ? 'extractionWinText' : zoned ? 'zoneWinText' : td ? `${td}Text` : won ? 'buildPlayOverWinText' : 'buildPlayOverText', { waves: td === 'tdLost' ? Math.max(1, this.wave) : waves, kills: this.kills }))
@@ -3632,7 +3648,7 @@ export class BuildSurvival {
     const joke = won ? '' : [deathJoke(biter), grudge].filter(Boolean).join(' ')
     set('build-play-over-joke', joke)
     this._lastBiter = null
-    set('build-play-again-btn', t(won || this.td?.over ? 'buildPlayAgainBtn' : 'buildPlayRespawnBtn'))
+    set('build-play-again-btn', t(this.training && won ? 'trainingPlayReal' : won || this.td?.over ? 'buildPlayAgainBtn' : 'buildPlayRespawnBtn'))
     set('build-play-back-btn', t(!this.fromMenu ? 'buildPlayBackBtn' : won ? 'buildPlayBackMenuBtn' : 'buildPlayLeaveBtn'))
     this._showUnlock(this.fromMenu && careerBefore ? careerBefore : null, career)
     const show = () => {
@@ -3793,6 +3809,7 @@ export class BuildSurvival {
     this.zone?.update(dt)
     this.td?.update(dt)
     this.escape?.update(dt)
+    this.training?.update(dt)
     const playing = !this.dead && !this.bm.menuOpen && !this._picking
     if (playing) this._updateMe(dt)
     if (playing && !net) this.replay?.record(dt)
@@ -4441,6 +4458,7 @@ export class BuildSurvival {
   _recordEdit(x, y, z, b) {
     if (!this.active || !this._edits) return
     this._edits.set(this.bm._key(x, y, z), b || '')
+    this.training?.onEdit(x, y, z, b || '')
     const net = this.net && !this.net.closed ? this.net : this.lobby && !this.lobby.closed ? this.lobby : null
     net?.queueEdit(x, y, z, b || '')
   }
