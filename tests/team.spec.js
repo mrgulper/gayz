@@ -682,6 +682,11 @@ test('Gauntlet: buy, merge, sell, reroll, win for coins, three losses end the ru
     out.start = byId('gauntlet-btn').textContent
     byId('gauntlet-btn').click()
     out.shop = document.querySelectorAll('#gauntlet [data-gt-buy]').length
+    // Bats only (Picnic: no gold when sold), so the gold below is fixed.
+    const sd = JSON.parse(localStorage.getItem('gayz-gauntlet'))
+    sd.run.shop = sd.run.shop.map(() => ({ t: 'a', k: 'bat', r: 'common' }))
+    localStorage.setItem('gayz-gauntlet', JSON.stringify(sd))
+    g._renderTeamPanel()
     document.querySelector('#gauntlet [data-gt-buy]').click()
     document.querySelector('#gauntlet [data-gt-buy]').click()
     out.gold = G.loadGauntlet().run.gold
@@ -779,7 +784,17 @@ test('Gauntlet food, freeze, tiers, reorder; daily Pet Shop', async ({ page }) =
     byId('gauntlet-btn').click()
     for (let i = 0; i < 80 && !(g._teamBattle?.root && !g._teamBattle.over); i++) await new Promise((res) => setTimeout(res, 100))
     run = G.loadGauntlet().run
-    out.afterFight = [run.team.some((c) => c.sn), run.team.some((c) => c.bh === 15)]
+    // (>= 15: an end-of-round shop power may have added more.)
+    out.afterFight = [run.team.some((c) => c.sn), run.team.some((c) => c.bh >= 15)]
+    // Shop powers (Batch B): when bought, when sold, end of a shop round,
+    // times the stars.
+    const z = (k, l) => ({ t: 'z', k, r: 'common', n: 0, b: false, ...(l ? { l } : {}) })
+    const tm = [z(null), { t: 'a', k: 'bat', r: 'common' }]
+    G.shopPower(z(null), 'buy', tm)
+    const tm2 = [z('beast'), { t: 'a', k: 'triceratops', r: 'common' }]
+    G.endRound(tm2)
+    out.shopPowers = [G.shopPowerOf(z('minion')).id, G.shopPower(z('minion'), 'sell', []), G.shopPower(z('minion', 10), 'sell', []), tm[0].bh, tm[1].bh || 0, tm2[0].ba, G.shopPower(z('minion'), 'buy', [])]
+    out.cardPower = document.querySelectorAll('#gauntlet .gt-sp').length > 0 && !!document.querySelector('#team-guide')?.textContent.includes('Share the Hunt')
     g._teamBattle._leave()
     // Pet Shop: same stock all day, buying adds a creature and costs coins.
     const P = g._petShop
@@ -798,6 +813,8 @@ test('Gauntlet food, freeze, tiers, reorder; daily Pet Shop', async ({ page }) =
     fed: [2, 15, 'steak', 4],
     moved: true,
     afterFight: [false, true],
+    shopPowers: ['scrap', 1, 2, 4, 0, 1, -1],
+    cardPower: true,
     cards: 4,
     bought: [1, true, 3],
     sameDay: true,

@@ -59,8 +59,16 @@ realistic arena textures. Two batches, shop stuff first.
   4 creatures a day picked from the date (any zombie/skeleton/monster/animal,
   rarity as often as in game), coins by rarity (PRICES, a guess: 60 to 2000),
   save `gayz-pet-shop` { day, bought }. Tests: team.spec "Gauntlet food...".
-- [ ] **Batch B - Shop powers + arena textures.** New powers that go off in
-  the Gauntlet shop (when bought, when sold, end of a shop round - e.g. "when
-  sold, friends +1 attack"), shown on cards and in the guide; bots use them
-  too. Arena: more realistic grass/dirt floor and fence textures (TeamBattle.js
-  arenaScene, 3D and 2D), still light enough for phones.
+- [x] **Batch B - Shop powers + arena textures** (shipped 2026-11-23). Gaymi
+  picked: every creature has one from 1 star; arena detailed but still blocky.
+  Gauntlet.SHOP_POWERS, one per battle power: horde Gather (bought: other
+  zombies +4 hp), bones Scrap (sold: +1 gold), rage Feast (end: itself +1
+  atk), stomp Rally (end: team +3 hp), pounce Share the Hunt (sold: friends
+  +1 atk), roar Rule (bought: 2 front friends +2 atk), hide Graze (end:
+  itself +4 hp), heal Picnic (sold: friends +3 hp). Times stars. Boosts are
+  fruit (bh/ba, same caps). "End of a shop round" = pressing Fight, once
+  per battle (run.eor); botRun uses buy + end. Shown as a gold line on
+  Gauntlet cards (tooltip has the text) and in the Pets guide. Numbers are
+  a guess. Arena: TeamBattle floorCanvas/dirtCanvas/woodCanvas, 16 px per
+  block, seeded, drawn once; worn dirt in the middle, flowers, wood grain;
+  rails are 1-block instances; 2D caches the board picture (board2d).

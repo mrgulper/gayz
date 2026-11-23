@@ -33,10 +33,14 @@
 // - Drag a team creature to move it (Reorder.js): first ones stand front.
 // Bots spend their leftover gold on fruit too. Fruit isn't sent with a
 // team saved for other players (packTeam), so their copy is a bit weaker.
+// - Shop powers (Batch B, 2026-11-23; Gaymi: every creature, from 1 star):
+//   one per battle power (SHOP_POWERS), going off when bought, when sold or
+//   at the end of a shop round (pressing Fight). Their boosts are fruit
+//   (bh / ba), times the creature's stars. Bots use them too.
 //
 // Saved in localStorage (GAUNTLET_KEY), so Cloud Save carries it.
 import * as CloudSync from './CloudSync.js'
-import { cleanCreature, stats, creatureName, creatureType, rarityName, creatureIconURL, tierColor, packTeam, unpackTeam, powerName, levelOf, snackName, snackInfo, snackImg, pixelIconURL } from './Creatures.js'
+import { cleanCreature, stats, powerOf, typeOf, creatureName, creatureType, rarityName, creatureIconURL, tierColor, packTeam, unpackTeam, powerName, levelOf, snackName, snackInfo, snackImg, pixelIconURL } from './Creatures.js'
 import { PlayAnimals } from './PlayAnimals.js'
 import { ZOMBIE_TIER_IDS, NAME_COUNT } from './ZombieNames.js'
 import { TeamBattle } from './TeamBattle.js'
@@ -107,6 +111,56 @@ const FRUIT_PIX = {
   melon: { c: { g: '#2e8a3a', l: '#7ac850', r: '#e8404a', w: '#ffb0b0', k: '#1a1a1a' }, rows: [
     '..........', '..........', 'g........g', 'gl......lg', 'glrrrrrrlg', '.glrkrrklg', '.glrrwrrl.', '..glrrrlg.', '...gllll..', '....gggg..'] },
 }
+// Shop powers (Batch B). when: 'buy' | 'sell' | 'end' (of a shop round).
+// n: the boost at 1 star (x2 at 2 stars, x3 at 3). i18n gtSp<Id> /
+// gtSpInfo<Id>. What each does is in shopPower().
+export const SHOP_POWERS = {
+  horde: { id: 'gather', when: 'buy', n: 4 }, // other zombies +n health
+  bones: { id: 'scrap', when: 'sell', n: 1 }, // +n gold more
+  rage: { id: 'feast', when: 'end', n: 1 }, // itself +n attack
+  stomp: { id: 'rally', when: 'end', n: 3 }, // whole team +n health
+  pounce: { id: 'hunt', when: 'sell', n: 1 }, // friends +n attack
+  roar: { id: 'rule', when: 'buy', n: 2 }, // the 2 friends in front +n attack
+  hide: { id: 'graze', when: 'end', n: 4 }, // itself +n health
+  heal: { id: 'picnic', when: 'sell', n: 3 }, // friends +n health
+}
+export const shopPowerOf = (c) => SHOP_POWERS[powerOf(c)]
+const capId = (id) => id[0].toUpperCase() + id.slice(1)
+export const shopPowerName = (sp) => t(`gtSp${capId(sp.id)}`)
+export const shopPowerInfo = (sp, mult = 1) => t(`gtSpInfo${capId(sp.id)}`, { n: sp.n * mult })
+
+// Grows a creature by fruit-style boosts (capped like fruit).
+function boost(c, hp, atk) {
+  if (hp) c.bh = Math.min(MAX_BH, (c.bh || 0) + hp)
+  if (atk) c.ba = Math.min(MAX_BA, (c.ba || 0) + atk)
+}
+
+// c's shop power goes off if it's the 'when' one. friends: the rest of the
+// team (not c). -> extra gold it gave, or -1 if it didn't go off.
+export function shopPower(c, when, friends) {
+  const sp = shopPowerOf(c)
+  if (!sp || sp.when !== when) return -1
+  const n = sp.n * starsOf(c)
+  switch (sp.id) {
+    case 'gather': friends.filter((o) => typeOf(o) === 'zombie').forEach((o) => boost(o, n, 0)); break
+    case 'scrap': return n
+    case 'feast': boost(c, 0, n); break
+    case 'rally': [c, ...friends].forEach((o) => boost(o, n, 0)); break
+    case 'hunt': friends.forEach((o) => boost(o, 0, n)); break
+    case 'rule': friends.slice(0, 2).forEach((o) => boost(o, 0, n)); break
+    case 'graze': boost(c, n, 0); break
+    case 'picnic': friends.forEach((o) => boost(o, n, 0)); break
+  }
+  return 0
+}
+
+// End of a shop round: every 'end' power on the team, front first.
+export function endRound(team) {
+  let went = 0
+  for (const c of team) if (shopPower(c, 'end', team.filter((o) => o !== c)) >= 0) went++
+  return went
+}
+
 export const foodImg = (id, cls) => (FOODS[id]?.snack ? snackImg(id, cls) : `<img class="${cls}" src="${pixelIconURL(`fruit-${id}`, FRUIT_PIX[id])}" alt="" draggable="false" />`)
 export const foodName = (id) => (FOODS[id].snack ? snackName(id) : t(`gtFood${id[0].toUpperCase()}${id.slice(1)}`))
 export function foodInfo(id) {
@@ -228,6 +282,7 @@ export function botRun(b, rand = Math.random) {
       if (i < 0 && team.length < slots(r)) i = shop.findIndex(Boolean)
       if (i >= 0 && gold >= PRICE) {
         gold -= PRICE
+        shopPower(shop[i], 'buy', team)
         team.push(shop[i])
         shop[i] = null
         mergeAll(team)
@@ -250,6 +305,7 @@ export function botRun(b, rand = Math.random) {
       if (FOODS[id].all) team.forEach((c) => feedOne(c, id))
       else feedOne(team[Math.floor(rand() * team.length)], id)
     }
+    endRound(team)
   }
   return team
 }
@@ -314,7 +370,9 @@ export function loadGauntlet() {
         const name = typeof r.foe.name === 'string' ? r.foe.name.slice(0, 24) : ''
         if (ft.length) foe = { name, bot: !!r.foe.bot, team: ft }
       }
-      out.run = { battle, wins, lives, gold: int(r.gold, 0, 9999) ?? 0, team, shop, food, frozen, foe }
+      // eor: the battle whose end-of-round powers already went off.
+      const eor = int(r.eor, 0, WINS_NEEDED + LIVES) ?? 0
+      out.run = { battle, wins, lives, gold: int(r.gold, 0, 9999) ?? 0, team, shop, food, frozen, foe, eor }
     }
   }
   return out
@@ -371,7 +429,7 @@ const blankFrozen = () => ({ s: Array(SHOP_SIZE).fill(false), f: Array(FOOD_SLOT
 
 export function startRun() {
   const d = loadGauntlet()
-  d.run = { battle: 1, wins: 0, lives: LIVES, gold: ROUND_GOLD, team: [], shop: rollShop(1, []), food: rollFood(1), frozen: blankFrozen(), foe: null }
+  d.run = { battle: 1, wins: 0, lives: LIVES, gold: ROUND_GOLD, team: [], shop: rollShop(1, []), food: rollFood(1), frozen: blankFrozen(), foe: null, eor: 0 }
   d.runs++
   saveGauntlet(d)
   return d.run
@@ -386,13 +444,15 @@ export function buy(i) {
   if (run.gold < PRICE) return 'gauntletNoGold'
   if (!canAdd(run.team, c, run.battle)) return 'gauntletFull'
   run.gold -= PRICE
+  const went = shopPower(c, 'buy', run.team) >= 0
   run.team.push(c)
   run.shop[i] = null
   run.frozen.s[i] = false
   const made = mergeAll(run.team)
   run.foe = null
   saveGauntlet(d)
-  return made.length ? { merged: made[made.length - 1] } : ''
+  if (made.length) return { merged: made[made.length - 1], went: went && c }
+  return went ? { went: c } : ''
 }
 
 export function sell(i) {
@@ -401,11 +461,12 @@ export function sell(i) {
   const c = run?.team[i]
   if (!c) return 0
   run.team.splice(i, 1)
-  const back = sellPrice(c)
-  run.gold += back
+  const extra = shopPower(c, 'sell', run.team)
+  const back = sellPrice(c) + Math.max(0, extra)
+  run.gold = Math.min(9999, run.gold + back)
   run.foe = null
   saveGauntlet(d)
-  return back
+  return { back, went: extra >= 0 ? c : null }
 }
 
 export function reroll() {
@@ -506,8 +567,9 @@ function card(c, { price, sellFor, i, kind, feeding, frozen }) {
   const s = stats(c)
   const stars = starsOf(c)
   const label = kind === 'buy' ? t('gauntletPrice', { n: price }) : feeding ? t('gtFoodFeedHere') : t('gauntletSell', { n: sellFor })
+  const sp = shopPowerOf(c)
   const fruit = c.bh || c.ba ? `<span class="gt-fruit">${esc(t('gtFoodBonus', { hp: c.bh || 0, atk: c.ba || 0 }))}</span>` : ''
-  return `<button type="button" class="perk-option team-card gt-card${feeding ? ' gt-feed' : ''}${frozen ? ' gt-frozen' : ''}" data-gt-${kind}="${i}" style="--tier: ${tierColor(c.r)}" title="${esc(`${powerName(c)} · ${label}`)}">
+  return `<button type="button" class="perk-option team-card gt-card${feeding ? ' gt-feed' : ''}${frozen ? ' gt-frozen' : ''}" data-gt-${kind}="${i}" style="--tier: ${tierColor(c.r)}" title="${esc(`${powerName(c)}\n${shopPowerName(sp)}: ${shopPowerInfo(sp, stars)}\n${label}`)}">
     <span class="team-card-level gt-stars" aria-label="${esc(t('gauntletStars', { n: stars }))}">${'★'.repeat(stars)}</span>
     ${c.sn ? snackImg(c.sn, 'team-card-snack') : ''}
     <img src="${creatureIconURL(c)}" alt="" draggable="false" />
@@ -516,6 +578,7 @@ function card(c, { price, sellFor, i, kind, feeding, frozen }) {
     <span class="team-card-stats">${esc(t('teamStats', { hp: s.hp, atk: s.atk }))}</span>
     ${fruit}
     <span class="team-card-power">${esc(powerName(c))}</span>
+    <span class="team-card-power trig gt-sp">${esc(shopPowerName(sp))}</span>
     <span class="gt-price">${esc(label)}</span>
   </button>`
 }
@@ -586,6 +649,8 @@ export function renderGauntlet(game) {
   }
 }
 
+const toast = (game, key, vars) => game._showHomepageToast(t(key, vars))
+
 async function fight(game, rerender) {
   if (game._gauntletBusy || game._teamBattle?.root) return
   const d = loadGauntlet()
@@ -608,6 +673,17 @@ async function fight(game, rerender) {
     rerender()
   }
   const b = run.battle
+  // End of the shop round: 'end' shop powers, once per battle (leaving
+  // and fighting again doesn't repeat them).
+  if (run.eor !== b) {
+    const dd = loadGauntlet()
+    if (dd.run?.battle === b) {
+      if (endRound(dd.run.team)) toast(game, 'gtSpEnd')
+      dd.run.eor = b
+      saveGauntlet(dd)
+      run.team = dd.run.team
+    }
+  }
   // Snacks are eaten as the battle starts, even if it's left (like the
   // Team page's): the battle gets them, the save loses them.
   const mine = run.team.map((c) => ({ ...c }))
@@ -695,13 +771,15 @@ export function gauntletClick(game, e, rerender) {
     const res = buy(Number(b.dataset.gtBuy))
     if (typeof res === 'string' && res) toast(res, { n: PRICE })
     else if (res?.merged) toast('gauntletMerged', { name: creatureName(res.merged), n: starsOf(res.merged) })
+    else if (res?.went) toast('gtSpWent', { name: creatureName(res.went), power: shopPowerName(shopPowerOf(res.went)) })
     rerender()
     return true
   }
   const s = e.target.closest('[data-gt-sell]')
   if (s) {
-    const n = sell(Number(s.dataset.gtSell))
-    if (n) toast('gauntletSoldFor', { n })
+    const res = sell(Number(s.dataset.gtSell))
+    if (res?.went) toast('gtSpSold', { n: res.back, name: creatureName(res.went), power: shopPowerName(shopPowerOf(res.went)) })
+    else if (res?.back) toast('gauntletSoldFor', { n: res.back })
     rerender()
     return true
   }
