@@ -68,6 +68,8 @@ function renderGuide() {
     <ul>${POWERS.map((id) => row(t(`teamPower${cap(id)}`), t(`teamPowerInfo${cap(id)}`))).join('')}</ul>
     <h4>${esc(t('teamGuideTriggers', { n: TRIGGER_LEVEL }))}</h4>
     <ul>${POWERS.map((id) => row(`${t(`teamPower${cap(id)}`)} → ${triggerName(TRIGGERS[id])}`, triggerInfo(TRIGGERS[id]))).join('')}</ul>
+    <h4>${esc(t('teamGuideShop'))}</h4>
+    <ul>${POWERS.map((id) => row(`${t(`teamPower${cap(id)}`)} → ${Gauntlet.shopPowerName(Gauntlet.SHOP_POWERS[id])}`, Gauntlet.shopPowerInfo(Gauntlet.SHOP_POWERS[id]))).join('')}</ul>
     <h4>${esc(t('teamGuideCombos'))}</h4>
     <ul>${COMBOS.map((k) => row(`${comboName(k.id)} (${k.at.join(' / ')})`, comboInfo(k.id, k.n.join(' / ')))).join('')}</ul>
     <h4>${esc(t('teamSnacksTitle'))}</h4>

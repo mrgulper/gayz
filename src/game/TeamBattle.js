@@ -137,36 +137,134 @@ export function zombieModel(c) {
   return { group, head, legs, arms, mats }
 }
 
-// The fenced grass square.
-function buildArena(scene) {
-  const tex = (() => {
-    const cv = document.createElement('canvas')
-    cv.width = cv.height = 16
-    const g = cv.getContext('2d')
-    for (let y = 0; y < 16; y++) {
-      for (let x = 0; x < 16; x++) {
-        const v = ((x * 7 + y * 13) % 5) / 5
-        g.fillStyle = `rgb(${Math.round(84 + v * 22)},${Math.round(150 + v * 26)},${Math.round(62 + v * 14)})`
-        g.fillRect(x, y, 1, 1)
+// The arena's look (Batch B, 2026-11-23, Gaymi: "more realistic", still
+// blocky). Pixel textures drawn once on small canvases (no image files,
+// light enough for phones) and shared by the 3D and 2D views: grass with
+// blades, a few flowers and a worn dirt patch in the middle where the
+// fights happen, plain dirt outside, wood-grain fence. Seeded, so the
+// arena looks the same every battle.
+const PX = 16 // texture pixels per block
+function seeded(seed) {
+  let n = seed >>> 0
+  return () => ((n = (Math.imul(n, 1664525) + 1013904223) >>> 0) / 4294967296)
+}
+const clamp255 = (v) => Math.max(0, Math.min(255, Math.round(v)))
+const rgb = (r, g, b) => `rgb(${clamp255(r)},${clamp255(g)},${clamp255(b)})`
+const DIRT = [118, 88, 58]
+function dirtPixel(g, x, y, rand, shade = 1) {
+  const v = (rand() - 0.5) * 26
+  const pebble = rand() < 0.04
+  const [r, gg, b] = pebble ? [150, 140, 128] : DIRT
+  g.fillStyle = rgb((r + v) * shade, (gg + v * 0.8) * shade, (b + v * 0.6) * shade)
+  g.fillRect(x, y, 1, 1)
+}
+
+const _tex = {}
+// The whole floor: ARENA * 2 blocks across, PX pixels each.
+function floorCanvas() {
+  if (_tex.floor) return _tex.floor
+  const n = ARENA * 2
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = n * PX
+  const g = cv.getContext('2d')
+  const rand = seeded(1234)
+  for (let by = 0; by < n; by++) {
+    for (let bx = 0; bx < n; bx++) {
+      // Each block a slightly different green, like real turf.
+      const tint = (rand() - 0.5) * 14
+      const stripe = (bx % 2 ? -5 : 5)
+      for (let y = 0; y < PX; y++) {
+        for (let x = 0; x < PX; x++) {
+          const wx = bx + x / PX - ARENA
+          const wy = by + y / PX - ARENA
+          // Worn into dirt toward the middle (patchy, not a circle).
+          const d = Math.hypot(wx * 1.1, wy * 0.9)
+          const wear = Math.max(0, 1 - d / 6) * 0.85 + Math.sin(wx * 1.7) * Math.cos(wy * 1.3) * 0.12
+          const seam = x === PX - 1 || y === PX - 1 ? 0.9 : 1
+          if (rand() < wear) {
+            dirtPixel(g, bx * PX + x, by * PX + y, rand, seam)
+            continue
+          }
+          const v = (rand() - 0.5) * 22 + tint + stripe
+          const blade = rand()
+          let c
+          if (blade < 0.1) c = [56, 112, 40] // dark blade
+          else if (blade < 0.17) c = [128, 186, 82] // sunlit tip
+          else c = [86 + v, 148 + v, 58 + v * 0.5]
+          g.fillStyle = rgb(c[0] * seam, c[1] * seam, c[2] * seam)
+          g.fillRect(bx * PX + x, by * PX + y, 1, 1)
+        }
+      }
+      // Now and then a little flower (away from the worn middle).
+      if (rand() < 0.12 && Math.hypot(bx - ARENA, by - ARENA) > 6) {
+        const fx = bx * PX + 2 + Math.floor(rand() * (PX - 5))
+        const fy = by * PX + 2 + Math.floor(rand() * (PX - 5))
+        g.fillStyle = ['#f4e04a', '#ffffff', '#f07ab0', '#9ab8ff'][Math.floor(rand() * 4)]
+        g.fillRect(fx - 1, fy, 3, 1)
+        g.fillRect(fx, fy - 1, 1, 3)
+        g.fillStyle = '#e8a020'
+        g.fillRect(fx, fy, 1, 1)
       }
     }
-    const tx = new THREE.CanvasTexture(cv)
-    tx.magFilter = THREE.NearestFilter
-    tx.minFilter = THREE.NearestFilter
-    tx.wrapS = tx.wrapT = THREE.RepeatWrapping
-    tx.repeat.set(ARENA * 2, ARENA * 2)
-    tx.colorSpace = THREE.SRGBColorSpace
-    return tx
-  })()
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(ARENA * 2, 1, ARENA * 2), new THREE.MeshLambertMaterial({ map: tex }))
+  }
+  return (_tex.floor = cv)
+}
+
+// One block of dirt (repeated outside the fence).
+function dirtCanvas() {
+  if (_tex.dirt) return _tex.dirt
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = PX
+  const g = cv.getContext('2d')
+  const rand = seeded(77)
+  for (let y = 0; y < PX; y++) for (let x = 0; x < PX; x++) dirtPixel(g, x, y, rand, x === PX - 1 || y === PX - 1 ? 0.9 : 1)
+  return (_tex.dirt = cv)
+}
+
+// One block of wood, the grain running along x.
+function woodCanvas() {
+  if (_tex.wood) return _tex.wood
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = PX
+  const g = cv.getContext('2d')
+  const rand = seeded(9)
+  for (let y = 0; y < PX; y++) {
+    const ring = Math.sin(y * 1.3) * 10 + (y % 5 === 0 ? -22 : 0)
+    for (let x = 0; x < PX; x++) {
+      const v = ring + (rand() - 0.5) * 12
+      g.fillStyle = rgb(150 + v, 108 + v * 0.8, 64 + v * 0.5)
+      g.fillRect(x, y, 1, 1)
+    }
+  }
+  // A knot.
+  g.fillStyle = '#6a4424'
+  g.fillRect(10, 6, 2, 2)
+  return (_tex.wood = cv)
+}
+
+function canvasTexture(cv, repeat = 1) {
+  const tx = new THREE.CanvasTexture(cv)
+  tx.magFilter = THREE.NearestFilter
+  tx.minFilter = THREE.NearestFilter
+  tx.wrapS = tx.wrapT = THREE.RepeatWrapping
+  tx.repeat.set(repeat, repeat)
+  tx.colorSpace = THREE.SRGBColorSpace
+  return tx
+}
+
+// The fenced arena.
+function buildArena(scene) {
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(ARENA * 2, 1, ARENA * 2), new THREE.MeshLambertMaterial({ map: canvasTexture(floorCanvas()) }))
   floor.position.y = -0.5
   scene.add(floor)
-  const dirt = new THREE.Mesh(new THREE.BoxGeometry(ARENA * 2 + 6, 1, ARENA * 2 + 6), new THREE.MeshLambertMaterial({ color: 0x6a5238 }))
+  const dirt = new THREE.Mesh(new THREE.BoxGeometry(ARENA * 2 + 6, 1, ARENA * 2 + 6), new THREE.MeshLambertMaterial({ map: canvasTexture(dirtCanvas(), ARENA * 2 + 6) }))
   dirt.position.y = -0.52
   scene.add(dirt)
-  // Fence posts and rails all round (one mesh each).
+  // Fence posts and rails all round, wood-grained (one mesh each). Rails
+  // are one block long each so the grain doesn't stretch.
+  const wood = new THREE.MeshLambertMaterial({ map: canvasTexture(woodCanvas()) })
   const n = ARENA * 2 + 1
-  const posts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.22, 1.1, 0.22), new THREE.MeshLambertMaterial({ color: 0x8a6438 }), n * 4)
+  const posts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.22, 1.1, 0.22), wood, n * 4)
   const m = new THREE.Matrix4()
   let i = 0
   for (let k = 0; k < n; k++) {
@@ -177,14 +275,59 @@ function buildArena(scene) {
     }
   }
   scene.add(posts)
-  const railMat = new THREE.MeshLambertMaterial({ color: 0xa07a48 })
+  const rails = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.1, 0.12), wood, ARENA * 2 * 4 * 2)
+  const turn = new THREE.Matrix4().makeRotationY(Math.PI / 2)
+  i = 0
   for (const y of [0.45, 0.9]) {
-    for (const [x, z, w, d] of [[0, -ARENA, ARENA * 2, 0.12], [0, ARENA, ARENA * 2, 0.12], [-ARENA, 0, 0.12, ARENA * 2], [ARENA, 0, 0.12, ARENA * 2]]) {
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(w, 0.1, d), railMat)
-      rail.position.set(x, y, z)
-      scene.add(rail)
+    for (let k = 0; k < ARENA * 2; k++) {
+      const p = -ARENA + k + 0.5
+      for (const [x, z, side] of [[p, -ARENA, false], [p, ARENA, false], [-ARENA, p, true], [ARENA, p, true]]) {
+        m.makeTranslation(x, y, z)
+        if (side) m.multiply(turn)
+        rails.setMatrixAt(i++, m)
+      }
     }
   }
+  scene.add(rails)
+}
+
+// 2D: the arena drawn once at this size (dirt, grass, fence from above),
+// then copied each frame.
+function board2d(w, h, ratio, b) {
+  const cv = document.createElement('canvas')
+  cv.width = Math.max(1, Math.round(w * ratio))
+  cv.height = Math.max(1, Math.round(h * ratio))
+  const g = cv.getContext('2d')
+  g.setTransform(ratio, 0, 0, ratio, 0, 0)
+  g.imageSmoothingEnabled = false
+  const dirt = dirtCanvas()
+  const ox = b.x % b.cell - b.cell
+  const oy = b.y % b.cell - b.cell
+  for (let y = oy; y < h; y += b.cell) for (let x = ox; x < w; x += b.cell) g.drawImage(dirt, x, y, b.cell + 0.5, b.cell + 0.5)
+  g.drawImage(floorCanvas(), b.x, b.y, b.size, b.size)
+  // Rails along each side, posts at every block.
+  const wood = woodCanvas()
+  const rail = Math.max(3, b.cell * 0.22)
+  for (let k = 0; k < ARENA * 2; k++) {
+    const p = k * b.cell
+    g.drawImage(wood, b.x + p, b.y - rail / 2, b.cell + 0.5, rail)
+    g.drawImage(wood, b.x + p, b.y + b.size - rail / 2, b.cell + 0.5, rail)
+    g.save()
+    for (const x of [b.x, b.x + b.size]) {
+      g.setTransform(1, 0, 0, 1, 0, 0)
+      g.translate((x + rail / 2) * ratio, (b.y + p) * ratio)
+      g.rotate(Math.PI / 2)
+      g.drawImage(wood, 0, 0, (b.cell + 0.5) * ratio, rail * ratio)
+    }
+    g.restore()
+  }
+  const post = rail * 1.5
+  g.fillStyle = '#6a4424'
+  for (let k = 0; k <= ARENA * 2; k++) {
+    const p = k * b.cell
+    for (const [x, y] of [[b.x + p, b.y], [b.x + p, b.y + b.size], [b.x, b.y + p], [b.x + b.size, b.y + p]]) g.fillRect(x - post / 2, y - post / 2, post, post)
+  }
+  return cv
 }
 
 export class TeamBattle {
@@ -877,19 +1020,11 @@ export class TeamBattle {
     const r = this._ratio || 1
     g.setTransform(r, 0, 0, r, 0, 0)
     g.imageSmoothingEnabled = false
-    g.fillStyle = '#6a5238'
-    g.fillRect(0, 0, this.w, this.h)
     const b = this._board()
-    // Grass in two greens, like blocks seen from above.
-    for (let i = 0; i < ARENA * 2; i++) {
-      for (let j = 0; j < ARENA * 2; j++) {
-        g.fillStyle = (i + j) % 2 ? '#5f9a46' : '#68a64e'
-        g.fillRect(b.x + i * b.cell, b.y + j * b.cell, Math.ceil(b.cell), Math.ceil(b.cell))
-      }
-    }
-    g.strokeStyle = '#a07a48'
-    g.lineWidth = Math.max(3, b.cell * 0.25)
-    g.strokeRect(b.x, b.y, b.size, b.size)
+    // The arena picture, made again only when the size changes.
+    const key = `${this.w}x${this.h}x${r}`
+    if (this._bg?.key !== key) this._bg = { key, cv: board2d(this.w, this.h, r, b) }
+    g.drawImage(this._bg.cv, 0, 0, this.w, this.h)
     const px = (x) => b.x + (x + ARENA) * b.cell
     // Fallen ones first, so the standing ones are drawn on top.
     const order = [...this.fighters].sort((a, c) => (a.alive - c.alive) || a.z - c.z)
