@@ -38,3 +38,29 @@ Mix of auto-battle team building and creature raising.
   gauntletTeams/{uid}_{round} in Firestore, fetched once per 10 min, 40 newest,
   matched by battle number; save `gayz-gauntlet`). Online part needs the rules
   paste (firestore-rules-2026-11-11-gauntlet.txt); until then always bots.
+
+# Auto-battler shop upgrade (picked 2026-11-23)
+
+Gaymi: make pet battles more like auto-battler shop games. Picked: KEEP the
+arena fight (no line-up), freeze, food in the shop (new fruit), shop powers,
+drag to reorder, tiers that unlock, a daily pet shop for coins, and more
+realistic arena textures. Two batches, shop stuff first.
+
+- [x] **Batch A - Shop stuff** (shipped 2026-11-23). Gauntlet.js: POOL in 5
+  tiers sorted by real power (shopTier = new tier every 2 battles; dinos now
+  tier 4/5, DINO_FROM gone); FOODS row of 2 (apple +15 hp, honey +3 atk, pear,
+  berries = whole team, melon +40 hp; fruit = bh/ba on the run creature, added
+  in Creatures.stats, summed on merge, caps MAX_BH/MAX_BA; the 4 snacks cost
+  gold and last one battle, eaten when the fight starts); Freeze per shop/food
+  slot (run.frozen); bots spend leftover gold on fruit. Fruit is NOT in
+  packTeam, so a team saved for other players is a bit weaker. Reorder.js:
+  drag (mouse) / hold-then-drag (touch) on the Team page's picked team and the
+  Gauntlet team; order = where they stand (first ones front). PetShop.js:
+  4 creatures a day picked from the date (any zombie/skeleton/monster/animal,
+  rarity as often as in game), coins by rarity (PRICES, a guess: 60 to 2000),
+  save `gayz-pet-shop` { day, bought }. Tests: team.spec "Gauntlet food...".
+- [ ] **Batch B - Shop powers + arena textures.** New powers that go off in
+  the Gauntlet shop (when bought, when sold, end of a shop round - e.g. "when
+  sold, friends +1 attack"), shown on cards and in the guide; bots use them
+  too. Arena: more realistic grass/dirt floor and fence textures (TeamBattle.js
+  arenaScene, 3D and 2D), still light enough for phones.
