@@ -18,6 +18,7 @@ import { renderLeaders, startLeaderBattle, nextLeader, badgeInfo } from './PackL
 import * as Gauntlet from './Gauntlet.js'
 import * as PetEggs from './PetEggs.js'
 import * as PetShop from './PetShop.js'
+import { renderFriendBattle, bindFriendBattle } from './FriendBattle.js'
 import { bindReorder } from './Reorder.js'
 import { saveShopProgress, saveSettings, _censorText } from './Game.js'
 import { zombieName } from './ZombieNames.js'
@@ -298,6 +299,7 @@ export function renderTeamPanel(game) {
   renderSnacks(game)
   renderItems(game)
   renderEggs()
+  renderFriendBattle(game)
   renderRename(game)
   const grid = byId('team-grid')
   if (grid) {
@@ -453,6 +455,7 @@ export function bindTeamUI(game) {
   game._packLeaders = { ...PackLeaders, power }
   game._gauntlet = { ...Gauntlet, power }
   game._petShop = PetShop
+  bindFriendBattle(game)
   game._creatures = { packTeam, unpackTeam, loadCreatures, saveCreatures }
   // Drawn each time the Pets tab is looked at (a catch in a game changes it).
   byId('inventory-tab-pets')?.addEventListener('click', () => renderTeamPanel(game))

@@ -131,5 +131,22 @@ mine (smallest first, live online last).
   arg). Full (200 creatures): egg waits, tap it on the Pets tab later.
   TeamUI "Eggs" under held items (renderEggs / eggClick: tap waiting = warm
   it, tap ready = hatch). Test: team.spec "pet eggs".
-- [ ] **Batch G - Friend battles (live).** Challenge an online friend, both
-  teams fight at the same time. Biggest: Firebase rules paste, hard on CI.
+- [x] **Batch G - Friend battles (live)** (shipped 2026-11-23). Gaymi picked:
+  button on a friend's profile AND a "Battle a Friend" online list on the
+  Pets tab, XP only (no coins - no farming), invite pops up on menus only
+  (waits while playing in the world), its own "vs friends" record (fw / fl
+  in the creatures save). FriendBattle.js: Firestore petDuels/{id} { from,
+  fromName, to, state ask|go|no, at, a, b, seed } (new rules block, file
+  firestore-rules-2026-11-23-petduels.txt - needs Gaymi's paste). Challenger
+  creates (a = packLive = packTeam + snacks), waits INVITE_S 60 s (timed by
+  local clock, seen time on the friend's side), deletes the doc when it
+  starts / no / gives up; friend answers in a transaction (b + seed),
+  deletes very old ones (STALE_MS 1 h). Same fight on both screens:
+  TeamBattle `live` { seed, me, ids } = seeded dice (this.rand), fixed
+  LIVE_STEP 1/60 steps, dist() = sqrt instead of Math.hypot (exact in every
+  browser), first knock-out decides (_winner), speed button hidden. `mine`
+  inside is always the challenger; me = 'foe' turns the view round (3D
+  camera, 2D board, cards, rings, labels) and flips the result. Both teams'
+  snacks count, only my own get eaten. Leaving = no record; the other
+  screen plays on. Not tested with two real accounts (Claude can't sign
+  in). Test: team.spec "friend battles".

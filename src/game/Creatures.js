@@ -39,7 +39,8 @@ const DINO = { hp: 1.5, atk: 1.3 }
 const KINDS = () => PlayAnimals.KINDS
 
 function blank() {
-  return { list: [], team: [], wins: 0, losses: 0, nextId: 1, items: {}, eggs: [] }
+  // fw / fl: friend battles won and lost (Batch G), their own record.
+  return { list: [], team: [], wins: 0, losses: 0, fw: 0, fl: 0, nextId: 1, items: {}, eggs: [] }
 }
 
 // Never trusted (it came from localStorage, maybe a shared save file).
@@ -62,6 +63,8 @@ export function loadCreatures() {
   out.team = [...new Set(out.team)]
   out.wins = Number.isInteger(data.wins) && data.wins >= 0 ? data.wins : 0
   out.losses = Number.isInteger(data.losses) && data.losses >= 0 ? data.losses : 0
+  out.fw = Number.isInteger(data.fw) && data.fw >= 0 ? data.fw : 0
+  out.fl = Number.isInteger(data.fl) && data.fl >= 0 ? data.fl : 0
   out.nextId = Math.max(1, ...out.list.map((c) => c.id + 1), Number.isInteger(data.nextId) ? data.nextId : 1)
   // Held items in the bag (Batch D).
   if (data.items && typeof data.items === 'object') {
