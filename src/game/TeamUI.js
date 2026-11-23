@@ -16,6 +16,8 @@ import { renderTournament, playTournament } from './TeamTournament.js'
 import * as PackLeaders from './PackLeaders.js'
 import { renderLeaders, startLeaderBattle, nextLeader, badgeInfo } from './PackLeaders.js'
 import * as Gauntlet from './Gauntlet.js'
+import * as PetShop from './PetShop.js'
+import { bindReorder } from './Reorder.js'
 import { saveShopProgress, saveSettings } from './Game.js'
 import { zombieName } from './ZombieNames.js'
 import { t } from './i18n.js'
@@ -132,6 +134,7 @@ export function renderTeamPanel(game) {
   const set = (id, text) => { const el = byId(id); if (el) el.textContent = text }
   set('team-record', t('teamRecord', { w: data.wins, l: data.losses }))
   set('team-picked-title', t('teamPickedTitle', { n: data.team.length, max: TEAM_SIZE }))
+  set('team-order-hint', data.team.length > 1 ? t('teamOrderHint') : '')
   set('team-caught-title', t('teamCaughtTitle', { n: data.list.length }))
   set('team-how', t('teamHow'))
   const slots = byId('team-slots')
@@ -158,6 +161,8 @@ export function renderTeamPanel(game) {
   renderLeaders()
   // The Gauntlet (Gauntlet.js).
   Gauntlet.renderGauntlet(game)
+  // The daily Pet Shop (PetShop.js).
+  PetShop.renderPetShop(game)
   const btn = byId('team-battle-btn')
   if (btn && !game._teamFinding) {
     btn.textContent = t('teamBattleBtn')
@@ -292,9 +297,32 @@ export function bindTeamUI(game) {
   // The ladder, for the tests (tests/team.spec.js).
   game._packLeaders = { ...PackLeaders, power }
   game._gauntlet = { ...Gauntlet, power }
+  game._petShop = PetShop
   // Drawn each time the Pets tab is looked at (a catch in a game changes it).
   byId('inventory-tab-pets')?.addEventListener('click', () => renderTeamPanel(game))
+  // Drag to reorder (Reorder.js): the picked team, and the Gauntlet team.
+  bindReorder(page, game, {
+    selector: '#team-slots .team-card[data-id]',
+    index: (el) => [...el.parentElement.querySelectorAll('.team-card[data-id]')].indexOf(el),
+    onMove: (from, to) => {
+      const data = loadCreatures()
+      if (!data.team[from] || to >= data.team.length) return
+      data.team.splice(to, 0, data.team.splice(from, 1)[0])
+      saveCreatures(data)
+      renderTeamPanel(game)
+    },
+  })
+  bindReorder(page, game, {
+    selector: '#gauntlet-team [data-gt-sell]',
+    index: (el) => Number(el.dataset.gtSell),
+    onMove: (from, to) => {
+      Gauntlet.moveTeam(from, to)
+      renderTeamPanel(game)
+    },
+  })
   page.addEventListener('click', (e) => {
+    if (game._teamDragged) return
+    if (e.target.closest('#pet-shop') && PetShop.petShopClick(game, e, () => renderTeamPanel(game))) return
     if (e.target.closest('#gauntlet') && Gauntlet.gauntletClick(game, e, () => renderTeamPanel(game))) return
     const sb = e.target.closest('.team-snack[data-snack]')
     if (sb) {

@@ -957,3 +957,48 @@ html.ui-theme-old #gauntlet .gt-stars { color: var(--old-ink); }
 html.ui-theme-old #gauntlet .gt-btn { border-color: rgba(60, 40, 20, 0.35); background: rgba(60, 40, 20, 0.08); }
 html.ui-theme-clean #gauntlet .gt-stars { color: inherit; }
 html.ui-theme-clean #gauntlet .gt-btn { background: transparent; border-color: currentColor; }
+
+/* Gauntlet shop upgrade (2026-11-23): Freeze buttons under shop slots,
+   frozen slots in ice blue, fruit bonus line, the food row, team cards
+   lit up while a food is picked. */
+#gauntlet .gt-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+#gauntlet .gt-slot > .team-card,
+#gauntlet .gt-slot > .team-snack { flex: 1; }
+#gauntlet .gt-freeze { padding: 2px 12px; font-size: 11px; }
+#gauntlet .gt-freeze.on { border-color: #6ac8ff; color: #6ac8ff; }
+#gauntlet .gt-frozen { border-color: #6ac8ff; box-shadow: 0 0 0 2px #6ac8ff, inset 0 0 18px rgba(106, 200, 255, 0.35); }
+#gauntlet .gt-fruit { font-size: 11px; font-weight: 700; color: #7ad07a; }
+#gauntlet .gt-feed { border-style: dashed; border-color: var(--menu-gold); }
+#gauntlet .team-snack.empty { justify-content: center; min-height: 120px; cursor: default; opacity: 0.7; border-style: dashed; }
+html.ui-theme-old #gauntlet .gt-fruit { color: #2e6a2e; }
+html.ui-theme-old #gauntlet .gt-freeze.on { border-color: #2a6a9a; color: #2a6a9a; }
+html.ui-theme-old #gauntlet .gt-frozen { border-color: #2a6a9a; box-shadow: 0 0 0 2px #2a6a9a; }
+html.ui-theme-clean #gauntlet .gt-fruit { color: inherit; }
+html.ui-theme-clean #gauntlet .gt-freeze.on,
+html.ui-theme-clean #gauntlet .gt-frozen { outline: 3px dashed currentColor; outline-offset: 2px; }
+
+/* Drag to reorder (Reorder.js, 2026-11-23). */
+#team-slots .team-card[data-id],
+#gauntlet-team .team-card {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.team-card.reorder-dragging { position: relative; z-index: 5; opacity: 0.85; pointer-events: none; cursor: grabbing; }
+.team-card.reorder-over { outline: 3px dashed var(--menu-gold); outline-offset: 3px; }
+html.ui-theme-old .team-card.reorder-over { outline-color: var(--old-ink); }
+html.ui-theme-clean .team-card.reorder-over { outline-color: currentColor; }
+
+/* Daily Pet Shop (PetShop.js, 2026-11-23). */
+#pet-shop .ps-price {
+  margin-top: 2px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--menu-gold);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+}
+#pet-shop .ps-short .ps-price { opacity: 0.5; }
+html.ui-theme-old #pet-shop .ps-price { color: var(--old-ink); }
+html.ui-theme-clean #pet-shop .ps-price { color: inherit; }

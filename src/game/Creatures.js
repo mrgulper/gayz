@@ -209,9 +209,11 @@ const SNACK_PIX = {
     '..ssssss..', '.sttttttts', 'stttdtttts', 'sttttttdts', 'stdtttttts', 'sttttdttts', 'stttttttds', 'stdttttts.', '.stttttts.', '..ssssss..'] },
 }
 const _snackIcons = new Map()
-export function snackIconURL(id) {
+export const snackIconURL = (id) => pixelIconURL(id, SNACK_PIX[id])
+// Any 10x10 pixel-art picture ({ c: colours, rows }) as an image URL,
+// made once per id (Gauntlet.js fruit use it too).
+export function pixelIconURL(id, pix) {
   if (_snackIcons.has(id)) return _snackIcons.get(id)
-  const pix = SNACK_PIX[id]
   const cv = document.createElement('canvas')
   cv.width = cv.height = 10
   const g = cv.getContext('2d')
@@ -293,7 +295,10 @@ export function creatureCount() {
 export function stats(c) {
   const s = baseStats(c)
   const grow = (1 + LEVEL_BOOST * (levelOf(c) - 1)) * (c.s ? 1 + SHINY_BOOST : 1)
-  return { ...s, hp: Math.round(s.hp * grow), atk: Math.round(s.atk * grow) }
+  // bh / ba: health and attack from Gauntlet fruit (2026-11-23), only on a
+  // Gauntlet run's own creatures (cleanCreature drops them everywhere else).
+  const bonus = (v) => (Number.isInteger(v) && v > 0 ? v : 0)
+  return { ...s, hp: Math.round(s.hp * grow) + bonus(c.bh), atk: Math.round(s.atk * grow) + bonus(c.ba) }
 }
 
 function baseStats(c) {

@@ -675,7 +675,8 @@ test('Gauntlet: buy, merge, sell, reroll, win for coins, three losses end the ru
     G.mergeAll(tm)
     out.merged = tm.map((c) => `${c.k}:${c.r}:${G.starsOf(c)}`)
     out.slots = [1, 2, 3, 9, 12].map(G.slots)
-    out.botSizes = [1, 10].map((b) => G.botRun(b).length)
+    // A bot can merge 3 copies, so its size is anything from 1 to the slots.
+    out.botSizes = [1, 10].map((b) => Array.from({ length: 5 }, () => G.botRun(b).length).every((n) => n >= 1 && n <= G.slots(b)))
     out.botStronger = G.power(G.botRun(10)) > G.power(G.botRun(1))
     // A run through the buttons.
     out.start = byId('gauntlet-btn').textContent
@@ -717,7 +718,7 @@ test('Gauntlet: buy, merge, sell, reroll, win for coins, three losses end the ru
   expect(r).toEqual({
     merged: ['wolf:rare:2', 'bear:common:1'],
     slots: [3, 3, 4, 7, 7],
-    botSizes: [3, 7],
+    botSizes: [true, true],
     botStronger: true,
     start: 'Start a Gauntlet run',
     shop: 5,
@@ -730,5 +731,75 @@ test('Gauntlet: buy, merge, sell, reroll, win for coins, three losses end the ru
     end: [null, 1, 1],
     endBtn: 'Start a Gauntlet run',
     untouched: true,
+  })
+})
+
+// Gauntlet shop upgrade + daily Pet Shop (2026-11-23): shop tiers, food
+// (fruit for the run, snacks for one battle), freeze, reorder, and pets
+// for coins on the Pets tab.
+test('Gauntlet food, freeze, tiers, reorder; daily Pet Shop', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const G = g._gauntlet
+    const byId = (id) => document.getElementById(id)
+    const out = {}
+    localStorage.removeItem('gayz-gauntlet')
+    localStorage.removeItem('gayz-pet-shop')
+    localStorage.setItem('gayz-creatures', JSON.stringify({ list: [], team: [], wins: 0, losses: 0, nextId: 1 }))
+    g._openMenuInventoryPanel()
+    byId('inventory-tab-pets').click()
+    out.tiers = [1, 2, 3, 5, 9, 15].map(G.shopTier)
+    out.tier1Only = Array.from({ length: 40 }, () => G.rollShop(1, [])).flat().every((c) => !['brute', 'triceratops', 'bear'].includes(c.k))
+    byId('gauntlet-btn').click()
+    document.querySelector('#gauntlet [data-gt-buy]').click()
+    document.querySelector('#gauntlet [data-gt-buy]').click()
+    // Freeze keeps a slot through a reroll.
+    document.querySelector('[data-gt-freeze="s4"]').click()
+    const kept = JSON.stringify(G.loadGauntlet().run.shop[4])
+    byId('gauntlet-reroll').click()
+    out.frozenKept = JSON.stringify(G.loadGauntlet().run.shop[4]) === kept
+    // Fruit: tap the food, then a team creature.
+    const d = JSON.parse(localStorage.getItem('gayz-gauntlet'))
+    d.run.food = ['apple', 'steak']
+    d.run.gold = 10
+    localStorage.setItem('gayz-gauntlet', JSON.stringify(d))
+    g._renderTeamPanel()
+    document.querySelector('[data-gt-food="0"]').click()
+    document.querySelector('#gauntlet-team [data-gt-sell="0"]').click()
+    document.querySelector('[data-gt-food="1"]').click()
+    document.querySelector('#gauntlet-team [data-gt-sell="1"]').click()
+    let run = G.loadGauntlet().run
+    out.fed = [run.team.length, run.team[0].bh, run.team[1].sn, run.gold]
+    // Reorder.
+    const k = run.team.map((c) => c.k)
+    G.moveTeam(1, 0)
+    out.moved = JSON.stringify(G.loadGauntlet().run.team.map((c) => c.k)) === JSON.stringify([k[1], k[0]])
+    // A fight eats the snack, keeps the fruit.
+    byId('gauntlet-btn').click()
+    for (let i = 0; i < 80 && !(g._teamBattle?.root && !g._teamBattle.over); i++) await new Promise((res) => setTimeout(res, 100))
+    run = G.loadGauntlet().run
+    out.afterFight = [run.team.some((c) => c.sn), run.team.some((c) => c.bh === 15)]
+    g._teamBattle._leave()
+    // Pet Shop: same stock all day, buying adds a creature and costs coins.
+    const P = g._petShop
+    out.cards = document.querySelectorAll('#pet-shop [data-ps-buy]').length
+    g.coins = 5000
+    const coins = g.coins
+    document.querySelector('#pet-shop [data-ps-buy="0"]').click()
+    out.bought = [JSON.parse(localStorage.getItem('gayz-creatures')).list.length, coins - g.coins > 0, document.querySelectorAll('#pet-shop [data-ps-buy]').length]
+    out.sameDay = JSON.stringify(P.stock('2026-01-01')) === JSON.stringify(P.stock('2026-01-01')) && JSON.stringify(P.stock('2026-01-01')) !== JSON.stringify(P.stock('2026-01-02'))
+    return out
+  })
+  expect(r).toMatchObject({
+    tiers: [1, 1, 2, 3, 5, 5],
+    tier1Only: true,
+    frozenKept: true,
+    fed: [2, 15, 'steak', 4],
+    moved: true,
+    afterFight: [false, true],
+    cards: 4,
+    bought: [1, true, 3],
+    sameDay: true,
   })
 })
