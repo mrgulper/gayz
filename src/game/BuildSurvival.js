@@ -47,6 +47,7 @@ import { PlayInventory, ARMOR_SLOTS, itemName } from './PlayInventory.js'
 import { PlayDrops } from './PlayDrops.js'
 import { PlayThrow } from './PlayThrow.js'
 import { PlayCatch } from './PlayCatch.js'
+import { EggWalker, rollChestEgg, eggName, eggNeed } from './PetEggs.js'
 import { MobHealthBars } from './MobHealthBars.js'
 import { PlayAnimals } from './PlayAnimals.js'
 import { worldSeed, isEarthWorld } from './OpenWorld.js'
@@ -683,6 +684,8 @@ export class BuildSurvival {
     this.jetpack.clear()
     if (!this.catcher) this.catcher = new PlayCatch(this)
     this.catcher.clear()
+    // Pet eggs warm as you walk (PetEggs.js, Batch F).
+    this.eggs = new EggWalker(this)
     if (!this.hpBars) this.hpBars = new MobHealthBars(this)
     this.hpBars.clear()
     if (!this.animals) this.animals = new PlayAnimals(this)
@@ -2243,6 +2246,12 @@ export class BuildSurvival {
     // Items for the inventory too: health packs, ammo boxes, armor, blocks.
     const got = this._rollChestItems(this.inv)
     if (got.length) setTimeout(() => this.active && this._message(t('invChestItems', { items: got.join(', ') })), 1800)
+    // Now and then a pet egg (PetEggs.js, Batch F) - kept with the creatures.
+    const egg = rollChestEgg()
+    if (egg) {
+      this.eggs?.onEgg()
+      setTimeout(() => this.active && this._message(t('eggFound', { egg: eggName(egg.r), n: eggNeed(egg.r) }), 5), 3600)
+    }
     this._renderHud()
     return true
   }
@@ -3791,6 +3800,7 @@ export class BuildSurvival {
     this.jetpack?.update()
     this.pins?.update(dt)
     this.catcher?.update(Math.min(dt, 0.1))
+    this.eggs?.update()
     this.hpBars?.update(Math.min(dt, 0.1))
     this.ring?.update(Math.min(dt, 0.1))
     this.ringEditor?.update()

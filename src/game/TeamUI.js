@@ -10,12 +10,13 @@
 // Starting a battle while signed in saves your own team as a ghost team
 // for others to fight.
 import * as CloudSync from './CloudSync.js'
-import { loadCreatures, saveCreatures, stats, power, powerName, powerInfo, creatureName, creatureType, rarityName, creatureIconURL, tierColor, botTeam, packTeam, unpackTeam, TEAM_SIZE, POWERS, TRIGGERS, TRIGGER_LEVEL, TYPE_MULT, MAX_LEVEL, EVOLVE_AT, levelOf, xpProgress, triggerOf, hasTrigger, triggerName, triggerInfo, COMBOS, combosOf, comboName, comboInfo, SNACKS, SNACK_IDS, snackImg, snackName, snackInfo, feedSnack, SHINY_ODDS, SHINY_BOOST, kindName, kindNote, renameCreature, setNickFilter, NICK_MAX, ITEM_IDS, itemImg, itemName, itemInfo, holdItem, takeItem } from './Creatures.js'
+import { loadCreatures, saveCreatures, stats, power, powerName, powerInfo, creatureName, creatureType, rarityName, creatureIconURL, tierColor, botTeam, packTeam, unpackTeam, TEAM_SIZE, POWERS, TRIGGERS, TRIGGER_LEVEL, TYPE_MULT, MAX_LEVEL, EVOLVE_AT, levelOf, xpProgress, triggerOf, hasTrigger, triggerName, triggerInfo, COMBOS, combosOf, comboName, comboInfo, SNACKS, SNACK_IDS, snackImg, snackName, snackInfo, feedSnack, SHINY_ODDS, SHINY_BOOST, kindName, kindNote, renameCreature, setNickFilter, NICK_MAX, ITEM_IDS, itemImg, itemName, itemInfo, holdItem, takeItem, MAX_CREATURES, EGG_MAX } from './Creatures.js'
 import { TeamBattle, HAZARD_IDS, HAZARD_EVERY, hazardName, hazardInfo } from './TeamBattle.js'
 import { renderTournament, playTournament } from './TeamTournament.js'
 import * as PackLeaders from './PackLeaders.js'
 import { renderLeaders, startLeaderBattle, nextLeader, badgeInfo } from './PackLeaders.js'
 import * as Gauntlet from './Gauntlet.js'
+import * as PetEggs from './PetEggs.js'
 import * as PetShop from './PetShop.js'
 import { bindReorder } from './Reorder.js'
 import { saveShopProgress, saveSettings, _censorText } from './Game.js'
@@ -143,6 +144,45 @@ function renderItems(game) {
     ${have.length ? '' : `<p class="team-item-none">${esc(t('itemNone'))}</p>`}`
 }
 
+// Pet eggs (Batch F, 2026-11-23, PetEggs.js): found in Loot Chests, the
+// first EGG_WARM warm up as you walk. Tap a waiting egg to warm it
+// instead; tap a ready one (no room when it was due) to hatch it.
+function renderEggs() {
+  const el = byId('team-eggs')
+  if (!el) return
+  const eggs = loadCreatures().eggs
+  const cards = eggs.map((e, i) => {
+    const need = PetEggs.eggNeed(e.r)
+    const ready = e.d >= need
+    const warm = PetEggs.isWarm(i)
+    const state = ready ? t('eggReady') : warm ? t('eggWarming') : t('eggWaiting')
+    return `<button type="button" class="team-snack team-egg${warm ? ' warm' : ''}${ready ? ' armed' : ''}" data-egg="${i}" style="--tier: ${tierColor(e.r)}">
+      <img class="team-snack-icon" src="${PetEggs.eggIconURL(e.r)}" alt="" draggable="false" />
+      <b>${esc(PetEggs.eggName(e.r))}</b>
+      <span class="team-egg-bar"><span style="width: ${Math.round(100 * Math.min(1, e.d / need))}%"></span></span>
+      <span class="team-snack-info">${esc(t('eggWalked', { d: e.d, n: need }))}</span>
+      <span class="team-item-count">${esc(state)}</span>
+    </button>`
+  }).join('')
+  el.innerHTML = `<h3 class="team-section-title">${esc(t('eggsTitle', { n: eggs.length, max: EGG_MAX }))}</h3>
+    <p class="team-snack-hint">${esc(t('eggsHint', { n: PetEggs.EGG_WARM }))}</p>
+    ${eggs.length ? `<div class="team-snack-row">${cards}</div>` : `<p class="team-item-none">${esc(t('eggsNone'))}</p>`}`
+}
+
+// An egg tapped.
+function eggClick(game, i) {
+  const e = loadCreatures().eggs[i]
+  if (!e) return
+  if (e.d >= PetEggs.eggNeed(e.r)) {
+    const res = PetEggs.hatchEgg(i)
+    if (res === 'full') game._showHomepageToast(t('eggFull', { n: MAX_CREATURES }))
+    else if (typeof res === 'object') game._showHomepageToast(PetEggs.hatchText({ r: e.r, c: res }))
+  } else if (PetEggs.isWarm(i)) {
+    game._showHomepageToast(t('eggWalkMore', { n: PetEggs.eggNeed(e.r) - e.d }))
+  } else if (PetEggs.warmEgg(i)) game._showHomepageToast(t('eggNowWarm', { egg: PetEggs.eggName(e.r) }))
+  renderTeamPanel(game)
+}
+
 // A card tapped with an item picked (or "take off").
 function giveOrTake(game, id) {
   const item = game._teamItem
@@ -257,6 +297,7 @@ export function renderTeamPanel(game) {
   set('team-combos-title', t('teamCombosTitle'))
   renderSnacks(game)
   renderItems(game)
+  renderEggs()
   renderRename(game)
   const grid = byId('team-grid')
   if (grid) {
@@ -456,6 +497,11 @@ export function bindTeamUI(game) {
       game._teamItem = game._teamItem === ib.dataset.item ? null : ib.dataset.item
       if (game._teamItem) game._teamRename = game._teamSnack = null
       renderTeamPanel(game)
+      return
+    }
+    const eb = e.target.closest('.team-egg[data-egg]')
+    if (eb) {
+      eggClick(game, Number(eb.dataset.egg))
       return
     }
     const lb = e.target.closest('.leader-badge[data-leader]')

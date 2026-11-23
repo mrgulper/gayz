@@ -117,7 +117,19 @@ mine (smallest first, live online last).
   (lava unlit + pulses), 2D drawn into board2d. Banner .tb-hazard in
   .tb-bottom above the hint. Pets guide "Arena hazards" list. Creatures.flies.
   Test: team.spec "arena hazards".
-- [ ] **Batch F - Eggs + hatching.** Rare egg found in the world, hatches
-  after walking a set distance; rare eggs can be shiny.
+- [x] **Batch F - Eggs + hatching** (shipped 2026-11-23). Gaymi picked:
+  Loot Chests, rarer = longer walk, 3 warm at once, rarer = better shiny
+  odds. PetEggs.js: EGG_CHANCE 5% per chest (useChest, P1 only, not Couch
+  P2), rarity as often as zombies (ZOMBIE_TIERS chance). EGG_WALK common 300
+  / uncommon 450 / rare 600 / epic 900 / legendary 1200 / mythic 1500 blocks;
+  EGG_SHINY 1 in 200 / 100 / 50 / 25 / 10 / 10 (all a guess). Save `eggs`
+  [{ r, d }] in the creatures save (EGG_MAX 13 = 3 warm + 10 waiting).
+  EggWalker (s.eggs, made in BuildSurvival setup, stepped in update): flat
+  distance from bodyPos, not dead/spectating/menu, >4 blocks in one frame =
+  teleport, saved every 5 blocks (walkEggs). Hatch = random zombie /
+  skeleton / monster / animal of that rarity (addCreature got an `odds`
+  arg). Full (200 creatures): egg waits, tap it on the Pets tab later.
+  TeamUI "Eggs" under held items (renderEggs / eggClick: tap waiting = warm
+  it, tap ready = hatch). Test: team.spec "pet eggs".
 - [ ] **Batch G - Friend battles (live).** Challenge an online friend, both
   teams fight at the same time. Biggest: Firebase rules paste, hard on CI.
