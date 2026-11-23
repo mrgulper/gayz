@@ -1,5 +1,6 @@
 // Homepage extras (2026-10-31, Gaymi: "add everything you just said"):
-// small cards with a tip of the day, Map of the Week and the World Goal.
+// small cards with Map of the Week and the World Goal. (2026-11-22, Gaymi:
+// the tip of the day removed for good.)
 // (2026-11-22, Gaymi: Last Run and Invite a friend removed for good.) Two layouts to compare (Settings > General > Homepage >
 // Homepage Extras Layout): "cards" puts them in the bottom corners,
 // "panel" puts them all in a Today panel behind one button.
@@ -22,7 +23,6 @@ const SAVED_RUN_KEY = 'gayz-play-saved-run' // BuildSurvival.SAVED_RUN_KEY
 // How long after the homepage is ready the online count and Map of the
 // Week are first looked up (Firebase loads then, not at startup).
 const LOAD_DELAY_MS = 5000
-export const TIP_COUNT = 12
 const PEEK_MIN_MS = 45000
 const PEEK_MAX_MS = 90000
 const PEEK_SHOW_MS = 2600
@@ -31,14 +31,11 @@ const PEEK_SHOW_MS = 2600
 // layout the first two sit bottom-left, the rest bottom-right.
 // (2026-11-07) The birthday card leads the left stack on your GayZ
 // birthday; Map of the Week leads the right one once a map is found.
-const LEFT_CARDS = ['birthday', 'tip']
+// (2026-11-22) The World Goal card (WorldGoal.js) sits bottom-left, where
+// the tip of the day was, in the coins bar's pink look (08-homepage.css).
+const LEFT_CARDS = ['birthday', 'worldgoal']
 // (2026-11-19, Gaymi: Top players card removed from the homepage.)
-// (2026-11-22) The World Goal card (WorldGoal.js) has its own box at the
-// top-left, where the character used to stand (#home-worldgoal); the
-// character moved to the middle, above Play.
 const RIGHT_CARDS = ['mapweek']
-// World Goal box looks to pick from (the small switch on its top edge).
-const GOAL_LOOKS = ['card', 'frame']
 
 // Players online now (in the clock's pill): refreshed this often, only while
 // the homepage itself is on screen. Kept slow on purpose - the database's
@@ -103,12 +100,6 @@ export function pickMapOfWeek(posts, now = Date.now(), pin = null) {
   }
 }
 
-// The day's tip: same for everyone on the same date, a new one tomorrow.
-export function tipOfDayKey(date = new Date()) {
-  const start = new Date(date.getFullYear(), 0, 0)
-  const day = Math.floor((date - start) / 86400000)
-  return `tipOfDay${(day % TIP_COUNT) + 1}`
-}
 
 // Halloween (Oct 20-31) or winter (all of December), else null. Only
 // winter draws anything on the homepage now. The Console's Holiday switch
@@ -170,12 +161,6 @@ function cardHtml(game, id) {
     </div>`
   }
   if (id === 'worldgoal') return worldGoalCardHtml(game)
-  if (id === 'tip') {
-    return `<div class="home-x-card" data-card="tip">
-      <span class="home-x-tag">${_escapeHtml(t('homeExtrasTip'))}</span>
-      <span class="home-x-line">${_escapeHtml(t(tipOfDayKey()))}</span>
-    </div>`
-  }
   return ''
 }
 
@@ -192,26 +177,18 @@ export function onlineTotal(count, signedIn, statusMode) {
 export function renderHomeExtras(game) {
   const left = document.getElementById('home-extras-left')
   const right = document.getElementById('home-extras-right')
-  const goal = document.getElementById('home-worldgoal')
   const list = document.getElementById('today-panel-list')
   if (!left || !right) return
   const panel = game.settings.homeExtrasLayout === 'panel'
   document.documentElement.classList.toggle('home-extras-panel', panel)
   if (panel) {
     left.innerHTML = ''
-    if (goal) goal.innerHTML = ''
     right.innerHTML = `<button type="button" class="home-x-card home-x-today" id="home-today-btn"><svg class="home-x-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg> ${_escapeHtml(t('homeExtrasToday'))}</button>`
-    if (list) list.innerHTML = ['worldgoal', ...LEFT_CARDS, ...RIGHT_CARDS].map((id) => cardHtml(game, id)).join('')
+    if (list) list.innerHTML = [...LEFT_CARDS, ...RIGHT_CARDS].map((id) => cardHtml(game, id)).join('')
   } else {
     left.innerHTML = LEFT_CARDS.map((id) => cardHtml(game, id)).join('')
     right.innerHTML = RIGHT_CARDS.map((id) => cardHtml(game, id)).join('')
-    if (goal) goal.innerHTML = goalLookSwitchHtml(game) + cardHtml(game, 'worldgoal')
     if (list) list.innerHTML = ''
-  }
-  if (goal) {
-    const look = GOAL_LOOKS.includes(game.settings.worldGoalLook) ? game.settings.worldGoalLook : 'card'
-    goal.classList.toggle('goal-look-frame', look === 'frame')
-    goal.classList.remove('pending')
   }
   left.classList.remove('pending')
   right.classList.remove('pending')
@@ -220,14 +197,6 @@ export function renderHomeExtras(game) {
   loadOnlineLater(game)
   loadMapWeekLater(game)
   loadWorldGoalLater(game)
-}
-
-// The tiny switch on the World Goal box's top edge (2026-11-22, Gaymi:
-// "make both and add a tiny switch at top i pick"): flips between the
-// small pink card and the profile card's metal frame. Saved on this device.
-function goalLookSwitchHtml(game) {
-  const frame = game.settings.worldGoalLook === 'frame'
-  return `<button type="button" class="home-goal-look-btn" data-goal-look title="${_escapeHtml(t('worldGoalLookSwitch'))}" aria-label="${_escapeHtml(t('worldGoalLookSwitch'))}">${frame ? 'B' : 'A'} ⇄</button>`
 }
 
 // The World Goal card (2026-11-19, big-ideas plan World Goal Batch 3):
@@ -306,7 +275,7 @@ function loadWorldGoalLater(game) {
   update(false)
   const tick = () => {
     // Only while the homepage's cards are on screen (not in a game).
-    const stack = document.getElementById('home-worldgoal')
+    const stack = document.getElementById('home-extras-left')
     if (document.visibilityState !== 'hidden' && stack && stack.getClientRects().length) update(true)
     game._homeWorldGoalTimer = setTimeout(tick, WORLDGOAL_REFRESH_MS)
   }
@@ -339,7 +308,7 @@ function claimWorldGoal(game, which) {
 // what's above it (the character or the nav buttons) on a short screen.
 export function fitHomeExtras() {
   placeStacks()
-  const pairs = [['home-extras-left', 'home-worldgoal'], ['home-extras-right', 'menu-nav-buttons']]
+  const pairs = [['home-extras-left', 'menu-col-left'], ['home-extras-right', 'menu-nav-buttons']]
   for (const [stackId, aboveId] of pairs) {
     const stack = document.getElementById(stackId)
     const above = document.getElementById(aboveId)
@@ -349,10 +318,20 @@ export function fitHomeExtras() {
     stack.style.bottom = ''
     if (getComputedStyle(stack).position !== 'absolute') continue
     liftAboveLinks(stack)
-    const limit = above.getBoundingClientRect().bottom + 8
+    const limit = stackId === 'home-extras-left' ? leftLimit(above) : above.getBoundingClientRect().bottom + 8
     for (let i = cards.length - 1; i > 0 && stack.getBoundingClientRect().top < limit; i--) cards[i].style.display = 'none'
     if (stack.getBoundingClientRect().top < limit) cards[0].style.display = 'none'
   }
+}
+
+// The left stack sits under the character: its limit is where the
+// character's canvas ends.
+function leftLimit(col) {
+  const canvas = col.querySelector('#setup-avatar-wrap') || col
+  // The signed-out pill hangs just under the character's feet.
+  const pill = col.querySelector('#home-signin-warning')
+  const pillBottom = pill && pill.getClientRects().length ? pill.getBoundingClientRect().bottom : 0
+  return Math.max(canvas.getBoundingClientRect().bottom, pillBottom) + 8
 }
 
 // The stacked phone layout (index.html's STACKED_QUERY) scrolls as one
@@ -679,13 +658,7 @@ export function bindHomeExtras(game) {
   })
   document.getElementById('home-extras-left')?.addEventListener('click', (e) => {
     if (e.target.closest('[data-birthday-claim]')) claimBirthday(game)
-  })
-  document.getElementById('home-worldgoal')?.addEventListener('click', (e) => {
-    if (e.target.closest('[data-goal-look]')) {
-      game.settings.worldGoalLook = game.settings.worldGoalLook === 'frame' ? 'card' : 'frame'
-      saveSettings(game.settings)
-      renderHomeExtras(game)
-    } else if (e.target.closest('[data-worldgoal-claim]')) claimWorldGoal(game, e.target.closest('[data-worldgoal-claim]').dataset.worldgoalClaim)
+    else if (e.target.closest('[data-worldgoal-claim]')) claimWorldGoal(game, e.target.closest('[data-worldgoal-claim]').dataset.worldgoalClaim)
   })
   const panel = document.getElementById('today-panel')
   if (panel) {

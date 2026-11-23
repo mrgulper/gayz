@@ -363,7 +363,7 @@ test('cloud builds: a saved build uploads; warning only when signed out', async 
   })
   // The test page is signed out.
   expect(warn.hidden).toBe(false)
-  expect(warn.text).toContain('Not signed in')
+  expect(warn.text).toContain('not signed in')
   await installFakeCloud(page, 'alice', null)
   const r = await page.evaluate(async () => {
     const g = window.__game

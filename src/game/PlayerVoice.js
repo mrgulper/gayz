@@ -148,7 +148,10 @@ function feedbackOpen() {
 function setKind(kind) {
   const el = feedbackEl()
   el.dataset.kind = [...FEEDBACK_KIND_IDS, 'report'].includes(kind) ? kind : 'idea'
-  for (const b of el.querySelectorAll('.voice-kind')) b.setAttribute('aria-checked', String(b.dataset.kind === el.dataset.kind))
+  for (const b of el.querySelectorAll('.voice-kind')) {
+    b.setAttribute('aria-checked', String(b.dataset.kind === el.dataset.kind))
+    b.classList.toggle('active', b.dataset.kind === el.dataset.kind)
+  }
   $('feedback-text').placeholder = t(`feedbackPlaceholder_${el.dataset.kind}`)
   $('feedback-report-row').hidden = el.dataset.kind !== 'report'
   fillNote()
@@ -297,7 +300,12 @@ export function openFeedback(kind = 'idea') {
   for (const b of el.querySelectorAll('.voice-kind')) b.textContent = t(`feedbackKind_${b.dataset.kind}`)
   $('feedback-report-label').textContent = t('feedbackReportLabel')
   $('feedback-report-input').placeholder = t('feedbackReportSearch')
-  $('feedback-pic-btn').textContent = t('feedbackPicAdd')
+  $('feedback-kind-heading').textContent = t('feedbackKindHeading')
+  $('feedback-text-heading').textContent = t('feedbackTextHeading')
+  $('feedback-pics-heading').textContent = t('feedbackPicsHeading')
+  // An icon button: its name is the tooltip and what screen readers say.
+  $('feedback-pic-btn').title = t('feedbackPicAdd')
+  $('feedback-pic-btn').setAttribute('aria-label', t('feedbackPicAdd'))
   $('feedback-cancel').textContent = t('feedbackCancel')
   $('feedback-send').textContent = t('feedbackSend')
   $('feedback-send').disabled = false

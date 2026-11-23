@@ -1435,8 +1435,10 @@ html.ui-theme-old #homepage-greeting {
 }
 #home-signin-warning:hover { filter: brightness(1.1); }
 #home-signin-warning[hidden] { display: none; }
-html.ui-theme-clean #home-signin-warning { color: var(--clean-btn-fg, #fff); background: var(--clean-btn, #e84a8a); border-color: transparent; }
-html.ui-theme-old #home-signin-warning { color: #f3e6c8; background: var(--old-ink); border-color: var(--menu-gold, #d9bc4a); }
+/* Pink like the coins bar and the clock (2026-11-22, Gaymi: "make it
+   the pinky style"). */
+html.ui-theme-clean #home-signin-warning { color: var(--gayz-accent-fg, #fff); background: var(--gayz-accent, #ff2e88); border-color: transparent; }
+html.ui-theme-old #home-signin-warning { color: #ffffff; background: color-mix(in srgb, var(--gayz-pink) 88%, transparent); border-color: transparent; }
 
 #setup-avatar-canvas {
   width: 100%;
@@ -2263,7 +2265,7 @@ html.ui-theme-old .home-play-tag { color: #f3e6c8; background: var(--old-ink); b
   background: var(--menu-gold, #e8b84a);
   border-color: var(--menu-gold, #e8b84a);
 }
-#feedback-text {
+#feedback-screen #feedback-text {
   width: 100%;
   box-sizing: border-box;
   padding: 12px 14px;
@@ -2275,7 +2277,7 @@ html.ui-theme-old .home-play-tag { color: #f3e6c8; background: var(--old-ink); b
   border-radius: 14px;
   resize: vertical;
 }
-#feedback-text:focus { outline: none; border-color: var(--menu-gold, #e8b84a); }
+#feedback-screen #feedback-text:focus { outline: none; border-color: var(--menu-gold, #e8b84a); }
 .voice-card .voice-actions { display: flex; gap: 10px; justify-content: center; }
 .voice-card .voice-primary,
 .voice-card .voice-secondary {
@@ -2312,75 +2314,74 @@ html[data-home-tier] #menu-nav-buttons #menu-more-btn {
   display: flex;
 }
 
-/* Feedback page (2026-11-22, PlayerVoice.js): a normal panel now. The
-   form keeps the .voice-card buttons (pink in brand.css) without the old
-   popup's card box. */
-/* The panel is the shared size (2026-11-22, every panel the same size);
-   only the form inside stays a readable width, centered. */
-#feedback-form { max-width: 720px; margin-left: auto; margin-right: auto; }
-#feedback-form { text-align: left; }
-#feedback-form .voice-help { text-align: center; }
-#feedback-form .voice-kinds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-#feedback-form .voice-kind { min-width: 0; }
+/* Feedback page (2026-11-22, PlayerVoice.js): a normal panel, built from
+   the same pieces as Settings (Gaymi: "make the sections and text and
+   stuff same as other panels") - .settings-section-heading headings,
+   .inv-tab pills for the kinds (pink when picked), .settings-reset-btn
+   buttons and the panels' own text box look (brand.css / theme-clean.css
+   colour all of these in every theme). Only sizes and layout live here.
+   The panel is the shared size; the form stays a readable width. */
+#feedback-form { max-width: 720px; margin-left: auto; margin-right: auto; text-align: left; }
+#feedback-form .voice-help { text-align: center; font-size: 12px; margin: 0 0 6px; }
+#feedback-form .settings-section-heading { margin: 14px 0 8px; }
+#feedback-form .voice-small { font-size: 12px; margin: 6px 0 0; text-align: right; }
+#feedback-form .voice-kinds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 @media (max-width: 560px) { #feedback-form .voice-kinds { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-/* Filled, like an unpicked kind, so they show on every panel background. */
-html:root #feedback-form .voice-secondary {
-  background: color-mix(in srgb, var(--gayz-panel), var(--gayz-panel-fg) 18%);
+/* Settings' tab look, at a tab's low weight (:where) so the themes'
+   tab colours still win. */
+:where(#feedback-form) .voice-kind {
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
-#feedback-form #feedback-text { min-height: 180px; }
-#feedback-report-row { margin-bottom: 12px; }
-/* Same sizes as every other panel (2026-11-22, Gaymi: "the make a report
-   panel is bigger than other sections ... the sections and text"): the
-   panels' body font and 13px text, kind pills the size of Gallery's
-   tabs, buttons the size of Settings' action buttons. The bigger
-   desktop sizes in brand.css stay for the poll pop-up only. */
-#feedback-form,
-#feedback-form :is(.voice-kind, .voice-primary, .voice-secondary, #feedback-text) { font-family: inherit; }
-#feedback-form .voice-help { font-size: 13px; margin: 0 0 12px; }
-#feedback-form .voice-small { font-size: 12px; margin: 6px 0 12px; }
-#feedback-form .voice-kinds { gap: 8px; margin-bottom: 12px; }
+/* Same size as Settings' tabs. */
 #feedback-form .voice-kind {
+  min-width: 0;
   min-height: 32px;
   padding: 7px 18px;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.5px;
   border-radius: 20px;
+  cursor: pointer;
 }
 #feedback-form #feedback-text {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
   min-height: 160px;
   padding: 12px 14px;
+  /* The same font as the search boxes, not the browser's typewriter one. */
+  font-family: Arial, Helvetica, sans-serif;
   font-size: 13px;
   border-radius: 14px;
+  resize: vertical;
 }
-#feedback-form .voice-actions { gap: 10px; }
-#feedback-form :is(.voice-primary, .voice-secondary) {
-  min-height: 34px;
-  padding: 7px 18px;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 20px;
-}
+html.ui-theme-clean #feedback-form #feedback-text { font-family: var(--clean-font); }
+#feedback-form .voice-actions { display: flex; gap: 10px; justify-content: center; margin-top: 18px; }
+#feedback-form .voice-actions > button { flex: 1 1 0; min-width: 0; margin: 0; }
+#feedback-form .settings-reset-btn:disabled { opacity: 0.6; cursor: default; }
 #feedback-report-row[hidden] { display: none; }
 #feedback-report-label { display: block; margin: 0 0 6px; font-size: 14px; }
 #feedback-report-search { position: relative; }
-#feedback-report-input {
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 42px;
-  padding: 8px 18px;
-  font: inherit;
-  font-size: 15px;
-  color: var(--gayz-panel-fg, #fff);
-  background: color-mix(in srgb, var(--gayz-panel, #222), #000000 18%);
-  border: 1px solid color-mix(in srgb, var(--gayz-panel-fg, #fff) 35%, transparent);
-  border-radius: 999px;
-}
-#feedback-report-input::placeholder { color: color-mix(in srgb, var(--gayz-panel-fg, #fff) 65%, transparent); }
-#feedback-report-input:focus { outline: none; border-color: var(--gayz-panel-fg, #fff); }
+/* The name search is the shared search bar (.nickname-input.search-bar). */
+#feedback-report-input { width: 100%; }
 #feedback-form #feedback-report-picked { text-align: left; margin: 6px 0 0; }
 #feedback-pics-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-#feedback-pics-row #feedback-pic-btn { min-width: 0; flex: 0 0 auto; }
+/* Add a picture: a square icon button, like the other icon buttons. */
+#feedback-pics-row #feedback-pic-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+}
+#feedback-pics-row #feedback-pic-btn svg { width: 22px; height: 22px; }
 #feedback-pics-row #feedback-pic-btn:disabled { opacity: 0.5; cursor: default; }
 #feedback-pics { display: flex; flex-wrap: wrap; gap: 8px; }
 .feedback-pic { position: relative; width: 72px; height: 72px; }
@@ -2406,133 +2407,87 @@ html:root #feedback-form .voice-secondary {
   border-radius: 50%;
   cursor: pointer;
 }
-#feedback-form #feedback-pics-note { text-align: left; }
+#feedback-form #feedback-pics-note { text-align: left; margin-top: 8px; }
 
-/* ---- Character in the middle (2026-11-22) ----
-   Gaymi: "move the spinning character to the middle of the screen above
-   the play button" + the logo shrinks so it all fits. The middle stack is
-   now logo, name, character, Play, Game Mode, Settings - one column,
-   dead-center, no scrolling. Three ids so these beat every height tier in
-   09-quests-clans-chat.css and the tablet rule in 12-gallery-and-later.css.
-   The left column now holds the World Goal box (#home-worldgoal). */
-#menu #menu-hero #player-showcase-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  margin: 0;
+/* ---- World Goal card (2026-11-22) ----
+   Gaymi: "for the world goal use the panel style the currency and time
+   has" - the same pink box as the coins bar and clock (Old: pink, white
+   words; Simple: the card colour), rounded like them. It sits in the
+   bottom-left corner stack, where the tip of the day used to be. */
+#menu .home-x-card.home-x-worldgoal {
+  font-family: var(--menu-display-font);
+  border-radius: 18px;
+  padding: 9px 16px 10px;
+  pointer-events: auto;
 }
-#menu #menu-hero #player-showcase-header {
-  width: min(340px, 92%);
-}
-#menu-hero #setup-avatar-wrap {
-  margin: 4px auto 0;
-}
-@media (min-width: 701px) and (min-height: 501px) and (orientation: landscape), (min-width: 1101px) and (min-height: 501px) {
-  #menu-layout {
-    --mid-logo-h: clamp(80px, 19vh, 230px);
-    --mid-char-h: clamp(150px, calc(100vh - 560px), 440px);
-  }
-  #menu #menu-hero #menu-title-img {
-    width: calc(var(--mid-logo-h) * 825 / 482);
-    max-width: 96%;
-    height: auto;
-  }
-  #menu #menu-hero #setup-avatar-wrap {
-    height: var(--mid-char-h);
-    width: calc(var(--mid-char-h) * 0.55);
-  }
-  #menu #menu-layout #menu-col-left {
-    justify-content: flex-start;
-    padding-top: 112px;
-  }
-}
-/* Phones and tablets (the one scrolling column): a smaller character
-   between the logo and Play. */
-@media (max-width: 700px), (orientation: portrait) and (max-width: 1100px), (max-height: 500px) {
-  #menu #menu-hero #setup-avatar-wrap {
-    height: min(340px, 80vw);
-    width: min(187px, 44vw);
-  }
-  #menu #menu-layout #home-worldgoal {
-    width: min(340px, 92vw);
-    align-self: center;
-  }
-  #menu #menu-layout #menu-col-left {
-    padding-left: 0;
-  }
-}
-
-/* World Goal box (HomeExtras.js). Two looks to pick from with the tiny
-   switch on its top edge: "card" (the small pink card) or "frame" (the
-   profile card's metal plate). */
-#home-worldgoal {
-  position: relative;
-  width: 100%;
-  box-sizing: border-box;
-}
-#home-worldgoal.pending { visibility: hidden; }
-#home-worldgoal:empty { display: none; }
-.home-goal-look-btn {
-  position: absolute;
-  top: -9px;
-  right: 10px;
-  z-index: 2;
-  padding: 1px 8px;
-  font: 800 10px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
-  letter-spacing: 0.5px;
-  color: var(--gayz-accent-fg, #fff);
-  background: var(--gayz-accent, #e0479e);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 999px;
-  cursor: pointer;
-}
-.home-goal-look-btn:hover { filter: brightness(1.12); }
-#home-worldgoal .home-x-card { font-size: 13px; padding: 10px 14px 11px; }
-#home-worldgoal .home-x-card .home-x-big { font-size: 15px; }
-/* Look B: the profile card's frame. */
-#menu #home-worldgoal.goal-look-frame .home-x-card {
-  position: relative;
-  isolation: isolate;
-  padding: 30px 28px 28px;
-  gap: 5px;
-  border-radius: 22px;
-}
-html.ui-theme-old #menu #home-worldgoal.goal-look-frame .home-x-card,
-html.ui-theme-old #menu #home-worldgoal.goal-look-frame .home-x-card:is(:hover, .nav-hover) {
-  background: none;
-  border: none;
-  border-radius: 0;
+html.ui-theme-old #menu#menu .home-x-card.home-x-worldgoal {
+  background: color-mix(in srgb, var(--gayz-pink) 88%, transparent);
+  border: 1px solid transparent;
   filter: none;
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
-html.ui-theme-old #menu #home-worldgoal.goal-look-frame .home-x-card .home-x-tag { color: #ffd6ec; }
-html.ui-theme-old #menu #home-worldgoal.goal-look-frame .home-x-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: url('../menu-art/old-profile-plate.webp') center / 100% 100% no-repeat;
-  filter: sepia(1) saturate(3.5) hue-rotate(290deg) brightness(1.15);
-  pointer-events: none;
+html.ui-theme-old #menu#menu .home-x-card.home-x-worldgoal,
+html.ui-theme-old #menu#menu .home-x-card.home-x-worldgoal :not(.home-x-btn, .home-x-btn *) {
+  color: #ffffff !important;
 }
-html.ui-theme-clean #menu #home-worldgoal.goal-look-frame .home-x-card {
-  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--gayz-accent-fg, #fff) 35%, transparent), 0 6px 14px rgba(0, 0, 0, 0.3);
-}
-/* The plate's middle (the profile picture's slot) sits behind the words:
-   a dark window over it keeps them readable, like the profile card's. */
-html.ui-theme-old #menu #home-worldgoal.goal-look-frame .home-x-card::after {
-  content: '';
-  position: absolute;
-  inset: 20px;
-  z-index: -1;
-  background: rgba(14, 8, 12, 0.88);
-  border-radius: 4px;
+html.ui-theme-old #menu .home-x-card.home-x-worldgoal .home-x-bar { background: rgba(255, 255, 255, 0.3); }
+html.ui-theme-old #menu .home-x-card.home-x-worldgoal .home-x-bar i { background: #ffffff; }
+html.ui-theme-old #menu .home-x-card.home-x-worldgoal .home-x-btn { color: var(--gayz-pink) !important; background: #ffffff; border-color: #ffffff; }
+html.ui-theme-clean #menu#menu .home-x-card.home-x-worldgoal {
+  background: var(--clean-card);
   border: none;
-  box-shadow: none;
-  opacity: 1;
-  width: auto;
-  height: auto;
-  pointer-events: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+html.ui-theme-clean #menu#menu#menu .home-x-card.home-x-worldgoal,
+html.ui-theme-clean #menu#menu#menu .home-x-card.home-x-worldgoal :not(.home-x-btn, .home-x-btn *) {
+  color: var(--clean-card-fg) !important;
+}
+html.ui-theme-clean #menu .home-x-card.home-x-worldgoal .home-x-bar { background: color-mix(in srgb, var(--clean-card-fg) 20%, transparent); }
+html.ui-theme-clean #menu .home-x-card.home-x-worldgoal .home-x-bar i { background: var(--clean-card-fg); }
+html.ui-theme-clean #menu#menu#menu#menu#menu .home-x-card.home-x-worldgoal .home-x-btn,
+html.ui-theme-clean #menu#menu#menu#menu#menu .home-x-card.home-x-worldgoal .home-x-btn * {
+  color: var(--clean-card) !important;
+  background: var(--clean-card-fg);
+  border-color: var(--clean-card-fg);
+}
+
+/* Name and clan above the homepage character: white in every theme
+   (2026-11-22, Gaymi: "make the clan and name white"). A name colour
+   picked in Settings still wins for the name. */
+#menu #player-showcase-header .nameplate-clan,
+html:not(.custom-name-color) #menu #player-showcase-header .nameplate-name {
+  color: #ffffff !important;
+}
+
+/* The name sits a little closer to the character's head (2026-11-22,
+   Gaymi: "make the name above the character slightly closer"): the
+   character's box has empty room above the head, so the name is pulled
+   down into it. Above the canvas so the pencil still clicks. */
+#menu-col-left #player-showcase-header {
+  z-index: 2;
+  margin-bottom: -5vh;
+}
+@media (max-width: 700px), (orientation: portrait) and (max-width: 1100px), (max-height: 500px) {
+  #menu-col-left #player-showcase-header { margin-bottom: 0; }
+}
+/* The signed-out pill sits at the character's feet now (the box has a
+   little empty room under them), so the name can come closer to the head
+   without covering it. */
+#menu-col-left #home-signin-warning {
+  top: calc(100% - 28px);
+  max-width: min(276px, 90vw);
+}
+/* Phones and tablets (one scrolling column): the profile card comes right
+   after the character, so the pill stays over the character's top there. */
+@media (max-width: 700px), (orientation: portrait) and (max-width: 1100px), (max-height: 500px) {
+  #menu-col-left #home-signin-warning { top: 4px; max-width: min(260px, 90vw); }
+}
+/* Big screens (wider than 1300px): the character's height is capped so
+   its name always sits below the coins bar and clock in the top-left
+   corner (2026-11-22 - at 1366x768 the name ran under the clock). The
+   column is bottom-anchored, so a shorter character lowers the name. */
+@media (min-width: 1301px) and (min-height: 501px) {
+  #menu-col-left #setup-avatar-wrap {
+    height: clamp(260px, min(60vh, 100vh - 380px), 690px);
+    width: clamp(125px, min(29vh, (100vh - 380px) * 0.48), 331px);
+  }
 }

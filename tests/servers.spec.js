@@ -2286,6 +2286,13 @@ test('feedback box, poll popup and error reports on the page', async ({ page }) 
   await expect(box).toBeVisible()
   expect(await page.locator('#feedback-text').getAttribute('maxlength')).toBe('10000')
   await box.locator('.voice-kind[data-kind="bug"]').click()
+  // Settings' pieces (2026-11-22): the picked kind is a picked tab, three
+  // section headings, and Add Picture is an icon button with a name.
+  await expect(box.locator('.voice-kind[data-kind="bug"]')).toHaveClass(/\bactive\b/)
+  await expect(box.locator('.voice-kind.active')).toHaveCount(1)
+  await expect(box.locator('.settings-section-heading')).toHaveCount(3)
+  await expect(page.locator('#feedback-pic-btn svg')).toHaveCount(1)
+  expect(await page.locator('#feedback-pic-btn').getAttribute('aria-label')).toBe('Add Picture')
   await page.locator('#feedback-text').fill('The zombie got stuck')
   // A tiny PNG made on the page, picked like a real file.
   const png = await page.evaluate(() => {

@@ -188,8 +188,9 @@
          CSS from the first paint, never waits for the game. Each homepage
          part starts just off its own edge and glides to its spot. The clock
          drops in from the top with the coins (2026-11-23, Gaymi: "make the
-         time also go in from edges"). The middle stack - logo, Play, Game Mode
-         and Settings - spins out from the middle of the screen to its spot
+         time also go in from edges"). The big GayZ logo is just there, ready
+         (2026-11-22, Gaymi: "when refreshing dont make the gayz logo spin").
+         Play, Game Mode and Settings spin out from the middle of the screen to its spot
          (2026-11-22, Gaymi: "make it like come spinning out from the middle
          to out"; replaces "the middle part ... just have it ready"). The
          small script after #menu-hero sets each one's --gz-from-y (how far
@@ -212,7 +213,7 @@
       /* Only until html.menu-spun (set ~1.2s in by the script after
          #menu-hero): otherwise a hover's wobble ending would start the spin
          over, and coming back from a game would spin again. */
-      html:not(.menu-spun) :is(#menu-title, #play-btn, #gamemode-btn, #hero-quick-actions) { animation: gz-spin-out 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+      html:not(.menu-spun) :is(#play-btn, #gamemode-btn, #hero-quick-actions) { animation: gz-spin-out 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
       html:not(.menu-spun) #play-btn { animation-delay: 0.05s; }
       html:not(.menu-spun) #gamemode-btn { animation-delay: 0.1s; }
       html:not(.menu-spun) #hero-quick-actions { animation-delay: 0.15s; }
@@ -220,7 +221,7 @@
       @media (prefers-reduced-motion: reduce) {
         #menu-col-left, #home-extras-left, #menu-col-right, #home-extras-right,
         #menu-currency-bar, #homepage-clock, #menu-links-row,
-        html:not(.menu-spun) :is(#menu-title, #play-btn, #gamemode-btn, #hero-quick-actions) { animation: none; }
+        html:not(.menu-spun) :is(#play-btn, #gamemode-btn, #hero-quick-actions) { animation: none; }
       }
     </style>
     <script>
@@ -591,17 +592,6 @@
         <div id="home-extras-right" class="home-extras pending"></div>
         <div id="menu-layout">
           <div id="menu-col-left">
-            <!-- World Goal box (HomeExtras.js renderHomeExtras), where the
-                 character used to stand (2026-11-22). -->
-            <div id="home-worldgoal" class="pending"></div>
-
-          </div>
-
-          <div id="menu-hero">
-            <h1 id="menu-title"><span id="menu-title-img" role="img" aria-label="GayZ"></span></h1>
-            <!-- The spinning character, in the middle above Play (2026-11-22,
-                 Gaymi: "move the spinning character to the middle of the
-                 screen above the play button"). -->
             <section class="menu-panel" id="player-showcase-panel">
               <div id="player-showcase-header">
                 <div id="player-showcase-title-wrap">
@@ -623,6 +613,11 @@
                 <button type="button" id="home-signin-warning" hidden></button>
               </div>
             </section>
+
+          </div>
+
+          <div id="menu-hero">
+            <h1 id="menu-title"><span id="menu-title-img" role="img" aria-label="GayZ"></span></h1>
             <p class="menu-subhint" id="menu-subhint">Look for lookout platforms up staircases along the avenue &mdash; chests inside</p>
             <p class="menu-news-ticker" id="menu-news-ticker"></p>
             <p class="menu-news-ticker" id="weekly-featured-mutator-line"></p>
@@ -669,7 +664,7 @@
           <script>
             // Spin-out start point (see gz-spin-out in <head>): each part
             // starts at the screen's middle, so it spins out from there.
-            ;['menu-title', 'play-btn', 'gamemode-btn', 'hero-quick-actions'].forEach(function (id) {
+            ;['play-btn', 'gamemode-btn', 'hero-quick-actions'].forEach(function (id) {
               var el = document.getElementById(id)
               if (!el) return
               var r = el.getBoundingClientRect()
@@ -918,12 +913,38 @@
             for (var k = 0; k < els.length; k++) els[k].style.zoom = value
           }
 
-          // #play-btn used to jump to the window's dead-center when it fit
-          // (.play-btn-centered). Since 2026-11-22 the character stands
-          // right above it, so Play stays in the middle stack's flow.
+          // Whether #play-btn can go dead-center in the window (its
+          // .play-btn-centered rule) without overlapping the hero column -
+          // measured live, since the hero's text above it varies in length.
+          // #settings-btn is the last visible hero element (a display:none
+          // one would measure as all zeros). (Back since 2026-11-22: the
+          // character returned to the left column.)
+          // An element's bottom edge on screen, without any transform or
+          // animation moving it (offsets are layout-only).
+          function layoutBottom(el) {
+            var y = el.offsetHeight
+            for (var n = el; n; n = n.offsetParent) y += n.offsetTop
+            for (var p = el.parentElement; p; p = p.parentElement) y -= p.scrollTop
+            return y
+          }
+
           function centerPlayBtn() {
             var play = document.getElementById('play-btn')
-            if (play) play.classList.remove('play-btn-centered')
+            var settingsBtn = document.getElementById('settings-btn')
+            if (!play || !settingsBtn) return
+            play.classList.remove('play-btn-centered')
+            var btnHeight = play.getBoundingClientRect().height
+            var prevDisplay = play.style.display
+            play.style.display = 'none'
+            // Where the settings row ends once its load-time spin is done:
+            // offsets ignore the spin's moving/scaling (2026-11-22 - measured
+            // mid-spin, Play went dead-center on top of the gear).
+            var safeTop = layoutBottom(settingsBtn)
+            play.style.display = prevDisplay
+            var centerY = window.innerHeight / 2
+            var margin = 20
+            var fits = (centerY - btnHeight / 2) > (safeTop + margin) && (centerY + btnHeight / 2) < (window.innerHeight - margin)
+            play.classList.toggle('play-btn-centered', fits)
           }
 
           // The footer links stay clear of the right column's buttons and on
@@ -3334,33 +3355,41 @@
         <div class="panel-box">
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
           <h2 id="feedback-title">Make a Report</h2>
-          <div class="voice-card" id="feedback-form">
+          <!-- Built from the same pieces as Settings (2026-11-22, Gaymi: "make
+               the sections and text and stuff same as other panels"): section
+               headings, tab pills (.inv-tab: style only, no click code), the
+               panels' text box and buttons. -->
+          <div id="feedback-form">
             <p class="voice-help" id="feedback-help"></p>
-            <div class="voice-kinds" role="radiogroup">
-              <button type="button" class="voice-kind" role="radio" data-kind="idea"></button>
-              <button type="button" class="voice-kind" role="radio" data-kind="bug"></button>
-              <button type="button" class="voice-kind" role="radio" data-kind="report"></button>
-              <button type="button" class="voice-kind" role="radio" data-kind="other"></button>
+            <h3 class="settings-section-heading" id="feedback-kind-heading"></h3>
+            <div class="voice-kinds" role="radiogroup" aria-labelledby="feedback-kind-heading">
+              <button type="button" class="voice-kind inv-tab" role="radio" data-kind="idea"></button>
+              <button type="button" class="voice-kind inv-tab" role="radio" data-kind="bug"></button>
+              <button type="button" class="voice-kind inv-tab" role="radio" data-kind="report"></button>
+              <button type="button" class="voice-kind inv-tab" role="radio" data-kind="other"></button>
             </div>
             <div id="feedback-report-row" hidden>
               <label id="feedback-report-label" for="feedback-report-input"></label>
               <div id="feedback-report-search">
-                <input type="text" id="feedback-report-input" maxlength="40" autocomplete="off" spellcheck="false">
+                <input type="text" id="feedback-report-input" class="nickname-input search-bar" maxlength="40" autocomplete="off" spellcheck="false">
                 <div id="feedback-report-suggestions" role="listbox"></div>
               </div>
               <p class="voice-small" id="feedback-report-picked"></p>
             </div>
-            <textarea id="feedback-text" maxlength="10000" rows="8"></textarea>
+            <h3 class="settings-section-heading" id="feedback-text-heading"></h3>
+            <textarea id="feedback-text" class="nickname-input" maxlength="10000" rows="8" aria-labelledby="feedback-text-heading"></textarea>
             <p class="voice-small" id="feedback-note"></p>
+            <h3 class="settings-section-heading" id="feedback-pics-heading"></h3>
             <div id="feedback-pics-row">
-              <button type="button" class="voice-secondary" id="feedback-pic-btn"></button>
+              <!-- Add a picture: an icon button (2026-11-22, Gaymi); its name is the tooltip. -->
+              <button type="button" class="settings-reset-btn" id="feedback-pic-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="M21 16l-5-5-8 9"/><path d="M19 1v6M16 4h6"/></svg></button>
               <input type="file" id="feedback-pic-input" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
               <div id="feedback-pics"></div>
             </div>
             <p class="voice-small" id="feedback-pics-note"></p>
             <div class="voice-actions">
-              <button type="button" class="voice-secondary" id="feedback-cancel"></button>
-              <button type="button" class="voice-primary" id="feedback-send"></button>
+              <button type="button" class="settings-reset-btn" id="feedback-cancel"></button>
+              <button type="button" class="settings-reset-btn" id="feedback-send"></button>
             </div>
           </div>
         </div>
