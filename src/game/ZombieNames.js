@@ -85,7 +85,7 @@ export function setColorblindRarity(on) {
 export const TAG_W = 256
 export const TAG_H = 80
 const tagCache = new Map()
-export function zombieTagMaterial(nameIdx, tier) {
+export function zombieTagMaterial(nameIdx, tier, alive = 0) {
   const name = zombieName(nameIdx)
   const label = t(`rarity${tier[0].toUpperCase()}${tier.slice(1)}`)
   const key = `${name}|${label}|${tier}|${colorblind}`
@@ -114,8 +114,10 @@ export function zombieTagMaterial(nameIdx, tier) {
   const tex = new THREE.CanvasTexture(c)
   tex.colorSpace = THREE.SRGBColorSpace
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false })
-  // Many names over a long game: keep the newest few hundred.
-  if (tagCache.size > 300) {
+  // Many names over a long game: keep the newest 60 (was 300 - each name
+  // is its own 256x80 picture), or more on a crowded Custom lobby so a tag
+  // still over a live zombie is never thrown away.
+  if (tagCache.size > Math.max(60, alive + 10)) {
     const [oldKey, old] = tagCache.entries().next().value
     tagCache.delete(oldKey)
     old.map.dispose()

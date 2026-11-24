@@ -2818,7 +2818,7 @@ export class BuildSurvival {
     zombie.damageMult = (zombie.damageMult || 1) * ZOMBIE_TIERS[tier].damage
     zombie.shine = ZOMBIE_SHINES[look?.shine] ? look.shine : null
     // Name tag just over its head, and a glow round rare and rarer ones.
-    const tag = new THREE.Sprite(zombie.shine ? shineTagMaterial(zombie.nameIdx, zombie.shine) : zombieTagMaterial(zombie.nameIdx, tier))
+    const tag = new THREE.Sprite(zombie.shine ? shineTagMaterial(zombie.nameIdx, zombie.shine) : zombieTagMaterial(zombie.nameIdx, tier, this.zombies.length))
     tag.center.set(0.5, 0)
     tag.position.y = (ZOMBIE_HEIGHT * zombie.size * (zombie.tall || 1) + 0.3) * this.B
     tag.renderOrder = 5
