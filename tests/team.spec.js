@@ -2196,3 +2196,214 @@ test('pet trading: invite, pick up to 3, Ready resets on a change, Confirm swaps
   expect(later.docs).toEqual([])
   expect(later.toasts[0]).toMatch(/^Trade done with Alex! You got: /)
 })
+
+test('boss raid: weekly boss, helper bot, specials, prize once a day, live raid with a friend', async ({ page }) => {
+  test.setTimeout(120000)
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    const g = window.__game
+    Object.defineProperty(g, '_cloudUid', { get: () => 'uB', set: () => {}, configurable: true })
+    g.settings.savedFriends = [{ name: 'Alex', uid: 'uA' }]
+    localStorage.setItem('gayz-creatures', JSON.stringify({
+      list: [
+        { id: 1, t: 'a', k: 'wolf', r: 'rare', at: 1 },
+        { id: 2, t: 'z', k: null, r: 'epic', n: 3, b: false, at: 2 },
+        { id: 3, t: 'z', k: 'mage', r: 'common', n: 1, b: false, at: 3 },
+      ],
+      team: [1, 2, 3], wins: 0, losses: 0, nextId: 4,
+    }))
+    localStorage.removeItem('gayz-pet-raid')
+    // A pretend Firestore that keeps raids and battles apart.
+    const docs = {}
+    const watchers = {}
+    const fb = {
+      docs, subs: {},
+      createPetDuel: async (from, fromName, to, a, raid = null) => { const id = `r${Object.keys(docs).length + 1}`; docs[id] = { from, fromName, to, state: 'ask', at: Date.now(), a, b: [], seed: 0, col: raid === null ? 'petDuels' : 'petRaids', ...(raid === null ? {} : { boss: raid }) }; return id },
+      answerPetDuel: async (id, yes, b = [], seed = 0) => { const d = docs[id]; if (!d || d.state !== 'ask') return null; const was = { ...d, id }; Object.assign(d, yes ? { state: 'go', b, seed } : { state: 'no' }); return was },
+      deletePetDuel: async (id, col) => { if (docs[id]?.col === (col || 'petDuels')) delete docs[id] },
+      watchPetDuel: (id, cb) => { watchers[id] = cb; return () => { delete watchers[id] } },
+      subscribePetDuelInvites: (uid, cb, col = 'petDuels') => { fb.subs[col] = cb; return () => { delete fb.subs[col] } },
+      fetchPresence: async (uid) => (uid === 'uA' ? { lastActiveAt: Date.now() } : null),
+      fire: (id) => watchers[id]?.(docs[id] ? { ...docs[id], id } : null),
+    }
+    g.__petDuelBackendForTests = fb
+    window.__fb = fb
+    g._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-pets').click()
+  })
+
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const R = g._petRaid
+    const byId = (id) => document.getElementById(id)
+    const out = {}
+    // A new boss each week, round again after 5; sized to the raid team.
+    out.bosses = new Set([0, 1, 2, 3, 4].map((w) => R.bossOf(w).id)).size
+    out.wraps = R.bossOf(2).id === R.bossOf(7).id
+    const team = R.raidTeam()
+    const hp = team.reduce((s, c) => s + R.stats(c).hp, 0)
+    const boss = R.bossFor(team, 0)
+    out.bossHp = boss.s.hp === Math.round(hp * (R.BOSSES[0].hp || R.BOSS_HP))
+    out.bigger = R.bossFor([...team, ...team], 0).s.hp > boss.s.hp
+    // The Pets tab section.
+    out.title = byId('pet-raid-body').querySelector('h3').textContent
+    out.ready = byId('pet-raid-body').textContent.includes('prize is ready')
+    out.friendBtn = byId('raid-friend-btn').textContent
+    // Solo raid with a helper bot: my 3 + 3 helpers vs one big boss.
+    byId('raid-solo-btn').click()
+    let b = g._teamBattle
+    cancelAnimationFrame(b._raf)
+    out.solo = {
+      raidClass: b.root.classList.contains('tb-raid'),
+      mine: b.root.querySelectorAll('.tb-mine .tb-card').length,
+      foe: b.root.querySelectorAll('.tb-foe .tb-card').length,
+      foeCheerHidden: b.root.querySelector('.tb-foe-cheer').hidden,
+      big: b.fighters.find((f) => f.boss).big > 1,
+      hazard: b.hazard,
+      clock: b.roundS,
+    }
+    // Plays to an end, deciding on its own.
+    for (let i = 0; i < 60 * 190 && b._winner === undefined && !b.over; i++) b._step(1 / 60)
+    out.solo.ended = b._winner !== undefined || b.over
+    b.close()
+    // Every special does its thing.
+    out.specials = {}
+    for (let w = 0; w < 5; w++) {
+      const x = R.openRaid(g, [...team, ...team], w)
+      cancelAnimationFrame(x._raf)
+      for (let i = 0; i < 60 * 3; i++) x._step(1 / 60)
+      const bf = x.fighters.find((f) => f.boss)
+      const pets = x.fighters.filter((f) => f.side === 'mine')
+      for (const p of pets) { p.x = bf.x + 1; p.z = bf.z + 2 }
+      bf.hp = Math.round(bf.s.hp * 0.5)
+      const n = x.fighters.length
+      const hpBefore = pets.map((p) => p.hp)
+      const bossBefore = bf.hp
+      x._bossSpecial(bf)
+      const hurt = pets.filter((p, i) => p.hp < hpBefore[i]).length
+      out.specials[x.raid.special] = { hurt, stunned: pets.filter((p) => p.stun > 0).length, added: x.fighters.length - n, healed: bf.hp > bossBefore }
+      x.close()
+    }
+    // Time up with the boss standing = a loss.
+    b = R.openRaid(g, team, 0)
+    cancelAnimationFrame(b._raf)
+    let lost = 'none'
+    b.onEnd = (w) => { lost = w; return 0 }
+    b._timeUp()
+    out.timeUp = lost
+    b.close()
+    // Prize: the first win of the day pays coins + an item + a badge.
+    const items = () => Object.values(JSON.parse(localStorage.getItem('gayz-creatures')).items || {}).reduce((a, c) => a + c, 0)
+    let coins = g.coins
+    const it = items()
+    byId('raid-solo-btn').click()
+    b = g._teamBattle
+    cancelAnimationFrame(b._raf)
+    b._finish(true)
+    out.prize = { coins: g.coins - coins, items: items() - it, news: b.root.querySelector('.tb-result-news').textContent, again: b.root.querySelector('.tb-again').textContent }
+    b.root.querySelector('.tb-back').click()
+    out.badge = byId('pet-raid-body').querySelector('.raid-badge')?.textContent || ''
+    out.tomorrow = byId('pet-raid-body').textContent.includes('come back tomorrow')
+    // A second win the same day: no coins, says so.
+    coins = g.coins
+    byId('raid-solo-btn').click()
+    b = g._teamBattle
+    cancelAnimationFrame(b._raf)
+    b._finish(true)
+    out.second = { coins: g.coins - coins, text: b.root.querySelector('.tb-result-text').textContent }
+    b.close()
+    // A loss.
+    byId('raid-solo-btn').click()
+    b = g._teamBattle
+    cancelAnimationFrame(b._raf)
+    b._finish(false)
+    out.lossText = b.root.querySelector('.tb-result-text').textContent
+    b.close()
+    // Same seed + teams = the same raid on both friends' screens.
+    const FB = g._friendBattle
+    const run = () => {
+      const x = R.openRaid(g, [...FB.unpackLive(FB.packLive(team)), ...FB.unpackLive(FB.packLive(team))], 3, { live: { seed: 777, me: 'mine', ids: [] } })
+      cancelAnimationFrame(x._raf)
+      for (let i = 0; i < 60 * 30; i++) x._step(1 / 60)
+      const snap = x.fighters.map((f) => [Math.round(f.hp * 1000), Math.round(f.x * 1000)].join(','))
+      x.close()
+      return JSON.stringify(snap)
+    }
+    out.sameFight = run() === run()
+    return out
+  })
+  expect(r.bosses).toBe(5)
+  expect(r.wraps).toBe(true)
+  expect(r.bossHp).toBe(true)
+  expect(r.bigger).toBe(true)
+  expect(r.title).toContain('Boss Raid')
+  expect(r.ready).toBe(true)
+  expect(r.friendBtn).toBe('Raid with a Friend')
+  expect(r.solo).toMatchObject({ raidClass: true, mine: 6, foe: 1, foeCheerHidden: true, big: true, hazard: null, clock: 180, ended: true })
+  expect(r.specials.slam.hurt).toBeGreaterThan(0)
+  expect(r.specials.quake.stunned).toBe(6)
+  expect(r.specials.rain.hurt).toBeGreaterThan(0)
+  expect(r.specials.rain.hurt).toBeLessThanOrEqual(4)
+  expect(r.specials.summon.added).toBe(2)
+  expect(r.specials.regen.healed).toBe(true)
+  expect(r.timeUp).toBe(false)
+  expect(r.prize.coins).toBe(300)
+  expect(r.prize.items).toBe(1)
+  expect(r.prize.news).toContain('beaten')
+  expect(r.prize.again).toBe('Raid again')
+  expect(r.badge).toContain('x1')
+  expect(r.tomorrow).toBe(true)
+  expect(r.second.coins).toBe(0)
+  expect(r.second.text).toContain('already claimed')
+  expect(r.lossText).toContain('boss won')
+  expect(r.sameFight).toBe(true)
+
+  // Live: I ask Alex to raid; Alex joins; both teams on my side.
+  const live = await page.evaluate(async () => {
+    const g = window.__game
+    const fb = window.__fb
+    const out = {}
+    document.getElementById('raid-friend-btn').click()
+    await new Promise((res) => setTimeout(res, 100))
+    out.row = document.querySelector('#raid-friend-list [data-raid-uid]')?.textContent || ''
+    document.querySelector('#raid-friend-list [data-raid-uid]')?.click()
+    await new Promise((res) => setTimeout(res, 100))
+    const id = Object.keys(fb.docs).find((k) => fb.docs[k].col === 'petRaids')
+    out.col = fb.docs[id]?.col
+    out.boss = Number.isInteger(fb.docs[id]?.boss)
+    out.waiting = document.getElementById('pet-duel-box').textContent.includes('join the raid')
+    await fb.answerPetDuel(id, true, fb.docs[id].a.slice(0, 2), 99)
+    fb.fire(id)
+    await new Promise((res) => setTimeout(res, 50))
+    const b = g._teamBattle
+    cancelAnimationFrame(b._raf)
+    out.mine = b.root.querySelectorAll('.tb-mine .tb-card').length
+    out.me = b.me
+    out.isRaid = !!b.raid
+    out.speedHidden = b.root.querySelector('.tb-speed').style.display === 'none'
+    // My friend's cheer lands on our side.
+    for (let i = 0; i < 60 * 2.5; i++) b._step(1 / 60)
+    b.meter.mine = 1
+    b.friendCheer('heal', b.steps)
+    b._step(1 / 60)
+    out.cheeredMine = b.meter.mine === 0
+    b.close()
+    // An invite to me shows as a raid.
+    g._friendBattle.watchPetDuels(g, 'uB')
+    fb.subs.petRaids([{ id: 'x9', from: 'uA', fromName: 'Alex', to: 'uB', state: 'ask', at: Date.now(), a: [{ t: 'a', k: 'cow', r: 'common' }], b: [], seed: 0, boss: 1 }])
+    g._friendBattle.inviteTick(g)
+    out.invite = document.getElementById('pet-duel-box').textContent
+    return out
+  })
+  expect(live.row).toBe('Raid')
+  expect(live.col).toBe('petRaids')
+  expect(live.boss).toBe(true)
+  expect(live.waiting).toBe(true)
+  expect(live.mine).toBe(5)
+  expect(live.me).toBe('mine')
+  expect(live.isRaid).toBe(true)
+  expect(live.speedHidden).toBe(true)
+  expect(live.cheeredMine).toBe(true)
+  expect(live.invite).toContain('Boss Raid on Titan Rex')
+})

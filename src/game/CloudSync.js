@@ -565,6 +565,35 @@ service cloud.firestore {
       allow delete: if request.auth != null && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
     }
 
+    // Co-op boss raids (PetRaid.js, Batch O 2026-11-24): the same as a
+    // petDuels invite, plus boss (which week's boss, an int). Both friends'
+    // teams fight one giant boss together.
+    match /petRaids/{raidId} {
+      allow read: if request.auth != null && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['from', 'fromName', 'to', 'state', 'at', 'a', 'b', 'seed', 'boss'])
+        && request.resource.data.keys().hasAll(['from', 'fromName', 'to', 'state', 'at', 'a', 'b', 'seed', 'boss'])
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.to is string && request.resource.data.to.size() > 0 && request.resource.data.to.size() <= 128
+        && request.resource.data.to != request.auth.uid
+        && request.resource.data.fromName is string && request.resource.data.fromName.size() > 0 && request.resource.data.fromName.size() <= 24
+        && request.resource.data.state == 'ask'
+        && request.resource.data.at is int
+        && request.resource.data.boss is int
+        && request.resource.data.a is list && request.resource.data.a.size() > 0 && request.resource.data.a.size() <= 10
+        && request.resource.data.b is list && request.resource.data.b.size() == 0
+        && request.resource.data.seed == 0;
+      allow update: if request.auth != null
+        && resource.data.state == 'ask' && request.auth.uid == resource.data.to
+        && ((request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'b', 'seed'])
+              && request.resource.data.state == 'go'
+              && request.resource.data.b is list && request.resource.data.b.size() > 0 && request.resource.data.b.size() <= 10
+              && request.resource.data.seed is int && request.resource.data.seed > 0)
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state'])
+              && request.resource.data.state == 'no'));
+      allow delete: if request.auth != null && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+    }
+
     // Pet trading (PetTrade.js, Batch N 2026-11-24): a live trade window
     // between two friends. Only those two read it. The asker (side a)
     // makes it ('ask', nothing offered); the friend (side b) says yes
@@ -2035,19 +2064,21 @@ export async function fetchPetTrophies(uids, week) {
 }
 
 // Friend pet battles (FriendBattle.js, see the petDuels rules above).
-// A new invite from me to a friend; returns its id.
-export async function createPetDuel(from, fromName, to, team) {
+// A new invite from me to a friend; returns its id. raid: a co-op boss
+// raid invite instead (petRaids, Batch O) - raid = the boss's week.
+export async function createPetDuel(from, fromName, to, team, raid = null) {
   const { db, fsMod } = await ensureApp()
-  const ref = fsMod.doc(fsMod.collection(db, 'petDuels'))
-  await fsMod.setDoc(ref, { from, fromName, to, state: 'ask', at: Date.now(), a: team, b: [], seed: 0 })
+  const ref = fsMod.doc(fsMod.collection(db, raid === null ? 'petDuels' : 'petRaids'))
+  await fsMod.setDoc(ref, { from, fromName, to, state: 'ask', at: Date.now(), a: team, b: [], seed: 0, ...(raid === null ? {} : { boss: raid }) })
   return ref.id
 }
 
 // The friend's answer: yes (with their team and the dice seed) or no.
 // Returns the invite as it was, or null if it was gone or already answered.
-export async function answerPetDuel(id, yes, team = [], seed = 0) {
+// col: 'petDuels' or 'petRaids' (and below).
+export async function answerPetDuel(id, yes, team = [], seed = 0, col = 'petDuels') {
   const { db, fsMod } = await ensureApp()
-  const ref = fsMod.doc(db, 'petDuels', id)
+  const ref = fsMod.doc(db, col, id)
   return fsMod.runTransaction(db, async (tx) => {
     const snap = await tx.get(ref)
     const d = snap.exists() ? snap.data() : null
@@ -2057,18 +2088,18 @@ export async function answerPetDuel(id, yes, team = [], seed = 0) {
   })
 }
 
-export async function deletePetDuel(id) {
+export async function deletePetDuel(id, col = 'petDuels') {
   const { db, fsMod } = await ensureApp()
-  await fsMod.deleteDoc(fsMod.doc(db, 'petDuels', id))
+  await fsMod.deleteDoc(fsMod.doc(db, col, id))
 }
 
 // callback(invite | null) whenever my invite changes (null = deleted).
-export function watchPetDuel(id, callback) {
+export function watchPetDuel(id, callback, col = 'petDuels') {
   let unsub = () => {}
   let cancelled = false
   ensureApp().then(({ db, fsMod }) => {
     if (cancelled) return
-    unsub = fsMod.onSnapshot(fsMod.doc(db, 'petDuels', id), (snap) => callback(snap.exists() ? { ...snap.data(), id } : null), () => {})
+    unsub = fsMod.onSnapshot(fsMod.doc(db, col, id), (snap) => callback(snap.exists() ? { ...snap.data(), id } : null), () => {})
   })
   return () => {
     cancelled = true
@@ -2077,12 +2108,12 @@ export function watchPetDuel(id, callback) {
 }
 
 // callback(invites) - the ones waiting for my answer, on every change.
-export function subscribePetDuelInvites(uid, callback) {
+export function subscribePetDuelInvites(uid, callback, col = 'petDuels') {
   let unsub = () => {}
   let cancelled = false
   ensureApp().then(({ db, fsMod }) => {
     if (cancelled) return
-    const q = fsMod.query(fsMod.collection(db, 'petDuels'), fsMod.where('to', '==', uid), fsMod.where('state', '==', 'ask'), fsMod.limit(20))
+    const q = fsMod.query(fsMod.collection(db, col), fsMod.where('to', '==', uid), fsMod.where('state', '==', 'ask'), fsMod.limit(20))
     unsub = fsMod.onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ ...d.data(), id: d.id }))), () => {})
   })
   return () => {

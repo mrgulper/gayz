@@ -86,6 +86,24 @@ const MEND_SHARE = 0.15 // Last Gift: every friend heals this share
 // All numbers are a guess.
 export const CHEER_FILL = 0.3 // full after the team loses this share of its total health
 export const CHEER_S = 5 // Attack and Speed cheers last this long
+// Co-op boss raid (Batch O): one giant boss (PetRaid.js picks it and its
+// numbers). Every SPECIAL_EVERY seconds it does its special; under half
+// health it gets angry (RAGE) and does it more often. All a guess.
+export const RAID_S = 180 // a raid lasts longer than a normal battle
+const SPECIAL_EVERY = 7
+const SPECIAL_RAGE_EVERY = 4.5
+const BOSS_RAGE_MULT = 1.3
+const SLAM_REACH = 4.5 // slam: everyone this close
+const SLAM_MULT = 0.8
+const QUAKE_STUN = 1.5 // quake: everyone stands still, and takes a little
+const QUAKE_MULT = 0.35
+const RAIN_HITS = 4 // rain: this many random pets
+const RAIN_MULT = 0.7
+const SUMMON_N = 2 // summon: this many minions
+const SUMMON_HP = 0.04 // ...each with this share of the boss's health
+const SUMMON_ATK = 0.25 // ...and attack
+const REGEN_SHARE = 0.035 // regen: health back
+export const BOSS_SPECIALS = ['slam', 'quake', 'rain', 'summon', 'regen']
 const KO_SCORE = 0.25 // Best Pet: a knockout counts as 25% of an average pet's health (a guess)
 export const CHEERS = { atk: { n: 30 }, heal: { n: 20 }, speed: { n: 40 } } // +% attack, % health back, +% speed
 export const CHEER_IDS = Object.keys(CHEERS)
@@ -526,13 +544,20 @@ export class TeamBattle {
   // stops the other team cheering by itself (tests). onClose(): the battle's gone.
   // replay: a saved replay (ReplayStore.js, Batch J) - the same fight
   // again, only to watch: no XP, no coins, no snacks eaten, no cheering.
-  constructor({ mine, theirs, foe, ghost, onEnd, onAgain, againKey, view = '3d', onView, xp = true, hazard, live, onCheer, botCheer = true, onClose, replay }) {
+  constructor({ mine, theirs, foe, ghost, onEnd, onAgain, againKey, view = '3d', onView, xp = true, hazard, live, onCheer, botCheer = true, onClose, replay, raid }) {
     this.replay = replay && Number.isInteger(replay.seed) && !live ? replay : null
     if (this.replay) {
       xp = false
       botCheer = this.replay.bc !== false
     }
     this.xp = xp
+    // raid: { id, c (the boss creature), s (its stats), big (its size),
+    // special, minion (a creature) } - see PetRaid.js. Both friends in a
+    // live raid are the 'mine' side.
+    const r = this.replay ? this.replay.raid : raid
+    this.raid = r && r.c && r.s && BOSS_SPECIALS.includes(r.special) ? r : null
+    if (this.raid) botCheer = false
+    this.roundS = this.raid ? RAID_S : ROUND_S
     this.onCheer = onCheer
     this.onClose = onClose
     this.botCheer = botCheer
@@ -563,6 +588,7 @@ export class TeamBattle {
       v: REPLAY_V, seed: this.seed, hs: fromSeed, hz: this.hazard, lv: !!this.live, me: this.me,
       bc: botCheer, foe: String(foe ?? ''), ghost: !!ghost, mine: copy(mine), theirs: copy(theirs), ch: [],
     }
+    if (this.rec && this.raid) this.rec.raid = copy(this.raid)
     if (this.replay) {
       this.cheerQueue = this.replay.ch
         .filter((c) => Array.isArray(c) && Number.isInteger(c[0]) && CHEER_IDS[c[2]])
@@ -639,7 +665,9 @@ export class TeamBattle {
 
     this.fighters = [
       ...this.mine.map((c, i) => this._fighter(c, 'mine', i, this.mine.length)),
-      ...this.theirs.map((c, i) => this._fighter(c, 'foe', i, this.theirs.length)),
+      ...(this.raid
+        ? [this._fighter(this.raid.c, 'foe', 0, 1, { s: { ...this.raid.s }, big: this.raid.big })]
+        : this.theirs.map((c, i) => this._fighter(c, 'foe', i, this.theirs.length))),
     ]
     // Horde: a little stronger for every other plain zombie on its team.
     for (const f of this.fighters) {
@@ -674,6 +702,10 @@ export class TeamBattle {
     this._bindInput()
     // A friend battle runs at one speed on both screens.
     if (this.live) this.root.querySelector('.tb-speed').style.display = 'none'
+    if (this.raid) {
+      this.root.classList.add('tb-raid')
+      this.root.querySelector('.tb-foe-cheer').hidden = true
+    }
     this._setView(this.view, false)
     this._resize()
     window.addEventListener('resize', this._resize)
@@ -814,6 +846,8 @@ export class TeamBattle {
       reach: power === 'bones' && !opts.noPowers ? BONE_REACH : s.reach,
       // After-battle stats (Batch I): a mini zombie adds to its maker's.
       st: opts.st || { dmg: 0, heal: 0, took: 0, ko: 0 },
+      // Raid boss (Batch O): bigger, heavier, its own special.
+      boss: !!opts.big, big: opts.big || 1, rad: GAP / 2 * (opts.big || 1), specialCd: SPECIAL_EVERY, bossRaged: false,
       // The 3D model, ring and height are made by _build3d() when first needed.
       group: null, height: 2,
     }
@@ -875,6 +909,7 @@ export class TeamBattle {
     Object.assign(f, built)
     if (f.mini) f.group.scale.multiplyScalar(GROAN_SCALE)
     if (f.c.s) this._shinyColours(f)
+    const baseY = f.group.scale.y
     f.group.position.set(f.x, 0, f.z)
     f.group.rotation.y = f.heading
     this.scene.add(f.group)
@@ -886,6 +921,12 @@ export class TeamBattle {
     this.scene.add(f.ring)
     const k = f.c.t === 'a' ? PlayAnimals.KINDS[f.c.k] : null
     f.height = k ? Math.max(k.leg + k.body[1], (k.headAt ? k.headAt[0] : k.leg + k.body[1]) + k.head[1] / 2) : 2 * f.group.scale.y
+    if (f.boss) {
+      // The label goes over its (much bigger) head.
+      f.labelY = f.height * baseY * f.big + 0.35
+      f.group.scale.multiplyScalar(f.big)
+      f.ring.scale.setScalar(f.big)
+    }
     if (!f.alive) f.group.rotation.z = Math.PI / 2
   }
 
@@ -1061,7 +1102,8 @@ export class TeamBattle {
   // here too (straight away if it came late).
   friendCheer(kind, at) {
     if (!CHEERS[kind] || !Number.isInteger(at)) return
-    const side = this.me === 'mine' ? 'foe' : 'mine'
+    // In a raid my friend is on my side: one meter for both of us.
+    const side = this.raid ? this.me : this.me === 'mine' ? 'foe' : 'mine'
     if (this.cheerQueue.some((q) => q.side === side && q.at === at)) return
     this.cheerWait[side] = true
     this.cheerQueue.push({ side, kind, at })
@@ -1086,7 +1128,7 @@ export class TeamBattle {
     if (!this.cheerQueue.length) return
     // A replay's are already in the order they went off.
     const due = this.cheerQueue.filter((q) => q.at <= this.steps)
-    if (!this.replay) due.sort((a, b) => a.at - b.at || (a.side < b.side ? -1 : 1))
+    if (!this.replay) due.sort((a, b) => a.at - b.at || (a.side < b.side ? -1 : a.side > b.side ? 1 : CHEER_IDS.indexOf(a.kind) - CHEER_IDS.indexOf(b.kind)))
     if (!due.length) return
     this.cheerQueue = this.cheerQueue.filter((q) => !due.includes(q))
     for (const q of due) {
@@ -1143,6 +1185,43 @@ export class TeamBattle {
     el.classList.add('show')
     clearTimeout(this._sayTimer)
     this._sayTimer = setTimeout(() => el.classList.remove('show'), seconds * 1000)
+  }
+
+  // A raid boss's special (BOSS_SPECIALS), with a shout above its head.
+  _bossSpecial(f) {
+    const kind = this.raid.special
+    const foes = this._enemiesOf(f)
+    this._float(f, t(`raidSpecial${kind[0].toUpperCase()}${kind.slice(1)}`), 'power')
+    if (kind === 'slam') {
+      for (const o of foes) if (dist(o.x - f.x, o.z - f.z) - f.rad < SLAM_REACH) this._hit(f, o, SLAM_MULT)
+    } else if (kind === 'quake') {
+      for (const o of foes) {
+        o.stun = QUAKE_STUN
+        o.cd += QUAKE_STUN
+        this._hit(f, o, QUAKE_MULT)
+      }
+    } else if (kind === 'rain') {
+      const list = [...foes]
+      for (let i = 0; i < RAIN_HITS && list.length; i++) {
+        const o = list.splice(Math.floor(this.rand() * list.length), 1)[0]
+        this._hit(f, o, RAIN_MULT)
+      }
+    } else if (kind === 'summon') {
+      for (let i = 0; i < SUMMON_N; i++) {
+        const s = { ...stats(this.raid.minion), hp: Math.max(1, Math.round(f.s.hp * SUMMON_HP)), atk: Math.max(1, Math.round(f.s.atk * SUMMON_ATK)) }
+        const m = this._fighter(this.raid.minion, f.side, 0, 1, { s, mini: true, noPowers: true, st: f.st })
+        m.x = f.x + (i ? 1 : -1) * (f.rad + 0.8)
+        m.z = f.z + f.rad
+        m.cd = 0.8
+        this.fighters.push(m)
+        if (this.scene) this._add3d(m)
+      }
+    } else if (kind === 'regen' && f.hp < f.s.hp) {
+      const add = Math.max(1, Math.round(f.s.hp * REGEN_SHARE))
+      this._heal(f, add)
+      this._number(f, `+${add}`, 'heal')
+    }
+    this._renderCards()
   }
 
   _enemiesOf(f) {
@@ -1238,6 +1317,14 @@ export class TeamBattle {
       to.atkMul *= RAGE_MULT
       this._powerText(to)
     }
+    // A raid boss gets angry under half health.
+    if (to.boss && !to.bossRaged && to.hp > 0 && to.hp < to.s.hp / 2) {
+      to.bossRaged = true
+      to.atkMul *= BOSS_RAGE_MULT
+      to.specialCd = Math.min(to.specialCd, SPECIAL_RAGE_EVERY)
+      this._float(to, t('raidRage'), 'power')
+      this._say(t('raidRageSay'), 1.6)
+    }
     // Second Wind: the first time it gets low, it gets some back.
     if (to.alive && to.trig === 'second' && !to.winded && to.hp > 0 && to.hp < to.s.hp * SECOND_AT) {
       to.winded = true
@@ -1319,8 +1406,19 @@ export class TeamBattle {
     f.label.style.display = 'none'
     audioEngine.playZombieDeath?.(0.8, 0)
     if (!this.over) this._onFaint(f)
+    // A raid: the boss down = won (its minions fall with it).
+    if (f.boss) {
+      for (const o of this.fighters) {
+        if (o.alive && o.side === f.side) {
+          o.alive = false
+          o.fall = FALL_S
+          if (o.ring) o.ring.visible = false
+          o.label.style.display = 'none'
+        }
+      }
+    }
     const mineLeft = this.fighters.some((o) => o.alive && o.side === 'mine')
-    const foesLeft = this.fighters.some((o) => o.alive && o.side === 'foe')
+    const foesLeft = this.raid ? this.fighters.some((o) => o.alive && o.boss) : this.fighters.some((o) => o.alive && o.side === 'foe')
     // The first side to run out decides it (the same on both friends' screens).
     if (!mineLeft || !foesLeft) {
       if (this._winner === undefined) this._winner = mineLeft
@@ -1446,8 +1544,8 @@ export class TeamBattle {
     }
     this._cheerStep(dt, started)
     const clock = this.root.querySelector('.tb-clock')
-    if (clock) clock.textContent = started ? `${Math.max(0, Math.ceil(ROUND_S - (this.time - START_S)))}` : `${Math.ceil(START_S - this.time)}`
-    if (started && !this.over && this.time - START_S >= ROUND_S) this._timeUp()
+    if (clock) clock.textContent = started ? `${Math.max(0, Math.ceil(this.roundS - (this.time - START_S)))}` : `${Math.ceil(START_S - this.time)}`
+    if (started && !this.over && this.time - START_S >= this.roundS) this._timeUp()
     for (const f of this.fighters) {
       if (f.flash > 0) {
         f.flash -= dt
@@ -1478,6 +1576,10 @@ export class TeamBattle {
           this._renderCards()
         }
       }
+      if (f.boss && started && !this.over && (f.specialCd -= dt) <= 0) {
+        f.specialCd = f.bossRaged ? SPECIAL_RAGE_EVERY : SPECIAL_EVERY
+        this._bossSpecial(f)
+      }
       if (started && !this.over && !(f.stun > 0)) {
         // Heal Friends: every few seconds patches up the most hurt friend.
         if (f.power === 'heal') {
@@ -1498,7 +1600,7 @@ export class TeamBattle {
           const dx = n.o.x - f.x
           const dz = n.o.z - f.z
           f.heading = Math.atan2(dx, dz)
-          if (n.d > f.reach) {
+          if (n.d - (n.o.rad + f.rad - GAP) > f.reach) {
             mx = dx / n.d
             mz = dz / n.d
           } else if (f.cd <= 0) this._attack(f, n.o)
@@ -1535,18 +1637,22 @@ export class TeamBattle {
         const dx = b.x - a.x
         const dz = b.z - a.z
         const d = dist(dx, dz)
-        if (d > 0 && d < GAP) {
-          const push = (GAP - d) / 2
-          a.x -= (dx / d) * push
-          a.z -= (dz / d) * push
-          b.x += (dx / d) * push
-          b.z += (dz / d) * push
+        const gap = a.rad + b.rad
+        if (d > 0 && d < gap) {
+          // A raid boss is too heavy to push: the other one moves it all.
+          const pa = b.boss ? 0 : a.boss ? 1 : 0.5
+          const push = gap - d
+          a.x -= (dx / d) * push * (1 - pa)
+          a.z -= (dz / d) * push * (1 - pa)
+          b.x += (dx / d) * push * pa
+          b.z += (dz / d) * push * pa
         }
       }
     }
     for (const f of this.fighters) {
-      f.x = Math.max(-ARENA + 0.8, Math.min(ARENA - 0.8, f.x))
-      f.z = Math.max(-ARENA + 0.8, Math.min(ARENA - 0.8, f.z))
+      const edge = ARENA - 0.8 * f.big
+      f.x = Math.max(-edge, Math.min(edge, f.x))
+      f.z = Math.max(-edge, Math.min(edge, f.z))
       f.hop = Math.max(0, f.hop - dt)
       f.air = Math.max(0, f.air - dt)
     }
@@ -1670,7 +1776,7 @@ export class TeamBattle {
       const cx = px(f.x)
       const cy = px(f.z)
       const lift = this._lift(f) * 1.4
-      const sz = b.cell * (1.7 + lift) * (f.c.b ? 1.25 : 1) * (f.mini ? GROAN_SCALE : 1)
+      const sz = b.cell * (1.7 + lift) * (f.c.b ? 1.25 : 1) * (f.mini ? GROAN_SCALE : 1) * f.big
       g.save()
       if (!f.alive) {
         g.globalAlpha = 0.25 + 0.75 * (f.fall / FALL_S)
@@ -1724,7 +1830,7 @@ export class TeamBattle {
   _placeLabels() {
     for (const f of this.fighters) {
       if (!f.alive) continue
-      const at = this._screen(f.x, this.view === '3d' ? f.height * (f.group?.scale.y || 1) + 0.35 : 1.9, f.z)
+      const at = this._screen(f.x, this.view === '3d' ? f.labelY ?? f.height * (f.group?.scale.y || 1) + 0.35 : 1.9 * f.big, f.z)
       f.label.style.left = `${at.left}%`
       f.label.style.top = `${at.top}%`
       f.label.querySelector('.tb-label-bar span').style.width = `${(f.hp / f.s.hp) * 100}%`
@@ -1744,6 +1850,8 @@ export class TeamBattle {
   }
 
   _timeUp() {
+    // A raid boss still standing when time runs out wins.
+    if (this.raid) return this._finish(false)
     const share = (side) => {
       const list = this.fighters.filter((f) => f.side === side)
       return list.reduce((sum, f) => sum + f.hp / f.s.hp, 0) / (list.length || 1)
@@ -1773,7 +1881,7 @@ export class TeamBattle {
     const found = out && typeof out === 'object' && ITEMS[out.item] ? out.item : null
     const box = this.root.querySelector('.tb-result')
     box.querySelector('.tb-result-title').textContent = t(won ? 'teamBattleWon' : 'teamBattleLost')
-    box.querySelector('.tb-result-text').textContent = this.live ? t('petDuelNoCoins') : t('teamBattleReward', { n: reward })
+    box.querySelector('.tb-result-text').textContent = out && typeof out === 'object' && typeof out.text === 'string' ? out.text : this.live ? t('petDuelNoCoins') : t('teamBattleReward', { n: reward })
     const news = box.querySelector('.tb-result-news')
     news.innerHTML = !xp ? '' : [t('teamXpGained', { n: xp.gain }), ...xp.news.map((e) => {
       const name = creatureName(e.c)
@@ -1786,6 +1894,10 @@ export class TeamBattle {
       const line = t(out.tr >= 0 ? 'trophyWon' : 'trophyLost', { n: Math.abs(out.tr) })
       const up = out.rank ? `<li class="tb-news-big">${esc(t('petRankUp', { rank: out.rank }))}</li>` : ''
       news.insertAdjacentHTML('beforeend', `<li class="tb-news-big tb-news-trophy">${esc(line)}</li>${up}`)
+    }
+    // Extra lines (a raid badge).
+    if (out && typeof out === 'object' && Array.isArray(out.news)) {
+      news.insertAdjacentHTML('afterbegin', out.news.map((line) => `<li class="tb-news-big">${esc(String(line))}</li>`).join(''))
     }
     if (found) news.insertAdjacentHTML('afterbegin', `<li class="tb-news-big tb-news-item">${itemImg(found, 'tb-news-icon')} ${esc(t('itemFound', { name: itemName(found) }))}</li>`)
     this._renderStats()
@@ -1871,6 +1983,7 @@ export class TeamBattle {
 export function playReplay(rec, { view = '3d', onView } = {}) {
   if (!rec || !Number.isInteger(rec.seed)) return null
   const b = new TeamBattle({ mine: rec.mine, theirs: rec.theirs, foe: rec.foe, ghost: rec.ghost, view, onView, replay: rec })
+  // (rec.raid: a raid replay - the constructor reads it from the replay.)
   TeamBattle.track?.(b)
   b.open()
   return b

@@ -26,6 +26,12 @@ import { TeamBattle, CHEER_IDS } from './TeamBattle.js'
 import { loadCreatures, saveCreatures, packTeam, unpackTeam, power, SNACKS, TEAM_SIZE } from './Creatures.js'
 import { saveSettings } from './Game.js'
 import { t } from './i18n.js'
+import { raidTeam, openRaid, bossOf, bossName } from './PetRaid.js'
+import { weekId } from './TeamTournament.js'
+
+// Co-op boss raids (PetRaid.js, Batch O) use the same invites, in their own
+// Firestore collection (with boss = the week).
+const colOf = (raid) => (raid ? 'petRaids' : 'petDuels')
 
 export const INVITE_S = 60
 // At most this many friends are checked for "online" in one tap.
@@ -128,10 +134,10 @@ function hideBox() {
 
 // --- the battle itself ---
 
-function startLive(game, duel, me, ids, name) {
+function startLive(game, duel, me, ids, name, raid = false) {
   const a = unpackLive(duel.a)
   const b = unpackLive(duel.b)
-  if (!a.length || !b.length || !Number.isInteger(duel.seed)) {
+  if (!a.length || !b.length || !Number.isInteger(duel.seed) || (raid && !Number.isInteger(duel.boss))) {
     toast(game, t('petDuelFailed'))
     return
   }
@@ -140,31 +146,36 @@ function startLive(game, duel, me, ids, name) {
   // watched; each is step * 4 + which cheer, landing at that step on both.
   const backend = api(game)
   const myUid = game._cloudUid
-  const friendUid = me === 'mine' ? duel.to : duel.from
+  // (In a raid both friends are 'mine', so it's whoever I'm not.)
+  const friendUid = raid ? (duel.from === myUid ? duel.to : duel.from) : me === 'mine' ? duel.to : duel.from
   const canCheer = !!(duel.id && myUid && friendUid && backend.sendPetCheers)
   const sent = []
   let unwatch = null
-  const battle = new TeamBattle({
+  const onCheer = async (kind, at) => {
+    if (!canCheer || sent.length >= 20) return false
+    sent.push(at * 4 + CHEER_IDS.indexOf(kind))
+    try {
+      await backend.sendPetCheers(duel.id, myUid, friendUid, [...sent])
+      return true
+    } catch {
+      sent.pop()
+      return false
+    }
+  }
+  const onClose = () => {
+    unwatch?.()
+    if (canCheer && sent.length) backend.deletePetCheers?.(duel.id, myUid).catch(() => {})
+  }
+  // A raid: both teams (the asker's first) against the week's boss, both
+  // friends on the same side - no flip, no friend-battle record.
+  const battle = raid ? openRaid(game, [...a, ...b], duel.boss, { live: { seed: duel.seed, me: 'mine', ids }, onCheer, onClose }) : new TeamBattle({
     mine: a,
     theirs: b,
     foe: t('petDuelFoe', { name }),
     ghost: false,
     live: { seed: duel.seed, me, ids },
-    onCheer: async (kind, at) => {
-      if (!canCheer || sent.length >= 20) return false
-      sent.push(at * 4 + CHEER_IDS.indexOf(kind))
-      try {
-        await backend.sendPetCheers(duel.id, myUid, friendUid, [...sent])
-        return true
-      } catch {
-        sent.pop()
-        return false
-      }
-    },
-    onClose: () => {
-      unwatch?.()
-      if (canCheer && sent.length) backend.deletePetCheers?.(duel.id, myUid).catch(() => {})
-    },
+    onCheer,
+    onClose,
     // XP only (TeamBattle gives it), no coins; its own record.
     onEnd: (won) => {
       if (won === null) return 0
@@ -185,8 +196,10 @@ function startLive(game, duel, me, ids, name) {
       if (sel) sel.value = v
     },
   })
-  game._teamBattle = battle
-  battle.open()
+  if (!raid) {
+    game._teamBattle = battle
+    battle.open()
+  }
   if (canCheer && backend.watchPetCheers) {
     unwatch = backend.watchPetCheers(duel.id, friendUid, (list) => {
       if (!Array.isArray(list)) return
@@ -201,11 +214,14 @@ function startLive(game, duel, me, ids, name) {
 
 // --- challenging a friend (profile button, Pets tab list) ---
 
-export async function challengeFriend(game, uid) {
+// raid: a co-op boss raid invite instead (PetRaid.js).
+export async function challengeFriend(game, uid, raid = false) {
   if (game._petDuel || game._petTrade) return toast(game, t('petDuelBusy'))
   if (!game._cloudUid) return toast(game, t('petDuelSignIn'))
   if (!uid || !friendOf(game, uid)) return
-  const team = myTeam()
+  const team = raid ? raidTeam() : myTeam()
+  const col = colOf(raid)
+  const week = weekId()
   if (!team.length) return toast(game, t('teamNeedOne'))
   const name = friendName(game, uid)
   const state = { id: null, unwatch: null, timer: null, done: false }
@@ -215,28 +231,28 @@ export async function challengeFriend(game, uid) {
     state.done = true
     state.unwatch?.()
     clearInterval(state.timer)
-    if (state.id) api(game).deletePetDuel(state.id).catch(() => {})
+    if (state.id) api(game).deletePetDuel(state.id, col).catch(() => {})
     hideBox()
     if (game._petDuel === state) game._petDuel = null
     if (msg) toast(game, msg)
   }
-  showBox({ text: t('petDuelSending', { name }), no: t('petDuelCancel'), onNo: () => finish(null) })
+  showBox({ text: t(raid ? 'raidSending' : 'petDuelSending', { name }), no: t('petDuelCancel'), onNo: () => finish(null) })
   let id
   try {
-    id = await api(game).createPetDuel(game._cloudUid, nick(game), uid, packLive(team))
+    id = await api(game).createPetDuel(game._cloudUid, nick(game), uid, packLive(team), raid ? week : null)
   } catch {
     finish(t('petDuelFailed'))
     return
   }
   if (state.done) {
     // Cancelled while it was being sent.
-    api(game).deletePetDuel(id).catch(() => {})
+    api(game).deletePetDuel(id, col).catch(() => {})
     return
   }
   state.id = id
   const until = Date.now() + INVITE_S * 1000
   const ids = team.map((c) => c.id)
-  showBox({ text: t('petDuelWaiting', { name }), no: t('petDuelCancel'), onNo: () => finish(null) })
+  showBox({ text: t(raid ? 'raidWaiting' : 'petDuelWaiting', { name, boss: bossName(bossOf(week).id) }), no: t('petDuelCancel'), onNo: () => finish(null) })
   const tick = () => {
     const left = Math.ceil((until - Date.now()) / 1000)
     if (left <= 0) finish(t('petDuelNoAnswer', { name }))
@@ -250,9 +266,9 @@ export async function challengeFriend(game, uid) {
     else if (d.state === 'no') finish(t('petDuelSaidNo', { name }))
     else if (d.state === 'go') {
       finish(null)
-      startLive(game, d, 'mine', ids, name)
+      startLive(game, d, 'mine', ids, name, raid)
     }
-  })
+  }, col)
 }
 
 // --- invites to me ---
@@ -267,7 +283,8 @@ export function watchPetDuels(game, uid) {
   if (!uid) return
   if (!game.__petDuelBackendForTests && !CloudSync.isConfigured?.()) return
   const backend = api(game)
-  game._petDuelInvitesUnsub = backend.subscribePetDuelInvites(uid, (list) => {
+  // Battle invites and raid invites (Batch O), into one list.
+  const listen = (raid) => backend.subscribePetDuelInvites(uid, (list) => {
     const now = Date.now()
     const seen = new Map((game._petInvites || []).map((d) => [d.id, d.seen]))
     const fresh = []
@@ -275,17 +292,24 @@ export function watchPetDuels(game, uid) {
       if (!d || typeof d.id !== 'string') continue
       // Very old (the sender's app closed mid-wait): tidy it away.
       if (!(d.at > now - STALE_MS)) {
-        backend.deletePetDuel(d.id).catch(() => {})
+        backend.deletePetDuel(d.id, colOf(raid)).catch(() => {})
         continue
       }
       // Only friends can challenge me.
       if (!friendOf(game, d.from)) continue
+      if (raid && !Number.isInteger(d.boss)) continue
       // Timed by when it got here (two devices' clocks can disagree).
-      fresh.push({ ...d, seen: seen.get(d.id) || now })
+      fresh.push({ ...d, raid, seen: seen.get(d.id) || now })
     }
-    game._petInvites = fresh
+    game._petInvites = [...(game._petInvites || []).filter((d) => !!d.raid !== raid), ...fresh]
     inviteTick(game)
-  })
+  }, colOf(raid))
+  const offRaids = listen(true)
+  const offDuels = listen(false)
+  game._petDuelInvitesUnsub = () => {
+    offDuels?.()
+    offRaids?.()
+  }
   game._petDuelTick = setInterval(() => inviteTick(game), 1000)
 }
 
@@ -309,7 +333,7 @@ export function inviteTick(game, now = Date.now()) {
   const name = friendName(game, next.from, next.fromName)
   const theirs = unpackLive(next.a)
   showBox({
-    text: t('petDuelInvite', { name, n: theirs.length, power: power(theirs) }),
+    text: next.raid ? t('raidInvite', { name, boss: bossName(bossOf(next.boss).id) }) : t('petDuelInvite', { name, n: theirs.length, power: power(theirs) }),
     yes: t('petDuelYes'),
     no: t('petDuelNo'),
     onYes: () => answer(game, next, true),
@@ -323,23 +347,24 @@ async function answer(game, d, yes) {
   game._petInvites = (game._petInvites || []).filter((o) => o.id !== d.id)
   hideBox()
   const name = friendName(game, d.from, d.fromName)
-  const team = yes ? myTeam() : []
+  const col = colOf(d.raid)
+  const team = yes ? (d.raid ? raidTeam() : myTeam()) : []
   if (yes && !team.length) {
     toast(game, t('teamNeedOne'))
     yes = false
   }
   if (!yes) {
-    api(game).answerPetDuel(d.id, false).catch(() => {})
+    api(game).answerPetDuel(d.id, false, [], 0, col).catch(() => {})
     return
   }
   const seed = 1 + Math.floor(Math.random() * 0x7ffffffe)
   const b = packLive(team)
   let was = null
   try {
-    was = await api(game).answerPetDuel(d.id, true, b, seed)
+    was = await api(game).answerPetDuel(d.id, true, b, seed, col)
   } catch { /* gone */ }
   if (!was) return toast(game, t('petDuelGone', { name }))
-  startLive(game, { ...was, b, seed }, 'foe', team.map((c) => c.id), name)
+  startLive(game, { ...was, b, seed }, d.raid ? 'mine' : 'foe', team.map((c) => c.id), name, !!d.raid)
 }
 
 // --- Pets tab: Battle a Friend ---
@@ -363,8 +388,9 @@ export async function listOnlineFriends(game, backend) {
   return { friends, online: rows.filter(Boolean) }
 }
 
-export async function showOnlineFriends(game) {
-  const list = $('friend-battle-list')
+// raid: the Boss Raid section's list (Raid buttons) instead.
+export async function showOnlineFriends(game, raid = false) {
+  const list = $(raid ? 'raid-friend-list' : 'friend-battle-list')
   if (!list) return
   if (!game._cloudUid) {
     list.innerHTML = `<p class="team-snack-hint">${esc(t('petDuelSignIn'))}</p>`
@@ -373,7 +399,7 @@ export async function showOnlineFriends(game) {
   list.innerHTML = `<p class="team-snack-hint">${esc(t('petDuelLooking'))}</p>`
   const { friends, online } = await listOnlineFriends(game, api(game))
   list.innerHTML = online.length
-    ? online.map((f) => `<div class="friend-battle-row"><span>${esc(String(f.name).slice(0, 24))}</span><button type="button" class="mini-action-btn" data-duel-uid="${esc(f.uid)}">${esc(t('petDuelBtn'))}</button></div>`).join('')
+    ? online.map((f) => `<div class="friend-battle-row"><span>${esc(String(f.name).slice(0, 24))}</span><button type="button" class="mini-action-btn" ${raid ? 'data-raid-uid' : 'data-duel-uid'}="${esc(f.uid)}">${esc(t(raid ? 'raidFriendRowBtn' : 'petDuelBtn'))}</button></div>`).join('')
     : `<p class="team-snack-hint">${esc(t(friends.length ? 'petDuelNoneOnline' : 'petDuelNoFriends'))}</p>`
 }
 
@@ -388,5 +414,11 @@ export function bindFriendBattle(game) {
   $('friend-battle-list')?.addEventListener('click', (e) => {
     const b = e.target.closest('[data-duel-uid]')
     if (b) challengeFriend(game, b.dataset.duelUid)
+  })
+  // Boss Raid with a friend (PetRaid.js, Batch O).
+  $('raid-friend-btn')?.addEventListener('click', () => showOnlineFriends(game, true))
+  $('raid-friend-list')?.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-raid-uid]')
+    if (b) challengeFriend(game, b.dataset.raidUid, true)
   })
 }

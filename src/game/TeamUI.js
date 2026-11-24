@@ -30,6 +30,7 @@ import { saveShopProgress, saveSettings, _censorText } from './Game.js'
 import { zombieName } from './ZombieNames.js'
 import { t } from './i18n.js'
 import { audioEngine } from './Audio.js'
+import * as PetRaid from './PetRaid.js'
 
 export const WIN_COINS = 30
 export const LOSS_COINS = 5
@@ -328,6 +329,8 @@ export function renderTeamPanel(game) {
   renderLeaders()
   // The Weekly Challenge (WeeklyChallenge.js).
   Weekly.renderWeekly()
+  // The co-op Boss Raid (PetRaid.js).
+  PetRaid.renderRaid()
   // The Gauntlet (Gauntlet.js).
   Gauntlet.renderGauntlet(game)
   // The daily Pet Shop (PetShop.js).
@@ -478,6 +481,7 @@ export function bindTeamUI(game) {
   game._gauntlet = { ...Gauntlet, power }
   game._petShop = PetShop
   game._weekly = { ...Weekly, power }
+  game._petRaid = { ...PetRaid }
   bindFriendBattle(game)
   // Pet trading (PetTrade.js, Batch N): its window draws pets like here.
   bindPetTrade(game, { card })
@@ -570,6 +574,10 @@ export function bindTeamUI(game) {
   // Weekly Challenge: the section is redrawn, so listen on the box.
   byId('weekly-challenge')?.addEventListener('click', (e) => {
     if (e.target.closest('#weekly-btn')) Weekly.startWeekly(game)
+  })
+  // Boss Raid with the helper bot (the friend list is FriendBattle.js's).
+  byId('pet-raid-body')?.addEventListener('click', (e) => {
+    if (e.target.closest('#raid-solo-btn')) PetRaid.startSoloRaid(game)
   })
   byId('leaders-btn')?.addEventListener('click', () => {
     const n = nextLeader()
