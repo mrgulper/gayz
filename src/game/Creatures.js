@@ -42,7 +42,9 @@ function blank() {
   // fw / fl: friend battles won and lost (Batch G), their own record.
   // book / bp: the Collection book (Batch K) - every kind ever caught and
   // the milestone prizes already paid (BOOK_MILESTONES).
-  return { list: [], team: [], wins: 0, losses: 0, fw: 0, fl: 0, nextId: 1, items: {}, eggs: [], book: {}, bp: [] }
+  // tr / tw: battle trophies (PetRank.js, Batch M) - all-time, and this
+  // week's { w: week, n: trophies won this week }.
+  return { list: [], team: [], wins: 0, losses: 0, fw: 0, fl: 0, tr: 0, tw: null, nextId: 1, items: {}, eggs: [], book: {}, bp: [] }
 }
 
 // Never trusted (it came from localStorage, maybe a shared save file).
@@ -67,6 +69,9 @@ export function loadCreatures() {
   out.losses = Number.isInteger(data.losses) && data.losses >= 0 ? data.losses : 0
   out.fw = Number.isInteger(data.fw) && data.fw >= 0 ? data.fw : 0
   out.fl = Number.isInteger(data.fl) && data.fl >= 0 ? data.fl : 0
+  out.tr = Number.isInteger(data.tr) && data.tr >= 0 ? Math.min(data.tr, 1000000) : 0
+  const tw = data.tw
+  out.tw = tw && Number.isInteger(tw.w) && Number.isInteger(tw.n) && tw.n >= 0 ? { w: tw.w, n: Math.min(tw.n, 1000000) } : null
   out.nextId = Math.max(1, ...out.list.map((c) => c.id + 1), Number.isInteger(data.nextId) ? data.nextId : 1)
   // Held items in the bag (Batch D).
   if (data.items && typeof data.items === 'object') {

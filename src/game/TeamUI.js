@@ -23,6 +23,7 @@ import { bindReplays, renderReplays } from './PetReplays.js'
 import * as Weekly from './WeeklyChallenge.js'
 import { bindPetBook, renderPetBook, updateBook, bookTest } from './PetBook.js'
 import * as ReplayStore from './ReplayStore.js'
+import * as PetRank from './PetRank.js'
 import { bindReorder } from './Reorder.js'
 import { saveShopProgress, saveSettings, _censorText } from './Game.js'
 import { zombieName } from './ZombieNames.js'
@@ -291,6 +292,8 @@ export function renderTeamPanel(game) {
   const data = loadCreatures()
   const set = (id, text) => { const el = byId(id); if (el) el.textContent = text }
   set('team-record', t('teamRecord', { w: data.wins, l: data.losses }))
+  // Trophies + rank badge (PetRank.js, Batch M).
+  PetRank.renderRankLine()
   set('team-picked-title', t('teamPickedTitle', { n: data.team.length, max: TEAM_SIZE }))
   set('team-order-hint', data.team.length > 1 ? t('teamOrderHint') : '')
   set('team-caught-title', t('teamCaughtTitle', { n: data.list.length }))
@@ -408,13 +411,17 @@ export async function startTeamBattle(game) {
       const d = loadCreatures()
       if (won) d.wins++
       else d.losses++
+      // Trophies for the leaderboard (PetRank.js, Batch M): only this
+      // Battle button counts.
+      const tr = PetRank.applyTrophies(d, won, power(team), power(theirs))
       saveCreatures(d)
+      PetRank.pushTrophies(game)
       const reward = won ? WIN_COINS : LOSS_COINS
       game.coins += reward
       saveShopProgress(game)
       game._renderCurrencyBar?.()
       renderTeamPanel(game)
-      return reward
+      return { coins: reward, tr: tr.delta, rank: tr.rank ? PetRank.rankName(tr.rank) : null }
     },
     onAgain: () => startTeamBattle(game),
     // 2D or 3D (Settings > Team Battle View; the battle's own button
@@ -474,6 +481,9 @@ export function bindTeamUI(game) {
   TeamBattle.track = (b) => { game._teamBattle = b }
   bindReplays(game)
   bindPetBook(game)
+  // The pet battle leaderboard (PetRank.js, Batch M).
+  PetRank.bindPetRank(game)
+  game._petRank = PetRank
   game._replays = { ...ReplayStore, TeamBattle, playReplay }
   game._creatures = { packTeam, unpackTeam, loadCreatures, saveCreatures }
   // The Collection book, for the tests (tests/team.spec.js).

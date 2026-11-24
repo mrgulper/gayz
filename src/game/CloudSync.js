@@ -585,6 +585,45 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.from == request.auth.uid;
     }
 
+    // Pet battle leaderboard (PetRank.js, Batch M 2026-11-24): each
+    // account's trophies from the Pets tab Battle button, all-time here and
+    // per week below. Anyone reads them; only you write your own. at is
+    // the server's clock; trophies can only go up by at most 40 (one win)
+    // per 5 seconds since the last write, and a new doc starts at 5000 or
+    // less, so a hacked client can't jump straight to the top.
+    match /petTrophies/{uid} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['nickname', 'tr', 'at'])
+        && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 24
+        && request.resource.data.tr is int && request.resource.data.tr >= 0 && request.resource.data.tr <= 5000
+        && request.resource.data.at == request.time;
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['nickname', 'tr', 'at'])
+        && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 24
+        && request.resource.data.tr is int && request.resource.data.tr >= 0 && request.resource.data.tr <= 1000000
+        && request.resource.data.at == request.time
+        && request.resource.data.tr <= resource.data.tr + 40 * (math.floor((request.time.toMillis() - resource.data.at.toMillis()) / 5000) + 1);
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+    match /petTrophyWeeks/{week}/entries/{uid} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == uid && week.size() <= 8
+        && request.resource.data.keys().hasOnly(['nickname', 'n', 'tr', 'at'])
+        && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 24
+        && request.resource.data.n is int && request.resource.data.n >= 0 && request.resource.data.n <= 5000
+        && request.resource.data.tr is int && request.resource.data.tr >= 0 && request.resource.data.tr <= 1000000
+        && request.resource.data.at == request.time;
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['nickname', 'n', 'tr', 'at'])
+        && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 24
+        && request.resource.data.n is int && request.resource.data.n >= 0 && request.resource.data.n <= 1000000
+        && request.resource.data.tr is int && request.resource.data.tr >= 0 && request.resource.data.tr <= 1000000
+        && request.resource.data.at == request.time
+        && request.resource.data.n <= resource.data.n + 40 * (math.floor((request.time.toMillis() - resource.data.at.toMillis()) / 5000) + 1);
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
     // Gauntlet teams (2026-11-11, Gauntlet.js): your Gauntlet team at each
     // battle of a run (one doc per battle number, {uid}_{round}), for other
     // players to meet at the same battle. Anyone reads them; only you write
@@ -1892,6 +1931,48 @@ export async function fetchGhostTeams(myUid, n = 30) {
   const q = fsMod.query(fsMod.collection(db, 'ghostTeams'), fsMod.orderBy('updatedAt', 'desc'), fsMod.limit(n))
   const snap = await fsMod.getDocs(q)
   return snap.docs.filter((d) => d.id !== myUid).map((d) => ({ ...d.data(), uid: d.id }))
+}
+
+// Pet battle leaderboard (PetRank.js, Batch M; see the petTrophies rules
+// above). Both docs at once: all-time and this week's.
+export async function savePetTrophies(uid, week, { nickname, tr, n }) {
+  const { db, fsMod } = await ensureApp()
+  const at = fsMod.serverTimestamp()
+  await Promise.all([
+    fsMod.setDoc(fsMod.doc(db, 'petTrophies', uid), { nickname, tr, at }),
+    fsMod.setDoc(fsMod.doc(db, 'petTrophyWeeks', String(week), 'entries', uid), { nickname, n, tr, at }),
+  ])
+}
+
+// The top n: all-time (week null, by tr) or one week's (by n).
+function petTrophyCol(fsMod, db, week) {
+  return week == null ? fsMod.collection(db, 'petTrophies') : fsMod.collection(db, 'petTrophyWeeks', String(week), 'entries')
+}
+export async function fetchPetTrophyTop(week, n = 50) {
+  const { db, fsMod } = await ensureApp()
+  const field = week == null ? 'tr' : 'n'
+  const snap = await fsMod.getDocs(fsMod.query(petTrophyCol(fsMod, db, week), fsMod.orderBy(field, 'desc'), fsMod.limit(n)))
+  return snap.docs.map((d) => ({ ...d.data(), uid: d.id }))
+}
+
+// My place: how many have more (a COUNT, not a download), +1.
+export async function fetchPetTrophyRank(week, score) {
+  const { db, fsMod } = await ensureApp()
+  const field = week == null ? 'tr' : 'n'
+  const snap = await fsMod.getCountFromServer(fsMod.query(petTrophyCol(fsMod, db, week), fsMod.where(field, '>', score)))
+  return snap.data().count + 1
+}
+
+// Some players' docs (friends): all-time, plus this week's n.
+export async function fetchPetTrophies(uids, week) {
+  const { db, fsMod } = await ensureApp()
+  return Promise.all(uids.map(async (uid) => {
+    const [a, w] = await Promise.all([
+      fsMod.getDoc(fsMod.doc(db, 'petTrophies', uid)),
+      fsMod.getDoc(fsMod.doc(db, 'petTrophyWeeks', String(week), 'entries', uid)),
+    ])
+    return a.exists() ? { ...a.data(), n: w.exists() ? w.data().n : 0, uid } : null
+  })).then((rows) => rows.filter(Boolean))
 }
 
 // Friend pet battles (FriendBattle.js, see the petDuels rules above).

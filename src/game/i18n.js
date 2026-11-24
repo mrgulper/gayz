@@ -31,6 +31,10 @@ import weeklyEn from './i18n/weekly-en.js'
 import weeklyZh from './i18n/weekly-zh.js'
 import weeklyHi from './i18n/weekly-hi.js'
 import weeklyEs from './i18n/weekly-es.js'
+import rankEn from './i18n/rank-en.js'
+import rankZh from './i18n/rank-zh.js'
+import rankHi from './i18n/rank-hi.js'
+import rankEs from './i18n/rank-es.js'
 
 // nameKey points at a languageName* string (see each language's own
 // STRINGS block below) - the Settings > Language grid's bold label reads
@@ -79,6 +83,11 @@ Object.assign(en, weeklyEn)
 Object.assign(zh, weeklyZh)
 Object.assign(hi, weeklyHi)
 Object.assign(es, weeklyEs)
+// Pet battle leaderboard (PetRank.js, 2026-11-24).
+Object.assign(en, rankEn)
+Object.assign(zh, rankZh)
+Object.assign(hi, rankHi)
+Object.assign(es, rankEs)
 const STRINGS = { en, zh, hi, es, fr, ru, id, de, ja, vi }
 
 // Read by scripts/check-docs.mjs (typed key letters) - not used at runtime.

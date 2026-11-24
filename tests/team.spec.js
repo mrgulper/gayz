@@ -1900,3 +1900,96 @@ test('weekly challenge: one rule a week, 5 bot battles in a row, prize + badge o
   expect(r.doneBtn).toBe(true)
   expect(r.wolf).toBe(true)
 })
+
+test('pet battle leaderboard: trophies, rank badge, All-time / This week / Friends lists', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    localStorage.setItem('gayz-creatures', JSON.stringify({ list: [{ id: 1, t: 'a', k: 'wolf', r: 'rare', at: 1 }], team: [1], wins: 0, losses: 0, nextId: 2, tr: 790, tw: { w: 1, n: 99 } }))
+    window.__game._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-pets').click()
+  })
+  const math = await page.evaluate(() => {
+    const R = window.__game._petRank
+    return {
+      even: [R.trophyChange(true, 100, 100), R.trophyChange(false, 100, 100)],
+      strong: [R.trophyChange(true, 100, 500), R.trophyChange(false, 100, 500)],
+      weak: [R.trophyChange(true, 500, 100), R.trophyChange(false, 500, 100)],
+      ranks: [0, 299, 300, 800, 1500, 2500, 4000].map((n) => R.rankOf(n).id),
+      line: document.getElementById('pet-rank-line').textContent.replace(/\s+/g, ' ').trim(),
+    }
+  })
+  expect(math.even).toEqual([20, -10])
+  expect(math.strong).toEqual([40, -5])
+  expect(math.weak).toEqual([10, -20])
+  expect(math.ranks).toEqual(['bronze', 'bronze', 'silver', 'gold', 'platinum', 'diamond', 'champion'])
+  // An old week's trophies don't count as this week's.
+  expect(math.line).toBe('Silver 790 trophies · this week: 0')
+
+  // A Battle-button win: trophies + the rank up in the result news.
+  await page.click('#team-battle-btn')
+  await page.waitForSelector('#team-battle canvas')
+  const won = await page.evaluate(async () => {
+    const b = window.__game._teamBattle
+    b._finish(true)
+    const d = JSON.parse(localStorage.getItem('gayz-creatures'))
+    return { news: [...document.querySelectorAll('#team-battle .tb-result-news li')].map((li) => li.textContent), tr: d.tr, week: d.tw.n }
+  })
+  expect(won.tr).toBeGreaterThanOrEqual(800)
+  expect(won.week).toBe(won.tr - 790)
+  expect(won.news.slice(-2)).toEqual([`+${won.tr - 790} trophies`, 'New rank: Gold!'])
+  await page.evaluate(() => document.querySelector('#team-battle .tb-back').click())
+
+  // The lists, with a pretend Firestore (never the live one in tests).
+  const lists = await page.evaluate(async () => {
+    const g = window.__game
+    const sent = []
+    g._cloudUid = 'me'
+    g.settings.savedFriends = [{ uid: 'f1', name: 'Pal' }]
+    g._petRankCache = null
+    g._petRankPushed = false
+    g.__petRankBackendForTests = {
+      isConfigured: () => true,
+      savePetTrophies: async (uid, week, e) => { sent.push({ uid, ...e }) },
+      fetchPetTrophyTop: async (week) => (week == null
+        ? [{ uid: 'a', nickname: 'Ace', tr: 4200 }, { uid: 'me', nickname: 'Me', tr: 810 }]
+        : [{ uid: 'b', nickname: '<b>Bee</b>', tr: 300, n: 150 }]),
+      fetchPetTrophyRank: async (week) => (week == null ? 2 : 5),
+      fetchPetTrophies: async () => [{ uid: 'f1', nickname: 'Pal', tr: 2600, n: 40 }],
+    }
+    const rows = () => [...document.querySelectorAll('#pet-rank-list .pet-rank-row')].map((r) => r.textContent.replace(/\s+/g, ' ').trim())
+    const wait = () => new Promise((r) => setTimeout(r, 50))
+    const out = {}
+    document.getElementById('pet-rank-btn').click()
+    await wait()
+    out.all = rows()
+    out.me = document.getElementById('pet-rank-me').textContent
+    out.meRow = document.querySelectorAll('#pet-rank-list .pet-rank-row.me').length
+    out.h1 = document.getElementById('pet-rank-list').getBoundingClientRect().height
+    document.querySelector('[data-rank-tab="week"]').click()
+    await wait()
+    out.week = rows()
+    out.weekMe = document.getElementById('pet-rank-me').textContent
+    out.noTags = !document.querySelector('#pet-rank-list b')
+    document.querySelector('[data-rank-tab="friends"]').click()
+    await wait()
+    out.friends = rows()
+    out.h2 = document.getElementById('pet-rank-list').getBoundingClientRect().height
+    out.sent = sent
+    return out
+  })
+  expect(lists.all).toEqual(['#1 Champion Ace 4200', '#2 Gold Me (you) 810'])
+  expect(lists.me).toBe('Your place: #2')
+  expect(lists.meRow).toBe(1)
+  expect(lists.week).toEqual(['#1 Silver <b>Bee</b> 150'])
+  expect(lists.weekMe).toBe('Your place: #5')
+  expect(lists.noTags).toBe(true)
+  expect(lists.friends[0]).toBe('#1 Diamond Pal 2600')
+  expect(lists.friends[1]).toMatch(/^#2 Gold .* \(you\) 8\d\d$/)
+  // Same height on every tab.
+  expect(lists.h1).toBe(lists.h2)
+  // Opening it sent my trophies first (signed in).
+  expect(lists.sent.length).toBe(1)
+  expect(lists.sent[0].uid).toBe('me')
+  expect(lists.sent[0].tr).toBe(won.tr)
+})
