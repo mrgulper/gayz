@@ -39,6 +39,10 @@ import petTradeEn from './i18n/pettrade-en.js'
 import petTradeZh from './i18n/pettrade-zh.js'
 import petTradeHi from './i18n/pettrade-hi.js'
 import petTradeEs from './i18n/pettrade-es.js'
+import raidEn from './i18n/raid-en.js'
+import raidZh from './i18n/raid-zh.js'
+import raidHi from './i18n/raid-hi.js'
+import raidEs from './i18n/raid-es.js'
 
 // nameKey points at a languageName* string (see each language's own
 // STRINGS block below) - the Settings > Language grid's bold label reads
@@ -97,6 +101,11 @@ Object.assign(en, petTradeEn)
 Object.assign(zh, petTradeZh)
 Object.assign(hi, petTradeHi)
 Object.assign(es, petTradeEs)
+// Co-op Boss Raid (PetRaid.js, 2026-11-24).
+Object.assign(en, raidEn)
+Object.assign(zh, raidZh)
+Object.assign(hi, raidHi)
+Object.assign(es, raidEs)
 const STRINGS = { en, zh, hi, es, fr, ru, id, de, ja, vi }
 
 // Read by scripts/check-docs.mjs (typed key letters) - not used at runtime.

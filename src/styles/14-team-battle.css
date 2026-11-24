@@ -1361,7 +1361,7 @@ html.ui-theme-old .team-egg-bar {
   display: block;
   margin: 10px auto 0;
 }
-#friend-battle-list {
+#friend-battle-list, #raid-friend-list {
   max-width: 420px;
   margin: 6px auto 0;
 }
@@ -1682,6 +1682,14 @@ html.ui-theme-clean .pet-book-page {
 }
 html.ui-theme-old .weekly-badge { border-color: var(--old-ink); }
 html.ui-theme-clean .weekly-badge { background: transparent; color: inherit; border-color: var(--weekly-color); }
+
+/* Co-op Boss Raid (PetRaid.js, Batch O 2026-11-24): the Weekly Challenge's
+   look, in the boss's colour (--weekly-color). */
+#pet-raid { margin-top: 12px; text-align: center; }
+.raid-boss img { width: 64px; height: 64px; image-rendering: pixelated; border: 3px solid var(--weekly-color); border-radius: 10px; }
+.raid-prize { margin: 0 auto 8px; max-width: 560px; font-weight: 700; }
+.raid-btns { display: flex; justify-content: center; }
+#raid-friend-btn { margin-top: 8px; }
 
 /* Pet battle leaderboard (PetRank.js, Batch M 2026-11-24). */
 #pet-rank-line {

@@ -293,5 +293,27 @@ first, online (Firestore) last.
   Known limit: same client-trust as Skin Trades (a hacked client could
   send a made-up pet; it's re-checked by cleanCreature). Terms + Privacy
   lines added. i18n pettrade-<lang>.js. Test: team.spec "pet trading".
-- [ ] **Batch O - Co-op boss raid.** Two friends' teams vs one giant
-  boss (online, biggest).
+- [x] **Batch O - Co-op boss raid** (shipped 2026-11-24). Gaymi picked:
+  a new boss each week, prize = coins + pet XP + held item + badge, prize
+  once a day (raid as often as you like), helper bot when no friend is
+  online. PetRaid.js: BOSSES (weekId % 5) King (slam) / Titan Rex (quake)
+  / Bone Lord (rain) / Spider Queen (summon 2 minis) / Mega Blob (regen);
+  bossFor sizes the boss to the whole raid team (hp = team hp x b.hp or
+  BOSS_HP 1.6, atk = avg atk x BOSS_ATK 1.7) - tuned so a matched team
+  wins ~18/20 without cheering (a guess). RAID_TEAM 5 = each player's
+  first 5 picked; helperTeam = WeeklyChallenge.foeTeam at my power (no
+  ids, no XP). RAID_COINS 300 + rollItem + badge count per boss, paid on
+  the first win of the UTC day; save `gayz-pet-raid` { day, badges }.
+  TeamBattle `raid` option: one boss fighter (opts.big: size, rad, heavy -
+  never pushed), _bossSpecial every SPECIAL_EVERY 7 s (4.5 s once
+  ENRAGED under half: +30% atk), RAID_S 180 (time up = loss), boss down =
+  win (minions fall too), no hazard, no foe cheer; rec.raid kept so
+  replays work; onEnd may return { text, news }. Live: FriendBattle
+  challengeFriend(game, uid, true) -> Firestore petRaids/{id} (petDuels
+  shape + boss = week), both friends are 'mine' (asker's team first), one
+  shared cheer meter (friendCheer lands on my side). Pets tab section
+  #pet-raid (solo button + "Raid with a Friend" #raid-friend-btn,
+  ONLINE_ONLY). NEW RULES block petRaids -> FINAL round 4 file
+  ~/Desktop/GayZ/firestore-rules-2026-11-24-round4-final.txt (pettrades
+  file + petRaids). Privacy + Terms lines. i18n raid-<lang>.js. Not
+  tested with two real accounts. Test: team.spec "boss raid".

@@ -2868,7 +2868,7 @@
             </ul>
 
             <h3>5. Acceptable use</h3>
-            <p>Some things you make in GayZ are seen by other players: your nickname, bio and Player ID, chat messages (Global, server and clan chat), clan names, Market listings, Gallery posts and comments, GayZ TV clips (YouTube links and GIFs), Photo Postcards, gifts and challenges, pet battle challenges and pet trades (seen by the friend you send them to), your pet battle trophies (on the pet battle leaderboard), Guestbook lines you write on someone's profile, Messages in a Bottle (read by random players), maps you share or build together with others, the spray tags you draw and spray in a server, and - in the World Map mode on a server - the parts of the map you've explored, which the other players in that game get added to their own map. When using GayZ, you agree not to:</p>
+            <p>Some things you make in GayZ are seen by other players: your nickname, bio and Player ID, chat messages (Global, server and clan chat), clan names, Market listings, Gallery posts and comments, GayZ TV clips (YouTube links and GIFs), Photo Postcards, gifts and challenges, pet battle challenges, boss raid invites and pet trades (seen by the friend you send them to), your pet battle trophies (on the pet battle leaderboard), Guestbook lines you write on someone's profile, Messages in a Bottle (read by random players), maps you share or build together with others, the spray tags you draw and spray in a server, and - in the World Map mode on a server - the parts of the map you've explored, which the other players in that game get added to their own map. When using GayZ, you agree not to:</p>
             <ul>
               <li>Use your nickname, bio, chat, clan name, posts, comments, shared maps, spray tags or any other field to harass anyone, impersonate someone else, or post personal information (yours or anyone else's);</li>
               <li>Post anything hateful, sexual, violent toward real people, or that you don't have the right to share (like someone else's artwork in a skin or Gallery post);</li>
@@ -2944,6 +2944,7 @@
             <p>Your nickname, Player ID, bio, and stats shown on your public profile (Profile panel &gt; Shown to Public) are visible to other players wherever public features (leaderboards, chat, friend lookups) show them. Please don't put personal information (real name, contact details, etc.) in any field, since a field that's private today could become visible in a future update.</p>
             <p>If you're signed in, starting a Team Battle saves your battle team as a "ghost team" that other players can see and battle: your nickname, which zombies and animals are on it, their rarity, any nicknames you gave them, the held items they carry, how strong the team is and how many battles you've won. Creature nicknames are checked for strong swear words the same way chat is. It's replaced each time you start another battle.</p>
             <p>If you're signed in, you can challenge a friend to a live pet battle. The challenge sends your friend your nickname and your battle team (which creatures, their rarity, levels, nicknames, held items and snacks); if they say yes, their team comes back to you the same way. Only the two of you can see it, and it's deleted once the battle starts, is turned down or runs out of time. During the battle, any cheers you use (which one and when) are sent to your friend the same way, and deleted when you leave the battle.</p>
+            <p>If you're signed in, you can ask a friend to join a pet Boss Raid. The invite sends your friend your nickname, which week's boss it is, and your raid team (which creatures, their rarity, levels, shiny, nicknames, held items and snacks); their team comes back to you the same way, plus any cheers you each use during the raid. Only the two of you can see it, and it's deleted once the raid starts, is turned down or is given up on (or after an hour). Raid prizes and badges are saved on your device only.</p>
             <p>If you're signed in, you can trade pets with a friend. The trade sends your friend your nickname and the pets you offer (which creatures, their rarity, levels, shiny, nicknames and held items); their offer comes back to you the same way. Only the two of you can see it. It's deleted once both of you have your new pets, or when it's turned down, cancelled or left for over an hour. Traded pets are given for good - a finished trade can't be undone.</p>
             <p>If you're signed in, your pet battle trophies (from the Pets tab Battle button) and your nickname are saved online for the pet battle leaderboard, all-time and per week. Anyone playing can see them on the leaderboard.</p>
             <p>When you enter the Weekly Team Tournament, the ghost teams in your bracket (each player's nickname and the creatures on their team) are copied into your save for that week, so your bracket stays the same. Nothing new about you is shared by entering.</p>
@@ -3916,6 +3917,13 @@
               <!-- Weekly Challenge (WeeklyChallenge.js, 2026-11-24): one rule
                    a week, 5 bot battles in a row for a prize + badge. -->
               <section id="weekly-challenge"></section>
+              <!-- Co-op Boss Raid (PetRaid.js, Batch O 2026-11-24): a giant
+                   boss a week, with a friend (live) or a helper bot. -->
+              <section id="pet-raid">
+                <div id="pet-raid-body"></div>
+                <button type="button" id="raid-friend-btn" class="mini-action-btn">Raid with a Friend</button>
+                <div id="raid-friend-list"></div>
+              </section>
               <!-- Gauntlet (Gauntlet.js, 2026-11-11): a run of its own with
                    a shop - your caught creatures aren't used. -->
               <section id="gauntlet">
