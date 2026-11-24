@@ -1389,7 +1389,9 @@ export class BuildSurvival {
     const hit = cache.get(type)
     if (hit && hit.version === this.bm._mapVersion) return hit.out
     const out = []
-    for (const [key, t2] of this.bm._blocks) if (t2 === type) out.push(key.split(',').map(Number))
+    this.bm._blocks.forEachCell((x, y, z, t2) => {
+      if (t2 === type) out.push([x, y, z])
+    })
     cache.set(type, { version: this.bm._mapVersion, out })
     return out
   }

@@ -31,6 +31,7 @@ import { countryAt } from './EarthPlaces.js'
 import { loadEarthTerrain, earthTerrainReady, earthHeight, earthLakeAt, earthLakeNear, earthRiverNear } from './EarthTerrain.js'
 import { Underground, rockAt, setUnderSeed } from './Underground.js'
 import { HeavenRealm } from './HeavenRealm.js'
+import { cellNumber, cellOfNumber } from './BlockMap.js'
 
 const CHUNK = 16
 // The city lies within -CITY .. CITY-1 on x and z (its outline: CityShape.js).
@@ -667,8 +668,7 @@ export class OpenWorld {
   constructor(bm) {
     this.bm = bm
     this.active = false
-    this.columns = new Map() // "cx,cz" -> { keys: [] }
-    this.terrainKeys = new Set()
+    this.columns = new Map() // "cx,cz" -> { keys: [cellNumber, ...] }
     this.removed = new Set()
     this.edited = new Set() // column keys the player changed
     this.version = 0
@@ -753,6 +753,12 @@ export class OpenWorld {
   cityLoaded(gates = []) {
     this._paths = this._findPaths(gates)
     this._clearTiles()
+  }
+
+  // Cells the land generator put down ("x,y,z", Set-style): one bit per
+  // cell inside the block storage's chunks (BlockMap.js LandMarks).
+  get terrainKeys() {
+    return this.bm._blocks.land
   }
 
   reset() {
@@ -900,17 +906,18 @@ export class OpenWorld {
         samples[i * W + j] = inCity(x, z) ? { h: -1, biome: 'plains', city: true } : sampleLand(x, z)
       }
     }
-    const occupied = (k) => bm._blocks.has(k)
+    const blocks = bm._blocks
+    const land = blocks.land
     // Cave entrances reaching into this column (Underground.js): their
     // open air stays open.
     const entrances = FLAT ? [] : this.under.entrancesForColumn(cx, cz)
     const put = (x, y, z, type) => {
-      const k = `${x},${y},${z}`
-      if (this.removed.has(k) || occupied(k)) return false
+      if (blocks.at(x, y, z) !== undefined) return false
+      if (this.removed.size && this.removed.has(`${x},${y},${z}`)) return false
       if (entrances.length && this.under.entranceAir(entrances, x, y, z)) return false
-      bm._setTerrainBlock(k, x, y, z, type)
-      this.terrainKeys.add(k)
-      col.keys.push(k)
+      blocks.setAt(null, x, y, z, type)
+      land.addAt(x, y, z)
+      col.keys.push(cellNumber(x, y, z))
       if (y < col.minY) col.minY = y
       if (y > col.maxY) col.maxY = y
       return true
@@ -982,10 +989,12 @@ export class OpenWorld {
   _unload(key, col) {
     const bm = this.bm
     this.under.columnDropped(col.cx, col.cz)
-    for (const k of col.keys) {
-      if (!this.terrainKeys.has(k)) continue
-      this.terrainKeys.delete(k)
-      bm._dropTerrainBlock(k)
+    const land = bm._blocks.land
+    const c = [0, 0, 0]
+    for (const n of col.keys) {
+      cellOfNumber(n, c)
+      if (!land.deleteAt(c[0], c[1], c[2])) continue
+      bm._dropTerrainAt(c[0], c[1], c[2])
     }
     // Nothing of it is left to rebuild.
     for (let cy = Math.floor(col.minY / CHUNK) - 1; cy <= Math.floor(col.maxY / CHUNK) + 1; cy++) {
