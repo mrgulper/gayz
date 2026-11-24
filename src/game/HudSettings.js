@@ -333,7 +333,9 @@ function obstacles() {
   const out = []
   const els = [...['top-bar', 'build-play-wave', 'build-play-ammo'].map((id) => document.getElementById(id)), ...document.querySelectorAll('#touch-play .tp-btn')]
   const map = document.getElementById('build-try-map')
-  if (map && map.dataset.size !== 'center') els.push(map)
+  // ...and the place name hanging under it ("Military Base", a biome):
+  // it sticks out below the map's own box (2026-11-24, it covered ping).
+  if (map && map.dataset.size !== 'center') els.push(map, document.getElementById('build-try-biome'))
   for (const el of els) {
     if (!el) continue
     const cs = getComputedStyle(el)

@@ -605,3 +605,26 @@ test('Deathmatch: stairs show, no stuck shake, plain bot names, bigger maps', as
   })
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })
+
+// Memory (2026-11-24): the arena floats high over the open world, so only
+// a small patch of land grows under it, and the fog follows View Distance
+// (not that patch's edge) so the whole arena stays in sight.
+test('Deathmatch: only a small patch of land under the arena', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'deathmatch'
+    g.settings.viewDistance = 'far'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const bm = g.buildMode
+    for (let i = 0; i < 100 && !bm.survival.active; i++) await new Promise((res) => setTimeout(res, 100))
+    bm._applyViewDistance()
+    return { inArena: bm.inArena(), radius: bm.world.radius(), fogBlocks: Math.round(bm.scene.fog.far / (0.35 * (bm.sky?.fogFactor ?? 1))) }
+  })
+  expect(r.inArena).toBe(true)
+  expect(r.radius).toBe(16)
+  // 'far' is 128 blocks; the fog isn't pulled in to the small patch.
+  expect(r.fogBlocks).toBe(128)
+})

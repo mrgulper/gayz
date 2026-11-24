@@ -53,6 +53,9 @@ export const WORLD_LIMIT = Infinity
 // Generated out to the view distance plus a margin, never past this.
 const MAX_RADIUS = 144
 const MIN_RADIUS = 64
+// Under a Deathmatch arena (BuildMode.inArena): just a small patch - the
+// columns round each player are always kept anyway (update()).
+const ARENA_RADIUS = 16
 // Columns further than the generated radius plus this are dropped. Was 48,
 // which kept about twice the land the radius needs loaded after a walk
 // (2026-10-19, memory): 16 still leaves ~20 blocks between growing a
@@ -803,6 +806,7 @@ export class OpenWorld {
 
   // How far out terrain is grown right now.
   radius() {
+    if (this.bm.inArena?.()) return ARENA_RADIUS
     const view = this.bm.viewDistance()
     const r = Number.isFinite(view) ? view + CHUNK : MAX_RADIUS
     return Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, r))

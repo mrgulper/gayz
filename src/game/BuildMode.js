@@ -316,6 +316,17 @@ export class BuildMode {
     return VIEW_DISTANCES[key] ?? Infinity
   }
 
+  // In a Deathmatch or Team Deathmatch round (2026-11-24, Gaymi: the
+  // arena is small and floats on the void, so it shouldn't need much
+  // memory). The arena hangs ~186 blocks over the open world
+  // (PartyDeathmatch DM_Y) and nobody ever goes down there, so the land
+  // under it shrinks to a small patch (OpenWorld.radius) and the fog
+  // follows View Distance alone, not that patch's edge.
+  inArena() {
+    const k = this.survival?.active && this.survival.party?.kind
+    return k === 'deathmatch' || k === 'teamDeathmatch'
+  }
+
   autoViewStart() {
     return TOUCH_DEVICE ? 'medium' : 'max'
   }
@@ -334,7 +345,7 @@ export class BuildMode {
 
   _applyViewDistance() {
     // The open world only grows so far: the fog ends before its edge.
-    const blocks = this.world.active ? Math.min(this.viewDistance(), this.world.radius() - 8) : this.viewDistance()
+    const blocks = this.world.active && !this.inArena() ? Math.min(this.viewDistance(), this.world.radius() - 8) : this.viewDistance()
     const fog = this.scene.fog
     if (this.scene.background?.isColor) fog.color.copy(this.scene.background)
     // Rain, snow and sandstorms bring the fog in (BuildSky.fogFactor).
