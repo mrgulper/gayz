@@ -74,7 +74,11 @@ export function preloadWeaponModels() {
   loader.setMeshoptDecoder(MeshoptDecoder)
   modelsReady = Promise.all(Object.keys(WEAPON_MODELS).map(async (id) => {
     try {
-      MODEL_CACHE[id] = await loader.loadAsync(`/models/weapons/${id}.glb`)
+      // Only the model and its animations are kept: the loader's own notes
+      // (the file's raw data, ~9 MB across all guns) would otherwise stay
+      // in memory for the whole game (2026-11-24, memory batch 4).
+      const { scene, animations } = await loader.loadAsync(`/models/weapons/${id}.glb`)
+      MODEL_CACHE[id] = { scene, animations }
     } catch (err) {
       console.warn(`Weapon model ${id} failed to load`, err)
     }
