@@ -19,6 +19,7 @@ import * as Gauntlet from './Gauntlet.js'
 import * as PetEggs from './PetEggs.js'
 import * as PetShop from './PetShop.js'
 import { renderFriendBattle, bindFriendBattle } from './FriendBattle.js'
+import { renderPetTrade, bindPetTrade } from './PetTrade.js'
 import { bindReplays, renderReplays } from './PetReplays.js'
 import * as Weekly from './WeeklyChallenge.js'
 import { bindPetBook, renderPetBook, updateBook, bookTest } from './PetBook.js'
@@ -310,6 +311,7 @@ export function renderTeamPanel(game) {
   renderItems(game)
   renderEggs()
   renderFriendBattle(game)
+  renderPetTrade()
   renderRename(game)
   const grid = byId('team-grid')
   if (grid) {
@@ -477,6 +479,8 @@ export function bindTeamUI(game) {
   game._petShop = PetShop
   game._weekly = { ...Weekly, power }
   bindFriendBattle(game)
+  // Pet trading (PetTrade.js, Batch N): its window draws pets like here.
+  bindPetTrade(game, { card })
   // Replays (PetReplays.js, Batch J): a replay is the battle that's up.
   TeamBattle.track = (b) => { game._teamBattle = b }
   bindReplays(game)

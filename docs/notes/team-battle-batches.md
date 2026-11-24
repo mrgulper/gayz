@@ -269,6 +269,29 @@ first, online (Firestore) last.
   save isn't in Cloud Save); two devices on one account overwrite each
   other's number. Terms + Privacy lines added. i18n rank-<lang>.js.
   Test: team.spec "pet battle leaderboard".
-- [ ] **Batch N - Pet trading with friends.** Like Skin Trades (online).
+- [x] **Batch N - Pet trading with friends** (shipped 2026-11-24). Gaymi
+  picked: live trade window (both online), up to 3 pets each side, 0 OK
+  (a gift), pet keeps everything (level/XP, shiny, held item, nickname;
+  snack stays behind), no limits (bosses trade too, no daily cap), traded
+  pets fill the Collection book (updateBook pays milestones). PetTrade.js:
+  Trade Pets on a friend's profile (#friend-pettrade-btn) + Pets tab
+  "Trade with a Friend" (#pet-trade-btn, ONLINE_ONLY, online friends via
+  FriendBattle.listOnlineFriends). Invite box #pet-trade-box (60 s), then
+  window #pet-trade on both screens. Firestore petTrades/{id} { from,
+  fromName, to, at, state ask/open/no/done, a, b (packTradePet: clean
+  creature + my local id, max 3), v, ra rb ca cb (= v when Ready /
+  Confirm), ga gb (collected) }. Any offer change bumps v, so old Ready /
+  Confirm stop counting. Second Confirm -> 'done'; each side
+  claimPetTrade once (transaction), last one deletes. Creatures.
+  swapCreatures does the swap. At sign-in checkMyPetTrades collects
+  uncollected finished trades and deletes 'no' / over-1-hour unfinished
+  ones. Duel and trade block each other (one at a time). NEW RULES block
+  petTrades (each side writes only its own fields; done can't be deleted
+  before the other side collects). File
+  ~/Desktop/GayZ/firestore-rules-2026-11-24-pettrades.txt (pettrophies
+  file + this), NOT pasted - until then trading says "That didn't work".
+  Known limit: same client-trust as Skin Trades (a hacked client could
+  send a made-up pet; it's re-checked by cleanCreature). Terms + Privacy
+  lines added. i18n pettrade-<lang>.js. Test: team.spec "pet trading".
 - [ ] **Batch O - Co-op boss raid.** Two friends' teams vs one giant
   boss (online, biggest).

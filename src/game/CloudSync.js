@@ -565,6 +565,65 @@ service cloud.firestore {
       allow delete: if request.auth != null && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
     }
 
+    // Pet trading (PetTrade.js, Batch N 2026-11-24): a live trade window
+    // between two friends. Only those two read it. The asker (side a)
+    // makes it ('ask', nothing offered); the friend (side b) says yes
+    // ('open') or no ('no'). While open, each side changes only its own
+    // offer (up to 3 pets; every change bumps v, so old Ready / Confirm
+    // stop counting), its own Ready (rX = v) and, once both are Ready, its
+    // own Confirm (cX = v); the second Confirm makes it 'done'. Then each
+    // side collects once (gX), and the last one to collect deletes it. A
+    // done trade can't be deleted before the other side has collected.
+    match /petTrades/{tradeId} {
+      function tradeParty() {
+        return request.auth != null && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      }
+      function mySide() {
+        return resource.data.from == request.auth.uid ? 'a' : 'b';
+      }
+      function otherSide() {
+        return resource.data.from == request.auth.uid ? 'b' : 'a';
+      }
+      function tradeChanged() {
+        return request.resource.data.diff(resource.data).affectedKeys();
+      }
+      allow read: if tradeParty();
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['from', 'fromName', 'to', 'state', 'at', 'a', 'b', 'v', 'ra', 'rb', 'ca', 'cb', 'ga', 'gb'])
+        && request.resource.data.keys().hasAll(['from', 'fromName', 'to', 'state', 'at', 'a', 'b', 'v', 'ra', 'rb', 'ca', 'cb', 'ga', 'gb'])
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.to is string && request.resource.data.to.size() > 0 && request.resource.data.to.size() <= 128
+        && request.resource.data.to != request.auth.uid
+        && request.resource.data.fromName is string && request.resource.data.fromName.size() > 0 && request.resource.data.fromName.size() <= 24
+        && request.resource.data.state == 'ask'
+        && request.resource.data.at is int
+        && request.resource.data.a == [] && request.resource.data.b == []
+        && request.resource.data.v == 0
+        && request.resource.data.ra == -1 && request.resource.data.rb == -1
+        && request.resource.data.ca == -1 && request.resource.data.cb == -1
+        && request.resource.data.ga == false && request.resource.data.gb == false;
+      allow update: if tradeParty() && (
+        (resource.data.state == 'ask' && request.auth.uid == resource.data.to
+          && tradeChanged().hasOnly(['state']) && request.resource.data.state in ['open', 'no'])
+        || (resource.data.state == 'open'
+          && tradeChanged().hasOnly([mySide(), 'v'])
+          && request.resource.data[mySide()] is list && request.resource.data[mySide()].size() <= 3
+          && request.resource.data.v == resource.data.v + 1)
+        || (resource.data.state == 'open'
+          && tradeChanged().hasOnly(['r' + mySide()])
+          && request.resource.data['r' + mySide()] == resource.data.v)
+        || (resource.data.state == 'open'
+          && resource.data.ra == resource.data.v && resource.data.rb == resource.data.v
+          && request.resource.data['c' + mySide()] == resource.data.v
+          && (tradeChanged().hasOnly(['c' + mySide()])
+            || (tradeChanged().hasOnly(['c' + mySide(), 'state']) && request.resource.data.state == 'done'
+              && resource.data['c' + otherSide()] == resource.data.v)))
+        || (resource.data.state == 'done'
+          && tradeChanged().hasOnly(['g' + mySide()])
+          && resource.data['g' + mySide()] == false && request.resource.data['g' + mySide()] == true));
+      allow delete: if tradeParty() && (resource.data.state != 'done' || resource.data['g' + otherSide()] == true);
+    }
+
     // Friend battle cheers (TeamBattle cheer, Batch H 2026-11-24): each
     // friend's cheers in one live battle, {duelId}_{uid}, a list of numbers
     // (step * 4 + which cheer). Only the two friends read it (a missing one
@@ -2042,6 +2101,122 @@ export async function sendPetCheers(duel, from, to, list) {
 export async function deletePetCheers(duel, from) {
   const { db, fsMod } = await ensureApp()
   await fsMod.deleteDoc(fsMod.doc(db, 'petCheers', `${duel}_${from}`))
+}
+
+// Pet trading (PetTrade.js, see the petTrades rules above). side is 'a'
+// (the one who asked) or 'b' (the friend).
+const PET_TRADE_FIELDS = { state: 'ask', a: [], b: [], v: 0, ra: -1, rb: -1, ca: -1, cb: -1, ga: false, gb: false }
+
+export async function createPetTrade(from, fromName, to) {
+  const { db, fsMod } = await ensureApp()
+  const ref = fsMod.doc(fsMod.collection(db, 'petTrades'))
+  await fsMod.setDoc(ref, { from, fromName, to, at: Date.now(), ...PET_TRADE_FIELDS })
+  return ref.id
+}
+
+async function petTradeTx(id, fn) {
+  const { db, fsMod } = await ensureApp()
+  const ref = fsMod.doc(db, 'petTrades', id)
+  return fsMod.runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    return fn(snap.exists() ? { ...snap.data(), id } : null, tx, ref)
+  })
+}
+
+// The friend's answer. Returns the trade, or null if it was gone or taken.
+export function answerPetTrade(id, yes) {
+  return petTradeTx(id, (d, tx, ref) => {
+    if (!d || d.state !== 'ask') return null
+    tx.update(ref, { state: yes ? 'open' : 'no' })
+    return { ...d, state: yes ? 'open' : 'no' }
+  })
+}
+
+// My offer changed: returns the new v, or null.
+export function setPetTradeOffer(id, side, list) {
+  return petTradeTx(id, (d, tx, ref) => {
+    if (!d || d.state !== 'open') return null
+    tx.update(ref, { [side]: list, v: d.v + 1 })
+    return d.v + 1
+  })
+}
+
+// Ready on the offers as they were at v. True if it counted.
+export function readyPetTrade(id, side, v) {
+  return petTradeTx(id, (d, tx, ref) => {
+    if (!d || d.state !== 'open' || d.v !== v) return false
+    tx.update(ref, { [`r${side}`]: v })
+    return true
+  })
+}
+
+// Confirm (both Ready on v): 'done' when the other side had confirmed
+// already, 'ok' when it's still their turn, null if it didn't count.
+export function confirmPetTrade(id, side, v) {
+  const other = side === 'a' ? 'b' : 'a'
+  return petTradeTx(id, (d, tx, ref) => {
+    if (!d || d.state !== 'open' || d.v !== v || d.ra !== v || d.rb !== v) return null
+    const done = d[`c${other}`] === v
+    tx.update(ref, done ? { [`c${side}`]: v, state: 'done' } : { [`c${side}`]: v })
+    return done ? 'done' : 'ok'
+  })
+}
+
+// My side of a finished trade, once (two devices can't both collect).
+// The last one to collect deletes it. Returns the trade or null.
+export function claimPetTrade(id, side) {
+  const other = side === 'a' ? 'b' : 'a'
+  return petTradeTx(id, (d, tx, ref) => {
+    if (!d || d.state !== 'done' || d[`g${side}`]) return null
+    if (d[`g${other}`]) tx.delete(ref)
+    else tx.update(ref, { [`g${side}`]: true })
+    return d
+  })
+}
+
+export async function deletePetTrade(id) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'petTrades', id))
+}
+
+export function watchPetTrade(id, callback) {
+  let unsub = () => {}
+  let cancelled = false
+  ensureApp().then(({ db, fsMod }) => {
+    if (cancelled) return
+    unsub = fsMod.onSnapshot(fsMod.doc(db, 'petTrades', id), (snap) => callback(snap.exists() ? { ...snap.data(), id } : null), () => {})
+  })
+  return () => {
+    cancelled = true
+    unsub()
+  }
+}
+
+// callback(invites) - trade invites waiting for my answer.
+export function subscribePetTradeInvites(uid, callback) {
+  let unsub = () => {}
+  let cancelled = false
+  ensureApp().then(({ db, fsMod }) => {
+    if (cancelled) return
+    const q = fsMod.query(fsMod.collection(db, 'petTrades'), fsMod.where('to', '==', uid), fsMod.where('state', '==', 'ask'), fsMod.limit(20))
+    unsub = fsMod.onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ ...d.data(), id: d.id }))), () => {})
+  })
+  return () => {
+    cancelled = true
+    unsub()
+  }
+}
+
+// Every trade I'm in (checked once at sign-in: finished ones not yet
+// collected, and old ones to tidy away).
+export async function fetchMyPetTrades(uid) {
+  const { db, fsMod } = await ensureApp()
+  const col = fsMod.collection(db, 'petTrades')
+  const [a, b] = await Promise.all([
+    fsMod.getDocs(fsMod.query(col, fsMod.where('from', '==', uid), fsMod.limit(20))),
+    fsMod.getDocs(fsMod.query(col, fsMod.where('to', '==', uid), fsMod.limit(20))),
+  ])
+  return [...a.docs, ...b.docs].map((d) => ({ ...d.data(), id: d.id }))
 }
 
 // callback(list) whenever my friend's cheers in battle `duel` change.

@@ -13,6 +13,7 @@
 // game._renderCloudOnlineSection() same as before.
 import { watchSkinTrades } from './SkinTrade.js'
 import { watchPetDuels } from './FriendBattle.js'
+import { watchPetTrades } from './PetTrade.js'
 import { keepFriendRequests } from './SocialSettings.js'
 import { t } from './i18n.js'
 import { fitHomeExtras } from './HomeExtras.js'
@@ -130,6 +131,7 @@ export function restoreCloudSession(game) {
     watchSkinTrades(game, session ? session.uid : null)
     // Friend pet battles (FriendBattle.js): invites from friends.
     watchPetDuels(game, session ? session.uid : null)
+    watchPetTrades(game, session ? session.uid : null)
     isFirstCall = false
     renderSignInFooters(game)
     if (isCloudSaveVisible(game)) {

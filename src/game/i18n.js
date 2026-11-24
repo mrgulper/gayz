@@ -35,6 +35,10 @@ import rankEn from './i18n/rank-en.js'
 import rankZh from './i18n/rank-zh.js'
 import rankHi from './i18n/rank-hi.js'
 import rankEs from './i18n/rank-es.js'
+import petTradeEn from './i18n/pettrade-en.js'
+import petTradeZh from './i18n/pettrade-zh.js'
+import petTradeHi from './i18n/pettrade-hi.js'
+import petTradeEs from './i18n/pettrade-es.js'
 
 // nameKey points at a languageName* string (see each language's own
 // STRINGS block below) - the Settings > Language grid's bold label reads
@@ -88,6 +92,11 @@ Object.assign(en, rankEn)
 Object.assign(zh, rankZh)
 Object.assign(hi, rankHi)
 Object.assign(es, rankEs)
+// Pet trading (PetTrade.js, 2026-11-24).
+Object.assign(en, petTradeEn)
+Object.assign(zh, petTradeZh)
+Object.assign(hi, petTradeHi)
+Object.assign(es, petTradeEs)
 const STRINGS = { en, zh, hi, es, fr, ru, id, de, ja, vi }
 
 // Read by scripts/check-docs.mjs (typed key letters) - not used at runtime.

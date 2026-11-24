@@ -137,6 +137,8 @@ export function bindFriendMail(game) {
   $('friend-challenge-btn')?.addEventListener('click', () => openForm(game, 'challenge'))
   // A live pet battle (FriendBattle.js, bound by TeamUI).
   $('friend-petduel-btn')?.addEventListener('click', () => game._challengePetFriend?.(game._friendMailTo))
+  // A live pet trade (PetTrade.js, bound by TeamUI).
+  $('friend-pettrade-btn')?.addEventListener('click', () => game._tradePetFriend?.(game._friendMailTo))
   for (const id of ['friend-gift-cancel', 'friend-challenge-cancel']) $(id)?.addEventListener('click', () => openForm(game, null))
   $('friend-gift-send')?.addEventListener('click', () => sendGift(game))
   $('friend-challenge-send')?.addEventListener('click', () => sendChallenge(game))
@@ -164,6 +166,7 @@ export function renderFriendMailTexts() {
   text('friend-gift-btn', 'friendGiftBtn')
   text('friend-challenge-btn', 'friendChallengeBtn')
   text('friend-petduel-btn', 'petDuelBtn')
+  text('friend-pettrade-btn', 'petTradeBtn')
   text('friend-gift-coins-label', 'friendGiftCoins', { n: GIFT_MAX_COINS })
   text('friend-gift-item-label', 'friendGiftItem')
   text('friend-gift-count-label', 'friendGiftCount')

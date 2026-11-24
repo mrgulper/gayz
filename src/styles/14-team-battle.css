@@ -1765,3 +1765,80 @@ html.ui-theme-old .pet-rank-tabs .mini-action-btn.open,
 html.ui-theme-old .pet-book-groups .mini-action-btn.open {
   outline-color: var(--old-ink);
 }
+/* Pet trading (PetTrade.js, Batch N 2026-11-24): the trade window (a
+   panel-box, so it follows the theme), same size the whole time - the pet
+   lists scroll inside it. Its invite box reuses .pet-duel-box. */
+.pet-trade {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3100;
+  width: min(760px, calc(100vw - 32px));
+  height: min(640px, calc(100vh - 32px));
+  min-height: 0;
+  padding: 14px 16px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+}
+.pet-trade[hidden] {
+  display: none;
+}
+.pet-trade h3,
+.pet-trade h4 {
+  margin: 0;
+}
+.pet-trade h4 {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.pet-trade-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+.pet-trade-mine,
+.pet-trade-theirs {
+  height: 190px;
+  overflow-y: auto;
+  align-content: flex-start;
+}
+.pet-trade-status {
+  margin: 0;
+  font-weight: 700;
+  min-height: 2.6em;
+  line-height: 1.3;
+}
+.pet-trade-btns {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.pet-trade-pick {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: flex-start;
+}
+#pet-trade-btn {
+  display: block;
+  margin: 10px auto 0;
+}
+#pet-trade-list {
+  max-width: 420px;
+  margin: 6px auto 0;
+}
+@media (max-width: 600px) {
+  .pet-trade-sides {
+    grid-template-columns: 1fr;
+  }
+  .pet-trade-mine,
+  .pet-trade-theirs {
+    height: 110px;
+  }
+}

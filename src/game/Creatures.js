@@ -230,6 +230,27 @@ export function addCreature(c, rand = Math.random, odds = SHINY_ODDS) {
   return kept
 }
 
+// Pet trading (PetTrade.js, Batch N 2026-11-24): my pets with these ids
+// leave (and the team), the friend's arrive as they were (level, shiny,
+// held item, nickname; never a snack) with new ids, and fill the
+// Collection book like a catch. Changes data; returns the new arrivals.
+export function swapCreatures(data, giveIds, gets) {
+  const give = new Set(giveIds)
+  data.list = data.list.filter((c) => !give.has(c.id))
+  data.team = data.team.filter((id) => !give.has(id))
+  const got = []
+  for (const raw of Array.isArray(gets) ? gets.slice(0, 3) : []) {
+    const clean = cleanCreature(raw)
+    if (!clean) continue
+    delete clean.sn
+    const kept = { ...clean, id: data.nextId++ }
+    data.list.push(kept)
+    noteCatch(data.book, kept)
+    got.push(kept)
+  }
+  return got
+}
+
 // --- Collection book (pet battles round 4, Batch K, 2026-11-24; Gaymi
 // picked a grid, page = basics + my record + where to find it, coins at
 // milestones, pets already owned count). One page per kind: every animal

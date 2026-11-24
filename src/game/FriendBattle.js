@@ -76,7 +76,7 @@ export function unpackLive(list) {
 // Invites only pop up on the homepage and menus - not while playing in the
 // world, not mid-battle, not while my own invite is out.
 export function canShowInvite(game) {
-  return !game.buildMode?.active && !game._enteringBuildMode && !game._teamBattle?.root && !game._petDuel
+  return !game.buildMode?.active && !game._enteringBuildMode && !game._teamBattle?.root && !game._petDuel && !game._petTrade
 }
 
 // --- the box (an invite to me, or my invite waiting) ---
@@ -202,7 +202,7 @@ function startLive(game, duel, me, ids, name) {
 // --- challenging a friend (profile button, Pets tab list) ---
 
 export async function challengeFriend(game, uid) {
-  if (game._petDuel) return toast(game, t('petDuelBusy'))
+  if (game._petDuel || game._petTrade) return toast(game, t('petDuelBusy'))
   if (!game._cloudUid) return toast(game, t('petDuelSignIn'))
   if (!uid || !friendOf(game, uid)) return
   const team = myTeam()
@@ -304,7 +304,7 @@ export function inviteTick(game, now = Date.now()) {
     return
   }
   const next = game._petInvites[0]
-  if (!next || !canShowInvite(game)) return
+  if (!next || !canShowInvite(game) || game._tradeInviteShown) return
   game._petInviteShown = next
   const name = friendName(game, next.from, next.fromName)
   const theirs = unpackLive(next.a)
@@ -352,6 +352,17 @@ export function renderFriendBattle(_game) {
   if (rec) rec.textContent = data.fw || data.fl ? t('petDuelRecord', { w: data.fw, l: data.fl }) : ''
 }
 
+// My saved friends, and which of them are online now (also Pet trading's
+// list, PetTrade.js).
+export async function listOnlineFriends(game, backend) {
+  const friends = (game.settings?.savedFriends || []).filter((f) => f.uid).slice(0, FRIEND_LIST_MAX)
+  const rows = await Promise.all(friends.map(async (f) => {
+    const p = await backend.fetchPresence(f.uid).catch(() => null)
+    return game._computeFriendStatus?.(p) && game._computeFriendStatus(p) !== 'offline' ? f : null
+  }))
+  return { friends, online: rows.filter(Boolean) }
+}
+
 export async function showOnlineFriends(game) {
   const list = $('friend-battle-list')
   if (!list) return
@@ -359,14 +370,8 @@ export async function showOnlineFriends(game) {
     list.innerHTML = `<p class="team-snack-hint">${esc(t('petDuelSignIn'))}</p>`
     return
   }
-  const friends = (game.settings?.savedFriends || []).filter((f) => f.uid).slice(0, FRIEND_LIST_MAX)
   list.innerHTML = `<p class="team-snack-hint">${esc(t('petDuelLooking'))}</p>`
-  const backend = api(game)
-  const rows = await Promise.all(friends.map(async (f) => {
-    const p = await backend.fetchPresence(f.uid).catch(() => null)
-    return game._computeFriendStatus?.(p) && game._computeFriendStatus(p) !== 'offline' ? f : null
-  }))
-  const online = rows.filter(Boolean)
+  const { friends, online } = await listOnlineFriends(game, api(game))
   list.innerHTML = online.length
     ? online.map((f) => `<div class="friend-battle-row"><span>${esc(String(f.name).slice(0, 24))}</span><button type="button" class="mini-action-btn" data-duel-uid="${esc(f.uid)}">${esc(t('petDuelBtn'))}</button></div>`).join('')
     : `<p class="team-snack-hint">${esc(t(friends.length ? 'petDuelNoneOnline' : 'petDuelNoFriends'))}</p>`
