@@ -34,16 +34,58 @@ const LAZY_BUDGET_MS = 5
 // memory again as the meshes themselves (~45 MB in a Map 1 match). After a
 // lost graphics connection, rebuildAll() makes them again from the blocks.
 function dropAfterUpload() {
+  this.gpuBytes = this.array.byteLength
   this.array = null
 }
 // Only a mesh that's drawn gets uploaded, so a new chunk is drawn once
 // even when it's behind you (frustumCulled off until then) - otherwise land
 // you haven't looked at yet keeps its copy (~20 MB in a Map 1 match).
 function cullAfterUpload() {
+  this.gpuBytes = this.array.byteLength
   this.array = null
   this.mesh.frustumCulled = true
   this.mesh = null
 }
+// Smaller numbers for a chunk's shape (2026-11-24, memory batch 2: land
+// shapes were the biggest memory user on Map 1 at max View Distance, about
+// 115 MB while riding). Only the corner spots stay full-size floats (they
+// must meet the next chunk's exactly, and tests read them); the rest fit
+// in less: which way a face points in 1 byte per number, picture spots in
+// 2 (exact to 1/65535 of the atlas), and colours, edge marks and water's
+// numbers as half-size floats. About 48 -> 28 bytes per corner. Nothing
+// reads these back (dropAfterUpload), so only the look matters.
+function packNormals(list) {
+  const out = new Int8Array(list.length)
+  for (let i = 0; i < list.length; i += 3) {
+    const l = Math.hypot(list[i], list[i + 1], list[i + 2]) || 1
+    out[i] = Math.round((list[i] / l) * 127)
+    out[i + 1] = Math.round((list[i + 1] / l) * 127)
+    out[i + 2] = Math.round((list[i + 2] / l) * 127)
+  }
+  return new THREE.BufferAttribute(out, 3, true)
+}
+function packUvs(list) {
+  const out = new Uint16Array(list.length)
+  for (let i = 0; i < list.length; i++) {
+    const v = list[i]
+    // A spot outside the atlas (none known) keeps full floats.
+    if (!(v >= 0 && v <= 1)) return new THREE.Float32BufferAttribute(list, 2)
+    out[i] = Math.round(v * 65535)
+  }
+  return new THREE.BufferAttribute(out, 2, true)
+}
+function packHalf(list, itemSize) {
+  const attr = new THREE.Float16BufferAttribute(list.length, itemSize)
+  const out = attr.array
+  for (let i = 0; i < list.length; i++) out[i] = THREE.DataUtils.toHalfFloat(list[i])
+  return attr
+}
+// Land this far past the fog's edge (blocks) lets go of its shape while
+// it's hidden, and gets it back once it's within PARK_BACK (memory batch
+// 2: riding kept ~40 MB of hidden land between the fog and the point where
+// the open world drops it). The gap stops a chunk flipping on every step.
+const PARK_PAST = 24
+const PARK_BACK = 16
 // A power-of-two SLOT with the tile repeated into half-tile padding: every
 // mipmap level (down to one texel per slot) then only ever averages a
 // block's own texture - no distant speckles bled in from the next tile.
@@ -1370,11 +1412,11 @@ export class BlockChunks {
       if (buf.idx.length === 0) continue
       const geo = new THREE.BufferGeometry()
       geo.setAttribute('position', new THREE.Float32BufferAttribute(buf.pos, 3))
-      geo.setAttribute('normal', new THREE.Float32BufferAttribute(buf.nrm, 3))
-      geo.setAttribute('uv', new THREE.Float32BufferAttribute(buf.uv, 2))
-      geo.setAttribute('color', new THREE.Float32BufferAttribute(buf.col, buf.stride))
-      if (shapes || kind === 'water') geo.setAttribute('aEdge', new THREE.Float32BufferAttribute(buf.edge, 1))
-      if (kind === 'water' || kind === 'lava') geo.setAttribute('aWater', new THREE.Float32BufferAttribute(buf.wat, 2))
+      geo.setAttribute('normal', packNormals(buf.nrm))
+      geo.setAttribute('uv', packUvs(buf.uv))
+      geo.setAttribute('color', packHalf(buf.col, buf.stride))
+      if (shapes || kind === 'water') geo.setAttribute('aEdge', packHalf(buf.edge, 1))
+      if (kind === 'water' || kind === 'lava') geo.setAttribute('aWater', packHalf(buf.wat, 2))
       geo.setIndex(buf.pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(buf.idx, 1) : new THREE.Uint16BufferAttribute(buf.idx, 1))
       geo.computeBoundingSphere()
       const mesh = new THREE.Mesh(geo, this.materials[kind])
@@ -1391,7 +1433,7 @@ export class BlockChunks {
       meshes.push(mesh)
     }
     // Chunk middle in blocks, for cullTo().
-    const chunk = { meshes, mx: bx + CHUNK / 2, mz: bz + CHUNK / 2, shown: true }
+    const chunk = { key, meshes, mx: bx + CHUNK / 2, mz: bz + CHUNK / 2, shown: true }
     this.chunks.set(key, chunk)
     if (this._cull) this._cullChunk(chunk)
   }
@@ -2433,7 +2475,21 @@ export class BlockChunks {
     // Nearest edge of the chunk's square, not its middle.
     const dx = Math.max(0, Math.abs(chunk.mx - c.x) - CHUNK / 2)
     const dz = Math.max(0, Math.abs(chunk.mz - c.z) - CHUNK / 2)
-    const shown = dx * dx + dz * dz <= c.blocks * c.blocks
+    const d2 = dx * dx + dz * dz
+    const shown = d2 <= c.blocks * c.blocks
+    // Far past the fog: drop the shape, keep the chunk (its blocks stay).
+    if (!shown && !chunk.parked && Number.isFinite(c.blocks) && d2 > (c.blocks + PARK_PAST) ** 2) {
+      for (const mesh of chunk.meshes) {
+        this.scene.remove(mesh)
+        mesh.geometry.dispose()
+      }
+      chunk.meshes = []
+      chunk.parked = true
+    } else if (chunk.parked && d2 <= (c.blocks + PARK_BACK) ** 2) {
+      // Coming back: built again soon, still hidden behind the fog.
+      chunk.parked = false
+      this.markLazy(chunk.key)
+    }
     if (shown === chunk.shown) return
     chunk.shown = shown
     for (const mesh of chunk.meshes) mesh.visible = shown
