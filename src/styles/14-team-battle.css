@@ -1656,3 +1656,29 @@ html.ui-theme-clean .pet-book-page {
     width: 78px;
   }
 }
+
+/* Weekly Challenge (WeeklyChallenge.js, 2026-11-24): the week's rule, 5
+   dots for the ladder, my team for the week and the badges won. Coloured
+   by the week's rule (--weekly-color). */
+#weekly-challenge { margin-top: 12px; text-align: center; }
+.weekly-status { margin: 0 auto 8px; max-width: 560px; }
+.weekly-dots { display: flex; justify-content: center; gap: 8px; margin: 0 auto 8px; }
+.weekly-dot { width: 14px; height: 14px; box-sizing: border-box; border: 2px solid color-mix(in srgb, var(--weekly-color) 45%, currentColor); border-radius: 50%; opacity: 0.6; }
+.weekly-dot.won { background: var(--weekly-color); opacity: 1; }
+.weekly-dot.next { border-style: dashed; opacity: 1; }
+.weekly-team-label { margin: 0 0 4px; font-size: 12px; opacity: 0.8; }
+.weekly-team { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 0 auto 4px; max-width: 560px; }
+.weekly-team .leader-mon img { width: 28px; height: 28px; }
+.weekly-loan { opacity: 0.6; }
+.weekly-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 12px; }
+.weekly-badge {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  border-radius: 999px;
+  color: #1a1408;
+  background: var(--weekly-color);
+  border: 2px solid var(--menu-gold);
+}
+html.ui-theme-old .weekly-badge { border-color: var(--old-ink); }
+html.ui-theme-clean .weekly-badge { background: transparent; color: inherit; border-color: var(--weekly-color); }

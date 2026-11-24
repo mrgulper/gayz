@@ -229,8 +229,22 @@ first, online (Firestore) last.
   = ZombieBook.bookPictures (3D, fall back to the pixel face - the 3D ones
   never showed in the headless test, not checked in a real browser).
   New i18n key book_spider. Test: team.spec "collection book".
-- [ ] **Batch L - Weekly challenge.** One special rule a week (only
-  skeletons, random team, all level 1...) + a prize.
+- [x] **Batch L - Weekly challenge** (shipped 2026-11-24). Gaymi picked:
+  ladder of 5, all rule types, coins + held item + badge, own Pets tab
+  section (offline). WeeklyChallenge.js: RULES (10, one a week by
+  TeamTournament.weekId % 10: skeleton / level1 / random / animal / bare /
+  zombie / trio / hazard / dino / common). weeklyTeam: kind weeks = my
+  strongest of that bookGroup + loaners (common lv 1, loan: true, no id =
+  no XP) up to TEAM_MAX 5; random = seeded from the week (same for
+  everyone); else picked team (first 5, trio 3). applyRule on both teams
+  (copies keep id, so XP reaches real pets): level1 (l 1, x dropped),
+  common, bare (no sn / hi). foeTeam: seeded kinds, rarity + level tuned
+  to my power x STEP_POWER [0.75 .. 1.25]. Hazard week = a set hazard per
+  battle. STEP_COINS 25, LOSS 5, WEEK_COINS 500 + rollItem + badge
+  { week, rule } (BADGES_KEPT 20) - all a guess. Save
+  `gayz-weekly-challenge` { week, step, badges }. Lose = retry that step.
+  No "double speed" twist (the x2 button already does it). i18n in
+  weekly-<lang>.js. Test: team.spec "weekly challenge".
 - [ ] **Batch M - Pet battle leaderboard.** Own top list (online).
 - [ ] **Batch N - Pet trading with friends.** Like Skin Trades (online).
 - [ ] **Batch O - Co-op boss raid.** Two friends' teams vs one giant

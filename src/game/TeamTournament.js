@@ -42,7 +42,7 @@ export function weekId(now = Date.now()) {
 }
 
 // The Monday a week starts on, as a short date.
-function weekStart(week) {
+export function weekStart(week) {
   return new Date(WEEK_ZERO + week * WEEK_MS).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })
 }
 

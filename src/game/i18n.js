@@ -27,6 +27,10 @@ import petDuelEn from './i18n/petduel-en.js'
 import petDuelZh from './i18n/petduel-zh.js'
 import petDuelHi from './i18n/petduel-hi.js'
 import petDuelEs from './i18n/petduel-es.js'
+import weeklyEn from './i18n/weekly-en.js'
+import weeklyZh from './i18n/weekly-zh.js'
+import weeklyHi from './i18n/weekly-hi.js'
+import weeklyEs from './i18n/weekly-es.js'
 
 // nameKey points at a languageName* string (see each language's own
 // STRINGS block below) - the Settings > Language grid's bold label reads
@@ -70,6 +74,11 @@ Object.assign(en, petDuelEn)
 Object.assign(zh, petDuelZh)
 Object.assign(hi, petDuelHi)
 Object.assign(es, petDuelEs)
+// Weekly Challenge (WeeklyChallenge.js, 2026-11-24).
+Object.assign(en, weeklyEn)
+Object.assign(zh, weeklyZh)
+Object.assign(hi, weeklyHi)
+Object.assign(es, weeklyEs)
 const STRINGS = { en, zh, hi, es, fr, ru, id, de, ja, vi }
 
 // Read by scripts/check-docs.mjs (typed key letters) - not used at runtime.
