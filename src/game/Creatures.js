@@ -40,7 +40,9 @@ const KINDS = () => PlayAnimals.KINDS
 
 function blank() {
   // fw / fl: friend battles won and lost (Batch G), their own record.
-  return { list: [], team: [], wins: 0, losses: 0, fw: 0, fl: 0, nextId: 1, items: {}, eggs: [] }
+  // book / bp: the Collection book (Batch K) - every kind ever caught and
+  // the milestone prizes already paid (BOOK_MILESTONES).
+  return { list: [], team: [], wins: 0, losses: 0, fw: 0, fl: 0, nextId: 1, items: {}, eggs: [], book: {}, bp: [] }
 }
 
 // Never trusted (it came from localStorage, maybe a shared save file).
@@ -81,6 +83,9 @@ export function loadCreatures() {
       out.eggs.push({ r: e.r, d })
     }
   }
+  // Collection book (Batch K).
+  out.book = cleanBook(data.book)
+  if (Array.isArray(data.bp)) out.bp = BOOK_MILESTONES.filter((m) => data.bp.includes(m))
   return out
 }
 
@@ -213,10 +218,95 @@ export function addCreature(c, rand = Math.random, odds = SHINY_ODDS) {
   if (!clean) return false
   const kept = { ...clean, id: data.nextId++ }
   data.list.push(kept)
+  noteCatch(data.book, kept)
   // The first ones caught fill the team by themselves.
   if (data.team.length < TEAM_SIZE) data.team.push(kept.id)
   saveCreatures(data)
   return kept
+}
+
+// --- Collection book (pet battles round 4, Batch K, 2026-11-24; Gaymi
+// picked a grid, page = basics + my record + where to find it, coins at
+// milestones, pets already owned count). One page per kind: every animal
+// kind, the plain zombie, every monster and skeleton kind (a boss counts
+// for its kind). book: { 'a:cow' / 'z:' / 'z:mage': { n: caught, f: first
+// caught, lv: best level, s: got a shiny } }. Kept even if the pet isn't.
+// PetBook.js shows it. ---
+
+// Share of the book caught -> coins, paid once each (a guess).
+export const BOOK_MILESTONES = [25, 50, 75, 100]
+export const BOOK_PRIZES = { 25: 150, 50: 400, 75: 800, 100: 2000 }
+const BOOK_N_MAX = 999999
+
+export const bookKey = (c) => `${c.t}:${c.k || ''}`
+// Every page, in book order: zombies, skeletons, animals, dinosaurs.
+export function bookKinds() {
+  const K = KINDS()
+  const animals = Object.keys(K)
+  return [
+    { t: 'z', k: null },
+    ...Object.keys(MONSTER_KINDS).map((k) => ({ t: 'z', k })),
+    ...Object.keys(SKELETON_KINDS).map((k) => ({ t: 'z', k })),
+    ...animals.filter((k) => !K[k].dino).map((k) => ({ t: 'a', k })),
+    ...animals.filter((k) => K[k].dino).map((k) => ({ t: 'a', k })),
+  ]
+}
+export function bookGroup(c) {
+  if (c.t === 'a') return KINDS()[c.k]?.dino ? 'dino' : 'animal'
+  return SKELETON_KINDS[c.k] ? 'skeleton' : 'zombie'
+}
+
+function cleanBook(raw) {
+  const out = {}
+  if (!raw || typeof raw !== 'object') return out
+  const num = (v) => (Number.isFinite(v) && v > 0 ? v : 0)
+  for (const c of bookKinds()) {
+    const e = raw[bookKey(c)]
+    if (!e || typeof e !== 'object') continue
+    const n = Math.min(BOOK_N_MAX, Math.floor(num(e.n)))
+    if (!n) continue
+    const lv = Math.min(MAX_LEVEL, Math.max(1, Math.floor(num(e.lv)) || 1))
+    out[bookKey(c)] = { n, f: num(e.f), lv, ...(e.s === true ? { s: true } : {}) }
+  }
+  return out
+}
+
+function noteCatch(book, c) {
+  const key = bookKey(c)
+  const e = book[key] || (book[key] = { n: 0, f: 0, lv: 1 })
+  e.n = Math.min(BOOK_N_MAX, e.n + 1)
+  if (c.at > 0 && (!e.f || c.at < e.f)) e.f = c.at
+  e.lv = Math.max(e.lv || 1, levelOf(c))
+  if (c.s) e.s = true
+}
+
+// Brings the book up to date with the pets I have now (ones caught before
+// the book, levels gained since). Returns true when something changed.
+export function syncBook(data) {
+  const have = {}
+  for (const c of data.list) {
+    const key = bookKey(c)
+    have[key] = (have[key] || 0) + 1
+  }
+  const before = JSON.stringify(data.book)
+  for (const c of data.list) {
+    const key = bookKey(c)
+    const e = data.book[key] || (data.book[key] = { n: 0, f: 0, lv: 1 })
+    e.n = Math.max(e.n, have[key])
+    if (c.at > 0 && (!e.f || c.at < e.f)) e.f = c.at
+    e.lv = Math.max(e.lv || 1, levelOf(c))
+    if (c.s) e.s = true
+  }
+  return JSON.stringify(data.book) !== before
+}
+
+// Milestones reached but not paid yet (and marks them paid in data).
+export function claimBookPrizes(data) {
+  const total = bookKinds().length
+  const pct = (Object.keys(data.book).length / total) * 100
+  const due = BOOK_MILESTONES.filter((m) => pct >= m && !data.bp.includes(m))
+  data.bp.push(...due)
+  return due
 }
 
 // --- Snacks (2026-11-11, Gaymi picked 4 snacks, any number per team):

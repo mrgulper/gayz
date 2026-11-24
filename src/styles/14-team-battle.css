@@ -1517,3 +1517,142 @@ html.ui-theme-old .team-egg-bar {
 .tb-cheer[hidden] {
   display: none;
 }
+
+/* Collection book (PetBook.js, Batch K 2026-11-24): every creature kind as
+   a small card; a kind not caught yet is a dark shape. The page box keeps
+   one height whether a page is open or not, so nothing jumps on a tap. */
+#pet-book-btn {
+  display: block;
+  margin: 10px auto 0;
+}
+#pet-book {
+  max-width: 720px;
+  margin: 8px auto 0;
+  text-align: center;
+}
+#pet-book[hidden] {
+  display: none;
+}
+.pet-book-count {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 8px;
+}
+.pet-book-bar {
+  display: block;
+  width: min(320px, 80%);
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(var(--ui-gold-accent-rgb), 0.15);
+  overflow: hidden;
+}
+.pet-book-bar span {
+  display: block;
+  height: 100%;
+  background: var(--menu-gold, #ffd84a);
+}
+.pet-book-next {
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+.pet-book-page {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 168px;
+  margin: 0 auto 10px;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  border: 2px solid rgba(var(--ui-gold-accent-rgb), 0.3);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  text-align: left;
+  overflow-y: auto;
+}
+.pet-book-page.empty {
+  justify-content: center;
+}
+.pet-book-pic {
+  flex-shrink: 0;
+  width: 84px;
+  height: 84px;
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+.pet-book-pic.unmet,
+.pet-book-card.unmet img {
+  filter: brightness(0);
+  opacity: 0.55;
+}
+.pet-book-info {
+  min-width: 0;
+}
+.pet-book-info h4 {
+  margin: 0 0 4px;
+  color: var(--menu-gold, #ffd84a);
+}
+.pet-book-info p {
+  margin: 2px 0;
+  font-size: 0.88em;
+}
+.pet-book-shiny {
+  color: var(--menu-gold, #ffd84a);
+}
+.pet-book-groups {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.pet-book-grid {
+  max-height: 46vh;
+  overflow-y: auto;
+  padding: 4px;
+  gap: 8px;
+}
+#team-page .pet-book-card {
+  position: relative;
+  width: 92px;
+  padding: 8px 4px;
+  gap: 2px;
+  font: inherit;
+}
+#team-page .pet-book-card img {
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+}
+#team-page .pet-book-card .team-card-name {
+  font-size: 0.78em;
+  overflow-wrap: anywhere;
+}
+#team-page .pet-book-card img.pet-book-3d,
+.pet-book-pic.pet-book-3d {
+  image-rendering: auto;
+}
+#team-page .pet-book-card.unmet .team-card-name {
+  opacity: 0.6;
+}
+html.ui-theme-clean .pet-book-page {
+  background: rgba(255, 255, 255, 0.6);
+  border-color: rgba(0, 0, 0, 0.18);
+}
+@media (max-width: 700px) {
+  .pet-book-page {
+    height: 200px;
+    align-items: flex-start;
+  }
+  .pet-book-page.empty {
+    align-items: center;
+  }
+  .pet-book-pic {
+    width: 60px;
+    height: 60px;
+  }
+  #team-page .pet-book-card {
+    width: 78px;
+  }
+}
