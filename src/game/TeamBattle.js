@@ -1781,6 +1781,12 @@ export class TeamBattle {
       if (e.kind === 'trigger') return t('teamTrigUnlocked', { name, power: triggerName(e.n) })
       return t('teamEvolved', { name, rarity: rarityName(e.n) })
     })].map((line, i) => `<li${i ? ' class="tb-news-big"' : ''}>${esc(line)}</li>`).join('')
+    // Trophies (PetRank.js, Batch M): only the Battle button's battles.
+    if (out && typeof out === 'object' && Number.isInteger(out.tr)) {
+      const line = t(out.tr >= 0 ? 'trophyWon' : 'trophyLost', { n: Math.abs(out.tr) })
+      const up = out.rank ? `<li class="tb-news-big">${esc(t('petRankUp', { rank: out.rank }))}</li>` : ''
+      news.insertAdjacentHTML('beforeend', `<li class="tb-news-big tb-news-trophy">${esc(line)}</li>${up}`)
+    }
     if (found) news.insertAdjacentHTML('afterbegin', `<li class="tb-news-big tb-news-item">${itemImg(found, 'tb-news-icon')} ${esc(t('itemFound', { name: itemName(found) }))}</li>`)
     this._renderStats()
     // againKey returning false: no again button (a Pack Leader beaten in a game).

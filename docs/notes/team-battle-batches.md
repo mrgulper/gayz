@@ -245,7 +245,30 @@ first, online (Firestore) last.
   `gayz-weekly-challenge` { week, step, badges }. Lose = retry that step.
   No "double speed" twist (the x2 button already does it). i18n in
   weekly-<lang>.js. Test: team.spec "weekly challenge".
-- [ ] **Batch M - Pet battle leaderboard.** Own top list (online).
+- [x] **Batch M - Pet battle leaderboard** (shipped 2026-11-24). Gaymi
+  picked: trophies, only the Pets tab Battle button counts, All-time top
+  50 + This week + Friends + my place, rank badge only (no coins).
+  PetRank.js: trophyChange = win 20 x (foe power / mine, clamped 0.5..2,
+  max 40), loss 10 / that ratio (5..20), never below 0. RANKS Bronze 0 /
+  Silver 300 / Gold 800 / Platinum 1500 / Diamond 2500 / Champion 4000
+  (all a guess). Saved in gayz-creatures: tr + tw { w: weekId, n }.
+  TeamUI onEnd -> applyTrophies + pushTrophies (signed in only; also once
+  when the Leaderboard opens) -> CloudSync.savePetTrophies:
+  petTrophies/{uid} { nickname, tr, at } + petTrophyWeeks/{week}/entries/
+  {uid} { nickname, n, tr, at } (at = serverTimestamp). Lists read only
+  when opened, cached 2 min; my place = COUNT of higher scores + 1;
+  Friends = getDoc of each savedFriends uid (max 5) + me. Anonymous Mode
+  sends "Anonymous". Result screen: "+N trophies" (+ "New rank: X!") at
+  the end of the news list. #pet-rank-line under Wins/Losses; button
+  #pet-rank-btn (ONLINE_ONLY) -> #pet-rank (tabs, fixed 40vh list).
+  NEW RULES block petTrophies + petTrophyWeeks: a new doc <= 5000,
+  then at most +40 per 5 s since the last write (server clock). File
+  ~/Desktop/GayZ/firestore-rules-2026-11-24-pettrophies.txt (cheers file +
+  this), NOT pasted (one paste at the end of round 4) - until then the
+  lists say "couldn't load". Known limit: trophies are per device (the pet
+  save isn't in Cloud Save); two devices on one account overwrite each
+  other's number. Terms + Privacy lines added. i18n rank-<lang>.js.
+  Test: team.spec "pet battle leaderboard".
 - [ ] **Batch N - Pet trading with friends.** Like Skin Trades (online).
 - [ ] **Batch O - Co-op boss raid.** Two friends' teams vs one giant
   boss (online, biggest).

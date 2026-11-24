@@ -2868,7 +2868,7 @@
             </ul>
 
             <h3>5. Acceptable use</h3>
-            <p>Some things you make in GayZ are seen by other players: your nickname, bio and Player ID, chat messages (Global, server and clan chat), clan names, Market listings, Gallery posts and comments, GayZ TV clips (YouTube links and GIFs), Photo Postcards, gifts and challenges and pet battle challenges (seen by the friend you send them to), Guestbook lines you write on someone's profile, Messages in a Bottle (read by random players), maps you share or build together with others, the spray tags you draw and spray in a server, and - in the World Map mode on a server - the parts of the map you've explored, which the other players in that game get added to their own map. When using GayZ, you agree not to:</p>
+            <p>Some things you make in GayZ are seen by other players: your nickname, bio and Player ID, chat messages (Global, server and clan chat), clan names, Market listings, Gallery posts and comments, GayZ TV clips (YouTube links and GIFs), Photo Postcards, gifts and challenges and pet battle challenges (seen by the friend you send them to), your pet battle trophies (on the pet battle leaderboard), Guestbook lines you write on someone's profile, Messages in a Bottle (read by random players), maps you share or build together with others, the spray tags you draw and spray in a server, and - in the World Map mode on a server - the parts of the map you've explored, which the other players in that game get added to their own map. When using GayZ, you agree not to:</p>
             <ul>
               <li>Use your nickname, bio, chat, clan name, posts, comments, shared maps, spray tags or any other field to harass anyone, impersonate someone else, or post personal information (yours or anyone else's);</li>
               <li>Post anything hateful, sexual, violent toward real people, or that you don't have the right to share (like someone else's artwork in a skin or Gallery post);</li>
@@ -2944,6 +2944,7 @@
             <p>Your nickname, Player ID, bio, and stats shown on your public profile (Profile panel &gt; Shown to Public) are visible to other players wherever public features (leaderboards, chat, friend lookups) show them. Please don't put personal information (real name, contact details, etc.) in any field, since a field that's private today could become visible in a future update.</p>
             <p>If you're signed in, starting a Team Battle saves your battle team as a "ghost team" that other players can see and battle: your nickname, which zombies and animals are on it, their rarity, any nicknames you gave them, the held items they carry, how strong the team is and how many battles you've won. Creature nicknames are checked for strong swear words the same way chat is. It's replaced each time you start another battle.</p>
             <p>If you're signed in, you can challenge a friend to a live pet battle. The challenge sends your friend your nickname and your battle team (which creatures, their rarity, levels, nicknames, held items and snacks); if they say yes, their team comes back to you the same way. Only the two of you can see it, and it's deleted once the battle starts, is turned down or runs out of time. During the battle, any cheers you use (which one and when) are sent to your friend the same way, and deleted when you leave the battle.</p>
+            <p>If you're signed in, your pet battle trophies (from the Pets tab Battle button) and your nickname are saved online for the pet battle leaderboard, all-time and per week. Anyone playing can see them on the leaderboard.</p>
             <p>When you enter the Weekly Team Tournament, the ghost teams in your bracket (each player's nickname and the creatures on their team) are copied into your save for that week, so your bracket stays the same. Nothing new about you is shared by entering.</p>
             <p>If you're signed in, starting a Gauntlet battle saves your Gauntlet team at that battle number so other players can meet it at the same point in their own run: your nickname, the creatures on it (their kind, rarity, stars and any held item) and how many Gauntlet battles you've won so far. You keep one per battle number, each replaced by your next run. The creatures you've caught aren't part of it.</p>
             <p>If you're signed in and play Speedrun mode, your best time goes on the leaderboard with your nickname, so other players can see the fastest runs. The ghost of your best run (where you went) stays on your device.</p>
@@ -3836,6 +3837,8 @@
                  and the Battle button - this was the homepage's Team page. -->
             <div id="team-page">
               <p id="team-record" class="menu-best-stats"></p>
+              <!-- Trophies + rank badge (PetRank.js, Batch M 2026-11-24). -->
+              <p id="pet-rank-line" class="menu-best-stats"></p>
               <!-- Friend battles' own record (FriendBattle.js, Batch G 2026-11-23). -->
               <p id="team-friend-record" class="menu-best-stats"></p>
               <!-- Homepage pet picker (HomePet.js, 2026-11-07). -->
@@ -3861,6 +3864,19 @@
                    battle and up to 10 saved ones, this device only. -->
               <button type="button" id="replays-btn" class="mini-action-btn">Replays</button>
               <div id="replays-list" hidden></div>
+              <!-- Pet battle leaderboard (PetRank.js, Batch M 2026-11-24):
+                   trophies from the Battle button, online. -->
+              <button type="button" id="pet-rank-btn" class="mini-action-btn">Leaderboard</button>
+              <div id="pet-rank" hidden>
+                <p id="pet-rank-how" class="team-snack-hint"></p>
+                <div class="pet-rank-tabs">
+                  <button type="button" class="mini-action-btn" data-rank-tab="all">All-time</button>
+                  <button type="button" class="mini-action-btn" data-rank-tab="week">This week</button>
+                  <button type="button" class="mini-action-btn" data-rank-tab="friends">Friends</button>
+                </div>
+                <p id="pet-rank-me" class="menu-best-stats"></p>
+                <div id="pet-rank-list"></div>
+              </div>
               <!-- Collection book (PetBook.js, Batch K 2026-11-24): every
                    creature kind; caught = shown, not caught = a dark shape. -->
               <button type="button" id="pet-book-btn" class="mini-action-btn">Collection Book</button>

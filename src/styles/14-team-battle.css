@@ -1682,3 +1682,86 @@ html.ui-theme-clean .pet-book-page {
 }
 html.ui-theme-old .weekly-badge { border-color: var(--old-ink); }
 html.ui-theme-clean .weekly-badge { background: transparent; color: inherit; border-color: var(--weekly-color); }
+
+/* Pet battle leaderboard (PetRank.js, Batch M 2026-11-24). */
+#pet-rank-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pet-rank-badge {
+  display: inline-block;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 999px;
+  color: #1a1408;
+  background: var(--rank);
+  border: 2px solid var(--menu-gold);
+  white-space: nowrap;
+}
+html.ui-theme-old .pet-rank-badge { border-color: var(--old-ink); }
+html.ui-theme-clean .pet-rank-badge { background: transparent; color: inherit; border-color: var(--rank); }
+#pet-rank {
+  max-width: 460px;
+  margin: 6px auto 0;
+}
+#pet-rank[hidden] {
+  display: none;
+}
+.pet-rank-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 6px 0;
+}
+/* Same height on every tab, loading or not (never shrinks on a click). */
+#pet-rank-list {
+  height: 40vh;
+  overflow-y: auto;
+}
+.pet-rank-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 4px;
+  border-bottom: 1px solid rgba(var(--ui-gold-accent-rgb), 0.15);
+  text-align: left;
+}
+.pet-rank-row.me {
+  background: rgba(var(--ui-gold-accent-rgb), 0.14);
+}
+.pet-rank-place {
+  width: 34px;
+  flex-shrink: 0;
+  font-weight: 800;
+}
+.pet-rank-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pet-rank-name em {
+  opacity: 0.7;
+}
+.pet-rank-score {
+  font-weight: 800;
+  color: var(--menu-gold, #ffd84a);
+}
+.tb-news-trophy {
+  color: var(--menu-gold, #ffd84a);
+}
+/* The picked list / book group stands out. */
+.pet-rank-tabs .mini-action-btn.open,
+.pet-book-groups .mini-action-btn.open {
+  outline: 2px solid var(--menu-gold, #ffd84a);
+  outline-offset: 2px;
+}
+html.ui-theme-old .pet-rank-tabs .mini-action-btn.open,
+html.ui-theme-old .pet-book-groups .mini-action-btn.open {
+  outline-color: var(--old-ink);
+}
