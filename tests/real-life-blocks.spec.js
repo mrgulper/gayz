@@ -384,7 +384,7 @@ test('real-life stone and metal builds: one solid wall, metal sharper and shiny,
             const x = (pos.array[i] + m.position.x) / S
             const y = (pos.array[i + 1] + m.position.y) / S
             const z = (pos.array[i + 2] + m.position.z) / S
-            if (x > x0 && x < x1 && y > y0 && y < y1 && z > z0 && z < z1) v.push([x, y, z, ed ? ed.array[i / 3] : 0])
+            if (x > x0 && x < x1 && y > y0 && y < y1 && z > z0 && z < z1) v.push([x, y, z, ed ? ed.getX(i / 3) : 0])
           }
         }
       }
@@ -473,8 +473,8 @@ test('real-life soft and see-through: pillowy wool, framed glass that joins, jel
             const x = (pos.array[i] + m.position.x) / S
             const y = (pos.array[i + 1] + m.position.y) / S
             const z = (pos.array[i + 2] + m.position.z) / S
-            const a = col && col.itemSize === 4 ? col.array[(i / 3) * 4 + 3] : 1
-            if (x > x0 && x < x1 && y > y0 && y < y1 && z > z0 && z < z1) v.push([x, y, z, ed ? ed.array[i / 3] : 0, a])
+            const a = col && col.itemSize === 4 ? col.getW(i / 3) : 1
+            if (x > x0 && x < x1 && y > y0 && y < y1 && z > z0 && z < z1) v.push([x, y, z, ed ? ed.getX(i / 3) : 0, a])
           }
         }
       }
@@ -637,7 +637,7 @@ test('real-life soft ground: sand, gravel, mud... join the land with their own l
             const x = (pos.array[i] + m.position.x) / S
             const y = (pos.array[i + 1] + m.position.y) / S
             const z = (pos.array[i + 2] + m.position.z) / S
-            if (x > x0 - 0.8 && x < x0 + 1.8 && z > z0 - 0.8 && z < z0 + 1.8 && y > 4.2 && y < 6.8) v.push([x, y, z, e?.array?.[k] ?? 0])
+            if (x > x0 - 0.8 && x < x0 + 1.8 && z > z0 - 0.8 && z < z0 + 1.8 && y > 4.2 && y < 6.8) v.push([x, y, z, e ? e.getX(k) : 0])
           }
         }
       }
@@ -732,7 +732,7 @@ test('real-life water: soft shores, depth and splash on the top levels only', as
             const x = (pos.array[i] + m.position.x) / S
             const y = (pos.array[i + 1] + m.position.y) / S
             const z = (pos.array[i + 2] + m.position.z) / S
-            if (x > 108 && x < 117 && z > 108 && z < 117 && y > 5.5 && y < 6.2) v.push([x, y, z, w?.array?.[k], w?.array?.[k + 1]])
+            if (x > 108 && x < 117 && z > 108 && z < 117 && y > 5.5 && y < 6.2) v.push([x, y, z, w?.getX(k / 2), w?.getY(k / 2)])
           }
         }
       }
@@ -813,8 +813,8 @@ test('real-life snow, ice and lava: drifts, glassy see-through ice, crusted lava
             const x = (pos.array[i] + m.position.x) / S
             const y = (pos.array[i + 1] + m.position.y) / S
             const z = (pos.array[i + 2] + m.position.z) / S
-            const a = col?.itemSize === 4 ? col.array[k * 4 + 3] : 1
-            if (x > x0 - 0.8 && x < x0 + 1.8 && z > z0 - 0.8 && z < z0 + 1.8 && y > 4.2 && y < 6.8) v.push([x, y, z, e?.array?.[k] ?? 0, a])
+            const a = col?.itemSize === 4 ? col.getW(k) : 1
+            if (x > x0 - 0.8 && x < x0 + 1.8 && z > z0 - 0.8 && z < z0 + 1.8 && y > 4.2 && y < 6.8) v.push([x, y, z, e ? e.getX(k) : 0, a])
           }
         }
       }
@@ -833,7 +833,7 @@ test('real-life snow, ice and lava: drifts, glassy see-through ice, crusted lava
             const x = (pos.array[i] + m.position.x) / S
             const y = (pos.array[i + 1] + m.position.y) / S
             const z = (pos.array[i + 2] + m.position.z) / S
-            if (x > 168 && x < 177 && z > 168 && z < 177 && y > 5.5 && y < 6.2) v.push([x, y, z, w?.array?.[k], w?.array?.[k + 1]])
+            if (x > 168 && x < 177 && z > 168 && z < 177 && y > 5.5 && y < 6.2) v.push([x, y, z, w?.getX(k / 2), w?.getY(k / 2)])
           }
         }
       }
