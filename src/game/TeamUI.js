@@ -11,7 +11,7 @@
 // for others to fight.
 import * as CloudSync from './CloudSync.js'
 import { loadCreatures, saveCreatures, stats, power, powerName, powerInfo, creatureName, creatureType, rarityName, creatureIconURL, tierColor, botTeam, packTeam, unpackTeam, TEAM_SIZE, POWERS, TRIGGERS, TRIGGER_LEVEL, TYPE_MULT, MAX_LEVEL, EVOLVE_AT, levelOf, xpProgress, triggerOf, hasTrigger, triggerName, triggerInfo, COMBOS, combosOf, comboName, comboInfo, SNACKS, SNACK_IDS, snackImg, snackName, snackInfo, feedSnack, SHINY_ODDS, SHINY_BOOST, kindName, kindNote, renameCreature, setNickFilter, NICK_MAX, ITEM_IDS, itemImg, itemName, itemInfo, holdItem, takeItem, MAX_CREATURES, EGG_MAX } from './Creatures.js'
-import { TeamBattle, HAZARD_IDS, HAZARD_EVERY, hazardName, hazardInfo, CHEER_IDS, cheerName, cheerInfo } from './TeamBattle.js'
+import { TeamBattle, playReplay, HAZARD_IDS, HAZARD_EVERY, hazardName, hazardInfo, CHEER_IDS, cheerName, cheerInfo } from './TeamBattle.js'
 import { renderTournament, playTournament } from './TeamTournament.js'
 import * as PackLeaders from './PackLeaders.js'
 import { renderLeaders, startLeaderBattle, nextLeader, badgeInfo } from './PackLeaders.js'
@@ -19,6 +19,8 @@ import * as Gauntlet from './Gauntlet.js'
 import * as PetEggs from './PetEggs.js'
 import * as PetShop from './PetShop.js'
 import { renderFriendBattle, bindFriendBattle } from './FriendBattle.js'
+import { bindReplays, renderReplays } from './PetReplays.js'
+import * as ReplayStore from './ReplayStore.js'
 import { bindReorder } from './Reorder.js'
 import { saveShopProgress, saveSettings, _censorText } from './Game.js'
 import { zombieName } from './ZombieNames.js'
@@ -321,6 +323,8 @@ export function renderTeamPanel(game) {
   Gauntlet.renderGauntlet(game)
   // The daily Pet Shop (PetShop.js).
   PetShop.renderPetShop(game)
+  // Replays (PetReplays.js): the list, when it's open.
+  renderReplays()
   const btn = byId('team-battle-btn')
   if (btn && !game._teamFinding) {
     btn.textContent = t('teamBattleBtn')
@@ -459,6 +463,10 @@ export function bindTeamUI(game) {
   game._gauntlet = { ...Gauntlet, power }
   game._petShop = PetShop
   bindFriendBattle(game)
+  // Replays (PetReplays.js, Batch J): a replay is the battle that's up.
+  TeamBattle.track = (b) => { game._teamBattle = b }
+  bindReplays(game)
+  game._replays = { ...ReplayStore, TeamBattle, playReplay }
   game._creatures = { packTeam, unpackTeam, loadCreatures, saveCreatures }
   // Drawn each time the Pets tab is looked at (a catch in a game changes it).
   byId('inventory-tab-pets')?.addEventListener('click', () => renderTeamPanel(game))

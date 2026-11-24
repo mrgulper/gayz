@@ -30,6 +30,7 @@ import { MONSTER_KINDS } from './ZombieKinds.js'
 import { SKELETON_KINDS } from './SkeletonModels.js'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
+import { setLastReplay, saveReplay, REPLAY_V } from './ReplayStore.js'
 
 export const ROUND_S = 120
 // Friend battles (FriendBattle.js, Batch G): both screens run the very same
@@ -523,7 +524,14 @@ export class TeamBattle {
   // onCheer(kind, at): a friend battle sends my cheer (landing at fixed
   // step `at`); returns a promise, true once it's sent. botCheer: false
   // stops the other team cheering by itself (tests). onClose(): the battle's gone.
-  constructor({ mine, theirs, foe, ghost, onEnd, onAgain, againKey, view = '3d', onView, xp = true, hazard, live, onCheer, botCheer = true, onClose }) {
+  // replay: a saved replay (ReplayStore.js, Batch J) - the same fight
+  // again, only to watch: no XP, no coins, no snacks eaten, no cheering.
+  constructor({ mine, theirs, foe, ghost, onEnd, onAgain, againKey, view = '3d', onView, xp = true, hazard, live, onCheer, botCheer = true, onClose, replay }) {
+    this.replay = replay && Number.isInteger(replay.seed) && !live ? replay : null
+    if (this.replay) {
+      xp = false
+      botCheer = this.replay.bc !== false
+    }
     this.xp = xp
     this.onCheer = onCheer
     this.onClose = onClose
@@ -534,12 +542,33 @@ export class TeamBattle {
     this.cheerWait = { mine: false, foe: false }
     this.steps = 0
     this.live = live && Number.isInteger(live.seed) ? live : null
-    this.me = this.live?.me === 'foe' ? 'foe' : 'mine'
+    // Was a friend battle (this one, or the one a replay is of).
+    this.wasLive = !!(this.live || this.replay?.lv)
+    this.me = (this.live?.me ?? this.replay?.me) === 'foe' ? 'foe' : 'mine'
     this._flip = this.me === 'foe'
-    // Other battles roll Math.random at the moment (the tests swap it in).
-    this.rand = this.live ? seeded(this.live.seed) : () => Math.random()
-    this.hazard = hazard === undefined ? rollHazard(this.rand) : HAZARDS[hazard] ? hazard : null
+    // Every battle's dice come from a seed (Batch J: so it can be replayed).
+    // A friend battle's is shared; others pick one now. Only which hazard
+    // (if any) still rolls Math.random - except in a friend battle, where
+    // the seed rolls it on both screens.
+    this.seed = this.live ? this.live.seed : this.replay ? this.replay.seed : Math.floor(Math.random() * 4294967296)
+    this.rand = seeded(this.seed)
+    const fromSeed = !!this.live && hazard === undefined
+    if (this.replay) this.hazard = this.replay.hs ? rollHazard(this.rand) : HAZARDS[this.replay.hz] ? this.replay.hz : null
+    else this.hazard = hazard === undefined ? rollHazard(fromSeed ? this.rand : Math.random) : HAZARDS[hazard] ? hazard : null
     this.hazardCells = this.hazard ? hazardCells(this.hazard, this.rand) : new Set()
+    // What a replay needs (copies, so later XP / snacks don't change it).
+    // ch: every cheer that went off, [step, side 0 mine / 1 foe, kind].
+    const copy = (list) => JSON.parse(JSON.stringify(list || []))
+    this.rec = this.replay ? null : {
+      v: REPLAY_V, seed: this.seed, hs: fromSeed, hz: this.hazard, lv: !!this.live, me: this.me,
+      bc: botCheer, foe: String(foe ?? ''), ghost: !!ghost, mine: copy(mine), theirs: copy(theirs), ch: [],
+    }
+    if (this.replay) {
+      this.cheerQueue = this.replay.ch
+        .filter((c) => Array.isArray(c) && Number.isInteger(c[0]) && CHEER_IDS[c[2]])
+        .map(([at, s, k]) => ({ side: s ? 'foe' : 'mine', kind: CHEER_IDS[k], at }))
+    }
+    this.paused = false
     this.mine = mine
     this.theirs = theirs
     this.foe = foe
@@ -564,20 +593,25 @@ export class TeamBattle {
       <div class="tb-labels"></div>
       <div class="tb-top">
         <div class="tb-side tb-mine"></div>
-        <div class="tb-vs"><span class="tb-vs-word">${esc(t('teamBattleVs'))}</span><span class="tb-foe-name">${esc(this.foe)}</span><span class="tb-foe-cheer" title="${esc(t('cheerFoeMeter'))}"><span></span></span><span class="tb-clock"></span></div>
+        <div class="tb-vs"><span class="tb-vs-word">${esc(t('teamBattleVs'))}</span><span class="tb-foe-name">${esc(this.foe)}</span>${this.replay ? `<span class="tb-replay-tag">${esc(t('replayTag'))}</span>` : ''}<span class="tb-foe-cheer" title="${esc(t('cheerFoeMeter'))}"><span></span></span><span class="tb-clock"></span></div>
         <div class="tb-side tb-foe"></div>
         <div class="tb-combos"><div class="tb-combos-mine"></div><div class="tb-combos-foe"></div></div>
       </div>
       <div class="tb-msg" aria-live="polite"></div>
       <div class="tb-bottom">
-        <div class="tb-cheer">
+        ${this.replay ? `<div class="tb-replay-bar">
+          <button type="button" class="tb-btn tb-replay-pause"></button>
+          <button type="button" class="tb-btn tb-replay-restart">${esc(t('replayRestart'))}</button>
+          <button type="button" class="tb-btn tb-replay-skip">${esc(t('replaySkip'))}</button>
+        </div>` : ''}
+        <div class="tb-cheer"${this.replay ? ' hidden' : ''}>
           <div class="tb-cheer-pick" hidden>
             ${CHEER_IDS.map((id) => `<button type="button" class="tb-cheer-opt tb-cheer-${id}" data-cheer="${id}" title="${esc(cheerInfo(id))}"><b>${esc(cheerName(id))}</b><small>${esc(cheerInfo(id))}</small></button>`).join('')}
           </div>
           <button type="button" class="tb-cheer-btn" disabled><span class="tb-cheer-fill"></span><span class="tb-cheer-word">${esc(t('cheerBtn'))}</span></button>
         </div>
         ${this.hazard ? `<p class="tb-hazard tb-hazard-${this.hazard}"><img class="tb-hazard-icon" src="${hazardIconURL(this.hazard)}" alt="" draggable="false" />${esc(t('hazardLine', { name: hazardName(this.hazard), info: hazardInfo(this.hazard) }))}</p>` : ''}
-        <p class="tb-hint">${esc(t('teamBattleAutoHint'))}</p>
+        <p class="tb-hint">${esc(t(this.replay ? 'replayHint' : 'teamBattleAutoHint'))}</p>
       </div>
       <div class="tb-buttons">
         <button type="button" class="tb-btn tb-view"></button>
@@ -594,6 +628,10 @@ export class TeamBattle {
             <button type="button" class="tb-again"></button>
             <button type="button" class="tb-back"></button>
           </div>
+          ${this.replay ? '' : `<div class="tb-result-btns tb-replay-btns">
+            <button type="button" class="tb-replay-watch">${esc(t('replayWatchBtn'))}</button>
+            <button type="button" class="tb-replay-save">${esc(t('replaySaveBtn'))}</button>
+          </div>`}
         </div>
       </div>`
     document.body.appendChild(root)
@@ -646,15 +684,17 @@ export class TeamBattle {
       if (!this.root) return
       this._raf = requestAnimationFrame(loop)
       const now = performance.now()
-      const dt = Math.min(0.05, (now - this._last) / 1000)
-      if (this.live) {
-        this._acc = (this._acc || 0) + Math.min(60, (now - this._last) / 1000)
-        let n = 0
-        while (this._acc >= LIVE_STEP && n++ < LIVE_MAX_STEPS) {
-          this._acc -= LIVE_STEP
-          this._step(LIVE_STEP)
-        }
-      } else for (let i = 0; i < this.speed; i++) this._step(dt)
+      // Fixed steps for every battle (Batch J), so a replay runs the very
+      // same fight. A friend battle catches up after a hidden tab; others
+      // just wait (at most 0.25 s a frame, times the speed).
+      const real = (now - this._last) / 1000
+      const add = this.live ? Math.min(60, real) : this.paused ? 0 : Math.min(0.25, real) * this.speed
+      this._acc = (this._acc || 0) + add
+      let n = 0
+      while (this._acc >= LIVE_STEP && n++ < LIVE_MAX_STEPS) {
+        this._acc -= LIVE_STEP
+        this._step(LIVE_STEP)
+      }
       this._last = now
       this._draw()
       this._placeLabels()
@@ -697,16 +737,18 @@ export class TeamBattle {
     const ids = []
     let ate = false
     for (const f of this.fighters) {
-      if ((!this.live && f.side !== 'mine') || !f.c.sn || !SNACKS[f.c.sn]) continue
+      if ((!this.wasLive && f.side !== 'mine') || !f.c.sn || !SNACKS[f.c.sn]) continue
       f.snack = f.c.sn
       if (f.side === this.me) ate = true
-      if (!this.live && Number.isInteger(f.c.id)) ids.push(f.c.id)
+      if (!this.wasLive && Number.isInteger(f.c.id)) ids.push(f.c.id)
       const v = SNACKS[f.snack].n / 100
       if (f.snack === 'steak') f.atkMul *= 1 + v
       else if (f.snack === 'candy') f.s = { ...f.s, speed: f.s.speed * (1 + v) }
       else if (f.snack === 'cookie') f.shield = true
       f.label.querySelector('.tb-label-name').insertAdjacentHTML('beforeend', ` ${snackImg(f.snack, 'tb-label-snack')}`)
     }
+    // A replay only shows them (they were eaten the first time).
+    if (this.replay) return
     if (this.live && ate) eatSnacks(this.live.ids || [])
     else if (ids.length) eatSnacks(ids)
   }
@@ -892,6 +934,11 @@ export class TeamBattle {
         const pick = this.root.querySelector('.tb-cheer-pick')
         pick.hidden = !pick.hidden
       }
+      // A replay: Space pauses / plays.
+      if (e.type === 'keydown' && e.code === 'Space' && this.replay && !this.over) {
+        this._pause(!this.paused)
+        e.preventDefault()
+      }
       const n = ['Digit1', 'Digit2', 'Digit3'].indexOf(e.code)
       if (e.type === 'keydown' && n >= 0 && !this.root.querySelector('.tb-cheer-pick').hidden) this.cheer(CHEER_IDS[n])
     }
@@ -908,6 +955,23 @@ export class TeamBattle {
       this.onAgain?.()
     })
     this.root.querySelector('.tb-back').addEventListener('click', () => this.close())
+    // Replays (Batch J): watch this one again / keep it; a replay's own bar.
+    this.root.querySelector('.tb-replay-watch')?.addEventListener('click', () => {
+      if (!this.rec?.t) return
+      const rec = this.rec
+      this.close()
+      playReplay(rec, { view: this.view, onView: this.onView })
+    })
+    this.root.querySelector('.tb-replay-save')?.addEventListener('click', (e) => {
+      const res = saveReplay(this.rec)
+      this._saveBtn(e.currentTarget, res)
+    })
+    if (this.replay) {
+      this._pause(false)
+      this.root.querySelector('.tb-replay-pause').addEventListener('click', () => this._pause(!this.paused))
+      this.root.querySelector('.tb-replay-restart').addEventListener('click', () => this._restart())
+      this.root.querySelector('.tb-replay-skip').addEventListener('click', () => this._skip())
+    }
     // Cheer: the button opens the three choices, a choice cheers.
     const pick = this.root.querySelector('.tb-cheer-pick')
     this.root.querySelector('.tb-cheer-btn').addEventListener('click', () => {
@@ -919,11 +983,44 @@ export class TeamBattle {
     })
   }
 
+  // --- Replays (Batch J) ---
+
+  _pause(on) {
+    this.paused = !!on
+    const b = this.root?.querySelector('.tb-replay-pause')
+    if (b) b.textContent = t(this.paused ? 'replayPlay' : 'replayPause')
+  }
+
+  // The same replay from the start (a fresh battle).
+  _restart() {
+    const rec = this.replay
+    if (!rec) return
+    this.close()
+    playReplay(rec, { view: this.view, onView: this.onView })
+  }
+
+  // Straight to the result: every step left, without drawing.
+  _skip() {
+    if (!this.replay || this.over) return
+    this._skipping = true
+    for (let i = 0; i < (ROUND_S + START_S + 5) / LIVE_STEP && !this.over && this._winner === undefined && this.root; i++) this._step(LIVE_STEP)
+    this._skipping = false
+    if (this._winner !== undefined) this._finish(this._winner)
+  }
+
+  // The Save Replay button shows how it went.
+  _saveBtn(btn, res) {
+    if (!btn) return
+    const key = { saved: 'replaySaved', already: 'replaySaved', full: 'replayFull', error: 'replayError' }[res] || 'replayError'
+    btn.textContent = t(key)
+    btn.disabled = res === 'saved' || res === 'already'
+  }
+
   // --- Cheer (Batch H) ---
 
   // Can this screen's player cheer right now?
   _canCheer() {
-    return !this.over && this.time >= START_S && this.meter[this.me] >= 1 && !this.cheerWait[this.me]
+    return !this.replay && !this.over && this.time >= START_S && this.meter[this.me] >= 1 && !this.cheerWait[this.me]
   }
 
   // A team took dmg: its cheer meter fills a bit.
@@ -975,21 +1072,27 @@ export class TeamBattle {
     if (!started || this.over) return
     // A bot / ghost team cheers a little while after its meter fills:
     // heal when it's hurt, otherwise attack or speed.
-    if (!this.live && this.botCheer && this.meter.foe >= 1 && !this.cheerWait.foe) {
+    // (A replay rolls the same dice, but its cheers come from the recording.)
+    if (!this.wasLive && this.botCheer && this.meter.foe >= 1 && !this.cheerWait.foe) {
       if (this._botCheerIn === undefined) this._botCheerIn = BOT_CHEER_WAIT[0] + this.rand() * (BOT_CHEER_WAIT[1] - BOT_CHEER_WAIT[0])
       if ((this._botCheerIn -= dt) <= 0) {
         this._botCheerIn = undefined
         const list = this.fighters.filter((f) => f.alive && f.side === 'foe')
         const health = list.reduce((s, f) => s + f.hp / f.s.hp, 0) / (list.length || 1)
         const kind = health < 0.5 ? 'heal' : this.rand() < 0.5 ? 'atk' : 'speed'
-        this.cheerQueue.push({ side: 'foe', kind, at: this.steps })
+        if (!this.replay) this.cheerQueue.push({ side: 'foe', kind, at: this.steps })
       }
     }
     if (!this.cheerQueue.length) return
-    const due = this.cheerQueue.filter((q) => q.at <= this.steps).sort((a, b) => a.at - b.at || (a.side < b.side ? -1 : 1))
+    // A replay's are already in the order they went off.
+    const due = this.cheerQueue.filter((q) => q.at <= this.steps)
+    if (!this.replay) due.sort((a, b) => a.at - b.at || (a.side < b.side ? -1 : 1))
     if (!due.length) return
     this.cheerQueue = this.cheerQueue.filter((q) => !due.includes(q))
-    for (const q of due) this._applyCheer(q.side, q.kind)
+    for (const q of due) {
+      this.rec?.ch.push([this.steps, q.side === 'mine' ? 0 : 1, CHEER_IDS.indexOf(q.kind)])
+      this._applyCheer(q.side, q.kind)
+    }
   }
 
   _applyCheer(side, kind) {
@@ -1237,6 +1340,7 @@ export class TeamBattle {
   }
 
   _float(f, text, cls) {
+    if (this._skipping) return
     const el = document.createElement('span')
     el.className = `tb-number ${cls}`
     el.textContent = text
@@ -1653,6 +1757,13 @@ export class TeamBattle {
     if (this.over || !this.root) return
     this.over = true
     const won = this.me === 'mine' ? mineWon : !mineWon
+    if (this.replay) return this._finishReplay(won)
+    // Kept as the "last battle" replay (ReplayStore.js).
+    if (this.rec) {
+      this.rec.t = Date.now()
+      this.rec.won = won
+      setLastReplay(this.rec)
+    }
     // XP for my team first, so onEnd's Team page shows the new levels.
     const ids = this.live ? this.live.ids || [] : this.mine.map((c) => c.id)
     const xp = this.xp ? giveTeamXP(ids.filter(Number.isInteger), won) : null
@@ -1679,6 +1790,20 @@ export class TeamBattle {
     box.querySelector('.tb-back').textContent = t('teamBattleBack')
     box.style.display = 'flex'
     if (won) audioEngine.playLevelUp?.()
+  }
+
+  // A replay's end: the result and stats, Watch Again and Back.
+  _finishReplay(won) {
+    const box = this.root.querySelector('.tb-result')
+    box.querySelector('.tb-result-title').textContent = t(won ? 'teamBattleWon' : 'teamBattleLost')
+    box.querySelector('.tb-result-text').textContent = t('replayDone')
+    box.querySelector('.tb-result-news').innerHTML = ''
+    this._renderStats()
+    box.querySelector('.tb-again').textContent = t('replayWatchAgain')
+    box.querySelector('.tb-back').textContent = t('teamBattleBack')
+    this.onAgain = () => playReplay(this.replay, { view: this.view, onView: this.onView })
+    this.root.querySelector('.tb-replay-bar').hidden = true
+    box.style.display = 'flex'
   }
 
   // After-battle stats (Batch I): both teams' pets (mine first), with a
@@ -1733,6 +1858,16 @@ export class TeamBattle {
     this.root = null
     this.onClose?.()
   }
+}
+
+// Watch a replay (ReplayStore.js): a battle of its own. TeamBattle.track(b)
+// (set by TeamUI.js) tells the game which battle is up.
+export function playReplay(rec, { view = '3d', onView } = {}) {
+  if (!rec || !Number.isInteger(rec.seed)) return null
+  const b = new TeamBattle({ mine: rec.mine, theirs: rec.theirs, foe: rec.foe, ghost: rec.ghost, view, onView, replay: rec })
+  TeamBattle.track?.(b)
+  b.open()
+  return b
 }
 
 function isInside(o, group) {

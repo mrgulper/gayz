@@ -191,8 +191,27 @@ first, online (Firestore) last.
   (KO_SCORE, a guess); can be on either team ("(their team)" then).
   _renderStats -> .tb-stats under the XP news (table scrolls past 34vh).
   Test: team.spec "after-battle stats".
-- [ ] **Batch J - Replays.** Watch the last battle again, save good ones
-  (battles can be played back from the same seed, like live friend battles).
+- [x] **Batch J - Replays** (shipped 2026-11-24). Gaymi picked: every pet
+  battle (incl. tournament / Gauntlet / Pack Leaders / live friend ones),
+  last battle always kept + up to 10 saved, THIS DEVICE ONLY
+  (ReplayStore.js, localStorage `gayz-pet-replays` { last, saved[] }),
+  controls pause/play (Space) + speed x1/x2/x4 + restart + skip to end,
+  Pets tab "Replays" button -> list (PetReplays.js; Watch / Save on the
+  last, Watch / Delete (2 taps) on saved). Result screen: Watch Replay +
+  Save Replay. How: EVERY battle now has a seed (this.rand = seeded(seed))
+  and runs fixed LIVE_STEP steps (non-live: at most 0.25 s a frame x
+  speed, paused = 0). Which hazard still rolls Math.random outside friend
+  battles (rec.hz stored; rec.hs = rolled from the seed). Record (rec):
+  { v, seed, hs, hz, lv, me, bc, foe, ghost, mine, theirs (JSON copies at
+  start), ch: [step, side 0/1, kind] for EVERY cheer that went off (bots
+  too), t, won }. A replay re-rolls the same dice (bot cheer logic runs
+  but doesn't push - the recording's cheers land instead), no XP / coins /
+  snacks eaten / cheering. playReplay(rec) in TeamBattle.js;
+  TeamBattle.track(b) (set in TeamUI) sets game._teamBattle. Tests that
+  forced dice must now set b.rand, not Math.random. Known limit: a replay
+  saved before a future balance change (stats, powers) may play out
+  differently - no version check beyond REPLAY_V. Test: team.spec
+  "replays".
 - [ ] **Batch K - Collection book.** A page per creature kind; caught =
   shown, not caught = "???" shape.
 - [ ] **Batch L - Weekly challenge.** One special rule a week (only

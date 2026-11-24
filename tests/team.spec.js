@@ -270,8 +270,9 @@ test('levels, evolution, level 5 trigger powers and types', async ({ page }) => 
     const skel = mine.find((f) => f.c.id === 3)
     const zom = mine.find((f) => f.c.id === 2)
     const wolf = mine.find((f) => f.c.id === 1)
-    const rand = Math.random
-    Math.random = () => 0.5
+    // (Every battle's dice come from its seed now - Batch J replays.)
+    const rand = b.rand
+    b.rand = () => 0.5
     const hpZ = zom.hp
     const hpW = wolf.hp
     zom.power = null
@@ -279,7 +280,7 @@ test('levels, evolution, level 5 trigger powers and types', async ({ page }) => 
     skel.atkMul = 1
     b._hit(skel, zom)
     b._hit(skel, wolf)
-    Math.random = rand
+    b.rand = rand
     out.toZombie = hpZ - zom.hp
     out.toAnimal = hpW - wolf.hp
     zom.hp = hpZ
@@ -1597,4 +1598,113 @@ test('after-battle stats: damage, healing, taken, knockouts per pet + Best Pet a
   expect(r.teams).toBe(2)
   expect(r.best).toBe(1)
   expect(r.award).toContain('Best pet:')
+})
+
+test('replays: the same fight again (cheers too), watch / save / delete, 10 max, pause, skip', async ({ page }) => {
+  test.setTimeout(120000)
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    localStorage.removeItem('gayz-pet-replays')
+    localStorage.setItem('gayz-creatures', JSON.stringify({
+      list: [
+        { id: 1, t: 'a', k: 'cow', r: 'rare', at: 1 },
+        { id: 2, t: 'z', k: null, r: 'rare', n: 2, b: false, at: 2 },
+      ],
+      team: [1, 2], wins: 0, losses: 0, nextId: 3,
+    }))
+    window.__game._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-pets').click()
+  })
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const { TeamBattle: TB, playReplay, loadReplays, saveReplay, SAVED_MAX } = g._replays
+    const mine = [{ id: 1, t: 'a', k: 'cow', r: 'rare' }, { id: 2, t: 'z', k: null, r: 'rare', n: 2, b: false }]
+    const theirs = [{ t: 'a', k: 'wolf', r: 'rare' }, { t: 'a', k: 'pig', r: 'rare' }, { t: 'z', k: null, r: 'common', n: 1, b: false }]
+    const out = {}
+    // Runs to the end; my cheer goes off as soon as my meter is full.
+    const run = (B, cheer) => {
+      for (let i = 0; i < 9000 && !B.over && B._winner === undefined; i++) {
+        if (cheer && B.meter.mine >= 1 && B._canCheer()) B.cheer('atk')
+        B._step(1 / 60)
+      }
+      if (!B.over) B._finish(B._winner === undefined ? true : B._winner)
+      return JSON.stringify({ steps: B.steps, cheers: B.cheers, hp: B.fighters.map((f) => Math.round(f.hp * 1000)), st: B.fighters.map((f) => f.st) })
+    }
+    const B = new TB({ mine, theirs, foe: 'Bot', view: '2d', xp: false, onEnd: () => 0 })
+    B.open()
+    out.first = run(B, true)
+    out.rec = { seed: Number.isInteger(B.rec.seed), ch: B.rec.ch.length, won: typeof B.rec.won }
+    out.last = !!loadReplays().last
+    // The result screen: Watch Replay and Save Replay.
+    out.watchBtn = !!B.root.querySelector('.tb-replay-watch')
+    B.root.querySelector('.tb-replay-save').click()
+    out.saveText = B.root.querySelector('.tb-replay-save').textContent
+    out.savedN = loadReplays().saved.length
+    B.root.querySelector('.tb-replay-watch').click()
+    const R = g._teamBattle
+    out.isReplay = !!R.replay && R !== B
+    out.tag = !!R.root.querySelector('.tb-replay-tag')
+    out.cheerHidden = R.root.querySelector('.tb-cheer').hidden
+    out.again = run(R, false)
+    out.same = out.again === out.first
+    out.replayText = R.root.querySelector('.tb-result-text').textContent
+    out.noXpNews = R.root.querySelector('.tb-result-news').children.length === 0
+    R.close()
+    // Skip to end lands on the same result.
+    const S = playReplay(loadReplays().last, { view: '2d' })
+    S._skip()
+    out.skipOver = S.over
+    out.skipTitle = S.root.querySelector('.tb-result-title').textContent
+    out.firstTitle = B.rec.won ? 'won' : 'lost'
+    S.close()
+    // Pause: no steps while paused.
+    const P = playReplay(loadReplays().last, { view: '2d' })
+    P.root.querySelector('.tb-replay-pause').click()
+    const at = P.steps
+    await new Promise((res) => setTimeout(res, 400))
+    out.pausedSteps = P.steps - at
+    out.pauseText = P.root.querySelector('.tb-replay-pause').textContent
+    P.close()
+    // 10 at most.
+    const rec = loadReplays().last
+    for (let i = 1; i <= SAVED_MAX; i++) saveReplay({ ...rec, t: rec.t + i })
+    out.fullN = loadReplays().saved.length
+    out.full = saveReplay({ ...rec, t: rec.t + 99 })
+    return out
+  })
+  expect(r.rec).toEqual({ seed: true, ch: expect.any(Number), won: 'boolean' })
+  expect(r.last).toBe(true)
+  expect(r.watchBtn).toBe(true)
+  expect(r.saveText).toBe('Saved!')
+  expect(r.savedN).toBe(1)
+  expect(r.isReplay).toBe(true)
+  expect(r.tag).toBe(true)
+  expect(r.cheerHidden).toBe(true)
+  expect(r.same).toBe(true)
+  expect(r.replayText).toBe('Replay over.')
+  expect(r.noXpNews).toBe(true)
+  expect(r.skipOver).toBe(true)
+  expect(r.skipTitle.toLowerCase()).toContain(r.firstTitle === 'won' ? 'won' : 'lost')
+  expect(r.pausedSteps).toBe(0)
+  expect(r.pauseText).toBe('Play')
+  expect(r.fullN).toBe(10)
+  expect(r.full).toBe('full')
+
+  // The Pets tab list: last battle + saved ones; delete takes two taps.
+  await page.evaluate(() => { window.__game._openMenuInventoryPanel(); document.getElementById('inventory-tab-pets').click() })
+  await page.click('#replays-btn')
+  const list = await page.evaluate(() => {
+    const el = document.getElementById('replays-list')
+    const rows = () => el.querySelectorAll('.replay-row').length
+    const out = { open: !el.hidden, rows: rows(), last: el.textContent.includes('Last battle'), count: el.textContent.includes('Saved: 10 / 10') }
+    const del = () => el.querySelector('[data-replay-del]')
+    del().click()
+    out.sure = del().textContent
+    out.afterOne = rows()
+    del().click()
+    out.afterTwo = rows()
+    return out
+  })
+  expect(list).toEqual({ open: true, rows: 11, last: true, count: true, sure: 'Sure?', afterOne: 11, afterTwo: 10 })
 })

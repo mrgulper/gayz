@@ -1429,3 +1429,91 @@ html.ui-theme-old .team-egg-bar {
   background: rgba(255, 216, 74, 0.14);
   opacity: 1;
 }
+/* Replays (Batch J): the tag by the foe's name, a replay's own controls
+   (where the cheer button is in a real battle), the result screen's
+   Watch / Save row, and the Pets tab list. */
+.tb-replay-tag {
+  margin-top: 2px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #1a1408;
+  background: var(--menu-gold, #ffd84a);
+  border-radius: 999px;
+}
+.tb-replay-bar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  pointer-events: auto;
+}
+.tb-replay-bar[hidden] {
+  display: none;
+}
+.tb-result-btns.tb-replay-btns {
+  margin-top: 8px;
+}
+.tb-replay-btns button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+#replays-btn {
+  display: block;
+  margin: 10px auto 0;
+}
+#replays-list {
+  max-width: 460px;
+  margin: 6px auto 0;
+}
+#replays-list[hidden] {
+  display: none;
+}
+.replay-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(var(--ui-gold-accent-rgb), 0.15);
+  text-align: left;
+}
+.replay-info {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.replay-info em {
+  font-style: normal;
+  font-weight: 700;
+  opacity: 0.75;
+}
+.replay-row.won .replay-info em {
+  color: var(--menu-gold, #ffd84a);
+  opacity: 1;
+}
+.replay-btns {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.replay-del.sure {
+  color: #fff;
+  background: #c0392b;
+}
+.replay-count {
+  margin: 8px 0 2px;
+}
+@media (max-width: 700px) {
+  .replay-row {
+    flex-wrap: wrap;
+  }
+  .replay-info {
+    white-space: normal;
+  }
+}
+.tb-cheer[hidden] {
+  display: none;
+}
