@@ -565,6 +565,26 @@ service cloud.firestore {
       allow delete: if request.auth != null && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
     }
 
+    // Friend battle cheers (TeamBattle cheer, Batch H 2026-11-24): each
+    // friend's cheers in one live battle, {duelId}_{uid}, a list of numbers
+    // (step * 4 + which cheer). Only the two friends read it (a missing one
+    // reads as empty, so the watch can start first); only you write and
+    // delete your own.
+    match /petCheers/{id} {
+      allow read: if request.auth != null && (resource == null || resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      allow create, update: if request.auth != null
+        && request.resource.data.keys().hasOnly(['duel', 'from', 'to', 'c', 'at'])
+        && request.resource.data.keys().hasAll(['duel', 'from', 'to', 'c', 'at'])
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.duel is string && request.resource.data.duel.size() > 0 && request.resource.data.duel.size() <= 64
+        && id == request.resource.data.duel + '_' + request.auth.uid
+        && request.resource.data.to is string && request.resource.data.to.size() > 0 && request.resource.data.to.size() <= 128
+        && request.resource.data.to != request.auth.uid
+        && request.resource.data.c is list && request.resource.data.c.size() <= 20
+        && request.resource.data.at is int;
+      allow delete: if request.auth != null && resource.data.from == request.auth.uid;
+    }
+
     // Gauntlet teams (2026-11-11, Gauntlet.js): your Gauntlet team at each
     // battle of a run (one doc per battle number, {uid}_{round}), for other
     // players to meet at the same battle. Anyone reads them; only you write
@@ -1924,6 +1944,32 @@ export function subscribePetDuelInvites(uid, callback) {
     if (cancelled) return
     const q = fsMod.query(fsMod.collection(db, 'petDuels'), fsMod.where('to', '==', uid), fsMod.where('state', '==', 'ask'), fsMod.limit(20))
     unsub = fsMod.onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ ...d.data(), id: d.id }))), () => {})
+  })
+  return () => {
+    cancelled = true
+    unsub()
+  }
+}
+
+// Friend battle cheers (see the petCheers rules above): my whole list of
+// cheers so far in battle `duel`, as step * 4 + which cheer.
+export async function sendPetCheers(duel, from, to, list) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'petCheers', `${duel}_${from}`), { duel, from, to, c: list.slice(0, 20), at: Date.now() })
+}
+
+export async function deletePetCheers(duel, from) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'petCheers', `${duel}_${from}`))
+}
+
+// callback(list) whenever my friend's cheers in battle `duel` change.
+export function watchPetCheers(duel, from, callback) {
+  let unsub = () => {}
+  let cancelled = false
+  ensureApp().then(({ db, fsMod }) => {
+    if (cancelled) return
+    unsub = fsMod.onSnapshot(fsMod.doc(db, 'petCheers', `${duel}_${from}`), (snap) => callback(snap.exists() && Array.isArray(snap.data().c) ? snap.data().c : []), () => {})
   })
   return () => {
     cancelled = true
