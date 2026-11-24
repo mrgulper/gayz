@@ -1993,3 +1993,206 @@ test('pet battle leaderboard: trophies, rank badge, All-time / This week / Frien
   expect(lists.sent[0].uid).toBe('me')
   expect(lists.sent[0].tr).toBe(won.tr)
 })
+
+test('pet trading: invite, pick up to 3, Ready resets on a change, Confirm swaps, gifts, cancel, collect later', async ({ page }) => {
+  test.setTimeout(120000)
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    const g = window.__game
+    Object.defineProperty(navigator, 'onLine', { get: () => false, configurable: true })
+    Object.defineProperty(g, '_cloudUid', { get: () => 'uB', set: () => {}, configurable: true })
+    g.settings.savedFriends = [{ name: 'Alex', uid: 'uA' }]
+    window.__toasts = []
+    g._showHomepageToast = (text) => window.__toasts.push(text)
+    localStorage.setItem('gayz-creatures', JSON.stringify({
+      list: [
+        { id: 1, t: 'a', k: 'cow', r: 'common', at: 1, sn: 'steak' },
+        { id: 2, t: 'z', k: null, r: 'epic', n: 3, b: false, at: 2, hi: 'claws', x: 500 },
+        { id: 3, t: 'a', k: 'wolf', r: 'rare', at: 3, s: true, nm: 'Rex' },
+        { id: 4, t: 'a', k: 'pig', r: 'common', at: 4 },
+      ],
+      team: [1, 2, 3], wins: 0, losses: 0, nextId: 5,
+    }))
+    // A pretend Firestore with the same steps as CloudSync's.
+    const docs = {}
+    const watchers = {}
+    const tx = (id, fn) => fn(docs[id] ? { ...docs[id], id } : null)
+    const fb = {
+      docs, inviteCb: null, deleted: [],
+      createPetTrade: async (from, fromName, to) => { const id = `t${Object.keys(docs).length + fb.deleted.length + 1}`; docs[id] = { from, fromName, to, at: Date.now(), state: 'ask', a: [], b: [], v: 0, ra: -1, rb: -1, ca: -1, cb: -1, ga: false, gb: false }; return id },
+      answerPetTrade: async (id, yes) => tx(id, (d) => { if (!d || d.state !== 'ask') return null; docs[id].state = yes ? 'open' : 'no'; return { ...docs[id], id } }),
+      setPetTradeOffer: async (id, side, list) => tx(id, (d) => { if (!d || d.state !== 'open') return null; Object.assign(docs[id], { [side]: list, v: d.v + 1 }); return d.v + 1 }),
+      readyPetTrade: async (id, side, v) => tx(id, (d) => { if (!d || d.state !== 'open' || d.v !== v) return false; docs[id][`r${side}`] = v; return true }),
+      confirmPetTrade: async (id, side, v) => tx(id, (d) => {
+        if (!d || d.state !== 'open' || d.v !== v || d.ra !== v || d.rb !== v) return null
+        const done = d[`c${side === 'a' ? 'b' : 'a'}`] === v
+        Object.assign(docs[id], done ? { [`c${side}`]: v, state: 'done' } : { [`c${side}`]: v })
+        return done ? 'done' : 'ok'
+      }),
+      claimPetTrade: async (id, side) => tx(id, (d) => {
+        if (!d || d.state !== 'done' || d[`g${side}`]) return null
+        if (d[`g${side === 'a' ? 'b' : 'a'}`]) { delete docs[id]; fb.deleted.push(id) } else docs[id][`g${side}`] = true
+        return d
+      }),
+      deletePetTrade: async (id) => { if (docs[id]) { delete docs[id]; fb.deleted.push(id) } },
+      watchPetTrade: (id, cb) => { watchers[id] = cb; return () => { delete watchers[id] } },
+      subscribePetTradeInvites: (uid, cb) => { fb.inviteCb = cb; return () => { fb.inviteCb = null } },
+      fetchMyPetTrades: async () => Object.entries(docs).map(([id, d]) => ({ ...d, id })),
+      fetchPresence: async (uid) => (uid === 'uA' ? { lastActiveAt: Date.now() } : null),
+      fire: (id) => watchers[id]?.(docs[id] ? { ...docs[id], id } : null),
+    }
+    g.__petTradeBackendForTests = fb
+    window.__fb = fb
+    g._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-pets').click()
+  })
+
+  // 1. What a traded pet carries: everything but its snack.
+  const pack = await page.evaluate(() => {
+    const P = window.__game._petTradeApi
+    const list = JSON.parse(localStorage.getItem('gayz-creatures')).list
+    return {
+      cow: P.packTradePet(list[0]),
+      zombie: P.packTradePet(list[1]),
+      wolf: P.packTradePet(list[2]),
+      unpacked: P.unpackOffer([{ t: 'a', k: 'cow', r: 'common', sn: 'steak', id: 9 }, { t: 'a', k: 'nope', r: 'common' }, { t: 'a', k: 'pig', r: 'common' }, { t: 'a', k: 'pig', r: 'common' }, { t: 'a', k: 'pig', r: 'common' }]),
+    }
+  })
+  expect(pack.cow.sn).toBeUndefined()
+  expect(pack.cow.id).toBe(1)
+  expect(pack.zombie).toMatchObject({ hi: 'claws', x: 500, r: 'epic' })
+  expect(pack.wolf).toMatchObject({ s: true, nm: 'Rex' })
+  // Only the first 3 count, junk dropped, no snack, no id.
+  expect(pack.unpacked.length).toBe(2)
+  expect(pack.unpacked[0].sn).toBeUndefined()
+  expect(pack.unpacked[0].id).toBeUndefined()
+
+  // 2. The Pets tab list of online friends -> invite Alex.
+  // (An online-only button: offline it says so instead.)
+  await page.evaluate(() => Object.defineProperty(navigator, 'onLine', { get: () => true, configurable: true }))
+  await page.click('#pet-trade-btn')
+  await page.waitForSelector('#pet-trade-list [data-trade-uid="uA"]')
+  await page.evaluate(() => Object.defineProperty(navigator, 'onLine', { get: () => false, configurable: true }))
+  await page.click('#pet-trade-list [data-trade-uid="uA"]')
+  await page.waitForFunction(() => Object.keys(window.__fb.docs).length === 1)
+  const asked = await page.evaluate(() => ({ doc: { ...window.__fb.docs.t1 }, box: document.querySelector('#pet-trade-box .pet-duel-text').textContent }))
+  expect(asked.doc).toMatchObject({ from: 'uB', to: 'uA', state: 'ask' })
+  expect(asked.box).toBe('Waiting for Alex to say yes...')
+
+  // 3. Alex says yes: the window opens.
+  await page.evaluate(() => { window.__fb.docs.t1.state = 'open'; window.__fb.fire('t1') })
+  await page.waitForSelector('#pet-trade:not([hidden])')
+  const open = await page.evaluate(() => ({
+    title: document.querySelector('.pet-trade-title').textContent,
+    status: document.querySelector('.pet-trade-status').textContent,
+    readyOff: document.querySelector('.pet-trade-ready').disabled,
+    box: document.getElementById('pet-trade-box').hidden,
+    cards: document.querySelectorAll('.pet-trade-pick .team-card').length,
+  }))
+  expect(open.title).toBe('Trading with Alex')
+  expect(open.status).toBe('Tap your pets below to offer up to 3. You can also give nothing.')
+  // Nothing on either side yet: Ready can't be pressed.
+  expect(open.readyOff).toBe(true)
+  expect(open.box).toBe(true)
+  expect(open.cards).toBe(4)
+
+  // 4. Pick 3 (a 4th is refused), take one back by tapping it in "You give".
+  for (const id of [1, 2, 4]) {
+    await page.click(`.pet-trade-pick .team-card[data-id="${id}"]`)
+    await page.waitForFunction((n) => window.__fb.docs.t1.a.length === n, [1, 2, 4].indexOf(id) + 1)
+  }
+  await page.click('.pet-trade-pick .team-card[data-id="3"]')
+  await page.waitForFunction(() => window.__toasts.includes('Up to 3 pets per trade.'))
+  await page.click('.pet-trade-mine .team-card[data-id="4"]')
+  await page.waitForFunction(() => window.__fb.docs.t1.a.length === 2)
+  const picked = await page.evaluate(() => ({ a: window.__fb.docs.t1.a.map((p) => p.id), v: window.__fb.docs.t1.v, give: document.querySelector('.pet-trade-mine-title').textContent }))
+  expect(picked.a).toEqual([1, 2])
+  expect(picked.v).toBe(4)
+  expect(picked.give).toBe('You give (2/3)')
+
+  // 5. Alex offers a pet; I press Ready; Alex changes the offer -> Ready again.
+  await page.evaluate(() => { const d = window.__fb.docs.t1; d.b = [{ t: 'a', k: 'eagle', r: 'legendary', at: 5, x: 900, hi: 'claws', id: 77 }]; d.v++; window.__fb.fire('t1') })
+  await page.waitForFunction(() => document.querySelectorAll('.pet-trade-theirs .team-card').length === 1)
+  await page.click('.pet-trade-ready')
+  await page.waitForFunction(() => window.__fb.docs.t1.ra === window.__fb.docs.t1.v)
+  const waiting = await page.evaluate(() => ({ status: document.querySelector('.pet-trade-status').textContent, readyHidden: document.querySelector('.pet-trade-ready').hidden }))
+  expect(waiting.status).toBe('You\'re ready. Waiting for Alex...')
+  expect(waiting.readyHidden).toBe(true)
+  await page.evaluate(() => { const d = window.__fb.docs.t1; d.b = [...d.b, { t: 'a', k: 'cow', r: 'common', at: 6, id: 78 }]; d.v++; window.__fb.fire('t1') })
+  await page.waitForFunction(() => !document.querySelector('.pet-trade-ready').hidden)
+  const changed = await page.evaluate(() => ({ status: document.querySelector('.pet-trade-status').textContent, confirmHidden: document.querySelector('.pet-trade-confirm').hidden }))
+  expect(changed.status).toBe('An offer changed - check it, then press Ready again.')
+  expect(changed.confirmHidden).toBe(true)
+  // A Confirm on an old offer doesn't count.
+  const stale = await page.evaluate(() => window.__fb.confirmPetTrade('t1', 'a', 5))
+  expect(stale).toBeNull()
+
+  // 6. Both Ready -> Confirm; Alex confirms second -> done, pets swap.
+  await page.click('.pet-trade-ready')
+  await page.evaluate(() => { const d = window.__fb.docs.t1; d.rb = d.v; window.__fb.fire('t1') })
+  await page.waitForFunction(() => !document.querySelector('.pet-trade-confirm').hidden)
+  expect(await page.textContent('.pet-trade-status')).toBe('Both ready! Check once more, then press Confirm trade.')
+  await page.click('.pet-trade-confirm')
+  await page.waitForFunction(() => window.__fb.docs.t1.ca === window.__fb.docs.t1.v)
+  expect(await page.textContent('.pet-trade-status')).toBe('Waiting for Alex to confirm...')
+  await page.evaluate(() => { const d = window.__fb.docs.t1; d.cb = d.v; d.state = 'done'; window.__fb.fire('t1') })
+  await page.waitForFunction(() => document.getElementById('pet-trade').hidden)
+  const after = await page.evaluate(() => {
+    const d = JSON.parse(localStorage.getItem('gayz-creatures'))
+    return { list: d.list, team: d.team, book: Object.keys(d.book), doc: window.__fb.docs.t1, toasts: window.__toasts, trade: !!window.__game._petTrade }
+  })
+  expect(after.list.map((c) => c.id).sort()).toEqual([3, 4, 5, 6])
+  expect(after.team).toEqual([3])
+  const eagle = after.list.find((c) => c.k === 'eagle')
+  expect(eagle).toMatchObject({ id: 5, r: 'legendary', x: 900, hi: 'claws' })
+  expect(after.book).toContain('a:eagle')
+  // My side is collected; Alex's isn't yet, so the trade is kept for them.
+  expect(after.doc.ga).toBe(true)
+  expect(after.toasts.at(-1)).toMatch(/^Trade done with Alex! You got: /)
+  expect(after.trade).toBe(false)
+
+  // 7. An invite to me: a stranger's is ignored, Alex's shows; yes opens
+  // the window as side b; Cancel deletes it.
+  await page.evaluate(() => {
+    const fb = window.__fb
+    fb.docs.t9 = { from: 'uX', fromName: 'Stranger', to: 'uB', at: Date.now(), state: 'ask', a: [], b: [], v: 0, ra: -1, rb: -1, ca: -1, cb: -1, ga: false, gb: false }
+    fb.docs.t10 = { from: 'uA', fromName: 'Alex', to: 'uB', at: Date.now(), state: 'ask', a: [], b: [], v: 0, ra: -1, rb: -1, ca: -1, cb: -1, ga: false, gb: false }
+    window.__game._petTradeApi.watchPetTrades(window.__game, 'uB')
+    fb.inviteCb([{ ...fb.docs.t9, id: 't9' }, { ...fb.docs.t10, id: 't10' }])
+  })
+  await page.waitForFunction(() => !document.getElementById('pet-trade-box').hidden)
+  expect(await page.textContent('#pet-trade-box .pet-duel-text')).toBe('Alex wants to trade pets!')
+  await page.click('#pet-trade-box .pet-duel-yes')
+  await page.waitForSelector('#pet-trade:not([hidden])')
+  expect(await page.evaluate(() => [window.__fb.docs.t10.state, window.__game._petTrade.side])).toEqual(['open', 'b'])
+
+  // Phone size: the window fits on screen and keeps its size.
+  await page.setViewportSize({ width: 375, height: 812 })
+  const fit = await page.evaluate(() => {
+    const r = document.getElementById('pet-trade').getBoundingClientRect()
+    const btn = document.querySelector('.pet-trade-cancel').getBoundingClientRect()
+    return { in: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, btn: btn.bottom <= r.bottom && btn.height > 0 }
+  })
+  expect(fit).toEqual({ in: true, btn: true })
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await page.click('.pet-trade-cancel')
+  await page.waitForFunction(() => !window.__fb.docs.t10)
+  expect(await page.evaluate(() => document.getElementById('pet-trade').hidden)).toBe(true)
+
+  // 8. At sign-in: a finished gift I didn't collect yet arrives; old
+  // unfinished trades are tidied away.
+  const later = await page.evaluate(async () => {
+    const fb = window.__fb
+    for (const k of Object.keys(fb.docs)) delete fb.docs[k]
+    fb.docs.g1 = { from: 'uA', fromName: 'Alex', to: 'uB', at: Date.now(), state: 'done', a: [{ t: 'z', k: null, r: 'rare', n: 5, b: true, at: 9, id: 40 }], b: [], v: 3, ra: 3, rb: 3, ca: 3, cb: 3, ga: true, gb: false }
+    fb.docs.o1 = { from: 'uB', fromName: 'Me', to: 'uA', at: Date.now() - 2 * 60 * 60 * 1000, state: 'open', a: [], b: [], v: 0, ra: -1, rb: -1, ca: -1, cb: -1, ga: false, gb: false }
+    window.__toasts.length = 0
+    await window.__game._petTradeApi.checkMyPetTrades(window.__game)
+    const d = JSON.parse(localStorage.getItem('gayz-creatures'))
+    return { ids: d.list.map((c) => c.id), boss: d.list.find((c) => c.b), docs: Object.keys(fb.docs), toasts: window.__toasts }
+  })
+  expect(later.boss).toMatchObject({ id: 7, r: 'rare', b: true })
+  expect(later.docs).toEqual([])
+  expect(later.toasts[0]).toMatch(/^Trade done with Alex! You got: /)
+})
