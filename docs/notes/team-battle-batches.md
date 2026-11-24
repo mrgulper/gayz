@@ -150,3 +150,43 @@ mine (smallest first, live online last).
   snacks count, only my own get eaten. Leaving = no record; the other
   screen plays on. Not tested with two real accounts (Claude can't sign
   in). Test: team.spec "friend battles".
+
+# Pet battles round 4 (picked 2026-11-24)
+
+Gaymi: "Do all 8". One batch per session, questions first. Smallest
+first, online (Firestore) last.
+
+- [x] **Batch H - Cheer** (shipped 2026-11-24). Gaymi picked: pick 1 of
+  3 (Attack / Heal / Speed), a meter that fills as your pets take hits,
+  every pet battle incl. live friend battles, bots cheer too. TeamBattle.js:
+  CHEERS (atk +30% / heal 20% / speed +40%), CHEER_S 5, CHEER_FILL 0.3 =
+  full after the team loses 30% of its total health (_fill on hits, collar,
+  lava) - all a guess. meter { mine, foe }, cheerQueue { side, kind, at },
+  `steps` counts _step calls; _cheerStep lands due cheers, _applyCheer
+  re-checks the meter (same on both screens). Bots (not live, botCheer
+  option): 0.5-3 s after full, heal under half health else atk/speed.
+  UI: .tb-cheer button (fills, glows when full) -> .tb-cheer-pick of 3;
+  C / 1 / 2 / 3 keys; small .tb-foe-cheer bar under the foe name; Pets
+  guide "Cheer" list. Live: cheer(kind) -> onCheer(kind, at = steps +
+  CHEER_LEAD 90) sends first (FriendBattle -> CloudSync sendPetCheers,
+  petCheers/{duelId}_{uid} { duel, from, to, c: [step*4+kind], at }),
+  lands only once sent; failed send = meter kept + "couldn't reach";
+  the friend's list is watched (watchPetCheers) -> friendCheer; doc
+  deleted on close (onClose option). A cheer arriving after its step lands
+  late (could split the fight if the internet is very slow - XP only).
+  NEW RULES block petCheers -> ~/Desktop/GayZ/firestore-rules-2026-11-24-cheers.txt,
+  NOT pasted yet (one paste at the end of round 4); until then live
+  cheers say "couldn't reach your friend". Privacy line added.
+  Test: team.spec "cheer".
+- [ ] **Batch I - After-battle stats.** Damage / healing per pet + a
+  "best pet" award on the result screen.
+- [ ] **Batch J - Replays.** Watch the last battle again, save good ones
+  (battles can be played back from the same seed, like live friend battles).
+- [ ] **Batch K - Collection book.** A page per creature kind; caught =
+  shown, not caught = "???" shape.
+- [ ] **Batch L - Weekly challenge.** One special rule a week (only
+  skeletons, random team, all level 1...) + a prize.
+- [ ] **Batch M - Pet battle leaderboard.** Own top list (online).
+- [ ] **Batch N - Pet trading with friends.** Like Skin Trades (online).
+- [ ] **Batch O - Co-op boss raid.** Two friends' teams vs one giant
+  boss (online, biggest).

@@ -22,7 +22,7 @@
 // Leaving early: no win, no loss for whoever left; the other screen just
 // plays on to the end (it's the same fight either way).
 import * as CloudSync from './CloudSync.js'
-import { TeamBattle } from './TeamBattle.js'
+import { TeamBattle, CHEER_IDS } from './TeamBattle.js'
 import { loadCreatures, saveCreatures, packTeam, unpackTeam, power, SNACKS, TEAM_SIZE } from './Creatures.js'
 import { saveSettings } from './Game.js'
 import { t } from './i18n.js'
@@ -136,12 +136,35 @@ function startLive(game, duel, me, ids, name) {
     return
   }
   if (game._teamBattle?.root) game._teamBattle.close()
-  game._teamBattle = new TeamBattle({
+  // Cheers (Batch H): mine go to petCheers/{duel}_{me}, my friend's are
+  // watched; each is step * 4 + which cheer, landing at that step on both.
+  const backend = api(game)
+  const myUid = game._cloudUid
+  const friendUid = me === 'mine' ? duel.to : duel.from
+  const canCheer = !!(duel.id && myUid && friendUid && backend.sendPetCheers)
+  const sent = []
+  let unwatch = null
+  const battle = new TeamBattle({
     mine: a,
     theirs: b,
     foe: t('petDuelFoe', { name }),
     ghost: false,
     live: { seed: duel.seed, me, ids },
+    onCheer: async (kind, at) => {
+      if (!canCheer || sent.length >= 20) return false
+      sent.push(at * 4 + CHEER_IDS.indexOf(kind))
+      try {
+        await backend.sendPetCheers(duel.id, myUid, friendUid, [...sent])
+        return true
+      } catch {
+        sent.pop()
+        return false
+      }
+    },
+    onClose: () => {
+      unwatch?.()
+      if (canCheer && sent.length) backend.deletePetCheers?.(duel.id, myUid).catch(() => {})
+    },
     // XP only (TeamBattle gives it), no coins; its own record.
     onEnd: (won) => {
       if (won === null) return 0
@@ -162,7 +185,18 @@ function startLive(game, duel, me, ids, name) {
       if (sel) sel.value = v
     },
   })
-  game._teamBattle.open()
+  game._teamBattle = battle
+  battle.open()
+  if (canCheer && backend.watchPetCheers) {
+    unwatch = backend.watchPetCheers(duel.id, friendUid, (list) => {
+      if (!Array.isArray(list)) return
+      for (const v of list.slice(0, 20)) {
+        if (!Number.isInteger(v) || v < 0) continue
+        const kind = CHEER_IDS[v % 4]
+        if (kind) battle.friendCheer(kind, Math.floor(v / 4))
+      }
+    })
+  }
 }
 
 // --- challenging a friend (profile button, Pets tab list) ---

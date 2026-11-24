@@ -1412,3 +1412,138 @@ test('friend battles: same fight on both screens, challenge, invite, yes / no, r
   expect(list.rows[0]).toContain('Alex')
   expect(list.profileBtn).toBe('Pet Battle')
 })
+
+test('cheer: meter fills from hits, three picks, bots cheer, friend battles land on the same step, guide', async ({ page }) => {
+  test.setTimeout(120000)
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'onLine', { get: () => false, configurable: true })
+    localStorage.setItem('gayz-creatures', JSON.stringify({
+      list: [
+        { id: 1, t: 'a', k: 'cow', r: 'common', at: 1 },
+        { id: 2, t: 'z', k: null, r: 'rare', n: 2, b: false, at: 2 },
+      ],
+      team: [1, 2], wins: 0, losses: 0, nextId: 3,
+    }))
+    window.__game._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-pets').click()
+  })
+  const guide = await page.evaluate(() => document.getElementById('team-guide').textContent)
+  expect(guide).toContain('Cheer')
+  expect(guide).toContain('Team hits 30% harder')
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const FB = g._friendBattle
+    const TB = FB.TeamBattle
+    const mine = FB.unpackLive(FB.packLive([{ t: 'a', k: 'cow', r: 'rare' }, { t: 'z', k: null, r: 'rare', n: 2, b: false }]))
+    const theirs = FB.unpackLive(FB.packLive([{ t: 'a', k: 'wolf', r: 'rare' }, { t: 'a', k: 'pig', r: 'rare' }]))
+    const out = {}
+    const go = (B, s) => { for (let i = 0; i < s * 60; i++) B._step(1 / 60) }
+
+    // 1. On my own: empty meter = no cheer; hits fill it; a full one picks.
+    const B = new TB({ mine, theirs, foe: 'x', view: '2d', hazard: null, botCheer: false, xp: false })
+    B.open()
+    cancelAnimationFrame(B._raf)
+    go(B, 2.5)
+    B._cheerUI()
+    out.emptyDisabled = B.root.querySelector('.tb-cheer-btn').disabled
+    out.emptyCheer = B.cheer('atk')
+    const before = B.meter.mine
+    const f0 = B.fighters.find((f) => f.side === 'mine')
+    B._hit(B.fighters.find((f) => f.side === 'foe'), f0)
+    out.fills = B.meter.mine > before
+    B.meter.mine = 1
+    B._cheerUI()
+    out.readyBtn = !B.root.querySelector('.tb-cheer-btn').disabled
+    B.root.querySelector('.tb-cheer-btn').click()
+    out.pickShown = !B.root.querySelector('.tb-cheer-pick').hidden
+    out.pickCount = B.root.querySelectorAll('.tb-cheer-opt').length
+    B.root.querySelector('.tb-cheer-opt[data-cheer="atk"]').click()
+    B._step(1 / 60)
+    out.atk = B.fighters.filter((f) => f.side === 'mine' && f.alive).every((f) => f.cheer === 'atk')
+    out.meterAfter = B.meter.mine
+    out.say = B.root.querySelector('.tb-msg').textContent
+    go(B, 5.2)
+    out.wornOff = B.fighters.filter((f) => f.side === 'mine').every((f) => !f.cheer)
+    // Heal: health back now.
+    const hurt = B.fighters.find((f) => f.side === 'mine' && f.alive)
+    hurt.hp = Math.max(1, Math.round(hurt.s.hp * 0.3))
+    const low = hurt.hp
+    B.meter.mine = 1
+    B.cheer('heal')
+    B._step(1 / 60)
+    out.healed = hurt.hp > low
+    B.close()
+
+    // 2. Bot teams cheer a little after their meter fills.
+    const C = new TB({ mine, theirs, foe: 'x', view: '2d', hazard: null, xp: false })
+    C.open()
+    cancelAnimationFrame(C._raf)
+    go(C, 2.5)
+    C.meter.foe = 1
+    go(C, 3.2)
+    out.botCheered = (C.cheers?.foe || 0) === 1 && C.meter.foe < 1
+    C.close()
+
+    // 3. A friend battle: my cheer is sent, lands CHEER_LEAD steps later;
+    // the friend's screen gets it and the fight stays the same on both.
+    const sent = []
+    const run = async (me, cheerFrom) => {
+      const L = new TB({ mine: FB.unpackLive(FB.packLive(mine)), theirs: FB.unpackLive(FB.packLive(theirs)), foe: 'x', view: '2d', live: { seed: 777, me, ids: [] }, onEnd: () => 0, againKey: () => false, onCheer: async (kind, at) => { sent.push({ kind, at }); return true } })
+      L.open()
+      cancelAnimationFrame(L._raf)
+      for (let i = 0; i < 60 * 125 && L._winner === undefined && !L.over; i++) {
+        L._step(1 / 60)
+        if (L.time > 2.5 && L.steps === 200) {
+          L.meter.mine = 1
+          L.meter.foe = 1
+          if (cheerFrom === me) {
+            L.cheer('atk')
+            await new Promise((res) => setTimeout(res, 0))
+          } else {
+            const s = sent[sent.length - 1]
+            if (s) L.friendCheer(s.kind, s.at)
+          }
+        }
+      }
+      const snap = L.fighters.map((f) => [Math.round(f.hp * 1000), Math.round(f.x * 1000)].join(',')).join('|')
+      const cheers = L.cheers?.mine || 0
+      L.close()
+      return { snap, cheers }
+    }
+    const a = await run('mine', 'mine')
+    const b = await run('foe', 'mine')
+    out.liveSent = sent.length === 1 && sent[0].at === 200 + 90
+    out.liveSame = a.snap === b.snap
+    out.liveCheered = a.cheers === 1 && b.cheers === 1
+    // A cheer that can't be sent does nothing and keeps the meter.
+    const F = new TB({ mine, theirs, foe: 'x', view: '2d', live: { seed: 5, me: 'mine', ids: [] }, onEnd: () => 0, onCheer: async () => false })
+    F.open()
+    cancelAnimationFrame(F._raf)
+    go(F, 2.5)
+    F.meter.mine = 1
+    F.cheer('speed')
+    await new Promise((res) => setTimeout(res, 0))
+    go(F, 2)
+    out.failKeeps = F.meter.mine === 1 && !F.cheerWait.mine && F.fighters.every((f) => !f.cheer)
+    F.close()
+    return out
+  })
+  expect(r.emptyDisabled).toBe(true)
+  expect(r.emptyCheer).toBe(false)
+  expect(r.fills).toBe(true)
+  expect(r.readyBtn).toBe(true)
+  expect(r.pickShown).toBe(true)
+  expect(r.pickCount).toBe(3)
+  expect(r.atk).toBe(true)
+  expect(r.meterAfter).toBe(0)
+  expect(r.say).toContain('You cheered: Attack')
+  expect(r.wornOff).toBe(true)
+  expect(r.healed).toBe(true)
+  expect(r.botCheered).toBe(true)
+  expect(r.liveSent).toBe(true)
+  expect(r.liveSame).toBe(true)
+  expect(r.liveCheered).toBe(true)
+  expect(r.failKeeps).toBe(true)
+})

@@ -80,6 +80,19 @@ const SECOND_HEAL = 0.3 // ...heals this share, once
 const CRY_MULT = 1.1 // Battle Cry: the whole team's attack
 const GUARD_CUT = 0.2 // Guard: the nearest friend takes this much less
 const MEND_SHARE = 0.15 // Last Gift: every friend heals this share
+// Cheer (pet battles round 4, Batch H, 2026-11-24): each team has a meter
+// that fills as its pets take hits; full = one cheer, picked from three.
+// All numbers are a guess.
+export const CHEER_FILL = 0.3 // full after the team loses this share of its total health
+export const CHEER_S = 5 // Attack and Speed cheers last this long
+export const CHEERS = { atk: { n: 30 }, heal: { n: 20 }, speed: { n: 40 } } // +% attack, % health back, +% speed
+export const CHEER_IDS = Object.keys(CHEERS)
+// In a friend battle a cheer is sent ahead and lands this many fixed steps
+// later on both screens (1.5 s), so both run the same fight.
+export const CHEER_LEAD = 90
+const BOT_CHEER_WAIT = [0.5, 3] // a bot team cheers this many seconds after its meter fills
+export const cheerName = (id) => t(`cheer${id[0].toUpperCase()}${id.slice(1)}`)
+export const cheerInfo = (id) => t(`cheerInfo${id[0].toUpperCase()}${id.slice(1)}`, { n: CHEERS[id].n, s: CHEER_S })
 
 // Escaped text for innerHTML (names come from other players' saves).
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
@@ -506,8 +519,19 @@ export class TeamBattle {
   // always the challenger's team, so both screens run the same fight; me
   // says which side this screen's player is (the view turns round for the
   // friend who accepted), ids = this player's own creature ids (XP, snacks).
-  constructor({ mine, theirs, foe, ghost, onEnd, onAgain, againKey, view = '3d', onView, xp = true, hazard, live }) {
+  // onCheer(kind, at): a friend battle sends my cheer (landing at fixed
+  // step `at`); returns a promise, true once it's sent. botCheer: false
+  // stops the other team cheering by itself (tests). onClose(): the battle's gone.
+  constructor({ mine, theirs, foe, ghost, onEnd, onAgain, againKey, view = '3d', onView, xp = true, hazard, live, onCheer, botCheer = true, onClose }) {
     this.xp = xp
+    this.onCheer = onCheer
+    this.onClose = onClose
+    this.botCheer = botCheer
+    // Cheer meters (0..1) and cheers waiting to land: { side, kind, at }.
+    this.meter = { mine: 0, foe: 0 }
+    this.cheerQueue = []
+    this.cheerWait = { mine: false, foe: false }
+    this.steps = 0
     this.live = live && Number.isInteger(live.seed) ? live : null
     this.me = this.live?.me === 'foe' ? 'foe' : 'mine'
     this._flip = this.me === 'foe'
@@ -539,12 +563,18 @@ export class TeamBattle {
       <div class="tb-labels"></div>
       <div class="tb-top">
         <div class="tb-side tb-mine"></div>
-        <div class="tb-vs"><span class="tb-vs-word">${esc(t('teamBattleVs'))}</span><span class="tb-foe-name">${esc(this.foe)}</span><span class="tb-clock"></span></div>
+        <div class="tb-vs"><span class="tb-vs-word">${esc(t('teamBattleVs'))}</span><span class="tb-foe-name">${esc(this.foe)}</span><span class="tb-foe-cheer" title="${esc(t('cheerFoeMeter'))}"><span></span></span><span class="tb-clock"></span></div>
         <div class="tb-side tb-foe"></div>
         <div class="tb-combos"><div class="tb-combos-mine"></div><div class="tb-combos-foe"></div></div>
       </div>
       <div class="tb-msg" aria-live="polite"></div>
       <div class="tb-bottom">
+        <div class="tb-cheer">
+          <div class="tb-cheer-pick" hidden>
+            ${CHEER_IDS.map((id) => `<button type="button" class="tb-cheer-opt tb-cheer-${id}" data-cheer="${id}" title="${esc(cheerInfo(id))}"><b>${esc(cheerName(id))}</b><small>${esc(cheerInfo(id))}</small></button>`).join('')}
+          </div>
+          <button type="button" class="tb-cheer-btn" disabled><span class="tb-cheer-fill"></span><span class="tb-cheer-word">${esc(t('cheerBtn'))}</span></button>
+        </div>
         ${this.hazard ? `<p class="tb-hazard tb-hazard-${this.hazard}"><img class="tb-hazard-icon" src="${hazardIconURL(this.hazard)}" alt="" draggable="false" />${esc(t('hazardLine', { name: hazardName(this.hazard), info: hazardInfo(this.hazard) }))}</p>` : ''}
         <p class="tb-hint">${esc(t('teamBattleAutoHint'))}</p>
       </div>
@@ -580,6 +610,9 @@ export class TeamBattle {
     this._applyCombos()
     this._applySnacks()
     this._applyItems()
+    // Each team's total health, for how fast its cheer meter fills.
+    this.teamHp = { mine: 0, foe: 0 }
+    for (const f of this.fighters) this.teamHp[f.side] += f.s.hp
     this._renderCards()
 
     this._resize = () => {
@@ -623,6 +656,7 @@ export class TeamBattle {
       this._last = now
       this._draw()
       this._placeLabels()
+      this._cheerUI()
     }
     loop()
   }
@@ -849,6 +883,13 @@ export class TeamBattle {
         else this._leave()
         e.preventDefault()
       }
+      // C opens the cheer choices, 1 / 2 / 3 picks one.
+      if (e.type === 'keydown' && e.code === 'KeyC' && this._canCheer()) {
+        const pick = this.root.querySelector('.tb-cheer-pick')
+        pick.hidden = !pick.hidden
+      }
+      const n = ['Digit1', 'Digit2', 'Digit3'].indexOf(e.code)
+      if (e.type === 'keydown' && n >= 0 && !this.root.querySelector('.tb-cheer-pick').hidden) this.cheer(CHEER_IDS[n])
     }
     window.addEventListener('keydown', this._onKey, true)
     window.addEventListener('keyup', this._onKey, true)
@@ -863,6 +904,129 @@ export class TeamBattle {
       this.onAgain?.()
     })
     this.root.querySelector('.tb-back').addEventListener('click', () => this.close())
+    // Cheer: the button opens the three choices, a choice cheers.
+    const pick = this.root.querySelector('.tb-cheer-pick')
+    this.root.querySelector('.tb-cheer-btn').addEventListener('click', () => {
+      if (this._canCheer()) pick.hidden = !pick.hidden
+    })
+    pick.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-cheer]')
+      if (b) this.cheer(b.dataset.cheer)
+    })
+  }
+
+  // --- Cheer (Batch H) ---
+
+  // Can this screen's player cheer right now?
+  _canCheer() {
+    return !this.over && this.time >= START_S && this.meter[this.me] >= 1 && !this.cheerWait[this.me]
+  }
+
+  // A team took dmg: its cheer meter fills a bit.
+  _fill(side, dmg) {
+    if (this.over || this.time < START_S || !this.teamHp?.[side]) return
+    this.meter[side] = Math.min(1, this.meter[side] + dmg / (this.teamHp[side] * CHEER_FILL))
+  }
+
+  // This screen's player cheers (kind: CHEER_IDS). In a friend battle it's
+  // sent first and lands CHEER_LEAD steps later on both screens; if it
+  // can't be sent, nothing happens and the meter stays full.
+  cheer(kind) {
+    if (!CHEERS[kind] || !this._canCheer()) return false
+    this.root.querySelector('.tb-cheer-pick').hidden = true
+    const side = this.me
+    if (!this.live) {
+      this.cheerQueue.push({ side, kind, at: this.steps })
+      this._cheerUI()
+      return true
+    }
+    const at = this.steps + CHEER_LEAD
+    this.cheerWait[side] = true
+    this._say(t('cheerSending'), 1.2)
+    this._cheerUI()
+    Promise.resolve(this.onCheer ? this.onCheer(kind, at) : false).catch(() => false).then((ok) => {
+      if (!this.root) return
+      if (ok) this.cheerQueue.push({ side, kind, at })
+      else {
+        this.cheerWait[side] = false
+        this._say(t('cheerFailed'), 1.6)
+      }
+      this._cheerUI()
+    })
+    return true
+  }
+
+  // The friend's cheer arrived (a friend battle): it lands at step `at`
+  // here too (straight away if it came late).
+  friendCheer(kind, at) {
+    if (!CHEERS[kind] || !Number.isInteger(at)) return
+    const side = this.me === 'mine' ? 'foe' : 'mine'
+    if (this.cheerQueue.some((q) => q.side === side && q.at === at)) return
+    this.cheerWait[side] = true
+    this.cheerQueue.push({ side, kind, at })
+  }
+
+  // Cheers whose step has come go off (in the order sent).
+  _cheerStep(dt, started) {
+    if (!started || this.over) return
+    // A bot / ghost team cheers a little while after its meter fills:
+    // heal when it's hurt, otherwise attack or speed.
+    if (!this.live && this.botCheer && this.meter.foe >= 1 && !this.cheerWait.foe) {
+      if (this._botCheerIn === undefined) this._botCheerIn = BOT_CHEER_WAIT[0] + this.rand() * (BOT_CHEER_WAIT[1] - BOT_CHEER_WAIT[0])
+      if ((this._botCheerIn -= dt) <= 0) {
+        this._botCheerIn = undefined
+        const list = this.fighters.filter((f) => f.alive && f.side === 'foe')
+        const health = list.reduce((s, f) => s + f.hp / f.s.hp, 0) / (list.length || 1)
+        const kind = health < 0.5 ? 'heal' : this.rand() < 0.5 ? 'atk' : 'speed'
+        this.cheerQueue.push({ side: 'foe', kind, at: this.steps })
+      }
+    }
+    if (!this.cheerQueue.length) return
+    const due = this.cheerQueue.filter((q) => q.at <= this.steps).sort((a, b) => a.at - b.at || (a.side < b.side ? -1 : 1))
+    if (!due.length) return
+    this.cheerQueue = this.cheerQueue.filter((q) => !due.includes(q))
+    for (const q of due) this._applyCheer(q.side, q.kind)
+  }
+
+  _applyCheer(side, kind) {
+    this.cheerWait[side] = false
+    // Only with a full meter (the same check on both friends' screens).
+    if (this.meter[side] < 1) return
+    this.meter[side] = 0
+    for (const f of this.fighters) {
+      if (!f.alive || f.side !== side) continue
+      if (kind === 'heal') {
+        const add = Math.max(1, Math.round(f.s.hp * CHEERS.heal.n / 100))
+        f.hp = Math.min(f.s.hp, f.hp + add)
+        this._number(f, `+${add}`, 'heal')
+      } else {
+        f.cheer = kind
+        f.cheerT = CHEER_S
+        this._float(f, `${cheerName(kind)}!`, `power cheer cheer-${kind}`)
+      }
+    }
+    this.cheers = this.cheers || { mine: 0, foe: 0 }
+    this.cheers[side]++
+    this._say(t(this._seen(side) === 'mine' ? 'cheerMine' : 'cheerFoe', { name: cheerName(kind) }), 1.4)
+    audioEngine.playLevelUp?.()
+    this._renderCards()
+  }
+
+  // The meter and button (and the other team's small meter).
+  _cheerUI() {
+    if (!this.root) return
+    const mine = this.meter[this.me]
+    const theirs = this.meter[this.me === 'mine' ? 'foe' : 'mine']
+    const btn = this.root.querySelector('.tb-cheer-btn')
+    const ready = this._canCheer()
+    btn.disabled = !ready
+    btn.classList.toggle('ready', ready)
+    btn.querySelector('.tb-cheer-fill').style.width = `${mine * 100}%`
+    btn.querySelector('.tb-cheer-word').textContent = t(this.cheerWait[this.me] ? 'cheerOnWay' : ready ? 'cheerReady' : 'cheerBtn')
+    if (!ready) this.root.querySelector('.tb-cheer-pick').hidden = true
+    const foe = this.root.querySelector('.tb-foe-cheer')
+    foe.querySelector('span').style.width = `${theirs * 100}%`
+    foe.classList.toggle('ready', theirs >= 1)
   }
 
   _say(text, seconds = 1.6) {
@@ -920,6 +1084,8 @@ export class TeamBattle {
       return
     }
     let m = mult * from.atkMul
+    // Attack cheer.
+    if (from.cheer === 'atk') m *= 1 + CHEERS.atk.n / 100
     // Pounce: its first hit lands twice as hard.
     if (from.power === 'pounce' && !from.pounced) {
       from.pounced = true
@@ -945,6 +1111,7 @@ export class TeamBattle {
       this._itemText(to)
       return
     }
+    this._fill(to.side, Math.min(dmg, to.hp))
     to.hp = Math.max(0, to.hp - dmg)
     const dx = to.x - from.x
     const dz = to.z - from.z
@@ -999,6 +1166,7 @@ export class TeamBattle {
     // itself twice in a row: no hitting back a hit-back).
     if (to.item === 'collar' && from.alive && from !== to) {
       const back = Math.max(1, Math.round(dmg * ITEMS.collar.n / 100))
+      this._fill(from.side, Math.min(back, from.hp))
       from.hp = Math.max(0, from.hp - back)
       this._number(from, back, '')
       if (from.hp <= 0) this._down(from)
@@ -1123,6 +1291,7 @@ export class TeamBattle {
 
   _step(dt) {
     if (!this.over) this.time += dt
+    this.steps++
     const started = this.time >= START_S
     if (started && !this.over && this.time - dt < START_S) {
       this._say(t('teamBattleFight'), 1)
@@ -1152,6 +1321,7 @@ export class TeamBattle {
         }
       }
     }
+    this._cheerStep(dt, started)
     const clock = this.root.querySelector('.tb-clock')
     if (clock) clock.textContent = started ? `${Math.max(0, Math.ceil(ROUND_S - (this.time - START_S)))}` : `${Math.ceil(START_S - this.time)}`
     if (started && !this.over && this.time - START_S >= ROUND_S) this._timeUp()
@@ -1166,6 +1336,8 @@ export class TeamBattle {
       }
       f.cd = Math.max(0, f.cd - dt)
       if (f.stun > 0) f.stun -= dt
+      // An Attack / Speed cheer wears off.
+      if (f.cheer && (f.cheerT -= dt) <= 0) f.cheer = null
       // Shiny ones sparkle now and then.
       if (f.c.s && (f.sparkle -= dt) <= 0) {
         f.sparkle = 1.4
@@ -1209,7 +1381,7 @@ export class TeamBattle {
           } else if (f.cd <= 0) this._attack(f, n.o)
         }
       }
-      const slow = this._hazardStep(f, dt, started)
+      const slow = this._hazardStep(f, dt, started) * (f.cheer === 'speed' ? 1 + CHEERS.speed.n / 100 : 1)
       if (!f.alive) continue
       if (mx || mz) f.walk += dt * f.s.speed * 3 * slow
       f.x += (mx * f.s.speed * slow + f.vx) * dt
@@ -1283,6 +1455,7 @@ export class TeamBattle {
     if (this.hazard === 'lava' && (f.lavaCd -= dt) <= 0) {
       f.lavaCd = LAVA_TICK
       const dmg = Math.max(1, Math.round((f.s.hp * HAZARDS.lava.n * LAVA_TICK) / 100))
+      this._fill(f.side, Math.min(dmg, f.hp))
       f.hp = Math.max(0, f.hp - dmg)
       f.flash = 0.12
       if (f.mats) for (const mat of f.mats) if (mat.emissive) mat.emissive.setHex(0x663300)
@@ -1514,6 +1687,7 @@ export class TeamBattle {
     }
     this.root.remove()
     this.root = null
+    this.onClose?.()
   }
 }
 

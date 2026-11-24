@@ -357,6 +357,123 @@ html.ui-theme-old #team-page .team-card-name {
 .tb-btn:hover {
   background: rgba(10, 12, 18, 0.8);
 }
+/* Cheer (Batch H): my meter button, its three choices, the other team's
+   small meter under its name. */
+.tb-cheer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: auto;
+}
+.tb-cheer-btn {
+  position: relative;
+  overflow: hidden;
+  width: 180px;
+  height: 40px;
+  padding: 0;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(10, 12, 18, 0.7);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.tb-cheer-btn:disabled {
+  cursor: default;
+}
+.tb-cheer-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: linear-gradient(90deg, #c98a1a, #ffd84a);
+  opacity: 0.55;
+  transition: width 0.2s;
+}
+.tb-cheer-word {
+  position: relative;
+  text-shadow: 0 1px 3px #000;
+}
+.tb-cheer-btn.ready {
+  border-color: #ffd84a;
+  animation: tb-cheer-glow 1s ease-in-out infinite alternate;
+}
+.tb-cheer-btn.ready .tb-cheer-fill {
+  opacity: 0.85;
+}
+@keyframes tb-cheer-glow {
+  from { box-shadow: 0 0 4px rgba(255, 216, 74, 0.4); }
+  to { box-shadow: 0 0 16px rgba(255, 216, 74, 0.95); }
+}
+.tb-cheer-pick {
+  display: flex;
+  gap: 6px;
+}
+.tb-cheer-pick[hidden] {
+  display: none;
+}
+.tb-cheer-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 130px;
+  min-height: 58px;
+  padding: 6px 8px;
+  font: inherit;
+  color: #fff;
+  background: rgba(10, 12, 18, 0.85);
+  border: 2px solid;
+  border-radius: 12px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.tb-cheer-opt b {
+  font-size: 15px;
+}
+.tb-cheer-opt small {
+  font-size: 11px;
+  line-height: 1.25;
+  opacity: 0.85;
+}
+.tb-cheer-atk { border-color: #ff6a4a; }
+.tb-cheer-heal { border-color: #5ee07a; }
+.tb-cheer-speed { border-color: #4ac8ff; }
+.tb-cheer-opt:hover { background: rgba(30, 34, 46, 0.95); }
+.tb-number.cheer-atk { color: #ff8a6a; }
+.tb-number.cheer-speed { color: #7ad8ff; }
+.tb-foe-cheer {
+  display: block;
+  width: 60px;
+  height: 4px;
+  margin: 2px auto 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.tb-foe-cheer span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: #ffd84a;
+}
+.tb-foe-cheer.ready {
+  box-shadow: 0 0 6px #ffd84a;
+}
+@media (max-width: 600px) {
+  .tb-cheer-btn {
+    width: 150px;
+    height: 44px;
+  }
+  .tb-cheer-opt {
+    width: calc((100vw - 44px) / 3);
+    min-height: 64px;
+    padding: 6px 4px;
+  }
+}
 /* Arena hazard (Batch E): which one this battle has, above the hint. */
 .tb-hazard {
   display: flex;
