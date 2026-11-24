@@ -212,8 +212,23 @@ first, online (Firestore) last.
   saved before a future balance change (stats, powers) may play out
   differently - no version check beyond REPLAY_V. Test: team.spec
   "replays".
-- [ ] **Batch K - Collection book.** A page per creature kind; caught =
-  shown, not caught = "???" shape.
+- [x] **Batch K - Collection book** (shipped 2026-11-24). Gaymi picked:
+  grid + tap to open, page = basics + my record + where to find it, coins
+  at milestones, pets already owned count (eggs / Pet Shop too - all go
+  through addCreature). 447 pages (Creatures.bookKinds: plain zombie, every
+  MONSTER_KINDS, SKELETON_KINDS, animals, then dinos; a boss counts for its
+  kind). Saved IN gayz-creatures: book { 'a:cow' / 'z:' / 'z:mage': { n,
+  f first caught, lv best, s shiny } } + bp [milestones paid]; noteCatch in
+  addCreature, syncBook (on render) fills from pets owned. BOOK_PRIZES
+  25% 150 / 50% 400 / 75% 800 / 100% 2000 coins (a guess), paid when the
+  book renders (PetBook.updateBook -> toast). PetBook.js: Pets tab
+  "Collection Book" button -> #pet-book (count + bar, fixed-height page
+  box, group buttons, search finds caught kinds only, card grid 46vh
+  scroll). Where: BIOME_ANIMALS + DINO_BIOMES biome names (4 + "N more"),
+  zombies realm / "anywhere" / spider "eggs and Pet Shop". Zombie pictures
+  = ZombieBook.bookPictures (3D, fall back to the pixel face - the 3D ones
+  never showed in the headless test, not checked in a real browser).
+  New i18n key book_spider. Test: team.spec "collection book".
 - [ ] **Batch L - Weekly challenge.** One special rule a week (only
   skeletons, random team, all level 1...) + a prize.
 - [ ] **Batch M - Pet battle leaderboard.** Own top list (online).

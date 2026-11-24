@@ -3861,6 +3861,22 @@
                    battle and up to 10 saved ones, this device only. -->
               <button type="button" id="replays-btn" class="mini-action-btn">Replays</button>
               <div id="replays-list" hidden></div>
+              <!-- Collection book (PetBook.js, Batch K 2026-11-24): every
+                   creature kind; caught = shown, not caught = a dark shape. -->
+              <button type="button" id="pet-book-btn" class="mini-action-btn">Collection Book</button>
+              <div id="pet-book" hidden>
+                <p id="pet-book-count" class="pet-book-count"></p>
+                <div id="pet-book-page" class="pet-book-page empty"></div>
+                <div class="pet-book-groups">
+                  <button type="button" class="mini-action-btn" data-book-group="all">All</button>
+                  <button type="button" class="mini-action-btn" data-book-group="zombie">Zombies</button>
+                  <button type="button" class="mini-action-btn" data-book-group="skeleton">Skeletons</button>
+                  <button type="button" class="mini-action-btn" data-book-group="animal">Animals</button>
+                  <button type="button" class="mini-action-btn" data-book-group="dino">Dinosaurs</button>
+                </div>
+                <input type="text" id="pet-book-search" class="nickname-input search-bar" placeholder="Search caught kinds..." maxlength="40" />
+                <div id="pet-book-grid" class="team-cards pet-book-grid"></div>
+              </div>
               <!-- Powers & types guide (TeamUI.renderGuide, 2026-11-11). -->
               <details id="team-guide"></details>
               <!-- Weekly Team Tournament (TeamTournament.js, 2026-11-02). -->

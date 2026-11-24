@@ -20,6 +20,7 @@ import * as PetEggs from './PetEggs.js'
 import * as PetShop from './PetShop.js'
 import { renderFriendBattle, bindFriendBattle } from './FriendBattle.js'
 import { bindReplays, renderReplays } from './PetReplays.js'
+import { bindPetBook, renderPetBook, updateBook, bookTest } from './PetBook.js'
 import * as ReplayStore from './ReplayStore.js'
 import { bindReorder } from './Reorder.js'
 import { saveShopProgress, saveSettings, _censorText } from './Game.js'
@@ -325,6 +326,8 @@ export function renderTeamPanel(game) {
   PetShop.renderPetShop(game)
   // Replays (PetReplays.js): the list, when it's open.
   renderReplays()
+  // Collection book (PetBook.js, Batch K): when it's open.
+  renderPetBook(game)
   const btn = byId('team-battle-btn')
   if (btn && !game._teamFinding) {
     btn.textContent = t('teamBattleBtn')
@@ -466,8 +469,11 @@ export function bindTeamUI(game) {
   // Replays (PetReplays.js, Batch J): a replay is the battle that's up.
   TeamBattle.track = (b) => { game._teamBattle = b }
   bindReplays(game)
+  bindPetBook(game)
   game._replays = { ...ReplayStore, TeamBattle, playReplay }
   game._creatures = { packTeam, unpackTeam, loadCreatures, saveCreatures }
+  // The Collection book, for the tests (tests/team.spec.js).
+  game._petBook = { updateBook, renderPetBook, ...bookTest }
   // Drawn each time the Pets tab is looked at (a catch in a game changes it).
   byId('inventory-tab-pets')?.addEventListener('click', () => renderTeamPanel(game))
   // Drag to reorder (Reorder.js): the picked team, and the Gauntlet team.

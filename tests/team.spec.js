@@ -1708,3 +1708,95 @@ test('replays: the same fight again (cheers too), watch / save / delete, 10 max,
   })
   expect(list).toEqual({ open: true, rows: 11, last: true, count: true, sure: 'Sure?', afterOne: 11, afterTwo: 10 })
 })
+
+test('collection book: old pets count, new catches, ??? pages, groups, search, milestone coins once', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    localStorage.setItem('gayz-creatures', JSON.stringify({
+      list: [
+        { id: 1, t: 'a', k: 'cow', r: 'rare', at: 5000, x: 500 },
+        { id: 2, t: 'a', k: 'cow', r: 'common', at: 3000, s: true },
+        { id: 3, t: 'z', k: 'mage', r: 'rare', n: 2, b: false, at: 4000 },
+      ],
+      team: [1, 2, 3], wins: 0, losses: 0, nextId: 4,
+      // A made-up kind and a bad count are dropped.
+      book: { 'a:nope': { n: 3 }, 'z:': { n: 'x' } },
+    }))
+    window.__game._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-pets').click()
+  })
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const pb = g._petBook
+    const out = {}
+    const saved = () => JSON.parse(localStorage.getItem('gayz-creatures'))
+    document.getElementById('pet-book-btn').click()
+    const box = document.getElementById('pet-book')
+    out.open = !box.hidden
+    out.total = pb.bookKinds().length
+    out.cards = box.querySelectorAll('.pet-book-card').length
+    out.unmet = box.querySelectorAll('.pet-book-card.unmet').length
+    out.book = saved().book
+    out.count = document.getElementById('pet-book-count').textContent
+    // A ??? page: dark picture, where to find it.
+    box.querySelector('.pet-book-card.unmet').click()
+    out.unmetPage = document.getElementById('pet-book-page').textContent.replace(/\s+/g, ' ')
+    out.pageH1 = document.getElementById('pet-book-page').offsetHeight
+    box.querySelector('[data-book-key="a:cow"]').click()
+    out.cowPage = document.getElementById('pet-book-page').textContent.replace(/\s+/g, ' ')
+    out.pageH2 = document.getElementById('pet-book-page').offsetHeight
+    // Groups and search.
+    box.querySelector('[data-book-group="skeleton"]').click()
+    out.skel = box.querySelectorAll('.pet-book-card').length
+    box.querySelector('[data-book-group="all"]').click()
+    const search = document.getElementById('pet-book-search')
+    search.value = 'cow'
+    search.dispatchEvent(new Event('input'))
+    out.search = [...box.querySelectorAll('.pet-book-card .team-card-name')].map((e) => e.textContent)
+    search.value = ''
+    search.dispatchEvent(new Event('input'))
+    // A new catch counts.
+    pb.addCreature({ t: 'a', k: 'pig', r: 'common' })
+    out.pig = saved().book['a:pig']
+    // Milestone: catching 25% of the kinds pays once.
+    const coins0 = g.coins
+    const kinds = pb.bookKinds()
+    const d = g._creatures.loadCreatures()
+    for (const c of kinds.slice(0, Math.ceil(kinds.length / 4) + 1)) d.book[`${c.t}:${c.k || ''}`] = { n: 1, f: 1, lv: 1 }
+    g._creatures.saveCreatures(d)
+    pb.updateBook(g)
+    out.paid = g.coins - coins0
+    pb.updateBook(g)
+    out.paidAgain = g.coins - coins0
+    out.bp = saved().bp
+    pb.state.open = null
+    return out
+  })
+  expect(r.open).toBe(true)
+  expect(r.total).toBeGreaterThan(100)
+  expect(r.cards).toBe(r.total)
+  expect(r.unmet).toBe(r.total - 2)
+  // Old pets fill their pages: 2 cows (best level, earliest date, shiny), the mage.
+  expect(r.book['a:cow'].n).toBe(2)
+  expect(r.book['a:cow'].f).toBe(3000)
+  expect(r.book['a:cow'].lv).toBeGreaterThan(1)
+  expect(r.book['a:cow'].s).toBe(true)
+  expect(r.book['z:mage'].n).toBe(1)
+  expect(r.book['a:nope']).toBeUndefined()
+  expect(r.book['z:']).toBeUndefined()
+  expect(r.count).toContain(`2 of ${r.total}`)
+  expect(r.unmetPage).toContain('???')
+  expect(r.unmetPage).toContain('Where:')
+  expect(r.cowPage).toContain('Cow')
+  expect(r.cowPage).toContain('Caught 2')
+  expect(r.cowPage).toContain('Shiny caught')
+  // Same box height with or without a page open.
+  expect(r.pageH1).toBe(r.pageH2)
+  expect(r.skel).toBe(4)
+  expect(r.search).toEqual(['Cow'])
+  expect(r.pig.n).toBe(1)
+  expect(r.paid).toBe(150)
+  expect(r.paidAgain).toBe(150)
+  expect(r.bp).toEqual([25])
+})
