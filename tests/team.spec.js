@@ -1800,3 +1800,103 @@ test('collection book: old pets count, new catches, ??? pages, groups, search, m
   expect(r.paidAgain).toBe(150)
   expect(r.bp).toEqual([25])
 })
+
+test('weekly challenge: one rule a week, 5 bot battles in a row, prize + badge once', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    localStorage.setItem('gayz-creatures', JSON.stringify({ list: [{ id: 1, t: 'a', k: 'wolf', r: 'rare', at: 1, x: 900, sn: 'steak' }, { id: 2, t: 'z', k: null, r: 'common', n: 3, at: 1 }], team: [1, 2], wins: 0, losses: 0, nextId: 3 }))
+    localStorage.removeItem('gayz-weekly-challenge')
+    window.__game._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-pets').click()
+  })
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const W = g._weekly
+    const byId = (id) => document.getElementById(id)
+    const out = {}
+    // Ten weeks = all ten rules, then round again.
+    out.rules = new Set(Array.from({ length: 10 }, (_, i) => W.ruleOf(i).id)).size
+    out.wraps = W.ruleOf(3).id === W.ruleOf(13).id
+    const rule = (id) => W.RULES.find((x) => x.id === id)
+    // Rules on a team: copies, saved pets unchanged.
+    const lv1 = W.applyRule(rule('level1'), [{ id: 1, t: 'a', k: 'wolf', r: 'rare', x: 900 }])[0]
+    out.lv1 = [lv1.x, lv1.l, lv1.id]
+    const bare = W.applyRule(rule('bare'), [{ t: 'a', k: 'wolf', r: 'rare', sn: 'steak', hi: 'fang' }])[0]
+    out.bare = [bare.sn, bare.hi]
+    out.common = W.applyRule(rule('common'), [{ t: 'a', k: 'wolf', r: 'mythic' }])[0].r
+    // No dinos owned: 5 loaners. Lucky Dip: the same team all week.
+    const dino = W.weeklyTeam(rule('dino'), 100)
+    out.loaners = [dino.length, dino.every((c) => c.loan && c.l === 1)]
+    out.dip = JSON.stringify(W.weeklyTeam(rule('random'), 100)) === JSON.stringify(W.weeklyTeam(rule('random'), 100))
+    out.trio = W.weeklyTeam(rule('trio'), 100).length
+    // Bots follow the rule and land near the power asked for.
+    const foe = W.foeTeam(rule('level1'), 100, 2, 400, 5)
+    out.foeLv1 = foe.every((c) => c.l === 1)
+    const foe2 = W.foeTeam(rule('skeleton'), 100, 4, 600, 5)
+    out.foeNear = Math.abs(W.power(foe2) / 600 - 1) < 0.35
+    out.foeSkel = foe2.every((c) => c.t === 'z')
+    // The Pets tab section.
+    out.title = byId('weekly-challenge').querySelector('h3').textContent
+    out.dots = document.querySelectorAll('.weekly-dot').length
+    out.btn = byId('weekly-btn').textContent
+    // Lose: 5 coins, still battle 1.
+    let coins = g.coins
+    byId('weekly-btn').click()
+    out.foe = document.querySelector('#team-battle .tb-foe-name').textContent
+    g._teamBattle._finish(false)
+    out.lostCoins = g.coins - coins
+    document.querySelector('#team-battle .tb-back').click()
+    out.afterLoss = W.loadWeekly().step
+    // Win all 5 (the Next battle button each time).
+    coins = g.coins
+    const items = () => Object.values(JSON.parse(localStorage.getItem('gayz-creatures')).items || {}).reduce((a, b) => a + b, 0)
+    const before = items()
+    byId('weekly-btn').click()
+    for (let i = 0; i < 5; i++) {
+      g._teamBattle._finish(true)
+      const again = document.querySelector('#team-battle .tb-again')
+      if (i < 4) {
+        if (i === 0) out.nextBtn = again.textContent
+        again.click()
+      } else out.lastAgain = again ? getComputedStyle(again).display : 'none'
+    }
+    document.querySelector('#team-battle .tb-back').click()
+    out.wonCoins = g.coins - coins
+    out.itemGot = items() - before
+    const d = W.loadWeekly()
+    out.step = d.step
+    out.badges = d.badges.length
+    out.badgeShown = document.querySelectorAll('.weekly-badge').length
+    out.doneBtn = byId('weekly-btn').disabled
+    // Saved pets untouched by the rules.
+    out.wolf = JSON.parse(localStorage.getItem('gayz-creatures')).list[0].x >= 900
+    return out
+  })
+  expect(r.rules).toBe(10)
+  expect(r.wraps).toBe(true)
+  expect(r.lv1).toEqual([undefined, 1, 1])
+  expect(r.bare).toEqual([undefined, undefined])
+  expect(r.common).toBe('common')
+  expect(r.loaners).toEqual([5, true])
+  expect(r.dip).toBe(true)
+  expect(r.trio).toBe(2)
+  expect(r.foeLv1).toBe(true)
+  expect(r.foeNear).toBe(true)
+  expect(r.foeSkel).toBe(true)
+  expect(r.title).toContain('Weekly Challenge')
+  expect(r.dots).toBe(5)
+  expect(r.btn).toContain('1/5')
+  expect(r.foe).toContain('1/5')
+  expect(r.lostCoins).toBe(5)
+  expect(r.afterLoss).toBe(0)
+  expect(r.nextBtn).toBe('Next battle')
+  expect(r.lastAgain).toBe('none')
+  expect(r.wonCoins).toBe(25 * 5 + 500)
+  expect(r.itemGot).toBe(1)
+  expect(r.step).toBe(5)
+  expect(r.badges).toBe(1)
+  expect(r.badgeShown).toBe(1)
+  expect(r.doneBtn).toBe(true)
+  expect(r.wolf).toBe(true)
+})

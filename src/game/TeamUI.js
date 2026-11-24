@@ -20,6 +20,7 @@ import * as PetEggs from './PetEggs.js'
 import * as PetShop from './PetShop.js'
 import { renderFriendBattle, bindFriendBattle } from './FriendBattle.js'
 import { bindReplays, renderReplays } from './PetReplays.js'
+import * as Weekly from './WeeklyChallenge.js'
 import { bindPetBook, renderPetBook, updateBook, bookTest } from './PetBook.js'
 import * as ReplayStore from './ReplayStore.js'
 import { bindReorder } from './Reorder.js'
@@ -320,6 +321,8 @@ export function renderTeamPanel(game) {
   renderTournament(game)
   // Pack Leaders (PackLeaders.js).
   renderLeaders()
+  // The Weekly Challenge (WeeklyChallenge.js).
+  Weekly.renderWeekly()
   // The Gauntlet (Gauntlet.js).
   Gauntlet.renderGauntlet(game)
   // The daily Pet Shop (PetShop.js).
@@ -465,6 +468,7 @@ export function bindTeamUI(game) {
   game._packLeaders = { ...PackLeaders, power }
   game._gauntlet = { ...Gauntlet, power }
   game._petShop = PetShop
+  game._weekly = { ...Weekly, power }
   bindFriendBattle(game)
   // Replays (PetReplays.js, Batch J): a replay is the battle that's up.
   TeamBattle.track = (b) => { game._teamBattle = b }
@@ -549,6 +553,10 @@ export function bindTeamUI(game) {
   })
   byId('team-battle-btn')?.addEventListener('click', () => startTeamBattle(game))
   byId('tourney-btn')?.addEventListener('click', () => playTournament(game, renderTeamPanel))
+  // Weekly Challenge: the section is redrawn, so listen on the box.
+  byId('weekly-challenge')?.addEventListener('click', (e) => {
+    if (e.target.closest('#weekly-btn')) Weekly.startWeekly(game)
+  })
   byId('leaders-btn')?.addEventListener('click', () => {
     const n = nextLeader()
     if (n >= 0) startLeaderBattle(game, n)
