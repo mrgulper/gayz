@@ -199,30 +199,27 @@ class AudioEngine {
     this.zombieGain.gain.value = this.zombieVolume
     this.zombieGain.connect(this.sfxGain)
     this._preloadSfx()
-    this._loadWeatherSounds()
   }
 
-  // Same fetch+decodeAudioData pattern as _loadZombieSounds. Kicked off here
-  // (well before startAmbient/setWeatherAudio ever run) so the buffers are
-  // usually already decoded by the time a rainy/snowy night actually rolls;
-  // startAmbient wires up the gain nodes immediately regardless and
-  // _startWeatherSource (called from both startAmbient and, if it missed
-  // the buffer, setWeatherAudio) attaches the real source whenever the
-  // buffer becomes available.
-  _loadWeatherSounds() {
+  // Fetches and decodes one weather loop ('rain' or 'snow') the first time
+  // that weather starts (2026-11-24, memory: the 45 s rain loop alone is
+  // ~8 MB once decoded, so it no longer loads at startup when it may never
+  // rain). It fades in over setWeatherAudio's ramp; _startWeatherSource
+  // attaches it as soon as it's decoded.
+  _loadWeather(kind) {
     // Data Saver (Settings idea 76): no weather files - rain and snow keep
     // the built-in soft noise.
-    if (this.dataSaver) return
-    fetch(RAIN_AMBIENCE_URL)
-      .then((res) => res.arrayBuffer())
+    if (this.dataSaver || !this.ctx || this._weatherLoading?.[kind]) return
+    this._weatherLoading = { ...this._weatherLoading, [kind]: true }
+    fetch(kind === 'rain' ? RAIN_AMBIENCE_URL : SNOW_AMBIENCE_URL)
+      .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error('no file'))))
       .then((data) => this.ctx.decodeAudioData(data))
-      .then((buffer) => { this._rainBuffer = buffer; this._startWeatherSource('rain') })
-      .catch(() => {})
-    fetch(SNOW_AMBIENCE_URL)
-      .then((res) => res.arrayBuffer())
-      .then((data) => this.ctx.decodeAudioData(data))
-      .then((buffer) => { this._snowBuffer = buffer; this._startWeatherSource('snow') })
-      .catch(() => {})
+      .then((buffer) => {
+        if (kind === 'rain') this._rainBuffer = buffer
+        else this._snowBuffer = buffer
+        this._startWeatherSource(kind)
+      })
+      .catch(() => { this._weatherLoading[kind] = false })
   }
 
   _preloadSfx() {
@@ -1172,7 +1169,7 @@ class AudioEngine {
     // unconditionally, so setWeatherAudio always has something to ramp;
     // the real BufferSource gets attached to each whenever its buffer
     // finishes decoding (_startWeatherSource, called from both
-    // _loadWeatherSounds and here in case it's already decoded by now).
+    // _loadWeather and here in case it's already decoded by now).
     const rainGain = ctx.createGain()
     rainGain.gain.value = 0
     rainGain.connect(this.ambientGain)
@@ -1231,6 +1228,8 @@ class AudioEngine {
   // eases from one strength to the next (2026-10-30), over `ramp` seconds.
   setWeatherAudio(raining, snowing, ramp = 2) {
     if (!this.ctx || !this._rainGainNode || !this.sfxGain) return
+    if (Number(raining) > 0) this._loadWeather('rain')
+    if (Number(snowing) > 0) this._loadWeather('snow')
     const now = this.ctx.currentTime
     const targetRainGain = 0.4 * Math.min(1, Number(raining) || 0)
     this._rainGainNode.gain.cancelScheduledValues(now)

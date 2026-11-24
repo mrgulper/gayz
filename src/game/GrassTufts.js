@@ -172,7 +172,7 @@ export class GrassTufts {
     if (this._row >= SPAN) {
       if (this._row === SPAN && this._scanned) this._place()
       // As far as the land is drawn (View Distance, the open world's edge).
-      const view = bm.world?.active ? Math.min(bm.viewDistance(), bm.world.radius() - 8) : bm.viewDistance?.() ?? MAX_RADIUS
+      const view = bm.world?.active && !bm.inArena?.() ? Math.min(bm.viewDistance(), bm.world.radius() - 8) : bm.viewDistance?.() ?? MAX_RADIUS
       RADIUS = this._radius = Math.max(NEAR, Math.min(MAX_RADIUS, Math.round(view)))
       SPAN = RADIUS * 2 + 1
       const p = bm.camera.position
