@@ -348,18 +348,20 @@ class BuildSaves {
   _snapshot({ skipPlay = false } = {}) {
     const blocks = []
     const play = skipPlay && this.survival?.active ? this.survival._placed : null
-    for (const [key, type] of this._blocks) {
-      if (play?.get(key) === type) continue
+    const land = this._blocks.land
+    this._blocks.forEachCell((x, y, z, type) => {
+      // Not the open world's land (it grows back from its seed).
+      if (land.hasAt(x, y, z)) return
+      const key = `${x},${y},${z}`
+      if (play?.get(key) === type) return
       const shape = BLOCK_BY_ID.get(type)?.shape
       // A door's top half is rebuilt from its bottom half on load, and
       // flowing water/lava from its sources.
-      // Neither is the open world's land (it grows back from its seed).
-      if (shape === 'doortop' || this.liquids.isFlow(key) || this.world.isTerrain(key)) continue
-      const [x, y, z] = key.split(',').map(Number)
+      if (shape === 'doortop' || this.liquids.isFlow(key)) return
       const door = shape === 'door' && this._doorState.get(key)
       const faced = FACED_SHAPES.has(shape) && this._stairFacing.has(key) && this.gadgets.stateOf(key)
       blocks.push(door ? { x, y, z, type, facing: door.facing, open: door.open } : faced && (faced.facing || faced.open || faced.text) ? { x, y, z, type, ...faced } : { x, y, z, type })
-    }
+    })
     // Windows shot out and blocks broken while trying the map are only
     // gone for that try - saves and exports still have them.
     for (const b of this.tryMode?.brokenWindows() || []) {
@@ -552,7 +554,7 @@ class BuildSaves {
     this._stairFacing.clear()
     this.gadgets.clear()
     this.specials.clear()
-    this._chunkCells.clear()
+    // (_chunkCells is a view of _blocks, emptied above.)
     this._chunks.clear()
     this._shadowsDirty = true
     this._undoStack.length = 0

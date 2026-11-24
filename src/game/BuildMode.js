@@ -12,6 +12,7 @@ import * as THREE from 'three'
 import { grassOn, drawZombieOutlines } from './GraphicsSettings.js'
 import { setHomePaused } from './LiteHome.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
+import { BlockMap } from './BlockMap.js'
 import { setTextureDetail } from './BlockTextures.js'
 import { graphicsLook } from './GraphicsLevels.js'
 import { GrassTufts } from './GrassTufts.js'
@@ -229,53 +230,6 @@ function _blockCategory(bt) {
   return 'stone'
 }
 
-
-// Every placed block, "x,y,z" -> type id - plus the same blocks under a
-// number made from x, y and z (2026-10-17 lag hunt). Looking a block up by
-// its "x,y,z" text built a new string every time, and zombie pathfinding
-// and chunk meshing do that hundreds of thousands of times a second (the
-// biggest game-code cost walking into new land or in a big wave, plus the
-// garbage it left). Use at(x, y, z) for lookups; the text keys stay for
-// everything else (saves, chunk cell sets, undo).
-const CELL_SPAN = 2 ** 21
-const CELL_HALF = 2 ** 20
-function cellNumber(x, y, z) {
-  return ((x + CELL_HALF) * CELL_SPAN + (z + CELL_HALF)) * 1024 + (y + 512)
-}
-function cellNumberOfKey(key) {
-  const a = key.indexOf(','), b = key.indexOf(',', a + 1)
-  return cellNumber(+key.slice(0, a), +key.slice(a + 1, b), +key.slice(b + 1))
-}
-export class BlockMap extends Map {
-  constructor() {
-    super()
-    this._byNumber = new Map()
-  }
-  set(key, type) {
-    super.set(key, type)
-    this._byNumber.set(cellNumberOfKey(key), type)
-    return this
-  }
-  // set() when x, y, z are already known (skips reading them back out of the key).
-  setAt(key, x, y, z, type) {
-    super.set(key, type)
-    this._byNumber.set(cellNumber(x, y, z), type)
-  }
-  delete(key) {
-    if (!super.delete(key)) return false
-    this._byNumber.delete(cellNumberOfKey(key))
-    return true
-  }
-  clear() {
-    super.clear()
-    this._byNumber.clear()
-  }
-  at(x, y, z) {
-    // Whole numbers only - anything else can't be a block cell.
-    if ((x | 0) !== x || (y | 0) !== y || (z | 0) !== z) return undefined
-    return this._byNumber.get(cellNumber(x, y, z))
-  }
-}
 
 export class BuildMode {
   // Read by tests/docs.spec.js, which presses every listed key for real.
@@ -521,7 +475,10 @@ export class BuildMode {
       getType: (x, y, z) => this._blocks.at(x, y, z),
       liquidHeight: (x, y, z) => this.liquids.heightAt(x, y, z),
     })
-    this._chunkCells = new Map() // "cx,cy,cz" -> Set of "x,y,z" cube cells in that chunk
+    // "cx,cy,cz" -> that chunk's cube cells: a read-only view of _blocks
+    // (BlockMap.js keeps them in one array per chunk).
+    this._blocks.setCubeTest((type) => this._chunks.isChunkType(type))
+    this._chunkCells = this._blocks.cells
     this._instancedMeshes = {}
     this._instanceKeyByIndex = {} // type id -> array mapping instance index -> "x,y,z" key, for swap-remove
     const blockGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
@@ -1252,27 +1209,21 @@ export class BuildMode {
   // The open world's land (OpenWorld.js): plain chunk blocks put straight
   // in, with no undo, liquid flow, lights or ladder checks - its chunks
   // are rebuilt a few at a time (BlockChunks.markLazy).
+  // (key isn't read - x, y, z are the cell.)
   _setTerrainBlock(key, x, y, z, type) {
     this._blocks.setAt(key, x, y, z, type)
-    const ck = this._chunkKeyOf(x, y, z)
-    let cells = this._chunkCells.get(ck)
-    if (!cells) this._chunkCells.set(ck, (cells = new Set()))
-    cells.add(key)
   }
 
   _dropTerrainBlock(key) {
-    if (!this._blocks.delete(key)) return
     const [x, y, z] = key.split(',').map(Number)
+    this._dropTerrainAt(x, y, z)
+  }
+
+  _dropTerrainAt(x, y, z) {
+    if (!this._blocks.deleteAt(x, y, z)) return
     const ck = this._chunkKeyOf(x, y, z)
-    const cells = this._chunkCells.get(ck)
-    if (!cells) return
-    cells.delete(key)
-    if (cells.size === 0) {
-      this._chunkCells.delete(ck)
-      this._chunks.dropChunk(ck)
-    } else {
-      this._chunks.markLazy(ck)
-    }
+    if (this._chunkCells.has(ck)) this._chunks.markLazy(ck)
+    else this._chunks.dropChunk(ck)
   }
 
   _placeBlockInner(x, y, z, type, skipBoundsUpdate = false, state = null) {
@@ -1296,10 +1247,6 @@ export class BuildMode {
     if (this._chunks.isChunkType(type)) {
       if (!skipBoundsUpdate && !this._suppressUndoRecording) this._recordUndo({ action: 'place', x, y, z, type })
       this._blocks.setAt(key, x, y, z, type)
-      const ck = this._chunkKeyOf(x, y, z)
-      let cells = this._chunkCells.get(ck)
-      if (!cells) this._chunkCells.set(ck, (cells = new Set()))
-      cells.add(key)
       this._chunks.markDirty(x, y, z)
       this._attachBlockLight(key, x, y, z, type)
       if (!skipBoundsUpdate) this._refreshLaddersAround(x, y, z)
@@ -1542,7 +1489,6 @@ export class BuildMode {
     }
     if (this._chunks.isChunkType(type)) {
       this._blocks.delete(key)
-      this._chunkCells.get(this._chunkKeyOf(x, y, z))?.delete(key)
       this._chunks.markDirty(x, y, z)
       this._releaseBlockLight(key)
       this._refreshLaddersAround(x, y, z)

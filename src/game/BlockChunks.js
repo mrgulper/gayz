@@ -1180,8 +1180,8 @@ export class BlockChunks {
     this.chunks.delete(key)
   }
 
-  // cells: Set of "x,y,z" keys inside this chunk (BuildMode's
-  // _chunkCells).
+  // cells: this chunk's cube cells (BuildMode's _chunkCells view, or a
+  // Set of "x,y,z" keys).
   _build(key, cells) {
     this._disposeChunk(key)
     if (!cells || cells.size === 0) return
@@ -1253,9 +1253,22 @@ export class BlockChunks {
     // of the top rises in gentle lumps (see _lumpyTop).
     const cornerH = () => 1
     const stoneUv = this.info.get('cobblestone')?.uvs[2] || this.info.get('stone')?.uvs[2]
-    for (const cell of cells) {
-      const c1 = cell.indexOf(','), c2 = cell.indexOf(',', c1 + 1)
-      const x = +cell.slice(0, c1), y = +cell.slice(c1 + 1, c2), z = +cell.slice(c2 + 1)
+    // The chunk's cells as x, y, z numbers (BlockMap's ChunkCells.coords;
+    // a plain Set of "x,y,z" keys still works).
+    const xyz = this._xyz || (this._xyz = new Int32Array(CHUNK * CHUNK * CHUNK * 3))
+    let cellCount = 0
+    if (cells.coords) cellCount = cells.coords(xyz)
+    else {
+      for (const cell of cells) {
+        const c1 = cell.indexOf(','), c2 = cell.indexOf(',', c1 + 1)
+        xyz[cellCount * 3] = +cell.slice(0, c1)
+        xyz[cellCount * 3 + 1] = +cell.slice(c1 + 1, c2)
+        xyz[cellCount * 3 + 2] = +cell.slice(c2 + 1)
+        if (++cellCount >= CHUNK * CHUNK * CHUNK) break
+      }
+    }
+    for (let q = 0; q < cellCount; q++) {
+      const x = xyz[q * 3], y = xyz[q * 3 + 1], z = xyz[q * 3 + 2]
       const type = typeAt(x, y, z)
       const info = type && this.info.get(type)
       if (!info) continue
