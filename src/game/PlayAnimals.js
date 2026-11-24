@@ -18,7 +18,8 @@
 // (_hunt), and none can be tamed.
 // Zombies leave animals alone. Blocky models made from boxes, sizes like
 // the real animals (smaller than a player). Meshes only, never a light;
-// geometries and materials are shared per kind and never flashed.
+// geometries and materials are shared per kind and never flashed, and
+// freed when the last animal of a kind goes (_freeKindParts).
 //
 // On a server (2026-10-26, "they didn't see the same thing I had on my
 // screen") the host runs the animals for everyone - spawning them around
@@ -508,11 +509,17 @@ function snoutTexture(k) {
 const TAG_W = 256
 const TAG_H = 80
 const _tagCache = new Map()
+function tagKey(kind) {
+  const name = t(nameKey(kind))
+  const tier = animalRarity(kind)
+  const label = t(`rarity${tier[0].toUpperCase()}${tier.slice(1)}`)
+  return `${name}|${label}|${tier}`
+}
 function tagMaterial(kind) {
   const name = t(nameKey(kind))
   const tier = animalRarity(kind)
   const label = t(`rarity${tier[0].toUpperCase()}${tier.slice(1)}`)
-  const key = `${name}|${label}|${tier}`
+  const key = tagKey(kind)
   if (_tagCache.has(key)) return _tagCache.get(key)
   const c = document.createElement('canvas')
   c.width = TAG_W
@@ -625,8 +632,36 @@ export class PlayAnimals {
         return { geo: box(...e.size), mat: e.color === 'body' ? bodyMat : colorMats.get(e.color) }
       }),
     }
+    p.key = key
+    p.tagKey = tagKey(kind)
     this._parts[key] = p
     return p
+  }
+
+  // Frees one kind's shared boxes, colours, fur pictures and name tag once
+  // the last animal of that kind has gone (2026-11-24, memory batch: on a
+  // long ride every kind ever seen stayed in memory - 420 kinds left about
+  // 2,700 shapes and pictures behind). The next one of that kind just makes
+  // them again.
+  _freeKindParts(p) {
+    if (this._parts[p.key] !== p) return
+    delete this._parts[p.key]
+    const geos = new Set()
+    const mats = new Set()
+    for (const v of Object.values(p)) {
+      if (v?.isBufferGeometry) geos.add(v)
+      else if (v?.isMaterial) mats.add(v)
+      else if (Array.isArray(v)) for (const m of v) if (m?.isMaterial) mats.add(m)
+    }
+    for (const e of p.extras) { geos.add(e.geo); mats.add(e.mat) }
+    for (const g of geos) g.dispose()
+    for (const m of mats) { m.map?.dispose(); m.dispose() }
+    const tag = _tagCache.get(p.tagKey)
+    if (tag) {
+      _tagCache.delete(p.tagKey)
+      tag.map.dispose()
+      tag.dispose()
+    }
   }
 
   _build(kind) {
@@ -698,7 +733,7 @@ export class PlayAnimals {
     tag.position.y = (top + 0.25) * B
     tag.renderOrder = 5
     group.add(tag)
-    return { group, head, legs, collar, tag }
+    return { group, head, legs, collar, tag, parts: p }
   }
 
   // Keeps every name tag readable: same size on screen beyond TAG_NEAR,
@@ -1038,6 +1073,7 @@ export class PlayAnimals {
     a.group.removeFromParent()
     const i = this.list.indexOf(a)
     if (i >= 0) this.list.splice(i, 1)
+    if (a.parts && !this.list.some((b) => b.parts === a.parts)) this._freeKindParts(a.parts)
   }
 
   // --- shots, throws and taming ---
