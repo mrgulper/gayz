@@ -178,8 +178,19 @@ first, online (Firestore) last.
   NOT pasted yet (one paste at the end of round 4); until then live
   cheers say "couldn't reach your friend". Privacy line added.
   Test: team.spec "cheer".
-- [ ] **Batch I - After-battle stats.** Damage / healing per pet + a
-  "best pet" award on the result screen.
+- [x] **Batch I - After-battle stats** (shipped 2026-11-24). Gaymi picked:
+  damage / healing / taken / knockouts, both teams, points-mix Best Pet,
+  always shown. TeamBattle.js: every fighter has st { dmg, heal, took, ko }
+  (a Last Groan mini shares its maker's st). Damage = only what really came
+  off (capped at health left), incl. Spiked Collar hit-backs; lava = taken
+  only. _heal(o, add, by) counts only real health back, credited to the
+  healer (Heal Friends, Last Gift) or itself (cheer, charm, tooth, Second
+  Wind, flowers; Bandage / Totem count the health they get back up with).
+  _down(f, by) gives by a KO (not for lava, not if Bandage/Totem saved it).
+  Best Pet score = dmg + heal + KOs x 25% of the average pet's health
+  (KO_SCORE, a guess); can be on either team ("(their team)" then).
+  _renderStats -> .tb-stats under the XP news (table scrolls past 34vh).
+  Test: team.spec "after-battle stats".
 - [ ] **Batch J - Replays.** Watch the last battle again, save good ones
   (battles can be played back from the same seed, like live friend battles).
 - [ ] **Batch K - Collection book.** A page per creature kind; caught =

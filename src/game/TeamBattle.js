@@ -85,6 +85,7 @@ const MEND_SHARE = 0.15 // Last Gift: every friend heals this share
 // All numbers are a guess.
 export const CHEER_FILL = 0.3 // full after the team loses this share of its total health
 export const CHEER_S = 5 // Attack and Speed cheers last this long
+const KO_SCORE = 0.25 // Best Pet: a knockout counts as 25% of an average pet's health (a guess)
 export const CHEERS = { atk: { n: 30 }, heal: { n: 20 }, speed: { n: 40 } } // +% attack, % health back, +% speed
 export const CHEER_IDS = Object.keys(CHEERS)
 // In a friend battle a cheer is sent ahead and lands this many fixed steps
@@ -588,6 +589,7 @@ export class TeamBattle {
           <h2 class="tb-result-title"></h2>
           <p class="tb-result-text"></p>
           <ul class="tb-result-news"></ul>
+          <div class="tb-stats"></div>
           <div class="tb-result-btns">
             <button type="button" class="tb-again"></button>
             <button type="button" class="tb-back"></button>
@@ -768,6 +770,8 @@ export class TeamBattle {
       // Arena hazards (Batch E): burn / heal timers, a bounce's air time.
       flies: flies(c), lavaCd: 0, flowerCd: FLOWER_TICK, bounceCd: 0, air: 0,
       reach: power === 'bones' && !opts.noPowers ? BONE_REACH : s.reach,
+      // After-battle stats (Batch I): a mini zombie adds to its maker's.
+      st: opts.st || { dmg: 0, heal: 0, took: 0, ko: 0 },
       // The 3D model, ring and height are made by _build3d() when first needed.
       group: null, height: 2,
     }
@@ -997,7 +1001,7 @@ export class TeamBattle {
       if (!f.alive || f.side !== side) continue
       if (kind === 'heal') {
         const add = Math.max(1, Math.round(f.s.hp * CHEERS.heal.n / 100))
-        f.hp = Math.min(f.s.hp, f.hp + add)
+        this._heal(f, add)
         this._number(f, `+${add}`, 'heal')
       } else {
         f.cheer = kind
@@ -1112,6 +1116,8 @@ export class TeamBattle {
       return
     }
     this._fill(to.side, Math.min(dmg, to.hp))
+    from.st.dmg += Math.min(dmg, to.hp)
+    to.st.took += Math.min(dmg, to.hp)
     to.hp = Math.max(0, to.hp - dmg)
     const dx = to.x - from.x
     const dz = to.z - from.z
@@ -1133,11 +1139,11 @@ export class TeamBattle {
     if (to.alive && to.trig === 'second' && !to.winded && to.hp > 0 && to.hp < to.s.hp * SECOND_AT) {
       to.winded = true
       const add = Math.round(to.s.hp * SECOND_HEAL)
-      to.hp = Math.min(to.s.hp, to.hp + add)
+      this._heal(to, add)
       this._trigText(to)
       this._number(to, `+${add}`, 'heal')
     }
-    if (to.hp <= 0) this._down(to)
+    if (to.hp <= 0) this._down(to, from)
     this._itemsAfterHit(from, to, dmg)
     // Stomp: every few hits shakes everyone near the one it hit.
     if (from.power === 'stomp' && mult === 1 && from.hits % STOMP_EVERY === 0) {
@@ -1152,7 +1158,7 @@ export class TeamBattle {
     // Vampire Tooth: heals some of what it did.
     if (from.item === 'tooth' && from.alive && from.hp < from.s.hp) {
       const add = Math.max(1, Math.round(dmg * ITEMS.tooth.n / 100))
-      from.hp = Math.min(from.s.hp, from.hp + add)
+      this._heal(from, add)
       this._number(from, `+${add}`, 'heal')
     }
     // Stun Horn: its first hit stuns.
@@ -1167,16 +1173,27 @@ export class TeamBattle {
     if (to.item === 'collar' && from.alive && from !== to) {
       const back = Math.max(1, Math.round(dmg * ITEMS.collar.n / 100))
       this._fill(from.side, Math.min(back, from.hp))
+      to.st.dmg += Math.min(back, from.hp)
+      from.st.took += Math.min(back, from.hp)
       from.hp = Math.max(0, from.hp - back)
       this._number(from, back, '')
-      if (from.hp <= 0) this._down(from)
+      if (from.hp <= 0) this._down(from, to)
     }
   }
 
-  _down(f) {
+  // Health back for o, counted as healing done by by (only what it really got).
+  _heal(o, add, by = o) {
+    const gain = Math.max(0, Math.min(add, o.s.hp - o.hp))
+    o.hp += gain
+    by.st.heal += gain
+  }
+
+  // by: who knocked it out (none for lava).
+  _down(f, by) {
     // Bandage: gets back up once.
     if (f.snack === 'bandage' && !this.over) {
       f.hp = Math.max(1, Math.round(f.s.hp * SNACKS.bandage.n / 100))
+      f.st.heal += f.hp
       this._snackUsed(f)
       this._number(f, `+${f.hp}`, 'heal')
       this._renderCards()
@@ -1186,12 +1203,14 @@ export class TeamBattle {
     if (f.item === 'totem' && !f.itemUsed && !this.over) {
       f.itemUsed = true
       f.hp = Math.max(1, Math.round(f.s.hp * ITEMS.totem.n / 100))
+      f.st.heal += f.hp
       this._itemText(f)
       this._number(f, `+${f.hp}`, 'heal')
       this._renderCards()
       return
     }
     f.alive = false
+    if (by && by.side !== f.side) by.st.ko++
     f.fall = FALL_S
     if (f.ring) f.ring.visible = false
     f.label.style.display = 'none'
@@ -1252,7 +1271,7 @@ export class TeamBattle {
       this._trigText(f)
       const c = { t: 'z', k: f.c.k, r: 'common', n: f.c.n, b: false }
       const s = { ...f.s, hp: Math.max(1, Math.round(f.s.hp * GROAN_SHARE)), atk: Math.max(1, Math.round(f.s.atk * GROAN_SHARE)) }
-      const mini = this._fighter(c, f.side, 0, 1, { s, mini: true, noPowers: true })
+      const mini = this._fighter(c, f.side, 0, 1, { s, mini: true, noPowers: true, st: f.st })
       mini.x = f.x
       mini.z = f.z
       mini.heading = f.heading
@@ -1275,7 +1294,7 @@ export class TeamBattle {
       this._trigText(f)
       for (const o of friends) {
         const add = Math.max(1, Math.round(o.s.hp * MEND_SHARE))
-        o.hp = Math.min(o.s.hp, o.hp + add)
+        this._heal(o, add, f)
         this._number(o, `+${add}`, 'heal')
       }
     }
@@ -1350,7 +1369,7 @@ export class TeamBattle {
         f.charmCd = CHARM_EVERY
         if (f.hp < f.s.hp) {
           const add = Math.max(1, Math.round(f.s.hp * ITEMS.charm.n / 100))
-          f.hp = Math.min(f.s.hp, f.hp + add)
+          this._heal(f, add)
           this._number(f, `+${add}`, 'heal')
           this._renderCards()
         }
@@ -1364,7 +1383,7 @@ export class TeamBattle {
             const hurt = this.fighters.filter((o) => o.alive && o.side === f.side && o.hp < o.s.hp).sort((a, b) => a.hp / a.s.hp - b.hp / b.s.hp)[0]
             if (hurt) {
               const add = Math.max(1, Math.round(hurt.s.hp * HEAL_SHARE))
-              hurt.hp = Math.min(hurt.s.hp, hurt.hp + add)
+              this._heal(hurt, add, f)
               this._number(hurt, `+${add}`, 'heal')
               this._renderCards()
             }
@@ -1456,6 +1475,7 @@ export class TeamBattle {
       f.lavaCd = LAVA_TICK
       const dmg = Math.max(1, Math.round((f.s.hp * HAZARDS.lava.n * LAVA_TICK) / 100))
       this._fill(f.side, Math.min(dmg, f.hp))
+      f.st.took += Math.min(dmg, f.hp)
       f.hp = Math.max(0, f.hp - dmg)
       f.flash = 0.12
       if (f.mats) for (const mat of f.mats) if (mat.emissive) mat.emissive.setHex(0x663300)
@@ -1466,7 +1486,7 @@ export class TeamBattle {
       f.flowerCd = FLOWER_TICK
       if (f.hp < f.s.hp) {
         const add = Math.max(1, Math.round((f.s.hp * HAZARDS.flowers.n) / 100))
-        f.hp = Math.min(f.s.hp, f.hp + add)
+        this._heal(f, add)
         this._number(f, `+${add}`, 'heal')
         this._renderCards()
       }
@@ -1651,6 +1671,7 @@ export class TeamBattle {
       return t('teamEvolved', { name, rarity: rarityName(e.n) })
     })].map((line, i) => `<li${i ? ' class="tb-news-big"' : ''}>${esc(line)}</li>`).join('')
     if (found) news.insertAdjacentHTML('afterbegin', `<li class="tb-news-big tb-news-item">${itemImg(found, 'tb-news-icon')} ${esc(t('itemFound', { name: itemName(found) }))}</li>`)
+    this._renderStats()
     // againKey returning false: no again button (a Pack Leader beaten in a game).
     const again = this.againKey?.(won)
     box.querySelector('.tb-again').style.display = again === false ? 'none' : ''
@@ -1658,6 +1679,29 @@ export class TeamBattle {
     box.querySelector('.tb-back').textContent = t('teamBattleBack')
     box.style.display = 'flex'
     if (won) audioEngine.playLevelUp?.()
+  }
+
+  // After-battle stats (Batch I): both teams' pets (mine first), with a
+  // Best Pet award for the top score = damage + healing + a knockout bonus.
+  _renderStats() {
+    const el = this.root.querySelector('.tb-stats')
+    const pets = this.fighters.filter((f) => !f.mini)
+    if (!el || !pets.length) return
+    const avgHp = pets.reduce((sum, f) => sum + f.s.hp, 0) / pets.length
+    const score = (f) => f.st.dmg + f.st.heal + f.st.ko * avgHp * KO_SCORE
+    const best = pets.reduce((a, b) => (score(b) > score(a) ? b : a))
+    const row = (f) => `<tr class="${f === best ? 'tb-stats-best' : ''}${f.alive ? '' : ' down'}">
+      <td class="tb-stats-pet"><img src="${creatureIconURL(f.c)}" alt="" draggable="false" /><span style="color: ${tierColor(f.c.r)}">${f === best ? '★ ' : ''}${esc(creatureName(f.c))}</span></td>
+      <td>${Math.round(f.st.dmg)}</td><td>${Math.round(f.st.heal)}</td><td>${Math.round(f.st.took)}</td><td>${f.st.ko}</td></tr>`
+    const team = (side) => {
+      const list = pets.filter((f) => this._seen(f.side) === side)
+      return list.length ? `<tr class="tb-stats-team"><th colspan="5">${esc(t(side === 'mine' ? 'statsYourTeam' : 'statsTheirTeam'))}</th></tr>${list.map(row).join('')}` : ''
+    }
+    el.innerHTML = `<p class="tb-stats-award">★ ${esc(t(this._seen(best.side) === 'mine' ? 'statsBestPet' : 'statsBestPetFoe', { name: creatureName(best.c) }))}</p>
+      <div class="tb-stats-scroll"><table class="tb-stats-table">
+        <thead><tr><th></th><th>${esc(t('statsDmg'))}</th><th>${esc(t('statsHeal'))}</th><th>${esc(t('statsTook'))}</th><th>${esc(t('statsKo'))}</th></tr></thead>
+        <tbody>${team('mine')}${team('foe')}</tbody>
+      </table></div>`
   }
 
   // Left before the end: no win, no loss.

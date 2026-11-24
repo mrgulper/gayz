@@ -1377,3 +1377,55 @@ html.ui-theme-old .team-egg-bar {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* After-battle stats (Batch I). */
+.tb-stats-award {
+  margin: 0 0 6px;
+  color: var(--menu-gold, #ffd84a);
+  font-weight: 700;
+}
+.tb-stats-scroll {
+  max-height: 34vh;
+  overflow-y: auto;
+  margin: 0 0 10px;
+}
+.tb-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.tb-stats-table th,
+.tb-stats-table td {
+  padding: 2px 6px;
+  text-align: right;
+}
+.tb-stats-table thead th {
+  opacity: 0.75;
+  font-weight: 600;
+}
+.tb-stats-table .tb-stats-team th {
+  text-align: left;
+  padding-top: 6px;
+  opacity: 0.75;
+  font-weight: 600;
+}
+.tb-stats-table .tb-stats-pet {
+  text-align: left;
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tb-stats-pet img {
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+.tb-stats-table tr.down td {
+  opacity: 0.6;
+}
+.tb-stats-table tr.tb-stats-best td {
+  background: rgba(255, 216, 74, 0.14);
+  opacity: 1;
+}

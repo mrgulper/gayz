@@ -1547,3 +1547,54 @@ test('cheer: meter fills from hits, three picks, bots cheer, friend battles land
   expect(r.liveCheered).toBe(true)
   expect(r.failKeeps).toBe(true)
 })
+
+test('after-battle stats: damage, healing, taken, knockouts per pet + Best Pet award', async ({ page }) => {
+  test.setTimeout(120000)
+  await page.setViewportSize({ width: 1400, height: 900 })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(() => {
+    const FB = window.__game._friendBattle
+    const TB = FB.TeamBattle
+    const mine = FB.unpackLive(FB.packLive([{ t: 'a', k: 'cow', r: 'rare' }, { t: 'z', k: null, r: 'rare', n: 2, b: false }]))
+    const theirs = FB.unpackLive(FB.packLive([{ t: 'a', k: 'wolf', r: 'common' }, { t: 'a', k: 'pig', r: 'common' }]))
+    const B = new TB({ mine, theirs, foe: 'x', view: '2d', hazard: null, botCheer: false, xp: false })
+    B.open()
+    cancelAnimationFrame(B._raf)
+    for (let i = 0; i < 200 * 60 && !B.over; i++) B._step(1 / 60)
+    const sum = (side, k) => B.fighters.filter((f) => f.side === side).reduce((s, f) => s + f.st[k], 0)
+    const downs = (side) => B.fighters.filter((f) => f.side === side && !f.alive).length
+    // Healing only counts what it really gave.
+    const f = B.fighters[0]
+    f.hp = f.s.hp - 3
+    const before = f.st.heal
+    B._heal(f, 50)
+    const out = {
+      over: B.over,
+      mineDmg: sum('mine', 'dmg'), foeTook: sum('foe', 'took'),
+      foeDmg: sum('foe', 'dmg'), mineTook: sum('mine', 'took'),
+      mineKo: sum('mine', 'ko'), foeDowns: downs('foe'),
+      foeKo: sum('foe', 'ko'), mineDowns: downs('mine'),
+      healGain: f.st.heal - before, fullHp: f.hp === f.s.hp,
+      shown: B.root.querySelector('.tb-result').style.display,
+      rows: B.root.querySelectorAll('.tb-stats-table tbody tr:not(.tb-stats-team)').length,
+      teams: B.root.querySelectorAll('.tb-stats-team').length,
+      best: B.root.querySelectorAll('.tb-stats-best').length,
+      award: B.root.querySelector('.tb-stats-award').textContent,
+    }
+    B.close()
+    return out
+  })
+  expect(r.over).toBe(true)
+  expect(r.shown).toBe('flex')
+  expect(r.mineDmg).toBeGreaterThan(0)
+  expect(r.mineDmg).toBe(r.foeTook)
+  expect(r.foeDmg).toBe(r.mineTook)
+  expect(r.mineKo).toBe(r.foeDowns)
+  expect(r.foeKo).toBe(r.mineDowns)
+  expect(r.healGain).toBe(3)
+  expect(r.fullHp).toBe(true)
+  expect(r.rows).toBe(4)
+  expect(r.teams).toBe(2)
+  expect(r.best).toBe(1)
+  expect(r.award).toContain('Best pet:')
+})
