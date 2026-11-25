@@ -427,6 +427,12 @@ test('the game wears slim arms', async ({ page }) => {
 // 2026-10-17 second pass: long hair at the front, detailed animal looks,
 // two-word colours, "match the shirt", face marks.
 test('Design a Skin: long hair in front, cat details, smarter edits', async ({ page }) => {
+  // Each Generate picks a random look; a fixed Math.random makes this
+  // test draw the same skins every run (it once failed on an unlucky one).
+  await page.addInitScript(() => {
+    let a = 12345
+    Math.random = () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
+  })
   await openDesigner(page)
   await page.click('#res1Btn')
   const p = (t) => page.evaluate((x) => window.__parsePrompt(x), t)
