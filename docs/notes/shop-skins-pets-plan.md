@@ -17,4 +17,9 @@ Gaymi: "design more skins and give more ideas to put on the shop". Picked
 4. **Kill effects:** zombies burst into confetti / snowflakes / pixels.
 5. **Walk trails:** sparkles / footprints / snow puffs behind you.
 
-Status: batch 1 shipped 2026-11-25 (More Skins). Next: batch 2 (Pets move).
+Status: batch 1 shipped 2026-11-25 (More Skins). Batch 2 shipped 2026-11-25:
+`#pets-btn` (above Map Editor, unlock tier 3) opens `#pets-panel` (holds
+`#team-page`, route `/pets`, TeamUI.openTeamPanel); Shop > Pets is `#shop-pets`
+(`#pet-shop` + `#team-eggs`, drawn by renderTeamPanel from `_openShopPanel`,
+same click handler; team CSS uses `:is(#team-page, #shop-pets)`).
+Next: batch 3 (Bundles).

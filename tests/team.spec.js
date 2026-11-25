@@ -152,21 +152,20 @@ test('Team page lists catches, picks the team, and a battle plays to a win or lo
       nextId: 6,
     }))
   })
-  // No Team button on the homepage any more: it's Inventory > Pets.
+  // No Team button on the homepage any more: it's the Pets button (above Map Editor).
   expect(await page.locator('#team-btn').count()).toBe(0)
-  await page.click('#menu-inventory-btn')
-  await page.click('#inventory-tab-pets')
+  await page.evaluate(() => document.getElementById('pets-btn').click())
   const panel = await page.evaluate(() => {
     const cards = (sel) => [...document.querySelectorAll(`${sel} .team-card[data-id]`)].map((c) => Number(c.dataset.id))
     return {
-      open: getComputedStyle(document.getElementById('inventory-page-pets')).display,
+      open: getComputedStyle(document.getElementById('pets-panel')).display,
       slots: cards('#team-slots'),
       empties: document.querySelectorAll('#team-slots .team-card.empty').length,
       grid: cards('#team-grid'),
       emptyNoteHidden: document.getElementById('team-empty').style.display === 'none',
     }
   })
-  expect(panel).toEqual({ open: 'block', slots: [1, 2], empties: 8, grid: [4, 3, 2, 1], emptyNoteHidden: true })
+  expect(panel).toEqual({ open: 'flex', slots: [1, 2], empties: 8, grid: [4, 3, 2, 1], emptyNoteHidden: true })
   // Clicking a caught one adds it; clicking a team one takes it off.
   await page.click('#team-grid .team-card[data-id="3"]')
   await page.click('#team-grid .team-card[data-id="1"]')
@@ -240,7 +239,7 @@ test('levels, evolution, level 5 trigger powers and types', async ({ page }) => 
     }))
   })
   await page.click('#menu-inventory-btn')
-  await page.click('#inventory-tab-pets')
+  await page.evaluate(() => document.getElementById('pets-btn').click())
   const page1 = await page.evaluate(() => {
     const card = (id) => document.querySelector(`#team-slots .team-card[data-id="${id}"]`)
     return {
@@ -342,7 +341,7 @@ test('team combos, snacks and shiny creatures', async ({ page }) => {
     window.__game.coins = 200
   })
   await page.click('#menu-inventory-btn')
-  await page.click('#inventory-tab-pets')
+  await page.evaluate(() => document.getElementById('pets-btn').click())
   const p1 = await page.evaluate(() => {
     const card = (id) => document.querySelector(`#team-slots .team-card[data-id="${id}"]`)
     return {
@@ -523,7 +522,7 @@ test('Weekly Team Tournament: enter, win three rounds for the Champion badge', a
     localStorage.setItem('gayz-creatures', JSON.stringify({ list: [{ id: 1, t: 'a', k: 'wolf', r: 'rare', at: 1 }, { id: 2, t: 'z', k: null, r: 'common', n: 3, at: 1 }], team: [1, 2], wins: 0, losses: 0, nextId: 3 }))
     localStorage.removeItem('gayz-tournament')
     window.__game._openMenuInventoryPanel()
-    document.getElementById('inventory-tab-pets').click()
+    document.getElementById('pets-btn').click()
   })
   const r = await page.evaluate(async () => {
     const g = window.__game
@@ -564,7 +563,7 @@ test('Pack Leaders: a ladder of 26, beat the next for a badge and coins; met in 
     localStorage.setItem('gayz-creatures', JSON.stringify({ list: [{ id: 1, t: 'a', k: 'wolf', r: 'rare', at: 1 }, { id: 2, t: 'z', k: null, r: 'common', n: 3, at: 1 }], team: [1, 2], wins: 0, losses: 0, nextId: 3 }))
     localStorage.removeItem('gayz-pack-leaders')
     window.__game._openMenuInventoryPanel()
-    document.getElementById('inventory-tab-pets').click()
+    document.getElementById('pets-btn').click()
   })
   const r = await page.evaluate(async () => {
     const g = window.__game
@@ -663,7 +662,7 @@ test('Gauntlet: buy, merge, sell, reroll, win for coins, three losses end the ru
     localStorage.setItem('gayz-creatures', JSON.stringify({ list: [{ id: 1, t: 'a', k: 'wolf', r: 'rare', at: 1 }], team: [1], wins: 0, losses: 0, nextId: 2 }))
     localStorage.removeItem('gayz-gauntlet')
     window.__game._openMenuInventoryPanel()
-    document.getElementById('inventory-tab-pets').click()
+    document.getElementById('pets-btn').click()
   })
   const r = await page.evaluate(async () => {
     const g = window.__game
@@ -754,7 +753,7 @@ test('Gauntlet food, freeze, tiers, reorder; daily Pet Shop', async ({ page }) =
     localStorage.removeItem('gayz-pet-shop')
     localStorage.setItem('gayz-creatures', JSON.stringify({ list: [], team: [], wins: 0, losses: 0, nextId: 1 }))
     g._openMenuInventoryPanel()
-    byId('inventory-tab-pets').click()
+    byId('pets-btn').click()
     out.tiers = [1, 2, 3, 5, 9, 15].map(G.shopTier)
     out.tier1Only = Array.from({ length: 40 }, () => G.rollShop(1, [])).flat().every((c) => !['brute', 'triceratops', 'bear'].includes(c.k))
     byId('gauntlet-btn').click()
@@ -838,7 +837,7 @@ test('nicknames: rename a creature, show its kind, bad words swapped, sent with 
       team: [1, 2], wins: 0, losses: 0, nextId: 3,
     }))
     g._openMenuInventoryPanel()
-    byId('inventory-tab-pets').click()
+    byId('pets-btn').click()
     const rename = (id, name, kind) => {
       document.querySelector('#team-rename [data-rename=arm]').click()
       document.querySelector(`#team-slots .team-card[data-id="${id}"]`).click()
@@ -900,7 +899,7 @@ test('held items: give, swap, take off, what they do in battle, drops, ghost tea
       items: { fang: 1, collar: 1, bone: 1, nope: 4, horn: -2 },
     }))
     window.__game._openMenuInventoryPanel()
-    document.getElementById('inventory-tab-pets').click()
+    document.getElementById('pets-btn').click()
   })
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('gayz-creatures')))
   const give = async (item, id) => {
@@ -1046,7 +1045,7 @@ test('arena hazards: rolled 1 in 3, fair layout, lava / mud / bounce / flowers, 
       team: [1, 2], wins: 0, losses: 0, nextId: 3,
     }))
     window.__game._openMenuInventoryPanel()
-    document.getElementById('inventory-tab-pets').click()
+    document.getElementById('pets-btn').click()
   })
   const guide = await page.evaluate(() => document.getElementById('team-guide').textContent)
   expect(guide).toContain('Arena hazards')
@@ -1201,10 +1200,10 @@ test('pet eggs: chest finds, walking warms the first 3, hatching, Eggs section',
     window.__game.buildMode.survival._message = () => {}
   })
   await page.evaluate(() => {
-    window.__game._openMenuInventoryPanel?.()
-    document.getElementById('inventory-tab-pets').click()
+    // Eggs live in Shop > Pets (2026-11-25).
+    window.__game._openShopPanel()
   })
-  await page.waitForSelector('#team-eggs .team-egg')
+  await page.waitForSelector('#shop-pets #team-eggs .team-egg')
   const ui = await page.evaluate(() => ({
     title: document.querySelector('#team-eggs .team-section-title').textContent,
     warm: [...document.querySelectorAll('#team-eggs .team-egg')].map((e) => e.classList.contains('warm')),
@@ -1259,7 +1258,7 @@ test('friend battles: same fight on both screens, challenge, invite, yes / no, r
     g.__petDuelBackendForTests = fb
     window.__fb = fb
     window.__game._openMenuInventoryPanel()
-    document.getElementById('inventory-tab-pets').click()
+    document.getElementById('pets-btn').click()
   })
 
   // 1. The same seed and teams give the same fight, seen from either side.
@@ -1428,7 +1427,7 @@ test('cheer: meter fills from hits, three picks, bots cheer, friend battles land
       team: [1, 2], wins: 0, losses: 0, nextId: 3,
     }))
     window.__game._openMenuInventoryPanel()
-    document.getElementById('inventory-tab-pets').click()
+    document.getElementById('pets-btn').click()
   })
   const guide = await page.evaluate(() => document.getElementById('team-guide').textContent)
   expect(guide).toContain('Cheer')
@@ -1614,7 +1613,7 @@ test('replays: the same fight again (cheers too), watch / save / delete, 10 max,
       team: [1, 2], wins: 0, losses: 0, nextId: 3,
     }))
     window.__game._openMenuInventoryPanel()
-    document.getElementById('inventory-tab-pets').click()
+    document.getElementById('pets-btn').click()
   })
   const r = await page.evaluate(async () => {
     const g = window.__game
@@ -1692,7 +1691,7 @@ test('replays: the same fight again (cheers too), watch / save / delete, 10 max,
   expect(r.full).toBe('full')
 
   // The Pets tab list: last battle + saved ones; delete takes two taps.
-  await page.evaluate(() => { window.__game._openMenuInventoryPanel(); document.getElementById('inventory-tab-pets').click() })
+  await page.evaluate(() => { window.__game._openMenuInventoryPanel(); document.getElementById('pets-btn').click() })
   await page.click('#replays-btn')
   const list = await page.evaluate(() => {
     const el = document.getElementById('replays-list')
@@ -1724,7 +1723,7 @@ test('collection book: old pets count, new catches, ??? pages, groups, search, m
       book: { 'a:nope': { n: 3 }, 'z:': { n: 'x' } },
     }))
     window.__game._openMenuInventoryPanel()
-    document.getElementById('inventory-tab-pets').click()
+    document.getElementById('pets-btn').click()
   })
   const r = await page.evaluate(() => {
     const g = window.__game
@@ -1808,7 +1807,7 @@ test('weekly challenge: one rule a week, 5 bot battles in a row, prize + badge o
     localStorage.setItem('gayz-creatures', JSON.stringify({ list: [{ id: 1, t: 'a', k: 'wolf', r: 'rare', at: 1, x: 900, sn: 'steak' }, { id: 2, t: 'z', k: null, r: 'common', n: 3, at: 1 }], team: [1, 2], wins: 0, losses: 0, nextId: 3 }))
     localStorage.removeItem('gayz-weekly-challenge')
     window.__game._openMenuInventoryPanel()
-    document.getElementById('inventory-tab-pets').click()
+    document.getElementById('pets-btn').click()
   })
   const r = await page.evaluate(() => {
     const g = window.__game
@@ -1907,7 +1906,7 @@ test('pet battle leaderboard: trophies, rank badge, All-time / This week / Frien
   await page.evaluate(() => {
     localStorage.setItem('gayz-creatures', JSON.stringify({ list: [{ id: 1, t: 'a', k: 'wolf', r: 'rare', at: 1 }], team: [1], wins: 0, losses: 0, nextId: 2, tr: 790, tw: { w: 1, n: 99 } }))
     window.__game._openMenuInventoryPanel()
-    document.getElementById('inventory-tab-pets').click()
+    document.getElementById('pets-btn').click()
   })
   const math = await page.evaluate(() => {
     const R = window.__game._petRank
@@ -2045,7 +2044,7 @@ test('pet trading: invite, pick up to 3, Ready resets on a change, Confirm swaps
     g.__petTradeBackendForTests = fb
     window.__fb = fb
     g._openMenuInventoryPanel()
-    document.getElementById('inventory-tab-pets').click()
+    document.getElementById('pets-btn').click()
   })
 
   // 1. What a traded pet carries: everything but its snack.
@@ -2230,7 +2229,7 @@ test('boss raid: weekly boss, helper bot, specials, prize once a day, live raid 
     g.__petDuelBackendForTests = fb
     window.__fb = fb
     g._openMenuInventoryPanel()
-    document.getElementById('inventory-tab-pets').click()
+    document.getElementById('pets-btn').click()
   })
 
   const r = await page.evaluate(async () => {

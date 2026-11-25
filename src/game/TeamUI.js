@@ -346,10 +346,14 @@ export function renderTeamPanel(game) {
   }
 }
 
-// Inventory, on the Pets tab.
+// The Pets panel (its own homepage button since 2026-11-25; was
+// Inventory > Pets). Drawn each time it opens (a catch in a game changes it).
 export function openTeamPanel(game) {
-  game._openMenuInventoryPanel()
-  byId('inventory-tab-pets')?.click()
+  game._closeAllMenuPanels()
+  const panel = byId('pets-panel')
+  if (!panel) return
+  panel.style.display = 'flex'
+  renderTeamPanel(game)
 }
 
 // A card clicked: on the team, or off it.
@@ -496,8 +500,13 @@ export function bindTeamUI(game) {
   game._creatures = { packTeam, unpackTeam, loadCreatures, saveCreatures }
   // The Collection book, for the tests (tests/team.spec.js).
   game._petBook = { updateBook, renderPetBook, ...bookTest }
-  // Drawn each time the Pets tab is looked at (a catch in a game changes it).
-  byId('inventory-tab-pets')?.addEventListener('click', () => renderTeamPanel(game))
+  // The homepage Pets button; clicking the dark backdrop closes the panel.
+  byId('pets-btn')?.addEventListener('click', () => {
+    game._lastPanelOpener = () => openTeamPanel(game)
+    openTeamPanel(game)
+  })
+  const petsPanel = byId('pets-panel')
+  petsPanel?.addEventListener('click', (e) => { if (e.target === petsPanel) game._closeAllMenuPanels() })
   // Drag to reorder (Reorder.js): the picked team, and the Gauntlet team.
   bindReorder(page, game, {
     selector: '#team-slots .team-card[data-id]',
@@ -518,7 +527,8 @@ export function bindTeamUI(game) {
       renderTeamPanel(game)
     },
   })
-  page.addEventListener('click', (e) => {
+  // Shop > Pets (Pet Shop + eggs) is handled by the same click code.
+  const onClick = (e) => {
     if (game._teamDragged) return
     if (e.target.closest('#pet-shop') && PetShop.petShopClick(game, e, () => renderTeamPanel(game))) return
     if (e.target.closest('#gauntlet') && Gauntlet.gauntletClick(game, e, () => renderTeamPanel(game))) return
@@ -557,7 +567,9 @@ export function bindTeamUI(game) {
     else if (game._teamItem) giveOrTake(game, Number(c.dataset.id))
     else if (game._teamSnack) feed(game, Number(c.dataset.id))
     else toggle(game, Number(c.dataset.id))
-  })
+  }
+  page.addEventListener('click', onClick)
+  byId('shop-pets')?.addEventListener('click', onClick)
   // In the name box: Enter saves, Escape closes.
   page.addEventListener('keydown', (e) => {
     if (e.target.id !== 'team-rename-input') return

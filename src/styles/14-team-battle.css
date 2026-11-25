@@ -1,6 +1,6 @@
 /* Team page and team battles (2026-10-31, TeamUI.js / TeamBattle.js). */
 
-#team-page {
+:is(#team-page, #shop-pets) {
   text-align: center;
 }
 .team-section-title {
@@ -22,7 +22,7 @@ html.ui-theme-old .team-section-title {
   min-height: 120px;
   padding: 4px;
 }
-#team-page .team-card {
+:is(#team-page, #shop-pets) .team-card {
   position: relative;
   width: 132px;
   padding: 12px 8px;
@@ -30,11 +30,11 @@ html.ui-theme-old .team-section-title {
   border: 2px solid var(--tier, rgba(255, 255, 255, 0.14));
   font: inherit;
 }
-#team-page .team-card.picked {
+:is(#team-page, #shop-pets) .team-card.picked {
   background: rgba(var(--ui-gold-accent-rgb), 0.16);
   box-shadow: 0 0 0 2px var(--menu-gold);
 }
-#team-page .team-card.empty {
+:is(#team-page, #shop-pets) .team-card.empty {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -44,7 +44,7 @@ html.ui-theme-old .team-section-title {
   opacity: 0.7;
   cursor: default;
 }
-#team-page .team-card img {
+:is(#team-page, #shop-pets) .team-card img {
   width: 48px;
   height: 48px;
   image-rendering: pixelated;
@@ -94,14 +94,14 @@ html.ui-theme-old .team-section-title {
   font-weight: 800;
   line-height: 18px;
 }
-html.ui-theme-old #team-page .team-card {
+html.ui-theme-old :is(#team-page, #shop-pets) .team-card {
   color: var(--old-ink);
   background: rgba(60, 40, 20, 0.08);
 }
-html.ui-theme-old #team-page .team-card.empty {
+html.ui-theme-old :is(#team-page, #shop-pets) .team-card.empty {
   border-color: rgba(60, 40, 20, 0.35);
 }
-html.ui-theme-old #team-page .team-card-name {
+html.ui-theme-old :is(#team-page, #shop-pets) .team-card-name {
   /* Rarity colours are too light on paper - a dark outline keeps them readable. */
   text-shadow: 0 0 2px #2b2016, 0 0 2px #2b2016;
 }
@@ -131,11 +131,11 @@ html.ui-theme-old #team-page .team-card-name {
   opacity: 0.85;
 }
 @media (max-width: 700px) {
-  #team-page .team-card {
+  :is(#team-page, #shop-pets) .team-card {
     width: 104px;
     padding: 10px 6px;
   }
-  #team-page .team-card.empty {
+  :is(#team-page, #shop-pets) .team-card.empty {
     min-height: 110px;
   }
 }
@@ -585,7 +585,7 @@ html.ui-theme-old .tb-result-btns .tb-back {
 html.ui-theme-clean .team-card-slot {
   color: #fff;
 }
-html.ui-theme-clean #team-page .team-card.empty {
+html.ui-theme-clean :is(#team-page, #shop-pets) .team-card.empty {
   border-color: rgba(0, 0, 0, 0.22);
 }
 
@@ -836,25 +836,25 @@ html.ui-theme-clean #tourney-bracket li.me { background: transparent; border-wid
   transform: scale(0.75);
 }
 /* Room above the picture for the level tag (no overlap on phones). */
-#team-page .team-card img {
+:is(#team-page, #shop-pets) .team-card img {
   margin-top: 8px;
 }
 
 /* --- Team combos, snacks and shiny ones (2026-11-11) --- */
 
 /* Shiny: a turned colour and a sparkle in the corner. */
-#team-page .team-card.shiny img,
+:is(#team-page, #shop-pets) .team-card.shiny img,
 .tb-card.shiny img {
   filter: hue-rotate(150deg) saturate(1.4) drop-shadow(0 0 4px rgba(255, 240, 160, 0.9));
 }
 .team-card-shiny,
-#team-page .team-card .team-card-snack {
+:is(#team-page, #shop-pets) .team-card .team-card-snack {
   position: absolute;
   top: 4px;
   font-size: 16px;
   line-height: 1;
 }
-#team-page .team-card .team-card-snack {
+:is(#team-page, #shop-pets) .team-card .team-card-snack {
   width: 16px;
   height: 16px;
   image-rendering: pixelated;
@@ -868,7 +868,7 @@ html.ui-theme-clean #tourney-bracket li.me { background: transparent; border-wid
   animation: team-twinkle 1.6s ease-in-out infinite;
 }
 /* Under the slot number on the left. */
-#team-page .team-card .team-card-snack {
+:is(#team-page, #shop-pets) .team-card .team-card-snack {
   top: 26px;
   left: 6px;
 }
@@ -1245,7 +1245,7 @@ html.ui-theme-clean #pet-shop .ps-price { color: inherit; }
 
 /* Held items (Batch D, 2026-11-23): an icon under the snack on cards,
    in battle labels and cards, and the bag on the Team page. */
-#team-page .team-card .team-card-item {
+:is(#team-page, #shop-pets) .team-card .team-card-item {
   position: absolute;
   top: 46px;
   left: 6px;
@@ -1613,27 +1613,27 @@ html.ui-theme-old .team-egg-bar {
   padding: 4px;
   gap: 8px;
 }
-#team-page .pet-book-card {
+:is(#team-page, #shop-pets) .pet-book-card {
   position: relative;
   width: 92px;
   padding: 8px 4px;
   gap: 2px;
   font: inherit;
 }
-#team-page .pet-book-card img {
+:is(#team-page, #shop-pets) .pet-book-card img {
   width: 44px;
   height: 44px;
   image-rendering: pixelated;
 }
-#team-page .pet-book-card .team-card-name {
+:is(#team-page, #shop-pets) .pet-book-card .team-card-name {
   font-size: 0.78em;
   overflow-wrap: anywhere;
 }
-#team-page .pet-book-card img.pet-book-3d,
+:is(#team-page, #shop-pets) .pet-book-card img.pet-book-3d,
 .pet-book-pic.pet-book-3d {
   image-rendering: auto;
 }
-#team-page .pet-book-card.unmet .team-card-name {
+:is(#team-page, #shop-pets) .pet-book-card.unmet .team-card-name {
   opacity: 0.6;
 }
 html.ui-theme-clean .pet-book-page {
@@ -1652,7 +1652,7 @@ html.ui-theme-clean .pet-book-page {
     width: 60px;
     height: 60px;
   }
-  #team-page .pet-book-card {
+  :is(#team-page, #shop-pets) .pet-book-card {
     width: 78px;
   }
 }
