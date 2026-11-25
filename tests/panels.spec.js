@@ -744,9 +744,10 @@ test('Shop: GaygarX price, Inspect, buying', async ({ page }) => {
   expect(INVENTORY_SKINS.find((s) => s.id === 'gaygarx').sell.amount).toBe(250)
 })
 
-// 2026-11-25: Shop > More Skins - 12 skins in 3 sets; coins for Common-Rare,
-// gems for Epic and up; buying puts it in Inventory and wears it.
-test('Shop: More Skins sells 12 skins for coins or gems', async ({ page }) => {
+// 2026-11-25: Shop > More Skins - 44 skins in 11 sets (12 first, 32 more the
+// same day); coins for Common-Rare, gems for Epic and up; buying puts it in
+// Inventory and wears it. Set buttons filter to one set.
+test('Shop: More Skins sells 44 skins for coins or gems', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
     const g = window.__game
@@ -774,15 +775,27 @@ test('Shop: More Skins sells 12 skins for coins or gems', async ({ page }) => {
     const wearing = g._equippedInventorySkinId()
     document.querySelector('[data-shop-skin="snowman"]').click() // owned: wear it again
     await wait(400)
+    document.querySelector('[data-skin-set="space"]').click()
+    await wait(200)
+    const spaceCards = [...document.querySelectorAll('#shop-more-skins [data-shop-skin]')].map((b) => b.dataset.shopSkin)
+    const galaxyPrice = document.querySelector('[data-shop-skin="galaxy"] .inv-skin-card-price').textContent
+    const filteredSize = before === box()
+    document.querySelector('[data-skin-set="all"]').click()
+    await wait(200)
     return {
+      spaceCards, galaxyPrice, filteredSize, cardsAfter: document.querySelectorAll('#shop-more-skins [data-shop-skin]').length,
       cards, sets, snowPrice, dragonPrice, coins: g.coins, gems: g.gems, skins: { ...g.charSkins }, wearing,
       wearingAfter: g._equippedInventorySkinId(), sameSize: before === box(),
       noSoonCard: !document.getElementById('shop-soon-skins-name'),
     }
   })
   const { INVENTORY_SKINS } = await import('../src/game/InventorySkins.js')
-  expect(r.cards).toBe(12)
-  expect(r.sets).toBe(3)
+  expect(r.cards).toBe(44)
+  expect(r.sets).toBe(11)
+  expect(r.spaceCards).toEqual(['alien', 'astronaut', 'spaceranger', 'galaxy'])
+  expect(r.galaxyPrice).toContain('1,000')
+  expect(r.filteredSize).toBe(true)
+  expect(r.cardsAfter).toBe(44)
   expect(r.snowPrice).toContain('500')
   expect(r.dragonPrice).toContain('500')
   expect(r.coins).toBe(100)
