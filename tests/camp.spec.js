@@ -335,20 +335,23 @@ test('Shop on B, emote wheel on Z, sitting in and getting off vehicles', async (
     out.camBack = tmv._emoteCam < 0.05
     tmv.vel.set(0, 0, 0)
     s.emotes.stop()
-    // A chunkier body: arms out past a plain Minecraft body's 8 wide.
-    out.wide = Math.abs(tmv._body.char.limbPivots.armR.position.x) > 7
-    // The head grows with the body, from the neck up, and the emote face
-    // sits on its front.
+    // A plain Minecraft-size body again (2026-11-22, was chunkier): arms
+    // flush against the 8-wide torso (slim skins sit half a unit closer).
+    out.wide = Math.abs(tmv._body.char.limbPivots.armR.position.x) >= 5.5
+    // Plain Minecraft-size head on the neck, and the emote face sits on its front.
     const head = tmv._body.char.children.find((c) => c.isMesh && c.userData.isHead)
-    out.bigHead = head.scale.x === 1.25 && head.position.y === 27 && tmv._body.char.userData.emoteFace?.pivot.position.y === 27
+    out.bigHead = head.scale.x === 1 && head.position.y === 26 && tmv._body.char.userData.emoteFace?.pivot.position.y === 26
     // The wheel's hover target stays put while the lit slice slides out
     // (a sliding target flickered under a mouse near its edge).
+    // (Animations are skipped to their end, not waited on: CI draws 2-3 fps,
+    // so a timed wait could still catch the pop-in growing the ring.)
+    const finishAnims = () => document.getElementById('emote-wheel').getAnimations({ subtree: true }).forEach((a) => { try { a.finish() } catch { /* endless - leave it */ } })
     key('KeyZ')
-    await new Promise((res) => setTimeout(res, 400)) // the pop-in is done
+    finishAnims() // the pop-in is done
     const slice = document.querySelector('#emote-wheel .emote-slice')
     s.emotes._hover(slice.dataset.emote)
     const hitBox = slice.querySelector('.emote-hit').getBoundingClientRect()
-    await new Promise((res) => setTimeout(res, 300))
+    finishAnims() // the lit slice has slid out
     const hitAfter = slice.querySelector('.emote-hit').getBoundingClientRect()
     out.hitStill = hitBox.x === hitAfter.x && hitBox.y === hitAfter.y && getComputedStyle(slice.querySelector('.emote-look')).transform !== 'none'
     s.emotes.close(false)
