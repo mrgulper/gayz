@@ -36,4 +36,22 @@ has a Kill Effects row (`#cosmetics-kills`). Owned in `shopCosmetics`, used
 the last hitter's effect and sends `fx` in the zombie snapshot; clients
 burst it when the zombie leaves the snapshot. Prices (1,500/1,500/2,500
 coins) are a guess. Tests: panels "Shop: Kill Effects", zombies "Kill effects".
-Next: batch 5 (Walk trails) - same pattern (settings.walkTrail, state field).
+
+## Big shop plan (2026-11-25, Gaymi: "make the shop have everything")
+Gaymi picked all 8 new sections, one batch per session, in this order:
+1. **Way more skins** - SHIPPED 2026-11-25: 32 skins in 8 new sets
+   (Pirates, Space, Food, Sports, Royalty, Ninja, Robots, Spooky), drawn in
+   `scripts/shop-skins-sets-2.mjs` (imported by make-shop-skins.mjs; uses
+   3 shade levels so the PNGs pack ~3x smaller). Set filter buttons
+   (`.shop-skin-set-chip`, All + 11 sets) above the grids. Names checked
+   against Market: Knight/Shadow Ninja/Robo exist, so Jester/Oni Mask/
+   Retro Bot instead. Test: panels "Shop: More Skins sells 44 skins".
+2. Gun skins (paint jobs for weapons; Gallery's Weapon tab is Coming Soon).
+3. Back items (wings, backpacks) + 15+ buyable hats and capes.
+4. Daily Deals + Crate Spin (the two Coming Soon cards).
+5. Pet + ride looks (pet hats/colours, car/kart paint).
+6. Jump + death effects (like Kill Effects).
+7. Name + chat style (glowing/rainbow name, chat bubbles, profile frames).
+8. Sounds + music packs (kill sounds, menu music).
+Open: PRs #475-477 (Kill Effects, Walk Trails, higher prices) still not
+merged on 2026-11-25 - CI failed (#477: panels "homepage unlock ladder").

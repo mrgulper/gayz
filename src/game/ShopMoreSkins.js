@@ -16,7 +16,20 @@ const SETS = [
   { id: 'winter', key: 'shopSkinSetWinter' },
   { id: 'survivor', key: 'shopSkinSetSurvivor' },
   { id: 'creatures', key: 'shopSkinSetCreatures' },
+  // Second wave (2026-11-25, Gaymi: "way more skins"): 8 more sets of 4.
+  { id: 'pirates', key: 'shopSkinSetPirates' },
+  { id: 'space', key: 'shopSkinSetSpace' },
+  { id: 'food', key: 'shopSkinSetFood' },
+  { id: 'sports', key: 'shopSkinSetSports' },
+  { id: 'royalty', key: 'shopSkinSetRoyalty' },
+  { id: 'ninja', key: 'shopSkinSetNinja' },
+  { id: 'robots', key: 'shopSkinSetRobots' },
+  { id: 'spooky', key: 'shopSkinSetSpooky' },
 ]
+
+// Which set the filter buttons show ('all' = every set). Not saved: the
+// Shop opens on All each time.
+let shownSet = 'all'
 
 const owned = (game, id) => Math.max(0, Math.floor(Number(game.charSkins?.[id]) || 0))
 const wallet = (game, currency) => (currency === 'gems' ? game.gems : game.coins) || 0
@@ -44,12 +57,15 @@ export function renderMoreSkins(game) {
   const heading = document.getElementById('shop-more-skins-heading')
   if (heading) heading.textContent = t('shopMoreSkinsHeading')
   const wearing = game._equippedInventorySkinId?.()
-  root.innerHTML = SETS.map((set) => {
+  const chip = (id, label) => `<button type="button" class="shop-skin-set-chip${shownSet === id ? ' active' : ''}" data-skin-set="${id}">${_escapeHtml(label)}</button>`
+  const chips = `<div class="shop-skin-set-chips">${chip('all', t('shopSkinSetAll'))}${SETS.map((set) => chip(set.id, t(set.key))).join('')}</div>`
+  root.innerHTML = chips + SETS.filter((set) => shownSet === 'all' || shownSet === set.id).map((set) => {
     const skins = SHOP_SKINS.filter((s) => s.set === set.id)
     return `<h4 class="shop-more-skins-set">${_escapeHtml(t(set.key))}</h4>`
       + `<div class="shop-more-skins-grid">${skins.map((s) => card(game, s, wearing)).join('')}</div>`
   }).join('')
   for (const skin of SHOP_SKINS) {
+    if (!root.querySelector(`[data-shop-skin="${skin.id}"]`)) continue
     skinFrontIconURL(skin.dataUrl).then((url) => {
       const img = root.querySelector(`[data-shop-skin="${skin.id}"] .inv-skin-card-img`)
       if (img && url) img.src = url
@@ -61,6 +77,12 @@ function bind(game, root) {
   if (root.dataset.bound) return
   root.dataset.bound = '1'
   root.addEventListener('click', (e) => {
+    const setBtn = e.target.closest('[data-skin-set]')
+    if (setBtn) {
+      shownSet = setBtn.dataset.skinSet
+      renderMoreSkins(game)
+      return
+    }
     const btn = e.target.closest('[data-shop-skin]')
     if (btn) buyOrWear(game, btn.dataset.shopSkin)
   })
