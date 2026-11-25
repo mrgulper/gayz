@@ -1383,12 +1383,14 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'friends-tab-friends': 'friendsTabList',
   'friends-tab-clan': 'generalTabClan',
   // General's Leaderboard tab, Settings' Theme tab (Theme moved there
-  // from General, 2026-10-26), and Inventory's Pets tab (Coming Soon).
+  // from General, 2026-10-26), and the Pets button / panel / Shop heading.
   'general-tab-general': 'cloudsaveLeaderboardTitle',
   'general-tab-halloffame': 'hofTitle',
   'tab-theme': 'tabTheme',
   'tab-gameplay': 'tabGameplay',
-  'inventory-tab-pets': 'inventoryPetsTitle',
+  'pets-btn-label': 'inventoryPetsTitle',
+  'pets-panel-title': 'inventoryPetsTitle',
+  'shop-pets-heading': 'inventoryPetsTitle',
   'inventory-tab-cosmetics': 'inventoryCosmeticsTitle',
   'inventory-tab-zombiebook': 'inventoryBookTitle',
   'game-mode-infection-label': 'topBarModeInfection',
@@ -2716,7 +2718,7 @@ export class Game {
     this.inventoryTabCharacter = document.getElementById('inventory-tab-character')
     this.inventoryTabCrates = document.getElementById('inventory-tab-crates')
     this.inventoryTabWeapons = document.getElementById('inventory-tab-weapons')
-    this.inventoryTabPets = document.getElementById('inventory-tab-pets')
+    this.petsPanel = document.getElementById('pets-panel')
     this.inventorySkinsList = document.getElementById('inventory-skins-list')
     this.invSkinSearch = document.getElementById('inv-skin-search')
     this.invRarityFilterBtn = document.getElementById('inv-rarity-filter-btn')
@@ -3427,6 +3429,7 @@ export class Game {
     this._routes = [
       { slug: 'store', panel: this.shopPanel, open: () => this._openShopPanel() },
       { slug: 'market', panel: this.marketPanel, open: () => this._openMarketPanel() },
+      { slug: 'pets', panel: this.petsPanel, open: () => TeamUI.openTeamPanel(this) },
       { slug: 'upgrades', panel: this.upgradesPanel, open: () => this._openUpgradesPanel() },
       {
         slug: 'quests', panel: this.questsPanel, open: () => this._openQuestsPanel(),
@@ -3442,7 +3445,7 @@ export class Game {
       },
       {
         slug: 'inventory', panel: this.menuInventoryPanel, open: () => this._openMenuInventoryPanel(),
-        subTabs: this._subTabsFor('inventory-tab-', ['character', 'crates', 'weapons', 'pets', 'cosmetics', 'zombiebook']),
+        subTabs: this._subTabsFor('inventory-tab-', ['character', 'crates', 'weapons', 'cosmetics', 'zombiebook']),
       },
       { slug: 'global', panel: this.serverPanel, open: () => this._openServerPanel() },
       {
@@ -3575,6 +3578,7 @@ export class Game {
     if (this.skindesignerPanel) this._closeSkinDesignerPanel()
     if (this.shopPanel) this._closeShopPanel()
     if (this.marketPanel) this._closeMarketPanel()
+    if (this.petsPanel) this.petsPanel.style.display = 'none'
     this._closeTradeDialog()
     if (this.whatsNewPanel) this._closeWhatsNewPanel()
   }

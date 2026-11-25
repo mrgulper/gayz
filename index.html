@@ -745,6 +745,10 @@
                 <span>Achievements</span>
                 <span class="nav-badge-dot gold" id="achievements-new-dot" style="display: none"></span>
               </button>
+              <button id="pets-btn" data-unlock="3">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="16.5" rx="4.5" ry="3.8"/><circle cx="5.5" cy="10.5" r="1.9"/><circle cx="9.5" cy="6" r="1.9"/><circle cx="14.5" cy="6" r="1.9"/><circle cx="18.5" cy="10.5" r="1.9"/></svg>
+                <span id="pets-btn-label">Pets</span>
+              </button>
               <button id="build-mode-btn" data-unlock="5">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 <span>Map Editor</span>
@@ -3027,6 +3031,114 @@
       <!-- Market (2026-10-01): its own panel, opened by the Market button
            right under Store. Cards come from MARKET_SKINS (MarketSkins.js);
            click one to buy it. -->
+      <!-- Pets (2026-11-25, own homepage button above Map Editor; was
+           Inventory > Pets): caught zombies and animals, the battle team,
+           battles, raids, the book. Pet Shop + Eggs live in the Shop. -->
+      <div id="pets-panel" style="display: none">
+        <div class="panel-box">
+          <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
+          <h2 id="pets-panel-title">Pets</h2>
+          <div class="panel-fixed-content">
+              <div id="team-page">
+                <p id="team-record" class="menu-best-stats"></p>
+                <!-- Trophies + rank badge (PetRank.js, Batch M 2026-11-24). -->
+                <p id="pet-rank-line" class="menu-best-stats"></p>
+                <!-- Friend battles' own record (FriendBattle.js, Batch G 2026-11-23). -->
+                <p id="team-friend-record" class="menu-best-stats"></p>
+                <!-- Homepage pet picker (HomePet.js, 2026-11-07). -->
+                <div id="home-pet-row"><label for="home-pet-select" id="home-pet-label">Homepage pet</label><select id="home-pet-select"></select></div>
+                <h3 id="team-picked-title" class="team-section-title"></h3>
+                <p id="team-order-hint" class="team-snack-hint"></p>
+                <div id="team-slots" class="team-cards"></div>
+                <!-- Team combos and the snack shop (TeamUI.renderCombos / renderSnacks, 2026-11-11). -->
+                <h3 id="team-combos-title" class="team-section-title"></h3>
+                <div id="team-combos"></div>
+                <div id="team-snacks"></div>
+                <!-- Held items (TeamUI.renderItems, Batch D 2026-11-23). -->
+                <div id="team-items"></div>
+                <!-- Nicknames (TeamUI.renderRename, 2026-11-23). -->
+                <div id="team-rename"></div>
+                <button type="button" id="team-battle-btn" class="team-battle-btn">Battle!</button>
+                <!-- Battle a Friend (FriendBattle.js): online friends, live. -->
+                <button type="button" id="friend-battle-btn" class="mini-action-btn">Battle a Friend</button>
+                <div id="friend-battle-list"></div>
+                <!-- Pet trading (PetTrade.js, Batch N 2026-11-24): online friends, live. -->
+                <button type="button" id="pet-trade-btn" class="mini-action-btn">Trade with a Friend</button>
+                <div id="pet-trade-list"></div>
+                <!-- Replays (PetReplays.js, Batch J 2026-11-24): the last
+                     battle and up to 10 saved ones, this device only. -->
+                <button type="button" id="replays-btn" class="mini-action-btn">Replays</button>
+                <div id="replays-list" hidden></div>
+                <!-- Pet battle leaderboard (PetRank.js, Batch M 2026-11-24):
+                     trophies from the Battle button, online. -->
+                <button type="button" id="pet-rank-btn" class="mini-action-btn">Leaderboard</button>
+                <div id="pet-rank" hidden>
+                  <p id="pet-rank-how" class="team-snack-hint"></p>
+                  <div class="pet-rank-tabs">
+                    <button type="button" class="mini-action-btn" data-rank-tab="all">All-time</button>
+                    <button type="button" class="mini-action-btn" data-rank-tab="week">This week</button>
+                    <button type="button" class="mini-action-btn" data-rank-tab="friends">Friends</button>
+                  </div>
+                  <p id="pet-rank-me" class="menu-best-stats"></p>
+                  <div id="pet-rank-list"></div>
+                </div>
+                <!-- Collection book (PetBook.js, Batch K 2026-11-24): every
+                     creature kind; caught = shown, not caught = a dark shape. -->
+                <button type="button" id="pet-book-btn" class="mini-action-btn">Collection Book</button>
+                <div id="pet-book" hidden>
+                  <p id="pet-book-count" class="pet-book-count"></p>
+                  <div id="pet-book-page" class="pet-book-page empty"></div>
+                  <div class="pet-book-groups">
+                    <button type="button" class="mini-action-btn" data-book-group="all">All</button>
+                    <button type="button" class="mini-action-btn" data-book-group="zombie">Zombies</button>
+                    <button type="button" class="mini-action-btn" data-book-group="skeleton">Skeletons</button>
+                    <button type="button" class="mini-action-btn" data-book-group="animal">Animals</button>
+                    <button type="button" class="mini-action-btn" data-book-group="dino">Dinosaurs</button>
+                  </div>
+                  <input type="text" id="pet-book-search" class="nickname-input search-bar" placeholder="Search caught kinds..." maxlength="40" />
+                  <div id="pet-book-grid" class="team-cards pet-book-grid"></div>
+                </div>
+                <!-- Powers & types guide (TeamUI.renderGuide, 2026-11-11). -->
+                <details id="team-guide"></details>
+                <!-- Weekly Team Tournament (TeamTournament.js, 2026-11-02). -->
+                <h3 id="tourney-title" class="team-section-title"></h3>
+                <p id="tourney-status" class="menu-best-stats"></p>
+                <div id="tourney-bracket"></div>
+                <button type="button" id="tourney-btn" class="team-battle-btn"></button>
+                <div id="tourney-badges"></div>
+                <!-- Pack Leaders (PackLeaders.js, 2026-11-11): the next
+                     leader's team, the Challenge button and all 26 badges. -->
+                <h3 id="leaders-title" class="team-section-title"></h3>
+                <p id="leaders-status" class="menu-best-stats"></p>
+                <div id="leaders-team"></div>
+                <button type="button" id="leaders-btn" class="team-battle-btn"></button>
+                <div id="leaders-badges"></div>
+                <!-- Weekly Challenge (WeeklyChallenge.js, 2026-11-24): one rule
+                     a week, 5 bot battles in a row for a prize + badge. -->
+                <section id="weekly-challenge"></section>
+                <!-- Co-op Boss Raid (PetRaid.js, Batch O 2026-11-24): a giant
+                     boss a week, with a friend (live) or a helper bot. -->
+                <section id="pet-raid">
+                  <div id="pet-raid-body"></div>
+                  <button type="button" id="raid-friend-btn" class="mini-action-btn">Raid with a Friend</button>
+                  <div id="raid-friend-list"></div>
+                </section>
+                <!-- Gauntlet (Gauntlet.js, 2026-11-11): a run of its own with
+                     a shop - your caught creatures aren't used. -->
+                <section id="gauntlet">
+                  <h3 id="gauntlet-title" class="team-section-title"></h3>
+                  <p id="gauntlet-status" class="menu-best-stats"></p>
+                  <div id="gauntlet-run"></div>
+                  <button type="button" id="gauntlet-btn" class="team-battle-btn"></button>
+                </section>
+                <h3 id="team-caught-title" class="team-section-title"></h3>
+                <p id="team-empty"><span id="team-how"></span></p>
+                <div id="team-grid" class="team-cards"></div>
+              </div>
+          </div>
+        </div>
+      </div>
+
       <div id="market-panel">
         <div class="panel-box">
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
@@ -3302,6 +3414,13 @@
                    sets, filled by ShopMoreSkins.js. -->
               <h3 class="crate-section-heading" id="shop-more-skins-heading">More Skins</h3>
               <div id="shop-more-skins"></div>
+              <!-- Pets (2026-11-25, moved from Inventory > Pets): the daily
+                   Pet Shop and your eggs. Drawn by TeamUI.renderTeamPanel. -->
+              <h3 class="crate-section-heading" id="shop-pets-heading">Pets</h3>
+              <div id="shop-pets">
+                <section id="pet-shop"></section>
+                <div id="team-eggs"></div>
+              </div>
               <h3 class="crate-section-heading" id="shop-identity-heading">Name &amp; ID</h3>
               <div class="shop-soon-grid shop-identity-grid">
                 <div class="shop-soon-card shop-identity-card" style="--soon-color: #5ee86a">
@@ -3700,7 +3819,6 @@
             <button class="inventory-tab active" data-inventory-page="character" id="inventory-tab-character">Character</button>
             <button class="inventory-tab" data-inventory-page="crates" id="inventory-tab-crates">Crates</button>
             <button class="inventory-tab" data-inventory-page="weapons" id="inventory-tab-weapons">Weapons</button>
-            <button class="inventory-tab" data-inventory-page="pets" id="inventory-tab-pets">Pets</button>
             <button class="inventory-tab" data-inventory-page="cosmetics" id="inventory-tab-cosmetics">Hats &amp; Capes</button>
             <button class="inventory-tab" data-inventory-page="zombiebook" id="inventory-tab-zombiebook">Zombie Book</button>
           </div>
@@ -3831,111 +3949,6 @@
           </div>
           <div class="inventory-tab-page" id="inventory-page-weapons" style="display: none">
             <div id="inventory-weapons-list"></div>
-          </div>
-          <div class="inventory-tab-page" id="inventory-page-pets" style="display: none">
-            <!-- Pets (2026-10-31, TeamUI.js, Gaymi: "move the teams into
-                 inventory"): caught zombies and animals, the battle team
-                 and the Battle button - this was the homepage's Team page. -->
-            <div id="team-page">
-              <p id="team-record" class="menu-best-stats"></p>
-              <!-- Trophies + rank badge (PetRank.js, Batch M 2026-11-24). -->
-              <p id="pet-rank-line" class="menu-best-stats"></p>
-              <!-- Friend battles' own record (FriendBattle.js, Batch G 2026-11-23). -->
-              <p id="team-friend-record" class="menu-best-stats"></p>
-              <!-- Homepage pet picker (HomePet.js, 2026-11-07). -->
-              <div id="home-pet-row"><label for="home-pet-select" id="home-pet-label">Homepage pet</label><select id="home-pet-select"></select></div>
-              <h3 id="team-picked-title" class="team-section-title"></h3>
-              <p id="team-order-hint" class="team-snack-hint"></p>
-              <div id="team-slots" class="team-cards"></div>
-              <!-- Team combos and the snack shop (TeamUI.renderCombos / renderSnacks, 2026-11-11). -->
-              <h3 id="team-combos-title" class="team-section-title"></h3>
-              <div id="team-combos"></div>
-              <div id="team-snacks"></div>
-              <!-- Held items (TeamUI.renderItems, Batch D 2026-11-23). -->
-              <div id="team-items"></div>
-              <!-- Pet eggs (TeamUI.renderEggs, Batch F 2026-11-23). -->
-              <div id="team-eggs"></div>
-              <!-- Nicknames (TeamUI.renderRename, 2026-11-23). -->
-              <div id="team-rename"></div>
-              <button type="button" id="team-battle-btn" class="team-battle-btn">Battle!</button>
-              <!-- Battle a Friend (FriendBattle.js): online friends, live. -->
-              <button type="button" id="friend-battle-btn" class="mini-action-btn">Battle a Friend</button>
-              <div id="friend-battle-list"></div>
-              <!-- Pet trading (PetTrade.js, Batch N 2026-11-24): online friends, live. -->
-              <button type="button" id="pet-trade-btn" class="mini-action-btn">Trade with a Friend</button>
-              <div id="pet-trade-list"></div>
-              <!-- Replays (PetReplays.js, Batch J 2026-11-24): the last
-                   battle and up to 10 saved ones, this device only. -->
-              <button type="button" id="replays-btn" class="mini-action-btn">Replays</button>
-              <div id="replays-list" hidden></div>
-              <!-- Pet battle leaderboard (PetRank.js, Batch M 2026-11-24):
-                   trophies from the Battle button, online. -->
-              <button type="button" id="pet-rank-btn" class="mini-action-btn">Leaderboard</button>
-              <div id="pet-rank" hidden>
-                <p id="pet-rank-how" class="team-snack-hint"></p>
-                <div class="pet-rank-tabs">
-                  <button type="button" class="mini-action-btn" data-rank-tab="all">All-time</button>
-                  <button type="button" class="mini-action-btn" data-rank-tab="week">This week</button>
-                  <button type="button" class="mini-action-btn" data-rank-tab="friends">Friends</button>
-                </div>
-                <p id="pet-rank-me" class="menu-best-stats"></p>
-                <div id="pet-rank-list"></div>
-              </div>
-              <!-- Collection book (PetBook.js, Batch K 2026-11-24): every
-                   creature kind; caught = shown, not caught = a dark shape. -->
-              <button type="button" id="pet-book-btn" class="mini-action-btn">Collection Book</button>
-              <div id="pet-book" hidden>
-                <p id="pet-book-count" class="pet-book-count"></p>
-                <div id="pet-book-page" class="pet-book-page empty"></div>
-                <div class="pet-book-groups">
-                  <button type="button" class="mini-action-btn" data-book-group="all">All</button>
-                  <button type="button" class="mini-action-btn" data-book-group="zombie">Zombies</button>
-                  <button type="button" class="mini-action-btn" data-book-group="skeleton">Skeletons</button>
-                  <button type="button" class="mini-action-btn" data-book-group="animal">Animals</button>
-                  <button type="button" class="mini-action-btn" data-book-group="dino">Dinosaurs</button>
-                </div>
-                <input type="text" id="pet-book-search" class="nickname-input search-bar" placeholder="Search caught kinds..." maxlength="40" />
-                <div id="pet-book-grid" class="team-cards pet-book-grid"></div>
-              </div>
-              <!-- Powers & types guide (TeamUI.renderGuide, 2026-11-11). -->
-              <details id="team-guide"></details>
-              <!-- Weekly Team Tournament (TeamTournament.js, 2026-11-02). -->
-              <h3 id="tourney-title" class="team-section-title"></h3>
-              <p id="tourney-status" class="menu-best-stats"></p>
-              <div id="tourney-bracket"></div>
-              <button type="button" id="tourney-btn" class="team-battle-btn"></button>
-              <div id="tourney-badges"></div>
-              <!-- Pack Leaders (PackLeaders.js, 2026-11-11): the next
-                   leader's team, the Challenge button and all 26 badges. -->
-              <h3 id="leaders-title" class="team-section-title"></h3>
-              <p id="leaders-status" class="menu-best-stats"></p>
-              <div id="leaders-team"></div>
-              <button type="button" id="leaders-btn" class="team-battle-btn"></button>
-              <div id="leaders-badges"></div>
-              <!-- Weekly Challenge (WeeklyChallenge.js, 2026-11-24): one rule
-                   a week, 5 bot battles in a row for a prize + badge. -->
-              <section id="weekly-challenge"></section>
-              <!-- Co-op Boss Raid (PetRaid.js, Batch O 2026-11-24): a giant
-                   boss a week, with a friend (live) or a helper bot. -->
-              <section id="pet-raid">
-                <div id="pet-raid-body"></div>
-                <button type="button" id="raid-friend-btn" class="mini-action-btn">Raid with a Friend</button>
-                <div id="raid-friend-list"></div>
-              </section>
-              <!-- Gauntlet (Gauntlet.js, 2026-11-11): a run of its own with
-                   a shop - your caught creatures aren't used. -->
-              <section id="gauntlet">
-                <h3 id="gauntlet-title" class="team-section-title"></h3>
-                <p id="gauntlet-status" class="menu-best-stats"></p>
-                <div id="gauntlet-run"></div>
-                <button type="button" id="gauntlet-btn" class="team-battle-btn"></button>
-              </section>
-              <!-- Daily Pet Shop (PetShop.js, 2026-11-23): creatures for coins. -->
-              <section id="pet-shop"></section>
-              <h3 id="team-caught-title" class="team-section-title"></h3>
-              <p id="team-empty"><span id="team-how"></span></p>
-              <div id="team-grid" class="team-cards"></div>
-            </div>
           </div>
           <div class="inventory-tab-page" id="inventory-page-cosmetics" style="display: none">
             <!-- Hats & Capes (2026-10-31, CosmeticsUI.js): unlocked by

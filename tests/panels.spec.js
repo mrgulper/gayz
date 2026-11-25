@@ -190,7 +190,7 @@ test('Theme is a Settings tab, Inventory has Pets, and the menus follow Simple',
     return out
   })
   expect(r).toEqual({
-    inventoryTabs: ['character', 'crates', 'weapons', 'pets', 'cosmetics', 'zombiebook'],
+    inventoryTabs: ['character', 'crates', 'weapons', 'cosmetics', 'zombiebook'],
     themeInSettings: true,
     settingsTabs: ['general', 'language', 'audio', 'controls', 'gameplay', 'graphics', 'theme'],
     generalOpensOn: ['general-page-general'],
@@ -1055,7 +1055,7 @@ test('homepage unlock ladder: new players see fewer buttons, games unlock the re
   expect(r.ladderAfter5).toBe('off')
   expect(r.toasts).toBe(3)
   expect(r.navOrderHasMore).toBe(false)
-  expect(r.navOrderRows).toBe(10)
+  expect(r.navOrderRows).toBe(11)
 
   // More... opens everything and it stays that way after a reload.
   await page.evaluate(() => {

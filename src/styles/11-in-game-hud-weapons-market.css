@@ -427,8 +427,7 @@ html.ui-theme-old .chat-trade-fill:hover {
    a searchable grid of skin cards on the right. Each card's left bar is
    its rarity color (--rarity, set per card from SKIN_RARITIES). */
 #inventory-page-character,
-#inventory-page-weapons,
-#inventory-page-pets {
+#inventory-page-weapons {
   width: 100%;
   padding: 0;
 }

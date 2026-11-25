@@ -33,7 +33,6 @@ export function _openMenuInventoryPanel(game) {
   if (game.inventoryTabCharacter) game.inventoryTabCharacter.textContent = t('inventorySkinsTitle')
   if (game.inventoryTabCrates) game.inventoryTabCrates.textContent = t('inventoryCratesTitle')
   if (game.inventoryTabWeapons) game.inventoryTabWeapons.textContent = t('inventoryWeaponsTitle')
-  if (game.inventoryTabPets) game.inventoryTabPets.textContent = t('inventoryPetsTitle')
   game._renderCrateTiers()
   if (game.invSkinSearch) {
     game.invSkinSearch.value = ''
@@ -1094,6 +1093,8 @@ export function _openShopPanel(game) {
   }
   game._renderShopSkinState()
   game._renderCrateTiers()
+  // Pets section: the daily Pet Shop + eggs (TeamUI.renderTeamPanel).
+  game._renderTeamPanel?.()
 }
 
 // Try On (2026-10-23): the shop closes and the homepage character wears
