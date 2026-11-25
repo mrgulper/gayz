@@ -33,4 +33,10 @@ export default {
   killFxOwned: "已拥有 - 点击使用",
   killFxBuyInShop: "未解锁:在商店购买",
   killFxBoughtToast: "{name} 已归你 - 你击倒的僵尸会这样爆开",
+  // Walk trails (WalkTrails.js, ShopEffects.js, 2026-11-25).
+  trailHeading: "行走拖尾",
+  trailSparkleTrail: "闪光拖尾",
+  trailFootprintTrail: "脚印",
+  trailSnowTrail: "雪团",
+  trailBoughtToast: "{name} 已归你 - 走路时会留在你身后",
 }

@@ -33,4 +33,10 @@ export default {
   killFxOwned: "Owned - click to use",
   killFxBuyInShop: "Locked: buy it in the Shop",
   killFxBoughtToast: "{name} is yours - zombies you take down burst with it now",
+  // Walk trails (WalkTrails.js, ShopEffects.js, 2026-11-25).
+  trailHeading: "Walk Trails",
+  trailSparkleTrail: "Sparkle Trail",
+  trailFootprintTrail: "Footprints",
+  trailSnowTrail: "Snow Puffs",
+  trailBoughtToast: "{name} is yours - you leave it behind you when you walk now",
 }

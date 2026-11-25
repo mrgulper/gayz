@@ -1882,3 +1882,50 @@ test('the pause screen uses two columns on PC and one on a phone', async ({ page
   expect(phone.columns).toBe(1)
   expect(phone.cardWide).toBe(false)
 })
+
+// Walk trails (WalkTrails.js, 2026-11-25): walking leaves footprints (flat
+// prints that fade) or sparkles behind me - only one I own, and not while
+// dead. My pick rides in my server state so others see it.
+test('Walk trails: footprints and sparkles behind me as I walk', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'classic'
+    g.shopCosmetics = { footprintTrail: 1, sparkleTrail: 1 }
+    g.settings.walkTrail = 'footprintTrail'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    const scene = g.buildMode.scene
+    const prints = () => scene.children.filter((o) => o.isMesh && o.renderOrder === 2 && o.visible && o.userData.age < 4).length
+    const pos = g.buildMode.tryMode.pos
+    // Walk 4 blocks along x, one game frame per small step.
+    const walk = (n) => {
+      for (let i = 0; i < n; i++) {
+        pos.x += 0.2
+        s.update(0.05)
+      }
+    }
+    walk(20)
+    const footprints = prints()
+    g.settings.walkTrail = 'sparkleTrail'
+    const sparks = () => s._fx._sprites.filter((sp) => sp.userData.life > 0 && sp.userData.t < sp.userData.life && sp.userData.t >= 0).length
+    const before = sparks()
+    walk(20)
+    const sparkles = sparks() - before
+    // Not owned: nothing.
+    g.shopCosmetics = {}
+    g.settings.walkTrail = 'footprintTrail'
+    for (const o of scene.children) if (o.renderOrder === 2 && o.isMesh) o.visible = false
+    walk(20)
+    const unowned = prints()
+    g._exitBuildMode()
+    return { footprints, sparkles, unowned }
+  })
+  expect(r.footprints).toBeGreaterThan(3)
+  expect(r.sparkles).toBeGreaterThan(3)
+  expect(r.unowned).toBe(0)
+})

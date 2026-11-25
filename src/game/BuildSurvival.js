@@ -41,6 +41,7 @@ import { PlayShop } from './PlayShop.js'
 import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, COMING_SOON_WEAPONS, ammoFor, canPlayWeapon, weaponBars } from './PlayWeapons.js'
 import { PlayFx } from './PlayFx.js'
 import { myKillEffect, cleanKillEffect, playKillEffect } from './KillEffects.js'
+import { TrailMaker, myTrail, clearTrails } from './WalkTrails.js'
 import { openSpawnMap, closeSpawnMap, findSpawn } from './SpawnMap.js'
 import { LANDMARKS, LANDMARK_REACH } from './Landmarks.js'
 import { CITIES, TOWN_R, TOWN_SPAWN, townStyleAt, townStyleFor } from './Towns.js'
@@ -879,6 +880,7 @@ export class BuildSurvival {
     this.vehicles?.clear()
     this.pins?.clear()
     this._fx?.clear()
+    clearTrails(this.bm.scene)
     this.throws?.clear()
     this.catcher?.clear()
     this.hpBars?.clear()
@@ -3776,6 +3778,10 @@ export class BuildSurvival {
     this.replay?.update(dt)
     this._updateCorpses(Math.min(dt, 0.1))
     this._fx?.update(Math.min(dt, 0.1))
+    // My walk trail (WalkTrails.js) - not while dead or flying around spectating.
+    if (!this._trail) this._trail = new TrailMaker()
+    const feet = this.bm.tryMode.pos
+    if (feet) this._trail.step(this, this.dead || this.spectating ? '' : myTrail(this.bm.game), feet.x, feet.y, feet.z, Math.min(dt, 0.1))
     this.tricks?.update(Math.min(dt, 0.1))
     this.damageNumbers?.update(Math.min(dt, 0.1))
     this._updateOwnBubble(Math.min(dt, 0.1))

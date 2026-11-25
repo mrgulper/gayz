@@ -36,4 +36,12 @@ has a Kill Effects row (`#cosmetics-kills`). Owned in `shopCosmetics`, used
 the last hitter's effect and sends `fx` in the zombie snapshot; clients
 burst it when the zombie leaves the snapshot. Prices (1,500/1,500/2,500
 coins) are a guess. Tests: panels "Shop: Kill Effects", zombies "Kill effects".
-Next: batch 5 (Walk trails) - same pattern (settings.walkTrail, state field).
+Batch 5 shipped 2026-11-25 (Walk trails): `WalkTrails.js` (`TrailMaker`
+per walker; sparkles + snow puffs are PlayFx sparks, footprints are a pool
+of 48 flat prints per scene that fade in 4 s). `ShopEffects.js` now handles
+both kinds (`EFFECT_KINDS`), `#shop-trails`, `#cosmetics-trails`. Used =
+`settings.walkTrail`; online state `trail` (server passes `kfx`, `trail`,
+zombie `fx`; hat ids with capitals pass too since this batch). Prices
+(2,000/1,500/2,000 coins) are a guess. Tests: panels "Shop: Walk Trails",
+play "Walk trails", servers "hats with capitals".
+All 5 batches done.

@@ -2312,7 +2312,8 @@ html.ui-theme-clean .inv-skin-card .shop-bundle-off { background: #e0284f; color
 
 /* Shop > Kill Effects (2026-11-25, ShopEffects.js): same cards and grid
    as More Skins; the picture is a flat 48px icon, drawn big and crisp. */
-#shop-effects {
+#shop-effects,
+#shop-trails {
   width: min(760px, 100%);
   margin: 0 auto;
   display: grid;
@@ -2332,5 +2333,5 @@ html.ui-theme-clean .inv-skin-card .shop-bundle-off { background: #e0284f; color
   pointer-events: none;
 }
 @media (max-width: 700px) {
-  #shop-effects { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #shop-effects, #shop-trails { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

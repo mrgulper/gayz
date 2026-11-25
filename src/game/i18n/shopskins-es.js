@@ -33,4 +33,10 @@ export default {
   killFxOwned: "Tuyo - haz clic para usarlo",
   killFxBuyInShop: "Bloqueado: cómpralo en la tienda",
   killFxBoughtToast: "{name} es tuyo - los zombis que derribes estallarán así",
+  // Walk trails (WalkTrails.js, ShopEffects.js, 2026-11-25).
+  trailHeading: "Rastros al caminar",
+  trailSparkleTrail: "Rastro brillante",
+  trailFootprintTrail: "Huellas",
+  trailSnowTrail: "Nubes de nieve",
+  trailBoughtToast: "{name} es tuyo - lo dejas detrás al caminar",
 }

@@ -861,19 +861,19 @@ test('Shop: Kill Effects buy, use and switch in Inventory', async ({ page }) => 
     g.settings.killEffect = ''
     g._openShopPanel()
     await wait(300)
-    const cards = document.querySelectorAll('#shop-effects [data-kill-effect]').length
-    document.querySelector('[data-kill-effect="pixelKill"]').click() // 2,500 - too few
+    const cards = document.querySelectorAll('#shop-effects [data-shop-effect]').length
+    document.querySelector('[data-shop-effect="pixelKill"]').click() // 2,500 - too few
     await wait(100)
-    document.querySelector('[data-kill-effect="snowKill"]').click()
+    document.querySelector('[data-shop-effect="snowKill"]').click()
     await wait(300)
     const after = { coins: g.coins, owned: { ...g.shopCosmetics }, using: g.settings.killEffect }
     g._openMenuInventoryPanel()
     document.getElementById('inventory-tab-cosmetics').click()
     await wait(200)
-    const locked = document.querySelector('[data-kill-fx="confettiKill"]').classList.contains('locked')
-    document.querySelector('[data-kill-fx="confettiKill"]').click() // not owned: nothing
+    const locked = document.querySelector('[data-effect="confettiKill"]').classList.contains('locked')
+    document.querySelector('[data-effect="confettiKill"]').click() // not owned: nothing
     const stillSnow = g.settings.killEffect
-    document.querySelector('[data-kill-fx="snowKill"]').click() // owned + used: stop
+    document.querySelector('[data-effect="snowKill"]').click() // owned + used: stop
     return { cards, after, locked, stillSnow, off: g.settings.killEffect, saved: JSON.parse(localStorage.getItem('gayz-settings')).killEffect }
   })
   expect(r.cards).toBe(3)
@@ -882,6 +882,32 @@ test('Shop: Kill Effects buy, use and switch in Inventory', async ({ page }) => 
   expect(r.stillSnow).toBe('snowKill')
   expect(r.off).toBe('')
   expect(r.saved).toBe('')
+})
+
+// 2026-11-25: Shop > Walk Trails - same as Kill Effects, own setting.
+test('Shop: Walk Trails buy and use', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    window.confirm = () => true
+    g.coins = 1600
+    g.shopCosmetics = {}
+    g.settings.walkTrail = ''
+    g.settings.killEffect = ''
+    g._openShopPanel()
+    await wait(300)
+    const cards = document.querySelectorAll('#shop-trails [data-shop-effect]').length
+    document.querySelector('[data-shop-effect="footprintTrail"]').click()
+    await wait(300)
+    const label = document.querySelector('[data-shop-effect="footprintTrail"] .inv-skin-card-price').textContent
+    g._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-cosmetics').click()
+    await wait(200)
+    const rows = document.querySelectorAll('#cosmetics-trails [data-effect]').length
+    return { cards, coins: g.coins, trail: g.settings.walkTrail, kill: g.settings.killEffect, label, rows }
+  })
+  expect(r).toEqual({ cards: 3, coins: 100, trail: 'footprintTrail', kill: '', label: 'Using', rows: 3 })
 })
 
 // 2026-10-24: right-column number badges, leaderboard rows that open a
