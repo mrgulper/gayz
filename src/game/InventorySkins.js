@@ -3,6 +3,7 @@
 // existing import keeps working.
 import { DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW_DATA_URL, ALISA_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { MARKET_SKINS, MARKET_PRICES } from './MarketSkins.js'
+import { shopSkinCost } from './ShopSkinPrices.js'
 
 // Inventory > Character skins, in grid order. Adding a
 // skin to the game = one entry here: its 64x64 skin texture,
@@ -21,7 +22,10 @@ export const INVENTORY_SKINS = [
     ...skin,
     price: MARKET_PRICES[skin.rarity],
     count: (g) => Math.max(0, Math.floor(Number(g.charSkins?.[skin.id]) || 0)),
-    sell: { currency: 'coins', amount: Math.floor(MARKET_PRICES[skin.rarity] / 2) },
+    // Gem-priced Shop skins (Epic and up) sell back for half, in gems.
+    sell: skin.set && shopSkinCost(skin).currency === 'gems'
+      ? { currency: 'gems', amount: Math.floor(shopSkinCost(skin).amount / 2) }
+      : { currency: 'coins', amount: Math.floor(MARKET_PRICES[skin.rarity] / 2) },
   })),
 ]
 export const SKIN_RARITIES = {

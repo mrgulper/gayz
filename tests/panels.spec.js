@@ -744,6 +744,58 @@ test('Shop: GaygarX price, Inspect, buying', async ({ page }) => {
   expect(INVENTORY_SKINS.find((s) => s.id === 'gaygarx').sell.amount).toBe(250)
 })
 
+// 2026-11-25: Shop > More Skins - 12 skins in 3 sets; coins for Common-Rare,
+// gems for Epic and up; buying puts it in Inventory and wears it.
+test('Shop: More Skins sells 12 skins for coins or gems', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    window.confirm = () => true
+    g.coins = 600
+    g.gems = 400
+    g.charSkins = {}
+    g._openShopPanel()
+    await wait(300)
+    const box = () => JSON.stringify(document.querySelector('#shop-panel .panel-box').getBoundingClientRect())
+    const before = box()
+    const cards = document.querySelectorAll('#shop-more-skins [data-shop-skin]').length
+    const sets = document.querySelectorAll('#shop-more-skins .shop-more-skins-set').length
+    const snowPrice = document.querySelector('[data-shop-skin="snowman"] .inv-skin-card-price').textContent
+    const dragonPrice = document.querySelector('[data-shop-skin="dragon"] .inv-skin-card-price').textContent
+    document.querySelector('[data-shop-skin="snowman"]').click()
+    await wait(400)
+    document.querySelector('[data-shop-skin="firefighter"]').click() // 4,000 coins - too few
+    await wait(200)
+    document.querySelector('[data-shop-skin="dragon"]').click() // 500 gems - too few
+    await wait(200)
+    document.querySelector('[data-shop-skin="lavagolem"]').click() // 250 gems
+    await wait(400)
+    const wearing = g._equippedInventorySkinId()
+    document.querySelector('[data-shop-skin="snowman"]').click() // owned: wear it again
+    await wait(400)
+    return {
+      cards, sets, snowPrice, dragonPrice, coins: g.coins, gems: g.gems, skins: { ...g.charSkins }, wearing,
+      wearingAfter: g._equippedInventorySkinId(), sameSize: before === box(),
+      noSoonCard: !document.getElementById('shop-soon-skins-name'),
+    }
+  })
+  const { INVENTORY_SKINS } = await import('../src/game/InventorySkins.js')
+  expect(r.cards).toBe(12)
+  expect(r.sets).toBe(3)
+  expect(r.snowPrice).toContain('500')
+  expect(r.dragonPrice).toContain('500')
+  expect(r.coins).toBe(100)
+  expect(r.gems).toBe(150)
+  expect(r.skins).toEqual({ snowman: 1, lavagolem: 1 })
+  expect(r.wearing).toBe('lavagolem')
+  expect(r.wearingAfter).toBe('snowman')
+  expect(r.sameSize).toBe(true)
+  expect(r.noSoonCard).toBe(true)
+  expect(INVENTORY_SKINS.find((s) => s.id === 'lavagolem').sell).toEqual({ currency: 'gems', amount: 125 })
+  expect(INVENTORY_SKINS.find((s) => s.id === 'snowman').sell).toEqual({ currency: 'coins', amount: 250 })
+})
+
 // 2026-10-24: right-column number badges, leaderboard rows that open a
 // player's profile, no account row on General, Terms/Privacy without the
 // disclaimer and with a build-dated "Last updated", the clan list preloaded.

@@ -2215,3 +2215,32 @@ html.ui-theme-old .ring-shop-qty .play-shop-tab.active { color: #f6e7c4; backgro
 #nemesis-arrow { position: absolute; left: 0; top: 0; width: 46px; height: 46px; display: none; pointer-events: none; }
 #nemesis-arrow .nemesis-arrow-head { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 34px; color: #ff3b3b; text-shadow: 0 0 6px rgba(0, 0, 0, 0.9), 0 0 2px #000; }
 #nemesis-arrow .nemesis-arrow-skull { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #fff; text-shadow: 0 0 3px #000; }
+
+/* Shop > More Skins (2026-11-25, ShopMoreSkins.js): same cards as
+   Inventory > Character, one small grid per set. Owned cards stay
+   clickable (click = wear it). Sizes are the same in every theme. */
+#shop-more-skins {
+  width: min(760px, 100%);
+  margin: 0 auto;
+}
+.shop-more-skins-set {
+  margin: 10px 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-align: center;
+  color: var(--menu-gold, #d9bc4a);
+  opacity: 0.8;
+}
+html.ui-theme-old .shop-more-skins-set { color: var(--old-ink, #2e1d0e); }
+html.ui-theme-clean .shop-more-skins-set { color: var(--clean-fg); }
+.shop-more-skins-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: 150px;
+  gap: 8px;
+}
+.inv-skin-card.owned.shop-more-skin-card { cursor: pointer; }
+@media (max-width: 700px) {
+  .shop-more-skins-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

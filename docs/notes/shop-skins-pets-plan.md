@@ -1,0 +1,20 @@
+# Shop + skins + pets plan (2026-11-25)
+
+Gaymi: "design more skins and give more ideas to put on the shop". Picked
+(answers = the go-ahead, one batch per session):
+
+1. **12 new skins in Shop > More Skins** (replaces that Coming Soon card).
+   Winter: Snowman, Gingerbread, Elf, Ice Golem. Survivor jobs: Lumberjack,
+   Medic, Firefighter, Hazmat. Creatures: Frog, Bee, Lava Golem, Dragon.
+   Price mixes by rarity: Common-Rare cost coins (MARKET_PRICES), Epic and
+   up cost gems.
+2. **Pets move.** New "Pets" button on the homepage right column, ABOVE
+   Map Editor, holding everything pet-related from Inventory > Pets (team,
+   Pet Book, team + friend battles, Pet Raids, Pet Rank, replays, trades).
+   The daily Pet Shop and Pet Eggs move into Shop instead. Inventory's
+   Pets tab goes away. Panel same size as every other panel.
+3. **Bundles:** a skin + hat + cape sold together at a discount.
+4. **Kill effects:** zombies burst into confetti / snowflakes / pixels.
+5. **Walk trails:** sparkles / footprints / snow puffs behind you.
+
+Status: batch 1 shipped 2026-11-25 (More Skins). Next: batch 2 (Pets move).
