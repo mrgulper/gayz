@@ -1,9 +1,9 @@
 // Kill effects (2026-11-25, shop plan batch 4; Gaymi: bought in the Shop,
 // everyone online sees them). A zombie you take down bursts into confetti,
 // snowflakes or pixels on top of its usual fall. Bought in Shop > Kill
-// Effects for coins (prices a guess to start with), owned ones live in
+// Effects for coins (10k-100k, Gaymi 2026-11-25), owned ones live in
 // game.shopCosmetics (shop save, like the bundle hats), the one you use is
-// settings.killEffect, picked in the Shop or Inventory > Hats & Capes.
+// settings.killEffect, picked in the Shop or Inventory > Cosmetics.
 //
 // Online: my pick rides in my PlayNet state (`kfx`); the host tags each
 // zombie with its last hitter's effect (z.kfx) and sends it in the zombie
@@ -13,9 +13,9 @@ import { ownsShopCosmetic } from './Cosmetics.js'
 import { t } from './i18n.js'
 
 export const KILL_EFFECTS = {
-  confettiKill: { price: 1500, colors: [0xff5ca8, 0xffd23f, 0x5cc8ff, 0x7dff8a] },
-  snowKill: { price: 1500, colors: [0xffffff, 0xcfe8ff, 0x9fd0ff] },
-  pixelKill: { price: 2500, colors: [0x39ff88, 0x2a9dff, 0xff3b6b, 0xffe14d] },
+  confettiKill: { price: 10000, colors: [0xff5ca8, 0xffd23f, 0x5cc8ff, 0x7dff8a] },
+  snowKill: { price: 25000, colors: [0xffffff, 0xcfe8ff, 0x9fd0ff] },
+  pixelKill: { price: 50000, colors: [0x39ff88, 0x2a9dff, 0xff3b6b, 0xffe14d] },
 }
 export const KILL_EFFECT_IDS = Object.keys(KILL_EFFECTS)
 

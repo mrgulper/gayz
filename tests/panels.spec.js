@@ -804,7 +804,7 @@ test('Shop: Bundles sell a skin, hat and cape at 30% off', async ({ page }) => {
     const g = window.__game
     const wait = (ms) => new Promise((res) => setTimeout(res, ms))
     window.confirm = () => true
-    g.coins = 3000
+    g.coins = 10500
     g.gems = 0
     g.charSkins = { firefighter: 1 }
     g.shopCosmetics = {}
@@ -830,12 +830,15 @@ test('Shop: Bundles sell a skin, hat and cape at 30% off', async ({ page }) => {
     }
   })
   expect(r.cards).toBe(3)
-  // Winter: 500 + 1000 + 1500 -> 2,100. Survivor: skin owned, 2,500 -> 1,750.
-  expect(r.prices.winter).toContain('2,100')
-  expect(r.prices.survivor).toContain('1,750')
-  expect(r.prices.creatures).toContain('525')
+  // Winter: 10,000 (worth 14,300). Survivor: worth 35,700 less the owned
+  // Firefighter's 4,000 = 31,700, 30% off -> 22,190 -> 22,200. Dragon: 1,000 gems.
+  expect(r.prices.winter).toContain('14,300')
+  expect(r.prices.winter).toContain('10,000')
+  expect(r.prices.survivor).toContain('31,700')
+  expect(r.prices.survivor).toContain('22,200')
+  expect(r.prices.creatures).toContain('1,000 gems')
   expect(r.lockedBefore).toBe(true)
-  expect(r.coins).toBe(900)
+  expect(r.coins).toBe(500)
   expect(r.skins).toEqual({ firefighter: 1, snowman: 1 })
   expect(r.owned).toEqual({ santaHat: 1, snowCape: 1 })
   expect(r.saved).toEqual({ santaHat: 1, snowCape: 1 })
@@ -849,20 +852,20 @@ test('Shop: Bundles sell a skin, hat and cape at 30% off', async ({ page }) => {
 })
 
 // 2026-11-25: Shop > Kill Effects - bought for coins and used right away;
-// Inventory > Hats & Capes lists them (locked until bought) to switch.
+// Inventory > Cosmetics lists them (locked until bought) to switch.
 test('Shop: Kill Effects buy, use and switch in Inventory', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
     const g = window.__game
     const wait = (ms) => new Promise((res) => setTimeout(res, ms))
     window.confirm = () => true
-    g.coins = 2000
+    g.coins = 26000
     g.shopCosmetics = {}
     g.settings.killEffect = ''
     g._openShopPanel()
     await wait(300)
     const cards = document.querySelectorAll('#shop-effects [data-shop-effect]').length
-    document.querySelector('[data-shop-effect="pixelKill"]').click() // 2,500 - too few
+    document.querySelector('[data-shop-effect="pixelKill"]').click() // 50,000 - too few
     await wait(100)
     document.querySelector('[data-shop-effect="snowKill"]').click()
     await wait(300)
@@ -877,7 +880,7 @@ test('Shop: Kill Effects buy, use and switch in Inventory', async ({ page }) => 
     return { cards, after, locked, stillSnow, off: g.settings.killEffect, saved: JSON.parse(localStorage.getItem('gayz-settings')).killEffect }
   })
   expect(r.cards).toBe(3)
-  expect(r.after).toEqual({ coins: 500, owned: { snowKill: 1 }, using: 'snowKill' })
+  expect(r.after).toEqual({ coins: 1000, owned: { snowKill: 1 }, using: 'snowKill' })
   expect(r.locked).toBe(true)
   expect(r.stillSnow).toBe('snowKill')
   expect(r.off).toBe('')
@@ -891,7 +894,7 @@ test('Shop: Walk Trails buy and use', async ({ page }) => {
     const g = window.__game
     const wait = (ms) => new Promise((res) => setTimeout(res, ms))
     window.confirm = () => true
-    g.coins = 1600
+    g.coins = 10100
     g.shopCosmetics = {}
     g.settings.walkTrail = ''
     g.settings.killEffect = ''

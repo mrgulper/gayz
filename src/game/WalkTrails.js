@@ -1,9 +1,9 @@
 // Walk trails (2026-11-25, shop plan batch 5; Gaymi: bought in the Shop,
 // everyone online sees them). Sparkles, footprints or snow puffs left
-// behind as you walk. Bought in Shop > Walk Trails for coins (prices a
-// guess to start with), owned ones live in game.shopCosmetics (shop save),
+// behind as you walk. Bought in Shop > Walk Trails for coins (10k-100k,
+// Gaymi 2026-11-25), owned ones live in game.shopCosmetics (shop save),
 // the one you use is settings.walkTrail, picked in the Shop or Inventory >
-// Hats & Capes. Online: my pick rides in my PlayNet state (`trail`), and
+// Cosmetics. Online: my pick rides in my PlayNet state (`trail`), and
 // every screen leaves the same trail behind each player (PlayNet._drawPlayer).
 //
 // Sparkles and snow puffs are PlayFx particles; footprints lie flat on the
@@ -14,9 +14,9 @@ import { ownsShopCosmetic } from './Cosmetics.js'
 import { t } from './i18n.js'
 
 export const TRAILS = {
-  sparkleTrail: { price: 2000, step: 0.45, colors: [0xffd23f, 0xff5ca8, 0x5cc8ff, 0xffffff] },
-  footprintTrail: { price: 1500, step: 0.8, colors: [0x3a2a1e] },
-  snowTrail: { price: 2000, step: 0.5, colors: [0xffffff, 0xe6f4ff] },
+  sparkleTrail: { price: 100000, step: 0.45, colors: [0xffd23f, 0xff5ca8, 0x5cc8ff, 0xffffff] },
+  footprintTrail: { price: 10000, step: 0.8, colors: [0x3a2a1e] },
+  snowTrail: { price: 25000, step: 0.5, colors: [0xffffff, 0xe6f4ff] },
 }
 export const TRAIL_IDS = Object.keys(TRAILS)
 

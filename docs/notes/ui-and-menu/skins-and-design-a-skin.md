@@ -34,5 +34,5 @@ Gaymi: "make the edit and generating a skin smarter" - chose to stay offline (no
 
 ## Shop > Bundles (2026-11-25)
 - `ShopBundles.js` `BUNDLES`: winter (snowman + santaHat + snowCape), survivor (firefighter + fireHelmet + safetyCape), creatures (dragon + dragonHorns + dragonCape). Hat boxes in FunnyZombies `HAT_BOXES` (players only, not in HAT_KINDS).
-- Price `bundleCost`: 30% off the parts you don't own yet, in the skin's currency; hat/cape worth `PART_VALUES` (coins 1000/1500, gems 100/150 - a guess). Crossed-out price = those parts at full price.
+- Price `bundleCost`: `BUNDLES[].price` (Gaymi picked, 2026-11-25) in the skin's currency, shown as 30% off a worth of price/0.7. Own the skin: its Shop price comes off the worth, pay 30% off the rest.
 - Owned bundle hats/capes: `game.shopCosmetics` {id: count} in `gayz-shop-progress`; `Cosmetics.setShopCosmetics(game)` reads it live for `isUnlocked`. Cards reuse `.inv-skin-card` so the themes colour them.

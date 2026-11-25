@@ -712,7 +712,7 @@ test('World Goal: homepage card, helpers claim the hat or cape + coins once', as
   expect(r.claimed).toEqual([r.week])
   expect(r.saved).toEqual([r.week])
   expect(r.after).toContain('Reward claimed')
-  // The hat or cape now shows as unlocked in Inventory > Hats & Capes.
+  // The hat or cape now shows as unlocked in Inventory > Cosmetics.
   const reward = WG.worldGoalForWeek(r.week).reward
   const locked = await page.evaluate(async (id) => {
     document.getElementById('inventory-tab-cosmetics')?.click()

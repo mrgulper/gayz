@@ -45,3 +45,9 @@ zombie `fx`; hat ids with capitals pass too since this batch). Prices
 (2,000/1,500/2,000 coins) are a guess. Tests: panels "Shop: Walk Trails",
 play "Walk trails", servers "hats with capitals".
 All 5 batches done.
+
+Prices tuned 2026-11-25 (Gaymi: "way higher"): bundles Winter 10,000 /
+Firefighter 25,000 coins, Dragon 1,000 gems (`BUNDLES[].price`, shown as
+30% off price/0.7; an owned skin's Shop price comes off). Kill effects
+10k / 25k / 50k, trails Footprints 10k / Snow Puffs 25k / Sparkle 100k coins.
+Inventory tab "Hats & Capes" renamed "Cosmetics" (same `#inventory-tab-cosmetics`).
