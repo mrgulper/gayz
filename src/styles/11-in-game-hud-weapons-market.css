@@ -2243,3 +2243,69 @@ html.ui-theme-clean .shop-more-skins-set { color: var(--clean-fg); }
 @media (max-width: 700px) {
   .shop-more-skins-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Shop > Bundles (2026-11-25, ShopBundles.js): a skin + hat + cape on one
+   card, same card look as More Skins (inv-skin-card, so every theme
+   already colours it). Same sizes in every theme. */
+#shop-bundles {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: 170px;
+  gap: 8px;
+}
+.inv-skin-card.shop-bundle-card { cursor: pointer; }
+.shop-bundle-parts {
+  position: absolute;
+  top: 30px;
+  left: 6px;
+  right: 6px;
+  height: 104px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  pointer-events: none;
+}
+.shop-bundle-part {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: 0;
+}
+.shop-bundle-part img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.shop-bundle-part:first-child img { width: 40px; height: 80px; }
+.shop-bundle-part span {
+  max-width: 100%;
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html.ui-theme-old .shop-bundle-part span { color: rgba(46, 29, 14, 0.75); }
+html.ui-theme-clean .inv-skin-card .shop-bundle-part span { color: var(--clean-dim) !important; }
+.shop-bundle-off {
+  position: absolute;
+  left: 8px;
+  bottom: 6px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #e0284f;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+html.ui-theme-clean .inv-skin-card .shop-bundle-off { background: #e0284f; color: #fff !important; }
+@media (max-width: 700px) {
+  #shop-bundles { grid-template-columns: minmax(0, 1fr); }
+}
