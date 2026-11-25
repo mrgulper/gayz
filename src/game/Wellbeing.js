@@ -247,7 +247,8 @@ function tickReminders(game, step, now) {
 // session started `ms` earlier.
 export function _testWellbeing({ played, session } = {}) {
   if (Number.isFinite(played)) { sinceBreakMs = played; breakSnoozeUntil = 0; lastInput = performance.now() }
-  if (Number.isFinite(session)) testShift = -session
+  // Timer reads exactly `session` now, however long the page was open.
+  if (Number.isFinite(session)) testShift = Date.now() - pageStart - session
   bedSnoozeUntil = 0
   try { localStorage.removeItem(BED_KEY) } catch { /* fine */ }
 }
