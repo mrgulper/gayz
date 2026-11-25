@@ -691,6 +691,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     // Their gun skin (src/game/GunSkins.js).
     [`${base}/players/${playerId}/gskin`]: typeof s.gskin === 'string' && /^[A-Za-z]{1,20}$/.test(s.gskin) ? s.gskin : '',
     [`${base}/players/${playerId}/cape`]: typeof s.cape === 'string' && /^[A-Za-z]{1,20}$/.test(s.cape) ? s.cape : '',
+    // Their back item (src/game/BackItems.js).
+    [`${base}/players/${playerId}/back`]: typeof s.back === 'string' && /^[A-Za-z]{1,20}$/.test(s.back) ? s.back : '',
     // Sitting in a vehicle: the seat's eye height in blocks, 0 standing.
     [`${base}/players/${playerId}/sit`]: num(s.sit, 0, 4),
     [`${base}/players/${playerId}/veh`]: cleanVeh(s.veh),
@@ -901,7 +903,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p || p.ghost) continue
-    out.players[pid] = { own: p.own ? 1 : 0, nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', kfx: p.kfx || '', trail: p.trail || '', gskin: p.gskin || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, esc: p.esc ? 1 : 0, gh: p.gh || null, fog: p.fog || null, kills: Number(p.kills) || 0, ring: p.ring || null }
+    out.players[pid] = { own: p.own ? 1 : 0, nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', back: p.back || '', kfx: p.kfx || '', trail: p.trail || '', gskin: p.gskin || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, esc: p.esc ? 1 : 0, gh: p.gh || null, fog: p.fog || null, kills: Number(p.kills) || 0, ring: p.ring || null }
     // A chat bubble: its number (new one = new bubble) and how long ago.
     if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }

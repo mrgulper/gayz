@@ -75,7 +75,17 @@ Gaymi picked all 8 new sections, one batch per session, in this order:
    longer Coming Soon: the 8 skins as Shop-style cards (look only) + Open
    the Shop button. Tests: panels "Shop: Gun Skins", play "Gun skins",
    servers "hats with capitals", gallery.
-3. Back items (wings, backpacks) + 15+ buyable hats and capes.
+3. **Back items + hats** - SHIPPED 2026-11-25: new Back slot
+   (`settings.cosmeticBack`, worn WITH hat + cape; `BackItems.js`: 4 wings
+   that flap - harder while moving - and 4 packs; sits further out when a
+   cape is on, `placeBack`). 10 hats (boxes in FunnyZombies `HAT_BOXES`,
+   `STRAIGHT_HATS` don't tilt) + 6 capes + 8 back items in Cosmetics.js with
+   `need: { shop: 'buy' }, price: [currency, amount]` (coins 10k-50k, gems
+   250-1,000 - a guess). `ShopCosmetics.js` fills `#shop-hats`,
+   `#shop-capes`, `#shop-backs` (after Bundles); Inventory > Cosmetics has
+   `#cosmetics-backs`. Online: PlayNet state `back`, server passes it.
+   Shop buys don't count as "new hat unlocked". Tests: panels "Shop: Hats,
+   Capes and Back Items", servers "hats with capitals".
 4. Daily Deals + Crate Spin (the two Coming Soon cards).
 5. Pet + ride looks (pet hats/colours, car/kart paint).
 6. Jump + death effects (like Kill Effects).

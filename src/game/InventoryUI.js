@@ -21,6 +21,7 @@ import { renderShopIdentity } from './ShopIdentity.js'
 import { renderMoreSkins } from './ShopMoreSkins.js'
 import { renderBundles } from './ShopBundles.js'
 import { renderShopEffects } from './ShopEffects.js'
+import { renderShopCosmetics } from './ShopCosmetics.js'
 import { myGunSkin, paintGun } from './GunSkins.js'
 
 // Inventory - homepage placeholder only for now, no functionality yet
@@ -1169,6 +1170,7 @@ export function _renderShopSkinState(game) {
   renderMoreSkins(game)
   renderBundles(game)
   renderShopEffects(game)
+  renderShopCosmetics(game)
   if (game.shopSkinBadge) game.shopSkinBadge.style.display = game.ownsShopSkin ? '' : 'none'
   const priceAmount = document.getElementById('shop-skin-price-amount')
   if (priceAmount) priceAmount.textContent = shopSkinPrice(Game.SHOP_SKIN_PRICE).toLocaleString()
