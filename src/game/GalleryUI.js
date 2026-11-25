@@ -3,7 +3,8 @@
 // and comment on it"). Opened from its footer link next to Design a Skin.
 // Character posts come from Design a Skin (its Post to Gallery button), map
 // posts from the Map Editor's pause screen, Photo posts from a game's Photo
-// Mode (PlaySpectate.postPhoto, 2026-10-31); Weapon is Coming Soon.
+// Mode (PlaySpectate.postPhoto, 2026-10-31). Weapon shows every gun skin
+// (GunSkins.js, 2026-11-25) - look only, bought in the Shop.
 //
 // Same convention as ChatUI.js/CloudSaveUI.js: plain functions taking `game`,
 // all state on the Game instance. Firestore side: CloudSync's gallery
@@ -16,6 +17,8 @@ import { t } from './i18n.js'
 import { _escapeHtml, _censorText, _formatRelativeTime, skinFrontIconURL } from './Game.js'
 import { bindPostcards, renderPostcardTexts, showPostcardButton, showInboxButton } from './Postcards.js'
 import { bindTv, renderTvTexts, showTv } from './GayzTV.js'
+import { GUN_SKINS, GUN_SKIN_IDS, gunSkinName, gunSkinIcon, myGunSkin } from './GunSkins.js'
+import { ownsShopCosmetic } from './Cosmetics.js'
 
 export const GALLERY_KINDS = ['character', 'weapon', 'map', 'photo', 'tv']
 // Posts that are a picture shown as it is (not a skin).
@@ -113,9 +116,8 @@ export function renderTexts() {
     const label = document.querySelector(`#gallery-tab-${kind} .gallery-tab-label`)
     if (label) label.textContent = t(`galleryTab_${kind}`)
   }
-  text('gallery-weapon-soon-tag', 'comingSoonTitle')
-  text('gallery-weapon-coming-title', 'comingSoonTitle')
-  text('gallery-weapon-coming-text', 'galleryWeaponSoon')
+  text('gallery-gunskins-how', 'galleryGunSkinsHow')
+  text('gallery-gunskins-shop', 'galleryGunSkinsShop')
   const sort = $('gallery-sort')
   if (sort) {
     sort.options[0].textContent = t('gallerySortNew')
@@ -146,6 +148,7 @@ function showKind(game, kind) {
   showInboxButton(kind)
   if (kind === 'weapon') {
     setView('weapon')
+    showGunSkins(game)
     return
   }
   if (kind === 'tv') {
@@ -158,6 +161,34 @@ function showKind(game, kind) {
     return
   }
   showList(game)
+}
+
+// The Weapon tab: every gun skin with its picture, name and price (or
+// Owned / Using). The button opens the Shop at Gun Skins.
+function showGunSkins(game) {
+  const root = $('gallery-gunskins')
+  if (!root) return
+  const using = myGunSkin(game)
+  root.innerHTML = GUN_SKIN_IDS.map((id) => {
+    const line = id === using ? t('killFxUsing') : ownsShopCosmetic(id) ? t('killFxOwned') : game._formatSkinPrice('coins', GUN_SKINS[id].price)
+    // Same card as Shop > Gun Skins (themed there), but not a button.
+    const classes = ['inv-skin-card', 'shop-effect-card', 'gallery-gunskin-card']
+    if (ownsShopCosmetic(id)) classes.push('owned')
+    if (id === using) classes.push('equipped')
+    return `<div class="${classes.join(' ')}" data-gunskin="${id}" style="--rarity: #ffb347">`
+      + `<span class="inv-skin-card-name">${_escapeHtml(gunSkinName(id))}</span>`
+      + `<img class="shop-effect-img" src="${gunSkinIcon(id)}" alt="" draggable="false" />`
+      + `<span class="inv-skin-card-price">${_escapeHtml(line)}</span>`
+      + '</div>'
+  }).join('')
+  const btn = $('gallery-gunskins-shop')
+  if (btn && !btn.dataset.bound) {
+    btn.dataset.bound = '1'
+    btn.addEventListener('click', () => {
+      game._openShopPanel()
+      requestAnimationFrame(() => $('shop-gunskins-heading')?.scrollIntoView({ block: 'start' }))
+    })
+  }
 }
 
 function setView(view) {

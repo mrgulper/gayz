@@ -48,4 +48,17 @@ export default {
   trailFootprintTrail: "पैरों के निशान",
   trailSnowTrail: "बर्फ़ के गुबार",
   trailBoughtToast: "{name} अब आपका है - चलते समय यह आपके पीछे छूटेगा",
+  // Gun skins (GunSkins.js, ShopEffects.js, Gallery > Weapon, 2026-11-25).
+  gunSkinHeading: "गन स्किन",
+  gunSkinCamoGun: "जंगल कैमो",
+  gunSkinArcticGun: "आर्कटिक कैमो",
+  gunSkinNeonGun: "नियॉन",
+  gunSkinGoldGun: "सोना",
+  gunSkinLavaGun: "लावा",
+  gunSkinGalaxyGun: "गैलेक्सी",
+  gunSkinRainbowGun: "इंद्रधनुष",
+  gunSkinDiamondGun: "हीरा",
+  gunSkinBoughtToast: "{name} अब आपका है - आपकी सारी बंदूकें अब इसे पहनती हैं",
+  galleryGunSkinsHow: "खेल की हर गन स्किन। एक स्किन आपकी सारी बंदूकों को रंग देती है, और दूसरे खिलाड़ी इसे देखते हैं।",
+  galleryGunSkinsShop: "शॉप खोलें",
 }

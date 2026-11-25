@@ -229,7 +229,6 @@ export default {
   galleryTab_character: 'Personaje',
   galleryTab_weapon: 'Arma',
   galleryTab_map: 'Mapa',
-  galleryWeaponSoon: 'Los diseños de armas llegarán pronto.',
   gallerySortNew: 'Más nuevos',
   gallerySortLikes: 'Más gustados',
   galleryHowCharacter: 'Publica tus skins desde Diseña un Skin (Publicar en la Galería).',

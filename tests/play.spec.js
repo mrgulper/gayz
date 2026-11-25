@@ -1929,3 +1929,51 @@ test('Walk trails: footprints and sparkles behind me as I walk', async ({ page }
   expect(r.sparkles).toBeGreaterThan(3)
   expect(r.unowned).toBe(0)
 })
+
+// Gun skins (GunSkins.js, 2026-11-25): one skin paints every gun - the gun
+// in my hands and the one my own body holds in third person - only if I
+// own it, and back to the model's own colours with none.
+test('Gun skins: my gun in hand and on my body wear my skin', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'classic'
+    g.shopCosmetics = { lavaGun: 1 }
+    g.settings.gunSkin = 'lavaGun'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    await g.weapons.ready
+    s._pickWeapon('rifle')
+    const tm = g.buildMode.tryMode
+    // A skin's picture is a drawn canvas; the models' own are images.
+    const painted = (root) => {
+      const out = []
+      root?.traverse((o) => { if (o.isMesh) out.push(o.material.map?.image instanceof HTMLCanvasElement) })
+      return out.length ? out.every(Boolean) ? 'all' : out.some(Boolean) ? 'some' : 'none' : 'empty'
+    }
+    tm._showGun()
+    const hand = painted(tm._gunModel)
+    // The body needs my skin's picture, which loads on its own.
+    for (let i = 0; i < 100 && !tm._armSkin; i++) await new Promise((res) => setTimeout(res, 100))
+    tm.view = 1
+    tm._updateBody(0.016)
+    const body = painted(tm._body?.gun)
+    g.settings.gunSkin = ''
+    tm._showGun()
+    tm._updateBody(0.016)
+    const handOff = painted(tm._gunModel)
+    const bodyOff = painted(tm._body?.gun)
+    // Not owned: not worn.
+    g.shopCosmetics = {}
+    g.settings.gunSkin = 'goldGun'
+    tm._showGun()
+    const unowned = painted(tm._gunModel)
+    tm.view = 0
+    g._exitBuildMode()
+    return { hand, body, handOff, bodyOff, unowned }
+  })
+  expect(r).toEqual({ hand: 'all', body: 'all', handOff: 'none', bodyOff: 'none', unowned: 'none' })
+})

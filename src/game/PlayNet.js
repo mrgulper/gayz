@@ -37,6 +37,7 @@ import * as THREE from 'three'
 import { wearCosmetics, cleanWorn, myWorn } from './Cosmetics.js'
 import { myKillEffect, cleanKillEffect } from './KillEffects.js'
 import { TrailMaker, myTrail, cleanTrail } from './WalkTrails.js'
+import { myGunSkin, cleanGunSkin } from './GunSkins.js'
 import { poseEmote, poseSit, sitDrop, walkLegs, EMOTES, emoteSound } from './Emotes.js'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { nameTag } from './BuildCamp.js'
@@ -286,7 +287,7 @@ export class PlayNet {
     const holding = s.holding
     const body = {
       ...this.auth,
-      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding || s.ring ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), kfx: myKillEffect(this.game), trail: myTrail(this.game), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, kills: s.kills || 0, lane: s.escape?.lane || 0, esc: s.escape?.race && s.escape.done ? 1 : 0, gh: s.ghosts?.snapshot() || null, fog: bm.world?.active && isEarthWorld() ? explored.shareState() : null, ring: s.ring?.netState() || null },
+      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding || s.ring ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), kfx: myKillEffect(this.game), trail: myTrail(this.game), gskin: myGunSkin(this.game), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, kills: s.kills || 0, lane: s.escape?.lane || 0, esc: s.escape?.race && s.escape.done ? 1 : 0, gh: s.ghosts?.snapshot() || null, fog: bm.world?.active && isEarthWorld() ? explored.shareState() : null, ring: s.ring?.netState() || null },
       editsAfter: this._editSeq,
     }
     // Who Can Join My Server (Settings > Social): the host's choice.
@@ -405,7 +406,7 @@ export class PlayNet {
         const me = s.bodyPos?.()
         emoteSound(emote, s._panTo?.(p.x, p.z) || 0, me ? Math.hypot(p.x - me.x, p.y - me.y, p.z - me.z) : 0)
       }
-      Object.assign(mine, { tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), kfx: cleanKillEffect(p.kfx), trail: cleanTrail(p.trail), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), esc: !!p.esc, gh: cleanGhost(p.gh), kills: Number.isFinite(Number(p.kills)) ? Math.max(0, Math.floor(Number(p.kills))) : undefined, ring: cleanRemoteRing(p.ring) })
+      Object.assign(mine, { tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), kfx: cleanKillEffect(p.kfx), trail: cleanTrail(p.trail), gskin: cleanGunSkin(p.gskin), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), esc: !!p.esc, gh: cleanGhost(p.gh), kills: Number.isFinite(Number(p.kills)) ? Math.max(0, Math.floor(Number(p.kills))) : undefined, ring: cleanRemoteRing(p.ring) })
       if (sharedFog) {
         if (p.fog && typeof p.fog.c === 'string' && p.fog.n !== mine.fogN) {
           mine.fogN = p.fog.n
@@ -640,11 +641,13 @@ export class PlayNet {
       const swing = Math.sin(p.walk) * Math.min(1, speed / 2) * 0.7
       const lp = p.body.limbPivots
       if (lp) {
-        if (p.gunId !== (p.weapon || '')) {
-          const held = holdWeapon(this.game, p.body, p.weapon, p.gun)
+        // Their gun, in their gun skin (GunSkins.js).
+        if (p.gunId !== (p.weapon || '') || p.gunSkinId !== (p.gskin || '')) {
+          const held = holdWeapon(this.game, p.body, p.weapon, p.gun, p.gskin || '')
           p.gun = held.gun
           p.melee = held.melee
           p.gunId = p.weapon || ''
+          p.gunSkinId = p.gskin || ''
         }
         if (p.blockId !== (p.held || '')) {
           p.block = holdBlock(this.survival.bm, p.body, p.held, p.block, B)

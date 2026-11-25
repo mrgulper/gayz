@@ -48,4 +48,17 @@ export default {
   trailFootprintTrail: "脚印",
   trailSnowTrail: "雪团",
   trailBoughtToast: "{name} 已归你 - 走路时会留在你身后",
+  // Gun skins (GunSkins.js, ShopEffects.js, Gallery > Weapon, 2026-11-25).
+  gunSkinHeading: "枪械皮肤",
+  gunSkinCamoGun: "丛林迷彩",
+  gunSkinArcticGun: "极地迷彩",
+  gunSkinNeonGun: "霓虹",
+  gunSkinGoldGun: "黄金",
+  gunSkinLavaGun: "熔岩",
+  gunSkinGalaxyGun: "星河",
+  gunSkinRainbowGun: "彩虹",
+  gunSkinDiamondGun: "钻石",
+  gunSkinBoughtToast: "{name} 归你了 - 你所有的枪现在都用它",
+  galleryGunSkinsHow: "游戏里所有的枪械皮肤。一个皮肤会涂满你所有的枪，其他玩家也能看到。",
+  galleryGunSkinsShop: "打开商店",
 }

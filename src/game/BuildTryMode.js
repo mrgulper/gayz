@@ -30,6 +30,7 @@
 // Shooting a window (any glass block) cracks it; the second shot breaks
 // it and later shots fly through the hole. Broken windows come back when
 // you stop trying the map and are never saved.
+import { myGunSkin, paintGun } from './GunSkins.js'
 import * as THREE from 'three'
 import { handFov } from './GraphicsSettings.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
@@ -1821,11 +1822,13 @@ export class BuildTryMode {
   // The gun in your body's hands, arms posed for it.
   _poseHeld(body, lp, swing) {
     const id = this._gunId || ''
-    if (body.gunId !== id) {
-      const held = holdWeapon(this.bm.game, body.char, id, body.gun)
+    const skin = myGunSkin(this.bm.game)
+    if (body.gunId !== id || body.gunSkin !== skin) {
+      const held = holdWeapon(this.bm.game, body.char, id, body.gun, skin)
       body.gun = held.gun
       body.melee = held.melee
       body.gunId = id
+      body.gunSkin = skin
     }
     poseArms(lp, { holding: !!body.gun, melee: body.melee, firing: this._recoil > 0.05, swing })
   }
@@ -2458,8 +2461,16 @@ export class BuildTryMode {
       this._gun.add(gun)
       this._gunScene.add(this._gun)
       this._gunId = id
+      this._gunModel = gun
+      this._gunSkin = ''
       this._armSpots = this._findHandSpots(gun)
       this._rebuildArms()
+    }
+    // My gun skin (GunSkins.js) - repainted when it changes.
+    const skin = myGunSkin(this.bm.game)
+    if (this._gunSkin !== skin) {
+      paintGun(this._gunModel, skin)
+      this._gunSkin = skin
     }
     this._gun.visible = true
     this._loadArms()

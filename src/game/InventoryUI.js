@@ -21,6 +21,7 @@ import { renderShopIdentity } from './ShopIdentity.js'
 import { renderMoreSkins } from './ShopMoreSkins.js'
 import { renderBundles } from './ShopBundles.js'
 import { renderShopEffects } from './ShopEffects.js'
+import { myGunSkin, paintGun } from './GunSkins.js'
 
 // Inventory - homepage placeholder only for now, no functionality yet
 // (distinct from the in-game Tab inventory - #inventory-panel - which
@@ -594,11 +595,11 @@ export async function _openInspectDialog(game, kind, id) {
   game._inspectCharacter = null
   if (kind === 'weapon') {
     // Barrel pointing left, side-on - like Kirka's.
-    viewer.setObject(game._weaponDisplayClone(game.weapons.viewmodels[id]), { yaw: Math.PI / 2, pitch: 0.12 })
+    viewer.setObject(skinnedDisplayClone(game, id), { yaw: Math.PI / 2, pitch: 0.12 })
     // Opened before the gun models finished loading: show the real one
     // as soon as it arrives (WeaponCatalog.ready).
     game.weapons.ready.then(() => {
-      if (game._inspectViewer === viewer) viewer.setObject(game._weaponDisplayClone(game.weapons.viewmodels[id]), { yaw: Math.PI / 2, pitch: 0.12 })
+      if (game._inspectViewer === viewer) viewer.setObject(skinnedDisplayClone(game, id), { yaw: Math.PI / 2, pitch: 0.12 })
     })
   } else {
     const skin = _inspectSkin(game, id)
@@ -1051,6 +1052,13 @@ export async function _saveWeaponThumbs(_game, out) {
   } catch {
     // Not saved - they're just drawn again next visit.
   }
+}
+
+// Inspect's copy of a gun, in my gun skin (GunSkins.js).
+function skinnedDisplayClone(game, id) {
+  const model = game._weaponDisplayClone(game.weapons.viewmodels[id])
+  paintGun(model, myGunSkin(game))
+  return model
 }
 
 // A weapon's viewmodel copied for showing on its own (card pictures,

@@ -901,14 +901,6 @@ html.ui-theme-old #profile-panel .panel-box * {
   background: var(--ui-gold-bright);
   border-color: var(--ui-gold-bright);
 }
-.gallery-soon-tag {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 1px 7px;
-  border-radius: 999px;
-  text-transform: uppercase;
-  background: rgba(255, 255, 255, 0.14);
-}
 #gallery-toolbar {
   display: flex;
   align-items: center;
@@ -1041,7 +1033,6 @@ img.gallery-detail-character { height: 240px; image-rendering: pixelated; }
 /* Gallery's tabs look exactly like Quests' (.quest-tab) in every theme -
    no Old-theme override of their own (2026-10-30, Gaymi: "exact same
    style as the regular ... sections"). */
-html.ui-theme-old .gallery-soon-tag { background: rgba(122, 78, 36, 0.2); }
 html.ui-theme-old #gallery-sort {
   color: #2b1a0c;
   background: rgba(241, 224, 184, 0.7);
@@ -1946,3 +1937,13 @@ html.ui-theme-clean .postcard {
 #tv-detail-by { margin: 0 0 12px; opacity: 0.8; }
 #gallery-tv-view .mini-action-btn { border-radius: 999px; padding-left: 16px; padding-right: 16px; }
 #gallery-tv-view [hidden] { display: none !important; }
+
+/* Gallery > Weapon: every gun skin (GunSkins.js, 2026-11-25), look only.
+   The cards are Shop > Gun Skins' cards (same grid, themed there). */
+.gallery-gunskins-how {
+  margin: 4px 0 10px;
+  text-align: center;
+  opacity: 0.85;
+}
+.inv-skin-card.gallery-gunskin-card { cursor: default; }
+#gallery-gunskins-shop { display: block; margin: 14px auto 6px; }

@@ -48,4 +48,17 @@ export default {
   trailFootprintTrail: "Huellas",
   trailSnowTrail: "Nubes de nieve",
   trailBoughtToast: "{name} es tuyo - lo dejas detrás al caminar",
+  // Gun skins (GunSkins.js, ShopEffects.js, Gallery > Weapon, 2026-11-25).
+  gunSkinHeading: "Aspectos de armas",
+  gunSkinCamoGun: "Camuflaje selva",
+  gunSkinArcticGun: "Camuflaje ártico",
+  gunSkinNeonGun: "Neón",
+  gunSkinGoldGun: "Oro",
+  gunSkinLavaGun: "Lava",
+  gunSkinGalaxyGun: "Galaxia",
+  gunSkinRainbowGun: "Arcoíris",
+  gunSkinDiamondGun: "Diamante",
+  gunSkinBoughtToast: "¡{name} es tuyo! Todas tus armas lo llevan ahora",
+  galleryGunSkinsHow: "Todos los aspectos de armas del juego. Un aspecto pinta todas tus armas, y los demás jugadores lo ven.",
+  galleryGunSkinsShop: "Abrir la tienda",
 }

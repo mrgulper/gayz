@@ -48,10 +48,11 @@ export function renderCosmetics(game) {
   set('cosmetics-capes-title', t('cosmeticCapesTitle'))
   set('cosmetics-kills-title', t('killFxHeading'))
   set('cosmetics-trails-title', t('trailHeading'))
+  set('cosmetics-gunskins-title', t('gunSkinHeading'))
   set('cosmetics-how', t('cosmeticHow'))
   byId('cosmetics-hats').innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'hat').map((id) => card(game, id)).join('')
   byId('cosmetics-capes').innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'cape').map((id) => card(game, id)).join('')
-  for (const [kind, rowId] of [['kill', 'cosmetics-kills'], ['trail', 'cosmetics-trails']]) {
+  for (const [kind, rowId] of [['kill', 'cosmetics-kills'], ['trail', 'cosmetics-trails'], ['gun', 'cosmetics-gunskins']]) {
     const row = byId(rowId)
     if (row) row.innerHTML = EFFECT_KINDS[kind].ids.map((id) => effectCard(game, kind, id)).join('')
   }
