@@ -45,8 +45,9 @@ test('Play mode spawns zombie waves that reach you and can be shot', async ({ pa
     const p = bm.tryMode.pos
     out.closest = Math.min(...s.zombies.map((z) => Math.hypot(z.x - p.x, z.z - p.z)))
     out.wentRound = s.zombies.some((z) => z.z < 7)
-    // Shoot the one in front.
-    const target = s.zombies[0]
+    // Shoot the one in front - not a bloater: its burst kills the zombies
+    // bunched up beside it, so the kill count jumped by more than one.
+    const target = s.zombies.find((z) => z.kind !== 'bloater') || s.zombies[0]
     const killsBefore = s.kills
     const bodiesBefore = (s._corpses || []).length
     // (Rare tiers and cave zombies have up to ~8x the health - keep hitting.)
