@@ -3235,6 +3235,12 @@
           <h2 id="shop-panel-title">Shop</h2>
           <div class="panel-fixed-content">
             <div class="general-section-empty">
+              <!-- Daily Deals (2026-11-25, ShopDeals.js): 3 things on sale, new at midnight. -->
+              <div class="shop-deals-head">
+                <h3 class="crate-section-heading" id="shop-deals-heading">Daily Deals</h3>
+                <span id="shop-deals-timer"></span>
+              </div>
+              <div id="shop-deals"></div>
               <h3 class="crate-section-heading" id="shop-crate-section-heading">Crates</h3>
               <div class="crate-tier-grid" id="shop-crate-tier-grid">
                 <div class="crate-card crate-tier-wood">
@@ -3455,21 +3461,6 @@
                   <input type="text" id="shop-id-input" class="nickname-input shop-identity-input" maxlength="10" placeholder="5-10 letters or numbers" autocomplete="off" spellcheck="false" />
                   <button type="button" id="shop-id-buy-btn" class="shop-identity-buy-btn">Buy ID</button>
                   <span class="shop-identity-status" id="shop-id-status" aria-live="polite"></span>
-                </div>
-              </div>
-              <h3 class="crate-section-heading" id="shop-soon-heading">Coming Soon</h3>
-              <div class="shop-soon-grid">
-                <div class="shop-soon-card" style="--soon-color: #ff4d8d">
-                  <span class="crate-coming-soon-tag" id="shop-soon-daily-tag">Coming Soon</span>
-                  <svg class="shop-soon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9z" fill="var(--soon-color)"/><circle cx="7.5" cy="7.5" r="1.8" fill="#fff"/></svg>
-                  <span class="shop-soon-name" id="shop-soon-daily-name">Daily Deals</span>
-                  <span class="shop-soon-text" id="shop-soon-daily-text">2-3 skins on sale, new every day.</span>
-                </div>
-                <div class="shop-soon-card" style="--soon-color: #ffc53d">
-                  <span class="crate-coming-soon-tag" id="shop-soon-spin-tag">Coming Soon</span>
-                  <svg class="shop-soon-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="var(--soon-color)" stroke-width="2.5"/><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4" stroke="var(--soon-color)" stroke-width="1.5"/><circle cx="12" cy="12" r="2.5" fill="var(--soon-color)"/></svg>
-                  <span class="shop-soon-name" id="shop-soon-spin-name">Crate Spin</span>
-                  <span class="shop-soon-text" id="shop-soon-spin-text">Watch a reel spin to your prize.</span>
                 </div>
               </div>
             </div>
@@ -4056,6 +4047,18 @@
 
 
 
+      <!-- Crate Spin (2026-11-25, CrateSpin.js): the reel that stops on your prize. -->
+      <div id="crate-spin-modal">
+        <div class="panel-box" id="crate-spin-box">
+          <h3 id="crate-spin-title"></h3>
+          <div id="crate-spin-window"><div id="crate-spin-strip"></div><span id="crate-spin-marker"></span></div>
+          <p id="crate-spin-result" aria-live="polite"></p>
+          <div id="crate-spin-actions">
+            <button type="button" id="crate-spin-again-btn" class="crate-open-btn" hidden></button>
+            <button type="button" id="crate-spin-close-btn" class="crate-open-btn" hidden>Close</button>
+          </div>
+        </div>
+      </div>
       <div id="crate-purchase-modal">
         <div class="panel-box" id="crate-purchase-box">
           <button type="button" id="crate-purchase-close-btn" class="panel-close-btn" aria-label="Close">&times;</button>

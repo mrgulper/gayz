@@ -92,4 +92,16 @@ export default {
   cosmeticBatWings: "蝙蝠翅膀",
   cosmeticAngelWings: "天使翅膀",
   cosmeticDragonWings: "龙之翅膀",
+  // Daily Deals + Crate Spin (ShopDeals.js, CrateSpin.js), 2026-11-25.
+  dealsHeading: "每日特惠",
+  dealsNewIn: "{h}小时{m}分后刷新",
+  dealBought: "已购买 - 点击使用",
+  dealBoughtToast: "特价买到了{name}！",
+  crateSpinTitle: "{name}箱子",
+  crateSpinWonCoins: "你赢得了 {n} 金币！",
+  crateSpinWonItem: "你赢得了{name}！",
+  crateSpinWonDup: "{name} - 你已经有了，换成 {n} 金币。",
+  crateSpinAgainOwned: "再开一个（剩 {n} 个）",
+  crateSpinAgainBuy: "再开一个（{price}）",
+  crateSpinClose: "关闭",
 }

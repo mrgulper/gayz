@@ -92,4 +92,16 @@ export default {
   cosmeticBatWings: "चमगादड़ के पंख",
   cosmeticAngelWings: "परी के पंख",
   cosmeticDragonWings: "ड्रैगन के पंख",
+  // Daily Deals + Crate Spin (ShopDeals.js, CrateSpin.js), 2026-11-25.
+  dealsHeading: "आज के ऑफ़र",
+  dealsNewIn: "नए ऑफ़र {h}घं {m}मि में",
+  dealBought: "खरीदा - इस्तेमाल के लिए क्लिक करें",
+  dealBoughtToast: "{name} सस्ते में मिला!",
+  crateSpinTitle: "{name} क्रेट",
+  crateSpinWonCoins: "आपने {n} सिक्के जीते!",
+  crateSpinWonItem: "आपने {name} जीता!",
+  crateSpinWonDup: "{name} - यह पहले से आपके पास है, इसलिए {n} सिक्के मिले।",
+  crateSpinAgainOwned: "एक और खोलें ({n} बचे)",
+  crateSpinAgainBuy: "एक और खोलें ({price})",
+  crateSpinClose: "बंद करें",
 }

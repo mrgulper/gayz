@@ -1432,3 +1432,67 @@ test('a brand new player gets a random 5-10 character ID', async ({ page }) => {
   const id = await page.evaluate(() => window.__game.settings.playerId)
   expect(id).toMatch(/^[A-Z0-9]{5,10}$/)
 })
+
+// 2026-11-25: Shop > Daily Deals (3 things 20-50% off, same list all day
+// even after buying one) and Crate Spin (Wood / Ice / Golden crates open
+// on a reel; the prize is given straight away).
+test('Shop: Daily Deals and Crate Spin', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    window.confirm = () => true
+    localStorage.removeItem('gayz-daily-deals')
+    g.coins = 300000
+    g.gems = 5000
+    g.shopCosmetics = {}
+    g.crateStock = { wood: 1, ice: 0, golden: 0 }
+    g._openShopPanel()
+    await wait(300)
+    const cards = [...document.querySelectorAll('#shop-deals [data-deal]')]
+    const offs = cards.map((c) => Number(c.querySelector('.shop-bundle-off').textContent.match(/\d+/)[0]))
+    const keys = cards.map((c) => c.dataset.deal)
+    const soonGone = !document.getElementById('shop-soon-heading')
+    const timer = /\d+h \d+m/.test(document.getElementById('shop-deals-timer').textContent)
+    // The built game can't import modules, so read the first card.
+    const label = cards[0].querySelector('.inv-skin-card-price').textContent
+    const gems = /gem/i.test(label)
+    const price = Number(label.trim().split(/\s+/).slice(-2)[0].replace(/,/g, ''))
+    const wallet = () => (gems ? g.gems : g.coins)
+    const before = wallet()
+    cards[0].click()
+    await wait(300)
+    const paid = before - wallet()
+    const keysAfter = [...document.querySelectorAll('#shop-deals [data-deal]')].map((c) => c.dataset.deal)
+    // Crate Spin: the Shop's price button pays and spins.
+    const c0 = g.coins
+    document.querySelector('#shop-crate-tier-grid .crate-tier-ice .crate-open-btn').click()
+    await wait(100)
+    const modal = document.getElementById('crate-spin-modal').style.display
+    const tiles = document.querySelectorAll('#crate-spin-strip .crate-spin-tile').length
+    document.getElementById('crate-spin-window').click() // skip to the end
+    await wait(100)
+    const result = document.getElementById('crate-spin-result').textContent
+    // Paid 20,000; coin prizes and duplicate refunds land in steps of 50.
+    const paidIce = (g.coins - (c0 - 20000)) % 50 === 0 && g.coins !== c0
+    document.getElementById('crate-spin-close-btn').click()
+    // Inventory > Crates: Open uses the one you own.
+    g._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-crates').click()
+    await wait(200)
+    document.querySelector('#inventory-page-crates .crate-tier-wood .crate-open-btn').click()
+    await wait(100)
+    const woodLeft = g.crateStock.wood
+    document.getElementById('crate-spin-close-btn').click()
+    return {
+      count: cards.length, offsOk: offs.every((n) => n >= 20 && n <= 50 && n % 5 === 0), soonGone, timer,
+      paid: paid === price, sameDeals: JSON.stringify(keys) === JSON.stringify(keysAfter),
+      owned: cards[0].classList.contains('owned') || document.querySelector(`[data-deal="${keys[0]}"]`).classList.contains('owned'),
+      modal, tiles, result: result.startsWith('You won') || result.includes('already have'), paidIce, woodLeft,
+    }
+  })
+  expect(r).toEqual({
+    count: 3, offsOk: true, soonGone: true, timer: true, paid: true, sameDeals: true, owned: true,
+    modal: 'flex', tiles: 44, result: true, paidIce: true, woodLeft: 0,
+  })
+})

@@ -19,11 +19,12 @@ const SKIN_DESIGNER_PRELOAD_MS = 4000
 // Store crates (Inventory > Crates opens them). Coming Soon: they used to
 // hold the old Map 1's outfits and hats, which nothing shows any more, so
 // they can't be bought or opened until they get new contents.
-export const CRATES_COMING_SOON = true
+export const CRATES_COMING_SOON = false
 export const CRATE_TIERS = {
-  wood: { cost: 1000 },
-  ice: { cost: 2000 },
-  golden: { cost: 5000 },
+  // 2026-11-25 (Crate Spin): Gaymi picked 5k / 20k / 50k.
+  wood: { cost: 5000 },
+  ice: { cost: 20000 },
+  golden: { cost: 50000 },
 }
 // Same values as each .crate-tier-wood/-ice/-golden CSS class's own
 // --crate-tier-color (src/style.css) - duplicated here since the
@@ -1515,18 +1516,12 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'shop-tryon-back-btn': 'shopTryOnBack',
   'shop-skin-new-ribbon': 'shopNewRibbon',
   'shop-skin-rarity': 'skinRarityLegendary',
-  'shop-soon-heading': 'comingSoonTitle',
   'shop-identity-heading': 'shopIdentityHeading',
+  'crate-spin-close-btn': 'crateSpinClose',
   'shop-name-title': 'shopNameTitle',
   'shop-name-text': 'shopNameText',
   'shop-id-title': 'shopIdTitle',
   'nickname-price-hint': 'nicknamePriceHint',
-  'shop-soon-daily-name': 'shopSoonDailyDeals',
-  'shop-soon-daily-text': 'shopSoonDailyDealsText',
-  'shop-soon-daily-tag': 'crateComingSoonTag',
-  'shop-soon-spin-name': 'shopSoonCrateSpin',
-  'shop-soon-spin-text': 'shopSoonCrateSpinText',
-  'shop-soon-spin-tag': 'crateComingSoonTag',
   'upload-skin-btn': 'uploadSkinBtn',
   'reset-skin-btn': 'resetSkinBtn',
   'profile-tab-public': 'profilePublicHeading',

@@ -86,7 +86,23 @@ Gaymi picked all 8 new sections, one batch per session, in this order:
    `#cosmetics-backs`. Online: PlayNet state `back`, server passes it.
    Shop buys don't count as "new hat unlocked". Tests: panels "Shop: Hats,
    Capes and Back Items", servers "hats with capitals".
-4. Daily Deals + Crate Spin (the two Coming Soon cards).
+4. **Daily Deals + Crate Spin** - SHIPPED 2026-11-25 (Shop's Coming Soon
+   section is gone). `ShopCatalog.js` = every single Shop item (More
+   Skins, shop hats/capes/backs, kill effects, trails, gun skins; not
+   bundle-only parts) with own/grant/use helpers; 1 gem = 100 coins
+   (`GEM_IN_COINS`, a guess). Daily Deals (`ShopDeals.js`, `#shop-deals`
+   at the top of the Shop): the day's shuffle (seeded by the Los Angeles
+   date) -> first 3 you don't own, remembered in localStorage
+   `gayz-daily-deals` for the day; each 20-50% off (steps of 5, seeded);
+   countdown `#shop-deals-timer`. Crates are ON (`CRATES_COMING_SOON`
+   false; Monthly Chest still Coming Soon), prices Wood 5k / Ice 20k /
+   Golden 50k (Gaymi). `CrateSpin.js`: Shop price button = buy + spin;
+   card click = bulk-buy to Inventory; Inventory > Crates Open = spin one
+   you own. Prize given before the reel (`#crate-spin-modal`) slides; click
+   the reel to skip. Odds in `CRATE_PRIZES` (item 30/35/40%, item cap
+   25k/75k/any, cheaper items likelier, coin piles) - a guess; average
+   worth ~4k / ~13k / ~31k per crate. Duplicate item = 25% of its worth in
+   coins. Test: panels "Shop: Daily Deals and Crate Spin".
 5. Pet + ride looks (pet hats/colours, car/kart paint).
 6. Jump + death effects (like Kill Effects).
 7. Name + chat style (glowing/rainbow name, chat bubbles, profile frames).
