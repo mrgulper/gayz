@@ -128,18 +128,23 @@ test('nav order lists every homepage button and old saves still work', async ({ 
     const navIds = [...document.querySelectorAll('#menu-nav-buttons > button')].map((b) => b.id).filter((id) => id !== 'menu-more-btn')
     g._renderNavOrderList()
     const listed = [...document.querySelectorAll('#nav-order-list .nav-order-row')].map((r) => r.dataset.id)
+    const order = () => [...document.querySelectorAll('#menu-nav-buttons > button')].sort((a, b) => a.style.order - b.style.order).map((b) => b.id)
+    const before = order()
     document.querySelector('#nav-order-list .nav-order-row[data-id="build-mode-btn"] .nav-order-up').click()
     const sidebar = [...document.querySelectorAll('#menu-nav-buttons > button')].sort((a, b) => a.style.order - b.style.order).map((b) => b.id)
     g.settings.navOrder = ['achievements-btn', 'hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'friends-btn', 'quests-btn', 'menu-inventory-btn']
     g._applyNavOrder()
     const old = [...document.querySelectorAll('#menu-nav-buttons > button')].sort((a, b) => a.style.order - b.style.order).map((b) => b.id)
-    return { navIds, listed, sidebar, old }
+    return { navIds, listed, before, sidebar, old }
   })
   expect(result.listed).toEqual(result.navIds)
   expect(result.listed).toContain('market-btn')
   expect(result.listed).toContain('build-mode-btn')
-  expect(result.sidebar.indexOf('build-mode-btn')).toBe(result.sidebar.indexOf('achievements-btn') - 1)
-  expect(result.old.slice(0, 2)).toEqual(['achievements-btn', 'build-mode-btn'])
+  // Up swaps Map Editor with the button above it (Pets since 2026-11-25).
+  const above = result.before[result.before.indexOf('build-mode-btn') - 1]
+  expect(result.sidebar.indexOf('build-mode-btn')).toBe(result.sidebar.indexOf(above) - 1)
+  // (Pets, newer than the save, lands in its own spot above Map Editor.)
+  expect(result.old.slice(0, 3)).toEqual(['achievements-btn', 'pets-btn', 'build-mode-btn'])
   // (A save from before the Store button's id changed still works.)
   expect(result.old.indexOf('market-btn')).toBe(result.old.indexOf('store-btn') + 1)
 })
