@@ -265,6 +265,12 @@ test('world travel: a friend on the server clears my fog and gets mine', async (
     const after = [explored.seenAt(...seenByBo), explored.seenAt(...boAt)]
     // Bo is new to me: I start sending what I've seen.
     const sharing = !!explored._share
+    // Keep sending the last piece: once every piece is out the next sync
+    // sends none, and on CI's slow machine that sync (0.5 s on) could land
+    // before the check below reads the server.
+    const shareState = explored.shareState.bind(explored)
+    let lastPiece = null
+    explored.shareState = (now) => (lastPiece = shareState(now) || lastPiece)
     await net._sync()
     return { before, after, sharing }
   }, [seenByBo, boAt])
