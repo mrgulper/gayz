@@ -206,7 +206,6 @@ export default {
   galleryTab_character: 'Character',
   galleryTab_weapon: 'Weapon',
   galleryTab_map: 'Map',
-  galleryWeaponSoon: 'Weapon designs are coming soon.',
   gallerySortNew: 'Newest',
   gallerySortLikes: 'Most Liked',
   galleryHowCharacter: 'Post your own skins from Design a Skin (Post to Gallery).',

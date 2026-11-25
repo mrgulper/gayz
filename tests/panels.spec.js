@@ -926,6 +926,53 @@ test('Shop: Walk Trails buy and use', async ({ page }) => {
   expect(r).toEqual({ cards: 3, coins: 100, trail: 'footprintTrail', kill: '', label: 'Using', rows: 3 })
 })
 
+// 2026-11-25: Shop > Gun Skins - same cards as Kill Effects (one skin
+// for every gun); Inventory > Cosmetics lists them, and the Gallery's
+// Weapon tab shows every one with its price or Using.
+test('Shop: Gun Skins buy and use, Gallery Weapon tab shows them', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    window.confirm = () => true
+    g.coins = 10500
+    g.shopCosmetics = {}
+    g.settings.gunSkin = ''
+    g.settings.killEffect = ''
+    g._openShopPanel()
+    await wait(300)
+    const cards = document.querySelectorAll('#shop-gunskins [data-shop-effect]').length
+    document.querySelector('[data-shop-effect="goldGun"]').click() // 50,000 - too few
+    await wait(100)
+    document.querySelector('[data-shop-effect="camoGun"]').click()
+    await wait(300)
+    const after = { coins: g.coins, owned: { ...g.shopCosmetics }, using: g.settings.gunSkin }
+    g._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-cosmetics').click()
+    await wait(200)
+    const rows = document.querySelectorAll('#cosmetics-gunskins [data-effect]').length
+    const goldLocked = document.querySelector('#cosmetics-gunskins [data-effect="goldGun"]').classList.contains('locked')
+    // The Gallery is online-only; its Weapon tab is drawn the same way.
+    g._closeAllMenuPanels()
+    g.galleryPanel.style.display = 'flex'
+    document.getElementById('gallery-tab-weapon').click()
+    await wait(300)
+    const page2 = document.getElementById('gallery-weapon-page')
+    const gallery = {
+      shown: !page2.hidden,
+      cards: page2.querySelectorAll('[data-gunskin]').length,
+      camo: page2.querySelector('[data-gunskin="camoGun"] .inv-skin-card-price')?.textContent,
+      soonTag: !!document.querySelector('#gallery-tab-weapon .gallery-soon-tag'),
+    }
+    return { cards, after, rows, goldLocked, gallery }
+  })
+  expect(r.cards).toBe(8)
+  expect(r.after).toEqual({ coins: 500, owned: { camoGun: 1 }, using: 'camoGun' })
+  expect(r.rows).toBe(8)
+  expect(r.goldLocked).toBe(true)
+  expect(r.gallery).toEqual({ shown: true, cards: 8, camo: 'Using', soonTag: false })
+})
+
 // 2026-10-24: right-column number badges, leaderboard rows that open a
 // player's profile, no account row on General, Terms/Privacy without the
 // disclaimer and with a build-dated "Last updated", the clan list preloaded.

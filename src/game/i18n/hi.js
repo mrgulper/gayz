@@ -259,7 +259,6 @@ export default {
   galleryTab_character: 'कैरेक्टर',
   galleryTab_weapon: 'हथियार',
   galleryTab_map: 'मैप',
-  galleryWeaponSoon: 'हथियार डिज़ाइन जल्द आ रहे हैं।',
   gallerySortNew: 'सबसे नए',
   gallerySortLikes: 'सबसे ज़्यादा पसंद',
   galleryHowCharacter: 'अपनी स्किन डिज़ाइन अ स्किन से पोस्ट करें (गैलरी में पोस्ट करें)।',

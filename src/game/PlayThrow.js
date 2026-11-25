@@ -5,6 +5,7 @@
 // the block it hits for a moment, and is back in your hand after
 // THROW_BACK_S - the hand is empty until then. Owned by BuildSurvival
 // (`s.throws`), stepped from its update().
+import { myGunSkin, paintGun } from './GunSkins.js'
 import * as THREE from 'three'
 import { cloneViewmodel } from './Viewmodels.js'
 
@@ -38,6 +39,7 @@ export class PlayThrow {
     if (source) {
       const model = cloneViewmodel(source)
       model.visible = true
+      paintGun(model, myGunSkin(bm.game))
       // Viewmodels are sized for the hand camera; a thrown one is about
       // as long as half a block.
       const box = new THREE.Box3().setFromObject(model)

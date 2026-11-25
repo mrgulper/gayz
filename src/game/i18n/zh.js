@@ -262,7 +262,6 @@ export default {
   galleryTab_character: '角色',
   galleryTab_weapon: '武器',
   galleryTab_map: '地图',
-  galleryWeaponSoon: '武器设计即将推出。',
   gallerySortNew: '最新',
   gallerySortLikes: '最多点赞',
   galleryHowCharacter: '在“设计皮肤”里点“发布到画廊”来发布你的皮肤。',

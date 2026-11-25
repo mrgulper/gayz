@@ -48,4 +48,17 @@ export default {
   trailFootprintTrail: "Footprints",
   trailSnowTrail: "Snow Puffs",
   trailBoughtToast: "{name} is yours - you leave it behind you when you walk now",
+  // Gun skins (GunSkins.js, ShopEffects.js, Gallery > Weapon, 2026-11-25).
+  gunSkinHeading: "Gun Skins",
+  gunSkinCamoGun: "Jungle Camo",
+  gunSkinArcticGun: "Arctic Camo",
+  gunSkinNeonGun: "Neon",
+  gunSkinGoldGun: "Gold",
+  gunSkinLavaGun: "Lava",
+  gunSkinGalaxyGun: "Galaxy",
+  gunSkinRainbowGun: "Rainbow",
+  gunSkinDiamondGun: "Diamond",
+  gunSkinBoughtToast: "{name} is yours - all your guns wear it now",
+  galleryGunSkinsHow: "Every gun skin in the game. One skin paints all your guns, and other players see it.",
+  galleryGunSkinsShop: "Open the Shop",
 }

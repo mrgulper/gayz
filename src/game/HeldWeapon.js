@@ -3,6 +3,7 @@
 // camera key). Split out of PlayNet.js on 2026-10-13 so both look the same.
 import * as THREE from 'three'
 import { cloneViewmodel } from './Viewmodels.js'
+import { gunSkinMaterial } from './GunSkins.js'
 
 // Held weapons: character units (the body is 32 tall) per viewmodel
 // length unit, so a rifle is a little under a block long in their hands.
@@ -24,6 +25,8 @@ function heldMaterial(m) {
       out.emissiveMap = m.emissiveMap || null
       out.emissiveIntensity = m.emissiveIntensity ?? 1
     }
+    // A gun skin's slide/pulse (GunSkins.js) runs on this copy too.
+    if (m.userData?.gunSkin) out.onBeforeRender = m.onBeforeRender
     HELD_MATERIALS.set(m, out)
   }
   return out
@@ -45,9 +48,10 @@ export function isMeleeWeapon(id) {
 }
 
 // Puts a copy of the game's own model of weaponId in the body's right hand
-// (replacing `old`, the group a previous call returned). Returns
-// { gun, melee }; gun is null when there's no such model.
-export function holdWeapon(game, body, weaponId, old = null) {
+// (replacing `old`, the group a previous call returned), painted with gun
+// skin `skin` (GunSkins.js, '' for none). Returns { gun, melee }; gun is
+// null when there's no such model.
+export function holdWeapon(game, body, weaponId, old = null, skin = '') {
   const armR = body?.limbPivots?.armR
   if (old) old.parent?.remove(old)
   const melee = isMeleeWeapon(weaponId)
@@ -57,7 +61,8 @@ export function holdWeapon(game, body, weaponId, old = null) {
   gun.visible = true
   gun.traverse((o) => {
     if (!o.isMesh) return
-    o.material = Array.isArray(o.material) ? o.material.map(heldMaterial) : heldMaterial(o.material)
+    const held = (m) => heldMaterial(gunSkinMaterial(m, skin))
+    o.material = Array.isArray(o.material) ? o.material.map(held) : held(o.material)
     o.castShadow = false
   })
   const held = new THREE.Group()

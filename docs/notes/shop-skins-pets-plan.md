@@ -61,7 +61,20 @@ Gaymi picked all 8 new sections, one batch per session, in this order:
    (`.shop-skin-set-chip`, All + 11 sets) above the grids. Names checked
    against Market: Knight/Shadow Ninja/Robo exist, so Jester/Oni Mask/
    Retro Bot instead. Test: panels "Shop: More Skins sells 44 skins".
-2. Gun skins (paint jobs for weapons; Gallery's Weapon tab is Coming Soon).
+2. **Gun skins** - SHIPPED 2026-11-25: `GunSkins.js`, 8 skins (Jungle Camo,
+   Arctic Camo 10k, Neon 25k, Gold 50k, Lava 50k, Galaxy 75k, Rainbow 100k,
+   Diamond 150k coins - prices a guess). ONE skin paints every gun
+   (`settings.gunSkin`, owned in `shopCosmetics`). Third kind in
+   ShopEffects `EFFECT_KINDS.gun` (`#shop-gunskins`, `#cosmetics-gunskins`).
+   `paintGun(root, id)` swaps materials (keeps the model's normal map; each
+   mesh remembers `userData.gunBaseMaterial`); `holdWeapon(..., skin)` for
+   bodies. Shown: hand gun (`BuildTryMode._showGun`, `_gunModel`), own body,
+   others online (PlayNet state `gskin`, server passes it), Inspect,
+   thrown gun. NOT on Couch Co-op P2 / party-mode bots. Rainbow slides,
+   Lava/Neon pulse via material.onBeforeRender. Gallery > Weapon is no
+   longer Coming Soon: the 8 skins as Shop-style cards (look only) + Open
+   the Shop button. Tests: panels "Shop: Gun Skins", play "Gun skins",
+   servers "hats with capitals", gallery.
 3. Back items (wings, backpacks) + 15+ buyable hats and capes.
 4. Daily Deals + Crate Spin (the two Coming Soon cards).
 5. Pet + ride looks (pet hats/colours, car/kart paint).

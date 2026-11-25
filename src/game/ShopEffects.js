@@ -1,5 +1,5 @@
-// Shop > Kill Effects and Shop > Walk Trails (2026-11-25, shop plan
-// batches 4-5; KillEffects.js, WalkTrails.js). One card each: click to buy
+// Shop > Kill Effects, Walk Trails and Gun Skins (2026-11-25, shop plan;
+// KillEffects.js, WalkTrails.js, GunSkins.js). One card each: click to buy
 // (coins; Settings > Confirm Purchases asks first on big buys) and it's
 // used right away. An owned one: click to use it, click again to stop.
 // Inventory > Hats & Capes has the same pickers (CosmeticsUI.js).
@@ -7,6 +7,7 @@ import { _escapeHtml, saveSettings } from './Game.js'
 import { ownsShopCosmetic } from './Cosmetics.js'
 import { KILL_EFFECTS, KILL_EFFECT_IDS, killEffectName, killEffectIcon } from './KillEffects.js'
 import { TRAILS, TRAIL_IDS, trailName, trailIcon } from './WalkTrails.js'
+import { GUN_SKINS, GUN_SKIN_IDS, gunSkinName, gunSkinIcon } from './GunSkins.js'
 import { needsBuyConfirm } from './GameplayAssist.js'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
@@ -21,6 +22,11 @@ export const EFFECT_KINDS = {
   trail: {
     items: TRAILS, ids: TRAIL_IDS, setting: 'walkTrail', name: trailName, icon: trailIcon,
     root: 'shop-trails', heading: 'shop-trails-heading', headingKey: 'trailHeading', toastKey: 'trailBoughtToast', color: '#5cc8ff',
+  },
+  // Gun skins (GunSkins.js): one paint job for every gun.
+  gun: {
+    items: GUN_SKINS, ids: GUN_SKIN_IDS, setting: 'gunSkin', name: gunSkinName, icon: gunSkinIcon,
+    root: 'shop-gunskins', heading: 'shop-gunskins-heading', headingKey: 'gunSkinHeading', toastKey: 'gunSkinBoughtToast', color: '#ffb347',
   },
 }
 export const kindOfEffect = (id) => Object.keys(EFFECT_KINDS).find((k) => EFFECT_KINDS[k].items[id]) || ''

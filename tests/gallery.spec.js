@@ -37,12 +37,13 @@ test('a skin posted from Design a Skin can be liked, commented on, worn and dele
     window.confirm = () => true
   })
 
-  // The Gallery link sits beside Design a Skin; Weapon is Coming Soon.
+  // The Gallery link sits beside Design a Skin; Weapon shows the gun skins.
   await page.click('#nav-gallery-link')
   await expect(page.locator('#gallery-panel')).toBeVisible()
   await expect(page.locator('#gallery-empty')).toBeVisible()
   await page.click('#gallery-tab-weapon')
   await expect(page.locator('#gallery-weapon-page')).toBeVisible()
+  await expect(page.locator('#gallery-gunskins [data-gunskin]')).toHaveCount(8)
   await page.click('#gallery-tab-character')
 
   // Post to Gallery inside Design a Skin opens the post form.
