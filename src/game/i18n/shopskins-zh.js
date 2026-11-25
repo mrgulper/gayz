@@ -23,4 +23,14 @@ export default {
   cosmeticSafetyCape: "反光条披风",
   cosmeticDragonHorns: "龙角",
   cosmeticDragonCape: "龙翼披风",
+  // Kill effects (KillEffects.js, ShopEffects.js, 2026-11-25).
+  killFxHeading: "击杀特效",
+  killFxConfettiKill: "彩纸爆炸",
+  killFxSnowKill: "雪花爆散",
+  killFxPixelKill: "像素碎裂",
+  killFxUsing: "使用中",
+  killFxUse: "点击使用",
+  killFxOwned: "已拥有 - 点击使用",
+  killFxBuyInShop: "未解锁:在商店购买",
+  killFxBoughtToast: "{name} 已归你 - 你击倒的僵尸会这样爆开",
 }

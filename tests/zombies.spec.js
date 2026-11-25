@@ -672,6 +672,45 @@ test('Blood Moon, zombie cosmetics, death replay and photo filters', async ({ pa
   expect(ids.filter((i) => zombieCape(i)).length).toBeGreaterThan(0)
 })
 
+// Kill effects (KillEffects.js, 2026-11-25): my hit tags the zombie with my
+// effect, it bursts when it dies, and the host's snapshot carries it so
+// other screens burst it too.
+test('Kill effects: a zombie I take down bursts, and the snapshot carries it', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'classic'
+    g.shopCosmetics = { pixelKill: 1 }
+    g.settings.killEffect = 'pixelKill'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    const p = s.bodyPos()
+    const z = s._makeZombie(9101, p.x + 4, p.y, p.z, 100, false)
+    s.damageZombie(z, 10)
+    const tagged = z.kfx
+    const snap = s.zombieSnapshot()[`z${z.id}`]?.fx
+    const green = () => s._fx._sprites.filter((sp) => sp.material.color.getHex() === 0x39ff88 && sp.userData.life > 0 && sp.userData.t < sp.userData.life).length
+    const before = green()
+    s.damageZombie(z, 1000)
+    const burst = green() - before
+    // Not owned: no effect, even if picked.
+    g.shopCosmetics = {}
+    const z2 = s._makeZombie(9102, p.x + 4, p.y, p.z + 2, 100, false)
+    s.damageZombie(z2, 10)
+    const unowned = z2.kfx
+    g._exitBuildMode()
+    return { tagged, snap, burst, unowned }
+  })
+  expect(r.tagged).toBe('pixelKill')
+  expect(r.snap).toBe('pixelKill')
+  expect(r.burst).toBeGreaterThan(5)
+  expect(r.unowned).toBe('')
+})
+
 // The Zombie Book (ZombieBook.js): a new kind pays coins once and shows up.
 test('Zombie Book: meeting a new kind of zombie pays once and fills its page', async ({ page }) => {
   await gotoAndWaitForGame(page)

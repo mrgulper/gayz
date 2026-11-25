@@ -848,6 +848,42 @@ test('Shop: Bundles sell a skin, hat and cape at 30% off', async ({ page }) => {
   expect(C.needText('dragonHorns')).toContain('bundle')
 })
 
+// 2026-11-25: Shop > Kill Effects - bought for coins and used right away;
+// Inventory > Hats & Capes lists them (locked until bought) to switch.
+test('Shop: Kill Effects buy, use and switch in Inventory', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    window.confirm = () => true
+    g.coins = 2000
+    g.shopCosmetics = {}
+    g.settings.killEffect = ''
+    g._openShopPanel()
+    await wait(300)
+    const cards = document.querySelectorAll('#shop-effects [data-kill-effect]').length
+    document.querySelector('[data-kill-effect="pixelKill"]').click() // 2,500 - too few
+    await wait(100)
+    document.querySelector('[data-kill-effect="snowKill"]').click()
+    await wait(300)
+    const after = { coins: g.coins, owned: { ...g.shopCosmetics }, using: g.settings.killEffect }
+    g._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-cosmetics').click()
+    await wait(200)
+    const locked = document.querySelector('[data-kill-fx="confettiKill"]').classList.contains('locked')
+    document.querySelector('[data-kill-fx="confettiKill"]').click() // not owned: nothing
+    const stillSnow = g.settings.killEffect
+    document.querySelector('[data-kill-fx="snowKill"]').click() // owned + used: stop
+    return { cards, after, locked, stillSnow, off: g.settings.killEffect, saved: JSON.parse(localStorage.getItem('gayz-settings')).killEffect }
+  })
+  expect(r.cards).toBe(3)
+  expect(r.after).toEqual({ coins: 500, owned: { snowKill: 1 }, using: 'snowKill' })
+  expect(r.locked).toBe(true)
+  expect(r.stillSnow).toBe('snowKill')
+  expect(r.off).toBe('')
+  expect(r.saved).toBe('')
+})
+
 // 2026-10-24: right-column number badges, leaderboard rows that open a
 // player's profile, no account row on General, Terms/Privacy without the
 // disclaimer and with a build-dated "Last updated", the clan list preloaded.

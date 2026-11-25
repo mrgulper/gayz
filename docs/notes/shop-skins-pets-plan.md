@@ -29,4 +29,11 @@ Cosmetics.js have `need: { shop: bundleId }`; owned ones are
 Hat/cape worth (`PART_VALUES`) is a guess. Test: panels.spec "Shop: Bundles".
 Batches 4-5 answers: kill effects + walk trails are BOUGHT in the Shop
 (coins), picked in Inventory, and everyone online sees them.
-Next: batch 4 (Kill effects).
+Batch 4 shipped 2026-11-25 (Kill effects): `KillEffects.js` (data, burst,
+icon), `ShopEffects.js` fills `#shop-effects`; Inventory > Hats & Capes
+has a Kill Effects row (`#cosmetics-kills`). Owned in `shopCosmetics`, used
+= `settings.killEffect`. Online: PlayNet state `kfx`; host sets `z.kfx` to
+the last hitter's effect and sends `fx` in the zombie snapshot; clients
+burst it when the zombie leaves the snapshot. Prices (1,500/1,500/2,500
+coins) are a guess. Tests: panels "Shop: Kill Effects", zombies "Kill effects".
+Next: batch 5 (Walk trails) - same pattern (settings.walkTrail, state field).

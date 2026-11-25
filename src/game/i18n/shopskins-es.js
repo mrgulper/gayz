@@ -23,4 +23,14 @@ export default {
   cosmeticSafetyCape: "Capa reflectante",
   cosmeticDragonHorns: "Cuernos de dragón",
   cosmeticDragonCape: "Capa de alas de dragón",
+  // Kill effects (KillEffects.js, ShopEffects.js, 2026-11-25).
+  killFxHeading: "Efectos al matar",
+  killFxConfettiKill: "Estallido de confeti",
+  killFxSnowKill: "Explosión de copos",
+  killFxPixelKill: "Lluvia de píxeles",
+  killFxUsing: "En uso",
+  killFxUse: "Haz clic para usarlo",
+  killFxOwned: "Tuyo - haz clic para usarlo",
+  killFxBuyInShop: "Bloqueado: cómpralo en la tienda",
+  killFxBoughtToast: "{name} es tuyo - los zombis que derribes estallarán así",
 }

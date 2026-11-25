@@ -35,6 +35,7 @@
 // a normal server game (_promote), the same as Invite Friends.
 import * as THREE from 'three'
 import { wearCosmetics, cleanWorn, myWorn } from './Cosmetics.js'
+import { myKillEffect, cleanKillEffect } from './KillEffects.js'
 import { poseEmote, poseSit, sitDrop, walkLegs, EMOTES, emoteSound } from './Emotes.js'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import { nameTag } from './BuildCamp.js'
@@ -220,6 +221,11 @@ export class PlayNet {
   // tier: the zombie's rarity (its coins); assist: they helped, someone
   // else finished it (BuildSurvival._creditAssists).
   // at: where it went down, for their ring-item drop (RingLoot.js).
+  // Another player's kill effect (KillEffects.js), from their last state.
+  killEffectOf(pid) {
+    return this.players.get(pid)?.kfx || ''
+  }
+
   queueCredit(to, boss, skeleton = null, tier = 'common', assist = false, shine = null, at = null, hp = null) {
     this._credits.push({ to, boss: !!boss, skeleton, tier, ...(assist ? { assist: true } : {}), ...(shine ? { shine } : {}), ...(at ? { at: at.map((n) => Math.round(n * 10) / 10) } : {}), ...(Number.isFinite(hp) ? { hp: Math.round(hp) } : {}) })
   }
@@ -279,7 +285,7 @@ export class PlayNet {
     const holding = s.holding
     const body = {
       ...this.auth,
-      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding || s.ring ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, kills: s.kills || 0, lane: s.escape?.lane || 0, esc: s.escape?.race && s.escape.done ? 1 : 0, gh: s.ghosts?.snapshot() || null, fog: bm.world?.active && isEarthWorld() ? explored.shareState() : null, ring: s.ring?.netState() || null },
+      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding || s.ring ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), kfx: myKillEffect(this.game), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, kills: s.kills || 0, lane: s.escape?.lane || 0, esc: s.escape?.race && s.escape.done ? 1 : 0, gh: s.ghosts?.snapshot() || null, fog: bm.world?.active && isEarthWorld() ? explored.shareState() : null, ring: s.ring?.netState() || null },
       editsAfter: this._editSeq,
     }
     // Who Can Join My Server (Settings > Social): the host's choice.
@@ -398,7 +404,7 @@ export class PlayNet {
         const me = s.bodyPos?.()
         emoteSound(emote, s._panTo?.(p.x, p.z) || 0, me ? Math.hypot(p.x - me.x, p.y - me.y, p.z - me.z) : 0)
       }
-      Object.assign(mine, { tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), esc: !!p.esc, gh: cleanGhost(p.gh), kills: Number.isFinite(Number(p.kills)) ? Math.max(0, Math.floor(Number(p.kills))) : undefined, ring: cleanRemoteRing(p.ring) })
+      Object.assign(mine, { tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), kfx: cleanKillEffect(p.kfx), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), esc: !!p.esc, gh: cleanGhost(p.gh), kills: Number.isFinite(Number(p.kills)) ? Math.max(0, Math.floor(Number(p.kills))) : undefined, ring: cleanRemoteRing(p.ring) })
       if (sharedFog) {
         if (p.fog && typeof p.fog.c === 'string' && p.fog.n !== mine.fogN) {
           mine.fogN = p.fog.n

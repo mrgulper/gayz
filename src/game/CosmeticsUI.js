@@ -4,6 +4,9 @@
 import { COSMETIC_IDS, COSMETICS, isUnlocked, needText, cosmeticName, cosmeticIcon } from './Cosmetics.js'
 import { saveSettings } from './Game.js'
 import { t } from './i18n.js'
+import { KILL_EFFECT_IDS, killEffectName, killEffectIcon } from './KillEffects.js'
+import { ownsShopCosmetic } from './Cosmetics.js'
+import { toggleKillEffect } from './ShopEffects.js'
 
 const byId = (id) => document.getElementById(id)
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
@@ -21,6 +24,18 @@ function card(game, id) {
   </button>`
 }
 
+// Kill effects (KillEffects.js): bought in the Shop, used from here too.
+function killCard(game, id) {
+  const open = ownsShopCosmetic(id)
+  const used = game.settings.killEffect === id
+  const line = !open ? t('killFxBuyInShop') : used ? t('killFxUsing') : t('killFxUse')
+  return `<button type="button" class="perk-option team-card${used ? ' picked' : ''}${open ? '' : ' locked'}" data-kill-fx="${id}"${open ? '' : ' aria-disabled="true"'}>
+    <img src="${killEffectIcon(id)}" alt="" draggable="false" />
+    <span class="team-card-name">${esc(killEffectName(id))}</span>
+    <span class="team-card-type">${esc(line)}</span>
+  </button>`
+}
+
 export function renderCosmetics(game) {
   const page = byId('cosmetics-page')
   if (!page) return
@@ -30,9 +45,12 @@ export function renderCosmetics(game) {
   }
   set('cosmetics-hats-title', t('cosmeticHatsTitle'))
   set('cosmetics-capes-title', t('cosmeticCapesTitle'))
+  set('cosmetics-kills-title', t('killFxHeading'))
   set('cosmetics-how', t('cosmeticHow'))
   byId('cosmetics-hats').innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'hat').map((id) => card(game, id)).join('')
   byId('cosmetics-capes').innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'cape').map((id) => card(game, id)).join('')
+  const kills = byId('cosmetics-kills')
+  if (kills) kills.innerHTML = KILL_EFFECT_IDS.map((id) => killCard(game, id)).join('')
 }
 
 export function bindCosmeticsUI(game) {
@@ -40,6 +58,12 @@ export function bindCosmeticsUI(game) {
   if (!page) return
   byId('inventory-tab-cosmetics')?.addEventListener('click', () => renderCosmetics(game))
   page.addEventListener('click', (e) => {
+    const k = e.target.closest('[data-kill-fx]')
+    if (k) {
+      if (ownsShopCosmetic(k.dataset.killFx)) toggleKillEffect(game, k.dataset.killFx)
+      renderCosmetics(game)
+      return
+    }
     const c = e.target.closest('[data-cosmetic]')
     if (!c) return
     const id = c.dataset.cosmetic
