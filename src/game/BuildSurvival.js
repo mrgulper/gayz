@@ -2011,7 +2011,7 @@ export class BuildSurvival {
       hurtBy.set(by || '', (hurtBy.get(by || '') || 0) + Math.min(amount, z.health))
     }
     // Whose kill effect it bursts with (KillEffects.js): its last hitter's.
-    if (amount > 0 && z.health > 0) z.kfx = by ? this.net?.killEffectOf(by) || '' : myKillEffect(this.bm.game)
+    if (amount > 0 && z.health > 0) z.kfx = by ? this.net?.killEffectOf?.(by) || '' : myKillEffect(this.bm.game)
     // Lit by a Searchlight: hit harder (BuildSpecials.js).
     if (amount > 0) amount *= this.bm.specials.zombieHurtMult(z)
     // My hits on a zombie geared against my weapon (ZombieLearning.js).
