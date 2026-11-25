@@ -22,4 +22,11 @@ Status: batch 1 shipped 2026-11-25 (More Skins). Batch 2 shipped 2026-11-25:
 `#team-page`, route `/pets`, TeamUI.openTeamPanel); Shop > Pets is `#shop-pets`
 (`#pet-shop` + `#team-eggs`, drawn by renderTeamPanel from `_openShopPanel`,
 same click handler; team CSS uses `:is(#team-page, #shop-pets)`).
-Next: batch 3 (Bundles).
+Batch 3 shipped 2026-11-25 (Bundles, 3 of them, 30% off): `ShopBundles.js`
+fills `#shop-bundles` (after More Skins). Bundle-only hats/capes in
+Cosmetics.js have `need: { shop: bundleId }`; owned ones are
+`game.shopCosmetics` in the shop save (additive Cloud Save, like charSkins).
+Hat/cape worth (`PART_VALUES`) is a guess. Test: panels.spec "Shop: Bundles".
+Batches 4-5 answers: kill effects + walk trails are BOUGHT in the Shop
+(coins), picked in Inventory, and everyone online sees them.
+Next: batch 4 (Kill effects).

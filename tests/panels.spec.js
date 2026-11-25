@@ -796,6 +796,58 @@ test('Shop: More Skins sells 12 skins for coins or gems', async ({ page }) => {
   expect(INVENTORY_SKINS.find((s) => s.id === 'snowman').sell).toEqual({ currency: 'coins', amount: 250 })
 })
 
+// 2026-11-25: Shop > Bundles - skin + hat + cape, 30% off what you don't
+// own yet; buying unlocks the hat and cape and wears all three.
+test('Shop: Bundles sell a skin, hat and cape at 30% off', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    window.confirm = () => true
+    g.coins = 3000
+    g.gems = 0
+    g.charSkins = { firefighter: 1 }
+    g.shopCosmetics = {}
+    g._openShopPanel()
+    await wait(300)
+    const box = () => JSON.stringify(document.querySelector('#shop-panel .panel-box').getBoundingClientRect())
+    const before = box()
+    const price = (id) => document.querySelector(`[data-bundle="${id}"] .inv-skin-card-price`).textContent
+    const prices = { winter: price('winter'), survivor: price('survivor'), creatures: price('creatures') }
+    document.getElementById('inventory-tab-cosmetics')?.click()
+    const lockedBefore = document.querySelector('[data-cosmetic="santaHat"]')?.classList.contains('locked')
+    document.querySelector('[data-bundle="creatures"]').click() // gems - too few
+    await wait(200)
+    document.querySelector('[data-bundle="winter"]').click()
+    await wait(500)
+    g._renderShopSkinState()
+    return {
+      cards: document.querySelectorAll('#shop-bundles [data-bundle]').length, prices, lockedBefore,
+      coins: g.coins, skins: { ...g.charSkins }, owned: { ...g.shopCosmetics },
+      hat: g.settings.cosmeticHat, cape: g.settings.cosmeticCape, wearing: g._equippedInventorySkinId(),
+      winterNow: price('winter'), sameSize: before === box(),
+      saved: JSON.parse(localStorage.getItem('gayz-shop-progress')).shopCosmetics,
+    }
+  })
+  expect(r.cards).toBe(3)
+  // Winter: 500 + 1000 + 1500 -> 2,100. Survivor: skin owned, 2,500 -> 1,750.
+  expect(r.prices.winter).toContain('2,100')
+  expect(r.prices.survivor).toContain('1,750')
+  expect(r.prices.creatures).toContain('525')
+  expect(r.lockedBefore).toBe(true)
+  expect(r.coins).toBe(900)
+  expect(r.skins).toEqual({ firefighter: 1, snowman: 1 })
+  expect(r.owned).toEqual({ santaHat: 1, snowCape: 1 })
+  expect(r.saved).toEqual({ santaHat: 1, snowCape: 1 })
+  expect(r.hat).toBe('santaHat')
+  expect(r.cape).toBe('snowCape')
+  expect(r.wearing).toBe('snowman')
+  expect(r.winterNow).not.toContain('coins')
+  expect(r.sameSize).toBe(true)
+  const C = await import('../src/game/Cosmetics.js')
+  expect(C.needText('dragonHorns')).toContain('bundle')
+})
+
 // 2026-10-24: right-column number badges, leaderboard rows that open a
 // player's profile, no account row on General, Terms/Privacy without the
 // disclaimer and with a build-dated "Last updated", the clan list preloaded.

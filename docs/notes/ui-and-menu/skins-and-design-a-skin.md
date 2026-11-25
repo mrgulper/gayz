@@ -31,3 +31,8 @@ Gaymi: "make the edit and generating a skin smarter" - chose to stay offline (no
 - `SHOP_SKINS` are spread into `MARKET_SKINS`, so Inventory, Market, trades, owner gifts and play stats know them with no extra code. Each has `set` (winter / survivor / creatures).
 - Price: `ShopSkinPrices.js` `shopSkinCost(skin)` - coins (MARKET_PRICES) for Common-Rare, gems (`SHOP_SKIN_GEM_PRICES`, a guess: Epic 250, Legendary 500) for Epic+. Kept out of ShopMoreSkins.js on purpose: InventorySkins calls it while modules load, and ShopMoreSkins imports Game.js (would be a circular-import crash).
 - UI: `ShopMoreSkins.js` fills `#shop-more-skins` from `_renderShopSkinState`. Click = buy (gems always confirm; coins follow Confirm Purchases) then wear; owned = wear. Replaced the More Skins Coming Soon card. Test: panels.spec "Shop: More Skins".
+
+## Shop > Bundles (2026-11-25)
+- `ShopBundles.js` `BUNDLES`: winter (snowman + santaHat + snowCape), survivor (firefighter + fireHelmet + safetyCape), creatures (dragon + dragonHorns + dragonCape). Hat boxes in FunnyZombies `HAT_BOXES` (players only, not in HAT_KINDS).
+- Price `bundleCost`: 30% off the parts you don't own yet, in the skin's currency; hat/cape worth `PART_VALUES` (coins 1000/1500, gems 100/150 - a guess). Crossed-out price = those parts at full price.
+- Owned bundle hats/capes: `game.shopCosmetics` {id: count} in `gayz-shop-progress`; `Cosmetics.setShopCosmetics(game)` reads it live for `isUnlocked`. Cards reuse `.inv-skin-card` so the themes colour them.

@@ -144,6 +144,7 @@ import * as ZombieBook from './ZombieBook.js'
 import * as InventoryUI from './InventoryUI.js'
 import * as ClanUI from './ClanUI.js'
 import { levelFromXp, starterXp } from './Xp.js'
+import { setShopCosmetics } from './Cosmetics.js'
 import * as OnlineUI from './OnlineUI.js'
 import * as FriendsUI from './FriendsUI.js'
 import { loadFriendMail } from './FriendMail.js'
@@ -1119,9 +1120,12 @@ function loadShopProgress() {
       // (2026-10-01). Numbers, so Cloud Save adds up buys/sells made on
       // two devices instead of one overwriting the other.
       charSkins: (parsed.charSkins && typeof parsed.charSkins === 'object') ? parsed.charSkins : {},
+      // Hats and capes bought in Shop > Bundles, { id: count } (2026-11-25,
+      // Cosmetics.js need.shop). Counts for the same Cloud Save reason.
+      shopCosmetics: (parsed.shopCosmetics && typeof parsed.shopCosmetics === 'object') ? parsed.shopCosmetics : {},
     }
   } catch {
-    return { points: 0, coins: 0, cash: 0, gems: 0, ownsShopSkin: false, crateStock: {}, charSkins: {} }
+    return { points: 0, coins: 0, cash: 0, gems: 0, ownsShopSkin: false, crateStock: {}, charSkins: {}, shopCosmetics: {} }
   }
 }
 
@@ -1135,6 +1139,7 @@ export function saveShopProgress(game) {
       ownsShopSkin: game.ownsShopSkin,
       crateStock: game.crateStock,
       charSkins: game.charSkins,
+      shopCosmetics: game.shopCosmetics,
     })
     // Skip identical writes - this runs after nearly every points/coins
     // change, and a localStorage write is synchronous on
@@ -2445,6 +2450,8 @@ export class Game {
     this.gems = this.shopProgress.gems
     this.ownsShopSkin = this.shopProgress.ownsShopSkin
     this.charSkins = this.shopProgress.charSkins
+    this.shopCosmetics = this.shopProgress.shopCosmetics
+    setShopCosmetics(this)
     this.runStartedAt = performance.now()
     // Long-Term Goals batch (see _recordRunEnd) - per-run baselines used to
     // derive this run's contribution to the lifetime totals in careerStats.

@@ -19,6 +19,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { audioEngine } from './Audio.js'
 import { renderShopIdentity } from './ShopIdentity.js'
 import { renderMoreSkins } from './ShopMoreSkins.js'
+import { renderBundles } from './ShopBundles.js'
 
 // Inventory - homepage placeholder only for now, no functionality yet
 // (distinct from the in-game Tab inventory - #inventory-panel - which
@@ -1157,6 +1158,7 @@ function _shopConfetti() {
 export function _renderShopSkinState(game) {
   renderShopIdentity(game)
   renderMoreSkins(game)
+  renderBundles(game)
   if (game.shopSkinBadge) game.shopSkinBadge.style.display = game.ownsShopSkin ? '' : 'none'
   const priceAmount = document.getElementById('shop-skin-price-amount')
   if (priceAmount) priceAmount.textContent = shopSkinPrice(Game.SHOP_SKIN_PRICE).toLocaleString()

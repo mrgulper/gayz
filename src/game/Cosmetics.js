@@ -34,8 +34,23 @@ export const COSMETICS = {
   bossCape: { slot: 'cape', need: { worldGoal: 'bosses' }, colors: [0x2a0f3a, 0x6a1f8a, 0xb43cff] },
   coinHat: { slot: 'hat', need: { worldGoal: 'coins' } },
   bladeCape: { slot: 'cape', need: { worldGoal: 'knifeKills' }, colors: [0x8a929c, 0xc8d0d8, 0x5a626c] },
+  // need: { shop: bundleId } - only from a Shop bundle (ShopBundles.js,
+  // 2026-11-25). Owned ones live in the save's shopCosmetics.
+  santaHat: { slot: 'hat', need: { shop: 'winter' } },
+  snowCape: { slot: 'cape', need: { shop: 'winter' }, colors: [0xffffff, 0xcfe8ff, 0xffffff, 0x9fd0ff, 0xffffff] },
+  fireHelmet: { slot: 'hat', need: { shop: 'survivor' } },
+  safetyCape: { slot: 'cape', need: { shop: 'survivor' }, colors: [0xff7a1a, 0xffe14d, 0xff7a1a, 0xffe14d, 0xff7a1a] },
+  dragonHorns: { slot: 'hat', need: { shop: 'creatures' } },
+  dragonCape: { slot: 'cape', need: { shop: 'creatures' }, colors: [0x1f6a2a, 0x2e8a3a, 0x7a1a1a, 0xb82a1a] },
 }
 export const COSMETIC_IDS = Object.keys(COSMETICS)
+
+// Hats and capes bought in Shop > Bundles: game.shopCosmetics, { id: count },
+// kept in the shop save next to charSkins. Game hands itself over at start;
+// read live, so a replaced object (Cloud Save restore, tests) still counts.
+let shopGame = null
+export function setShopCosmetics(game) { shopGame = game }
+export const ownsShopCosmetic = (id) => (Number(shopGame?.shopCosmetics?.[id]) || 0) > 0
 
 // How far along `career` (Game.careerStats) is toward each need.
 function progress(career = {}) {
@@ -51,6 +66,7 @@ export function isUnlocked(id, career) {
   const c = COSMETICS[id]
   if (!c) return false
   if (c.need.worldGoal) return ownedWorldGoalRewards(career).has(id)
+  if (c.need.shop) return ownsShopCosmetic(id)
   const have = progress(career)
   return Object.entries(c.need).every(([k, n]) => have[k] >= n)
 }
@@ -59,6 +75,7 @@ export function isUnlocked(id, career) {
 export function needText(id) {
   const [k, n] = Object.entries(COSMETICS[id].need)[0]
   if (k === 'worldGoal') return t('cosmeticNeedWorldGoal')
+  if (k === 'shop') return t('cosmeticNeedBundle')
   return t(`cosmeticNeed${k.charAt(0).toUpperCase()}${k.slice(1)}`, { n })
 }
 
@@ -71,7 +88,7 @@ export function nextUnlock(career) {
   for (const id of COSMETIC_IDS) {
     if (isUnlocked(id, career)) continue
     const [kind, need] = Object.entries(COSMETICS[id].need)[0]
-    if (kind === 'worldGoal') continue // not earned by playing more
+    if (kind === 'worldGoal' || kind === 'shop') continue // not earned by playing more
     const frac = have[kind] / need
     if (!best || frac > best.frac) best = { id, kind, need, left: need - have[kind], frac }
   }
