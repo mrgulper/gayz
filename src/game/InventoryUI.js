@@ -22,6 +22,8 @@ import { renderMoreSkins } from './ShopMoreSkins.js'
 import { renderBundles } from './ShopBundles.js'
 import { renderShopEffects } from './ShopEffects.js'
 import { renderShopCosmetics } from './ShopCosmetics.js'
+import { renderDailyDeals } from './ShopDeals.js'
+import { buyAndSpin } from './CrateSpin.js'
 import { myGunSkin, paintGun } from './GunSkins.js'
 
 // Inventory - homepage placeholder only for now, no functionality yet
@@ -749,26 +751,12 @@ export function _renderCrateTiers(game) {
   }
 }
 
-// Buys 1 crate - adds it to crateStock, unopened, rather than instantly
-// rolling a reward (2026-09-21, per explicit request to separate buying
-// from opening so Inventory can show a real "how many do I have" count). Mirrors
-// _buyShopSkin's own afford-check/deduct/persist/toast shape.
+// The Shop crate card's price button.
 export function _openCrate(game, tier) {
   if (CRATES_COMING_SOON) return
-  const tierConfig = CRATE_TIERS[tier]
-  if (!tierConfig) return
-  if (game.coins < tierConfig.cost) {
-    try { audioEngine.playUi?.('error') } catch { /* no audio */ }
-    game._showHomepageToast(t('crateNotEnoughCoins'))
-    return
-  }
-  game.coins -= tierConfig.cost
-  try { audioEngine.playUi?.('unbox') } catch { /* no audio */ }
-  game.crateStock[tier] = (game.crateStock[tier] || 0) + 1
-  game._showHomepageToast(t('crateBought', { n: 1, name: t(`crateTier${tier.charAt(0).toUpperCase()}${tier.slice(1)}`) }))
-  saveShopProgress(game)
-  game._renderCurrencyBar()
-  game._renderCrateTiers()
+  // Crate Spin (2026-11-25): the Shop's price button buys one and opens
+  // it on the spinning reel (CrateSpin.js).
+  buyAndSpin(game, tier)
 }
 
 // Bulk-purchase modal (2026-09-21) - opened by clicking a crate card
@@ -1167,6 +1155,7 @@ function _shopConfetti() {
 
 export function _renderShopSkinState(game) {
   renderShopIdentity(game)
+  renderDailyDeals(game)
   renderMoreSkins(game)
   renderBundles(game)
   renderShopEffects(game)

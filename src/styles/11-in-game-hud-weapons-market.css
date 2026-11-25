@@ -2367,3 +2367,143 @@ html.ui-theme-clean .inv-skin-card .shop-bundle-off { background: #e0284f; color
 @media (max-width: 700px) {
   #shop-effects, #shop-trails, #shop-gunskins, #shop-hats, #shop-capes, #shop-backs, #gallery-gunskins { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Shop > Daily Deals (2026-11-25, ShopDeals.js): 3 cards like the other
+   Shop cards, with the Bundles' "% off" tag; the countdown sits beside
+   the heading. */
+.shop-deals-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+#shop-deals-timer {
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+#shop-deals {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: 150px;
+  gap: 8px;
+}
+.inv-skin-card.shop-deal-card { cursor: pointer; }
+.shop-deal-card .shop-bundle-off { z-index: 1; }
+@media (max-width: 700px) {
+  #shop-deals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Crate Spin (2026-11-25, CrateSpin.js): a reel of prize tiles slides
+   left and stops with the prize under the marker. Same box as the crate
+   purchase popup (panel-box, tinted by --crate-tier-color). */
+#crate-spin-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 18;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 8, 6, 0.75);
+}
+#crate-spin-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: min(620px, 92vw);
+  min-height: 0;
+  padding: 22px 18px 20px;
+  border: 2px solid var(--crate-tier-color, #e3c23c);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--crate-tier-color, #e3c23c) 45%, transparent), 0 6px 16px rgba(0, 0, 0, 0.6);
+}
+#crate-spin-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+#crate-spin-title svg { width: 40px; height: 40px; }
+#crate-spin-window {
+  position: relative;
+  width: 100%;
+  height: 132px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+#crate-spin-strip {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  display: flex;
+  gap: 6px;
+  padding: 0 6px;
+  will-change: transform;
+}
+.inv-skin-card.crate-spin-tile {
+  flex: 0 0 100px;
+  height: 120px;
+  cursor: inherit;
+}
+.inv-skin-card.crate-spin-tile:hover { transform: none; }
+.inv-skin-card.crate-spin-tile .inv-skin-card-name { font-size: 12px; right: 6px; }
+.crate-spin-tile .crate-spin-img.inv-skin-card-img { top: 26px; height: 86px; width: 43px; }
+.crate-spin-tile .crate-spin-img.shop-effect-img { top: 30px; width: 72px; height: 72px; }
+.crate-spin-tile.crate-spin-coins .currency-icon {
+  position: absolute;
+  left: 50%;
+  top: 34px;
+  width: 64px;
+  height: 64px;
+  transform: translateX(-50%);
+}
+.inv-skin-card.crate-spin-tile.won {
+  box-shadow: 0 0 0 3px var(--crate-tier-color, #e3c23c), 0 0 18px var(--crate-tier-color, #e3c23c);
+}
+#crate-spin-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  margin-left: -1.5px;
+  background: var(--crate-tier-color, #e3c23c);
+  box-shadow: 0 0 8px var(--crate-tier-color, #e3c23c);
+  pointer-events: none;
+}
+#crate-spin-result {
+  min-height: 1.4em;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+#crate-spin-result.show { opacity: 1; }
+#crate-spin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  min-height: 34px;
+}
+#crate-spin-actions .crate-open-btn { padding: 6px 16px; }
+#crate-spin-actions .crate-open-btn[hidden] { display: none; }
+/* Old and Simple themes: the popup buttons match the crate cards' dark
+   buttons (the panel's ink text colour made them unreadable). */
+html:is(.ui-theme-old, .ui-theme-clean) #crate-spin-box #crate-spin-actions .crate-open-btn,
+html:is(.ui-theme-old, .ui-theme-clean) #crate-purchase-box #crate-purchase-confirm-btn {
+  background: rgba(43, 26, 12, 0.82) !important;
+  border-color: rgba(43, 26, 12, 0.9) !important;
+  color: #f3e3c0 !important;
+}
+html:is(.ui-theme-old, .ui-theme-clean) #crate-purchase-box #crate-purchase-confirm-btn * { color: #f3e3c0 !important; }

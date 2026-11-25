@@ -92,4 +92,16 @@ export default {
   cosmeticBatWings: "Bat Wings",
   cosmeticAngelWings: "Angel Wings",
   cosmeticDragonWings: "Dragon Wings",
+  // Daily Deals + Crate Spin (ShopDeals.js, CrateSpin.js), 2026-11-25.
+  dealsHeading: "Daily Deals",
+  dealsNewIn: "New deals in {h}h {m}m",
+  dealBought: "Bought - click to use",
+  dealBoughtToast: "Got {name} on sale!",
+  crateSpinTitle: "{name} Crate",
+  crateSpinWonCoins: "You won {n} coins!",
+  crateSpinWonItem: "You won {name}!",
+  crateSpinWonDup: "{name} - you already have it, so you get {n} coins.",
+  crateSpinAgainOwned: "Open Another ({n} left)",
+  crateSpinAgainBuy: "Open Another ({price})",
+  crateSpinClose: "Close",
 }

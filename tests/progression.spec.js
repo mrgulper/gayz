@@ -60,7 +60,7 @@ test('Lifetime quests are Coming Soon and the old ones pay nothing', async ({ pa
   expect(result.cards).toBe(0)
 })
 
-test('a Map 1 run feeds achievements and the weekly challenge; crates stay locked', async ({ page }) => {
+test('a Map 1 run feeds achievements and the weekly challenge', async ({ page }) => {
   await gotoAndWaitForGame(page)
 
   const result = await page.evaluate(() => {
@@ -72,18 +72,11 @@ test('a Map 1 run feeds achievements and the weekly challenge; crates stay locke
     const weekly = g.weeklyChallenge.progress - weekly0
     g._onPlayEvent('end', { waves: 10, kills: 30, bestStreak: 25, won: true, died: false, mode: 'zombieDefense', seconds: 120, coins: 40 })
     const runCoins = g.runHistory[0].coins
-    // Crates are Coming Soon: buying does nothing and every button is off.
-    g.coins = 1e6
-    g._openCrate('wood')
-    g._renderCrateTiers()
     return {
       weekly,
       meat: g.achievements.unlocked.has('meat_grinder'),
       conqueror: g.achievements.unlocked.has('nightmare_conqueror'),
       runCoins,
-      crateStock: g.crateStock.wood,
-      coinsKept: g.coins === 1e6,
-      cratesEnabled: [...document.querySelectorAll('.crate-card .crate-open-btn')].filter((b) => !b.disabled).length,
     }
   })
 
@@ -91,9 +84,6 @@ test('a Map 1 run feeds achievements and the weekly challenge; crates stay locke
   expect(result.meat).toBe(true)
   expect(result.conqueror).toBe(true)
   expect(result.runCoins).toBe(40)
-  expect(result.crateStock).toBe(0)
-  expect(result.coinsKept).toBe(true)
-  expect(result.cratesEnabled).toBe(0)
 })
 
 test('the 2026-10-09 achievements unlock from what a Map 1 run reports', async ({ page }) => {

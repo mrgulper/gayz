@@ -28,6 +28,7 @@ import { moreKeysForPage } from './MoreSettingsList.js'
 import { GRAPHICS_LEVELS, LEVEL_LOOK } from './GraphicsLevels.js'
 import { needsBuyConfirm } from './GameplayAssist.js'
 import { MONTH_THEMES, monthIndex } from './MonthThemes.js'
+import { bindInventoryCrates } from './CrateSpin.js'
 import { applyUiTheme, cleanVars, normalizeHex, BRAND_PINK, rememberCleanVars, getCleanBgImage, applyCleanBgImage, cropToScreen, CLEAN_BG_IMAGE_KEY, uiThemeOf, skinDesignerTheme } from './CleanTheme.js'
 
 // Swaps a slider's value label for a temporary <input type="number"> on
@@ -312,6 +313,8 @@ export function _bindSettings(game) {
       }
     })
   }
+  // Inventory > Crates' Open buttons spin one you own (CrateSpin.js).
+  bindInventoryCrates(game)
 
 
   if (game.cratePurchaseQtyMinus) {
